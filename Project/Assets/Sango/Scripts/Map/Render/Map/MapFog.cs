@@ -1,6 +1,5 @@
 ﻿using System.IO;
 using UnityEngine;
-using static UnityEngine.Rendering.DebugUI;
 
 namespace Sango.Render
 {

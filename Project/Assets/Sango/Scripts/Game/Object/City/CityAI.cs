@@ -1,6 +1,5 @@
 ﻿using Sango.Tools;
 using System.Collections.Generic;
-using Unity.Mathematics;
 
 namespace Sango.Game
 {
@@ -52,7 +51,7 @@ namespace Sango.Game
 
                 if (lastTargetCity != null)
                 {
-                    if (city.troops < math.min(lastTargetCity.troops, lastTargetCity.allPersons.Count * 5000))
+                    if (city.troops < UnityEngine.Mathf.Min(lastTargetCity.troops, lastTargetCity.allPersons.Count * 5000))
                         return true;
 
                     List<Troop> troopList = new List<Troop>();
@@ -89,7 +88,7 @@ namespace Sango.Game
                     }
                 });
 
-                int count = GameRandom.Range(0, math.max(0, priorityQueue.Count) + 1);
+                int count = GameRandom.Range(0, UnityEngine.Mathf.Max(0, priorityQueue.Count) + 1);
                 for (int i = 0; i < count; i++)
                 {
                     int priority = 0;
@@ -98,7 +97,7 @@ namespace Sango.Game
                     {
                         if (GameRandom.Changce(priority, 10000))
                         {
-                            if (city.troops < math.min(targetCity.troops, targetCity.allPersons.Count * 5000))
+                            if (city.troops < UnityEngine.Mathf.Min(targetCity.troops, targetCity.allPersons.Count * 5000))
                                 continue;
 
                             List<Troop> troopList = new List<Troop>();

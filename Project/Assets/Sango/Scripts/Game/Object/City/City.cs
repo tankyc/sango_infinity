@@ -1,11 +1,8 @@
 ﻿using Newtonsoft.Json;
 using Sango.Game.Render;
-using Sango.Tools;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Unity.Mathematics;
-using Unity.VisualScripting;
 using UnityEngine;
 
 namespace Sango.Game
@@ -333,7 +330,7 @@ namespace Sango.Game
         public void UpdateFightPower()
         {
             fightPower = 1000;
-            fightPower += math.min(troops, allPersons.Count * 5000);
+            fightPower += UnityEngine.Mathf.Min(troops, allPersons.Count * 5000);
             isUpdatedFightPower = true;
             virtualFightPower = FightPower;
             ForeachNeighborCities(x =>
@@ -476,12 +473,12 @@ namespace Sango.Game
             ItemStore tempStore = itemStore.Copy();
 
             // 确定主将和兵种
-            int totalCount = math.min(FreePersonCount, count);
+            int totalCount = UnityEngine.Mathf.Min(FreePersonCount, count);
             for (int i = 0; i < totalCount; i++)
             {
                 Person leader = sorted_by_Official[i];
                 int personLimitTroopsNum = 5000;
-                int finalTroopsNum = math.min(tempTroops, personLimitTroopsNum);
+                int finalTroopsNum = UnityEngine.Mathf.Min(tempTroops, personLimitTroopsNum);
                 tempTroops -= finalTroopsNum;
                 Troop troop = new Troop()
                 {
@@ -508,7 +505,7 @@ namespace Sango.Game
                     if (!troop.IsFull)
                     {
                         int need = troop.MaxTroops - troop.troops;
-                        int finalTroopsNum = math.min(tempTroops, math.min(need, 1000));
+                        int finalTroopsNum = UnityEngine.Mathf.Min(tempTroops, UnityEngine.Mathf.Min(need, 1000));
                         tempTroops -= finalTroopsNum;
                         troop.troops += finalTroopsNum;
                         notFull = true;

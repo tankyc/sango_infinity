@@ -1,11 +1,8 @@
 ﻿using Newtonsoft.Json;
 using Sango.Game.Render;
-using Sango.Render;
 using Sango.Tools;
 using System;
 using System.Collections.Generic;
-using Unity.Mathematics;
-using UnityEngine.TestTools;
 
 namespace Sango.Game
 {
@@ -329,8 +326,8 @@ namespace Sango.Game
             var damage = base_dmg * (1 + troops_add) * (1 - base_reduce);
 
             //士气矫正后的伤害
-            damage = damage * (math.max(attacker.morale - Variables.fight_morale_decay_below, 0) / (100 - Variables.fight_morale_decay_below) *
-            Variables.fight_morale_add + (1 - Variables.fight_morale_decay_percent) + math.min(attacker.morale, Variables.fight_morale_decay_below) / Variables.fight_morale_decay_below * Variables.fight_morale_decay_percent);
+            damage = damage * (UnityEngine.Mathf.Max(attacker.morale - Variables.fight_morale_decay_below, 0) / (100 - Variables.fight_morale_decay_below) *
+            Variables.fight_morale_add + (1 - Variables.fight_morale_decay_percent) + UnityEngine.Mathf.Min(attacker.morale, Variables.fight_morale_decay_below) / Variables.fight_morale_decay_below * Variables.fight_morale_decay_percent);
 
 
             if (skill != null)
@@ -372,8 +369,8 @@ namespace Sango.Game
             var damage = base_dmg * (1 + troops_add) * (1 - base_reduce);
 
             //士气矫正后的伤害
-            damage = damage * (math.max(attacker.morale - Variables.fight_morale_decay_below, 0) / (100 - Variables.fight_morale_decay_below) *
-            Variables.fight_morale_add + (1 - Variables.fight_morale_decay_percent) + math.min(attacker.morale, Variables.fight_morale_decay_below) / Variables.fight_morale_decay_below * Variables.fight_morale_decay_percent);
+            damage = damage * (UnityEngine.Mathf.Max(attacker.morale - Variables.fight_morale_decay_below, 0) / (100 - Variables.fight_morale_decay_below) *
+            Variables.fight_morale_add + (1 - Variables.fight_morale_decay_percent) + UnityEngine.Mathf.Min(attacker.morale, Variables.fight_morale_decay_below) / Variables.fight_morale_decay_below * Variables.fight_morale_decay_percent);
 
 
             if (skill != null)

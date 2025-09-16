@@ -1,6 +1,4 @@
-﻿using Unity.Mathematics;
-using Unity.VisualScripting;
-using static Sango.Game.City;
+﻿using static Sango.Game.City;
 using static Sango.Game.TroopAIUtility;
 
 namespace Sango.Game
@@ -61,7 +59,7 @@ namespace Sango.Game
                 if (!target.IsEmpty() && (target.troop != null))
                 {
                     int distance = Scenario.Cur.Map.Distance(TargetCity.CenterCell, target.troop.cell);
-                    distance = math.max(0, 5 - distance);
+                    distance = UnityEngine.Mathf.Max(0, 5 - distance);
                     socer += distance * GameRandom.Random(500, 1000);
                     if (movetoCell == troop.cell)
                         socer += 100000;

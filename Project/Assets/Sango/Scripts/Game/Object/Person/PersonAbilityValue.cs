@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Newtonsoft.Json;
-using Unity.Mathematics;
+﻿using Newtonsoft.Json;
+using System;
 
 namespace Sango.Game
 {
