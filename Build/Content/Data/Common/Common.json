@@ -1,0 +1,4759 @@
+{
+  "TerrainTypes": [
+    {
+      "Id": 0,
+      "Name": "无",
+      "foodDeposit": 1000,
+      "fertility": [
+        0.0,
+        0.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        0.0,
+        0.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 1,
+      "Name": "草地",
+      "foodDeposit": 1000,
+      "fertility": [
+        20.0,
+        40.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        5.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        74,
+        187,
+        74
+      ]
+    },
+    {
+      "Id": 2,
+      "Name": "土",
+      "foodDeposit": 1000,
+      "fertility": [
+        20.0,
+        30.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        2.0,
+        8.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        120,
+        70,
+        26
+      ]
+    },
+    {
+      "Id": 3,
+      "Name": "砂地",
+      "foodDeposit": 1000,
+      "fertility": [
+        5.0,
+        15.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        10.0,
+        20.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 5,
+      "color": [
+        164,
+        149,
+        108
+      ]
+    },
+    {
+      "Id": 4,
+      "Name": "湿地",
+      "foodDeposit": 1000,
+      "fertility": [
+        10.0,
+        15.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        9.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 5,
+      "color": [
+        161,
+        98,
+        88
+      ]
+    },
+    {
+      "Id": 5,
+      "Name": "毒泉",
+      "foodDeposit": 1000,
+      "fertility": [
+        5.0,
+        10.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        10.0,
+        16.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        172,
+        28,
+        254
+      ]
+    },
+    {
+      "Id": 6,
+      "Name": "森",
+      "foodDeposit": 1000,
+      "fertility": [
+        10.0,
+        30.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        9.0,
+        20.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 6,
+      "color": [
+        35,
+        120,
+        18
+      ]
+    },
+    {
+      "Id": 7,
+      "Name": "川",
+      "foodDeposit": 1000,
+      "fertility": [
+        10.0,
+        20.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        250,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 8,
+      "Name": "河",
+      "foodDeposit": 1000,
+      "fertility": [
+        10.0,
+        20.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        10.0,
+        20.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        175,
+        134,
+        64
+      ]
+    },
+    {
+      "Id": 9,
+      "Name": "海",
+      "foodDeposit": 1000,
+      "fertility": [
+        10.0,
+        20.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        10.0,
+        20.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        36,
+        95,
+        123
+      ]
+    },
+    {
+      "Id": 10,
+      "Name": "荒地",
+      "foodDeposit": 1000,
+      "fertility": [
+        5.0,
+        10.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        15.0,
+        30.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        123,
+        36,
+        114
+      ]
+    },
+    {
+      "Id": 11,
+      "Name": "主径",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        8.0,
+        30.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 2,
+      "color": [
+        254,
+        255,
+        190
+      ]
+    },
+    {
+      "Id": 12,
+      "Name": "栈道",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        8.0,
+        30.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 6,
+      "color": [
+        255,
+        128,
+        128
+      ]
+    },
+    {
+      "Id": 13,
+      "Name": "渡所",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        9.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        127,
+        115,
+        78
+      ]
+    },
+    {
+      "Id": 14,
+      "Name": "浅滩",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        9.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        39,
+        146,
+        130
+      ]
+    },
+    {
+      "Id": 15,
+      "Name": "岸",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        100,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 16,
+      "Name": "崖",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": true,
+      "viewThrough": true,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        220,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 17,
+      "Name": "都市",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        10.0,
+        10.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 1,
+      "color": [
+        221,
+        147,
+        3
+      ]
+    },
+    {
+      "Id": 18,
+      "Name": "关所",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        10.0,
+        10.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 1,
+      "color": [
+        109,
+        98,
+        23
+      ]
+    },
+    {
+      "Id": 19,
+      "Name": "港",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        10.0,
+        10.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        143,
+        81,
+        71
+      ]
+    },
+    {
+      "Id": 20,
+      "Name": "小径",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": true,
+      "canAmbush": true,
+      "baseCost": 4,
+      "color": [
+        255,
+        179,
+        167
+      ]
+    },
+    {
+      "Id": 21,
+      "Name": "地20",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 22,
+      "Name": "地21",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 23,
+      "Name": "地22",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 24,
+      "Name": "地23",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 25,
+      "Name": "地24",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 26,
+      "Name": "地25",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 27,
+      "Name": "地26",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 28,
+      "Name": "地27",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 29,
+      "Name": "地28",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 30,
+      "Name": "地29",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 31,
+      "Name": "地30",
+      "foodDeposit": 1000,
+      "fertility": [
+        1.0,
+        2.0
+      ],
+      "goldDeposit": 10,
+      "prosperity": [
+        1.0,
+        1.0
+      ],
+      "foodRate": [
+        0.8,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "foodRegainDays": 0,
+      "fireDamageRate": 1.0,
+      "canBuild": false,
+      "viewThrough": false,
+      "moveable": false,
+      "canAmbush": true,
+      "baseCost": 999,
+      "color": [
+        50,
+        0,
+        0
+      ]
+    }
+  ],
+  "CityLevelTypes": [
+    {
+      "Id": 1,
+      "Name": "小城",
+      "buffRange": 0,
+      "maxTroops": 50000,
+      "storeMax": 100000,
+      "maxGold": 20000,
+      "maxFood": 500000,
+      "costGold": 5000,
+      "costTechPoint": 10000,
+      "needPopularSupport": 60,
+      "insideSlot": 4,
+      "outsideSlot": 4,
+      "villageSlot": 1,
+      "baseGainGold": 1000,
+      "baseGainFood": 15000,
+      "maxDurability": 3000,
+      "maxCommerce": 2000,
+      "maxAgriculture": 2000
+    },
+    {
+      "Id": 2,
+      "Name": "中城",
+      "buffRange": 1,
+      "maxTroops": 80000,
+      "storeMax": 200000,
+      "maxGold": 40000,
+      "maxFood": 800000,
+      "costGold": 10000,
+      "costTechPoint": 10000,
+      "needPopularSupport": 80,
+      "insideSlot": 5,
+      "outsideSlot": 5,
+      "villageSlot": 2,
+      "baseGainGold": 1500,
+      "baseGainFood": 20000,
+      "maxDurability": 5000,
+      "maxCommerce": 3000,
+      "maxAgriculture": 3000
+    },
+    {
+      "Id": 3,
+      "Name": "大城",
+      "buffRange": 2,
+      "maxTroops": 120000,
+      "storeMax": 400000,
+      "maxGold": 60000,
+      "maxFood": 1200000,
+      "costGold": 20000,
+      "costTechPoint": 10000,
+      "needPopularSupport": 90,
+      "insideSlot": 6,
+      "outsideSlot": 6,
+      "villageSlot": 3,
+      "baseGainGold": 2000,
+      "baseGainFood": 30000,
+      "maxDurability": 8000,
+      "maxCommerce": 4000,
+      "maxAgriculture": 4000
+    },
+    {
+      "Id": 4,
+      "Name": "巨城",
+      "buffRange": 3,
+      "maxTroops": 200000,
+      "storeMax": 800000,
+      "maxGold": 100000,
+      "maxFood": 2000000,
+      "costGold": 0,
+      "costTechPoint": 0,
+      "needPopularSupport": 0,
+      "insideSlot": 8,
+      "outsideSlot": 8,
+      "villageSlot": 4,
+      "baseGainGold": 3000,
+      "baseGainFood": 50000,
+      "maxDurability": 10000,
+      "maxCommerce": 5000,
+      "maxAgriculture": 5000
+    }
+  ],
+  "Officials": [
+    {
+      "Id": "0",
+      "Name": "无",
+      "troopsLimit": "5000",
+      "cost": "5",
+      "level": "10",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "1",
+      "Name": "武卫校尉",
+      "troopsLimit": "6000",
+      "cost": "10",
+      "level": "9",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "2",
+      "Name": "破贼校尉",
+      "troopsLimit": "6000",
+      "cost": "10",
+      "level": "9",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "3",
+      "Name": "长水校尉",
+      "troopsLimit": "6000",
+      "cost": "10",
+      "level": "9",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "4",
+      "Name": "奋威校尉",
+      "troopsLimit": "6000",
+      "cost": "10",
+      "level": "9",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "5",
+      "Name": "议郎",
+      "troopsLimit": "6000",
+      "cost": "10",
+      "level": "9",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "6",
+      "Name": "典农校尉",
+      "troopsLimit": "6000",
+      "cost": "10",
+      "level": "9",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "7",
+      "Name": "右仆射",
+      "troopsLimit": "6000",
+      "cost": "10",
+      "level": "9",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "8",
+      "Name": "左仆射",
+      "troopsLimit": "6000",
+      "cost": "10",
+      "level": "9",
+      "meritNeeds": "0"
+    },
+    {
+      "Id": "9",
+      "Name": "建议校尉",
+      "troopsLimit": "7000",
+      "cost": "15",
+      "level": "8",
+      "meritNeeds": "4000"
+    },
+    {
+      "Id": "10",
+      "Name": "儒林校尉",
+      "troopsLimit": "7000",
+      "cost": "15",
+      "level": "8",
+      "meritNeeds": "4000"
+    },
+    {
+      "Id": "11",
+      "Name": "昭信校尉",
+      "troopsLimit": "7000",
+      "cost": "15",
+      "level": "8",
+      "meritNeeds": "4000"
+    },
+    {
+      "Id": "12",
+      "Name": "忠义校尉",
+      "troopsLimit": "7000",
+      "cost": "15",
+      "level": "8",
+      "meritNeeds": "4000"
+    },
+    {
+      "Id": "13",
+      "Name": "中郎",
+      "troopsLimit": "6000",
+      "cost": "15",
+      "level": "8",
+      "meritNeeds": "4000"
+    },
+    {
+      "Id": "14",
+      "Name": "侍郎",
+      "troopsLimit": "6000",
+      "cost": "15",
+      "level": "8",
+      "meritNeeds": "4000"
+    },
+    {
+      "Id": "15",
+      "Name": "谏议大夫",
+      "troopsLimit": "6000",
+      "cost": "15",
+      "level": "8",
+      "meritNeeds": "4000"
+    },
+    {
+      "Id": "16",
+      "Name": "主簿",
+      "troopsLimit": "6000",
+      "cost": "15",
+      "level": "8",
+      "meritNeeds": "4000"
+    },
+    {
+      "Id": "17",
+      "Name": "裨将军",
+      "troopsLimit": "8000",
+      "cost": "20",
+      "level": "7",
+      "meritNeeds": "8000"
+    },
+    {
+      "Id": "18",
+      "Name": "偏将军",
+      "troopsLimit": "8000",
+      "cost": "20",
+      "level": "7",
+      "meritNeeds": "8000"
+    },
+    {
+      "Id": "19",
+      "Name": "护军",
+      "troopsLimit": "8000",
+      "cost": "20",
+      "level": "7",
+      "meritNeeds": "8000"
+    },
+    {
+      "Id": "20",
+      "Name": "牙门将军",
+      "troopsLimit": "8000",
+      "cost": "20",
+      "level": "7",
+      "meritNeeds": "8000"
+    },
+    {
+      "Id": "21",
+      "Name": "卫士令",
+      "troopsLimit": "7000",
+      "cost": "20",
+      "level": "7",
+      "meritNeeds": "8000"
+    },
+    {
+      "Id": "22",
+      "Name": "武库令",
+      "troopsLimit": "7000",
+      "cost": "20",
+      "level": "7",
+      "meritNeeds": "8000"
+    },
+    {
+      "Id": "23",
+      "Name": "大仓令",
+      "troopsLimit": "7000",
+      "cost": "20",
+      "level": "7",
+      "meritNeeds": "8000"
+    },
+    {
+      "Id": "24",
+      "Name": "太乐令",
+      "troopsLimit": "7000",
+      "cost": "20",
+      "level": "7",
+      "meritNeeds": "8000"
+    },
+    {
+      "Id": "25",
+      "Name": "平北将军",
+      "troopsLimit": "9000",
+      "cost": "25",
+      "level": "6",
+      "meritNeeds": "12000"
+    },
+    {
+      "Id": "26",
+      "Name": "平西将军",
+      "troopsLimit": "9000",
+      "cost": "25",
+      "level": "6",
+      "meritNeeds": "12000"
+    },
+    {
+      "Id": "27",
+      "Name": "平南将军",
+      "troopsLimit": "9000",
+      "cost": "25",
+      "level": "6",
+      "meritNeeds": "12000"
+    },
+    {
+      "Id": "28",
+      "Name": "平东将军",
+      "troopsLimit": "9000",
+      "cost": "25",
+      "level": "6",
+      "meritNeeds": "12000"
+    },
+    {
+      "Id": "29",
+      "Name": "司马",
+      "troopsLimit": "8000",
+      "cost": "25",
+      "level": "6",
+      "meritNeeds": "12000"
+    },
+    {
+      "Id": "30",
+      "Name": "长史",
+      "troopsLimit": "8000",
+      "cost": "25",
+      "level": "6",
+      "meritNeeds": "12000"
+    },
+    {
+      "Id": "31",
+      "Name": "从事中郎",
+      "troopsLimit": "8000",
+      "cost": "25",
+      "level": "6",
+      "meritNeeds": "12000"
+    },
+    {
+      "Id": "32",
+      "Name": "郎中",
+      "troopsLimit": "8000",
+      "cost": "25",
+      "level": "6",
+      "meritNeeds": "12000"
+    },
+    {
+      "Id": "33",
+      "Name": "讨逆将军",
+      "troopsLimit": "10000",
+      "cost": "30",
+      "level": "5",
+      "meritNeeds": "16000"
+    },
+    {
+      "Id": "34",
+      "Name": "破虏将军",
+      "troopsLimit": "10000",
+      "cost": "30",
+      "level": "5",
+      "meritNeeds": "16000"
+    },
+    {
+      "Id": "35",
+      "Name": "安国将军",
+      "troopsLimit": "10000",
+      "cost": "30",
+      "level": "5",
+      "meritNeeds": "16000"
+    },
+    {
+      "Id": "36",
+      "Name": "军师将军",
+      "troopsLimit": "10000",
+      "cost": "30",
+      "level": "5",
+      "meritNeeds": "16000"
+    },
+    {
+      "Id": "37",
+      "Name": "太史令",
+      "troopsLimit": "9000",
+      "cost": "30",
+      "level": "5",
+      "meritNeeds": "16000"
+    },
+    {
+      "Id": "38",
+      "Name": "黄门侍郎",
+      "troopsLimit": "9000",
+      "cost": "30",
+      "level": "5",
+      "meritNeeds": "16000"
+    },
+    {
+      "Id": "39",
+      "Name": "都尉",
+      "troopsLimit": "9000",
+      "cost": "30",
+      "level": "5",
+      "meritNeeds": "16000"
+    },
+    {
+      "Id": "40",
+      "Name": "谒者仆射",
+      "troopsLimit": "9000",
+      "cost": "30",
+      "level": "5",
+      "meritNeeds": "16000"
+    },
+    {
+      "Id": "41",
+      "Name": "后将军",
+      "troopsLimit": "11000",
+      "cost": "40",
+      "level": "4",
+      "meritNeeds": "20000"
+    },
+    {
+      "Id": "42",
+      "Name": "前将军",
+      "troopsLimit": "11000",
+      "cost": "40",
+      "level": "4",
+      "meritNeeds": "20000"
+    },
+    {
+      "Id": "43",
+      "Name": "右将军",
+      "troopsLimit": "11000",
+      "cost": "40",
+      "level": "4",
+      "meritNeeds": "20000"
+    },
+    {
+      "Id": "44",
+      "Name": "左将军",
+      "troopsLimit": "11000",
+      "cost": "40",
+      "level": "4",
+      "meritNeeds": "20000"
+    },
+    {
+      "Id": "45",
+      "Name": "太学博士",
+      "troopsLimit": "10000",
+      "cost": "40",
+      "level": "4",
+      "meritNeeds": "20000"
+    },
+    {
+      "Id": "46",
+      "Name": "留府长史",
+      "troopsLimit": "10000",
+      "cost": "40",
+      "level": "4",
+      "meritNeeds": "20000"
+    },
+    {
+      "Id": "47",
+      "Name": "侍中",
+      "troopsLimit": "10000",
+      "cost": "40",
+      "level": "4",
+      "meritNeeds": "20000"
+    },
+    {
+      "Id": "48",
+      "Name": "秘书令",
+      "troopsLimit": "10000",
+      "cost": "40",
+      "level": "4",
+      "meritNeeds": "20000"
+    },
+    {
+      "Id": "49",
+      "Name": "安北将军",
+      "troopsLimit": "12000",
+      "cost": "50",
+      "level": "3",
+      "meritNeeds": "24000"
+    },
+    {
+      "Id": "50",
+      "Name": "安西将军",
+      "troopsLimit": "12000",
+      "cost": "50",
+      "level": "3",
+      "meritNeeds": "24000"
+    },
+    {
+      "Id": "51",
+      "Name": "安南将军",
+      "troopsLimit": "12000",
+      "cost": "50",
+      "level": "3",
+      "meritNeeds": "24000"
+    },
+    {
+      "Id": "52",
+      "Name": "安东将军",
+      "troopsLimit": "12000",
+      "cost": "50",
+      "level": "3",
+      "meritNeeds": "24000"
+    },
+    {
+      "Id": "53",
+      "Name": "少府",
+      "troopsLimit": "11000",
+      "cost": "50",
+      "level": "3",
+      "meritNeeds": "24000"
+    },
+    {
+      "Id": "54",
+      "Name": "执金吾",
+      "troopsLimit": "11000",
+      "cost": "50",
+      "level": "3",
+      "meritNeeds": "24000"
+    },
+    {
+      "Id": "55",
+      "Name": "御史中丞",
+      "troopsLimit": "11000",
+      "cost": "50",
+      "level": "3",
+      "meritNeeds": "24000"
+    },
+    {
+      "Id": "56",
+      "Name": "中书令",
+      "troopsLimit": "11000",
+      "cost": "50",
+      "level": "3",
+      "meritNeeds": "24000"
+    },
+    {
+      "Id": "57",
+      "Name": "镇北将军",
+      "troopsLimit": "13000",
+      "cost": "60",
+      "level": "2",
+      "meritNeeds": "28000"
+    },
+    {
+      "Id": "58",
+      "Name": "镇西将军",
+      "troopsLimit": "13000",
+      "cost": "60",
+      "level": "2",
+      "meritNeeds": "28000"
+    },
+    {
+      "Id": "59",
+      "Name": "镇南将军",
+      "troopsLimit": "13000",
+      "cost": "60",
+      "level": "2",
+      "meritNeeds": "28000"
+    },
+    {
+      "Id": "60",
+      "Name": "镇东将军",
+      "troopsLimit": "13000",
+      "cost": "60",
+      "level": "2",
+      "meritNeeds": "28000"
+    },
+    {
+      "Id": "61",
+      "Name": "大鸿胪",
+      "troopsLimit": "12000",
+      "cost": "60",
+      "level": "2",
+      "meritNeeds": "28000"
+    },
+    {
+      "Id": "62",
+      "Name": "太常",
+      "troopsLimit": "12000",
+      "cost": "60",
+      "level": "2",
+      "meritNeeds": "28000"
+    },
+    {
+      "Id": "63",
+      "Name": "太仆",
+      "troopsLimit": "12000",
+      "cost": "60",
+      "level": "2",
+      "meritNeeds": "28000"
+    },
+    {
+      "Id": "64",
+      "Name": "尚书令",
+      "troopsLimit": "12000",
+      "cost": "60",
+      "level": "2",
+      "meritNeeds": "28000"
+    },
+    {
+      "Id": "65",
+      "Name": "征北将军",
+      "troopsLimit": "14000",
+      "cost": "80",
+      "level": "1",
+      "meritNeeds": "32000"
+    },
+    {
+      "Id": "66",
+      "Name": "征西将军",
+      "troopsLimit": "14000",
+      "cost": "80",
+      "level": "1",
+      "meritNeeds": "32000"
+    },
+    {
+      "Id": "67",
+      "Name": "征南将军",
+      "troopsLimit": "14000",
+      "cost": "80",
+      "level": "1",
+      "meritNeeds": "32000"
+    },
+    {
+      "Id": "68",
+      "Name": "征东将军",
+      "troopsLimit": "14000",
+      "cost": "80",
+      "level": "1",
+      "meritNeeds": "32000"
+    },
+    {
+      "Id": "69",
+      "Name": "卫尉",
+      "troopsLimit": "13000",
+      "cost": "80",
+      "level": "1",
+      "meritNeeds": "32000"
+    },
+    {
+      "Id": "70",
+      "Name": "廷尉",
+      "troopsLimit": "13000",
+      "cost": "80",
+      "level": "1",
+      "meritNeeds": "32000"
+    },
+    {
+      "Id": "71",
+      "Name": "大司农",
+      "troopsLimit": "13000",
+      "cost": "80",
+      "level": "1",
+      "meritNeeds": "32000"
+    },
+    {
+      "Id": "72",
+      "Name": "光禄勋",
+      "troopsLimit": "13000",
+      "cost": "80",
+      "level": "1",
+      "meritNeeds": "32000"
+    },
+    {
+      "Id": "73",
+      "Name": "车骑将军",
+      "troopsLimit": "15000",
+      "cost": "100",
+      "level": "0",
+      "meritNeeds": "36000"
+    },
+    {
+      "Id": "74",
+      "Name": "骠骑将军",
+      "troopsLimit": "15000",
+      "cost": "100",
+      "level": "0",
+      "meritNeeds": "36000"
+    },
+    {
+      "Id": "75",
+      "Name": "卫将军",
+      "troopsLimit": "15000",
+      "cost": "100",
+      "level": "0",
+      "meritNeeds": "36000"
+    },
+    {
+      "Id": "76",
+      "Name": "大都督",
+      "troopsLimit": "15000",
+      "cost": "100",
+      "level": "0",
+      "meritNeeds": "36000"
+    },
+    {
+      "Id": "77",
+      "Name": "司徒",
+      "troopsLimit": "15000",
+      "cost": "120",
+      "level": "0",
+      "meritNeeds": "36000"
+    },
+    {
+      "Id": "78",
+      "Name": "太尉",
+      "troopsLimit": "15000",
+      "cost": "120",
+      "level": "0",
+      "meritNeeds": "36000"
+    },
+    {
+      "Id": "79",
+      "Name": "司空",
+      "troopsLimit": "15000",
+      "cost": "120",
+      "level": "0",
+      "meritNeeds": "36000"
+    },
+    {
+      "Id": "80",
+      "Name": "丞相",
+      "troopsLimit": "15000",
+      "cost": "120",
+      "level": "0",
+      "meritNeeds": "36000"
+    }
+  ],
+  "States": [
+    {
+      "Id": 1,
+      "Name": "河北"
+    },
+    {
+      "Id": 2,
+      "Name": "中原"
+    },
+    {
+      "Id": 3,
+      "Name": "西凉"
+    },
+    {
+      "Id": 4,
+      "Name": "江东"
+    },
+    {
+      "Id": 5,
+      "Name": "巴蜀"
+    },
+    {
+      "Id": 6,
+      "Name": "南蛮"
+    }
+  ],
+  "BuildingTypes": [
+    {
+      "Id": 1,
+      "Name": "都市",
+      "kind": 0,
+      "durabilityLimit": 0,
+      "isIntrior": false,
+      "insideOnly": false,
+      "buildNumLimit": 1,
+      "goldGain": 500,
+      "foodGain": 10000,
+      "populationGain": 0.0,
+      "radius": 1,
+      "desc": "生产资金、兵粮的据点",
+      "model": 30
+    },
+    {
+      "Id": 2,
+      "Name": "关所",
+      "kind": 0,
+      "durabilityLimit": 0,
+      "isIntrior": false,
+      "insideOnly": false,
+      "buildNumLimit": 1,
+      "goldGain": 500,
+      "foodGain": 10000,
+      "populationGain": 0.0,
+      "radius": 0,
+      "desc": "防御力优越的据点",
+      "model": 30
+    },
+    {
+      "Id": 3,
+      "Name": "农田",
+      "kind": 1,
+      "durabilityLimit": 500,
+      "isIntrior": true,
+      "insideOnly": false,
+      "buildNumLimit": 1,
+      "goldGain": 0,
+      "foodGain": 25000,
+      "populationGain": 0.01,
+      "cost": 1200,
+      "radius": 0,
+      "desc": "强化位于周围２区格内己方部队之防御，并减轻其兵粮消费",
+      "icon": "ui://game/4845_7_12",
+      "model": 30
+    },
+    {
+      "Id": 4,
+      "Name": "仓库",
+      "kind": 2,
+      "durabilityLimit": 500,
+      "isIntrior": true,
+      "insideOnly": false,
+      "buildNumLimit": 1,
+      "goldGain": 0,
+      "foodGain": 0,
+      "populationGain": 0.05,
+      "cost": 2000,
+      "radius": 3,
+      "desc": "强化位于周围３区格内己方部队之防御，并减轻其兵粮消费",
+      "icon": "ui://game/4845_7_13",
+      "model": 30
+    },
+    {
+      "Id": 5,
+      "Name": "村庄",
+      "kind": 4,
+      "durabilityLimit": 500,
+      "isIntrior": true,
+      "insideOnly": false,
+      "buildNumLimit": 1,
+      "goldGain": 100,
+      "foodGain": 10000,
+      "populationGain": 0.2,
+      "cost": 3000,
+      "radius": 0,
+      "desc": "强化位于周围４区格内己方部队之防御，并减轻其兵粮消费",
+      "icon": "ui://game/4845_7_14",
+      "model": 30
+    },
+    {
+      "Id": 6,
+      "Name": "市场",
+      "kind": 3,
+      "durabilityLimit": 500,
+      "isIntrior": true,
+      "insideOnly": false,
+      "buildNumLimit": 1,
+      "goldGain": 250,
+      "foodGain": 0,
+      "populationGain": 0.01,
+      "cost": 1500,
+      "radius": 0,
+      "desc": "每回合对位于周围２区格内的敌方部队执行弓箭攻击",
+      "icon": "ui://game/4845_7_15",
+      "model": 30
+    },
+    {
+      "Id": 7,
+      "Name": "码头",
+      "kind": 4,
+      "durabilityLimit": 500,
+      "isIntrior": true,
+      "insideOnly": false,
+      "buildNumLimit": 1,
+      "goldGain": 150,
+      "foodGain": 20000,
+      "populationGain": 0.03,
+      "cost": 2600,
+      "radius": 0,
+      "desc": "每回合对位于周围２区格内的敌方部队执行弓箭攻击",
+      "icon": "ui://game/4845_7_15",
+      "model": 30
+    },
+    {
+      "Id": 8,
+      "Name": "箭塔",
+      "kind": 5,
+      "durabilityLimit": 500,
+      "isIntrior": false,
+      "insideOnly": false,
+      "buildNumLimit": 1,
+      "goldGain": -100,
+      "foodGain": 0,
+      "populationGain": 0.0,
+      "cost": 2500,
+      "radius": 2,
+      "desc": "每回合对位于周围２区格内的敌方部队执行弓箭攻击",
+      "icon": "ui://game/4845_7_15",
+      "model": 30
+    }
+  ],
+  "Techniques": [
+    {
+      "Id": 1,
+      "Name": "锻炼枪兵",
+      "desc": "增加枪兵战法的威力",
+      "kind": "枪兵",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 2,
+      "Name": "袭击兵粮",
+      "desc": "以枪兵攻击时，夺取敌方部队的兵粮",
+      "kind": "枪兵",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 9,
+      "needTech": 1
+    },
+    {
+      "Id": 3,
+      "Name": "奇袭",
+      "desc": "枪兵于森林中攻击时，不会遭到反击",
+      "kind": "枪兵",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 2
+    },
+    {
+      "Id": 4,
+      "Name": "精锐枪兵",
+      "desc": "强化枪兵的攻击力、防御力、移动力",
+      "kind": "枪兵",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 3
+    },
+    {
+      "Id": 5,
+      "Name": "锻炼戟兵",
+      "desc": "增加戟兵战法的威力",
+      "kind": "戟兵",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 6,
+      "Name": "箭盾",
+      "desc": "以30％的机率来防御弓箭攻击",
+      "kind": "戟兵",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 9,
+      "needTech": 5
+    },
+    {
+      "Id": 7,
+      "Name": "大盾",
+      "desc": "以30％的机率来防御一般攻击",
+      "kind": "戟兵",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 6
+    },
+    {
+      "Id": 8,
+      "Name": "精锐戟兵",
+      "desc": "强化戟兵的攻击力、防御力、移动力",
+      "kind": "戟兵",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 7
+    },
+    {
+      "Id": 9,
+      "Name": "锻炼弩兵",
+      "desc": "增加弩兵战法的威力",
+      "kind": "弩兵",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 10,
+      "Name": "还射",
+      "desc": "弩兵遭受弓箭攻击时会自动反击",
+      "kind": "弩兵",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 9,
+      "needTech": 9
+    },
+    {
+      "Id": 11,
+      "Name": "强弩",
+      "desc": "弩兵的射程增加１区格",
+      "kind": "弩兵",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 10
+    },
+    {
+      "Id": 12,
+      "Name": "精锐弩兵",
+      "desc": "强化弩兵的攻击力、防御力、移动力",
+      "kind": "弩兵",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 11
+    },
+    {
+      "Id": 13,
+      "Name": "锻炼骑兵",
+      "desc": "增加骑兵战法的威力",
+      "kind": "骑兵",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 14,
+      "Name": "出产良马",
+      "desc": "增加骑兵的移动力",
+      "kind": "骑兵",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 9,
+      "needTech": 13
+    },
+    {
+      "Id": 15,
+      "Name": "骑射",
+      "desc": "骑兵可执行弓箭攻击",
+      "kind": "骑兵",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 14
+    },
+    {
+      "Id": 16,
+      "Name": "精锐骑兵",
+      "desc": "强化骑兵的攻击力、防御力、移动力",
+      "kind": "骑兵",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 15
+    },
+    {
+      "Id": 17,
+      "Name": "熟练兵",
+      "desc": "士兵的气力上限增加20",
+      "kind": "錬兵",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 18,
+      "Name": "难所行军",
+      "desc": "可通行间道与浅滩，通行栈道时不会受到损伤",
+      "kind": "錬兵",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 10,
+      "needTech": 17
+    },
+    {
+      "Id": 19,
+      "Name": "军制改革",
+      "desc": "部队士兵上限增加3000",
+      "kind": "錬兵",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 18
+    },
+    {
+      "Id": 20,
+      "Name": "云梯",
+      "desc": "增加部队的据点攻击力",
+      "kind": "錬兵",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 19
+    },
+    {
+      "Id": 21,
+      "Name": "强化车轴",
+      "desc": "增加兵器的移动力",
+      "kind": "发明",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 22,
+      "Name": "石造建筑",
+      "desc": "可使用障害物「石墙」、设施「石兵八阵」",
+      "kind": "发明",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 9,
+      "needTech": 21
+    },
+    {
+      "Id": 23,
+      "Name": "开发投石",
+      "desc": "可使用兵装「投石、斗舰」、设施「投石台」",
+      "kind": "发明",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 22
+    },
+    {
+      "Id": 24,
+      "Name": "霹雳",
+      "desc": "执行投石攻击时，同时攻击周围１区格",
+      "kind": "发明",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 23
+    },
+    {
+      "Id": 25,
+      "Name": "培训工兵",
+      "desc": "增加每回合的耐久回复量",
+      "kind": "防卫",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 26,
+      "Name": "强化设施",
+      "desc": "可使用设施「砦、连弩楼」",
+      "kind": "防卫",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 9,
+      "needTech": 25
+    },
+    {
+      "Id": 27,
+      "Name": "强化城墙",
+      "desc": "可使用设施「城塞」、增加据点的耐久",
+      "kind": "防卫",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 26
+    },
+    {
+      "Id": 28,
+      "Name": "强化防卫",
+      "desc": "强化据点的反击力",
+      "kind": "防卫",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 27
+    },
+    {
+      "Id": 29,
+      "Name": "开发木兽",
+      "desc": "可使用兵装「木兽」",
+      "kind": "火攻",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 30,
+      "Name": "神火计",
+      "desc": "可于３区格范围内执行火计",
+      "kind": "火攻",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 9,
+      "needTech": 29
+    },
+    {
+      "Id": 31,
+      "Name": "炼成火药",
+      "desc": "可使用陷阱「火焰种、火焰球」",
+      "kind": "火攻",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 30
+    },
+    {
+      "Id": 32,
+      "Name": "炼成炸药",
+      "desc": "可使用陷阱「业火种、业火球」，增强火势",
+      "kind": "火攻",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 31
+    },
+    {
+      "Id": 33,
+      "Name": "开通官道",
+      "desc": "提升输送队的移动力",
+      "kind": "内政",
+      "level": 0,
+      "goldCost": 1000,
+      "techPointCost": 2000,
+      "counter": 6,
+      "needTech": 0
+    },
+    {
+      "Id": 34,
+      "Name": "扩展港关",
+      "desc": "提升关所、港的最大资金、兵粮、士兵、兵装",
+      "kind": "内政",
+      "level": 1,
+      "goldCost": 2000,
+      "techPointCost": 3000,
+      "counter": 9,
+      "needTech": 33
+    },
+    {
+      "Id": 35,
+      "Name": "整备政令",
+      "desc": "治安变得不容易下降",
+      "kind": "内政",
+      "level": 2,
+      "goldCost": 3000,
+      "techPointCost": 5000,
+      "counter": 15,
+      "needTech": 34
+    },
+    {
+      "Id": 36,
+      "Name": "掌握人心",
+      "desc": "麾下武将的忠诚变得不容易下降",
+      "kind": "内政",
+      "level": 3,
+      "goldCost": 5000,
+      "techPointCost": 8000,
+      "counter": 24,
+      "needTech": 35
+    }
+  ],
+  "Skills": [
+    {
+      "Id": "1",
+      "Name": "近战普攻",
+      "atk": "100",
+      "atkDurability": "100",
+      "costEnergy": "0",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": false,
+      "level": "1"
+    },
+    {
+      "Id": "2",
+      "Name": "远程普攻",
+      "atk": "100",
+      "atkDurability": "100",
+      "costEnergy": "0",
+      "isRange": true,
+      "spellRanges": [
+        2,
+        3
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": false,
+      "level": "2"
+    },
+    {
+      "Id": "3",
+      "Name": "突刺",
+      "atk": "250",
+      "atkDurability": "0",
+      "costEnergy": "15",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "1"
+    },
+    {
+      "Id": "4",
+      "Name": "螺旋突刺",
+      "atk": "250",
+      "atkDurability": "0",
+      "costEnergy": "20",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "2"
+    },
+    {
+      "Id": "5",
+      "Name": "二段突刺",
+      "atk": "250",
+      "atkDurability": "0",
+      "costEnergy": "20",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "3"
+    },
+    {
+      "Id": "6",
+      "Name": "熊手",
+      "atk": "250",
+      "atkDurability": "0",
+      "costEnergy": "15",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "1"
+    },
+    {
+      "Id": "7",
+      "Name": "横扫",
+      "atk": "300",
+      "atkDurability": "0",
+      "costEnergy": "15",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "2"
+    },
+    {
+      "Id": "8",
+      "Name": "旋风",
+      "atk": "300",
+      "atkDurability": "0",
+      "costEnergy": "20",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "3"
+    },
+    {
+      "Id": "9",
+      "Name": "火矢",
+      "atk": "100",
+      "atkDurability": "120",
+      "costEnergy": "15",
+      "isRange": true,
+      "spellRanges": [
+        2
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "1"
+    },
+    {
+      "Id": "10",
+      "Name": "贯箭",
+      "atk": "200",
+      "atkDurability": "110",
+      "costEnergy": "15",
+      "isRange": true,
+      "spellRanges": [
+        2
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "2"
+    },
+    {
+      "Id": "11",
+      "Name": "乱射",
+      "atk": "150",
+      "atkDurability": "110",
+      "costEnergy": "25",
+      "isRange": true,
+      "spellRanges": [
+        2
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "3"
+    },
+    {
+      "Id": "12",
+      "Name": "突击",
+      "atk": "250",
+      "atkDurability": "0",
+      "costEnergy": "20",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "1"
+    },
+    {
+      "Id": "13",
+      "Name": "突破",
+      "atk": "250",
+      "atkDurability": "0",
+      "costEnergy": "20",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "2"
+    },
+    {
+      "Id": "14",
+      "Name": "突进",
+      "atk": "300",
+      "atkDurability": "0",
+      "costEnergy": "25",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "3"
+    },
+    {
+      "Id": "15",
+      "Name": "火矢",
+      "atk": "150",
+      "atkDurability": "120",
+      "costEnergy": "15",
+      "isRange": true,
+      "spellRanges": [
+        2
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "0"
+    },
+    {
+      "Id": "16",
+      "Name": "破碎",
+      "atk": "0",
+      "atkDurability": "200",
+      "costEnergy": "10",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": false,
+      "canDamageBoat": false,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "0"
+    },
+    {
+      "Id": "17",
+      "Name": "放射",
+      "atk": "100",
+      "atkDurability": "250",
+      "costEnergy": "15",
+      "isRange": true,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": false,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "0"
+    },
+    {
+      "Id": "18",
+      "Name": "投石",
+      "atk": "100",
+      "atkDurability": "300",
+      "costEnergy": "20",
+      "isRange": true,
+      "spellRanges": [
+        3
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "0"
+    },
+    {
+      "Id": "19",
+      "Name": "火矢",
+      "atk": "100",
+      "atkDurability": "120",
+      "costEnergy": "15",
+      "isRange": true,
+      "spellRanges": [
+        2
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "1"
+    },
+    {
+      "Id": "20",
+      "Name": "猛撞",
+      "atk": "100",
+      "atkDurability": "200",
+      "costEnergy": "15",
+      "isRange": false,
+      "spellRanges": [
+        1
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": false,
+      "canDamageBoat": true,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "level": "2"
+    },
+    {
+      "Id": "21",
+      "Name": "投石",
+      "atk": "100",
+      "atkDurability": "280",
+      "costEnergy": "20",
+      "isRange": true,
+      "spellRanges": [
+        3
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "level": "3"
+    }
+  ],
+  "Flags": [
+    {
+      "Id": 1,
+      "Name": "河北",
+      "color": [
+        74,
+        187,
+        74
+      ]
+    },
+    {
+      "Id": 2,
+      "Name": "中原",
+      "color": [
+        120,
+        70,
+        26
+      ]
+    },
+    {
+      "Id": 3,
+      "Name": "西凉",
+      "color": [
+        164,
+        149,
+        108
+      ]
+    },
+    {
+      "Id": 4,
+      "Name": "江东",
+      "color": [
+        161,
+        98,
+        88
+      ]
+    },
+    {
+      "Id": 5,
+      "Name": "巴蜀",
+      "color": [
+        172,
+        28,
+        254
+      ]
+    },
+    {
+      "Id": 6,
+      "Name": "南蛮",
+      "color": [
+        35,
+        120,
+        18
+      ]
+    },
+    {
+      "Id": 7,
+      "color": [
+        250,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 8,
+      "color": [
+        175,
+        134,
+        64
+      ]
+    },
+    {
+      "Id": 9,
+      "color": [
+        36,
+        95,
+        123
+      ]
+    },
+    {
+      "Id": 10,
+      "color": [
+        123,
+        36,
+        114
+      ]
+    },
+    {
+      "Id": 11,
+      "color": [
+        254,
+        255,
+        190
+      ]
+    },
+    {
+      "Id": 12,
+      "color": [
+        255,
+        128,
+        128
+      ]
+    },
+    {
+      "Id": 13,
+      "color": [
+        127,
+        115,
+        78
+      ]
+    },
+    {
+      "Id": 14,
+      "color": [
+        39,
+        146,
+        130
+      ]
+    },
+    {
+      "Id": 15,
+      "color": [
+        100,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 16,
+      "color": [
+        220,
+        0,
+        0
+      ]
+    },
+    {
+      "Id": 17,
+      "color": [
+        221,
+        147,
+        3
+      ]
+    },
+    {
+      "Id": 18,
+      "color": [
+        109,
+        98,
+        23
+      ]
+    },
+    {
+      "Id": 19,
+      "color": [
+        143,
+        81,
+        71
+      ]
+    },
+    {
+      "Id": 20,
+      "color": [
+        255,
+        179,
+        167
+      ]
+    },
+    {
+      "Id": 21,
+      "color": [
+        223,
+        95,
+        250
+      ]
+    },
+    {
+      "Id": 22,
+      "color": [
+        178,
+        92,
+        88
+      ]
+    },
+    {
+      "Id": 23,
+      "color": [
+        98,
+        65,
+        195
+      ]
+    },
+    {
+      "Id": 24,
+      "color": [
+        11,
+        120,
+        126
+      ]
+    },
+    {
+      "Id": 25,
+      "color": [
+        16,
+        129,
+        106
+      ]
+    },
+    {
+      "Id": 26,
+      "color": [
+        45,
+        46,
+        132
+      ]
+    },
+    {
+      "Id": 27,
+      "color": [
+        18,
+        117,
+        75
+      ]
+    },
+    {
+      "Id": 28,
+      "color": [
+        132,
+        142,
+        63
+      ]
+    },
+    {
+      "Id": 29,
+      "color": [
+        164,
+        175,
+        202
+      ]
+    },
+    {
+      "Id": 30,
+      "color": [
+        223,
+        161,
+        113
+      ]
+    },
+    {
+      "Id": 31,
+      "color": [
+        192,
+        157,
+        190
+      ]
+    },
+    {
+      "Id": 32,
+      "color": [
+        243,
+        189,
+        71
+      ]
+    },
+    {
+      "Id": 33,
+      "color": [
+        157,
+        242,
+        231
+      ]
+    },
+    {
+      "Id": 34,
+      "color": [
+        229,
+        119,
+        46
+      ]
+    },
+    {
+      "Id": 35,
+      "color": [
+        65,
+        199,
+        187
+      ]
+    },
+    {
+      "Id": 36,
+      "color": [
+        221,
+        93,
+        214
+      ]
+    },
+    {
+      "Id": 37,
+      "color": [
+        80,
+        139,
+        121
+      ]
+    },
+    {
+      "Id": 38,
+      "color": [
+        231,
+        184,
+        139
+      ]
+    },
+    {
+      "Id": 39,
+      "color": [
+        174,
+        99,
+        119
+      ]
+    },
+    {
+      "Id": 40,
+      "color": [
+        206,
+        117,
+        252
+      ]
+    },
+    {
+      "Id": 41,
+      "color": [
+        115,
+        208,
+        136
+      ]
+    },
+    {
+      "Id": 42,
+      "color": [
+        223,
+        138,
+        211
+      ]
+    }
+  ],
+  "Features": [
+    {
+      "Id": 1,
+      "Name": "飞将",
+      "desc": "于陆上时不考虑ＺＯＣ、对武力低的敌部队施展战法成功时会心一击",
+      "level": 4,
+      "kind": "行军",
+      "effect": 40
+    },
+    {
+      "Id": 2,
+      "Name": "遁走",
+      "desc": "于陆上时不考虑ＺＯＣ",
+      "level": 3,
+      "kind": "行军",
+      "effect": 76
+    },
+    {
+      "Id": 3,
+      "Name": "强行",
+      "desc": "增加兵器、输送部队以外的陆上部队之移动力",
+      "level": 3,
+      "kind": "行军",
+      "effect": 52
+    },
+    {
+      "Id": 4,
+      "Name": "长驱",
+      "desc": "增加骑兵部队的移动力",
+      "level": 2,
+      "kind": "行军",
+      "effect": 27
+    },
+    {
+      "Id": 5,
+      "Name": "推进",
+      "desc": "于水上时不考虑ＺＯＣ",
+      "level": 2,
+      "kind": "行军",
+      "effect": 58
+    },
+    {
+      "Id": 6,
+      "Name": "操舵",
+      "desc": "增加水上的移动力",
+      "level": 2,
+      "kind": "行军",
+      "effect": 85
+    },
+    {
+      "Id": 7,
+      "Name": "踏破",
+      "desc": "无栈道通行的损害；减轻所有陷阱的损伤。",
+      "level": 2,
+      "kind": "行军",
+      "effect": 84
+    },
+    {
+      "Id": 8,
+      "Name": "搬运",
+      "desc": "增加输送部队的移动力",
+      "level": 2,
+      "kind": "行军",
+      "effect": 72
+    },
+    {
+      "Id": 9,
+      "Name": "解毒",
+      "desc": "预防毒泉的伤害",
+      "level": 2,
+      "kind": "行军",
+      "effect": 73
+    },
+    {
+      "Id": 10,
+      "Name": "扫荡",
+      "desc": "被攻击的敌方部队气力减少（小）",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 55
+    },
+    {
+      "Id": 11,
+      "Name": "威风",
+      "desc": "被攻击的敌方部队气力减少（大）",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 30
+    },
+    {
+      "Id": 12,
+      "Name": "昂扬",
+      "desc": "打倒敌方部队就可回复气力",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 24
+    },
+    {
+      "Id": 13,
+      "Name": "连击",
+      "desc": "施展一般攻击时，可连续攻击２次",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 64
+    },
+    {
+      "Id": 14,
+      "Name": "突袭",
+      "desc": "于陆上攻击时，不会受到损伤",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 38
+    },
+    {
+      "Id": 15,
+      "Name": "强袭",
+      "desc": "于水上攻击时，不会受到损伤",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 54
+    },
+    {
+      "Id": 16,
+      "Name": "乱战",
+      "desc": "于森林中攻击时施展会心一击",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 71
+    },
+    {
+      "Id": 17,
+      "Name": "待伏",
+      "desc": "伏兵成功时施展会心一击",
+      "level": 2,
+      "kind": "计略",
+      "effect": 32
+    },
+    {
+      "Id": 18,
+      "Name": "攻城",
+      "desc": "攻击据点、设施、建筑物时施展会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 20
+    },
+    {
+      "Id": 19,
+      "Name": "掎角",
+      "desc": "施展齐攻时，让对方陷入混乱",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 56
+    },
+    {
+      "Id": 20,
+      "Name": "捕缚",
+      "desc": "击破敌方部队时，必定可捕捉无特技「强运」或名马的敌将",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 43
+    },
+    {
+      "Id": 21,
+      "Name": "精妙",
+      "desc": "击破敌方部队时所获得的技巧点数增为２倍",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 79
+    },
+    {
+      "Id": 22,
+      "Name": "掠夺",
+      "desc": "击破敌方部队时，有机会夺取敌将的道具",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 57
+    },
+    {
+      "Id": 23,
+      "Name": "攻心",
+      "desc": "攻击时可将敌方部队的一部分士兵吸收到自军部队中",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 19
+    },
+    {
+      "Id": 24,
+      "Name": "驱逐",
+      "desc": "施展一般攻击时会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 99
+    },
+    {
+      "Id": 25,
+      "Name": "射程",
+      "desc": "使井阑、投石的射程增加１区格",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 42
+    },
+    {
+      "Id": 26,
+      "Name": "白马",
+      "desc": "未研究技巧「骑射」时也可施展骑射；骑射可施展会心一击",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 12
+    },
+    {
+      "Id": 27,
+      "Name": "辅佐",
+      "desc": "即使没建立人际关系（厌恶除外）也可获得支援攻击",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 80
+    },
+    {
+      "Id": 28,
+      "Name": "不屈",
+      "desc": "若在部队的士兵不多时被攻击，不会受到损伤",
+      "level": 2,
+      "kind": "防御",
+      "effect": 3
+    },
+    {
+      "Id": 29,
+      "Name": "金刚",
+      "desc": "在敌方攻击力微弱时被攻击的话，不会受到损伤",
+      "level": 2,
+      "kind": "防御",
+      "effect": 26
+    },
+    {
+      "Id": 30,
+      "Name": "铁壁",
+      "desc": "就算被一齐攻击，也会视之为一般攻击",
+      "level": 2,
+      "kind": "防御",
+      "effect": 97
+    },
+    {
+      "Id": 31,
+      "Name": "怒发",
+      "desc": "遭受敌方部队的战法攻击时，气力就会回复",
+      "level": 2,
+      "kind": "防御",
+      "effect": 33
+    },
+    {
+      "Id": 32,
+      "Name": "藤甲",
+      "desc": "火以外的攻击损伤减半，但火攻的损伤将增为２倍",
+      "level": 2,
+      "kind": "防御",
+      "effect": 95
+    },
+    {
+      "Id": 33,
+      "Name": "强运",
+      "desc": "不会战死、被俘、负伤",
+      "level": 4,
+      "kind": "防御",
+      "effect": 53
+    },
+    {
+      "Id": 34,
+      "Name": "血路",
+      "desc": "就算部队溃灭，同部队的武将也不会被俘虏",
+      "level": 2,
+      "kind": "防御",
+      "effect": 16
+    },
+    {
+      "Id": 35,
+      "Name": "枪将",
+      "desc": "对武力比自己低的敌方部队施展枪兵战法成功时会心一击",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 78
+    },
+    {
+      "Id": 36,
+      "Name": "戟将",
+      "desc": "对武力比自己低的敌方部队施展戟兵战法成功时会心一击",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 68
+    },
+    {
+      "Id": 37,
+      "Name": "弓将",
+      "desc": "对武力比自己低的敌方部队施展弩兵战法成功时会心一击",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 2
+    },
+    {
+      "Id": 38,
+      "Name": "骑将",
+      "desc": "对武力比自己低的敌方部队施展骑兵战法成功时会心一击",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 94
+    },
+    {
+      "Id": 39,
+      "Name": "水将",
+      "desc": "对武力比自己低的敌方部队施展水军战法成功时会心一击",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 9
+    },
+    {
+      "Id": 40,
+      "Name": "勇将",
+      "desc": "对武力比自己低的敌方部队施展全战法成功时会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 28
+    },
+    {
+      "Id": 41,
+      "Name": "神将",
+      "desc": "对武力比自己低的敌方部队施展一般攻击及战法成功时会心一击",
+      "level": 4,
+      "kind": "攻击",
+      "effect": 45
+    },
+    {
+      "Id": 42,
+      "Name": "斗神",
+      "desc": "枪兵战法与戟兵战法施展成功时会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 49
+    },
+    {
+      "Id": 43,
+      "Name": "枪神",
+      "desc": "枪兵战法成功时施展会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 77
+    },
+    {
+      "Id": 44,
+      "Name": "戟神",
+      "desc": "戟兵战法成功时施展会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 67
+    },
+    {
+      "Id": 45,
+      "Name": "弓神",
+      "desc": "弩兵战法成功时施展会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 1
+    },
+    {
+      "Id": 46,
+      "Name": "骑神",
+      "desc": "骑兵战法成功时施展会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 93
+    },
+    {
+      "Id": 47,
+      "Name": "工神",
+      "desc": "兵器战法成功时施展会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 0
+    },
+    {
+      "Id": 48,
+      "Name": "水神",
+      "desc": "水军战法成功时施展会心一击",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 8
+    },
+    {
+      "Id": 49,
+      "Name": "霸王",
+      "desc": "全战法成功时施展会心一击",
+      "level": 4,
+      "kind": "攻击",
+      "effect": 98
+    },
+    {
+      "Id": 50,
+      "Name": "疾驰",
+      "desc": "对攻击力比自部队低的敌方部队施展骑兵战法成功时，必使其陷入混乱",
+      "level": 3,
+      "kind": "攻击",
+      "effect": 44
+    },
+    {
+      "Id": 51,
+      "Name": "射手",
+      "desc": "可于森林使用弩兵战法",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 41
+    },
+    {
+      "Id": 52,
+      "Name": "猛者",
+      "desc": "以战法让敌方部队移动区格时，可让敌将负伤",
+      "level": 2,
+      "kind": "攻击",
+      "effect": 60
+    },
+    {
+      "Id": 53,
+      "Name": "护卫",
+      "desc": "同部队的武将不会战死、负伤",
+      "level": 2,
+      "kind": "防御",
+      "effect": 96
+    },
+    {
+      "Id": 54,
+      "Name": "火攻",
+      "desc": "对智力比自己低的敌方部队施展部队计略「火计」时必定会成功",
+      "level": 3,
+      "kind": "计略",
+      "effect": 10
+    },
+    {
+      "Id": 55,
+      "Name": "言毒",
+      "desc": "对智力比自己低的敌方部队施展部队计略「伪报」时，必定会成功",
+      "level": 3,
+      "kind": "计略",
+      "effect": 22
+    },
+    {
+      "Id": 56,
+      "Name": "机智",
+      "desc": "对智力比自己低的敌方部队施展部队计略「扰乱」时，必定会成功",
+      "level": 3,
+      "kind": "计略",
+      "effect": 86
+    },
+    {
+      "Id": 57,
+      "Name": "诡计",
+      "desc": "对智力比自己低的敌方部队施展部队计略「内讧」时，必定会成功",
+      "level": 3,
+      "kind": "计略",
+      "effect": 75
+    },
+    {
+      "Id": 58,
+      "Name": "虚实",
+      "desc": "对智力比自己低的敌方部队施展全部队计略时，必定会成功",
+      "level": 4,
+      "kind": "计略",
+      "effect": 70
+    },
+    {
+      "Id": 59,
+      "Name": "妙计",
+      "desc": "对智力比自己低的敌方部队施展部队计略成功时会心一击",
+      "level": 2,
+      "kind": "计略",
+      "effect": 18
+    },
+    {
+      "Id": 60,
+      "Name": "秘计",
+      "desc": "对智力比自己高的敌方部队施展部队计略成功时会心一击",
+      "level": 2,
+      "kind": "计略",
+      "effect": 47
+    },
+    {
+      "Id": 61,
+      "Name": "看破",
+      "desc": "必定可识破智力比自己低的敌方部队所施展部队计略",
+      "level": 3,
+      "kind": "计略",
+      "effect": 36
+    },
+    {
+      "Id": 62,
+      "Name": "洞察",
+      "desc": "必定可识破敌方部队所施展的部队计略",
+      "level": 4,
+      "kind": "计略",
+      "effect": 35
+    },
+    {
+      "Id": 63,
+      "Name": "火神",
+      "desc": "对智力比自己低的敌方部队施展火计时必会成功；于全火攻有所优势",
+      "level": 4,
+      "kind": "计略",
+      "effect": 11
+    },
+    {
+      "Id": 64,
+      "Name": "神算",
+      "desc": "对智力比自己低的敌方部队施展计略必会成功；于全计略有所优势",
+      "level": 4,
+      "kind": "计略",
+      "effect": 46
+    },
+    {
+      "Id": 65,
+      "Name": "百出",
+      "desc": "部队计略的消费气力减少",
+      "level": 4,
+      "kind": "计略",
+      "effect": 14
+    },
+    {
+      "Id": 66,
+      "Name": "鬼谋",
+      "desc": "增广２区格可施展部队计略的范围",
+      "level": 3,
+      "kind": "计略",
+      "effect": 51
+    },
+    {
+      "Id": 67,
+      "Name": "连环",
+      "desc": "部队计略成功时，与对象部队邻接的部队也会遭受计略波及",
+      "level": 3,
+      "kind": "计略",
+      "effect": 65
+    },
+    {
+      "Id": 68,
+      "Name": "深谋",
+      "desc": "部队计略成功时施展会心一击",
+      "level": 3,
+      "kind": "计略",
+      "effect": 59
+    },
+    {
+      "Id": 69,
+      "Name": "反计",
+      "desc": "若识破部队计略，就可对其施展同样的计略",
+      "level": 3,
+      "kind": "计略",
+      "effect": 6
+    },
+    {
+      "Id": 70,
+      "Name": "奇谋",
+      "desc": "对部队施展部队计略成功率增为２倍",
+      "level": 3,
+      "kind": "计略",
+      "effect": 23
+    },
+    {
+      "Id": 71,
+      "Name": "妖术",
+      "desc": "可施展部队计略的「妖术」",
+      "level": 3,
+      "kind": "计略",
+      "effect": 17
+    },
+    {
+      "Id": 72,
+      "Name": "鬼门",
+      "desc": "可施展部队计略的「妖术、落雷」",
+      "level": 4,
+      "kind": "计略",
+      "effect": 50
+    },
+    {
+      "Id": 73,
+      "Name": "规律",
+      "desc": "可防止遭受部队计略「伪报」",
+      "level": 2,
+      "kind": "补助",
+      "effect": 62
+    },
+    {
+      "Id": 74,
+      "Name": "沉着",
+      "desc": "可防止遭受部队计略「扰乱」",
+      "level": 2,
+      "kind": "补助",
+      "effect": 21
+    },
+    {
+      "Id": 75,
+      "Name": "明镜",
+      "desc": "可防止遭受部队计略的「伪报、扰乱」",
+      "level": 3,
+      "kind": "补助",
+      "effect": 25
+    },
+    {
+      "Id": 76,
+      "Name": "奏乐",
+      "desc": "每回合回复自军部队的气力",
+      "level": 3,
+      "kind": "补助",
+      "effect": 29
+    },
+    {
+      "Id": 77,
+      "Name": "诗想",
+      "desc": "军乐台的回复气力效果增为２倍",
+      "level": 2,
+      "kind": "补助",
+      "effect": 74
+    },
+    {
+      "Id": 78,
+      "Name": "筑城",
+      "desc": "军事设施建设的耐久上升量增为２倍",
+      "level": 2,
+      "kind": "补助",
+      "effect": 87
+    },
+    {
+      "Id": 79,
+      "Name": "屯田",
+      "desc": "所属于关所、港口时，士兵不会消费兵粮",
+      "level": 2,
+      "kind": "补助",
+      "effect": 7
+    },
+    {
+      "Id": 80,
+      "Name": "名声",
+      "desc": "增加征兵时的士兵数",
+      "level": 2,
+      "kind": "内政",
+      "effect": 13
+    },
+    {
+      "Id": 81,
+      "Name": "能吏",
+      "desc": "增加生产枪、戟、弩之兵装时的产量",
+      "level": 2,
+      "kind": "内政",
+      "effect": 48
+    },
+    {
+      "Id": 82,
+      "Name": "繁殖",
+      "desc": "增加生产军马之兵装时的产量",
+      "level": 2,
+      "kind": "内政",
+      "effect": 92
+    },
+    {
+      "Id": 83,
+      "Name": "发明",
+      "desc": "生产兵器之兵装时所需的生产期间减半",
+      "level": 2,
+      "kind": "内政",
+      "effect": 69
+    },
+    {
+      "Id": 84,
+      "Name": "造船",
+      "desc": "生产舰船之兵装时所需的生产期间减半",
+      "level": 2,
+      "kind": "内政",
+      "effect": 63
+    },
+    {
+      "Id": 85,
+      "Name": "指导",
+      "desc": "研究技巧时的费用减半",
+      "level": 2,
+      "kind": "内政",
+      "effect": 34
+    },
+    {
+      "Id": 86,
+      "Name": "眼力",
+      "desc": "若有未发现的在野人士时执行人材探索的话，必定会发现",
+      "level": 2,
+      "kind": "内政",
+      "effect": 61
+    },
+    {
+      "Id": 87,
+      "Name": "论客",
+      "desc": "于同盟、停战协定、交换俘虏时容易进入舌战",
+      "level": 2,
+      "kind": "内政",
+      "effect": 83
+    },
+    {
+      "Id": 88,
+      "Name": "富豪",
+      "desc": "每个月的所属都市的资金收入增为1.5倍",
+      "level": 3,
+      "kind": "收入",
+      "effect": 66
+    },
+    {
+      "Id": 89,
+      "Name": "米道",
+      "desc": "每季的所属都市的兵粮收入增加为1.5倍",
+      "level": 3,
+      "kind": "收入",
+      "effect": 15
+    },
+    {
+      "Id": 90,
+      "Name": "征税",
+      "desc": "每回合所属都市都会有资金收入（一次收入将减半）",
+      "level": 3,
+      "kind": "收入",
+      "effect": 82
+    },
+    {
+      "Id": 91,
+      "Name": "征收",
+      "desc": "每个月所属都市都会有兵粮的收入（一次的收入将减半）",
+      "level": 3,
+      "kind": "收入",
+      "effect": 81
+    },
+    {
+      "Id": 92,
+      "Name": "亲乌",
+      "desc": "所属都市的领内不会出现异族「乌丸」的根据地",
+      "level": 2,
+      "kind": "灾害",
+      "effect": 89
+    },
+    {
+      "Id": 93,
+      "Name": "亲羌",
+      "desc": "所属都市的领内不会出现异族「羌族」的根据地",
+      "level": 2,
+      "kind": "灾害",
+      "effect": 88
+    },
+    {
+      "Id": 94,
+      "Name": "亲越",
+      "desc": "所属都市的领内不会出现异族「山越」的根据地",
+      "level": 2,
+      "kind": "灾害",
+      "effect": 90
+    },
+    {
+      "Id": 95,
+      "Name": "亲蛮",
+      "desc": "所属都市的领内不会出现异族「南蛮」的根据地",
+      "level": 2,
+      "kind": "灾害",
+      "effect": 91
+    },
+    {
+      "Id": 96,
+      "Name": "威压",
+      "desc": "所属都市的领内不容易出现盗贼或异族的根据地",
+      "level": 2,
+      "kind": "灾害",
+      "effect": 31
+    },
+    {
+      "Id": 97,
+      "Name": "仁政",
+      "desc": "所属相同的武将之每个月的忠诚不会下降",
+      "level": 2,
+      "kind": "灾害",
+      "effect": 4
+    },
+    {
+      "Id": 98,
+      "Name": "风水",
+      "desc": "所属都市不容易出现蝗灾、瘟疫",
+      "level": 2,
+      "kind": "灾害",
+      "effect": 39
+    },
+    {
+      "Id": 99,
+      "Name": "祈愿",
+      "desc": "所属都市容易出现丰收",
+      "level": 2,
+      "kind": "灾害",
+      "effect": 37
+    },
+    {
+      "Id": 100,
+      "Name": "内助",
+      "desc": "若结婚，双方的能力全部＋２",
+      "level": 2,
+      "kind": "关系",
+      "effect": 5
+    }
+  ],
+  "AttributeChangeTypes": [
+    {
+      "Id": 0,
+      "Name": "无变化"
+    },
+    {
+      "Id": 1,
+      "Name": "持续"
+    },
+    {
+      "Id": 2,
+      "Name": "早熟早衰"
+    },
+    {
+      "Id": 3,
+      "Name": "早熟持续"
+    },
+    {
+      "Id": 4,
+      "Name": "后期持续"
+    },
+    {
+      "Id": 5,
+      "Name": "昙花一现"
+    }
+  ],
+  "ItemTypes": [
+    {
+      "Id": 1,
+      "Name": "剑",
+      "kind": 1,
+      "subKind": 1,
+      "desc": "标准装备的兵装，威力是最弱的",
+      "icon": "ui://game/4845_7_0",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 0,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "atk": 65,
+      "durabilityDmg": 30,
+      "def": 65,
+      "move": 12,
+      "cost": 1000,
+      "costFood": 1000,
+      "costGold": 1000,
+      "costPopulation": 1000,
+      "limitNum": 6000
+    },
+    {
+      "Id": 2,
+      "Name": "枪",
+      "kind": 1,
+      "subKind": 2,
+      "desc": "有利于对付骑兵，但不利于戟兵",
+      "icon": "ui://game/4845_7_1",
+      "skills": [
+        1,
+        3
+      ],
+      "influenceAbility": 1,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "atk": 95,
+      "durabilityDmg": 30,
+      "def": 85,
+      "move": 18,
+      "cost": 1000,
+      "costFood": 1000,
+      "costGold": 1000,
+      "costPopulation": 1000,
+      "limitNum": 6000
+    },
+    {
+      "Id": 3,
+      "Name": "刀",
+      "kind": 1,
+      "subKind": 3,
+      "desc": "有利于对付枪兵，但不利于骑兵",
+      "icon": "ui://game/4845_7_2",
+      "skills": [
+        2,
+        8
+      ],
+      "influenceAbility": 2,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "atk": 75,
+      "durabilityDmg": 30,
+      "def": 105,
+      "move": 18,
+      "cost": 1000,
+      "costFood": 1000,
+      "costGold": 1000,
+      "costPopulation": 1000,
+      "limitNum": 6000
+    },
+    {
+      "Id": 4,
+      "Name": "弓",
+      "kind": 1,
+      "subKind": 4,
+      "desc": "可对２区格之外的敌人执行弓箭攻击",
+      "icon": "ui://game/4845_7_3",
+      "skills": [
+        1,
+        10
+      ],
+      "influenceAbility": 3,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "atk": 85,
+      "durabilityDmg": 30,
+      "def": 75,
+      "move": 18,
+      "cost": 1200,
+      "costFood": 1200,
+      "costGold": 1200,
+      "costPopulation": 1200,
+      "limitNum": 6000
+    },
+    {
+      "Id": 5,
+      "Name": "军马",
+      "kind": 1,
+      "subKind": 5,
+      "desc": "有利于对付戟兵，但不利于枪兵",
+      "icon": "ui://game/4845_7_4",
+      "skills": [
+        1,
+        13
+      ],
+      "influenceAbility": 4,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "atk": 105,
+      "durabilityDmg": 30,
+      "def": 95,
+      "move": 30,
+      "cost": 1000,
+      "costFood": 1000,
+      "costGold": 1000,
+      "costPopulation": 1000,
+      "limitNum": 6000
+    },
+    {
+      "Id": 6,
+      "Name": "冲车",
+      "kind": 1,
+      "subKind": 6,
+      "desc": "直接攻击建筑物的兵器，可大大削弱建筑物的耐久",
+      "icon": "ui://game/4845_7_5",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 5,
+      "isFight": true,
+      "isSingle": false,
+      "isLand": true,
+      "atk": 70,
+      "durabilityDmg": 30,
+      "def": 90,
+      "move": 16,
+      "cost": 2000,
+      "costFood": 2000,
+      "costGold": 2000,
+      "costPopulation": 2000,
+      "limitNum": 6000
+    },
+    {
+      "Id": 7,
+      "Name": "井阑",
+      "kind": 1,
+      "subKind": 6,
+      "desc": "以弓箭攻击建筑物的兵器，可大大削减士兵数",
+      "icon": "ui://game/4845_7_6",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 5,
+      "isFight": true,
+      "isSingle": false,
+      "isLand": true,
+      "atk": 80,
+      "durabilityDmg": 30,
+      "def": 80,
+      "move": 16,
+      "cost": 2400,
+      "costFood": 2400,
+      "costGold": 2400,
+      "costPopulation": 2400,
+      "limitNum": 6000
+    },
+    {
+      "Id": 8,
+      "Name": "投石",
+      "kind": 1,
+      "subKind": 6,
+      "desc": "强化井阑后的兵器，以投石攻击３区格外之敌方耐久与士兵",
+      "icon": "ui://game/4845_7_7",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 5,
+      "isFight": true,
+      "isSingle": false,
+      "isLand": true,
+      "atk": 100,
+      "durabilityDmg": 30,
+      "def": 80,
+      "move": 16,
+      "cost": 2500,
+      "costFood": 2500,
+      "costGold": 2500,
+      "costPopulation": 2500,
+      "limitNum": 6000
+    },
+    {
+      "Id": 9,
+      "Name": "木兽",
+      "kind": 1,
+      "subKind": 6,
+      "desc": "将冲车强化后的兵器，可削减建筑物的耐久，并放火",
+      "icon": "ui://game/4845_7_8",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 5,
+      "isFight": true,
+      "isSingle": false,
+      "isLand": true,
+      "atk": 90,
+      "durabilityDmg": 30,
+      "def": 90,
+      "move": 16,
+      "cost": 2400,
+      "costFood": 2400,
+      "costGold": 2400,
+      "costPopulation": 2400,
+      "limitNum": 6000
+    },
+    {
+      "Id": 10,
+      "Name": "走舸",
+      "kind": 1,
+      "subKind": 7,
+      "desc": "标准装备的舰船。",
+      "icon": "ui://game/4845_7_9",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 4,
+      "isFight": true,
+      "isSingle": false,
+      "isLand": false,
+      "atk": 70,
+      "durabilityDmg": 30,
+      "def": 80,
+      "move": 24,
+      "cost": 0,
+      "costFood": 0,
+      "costGold": 0,
+      "costPopulation": 0,
+      "limitNum": 6000
+    },
+    {
+      "Id": 11,
+      "Name": "楼船",
+      "kind": 1,
+      "subKind": 7,
+      "desc": "大型船，移动力、装甲都比走舸强化许多",
+      "icon": "ui://game/4845_7_10",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 4,
+      "isFight": true,
+      "isSingle": false,
+      "isLand": false,
+      "atk": 80,
+      "durabilityDmg": 30,
+      "def": 100,
+      "move": 26,
+      "cost": 2000,
+      "costFood": 2000,
+      "costGold": 2000,
+      "costPopulation": 2000,
+      "limitNum": 6000
+    },
+    {
+      "Id": 12,
+      "Name": "斗舰",
+      "kind": 1,
+      "subKind": 7,
+      "desc": "将楼船强化后的舰船，可执行投石攻击",
+      "icon": "ui://game/4845_7_11",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 4,
+      "isFight": true,
+      "isSingle": false,
+      "isLand": false,
+      "atk": 90,
+      "durabilityDmg": 30,
+      "def": 120,
+      "move": 28,
+      "cost": 2500,
+      "costFood": 2500,
+      "costGold": 2500,
+      "costPopulation": 2500,
+      "limitNum": 6000
+    },
+    {
+      "Id": 13,
+      "Name": "运输",
+      "kind": 1,
+      "subKind": 0,
+      "desc": "普通运输队",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 0,
+      "isFight": false,
+      "isSingle": false,
+      "isLand": true,
+      "atk": 0,
+      "durabilityDmg": 30,
+      "def": 50,
+      "move": 20,
+      "cost": 0,
+      "costFood": 0,
+      "costGold": 0,
+      "costPopulation": 0,
+      "limitNum": 6000
+    },
+    {
+      "Id": 14,
+      "Name": "木牛",
+      "kind": 1,
+      "subKind": 0,
+      "desc": "木牛流马运输",
+      "skills": [
+        1
+      ],
+      "influenceAbility": 0,
+      "isFight": false,
+      "isSingle": false,
+      "isLand": true,
+      "atk": 0,
+      "durabilityDmg": 30,
+      "def": 50,
+      "move": 20,
+      "cost": 0,
+      "costFood": 0,
+      "costGold": 0,
+      "costPopulation": 0,
+      "limitNum": 6000
+    }
+  ],
+  "TroopAnimations": [
+    {
+      "Id": 1,
+      "Name": "剑",
+      "aniName": "idle",
+      "frameTexture": "Texture/Troops/1_move.png",
+      "maskTexture": "Texture/Troops/1_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 2,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 2,
+      "Name": "剑",
+      "aniName": "move",
+      "frameTexture": "Texture/Troops/1_move.png",
+      "maskTexture": "Texture/Troops/1_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 2,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 3,
+      "Name": "剑",
+      "aniName": "attack",
+      "frameTexture": "Texture/Troops/1_attack.png",
+      "maskTexture": "Texture/Troops/1_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": false
+    },
+    {
+      "Id": 4,
+      "Name": "骑",
+      "aniName": "idle",
+      "frameTexture": "Texture/Troops/2_move.png",
+      "maskTexture": "Texture/Troops/2_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 2,
+      "scale": 1.4,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 5,
+      "Name": "骑",
+      "aniName": "move",
+      "frameTexture": "Texture/Troops/2_move.png",
+      "maskTexture": "Texture/Troops/2_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 2,
+      "scale": 1.4,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 6,
+      "Name": "骑",
+      "aniName": "attack",
+      "frameTexture": "Texture/Troops/2_attack.png",
+      "maskTexture": "Texture/Troops/2_attack_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 1.4,
+      "time": 2.0,
+      "isLoop": false
+    },
+    {
+      "Id": 7,
+      "Name": "弓",
+      "aniName": "idle",
+      "frameTexture": "Texture/Troops/3_move.png",
+      "maskTexture": "Texture/Troops/3_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 8,
+      "Name": "弓",
+      "aniName": "move",
+      "frameTexture": "Texture/Troops/3_move.png",
+      "maskTexture": "Texture/Troops/3_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 9,
+      "Name": "弓",
+      "aniName": "attack",
+      "frameTexture": "Texture/Troops/3_attack.png",
+      "maskTexture": "Texture/Troops/3_attack_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": false
+    },
+    {
+      "Id": 10,
+      "Name": "枪",
+      "aniName": "idle",
+      "frameTexture": "Texture/Troops/4_move.png",
+      "maskTexture": "Texture/Troops/4_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 11,
+      "Name": "枪",
+      "aniName": "move",
+      "frameTexture": "Texture/Troops/4_move.png",
+      "maskTexture": "Texture/Troops/4_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 12,
+      "Name": "枪",
+      "aniName": "attack",
+      "frameTexture": "Texture/Troops/4_attack.png",
+      "maskTexture": "Texture/Troops/4_attack_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 1.0,
+      "time": 2.0,
+      "isLoop": false
+    },
+    {
+      "Id": 13,
+      "Name": "空手",
+      "aniName": "idle",
+      "frameTexture": "Texture/Troops/7_move.png",
+      "maskTexture": "Texture/Troops/1_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 0.8,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 14,
+      "Name": "空手",
+      "aniName": "move",
+      "frameTexture": "Texture/Troops/7_move.png",
+      "maskTexture": "Texture/Troops/1_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 0.8,
+      "time": 2.0,
+      "isLoop": true
+    },
+    {
+      "Id": 15,
+      "Name": "空手",
+      "aniName": "attack",
+      "frameTexture": "Texture/Troops/7_attack.png",
+      "maskTexture": "Texture/Troops/1_move_mask.png",
+      "celCount": 4,
+      "rowCount": 4,
+      "celCountMax": 4,
+      "scale": 0.8,
+      "time": 2.0,
+      "isLoop": false
+    }
+  ],
+  "TroopTypes": [
+    {
+      "Id": 1,
+      "Name": "杂兵",
+      "kind": 1,
+      "skills": [
+        1
+      ],
+      "atk": 65,
+      "durabilityDmg": 30,
+      "def": 65,
+      "move": 12,
+      "defType": 1,
+      "atkType": 1,
+      "influenceAbility": 0,
+      "validItemId": 0,
+      "validTechId": 0,
+      "costFood": 1000,
+      "costGold": 1000,
+      "costPopulation": 1000,
+      "costTechPoint": 0,
+      "costExpPoint": 0,
+      "foodCostFactor": 1.0,
+      "isRange": false,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "terrainCost": [
+        99,
+        4,
+        4,
+        5,
+        5,
+        4,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        1,
+        1,
+        4,
+        4
+      ],
+      "desc": "标准装备的兵装，威力是最弱的",
+      "icon": "ui://game/4845_7_0",
+      "model": 32,
+      "aniIds": [
+        13,
+        14,
+        15
+      ]
+    },
+    {
+      "Id": 2,
+      "Name": "枪兵",
+      "kind": 3,
+      "skills": [
+        1,
+        3
+      ],
+      "atk": 95,
+      "durabilityDmg": 25,
+      "def": 85,
+      "move": 18,
+      "defType": 2,
+      "atkType": 2,
+      "influenceAbility": 1,
+      "validItemId": 0,
+      "validTechId": 0,
+      "costItems": [
+        2,
+        1
+      ],
+      "costFood": 1000,
+      "costGold": 1000,
+      "costPopulation": 1000,
+      "costTechPoint": 0,
+      "costExpPoint": 0,
+      "foodCostFactor": 1.0,
+      "isRange": false,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "terrainCost": [
+        99,
+        4,
+        4,
+        5,
+        5,
+        4,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        1,
+        1,
+        4,
+        4
+      ],
+      "desc": "有利于对付骑兵，但不利于戟兵",
+      "icon": "ui://game/4845_7_1",
+      "model": 32,
+      "aniIds": [
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "Id": 3,
+      "Name": "刀兵",
+      "kind": 1,
+      "skills": [
+        1,
+        8
+      ],
+      "atk": 75,
+      "durabilityDmg": 30,
+      "def": 105,
+      "move": 18,
+      "defType": 2,
+      "atkType": 1,
+      "influenceAbility": 2,
+      "validItemId": 0,
+      "validTechId": 0,
+      "costItems": [
+        3,
+        1
+      ],
+      "costFood": 1000,
+      "costGold": 1000,
+      "costPopulation": 1000,
+      "costTechPoint": 0,
+      "costExpPoint": 0,
+      "foodCostFactor": 1.0,
+      "isRange": false,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "terrainCost": [
+        99,
+        4,
+        4,
+        5,
+        5,
+        4,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        1,
+        1,
+        4,
+        4
+      ],
+      "desc": "有利于对付枪兵，但不利于骑兵",
+      "icon": "ui://game/4845_7_2",
+      "model": 32,
+      "aniIds": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "Id": 4,
+      "Name": "弓兵",
+      "kind": 2,
+      "skills": [
+        2,
+        10
+      ],
+      "atk": 85,
+      "durabilityDmg": 35,
+      "def": 75,
+      "move": 18,
+      "defType": 3,
+      "atkType": 2,
+      "influenceAbility": 3,
+      "validItemId": 0,
+      "validTechId": 0,
+      "costItems": [
+        4,
+        1
+      ],
+      "costFood": 1200,
+      "costGold": 1200,
+      "costPopulation": 1200,
+      "costTechPoint": 0,
+      "costExpPoint": 0,
+      "foodCostFactor": 1.0,
+      "isRange": true,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "terrainCost": [
+        99,
+        4,
+        4,
+        5,
+        5,
+        4,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        1,
+        1,
+        4,
+        4
+      ],
+      "desc": "可对２区格之外的敌人执行弓箭攻击",
+      "icon": "ui://game/4845_7_3",
+      "model": 33,
+      "aniIds": [
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "Id": 5,
+      "Name": "骑兵",
+      "kind": 4,
+      "skills": [
+        1,
+        13
+      ],
+      "atk": 105,
+      "durabilityDmg": 20,
+      "def": 95,
+      "move": 24,
+      "defType": 3,
+      "atkType": 1,
+      "influenceAbility": 4,
+      "validItemId": 0,
+      "validTechId": 0,
+      "costItems": [
+        5,
+        1
+      ],
+      "costFood": 1000,
+      "costGold": 1000,
+      "costPopulation": 1000,
+      "costTechPoint": 0,
+      "costExpPoint": 0,
+      "foodCostFactor": 2.0,
+      "isRange": false,
+      "isFight": true,
+      "isSingle": true,
+      "isLand": true,
+      "terrainCost": [
+        99,
+        4,
+        4,
+        5,
+        5,
+        4,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        1,
+        1,
+        4,
+        4
+      ],
+      "desc": "有利于对付戟兵，但不利于枪兵",
+      "icon": "ui://game/4845_7_4",
+      "model": 32,
+      "aniIds": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "Id": 6,
+      "Name": "陷阵营",
+      "kind": 1
+    },
+    {
+      "Id": 7,
+      "Name": "青州兵",
+      "kind": 3
+    },
+    {
+      "Id": 8,
+      "Name": "白毦兵",
+      "kind": 3
+    },
+    {
+      "Id": 9,
+      "Name": "虎豹骑",
+      "kind": 4
+    },
+    {
+      "Id": 10,
+      "Name": "大戟士",
+      "kind": 3
+    },
+    {
+      "Id": 11,
+      "Name": "虎卫军",
+      "kind": 1
+    },
+    {
+      "Id": 12,
+      "Name": "白马义从",
+      "kind": 2
+    },
+    {
+      "Id": 13,
+      "Name": "西凉铁骑‌",
+      "kind": 4
+    },
+    {
+      "Id": 14,
+      "Name": "藤甲兵",
+      "kind": 1
+    },
+    {
+      "Id": 15,
+      "Name": "象兵",
+      "kind": 4
+    },
+    {
+      "Id": 16,
+      "Name": "无当飞军",
+      "kind": 2
+    },
+    {
+      "Id": 17,
+      "Name": "锦帆军",
+      "kind": 2
+    }
+  ]
+}

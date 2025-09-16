@@ -1,0 +1,1 @@
+return {state = 3,entity = {},desc = "",id = 6,name = "禁疗",maxLayer = 1,buff_type = 6,replaceType = 2,}

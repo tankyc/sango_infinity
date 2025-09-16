@@ -1,0 +1,6 @@
+id=City
+name=城市模组
+description=三国无限城市模组
+version=0.1
+depends=Map;Core
+poster=

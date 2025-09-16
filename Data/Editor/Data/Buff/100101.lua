@@ -1,0 +1,1 @@
+return {entity = {{conditions = {{effects = {{3,0,"dodge",3000,200,},{1,0,22,8,},},},},},{conditions = {{condition = {3,5000,400,},effects = {{2,0,2,2,1,5000,0,},},},},trigger = {3,0,0,},},},name = "七进七出-闪",desc = "",id = 100101,}

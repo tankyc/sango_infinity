@@ -1,0 +1,1 @@
+return {skill_type = 1,prob = 5000,desc = "",id = 1001,name = "七进七出",skill_effects = {{effect = {{3,100101,8,},},target_type = 1,target_num = 1,},},command = 1,}

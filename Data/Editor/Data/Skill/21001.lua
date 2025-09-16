@@ -1,0 +1,1 @@
+return {skill_type = 4,prob = 10000,desc = "",id = 21001,name = "魏武之强",skill_effects = {{effect = {{3,160,22,0,},},target_type = 1,target_num = 1,},{effect = {{3,160,22,0,},},target_type = 9,target_num = 1,},},command = 1,}

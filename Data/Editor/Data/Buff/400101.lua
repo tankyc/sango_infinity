@@ -1,0 +1,1 @@
+return {state = 0,desc = "",id = 400101,entity = {{conditions = {{condition = {3,4000,500,},effects = {{1,0,3,1,1,1,},},},},trigger = {2,{1,2,},0,0,},},},maxLayer = 1,name = "盛气临敌-临",}

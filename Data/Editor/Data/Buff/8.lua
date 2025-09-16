@@ -1,0 +1,1 @@
+return {state = 3,entity = {},desc = "",id = 8,name = "虚弱",maxLayer = 1,buff_type = 8,replaceType = 3,}

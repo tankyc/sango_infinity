@@ -1,0 +1,1 @@
+return {skill_type = 5,prob = 5000,desc = "",id = 11001,name = "铁骑冲锋",skill_effects = {{effect = {{1,1,14000,1400,},},target_type = 2,target_num = 2,},},command = 1,}

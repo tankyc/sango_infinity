@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 此处类型字符串可以通过打印Type的FullName属性来查看-->
+  <!-- Core -->
+  <!--<word>System.Uri</word> -->
+
+	<word>DG.Tweening.TweenCallback</word>
+	<word>UnityEngine.GUI+WindowFunction</word>
+
+</root>

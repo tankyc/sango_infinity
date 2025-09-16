@@ -1,0 +1,1 @@
+return {skill_type = 6,prob = 5000,desc = "",id = 6001,name = "千里追击",skill_effects = {{effect = {{1,1,3.6,0,},},target_type = 2,target_num = 1,},},command = 1,}

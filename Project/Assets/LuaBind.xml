@@ -1,0 +1,289 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+	<!-- 此处类型字符串可以通过打印Type的FullName属性来查看-->
+	<!-- Core -->
+	<word>System.Uri</word>
+	<word>System.Collections.Hashtable</word>
+	<word>System.IO.SearchOption</word>
+	<word>System.IO.FileStream</word>
+	<word>System.IO.BinaryWriter</word>
+	<word>System.IO.BinaryReader</word>
+	<word>System.IO.FileMode</word>
+	<word>System.IO.FileAccess</word>
+	<word>System.Collections.Generic.List`1[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]</word>
+	<!-- XFreamwork -->
+
+
+	<!-- Unity -->
+	<word extendType="DG.Tweening.ShortcutExtensions">UnityEngine.Component</word>
+	<word extendType="DG.Tweening.ShortcutExtensions">UnityEngine.Transform</word>
+	<word extendType="DG.Tweening.ShortcutExtensions">UnityEngine.Light</word>
+	<word extendType="DG.Tweening.ShortcutExtensions">UnityEngine.Material</word>
+	<word extendType="DG.Tweening.ShortcutExtensions">UnityEngine.Rigidbody</word>
+	<word extendType="DG.Tweening.ShortcutExtensions">UnityEngine.Camera</word>
+	<word extendType="DG.Tweening.ShortcutExtensions">UnityEngine.AudioSource</word>
+
+	<word>UnityEngine.CameraClearFlags</word>
+	<word>UnityEngine.Resources</word>
+	<word>UnityEngine.RenderTexture</word>
+	<word>UnityEngine.SceneManagement.SceneManager</word>
+	<word>UnityEngine.SceneManagement.LoadSceneMode</word>
+	<word>UnityEngine.StaticBatchingUtility</word>
+	<word>UnityEngine.AssetBundleCreateRequest</word>
+	<word>UnityEngine.AssetBundle</word>
+	<word>UnityEngine.AssetBundleRequest</word>
+	<word>UnityEngine.AssetBundleManifest</word>
+	<word>UnityEngine.AudioListener</word>
+	<word>UnityEngine.AudioSource</word>
+	<word>UnityEngine.Collider</word>
+	<word>UnityEngine.Material</word>
+	<word>UnityEngine.Animation</word>
+	<word>UnityEngine.Animator</word>
+	<word>UnityEngine.AI.NavMeshAgent</word>
+	<word>UnityEngine.AI.NavMeshPath</word>
+	<word>UnityEngine.AI.NavMeshHit</word>
+	<word>UnityEngine.TouchPhase</word>
+	<word>UnityEngine.ParticleSystemRenderer</word>
+	<word>UnityEngine.Projector</word>
+	<word>UnityEngine.TrailRenderer</word>
+	<word>UnityEngine.Mesh</word>
+	<word>UnityEngine.ParticleSystem+ShapeModule</word>
+	<word>UnityEngine.CombineInstance</word>
+	<word>UnityEngine.DepthTextureMode</word>
+	<word>UnityEngine.QualitySettings</word>
+	<word>UnityEngine.AI.NavMeshObstacle</word>
+	<word>UnityEngine.Rect</word>
+	<word>UnityEngine.UI.GraphicRaycaster</word>
+	<word>UnityEngine.RectTransform</word>
+	<word>UnityEngine.EventSystems.EventSystem</word>
+	<word>UnityEngine.EventSystems.PhysicsRaycaster</word>
+	<word>UnityEngine.Playables.PlayableDirector</word>
+	<word>UnityEngine.UI.Image</word>
+	<word>UnityEngine.UI.RawImage</word>
+	<word>UnityEngine.UI.Text</word>
+	<word>UnityEngine.Events.UnityEvent</word>
+	<word>UnityEngine.UI.RectMask2D</word>
+	<word>UnityEngine.UI.ScrollRect</word>
+	<word>UnityEngine.UI.Button</word>
+	<word>UnityEngine.UI.Button+ButtonClickedEvent</word>
+	<word>UnityEngine.UI.Slider</word>
+	<word>UnityEngine.UI.Slider+SliderEvent</word>
+	<word>UnityEngine.Sprite</word>
+	<word>UnityEngine.PlayerPrefs</word>
+	<word>UnityEngine.Terrain+MaterialType</word>
+	<word>UnityEngine.Terrain</word>
+	<word>UnityEngine.ShadowQuality</word>
+	<word>UnityEngine.ShadowResolution</word>
+	<word>UnityEngine.ShadowmaskMode</word>
+	<word>UnityEngine.ShadowProjection</word>
+	<word>UnityEngine.AnisotropicFiltering</word>
+	<word>UnityEngine.SystemInfo</word>
+	<word>UnityEngine.ShaderVariantCollection</word>
+	<word>UnityEngine.CanvasGroup</word>
+	<word>UnityEngine.TextAsset</word>
+	<word>UnityEngine.Canvas</word>
+	<word>UnityEngine.Random</word>
+	<word>UnityEngine.Texture</word>
+	<word>UnityEngine.Texture2D</word>
+	<word>UnityEngine.MeshFilter</word>
+	<word>UnityEngine.MeshRenderer</word>
+	<word>UnityEngine.MeshCollider</word>
+	<word>UnityEngine.RectTransformUtility</word>
+	<word>UnityEngine.RenderMode</word>
+	<word>UnityEngine.Color32</word>
+	<word>UnityEngine.GUIStyle</word>
+	<word>UnityEngine.GUILayout</word>
+	<word>UnityEngine.GUI</word>
+	<word>UnityEngine.Event</word>
+	<word>UnityEngine.EventType</word>
+	<word>UnityEngine.GUISkin</word>
+	<word>UnityEngine.GUILayoutUtility</word>
+	<word>UnityEngine.GUI+ClipScope</word>
+	<word>UnityEngine.GUI+GroupScope</word>
+	<word>UnityEngine.GUI+ScrollViewScope</word>
+	<word>UnityEngine.GUI+ToolbarButtonSize</word>
+	<!--word>UnityEngine.U2D.SpriteAtlas</word -->
+
+
+	<!-- DOTween -->
+	<word>DG.Tweening.DOTween</word>
+	<word baseType="System.Object" extendType="DG.Tweening.TweenExtensions">DG.Tweening.Tween</word>
+	<word extendType="DG.Tweening.TweenSettingsExtensions">DG.Tweening.Sequence</word>
+	<word extendType="DG.Tweening.TweenSettingsExtensions">DG.Tweening.Tweener</word>
+	<word>DG.Tweening.LoopType</word>
+	<word>DG.Tweening.PathMode</word>
+	<word>DG.Tweening.PathType</word>
+	<word>DG.Tweening.RotateMode</word>
+	<word>DG.Tweening.DOTweenAnimation</word>
+	<word>DG.Tweening.Ease</word>
+	<word>DG.Tweening.LoopType</word>
+	<word>DG.Tweening.UpdateType</word>
+	<word>DG.Tweening.TweenType</word>
+	<word>DG.Tweening.RotateMode</word>
+
+	<word>LuaInterface.LuaFileUtils</word>
+	<word>HexMesh</word>
+	<word>CameraPlaneView</word>
+
+	<!--word>SDK.SDKInterface</word-->
+
+	<word>DG.Tweening.Core.TweenerCore`3[[UnityEngine.Quaternion, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null],[UnityEngine.Vector3, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null],[DG.Tweening.Plugins.Options.QuaternionOptions, DOTween, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]</word>
+	<word>DG.Tweening.Core.TweenerCore`3[[System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[DG.Tweening.Plugins.Options.FloatOptions, DOTween, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]</word>
+
+	<!--FairyGUI-->
+	<word>FairyGUI.EventContext</word>
+	<word>FairyGUI.EventDispatcher</word>
+	<word>FairyGUI.EventListener</word>
+	<word>FairyGUI.InputEvent</word>
+	<word>FairyGUI.DisplayObject</word>
+	<word>FairyGUI.Container</word>
+	<word>FairyGUI.Stage</word>
+	<word>FairyGUI.GObject</word>
+	<word>FairyGUI.GGraph</word>
+	<word>FairyGUI.GGroup</word>
+	<word>FairyGUI.GImage</word>
+	<word>FairyGUI.GLoader</word>
+	<word>FairyGUI.GMovieClip</word>
+	<word>FairyGUI.TextFormat</word>
+	<word>FairyGUI.GTextField</word>
+	<word>FairyGUI.GRichTextField</word>
+	<word>FairyGUI.GTextInput</word>
+	<word>FairyGUI.GComponent</word>
+	<word>FairyGUI.GList</word>
+	<word>FairyGUI.GRoot</word>
+	<word>FairyGUI.GLabel</word>
+	<word>FairyGUI.GButton</word>
+	<word>FairyGUI.GComboBox</word>
+	<word>FairyGUI.GProgressBar</word>
+	<word>FairyGUI.GSlider</word>
+	<word>FairyGUI.PopupMenu</word>
+	<word>FairyGUI.ScrollPane</word>
+	<word>FairyGUI.Transition</word>
+	<word>FairyGUI.UIPackage</word>
+	<word>FairyGUI.Window</word>
+	<word>FairyGUI.GObjectPool</word>
+	<word>FairyGUI.Relations</word>
+	<word>FairyGUI.RelationType</word>
+	<word>FairyGUI.Timers</word>
+	<word>FairyGUI.GTween</word>
+	<word>FairyGUI.GTweener</word>
+	<word>FairyGUI.EaseType</word>
+	<word>FairyGUI.TweenValue</word>
+	<word>FairyGUI.UIObjectFactory</word>
+	<word>FairyGUI.Controller</word>
+	<word>FairyGUI.UIPanel</word>
+	<word>FairyGUI.NTexture</word>
+	<word>FairyGUI.AlignType</word>
+	<word>FairyGUI.VertAlignType</word>
+	<word>FairyGUI.OverflowType</word>
+	<word>FairyGUI.ObjectType</word>
+	<word>FairyGUI.PackageItemType</word>
+	<word>FairyGUI.FillType</word>
+	<word>FairyGUI.AutoSizeType</word>
+	<word>FairyGUI.ScrollType</word>
+	<word>FairyGUI.ScrollBarDisplayType</word>
+	<word>FairyGUI.RelationType</word>
+	<word>FairyGUI.ListLayoutType</word>
+	<word>FairyGUI.ListSelectionMode</word>
+	<word>FairyGUI.ProgressTitleType</word>
+	<word>FairyGUI.ButtonMode</word>
+	<word>FairyGUI.TransitionActionType</word>
+	<word>FairyGUI.GroupLayoutType</word>
+	<word>FairyGUI.ChildrenRenderOrder</word>
+	<word>FairyGUI.PopupDirection</word>
+	<word>FairyGUI.FlipType</word>
+	<word>FairyGUI.FillMethod</word>
+	<word>FairyGUI.OriginHorizontal</word>
+	<word>FairyGUI.OriginVertical</word>
+	<word>FairyGUI.Origin90</word>
+	<word>FairyGUI.Origin180</word>
+	<word>FairyGUI.Origin360</word>
+	<word>FairyGUI.FocusRule</word>
+	<word>FairyGUI.Shape</word>
+	<word>FairyGUI.UIContentScaler+ScreenMatchMode</word>
+
+	<!--TriLib-->
+	<word>TriLibCore.AssetLoader</word>
+	<word>TriLibCore.AssetLoaderContext</word>
+	<word>TriLibCore.GCHelper</word>
+	<word>TriLibCore.AssetLoaderOptions</word>
+
+	<!--Sango-->
+	<word>Sango.Object</word>
+	<word>Sango.Module</word>
+
+	<word>Sango.Config</word>
+	<word>Sango.Behaviour</word>
+	<word>Sango.Log</word>
+	<word>Sango.Log+LogType</word>
+	<word>Sango.Path</word>
+	<word>Sango.Utility</word>
+	<word>Sango.Platform</word>
+	<word>Sango.Platform+PlatformName</word>
+	<word>Sango.PlatformListener</word>
+	<word>Sango.PlatformUtility</word>
+	<word>Sango.Scripts</word>
+	<word>Sango.UnityTools</word>
+	<word>Sango.File</word>
+	<word>Sango.Directory</word>
+	<word>Sango.AssetBundleManager</word>
+	<word>Sango.AssetReleaser</word>
+	<word>Sango.Loader.ObjectLoader</word>
+	<word>Sango.Loader.ModelLoader</word>
+	<word>Sango.Loader.TextureLoader</word>
+	<word>Sango.Loader.AssetStore</word>
+	<word>Sango.Loader.UILoader</word>
+	<word>Sango.FreeCamera</word>
+	<word>Sango.Billboard</word>
+	<word>Sango.BillboardUI</word>
+	<word>Sango.TroopsRender</word>
+	<word>Sango.TextFactory</word>
+
+	<word>Sango.Render.MapBaseColor</word>
+	<word>Sango.Render.LayerMeshData</word>
+	<word>Sango.Render.MapCamera</word>
+	<word>Sango.Render.MapCell</word>
+	<word>Sango.Render.MapData</word>
+	<word>Sango.Render.MapFog</word>
+	<word>Sango.Render.MapGrid</word>
+	<word>Sango.Render.MapGrid+GridState</word>
+	<word>Sango.Render.MapGrid+GridData</word>
+	<word>Sango.Render.MapGrid+San11GridData</word>
+	<word>Sango.Render.MapLayer</word>
+	<word>Sango.Render.MapLight</word>
+	<word>Sango.Render.MapModels</word>
+	<word>Sango.Render.MapObject</word>
+	<word>Sango.Render.MapProperty</word>
+	<word>Sango.Render.MapSkyBox</word>
+	<word>Sango.Render.MapTerrain</word>
+	<word>Sango.Tools.BrushBase</word>
+	<word>Sango.Tools.GridBrush</word>
+	<word>Sango.Tools.ModelBrush</word>
+	<word>Sango.Tools.TerrainBrush</word>
+	<word>Sango.Tools.MapEditor</word>
+	<word>Sango.Tools.EditorWindow</word>
+	<word>Sango.Tools.EditorUtility</word>
+	<word>Sango.Tools.Rect</word>
+	<word>Sango.PoolManager</word>
+	<word>Sango.Window</word>
+	<word>Sango.UGUIWindow</word>
+	<word>Sango.Mod.Mod</word>
+	<word>Sango.Mod.ModManager</word>
+	<word>Sango.Game.Game</word>
+	<word>Sango.Game.GameData</word>
+	<word>Sango.Game.GameVariables</word>
+	<word>Sango.Game.GameState</word>
+	<word>Sango.Game.GameRandom</word>
+	<word>Sango.Game.GameDefine</word>
+	<word>Sango.Game.GameConfig</word>
+
+	<word>Sango.Game.Event</word>
+	<word>Sango.Game.Scenario</word>
+	<word>Sango.Game.Force</word>
+	<word>Sango.Game.Troop</word>
+	<word>WindowDialog</word>
+	<word>Sango.Game.ScenarioEvent</word>
+	<word>Sango.Game.ScenarioInfo</word>
+
+
+</root>

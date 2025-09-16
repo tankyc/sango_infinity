@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 73c1a9c4a66deb54c97963bd290e1c84
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - transformGizmos: {fileID: 3702256428487114477, guid: 1eef39afb891394459b58c7ad65e2789, type: 3}
+  - map: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

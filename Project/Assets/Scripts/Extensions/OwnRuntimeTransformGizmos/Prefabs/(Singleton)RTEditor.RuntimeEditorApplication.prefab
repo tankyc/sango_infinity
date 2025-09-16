@@ -1,0 +1,1343 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &3648144585585746886
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144585585746889}
+  - component: {fileID: 3648144585585746888}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.EditorGizmoSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144585585746889
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144585585746886}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144585585746888
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144585585746886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28dbc93ee1659da4e92d593c5e771628, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _activateTranslationGizmoShortcut:
+    _keys: 7700000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 1
+    _name: Activate move gizmo
+  _activateRotationGizmoShortcut:
+    _keys: 6500000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 1
+    _name: Activate rotation gizmo
+  _activateScaleGizmoShortcut:
+    _keys: 7200000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 1
+    _name: Activate scale gizmo
+  _activateVolumeScaleGizmoShortcut:
+    _keys: 7500000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 1
+    _name: Activate volume scale gizmo
+  _activateGlobalTransformShortcut:
+    _keys: 6700000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 1
+    _name: Activate global transform
+  _activateLocalTransformShortcut:
+    _keys: 6c00000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 1
+    _name: Activate local transform
+  _turnOffGizmosShortcut:
+    _keys: 7100000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 1
+    _name: Turn off gizmos
+  _togglePivotShortcut:
+    _keys: 7000000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 1
+    _name: Toggle pivot
+  _translationGizmo: {fileID: 3648144587678971523}
+  _rotationGizmo: {fileID: 3648144587571709790}
+  _scaleGizmo: {fileID: 3648144586640563490}
+  _volumeScaleGizmo: {fileID: 3648144586257775855}
+  _transformSpace: 1
+  _activeGizmoType: 0
+  _transformPivotPoint: 1
+  _gizmoTypeAvailableFlags: 01010101
+--- !u!1 &3648144585906328657
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144585906328656}
+  - component: {fileID: 3648144585906328659}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.EditorObjectSelection
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144585906328656
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144585906328657}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144585906328659
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144585906328657}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3422368a2066bd4491246c6cdb58c5a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _objectSelectionSettings:
+    _objectSelectionRenderMode: 0
+    _selectableLayers: -1
+    _duplicatableLayers: -1
+    _canSelectTerrainObjects: 0
+    _canSelectLightObjects: 0
+    _canSelectParticleSystemObjects: 0
+    _canSelectSpriteObjects: 1
+    _canSelectEmptyObjects: 0
+    _canClickSelect: 1
+    _canMultiSelect: 1
+    _objectSelectionBoxRenderSettings:
+      _selectionBoxStyle: 0
+      _selectionBoxRenderMode: 0
+      _selectionBoxCornerLinePercentage: 0.5
+      _selectionBoxLineColor: {r: 0, g: 1, b: 0, a: 1}
+      _boxSizeAdd: 0.005
+      _drawBoxes: 1
+  _appendToSelectionShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 1
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Append to selection
+  _multiDeselectShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 1
+    _useModifiers: 1
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Multi deselect
+  _duplicateSelectionShortcut:
+    _keys: 6400000000000000
+    _numberOfKeys: 1
+    _lCtrl: 1
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Duplicate selection
+  _deleteSelectionShortcut:
+    _keys: 7f00000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Delete selection
+  _objectSelectionRectangle:
+    _renderSettings:
+      _borderLineColor: {r: 1, g: 1, b: 1, a: 1}
+      _fillColor: {r: 0.37254903, g: 0.42745098, b: 0.50980395, a: 0.5}
+--- !u!1 &3648144585987458614
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144585987458617}
+  - component: {fileID: 3648144585987458616}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.SceneGizmo
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144585987458617
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144585987458614}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 7
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144585987458616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144585987458614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cc3972ee0de2e74ab3d9adbadb7708b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _corner: 1
+  _negativeAxisColor: {r: 0.8, g: 0.8, b: 0.8, a: 0.92941177}
+  _xAxisColor: {r: 0.85882354, g: 0.24313726, b: 0.11372549, a: 1}
+  _yAxisColor: {r: 0.6039216, g: 0.9529412, b: 0.28235295, a: 1}
+  _zAxisColor: {r: 0.22745098, g: 0.47843137, b: 0.972549, a: 1}
+  _cubeColor: {r: 0.8, g: 0.8, b: 0.8, a: 0.92941177}
+  _hoveredComponentColor: {r: 0.9647059, g: 0.9490196, b: 0.19607843, a: 1}
+  _cameraAlignDuration: 0.3
+--- !u!1 &3648144586257775852
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144586257775854}
+  - component: {fileID: 3648144586257775855}
+  m_Layer: 0
+  m_Name: Volume Scale Gizmo
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &3648144586257775854
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586257775852}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 11
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144586257775855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586257775852}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 142886f19e79e164a99a2626bb761ac2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _maskedObjectLayers: 0
+  _axesColors:
+  - {r: 0.85882354, g: 0.24313726, b: 0.11372549, a: 1}
+  - {r: 0.6039216, g: 0.9529412, b: 0.28235295, a: 1}
+  - {r: 0.22745098, g: 0.47843137, b: 0.972549, a: 1}
+  _selectedAxisColor: {r: 0.9647059, g: 0.9490196, b: 0.19607843, a: 1}
+  _gizmoBaseScale: 0.77
+  _preserveGizmoScreenSize: 1
+  _axesVisibilityMask: 010101
+  _enableScaleFromCenterShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 1
+    _useModifiers: 1
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Scale from center
+  _enableStepSnappingShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 1
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable step snapping
+  _lineColor: {r: 1, g: 1, b: 1, a: 0.211}
+  _dragHandleSizeInPixels: 8
+  _snapStepInWorldUnits: 1
+--- !u!1 &3648144586272800460
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144586272800463}
+  - component: {fileID: 3648144586272800497}
+  - component: {fileID: 3648144586272800462}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.EditorCamera
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144586272800463
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586272800460}
+  m_LocalRotation: {x: 0.119760446, y: -0.28478777, z: 0.03588616, w: 0.9504029}
+  m_LocalPosition: {x: 3.48, y: 2.07, z: -4.78}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 2
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144586272800497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586272800460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a56c75c1359e944fb8589b44b5592cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _moveForwardShortcut:
+    _keys: 7700000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 1
+    _mMouseBtn: 0
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Move forward
+  _moveBackShortcut:
+    _keys: 7300000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 1
+    _mMouseBtn: 0
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Move back
+  _strafeLeftShortcut:
+    _keys: 6100000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 1
+    _mMouseBtn: 0
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Strafe left
+  _strafeRightShortcut:
+    _keys: 6400000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 1
+    _mMouseBtn: 0
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Strafe right
+  _moveUpShortcut:
+    _keys: 6500000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 1
+    _mMouseBtn: 0
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Move up
+  _moveDownShortcut:
+    _keys: 7100000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 1
+    _mMouseBtn: 0
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Move down
+  _focusOnSelectionShortcut:
+    _keys: 6600000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Focus on selection
+  _cameraLookAroundShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 1
+    _mMouseBtn: 0
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Camera look around
+  _cameraOrbitShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 1
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 1
+    _mMouseBtn: 0
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Camera orbit
+  _cameraPanShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 1
+    _useMouseButtons: 1
+    _useStrictMouseCheck: 0
+    _name: Camera pan
+  _zoomSettings:
+    _zoomMode: 0
+    _isZoomEnabled: 1
+    _orthographicSmoothValue: 0.1
+    _perspectiveSmoothValue: 0.2
+    _orthographicStandardZoomSpeed: 10
+    _perspectiveStandardZoomSpeed: 400
+    _orthographicSmoothZoomSpeed: 65
+    _perspectiveSmoothZoomSpeed: 400
+  _panSettings:
+    _standardPanSpeed: 3
+    _smoothPanSpeed: 3
+    _invertXAxis: 0
+    _invertYAxis: 0
+  _focusSettings:
+    _focusMode: 1
+    _constantFocusSpeed: 10
+    _smoothFocusTime: 0.3
+    _focusDistanceScale: 1.5
+  _moveSettings:
+    _moveSpeed: 10
+  _rotationSpeedInDegrees: 8.8
+  _background:
+    _isVisible: 1
+    _topColor: {r: 0.2784314, g: 0.2784314, b: 0.2784314, a: 1}
+    _bottomColor: {r: 0, g: 0, b: 0, a: 1}
+    _gradientOffset: 0
+--- !u!20 &3648144586272800462
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586272800460}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_ClearFlags: 1
+  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0.019607844}
+  m_projectionMatrixMode: 1
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_FocalLength: 50
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.3
+  far clip plane: 1000
+  field of view: 60
+  orthographic: 0
+  orthographic size: 5
+  m_Depth: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingPath: -1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 0
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!1 &3648144586640563488
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144586640563491}
+  - component: {fileID: 3648144586640563490}
+  m_Layer: 0
+  m_Name: Scale Gizmo
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &3648144586640563491
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586640563488}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 10
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144586640563490
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586640563488}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7c276881dd94934fb5ef12ed48eca8f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _maskedObjectLayers: 0
+  _axesColors:
+  - {r: 0.85882354, g: 0.24313726, b: 0.11372549, a: 1}
+  - {r: 0.6039216, g: 0.9529412, b: 0.28235295, a: 1}
+  - {r: 0.22745098, g: 0.47843137, b: 0.972549, a: 1}
+  _selectedAxisColor: {r: 0.9647059, g: 0.9490196, b: 0.19607843, a: 1}
+  _gizmoBaseScale: 0.77
+  _preserveGizmoScreenSize: 1
+  _axesVisibilityMask: 010101
+  _enableStepSnappingShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 1
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable step snapping
+  _enableScaleAlongAllAxesShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 1
+    _useModifiers: 1
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Scale along all axes
+  _axisLength: 5
+  _scaleBoxWidth: 0.5
+  _scaleBoxHeight: 0.5
+  _scaleBoxDepth: 0.5
+  _screenSizeOfAllAxesSquare: 25
+  _colorOfAllAxesSquareLines: {r: 1, g: 1, b: 1, a: 1}
+  _colorOfAllAxesSquareLinesWhenSelected: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  _adjustAllAxesScaleSquareWhileScalingObjects: 1
+  _areScaleBoxesLit: 1
+  _adjustAxisLengthWhileScalingObjects: 1
+  _multiAxisTriangleAlpha: 0.2
+  _multiAxisTriangleSideLength: 1.3
+  _adjustMultiAxisForBetterVisibility: 1
+  _adjustMultiAxisTrianglesWhileScalingObjects: 1
+  _drawObjectsLocalAxesWhileScaling: 1
+  _objectsLocalAxesLength: 1
+  _preserveObjectLocalAxesScreenSize: 1
+  _adjustObjectLocalAxesWhileScalingObjects: 0
+  _snapSettings:
+    _stepValueInWorldUnits: 1
+--- !u!1 &3648144586706332731
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144586706332730}
+  - component: {fileID: 3648144586706332733}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.InputDevice
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144586706332730
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586706332731}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 6
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144586706332733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586706332731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1686b79fa3854484eb8dda83cf29584f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!1 &3648144586797337905
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144586797337904}
+  - component: {fileID: 3648144586797337907}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.MessageListenerDatabase
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144586797337904
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586797337905}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 5
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144586797337907
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144586797337905}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 818d6c373123d324b89da69b5837fb11, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!1 &3648144587001463076
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144587001463079}
+  - component: {fileID: 3648144587001463078}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.RuntimeEditorApplication
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144587001463079
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587001463076}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children:
+  - {fileID: 3648144585585746889}
+  - {fileID: 3648144585906328656}
+  - {fileID: 3648144586272800463}
+  - {fileID: 3648144587155785549}
+  - {fileID: 3648144587479796000}
+  - {fileID: 3648144586797337904}
+  - {fileID: 3648144586706332730}
+  - {fileID: 3648144585987458617}
+  - {fileID: 3648144587678971520}
+  - {fileID: 3648144587571709791}
+  - {fileID: 3648144586640563491}
+  - {fileID: 3648144586257775854}
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144587001463078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587001463076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e90c9b1d1ace4a846af4de5196edb2bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _scrollGridUpDownShortcut:
+    _keys: 2000000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Scroll grid up/down
+  _scrollGridUpDownStepShortcut:
+    _keys: 2000000000000000
+    _numberOfKeys: 1
+    _lCtrl: 1
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Scroll grid up/down (STEP)
+  _useUnityColliders: 0
+  _enableUndoRedo: 1
+  _useCustomCamera: 0
+  _customCamera: {fileID: 0}
+  _volumeSizeForLightObjects: {x: 0.5, y: 0.5, z: 0.5}
+  _volumeSizeForParticleSystemObjects: {x: 0.5, y: 0.5, z: 0.5}
+  _volumeSizeForEmptyObjects: {x: 0.5, y: 0.5, z: 0.5}
+  _xzGrid:
+    _isVisible: 1
+    _cellSizeX: 1
+    _cellSizeZ: 1
+    _lineColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.4}
+    _yOffsetScrollSensitivity: 1
+    _yStep: 1
+    _yPos: 0
+--- !u!1 &3648144587155785546
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144587155785549}
+  - component: {fileID: 3648144587155785548}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.EditorUndoRedoSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144587155785549
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587155785546}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144587155785548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587155785546}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d6622bb38455654f8e3814b984520d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _actionLimit: 50
+--- !u!1 &3648144587479796001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144587479796000}
+  - component: {fileID: 3648144587479796003}
+  m_Layer: 0
+  m_Name: (Singleton)RTEditor.EditorMeshDatabase
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3648144587479796000
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587479796001}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 4
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144587479796003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587479796001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c17708a1e1efb864c907e0f23150f63a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!1 &3648144587571709788
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144587571709791}
+  - component: {fileID: 3648144587571709790}
+  m_Layer: 0
+  m_Name: Rotation Gizmo
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &3648144587571709791
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587571709788}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 9
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144587571709790
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587571709788}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91432485c5bc3764c9aeceab3e6828f8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _maskedObjectLayers: 0
+  _axesColors:
+  - {r: 0.85882354, g: 0.24313726, b: 0.11372549, a: 1}
+  - {r: 0.6039216, g: 0.9529412, b: 0.28235295, a: 1}
+  - {r: 0.22745098, g: 0.47843137, b: 0.972549, a: 1}
+  _selectedAxisColor: {r: 0.9647059, g: 0.9490196, b: 0.19607843, a: 1}
+  _gizmoBaseScale: 1.3
+  _preserveGizmoScreenSize: 1
+  _axesVisibilityMask: 010101
+  _enableStepSnappingShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 1
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 0
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable step snapping
+  _rotationSphereRadius: 3
+  _rotationSphereColor: {r: 0.3, g: 0.3, b: 0.3, a: 0.12}
+  _isRotationSphereLit: 1
+  _showRotationGuide: 1
+  _rotationGuieLineColor: {r: 0.8, g: 0.8, b: 0.8, a: 0.8}
+  _rotationGuideDiscColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.1}
+  _showRotationSphere: 1
+  _showFullRotationCircleX: 0
+  _showFullRotationCircleY: 0
+  _showFullRotationCircleZ: 0
+  _showRotationSphereBoundary: 1
+  _rotationSphereBoundaryLineColor: {r: 1, g: 1, b: 1, a: 1}
+  _showCameraLookRotationCircle: 1
+  _cameraLookRotationCircleRadiusScale: 1.11
+  _cameraLookRotationCircleLineColor: {r: 1, g: 1, b: 1, a: 1}
+  _cameraLookRotationCircleColorWhenSelected: {r: 1, g: 0.92156863, b: 0.015686275,
+    a: 1}
+  _snapSettings:
+    _stepValueInDegrees: 15
+--- !u!1 &3648144587678971521
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3648144587678971520}
+  - component: {fileID: 3648144587678971523}
+  m_Layer: 0
+  m_Name: Translation Gizmo
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &3648144587678971520
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587678971521}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 3648144587001463079}
+  m_RootOrder: 8
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3648144587678971523
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3648144587678971521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6401bf28448259d4380cea6b8f42ff93, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _maskedObjectLayers: 0
+  _axesColors:
+  - {r: 0.85882354, g: 0.24313726, b: 0.11372549, a: 1}
+  - {r: 0.6039216, g: 0.9529412, b: 0.28235295, a: 1}
+  - {r: 0.22745098, g: 0.47843137, b: 0.972549, a: 1}
+  _selectedAxisColor: {r: 0.9647059, g: 0.9490196, b: 0.19607843, a: 1}
+  _gizmoBaseScale: 0.77
+  _preserveGizmoScreenSize: 1
+  _axesVisibilityMask: 010101
+  _translateAlongScreenAxesShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 1
+    _useModifiers: 1
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Translate along screen axes
+  _enableStepSnappingShortcut:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 1
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable step snapping
+  _enableVertexSnappingShortcut:
+    _keys: 7600000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable vertex snapping
+  _enableSurfacePlacementWithYAlignment:
+    _keys: 2000000000000000
+    _numberOfKeys: 1
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable surface placement (with Y axis alignment)
+  _enableSurfacePlacementWithXAlignment:
+    _keys: 2000000078000000
+    _numberOfKeys: 2
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable surface placement (with X axis alignment)
+  _enableSurfacePlacementWithZAlignment:
+    _keys: 200000007a000000
+    _numberOfKeys: 2
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 0
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable surface placement (with Z axis alignment)
+  _enableSurfacePlacementNoAxisAlignment:
+    _keys: 2000000000000000
+    _numberOfKeys: 1
+    _lCtrl: 1
+    _lCmd: 0
+    _lAlt: 0
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable surface placement (no alignment
+  _enableMoveScale:
+    _keys: 0000000000000000
+    _numberOfKeys: 0
+    _lCtrl: 0
+    _lCmd: 0
+    _lAlt: 1
+    _lShift: 0
+    _useModifiers: 1
+    _useStrictModifierCheck: 1
+    _lMouseBtn: 0
+    _rMouseBtn: 0
+    _mMouseBtn: 0
+    _useMouseButtons: 0
+    _useStrictMouseCheck: 0
+    _name: Enable move scale
+  _axisLength: 5
+  _arrowConeRadius: 0.4
+  _arrowConeLength: 1.19
+  _multiAxisSquareSize: 1
+  _adjustMultiAxisForBetterVisibility: 1
+  _multiAxisSquareAlpha: 0.2
+  _areArrowConesLit: 1
+  _specialOpSquareColor: {r: 1, g: 1, b: 1, a: 1}
+  _specialOpSquareColorWhenSelected: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  _screenSizeOfSpecialOpSquare: 25
+  _vertexSnapLayers: -1
+  _moveScale: 0.5

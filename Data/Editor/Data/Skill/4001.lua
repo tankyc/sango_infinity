@@ -1,0 +1,1 @@
+return {skill_type = 4,prob = 10000,desc = "",id = 4001,name = "盛气临敌",skill_effects = {{effect = {{3,400101,2,},},target_type = 2,target_num = 2,},},command = 1,}

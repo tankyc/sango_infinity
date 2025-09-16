@@ -1,0 +1,1 @@
+return {state = 1,entity = {{conditions = {{effects = {{3,"force",-10,},},},},},},desc = "",id = 56,name = "受伤",maxLayer = 1,buff_type = 56,replaceType = 3,}

@@ -1,0 +1,1 @@
+return {skill_type = 3,prob = 5000,desc = "",id = 3001,name = "锋矢阵",skill_effects = {{effect = {{1,1,2.8,0,},},target_type = 2,target_num = 2,},},command = 1,}

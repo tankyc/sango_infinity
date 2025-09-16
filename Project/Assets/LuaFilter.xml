@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+	<!-- 需要剔除的属性填写在这里,解决可能由于平台或者发布时有属性不存在导致发布报错 -->
+	<!-- Core -->
+	<filter>System.TimeSpan</filter>
+
+	<filter>Span`1</filter>
+	<filter>ReadOnlySpan`1</filter>
+
+	<!-- Unity -->
+	<filter>RenderBuffer.GetNativeRenderBufferPtr</filter>
+	<filter>Motion.averageDuration</filter>
+	<filter>Motion.averageAngularSpeed</filter>
+	<filter>Motion.averageSpeed</filter>
+	<filter>Motion.apparentSpeed</filter>
+	<filter>Motion.isLooping</filter>
+	<filter>Motion.isAnimatorMotion</filter>
+	<filter>Motion.isHumanMotion</filter>
+	<filter>Motion.ValidateIfRetargetable</filter>
+	<filter>Light.lightmapBakeType</filter>
+	<filter>Light.alreadyLightmapped</filter>
+	<filter>Light.isBaked</filter>
+	<filter>MonoBehaviour.runInEditMode</filter>
+	<filter>WWW</filter>
+	<filter>Application.isWebPlayer</filter>
+	<filter>Application.srcValue</filter>
+	<filter>Application.runInBackground</filter>
+	<filter>Application.isMobilePlatform</filter>
+	<filter>Application.isConsolePlatform</filter>
+	<filter>Application.isFocused</filter>
+	<filter>Application.streamedBytes</filter>
+	<filter>Application.GetStackTraceLogType</filter>
+	<filter>Application.SetStackTraceLogType</filter>
+	<filter>Application.HasProLicense</filter>
+	<filter>Camera.stereoMirrorMode</filter>
+	<filter>Texture.imageContentsHash</filter>
+	<filter>Texture.imageContentsHash</filter>
+	<filter>Terrain.deringLightProbesForTrees</filter>
+	<filter>Terrain.MaterialType</filter>
+	<filter>ParticleSystem.GetParticles</filter>
+	<filter>ParticleSystem.SetParticles</filter>
+	<filter>Texture2D.ignoreMipmapLimit</filter>
+	<filter>QualitySettings.GetAllRenderPipelineAssetsForPlatform</filter>
+	
+	<filter>ParticleSystem.GetParticles</filter>
+    <filter>ParticleSystem.GetParticles</filter>
+	
+	<filter>AudioSource.PlayOnGamepad</filter>
+	<filter>AudioSource.DisableGamepadOutput</filter>
+	<filter>AudioSource.SetGamepadSpeakerMixLevel</filter>
+	<filter>AudioSource.SetGamepadSpeakerMixLevelDefault</filter>
+	<filter>AudioSource.SetGamepadSpeakerRestrictedAudio</filter>
+	<filter>AudioSource.GamepadSpeakerOutputType</filter>
+	<filter>GamepadSpeakerOutputType</filter>
+	<filter>AudioSource.GamepadSpeakerSupportsOutputType</filter>
+	<filter>AudioSource.gamepadSpeakerOutputType</filter>
+
+	<filter>MeshRenderer.stitchLightmapSeams</filter>
+	<filter>MeshRenderer.scaleInLightmap</filter>
+	<filter>ParticleSystemRenderer.supportsMeshInstancing</filter>
+
+</root>
