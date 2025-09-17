@@ -1,6 +1,6 @@
 # 无限三国
 ## 第一次启动
-需要使用Unity 2021.3.40f1以上版本打开Project文件夹项目，需要导入URP包  
+需要使用Unity 2021.3.40f1以上版本打开Project文件夹项目，需要导入2DSprite和Universal RP包  
 初始启动会有一个弹窗需要选择到Build文件夹，打包直接生成在BUIld文件夹即可  
 
 ## 后续计划  
