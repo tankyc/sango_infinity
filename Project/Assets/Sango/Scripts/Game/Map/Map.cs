@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Map
+    public class Map
     {
         [JsonProperty] public int Width { get; internal set; }
         [JsonProperty] public int Height { get; internal set; }

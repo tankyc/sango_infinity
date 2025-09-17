@@ -36,7 +36,7 @@ using Newtonsoft.Json.Utilities;
 
 namespace Newtonsoft.Json
 {
-    public abstract partial class JsonWriter
+    public abstract class JsonWriter
     {
         internal Task AutoCompleteAsync(JsonToken tokenBeingWritten, CancellationToken cancellationToken)
         {

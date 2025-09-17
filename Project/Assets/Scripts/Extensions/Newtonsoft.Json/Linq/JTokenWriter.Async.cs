@@ -31,7 +31,7 @@ using Newtonsoft.Json.Utilities;
 
 namespace Newtonsoft.Json.Linq
 {
-    public partial class JTokenWriter
+    public class JTokenWriter
     {
         // This is the only method that can benefit from Task-based asynchronicity, and that only when
         // the reader provides it.

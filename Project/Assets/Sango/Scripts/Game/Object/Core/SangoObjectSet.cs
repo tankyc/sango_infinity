@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 
 namespace Sango.Game
 {
@@ -137,6 +138,12 @@ namespace Sango.Game
         {
             if (!Check(id)) return false;
             return Get(id) != null;
+        }
+
+        public override bool Contains(T t)
+        {
+            if (!Check(t.Id)) return false;
+            return Get(t.Id) != null;
         }
 
         public override void Sort(IComparer<T> comparer)

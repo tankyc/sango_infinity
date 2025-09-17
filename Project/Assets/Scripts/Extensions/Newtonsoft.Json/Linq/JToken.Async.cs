@@ -33,7 +33,7 @@ using Newtonsoft.Json.Utilities;
 
 namespace Newtonsoft.Json.Linq
 {
-    public abstract partial class JToken
+    public abstract class JToken
     {
         /// <summary>
         /// Writes this token to a <see cref="JsonWriter"/> asynchronously.

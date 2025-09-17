@@ -275,8 +275,6 @@ public class Sango_Game_ScenarioWrap
 			Sango.Game.Scenario obj = (Sango.Game.Scenario)ToLua.CheckObject<Sango.Game.Scenario>(L, 1);
 			Sango.Game.Force arg0 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 2);
 			Sango.Game.Force arg1 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 3);
-			Sango.Game.ForceRelation o = obj.GetRelations(arg0, arg1);
-			ToLua.PushObject(L, o);
 			return 1;
 		}
 		catch (Exception e)
@@ -1196,9 +1194,6 @@ public class Sango_Game_ScenarioWrap
 		try
 		{
 			o = ToLua.ToObject(L, 1);
-			Sango.Game.Scenario obj = (Sango.Game.Scenario)o;
-			System.Collections.Generic.List<Sango.Game.ForceRelation> ret = obj.forceRelation;
-			ToLua.PushSealed(L, ret);
 			return 1;
 		}
 		catch(Exception e)
@@ -1605,8 +1600,6 @@ public class Sango_Game_ScenarioWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Scenario obj = (Sango.Game.Scenario)o;
-			System.Collections.Generic.List<Sango.Game.ForceRelation> arg0 = (System.Collections.Generic.List<Sango.Game.ForceRelation>)ToLua.CheckObject(L, 2, TypeTraits<System.Collections.Generic.List<Sango.Game.ForceRelation>>.type);
-			obj.forceRelation = arg0;
 			return 0;
 		}
 		catch(Exception e)

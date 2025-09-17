@@ -82,8 +82,18 @@ namespace Sango.Game
                         }
                         else
                         {
-                            int weight = (int)(1000 * (float)city.virtualFightPower / (float)x.virtualFightPower);
-                            priorityQueue.Push(x, weight);
+                            // 需要兵力充足
+                            if (city.troops > UnityEngine.Mathf.Min(x.troops, x.allPersons.Count * 5000) + 5000)
+                            {
+                                // 范围大约在
+                                int weight = (int)(1000 * (float)city.virtualFightPower / (float)x.virtualFightPower);
+                                int relation = scenario.GetRelation(city.BelongForce, x.BelongForce);
+                                // 8000亲密 6000友好 4000普通 2000中立 0冷漠 -2000敌对 -4000厌恶 -6000仇视 -8000不死不休
+                                // 5 4 3 2 1 0 -1 -2 -3 -4 -5
+                                // 0 1 2 3 4 5 6 7 8 9 10
+                                weight = UnityEngine.Mathf.FloorToInt((float)weight * (1f - (float)relation / 10000f));
+                                priorityQueue.Push(x, weight);
+                            }
                         }
                     }
                 });
@@ -120,7 +130,7 @@ namespace Sango.Game
             }
             return true;
         }
-       
+
         /// <summary>
         /// 内政
         /// </summary>
@@ -149,11 +159,11 @@ namespace Sango.Game
                 AISecurity(city, scenario);
             }
 
-            if(city.wildPersons.Count > 0 && city.freePersons.Count > 0)
+            if (city.wildPersons.Count > 0 && city.freePersons.Count > 0)
             {
-                foreach(Person wild in city.wildPersons)
+                foreach (Person wild in city.wildPersons)
                 {
-                    if(wild.beFinded)
+                    if (wild.beFinded)
                     {
                         city.JobRecuritPerson(city.freePersons[0], wild);
                         break;
@@ -632,5 +642,5 @@ namespace Sango.Game
         }
     }
 
-    
+
 }

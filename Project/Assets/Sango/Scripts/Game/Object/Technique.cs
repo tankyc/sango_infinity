@@ -5,7 +5,7 @@ namespace Sango.Game
     /// 州
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Technique : SangoObject
+    public class Technique : SangoObject
     {
         [JsonProperty] public string desc;
         [JsonProperty] public string kind;

@@ -36,7 +36,7 @@ namespace Newtonsoft.Json.Linq
     /// <summary>
     /// Represents a writer that provides a fast, non-cached, forward-only way of generating JSON data.
     /// </summary>
-    public partial class JTokenWriter : JsonWriter
+    public class JTokenWriter : JsonWriter
     {
         private JContainer? _token;
         private JContainer? _parent;

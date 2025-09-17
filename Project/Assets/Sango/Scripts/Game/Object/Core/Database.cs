@@ -41,6 +41,7 @@ namespace Sango.Game
         public abstract bool Check(int id);
         public abstract void Set(T obj);
         public abstract bool Contains(int id);
+        public abstract bool Contains(T t);
         public abstract void ForEach(Action<T> action);
         public abstract T Find(Predicate<T> match);
         public abstract List<T> FindAll(Predicate<T> match);

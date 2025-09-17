@@ -111,7 +111,10 @@ namespace Sango.Game
         {
             return objects.ContainsKey(id);
         }
-
+        public override bool Contains(T t)
+        {
+            return objects.ContainsKey(t.Id);
+        }
         public override void Sort(IComparer<T> comparer)
         {
             throw new NotImplementedException();
@@ -125,7 +128,7 @@ namespace Sango.Game
         public override void RemoveAll(Predicate<T> match)
         {
             List<T> values = FindAll(match);
-            if(values != null)
+            if (values != null)
             {
                 foreach (T obj in values)
                 {
@@ -135,6 +138,6 @@ namespace Sango.Game
         }
 
         public int DataCount => objects.Count;
-        
+
     }
 }

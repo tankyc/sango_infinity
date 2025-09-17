@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class ScenarioVariables
+    public class ScenarioVariables
     {
         /// <summary>
         /// 真实年龄开关
@@ -107,7 +107,7 @@ namespace Sango.Game
         /// 攻城伤害由基准智力,影响比例
         /// </summary>
         [JsonProperty] public float fight_durability_base_intelligence_damage_factor = 0.2f;
-        
+
 
         [JsonProperty]
         public float[] troops_adaptation_level_boost = new float[]
@@ -236,7 +236,15 @@ namespace Sango.Game
         /// </summary>
         [JsonProperty] public float goldFactor = 1f;
 
+        /// <summary>
+        /// 每月变化的关系值
+        /// </summary>
+        [JsonProperty] public short relationChangePerMonth = -200;
 
+        /// <summary>
+        /// 每月的关系变化率
+        /// </summary>
+        [JsonProperty] public ushort relationChangeChangce = 50;
 
     }
 }

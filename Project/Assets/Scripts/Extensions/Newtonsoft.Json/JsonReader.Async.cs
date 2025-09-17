@@ -33,7 +33,7 @@ using Newtonsoft.Json.Utilities;
 
 namespace Newtonsoft.Json
 {
-    public abstract partial class JsonReader
+    public abstract class JsonReader
     {
         /// <summary>
         /// Asynchronously reads the next JSON token from the source.

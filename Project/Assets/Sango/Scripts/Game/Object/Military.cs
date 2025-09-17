@@ -9,7 +9,7 @@ namespace Sango.Game
     /// 部队
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Military : SangoObject
+    public class Military : SangoObject
     {
         public Military()
         {

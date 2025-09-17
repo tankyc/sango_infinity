@@ -42,7 +42,25 @@ namespace Sango.Game
         public virtual bool Run(Scenario scenario) { return true; }
         public virtual void OnScenarioPrepare(Scenario scenario) {; }
         public virtual void OnScenarioStart(Scenario scenario) {; }
+        /// <summary>
+        /// 在新的一轮开始时候调用
+        /// </summary>
+        /// <param name="scenario"></param>
+        /// <returns></returns>
+        public virtual bool OnNewTurn(Scenario scenario) { return true; }
+
+        /// <summary>
+        /// 在势力开始时候调用
+        /// </summary>
+        /// <param name="scenario"></param>
+        /// <returns></returns>
         public virtual bool OnTurnStart(Scenario scenario) { return true; }
+
+        /// <summary>
+        /// 在势力结束时候调用
+        /// </summary>
+        /// <param name="scenario"></param>
+        /// <returns></returns>
         public virtual bool OnTurnEnd(Scenario scenario) { return true; }
         public virtual bool OnDayStart(Scenario scenario) { return true; }
         public virtual bool OnDayEnd(Scenario scenario) { return true; }

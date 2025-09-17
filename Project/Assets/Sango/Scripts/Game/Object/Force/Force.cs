@@ -6,7 +6,7 @@ using Newtonsoft.Json.Serialization;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Force : SangoObject
+    public class Force : SangoObject
     {
         public override SangoObjectType ObjectType { get { return SangoObjectType.Force; } }
         public virtual bool AIFinished { get; set; }
@@ -93,6 +93,16 @@ namespace Sango.Game
         /// </summary>
         public List<System.Func<Force, Scenario, bool>> AICommandList = new List<System.Func<Force, Scenario, bool>>();
 
+        /// <summary>
+        /// 相邻势力
+        /// </summary>
+        public List<Force> NeighborForceList = new List<Force>();
+
+        /// <summary>
+        /// 国力值
+        /// </summary>
+        public int FightPower;
+
         public override void OnScenarioPrepare(Scenario scenario)
         {
             //AllianceList?.InitCache();// = new SangoObjectList<Alliance>().FromString(_allianceListStr, scenario.allianceSet);
@@ -100,6 +110,12 @@ namespace Sango.Game
 
         public bool IsAlliance(Force other)
         {
+            for (int i = 0; i < AllianceList.Count; ++i)
+            {
+                Alliance alliance = AllianceList[i];
+                if (alliance.Contains(other))
+                    return true;
+            }
             return false;
         }
         //public Corps Add(Corps corps)
@@ -206,22 +222,6 @@ namespace Sango.Game
         /// </summary>
         private void AIPrepare(Scenario scenario)
         {
-            // 计算相邻临势力
-            List<Force> NeighborForceList = new List<Force>();
-            foreach (City city in this.allCities)
-            {
-                foreach (City neighbor in city.NeighborList)
-                {
-                    if (!neighbor.IsSameForce(city) && neighbor.BelongForce != null)
-                    {
-                        if (!NeighborForceList.Contains(neighbor.BelongForce))
-                        {
-                            NeighborForceList.Add(neighbor.BelongForce);
-                        }
-                    }
-                }
-            }
-
             AICommandList.Add(ForceAI.AIDiplomacy);
             AICommandList.Add(ForceAI.AICaptives);
             AICommandList.Add(ForceAI.AITechniques);
@@ -234,8 +234,14 @@ namespace Sango.Game
             AIFinished = false;
             AIPrepared = false;
             allTroops.RemoveAll(x => !x.IsAlive);
-
+            FightPower = 0;
             Sango.Log.Print($"{Name} 回合");
+            // 需要优先执行person
+            allPersons.ForEach(c =>
+            {
+                if (c.IsAlive)
+                    c.OnTurnStart(scenario);
+            });
             allCorps.ForEach(c =>
             {
                 if (c.IsAlive)
@@ -250,6 +256,7 @@ namespace Sango.Game
             {
                 if (c.IsAlive)
                     c.OnTurnStart(scenario);
+                FightPower += c.FightPower;
             });
             allTroops.ForEach(c =>
             {
@@ -257,8 +264,21 @@ namespace Sango.Game
                     c.OnTurnStart(scenario);
             });
 
-
-
+            NeighborForceList.Clear();
+            // 计算相邻势力
+            foreach (City city in this.allCities)
+            {
+                foreach (City neighbor in city.NeighborList)
+                {
+                    if (!neighbor.IsSameForce(city) && neighbor.BelongForce != null)
+                    {
+                        if (!NeighborForceList.Contains(neighbor.BelongForce))
+                        {
+                            NeighborForceList.Add(neighbor.BelongForce);
+                        }
+                    }
+                }
+            }
             return base.OnTurnStart(scenario);
         }
 
@@ -285,6 +305,14 @@ namespace Sango.Game
                     c.OnTurnEnd(scenario);
             });
             return base.OnTurnEnd(scenario);
+        }
+
+        public override bool OnMonthStart(Scenario scenario)
+        {
+
+
+
+            return base.OnMonthStart(scenario);
         }
     }
 }

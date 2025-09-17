@@ -3,7 +3,7 @@
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Flag : SangoObject
+    public class Flag : SangoObject
     {
         [JsonConverter(typeof(Color32Converter))]
         [JsonProperty]public UnityEngine.Color32 color;

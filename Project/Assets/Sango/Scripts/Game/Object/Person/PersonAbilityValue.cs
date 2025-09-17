@@ -5,7 +5,7 @@ namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
 
-    public partial class PersonAbilityValue : IAarryDataObject
+    public class PersonAbilityValue : IAarryDataObject
     {
         public int baseValue;
         public int valueExp;

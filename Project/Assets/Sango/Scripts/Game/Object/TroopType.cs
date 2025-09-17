@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class TroopType : SangoObject
+    public class TroopType : SangoObject
     {
         /// <summary>
         /// 类型

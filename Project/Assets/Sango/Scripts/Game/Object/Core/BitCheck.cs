@@ -6,7 +6,7 @@ using System.Xml;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class BitCheck
+    public class BitCheck
     {
         [JsonProperty]
         public uint[] state;

@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class ScenarioInfo
+    public class ScenarioInfo
     {
         [JsonProperty]
         public int id;

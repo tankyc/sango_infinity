@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class City : BuildingBase
+    public class City : BuildingBase
     {
         public virtual bool AIFinished { get; set; }
         public virtual bool AIPrepared { get; set; }

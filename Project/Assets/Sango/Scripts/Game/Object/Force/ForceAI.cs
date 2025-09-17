@@ -5,65 +5,78 @@ namespace Sango.Game
 {
     public class ForceAI
     {
-        
-        
         /// <summary>
         /// AI外交
         /// </summary>
         public static bool AIDiplomacy(Force force, Scenario scenario)
         {
+            if (force.Governor == null) return true;
+            if (force.Governor.BelongCity == null) return true;
+
+            City centerCity = force.Governor.BelongCity;
+            if (centerCity.freePersons.Count == 0)
+                return true;
+
+            if (centerCity.gold < 3000)
+                return true;
+
+            // 找到
+            foreach (Force neighbor in force.NeighborForceList)
+            {
+                if (neighbor.IsAlliance(force)) continue;
+
+                int neighborRelation = scenario.GetRelation(neighbor, force);
+                if (neighborRelation > 0) continue;
+                // 敌人的敌人 就是朋友
+                foreach (Force enemysenemy in neighbor.NeighborForceList)
+                {
+                    if (enemysenemy != force && !enemysenemy.IsAlliance(neighbor) && !force.NeighborForceList.Contains(enemysenemy) && !enemysenemy.IsAlliance(force))
+                    {
+                        int enemysenemy_relation = scenario.GetRelation(enemysenemy, force);
+                        if (enemysenemy_relation > 2000)
+                        {
+                            if (centerCity.gold > 3000)
+                            {
+                                // 派遣结盟
+                                if (GameRandom.Changce(enemysenemy_relation, 10000))
+                                {
+                                    centerCity.gold -= 1000;
+                                    Alliance alliance = new Alliance()
+                                    {
+                                        ForceList = new SangoObjectList<Force>(),
+                                        leftCount = 18,
+                                        allianceType = 1,
+                                    };
+                                    alliance.ForceList.Add(force);
+                                    alliance.ForceList.Add(enemysenemy);
+
+                                    scenario.Add(alliance);
+
+                                    force.AllianceList.Add(alliance);
+                                    enemysenemy.AllianceList.Add(alliance);
+#if SANGO_DEBUG
+                                    Sango.Log.Print($"@外交@{force.Name} 与 {enemysenemy.Name} 达成了6个月的结盟!!");
+#endif
+
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (centerCity.gold > 3000)
+                            { // 结交
+                                scenario.AddRelation(enemysenemy, force, 1000);
+                                centerCity.gold -= 1000;
+#if SANGO_DEBUG
+                                Sango.Log.Print($"@外交@{force.Name} 与 {enemysenemy.Name} 亲密接触,关系到达了{scenario.GetRelation(enemysenemy, force)}!!");
+#endif
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
             return true;
-            //if (this.Leader.Status == PersonStatus.Captive) return;
-
-            //foreach (Faction f in Session.Current.Scenario.PlayerFactions)
-            //{
-            //    if (!this.adjacentTo(f)) continue;
-            //    if (this.IsFriendly(f)) continue;
-            //    if (this == f) continue;
-            //    if (GameObject.Random(1000) < Session.Parameters.AIEncirclePlayerRate && GameObject.Chance(f.ArchitectureCount))
-            //    {
-            //        if (GetEncircleFactionList(f, true) == null) continue;
-            //        foreach (Architecture a in this.Architectures)
-            //        {
-            //            if (a.Fund > 120000 + a.AbundantFund)
-            //            {
-            //                Encircle(a, f);
-            //                return;
-            //            }
-            //        }
-            //    }
-            //}
-
-            //if (GameObject.Random(180 * Math.Max(1, 5 - this.Leader.Ambition)) == 0 && GameObject.Chance(100 - Session.Parameters.AIEncirclePlayerRate))
-            //{
-            //    GameObjectList factions = this.GetAdjecentHostileFactions();
-            //    if (factions.Count == 0) return;
-
-            //    factions.PropertyName = "Power";
-            //    factions.IsNumber = true;
-            //    factions.SmallToBig = false;
-            //    factions.ReSort();
-
-            //    int rank = Session.Parameters.AIEncircleRank + GameObject.Random(Session.Parameters.AIEncircleVar * 2) - Session.Parameters.AIEncircleVar;
-            //    rank = Math.Min(rank, 100);
-            //    rank = Math.Max(rank, 0);
-            //    Faction target = (Faction)factions[(factions.Count - 1) * rank / 100];
-            //    int rel = Session.Current.Scenario.GetDiplomaticRelation(this.ID, target.ID);
-            //    if (target != this && rel < 0 && GetEncircleFactionList(target, true) != null)
-            //    {
-            //        if (GameObject.Chance(Math.Abs(rel) / 10))
-            //        {
-            //            foreach (Architecture a in this.Architectures)
-            //            {
-            //                if (a.Fund > 120000 + a.AbundantFund)
-            //                {
-            //                    Encircle(a, target);
-            //                    return;
-            //                }
-            //            }
-            //        }
-            //    }
-            //}
         }
 
         /// <summary>

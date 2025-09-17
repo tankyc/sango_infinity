@@ -4,7 +4,7 @@ using Sango.Game.Render;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Building : BuildingBase
+    public class Building : BuildingBase
     {
         public override SangoObjectType ObjectType { get { return SangoObjectType.Building; } }
 

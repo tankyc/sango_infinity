@@ -5,7 +5,7 @@ using System.Xml;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class BuildingType : SangoObject
+    public class BuildingType : SangoObject
     {
         [JsonProperty] public string desc;
         [JsonProperty] public byte kind;

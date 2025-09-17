@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Skill : SangoObject
+    public class Skill : SangoObject
     {
         public override SangoObjectType ObjectType { get { return SangoObjectType.Skill; } }
 

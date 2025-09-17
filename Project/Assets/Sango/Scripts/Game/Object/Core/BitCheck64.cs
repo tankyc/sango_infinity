@@ -5,7 +5,7 @@ using System.Xml;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class BitCheck64
+    public class BitCheck64
     {
         [JsonProperty]
         public ulong state;

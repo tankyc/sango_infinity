@@ -5,7 +5,7 @@ using System.Xml;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class ModelConfig : SangoObject
+    public class ModelConfig : SangoObject
     {
         [JsonProperty]
         public byte modelType;

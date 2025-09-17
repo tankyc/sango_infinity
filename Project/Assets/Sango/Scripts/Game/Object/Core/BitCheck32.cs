@@ -3,7 +3,7 @@
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class BitCheck32
+    public class BitCheck32
     {
         [JsonProperty]
         public uint state;

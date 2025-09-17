@@ -18,7 +18,7 @@ public static class XMLExportTools
     const string classStr =
 @"namespace {1}
 {{
-    public partial class {0}
+    public class {0}
     {{
         
         public override void Save(System.Xml.XmlNode node) 

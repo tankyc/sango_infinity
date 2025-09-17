@@ -32,7 +32,7 @@ using System.Threading.Tasks;
 
 namespace Newtonsoft.Json.Linq
 {
-    public partial class JRaw
+    public class JRaw
     {
         /// <summary>
         /// Asynchronously creates an instance of <see cref="JRaw"/> with the content of the reader's current token.

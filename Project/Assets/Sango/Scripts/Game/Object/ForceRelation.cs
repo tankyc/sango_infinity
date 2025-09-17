@@ -3,7 +3,7 @@
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class ForceRelation
+    public class ForceRelation
     {
         [JsonProperty] public int relation;
         [JsonProperty] public byte state;

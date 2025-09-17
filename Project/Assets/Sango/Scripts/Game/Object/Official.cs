@@ -8,7 +8,7 @@ namespace Sango.Game
     /// 特性
     /// </summary>
     [JsonObject(MemberSerialization.OptOut)]
-    public partial class Official : SangoObject
+    public class Official : SangoObject
     {
         public int troopsLimit;
         public int cost;

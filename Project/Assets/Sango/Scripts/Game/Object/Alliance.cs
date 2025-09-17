@@ -3,7 +3,7 @@
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Alliance : SangoObject
+    public class Alliance : SangoObject
     {
 
         /// <summary>
@@ -11,13 +11,27 @@ namespace Sango.Game
         /// </summary>
         [JsonConverter(typeof(SangoObjectListIDConverter<Force>))]
         [JsonProperty]
-        public SangoObjectList<Force> ForceList;
+        public SangoObjectList<Force> ForceList = new SangoObjectList<Force>();
 
         [JsonProperty] public int leftCount;
+        [JsonProperty] public int allianceType;
 
-        public bool Contains(int forceId)
+        public bool Contains(Force force)
         {
-            return ForceList.Contains(forceId);
+            return ForceList.Contains(force);
+        }
+
+        public override bool OnNewTurn(Scenario scenario)
+        {
+            leftCount--;
+            IsAlive = leftCount <= 0;
+            if(!IsAlive )
+            {
+                foreach (Force force in ForceList)
+                    force.AllianceList.Remove(this);
+                scenario.Remove(this);
+            }
+            return base.OnNewTurn(scenario);
         }
     }
 }

@@ -11,7 +11,7 @@ namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
 
-    public partial class TroopAnimation : SangoObject
+    public class TroopAnimation : SangoObject
     {
         public class LinkObj : ScenarioObject<TroopAnimation>
         {

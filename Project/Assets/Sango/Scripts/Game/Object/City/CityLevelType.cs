@@ -3,7 +3,7 @@
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class CityLevelType : SangoObject
+    public class CityLevelType : SangoObject
     {
         /// <summary>
         /// 增益范围

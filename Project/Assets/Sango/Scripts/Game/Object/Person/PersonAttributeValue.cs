@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class PersonAttributeValue : IAarryDataObject
+    public class PersonAttributeValue : IAarryDataObject
     {
         /// <summary>
         /// 所属

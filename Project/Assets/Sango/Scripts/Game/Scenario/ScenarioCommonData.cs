@@ -2,7 +2,7 @@
 
 namespace Sango.Game
 {
-    public partial class ScenarioCommonData
+    public class ScenarioCommonData
     {
         /// <summary>
         /// 地形类型

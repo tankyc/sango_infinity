@@ -8,12 +8,13 @@ using System.Xml;
 using UnityEngine;
 using Task = System.Threading.Tasks.Task;
 using System.IO;
+using UnityEngine.Rendering;
 
 namespace Sango.Game
 {
 
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Scenario : SangoObject
+    public class Scenario : SangoObject
     {
         public override SangoObjectType ObjectType { get { return SangoObjectType.Scenario; } }
 
@@ -58,8 +59,8 @@ namespace Sango.Game
         /// <summary>
         /// 关系信息
         /// </summary>
-        [JsonProperty] public List<ForceRelation> forceRelation;
-        ForceRelation[][] RelationMap;
+        [JsonProperty] public int[][] RelationMap { get; set; }
+
         private ScenarioEvent scenarioEvent = new ScenarioEvent();
         public ScenarioEvent Event { get { return scenarioEvent; } }
         public Force Add(Force force) { forceSet.Add(force); return force; }
@@ -69,6 +70,7 @@ namespace Sango.Game
         public Troop Add(Troop troops) { troopsSet.Add(troops); return troops; }
         public Building Add(Building building) { buildingSet.Add(building); return building; }
         public Fire Add(Fire fire) { fireSet.Add(fire); return fire; }
+        public Alliance Add(Alliance alliance) { allianceSet.Add(alliance); return alliance; }
         public Force Remove(Force force) { forceSet.Remove(force); return force; }
         public Corps Remove(Corps corps) { corpsSet.Remove(corps); return corps; }
         public City Remove(City city) { citySet.Remove(city); return city; }
@@ -76,15 +78,11 @@ namespace Sango.Game
         public Troop Remove(Troop troops) { troopsSet.Remove(troops); return troops; }
         public Building Remove(Building building) { buildingSet.Remove(building); return building; }
         public Fire Remove(Fire fire) { fireSet.Remove(fire); return fire; }
+        public Alliance Remove(Alliance alliance) { allianceSet.Remove(alliance); return alliance; }
 
         public int[][] cityDistanceMap;
 
         #endregion Data
-        public ForceRelation GetRelations(Force force, Force other)
-        {
-            return RelationMap[force.Id][other.Id];
-        }
-
         public static Scenario Cur { get; private set; }
         public static List<Scenario> all_scenario_list = new List<Scenario>();
         public string FilePath { internal set; get; }
@@ -470,6 +468,25 @@ namespace Sango.Game
             {
                 o.Init(this);
             });
+
+            if (RelationMap == null)
+            {
+                int forceCount = forceSet.Count;
+                RelationMap = new int[forceCount][];
+                for (int i = 0; i < forceCount; ++i)
+                {
+                    RelationMap[i] = new int[forceCount];
+                }
+
+                for (int i = 0; i < forceCount; ++i)
+                {
+                    for (int j = i + 1; j < forceCount; ++j)
+                    {
+                        RelationMap[i][j] = 5000;
+                        RelationMap[j][i] = 5000;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -576,13 +593,18 @@ namespace Sango.Game
         public bool TurnStart()
         {
             if (HasTurnStarted) return true;
-            personSet.ForEach(person =>
+            for (int i = 0; i < personSet.Count; i++)
             {
-                if (person.IsAlive)
-                {
-                    person.OnTurnStart(this);
-                }
-            });
+                Person person = personSet[i];
+                if (person != null && person.IsAlive)
+                    person.OnNewTurn(this);
+            }
+            for (int i = 0; i < allianceSet.Count; i++)
+            {
+                Alliance a = allianceSet[i];
+                if (a != null && a.IsAlive)
+                    a.OnNewTurn(this);
+            }
             HasTurnStarted = true;
             return true;
         }
@@ -761,6 +783,19 @@ namespace Sango.Game
 
         public override bool OnMonthStart(Scenario scenario)
         {
+            int forceCount = forceSet.Count;
+            for (int i = 0; i < forceCount; ++i)
+            {
+                for (int j = i + 1; j < forceCount; ++j)
+                {
+                    if(GameRandom.Changce(scenario.Variables.relationChangeChangce))
+                    {
+                        RelationMap[i][j] += scenario.Variables.relationChangePerMonth;
+                        RelationMap[j][i] += scenario.Variables.relationChangePerMonth;
+                    }
+                }
+            }
+
             scenario.personSet.ForEach(p =>
             {
                 if (p.IsAlive)
@@ -769,6 +804,13 @@ namespace Sango.Game
                 }
             });
             scenario.citySet.ForEach(p =>
+            {
+                if (p.IsAlive)
+                {
+                    p.OnMonthStart(this);
+                }
+            });
+            scenario.forceSet.ForEach(p =>
             {
                 if (p.IsAlive)
                 {
@@ -793,6 +835,13 @@ namespace Sango.Game
                     p.OnMonthEnd(this);
                 }
             });
+            scenario.forceSet.ForEach(p =>
+            {
+                if (p.IsAlive)
+                {
+                    p.OnMonthEnd(this);
+                }
+            });
             return base.OnMonthEnd(scenario);
         }
         public override bool OnYearStart(Scenario scenario)
@@ -811,7 +860,13 @@ namespace Sango.Game
                     p.OnYearStart(this);
                 }
             });
-
+            scenario.forceSet.ForEach(p =>
+            {
+                if (p.IsAlive)
+                {
+                    p.OnYearStart(this);
+                }
+            });
             return base.OnYearStart(scenario);
         }
         public override bool OnYearEnd(Scenario scenario)
@@ -824,6 +879,13 @@ namespace Sango.Game
                 }
             });
             scenario.citySet.ForEach(p =>
+            {
+                if (p.IsAlive)
+                {
+                    p.OnYearEnd(this);
+                }
+            });
+            scenario.forceSet.ForEach(p =>
             {
                 if (p.IsAlive)
                 {
@@ -848,6 +910,13 @@ namespace Sango.Game
                     p.OnSeasonStart(this);
                 }
             });
+            scenario.forceSet.ForEach(p =>
+            {
+                if (p.IsAlive)
+                {
+                    p.OnSeasonStart(this);
+                }
+            });
             return base.OnSeasonStart(scenario);
         }
         public override bool OnSeasonEnd(Scenario scenario)
@@ -866,9 +935,22 @@ namespace Sango.Game
                     p.OnSeasonEnd(this);
                 }
             });
+            scenario.forceSet.ForEach(p =>
+            {
+                if (p.IsAlive)
+                {
+                    p.OnSeasonEnd(this);
+                }
+            });
             return base.OnSeasonEnd(scenario);
         }
 
+        /// <summary>
+        /// 获取城市之间的相隔距离
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
         public int GetCityDistance(City a, City b)
         {
             return cityDistanceMap[a.Id][b.Id];
@@ -905,6 +987,22 @@ namespace Sango.Game
             //Scenario.Cur.CurRunForce.IsPlayerControlled = false;
             Scenario.Cur.PauseTrunCount = Scenario.Cur.Info.turnCount + 1;
             Scenario.Cur.IsAlive = true;
+        }
+
+        public int GetRelation(Force forceA, Force forceB)
+        {
+            return RelationMap[forceA.Id][forceB.Id];
+        }
+
+        public void AddRelation(Force forceA, Force forceB, int v)
+        {
+            int r = RelationMap[forceA.Id][forceB.Id] + v;
+
+            if (r < -10000) r = -10000;
+            else if (r > 10000) r = 10000;
+
+            RelationMap[forceA.Id][forceB.Id] = r;
+            RelationMap[forceB.Id][forceA.Id] = r;
         }
     }
 }

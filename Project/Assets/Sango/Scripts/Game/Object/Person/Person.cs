@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Person : SangoObject
+    public class Person : SangoObject
     {
         public override SangoObjectType ObjectType { get { return SangoObjectType.Person; } }
 
@@ -544,7 +544,10 @@ namespace Sango.Game
             }
         }
 
-
+        public override bool OnNewTurn(Scenario scenario)
+        {
+            return base.OnNewTurn(scenario);
+        }
         public override bool OnTurnStart(Scenario scenario)
         {
             //TODO:在野角色随机移动

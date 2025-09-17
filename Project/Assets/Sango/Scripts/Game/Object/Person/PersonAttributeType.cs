@@ -28,7 +28,7 @@ namespace Sango.Game
     }
 
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class PersonAttributeType : SangoObject
+    public class PersonAttributeType : SangoObject
     {
 
         public int nameID;

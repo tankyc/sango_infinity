@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class Corps : SangoObject
+    public class Corps : SangoObject
     {
         public override SangoObjectType ObjectType { get { return SangoObjectType.Corps; } }
         public virtual bool IsPlayer { get; set; }

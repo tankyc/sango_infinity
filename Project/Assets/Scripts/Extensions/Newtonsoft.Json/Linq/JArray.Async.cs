@@ -32,7 +32,7 @@ using Newtonsoft.Json.Utilities;
 
 namespace Newtonsoft.Json.Linq
 {
-    public partial class JArray
+    public class JArray
     {
         /// <summary>
         /// Writes this token to a <see cref="JsonWriter"/> asynchronously.

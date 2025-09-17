@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-public static partial class XmlLoader
+public static class XmlLoader
 {
 
     //public static void Save(this Sango.Game.CellSet o, System.Xml.XmlNode parent, string value_name)

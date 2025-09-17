@@ -7,7 +7,7 @@ using System.Xml;
 namespace Sango.Game
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public partial class AttributeChangeType : SangoObject
+    public class AttributeChangeType : SangoObject
     {
         public struct AgeFactor
         {
