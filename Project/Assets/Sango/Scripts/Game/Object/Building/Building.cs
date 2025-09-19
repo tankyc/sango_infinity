@@ -73,8 +73,82 @@ namespace Sango.Game
             Builder = null;
         }
 
+        public void ChangeCity(City dest)
+        {
+            if (!isComplte)
+            {
+                Sango.Log.Error("不允许转换一个未建好的建筑!!");
+                return;
+            }
+
+            BelongCorps.allBuildings.Remove(this);
+            BelongForce.allBuildings.Remove(this);
+            BelongCity.allBuildings.Remove(this);
+
+            dest.BelongCorps.allBuildings.Add(this);
+            dest.BelongForce.allBuildings.Add(this);
+            dest.allBuildings.Add(this);
+
+            BelongCorps = dest.BelongCorps;
+            BelongForce = dest.BelongForce;
+
+            Render?.UpdateRender();
+        }
+
+        public Corps ChangeCorps(Corps corps)
+        {
+            Corps last = null;
+            if (!isComplte)
+            {
+                Sango.Log.Error("不允许转换一个未建好的建筑!!");
+                return last;
+            }
+
+            if (BelongCorps != corps)
+            {
+                last = BelongCorps;
+                if (BelongCorps != null)
+                    BelongCorps.allBuildings.Remove(this);
+                corps.allBuildings.Add(this);
+                BelongCorps = corps;
+
+                if (corps.BelongForce != BelongForce)
+                {
+                    if (BelongForce != null)
+                        BelongForce.allBuildings.Remove(this);
+                    corps.BelongForce.allBuildings.Add(this);
+                    BelongForce = corps.BelongForce;
+                }
+
+                Render?.UpdateRender();
+            }
+            return last;
+        }
+
         public void Destroy()
         {
+            if (BelongCity != null)
+            {
+                if (BuildingType.isIntrior)
+                    BelongCity.allIntriorBuildings.Remove(this);
+
+                BelongCity.villageList.Remove(this);
+                BelongCity.allBuildings.Remove(this);
+            }
+            if (BelongCorps != null)
+                BelongCorps.allBuildings.Remove(this);
+            if (BelongForce != null)
+                BelongForce.allBuildings.Remove(this);
+
+            Scenario.Cur.buildingSet.Remove(this);
+
+            if (Builder != null)
+            {
+                Builder.missionType = 0;
+                Builder.missionTarget = 0;
+                Builder.missionCounter = 0;
+            }
+
             effectCells.Clear();
             CenterCell.building = null;
             CenterCell = null;

@@ -147,6 +147,16 @@ namespace Sango.Game
 
         }
 
+        /// <summary>
+        /// 执行建筑行为
+        /// </summary>
+        /// <param name="scenario"></param>
+        public virtual bool DoBuildingBehaviour(Scenario scenario)
+        {
+            return true;
+        }
+
+
         //public virtual int GetFoodHarvest(Cell cell)
         //{
         //    return (int)((cell.TerrainType.foodDeposit + BuildingType.foodGain) * cell.Fertility);

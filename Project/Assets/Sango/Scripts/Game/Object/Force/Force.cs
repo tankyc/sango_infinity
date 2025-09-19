@@ -44,6 +44,11 @@ namespace Sango.Game
         public SangoObjectList<Alliance> AllianceList = new SangoObjectList<Alliance>();
 
         /// <summary>
+        /// 本国被俘虏
+        /// </summary>
+        public List<Person> CaptiveList = new List<Person>();
+
+        /// <summary>
         /// 技巧点数
         /// </summary>
         [JsonProperty] public int TechniquePoint { get; set; }
@@ -102,6 +107,14 @@ namespace Sango.Game
         /// 国力值
         /// </summary>
         public int FightPower;
+
+        /// <summary>
+        /// 执行建筑行为的建筑列表(建筑攻击等)
+        /// </summary>
+        Queue<BuildingBase> buildingBaseList = new Queue<BuildingBase>();
+
+
+
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
@@ -174,6 +187,9 @@ namespace Sango.Game
             if (ActionOver)
                 return true;
 
+            if (!DoBuildingBehaviour(scenario))
+                return false;
+
             if (!DoAI(scenario))
                 return false;
 
@@ -217,6 +233,24 @@ namespace Sango.Game
             return true;
         }
 
+
+        public bool DoBuildingBehaviour(Scenario scenario)
+        {
+            if (buildingBaseList.Count <= 0)
+                return true;
+
+            while (buildingBaseList.Count > 0)
+            {
+                BuildingBase currentBuilding = buildingBaseList.Peek();
+                if (!currentBuilding.DoBuildingBehaviour(scenario))
+                    return false;
+
+                buildingBaseList.Dequeue();
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// AI准备
         /// </summary>
@@ -231,6 +265,7 @@ namespace Sango.Game
 
         public override bool OnTurnStart(Scenario scenario)
         {
+            buildingBaseList.Clear();
             AIFinished = false;
             AIPrepared = false;
             allTroops.RemoveAll(x => !x.IsAlive);
@@ -247,16 +282,22 @@ namespace Sango.Game
                 if (c.IsAlive)
                     c.OnTurnStart(scenario);
             });
-            allBuildings.ForEach(c =>
-            {
-                if (c.IsAlive)
-                    c.OnTurnStart(scenario);
-            });
             allCities.ForEach(c =>
             {
                 if (c.IsAlive)
+                {
                     c.OnTurnStart(scenario);
-                FightPower += c.FightPower;
+                    FightPower += c.FightPower;
+                    buildingBaseList.Enqueue(c);
+                }
+            });
+            allBuildings.ForEach(c =>
+            {
+                if (c.IsAlive)
+                {
+                    c.OnTurnStart(scenario);
+                    buildingBaseList.Enqueue(c);
+                }
             });
             allTroops.ForEach(c =>
             {

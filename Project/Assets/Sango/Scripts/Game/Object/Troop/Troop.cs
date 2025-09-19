@@ -55,6 +55,14 @@ namespace Sango.Game
         public TroopType TroopType;
 
         /// <summary>
+        /// 俘虏
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
+        [JsonProperty]
+        public SangoObjectList<Person> CaptiveList = new SangoObjectList<Person>();
+
+
+        /// <summary>
         /// 部队名
         /// </summary>
         public override string Name => Leader.Name;
@@ -193,6 +201,11 @@ namespace Sango.Game
         }
         public override void OnScenarioPrepare(Scenario scenario)
         {
+            foreach (Person person in CaptiveList)
+            {
+                if (person.BelongForce != null)
+                    person.BelongForce.CaptiveList.Add(person);
+            }
             //MemberList?.InitCache();// = new SangoObjectList<Person>().FromString(_memberListStr, scenario.personSet);
         }
         public override bool OnTurnStart(Scenario scenario)
@@ -480,7 +493,7 @@ namespace Sango.Game
         bool isMoving = false;
         public bool MoveTo(Cell destCell)
         {
-            if (destCell == cell) 
+            if (destCell == cell)
             {
                 isMoving = false;
                 return true;
@@ -985,7 +998,7 @@ namespace Sango.Game
             city.troops += troops;
             city.woundedTroops += woundedTroops;
             IsAlive = false;
-          
+
             Scenario.Cur.troopsSet.Remove(this);
             Leader.BelongTroop = null;
             Leader.ActionOver = true;
@@ -1006,30 +1019,14 @@ namespace Sango.Game
                 Sango.Log.Print($"{BelongForce.Name}的[{Name}]部队回到{city.BelongForce?.Name}的城池:<{city.Name}>");
                 return;
             }
-
-            if (BelongCity != city)
+            Leader.ChangeCity(city);
+            if (MemberList != null)
             {
-                Leader.BelongCity.allPersons.Remove(Leader);
-                Leader.BelongCity = city;
-                Leader.BelongCity.allPersons.Add(Leader);
-                Leader.BelongCorps.allPersons.Remove(Leader);
-                Leader.BelongCorps = city.BelongCorps;
-                Leader.BelongCorps.allPersons.Add(Leader);
-
-                if (MemberList != null)
+                for (int i = 0; i < MemberList.Count; i++)
                 {
-                    for (int i = 0; i < MemberList.Count; i++)
-                    {
-                        Person person = MemberList[i];
-                        if (person == null) continue;
-                        person.BelongCity.allPersons.Remove(person);
-                        person.BelongCity = city;
-                        person.BelongCity.allPersons.Add(person);
-                        person.BelongTroop = null;
-                        person.BelongCorps.allPersons.Remove(person);
-                        person.BelongCorps = city.BelongCorps;
-                        person.BelongCorps.allPersons.Add(person);
-                    }
+                    Person person = MemberList[i];
+                    if (person == null) continue;
+                    person.ChangeCity(city);
                 }
             }
             Sango.Log.Print($"{BelongForce.Name}的[{Name}]部队进入{city.BelongForce?.Name}的城池:<{city.Name}>");
@@ -1195,5 +1192,32 @@ namespace Sango.Game
             }
         }
 
+        public City ChangeCity(City city)
+        {
+            City last = null;
+            if (BelongCity != city)
+            {
+                last = BelongCity;
+                if (BelongCity != null)
+                    BelongCity.allTroops.Remove(this);
+                BelongCity = city;
+                city.allTroops.Add(this);
+                if (BelongCorps != city.BelongCorps)
+                {
+                    if (BelongCorps != null)
+                        BelongCorps.allTroops.Remove(this);
+                    city.BelongCorps.allTroops.Add(this);
+                    BelongCorps = city.BelongCorps;
+                    if (BelongForce != city.BelongForce)
+                    {
+                        if (BelongForce != null)
+                            BelongForce.allTroops.Remove(this);
+                        city.BelongForce.allTroops.Add(this);
+                        BelongForce = city.BelongForce;
+                    }
+                }
+            }
+            return last;
+        }
     }
 }

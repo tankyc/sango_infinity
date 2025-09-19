@@ -24,7 +24,7 @@ namespace Sango.Game
                 }
 
                 city.troopTempList.Clear();
-                city.AutoMakeTroop(city.troopTempList, 3, false);
+                city.AutoMakeTroop(city.troopTempList, 5, false);
                 if (city.troopTempList.Count <= 0) return true;
 
                 Troop troop = city.troopTempList[0];
@@ -32,7 +32,7 @@ namespace Sango.Game
                 troop = city.EnsureTroop(troop, scenario, 10);
                 troop.missionType = (int)MissionType.ProtectCity;
                 troop.missionTarget = city.Id;
-                Sango.Log.Warning($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
+                Sango.Log.Print($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
                 city.CurActiveTroop = troop;
                 city.Render?.UpdateRender();
                 return false;

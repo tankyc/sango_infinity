@@ -134,6 +134,12 @@ namespace Sango.Game
         [JsonProperty]
         public CityLevelType CityLevelType;
 
+        /// <summary>
+        /// 俘虏
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
+        [JsonProperty]
+        public SangoObjectList<Person> CaptiveList = new SangoObjectList<Person>();
 
 
         public List<Building> villageList = new List<Building>();
@@ -311,6 +317,12 @@ namespace Sango.Game
 
             effectCells.Clear();
             scenario.Map.GetDirectSpiral(CenterCell, BuildingType.radius + 1, BuildingType.radius + 10, effectCells);
+
+            foreach (Person person in CaptiveList)
+            {
+                if (person.BelongForce != null)
+                    person.BelongForce.CaptiveList.Add(person);
+            }
 
             Render = new CityRender(this);
         }
@@ -664,20 +676,6 @@ namespace Sango.Game
 
         public void OnBuildingDestroy(Building building)
         {
-            building.BelongCity.villageList.Remove(building);
-            building.BelongCity.allBuildings.Remove(building);
-            if (building.BuildingType.isIntrior)
-                building.BelongCity.allIntriorBuildings.Remove(building);
-            building.BelongCorps.allBuildings.Remove(building);
-            building.BelongForce.allBuildings.Remove(building);
-            Scenario.Cur.buildingSet.Remove(building);
-
-            if (building.Builder != null)
-            {
-                building.Builder.missionType = (int)MissionType.PersonReturn;
-                building.Builder.missionTarget = building.BelongCity.Id;
-                building.Builder.missionCounter = 1;
-            }
             this.CalculateHarvest();
         }
 
@@ -885,160 +883,149 @@ namespace Sango.Game
             return nearnest;
         }
 
-        public void ChangeCorps(Corps other)
+        public Corps ChangeCorps(Corps other)
         {
-            if (BelongCorps != null)
-                BelongCorps.allCities.Remove(this);
-            if (BelongForce != other.BelongForce)
+            Corps last = null;
+            if (BelongCorps != other)
             {
-                if (BelongForce != null)
-                    BelongForce.allCities.Remove(this);
+                last = BelongCorps;
+                if (BelongCorps != null)
+                    BelongCorps.allCities.Remove(this);
+                other.allCities.Add(this);
+                BelongCorps = other;
+                if (BelongForce != other.BelongForce)
+                {
+                    if (BelongForce != null)
+                        BelongForce.allCities.Remove(this);
+                    BelongForce = other.BelongForce;
+                    other.BelongForce.allCities.Add(this);
+                }
+                Render?.UpdateRender();
             }
+            return last;
         }
 
         public override void OnFall(Troop atk)
         {
-            Leader = atk.Leader;
-            atk.missionType = (int)MissionType.MovetoCity;
-            atk.NeedPrepareMission();
+            // 白城
+            if (BelongCorps == null)
+            {
+                ChangeCorps(atk.BelongCorps);
+                Leader = atk.Leader;
+                atk.EnterCity(this);
+                Render?.UpdateRender();
+                CalculateHarvest();
+                return;
+            }
 
-            //TODO: 处理建筑
+            // 确认一个撤退城市
+            City escapeCity = null;
+            if (BelongForce.allCities.Count > 1)
+            {
+                if (this == BelongForce.Governor.BelongCity)
+                    escapeCity = GetNearnestForceCity();
+                else
+                    escapeCity = BelongForce.Governor.BelongCity;
+            }
+
+            // 处理正在转移的人
+            foreach (Person person in trsformingPesonList)
+            {
+                person.SetMission(MissionType.PersonReturn, person.BelongCity, 1);
+            }
+            trsformingPesonList.Clear();
+
+            // 基础抓捕率
+            int cacaptureChangce = escapeCity != null ? Scenario.Cur.Variables.captureChangceWhenCityFall : Scenario.Cur.Variables.captureChangceWhenLastCityFall;
+
+            // 处理俘虏
+            List<Person> captiveList = new List<Person>();
+
+            // 移除部队
+            for (int i = allPersons.Count - 1; i >= 0; --i)
+            {
+                Person person = allPersons[i];
+
+                // 没有执行任务的才能被捕获
+                if (person.IsFree && GameRandom.Changce(cacaptureChangce))
+                {
+                    captiveList.Add(person);
+
+                }
+                else
+                {
+                    if (escapeCity != null)
+                    {
+                        person.ChangeCity(escapeCity);
+                        if (person.BelongTroop != null)
+                            person.SetMission(MissionType.PersonReturn, person.BelongCity, 1);
+                    }
+                    else
+                    {
+                        person.LeaveToWild();
+                    }
+                }
+            }
+
+            for (int i = allTroops.Count - 1; i >= 0; --i)
+            {
+                Troop t = allTroops[i];
+                if (escapeCity != null)
+                {
+                    t.ChangeCity(escapeCity);
+                }
+                else
+                {
+                    t.Clear();
+                }
+            }
+            allTroops.Clear();
+
+            //处理建筑
             for (int i = allBuildings.Count - 1; i >= 0; i--)
             {
                 Building building = allBuildings[i];
                 if (building.isComplte && GameRandom.Changce(30))
                 {
-                    // 有一定几率留下
-                    //UnityEngine.Debug.LogError(building.Id);
-                    building.BelongCorps.allBuildings.Remove(building);
-                    building.BelongForce.allBuildings.Remove(building);
-                    atk.BelongCorps.allBuildings.Add(building);
-                    atk.BelongForce.allBuildings.Add(building);
-
-                    building.BelongCorps = atk.BelongCorps;
-                    building.BelongForce = atk.BelongForce;
-
-                    building.Render.UpdateRender();
+                    building.ChangeCorps(atk.BelongCorps);
                 }
                 else
                 {
-                    //UnityEngine.Debug.LogError(building.Id);
-                    if (building.BuildingType.isIntrior)
-                        building.BelongCity.allIntriorBuildings.Remove(building);
-                    building.BelongCity.villageList.Remove(building);
-                    building.BelongCity.allBuildings.Remove(building);
-                    building.BelongCorps.allBuildings.Remove(building);
-                    building.BelongForce.allBuildings.Remove(building);
-                    Scenario.Cur.buildingSet.Remove(building);
-
-                    if (building.Builder != null)
-                    {
-                        building.Builder.missionType = (int)MissionType.PersonReturn;
-                        building.Builder.missionTarget = building.BelongCity.Id;
-                        building.Builder.missionCounter = 1;
-                    }
-
                     building.Destroy();
                 }
             }
 
-            // 获取主公所在
-            if (BelongCorps == null)
-            {
-                // 白城
-                BelongCorps = atk.BelongCorps;
-                BelongForce = atk.BelongForce;
-                BelongCorps.allCities.Add(this);
-                BelongForce.allCities.Add(this);
-            }
-            else
-            {
-                BelongCorps.allCities.Remove(this);
-                BelongForce.allCities.Remove(this);
-
-                // 最后一城
-                if (BelongForce.allCities.Count == 0)
-                {
-                    // 没有被俘虏的武将下野
-                    allPersons.ForEach(person =>
-                    {
-                        // TO:俘虏
-                        person.BelongForce.allPersons.Remove(person);
-                        person.BelongCorps.allPersons.Remove(person);
-
-                        person.BelongForce = atk.BelongForce;
-                        person.BelongCorps = atk.BelongCorps;
-
-                        person.BelongForce.allPersons.Add(person);
-                        person.BelongCorps.allPersons.Add(person);
-
-                        person.BelongTroop = null;
-                    });
-
-                    // 移除部队
-                    for (int i = allTroops.Count - 1; i >= 0; --i)
-                    {
-                        Troop t = allTroops[i];
-                        t.Clear();
-                    }
-                    allTroops.Clear();
-
-                    Scenario.Cur.corpsSet.Remove(BelongCorps);
-                    Sango.Log.Print($"{BelongForce.Name} 灭亡!!!");
-                    Scenario.Cur.forceSet.Remove(BelongForce);
-                    if (Scenario.Cur.forceSet.DataCount == 1)
-                    {
-                        Sango.Log.Print($"{atk.BelongForce.Name} 统一!!!!!!!!!!!!!!");
-                    }
-                }
-                else
-                {
-                    // 找到主公所在城市,没有被俘虏的武将转移过去
-                    City governorCity = BelongForce.Governor.BelongCity;
-                    if (governorCity == this)
-                        governorCity = GetNearnestForceCity();
-
-                    // 武将转移
-                    allPersons.ForEach(person =>
-                    {
-                        // TO:俘虏
-                        person.BelongCity = governorCity;
-                        governorCity.allPersons.Add(person);
-                        if (person.BelongCorps != governorCity.BelongCorps)
-                        {
-                            person.BelongCorps.allPersons.Remove(person);
-                            person.BelongCorps = governorCity.BelongCorps;
-                            person.BelongCorps.allPersons.Add(person);
-                        }
-                    });
-
-                    // 剩下在野武将
-                    allPersons.Clear();
-
-                    // 移除部队
-                    allTroops.ForEach(t =>
-                    {
-                        t.BelongCity = governorCity;
-                        governorCity.allTroops.Add(t);
-                        if (BelongCorps != governorCity.BelongCorps)
-                        {
-                            BelongCorps.allTroops.Remove(t);
-                            t.BelongCorps = governorCity.BelongCorps;
-                            t.BelongCorps.allTroops.Add(t);
-                        }
-                    });
-                    allTroops.Clear();
-                }
-
-                BelongCorps = atk.BelongCorps;
-                BelongForce = atk.BelongForce;
-                BelongCorps.allCities.Add(this);
-                BelongForce.allCities.Add(this);
-            }
+            ChangeCorps(atk.BelongCorps);
 
             if (Render != null)
                 Render.UpdateRender();
+
             CalculateHarvest();
+
+            //TODO: 玩家处理俘虏
+            for (int i = 0; i < captiveList.Count; ++i)
+            {
+                Person person = captiveList[i];
+                if (atk.BelongForce.Governor.Persuade(person))
+                {
+                    person.ChangeCorps(atk.BelongCorps);
+                }
+                else
+                {
+                    allPersons.Remove(person.BeCaptive(this));
+                }
+            }
+
+            if (escapeCity == null)
+            {
+                Scenario.Cur.corpsSet.Remove(BelongCorps);
+                Sango.Log.Print($"{BelongForce.Name} 灭亡!!!");
+                Scenario.Cur.forceSet.Remove(BelongForce);
+                if (Scenario.Cur.forceSet.DataCount == 1)
+                {
+                    Sango.Log.Print($"{atk.BelongForce.Name} 统一!!!!!!!!!!!!!!");
+                }
+            }
         }
 
         /// <summary>
@@ -1643,6 +1630,86 @@ namespace Sango.Game
             scenario.Event.OnCityAIPrepare?.Invoke(this, scenario);
         }
 
+        /// <summary>
+        /// 检查是否太守需要重新设置
+        /// </summary>
+        /// <param name="person"></param>
+        public void CheckIfLoseLeader(Person person)
+        {
+            if (Leader != person) return;
+
+            Person dest = null;
+            Official higher = null;
+            int commandHigher = 0;
+            for (int i = 0; i < allPersons.Count; i++)
+            {
+                Person checker = allPersons[i];
+                if (checker != null && checker != Leader && checker.IsAlive)
+                {
+                    if (dest == null)
+                    {
+                        dest = checker;
+                        higher = dest.Official;
+                        commandHigher = dest.Command;
+                    }
+                    else
+                    {
+                        if (checker.Official.level > higher.level)
+                        {
+                            dest = checker;
+                            higher = dest.Official;
+                            commandHigher = dest.Command;
+                        }
+                        else if (checker.Official.level == higher.level)
+                        {
+                            if (checker.Command > commandHigher)
+                            {
+                                dest = checker;
+                                higher = dest.Official;
+                                commandHigher = dest.Command;
+                            }
+                        }
+                    }
+                }
+            }
+            Leader = dest;
+        }
+
+        /// <summary>
+        /// 更新太守
+        /// </summary>
+        /// <param name="person"></param>
+        public void UpdateLeader(Person person)
+        {
+            if (person.BelongCity == this)
+            {
+                return;
+            }
+
+            if (person == BelongForce.Governor)
+            {
+                person.BelongCity.CheckIfLoseLeader(person);
+                Leader = person;
+                return;
+            }
+
+            if (person.Official.level > Leader.Official.level)
+            {
+                person.BelongCity.CheckIfLoseLeader(person);
+                Leader = person;
+                return;
+            }
+            else if (person.Official.level == Leader.Official.level)
+            {
+                if (person.Command > Leader.Command)
+                {
+                    person.BelongCity.CheckIfLoseLeader(person);
+                    Leader = person;
+                    return;
+                }
+            }
+
+        }
 
     }
 }

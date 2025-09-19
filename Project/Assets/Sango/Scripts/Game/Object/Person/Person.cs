@@ -544,6 +544,14 @@ namespace Sango.Game
             }
         }
 
+        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter)
+        {
+            this.missionType = (int)missionType;
+            this.missionTarget = missionTarget.Id;
+            this.missionCounter = missionCounter;
+        }
+
+
         public override bool OnNewTurn(Scenario scenario)
         {
             return base.OnNewTurn(scenario);
@@ -566,27 +574,66 @@ namespace Sango.Game
             Sango.Log.Print($"*{BelongForce?.Name}的{Name}从{BelongCity.Name}向{dest.Name}转移*");
         }
 
-        public void ChangeCity(City dest)
+        public Corps ChangeCorps(Corps corps)
         {
-            if (!IsWild)
+            Corps last = null;
+            if (BelongCorps != corps)
             {
-                Sango.Log.Print($"*{BelongForce?.Name}的{Name}从{BelongCity.Name}向{dest.Name}转移* 移动完成!!");
-                BelongCity.allPersons.Remove(this);
-                dest.allPersons.Add(this);
-                BelongCity = dest;
-                if (BelongCorps != dest.BelongCorps)
-                {
+                last = BelongCorps;
+                if (BelongCorps != null)
                     BelongCorps.allPersons.Remove(this);
-                    dest.BelongCorps.allPersons.Add(this);
-                    BelongCorps = dest.BelongCorps;
+                corps.allPersons.Add(this);
+                BelongCorps = corps;
+                if (BelongForce != corps.BelongForce)
+                {
+                    if (BelongForce != null)
+                        BelongForce.allPersons.Remove(this);
+                    corps.BelongForce.allPersons.Add(this);
+                    BelongForce = corps.BelongForce;
                 }
             }
-            else
+            return last;
+        }
+
+        public City ChangeCity(City city)
+        {
+            City last = null;
+            if (BelongCity != city)
             {
-                BelongCity.wildPersons.Remove(this);
-                dest.wildPersons.Add(this);
-                BelongCity = dest;
+                last = BelongCity;
+                Sango.Log.Print($"*{BelongForce?.Name}的{Name}从{BelongCity.Name}向{city.Name}转移* 移动完成!!");
+
+                if (!IsWild)
+                {
+                    BelongCity.allPersons.Remove(this);
+                    BelongCity.CheckIfLoseLeader(this);
+                    city.allPersons.Add(this);
+                    BelongCity = city;
+                    if (BelongCorps != city.BelongCorps)
+                    {
+                        if (BelongCorps != null)
+                            BelongCorps.allPersons.Remove(this);
+                        city.BelongCorps.allPersons.Add(this);
+                        BelongCorps = city.BelongCorps;
+                        if (BelongForce != city.BelongForce)
+                        {
+                            if (BelongForce != null)
+                                BelongForce.allPersons.Remove(this);
+                            city.BelongForce.allPersons.Add(this);
+                            BelongForce = city.BelongForce;
+                        }
+                    }
+                    city.UpdateLeader(this);
+                }
+                else
+                {
+                    BelongCity.wildPersons.Remove(this);
+                    city.wildPersons.Add(this);
+                    BelongCity = city;
+                    city.UpdateLeader(this);
+                }
             }
+            return last;
         }
 
         public void JobRecuritPerson(Person person)
@@ -668,6 +715,40 @@ namespace Sango.Game
             BelongForce.allPersons.Add(this);
 
             return isSameCity;
+        }
+
+        /// <summary>
+        /// 下野
+        /// </summary>
+        public void LeaveToWild()
+        {
+            BelongCity.allPersons.Remove(this);
+            Official = Scenario.Cur.CommonData.Officials.Get(0);
+            BelongCity.wildPersons.Add(this);
+            BelongCorps = null;
+            BelongForce = null;
+            BelongTroop = null;
+        }
+
+        //TODO: 完善招降概率
+        public bool Persuade(Person person)
+        {
+            //return GameRandom.Changce(30);
+            return true;
+        }
+
+        public Person BeCaptive(City city)
+        {
+            city.CaptiveList.Add(this);
+            this.BelongForce.CaptiveList.Add(this);
+            return this;
+        }
+
+        public Person BeCaptive(Troop troop)
+        {
+            troop.CaptiveList.Add(this);
+            this.BelongForce.CaptiveList.Add(this);
+            return this;
         }
     }
 }
