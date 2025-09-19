@@ -11,13 +11,27 @@ namespace Sango.Game.Render
         public Cell dest;
         public bool isLastMove;
 
+        public void Enter(Scenario scenario)
+        {
+        }
+
+        public void Exit(Scenario scenario)
+        {
+        }
+
         public bool IsVisible()
         {
             return troop.Render.IsVisible();
         }
 
-        public bool Update(float deltaTime)
+        public bool Update(Scenario scenario, float deltaTime)
         {
+            if(!IsVisible())
+            {
+                troop.UpdateCell(dest, start, isLastMove);
+                return true;
+            }
+
             //troop.Render.SetSmokeShow();
             Vector3 destPosition = dest.Position;
             Vector3 startPosition = start.Position;
@@ -32,6 +46,7 @@ namespace Sango.Game.Render
                 newPos = destPosition;
                 troop.Render.SetForward(dir);
                 troop.Render.SetPosition(newPos);
+                troop.UpdateCell(dest, start, isLastMove);
                 return true;
             }
             else

@@ -490,7 +490,7 @@ namespace Sango.Game
         static List<Cell> tempMoveRange = new List<Cell>(256);
         static List<TroopMoveEvent> tempMoveEventList = new List<TroopMoveEvent>(32);
         static List<Cell> spellRangeCells = new List<Cell>(256);
-        bool isMoving = false;
+        internal bool isMoving = false;
         public bool MoveTo(Cell destCell)
         {
             if (destCell == cell)
@@ -515,7 +515,7 @@ namespace Sango.Game
                 for (int i = 1; i < tempCellList.Count; i++)
                 {
                     Cell dest = tempCellList[i];
-                    tempMoveEventList.Add(new TroopMoveEvent()
+                    RenderEvent.Instance.Add(new TroopMoveEvent()
                     {
                         troop = this,
                         dest = dest,
@@ -524,36 +524,38 @@ namespace Sango.Game
                     });
                     start = dest;
                 }
-            }
 
-            if (tempMoveEventList.Count == 0)
-            {
-                Sango.Log.Print($"{BelongForce.Name}的[{Name} 部队 移动到=> ({x},{y})]");
-                isMoving = false;
-                return true;
             }
+            return false;
 
-            if (!Render.IsVisible())
-            {
-                while (tempMoveEventList.Count > 0)
-                {
-                    TroopMoveEvent @event = tempMoveEventList[0];
-                    UpdateCell(@event.dest, @event.start, tempMoveEventList.Count == 1);
-                    tempMoveEventList.RemoveAt(0);
-                }
-                isMoving = false;
-                return true;
-            }
-            else
-            {
-                TroopMoveEvent @event = tempMoveEventList[0];
-                if (@event.Update(UnityEngine.Time.deltaTime))
-                {
-                    UpdateCell(@event.dest, @event.start, tempMoveEventList.Count == 1);
-                    tempMoveEventList.RemoveAt(0);
-                }
-                return false;
-            }
+            //if (tempMoveEventList.Count == 0)
+            //{
+            //    Sango.Log.Print($"{BelongForce.Name}的[{Name} 部队 移动到=> ({x},{y})]");
+            //    isMoving = false;
+            //    return true;
+            //}
+
+            //if (!Render.IsVisible())
+            //{
+            //    while (tempMoveEventList.Count > 0)
+            //    {
+            //        TroopMoveEvent @event = tempMoveEventList[0];
+            //        UpdateCell(@event.dest, @event.start, tempMoveEventList.Count == 1);
+            //        tempMoveEventList.RemoveAt(0);
+            //    }
+            //    isMoving = false;
+            //    return true;
+            //}
+            //else
+            //{
+            //    TroopMoveEvent @event = tempMoveEventList[0];
+            //    if (@event.Update(UnityEngine.Time.deltaTime))
+            //    {
+            //        UpdateCell(@event.dest, @event.start, tempMoveEventList.Count == 1);
+            //        tempMoveEventList.RemoveAt(0);
+            //    }
+            //    return false;
+            //}
         }
 
         public bool TryMoveToSpell(Cell destCell, Skill skill)
@@ -584,7 +586,7 @@ namespace Sango.Game
                         }
                     }
 
-                    tempMoveEventList.Add(new TroopMoveEvent()
+                    RenderEvent.Instance.Add(new TroopMoveEvent()
                     {
                         troop = this,
                         dest = dest,
@@ -600,33 +602,36 @@ namespace Sango.Game
                 }
             }
 
-            if (tempMoveEventList.Count == 0)
-            {
-                Sango.Log.Print($"{BelongForce.Name}的[{Name} 部队 移动到=> ({x},{y})]");
-                isMoving = false;
-                return true;
-            }
+            //if (tempMoveEventList.Count == 0)
+            //{
+            //    Sango.Log.Print($"{BelongForce.Name}的[{Name} 部队 移动到=> ({x},{y})]");
+            //    isMoving = false;
+            //    return true;
+            //}
 
-            if (!Render.IsVisible())
-            {
-                while (tempMoveEventList.Count > 0)
-                {
-                    TroopMoveEvent @event = tempMoveEventList[0];
-                    UpdateCell(@event.dest, @event.start, tempMoveEventList.Count == 1);
-                    tempMoveEventList.RemoveAt(0);
-                }
-                return false;
-            }
-            else
-            {
-                TroopMoveEvent @event = tempMoveEventList[0];
-                if (@event.Update(UnityEngine.Time.deltaTime))
-                {
-                    UpdateCell(@event.dest, @event.start, tempMoveEventList.Count == 1);
-                    tempMoveEventList.RemoveAt(0);
-                }
-                return false;
-            }
+            //if (!Render.IsVisible())
+            //{
+            //    while (tempMoveEventList.Count > 0)
+            //    {
+            //        TroopMoveEvent @event = tempMoveEventList[0];
+            //        UpdateCell(@event.dest, @event.start, tempMoveEventList.Count == 1);
+            //        tempMoveEventList.RemoveAt(0);
+            //    }
+            //    return false;
+            //}
+            //else
+            //{
+            //    TroopMoveEvent @event = tempMoveEventList[0];
+            //    if (@event.Update(UnityEngine.Time.deltaTime))
+            //    {
+            //        UpdateCell(@event.dest, @event.start, tempMoveEventList.Count == 1);
+            //        tempMoveEventList.RemoveAt(0);
+            //    }
+            //    return false;
+            //}
+
+            return false;
+
         }
 
         //public bool MoveToClosest(Cell destCell)

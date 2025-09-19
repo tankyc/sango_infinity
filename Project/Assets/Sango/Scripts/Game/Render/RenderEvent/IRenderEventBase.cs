@@ -3,6 +3,8 @@
     public interface IRenderEventBase
     {
         bool IsVisible();
-        bool Update(float deltaTime);
+        bool Update(Scenario scenario, float deltaTime);
+        void Enter(Scenario scenario);
+        void Exit(Scenario scenario);
     }
 }

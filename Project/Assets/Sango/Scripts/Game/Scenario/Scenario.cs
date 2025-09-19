@@ -713,7 +713,9 @@ namespace Sango.Game
 
         public void Run()
         {
-            RenderEvent.Instance.Update(Time.deltaTime);
+            // 事件处理
+            if (!RenderEvent.Instance.Update(this, Time.deltaTime))
+                return;
 
             if (!IsAlive)
                 return;

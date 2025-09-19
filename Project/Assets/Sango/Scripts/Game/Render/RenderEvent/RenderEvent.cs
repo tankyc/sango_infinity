@@ -11,18 +11,31 @@ namespace Sango.Game.Render
             eventQueue.Enqueue(renderEvent);
         }
 
-        public void Update(float deltaTime)
+        public bool Update(Scenario scenario, float deltaTime)
         {
-            if (CurEvent != null)
+            while (CurEvent != null)
             {
-                if (CurEvent.Update(deltaTime))
-                    CurEvent = null;
+                if (!CurEvent.Update(scenario, deltaTime))
+                    return false;
+
+                CurEvent.Exit(scenario);
+                CurEvent = null;
+
+                if (eventQueue.Count > 0)
+                {
+                    CurEvent = eventQueue.Dequeue();
+                    CurEvent.Enter(scenario);
+                }
             }
 
-            if (CurEvent == null && eventQueue.Count > 0)
+            if (eventQueue.Count > 0)
             {
                 CurEvent = eventQueue.Dequeue();
+                CurEvent.Enter(scenario);
+                return false;
             }
+
+            return true;
         }
     }
 }
