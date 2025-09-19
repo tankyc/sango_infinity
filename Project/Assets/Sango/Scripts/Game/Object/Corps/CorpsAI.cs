@@ -7,12 +7,12 @@ namespace Sango.Game
     {
         public static bool AICities(Corps corps, Scenario scenario)
         {
-            for (int i = 0; i < corps.allCities.Count; i++)
+            for (int i = 0; i < scenario.citySet.Count; ++i)
             {
-                City city = corps.allCities[i];
-                if (city != null && city.IsAlive && !city.ActionOver)
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == corps && !c.ActionOver)
                 {
-                    if (!city.DoAI(scenario))
+                    if (!c.DoAI(scenario))
                         return false;
                 }
             }
@@ -22,22 +22,27 @@ namespace Sango.Game
         public static bool AITransfromPerson(Corps corps, Scenario scenario)
         {
             List<Person> canTransforPersons = new List<Person>();
-            for (int k = 0, kCount = corps.allCities.Count; k < kCount; ++k)
-            {
-                City kCity = corps.allCities[k];
-                if (kCity.PersonHole < 0 && kCity.freePersons.Count > 0)
-                {
-                    int count = Math.Abs(kCity.PersonHole);
-                    kCity.freePersons.Sort((a, b) =>
-                    {
-                        return -a.MilitaryAbility.CompareTo(b.MilitaryAbility);
-                    });
 
-                    int maxCount = kCity.freePersons.Count;
-                    for (int i = 0; i < count; i++)
+            for (int i = 0; i < scenario.citySet.Count; ++i)
+            {
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == corps)
+                {
+                    City kCity = c;
+                    if (kCity.PersonHole < 0 && kCity.freePersons.Count > 0)
                     {
-                        if (i < maxCount)
-                            canTransforPersons.Add(kCity.freePersons[maxCount - 1 - i]);
+                        int count = Math.Abs(kCity.PersonHole);
+                        kCity.freePersons.Sort((a, b) =>
+                        {
+                            return -a.MilitaryAbility.CompareTo(b.MilitaryAbility);
+                        });
+
+                        int maxCount = kCity.freePersons.Count;
+                        for (int k = 0; k < count; k++)
+                        {
+                            if (k < maxCount)
+                                canTransforPersons.Add(kCity.freePersons[maxCount - 1 - k]);
+                        }
                     }
                 }
             }
@@ -50,57 +55,63 @@ namespace Sango.Game
                 return a.MilitaryAbility.CompareTo(b.MilitaryAbility);
             });
 
-            for (int k = 0, kCount = corps.allCities.Count; k < kCount; ++k)
+            for (int i = 0; i < scenario.citySet.Count; ++i)
             {
-                if (canTransforPersons.Count <= 0)
-                    break;
-
-                City kCity = corps.allCities[k];
-                if (kCity.PersonHole > 0 && kCity.IsBorderCity)
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == corps)
                 {
-                    for (int i = 0; i < kCity.PersonHole; i++)
+                    City kCity = c;
+                    if (canTransforPersons.Count <= 0)
+                        break;
+
+                    if (kCity.PersonHole > 0 && kCity.IsBorderCity)
                     {
-                        if (canTransforPersons.Count > 0)
+                        for (int k = 0; k < kCity.PersonHole; k++)
                         {
-                            canTransforPersons[0].TransformToCity(kCity);
-                            canTransforPersons.RemoveAt(0);
+                            if (canTransforPersons.Count > 0)
+                            {
+                                canTransforPersons[0].TransformToCity(kCity);
+                                canTransforPersons.RemoveAt(0);
+                            }
                         }
                     }
-                }
 
-                if (canTransforPersons.Count <= 0)
-                    break;
+                    if (canTransforPersons.Count <= 0)
+                        break;
+                }
             }
 
-            for (int k = 0, kCount = corps.allCities.Count; k < kCount; ++k)
+            for (int i = 0; i < scenario.citySet.Count; ++i)
             {
-                if (canTransforPersons.Count <= 0)
-                    break;
-
-                City kCity = corps.allCities[k];
-                if (kCity.PersonHole > 0 && !kCity.IsBorderCity)
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == corps)
                 {
-                    for (int i = 0; i < kCity.PersonHole; i++)
+                    City kCity = c;
+                    if (canTransforPersons.Count <= 0)
+                        break;
+                    if (kCity.PersonHole > 0 && !kCity.IsBorderCity)
                     {
-                        if (canTransforPersons.Count > 0)
+                        for (int k = 0; k < kCity.PersonHole; k++)
                         {
-                            canTransforPersons[0].TransformToCity(kCity);
-                            canTransforPersons.RemoveAt(0);
+                            if (canTransforPersons.Count > 0)
+                            {
+                                canTransforPersons[0].TransformToCity(kCity);
+                                canTransforPersons.RemoveAt(0);
+                            }
                         }
                     }
                 }
-
             }
             return true;
         }
         public static bool AITroops(Corps corps, Scenario scenario)
         {
-            for (int i = 0; i < corps.allTroops.Count; i++)
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
-                Troop troop = corps.allTroops[i];
-                if (troop != null && troop.IsAlive && !troop.ActionOver)
+                var c = scenario.troopsSet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == corps && !c.ActionOver)
                 {
-                    if (!troop.DoAI(scenario))
+                    if (!c.DoAI(scenario))
                         return false;
                 }
             }

@@ -1035,8 +1035,6 @@ namespace Sango.Game
         public override void Clear()
         {
             BelongCity.allTroops.Remove(this);
-            BelongCorps.allTroops.Remove(this);
-            BelongForce.allTroops.Remove(this);
             Scenario.Cur.troopsSet.Remove(this);
             Leader.BelongTroop = null;
             if (MemberList != null)
@@ -1065,8 +1063,6 @@ namespace Sango.Game
             // 先从原有势力移除
             if (BelongCorps != null)
             {
-                BelongCorps.allTroops.Remove(this);
-                BelongForce.allTroops.Remove(this);
                 BelongCity.allTroops.Remove(this);
             }
 
@@ -1075,8 +1071,6 @@ namespace Sango.Game
             BelongForce = city.BelongForce;
 
             BelongCity.allTroops.Add(this);
-            BelongCorps.allTroops.Add(this);
-            BelongForce.allTroops.Add(this);
 
             return Leader.IsSameForce(city);
         }
@@ -1204,15 +1198,9 @@ namespace Sango.Game
                 city.allTroops.Add(this);
                 if (BelongCorps != city.BelongCorps)
                 {
-                    if (BelongCorps != null)
-                        BelongCorps.allTroops.Remove(this);
-                    city.BelongCorps.allTroops.Add(this);
                     BelongCorps = city.BelongCorps;
                     if (BelongForce != city.BelongForce)
                     {
-                        if (BelongForce != null)
-                            BelongForce.allTroops.Remove(this);
-                        city.BelongForce.allTroops.Add(this);
                         BelongForce = city.BelongForce;
                     }
                 }

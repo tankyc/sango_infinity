@@ -2,6 +2,7 @@
 using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using UnityEngine;
 
 namespace Sango.Game
 {
@@ -68,30 +69,30 @@ namespace Sango.Game
         /// </summary>
         public int ResearchTechnique { get; set; }
 
-        /// <summary>
-        /// 所有军团
-        /// </summary>
-        public SangoObjectList<Corps> allCorps = new SangoObjectList<Corps>();
+        ///// <summary>
+        ///// 所有军团
+        ///// </summary>
+        //public SangoObjectList<Corps> allCorps = new SangoObjectList<Corps>();
 
-        /// <summary>
-        /// 所有城市
-        /// </summary>
-        public SangoObjectList<City> allCities = new SangoObjectList<City>();
+        ///// <summary>
+        ///// 所有城市
+        ///// </summary>
+        //public SangoObjectList<City> allCities = new SangoObjectList<City>();
 
-        /// <summary>
-        /// 所有武将
-        /// </summary>
-        public SangoObjectList<Person> allPersons = new SangoObjectList<Person>();
+        ///// <summary>
+        ///// 所有武将
+        ///// </summary>
+        //public SangoObjectList<Person> allPersons = new SangoObjectList<Person>();
 
-        /// <summary>
-        /// 所有设施
-        /// </summary>
-        public SangoObjectList<Building> allBuildings = new SangoObjectList<Building>();
+        ///// <summary>
+        ///// 所有设施
+        ///// </summary>
+        //public SangoObjectList<Building> allBuildings = new SangoObjectList<Building>();
 
-        /// <summary>
-        /// 所有部队
-        /// </summary>
-        public SangoObjectList<Troop> allTroops = new SangoObjectList<Troop>();
+        ///// <summary>
+        ///// 所有部队
+        ///// </summary>
+        //public SangoObjectList<Troop> allTroops = new SangoObjectList<Troop>();
 
         /// <summary>
         /// AI指令集
@@ -113,12 +114,13 @@ namespace Sango.Game
         /// </summary>
         Queue<BuildingBase> buildingBaseList = new Queue<BuildingBase>();
 
-
+        public int PersonCount { get; set; }
+        public int CityCount { get; set; }
 
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            //AllianceList?.InitCache();// = new SangoObjectList<Alliance>().FromString(_allianceListStr, scenario.allianceSet);
+
         }
 
         public bool IsAlliance(Force other)
@@ -193,10 +195,10 @@ namespace Sango.Game
             if (!DoAI(scenario))
                 return false;
 
-            for (int i = 0; i < allCorps.Count; ++i)
+            for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
-                Corps corps = allCorps[i];
-                if (corps.IsAlive && !corps.ActionOver)
+                Corps corps = scenario.corpsSet[i];
+                if (corps != null && corps.IsAlive && corps.BelongForce == this && !corps.ActionOver)
                 {
                     if (!corps.Run(scenario))
                         return false;
@@ -268,92 +270,223 @@ namespace Sango.Game
             buildingBaseList.Clear();
             AIFinished = false;
             AIPrepared = false;
-            allTroops.RemoveAll(x => !x.IsAlive);
             FightPower = 0;
+            PersonCount = 0;
+            CityCount = 0;
             Sango.Log.Print($"{Name} 回合");
-            // 需要优先执行person
-            allPersons.ForEach(c =>
+
+            for (int i = 0; i < scenario.personSet.Count; ++i)
             {
-                if (c.IsAlive)
-                    c.OnTurnStart(scenario);
-            });
-            allCorps.ForEach(c =>
-            {
-                if (c.IsAlive)
-                    c.OnTurnStart(scenario);
-            });
-            allCities.ForEach(c =>
-            {
-                if (c.IsAlive)
+                var c = scenario.personSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
+                    PersonCount++;
+                    c.OnTurnStart(scenario);
+                }
+            }
+
+            for (int i = 0; i < scenario.corpsSet.Count; ++i)
+            {
+                var c = scenario.corpsSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    c.OnTurnStart(scenario);
+                }
+            }
+
+            bool hasNoCheckBorder = false;
+            NeighborForceList.Clear();
+            for (int i = 0; i < scenario.citySet.Count; ++i)
+            {
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    CityCount++;
                     c.OnTurnStart(scenario);
                     FightPower += c.FightPower;
                     buildingBaseList.Enqueue(c);
+                    c.borderLine = -1;
+                    // 计算相邻势力
+                    foreach (City neighbor in c.NeighborList)
+                    {
+                        if (!neighbor.IsSameForce(c))
+                        {
+                            c.borderLine = 0;
+                            if (neighbor.BelongForce != null)
+                            {
+                                if (!NeighborForceList.Contains(neighbor.BelongForce))
+                                {
+                                    NeighborForceList.Add(neighbor.BelongForce);
+                                }
+                            }
+                        }
+                    }
+                    hasNoCheckBorder = c.borderLine == -1;
                 }
-            });
-            allBuildings.ForEach(c =>
+            }
+
+            while (hasNoCheckBorder)
             {
-                if (c.IsAlive)
+                for (int i = 0; i < scenario.citySet.Count; ++i)
+                {
+                    var c = scenario.citySet[i];
+                    if (c != null && c.IsAlive && c.BelongForce == this && c.borderLine < 0)
+                    {
+                        int minBorder = 99;
+                        // 计算相邻势力
+                        foreach (City neighbor in c.NeighborList)
+                        {
+                            if (neighbor.borderLine >= 0)
+                                minBorder = Mathf.Min(minBorder, neighbor.borderLine);
+                        }
+                        if (minBorder >= 0)
+                        {
+                            c.borderLine = minBorder + 1;
+                        }
+                        hasNoCheckBorder = c.borderLine == -1;
+                    }
+                }
+            }
+
+            for (int i = 0; i < scenario.buildingSet.Count; ++i)
+            {
+                var c = scenario.buildingSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnTurnStart(scenario);
                     buildingBaseList.Enqueue(c);
                 }
-            });
-            allTroops.ForEach(c =>
-            {
-                if (c.IsAlive)
-                    c.OnTurnStart(scenario);
-            });
+            }
 
-            NeighborForceList.Clear();
-            // 计算相邻势力
-            foreach (City city in this.allCities)
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
-                foreach (City neighbor in city.NeighborList)
+                var c = scenario.troopsSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
-                    if (!neighbor.IsSameForce(city) && neighbor.BelongForce != null)
-                    {
-                        if (!NeighborForceList.Contains(neighbor.BelongForce))
-                        {
-                            NeighborForceList.Add(neighbor.BelongForce);
-                        }
-                    }
+                    c.OnTurnStart(scenario);
                 }
             }
+
             return base.OnTurnStart(scenario);
         }
 
         public override bool OnTurnEnd(Scenario scenario)
         {
-            allCorps.ForEach(c =>
+            for (int i = 0; i < scenario.personSet.Count; ++i)
             {
-                if (c.IsAlive)
+                var c = scenario.personSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
                     c.OnTurnEnd(scenario);
-            });
-            allCities.ForEach(c =>
+                }
+            }
+
+            for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
-                if (c.IsAlive)
+                var c = scenario.corpsSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
                     c.OnTurnEnd(scenario);
-            });
-            allTroops.ForEach(c =>
+                }
+            }
+
+            for (int i = 0; i < scenario.citySet.Count; ++i)
             {
-                if (c.IsAlive)
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
                     c.OnTurnEnd(scenario);
-            });
-            allBuildings.ForEach(c =>
+                }
+            }
+
+            for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
-                if (c.IsAlive)
+                var c = scenario.buildingSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
                     c.OnTurnEnd(scenario);
-            });
+                }
+            }
+
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                var c = scenario.troopsSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    c.OnTurnEnd(scenario);
+                }
+            }
             return base.OnTurnEnd(scenario);
         }
 
         public override bool OnMonthStart(Scenario scenario)
         {
-
-
-
             return base.OnMonthStart(scenario);
+        }
+
+        public void ForEachCity(System.Action<City> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.citySet.Count; ++i)
+            {
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    action(c);
+                }
+            }
+        }
+
+        public void ForEachPerson(System.Action<Person> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.personSet.Count; ++i)
+            {
+                var c = scenario.personSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    action(c);
+                }
+            }
+        }
+
+        public void ForEachCorps(System.Action<Corps> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.corpsSet.Count; ++i)
+            {
+                var c = scenario.corpsSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    action(c);
+                }
+            }
+        }
+
+        public void ForEachBuilding(System.Action<Building> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.buildingSet.Count; ++i)
+            {
+                var c = scenario.buildingSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    action(c);
+                }
+            }
+        }
+
+        public void ForEachTroop(System.Action<Troop> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                var c = scenario.troopsSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    action(c);
+                }
+            }
         }
     }
 }

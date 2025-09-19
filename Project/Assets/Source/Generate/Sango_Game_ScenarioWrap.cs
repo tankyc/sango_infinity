@@ -9,7 +9,6 @@ public class Sango_Game_ScenarioWrap
 		L.BeginClass(typeof(Sango.Game.Scenario), typeof(Sango.Game.SangoObject));
 		L.RegFunction("Add", new LuaCSFunction(Add));
 		L.RegFunction("Remove", new LuaCSFunction(Remove));
-		L.RegFunction("GetRelations", new LuaCSFunction(GetRelations));
 		L.RegFunction("GetObject", new LuaCSFunction(GetObject));
 		L.RegFunction("LoadInfo", new LuaCSFunction(LoadInfo));
 		L.RegFunction("LoadContent", new LuaCSFunction(LoadContent));
@@ -44,6 +43,8 @@ public class Sango_Game_ScenarioWrap
 		L.RegFunction("Resume", new LuaCSFunction(Resume));
 		L.RegFunction("NextForce", new LuaCSFunction(NextForce));
 		L.RegFunction("NextTurn", new LuaCSFunction(NextTurn));
+		L.RegFunction("GetRelation", new LuaCSFunction(GetRelation));
+		L.RegFunction("AddRelation", new LuaCSFunction(AddRelation));
 		L.RegFunction("New", new LuaCSFunction(_CreateSango_Game_Scenario));
 		L.RegFunction("__tostring", new LuaCSFunction(ToLua.op_ToString));
 		L.RegVar("MAX_DATA_COUNT", new LuaCSFunction(get_MAX_DATA_COUNT), null);
@@ -64,7 +65,6 @@ public class Sango_Game_ScenarioWrap
 		L.RegVar("buildingSet", new LuaCSFunction(get_buildingSet), new LuaCSFunction(set_buildingSet));
 		L.RegVar("fireSet", new LuaCSFunction(get_fireSet), new LuaCSFunction(set_fireSet));
 		L.RegVar("allianceSet", new LuaCSFunction(get_allianceSet), new LuaCSFunction(set_allianceSet));
-		L.RegVar("forceRelation", new LuaCSFunction(get_forceRelation), new LuaCSFunction(set_forceRelation));
 		L.RegVar("cityDistanceMap", new LuaCSFunction(get_cityDistanceMap), new LuaCSFunction(set_cityDistanceMap));
 		L.RegVar("all_scenario_list", new LuaCSFunction(get_all_scenario_list), new LuaCSFunction(set_all_scenario_list));
 		L.RegVar("useThreadRun", new LuaCSFunction(get_useThreadRun), new LuaCSFunction(set_useThreadRun));
@@ -73,6 +73,7 @@ public class Sango_Game_ScenarioWrap
 		L.RegVar("CommonData", new LuaCSFunction(get_CommonData), null);
 		L.RegVar("Variables", new LuaCSFunction(get_Variables), null);
 		L.RegVar("Map", new LuaCSFunction(get_Map), null);
+		L.RegVar("RelationMap", new LuaCSFunction(get_RelationMap), new LuaCSFunction(set_RelationMap));
 		L.RegVar("Event", new LuaCSFunction(get_Event), null);
 		L.RegVar("Cur", new LuaCSFunction(get_Cur), null);
 		L.RegVar("FilePath", new LuaCSFunction(get_FilePath), null);
@@ -181,6 +182,14 @@ public class Sango_Game_ScenarioWrap
 				ToLua.PushObject(L, o);
 				return 1;
 			}
+			else if (count == 2 && TypeChecker.CheckTypes<Sango.Game.Alliance>(L, 2))
+			{
+				Sango.Game.Scenario obj = (Sango.Game.Scenario)ToLua.CheckObject<Sango.Game.Scenario>(L, 1);
+				Sango.Game.Alliance arg0 = (Sango.Game.Alliance)ToLua.ToObject(L, 2);
+				Sango.Game.Alliance o = obj.Add(arg0);
+				ToLua.PushObject(L, o);
+				return 1;
+			}
 			else
 			{
 				return LuaDLL.luaL_throw(L, "invalid arguments to method: Sango.Game.Scenario.Add");
@@ -255,27 +264,18 @@ public class Sango_Game_ScenarioWrap
 				ToLua.PushObject(L, o);
 				return 1;
 			}
+			else if (count == 2 && TypeChecker.CheckTypes<Sango.Game.Alliance>(L, 2))
+			{
+				Sango.Game.Scenario obj = (Sango.Game.Scenario)ToLua.CheckObject<Sango.Game.Scenario>(L, 1);
+				Sango.Game.Alliance arg0 = (Sango.Game.Alliance)ToLua.ToObject(L, 2);
+				Sango.Game.Alliance o = obj.Remove(arg0);
+				ToLua.PushObject(L, o);
+				return 1;
+			}
 			else
 			{
 				return LuaDLL.luaL_throw(L, "invalid arguments to method: Sango.Game.Scenario.Remove");
 			}
-		}
-		catch (Exception e)
-		{
-			return LuaDLL.toluaL_exception(L, e);
-		}
-	}
-
-	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
-	static int GetRelations(IntPtr L)
-	{
-		try
-		{
-			ToLua.CheckArgsCount(L, 3);
-			Sango.Game.Scenario obj = (Sango.Game.Scenario)ToLua.CheckObject<Sango.Game.Scenario>(L, 1);
-			Sango.Game.Force arg0 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 2);
-			Sango.Game.Force arg1 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 3);
-			return 1;
 		}
 		catch (Exception e)
 		{
@@ -895,6 +895,44 @@ public class Sango_Game_ScenarioWrap
 	}
 
 	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+	static int GetRelation(IntPtr L)
+	{
+		try
+		{
+			ToLua.CheckArgsCount(L, 3);
+			Sango.Game.Scenario obj = (Sango.Game.Scenario)ToLua.CheckObject<Sango.Game.Scenario>(L, 1);
+			Sango.Game.Force arg0 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 2);
+			Sango.Game.Force arg1 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 3);
+			int o = obj.GetRelation(arg0, arg1);
+			LuaDLL.lua_pushinteger(L, o);
+			return 1;
+		}
+		catch (Exception e)
+		{
+			return LuaDLL.toluaL_exception(L, e);
+		}
+	}
+
+	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+	static int AddRelation(IntPtr L)
+	{
+		try
+		{
+			ToLua.CheckArgsCount(L, 4);
+			Sango.Game.Scenario obj = (Sango.Game.Scenario)ToLua.CheckObject<Sango.Game.Scenario>(L, 1);
+			Sango.Game.Force arg0 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 2);
+			Sango.Game.Force arg1 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 3);
+			int arg2 = (int)LuaDLL.luaL_checkinteger(L, 4);
+			obj.AddRelation(arg0, arg1, arg2);
+			return 0;
+		}
+		catch (Exception e)
+		{
+			return LuaDLL.toluaL_exception(L, e);
+		}
+	}
+
+	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
 	static int get_MAX_DATA_COUNT(IntPtr L)
 	{
 		try
@@ -1187,22 +1225,6 @@ public class Sango_Game_ScenarioWrap
 	}
 
 	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
-	static int get_forceRelation(IntPtr L)
-	{
-		object o = null;
-
-		try
-		{
-			o = ToLua.ToObject(L, 1);
-			return 1;
-		}
-		catch(Exception e)
-		{
-			return LuaDLL.toluaL_exception(L, e, o, "attempt to index forceRelation on a nil value");
-		}
-	}
-
-	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
 	static int get_cityDistanceMap(IntPtr L)
 	{
 		object o = null;
@@ -1346,6 +1368,25 @@ public class Sango_Game_ScenarioWrap
 		catch(Exception e)
 		{
 			return LuaDLL.toluaL_exception(L, e, o, "attempt to index Map on a nil value");
+		}
+	}
+
+	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+	static int get_RelationMap(IntPtr L)
+	{
+		object o = null;
+
+		try
+		{
+			o = ToLua.ToObject(L, 1);
+			Sango.Game.Scenario obj = (Sango.Game.Scenario)o;
+			int[][] ret = obj.RelationMap;
+			ToLua.Push(L, ret);
+			return 1;
+		}
+		catch(Exception e)
+		{
+			return LuaDLL.toluaL_exception(L, e, o, "attempt to index RelationMap on a nil value");
 		}
 	}
 
@@ -1592,23 +1633,6 @@ public class Sango_Game_ScenarioWrap
 	}
 
 	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
-	static int set_forceRelation(IntPtr L)
-	{
-		object o = null;
-
-		try
-		{
-			o = ToLua.ToObject(L, 1);
-			Sango.Game.Scenario obj = (Sango.Game.Scenario)o;
-			return 0;
-		}
-		catch(Exception e)
-		{
-			return LuaDLL.toluaL_exception(L, e, o, "attempt to index forceRelation on a nil value");
-		}
-	}
-
-	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
 	static int set_cityDistanceMap(IntPtr L)
 	{
 		object o = null;
@@ -1659,6 +1683,25 @@ public class Sango_Game_ScenarioWrap
 		catch(Exception e)
 		{
 			return LuaDLL.toluaL_exception(L, e, o, "attempt to index useThreadRun on a nil value");
+		}
+	}
+
+	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+	static int set_RelationMap(IntPtr L)
+	{
+		object o = null;
+
+		try
+		{
+			o = ToLua.ToObject(L, 1);
+			Sango.Game.Scenario obj = (Sango.Game.Scenario)o;
+			int[][] arg0 = ToLua.CheckObjectArray<int[]>(L, 2);
+			obj.RelationMap = arg0;
+			return 0;
+		}
+		catch(Exception e)
+		{
+			return LuaDLL.toluaL_exception(L, e, o, "attempt to index RelationMap on a nil value");
 		}
 	}
 }

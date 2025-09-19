@@ -39,6 +39,7 @@ public class Sango_Game_TroopWrap
 		L.RegFunction("NeedPrepareMission", new LuaCSFunction(NeedPrepareMission));
 		L.RegFunction("DoAI", new LuaCSFunction(DoAI));
 		L.RegFunction("AIPrepare", new LuaCSFunction(AIPrepare));
+		L.RegFunction("ChangeCity", new LuaCSFunction(ChangeCity));
 		L.RegFunction("New", new LuaCSFunction(_CreateSango_Game_Troop));
 		L.RegFunction("__tostring", new LuaCSFunction(ToLua.op_ToString));
 		L.RegVar("BelongForce", new LuaCSFunction(get_BelongForce), new LuaCSFunction(set_BelongForce));
@@ -47,6 +48,7 @@ public class Sango_Game_TroopWrap
 		L.RegVar("Leader", new LuaCSFunction(get_Leader), new LuaCSFunction(set_Leader));
 		L.RegVar("MemberList", new LuaCSFunction(get_MemberList), new LuaCSFunction(set_MemberList));
 		L.RegVar("TroopType", new LuaCSFunction(get_TroopType), new LuaCSFunction(set_TroopType));
+		L.RegVar("CaptiveList", new LuaCSFunction(get_CaptiveList), new LuaCSFunction(set_CaptiveList));
 		L.RegVar("x", new LuaCSFunction(get_x), new LuaCSFunction(set_x));
 		L.RegVar("y", new LuaCSFunction(get_y), new LuaCSFunction(set_y));
 		L.RegVar("troops", new LuaCSFunction(get_troops), new LuaCSFunction(set_troops));
@@ -838,6 +840,24 @@ public class Sango_Game_TroopWrap
 	}
 
 	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+	static int ChangeCity(IntPtr L)
+	{
+		try
+		{
+			ToLua.CheckArgsCount(L, 2);
+			Sango.Game.Troop obj = (Sango.Game.Troop)ToLua.CheckObject<Sango.Game.Troop>(L, 1);
+			Sango.Game.City arg0 = (Sango.Game.City)ToLua.CheckObject<Sango.Game.City>(L, 2);
+			Sango.Game.City o = obj.ChangeCity(arg0);
+			ToLua.PushObject(L, o);
+			return 1;
+		}
+		catch (Exception e)
+		{
+			return LuaDLL.toluaL_exception(L, e);
+		}
+	}
+
+	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
 	static int get_BelongForce(IntPtr L)
 	{
 		object o = null;
@@ -948,6 +968,25 @@ public class Sango_Game_TroopWrap
 		catch(Exception e)
 		{
 			return LuaDLL.toluaL_exception(L, e, o, "attempt to index TroopType on a nil value");
+		}
+	}
+
+	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+	static int get_CaptiveList(IntPtr L)
+	{
+		object o = null;
+
+		try
+		{
+			o = ToLua.ToObject(L, 1);
+			Sango.Game.Troop obj = (Sango.Game.Troop)o;
+			Sango.Game.SangoObjectList<Sango.Game.Person> ret = obj.CaptiveList;
+			ToLua.PushObject(L, ret);
+			return 1;
+		}
+		catch(Exception e)
+		{
+			return LuaDLL.toluaL_exception(L, e, o, "attempt to index CaptiveList on a nil value");
 		}
 	}
 
@@ -1765,6 +1804,25 @@ public class Sango_Game_TroopWrap
 		catch(Exception e)
 		{
 			return LuaDLL.toluaL_exception(L, e, o, "attempt to index TroopType on a nil value");
+		}
+	}
+
+	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+	static int set_CaptiveList(IntPtr L)
+	{
+		object o = null;
+
+		try
+		{
+			o = ToLua.ToObject(L, 1);
+			Sango.Game.Troop obj = (Sango.Game.Troop)o;
+			Sango.Game.SangoObjectList<Sango.Game.Person> arg0 = (Sango.Game.SangoObjectList<Sango.Game.Person>)ToLua.CheckObject<Sango.Game.SangoObjectList<Sango.Game.Person>>(L, 2);
+			obj.CaptiveList = arg0;
+			return 0;
+		}
+		catch(Exception e)
+		{
+			return LuaDLL.toluaL_exception(L, e, o, "attempt to index CaptiveList on a nil value");
 		}
 	}
 

@@ -38,37 +38,20 @@ namespace Sango.Game
 
         public int BorderCityCount { get; set; }
 
-        /// <summary>
-        /// 所有城市
-        /// </summary>
-        public SangoObjectList<City> allCities = new SangoObjectList<City>();
-        /// <summary>
-        /// 所有武将
-        /// </summary>
-        public SangoObjectList<Person> allPersons = new SangoObjectList<Person>();
-        /// <summary>
-        /// 所有设施
-        /// </summary>
-        public SangoObjectList<Building> allBuildings = new SangoObjectList<Building>();
-        /// <summary>
-        /// 所有部队
-        /// </summary>
-        public SangoObjectList<Troop> allTroops = new SangoObjectList<Troop>();
 
-        Queue<System.Func<Corps, Scenario, bool>> AICommandQueue = new Queue<Func<Corps, Scenario, bool>>();
+        public Queue<System.Func<Corps, Scenario, bool>> AICommandQueue = new Queue<Func<Corps, Scenario, bool>>();
 
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            BelongForce.allCorps.Add(this);
+
         }
 
         public override bool OnTurnStart(Scenario scenario)
         {
             AIFinished = false;
             AIPrepared = false;
-            allTroops.RemoveAll(x => !x.IsAlive);
-            PrepareCityPersonHole();
+            PrepareCityPersonHole(scenario);
             ActionOver = false;
             return true;
         }
@@ -76,19 +59,25 @@ namespace Sango.Game
         /// <summary>
         /// 准备人才缺口
         /// </summary>
-        public void PrepareCityPersonHole()
+        public void PrepareCityPersonHole(Scenario scenario)
         {
-            int cityCount = allCities.Count;
-            if (cityCount <= 1) return;
-            int personCount = allPersons.Count;
+            int cityCount = 0;
             BorderCityCount = 0;
-            allCities.ForEach((c) =>
+            int personCount = 0;
+            for (int i = 0; i < scenario.citySet.Count; ++i)
             {
-                if (c.IsBorderCity)
-                    BorderCityCount++;
-                c.PersonHole = 0;
-            });
+                var c = scenario.citySet[i];
+                if (c != null && c.BelongCorps == this)
+                {
+                    cityCount++;
+                    if (c.IsBorderCity)
+                        BorderCityCount++;
+                    c.PersonHole = 0;
+                    personCount += c.allPersons.Count;
+                }
+            }
 
+            if (cityCount <= 1) return;
             if (BorderCityCount == 0)
                 return;
 
@@ -104,18 +93,22 @@ namespace Sango.Game
                 }
             }
             int boderSeat = avarageTotalSeat / BorderCityCount + noDoderSeat;
-            allCities.ForEach((c) =>
-            {
-                if (c.IsBorderCity)
-                {
-                    c.PersonHole = boderSeat - c.allPersons.Count + c.trsformingPesonList.Count;
-                }
-                else
-                {
-                    c.PersonHole = noDoderSeat - c.allPersons.Count + c.trsformingPesonList.Count;
-                }
-            });
 
+            for (int i = 0; i < scenario.citySet.Count; ++i)
+            {
+                var c = scenario.citySet[i];
+                if (c != null && c.BelongCorps == this)
+                {
+                    if (c.IsBorderCity)
+                    {
+                        c.PersonHole = boderSeat - c.allPersons.Count + c.trsformingPesonList.Count;
+                    }
+                    else
+                    {
+                        c.PersonHole = noDoderSeat - c.allPersons.Count + c.trsformingPesonList.Count;
+                    }
+                }
+            }
         }
 
         //public City Add(City city)
@@ -220,6 +213,58 @@ namespace Sango.Game
 
             //AILegions();
             //AITrainChildren();
+        }
+
+        public void ForEachCity(System.Action<City> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.citySet.Count; ++i)
+            {
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == this)
+                {
+                    action(c);
+                }
+            }
+        }
+
+        public void ForEachPerson(System.Action<Person> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.personSet.Count; ++i)
+            {
+                var c = scenario.personSet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == this)
+                {
+                    action(c);
+                }
+            }
+        }
+
+        public void ForEachBuilding(System.Action<Building> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.buildingSet.Count; ++i)
+            {
+                var c = scenario.buildingSet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == this)
+                {
+                    action(c);
+                }
+            }
+        }
+
+        public void ForEachTroop(System.Action<Troop> action)
+        {
+            Scenario scenario = Scenario.Cur;
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                var c = scenario.troopsSet[i];
+                if (c != null && c.IsAlive && c.BelongCorps == this)
+                {
+                    action(c);
+                }
+            }
         }
     }
 }

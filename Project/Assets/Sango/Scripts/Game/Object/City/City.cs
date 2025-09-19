@@ -158,10 +158,10 @@ namespace Sango.Game
 
 
         float population_increase_factor = 0;
-        public override Cell CenterCell { get { return cell_list[0]; } }
-        int borderLine;
-        public bool IsBorderCity { get { return borderLine == 0; } }
-        public int BorderLine { get { return borderLine; } }
+        public override Cell CenterCell => cell_list[0];
+        internal int borderLine;
+        public bool IsBorderCity => borderLine == 0;
+        public int BorderLine => borderLine;
 
         public List<Person> freePersons = new List<Person>();
         public List<Person> wildPersons = new List<Person>();
@@ -299,8 +299,6 @@ namespace Sango.Game
         public override void OnScenarioPrepare(Scenario scenario)
         {
             base.OnScenarioPrepare(scenario);
-            if (BelongForce != null) BelongForce.allCities.Add(this);
-            if (BelongCorps != null) BelongCorps.allCities.Add(this);
 
             //TroopList?.InitCache();// = new SangoObjectList<Troop>().FromString(_troopListStr, scenario.troopSet);
             //NeighborList?.InitCache();// = new SangoObjectList<City>().FromString(_neighborListStr, scenario.citySet);
@@ -331,7 +329,6 @@ namespace Sango.Game
         {
             if (BuildingType.Id == 1)
             {
-                UpdateIfIsBorderCity();
                 UpdateActiveTroopTypes();
                 UpdateFightPower();
             }
@@ -431,20 +428,6 @@ namespace Sango.Game
                 return len;
 
             return 0;
-        }
-
-        public void UpdateIfIsBorderCity()
-        {
-            if (BelongForce != null)
-            {
-                BelongForce.allCities.ForEach(c =>
-                {
-                    c.boderLineChecked = false;
-                });
-                borderLine = _CheckBorder(this, 0);
-            }
-            else
-                borderLine = 0;
         }
 
         public void AutoMakeTroop(List<Troop> troopList, int count, bool isAttack)
@@ -866,9 +849,8 @@ namespace Sango.Game
             int distance = 100000;
             if (BelongForce != null)
             {
-                for (int i = 0; i < BelongForce.allCities.Count; i++)
+                BelongForce.ForEachCity(city =>
                 {
-                    City city = BelongForce.allCities[i];
                     if (city != this)
                     {
                         int dis = Scenario.Cur.Map.Distance(city.CenterCell, this.CenterCell);
@@ -878,7 +860,7 @@ namespace Sango.Game
                             nearnest = city;
                         }
                     }
-                }
+                });
             }
             return nearnest;
         }
@@ -889,16 +871,10 @@ namespace Sango.Game
             if (BelongCorps != other)
             {
                 last = BelongCorps;
-                if (BelongCorps != null)
-                    BelongCorps.allCities.Remove(this);
-                other.allCities.Add(this);
                 BelongCorps = other;
                 if (BelongForce != other.BelongForce)
                 {
-                    if (BelongForce != null)
-                        BelongForce.allCities.Remove(this);
                     BelongForce = other.BelongForce;
-                    other.BelongForce.allCities.Add(this);
                 }
                 Render?.UpdateRender();
             }
@@ -920,7 +896,7 @@ namespace Sango.Game
 
             // 确认一个撤退城市
             City escapeCity = null;
-            if (BelongForce.allCities.Count > 1)
+            if (BelongForce.CityCount > 1)
             {
                 if (this == BelongForce.Governor.BelongCity)
                     escapeCity = GetNearnestForceCity();
@@ -957,7 +933,7 @@ namespace Sango.Game
                     if (escapeCity != null)
                     {
                         person.ChangeCity(escapeCity);
-                        if (person.BelongTroop != null)
+                        if (person.BelongTroop == null)
                             person.SetMission(MissionType.PersonReturn, person.BelongCity, 1);
                     }
                     else
@@ -967,19 +943,28 @@ namespace Sango.Game
                 }
             }
 
-            for (int i = allTroops.Count - 1; i >= 0; --i)
+            if (allTroops.Count > 0)
             {
-                Troop t = allTroops[i];
                 if (escapeCity != null)
                 {
-                    t.ChangeCity(escapeCity);
+                    City nearCity = GetNearnestForceCity();
+                    for (int i = allTroops.Count - 1; i >= 0; --i)
+                    {
+                        Troop t = allTroops[i];
+                        t.ChangeCity(nearCity);
+                    }
                 }
                 else
                 {
-                    t.Clear();
+                    for (int i = allTroops.Count - 1; i >= 0; --i)
+                    {
+                        Troop t = allTroops[i];
+                        t.Clear();
+                    }
                 }
+
+                allTroops.Clear();
             }
-            allTroops.Clear();
 
             //处理建筑
             for (int i = allBuildings.Count - 1; i >= 0; i--)
@@ -992,6 +977,17 @@ namespace Sango.Game
                 else
                 {
                     building.Destroy();
+                }
+            }
+
+            if (escapeCity == null)
+            {
+                Scenario.Cur.corpsSet.Remove(BelongCorps);
+                Sango.Log.Print($"{BelongForce.Name} 灭亡!!!");
+                Scenario.Cur.forceSet.Remove(BelongForce);
+                if (Scenario.Cur.forceSet.DataCount == 1)
+                {
+                    Sango.Log.Print($"{atk.BelongForce.Name} 统一!!!!!!!!!!!!!!");
                 }
             }
 
@@ -1016,16 +1012,7 @@ namespace Sango.Game
                 }
             }
 
-            if (escapeCity == null)
-            {
-                Scenario.Cur.corpsSet.Remove(BelongCorps);
-                Sango.Log.Print($"{BelongForce.Name} 灭亡!!!");
-                Scenario.Cur.forceSet.Remove(BelongForce);
-                if (Scenario.Cur.forceSet.DataCount == 1)
-                {
-                    Sango.Log.Print($"{atk.BelongForce.Name} 统一!!!!!!!!!!!!!!");
-                }
-            }
+
         }
 
         /// <summary>
@@ -1036,8 +1023,10 @@ namespace Sango.Game
         public int Distance(City other)
         {
             Dictionary<City, int> _distanceMap = new Dictionary<City, int>();
-            List<City> _openList = new List<City>();
-            _openList.Add(this);
+            List<City> _openList = new List<City>
+            {
+                this
+            };
             _distanceMap.Add(this, 0);
             while (_openList.Count > 0)
             {
@@ -1522,8 +1511,6 @@ namespace Sango.Game
             scenario.troopsSet.Add(troop);
             troop.Leader.BelongTroop = troop;
             this.allTroops.Add(troop);
-            this.BelongCorps.allTroops.Add(troop);
-            this.BelongForce.allTroops.Add(troop);
             troop.BelongCorps = this.BelongCorps;
             troop.BelongForce = this.BelongForce;
             troop.BelongCity = this;
@@ -1608,7 +1595,6 @@ namespace Sango.Game
                     return a.distance.CompareTo(b.distance);
                 });
             }
-            UpdateIfIsBorderCity();
             UpdateActiveTroopTypes();
             UpdateFightPower();
             SortFreePersons();

@@ -27,8 +27,6 @@ namespace Sango.Game
 
         public override void Init(Scenario scenario)
         {
-            if (BelongForce != null) BelongForce.allBuildings.Add(this);
-            if (BelongCorps != null) BelongCorps.allBuildings.Add(this);
             if (BelongCity != null)
             {
                 BelongCity.allBuildings.Add(this);
@@ -81,12 +79,8 @@ namespace Sango.Game
                 return;
             }
 
-            BelongCorps.allBuildings.Remove(this);
-            BelongForce.allBuildings.Remove(this);
             BelongCity.allBuildings.Remove(this);
 
-            dest.BelongCorps.allBuildings.Add(this);
-            dest.BelongForce.allBuildings.Add(this);
             dest.allBuildings.Add(this);
 
             BelongCorps = dest.BelongCorps;
@@ -107,16 +101,10 @@ namespace Sango.Game
             if (BelongCorps != corps)
             {
                 last = BelongCorps;
-                if (BelongCorps != null)
-                    BelongCorps.allBuildings.Remove(this);
-                corps.allBuildings.Add(this);
                 BelongCorps = corps;
 
                 if (corps.BelongForce != BelongForce)
                 {
-                    if (BelongForce != null)
-                        BelongForce.allBuildings.Remove(this);
-                    corps.BelongForce.allBuildings.Add(this);
                     BelongForce = corps.BelongForce;
                 }
 
@@ -135,10 +123,6 @@ namespace Sango.Game
                 BelongCity.villageList.Remove(this);
                 BelongCity.allBuildings.Remove(this);
             }
-            if (BelongCorps != null)
-                BelongCorps.allBuildings.Remove(this);
-            if (BelongForce != null)
-                BelongForce.allBuildings.Remove(this);
 
             Scenario.Cur.buildingSet.Remove(this);
 

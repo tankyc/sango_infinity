@@ -131,7 +131,7 @@
 	<word>DG.Tweening.Core.TweenerCore`3[[System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.Single, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[DG.Tweening.Plugins.Options.FloatOptions, DOTween, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]</word>
 
 	<!--FairyGUI-->
-	<word>FairyGUI.EventContext</word>
+	<!--<word>FairyGUI.EventContext</word>
 	<word>FairyGUI.EventDispatcher</word>
 	<word>FairyGUI.EventListener</word>
 	<word>FairyGUI.InputEvent</word>
@@ -200,13 +200,13 @@
 	<word>FairyGUI.Origin360</word>
 	<word>FairyGUI.FocusRule</word>
 	<word>FairyGUI.Shape</word>
-	<word>FairyGUI.UIContentScaler+ScreenMatchMode</word>
+	<word>FairyGUI.UIContentScaler+ScreenMatchMode</word>-->
 
 	<!--TriLib-->
-	<word>TriLibCore.AssetLoader</word>
+	<!--<word>TriLibCore.AssetLoader</word>
 	<word>TriLibCore.AssetLoaderContext</word>
 	<word>TriLibCore.GCHelper</word>
-	<word>TriLibCore.AssetLoaderOptions</word>
+	<word>TriLibCore.AssetLoaderOptions</word>-->
 
 	<!--Sango-->
 	<word>Sango.Object</word>

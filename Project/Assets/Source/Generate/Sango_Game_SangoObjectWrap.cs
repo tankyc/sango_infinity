@@ -11,6 +11,7 @@ public class Sango_Game_SangoObjectWrap
 		L.RegFunction("Run", new LuaCSFunction(Run));
 		L.RegFunction("OnScenarioPrepare", new LuaCSFunction(OnScenarioPrepare));
 		L.RegFunction("OnScenarioStart", new LuaCSFunction(OnScenarioStart));
+		L.RegFunction("OnNewTurn", new LuaCSFunction(OnNewTurn));
 		L.RegFunction("OnTurnStart", new LuaCSFunction(OnTurnStart));
 		L.RegFunction("OnTurnEnd", new LuaCSFunction(OnTurnEnd));
 		L.RegFunction("OnDayStart", new LuaCSFunction(OnDayStart));
@@ -124,6 +125,24 @@ public class Sango_Game_SangoObjectWrap
 			Sango.Game.Scenario arg0 = (Sango.Game.Scenario)ToLua.CheckObject<Sango.Game.Scenario>(L, 2);
 			obj.OnScenarioStart(arg0);
 			return 0;
+		}
+		catch (Exception e)
+		{
+			return LuaDLL.toluaL_exception(L, e);
+		}
+	}
+
+	[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+	static int OnNewTurn(IntPtr L)
+	{
+		try
+		{
+			ToLua.CheckArgsCount(L, 2);
+			Sango.Game.SangoObject obj = (Sango.Game.SangoObject)ToLua.CheckObject<Sango.Game.SangoObject>(L, 1);
+			Sango.Game.Scenario arg0 = (Sango.Game.Scenario)ToLua.CheckObject<Sango.Game.Scenario>(L, 2);
+			bool o = obj.OnNewTurn(arg0);
+			LuaDLL.lua_pushboolean(L, o);
+			return 1;
 		}
 		catch (Exception e)
 		{

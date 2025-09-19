@@ -60,33 +60,43 @@ public class Sango_Loader_ObjectLoaderWrap
 		{
 			int count = LuaDLL.lua_gettop(L);
 
-			if (count == 1)
+			if (count == 1 && TypeChecker.CheckTypes<string>(L, 1))
 			{
-				string arg0 = ToLua.CheckString(L, 1);
+				string arg0 = ToLua.ToString(L, 1);
 				UnityEngine.Object o = Sango.Loader.ObjectLoader.LoadObject(arg0);
 				ToLua.Push(L, o);
 				return 1;
 			}
-			else if (count == 2)
+			else if (count == 2 && TypeChecker.CheckTypes<string, string>(L, 1))
 			{
-				string arg0 = ToLua.CheckString(L, 1);
-				string arg1 = ToLua.CheckString(L, 2);
+				string arg0 = ToLua.ToString(L, 1);
+				string arg1 = ToLua.ToString(L, 2);
 				UnityEngine.Object o = Sango.Loader.ObjectLoader.LoadObject(arg0, arg1);
 				ToLua.Push(L, o);
 				return 1;
 			}
-			else if (count == 3 && TypeChecker.CheckTypes<string, System.Type>(L, 2))
+			else if (count == 3 && TypeChecker.CheckTypes<string, string, System.Type>(L, 1))
 			{
-				string arg0 = ToLua.CheckString(L, 1);
+				string arg0 = ToLua.ToString(L, 1);
 				string arg1 = ToLua.ToString(L, 2);
 				System.Type arg2 = (System.Type)ToLua.ToObject(L, 3);
 				UnityEngine.Object o = Sango.Loader.ObjectLoader.LoadObject(arg0, arg1, arg2);
 				ToLua.Push(L, o);
 				return 1;
 			}
+			else if (TypeChecker.CheckTypes<string, string, System.Type>(L, 1) && TypeChecker.CheckParamsType<object>(L, 4, count - 3))
+			{
+				string arg0 = ToLua.ToString(L, 1);
+				string arg1 = ToLua.ToString(L, 2);
+				System.Type arg2 = (System.Type)ToLua.ToObject(L, 3);
+				object[] arg3 = ToLua.ToParamsObject(L, 4, count - 3);
+				UnityEngine.Object o = Sango.Loader.ObjectLoader.LoadObject(arg0, arg1, arg2, arg3);
+				ToLua.Push(L, o);
+				return 1;
+			}
 			else if (TypeChecker.CheckTypes<string, System.Type>(L, 1) && TypeChecker.CheckParamsType<object>(L, 3, count - 2))
 			{
-				string arg0 = ToLua.CheckString(L, 1);
+				string arg0 = ToLua.ToString(L, 1);
 				System.Type arg1 = (System.Type)ToLua.ToObject(L, 2);
 				object[] arg2 = ToLua.ToParamsObject(L, 3, count - 2);
 				UnityEngine.Object o = Sango.Loader.ObjectLoader.LoadObject(arg0, arg1, arg2);

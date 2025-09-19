@@ -430,9 +430,6 @@ namespace Sango.Game
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            if (BelongForce != null) BelongForce.allPersons.Add(this);
-            if (BelongCorps != null) BelongCorps.allPersons.Add(this);
-
             if (BelongCity != null)
             {
                 if (!IsWild)
@@ -580,15 +577,9 @@ namespace Sango.Game
             if (BelongCorps != corps)
             {
                 last = BelongCorps;
-                if (BelongCorps != null)
-                    BelongCorps.allPersons.Remove(this);
-                corps.allPersons.Add(this);
                 BelongCorps = corps;
                 if (BelongForce != corps.BelongForce)
                 {
-                    if (BelongForce != null)
-                        BelongForce.allPersons.Remove(this);
-                    corps.BelongForce.allPersons.Add(this);
                     BelongForce = corps.BelongForce;
                 }
             }
@@ -611,15 +602,9 @@ namespace Sango.Game
                     BelongCity = city;
                     if (BelongCorps != city.BelongCorps)
                     {
-                        if (BelongCorps != null)
-                            BelongCorps.allPersons.Remove(this);
-                        city.BelongCorps.allPersons.Add(this);
                         BelongCorps = city.BelongCorps;
                         if (BelongForce != city.BelongForce)
                         {
-                            if (BelongForce != null)
-                                BelongForce.allPersons.Remove(this);
-                            city.BelongForce.allPersons.Add(this);
                             BelongForce = city.BelongForce;
                         }
                     }
@@ -695,8 +680,6 @@ namespace Sango.Game
             // 先从原有势力移除
             if (BelongCorps != null)
             {
-                BelongCorps.allPersons.Remove(this);
-                BelongForce.allPersons.Remove(this);
                 BelongCity.allPersons.Remove(this);
             }
             else
@@ -711,8 +694,6 @@ namespace Sango.Game
             BelongForce = city.BelongForce;
 
             BelongCity.allPersons.Add(this);
-            BelongCorps.allPersons.Add(this);
-            BelongForce.allPersons.Add(this);
 
             return isSameCity;
         }
