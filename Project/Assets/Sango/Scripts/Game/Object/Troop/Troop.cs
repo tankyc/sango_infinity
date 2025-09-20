@@ -491,10 +491,20 @@ namespace Sango.Game
         static List<TroopMoveEvent> tempMoveEventList = new List<TroopMoveEvent>(32);
         static List<Cell> spellRangeCells = new List<Cell>(256);
         internal bool isMoving = false;
+        Cell moveToDest = null;
+
         public bool MoveTo(Cell destCell)
         {
             if (destCell == cell)
             {
+                moveToDest = null;
+                isMoving = false;
+                return true;
+            }
+
+            if (moveToDest == cell)
+            {
+                moveToDest = null;
                 isMoving = false;
                 return true;
             }
@@ -522,9 +532,14 @@ namespace Sango.Game
                         start = start,
                         isLastMove = i == tempCellList.Count - 1
                     });
+                    moveToDest = dest;
                     start = dest;
                 }
-
+                if (moveToDest == null)
+                {
+                    isMoving = false;
+                    return true;
+                }
             }
             return false;
 
