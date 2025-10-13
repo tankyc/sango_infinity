@@ -7,13 +7,12 @@ namespace Sango.Tools
 {
     public struct Rect : IEquatable<Rect>, IFormattable
     {
-        /// <summary>矩形区域的最小x坐标值</summary>
         private float mXMin;
-        /// <summary>矩形区域的最小y坐标值</summary>
+
         private float mYMin;
-        /// <summary>矩形区域的宽度</summary>
+
         private float mWidth;
-        /// <summary>矩形区域的高度</summary>
+
         private float mHeight;
 
         public static Rect zero => new Rect(0f, 0f, 0f, 0f);

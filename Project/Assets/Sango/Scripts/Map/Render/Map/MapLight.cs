@@ -123,5 +123,6 @@ namespace Sango.Render
                 Shader.SetGlobalFloat("_ShadowStrength", shadow_strength[curSeason]);
             }
         }
+
     }
 }

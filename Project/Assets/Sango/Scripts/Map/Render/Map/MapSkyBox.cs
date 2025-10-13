@@ -277,7 +277,7 @@ namespace Sango.Render
 
             SkyArea area = new SkyArea(this)
             {
-                bounds = new UnityEngine.Rect(0, 0, map.mapData.world_width, map.mapData.world_height),
+                bounds = new UnityEngine.Rect(0, 0, map.mapData.wrold_width, map.mapData.wrold_height),
                 seasonTextures = new Texture[4]
                 {
                     Texture2D.whiteTexture,

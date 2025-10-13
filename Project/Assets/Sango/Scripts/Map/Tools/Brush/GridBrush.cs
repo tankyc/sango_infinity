@@ -273,7 +273,7 @@ namespace Sango.Tools
         {
             if (terrainTypeMaskTex == null)
             {
-                terrainTypeMaskTex = new Texture2D(editor.map.mapGrid.bounds.x, editor.map.mapGrid.bounds.y, TextureFormat.ARGB32, false);
+                terrainTypeMaskTex = new Texture2D(editor.map.mapGrid.bouns.x, editor.map.mapGrid.bouns.y, TextureFormat.ARGB32, false);
                 terrainTypeMaskTex.wrapMode = TextureWrapMode.Clamp;
                 terrainTypeMaskTex.filterMode = FilterMode.Point;
             }
@@ -321,9 +321,9 @@ namespace Sango.Tools
             Shader.SetGlobalFloat("_terrainTypeMaskCol", terrainTypeMaskCol);
             Shader.SetGlobalFloat("_terrainTypeMaskRow", terrainTypeMaskRow);
 
-            for (int i = 0; i < editor.map.mapGrid.bounds.x; ++i)
+            for (int i = 0; i < editor.map.mapGrid.bouns.x; ++i)
             {
-                for (int j = 0; j < editor.map.mapGrid.bounds.y; ++j)
+                for (int j = 0; j < editor.map.mapGrid.bouns.y; ++j)
                 {
                     MapGrid.GridData data = editor.map.mapGrid.GetGridData(i, j);
                     SetTerrainMaskShowColor(i, j, GetGridDataProterty(b, data), terrainTypeMaskCol, terrainTypeMaskRow);

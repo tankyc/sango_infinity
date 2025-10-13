@@ -451,11 +451,11 @@ namespace Sango.Render
         {
             get { return bounds.y; }
         }
-        public int world_width
+        public int wrold_width
         {
             get { return bounds.x * quadSize; }
         }
-        public int world_height
+        public int wrold_height
         {
             get { return bounds.y * quadSize; }
         }
