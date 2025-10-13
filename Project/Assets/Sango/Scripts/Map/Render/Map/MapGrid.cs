@@ -11,11 +11,21 @@ namespace Sango.Render
     {
         /// 我们的地图是一个odd-q排列的地格
         public Sango.Hexagon.HexWorld hexWorld;
-        public Vector2Int bouns;
+        /// <summary>
+        /// 地图边界相关的二维向量，用于表示地图在横向和纵向的范围相关信息
+        /// </summary>
+        public Vector2Int bounds;
         public int gridSize = -1;
-        public int gridVertexCuont;
+        /// <summary>
+        /// 网格顶点数量，用于记录地图网格顶点的相关计数信息
+        /// </summary>
+        public int gridVertexCount;
         public Texture gridTexture;
         public string gridTextureName = "grid";
+        /// <summary>
+        /// 网格纹理尺寸大小
+        /// </summary>
+        private int quadSize = 20;
         public Texture2D GridMaskTexture;   // a为是否显示r红色格子g绿色格子b蓝色格子
         public Texture2D RangeMaskTexture;  // a为是否显示r为当前选择地格g为我方范围b为敌方范围
         private GridData[][] gridDatas;
@@ -142,7 +152,7 @@ namespace Sango.Render
         {
             base.Init();
             if (gridSize <= 0)
-                Create(20);
+                Create(quadSize);
             SetGridTexture("grid");
             ShowGrid(true);
         }
@@ -158,21 +168,21 @@ namespace Sango.Render
         {
             Debug.Log(string.Format("创建格子: size: {0}", size));
             gridSize = Mathf.Max(size, map.mapData.quadSize);
-            gridVertexCuont = gridSize / map.mapData.quadSize;
-            bouns = new Vector2Int(map.mapData.wrold_width / gridSize, map.mapData.wrold_height / gridSize);
+            gridVertexCount = gridSize / map.mapData.quadSize;
+            bounds = new Vector2Int(map.mapData.world_width / gridSize, map.mapData.world_height / gridSize);
             hexWorld.InitLayout(new Hexagon.Point(gridSize, gridSize), new Hexagon.Point(0, 0));
 
             if (GridMaskTexture != null)
             {
                 GameObject.Destroy(GridMaskTexture);
             }
-            GridMaskTexture = new Texture2D(bouns.x, bouns.y, TextureFormat.ARGB32, false);
+            GridMaskTexture = new Texture2D(bounds.x, bounds.y, TextureFormat.ARGB32, false);
             GridMaskTexture.wrapMode = TextureWrapMode.Clamp;
             GridMaskTexture.filterMode = FilterMode.Point;
 
-            for (int i = 0; i < bouns.x; ++i)
+            for (int i = 0; i < bounds.x; ++i)
             {
-                for (int j = 0; j < bouns.y; ++j)
+                for (int j = 0; j < bounds.y; ++j)
                 {
                     GridMaskTexture.SetPixel(i, j, Color.clear);
                 }
@@ -184,13 +194,13 @@ namespace Sango.Render
                 GameObject.Destroy(RangeMaskTexture);
             }
 
-            RangeMaskTexture = new Texture2D(bouns.x, bouns.y, TextureFormat.ARGB32, false);
+            RangeMaskTexture = new Texture2D(bounds.x, bounds.y, TextureFormat.ARGB32, false);
             RangeMaskTexture.wrapMode = TextureWrapMode.Clamp;
             RangeMaskTexture.filterMode = FilterMode.Point;
 
-            for (int i = 0; i < bouns.x; ++i)
+            for (int i = 0; i < bounds.x; ++i)
             {
-                for (int j = 0; j < bouns.y; ++j)
+                for (int j = 0; j < bounds.y; ++j)
                 {
                     RangeMaskTexture.SetPixel(i, j, Color.clear);
                 }
@@ -202,10 +212,10 @@ namespace Sango.Render
             Shader.SetGlobalFloat("_GridSize", gridSize);
 
 
-            gridDatas = new GridData[bouns.x][];
+            gridDatas = new GridData[bounds.x][];
             for (int x = 0; x < gridDatas.Length; ++x)
             {
-                GridData[] yTable = new GridData[bouns.y];
+                GridData[] yTable = new GridData[bounds.y];
                 for (int y = 0; y < yTable.Length; ++y)
                 {
                     yTable[y] = new GridData
@@ -415,8 +425,8 @@ namespace Sango.Render
         }
         public float GetGridHeight(int x, int y)
         {
-            int xCount = gridVertexCuont * x + gridVertexCuont / 2;
-            int yCount = gridVertexCuont * y + (x % 2) * gridVertexCuont / 2 + gridVertexCuont / 2;
+            int xCount = gridVertexCount * x + gridVertexCount / 2;
+            int yCount = gridVertexCount * y + (x % 2) * gridVertexCount / 2 + gridVertexCount / 2;
             return map.mapData.GetHeight(xCount, yCount);
         }
         public Vector3 CoordsToPosition(int c, int r)
@@ -457,7 +467,7 @@ namespace Sango.Render
             {
                 for (int y = lt.y; y <= rb.y; ++y)
                 {
-                    if (x >= 0 && x < bouns.x && y >= 0 && y < bouns.y)
+                    if (x >= 0 && x < bounds.x && y >= 0 && y < bounds.y)
                     {
                         GridData gridData = GetGridData(x, y);
                         if (gridData.textObj == null)

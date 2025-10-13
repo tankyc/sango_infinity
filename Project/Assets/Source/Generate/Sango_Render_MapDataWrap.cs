@@ -638,7 +638,7 @@ public class Sango_Render_MapDataWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Render.MapData obj = (Sango.Render.MapData)o;
-			int ret = obj.wrold_width;
+			int ret = obj.world_width;
 			LuaDLL.lua_pushinteger(L, ret);
 			return 1;
 		}
@@ -657,7 +657,7 @@ public class Sango_Render_MapDataWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Render.MapData obj = (Sango.Render.MapData)o;
-			int ret = obj.wrold_height;
+			int ret = obj.world_height;
 			LuaDLL.lua_pushinteger(L, ret);
 			return 1;
 		}

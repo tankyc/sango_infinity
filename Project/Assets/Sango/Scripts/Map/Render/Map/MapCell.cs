@@ -62,7 +62,7 @@ namespace Sango.Render
             }
 
             int layer = LayerMask.NameToLayer("Map");
-            gameObject = new GameObject(string.Format("{0}_{1}", startCoords.x, startCoords.y));
+            gameObject = new GameObject(string.Format("Map区域_{0}_{1}", startCoords.x, startCoords.y));
             gameObject.layer = layer;
 
             gameObject.transform.SetParent(MapRender.terrainRoot);
@@ -87,7 +87,7 @@ namespace Sango.Render
                 tempMesh.MarkDynamic();
                 mesh[i] = tempMesh;
 
-                GameObject go = new GameObject("LAYER - " + i);
+                GameObject go = new GameObject("Layer - " + i);
                 go.transform.SetParent(gameObject.transform, false);
                 go.layer = layer;
 

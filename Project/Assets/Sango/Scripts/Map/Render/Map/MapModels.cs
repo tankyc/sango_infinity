@@ -24,7 +24,7 @@ namespace Sango.Render
         {
             base.Init();
 
-            Tools.Rect bounds = new Tools.Rect(0, 0, map.mapData.wrold_width, map.mapData.wrold_height);
+            Tools.Rect bounds = new Tools.Rect(0, 0, map.mapData.world_width, map.mapData.world_height);
 
             // 初始化quadTree
             staticObjectsQuadTree = new Tools.QuadTree2D<IMapManageObject>(bounds, 8);

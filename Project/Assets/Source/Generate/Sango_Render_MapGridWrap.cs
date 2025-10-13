@@ -515,7 +515,7 @@ public class Sango_Render_MapGridWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Render.MapGrid obj = (Sango.Render.MapGrid)o;
-			UnityEngine.Vector2Int ret = obj.bouns;
+			UnityEngine.Vector2Int ret = obj.bounds;
 			ToLua.PushValue(L, ret);
 			return 1;
 		}
@@ -553,7 +553,7 @@ public class Sango_Render_MapGridWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Render.MapGrid obj = (Sango.Render.MapGrid)o;
-			int ret = obj.gridVertexCuont;
+			int ret = obj.gridVertexCount;
 			LuaDLL.lua_pushinteger(L, ret);
 			return 1;
 		}
@@ -668,7 +668,7 @@ public class Sango_Render_MapGridWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Render.MapGrid obj = (Sango.Render.MapGrid)o;
 			UnityEngine.Vector2Int arg0 = StackTraits<UnityEngine.Vector2Int>.Check(L, 2);
-			obj.bouns = arg0;
+			obj.bounds = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -706,7 +706,7 @@ public class Sango_Render_MapGridWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Render.MapGrid obj = (Sango.Render.MapGrid)o;
 			int arg0 = (int)LuaDLL.luaL_checkinteger(L, 2);
-			obj.gridVertexCuont = arg0;
+			obj.gridVertexCount = arg0;
 			return 0;
 		}
 		catch(Exception e)

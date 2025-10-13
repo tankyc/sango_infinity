@@ -200,8 +200,8 @@ namespace Sango.Tools
                     {
                         Render.MapSkyBox.SkyArea area = new Render.MapSkyBox.SkyArea(skyBox)
                         {
-                            bounds = new UnityEngine.Rect(x * skyBox.map.mapData.wrold_width / 3, y * skyBox.map.mapData.wrold_height / 3,
-                            skyBox.map.mapData.wrold_width / 3, skyBox.map.mapData.wrold_height / 3),
+                            bounds = new UnityEngine.Rect(x * skyBox.map.mapData.world_width / 3, y * skyBox.map.mapData.world_height / 3,
+                            skyBox.map.mapData.world_width / 3, skyBox.map.mapData.world_height / 3),
                         };
                         area.SetTextrueNames(new string[]
                         {

@@ -427,7 +427,7 @@ namespace Sango.Render
         {
             if (initGridFunc != null)
             {
-                CallMethod(initGridFunc, mapGrid.gridSize, mapGrid.bouns.x, mapGrid.bouns.y);
+                CallMethod(initGridFunc, mapGrid.gridSize, mapGrid.bounds.x, mapGrid.bounds.y);
             }
         }
 

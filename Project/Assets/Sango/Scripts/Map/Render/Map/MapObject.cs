@@ -20,8 +20,13 @@ namespace Sango.Render
         bool _visible = false;
         bool _selectable = false;
         public MapRender manager { get; set; }
+        /// <summary>
+        /// 是否保持在视图内
+        /// </summary>
         public bool remainInView { get; set; }
-
+        /// <summary>
+        /// 对象边界框
+        /// </summary>
         public Tools.Rect bounds { get; set; }
         /// <summary>
         /// 用于绑定物件的ID
@@ -49,7 +54,7 @@ namespace Sango.Render
 
         public GameObject loadedModel;
         private bool isLoading = false;
-        bool editorShow = true;
+        public bool editorShow = true;		//添加了public
         public bool isStatic { get; set; }
         public bool visible
         {
@@ -168,7 +173,7 @@ namespace Sango.Render
         LuaFunction clickFunction;
         LuaFunction pointerEnterFunciton;
         LuaFunction pointerExitFunciton;
-        LuaFunction onModelLoadedFuction;
+        LuaFunction onModelLoadedFunction;
 
         protected override void OnInitFunctions()
         {
@@ -177,7 +182,7 @@ namespace Sango.Render
             clickFunction = GetFunction("OnClick");
             pointerEnterFunciton = GetFunction("OnPointerEnter");
             pointerExitFunciton = GetFunction("OnPointerExit");
-            onModelLoadedFuction = GetFunction("OnModelLoaded");
+            onModelLoadedFunction = GetFunction("OnModelLoaded");
             CallMethod(visibleChangeFunction, visible);
         }
 
@@ -280,10 +285,10 @@ namespace Sango.Render
             OnSelectableChange();
         }
 
-        IEnumerator AnyncCallBack(GameObject model)
+        IEnumerator AsyncCallBack(GameObject model)
         {
             yield return null;
-            CallMethod(onModelLoadedFuction, model);
+            CallMethod(onModelLoadedFunction, model);
             yield break;
         }
 
@@ -331,9 +336,9 @@ namespace Sango.Render
             }
             loadedModel = model;
             if (dontAsyncCall)
-                CallMethod(onModelLoadedFuction, model);
+                CallMethod(onModelLoadedFunction, model);
             else
-                StartCoroutine(AnyncCallBack(model));
+                StartCoroutine(AsyncCallBack(model));
         }
         public void CreateModel(string meshFile, string textureFile, string shaderName, bool isShareMat = true)
         {

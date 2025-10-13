@@ -25,15 +25,15 @@ namespace Sango.Tools
         /// </summary>
         enum EditorModType : int
         {
-            // 基础
+            // 基础编辑
             Base = 0,
             // 地形编辑
             Terrain,
             // 地格编辑
             Grid,
-            // 模型
+            // 模型编辑
             Model,
-            // 设置
+            // 设置说明
             Setting
         }
 
@@ -45,7 +45,7 @@ namespace Sango.Tools
         internal int rayCastLayer;
 
         // 编辑器UI框体范围
-        internal UnityEngine.Rect windowRect = new UnityEngine.Rect(20, 20, 120, 50);
+        internal UnityEngine.Rect windowRect = new UnityEngine.Rect(500, 400, 240, 100);
 
         BrushBase[] brushes;
         internal TerrainBrush terrain_brush;
@@ -294,7 +294,7 @@ namespace Sango.Tools
         int currentEditMode = 0;
         private string[] toolbarTitle = new string[]
         {
-            "基础", "编辑地形", "编辑地格","模型放置", "设置"
+            "基础编辑", "编辑地形", "编辑地格", "模型放置", "设置说明" //编辑地格 显示光环
         };
         private string[] toolbarSeason = new string[]
         {
@@ -335,7 +335,7 @@ namespace Sango.Tools
                 Camera.main.gameObject.transform.rotation = Quaternion.Euler(90, -90, 0);
             }
 
-            if (GUILayout.Button("加载"))
+            if (GUILayout.Button("加载地图"))
             {
 
                 string[] path = WindowDialog.OpenFileDialog("地图文件(*.bin)\0*.bin;\0\0");
@@ -349,7 +349,7 @@ namespace Sango.Tools
                 }
             }
 
-            if (GUILayout.Button("保存"))
+            if (GUILayout.Button("保存地图"))
             {
 
                 string path = WindowDialog.SaveFileDialog("map.bin", "地图文件(*.bin)\0*.bin;\0\0");
@@ -438,7 +438,7 @@ namespace Sango.Tools
 
         void OnGUI_Setting()
         {
-            GUILayout.Label("鼠标中建拖拽移动地图");
+            GUILayout.Label("鼠标中键拖拽地图移动");
             GUILayout.Label("地形编辑模式下: Ctrl按住可以连续绘制 Shift在推平模式下可以以鼠标点高度推平");
             GUILayout.Label("地格编辑模式下: Alt按住可以取到鼠标点格子的值 Ctrl按住可以连续绘制");
             GUILayout.Label("模型编辑模式下: 选中模型 Q(无) W(平移) E(旋转) R(缩放)快捷键  鼠标右键或ESC取消选择 Delete删除选中的模型");
