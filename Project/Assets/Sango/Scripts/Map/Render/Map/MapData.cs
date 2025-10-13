@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using UnityEngine;
 using Sango;
+using static Sango.Render.MapGrid;
 
 namespace Sango.Render
 {
@@ -64,6 +65,30 @@ namespace Sango.Render
                 }
             }
         }
+
+        internal override void OnSaveScale(BinaryWriter writer, int scale)
+        {
+            writer.Write(quadSize);
+
+            //writer.Write(_bounds.x);
+            //writer.Write(_bounds.y);
+
+            int x_scale_length = ((vertexDatas.Length - 1) * scale + 1);
+            for (int x = 0; x < x_scale_length; x++)
+            {
+                VertexData[] yTable = vertexDatas[x/2];
+                int y_scale_length = ((yTable.Length - 1) * scale + 1);
+                for (int y = 0; y < y_scale_length; y++)
+                {
+                    VertexData data = yTable[y/2];
+                    writer.Write(data.height);
+                    writer.Write(data.textureIndex);
+                    writer.Write(data.water);
+                }
+            }
+        }
+
+
         internal override void OnLoad(int versionCode, BinaryReader reader)
         {
             if(versionCode <= 2) {

@@ -47,39 +47,25 @@ namespace Sango.Tools
             if (brushType == BrushType.Unknown)
                 brushType = BrushType.RaiseHeight;
 
-            //创建笔刷贴图
-            List<string> brush_finded = new List<string>();
-
-
-            int brushSize = 0;
-            for (int i = 0; i < 100; i++)
-            {
-                string formatStr = e.FindTexture($"Brush/brush_{i}.png");
-                //    Path.FindFile($"Assets/Map/{e.map.ContentName}/Brush/brush_{i}.png");
-                //if (string.IsNullOrEmpty(formatStr))
-                //{
-                //    formatStr = Path.FindFile($"Assets/Map/{e.map.DefaultContentName}/Brush/brush_{i}.png");
-                //}
-                if (!string.IsNullOrEmpty(formatStr))
-                    brush_finded.Add(formatStr);
-            }
-
-            brushTexture = new Texture[brush_finded.Count];
-            for (int i = 0; i < brush_finded.Count; ++i)
-            {
-                string target = brush_finded[i];
-                Loader.TextureLoader.LoadFromFile(target,
-                    i, (UnityEngine.Object tex, object obj) =>
-                    {
-                        int index = (int)obj;
-                        Texture t = tex as Texture;
-                        brushTexture[index] = t;
-
-                    }, false);
-            }
+           
         }
         public override void OnEnter()
         {
+            //创建笔刷贴图
+            List<Texture> brush_texturs = new List<Texture>();
+            for (int i = 0; i < 100; i++)
+            {
+                Texture tex = editor.map.CreateTexture($"Brush/brush_{i}.png");
+                if (tex != Texture2D.whiteTexture)
+                {
+                    brush_texturs.Add(tex);
+                }
+                else
+                    break;
+            }
+
+            brushTexture = brush_texturs.ToArray();
+
             Shader.SetGlobalFloat("_terrainTypeAlpha", gridInfoAlpha);
             base.OnEnter();
             if (contentWindow == null)
@@ -822,7 +808,7 @@ namespace Sango.Tools
                 string seasonName = MapRender.SeasonNames[j];
                 for (int i = 0; i < 100; i++)
                 {
-                    string file = editor.FindTexture($"Terrain/{seasonName}/layer_{i}");
+                    string file = ($"Terrain/{seasonName}/layer_{i}");
                     if (file != null)
                     {
                         maxCount = Math.Max(maxCount, (i + 1));
@@ -863,7 +849,7 @@ namespace Sango.Tools
                 string seasonName = MapRender.SeasonNames[j];
                 for (int i = 0; i < 100; i++)
                 {
-                    string file = editor.FindTexture($"Terrain/{seasonName}/water_{i}");
+                    string file = ($"Terrain/{seasonName}/water_{i}");
                     if (file != null)
                     {
                         maxCount = Math.Max(maxCount, (i + 1));

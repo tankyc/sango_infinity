@@ -3,6 +3,9 @@ using LuaInterface;
 using System.Collections.Generic;
 using UnityEngine;
 using Sango;
+using Sango.Game;
+using Sango.Loader;
+using System.Runtime.Remoting.Messaging;
 
 namespace Sango
 {
@@ -50,7 +53,8 @@ namespace Sango
         }
         public void RefreshLife()
         {
-            if (maxlife < 0) {
+            if (maxlife < 0)
+            {
                 maxlife = POOLLIFE;
             }
             life = maxlife;
@@ -58,7 +62,8 @@ namespace Sango
         public T Get()
         {
             useCount++;
-            while (instance_list.Count > 0) {
+            while (instance_list.Count > 0)
+            {
                 T node = instance_list.Dequeue();
                 if (node != null)
                 {
@@ -85,7 +90,8 @@ namespace Sango
         }
         public void Clear()
         {
-            while (instance_list.Count > 0) {
+            while (instance_list.Count > 0)
+            {
                 T node = instance_list.Dequeue();
                 srcObject.OnDestroy(ref node);
             }
@@ -98,6 +104,11 @@ namespace Sango
             return false;
         }
 
+    }
+
+    public class NodeInfo : MonoBehaviour
+    {
+        public object key;
     }
 
     public class PoolManager : System<PoolManager>
@@ -118,6 +129,8 @@ namespace Sango
             {
                 GameObject obj = GameObject.Instantiate(srcObject) as GameObject;
                 obj.name = srcObject.name;
+                NodeInfo nodeInfo = obj.AddComponent<NodeInfo>();
+                nodeInfo.key = headNode.key;
                 OnCreate(ref obj);
                 return obj;
             }
@@ -158,8 +171,8 @@ namespace Sango
 
         protected override void OnInitFunctions()
         {
-           
-           
+
+
             base.OnInitFunctions();
             onObjectRecycle = GetFunction("OnObjectRecycle");
             onObjectCreate = GetFunction("OnObjectCreate");
@@ -194,12 +207,16 @@ namespace Sango
         {
             return Instance._Add(key, customDesc, obj);
         }
-        protected bool _Recycle(object key, GameObject obj)
+        protected bool _Recycle(GameObject obj)
         {
             if (obj == null) return false;
 
+            NodeInfo nodeInfo = obj.GetComponent<NodeInfo>();
+            if (nodeInfo == null) return false;
+
             PoolNode<GameObject, GameObjectPoolObject> info;
-            if (all_pools.TryGetValue(key, out info)) {
+            if (all_pools.TryGetValue(nodeInfo.key, out info))
+            {
                 obj.transform.SetParent(poolNode.transform, false);
                 info.Recycle(obj);
                 return true;
@@ -207,14 +224,30 @@ namespace Sango
 
             return false;
         }
-        public static bool Recycle(object key, GameObject obj)
+        public static bool Recycle(GameObject obj)
         {
-            return Instance._Recycle(key, obj);
+            return Instance._Recycle(obj);
         }
 
         //public static bool AttachScript(LuaTable table, bool callawake = true)
         //{
         //    return Instance.AttachScript(table, callawake);
         //}
+
+        public static GameObject Create(string assetsPath)
+        {
+            GameObject headBar = Get(assetsPath);
+            if (headBar == null)
+            {
+                GameObject headBarObj = ObjectLoader.LoadObject<GameObject>(assetsPath);
+                if (headBarObj != null)
+                {
+                    Add(assetsPath, headBarObj);
+                    headBar = Get(assetsPath);
+                }
+            }
+            return headBar;
+        }
+
     }
 }

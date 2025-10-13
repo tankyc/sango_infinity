@@ -1,3 +1,4 @@
+using Sango.Hexagon;
 using Sango.Render;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,7 +16,7 @@ namespace Sango
             Move = 0,
             Attack = 1,
             Max = 2,
-        } 
+        }
 
         /// <summary>
         /// 顶点偏移,以底部中间为基准
@@ -50,13 +51,15 @@ namespace Sango
         MaterialPropertyBlock _mpb;
         private Mesh mesh;
         public Material material;
-        public Material [] aniMaterials = new Material[(int)TroopAniType.Max];
+        public Material[] aniMaterials = new Material[(int)TroopAniType.Max];
+        public Transform[] aniNode = new Transform[60];
 
         public float meshScale = 1;
         public float totalScale = 1;
         private int elementCount = 60;
         public int showCount = 60;
         public ParticleSystem smoke;
+        private bool isAniEnabled = false;
 
         public void SetShowCount(int count)
         {
@@ -160,13 +163,14 @@ namespace Sango
         {
             if (mesh == null) return;
 
-            Vector3 srcPosition = transform.position;
+            //Vector3 srcPosition = transform.position;
             Vector3 srcScale = transform.lossyScale * totalScale;
             for (int i = 0; i < _matrixes.Length; i++)
             {
                 var mx = _matrixes[i];
+                Transform node = aniNode[i];
                 mx.SetTRS(
-                    srcPosition + mPositions[i],
+                    node.position,
                     Quaternion.identity,
                     srcScale * meshScale
                     );
@@ -201,7 +205,7 @@ namespace Sango
             GetTargetHex(count, hexList);
 
             UpdateHexPosition();
-            UpdateTroopsPosition();
+            //UpdateTroopsPosition();
             _matrixes = new Matrix4x4[count];
             for (int i = 0; i < _matrixes.Length; i++)
             {
@@ -252,12 +256,13 @@ namespace Sango
             {
                 if (b)
                 {
-                    if (!smoke.isPlaying)
+                    //if (!smoke.isPlaying || smoke.isStopped)
                         smoke.Play();
+
                 }
                 else
                 {
-                    if (smoke.isPlaying)
+                    //if (!smoke.isStopped)
                         smoke.Stop();
                 }
             }
@@ -266,14 +271,15 @@ namespace Sango
         void UpdatePosition()
         {
             Vector3 nowPosition = transform.position;
-            if (lastPosition != nowPosition)
+            if (lastPosition != nowPosition || material == aniMaterials[1])
             {
                 Vector3 srcScale = transform.lossyScale * totalScale;
 
                 for (int i = 0; i < showCount; i++)
                 {
                     var mx = _matrixes[i];
-                    Vector3 targetPos = nowPosition + mPositions[i];
+                    Transform node = aniNode[i];
+                    Vector3 targetPos = node.position;
                     float height;
                     if (!MapRender.QueryHeight(targetPos, out height))
                     {
@@ -293,35 +299,38 @@ namespace Sango
             {
                 test = false;
                 InitMesh();
+                //Add(showCount);
             }
 
             UpdatePosition();
 
-            Vector3 dirForCamera = (transform.position - Camera.main.transform.position);
+            Vector3 dirForCamera = (Camera.main.transform.position - transform.position);
             dirForCamera.y = 0;
             dirForCamera.Normalize();
             float dir = Vector3.Dot(transform.forward, dirForCamera);
             //Debug.LogError("dir ="+dir);
-            float side = Vector3.Cross(transform.forward, dirForCamera).y;
             //Debug.LogError("side ="+ side);
             if (dir > 0.6f)
             {
-                material.SetFloat("_VerticalIndex", 3);
+                material.SetFloat("_VerticalIndex", 3);     // 背面
             }
             else if (dir < -0.6f)
             {
-                material.SetFloat("_VerticalIndex", 2);
+                material.SetFloat("_VerticalIndex", 0);    // 正前
 
-            }
-            else if (side >= 0)
-            {
-                material.SetFloat("_VerticalIndex", 0);
             }
             else
             {
-                material.SetFloat("_VerticalIndex", 1);
+                float side = Vector3.Cross(transform.forward, dirForCamera).y;
+                if (side >= 0)
+                {
+                    material.SetFloat("_VerticalIndex", 1);  // 左
+                }
+                else
+                {
+                    material.SetFloat("_VerticalIndex", 2); // 右
+                }
             }
-
             DrawMesh();
         }
 
@@ -331,13 +340,15 @@ namespace Sango
         public Vector2 origin = new Vector2(-0.5f, -0.5f);
 
         public Renderer initTroop;
+        public Transform initTroopRoot;
         public SpriteRenderer mainTroop;
         public bool test = false;
         public int testCount = 30;
+        public List<UnityEngine.Renderer> initTroopsRenders = new List<UnityEngine.Renderer>();
         private void Awake()
         {
             origin = size * -0.5f;
-            for(int i = 0; i < aniMaterials.Length; i++)
+            for (int i = 0; i < aniMaterials.Length; i++)
             {
                 Material mat = new Material(aniMaterials[i]);
                 aniMaterials[i] = mat;
@@ -345,7 +356,7 @@ namespace Sango
             SetAniType(0);
         }
 
-        void SetAniType(int id)
+        public void SetAniType(int id)
         {
             if (id < 0 || id >= aniMaterials.Length)
                 return;
@@ -363,21 +374,26 @@ namespace Sango
 
         void Add(int count)
         {
-            //List<Hex.Hex> hexList = new List<Hex.Hex>();
-            //GetTargetHex(count, hexList);
-            //for (int i = 0; i < count; ++i) {
-            //    GameObject go = GameObject.Instantiate(initTroop.gameObject);
-            //    go.transform.SetParent(transform, false);
-            //    go.transform.localPosition = HexToPosition(hexList[i]);
-            //    go.SetActive(true);
-            //    float height = NewMap.Map.QueryHeight(go.transform.position);
-            //    Vector3 pos = go.transform.position;
-            //    pos.y = height;
-            //    go.transform.position = pos;
-            //    //Animator anim = go.GetComponent<Animator>();
-            //    //anim.playbackTime = Random.Range(0f, 1f);
-            //    //anim.Play(0, -1, Random.Range(0f, 1f));
-            //}
+            List<Hex> hexList = new List<Hex>();
+            GetTargetHex(count, hexList);
+            Vector3 srcScale = new Vector3(totalScale, totalScale, totalScale);
+            for (int i = 0; i < count; ++i)
+            {
+                GameObject go = GameObject.Instantiate(initTroop.gameObject);
+                go.name = i.ToString();
+                go.transform.SetParent(initTroopRoot, false);
+                go.transform.localPosition = Vector3.Scale(HexToPosition(hexList[i]), srcScale);
+                go.transform.localScale = srcScale;
+                go.SetActive(true);
+                initTroopsRenders.Add(go.GetComponent<Renderer>());
+                //float height = NewMap.Map.QueryHeight(go.transform.position);
+                //Vector3 pos = go.transform.position;
+                //pos.y = height;
+                //go.transform.position = pos;
+                //Animator anim = go.GetComponent<Animator>();
+                //anim.playbackTime = Random.Range(0f, 1f);
+                //anim.Play(0, -1, Random.Range(0f, 1f));
+            }
         }
 
         public Vector3 HexToPosition(Hexagon.Hex hex)
@@ -460,12 +476,10 @@ namespace Sango
         }
 
 
-        //private void Update()
-        //{
-        //    if (test) {
-        //        test = false;
-        //        Add(testCount);
-        //    }
-        // }
+        [ContextMenu("test")]
+        private void Test()
+        {
+            Add(showCount);
+        }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using Sango.Hexagon;
 using Sango.Render;
-using System.IO;
-using Unity.VisualScripting;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Sango.Game
@@ -26,6 +26,14 @@ namespace Sango.Game
         public Fire fire;
         public bool moveAble;
 
+        internal int _cost = 0;
+        internal bool _isZOC = false;
+        internal bool _isChecked = false;
+
+        public Cell()
+        {
+           
+        }
 
         public Cell(ushort x, ushort y)
         {
@@ -88,5 +96,27 @@ namespace Sango.Game
         {
             return Cub.Distance(other.Cub);
         }
+        public void Ring(int radius, List<Cell> list)
+        {
+            Scenario.Cur.Map.GetRing(this, radius, list);
+        }
+        public void Ring(int radius, Action<Cell> action)
+        {
+            Scenario.Cur.Map.RingAction(this, radius, action);
+        }
+
+        public void DirectionLine(Cell to, int length, Action<Cell> action)
+        {
+            int dir = Cub.DirectionTo(to.Cub);
+            Hex start = Cub;
+            for(int i = 0; i < length; ++i)
+            {
+                start = start.Neighbor(dir);
+                Cell cell = Scenario.Cur.Map.GetCell(start);
+                if (cell != null && action != null)
+                    action(cell);
+            }
+        }
+
     }
 }

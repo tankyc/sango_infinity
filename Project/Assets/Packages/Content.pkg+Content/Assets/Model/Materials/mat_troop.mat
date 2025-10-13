@@ -25,7 +25,7 @@ Material:
   m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
@@ -125,7 +125,7 @@ Material:
     - _SrcBlend: 1
     - _Surface: 0
     - _VerticalAmount: 4
-    - _VerticalIndex: 4
+    - _VerticalIndex: 2
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:

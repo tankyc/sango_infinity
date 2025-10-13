@@ -10,10 +10,7 @@ namespace Sango.Game
 
         public LinkObjectSet()
         {
-            if (Scenario.Cur != null)
-                Init(Scenario.Cur.CommonData.Features.Count);
-            else
-                Init(Scenario.MAX_DATA_COUNT_256);
+            Init(256);
         }
 
         public LinkObjectSet(int length)

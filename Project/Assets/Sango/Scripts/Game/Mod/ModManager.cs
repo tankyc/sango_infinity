@@ -111,13 +111,17 @@ namespace Sango.Mod
             if (!string.IsNullOrEmpty(baseFile))
             {
                 mergeAction(baseFile);
+                return;
             }
             for (int i = 0; i < mModList.Count; i++)
             {
                 Mod mod = mModList[i];
                 string destFile = mod.GetFullPath(filename);
                 if (File.Exists(destFile))
+                {
                     mergeAction(destFile);
+                    return;
+                }
             }
         }
 

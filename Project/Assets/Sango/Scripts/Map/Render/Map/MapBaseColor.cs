@@ -83,20 +83,12 @@ namespace Sango.Render
             {
                 for (int i = 0; i < 4; i++)
                 {
-                    string p = map.FindTexture($"BaseTex/BaseMap{i}");
-                    if (File.Exists(p))
+                    string p = $"BaseTex/BaseMap{i}";
+                    Texture tex = map.CreateTexture(p);
+                    texture[i] = tex;
+                    if (i == curSeason)
                     {
-                        Loader.TextureLoader.LoadFromFile(p,
-                                i, (UnityEngine.Object obj, object customData) =>
-                                {
-                                    int ld = (int)customData;
-                                    Texture tex = obj as Texture;
-                                    texture[ld] = tex;
-                                    if (ld == curSeason)
-                                    {
-                                        UpdateRender();
-                                    }
-                                }, false);
+                        UpdateRender();
                     }
                 }
                 return;
@@ -151,36 +143,24 @@ namespace Sango.Render
 #else
                 string destFile = $"{mapBinDir}/BaseMap{i}.png";
 #endif
-                if (File.Exists(destFile))
+
+                Texture tex = map.CreateTexture(destFile);
+                if(tex != Texture2D.whiteTexture)
                 {
-                    Loader.TextureLoader.LoadFromFile(destFile,
-                            i, (UnityEngine.Object obj, object customData) =>
-                            {
-                                int ld = (int)customData;
-                                Texture tex = obj as Texture;
-                                texture[ld] = tex;
-                                if (ld == curSeason)
-                                {
-                                    UpdateRender();
-                                }
-                            }, false);
+                    texture[i] = tex;
+                    if (i == curSeason)
+                    {
+                        UpdateRender();
+                    }
                 }
                 else
                 {
-                    string p = map.FindTexture($"BaseTex/BaseMap{i}");
-                    if (File.Exists(p))
+                    string p = $"BaseTex/BaseMap{i}";
+                    tex = map.CreateTexture(p);
+                    texture[i] = tex;
+                    if (i == curSeason)
                     {
-                        Loader.TextureLoader.LoadFromFile(p,
-                                i, (UnityEngine.Object obj, object customData) =>
-                                {
-                                    int ld = (int)customData;
-                                    Texture tex = obj as Texture;
-                                    texture[ld] = tex;
-                                    if (ld == curSeason)
-                                    {
-                                        UpdateRender();
-                                    }
-                                }, false);
+                        UpdateRender();
                     }
                 }
             }

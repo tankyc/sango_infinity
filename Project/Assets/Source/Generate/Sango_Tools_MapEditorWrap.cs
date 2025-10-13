@@ -192,8 +192,6 @@ public class Sango_Tools_MapEditorWrap
 			{
 				Sango.Tools.MapEditor obj = (Sango.Tools.MapEditor)ToLua.CheckObject<Sango.Tools.MapEditor>(L, 1);
 				string arg0 = ToLua.CheckString(L, 2);
-				string o = obj.FindTexture(arg0);
-				LuaDLL.lua_pushstring(L, o);
 				return 1;
 			}
 			else if (count == 3)
@@ -201,8 +199,6 @@ public class Sango_Tools_MapEditorWrap
 				Sango.Tools.MapEditor obj = (Sango.Tools.MapEditor)ToLua.CheckObject<Sango.Tools.MapEditor>(L, 1);
 				string arg0 = ToLua.CheckString(L, 2);
 				string arg1 = ToLua.CheckString(L, 3);
-				string o = obj.FindTexture(arg0, arg1);
-				LuaDLL.lua_pushstring(L, o);
 				return 1;
 			}
 			else

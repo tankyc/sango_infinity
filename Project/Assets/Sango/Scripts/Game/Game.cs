@@ -2,8 +2,6 @@
 using Sango.Tools;
 using System.Collections;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.UI;
 
 namespace Sango.Game
 {

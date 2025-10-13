@@ -2,7 +2,7 @@
 Shader "Sango/water_urp" {
 	Properties{
 		_MainTex("MainTex", 2D) = "white" {}
-		_Alpha("alpha", float) = 0.5
+		_Alpha("alpha", float) = 0.9
 		_HorizontalAmount ("Horizontal Amount", Float) = 8
 		_VerticalAmount("Vertical Amount", Float) = 8
 		_Color("Water Color", Color) = (0.45,0.5,0.44,1)

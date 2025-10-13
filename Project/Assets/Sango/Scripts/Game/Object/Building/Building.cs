@@ -10,6 +10,13 @@ namespace Sango.Game
 
         public override string Name { get { return BuildingType.Name; } }
         public Person Builder { get; set; }
+
+        public Person Worker { get; set; }
+        /// <summary>
+        /// 占用槽位ID
+        /// </summary>
+        public int SlotId { get; set; }
+
         public int cellHarvestTotalFood = 0;
         public int cellHarvestTotalGold = 0;
         /// <summary>
@@ -31,16 +38,22 @@ namespace Sango.Game
             {
                 BelongCity.allBuildings.Add(this);
                 if (BuildingType.isIntrior)
+                {
                     BelongCity.allIntriorBuildings.Add(this);
+                    BelongCity.innerSlot[SlotId] = Id;
+                }
             }
 
-            //UnityEngine.Debug.LogError($"{BelongCity.Name}-><{x},{y}>");
-            CenterCell = scenario.Map.GetCell(x, y);
-            CenterCell.building = this;
-            effectCells.Clear();
-            scenario.Map.GetDirectSpiral(CenterCell, BuildingType.radius, effectCells);
-            //CalculateHarvest();
-            Render = new BuildingRender(this);
+            if (!BuildingType.isIntrior)
+            {
+                //UnityEngine.Debug.LogError($"{BelongCity.Name}-><{x},{y}>");
+                CenterCell = scenario.Map.GetCell(x, y);
+                CenterCell.building = this;
+                effectCells = new System.Collections.Generic.List<Cell>();
+                scenario.Map.GetDirectSpiral(CenterCell, BuildingType.radius, effectCells);
+                //CalculateHarvest();
+                Render = new BuildingRender(this);
+            }
         }
 
         public override bool OnTurnStart(Scenario scenario)
@@ -66,9 +79,7 @@ namespace Sango.Game
         public virtual void OnBuildComplate()
         {
             Sango.Log.Print($"[{Builder.BelongCity.Name}]{Builder.Name}完成{Name}建造!!");
-            Builder.missionType = 0;
-            Builder.missionTarget = 0;
-            Builder.missionCounter = 0;
+            Builder.ClearMission();
             Builder = null;
         }
 
@@ -129,16 +140,20 @@ namespace Sango.Game
 
             if (Builder != null)
             {
-                Builder.missionType = 0;
-                Builder.missionTarget = 0;
-                Builder.missionCounter = 0;
+                Builder.ClearMission();
             }
-
-            effectCells.Clear();
-            CenterCell.building = null;
-            CenterCell = null;
-            Render.Clear();
-            Render = null;
+            if (effectCells != null)
+                effectCells.Clear();
+            if (CenterCell != null)
+            {
+                CenterCell.building = null;
+                CenterCell = null;
+            }
+            if (Render != null)
+            {
+                Render.Clear();
+                Render = null;
+            }
         }
 
         public override void OnFall(Troop atk)

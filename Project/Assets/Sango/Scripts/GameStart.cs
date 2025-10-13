@@ -2,8 +2,8 @@ using LuaInterface;
 using Sango;
 using Sango.Game;
 using Sango.Tools;
-using UnityEditor;
 using UnityEngine;
+using System;
 
 /// <summary>
 /// 该文件由X框架自动生成
@@ -13,15 +13,17 @@ public class GameStart : MonoBehaviour
 {
     [NoToLua]
     public bool Debug = false;
-    [NoToLua]
-    public bool ShowConsole = false;
-
     void Awake()
     {
-
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
-        if (ShowConsole)
-            ServerConsole.ShowConsole();
+        string[] args = System.Environment.GetCommandLineArgs();
+        foreach (string arg in args)
+        {
+            if(arg.Equals("-console"))
+            {
+                ServerConsole.ShowConsole();
+            }
+        }
 #endif
 
         DontDestroyOnLoad(gameObject);
@@ -60,9 +62,9 @@ public class GameStart : MonoBehaviour
 
 
 #if UNITY_EDITOR
-    void OnEditorPause(PauseState state)
+    void OnEditorPause(UnityEditor.PauseState state)
     {
-        if (state == PauseState.Paused)
+        if (state == UnityEditor.PauseState.Paused)
             Game.Instance.Pause();
         else
             Game.Instance.Resume();

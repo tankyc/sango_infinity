@@ -20,5 +20,15 @@ namespace Sango.Game
         [JsonProperty] public byte radius;
         [JsonProperty] public bool isIntrior;
 
+        /// <summary>
+        /// 反击攻击力
+        /// </summary>
+        [JsonProperty] public int atk;
+
+        /// <summary>
+        /// 被伤害倍率
+        /// </summary>
+        [JsonProperty] public float damageBounds;
+        
     }
 }

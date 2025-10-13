@@ -301,7 +301,7 @@ namespace Sango.Render
                 model.SetActive(true);
                 model.transform.SetParent(transCache, false);
                 model.transform.localPosition = Vector3.zero;
-                // model.transform.localRotation = Quaternion.identity;
+                model.transform.localRotation = Quaternion.identity;
                 // model.transform.localScale = Vector3.one;
                 UnityTools.SetLayer(model, gameObject.layer);
 
@@ -421,10 +421,7 @@ namespace Sango.Render
         {
             isLoading = false;
             if (loadedModel == null) return;
-            object pool_key = modelId;
-            if (!string.IsNullOrEmpty(modelAsset))
-                pool_key = modelAsset;
-            PoolManager.Recycle(pool_key, loadedModel);
+            PoolManager.Recycle(loadedModel);
             loadedModel = null;
         }
 

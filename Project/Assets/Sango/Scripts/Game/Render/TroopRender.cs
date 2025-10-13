@@ -47,18 +47,8 @@ namespace Sango.Game.Render
             {
                 TroopModel.Init(Troop);
             }
-
-            GameObject headBar = PoolManager.Get(headbarKey);
-            if (headBar == null)
-            {
-                GameObject headBarObj = ObjectLoader.LoadObject<GameObject>(GameRenderHelper.TroopHeadbarRes);
-                if (headBarObj != null)
-                {
-                    PoolManager.Add(headbarKey, headBarObj);
-                    headBar = PoolManager.Get(headbarKey);
-                }
-            }
-
+            TroopModel.SetSmokeShow(false);
+            GameObject headBar = PoolManager.Create(GameRenderHelper.TroopHeadbarRes);
             if (headBar != null)
             {
                 headBar.transform.SetParent(obj.transform, false);
@@ -110,7 +100,7 @@ namespace Sango.Game.Render
                 TroopModel = null;
                 if (HeadBar != null)
                 {
-                    PoolManager.Recycle(headbarKey, HeadBar.gameObject);
+                    PoolManager.Recycle(HeadBar.gameObject);
                     HeadBar = null;
                 }
                 return;
@@ -122,9 +112,9 @@ namespace Sango.Game.Render
             //textInfo.color = Troop.BelongForce.Flag.color;
             //textInfo.text = $"<{Troop.BelongForce.Name}>\n[{Troop.Name}队 - {Troop.TroopType.Name}]\n [{Troop.troops}] \n -{Troop.food}-";
 
-            if(HeadBar != null)
+            if (HeadBar != null)
             {
-                if( HeadBar.HasScript())
+                if (HeadBar.HasScript())
                 {
                     HeadBar.CallFunction("UpdateState", Troop);
                 }
@@ -140,7 +130,7 @@ namespace Sango.Game.Render
 
             if (TroopModel != null)
             {
-                TroopModel.Init(Troop);
+                TroopModel.UpdateTroop(Troop);
             }
         }
 
@@ -155,10 +145,49 @@ namespace Sango.Game.Render
             TroopModel = null;
             if (HeadBar != null)
             {
-                PoolManager.Recycle(headbarKey, HeadBar.gameObject);
+                PoolManager.Recycle(HeadBar.gameObject);
                 HeadBar = null;
             }
             base.Clear();
+        }
+
+        public void SetAniShow(int name)
+        {
+            if (TroopModel != null)
+            {
+                TroopModel.SetAniShow(name);
+            }
+        }
+
+        public void FaceTo(Vector3 dest)
+        {
+            if (MapObject != null)
+            {
+                Vector3 forward = dest - MapObject.transform.position;
+                forward.y = 0;
+                forward.Normalize();
+                SetForward(forward);
+            }
+        }
+
+        public void SetSmokeShow(bool b)
+        {
+            if (TroopModel != null)
+            {
+                TroopModel.SetSmokeShow(b);
+            }
+        }
+
+          public override void ShowDamage(int damage, int damageType)
+        {
+            if (HeadBar != null)
+            {
+                UITroopHeadbar uITroopHeadbar = HeadBar as UITroopHeadbar;
+                if (uITroopHeadbar != null)
+                {
+                    uITroopHeadbar.ShowDamage(damage, damageType);
+                }
+            }
         }
     }
 }

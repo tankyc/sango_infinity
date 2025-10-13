@@ -26,12 +26,7 @@ namespace Sango.Game
                 if (reader.TokenType == JsonToken.StartObject)
                 {
                     T v = serializer.Deserialize<T>(reader);
-                    if (v.Id < dest.objects.Length)
-                        dest.objects[v.Id] = v;
-                    else
-                    {
-                        Sango.Log.Error($"数据ID超出区间[0 - {dest.objects.Length - 1}]范围 id:{v.Id}, ");
-                    }
+                    dest.Add(v);
                 }
                 else if (reader.TokenType == JsonToken.EndArray)
                 {

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using Unity.VisualScripting;
 
 namespace Sango.Game
 {
@@ -44,8 +46,9 @@ namespace Sango.Game
                                     Alliance alliance = new Alliance()
                                     {
                                         ForceList = new SangoObjectList<Force>(),
-                                        leftCount = 18,
+                                        leftCount = 36,
                                         allianceType = 1,
+                                        IsAlive = true,
                                     };
                                     alliance.ForceList.Add(force);
                                     alliance.ForceList.Add(enemysenemy);
@@ -55,9 +58,8 @@ namespace Sango.Game
                                     force.AllianceList.Add(alliance);
                                     enemysenemy.AllianceList.Add(alliance);
 #if SANGO_DEBUG
-                                    Sango.Log.Print($"@外交@{force.Name} 与 {enemysenemy.Name} 达成了6个月的结盟!!");
+                                    Sango.Log.Print($"@外交@{force.Name} 于{scenario.GetDateStr()} 与 {enemysenemy.Name} 达成了12个月的结盟 Id={alliance.Id}!!");
 #endif
-
                                 }
                             }
                         }
@@ -199,6 +201,43 @@ namespace Sango.Game
             //        }
             //    }
             //}
+        }
+
+        /// <summary>
+        /// 军师建造推荐
+        /// </summary>
+        public List<Person> CounsellorRecommendBuild(List<Person> sortedFreePersons, BuildingType buildingType)
+        {
+            sortedFreePersons.RemoveAll(x => x.ActionOver);
+            int count = sortedFreePersons.Count;
+            if (count <= 0)
+                return null;
+
+            int maxPersonCount = Scenario.Cur.Variables.jobMaxPersonCount[(int)CityJobType.Build];
+            List<Person> list = new List<Person>();
+            int buildAbility = 0;
+            int buildCount = 999;
+            for (int k = 0; k < maxPersonCount; k++)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    Person person = sortedFreePersons[0];
+                    if (list.Contains(person))
+                        continue;
+
+                    int addValue = buildAbility + person.BaseBuildAbility;
+                    int new_buildCount = buildingType.durabilityLimit / addValue;
+                    if (buildingType.durabilityLimit % addValue > 0) new_buildCount++;
+
+                    if (new_buildCount < buildCount)
+                    {
+                        list.Add(person);
+                        buildAbility = addValue;
+                        break;
+                    }
+                }
+            }
+            return list;
         }
 
     }

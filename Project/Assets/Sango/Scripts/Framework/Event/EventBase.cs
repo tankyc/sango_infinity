@@ -18,6 +18,8 @@ namespace Sango
         public delegate void EventDelegate<T, T1, T2>(T t, T1 t1, T2 t2);
         public delegate void EventDelegate<T, T1, T2, T3>(T t, T1 t1, T2 t2, T3 t3);
         public delegate void EventDelegate<T, T1, T2, T3, T4>(T t, T1 t1, T2 t2, T3 t3, T4 t4);
+        public delegate void EventDelegate<T, T1, T2, T3, T4, T5>(T t, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5);
+        public delegate void EventDelegate<T, T1, T2, T3, T4, T5, T6>(T t, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6);
 
         public delegate IEnumerator CoEventDelegate();
         public delegate IEnumerator CoEventDelegate<T>(T t);

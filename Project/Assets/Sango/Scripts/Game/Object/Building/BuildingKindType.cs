@@ -11,13 +11,21 @@ namespace Sango.Game
         /// </summary>
         CustomKind = 0,
         /// <summary>
+        /// 城市
+        /// </summary>
+        City,
+        /// <summary>
+        /// 关卡
+        /// </summary>
+        Gate,
+        /// <summary>
+        /// 港口
+        /// </summary>
+        Port,
+        /// <summary>
         /// 农田
         /// </summary>
         Farm,
-        /// <summary>
-        /// 矿场
-        /// </summary>
-        Mine,
         /// <summary>
         /// 市场
         /// </summary>
@@ -27,16 +35,32 @@ namespace Sango.Game
         /// </summary>
         Village,
         /// <summary>
-        /// 粮仓
+        /// 兵营
         /// </summary>
-        FoodStore,
+        Barracks,
+        /// <summary>
+        /// 铁匠铺
+        /// </summary>
+        BlacksmithShop,
+        /// <summary>
+        /// 工坊
+        /// </summary>
+        BlacksmithShop1,
+        /// <summary>
+        /// 造船厂
+        /// </summary>
+        BlacksmithShop2,
+        /// <summary>
+        /// 马厩
+        /// </summary>
+        Stable,
+        /// <summary>
+        /// 巡查局
+        /// </summary>
+        PatrolBureau,
         /// <summary>
         /// 箭塔
         /// </summary>
         ArrowTower,
-        /// <summary>
-        /// 堡垒
-        /// </summary>
-        Castle,
     }
 }

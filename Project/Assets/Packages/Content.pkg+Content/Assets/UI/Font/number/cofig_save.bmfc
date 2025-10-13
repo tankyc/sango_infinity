@@ -1,0 +1,83 @@
+# AngelCode Bitmap Font Generator configuration file
+fileVersion=1
+
+# font settings
+fontName=Arial
+fontFile=
+charSet=0
+fontSize=32
+aa=1
+scaleH=100
+useSmoothing=1
+isBold=0
+isItalic=0
+useUnicode=1
+disableBoxChars=1
+outputInvalidCharGlyph=0
+dontIncludeKerningPairs=0
+useHinting=1
+renderFromOutline=0
+useClearType=1
+
+# character alignment
+paddingDown=0
+paddingUp=0
+paddingRight=0
+paddingLeft=0
+spacingHoriz=1
+spacingVert=1
+useFixedHeight=0
+forceZero=0
+
+# output file
+outWidth=256
+outHeight=256
+outBitDepth=32
+fontDescFormat=0
+fourChnlPacked=0
+textureFormat=png
+textureCompression=0
+alphaChnl=1
+redChnl=0
+greenChnl=0
+blueChnl=0
+invA=0
+invR=0
+invG=0
+invB=0
+
+# outline
+outlineThickness=0
+
+# selected chars
+chars=48-57,65-81
+
+# imported icon images
+icon="0.png",48,0,0,0
+icon="1.png",49,0,0,0
+icon="2.png",50,0,0,0
+icon="3.png",51,0,0,0
+icon="4.png",52,0,0,0
+icon="5.png",53,0,0,0
+icon="6.png",54,0,0,0
+icon="7.png",55,0,0,0
+icon="8.png",56,0,0,0
+icon="9.png",57,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_41.png",65,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_42.png",66,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_43.png",67,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_44.png",68,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_45.png",69,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_46.png",70,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_47.png",71,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_48.png",72,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_49.png",72,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_50.png",73,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_51.png",74,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_52.png",75,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_53.png",76,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_54.png",77,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_55.png",78,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_56.png",79,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_57.png",80,0,0,0
+icon="../../AtlasTexture/Troopstate/4845_8_58.png",81,0,0,0

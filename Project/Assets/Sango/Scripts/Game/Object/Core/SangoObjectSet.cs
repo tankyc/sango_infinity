@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using UnityEngine.UIElements;
 
 namespace Sango.Game
 {
@@ -27,7 +28,7 @@ namespace Sango.Game
             }
         }
 
-        public override int Count { get { return objects.Length; } }
+        public override int Count { get { return MaxCount; } }
         public override T this[int aIndex] { get { return objects[aIndex]; } set { objects[aIndex] = value; } }
 
         public SangoObjectSet()
@@ -41,24 +42,44 @@ namespace Sango.Game
 
         public override void Reset(int length)
         {
+            SearchingBeginIndex = 1;
+            MaxCount = 0;
             objects = new T[length];
         }
+
+        int MaxCount { get; set; }
+        int SearchingBeginIndex { get; set; }
+        void CheckLength(int max)
+        {
+            int len = objects.Length;
+            MaxCount = Math.Max(max, MaxCount);
+            if (len > max)
+                return;
+            while (len <= max)
+                len *= 2;
+            T[] old = objects;
+            objects = new T[len];
+            Array.Copy(old, objects, old.Length);
+        }
+
         public override void Add(T obj)
         {
-            if (obj.Id > 0)
+            if (obj.Id < 0)
             {
-                objects[obj.Id] = obj;
-                return;
-            }
-            for (int i = 1; i < objects.Length; i++)
-            {
-                if (objects[i] == null)
+                obj.Id = objects.Length;
+                for (int i = SearchingBeginIndex; i < objects.Length; i++)
                 {
-                    obj.Id = i;
-                    objects[i] = obj;
-                    return;
+                    if (objects[i] == null)
+                    {
+                        obj.Id = i;
+                        SearchingBeginIndex = i;
+                        break;
+                    }
                 }
             }
+
+            CheckLength(obj.Id);
+            objects[obj.Id] = obj;
         }
 
         public override void Set(T obj)
@@ -69,6 +90,7 @@ namespace Sango.Game
 
         public override void Remove(T obj)
         {
+            SearchingBeginIndex = Math.Min(SearchingBeginIndex, obj.Id);
             objects[obj.Id] = null;
         }
 
@@ -158,7 +180,17 @@ namespace Sango.Game
 
         public override void RemoveAll(Predicate<T> match)
         {
-            throw new NotImplementedException();
+            for (int i = 1; i < objects.Length; i++)
+            {
+                T obj = objects[i];
+                if (obj != null)
+                {
+                    if (match(obj))
+                    {
+                        objects[i] = null;
+                    }
+                }
+            }
         }
 
         public int DataCount

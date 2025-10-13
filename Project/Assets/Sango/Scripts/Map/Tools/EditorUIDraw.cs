@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using static Sango.Render.MapLayer;
 
 namespace Sango.Tools
 {
@@ -226,5 +227,12 @@ namespace Sango.Tools
         {
 
         }
+
+        public static void OnGUI(Render.MapCamera camera)
+        {
+            camera.keyBoardMoveSpeed = Tools.EditorUtility.FloatField(camera.keyBoardMoveSpeed, "键盘移动速度");
+            camera.limitDistance = Tools.EditorUtility.Vector2Field(camera.limitDistance, "相机距离");
+        }
+
     }
 }

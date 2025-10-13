@@ -30,9 +30,15 @@ namespace Sango.Game
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
             if (IsMissionComplete)
             {
-                if (TargetCity == null || !TargetCity.IsSameForce(Troop))
+                if (TargetCity == null )
                 {
                     Troop.missionType = (int)MissionType.ReturnCity;
+                    Troop.missionTarget = Troop.BelongCity.Id;
+                }
+                else if(!TargetCity.IsSameForce(Troop))
+                {
+                    // 被友军拿取,保护友军城池,直到消灭敌人
+                    Troop.missionType = (int)MissionType.ProtectCity;
                     Troop.missionTarget = Troop.BelongCity.Id;
                 }
                 else
@@ -67,7 +73,7 @@ namespace Sango.Game
         // 技能攻击评分
         public int SkillAttackPriority(Troop troop, Skill skill, Cell target, Cell movetoCell, Cell spellCell)
         {
-            int socer = TroopAIUtility.SkillAttackPriority(troop, skill, target, movetoCell, spellCell);
+            int socer = TroopAIUtility.SkillStatusPriority(troop, skill, target, movetoCell, spellCell);
             if (socer > 0)
             {
                 if (!target.IsEmpty() && (target.building != null))
@@ -106,6 +112,7 @@ namespace Sango.Game
             {
                 if (!troop.MoveTo(priorityActionData.movetoCell))
                     return false;
+
                 if (!troop.SpellSkill(priorityActionData.skill, priorityActionData.spellCell))
                     return false;
                 return true;

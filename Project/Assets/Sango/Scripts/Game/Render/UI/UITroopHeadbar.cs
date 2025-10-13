@@ -1,4 +1,5 @@
 ﻿using Sango.Loader;
+using System.Text;
 using UnityEngine.UI;
 
 namespace Sango.Game.Render.UI
@@ -12,7 +13,7 @@ namespace Sango.Game.Render.UI
         public Image energy;
         public Image angry;
         public Text number;
-
+        public AnimationText aniText;
         public void Init(Troop troop)
         {
             name.text = troop.Name;
@@ -23,9 +24,14 @@ namespace Sango.Game.Render.UI
         public void UpdateState(Troop troop)
         {
             state.enabled = false;
-            energy.fillAmount = (float)troop.energy / 100.0f;
+            energy.fillAmount = (float)troop.morale / 100.0f;
             angry.fillAmount = 0;
             number.text = troop.troops.ToString();
+        }
+
+         public void ShowDamage(int damage, int damageType = 0)
+        {
+            UITools.ShowDamage(aniText, damage, damageType);
         }
     }
 }

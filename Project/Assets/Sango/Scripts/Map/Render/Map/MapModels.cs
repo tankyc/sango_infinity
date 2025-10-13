@@ -181,7 +181,7 @@ namespace Sango.Render
                 Vector3 pos = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
                 Vector3 rot = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
                 Vector3 scale = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-                //CreateModel(objId, objType, bindId, modelId, pos, rot, scale);
+                CreateModel(objId, objType, bindId, modelId, pos, rot, scale);
             }
         }
 
@@ -243,6 +243,20 @@ namespace Sango.Render
                 if (dynamicObj != null) {
                     dynamicObj.visible = dynamicObj.Overlaps(rect);
                 }
+            }
+        }
+
+        public override void UpdateImmediate()
+        {
+            foreach (IMapManageObject obj in staticObjects)
+            {
+                obj.EditorShow(true);
+                obj.visible = true;
+            }
+            foreach (IMapManageObject obj in dynamicObjects)
+            {
+                obj.EditorShow(true);
+                obj.visible = true;
             }
         }
     }

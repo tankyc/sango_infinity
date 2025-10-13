@@ -14,6 +14,7 @@ namespace Sango.Render
         public float fov = 25f;
         public float near_clip = 0.3f;
         public float far_clip = 3500f;
+        public float cameraDistanceFactor = 1;
 
         public Vector3 look_position = new Vector3(1407, 0, 796);
         public Vector2 limitDistance = new Vector2(200f, 630f);
@@ -78,7 +79,14 @@ namespace Sango.Render
             //  }
 
             lookAt.position = look_position;
+
             enabled = true;
+            NeedUpdateCamera();
+        }
+
+        public void MoveCameraTo(Vector3 pos)
+        {
+            lookAt.position = pos;
             NeedUpdateCamera();
         }
 
@@ -224,6 +232,8 @@ namespace Sango.Render
                 distance = limitDistance.x;
             else if (distance > limitDistance.y)
                 distance = limitDistance.y;
+
+            cameraDistanceFactor = (cur_distance - limitDistance.x) / (limitDistance.y - limitDistance.x);
         }
 
         public void OffsetCamera(Vector3 offset)
@@ -368,7 +378,7 @@ namespace Sango.Render
         bool isPressedUI = false;
         private void MouseDragWorld()
         {
-            if (/*Input.GetKey(KeyCode.Space) &&*/ Input.GetMouseButton(0) && !isPressedUI)
+            if (!Input.GetKey(KeyCode.LeftControl) && /*Input.GetKey(KeyCode.Space) &&*/ Input.GetMouseButton(0) && !isPressedUI)
             {
 
                 if (Input.GetMouseButtonDown(0))
@@ -403,6 +413,7 @@ namespace Sango.Render
                     {
                         Vector3 offset = oldDragPos - ray.GetPoint(dis);
                         lookAt.position += offset;
+                        position += offset;
                         NeedUpdateCamera();
                     }
                 }

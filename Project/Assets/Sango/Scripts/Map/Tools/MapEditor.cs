@@ -2,10 +2,6 @@ using RTEditor;
 using Sango.Render;
 using System.Collections.Generic;
 using UnityEngine;
-using Sango;
-using Sango.Game;
-using System;
-using UnityEditor;
 
 namespace Sango.Tools
 {
@@ -20,6 +16,9 @@ namespace Sango.Tools
         public static bool IsEditOn { get; set; }
         public string WorkContent { set; get; }
         public string DefaultContentName { get { return "Default"; } }
+
+        public static Sango.Hexagon.Coord SelectedCoord { get; set; }
+
         /// <summary>
         /// 编辑模式
         /// </summary>
@@ -43,6 +42,7 @@ namespace Sango.Tools
 
         // 可编辑的物件层
         internal int rayCastLayer;
+        internal int rayCastObjectLayer;
 
         // 编辑器UI框体范围
         internal UnityEngine.Rect windowRect = new UnityEngine.Rect(500, 400, 240, 100);
@@ -98,6 +98,7 @@ namespace Sango.Tools
             if (l != null) l.SetActive(false);
 
             rayCastLayer = LayerMask.GetMask(new string[] { "Map" });
+            rayCastObjectLayer = LayerMask.GetMask(new string[] { "Building" });
 
             // 创建空地图
             if (map == null)
@@ -131,11 +132,10 @@ namespace Sango.Tools
         {
             map.mapCamera.position = new Vector3(0, 500, 0);
             map.mapCamera.lookRotate = new Vector3(90, -90, 0);
-            viewIs311Camera = false;
-            SetCameraControlType(0);
+            viewIs311Camera = true;
+            SetCameraControlType(1);
             Camera.main.gameObject.transform.position = map.mapCamera.position;
             Camera.main.gameObject.transform.rotation = Quaternion.Euler(90, -90, 0);
-
 
             terrain_brush.AutoImportLayerTexture();
 
@@ -213,6 +213,7 @@ namespace Sango.Tools
                     editorfree.enabled = false;
                 }
                 map.mapSkyBox.SetVisible(false);
+                map.mapCamera.enabled = false;
             }
             else if (t == 1)
             {
@@ -221,10 +222,12 @@ namespace Sango.Tools
                 EditorFreeCamera editorfree = Camera.main.gameObject.GetComponent<Sango.Tools.EditorFreeCamera>();
                 if (editorfree != null)
                 {
-                    editorfree.enabled = true;
-                    editorfree.UpdateCamera();
+                    editorfree.enabled = false;
+                    //editorfree.UpdateCamera();
                 }
                 map.mapSkyBox.SetVisible(true);
+                map.mapCamera.enabled = true;
+
             }
         }
 
@@ -286,6 +289,13 @@ namespace Sango.Tools
 
         public void Update()
         {
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
+            if (Physics.Raycast(ray, out hit, map.showLimitLength + 2000, rayCastLayer))
+            {
+                Sango.Hexagon.Hex hex = map.mapGrid.hexWorld.PositionToHex(hit.point);
+                SelectedCoord = Sango.Hexagon.Coord.OffsetFromCube(hex);
+            }
             BrushBase brush = CheckBrush();
             if (brush == null) return;
             brush.Update();
@@ -303,6 +313,8 @@ namespace Sango.Tools
         bool viewIs311Camera = true;
         void DrawToolbarWindow(int windowID, EditorWindow window)
         {
+            GUILayout.Label($"当前鼠标格子:{{{SelectedCoord.col},{SelectedCoord.row}}}");
+
             GUILayout.BeginHorizontal();
 
             int season = GUILayout.Toolbar(map.curSeason, toolbarSeason);
@@ -346,6 +358,11 @@ namespace Sango.Tools
                     EditorFreeCamera editorfree = Camera.main.gameObject.GetComponent<Sango.Tools.EditorFreeCamera>();
                     if (editorfree != null)
                         editorfree.lookAt = map.mapCamera.GetCenterTransform();
+
+                    if (viewIs311Camera)
+                        SetCameraControlType(1);
+                    else
+                        SetCameraControlType(0);
                 }
             }
 
@@ -356,6 +373,16 @@ namespace Sango.Tools
                 if (path != null)
                 {
                     map.SaveMap(path);
+                }
+            }
+
+            if (GUILayout.Button("放大2倍保存"))
+            {
+
+                string path = WindowDialog.SaveFileDialog("map.bin", "地图文件(*.bin)\0*.bin;\0\0");
+                if (path != null)
+                {
+                    map.SaveScaleMap(path, 2);
                 }
             }
 
@@ -413,6 +440,7 @@ namespace Sango.Tools
             {
                 map.showLimitLength = v;
             }
+            EditorUIDraw.OnGUI(map.mapCamera);
 
             EditorUIDraw.OnGUI(map.mapData);
             EditorUIDraw.OnGUI(map.mapGrid);
@@ -463,22 +491,6 @@ namespace Sango.Tools
         public void ForceCameraToPosition(Vector3 position)
         {
             map.mapCamera.position = position;
-        }
-
-        public string FindTexture(string textureName, string extensions = ".png")
-        {
-            string destPath = $"Assets/Map/{WorkContent}/{textureName}{extensions}";
-            string finalPath = Path.FindFile(destPath);
-            if (finalPath == null)
-            {
-                destPath = $"Assets/Map/{DefaultContentName}/{textureName}{extensions}";
-                finalPath = Path.FindFile(destPath);
-            }
-            if (!string.IsNullOrEmpty(finalPath))
-            {
-                return finalPath;
-            }
-            return null;
         }
     }
 }

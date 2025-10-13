@@ -11,6 +11,13 @@ end
 function Window_Dialog:InitEvent(event, content)
     self.mEvent = event;
     self.ContentText.text = content;
+    local co = nil;
+    co = coroutine.start(function()
+        coroutine.wait(1);
+        self.mEvent.IsDone = true;
+        self.mEvent = nil;
+        coroutine.stop(co);
+    end)
 end
 
 function Window_Dialog:OnButton_ok()

@@ -1,5 +1,6 @@
 ﻿using LuaInterface;
 using Sango.Game;
+using Sango.Tools;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -87,12 +88,12 @@ namespace Sango.Render
             public byte terrainType;
 
 
-//#if UNITY_EDITOR
+#if SANGO_DEBUG
             [NoToLua]
             public UnityEngine.UI.Text textObj;
             [NoToLua]
             public bool visible;
-//#endif
+#endif
 
             //public int terrainState;
             //public San11GridData san11GridData;
@@ -132,7 +133,9 @@ namespace Sango.Render
                     reader.ReadInt32();
                     if (versionCode > 0)
                     {
-                        new San11GridData().OnLoad(versionCode, reader);
+                        San11GridData sanData = new San11GridData();
+                        sanData.OnLoad(versionCode, reader);
+                        terrainType = (byte)(sanData.tType + 1);
                     }
                 }
             }
@@ -246,14 +249,10 @@ namespace Sango.Render
         public void SetGridTexture(string name)
         {
             gridTextureName = name;
-            Loader.TextureLoader.LoadFromFile(map.FindTexture("Grid/" + gridTextureName), null, (UnityEngine.Object tex, object obj) =>
-            {
-                Texture t = tex as Texture;
-                gridTexture = t;
-                t.mipMapBias = -1110.4f;
-                Shader.SetGlobalTexture("_GridTex", gridTexture);
-
-            }, true);
+            Texture tex = map.CreateTexture("Grid/" + gridTextureName);
+            gridTexture = tex;
+            tex.mipMapBias = -1110.4f;
+            Shader.SetGlobalTexture("_GridTex", gridTexture);
         }
         //public void LoadFrom311GridData(string filename)
         //{
@@ -304,6 +303,28 @@ namespace Sango.Render
             else
                 writer.Write(gridTextureName);
         }
+
+        internal override void OnSaveScale(BinaryWriter writer, int scale)
+        {
+            writer.Write(gridSize);
+
+            int scaleLength = gridDatas.Length * scale;
+            for (int x = 0; x < scaleLength; ++x)
+            {
+                GridData[] yTable = gridDatas[x/2];
+                int y_scaleLength = yTable.Length * scale;
+                for (int y = 0; y < y_scaleLength; ++y)
+                {
+                    GridData data = yTable[y/2];
+                    data.OnSave(writer);
+                }
+            }
+            if (string.IsNullOrEmpty(gridTextureName))
+                writer.Write("");
+            else
+                writer.Write(gridTextureName);
+        }
+
         internal override void OnLoad(int versionCode, BinaryReader reader)
         {
             string gridTexName = null;
@@ -440,6 +461,7 @@ namespace Sango.Render
             return new Vector2Int(c, r);
         }
 
+#if SANGO_DEBUG
 
         List<GridData> last;
         List<GridData> temp1 = new List<GridData>();
@@ -447,10 +469,11 @@ namespace Sango.Render
 
         int switchIndex = 1;
         Transform textROOT;
+        [NoToLua]
         public void Update(Tools.Rect rect)
         {
-
-//#if UNITY_EDITOR
+            if (MapEditor.IsEditOn) return;
+            if (GameDebug.enabled == false) return;
             if (last != null)
             {
                 for (int i = 0; i < last.Count; i++)
@@ -523,7 +546,7 @@ namespace Sango.Render
             else
                 switchIndex = 1;
             last = temp;
-//#endif
         }
+#endif
     }
 }

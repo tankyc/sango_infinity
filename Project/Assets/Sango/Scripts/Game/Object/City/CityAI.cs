@@ -12,17 +12,35 @@ namespace Sango.Game
             if (city.BelongForce == null)
                 return true;
 
+            if (city.CurActiveTroop != null)
+            {
+                if (!city.CurActiveTroop.DoAI(scenario))
+                    return false;
+
+                city.CurActiveTroop = null;
+                return false;
+            }
+
+            if (city.CurActiveTroopList.Count > 0)
+            {
+                Troop troop = city.CurActiveTroopList[0];
+                if (!troop.DoAI(scenario))
+                    return false;
+                city.CurActiveTroopList.RemoveAt(0);
+                if (city.CurActiveTroopList.Count > 0)
+                {
+                    troop = city.CurActiveTroopList[0];
+                    troop = city.EnsureTroop(troop, scenario, 20);
+#if SANGO_DEBUG
+                    City targetCity = scenario.citySet.Get(troop.missionTarget);
+                    Sango.Log.Print($"{scenario.GetDateStr()}{city.BelongForce.Name}3势力在{city.Name}由{troop.Leader.Name}率领军队出城 进攻{targetCity.BelongForce?.Name}的{targetCity.Name}!");
+#endif
+                }
+                return false;
+            }
+
             if (AICanDefense(city, scenario))
             {
-                if (city.CurActiveTroop != null)
-                {
-                    if (!city.CurActiveTroop.DoAI(scenario))
-                        return false;
-
-                    city.CurActiveTroop = null;
-                    return false;
-                }
-
                 city.troopTempList.Clear();
                 city.AutoMakeTroop(city.troopTempList, 5, false);
                 if (city.troopTempList.Count <= 0) return true;
@@ -32,7 +50,9 @@ namespace Sango.Game
                 troop = city.EnsureTroop(troop, scenario, 10);
                 troop.missionType = (int)MissionType.ProtectCity;
                 troop.missionTarget = city.Id;
+#if SANGO_DEBUG
                 Sango.Log.Print($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
+#endif
                 city.CurActiveTroop = troop;
                 city.Render?.UpdateRender();
                 return false;
@@ -41,11 +61,12 @@ namespace Sango.Game
             {
 
                 City lastTargetCity = null;
-                if (city.allTroops.Count > 0)
+                Troop activedTroop = scenario.troopsSet.Find(x => x.IsAlive && x.BelongCity == city);
+                if (activedTroop != null)
                 {
-                    if (city.allTroops[0].missionType == (int)MissionType.OccupyCity)
+                    if (activedTroop.missionType == (int)MissionType.OccupyCity)
                     {
-                        lastTargetCity = scenario.citySet.Get(city.allTroops[0].missionTarget);
+                        lastTargetCity = scenario.citySet.Get(activedTroop.missionTarget);
                     }
                 }
 
@@ -54,20 +75,23 @@ namespace Sango.Game
                     if (city.troops < UnityEngine.Mathf.Min(lastTargetCity.troops, lastTargetCity.allPersons.Count * 5000))
                         return true;
 
-                    List<Troop> troopList = new List<Troop>();
-                    city.AutoMakeTroop(troopList, 10, false);
-                    while (troopList.Count > 0)
+                    city.AutoMakeTroop(city.CurActiveTroopList, 10, false);
+                    if (city.CurActiveTroopList.Count > 0)
                     {
-                        Troop troop = troopList[0];
-                        troopList.RemoveAt(0);
-                        troop = city.EnsureTroop(troop, scenario, 20);
-                        troop.missionType = (int)MissionType.OccupyCity;
-                        troop.missionTarget = lastTargetCity.Id;
-                        //troop.DoAI(scenario);
-                        Sango.Log.Print($"{scenario.Info.year}年{scenario.Info.month}月{scenario.Info.day}日{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 进攻{lastTargetCity.BelongForce?.Name}的{lastTargetCity.Name}!");
-                        troop = null;
+                        for (int i = 0; i < city.CurActiveTroopList.Count; i++)
+                        {
+                            Troop troop = city.CurActiveTroopList[i];
+                            troop.missionType = (int)MissionType.OccupyCity;
+                            troop.missionTarget = lastTargetCity.Id;
+                        }
+
+                        Troop troop1 = city.CurActiveTroopList[0];
+                        troop1 = city.EnsureTroop(troop1, scenario, 20);
+#if SANGO_DEBUG
+                        Sango.Log.Print($"{scenario.GetDateStr()}{city.BelongForce.Name}2势力在{city.Name}由{troop1.Leader.Name}率领军队出城 进攻{lastTargetCity.BelongForce?.Name}的{lastTargetCity.Name}!");
+#endif
                     }
-                    return true;
+                    return false;
                 }
 
                 // 计算进攻概率
@@ -83,7 +107,7 @@ namespace Sango.Game
                         else
                         {
                             // 需要兵力充足
-                            if (city.troops > UnityEngine.Mathf.Min(x.troops, x.allPersons.Count * 5000) + 5000)
+                            if (city.troops > UnityEngine.Mathf.Min(x.troops, x.allPersons.Count * 5000) - 10000)
                             {
                                 // 范围大约在
                                 int weight = (int)(1000 * (float)city.virtualFightPower / (float)x.virtualFightPower);
@@ -110,20 +134,23 @@ namespace Sango.Game
                             if (city.troops < UnityEngine.Mathf.Min(targetCity.troops, targetCity.allPersons.Count * 5000))
                                 continue;
 
-                            List<Troop> troopList = new List<Troop>();
-                            city.AutoMakeTroop(troopList, 10, false);
-                            while (troopList.Count > 0)
+                            city.AutoMakeTroop(city.CurActiveTroopList, 10, false);
+                            if (city.CurActiveTroopList.Count > 0)
                             {
-                                Troop troop = troopList[0];
-                                troopList.RemoveAt(0);
-                                troop = city.EnsureTroop(troop, scenario, 20);
-                                troop.missionType = (int)MissionType.OccupyCity;
-                                troop.missionTarget = targetCity.Id;
-                                //troop.DoAI(scenario);
-                                Sango.Log.Print($"{scenario.Info.year}年{scenario.Info.month}月{scenario.Info.day}日{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 进攻{targetCity.BelongForce?.Name ?? ""}的{targetCity.Name}!");
-                                troop = null;
+                                for (int j = 0; j < city.CurActiveTroopList.Count; j++)
+                                {
+                                    Troop troop = city.CurActiveTroopList[j];
+                                    troop.missionType = (int)MissionType.OccupyCity;
+                                    troop.missionTarget = targetCity.Id;
+                                }
+
+                                Troop troop1 = city.CurActiveTroopList[0];
+                                troop1 = city.EnsureTroop(troop1, scenario, 20);
+#if SANGO_DEBUG
+                                Sango.Log.Print($"{scenario.GetDateStr()}{city.BelongForce.Name}1势力在{city.Name}由{troop1.Leader.Name}率领军队出城 进攻{targetCity.BelongForce?.Name}的{targetCity.Name}!");
+#endif
                             }
-                            return true;
+                            return false;
                         }
                     }
                 }
@@ -137,11 +164,6 @@ namespace Sango.Game
         /// <param name="scenario"></param>
         public static bool AIIntrior(City city, Scenario scenario)
         {
-            if (city.security < 60)
-            {
-                AISecurity(city, scenario);
-            }
-
             // 兵临城下
             if (city.IsEnemiesRound(9))
                 return true;
@@ -149,14 +171,13 @@ namespace Sango.Game
             AIBuilding(city, scenario);
 
             AIIntriorBalance(city, scenario);
-            if (city.allIntriorBuildings.Count >= city.CityLevelType.outsideSlot)
+            if (city.allIntriorBuildings.Count >= city.CityLevelType.insideSlot)
             {
                 AIIntriorBalance(city, scenario);
                 if (city.freePersons.Count > 5 && GameRandom.Changce(50))
                     AIIntriorBalance(city, scenario);
                 if (city.freePersons.Count > 8 && GameRandom.Changce(50))
                     AIIntriorBalance(city, scenario);
-                AISecurity(city, scenario);
             }
 
             if (city.wildPersons.Count > 0 && city.freePersons.Count > 0)
@@ -170,6 +191,9 @@ namespace Sango.Game
                     }
                 }
             }
+
+            AITrainTroop(city, scenario);
+            AISecurity(city, scenario);
 
             if (city.freePersons.Count > 3)
             {
@@ -284,7 +308,7 @@ namespace Sango.Game
 
         public static bool AIBuildingByPercent(City city, BuildingType buildingType, float percent, Scenario scenario)
         {
-            int maxSlot = city.CityLevelType.outsideSlot;
+            int maxSlot = city.CityLevelType.insideSlot;
             int leftSlot = maxSlot - city.allIntriorBuildings.Count;
             if (leftSlot <= 0)
                 return true;
@@ -304,62 +328,26 @@ namespace Sango.Game
                     break;
                 if (city.freePersons.Count <= 0)
                     break;
-                Cell center = null;
-                Cell villageCenter = null;
-                int safeCount = 0;
-                while (safeCount < 100)
-                {
-                    safeCount++;
-                    int where2Build = GameRandom.Range(0, city.effectCells.Count);
-                    villageCenter = city.effectCells[where2Build];
-                    if (villageCenter.building != null) continue;
-                    bool too_near = false;
-                    for (int j = 0; j < city.allIntriorBuildings.Count; ++j)
-                    {
-                        Building building = city.allIntriorBuildings[j];
-                        if (villageCenter.Cub.Distance(building.CenterCell.Cub) < building.BuildingType.radius + buildingType.radius + 1)
-                        {
-                            too_near = true;
-                            break;
-                        }
-                    }
-                    if (too_near) continue;
-                    center = villageCenter;
-                    break;
-                }
 
-                if (center == null)
+                int index = -1;
+                for (int i = 0; i < city.innerSlot.Length; ++i)
                 {
-                    for (int i = 0; i < city.effectCells.Count; i++)
+                    if (city.innerSlot[i] <= 0)
                     {
-                        villageCenter = city.effectCells[i];
-                        if (villageCenter.building != null) continue;
-                        bool too_near = false;
-                        for (int j = 0; j < city.allIntriorBuildings.Count; ++j)
-                        {
-                            Building building = city.allIntriorBuildings[j];
-                            if (villageCenter.Cub.Distance(building.CenterCell.Cub) < building.BuildingType.radius + buildingType.radius + 1)
-                            {
-                                too_near = true;
-                                break;
-                            }
-                        }
-                        if (too_near) continue;
-                        center = villageCenter;
+                        index = i;
                         break;
                     }
                 }
 
-                if (center != null)
+                if (index >= 0)
                 {
                     Person person = City.sort_by_BaseBuildAbility[0];
                     City.sort_by_BaseBuildAbility.RemoveAt(0);
                     city.freePersons.Remove(person);
-                    city.BuildBuilding(center, person, buildingType);
+                    city.BuildBuilding(index, person, buildingType);
                     city.gold -= buildingType.cost;
                     person.ActionOver = true;
                 }
-
                 nowCount++;
             }
             return true;
@@ -382,11 +370,45 @@ namespace Sango.Game
             return true;
         }
 
-        static List<Cell> tempCellList = new List<Cell>();
+        public static bool TryBuilding(City city, BuildingKindType buildingKindType, int count, Scenario scenario)
+        {
+            if (city.allIntriorBuildings.Count >= city.CityLevelType.insideSlot)
+                return true;
+
+            if (city.freePersons.Count <= 0)
+                return true;
+
+            // 统计一个正在建造的数量
+            int buildingNum = 0;
+            // 已建造的数量
+            int num = 0;
+            for (int i = 0; i < city.allIntriorBuildings.Count; i++)
+            {
+                Building building = city.allIntriorBuildings[i];
+                if (building.Id == (int)buildingKindType)
+                    num++;
+                if (!building.isComplte)
+                    buildingNum++;
+            }
+
+            if (num >= count) return true;
+
+            int slotIdx = -1;
+            for (int i = 0; i < city.innerSlot.Length; i++)
+            {
+                if (city.innerSlot[i] <= 0)
+                {
+                    slotIdx = i;
+                    break;
+                }
+            }
+
+            return true;
+        }
 
         public static bool AIBuldIntriore(City city, Scenario scenario)
         {
-            if (city.allIntriorBuildings.Count >= city.CityLevelType.outsideSlot)
+            if (city.allIntriorBuildings.Count >= city.CityLevelType.insideSlot)
                 return true;
 
             if (city.freePersons.Count <= 0)
@@ -394,6 +416,9 @@ namespace Sango.Game
 
             if (city.IsBorderCity)
             {
+                // 优先建造军事
+
+
                 return AIBuildingIntriorBalance(city, scenario);
             }
             else
@@ -520,8 +545,9 @@ namespace Sango.Game
             if (city.IsRoadBlocked())
                 return false;
 
-            // 兵临城下
-            if (city.IsEnemiesRound(6))
+            City.EnemyInfo enemyInfo;
+            // 兵临城下且敌军存活
+            if (city.IsEnemiesRound(10) && city.CheckEnemiesIfAlive(out enemyInfo))
                 return true;
 
             return false;
@@ -532,7 +558,13 @@ namespace Sango.Game
             if (city.troops < 20000)
                 return false;
 
+            if (city.morale < 80)
+                return false;
+
             if (city.freePersons.Count <= 0)
+                return false;
+
+            if (city.durability <= city.CityLevelType.maxDurability * 80 / 100)
                 return false;
 
             if (!city.IsBorderCity)
@@ -630,13 +662,40 @@ namespace Sango.Game
         {
             if (city.freePersons.Count > 0 && city.gold > 400)
             {
-                if (GameRandom.Changce((100 - city.security) * 3 / 2))
+                if (GameRandom.Changce((90 - city.security) * 3 / 2))
                 {
                     City.sort_by_BaseSecurityAbility.RemoveAll(x => x.ActionOver == true);
                     if (city.JobInspection(City.sort_by_BaseSecurityAbility))
                     {
                     }
                 }
+            }
+            return true;
+        }
+
+        public static bool AITrainTroop(City city, Scenario scenario)
+        {
+            if (city.freePersons.Count > 0 && city.gold > 400)
+            {
+                if (city.morale < 50)
+                {
+                    City.sort_by_BaseTrainTroopAbility.RemoveAll(x => x.ActionOver == true);
+                    if (city.JobTrainTroop(City.sort_by_BaseSecurityAbility))
+                    {
+                    }
+                }
+                else
+                {
+                    if (GameRandom.Changce((95 - city.morale) * 3 / 2))
+                    {
+                        City.sort_by_BaseTrainTroopAbility.RemoveAll(x => x.ActionOver == true);
+                        if (city.JobTrainTroop(City.sort_by_BaseTrainTroopAbility))
+                        {
+                        }
+                    }
+                }
+
+
             }
             return true;
         }

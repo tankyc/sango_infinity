@@ -19,8 +19,10 @@ namespace Sango.Render
             int hCount = map.mapData.vertex_height / cellSize;
             terrainCells = new MapCell[wCount * hCount];
 
-            for (int y = 0; y < hCount; y++) {
-                for (int x = 0; x < wCount; x++) {
+            for (int y = 0; y < hCount; y++)
+            {
+                for (int x = 0; x < wCount; x++)
+                {
                     MapCell cell = new MapCell(map, x * cellSize, y * cellSize, cellSize, cellSize);
                     terrainCells[y * wCount + x] = cell;
                     map.AddStatic(cell);
@@ -41,7 +43,9 @@ namespace Sango.Render
         public override void Clear()
         {
             base.Clear();
-            for (int i = 0; i < terrainCells.Length; i++) {
+            if (terrainCells == null) return;
+            for (int i = 0; i < terrainCells.Length; i++)
+            {
                 MapCell cell = terrainCells[i];
                 if (cell == null) continue;
                 map.RemoveStatic(cell);
@@ -61,7 +65,7 @@ namespace Sango.Render
             {
                 MapCell cell = terrainCells[i];
                 if (cell == null) continue;
-                if(cell.IsValid())
+                if (cell.IsValid())
                 {
                     cell.PrepareDatas();
                 }
@@ -72,10 +76,22 @@ namespace Sango.Render
         {
             if (terrainCells == null) return;
 
-            for (int i = 0; i < terrainCells.Length; i++) {
+            for (int i = 0; i < terrainCells.Length; i++)
+            {
                 MapCell cell = terrainCells[i];
                 if (cell == null) continue;
                 cell.Update();
+            }
+        }
+
+        public override void UpdateImmediate()
+        {
+            for (int i = 0; i < terrainCells.Length; i++)
+            {
+                MapCell cell = terrainCells[i];
+                if (cell == null) continue;
+                cell.visible = true;
+                cell.PrepareDatas();
             }
         }
     }

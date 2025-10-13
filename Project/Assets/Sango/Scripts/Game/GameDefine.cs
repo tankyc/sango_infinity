@@ -28,4 +28,68 @@
 
     }
 
+    public enum CityJobType : int
+    {
+        /// <summary>
+        /// 农业
+        /// </summary>
+        Farming = 0,
+
+        /// <summary>
+        /// 商业
+        /// </summary>
+        Develop,
+
+        /// <summary>
+        /// 巡查
+        /// </summary>
+        Inspection,
+
+        /// <summary>
+        /// 训练
+        /// </summary>
+        TrainTroop,
+
+        /// <summary>
+        /// 搜索
+        /// </summary>
+        Searching,
+
+        /// <summary>
+        /// 招募士兵
+        /// </summary>
+        RecuritTroop,
+
+        /// <summary>
+        /// 招募武将
+        /// </summary>
+        RecuritPerson,
+
+        /// <summary>
+        /// 生产兵装
+        /// </summary>
+        CreateItems,
+
+        /// <summary>
+        /// 建造
+        /// </summary>
+        Build,
+
+        /// <summary>
+        /// 生产器具
+        /// </summary>
+        CreateMachine,
+
+        /// <summary>
+        /// 生产船
+        /// </summary>
+        CreateBoat,
+
+        /// <summary>
+        /// 生产马
+        /// </summary>
+        CreateHourse,
+
+        MaxJobCount
+    }
 }

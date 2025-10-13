@@ -40,6 +40,8 @@ namespace Sango.Tools
             return EditorWindow.IsPointOverUI() || (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject());
         }
 
+        UnityEngine.Rect labRect = new UnityEngine.Rect();
+
         public virtual void Update()
         {
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);

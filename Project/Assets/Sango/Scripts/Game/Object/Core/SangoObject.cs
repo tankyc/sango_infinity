@@ -16,6 +16,8 @@ namespace Sango.Game
         Building,
         Corps,
         Skill,
+        InnerBuilding,
+
     }
 
     public class SangoObject

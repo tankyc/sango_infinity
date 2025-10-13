@@ -18,3 +18,17 @@
 /Project/Assembly-CSharp.Player.csproj
 /Project/HSVPicker.Player.csproj
 /Build/Mods/Core/.idea
+/Project/PackageTemp/Content
+/Build/Content/Package/Content.pkg
+/Build/UnityPlayer.dll
+/Build/UnityCrashHandler64.exe
+/Build/SangoInfinity_Data
+/Build/SangoInfinity_BurstDebugInformation_DoNotShip/Data/Plugins/x86_64
+/Build/SangoInfinity_BackUpThisFolder_ButDontShipItWithYourGame
+/Build/SangoInfinity.exe
+/Build/GameAssembly.dll
+/Build/baselib.dll
+/Project/LoopScrollRect.Editor.csproj
+*.csproj
+/Data/Export/Scenario/~$剧本配置.xlsx
+/Data/Export/Common/~$技能配置.xlsx

@@ -31,7 +31,9 @@ namespace Sango.Render
         public override void Clear()
         {
             base.Clear();
+            if (light == null) return;
             GameObject.Destroy(light.gameObject);
+            light = null;
         }
 
         internal override void OnSave(BinaryWriter writer)

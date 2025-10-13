@@ -115,9 +115,13 @@ namespace Sango.Render
         {
             if (gameObject != null)
                 GameObject.Destroy(gameObject);
-            for (int i = 0; i < mesh.Length; ++i) {
-                if (mesh[i] != null)
-                    GameObject.Destroy(mesh[i]);
+            if (mesh != null)
+            {
+                for (int i = 0; i < mesh.Length; ++i)
+                {
+                    if (mesh[i] != null)
+                        GameObject.Destroy(mesh[i]);
+                }
             }
         }
 
@@ -514,6 +518,7 @@ namespace Sango.Render
                 }
             }
         }
+
         public bool Overlaps(Sango.Tools.Rect rect)
         {
             return worldBounds.Overlaps(rect);

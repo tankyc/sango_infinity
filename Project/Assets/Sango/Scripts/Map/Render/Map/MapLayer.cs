@@ -42,20 +42,16 @@ namespace Sango.Render
                 for (int i = 0; i < 4; ++i)
                 {
                     string seasonName = MapRender.SeasonNames[i];
-                    Loader.TextureLoader.LoadFromFile(layer.map.FindTexture($"Terrain/{seasonName}/{diffuseTexName[i]}"),
-                           i, (UnityEngine.Object obj, object customData) =>
-                           {
-                               int ld = (int)customData;
-                               Texture tex = obj as Texture;
-                               diffuse[ld] = tex;
-                               textureScale = new Vector2(layer.map.mapData.vertex_width * 32 / tex.width,
-                                   -layer.map.mapData.vertex_height * 32 / tex.height);
-                               if (ld == layer.curSeason)
-                               {
-                                   material.SetTexture("_MainTex", tex);
-                                   material.SetTextureScale("_MainTex", textureScale);
-                               }
-                           });
+
+                    Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{diffuseTexName[i]}");
+                    diffuse[i] = tex;
+                    textureScale = new Vector2(layer.map.mapData.vertex_width * 32 / tex.width,
+                                  -layer.map.mapData.vertex_height * 32 / tex.height);
+                    if (i == layer.curSeason)
+                    {
+                        material.SetTexture("_MainTex", tex);
+                        material.SetTextureScale("_MainTex", textureScale);
+                    }
                 }
             }
 
@@ -183,71 +179,59 @@ namespace Sango.Render
                     if (!string.IsNullOrEmpty(diffuseTexName[i]))
                     {
 
-#if UNITY_EDITOR
-                        string[] fixName = diffuseTexName[i].Split('_');
-                        if (fixName.Length > 1)
+                        // 老版本名字修复
+                        if (versionCode < 6)
                         {
-                            if (diffuseTexName[i].StartsWith("water"))
+                            string[] fixName = diffuseTexName[i].Split('_');
+                            if (fixName.Length > 1)
                             {
-                                diffuseTexName[i] = "water_" + fixName[1];
+                                if (diffuseTexName[i].StartsWith("water"))
+                                {
+                                    diffuseTexName[i] = "water_" + fixName[1];
+                                }
+                                else
+                                    diffuseTexName[i] = "layer_" + fixName[1];
                             }
                             else
-                                diffuseTexName[i] = "layer_" + fixName[1];
-                        }
-                        else
-                        {
-                            if (diffuseTexName[i] == "water")
-                                diffuseTexName[i] = "water_0";
-                        }
-#endif
-                        Loader.TextureLoader.LoadFromFile(layer.map.FindTexture($"Terrain/{seasonName}/{diffuseTexName[i]}"),
-                            i, (UnityEngine.Object obj, object customData) =>
-                        {
-                            int ld = (int)customData;
-                            Texture tex = obj as Texture;
-                            diffuse[ld] = tex;
-                            if (ld == layer.curSeason)
                             {
-                                material.SetTexture("_MainTex", tex);
-                                material.SetTextureScale("_MainTex", textureScale);
+                                if (diffuseTexName[i] == "water")
+                                    diffuseTexName[i] = "water_0";
                             }
+                        }
 
-                        });
+                        Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{diffuseTexName[i]}");
+                        diffuse[i] = tex;
+                        textureScale = new Vector2(layer.map.mapData.vertex_width * 32 / tex.width,
+                                      -layer.map.mapData.vertex_height * 32 / tex.height);
+                        if (i == layer.curSeason)
+                        {
+                            material.SetTexture("_MainTex", tex);
+                            material.SetTextureScale("_MainTex", textureScale);
+                        }
                     }
 
                     normalTexName[i] = reader.ReadString();
                     if (!string.IsNullOrEmpty(normalTexName[i]))
                     {
 
-                        Loader.TextureLoader.LoadFromFile(layer.map.FindTexture($"Terrain/{seasonName}/{normalTexName[i]}"),
-                            i, (UnityEngine.Object obj, object customData) =>
-                            {
-                                int ld = (int)customData;
-                                Texture tex = obj as Texture;
-                                normal[ld] = tex;
-                                if (ld == layer.curSeason)
-                                {
-                                    material.SetTexture("_BumpMap", tex);
-                                    material.SetTextureScale("_BumpMap", textureScale);
-                                }
-                            });
+                        Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{normalTexName[i]}");
+                        normal[i] = tex;
+                        if (i == layer.curSeason)
+                        {
+                            material.SetTexture("_BumpMap", tex);
+                            material.SetTextureScale("_BumpMap", textureScale);
+                        }
                     }
                     maskTexName[i] = reader.ReadString();
                     if (!string.IsNullOrEmpty(maskTexName[i]))
                     {
-
-                        Loader.TextureLoader.LoadFromFile(layer.map.FindTexture($"Terrain/{seasonName}/{maskTexName[i]}"),
-                            i, (UnityEngine.Object obj, object customData) =>
-                            {
-                                int ld = (int)customData;
-                                Texture tex = obj as Texture;
-                                mask[ld] = tex;
-                                if (ld == layer.curSeason)
-                                {
-                                    material.SetTexture("_MaskMap", tex);
-                                    material.SetTextureScale("_MaskMap", textureScale);
-                                }
-                            });
+                        Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{maskTexName[i]}");
+                        mask[i] = tex;
+                        if (i == layer.curSeason)
+                        {
+                            material.SetTexture("_MaskMap", tex);
+                            material.SetTextureScale("_MaskMap", textureScale);
+                        }
                     }
                 }
             }

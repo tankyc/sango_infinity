@@ -6,7 +6,7 @@ namespace Sango.Game
 {
     public class LinkObjectList<T, T1> where T : ScenarioObject<T1>, new() where T1 : SangoObject, new()
     {
-        private List<T> values = new List<T>(Scenario.MAX_DATA_COUNT_256);
+        private List<T> values = new List<T>();
 
         public LinkObjectList()
         {

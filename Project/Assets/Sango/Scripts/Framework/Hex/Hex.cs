@@ -2,13 +2,13 @@
 
 using System;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 namespace Sango.Hexagon
 {
+    
     /// <summary>
-    /// odd-q
+    /// 采用的 odd-q 排列
     ///   col------------z---------->
     ///  row  
     ///  |
@@ -77,13 +77,62 @@ namespace Sango.Hexagon
             return new Hex(-r, -s, -q);
         }
 
-        static public Hex[] directions = new Hex[] { new Hex(1, 0, -1), new Hex(1, -1, 0), new Hex(0, -1, 1), new Hex(-1, 0, 1), new Hex(-1, 1, 0), new Hex(0, 1, -1) };
+        static public Hex[] directions = new Hex[] { 
+            new Hex(1, 0, -1), 
+            new Hex(1, -1, 0), 
+            new Hex(0, -1, 1), 
+            new Hex(-1, 0, 1), 
+            new Hex(-1, 1, 0), 
+            new Hex(0, 1, -1) };
 
         static public Hex Direction(int direction)
         {
             return Hex.directions[direction];
         }
-
+        public int DirectionTo(Hex to)
+        {
+            Hex dirHex = to.Subtract(this);
+            int q_r = dirHex.q - dirHex.r;
+            int r_s= dirHex.r - dirHex.s;
+            int s_q = dirHex.s - dirHex.q;
+            int abs_q_r = Math.Abs(q_r);
+            int abs_r_s = Math.Abs(r_s);
+            int abs_s_q = Math.Abs(s_q);
+            int max = Math.Max(Math.Max(abs_q_r, abs_r_s), abs_s_q);
+            if(max == abs_q_r)
+            {
+                if(q_r > 0)
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 4;
+                }
+            }
+            else if(max == abs_r_s)
+            {
+                if (r_s > 0)
+                {
+                    return 5;
+                }
+                else
+                {
+                    return 2;
+                }
+            }
+            else
+            {
+                if (s_q > 0)
+                {
+                    return 3;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+        }
 
         public Hex Neighbor(int direction)
         {

@@ -1,4 +1,8 @@
-﻿namespace Sango.Game
+﻿using Newtonsoft.Json.Serialization;
+using System;
+using System.Collections.Generic;
+
+namespace Sango.Game
 {
     public class ScenarioEvent : EventBase
     {
@@ -73,6 +77,43 @@
         public EventDelegate<Troop, Scenario> OnTroopAIEnd;
         public EventDelegate<Cell, Cell> OnTroopLeaveCell;
         public EventDelegate<Cell, Cell> OnTroopEnterCell;
+
+        public EventDelegate<Troop, Scenario> OnTroopCreated;
+        public EventDelegate<Troop, Scenario> OnTroopDestroyed;
+        public EventDelegate<Troop, Scenario> OnTroopCalculateAttribute;
+
+        public EventDelegate<City, Troop, Scenario> OnCityFall;
+
+        /// <summary>
+        /// 可监听改写工作花费
+        /// City, JobType, PersonList, PersonCount, OverrideFunc
+        /// </summary>
+        public EventDelegate<City, int, List<Person>, int, Action<int>> OnCityCheckJobCost;
+        /// <summary>
+        /// 可监听改写工作成果
+        /// City, JobType, PersonList, PersonCount, OverrideFunc
+        /// </summary>
+        public EventDelegate<City, int, List<Person>, int, Action<int>> OnCityJobResult;
+        /// <summary>
+        /// 可监听改写工作获取的技巧
+        /// City, JobType, PersonList, PersonCount, OverrideFunc
+        /// </summary>
+        public EventDelegate<City, int, List<Person>, int, Action<int>> OnCityJobGainTechniquePoint;
+        /// <summary>
+        /// 可监听改写发现人才的几率
+        /// City, JobType, PersonList, PersonCount, OverrideFunc
+        /// </summary>
+        public EventDelegate<City, int, List<Person>, int, Action<int>> OnCityJobSearchingWild;
+        /// <summary>
+        /// 可监听改写发现人才的几率
+        /// City, JobType, PersonList, PersonCount, OverrideFunc
+        /// </summary>
+        public EventDelegate<City, Troop, Action<int>> OnTroopCalculateMaxTroops;
+        /// <summary>
+        /// 武将升级事件
+        /// </summary>
+        public EventDelegate<Person> OnPersonLevelUp;
+
 
         public static ScenarioEvent Event { get { return Scenario.Cur.Event; } }
 

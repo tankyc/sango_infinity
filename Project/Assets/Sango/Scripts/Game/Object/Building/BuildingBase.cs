@@ -1,9 +1,7 @@
-﻿using Sango.Game.Render;
-using System;
-using System.Collections;
+﻿using Newtonsoft.Json;
+using Sango.Game.Render;
 using System.Collections.Generic;
-using System.IO;
-using Newtonsoft.Json;
+using UnityEditor.Experimental.GraphView;
 
 namespace Sango.Game
 {
@@ -34,20 +32,24 @@ namespace Sango.Game
         /// 当前耐久
         /// </summary>
         [JsonProperty] public int durability;
+
         /// <summary>
         /// 地图坐标
         /// </summary>
         public MapCoords coords;
         [JsonProperty] public int x;
         [JsonProperty] public int y;
+
         /// <summary>
         /// 旋转值
         /// </summary>
         [JsonProperty] public float rot;
+
         /// <summary>
         /// 高度偏移
         /// </summary>
         [JsonProperty] public float heightOffset;
+
         /// <summary>
         /// 是否建造完成
         /// </summary>
@@ -61,11 +63,14 @@ namespace Sango.Game
         /// </summary>
         public ObjectRender Render { get; set; }
 
-
-        public List<Cell> effectCells = new List<Cell>();
+        /// <summary>
+        /// 作用范围
+        /// </summary>
+        public List<Cell> effectCells;// = new List<Cell>();
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
+            effectCells = new List<Cell>();
             //BelongForce = scenario.forceSet.Get(_belongForceId);
             //BelongCorps = scenario.corpsSet.Get(_belongCorpsId);
             //BuildingType = scenario.CommonData.BuildingTypes.Get(_buildingTypeId);
@@ -131,6 +136,11 @@ namespace Sango.Game
 
         public virtual bool ChangeDurability(int num, Troop atk)
         {
+            if (num < 0)
+            {
+                if (Render != null)
+                    Render.ShowDamage(num, 13);
+            }
             durability = durability + num;
             bool isAlive = durability > 0;
             if (!isAlive)
@@ -166,15 +176,24 @@ namespace Sango.Game
         //    return (int)((cell.TerrainType.goldDeposit + BuildingType.goldGain) * cell.Prosperity);
         //}
 
-        public virtual int GetBaseDamage() { return 0; }
-        public virtual int GetBaseCommand() { return 0; }
+        public virtual int GetAttack() { return BuildingType.atk; }
+        public virtual int GetDefence() { return 50; }
         public float GetAttackBackFactor(Skill skill, int distance)
         {
-            if (skill.IsRange() && distance > 1)
-                return 0;
+            if (skill.IsRange() && skill.costEnergy == 0 && distance > 1)
+                return 0.7f;
             else if (!skill.IsRange() && distance == 1)
-                return 0.5f;
+                return 0.9f;
             return 0;
+        }
+
+        public virtual int GetMaxDurability()
+        {
+            return BuildingType.durabilityLimit;
+        }
+        public virtual int GetSkillMethodAvaliabledTroops()
+        {
+            return durability * 10000 / GetMaxDurability();
         }
     }
 }

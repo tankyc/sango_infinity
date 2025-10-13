@@ -6,6 +6,7 @@ using Sango;
 using LuaInterface;
 using System.Collections.Generic;
 using Sango.Game;
+using Sango.Loader;
 
 namespace Sango.Render
 {
@@ -52,37 +53,28 @@ namespace Sango.Render
 
         public static Transform terrainRoot;
         public static Transform modelRoot;
-
+        public static GameObject mapRoot;
+        public static int ScaleNX = 1;
         public MapRender()
         {
-            //Instance = this;
+
+        }
+
+        public void Init()
+        {
             WorkContent = "Default";
+            if (mapRoot == null)
+            {
+                mapRoot = new GameObject("Map");
+                mapRoot.AddComponent<MapLooper>();
 
-            GameObject go = new GameObject("Map");
-            go.AddComponent<MapLooper>();
-
-            GameObject tempGo = new GameObject("Terrain");
-            tempGo.transform.SetParent(go.transform);
-            terrainRoot = tempGo.transform;
-            tempGo = new GameObject("Model");
-            tempGo.transform.SetParent(go.transform);
-            modelRoot = tempGo.transform;
-
-            //searchingPath.Add("Assets");
-            //searchingPath.Add("Assets/Texture");
-            //searchingPath.Add("Assets/Texture/Terrain/spring");
-            //searchingPath.Add("Assets/Texture/Terrain/summer");
-            //searchingPath.Add("Assets/Texture/Terrain/autumn");
-            //searchingPath.Add("Assets/Texture/Terrain/winter");
-            //searchingPath.Add("Assets/Texture/Terrain");
-            //searchingPath.Add("Assets/Texture/Water");
-            //searchingPath.Add("Assets/Texture/Tree");
-            //searchingPath.Add("Assets/Texture/Sky");
-            //searchingPath.Add("Assets/Texture/Grid");
-            //searchingPath.Add("Assets/Texture/BaseTex");
-
-            //savedModDir = Directory.GetDirectories(Path.ModRootPath, "*", SearchOption.TopDirectoryOnly);
-
+                GameObject tempGo = new GameObject("Terrain");
+                tempGo.transform.SetParent(mapRoot.transform);
+                terrainRoot = tempGo.transform;
+                tempGo = new GameObject("Model");
+                tempGo.transform.SetParent(mapRoot.transform);
+                modelRoot = tempGo.transform;
+            }
         }
 
         protected void OnDestroy()
@@ -113,10 +105,16 @@ namespace Sango.Render
                 ModelConfig config = GameData.Instance.ModelConfigs.Get(obj.modelId);
                 if (config != null)
                 {
-                    if(!string.IsNullOrEmpty(config.texture))
-                        obj.CreateModel($"Assets/Model/{config.model}", $"Assets/Texture/{config.texture}", config.ShaderName, config.isShardMat);
+                    if (!string.IsNullOrEmpty(config.texture))
+                    {
+                        obj.modelAsset = $"Assets/Model/{config.model}";
+                        obj.CreateModel(obj.modelAsset, $"Assets/Texture/{config.texture}", config.ShaderName, config.isShardMat);
+                    }
                     else
+                    {
+                        obj.modelAsset = config.model;
                         obj.CreateModel(config.model);
+                    }
                 }
 
             }
@@ -279,12 +277,22 @@ namespace Sango.Render
                 mapSkyBox.Clear();
             if (mapGrid != null)
                 mapGrid.Clear();
+
+            if(mapRoot != null)
+            {
+                GameObject.Destroy(mapRoot);
+                mapRoot = null;
+                modelRoot = null;
+                terrainRoot = null;
+            }    
         }
 
         public void LoadMap(string filename)
         {
 
             Clear();
+
+            Init();
 
             FileName = filename;
 
@@ -354,30 +362,45 @@ namespace Sango.Render
             fs.Close();
         }
 
-        List<string> searchingPath = new List<string>();
-        /// <summary>
-        /// 添加贴图查找文件夹
-        /// </summary>
-        /// <param name="dir"></param>
-        public void AddSearchingPath(string dir)
+        public void SaveScaleMap(string filename, int scale)
         {
-            /// 后添加的优先查询
-            searchingPath.Insert(0, dir);
+            FileStream fs = new FileStream(filename, FileMode.Create, FileAccess.ReadWrite);
+            BinaryWriter binr = new BinaryWriter(fs);
+            binr.Write(VERSION);
+            binr.Write(WorkContent);
+            binr.Write(mapWidth * scale);
+            binr.Write(mapHeight * scale);
+            mapGrid.OnSaveScale(binr, scale);
+            mapData.OnSaveScale(binr, scale);
+            mapLayer.OnSaveScale(binr, scale);
+            mapTerrain.OnSaveScale(binr, scale);
+            mapLight.OnSaveScale(binr, scale);
+            mapFog.OnSaveScale(binr, scale);
+            mapBaseColor.OnSaveScale(binr, scale);
+            mapSkyBox.OnSaveScale(binr, scale);
+            mapCamera.OnSaveScale(binr, scale);
+            mapModels.OnSaveScale(binr, scale);
+            fs.Flush();
+            binr.Close();
+            fs.Close();
         }
-        public string FindTexture(string textureName, string extensions = ".png")
+
+        public Texture CreateTexture(string textureName, string extensions = ".png")
         {
-            string destPath = $"Assets/Map/{WorkContent}/{textureName}{extensions}";
-            string finalPath = Path.FindFile(destPath);
-            if (finalPath == null)
+            string destPath = $"Assets/Map/{WorkContent}/{textureName}";
+            if (!textureName.EndsWith(extensions))
+                destPath = destPath + extensions;
+            Texture texture = ObjectLoader.LoadObject<Texture>(destPath);
+            if(texture == null)
             {
                 destPath = $"Assets/Map/{DefaultContentName}/{textureName}{extensions}";
-                finalPath = Path.FindFile(destPath);
+                texture = ObjectLoader.LoadObject<Texture>(destPath);
+                if (texture == null)
+                {
+                    texture = Texture2D.whiteTexture;
+                }
             }
-            if (!string.IsNullOrEmpty(finalPath))
-            {
-                return finalPath;
-            }
-            return null;
+            return texture;
         }
 
         private Tools.Rect ViewRectCache;
@@ -413,6 +436,26 @@ namespace Sango.Render
 
             if (mapLayer != null)
                 mapLayer.Update();
+        }
+
+        public void UpdateImmediate()
+        {
+            if (mapTerrain != null)
+                mapTerrain.UpdateImmediate();
+
+            if (mapModels != null)
+                mapModels.UpdateImmediate();
+
+            //#if UNITY_EDITOR
+            if (mapGrid != null)
+                mapGrid.UpdateImmediate();
+            //#endif
+
+            if (mapSkyBox != null)
+                mapSkyBox.UpdateImmediate();
+
+            if (mapLayer != null)
+                mapLayer.UpdateImmediate();
         }
 
         internal void BindModel(MapObject mapObject)
@@ -525,6 +568,11 @@ namespace Sango.Render
         public byte GetTerrainType(int x, int y)
         {
             return 0;
+        }
+
+        public void MoveCameraTo(Vector3 pos)
+        {
+            mapCamera.MoveCameraTo(pos);
         }
     }
 }

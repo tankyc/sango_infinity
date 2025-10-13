@@ -1,4 +1,5 @@
 ﻿using Sango.Tools;
+using System;
 using System.Collections.Generic;
 
 namespace Sango.Game
@@ -42,7 +43,7 @@ namespace Sango.Game
                         break;
                     }
                 }
-                if(!find)
+                if (!find)
                     return false;
             }
             return true;
@@ -56,21 +57,40 @@ namespace Sango.Game
         /// <returns></returns>
         public static PriorityActionData PriorityAction(Troop troop, Scenario scenario, SkillAttackPriorityCalculateMethod prioritySkillAtkMethod = null, SkillDefencePriorityCalculateMethod prioritySkillDefMethod = null)
         {
-            List<Skill> skill_list = troop.skills;
+            List<SkillInstance> skill_list = troop.skills;
             troop.MoveRange.Clear();
-            prioritySkillAtkMethod = prioritySkillAtkMethod ?? SkillAttackPriority;
+            prioritySkillAtkMethod = prioritySkillAtkMethod ?? SkillStatusPriority;
             prioritySkillDefMethod = prioritySkillDefMethod ?? SkillDefencePriority;
             bool needUpdateMoverange = true;
             wightList.Clear();
             checkList.Clear();
             for (int i = 0, count = skill_list.Count; i < count; i++)
             {
-                Skill skill = skill_list[i];
+                Skill skill = skill_list[i].Skill;
                 if (skill.CanBeSpell(troop))
                 {
                     if (needUpdateMoverange)
                     {
                         scenario.Map.GetMoveRange(troop, troop.MoveRange);
+                        //float time = UnityEngine.Time.realtimeSinceStartup;
+                        //for (int i1 = 0; i1 < 100; i1++)
+                        //{
+                        //    troop.MoveRange.Clear();
+                        //    scenario.Map.GetMoveRange(troop, troop.MoveRange);
+                        //}
+
+                        //UnityEngine.Debug.LogError("1-->" + (UnityEngine.Time.realtimeSinceStartup - time));
+                        //time = UnityEngine.Time.realtimeSinceStartup;
+
+                        //for (int i1 = 0; i1 < 100; i1++)
+                        //{
+                        //    troop.MoveRange.Clear();
+                        //    scenario.Map.GetMoveRange2(troop, troop.MoveRange);
+                        //}
+
+                        //UnityEngine.Debug.LogError("2-->" + (UnityEngine.Time.realtimeSinceStartup - time));
+
+
                         needUpdateMoverange = false;
 #if SANGO_DEBUG_AI
                         GameAIDebug.Instance.ShowMoveRange(troop.MoveRange, troop);
@@ -85,14 +105,14 @@ namespace Sango.Game
                             if ((cell == troop.cell && cell.building == null) || cell.IsEmpty())
                             {
                                 spellRangeCells.Clear();
-                                skill.GetSpellRange(cell, spellRangeCells);
+                                skill.GetSpellRange(troop, cell, spellRangeCells);
                                 for (int k = 0; k < spellRangeCells.Count; k++)
                                 {
                                     Cell spellCell = spellRangeCells[k];
                                     attackCells.Clear();
                                     tempTargets.Clear();
                                     int atk_priority = 0;
-                                    skill.GetAttackCells(spellCell, attackCells);
+                                    skill.GetAttackCells(troop, spellCell, attackCells);
                                     for (int m = 0; m < attackCells.Count; m++)
                                     {
                                         Cell atkCell = attackCells[m];
@@ -170,21 +190,21 @@ namespace Sango.Game
 
         public static PriorityActionData PriorityAction(Troop troop, List<Cell> enemyCells, Scenario scenario, SkillAttackPriorityCalculateMethod prioritySkillAtkMethod = null, SkillDefencePriorityCalculateMethod prioritySkillDefMethod = null)
         {
-            List<Skill> skill_list = troop.skills;
+            List<SkillInstance> skill_list = troop.skills;
             List<Cell> moveRange = null;
             prioritySkillAtkMethod = prioritySkillAtkMethod ?? SkillAttackPriority;
             prioritySkillDefMethod = prioritySkillDefMethod ?? SkillDefencePriority;
             wightList.Clear();
             for (int i = 0, count = skill_list.Count; i < count; i++)
             {
-                Skill skill = skill_list[i];
+                Skill skill = skill_list[i].Skill;
                 if (skill.CanBeSpell(troop))
                 {
                     for (int j = 0; j < enemyCells.Count; j++)
                     {
                         Cell dest = enemyCells[j];
                         int atk_priority = 0;
-                        skill.GetAttackCells(dest, attackCells);
+                        skill.GetAttackCells(troop, dest, attackCells);
                         for (int m = 0; m < attackCells.Count; m++)
                         {
                             Cell atkCell = attackCells[m];
@@ -227,7 +247,15 @@ namespace Sango.Game
             });
         }
 
-        // 技能攻击评分
+        /// <summary>
+        /// 技能攻击评分
+        /// </summary>
+        /// <param name="troop"></param>
+        /// <param name="skill"></param>
+        /// <param name="target"></param>
+        /// <param name="movetoCell"></param>
+        /// <param name="spellCell"></param>
+        /// <returns></returns>
         public static int SkillAttackPriority(Troop troop, Skill skill, Cell target, Cell movetoCell, Cell spellCell)
         {
             if (target.IsEmpty()) return 0;
@@ -280,6 +308,45 @@ namespace Sango.Game
         {
             //TODO: 攻击时被反击防守评分(上面减除了,暂时返回0)
 
+            return 0;
+        }
+
+        /// <summary>
+        /// 攻防属性评分
+        /// </summary>
+        /// <param name="troop"></param>
+        /// <param name="skill"></param>
+        /// <param name="target"></param>
+        /// <param name="movetoCell"></param>
+        /// <param name="spellCell"></param>
+        /// <returns></returns>
+        public static int SkillStatusPriority(Troop troop, Skill skill, Cell target, Cell movetoCell, Cell spellCell)
+        {
+            if (target.IsEmpty()) return 0;
+            int rangeFactor = skill.isRange ? 150 : 100;
+            if (target.troop != null && skill.canDamageTroop)
+            {
+                if (troop.IsEnemy(target.troop))
+                {
+                    return (skill.atk + 10) * (troop.Attack - target.troop.Defence + 200) * rangeFactor / 100;
+                }
+                else if (skill.canDamageTeam)
+                {
+                    return -(skill.atk + 10) * (troop.Attack - target.troop.Defence + 200) * rangeFactor / 100;
+                }
+            }
+            else if (target.building != null && skill.canDamageBuilding)
+            {
+                //TODO: 对建筑的攻击评分
+                if (troop.IsEnemy(target.building))
+                {
+                    return skill.atkDurability * 4 * rangeFactor;
+                }
+                else if (skill.canDamageTeam)
+                {
+                    return skill.atkDurability * -4 * rangeFactor;
+                }
+            }
             return 0;
         }
 

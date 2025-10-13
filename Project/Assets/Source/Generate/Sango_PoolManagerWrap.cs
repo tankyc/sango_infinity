@@ -99,7 +99,7 @@ public class Sango_PoolManagerWrap
 			ToLua.CheckArgsCount(L, 2);
 			object arg0 = ToLua.ToVarObject(L, 1);
 			UnityEngine.GameObject arg1 = (UnityEngine.GameObject)ToLua.CheckObject<UnityEngine.GameObject>(L, 2);
-			bool o = Sango.PoolManager.Recycle(arg0, arg1);
+			bool o = Sango.PoolManager.Recycle(arg1);
 			LuaDLL.lua_pushboolean(L, o);
 			return 1;
 		}

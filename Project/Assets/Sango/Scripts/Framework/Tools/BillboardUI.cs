@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using Sango.Render;
+using Sango.Game;
 
 namespace Sango
 {
@@ -8,29 +9,27 @@ namespace Sango
     {
         public Vector3 initScale = new Vector3(-1f, 1f, 1f);
         public Vector2 scaleFactor = Vector2.one;
-        private float curDistance = 1;
-        private Vector2 distanceMax = new Vector2(0, 1);
         private Transform cacheTrans;
-        bool isInit = false;
+        float tempFactor;
         private void Start()
         {
-            isInit = false;
-            cacheTrans = Camera.main.transform;
+            CatchMainCamera();
         }
+
+        void CatchMainCamera()
+        {
+            if (cacheTrans == null)
+                cacheTrans = Camera.main.transform;
+        }
+
         public void Update()
         {
-            if(cacheTrans == null)
-            {
-                cacheTrans = Camera.main.transform;
-            }
-
+            CatchMainCamera();
             transform.LookAt(transform.position + cacheTrans.rotation * Vector3.back, cacheTrans.rotation * Vector3.up);
-            float factor = 1;
-            MapRender map = MapRender.Instance;
-            if (map != null)
+            float factor = MapRender.Instance.mapCamera.cameraDistanceFactor;
+            if (factor != tempFactor)
             {
-                factor = (map.mapCamera.cur_distance -
-                    map.mapCamera.limitDistance.x) / (map.mapCamera.limitDistance.y - map.mapCamera.limitDistance.x);
+                tempFactor = factor;
                 transform.localScale = Vector3.Lerp(initScale * scaleFactor.x, initScale * scaleFactor.y, factor);
             }
         }

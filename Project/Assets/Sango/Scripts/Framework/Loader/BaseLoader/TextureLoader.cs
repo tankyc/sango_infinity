@@ -166,8 +166,7 @@ namespace Sango.Loader
                 obj = AssetStore.Instance.StoreAsset(filePath, texture) as Texture;
                 return obj;
             }
-
-            return null;
+            return obj;
         }
     }
 }

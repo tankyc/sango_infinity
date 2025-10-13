@@ -49,17 +49,7 @@ namespace Sango.Game.Render
                 CityModel.Init(City);
             }
 
-            GameObject headBar = PoolManager.Get(headbarKey);
-            if (headBar == null)
-            {
-                GameObject headBarObj = ObjectLoader.LoadObject<GameObject>(GameRenderHelper.CityHeadbarRes);
-                if (headBarObj != null)
-                {
-                    PoolManager.Add(headbarKey, headBarObj);
-                    headBar = PoolManager.Get(headbarKey);
-                }
-            }
-
+            GameObject headBar = PoolManager.Create(GameRenderHelper.CityHeadbarRes);
             if (headBar != null)
             {
                 headBar.transform.SetParent(obj.transform, false);
@@ -111,7 +101,7 @@ namespace Sango.Game.Render
                 CityModel = null;
                 if (HeadBar != null)
                 {
-                    PoolManager.Recycle(headbarKey, HeadBar.gameObject);
+                    PoolManager.Recycle(HeadBar.gameObject);
                     HeadBar = null;
                 }
                 return;
@@ -165,10 +155,22 @@ namespace Sango.Game.Render
             CityModel = null;
             if (HeadBar != null)
             {
-                PoolManager.Recycle(headbarKey, HeadBar.gameObject);
+                PoolManager.Recycle(HeadBar.gameObject);
                 HeadBar = null;
             }
             base.Clear();
+        }
+
+           public override void ShowDamage(int damage, int damageType)
+        {
+            if (HeadBar != null)
+            {
+                UICityHeadbar uITroopHeadbar = HeadBar as UICityHeadbar;
+                if (uITroopHeadbar != null)
+                {
+                    uITroopHeadbar.ShowDamage(damage, damageType);
+                }
+            }
         }
     }
 }

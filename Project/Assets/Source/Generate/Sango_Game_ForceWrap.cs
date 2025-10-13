@@ -909,10 +909,6 @@ public class Sango_Game_ForceWrap
 
 		try
 		{
-			o = ToLua.ToObject(L, 1);
-			Sango.Game.Force obj = (Sango.Game.Force)o;
-			int arg0 = (int)LuaDLL.luaL_checkinteger(L, 2);
-			obj.TechniquePoint = arg0;
 			return 0;
 		}
 		catch(Exception e)

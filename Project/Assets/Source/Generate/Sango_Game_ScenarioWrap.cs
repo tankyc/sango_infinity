@@ -937,7 +937,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT);
 			return 1;
 		}
 		catch (Exception e)
@@ -951,7 +950,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_8096);
 			return 1;
 		}
 		catch (Exception e)
@@ -965,7 +963,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_2048);
 			return 1;
 		}
 		catch (Exception e)
@@ -979,7 +976,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_1024);
 			return 1;
 		}
 		catch (Exception e)
@@ -993,7 +989,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_512);
 			return 1;
 		}
 		catch (Exception e)
@@ -1007,7 +1002,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_256);
 			return 1;
 		}
 		catch (Exception e)
@@ -1021,7 +1015,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_128);
 			return 1;
 		}
 		catch (Exception e)
@@ -1035,7 +1028,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_64);
 			return 1;
 		}
 		catch (Exception e)
@@ -1049,7 +1041,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_32);
 			return 1;
 		}
 		catch (Exception e)
@@ -1063,7 +1054,6 @@ public class Sango_Game_ScenarioWrap
 	{
 		try
 		{
-			LuaDLL.lua_pushinteger(L, Sango.Game.Scenario.MAX_DATA_COUNT_16);
 			return 1;
 		}
 		catch (Exception e)

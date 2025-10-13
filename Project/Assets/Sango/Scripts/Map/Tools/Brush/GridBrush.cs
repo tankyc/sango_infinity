@@ -172,16 +172,9 @@ namespace Sango.Tools
             Shader.SetGlobalFloat("_terrainTypeAlpha", 1);
             for (int i = 0; i < terrainTypeTexNames.Length; ++i)
             {
-                Loader.TextureLoader.LoadFromFile(editor.FindTexture("Editor/" + terrainTypeTexNames[i]),
-                    i, (UnityEngine.Object tex, object obj) =>
-                    {
-                        int index = (int)obj;
-                        Texture t = tex as Texture;
-                        terrainTypeTexes[index] = t;
-
-                        if (index == (int)brushType)
-                            UpdateTerrainMaskTex();
-                    });
+                terrainTypeTexes[i] = editor.map.CreateTexture("Editor/" + terrainTypeTexNames[i]);
+                if (i == (int)brushType)
+                    UpdateTerrainMaskTex();
             }
         }
         public UnityEngine.Color TypeIndexToColor(int index)

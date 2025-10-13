@@ -18,18 +18,6 @@ namespace Sango.Game
     {
         public override SangoObjectType ObjectType { get { return SangoObjectType.Scenario; } }
 
-        #region limit
-        public static readonly int MAX_DATA_COUNT = 2048;
-        public static readonly int MAX_DATA_COUNT_8096 = 8096;
-        public static readonly int MAX_DATA_COUNT_2048 = 2048;
-        public static readonly int MAX_DATA_COUNT_1024 = 1024;
-        public static readonly int MAX_DATA_COUNT_512 = 512;
-        public static readonly int MAX_DATA_COUNT_256 = 256;
-        public static readonly int MAX_DATA_COUNT_128 = 128;
-        public static readonly int MAX_DATA_COUNT_64 = 64;
-        public static readonly int MAX_DATA_COUNT_32 = 32;
-        public static readonly int MAX_DATA_COUNT_16 = 16;
-        #endregion limit
         #region Data
         [JsonProperty] public ScenarioInfo Info { get; internal set; }
         [JsonProperty] public ScenarioCommonData CommonData { internal set; get; }
@@ -37,17 +25,17 @@ namespace Sango.Game
         [JsonProperty] public Map Map { internal set; get; }
 
         [JsonConverter(typeof(SangoObjectSetConverter<Force>))]
-        [JsonProperty] public SangoObjectSet<Force> forceSet = new SangoObjectSet<Force>(MAX_DATA_COUNT_128);
+        [JsonProperty] public SangoObjectSet<Force> forceSet = new SangoObjectSet<Force>();
         [JsonConverter(typeof(SangoObjectSetConverter<Corps>))]
-        [JsonProperty] public SangoObjectSet<Corps> corpsSet = new SangoObjectSet<Corps>(MAX_DATA_COUNT_128 * 8);
+        [JsonProperty] public SangoObjectSet<Corps> corpsSet = new SangoObjectSet<Corps>();
         [JsonConverter(typeof(SangoObjectSetConverter<City>))]
-        [JsonProperty] public SangoObjectSet<City> citySet = new SangoObjectSet<City>(MAX_DATA_COUNT_512);
+        [JsonProperty] public SangoObjectSet<City> citySet = new SangoObjectSet<City>();
         [JsonConverter(typeof(SangoObjectSetConverter<Person>))]
-        [JsonProperty] public SangoObjectSet<Person> personSet = new SangoObjectSet<Person>(MAX_DATA_COUNT);
+        [JsonProperty] public SangoObjectSet<Person> personSet = new SangoObjectSet<Person>();
         [JsonConverter(typeof(SangoObjectSetConverter<Troop>))]
-        [JsonProperty] public SangoObjectSet<Troop> troopsSet = new SangoObjectSet<Troop>(MAX_DATA_COUNT);
+        [JsonProperty] public SangoObjectSet<Troop> troopsSet = new SangoObjectSet<Troop>();
         [JsonConverter(typeof(SangoObjectSetConverter<Building>))]
-        [JsonProperty] public SangoObjectSet<Building> buildingSet = new SangoObjectSet<Building>(MAX_DATA_COUNT_8096);
+        [JsonProperty] public SangoObjectSet<Building> buildingSet = new SangoObjectSet<Building>();
         [JsonConverter(typeof(SangoObjectSetConverter<Fire>))]
         [JsonProperty] public SangoObjectSet<Fire> fireSet = new SangoObjectSet<Fire>();
 
@@ -67,7 +55,12 @@ namespace Sango.Game
         public Corps Add(Corps corps) { corpsSet.Add(corps); return corps; }
         public City Add(City city) { citySet.Add(city); return city; }
         public Person Add(Person person) { personSet.Add(person); return person; }
-        public Troop Add(Troop troops) { troopsSet.Add(troops); return troops; }
+        public Troop Add(Troop troop)
+        {
+            troopsSet.Add(troop);
+            Event.OnTroopCreated?.Invoke(troop, this);
+            return troop;
+        }
         public Building Add(Building building) { buildingSet.Add(building); return building; }
         public Fire Add(Fire fire) { fireSet.Add(fire); return fire; }
         public Alliance Add(Alliance alliance) { allianceSet.Add(alliance); return alliance; }
@@ -75,7 +68,12 @@ namespace Sango.Game
         public Corps Remove(Corps corps) { corpsSet.Remove(corps); return corps; }
         public City Remove(City city) { citySet.Remove(city); return city; }
         public Person Remove(Person person) { personSet.Remove(person); return person; }
-        public Troop Remove(Troop troops) { troopsSet.Remove(troops); return troops; }
+        public Troop Remove(Troop troop)
+        {
+            troopsSet.Remove(troop);
+            Event.OnTroopDestroyed?.Invoke(troop, this);
+            return troop;
+        }
         public Building Remove(Building building) { buildingSet.Remove(building); return building; }
         public Fire Remove(Fire fire) { fireSet.Remove(fire); return fire; }
         public Alliance Remove(Alliance alliance) { allianceSet.Remove(alliance); return alliance; }
@@ -239,6 +237,10 @@ namespace Sango.Game
             {
                 return CommonData.Skills.Get(id);
             }
+            else if (tType == typeof(PersonLevel))
+            {
+                return CommonData.PersonLevels.Get(id);
+            }
             //else if (tType == typeof(CityLevelType))
             //{
             //    return CommonData.CityLevelTypes.Get(id);
@@ -310,6 +312,7 @@ namespace Sango.Game
 
         public void LoadWorld()
         {
+            MapRender.Instance.Init();
             MapRender.Instance.OnMapLoaded += OnWorldLoaded;
             MapRender.Instance.LoadMap(Map.FileName);
         }
@@ -593,18 +596,21 @@ namespace Sango.Game
         public bool TurnStart()
         {
             if (HasTurnStarted) return true;
-            for (int i = 0; i < personSet.Count; i++)
+            for (int i = 1; i < personSet.Count; i++)
             {
                 Person person = personSet[i];
                 if (person != null && person.IsAlive)
                     person.OnNewTurn(this);
             }
-            for (int i = 0; i < allianceSet.Count; i++)
+            for (int i = 1; i < allianceSet.Count; i++)
             {
                 Alliance a = allianceSet[i];
                 if (a != null && a.IsAlive)
                     a.OnNewTurn(this);
             }
+
+            allianceSet.RemoveAll(a => !a.IsAlive);
+
             HasTurnStarted = true;
             return true;
         }
@@ -735,7 +741,9 @@ namespace Sango.Game
             if (!IncreaseDate())
                 return;
 
-            Sango.Log.Print($"{Info.year}年{Info.month}月{Info.day}日  第{Info.turnCount}回");
+#if SANGO_DEBUG
+            Sango.Log.Warning($"{GetDateStr()}  第{Info.turnCount}回");
+#endif
             MakeForceQuene();
 
             HasTurnEnded = false;
@@ -790,7 +798,7 @@ namespace Sango.Game
             {
                 for (int j = i + 1; j < forceCount; ++j)
                 {
-                    if(GameRandom.Changce(scenario.Variables.relationChangeChangce))
+                    if (GameRandom.Changce(scenario.Variables.relationChangeChangce))
                     {
                         RelationMap[i][j] += scenario.Variables.relationChangePerMonth;
                         RelationMap[j][i] += scenario.Variables.relationChangePerMonth;
@@ -1005,6 +1013,11 @@ namespace Sango.Game
 
             RelationMap[forceA.Id][forceB.Id] = r;
             RelationMap[forceB.Id][forceA.Id] = r;
+        }
+
+        public string GetDateStr()
+        {
+            return $"{Info.year}年{Info.month}月{Info.day}日";
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿using Sango.Render;
+﻿using Sango.Game.Render.UI;
+using Sango.Render;
+using System.Runtime.Remoting.Messaging;
 using UnityEngine;
 
 namespace Sango.Game.Render
@@ -39,5 +41,10 @@ namespace Sango.Game.Render
         }
 
         public virtual void UpdateRender() { }
+
+         public virtual void ShowDamage(int damage, int damageType)
+        {
+            
+        }
     }
 }

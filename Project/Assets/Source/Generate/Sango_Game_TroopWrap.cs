@@ -208,7 +208,6 @@ public class Sango_Game_TroopWrap
 		{
 			ToLua.CheckArgsCount(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)ToLua.CheckObject<Sango.Game.Troop>(L, 1);
-			obj.CalculateAttribute();
 			return 0;
 		}
 		catch (Exception e)
@@ -508,8 +507,6 @@ public class Sango_Game_TroopWrap
 			ToLua.CheckArgsCount(L, 2);
 			Sango.Game.TroopType arg0 = (Sango.Game.TroopType)ToLua.CheckObject<Sango.Game.TroopType>(L, 1);
 			Sango.Game.TroopType arg1 = (Sango.Game.TroopType)ToLua.CheckObject<Sango.Game.TroopType>(L, 2);
-			float o = Sango.Game.Troop.CalculateRestrainBoost(arg0, arg1);
-			LuaDLL.lua_pushnumber(L, o);
 			return 1;
 		}
 		catch (Exception e)
@@ -526,8 +523,6 @@ public class Sango_Game_TroopWrap
 			ToLua.CheckArgsCount(L, 2);
 			Sango.Game.Troop arg0 = (Sango.Game.Troop)ToLua.CheckObject<Sango.Game.Troop>(L, 1);
 			Sango.Game.TroopType arg1 = (Sango.Game.TroopType)ToLua.CheckObject<Sango.Game.TroopType>(L, 2);
-			float o = Sango.Game.Troop.CalculateTroopsLevelBoost(arg0, arg1);
-			LuaDLL.lua_pushnumber(L, o);
 			return 1;
 		}
 		catch (Exception e)
@@ -847,8 +842,6 @@ public class Sango_Game_TroopWrap
 			ToLua.CheckArgsCount(L, 2);
 			Sango.Game.Troop obj = (Sango.Game.Troop)ToLua.CheckObject<Sango.Game.Troop>(L, 1);
 			Sango.Game.City arg0 = (Sango.Game.City)ToLua.CheckObject<Sango.Game.City>(L, 2);
-			Sango.Game.City o = obj.ChangeCity(arg0);
-			ToLua.PushObject(L, o);
 			return 1;
 		}
 		catch (Exception e)
@@ -942,8 +935,6 @@ public class Sango_Game_TroopWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
-			Sango.Game.SangoObjectList<Sango.Game.Person> ret = obj.MemberList;
-			ToLua.PushObject(L, ret);
 			return 1;
 		}
 		catch(Exception e)
@@ -980,7 +971,7 @@ public class Sango_Game_TroopWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
-			Sango.Game.SangoObjectList<Sango.Game.Person> ret = obj.CaptiveList;
+			Sango.Game.SangoObjectList<Sango.Game.Person> ret = obj.captiveList;
 			ToLua.PushObject(L, ret);
 			return 1;
 		}
@@ -1227,8 +1218,6 @@ public class Sango_Game_TroopWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
-			System.Collections.Generic.List<Sango.Game.Skill> ret = obj.skills;
-			ToLua.PushSealed(L, ret);
 			return 1;
 		}
 		catch(Exception e)
@@ -1246,8 +1235,6 @@ public class Sango_Game_TroopWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
-			byte ret = obj.actionPower;
-			LuaDLL.lua_pushinteger(L, ret);
 			return 1;
 		}
 		catch(Exception e)
@@ -1436,8 +1423,6 @@ public class Sango_Game_TroopWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
-			bool ret = obj.isOver;
-			LuaDLL.lua_pushboolean(L, ret);
 			return 1;
 		}
 		catch(Exception e)
@@ -1703,7 +1688,6 @@ public class Sango_Game_TroopWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
 			Sango.Game.Force arg0 = (Sango.Game.Force)ToLua.CheckObject<Sango.Game.Force>(L, 2);
-			obj.BelongForce = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -1721,8 +1705,6 @@ public class Sango_Game_TroopWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
-			Sango.Game.Corps arg0 = (Sango.Game.Corps)ToLua.CheckObject<Sango.Game.Corps>(L, 2);
-			obj.BelongCorps = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -1740,8 +1722,6 @@ public class Sango_Game_TroopWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
-			Sango.Game.City arg0 = (Sango.Game.City)ToLua.CheckObject<Sango.Game.City>(L, 2);
-			obj.BelongCity = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -1778,8 +1758,6 @@ public class Sango_Game_TroopWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
-			Sango.Game.SangoObjectList<Sango.Game.Person> arg0 = (Sango.Game.SangoObjectList<Sango.Game.Person>)ToLua.CheckObject<Sango.Game.SangoObjectList<Sango.Game.Person>>(L, 2);
-			obj.MemberList = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -1817,7 +1795,7 @@ public class Sango_Game_TroopWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
 			Sango.Game.SangoObjectList<Sango.Game.Person> arg0 = (Sango.Game.SangoObjectList<Sango.Game.Person>)ToLua.CheckObject<Sango.Game.SangoObjectList<Sango.Game.Person>>(L, 2);
-			obj.CaptiveList = arg0;
+			obj.captiveList = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -1836,7 +1814,6 @@ public class Sango_Game_TroopWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
 			int arg0 = (int)LuaDLL.luaL_checkinteger(L, 2);
-			obj.x = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -1855,7 +1832,6 @@ public class Sango_Game_TroopWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
 			int arg0 = (int)LuaDLL.luaL_checkinteger(L, 2);
-			obj.y = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -2064,7 +2040,6 @@ public class Sango_Game_TroopWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
 			System.Collections.Generic.List<Sango.Game.Skill> arg0 = (System.Collections.Generic.List<Sango.Game.Skill>)ToLua.CheckObject(L, 2, TypeTraits<System.Collections.Generic.List<Sango.Game.Skill>>.type);
-			obj.skills = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -2083,7 +2058,6 @@ public class Sango_Game_TroopWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
 			byte arg0 = (byte)LuaDLL.luaL_checkinteger(L, 2);
-			obj.actionPower = arg0;
 			return 0;
 		}
 		catch(Exception e)
@@ -2178,7 +2152,6 @@ public class Sango_Game_TroopWrap
 			o = ToLua.ToObject(L, 1);
 			Sango.Game.Troop obj = (Sango.Game.Troop)o;
 			bool arg0 = LuaDLL.luaL_checkboolean(L, 2);
-			obj.isOver = arg0;
 			return 0;
 		}
 		catch(Exception e)

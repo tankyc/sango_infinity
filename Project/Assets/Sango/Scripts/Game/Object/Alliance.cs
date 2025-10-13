@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Text;
 
 namespace Sango.Game
 {
@@ -24,12 +25,26 @@ namespace Sango.Game
         public override bool OnNewTurn(Scenario scenario)
         {
             leftCount--;
-            IsAlive = leftCount <= 0;
+            IsAlive = leftCount > 0;
             if(!IsAlive )
             {
+#if SANGO_DEBUG
+                StringBuilder stringBuilder = new StringBuilder();
+#endif
                 foreach (Force force in ForceList)
+                {
+#if SANGO_DEBUG
+                    stringBuilder.Append(force.Name);
+                    stringBuilder.Append(" ");
+#endif
                     force.AllianceList.Remove(this);
-                scenario.Remove(this);
+                }
+
+#if SANGO_DEBUG
+
+                Sango.Log.Print($"@外交@{stringBuilder.ToString()} 同盟 {Id} 于{scenario.GetDateStr()} 与 结束!!");
+#endif
+
             }
             return base.OnNewTurn(scenario);
         }

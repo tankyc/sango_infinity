@@ -25,13 +25,21 @@ namespace Sango.Game
             EnemyInfo enemyInfo;
             isNoEnemyAlive = !TargetCity.CheckEnemiesIfAlive(out enemyInfo);
 
-            // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
-            if (IsMissionComplete || TargetCity.IsEnemy(troop))
+            if (IsMissionComplete)
             {
-                Troop.missionType = (int)MissionType.ReturnCity;
-                Troop.missionTarget = Troop.BelongCity.Id;
-                Troop.NeedPrepareMission();
-
+                if (TargetCity.IsEnemy(troop))
+                {
+                    // 如果城池失守,不返回,直接死战,避免过长的寻路导致性能问题
+                    Troop.missionType = (int)MissionType.OccupyCity;
+                    Troop.missionTarget = Troop.BelongCity.Id;
+                    Troop.NeedPrepareMission();
+                }
+                else
+                {
+                    Troop.missionType = (int)MissionType.ReturnCity;
+                    Troop.missionTarget = Troop.BelongCity.Id;
+                    Troop.NeedPrepareMission();
+                }
             }
             else
             {
@@ -53,7 +61,7 @@ namespace Sango.Game
 
         public int SkillAttackPriority(Troop troop, Skill skill, Cell target, Cell movetoCell, Cell spellCell)
         {
-            int socer = TroopAIUtility.SkillAttackPriority(troop, skill, target, movetoCell, spellCell);
+            int socer = TroopAIUtility.SkillStatusPriority(troop, skill, target, movetoCell, spellCell);
             if (socer > 0)
             {
                 if (!target.IsEmpty() && (target.troop != null))

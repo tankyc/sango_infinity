@@ -25,5 +25,10 @@ namespace Sango.Game
         /// 图标
         /// </summary>
         [JsonProperty] public string icon;
+
+        /// <summary>
+        /// 额外费用
+        /// </summary>
+        [JsonProperty] public int cost;
     }
 }
