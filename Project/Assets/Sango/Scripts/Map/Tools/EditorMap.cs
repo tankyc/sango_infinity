@@ -1,13 +1,6 @@
-using RTEditor;
-using Sango.Render;
-using System.Collections.Generic;
-using UnityEngine;
-using Sango;
 using Sango.Game;
-using System;
-using UnityEditor;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using Sango.Mod;
+using Sango.Render;
+using UnityEngine;
 
 namespace Sango.Tools
 {

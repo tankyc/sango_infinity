@@ -5,8 +5,6 @@ using UnityEngine;
 using UnityEngine.Events;
 
 
-
-
 namespace Sango.Tools
 {
     public static class EditorUtility
@@ -20,7 +18,9 @@ namespace Sango.Tools
         {
             public bool hasDot = false;
         }
+
         static bool changed = false;
+
         static public Vector3 Vector3Field(Vector3 v)
         {
             GUILayout.BeginHorizontal();
@@ -124,7 +124,6 @@ namespace Sango.Tools
         static string s_float_cache_string;
         static string s_int_cache_string;
         static int s_last_editor_gui_id;
-
         static public string TextField(string v, string name, params GUILayoutOption[] options)
         {
             GUILayout.BeginHorizontal();
@@ -198,7 +197,6 @@ namespace Sango.Tools
             }
             return v;
         }
-
 
         static public float FloatField(float v, params GUILayoutOption[] options)
         {
@@ -388,6 +386,7 @@ namespace Sango.Tools
         }
 
         static Texture2D colorTex;
+
         static GUIContent colorContent;
 
         //创建 图片+文本 的GUIContent
@@ -401,6 +400,7 @@ namespace Sango.Tools
             GUIContent guiContent = new GUIContent(text, saveTex);
             return guiContent;
         }
+
         static private ColorPicker picker;
         static public void ColorField(Color v, string name, UnityAction<Color> changeCall)
         {
@@ -452,7 +452,9 @@ namespace Sango.Tools
 
             }
         }
+
         public static string lastOpenFilePath;
+
         public static void OpenTexture(string filter, object customData, Action<string, UnityEngine.Object, object> call)
         {
             if (string.IsNullOrEmpty(lastOpenFilePath))
@@ -469,7 +471,6 @@ namespace Sango.Tools
                 });
             }
         }
-
 
         /// <summary>
         /// 打开popup的选择界面
@@ -530,7 +531,6 @@ namespace Sango.Tools
                 GUILayout.EndScrollView();
             }
         }
-
 
         /// <summary>
         /// 自定义Popup的Style缓存可以有多个参数，不止是Rect，也可以自定义其他的
@@ -667,8 +667,5 @@ namespace Sango.Tools
             GUILayout.EndHorizontal();
             return x;
         }
-
-
-
     }
 }

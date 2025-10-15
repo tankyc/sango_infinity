@@ -32,7 +32,8 @@ public class ServerConsole : MonoBehaviour
         oldWindowState = false;
 
         DontDestroyOnLoad( gameObject );
-		Debug.Log( "Console Started" );
+        // 输出初始化日志
+        Debug.Log("控制台系统已经成功启动，并可以正常工作");
 	}
  
 	//

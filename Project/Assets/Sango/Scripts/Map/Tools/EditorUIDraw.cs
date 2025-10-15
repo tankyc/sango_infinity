@@ -1,31 +1,33 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using UnityEngine;
-using static Sango.Render.MapLayer;
+﻿using UnityEngine;
 
 namespace Sango.Tools
 {
+    /// <summary>
+    /// 绘制编辑器界面
+    /// </summary>
     internal class EditorUIDraw
     {
+        /// <summary>
+        /// 绘制和编辑雾效果
+        /// </summary>
         public static void OnGUI(Render.MapFog fog)
         {
-            bool v = GUILayout.Toggle(fog.fogEnabled, "雾开关");
+            bool v = GUILayout.Toggle(fog.fogEnabled, "迷雾开关");
             if (fog.fogEnabled != v)
                 fog.fogEnabled = v;
 
             if (fog.fogEnabled)
             {
-                Tools.EditorUtility.ColorField(fog.fogColor, "雾颜色", (color) => { fog.fogColor = color; });
+                Tools.EditorUtility.ColorField(fog.fogColor, "迷雾颜色", (color) => { fog.fogColor = color; });
                 fog.fogStart = Tools.EditorUtility.FloatField(fog.fogStart, "开始距离");
                 fog.fogEnd = Tools.EditorUtility.FloatField(fog.fogEnd, "结束距离");
-                fog.fogDensity = Tools.EditorUtility.FloatField(fog.fogDensity, "雾浓度");
+                fog.fogDensity = Tools.EditorUtility.FloatField(fog.fogDensity, "迷雾浓度");
             }
         }
-
+		
+        /// <summary>
+        /// 绘制和编辑地图数据
+        /// </summary>
         public static void OnGUI(Render.MapData data)
         {
             GUILayout.BeginHorizontal();
@@ -33,7 +35,6 @@ namespace Sango.Tools
             GUILayout.Label(data.vertex_width.ToString());
             GUILayout.Label(data.vertex_height.ToString());
             GUILayout.EndHorizontal();
-
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("加载高度"))
             {
@@ -43,18 +44,24 @@ namespace Sango.Tools
             {
                 data.LoadLayer();
             }
-            if (GUILayout.Button("加载水"))
+            if (GUILayout.Button("加载水体"))
             {
                 data.LoadWater();
             }
             GUILayout.EndHorizontal();
         }
 
+        /// <summary>
+        /// 绘制基础颜色
+        /// </summary>
         public static void OnGUI(Render.MapBaseColor data)
         {
 
         }
 
+        /// <summary>
+        /// 绘制和编辑地图网格
+        /// </summary>
         public static void OnGUI(Render.MapGrid data)
         {
             GUI.changed = false;
@@ -70,6 +77,9 @@ namespace Sango.Tools
             }
         }
 
+        /// <summary>
+        /// 绘制和编辑地图图层
+        /// </summary>
         static Vector2 scrollPos_layer;
         public static void OnGUI(Render.MapLayer layer)
         {
@@ -78,13 +88,14 @@ namespace Sango.Tools
             for (int i = 0; i < count; i++)
             {
                 Render.MapLayer.LayerData data = layer.layerDatas[i];
-                GUILayout.Box("层: " + i, GUILayout.Width(168), GUILayout.Height(85));
+                GUILayout.Box( i+ "层", GUILayout.Width(168), GUILayout.Height(85));
                 UnityEngine.Rect r = GUILayoutUtility.GetLastRect();
                 OnGUI(data, r, i, i == layer.layerDatas.Length - 1);
             }
+
             GUILayout.EndScrollView();
 
-            if (GUILayout.Button("添加"))
+            if (GUILayout.Button("添加贴图"))
             {
                 string[] path = WindowDialog.OpenFileDialog("贴图文件(*.png)|*.png\0", true);
                 if (path != null)
@@ -130,6 +141,9 @@ namespace Sango.Tools
             }
         }
 
+        /// <summary>
+        /// 绘制和处理GUI图形用户界面
+        /// </summary>
         public static int selectLayer = 0;
         public static void OnGUI(Render.MapLayer.LayerData layerData, UnityEngine.Rect r, int index, bool isWaterLayer)
         {
@@ -174,6 +188,9 @@ namespace Sango.Tools
                 GUI.Label(rect, "贴图 -> " + layerData.GetDiffuseName(season));
         }
 
+        /// <summary>
+        /// 绘制灯光
+        /// </summary>
         public static void OnGUI(Render.MapLight light)
         {
             light.lightDirection = Tools.EditorUtility.Vector3Field(light.lightDirection, "灯光方向");
@@ -184,11 +201,17 @@ namespace Sango.Tools
 
         }
 
+        /// <summary>
+        /// 绘制模型（空方法，未实现）
+        /// </summary>
         public static void OnGUI(Render.MapModels models)
         {
 
         }
 
+        /// <summary>
+        /// 创建天空盒
+        /// </summary>
         public static void OnGUI(Render.MapSkyBox skyBox)
         {
             if (GUILayout.Button("自动创建天空球区域"))
@@ -218,21 +241,29 @@ namespace Sango.Tools
             }
         }
 
+        /// <summary>
+        /// 绘制地形（空方法，未实现）
+        /// </summary>
         public static void OnGUI(Render.MapTerrain terrain)
         {
 
         }
-
+		
+        /// <summary>
+        /// 绘制水体（空方法，未实现）
+        /// </summary>
         public static void OnGUI(Render.MapWater water)
         {
 
         }
 
+        /// <summary>
+        /// 绘制相机
+        /// </summary>
         public static void OnGUI(Render.MapCamera camera)
         {
             camera.keyBoardMoveSpeed = Tools.EditorUtility.FloatField(camera.keyBoardMoveSpeed, "键盘移动速度");
             camera.limitDistance = Tools.EditorUtility.Vector2Field(camera.limitDistance, "相机距离");
         }
-
     }
 }

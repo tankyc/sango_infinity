@@ -51,9 +51,9 @@ namespace ConsoleTestWindows
             SetConsoleOutputCP(65001);
             Console.WriteLine("Current Output ConsoleCP: {0}", GetConsoleOutputCP());
 
-            Console.WriteLine("Current Input Encoding Scheme: {0}",
+            Console.WriteLine("当前输入编码方案: {0}",
                                         Console.InputEncoding);
-            Console.WriteLine("Current Output Encoding Scheme: {0}",
+            Console.WriteLine("当前输出编码方案: {0}",
                                         Console.OutputEncoding);
         }
 

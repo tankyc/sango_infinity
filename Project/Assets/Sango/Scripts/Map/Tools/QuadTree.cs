@@ -7,13 +7,13 @@ namespace Sango.Tools
 {
     public struct Rect : IEquatable<Rect>, IFormattable
     {
-        private float mXMin;
+        private float m_XMin;
 
-        private float mYMin;
+        private float m_YMin;
 
-        private float mWidth;
+        private float m_Width;
 
-        private float mHeight;
+        private float m_Height;
 
         public static Rect zero => new Rect(0f, 0f, 0f, 0f);
 
@@ -21,11 +21,11 @@ namespace Sango.Tools
         {
             get
             {
-                return mXMin;
+                return m_XMin;
             }
             set
             {
-                mXMin = value;
+                m_XMin = value;
             }
         }
 
@@ -33,11 +33,11 @@ namespace Sango.Tools
         {
             get
             {
-                return mYMin;
+                return m_YMin;
             }
             set
             {
-                mYMin = value;
+                m_YMin = value;
             }
         }
 
@@ -45,12 +45,12 @@ namespace Sango.Tools
         {
             get
             {
-                return new Vector2(mXMin, mYMin);
+                return new Vector2(m_XMin, m_YMin);
             }
             set
             {
-                mXMin = value.x;
-                mYMin = value.y;
+                m_XMin = value.x;
+                m_YMin = value.y;
             }
         }
 
@@ -58,12 +58,12 @@ namespace Sango.Tools
         {
             get
             {
-                return new Vector2(x + mWidth / 2f, y + mHeight / 2f);
+                return new Vector2(x + m_Width / 2f, y + m_Height / 2f);
             }
             set
             {
-                mXMin = value.x - mWidth / 2f;
-                mYMin = value.y - mHeight / 2f;
+                m_XMin = value.x - m_Width / 2f;
+                m_YMin = value.y - m_Height / 2f;
             }
         }
 
@@ -97,11 +97,11 @@ namespace Sango.Tools
         {
             get
             {
-                return mWidth;
+                return m_Width;
             }
             set
             {
-                mWidth = value;
+                m_Width = value;
             }
         }
 
@@ -109,11 +109,11 @@ namespace Sango.Tools
         {
             get
             {
-                return mHeight;
+                return m_Height;
             }
             set
             {
-                mHeight = value;
+                m_Height = value;
             }
         }
 
@@ -121,12 +121,12 @@ namespace Sango.Tools
         {
             get
             {
-                return new Vector2(mWidth, mHeight);
+                return new Vector2(m_Width, m_Height);
             }
             set
             {
-                mWidth = value.x;
-                mHeight = value.y;
+                m_Width = value.x;
+                m_Height = value.y;
             }
         }
 
@@ -134,13 +134,13 @@ namespace Sango.Tools
         {
             get
             {
-                return mXMin;
+                return m_XMin;
             }
             set
             {
                 float xMax = this.xMax;
-                mXMin = value;
-                mWidth = xMax - mXMin;
+                m_XMin = value;
+                m_Width = xMax - m_XMin;
             }
         }
 
@@ -148,13 +148,13 @@ namespace Sango.Tools
         {
             get
             {
-                return mYMin;
+                return m_YMin;
             }
             set
             {
                 float yMax = this.yMax;
-                mYMin = value;
-                mHeight = yMax - mYMin;
+                m_YMin = value;
+                m_Height = yMax - m_YMin;
             }
         }
 
@@ -162,11 +162,11 @@ namespace Sango.Tools
         {
             get
             {
-                return mWidth + mXMin;
+                return m_Width + m_XMin;
             }
             set
             {
-                mWidth = value - mXMin;
+                m_Width = value - m_XMin;
             }
         }
 
@@ -174,36 +174,36 @@ namespace Sango.Tools
         {
             get
             {
-                return mHeight + mYMin;
+                return m_Height + m_YMin;
             }
             set
             {
-                mHeight = value - mYMin;
+                m_Height = value - m_YMin;
             }
         }
 
         public Rect(float x, float y, float width, float height)
         {
-            mXMin = x;
-            mYMin = y;
-            mWidth = width;
-            mHeight = height;
+            m_XMin = x;
+            m_YMin = y;
+            m_Width = width;
+            m_Height = height;
         }
 
         public Rect(Vector2 position, Vector2 size)
         {
-            mXMin = position.x;
-            mYMin = position.y;
-            mWidth = size.x;
-            mHeight = size.y;
+            m_XMin = position.x;
+            m_YMin = position.y;
+            m_Width = size.x;
+            m_Height = size.y;
         }
 
         public Rect(Rect source)
         {
-            mXMin = source.mXMin;
-            mYMin = source.mYMin;
-            mWidth = source.mWidth;
-            mHeight = source.mHeight;
+            m_XMin = source.m_XMin;
+            m_YMin = source.m_YMin;
+            m_Width = source.m_Width;
+            m_Height = source.m_Height;
         }
 
         public static Rect MinMaxRect(float xmin, float ymin, float xmax, float ymax)
@@ -213,10 +213,10 @@ namespace Sango.Tools
 
         public void Set(float x, float y, float width, float height)
         {
-            mXMin = x;
-            mYMin = y;
-            mWidth = width;
-            mHeight = height;
+            m_XMin = x;
+            m_YMin = y;
+            m_Width = width;
+            m_Height = height;
         }
 
         public bool Contains(Vector2 point)
@@ -363,18 +363,19 @@ namespace Sango.Tools
     public class QuadTree2D<T>
     {
         private int maxDeep;
+
         private QuadTree2DNode<T> root;
 
-        public QuadTree2D(Rect bound, int maxDeep = 31) //todo ¿ÉÒÔ¸Ä³É´«Ò»¸öRect
+        public QuadTree2D(Rect bound, int maxDeep = 31) //todo å¯ä»¥æ”¹æˆä¼ ä¸€ä¸ªRect
         {
             this.maxDeep = maxDeep;
             root = new QuadTree2DNode<T>(bound);
         }
-        private void _Add(QuadTree2DNode<T> node, T data, Rect rect, int deep) //·Åµ½×îÉî¿ÉÒÔÍêÈ«°üº¬RectµÄQuadTree2DNodeÀï
+        private void _Add(QuadTree2DNode<T> node, T data, Rect rect, int deep) //æ”¾åˆ°æœ€æ·±å¯ä»¥å®Œå…¨åŒ…å«Rectçš„QuadTree2DNodeé‡Œ
         {
             Rect pRect = node.bound;
             if (deep < maxDeep) {
-                //´´½¨×Ó½Úµã
+                //åˆ›å»ºå­èŠ‚ç‚¹
                 if (node.childs == null) {
                     node.childs = new QuadTree2DNode<T>[4];
                     float nwidth = pRect.width / 2;
@@ -389,23 +390,23 @@ namespace Sango.Tools
                 for (int i = 0; i < 4; i++) {
                     QuadTree2DNode<T> child = node.childs[i];
                     if (child.bound.Contains(rect)) {
-                        //±»¸Ã×Ó½ÚµãÍêÈ«¸²¸Ç£¬¾Í·Åµ½µ±Ç°½Úµã
+                        //è¢«è¯¥å­èŠ‚ç‚¹å®Œå…¨è¦†ç›–ï¼Œå°±æ”¾åˆ°å½“å‰èŠ‚ç‚¹
                         _Add(child, data, rect, deep + 1);
                         return;
                     }
                 }
             }
-            //²»ÄÜ±»ÈÎºÎÒ»¸ö×Ó½ÚµãÍêÈ«¸²¸Ç£¬¾Í·Åµ½µ±Ç°½Úµã
+            //ä¸èƒ½è¢«ä»»ä½•ä¸€ä¸ªå­èŠ‚ç‚¹å®Œå…¨è¦†ç›–ï¼Œå°±æ”¾åˆ°å½“å‰èŠ‚ç‚¹
             node.dataList.Add(data);
             node.boundList.Add(rect);
         }
 
-        private void _Remove(QuadTree2DNode<T> node, T data, Rect rect, int deep) //·Åµ½×îÉî¿ÉÒÔÍêÈ«°üº¬RectµÄQuadTree2DNodeÀï
+        private void _Remove(QuadTree2DNode<T> node, T data, Rect rect, int deep) //æ”¾åˆ°æœ€æ·±å¯ä»¥å®Œå…¨åŒ…å«Rectçš„QuadTree2DNodeé‡Œ
         {
             Rect pRect = node.bound;
             if (deep < maxDeep)
             {
-                //´´½¨×Ó½Úµã
+                //åˆ›å»ºå­èŠ‚ç‚¹
                 if (node.childs != null)
                 {
                     for (int i = 0; i < 4; i++)
@@ -413,14 +414,14 @@ namespace Sango.Tools
                         QuadTree2DNode<T> child = node.childs[i];
                         if (child.bound.Contains(rect))
                         {
-                            //±»¸Ã×Ó½ÚµãÍêÈ«¸²¸Ç£¬¾Í·Åµ½µ±Ç°½Úµã
+                            //è¢«è¯¥å­èŠ‚ç‚¹å®Œå…¨è¦†ç›–ï¼Œå°±æ”¾åˆ°å½“å‰èŠ‚ç‚¹
                             _Remove(child, data, rect, deep + 1);
                             return;
                         }
                     }
                 }
             }
-            //²»ÄÜ±»ÈÎºÎÒ»¸ö×Ó½ÚµãÍêÈ«¸²¸Ç£¬¾Í·Åµ½µ±Ç°½Úµã
+            //ä¸èƒ½è¢«ä»»ä½•ä¸€ä¸ªå­èŠ‚ç‚¹å®Œå…¨è¦†ç›–ï¼Œå°±æ”¾åˆ°å½“å‰èŠ‚ç‚¹
             int objIndex = node.dataList.IndexOf(data);
             if (objIndex >= 0)
             {
@@ -429,7 +430,7 @@ namespace Sango.Tools
             }
         }
 
-        private void _Find(QuadTree2DNode<T> node, Rect rect, List<T> list, bool accuracy) //°ÑËùÓĞºÍRectÏà½»µÄQuaTreeNodeÀïµÄT¼ÓÈëlist
+        private void _Find(QuadTree2DNode<T> node, Rect rect, List<T> list, bool accuracy) //æŠŠæ‰€æœ‰å’ŒRectç›¸äº¤çš„QuaTreeNodeé‡Œçš„TåŠ å…¥list
         {
             int dataCount = node.dataList.Count;
             if (dataCount > 0) {
@@ -447,12 +448,12 @@ namespace Sango.Tools
                 }
 
             }
-            //´´½¨×Ó½Úµã
+            //åˆ›å»ºå­èŠ‚ç‚¹
             if (node.childs == null) {
                 return;
             }
 
-            //Èç¹ûÏà½»£¬¾Í¼ÌĞøµİ¹é
+            //å¦‚æœç›¸äº¤ï¼Œå°±ç»§ç»­é€’å½’
             for (int i = 0; i < 4; i++) {
                 QuadTree2DNode<T> child = node.childs[i];
                 if (child.bound.Overlaps(rect)) {
@@ -460,7 +461,8 @@ namespace Sango.Tools
                 }
             }
         }
-        private void _Find(QuadTree2DNode<T> node, Rect rect, ref T[] list, ref int totalCount, bool accuracy) //°ÑËùÓĞºÍRectÏà½»µÄQuaTreeNodeÀïµÄT¼ÓÈëlist
+        
+        private void _Find(QuadTree2DNode<T> node, Rect rect, ref T[] list, ref int totalCount, bool accuracy) //æŠŠæ‰€æœ‰å’ŒRectç›¸äº¤çš„QuaTreeNodeé‡Œçš„TåŠ å…¥list
         {
             int dataCount = node.dataList.Count;
             if (dataCount > 0) {
@@ -486,12 +488,12 @@ namespace Sango.Tools
                 }
 
             }
-            //´´½¨×Ó½Úµã
+            //åˆ›å»ºå­èŠ‚ç‚¹
             if (node.childs == null) {
                 return;
             }
 
-            //Èç¹ûÏà½»£¬¾Í¼ÌĞøµİ¹é
+            //å¦‚æœç›¸äº¤ï¼Œå°±ç»§ç»­é€’å½’
             for (int i = 0; i < 4; i++) {
                 QuadTree2DNode<T> child = node.childs[i];
                 if (child != null && child.bound.Overlaps(rect)) {
@@ -510,18 +512,16 @@ namespace Sango.Tools
             _Remove(root, data, rect, 1);
         }
 
-        public void Find(Rect rect, List<T> list, bool accuracy = false) //ÕÒµ½µÄ½á¹û²»´ú±íÒ»¶¨Ïà½»£¬Ö»ÊÇ¿ÉÄÜÏà½»
+        public void Find(Rect rect, List<T> list, bool accuracy = false) //æ‰¾åˆ°çš„ç»“æœä¸ä»£è¡¨ä¸€å®šç›¸äº¤ï¼Œåªæ˜¯å¯èƒ½ç›¸äº¤
         {
             _Find(root, rect, list, accuracy);
         }
-        public int Find(Rect rect, ref T[] list, bool accuracy = false) //ÕÒµ½µÄ½á¹û²»´ú±íÒ»¶¨Ïà½»£¬Ö»ÊÇ¿ÉÄÜÏà½»
+        
+        public int Find(Rect rect, ref T[] list, bool accuracy = false) //æ‰¾åˆ°çš„ç»“æœä¸ä»£è¡¨ä¸€å®šç›¸äº¤ï¼Œåªæ˜¯å¯èƒ½ç›¸äº¤
         {
             int count = 0;
             _Find(root, rect, ref list, ref count, accuracy);
             return count;
         }
-
     }
-
-
 }

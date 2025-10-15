@@ -24,15 +24,15 @@ namespace Sango.Tools
         /// </summary>
         enum EditorModType : int
         {
-            // 基础
+            // 基础编辑
             Base = 0,
             // 地形编辑
             Terrain,
             // 地格编辑
             Grid,
-            // 模型
+            // 模型编辑
             Model,
-            // 设置
+            // 设置说明
             Setting
         }
 
@@ -58,8 +58,7 @@ namespace Sango.Tools
         {
             //Path.Init();
             //Path.AddSearchPath("D:/project_tk/Build/Mods/CoreMap");
-
-
+            // 控制地图编辑的开启状态
             IsEditOn = true;
 
             // 创建笔刷
@@ -86,12 +85,12 @@ namespace Sango.Tools
         {
             map = MapRender.Instance;
             map.NewMap(w, h);
-
             return map;
         }
 
         protected override void Start()
         {
+            // 首先寻找场景中的"Directional Light"和"post"对象，如果找到，就将它们设置为非活动状态
             GameObject l = GameObject.Find("Directional Light");
             if (l != null) l.SetActive(false);
             l = GameObject.Find("post");
@@ -158,6 +157,7 @@ namespace Sango.Tools
         /// <param name="deletedObjects"></param>
         void SelectionDeletedHandler(List<GameObject> deletedObjects)
         {
+            // 对于被删除的对象列表中的每一个对象，尝试获取这个对象上的MapObject组件，如果成功获取到，就从地图对象map中移除这个静态对象
             foreach (GameObject o in deletedObjects)
             {
                 MapObject mapObject = o.GetComponent<MapObject>();
@@ -175,13 +175,12 @@ namespace Sango.Tools
         public void SelectionChangedHandler(ObjectSelectionChangedEventArgs selectionChangedEventArgs)
         {
             // 这里处理模型的相关数据展示
-
-
         }
 
         public void SetModelSelectionMod(bool b)
         {
-            SceneGizmoExtend.Instance.enabled = false;
+            // 如果参数b为真，一系列与模型选择有关的实例都将被启用；如果参数b为假，这些实例都将被禁用
+            SceneGizmoExtend.Instance.enabled = b;
             if (SceneGizmoExtend.Instance._gizmoCamera != null)
                 SceneGizmoExtend.Instance._gizmoCamera.enabled = false;
             RuntimeEditorApplication.Instance.enabled = b;
@@ -231,6 +230,9 @@ namespace Sango.Tools
             }
         }
 
+        /// <summary>
+        /// 查询高度的方法1。直接返回查询到的海拔，如果没有查询到则返回0
+        /// </summary>
         public static float QueryHeight(Vector3 pos)
         {
             Vector3 begin = pos;
@@ -241,6 +243,10 @@ namespace Sango.Tools
                 return raycastHit.point.y;
             else return 0;
         }
+
+        /// <summary>
+        /// 查询高度的方法2。除了返回查询到的海拔，还返回一个布尔值表示是否查询成功
+        /// </summary>
         public static bool QueryHeight(Vector3 pos, out float height)
         {
             Vector3 begin = pos;
@@ -259,6 +265,9 @@ namespace Sango.Tools
             }
         }
 
+        /// <summary>
+        /// 检查刷子的方法。根据当前的编辑模式来决定返回哪一个刷子
+        /// </summary>
         BrushBase CheckBrush()
         {
             BrushBase brush = null;
@@ -301,16 +310,25 @@ namespace Sango.Tools
             brush.Update();
         }
 
+        // 整型变量，当前的值被设置为0。用来表示当前的编辑模式或状态
         int currentEditMode = 0;
+		
+        // toolbarTitle 和 toolbarSeason：这两个是字符串数组，分别存储工具栏的标题和季节名称。这是用于图形编辑器的用户界面显示的工具栏标签或选项
         private string[] toolbarTitle = new string[]
         {
             "基础编辑", "编辑地形", "编辑地格", "模型放置", "设置说明" //编辑地格 显示光环
         };
+
         private string[] toolbarSeason = new string[]
         {
             "春", "夏", "秋", "冬"
         };
+
         bool viewIs311Camera = true;
+
+        /// <summary>
+        /// 绘制工具栏窗口
+        /// </summary>
         void DrawToolbarWindow(int windowID, EditorWindow window)
         {
             GUILayout.Label($"当前鼠标格子:{{{SelectedCoord.col},{SelectedCoord.row}}}");
@@ -368,7 +386,6 @@ namespace Sango.Tools
 
             if (GUILayout.Button("保存地图"))
             {
-
                 string path = WindowDialog.SaveFileDialog("map.bin", "地图文件(*.bin)\0*.bin;\0\0");
                 if (path != null)
                 {

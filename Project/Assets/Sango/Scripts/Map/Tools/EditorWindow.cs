@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace Sango.Tools
@@ -35,6 +35,7 @@ namespace Sango.Tools
                 MaxStyle = new GUIStyle(CloseStyle);
             }
         }
+
         Color lastColor;
         internal void OnDraw(int winId)
         {
@@ -73,7 +74,7 @@ namespace Sango.Tools
 
                     beginX -= 20;
                     MinRect.x = beginX;
-                    if (GUI.Button(MinRect, "��", MaxStyle))
+                    if (GUI.Button(MinRect, "□", MaxStyle))
                     {
                         isMax = true;
                     }
@@ -99,6 +100,7 @@ namespace Sango.Tools
         }
 
         static List<EditorWindow> window_list = new List<EditorWindow>();
+		
         public void Awake()
         {
             window_list.Add(this);
@@ -108,6 +110,83 @@ namespace Sango.Tools
         {
             window_list.Remove(this);
         }
+		
+		/// <summary>
+        /// 添加新窗口到窗口列表中，使用默认的窗口最小化函数（为null），并传入窗口ID、初始矩形区域、窗口功能函数以及窗口名称等参数
+        /// </summary>
+        public static EditorWindow AddWindow(int id, UnityEngine.Rect rect, WindowFunction func, string windowName)
+        {
+            return AddWindow(id, rect, func, null, windowName);
+        }
+		
+        public static EditorWindow AddWindow(int id, UnityEngine.Rect rect, WindowFunction func, WindowFunction minfunc, string windowName)
+        {
+            EditorWindow win = new GameObject(windowName).AddComponent<EditorWindow>();
+            win.visible = true;
+            win.windowRect = rect;
+            win.windowFunc = func;
+            win.windowMinFunc = minfunc;
+            win.windowName = windowName;
+            win.windowId = id;
+            win.isMax = true;
+            window_list.Add(win);
+            return win;
+        }
+		
+        /// <summary>
+        /// 添加新窗口到窗口列表中，使用默认的窗口最小化函数（为null），并传入窗口ID、初始矩形区域、窗口功能函数以及窗口名称等参数
+        /// </summary>
+        public static EditorWindow AddWindow<T>(int id, UnityEngine.Rect rect, WindowFunction func, string windowName) where T : EditorWindow
+        {
+            return AddWindow<T>(id, rect, func, null, windowName);
+        }
+		
+        /// <summary>  
+        /// 向Unity编辑器中添加一个新窗口，使用默认的窗口ID（基于窗口列表的数量）、默认的窗口最小化函数（为null），并传入窗口初始矩形区域、窗口功能函数以及窗口名称等参数，返回创建的EditorWindow实例对象，如果创建失败则返回null
+        /// </summary>  
+        public static EditorWindow AddWindow<T>(int id, UnityEngine.Rect rect, WindowFunction func, string windowName, GUISkin skin) where T : EditorWindow
+        {
+            return AddWindow<T>(id, rect, func, null, windowName, skin);
+        }
+
+		/// <summary>  
+        /// 向Unity编辑器中添加一个新窗口，使用默认的窗口ID（基于窗口列表的数量）、默认的窗口最小化函数（为null），并传入窗口初始矩形区域、窗口功能函数以及窗口名称等参数，返回创建的EditorWindow实例对象，如果创建失败则返回null
+        /// </summary>  
+        public static EditorWindow AddWindow<T>(int id, UnityEngine.Rect rect, WindowFunction func, WindowFunction minfunc, string windowName) where T : EditorWindow
+        {
+            return AddWindow<T>(id, rect, func, minfunc, windowName, null);
+        }
+		
+		/// <summary>
+        /// 添加新窗口到窗口列表中，并允许设置一个窗口最小化函数，传入窗口ID、初始矩形区域、窗口功能函数、窗口最小化函数以及窗口名称等参数，返回创建的EditorWindow实例对象
+        /// </summary>
+        public static EditorWindow AddWindow<T>(int id, UnityEngine.Rect rect, WindowFunction func, WindowFunction minfunc, string windowName, GUISkin skin) where T : EditorWindow
+        {
+            EditorWindow win = new GameObject(windowName).AddComponent<T>();
+            win.visible = true;
+            win.windowRect = rect;
+            win.windowFunc = func;
+            win.windowMinFunc = minfunc;
+            win.windowName = windowName;
+            win.windowId = id;
+            win.isMax = true;
+            win.skin = skin;
+            window_list.Add(win);
+            return win;
+        }
+
+        /// <summary>
+        /// 从窗口列表中移除指定的EditorWindow窗口对象，返回是否移除成功的布尔值
+        /// </summary>
+        public static void RemoveWindow(EditorWindow w)
+        {
+            if (w != null)
+                Destroy(w.gameObject);
+        }
+
+        /// <summary>
+        /// 绘制和管理所有窗口，先初始化GUI样式，然后遍历窗口列表，对于可见的窗口调用相应方法进行绘制操作
+        /// </summary>
         public void OnGUI()
         {
             InitGUIStyle();
@@ -127,7 +206,10 @@ namespace Sango.Tools
                 }
             }
         }
-
+		
+        /// <summary>
+        /// 检查鼠标当前位置是否位于任何可见的窗口内，常用于实现与UI交互相关的功能，比如鼠标悬停提示等
+        /// </summary>
         public static bool IsPointOverUI()
         {
             Vector3 mousePosition = Input.mousePosition;
@@ -143,60 +225,5 @@ namespace Sango.Tools
 
             return false;
         }
-        public static EditorWindow AddWindow(int id, UnityEngine.Rect rect, WindowFunction func, string windowName)
-        {
-            return AddWindow(id, rect, func, null, windowName);
-        }
-        public static EditorWindow AddWindow(int id, UnityEngine.Rect rect, WindowFunction func, WindowFunction minfunc, string windowName)
-        {
-            EditorWindow win = new GameObject(windowName).AddComponent<EditorWindow>();
-            win.visible = true;
-            win.windowRect = rect;
-            win.windowFunc = func;
-            win.windowMinFunc = minfunc;
-            win.windowName = windowName;
-            win.windowId = id;
-            win.isMax = true;
-            window_list.Add(win);
-            return win;
-        }
-
-        public static EditorWindow AddWindow<T>(int id, UnityEngine.Rect rect, WindowFunction func, string windowName) where T : EditorWindow
-        {
-            return AddWindow<T>(id, rect, func, null, windowName);
-        }
-        public static EditorWindow AddWindow<T>(int id, UnityEngine.Rect rect, WindowFunction func, string windowName, GUISkin skin) where T : EditorWindow
-        {
-            return AddWindow<T>(id, rect, func, null, windowName, skin);
-        }
-        public static EditorWindow AddWindow<T>(int id, UnityEngine.Rect rect, WindowFunction func, WindowFunction minfunc, string windowName) where T : EditorWindow
-        {
-            return AddWindow<T>(id, rect, func, minfunc, windowName, null);
-        }
-        public static EditorWindow AddWindow<T>(int id, UnityEngine.Rect rect, WindowFunction func, WindowFunction minfunc, string windowName, GUISkin skin) where T : EditorWindow
-        {
-            EditorWindow win = new GameObject(windowName).AddComponent<T>();
-            win.visible = true;
-            win.windowRect = rect;
-            win.windowFunc = func;
-            win.windowMinFunc = minfunc;
-            win.windowName = windowName;
-            win.windowId = id;
-            win.isMax = true;
-            win.skin = skin;
-            window_list.Add(win);
-            return win;
-        }
-
-        public static void RemoveWindow(EditorWindow w)
-        {
-            if (w != null)
-                Destroy(w.gameObject);
-        }
-
-        
-
     }
-
-
 }

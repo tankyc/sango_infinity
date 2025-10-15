@@ -129,7 +129,7 @@ public class Sango_Tools_TerrainBrushWrap
 		{
 			ToLua.CheckArgsCount(L, 1);
 			Sango.Tools.TerrainBrush obj = (Sango.Tools.TerrainBrush)ToLua.CheckObject<Sango.Tools.TerrainBrush>(L, 1);
-			UnityEngine.RenderTexture o = obj.CreateBaseTextrue();
+			UnityEngine.RenderTexture o = obj.CreateBaseTexture();
 			ToLua.Push(L, o);
 			return 1;
 		}
