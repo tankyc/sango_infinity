@@ -209,11 +209,11 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIRewardPerson(City city, Scenario scenario)
         {
-            if (GameRandom.Chance(50))
+            if (GameRandom.Chance(80))
             {
                 city.allPersons.ForEach(x =>
                 {
-                    if (x.IsFree && city.gold > 500 && x.loyalty < 90)
+                    if (x.BelongTroop != null && city.gold > 500 && x.loyalty <= 95)
                     {
                         city.JobRewardPerson(x);
                     }
@@ -275,12 +275,12 @@ namespace Sango.Core
             City target = null;
             if (targetTransportCity != null)
             {
-                if(targetTransportCity == city)
+                if (targetTransportCity == city)
                     return true;
 
                 // 使用寻路方法获取距离
                 List<City> path = scenario.FindShortestPathInForce(city, targetTransportCity);
-                if(path == null || path.Count == 0)
+                if (path == null || path.Count == 0)
                 {
                     return true;
                 }
@@ -378,7 +378,7 @@ namespace Sango.Core
         /// <param name="scenario">场景对象</param>
         /// <returns>是否完成</returns>
         public static bool AITransfromToBelongCity(City city, Scenario scenario)
-        {          
+        {
             if (city.IsEnemiesRound()) return true;
 
             if (city.BelongCity == null) return true;

@@ -96,6 +96,9 @@ namespace Sango.UI
         {
             ChangeShowType(curShowType, true);
         }
+        List<Troop> sorted_list_Troop = new List<Troop>();
+        List<City> sorted_list_City = new List<City>();
+        List<Person> sorted_list_Person = new List<Person>();
 
         public void ChangeShowType(ShowType showType, bool forceUpdate = false)
         {
@@ -114,32 +117,70 @@ namespace Sango.UI
             {
                 case ShowType.City:
                     {
+                        sorted_list_City.Clear();
                         governorObj = force.CapitalCity;
                         force.ForEachCityBase(obj =>
                         {
-                            if (governorObj != obj)
-                                curDataList.Add(obj);
+                            if (governorObj != obj && obj.BelongCorps.IsPlayerControl)
+                                sorted_list_City.Add(obj);
                         });
+
+                        sorted_list_City.Sort((a, b) =>
+                        {
+                            int aKind = a.BuildingType.kind;
+                            int bKind = b.BuildingType.kind;
+                            if (aKind == bKind)
+                            {
+                                return -a.FreePersonCount.CompareTo(b.FreePersonCount);
+                            }
+                            else
+                                return a.BuildingType.kind.CompareTo(b.BuildingType.kind);
+                        }
+
+                        );
+                        curDataList.AddRange(sorted_list_City);
                     }
                     break;
                 case ShowType.Person:
                     {
+                        sorted_list_Person.Clear();
                         governorObj = force.Governor;
                         force.ForEachPerson(obj =>
                         {
-                            if (governorObj != obj)
-                                curDataList.Add(obj);
+                            if (governorObj != obj && obj.BelongCorps.IsPlayerControl)
+                                sorted_list_Person.Add(obj);
                         });
+                        sorted_list_Person.Sort((a, b) =>
+                        {
+                            bool action_over_a = a.BelongTroop != null ? a.BelongTroop.ActionOver : a.ActionOver;
+                            bool action_over_b = b.BelongTroop != null ? b.BelongTroop.ActionOver : b.ActionOver;
+
+                            if (action_over_a == action_over_b)
+                                return a.Name.CompareTo(b.Name);
+                            else
+                                return action_over_a.CompareTo(action_over_b);
+
+                        });
+                        curDataList.AddRange(sorted_list_Person);
                     }
                     break;
                 case ShowType.Troop:
                     {
+                        sorted_list_Troop.Clear();
                         governorObj = force.Governor.BelongTroop;
                         force.ForEachTroop(obj =>
                         {
-                            if (governorObj != obj)
-                                curDataList.Add(obj);
+                            if (governorObj != obj && obj.BelongCorps.IsPlayerControl)
+                                sorted_list_Troop.Add(obj);
                         });
+                        sorted_list_Troop.Sort((a, b) =>
+                        {
+                            if (a.ActionOver == b.ActionOver)
+                                return a.Name.CompareTo(b.Name);
+                            else
+                                return a.ActionOver.CompareTo(b.ActionOver);
+                        });
+                        curDataList.AddRange(sorted_list_Troop);
                     }
                     break;
             }

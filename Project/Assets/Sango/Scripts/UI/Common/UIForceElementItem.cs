@@ -43,6 +43,7 @@ using Sango.Core; namespace Sango.UI
         public UIForceElementItem SetSangoObject(SangoObject obj)
         {
             targetObject = obj;
+            name.fontSize = 20;
             if (obj == null)
             {
                 name.text = "";
@@ -52,9 +53,12 @@ using Sango.Core; namespace Sango.UI
             {
                 if (obj is City)
                 {
+                    City c = (City)obj;
                     name.text = obj.Name;
-                    name.color = GameDefine.whiteText;
+                    name.color = c.FreePersonCount == 0 ? Color.gray : GameDefine.whiteText;
                     icon.enabled = false;
+                    if(c.IsPort()||c.IsGate())
+                        name.fontSize = 18;
                 }
                 else if (obj is Person)
                 {

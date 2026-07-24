@@ -136,9 +136,6 @@ namespace Sango.UI
 
         }
 
-
-       
-
         void Start()
         {
             //GameEvent.OnTroopCreated += OnTroopChange;

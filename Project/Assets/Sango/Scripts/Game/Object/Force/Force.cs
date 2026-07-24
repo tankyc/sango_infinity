@@ -286,10 +286,8 @@ namespace Sango.Core
             {
                 x.InitActions(actionList, this);
             });
-
-            prepareTechniqueList(scenario);
-            UpdateValidCreatedItemTypes();
-            UpdateCanBuildBuildingTypes();
+            InitTechniquesTree(scenario);
+            UpdateTurnInfo(scenario);
         }
 
         public override void Clear()
@@ -330,11 +328,7 @@ namespace Sango.Core
             });
         }
 
-        /// <summary>
-        /// 准备科技列表
-        /// </summary>
-        /// <param name="scenario">当前场景</param>
-        void prepareTechniqueList(Scenario scenario)
+        void InitTechniquesTree(Scenario scenario)
         {
             techniqueMaxLevel = 0;
 
@@ -371,7 +365,14 @@ namespace Sango.Core
                 startY += total + 1;
             }
             techniqueMaxRow = startY + 1;
+        }
 
+        /// <summary>
+        /// 准备科技列表
+        /// </summary>
+        /// <param name="scenario">当前场景</param>
+        void prepareTechniqueList(Scenario scenario)
+        {
             // 初始化可研究的科技
             canResearchTechniqueList.Clear();
             scenario.CommonData.Techniques.ForEach(x =>
@@ -634,7 +635,6 @@ namespace Sango.Core
 #if SANGO_DEBUG
             Sango.Log.Info($"==={Name} 回合===");
 #endif
-            prepareTechniqueList(scenario);
 
             for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
@@ -664,6 +664,68 @@ namespace Sango.Core
                     c.OnForceTurnStart(scenario);
                 }
             }
+
+           
+
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                var c = scenario.troopsSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == this)
+                {
+                    c.OnForceTurnStart(scenario);
+                }
+            }
+
+            UpdateTurnInfo(scenario);
+
+            // 检查敌方新建部队是否有占领我方城池的任务
+            if (IsPlayer)
+            {
+                foreach (Troop troop in scenario.troopsSet)
+                {
+                    if (troop != null && troop.IsAlive && troop.BelongForce != this && troop.IsNewTroop && troop.missionType == (int)MissionType.TroopOccupyCity)
+                    {
+                        // 检查任务目标是否为我方城池
+                        var targetCity = scenario.GetObject<City>(troop.missionTarget);
+                        if (targetCity != null && targetCity.BelongForce == this)
+                        {
+                            // 根据军师智力计算发现概率
+                            int baseProbability = scenario.Variables.discoverEnemyTroopBaseProbability;
+                            int intelligenceFactor = 0;
+                            if (Counsellor != null)
+                            {
+                                intelligenceFactor = Counsellor.Intelligence * scenario.Variables.discoverEnemyTroopIntelligenceFactor;
+                            }
+                            int totalProbability = baseProbability + intelligenceFactor;
+
+                            // 概率命中后生成相机移动事件
+                            if (GameRandom.Chance(totalProbability, 10000))
+                            {
+                                // 获取部队所属城市的位置
+                                var troopCity = troop.BelongCity;
+                                if (troopCity != null)
+                                {
+                                    // 创建相机移动事件
+                                    CameraMoveEvent cameraMoveEvent = RenderEvent.Instance.Create<CameraMoveEvent>();
+                                    cameraMoveEvent.Init(troopCity.CenterCell.Position, 0.5f, GameDialog.DialogStyle.ClickPersonSay, $"{ColorName}大人，\n我军细作传来消息,有敌军正在往我方{targetCity.ColorName}靠近!!。", Counsellor, null, null);
+                                    RenderEvent.Instance.AddFront(cameraMoveEvent);
+
+                                    // 触发发现敌方部队事件
+                                    GameEvent.OnDiscoverEnemyTroop?.Invoke(this, targetCity, troop, Counsellor);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return base.OnForceTurnStart(scenario);
+        }
+
+        void UpdateTurnInfo(Scenario scenario)
+        {
+            prepareTechniqueList(scenario);
+            UpdateValidCreatedItemTypes();
+            UpdateCanBuildBuildingTypes();
 
             bool hasNoCheckBorder = false;
             NeighborForceList.Clear();
@@ -732,64 +794,7 @@ namespace Sango.Core
             }
 
 
-            for (int i = 0; i < scenario.troopsSet.Count; ++i)
-            {
-                var c = scenario.troopsSet[i];
-                if (c != null && c.IsAlive && c.BelongForce == this)
-                {
-                    c.OnForceTurnStart(scenario);
-                }
-            }
-
-            // 检查敌方新建部队是否有占领我方城池的任务
-            if (IsPlayer)
-            {
-                foreach (Troop troop in scenario.troopsSet)
-                {
-                    if (troop != null && troop.IsAlive && troop.BelongForce != this && troop.IsNewTroop && troop.missionType == (int)MissionType.TroopOccupyCity)
-                    {
-                        // 检查任务目标是否为我方城池
-                        var targetCity = scenario.GetObject<City>(troop.missionTarget);
-                        if (targetCity != null && targetCity.BelongForce == this)
-                        {
-                            // 根据军师智力计算发现概率
-                            int baseProbability = scenario.Variables.discoverEnemyTroopBaseProbability;
-                            int intelligenceFactor = 0;
-                            if (Counsellor != null)
-                            {
-                                intelligenceFactor = Counsellor.Intelligence * scenario.Variables.discoverEnemyTroopIntelligenceFactor;
-                            }
-                            int totalProbability = baseProbability + intelligenceFactor;
-
-                            // 概率命中后生成相机移动事件
-                            if (GameRandom.Chance(totalProbability, 10000))
-                            {
-                                // 获取部队所属城市的位置
-                                var troopCity = troop.BelongCity;
-                                if (troopCity != null)
-                                {
-                                    // 创建相机移动事件
-                                    CameraMoveEvent cameraMoveEvent = RenderEvent.Instance.Create<CameraMoveEvent>();
-                                    cameraMoveEvent.Init(troopCity.CenterCell.Position, 0.5f, GameDialog.DialogStyle.ClickPersonSay, $"{ColorName}大人，\n我军细作传来消息,有敌军正在往我方{targetCity.ColorName}靠近!!。", Counsellor, null, null);
-                                    RenderEvent.Instance.AddFront(cameraMoveEvent);
-
-                                    // 触发发现敌方部队事件
-                                    GameEvent.OnDiscoverEnemyTroop?.Invoke(this, targetCity, troop, Counsellor);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            UpdateValidCreatedItemTypes();
-
-            return base.OnForceTurnStart(scenario);
-        }
-
-        void UpdateNeighborList()
-        {
-
+            
         }
 
 

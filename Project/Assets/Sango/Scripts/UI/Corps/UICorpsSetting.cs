@@ -300,6 +300,7 @@ namespace Sango.UI
                             if (forceList.Count > 0)
                             {
                                 targetCorps.appoint_target = forceList[0].Id;
+                                targetText.text = forceList[0].Name;
                             }
                         }, forceSelectTitleList, "选择攻略势力");
             }
@@ -318,6 +319,7 @@ namespace Sango.UI
                             if (cList.Count > 0)
                             {
                                 targetCorps.appoint_target = cList[0].Id;
+                                targetText.text = cList[0].Name;
                             }
                         }, CitySortFunction.DefaultSortList, "选择攻略都市");
             }

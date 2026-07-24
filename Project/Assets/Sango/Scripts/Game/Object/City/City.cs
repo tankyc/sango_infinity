@@ -2926,7 +2926,7 @@ namespace Sango.Core
             stringBuilder.Append(",");
             int lastLoyalty = person.loyalty;
 #endif
-            person.loyalty += 10;
+            person.loyalty += GameRandom.Range(7, 18);
             gold -= goldCost;
             BelongCorps.ReduceActionPoint(apCost);
 
@@ -3797,7 +3797,7 @@ namespace Sango.Core
                 }
             }
 
-            if(dest == null)
+            if (dest == null)
             {
                 for (int i = 0; i < allPersons.Count; i++)
                 {
@@ -3847,7 +3847,7 @@ namespace Sango.Core
                     }
                 }
             }
-            
+
             Leader = dest;
             Leader?.SetStateLeader();
         }
