@@ -21,6 +21,9 @@ namespace Sango.Core
 
         public static bool AITransfromPerson(Corps corps, Scenario scenario)
         {
+            if (corps.GetAppointValue(Corps.AppointContentType.Person) == 1)
+                return true;
+
             List<Person> canTransforPersons = new List<Person>();
 
             for (int i = 0; i < scenario.citySet.Count; ++i)

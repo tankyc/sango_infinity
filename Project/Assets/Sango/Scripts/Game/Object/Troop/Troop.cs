@@ -1813,9 +1813,13 @@ namespace Sango.Core
             city.itemStore.Add(itemStore);
             // 中和士气
             city.morale = (city.morale * city.troops + morale * troops) / (city.troops + troops);
-
+            bool hasGovernor = false;
             ForEachPerson((person) =>
             {
+                if(person.IsGovernor)
+                {
+                    hasGovernor = true;
+                }
                 person.ActionOver = true;
             });
 
@@ -1823,6 +1827,15 @@ namespace Sango.Core
                 BelongCity.allAttackTroops.Remove(this);
             BelongCity.allTroops.Remove(this);
             city.Render.UpdateRender();
+
+            // 如果主公进城,要解散目标城市的军团
+            if(hasGovernor)
+            {
+                if(city.BelongCorps != BelongCorps)
+                {
+                    BelongForce.DeleteCorps(city.BelongCorps);
+                }
+            }
 
             if (city == BelongCity)
             {

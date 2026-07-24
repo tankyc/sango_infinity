@@ -113,8 +113,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.6630554, y: 114.085175}
-  m_SizeDelta: {x: -72.133, y: -439.2638}
+  m_AnchoredPosition: {x: 1.7586975, y: 114.085175}
+  m_SizeDelta: {x: -76.9766, y: -439.2638}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &5634252309697450823
 MonoBehaviour:
@@ -158,7 +158,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Padding: {x: 0, y: 0, z: 0, w: 0}
+  m_Padding: {x: -20, y: 0, z: 0, w: 0}
   m_Softness: {x: 10, y: 10}
 --- !u!222 &7720593596719666615
 CanvasRenderer:
@@ -837,7 +837,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 258018616336921508, guid: 7fb92953bcd9fd643b84d3b96ee73327, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0.000030517578
+      value: -0.000030517578
       objectReference: {fileID: 0}
     - target: {fileID: 258018616336921508, guid: 7fb92953bcd9fd643b84d3b96ee73327, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -923,6 +923,10 @@ PrefabInstance:
       propertyPath: m_SizeDelta.y
       value: 19.747286
       objectReference: {fileID: 0}
+    - target: {fileID: 6686943007152729279, guid: 7fb92953bcd9fd643b84d3b96ee73327, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6721492399563844095, guid: 7fb92953bcd9fd643b84d3b96ee73327, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
@@ -961,7 +965,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7165159866956637520, guid: 7fb92953bcd9fd643b84d3b96ee73327, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 14.0000305
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7206825699145896057, guid: 7fb92953bcd9fd643b84d3b96ee73327, type: 3}
       propertyPath: m_Name
@@ -989,7 +993,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8974780548894896958, guid: 7fb92953bcd9fd643b84d3b96ee73327, type: 3}
       propertyPath: m_FontData.m_FontSize
-      value: 20
+      value: 19
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7fb92953bcd9fd643b84d3b96ee73327, type: 3}

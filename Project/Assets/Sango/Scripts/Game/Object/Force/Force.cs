@@ -175,6 +175,11 @@ namespace Sango.Core
         public List<Force> NeighborForceList = new List<Force>();
 
         /// <summary>
+        /// 相邻非本势力的城市
+        /// </summary>
+        public List<City> NeighborCityList = new List<City>();
+
+        /// <summary>
         /// 国力值
         /// </summary>
         public int FightPower;
@@ -662,6 +667,7 @@ namespace Sango.Core
 
             bool hasNoCheckBorder = false;
             NeighborForceList.Clear();
+            NeighborCityList.Clear();
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
@@ -691,6 +697,9 @@ namespace Sango.Core
                                         NeighborForceList.Add(neighbor.BelongForce);
                                     }
                                 }
+
+                                if (!NeighborCityList.Contains(neighbor))
+                                    NeighborCityList.Add(neighbor);
                             }
                         }
                         if (c.borderLine == -1)
@@ -777,6 +786,12 @@ namespace Sango.Core
 
             return base.OnForceTurnStart(scenario);
         }
+
+        void UpdateNeighborList()
+        {
+
+        }
+
 
         /// <summary>
         /// 势力回合结束时的回调方法

@@ -44,6 +44,13 @@
         public override void Update()
         {
             base.Update();
+            if(!TargetTroop.IsAlive)
+            {
+                Done();
+                return;
+            }
+
+
             if (!TargetTroop.DoAI(Scenario.Cur))
                 return;
 

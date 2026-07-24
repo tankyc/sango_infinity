@@ -1732,6 +1732,7 @@ namespace Sango.Core
                 if (person != null && person.IsSameForce(atk))
                 {
                     RemoveCaptive(person);
+                    person.state = (int)PersonStateType.Normal;
                     person.ChangeBelongCity(this);
                     AddPerson(person);
                 }

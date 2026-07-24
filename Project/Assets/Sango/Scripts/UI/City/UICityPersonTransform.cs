@@ -67,8 +67,9 @@ using Sango.Core; namespace Sango.UI
 
         public void OnSelectPerson()
         {
+            int max = currentSystem.TargetCity.BelongCorps.ActionPoint / JobType.GetJobCostAP((int)CityJobType.TransformPerson); 
             GameSystem.GetSystem<PersonSelectSystem>().Start(currentSystem.TargetCity.freePersons,
-             currentSystem.personList, 3, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
+             currentSystem.personList, max, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
 
         }
         public void OnPersonChange(List<Person> personList)

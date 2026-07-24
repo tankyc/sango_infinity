@@ -15,7 +15,7 @@ namespace Sango.Core
                     TargetCell == null
                     || (TargetCell.building != null && TargetCell.building.IsSameForce(Troop) && TargetCell.building.isComplate) 
                     || (TargetCell.building != null && !TargetCell.building.IsSameForce(Troop))
-                    || TargetCell.SpiralHasBuilding(Scenario.Cur.Variables.BuildingSpace)
+                    || !TargetBuildingType.CanBuildToHere(TargetCell)
                     );
             }
         }

@@ -183,6 +183,10 @@ namespace Sango.Core
         {
             return IsSameForce(BelongForce, other.BelongForce);
         }
+        public bool IsSameForce(Person other)
+        {
+            return IsSameForce(BelongForce, other.BelongForce);
+        }
 
         public bool IsBeSurrounded()
         {

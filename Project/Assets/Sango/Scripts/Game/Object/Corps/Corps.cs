@@ -34,7 +34,6 @@ namespace Sango.Core
         /// </summary>
         public virtual bool IsPlayerControl => IsPlayer && number == 1;
 
-
         /// <summary>
         /// 获取是否为当前的玩家势力
         /// </summary>
@@ -58,7 +57,8 @@ namespace Sango.Core
         /// <summary>
         /// 军团名称
         /// </summary>
-        public override string Name {
+        public override string Name
+        {
             get { return $"第{numberTxt[number]}军团"; }
         }
 
@@ -108,6 +108,47 @@ namespace Sango.Core
         [JsonProperty] public int policy_target;
 
         /// <summary>
+        /// 委任
+        /// </summary>
+        [JsonProperty] public int appoint;
+
+        /// <summary>
+        /// 委任目标,攻略势力为势力ID, 攻占城池为城池ID
+        /// </summary>
+        [JsonProperty] public int appoint_target;
+
+        public enum AppointType : int
+        {
+            None = 0,
+            DestroyForce,
+            OccupyCity,
+            Auto,
+        }
+
+        public enum AppointContentType : int
+        {
+            MakeItem_Spear = 0,
+            MakeItem_Halberd,
+            MakeItem_Crossbow,
+            MakeItem_Horse,
+            MakeItem_Machine,
+            MakeItem_Boat,
+            Donot_Store_Gold,
+            Store_Foood,
+            Store_Troops,
+            Person,
+            Attack,
+            Transport,
+            Build,
+            Max = 13
+        }
+
+        /// <summary>
+        /// 政策内容
+        /// </summary>
+        [JsonProperty] public int[] appointSetting;
+
+        /// <summary>
         /// 行动力点数
         /// </summary>
         [JsonProperty] public int ActionPoint { get; set; }
@@ -128,7 +169,7 @@ namespace Sango.Core
             Color.magenta * 0.8f,
         };
 
-        public Color Color => colors[number-1];
+        public Color Color => colors[number - 1];
 
         /// <summary>
         /// 番号
@@ -144,9 +185,39 @@ namespace Sango.Core
         public Queue<System.Func<Corps, Scenario, bool>> AICommandQueue = new Queue<Func<Corps, Scenario, bool>>();
 
 
+        public Corps()
+        {
+            appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        }
+
         public override void Init(Scenario scenario)
         {
+            if (appointSetting == null || appointSetting.Length < (int)AppointContentType.Max)
+                appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             PrepareCityInfo();
+        }
+
+        public int GetAppointValue(AppointContentType policyContentType)
+        {
+            if (appoint == 0 || appointSetting == null) return 0;
+            return appointSetting[(int)policyContentType];
+        }
+
+        public bool CheckTargetIsAppointTarget(Force force)
+        {
+            if (appoint == (int)AppointType.DestroyForce)
+                return appoint_target == force.Id;
+            return true;
+        }
+
+        public bool CheckTargetIsAppointTarget(City city)
+        {
+            if (city.BelongForce == null) return true;
+            if (appoint == (int)AppointType.OccupyCity)
+                return appoint_target == city.Id;
+            else if (appoint == (int)AppointType.DestroyForce)
+                return appoint_target == city.BelongForce.Id;
+            return true;
         }
 
         public override bool OnForceTurnStart(Scenario scenario)

@@ -34,7 +34,7 @@ namespace Sango.Core
         /// <summary>
         /// 所属城市
         /// </summary>
-        public City BelongCity {  get; internal set; }
+        public City BelongCity { get; internal set; }
         /// <summary>
         /// 地形类型对象
         /// </summary>
@@ -292,7 +292,7 @@ namespace Sango.Core
                     }
                     for (int k = 0; k < i; k++)
                     {
-                        if(cell.building != null)
+                        if (cell.building != null)
                             return true;
                         cell = cell.Neighbors[dir_i];
                         if (cell == null)
@@ -304,6 +304,56 @@ namespace Sango.Core
             return false;
         }
 
+
+
+        /// <summary>
+        /// 对螺旋区域的单元格执行操作
+        /// </summary>
+        /// <param name="radius">半径</param>
+        /// <param name="action">操作</param>
+        public bool SpiralHasBuilding(int radius, System.Func<BuildingBase, bool> checkFunc)
+        {
+            for (int i = 1; i <= radius; i++)
+            {
+                Cell cell = this.Neighbors[4];
+                for (int j = 1; j < i; j++)
+                {
+                    Cell temp = cell.Neighbors[4];
+                    if (cell == null)
+                        break;
+                    cell = temp;
+                }
+
+                int dir = 0;
+                for (int j = 0; j < 6; j++)
+                {
+                    if (cell == null)
+                        break;
+                    int dir_i = dir + j;
+                    if (dir_i < 0)
+                    {
+                        dir_i += 6;
+                    }
+                    else if (dir_i > 5)
+                    {
+                        dir_i -= 6;
+                    }
+                    for (int k = 0; k < i; k++)
+                    {
+                        if (cell.building != null)
+                        {
+                            if (checkFunc(cell.building))
+                                return true;
+                        }
+                        cell = cell.Neighbors[dir_i];
+                        if (cell == null)
+                            break;
+                    }
+                }
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// 沿方向线对单元格执行操作
@@ -464,7 +514,7 @@ namespace Sango.Core
                 interiorModel.modelId = 0;
                 interiorModel.modelAsset = $"Assets/Model/Prefab/4622.prefab";
                 interiorModel.transform.position = Position + new Vector3(0, 0.7f, 0);
-                interiorModel.transform.rotation = Quaternion.Euler(new Vector3(0, GameRandom.Range(0,10) * 90, 0));
+                interiorModel.transform.rotation = Quaternion.Euler(new Vector3(0, GameRandom.Range(0, 10) * 90, 0));
                 interiorModel.transform.localScale = Vector3.one;
                 interiorModel.bounds = new Sango.Tools.Rect(0, 0, 32, 32);
                 MapRender.Instance.AddStatic(interiorModel);
@@ -503,11 +553,11 @@ namespace Sango.Core
         {
             MapRender mapRender = MapRender.Instance;
             int x_start = x * 4;
-            int y_start =  y * 4 - (y % 2) * 2;
-            
-            for(int j = 0; j < 5; j++)
+            int y_start = y * 4 - (y % 2) * 2;
+
+            for (int j = 0; j < 5; j++)
             {
-                for(int i = 0; i < 5; i++)
+                for (int i = 0; i < 5; i++)
                 {
                     int vIndex = j * 5 + i;
                     MapData.VertexData vertexData = mapRender.mapData.GetVertexData(x_start + i, y_start + j);

@@ -723,17 +723,27 @@ namespace Sango.Core
                         CurrentCity.wildPersons.Add(this);
                         break;
                     case PersonStateType.Prisoner:
-                        // 准备俘虏
-                        if (BelongForce != null)
-                            BelongForce.BeCaptiveList.Add(this);
 
-                        if (BelongTroop != null)
+                        if(CurrentCity.IsSameForce(this))
                         {
-                            BelongTroop.captiveList.Add(this);
+                            // 修复一下
+                            BelongCity = CurrentCity;
+                            BelongCity.allPersons.Add(this);
                         }
                         else
                         {
-                            CurrentCity.captiveList.Add(this);
+                            // 准备俘虏
+                            if (BelongForce != null)
+                                BelongForce.BeCaptiveList.Add(this);
+
+                            if (BelongTroop != null)
+                            {
+                                BelongTroop.captiveList.Add(this);
+                            }
+                            else
+                            {
+                                CurrentCity.captiveList.Add(this);
+                            }
                         }
                         break;
                     case PersonStateType.Invalid:

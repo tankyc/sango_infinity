@@ -90,7 +90,40 @@ namespace Sango.UI
             if (cell.moveAble)
             {
                 string cityName = cell.BelongCity != null ? cell.BelongCity.Name : "--";
-                cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y})     ";
+
+                if(cell.CanBuild && cell.building == null)
+                {
+                    bool can_place_obstacle = true;
+                    bool can_place_other = true;
+
+                    int buildSpace = Scenario.Cur.Variables.BuildingSpace;
+                    cell.SpiralHasBuilding(buildSpace, (b) =>
+                     {
+                         if (b.BuildingType.majorType == 0)
+                         {
+                             can_place_obstacle = false;
+                             can_place_other = false;
+                         }
+                         else if (!b.BuildingType.IsObstacle)
+                         {
+                             can_place_other = false;
+                         }
+
+                         return b.BuildingType.majorType == 0 || !b.BuildingType.IsObstacle;
+                     });
+                  
+                    if(can_place_obstacle && !can_place_other)
+                        cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>障碍物</color>";
+                    else if (!can_place_obstacle && can_place_other)
+                        cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>军事设施</color>";
+                    else if(can_place_obstacle && can_place_other)
+                        cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>军事设施,障碍物</color>";
+                    else
+                        cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) <color=#ff1111>不可建筑</color>";
+
+                }
+                else
+                    cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) <color=#ff1111>不可建筑</color>";
             }
             else
             {

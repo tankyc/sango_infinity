@@ -254,7 +254,7 @@ namespace Sango.UI
         public void OnSelectPerson()
         {
             GameSystem.GetSystem<PersonSelectSystem>().Start(cityTransportSys.TargetCity.freePersons,
-                cityTransportSys.personList, cityTransportSys.TargetCity.FreePersonCount, OnPersonChange, cityTransportSys.customTitleList, cityTransportSys.customTitleName);
+                cityTransportSys.personList, 3, OnPersonChange, cityTransportSys.customTitleList, cityTransportSys.customTitleName);
         }
 
         public void OnSlecteMax()

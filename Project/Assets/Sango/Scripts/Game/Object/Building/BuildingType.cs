@@ -103,16 +103,35 @@ namespace Sango.Core
                 return IsIntrior;
             else
             {
-                if (cell.CanBuild)
+                if (!cell.CanBuild)
                 {
+                    return false;
+                }
+
+                if (IsObstacle)
+                {
+                    // 障碍物不能建在港关城周围
                     int buildSpace = Scenario.Cur.Variables.BuildingSpace;
-                    if (cell.SpiralHasBuilding(buildSpace))
+                    if (cell.SpiralHasBuilding(buildSpace, (b) =>
+                    {
+                        return b.BuildingType.majorType == 0;
+                    }))
                     {
                         return false;
                     }
                 }
                 else
-                    return false;
+                {
+                    // 只有军事建筑和爆炸物需要判断距离限制
+                    int buildSpace = Scenario.Cur.Variables.BuildingSpace;
+                    if (cell.SpiralHasBuilding(buildSpace, (b) =>
+                    {
+                        return !b.BuildingType.IsObstacle;
+                    }))
+                    {
+                        return false;
+                    }
+                }
             }
             return true;
         }

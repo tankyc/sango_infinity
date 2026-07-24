@@ -23,7 +23,9 @@ public class GameStart : MonoBehaviour
     ScreenOrientation last_orientation;
     void Awake()
     {
+#if UNITY_ANDROID
         UnityEngine.Rendering.DebugManager.instance.enableRuntimeUI = false;
+#endif
         //    StartCoroutine(GitDownloader.DownloadAndExtract(
         //    "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/mod.info",
         //    "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/1.0/official_rp.zip",

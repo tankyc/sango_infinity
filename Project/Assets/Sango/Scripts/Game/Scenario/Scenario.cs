@@ -1364,7 +1364,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 寻找两个城市之间的最短路径
+        /// 寻找两个城市之间的最短路径,要求自家势力内
         /// </summary>
         /// <param name="startCity">起始城市</param>
         /// <param name="endCity">目标城市</param>
@@ -1434,6 +1434,78 @@ namespace Sango.Core
                 }
                 path.Reverse();
                 cityPathMap[key] = path;
+                return path;
+            }
+
+            // 如果没有找到路径，返回null
+            return null;
+        }
+
+        /// <summary>
+        /// 寻找两个城市之间的最短路径
+        /// </summary>
+        /// <param name="startCity">起始城市</param>
+        /// <param name="endCity">目标城市</param>
+        /// <returns>最短路径的城市列表</returns>
+        public List<City> FindShortestPathInForce(City startCity, City endCity)
+        {
+            // 检查参数
+            if (startCity == null || endCity == null)
+                return null;
+
+            // 检查是否是同一个城市
+            if (startCity == endCity)
+            {
+                return new List<City> { startCity };
+            }
+
+            // 如果缓存中没有，使用BFS算法重新计算路径
+            Dictionary<City, City> parentMap = new Dictionary<City, City>();
+            Queue<City> queue = new Queue<City>();
+            HashSet<City> visited = new HashSet<City>();
+
+            queue.Enqueue(startCity);
+            visited.Add(startCity);
+            parentMap[startCity] = null;
+
+            bool found = false;
+            while (queue.Count > 0)
+            {
+                City current = queue.Dequeue();
+
+                foreach (City neighbor in current.NeighborList)
+                {
+                    if (!visited.Contains(neighbor))
+                    {
+                        visited.Add(neighbor);
+                        if(neighbor.IsSameForce(startCity))
+                        {
+                            queue.Enqueue(neighbor);
+                            parentMap[neighbor] = current;
+                            if (neighbor == endCity)
+                            {
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (found)
+                    break;
+            }
+
+            // 如果找到路径，构建路径并缓存
+            if (found)
+            {
+                List<City> path = new List<City>();
+                City current = endCity;
+                while (current != null)
+                {
+                    path.Add(current);
+                    current = parentMap[current];
+                }
+                path.Reverse();
                 return path;
             }
 

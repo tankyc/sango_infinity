@@ -101,7 +101,7 @@ namespace Sango.Core
                 priorityQueue.Clear();
                 city.ForeachNeighborCities(x =>
                 {
-                    if (x.IsEnemy(city))
+                    if (x.IsEnemy(city) && city.BelongCorps.CheckTargetIsAppointTarget(x))
                     {
                         if (x.BelongForce == null)
                         {
@@ -187,6 +187,9 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AISearching(City city, Scenario scenario)
         {
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
+                return false;
+
             if ((city.invisiblePersons.Count > 0 && city.freePersons.Count > 0 && GameRandom.Chance(80)) || GameRandom.Chance(20))
             {
                 Person[] recommandList = ForceAI.CounsellorRecommendSearching(city.freePersons, city, recommandSearchingFeatrues);
@@ -253,6 +256,13 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AITransfrom(City city, Scenario scenario)
         {
+            int appointValue = city.BelongCorps.GetAppointValue(Corps.AppointContentType.Transport);
+            City targetTransportCity = null;
+            if (appointValue > 0)
+            {
+                targetTransportCity = scenario.citySet.Get(appointValue);
+            }
+
             if (city.IsBorderCity) return true;
 
             if (city.freePersons.Count == 0) return true;
@@ -262,25 +272,47 @@ namespace Sango.Core
                 return true;
             }
 
-            // 找到更近的圈层
-            List<City> list = new List<City>();
-            for (int i = 0; i < city.NeighborList.Count; i++)
+            City target = null;
+            if (targetTransportCity != null)
             {
-                City neighbor = city.NeighborList[i];
-                if (neighbor.borderLine < city.BorderLine)
+                if(targetTransportCity == city)
+                    return true;
+
+                // 使用寻路方法获取距离
+                List<City> path = scenario.FindShortestPathInForce(city, targetTransportCity);
+                if(path == null || path.Count == 0)
                 {
-                    list.Add(neighbor);
+                    return true;
+                }
+
+                target = path[0];
+
+            }
+            else
+            {
+                // 找到更近的圈层
+                List<City> list = new List<City>();
+                for (int i = 0; i < city.NeighborList.Count; i++)
+                {
+                    City neighbor = city.NeighborList[i];
+                    if (neighbor.borderLine < city.BorderLine)
+                    {
+                        list.Add(neighbor);
+                    }
+                }
+
+                if (list.Count == 0) return true;
+                target = list[0];
+                for (int i = 1; i < list.Count; i++)
+                {
+                    City neighbor = list[i];
+                    if (neighbor.troops < target.troops)
+                        target = neighbor;
                 }
             }
 
-            if (list.Count == 0) return true;
-            City target = list[0];
-            for (int i = 1; i < list.Count; i++)
-            {
-                City neighbor = list[i];
-                if (neighbor.troops < target.troops)
-                    target = neighbor;
-            }
+            if (target == null)
+                return true;
 
             TroopType troopType = scenario.GetObject<TroopType>(6);
 
@@ -346,7 +378,7 @@ namespace Sango.Core
         /// <param name="scenario">场景对象</param>
         /// <returns>是否完成</returns>
         public static bool AITransfromToBelongCity(City city, Scenario scenario)
-        {
+        {          
             if (city.IsEnemiesRound()) return true;
 
             if (city.BelongCity == null) return true;
@@ -464,6 +496,15 @@ namespace Sango.Core
 
         public static bool AIBuilding(City city, Scenario scenario)
         {
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Build) == 1)
+                return true;
+
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            {
+                if (GameRandom.Chance(50))
+                    return true;
+            }
+
             if (city.IsEnemiesRound())
                 return true;
 
@@ -491,7 +532,6 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIBuildMilitaryBuilding(City city, Scenario scenario)
         {
-
             if (city.areaCellList.Count == 0)
                 return true;
 
@@ -532,7 +572,7 @@ namespace Sango.Core
             }
 
             // 先统计已经去人建造的地块
-            int buildSpace = Scenario.Cur.Variables.BuildingSpace;
+            int buildSpace = Math.Max(1, Scenario.Cur.Variables.BuildingSpace);
             List<Cell> troop_dst_cell = new List<Cell>();
             for (int m = 0; m < city.allTroops.Count; m++)
             {
@@ -959,6 +999,21 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIRecruitTroop(City city, Scenario scenario)
         {
+            // 轻视士兵,70%概率不考虑此行动
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
+            {
+                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+                {
+                    if (GameRandom.Chance(80))
+                        return true;
+                }
+                else
+                {
+                    if (GameRandom.Chance(60))
+                        return true;
+                }
+            }
+
             if (city.freePersons.Count <= 2) return true;
 
             int expectationTroops = (city.food / 2);
@@ -986,6 +1041,12 @@ namespace Sango.Core
         /// <returns></returns>
         public static bool AITradeFood(City city, Scenario scenario)
         {
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+                return true;
+
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
+                return true;
+
             if (city.freePersons.Count <= 0) return true;
             if (city.gold <= 2000) return true;
 
@@ -1057,6 +1118,9 @@ namespace Sango.Core
         public static bool AICanAttack(City city, Scenario scenario)
         {
             if (scenario.TurnCount < scenario.Variables.AIAttackProtectedCount)
+                return false;
+
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Attack) == 1)
                 return false;
 
             // 获取AI个性
@@ -1187,6 +1251,8 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AICreateItems(City city, Scenario scenario)
         {
+
+
             if (city.freePersons.Count < 2 || city.gold < 1000)
                 return true;
 
@@ -1230,6 +1296,9 @@ namespace Sango.Core
                 if (itemTypeId < 5 && freeBlacksmithShop == null)
                     continue;
 
+                if (city.BelongCorps.GetAppointValue((Corps.AppointContentType)(itemTypeId - 2)) == 1)
+                    continue;
+
                 int itemNum = city.itemStore.GetNumber(itemTypeId);
                 if (itemNum < levelTotal[itemTypeId - 2] * city.troops / sumTotal + 5000)
                 {
@@ -1252,7 +1321,16 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AICreateBoat(City city, Scenario scenario)
         {
-            if (city.portList.Count == 0) return false;
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Boat) == 1)
+                return true;
+
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            {
+                if (GameRandom.Chance(50))
+                    return true;
+            }
+
+            if (city.portList.Count == 0) return true;
 
             if (city.freePersons.Count < 2 || city.gold < 1500)
                 return true;
@@ -1289,6 +1367,15 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AICreateMachine(City city, Scenario scenario)
         {
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Machine) == 1)
+                return true;
+
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            {
+                if (GameRandom.Chance(50))
+                    return true;
+            }
+
             if (city.freePersons.Count < 2 || city.gold < 1500)
                 return true;
 

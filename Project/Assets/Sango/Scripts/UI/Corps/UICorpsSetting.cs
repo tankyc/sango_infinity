@@ -46,6 +46,8 @@ namespace Sango.UI
         public System.Action onSure;
         public System.Action onCancel;
 
+        public List<ObjectSortTitle> forceSelectTitleList;
+
         /// <summary>
         /// 当前选中的军团
         /// </summary>
@@ -71,6 +73,12 @@ namespace Sango.UI
         /// </summary>
         public override void OnOpen(params object[] objects)
         {
+            forceSelectTitleList = new List<ObjectSortTitle>()
+            {
+                ForceSortFunction.SortByName,
+                ForceSortFunction.SortByLeader,
+            };
+
             targetCorps = objects[0] as Corps;
             targetForce = targetCorps.BelongForce;
             if (objects.Length > 1)
@@ -106,8 +114,6 @@ namespace Sango.UI
             commander.SetPerson(targetCorps.Comander);
             commanderStatus.SetPerson(targetCorps.Comander);
             commanderButton.interactable = targetCityList.Count > 0;
-            targetText.text = "";
-            targetButton.interactable = false;
             int cityCount = targetCityList.Count;
             if (cityCount == 0)
             {
@@ -129,8 +135,35 @@ namespace Sango.UI
                 }
                 cityCountText.text = stringBuilder.ToString();
             }
-            policyText.text = GetPolicyText(targetCorps.policy);
+            policyText.text = GetPolicyText(targetCorps.appoint);
             sureButton.interactable = targetCityList.Count > 0 && targetPersonList.Count > 0;
+            targetButton.interactable = targetCorps.appoint == (int)Corps.AppointType.OccupyCity || targetCorps.appoint == (int)Corps.AppointType.DestroyForce;
+            switch (targetCorps.appoint)
+            {
+                case 1:
+
+                    targetText.text = "";
+                    if (targetCorps.appoint_target > 0)
+                    {
+                        Force force = Scenario.Cur.forceSet.Get(targetCorps.appoint_target);
+                        if (force != null)
+                            targetText.text += force.Name;
+                    }
+
+                    break;
+                case 2:
+                    targetText.text = "";
+                    if (targetCorps.appoint_target > 0)
+                    {
+                        City force = Scenario.Cur.citySet.Get(targetCorps.appoint_target);
+                        if (force != null)
+                            targetText.text += force.Name;
+                    }
+                    break;
+                default:
+                    targetText.text = "";
+                    break;
+            }
         }
 
         /// <summary>
@@ -142,9 +175,9 @@ namespace Sango.UI
         {
             switch (policyType)
             {
-                case 0: return "委任";
-                case 1: return "攻略都市";
-                case 2: return "攻略势力";
+                case 0: return "";
+                case 1: return "攻略势力";
+                case 2: return "攻略都市";
                 default: return "委任";
             }
         }
@@ -172,7 +205,41 @@ namespace Sango.UI
         /// </summary>
         public void OnPolicyButtonClick()
         {
-            Sango.Log.Info("军团方针按钮点击");
+
+            PlayerChoice.ChoiceData[] choiceDatas = new PlayerChoice.ChoiceData[]
+            {
+                new PlayerChoice.ChoiceData()
+                {
+                    lab = $"攻略势力",
+                    call = () =>
+                    {
+                        targetCorps.appoint = 1;
+                        targetCorps.appoint_target = 0;
+                        UpdateContent();
+                    }
+                },
+                new PlayerChoice.ChoiceData()
+                {
+                    lab = $"攻略都市",
+                    call = () =>
+                    {
+                        targetCorps.appoint = 2;
+                        targetCorps.appoint_target = 0;
+                        UpdateContent();
+                    }
+                },
+                new PlayerChoice.ChoiceData()
+                {
+                    lab = $"委任",
+                    call = () =>
+                    {
+                        targetCorps.appoint = 3;
+                        targetCorps.appoint_target = 0;
+                        UpdateContent();
+                    }
+                }
+            };
+            GameSystem.GetSystem<PlayerChoice>().Start(choiceDatas);
         }
         public void OnCityChange(List<City> cities)
         {
@@ -210,7 +277,7 @@ namespace Sango.UI
         public void OnAppointmentButtonClick()
         {
             // 此处应该调用委任内容设置的逻辑
-            Sango.Log.Info("委任内容按钮点击");
+            Window.Instance.Open("window_corps_appoint", targetCorps, this);
         }
 
         /// <summary>
@@ -218,7 +285,42 @@ namespace Sango.UI
         /// </summary>
         public void OnTargetClick()
         {
-            Sango.Log.Info("攻略对象按钮点击");
+            if (targetCorps.appoint == (int)Corps.AppointType.DestroyForce)
+            {
+                List<Force> selectForces = new List<Force>();
+                if (targetCorps.appoint_target > 0)
+                {
+                    Force force = Scenario.Cur.forceSet.Get(targetCorps.appoint_target);
+                    if (force != null)
+                        selectForces.Add(force);
+                }
+                GameSystem.GetSystem<ForceSelectSystem>().Start(targetForce.NeighborForceList,
+                        selectForces, 1, (forceList) =>
+                        {
+                            if (forceList.Count > 0)
+                            {
+                                targetCorps.appoint_target = forceList[0].Id;
+                            }
+                        }, forceSelectTitleList, "选择攻略势力");
+            }
+            else if (targetCorps.appoint == (int)Corps.AppointType.OccupyCity)
+            {
+                List<City> selectCity = new List<City>();
+                if (targetCorps.appoint_target > 0)
+                {
+                    City city = Scenario.Cur.citySet.Get(targetCorps.appoint_target);
+                    if (city != null)
+                        selectCity.Add(city);
+                }
+                GameSystem.GetSystem<CitySelectSystem>().Start(targetForce.NeighborCityList,
+                        selectCity, 1, (cList) =>
+                        {
+                            if (cList.Count > 0)
+                            {
+                                targetCorps.appoint_target = cList[0].Id;
+                            }
+                        }, CitySortFunction.DefaultSortList, "选择攻略都市");
+            }
         }
 
         /// <summary>
