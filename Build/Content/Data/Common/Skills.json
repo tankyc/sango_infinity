@@ -672,7 +672,7 @@
       "Name": "猛撞",
       "kind": 2,
       "atk": 25,
-      "atkDurability": 0,
+      "atkDurability": 30,
       "costEnergy": 15,
       "successRate": 70,
       "successMethod": "CommonMethod",
@@ -820,6 +820,7 @@
       "successMethod": "FalseReportSuccessMethod",
       "criticalMethod": "FalseReportCriticalMethod",
       "spellRanges": [
+        1,
         2
       ],
       "needAblilityLevel": 0,
@@ -878,6 +879,7 @@
       "successMethod": "DisturbSuccessMethod",
       "criticalMethod": "DisturbCriticalMethod",
       "spellRanges": [
+        1,
         2
       ],
       "needAblilityLevel": 0,
@@ -935,6 +937,7 @@
       "successMethod": "CalmdownSuccessMethod",
       "criticalMethod": "CalmdownCriticalMethod",
       "spellRanges": [
+        1,
         2
       ],
       "needAblilityLevel": 0,

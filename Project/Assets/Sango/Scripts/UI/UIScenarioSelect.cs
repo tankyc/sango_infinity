@@ -79,6 +79,9 @@ namespace Sango.UI
                 return;
             }
 
+            if (show_scenario_list.Count == 0)
+                return;
+
             ShortScenario scenario = show_scenario_list[curSelectIndex];
             scenario.LoadContent();
             ScenarioInfo scenarioInfo = scenario.Info;
@@ -151,6 +154,9 @@ namespace Sango.UI
                 if (type == shortScenario.Info.type)
                     show_scenario_list.Add(shortScenario);
             }
+
+
+
             infoText.enabled = show_scenario_list.Count == 1;
             curSelectIndex = -1;
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN

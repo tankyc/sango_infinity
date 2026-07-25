@@ -13,11 +13,15 @@ namespace Sango.UI
         SangoObject target;
         public AnimationText aniText;
         public AnimationText.OnAnimationComplate onAnimationComplate;
+        public AnimationText critAniText;
 
-        private void Awake()
+        protected override void Awake()
         {
             aniText.aniByQueue = true;
             aniText.onAnimationComplate = OnAnimationComplate;
+
+            critAniText.aniByQueue = true;
+            critAniText.onAnimationComplate = OnAnimationComplate;
         }
 
         void OnAnimationComplate()
@@ -29,6 +33,18 @@ namespace Sango.UI
         public void Show(int damage, int damageType = 0)
         {
             UITools.ShowInfo(aniText, damage, damageType);
+        }
+
+        public void Show(int damage, bool isCrit, int damageType = 0)
+        {
+            if(isCrit)
+            {
+                UITools.ShowInfoNoColor(critAniText, damage, damageType);
+            }
+            else
+            {
+                UITools.ShowInfo(aniText, damage, damageType);
+            }
         }
 
         private void Update()
@@ -54,6 +70,20 @@ namespace Sango.UI
             }
             src.target = target;
             src.Show(value, valueType);
+            return src;
+        }
+
+        public static UIAnimationText Show(UIAnimationText src, SangoObject target, int value, int valueType, bool isCrit)
+        {
+            if (src == null || !src.gameObject.activeInHierarchy)
+            {
+                GameObject aniTextInfo = PoolManager.Create(GameRenderHelper.AnimationTextInfoRes);
+                if (aniTextInfo == null) return null;
+                aniTextInfo.transform.SetParent(null);
+                src = aniTextInfo.GetComponent<UIAnimationText>();
+            }
+            src.target = target;
+            src.Show(value, isCrit, valueType);
             return src;
         }
     }

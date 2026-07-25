@@ -97,6 +97,7 @@ namespace Sango.Render
 
         public virtual void UpdateRender() { }
         public virtual void ShowInfo(int damage, int damageType) {; }
+        public virtual void ShowInfo(int damage, int damageType, bool isCrit) {; }
         public virtual void ShowSkill(SkillInstance skill, bool isFail, bool isCritical) {; }
 
         public virtual void OnModelVisibleChange(MapObject obj)

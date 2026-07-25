@@ -53,7 +53,7 @@ namespace Sango.UI
         /// </summary>
         Corps targetCorps;
         Force targetForce;
-        List<City> targetCityList = new List<City>();
+        public List<City> targetCityList = new List<City>();
         List<Person> targetPersonList = new List<Person>();
         List<City> validCityList = new List<City>();
         List<Person> validPersonList = new List<Person>();
@@ -101,6 +101,21 @@ namespace Sango.UI
                 targetCityList.AddRange(targetCorps.inti_cities);
                 validCityList.AddRange(targetCorps.inti_cities);
             }
+
+            if (targetCityList.Count > 0)
+            {
+                foreach (City c in targetCityList)
+                {
+                    c.allPersons.ForEach(x =>
+                    {
+                        if (!x.IsPrisoner)
+                        {
+                            validPersonList.Add(x);
+                        }
+                    });
+                }
+            }
+
             UpdateContent();
         }
 
@@ -175,7 +190,7 @@ namespace Sango.UI
         {
             switch (policyType)
             {
-                case 0: return "";
+                case 0: return "委任";
                 case 1: return "攻略势力";
                 case 2: return "攻略都市";
                 default: return "委任";
@@ -247,7 +262,7 @@ namespace Sango.UI
             validPersonList.Clear();
             if (targetCityList.Count > 0)
             {
-                foreach (City c in cities)
+                foreach (City c in targetCityList)
                 {
                     c.allPersons.ForEach(x =>
                     {

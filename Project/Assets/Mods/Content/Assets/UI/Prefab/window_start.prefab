@@ -768,7 +768,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 428.9418, y: -139.5}
+  m_AnchoredPosition: {x: 428.9418, y: -171.5}
   m_SizeDelta: {x: 857.8836, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &9115980048602966621
@@ -813,7 +813,7 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1.1
   m_Text: "\u76EE\u524D\u672C\u6E38\u620F\u514D\u8D39,\u4EC5\u652F\u6301\u6350\u8D60,\u5236\u4F5C\u4E0D\u6613,\u4F5C\u8005\u4FDD\u6301\u6301\u7EED\u653E\u7535\u4E2D,\u559C\u6B22\u7684\u8BDD\u53EF\u4E3A\u7231\u53D1\u7535\u4EE5\u652F\u6301\u4F5C\u8005\u7EE7\u7EED\u5F00\u53D1\u5B8C\u5584.\nQQ\u4EA4\u6D41\u7FA4:
-    <color=#00ff00>526620498</color>\n\n\u6350\u8D60\u4EBA\u540D\u5355:\n<color=#ff9330>\u624B\u673A\u4ED4,komorebi,zd\u540C\u5B66,\n\u51AC\u4E4B\u7EFF\u53F6,\u9C81\u8FEA,*\u72D2,\u5728\u8DEF\u4E0A,\n\u96E8\u8FB0-\u6D4B\u8BD5\u5458,\u963F\u5C14\u8428\u65AF</color>"
+    <color=#00ff00>526620498</color>\n\n\u6350\u8D60\u4EBA\u540D\u5355:\r\n<color=#ff9330>\u624B\u673A\u4ED4,komorebi,zd\u540C\u5B66,\r\n\u51AC\u4E4B\u7EFF\u53F6,\u9C81\u8FEA,*\u72D2,\u5728\u8DEF\u4E0A,\r\n\u96E8\u8FB0-\u6D4B\u8BD5\u5458,\u963F\u5C14\u8428\u65AF,\r\n\u674E\u5341\u516D,\u5211\u90E8\u5C1A\u4E66,\u6BA4\r\n</color>"
 --- !u!114 &-279333457613969420
 MonoBehaviour:
   m_ObjectHideFlags: 0

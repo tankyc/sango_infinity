@@ -71,6 +71,7 @@ namespace Sango.Core.Player
 
         public void Remove(int index)
         {
+            if(index < 0 || index >= Objects.Count) { return; }
             selected.Remove(Objects[index]);
         }
         public int RemoveFront()

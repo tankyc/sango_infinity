@@ -1,0 +1,21 @@
+{
+	"official_rp" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/official_rp.info",
+	"ScenSrc" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/ScenSrc.info",
+	"src_face" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/src_face.info",
+	"src_sound" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/src_sound.info",
+	"fix_critical_image" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/fix_critical_image.info",
+	"testMapTex" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/testMapTex.info",
+	"amazing_critical_image" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/amazing_critical_image.info",
+	"amazing_critical_image2" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/amazing_critical_image2.info",
+	"No1Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No1Jjuben.info",
+	"No2Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No2Jjuben.info",
+	"No3Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No3Jjuben.info",
+	"No4Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No4Jjuben.info",
+	"No5Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No5Jjuben.info",
+	"No6Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No6Jjuben.info",
+	"No7Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No7Jjuben.info",
+	"No8Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No8Jjuben.info",
+	"No9Jjuben" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/No9Jjuben.info",
+	"san13pk_face" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/san13pk_face.info",
+	"san14pk_face" : "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/version/san14pk_face.info"
+}

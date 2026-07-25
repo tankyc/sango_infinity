@@ -45,7 +45,7 @@ namespace Sango.UI
         };
 
         int[] appointShowType = new int[] {
-            0,0,0,0,0,0,
+            1,1,1,1,1,1,
             2,
             1,1,
             0,0,
@@ -63,11 +63,12 @@ namespace Sango.UI
             {
                 Button button = corpsAppointBtns[i];
                 button.onClick.RemoveAllListeners();
+                int id = i;
                 button.onClick.AddListener(() =>
                 {
-                    if (appointSetting == null) return;
-                    int value = appointSetting[i];
-                    int showType = appointShowType[i];
+                    if (this.appointSetting == null) return;
+                    int value = this.appointSetting[id];
+                    int showType = this.appointShowType[id];
                     switch (showType)
                     {
                         case 0:
@@ -75,7 +76,7 @@ namespace Sango.UI
                                 value++;
                                 if (value > 1)
                                     value = 0;
-                                appointSetting[i] = value;
+                                this.appointSetting[id] = value;
                             }
                             break;
                         case 1:
@@ -83,7 +84,7 @@ namespace Sango.UI
                                 value++;
                                 if (value > 1)
                                     value = 0;
-                                appointSetting[i] = value;
+                                this.appointSetting[id] = value;
                             }
                             break;
                         case 2:
@@ -91,43 +92,23 @@ namespace Sango.UI
                                 value++;
                                 if (value > 1)
                                     value = 0;
-                                appointSetting[i] = value;
+                                this.appointSetting[id] = value;
                             }
                             break;
                         case 3:
                             {
-
-
-                                List<City> cities = new List<City>();
-                                targetCorps.ForEachCity((c) =>
-                                {
-                                    foreach (City neighbor in c.NeighborList)
+                                GameSystem.GetSystem<CitySelectSystem>().Start(targetCorps.BelongForce.CityList,
+                                    null, 1, (sel_cs) =>
                                     {
-                                        if (neighbor.IsSameForce(c) && neighbor.BelongCorps != c.BelongCorps)
-                                        {
-                                            if (!cities.Contains(neighbor))
-                                                cities.Add(neighbor);
-                                        }
-                                    }
-                                });
-                                List<City> all = new List<City>();
-                                if (appointSetting[i] > 0)
-                                {
-                                    all.Add(Scenario.Cur.citySet.Get(appointSetting[i]));
-                                }
-
-                                GameSystem.GetSystem<CitySelectSystem>().Start(cities,
-                                    all, 1, (sel_cs) =>
-                                    {
-                                        appointSetting[i] = sel_cs[0].Id;
+                                        this.appointSetting[id] = sel_cs[0].Id;
                                         cancelTransBtn.interactable = true;
-
+                                        corpsAppointBtnLabels[id].text = sel_cs[0].Name;
                                     }, CitySortFunction.DefaultSortList, "输送城池选择");
 
                             }
                             break;
                     }
-                    corpsAppointBtnLabels[i].text = GetAppointTypeShow(value, showType);
+                    corpsAppointBtnLabels[id].text = GetAppointTypeShow(value, showType);
                 });
             }
         }

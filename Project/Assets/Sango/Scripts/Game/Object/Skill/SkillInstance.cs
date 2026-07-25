@@ -292,7 +292,7 @@ namespace Sango.Core
         /// <param name="cells"></param>
         public void GetAttackCells(Troop atker, Cell spell, List<Cell> cells)
         {
-            skill.GetAttackCells(atker, spell, cells);
+            skill.GetAttackCells(atkOffsetPoint, atker, spell, cells);
         }
 
         /// <summary>
@@ -311,6 +311,11 @@ namespace Sango.Core
         public bool IsStrategy()
         {
             return skill.IsStrategy();
+        }
+
+        public bool IsCritical()
+        {
+            return tempCriticalFactor > 100;
         }
 
         /// <summary>

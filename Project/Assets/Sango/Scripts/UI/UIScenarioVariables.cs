@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 using Sango.Core;
+using System;
+
 namespace Sango.UI
 {
     /// <summary>
@@ -33,13 +35,37 @@ namespace Sango.UI
         protected List<GameObject> pool_toggleGroupObj = new List<GameObject>();
         protected List<GameObject> itemList = new List<GameObject>();
 
+        public Action onSure;
+        public Action onCancel;
+
+        Scenario TargetScenario;
+
         public override void OnOpen()
         {
+            onSure = null; onCancel = null;
             for (int i = 0; i < itemList.Count; i++)
                 RemoveItem(itemList[i]);
             itemList.Clear();
-            Scenario.CurSelected.LoadVariables();
-            ShowVariables(Scenario.CurSelected);
+            TargetScenario = Scenario.CurSelected;
+            if (TargetScenario.Variables == null)
+                TargetScenario.LoadVariables();
+            ShowVariables(TargetScenario);
+        }
+
+        public override void OnOpen(params object[] objects)
+        {
+            onSure = null; onCancel = null;
+            for (int i = 0; i < itemList.Count; i++)
+                RemoveItem(itemList[i]);
+            itemList.Clear();
+            TargetScenario = objects[0] as Scenario;
+            if (objects.Length > 1)
+                onSure = objects[1] as System.Action;
+            if (objects.Length > 2)
+                onCancel = objects[2] as System.Action;
+            if (TargetScenario.Variables == null)
+                TargetScenario.LoadVariables();
+            ShowVariables(TargetScenario);
         }
 
         float[] lvlFactor = new float[] { 1f, 1f, 1.2f, 2f };
@@ -550,6 +576,11 @@ namespace Sango.UI
 
         public virtual void OnStartGame()
         {
+            if (onSure != null)
+            {
+                onSure.Invoke();
+                return;
+            }
             Window.Instance.Open("window_loading");
             Window.Instance.Close("window_scenario_variables");
             Scenario.StartScenario(Scenario.CurSelected);
@@ -557,6 +588,11 @@ namespace Sango.UI
 
         public virtual void OnCancel()
         {
+            if (onCancel != null)
+            {
+                onCancel.Invoke();
+                return;
+            }
             Window.Instance.Close("window_scenario_variables");
             Window.Instance.Open("window_scenario_force_select");
         }

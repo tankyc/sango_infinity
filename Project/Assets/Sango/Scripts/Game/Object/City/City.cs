@@ -863,8 +863,11 @@ namespace Sango.Core
             if (BelongForce != null)
             {
                 BelongForce.CityBaseCount++;
+                BelongForce.CityList.Add(this);
                 if (IsCity())
+                {
                     BelongForce.CityCount++;
+                }
             }
 
             if (IsPort())
@@ -1536,6 +1539,7 @@ namespace Sango.Core
             if (atk == null) return;
 
             Force lastBelongForce = BelongForce;
+            Corps lastBelongCorps = BelongCorps;
             freePersons.Clear();
 
             // 清理火
@@ -1565,6 +1569,7 @@ namespace Sango.Core
 
             BelongForce.CityBaseCount--;
             if (IsCity()) BelongForce.CityCount--;
+            BelongForce.CityList.Remove(this);
 
             // 确认一个撤退城市
             City escapeCity = null;
@@ -1707,12 +1712,14 @@ namespace Sango.Core
             }
 
             ChangeCorps(atk.BelongCorps);
-
             atk.BelongForce.CityBaseCount++;
             if (IsCity())
             {
                 atk.BelongForce.CityCount++;
             }
+            atk.BelongForce.CityList.Add(this);
+            lastBelongCorps.UpdateWhenCityChange();
+            atk.BelongCorps.UpdateWhenCityChange();
 
             // 处理库存和钱粮,兵力
             food = food * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepFoodFactor) * 10 + 10) / 100;

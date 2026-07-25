@@ -56,6 +56,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByLoyalty,
                 PersonSortFunction.GetSortByDistanceDay(TargetCity),
                 PersonSortFunction.SortByBelongCity,
+                PersonSortFunction.SortByCurrentCity,
                 PersonSortFunction.SortByCommand,
                 PersonSortFunction.SortByStrength,
                 PersonSortFunction.SortByIntelligence,

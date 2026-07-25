@@ -237,6 +237,15 @@ namespace Sango.Core
         public int troops;
         public int food;
 
+        public void UpdateWhenCityChange()
+        {
+            PrepareCityInfo();
+            if(cityCount == 0)
+            {
+                BelongForce.DeleteCorps(this);
+            }
+        }
+
         public void PrepareCityInfo()
         {
             cityCount = 0;

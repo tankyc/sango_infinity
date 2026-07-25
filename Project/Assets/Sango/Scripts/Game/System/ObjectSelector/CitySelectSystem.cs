@@ -45,7 +45,10 @@ namespace Sango.Core.Player
             Objects = new List<SangoObject>(cities);
             finishAction = action;
             sureAction = OnBaseSure;
-            selected = new List<SangoObject>(resultList);
+            if (resultList == null)
+                selected = new List<SangoObject>();
+            else
+                selected = new List<SangoObject>(resultList);
             customSortItems = customSortTitles != null ? customSortTitles : defualtTitleList;
             this.customSortTitleName = cutomSortTitleName != null ? cutomSortTitleName : defualtTitleName; ;
             ClickMode = limit == 1;

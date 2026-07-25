@@ -1295,7 +1295,14 @@ namespace Sango.Core
                 return IsAlive;
 
             if (Render != null)
-                Render.ShowInfo(num, (int)InfoType.Troop);
+            {
+                bool isCrit = false;
+                if(skill != null)
+                {
+                    isCrit = skill.IsCritical();
+                }
+                Render.ShowInfo(num, (int)InfoType.Troop, isCrit);
+            }
 
             troops = troops + num;
             if (num < 0)
@@ -1426,7 +1433,7 @@ namespace Sango.Core
                 else
                     return false;
             }
-
+            skill.tempCriticalFactor = 100;
             if (skill.CheckSuccess(spellCell))
             {
 

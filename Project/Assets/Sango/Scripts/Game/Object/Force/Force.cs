@@ -180,6 +180,11 @@ namespace Sango.Core
         public List<City> NeighborCityList = new List<City>();
 
         /// <summary>
+        /// 本势力的城市
+        /// </summary>
+        public List<City> CityList = new List<City>();
+
+        /// <summary>
         /// 国力值
         /// </summary>
         public int FightPower;
@@ -665,7 +670,7 @@ namespace Sango.Core
                 }
             }
 
-           
+
 
             for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
@@ -794,7 +799,7 @@ namespace Sango.Core
             }
 
 
-            
+
         }
 
 
@@ -1138,6 +1143,8 @@ namespace Sango.Core
                 }
             }
             corps.inti_cities = null;
+            corps.Comander.BelongCity.UpdateNewLeader();
+            corps.PrepareCityInfo();
             GameEvent.OnCorpsCreate?.Invoke(corps, Scenario.Cur);
         }
 
@@ -1197,7 +1204,8 @@ namespace Sango.Core
                     x.BelongCorps = governorCorps;
                 }
             });
-
+            if (corps.Comander.state == (int)PersonStateType.Commander)
+                corps.Comander.state = (int)PersonStateType.Normal;
             Scenario.Cur.corpsSet.Remove(corps);
             GameEvent.OnCorpsDelete?.Invoke(corps, Scenario.Cur);
         }

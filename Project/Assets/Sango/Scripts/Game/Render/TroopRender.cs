@@ -245,6 +245,18 @@ namespace Sango.Render
             }
         }
 
+        public override void ShowInfo(int damage, int damageType, bool isCrit)
+        {
+            if (HeadBar != null)
+            {
+                UITroopHeadbar uITroopHeadbar = HeadBar as UITroopHeadbar;
+                if (uITroopHeadbar != null)
+                {
+                    uITroopHeadbar.ShowInfo(damage, isCrit, damageType);
+                }
+            }
+        }
+
         public override void ShowSkill(SkillInstance skill, bool isFail, bool isCritical)
         {
             if (HeadBar != null)

@@ -447,6 +447,7 @@ namespace Sango.Core
         public void SetStateLeader()
         {
             if (IsGovernor) return;
+            if (IsCommander) return;
             state = (int)PersonStateType.Leader;
         }
 
@@ -521,7 +522,7 @@ namespace Sango.Core
         public int TroopsLimit
         {
             //TODO: 增加国家科技加持
-            get { return Official.troopsLimit + Level.troops + troopsLimitExtra; }
+            get { return Math.Max(IsGovernor ? 20000 : 0, Official.troopsLimit) + Level.troops + troopsLimitExtra; }
         }
 
         /// <summary>
@@ -724,7 +725,7 @@ namespace Sango.Core
                         break;
                     case PersonStateType.Prisoner:
 
-                        if(CurrentCity.IsSameForce(this))
+                        if (CurrentCity.IsSameForce(this))
                         {
                             // 修复一下
                             BelongCity = CurrentCity;
@@ -854,7 +855,7 @@ namespace Sango.Core
                     state = (int)PersonStateType.Invisible;
 
                     City city = null;
-                    if(birthplace > 0)
+                    if (birthplace > 0)
                         city = scenario.citySet.Get(birthplace);
                     if (city == null)
                         city = scenario.citySet.RandomGet();

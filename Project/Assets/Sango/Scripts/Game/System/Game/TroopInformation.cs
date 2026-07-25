@@ -37,6 +37,7 @@ namespace Sango.Core
             GameEvent.OnGameSettingContextMenuShow += OnGameSettingContextMenuShow;
 #if UNITY_ANDROID || UNITY_IPHONE
             GameEvent.OnTroopContextMenuShow += OnTroopContextMenuShow;
+            GameEvent.OnTroopActionContextMenuShow -= OnTroopContextMenuShow;
 #endif
         }
         protected virtual bool MenuCanShow()
@@ -50,6 +51,7 @@ namespace Sango.Core
             GameEvent.OnGameSettingContextMenuShow -= OnGameSettingContextMenuShow;
 #if UNITY_ANDROID || UNITY_IPHONE
             GameEvent.OnTroopContextMenuShow -= OnTroopContextMenuShow;
+            GameEvent.OnTroopActionContextMenuShow -= OnTroopContextMenuShow;
 #endif
         }
 
@@ -85,6 +87,15 @@ namespace Sango.Core
             if (!troop.IsPlayer || troop.ActionOver)
                 menuData.Add("情报", 1000, troop, OnClickMenuItem, true);
         }
+        protected virtual void OnTroopContextMenuShow(IContextMenuData menuData, Troop troop, Cell actionCell)
+        {
+            if (troop.BelongForce != null && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
+            {
+                Target = troop;
+                menuData.Add("情报", 9000, troop, OnClickMenuItem, true);
+            }
+        }
+        
 #endif
         protected virtual void OnClickMenuItem(IContextMenuItem contextMenuItem)
         {

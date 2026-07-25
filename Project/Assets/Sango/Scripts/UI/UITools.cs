@@ -18,5 +18,14 @@ using Sango.Core; namespace Sango.UI
             aniText.flipY = isUpZero;
             aniText.Create(damage.ToString(), stringBuilder.ToString(), c, 2);
         }
+
+        public static void ShowInfoNoColor(AnimationText aniText, int damage, int damageType = 0)
+        {
+            bool isUpZero = damage > 0;
+            StringBuilder stringBuilder = new StringBuilder(isUpZero ? "A" : "B");
+            stringBuilder.Append((char)(67 + damageType));
+            aniText.flipY = isUpZero;
+            aniText.Create(damage.ToString(), stringBuilder.ToString(), 2.1f);
+        }
     }
 }

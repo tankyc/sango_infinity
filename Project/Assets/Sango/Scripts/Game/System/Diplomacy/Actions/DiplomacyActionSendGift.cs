@@ -116,6 +116,8 @@ namespace Sango.Core
             // 计算关系增加量（考虑多种因素）
             int relationIncrease = CalculateDynamicRelationIncrease();
 
+            Receiver.CapitalCity.gold += ResourceValue;
+
             // 增加关系
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             diplomacyManager.AddRelation(Sender, Receiver, relationIncrease);
@@ -143,6 +145,8 @@ namespace Sango.Core
                 GameEvent.OnDiplomacySendGift?.Invoke(Sender, Receiver, ResourceValue, false);
                 return;
             }
+
+            Receiver.CapitalCity.gold += ResourceValue;
 
             // 计算关系增加量（考虑多种因素）
             int relationIncrease = CalculateDynamicRelationIncrease();

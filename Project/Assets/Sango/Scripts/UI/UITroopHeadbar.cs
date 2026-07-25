@@ -107,6 +107,16 @@ using Sango.Core; namespace Sango.UI
                 aniText.onAnimationComplate = OnAnimationComplate;
             }
         }
+
+        public void ShowInfo(int damage, bool isCrit, int damageType = 0)
+        {
+            aniText = UIAnimationText.Show(aniText, troop, damage, damageType, isCrit);
+            if (aniText != null)
+            {
+                aniText.onAnimationComplate = OnAnimationComplate;
+            }
+        }
+
         void OnAnimationComplate()
         {
             aniText = null;

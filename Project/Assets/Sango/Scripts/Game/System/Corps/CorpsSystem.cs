@@ -71,7 +71,7 @@ namespace Sango.Core.Player
             }
 
             // 新建军团菜单
-            menuData.Add("新建军团", 10, this, OnClickMenuItem_CreateCorps, targetNumber > 1);
+            menuData.Add("新建军团", 10, this, OnClickMenuItem_CreateCorps, targetNumber > 1 );
 
             // 重编军团菜单
             menuData.Add("重编军团", 11, this, OnClickMenuItem_RearrangeCorps, corps_list.Count > 0);
@@ -190,6 +190,7 @@ namespace Sango.Core.Player
                 GameDialog.Close();
                 Done();
             }).SetPerson(targetCorps.Comander);
+
             GameMedia.Instance.PlayDoAcitonSfx();
         }
 
