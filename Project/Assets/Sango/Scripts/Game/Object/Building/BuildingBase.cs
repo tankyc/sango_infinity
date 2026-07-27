@@ -83,7 +83,7 @@ namespace Sango.Core
         /// 中心Cell
         /// </summary>
         public virtual Cell CenterCell { get; set; }
-        
+
         /// <summary>
         /// 占用的cell
         /// </summary>
@@ -221,6 +221,17 @@ namespace Sango.Core
             {
                 if (Render != null)
                     Render.ShowInfo(num, (int)InfoType.Durability);
+            }
+
+            if (num < 0)
+            {
+                if (Render != null && Render.IsVisible())
+                {
+                    if (atk != null && atk.ObjectType == SangoObjectType.Troops)
+                    {
+                        GameMedia.Instance.PlaySfx(93);
+                    }
+                }
             }
 
             durability = durability + num;

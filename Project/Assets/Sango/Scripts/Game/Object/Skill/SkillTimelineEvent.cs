@@ -201,7 +201,7 @@ namespace Sango.Core
     /// </summary>
     public class SkillTimelineEvent_PlaySound : SkillTimelineEvent
     {
-        public string soundName;
+        public int soundId;
 
         public override void Init(JObject eventData)
         {
@@ -209,9 +209,9 @@ namespace Sango.Core
             if (eventData.TryGetValue("parameters", out JToken parametersToken))
             {
                 JObject parameters = parametersToken as JObject;
-                if (parameters != null && parameters.TryGetValue("soundName", out JToken soundNameToken))
+                if (parameters != null && parameters.TryGetValue("soundId", out JToken soundNameToken))
                 {
-                    soundName = soundNameToken.Value<string>();
+                    soundId = soundNameToken.Value<int>();
                 }
             }
         }
@@ -219,7 +219,7 @@ namespace Sango.Core
         public override void Execute(SkillInstance skillInstance, Troop troop, Cell spellCell)
         {
             // 播放音效逻辑
-           AudioManager.Instance.PlaySfx(soundName);
+           GameMedia.Instance.PlaySfx(soundId);
         }
     }
 

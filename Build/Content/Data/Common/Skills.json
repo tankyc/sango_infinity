@@ -16,12 +16,17 @@
       "needAblilityLevel": 0,
       "isRange": false,
       "canDamageTroop": true,
+      "actionSound": 82,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2698,
+        2684
+      ]
     },
     "2": {
       "Id": 2,
@@ -44,7 +49,10 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2684
+      ]
     },
     "3": {
       "Id": 3,
@@ -67,12 +75,16 @@
       ],
       "blockFactor": 30,
       "canDamageTroop": true,
+      "actionSound": 67,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2852
+      ]
     },
     "4": {
       "Id": 4,
@@ -126,12 +138,16 @@
         }
       ],
       "canDamageTroop": true,
+      "actionSound": 67,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2838
+      ]
     },
     "5": {
       "Id": 5,
@@ -154,12 +170,16 @@
       ],
       "blockFactor": 50,
       "canDamageTroop": true,
+      "actionSound": 67,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2810
+      ]
     },
     "6": {
       "Id": 6,
@@ -183,12 +203,16 @@
         -1
       ],
       "canDamageTroop": true,
+      "actionSound": 77,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2866
+      ]
     },
     "7": {
       "Id": 7,
@@ -209,12 +233,16 @@
         4
       ],
       "canDamageTroop": true,
+      "actionSound": 79,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2824
+      ]
     },
     "8": {
       "Id": 8,
@@ -236,12 +264,16 @@
         1
       ],
       "canDamageTroop": true,
+      "actionSound": 80,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2824
+      ]
     },
     "9": {
       "Id": 9,
@@ -298,7 +330,12 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2880,
+        2894,
+        2908
+      ]
     },
     "10": {
       "Id": 10,
@@ -326,7 +363,12 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2880,
+        2894,
+        2908
+      ]
     },
     "11": {
       "Id": 11,
@@ -353,7 +395,12 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2880,
+        2894,
+        2908
+      ]
     },
     "12": {
       "Id": 12,
@@ -377,12 +424,16 @@
         1
       ],
       "canDamageTroop": true,
+      "actionSound": 72,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2936
+      ]
     },
     "13": {
       "Id": 13,
@@ -404,12 +455,16 @@
         2
       ],
       "canDamageTroop": true,
+      "actionSound": 72,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2922
+      ]
     },
     "14": {
       "Id": 14,
@@ -433,12 +488,16 @@
         2
       ],
       "canDamageTroop": true,
+      "actionSound": 73,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2936
+      ]
     },
     "15": {
       "Id": 15,
@@ -496,7 +555,12 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2880,
+        2894,
+        2908
+      ]
     },
     "16": {
       "Id": 16,
@@ -520,7 +584,10 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2824
+      ]
     },
     "17": {
       "Id": 17,
@@ -578,7 +645,11 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2824,
+        3020
+      ]
     },
     "18": {
       "Id": 18,
@@ -607,7 +678,10 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2950
+      ]
     },
     "19": {
       "Id": 19,
@@ -665,7 +739,10 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2880
+      ]
     },
     "20": {
       "Id": 20,
@@ -695,7 +772,11 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2852,
+        2964
+      ]
     },
     "21": {
       "Id": 21,
@@ -724,7 +805,10 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        3048
+      ]
     },
     "22": {
       "Id": 22,
@@ -781,7 +865,11 @@
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": true,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        3020,
+        3034
+      ]
     },
     "23": {
       "Id": 23,
@@ -803,12 +891,16 @@
         }
       ],
       "canDamageTroop": true,
+      "actionSound": 87,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": true,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": true
+      "onlySpellToTeam": true,
+      "personSound": [
+        3048
+      ]
     },
     "24": {
       "Id": 24,
@@ -862,12 +954,16 @@
         }
       ],
       "canDamageTroop": true,
+      "actionSound": 88,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2852
+      ]
     },
     "25": {
       "Id": 25,
@@ -921,12 +1017,16 @@
         }
       ],
       "canDamageTroop": true,
+      "actionSound": 89,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2852
+      ]
     },
     "26": {
       "Id": 26,
@@ -969,12 +1069,16 @@
         }
       ],
       "canDamageTroop": true,
+      "actionSound": 90,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": true
+      "onlySpellToTeam": true,
+      "personSound": [
+        3062
+      ]
     },
     "27": {
       "Id": 27,
@@ -991,12 +1095,16 @@
       "needAblilityLevel": 0,
       "isRange": true,
       "canDamageTroop": true,
+      "actionSound": 91,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2852
+      ]
     },
     "28": {
       "Id": 28,
@@ -1013,12 +1121,16 @@
       "needAblilityLevel": 0,
       "isRange": true,
       "canDamageTroop": true,
+      "actionSound": 92,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
       "canDamageTeam": false,
       "canSpellToCell": false,
-      "onlySpellToTeam": false
+      "onlySpellToTeam": false,
+      "personSound": [
+        2852
+      ]
     }
   }
 }

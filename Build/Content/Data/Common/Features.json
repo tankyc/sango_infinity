@@ -194,7 +194,7 @@
             {
               "class": "TroopChangeMorale",
               "targetType": 1,
-              "value": -10
+              "value": -20
             }
           ]
         }

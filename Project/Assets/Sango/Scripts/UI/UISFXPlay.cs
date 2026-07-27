@@ -1,11 +1,12 @@
-﻿using Sango.Manager;
+﻿using Sango.Core;
+using Sango.Manager;
 using UnityEngine.UI;
 
 namespace Sango.UI
 {
     public class UISFXPlay : UGUIWindow
     {
-        public string sfxPath;
+        public int sfxId;
         private void Start()
         {
             Button button = GetComponent<Button>();
@@ -13,12 +14,15 @@ namespace Sango.UI
             {
                 button.onClick.AddListener(PlaySFX);
             }
+            else
+            {
+                PlaySFX();
+            }
         }
 
         void PlaySFX()
         {
-            if(!string.IsNullOrEmpty(sfxPath))
-                AudioManager.Instance.PlaySfx(sfxPath);
+            GameMedia.Instance.PlaySfx(sfxId);
         }
     }
 }

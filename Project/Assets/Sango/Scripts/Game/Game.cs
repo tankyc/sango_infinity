@@ -62,7 +62,7 @@ namespace Sango.Core
         /// <param name="targetPlatform">目标平台</param>
         public override void Init(MonoBehaviour start, Platform.PlatformName targetPlatform)
         {
-            AudioManager.Instance.Init();
+            GameMedia.Instance.Init();
             GameSetting.Instance.Initialize();
             inited = false;
             CanvasScalerFactor = CanvasScaler.referenceResolution.y / 1080f;
@@ -195,7 +195,7 @@ namespace Sango.Core
             GameController.Instance.Update();
             base.Update();
             // 更新音效管理器
-            AudioManager.Instance.Update();
+            GameMedia.Instance.Update();
             // 更新舌战管理器
             DebateManager.Instance.Update(Time.deltaTime);
             Scenario scenario = Scenario.Cur;

@@ -27,6 +27,10 @@ namespace Sango.Render
             time = 0;
             if (IsVisible())
             {
+                if(troop.IsPlayer)
+                {
+                    GameMedia.Instance.PlayPersonSay(troop.Leader, GameRandom.Chance(50) ? 3090 : 3104);
+                }
                 troop.Render.SetSmokeShow(true);
             }
         }

@@ -188,6 +188,9 @@ namespace Sango.UI
                     break;
                 }
             }
+
+            GameMedia.Instance.PlaySfx(36);
+
         }
 
         protected override void OnDestroy()
@@ -266,17 +269,18 @@ namespace Sango.UI
             "Assets/UI/AtlasTexture/4846-6/4846-6_9.png",       //夏
             "Assets/UI/AtlasTexture/4846-6/4846-6_11.png"       //冬
         };
-        string[] seasonBGMPath = new string[] {
-            "Assets/Sound/2242.ogg",                             //秋
-            "Assets/Sound/2240.ogg",       //春
-            "Assets/Sound/2241.ogg",       //夏
-            "Assets/Sound/2243.ogg"       //冬
+
+        int[] seasonBGMPath = new int[] {
+            10,                             //秋
+            11,       //春
+            12,       //夏
+            13       //冬
         };
-        string[] seasonSfxPath = new string[] {
-            "Assets/Sound/2289.ogg",                             //秋
-            "Assets/Sound/2287.ogg",       //春
-            "Assets/Sound/2288.ogg",       //夏
-            "Assets/Sound/2290.ogg"       //冬
+        int[] seasonSfxPath = new int[] {
+            14,                             //秋
+            15,       //春
+            16,       //夏
+            17       //冬
         };
         public void OnDayUpdate(Scenario scenario)
         {
@@ -287,8 +291,8 @@ namespace Sango.UI
             int sIndex = (int)scenario.CurSeason;
             seasonImg.sprite = ObjectLoader.LoadObject<UnityEngine.Sprite>(seasonIconPath[sIndex]);
             seasonLabel.text = GameDefine.seasonName[sIndex];
-            AudioManager.Instance.PlayBgm(seasonBGMPath[sIndex]);
-            AudioManager.Instance.PlaySfx(seasonSfxPath[sIndex]);
+            GameMedia.Instance.PlayBgm(seasonBGMPath[sIndex]);
+            GameMedia.Instance.PlaySfx(seasonSfxPath[sIndex]);
         }
 
         public void OnBtnPause()

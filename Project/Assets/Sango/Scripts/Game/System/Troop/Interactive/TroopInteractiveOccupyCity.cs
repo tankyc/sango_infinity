@@ -37,6 +37,7 @@
         {
             base.OnEnter();
 
+            GameMedia.Instance.PlayPersonSay(TargetTroop.Leader, GameRandom.Chance(50) ? 3188 : 3202);
             TargetTroop.missionTarget = TargetCity.Id;
             TargetTroop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
             TargetTroop.Render?.UpdateRender();

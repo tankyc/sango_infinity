@@ -12,6 +12,13 @@ namespace Sango.Core.Object.Arrow
         /// </summary>
         [SerializeField]
         public GameObject explosionEffectPrefab;
+
+        /// <summary>
+        /// 命中音效
+        /// </summary>
+        public int hitSoundId = 71;
+
+
         /// <summary>
         /// 飞行时间
         /// </summary>
@@ -131,7 +138,7 @@ namespace Sango.Core.Object.Arrow
                     isFlying = false;
                     
                     // 播放爆炸特效
-                    //PlayExplosionEffect();
+                    PlayExplosionEffect();
                 }
             }
             else if (!isDisappearing)
@@ -200,7 +207,9 @@ namespace Sango.Core.Object.Arrow
             {
                 // 实例化爆炸特效
                 GameObject explosion = Instantiate(explosionEffectPrefab, transform.position, Quaternion.identity);
-                
+
+                GameMedia.Instance.PlaySfx(hitSoundId);
+
                 // 查找特效中的粒子系统或动画组件
                 ParticleSystem particleSystem = explosion.GetComponent<ParticleSystem>();
                 if (particleSystem != null)

@@ -54,6 +54,12 @@ namespace Sango.Core
         /// </summary>
         public float SfxVolume { get; set; } = 1.0f;
 
+        // <summary>
+        /// 语音音效音量（0-1）
+        /// </summary>
+        public float VoiceVolume { get; set; } = 1.0f;
+        
+
         /// <summary>
         /// 主音量（0-1）
         /// </summary>
@@ -287,10 +293,12 @@ namespace Sango.Core
             {
                 Sango.Manager.AudioManager.Instance.SetBgmVolume(BgmVolume);
                 Sango.Manager.AudioManager.Instance.SetSfxVolume(SfxVolume);
+                Sango.Manager.AudioManager.Instance.SetVoiceVolume(VoiceVolume);
             }
 
             PlayerPrefs.SetFloat("BgmVolume", BgmVolume);
             PlayerPrefs.SetFloat("SfxVolume", SfxVolume);
+            PlayerPrefs.SetFloat("VoiceVolume", VoiceVolume);
             PlayerPrefs.SetFloat("MasterVolume", MasterVolume);
             PlayerPrefs.Save();
         }
@@ -400,6 +408,7 @@ namespace Sango.Core
             // 音频设置
             BgmVolume = PlayerPrefs.GetFloat("BgmVolume", 0.6f);
             SfxVolume = PlayerPrefs.GetFloat("SfxVolume", 1.0f);
+            VoiceVolume = PlayerPrefs.GetFloat("VoiceVolume", 1.0f);
             MasterVolume = PlayerPrefs.GetFloat("MasterVolume", 1.0f);
 
             // 图形设置
@@ -438,6 +447,7 @@ namespace Sango.Core
             // 音频设置
             BgmVolume = 0.6f;
             SfxVolume = 1.0f;
+            VoiceVolume = 1.0f;
             MasterVolume = 1.0f;
 
             // 图形设置
@@ -631,6 +641,11 @@ namespace Sango.Core
                 SetSfxVolume(value);
             });
 
+            setting.AddSliderItem("语音音量", VoiceVolume, 0f, 1f, (value) =>
+            {
+                SetVoiceVolume(value);
+            });
+
             setting.AddSliderItem("主音量", MasterVolume, 0f, 1f, (value) =>
             {
                 SetMasterVolume(value);
@@ -705,6 +720,16 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 设置音效音量
+        /// </summary>
+        /// <param name="volume">音量（0-1）</param>
+        public void SetVoiceVolume(float volume)
+        {
+            VoiceVolume = Mathf.Clamp01(volume);
+            ApplyAudioSettings();
+        }
+
+        /// <summary>
         /// 设置主音量
         /// </summary>
         /// <param name="volume">音量（0-1）</param>
@@ -730,6 +755,7 @@ namespace Sango.Core
             // 音频设置
             BgmVolume = 0.6f;
             SfxVolume = 1.0f;
+            VoiceVolume = 1.0f;
             MasterVolume = 1.0f;
 
             // 图形设置
@@ -803,6 +829,8 @@ namespace Sango.Core
             CurrentResolutionIndex = snapshot.CurrentResolutionIndex;
             BgmVolume = snapshot.BgmVolume;
             SfxVolume = snapshot.SfxVolume;
+            VoiceVolume = snapshot.VoiceVolume;
+            
             MasterVolume = snapshot.MasterVolume;
             VSync = snapshot.VSync;
             FrameRateLimit = snapshot.FrameRateLimit;
@@ -855,6 +883,11 @@ namespace Sango.Core
         /// 音效音量
         /// </summary>
         public float SfxVolume { get; set; }
+
+        /// <summary>
+        /// 音效音量
+        /// </summary>
+        public float VoiceVolume { get; set; }
 
         /// <summary>
         /// 主音量

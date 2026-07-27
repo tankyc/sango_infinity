@@ -77,6 +77,11 @@ namespace Sango.Core
                 fire.counter = finalCount;
             }
 
+            if(fire.Render != null && fire.Render.IsVisible())
+            {
+                GameMedia.Instance.PlaySfx(86);
+            }
+
             GameEvent.OnFireAdd?.Invoke(master, fire);
 
             targetCell.fire = fire;

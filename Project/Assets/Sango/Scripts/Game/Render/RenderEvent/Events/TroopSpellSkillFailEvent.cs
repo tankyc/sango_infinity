@@ -29,6 +29,8 @@ namespace Sango.Render
             time = 0;
             if (IsVisible())
             {
+                GameMedia.Instance.PlaySfx(74);
+                GameMedia.Instance.PlaySfx(82);
                 troop.Render.SetSmokeShow(true);
             }
 
@@ -63,7 +65,6 @@ namespace Sango.Render
                 IsDone = true;
                 return IsDone;
             }
-
 
             if (replaceSkill == null)
             {

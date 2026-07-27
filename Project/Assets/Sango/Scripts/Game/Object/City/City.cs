@@ -1757,6 +1757,7 @@ namespace Sango.Core
             {
                 Render.WindowEvent windowEvent = RenderEvent.Instance.Create<Render.WindowEvent>();
                 windowEvent.Init("window_city_complete", new object[] { Name });
+                GameMedia.Instance.PlaySfx(57);
                 RenderEvent.Instance.Add(windowEvent);
             }
 

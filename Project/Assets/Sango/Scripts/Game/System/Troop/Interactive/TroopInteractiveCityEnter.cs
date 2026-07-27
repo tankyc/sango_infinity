@@ -30,6 +30,7 @@ namespace Sango.Core.Player
 
         public override void OnEnter()
         {
+            GameMedia.Instance.PlayPersonSay(TargetTroop.Leader, GameRandom.Chance(50) ? 3188 : 3202);
             base.OnEnter();
             MovePath = GameSystem.GetSystem<TroopSystem>().movePath;
             if (MovePath.Count <= 1)

@@ -1777,6 +1777,12 @@ namespace Sango.Core
             GameEvent.OnPersonUpgradeOfficial?.Invoke(this, last);
         }
 
+        public bool IsHighStength()
+        {
+            return strength.baseValue > command.baseValue && strength.baseValue > intelligence.baseValue
+                && strength.baseValue > politics.baseValue;
+        }
+
         public static Person FormLib(PersonLib personLib)
         {
             Person person = new Person();

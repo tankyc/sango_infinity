@@ -34,11 +34,22 @@ namespace Sango.Render
             // 显示技能效果
             if (IsVisible())
             {
+                GameMedia.Instance.PlaySfx(75);
                 troop.Render.SetSmokeShow(true);
+
                 // 打开暴击窗口
                 if(troop.IsPlayer)
                 {
-                    Sango.Window.Instance.Open("window_skill_crit", this);
+                    if (!skill.IsStrategy())
+                    {
+                        GameMedia.Instance.PlayPersonSay(troop.Leader, 2754);
+                        Sango.Window.Instance.Open("window_skill_crit", this);
+                    }
+                    else
+                    {
+                        GameMedia.Instance.PlaySfx(91);
+                        Sango.Window.Instance.Open("window_skill_crit", this);
+                    }
                 }
             }
 

@@ -21,6 +21,7 @@ namespace Sango.Core
             Sango.Log.Info("GameData.Init()");
             LoadCommonData();
             LoadModelConfig();
+            GameMedia.Instance.Load();
             SkillConfigManager.Instance.Init();
         }
 

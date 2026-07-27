@@ -25720,6 +25720,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c5f21e74bc2bf14ba2b0d46ccf3182f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  sfxId: 3
   sfxPath: Assets/Sound/button.mp3
 --- !u!114 &8136686760917175834 stripped
 MonoBehaviour:
@@ -29212,6 +29213,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c5f21e74bc2bf14ba2b0d46ccf3182f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  sfxId: 4
   sfxPath: Assets/Sound/cancel.mp3
 --- !u!1001 &4654201847458142575
 PrefabInstance:

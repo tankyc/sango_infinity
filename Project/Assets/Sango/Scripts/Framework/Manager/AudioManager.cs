@@ -37,12 +37,22 @@ namespace Sango.Manager
         /// <summary>
         /// 背景音乐音量
         /// </summary>
-        public float BgmVolume { get; set; } = 0.6f;
+        public float BgmVolume { get; set; } = 1f;
 
         /// <summary>
         /// 音效音量
         /// </summary>
-        public float SfxVolume { get; set; } = 1.0f;
+        public float SfxVolume { get; set; } = 1f;
+
+        /// <summary>
+        /// 语音音量
+        /// </summary>
+        public float VoiceVolume { get; set; } = 1f;
+
+
+        public float MaxBgmVolume { get; set; } = 0.5f;
+        public float MaxSfxVolume { get; set; } = 0.8f;
+        public float MaxVoiceVolume { get; set; } = 1f;
 
         /// <summary>
         /// 淡入淡出状态
@@ -127,6 +137,7 @@ namespace Sango.Manager
             {
                 _bgmSource.clip = clip;
                 _bgmSource.loop = loop;
+                _bgmSource.volume = BgmVolume * MaxBgmVolume;
                 _bgmSource.Play();
             }
         }
@@ -202,12 +213,65 @@ namespace Sango.Manager
             {
                 AudioSource source = _sfxSources[channelIndex];
                 source.clip = clip;
-                source.volume = SfxVolume * volume;
+                source.volume = SfxVolume * volume * MaxSfxVolume;
                 source.Play();
             }
 
             return channelIndex;
         }
+
+        /// <summary>
+        /// 播放音效
+        /// </summary>
+        /// <param name="audioName">音效名称</param>
+        /// <param name="volume">音量</param>
+        /// <returns>播放音效的声道索引</returns>
+        public int PlayVoice(string audioName, float volume = 1.0f)
+        {
+            if (SfxVolume <= 0) return -1;
+            AudioClip clip = LoadAudioClip(audioName);
+            if (clip == null)
+                return -1;
+
+            int channelIndex = GetFreeSfxChannel();
+            if (channelIndex >= 0)
+            {
+                AudioSource source = _sfxSources[channelIndex];
+                source.clip = clip;
+                source.volume = volume * MaxVoiceVolume;
+                source.Play();
+            }
+
+            return channelIndex;
+        }
+
+
+        /// <summary>
+        /// 播放音效
+        /// </summary>
+        /// <param name="audioName">音效名称</param>
+        /// <param name="volume">音量</param>
+        /// <returns>播放音效的声道索引</returns>
+        public int PlayDelayedSfx(string audioName, float delay = 0f)
+        {
+            if (SfxVolume <= 0) return -1;
+            AudioClip clip = LoadAudioClip(audioName);
+            if (clip == null)
+                return -1;
+
+            int channelIndex = GetFreeSfxChannel();
+            if (channelIndex >= 0)
+            {
+                AudioSource source = _sfxSources[channelIndex];
+                source.clip = clip;
+                source.volume = SfxVolume * MaxSfxVolume;
+                source.PlayDelayed(delay);
+            }
+
+            return channelIndex;
+        }
+
+
 
         /// <summary>
         /// 播放3D音效
@@ -228,7 +292,7 @@ namespace Sango.Manager
             {
                 AudioSource source = _sfxSources[channelIndex];
                 source.clip = clip;
-                source.volume = SfxVolume * volume;
+                source.volume = SfxVolume * volume * MaxSfxVolume; ;
                 source.spatialBlend = 1.0f; // 3D音效
                 source.transform.position = position;
                 source.Play();
@@ -290,6 +354,15 @@ namespace Sango.Manager
             {
                 source.volume = SfxVolume;
             }
+        }
+
+        /// <summary>
+        /// 设置背景音乐音量
+        /// </summary>
+        /// <param name="volume">音量（0-1）</param>
+        public void SetVoiceVolume(float volume)
+        {
+            VoiceVolume = Mathf.Clamp01(volume);
         }
 
         /// <summary>

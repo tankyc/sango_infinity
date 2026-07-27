@@ -16,7 +16,7 @@ namespace Sango.Loader
         /// <returns>加载的AudioClip</returns>
         public static AudioClip LoadFromFileSync(string filePath, bool is3D = false)
         {
-            UnityEngine.Object obj = AssetStore.Instance.CheckAsset<GameObject>(filePath);
+            UnityEngine.Object obj = AssetStore.Instance.CheckAsset<AudioClip>(filePath);
             if (obj != null)
             {
                 return obj as AudioClip;

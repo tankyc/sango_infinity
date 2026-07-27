@@ -26,6 +26,29 @@ namespace Sango.Render
             time = 0;
             if (IsVisible())
             {
+                if (!skill.IsNormal())
+                {
+                    GameMedia.Instance.PlaySfx(69);
+                    GameMedia.Instance.PlayPersonSay(troop.Leader, skill.GerPersonSay());
+                }
+                else if(skill.IsStrategy())
+                {
+                    GameMedia.Instance.PlaySfx(85);
+                }
+                else
+                {
+                    if (!skill.IsRange() && spellCell.building != null)
+                    {
+                        GameMedia.Instance.PlayPersonSay(troop.Leader, GameRandom.Chance(50) ? 2684 : 2698);
+                    }
+                    else
+                    {
+                        GameMedia.Instance.PlayPersonSay(troop.Leader, skill.GerPersonSay());
+                        GameMedia.Instance.PlaySfx(82);
+                    }
+
+                }
+
                 troop.Render.SetSmokeShow(true);
             }
             if (!skill.IsNormal())
@@ -57,7 +80,7 @@ namespace Sango.Render
             }
             IsDone = skill.UpdateRender(spellCell, scenario, time, Action);
             time += deltaTime;
-            if(IsDone)
+            if (IsDone)
             {
                 GameEvent.OnSkillRenderEnd?.Invoke(skill, spellCell);
             }

@@ -715,9 +715,6 @@ MonoBehaviour:
   missionTargetLabel: {fileID: 2838355293297135923}
   actionoverLabel: {fileID: 6554638044741725740}
   troopLvLabel: {fileID: 4642959179041926883}
-  skill1Label: {fileID: 5539190039690606122}
-  skill2Label: {fileID: 8294194313567397465}
-  skill3Label: {fileID: 896621027245820987}
   captiveCountLabel: {fileID: 1361169872466527456}
   skillLabels:
   - {fileID: 5539190039690606122}

@@ -35,20 +35,27 @@ namespace Sango.Core
         {
             public string text;
             public Person person;
-            public string sound;
-            public string bgm;
+            public int sound;
+            public int bgm;
         }
 
         public static void Close()
         {
-            CurInstance?.Close();
+            if(CurInstance != null)
+            {
+                GameMedia.Instance.PlaySfx(4);
+                CurInstance.Close();
+            }
             GameController.Instance.Enabled = true;
             CurInstance = null;
         }
         public static void Close(IDialog uIDialog)
         {
             if (uIDialog == CurInstance)
+            {
+                GameMedia.Instance.PlaySfx(4);
                 uIDialog.Close();
+            }
             CurInstance = null;
             GameController.Instance.Enabled = true;
         }

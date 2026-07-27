@@ -29,7 +29,7 @@ namespace Sango.Render
             if (IsVisible())
             {
                 troop.Render.SetSmokeShow(true);
-                soundChannel = AudioManager.Instance.PlaySfx("Assets/Sound/troop_move.mp3");
+                soundChannel = GameMedia.Instance.PlaySfx(troop.TroopType.moveSound);
             }
         }
 
@@ -40,7 +40,7 @@ namespace Sango.Render
                 troop.Render.SetSmokeShow(false);
             }
             if (soundChannel >= 0)
-                AudioManager.Instance.StopSfx(soundChannel);
+                GameMedia.Instance.StopSfx(soundChannel);
         }
 
         public override bool IsVisible()
@@ -56,7 +56,7 @@ namespace Sango.Render
             dir.y = 0;
             dir.Normalize();
 
-            if(!troop.IsAlive)
+            if (!troop.IsAlive)
             {
                 IsDone = true;
                 doneAction?.Invoke();
@@ -73,15 +73,15 @@ namespace Sango.Render
             }
 
             //troop.Render.SetSmokeShow();
-         
-           
+
+
 
             Vector3 newPos = troop.Render.GetPosition() + dir * (GameVariables.TroopMoveSpeed * deltaTime);
-            
-            if( Vector3.Dot(newPos - destPosition, dir) >= 0)
+
+            if (Vector3.Dot(newPos - destPosition, dir) >= 0)
             {
                 newPos = destPosition;
-              
+
                 troop.Render.SetForward(dir);
                 troop.Render.SetPosition(newPos);
                 troop.UpdateCell(dest, start, isLastMove);

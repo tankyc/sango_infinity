@@ -58,6 +58,10 @@ namespace Sango.Core.Player
 
         public override void OnEnter()
         {
+            if (TargetTroop.Leader.IsGovernor)
+                GameMedia.Instance.PlayPersonSay(TargetTroop.Leader, 3160);
+            else
+                GameMedia.Instance.PlayPersonSay(TargetTroop.Leader, GameRandom.Chance(50) ? 3132 : 3146);
 
             TargetTroop.Render?.SetFlash(true);
 

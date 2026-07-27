@@ -176,6 +176,7 @@ namespace Sango.Core.Player
                         DeleteCorps(t.number);
                         GameDialog.Close();
                         ContextMenu.CloseAll();
+                        GameMedia.Instance.PlaySfx(56);
                         Done();
                     }).SetPerson(TargetCity.BelongForce.Governor);
                 }).cancelAction = () =>
@@ -192,10 +193,9 @@ namespace Sango.Core.Player
             GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{targetCorps.ColorName}就交给我了。", () =>
             {
                 GameDialog.Close();
+                GameMedia.Instance.PlayDoAcitonSfx();
                 Done();
             }).SetPerson(targetCorps.Comander);
-
-            GameMedia.Instance.PlayDoAcitonSfx();
         }
 
         public void ResetCorps()

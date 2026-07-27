@@ -152,6 +152,7 @@ MonoBehaviour:
   targetRandomRadius: 10
   flightTimeRange: {x: 1, y: 2}
   spawnOffsetRadius: 6
+  arrowSoundId: 94
 --- !u!1001 &5547234015515410486
 PrefabInstance:
   m_ObjectHideFlags: 0

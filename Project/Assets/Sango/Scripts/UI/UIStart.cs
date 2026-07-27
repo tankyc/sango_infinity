@@ -46,7 +46,7 @@ zd同学,
         private void Start()
         {
             version.text = $"版本: {Application.version}";
-            AudioManager.Instance.PlayBgm("Assets/Sound/2238.ogg");
+            GameMedia.Instance.PlayBgm(9);
 #if (UNITY_ANDROID || UNITY_IPHONE) && !UNITY_EDITOR
             mapEditorBtn.SetActive(false);
 #endif

@@ -1305,10 +1305,14 @@ namespace Sango.Core
                 }
                 Render.ShowInfo(num, (int)InfoType.Troop, isCrit);
             }
-
             troops = troops + num;
             if (num < 0)
             {
+                if (Render != null && Render.IsVisible())
+                {
+                    GameMedia.Instance.PlayPersonSay(Leader, GameRandom.Chance(50) ? 3216 : 3230);
+                }
+
                 int absNum = System.Math.Abs(num);
                 woundedTroops += (int)System.Math.Ceiling(absNum * 0.14f);
                 int _foodCost = (int)System.Math.Ceiling(Scenario.Cur.Variables.baseFoodCostInTroop * absNum * TroopType.foodCostFactor) / 2;
@@ -1330,6 +1334,12 @@ namespace Sango.Core
 #if SANGO_DEBUG
                 Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 溃灭!!");
 #endif
+
+                if(Render != null && Render.IsVisible())
+                {
+                    GameMedia.Instance.PlaySfx(83);
+                }
+
                 OnDestroy(atk, skill, atkBack);
 
                 // 移除

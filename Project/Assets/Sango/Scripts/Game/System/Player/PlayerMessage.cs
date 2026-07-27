@@ -286,7 +286,7 @@ namespace Sango.Core.Player
             {
                 message.year = 0;
             }
-
+            GameMedia.Instance.PlaySfx(38);
             // 添加消息到列表并触发回调
             textMessages.Add(message);
             onTextMessageAdd?.Invoke(message, this);

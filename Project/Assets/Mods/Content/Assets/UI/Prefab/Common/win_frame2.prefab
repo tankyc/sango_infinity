@@ -96,7 +96,9 @@ MonoBehaviour:
   offset: {x: 0, y: 0}
   delayTime: 0
   cachePosition: {x: 0, y: 0}
+  update_cachePosition: {x: 0, y: 0}
   dontResetCachePosition: 1
+  updateAlways: 0
 --- !u!1 &6173894066033785018
 GameObject:
   m_ObjectHideFlags: 0
@@ -549,6 +551,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c5f21e74bc2bf14ba2b0d46ccf3182f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  sfxId: 3
   sfxPath: Assets/Sound/button.mp3
 --- !u!1001 &1910246970112538181
 PrefabInstance:
@@ -705,4 +708,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c5f21e74bc2bf14ba2b0d46ccf3182f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  sfxId: 4
   sfxPath: Assets/Sound/cancel.mp3

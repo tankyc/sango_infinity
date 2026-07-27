@@ -46,6 +46,7 @@
         public override void OnEnter()
         {
             base.OnEnter();
+            GameMedia.Instance.PlayPersonSay(TargetTroop.Leader, GameRandom.Chance(50) ? 3188 : 3202);
 
             TargetTroop.missionTarget = DestTroop.Id;
             TargetTroop.SetMission(MissionType.TroopBanishTroop, DestTroop.Id);

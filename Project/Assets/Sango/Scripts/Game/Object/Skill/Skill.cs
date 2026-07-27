@@ -145,6 +145,17 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public JObject timelineData;
 
+        /// <summary>
+        /// 技能释放时候武将语音
+        /// </summary>
+        [JsonProperty] public int[] personSound;
+
+        /// <summary>
+        /// 激活的音效
+        /// </summary>
+        [JsonProperty] public int actionSound;
+
+
         ////从攻击位置反找一个施法位置
         //public void GetSpellCells(Cell atkCell, List<Cell> cells)
         //{

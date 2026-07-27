@@ -414,7 +414,7 @@ namespace Sango.Core
 #endif
                 return true;
             }
-           else if (baseSuccessRate <= -100)
+            else if (baseSuccessRate <= -100)
             {
 #if SANGO_DEBUG
                 Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
@@ -479,7 +479,7 @@ namespace Sango.Core
                 overrideData.Recycle();
                 return tempCriticalFactor;
             }
-            else if(overrideData.Value <= -100)
+            else if (overrideData.Value <= -100)
             {
                 tempCriticalFactor = 100;
                 overrideData.Recycle();
@@ -515,6 +515,7 @@ namespace Sango.Core
         {
             if (time <= 0f)
             {
+
                 master.Render.FaceTo(spellCell.Position);
                 tempTimelineCellList.Clear();
                 GetAttackCells(master, spellCell, tempTimelineCellList);
@@ -523,6 +524,11 @@ namespace Sango.Core
                 if (timelineInstance != null)
                 {
                     timelineInstance.Reset();
+                }
+
+                if (master.Render.IsVisible())
+                {
+                    GameMedia.Instance.PlaySfx(skill.actionSound);
                 }
             }
 
@@ -757,7 +763,7 @@ namespace Sango.Core
 
             if (troop.IsAlive)
             {
-                troop.ChangeMorale(-this.costEnergy, false);          
+                troop.ChangeMorale(-this.costEnergy, false);
             }
 
             GameEvent.OnSkillActionOver?.Invoke(this);
@@ -1015,6 +1021,12 @@ namespace Sango.Core
                 skillVisualizer.StopSkillVisual();
                 skillVisualizer = null;
             }
+        }
+
+        public int GerPersonSay()
+        {
+            if (skill.personSound == null || skill.personSound.Length == 0) return 0;
+            return skill.personSound[GameRandom.Range(0, skill.personSound.Length)];
         }
 
     }

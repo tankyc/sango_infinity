@@ -187,6 +187,11 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int[] terrainDecreaseDefenceBonus;
 
+        /// <summary>
+        /// 行军音效
+        /// </summary>
+        [JsonProperty] public int moveSound;
+
         public int MoveCost(Cell cell)
         {
 #if SANGO_DEBUG

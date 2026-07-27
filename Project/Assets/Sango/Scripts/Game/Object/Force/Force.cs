@@ -1053,6 +1053,13 @@ namespace Sango.Core
         public void GainTechniquePoint(int value)
         {
             TechniquePoint += value;
+
+            if(IsPlayer)
+            {
+                GameMedia.Instance.PlaySfx(61);
+                GameMedia.Instance.PlayDelayedSfx(60, 1);
+            }
+
             GameEvent.OnForceGainTechniquePoint?.Invoke(this, value);
         }
 

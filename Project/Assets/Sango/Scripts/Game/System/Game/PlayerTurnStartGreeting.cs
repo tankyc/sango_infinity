@@ -26,7 +26,7 @@ namespace Sango.Core.Player
                 int max = force.CapitalCity.allPersons.Count;
                 person = force.CapitalCity.allPersons.Get(GameRandom.Range(0, max));
             }
-      
+            GameMedia.Instance.PlaySfx(32);
             PlayerMessage.AddPersonMessage($"下一步，我们该干些什么呢？。", person);
             DialogEvent te = RenderEvent.Instance.Create<DialogEvent>();
             te.Init(GameDialog.DialogStyle.ClickPersonSay, $"{force.ColorName}大人，\n终于轮到我们了啊。", person, null, () =>

@@ -50,6 +50,8 @@ namespace Sango.Core.Player
                 return;
             }
 
+            GameMedia.Instance.PlayPersonSay(TargetTroop.Leader, GameRandom.Chance(50) ? 2656 : 2670);
+
             Cell start = TargetTroop.cell;
             for (int i = 1; i < MovePath.Count; i++)
             {

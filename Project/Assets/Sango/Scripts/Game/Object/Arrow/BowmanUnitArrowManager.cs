@@ -35,29 +35,38 @@ namespace Sango.Core.Object.Arrow
         [SerializeField]
         private float spawnOffsetRadius = 0.5f;
 
+        private int arrowSound = 94;
+
         /// <summary>
         /// 发射弓箭到目标点
         /// </summary>
         /// <param name="targetPosition">目标点位置</param>
         public void FireArrows(Vector3 targetPosition)
         {
+
+            GameMedia.Instance.PlaySfx(arrowSound);
+            GameMedia.Instance.PlayDelayedSfx(arrowSound, Random.Range(0, flightTimeRange.y - flightTimeRange.x));
+            GameMedia.Instance.PlayDelayedSfx(arrowSound, Random.Range(0, flightTimeRange.y - flightTimeRange.x));
+            GameMedia.Instance.PlayDelayedSfx(arrowSound, Random.Range(0, flightTimeRange.y - flightTimeRange.x));
+            GameMedia.Instance.PlayDelayedSfx(arrowSound, Random.Range(0, flightTimeRange.y - flightTimeRange.x));
+
             for (int i = 0; i < arrowsPerShot; i++)
             {
                 // 计算随机目标位置（在目标点周围随机范围）
                 Vector3 randomTarget = GetRandomTargetPosition(targetPosition);
-                
+
                 // 计算弓箭生成位置（在部队周围随机偏移）
                 Vector3 spawnPosition = GetRandomSpawnPosition();
-                
+
                 // 计算随机飞行时间
                 float flightTime = Random.Range(flightTimeRange.x, flightTimeRange.y);
-                
+              
                 // 获取或创建弓箭
                 GameObject arrow = GetOrCreateArrow();
                 arrow.transform.SetParent(null);
                 arrow.transform.position = spawnPosition;
                 arrow.SetActive(true);
-                
+
                 // 开始飞行
                 BowArrowParabola parabola = arrow.GetComponent<BowArrowParabola>();
                 if (parabola != null)
@@ -88,10 +97,10 @@ namespace Sango.Core.Object.Arrow
             // 在目标点周围生成随机偏移
             float randomAngle = Random.Range(0f, Mathf.PI * 2f);
             float randomDistance = Random.Range(0f, targetRandomRadius);
-            
+
             float offsetX = Mathf.Cos(randomAngle) * randomDistance;
             float offsetZ = Mathf.Sin(randomAngle) * randomDistance;
-            
+
             return new Vector3(
                 targetPosition.x + offsetX,
                 targetPosition.y,
@@ -108,10 +117,10 @@ namespace Sango.Core.Object.Arrow
             // 在部队位置周围生成随机偏移
             float randomAngle = Random.Range(0f, Mathf.PI * 2f);
             float randomDistance = Random.Range(0f, spawnOffsetRadius);
-            
+
             float offsetX = Mathf.Cos(randomAngle) * randomDistance;
             float offsetZ = Mathf.Sin(randomAngle) * randomDistance;
-            
+
             return new Vector3(
                 transform.position.x + offsetX,
                 transform.position.y,
