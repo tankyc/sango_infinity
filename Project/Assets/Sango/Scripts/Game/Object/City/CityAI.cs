@@ -468,7 +468,7 @@ namespace Sango.Core
                 return true;
             }
             //运输比例
-            int part = 70;
+            int part = 90;
             int gold = 0, food = 0;
             if (target.gold < target.GoldLimit)
             {
@@ -1578,8 +1578,11 @@ namespace Sango.Core
             troop.food = food;
             troop.gold = gold;
             troop.troops = troops;
-            troop.itemStore = itemStore;
-            city.itemStore.Remove(itemStore);
+            if(itemStore != null)
+            {
+                troop.itemStore = itemStore;
+                city.itemStore.Remove(itemStore);
+            }
             troop.Member1 = null;
             troop.Member2 = null;
             city.Render?.UpdateRender();

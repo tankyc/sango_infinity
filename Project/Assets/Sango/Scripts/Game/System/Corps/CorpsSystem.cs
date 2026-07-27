@@ -71,7 +71,7 @@ namespace Sango.Core.Player
             }
 
             // 新建军团菜单
-            menuData.Add("新建军团", 10, this, OnClickMenuItem_CreateCorps, targetNumber > 1 );
+            menuData.Add("新建军团", 10, this, OnClickMenuItem_CreateCorps, targetNumber > 1);
 
             // 重编军团菜单
             menuData.Add("重编军团", 11, this, OnClickMenuItem_RearrangeCorps, corps_list.Count > 0);
@@ -130,6 +130,10 @@ namespace Sango.Core.Player
                     targetCorps.number = exsist.number;
                     targetCorps.policy = exsist.policy;
                     targetCorps.Comander = exsist.Comander;
+                    targetCorps.ActionPoint = exsist.ActionPoint;
+                    for (int i = 0; i < exsist.appointSetting.Length; i++)
+                        targetCorps.appointSetting[i] = exsist.appointSetting[i];
+
                     List<City> targetCityList = new List<City>();
                     exsist.BelongForce.ForEachCity(x =>
                     {
@@ -152,7 +156,7 @@ namespace Sango.Core.Player
             GameSystem.GetSystem<CorpsSelectSystem>().Start(corps_list,
             target_corps_list, 1, (x) =>
             {
-                if(x.Count <= 0)
+                if (x.Count <= 0)
                 {
                     return;
                 }

@@ -100,6 +100,7 @@ namespace Sango.UI
                                 GameSystem.GetSystem<CitySelectSystem>().Start(targetCorps.BelongForce.CityList,
                                     null, 1, (sel_cs) =>
                                     {
+                                        if (sel_cs == null || sel_cs.Count == 0) return;
                                         this.appointSetting[id] = sel_cs[0].Id;
                                         cancelTransBtn.interactable = true;
                                         corpsAppointBtnLabels[id].text = sel_cs[0].Name;

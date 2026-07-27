@@ -241,7 +241,7 @@ namespace Sango.Core
 
         public int GetAppointValue(AppointContentType policyContentType)
         {
-            if (appoint == 0 || appointSetting == null) return 0;
+            if (appointSetting == null) return 0;
             return appointSetting[(int)policyContentType];
         }
 

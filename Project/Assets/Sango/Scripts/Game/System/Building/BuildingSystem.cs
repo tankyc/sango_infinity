@@ -38,7 +38,7 @@ namespace Sango.Core.Player
             else if (clickCell.IsInterior && clickCell.IsEmpty())
             {
                 Force cellBelongForce = clickCell.BelongCity.BelongCity != null ? clickCell.BelongCity.BelongCity.BelongForce : clickCell.BelongCity.BelongForce;
-                if (cellBelongForce == Scenario.Cur.CurRunForce && cellBelongForce.IsPlayer)
+                if (cellBelongForce != null && cellBelongForce == Scenario.Cur.CurRunForce && cellBelongForce.IsPlayer)
                 {
                     ContextMenuData.MenuData.Clear();
                     GameEvent.OnCellContextMenuShow?.Invoke(ContextMenuData.MenuData, clickCell);

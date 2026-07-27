@@ -1858,7 +1858,7 @@ namespace Sango.Core
             //missionParams1 == 1 是AI运输的
             if (!TroopType.isFight && missionParams1 <= 0)
             {
-                if (BelongCorps.IsPlayer)
+                if (BelongCorps.IsPlayerControl)
                 {
                     List<Person> pList = new List<Person>();
                     ForEachPerson((person) =>
