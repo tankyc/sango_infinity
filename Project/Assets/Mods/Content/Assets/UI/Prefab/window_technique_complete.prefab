@@ -155,7 +155,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.13725491}
+  m_Color: {r: 0, g: 0, b: 0, a: 0.5019608}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -207,7 +207,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 45.6711, y: -28.166}
+  m_AnchoredPosition: {x: 45.6711, y: -58}
   m_SizeDelta: {x: 837.2822, y: 292}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5637584299700137094
@@ -940,6 +940,29 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!1 &2436999187645547934 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1787701530854643627, guid: 0d2e6f617c695044bb16169281c8ba5a, type: 3}
+  m_PrefabInstance: {fileID: 4115943487340548661}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1054111833102511876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2436999187645547934}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91a16db2b05df5541a0384880af899d0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  topColor:
+    serializedVersion: 2
+    rgba: 4285399039
+  bottomColor:
+    serializedVersion: 2
+    rgba: 4278206683
 --- !u!224 &6146725092652402098 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 7805663035862996871, guid: 0d2e6f617c695044bb16169281c8ba5a, type: 3}

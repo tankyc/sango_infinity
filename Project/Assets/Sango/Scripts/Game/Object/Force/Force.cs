@@ -891,7 +891,7 @@ namespace Sango.Core
         }
 
 
-        static int[] loyaltyWeight = new int[5] { 1, 2, 3, 2, 1 };
+        static int[] loyaltyWeight = new int[5] { 2, 3, 2, 1, 1 };
 
         /// <summary>
         /// 势力武将换季掉忠计算

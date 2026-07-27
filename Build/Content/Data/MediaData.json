@@ -174,11 +174,11 @@
     },
     "44": {
       "Id": 44,
-      "res": "Assets/Sound/2264.mp3"
+      "res": "Assets/Sound/2264.ogg"
     },
     "45": {
       "Id": 45,
-      "res": "Assets/Sound/2291.mp3"
+      "res": "Assets/Sound/2291.ogg"
     },
     "46": {
       "Id": 46,
@@ -226,7 +226,7 @@
     },
     "57": {
       "Id": 57,
-      "res": "Assets/Sound/3286.mp3"
+      "res": "Assets/Sound/3286.ogg"
     },
     "58": {
       "Id": 58,

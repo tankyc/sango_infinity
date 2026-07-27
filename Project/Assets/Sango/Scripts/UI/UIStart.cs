@@ -50,6 +50,7 @@ zd同学,
 #if (UNITY_ANDROID || UNITY_IPHONE) && !UNITY_EDITOR
             mapEditorBtn.SetActive(false);
 #endif
+            GameMedia.Instance.PlaySfx(45);
         }
 
         public void OnNewGame()

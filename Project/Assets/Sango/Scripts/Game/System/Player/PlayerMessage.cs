@@ -157,6 +157,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonExecute += OnPersonExecute;
             GameEvent.OnPersonLevelUp += OnPersonLevelUp;
             GameEvent.OnPersonUpgradeOfficial += OnPersonUpgradeOfficial;
+            GameEvent.OnForceFall += OnForceFall;
         }
         
         /// <summary>
@@ -179,6 +180,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonExecute -= OnPersonExecute;
             GameEvent.OnPersonLevelUp -= OnPersonLevelUp;
             GameEvent.OnPersonUpgradeOfficial -= OnPersonUpgradeOfficial;
+            GameEvent.OnForceFall -= OnForceFall;
         }
 
         /// <summary>
@@ -572,6 +574,18 @@ namespace Sango.Core.Player
                 message = $"{person.ColorName}官职升到[{person.Official.Name}]";
                 _AddTextMessage(message, person.BelongForce, 0, 0);
             }
+        }
+
+        /// <summary>
+        /// 俘虏被斩杀事件处理方法
+        /// </summary>
+        /// <param name="person">被斩杀的俘虏</param>
+        /// <param name="executeForce">斩杀方势力</param>
+        private void OnForceFall(Force force, City city, Troop troop)
+        {
+            // 检查是否为当前玩家势力
+            string message = $"{force.ColorName}势力灭亡!!!!";
+            _AddTextMessage(message, force, 0, 0);
         }
     }
 }

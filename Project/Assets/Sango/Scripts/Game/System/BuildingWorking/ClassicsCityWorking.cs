@@ -82,13 +82,13 @@ namespace Sango.Core
             if (city.IsBorderCity)
             {
 
+                AICommandList.Add(CityAI.AIRewardPerson);
                 AICommandList.Add(CityAI.AISearching);
                 AICommandList.Add(CityAI.AIRecruitPerson);
                 AICommandList.Add(CityAI.AIAttack);
                 AICommandList.Add(CityAI.AITradeFood);
                 AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITrainTroop);
-                AICommandList.Add(CityAI.AIRewardPerson);
 
                 if (city.troops < 20000)
                 {
@@ -121,6 +121,7 @@ namespace Sango.Core
             else
             {
                 // 物资输送
+                AICommandList.Add(CityAI.AIRewardPerson);
                 AICommandList.Add(CityAI.AISearching);
                 AICommandList.Add(CityAI.AIRecruitPerson);
                 AICommandList.Add(CityAI.AITransfrom);
@@ -128,7 +129,6 @@ namespace Sango.Core
                 AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITradeFood);
                 AICommandList.Add(CityAI.AITrainTroop);
-                AICommandList.Add(CityAI.AIRewardPerson);
 
                 if (city.troops < city.itemStore.TotalNumber)
                     AICommandList.Add(CityAI.AIRecruitTroop);

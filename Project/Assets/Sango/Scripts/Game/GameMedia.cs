@@ -102,7 +102,7 @@ namespace Sango.Core
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-                return AudioManager.Instance.PlaySfx(result.res, delay);
+                return AudioManager.Instance.PlayDelayedSfx(result.res, delay);
             }
             return -1;
         }
@@ -123,6 +123,19 @@ namespace Sango.Core
         public void StopBgm()
         {
             AudioManager.Instance.StopBgm();
+        }
+
+        /// <summary>
+        /// ‘›Õ£±≥æ∞“Ù¿÷
+        /// </summary>
+        public void PauseBgm()
+        {
+            AudioManager.Instance.PauseBgm();
+        }
+
+        public void ResumeBgm()
+        {
+            AudioManager.Instance.ResumeBgm();
         }
 
         public int PlayButtonSfx()

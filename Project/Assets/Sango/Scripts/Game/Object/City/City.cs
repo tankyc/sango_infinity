@@ -1535,7 +1535,19 @@ namespace Sango.Core
         {
             Scenario scenario = Scenario.Cur;
             ScenarioVariables scenarioVariables = Scenario.Cur.Variables;
+
             Troop atk = atker as Troop;
+            SkillInstance skillInstance = null;
+            if (atker.ObjectType == SangoObjectType.SkillInstance)
+            {
+                skillInstance = (atker as SkillInstance);
+                atk = skillInstance.master;
+            }
+            else
+            {
+                atk = atker as Troop;
+            }
+
             if (atk == null) return;
 
             Force lastBelongForce = BelongForce;
@@ -1679,9 +1691,10 @@ namespace Sango.Core
                     building.OnFall(atk);
                 }
             }
-
+            Force destroyedForce = null;
             if (escapeCity == null)
             {
+                destroyedForce = BelongForce;
                 BelongCorps.IsAlive = false;
 #if SANGO_DEBUG
                 Sango.Log.Info($"{BelongForce.Name} 灭亡!!!");
@@ -1729,9 +1742,6 @@ namespace Sango.Core
             agriculture = agriculture * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepAgriculture) * 10 + 10) / 100;
             commerce = agriculture * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepCommerce) * 10 + 10) / 100;
 
-            Leader = atk.Leader;
-
-
             // 解救俘虏, 一定是在势力更改后解救
             for (int i = this.captiveList.Count - 1; i >= 0; i--)
             {
@@ -1745,7 +1755,11 @@ namespace Sango.Core
                 }
             }
 
-            atk.EnterCity(this);
+            if (skillInstance != null && !skillInstance.IsRange())
+            {
+                Leader = atk.Leader;
+                atk.EnterCity(this);
+            }
 
             Render?.UpdateRender();
 
@@ -1755,15 +1769,25 @@ namespace Sango.Core
 
             if (atk.BelongCorps.IsPlayer)
             {
-                Render.WindowEvent windowEvent = RenderEvent.Instance.Create<Render.WindowEvent>();
-                windowEvent.Init("window_city_complete", new object[] { Name });
-                GameMedia.Instance.PlaySfx(57);
-                RenderEvent.Instance.Add(windowEvent);
+                RenderEvent.Instance.Add(new Render.CityFallCompleteEvent()
+                {
+                    city = this
+                });
             }
-
+           
             CityRecruitPersonWhenCityFallEvent te = RenderEvent.Instance.Create<CityRecruitPersonWhenCityFallEvent>();
             te.Init(temp_captive_list, this, escapeCity, atk, escapeCity == null ? (int)PersonRecruitType.OnForceFall : (int)PersonRecruitType.OnCityFall);
             RenderEvent.Instance.Add(te);
+
+
+            if (escapeCity == null && destroyedForce != null)
+            {
+                RenderEvent.Instance.Add(new Render.ForceFallCompleteEvent()
+                {
+                    force = destroyedForce
+                });
+            }
+
 
         }
 

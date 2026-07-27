@@ -15,6 +15,7 @@ namespace Sango.Core
     {
         public override string Name => skill?.Name ?? string.Empty;
         public override int Id => skill?.Id ?? -1;
+        public override SangoObjectType ObjectType { get { return SangoObjectType.SkillInstance; } }
 
         /// <summary>
         /// 技能
@@ -593,7 +594,7 @@ namespace Sango.Core
                     damage = damage_overrideData.Value;
 
                     beAtkTroop.ChangeTroops(-damage, troop, this, 0);
-
+                    troop.BelongForce.GainTechniquePoint(damage / 1000);
                     int ep = damage / 100;
                     if (!beAtkTroop.IsAlive) ep += 50;
                     troop.ForEachPerson(p =>
@@ -708,8 +709,9 @@ namespace Sango.Core
                     overrideData = Tools.OverrideData<int>.Create(damage);
                     GameEvent.OnSkillDamageBuildingDurability?.Invoke(this, beAtkBuildingBase, overrideData);
                     damage = overrideData.ValueAndRecycle;
+                    troop.BelongForce.GainTechniquePoint(damage / 1000);
 
-                    if (beAtkBuildingBase.ChangeDurability(-damage, troop))
+                    if (beAtkBuildingBase.ChangeDurability(-damage, this))
                     {
                         int ep = damage / 10 + 100;
                         troop.ForEachPerson(p =>
@@ -752,8 +754,6 @@ namespace Sango.Core
                             }
                         }
                     }
-
-
                 }
             }
 
