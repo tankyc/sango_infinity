@@ -73,7 +73,9 @@ namespace Sango.Core.Object.Arrow
         /// <returns>弓箭GameObject</returns>
         private GameObject GetOrCreateArrow()
         {
-            return PoolManager.Create("Assets/Model/Prefab/Arrow/Arrow.prefab");
+            PoolManager.Add(arrowPrefab.name + "_arrow_ppp", arrowPrefab);
+
+            return PoolManager.Get(arrowPrefab.name + "_arrow_ppp");
         }
 
         /// <summary>

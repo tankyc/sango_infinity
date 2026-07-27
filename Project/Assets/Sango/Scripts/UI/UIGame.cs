@@ -146,7 +146,7 @@ namespace Sango.UI
             GameEvent.OnSeasonUpdate += OnSeasonUpdate;
             GameEvent.OnForceGainTechniquePoint += OnForceGainTechniquePoint;
             GameEvent.OnCorpsActionPointChange += OnCorpsActionPointChange;
-
+            GameEvent.OnScenarioStart += OnScenarioStart;
             GameSystem.GetSystem<PlayerMessage>().onVisibleChange += OnMessagePlaneVisible;
 
 
@@ -174,6 +174,22 @@ namespace Sango.UI
             }
         }
 
+        void OnScenarioStart(Scenario scenario)
+        {
+            OnForceStart(Scenario.Cur.CurRunForce, Scenario.Cur);
+            OnDayUpdate(Scenario.Cur);
+            OnSeasonUpdate(Scenario.Cur);
+            for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
+            {
+                var c = Scenario.Cur.corpsSet[i];
+                if (c != null && c.IsAlive && c.BelongForce == Scenario.Cur.CurRunForce)
+                {
+                    OnCorpsActionPointChange(c);
+                    break;
+                }
+            }
+        }
+
         protected override void OnDestroy()
         {
             //GameEvent.OnTroopCreated -= OnTroopChange;
@@ -184,6 +200,7 @@ namespace Sango.UI
             GameEvent.OnSeasonUpdate -= OnSeasonUpdate;
             GameEvent.OnForceGainTechniquePoint -= OnForceGainTechniquePoint;
             GameEvent.OnCorpsActionPointChange -= OnCorpsActionPointChange;
+            GameEvent.OnScenarioStart -= OnScenarioStart;
             PlayerMessage playerMessage = GameSystem.GetSystem<PlayerMessage>();
             if(playerMessage != null) playerMessage.onVisibleChange -= OnMessagePlaneVisible;
 

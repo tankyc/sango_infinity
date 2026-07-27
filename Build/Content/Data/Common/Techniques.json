@@ -660,7 +660,7 @@
           "class": "TroopChangeSkillAttackRange",
           "atkType": 5,
           "atkRange": 1,
-          "conditon": {
+          "condition": {
             "class": "SkillIdInList",
             "ids": [
               18

@@ -41,6 +41,7 @@ using Sango.Core; namespace Sango.UI
             }
 
             personCountLabel.text = $"{currentSystem.personList.Count}人";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.TransformPerson)}/{currentSystem.TargetCity.BelongCorps.ActionPoint}";
 
             if (currentSystem.transformTo.Count > 0)
             {
@@ -67,9 +68,8 @@ using Sango.Core; namespace Sango.UI
 
         public void OnSelectPerson()
         {
-            int max = currentSystem.TargetCity.BelongCorps.ActionPoint / JobType.GetJobCostAP((int)CityJobType.TransformPerson); 
             GameSystem.GetSystem<PersonSelectSystem>().Start(currentSystem.TargetCity.freePersons,
-             currentSystem.personList, max, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
+             currentSystem.personList, currentSystem.TargetCity.freePersons.Count, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
 
         }
         public void OnPersonChange(List<Person> personList)

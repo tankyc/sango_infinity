@@ -183,7 +183,7 @@ MonoBehaviour:
   - {fileID: 8566327547273274453}
   - {fileID: 234421844282985267}
   - {fileID: 5185073882098070563}
-  - {fileID: 230110493569206994}
+  - {fileID: 4738356996475594080}
   corpsAppointBtnLabels:
   - {fileID: 6837736996236131816}
   - {fileID: 1715056588768073691}
@@ -3381,6 +3381,17 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 858db238e248ff140b5a3e0183cfacc9, type: 3}
+--- !u!114 &4738356996475594080 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1425949819747623447, guid: 858db238e248ff140b5a3e0183cfacc9, type: 3}
+  m_PrefabInstance: {fileID: 5912095304122681207}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &4746829984447111855 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 1435482676807624152, guid: 858db238e248ff140b5a3e0183cfacc9, type: 3}

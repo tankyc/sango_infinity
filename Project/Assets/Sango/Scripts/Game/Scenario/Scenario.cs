@@ -992,16 +992,7 @@ namespace Sango.Core
         {
             MapRender.Instance.SetCamera(View.cameraPosition, View.cameraRotation, View.cameraDistance);
 
-            GameEvent.OnScenarioStart?.Invoke(this);
-
-            Window.Instance.Close("window_start");
-            Window.Instance.Close("window_loading");
-            Window.Instance.Open("window_game");
-#if SANGO_DEBUG_AI
-            GameAIDebug.Instance.Init();
-#endif
             MakeForceQuene();
-
             // 恢复游戏
             if (Info.curForceId > 0)
             {
@@ -1017,6 +1008,17 @@ namespace Sango.Core
                     force = runForces.Dequeue();
                 }
             }
+
+            GameEvent.OnScenarioStart?.Invoke(this);
+
+            Window.Instance.Close("window_start");
+            Window.Instance.Close("window_loading");
+            Window.Instance.Open("window_game");
+#if SANGO_DEBUG_AI
+            GameAIDebug.Instance.Init();
+#endif
+
+           
 
             GameController.Instance.Enabled = true;
 

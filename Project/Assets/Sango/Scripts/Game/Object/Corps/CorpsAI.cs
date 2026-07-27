@@ -21,7 +21,8 @@ namespace Sango.Core
 
         public static bool AITransfromPerson(Corps corps, Scenario scenario)
         {
-            if (corps.GetAppointValue(Corps.AppointContentType.Person) == 1)
+            // 增加第一军团向其他军团派遣武将
+            if (!corps.IsPlayer || corps.GetAppointValue(Corps.AppointContentType.Person) == 1)
                 return true;
 
             List<Person> canTransforPersons = new List<Person>();

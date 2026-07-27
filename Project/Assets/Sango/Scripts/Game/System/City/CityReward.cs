@@ -42,7 +42,7 @@ namespace Sango.Core.Player
             {
                 return TargetCity.gold > 100 &&
                        TargetCity.CheckJobCost(CityJobType.Reward) &&
-                       TargetCity.GetJobCounter((int)CityJobType.Reward) == 0 &&
+                       TargetCity.BelongCorps.GetJobCounter((int)CityJobType.Reward) == 0 &&
                        TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward);
             }
         }

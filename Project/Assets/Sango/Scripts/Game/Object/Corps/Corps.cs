@@ -154,6 +154,50 @@ namespace Sango.Core
         [JsonProperty] public int ActionPoint { get; set; }
 
         /// <summary>
+        /// 工作计数
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<int, int> jobCounter = new Dictionary<int, int>();
+
+
+        /// <summary>
+        /// 获取工作计数
+        /// </summary>
+        /// <param name="jobId">工作ID</param>
+        /// <returns>工作计数</returns>
+        public int GetJobCounter(int jobId)
+        {
+            if (jobCounter.TryGetValue(jobId, out var job))
+            {
+                return job;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// 增加工作计数
+        /// </summary>
+        /// <param name="jobId">工作ID</param>
+        /// <returns>增加后的工作计数</returns>
+        public int AddJobCounter(int jobId)
+        {
+            if (jobCounter.TryGetValue(jobId, out var job))
+            {
+                job++;
+                jobCounter[jobId] = job;
+                return job;
+            }
+            else
+            {
+                jobCounter.Add(jobId, 1);
+                return 1;
+            }
+        }
+
+        /// <summary>
         /// 创建时候的缓存城市列表
         /// </summary>
         public List<City> inti_cities;
@@ -178,8 +222,6 @@ namespace Sango.Core
 
         public City TargetCity { get; set; }
         public Force TargetForce { get; set; }
-
-        public int BorderCityCount { get; set; }
 
 
         public Queue<System.Func<Corps, Scenario, bool>> AICommandQueue = new Queue<Func<Corps, Scenario, bool>>();
@@ -222,9 +264,9 @@ namespace Sango.Core
 
         public override bool OnForceTurnStart(Scenario scenario)
         {
+            jobCounter.Clear();
             AIFinished = false;
             AIPrepared = false;
-            PrepareCityPersonHole(scenario);
             AddActionPoint(scenario);
             ActionOver = false;
             PrepareCityInfo();
@@ -240,7 +282,8 @@ namespace Sango.Core
         public void UpdateWhenCityChange()
         {
             PrepareCityInfo();
-            if(cityCount == 0)
+            // 不能解散第一军团
+            if (cityCount == 0 && number > 1)
             {
                 BelongForce.DeleteCorps(this);
             }
@@ -340,61 +383,6 @@ namespace Sango.Core
             if (IsPlayer && BelongForce == Scenario.Cur.CurRunForce)
             {
                 GameEvent.OnCorpsActionPointChange?.Invoke(this);
-            }
-        }
-
-        /// <summary>
-        /// 准备人才缺口
-        /// </summary>
-        public void PrepareCityPersonHole(Scenario scenario)
-        {
-            int cityCount = 0;
-            BorderCityCount = 0;
-            int personCount = 0;
-            for (int i = 0; i < scenario.citySet.Count; ++i)
-            {
-                var c = scenario.citySet[i];
-                if (c != null && c.BelongCorps == this && c.IsCity())
-                {
-                    cityCount++;
-                    if (c.IsBorderCity)
-                        BorderCityCount++;
-                    c.PersonHole = 0;
-                    personCount += c.allPersons.Count;
-                }
-            }
-
-            if (cityCount <= 1) return;
-            if (BorderCityCount == 0)
-                return;
-
-            int noBoderSeat = 3;
-            int avarageTotalSeat = personCount - cityCount * noBoderSeat;
-            if (avarageTotalSeat <= 0)
-            {
-                noBoderSeat = 1;
-                avarageTotalSeat = personCount - cityCount * noBoderSeat;
-                if (avarageTotalSeat <= 0)
-                {
-                    avarageTotalSeat = personCount;
-                }
-            }
-            int boderSeat = avarageTotalSeat / BorderCityCount + noBoderSeat;
-
-            for (int i = 0; i < scenario.citySet.Count; ++i)
-            {
-                var c = scenario.citySet[i];
-                if (c != null && c.BelongCorps == this && c.IsCity())
-                {
-                    if (c.IsBorderCity)
-                    {
-                        c.PersonHole = boderSeat - c.allPersons.Count;
-                    }
-                    else
-                    {
-                        c.PersonHole = noBoderSeat - c.allPersons.Count;
-                    }
-                }
             }
         }
 

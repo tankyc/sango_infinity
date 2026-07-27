@@ -2900,7 +2900,7 @@ namespace Sango.Core
             }
             gold -= totalGoldCost;
             BelongCorps.ReduceActionPoint(totalApCost);
-            AddJobCounter(jobId);
+            BelongCorps.AddJobCounter(jobId);
 
 #if SANGO_DEBUG
             Sango.Log.Info($"@内政@[{BelongForce.Name}]在<{Name}>使用资金对{stringBuilder}进行了褒赏!!");

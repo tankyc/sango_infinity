@@ -33,14 +33,6 @@ namespace Sango.Core.Player
                 //    menuData.Add("进入", customMenuOrder, actionCell, OnClickMenuItem, IsValid);
                 //else
                     menuData.Add("待命", customMenuOrder, actionCell, OnClickMenuItem, IsValid);
-
-#if UNITY_ANDROID || UNITY_IPHONE
-                    menuData.Add("情报", 99999, actionCell, (contextMenuItem) =>
-                    {
-
-                        GameSystemManager.Instance.Done();
-                    }, true);
-#endif
             }
         }
 

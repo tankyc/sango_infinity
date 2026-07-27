@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 using Sango.Core;
+using System.Collections;
+
 namespace Sango.UI
 {
     /// <summary>
@@ -13,11 +15,32 @@ namespace Sango.UI
         public Text version;
         public GameObject mapEditorBtn;
         public GameObject thxNode;
+        public Text thxText;
+
+        const string thx_content = @"<color=#ff9330>手机仔,
+komorebi,
+zd同学,
+冬之绿叶,
+鲁迪,
+(wx)*狒,
+在路上,
+雨辰-测试员,
+阿尔萨斯,
+李十六,
+刑部尚书,
+殤,
+(wx)*绵,
+平步青云
+</color>
+
+        ";
 
         protected override void Awake()
         {
             base.Awake();
             thxNode.SetActive(false);
+            thxText.text = thx_content;
+
         }
 
         private void Start()
@@ -57,6 +80,19 @@ namespace Sango.UI
         {
             GameMedia.Instance.PlayButtonSfx();
             Game.Instance.EnterMapEditor();
+        }
+        public void OpenThx()
+        {
+            thxNode.SetActive(true);
+            StartCoroutine(DelayActive());
+        }
+
+        IEnumerator DelayActive()
+        {
+            yield return new WaitForSeconds(0.05f);
+            thxNode.SetActive(false);
+            thxNode.SetActive(true);
+
         }
 
         public void OnLoadGame()

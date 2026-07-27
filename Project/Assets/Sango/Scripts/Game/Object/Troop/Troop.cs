@@ -419,6 +419,8 @@ namespace Sango.Core
         /// </summary>
         public bool ignoreFire = true;
 
+        public bool IsJustCreated => x == BelongCity.x && y == BelongCity.y;
+
         public override ObjectRender GetRender() { return Render; }
         public TroopRender Render { get; private set; }
         bool isMissionPrepared = false;
@@ -1894,7 +1896,14 @@ namespace Sango.Core
                            }
                         }
                     };
-                    GameSystem.GetSystem<PlayerChoice>().Start(choiceDatas);
+                    //GameSystem.GetSystem<PlayerChoice>().Start(choiceDatas);
+
+                    TroopTransformChoiceEvent troopTransformChoiceEvent = new TroopTransformChoiceEvent()
+                    {
+                        choiceDatas = choiceDatas
+                    };
+                    RenderEvent.Instance.Add(troopTransformChoiceEvent);
+
                 }
                 else
                 {

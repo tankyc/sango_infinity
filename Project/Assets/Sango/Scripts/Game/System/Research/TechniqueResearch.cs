@@ -36,7 +36,8 @@ namespace Sango.Core
             GameEvent.OnCityAIPrepare += OnCityAIPrepare;
             GameEvent.OnCityContextMenuShow += OnCityContextMenuShow;
         }
-        public override void Clear() {
+        public override void Clear()
+        {
 
             GameEvent.OnForceTurnStart -= OnForceTurnStart;
             GameEvent.OnCityAIPrepare -= OnCityAIPrepare;
@@ -115,7 +116,7 @@ namespace Sango.Core
         /// <returns></returns>
         public static int[] JobResearch(City city, Person[] personList, Technique technique, bool isTest)
         {
-            if (personList == null || personList.Length == 0) return null;
+            if (personList == null || personList.Length == 0 || technique == null) return null;
             Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Research;
@@ -235,6 +236,8 @@ namespace Sango.Core
                 return;
 
             int[] valus = TechniqueResearch.JobResearch(TargetCity, personList.ToArray(), TargetTechnique, true);
+            if (valus == null) return;
+
             goldCost = valus[0];
             tpCost = valus[1];
             counter = valus[2];

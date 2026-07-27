@@ -71,7 +71,7 @@ namespace Sango.Core
         /// <summary>
         /// 首都
         /// </summary>
-        public City CapitalCity => Governor.BelongCity;
+        public City CapitalCity => !Governor.BelongCity.IsCity() ? Governor.BelongCity.BelongCity : Governor.BelongCity;
 
         /// <summary>
         /// 第一军团
@@ -240,6 +240,7 @@ namespace Sango.Core
         /// 势力拥有的城寨数量
         /// </summary>
         public int CityBaseCount { get; set; }
+        public int BorderCityCount { get; set; }
 
         /// <summary>
         /// 势力的颜色
@@ -620,6 +621,7 @@ namespace Sango.Core
             AICommandList.Add(ForceAI.AICaptives);
             AICommandList.Add(ForceAI.AITechniques);
             AICommandList.Add(ForceAI.AISetOfficial);
+            AICommandList.Add(ForceAI.AITransfromPerson);
 
             GameEvent.OnForceAIPrepare?.Invoke(this, scenario);
         }
@@ -723,6 +725,9 @@ namespace Sango.Core
                     }
                 }
             }
+
+            PrepareCityPersonHole(scenario);
+
             return base.OnForceTurnStart(scenario);
         }
 
@@ -1142,6 +1147,25 @@ namespace Sango.Core
                     building.BelongCorps = corps;
                 }
             }
+
+            // 处理港关
+            Scenario.Cur.citySet.ForEach(x =>
+            {
+                if (x.IsAlive && !x.IsCity() && x.BelongForce == this && corps.inti_cities.Contains(x.BelongCity))
+                {
+                    x.BelongCorps = corps;
+                    foreach (Person person in x.allPersons)
+                    {
+                        person.BelongCorps = corps;
+
+                    }
+                    foreach (Building building in x.allBuildings)
+                    {
+                        building.BelongCorps = corps;
+                    }
+                }
+            });
+
             corps.inti_cities = null;
             corps.Comander.BelongCity.UpdateNewLeader();
             corps.PrepareCityInfo();
@@ -1250,6 +1274,62 @@ namespace Sango.Core
 
             createdItemTypes.AddRange(itemMap.Values.ToArray());
             createdItemTypes.Sort(SangoObject.Compare);
+        }
+
+
+        /// <summary>
+        /// 准备人才缺口
+        /// </summary>
+        public void PrepareCityPersonHole(Scenario scenario)
+        {
+            int cityCount = 0;
+            BorderCityCount = 0;
+            int personCount = 0;
+            for (int i = 0; i < scenario.citySet.Count; ++i)
+            {
+                var c = scenario.citySet[i];
+                if (c != null && c.BelongForce == this && c.IsCity())
+                {
+                    cityCount++;
+                    if (c.IsBorderCity)
+                        BorderCityCount++;
+                    c.PersonHole = 0;
+                    personCount += c.allPersons.Count;
+                }
+            }
+
+            if (cityCount <= 1) return;
+            if (BorderCityCount == 0)
+                return;
+
+            int noBoderSeat = 3;
+            int avarageTotalSeat = personCount - cityCount * noBoderSeat;
+            if (avarageTotalSeat <= 0)
+            {
+                noBoderSeat = 1;
+                avarageTotalSeat = personCount - cityCount * noBoderSeat;
+                if (avarageTotalSeat <= 0)
+                {
+                    avarageTotalSeat = personCount;
+                }
+            }
+            int boderSeat = avarageTotalSeat / BorderCityCount + noBoderSeat;
+
+            for (int i = 0; i < scenario.citySet.Count; ++i)
+            {
+                var c = scenario.citySet[i];
+                if (c != null && c.BelongForce == this && c.IsCity())
+                {
+                    if (c.IsBorderCity)
+                    {
+                        c.PersonHole = boderSeat - c.allPersons.Count;
+                    }
+                    else
+                    {
+                        c.PersonHole = noBoderSeat - c.allPersons.Count;
+                    }
+                }
+            }
         }
     }
 }

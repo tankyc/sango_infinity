@@ -4,6 +4,7 @@ using UnityEngine;
 using Sango.Core;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Sango.UI
 {
@@ -45,6 +46,7 @@ namespace Sango.UI
         RectTransform[] uIObjectListItemsRect;
         bool dragFlag = false;
         UIObjectListItem currentSelectItem;
+        public UITextField limitText;
 
 
         CityUpgradeOfficial cityUpgradeOfficial;
@@ -383,6 +385,7 @@ namespace Sango.UI
 
         public void UpdateOfficialSelectPanel()
         {
+            limitText.text = "";
             lastSelectPersonOfficialItem?.SetSelected(false);
             lastSelectPersonOfficialItem = null;
             select_official_sureButton.interactable = false;
@@ -496,8 +499,91 @@ namespace Sango.UI
             int index = item.index;
             if (index < 0 || index >= officials.Length) return;
             Official dst = officials[index];
+
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.Append("需要: ");
+
+            if (dst.levelNeed > 0)
+            {
+                if (selectPerson.Level.Id < dst.levelNeed)
+                {
+                    stringBuilder.Append($"等级<color=#ff1111>{selectPerson.Level.Id}</color>/{dst.levelNeed}");
+                }
+                else
+                {
+                    stringBuilder.Append($"等级{dst.levelNeed}");
+                }
+            }
+            stringBuilder.Append("  ");
+
+            if (dst.commandNeed > 0) 
+            {
+                if(selectPerson.Command < dst.commandNeed)
+                {
+                    stringBuilder.Append($"统率<color=#ff1111>{selectPerson.Command}</color>/{dst.commandNeed}");
+                }
+                else
+                {
+                    stringBuilder.Append($"统率{dst.commandNeed}");
+                }
+            }
+            stringBuilder.Append("  ");
+
+            if (dst.strengthNeed > 0)
+            {
+                if (selectPerson.Strength < dst.strengthNeed)
+                {
+                    stringBuilder.Append($"武力<color=#ff1111>{selectPerson.Strength}</color>/{dst.strengthNeed}");
+                }
+                else
+                {
+                    stringBuilder.Append($"武力{dst.strengthNeed}");
+                }
+            }
+            stringBuilder.Append("  ");
+
+            if (dst.intelligenceNeed > 0)
+            {
+                if (selectPerson.Intelligence < dst.intelligenceNeed)
+                {
+                    stringBuilder.Append($"智力<color=#ff1111>{selectPerson.Intelligence}</color>/{dst.intelligenceNeed}");
+                }
+                else
+                {
+                    stringBuilder.Append($"智力{dst.intelligenceNeed}");
+                }
+            }
+            stringBuilder.Append("  ");
+
+            if (dst.politicsNeed > 0)
+            {
+                if (selectPerson.Politics < dst.politicsNeed)
+                {
+                    stringBuilder.Append($"政治<color=#ff1111>{selectPerson.Politics}</color>/{dst.politicsNeed}");
+                }
+                else
+                {
+                    stringBuilder.Append($"政治{dst.politicsNeed}");
+                }
+            }
+            stringBuilder.Append("  ");
+
+            if (dst.glamourNeed > 0)
+            {
+                if (selectPerson.Glamour < dst.glamourNeed)
+                {
+                    stringBuilder.Append($"魅力<color=#ff1111>{selectPerson.Glamour}</color>/{dst.glamourNeed}");
+                }
+                else
+                {
+                    stringBuilder.Append($"魅力{dst.glamourNeed}");
+                }
+            }
+            limitText.text = stringBuilder.ToString();
             if (!dst.CheckPerson(selectPerson))
+            {
                 return;
+            }
 
             lastSelectPersonOfficialItem?.SetSelected(false);
             item.SetSelected(true);

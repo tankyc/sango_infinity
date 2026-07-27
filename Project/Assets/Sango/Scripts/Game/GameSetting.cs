@@ -142,8 +142,9 @@ namespace Sango.Core
             LoadSettings();
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
             InitializeResolutions();
-            InitializeFrameRates();
 #endif
+            InitializeFrameRates();
+
 
             // 监听游戏设置事件
             GameEvent.OnGameSetting += OnGameSetting;
@@ -299,9 +300,13 @@ namespace Sango.Core
         /// </summary>
         public void ApplyGraphicsSettings()
         {
+#if UNITY_ANDROID || UNITY_IPHONE
+            Application.targetFrameRate = FrameRateLimit;
+#else
             QualitySettings.vSyncCount = VSync ? 1 : 0;
             Application.targetFrameRate = FrameRateLimit;
             QualitySettings.SetQualityLevel(QualityLevel);
+#endif
 
             // 更新当前帧率索引
             FindCurrentFrameRateIndex();
@@ -370,8 +375,8 @@ namespace Sango.Core
         {
 #if UNITY_STANDALONE_WIN
             ApplyResolution();
-            ApplyGraphicsSettings();
 #endif
+            ApplyGraphicsSettings();
             ApplyPostProcessingSettings();
             ApplyAudioSettings();
             ApplyControlSettings();
@@ -545,9 +550,10 @@ namespace Sango.Core
         /// <param name="scenario">剧本</param>
         private void OnGameSetting(IVariablesSetting setting)
         {
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR
             // 分辨率设置
             setting.AddBigTitle("显示设置");
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR
+
 
             // 创建分辨率选项列表
             List<string> resolutionOptions = new List<string>();
@@ -574,24 +580,29 @@ namespace Sango.Core
                 VSync = value;
             });
 
-            setting.AddToggleItem("后处理效果", IsPostProcessingEnabled, (value) =>
-            {
-                IsPostProcessingEnabled = value;
-                ApplyPostProcessingSettings();
-            });
-
             // 创建帧率选项列表
             List<string> frameRateOptions = new List<string>();
             foreach (int frameRate in SupportedFrameRates)
             {
                 frameRateOptions.Add($"{frameRate} FPS");
             }
+#else
+            List<string> frameRateOptions = new List<string>();
+            frameRateOptions.Add("30 FPS");
+            frameRateOptions.Add("60 FPS");
+#endif
+            setting.AddToggleItem("后处理效果", IsPostProcessingEnabled, (value) =>
+            {
+                IsPostProcessingEnabled = value;
+                ApplyPostProcessingSettings();
+            });
+            
 
             setting.AddDropdownItem("帧率限制", CurrentFrameRateIndex, frameRateOptions, (index) =>
             {
                 SetFrameRateByIndex(index);
             });
-#endif
+
             // 界面设置
             setting.AddBigTitle("界面设置");
 

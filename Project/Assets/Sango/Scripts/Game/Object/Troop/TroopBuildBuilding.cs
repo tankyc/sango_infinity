@@ -16,6 +16,7 @@ namespace Sango.Core
                     || (TargetCell.building != null && TargetCell.building.IsSameForce(Troop) && TargetCell.building.isComplate) 
                     || (TargetCell.building != null && !TargetCell.building.IsSameForce(Troop))
                     || !TargetBuildingType.CanBuildToHere(TargetCell)
+                    || Troop.gold < TargetBuildingType.cost
                     );
             }
         }

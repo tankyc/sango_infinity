@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine.UI;
 
-using Sango.Core; namespace Sango.UI
+using Sango.Core;
+namespace Sango.UI
 {
     public class UITroopInformation : UGUIWindow
     {
@@ -25,11 +26,8 @@ using Sango.Core; namespace Sango.UI
         public UITextField actionoverLabel;
 
         public UITextField troopLvLabel;
-        public UITextField skill1Label;
-        public UITextField skill2Label;
-        public UITextField skill3Label;
         public UITextField captiveCountLabel;
-
+        public UITextField [] skillLabels;
 
         public UITextField troopsLabel;
         public UITextField moraleLabel;
@@ -102,6 +100,36 @@ using Sango.Core; namespace Sango.UI
             stateLabel.text = TroopSortFunction.SortByState.GetValueStr(troop);
             captiveCountLabel.text = TroopSortFunction.SortByCaptiveCount.GetValueStr(troop);
 
+            List<Skill> skillList = new List<Skill>();
+            for(int i = 0; i < troop.TroopType.skills.Length; i++)
+            {
+                Skill skill = Scenario.Cur.GetObject<Skill>(troop.TroopType.skills[i]);
+                if(!skill.IsNormalSkill)
+                {
+                    skillList.Add(skill);
+                }
+            }
+            skillList.Sort((a, b) => a.needAblilityLevel.CompareTo(b.needAblilityLevel));
+            for (int i = 0; i < skillLabels.Length; i++)
+            {
+                if(i < skillList.Count )
+                {
+                    Skill skill = skillList[i];
+                    if(troop.TroopTypeLv >= skill.needAblilityLevel)
+                    {
+                        skillLabels[i].text = skill.Name;
+                    }
+                    else
+                    {
+                        skillLabels[i].text = "";
+                    }
+                }
+                else
+                {
+                    skillLabels[i].text = "";
+                }
+            }
+
             Scenario scenario = Scenario.Cur;
             scenarioCityMap.Show(scenario, troop);
             UpdateItemsContent();
@@ -144,6 +172,7 @@ using Sango.Core; namespace Sango.UI
 
         void OnPersonSelected(List<Person> person_list)
         {
+            if (person_list == null || person_list.Count == 0) return;
             List<SangoObject> object_list = new List<SangoObject>();
             object_list.AddRange(personList);
             GameSystem.GetSystem<PersonInformation>().Start(person_list[0], object_list);

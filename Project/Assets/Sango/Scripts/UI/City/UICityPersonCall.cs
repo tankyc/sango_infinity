@@ -61,9 +61,12 @@ using Sango.Core; namespace Sango.UI
                     list.AddRange(city.freePersons);
                 }
             });
-            int max = currentSystem.TargetCity.BelongCorps.ActionPoint / JobType.GetJobCostAP((int)CityJobType.CallPerson);
+
             GameSystem.GetSystem<PersonSelectSystem>().Start(list,
-             currentSystem.personList, max, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
+             currentSystem.personList, list.Count, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
+
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.CallPerson)}/{currentSystem.TargetCity.BelongCorps.ActionPoint}";
+
 
         }
         public void OnPersonChange(List<Person> personList)

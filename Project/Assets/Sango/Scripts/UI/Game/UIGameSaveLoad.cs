@@ -214,22 +214,22 @@ namespace Sango.UI
         {
             ShortScenario scenario = all_saved_scenario_list[index];
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
+            GameDialog.Close();
             GameSystemManager.Instance.Done();
             if (all_saved_scenario_list == player.all_auto_saved_scenario_list)
                 player.LoadAutoFile(index);
             else
                 player.Load(index);
-            GameDialog.Close();
 #else
             string content = $"是否加载{index + 1}号存档？";
             GameDialog.Open(content, () =>
             {
+                GameDialog.Close();
                 GameSystemManager.Instance.Done();
                 if (all_saved_scenario_list == player.all_auto_saved_scenario_list)
                     player.LoadAutoFile(index);
                 else
                     player.Load(index);
-                GameDialog.Close();
             });
 #endif
         }

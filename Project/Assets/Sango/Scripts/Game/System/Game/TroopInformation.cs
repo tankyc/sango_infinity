@@ -37,7 +37,7 @@ namespace Sango.Core
             GameEvent.OnGameSettingContextMenuShow += OnGameSettingContextMenuShow;
 #if UNITY_ANDROID || UNITY_IPHONE
             GameEvent.OnTroopContextMenuShow += OnTroopContextMenuShow;
-            GameEvent.OnTroopActionContextMenuShow -= OnTroopContextMenuShow;
+            GameEvent.OnTroopActionContextMenuShow += OnTroopActionContextMenuShow;
 #endif
         }
         protected virtual bool MenuCanShow()
@@ -51,7 +51,7 @@ namespace Sango.Core
             GameEvent.OnGameSettingContextMenuShow -= OnGameSettingContextMenuShow;
 #if UNITY_ANDROID || UNITY_IPHONE
             GameEvent.OnTroopContextMenuShow -= OnTroopContextMenuShow;
-            GameEvent.OnTroopActionContextMenuShow -= OnTroopContextMenuShow;
+            GameEvent.OnTroopActionContextMenuShow -= OnTroopActionContextMenuShow;
 #endif
         }
 
@@ -84,15 +84,23 @@ namespace Sango.Core
         protected virtual void OnTroopContextMenuShow(IContextMenuData menuData, Troop troop)
         {
             Target = troop;
+            default_objects.Clear();
+            default_objects.Add(troop);
             if (!troop.IsPlayer || troop.ActionOver)
                 menuData.Add("情报", 1000, troop, OnClickMenuItem, true);
         }
-        protected virtual void OnTroopContextMenuShow(IContextMenuData menuData, Troop troop, Cell actionCell)
+
+        protected virtual void OnTroopActionContextMenuShow(IContextMenuData menuData, Troop troop, Cell actionCell)
         {
+
             if (troop.BelongForce != null && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
             {
+                if (troop.IsJustCreated) return;
+
                 Target = troop;
-                menuData.Add("情报", 9000, troop, OnClickMenuItem, true);
+                default_objects.Clear();
+                default_objects.Add(troop);
+                menuData.Add("情报", 9000, troop, OnClickMenuItemInAction, true);
             }
         }
         
@@ -103,6 +111,15 @@ namespace Sango.Core
             all_objects = default_objects;
             Push();
         }
+
+        protected virtual void OnClickMenuItemInAction(IContextMenuItem contextMenuItem)
+        {
+            GameSystemManager.Instance.Done();
+            ContextMenu.CloseAll();
+            all_objects = default_objects;
+            Push();
+        }
+
 
         public override void OnEnter()
         {

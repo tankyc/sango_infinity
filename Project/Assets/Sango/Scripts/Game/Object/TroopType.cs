@@ -310,7 +310,7 @@ namespace Sango.Core
 
         public bool IsTransport()
         {
-            return kind == 6;
+            return kind == 7;
         }
 
         public bool IsMachine()

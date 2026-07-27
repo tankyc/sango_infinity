@@ -1121,7 +1121,11 @@ namespace Sango.Core
                 return false;
 
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Attack) == 1)
+            {
+                city.TroopMissionType = MissionType.None;
+                city.TroopMissionTargetId = 0;
                 return false;
+            }
 
             // 获取AI个性
             ForceAI.AIPersonalityType personality = GetAIPersonality(city);

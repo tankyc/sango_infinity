@@ -225,7 +225,7 @@ namespace Sango.Core
 
         void OnScenarioVariablesSetting(IVariablesSetting variablesSetting, Scenario scenario)
         {
-            selectedWorkingType = 1;
+            //selectedWorkingType = 1;
             variablesSetting.AddDropdownItem(GameLanguage.GetString(10000010), selectedWorkingType,
                 new List<string>(new string[]
                 {

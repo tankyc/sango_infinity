@@ -170,7 +170,7 @@ namespace Sango.UI
                         governorObj = force.Governor.BelongTroop;
                         force.ForEachTroop(obj =>
                         {
-                            if (governorObj != obj && obj.BelongCorps.IsPlayerControl)
+                            if (governorObj != obj && obj.BelongCorps.IsPlayerControl && !string.IsNullOrEmpty(obj.Name))
                                 sorted_list_Troop.Add(obj);
                         });
                         sorted_list_Troop.Sort((a, b) =>

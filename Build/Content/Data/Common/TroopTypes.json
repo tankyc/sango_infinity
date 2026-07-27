@@ -991,7 +991,7 @@
       ],
       "desc": "强化井阑后的兵器，以投石攻击３区格外之敌方耐久与士兵",
       "icon": "4846-8/4846-8_7",
-      "model": "Assets/Model/Prefab/p_jinlan.prefab",
+      "model": "Assets/Model/Prefab/p_toushi.prefab",
       "aniIds": [
         4,
         5,
