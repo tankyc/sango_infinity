@@ -208,7 +208,7 @@ namespace Sango.Manager
             if (clip == null)
                 return -1;
 
-            int channelIndex = GetFreeSfxChannel();
+            int channelIndex = GetFreeSfxChannel(clip);
             if (channelIndex >= 0)
             {
                 AudioSource source = _sfxSources[channelIndex];
@@ -233,7 +233,7 @@ namespace Sango.Manager
             if (clip == null)
                 return -1;
 
-            int channelIndex = GetFreeSfxChannel();
+            int channelIndex = GetFreeSfxChannel(clip);
             if (channelIndex >= 0)
             {
                 AudioSource source = _sfxSources[channelIndex];
@@ -259,7 +259,7 @@ namespace Sango.Manager
             if (clip == null)
                 return -1;
 
-            int channelIndex = GetFreeSfxChannel();
+            int channelIndex = GetFreeSfxChannel(clip);
             if (channelIndex >= 0)
             {
                 AudioSource source = _sfxSources[channelIndex];
@@ -287,7 +287,7 @@ namespace Sango.Manager
             if (clip == null)
                 return -1;
 
-            int channelIndex = GetFreeSfxChannel();
+            int channelIndex = GetFreeSfxChannel(clip);
             if (channelIndex >= 0)
             {
                 AudioSource source = _sfxSources[channelIndex];
@@ -389,12 +389,26 @@ namespace Sango.Manager
             return clip;
         }
 
+
         /// <summary>
         /// 获取空闲的音效声道
         /// </summary>
         /// <returns>声道索引，-1表示没有空闲声道</returns>
-        private int GetFreeSfxChannel()
+        private int GetFreeSfxChannel(string resName)
         {
+            if(!string.IsNullOrEmpty(resName))
+            {
+                // 查找正在播放完成的声道
+                for (int i = 0; i < _sfxSources.Count; i++)
+                {
+                    AudioSource source = _sfxSources[i];
+                    if (source.isPlaying && source.clip.name == resName)
+                    {
+                        return i;
+                    }
+                }
+            }
+
             // 检查是否有空闲声道
             if (_freeSfxChannels.Count > 0)
             {
@@ -410,9 +424,46 @@ namespace Sango.Manager
                 }
             }
 
+
             // 没有空闲声道，返回-1
             return -1;
         }
+
+        private int GetFreeSfxChannel(AudioClip clip)
+        {
+            if (clip != null)
+            {
+                // 查找正在播放完成的声道
+                for (int i = 0; i < _sfxSources.Count; i++)
+                {
+                    AudioSource source = _sfxSources[i];
+                    if (source.isPlaying && source.clip  == clip)
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            // 检查是否有空闲声道
+            if (_freeSfxChannels.Count > 0)
+            {
+                return _freeSfxChannels.Dequeue();
+            }
+
+            // 查找正在播放完成的声道
+            for (int i = 0; i < _sfxSources.Count; i++)
+            {
+                if (!_sfxSources[i].isPlaying)
+                {
+                    return i;
+                }
+            }
+
+
+            // 没有空闲声道，返回-1
+            return -1;
+        }
+
 
         /// <summary>
         /// 更新逻辑

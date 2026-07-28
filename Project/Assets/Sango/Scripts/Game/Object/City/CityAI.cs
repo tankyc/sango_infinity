@@ -188,7 +188,7 @@ namespace Sango.Core
         public static bool AISearching(City city, Scenario scenario)
         {
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
-                return false;
+                return true;
 
             if ((city.invisiblePersons.Count > 0 && city.freePersons.Count > 0 && GameRandom.Chance(80)) || GameRandom.Chance(20))
             {
