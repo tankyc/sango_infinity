@@ -1060,7 +1060,8 @@
           ],
           "actionList": [
             {
-              "class": "AddBuff",
+              "class": "TroopAddBuff",
+              "targetType": 1,
               "buffId": 1,
               "probability": 10000,
               "values": [
@@ -1096,7 +1097,8 @@
               }
             },
             {
-              "class": "AddBuff",
+              "class": "TroopAddBuff",
+              "targetType": 1,
               "buffId": 1,
               "probability": 10000,
               "values": [

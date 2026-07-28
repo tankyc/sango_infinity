@@ -129,11 +129,8 @@ namespace Sango.Core
                 AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITradeFood);
                 AICommandList.Add(CityAI.AITrainTroop);
-
-                if (city.troops < city.itemStore.TotalNumber)
-                    AICommandList.Add(CityAI.AIRecruitTroop);
-                else
-                    AICommandList.Add(CityAI.AICreateItems);
+                AICommandList.Add(CityAI.AIRecruitTroop);
+                AICommandList.Add(CityAI.AICreateItems);
                 AICommandList.Add(CityAI.AIIntrior);
                 AICommandList.Add(CityAI.AIAttack);
 

@@ -768,8 +768,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.00028570055}
-  m_SizeDelta: {x: 308.6, y: 188}
+  m_AnchoredPosition: {x: 0, y: -0.000014806127}
+  m_SizeDelta: {x: 308.6, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &9115980048602966621
 CanvasRenderer:
@@ -1280,8 +1280,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 14.084381, y: -21.5255}
-  m_SizeDelta: {x: 857.8836, y: 163.4745}
+  m_AnchoredPosition: {x: 14.084381, y: -13.4346}
+  m_SizeDelta: {x: 857.8836, y: 171.5654}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &5095832340415210710
 CanvasRenderer:
@@ -1324,8 +1324,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1.1
-  m_Text: "\u76EE\u524D\u672C\u6E38\u620F\u514D\u8D39,\u4EC5\u652F\u6301\u6350\u8D60,\u5236\u4F5C\u4E0D\u6613,\u4F5C\u8005\u4FDD\u6301\u6301\u7EED\u653E\u7535\u4E2D,\u559C\u6B22\u7684\u8BDD\u53EF\u4E3A\u7231\u53D1\u7535\u4EE5\u652F\u6301\u4F5C\u8005\u7EE7\u7EED\u5F00\u53D1\u5B8C\u5584.\nQQ\u4EA4\u6D41\u7FA4:
-    <color=#00ff00>526620498</color>\n\n\u6350\u8D60\u4EBA\u540D\u5355:\r\n"
+  m_Text: "\u76EE\u524D\u672C\u6E38\u620F\u514D\u8D39,\u4EC5\u652F\u6301\u6350\u8D60,\u5236\u4F5C\u4E0D\u6613,\u4F5C\u8005\u4FDD\u6301\u6301\u7EED\u653E\u7535\u4E2D,\u559C\u6B22\u7684\u8BDD\u53EF\u4E3A\u7231\u53D1\u7535\u4EE5\u652F\u6301\u4F5C\u8005\u7EE7\u7EED\u5F00\u53D1\u5B8C\u5584.\n\u5B98\u65B9Q\u7FA4:
+    \u2461\u7FA4<color=#00ff00>934836298</color>,\u2460\u7FA4<color=#00ff00>526620498</color>(\u5FEB\u6EE1)\n\n\u6350\u8D60\u4EBA\u540D\u5355:\r\n"
 --- !u!114 &6241686254924292421
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2468,8 +2468,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1.18
-  m_Text: "bilibili\u9996\u9875: <color=#11ff11>https://space.bilibili.com/3546816591170057</color>\n\u6B22\u8FCE\u5173\u6CE8\u3010<color=#ffff00>infinity\u4E09\u56FD\u5FD7\u5427</color>\u3011\u8D34\u5427\u83B7\u53D6\u6700\u65B0\u6E38\u620F\u8D44\u8BAF\nQQ\u4EA4\u6D41\u7FA4:
-    <color=#00ff00>526620498</color>\n<color=#22ffff>\u3010\u70B9\u51FB\u8DF3\u8F6C\u4E3B\u9875\u3011</color>\u8BB0\u5F97\u5173\u6CE8+\u4E00\u952E\u4E09\u8FDE,\u8FDB\u7FA4\u4EA4\u6D41\u83B7\u53D6\u6700\u65B0\u7684\u6E38\u620F\u7248\u672C\n\n\n"
+  m_Text: "bilibili\u4E3B\u9875: <color=#11ff11>https://space.bilibili.com/3546816591170057</color>\n\u6B22\u8FCE\u5173\u6CE8\u8D34\u5427:\u3010<color=#ffff00>infinity\u4E09\u56FD\u5FD7\u5427</color>\u3011\n\u5B98\u65B9Q\u7FA4:
+    \u2461\u7FA4<color=#00ff00>934836298</color>,\u2460\u7FA4<color=#00ff00>526620498</color>(\u5FEB\u6EE1)\n<color=#22ffff>\u3010\u70B9\u51FB\u8DF3\u8F6C\u4E3B\u9875\u3011</color>\u8BB0\u5F97\u5173\u6CE8+\u4E00\u952E\u4E09\u8FDE,\u65E0\u9650\u4E09\u56FD\u5FD7\n\n\n"
 --- !u!114 &4123938729184542136
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2654,7 +2654,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 308.6, y: 193}
+  m_SizeDelta: {x: 308.6, y: 0}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!114 &2149064703825705308
 MonoBehaviour:
@@ -3478,7 +3478,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &6362917048539030077
 RectTransform:
   m_ObjectHideFlags: 0

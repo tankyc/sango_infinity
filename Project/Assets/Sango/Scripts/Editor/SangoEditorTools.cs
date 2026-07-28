@@ -7,6 +7,7 @@ using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Windows;
 
 public static class SangeEditorTools
 {
@@ -423,7 +424,7 @@ public static class SangeEditorTools
         {
             string fileName = System.IO.Path.GetFileNameWithoutExtension(f);
             int soundId = int.Parse(fileName);
-            if(sounds.Contains(soundId))
+            if (sounds.Contains(soundId))
             {
                 Sango.File.Move(f, string.Format("{0}/{1}.ogg", savedir, soundId));
             }
@@ -898,4 +899,106 @@ public static class SangeEditorTools
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
     }
+
+
+    [MenuItem("Sango/修复中文命名的语音")]
+    public static void FixCNSound()
+    {
+        List<string> sounds = new List<string>()
+        {
+            "Assets/Sound/按钮音.mp3                               "
+,"Assets/Sound/取消音.mp3                               "
+,"Assets/Sound/出现消息框音.mp3                         "
+,"Assets/Sound/过回合音_前.mp3                          "
+,"Assets/Sound/过回合_人物弹出窗口+开发耐久提升音.mp3   "
+,"Assets/Sound/发生关系变化.mp3                         "
+,"Assets/Sound/铜锣.mp3                                 "
+,"Assets/Sound/授予官职.mp3                             "
+,"Assets/Sound/左下角消息提示音.mp3                     "
+,"Assets/Sound/脚步声.mp3                               "
+,"Assets/Sound/卷轴声.mp3                               "
+,"Assets/Sound/起义声.mp3                               "
+,"Assets/Sound/去世.mp3                                 "
+,"Assets/Sound/市集音.mp3                               "
+,"Assets/Sound/2264.ogg                                 "
+,"Assets/Sound/2291.ogg                                 "
+,"Assets/Sound/鸟叫声.mp3                               "
+,"Assets/Sound/交谈音.mp3                               "
+,"Assets/Sound/舌战失败.mp3                             "
+,"Assets/Sound/点击地面城池音.mp3                       "
+,"Assets/Sound/褒奖征兵巡查后音.mp3                     "
+,"Assets/Sound/点击都市，开发，一并等按钮音.mp3         "
+,"Assets/Sound/开发设施音.mp3                           "
+,"Assets/Sound/军饷0.mp3                                "
+,"Assets/Sound/能力研发音.mp3                           "
+,"Assets/Sound/收获金钱.mp3                             "
+,"Assets/Sound/取消军团最后音效.mp3                     "
+,"Assets/Sound/3286.ogg                                 "
+,"Assets/Sound/修筑建筑.mp3                             "
+,"Assets/Sound/耐久上升.mp3                             "
+,"Assets/Sound/技巧点图标到左上角音效.mp3               "
+,"Assets/Sound/技巧上升.mp3                             "
+,"Assets/Sound/部队行军.mp3                             "
+,"Assets/Sound/船行声.mp3                               "
+,"Assets/Sound/冲车行进音.mp3                           "
+,"Assets/Sound/井阑行进音.mp3                           "
+,"Assets/Sound/集气.mp3                                 "
+,"Assets/Sound/突刺音.mp3                               "
+,"Assets/Sound/突刺音2.mp3                              "
+,"Assets/Sound/弓兵集气.mp3                             "
+,"Assets/Sound/弓兵发射.mp3                             "
+,"Assets/Sound/弓兵射中.mp3                             "
+,"Assets/Sound/骑兵突击.mp3                             "
+,"Assets/Sound/骑兵突进.mp3                             "
+,"Assets/Sound/会心改普攻.mp3                           "
+,"Assets/Sound/带暴击图的集气.mp3                       "
+,"Assets/Sound/戟兵熊手预备.mp3                         "
+,"Assets/Sound/戟兵熊手成功.mp3                         "
+,"Assets/Sound/戟兵横扫预备.mp3                         "
+,"Assets/Sound/戟兵横扫成功.mp3                         "
+,"Assets/Sound/戟兵旋风成功.mp3                         "
+,"Assets/Sound/部队普通攻击.mp3                         "
+,"Assets/Sound/部队普通攻击2.mp3                        "
+,"Assets/Sound/部队溃灭.mp3                             "
+,"Assets/Sound/部队齐攻.mp3                             "
+,"Assets/Sound/使用计策预备.mp3                         "
+,"Assets/Sound/火焰声.mp3                               "
+,"Assets/Sound/计策灭火成功.mp3                         "
+,"Assets/Sound/计策伪报成功.mp3                         "
+,"Assets/Sound/计策扰乱成功.mp3                         "
+,"Assets/Sound/计策内讧成功.mp3                         "
+,"Assets/Sound/计策暴击预备.mp3                         "
+,"Assets/Sound/计策镇静成功.mp3                         "
+,"Assets/Sound/部队攻城.mp3                             "
+,"Assets/Sound/箭矢音.mp3                               "
+,"Assets/Sound/中箭音.mp3                               "
+,"Assets/Sound/冲车破碎.mp3                             "
+,"Assets/Sound/井阑战法音.mp3                           "
+,"Assets/Sound/木兽战法.mp3                             "
+,"Assets/Sound/投石发出.mp3                             "
+,"Assets/Sound/投石射中.mp3                             "
+,"Assets/Sound/设施完成.mp3                             "
+,"Assets/Sound/设施被摧毁.mp3                           "
+,"Assets/Sound/楼船二战法.mp3                           "
+,"Assets/Sound/楼船二战法攻城+船普通撞击.mp3            "
+,"Assets/Sound/楼船二战法撞到两个船.mp3                 "
+        };
+
+        string savedir = EditorUtility.OpenFolderPanel("选择语音文件夹", Application.dataPath, "");
+
+        for (int i = 0; i < sounds.Count; i++)
+        {
+            string f = sounds[i].Trim();
+            string fileName = savedir + "/" + f;
+            if (fileName.EndsWith(".mp3") && System.IO.File.Exists(fileName))
+            {
+                string dstFileName = fileName.Replace(System.IO.Path.GetFileNameWithoutExtension(fileName), (30 + i).ToString());
+                Debug.LogError(dstFileName);
+
+                System.IO.File.Move(fileName, dstFileName);
+            }
+        }
+    }
+
+
 }

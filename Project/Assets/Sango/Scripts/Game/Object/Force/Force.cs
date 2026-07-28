@@ -1052,9 +1052,11 @@ namespace Sango.Core
         /// <param name="value">获得的技巧点数</param>
         public void GainTechniquePoint(int value)
         {
+            if (value == 0) return;
+
             TechniquePoint += value;
 
-            if(IsPlayer)
+            if(IsPlayer && value > 0)
             {
                 GameMedia.Instance.PlaySfx(61);
                 GameMedia.Instance.PlayDelayedSfx(60, 1);

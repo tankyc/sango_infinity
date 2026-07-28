@@ -71,5 +71,6 @@ namespace Sango.Core
 
             target.AddBuff(buffId, finalCount, master.master);
         }
+
     }
 }

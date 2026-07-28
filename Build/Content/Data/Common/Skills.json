@@ -1095,7 +1095,7 @@
       "needAblilityLevel": 0,
       "isRange": true,
       "canDamageTroop": true,
-      "actionSound": 91,
+      "actionSound": 29,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,

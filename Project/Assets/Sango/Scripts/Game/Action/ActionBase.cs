@@ -116,6 +116,7 @@ namespace Sango.Core.Action
             Register("TroopChangeEscapeFactor", CraeteHandle<TroopChangeEscapeFactor>);
             Register("TroopSetDamage", CraeteHandle<TroopSetDamage>);
             Register("TroopChangePersonEscapeFactor", CraeteHandle<TroopChangePersonEscapeFactor>);
+            Register("TroopAddBuff", CraeteHandle<TroopAddBuff>);
             
         }
 

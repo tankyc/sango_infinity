@@ -91,7 +91,7 @@ namespace Sango.UI
             {
                 string cityName = cell.BelongCity != null ? cell.BelongCity.Name : "--";
 
-                if(cell.CanBuild && cell.building == null)
+                if (cell.CanBuild && cell.building == null)
                 {
                     bool can_place_obstacle = true;
                     bool can_place_other = true;
@@ -111,12 +111,12 @@ namespace Sango.UI
 
                          return b.BuildingType.majorType == 0 || !b.BuildingType.IsObstacle;
                      });
-                  
-                    if(can_place_obstacle && !can_place_other)
+
+                    if (can_place_obstacle && !can_place_other)
                         cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>障碍物</color>";
                     else if (!can_place_obstacle && can_place_other)
                         cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>军事设施</color>";
-                    else if(can_place_obstacle && can_place_other)
+                    else if (can_place_obstacle && can_place_other)
                         cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>军事设施,障碍物</color>";
                     else
                         cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) <color=#ff1111>不可建筑</color>";
@@ -159,9 +159,9 @@ namespace Sango.UI
             InvokeRepeating("UpdateFPS", 1f, 1f);
             //loopScrollRect.totalCount = totalCount;
             //loopScrollRect.RefillCells();
-            OnForceStart(Scenario.Cur.CurRunForce, Scenario.Cur);
-            OnDayUpdate(Scenario.Cur);
             OnSeasonUpdate(Scenario.Cur);
+            OnDayUpdate(Scenario.Cur);
+            OnForceStart(Scenario.Cur.CurRunForce, Scenario.Cur);
 
             for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
             {
@@ -205,7 +205,7 @@ namespace Sango.UI
             GameEvent.OnCorpsActionPointChange -= OnCorpsActionPointChange;
             GameEvent.OnScenarioStart -= OnScenarioStart;
             PlayerMessage playerMessage = GameSystem.GetSystem<PlayerMessage>();
-            if(playerMessage != null) playerMessage.onVisibleChange -= OnMessagePlaneVisible;
+            if (playerMessage != null) playerMessage.onVisibleChange -= OnMessagePlaneVisible;
 
         }
 
@@ -229,7 +229,7 @@ namespace Sango.UI
 
         public void OnForceStart(Force force, Scenario scenario)
         {
-            if(force == null)
+            if (force == null)
             {
                 forceText.text = "";
                 techPointLabel.text = "";
@@ -249,11 +249,16 @@ namespace Sango.UI
                 uIPlayerInfoPanel.UpdateShowType();
                 GameSystem.GetSystem<PlayerTurnStartGreeting>().Push();
             }
+            if (force.IsPlayer)
+            {
+                int sIndex = (int)scenario.CurSeason;
+                GameMedia.Instance.PlayBgm(CheckBGM(seasonBGMPath[sIndex], force, scenario));
+            }
         }
 
         public void OnCorpsActionPointChange(Corps corps)
         {
-            if(corps.number == 1)
+            if (corps.number == 1)
                 actionNumberLabel.text = corps.ActionPoint.ToString();
         }
 
@@ -581,6 +586,88 @@ namespace Sango.UI
             //        loopScrollRect.RefillCells(loopScrollRect.GetFirstItem(out _));
             //    }
             //}
+        }
+
+        /*
+         * 
+         * 三国志11除了春夏秋冬的非战斗BGM外，
+            战斗BGM一共有五个：战、劣势、优势（优位）、威风、破竹。
+            系统会有一套规则选择播放哪个。
+            规则如下：
+            对全国42个城市依次做判断：
+            一、属于我方领地的城，附近有敌人，附近我方人数小于1W，我方小于敌人的1/3：劣势
+            （只要有任何城符合劣势，就劣势优先）
+            二、任何城市附近，领地内我方人数大于1W，大于敌人的1/3：优势
+            （只要有任何城符合优势，就不会播放战）
+            三、没有一个城市符合一、二；但我方部队周围有敌方部队：战。
+            四、我方城池数如果大于10，那么优势换成破竹，战换成威风。
+            但很不幸的是……基本上，前中期90%的时间都是在听劣势…………
+            哪怕敌人1兵运输队兵临城下，城里10W人，也播放劣势……
+            后期割草后，90%的时间是破竹……
+            战和威风基本听不到。
+            因为这套音乐播放规则，个人感觉不是太合理。
+            就做了一些改动。
+            改动后的规则：
+            一、我方领地内有敌人，领地内敌方人数（注意是敌方）大于1W，我方小于敌人的1/4：劣势
+            (劣势优先级最高，所以条件应该苛刻点)
+            二、任何城市附近，领地内我方人数：
+            1、大于5W，大于敌人的两倍：破竹（当然这个5W只是我定的，能改）
+            2、大于5W，小于敌人的两倍：威风
+            3、小于5W，大于1W，大于敌人的两倍：优势
+            4、其他情况，我方部队附近有敌人，战。
+            三、城市数大于10这个限制去除，1城也可能出现破竹威风。
+         * 
+         */
+
+        public int CheckBGM(int dstBgm, Force force, Scenario scenario)
+        {
+            if (!force.IsPlayer)
+            {
+                return dstBgm;
+            }
+            bool hasEnemy = false;
+            for (int i = 1; i < scenario.citySet.Count; i++)
+            {
+                City city = scenario.citySet[i];
+                int selfTroopNum = 0;
+                int enemyTroopNum = 0;
+                for (int j = 0; j < city.areaCellList.Count; j++)
+                {
+                    Troop troop = city.areaCellList[j].troop;
+                    if (troop != null)
+                    {
+                        if (troop.BelongForce == force || troop.BelongForce.IsAlliance(force))
+                        {
+                            selfTroopNum += troop.troops;
+                        }
+                        else
+                        {
+                            enemyTroopNum += troop.troops;
+                        }
+                    }
+                }
+
+                // 优先判断劣势
+                if (city.BelongForce == force)
+                {
+                    if (enemyTroopNum > 10000 && selfTroopNum < enemyTroopNum / 4)
+                        return 2246;
+                }
+
+                if (selfTroopNum > 50000 && selfTroopNum > enemyTroopNum * 2)
+                    return 2247;
+                else if (selfTroopNum > 50000 && selfTroopNum <= enemyTroopNum * 2)
+                    return 2248;
+                else if (selfTroopNum > 10000 && selfTroopNum <= 50000 && selfTroopNum <= enemyTroopNum * 2)
+                    return 2245;
+
+                hasEnemy = enemyTroopNum > 0;
+            }
+
+            if (hasEnemy)
+                return 2244;
+
+            return dstBgm;
         }
     }
 }

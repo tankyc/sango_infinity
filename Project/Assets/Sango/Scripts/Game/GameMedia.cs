@@ -56,12 +56,15 @@ namespace Sango.Core
         {
             AudioManager.Instance.Update();
         }
-        
+
         public int PlayVoice(int id)
         {
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
+#if SANGO_DEBUG
+                Sango.Log.Info($"²¥·ÅÓïÒô: {result.res}");
+#endif
                 return AudioManager.Instance.PlayVoice(result.res);
             }
             return -1;
@@ -72,6 +75,9 @@ namespace Sango.Core
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
+#if SANGO_DEBUG
+                Sango.Log.Info($"²¥·ÅÓïÒô: {result.res}");
+#endif
                 return AudioManager.Instance.PlayVoice(result.res, volume);
             }
             return -1;
@@ -82,6 +88,9 @@ namespace Sango.Core
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
+#if SANGO_DEBUG
+                Sango.Log.Info($"²¥·ÅÒôÐ§: {result.res}");
+#endif
                 return AudioManager.Instance.PlaySfx(result.res);
             }
             return -1;
@@ -92,6 +101,9 @@ namespace Sango.Core
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
+#if SANGO_DEBUG
+                Sango.Log.Info($"²¥·ÅÒôÐ§: {result.res}");
+#endif
                 return AudioManager.Instance.PlaySfx(result.res, volume);
             }
             return -1;
@@ -102,6 +114,9 @@ namespace Sango.Core
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
+#if SANGO_DEBUG
+                Sango.Log.Info($"ÑÓ³Ù²¥·ÅÒôÐ§: {result.res}, delay:{delay}");
+#endif
                 return AudioManager.Instance.PlayDelayedSfx(result.res, delay);
             }
             return -1;
@@ -111,6 +126,9 @@ namespace Sango.Core
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return;
             if (MediaData.TryGetValue(id, out var result))
             {
+#if SANGO_DEBUG
+                Sango.Log.Info($"²¥·Å±³¾°ÒôÀÖ: {result.res}");
+#endif
                 AudioManager.Instance.PlayBgm(result.res, loop);
             }
         }
@@ -185,7 +203,7 @@ namespace Sango.Core
             {
                 if (person.IsHighStength())
                 {
-                    if(voic == 4)
+                    if (voic == 4)
                     {
                         return PlayVoice(sayId + voic * 2, voiceVolume);
                     }

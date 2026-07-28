@@ -198,6 +198,7 @@ namespace Sango.Core
             List<System.Func<City, Scenario, bool>> AICommandList = city.AICommandList;
             if (city.IsBorderCity)
             {
+                AICommandList.Add(CityAI.AIRewardPerson);
                 AICommandList.Add(CityAI.AIAttack);
                 AICommandList.Add(CityAI.AITradeFood);
 
@@ -206,6 +207,7 @@ namespace Sango.Core
             }
             else
             {
+                AICommandList.Add(CityAI.AIRewardPerson);
                 AICommandList.Add(CityAI.AITradeFood);
                 // 物资输送
                 AICommandList.Add(CityAI.AITransfrom);
@@ -451,6 +453,59 @@ namespace Sango.Core
                         target.Workers = new SangoObjectList<Person>();
                     if (persons.Count > 0 && target.Workers.Count < targetBuildingType.workerLimit)
                     {
+                        switch (targetBuildingType.kind)
+                        {
+                            case (int)BuildingKindType.Barracks:
+                                // 轻视士兵,70%概率不考虑此行动
+                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
+                                {
+                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+                                    {
+                                        if (GameRandom.Chance(80))
+                                            continue;
+                                    }
+                                    else
+                                    {
+                                        if (GameRandom.Chance(60))
+                                            continue;
+                                    }
+                                }
+                                break;
+                            case (int)BuildingKindType.BlacksmithShop:
+                                {
+                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1
+                                         && city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1
+                                          && city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1
+                                        )
+                                    {
+                                        continue;
+                                    }
+                                }
+                                break;
+                            case (int)BuildingKindType.Stable:
+                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Horse) == 1)
+                                {
+                                    continue;
+                                }
+                                break;
+                            case (int)BuildingKindType.BoatFactory:
+                                {
+                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Boat) == 1)
+                                    {
+                                        continue;
+                                    }
+                                }
+                                break;
+                            case (int)BuildingKindType.MechineFactory:
+                                {
+                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Machine) == 1)
+                                    {
+                                        continue;
+                                    }
+                                }
+                                break;
+                        }
+
                         persons.Sort((a, b) => -a.GetAttribute(targetBuildingType.effectAttrType).CompareTo(b.GetAttribute(targetBuildingType.effectAttrType)));
 
                         Person person = persons[0];
@@ -758,9 +813,18 @@ namespace Sango.Core
             city.allBuildings.ForEach((building) => { if (building.isComplate) building.Workers?.Clear(); });
             city.allPersons.ForEach((person) => { person.workingBuilding = null; });
 
-            float targetGold = 5000f;
+            float targetGold = 3000f;
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+                targetGold *= 2;
+
             float targetFood = city.troops * 2.5f;
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
+                targetFood = Math.Min(targetFood, 50000);
+
             float targetTroop = city.food / 2f;
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
+                targetTroop = Math.Min(targetTroop, 20000); ;
+
             float targetItemNumber = city.troops * 1.2f;
             float targetHorseNumber = city.troops;
             float targetBoatNumber = 100f;
@@ -1012,6 +1076,21 @@ namespace Sango.Core
                                     int itemNum = city.itemStore.GetNumber(itemTypeId);
                                     int destNum = totalWeaponNum * levelTotal[itemTypeId - 2] / sumTotal;
                                     levelTotal[itemTypeId - 2] = Mathf.Max(1, (destNum - itemNum) / 100);
+                                }
+
+                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1)
+                                {
+                                    levelTotal[0] = 0;
+                                }
+
+                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1)
+                                {
+                                    levelTotal[1] = 0;
+                                }
+
+                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1)
+                                {
+                                    levelTotal[2] = 0;
                                 }
 
                                 int targetIndex = GameRandom.RandomWeightIndex(levelTotal);
