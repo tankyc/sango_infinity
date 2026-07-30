@@ -9,6 +9,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
+using System;
 
 namespace Sango.Core
 {
@@ -97,6 +98,16 @@ namespace Sango.Core
         /// 后处理开关（Bloom / 景深 / 色彩分级等屏幕后处理效果总开关）
         /// </summary>
         public bool IsPostProcessingEnabled { get; set; } = true;
+
+        /// <summary>
+        /// 阴影开关
+        /// </summary>
+        public bool IsShadowEnabled { get; set; } = true;
+
+        /// <summary>
+        /// 画质预设（0=低，1=中，2=高）
+        /// </summary>
+        public int QualityPreset { get; set; } = 2;
         #endregion
 
         #region 控制设置
@@ -176,6 +187,11 @@ namespace Sango.Core
         /// </summary>
         public void Initialize()
         {
+#if UNITY_ANDROID || UNITY_IPHONE
+
+            ScreenWidth = Screen.width; ScreenHeight = Screen.height;
+#endif
+
             FontDatas.Add(new FontData()
             {
                 fontName = "kaiti",
@@ -192,7 +208,7 @@ namespace Sango.Core
             });
 
             string[] osFontNames = Font.GetOSInstalledFontNames();
-            foreach(string o in osFontNames)
+            foreach (string o in osFontNames)
             {
                 FontDatas.Add(new FontData()
                 {
@@ -412,6 +428,57 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 应用阴影设置
+        /// 具体效果留空，后续补充代码
+        /// </summary>
+        public void ApplyShadowSettings()
+        {
+            // TODO: 根据 IsShadowEnabled 控制场景阴影的开关
+
+
+            // 写入 PlayerPrefs 持久化
+            PlayerPrefs.SetInt("IsShadowEnabled", IsShadowEnabled ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>
+        /// 应用画质预设设置
+        /// 具体效果留空，后续补充代码
+        /// </summary>
+        public void ApplyQualityPreset()
+        {
+            // TODO: 根据 QualityPreset 设置对应的画质参数
+            // 0=低，1=中，2=高
+
+#if UNITY_ANDROID || UNITY_IPHONE
+            UnityEngine.QualitySettings.SetQualityLevel(QualityPreset);
+            switch (QualityPreset)
+            {
+                case 0:
+                    {
+                        int height = ScreenHeight * 6 / 10;
+                        int width = ScreenWidth * 6 / 10;
+                        Screen.SetResolution(width, height, true);
+                    }
+                    break;
+                case 1:
+                    {
+                        int height = ScreenHeight * 8 / 10;
+                        int width = ScreenWidth * 8 / 10;
+                        Screen.SetResolution(width, height, true);
+                    }
+                    break;
+                case 2:
+                    Screen.SetResolution(ScreenWidth, ScreenHeight, true);
+                    break;
+            }
+#endif
+            // 写入 PlayerPrefs 持久化
+            PlayerPrefs.SetInt("QualityPreset", QualityPreset);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>
         /// 应用控制设置
         /// </summary>
         public void ApplyControlSettings()
@@ -457,6 +524,8 @@ namespace Sango.Core
             ApplyControlSettings();
             ApplyLanguageSettings();
             ApplyLargeFontSettings();
+            ApplyShadowSettings();
+            ApplyQualityPreset();
         }
 
         #endregion
@@ -497,6 +566,10 @@ namespace Sango.Core
             IsLargeFontEnabled = PlayerPrefs.GetInt("IsLargeFontEnabled", 0) == 1;
             LargeFontScaleFactor = PlayerPrefs.GetInt("LargeFontScaleFactor", 0);
             FontName = PlayerPrefs.GetString("FontName", "kaiti");
+
+            // 图形设置 - 阴影与画质
+            IsShadowEnabled = PlayerPrefs.GetInt("IsShadowEnabled", 1) == 1;
+            QualityPreset = PlayerPrefs.GetInt("QualityPreset", 2);
         }
 
         #endregion
@@ -535,6 +608,10 @@ namespace Sango.Core
             IsLargeFontEnabled = false;
             LargeFontScaleFactor = 0;
             FontName = "kaiti";
+
+            // 图形设置 - 阴影与画质
+            IsShadowEnabled = true;
+            QualityPreset = 2;
 
             // 清除PlayerPrefs
             PlayerPrefs.DeleteAll();
@@ -675,6 +752,23 @@ namespace Sango.Core
                 IsPostProcessingEnabled = value;
                 ApplyPostProcessingSettings();
             });
+
+#if UNITY_ANDROID || UNITY_IPHONE
+            // 画质预设选项
+            List<string> qualityPresetOptions = new List<string> { "低", "中", "高" };
+            setting.AddDropdownItem("画质预设", QualityPreset, qualityPresetOptions, (index) =>
+            {
+                QualityPreset = index;
+                ApplyQualityPreset();
+            });
+#endif
+
+            // 阴影开关
+            //setting.AddToggleItem("阴影", IsShadowEnabled, (value) =>
+            //{
+            //    IsShadowEnabled = value;
+            //    ApplyShadowSettings();
+            //});
 
 
             setting.AddDropdownItem("帧率限制", CurrentFrameRateIndex, frameRateOptions, (index) =>
@@ -868,6 +962,10 @@ namespace Sango.Core
             LargeFontScaleFactor = 0;
             FontName = "kaiti";
 
+            // 图形设置 - 阴影与画质
+            IsShadowEnabled = true;
+            QualityPreset = 2;
+
             // 清除PlayerPrefs
             //PlayerPrefs.DeleteAll();
             //PlayerPrefs.Save();
@@ -903,6 +1001,8 @@ namespace Sango.Core
                 IsLargeFontEnabled = IsLargeFontEnabled,
                 LargeFontScaleFactor = LargeFontScaleFactor,
                 FontName = FontName,
+                IsShadowEnabled = IsShadowEnabled,
+                QualityPreset = QualityPreset,
             };
         }
 
@@ -936,6 +1036,8 @@ namespace Sango.Core
             IsLargeFontEnabled = snapshot.IsLargeFontEnabled;
             LargeFontScaleFactor = snapshot.LargeFontScaleFactor;
             FontName = snapshot.FontName;
+            IsShadowEnabled = snapshot.IsShadowEnabled;
+            QualityPreset = snapshot.QualityPreset;
             // 应用设置
             ApplyAllSettings();
         }
@@ -1073,6 +1175,16 @@ namespace Sango.Core
         public int LargeFontScaleFactor { get; set; }
 
         public string FontName { get; set; }
+
+        /// <summary>
+        /// 阴影开关
+        /// </summary>
+        public bool IsShadowEnabled { get; set; }
+
+        /// <summary>
+        /// 画质预设（0=低，1=中，2=高）
+        /// </summary>
+        public int QualityPreset { get; set; }
     }
 
 
