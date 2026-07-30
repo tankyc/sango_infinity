@@ -42,6 +42,11 @@ namespace Sango.Core
         public virtual bool AIPrepared { get; set; }
 
         /// <summary>
+        /// 是否已经委任
+        /// </summary>
+        public bool IsAppoint => missionType > 0;
+
+        /// <summary>
         /// 所属势力
         /// </summary>
         public Force BelongForce => Leader?.BelongForce;
@@ -417,7 +422,7 @@ namespace Sango.Core
         /// <summary>
         /// 是否免疫火焰
         /// </summary>
-        public bool ignoreFire = true;
+        public bool ignoreFire = false;
 
         public bool IsJustCreated => x == BelongCity.x && y == BelongCity.y;
 
@@ -1299,7 +1304,7 @@ namespace Sango.Core
             if (Render != null)
             {
                 bool isCrit = false;
-                if(skill != null)
+                if (skill != null)
                 {
                     isCrit = skill.IsCritical();
                 }
@@ -1335,7 +1340,7 @@ namespace Sango.Core
                 Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 溃灭!!");
 #endif
 
-                if(Render != null && Render.IsVisible())
+                if (Render != null && Render.IsVisible())
                 {
                     GameMedia.Instance.PlaySfx(83);
                 }
@@ -1835,7 +1840,7 @@ namespace Sango.Core
             bool hasGovernor = false;
             ForEachPerson((person) =>
             {
-                if(person.IsGovernor)
+                if (person.IsGovernor)
                 {
                     hasGovernor = true;
                 }
@@ -1848,11 +1853,26 @@ namespace Sango.Core
             city.Render.UpdateRender();
 
             // 如果主公进城,要解散目标城市的军团
-            if(hasGovernor)
+            if (hasGovernor)
             {
-                if(city.BelongCorps != BelongCorps)
+                if (city.BelongCorps != BelongForce.Governor.BelongCorps)
                 {
-                    BelongForce.DeleteCorps(city.BelongCorps);
+                    Corps corps = city.BelongCorps;
+                    // 进入港关
+                    if (!city.IsCity())
+                    {
+                        city.ChangeCorps(BelongCorps);
+                        city.UpdateCorps();
+                        if (corps.Comander.BelongCity == city)
+                            corps.AutoUpdateCommander();
+                    }
+                    else
+                    {
+                        city.ChangeCorps(BelongCorps);
+                        city.UpdateCorps();
+                        city.Render?.UpdateRender();
+                        corps.RemoveCity(city);
+                    }
                 }
             }
 

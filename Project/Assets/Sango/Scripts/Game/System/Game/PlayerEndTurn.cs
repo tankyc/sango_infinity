@@ -34,12 +34,27 @@ namespace Sango.Core.Player
         public override void OnEnter()
         {
             updateTroopAI = false;
-            GameDialog.Open("是否需要结束玩家回合", () =>
+            Scenario scenario = Scenario.Cur;
+            Force force = scenario.CurRunForce;
+            bool findNoActionTroop = false;
+            Scenario.Cur.troopsSet.ForEach(x =>
             {
+                if (!findNoActionTroop && x.IsAlive && x.BelongForce == Scenario.Cur.CurRunForce && x.BelongCorps.IsPlayerControl && !x.ActionOver && !x.IsAppoint)
+                    findNoActionTroop = true;
+            });
+
+            string content;
+            if (findNoActionTroop)
+                content = $"将结束{force.ColorName}的战略，\n有<color#=ff2222>尚未行动的部队</color>存在，\n请问是否确定";
+            else
+                content = $"结束{force.ColorName}的战略，\n请问是否确定";
+
+            GameDialog.Open(content, () =>
+            {
+                GameDialog.Close();
                 updateTroopAI = true;
 
-                GameDialog.Close();
-            }).cancelAction = ()=>
+            }).cancelAction = () =>
             {
                 GameDialog.Close();
                 Done();
@@ -52,7 +67,7 @@ namespace Sango.Core.Player
             base.Update();
             Scenario scenario = Scenario.Cur;
             Force force = scenario.CurRunForce;
-            if(force != null)
+            if (force != null)
             {
                 for (int i = 0; i < scenario.troopsSet.Count; ++i)
                 {

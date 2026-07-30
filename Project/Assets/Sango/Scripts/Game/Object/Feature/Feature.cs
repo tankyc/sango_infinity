@@ -11,6 +11,23 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptIn)]
     public class Feature : SangoObject
     {
+        private string _name;
+        public override string Name
+        {
+            get
+            {
+                if (actionEntities == null)
+                    return $"<color=#ff1111>{_name}</color>";
+                else
+                    return _name;
+            }
+
+            set
+            {
+                _name = value;
+            }
+        }
+
         /// <summary>
         /// 描述
         /// </summary>

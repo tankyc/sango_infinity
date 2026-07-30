@@ -72,7 +72,7 @@ namespace Sango.Core.Player
                     //if (dis < 10)
                     {
                         x.allPersons.ForEach(y => { 
-                            if(y.state != (int)PersonStateType.Governor)
+                            if(y.state != (int)PersonStateType.Governor && y.state != (int)PersonStateType.Prisoner)
                                 targetList.Add(y); 
                         
                         });

@@ -29,7 +29,7 @@ namespace Sango.Render
             if (IsVisible())
             {
                 troop.Render.SetSmokeShow(true);
-                soundChannel = GameMedia.Instance.PlaySfx(troop.TroopType.moveSound);
+                GameMedia.Instance.PlaySfxLoop(troop.TroopType.moveSound);
             }
         }
 
@@ -39,8 +39,7 @@ namespace Sango.Render
             {
                 troop.Render.SetSmokeShow(false);
             }
-            if (soundChannel >= 0)
-                GameMedia.Instance.StopSfx(soundChannel);
+           GameMedia.Instance.StopSfx(troop.TroopType.moveSound);
         }
 
         public override bool IsVisible()

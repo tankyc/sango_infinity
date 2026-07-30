@@ -16,6 +16,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByName,
                 PersonSortFunction.SortByLevel,
                 PersonSortFunction.SortByTroopsLimit,
+                PersonSortFunction.SortByWork,
                 PersonSortFunction.SortByCommand,
                 PersonSortFunction.SortByStrength,
                 PersonSortFunction.SortByIntelligence,

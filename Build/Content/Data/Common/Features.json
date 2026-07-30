@@ -219,7 +219,7 @@
           "class": "TroopTriggerAction",
           "triggerList": [
             {
-              "class": "TriggerWhenSkillRenderEnd"
+              "class": "TriggerWhenSkillActionEnd"
             }
           ],
           "actionList": [
@@ -1055,7 +1055,7 @@
           "class": "TroopTriggerAction",
           "triggerList": [
             {
-              "class": "TriggerWhenSkillRenderEnd"
+              "class": "TriggerWhenSkillActionEnd"
             }
           ],
           "actionList": [

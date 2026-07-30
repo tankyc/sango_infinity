@@ -8,6 +8,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.UI;
 
 namespace Sango.Core
 {
@@ -58,7 +59,7 @@ namespace Sango.Core
         /// 语音音效音量（0-1）
         /// </summary>
         public float VoiceVolume { get; set; } = 1.0f;
-        
+
 
         /// <summary>
         /// 主音量（0-1）
@@ -127,6 +128,13 @@ namespace Sango.Core
         /// 大字体缩放倍率
         /// </summary>
         public int LargeFontScaleFactor { get; set; } = 0;
+
+
+        public string FontName { get; set; } = "kaiti";
+        /// <summary>
+        /// 当前帧率在列表中的索引
+        /// </summary>
+        public int CurrentFontIndex { get; set; } = 0;
         #endregion
 
         #region 构造函数
@@ -139,18 +147,76 @@ namespace Sango.Core
         }
         #endregion
 
+        public List<FontData> FontDatas = new List<FontData>();
+        public struct FontData
+        {
+            public string fontName;
+            public string place;
+            public Font Load()
+            {
+                if (string.IsNullOrEmpty(place))
+                    return Resources.Load<Font>(fontName);
+                else
+                {
+                    switch (place)
+                    {
+                        case "os":
+                            return Font.CreateDynamicFontFromOSFont(fontName, 25);
+                    }
+                }
+                return null;
+            }
+        }
+
+        public Font Font { get; set; }
+
         #region 初始化方法
         /// <summary>
         /// 初始化游戏设置
         /// </summary>
         public void Initialize()
         {
+            FontDatas.Add(new FontData()
+            {
+                fontName = "kaiti",
+            });
+
+            FontDatas.Add(new FontData()
+            {
+                fontName = "alibaba",
+            });
+
+            FontDatas.Add(new FontData()
+            {
+                fontName = "siyuancn",
+            });
+
+            string[] osFontNames = Font.GetOSInstalledFontNames();
+            foreach(string o in osFontNames)
+            {
+                FontDatas.Add(new FontData()
+                {
+                    fontName = o,
+                    place = "os"
+                });
+            }
+
             LoadSettings();
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR
             InitializeResolutions();
 #endif
             InitializeFrameRates();
 
+            CurrentFontIndex = 0;
+            for (int i = 0; i < FontDatas.Count; i++)
+            {
+                FontData fontData = FontDatas[i];
+                if (fontData.fontName.Equals(FontName))
+                {
+                    CurrentFontIndex = i;
+                    Font = fontData.Load();
+                }
+            }
 
             // 监听游戏设置事件
             GameEvent.OnGameSetting += OnGameSetting;
@@ -369,6 +435,7 @@ namespace Sango.Core
         /// </summary>
         public void ApplyLargeFontSettings()
         {
+            PlayerPrefs.SetString("FontName", FontDatas[CurrentFontIndex].fontName);
             PlayerPrefs.SetInt("IsLargeFontEnabled", IsLargeFontEnabled ? 1 : 0);
             PlayerPrefs.SetInt("LargeFontScaleFactor", LargeFontScaleFactor);
             PlayerPrefs.Save();
@@ -392,9 +459,9 @@ namespace Sango.Core
             ApplyLargeFontSettings();
         }
 
-#endregion
+        #endregion
 
-#region 加载设置
+        #region 加载设置
         /// <summary>
         /// 从PlayerPrefs加载设置
         /// </summary>
@@ -429,11 +496,12 @@ namespace Sango.Core
             // 界面设置
             IsLargeFontEnabled = PlayerPrefs.GetInt("IsLargeFontEnabled", 0) == 1;
             LargeFontScaleFactor = PlayerPrefs.GetInt("LargeFontScaleFactor", 0);
+            FontName = PlayerPrefs.GetString("FontName", "kaiti");
         }
 
-#endregion
+        #endregion
 
-#region 重置设置
+        #region 重置设置
         /// <summary>
         /// 重置所有设置为默认值
         /// </summary>
@@ -466,6 +534,7 @@ namespace Sango.Core
             // 界面设置
             IsLargeFontEnabled = false;
             LargeFontScaleFactor = 0;
+            FontName = "kaiti";
 
             // 清除PlayerPrefs
             PlayerPrefs.DeleteAll();
@@ -475,9 +544,9 @@ namespace Sango.Core
             ApplyAllSettings();
         }
 
-#endregion
+        #endregion
 
-#region 分辨率操作
+        #region 分辨率操作
         /// <summary>
         /// 设置分辨率
         /// </summary>
@@ -524,9 +593,9 @@ namespace Sango.Core
             IsFullScreen = !IsFullScreen;
             Screen.fullScreen = IsFullScreen;
         }
-#endregion
+        #endregion
 
-#region 帧率操作
+        #region 帧率操作
         /// <summary>
         /// 设置帧率限制
         /// </summary>
@@ -550,9 +619,9 @@ namespace Sango.Core
                 ApplyGraphicsSettings();
             }
         }
-#endregion
+        #endregion
 
-#region 事件处理
+        #region 事件处理
         /// <summary>
         /// 处理游戏设置事件
         /// </summary>
@@ -606,7 +675,7 @@ namespace Sango.Core
                 IsPostProcessingEnabled = value;
                 ApplyPostProcessingSettings();
             });
-            
+
 
             setting.AddDropdownItem("帧率限制", CurrentFrameRateIndex, frameRateOptions, (index) =>
             {
@@ -615,6 +684,28 @@ namespace Sango.Core
 
             // 界面设置
             setting.AddBigTitle("界面设置");
+
+            // 创建字体选项列表
+            List<string> fontOptions = new List<string>();
+            foreach (FontData data in FontDatas)
+            {
+                fontOptions.Add(data.fontName);
+            }
+            setting.AddDropdownItem("字体", CurrentFontIndex, fontOptions, (index) =>
+            {
+                CurrentFontIndex = index;
+                Text[] text = GameObject.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                Font = FontDatas[CurrentFontIndex].Load();
+                foreach (Text text2 in text)
+                {
+                    if (text2.fontSize > 0)
+                    {
+                        text2.font = Font;
+                    }
+                }
+
+                ApplyLargeFontSettings();
+            });
 
             setting.AddToggleItem("大字体", IsLargeFontEnabled, (value) =>
             {
@@ -679,9 +770,9 @@ namespace Sango.Core
                 Sango.Render.MapRender.Instance.SetKeyBoardMoveSpeed(KeyboardMoveSpeed);
             }
         }
-#endregion
+        #endregion
 
-#region 应用设置
+        #region 应用设置
         /// <summary>
         /// 应用所有设置
         /// </summary>
@@ -696,9 +787,9 @@ namespace Sango.Core
                 Sango.Render.MapRender.Instance.SetKeyBoardMoveSpeed(KeyboardMoveSpeed);
             }
         }
-#endregion
+        #endregion
 
-#region 音频操作
+        #region 音频操作
         /// <summary>
         /// 设置背景音乐音量
         /// </summary>
@@ -738,9 +829,9 @@ namespace Sango.Core
             MasterVolume = Mathf.Clamp01(volume);
             ApplyAudioSettings();
         }
-#endregion
+        #endregion
 
-#region 默认值和快照
+        #region 默认值和快照
         /// <summary>
         /// 还原默认设置
         /// </summary>
@@ -775,6 +866,7 @@ namespace Sango.Core
             // 界面设置
             IsLargeFontEnabled = false;
             LargeFontScaleFactor = 0;
+            FontName = "kaiti";
 
             // 清除PlayerPrefs
             //PlayerPrefs.DeleteAll();
@@ -809,7 +901,8 @@ namespace Sango.Core
                 MovementMode = MovementMode,
                 Language = Language,
                 IsLargeFontEnabled = IsLargeFontEnabled,
-                LargeFontScaleFactor = LargeFontScaleFactor
+                LargeFontScaleFactor = LargeFontScaleFactor,
+                FontName = FontName,
             };
         }
 
@@ -830,7 +923,7 @@ namespace Sango.Core
             BgmVolume = snapshot.BgmVolume;
             SfxVolume = snapshot.SfxVolume;
             VoiceVolume = snapshot.VoiceVolume;
-            
+
             MasterVolume = snapshot.MasterVolume;
             VSync = snapshot.VSync;
             FrameRateLimit = snapshot.FrameRateLimit;
@@ -842,11 +935,46 @@ namespace Sango.Core
             Language = snapshot.Language;
             IsLargeFontEnabled = snapshot.IsLargeFontEnabled;
             LargeFontScaleFactor = snapshot.LargeFontScaleFactor;
-
+            FontName = snapshot.FontName;
             // 应用设置
             ApplyAllSettings();
         }
-#endregion
+        #endregion
+
+        public void UpdateTargetGameObject(GameObject target)
+        {
+            if (Font != null)
+            {
+                Text[] text = target.GetComponentsInChildren<Text>(true);
+                if (text != null)
+                {
+                    foreach (Text t in text)
+                    {
+                        if (t.fontSize == 0) continue;
+                        t.font = Font;
+                    }
+                }
+            }
+
+            if (IsLargeFontEnabled)
+            {
+                float addSize = LargeFontScaleFactor;
+                Text[] text = target.GetComponentsInChildren<Text>(true);
+                if (text != null)
+                {
+                    foreach (Text t in text)
+                    {
+                        if (t.fontSize == 0) continue;
+
+                        float scale = (t.fontSize + addSize) / (float)t.fontSize;
+                        RectTransform rect = t.GetComponent<RectTransform>();
+                        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, rect.rect.width * scale);
+                        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rect.rect.height * scale);
+                        t.fontSize = t.fontSize + (int)addSize;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -943,5 +1071,11 @@ namespace Sango.Core
         /// 大字体缩放倍率
         /// </summary>
         public int LargeFontScaleFactor { get; set; }
+
+        public string FontName { get; set; }
     }
+
+
+
+
 }

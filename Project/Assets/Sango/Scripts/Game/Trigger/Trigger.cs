@@ -88,7 +88,7 @@ namespace Sango.Core
         public static void Init()
         {
             Register("TriggerWhenSkillHitTroop", CraeteHandle<TriggerWhenSkillHitTroop>);
-            Register("TriggerWhenSkillRenderEnd", CraeteHandle<TriggerWhenSkillRenderEnd>);
+            Register("TriggerWhenSkillActionEnd", CraeteHandle<TriggerWhenSkillActionEnd>);
             Register("TriggerWhenSkillAfterHitTroop", CraeteHandle<TriggerWhenSkillAfterHitTroop>);
 
         }

@@ -6,6 +6,8 @@ namespace Sango.Render
     public class TroopSpellSkillEvent : RenderEventBase
     {
         public Troop troop;
+        public Troop targetTroop;
+        public BuildingBase targetBuilding;
         public SkillInstance skill;
         public Cell spellCell;
         private bool isAction = false;
@@ -16,6 +18,8 @@ namespace Sango.Render
             this.troop = skill.master;
             this.skill = skill;
             this.spellCell = spellCell;
+            this.targetTroop = spellCell.troop;
+            this.targetBuilding = spellCell.building;
             this.isAction = false;
             this.time = 0;
             IsDone = false;
@@ -31,7 +35,7 @@ namespace Sango.Render
                     GameMedia.Instance.PlaySfx(69);
                     GameMedia.Instance.PlayPersonSay(troop.Leader, skill.GerPersonSay());
                 }
-                else if(skill.IsStrategy())
+                else if (skill.IsStrategy())
                 {
                     GameMedia.Instance.PlaySfx(85);
                 }
@@ -74,16 +78,11 @@ namespace Sango.Render
             {
                 Action();
                 troop?.Render?.SetAniShow(0);
-                GameEvent.OnSkillRenderEnd?.Invoke(skill, spellCell);
                 IsDone = true;
                 return IsDone;
             }
             IsDone = skill.UpdateRender(spellCell, scenario, time, Action);
             time += deltaTime;
-            if (IsDone)
-            {
-                GameEvent.OnSkillRenderEnd?.Invoke(skill, spellCell);
-            }
             return IsDone;
         }
 
@@ -92,6 +91,7 @@ namespace Sango.Render
         {
             if (isAction) return;
             skill.Action(spellCell, 100);
+            GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
             isAction = true;
         }
 

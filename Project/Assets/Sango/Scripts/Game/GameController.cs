@@ -682,11 +682,6 @@ namespace Sango.Core
                 hasKey = true;
             }
 
-            if (Input.GetKeyUp(KeyCode.Escape))
-            {
-                OnCancel();
-            }
-
             if (hasKey)
             {
                 MapRender.Instance.MoveCameraKeyBoard(keyFlags);
@@ -778,6 +773,12 @@ namespace Sango.Core
 #else
             HandleMobileEvent();
 #endif
+
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                OnCancel();
+            }
+
         }
 
         /// <summary>

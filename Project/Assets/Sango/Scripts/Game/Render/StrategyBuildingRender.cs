@@ -66,24 +66,7 @@ namespace Sango.Render
 
             GameObject headBar = PoolManager.Create(GameRenderHelper.BuildingHeadbarRes, (x) =>
             {
-                if (GameSetting.Instance.IsLargeFontEnabled)
-                {
-                    float addSize = GameSetting.Instance.LargeFontScaleFactor;
-
-                    Text[] text = x.GetComponentsInChildren<Text>(true);
-                    if (text != null)
-                    {
-                        foreach (Text t in text)
-                        {
-                            if (t.fontSize == 0) continue;
-                            float scale = (t.fontSize + addSize) / (float)t.fontSize;
-                            RectTransform rect = t.GetComponent<RectTransform>();
-                            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, rect.rect.width * scale);
-                            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rect.rect.height * scale);
-                            t.fontSize = t.fontSize + (int)addSize;
-                        }
-                    }
-                }
+                GameSetting.Instance.UpdateTargetGameObject(x);
 
 
             });

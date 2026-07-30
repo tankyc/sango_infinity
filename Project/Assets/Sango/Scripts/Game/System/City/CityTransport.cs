@@ -77,7 +77,7 @@ namespace Sango.Core.Player
             TargetTroop.Leader = leader;
             TargetTroop.Member1 = null;
             TargetTroop.Member2 = null;
-            TargetTroop.LandTroopType = scenario.GetObject<TroopType>(6);
+            TargetTroop.LandTroopType = TroopType.GetTransportType(scenario, TargetCity.BelongForce);
             TargetTroop.WaterTroopType = scenario.GetObject<TroopType>(8);
             if (TargetTroop.troops == 0)
             {

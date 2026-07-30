@@ -1501,6 +1501,21 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 改变军团后,需要用此方法更新所属信息
+        /// </summary>
+        public void UpdateCorps()
+        {
+            allPersons.ForEach(person =>
+            {
+                person.ChangeCorps(BelongCorps);
+            });
+            allBuildings.ForEach(person =>
+            {
+                person.ChangeCorps(BelongCorps);
+            });
+        }
+
+        /// <summary>
         /// 改变兵力
         /// </summary>
         /// <param name="num">改变的兵力值</param>

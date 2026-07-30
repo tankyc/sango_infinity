@@ -18,6 +18,10 @@ namespace Sango.UI
         public Button backButton;
         public Button applyButton;
 
+        public InputField urlInput;
+        public GameObject loadingNode;
+        public GameObject rootNode;
+        public Text loandingTxt;
 
         public RectTransform sliderRect;
         public Scrollbar scrollbar;
@@ -44,11 +48,28 @@ namespace Sango.UI
 
         public override void OnOpen()
         {
+            rootNode.SetActive(false);
+            loandingTxt.text = $"加载中.....0%";
+            loadingNode.SetActive(true);
+            ModManager.Instance.LoadMarketAsync(
+                () =>
+                {
+                    rootNode.SetActive(true);
+                    loadingNode.SetActive(false);
+                    InitUI();
+                },
+                (f) =>
+                {
+                    loandingTxt.text = $"加载中.....{(int)(f * 100)}%";
+                });
+        }
+
+        void InitUI()
+        {
             LoadModList();
             selectedIndex = 0;
             ShowModInfo(-1);
             BindEvents();
-
             totalCount = allMods.Count;
             if (totalCount < itemCount)
             {
@@ -62,6 +83,7 @@ namespace Sango.UI
             }
             startIndex = 0;
             OnScrollBarValueChange(0);
+            GameEvent.OnModUpdate -= OnModUpdate;
             GameEvent.OnModUpdate += OnModUpdate;
         }
 
@@ -73,7 +95,7 @@ namespace Sango.UI
 
         void OnModUpdate(Mod.Mod mod)
         {
-            if(!ModManager.Instance.HasMod(mod))
+            if (!ModManager.Instance.HasMod(mod))
             {
                 allMods.Remove(mod);
                 enabledMods.Remove(mod);
@@ -242,7 +264,7 @@ namespace Sango.UI
             List<Mod.Mod> sorted_list = new List<Mod.Mod>();
             foreach (Mod.Mod mod in allMods)
             {
-                if(enabledMods.Contains(mod))
+                if (enabledMods.Contains(mod))
                     sorted_list.Add(mod);
             }
 
@@ -362,10 +384,41 @@ namespace Sango.UI
 
         public void RefreshModList()
         {
-            if (ModManager.Instance.HasError)
-                ModManager.Instance.InitForUrl();
-            else
-                OnOpen();
+            OnOpen();
+        }
+
+        bool CheckUrlValid(string url)
+        {
+            if(!url.StartsWith("http"))
+                return false;
+            else if(url.EndsWith("/mod_list.txt"))
+                return false;
+            return true;
+        }
+
+        public void OnAddUrlModMarket()
+        {
+            string txt = urlInput.text;
+            AddUrlMarket(txt);
+        }
+
+        void AddUrlMarket(string url)
+        {
+            if (CheckUrlValid(url))
+            {
+                loandingTxt.text = $"加载中.....0%";
+                loadingNode.SetActive(true);
+                ModManager.Instance.AddMarketFromUrl(
+                    url, () =>
+                    {
+                        loadingNode.SetActive(false);
+                        InitUI();
+                    },
+                    (f) =>
+                    {
+                        loandingTxt.text = $"加载中.....{(int)(f * 100)}%";
+                    });
+            }
         }
     }
 }

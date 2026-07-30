@@ -282,17 +282,17 @@ namespace Sango.Core
         /// 势力更换军师
         /// </summary>
         public static EventDelegate<Force, Person> OnForceChangeCounsellor;
-        
+
         /// <summary>
         /// 发现敌方部队
         /// </summary>
         public static EventDelegate<Force, City, Troop, Person> OnDiscoverEnemyTroop;
-        
+
         /// <summary>
         /// 建筑建造完成
         /// </summary>
         public static EventDelegate<Building, SangoObjectList<Person>> OnBuildingComplete;
-        
+
         /// <summary>
         /// 建筑升级完成
         /// </summary>
@@ -597,7 +597,7 @@ namespace Sango.Core
         /// <summary>
         /// 技能实例效果触发结束
         /// </summary>
-        public static EventDelegate<SkillInstance, Cell> OnSkillRenderEnd;
+        public static EventDelegate<SkillInstance, Cell, Troop, BuildingBase> OnSkillActionEnd;
 
         /// <summary>
         /// 放火

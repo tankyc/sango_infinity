@@ -203,11 +203,8 @@ namespace Sango.Mod
         {
             // 下载
             isDownloading = true;
-            string rUrl = Url.Substring(0, Url.LastIndexOf("/"));
-            rUrl = rUrl.Substring(0, rUrl.LastIndexOf("/"));
-            string download = $"{rUrl}/{UrlVersion}/{Id}.zip";
             loadProgress = 0;
-            App.Instance.StartCoroutine(GitDownloader.DownloadAndExtract(download, ModManager.MOD_ROOT_DIR,
+            App.Instance.StartCoroutine(GitDownloader.DownloadAndExtract(Url, ModManager.MOD_ROOT_DIR,
                 (progress) =>
                 {
                     loadProgress = progress;

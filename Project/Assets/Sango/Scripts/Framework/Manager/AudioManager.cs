@@ -226,6 +226,32 @@ namespace Sango.Manager
         /// <param name="audioName">音效名称</param>
         /// <param name="volume">音量</param>
         /// <returns>播放音效的声道索引</returns>
+        public int PlaySfxLoop(string audioName, float volume = 1.0f)
+        {
+            if (SfxVolume <= 0) return -1;
+            AudioClip clip = LoadAudioClip(audioName);
+            if (clip == null)
+                return -1;
+
+            int channelIndex = GetFreeSfxChannel(clip);
+            if (channelIndex >= 0)
+            {
+                AudioSource source = _sfxSources[channelIndex];
+                source.clip = clip;
+                source.loop = true;
+                source.volume = SfxVolume * volume * MaxSfxVolume;
+                source.Play();
+            }
+
+            return channelIndex;
+        }
+
+        /// <summary>
+        /// 播放音效
+        /// </summary>
+        /// <param name="audioName">音效名称</param>
+        /// <param name="volume">音量</param>
+        /// <returns>播放音效的声道索引</returns>
         public int PlayVoice(string audioName, float volume = 1.0f)
         {
             if (SfxVolume <= 0) return -1;
@@ -312,6 +338,26 @@ namespace Sango.Manager
                 AudioSource source = _sfxSources[channelIndex];
                 source.Stop();
                 _freeSfxChannels.Enqueue(channelIndex);
+            }
+        }
+
+        public void StopSfx(string audioName)
+        {
+            if (SfxVolume <= 0) return;
+            AudioClip clip = LoadAudioClip(audioName);
+            if (clip == null)
+                return;
+
+            // 查找正在播放完成的声道
+            for (int i = 0; i < _sfxSources.Count; i++)
+            {
+                AudioSource source = _sfxSources[i];
+                if (source.isPlaying && source.clip == clip)
+                {
+                    source.loop = false;
+                    source.Stop();
+                    return;
+                }
             }
         }
 

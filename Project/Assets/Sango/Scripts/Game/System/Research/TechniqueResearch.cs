@@ -136,8 +136,6 @@ namespace Sango.Core
 
             city.gold -= goldNeed;
             city.BelongForce.GainTechniquePoint(-tpNeed);
-            city.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
-
             int meritGain = JobType.GetJobMeritGain(jobId);
 
 #if SANGO_DEBUG

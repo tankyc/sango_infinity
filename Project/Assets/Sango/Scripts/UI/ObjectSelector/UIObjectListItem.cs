@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
 using UnityEngine.UI;
 namespace Sango.UI
@@ -63,6 +64,25 @@ namespace Sango.UI
             usedItems.Add(item);
             item.gameObject.SetActive(true);
             item.SetWidth(width).SetText(content);
+            item.transform.SetAsLastSibling();
+        }
+
+        public void Add(string content, float width, int alignment)
+        {
+            UITextItem item;
+            if (pool.Count == 0)
+            {
+                GameObject obj = GameObject.Instantiate(textItem.gameObject, contentRect);
+                item = obj.GetComponent<UITextItem>();
+            }
+            else
+            {
+                item = pool[0];
+                pool.RemoveAt(0);
+            }
+            usedItems.Add(item);
+            item.gameObject.SetActive(true);
+            item.SetWidth(width).SetText(content).SetAlignment((TextAnchor)alignment);
             item.transform.SetAsLastSibling();
         }
 

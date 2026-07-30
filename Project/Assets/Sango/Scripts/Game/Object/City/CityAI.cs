@@ -213,7 +213,7 @@ namespace Sango.Core
             {
                 city.allPersons.ForEach(x =>
                 {
-                    if (x.BelongTroop != null && city.gold > 500 && x.loyalty <= 95)
+                    if (x.BelongTroop == null && city.gold > 500 && x.loyalty <= 90)
                     {
                         city.JobRewardPerson(x);
                     }
@@ -267,7 +267,7 @@ namespace Sango.Core
 
             if (city.freePersons.Count == 0) return true;
 
-            if (city.troops < 20000 || city.food < 20000 || city.itemStore.TotalNumber < 20000)
+            if (city.troops < 10000 || city.food < 20000)
             {
                 return true;
             }
@@ -285,8 +285,15 @@ namespace Sango.Core
                     return true;
                 }
 
-                target = path[0];
+                if (path[0] == city && path.Count == 1)
+                {
+                    return true;
+                }
 
+                if (path[0] == city)
+                    target = path[1];
+                else
+                    target = path[0];
             }
             else
             {
@@ -314,10 +321,14 @@ namespace Sango.Core
             if (target == null)
                 return true;
 
-            TroopType troopType = scenario.GetObject<TroopType>(6);
+            if (target.troops >= target.TroopsLimit || target.food >= target.foodLimit)
+                return true;
+
+            TroopType troopType = TroopType.GetTransportType(scenario, city.BelongForce);
+            if (troopType == null) return true;
 
             //运输比例
-            int part = 70;
+            int part = scenario.Variables.TransportPercent;
 
             Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);
             Person leader = persons[0];
@@ -468,7 +479,7 @@ namespace Sango.Core
                 return true;
             }
             //运输比例
-            int part = 90;
+            int part = scenario.Variables.TransportPercent;
             int gold = 0, food = 0;
             if (target.gold < target.GoldLimit)
             {
@@ -999,6 +1010,8 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIRecruitTroop(City city, Scenario scenario)
         {
+            if (city.freePersons.Count == 0) return true;
+
             // 轻视士兵,70%概率不考虑此行动
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
             {
@@ -1014,10 +1027,13 @@ namespace Sango.Core
                 }
             }
 
-            if (city.freePersons.Count <= 2) return true;
+            //if (city.freePersons.Count <= 2) return true;
 
-            int expectationTroops = (city.food / 2);
+            int expectationTroops = Math.Min(city.food / 2, city.itemStore.TotalNumber * 3 / 2);
             if (city.troops >= expectationTroops)
+                return true;
+
+            if (city.troops >= city.TroopsLimit)
                 return true;
 
             if (scenario.Variables.populationEnable && city.troopPopulation <= 500) return true;
@@ -1041,14 +1057,14 @@ namespace Sango.Core
         /// <returns></returns>
         public static bool AITradeFood(City city, Scenario scenario)
         {
+            if (city.freePersons.Count <= 0) return true;
+            if (city.gold <= 2000) return true;
+
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
                 return true;
 
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
                 return true;
-
-            if (city.freePersons.Count <= 0) return true;
-            if (city.gold <= 2000) return true;
 
             int expectationFood = (city.troops * 2);
             if (city.food > expectationFood)
@@ -1224,8 +1240,7 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AITrainTroop(City city, Scenario scenario)
         {
-            if (city.freePersons.Count < 2)
-                return true;
+            if (city.freePersons.Count == 0) return true;
 
             if (city.GetJobCounter((int)CityJobType.TrainTroops) > 0) return true;
 
@@ -1255,9 +1270,9 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AICreateItems(City city, Scenario scenario)
         {
+            if (city.freePersons.Count == 0) return true;
 
-
-            if (city.freePersons.Count < 2 || city.gold < 1000)
+            if (city.gold < 1000)
                 return true;
 
             if (city.itemStore.TotalNumber >= city.StoreLimit - 1000) return true;
@@ -1272,18 +1287,26 @@ namespace Sango.Core
                 // 获取总兵装
                 totalNum += city.itemStore.GetNumber(itemTypeId);
 
-            if (totalNum > city.troops * (2 + city.gold / 5000))
+            if (totalNum > city.troops * 2 / 3)
                 return true;
 
             // 统计适应偏向
             int[] levelTotal = new int[4] { 1, 1, 1, 1 };
-            city.allPersons.ForEach(x =>
+
+            if (city.allPersons.Count > 8)
             {
-                levelTotal[0] += x.SpearLv;
-                levelTotal[1] += x.HalberdLv;
-                levelTotal[2] += x.CrossbowLv;
-                levelTotal[3] += x.RideLv;
-            });
+                city.allPersons.ForEach(x =>
+                {
+                    levelTotal[0] += x.SpearLv;
+                    levelTotal[1] += x.HalberdLv;
+                    levelTotal[2] += x.CrossbowLv;
+                    levelTotal[3] += x.RideLv;
+                });
+            }
+            else
+            {
+                levelTotal = new int[4] { 100, 100, 100, 100 };
+            }
 
             int sumTotal = 0;
             if (freeBlacksmithShop != null)
@@ -1292,6 +1315,7 @@ namespace Sango.Core
             if (freeStable != null)
                 sumTotal = sumTotal + levelTotal[3];
 
+            List<int> validItem = new List<int>();
             for (int itemTypeId = 2; itemTypeId <= 5; itemTypeId++)
             {
                 if (itemTypeId == 5 && freeStable == null)
@@ -1305,14 +1329,26 @@ namespace Sango.Core
 
                 int itemNum = city.itemStore.GetNumber(itemTypeId);
                 if (itemNum < levelTotal[itemTypeId - 2] * city.troops / sumTotal + 5000)
-                {
-                    Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);
-                    if (people == null) return true;
-                    ItemType itemType = Scenario.Cur.GetObject<ItemType>(itemTypeId);
-                    city.JobCreateItems(people, itemType, itemTypeId == 5 ? freeStable : freeBlacksmithShop);
-                    return true;
-                }
+                    validItem.Add(itemTypeId);
+
+                //{
+                //    Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);
+                //    if (people == null) return true;
+                //    ItemType itemType = Scenario.Cur.GetObject<ItemType>(itemTypeId);
+                //    city.JobCreateItems(people, itemType, itemTypeId == 5 ? freeStable : freeBlacksmithShop);
+                //    return true;
+                //}
             }
+
+            int[] pr = new int[validItem.Count];
+            for (int i = 0; i < pr.Length; i++)
+                pr[i] = levelTotal[validItem[i] - 2];
+
+            int targetItemId = validItem[GameRandom.RandomWeightIndex(pr)];
+            Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);
+            if (people == null) return true;
+            ItemType itemType = Scenario.Cur.GetObject<ItemType>(targetItemId);
+            city.JobCreateItems(people, itemType, targetItemId == 5 ? freeStable : freeBlacksmithShop);
 
             return true;
         }
@@ -1436,7 +1472,7 @@ namespace Sango.Core
             int minEquipNeed = 5000;
             if (isAttack)
             {
-                if (city.freePersons.Count < 3) return null;
+                if (city.freePersons.Count < 2) return null;
                 if (city.troops < scenario.Variables.minTroopsKeepWhenAttack) return null;
                 if (city.food < scenario.Variables.minFoodKeepWhenAttack) return null;
             }
@@ -1457,6 +1493,18 @@ namespace Sango.Core
             // 小于4支部队不带器械, 防守不组建器械
             if (city.AttackTroopsCount < 4 || !isAttack)
                 costEnoughTroopTypes.RemoveAll(x => x.IsMachine());
+            else
+            {
+                if (city.AttackTroopsCount > 4)
+                {
+                    // 如果器械少于2-3个,则补充器械
+                    if (city.allAttackTroops.FindAll(x => x.LandTroopType.IsMachine()).Count < GameRandom.Range(1, 4))
+                    {
+                        if (costEnoughTroopTypes.Find(x => x.IsMachine()) != null)
+                            costEnoughTroopTypes.RemoveAll(x => !x.IsMachine());
+                    }
+                }
+            }
 
             if (costEnoughTroopTypes.Count == 0)
                 return null;
@@ -1560,7 +1608,9 @@ namespace Sango.Core
                 Sango.Log.Error("why 00!!");
                 return null;
             }
-            TroopType troopType = scenario.GetObject<TroopType>(6);
+            TroopType troopType = TroopType.GetTransportType(scenario, city.BelongForce);
+            if (troopType == null) return null;
+
             Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);
             Person leader = persons[0];
             city.freePersons.Remove(leader);
@@ -1578,7 +1628,7 @@ namespace Sango.Core
             troop.food = food;
             troop.gold = gold;
             troop.troops = troops;
-            if(itemStore != null)
+            if (itemStore != null)
             {
                 troop.itemStore = itemStore;
                 city.itemStore.Remove(itemStore);

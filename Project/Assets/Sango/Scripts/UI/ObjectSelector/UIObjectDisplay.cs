@@ -220,7 +220,7 @@ using Sango.Core; namespace Sango.UI
                     for (int j = 0; j < itemCount; j++)
                     {
                         UIObjectListItem listItem = uIObjectListItems[j];
-                        listItem.Add("", sortTitle.ContentMaxWidth);
+                        listItem.Add("", sortTitle.ContentMaxWidth, sortTitle.alignment);
                     }
                 }
                 else

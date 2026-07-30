@@ -71,7 +71,43 @@ namespace Sango.Core
         /// <summary>
         /// 首都
         /// </summary>
-        public City CapitalCity => !Governor.BelongCity.IsCity() ? Governor.BelongCity.BelongCity : Governor.BelongCity;
+        public City CapitalCity { get; set; }
+        public void UpdateCapitalCity()
+        {
+            // 异族没有城池
+            if (Governor.BelongCity == null)
+                return;
+
+            if (!Governor.BelongCity.IsCity())
+            {
+                City belong = Governor.BelongCity.BelongCity;
+                if (belong.BelongForce == this)
+                    CapitalCity = belong;
+                else
+                {
+                    // 找最近的一个城市
+                    int dis = 99999;
+                    City target = null;
+                    Governor.BelongCorps.ForEachCity(city =>
+                    {
+                        if (city.IsCity())
+                        {
+                            int newDis = city.Distance(belong);
+                            if (newDis < dis)
+                            {
+                                target = city;
+                                dis = newDis;
+                            }
+                        }
+                    });
+                    CapitalCity = target;
+                }
+            }
+            else
+            {
+                CapitalCity = Governor.BelongCity;
+            }
+        }
 
         /// <summary>
         /// 第一军团
@@ -294,6 +330,7 @@ namespace Sango.Core
             });
             InitTechniquesTree(scenario);
             UpdateTurnInfo(scenario);
+            UpdateCapitalCity();
         }
 
         public override void Clear()
@@ -1056,7 +1093,7 @@ namespace Sango.Core
 
             TechniquePoint += value;
 
-            if(IsPlayer && value > 0)
+            if (IsPlayer && value > 0)
             {
                 GameMedia.Instance.PlaySfx(61);
                 GameMedia.Instance.PlayDelayedSfx(60, 1);
@@ -1163,15 +1200,7 @@ namespace Sango.Core
                 if (x.IsAlive && !x.IsCity() && x.BelongForce == this && corps.inti_cities.Contains(x.BelongCity))
                 {
                     x.BelongCorps = corps;
-                    foreach (Person person in x.allPersons)
-                    {
-                        person.BelongCorps = corps;
-
-                    }
-                    foreach (Building building in x.allBuildings)
-                    {
-                        building.BelongCorps = corps;
-                    }
+                    x.UpdateCorps();
                 }
             });
 

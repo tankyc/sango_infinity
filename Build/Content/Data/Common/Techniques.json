@@ -548,7 +548,7 @@
       "effects": [
         {
           "class": "ForceTroopMaxTroop",
-          "value": 3000
+          "value": 2000
         }
       ]
     },

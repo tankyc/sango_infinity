@@ -568,5 +568,65 @@ namespace Sango.Core
                 }
             }
         }
+
+        public void RemoveCity(City target)
+        {
+            if(cityCount == 1)
+            {
+                BelongForce.DeleteCorps(this);
+            }
+            else
+            {
+                if(Comander.BelongCity == target)
+                {
+                    AutoUpdateCommander();
+                }
+            }
+        }
+
+        public void AutoUpdateCommander()
+        {
+            Person dest = null;
+            Official higher = null;
+            int commandHigher = 0;
+            Comander?.SetStateNormal();
+            ForEachPerson((checker) =>
+            {
+                if (checker != null && checker.IsAlive)
+                {
+                    if (dest == null)
+                    {
+                        dest = checker;
+                        higher = dest.Official;
+                        commandHigher = dest.Command;
+                    }
+                    else
+                    {
+                        if (checker.Official.level > higher.level)
+                        {
+                            dest = checker;
+                            higher = dest.Official;
+                            commandHigher = dest.Command;
+                        }
+                        else if (checker.Official.level == higher.level)
+                        {
+                            if (checker.Command > commandHigher)
+                            {
+                                dest = checker;
+                                higher = dest.Official;
+                                commandHigher = dest.Command;
+                            }
+                        }
+                    }
+                }
+            });
+
+            Comander = dest;
+            if(Comander != null)
+            {
+                Comander.SetStateCommander();
+                Comander.BelongCity.UpdateNewLeader();
+            }
+        }
     }
 }

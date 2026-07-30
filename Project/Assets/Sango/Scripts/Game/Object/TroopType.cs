@@ -327,5 +327,17 @@ namespace Sango.Core
             return kind == 8;
         }
 
+        public static TroopType GetTransportType(Scenario scenario, Force force)
+        {
+            for (int i = 1; i < scenario.CommonData.TroopTypes.Count; i++)
+            {
+                TroopType troopType = scenario.CommonData.TroopTypes[i];
+                if (troopType != null && troopType.IsTransport() && troopType.IsValid(force))
+                    return troopType;
+            }
+
+            return null;
+        }
+
     }
 }

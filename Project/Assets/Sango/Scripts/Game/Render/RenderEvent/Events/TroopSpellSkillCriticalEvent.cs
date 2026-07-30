@@ -7,6 +7,8 @@ namespace Sango.Render
     {
         public Troop troop;
         public SkillInstance skill;
+        public Troop targetTroop;
+        public BuildingBase targetBuilding;
         public Cell spellCell;
         public int criticalFactor;
         private bool isAction = false;
@@ -19,6 +21,8 @@ namespace Sango.Render
             this.troop = skill.master;
             this.skill = skill;
             this.spellCell = spellCell;
+            this.targetTroop = spellCell.troop;
+            this.targetBuilding = spellCell.building; 
             this.criticalFactor = criticalFactor;
             this.isAction = false;
             this.time = 0;
@@ -81,7 +85,6 @@ namespace Sango.Render
                 Action();
                 troop?.Render?.SetAniShow(0);
                 IsDone = true;
-                GameEvent.OnSkillRenderEnd?.Invoke(skill, spellCell);
                 return IsDone;
             }
 
@@ -103,10 +106,6 @@ namespace Sango.Render
             }
             
             IsDone = skill.UpdateRender(spellCell, scenario, time, Action);
-            if (IsDone)
-            {
-                GameEvent.OnSkillRenderEnd?.Invoke(skill, spellCell);
-            }
             time += deltaTime;
             return IsDone;
         }
@@ -117,6 +116,7 @@ namespace Sango.Render
             if (isAction) return;
             skill.Action(spellCell, criticalFactor);
             isAction = true;
+            GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
         }
 
     }

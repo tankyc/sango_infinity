@@ -8,6 +8,8 @@ namespace Sango.Render
     {
         public Troop troop;
         public SkillInstance skill;
+        public Troop targetTroop;
+        public BuildingBase targetBuilding;
         public Cell spellCell;
         private bool isAction = false;
         private SkillInstance replaceSkill;
@@ -18,6 +20,8 @@ namespace Sango.Render
             this.troop = troop;
             this.skill = skill;
             this.spellCell = spellCell;
+            this.targetTroop = spellCell.troop;
+            this.targetBuilding = spellCell.building;
             this.isAction = false;
             this.replaceSkill = null;
             this.time = 0;
@@ -84,6 +88,7 @@ namespace Sango.Render
             if (isAction) return;
             if (replaceSkill != null)
                 replaceSkill.Action(spellCell, 100);
+            GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
             isAction = true;
         }
 

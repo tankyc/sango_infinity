@@ -59,7 +59,7 @@ namespace Sango.Core
 
         public int PlayVoice(int id)
         {
-            if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
+            if (AudioManager.Instance.VoiceVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
 #if SANGO_DEBUG
@@ -72,7 +72,7 @@ namespace Sango.Core
 
         public int PlayVoice(int id, float volume)
         {
-            if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
+            if (AudioManager.Instance.VoiceVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
 #if SANGO_DEBUG
@@ -85,7 +85,7 @@ namespace Sango.Core
 
         public int PlaySfx(int id)
         {
-            if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
+            if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
 #if SANGO_DEBUG
@@ -96,9 +96,22 @@ namespace Sango.Core
             return -1;
         }
 
+        public int PlaySfxLoop(int id)
+        {
+            if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
+            if (MediaData.TryGetValue(id, out var result))
+            {
+#if SANGO_DEBUG
+                Sango.Log.Info($"²¥·ÅÒôÐ§: {result.res}");
+#endif
+                return AudioManager.Instance.PlaySfxLoop(result.res);
+            }
+            return -1;
+        }
+
         public int PlaySfx(int id, float volume)
         {
-            if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
+            if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
 #if SANGO_DEBUG
@@ -111,7 +124,7 @@ namespace Sango.Core
 
         public int PlayDelayedSfx(int id, float delay)
         {
-            if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return -1;
+            if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
 #if SANGO_DEBUG
@@ -133,9 +146,15 @@ namespace Sango.Core
             }
         }
 
-        public void StopSfx(int channel)
+        public void StopSfx(int id)
         {
-            AudioManager.Instance.StopSfx(channel);
+            if (MediaData.TryGetValue(id, out var result))
+            {
+#if SANGO_DEBUG
+                Sango.Log.Info($"Í£Ö¹ÒôÐ§: {result.res}");
+#endif
+                AudioManager.Instance.StopSfx(result.res);
+            }
         }
 
         public void StopBgm()

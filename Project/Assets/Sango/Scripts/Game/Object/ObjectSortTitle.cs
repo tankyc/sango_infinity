@@ -7,7 +7,7 @@ namespace Sango.Core
     {
         public string name;
         public float width;
-        public int alignment;
+        public int alignment = 4;
         public object customData;
         public float ContentMaxWidth { get { return width * 25f; } }
 

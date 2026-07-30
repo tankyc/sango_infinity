@@ -993,6 +993,10 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int BuildingSpace = 2;
 
+        /// <summary>
+        /// 运输比例
+        /// </summary>
+        [JsonProperty] public int TransportPercent = 80;
 
         public float DifficultyDamageFactor
         {

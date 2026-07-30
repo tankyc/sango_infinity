@@ -105,7 +105,7 @@
         {
           "class": "AddBuff",
           "buffId": 1,
-          "probability": 5000,
+          "probability": 1500,
           "values": [
             1,
             2

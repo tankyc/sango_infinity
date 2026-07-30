@@ -1,6 +1,7 @@
 using Sango.Core.Player;
 using System.Collections.Generic;
 using System.Text;
+using UnityEngine;
 
 namespace Sango.Core
 {
@@ -331,7 +332,8 @@ namespace Sango.Core
         public static SortTitle SortByFeatureList = new SortTitle()
         {
             name = "特技",
-            width = 2.00f,
+            width = 6.00f,
+            alignment = (int)TextAnchor.MiddleLeft,
             valueGetCall = x =>
             {
                 StringBuilder sb = new StringBuilder();
@@ -360,8 +362,8 @@ namespace Sango.Core
 
         public static SortTitle SortByFeatureDesc = new SortTitle()
         {
-            name = "說明",
-            width = 20.00f,
+            name = "说明",
+            width = 30.00f,
             valueGetCall = x =>
             {
                 if (x.FeatureList == null || x.FeatureList.Count == 0)

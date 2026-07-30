@@ -450,6 +450,11 @@ namespace Sango.Core
             if (IsCommander) return;
             state = (int)PersonStateType.Leader;
         }
+        public void SetStateCommander()
+        {
+            if (IsGovernor) return;
+            state = (int)PersonStateType.Commander;
+        }
 
         /// <summary>
         /// 枪兵适应
@@ -517,12 +522,12 @@ namespace Sango.Core
         public int troopsLimitExtra = 0;
 
         /// <summary>
-        /// 带兵上限,根据官职和国家科技决定
+        /// 带兵上限,根据官职和国家科技决定ui 
         /// </summary>
         public int TroopsLimit
         {
             //TODO: 增加国家科技加持
-            get { return Math.Max(IsGovernor ? 20000 : 0, Official.troopsLimit) + Level.troops + troopsLimitExtra; }
+            get { return Math.Max(IsGovernor ? 15000 : 0, Official.troopsLimit) + Level.troops + troopsLimitExtra; }
         }
 
         /// <summary>
@@ -1196,12 +1201,19 @@ namespace Sango.Core
             // 如果转移主公到其他军团城市,需要解散目标军团
             if (IsGovernor && dest.BelongCorps != BelongCorps)
             {
-                BelongForce.DeleteCorps(dest.BelongCorps);
+                Corps corps = dest.BelongCorps;
+                dest.ChangeCorps(BelongCorps);
+                dest.UpdateCorps();
+                dest.Render?.UpdateRender();
+                corps.RemoveCity(dest);
             }
+
             BelongCity.RemovePerson(this);
             ChangeBelongCity(dest);
             dest.AddPerson(this);
             SetMission(MissionType.PersonReturn, dest);
+            if (IsGovernor)
+                BelongForce.UpdateCapitalCity();
             ActionOver = true;
 #if SANGO_DEBUG
             Sango.Log.Info($"*{BelongForce?.Name}的{Name}从{BelongCity.Name}向{dest.Name}转移*");

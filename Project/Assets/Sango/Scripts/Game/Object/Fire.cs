@@ -26,6 +26,7 @@ namespace Sango.Core
 
         public override void Init(Scenario scenario)
         {
+            cell.fire = this;
             Render = new FireRender(this);
         }
 

@@ -129,8 +129,8 @@ namespace Sango.Core
                 AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITradeFood);
                 AICommandList.Add(CityAI.AITrainTroop);
-                AICommandList.Add(CityAI.AIRecruitTroop);
                 AICommandList.Add(CityAI.AICreateItems);
+                AICommandList.Add(CityAI.AIRecruitTroop);
                 AICommandList.Add(CityAI.AIIntrior);
                 AICommandList.Add(CityAI.AIAttack);
 

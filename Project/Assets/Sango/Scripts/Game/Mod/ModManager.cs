@@ -5,12 +5,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using TKNewtonsoft.Json.Linq;
+using System;
+using System.Collections;
+using System.Diagnostics;
 
 namespace Sango.Mod
 {
     public class ModManager : Singleton<ModManager>
     {
-        public string ModListInfoUrl = "https://gitcode.com/gametank/sango_infinity_mod_list/releases/download/list/mod_list.txt";
+        public string ModListInfoUrl = "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/mods/mod_list.txt";
         public static string EditModName { get; set; }
         public static string MOD_ROOT_DIR = "Mods";
         public static string[] DEFAULT_MODS = { };
@@ -19,9 +22,142 @@ namespace Sango.Mod
         public List<Mod> mEnabledModList;
         public Dictionary<string, Mod> mModMap;
 
+        [JsonObject(MemberSerialization.OptOut)]
+        public class NetModMarket
+        {
+            public string name;
+            public string url;
+            public NetModInfo[] mods;
+
+            /// <summary>
+            /// 返回xxxx@1.0.zip
+            /// </summary>
+            /// <param name="netModMarket"></param>
+            /// <param name="netModInfo"></param>
+            /// <returns></returns>
+            public static string MakeUrl(NetModMarket netModMarket, NetModInfo netModInfo)
+            {
+                return $"{netModMarket.url}/{netModInfo.id}@{netModInfo.version}.zip";
+            }
+        }
+
+        [JsonObject(MemberSerialization.OptOut)]
+        public class NetModInfo
+        {
+            public string id;
+            public string name;
+            public string version;
+            public long size;
+            public string auther;
+            public string description;
+            public string poster;
+        }
+
         public Mod[] GetEnabledMods()
         {
             return mEnabledModList.ToArray();
+        }
+
+        string marketSaveFile;
+
+        /// <summary>
+        /// mod市场数据
+        /// </summary>
+        public Dictionary<string, NetModMarket> mMarketMap = new Dictionary<string, NetModMarket>();
+
+        public void AddMarketFromUrl(string url, Action onComplete, Action<float> onProgress = null)
+        {
+            bool hasError = false;
+            App.Instance.StartCoroutine(GitDownloader.Get(url,
+               onProgress,
+               (content) =>
+               {
+                   if (string.IsNullOrEmpty(content))
+                   {
+                       hasError = true;
+                   }
+                   else
+                   {
+                       InitMarket(content);
+                       SaveMarket();
+                   }
+                   onComplete?.Invoke();
+               }
+           ));
+        }
+
+        public void SaveMarket()
+        {
+            Sango.File.WriteAllText(marketSaveFile, JsonConvert.SerializeObject(mMarketMap));
+        }
+
+        public void LoadMarket()
+        {
+            mMarketMap.Clear();
+            if (File.Exists(marketSaveFile))
+            {
+                JsonConvert.PopulateObject(Sango.File.ReadAllText(marketSaveFile), mMarketMap);
+            }
+        }
+
+        public void LoadMarketAsync(Action complete, Action<float> progress)
+        {
+            mMarketMap.Clear();
+            if (File.Exists(marketSaveFile))
+            {
+                JsonConvert.PopulateObject(Sango.File.ReadAllText(marketSaveFile), mMarketMap);
+                App.Instance.StartCoroutine(LoadMarketAsCoroutine(complete, progress));
+            }
+            else
+                ModManager.Instance.AddMarketFromUrl(ModListInfoUrl, complete, progress);
+        }
+
+        IEnumerator LoadMarketAsCoroutine(Action complete, Action<float> progress)
+        {
+            float cout = mMarketMap.Count;
+            float current = 0;
+            foreach (var item in mMarketMap)
+            {
+                yield return GitDownloader.Get(item.Value.url + "/mod_list.txt", (f) =>
+                {
+                    progress?.Invoke(current / cout + f / cout);
+                }
+                , (content) =>
+                {
+                    if (!string.IsNullOrEmpty(content))
+                    {
+                        InitMarket(content);
+                        SaveMarket();
+                    }
+                    current++;
+                    if (current == cout)
+                        complete?.Invoke();
+                });
+            }
+        }
+
+
+
+        public void InitMarket(string marketContent)
+        {
+            NetModMarket netModMarket = JsonConvert.DeserializeObject<NetModMarket>(marketContent);
+            if (netModMarket == null)
+            {
+                Sango.Log.Error("不是有效的市场数据结构!! marketContent = " + marketContent);
+                return;
+            }
+
+            if (mMarketMap.TryGetValue(netModMarket.name, out NetModMarket exsist))
+            {
+                // 初始化mod
+                exsist.mods = netModMarket.mods;
+                InitMarketModInfo(netModMarket);
+            }
+            else
+            {
+                mMarketMap.Add(netModMarket.name, netModMarket);
+                InitMarketModInfo(netModMarket);
+            }
         }
 
         public void Init()
@@ -38,6 +174,9 @@ namespace Sango.Mod
 
             if (!Sango.Directory.Exists(MOD_ROOT_DIR))
                 Sango.Directory.Create(MOD_ROOT_DIR);
+
+            marketSaveFile = $"{MOD_ROOT_DIR}/mod_market.json";
+            LoadMarket();
 
             mEnabledModList = new List<Mod>();
             mModMap = new Dictionary<string, Mod>();
@@ -58,67 +197,37 @@ namespace Sango.Mod
                     }
                 }
             }
-            InitForUrl();
         }
+
         public bool HasError = false;
-        public void InitForUrl()
+        void InitMarketModInfo(NetModMarket content)
         {
-            HasError = false;
-            App.Instance.StartCoroutine(GitDownloader.Get(ModListInfoUrl,
-                (progress) =>
-                {
-
-                },
-                (content) =>
-                {
-                    if (string.IsNullOrEmpty(content))
-                        HasError = true;
-
-                    InitModList(content);
-                }
-            ));
-        }
-
-        void InitModList(string content)
-        {
-            if (string.IsNullOrEmpty(content))
+            if (content == null || content.mods == null)
                 return;
 
-            HasError = false;
-            JObject jsonObject = JsonConvert.DeserializeObject<JObject>(content);
-            foreach (KeyValuePair<string, JToken> k in jsonObject)
+            for (int i = 0; i < content.mods.Length; i++)
             {
-                string modId = k.Key;
-                string modUrl = k.Value.ToString();
+                NetModInfo info = content.mods[i];
+                if (info == null) continue;
+
                 Mod mod;
-                if (mModMap.TryGetValue(modId, out mod))
+                if (mModMap.TryGetValue(info.id, out mod))
                 {
-                    mod.Url = modUrl;
+                    mod.Url = NetModMarket.MakeUrl(content, info);
+                    mod.UrlVersion = info.version;
                 }
                 else
                 {
                     mod = new Mod();
-                    mod.Id = modId;
-                    mod.Url = modUrl;
-                    mModMap.Add(modId, mod);
+                    mod.Id = info.id;
+                    mod.Name = info.name;
+                    mod.Description = info.description;
+                    mod.Author = info.auther;
+                    mod.Size = info.size;
+                    mod.Poster = info.poster;
+                    mod.Url = NetModMarket.MakeUrl(content, info);
+                    mModMap.Add(info.id, mod);
                 }
-
-                // 加载详细内容
-                App.Instance.StartCoroutine(GitDownloader.Get(modUrl,
-                    (progress) =>
-                    {
-                        mod.loadProgress = progress;
-                    },
-                    (content) =>
-                    {
-                        if (string.IsNullOrEmpty(content))
-                            HasError = true;
-
-                        mod.loadProgress = 1;
-                        LoadUrlMod(content, mod);
-                        //mod.Download();
-                    }
-                ));
             }
         }
 
@@ -162,7 +271,7 @@ namespace Sango.Mod
                                 mod.Author = c_v[1].Trim();
                                 break;
                             case "size":
-                                long.TryParse( c_v[1].Trim(), out mod.Size);
+                                long.TryParse(c_v[1].Trim(), out mod.Size);
                                 break;
                         }
                     }
@@ -221,41 +330,6 @@ namespace Sango.Mod
                 }
             }
             GameEvent.OnModUpdate?.Invoke(mod);
-        }
-
-        /// <summary>
-        /// 预先加载url中的mod信息
-        /// </summary>
-        /// <param name="content"></param>
-        /// <param name="mod"></param>
-        public void LoadUrlMod(string content, Mod mod)
-        {
-            string[] lines = content.Split(new char[] { '\n' });
-            foreach (string s in lines)
-            {
-                string[] c_v = s.Split('=');
-                if (c_v.Length > 1)
-                {
-                    switch (c_v[0].Trim().ToLower())
-                    {
-                        case "name":
-                            mod.Name = c_v[1].Trim();
-                            break;
-                        case "description":
-                            mod.Description = c_v[1].Trim();
-                            break;
-                        case "version":
-                            mod.UrlVersion = c_v[1].Trim();
-                            break;
-                        case "author":
-                            mod.Author = c_v[1].Trim();
-                            break;
-                        case "size":
-                            long.TryParse(c_v[1].Trim(), out mod.Size);
-                            break;
-                    }
-                }
-            }
         }
 
         public string[] GetAllPath(string dirName)
@@ -340,7 +414,7 @@ namespace Sango.Mod
 
             mEnabledModList.Clear();
 
-            if(modNames != null)
+            if (modNames != null)
             {
                 for (int i = 0; i < modNames.Length; i++)
                 {
@@ -363,40 +437,6 @@ namespace Sango.Mod
                 mod.LoadData();
                 mod.LoadAssembly();
             }
-
-
-            //最终可以通过MOD/Lua/名字去查代码
-            //for (int i = 0; i < mModList.Count; i++)
-            //    mModList[i].LoadLanguage();
-
-            ////Task.Run(() =>
-            ////{
-            ////    try
-            ////    {
-            ////        for (int i = 0; i < mModList.Count; i++)
-            ////            mModList[i].LoadScenario();
-            ////    }
-            ////    catch (System.Exception e)
-            ////    {
-            ////        Sango.Log.Error(e + e.StackTrace);
-            ////    }
-            ////}
-            ////);
-
-            //for (int i = 0; i < mModList.Count; i++)
-            //    mModList[i].LoadScenario();
-
-            //for (int i = 0; i < mModList.Count; i++)
-            //    mModList[i].LoadUI();
-            //for (int i = 0; i < mModList.Count; i++)
-            //    mModList[i].LoadPackage();
-            //for (int i = 0; i < mModList.Count; i++)
-            //    mModList[i].LoadData();
-            //for (int i = 0; i < mModList.Count; i++)
-            //    Path.AddSearchPath($"{mModList[i].ModDir}", true);
-            //// 加载dll
-            //for (int i = 0; i < mModList.Count; i++)
-            //    mModList[i].LoadAssembly();
 
             Scenario.OnModInitEnd();
         }
@@ -450,7 +490,7 @@ namespace Sango.Mod
 
         public void RemoveMod(Mod mod)
         {
-            if(mEnabledModList.Contains(mod))
+            if (mEnabledModList.Contains(mod))
                 mEnabledModList.Remove(mod);
             mModMap.Remove(mod.Id);
             Sango.Directory.Delete(mod.ModDir);
