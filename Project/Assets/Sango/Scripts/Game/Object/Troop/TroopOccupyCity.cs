@@ -66,9 +66,9 @@ namespace Sango.Core
                 {
                     if (target.building == TargetCity)
                     {
-                        socer += 50000;
+                        socer += 500000;
                         if (movetoCell == troop.cell)
-                            socer += 100000;
+                            socer += 1000000;
                     }
                     else
                     {

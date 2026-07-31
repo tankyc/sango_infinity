@@ -45,7 +45,7 @@ namespace Sango.Core.Player
 
             string content;
             if (findNoActionTroop)
-                content = $"将结束{force.ColorName}的战略，\n有<color#=ff2222>尚未行动的部队</color>存在，\n请问是否确定";
+                content = $"将结束{force.ColorName}的战略，\n有<color=#f34242>尚未行动的部队</color>存在，\n请问是否确定";
             else
                 content = $"结束{force.ColorName}的战略，\n请问是否确定";
 

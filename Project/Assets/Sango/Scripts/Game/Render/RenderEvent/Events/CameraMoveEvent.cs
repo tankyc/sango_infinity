@@ -30,7 +30,7 @@ namespace Sango.Render
         /// </summary>
         private Vector3 startPosition;
 
-        
+
         /// <summary>
         /// 对话框样式
         /// </summary>
@@ -57,6 +57,13 @@ namespace Sango.Render
         public System.Action cancelAction;
 
         /// <summary>
+        /// 不返回镜头
+        /// </summary>
+        public bool donotReturn;
+
+        float time = 0;
+
+        /// <summary>
         /// 对话框实例
         /// </summary>
         GameDialog.IDialog dialog;
@@ -71,7 +78,7 @@ namespace Sango.Render
         /// <param name="person">人物对象</param>
         /// <param name="sureAction">确认按钮回调</param>
         /// <param name="cancelAction">取消按钮回调</param>
-        public void Init(Vector3 targetPosition, float moveDuration, GameDialog.DialogStyle dialogStyle, string content, Person person, System.Action sureAction, System.Action cancelAction)
+        public CameraMoveEvent Init(Vector3 targetPosition, float moveDuration, GameDialog.DialogStyle dialogStyle, string content, Person person, System.Action sureAction, System.Action cancelAction)
         {
             this.targetPosition = targetPosition;
             this.moveDuration = moveDuration;
@@ -81,6 +88,18 @@ namespace Sango.Render
             this.sureAction = sureAction;
             this.cancelAction = cancelAction;
             IsDone = false;
+            time = 0;
+            return this;
+        }
+
+        public CameraMoveEvent Init(Vector3 targetPosition, float moveDuration)
+        {
+            this.targetPosition = targetPosition;
+            this.moveDuration = moveDuration;
+            donotReturn = true;
+            time = 0;
+            IsDone = false;
+            return this;
         }
 
         /// <summary>
@@ -92,29 +111,44 @@ namespace Sango.Render
             base.Enter(scenario);
             startPosition = MapRender.Instance.GetCameraPos();
             MapRender.Instance.MoveCameraTo(targetPosition, moveDuration);
-            dialog = GameDialog.Open(dialogStyle, content, () =>
+            if (!string.IsNullOrEmpty(content))
             {
-                sureAction?.Invoke();
-                GameDialog.Close();
-                IsDone = true;
-            });
-            if (person != null)
-                dialog.SetPerson(person);
-            dialog.cancelAction = () =>
+                dialog = GameDialog.Open(dialogStyle, content, () =>
+                {
+                    sureAction?.Invoke();
+                    GameDialog.Close();
+                    IsDone = true;
+                });
+                if (person != null)
+                    dialog.SetPerson(person);
+                dialog.cancelAction = () =>
+                {
+                    GameDialog.Close();
+                    IsDone = true;
+                    cancelAction?.Invoke();
+                };
+            }
+        }
+
+        public override bool Update(Scenario scenario, float deltaTime)
+        {
+            if (string.IsNullOrEmpty(content))
             {
-                GameDialog.Close();
-                IsDone = true;
-                cancelAction?.Invoke();
-            };
+                time += deltaTime;
+                if (time > moveDuration)
+                    IsDone = true;
+            }
+            return IsDone;
         }
 
         /// <summary>
         /// 退出事件处理
         /// </summary>
         /// <param name="scenario">场景实例</param>
-        public override void Exit(Scenario scenario) 
+        public override void Exit(Scenario scenario)
         {
-            MapRender.Instance.MoveCameraTo(startPosition, moveDuration);
+            if (!donotReturn)
+                MapRender.Instance.MoveCameraTo(startPosition, moveDuration);
         }
 
     }

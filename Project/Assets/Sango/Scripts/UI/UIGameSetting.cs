@@ -1,8 +1,7 @@
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.UI;
+using Sango.Core;
+using System;
 
-using Sango.Core; namespace Sango.UI
+namespace Sango.UI
 {
     /// <summary>
     /// 剧本选择界面
@@ -11,10 +10,20 @@ using Sango.Core; namespace Sango.UI
     {
         public override void OnOpen()
         {
+            onSure = null; onCancel = null;
             for (int i = 0; i < itemList.Count; i++)
                 RemoveItem(itemList[i]);
             itemList.Clear();
             ShowVariables();
+        }
+
+        public override void OnOpen(params object[] objects)
+        {
+            OnOpen();
+            if (objects.Length > 0)
+                onSure = objects[0] as System.Action;
+            if (objects.Length > 1)
+                onCancel = objects[1] as System.Action;
         }
 
         public void ShowVariables()
@@ -31,12 +40,22 @@ using Sango.Core; namespace Sango.UI
         }
         public override void OnStartGame()
         {
-            Close();
             GameSetting.Instance.Apply();
+            if (onSure != null)
+            {
+                onSure();
+                return;
+            }
+            Close();
         }
 
         public override void OnCancel()
         {
+            if (onCancel != null)
+            {
+                onCancel();
+                return;
+            }
             Close();
         }
     }

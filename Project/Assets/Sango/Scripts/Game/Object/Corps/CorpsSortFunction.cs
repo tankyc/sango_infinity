@@ -31,12 +31,38 @@ namespace Sango.Core
         public delegate int CorpsValueGet(Corps corps);
         public delegate int CorpsSortFunc(Corps corps1, Corps corps2);
 
+        /// <summary>
+        /// 获取Corps对象属性值的object类型代理
+        /// </summary>
+        /// <param name="corps">军团对象</param>
+        /// <returns>属性值</returns>
+        public delegate object CorpsValueObjGet(Corps corps);
+
+        /// <summary>
+        /// 设置Corps对象属性值的代理
+        /// </summary>
+        /// <param name="corps">军团对象</param>
+        /// <param name="value">新的属性值</param>
+        public delegate void CorpsValueObjSet(Corps corps, object value);
+
         public Corps CurCorps;
 
         public class SortTitle : ObjectSortTitle
         {
             public CorpsValueStrGet valueStrGetCall;
             public CorpsSortFunc valueSortFunc;
+            public CorpsValueObjGet valueObjGet;
+            public CorpsValueObjSet valueObjSet;
+
+            public override object GetValue(SangoObject obj)
+            {
+                return valueObjGet?.Invoke((Corps)obj);
+            }
+
+            public override void SetValue(SangoObject obj, object value)
+            {
+                valueObjSet?.Invoke((Corps)obj, value);
+            }
 
             public override string GetValueStr(SangoObject obj)
             {
@@ -57,6 +83,8 @@ namespace Sango.Core
                     width = width,
                     valueStrGetCall = valueStrGetCall,
                     valueSortFunc = valueSortFunc,
+                    valueObjGet = valueObjGet,
+                    valueObjSet = valueObjSet,
                 };
             }
         }
@@ -121,6 +149,8 @@ namespace Sango.Core
             width = 4.00f,
             valueStrGetCall = x => x.BelongForce.Name,
             valueSortFunc = (a, b) => a.BelongForce.Name.CompareTo(b.BelongForce.Name),
+            valueObjGet = x => x.BelongForce,
+            valueObjSet = (x, v) => x.BelongForce = (Force)v,
         };
 
         public static SortTitle SortByNumber = new SortTitle()
@@ -129,6 +159,8 @@ namespace Sango.Core
             width = 4.00f,
             valueStrGetCall = x => $"第{x.number}军团",
             valueSortFunc = (a, b) => a.number.CompareTo(b.number),
+            valueObjGet = x => x.number,
+            valueObjSet = (x, v) => x.number = (int)v,
         };
 
         public static SortTitle SortByLeader = new SortTitle()
@@ -137,6 +169,8 @@ namespace Sango.Core
             width = 2.80f,
             valueStrGetCall = x => x.Comander?.Name ?? "---",
             valueSortFunc = (a, b) => SangoObject.Compare(a.Comander, b.Comander),
+            valueObjGet = x => x.Comander,
+            valueObjSet = (x, v) => x.Comander = (Person)v,
         };
 
         public static SortTitle SortByCityCount = new SortTitle()
@@ -145,6 +179,8 @@ namespace Sango.Core
             width = 2.00f,
             valueStrGetCall = x => x.cityCount.ToString(),
             valueSortFunc = (a, b) => a.cityCount.CompareTo(b.cityCount),
+            valueObjGet = x => x.cityCount,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByPersonCount = new SortTitle()
@@ -153,6 +189,8 @@ namespace Sango.Core
             width = 2.00f,
             valueStrGetCall = x => x.personCount.ToString(),
             valueSortFunc = (a, b) => a.personCount.CompareTo(b.personCount),
+            valueObjGet = x => x.personCount,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByGold = new SortTitle()
@@ -161,6 +199,8 @@ namespace Sango.Core
             width = 4.00f,
             valueStrGetCall = x => x.gold.ToString(),
             valueSortFunc = (a, b) => a.gold.CompareTo(b.gold),
+            valueObjGet = x => x.gold,
+            valueObjSet = (x, v) => x.gold = (int)v,
         };
 
         public static SortTitle SortByFood = new SortTitle()
@@ -169,6 +209,8 @@ namespace Sango.Core
             width = 4.00f,
             valueStrGetCall = x => x.food.ToString(),
             valueSortFunc = (a, b) => a.food.CompareTo(b.food),
+            valueObjGet = x => x.food,
+            valueObjSet = (x, v) => x.food = (int)v,
         };
 
         public static SortTitle SortByTroop = new SortTitle()
@@ -177,6 +219,8 @@ namespace Sango.Core
             width = 4.00f,
             valueStrGetCall = x => x.troops.ToString(),
             valueSortFunc = (a, b) => a.troops.CompareTo(b.troops),
+            valueObjGet = x => x.troops,
+            valueObjSet = (x, v) => x.troops = (int)v,
         };
 
         public static List<ObjectSortTitle> DefaultSortList = new List<ObjectSortTitle>()

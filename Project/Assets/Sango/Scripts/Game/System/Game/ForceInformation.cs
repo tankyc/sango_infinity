@@ -33,7 +33,7 @@ namespace Sango.Core
         {
             Name = "势力情报";
             GameEvent.OnCityRightMouseButtonContextMenuShow += OnCityRightMouseButtonContextMenuShow;
-            GameEvent.OnGameSettingContextMenuShow += OnGameSettingContextMenuShow;
+            GameEvent.OnGameInformationContextMenuShow += OnGameSettingContextMenuShow;
         }
         protected virtual bool CityMenuCanShow()
         {
@@ -42,7 +42,7 @@ namespace Sango.Core
 
         public override void Clear()
         {
-            GameEvent.OnGameSettingContextMenuShow -= OnGameSettingContextMenuShow;
+            GameEvent.OnGameInformationContextMenuShow -= OnGameSettingContextMenuShow;
             GameEvent.OnCityRightMouseButtonContextMenuShow -= OnCityRightMouseButtonContextMenuShow;
         }
         protected virtual void OnGameSettingContextMenuShow(IContextMenuData menuData)

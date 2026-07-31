@@ -855,20 +855,21 @@ namespace Sango.Core
 
             if (state == (int)PersonStateType.Invalid)
             {
-                if (appearance > 0 && appearance <= scenario.Info.year)
-                {
-                    state = (int)PersonStateType.Invisible;
+                // 出场年
+                //if (appearance > 0 && appearance <= scenario.Info.year)
+                //{
+                //    state = (int)PersonStateType.Invisible;
 
-                    City city = null;
-                    if (birthplace > 0)
-                        city = scenario.citySet.Get(birthplace);
-                    if (city == null)
-                        city = scenario.citySet.RandomGet();
+                //    City city = null;
+                //    if (birthplace > 0)
+                //        city = scenario.citySet.Get(birthplace);
+                //    if (city == null)
+                //        city = scenario.citySet.RandomGet();
 
-                    // 这里要处理登场城池
-                    city.invisiblePersons.Add(this);
-                    CurrentCity = city;
-                }
+                //    // 这里要处理登场城池
+                //    city.invisiblePersons.Add(this);
+                //    CurrentCity = city;
+                //}
             }
             else
             {

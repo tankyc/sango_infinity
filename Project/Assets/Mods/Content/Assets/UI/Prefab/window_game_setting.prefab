@@ -517,7 +517,7 @@ Canvas:
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: -1
-  m_SortingLayerID: 0
+  m_SortingLayerID: -903361245
   m_SortingOrder: 500
   m_TargetDisplay: 0
 --- !u!114 &576643473640125865
@@ -549,7 +549,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4dc991cf27ea083478219acbeba32c60, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  title: {fileID: 0}
+  title: {fileID: 6721411187315056671}
   titleObj: {fileID: 2026231447316468236}
   bigTitleObj: {fileID: 3122059681282453668}
   integerObj: {fileID: 6416364560035214486}
@@ -2037,6 +2037,17 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8956834815901423864, guid: cda3bbf2848350048b9352701ccd3516, type: 3}
   m_PrefabInstance: {fileID: 8387354293367471209}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &6721411187315056671 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2964179546318036086, guid: cda3bbf2848350048b9352701ccd3516, type: 3}
+  m_PrefabInstance: {fileID: 8387354293367471209}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &8677211516551667050
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -41,6 +41,7 @@
             TargetTroop.SetMission(MissionType.TroopMovetoCell, 0);
             TargetTroop.missionParams1 = TargetCell.x;
             TargetTroop.missionParams2 = TargetCell.y;
+            TargetTroop.NeedPrepareMission();
             TargetTroop.Render?.UpdateRender();
         }
 

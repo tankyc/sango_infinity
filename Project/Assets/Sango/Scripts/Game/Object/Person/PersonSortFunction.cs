@@ -39,10 +39,37 @@ namespace Sango.Core
         public delegate int PersonValueGet(Person person);
         public delegate int PersonSortFunc(Person person1, Person person2);
 
+        /// <summary>
+        /// 获取Person对象属性值的object类型代理
+        /// </summary>
+        /// <param name="person">武将对象</param>
+        /// <returns>属性值</returns>
+        public delegate object PersonValueObjGet(Person person);
+
+        /// <summary>
+        /// 设置Person对象属性值的代理
+        /// </summary>
+        /// <param name="person">武将对象</param>
+        /// <param name="value">新的属性值</param>
+        public delegate void PersonValueObjSet(Person person, object value);
+
         public class SortTitle : ObjectSortTitle
         {
             public PersonValueStrGet valueGetCall;
             public PersonSortFunc personSortFunc;
+            public PersonValueObjGet valueObjGet;
+            public PersonValueObjSet valueObjSet;
+
+            public override object GetValue(SangoObject obj)
+            {
+                return valueObjGet?.Invoke((Person)obj);
+            }
+
+            public override void SetValue(SangoObject obj, object value)
+            {
+                valueObjSet?.Invoke((Person)obj, value);
+            }
+
             public override string GetValueStr(SangoObject obj)
             {
                 return valueGetCall.Invoke((Person)obj);
@@ -51,6 +78,20 @@ namespace Sango.Core
             public override int Sort(SangoObject a, SangoObject b)
             {
                 return personSortFunc.Invoke((Person)a, (Person)b);
+            }
+
+            public SortTitle Copy()
+            {
+                return new SortTitle
+                {
+                    name = name,
+                    alignment = alignment,
+                    width = width,
+                    valueGetCall = valueGetCall,
+                    personSortFunc = personSortFunc,
+                    valueObjGet = valueObjGet,
+                    valueObjSet = valueObjSet,
+                };
             }
         }
 
@@ -159,6 +200,8 @@ namespace Sango.Core
             width = 3.20f,
             valueGetCall = x => x.Name,
             personSortFunc = (a, b) => a.Name.CompareTo(b.Name),
+            valueObjGet = x => x.Name,
+            valueObjSet = (x, v) => x.Name = (string)v,
         };
 
         public static SortTitle SortByTroopsLimit = new SortTitle()
@@ -167,6 +210,8 @@ namespace Sango.Core
             width = 2.80f,
             valueGetCall = x => x.TroopsLimit.ToString(),
             personSortFunc = (a, b) => a.TroopsLimit.CompareTo(b.TroopsLimit),
+            valueObjGet = x => x.TroopsLimit,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByCommand = new SortTitle()
@@ -175,6 +220,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.Command.ToString(),
             personSortFunc = (a, b) => a.Command.CompareTo(b.Command),
+            valueObjGet = x => x.Command,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByStrength = new SortTitle()
@@ -183,6 +230,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.Strength.ToString(),
             personSortFunc = (a, b) => a.Strength.CompareTo(b.Strength),
+            valueObjGet = x => x.Strength,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByIntelligence = new SortTitle()
@@ -191,6 +240,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.Intelligence.ToString(),
             personSortFunc = (a, b) => -a.Intelligence.CompareTo(b.Intelligence),
+            valueObjGet = x => x.Intelligence,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByPolitics = new SortTitle()
@@ -199,6 +250,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.Politics.ToString(),
             personSortFunc = (a, b) => b.Politics.CompareTo(a.Politics),
+            valueObjGet = x => x.Politics,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByGlamour = new SortTitle()
@@ -207,6 +260,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.Glamour.ToString(),
             personSortFunc = (a, b) => a.Glamour.CompareTo(b.Glamour),
+            valueObjGet = x => x.Glamour,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByMilitaryAbility = new SortTitle()
@@ -215,6 +270,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.MilitaryAbility.ToString(),
             personSortFunc = (a, b) => a.MilitaryAbility.CompareTo(b.MilitaryAbility),
+            valueObjGet = x => x.MilitaryAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBaseCommerceAbility = new SortTitle()
@@ -223,6 +280,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BaseCommerceAbility.ToString(),
             personSortFunc = (a, b) => a.BaseCommerceAbility.CompareTo(b.BaseCommerceAbility),
+            valueObjGet = x => x.BaseCommerceAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBaseSecurityAbility = new SortTitle()
@@ -231,6 +290,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BaseSecurityAbility.ToString(),
             personSortFunc = (a, b) => a.BaseSecurityAbility.CompareTo(b.BaseSecurityAbility),
+            valueObjGet = x => x.BaseSecurityAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBaseTrainTroopAbility = new SortTitle()
@@ -239,6 +300,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BaseTrainTroopAbility.ToString(),
             personSortFunc = (a, b) => a.BaseTrainTroopAbility.CompareTo(b.BaseTrainTroopAbility),
+            valueObjGet = x => x.BaseTrainTroopAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBaseAgricultureAbility = new SortTitle()
@@ -247,6 +310,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BaseAgricultureAbility.ToString(),
             personSortFunc = (a, b) => a.BaseAgricultureAbility.CompareTo(b.BaseAgricultureAbility),
+            valueObjGet = x => x.BaseAgricultureAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBaseBuildAbility = new SortTitle()
@@ -255,6 +320,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BaseBuildAbility.ToString(),
             personSortFunc = (a, b) => a.BaseBuildAbility.CompareTo(b.BaseBuildAbility),
+            valueObjGet = x => x.BaseBuildAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBaseCreativeAbility = new SortTitle()
@@ -263,6 +330,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BaseCreativeAbility.ToString(),
             personSortFunc = (a, b) => a.BaseCreativeAbility.CompareTo(b.BaseCreativeAbility),
+            valueObjGet = x => x.BaseCreativeAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBaseSearchingAbility = new SortTitle()
@@ -271,6 +340,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BaseSearchingAbility.ToString(),
             personSortFunc = (a, b) => a.BaseSearchingAbility.CompareTo(b.BaseSearchingAbility),
+            valueObjGet = x => x.BaseSearchingAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBaseRecruitmentAbility = new SortTitle()
@@ -279,6 +350,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BaseRecruitmentAbility.ToString(),
             personSortFunc = (a, b) => a.BaseRecruitmentAbility.CompareTo(b.BaseRecruitmentAbility),
+            valueObjGet = x => x.BaseRecruitmentAbility,
+            valueObjSet = null,
         };
 
         public static SortTitle SortBySpearLv = new SortTitle()
@@ -287,6 +360,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => Scenario.Cur.Variables.GetAbilityName(x.SpearLv),
             personSortFunc = (a, b) => a.SpearLv.CompareTo(b.SpearLv),
+            valueObjGet = x => x.SpearLv,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByHalberdLv = new SortTitle()
@@ -295,6 +370,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => Scenario.Cur.Variables.GetAbilityName(x.HalberdLv),
             personSortFunc = (a, b) => a.HalberdLv.CompareTo(b.HalberdLv),
+            valueObjGet = x => x.HalberdLv,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByCrossbowLv = new SortTitle()
@@ -303,6 +380,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => Scenario.Cur.Variables.GetAbilityName(x.CrossbowLv),
             personSortFunc = (a, b) => a.CrossbowLv.CompareTo(b.CrossbowLv),
+            valueObjGet = x => x.CrossbowLv,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByRideLv = new SortTitle()
@@ -311,6 +390,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => Scenario.Cur.Variables.GetAbilityName(x.RideLv),
             personSortFunc = (a, b) => a.RideLv.CompareTo(b.RideLv),
+            valueObjGet = x => x.RideLv,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByWaterLv = new SortTitle()
@@ -319,6 +400,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => Scenario.Cur.Variables.GetAbilityName(x.WaterLv),
             personSortFunc = (a, b) => a.WaterLv.CompareTo(b.WaterLv),
+            valueObjGet = x => x.WaterLv,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByMachineLv = new SortTitle()
@@ -327,6 +410,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => Scenario.Cur.Variables.GetAbilityName(x.MachineLv),
             personSortFunc = (a, b) => a.MachineLv.CompareTo(b.MachineLv),
+            valueObjGet = x => x.MachineLv,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByFeatureList = new SortTitle()
@@ -357,7 +442,9 @@ namespace Sango.Core
                 if (a.FeatureList == null && b.FeatureList != null)
                     return 1;
                 return a.FeatureList.Count.CompareTo(b.FeatureList.Count);
-            }
+            },
+            valueObjGet = null,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByFeatureDesc = new SortTitle()
@@ -379,7 +466,9 @@ namespace Sango.Core
                 }
                 return sb.ToString();
             },
-            personSortFunc = (a, b) => 0
+            personSortFunc = (a, b) => 0,
+            valueObjGet = null,
+            valueObjSet = null,
         };
 
         public static SortTitle SortBySex = new SortTitle()
@@ -388,6 +477,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.sex == 0 ? "男" : "女",
             personSortFunc = (a, b) => a.sex.CompareTo(b.sex),
+            valueObjGet = x => x.sex,
+            valueObjSet = (x, v) => x.sex = (int)v,
         };
 
         public static SortTitle SortByLoyalty = new SortTitle()
@@ -400,6 +491,8 @@ namespace Sango.Core
                 return System.Math.Min(100, x.loyalty).ToString();
             } ,
             personSortFunc = (a, b) => a.loyalty.CompareTo(b.loyalty),
+            valueObjGet = x => x.loyalty,
+            valueObjSet = (x, v) => x.loyalty = (int)v,
         };
 
         public static SortTitle SortByMerit = new SortTitle()
@@ -408,6 +501,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.merit.ToString(),
             personSortFunc = (a, b) => a.merit.CompareTo(b.merit),
+            valueObjGet = x => x.merit,
+            valueObjSet = (x, v) => x.merit = (int)v,
         };
 
         public static SortTitle SortByExp = new SortTitle()
@@ -416,6 +511,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.Exp.ToString(),
             personSortFunc = (a, b) => a.Exp.CompareTo(b.Exp),
+            valueObjGet = x => x.Exp,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByLevel = new SortTitle()
@@ -424,6 +521,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.Level.Name,
             personSortFunc = (a, b) => a.Level.Id.CompareTo(b.Level.Id),
+            valueObjGet = x => x.Level,
+            valueObjSet = null,
         };
 
         public static SortTitle GetSortByFeatrueId(int id)
@@ -435,6 +534,8 @@ namespace Sango.Core
                 width = 2.00f,
                 valueGetCall = x => x.HasFeatrue(id) ? "○" : "✕",
                 personSortFunc = (a, b) => a.HasFeatrue(id).CompareTo(b.HasFeatrue(id)),
+                valueObjGet = x => x.HasFeatrue(id),
+                valueObjSet = null,
             };
         }
 
@@ -447,6 +548,8 @@ namespace Sango.Core
                 width = 2.00f,
                 valueGetCall = x => x.HasItem(id) ? "○" : "✕",
                 personSortFunc = (a, b) => a.HasItem(id).CompareTo(b.HasItem(id)),
+                valueObjGet = x => x.HasItem(id),
+                valueObjSet = null,
             };
         }
 
@@ -458,6 +561,8 @@ namespace Sango.Core
                 width = 2.00f,
                 valueGetCall = x => list.Contains(x) ? "○" : "✕",
                 personSortFunc = (a, b) => list.Contains(a).CompareTo(list.Contains(b)),
+                valueObjGet = x => list.Contains(x),
+                valueObjSet = null,
             };
         }
 
@@ -487,7 +592,9 @@ namespace Sango.Core
                         return -aScore.CompareTo(bScore);
 
                     return -a.Politics.CompareTo(b.Politics);
-                }
+                },
+                valueObjGet = x => recommendList.Contains(x),
+                valueObjSet = null,
             };
         }
 
@@ -505,7 +612,9 @@ namespace Sango.Core
                     if (aRecommend != bRecommend)
                         return -aRecommend.CompareTo(bRecommend);
                     return -a.Glamour.CompareTo(b.Glamour);
-                }
+                },
+                valueObjGet = x => recommendList.Contains(x),
+                valueObjSet = null,
             };
         }
 
@@ -517,6 +626,8 @@ namespace Sango.Core
                 width = 2.00f,
                 valueGetCall = x => $"{x.DistanceDays(where) * 10}日",
                 personSortFunc = (a, b) => a.DistanceDays(where).CompareTo(b.DistanceDays(where)),
+                valueObjGet = x => x.DistanceDays(where),
+                valueObjSet = null,
             };
         }
 
@@ -525,7 +636,9 @@ namespace Sango.Core
             name = "行动",
             width = 2.00f,
             valueGetCall = x => x == null ? "—" : (x.ActionOver ? "已" : "未"),
-            personSortFunc = (a, b) => a.ActionOver.CompareTo(b.ActionOver)
+            personSortFunc = (a, b) => a.ActionOver.CompareTo(b.ActionOver),
+            valueObjGet = x => x.ActionOver,
+            valueObjSet = (x, v) => x.ActionOver = (bool)v,
         };
 
         public static SortTitle SortByMissionType = new SortTitle()
@@ -533,7 +646,9 @@ namespace Sango.Core
             name = "任务",
             width = 2.00f,
             valueGetCall = x => x == null ? "—" : (x.missionType == 0 ? "无" : x.missionType.ToString()),
-            personSortFunc = (a, b) => a.missionType.CompareTo(b.missionType)
+            personSortFunc = (a, b) => a.missionType.CompareTo(b.missionType),
+            valueObjGet = x => x.missionType,
+            valueObjSet = (x, v) => x.missionType = (int)v,
         };
 
         public static SortTitle SortByMissionTarget = new SortTitle()
@@ -541,7 +656,9 @@ namespace Sango.Core
             name = "目标",
             width = 2.00f,
             valueGetCall = x => x == null ? "—" : (x.missionTarget == 0 ? "无" : x.missionTarget.ToString()),
-            personSortFunc = (a, b) => a.missionTarget.CompareTo(b.missionTarget)
+            personSortFunc = (a, b) => a.missionTarget.CompareTo(b.missionTarget),
+            valueObjGet = x => x.missionTarget,
+            valueObjSet = (x, v) => x.missionTarget = (int)v,
         };
 
         public static SortTitle SortByIsFree = new SortTitle()
@@ -550,6 +667,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.IsFree ? "○" : "✕",
             personSortFunc = (a, b) => a.IsFree.CompareTo(b.IsFree),
+            valueObjGet = x => x.IsFree,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByIsWild = new SortTitle()
@@ -558,6 +677,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.IsWild ? "○" : "✕",
             personSortFunc = (a, b) => a.IsWild.CompareTo(b.IsWild),
+            valueObjGet = x => x.IsWild,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByAge = new SortTitle()
@@ -566,6 +687,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.Age.ToString(),
             personSortFunc = (a, b) => a.Age.CompareTo(b.Age),
+            valueObjGet = x => x.Age,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBelongForce = new SortTitle()
@@ -574,6 +697,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BelongForce?.Name ?? "",
             personSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
+            valueObjGet = x => x.BelongForce,
+            valueObjSet = (x, v) => x.BelongForce = (Force)v,
         };
 
         public static SortTitle SortByBelongCorps = new SortTitle()
@@ -582,6 +707,8 @@ namespace Sango.Core
             width = 3.40f,
             valueGetCall = x => x.BelongCorps?.Name ?? "",
             personSortFunc = (a, b) => SangoObject.Compare(a.BelongCorps, b.BelongCorps),
+            valueObjGet = x => x.BelongCorps,
+            valueObjSet = (x, v) => x.BelongCorps = (Corps)v,
         };
 
         public static SortTitle SortByBelongTroop = new SortTitle()
@@ -590,6 +717,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.BelongTroop?.Name ?? "",
             personSortFunc = (a, b) => SangoObject.Compare(a.BelongTroop, b.BelongTroop),
+            valueObjGet = x => x.BelongTroop,
+            valueObjSet = (x, v) => x.BelongTroop = (Troop)v,
         };
 
         public static SortTitle SortByBelongCity = new SortTitle()
@@ -598,6 +727,8 @@ namespace Sango.Core
             width = 2.40f,
             valueGetCall = x => x.BelongCity?.Name ?? "",
             personSortFunc = (a, b) => SangoObject.Compare(a.BelongCity, b.BelongCity),
+            valueObjGet = x => x.BelongCity,
+            valueObjSet = (x, v) => x.BelongCity = (City)v,
         };
 
         public static SortTitle SortByCurrentCity = new SortTitle()
@@ -612,6 +743,8 @@ namespace Sango.Core
                     return x.CurrentCity?.Name ?? "";
                 },
             personSortFunc = (a, b) => SangoObject.Compare(a.CurrentCity, b.CurrentCity),
+            valueObjGet = x => x.CurrentCity,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByDescription = new SortTitle()
@@ -620,6 +753,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => GameLanguage.GetString(x.Id),
             personSortFunc = (a, b) => a.Id.CompareTo(b.Id),
+            valueObjGet = null,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByFamilyName = new SortTitle()
@@ -628,6 +763,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.familyName,
             personSortFunc = (a, b) => a.familyName.CompareTo(b.familyName),
+            valueObjGet = x => x.familyName,
+            valueObjSet = (x, v) => x.familyName = (string)v,
         };
 
         public static SortTitle SortByGiveName = new SortTitle()
@@ -636,6 +773,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.giveName,
             personSortFunc = (a, b) => a.giveName.CompareTo(b.giveName),
+            valueObjGet = x => x.giveName,
+            valueObjSet = (x, v) => x.giveName = (string)v,
         };
 
         public static SortTitle SortByNickName = new SortTitle()
@@ -644,6 +783,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.nickName,
             personSortFunc = (a, b) => a.nickName.CompareTo(b.nickName),
+            valueObjGet = x => x.nickName,
+            valueObjSet = (x, v) => x.nickName = (string)v,
         };
 
         public static SortTitle SortByYearAvailable = new SortTitle()
@@ -652,6 +793,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.appearance.ToString(),
             personSortFunc = (a, b) => a.appearance.CompareTo(b.appearance),
+            valueObjGet = x => x.appearance,
+            valueObjSet = (x, v) => x.appearance = (int)v,
         };
 
         public static SortTitle SortByIsValid = new SortTitle()
@@ -660,6 +803,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.IsValid ? "○" : "✕",
             personSortFunc = (a, b) => a.IsValid.CompareTo(b.IsValid),
+            valueObjGet = x => x.IsValid,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByBeFinded = new SortTitle()
@@ -668,6 +813,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.beFinded ? "○" : "✕",
             personSortFunc = (a, b) => a.beFinded.CompareTo(b.beFinded),
+            valueObjGet = x => x.beFinded,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByYearBorn = new SortTitle()
@@ -676,6 +823,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.yearBorn.ToString(),
             personSortFunc = (a, b) => a.yearBorn.CompareTo(b.yearBorn),
+            valueObjGet = x => x.yearBorn,
+            valueObjSet = (x, v) => x.yearBorn = (int)v,
         };
 
         public static SortTitle SortByYearDead = new SortTitle()
@@ -684,6 +833,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.yearDead.ToString(),
             personSortFunc = (a, b) => a.yearDead.CompareTo(b.yearDead),
+            valueObjGet = x => x.yearDead,
+            valueObjSet = (x, v) => x.yearDead = (int)v,
         };
 
         public static SortTitle SortByCompatibility = new SortTitle()
@@ -692,6 +843,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.compatibility.ToString(),
             personSortFunc = (a, b) => a.compatibility.CompareTo(b.compatibility),
+            valueObjGet = x => x.compatibility,
+            valueObjSet = (x, v) => x.compatibility = (int)v,
         };
 
         public static SortTitle SortByState = new SortTitle()
@@ -716,6 +869,8 @@ namespace Sango.Core
                 }
             },
             personSortFunc = (a, b) => a.state.CompareTo(b.state),
+            valueObjGet = x => x.state,
+            valueObjSet = (x, v) => x.state = (int)v,
         };
 
         public static SortTitle SortByIsCityLeader = new SortTitle()
@@ -733,7 +888,9 @@ namespace Sango.Core
                 bool aIsLeader = a.BelongCity != null && a == a.BelongCity.Leader;
                 bool bIsLeader = b.BelongCity != null && b == b.BelongCity.Leader;
                 return bIsLeader.CompareTo(aIsLeader);
-            }
+            },
+            valueObjGet = null,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByIsCounsellor = new SortTitle()
@@ -751,7 +908,9 @@ namespace Sango.Core
                 bool aIsCounsellor = a.BelongForce != null && a == a.BelongForce.Counsellor;
                 bool bIsCounsellor = b.BelongForce != null && b == b.BelongForce.Counsellor;
                 return bIsCounsellor.CompareTo(aIsCounsellor);
-            }
+            },
+            valueObjGet = null,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByStamina = new SortTitle()
@@ -760,6 +919,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.stamina.ToString(),
             personSortFunc = (a, b) => a.stamina.CompareTo(b.stamina),
+            valueObjGet = x => x.stamina,
+            valueObjSet = (x, v) => x.stamina = (int)v,
         };
 
         // 性格（小写！！！）
@@ -773,7 +934,9 @@ namespace Sango.Core
                 string aName = a?.personality?.Name ?? "";
                 string bName = b?.personality?.Name ?? "";
                 return aName.CompareTo(bName);
-            }
+            },
+            valueObjGet = x => x.personality,
+            valueObjSet = (x, v) => x.personality = (Personality)v,
         };
 
         public static SortTitle SortByOfficial = new SortTitle()
@@ -782,6 +945,8 @@ namespace Sango.Core
             width = 3.20f,
             valueGetCall = x => x.Official.Name,
             personSortFunc = (a, b) => SangoObject.Compare(a.Official, b.Official),
+            valueObjGet = x => x.Official,
+            valueObjSet = (x, v) => x. Official = (Official)v,
         };
 
         public static SortTitle SortByCost = new SortTitle()
@@ -790,6 +955,8 @@ namespace Sango.Core
             width = 3.20f,
             valueGetCall = x => (x.Official?.cost ?? 5).ToString(),
             personSortFunc = (a, b) => SangoObject.Compare(a.Official, b.Official),
+            valueObjGet = x => x.Official?.cost ?? 5,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByFather = new SortTitle()
@@ -797,7 +964,9 @@ namespace Sango.Core
             name = "父亲",
             width = 2.40f,
             valueGetCall = x => x == null || x.Father == null ? " " : x.Father.Name,
-            personSortFunc = (a, b) => SangoObject.Compare(a?.Father, b?.Father)
+            personSortFunc = (a, b) => SangoObject.Compare(a?.Father, b?.Father),
+            valueObjGet = x => x.Father,
+            valueObjSet = (x, v) => x.Father = (Person)v,
         };
 
         public static SortTitle SortByMother = new SortTitle()
@@ -805,7 +974,9 @@ namespace Sango.Core
             name = "母亲",
             width = 2.40f,
             valueGetCall = x => x == null || x.Mother == null ? " " : x.Mother.Name,
-            personSortFunc = (a, b) => SangoObject.Compare(a?.Mother, b?.Mother)
+            personSortFunc = (a, b) => SangoObject.Compare(a?.Mother, b?.Mother),
+            valueObjGet = x => x.Mother,
+            valueObjSet = (x, v) => x.Mother = (Person)v,
         };
 
         public static SortTitle SortByBrother = new SortTitle()
@@ -838,7 +1009,9 @@ namespace Sango.Core
                     return -1;
 
                 return 0;
-            }
+            },
+            valueObjGet = null,
+            valueObjSet = null,
         };
 
         public static SortTitle SortBySpouse = new SortTitle()
@@ -871,7 +1044,9 @@ namespace Sango.Core
                     return -1;
 
                 return 0;
-            }
+            },
+            valueObjGet = null,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByWork = new SortTitle()
@@ -880,6 +1055,8 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x => x.workingBuilding?.Name ?? "-",
             personSortFunc = (a, b) => Building.Compare(a.workingBuilding, b.workingBuilding),
+            valueObjGet = x => x.workingBuilding,
+            valueObjSet = null,
         };
 
         public static SortTitle SortByUpgradeOffical = new SortTitle()
@@ -894,6 +1071,8 @@ namespace Sango.Core
             {
                 return a.CanUpgradeOfficial.CompareTo(b.CanUpgradeOfficial);
             },
+            valueObjGet = x => x.CanUpgradeOfficial,
+            valueObjSet = null,
         };
 
         public static List<ObjectSortTitle> DefaultSortList = new List<ObjectSortTitle>

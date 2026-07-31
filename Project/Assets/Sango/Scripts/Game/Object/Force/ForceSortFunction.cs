@@ -31,12 +31,38 @@ namespace Sango.Core
         public delegate int ForceValueGet(Force force);
         public delegate int ForceSortFunc(Force force1, Force force2);
 
+        /// <summary>
+        /// 获取Force对象属性值的object类型代理
+        /// </summary>
+        /// <param name="force">势力对象</param>
+        /// <returns>属性值</returns>
+        public delegate object ForceValueObjGet(Force force);
+
+        /// <summary>
+        /// 设置Force对象属性值的代理
+        /// </summary>
+        /// <param name="force">势力对象</param>
+        /// <param name="value">新的属性值</param>
+        public delegate void ForceValueObjSet(Force force, object value);
+
         public Force CurForce;
 
         public class SortTitle : ObjectSortTitle
         {
             public ForceValueStrGet valueStrGetCall;
             public ForceSortFunc valueSortFunc;
+            public ForceValueObjGet valueObjGet;
+            public ForceValueObjSet valueObjSet;
+
+            public override object GetValue(SangoObject obj)
+            {
+                return valueObjGet?.Invoke((Force)obj);
+            }
+
+            public override void SetValue(SangoObject obj, object value)
+            {
+                valueObjSet?.Invoke((Force)obj, value);
+            }
 
             public override string GetValueStr(SangoObject obj)
             {
@@ -57,6 +83,8 @@ namespace Sango.Core
                     width = width,
                     valueStrGetCall = valueStrGetCall,
                     valueSortFunc = valueSortFunc,
+                    valueObjGet = valueObjGet,
+                    valueObjSet = valueObjSet,
                 };
             }
         }
@@ -121,6 +149,8 @@ namespace Sango.Core
             width = 4.00f,
             valueStrGetCall = x => x.Name,
             valueSortFunc = (a, b) => a.Name.CompareTo(b.Name),
+            valueObjGet = x => x.Name,
+            valueObjSet = (x, v) => x.Name = (string)v,
         };
 
         public static SortTitle SortByLeader = new SortTitle()
@@ -129,6 +159,8 @@ namespace Sango.Core
             width = 4.00f,
             valueStrGetCall = x => x.Governor?.Name ?? "---",
             valueSortFunc = (a, b) => SangoObject.Compare(a.Governor, b.Governor),
+            valueObjGet = x => x.Governor,
+            valueObjSet = (x, v) => x.Governor = (Person)v,
         };
 
         public static SortTitle GetSortByDistanceDay(City where)
@@ -139,6 +171,8 @@ namespace Sango.Core
                 width = 2.00f,
                 valueStrGetCall = x => $"{x.Governor.DistanceDays(where)}0日",
                 valueSortFunc = (a, b) => a.Governor.DistanceDays(where).CompareTo(b.Governor.DistanceDays(where)),
+                valueObjGet = x => x.Governor.DistanceDays(where),
+                valueObjSet = null,
             };
         }
     }

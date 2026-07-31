@@ -39,7 +39,7 @@ namespace Sango.UI
         {
             if(isCrit)
             {
-                UITools.ShowInfoNoColor(critAniText, damage, damageType);
+                UITools.ShowInfo(aniText, damage, damageType, 2.5f);
             }
             else
             {

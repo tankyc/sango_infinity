@@ -725,6 +725,7 @@ namespace Sango.Core
             // 检查敌方新建部队是否有占领我方城池的任务
             if (IsPlayer)
             {
+                List<City> checkedCity = null;
                 foreach (Troop troop in scenario.troopsSet)
                 {
                     if (troop != null && troop.IsAlive && troop.BelongForce != this && troop.IsNewTroop && troop.missionType == (int)MissionType.TroopOccupyCity)
@@ -749,10 +750,21 @@ namespace Sango.Core
                                 var troopCity = troop.BelongCity;
                                 if (troopCity != null)
                                 {
+                                    if (checkedCity == null)
+                                        checkedCity = new List<City>();
+                                    else
+                                    {
+                                        if (checkedCity.Contains(troopCity))
+                                            continue;
+                                    }
+
+                                    checkedCity.Add(troopCity);
+
                                     // 创建相机移动事件
                                     CameraMoveEvent cameraMoveEvent = RenderEvent.Instance.Create<CameraMoveEvent>();
-                                    cameraMoveEvent.Init(troopCity.CenterCell.Position, 0.5f, GameDialog.DialogStyle.ClickPersonSay, $"{ColorName}大人，\n我军细作传来消息,有敌军正在往我方{targetCity.ColorName}靠近!!。", Counsellor, null, null);
-                                    RenderEvent.Instance.AddFront(cameraMoveEvent);
+                                    cameraMoveEvent.Init(troop.cell.Position, 0.5f, 
+                                        GameDialog.DialogStyle.ClickPersonSay, $"{ColorName}大人，\n我军细作传来消息,有敌军正在往我方{targetCity.ColorName}靠近!!。", Counsellor, null, null).donotReturn = true;
+                                    RenderEvent.Instance.Add(cameraMoveEvent);
 
                                     // 触发发现敌方部队事件
                                     GameEvent.OnDiscoverEnemyTroop?.Invoke(this, targetCity, troop, Counsellor);
@@ -761,6 +773,14 @@ namespace Sango.Core
                         }
                     }
                 }
+
+                if(checkedCity != null)
+                {
+                    CameraMoveEvent cameraMoveEvent = RenderEvent.Instance.Create<CameraMoveEvent>();
+                    cameraMoveEvent.Init(MapRender.Instance.GetCameraPos(), 0.5f);
+                    RenderEvent.Instance.Add(cameraMoveEvent);
+                }
+
             }
 
             PrepareCityPersonHole(scenario);

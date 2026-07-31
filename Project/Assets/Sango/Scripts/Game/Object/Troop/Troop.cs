@@ -778,6 +778,14 @@ namespace Sango.Core
                 return LandTroopType.MoveCost(cell);
         }
 
+        public int GetTargetMoveAbility(Cell cell)
+        {
+            if (cell.IsWater)
+                return waterMoveAbility;
+            else
+                return landMoveAbility;
+        }
+
         public bool IsAlliance(BuildingBase other)
         {
             return IsAlliance(BelongForce, other.BelongForce);
@@ -1717,21 +1725,16 @@ namespace Sango.Core
                 {
                     //TODO: 移动
                     map.GetDirectMovePath(this, targetCell, tempCellList);
-
-                    int totaleMoveAbility = MoveAbility;
+                    int moveCost = 0;
                     for (int i = 1; i < tempCellList.Count; i++)
                     {
                         Cell dest = tempCellList[i];
-                        int destCost = MoveCost(dest);
-                        if (totaleMoveAbility > destCost)
+                        moveCost += MoveCost(dest);
+                        if (moveCost <= GetTargetMoveAbility(dest))
                         {
                             if (map.IsZOC(this, dest))
                             {
-                                totaleMoveAbility = 0;
-                            }
-                            else
-                            {
-                                totaleMoveAbility -= destCost;
+                                moveCost = 999;
                             }
                             tryToDest = dest;
                         }
@@ -2073,8 +2076,16 @@ namespace Sango.Core
             Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 任务变更:{missionType} -> {missionTarget}!!");
 #endif
             this.missionType = (int)missionType;
+
+            if(troopMissionBehaviour != null && troopMissionBehaviour.MissionType == missionType)
+            {
+
+            }
+
             this.missionTarget = missionTarget;
         }
+
+        
 
         public void ClearMission()
         {

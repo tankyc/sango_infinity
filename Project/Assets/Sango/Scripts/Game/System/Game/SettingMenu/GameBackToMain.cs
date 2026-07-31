@@ -8,7 +8,7 @@ namespace Sango.Core.Player
         public GameBackToMain()
         {
             customMenuName = "返回主菜单";
-            customMenuOrder = 3;
+            customMenuOrder = 200;
         }
 
         public override void OnEnter()

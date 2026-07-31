@@ -11,12 +11,17 @@ using Sango.Core; namespace Sango.UI
         // 0   1   2   3   4   5   6     7      8      9     10    11    12    13    14  15
         public static void ShowInfo(AnimationText aniText, int damage, int damageType = 0)
         {
+            ShowInfo(aniText, damage, damageType, 2);
+        }
+
+        public static void ShowInfo(AnimationText aniText, int damage, int damageType = 0, float scale = 2f)
+        {
             bool isUpZero = damage > 0;
             StringBuilder stringBuilder = new StringBuilder(isUpZero ? "A" : "B");
             stringBuilder.Append((char)(67 + damageType));
             UnityEngine.Color c = isUpZero ? new UnityEngine.Color(0.988f, 0.929f, 0.261f) : new UnityEngine.Color(1f, 0.479f, 0.231f);
             aniText.flipY = isUpZero;
-            aniText.Create(damage.ToString(), stringBuilder.ToString(), c, 2);
+            aniText.Create(damage.ToString(), stringBuilder.ToString(), c, scale);
         }
 
         public static void ShowInfoNoColor(AnimationText aniText, int damage, int damageType = 0)

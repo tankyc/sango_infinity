@@ -34,7 +34,7 @@ namespace Sango.Core
             Name = "都市情报";
             Clear();
             GameEvent.OnCityRightMouseButtonContextMenuShow += OnCityRightMouseButtonContextMenuShow;
-            GameEvent.OnGameSettingContextMenuShow += OnGameSettingContextMenuShow;
+            GameEvent.OnGameInformationContextMenuShow += OnGameSettingContextMenuShow;
 
 #if UNITY_ANDROID || UNITY_IPHONE
             GameEvent.OnCityContextMenuShow += OnCityContextMenuShow;
@@ -48,7 +48,7 @@ namespace Sango.Core
 
         public override void Clear()
         {
-            GameEvent.OnGameSettingContextMenuShow -= OnGameSettingContextMenuShow;
+            GameEvent.OnGameInformationContextMenuShow -= OnGameSettingContextMenuShow;
 #if UNITY_ANDROID || UNITY_IPHONE
             GameEvent.OnCityContextMenuShow -= OnCityContextMenuShow;
 #endif

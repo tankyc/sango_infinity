@@ -8,7 +8,7 @@ namespace Sango.Core.Player
         public GameScenarioVariables()
         {
             customMenuName = "剧本参数";
-            customMenuOrder = 3;
+            customMenuOrder = 150;
         }
 
         public override void OnEnter()

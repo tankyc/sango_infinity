@@ -453,7 +453,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3925287216087675063, guid: 0c5d02b2f9e28854e90b9e9f95f81df1, type: 3}
       propertyPath: m_FontData.m_FontSize
-      value: 25
+      value: 22
       objectReference: {fileID: 0}
     - target: {fileID: 3925287216087675063, guid: 0c5d02b2f9e28854e90b9e9f95f81df1, type: 3}
       propertyPath: m_FontData.m_LineSpacing

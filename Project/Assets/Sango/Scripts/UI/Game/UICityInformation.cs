@@ -297,6 +297,9 @@ using Sango.Core; namespace Sango.UI
 
         void OnTroopSelected(List<Troop> person_list)
         {
+            if (person_list == null || person_list.Count == 0)
+                return;
+
             List<SangoObject> object_list = new List<SangoObject>();
             object_list.AddRange(troopList);
             GameSystem.GetSystem<TroopInformation>().Start(person_list[0], object_list);

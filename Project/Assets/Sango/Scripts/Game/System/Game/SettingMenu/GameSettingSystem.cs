@@ -1,5 +1,6 @@
 ﻿using Sango.UI;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using ContextMenu = Sango.UI.ContextMenu;
 
 namespace Sango.Core.Player
@@ -49,7 +50,12 @@ namespace Sango.Core.Player
 
                 case CommandEventType.ClickDown:
                     {
-                        if (isOverUI) return;
+                        if (isOverUI)
+                        {
+                            if(!ContextMenu.IsOverUI(clickPosition))
+                                Done();
+                            return;
+                        }
 
                         Done();
                         break;

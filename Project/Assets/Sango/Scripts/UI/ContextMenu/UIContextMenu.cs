@@ -32,19 +32,34 @@ namespace Sango.UI
                 menuRoot[i].localScale = Vector3.one * 1.2f;
             }
 
-//            for(int i = 0; i < returnButtons.Length; ++i)
-//            {
-//                returnButtons[i].gameObject.SetActive(true);
-//            }
-//#else
-//            for(int i = 0; i < returnButtons.Length; ++i)
-//            {
-//                returnButtons[i].gameObject.SetActive(false);
-//            }
+            //            for(int i = 0; i < returnButtons.Length; ++i)
+            //            {
+            //                returnButtons[i].gameObject.SetActive(true);
+            //            }
+            //#else
+            //            for(int i = 0; i < returnButtons.Length; ++i)
+            //            {
+            //                returnButtons[i].gameObject.SetActive(false);
+            //            }
 #endif
 
         }
 
+        public bool IsOverUI(Vector3 point)
+        {
+            for (int i = 0; i <= showDepth; i++)
+            {
+                RectTransform root = menuRoot[showDepth];
+                if (root != null)
+                {
+                    if (RectTransformUtility.RectangleContainsScreenPoint(root, point, Game.Instance.UICamera))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
 
         private UIMenuItem CreteNode(int index)
         {

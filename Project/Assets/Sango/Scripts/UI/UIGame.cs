@@ -33,6 +33,7 @@ namespace Sango.UI
         public GameObject messageObj;
 
         public RectTransform gameSettingRect;
+        public RectTransform gameInformationRect;
 
         public bool gridShow = true;
         public bool troopListShow = false;
@@ -66,6 +67,15 @@ namespace Sango.UI
         public override void OnOpen()
         {
             base.OnOpen();
+
+#if !UNITY_EDITOR
+            foreach(var  obj in fpaObj)
+            {
+                if(obj != null)
+                    obj.gameObject.SetActive(false);
+            }
+#endif
+
             Window.Instance.Close("window_loading");
             GameController.Instance.onCellOverEnter += OnCellOverEnter;
             GameController.Instance.onCellOverExit += OnCellOverExit;
@@ -456,6 +466,9 @@ namespace Sango.UI
 
         public void OnEndPlayerTurn()
         {
+            GameSystem.GetSystem<GameInformationSystem>().Back();
+            GameSystem.GetSystem<GameSettingInScenario>().Back();
+
             if (GameSystemManager.Instance.CurrentCommand != null)
                 return;
             ContextMenu.CloseAll();
@@ -498,6 +511,15 @@ namespace Sango.UI
             Window.Instance.Close("window_city_info_panel");
             Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(Game.Instance.UICamera, gameSettingRect.position);
             GameSystem.GetSystem<GameSettingSystem>().Start(screenPos + new Vector2(0, -gameSettingRect.sizeDelta.y - 5));
+        }
+
+        public void OnGameInformation()
+        {
+            if (GameSystemManager.Instance.CurrentCommand != null)
+                return;
+            Window.Instance.Close("window_city_info_panel");
+            Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(Game.Instance.UICamera, gameInformationRect.position);
+            GameSystem.GetSystem<GameInformationSystem>().Start(screenPos + new Vector2(0, -gameInformationRect.sizeDelta.y - 5));
         }
 
         public void OnSpeedChange()

@@ -139,6 +139,7 @@ namespace Sango.Core
         public static EventDelegate<IContextMenuData, Gate> OnGateRightMouseButtonContextMenuShow;
 
         public static EventDelegate<IContextMenuData> OnGameSettingContextMenuShow;
+        public static EventDelegate<IContextMenuData> OnGameInformationContextMenuShow;
 
         public static EventDelegate<ITroopInteractiveDialogData, Troop, Cell> OnTroopInteractiveContextDialogShow;
         public static EventDelegate<IVariablesSetting, Scenario> OnScenarioVariablesSetting;

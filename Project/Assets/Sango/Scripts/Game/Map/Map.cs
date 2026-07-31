@@ -428,7 +428,7 @@ namespace Sango.Core
             came_from.Clear();
             cost_so_far.Clear();
             cellList.Add(troops.cell);
-            int moveAttr = troops.MoveAbility;
+            
             came_from[troops.cell] = null;
             frontier.Enqueue(troops.cell, 0);
             troops.cell._isChecked = true;
@@ -447,9 +447,11 @@ namespace Sango.Core
                         if (!next._isChecked)
                         {
                             bool isZoc = IsZOC(troops, next);
+                            bool isWater = next.IsWater;
+                            int moveAttr = isWater? troops.waterMoveAbility : troops.landMoveAbility;
                             int new_cost;
                             if (isZoc)
-                                new_cost = moveAttr;
+                                new_cost = 999;
                             else
                                 new_cost = cost_current + troops.MoveCost(next);
 

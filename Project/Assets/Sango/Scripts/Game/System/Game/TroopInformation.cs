@@ -34,7 +34,7 @@ namespace Sango.Core
         {
             Name = "部队情报";
             GameEvent.OnTroopRightMouseButtonContextMenuShow += OnTroopRightMouseButtonContextMenuShow;
-            GameEvent.OnGameSettingContextMenuShow += OnGameSettingContextMenuShow;
+            GameEvent.OnGameInformationContextMenuShow += OnGameSettingContextMenuShow;
 #if UNITY_ANDROID || UNITY_IPHONE
             GameEvent.OnTroopContextMenuShow += OnTroopContextMenuShow;
             GameEvent.OnTroopActionContextMenuShow += OnTroopActionContextMenuShow;
@@ -48,7 +48,7 @@ namespace Sango.Core
         public override void Clear()
         {
             GameEvent.OnTroopRightMouseButtonContextMenuShow -= OnTroopRightMouseButtonContextMenuShow;
-            GameEvent.OnGameSettingContextMenuShow -= OnGameSettingContextMenuShow;
+            GameEvent.OnGameInformationContextMenuShow -= OnGameSettingContextMenuShow;
 #if UNITY_ANDROID || UNITY_IPHONE
             GameEvent.OnTroopContextMenuShow -= OnTroopContextMenuShow;
             GameEvent.OnTroopActionContextMenuShow -= OnTroopActionContextMenuShow;

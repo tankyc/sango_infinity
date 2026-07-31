@@ -36,6 +36,7 @@ using Sango.Core; namespace Sango.UI
                 contentFieldList_used.Add(textField);
             }
             textField.gameObject.SetActive(true);
+            textField.transform.SetAsLastSibling();
             return textField;
         }
 

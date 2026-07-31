@@ -322,12 +322,7 @@ namespace UnityEngine.UI
             if (!Application.isPlaying)
                 EditorApplication.update -= UpdateEditor;
 #endif
-            for (int i = mList.Count; i > 0;)
-            {
-                Entry ent = mList[--i];
-                if (ent.label != null) ent.label.enabled = false;
-                else mList.RemoveAt(i);
-            }
+            Clear();
         }
 
         public void Clear()

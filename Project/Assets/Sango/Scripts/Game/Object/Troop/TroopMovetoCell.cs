@@ -10,7 +10,7 @@ namespace Sango.Core
         public override void Prepare(Troop troop, Scenario scenario)
         {
             if (Troop != troop) Troop = troop;
-            if (TargetCell == null) TargetCell = scenario.Map.GetCell(troop.missionParams1, troop.missionParams2);
+            TargetCell = scenario.Map.GetCell(troop.missionParams1, troop.missionParams2);
             priorityActionData = null;
 
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池

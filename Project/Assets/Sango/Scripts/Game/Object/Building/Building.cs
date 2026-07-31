@@ -432,6 +432,8 @@ namespace Sango.Core
         /// </summary>
         public override void Clear()
         {
+            IsAlive = false;
+
             if (actionList != null)
             {
                 for (int i = 0; i < actionList.Count; i++)

@@ -114,5 +114,18 @@ namespace Sango.UI
             }
         }
 
+        public static bool IsOverUI(Vector3 point)
+        {
+            if (string.IsNullOrEmpty(currentWindowName)) return false;
+            WindowInterface windowInterface = Window.Instance.GetWindow(currentWindowName);
+            if (windowInterface != null)
+            {
+                if(!windowInterface.IsVisible()) return false;
+                UIContextMenu uIContextMenu = windowInterface.ugui_instance as UIContextMenu;
+                return uIContextMenu.IsOverUI(point);
+            }
+            return false;
+        }
+
     }
 }
