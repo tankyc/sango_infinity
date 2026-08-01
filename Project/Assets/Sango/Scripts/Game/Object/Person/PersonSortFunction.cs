@@ -498,7 +498,7 @@ namespace Sango.Core
         public static SortTitle SortByMerit = new SortTitle()
         {
             name = "功绩",
-            width = 2.00f,
+            width = 4.00f,
             valueGetCall = x => x.merit.ToString(),
             personSortFunc = (a, b) => a.merit.CompareTo(b.merit),
             valueObjGet = x => x.merit,

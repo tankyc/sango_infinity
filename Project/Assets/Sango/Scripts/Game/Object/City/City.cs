@@ -3660,8 +3660,11 @@ namespace Sango.Core
 
             if (CurActiveTroop != null)
             {
-                if (!CurActiveTroop.DoAI(scenario))
-                    return false;
+                if(CurActiveTroop.IsAlive)
+                {
+                    if (!CurActiveTroop.DoAI(scenario))
+                        return false;
+                }
                 CurActiveTroop = null;
             }
 

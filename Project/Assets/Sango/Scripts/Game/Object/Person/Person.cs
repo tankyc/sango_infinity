@@ -329,14 +329,14 @@ namespace Sango.Core
         /// </summary>
         [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
         [JsonProperty]
-        public SangoObjectList<Person> LikePersonList { get; private set; }
+        public SangoObjectList<Person> LikePersonList { get; set; }
 
         /// <summary>
         /// 厌恶武将
         /// </summary>
         [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
         [JsonProperty]
-        public SangoObjectList<Person> HatePersonList { get; private set; }
+        public SangoObjectList<Person> HatePersonList { get; set; }
 
         /// <summary>
         /// 儿子们, 由father属性添加至父亲的属性里
@@ -395,7 +395,7 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty]
         [JsonConverter(typeof(SangoObjectListIDConverter<Feature>))]
-        public SangoObjectList<Feature> FeatureList { get; private set; }
+        public SangoObjectList<Feature> FeatureList { get; set; }
 
         /// <summary>
         /// 库存

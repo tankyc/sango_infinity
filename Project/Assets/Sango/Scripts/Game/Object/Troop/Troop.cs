@@ -2076,12 +2076,6 @@ namespace Sango.Core
             Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 任务变更:{missionType} -> {missionTarget}!!");
 #endif
             this.missionType = (int)missionType;
-
-            if(troopMissionBehaviour != null && troopMissionBehaviour.MissionType == missionType)
-            {
-
-            }
-
             this.missionTarget = missionTarget;
         }
 
@@ -2101,10 +2095,15 @@ namespace Sango.Core
         {
             get
             {
-                if (missionType == 0)
+                if (missionType == 0 && BelongCity != null)
                 {
                     SetMission(MissionType.TroopReturnCity, BelongCity.Id);
                     NeedPrepareMission();
+                }
+
+                if(missionType == 0)
+                {
+                    return null;
                 }
 
                 if (this.troopMissionBehaviour == null || (int)troopMissionBehaviour.MissionType != missionType)
@@ -2136,6 +2135,14 @@ namespace Sango.Core
             }
 
             TroopMissionBehaviour temp = TroopMissionBehaviour;
+            if(temp == null)
+            {
+                GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
+                AIFinished = true;
+                ActionOver = true;
+                return true;
+            }
+
             if (!isMissionPrepared)
             {
                 temp.Prepare(this, scenario);

@@ -27,7 +27,7 @@ namespace Sango.Core.Player
         public override void OnExit()
         {
             base.OnExit();
-            if(ClickMode)
+            if (ClickMode)
             {
                 selected.Clear();
             }
@@ -52,7 +52,7 @@ namespace Sango.Core.Player
 
         public void Add(int index)
         {
-            if(index < 0 || index >= Objects.Count)
+            if (index < 0 || index >= Objects.Count)
             {
                 return;
             }
@@ -71,7 +71,7 @@ namespace Sango.Core.Player
 
         public void Remove(int index)
         {
-            if(index < 0 || index >= Objects.Count) { return; }
+            if (index < 0 || index >= Objects.Count) { return; }
             selected.Remove(Objects[index]);
         }
         public int RemoveFront()
@@ -88,6 +88,12 @@ namespace Sango.Core.Player
         public override void OnEnter()
         {
             donotFinishThisSystem = false;
+            WindowInterface = Window.Instance.Open("window_object_selector", this);
+        }
+
+        public override void OnBack(ICommandEvent whoGone)
+        {
+            Window.Instance.Close("window_object_selector");
             WindowInterface = Window.Instance.Open("window_object_selector", this);
         }
     }

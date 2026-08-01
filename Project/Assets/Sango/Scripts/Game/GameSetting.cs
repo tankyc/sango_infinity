@@ -18,6 +18,9 @@ namespace Sango.Core
     /// </summary>
     public class GameSetting : Singleton<GameSetting>
     {
+        int src_ScreenWidth;
+        int src_ScreenHeight;
+
         #region 分辨率设置
         /// <summary>
         /// 屏幕宽度
@@ -187,10 +190,7 @@ namespace Sango.Core
         /// </summary>
         public void Initialize()
         {
-#if UNITY_ANDROID || UNITY_IPHONE
-
-            ScreenWidth = Screen.width; ScreenHeight = Screen.height;
-#endif
+            src_ScreenWidth = Screen.width; src_ScreenHeight = Screen.height;
 
             FontDatas.Add(new FontData()
             {
@@ -449,27 +449,27 @@ namespace Sango.Core
         {
             // TODO: 根据 QualityPreset 设置对应的画质参数
             // 0=低，1=中，2=高
+            UnityEngine.QualitySettings.SetQualityLevel(QualityPreset);
 
 #if UNITY_ANDROID || UNITY_IPHONE
-            UnityEngine.QualitySettings.SetQualityLevel(QualityPreset);
             switch (QualityPreset)
             {
                 case 0:
                     {
-                        int height = ScreenHeight * 6 / 10;
-                        int width = ScreenWidth * 6 / 10;
+                        int height = src_ScreenHeight * 6 / 10;
+                        int width = src_ScreenWidth * 6 / 10;
                         Screen.SetResolution(width, height, true);
                     }
                     break;
                 case 1:
                     {
-                        int height = ScreenHeight * 8 / 10;
-                        int width = ScreenWidth * 8 / 10;
+                        int height = src_ScreenHeight * 8 / 10;
+                        int width = src_ScreenWidth * 8 / 10;
                         Screen.SetResolution(width, height, true);
                     }
                     break;
                 case 2:
-                    Screen.SetResolution(ScreenWidth, ScreenHeight, true);
+                    Screen.SetResolution(src_ScreenWidth, src_ScreenHeight, true);
                     break;
             }
 #endif
@@ -753,7 +753,6 @@ namespace Sango.Core
                 ApplyPostProcessingSettings();
             });
 
-#if UNITY_ANDROID || UNITY_IPHONE
             // 画质预设选项
             List<string> qualityPresetOptions = new List<string> { "低", "中", "高" };
             setting.AddDropdownItem("画质预设", QualityPreset, qualityPresetOptions, (index) =>
@@ -761,7 +760,6 @@ namespace Sango.Core
                 QualityPreset = index;
                 ApplyQualityPreset();
             });
-#endif
 
             // 阴影开关
             //setting.AddToggleItem("阴影", IsShadowEnabled, (value) =>

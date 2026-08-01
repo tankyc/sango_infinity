@@ -246,5 +246,10 @@ namespace Sango.UI
         {
 
         }
+
+        public void OnEditButton()
+        {
+            GameSystem.GetSystem<PersonEdit>().Start(Target);
+        }
     }
 }

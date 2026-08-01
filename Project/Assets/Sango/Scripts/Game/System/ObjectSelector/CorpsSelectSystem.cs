@@ -11,8 +11,8 @@ namespace Sango.Core.Player
         public string defualtTitleName = "势力";
         public List<ObjectSortTitle> defualtTitleList = new List<ObjectSortTitle>()
             {
-                ForceSortFunction.SortByName,
-                ForceSortFunction.SortByLeader,
+                CorpsSortFunction.SortByName,
+                CorpsSortFunction.SortByLeader,
             };
         public override void Init()
         {
@@ -63,13 +63,13 @@ namespace Sango.Core.Player
             if (index == 0) return customSortItems;
 
             List<ObjectSortTitle> sortTitles = new List<ObjectSortTitle>();
-            ForceSortFunction.Instance.GetSortTitleGroup((ForceSortGroupType)index, sortTitles);
+            CorpsSortFunction.Instance.GetSortTitleGroup((CorpsSortGroupType)index, sortTitles);
             return sortTitles;
         }
 
         public override string GetSortTitleGroupName(int index)
         {
-            return ForceSortFunction.Instance.GetSortTitleGroupName((ForceSortGroupType)index);
+            return CorpsSortFunction.Instance.GetSortTitleGroupName((CorpsSortGroupType)index);
         }
     }
 }
