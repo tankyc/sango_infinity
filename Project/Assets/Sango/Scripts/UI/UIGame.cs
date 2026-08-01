@@ -482,6 +482,8 @@ namespace Sango.UI
 
         public void OnSwitchCityInfoShow()
         {
+            GameSystem.GetSystem<GameSettingInScenario>().Back();
+            GameSystem.GetSystem<GameInformationSystem>().Back();
             if (GameSystemManager.Instance.CurrentCommand != null)
                 return;
             UICityHeadbar.showIndo = !UICityHeadbar.showIndo;
@@ -490,6 +492,8 @@ namespace Sango.UI
 
         public void OnSwitchMiniMapShow()
         {
+            GameSystem.GetSystem<GameSettingInScenario>().Back();
+            GameSystem.GetSystem<GameInformationSystem>().Back();
             if (GameSystemManager.Instance.CurrentCommand != null)
                 return;
             miniMapObj.SetActive(!miniMapObj.activeSelf);
@@ -498,6 +502,8 @@ namespace Sango.UI
 
         public void OnSwitchMessageShow()
         {
+            GameSystem.GetSystem<GameSettingInScenario>().Back();
+            GameSystem.GetSystem<GameInformationSystem>().Back();
             if (GameSystemManager.Instance.CurrentCommand != null)
                 return;
             messageObj.SetActive(false);
@@ -506,6 +512,7 @@ namespace Sango.UI
 
         public void OnGameSetting()
         {
+            GameSystem.GetSystem<GameInformationSystem>().Back();
             if (GameSystemManager.Instance.CurrentCommand != null)
                 return;
             Window.Instance.Close("window_city_info_panel");
@@ -515,6 +522,7 @@ namespace Sango.UI
 
         public void OnGameInformation()
         {
+            GameSystem.GetSystem<GameSettingInScenario>().Back();
             if (GameSystemManager.Instance.CurrentCommand != null)
                 return;
             Window.Instance.Close("window_city_info_panel");

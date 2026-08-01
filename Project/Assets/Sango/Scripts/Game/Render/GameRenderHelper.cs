@@ -32,7 +32,7 @@ namespace Sango.Core
             Texture headSpr = ObjectLoader.LoadObject<Texture>(headPath, "Face");
             if (headSpr == null)
             {
-                headPath = $"{HeadIconPath}/0_{type}.png";
+                headPath = "Assets/empty.png";
                 headSpr = ObjectLoader.LoadObject<Texture>(headPath);
             }
             return headSpr;

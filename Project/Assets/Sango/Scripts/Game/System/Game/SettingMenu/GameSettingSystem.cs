@@ -52,8 +52,11 @@ namespace Sango.Core.Player
                     {
                         if (isOverUI)
                         {
-                            if(!ContextMenu.IsOverUI(clickPosition))
-                                Done();
+                            //if (!ContextMenu.IsOverUI(clickPosition))
+                            //{
+                            //    Sango.Log.Error(111);
+                            //    Done();
+                            //}
                             return;
                         }
 

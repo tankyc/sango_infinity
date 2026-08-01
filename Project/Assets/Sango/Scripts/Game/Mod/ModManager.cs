@@ -215,6 +215,8 @@ namespace Sango.Mod
                 {
                     mod.Url = NetModMarket.MakeUrl(content, info);
                     mod.UrlVersion = info.version;
+                    mod.Size = info.size;
+                    mod.MarketName = content.name;
                 }
                 else
                 {
@@ -226,6 +228,7 @@ namespace Sango.Mod
                     mod.Size = info.size;
                     mod.Poster = info.poster;
                     mod.Url = NetModMarket.MakeUrl(content, info);
+                    mod.MarketName = content.name;
                     mModMap.Add(info.id, mod);
                 }
             }

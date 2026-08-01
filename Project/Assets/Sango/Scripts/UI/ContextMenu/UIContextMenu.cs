@@ -52,6 +52,9 @@ namespace Sango.UI
                 RectTransform root = menuRoot[showDepth];
                 if (root != null)
                 {
+                    Sango.Log.Error(point);
+                    Sango.Log.Error(RectTransformUtility.RectangleContainsScreenPoint(root, point, Game.Instance.UICamera));
+
                     if (RectTransformUtility.RectangleContainsScreenPoint(root, point, Game.Instance.UICamera))
                     {
                         return true;

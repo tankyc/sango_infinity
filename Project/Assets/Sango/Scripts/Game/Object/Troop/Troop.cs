@@ -1730,11 +1730,12 @@ namespace Sango.Core
                     {
                         Cell dest = tempCellList[i];
                         moveCost += MoveCost(dest);
-                        if (moveCost <= GetTargetMoveAbility(dest))
+                        int destMoveAbilibty = GetTargetMoveAbility(dest);
+                        if (moveCost <= destMoveAbilibty)
                         {
                             if (map.IsZOC(this, dest))
                             {
-                                moveCost = 999;
+                                moveCost = destMoveAbilibty;
                             }
                             tryToDest = dest;
                         }

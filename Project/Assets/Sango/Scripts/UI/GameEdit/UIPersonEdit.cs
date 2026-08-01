@@ -387,6 +387,8 @@ namespace Sango.UI
         /// </summary>
         private bool refreshing = false;
 
+        public UIObjectList objectList;
+        List<SangoObject> allPersonsDatas;
         #region 窗口生命周期
         /// <summary>
         /// 窗口打开 - 接收目标武将对象并创建编辑快照
@@ -407,13 +409,36 @@ namespace Sango.UI
                 return;
             }
 
+            // 候选: 所有武将(排除自身)
+            allPersonsDatas = new List<SangoObject>();
+            Scenario cur = Scenario.Cur;
+            if (cur != null && cur.personSet != null)
+            {
+                foreach (Person p in cur.personSet)
+                {
+                    if (p != null && p.IsValid) allPersonsDatas.Add(p);
+                }
+            }
+
+            //allPersonsDatas.Sort(PersonSortFunction.SortByName.Sort);
+
+            objectList.Init(allPersonsDatas, PersonSortFunction.SortByName, OnSelectEditPerson);
+            objectList.SelectDefaultObject(Target);
             // 创建编辑快照 - 从Target拷贝所有可编辑数据
             snapshot = PersonEditSnapshot.FromPerson(Target);
 
             // 头像显示使用原始Target(头像不会在编辑中改变)
-            personItem.SetPerson(Target);
+            personItem.SetPerson(Target, 1);
 
             BindEvents();
+            Refresh();
+        }
+
+        void OnSelectEditPerson(int index)
+        {
+            Target = allPersonsDatas[index] as Person;
+            snapshot = PersonEditSnapshot.FromPerson(Target);
+            personItem.SetPerson(Target, 1);
             Refresh();
         }
 

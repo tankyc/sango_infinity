@@ -248,7 +248,14 @@ namespace Sango.UI
             {
                 modPosterImg.enabled = true;
                 string posterPath = mod.GetFullPath(mod.Poster);
-                modPosterImg.texture = Loader.ObjectLoader.LoadObject<Texture>(posterPath, false, false);
+                if(!File.Exists(posterPath))
+                {
+                    modPosterImg.texture = Loader.ObjectLoader.LoadObject<Texture>("Assets/empty.png", false, false);
+                }
+                else
+                {
+                    modPosterImg.texture = Loader.ObjectLoader.LoadObject<Texture>(posterPath, false, false);
+                }
             }
         }
 

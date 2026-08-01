@@ -451,7 +451,7 @@ namespace Sango.Core
                             int moveAttr = isWater? troops.waterMoveAbility : troops.landMoveAbility;
                             int new_cost;
                             if (isZoc)
-                                new_cost = 999;
+                                new_cost = moveAttr;
                             else
                                 new_cost = cost_current + troops.MoveCost(next);
 

@@ -2125,6 +2125,10 @@ PrefabInstance:
       propertyPath: m_FontData.m_FontSize
       value: 20
       objectReference: {fileID: 0}
+    - target: {fileID: 169227836356810496, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
+      propertyPath: m_FontData.m_Alignment
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 203510516660761863, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
       propertyPath: m_FontData.m_FontSize
       value: 20
@@ -2192,6 +2196,10 @@ PrefabInstance:
     - target: {fileID: 1782130568560039447, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
       propertyPath: m_FontData.m_FontSize
       value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 1782130568560039447, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
+      propertyPath: m_FontData.m_Alignment
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 2056476108395923061, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
       propertyPath: m_FontData.m_FontSize
@@ -2369,6 +2377,10 @@ PrefabInstance:
       propertyPath: m_FontData.m_FontSize
       value: 20
       objectReference: {fileID: 0}
+    - target: {fileID: 5675130404601460797, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
+      propertyPath: m_FontData.m_Alignment
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 5995403393740265375, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
       propertyPath: m_FontData.m_FontSize
       value: 20
@@ -2393,6 +2405,10 @@ PrefabInstance:
       propertyPath: m_FontData.m_FontSize
       value: 20
       objectReference: {fileID: 0}
+    - target: {fileID: 7410287201546894058, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
+      propertyPath: m_FontData.m_Alignment
+      value: 4
+      objectReference: {fileID: 0}
     - target: {fileID: 7505630671406228056, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
       propertyPath: m_SizeDelta.x
       value: 40.25407
@@ -2404,6 +2420,10 @@ PrefabInstance:
     - target: {fileID: 8190951745552867770, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
       propertyPath: m_FontData.m_FontSize
       value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 8190951745552867770, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
+      propertyPath: m_FontData.m_Alignment
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 8312741488120446539, guid: 24732c9555fd1f24a99b1edcba1f1973, type: 3}
       propertyPath: m_Name

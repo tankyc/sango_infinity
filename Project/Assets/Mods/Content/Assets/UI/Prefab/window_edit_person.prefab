@@ -517,6 +517,7 @@ MonoBehaviour:
   personItem: {fileID: 4559681059538687278}
   confirmButton: {fileID: 2615132759251461884}
   cancelButton: {fileID: 5491653044227651283}
+  objectList: {fileID: 4375555550494015431}
 --- !u!1 &9167501678661684136
 GameObject:
   m_ObjectHideFlags: 0
@@ -7857,6 +7858,17 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7f65bf3d5cf10f549b998d64b9844f07, type: 3}
+--- !u!114 &4375555550494015431 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6118451680107317337, guid: 7f65bf3d5cf10f549b998d64b9844f07, type: 3}
+  m_PrefabInstance: {fileID: 7516512132945377182}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7facf6db109407f41a674e1b123c1809, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &4658329037740180958 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 2951465661886067264, guid: 7f65bf3d5cf10f549b998d64b9844f07, type: 3}

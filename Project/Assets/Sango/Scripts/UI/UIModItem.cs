@@ -58,21 +58,21 @@ namespace Sango.UI
                 {
                     if (mod.IsValidMod())
                     {
-                        string txt = $"当前:{mod.Version}, 线上:{mod.UrlVersion}.大小:{GameUtility.FormatFileSizeStr(mod.Size)}";
+                        string txt = $"{mod.MarketName} {mod.Version}→{mod.UrlVersion}:{GameUtility.FormatFileSizeStr(mod.Size)}";
                         SetVersion(txt);
                     }
                     else
                     {
-                        string txt = $"线上:{mod.UrlVersion}.大小:{GameUtility.FormatFileSizeStr(mod.Size)}";
+                        string txt = $"{mod.MarketName} ↑{mod.UrlVersion}:{GameUtility.FormatFileSizeStr(mod.Size)}";
                         SetVersion(txt);
                     }
                 }
                 else
                 {
                     if (mod.IsValidMod())
-                        SetVersion(mod.Version);
+                        SetVersion($"{mod.MarketName} {mod.Version}");
                     else
-                        SetVersion(mod.UrlVersion);
+                        SetVersion($"{mod.MarketName} {mod.UrlVersion}");
                 }
             }
             else

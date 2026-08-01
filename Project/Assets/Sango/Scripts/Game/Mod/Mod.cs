@@ -57,6 +57,8 @@ namespace Sango.Mod
         /// </summary>
         public string Url { internal set; get; }
 
+        public string MarketName;
+
         public long Size;
 
         /// <summary>
