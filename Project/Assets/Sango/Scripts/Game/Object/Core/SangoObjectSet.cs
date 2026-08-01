@@ -84,6 +84,9 @@ namespace Sango.Core
 
         public override void Set(T obj)
         {
+            if (obj.Id < 0)
+                return;
+            CheckLength(obj.Id + 1);
             objects[obj.Id] = obj;
         }
 

@@ -9,8 +9,8 @@ namespace Sango.Core
         {
             writer.WriteStartObject();
             SangoObjectSet<T> dest = value as SangoObjectSet<T>;
-            writer.WritePropertyName("0");
-            serializer.Serialize(writer, dest.Default);
+            //writer.WritePropertyName("0");
+            //serializer.Serialize(writer, dest.Default);
             dest.ForEach(x =>
             {
                 writer.WritePropertyName(x.Id.ToString());
@@ -43,7 +43,7 @@ namespace Sango.Core
                         }
                     }
                     T v = serializer.Deserialize<T>(reader);
-                    dest.Add(v);
+                    dest.Set(v);
                 }
                 else if (reader.TokenType == JsonToken.EndObject)
                 {

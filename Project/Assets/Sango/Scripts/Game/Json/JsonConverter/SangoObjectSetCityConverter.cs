@@ -14,8 +14,8 @@ namespace Sango.Core
         {
             writer.WriteStartObject();
             SangoObjectSet<City> dest = value as SangoObjectSet<City>;
-            writer.WritePropertyName("0");
-            serializer.Serialize(writer, dest.Default);
+            //writer.WritePropertyName("0");
+            //serializer.Serialize(writer, dest.Default);
             dest.ForEach(x =>
             {
                 writer.WritePropertyName(x.Id.ToString());
