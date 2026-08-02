@@ -44,7 +44,25 @@
       ],
       "techPointCost": 3000,
       "counter": 4,
-      "needTech": 1
+      "needTech": 1,
+      "effects": [
+        {
+          "class": "TroopTriggerAction",
+          "triggerList": [
+            {
+              "class": "TriggerWhenSkillAfterHitTroop"
+            }
+          ],
+          "actionList": [
+            {
+              "class": "TroopStealFood",
+              "kinds": [
+                2
+              ]
+            }
+          ]
+        }
+      ]
     },
     "3": {
       "Id": 3,
@@ -177,7 +195,30 @@
       ],
       "techPointCost": 5000,
       "counter": 6,
-      "needTech": 6
+      "needTech": 6,
+      "effects": [
+        {
+          "class": "TroopSetDamage",
+          "value": -1,
+          "kinds": [
+            3
+          ],
+          "isDefender": 1,
+          "condition": {
+            "class": "andList",
+            "list": [
+              {
+                "class": "SkillIsNormalSkill",
+                "result": 1
+              },
+              {
+                "class": "ProbabilityCheck",
+                "probability": 3000
+              }
+            ]
+          }
+        }
+      ]
     },
     "8": {
       "Id": 8,
@@ -272,7 +313,29 @@
       ],
       "techPointCost": 3000,
       "counter": 4,
-      "needTech": 9
+      "needTech": 9,
+      "effects": [
+        {
+          "class": "TroopTriggerAction",
+          "triggerList": [
+            {
+              "class": "TriggerWhenSkillAfterHitTroop"
+            }
+          ],
+          "actionList": [
+            {
+              "class": "TroopAttackBack",
+              "value": 2,
+              "isDefender": 1,
+              "isRange": 1,
+              "isNormal": 1,
+              "kinds": [
+                4
+              ]
+            }
+          ]
+        }
+      ]
     },
     "11": {
       "Id": 11,

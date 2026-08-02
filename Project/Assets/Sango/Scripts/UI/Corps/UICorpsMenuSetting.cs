@@ -88,7 +88,7 @@ using Sango.Core; namespace Sango.UI
                 cityCountText.text = $"编制都市: {cityCount}个";
                 
                 // 更新军团方针显示
-                policyText.text = GetPolicyText(currentCorps.policy);
+                policyText.text = GetPolicyText(currentCorps.appoint);
             }
             else
             {

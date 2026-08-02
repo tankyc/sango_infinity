@@ -149,6 +149,7 @@ namespace Sango.Core
         public SkillCriticalMethod skillCriticalMethod;
         public SkillRangeFilterMethod skillRangeFilterMethod;
 
+        public bool isAdd = false;
 
         // 时间轴事件处理相关
         private List<Cell> tempTimelineCellList = new List<Cell>();
@@ -664,8 +665,8 @@ namespace Sango.Core
                             }
                         }
                     }
-
-                    GameEvent.OnSkillDamageTroopAfter?.Invoke(this, beAtkTroop, damage_overrideData);
+                    if (this.master.IsAlive && beAtkTroop.IsAlive)
+                        GameEvent.OnSkillDamageTroopAfter?.Invoke(this, beAtkTroop, damage_overrideData);
                 }
 
                 BuildingBase beAtkBuildingBase = atkCell.building;

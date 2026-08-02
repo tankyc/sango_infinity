@@ -19,7 +19,7 @@ namespace Sango.Core
         {
             atk_cell = target.cell;
             this.skill = skill;
-            this.targetTroop = atk_cell.troop;
+            this.targetTroop = target;
             this.targetBuilding = atk_cell.building;
             damageOverride = damage;
             triggerCall?.Invoke(this);

@@ -451,7 +451,7 @@
       "actionEntities": [
         {
           "class": "TroopSetDamage",
-          "value": 0,
+          "value": -1,
           "isDefender": 1,
           "condition": {
             "class": "andList",
@@ -484,7 +484,7 @@
       "actionEntities": [
         {
           "class": "TroopSetDamage",
-          "value": 0,
+          "value": -1,
           "isDefender": 1,
           "belowDamage": 500,
           "condition": {

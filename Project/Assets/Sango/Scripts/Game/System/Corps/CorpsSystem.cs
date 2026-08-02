@@ -107,7 +107,8 @@ namespace Sango.Core.Player
             targetCorps = new Corps();
             targetCorps.BelongForce = TargetCity.BelongForce;
             targetCorps.number = targetNumber;
-            targetCorps.policy = 0;
+            //targetCorps.policy = 0;
+            targetCorps.appoint = 0;
             targetCorps.ActionPoint = 255;
             Window.Instance.Open("window_corps_setting", targetCorps, "军团", (System.Action)CreateCorps);
         }
@@ -128,7 +129,8 @@ namespace Sango.Core.Player
                     targetCorps.Id = exsist.Id;
                     targetCorps.BelongForce = exsist.BelongForce;
                     targetCorps.number = exsist.number;
-                    targetCorps.policy = exsist.policy;
+                    //targetCorps.policy = exsist.policy;
+                    targetCorps.appoint = exsist.appoint;
                     targetCorps.Comander = exsist.Comander;
                     targetCorps.ActionPoint = exsist.ActionPoint;
                     for (int i = 0; i < exsist.appointSetting.Length; i++)

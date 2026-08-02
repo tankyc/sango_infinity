@@ -25,6 +25,7 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int needTech;
         [JsonProperty] public JArray effects;
+        [JsonProperty] public JArray active_effects;
         [JsonProperty] public int col;
         [JsonProperty] public int row;
         [JsonConverter(typeof(Color32Converter))]
@@ -59,6 +60,20 @@ namespace Sango.Core
                 {
                     action.Init(valus, sangoObjects);
                     list.Add(action);
+                }
+            }
+        }
+
+        public void DoActiveAction(params SangoObject[] sangoObjects)
+        {
+            if (active_effects == null) return;
+            for (int i = 0; i < active_effects.Count; i++)
+            {
+                JObject valus = active_effects[i] as JObject;
+                ActionBase action = ActionBase.Create(valus.Value<string>("class"));
+                if (action != null)
+                {
+                    action.Init(valus, sangoObjects);
                 }
             }
         }

@@ -1159,6 +1159,7 @@ namespace Sango.Core
             if (technique == null) return null;
             Techniques.Add(technique);
             technique.InitActions(actionList, this);
+            technique.DoActiveAction(this);
             UpdateCanBuildBuildingTypes();
             UpdateValidCreatedItemTypes();
             return technique;

@@ -4,6 +4,7 @@ using UnityEngine.UI;
 
 using Sango.Core;
 using System.Collections;
+using System;
 
 namespace Sango.UI
 {
@@ -37,17 +38,19 @@ zd同学,
 (wx).
 (wx)岁
 东,
-此世乃無間
+此世乃無間,
 </color>
 
         ";
+
+        string thxTxtUrl = "https://gitcode.com/gametank/sango_infinity/releases/download/thanks/thx.txt";
+        string thxTxtFilename = "thx.txt";
 
         protected override void Awake()
         {
             base.Awake();
             thxNode.SetActive(false);
             thxText.text = thx_content;
-
         }
 
         private void Start()
@@ -57,7 +60,14 @@ zd同学,
 #if (UNITY_ANDROID || UNITY_IPHONE) && !UNITY_EDITOR
             mapEditorBtn.SetActive(false);
 #endif
+            string thxFile = $"{Sango.Path.PersistentDataPathPath}/Author/{thxTxtFilename}";
+            Sango.Directory.Create(thxFile, false);
             GameMedia.Instance.PlaySfx(45);
+            if (Sango.File.Exists(thxFile))
+            {
+                thxText.text = File.ReadAllText(thxFile);
+            }
+           
         }
 
         public void OnNewGame()
@@ -92,6 +102,15 @@ zd同学,
         public void OpenThx()
         {
             thxNode.SetActive(true);
+            string thxFile = $"{Sango.Path.PersistentDataPathPath}/Author/{thxTxtFilename}";
+            App.Instance.StartCoroutine(GitDownloader.Get(thxTxtUrl, null, (content) =>
+            {
+                if (!string.IsNullOrEmpty(content))
+                {
+                    File.WriteAllText(thxFile, content);
+                    thxText.text = content;
+                }
+            }));
             StartCoroutine(DelayActive());
         }
 

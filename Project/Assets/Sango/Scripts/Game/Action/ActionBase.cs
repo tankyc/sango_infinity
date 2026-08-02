@@ -72,6 +72,7 @@ namespace Sango.Core.Action
         {
             Register("BuildingBaseAttackBack", CraeteHandle<BuildingBaseAttackBack>);
             Register("CityDurabilityLimit", CraeteHandle<CityDurabilityLimit>);
+            Register("CityAddDurability", CraeteHandle<CityAddDurability>);
             Register("CityFoodLimit", CraeteHandle<CityFoodLimit>);
             Register("CityGoldLimit", CraeteHandle<CityGoldLimit>);
             Register("CitySecurityChange", CraeteHandle<CitySecurityChange>);
@@ -117,6 +118,8 @@ namespace Sango.Core.Action
             Register("TroopSetDamage", CraeteHandle<TroopSetDamage>);
             Register("TroopChangePersonEscapeFactor", CraeteHandle<TroopChangePersonEscapeFactor>);
             Register("TroopAddBuff", CraeteHandle<TroopAddBuff>);
+            Register("TroopAttackBack", CraeteHandle<TroopAttackBack>);
+            Register("TroopStealFood", CraeteHandle<TroopStealFood>);
             
         }
 

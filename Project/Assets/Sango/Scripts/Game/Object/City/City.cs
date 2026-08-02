@@ -889,6 +889,7 @@ namespace Sango.Core
             //计算最大士气
             CalculateMaxMorale();
             CalculateHarvest();
+            CalculateLimit();
         }
 
         /// <summary>
@@ -1421,7 +1422,8 @@ namespace Sango.Core
             bool rs = base.ChangeDurability(num, atk, showDamage);
             if (rs)
             {
-                durability = 1500;
+                // 保留40%
+                durability = DurabilityLimit * 40 / 100;
             }
 
             if (Render != null)
@@ -1779,6 +1781,8 @@ namespace Sango.Core
             Render?.UpdateRender();
 
             CalculateHarvest();
+            CalculateMaxMorale();
+            CalculateLimit();
 
             GameEvent.OnCityFall?.Invoke(this, lastBelongForce, atk);
 
@@ -1789,7 +1793,7 @@ namespace Sango.Core
                     city = this
                 });
             }
-           
+
             CityRecruitPersonWhenCityFallEvent te = RenderEvent.Instance.Create<CityRecruitPersonWhenCityFallEvent>();
             te.Init(temp_captive_list, this, escapeCity, atk, escapeCity == null ? (int)PersonRecruitType.OnForceFall : (int)PersonRecruitType.OnCityFall);
             RenderEvent.Instance.Add(te);
@@ -3660,7 +3664,7 @@ namespace Sango.Core
 
             if (CurActiveTroop != null)
             {
-                if(CurActiveTroop.IsAlive)
+                if (CurActiveTroop.IsAlive)
                 {
                     if (!CurActiveTroop.DoAI(scenario))
                         return false;
