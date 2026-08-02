@@ -8,12 +8,12 @@ namespace Sango.Core.Player
 
         public override void Init()
         {
-            GameEvent.OnRightMouseButtonContextMenuShow += OnRightMouseButtonContextMenuShow;
+            //GameEvent.OnRightMouseButtonContextMenuShow += OnRightMouseButtonContextMenuShow;
         }
 
         public override void Clear()
         {
-            GameEvent.OnRightMouseButtonContextMenuShow -= OnRightMouseButtonContextMenuShow;
+            //GameEvent.OnRightMouseButtonContextMenuShow -= OnRightMouseButtonContextMenuShow;
         }
 
         protected virtual void OnRightMouseButtonContextMenuShow(IContextMenuData menuData)

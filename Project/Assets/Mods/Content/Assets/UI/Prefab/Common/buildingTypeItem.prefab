@@ -137,10 +137,10 @@ RectTransform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 37.80127}
+  m_SizeDelta: {x: 200, y: 124.3974}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2928325473742136716
 MonoBehaviour:
@@ -155,6 +155,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   icon: {fileID: 4555538482232354302}
+  icon1: {fileID: 0}
+  titleObj: {fileID: 0}
   nameLabel: {fileID: 2173758956091724026}
   costLabel: {fileID: 2185029721070050401}
   numLabel: {fileID: 7355809124249289819}

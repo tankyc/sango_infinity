@@ -552,7 +552,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sfxId: 3
-  sfxPath: Assets/Sound/button.mp3
 --- !u!1001 &1910246970112538181
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -709,4 +708,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sfxId: 4
-  sfxPath: Assets/Sound/cancel.mp3

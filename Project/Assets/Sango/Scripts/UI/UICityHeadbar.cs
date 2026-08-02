@@ -10,6 +10,9 @@ using Sango.Core; namespace Sango.UI
         public Image food;
         public Text number;
         public Text info;
+        public UnityEngine.GameObject corpsNode;
+        public Text corpsText;
+        public Image corpsImg;
         public override void UpdateState(BuildingBase building)
         {
             base.UpdateState(building);
@@ -23,6 +26,19 @@ using Sango.Core; namespace Sango.UI
             if (city.IsBorderCity)
                 cityInfo = $"*{cityInfo}";
             info.text = cityInfo;
+
+            Corps corps = building.BelongCorps;
+            if (corps != null && corps.IsPlayer && corps.Index > 1)
+            {
+                corpsNode.SetActive(true);
+                corpsImg.color = building.BelongCorps.Color;
+                corpsText.text = building.BelongCorps.Index.ToString();
+            }
+            else
+            {
+                corpsNode.SetActive(false);
+            }
+
         }
 
         public void OnEnable()

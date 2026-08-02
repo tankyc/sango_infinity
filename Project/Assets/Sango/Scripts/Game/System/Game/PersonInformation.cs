@@ -70,7 +70,7 @@ namespace Sango.Core
             if(default_objects.Count > 0) 
                 Target = default_objects[0] as Person;
             if (CityMenuCanShow())
-                menuData.Add(Name, 20, null, OnClickMenuItem, default_objects.Count > 0);
+                menuData.Add("所属武将", 20, null, OnClickMenuItem, default_objects.Count > 0);
         }
 
         protected virtual void OnClickMenuItem(IContextMenuItem contextMenuItem)

@@ -12,12 +12,19 @@ namespace Sango.Core.Player
         public override void Init()
         {
             GameEvent.OnRClick += OnRClick;
-            GameEvent.OnRClickObject += OnRClickObject;
+            //GameEvent.OnRClickObject += OnRClickObject;
         }
 
-        void OnRClick(Cell clickCell, Vector3 clickPosition, bool isOverUI)
+        void OnRClick(Cell clickCell, Vector3 clickPosition, bool isOverUI, Cell downCell)
         {
-            if (Scenario.Cur.CurRunForce.IsPlayer)
+            if (!Scenario.Cur.CurRunForce.IsPlayer)
+                return;
+
+            if (downCell == clickCell && !clickCell.IsEmpty())
+            {
+                OnRClickObject(clickCell, clickPosition, isOverUI);
+            }
+            else
             {
                 ContextMenuData.MenuData.Clear();
                 GameEvent.OnRightMouseButtonContextMenuShow?.Invoke(ContextMenuData.MenuData);
@@ -54,7 +61,7 @@ namespace Sango.Core.Player
                 ContextMenuType menuType = ContextMenuType.System;
                 if (clickCell.building != null)
                 {
-                    if(clickCell.building.IsPort())
+                    if (clickCell.building.IsPort())
                     {
                         GameEvent.OnCityRightMouseButtonContextMenuShow?.Invoke(ContextMenuData.MenuData, clickCell.building as City);
                         GameEvent.OnPortRightMouseButtonContextMenuShow?.Invoke(ContextMenuData.MenuData, clickCell.building as Port);
@@ -73,11 +80,11 @@ namespace Sango.Core.Player
                         GameEvent.OnBuildingRightMouseButtonContextMenuShow?.Invoke(ContextMenuData.MenuData, clickCell.building as Building);
                     }
                 }
-                else if(clickCell.troop != null)
+                else if (clickCell.troop != null)
                 {
                     GameEvent.OnTroopRightMouseButtonContextMenuShow?.Invoke(ContextMenuData.MenuData, clickCell.troop);
                 }
-                
+
 
                 if (!ContextMenuData.MenuData.IsEmpty())
                 {

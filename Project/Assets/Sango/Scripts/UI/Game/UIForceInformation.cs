@@ -324,7 +324,7 @@ using Sango.Core; namespace Sango.UI
 
         public void OnCancel()
         {
-            currentSystem.Exit();
+            currentSystem.Back();
         }
 
         public void OnCityStateTab(bool b)

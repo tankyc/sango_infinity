@@ -204,7 +204,7 @@ namespace Sango.UI
 
         public void OnCancel()
         {
-            currentSystem.Exit();
+            currentSystem.Back();
         }
 
         public void OnStateTab(bool b)

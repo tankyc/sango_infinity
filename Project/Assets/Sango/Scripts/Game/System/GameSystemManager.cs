@@ -235,15 +235,15 @@ namespace Sango.Core
                     break;
                 case CommandEventType.RClick:
                     {
-                        GameEvent.OnRClick?.Invoke(clickCell, clickPosition, isOverUI);
+                        GameEvent.OnRClick?.Invoke(clickCell, clickPosition, isOverUI, RClickCell);
                     }
                     break;
-                case CommandEventType.RClickUp:
-                    {
-                        if (RClickCell == clickCell && !clickCell.IsEmpty())
-                            GameEvent.OnRClickObject?.Invoke(clickCell, clickPosition, isOverUI);
-                    }
-                    break;
+                //case CommandEventType.RClickUp:
+                //    {
+                //        if (RClickCell == clickCell && !clickCell.IsEmpty())
+                //            GameEvent.OnRClickObject?.Invoke(clickCell, clickPosition, isOverUI);
+                //    }
+                //    break;
                 case CommandEventType.RClickDown:
                     {
                        

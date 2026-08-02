@@ -216,6 +216,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_HorizontalFit: 0
   m_VerticalFit: 2
+--- !u!114 &6609460500588152138
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 1200162828722566420}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc78b93da74d88349849851388f2722c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  PreviewThumbnail: {fileID: 2800000, guid: be2af8d9d7efb914cac533fa54f4ba66, type: 3}
+  PreviewImage: {fileID: 2800000, guid: be2af8d9d7efb914cac533fa54f4ba66, type: 3}
 --- !u!1001 &1200162828722566420
 PrefabInstance:
   m_ObjectHideFlags: 0

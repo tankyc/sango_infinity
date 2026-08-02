@@ -42,8 +42,8 @@ namespace Sango.Core
 
 
         public static EventDelegate<Cell, Vector3, bool> OnClick;
-        public static EventDelegate<Cell, Vector3, bool> OnRClick;
-        public static EventDelegate<Cell, Vector3, bool> OnRClickObject;
+        public static EventDelegate<Cell, Vector3, bool, Cell> OnRClick;
+        //public static EventDelegate<Cell, Vector3, bool> OnRClickObject;
         public static EventDelegate<Cell, Vector3, bool> OnCancel;
         /// <summary>
         /// 在最后一个系统出栈时候

@@ -1,5 +1,19 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &5639831794063256916
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 212044683741813123}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc78b93da74d88349849851388f2722c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  PreviewThumbnail: {fileID: 0}
+  PreviewImage: {fileID: 0}
 --- !u!1 &2994096394353184773
 GameObject:
   m_ObjectHideFlags: 0
@@ -50,6 +64,20 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2994096394353184773}
   m_CullTransparentMesh: 1
+--- !u!114 &7514330891304410654
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 2665467443599207113}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc78b93da74d88349849851388f2722c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  PreviewThumbnail: {fileID: 0}
+  PreviewImage: {fileID: 0}
 --- !u!1 &6298972750831600967
 GameObject:
   m_ObjectHideFlags: 0
@@ -126,6 +154,20 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &597780726709093474
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 4971515225342406837}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc78b93da74d88349849851388f2722c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  PreviewThumbnail: {fileID: 0}
+  PreviewImage: {fileID: 0}
 --- !u!1001 &212044683741813123
 PrefabInstance:
   m_ObjectHideFlags: 0

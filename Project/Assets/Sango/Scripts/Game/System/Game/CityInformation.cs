@@ -76,7 +76,7 @@ namespace Sango.Core
         {
             Target = city;
             if (CityMenuCanShow())
-                menuData.Add(Name, 20, null, OnClickMenuItem, true);
+                menuData.Add("详细情报", 0, null, OnClickMenuItem, true);
         }
 
         protected virtual void OnClickMenuItem(IContextMenuItem contextMenuItem)
