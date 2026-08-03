@@ -38,6 +38,10 @@ namespace Sango.UI
         public UITextField levelLabel;
         public UITextField expLabel;
 
+        // feature
+        public UITextField featureLabel;
+        CreatePool<UITextField> featureObjectPool;
+
         // personal
         public UITextField personalityLabel;
         public UITextField ageLabel;
@@ -46,8 +50,8 @@ namespace Sango.UI
         public UITextField itemCountLabel;
         public UITextField staminaLabel;
         public UITextField[] troopTypeLvLabel;
-        public UITextField featureLabel;
-        public UITextField featureDescLabel;
+        //public UITextField featureLabel;
+        //public UITextField featureDescLabel;
 
         // relationship
         public UITextField fatherLabel;
@@ -65,12 +69,14 @@ namespace Sango.UI
         bool relationship_inited = false;
         bool personal_inited = false;
         bool biographiess_inited = false;
+        bool feature_inited = false;
 
         public int showTab = 0;
         public Button item_btn;
 
         protected override void Awake()
         {
+            featureObjectPool = new CreatePool<UITextField>(featureLabel);
         }
 
         public override void OnOpen(params object[] objects)
@@ -100,6 +106,7 @@ namespace Sango.UI
             relationship_inited = false;
             personal_inited = false;
             biographiess_inited = false;
+            feature_inited = false;
             Target = person;
             nameLabel.text = person.Name;
             personItems.SetPerson(person, 1);
@@ -117,6 +124,9 @@ namespace Sango.UI
                     break;
                 case 3:
                     UpdateBiographiesContent();
+                    break;
+                case 4:
+                    UpdateFeatureContent();
                     break;
             }
         }
@@ -171,8 +181,33 @@ namespace Sango.UI
             troopTypeLvLabel[index++].text = PersonSortFunction.SortByWaterLv.name;
             troopTypeLvLabel[index++].text = PersonSortFunction.SortByMachineLv.name;
 
-            featureLabel.text = PersonSortFunction.SortByFeatureList.GetValueStr(Target);
-            featureDescLabel.text = PersonSortFunction.SortByFeatureDesc.GetValueStr(Target);
+            //featureLabel.text = PersonSortFunction.SortByFeatureList.GetValueStr(Target);
+            //featureDescLabel.text = PersonSortFunction.SortByFeatureDesc.GetValueStr(Target);
+        }
+
+        void UpdateFeatureContent()
+        {
+            if (feature_inited) return;
+            feature_inited = true;
+
+            featureObjectPool.Reset();
+            if (Target.FeatureList != null)
+            {
+                for (int i = 0; i < Target.FeatureList.Count; i++)
+                {
+                    Feature feature = Target.FeatureList[i];
+                    if (feature != null)
+                    {
+                        UITextField uITextField = featureObjectPool.Create();
+                        if(uITextField != null)
+                        {
+                            uITextField.text = feature.Name;
+                            uITextField.SetTitle(feature.desc);
+                            uITextField.transform.SetAsLastSibling();
+                        }
+                    }
+                }
+            }
         }
 
         void UpdateRelationshipContent()
@@ -222,6 +257,15 @@ namespace Sango.UI
             {
                 showTab = 1;
                 UpdatePersonalContent();
+            }
+        }
+
+        public void OnFeatrueTab(bool b)
+        {
+            if (b)
+            {
+                showTab = 4;
+                UpdateFeatureContent();
             }
         }
 

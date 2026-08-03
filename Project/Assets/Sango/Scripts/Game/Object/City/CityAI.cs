@@ -1340,6 +1340,9 @@ namespace Sango.Core
                 //}
             }
 
+            if(validItem.Count == 0)
+                return true;
+
             int[] pr = new int[validItem.Count];
             for (int i = 0; i < pr.Length; i++)
                 pr[i] = levelTotal[validItem[i] - 2];

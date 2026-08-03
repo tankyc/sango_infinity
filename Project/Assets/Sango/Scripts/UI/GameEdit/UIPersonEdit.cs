@@ -201,6 +201,11 @@ namespace Sango.UI
                     }
                 }
             }
+            else
+            {
+                if (p.LikePersonList != null)
+                    p.LikePersonList.Clear();
+            }
 
             // 厌恶武将列表
             if (HatePersons != null && HatePersons.Count > 0)
@@ -218,6 +223,12 @@ namespace Sango.UI
                     }
                 }
             }
+            else
+            {
+                if (p.HatePersonList != null)
+                    p.HatePersonList.Clear();
+            }
+
 
             // 刷新部队
             if(p.BelongTroop != null)
