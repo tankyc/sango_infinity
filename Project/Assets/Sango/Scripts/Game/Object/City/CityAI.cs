@@ -242,8 +242,8 @@ namespace Sango.Core
                     }
                 }
             }
-
             //TODO: 招募其他势力的武将
+
 
             return true;
         }

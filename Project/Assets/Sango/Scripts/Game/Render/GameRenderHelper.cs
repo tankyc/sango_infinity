@@ -74,7 +74,7 @@ namespace Sango.Core
             if (!string.IsNullOrEmpty(extension))
                 criticalPath = criticalPath.Substring(0, criticalPath.LastIndexOf('.'));
 
-            Texture criticalTexture = ObjectLoader.LoadObject<Texture>(criticalPath, "CriticalImage");
+            Texture criticalTexture = ObjectLoader.LoadObject<Texture>(criticalPath, "CriticalImage", false, false);
             if (criticalTexture == null)
             {
                 criticalPath = criticalPath.Replace(".png", ".jpg");

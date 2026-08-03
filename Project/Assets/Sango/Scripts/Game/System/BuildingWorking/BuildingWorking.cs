@@ -850,7 +850,7 @@ namespace Sango.Core
             float machineP = totalMachineNum / targetMachineNumber;
             float securityP = Math.Max(0, city.security - 50) / (targetSecurity - 50);
             float moraleP = city.morale / targetMorale;
-
+            float recruitP = (city.invisiblePersons.Count > 0 || city.wildPersons.Count > 0 || city.captiveList.Count > 0) ? 0 : 1;
             List<PBuilding> pBuildings = new List<PBuilding>();
             city.allBuildings.ForEach((building) =>
             {
@@ -965,7 +965,7 @@ namespace Sango.Core
                         }
                         break;
                     case (int)BuildingKindType.RecruitBuilding:
-                        pBuildings.Add(new PBuilding() { p = 100, building = building });
+                        pBuildings.Add(new PBuilding() { p = recruitP, building = building });
                         break; ;
                 }
             });

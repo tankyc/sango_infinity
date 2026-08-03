@@ -610,6 +610,11 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int stayTurnCount;
 
+        /// <summary>
+        /// 在野回合数
+        /// </summary>
+        [JsonProperty] public int wildTurnCount;
+
         public bool rewardOver;
 
         public int Age { get; private set; }
@@ -1166,6 +1171,7 @@ namespace Sango.Core
             // 在野武将移动逻辑
             if (IsWild)
             {
+                wildTurnCount++;
                 stayTurnCount++;
                 if (stayTurnCount > 5 && GameRandom.Chance(10)) // 10%概率
                 {
@@ -1191,6 +1197,10 @@ namespace Sango.Core
                         }
                     }
                 }
+            }
+            else
+            {
+                wildTurnCount = 0;
             }
 
             UpdateMission(scenario);

@@ -116,9 +116,15 @@ namespace Sango.Mod
         {
             float cout = mMarketMap.Count;
             float current = 0;
+            List<NetModMarket> list = new List<NetModMarket>();
             foreach (var item in mMarketMap)
             {
-                yield return GitDownloader.Get(item.Value.url + "/mod_list.txt", (f) =>
+                list.Add(item.Value);
+            }
+
+            foreach (var item in list)
+            {
+                yield return GitDownloader.Get(item.url + "/mod_list.txt", (f) =>
                 {
                     progress?.Invoke(current / cout + f / cout);
                 }
@@ -135,8 +141,6 @@ namespace Sango.Mod
                 });
             }
         }
-
-
 
         public void InitMarket(string marketContent)
         {

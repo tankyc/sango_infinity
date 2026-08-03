@@ -76,6 +76,7 @@ namespace Sango.Core
             PersonFunctions.Init();
             TroopCompareFunction.Init();
             SkillSuccessMethod.Init();
+            SkillSpellConditionMethod.Init();
             SkillCriticalMethod.Init();
             SkillRangeFilterMethod.Init();
             ModManager.Instance.Init();

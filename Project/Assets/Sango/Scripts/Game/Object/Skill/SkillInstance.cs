@@ -131,6 +131,11 @@ namespace Sango.Core
         [JsonProperty] public string rangeFilterMethod;
 
         /// <summary>
+        /// 可释放筛选逻辑
+        /// </summary>
+        [JsonProperty] public string spellConditionMethod;
+
+        /// <summary>
         /// 技能时间轴
         /// </summary>
         [JsonProperty] public SkillTimeline timeline;
@@ -148,6 +153,7 @@ namespace Sango.Core
         public SkillSuccessMethod skillSuccessMethod;
         public SkillCriticalMethod skillCriticalMethod;
         public SkillRangeFilterMethod skillRangeFilterMethod;
+        public SkillSpellConditionMethod skillSpellConditionMethod;
 
         public bool isAdd = false;
 
@@ -217,6 +223,7 @@ namespace Sango.Core
             successMethod = skill.successMethod;
             criticalMethod = skill.criticalMethod;
             rangeFilterMethod = skill.rangeFilterMethod;
+            spellConditionMethod = skill.spellConditionMethod;
 
             InitSkillEffects();
             InitSkillVisualizer();
@@ -225,6 +232,7 @@ namespace Sango.Core
             skillCriticalMethod = SkillCriticalMethod.Create(criticalMethod);
             skillSuccessMethod = SkillSuccessMethod.Create(successMethod);
             skillRangeFilterMethod = SkillRangeFilterMethod.Create(rangeFilterMethod);
+            skillSpellConditionMethod = SkillSpellConditionMethod.Create(spellConditionMethod);
 
             GameEvent.OnSkillCalculateAttribute?.Invoke(master, this);
         }
@@ -349,9 +357,9 @@ namespace Sango.Core
         }
 
 
-        public bool CanAddToTroop(Troop troop)
+        public bool CanAddToTroop(Troop troop, bool isWater)
         {
-            return skill.CanAddToTroop(troop);
+            return skill.CanAddToTroop(troop, isWater);
         }
 
         public bool CanBeSpell(Troop troop)
@@ -365,26 +373,43 @@ namespace Sango.Core
 
         public bool CanSpellToHere(Troop who, Cell where)
         {
+            if (skillSpellConditionMethod != null)
+            {
+                if (!skillSpellConditionMethod.Check(this, this.master, where))
+                    return false;
+            }
+
             if (canSpellToCell)
+            {
                 return true;
+            }
 
             if (canDamageTroop && where.troop != null)
             {
                 bool isEnemy = where.troop.IsEnemy(who);
-                if (onlySpellToTeam && !isEnemy)
-                    return true;
-                else if (isEnemy)
-                    return true;
+                if(onlySpellToTeam)
+                {
+                    return !isEnemy;
+                }
+                else
+                {
+                    return isEnemy;
+                }
             }
 
             if (canDamageBuilding && where.building != null)
             {
                 bool isEnemy = where.building.IsEnemy(who);
-                if (onlySpellToTeam && !isEnemy)
-                    return true;
-                else if (isEnemy)
-                    return true;
+                if (onlySpellToTeam)
+                {
+                    return !isEnemy;
+                }
+                else
+                {
+                    return isEnemy;
+                }
             }
+
             return false;
         }
 
@@ -597,7 +622,21 @@ namespace Sango.Core
                     beAtkTroop.ChangeTroops(-damage, troop, this, 0);
                     troop.BelongForce.GainTechniquePoint(damage / 1000);
                     int ep = damage / 100;
-                    if (!beAtkTroop.IsAlive) ep += 50;
+                    if (!beAtkTroop.IsAlive)
+                    {
+                        ep += 50;
+                        // 获取对方部分钱粮
+                        int getFood = beAtkTroop.food * scenarioVariables.defeatTroopCanGainFoodFactor / 100;
+                        int getGold = beAtkTroop.gold * scenarioVariables.defeatTroopCanGainGoldFactor / 100;
+                        if (getFood > 0)
+                        {
+                            troop.ChangeFood(getFood);
+                        }
+                        if (getGold > 0)
+                        {
+                            troop.ChangeGold(getGold);
+                        }
+                    }
                     troop.ForEachPerson(p =>
                     {
                         p.GainExp(ep);
@@ -986,17 +1025,24 @@ namespace Sango.Core
             foreach (Cell target in atkCellList)
             {
                 Cell atkCell = target;
-                Troop beAtkTroop = atkCell.troop;
-                if (beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
+                if (canSpellToCell)
                 {
                     effects.ForEach(s => s.Action(target));
                 }
                 else
                 {
-                    BuildingBase beAtkBuildingBase = atkCell.building;
-                    if (beAtkBuildingBase != null && this.canDamageBuilding && (troop.IsEnemy(beAtkBuildingBase) || this.canDamageTeam))
+                    Troop beAtkTroop = atkCell.troop;
+                    if (beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
                     {
                         effects.ForEach(s => s.Action(target));
+                    }
+                    else
+                    {
+                        BuildingBase beAtkBuildingBase = atkCell.building;
+                        if (beAtkBuildingBase != null && this.canDamageBuilding && (troop.IsEnemy(beAtkBuildingBase) || this.canDamageTeam))
+                        {
+                            effects.ForEach(s => s.Action(target));
+                        }
                     }
                 }
             }

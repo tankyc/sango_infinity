@@ -15,8 +15,8 @@
       ],
       "needAblilityLevel": 0,
       "isRange": false,
-      "canDamageTroop": true,
       "actionSound": 82,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": true,
@@ -74,8 +74,8 @@
         1
       ],
       "blockFactor": 30,
-      "canDamageTroop": true,
       "actionSound": 67,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -137,8 +137,8 @@
           }
         }
       ],
-      "canDamageTroop": true,
       "actionSound": 67,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -169,8 +169,8 @@
         2
       ],
       "blockFactor": 50,
-      "canDamageTroop": true,
       "actionSound": 67,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -202,8 +202,8 @@
         2,
         -1
       ],
-      "canDamageTroop": true,
       "actionSound": 77,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -232,8 +232,8 @@
       "atkOffsetPoint": [
         4
       ],
-      "canDamageTroop": true,
       "actionSound": 79,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -263,8 +263,8 @@
         3,
         1
       ],
-      "canDamageTroop": true,
       "actionSound": 80,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -423,8 +423,8 @@
         1,
         1
       ],
-      "canDamageTroop": true,
       "actionSound": 72,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -454,8 +454,8 @@
         5,
         2
       ],
-      "canDamageTroop": true,
       "actionSound": 72,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -487,8 +487,8 @@
         1,
         2
       ],
-      "canDamageTroop": true,
       "actionSound": 73,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": false,
       "canDamageBuilding": false,
@@ -890,14 +890,15 @@
           "probability": 10000
         }
       ],
-      "canDamageTroop": true,
       "actionSound": 87,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": true,
       "canDamageTeam": false,
-      "canSpellToCell": false,
+      "canSpellToCell": true,
       "onlySpellToTeam": true,
+      "spellConditionMethod": "CheckFire",
       "personSound": [
         3048
       ]
@@ -953,8 +954,8 @@
           }
         }
       ],
-      "canDamageTroop": true,
       "actionSound": 88,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
@@ -1016,8 +1017,8 @@
           }
         }
       ],
-      "canDamageTroop": true,
       "actionSound": 89,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
@@ -1068,14 +1069,15 @@
           }
         }
       ],
-      "canDamageTroop": true,
       "actionSound": 90,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
-      "canDamageTeam": false,
+      "canDamageTeam": true,
       "canSpellToCell": false,
       "onlySpellToTeam": true,
+      "spellConditionMethod": "CheckDebuffTroop",
       "personSound": [
         3062
       ]
@@ -1094,8 +1096,8 @@
       ],
       "needAblilityLevel": 0,
       "isRange": true,
-      "canDamageTroop": true,
       "actionSound": 29,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,
@@ -1120,8 +1122,8 @@
       ],
       "needAblilityLevel": 0,
       "isRange": true,
-      "canDamageTroop": true,
       "actionSound": 92,
+      "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
       "canDamageBuilding": false,

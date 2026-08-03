@@ -61,7 +61,7 @@ public class GameStart : MonoBehaviour
         last_orientation = Screen.orientation;
         canvasScaler.referenceResolution = new Vector2(1024, 768);
         float ratio = ((float)Screen.width / (float)Screen.height);
-        if (ratio < 16f / 9.0f)
+        if (ratio < 4f / 3.0f)
         {
             canvasScaler.matchWidthOrHeight = 0;
         }

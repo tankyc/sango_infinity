@@ -23,7 +23,7 @@ public class SimpleBuilder
         set { EditorPrefs.SetString(PublishRootPathKey, value); }
     }
 
-    [MenuItem("Sango/打包/发布游戏", false, 1)]
+    [MenuItem("Sango/发布游戏", false, 1)]
     public static void BuildGame()
     {
         BuildVersionWindow.ShowWindow();

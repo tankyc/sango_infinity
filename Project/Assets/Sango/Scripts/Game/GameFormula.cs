@@ -48,7 +48,7 @@ namespace Sango.Core
                 return RecruitPersonProbabilityByRelationshipOverride(actor, target, type, out probability);
 
             probability = 0;
-            if (!target.IsAlive || !actor.IsAlive) return false;
+            if (!target.IsAlive || !actor.IsAlive) return true;
 
             bool target_is_returnable = target.BelongForce != null;
             //目标武将势力消灭
@@ -56,15 +56,15 @@ namespace Sango.Core
                 target_is_returnable = false;
 
             //执行武将沒有君主时总是失敗
-            if (actor.BelongForce == null) return false;
+            if (actor.BelongForce == null) return true;
 
             // 当目标武将的禁止仕官君主是执行武将君主时，总是失敗
             if (target.bannedForceId == actor.BelongForce.Id)
-                return false;
+                return true;
 
             //目标武将是君主时，总是失敗
             if (target_is_returnable && target == target.BelongForce.Governor)
-                return false;
+                return true;
 
             //目标武将有义兄弟
             if (target.BrotherList != null)
@@ -74,7 +74,7 @@ namespace Sango.Core
                     // 目标武将与义兄弟在同一势力时，总是失敗
                     Person brother = target.BrotherList[i];
                     if (target_is_returnable && brother.BelongForce == target.BelongForce)
-                        return false;
+                        return true;
 
                     // 目标武将与执行武将是义兄弟或与执行武将君主时义兄弟时，总是成功
                     if (brother == actor || brother == actor.BelongForce.Governor)
@@ -89,7 +89,7 @@ namespace Sango.Core
                     }
                     //目标武将的义兄弟属於执行武将以外势力时，总是失敗
                     else if (brother.BelongForce != null && brother.BelongForce != actor.BelongForce)
-                        return false;
+                        return true;
 
                 }
             }
@@ -102,10 +102,10 @@ namespace Sango.Core
                     // 目标武将与配偶在同一势力时，总是失敗
                     Person spouse = target.SpouseList[i];
                     if (target_is_returnable && spouse.BelongForce == target.BelongForce)
-                        return false;
+                        return true;
                     //目标武将的配偶属於执行武将以外势力时，总是失敗
                     else if (spouse.BelongForce != null && spouse.BelongForce != actor.BelongForce)
-                        return false;
+                        return true;
                     //目标武将与执行武将是配偶或与执行武将君主时配偶时，总是成功
                     else if (spouse == actor || spouse == actor.BelongForce.Governor)
                     {
@@ -129,10 +129,10 @@ namespace Sango.Core
                     // 目标武将的厌恶武将是执行武将时，总是失敗
                     Person person = target.HatePersonList[i];
                     if (person == actor)
-                        return false;
+                        return true;
                     //目标武将的厌恶武将是执行武将的君主时，总是失敗
                     else if (person == actor.BelongForce.Governor)
-                        return false;
+                        return true;
                 }
             }
 
@@ -145,10 +145,10 @@ namespace Sango.Core
                     // 目标武将的亲爱武将是目标武将的君主时，总是失敗
                     Person person = target.LikePersonList[i];
                     if (person == actor)
-                        return false;
+                        return true;
                     //目标武将的亲爱武将是目标武将的君主时，总是失敗
                     else if (target_is_returnable && person == target.BelongForce.Governor)
-                        return false;
+                        return true;
                     //目标武将的亲爱武将是执行武将的君主时，总是成功
                     else if (person == actor.BelongForce.Governor)
                     {
@@ -230,6 +230,10 @@ namespace Sango.Core
             n += target.IsHate(targetGovernor) ? variables.recruitHatePersonInfluence : 0;
             n += target.IsPrisoner ? variables.recruitPrisonerInfluence : 0;
             n += GameRandom.Range(0, Math.Max(0, variables.recruitRandomMax - argumentation.loyaltyAdd));
+            
+            // 在野回合数加成,每在野1回合加成3%
+            n += target.wildTurnCount * 3;
+
             // 主公魅力影响
             n += actorGovernor.Glamour / variables.recruitGovernorGlamourFactor;
             n = Math.Max(n, 0);

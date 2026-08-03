@@ -96,6 +96,11 @@ namespace Sango.Core
         [JsonProperty] public string rangeFilterMethod;
 
         /// <summary>
+        /// 可释放筛选逻辑
+        /// </summary>
+        [JsonProperty] public string spellConditionMethod;
+
+        /// <summary>
         /// 所需适应等级
         /// </summary>
         [JsonProperty] public int needAblilityLevel;
@@ -432,9 +437,16 @@ namespace Sango.Core
             return skillEffects == null || skillEffects.Count == 0;
         }
 
-        public bool CanAddToTroop(Troop troop)
+        public bool CanAddToTroop(Troop troop, bool isWater)
         {
-            return troop.TroopTypeLv >= needAblilityLevel;
+            if(isWater)
+            {
+                return troop.WaterTroopTypeLv >= needAblilityLevel;
+            }
+            else
+            {
+                return troop.LandTroopTypeLv >= needAblilityLevel;
+            }
         }
 
         public bool IsRange()

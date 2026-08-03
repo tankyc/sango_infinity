@@ -218,6 +218,12 @@ namespace Sango.UI
                     }
                 }
             }
+
+            // 刷新部队
+            if(p.BelongTroop != null)
+            {
+                p.BelongTroop.ResetActionAndStatus();
+            }
         }
     }
 
@@ -396,20 +402,7 @@ namespace Sango.UI
         /// <param name="objects">参数列表 - objects[0] 为 Person</param>
         public override void OnOpen(params object[] objects)
         {
-            if (objects == null || objects.Length == 0 || objects[0] == null)
-            {
-                Log.Error("UIPersonEdit.OnOpen 缺少目标武将");
-                return;
-            }
-
-            Target = objects[0] as Person;
-            if (Target == null)
-            {
-                Log.Error("UIPersonEdit.OnOpen 传入的对象不是 Person 类型");
-                return;
-            }
-
-            // 候选: 所有武将(排除自身)
+            // 候选: 所有武将
             allPersonsDatas = new List<SangoObject>();
             Scenario cur = Scenario.Cur;
             if (cur != null && cur.personSet != null)
@@ -417,6 +410,20 @@ namespace Sango.UI
                 foreach (Person p in cur.personSet)
                 {
                     if (p != null && p.IsValid) allPersonsDatas.Add(p);
+                }
+            }
+
+            if (objects == null || objects.Length == 0 || objects[0] == null)
+            {
+                Target = allPersonsDatas[0] as Person;
+            }
+            else
+            {
+                Target = objects[0] as Person;
+                if (Target == null)
+                {
+                    Log.Error("UIPersonEdit.OnOpen 传入的对象不是 Person 类型");
+                    return;
                 }
             }
 
@@ -468,14 +475,18 @@ namespace Sango.UI
             BindAdaptToggleGroup(machineAdaptToggles, () => snapshot.machineLv, (v) => snapshot.machineLv = v);
 
             // 属性输入框 - 通过SortTitle读取显示值,修改写入快照
-            BindSnapshotInputEndEdit(commandInput, PersonSortFunction.SortByCommand, () => snapshot.command, (v) => snapshot.command = v);
-            BindSnapshotInputEndEdit(phaseInput, null, () => snapshot.compatibility, (v) => snapshot.compatibility = v);
-            BindSnapshotInputEndEdit(strengthInput, PersonSortFunction.SortByStrength, () => snapshot.strength, (v) => snapshot.strength = v);
-            BindSnapshotInputEndEdit(loyaltyInput, PersonSortFunction.SortByLoyalty, () => snapshot.loyalty, (v) => snapshot.loyalty = v);
-            BindSnapshotInputEndEdit(intelligenceInput, PersonSortFunction.SortByIntelligence, () => snapshot.intelligence, (v) => snapshot.intelligence = v);
-            BindSnapshotInputEndEdit(politicsInput, PersonSortFunction.SortByPolitics, () => snapshot.politics, (v) => snapshot.politics = v);
-            BindSnapshotInputEndEdit(glamourInput, PersonSortFunction.SortByGlamour, () => snapshot.glamour, (v) => snapshot.glamour = v);
-            BindSnapshotInputEndEdit(meritInput, PersonSortFunction.SortByMerit, () => snapshot.merit, (v) => snapshot.merit = v);
+            // 五维属性范围: 1-150
+            BindSnapshotInputEndEdit(commandInput, PersonSortFunction.SortByCommand, () => snapshot.command, (v) => snapshot.command = v, 1, 150);
+            BindSnapshotInputEndEdit(strengthInput, PersonSortFunction.SortByStrength, () => snapshot.strength, (v) => snapshot.strength = v, 1, 150);
+            BindSnapshotInputEndEdit(intelligenceInput, PersonSortFunction.SortByIntelligence, () => snapshot.intelligence, (v) => snapshot.intelligence = v, 1, 150);
+            BindSnapshotInputEndEdit(politicsInput, PersonSortFunction.SortByPolitics, () => snapshot.politics, (v) => snapshot.politics = v, 1, 150);
+            BindSnapshotInputEndEdit(glamourInput, PersonSortFunction.SortByGlamour, () => snapshot.glamour, (v) => snapshot.glamour = v, 1, 150);
+            // 相性范围: 0-255
+            BindSnapshotInputEndEdit(phaseInput, null, () => snapshot.compatibility, (v) => snapshot.compatibility = v, 0, 255);
+            // 忠诚范围: 0-250
+            BindSnapshotInputEndEdit(loyaltyInput, PersonSortFunction.SortByLoyalty, () => snapshot.loyalty, (v) => snapshot.loyalty = v, 0, 250);
+            // 功绩范围: 0-100000
+            BindSnapshotInputEndEdit(meritInput, PersonSortFunction.SortByMerit, () => snapshot.merit, (v) => snapshot.merit = v, 0, 100000);
 
             // 特技
             if (featureButton != null) featureButton.onClick.AddListener(OnFeatureButtonClick);
@@ -527,8 +538,8 @@ namespace Sango.UI
                             if (j != level && toggles[j] != null && toggles[j].isOn)
                                 toggles[j].SetIsOnWithoutNotify(false);
                         }
-                        // 写入快照
-                        setter(level);
+                        // 写入快照 (S=3, A=2, B=1, C=0)
+                        setter(3 - level);
                     }
                 });
             }
@@ -541,8 +552,10 @@ namespace Sango.UI
         /// <param name="sortTitle">对应的排序标题(用于验证/回显, 可为null)</param>
         /// <param name="getter">从快照读取值的函数</param>
         /// <param name="setter">向快照写入值的函数</param>
+        /// <param name="minValue">取值范围下限</param>
+        /// <param name="maxValue">取值范围上限</param>
         private void BindSnapshotInputEndEdit(InputField input, ObjectSortTitle sortTitle,
-            System.Func<int> getter, System.Action<int> setter)
+            System.Func<int> getter, System.Action<int> setter, int minValue = int.MinValue, int maxValue = int.MaxValue)
         {
             if (input == null) return;
             input.onEndEdit.AddListener((text) =>
@@ -550,6 +563,8 @@ namespace Sango.UI
                 if (Target == null) return;
                 if (int.TryParse(text, out int v))
                 {
+                    // 限制数值范围
+                    v = System.Math.Max(minValue, System.Math.Min(maxValue, v));
                     setter(v);
                 }
                 // 回显快照中的当前值
@@ -605,16 +620,18 @@ namespace Sango.UI
 
         /// <summary>
         /// 刷新适应力Toggle组 - 根据快照值点亮对应Toggle
+        /// S=3→Toggle[0], A=2→Toggle[1], B=1→Toggle[2], C=0→Toggle[3]
         /// </summary>
         /// <param name="toggles">Toggle数组(S/A/B/C)</param>
-        /// <param name="level">当前快照值(0/1/2/3)</param>
+        /// <param name="level">当前快照值(3=S/2=A/1=B/0=C)</param>
         private void RefreshAdaptGroup(Toggle[] toggles, int level)
         {
             if (toggles == null) return;
             for (int i = 0; i < toggles.Length; i++)
             {
                 if (toggles[i] == null) continue;
-                toggles[i].SetIsOnWithoutNotify(i == level);
+                // level 3→i=0, level 2→i=1, level 1→i=2, level 0→i=3
+                toggles[i].SetIsOnWithoutNotify(i == 3 - level);
             }
         }
 

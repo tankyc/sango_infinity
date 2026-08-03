@@ -472,6 +472,30 @@ namespace Sango.Core
             GameEvent.OnTroopEnterCell?.Invoke(this, cell, null);
             UpdateTerrainBonus(cell);
         }
+        public void ResetActionAndStatus()
+        {
+            if (actionList != null)
+            {
+                for (int i = 0; i < actionList.Count; i++)
+                    actionList[i].Clear();
+
+                actionList.Clear();
+            }
+
+            ForEachPerson(x =>
+            {
+                x.BelongTroop = this;
+                if (x.FeatureList != null)
+                {
+                    for (int i = 0; i < x.FeatureList.Count; i++)
+                    {
+                        x.FeatureList[i].InitActions(actionList, this, x);
+                    }
+                }
+            });
+
+            CalculateAttribute(Scenario.Cur);
+        }
 
         public virtual bool Run(Corps corps, Force force, Scenario scenario)
         {
@@ -652,7 +676,7 @@ namespace Sango.Core
                 for (int i = 0; i < LandTroopType.skills.Length; i++)
                 {
                     Skill skill = Scenario.Cur.GetObject<Skill>(LandTroopType.skills[i]);
-                    if (skill != null && skill.CanAddToTroop(this))
+                    if (skill != null && skill.CanAddToTroop(this, false))
                     {
                         SkillInstance ins = null;
                         if (skills != null)
@@ -672,7 +696,7 @@ namespace Sango.Core
                 for (int i = 0; i < WaterTroopType.skills.Length; i++)
                 {
                     Skill skill = Scenario.Cur.GetObject<Skill>(WaterTroopType.skills[i]);
-                    if (skill != null && skill.CanAddToTroop(this))
+                    if (skill != null && skill.CanAddToTroop(this, true))
                     {
 
 
