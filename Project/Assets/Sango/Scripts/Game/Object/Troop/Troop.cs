@@ -760,6 +760,7 @@ namespace Sango.Core
 
             // 事件可二次修改属性
             GameEvent.OnTroopCalculateAttribute?.Invoke(this, scenario);
+            GameEvent.OnTroopAfterCalculateAttribute?.Invoke(this, scenario);
 
             for (int i = 0; i < landSkills.Count; i++)
             {
@@ -1982,6 +1983,11 @@ namespace Sango.Core
                 });
             }
 
+            if (hasGovernor)
+            {
+                BelongForce.UpdateCapitalCity();
+            }
+
             Clear();
 
 #if SANGO_DEBUG
@@ -2104,7 +2110,7 @@ namespace Sango.Core
             this.missionTarget = missionTarget;
         }
 
-        
+
 
         public void ClearMission()
         {
@@ -2126,7 +2132,7 @@ namespace Sango.Core
                     NeedPrepareMission();
                 }
 
-                if(missionType == 0)
+                if (missionType == 0)
                 {
                     return null;
                 }
@@ -2160,7 +2166,7 @@ namespace Sango.Core
             }
 
             TroopMissionBehaviour temp = TroopMissionBehaviour;
-            if(temp == null)
+            if (temp == null)
             {
                 GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
                 AIFinished = true;

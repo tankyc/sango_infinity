@@ -16,8 +16,16 @@ namespace Sango.Core
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
             if (IsMissionComplete)
             {
-                Troop.ClearMission();
-                Troop.NeedPrepareMission();
+                if (troop.IsPlayerControl)
+                {
+                    troop.ClearMission();
+                }
+                else
+                {
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                }
+                troop.NeedPrepareMission();
+                return;
             }
             else
             {
@@ -40,8 +48,15 @@ namespace Sango.Core
         {
             if (IsMissionComplete)
             {
-                Troop.ClearMission();
-                Troop.NeedPrepareMission();
+                if (troop.IsPlayerControl)
+                {
+                    troop.ClearMission();
+                }
+                else
+                {
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                }
+                troop.NeedPrepareMission();
                 return false;
             }
 

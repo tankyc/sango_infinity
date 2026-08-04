@@ -694,7 +694,7 @@ namespace Sango.Core
         public static SortTitle SortByBelongForce = new SortTitle()
         {
             name = "势力",
-            width = 2.00f,
+            width = 3.00f,
             valueGetCall = x => x.BelongForce?.Name ?? "",
             personSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
             valueObjGet = x => x.BelongForce,
@@ -734,7 +734,7 @@ namespace Sango.Core
         public static SortTitle SortByCurrentCity = new SortTitle()
         {
             name = "所在",
-            width = 2.40f,
+            width = 3.40f,
             valueGetCall = (x) => {
 
                 if (x.BelongTroop != null)

@@ -10,7 +10,7 @@ namespace Sango.Core
         {
             get
             {
-                return false;
+                return true;
             }
         }
 

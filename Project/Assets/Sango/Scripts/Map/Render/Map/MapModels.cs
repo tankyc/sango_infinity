@@ -287,7 +287,7 @@ namespace Sango.Render
 
         internal override void OnSave(BinaryWriter writer)
         {
-            List<IMapManageObject> validList = dynamicObjects.FindAll(x =>x.canSave && (x.objId > 0 || x.objType > 0 || x.modelId > 0));
+            List<IMapManageObject> validList = dynamicObjects.FindAll(x => x.canSave && (x.objId > 0 || x.objType > 0 || x.modelId > 0));
             writer.Write(validList.Count);
             for (int i = 0; i < validList.Count; ++i)
             {
@@ -307,6 +307,31 @@ namespace Sango.Render
                 writer.Write(obj.scale.z);
             }
         }
+
+        internal override void OnSaveScale(BinaryWriter writer, int scale)
+        {
+            List<IMapManageObject> validList = dynamicObjects.FindAll(x => x.canSave && (x.objId > 0 || x.objType > 0 || x.modelId > 0));
+            writer.Write(validList.Count);
+            for (int i = 0; i < validList.Count; ++i)
+            {
+                IMapManageObject obj = validList[i];
+                writer.Write(obj.objId);
+                writer.Write(obj.objType);
+                writer.Write(obj.bindId);
+                writer.Write(obj.modelId);
+                writer.Write(obj.position.x * scale);
+                writer.Write(obj.position.y);
+                writer.Write(obj.position.z * scale);
+                writer.Write(obj.rotation.x * scale);
+                writer.Write(obj.rotation.y);
+                writer.Write(obj.rotation.z * scale);
+                writer.Write(obj.scale.x);
+                writer.Write(obj.scale.y);
+                writer.Write(obj.scale.z);
+            }
+        }
+
+
 
         internal override void OnLoad(int versionCode, BinaryReader reader)
         {

@@ -258,7 +258,18 @@ namespace Sango.Tools
                 string path = WindowDialog.SaveFileDialog("map_2x.bin", "地图文件(*.bin)\0*.bin;\0\0");
                 if (path != null)
                 {
-                    Sango.Log.Info("放大2倍保存功能待实现");
+                    // 这里实现放大2倍保存的逻辑
+                    lastSavedPath = path;
+                    map.SaveScaleMap(path, 2);
+
+                    if (scenario != null && !string.IsNullOrEmpty(scenario.FilePath))
+                    {
+                        CorrectCityPositionsScale(2);
+                        scenario.Export(scenario.FilePath);
+                        Sango.Log.Info("剧本数据已同步保存");
+                    }
+
+                    autoSave.ShowSaveNotification($"地图已保存到: {System.IO.Path.GetFileName(path)}");
                 }
             });
             menuData.Add("文件/-", null); // 分隔线
@@ -546,6 +557,33 @@ namespace Sango.Tools
                     UnityEngine.Vector2Int gridPos = map.PositionToCoords(worldPos);
                     city.x = gridPos.x;
                     city.y = gridPos.y;
+
+                    float rotationY = city.Render.MapObject.transform.rotation.eulerAngles.y;
+                    city.rot = rotationY * Mathf.Deg2Rad;
+
+                    correctedCount++;
+                    Sango.Log.Info($"城池位置已校正: {city.Name} -> ({city.x}, {city.y}), 旋转: {city.rot}");
+                }
+            }
+
+            Sango.Log.Info($"共校正了 {correctedCount} 个城池位置");
+        }
+
+        public void CorrectCityPositionsScale(int scale)
+        {
+            if (scenario == null || scenario.citySet == null)
+                return;
+
+            int correctedCount = 0;
+            foreach (Sango.Core.City city in scenario.citySet)
+            {
+                if (city != null && city.Render != null && city.Render.MapObject != null)
+                {
+                    Vector3 worldPos = city.Render.MapObject.transform.position;
+
+                    UnityEngine.Vector2Int gridPos = map.PositionToCoords(worldPos);
+                    city.x = gridPos.x * scale;
+                    city.y = gridPos.y * scale;
 
                     float rotationY = city.Render.MapObject.transform.rotation.eulerAngles.y;
                     city.rot = rotationY * Mathf.Deg2Rad;

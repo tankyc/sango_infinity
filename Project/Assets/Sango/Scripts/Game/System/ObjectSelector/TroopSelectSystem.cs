@@ -54,18 +54,18 @@ namespace Sango.Core.Player
             finishAction?.Invoke(people);
         }
 
-        public override List<ObjectSortTitle> GetSortTitleGroup(int index)
-        {
-            if (index == 0) return customSortItems;
+        //public override List<ObjectSortTitle> GetSortTitleGroup(int index)
+        //{
+        //    if (index == 0) return customSortItems;
 
-            List<ObjectSortTitle> sortTitles = new List<ObjectSortTitle>();
-            CitySortFunction.Instance.GetSortTitleGroup((CitySortGroupType)index, sortTitles);
-            return sortTitles;
-        }
+        //    List<ObjectSortTitle> sortTitles = new List<ObjectSortTitle>();
+        //    CitySortFunction.Instance.GetSortTitleGroup((CitySortGroupType)index, sortTitles);
+        //    return sortTitles;
+        //}
 
-        public override string GetSortTitleGroupName(int index)
-        {
-            return CitySortFunction.Instance.GetSortTitleGroupName((CitySortGroupType)index);
-        }
+        //public override string GetSortTitleGroupName(int index)
+        //{
+        //    return CitySortFunction.Instance.GetSortTitleGroupName((CitySortGroupType)index);
+        //}
     }
 }

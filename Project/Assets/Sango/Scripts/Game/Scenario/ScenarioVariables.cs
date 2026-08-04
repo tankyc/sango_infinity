@@ -998,6 +998,12 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int TransportPercent = 80;
 
+        /// <summary>
+        /// 是否让未登场的武将在登场年份到达后登场
+        /// </summary>
+        [JsonProperty] public bool allowInvalidPersonValidWhenYearPass = true;
+
+
         public float DifficultyDamageFactor
         {
             get

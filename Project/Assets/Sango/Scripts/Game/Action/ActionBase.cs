@@ -120,6 +120,8 @@ namespace Sango.Core.Action
             Register("TroopAddBuff", CraeteHandle<TroopAddBuff>);
             Register("TroopAttackBack", CraeteHandle<TroopAttackBack>);
             Register("TroopStealFood", CraeteHandle<TroopStealFood>);
+            Register("TroopAddSkillAttackRange", CraeteHandle<TroopAddSkillAttackRange>);
+            Register("TroopAddSkillSpellRange", CraeteHandle<TroopAddSkillSpellRange>);
             
         }
 

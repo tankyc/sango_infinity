@@ -1,4 +1,5 @@
 ﻿using Sango.Core.Tools;
+using System.Collections.Generic;
 using TKNewtonsoft.Json.Linq;
 
 namespace Sango.Core.Action
@@ -9,23 +10,33 @@ namespace Sango.Core.Action
     /// kinds： 兵种类型 
     /// condition： 额外条件
     /// </summary>
-    public class TroopSetSkillCost : TroopTroopActionBase
+    public class TroopAddSkillSpellRange : TroopTroopActionBase
     {
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
             base.Init(p, sangoObjects);
-            GameEvent.OnTroopCalculateAttribute += OnTroopCalculateAttribute;
+            GameEvent.OnTroopAfterCalculateAttribute += OnTroopAfterCalculateAttribute;
         }
 
         public override void Clear()
         {
-            GameEvent.OnTroopCalculateAttribute -= OnTroopCalculateAttribute;
+            GameEvent.OnTroopAfterCalculateAttribute -= OnTroopAfterCalculateAttribute;
         }
 
-        void OnTroopCalculateAttribute(Troop troop, Scenario scenario)
+        void AddRange(SkillInstance skillInstance)
+        {
+            List<int> rangeL = new List<int>(skillInstance.spellRanges);
+            int end_v = skillInstance.spellRanges[skillInstance.spellRanges.Length - 1];
+            for (int i = 0; i < value; ++i)
+                rangeL.Add(end_v + i + 1);
+            skillInstance.spellRanges = rangeL.ToArray();
+        }
+
+        void OnTroopAfterCalculateAttribute(Troop troop, Scenario scenario)
         {
             if (Force != null && troop.BelongForce != Force) return;
             if (Troop != null && Troop != troop) return;
+
 
             if (kinds == null)
             {
@@ -33,19 +44,31 @@ namespace Sango.Core.Action
                 {
                     troop.landSkills.ForEach(skill =>
                     {
+                        if (!CheckIsNormalSkill(skill, isNormal))
+                            return;
+
+                        if (!CheckIsRangeSkill(skill, isRange))
+                            return;
+
                         TroopSkillConditionDatabase troopActionConditionDatabase = new TroopSkillConditionDatabase(skill);
                         if (condition.Check(troopActionConditionDatabase))
                         {
-                            skill.costEnergy = value;
+                            AddRange(skill);
                         }
                     });
 
                     troop.waterSkills.ForEach(skill =>
                     {
+                        if (!CheckIsNormalSkill(skill, isNormal))
+                            return;
+
+                        if (!CheckIsRangeSkill(skill, isRange))
+                            return;
+
                         TroopSkillConditionDatabase troopActionConditionDatabase = new TroopSkillConditionDatabase(skill);
                         if (condition.Check(troopActionConditionDatabase))
                         {
-                            skill.costEnergy = value;
+                            AddRange(skill);
                         }
                     });
 
@@ -54,7 +77,7 @@ namespace Sango.Core.Action
                         TroopSkillConditionDatabase troopActionConditionDatabase = new TroopSkillConditionDatabase(skill);
                         if (condition.Check(troopActionConditionDatabase))
                         {
-                            skill.costEnergy = value;
+                            AddRange(skill);
                         }
                     });
                 }
@@ -62,17 +85,27 @@ namespace Sango.Core.Action
                 {
                     troop.landSkills.ForEach(skill =>
                     {
-                        skill.costEnergy = value;
+                        if (!CheckIsNormalSkill(skill, isNormal))
+                            return;
+
+                        if (!CheckIsRangeSkill(skill, isRange))
+                            return;
+                        AddRange(skill);
                     });
 
                     troop.waterSkills.ForEach(skill =>
                     {
-                        skill.costEnergy = value;
+                        if (!CheckIsNormalSkill(skill, isNormal))
+                            return;
+
+                        if (!CheckIsRangeSkill(skill, isRange))
+                            return;
+                        AddRange(skill);
                     });
 
                     troop.StrategySkills.ForEach(skill =>
                     {
-                        skill.costEnergy = value;
+                        AddRange(skill);
                     });
                 }
             }
@@ -84,10 +117,16 @@ namespace Sango.Core.Action
                     {
                         troop.landSkills.ForEach(skill =>
                         {
+                            if (!CheckIsNormalSkill(skill, isNormal))
+                                return;
+
+                            if (!CheckIsRangeSkill(skill, isRange))
+                                return;
+
                             TroopSkillConditionDatabase troopActionConditionDatabase = new TroopSkillConditionDatabase(skill);
                             if (condition.Check(troopActionConditionDatabase))
                             {
-                                skill.costEnergy = value;
+                                AddRange(skill);
                             }
                         });
                     }
@@ -95,7 +134,12 @@ namespace Sango.Core.Action
                     {
                         troop.landSkills.ForEach(skill =>
                         {
-                            skill.costEnergy = value;
+                            if (!CheckIsNormalSkill(skill, isNormal))
+                                return;
+
+                            if (!CheckIsRangeSkill(skill, isRange))
+                                return;
+                            AddRange(skill);
                         });
                     }
                 }
@@ -105,10 +149,16 @@ namespace Sango.Core.Action
                     {
                         troop.waterSkills.ForEach(skill =>
                         {
+                            if (!CheckIsNormalSkill(skill, isNormal))
+                                return;
+
+                            if (!CheckIsRangeSkill(skill, isRange))
+                                return;
+
                             TroopSkillConditionDatabase troopActionConditionDatabase = new TroopSkillConditionDatabase(skill);
                             if (condition.Check(troopActionConditionDatabase))
                             {
-                                skill.costEnergy = value;
+                                AddRange(skill);
                             }
                         });
                     }
@@ -116,7 +166,12 @@ namespace Sango.Core.Action
                     {
                         troop.waterSkills.ForEach(skill =>
                         {
-                            skill.costEnergy = value;
+                            if (!CheckIsNormalSkill(skill, isNormal))
+                                return;
+
+                            if (!CheckIsRangeSkill(skill, isRange))
+                                return;
+                            AddRange(skill);
                         });
                     }
                 }

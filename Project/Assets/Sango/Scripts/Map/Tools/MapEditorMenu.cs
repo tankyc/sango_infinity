@@ -240,7 +240,17 @@ namespace Sango.Tools
                 if (path != null)
                 {
                     // 这里实现放大2倍保存的逻辑
-                    Sango.Log.Info("放大2倍保存功能待实现");
+                    editor.lastSavedPath = path;
+                    editor.map.SaveScaleMap(path, 2);
+
+                    if (editor.scenario != null && !string.IsNullOrEmpty(editor.scenario.FilePath))
+                    {
+                        editor.CorrectCityPositions();
+                        editor.scenario.Export(editor.scenario.FilePath);
+                        Sango.Log.Info("剧本数据已同步保存");
+                    }
+
+                    editor.autoSave.ShowSaveNotification($"地图已保存到: {System.IO.Path.GetFileName(path)}");
                 }
                 showFileMenu = false;
             }

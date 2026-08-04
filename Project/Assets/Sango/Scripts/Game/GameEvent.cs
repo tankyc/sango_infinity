@@ -352,7 +352,8 @@ namespace Sango.Core
         /// 部队计算属性的时候
         /// </summary>
         public static EventDelegate<Troop, Scenario> OnTroopCalculateAttribute;
-
+        public static EventDelegate<Troop, Scenario> OnTroopAfterCalculateAttribute;
+        
         /// <summary>
         /// 部队计算反击的时候
         /// </summary>

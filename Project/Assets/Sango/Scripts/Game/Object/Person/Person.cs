@@ -860,21 +860,28 @@ namespace Sango.Core
 
             if (state == (int)PersonStateType.Invalid)
             {
-                // 出场年
-                //if (appearance > 0 && appearance <= scenario.Info.year)
-                //{
-                //    state = (int)PersonStateType.Invisible;
+                if (scenario.Variables.allowInvalidPersonValidWhenYearPass)
+                {
+                    //出场年
+                    if (appearance > 0 && appearance <= scenario.Info.year)
+                    {
+                        state = (int)PersonStateType.Invisible;
 
-                //    City city = null;
-                //    if (birthplace > 0)
-                //        city = scenario.citySet.Get(birthplace);
-                //    if (city == null)
-                //        city = scenario.citySet.RandomGet();
+                        City city = null;
+                        if (birthplace > 0)
+                        {
+                            Province prov = scenario.CommonData.Provinces[birthplace];
+                            city = prov.RandomCity(scenario);
+                        }
 
-                //    // 这里要处理登场城池
-                //    city.invisiblePersons.Add(this);
-                //    CurrentCity = city;
-                //}
+                        if (city == null)
+                            city = scenario.citySet.RandomGet();
+
+                        // 这里要处理登场城池
+                        city.invisiblePersons.Add(this);
+                        CurrentCity = city;
+                    }
+                }
             }
             else
             {
@@ -1119,7 +1126,38 @@ namespace Sango.Core
 
         public override bool OnTurnStart(Scenario scenario)
         {
+            if (state == (int)PersonStateType.Invalid)
+            {
+                if (scenario.Variables.allowInvalidPersonValidWhenYearPass)
+                {
+                    //出场年
+                    if (appearance > 0 && appearance <= scenario.Info.year && GameRandom.Chance(30))
+                    {
+                        state = (int)PersonStateType.Invisible;
 
+                        City city = null;
+                        if (birthplace > 0)
+                        {
+                            Province prov = scenario.CommonData.Provinces[birthplace];
+                            city = prov.RandomCity(scenario);
+                        }
+
+                        if (city == null)
+                            city = scenario.citySet.RandomGet();
+
+                        // 这里要处理登场城池
+                        city.invisiblePersons.Add(this);
+                        CurrentCity = city;
+
+                        RenderEvent.Instance.Add(new PersonValidEvent()
+                        {
+                            province = city.province,
+                            person = this
+                        });
+
+                    }
+                }
+            }
             return base.OnTurnStart(scenario);
         }
         public override bool OnForceTurnStart(Scenario scenario)
@@ -1151,11 +1189,19 @@ namespace Sango.Core
                             becameCity.allPersons.Add(x);
                             becameCity.freePersons.Add(x);
                             x.state = (int)PersonStateType.Normal;
+
+                            if (IsPlayer)
+                            {
+                                RenderEvent.Instance.Add(new PersonGrowupEvent()
+                                {
+                                    father = this,
+                                    person = x
+                                });
+                            }
                         }
                     }
                 });
             }
-
 
             ActionOver = !IsFree;
             return base.OnForceTurnStart(scenario);

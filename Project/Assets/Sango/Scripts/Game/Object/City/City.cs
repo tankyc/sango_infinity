@@ -807,6 +807,11 @@ namespace Sango.Core
             scenario.Map.GetSpiral(x, y, BuildingType.radius, OccupyCellList);
             foreach (Cell cell in OccupyCellList)
                 cell.building = this;
+
+            if(OccupyCellList.Count == 0)
+            {
+                Sango.Log.Error(Name);
+            }
             CenterCell = OccupyCellList[0];
 
             // 效果范围
@@ -874,6 +879,7 @@ namespace Sango.Core
                 BelongCity.portList.Add((Port)this);
             else if (IsGate())
                 BelongCity.gateList.Add((Gate)this);
+
             if (BuildingType.Id == 1)
             {
                 UpdateActiveTroopTypes();
@@ -1199,9 +1205,7 @@ namespace Sango.Core
             // 耐久自修复
             if (durability < DurabilityLimit)
             {
-                durability += Leader?.BaseBuildAbility * 2 + 50 ?? 50;
-                if (durability > DurabilityLimit)
-                    durability = DurabilityLimit;
+                ChangeDurability(Leader?.BaseBuildAbility * 2 + 50 ?? 50, null);
             }
 
             if (Render != null)

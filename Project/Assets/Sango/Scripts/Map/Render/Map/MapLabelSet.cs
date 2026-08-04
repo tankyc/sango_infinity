@@ -131,6 +131,25 @@ namespace Sango.Render
             }
         }
 
+        internal override void OnSaveScale(BinaryWriter writer, int scale)
+        {
+            // 写入标注数量
+            writer.Write(labels.Count);
+
+            // 写入每个标注的数据
+            foreach (var label in labels)
+            {
+                writer.Write(label.labelText);
+                writer.Write(label.position.x * scale);
+                writer.Write(label.position.y);
+                writer.Write(label.position.z * scale);
+                writer.Write(label.textColor.r);
+                writer.Write(label.textColor.g);
+                writer.Write(label.textColor.b);
+                writer.Write(label.fontSize);
+            }
+        }
+
         /// <summary>
         /// 加载标注数据
         /// </summary>

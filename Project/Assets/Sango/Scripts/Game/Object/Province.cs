@@ -1,4 +1,6 @@
-﻿using TKNewtonsoft.Json;
+﻿using System;
+using System.Collections.Generic;
+using TKNewtonsoft.Json;
 namespace Sango.Core
 {
     /// <summary>
@@ -19,5 +21,21 @@ namespace Sango.Core
         [JsonProperty]
         public SangoObjectList<Province> neighbors = new SangoObjectList<Province>();
 
+        public string ColorName => $"<color=#93C86D>{Name}</color>";
+
+        public City RandomCity(Scenario scenario)
+        {
+            List<City> cities = new List<City>();
+            scenario.citySet.ForEach((city) =>
+            {
+                if (city.province == this)
+                    cities.Add(city);
+            });
+
+            if (cities.Count == 0)
+                return null;
+
+            return cities[GameRandom.Range(0, cities.Count)];
+        }
     }
 }

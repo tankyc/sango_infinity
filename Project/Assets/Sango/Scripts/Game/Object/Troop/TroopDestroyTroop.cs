@@ -1,7 +1,12 @@
-﻿namespace Sango.Core
+﻿using Sango.Tools;
+using static Sango.Core.TroopAIUtility;
+
+namespace Sango.Core
 {
     public class TroopDestroyTroop : TroopMissionBehaviour
     {
+        static WeightList<PriorityActionData> wightList = new WeightList<PriorityActionData>();
+
         public override MissionType MissionType { get { return MissionType.TroopDestroyTroop; } }
 
         public override bool IsMissionComplete
@@ -18,15 +23,37 @@
             if (TargetTroop == null || TargetTroop.Id != troop.missionTarget) TargetTroop = scenario.troopsSet.Get(Troop.missionTarget);
 
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
-            if (IsMissionComplete || (!troop.IsPlayer && troop.IsWithOutFood() == 2 && GameRandom.Chance(60)))
+            if (IsMissionComplete)
             {
-                Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
-                Troop.NeedPrepareMission();
+                if (troop.IsPlayerControl)
+                {
+                    troop.ClearMission();
+                }
+                else
+                {
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                }
+                troop.NeedPrepareMission();
             }
             else
             {
                 // 获取目标城市周围的敌人
-                priorityActionData = TroopAIUtility.PriorityAction(Troop, TargetTroop.cell, scenario, SkillAttackPriority);
+               TroopAIUtility.PriorityAction(wightList, Troop, TargetTroop.cell, scenario, SkillAttackPriority);
+                priorityActionData = wightList.Find((x) =>
+                {
+                    for(int i = 0; i < x.targets.Length; i++)
+                    {
+                        if (x.targets[i] == TargetTroop)
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                });
+
+                if (priorityActionData == null)
+                    priorityActionData = wightList.RandomGet();
             }
         }
 
@@ -40,9 +67,9 @@
                 {
                     if (target.troop == TargetTroop)
                     {
-                        socer += 50000;
+                        socer += 500000;
                         if (movetoCell == troop.cell)
-                            socer += 100000;
+                            socer += 1000000;
                     }
                     else
                     {

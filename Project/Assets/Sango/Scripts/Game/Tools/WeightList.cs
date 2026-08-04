@@ -133,5 +133,12 @@ namespace Sango.Tools
             nodes.Clear();
         }
 
+        public T Find(Predicate<T> predicate)
+        {
+            return nodes.Find((t) =>
+            {
+                return predicate(t.value);
+            }).value;
+        }
     }
 }

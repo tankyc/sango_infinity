@@ -20,10 +20,17 @@ namespace Sango.Core
             if (TargetBuilding == null || TargetBuilding.Id != troop.missionTarget) TargetBuilding = scenario.buildingSet.Get(Troop.missionTarget);
 
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
-            if (IsMissionComplete || (troop.IsWithOutFood() == 2 && GameRandom.Chance(60)))
+            if (IsMissionComplete)
             {
-                Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
-                Troop.NeedPrepareMission();
+                if (troop.IsPlayerControl)
+                {
+                    troop.ClearMission();
+                }
+                else
+                {
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                }
+                troop.NeedPrepareMission();
             }
             else
             {

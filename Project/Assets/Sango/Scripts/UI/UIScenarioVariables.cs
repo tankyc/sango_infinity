@@ -97,6 +97,7 @@ namespace Sango.UI
                 AddToggleItem("能力随年龄变化", variables.EnableAgeAbilityFactor, (v) => { variables.EnableAgeAbilityFactor = v; });
 
             AddNumberItem("建筑间隔距离", variables.BuildingSpace, 0, 2, (v) => { variables.BuildingSpace = v; });
+            AddToggleItem("是否让武将在登场年份到达后登场", variables.allowInvalidPersonValidWhenYearPass, (v) => { variables.allowInvalidPersonValidWhenYearPass = v;});
 
             //AddNumberItem("能力每级经验", variables.AbilityExpLevelNeed, 0, 10000, (v) => { variables.AbilityExpLevelNeed = (ushort)v; });
             //AddNumberItem("最高能力等级", variables.MaxAbilityLevel, 1, 20, (v) => { variables.MaxAbilityLevel = (byte)v; });

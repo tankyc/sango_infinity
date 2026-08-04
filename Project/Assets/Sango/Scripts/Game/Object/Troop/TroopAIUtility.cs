@@ -56,6 +56,23 @@ namespace Sango.Core
         /// <returns></returns>
         public static PriorityActionData PriorityAction(Troop troop, Cell targetCell, Scenario scenario, SkillAttackPriorityCalculateMethod prioritySkillAtkMethod = null, SkillDefencePriorityCalculateMethod prioritySkillDefMethod = null)
         {
+            PriorityAction(wightList, troop, targetCell, scenario, prioritySkillAtkMethod, prioritySkillDefMethod);
+
+            if (wightList.Count == 0)
+                return null;
+
+            // 现在是给了一个随机优先级行动
+            return wightList.RandomGet();
+        }
+
+        /// <summary>
+        /// 获取技能的收益权重行动
+        /// </summary>
+        /// <param name="troop"></param>
+        /// <param name="scenario"></param>
+        /// <returns></returns>
+        public static void PriorityAction(WeightList<PriorityActionData> wightList, Troop troop, Cell targetCell, Scenario scenario, SkillAttackPriorityCalculateMethod prioritySkillAtkMethod = null, SkillDefencePriorityCalculateMethod prioritySkillDefMethod = null)
+        {
             skill_list_temp.Clear();
             skill_list_temp.AddRange(troop.skills);
             skill_list_temp.AddRange(troop.StrategySkills);
@@ -179,13 +196,8 @@ namespace Sango.Core
                     wightList.Push(priorityActionData, priorityActionData.prioriry);
                 }
             }
-
-            if (wightList.Count == 0)
-                return null;
-
-            // 现在是给了一个随机优先级行动
-            return wightList.RandomGet();
         }
+
 
         /// <summary>
         /// 评估格子的安全性
@@ -459,7 +471,7 @@ namespace Sango.Core
                         else
                         {
                             // 不对着火的地方释放火计
-                            if(skill.Id == 22 && target.fire != null)
+                            if (skill.Id == 22 && target.fire != null)
                                 return 0;
                             else if (skill.Id == 23 && target.fire == null)
                                 return 0;

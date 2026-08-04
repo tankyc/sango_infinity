@@ -23,7 +23,15 @@ namespace Sango.Core
             // 任务完成后,待命
             if (IsMissionComplete)
             {
-                Troop.ClearMission();
+                if (troop.IsPlayerControl)
+                {
+                    troop.ClearMission();
+                }
+                else
+                {
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                }
+                troop.NeedPrepareMission();
                 return;
             }
 
@@ -39,12 +47,12 @@ namespace Sango.Core
             for (int i = 0; i < 6; i++)
             {
                 Cell cell = TargetBuilding.CenterCell.Neighbors[i];
-                if(cell == troop.cell)
+                if (cell == troop.cell)
                 {
                     FinalCell = cell;
                     return;
                 }
-                else if (  cell.IsEmpty() && troop.MoveRange.Contains(cell))
+                else if (cell.IsEmpty() && troop.MoveRange.Contains(cell))
                 {
                     emptyCell.Add(cell);
                 }
@@ -66,7 +74,15 @@ namespace Sango.Core
             if (IsMissionComplete)
             {
                 Troop.actionRenderEvent = null;
-                Troop.ClearMission();
+                if (troop.IsPlayerControl)
+                {
+                    troop.ClearMission();
+                }
+                else
+                {
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                }
+                troop.NeedPrepareMission();
                 return true;
             }
 

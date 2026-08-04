@@ -238,7 +238,14 @@ namespace Sango.Core
                 ActionOver = false;
             }
 
-           
+            if (IsIntorBuilding() && isComplate && !isUpgrading)
+            {
+                // 耐久自修复
+                if (durability < DurabilityLimit)
+                {
+                    ChangeDurability(BelongCity.Leader?.BaseBuildAbility + 50 ?? 50, null);
+                }
+            }
 
             GameEvent.OnBuildingTurnStart?.Invoke(this, scenario);
 

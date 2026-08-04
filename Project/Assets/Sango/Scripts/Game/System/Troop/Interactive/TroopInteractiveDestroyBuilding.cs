@@ -38,7 +38,6 @@
             base.OnEnter();
 
             GameMedia.Instance.PlayPersonSay(TargetTroop.Leader, GameRandom.Chance(50) ? 3188 : 3202);
-            TargetTroop.missionTarget = TargetBuilding.Id;
             TargetTroop.SetMission(MissionType.TroopDestroyBuilding, TargetBuilding.Id);
             TargetTroop.Render?.UpdateRender();
         }

@@ -6,7 +6,7 @@ namespace Sango.Core
     public class TroopMovetoBuild : TroopMissionBehaviour
     {
         Cell FinalCell { get; set; }
-        public override MissionType MissionType { get { return MissionType.TroopBuildBuilding; } }
+        public override MissionType MissionType { get { return MissionType.TroopMovetoBuild; } }
         public override bool IsMissionComplete
         {
             get

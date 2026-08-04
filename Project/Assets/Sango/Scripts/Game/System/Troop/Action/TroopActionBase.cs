@@ -40,8 +40,9 @@ namespace Sango.Core.Player
         {
             TargetTroop = troop;
             ActionCell = actionCell;
-            troop.ClearMission();
+            if (troop.IsPlayerControl)
+                troop.ClearMission();
             GameSystemManager.Instance.Push(this);
-        }     
+        }
     }
 }

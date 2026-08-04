@@ -129,34 +129,10 @@ namespace Sango.Core.Action
                                 SetRange(skill);
                             }
                         });
-
-                        troop.StrategySkills.ForEach(skill =>
-                        {
-                            if (!CheckIsNormalSkill(skill, isNormal))
-                                return;
-
-                            if (!CheckIsRangeSkill(skill, isRange))
-                                return;
-                            TroopSkillConditionDatabase troopActionConditionDatabase = new TroopSkillConditionDatabase(skill);
-                            if (condition.Check(troopActionConditionDatabase))
-                            {
-                                SetRange(skill);
-                            }
-                        });
                     }
                     else
                     {
                         troop.landSkills.ForEach(skill =>
-                        {
-                            if (!CheckIsNormalSkill(skill, isNormal))
-                                return;
-
-                            if (!CheckIsRangeSkill(skill, isRange))
-                                return;
-                            SetRange(skill);
-                        });
-
-                        troop.StrategySkills.ForEach(skill =>
                         {
                             if (!CheckIsNormalSkill(skill, isNormal))
                                 return;
@@ -171,7 +147,6 @@ namespace Sango.Core.Action
                 {
                     if (condition != null)
                     {
-
                         troop.waterSkills.ForEach(skill =>
                         {
                             if (!CheckIsNormalSkill(skill, isNormal))
@@ -199,25 +174,6 @@ namespace Sango.Core.Action
                             SetRange(skill);
                         });
                     }
-                }
-
-                if (condition != null)
-                {
-                    troop.StrategySkills.ForEach(skill =>
-                    {
-                        TroopSkillConditionDatabase troopActionConditionDatabase = new TroopSkillConditionDatabase(skill);
-                        if (condition.Check(troopActionConditionDatabase))
-                        {
-                            SetRange(skill);
-                        }
-                    });
-                }
-                else
-                {
-                    troop.StrategySkills.ForEach(skill =>
-                    {
-                        SetRange(skill);
-                    });
                 }
             }
         }

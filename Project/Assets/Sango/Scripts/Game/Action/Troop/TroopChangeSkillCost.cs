@@ -120,28 +120,7 @@ namespace Sango.Core.Action
                         });
                     }
                 }
-
-                if (condition != null)
-                {
-                    troop.StrategySkills.ForEach(skill =>
-                    {
-                        TroopSkillConditionDatabase troopActionConditionDatabase = new TroopSkillConditionDatabase(skill);
-                        if (condition.Check(troopActionConditionDatabase))
-                        {
-                            skill.costEnergy += value;
-                        }
-                    });
-                }
-                else
-                {
-                    troop.StrategySkills.ForEach(skill =>
-                    {
-                        skill.costEnergy += value;
-                    });
-                }
             }
-
-
         }
     }
 }

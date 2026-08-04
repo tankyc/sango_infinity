@@ -36,6 +36,7 @@ namespace Sango.Tools
             MapObject.bounds = new Sango.Tools.Rect(0, 0, 32, 32);
             MapObject.onModelLoadedCallback = OnModelLoaded;
             MapObject.onModelVisibleChange = OnModelVisibleChange;
+            MapObject.canSave = false;
             MapRender.Instance.AddDynamic(MapObject);
         }
 
