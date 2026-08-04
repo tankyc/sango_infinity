@@ -101,7 +101,7 @@ namespace Sango.Manager
         {
             // 创建音效管理器GameObject
             GameObject audioManagerObj = new GameObject("AudioManager");
-            GameObject.DontDestroyOnLoad(audioManagerObj);  
+            GameObject.DontDestroyOnLoad(audioManagerObj);
 
             // 创建背景音乐AudioSource
             _bgmSource = audioManagerObj.AddComponent<AudioSource>();
@@ -341,6 +341,22 @@ namespace Sango.Manager
             }
         }
 
+        public void StopLoopSfx()
+        {
+            if (SfxVolume <= 0) return;
+
+            // 查找正在播放完成的声道
+            for (int i = 0; i < _sfxSources.Count; i++)
+            {
+                AudioSource source = _sfxSources[i];
+                if (source.isPlaying && source.loop == true)
+                {
+                    source.loop = false;
+                    source.Stop();
+                }
+            }
+        }
+
         public void StopSfx(string audioName)
         {
             if (SfxVolume <= 0) return;
@@ -442,7 +458,7 @@ namespace Sango.Manager
         /// <returns>声道索引，-1表示没有空闲声道</returns>
         private int GetFreeSfxChannel(string resName)
         {
-            if(!string.IsNullOrEmpty(resName))
+            if (!string.IsNullOrEmpty(resName))
             {
                 // 查找正在播放完成的声道
                 for (int i = 0; i < _sfxSources.Count; i++)
@@ -479,15 +495,25 @@ namespace Sango.Manager
         {
             if (clip != null)
             {
+                int rs = -1;
                 // 查找正在播放完成的声道
                 for (int i = 0; i < _sfxSources.Count; i++)
                 {
                     AudioSource source = _sfxSources[i];
-                    if (source.isPlaying && source.clip  == clip)
+                    if (source.isPlaying)
                     {
-                        return i;
+                        if (source.clip != clip && source.loop == true)
+                        {
+                            source.loop = false;
+                            source.Stop();
+                        }
+                        else if (source.clip == clip)
+                            i = rs;
                     }
                 }
+
+                if (rs >= 0)
+                    return rs;
             }
 
             // 检查是否有空闲声道
@@ -544,7 +570,7 @@ namespace Sango.Manager
                 case FadeState.FadingOut:
                     // 音量从原始值逐渐减小到0
                     _bgmSource.volume = Mathf.Lerp(_originalVolume, 0, normalizedTime);
-                    
+
                     if (normalizedTime >= 1)
                     {
                         // 淡出完成，切换音乐
@@ -565,7 +591,7 @@ namespace Sango.Manager
                 case FadeState.FadingIn:
                     // 音量从0逐渐增加到原始值
                     _bgmSource.volume = Mathf.Lerp(0, _originalVolume, normalizedTime);
-                    
+
                     if (normalizedTime >= 1)
                     {
                         // 淡入完成

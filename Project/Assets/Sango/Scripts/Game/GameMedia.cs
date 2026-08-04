@@ -146,6 +146,12 @@ namespace Sango.Core
             }
         }
 
+        public void StopLoopSfx()
+        {
+            AudioManager.Instance.StopLoopSfx();
+        }
+
+
         public void StopSfx(int id)
         {
             if (MediaData.TryGetValue(id, out var result))

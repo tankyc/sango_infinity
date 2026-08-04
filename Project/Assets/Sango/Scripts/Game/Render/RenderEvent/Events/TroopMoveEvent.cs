@@ -39,7 +39,7 @@ namespace Sango.Render
             {
                 troop.Render.SetSmokeShow(false);
             }
-           GameMedia.Instance.StopSfx(troop.TroopType.moveSound);
+           GameMedia.Instance.StopLoopSfx();
         }
 
         public override bool IsVisible()
