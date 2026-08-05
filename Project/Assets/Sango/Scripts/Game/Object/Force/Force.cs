@@ -69,46 +69,10 @@ namespace Sango.Core
         public virtual string ColorName => Governor?.ColorName;
 
         /// <summary>
-        /// 首都
+        /// 首都, 必须是君主所在城市,无论港关
         /// </summary>
-        public City CapitalCity { get; set; }
-        public void UpdateCapitalCity()
-        {
-            // 异族没有城池
-            if (Governor.BelongCity == null)
-                return;
-
-            if (!Governor.BelongCity.IsCity())
-            {
-                City belong = Governor.BelongCity.BelongCity;
-                if (belong.BelongForce == this)
-                    CapitalCity = belong;
-                else
-                {
-                    // 找最近的一个城市
-                    int dis = 99999;
-                    City target = null;
-                    Governor.BelongCorps.ForEachCity(city =>
-                    {
-                        if (city.IsCity())
-                        {
-                            int newDis = city.Distance(belong);
-                            if (newDis < dis)
-                            {
-                                target = city;
-                                dis = newDis;
-                            }
-                        }
-                    });
-                    CapitalCity = target;
-                }
-            }
-            else
-            {
-                CapitalCity = Governor.BelongCity;
-            }
-        }
-
+        public City CapitalCity => Governor.BelongCity;
+        
         /// <summary>
         /// 第一军团
         /// </summary>

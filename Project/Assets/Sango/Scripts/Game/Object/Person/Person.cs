@@ -1269,8 +1269,6 @@ namespace Sango.Core
             ChangeBelongCity(dest);
             dest.AddPerson(this);
             SetMission(MissionType.PersonReturn, dest);
-            if (IsGovernor)
-                BelongForce.UpdateCapitalCity();
             ActionOver = true;
 #if SANGO_DEBUG
             Sango.Log.Info($"*{BelongForce?.Name}的{Name}从{BelongCity.Name}向{dest.Name}转移*");
@@ -1707,6 +1705,7 @@ namespace Sango.Core
             if (BelongCity != null)
             {
                 BelongCity.allPersons.Remove(this);
+                BelongCity.freePersons.Remove(this);
                 BelongCity.wildPersons.Remove(this);
             }
 

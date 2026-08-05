@@ -579,6 +579,8 @@ namespace Sango.Core
             {
                 if(Comander.BelongCity == target)
                 {
+                    Comander?.SetStateNormal(); 
+                    Comander = null;
                     AutoUpdateCommander();
                 }
             }

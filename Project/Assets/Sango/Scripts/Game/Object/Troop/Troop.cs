@@ -1878,6 +1878,7 @@ namespace Sango.Core
 
             if (LandTroopType.isFight && LandTroopType.Id != 1)
                 BelongCity.allAttackTroops.Remove(this);
+
             BelongCity.allTroops.Remove(this);
             city.Render.UpdateRender();
 
@@ -1887,21 +1888,10 @@ namespace Sango.Core
                 if (city.BelongCorps != BelongForce.Governor.BelongCorps)
                 {
                     Corps corps = city.BelongCorps;
-                    // 进入港关
-                    if (!city.IsCity())
-                    {
-                        city.ChangeCorps(BelongCorps);
-                        city.UpdateCorps();
-                        if (corps.Comander.BelongCity == city)
-                            corps.AutoUpdateCommander();
-                    }
-                    else
-                    {
-                        city.ChangeCorps(BelongCorps);
-                        city.UpdateCorps();
-                        city.Render?.UpdateRender();
-                        corps.RemoveCity(city);
-                    }
+                    city.ChangeCorps(BelongCorps);
+                    city.UpdateCorps();
+                    corps.RemoveCity(city);
+                    city.Render?.UpdateRender();
                 }
             }
 

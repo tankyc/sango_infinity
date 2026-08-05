@@ -90,6 +90,7 @@ namespace Sango.UI
             targetCityList.Clear();
             validCityList.Clear();
             targetPersonList.Clear();
+            validPersonList.Clear();
             targetForce.ForEachCity(x =>
             {
                 if (x.BelongCorps.number == 1 && x != targetForce.CapitalCity)

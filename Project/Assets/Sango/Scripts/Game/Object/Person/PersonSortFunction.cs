@@ -197,7 +197,7 @@ namespace Sango.Core
         public static SortTitle SortByName = new SortTitle()
         {
             name = "武将",
-            width = 3.20f,
+            width = 4.20f,
             valueGetCall = x => x.Name,
             personSortFunc = (a, b) => a.Name.CompareTo(b.Name),
             valueObjGet = x => x.Name,

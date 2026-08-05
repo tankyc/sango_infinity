@@ -1455,46 +1455,22 @@ namespace Sango.Core
         /// <returns>最近的己方城市</returns>
         public City GetNearnestForceCity()
         {
-            City checkCity = BelongCity;
-            if (checkCity != null)
-            {
-                if (checkCity.BelongForce == BelongForce)
-                    return checkCity;
-
-                for (int i = 0; i < checkCity.NeighborList.Count; i++)
-                {
-                    City city = checkCity.NeighborList[i];
-                    if (city.BelongForce == BelongForce)
-                        return city;
-                }
-            }
-            else
-            {
-                for (int i = 0; i < NeighborList.Count; i++)
-                {
-                    City city = NeighborList[i];
-                    if (city.IsSameForce(this))
-                        return city;
-                }
-            }
-
             City nearnest = null;
             int distance = 100000;
-            if (BelongForce != null)
+            BelongForce.ForEachCity(city =>
             {
-                BelongForce.ForEachCity(city =>
+                if (city != this)
                 {
-                    if (city != this)
+                    // 拓扑网距离最近的城市,非港关,找不到则属于最后一城了
+                    int dis = city.Distance(this);
+                    if (dis < distance)
                     {
-                        int dis = Scenario.Cur.Map.Distance(city.CenterCell, this.CenterCell);
-                        if (dis < distance)
-                        {
-                            distance = dis;
-                            nearnest = city;
-                        }
+                        distance = dis;
+                        nearnest = city;
                     }
-                });
-            }
+                }
+            });
+
             return nearnest;
         }
 
@@ -1619,13 +1595,10 @@ namespace Sango.Core
 
             // 确认一个撤退城市
             City escapeCity = null;
-            if (BelongForce.CityCount != 0 || !IsCity())
-            {
-                if (this == BelongForce.CapitalCity)
-                    escapeCity = GetNearnestForceCity();
-                else
-                    escapeCity = BelongForce.CapitalCity;
-            }
+            if (this == BelongForce.CapitalCity)
+                escapeCity = GetNearnestForceCity();
+            else
+                escapeCity = BelongForce.CapitalCity;
 
 #if SANGO_DEBUG
             if (IsPort() || IsGate())

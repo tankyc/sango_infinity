@@ -393,6 +393,7 @@ namespace Sango.Core
             if (!isComplate)
             {
                 Sango.Log.Error("不允许转换一个未建好的建筑!!");
+                OnFall(null);
                 return;
             }
 
