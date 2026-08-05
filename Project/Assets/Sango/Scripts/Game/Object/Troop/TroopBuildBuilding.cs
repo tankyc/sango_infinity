@@ -11,13 +11,21 @@ namespace Sango.Core
         {
             get
             {
-                return (
-                    TargetCell == null
-                    || (TargetCell.building != null && TargetCell.building.IsSameForce(Troop) && TargetCell.building.isComplate) 
-                    || (TargetCell.building != null && !TargetCell.building.IsSameForce(Troop))
-                    || !TargetBuildingType.CanBuildToHere(TargetCell)
-                    || Troop.gold < TargetBuildingType.cost
-                    );
+                if (TargetCell == null
+                    || (TargetCell.building != null && TargetCell.building.IsSameForce(Troop) && TargetCell.building.isComplate)
+                    || (TargetCell.building != null && !TargetCell.building.IsSameForce(Troop)))
+                    return true;
+
+                if(TargetCell.building == null)
+                {
+                    if(!TargetBuildingType.CanBuildToHere(TargetCell))
+                        return true;
+
+                    if(Troop.gold < TargetBuildingType.cost)
+                        return true;
+                }
+
+                return false;
             }
         }
 
@@ -40,6 +48,7 @@ namespace Sango.Core
                     Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
                 }
                 Troop.NeedPrepareMission();
+                return;
             }
 
 

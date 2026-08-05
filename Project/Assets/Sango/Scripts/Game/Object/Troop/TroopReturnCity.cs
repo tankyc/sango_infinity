@@ -39,6 +39,7 @@ namespace Sango.Core
                     }
                 }
                 troop.NeedPrepareMission();
+                return;
             }
             else
             {

@@ -406,12 +406,12 @@ namespace Sango.Core.Player
             {
                 if(fromCity == toCity)
                 {
-                    string message = $"{person.ColorName}已经回到{toCity.ColorName}！";
+                    string message = $"{person?.ColorName}已经回到{toCity?.ColorName}！";
                     _AddTextMessage(message, person.BelongForce, toCity.x, toCity.y);
                 }
                 else
                 {
-                    string message = $"{person.ColorName}已成功从{fromCity.ColorName}转移到{toCity.ColorName}！";
+                    string message = $"{person.ColorName}已成功从{fromCity?.ColorName}转移到{toCity?.ColorName}！";
                     _AddTextMessage(message, person.BelongForce, toCity.x, toCity.y);
                 }
             }

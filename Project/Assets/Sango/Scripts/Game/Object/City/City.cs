@@ -1254,6 +1254,19 @@ namespace Sango.Core
             if (Leader == null || Leader.BelongCity != this)
                 UpdateNewLeader();
 
+            // 修复一下多余的太守
+            for (int i = 0; i < allPersons.Count; i++)
+            {
+                Person checker = allPersons[i];
+                if (checker != null && checker.IsAlive)
+                {
+                    if (checker.IsLeader && checker != Leader)
+                    {
+                        checker.SetStateNormal();
+                    }
+                }
+            }
+
             return base.OnForceTurnEnd(scenario);
         }
 

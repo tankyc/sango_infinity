@@ -508,7 +508,7 @@ namespace Sango.Manager
                             source.Stop();
                         }
                         else if (source.clip == clip)
-                            i = rs;
+                            rs = i;
                     }
                 }
 

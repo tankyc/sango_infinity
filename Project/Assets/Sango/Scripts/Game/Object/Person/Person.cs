@@ -124,7 +124,7 @@ namespace Sango.Core
         [JsonProperty] public string image_old;
 
         /// <summary>
-        /// 性别
+        /// 性别 0男,1女
         /// </summary>
         [JsonProperty] public int sex;
 
@@ -180,7 +180,7 @@ namespace Sango.Core
             set
             {
                 _state = value;
-                Sango.Log.Info($"{Name}改变状态=> {PersonSortFunction.SortByState.GetValueStr(this)}");
+                //Sango.Log.Info($"{Name}改变状态=> {PersonSortFunction.SortByState.GetValueStr(this)}");
             }
         }
         private int _state;
@@ -1131,7 +1131,7 @@ namespace Sango.Core
                 if (scenario.Variables.allowInvalidPersonValidWhenYearPass)
                 {
                     //出场年
-                    if (appearance > 0 && appearance <= scenario.Info.year && GameRandom.Chance(30))
+                    if (appearance > 0 && appearance <= scenario.Info.year && GameRandom.Chance(10))
                     {
                         state = (int)PersonStateType.Invisible;
 
@@ -1219,7 +1219,7 @@ namespace Sango.Core
             {
                 wildTurnCount++;
                 stayTurnCount++;
-                if (stayTurnCount > 5 && GameRandom.Chance(10)) // 10%概率
+                if (stayTurnCount > 5 && GameRandom.Chance(5)) // 10%概率
                 {
                     // 随机选择一个邻接城市
                     SangoObjectList<City> neighborCities = BelongCity.NeighborList;

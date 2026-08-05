@@ -8,6 +8,7 @@ using Sango.Core; namespace Sango.UI
         public static bool showIndo = false;
         public Image state;
         public Image food;
+        public Image bg;
         public Text number;
         public Text info;
         public UnityEngine.GameObject corpsNode;
@@ -26,6 +27,13 @@ using Sango.Core; namespace Sango.UI
             if (city.IsBorderCity)
                 cityInfo = $"*{cityInfo}";
             info.text = cityInfo;
+
+            bg.enabled = building.BelongForce != null;
+
+            if (building.BelongForce != null)
+            {
+                bg.color = building.BelongForce.Color;
+            }
 
             Corps corps = building.BelongCorps;
             if (corps != null && corps.IsPlayer && corps.Index > 1)

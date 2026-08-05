@@ -39,6 +39,8 @@ namespace Sango.Core
                     Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
                 }
                 Troop.NeedPrepareMission();
+                return;
+
             }
 
 

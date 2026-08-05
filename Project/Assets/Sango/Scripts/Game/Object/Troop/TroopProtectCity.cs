@@ -29,13 +29,13 @@ namespace Sango.Core
                 {
                     // 如果城池失守,不返回,直接死战,避免过长的寻路导致性能问题
                     Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
-                    Troop.NeedPrepareMission();
                 }
                 else
                 {
                     Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
-                    Troop.NeedPrepareMission();
                 }
+                Troop.NeedPrepareMission();
+                return;
             }
             else
             {

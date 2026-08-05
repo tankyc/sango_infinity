@@ -245,8 +245,7 @@ namespace Sango.Core
         /// </summary>
         public static EventDelegate<Scenario> OnTurnEnd;
 
-
-
+        public static EventDelegate<Force, Scenario> OnPlayerEndTurn;
 
         #region Force
         /// <summary>

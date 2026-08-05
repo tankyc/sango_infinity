@@ -131,6 +131,7 @@ namespace Sango.Core.Player
                     targetCorps.number = exsist.number;
                     //targetCorps.policy = exsist.policy;
                     targetCorps.appoint = exsist.appoint;
+                    targetCorps.appoint_target = exsist.appoint_target;
                     targetCorps.Comander = exsist.Comander;
                     targetCorps.ActionPoint = exsist.ActionPoint;
                     for (int i = 0; i < exsist.appointSetting.Length; i++)

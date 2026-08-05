@@ -53,6 +53,7 @@ namespace Sango.Core.Player
             {
                 GameDialog.Close();
                 updateTroopAI = true;
+                GameEvent.OnPlayerEndTurn?.Invoke(force, scenario);
 
             }).cancelAction = () =>
             {

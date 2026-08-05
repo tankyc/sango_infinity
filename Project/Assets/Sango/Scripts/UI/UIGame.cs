@@ -157,6 +157,7 @@ namespace Sango.UI
             GameEvent.OnForceGainTechniquePoint += OnForceGainTechniquePoint;
             GameEvent.OnCorpsActionPointChange += OnCorpsActionPointChange;
             GameEvent.OnScenarioStart += OnScenarioStart;
+            GameEvent.OnPlayerEndTurn += OnPlayerEndTurn;
             GameSystem.GetSystem<PlayerMessage>().onVisibleChange += OnMessagePlaneVisible;
 
 
@@ -214,6 +215,9 @@ namespace Sango.UI
             GameEvent.OnForceGainTechniquePoint -= OnForceGainTechniquePoint;
             GameEvent.OnCorpsActionPointChange -= OnCorpsActionPointChange;
             GameEvent.OnScenarioStart -= OnScenarioStart;
+            GameEvent.OnPlayerEndTurn -= OnPlayerEndTurn;
+
+
             PlayerMessage playerMessage = GameSystem.GetSystem<PlayerMessage>();
             if (playerMessage != null) playerMessage.onVisibleChange -= OnMessagePlaneVisible;
 
@@ -235,6 +239,12 @@ namespace Sango.UI
                 needUpdateItem = true;
             }
 
+        }
+
+        public void OnPlayerEndTurn(Force force, Scenario scenario)
+        {
+            endTurnButton.interactable = false;
+            uIPlayerInfoPanel.gameObject.SetActive(false);
         }
 
         public void OnForceStart(Force force, Scenario scenario)

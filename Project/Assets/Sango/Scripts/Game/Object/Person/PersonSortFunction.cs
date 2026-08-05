@@ -724,7 +724,7 @@ namespace Sango.Core
         public static SortTitle SortByBelongCity = new SortTitle()
         {
             name = "所属",
-            width = 2.40f,
+            width = 3.40f,
             valueGetCall = x => x.BelongCity?.Name ?? "",
             personSortFunc = (a, b) => SangoObject.Compare(a.BelongCity, b.BelongCity),
             valueObjGet = x => x.BelongCity,
@@ -1052,7 +1052,7 @@ namespace Sango.Core
         public static SortTitle SortByWork = new SortTitle()
         {
             name = "工作",
-            width = 2.00f,
+            width = 4.50f,
             valueGetCall = x => x.workingBuilding?.Name ?? "-",
             personSortFunc = (a, b) => Building.Compare(a.workingBuilding, b.workingBuilding),
             valueObjGet = x => x.workingBuilding,

@@ -69,7 +69,7 @@ namespace Sango.UI
             SetPerson(data.person);
             content.text = data.text;
             GameMedia.Instance.PlaySfx(data.sound);
-            GameMedia.Instance.PlayBgm(data.bgm);
+            //GameMedia.Instance.PlayBgm(data.bgm);
         }
 
         public void SetPerson(Person person)

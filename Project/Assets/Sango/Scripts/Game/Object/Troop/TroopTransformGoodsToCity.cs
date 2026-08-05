@@ -7,7 +7,7 @@ namespace Sango.Core
         internal static List<Cell> tempCellList = new List<Cell>(256);
 
         public override MissionType MissionType { get { return MissionType.TroopTransformGoodsToCity; } }
-        public override bool IsMissionComplete { get { return !TargetCity.IsSameForce(Troop); } }
+        public override bool IsMissionComplete { get { return TargetCity == null || !TargetCity.IsSameForce(Troop); } }
         public override void Prepare(Troop troop, Scenario scenario)
         {
             if (Troop != troop) Troop = troop;
@@ -16,8 +16,18 @@ namespace Sango.Core
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
             if (IsMissionComplete)
             {
+                if (troop.IsPlayerControl)
+                {
+                    troop.ClearMission();
+                }
+                else
+                {
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                }
+
                 Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 Troop.NeedPrepareMission();
+                return;
             }
 
             tempCellList.Clear();

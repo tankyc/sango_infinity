@@ -30,6 +30,7 @@ namespace Sango.Core
             ChoosePersonSay,
             Window,
             ClickPersonSay,
+            ClickSay
         }
         public struct TalkData
         {
@@ -85,6 +86,8 @@ namespace Sango.Core
                     windowName = "window_dialog3"; break;
                 case DialogStyle.ClickPersonSay:
                     windowName = "window_dialog4"; break;
+                case DialogStyle.ClickSay:
+                    windowName = "window_dialog5"; break;
             }
             return Open(windowName, content, sureAction, Input.mousePosition);
         }

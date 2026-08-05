@@ -1518,7 +1518,7 @@ namespace Sango.Core
         /// <summary>
         /// 军师招募兵装生产推荐
         /// </summary>
-        public static Person[] CounsellorRecommendCreateItems(List<Person> personList)
+        public static Person[] CounsellorRecommendCreateItems(List<Person> personList, int[] commandFeatures = null)
         {
             return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
             {

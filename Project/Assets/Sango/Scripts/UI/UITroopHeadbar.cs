@@ -11,6 +11,7 @@ using Sango.Core; namespace Sango.UI
         public Image food;
         public Image energy;
         public Image angry;
+        public Image bg;
         public Text number;
         public AnimationText skillText;
         public UIAnimationText aniText;
@@ -22,6 +23,7 @@ using Sango.Core; namespace Sango.UI
             this.troop = troop;
             name.text = troop.Name;
             headIcon.texture = GameRenderHelper.LoadHeadIcon(troop.Leader.headIconID);
+            bg.color = troop.BelongForce.Color;
             skillText.Clear();
             UpdateState(troop);
             GameEvent.OnForceTurnStart += OnForceStart;
