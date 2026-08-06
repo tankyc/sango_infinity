@@ -35,6 +35,8 @@ namespace Sango.Core.Player
             troopRender = new TroopRender(TargetTroop, false);
             troopRender.SetPosition(TargetCell.Position);
             troopRender.SetForward(TargetTroop.Render.GetForward());
+            troopRender.UpdateModelByCell(TargetCell);
+
             MovePath = GameSystem.GetSystem<TroopSystem>().movePath;
             List<SkillInstance> list;
             if (TargetCell.TerrainType.isWater)

@@ -464,6 +464,8 @@ namespace Sango.Core
         /// </summary>
         public int InteriorCellCount => interiorCellList.Count;
 
+        bool needUpdateLeader = false;
+
         /// <summary>
         /// 攻击部队数量
         /// </summary>
@@ -668,6 +670,7 @@ namespace Sango.Core
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> captiveList 添加 {person.Name} ");
 #endif
+            person.OnWillBeCaptive();
             person.ClearMission();
             person.state = (int)PersonStateType.Prisoner;
             captiveList.Add(person);
@@ -808,7 +811,7 @@ namespace Sango.Core
             foreach (Cell cell in OccupyCellList)
                 cell.building = this;
 
-            if(OccupyCellList.Count == 0)
+            if (OccupyCellList.Count == 0)
             {
                 Sango.Log.Error(Name);
             }
@@ -1251,21 +1254,9 @@ namespace Sango.Core
 
             GameEvent.OnCityTurnEnd?.Invoke(this, scenario);
 
-            if (Leader == null || Leader.BelongCity != this)
+            // 太守不在此城,需要更新太守
+            if (Leader == null || Leader.BelongCity != this || needUpdateLeader)
                 UpdateNewLeader();
-
-            // 修复一下多余的太守
-            for (int i = 0; i < allPersons.Count; i++)
-            {
-                Person checker = allPersons[i];
-                if (checker != null && checker.IsAlive)
-                {
-                    if (checker.IsLeader && checker != Leader)
-                    {
-                        checker.SetStateNormal();
-                    }
-                }
-            }
 
             return base.OnForceTurnEnd(scenario);
         }
@@ -1653,13 +1644,13 @@ namespace Sango.Core
             // 处理缓存队伍信息
             allAttackTroops.Clear();
             allTroops.Clear();
-
             for (int i = allPersons.Count - 1; i >= 0; --i)
             {
                 Person person = allPersons[i];
                 person.ClearMission();
                 if (escapeCity != null)
                 {
+                    person.OnWillChangeToCity(escapeCity);
                     RemovePerson(person);
                     person.ChangeBelongCity(escapeCity);
                     escapeCity.AddPerson(person);
@@ -3820,11 +3811,17 @@ namespace Sango.Core
             Leader = dest;
         }
 
+        public void NeedUpdateLeader()
+        {
+            needUpdateLeader = true;
+        }
+
         /// <summary>
         /// 更新太守
         /// </summary>
         public void UpdateNewLeader()
         {
+            needUpdateLeader = false;
             Person dest = null;
             Official higher = null;
             int commandHigher = 0;

@@ -294,7 +294,6 @@ namespace Sango.Core
             });
             InitTechniquesTree(scenario);
             UpdateTurnInfo(scenario);
-            UpdateCapitalCity();
         }
 
         public override void Clear()

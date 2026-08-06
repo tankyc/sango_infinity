@@ -439,7 +439,7 @@ namespace Sango.Core
             return itemStore.GetNumber(itemTypeId) > 0;
         }
 
-        public bool IsLeader => state == (int)PersonStateType.Leader || state == (int)PersonStateType.Governor;
+        public bool IsLeader => state == (int)PersonStateType.Leader;
         public bool IsCommander => state == (int)PersonStateType.Commander;
         public bool IsGovernor => state == (int)PersonStateType.Governor;
 
@@ -1253,7 +1253,24 @@ namespace Sango.Core
             return base.OnTurnEnd(scenario);
         }
 
-        public void TransformToCity(City dest)
+        public void OnWillBeCaptive()
+        {
+            if (IsGovernor)
+            {
+               
+            }
+            else if (IsCommander)
+            {
+                BelongCorps.NeedUpdateCommander();
+                BelongCity.NeedUpdateLeader();
+            }
+            else if (IsLeader)
+            {
+                BelongCity.NeedUpdateLeader();
+            }
+        }
+
+        public void OnWillChangeToCity(City dest)
         {
             // 如果转移主公到其他军团城市,需要解散目标军团
             if (IsGovernor && dest.BelongCorps != BelongCorps)
@@ -1263,12 +1280,39 @@ namespace Sango.Core
                 dest.UpdateCorps();
                 dest.Render?.UpdateRender();
                 corps.RemoveCity(dest);
+                BelongCity.NeedUpdateLeader();
+                dest.NeedUpdateLeader();
             }
+            else if (IsCommander)
+            {
+                if (dest.BelongCorps != BelongCorps)
+                {
+                    SetStateNormal();
+                    BelongCorps.NeedUpdateCommander();
+                }
+                else
+                {
+                    dest.NeedUpdateLeader();
+                }
+                BelongCity.NeedUpdateLeader();
+            }
+            else if (IsLeader)
+            {
+                SetStateNormal();
+                BelongCity.NeedUpdateLeader();
+            }
+        }
 
+        public void TransformToCity(City dest)
+        {
+            OnWillChangeToCity(dest);
+
+            City lastCity = BelongCity;
             BelongCity.RemovePerson(this);
             ChangeBelongCity(dest);
             dest.AddPerson(this);
             SetMission(MissionType.PersonReturn, dest);
+
             ActionOver = true;
 #if SANGO_DEBUG
             Sango.Log.Info($"*{BelongForce?.Name}的{Name}从{BelongCity.Name}向{dest.Name}转移*");

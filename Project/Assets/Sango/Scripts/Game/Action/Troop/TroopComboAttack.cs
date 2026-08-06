@@ -60,14 +60,14 @@ namespace Sango.Core.Action
                     {
                         TroopSpellSkillCriticalEvent @event = RenderEvent.Instance.Create<TroopSpellSkillCriticalEvent>();
                         @event.Init(skillInstance, trigger.TargetCell, skillInstance.tempCriticalFactor);
-                        skillInstance.master.actionRenderEvent = @event;
+                        skillInstance.master.skillRenderEvent = @event;
                         RenderEvent.Instance.Add(@event);
                     }
                     else
                     {
                         TroopSpellSkillEvent @event = RenderEvent.Instance.Create<TroopSpellSkillEvent>();
                         @event.Init(skillInstance, trigger.TargetCell);
-                        skillInstance.master.actionRenderEvent = @event;
+                        skillInstance.master.skillRenderEvent = @event;
                         RenderEvent.Instance.Add(@event);
                     }
                 }

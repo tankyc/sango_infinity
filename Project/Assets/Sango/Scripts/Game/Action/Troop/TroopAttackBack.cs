@@ -38,7 +38,7 @@ namespace Sango.Core.Action
                 skillInstance.isAdd = true;
                 TroopSpellSkillEvent @event = RenderEvent.Instance.Create<TroopSpellSkillEvent>();
                 @event.Init(skillInstance, trigger.ActionTroop.cell);
-                skillInstance.master.actionRenderEvent = @event;
+                skillInstance.master.skillRenderEvent = @event;
                 RenderEvent.Instance.Add(@event);
             }
         }

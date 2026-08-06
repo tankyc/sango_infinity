@@ -240,10 +240,13 @@ namespace Sango.Core
 
             if (IsIntorBuilding() && isComplate && !isUpgrading)
             {
-                // 耐久自修复
-                if (durability < DurabilityLimit)
+                if(BelongCity != null && !BelongCity.IsEnemiesRound(6))
                 {
-                    ChangeDurability(BelongCity.Leader?.BaseBuildAbility + 50 ?? 50, null);
+                    // 耐久自修复
+                    if (durability < DurabilityLimit)
+                    {
+                        ChangeDurability(BelongCity.Leader?.BaseBuildAbility ?? 50, null);
+                    }
                 }
             }
 

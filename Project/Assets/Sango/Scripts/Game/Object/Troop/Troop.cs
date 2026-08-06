@@ -698,8 +698,6 @@ namespace Sango.Core
                     Skill skill = Scenario.Cur.GetObject<Skill>(WaterTroopType.skills[i]);
                     if (skill != null && skill.CanAddToTroop(this, true))
                     {
-
-
                         SkillInstance ins = null;
                         if (skills != null)
                             ins = skills.Find(x => x.skill == skill);
@@ -1200,6 +1198,7 @@ namespace Sango.Core
         internal bool isMoving = false;
         internal IRenderEventBase moveRenderEvent = null;
         internal IRenderEventBase actionRenderEvent = null;
+        internal IRenderEventBase skillRenderEvent = null;
 
         public bool MoveTo(Cell destCell)
         {
@@ -1473,11 +1472,11 @@ namespace Sango.Core
         public bool SpellSkill(SkillInstance skill, Cell spellCell)
         {
 
-            if (actionRenderEvent != null)
+            if (skillRenderEvent != null)
             {
-                if (actionRenderEvent.IsDone)
+                if (skillRenderEvent.IsDone)
                 {
-                    actionRenderEvent = null;
+                    skillRenderEvent = null;
                     return true;
                 }
                 else
@@ -1495,14 +1494,14 @@ namespace Sango.Core
 #endif
                     TroopSpellSkillCriticalEvent @event = RenderEvent.Instance.Create<TroopSpellSkillCriticalEvent>();
                     @event.Init(skill, spellCell, criticalFactor);
-                    actionRenderEvent = @event;
+                    skillRenderEvent = @event;
                     RenderEvent.Instance.Add(@event);
                 }
                 else
                 {
                     TroopSpellSkillEvent @event = RenderEvent.Instance.Create<TroopSpellSkillEvent>();
                     @event.Init(skill, spellCell);
-                    actionRenderEvent = @event;
+                    skillRenderEvent = @event;
                     RenderEvent.Instance.Add(@event);
                 }
             }
@@ -1513,10 +1512,50 @@ namespace Sango.Core
 #endif
                 TroopSpellSkillFailEvent @event = RenderEvent.Instance.Create<TroopSpellSkillFailEvent>();
                 @event.Init(this, skill, spellCell);
-                actionRenderEvent = @event;
+                skillRenderEvent = @event;
                 RenderEvent.Instance.Add(@event);
             }
             return false;
+        }
+
+        public void SupplyTroop(Troop target)
+        {
+
+        }
+
+        public void SupplyTroop(Troop target, ItemStore itemStore, int gold, int food, int troops)
+        {
+            // 中和士气
+            int m = (morale * troops + target.morale * troops) / (target.troops + troops);
+
+            this.troops -= troops;
+            this.gold -= gold;
+            this.food -= food;
+            this.itemStore.Remove(itemStore);
+            target.itemStore.Add(itemStore);
+            target.troops += troops;
+            target.gold += gold;
+            target.food += food;
+
+            int dis = m - target.morale;
+            target.morale = m;
+
+            if (troops > 0)
+                Render?.ShowInfo(-troops, (int)InfoType.Troop);
+            if (gold > 0)
+                Render?.ShowInfo(-gold, (int)InfoType.Gold);
+            if (food > 0)
+                Render?.ShowInfo(-food, (int)InfoType.Food);
+
+            if (troops > 0)
+                target.Render?.ShowInfo(troops, (int)InfoType.Troop);
+            if (gold > 0)
+                target.Render?.ShowInfo(gold, (int)InfoType.Gold);
+            if (food > 0)
+                target.Render?.ShowInfo(food, (int)InfoType.Food);
+            if (dis != 0)
+                target.Render?.ShowInfo(dis, (int)InfoType.Morale);
+
         }
 
         public bool BuildBuilding(Cell dest, BuildingType buildingType)
@@ -1848,6 +1887,7 @@ namespace Sango.Core
 
         public void EnterCity(City city)
         {
+            City lastBelongCity = BelongCity;
             city.AddGold(gold);
             city.AddFood(food);
             city.AddTroops(troops);
@@ -1866,13 +1906,8 @@ namespace Sango.Core
             city.itemStore.Add(itemStore);
             // 中和士气
             city.morale = (city.morale * city.troops + morale * troops) / (city.troops + troops);
-            bool hasGovernor = false;
             ForEachPerson((person) =>
             {
-                if (person.IsGovernor)
-                {
-                    hasGovernor = true;
-                }
                 person.ActionOver = true;
             });
 
@@ -1881,19 +1916,6 @@ namespace Sango.Core
 
             BelongCity.allTroops.Remove(this);
             city.Render.UpdateRender();
-
-            // 如果主公进城,要解散目标城市的军团
-            if (hasGovernor)
-            {
-                if (city.BelongCorps != BelongForce.Governor.BelongCorps)
-                {
-                    Corps corps = city.BelongCorps;
-                    city.ChangeCorps(BelongCorps);
-                    city.UpdateCorps();
-                    corps.RemoveCity(city);
-                    city.Render?.UpdateRender();
-                }
-            }
 
             if (city == BelongCity)
             {
@@ -1938,6 +1960,7 @@ namespace Sango.Core
                            {
                                foreach(Person person in pList)
                                {
+                                   person.OnWillChangeToCity(city);
                                    person.ChangeCity(city);
                                    person.ChangeCurrentCity(city);
                                }
@@ -1968,14 +1991,10 @@ namespace Sango.Core
             {
                 ForEachPerson((person) =>
                 {
+                    person.OnWillChangeToCity(city);
                     person.ChangeCity(city);
                     person.ChangeCurrentCity(city);
                 });
-            }
-
-            if (hasGovernor)
-            {
-                BelongForce.UpdateCapitalCity();
             }
 
             Clear();
@@ -2241,6 +2260,7 @@ namespace Sango.Core
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> captiveList 添加 {person.Name} ");
 #endif
+            person.OnWillBeCaptive();
             person.ClearMission();
             person.state = (int)PersonStateType.Prisoner;
             captiveList.Add(person);

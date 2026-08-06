@@ -203,8 +203,15 @@ namespace Sango.UI
         /// </summary>
         public void OnOrganizeCityButtonClick()
         {
+            // 如果首都不是城池,则需要留下一个城市不能编入
+            int count = validCityList.Count;
+            if (!targetForce.CapitalCity.IsCity())
+            {
+                count--;
+            }
+
             GameSystem.GetSystem<CitySelectSystem>().Start(validCityList,
-             targetCityList, validCityList.Count, OnCityChange, CitySortFunction.DefaultSortList, "军团城池选择");
+             targetCityList, count, OnCityChange, CitySortFunction.DefaultSortList, "军团城池选择");
         }
 
         /// <summary>

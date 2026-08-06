@@ -99,8 +99,8 @@ using Sango.Core; namespace Sango.UI
             /// <returns>消息项游戏对象</returns>
             public GameObject GetObject(int index)
             {
-                if (index < 0 || index >= uIPlayerMessage.playerMessage.textMessages.Count)
-                    return null;
+                //if (index < 0 || index >= uIPlayerMessage.playerMessage.textMessages.Count)
+                //    return null;
 
                 UITextMessageItem uITextMessageItem = pool.Create();
                 uITextMessageItem.onClickItem = uIPlayerMessage.OnClickTextMessage;

@@ -19,17 +19,28 @@ namespace Sango.UI
             cityName.text = (ps[0] as string);
             animation.Play();
             GameMedia.Instance.PlaySfx(44);
-            Invoke("EnableClose", animation.clip.length + 1);
+            Invoke("EnableClose", animation.clip.length + 2);
         }
 
         void EnableClose()
         {
             canClose = true;
+            bool hasPlayer = false;
+            Scenario.Cur.forceSet.ForEach(f =>
+            {
+                if (f.IsPlayer)
+                    hasPlayer = true;
+            });
+
+            if(!hasPlayer)
+            {
+                Close();
+            }
         }
 
         public void ClickClose()
         {
-            if(canClose)
+            if (canClose)
             {
                 Close();
             }

@@ -270,6 +270,9 @@ namespace Sango.Core
             AddActionPoint(scenario);
             ActionOver = false;
             PrepareCityInfo();
+            if (needUpdateCommander)
+                UpdateCommander();
+
             return true;
         }
 
@@ -278,7 +281,7 @@ namespace Sango.Core
         public int gold;
         public int troops;
         public int food;
-
+        bool needUpdateCommander = false;
         public void UpdateWhenCityChange()
         {
             PrepareCityInfo();
@@ -571,23 +574,29 @@ namespace Sango.Core
 
         public void RemoveCity(City target)
         {
-            if(cityCount == 1)
+            if (cityCount == 1)
             {
                 BelongForce.DeleteCorps(this);
             }
             else
             {
-                if(Comander.BelongCity == target)
+                if (Comander.BelongCity == target)
                 {
-                    Comander?.SetStateNormal(); 
+                    Comander?.SetStateNormal();
                     Comander = null;
-                    AutoUpdateCommander();
+                    NeedUpdateCommander();
                 }
             }
         }
 
-        public void AutoUpdateCommander()
+        public void NeedUpdateCommander()
         {
+            needUpdateCommander = true;
+        }
+
+        public void UpdateCommander()
+        {
+            needUpdateCommander = false;
             Person dest = null;
             Official higher = null;
             int commandHigher = 0;
@@ -624,7 +633,7 @@ namespace Sango.Core
             });
 
             Comander = dest;
-            if(Comander != null)
+            if (Comander != null)
             {
                 Comander.SetStateCommander();
                 Comander.BelongCity.UpdateNewLeader();

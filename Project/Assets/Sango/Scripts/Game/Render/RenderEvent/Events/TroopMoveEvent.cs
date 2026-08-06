@@ -26,6 +26,7 @@ namespace Sango.Render
 
         public override void Enter(Scenario scenario)
         {
+            troop.skillRenderEvent = null;
             if (IsVisible())
             {
                 troop.Render.SetSmokeShow(true);
