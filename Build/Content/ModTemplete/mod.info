@@ -1,0 +1,8 @@
+id=唯一标识
+name=名字
+description=描述
+version=版本
+author=作者
+depends=依赖
+size=下载大小
+poster=poster.jpeg

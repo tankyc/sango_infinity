@@ -398,7 +398,7 @@ namespace Sango.UI
         {
             if(!url.StartsWith("http"))
                 return false;
-            else if(url.EndsWith("/mod_list.txt"))
+            else if(!url.EndsWith("/mod_list.txt"))
                 return false;
             return true;
         }
