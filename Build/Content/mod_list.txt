@@ -1,0 +1,7 @@
+{
+	"name" : "市场名字",
+	"url" : "市场URL开头",
+	"mods" : [
+		{"id":"mod唯一标识","version":"版本","size":83320,"name":"测试模组","auther":"xx","description":"测试模组,修改曹操颜色","poster":"poster.jpg"}
+		]
+}
