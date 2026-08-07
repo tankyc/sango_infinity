@@ -543,6 +543,9 @@ namespace Sango.Core
             AIFinished = false;
             AIPrepared = false;
             isMissionPrepared = false;
+            skillRenderEvent = null;
+            actionRenderEvent = null;
+            moveRenderEvent = null;
             if (food <= 0)
             {
                 // 伤兵直接抛弃

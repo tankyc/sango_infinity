@@ -211,6 +211,10 @@ namespace Sango.Core
             Color.blue * 0.8f,
             Color.gray,
             Color.magenta * 0.8f,
+            Color.black,
+            Color.green * 0.3f,
+            Color.red * 0.3f,
+            Color.cyan * 0.5f,
         };
 
         public Color Color => colors[number - 1];

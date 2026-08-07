@@ -456,6 +456,24 @@ namespace Sango.Core
             state = (int)PersonStateType.Commander;
         }
 
+        public override bool ActionOver
+        {
+            get => base.ActionOver;
+
+            set
+            {
+                if(value == true)
+                {
+                    if(base.ActionOver != value)
+                    {
+                        GameEvent.OnPersonActionOver?.Invoke(this);
+                    }
+                }
+
+                base.ActionOver = value;
+            }
+        }
+
         /// <summary>
         /// 枪兵适应
         /// </summary>
@@ -1257,7 +1275,7 @@ namespace Sango.Core
         {
             if (IsGovernor)
             {
-               
+
             }
             else if (IsCommander)
             {

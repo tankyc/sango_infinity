@@ -80,7 +80,7 @@ namespace Sango.Core
         /// <summary>
         /// 帧率限制
         /// </summary>
-        public int FrameRateLimit { get; set; } = 60;
+        public int FrameRateLimit { get; set; } = 30;
 
         /// <summary>
         /// 当前帧率在列表中的索引

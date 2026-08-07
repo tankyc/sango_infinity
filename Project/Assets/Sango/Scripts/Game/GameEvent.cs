@@ -509,6 +509,11 @@ namespace Sango.Core
         public static EventDelegate<Person> OnPersonEquipmentChanged;
 
         /// <summary>
+        /// 当武将行动完
+        /// </summary>
+        public static EventDelegate<Person> OnPersonActionOver;
+
+        /// <summary>
         /// 势力忠诚换季衰减概率
         /// </summary>
         public static EventDelegate<Force, OverrideData<int>> OnForcePersonLoyaltyChangeProbability;

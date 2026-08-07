@@ -1181,7 +1181,7 @@ namespace Sango.Core
             // 处理港关
             Scenario.Cur.citySet.ForEach(x =>
             {
-                if (x.IsAlive && !x.IsCity() && x.BelongForce == this && corps.inti_cities.Contains(x.BelongCity))
+                if (x.IsAlive && !x.IsCity() && x.BelongForce == this && x != corps.BelongForce.CapitalCity && corps.inti_cities.Contains(x.BelongCity))
                 {
                     x.BelongCorps = corps;
                     x.UpdateCorps();
@@ -1223,13 +1223,17 @@ namespace Sango.Core
         /// <param name="cities"></param>
         public void DeleteCorps(Corps corps)
         {
-            if (corps.BelongForce != this) return;
+            if (corps.BelongForce != this) 
+            {
+                Scenario.Cur.corpsSet.Remove(corps);
+                return;
+            }
 
             Corps governorCorps = CapitalCorps;
             Scenario scenario = Scenario.Cur;
             scenario.citySet.ForEach(x =>
             {
-                if (x.IsAlive && x.BelongCorps == corps)
+                if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
                     x.BelongCorps = governorCorps;
                 }
@@ -1237,7 +1241,7 @@ namespace Sango.Core
 
             scenario.personSet.ForEach(x =>
             {
-                if (x.IsAlive && x.BelongCorps == corps)
+                if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
                     x.BelongCorps = governorCorps;
                 }
@@ -1245,12 +1249,12 @@ namespace Sango.Core
 
             scenario.buildingSet.ForEach(x =>
             {
-                if (x.IsAlive && x.BelongCorps == corps)
+                if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
                     x.BelongCorps = governorCorps;
                 }
             });
-            if (corps.Comander.state == (int)PersonStateType.Commander)
+            if (corps.Comander != null && corps.Comander.state == (int)PersonStateType.Commander)
                 corps.Comander.state = (int)PersonStateType.Normal;
             Scenario.Cur.corpsSet.Remove(corps);
             GameEvent.OnCorpsDelete?.Invoke(corps, Scenario.Cur);

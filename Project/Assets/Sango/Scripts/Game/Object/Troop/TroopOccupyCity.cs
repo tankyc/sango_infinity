@@ -41,20 +41,20 @@ namespace Sango.Core
             else
             {
                 // 检查目标城市周围的敌人
-                List<Cell> enemyCells = new List<Cell>();
-                TroopAIUtility.RangeEnemyCell(troop, 4, enemyCells, scenario);
+                //List<Cell> enemyCells = new List<Cell>();
+                //TroopAIUtility.RangeEnemyCell(troop, 4, enemyCells, scenario);
                 
-                // 根据情况选择不同的策略
-                if (enemyCells.Count > 0)
-                {
+                //// 根据情况选择不同的策略
+                //if (enemyCells.Count > 0)
+                //{
                     // 有敌人，优先攻击威胁大的敌人
                     priorityActionData = TroopAIUtility.PriorityAction(Troop, TargetCity.CenterCell, scenario, SkillAttackPriority);
-                }
-                else
-                {
-                    // 没有敌人，直接向城市前进
-                    priorityActionData = null;
-                }
+                //}
+                //else
+                //{
+                //    // 没有敌人，直接向城市前进
+                //    priorityActionData = null;
+                //}
             }
         }
 

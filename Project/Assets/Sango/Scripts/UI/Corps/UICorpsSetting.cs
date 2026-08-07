@@ -152,7 +152,8 @@ namespace Sango.UI
                 cityCountText.text = stringBuilder.ToString();
             }
             policyText.text = GetPolicyText(targetCorps.appoint);
-            sureButton.interactable = targetCityList.Count > 0 && targetPersonList.Count > 0;
+            
+
             targetButton.interactable = targetCorps.appoint == (int)Corps.AppointType.OccupyCity || targetCorps.appoint == (int)Corps.AppointType.DestroyForce;
             switch (targetCorps.appoint)
             {
@@ -180,6 +181,8 @@ namespace Sango.UI
                     targetText.text = "";
                     break;
             }
+
+            CheckSure();
         }
 
         /// <summary>
@@ -303,6 +306,24 @@ namespace Sango.UI
             Window.Instance.Open("window_corps_appoint", targetCorps, this);
         }
 
+        void CheckSure()
+        {
+            bool val = (targetCorps.Comander != null && targetCityList.Count > 0 && targetPersonList.Count > 0);
+            if(val)
+            {
+                switch (targetCorps.appoint)
+                {
+                    case 1:
+                    case 2:
+                        val = targetCorps.appoint_target > 0;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            sureButton.interactable = val;
+        }
+
         /// <summary>
         /// 军团方针按钮点击事件
         /// </summary>
@@ -324,6 +345,7 @@ namespace Sango.UI
                             {
                                 targetCorps.appoint_target = forceList[0].Id;
                                 targetText.text = forceList[0].Name;
+                                CheckSure();
                             }
                         }, forceSelectTitleList, "选择攻略势力");
             }
@@ -343,6 +365,7 @@ namespace Sango.UI
                             {
                                 targetCorps.appoint_target = cList[0].Id;
                                 targetText.text = cList[0].Name;
+                                CheckSure();
                             }
                         }, CitySortFunction.DefaultSortList, "选择攻略都市");
             }

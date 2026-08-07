@@ -37,6 +37,8 @@ namespace Sango.UI
             GameEvent.OnTroopDestroyed += OnTroopDestroyed;
             GameEvent.OnCityFall += OnCityFall;
             GameEvent.OnTroopActionOver += OnTroopActionOver;
+            GameEvent.OnPersonActionOver += OnPersonActionOver;
+            
         }
 
         protected override void OnDestroy()
@@ -45,6 +47,16 @@ namespace Sango.UI
             GameEvent.OnTroopDestroyed -= OnTroopDestroyed;
             GameEvent.OnCityFall -= OnCityFall;
             GameEvent.OnTroopActionOver -= OnTroopActionOver;
+            GameEvent.OnPersonActionOver -= OnPersonActionOver;
+            
+        }
+
+        void OnPersonActionOver(Person person)
+        {
+            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && person.BelongForce != null && person.IsPlayerControl && person.BelongForce == Scenario.Cur.CurRunForce)
+            {
+                UpdateShowType();
+            }
         }
 
         void OnTroopActionOver(Troop troop)
@@ -52,7 +64,7 @@ namespace Sango.UI
             if (troop == null)
                 return;
 
-            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && troop.BelongForce != null && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
+            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && troop.BelongForce != null && troop.IsPlayerControl && troop.BelongForce == Scenario.Cur.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -61,7 +73,7 @@ namespace Sango.UI
 
         void OnCityFall(City city, Force lastForce, Troop atk)
         {
-            if (curShowType == ShowType.City && city.BelongForce.IsPlayer && city.BelongForce == Scenario.Cur.CurRunForce)
+            if (curShowType == ShowType.City && city.IsPlayerControl && city.BelongForce == Scenario.Cur.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -69,7 +81,7 @@ namespace Sango.UI
 
         void OnTroopCreated(Troop troop, Scenario scenario)
         {
-            if (curShowType == ShowType.Troop && troop.BelongForce.IsPlayer && troop.BelongForce == scenario.CurRunForce)
+            if (curShowType == ShowType.Troop && troop.IsPlayerControl && troop.BelongForce == scenario.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -77,7 +89,7 @@ namespace Sango.UI
 
         void OnTroopDestroyed(Troop troop, Scenario scenario)
         {
-            if (curShowType == ShowType.Troop && troop.BelongForce.IsPlayer && troop.BelongForce == scenario.CurRunForce)
+            if (curShowType == ShowType.Troop && troop.IsPlayerControl && troop.BelongForce == scenario.CurRunForce)
             {
                 UpdateShowType();
             }

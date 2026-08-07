@@ -157,6 +157,9 @@ namespace Sango.Tools
         /// 拖拽边界
         /// </summary>
         private Rect dragBounds;
+
+        Transform textROOT;
+
         public TerrainBrush(MapEditor e) : base(e)
         {
             if (brushType == BrushType.Unknown)
@@ -406,6 +409,11 @@ namespace Sango.Tools
         }
         public override void OnEnter()
         {
+            if (textROOT == null)
+            {
+                textROOT = GameObject.Find("GridTextRoot").transform;
+            }
+
             //创建笔刷贴图
             List<Texture> brush_texturs = new List<Texture>();
             for (int i = 0; i < 100; i++)
