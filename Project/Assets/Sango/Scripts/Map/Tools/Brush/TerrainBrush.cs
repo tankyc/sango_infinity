@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Sango.Tools
 {
@@ -159,6 +160,31 @@ namespace Sango.Tools
         private Rect dragBounds;
 
         Transform textROOT;
+
+        /// <summary>
+        /// 高度文本对象池，用于显示顶点高度
+        /// </summary>
+        private List<GameObject> heightTextPool = new List<GameObject>();
+
+        /// <summary>
+        /// 当前活跃的高度文本数量
+        /// </summary>
+        private int activeHeightTextCount = 0;
+
+        /// <summary>
+        /// 高度文本显示时笔刷范围外扩的距离
+        /// </summary>
+        private float heightTextExpandDistance = 1f;
+
+        /// <summary>
+        /// 是否显示顶点高度文本
+        /// </summary>
+        private bool showHeightText = false;
+
+        /// <summary>
+        /// 高度文本自定义材质球（渲染队列设为Overlay，保证最上层显示）
+        /// </summary>
+        private Material heightTextMaterial;
 
         public TerrainBrush(MapEditor e) : base(e)
         {
@@ -430,8 +456,64 @@ namespace Sango.Tools
             brushTexture = brush_texturs.ToArray();
 
             Shader.SetGlobalFloat("_terrainTypeAlpha", gridInfoAlpha);
+
             base.OnEnter();
         }
+
+        /// <summary>
+        /// 从对象池获取一个高度文本GameObject，池中不足时会自动创建新的
+        /// </summary>
+        /// <returns>可用的高度文本GameObject</returns>
+        private GameObject GetHeightTextFromPool()
+        {
+            // 池中还有未使用的对象则复用
+            if (activeHeightTextCount < heightTextPool.Count)
+            {
+                GameObject obj = heightTextPool[activeHeightTextCount];
+                obj.SetActive(true);
+                activeHeightTextCount++;
+                return obj;
+            }
+
+            // 池中对象不够，创建新的
+            GameObject newObj = GameObject.Instantiate(Resources.Load<GameObject>("GridText")) as GameObject;
+            newObj.transform.SetParent(textROOT, false);
+            // 赋予自定义材质球以保证在最上层渲染
+            Text newTextComp = newObj.GetComponent<Text>();
+            if (newTextComp != null)
+            {
+                newTextComp.material = GetHeightTextMaterial();
+            }
+            heightTextPool.Add(newObj);
+            activeHeightTextCount++;
+            return newObj;
+        }
+
+        /// <summary>
+        /// 隐藏对象池中所有高度文本
+        /// </summary>
+        private void HideAllHeightText()
+        {
+            for (int i = 0; i < heightTextPool.Count; i++)
+            {
+                heightTextPool[i].SetActive(false);
+            }
+            activeHeightTextCount = 0;
+        }
+
+        /// <summary>
+        /// 获取高度文本自定义材质球（从Resources读取VertexHeightMat）
+        /// </summary>
+        private Material GetHeightTextMaterial()
+        {
+            if (heightTextMaterial == null)
+            {
+                heightTextMaterial = Resources.Load<Material>("VertexHeightMat");
+            }
+            return heightTextMaterial;
+        }
+
+
         float gridInfoAlpha = 1;
 
         public override void OnBrushSizeChange()
@@ -441,6 +523,15 @@ namespace Sango.Tools
         public Rect GetBounds(Vector3 center)
         {
             return new Rect(new Vector2(center.z - size, center.x - size), new Vector2(size * 2, size * 2));
+        }
+
+        /// <summary>
+        /// 退出笔刷时隐藏所有高度文本
+        /// </summary>
+        public override void Clear()
+        {
+            HideAllHeightText();
+            base.Clear();
         }
 
         public override void OnSeasonChanged(int curSeason)
@@ -1045,6 +1136,25 @@ namespace Sango.Tools
                 GUILayout.EndHorizontal();
             }
 
+            // 高度文本显示开关（仅高度相关笔刷显示）
+            if (brushType == BrushType.RaiseHeight || brushType == BrushType.LowerHeight
+                || brushType == BrushType.PullHeight || brushType == BrushType.SmoothHeight)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("显示顶点高度", GUILayout.Width(80));
+                bool _showHeight = GUILayout.Toggle(showHeightText, "");
+                if (_showHeight != showHeightText)
+                {
+                    showHeightText = _showHeight;
+                    // 关闭时隐藏所有高度文本
+                    if (!showHeightText)
+                    {
+                        HideAllHeightText();
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+
             GUILayout.Space(8);
             UnityEngine.Color lastColor = GUI.backgroundColor;
             GUI.backgroundColor = UnityEngine.Color.cyan;
@@ -1388,6 +1498,49 @@ namespace Sango.Tools
             {
                 Shader.SetGlobalVector("_Brush", new Vector4(center.x, center.y, center.z, size));
                 Shader.SetGlobalVector("_BrushUV", new Vector2((center.z) / mapSize.x, (mapSize.y - center.x) / mapSize.y));
+            }
+
+            // 显示顶点高度文本（仅高度相关笔刷且开关开启时）
+            if (showHeightText && (brushType == BrushType.RaiseHeight || brushType == BrushType.LowerHeight
+                || brushType == BrushType.PullHeight || brushType == BrushType.SmoothHeight))
+            {
+                Camera cam = Camera.main;
+                if (cam == null)
+                    return;
+
+                float expandedSize = size + heightTextExpandDistance;
+                int exStartX = Mathf.FloorToInt((center.z - expandedSize) / editor.mapData.quadSize);
+                int exStartY = Mathf.FloorToInt((center.x - expandedSize) / editor.mapData.quadSize);
+                int exLength = Mathf.FloorToInt(expandedSize * 2 / editor.mapData.quadSize) + 1;
+                int exEndX = exStartX + exLength;
+                int exEndY = exStartY + exLength;
+
+                HideAllHeightText();
+
+                for (int x = exStartX; x <= exEndX; x++)
+                {
+                    for (int y = exStartY; y <= exEndY; y++)
+                    {
+                        if (x >= 0 && x <= editor.mapData.vertex_width && y >= 0 && y <= editor.mapData.vertex_height)
+                        {
+                            MapData.VertexData vertexData = editor.vertexMapData[x][y];
+                            GameObject textObj = GetHeightTextFromPool();
+                            Text textComp = textObj.GetComponent<Text>();
+                            if (textComp != null)
+                            {
+                                textComp.text = vertexData.height.ToString();
+                                textObj.transform.position = vertexData.position + Vector3.up * 0.5f;
+                                // Billboard：永远面向相机
+                                textObj.transform.rotation = cam.transform.rotation;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // 非高度笔刷或开关关闭时隐藏文本
+                HideAllHeightText();
             }
         }
         public void AutoImportLayerTexture()

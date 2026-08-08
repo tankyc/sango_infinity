@@ -417,9 +417,10 @@ namespace Sango.Core
         public Corps ChangeCorps(Corps corps)
         {
             Corps last = null;
-            if (!isComplate)
+            if (!isComplate && BelongForce != corps.BelongForce)
             {
-                Sango.Log.Error("不允许转换一个未建好的建筑!!");
+                //Sango.Log.Error("不允许转换一个未建好的建筑!!");
+                OnFall(null);
                 return last;
             }
 

@@ -1529,7 +1529,7 @@ namespace Sango.Core
         public void SupplyTroop(Troop target, ItemStore itemStore, int gold, int food, int troops)
         {
             // 中和士气
-            int m = (morale * troops + target.morale * troops) / (target.troops + troops);
+            int m = (morale * troops + target.morale * target.troops) / (target.troops + troops);
 
             this.troops -= troops;
             this.gold -= gold;

@@ -607,6 +607,8 @@ namespace Sango.Core
             Comander?.SetStateNormal();
             ForEachPerson((checker) =>
             {
+                if(checker.IsPrisoner) { return; }
+
                 if (checker != null && checker.IsAlive)
                 {
                     if (dest == null)

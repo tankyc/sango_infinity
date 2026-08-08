@@ -15,7 +15,7 @@ Shader "UI/DefaultBright"
 		_StencilReadMask("Stencil Read Mask", Float) = 255
 
 		_ColorMask("Color Mask", Float) = 15
-
+		[Enum(UnityEngine.Rendering.CompareFunction)] _ZTest("ZTest", Float) = 4
 		[Toggle(UNITY_UI_ALPHACLIP)] _UseUIAlphaClip("Use Alpha Clip", Float) = 0
 	}
 
@@ -42,7 +42,7 @@ Shader "UI/DefaultBright"
 		Cull Off
 		Lighting Off
 		ZWrite Off
-		ZTest[unity_GUIZTestMode]
+		ZTest[_ZTest]
 		Blend One OneMinusSrcAlpha
 		ColorMask[_ColorMask]
 
