@@ -1894,14 +1894,16 @@ namespace Sango.Core
             city.AddGold(gold);
             city.AddFood(food);
             city.AddTroops(troops);
+
+            // 处理俘虏
             captiveList.ForEach(p =>
             {
-                city.AddCaptive(p);
+                city.captiveList.Add(p);
                 p.ChangeCurrentCity(city);
-                p.CurrentCity = city;
                 p.BelongTroop = null;
             });
             captiveList.Clear();
+
             // 返还兵装
             city.itemStore.Gain(LandTroopType.costItems, troops + woundedTroops);
             city.itemStore.Gain(WaterTroopType.costItems, troops + woundedTroops);

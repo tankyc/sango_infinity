@@ -165,7 +165,7 @@ namespace Sango.Core.Player
                 }
 
                 Corps t = x[0];
-                if (t.number == 1)
+                if (t.IsCaptainCorps)
                 {
                     Sango.Log.Error("不允许解散第一军团!!");
                     return;

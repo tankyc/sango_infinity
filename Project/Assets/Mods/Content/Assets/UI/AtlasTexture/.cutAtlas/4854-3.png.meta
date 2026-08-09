@@ -113,6 +113,18 @@ TextureImporter:
     overridden: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 3
+    buildTarget: iPhone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
@@ -393,10 +405,10 @@ TextureImporter:
       name: 4854-3_19
       rect:
         serializedVersion: 2
-        x: 3
-        y: 84
-        width: 58
-        height: 38
+        x: 0
+        y: 82
+        width: 62
+        height: 44
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -415,9 +427,9 @@ TextureImporter:
       rect:
         serializedVersion: 2
         x: 66
-        y: 84
-        width: 58
-        height: 38
+        y: 82
+        width: 62
+        height: 44
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -818,7 +830,7 @@ TextureImporter:
         width: 66
         height: 30
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       outline: []
       physicsShape: []
@@ -826,6 +838,363 @@ TextureImporter:
       bones: []
       spriteID: 9318ed7919c6cfd43b1afd6970ec9c0c
       internalID: -2084106900
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_34
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 131
+        width: 62
+        height: 44
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 83737b3ad1678ef4ba446f9a93946618
+      internalID: -659984357
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_35
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 179
+        width: 62
+        height: 44
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 55a5099dfb92fca44821001abd860265
+      internalID: -1511913679
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_36
+      rect:
+        serializedVersion: 2
+        x: 62
+        y: 179
+        width: 62
+        height: 44
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cb5387f293daee44aa2a6e57461a66d2
+      internalID: 1339432379
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_37
+      rect:
+        serializedVersion: 2
+        x: 63
+        y: 131
+        width: 62
+        height: 44
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5d25009c071b93d46842d38011acc5b6
+      internalID: 1490260798
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_38
+      rect:
+        serializedVersion: 2
+        x: 132
+        y: 163
+        width: 216
+        height: 44
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4f9bddb624c74a44ba2ad0a53663e713
+      internalID: -533822366
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_39
+      rect:
+        serializedVersion: 2
+        x: 132
+        y: 116
+        width: 216
+        height: 44
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9856bf1bb44770b48b5d4d87d83b8805
+      internalID: -1263305077
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_40
+      rect:
+        serializedVersion: 2
+        x: 132
+        y: 66
+        width: 216
+        height: 44
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 654f8584d91d19a46a9dbb1113ae2cd5
+      internalID: -1934879620
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_41
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 207
+        width: 34
+        height: 20
+      alignment: 9
+      pivot: {x: -0.30406457, y: 0.56834567}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d631b1a48f557e340a30246aef046ba7
+      internalID: 1704135943
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_42
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 228
+        width: 62
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 99883ae0bdd1afe49b3d1d4ed715fb65
+      internalID: 368168782
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_43
+      rect:
+        serializedVersion: 2
+        x: 351
+        y: 227
+        width: 41
+        height: 21
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9d7e7f357e972f341b05c78199a47a2e
+      internalID: -1928938538
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_44
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 311
+        width: 96
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6e342372206472145826b86c0ed7b148
+      internalID: -1162049403
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_45
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 311
+        width: 32
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3f1e34d8a6fda05449cfaa545abbd431
+      internalID: 1309766156
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_46
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 279
+        width: 96
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 682e294cfde04b94daa3d32349677b9f
+      internalID: -1761754716
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_47
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 247
+        width: 96
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5b5204ba472786445b7d7045b70ead7c
+      internalID: 150182879
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_48
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 311
+        width: 96
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: efa3bdde3bc57df4eb0d0995178b6a25
+      internalID: -1442858414
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_49
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 279
+        width: 96
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6317faa16b504334995805cddb603292
+      internalID: -636671232
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 4854-3_50
+      rect:
+        serializedVersion: 2
+        x: 288
+        y: 247
+        width: 96
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 15e6c96025c2ee347940748fbda98e5b
+      internalID: 1985843039
       vertices: []
       indices: 
       edges: []
@@ -869,8 +1238,25 @@ TextureImporter:
       4854-3_31: 1998981034
       4854-3_32: 1865240163
       4854-3_33: -2084106900
+      4854-3_34: -659984357
+      4854-3_35: -1511913679
+      4854-3_36: 1339432379
+      4854-3_37: 1490260798
+      4854-3_38: -533822366
+      4854-3_39: -1263305077
       4854-3_4: -1409243169
+      4854-3_40: -1934879620
+      4854-3_41: 1704135943
+      4854-3_42: 368168782
+      4854-3_43: -1928938538
+      4854-3_44: -1162049403
+      4854-3_45: 1309766156
+      4854-3_46: -1761754716
+      4854-3_47: 150182879
+      4854-3_48: -1442858414
+      4854-3_49: -636671232
       4854-3_5: -1265339372
+      4854-3_50: 1985843039
       4854-3_6: 1509578864
       4854-3_7: 152255295
       4854-3_8: 1355104431

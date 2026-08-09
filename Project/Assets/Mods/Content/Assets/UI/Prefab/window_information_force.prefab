@@ -4009,6 +4009,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: win_frame
       objectReference: {fileID: 0}
+    - target: {fileID: 6591836239096336499, guid: eba30dda6e43fa247845faa58e681a84, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6995393841856835626, guid: eba30dda6e43fa247845faa58e681a84, type: 3}
       propertyPath: m_SizeDelta.x
       value: 13.039169
@@ -9390,7 +9394,8 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.x
       value: 0.99998474
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 8731788225294998976, guid: 7f65bf3d5cf10f549b998d64b9844f07, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: 7f65bf3d5cf10f549b998d64b9844f07, type: 3}
 --- !u!114 &4375555550494015431 stripped
 MonoBehaviour:

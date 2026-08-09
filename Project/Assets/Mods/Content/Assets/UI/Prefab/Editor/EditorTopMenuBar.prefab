@@ -93,7 +93,6 @@ GameObject:
   - component: {fileID: 5878964573664874589}
   - component: {fileID: 8818903264388599867}
   - component: {fileID: 3447443336014089664}
-  - component: {fileID: 7093377878874941691}
   m_Layer: 5
   m_Name: EditorTopMenuBar
   m_TagString: Untagged
@@ -200,18 +199,6 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
---- !u!114 &7093377878874941691
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 707928868673640441}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 041dca877fe75924c8c64e855311ea64, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &2223043540748119495
 GameObject:
   m_ObjectHideFlags: 0

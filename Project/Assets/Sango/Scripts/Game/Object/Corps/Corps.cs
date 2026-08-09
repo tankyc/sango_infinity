@@ -32,7 +32,9 @@ namespace Sango.Core
         /// <summary>
         /// 是否为玩家控制的
         /// </summary>
-        public virtual bool IsPlayerControl => IsPlayer && number == 1;
+        public virtual bool IsPlayerControl => IsPlayer && IsCaptainCorps;
+
+        public bool IsCaptainCorps => number == 1;
 
         /// <summary>
         /// 获取是否为当前的玩家势力
@@ -543,7 +545,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.personSet.Count; ++i)
             {
                 var c = scenario.personSet[i];
-                if (c != null && c.IsAlive && c.BelongCorps == this)
+                if (c != null && c.IsAlive && c.BelongCorps == this && !c.IsPrisoner)
                 {
                     action(c);
                 }
@@ -601,13 +603,15 @@ namespace Sango.Core
         public void UpdateCommander()
         {
             needUpdateCommander = false;
+            if (IsCaptainCorps) return;
+
             Person dest = null;
             Official higher = null;
             int commandHigher = 0;
             Comander?.SetStateNormal();
             ForEachPerson((checker) =>
             {
-                if(checker.IsPrisoner) { return; }
+                if (checker.IsPrisoner) { return; }
 
                 if (checker != null && checker.IsAlive)
                 {

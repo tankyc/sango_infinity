@@ -114,6 +114,12 @@ zd同学,
             StartCoroutine(DelayActive());
         }
 
+        public void OpenProject()
+        {
+            GameMedia.Instance.PlayButtonSfx();
+            Window.Instance.Open("window_start_project");
+        }
+
         IEnumerator DelayActive()
         {
             yield return new WaitForSeconds(0.05f);

@@ -44,7 +44,7 @@ namespace Sango.Core
             ModManager.Instance.LoadFile(skillConfigFileName, file =>
             {
                 JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.Converters.Add(new SangoObjectMaptConverter<Skill>());
+                jsonSerializerSettings.Converters.Add(new SangoObjectMapConverter<Skill>());
                 SangoObjectMap<Skill> skills = JsonConvert.DeserializeObject<SangoObjectMap<Skill>>(File.ReadAllText(file), jsonSerializerSettings);
                 if (skills != null)
                 {
@@ -72,7 +72,7 @@ namespace Sango.Core
             ModManager.Instance.LoadFile(buffConfigFileName, file =>
             {
                 JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.Converters.Add(new SangoObjectMaptConverter<Buff>());
+                jsonSerializerSettings.Converters.Add(new SangoObjectMapConverter<Buff>());
                 SangoObjectMap<Buff> buffs = JsonConvert.DeserializeObject<SangoObjectMap<Buff>>(File.ReadAllText(file), jsonSerializerSettings);
                 if (buffs != null)
                 {
@@ -140,7 +140,7 @@ namespace Sango.Core
             if (File.Exists(skillConfigPath))
             {
                 JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.Converters.Add(new SangoObjectMaptConverter<Skill>());
+                jsonSerializerSettings.Converters.Add(new SangoObjectMapConverter<Skill>());
                 SangoObjectMap<Skill> modSkills = JsonConvert.DeserializeObject<SangoObjectMap<Skill>>(File.ReadAllText(skillConfigPath), jsonSerializerSettings);
                 if (modSkills != null)
                 {
@@ -155,7 +155,7 @@ namespace Sango.Core
             if (File.Exists(buffConfigPath))
             {
                 JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.Converters.Add(new SangoObjectMaptConverter<Buff>());
+                jsonSerializerSettings.Converters.Add(new SangoObjectMapConverter<Buff>());
                 SangoObjectMap<Buff> modBuffs = JsonConvert.DeserializeObject<SangoObjectMap<Buff>>(File.ReadAllText(buffConfigPath), jsonSerializerSettings);
                 if (modBuffs != null)
                 {

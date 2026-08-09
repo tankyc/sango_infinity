@@ -278,7 +278,7 @@ namespace Sango.UI
 
         public void OnCorpsActionPointChange(Corps corps)
         {
-            if (corps.number == 1)
+            if (corps.IsCaptainCorps)
                 actionNumberLabel.text = corps.ActionPoint.ToString();
         }
 

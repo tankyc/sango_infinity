@@ -93,7 +93,7 @@ namespace Sango.UI
             validPersonList.Clear();
             targetForce.ForEachCity(x =>
             {
-                if (x.BelongCorps.number == 1 && x != targetForce.CapitalCity)
+                if (x.BelongCorps.IsCaptainCorps && x != targetForce.CapitalCity)
                     validCityList.Add(x);
             });
             if (targetCorps.Id > 0)

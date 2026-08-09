@@ -1,13 +1,9 @@
-﻿using Sango.Core.Player;
-using Sango.Loader;
-using Sango.Render;
-using System;
+﻿using Sango.Core;
+using Sango.Core.Player;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
-
-using Sango.Core; namespace Sango.UI
+namespace Sango.UI
 {
     public class UIObjectDisplay : UGUIWindow
     {
@@ -53,7 +49,7 @@ using Sango.Core; namespace Sango.UI
         }
         public override void OnOpen(params object[] objects)
         {
-            this.objectSelectSystem = objects[0] as ObjectSelectSystem;
+            this.objectSelectSystem = objects[0] as ObjectsDisplaySystem;
             Init(objectSelectSystem);
         }
 

@@ -35,7 +35,7 @@ namespace Sango.Core
                 else if (reader.TokenType == JsonToken.EndArray)
                 {
                     dest.FromArray(ints.ToArray());
-                    dest.Update();
+                    //dest.Update();
                     return dest;
                 }
             }

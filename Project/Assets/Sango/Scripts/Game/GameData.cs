@@ -23,6 +23,7 @@ namespace Sango.Core
             LoadModelConfig();
             GameMedia.Instance.Load();
             SkillConfigManager.Instance.Init();
+            GameCustomEdit.Instance.Init();
         }
 
 
@@ -82,7 +83,7 @@ namespace Sango.Core
                 //xmlDocument.Load(file);
                 //ModelConfigs.Load(xmlDocument.LastChild);
                 JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.Converters.Add(new SangoObjectMaptConverter<ModelConfig>());
+                jsonSerializerSettings.Converters.Add(new SangoObjectMapConverter<ModelConfig>());
                 ModelConfigs = TKNewtonsoft.Json.JsonConvert.DeserializeObject<SangoObjectMap<ModelConfig>>(File.ReadAllText(file), jsonSerializerSettings);
 
             });

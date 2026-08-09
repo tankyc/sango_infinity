@@ -843,6 +843,13 @@ namespace Sango.Core
 
             OnPersonAgeUpdate(scenario);
 
+            spearLv.Update();
+            halberdLv.Update();
+            crossbowLv.Update();
+            rideLv.Update();
+            waterLv.Update();
+            machineLv.Update();
+
             if (Official == null)
                 Official = scenario.CommonData.Officials[0];
 
@@ -1273,19 +1280,32 @@ namespace Sango.Core
 
         public void OnWillBeCaptive()
         {
+            // 军师被捕
+            if(BelongForce != null)
+            {
+                if(BelongForce.Counsellor == this)
+                {
+                    BelongForce.Counsellor = null;
+                }
+            }
+
             if (IsGovernor)
             {
 
             }
             else if (IsCommander)
             {
+                BelongCorps.Comander = null;
                 BelongCorps.NeedUpdateCommander();
+                BelongCity.Leader = null;
                 BelongCity.NeedUpdateLeader();
             }
             else if (IsLeader)
             {
+                BelongCity.Leader = null;
                 BelongCity.NeedUpdateLeader();
             }
+
         }
 
         public void OnWillChangeToCity(City dest)

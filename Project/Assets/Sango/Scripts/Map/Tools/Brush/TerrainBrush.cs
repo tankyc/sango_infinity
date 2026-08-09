@@ -1138,7 +1138,7 @@ namespace Sango.Tools
 
             // 高度文本显示开关（仅高度相关笔刷显示）
             if (brushType == BrushType.RaiseHeight || brushType == BrushType.LowerHeight
-                || brushType == BrushType.PullHeight || brushType == BrushType.SmoothHeight)
+                || brushType == BrushType.PullHeight || brushType == BrushType.SmoothHeight || brushType == BrushType.Water)
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("显示顶点高度", GUILayout.Width(80));
@@ -1502,7 +1502,7 @@ namespace Sango.Tools
 
             // 显示顶点高度文本（仅高度相关笔刷且开关开启时）
             if (showHeightText && (brushType == BrushType.RaiseHeight || brushType == BrushType.LowerHeight
-                || brushType == BrushType.PullHeight || brushType == BrushType.SmoothHeight))
+                || brushType == BrushType.PullHeight || brushType == BrushType.SmoothHeight || brushType == BrushType.Water))
             {
                 Camera cam = Camera.main;
                 if (cam == null)

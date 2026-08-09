@@ -971,6 +971,9 @@ namespace Sango.Core
                 }
             });
 
+            Sango.Log.Error(personSet.Count);
+            Sango.Log.Error(personSet.DataCount);
+
         }
 
         /// <summary>

@@ -1,7 +1,7 @@
-﻿using Sango.Core.Player;
+﻿using Sango.Core;
+using Sango.Core.Player;
 using UnityEngine;
-
-using Sango.Core; namespace Sango.UI
+namespace Sango.UI
 {
     public class UIObjectSelector : UIObjectDisplay
     {

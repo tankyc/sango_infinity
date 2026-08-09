@@ -30,14 +30,14 @@ namespace Sango.Core
         /// <summary>
         /// 兵种类型
         /// </summary>
-        [JsonConverter(typeof(SangoObjectMaptConverter<TroopType>))]
+        [JsonConverter(typeof(SangoObjectMapConverter<TroopType>))]
         [JsonProperty]
         public SangoObjectMap<TroopType> TroopTypes = new SangoObjectMap<TroopType>();
 
         /// <summary>
         /// 道具类型
         /// </summary>
-        [JsonConverter(typeof(SangoObjectMaptConverter<ItemType>))]
+        [JsonConverter(typeof(SangoObjectMapConverter<ItemType>))]
         [JsonProperty]
         public SangoObjectMap<ItemType> ItemTypes = new SangoObjectMap<ItemType>();
 
@@ -121,21 +121,21 @@ namespace Sango.Core
         /// <summary>
         /// 工作类型
         /// </summary>
-        [JsonConverter(typeof(SangoObjectMaptConverter<JobType>))]
+        [JsonConverter(typeof(SangoObjectMapConverter<JobType>))]
         [JsonProperty]
         public SangoObjectMap<JobType> JobTypes = new SangoObjectMap<JobType>();
 
         /// <summary>
         /// 工作类型
         /// </summary>
-        [JsonConverter(typeof(SangoObjectMaptConverter<Buff>))]
+        [JsonConverter(typeof(SangoObjectMapConverter<Buff>))]
         [JsonProperty]
         public SangoObjectMap<Buff> Buffs = new SangoObjectMap<Buff>();
 
         /// <summary>
         /// 科技
         /// </summary>
-        [JsonConverter(typeof(SangoObjectMaptConverter<Technique>))]
+        [JsonConverter(typeof(SangoObjectMapConverter<Technique>))]
         [JsonProperty]
         public SangoObjectMap<Technique> Techniques = new SangoObjectMap<Technique>();
 

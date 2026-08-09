@@ -3,7 +3,7 @@ using System;
 
 namespace Sango.Core
 {
-    public class SangoObjectMaptConverter<T> : JsonConverter<SangoObjectMap<T>> where T : SangoObject, new()
+    public class SangoObjectMapConverter<T> : JsonConverter<SangoObjectMap<T>> where T : SangoObject, new()
     {
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
