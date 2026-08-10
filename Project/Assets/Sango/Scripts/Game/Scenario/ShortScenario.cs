@@ -28,7 +28,7 @@ namespace Sango.Core
         [JsonProperty(Order = -98)] public string Name;
         public int BelongForce;
         public int BelongCity;
-        public string headIconID;
+        public int headIconID;
         public string imageID;
     }
 

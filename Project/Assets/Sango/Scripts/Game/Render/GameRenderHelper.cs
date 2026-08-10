@@ -22,11 +22,11 @@ namespace Sango.Core
         "Assets/Model/Prefab/p_city_2.prefab",
         };
 
-        public static Texture LoadHeadIcon(string id)
+        public static Texture LoadHeadIcon(int id)
         {
             return LoadHeadIcon(id, 2);
         }
-        public static Texture LoadHeadIcon(string id, int type)
+        public static Texture LoadHeadIcon(int id, int type)
         {
             string headPath = $"{HeadIconPath}/{id}_{type}";
             Texture headSpr = ObjectLoader.LoadObject<Texture>(headPath, "Face");

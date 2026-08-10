@@ -106,7 +106,7 @@ namespace Sango.Core
         /// <summary>
         /// 头像id
         /// </summary>
-        [JsonProperty] public string headIconID;
+        [JsonProperty] public int headIconID;
 
         /// <summary>
         /// 立绘id(弃用)

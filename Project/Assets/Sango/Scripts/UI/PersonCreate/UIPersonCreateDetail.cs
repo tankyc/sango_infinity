@@ -29,7 +29,7 @@ namespace Sango.UI
             public string description;
             public int sex;
             public string image;
-            public string headIconID;
+            public int headIconID;
 
             public int yearBorn;
             public int yearDead;
@@ -159,12 +159,12 @@ namespace Sango.UI
         /// <summary>
         /// 殁年输入框
         /// </summary>
-        public InputField yearDeadInput;
+        public Text yearDeadText;
 
         /// <summary>
         /// 登场年输入框
         /// </summary>
-        public InputField yearAvailableInput;
+        public Text yearAvailableText;
         #endregion
 
         #region 基本设定 - 性格与相性
@@ -201,7 +201,10 @@ namespace Sango.UI
         /// <summary>
         /// 相性输入框
         /// </summary>
-        public InputField compatibilityInput;
+        //public InputField compatibilityInput;
+        public Text compatibilityText;
+        public Button compatibilitySelectButton;
+        public Button compatibilityCancelButton;
         #endregion
 
         #region 基本设定 - 人际关系
@@ -242,15 +245,15 @@ namespace Sango.UI
         public Text brotherText;
 
         public Button brotherSelectButton;
-        public Button brotherCancelButton;
+        //public Button brotherCancelButton;
 
         /// <summary>
         /// 义兄弟姓名文本
         /// </summary>
-        public Text swornBrotherText;
+        //public Text swornBrotherText;
 
-        public Button swornBrotherSelectButton;
-        public Button swornBrotherCancelButton;
+        //public Button swornBrotherSelectButton;
+        //public Button swornBrotherCancelButton;
 
         /// <summary>
         /// 亲爱武将姓名文本
@@ -258,7 +261,7 @@ namespace Sango.UI
         public Text likeText;
 
         public Button likeSelectButton;
-        public Button likeCancelButton;
+        //public Button likeCancelButton;
 
         /// <summary>
         /// 厌恶武将姓名文本
@@ -266,7 +269,11 @@ namespace Sango.UI
         public Text hateText;
 
         public Button hateSelectButton;
-        public Button hateCancelButton;
+        //public Button hateCancelButton;
+
+        public InputField biographyInput;
+
+
         #endregion
 
         #region 能力设定 - 基准能力
@@ -377,6 +384,7 @@ namespace Sango.UI
             if (target == null)
             {
                 snapshot = new Snapshot();
+                snapshot.headIconID = GameCustomEdit.Instance.ScenarioAddon.headDataList[0];
                 return;
             }
 
@@ -568,8 +576,8 @@ namespace Sango.UI
 
             // 生卒年
             BindIntInput(yearBornInput, () => snapshot.yearBorn, v => snapshot.yearBorn = v, 1, 9999, OnLifeYearChanged);
-            BindIntInput(yearDeadInput, () => snapshot.yearDead, v => snapshot.yearDead = v, 1, 9999, OnLifeYearChanged);
-            BindIntInput(yearAvailableInput, () => snapshot.yearAvailable, v => snapshot.yearAvailable = v, 1, 9999);
+            //BindIntInput(yearDeadInput, () => snapshot.yearDead, v => snapshot.yearDead = v, 1, 9999, OnLifeYearChanged);
+            //BindIntInput(yearAvailableInput, () => snapshot.yearAvailable, v => snapshot.yearAvailable = v, 1, 9999);
 
             // 性格与相性
             BindToggleGroup(personalityToggles, () => snapshot.personality, v => snapshot.personality = v, i => i + 1, v => v - 1);
@@ -578,7 +586,7 @@ namespace Sango.UI
             BindToggleGroup(hanLoyaltyToggles, () => snapshot.hanLoyalty, v => snapshot.hanLoyalty = v, i => i, v => v);
             BindToggleGroup(idealToggles, () => snapshot.ideal, v => snapshot.ideal = v, i => i, v => v);
             BindToggleGroup(talentToggles, () => snapshot.talent, v => snapshot.talent = v, i => i, v => v);
-            BindIntInput(compatibilityInput, () => snapshot.compatibility, v => snapshot.compatibility = v, 0, 255);
+            //BindIntInput(compatibilityInput, () => snapshot.compatibility, v => snapshot.compatibility = v, 0, 255);
 
             // 能力
             BindIntInput(commandInput, () => snapshot.command, v => snapshot.command = v, 1, 150, OnAbilityChanged);
@@ -607,13 +615,13 @@ namespace Sango.UI
             BindRelationshipButton(spouseSelectButton, true, OnSpouseSelected);
             BindRelationshipButton(spouseCancelButton, () => snapshot.SpouseList = new int[0], RefreshSpouse);
             BindRelationshipButton(brotherSelectButton, false, OnBrotherSelected);
-            BindRelationshipButton(brotherCancelButton, () => snapshot.Brother = 0, RefreshBrother);
-            BindRelationshipButton(swornBrotherSelectButton, true, OnSwornBrotherSelected);
-            BindRelationshipButton(swornBrotherCancelButton, () => snapshot.swornBrotherList = new int[0], RefreshSwornBrother);
+            //BindRelationshipButton(brotherCancelButton, () => snapshot.Brother = 0, RefreshBrother);
+            //BindRelationshipButton(swornBrotherSelectButton, true, OnSwornBrotherSelected);
+            //BindRelationshipButton(swornBrotherCancelButton, () => snapshot.swornBrotherList = new int[0], RefreshSwornBrother);
             BindRelationshipButton(likeSelectButton, true, OnLikeSelected);
-            BindRelationshipButton(likeCancelButton, () => snapshot.LikePersonList = new int[0], RefreshLike);
+            //BindRelationshipButton(likeCancelButton, () => snapshot.LikePersonList = new int[0], RefreshLike);
             BindRelationshipButton(hateSelectButton, true, OnHateSelected);
-            BindRelationshipButton(hateCancelButton, () => snapshot.HatePersonList = new int[0], RefreshHate);
+            //BindRelationshipButton(hateCancelButton, () => snapshot.HatePersonList = new int[0], RefreshHate);
 
             // 特技
             if (featureButton != null) featureButton.onClick.AddListener(OnFeatureButtonClick);
@@ -650,8 +658,8 @@ namespace Sango.UI
                 RefreshToggleGroup(sexToggles, snapshot.sex, i => i, 0);
 
                 if (yearBornInput != null) yearBornInput.text = snapshot.yearBorn.ToString();
-                if (yearDeadInput != null) yearDeadInput.text = snapshot.yearDead.ToString();
-                if (yearAvailableInput != null) yearAvailableInput.text = snapshot.yearAvailable.ToString();
+                if (yearDeadText != null) yearDeadText.text = snapshot.yearDead.ToString();
+                if (yearAvailableText != null) yearAvailableText.text = snapshot.yearAvailable.ToString();
                 if (lifeSpanInput != null) lifeSpanInput.text = System.Math.Max(0, snapshot.yearDead - snapshot.yearBorn).ToString();
 
                 RefreshToggleGroup(personalityToggles, snapshot.personality, i => i + 1, 1);
@@ -661,7 +669,7 @@ namespace Sango.UI
                 RefreshToggleGroup(idealToggles, snapshot.ideal, i => i, 0);
                 RefreshToggleGroup(talentToggles, snapshot.talent, i => i, 0);
 
-                if (compatibilityInput != null) compatibilityInput.text = snapshot.compatibility.ToString();
+               // if (compatibilityInput != null) compatibilityInput.text = snapshot.compatibility.ToString();
 
                 if (commandInput != null) commandInput.text = snapshot.command.ToString();
                 if (strengthInput != null) strengthInput.text = snapshot.strength.ToString();
@@ -715,13 +723,9 @@ namespace Sango.UI
         /// </summary>
         private void RefreshImage()
         {
-            if (personImage == null) return;
-            if (!string.IsNullOrEmpty(snapshot.image))
-            {
-                Texture2D tex = Resources.Load<Texture2D>(snapshot.image);
-                if (tex != null)
-                    personImage.texture = tex;
-            }
+            Texture tex = GameRenderHelper.LoadHeadIcon(snapshot.headIconID, 1);
+            if (tex != null)
+                personImage.texture = tex;
         }
 
         /// <summary>
@@ -778,6 +782,7 @@ namespace Sango.UI
                 }
                 if (input != null) input.text = getter().ToString();
             });
+            input.text = getter().ToString();
         }
 
         /// <summary>
@@ -1031,12 +1036,6 @@ namespace Sango.UI
             RefreshSpouse();
         }
 
-        private void OnSwornBrotherSelected(List<Person> result)
-        {
-            snapshot.swornBrotherList = ConvertToIds(result);
-            RefreshSwornBrother();
-        }
-
         private void OnLikeSelected(List<Person> result)
         {
             snapshot.LikePersonList = ConvertToIds(result);
@@ -1077,7 +1076,7 @@ namespace Sango.UI
 
         private void RefreshSwornBrother()
         {
-            SetPersonNamesText(swornBrotherText, snapshot.swornBrotherList);
+            //SetPersonNamesText(swornBrotherText, snapshot.swornBrotherList);
         }
 
         private void RefreshLike()
@@ -1219,7 +1218,11 @@ namespace Sango.UI
         private void OnChangeImageClick()
         {
             Log.Info("打开头像选择窗口");
-            Window.Instance.Open("window_create_person_image");
+            Window.Instance.Open("window_create_person_image", snapshot.headIconID, (Action<int>)((headId) =>
+            {
+                snapshot.headIconID = headId;
+                RefreshImage();
+            }));
         }
 
         private void OnModelClick()
@@ -1233,17 +1236,17 @@ namespace Sango.UI
         {
             ApplySnapshotToTarget();
             Log.Info("新建武将已保存：" + snapshot.familyName + snapshot.giveName);
-            GameSystemManager.Instance.Back();
+            //GameSystemManager.Instance.Back();
         }
 
         private void OnBackClick()
         {
-            GameSystemManager.Instance.Back();
+           // GameSystemManager.Instance.Back();
         }
 
         private void OnCancelClick()
         {
-            GameSystemManager.Instance.Back();
+           // GameSystemManager.Instance.Back();
         }
         #endregion
 

@@ -16,15 +16,21 @@ namespace Sango.Core
         public void Init()
         {
             LoadScenarioAddon();
-            Sango.Log.Error(ScenarioAddon.PersonAddonMap.Count);
+            ScenarioAddon.Init();
         }
 
-        public void LoadScenarioAddon(ScenarioAddon scenarioCommonData)
+        public void LoadScenarioAddon(ScenarioAddon scenarioAddon)
         {
-            scenarioCommonData.Load(Path.SaveRootPath + "/CustomEdit/CustomPerson.json");
+            scenarioAddon.Load(Path.SaveRootPath + "/CustomEdit/CustomPerson.json");
             ModManager.Instance.EnumFiles("Data/CustomEdit/CustomPerson.json", file =>
             {
-                scenarioCommonData.Load(file);
+                scenarioAddon.Load(file);
+            });
+
+            scenarioAddon.Load(Path.ContentRootPath + "/Data/FaceConfig.json");
+            ModManager.Instance.EnumFiles("Data/FaceConfig.json", file =>
+            {
+                scenarioAddon.Load(file);
             });
         }
 

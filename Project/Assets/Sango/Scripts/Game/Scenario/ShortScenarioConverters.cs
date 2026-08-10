@@ -127,7 +127,7 @@ namespace Sango.Core
                         person.BelongCity = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
                         break;
                     case "headIconID":
-                        person.headIconID = reader.Value?.ToString();
+                        person.headIconID = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
                         break;
                     case "imageID":
                         person.imageID = reader.Value?.ToString();
