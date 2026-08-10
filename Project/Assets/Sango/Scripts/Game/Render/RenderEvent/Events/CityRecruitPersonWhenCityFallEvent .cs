@@ -41,7 +41,7 @@ namespace Sango.Render
                     }
                     else
                     {
-                        person.BeCaptive(targetCity);
+                        targetCity.AddCaptive(person);
                     }
                 }
                 captiveList.Clear();

@@ -35,7 +35,7 @@ namespace Sango.Render
                     }
                     else
                     {
-                        person.BeCaptive(atk);
+                        atk.AddCaptive(person);
                     }
                 }
                 captiveList.Clear();

@@ -163,9 +163,9 @@ namespace Sango.Core
         {
             result = 3;
             if (fallCity != null)
-                target.BeCaptive(fallCity);
+                fallCity.AddCaptive(target);
             else if (atker != null)
-                target.BeCaptive(atker);
+                atker.AddCaptive(target);
             Back();
             doneAction?.Invoke(this);
         }

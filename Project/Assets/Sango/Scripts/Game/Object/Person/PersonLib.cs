@@ -31,9 +31,9 @@ namespace Sango.Core
         [JsonProperty] public string nickName;
 
         /// <summary>
-        /// 身平
+        /// 身平/列傳
         /// </summary>
-        [JsonProperty] public int description;
+        [JsonProperty] public string description;
 
         /// <summary>
         /// 头像id
@@ -99,6 +99,36 @@ namespace Sango.Core
         public int argumentation;
 
         /// <summary>
+        /// 音聲
+        /// </summary>
+        [JsonProperty]
+        public int voice;
+
+        /// <summary>
+        /// 語氣
+        /// </summary>
+        [JsonProperty]
+        public int tone;
+
+        /// <summary>
+        /// 漢室態度
+        /// </summary>
+        [JsonProperty]
+        public int hanLoyalty;
+
+        /// <summary>
+        /// 理想
+        /// </summary>
+        [JsonProperty]
+        public int ideal;
+
+        /// <summary>
+        /// 才幹
+        /// </summary>
+        [JsonProperty]
+        public int talent;
+
+        /// <summary>
         /// 功绩
         /// </summary>
         [JsonProperty] public int merit;
@@ -151,6 +181,18 @@ namespace Sango.Core
         public int glamour;
 
         /// <summary>
+        /// 能力成長類型（對應 AttributeChangeType.Id）
+        /// </summary>
+        [JsonProperty]
+        public int attributeChangeType;
+
+        /// <summary>
+        /// 能力持續類型（0=長，1=短）
+        /// </summary>
+        [JsonProperty]
+        public int attributeDuration;
+
+        /// <summary>
         /// 血缘
         /// </summary>
         [JsonProperty] 
@@ -172,7 +214,7 @@ namespace Sango.Core
         /// 配偶
         /// </summary>
         [JsonProperty]
-        public int[] SpouseList { get; private set; }
+        public int[] SpouseList { get; set; }
 
         /// <summary>
         /// 兄弟
@@ -186,16 +228,22 @@ namespace Sango.Core
         public int[] BrotherList;
 
         /// <summary>
+        /// 義兄弟
+        /// </summary>
+        [JsonProperty]
+        public int[] swornBrotherList { get; set; }
+
+        /// <summary>
         /// 喜欢武将
         /// </summary>
         [JsonProperty]
-        public int[] LikePersonList { get; private set; }
+        public int[] LikePersonList { get; set; }
 
         /// <summary>
         /// 厌恶武将
         /// </summary>
         [JsonProperty]
-        public int[] HatePersonList { get; private set; }
+        public int[] HatePersonList { get; set; }
 
         /// <summary>
         /// 矛
@@ -237,7 +285,7 @@ namespace Sango.Core
         /// 武将特性
         /// </summary>
         [JsonProperty]
-        public int[] FeatureList { get; private set; }
+        public int[] FeatureList { get; set; }
       
     }
 }

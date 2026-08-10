@@ -726,7 +726,7 @@ namespace Sango.Core
                         GameEvent.OnSkillDamageBuildingTroops?.Invoke(this, beAtkBuildingBase, overrideData);
                         damage_troops = overrideData.ValueAndRecycle;
                         int ep = damage_troops / 100;
-                        if (!city.ChangeTroops(-damage_troops, troop, city.BelongForce != null))
+                        if (!city.IsSameForce(troop) && !city.ChangeTroops(-damage_troops, troop, city.BelongForce != null))
                         {
                             ep += 100;
                             troop.ForEachPerson(p =>

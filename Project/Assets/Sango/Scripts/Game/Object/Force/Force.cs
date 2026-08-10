@@ -1208,6 +1208,7 @@ namespace Sango.Core
         /// <param name="cities"></param>
         public void DeleteCorps(int number)
         {
+            if (number == 1) return;
             Corps corps = Scenario.Cur.corpsSet.Find((x) =>
             {
                 return x.BelongForce == this && x.number == number;
@@ -1223,11 +1224,14 @@ namespace Sango.Core
         /// <param name="cities"></param>
         public void DeleteCorps(Corps corps)
         {
-            if (corps.BelongForce != this) 
+            if (corps.BelongForce == null) 
             {
                 Scenario.Cur.corpsSet.Remove(corps);
                 return;
             }
+
+            if (corps == CapitalCorps)
+                return;
 
             Corps governorCorps = CapitalCorps;
             Scenario scenario = Scenario.Cur;
@@ -1256,6 +1260,7 @@ namespace Sango.Core
             });
             if (corps.Comander != null && corps.Comander.state == (int)PersonStateType.Commander)
                 corps.Comander.state = (int)PersonStateType.Normal;
+
             Scenario.Cur.corpsSet.Remove(corps);
             GameEvent.OnCorpsDelete?.Invoke(corps, Scenario.Cur);
         }

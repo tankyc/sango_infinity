@@ -799,10 +799,10 @@ namespace Sango.Core
 
             if (GameRandom.Chance(probability, 10000))
             {
+                captive.BelongForce?.BeCaptiveList.Remove(captive);
                 captive.CurrentCity.RemoveCaptive(captive);
-                captive.ChangeCorps(force.Governor?.BelongCorps);
-                captive.ChangeCity(force.Governor?.BelongCity);
-                captive.SetMission(MissionType.PersonReturn, captive.BelongCity);
+                captive.ChangeBelongCity(force.CapitalCity);
+                captive.SetMission(MissionType.PersonReturn, force.CapitalCity);
 #if SANGO_DEBUG
                 Sango.Log.Info($"{force.Name}成功招降了{captive.BelongForce?.Name}的{captive.Name}！");
 #endif

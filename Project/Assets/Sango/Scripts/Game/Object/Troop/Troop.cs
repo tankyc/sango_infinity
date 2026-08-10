@@ -610,7 +610,6 @@ namespace Sango.Core
 #if SANGO_DEBUG
                     Sango.Log.Info($"{person.Name}逃跑!");
 #endif
-                    GameEvent.OnPersonEscape?.Invoke(person, this);
                 }
             }
             GameEvent.OnTroopTurnEnd?.Invoke(this, scenario);
@@ -1203,6 +1202,11 @@ namespace Sango.Core
         internal IRenderEventBase actionRenderEvent = null;
         internal IRenderEventBase skillRenderEvent = null;
 
+        /// <summary>
+        /// 该方法必须确定destCell在移动范围内
+        /// </summary>
+        /// <param name="destCell"></param>
+        /// <returns></returns>
         public bool MoveTo(Cell destCell)
         {
             if (destCell == cell)
@@ -1583,90 +1587,72 @@ namespace Sango.Core
         }
 
         Cell tryToDest;
-        public bool TryMoveTo(Cell destCell)
-        {
-            if (!isMoving)
-            {      //TODO: 尝试移动
-                tempCellList.Clear();
-                tryToDest = null;
-                //TODO: 移动
-                Scenario.Cur.Map.GetDirectMovePath(this, destCell, tempCellList);
-                int totaleMoveAbility = MoveAbility;
-                int checkIndex = 0;
-                for (int i = 1; i < tempCellList.Count; i++)
-                {
-                    Cell dest = tempCellList[i];
-                    int destCost = MoveCost(dest);
-                    if (totaleMoveAbility > destCost && !Scenario.Cur.Map.IsZOC(this, dest))
-                    {
-                        totaleMoveAbility -= destCost;
-                    }
-                    else
-                    {
-                        checkIndex = i;
-                        break;
-                    }
-                }
-
-                for (int i = checkIndex - 1; i >= 1; i--)
-                {
-                    Cell dest = tempCellList[i];
-                    if (dest.IsEmpty())
-                    {
-                        tryToDest = dest;
-                        break;
-                    }
-                }
-            }
-
-            if (tryToDest == null)
-                return true;
-
-            return MoveTo(tryToDest);
-        }
         public bool TryCloseTo(Cell destCell)
         {
+            return TryMoveToCell(destCell);
+        }
+        public bool TryMoveToCity(City city)
+        {
+            return TryMoveToCell(city.CenterCell, (x) =>
+            {
+                return x.building == city;
+            });
+        }
+        public bool TryMoveToCell(Cell targetCell)
+        {
+            return TryMoveToCell(targetCell, null);
+        }
+
+        public bool TryMoveToCell(Cell targetCell, Func<Cell, bool> check)
+        {
+            if (targetCell == cell)
+            {
+                moveRenderEvent = null;
+                isMoving = false;
+                return true;
+            }
+
             if (!isMoving)
             {      //TODO: 尝试移动
                 tempCellList.Clear();
                 tryToDest = null;
 
+                // 先检查移动范围内是否可达目标
                 Map map = Scenario.Cur.Map;
-                //TODO: 移动
-                map.GetDirectMovePath(this, destCell, tempCellList);
-#if SANGO_DEBUG_AI
-                GameAIDebug.Instance.ShowTargetDirectPath(tempCellList, this);
-#endif
-
-                int totaleMoveAbility = MoveAbility;
-                for (int i = 1; i < tempCellList.Count; i++)
+                if (MoveRange.Count == 0)
+                    map.GetMoveRange(this, MoveRange);
+                for (int i = 1; i < MoveRange.Count; ++i)
                 {
-                    Cell dest = tempCellList[i];
-                    int destCost = MoveCost(dest);
-                    if (totaleMoveAbility > destCost)
+                    Cell dst = MoveRange[i];
+                    if (dst == targetCell ||(check != null && check(dst)))
                     {
-                        if (map.IsZOC(this, dest))
+                        tryToDest = dst;
+                        break;
+                    }
+                }
+
+                if (tryToDest == null)
+                {
+                    //TODO: 移动
+                    map.GetDirectMovePath(this, targetCell, tempCellList);
+                    Cell thisCell = this.cell;
+                    for (int i = 1; i < tempCellList.Count; i++)
+                    {
+                        Cell dest = tempCellList[i];
+                        if (!MoveRange.Contains(dest) || (check != null && check(dest)))
                         {
-                            totaleMoveAbility = 0;
+                            tryToDest = thisCell;
+                            break;
                         }
                         else
                         {
-                            totaleMoveAbility -= destCost;
+                            thisCell = dest;
                         }
-                        tryToDest = dest;
-                    }
-                    else
-                    {
-                        break;
                     }
                 }
 
-                if (tryToDest != null)
+                if (tryToDest != null &&  (check == null || !check(tryToDest)) && !tryToDest.CanStay(this))
                 {
-                    if (MoveRange.Count == 0)
-                    {
-                        map.GetMoveRange(this, MoveRange);
-                    }
                     PriorityQueue<Cell> nearnestCellInMoveRange = new PriorityQueue<Cell>();
                     for (int i = 0; i < MoveRange.Count; i++)
                     {
@@ -1677,156 +1663,6 @@ namespace Sango.Core
                         }
                     }
                     tryToDest = nearnestCellInMoveRange.Lower();
-                }
-            }
-
-            if (tryToDest == null)
-                return true;
-
-#if SANGO_DEBUG_AI
-
-            if (GameAIDebug.Instance.WaitForTargetDirectPath())
-                return false;
-#endif
-
-
-            return MoveTo(tryToDest);
-        }
-        public bool TryMoveToCity(City city)
-        {
-            if (!isMoving)
-            {      //TODO: 尝试移动
-                tempCellList.Clear();
-                tryToDest = null;
-
-                // 先检查移动范围内是否可达目标
-                Map map = Scenario.Cur.Map;
-                if (MoveRange.Count == 0)
-                    map.GetMoveRange(this, MoveRange);
-                for (int i = 1; i < MoveRange.Count; ++i)
-                {
-                    Cell cell = MoveRange[i];
-                    if (cell.building == city)
-                    {
-                        tryToDest = cell;
-                        break;
-                    }
-                }
-
-                if (tryToDest == null)
-                {
-                    //TODO: 移动
-                    map.GetDirectMovePath(this, city.CenterCell, tempCellList);
-
-                    int totaleMoveAbility = MoveAbility;
-                    for (int i = 1; i < tempCellList.Count; i++)
-                    {
-                        Cell dest = tempCellList[i];
-                        int destCost = MoveCost(dest);
-                        if (totaleMoveAbility > destCost)
-                        {
-                            if (map.IsZOC(this, dest))
-                            {
-                                totaleMoveAbility = 0;
-                            }
-                            else
-                            {
-                                totaleMoveAbility -= destCost;
-                            }
-                            tryToDest = dest;
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-
-                    if (tryToDest != null)
-                    {
-                        //List<Cell> temp = new List<Cell>();
-                        //map.GetMoveRange(this, temp);
-                        PriorityQueue<Cell> nearnestCellInMoveRange = new PriorityQueue<Cell>();
-                        for (int i = 0; i < MoveRange.Count; i++)
-                        {
-                            Cell cell = MoveRange[i];
-                            if (cell.IsEmpty())
-                            {
-                                nearnestCellInMoveRange.Push(cell, map.Distance(cell, tryToDest));
-                            }
-                        }
-                        tryToDest = nearnestCellInMoveRange.Lower();
-                    }
-                }
-            }
-
-            if (tryToDest == null)
-            {
-                return true;
-            }
-
-            return MoveTo(tryToDest);
-        }
-
-        public bool TryMoveToCell(Cell targetCell)
-        {
-            if (!isMoving)
-            {      //TODO: 尝试移动
-                tempCellList.Clear();
-                tryToDest = null;
-
-                // 先检查移动范围内是否可达目标
-                Map map = Scenario.Cur.Map;
-                if (MoveRange.Count == 0)
-                    map.GetMoveRange(this, MoveRange);
-                for (int i = 1; i < MoveRange.Count; ++i)
-                {
-                    Cell cell = MoveRange[i];
-                    if (cell == targetCell)
-                    {
-                        tryToDest = cell;
-                        break;
-                    }
-                }
-
-                if (tryToDest == null)
-                {
-                    //TODO: 移动
-                    map.GetDirectMovePath(this, targetCell, tempCellList);
-                    int moveCost = 0;
-                    for (int i = 1; i < tempCellList.Count; i++)
-                    {
-                        Cell dest = tempCellList[i];
-                        moveCost += MoveCost(dest);
-                        int destMoveAbilibty = GetTargetMoveAbility(dest);
-                        if (moveCost <= destMoveAbilibty)
-                        {
-                            if (map.IsZOC(this, dest))
-                            {
-                                moveCost = destMoveAbilibty;
-                            }
-                            tryToDest = dest;
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-
-                    if (tryToDest != null)
-                    {
-                        //List<Cell> temp = new List<Cell>();
-                        //map.GetMoveRange(this, temp);
-                        PriorityQueue<Cell> nearnestCellInMoveRange = new PriorityQueue<Cell>();
-                        for (int i = 0; i < MoveRange.Count; i++)
-                        {
-                            Cell cell = MoveRange[i];
-                            if (cell.IsEmpty())
-                            {
-                                nearnestCellInMoveRange.Push(cell, map.Distance(cell, tryToDest));
-                            }
-                        }
-                        tryToDest = nearnestCellInMoveRange.Lower();
-                    }
                 }
             }
 
@@ -1966,7 +1802,7 @@ namespace Sango.Core
                                foreach(Person person in pList)
                                {
                                    person.OnWillChangeToCity(city);
-                                   person.ChangeCity(city);
+                                   person.ChangeBelongCity(city);
                                    person.ChangeCurrentCity(city);
                                }
                                pList.Clear();
@@ -1997,7 +1833,7 @@ namespace Sango.Core
                 ForEachPerson((person) =>
                 {
                     person.OnWillChangeToCity(city);
-                    person.ChangeCity(city);
+                    person.ChangeBelongCity(city);
                     person.ChangeCurrentCity(city);
                 });
             }
@@ -2272,6 +2108,7 @@ namespace Sango.Core
             person.BelongForce?.BeCaptiveList.Remove(person);
             person.BelongForce?.BeCaptiveList.Add(person);
             person.BelongTroop = this;
+            person.ChangeCurrentCity(this.CurrentCity);
             if (person.BelongCity != null)
             {
                 person.BelongCity.allPersons.Remove(person);
@@ -2279,6 +2116,10 @@ namespace Sango.Core
                 person.BelongCity.freePersons.Remove(person);
                 person.BelongCity = null;
             }
+
+#if SANGO_DEBUG
+            Sango.Log.Info($"@人才@[{person.Name}]被<{BelongForce.Name}>俘虏至{Name}");
+#endif
             return person;
         }
 

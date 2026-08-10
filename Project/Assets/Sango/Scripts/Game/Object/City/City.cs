@@ -676,16 +676,19 @@ namespace Sango.Core
             captiveList.Add(person);
             person.BelongForce?.BeCaptiveList.Remove(person);
             person.BelongForce?.BeCaptiveList.Add(person);
+            person.BelongTroop = null;
             person.ChangeCurrentCity(this);
             if (person.BelongCity != null)
             {
                 person.BelongCity.allPersons.Remove(person);
                 person.BelongCity.wildPersons.Remove(person);
                 person.BelongCity.freePersons.Remove(person);
-                person.BelongCity = this;
+                person.BelongCity = null;
             }
-            if (!breakCircal)
-                person.BeCaptive(this, true);
+
+#if SANGO_DEBUG
+            Sango.Log.Info($"@人才@[{person.Name}]被<{BelongForce.Name}>俘虏至{Name}");
+#endif
             return person;
         }
 
@@ -1248,7 +1251,6 @@ namespace Sango.Core
 #if SANGO_DEBUG
                     Sango.Log.Info($"{person.Name}逃跑!");
 #endif
-                    //GameEvent.OnPersonEscape?.Invoke(person, this);
                 }
             }
 
@@ -1591,6 +1593,12 @@ namespace Sango.Core
             else
                 escapeCity = BelongForce.CapitalCity;
 
+            // 最后一城,港关不算城市数量,必须要有最后一城
+            if (BelongForce.CityCount == 0)
+            {
+                escapeCity = null;
+            }
+
 #if SANGO_DEBUG
             if (IsPort() || IsGate())
             {
@@ -1631,10 +1639,13 @@ namespace Sango.Core
                                  p.LeaveToWild();
                              });
                             c.allPersons.Clear();
-                            c.captiveList.ForEach(p =>
+
+                            for (int j = c.captiveList.Count - 1; j >= 0; j--)
                             {
-                                p.Escape(EscapeType.Escape);
-                            });
+                                Person person = c.captiveList[j];
+                                if (person == null) continue;
+                                person.Escape(EscapeType.Escape);
+                            }
                             c.LeaveToWild();
                         }
                     }
@@ -1651,9 +1662,7 @@ namespace Sango.Core
                 if (escapeCity != null)
                 {
                     person.OnWillChangeToCity(escapeCity);
-                    RemovePerson(person);
                     person.ChangeBelongCity(escapeCity);
-                    escapeCity.AddPerson(person);
                     if (person.BelongTroop == null && person.CurrentCity == this && person != person.BelongForce.Governor && GameRandom.Chance(cacaptureChangce))
                     {
                         temp_captive_list.Add(person);
@@ -1749,7 +1758,6 @@ namespace Sango.Core
                     RemoveCaptive(person);
                     person.state = (int)PersonStateType.Normal;
                     person.ChangeBelongCity(this);
-                    AddPerson(person);
                 }
             }
 

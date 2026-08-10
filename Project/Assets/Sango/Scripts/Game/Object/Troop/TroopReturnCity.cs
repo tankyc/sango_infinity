@@ -19,6 +19,13 @@ namespace Sango.Core
             if (TargetCity == null || TargetCity.Id != troop.missionTarget) TargetCity = scenario.citySet.Get(Troop.missionTarget);
             priorityActionData = null;
 
+            // 这种情况发生在玩家把部队放在外面没有任何任务,然后将此座城池设置成军团了
+            if (TargetCity == null)
+            {
+                TargetCity = troop.BelongCity;
+                troop.SetMission(MissionType.TroopReturnCity, TargetCity.Id);
+            }
+
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
             if (IsMissionComplete)
             {

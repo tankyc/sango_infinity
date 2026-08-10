@@ -232,7 +232,7 @@ namespace Sango.Core
         public virtual bool Run(Scenario scenario) { return true; }
 
         /// <summary>
-        /// 剧本准备时调用
+        /// 剧本准备时调用,在Init之前
         /// </summary>
         /// <param name="scenario">当前剧本</param>
         public virtual void OnScenarioPrepare(Scenario scenario) {; }
@@ -329,7 +329,7 @@ namespace Sango.Core
         public virtual bool OnSeasonEnd(Scenario scenario) { return true; }
 
         /// <summary>
-        /// 初始化对象
+        /// 初始化对象,在prepare之后
         /// </summary>
         /// <param name="scenario">当前剧本</param>
         public virtual void Init(Scenario scenario) { }

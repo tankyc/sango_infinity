@@ -943,37 +943,6 @@ namespace Sango.Core
             }
 
             GameEvent.OnScenarioInit?.Invoke(this);
-
-            string dir = "D:/Mods111/fix_critical_image/Assets/CriticalImage/";
-            string dst = "D:/Mods111/fix_critical_image/Assets/used/";
-
-            personSet.ForEach(o =>
-            {
-                if (!string.IsNullOrEmpty(o.image))
-                {
-                    string img = dir + o.image;
-                    if (Sango.File.Exists(img))
-                    {
-                        string imgDst = dst + o.image;
-                        Sango.Directory.Create(imgDst, false);
-                        Sango.File.Move(img, imgDst);
-                    }
-                }
-                if (!string.IsNullOrEmpty(o.image_old))
-                {
-                    string img = dir + o.image_old;
-                    if (Sango.File.Exists(img))
-                    {
-                        string imgDst = dst + o.image_old;
-                        Sango.Directory.Create(imgDst, false);
-                        Sango.File.Move(img, imgDst);
-                    }
-                }
-            });
-
-            Sango.Log.Error(personSet.Count);
-            Sango.Log.Error(personSet.DataCount);
-
         }
 
         /// <summary>

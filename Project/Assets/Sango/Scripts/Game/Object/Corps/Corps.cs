@@ -580,7 +580,8 @@ namespace Sango.Core
 
         public void RemoveCity(City target)
         {
-            if (cityCount == 1)
+            cityCount--;
+            if (cityCount <= 0)
             {
                 BelongForce.DeleteCorps(this);
             }
