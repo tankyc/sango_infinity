@@ -103,7 +103,7 @@ namespace Sango.UI
             else
             {
                 scrollbar.transform.parent.gameObject.SetActive(true);
-                scrollbar.size = (float)itemCount / (float)dataCount;
+                scrollbar.size = System.Math.Max(0.1f, (float)itemCount / (float)dataCount);
                 scrollbar.SetValueWithoutNotify(0);
             }
 
