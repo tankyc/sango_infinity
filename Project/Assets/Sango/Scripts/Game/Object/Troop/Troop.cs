@@ -1941,7 +1941,7 @@ namespace Sango.Core
                 mem.ActionOver = true;
             });
             Leader.JoinToForce(city);
-            CalculateAttribute(Scenario.Cur);
+            ResetActionAndStatus();
             return true;
         }
 

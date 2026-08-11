@@ -1458,6 +1458,7 @@ namespace Sango.Core
                         {
                             SetMission(MissionType.PersonReturn, targetCity);
                         }
+                        troop.ResetActionAndStatus();
                     }
                     troop.Render?.UpdateRender();
                 }

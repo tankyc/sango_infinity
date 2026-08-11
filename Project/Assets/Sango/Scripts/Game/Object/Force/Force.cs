@@ -1125,6 +1125,17 @@ namespace Sango.Core
             technique.DoActiveAction(this);
             UpdateCanBuildBuildingTypes();
             UpdateValidCreatedItemTypes();
+
+            ForEachCityBase(x =>
+            {
+                x.UpdateCalculate();
+            });
+
+            ForEachTroop(x =>
+            {
+                x.CalculateAttribute(Scenario.Cur);
+            });
+
             return technique;
         }
 

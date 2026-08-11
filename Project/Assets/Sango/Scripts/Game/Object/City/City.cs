@@ -905,6 +905,17 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 刷新上限
+        /// </summary>
+        public void UpdateCalculate()
+        {
+            //计算最大士气
+            CalculateMaxMorale();
+            CalculateHarvest();
+            CalculateLimit();
+        }
+
+        /// <summary>
         /// 变为野生状态
         /// </summary>
         public void LeaveToWild()
