@@ -223,7 +223,14 @@ namespace Sango.UI
 
             Scenario.CurSelected = new Scenario(show_scenario_list[curSelectIndex].FilePath);
 
-            Window.Instance.Open("window_scenario_force_select");
+            if(GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary.Count > 0 || GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Count >0)
+            {
+                Window.Instance.Open("window_scenario_addon_menu");
+            }
+            else
+            {
+                Window.Instance.Open("window_scenario_force_select");
+            }
             Window.Instance.Close("window_scenario_select");
         }
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN

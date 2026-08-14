@@ -184,9 +184,39 @@ namespace Sango.UI
 
         void UpdateTroopsInfo()
         {
-            troopsSlider.SetValueWithoutNotify((float)targetTroop.troops / targetCity.troops);
-            goldSlider.SetValueWithoutNotify((float)targetTroop.gold / targetCity.gold);
-            foodSlider.SetValueWithoutNotify((float)targetTroop.food / targetCity.food);
+            if (targetCity.troops > 0)
+            {
+                troopsSlider.SetValueWithoutNotify((float)targetTroop.troops / targetCity.troops);
+                troopsSlider.interactable = true;
+            }
+            else
+            {
+                troopsSlider.SetValueWithoutNotify(0);
+                troopsSlider.interactable = false;
+            }
+
+            if (targetCity.gold > 0)
+            {
+                goldSlider.SetValueWithoutNotify((float)targetTroop.gold / targetCity.gold);
+                goldSlider.interactable = true;
+            }
+            else
+            {
+                goldSlider.SetValueWithoutNotify(0);
+                goldSlider.interactable = false;
+            }
+
+            if (targetCity.food > 0)
+            {
+                foodSlider.SetValueWithoutNotify((float)targetTroop.food / targetCity.food);
+                foodSlider.interactable = true;
+            }
+            else
+            {
+                foodSlider.SetValueWithoutNotify(0);
+                foodSlider.interactable = false;
+            }
+
             troopsLabel.text = $"{targetTroop.troops}/{targetCity.troops}";
             goldLabel.text = $"{targetTroop.gold}/{targetCity.gold}";
             foodLabel.text = $"{targetTroop.food}/{targetCity.food}";

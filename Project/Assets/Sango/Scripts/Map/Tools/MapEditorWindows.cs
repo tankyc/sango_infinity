@@ -19,8 +19,8 @@ namespace Sango.Tools
         private UnityEngine.Rect lightWindowRect;
         private UnityEngine.Rect fogWindowRect;
         
-        private int newMapWidth = 512;
-        private int newMapHeight = 512;
+        private int newMapWidth = 1024;
+        private int newMapHeight = 1024;
         private string newMapKey = "";
         
         private Vector2 settingsScrollPosition = Vector2.zero;

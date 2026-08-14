@@ -9,15 +9,24 @@ using Sango.Core; namespace Sango.UI
     {
         public GameObject selectedObj;
         public GameObject normalObj;
+        public Text cityName;
         public GameObject inavtiveObj;
         public GameObject[] overObj;
         public Image[] colorImage;
         public City city;
         public Action<City, bool> onSelectAction;
+        public Action<City, ShortCity, bool> onOverAction;
 
         public ShortCity shortCity;
         public Action<UIMapCitySelectItem, ShortCity, bool> onSelectShortAction;
 
+        public void ShowName(string name)
+        {
+            if (cityName == null) return;
+            cityName.enabled = true;
+            cityName.text = name;
+        }
+        
         public void OnSelect()
         {
             selectedObj.SetActive(!selectedObj.activeSelf);
@@ -50,12 +59,12 @@ using Sango.Core; namespace Sango.UI
                     item.color = c;
             return this;
         }
-        public UIMapCitySelectItem SetOver(bool b)
+        public void SetOver(bool b)
         {
             foreach (var item in overObj)
                 if (item != null)
                     item.SetActive(b);
-            return this;
+            onOverAction?.Invoke(city, shortCity, b);
         }
     }
 }

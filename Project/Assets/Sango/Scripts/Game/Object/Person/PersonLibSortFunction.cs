@@ -390,112 +390,125 @@ namespace Sango.Core
             valueObjSet = (x, v) => x.stamina = (int)v,
         };
 
-        // 性格（小写！！！）
-        //public static SortTitle SortByPersonality = new SortTitle()
-        //{
-        //    name = "性格",
-        //    width = 2.00f,
-        //    valueGetCall = x => x == null || x.personality == null ? "—" : x.personality.Name,
-        //    personSortFunc = (a, b) =>
-        //    {
-        //        string aName = a?.personality?.Name ?? "";
-        //        string bName = b?.personality?.Name ?? "";
-        //        return aName.CompareTo(bName);
-        //    },
-        //    valueObjGet = x => x.personality,
-        //    valueObjSet = (x, v) => x.personality = (Personality)v,
-        //};
+        public static List<ObjectSortTitle> DefaultSortList = new List<ObjectSortTitle>
+        {
+                PersonLibSortFunction.SortByName,
+                PersonLibSortFunction.SortByYearBorn,
+                PersonLibSortFunction.SortByYearDead,
+                PersonLibSortFunction.SortBySex ,
+                PersonLibSortFunction.SortByCommand,
+                PersonLibSortFunction.SortByStrength,
+                PersonLibSortFunction.SortByIntelligence,
+                PersonLibSortFunction.SortByPolitics,
+                PersonLibSortFunction.SortByGlamour,
+        };
+        
+    // 性格（小写！！！）
+    //public static SortTitle SortByPersonality = new SortTitle()
+    //{
+    //    name = "性格",
+    //    width = 2.00f,
+    //    valueGetCall = x => x == null || x.personality == null ? "—" : x.personality.Name,
+    //    personSortFunc = (a, b) =>
+    //    {
+    //        string aName = a?.personality?.Name ?? "";
+    //        string bName = b?.personality?.Name ?? "";
+    //        return aName.CompareTo(bName);
+    //    },
+    //    valueObjGet = x => x.personality,
+    //    valueObjSet = (x, v) => x.personality = (Personality)v,
+    //};
 
 
-        //public static SortTitle SortByFather = new SortTitle()
-        //{
-        //    name = "父亲",
-        //    width = 2.40f,
-        //    valueGetCall = x => x == null || x.Father == null ? " " : x.Father.Name,
-        //    personSortFunc = (a, b) => SangoObject.Compare(a?.Father, b?.Father),
-        //    valueObjGet = x => x.Father,
-        //    valueObjSet = (x, v) => x.Father = (Person)v,
-        //};
+    //public static SortTitle SortByFather = new SortTitle()
+    //{
+    //    name = "父亲",
+    //    width = 2.40f,
+    //    valueGetCall = x => x == null || x.Father == null ? " " : x.Father.Name,
+    //    personSortFunc = (a, b) => SangoObject.Compare(a?.Father, b?.Father),
+    //    valueObjGet = x => x.Father,
+    //    valueObjSet = (x, v) => x.Father = (Person)v,
+    //};
 
-        //public static SortTitle SortByMother = new SortTitle()
-        //{
-        //    name = "母亲",
-        //    width = 2.40f,
-        //    valueGetCall = x => x == null || x.Mother == null ? " " : x.Mother.Name,
-        //    personSortFunc = (a, b) => SangoObject.Compare(a?.Mother, b?.Mother),
-        //    valueObjGet = x => x.Mother,
-        //    valueObjSet = (x, v) => x.Mother = (Person)v,
-        //};
+    //public static SortTitle SortByMother = new SortTitle()
+    //{
+    //    name = "母亲",
+    //    width = 2.40f,
+    //    valueGetCall = x => x == null || x.Mother == null ? " " : x.Mother.Name,
+    //    personSortFunc = (a, b) => SangoObject.Compare(a?.Mother, b?.Mother),
+    //    valueObjGet = x => x.Mother,
+    //    valueObjSet = (x, v) => x.Mother = (Person)v,
+    //};
 
-        //public static SortTitle SortByBrother = new SortTitle()
-        //{
-        //    name = "兄弟",
-        //    width = 7.20f,
-        //    valueGetCall = x =>
-        //    {
-        //        if (x == null) return " ";
-        //        if (x.BrotherList == null || x.BrotherList.Count == 0) return " ";
+    //public static SortTitle SortByBrother = new SortTitle()
+    //{
+    //    name = "兄弟",
+    //    width = 7.20f,
+    //    valueGetCall = x =>
+    //    {
+    //        if (x == null) return " ";
+    //        if (x.BrotherList == null || x.BrotherList.Count == 0) return " ";
 
-        //        var names = new System.Collections.Generic.List<string>();
-        //        foreach (Person brother in x.BrotherList)
-        //        {
-        //            if (brother != null) names.Add(brother.Name);
-        //        }
-        //        return names.Count == 0 ? " " : string.Join("，", names);
-        //    },
-        //    personSortFunc = (a, b) =>
-        //    {
-        //        if (a.BrotherList != null && b.BrotherList != null)
-        //        {
-        //            return a.BrotherList.Count.CompareTo(b.BrotherList.Count);
-        //        }
+    //        var names = new System.Collections.Generic.List<string>();
+    //        foreach (Person brother in x.BrotherList)
+    //        {
+    //            if (brother != null) names.Add(brother.Name);
+    //        }
+    //        return names.Count == 0 ? " " : string.Join("，", names);
+    //    },
+    //    personSortFunc = (a, b) =>
+    //    {
+    //        if (a.BrotherList != null && b.BrotherList != null)
+    //        {
+    //            return a.BrotherList.Count.CompareTo(b.BrotherList.Count);
+    //        }
 
-        //        if (a.BrotherList != null)
-        //            return 1;
+    //        if (a.BrotherList != null)
+    //            return 1;
 
-        //        if (b.BrotherList != null)
-        //            return -1;
+    //        if (b.BrotherList != null)
+    //            return -1;
 
-        //        return 0;
-        //    },
-        //    valueObjGet = null,
-        //    valueObjSet = null,
-        //};
+    //        return 0;
+    //    },
+    //    valueObjGet = null,
+    //    valueObjSet = null,
+    //};
 
-        //public static SortTitle SortBySpouse = new SortTitle()
-        //{
-        //    name = "配偶",
-        //    width = 7.20f,
-        //    valueGetCall = x =>
-        //    {
-        //        if (x == null) return " ";
-        //        if (x.SpouseList == null || x.SpouseList.Count == 0) return " ";
+    //public static SortTitle SortBySpouse = new SortTitle()
+    //{
+    //    name = "配偶",
+    //    width = 7.20f,
+    //    valueGetCall = x =>
+    //    {
+    //        if (x == null) return " ";
+    //        if (x.SpouseList == null || x.SpouseList.Count == 0) return " ";
 
-        //        var names = new System.Collections.Generic.List<string>();
-        //        foreach (Person spouse in x.SpouseList)
-        //        {
-        //            if (spouse != null) names.Add(spouse.Name);
-        //        }
-        //        return names.Count == 0 ? " " : string.Join("，", names);
-        //    },
-        //    personSortFunc = (a, b) =>
-        //    {
-        //        if (a.SpouseList != null && b.SpouseList != null)
-        //        {
-        //            return a.SpouseList.Count.CompareTo(b.SpouseList.Count);
-        //        }
+    //        var names = new System.Collections.Generic.List<string>();
+    //        foreach (Person spouse in x.SpouseList)
+    //        {
+    //            if (spouse != null) names.Add(spouse.Name);
+    //        }
+    //        return names.Count == 0 ? " " : string.Join("，", names);
+    //    },
+    //    personSortFunc = (a, b) =>
+    //    {
+    //        if (a.SpouseList != null && b.SpouseList != null)
+    //        {
+    //            return a.SpouseList.Count.CompareTo(b.SpouseList.Count);
+    //        }
 
-        //        if (a.SpouseList != null)
-        //            return 1;
+    //        if (a.SpouseList != null)
+    //            return 1;
 
-        //        if (b.SpouseList != null)
-        //            return -1;
+    //        if (b.SpouseList != null)
+    //            return -1;
 
-        //        return 0;
-        //    },
-        //    valueObjGet = null,
-        //    valueObjSet = null,
-        //};
-    }
+    //        return 0;
+    //    },
+    //    valueObjGet = null,
+    //    valueObjSet = null,
+    //};
+}
 
 }

@@ -214,7 +214,8 @@ namespace Sango.UI
             this.currentValue = ClampValue(current);
             this.onConfirm = confirm;
             this.onCancel = cancel;
-
+            maxButtonLabel.text = maxValue.ToString();
+            minButtonLabel.text = minValue.ToString();
             if (!string.IsNullOrEmpty(title) && titleText != null)
             {
                 titleText.text = title;
@@ -224,15 +225,86 @@ namespace Sango.UI
         }
        
         /// <summary>
-        /// 绑定Slider事件。
-        /// 注意：所有按钮事件由外部手动绑定，此处不做自动绑定。
+        /// 绑定Slider及所有按钮事件。
         /// </summary>
         protected virtual void BindEvents()
         {
+            // Slider
             if (valueSlider != null)
             {
                 valueSlider.onValueChanged.RemoveAllListeners();
                 valueSlider.onValueChanged.AddListener(OnSliderValueChanged);
+            }
+
+            // 加减按钮
+            if (minusButton != null)
+            {
+                minusButton.onClick.RemoveAllListeners();
+                minusButton.onClick.AddListener(OnMinusClicked);
+            }
+            if (plusButton != null)
+            {
+                plusButton.onClick.RemoveAllListeners();
+                plusButton.onClick.AddListener(OnPlusClicked);
+            }
+
+            // 最大/最小按钮
+            if (maxButton != null)
+            {
+                maxButton.onClick.RemoveAllListeners();
+                maxButton.onClick.AddListener(OnMaxClicked);
+            }
+            if (minButton != null)
+            {
+                minButton.onClick.RemoveAllListeners();
+                minButton.onClick.AddListener(OnMinClicked);
+            }
+
+            // 确定/取消按钮
+            if (sureButton != null)
+            {
+                sureButton.onClick.RemoveAllListeners();
+                sureButton.onClick.AddListener(OnSureClicked);
+            }
+            if (cancelButton != null)
+            {
+                cancelButton.onClick.RemoveAllListeners();
+                cancelButton.onClick.AddListener(OnCancelClicked);
+            }
+
+            // 数字键盘 0-9
+            if (digitButtons != null)
+            {
+                for (int i = 0; i < digitButtons.Length && i < 10; i++)
+                {
+                    if (digitButtons[i] != null)
+                    {
+                        int digit = i; // 捕获当前值，避免闭包陷阱
+                        digitButtons[i].onClick.RemoveAllListeners();
+                        digitButtons[i].onClick.AddListener(() => OnDigitClicked(digit));
+                    }
+                }
+            }
+
+            // 00按钮
+            if (digit00Button != null)
+            {
+                digit00Button.onClick.RemoveAllListeners();
+                digit00Button.onClick.AddListener(OnDoubleZeroClicked);
+            }
+
+            // 后退按钮
+            if (backButton != null)
+            {
+                backButton.onClick.RemoveAllListeners();
+                backButton.onClick.AddListener(OnBackClicked);
+            }
+
+            // 清除按钮
+            if (clearButton != null)
+            {
+                clearButton.onClick.RemoveAllListeners();
+                clearButton.onClick.AddListener(OnClearClicked);
             }
         }
 
@@ -241,7 +313,7 @@ namespace Sango.UI
         #region 数值操作
 
         /// <summary>
-        /// 将数值限制在[minValue, maxValue]范围内。
+        /// 将数值限制在[minValue, maxValue]范围内（确认时使用）。
         /// </summary>
         protected virtual int ClampValue(int value)
         {
@@ -249,11 +321,20 @@ namespace Sango.UI
         }
 
         /// <summary>
+        /// 将数值限制在 maxValue 以内（输入过程中使用，不限制最小值）。
+        /// </summary>
+        protected virtual int ClampMax(int value)
+        {
+            return System.Math.Min(maxValue, value);
+        }
+
+        /// <summary>
         /// 修改当前数值并刷新显示。
+        /// 输入过程中仅限制最大值，最小值在确认时钳制。
         /// </summary>
         protected virtual void SetValue(int value)
         {
-            currentValue = ClampValue(value);
+            currentValue = ClampMax(value);
             RefreshDisplay();
         }
 
@@ -350,10 +431,11 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 确定按钮：调用确认回调并关闭窗口。
+        /// 确定按钮：钳制到min/max后调用确认回调并关闭窗口。
         /// </summary>
         protected virtual void OnSureClicked()
         {
+            currentValue = ClampValue(currentValue);
             onConfirm?.Invoke(currentValue);
             Close();
         }
@@ -380,18 +462,9 @@ namespace Sango.UI
                 return;
             }
 
-            // 防止乘法溢出
+            // 防溢出，不做最小值限制（确认时统一钳制）
             long newValue = (long)currentValue * 10 + digit;
-            if (newValue > maxValue)
-            {
-                newValue = maxValue;
-            }
-            else if (newValue < minValue)
-            {
-                newValue = minValue;
-            }
-
-            SetValue((int)newValue);
+            SetValue((int)System.Math.Min(newValue, (long)int.MaxValue));
         }
 
         /// <summary>
@@ -401,18 +474,9 @@ namespace Sango.UI
         /// </summary>
         public virtual void OnDoubleZeroClicked()
         {
-            // 防止乘法溢出
+            // 防溢出，不做最小值限制（确认时统一钳制）
             long newValue = (long)currentValue * 100;
-            if (newValue > maxValue)
-            {
-                newValue = maxValue;
-            }
-            else if (newValue < minValue)
-            {
-                newValue = minValue;
-            }
-
-            SetValue((int)newValue);
+            SetValue((int)System.Math.Min(newValue, (long)int.MaxValue));
         }
 
         /// <summary>

@@ -292,6 +292,24 @@ namespace Sango.Core
         [JsonProperty] public int injury;
 
         /// <summary>
+        /// 汉室态度
+        /// </summary>
+        [JsonProperty]
+        public int kanshitsu;
+
+        /// <summary>
+        /// 理想
+        /// </summary>
+        [JsonProperty]
+        public int ideal;
+
+        /// <summary>
+        /// 才幹
+        /// </summary>
+        [JsonProperty]
+        public int talent;
+
+        /// <summary>
         /// 父亲
         /// </summary>
         [JsonConverter(typeof(Id2ObjConverter<Person>))]

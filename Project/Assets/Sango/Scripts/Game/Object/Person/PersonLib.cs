@@ -9,6 +9,7 @@ namespace Sango.Core
     public class PersonLib : SangoObject
     {
         public override SangoObjectType ObjectType { get { return SangoObjectType.Person; } }
+        public override string Name => $"{familyName}{giveName}";
 
         public string ColorName => $"<color=#7CCADB>{Name}</color>";
 
@@ -111,10 +112,10 @@ namespace Sango.Core
         public int tone;
 
         /// <summary>
-        /// 漢室態度
+        /// 汉室态度
         /// </summary>
         [JsonProperty]
-        public int hanLoyalty;
+        public int kanshitsu;
 
         /// <summary>
         /// 理想

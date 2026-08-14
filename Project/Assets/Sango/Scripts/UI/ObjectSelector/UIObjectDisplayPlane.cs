@@ -1,5 +1,6 @@
 ﻿using Sango.Core;
 using Sango.Core.Player;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,8 +27,9 @@ namespace Sango.UI
         protected int startIndex = 0;
         protected float itemWidth = 0;
         protected int itemCount = 0;
-
+        UIObjectListItem currentSelect;
         public bool clickMode = false;
+        public Action<int> OnSelectCall;
 
         protected UISortButton CreateSortButtonItem()
         {
@@ -85,6 +87,7 @@ namespace Sango.UI
                 listItem.contentRect.anchoredPosition = p;
                 listItem.selectItem.gameObject.SetActive(!clickMode);
                 listItem.SetOver(false);
+                listItem.onSelected = OnSelect;
             }
 
             UpdateSortContent();
@@ -95,6 +98,20 @@ namespace Sango.UI
                 Vector2 p = r.anchoredPosition;
                 p.x = 0;
                 r.anchoredPosition = p;
+            }
+        }
+
+        public void OnSelect(UIObjectListItem listItem)
+        {
+            if(OnSelectCall != null)
+            {
+                if (currentSelect != null)
+                {
+                    currentSelect.SetSelected(false);
+                }
+                currentSelect = listItem;
+                currentSelect.SetSelected(true);
+                OnSelectCall.Invoke(currentSelect.index);
             }
         }
 
@@ -192,6 +209,7 @@ namespace Sango.UI
                 UIObjectListItem listItem = uIObjectListItems[j];
                 listItem.SetOver(false);
             }
+
             UpdateItemStartIndex(startIndex);
         }
 
@@ -244,11 +262,22 @@ namespace Sango.UI
             for (int i = 0; i < itemCount; i++)
             {
                 UIObjectListItem listItem = uIObjectListItems[i];
-                SangoObject sango = Objects[i + startIndex];
-                for (int j = 0; j < sortItems.Count; j++)
+                if (i < Objects.Count)
                 {
-                    ObjectSortTitle sortTitle = sortItems[j];
-                    listItem.Set(j, sortTitle.GetValueStr(sango));
+                    SangoObject sango = Objects[i + startIndex];
+                    for (int j = 0; j < sortItems.Count; j++)
+                    {
+                        ObjectSortTitle sortTitle = sortItems[j];
+                        listItem.Set(j, sortTitle.GetValueStr(sango));
+                    }
+                }
+                else
+                {
+                    for (int j = 0; j < sortItems.Count; j++)
+                    {
+                        ObjectSortTitle sortTitle = sortItems[j];
+                        listItem.Set(j, "");
+                    }
                 }
                 listItem.index = i + startIndex;
             }
@@ -278,5 +307,7 @@ namespace Sango.UI
                 DownShow();
             }
         }
+
+
     }
 }

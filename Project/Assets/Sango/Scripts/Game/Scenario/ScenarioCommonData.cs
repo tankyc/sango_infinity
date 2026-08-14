@@ -161,6 +161,7 @@ namespace Sango.Core
         public SangoObjectSet<PersonLib> PersonLibrary = new SangoObjectSet<PersonLib>();
 
 
+
         public List<ItemType> ItemTypeList { get; set; }
 
         public void Init()

@@ -635,7 +635,6 @@ namespace Sango.Render
             MapUVPiece = new Vector2(1.0f / vertex_width, 1.0f / vertex_height);
             vertex_x_max = w + 1;
             vertex_y_max = h + 1;
-
             vertexDatas = new VertexData[vertex_x_max][];
             for (int x = 0; x < vertex_x_max; x++)
             {

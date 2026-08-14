@@ -128,7 +128,7 @@ namespace Sango.UI
         {
             int headId = (int)(objs[0]);
             OnHeadSelected = (Action<int>)(objs[1]);
-            filteredHeadDataList = GameCustomEdit.Instance.ScenarioAddon.headDataList;
+            filteredHeadDataList = GameCustomEdit.Instance.headDataList;
             // 绑定UI事件
             BindEvents();
             RefreshPreview(headId);

@@ -1,4 +1,5 @@
 ﻿using Sango.Core;
+using Sango.Core.Player;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,6 +11,7 @@ namespace Sango.UI
         public Text personCount;
         public UIObjectDisplayPlane objectDisplayPlane;
         List<SangoObject> editPersonList = new List<SangoObject>();
+        List<PersonLib> editPersonLibList = new List<PersonLib>();
         public static List<ObjectSortTitle> SortList;
         public GameObject menuRoot;
 
@@ -35,7 +37,12 @@ namespace Sango.UI
         {
             base.OnOpen();
             editPersonList.Clear();
-            Sango.Core.GameCustomEdit.Instance.ScenarioAddon.PersonAddonMap.ForEach(x => editPersonList.Add(x));
+            editPersonLibList.Clear();
+            Sango.Core.GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.ForEach(x =>
+            {
+                editPersonList.Add(x); editPersonLibList.Add(x);
+            }
+            );
             objectDisplayPlane.Init(editPersonList, SortList, true);
             personCount.text = $"{editPersonList.Count}/9999";
         }
@@ -51,6 +58,8 @@ namespace Sango.UI
 
         public void OnManualCreateNewPerson()
         {
+            Close();
+            GameCustomEdit.Instance.TargetEditPerson = null;
             Window.Instance.Open("window_create_person");
         }
 
@@ -61,12 +70,39 @@ namespace Sango.UI
 
         public void OnEditPerson()
         {
-
+            GameSystem.GetSystem<EditPersonSelectSystem>().Start(editPersonLibList, new List<PersonLib>(), -1, (x) =>
+            {
+                if (x.Count > 0)
+                {
+                    PersonLib personLib = x[0] as PersonLib;
+                    GameCustomEdit.Instance.TargetEditPerson = personLib;
+                    Close();
+                    Window.Instance.Open("window_create_person");
+                }
+            }, SortList, "编辑武将");
         }
 
         public void OnDeletePerson()
         {
+            GameSystem.GetSystem<EditPersonSelectSystem>().Start(editPersonLibList, new List<PersonLib>(), -1, (x) =>
+            {
+                if (x.Count > 0)
+                {
+                    PersonLib personLib = x[0] as PersonLib;
+                    GameCustomEdit.Instance.TargetEditPerson = personLib;
+                    GameDialog.IDialog dialog3 = GameDialog.Open(GameDialog.DialogStyle.Normal, $"确定要删除{personLib.ColorName}, 删除之后将无法找回...", () =>
+                    {
+                        GameDialog.Close();
+                        GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Remove(personLib);
+                        editPersonLibList.Remove(personLib);
+                        editPersonList.Remove(personLib);
+                        objectDisplayPlane.Init(editPersonList, SortList, true);
+                        personCount.text = $"{editPersonList.Count}/9999";
+                        GameCustomEdit.Instance.SaveScenarioAddon();
+                    });
 
+                }
+            }, SortList, "删除武将");
         }
 
 

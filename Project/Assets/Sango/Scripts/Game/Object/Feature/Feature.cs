@@ -17,7 +17,7 @@ namespace Sango.Core
             get
             {
                 if (actionEntities == null)
-                    return $"<color=#ff1111>{_name}</color>";
+                    return $"<color=#6D6D6D>{_name}</color>";
                 else
                     return _name;
             }

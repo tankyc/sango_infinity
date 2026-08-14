@@ -130,6 +130,11 @@ namespace Sango.Core
         public bool loadOK = false;
         public bool loadFullPersons = false;
 
+        private ShortScenario()
+        {
+
+        }
+
         public ShortScenario(string filePath)
         {
             this.FilePath = filePath;
@@ -393,5 +398,6 @@ namespace Sango.Core
             ScenarioInfo scenarioInfo = Info;
             return $" {scenarioInfo.id}. {scenarioInfo.year}年 {scenarioInfo.month}月 {scenarioInfo.name}<{mod}>";
         }
+
     }
 }
