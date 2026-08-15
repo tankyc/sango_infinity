@@ -95,3 +95,7 @@
 /Project/Assets/示意图
 /Project/Assets/示意图.meta
 /Project/Assets/CachePreviews
+/.vs
+/Build/compile_log.txt
+/Project/obj/Release
+/unity_build_log.txt
