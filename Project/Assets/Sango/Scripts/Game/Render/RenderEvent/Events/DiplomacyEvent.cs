@@ -44,17 +44,17 @@ namespace Sango.Render
                             {
                                 new GameDialog.TalkData
                                 {
-                                    person = receiverForce.Governor,
-                                    text = $"{person.BelongForce.ColorName}军的{person.ColorName}远道而来辛苦了。\n立刻让我听听你的来意吧！",
+                                    person = receiverForce.mGovernor,
+                                    text = $"{person.mForce.ColorName}军的{person.ColorName}远道而来辛苦了。\n立刻让我听听你的来意吧！",
                                 },
                                     new GameDialog.TalkData
                                 {
                                     person = person,
-                                    text = $"此次前来不为其他。\n是想请问可否与我方{person.BelongForce.ColorName}军\n缔结同盟呢？",
+                                    text = $"此次前来不为其他。\n是想请问可否与我方{person.mForce.ColorName}军\n缔结同盟呢？",
                                 },
                                 new GameDialog.TalkData
                                 {
-                                    person = receiverForce.Governor,
+                                    person = receiverForce.mGovernor,
                                     text = $"什么，同盟……？\n嗯嗯……",
                                 }
                             };
@@ -69,14 +69,14 @@ namespace Sango.Render
                                         talkDatas.Clear();
                                         talkDatas.Add(new GameDialog.TalkData
                                         {
-                                            person = receiverForce.Governor,
-                                            text = $"那么就和{person.BelongForce.ColorName}军缔结同盟吧。",
+                                            person = receiverForce.mGovernor,
+                                            text = $"那么就和{person.mForce.ColorName}军缔结同盟吧。",
                                         });
                                         GameDialog.StartTalk(talkDatas, () =>
                                         {
                                             GameSystem.GetSystem<DiplomacyManager>().ExecuteDiplomacyMission(true, person, actionType, receiverForce, resourceValue);
                                             // 完成任务，返回原城市
-                                            person.SetMission(MissionType.PersonReturn, person.BelongCity);
+                                            person.SetMission(MissionType.PersonReturn, person.mCity);
                                             IsDone = true;
                                         });
                                     };
@@ -85,8 +85,8 @@ namespace Sango.Render
                                         talkDatas.Clear();
                                         talkDatas.Add(new GameDialog.TalkData
                                         {
-                                            person = receiverForce.Governor,
-                                            text = $"{person.BelongForce.ColorName}军缔结同盟，\n毕竟是不可能的事。\n就当做没有过这回事好了。",
+                                            person = receiverForce.mGovernor,
+                                            text = $"{person.mForce.ColorName}军缔结同盟，\n毕竟是不可能的事。\n就当做没有过这回事好了。",
                                         });
                                         GameDialog.StartTalk(talkDatas, () =>
                                         {
@@ -94,7 +94,7 @@ namespace Sango.Render
                                             GameSystem.GetSystem<DiplomacyManager>().ExecuteDiplomacyMission(false, person, actionType, receiverForce, resourceValue);
 
                                             // 完成任务，返回原城市
-                                            person.SetMission(MissionType.PersonReturn, person.BelongCity);
+                                            person.SetMission(MissionType.PersonReturn, person.mCity);
                                             IsDone = true;
                                         });
                                     };
@@ -105,7 +105,7 @@ namespace Sango.Render
                             {
                                 DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
                                 // 创建外交行为实例并计算成功率
-                                DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(actionType, person.BelongForce, receiverForce, person, resourceValue);
+                                DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(actionType, person.mForce, receiverForce, person, resourceValue);
                                 int successRate = diplomacyManager.CalculateDiplomacySuccessRate(action);
                                 bool success = GameRandom.Chance(successRate);
 
@@ -116,16 +116,16 @@ namespace Sango.Render
                                     {
                                         talkDatas.Add(new GameDialog.TalkData
                                         {
-                                            person = receiverForce.Governor,
-                                            text = $"{person.BelongForce.ColorName}军缔结同盟，\n毕竟是不可能的事。\n就当做没有过这回事好了。",
+                                            person = receiverForce.mGovernor,
+                                            text = $"{person.mForce.ColorName}军缔结同盟，\n毕竟是不可能的事。\n就当做没有过这回事好了。",
                                         });
                                     }
                                     else
                                     {
                                         talkDatas.Add(new GameDialog.TalkData
                                         {
-                                            person = receiverForce.Governor,
-                                            text = $"那么就和{person.BelongForce.ColorName}军缔结同盟吧。",
+                                            person = receiverForce.mGovernor,
+                                            text = $"那么就和{person.mForce.ColorName}军缔结同盟吧。",
                                         });
                                     }
 
@@ -134,7 +134,7 @@ namespace Sango.Render
                                         diplomacyManager.ExecuteDiplomacyMission(success, person, actionType, receiverForce, resourceValue);
 
                                         // 完成任务，返回原城市
-                                        person.SetMission(MissionType.PersonReturn, person.BelongCity);
+                                        person.SetMission(MissionType.PersonReturn, person.mCity);
                                         IsDone = true;
                                     });
                                 });
@@ -157,25 +157,25 @@ namespace Sango.Render
                                 {
                                 new GameDialog.TalkData
                                 {
-                                    person = receiverForce.Governor,
+                                    person = receiverForce.mGovernor,
                                     text = $"{person.ColorName},别来无恙!",
                                 },
                                  new GameDialog.TalkData
                                 {
                                     person = person,
-                                    text = $"我代表我家主公{person.BelongForce.Governor.ColorName}向您呈上最真挚的情谊,此次携带1000金,还请{receiverForce.Governor.ColorName}笑纳!",
+                                    text = $"我代表我家主公{person.mForce.mGovernor.ColorName}向您呈上最真挚的情谊,此次携带1000金,还请{receiverForce.mGovernor.ColorName}笑纳!",
                                 },
                                  new GameDialog.TalkData
                                 {
-                                     person = receiverForce.Governor,
-                                    text = $"既然{person.BelongForce.Governor.ColorName}这么有心意,那我就收下了!!!",
+                                     person = receiverForce.mGovernor,
+                                    text = $"既然{person.mForce.mGovernor.ColorName}这么有心意,那我就收下了!!!",
                                 },
                                 };
                                 GameDialog.StartTalk(talkDatas, () =>
                                 {
                                     GameSystem.GetSystem<DiplomacyManager>().ExecuteDiplomacyMission(true, person, actionType, receiverForce, resourceValue);
                                     // 完成任务，返回原城市
-                                    person.SetMission(MissionType.PersonReturn, person.BelongCity);
+                                    person.SetMission(MissionType.PersonReturn, person.mCity);
                                     IsDone = true;
                                 });
                             });
@@ -289,7 +289,7 @@ namespace Sango.Render
             {
                 GameSystem.GetSystem<DiplomacyManager>().ExecuteDiplomacyMission(person, actionType, receiverForce, resourceValue);
                 // 完成任务，返回原城市
-                person.SetMission(MissionType.PersonReturn, person.BelongCity);
+                person.SetMission(MissionType.PersonReturn, person.mCity);
                 IsDone = true;
             }
         }

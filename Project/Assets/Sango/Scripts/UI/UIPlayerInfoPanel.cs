@@ -53,7 +53,7 @@ namespace Sango.UI
 
         void OnPersonActionOver(Person person)
         {
-            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && person.BelongForce != null && person.IsPlayerControl && person.BelongForce == Scenario.Cur.CurRunForce)
+            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && person.mForce != null && person.IsPlayerControl && person.mForce == Scenario.Cur.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -73,7 +73,7 @@ namespace Sango.UI
 
         void OnCityFall(City city, Force lastForce, Troop atk)
         {
-            if (curShowType == ShowType.City && city.IsPlayerControl && city.BelongForce == Scenario.Cur.CurRunForce)
+            if (curShowType == ShowType.City && city.IsPlayerControl && city.mForce == Scenario.Cur.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -133,7 +133,7 @@ namespace Sango.UI
                         governorObj = force.CapitalCity;
                         force.ForEachCityBase(obj =>
                         {
-                            if (governorObj != obj && obj.BelongCorps.IsPlayerControl)
+                            if (governorObj != obj && obj.mCorps.IsPlayerControl)
                                 sorted_list_City.Add(obj);
                         });
 
@@ -156,16 +156,16 @@ namespace Sango.UI
                 case ShowType.Person:
                     {
                         sorted_list_Person.Clear();
-                        governorObj = force.Governor;
+                        governorObj = force.mGovernor;
                         force.ForEachPerson(obj =>
                         {
-                            if (governorObj != obj && obj.BelongCorps.IsPlayerControl)
+                            if (governorObj != obj && obj.mCorps.IsPlayerControl)
                                 sorted_list_Person.Add(obj);
                         });
                         sorted_list_Person.Sort((a, b) =>
                         {
-                            bool action_over_a = a.BelongTroop != null ? a.BelongTroop.ActionOver : a.ActionOver;
-                            bool action_over_b = b.BelongTroop != null ? b.BelongTroop.ActionOver : b.ActionOver;
+                            bool action_over_a = a.mTroop != null ? a.mTroop.ActionOver : a.ActionOver;
+                            bool action_over_b = b.mTroop != null ? b.mTroop.ActionOver : b.ActionOver;
 
                             if (action_over_a == action_over_b)
                                 return a.Name.CompareTo(b.Name);
@@ -179,7 +179,7 @@ namespace Sango.UI
                 case ShowType.Troop:
                     {
                         sorted_list_Troop.Clear();
-                        governorObj = force.Governor.BelongTroop;
+                        governorObj = force.mGovernor.mTroop;
                         force.ForEachTroop(obj =>
                         {
                             if (governorObj != obj && obj.BelongCorps.IsPlayerControl && !string.IsNullOrEmpty(obj.Name))

@@ -22,7 +22,7 @@ namespace Sango.Core.Player
             {
                 BuildingBase building = clickCell.building;
                 if (building.IsCityBase()) return;
-                if (building.BelongForce == Scenario.Cur.CurRunForce && building.BelongForce.IsPlayer)
+                if (building.mForce == Scenario.Cur.CurRunForce && building.mForce.IsPlayer)
                 {
                     ContextMenuData.MenuData.Clear();
                     GameEvent.OnBuildingContextMenuShow?.Invoke(ContextMenuData.MenuData, building);
@@ -37,7 +37,7 @@ namespace Sango.Core.Player
             // 点击内政地块-弹出开发按钮-点击开发按钮弹出开发界面
             else if (clickCell.IsInterior && clickCell.IsEmpty())
             {
-                Force cellBelongForce = clickCell.BelongCity.BelongCity != null ? clickCell.BelongCity.BelongCity.BelongForce : clickCell.BelongCity.BelongForce;
+                Force cellBelongForce = clickCell.BelongCity.mCity != null ? clickCell.BelongCity.mCity.mForce : clickCell.BelongCity.mForce;
                 if (cellBelongForce != null && cellBelongForce == Scenario.Cur.CurRunForce && cellBelongForce.IsPlayer)
                 {
                     ContextMenuData.MenuData.Clear();

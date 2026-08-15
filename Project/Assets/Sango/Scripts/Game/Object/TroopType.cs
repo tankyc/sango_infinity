@@ -219,7 +219,7 @@ namespace Sango.Core
         {
             if (checkPersonList == null || checkPersonList.Count == 0) return;
 
-            Force force = checkPersonList[0].BelongForce;
+            Force force = checkPersonList[0].mForce;
 
             // 确定可组建特殊兵种
             Scenario.Cur.CommonData.TroopTypes.ForEach(t =>
@@ -299,7 +299,7 @@ namespace Sango.Core
             if (city.food < costFood * troops) return false;
             if (city.gold < costGold * troops) return false;
             if (city.troopPopulation < costPopulation * troops) return false;
-            if (city.BelongForce.TechniquePoint < costTechPoint * troops) return false;
+            if (city.mForce.TechniquePoint < costTechPoint * troops) return false;
 
             return city.itemStore.CheckItemEnough(costItems, troops);
         }
@@ -309,7 +309,7 @@ namespace Sango.Core
             city.food -= costFood * troops;
             city.gold -= costGold * troops;
             city.troopPopulation -= costPopulation * troops;
-            city.BelongForce.GainTechniquePoint(-costTechPoint * troops);
+            city.mForce.GainTechniquePoint(-costTechPoint * troops);
             city.itemStore.Cost(costItems, troops);
         }
 

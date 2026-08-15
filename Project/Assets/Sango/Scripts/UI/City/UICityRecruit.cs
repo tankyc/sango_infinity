@@ -36,7 +36,7 @@ using Sango.Core; namespace Sango.UI
         {
             Person target = currentSystem.target.Count > 0 ? currentSystem.target[0] : null;
             Person action = currentSystem.personList.Count > 0 ? currentSystem.personList[0] : null;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.RecruitPerson)}/{TargetCity.BelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.RecruitPerson)}/{TargetCity.mCorps.ActionPoint}";
             sureButton.interactable = target != null && action != null;
 
             targetPersonItems.SetPerson(target);
@@ -46,9 +46,9 @@ using Sango.Core; namespace Sango.UI
 
             if (target != null)
             {
-                targetForce.text = target.BelongForce != null ? target.BelongForce.Name : "--";
+                targetForce.text = target.mForce != null ? target.mForce.Name : "--";
                 targetLoyalty.text = target.loyalty.ToString();
-                City where = target.BelongCity ?? target.CurrentCity;
+                City where = target.mCity ?? target.mCurrentCity;
                 targetDays.text = $"{10 * where.Distance(TargetCity)}日";
                 targetCityName.text = where.Name;
             }
@@ -93,19 +93,19 @@ using Sango.Core; namespace Sango.UI
             if (currentSystem.personList.Count > 0)
             {
                 string content = $"最适合担任此任务的人，\n除{currentSystem.personList[0].ColorName}之外别无其他人选。";
-                if (currentSystem.personList[0] == TargetCity.BelongForce.Counsellor)
+                if (currentSystem.personList[0] == TargetCity.mForce.mCounsellor)
                 {
                     content = $"我对此任务很有信心，\n请务必交给我吧。";
                 }
 
                 GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, content, () => { GameDialog.Close(); UpdateContent(); });
-                Person person = TargetCity.BelongForce.Counsellor;
+                Person person = TargetCity.mForce.mCounsellor;
                 dialog.SetPerson(person);
             }
             else
             {
                 GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"如今并无适合担任此任务的人选。", () => { GameDialog.Close(); UpdateContent(); });
-                Person person = TargetCity.BelongForce.Counsellor;
+                Person person = TargetCity.mForce.mCounsellor;
                 dialog.SetPerson(person);
             }
         }

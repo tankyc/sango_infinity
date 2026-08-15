@@ -46,7 +46,7 @@ namespace Sango.Core.Player
             {
                 TargetCity = cell.BelongCity;
                 if (!TargetCity.IsCity())
-                    TargetCity = TargetCity.BelongCity;
+                    TargetCity = TargetCity.mCity;
                 menuData.Add(customTitleName, customMenuOrder, cell, OnClickCellMenuItem, IsValid);
             }
         }
@@ -66,7 +66,7 @@ namespace Sango.Core.Player
                 return TargetCity.freePersons.Count > 0 
                     && TargetCity.gold > 200 
                     && !TargetCity.IsInteriorBuildFull() 
-                    && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Build);
+                    && TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Build);
             }
         }
         void InitCanBuildingTypes()

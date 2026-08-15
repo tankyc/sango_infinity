@@ -310,8 +310,9 @@ namespace Sango.UI
         public bool RenderCities(ShortScenario scenario)
         {
             int i = 0;
-            foreach (var city in scenario.citySet.Values)
+            foreach (ShortCity city in scenario.citySet)
             {
+                if (city == null) continue;
                 if (city.BuildingType > 1) continue;
                 if (city.Id == 0) continue;
 

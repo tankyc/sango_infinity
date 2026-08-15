@@ -231,9 +231,9 @@ namespace Sango.UI
 
 
             // 刷新部队
-            if(p.BelongTroop != null)
+            if(p.mTroop != null)
             {
-                p.BelongTroop.ResetActionAndStatus();
+                p.mTroop.ResetActionAndStatus();
             }
         }
     }

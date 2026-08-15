@@ -26,7 +26,7 @@
         {
             if (actionCell.building == null || !actionCell.building.IsCityBase()) return false;
 
-            if (actionCell.building.BelongForce != troop.BelongForce) return false;
+            if (actionCell.building.mForce != troop.BelongForce) return false;
 
             if (troop.MoveRange.Contains(actionCell)) return false;
 

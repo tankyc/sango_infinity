@@ -23,8 +23,10 @@ namespace Sango.Core
     /// 负责剧本的加载、保存、运行等核心功能
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
-    public class Scenario : SangoObject
+    public class Scenario : SangoObjectExtensionData
     {
+        public static ScenarioVariables DefaultVariables = new ScenarioVariables();
+
         /// <summary>
         /// 获取对象类型
         /// </summary>
@@ -667,6 +669,34 @@ namespace Sango.Core
             LoadContent(FilePath);
         }
 
+        public void CheckPlayer()
+        {
+
+            if (startPlayerList != null)
+            {
+                Info.playerForceList = startPlayerList.ToArray();
+                startPlayerList = null;
+            }
+
+            // 玩家确定
+            if (Info.playerForceList != null && Info.playerForceList.Length > 0)
+            {
+                forceSet.ForEach(x =>
+                {
+                    for (int k = 0; k < Info.playerForceList.Length; k++)
+                    {
+                        if (Info.playerForceList[k] == x.Id)
+                        {
+                            x.IsPlayer = true;
+                            return;
+                        }
+                    }
+                });
+            }
+
+        }
+
+
         public void LoadBaseContent()
         {
             Cur = this;
@@ -710,28 +740,6 @@ namespace Sango.Core
         public void LoadContent(string path)
         {
             LoadBaseContent();
-
-            if (startPlayerList != null)
-            {
-                Info.playerForceList = startPlayerList.ToArray();
-                startPlayerList = null;
-            }
-
-            // 玩家确定
-            if (Info.playerForceList != null && Info.playerForceList.Length > 0)
-            {
-                forceSet.ForEach(x =>
-                {
-                    for (int k = 0; k < Info.playerForceList.Length; k++)
-                    {
-                        if (Info.playerForceList[k] == x.Id)
-                        {
-                            x.IsPlayer = true;
-                            return;
-                        }
-                    }
-                });
-            }
 
             prepareList.Add(forceSet);
             prepareList.Add(corpsSet);
@@ -843,6 +851,7 @@ namespace Sango.Core
             scenario.IsAlive = false;
             GameEvent.OnScenarioLoadStart?.Invoke(scenario);
             Cur.LoadContent();
+            Cur.CheckPlayer();
             GameEvent.OnScenarioLoadEnd?.Invoke(Cur);
             GameEvent.OnWorldLoadStart?.Invoke(Cur);
             Cur.LoadWorld();
@@ -850,6 +859,59 @@ namespace Sango.Core
             //Event.OnScenarioEnd?.Invoke(Cur);
             //Cur = null;
         }
+
+        public static void StartScenario(Scenario scenario, ScenarioPersonAddData addData)
+        {
+            GameRandom.Init();
+            Cur = scenario;
+            scenario.IsAlive = false;
+            GameEvent.OnScenarioLoadStart?.Invoke(scenario);
+            Cur.LoadContent();
+
+            for (int i = 0; i < addData.AppearedPersonLibs.Count; i++)
+            {
+                PersonLib plIb = addData.AppearedPersonLibs[i];
+                Person person = Person.FormLib2(plIb);
+                Cur.personSet.Add(person);
+                plIb.Id = person.Id;
+            }
+
+            for (int i = 0; i < addData.NewForces.Count; i++)
+            {
+                NewForceData newForceData = addData.NewForces[i];
+                newForceData.MakeData();
+                Cur.forceSet.Add(newForceData.targetForce);
+                Cur.corpsSet.Add(newForceData.targetCorps);
+                newForceData.targetCorps.BelongForce = newForceData.targetForce.Id;
+                for (int j = 0; j < newForceData.allCities.Count; j++)
+                {
+                    ShortCity shortCity = newForceData.allCities[j];
+                    City targetCity = Cur.citySet[shortCity.Id];
+                    targetCity.BelongForce = newForceData.targetForce.Id;
+                    targetCity.BelongCorps = newForceData.targetCorps.Id;
+                }
+
+                for (int j = 0; j < addData.AppearedPersonLibs.Count; j++)
+                {
+                    PersonLib plIb = addData.AppearedPersonLibs[j];
+                    Person person = Cur.personSet[plIb.Id];
+                    if (person.BelongForce == newForceData.ForceId)
+                    {
+                        person.BelongCorps = newForceData.targetCorps.Id;
+                    }
+                }
+            }
+
+            Cur.CheckPlayer();
+            GameEvent.OnScenarioLoadEnd?.Invoke(Cur);
+            GameEvent.OnWorldLoadStart?.Invoke(Cur);
+            Cur.LoadWorld();
+            //Cur.OnWorldLoaded();
+            //Event.OnScenarioEnd?.Invoke(Cur);
+            //Cur = null;
+        }
+
+
 
         public override void Clear()
         {
@@ -990,7 +1052,7 @@ namespace Sango.Core
             GameAIDebug.Instance.Init();
 #endif
 
-           
+
 
             GameController.Instance.Enabled = true;
 
@@ -1452,7 +1514,7 @@ namespace Sango.Core
                     if (!visited.Contains(neighbor))
                     {
                         visited.Add(neighbor);
-                        if(neighbor.IsSameForce(startCity))
+                        if (neighbor.IsSameForce(startCity))
                         {
                             queue.Enqueue(neighbor);
                             parentMap[neighbor] = current;
@@ -1562,6 +1624,10 @@ namespace Sango.Core
 
         public void Save(string path)
         {
+            for (int i = 0; i < prepareList.Count; ++i)
+            {
+                prepareList[i].ForEach(o => { o.OnScenarioSave(this); });
+            }
 
             Info.isSave = true;
             ScenarioCommonData saveData = CommonData;

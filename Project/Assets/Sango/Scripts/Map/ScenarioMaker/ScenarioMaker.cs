@@ -147,11 +147,11 @@ namespace Sango.ScenarioMaker
                 {
                     continue;
                 }
-                person.BelongForce = null;
-                person.BelongCorps = null;
-                person.BelongCity = null;
-                person.CurrentCity = null;
-                person.BelongTroop = null;
+                person.mForce = null;
+                person.mCorps = null;
+                person.mCity = null;
+                person.mCurrentCity = null;
+                person.mTroop = null;
             }
 
             ResolveDelayedReferences();

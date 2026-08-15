@@ -7,7 +7,7 @@ using System.Numerics;
 namespace Sango.Core
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public class Buff : SangoObject
+    public class Buff : SangoObjectExtensionData
     {
         [JsonProperty] public int kind;
         [JsonProperty] public int subKind;

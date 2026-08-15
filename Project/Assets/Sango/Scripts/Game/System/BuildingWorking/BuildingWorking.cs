@@ -243,7 +243,7 @@ namespace Sango.Core
         void OnCityContextMenuShow(IContextMenuData menuData, City city)
         {
             TargetCity = city;
-            if (city.IsCity() && city.BelongForce != null && city.BelongForce.IsPlayer && city.BelongForce == Scenario.Cur.CurRunForce)
+            if (city.IsCity() && city.mForce != null && city.mForce.IsPlayer && city.mForce == Scenario.Cur.CurRunForce)
             {
                 bool b = city.GetExtensionData<bool>("AppointWorking");
                 if (!b)
@@ -281,7 +281,7 @@ namespace Sango.Core
 
         protected virtual void OnBuildingContextMenuShow(IContextMenuData menuData, BuildingBase building)
         {
-            if (building.BelongCity != null && building.BelongForce != null && building.BelongForce.IsPlayer && building.BelongForce == Scenario.Cur.CurRunForce)
+            if (building.mCity != null && building.mForce != null && building.mForce.IsPlayer && building.mForce == Scenario.Cur.CurRunForce)
             {
                 TargetBuilding = building as Building;
 
@@ -305,7 +305,7 @@ namespace Sango.Core
         protected virtual void OnClickMenuItem_ClearWorkerSet(IContextMenuItem contextMenuItem)
         {
             // 工作设置
-            City belongCity = TargetBuilding.BelongCity;
+            City belongCity = TargetBuilding.mCity;
             if (belongCity == null) return;
 
             if (TargetBuilding.Workers != null)
@@ -323,7 +323,7 @@ namespace Sango.Core
         protected virtual void OnClickMenuItem_AutoWorkerSet(IContextMenuItem contextMenuItem)
         {
             // 自动设置
-            City belongCity = TargetBuilding.BelongCity;
+            City belongCity = TargetBuilding.mCity;
             if (belongCity == null) return;
 
             BuildingType targetBuildingType = TargetBuilding.BuildingType;
@@ -371,7 +371,7 @@ namespace Sango.Core
 
         public void AutoSetWorker(Building target)
         {
-            City belongCity = target.BelongCity;
+            City belongCity = target.mCity;
             if (belongCity == null) return;
 
             BuildingType targetBuildingType = target.BuildingType;
@@ -457,9 +457,9 @@ namespace Sango.Core
                         {
                             case (int)BuildingKindType.Barracks:
                                 // 轻视士兵,70%概率不考虑此行动
-                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
+                                if (city.mCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
                                 {
-                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+                                    if (city.mCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
                                     {
                                         if (GameRandom.Chance(80))
                                             continue;
@@ -473,9 +473,9 @@ namespace Sango.Core
                                 break;
                             case (int)BuildingKindType.BlacksmithShop:
                                 {
-                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1
-                                         && city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1
-                                          && city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1
+                                    if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1
+                                         && city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1
+                                          && city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1
                                         )
                                     {
                                         continue;
@@ -483,14 +483,14 @@ namespace Sango.Core
                                 }
                                 break;
                             case (int)BuildingKindType.Stable:
-                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Horse) == 1)
+                                if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Horse) == 1)
                                 {
                                     continue;
                                 }
                                 break;
                             case (int)BuildingKindType.BoatFactory:
                                 {
-                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Boat) == 1)
+                                    if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Boat) == 1)
                                     {
                                         continue;
                                     }
@@ -498,7 +498,7 @@ namespace Sango.Core
                                 break;
                             case (int)BuildingKindType.MechineFactory:
                                 {
-                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Machine) == 1)
+                                    if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Machine) == 1)
                                     {
                                         continue;
                                     }
@@ -553,7 +553,7 @@ namespace Sango.Core
             if (!building.IsIntorBuilding())
                 return;
 
-            City belongCity = building.BelongCity;
+            City belongCity = building.mCity;
             if (belongCity == null) return;
             if (!building.isComplate) return;
             BuildingType buildingType = building.BuildingType;
@@ -641,7 +641,7 @@ namespace Sango.Core
                     //person.ActionOver = true;
                 }
 
-                belongCity.BelongForce.GainTechniquePoint(techniquePointGain);
+                belongCity.mForce.GainTechniquePoint(techniquePointGain);
             }
 
             if (buildingType.product > 0)
@@ -713,7 +713,7 @@ namespace Sango.Core
         /// <returns></returns>
         void OnCitySeasonStart(City city, Scenario scenario)
         {
-            if (city.BelongCorps == null)
+            if (city.mCorps == null)
                 return;
 
             // 计算太守对于收入的影响
@@ -749,7 +749,7 @@ namespace Sango.Core
         /// <returns></returns>
         void OnCityMonthStart(City city, Scenario scenario)
         {
-            if (city.BelongCorps == null)
+            if (city.mCorps == null)
                 return;
 
             // 计算太守对于收入的影响
@@ -814,15 +814,15 @@ namespace Sango.Core
             city.allPersons.ForEach((person) => { person.workingBuilding = null; });
 
             float targetGold = 3000f;
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
                 targetGold *= 2;
 
             float targetFood = city.troops * 2.5f;
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
                 targetFood = Math.Min(targetFood, 50000);
 
             float targetTroop = city.food / 2f;
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
                 targetTroop = Math.Min(targetTroop, 20000); ;
 
             float targetItemNumber = city.troops * 1.2f;
@@ -916,7 +916,7 @@ namespace Sango.Core
                                 pBuildings.Add(new PBuilding() { p = boatP, building = building });
                                 int targetBoatId = 12;
                                 ItemType itemType = scenario.GetObject<ItemType>(targetBoatId);
-                                if (itemType.IsValid(city.BelongForce))
+                                if (itemType.IsValid(city.mForce))
                                 {
                                     building.ProductItemId = targetBoatId;
                                 }
@@ -943,7 +943,7 @@ namespace Sango.Core
                                     tagetItemId = 7;
                                     totalNum = monsterNum;
                                     targetItemType = scenario.GetObject<ItemType>(tagetItemId);
-                                    if (!targetItemType.IsValid(city.BelongForce))
+                                    if (!targetItemType.IsValid(city.mForce))
                                         tagetItemId--;
                                 }
                                 else
@@ -951,7 +951,7 @@ namespace Sango.Core
                                     tagetItemId = 9;
                                     totalNum = towerNum;
                                     targetItemType = scenario.GetObject<ItemType>(tagetItemId);
-                                    if (!targetItemType.IsValid(city.BelongForce))
+                                    if (!targetItemType.IsValid(city.mForce))
                                         tagetItemId--;
                                 }
                                 building.ProductItemId = tagetItemId;
@@ -982,7 +982,7 @@ namespace Sango.Core
         /// <returns></returns>
         void OnCityTurnEnd(City city, Scenario scenario)
         {
-            if (city.BelongCorps == null)
+            if (city.mCorps == null)
                 return;
             city.allBuildings.ForEach((building) =>
             {
@@ -1031,7 +1031,7 @@ namespace Sango.Core
         /// <returns></returns>
         void OnCityTurnStart(City city, Scenario scenario)
         {
-            if (city.BelongCorps == null)
+            if (city.mCorps == null)
                 return;
 
             // 获取收入
@@ -1078,17 +1078,17 @@ namespace Sango.Core
                                     levelTotal[itemTypeId - 2] = Mathf.Max(1, (destNum - itemNum) / 100);
                                 }
 
-                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1)
+                                if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1)
                                 {
                                     levelTotal[0] = 0;
                                 }
 
-                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1)
+                                if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1)
                                 {
                                     levelTotal[1] = 0;
                                 }
 
-                                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1)
+                                if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1)
                                 {
                                     levelTotal[2] = 0;
                                 }
@@ -1134,7 +1134,7 @@ namespace Sango.Core
                             if (building.ProductItemId == 0)
                             {
                                 ItemType _itemType = scenario.GetObject<ItemType>(targetBoatId);
-                                if (_itemType.IsValid(city.BelongForce))
+                                if (_itemType.IsValid(city.mForce))
                                 {
                                     targetBoatId = 12;
                                 }
@@ -1169,7 +1169,7 @@ namespace Sango.Core
                                     tagetItemId = 7;
                                     totalNum = monsterNum;
                                     targetItemType = scenario.GetObject<ItemType>(tagetItemId);
-                                    if (!targetItemType.IsValid(city.BelongForce))
+                                    if (!targetItemType.IsValid(city.mForce))
                                         tagetItemId--;
                                 }
                                 else
@@ -1177,7 +1177,7 @@ namespace Sango.Core
                                     tagetItemId = 9;
                                     totalNum = towerNum;
                                     targetItemType = scenario.GetObject<ItemType>(tagetItemId);
-                                    if (!targetItemType.IsValid(city.BelongForce))
+                                    if (!targetItemType.IsValid(city.mForce))
                                         tagetItemId--;
                                 }
 
@@ -1240,7 +1240,7 @@ namespace Sango.Core
                 }
             });
 
-            if (city.BelongCorps.IsPlayer && !city.GetExtensionData<bool>("AppointWorking"))
+            if (city.mCorps.IsPlayer && !city.GetExtensionData<bool>("AppointWorking"))
                 return;
 
             AppointWorking(city, scenario);

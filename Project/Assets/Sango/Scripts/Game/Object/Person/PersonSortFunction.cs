@@ -487,7 +487,7 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = (x) =>
             {
-                if (x.BelongForce == null || x == x.BelongForce.Governor) return "---";
+                if (x.mForce == null || x == x.mForce.mGovernor) return "---";
                 return System.Math.Min(100, x.loyalty).ToString();
             } ,
             personSortFunc = (a, b) => a.loyalty.CompareTo(b.loyalty),
@@ -695,40 +695,40 @@ namespace Sango.Core
         {
             name = "势力",
             width = 3.00f,
-            valueGetCall = x => x.BelongForce?.Name ?? "",
-            personSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
-            valueObjGet = x => x.BelongForce,
-            valueObjSet = (x, v) => x.BelongForce = (Force)v,
+            valueGetCall = x => x.mForce?.Name ?? "",
+            personSortFunc = (a, b) => SangoObject.Compare(a.mForce, b.mForce),
+            valueObjGet = x => x.mForce,
+            valueObjSet = (x, v) => x.mForce = (Force)v,
         };
 
         public static SortTitle SortByBelongCorps = new SortTitle()
         {
             name = "军团",
             width = 3.40f,
-            valueGetCall = x => x.BelongCorps?.Name ?? "",
-            personSortFunc = (a, b) => SangoObject.Compare(a.BelongCorps, b.BelongCorps),
-            valueObjGet = x => x.BelongCorps,
-            valueObjSet = (x, v) => x.BelongCorps = (Corps)v,
+            valueGetCall = x => x.mCorps?.Name ?? "",
+            personSortFunc = (a, b) => SangoObject.Compare(a.mCorps, b.mCorps),
+            valueObjGet = x => x.mCorps,
+            valueObjSet = (x, v) => x.mCorps = (Corps)v,
         };
 
         public static SortTitle SortByBelongTroop = new SortTitle()
         {
             name = "部队",
             width = 2.00f,
-            valueGetCall = x => x.BelongTroop?.Name ?? "",
-            personSortFunc = (a, b) => SangoObject.Compare(a.BelongTroop, b.BelongTroop),
-            valueObjGet = x => x.BelongTroop,
-            valueObjSet = (x, v) => x.BelongTroop = (Troop)v,
+            valueGetCall = x => x.mTroop?.Name ?? "",
+            personSortFunc = (a, b) => SangoObject.Compare(a.mTroop, b.mTroop),
+            valueObjGet = x => x.mTroop,
+            valueObjSet = (x, v) => x.mTroop = (Troop)v,
         };
 
         public static SortTitle SortByBelongCity = new SortTitle()
         {
             name = "所属",
             width = 3.40f,
-            valueGetCall = x => x.BelongCity?.Name ?? "",
-            personSortFunc = (a, b) => SangoObject.Compare(a.BelongCity, b.BelongCity),
-            valueObjGet = x => x.BelongCity,
-            valueObjSet = (x, v) => x.BelongCity = (City)v,
+            valueGetCall = x => x.mCity?.Name ?? "",
+            personSortFunc = (a, b) => SangoObject.Compare(a.mCity, b.mCity),
+            valueObjGet = x => x.mCity,
+            valueObjSet = (x, v) => x.mCity = (City)v,
         };
 
         public static SortTitle SortByCurrentCity = new SortTitle()
@@ -737,13 +737,13 @@ namespace Sango.Core
             width = 3.40f,
             valueGetCall = (x) => {
 
-                if (x.BelongTroop != null)
-                    return x.BelongTroop.Name;
+                if (x.mTroop != null)
+                    return x.mTroop.Name;
                 else
-                    return x.CurrentCity?.Name ?? "";
+                    return x.mCurrentCity?.Name ?? "";
                 },
-            personSortFunc = (a, b) => SangoObject.Compare(a.CurrentCity, b.CurrentCity),
-            valueObjGet = x => x.CurrentCity,
+            personSortFunc = (a, b) => SangoObject.Compare(a.mCurrentCity, b.mCurrentCity),
+            valueObjGet = x => x.mCurrentCity,
             valueObjSet = null,
         };
 
@@ -879,14 +879,14 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x =>
             {
-                if (x.BelongCity == null)
+                if (x.mCity == null)
                     return "✕";
-                return x == x.BelongCity.Leader ? "○" : "✕";
+                return x == x.mCity.Leader ? "○" : "✕";
             },
             personSortFunc = (a, b) =>
             {
-                bool aIsLeader = a.BelongCity != null && a == a.BelongCity.Leader;
-                bool bIsLeader = b.BelongCity != null && b == b.BelongCity.Leader;
+                bool aIsLeader = a.mCity != null && a == a.mCity.Leader;
+                bool bIsLeader = b.mCity != null && b == b.mCity.Leader;
                 return bIsLeader.CompareTo(aIsLeader);
             },
             valueObjGet = null,
@@ -899,14 +899,14 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x =>
             {
-                if (x.BelongForce == null)
+                if (x.mForce == null)
                     return "✕";
-                return x == x.BelongForce.Counsellor ? "○" : "✕";
+                return x == x.mForce.mCounsellor ? "○" : "✕";
             },
             personSortFunc = (a, b) =>
             {
-                bool aIsCounsellor = a.BelongForce != null && a == a.BelongForce.Counsellor;
-                bool bIsCounsellor = b.BelongForce != null && b == b.BelongForce.Counsellor;
+                bool aIsCounsellor = a.mForce != null && a == a.mForce.mCounsellor;
+                bool bIsCounsellor = b.mForce != null && b == b.mForce.mCounsellor;
                 return bIsCounsellor.CompareTo(aIsCounsellor);
             },
             valueObjGet = null,
@@ -928,15 +928,15 @@ namespace Sango.Core
         {
             name = "性格",
             width = 2.00f,
-            valueGetCall = x => x == null || x.personality == null ? "—" : x.personality.Name,
+            valueGetCall = x => x == null || x.mPersonality == null ? "—" : x.mPersonality.Name,
             personSortFunc = (a, b) =>
             {
-                string aName = a?.personality?.Name ?? "";
-                string bName = b?.personality?.Name ?? "";
+                string aName = a?.mPersonality?.Name ?? "";
+                string bName = b?.mPersonality?.Name ?? "";
                 return aName.CompareTo(bName);
             },
-            valueObjGet = x => x.personality,
-            valueObjSet = (x, v) => x.personality = (Personality)v,
+            valueObjGet = x => x.mPersonality,
+            valueObjSet = (x, v) => x.mPersonality = (Personality)v,
         };
 
         public static SortTitle SortByOfficial = new SortTitle()

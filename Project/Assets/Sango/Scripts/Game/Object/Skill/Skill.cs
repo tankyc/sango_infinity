@@ -18,7 +18,7 @@ namespace Sango.Core
     /// 包含技能类型、攻击力、施法范围、效果等属性
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
-    public class Skill : SangoObject
+    public class Skill : SangoObjectExtensionData
     {
         /// <summary>
         /// 获取对象类型

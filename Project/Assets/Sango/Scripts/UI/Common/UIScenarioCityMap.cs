@@ -47,8 +47,8 @@ using Sango.Core; namespace Sango.UI
                     float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = city.BelongForce != null ? city.BelongForce.Color : Color.white;
-                    item.effect?.SetActive(city.BelongForce == current);
+                    item.icon.color = city.mForce != null ? city.mForce.Color : Color.white;
+                    item.effect?.SetActive(city.mForce == current);
                 }
             });
         }
@@ -68,7 +68,7 @@ using Sango.Core; namespace Sango.UI
                     float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = city.BelongForce != null ? city.BelongForce.Color : Color.white;
+                    item.icon.color = city.mForce != null ? city.mForce.Color : Color.white;
                     item.effect?.SetActive(current.IsCity() && city.Id == current.Id);
                 }
 
@@ -81,7 +81,7 @@ using Sango.Core; namespace Sango.UI
                     float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = city.BelongForce != null ? city.BelongForce.Color : Color.white;
+                    item.icon.color = city.mForce != null ? city.mForce.Color : Color.white;
                     item.effect?.SetActive(true);
                 }
             });
@@ -102,7 +102,7 @@ using Sango.Core; namespace Sango.UI
                     float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = city.BelongForce != null ? city.BelongForce.Color : Color.white;
+                    item.icon.color = city.mForce != null ? city.mForce.Color : Color.white;
                     item.effect?.SetActive(false);
                 }
 
@@ -125,7 +125,7 @@ using Sango.Core; namespace Sango.UI
         {
             cityPool.Reset();
             portPool.Reset();
-            foreach (var city in scenario.citySet.Values)
+            foreach (ShortCity city in scenario.citySet)
             {
 
                 if (city.BuildingType > 1) continue;

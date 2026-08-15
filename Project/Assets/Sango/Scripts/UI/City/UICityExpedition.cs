@@ -114,7 +114,7 @@ using Sango.Core; namespace Sango.UI
                 cityBuildingSlot.SetValid(cityExpeditionSys.TargetCity.itemStore.CheckItemEnough(troopType.costItems, 1));
             }
 
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.MakeTroop)}/{cityExpeditionSys.TargetCity.BelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.MakeTroop)}/{cityExpeditionSys.TargetCity.mCorps.ActionPoint}";
 
 
             UpdateContent();

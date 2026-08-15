@@ -38,7 +38,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.BelongForce.CityCount > 1;
+                return TargetCity.mForce.CityCount > 1;
             }
         }
 
@@ -51,7 +51,7 @@ namespace Sango.Core.Player
             menuData.Clear();
             Scenario.Cur.corpsSet.ForEach(x =>
             {
-                if (x.BelongForce == TargetCity.BelongForce)
+                if (x.mForce == TargetCity.mForce)
                 {
                     has[x.number - 1] = true;
                     if (x.number > 1)
@@ -105,7 +105,7 @@ namespace Sango.Core.Player
         {
             showType = 1;
             targetCorps = new Corps();
-            targetCorps.BelongForce = TargetCity.BelongForce;
+            targetCorps.mForce = TargetCity.mForce;
             targetCorps.number = targetNumber;
             //targetCorps.policy = 0;
             targetCorps.appoint = 0;
@@ -127,20 +127,20 @@ namespace Sango.Core.Player
                     Corps exsist = x[0];
                     targetCorps = new Corps();
                     targetCorps.Id = exsist.Id;
-                    targetCorps.BelongForce = exsist.BelongForce;
+                    targetCorps.mForce = exsist.mForce;
                     targetCorps.number = exsist.number;
                     //targetCorps.policy = exsist.policy;
                     targetCorps.appoint = exsist.appoint;
                     targetCorps.appoint_target = exsist.appoint_target;
-                    targetCorps.Comander = exsist.Comander;
+                    targetCorps.mComander = exsist.mComander;
                     targetCorps.ActionPoint = exsist.ActionPoint;
                     for (int i = 0; i < exsist.appointSetting.Length; i++)
                         targetCorps.appointSetting[i] = exsist.appointSetting[i];
 
                     List<City> targetCityList = new List<City>();
-                    exsist.BelongForce.ForEachCity(x =>
+                    exsist.mForce.ForEachCity(x =>
                     {
-                        if (x.BelongCorps == exsist)
+                        if (x.mCorps == exsist)
                             targetCityList.Add(x);
                     });
                     targetCorps.inti_cities = targetCityList;
@@ -181,7 +181,7 @@ namespace Sango.Core.Player
                         ContextMenu.CloseAll();
                         GameMedia.Instance.PlaySfx(56);
                         Done();
-                    }).SetPerson(TargetCity.BelongForce.Governor);
+                    }).SetPerson(TargetCity.mForce.mGovernor);
                 }).cancelAction = () =>
                 {
                     GameDialog.Close();
@@ -192,13 +192,13 @@ namespace Sango.Core.Player
 
         public void CreateCorps()
         {
-            TargetCity.BelongForce.CreateCorps(targetCorps);
+            TargetCity.mForce.CreateCorps(targetCorps);
             GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{targetCorps.ColorName}就交给我了。", () =>
             {
                 GameDialog.Close();
                 GameMedia.Instance.PlayDoAcitonSfx();
                 Done();
-            }).SetPerson(targetCorps.Comander);
+            }).SetPerson(targetCorps.mComander);
         }
 
         public void ResetCorps()
@@ -206,28 +206,28 @@ namespace Sango.Core.Player
             Corps dest = corps_list.Find(x => x.number == targetCorps.number);
             if (dest == null)
                 return;
-            TargetCity.BelongForce.ResetCorps(dest, targetCorps);
+            TargetCity.mForce.ResetCorps(dest, targetCorps);
             GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{dest.ColorName}就交给我了。", () =>
             {
                 GameDialog.Close();
                 Done();
-            }).SetPerson(dest.Comander);
+            }).SetPerson(dest.mComander);
             GameMedia.Instance.PlayDoAcitonSfx();
         }
 
         public void CreateCorps(int number, Person commander, List<City> cities)
         {
-            TargetCity.BelongForce.CreateCorps(number, commander, cities);
+            TargetCity.mForce.CreateCorps(number, commander, cities);
         }
 
         public void DeleteCorps(int number)
         {
-            TargetCity.BelongForce.DeleteCorps(number);
+            TargetCity.mForce.DeleteCorps(number);
         }
 
         public void DeleteCorps(Corps corps)
         {
-            TargetCity.BelongForce.DeleteCorps(corps);
+            TargetCity.mForce.DeleteCorps(corps);
         }
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)
         {

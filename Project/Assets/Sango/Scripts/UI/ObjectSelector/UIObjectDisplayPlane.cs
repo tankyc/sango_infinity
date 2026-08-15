@@ -30,6 +30,8 @@ namespace Sango.UI
         UIObjectListItem currentSelect;
         public bool clickMode = false;
         public Action<int> OnSelectCall;
+        public Action<List<int>> OnMultiSelectCall;
+        List<int> multiSelectList = new List<int>();
 
         protected UISortButton CreateSortButtonItem()
         {
@@ -43,7 +45,7 @@ namespace Sango.UI
         {
             this.Objects = datas;
             this.sortItems = sortItems;
-
+            multiSelectList.Clear();
             // 点选模式
             this.clickMode = clickMode;
 
@@ -85,6 +87,7 @@ namespace Sango.UI
                 Vector2 p = listItem.contentRect.anchoredPosition;
                 p.x = 0;
                 listItem.contentRect.anchoredPosition = p;
+                listItem.SetSelected(false);
                 listItem.selectItem.gameObject.SetActive(!clickMode);
                 listItem.SetOver(false);
                 listItem.onSelected = OnSelect;
@@ -112,6 +115,20 @@ namespace Sango.UI
                 currentSelect = listItem;
                 currentSelect.SetSelected(true);
                 OnSelectCall.Invoke(currentSelect.index);
+            }
+            else if(OnMultiSelectCall != null)
+            {
+                if(multiSelectList.Contains(listItem.index))
+                {
+                    listItem.SetSelected(false);
+                    multiSelectList.Remove(listItem.index);
+                }
+                else
+                {
+                    listItem.SetSelected(true);
+                    multiSelectList.Add(listItem.index);
+                }
+                OnMultiSelectCall.Invoke(multiSelectList);
             }
         }
 

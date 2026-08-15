@@ -9,7 +9,7 @@ namespace Sango.Core
     /// 特性
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
-    public class Feature : SangoObject
+    public class Feature : SangoObjectExtensionData
     {
         private string _name;
         public override string Name

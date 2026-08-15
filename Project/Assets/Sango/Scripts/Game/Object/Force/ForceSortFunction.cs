@@ -157,10 +157,10 @@ namespace Sango.Core
         {
             name = "主公",
             width = 4.00f,
-            valueStrGetCall = x => x.Governor?.Name ?? "---",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.Governor, b.Governor),
-            valueObjGet = x => x.Governor,
-            valueObjSet = (x, v) => x.Governor = (Person)v,
+            valueStrGetCall = x => x.mGovernor?.Name ?? "---",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mGovernor, b.mGovernor),
+            valueObjGet = x => x.mGovernor,
+            valueObjSet = (x, v) => x.mGovernor = (Person)v,
         };
 
         public static SortTitle GetSortByDistanceDay(City where)
@@ -169,9 +169,9 @@ namespace Sango.Core
             {
                 name = "期间",
                 width = 2.00f,
-                valueStrGetCall = x => $"{x.Governor.DistanceDays(where)}0日",
-                valueSortFunc = (a, b) => a.Governor.DistanceDays(where).CompareTo(b.Governor.DistanceDays(where)),
-                valueObjGet = x => x.Governor.DistanceDays(where),
+                valueStrGetCall = x => $"{x.mGovernor.DistanceDays(where)}0日",
+                valueSortFunc = (a, b) => a.mGovernor.DistanceDays(where).CompareTo(b.mGovernor.DistanceDays(where)),
+                valueObjGet = x => x.mGovernor.DistanceDays(where),
                 valueObjSet = null,
             };
         }

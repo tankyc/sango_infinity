@@ -50,7 +50,7 @@ namespace Sango.UI
                 {
                     int itemId = targetBuildingType.productItems[i];
                     ItemType itemType = Scenario.Cur.GetObject<ItemType>(itemId);
-                    if (itemType != null && itemType.IsValid(TargetBuilding.BelongForce))
+                    if (itemType != null && itemType.IsValid(TargetBuilding.mForce))
                     {
                         product_items_list.Add(itemType);
                     }
@@ -63,7 +63,7 @@ namespace Sango.UI
                     {
                         item.gameObject.SetActive(true);
                         ItemType itemType = product_items_list[i];
-                        item.SetItemType(itemType).SetNum(TargetBuilding.BelongCity.itemStore.GetNumber(itemType.storeKind)).SetSelected(itemType.Id == TargetBuilding.ProductItemId);
+                        item.SetItemType(itemType).SetNum(TargetBuilding.mCity.itemStore.GetNumber(itemType.storeKind)).SetSelected(itemType.Id == TargetBuilding.ProductItemId);
                         item.onSelected = OnSelectProduct;
                     }
                     else
@@ -133,7 +133,7 @@ namespace Sango.UI
 
         public virtual void OnSelectPerson()
         {
-            GameSystem.GetSystem<PersonSelectSystem>().Start(TargetBuilding.BelongCity.freePersons,
+            GameSystem.GetSystem<PersonSelectSystem>().Start(TargetBuilding.mCity.freePersons,
                selectedPersonList, TargetBuilding.BuildingType.workerLimit, OnPersonChange, currentSystem.customTitleList[TargetBuilding.BuildingType.effectAttrType], currentSystem.customTitleName);
 
         }

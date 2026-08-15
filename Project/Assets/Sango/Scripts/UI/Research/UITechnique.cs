@@ -61,7 +61,7 @@ using Sango.Core; namespace Sango.UI
             sureBtn.interactable = false;
             selectedItem = null;
             techniqueResearchSys = GameSystem.GetSystem<TechniqueResearch>();
-            targetForce = techniqueResearchSys.TargetCity.BelongForce;
+            targetForce = techniqueResearchSys.TargetCity.mForce;
             targetCity = techniqueResearchSys.TargetCity;
             techniqueArea.CreateTitles(targetForce, titleNode);
             techniqueArea.ShowForceTechnique(targetForce, techniqueItemList);
@@ -77,7 +77,7 @@ using Sango.Core; namespace Sango.UI
             {
                 personItems[i].SetPerson(null);
             }
-            actionPointValue.text = $"{JobType.GetJobCostAP((int)CityJobType.Research)}/{techniqueResearchSys.TargetCity.BelongCorps.ActionPoint}";
+            actionPointValue.text = $"{JobType.GetJobCostAP((int)CityJobType.Research)}/{techniqueResearchSys.TargetCity.mCorps.ActionPoint}";
 
         }
 
@@ -119,11 +119,11 @@ using Sango.Core; namespace Sango.UI
                     sureBtn.interactable = false;
                 }
 
-                if (techniqueResearchSys.tpCost <= targetCity.BelongForce.TechniquePoint)
-                    techCostTP.text = $"{techniqueResearchSys.tpCost}/{targetCity.BelongForce.TechniquePoint}";
+                if (techniqueResearchSys.tpCost <= targetCity.mForce.TechniquePoint)
+                    techCostTP.text = $"{techniqueResearchSys.tpCost}/{targetCity.mForce.TechniquePoint}";
                 else
                 {
-                    techCostTP.text = $"<color=#ff1010>{techniqueResearchSys.tpCost}</color>/{targetCity.BelongForce.TechniquePoint}";
+                    techCostTP.text = $"<color=#ff1010>{techniqueResearchSys.tpCost}</color>/{targetCity.mForce.TechniquePoint}";
                     sureBtn.interactable = false;
                 }
             }
@@ -143,10 +143,10 @@ using Sango.Core; namespace Sango.UI
                 else
                     techCost.text = $"<color=#ff1010>{selectTech.goldCost}</color>/{targetCity.gold}";
 
-                if (selectTech.techPointCost <= targetCity.BelongForce.TechniquePoint)
-                    techCostTP.text = $"{selectTech.techPointCost}/{targetCity.BelongForce.TechniquePoint}";
+                if (selectTech.techPointCost <= targetCity.mForce.TechniquePoint)
+                    techCostTP.text = $"{selectTech.techPointCost}/{targetCity.mForce.TechniquePoint}";
                 else
-                    techCostTP.text = $"<color=#ff1010>{selectTech.techPointCost}</color>/{targetCity.BelongForce.TechniquePoint}";
+                    techCostTP.text = $"<color=#ff1010>{selectTech.techPointCost}</color>/{targetCity.mForce.TechniquePoint}";
             }
             techNeedAttr.text = Scenario.Cur.Variables.GetAttributeNameWithColor(selectTech.needAttr);
 

@@ -23,7 +23,7 @@ using Sango.Core; namespace Sango.UI
         public UIMiniCityInfoPanel Show(City c)
         {
             nameLabel.text = c.Name;
-            SetCorps(c.BelongCorps);
+            SetCorps(c.mCorps);
             ResetPool();
             List<ObjectSortTitle> SortTitles = new List<ObjectSortTitle>(objectSortTitles);
             GameEvent.OnInitCityMiniPanel?.Invoke(c, SortTitles);

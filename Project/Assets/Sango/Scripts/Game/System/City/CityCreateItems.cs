@@ -59,7 +59,7 @@ namespace Sango.Core.Player
             Dictionary<int, ItemType> itemMap = new Dictionary<int, ItemType>();
             scenario.CommonData.ItemTypes.ForEach(it =>
             {
-                if (it.cost > 0 && it.IsValid(TargetCity.BelongForce))
+                if (it.cost > 0 && it.IsValid(TargetCity.mForce))
                 {
                     ItemType itemType;
                     if (itemMap.TryGetValue(it.storeKind, out itemType))
@@ -115,7 +115,7 @@ namespace Sango.Core.Player
                         TargetCity.GetFreeBuilding((int)BuildingKindType.BoatFactory) != null ||
                         TargetCity.GetFreeBuilding((int)BuildingKindType.MechineFactory) != null)
                     &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.CreateItems);
+                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.CreateItems);
 
             }
         }

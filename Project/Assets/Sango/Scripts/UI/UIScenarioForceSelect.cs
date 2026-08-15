@@ -101,7 +101,7 @@ namespace Sango.UI
             SetSelectedForceName();
             //nextBtn.interactable = false;
             int i = 0;
-            foreach (var city in scenario.citySet.Values)
+            foreach (ShortCity city in scenario.citySet)
             {
                 if (city.BuildingType > 1) continue;
                 if (city.Id == 0) continue;
@@ -183,7 +183,7 @@ namespace Sango.UI
             {
                 ShortScenario scenario = ShortScenario.CurSelected;
                 int personCount = 0;
-                foreach (var x in scenario.personSet.Values)
+                foreach (ShortPerson x in scenario.personSet)
                 {
                     if (x.BelongForce == force.Id)
                         personCount++;
@@ -199,7 +199,7 @@ namespace Sango.UI
                 if (force.Counsellor > 0)
                     counsellor = scenario.personSet[force.Counsellor];
                 ShortCity centerCity = scenario.citySet[governor.BelongCity];
-                foreach (var x in scenario.citySet.Values)
+                foreach (ShortCity x in scenario.citySet)
                 {
                     if (x.BelongForce == force.Id && x.BuildingType == 1)
                     {
@@ -229,10 +229,14 @@ namespace Sango.UI
 
         public void SetPlayer(UIMapCitySelectItem item, ShortCity city, bool b)
         {
-            if (city.BelongForce == 0) return;
+            if (city.BelongForce == 0)
+            {
+               return;
+            }
 
             ShortScenario scenario = ShortScenario.CurSelected;
             ShortForce force = scenario.forceSet[city.BelongForce];
+
             if (force == null) return;
 
             if (b)
@@ -345,7 +349,7 @@ namespace Sango.UI
             for (int j = 0; j < playerList.Count; j++)
             {
                 // 确定第一个视角
-                foreach (var x in ShortScenario.CurSelected.forceSet.Values)
+                foreach (ShortForce x in ShortScenario.CurSelected.forceSet)
                 {
                     if (playerList[j].Id == x.Id)
                     {
@@ -365,9 +369,35 @@ namespace Sango.UI
                 if (isFind) break;
             }
 
+            //if(Scenario.CurSelected.View == null)
+            //{
+            //    for (int j = 0; j < playerList.Count; j++)
+            //    {
+            //        ScenarioPersonAddData scenarioAddon = UIScenarioAddonMenu.AddData;
+            //        foreach (var item in scenarioAddon.NewForces)
+            //        {
+            //            if (playerList[j].Id == item.ForceId)
+            //            {
+            //                ShortCity city = item.CapitalCity;
+            //                Vector3 position = ShortScenario.CurSelected.Map.Coords2Position(city.x, city.y);
+            //                Scenario.CurSelected.View = new ScenarioView()
+            //                {
+            //                    cameraPosition = position,
+            //                    cameraRotation = new Vector3(40f, -50f, 0f),
+            //                    cameraDistance = 400f
+            //                };
+            //                isFind = true;
+            //                break;
+            //            }
+            //            if (isFind) break;
+            //        }
+            //    }
+            //}
+
+
             if (playerList.Count == 0)
             {
-                foreach (var x in ShortScenario.CurSelected.forceSet.Values)
+                foreach (ShortForce x in ShortScenario.CurSelected.forceSet)
                 {
                     ShortForce force = x;
                     if (force != null)

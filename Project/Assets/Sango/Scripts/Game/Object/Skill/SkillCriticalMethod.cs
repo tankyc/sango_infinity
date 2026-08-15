@@ -111,7 +111,7 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if(target == null) return 0;
 
-                int C = troop.Leader.personality.falseReportCriticalAdd;
+                int C = troop.Leader.mPersonality.falseReportCriticalAdd;
                 int V = (troop.Intelligence  + C - target.Intelligence / 2) * 10 / 100;
 
                 return V;
@@ -130,7 +130,7 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if (target == null) return 0;
 
-                int C = troop.Leader.personality.disturbCriticalAdd;
+                int C = troop.Leader.mPersonality.disturbCriticalAdd;
                 int V = (troop.Intelligence + C - target.Intelligence / 2) * 10 / 100;
 
                 return V;
@@ -182,7 +182,7 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if (target == null) return 0;
 
-                int D = troop.Leader.argumentation.infightingCriticalAdd;
+                int D = troop.Leader.mArgumentation.infightingCriticalAdd;
                 int V = (troop.Intelligence + D - target.Intelligence / 2) * 10 / 100;
                 return V;
             }

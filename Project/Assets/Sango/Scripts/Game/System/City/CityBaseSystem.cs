@@ -36,7 +36,7 @@ namespace Sango.Core.Player
         protected virtual void OnCityContextMenuShow(IContextMenuData menuData, City city)
         {
             TargetCity = city;
-            if (MenuCanShow() && city.BelongForce != null && city.BelongForce.IsPlayer && city.BelongForce == Scenario.Cur.CurRunForce)
+            if (MenuCanShow() && city.mForce != null && city.mForce.IsPlayer && city.mForce == Scenario.Cur.CurRunForce)
             {
                 menuData.Add(customMenuName, customMenuOrder, city, OnClickMenuItem, IsValid);
             }

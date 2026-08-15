@@ -50,20 +50,20 @@ namespace Sango.Core
             probability = 0;
             if (!target.IsAlive || !actor.IsAlive) return true;
 
-            bool target_is_returnable = target.BelongForce != null;
+            bool target_is_returnable = target.mForce != null;
             //目标武将势力消灭
             if (type == (int)PersonRecruitType.OnForceFall)
                 target_is_returnable = false;
 
             //执行武将沒有君主时总是失敗
-            if (actor.BelongForce == null) return true;
+            if (actor.mForce == null) return true;
 
             // 当目标武将的禁止仕官君主是执行武将君主时，总是失敗
-            if (target.bannedForceId == actor.BelongForce.Id)
+            if (target.bannedForceId == actor.mForce.Id)
                 return true;
 
             //目标武将是君主时，总是失敗
-            if (target_is_returnable && target == target.BelongForce.Governor)
+            if (target_is_returnable && target == target.mForce.mGovernor)
                 return true;
 
             //目标武将有义兄弟
@@ -73,22 +73,22 @@ namespace Sango.Core
                 {
                     // 目标武将与义兄弟在同一势力时，总是失敗
                     Person brother = target.BrotherList[i];
-                    if (target_is_returnable && brother.BelongForce == target.BelongForce)
+                    if (target_is_returnable && brother.mForce == target.mForce)
                         return true;
 
                     // 目标武将与执行武将是义兄弟或与执行武将君主时义兄弟时，总是成功
-                    if (brother == actor || brother == actor.BelongForce.Governor)
+                    if (brother == actor || brother == actor.mForce.mGovernor)
                     {
                         probability = 100;
                         return true;
                     }
-                    else if (brother.BelongForce != null && brother.BelongForce == actor.BelongForce)
+                    else if (brother.mForce != null && brother.mForce == actor.mForce)
                     {
                         probability = 100;
                         return true;
                     }
                     //目标武将的义兄弟属於执行武将以外势力时，总是失敗
-                    else if (brother.BelongForce != null && brother.BelongForce != actor.BelongForce)
+                    else if (brother.mForce != null && brother.mForce != actor.mForce)
                         return true;
 
                 }
@@ -101,19 +101,19 @@ namespace Sango.Core
                 {
                     // 目标武将与配偶在同一势力时，总是失敗
                     Person spouse = target.SpouseList[i];
-                    if (target_is_returnable && spouse.BelongForce == target.BelongForce)
+                    if (target_is_returnable && spouse.mForce == target.mForce)
                         return true;
                     //目标武将的配偶属於执行武将以外势力时，总是失敗
-                    else if (spouse.BelongForce != null && spouse.BelongForce != actor.BelongForce)
+                    else if (spouse.mForce != null && spouse.mForce != actor.mForce)
                         return true;
                     //目标武将与执行武将是配偶或与执行武将君主时配偶时，总是成功
-                    else if (spouse == actor || spouse == actor.BelongForce.Governor)
+                    else if (spouse == actor || spouse == actor.mForce.mGovernor)
                     {
                         probability = 100;
                         return true;
                     }
                     //目标武将的配偶在执行武将势力时，总是成功
-                    else if (spouse.BelongForce != null && spouse.BelongForce == actor.BelongForce)
+                    else if (spouse.mForce != null && spouse.mForce == actor.mForce)
                     {
                         probability = 100;
                         return true;
@@ -131,7 +131,7 @@ namespace Sango.Core
                     if (person == actor)
                         return true;
                     //目标武将的厌恶武将是执行武将的君主时，总是失敗
-                    else if (person == actor.BelongForce.Governor)
+                    else if (person == actor.mForce.mGovernor)
                         return true;
                 }
             }
@@ -147,10 +147,10 @@ namespace Sango.Core
                     if (person == actor)
                         return true;
                     //目标武将的亲爱武将是目标武将的君主时，总是失敗
-                    else if (target_is_returnable && person == target.BelongForce.Governor)
+                    else if (target_is_returnable && person == target.mForce.mGovernor)
                         return true;
                     //目标武将的亲爱武将是执行武将的君主时，总是成功
-                    else if (person == actor.BelongForce.Governor)
+                    else if (person == actor.mForce.mGovernor)
                     {
                         probability = 100;
                         return true;
@@ -179,7 +179,7 @@ namespace Sango.Core
             if (!target.IsAlive || !actor.IsAlive) return 0;
 
             //执行武将沒有君主时总是失敗
-            if (actor.BelongForce == null) return 0;
+            if (actor.mForce == null) return 0;
 
 
             ScenarioVariables variables = Scenario.Cur.Variables;
@@ -194,18 +194,18 @@ namespace Sango.Core
             {
                 // 普通招募武将
                 loyalty = target.IsWild ? 0 : target.loyalty;
-                if (loyalty + target.argumentation.loyaltyAdd >= variables.recruitableLine)
+                if (loyalty + target.mArgumentation.loyaltyAdd >= variables.recruitableLine)
                     return 0;
             }
 
             // 
 
-            Argumentation argumentation = target.argumentation;
+            Argumentation argumentation = target.mArgumentation;
 
-            Person actorGovernor = actor.BelongForce.Governor;
+            Person actorGovernor = actor.mForce.mGovernor;
             Person targetGovernor = null;
-            if (target.BelongForce != null && type != (int)PersonRecruitType.OnForceFall)
-                targetGovernor = target.BelongForce.Governor;
+            if (target.mForce != null && type != (int)PersonRecruitType.OnForceFall)
+                targetGovernor = target.mForce.mGovernor;
 
             int aishou = variables.recruitBaseCompatibility;
             //目标武将在野或是已灭亡势力的俘虏

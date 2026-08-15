@@ -38,7 +38,7 @@ namespace Sango.Core.Player
             get
             {
                 return TargetCity.freePersons.Count > 0 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
+                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
             }
         }
 

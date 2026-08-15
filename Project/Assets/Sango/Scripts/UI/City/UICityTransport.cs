@@ -46,7 +46,7 @@ namespace Sango.UI
 
             itemTypeRect.onItemTypeShow = OnItemTypeShow;
             itemTypeSliderRect.onItemTypeShow = OnItemTypeSliderShow;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.MakeTansport)}/{cityTransportSys.TargetCity.BelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.MakeTansport)}/{cityTransportSys.TargetCity.mCorps.ActionPoint}";
 
             UpdateContent();
         }

@@ -85,18 +85,18 @@ namespace Sango.Core
             if (!city.IsCity()) return true;
             if (city.IsPlayer) return true;
             if (city.freePersons.Count < 3) return true;
-            if (city.BelongForce.ResearchTechnique > 0) return true;
-            if (city.BelongForce.TechniquePoint < 1000) return true;
+            if (city.mForce.ResearchTechnique > 0) return true;
+            if (city.mForce.TechniquePoint < 1000) return true;
             if (city.gold < 2000) return true;
             if (city.IsEnemiesRound(9))
                 return true;
 
-            Force force = city.BelongForce;
+            Force force = city.mForce;
             for (int i = 0; i < force.canResearchTechniqueList.Count; i++)
             {
                 Technique technique = force.canResearchTechniqueList[i];
                 if (technique == null) continue;
-                if (technique.goldCost <= city.gold && technique.techPointCost <= city.BelongForce.TechniquePoint)
+                if (technique.goldCost <= city.gold && technique.techPointCost <= city.mForce.TechniquePoint)
                 {
                     Person[] ps = ForceAI.CounsellorRecommendResearch(city.freePersons, technique);
                     if (ps != null)
@@ -129,13 +129,13 @@ namespace Sango.Core
             int goldNeed = values[0];
             int tpNeed = values[1];
             int turnCount = values[2];
-            if (city.gold < goldNeed || city.BelongForce.TechniquePoint < tpNeed)
+            if (city.gold < goldNeed || city.mForce.TechniquePoint < tpNeed)
             {
                 return null;
             }
 
             city.gold -= goldNeed;
-            city.BelongForce.GainTechniquePoint(-tpNeed);
+            city.mForce.GainTechniquePoint(-tpNeed);
             int meritGain = JobType.GetJobMeritGain(jobId);
 
 #if SANGO_DEBUG
@@ -157,13 +157,13 @@ namespace Sango.Core
                 person.ActionOver = true;
             }
 
-            city.BelongForce.ResearchTechnique = technique.Id;
-            city.BelongForce.ResearchLeftCounter = turnCount;
+            city.mForce.ResearchTechnique = technique.Id;
+            city.mForce.ResearchLeftCounter = turnCount;
 
-            city.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            city.mCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{city.BelongForce.Name}]{stringBuilder}在<{city.Name}>开始研究科技: [{technique.Name}], 研究需要{turnCount}回合!");
+            Sango.Log.Info($"@内政@[{city.mForce.Name}]{stringBuilder}在<{city.Name}>开始研究科技: [{technique.Name}], 研究需要{turnCount}回合!");
 #endif
 
             city.ClearJobFeature();
@@ -174,15 +174,15 @@ namespace Sango.Core
         {
             get
             {
-                return TargetCity.BelongForce.ResearchTechnique <= 0 &&
+                return TargetCity.mForce.ResearchTechnique <= 0 &&
                      TargetCity.freePersons.Count > 0 &&
-                     TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Research);
+                     TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Research);
             }
         }
 
         public void DoResearch()
         {
-            if (TargetTechnique == null || !TargetTechnique.CanResearch(TargetCity.BelongForce))
+            if (TargetTechnique == null || !TargetTechnique.CanResearch(TargetCity.mForce))
                 return;
 
             TechniqueResearch.JobResearch(TargetCity, personList.ToArray(), TargetTechnique, false);
@@ -192,7 +192,7 @@ namespace Sango.Core
         void OnCityContextMenuShow(IContextMenuData menuData, City city)
         {
             TargetCity = city;
-            if (city.IsCity() && city.BelongForce != null && city.BelongForce.IsPlayer && city.BelongForce == Scenario.Cur.CurRunForce)
+            if (city.IsCity() && city.mForce != null && city.mForce.IsPlayer && city.mForce == Scenario.Cur.CurRunForce)
                 menuData.Add("都市/研究技巧", 2000, city, OnClickMenuItem, IsValid);
         }
 

@@ -164,30 +164,30 @@ namespace Sango.Core
         {
             name = "势力",
             width = 2.40f,
-            valueStrGetCall = x => x.BelongForce?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
-            valueObjGet = x => x.BelongForce,
-            valueObjSet = (x, v) => x.BelongForce = (Force)v,
+            valueStrGetCall = x => x.mForce?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mForce, b.mForce),
+            valueObjGet = x => x.mForce,
+            valueObjSet = (x, v) => x.mForce = (Force)v,
         };
 
         public static SortTitle SortByBelongCorps = new SortTitle()
         {
             name = "军团",
             width = 4.00f,
-            valueStrGetCall = x => x.BelongCorps?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongCorps, b.BelongCorps),
-            valueObjGet = x => x.BelongCorps,
-            valueObjSet = (x, v) => x.BelongCorps = (Corps)v,
+            valueStrGetCall = x => x.mCorps?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mCorps, b.mCorps),
+            valueObjGet = x => x.mCorps,
+            valueObjSet = (x, v) => x.mCorps = (Corps)v,
         };
 
         public static SortTitle SortByBelongBuilding = new SortTitle()
         {
             name = "所属",
             width = 2.40f,
-            valueStrGetCall = x => x.BelongCity?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongCity, b.BelongCity),
-            valueObjGet = x => x.BelongCity,
-            valueObjSet = (x, v) => x.BelongCity = (City)v,
+            valueStrGetCall = x => x.mCity?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mCity, b.mCity),
+            valueObjGet = x => x.mCity,
+            valueObjSet = (x, v) => x.mCity = (City)v,
         };
 
         public static SortTitle SortByDurability = new SortTitle()

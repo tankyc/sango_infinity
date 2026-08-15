@@ -43,7 +43,7 @@ using Sango.Core; namespace Sango.UI
             maxPage = BuildingTypes.Count / buildingTypeItems.Length;
             if (BuildingTypes.Count % buildingTypeItems.Length != 0)
                 maxPage += 1;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.Build)}/{buildBuildingSys.TargetCity.BelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.Build)}/{buildBuildingSys.TargetCity.mCorps.ActionPoint}";
 
             for (int i = 0; i < buildingTypeItems.Length; i++)
             {

@@ -57,31 +57,24 @@ namespace Sango.UI
             selecte_list.Clear();
             cityToggleList.Clear();
             createPool.Reset();
-            foreach (var city in scenario.citySet.Values)
+
+            for(int kk = 0; kk < scenario.citySet.Count; kk++)
             {
+                ShortCity city = scenario.citySet[kk];
+                if (city == null) continue;
                 if (city.BuildingType > 1) continue;
                 if (city.Id == 0) continue;
                 UIMapCitySelectItem toggle = createPool.Create();
                 toggle.shortCity = city;
                 if (city.BelongForce == 0)
                 {
-                    ShortForce shortForce = UIScenarioAddonMenu.AddData.CityInForce(city);
-                    if (shortForce != null)
-                    {
-                        Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
-                        toggle.SetInavtive(true);
-                        toggle.SetColor(flag != null ? flag.color : Color.white);
-                    }
-                    else
-                    {
-                        toggle.SetInavtive(true);
-                        toggle.SetColor(Color.white);
-                    }
-
+                    toggle.SetInavtive(true);
+                    toggle.SetColor(Color.white);
                 }
                 else
                 {
-                    if (!scenario.forceSet.TryGetValue(city.BelongForce, out ShortForce shortForce))
+                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForce);
+                    if (shortForce == null)
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
                     toggle.SetInavtive(true);
@@ -144,8 +137,10 @@ namespace Sango.UI
                 selecte_list.AddRange(exsist);
             cityToggleList.Clear();
             createPool.Reset();
-            foreach (var city in scenario.citySet.Values)
+            for (int kk = 0; kk < scenario.citySet.Count; kk++)
             {
+                ShortCity city = scenario.citySet[kk];
+                if (city == null) continue;
                 if (city.BuildingType > 1) continue;
                 if (city.Id == 0) continue;
                 UIMapCitySelectItem toggle = createPool.Create();
@@ -153,27 +148,16 @@ namespace Sango.UI
                 toggle.ShowName("");
                 if (city.BelongForce == 0)
                 {
-
-                    ShortForce shortForce = UIScenarioAddonMenu.AddData.CityInForce(city);
-                    if (shortForce != null)
-                    {
-                        Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
-                        toggle.SetColor(flag != null ? flag.color : Color.white);
-                        toggle.SetInavtive(true);
-                        toggle.SetSelected(false);
-                    }
-                    else
-                    {
-                        toggle.ShowName(city.Name);
-                        toggle.SetColor(Color.white);
-                        toggle.SetInavtive(false);
-                        toggle.onSelectShortAction = OnSelectMapCity;
-                        toggle.SetSelected(selecte_list.Contains(city));
-                    }
+                    toggle.ShowName(city.Name);
+                    toggle.SetColor(Color.white);
+                    toggle.SetInavtive(false);
+                    toggle.onSelectShortAction = OnSelectMapCity;
+                    toggle.SetSelected(selecte_list.Contains(city));
                 }
                 else
                 {
-                    if (!scenario.forceSet.TryGetValue(city.BelongForce, out ShortForce shortForce))
+                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForce);
+                    if (shortForce == null)
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
                     toggle.SetColor(flag != null ? flag.color : Color.white);
@@ -188,5 +172,48 @@ namespace Sango.UI
             }
         }
 
+        public void SetSelectAllCity(List<ShortCity> exsist)
+        {
+            if (scenario == null)
+                return;
+            selecte_list.Clear();
+            if (exsist != null)
+                selecte_list.AddRange(exsist);
+            cityToggleList.Clear();
+            createPool.Reset();
+            for (int kk = 0; kk < scenario.citySet.Count; kk++)
+            {
+                ShortCity city = scenario.citySet[kk];
+                if (city == null) continue;
+                if (city.BuildingType > 1) continue;
+                if (city.Id == 0) continue;
+                UIMapCitySelectItem toggle = createPool.Create();
+                toggle.shortCity = city;
+                toggle.ShowName(city.Name);
+                if (city.BelongForce == 0)
+                {
+                    toggle.SetColor(Color.white);
+                    toggle.SetInavtive(false);
+                    toggle.onSelectShortAction = OnSelectMapCity;
+                    toggle.SetSelected(selecte_list.Contains(city));
+                }
+                else
+                {
+                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForce);
+                    if (shortForce == null)
+                        continue;
+                    Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
+                    toggle.SetColor(flag != null ? flag.color : Color.white);
+                    toggle.SetInavtive(true);
+                    toggle.onSelectShortAction = OnSelectMapCity;
+                    toggle.SetSelected(selecte_list.Contains(city));
+                }
+                cityToggleList.Add(toggle);
+                RectTransform rectTransform = toggle.GetComponent<RectTransform>();
+                float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
+                float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
+                rectTransform.anchoredPosition = new Vector2(x, y);
+            }
+        }
     }
 }

@@ -4,7 +4,7 @@ namespace Sango.Core
 {
     [JsonObject(MemberSerialization.OptIn)]
 
-    public class ItemType : SangoObject
+    public class ItemType : SangoObjectExtensionData
     {
         /// <summary>
         /// 主类型

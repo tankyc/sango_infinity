@@ -23,7 +23,7 @@ namespace Sango.Core
         /// <summary>
         /// 已配属的新武将列表（key: 武将ID, value: 所属城池）
         /// </summary>
-        public Dictionary<int, int> AssignedPersons = new Dictionary<int, int>();
+        public Dictionary<PersonLib, int> AssignedPersons = new Dictionary<PersonLib, int>();
 
         /// <summary>
         /// 未配属的新武将列表
@@ -34,6 +34,11 @@ namespace Sango.Core
         /// 待机新武将列表（已登场但未配属也未建立势力的武将）
         /// </summary>
         public List<PersonLib> StandbyPersonLibs = new List<PersonLib>();
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public List<int> forceIndexList = new List<int>();
 
         /// <summary>
         /// 获取已登场新武将数量
@@ -70,6 +75,7 @@ namespace Sango.Core
             AssignedPersons.Clear();
             UnassignedPersonLibs.Clear();
             StandbyPersonLibs.Clear();
+            forceIndexList.Clear();
         }
 
         /// <summary>
@@ -94,18 +100,6 @@ namespace Sango.Core
                 AppearedPersonLibs.Remove(person);
                 StandbyPersonLibs.Remove(person);
                 UnassignedPersonLibs.Remove(person);
-                AssignedPersons.Remove(person.Id);
-            }
-        }
-
-        /// <summary>
-        /// 添加新势力
-        /// </summary>
-        public void AddNewForce(NewForceData forceData)
-        {
-            if (forceData != null && !NewForces.Contains(forceData))
-            {
-                NewForces.Add(forceData);
             }
         }
 
@@ -126,41 +120,11 @@ namespace Sango.Core
         public void AssignPersonToForce(PersonLib person, int forceId)
         {
             if (person == null) return;
-            AssignedPersons[person.Id] = forceId;
             if (!UnassignedPersonLibs.Contains(person))
             {
                 UnassignedPersonLibs.Add(person);
             }
             StandbyPersonLibs.Remove(person);
-        }
-
-        /// <summary>
-        /// 取消配属武将
-        /// </summary>
-        public void UnassignPerson(PersonLib person)
-        {
-            if (person == null) return;
-            AssignedPersons.Remove(person.Id);
-            UnassignedPersonLibs.Remove(person);
-            if (!StandbyPersonLibs.Contains(person) && AppearedPersonLibs.Contains(person))
-            {
-                StandbyPersonLibs.Add(person);
-            }
-        }
-
-        /// <summary>
-        /// 更新待机列表（在登场或配属变化后调用）
-        /// </summary>
-        public void UpdateStandbyList()
-        {
-            StandbyPersonLibs.Clear();
-            foreach (var person in AppearedPersonLibs)
-            {
-                if (!AssignedPersons.ContainsKey(person.Id) && !UnassignedPersonLibs.Contains(person))
-                {
-                    StandbyPersonLibs.Add(person);
-                }
-            }
         }
 
         /// <summary>
@@ -179,8 +143,8 @@ namespace Sango.Core
             // 1. 优先通过城市归属势力ID在剧本 forceSet 中查找
             if (scenario != null && scenario.forceSet != null && city.BelongForce != 0)
             {
-                if (scenario.forceSet.TryGetValue(city.BelongForce, out ShortForce force))
-                    return force;
+                ShortForce force = scenario.forceSet.Get(city.BelongForce);
+                return force;
             }
 
             // 2. 在已建立的新势力中按城市匹配（新势力可能尚未写入 forceSet）
@@ -214,8 +178,8 @@ namespace Sango.Core
         {
             if (scenario != null && scenario.forceSet != null && newForce.ForceId > 0)
             {
-                if (scenario.forceSet.TryGetValue(newForce.ForceId, out ShortForce force))
-                    return force;
+                ShortForce force = scenario.forceSet.Get(newForce.ForceId);
+                return force;
             }
 
             ShortForce temp = new ShortForce();
@@ -252,7 +216,7 @@ namespace Sango.Core
             ShortScenario scenario = ShortScenario.CurSelected != null ? ShortScenario.CurSelected : ShortScenario.Cur;
             if (scenario != null && scenario.forceSet != null)
             {
-                foreach (var force in scenario.forceSet.Values)
+                foreach (ShortForce force in scenario.forceSet)
                 {
                     if (force != null && force.Flag != 0)
                         usedFlagIds.Add(force.Flag);
@@ -266,12 +230,14 @@ namespace Sango.Core
             if (commonData == null || commonData.Flags == null || commonData.Flags.objects == null)
                 return null;
 
-            foreach (var flag in commonData.Flags.objects)
+            for (int i = commonData.Flags.Count; i > 0; i--)
             {
-                if (flag != null && flag.Id > 0 && !usedFlagIds.Contains(flag.Id))
+                Flag flag = commonData.Flags[i];
+                if (flag != null && !usedFlagIds.Contains(flag.Id))
+                {
                     return flag;
+                }
             }
-
             return null;
         }
     }
@@ -326,5 +292,34 @@ namespace Sango.Core
         /// 所属武将列表
         /// </summary>
         public List<PersonLib> Persons = new List<PersonLib>();
+
+        /// <summary>
+        /// 旗帜
+        /// </summary>
+        public Force targetForce;
+
+        /// <summary>
+        /// 旗帜
+        /// </summary>
+        public Corps targetCorps;
+
+        /// <summary>
+        /// 目标对象
+        /// </summary>
+        public Person targetGovernor;
+
+        public void MakeData()
+        {
+            if (Scenario.Cur == null) return;
+            targetForce = new Force();
+            targetForce.Id = ForceId;
+            targetForce.Flag = Flag.Id;
+            targetForce.Governor = Governor.Id;
+
+            targetCorps = new Corps();
+            targetCorps.number = 1;
+            targetCorps.BelongForce = ForceId;
+            targetCorps.Comander = Governor.Id;
+        }
     }
 }

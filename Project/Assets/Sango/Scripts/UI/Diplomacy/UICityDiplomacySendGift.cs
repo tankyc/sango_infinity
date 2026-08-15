@@ -33,7 +33,7 @@ namespace Sango.UI
         public void UpdateContent()
         {
             int count = currentSystem.personList.Count;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.SendGift)}/{TargetCity.BelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.SendGift)}/{TargetCity.mCorps.ActionPoint}";
             sureButton.interactable = currentSystem.personList.Count > 0 && currentSystem.targetForces.Count > 0;
             Person actionPerson = count > 0 ? currentSystem.personList[0] : null;
             personItems.SetPerson(actionPerson);
@@ -42,7 +42,7 @@ namespace Sango.UI
             if (targetForce != null)
             {
                 target.text = targetForce.Name;
-                relationship.text = Scenario.Cur.GetRelation(TargetCity.BelongForce, targetForce).ToString();
+                relationship.text = Scenario.Cur.GetRelation(TargetCity.mForce, targetForce).ToString();
                 days.text = $"{TargetCity.Distance(targetForce.CapitalCity)}0日";
             }
             else
@@ -80,7 +80,7 @@ namespace Sango.UI
             List<Force> forces = new List<Force>();
             Scenario.Cur.forceSet.ForEach(x =>
             {
-                if (x.IsAlive && x.Governor != null && x != TargetCity.BelongForce && !ForceAI.IsInDiplomacyImmunity(TargetCity.BelongForce, x.Id))
+                if (x.IsAlive && x.mGovernor != null && x != TargetCity.mForce && !ForceAI.IsInDiplomacyImmunity(TargetCity.mForce, x.Id))
                 { forces.Add(x); }
             });
 

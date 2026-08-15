@@ -24,11 +24,11 @@ namespace Sango.Core.Action
             public Cell ActionCell => self.master.cell;
             public Cell TargetCell => atk_cell;
             public City ActionCity => self.master.BelongCity;
-            public City TargetCity => atk_cell.troop?.BelongCity ?? atk_cell.building?.BelongCity;
+            public City TargetCity => atk_cell.troop?.BelongCity ?? atk_cell.building?.mCity;
             public Corps ActionCorps => self.master.BelongCorps;
-            public Corps TargetCorps => atk_cell.troop?.BelongCorps ?? atk_cell.building?.BelongCorps;
+            public Corps TargetCorps => atk_cell.troop?.BelongCorps ?? atk_cell.building?.mCorps;
             public Force ActionForce => self.master.BelongForce;
-            public Force TargetForce => atk_cell.troop?.BelongForce ?? atk_cell.building?.BelongForce;
+            public Force TargetForce => atk_cell.troop?.BelongForce ?? atk_cell.building?.mForce;
 
             public Fire ActiveFire => self.master.cell.fire;
             public Fire TargetFire => atk_cell.fire;

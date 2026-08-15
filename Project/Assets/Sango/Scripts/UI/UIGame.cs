@@ -177,7 +177,7 @@ namespace Sango.UI
             for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
             {
                 var c = Scenario.Cur.corpsSet[i];
-                if (c != null && c.IsAlive && c.BelongForce == Scenario.Cur.CurRunForce)
+                if (c != null && c.IsAlive && c.mForce == Scenario.Cur.CurRunForce)
                 {
                     OnCorpsActionPointChange(c);
                     break;
@@ -193,7 +193,7 @@ namespace Sango.UI
             for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
             {
                 var c = Scenario.Cur.corpsSet[i];
-                if (c != null && c.IsAlive && c.BelongForce == Scenario.Cur.CurRunForce)
+                if (c != null && c.IsAlive && c.mForce == Scenario.Cur.CurRunForce)
                 {
                     OnCorpsActionPointChange(c);
                     break;
@@ -409,15 +409,15 @@ namespace Sango.UI
                 else
                     item.name.text = $"**[{troop.BelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}运输队,{troop.Member1?.Name}{troop.Member2?.Name}";
 
-                item.name.color = troop.BelongForce.Flag.color;
+                item.name.color = troop.BelongForce.mFlag.color;
             }
             else if (obj is City)
             {
                 City city = (City)obj;
-                if (city.BelongForce != null)
+                if (city.mForce != null)
                 {
-                    item.name.text = $"[{city.BelongForce.Name}]{city.Name}";
-                    item.name.color = city.BelongForce.Flag.color;
+                    item.name.text = $"[{city.mForce.Name}]{city.Name}";
+                    item.name.color = city.mForce.mFlag.color;
 
                 }
                 else
@@ -688,7 +688,7 @@ namespace Sango.UI
                 }
 
                 // 优先判断劣势
-                if (city.BelongForce == force)
+                if (city.mForce == force)
                 {
                     if (enemyTroopNum > 10000 && selfTroopNum < enemyTroopNum / 4)
                         return 2246;

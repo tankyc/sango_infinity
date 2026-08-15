@@ -20,12 +20,6 @@ namespace Sango.UI
         /// <summary>右侧地图组件(已在 prefab 中关联)</summary>
         public UIEditWorldMap uIEditWorldMap;
 
-        /// <summary>
-        /// 新武将登场附加数据,供后续功能界面使用。
-        /// 登场武将来源于 GameCustomEdit.ModScenarioAddon / SelfScenarioAddon。
-        /// </summary>
-        public static ScenarioPersonAddData AddData = new ScenarioPersonAddData();
-
         // 以下 UI 均为公共属性,请在 prefab 中手动指派并绑定事件
         public Button selectPersonBtn;   // 登场武将
         public Button createForceBtn;    // 建立新势力
@@ -50,7 +44,6 @@ namespace Sango.UI
         ScenarioCommonData commonData;
         bool inited;
         bool eventsBound;
-        bool createForceCloseBound;
 
         public override void OnOpen()
         {
@@ -63,20 +56,25 @@ namespace Sango.UI
             SetHideNodeActive(true);
 
             scenario = ShortScenario.CurSelected;
+
             if (scenario == null)
             {
                 Debug.LogWarning("UIScenarioAddonMenu: ShortScenario.CurSelected 为空,无法打开新武将登场界面");
                 Close();
                 return;
             }
-
             // 加载剧本内容(幂等),填充 forceSet/personSet/citySet/Map/CommonData
             scenario.LoadFullPersonContent();
             commonData = scenario.CommonData != null ? scenario.CommonData : GameData.Instance.ScenarioCommonData;
 
             // 重置本次附加数据
-            AddData = new ScenarioPersonAddData();
             inited = false;
+
+            //for(int i = 1; i <= 100; i++)
+            //{
+            //    if(!scenario.forceSet.ContainsKey(i))
+            //        AddData.forceIndexList.Add(i);
+            //}
 
             // 右侧地图: 初始化
             if (uIEditWorldMap != null)
@@ -89,6 +87,9 @@ namespace Sango.UI
         }
 
         #region 登场武将
+
+
+        List<PersonLib> LastSelected;
 
         /// <summary>
         /// 选择登场武将(从 ModScenarioAddon 与 SelfScenarioAddon 的自建武将库中)
@@ -107,9 +108,14 @@ namespace Sango.UI
                 return;
             }
 
+            // 排除已经部署的
+            persons.RemoveAll(x => x.targetShortPerson != null && x.targetShortPerson.BelongCity > 0);
+
+            LastSelected = persons.FindAll(x => x.targetShortPerson != null);
+
             GameSystemManager.Instance.GetSystem<EditPersonSelectSystem>().Start(
                 persons,
-                AddData.AppearedPersonLibs,
+                LastSelected,
                 persons.Count,
                 OnAppearedPersonsSelected,
                 PersonLibSortFunction.DefaultSortList,
@@ -118,14 +124,29 @@ namespace Sango.UI
 
         void OnAppearedPersonsSelected(List<PersonLib> list)
         {
-            AddData.AppearedPersonLibs.Clear();
-            AddData.UnassignedPersonLibs.Clear();
-            if (list != null)
+            ShortScenario shortScenario = ShortScenario.CurSelected;
+            LastSelected.ForEach(x =>
             {
-                AddData.AppearedPersonLibs.AddRange(list);
-                AddData.UnassignedPersonLibs.AddRange(list);
+                if(!list.Contains(x))
+                {
+                    shortScenario.personSet.Remove(x.targetShortPerson);
+                    x.targetShortPerson = null;
+                }
+            });
+
+            // 只增量添加
+            for (int i = 0; i < list.Count; i++)
+            {
+                PersonLib personLib = list[i];
+                if (personLib.targetShortPerson == null)
+                {
+                    ShortPerson shortPerson = ShortPerson.FormLib(personLib);
+                    shortScenario.personSet.Add(shortPerson);
+                    personLib.targetShortPerson = shortPerson;
+                }
             }
-            AddData.UpdateStandbyList();
+
+            shortScenario.NeedUpdateAppendInfo();
             RefreshInfo();
         }
 
@@ -138,36 +159,12 @@ namespace Sango.UI
         /// </summary>
         public void OnCreateNewForce()
         {
-            if (AddData.AppearedCount == 0)
-            {
-                Debug.Log("请先选择登场武将,再建立新势力");
-                return;
-            }
-
             // 打开子界面前隐藏指定节点
             SetHideNodeActive(false);
-
-            UIScenarioCreateNewForce createForceWin =
-                Window.Instance.Open<UIScenarioCreateNewForce>("window_scenario_create_new_force", uIEditWorldMap);
-            if (createForceWin == null)
+            Window.Instance.Open("window_scenario_create_new_force", uIEditWorldMap).ugui_instance.OnCloseAction = () =>
             {
-                // 打开失败,立即恢复节点显示
                 SetHideNodeActive(true);
-                return;
-            }
-
-            // 子界面关闭(返回)后恢复节点显示,并刷新数量(仅订阅一次)
-            if (!createForceCloseBound)
-            {
-                createForceCloseBound = true;
-                Action prev = createForceWin.OnCloseAction;
-                createForceWin.OnCloseAction = () =>
-                {
-                    prev?.Invoke();
-                    SetHideNodeActive(true);
-                    RefreshInfo();
-                };
-            }
+            };
         }
 
         /// <summary>
@@ -177,6 +174,12 @@ namespace Sango.UI
         {
             if (hideNodeOnCreateForce != null)
                 hideNodeOnCreateForce.SetActive(active);
+
+            if (active)
+            {
+                ShortScenario.CurSelected.NeedUpdateAppendInfo();
+                RefreshInfo();
+            }
         }
 
         #endregion
@@ -188,54 +191,14 @@ namespace Sango.UI
         /// </summary>
         public void OnAssignPersons()
         {
-            if (AddData.AppearedCount == 0)
-            {
-                Debug.Log("请先选择登场武将,再配属新武将");
-                return;
-            }
-            if (AddData.NewForceCount == 0)
-            {
-                Debug.Log("请先建立新势力,再配属新武将");
-                return;
-            }
+            // 打开子界面前隐藏指定节点
+            SetHideNodeActive(false);
 
-            List<PersonLib> standby = new List<PersonLib>(AddData.StandbyPersonLibs);
-            if (standby.Count == 0)
-            {
-                Debug.Log("所有登场武将都已配属");
-                return;
-            }
-
-            GameSystemManager.Instance.GetSystem<EditPersonSelectSystem>().Start(
-                standby,
-                new List<PersonLib>(),
-                standby.Count,
-                OnAssignPersonsSelected,
-                PersonLibSortFunction.DefaultSortList,
-                "配属武将");
-        }
-
-        void OnAssignPersonsSelected(List<PersonLib> list)
-        {
-            if (list == null || list.Count == 0)
-                return;
-
-            // 配属到最近建立的新势力
-            NewForceData target = AddData.NewForces[AddData.NewForces.Count - 1];
-            for (int i = 0; i < list.Count; i++)
-            {
-                PersonLib person = list[i];
-                if (person == null)
-                    continue;
-
-                AddData.AssignPersonToForce(person, target.ForceId);
-                if (!target.Persons.Contains(person))
-                    target.Persons.Add(person);
-
-                WritePersonToScenario(person, target.ForceId, target.CapitalCity != null ? target.CapitalCity.Id : 0);
-            }
-
-            RefreshInfo();
+            Window.Instance.Open("window_scenario_edit_select_city", uIEditWorldMap, "AssignPerson").ugui_instance.
+                OnCloseAction = () =>
+                {
+                    SetHideNodeActive(true);
+                };
         }
 
         #endregion
@@ -245,50 +208,18 @@ namespace Sango.UI
         /// <summary>
         /// 初始化(将登场/新势力/配属数据写入剧本,并进入玩家势力选择)
         /// </summary>
-        public void OnInitScenario()
+        public void OnResetScenario()
         {
-            if (AddData.AppearedCount == 0)
+            string content = $"初始化将删除所有已登场武将和新作势力,确定吗?";
+            GameDialog.Open(content, () =>
             {
-                Debug.Log("请先选择登场武将,再初始化");
-                return;
-            }
-
-            // 所有已登场武将写入 personSet(未配属 → 在野)
-            for (int i = 0; i < AddData.AppearedPersonLibs.Count; i++)
-            {
-                PersonLib person = AddData.AppearedPersonLibs[i];
-                if (person == null)
-                    continue;
-
-                int forceId = 0;
-                int cityId = 0;
-                if (AddData.AssignedPersons.TryGetValue(person.Id, out int assignedForceId))
-                {
-                    forceId = assignedForceId;
-                    NewForceData force = AddData.NewForces.Find(x => x.ForceId == forceId);
-                    if (force != null && force.CapitalCity != null)
-                        cityId = force.CapitalCity.Id;
-                }
-                WritePersonToScenario(person, forceId, cityId);
-            }
-
-            // 所有新势力写入 forceSet,主城归属标记
-            for (int i = 0; i < AddData.NewForces.Count; i++)
-            {
-                NewForceData force = AddData.NewForces[i];
-                WriteForceToScenario(force.ForceId, force.ForceName, force.Governor, force.Flag);
-                if (force.CapitalCity != null && scenario.citySet.TryGetValue(force.CapitalCity.Id, out ShortCity shortCity))
-                {
-                    shortCity.BelongForce = force.ForceId;
-                }
-            }
-
-            inited = true;
-            RefreshInfo();
-
-            // 进入玩家势力选择
-            Window.Instance.Close("window_scenario_addon_menu");
-            Window.Instance.Open("window_scenario_force_select");
+                GameDialog.Close();
+                ShortScenario.CurSelected.RemoveAllAppendData();
+                createForceBtn.interactable = false;
+                assignBtn.interactable = false;
+                initBtn.interactable = false;
+                RefreshInfo();
+            });
         }
 
         #endregion
@@ -297,13 +228,29 @@ namespace Sango.UI
 
         public void OnReturn()
         {
-            Window.Instance.Close("window_scenario_addon_menu");
-            Window.Instance.Open("window_scenario_select");
+            if (ShortScenario.CurSelected.AppendForceCount > 0)
+            {
+                string content = $"返回将丢失所有已登场武将和新作势力,确定吗?";
+                GameDialog.Open(content, () =>
+                {
+                    GameDialog.Close();
+                    ShortScenario.CurSelected.RemoveAllAppendData();
+                    Window.Instance.Close("window_scenario_addon_menu");
+                    Window.Instance.Open("window_scenario_select");
+                });
+            }
+            else
+            {
+                Window.Instance.Close("window_scenario_addon_menu");
+                Window.Instance.Open("window_scenario_select");
+            }
         }
 
         public void OnNext()
         {
-            OnInitScenario();
+            // 进入玩家势力选择
+            Window.Instance.Close("window_scenario_addon_menu");
+            Window.Instance.Open("window_scenario_force_select");
         }
 
         #endregion
@@ -331,42 +278,6 @@ namespace Sango.UI
             return city;
         }
 
-        void WriteForceToScenario(int forceId, string forceName, PersonLib governor, Flag flag)
-        {
-            if (scenario.forceSet.ContainsKey(forceId))
-                return;
-            ShortForce force = new ShortForce();
-            force.Id = forceId;
-            force.Name = forceName;
-            force.Governor = governor != null ? governor.Id : 0;
-            force.Counsellor = 0;
-            force.Flag = flag != null ? flag.Id : 0;
-            force.desc = "新武将势力";
-            scenario.forceSet[forceId] = force;
-        }
-
-        void WritePersonToScenario(PersonLib person, int forceId, int cityId)
-        {
-            if (person == null)
-                return;
-            if (scenario.personSet.TryGetValue(person.Id, out ShortPerson shortPerson))
-            {
-                shortPerson.BelongForce = forceId;
-                shortPerson.BelongCity = cityId;
-            }
-            else
-            {
-                ShortPerson newPerson = new ShortPerson();
-                newPerson.Id = person.Id;
-                newPerson.Name = person.Name;
-                newPerson.BelongForce = forceId;
-                newPerson.BelongCity = cityId;
-                newPerson.headIconID = person.headIconID;
-                newPerson.imageID = person.imageID;
-                scenario.personSet[person.Id] = newPerson;
-            }
-        }
-
         #endregion
 
         #region UI 关联与信息展示
@@ -384,7 +295,7 @@ namespace Sango.UI
             BindEvent(selectPersonBtn, OnSelectAppearedPersons);
             BindEvent(createForceBtn, OnCreateNewForce);
             BindEvent(assignBtn, OnAssignPersons);
-            BindEvent(initBtn, OnInitScenario);
+            BindEvent(initBtn, OnResetScenario);
             BindEvent(returnBtn, OnReturn);
             BindEvent(nextBtn, OnNext);
         }
@@ -397,15 +308,16 @@ namespace Sango.UI
 
         void RefreshInfo()
         {
+            ShortScenario shortScenario = ShortScenario.CurSelected;
             // 左下角 5 个数量显示
-            SetCountText(appearedCountText, AddData.AppearedCount);
-            SetCountText(newForceCountText, AddData.NewForceCount);
-            SetCountText(assignedCountText, AddData.AssignedCount);
-            SetCountText(unassignedCountText, AddData.UnassignedCount);
-            SetCountText(standbyCountText, AddData.StandbyCount);
+            SetCountText(appearedCountText, shortScenario.AppendPersonCount);
+            SetCountText(newForceCountText, shortScenario.AppendForceCount);
+            SetCountText(assignedCountText, shortScenario.AssignedPersonCount);
+            SetCountText(unassignedCountText, shortScenario.AppendPersonCount - shortScenario.AssignedPersonCount);
+            //SetCountText(standbyCountText, AddData.StandbyCount);
 
             // 按钮可用状态: 登场武将数量 > 0 时,建势力/配属/初始化才可点选
-            bool canOperate = AddData.AppearedCount > 0;
+            bool canOperate = shortScenario.AppendPersonCount > 0;
             SetButtonInteractable(createForceBtn, canOperate);
             SetButtonInteractable(assignBtn, canOperate);
             SetButtonInteractable(initBtn, canOperate);

@@ -10,8 +10,8 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptIn)]
     public class Gate : City
     {
-        public override int BaseGainGold => BelongCity.BaseGainGold / 5;
-        public override int BaseGainFood => BelongCity.BaseGainFood / 5;
+        public override int BaseGainGold => mCity.BaseGainGold / 5;
+        public override int BaseGainFood => mCity.BaseGainFood / 5;
 
         public override void OnPrepareRender()
         {

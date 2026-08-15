@@ -13,6 +13,8 @@ namespace Sango.Core
 
         public string ColorName => $"<color=#7CCADB>{Name}</color>";
 
+        public bool isAppend = false;
+
         /// <summary>
         /// 姓
         /// </summary>
@@ -287,6 +289,29 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty]
         public int[] FeatureList { get; set; }
-      
+
+        public ShortPerson targetShortPerson;
+        public int BelongCity
+        {
+            get
+            {
+                if(targetShortPerson != null)
+                    return targetShortPerson.BelongCity;
+                return 0;
+            }
+        }
+
+        public int BelongForce
+        {
+            get
+            {
+                if (targetShortPerson != null)
+                    return targetShortPerson.BelongForce;
+                return 0;
+            }
+        }
+
+        public int BelongCorps;
+
     }
 }

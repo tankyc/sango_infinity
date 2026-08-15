@@ -147,10 +147,10 @@ namespace Sango.Core
         {
             name = "势力",
             width = 4.00f,
-            valueStrGetCall = x => x.BelongForce.Name,
-            valueSortFunc = (a, b) => a.BelongForce.Name.CompareTo(b.BelongForce.Name),
-            valueObjGet = x => x.BelongForce,
-            valueObjSet = (x, v) => x.BelongForce = (Force)v,
+            valueStrGetCall = x => x.mForce.Name,
+            valueSortFunc = (a, b) => a.mForce.Name.CompareTo(b.mForce.Name),
+            valueObjGet = x => x.mForce,
+            valueObjSet = (x, v) => x.mForce = (Force)v,
         };
 
         public static SortTitle SortByNumber = new SortTitle()
@@ -167,10 +167,10 @@ namespace Sango.Core
         {
             name = "都督",
             width = 2.80f,
-            valueStrGetCall = x => x.Comander?.Name ?? "---",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.Comander, b.Comander),
-            valueObjGet = x => x.Comander,
-            valueObjSet = (x, v) => x.Comander = (Person)v,
+            valueStrGetCall = x => x.mComander?.Name ?? "---",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mComander, b.mComander),
+            valueObjGet = x => x.mComander,
+            valueObjSet = (x, v) => x.mComander = (Person)v,
         };
 
         public static SortTitle SortByCityCount = new SortTitle()

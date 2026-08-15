@@ -1,8 +1,6 @@
 ﻿using Sango.Core;
-using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -46,12 +44,14 @@ namespace Sango.UI
         public Button rankBtn;
         // 初始化按钮
         public Button initBtn;
+        public Button sureBtn;
 
         // ===== 数据 =====
         UIEditWorldMap uIEditWorldMap;
 
         Title selectedTitle;
         ShortScenario scenario;
+        ShortScenario src_scenario;
         ScenarioCommonData commonData;
         public Action onClose;
         public GameObject hideNodeOnEditForce;
@@ -59,8 +59,7 @@ namespace Sango.UI
         /// <summary>
         /// 本界面持有的新势力数据，确认时保存到 addData.NewForces[slotIndex]
         /// </summary>
-        NewForceData newForceData;
-        NewForceData editForceData;
+        ShortForce newForceData;
 
         bool eventsBound;
 
@@ -84,18 +83,22 @@ namespace Sango.UI
             SetHideNodeActive(true);
             // 解析参数
             uIEditWorldMap = GetArg<UIEditWorldMap>(args, 0);
-            editForceData = GetArg<NewForceData>(args, 1);
-            newForceData = new NewForceData();
-            newForceData.CapitalCity = editForceData.CapitalCity;
-            newForceData.allCities = new List<ShortCity>(editForceData.allCities);
-            newForceData.Flag = editForceData.Flag;
-            if (newForceData.Flag == null)
-                newForceData.Flag = UIScenarioAddonMenu.AddData.FindEmptyFlag();
-            newForceData.Title = editForceData.Title;
-            newForceData.Persons = new List<PersonLib>(editForceData.Persons);
-            scenario = GetArg<ShortScenario>(args, 2);
-            commonData = GetArg<ScenarioCommonData>(args, 3);
+            int editForceDataId = GetArgInt(args, 1);
+            src_scenario = GetArg<ShortScenario>(args, 2);
 
+            scenario = new ShortScenario();
+            scenario.personSet = ShortScenario.CurSelected.personSet;
+            scenario.CommonData = ShortScenario.CurSelected.CommonData;
+            ShortScenario.CurSelected.citySet.ForEach(x =>
+                scenario.citySet.Add(x.Copy())
+            );
+            ShortScenario.CurSelected.forceSet.ForEach(x =>
+                scenario.forceSet.Add(x.Copy())
+            );
+
+            newForceData = scenario.forceSet.Get(editForceDataId);
+
+            commonData = GetArg<ScenarioCommonData>(args, 3);
             BindButtonEvents();
             RefreshUI();
         }
@@ -125,7 +128,7 @@ namespace Sango.UI
         /// </summary>
         void RefreshUI()
         {
-            bool isValid = newForceData.Governor != null;
+            bool isValid = newForceData.Governor > 0;
             createBtn.interactable = !isValid;
             // 都市按钮
             cityBtn.interactable = isValid;
@@ -136,28 +139,29 @@ namespace Sango.UI
             // 初始化按钮
             initBtn.interactable = isValid;
 
-            // 势力名称：已有数据优先显示，否则显示默认
-            string displayName = (newForceData != null && !string.IsNullOrEmpty(newForceData.ForceName))
-                ? newForceData.ForceName
-                : defaultForceName;
-            if (forceNameInput != null)
-                forceNameInput.text = displayName;
-
             // 君主
             if (governorText != null)
-                governorText.text = newForceData.Governor != null ? newForceData.Governor.Name : "-";
+                governorText.text = newForceData.Governor > 0 ? scenario.personSet[newForceData.Governor].Name : "-";
 
             // 本城
             if (cityText != null)
-                cityText.text = newForceData.CapitalCity != null ? newForceData.CapitalCity.Name : "-";
+                cityText.text = newForceData.CapitalCity > 0 ? scenario.citySet[newForceData.CapitalCity].Name : "-";
 
             // 支配数（当前只有本城，所以为 1；后续可扩展）
             if (cityCountText != null)
-                cityCountText.text = newForceData.allCities != null ? (newForceData.allCities.Count + 1).ToString() : "1";
+            {
+                int count = 0;
+                scenario.citySet.ForEach(x =>
+                {
+                    if (x.BelongForce == newForceData.Id)
+                        count++;
+                });
+                cityCountText.text = count.ToString();
+            }
 
             // 势力颜色
             if (flagColorImage != null)
-                flagColorImage.color = newForceData.Flag != null ? newForceData.Flag.color : Color.white;
+                flagColorImage.color = newForceData.Flag > 0 ? commonData.Flags[newForceData.Flag].color : Color.white;
 
             // 爵位：自动分配第一个可用爵位
             if (selectedTitle == null && commonData != null)
@@ -171,6 +175,7 @@ namespace Sango.UI
 
             // 君主头像
             RefreshAvatar();
+            sureBtn.interactable = isValid;
         }
 
         /// <summary>
@@ -180,9 +185,10 @@ namespace Sango.UI
         {
             if (avatarImage == null)
                 return;
-            if (newForceData.Governor != null)
+            if (newForceData.Governor > 0)
             {
-                Texture tex = GameRenderHelper.LoadHeadIcon(newForceData.Governor.headIconID);
+
+                Texture tex = GameRenderHelper.LoadHeadIcon(scenario.personSet[newForceData.Governor].headIconID);
                 if (tex != null)
                 {
                     avatarImage.texture = tex;
@@ -201,23 +207,23 @@ namespace Sango.UI
             if (commonData == null || commonData.Titles == null)
                 return null;
 
-            var addData = UIScenarioAddonMenu.AddData;
-            if (addData == null || addData.NewForces == null)
-                return null;
+            //var addData = UIScenarioAddonMenu.AddData;
+            //if (addData == null || addData.NewForces == null)
+            //    return null;
 
-            // 收集已用爵位
-            HashSet<int> usedTitleIds = new HashSet<int>();
-            foreach (var nf in addData.NewForces)
-            {
-                if (nf.Title != null)
-                    usedTitleIds.Add(nf.Title.Id);
-            }
+            //// 收集已用爵位
+            //HashSet<int> usedTitleIds = new HashSet<int>();
+            //foreach (var nf in addData.NewForces)
+            //{
+            //    if (nf.Title != null)
+            //        usedTitleIds.Add(nf.Title.Id);
+            //}
 
-            foreach (var title in commonData.Titles.objects)
-            {
-                if (title != null && !usedTitleIds.Contains(title.Id))
-                    return title;
-            }
+            //foreach (var title in commonData.Titles.objects)
+            //{
+            //    if (title != null && !usedTitleIds.Contains(title.Id))
+            //        return title;
+            //}
             return null;
         }
 
@@ -261,14 +267,8 @@ namespace Sango.UI
         void OnCreateForce(PersonLib person, ShortCity city)
         {
             // 填充持有的 NewForceData
-            if (newForceData == null)
-                newForceData = new NewForceData();
-
-            newForceData.Governor = person;
-            newForceData.CapitalCity = city;
-            newForceData.allCities.Clear();
-            newForceData.allCities.Add(city);
-            //newForceData.Flag = UIScenarioAddonMenu.AddData.FindEmptyFlag();
+            newForceData.Governor = person.targetShortPerson.Id;
+            newForceData.CapitalCity = city.Id;
             uIEditWorldMap.RefreshCity();
             hideNodeOnEditForce.SetActive(true);
             RefreshUI();
@@ -284,14 +284,15 @@ namespace Sango.UI
                 OnCloseAction = () =>
                 {
                     SetHideNodeActive(true);
-                    Refresh();
+                    RefreshUI();
+                    uIEditWorldMap.RefreshCity();
                 }; ;
         }
 
         void OnChangeCites(List<ShortCity> cityList)
         {
-            newForceData.allCities.Clear();
-            newForceData.allCities.AddRange(cityList);
+            uIEditWorldMap.RefreshCity();
+            RefreshUI();
         }
 
         /// <summary>
@@ -304,7 +305,9 @@ namespace Sango.UI
 
         void OnChangeFlag(Flag flag)
         {
-            newForceData.Flag = flag;
+            newForceData.Flag = flag.Id;
+            uIEditWorldMap.RefreshCity();
+            RefreshUI();
         }
 
         /// <summary>
@@ -335,10 +338,12 @@ namespace Sango.UI
         /// </summary>
         void OnInit()
         {
-            if (forceNameInput != null)
-                forceNameInput.text = defaultForceName;
-            selectedTitle = GetNextAvailableTitle();
+            //newForceData.Governor = 0;
+            //newForceData.Flag = 0;
+            //newForceData.CapitalCity = 0;
+
             RefreshUI();
+            uIEditWorldMap.RefreshCity();
         }
 
         public void OnReturn()
@@ -351,68 +356,15 @@ namespace Sango.UI
         /// </summary>
         public void OnConfirm()
         {
-            editForceData.CapitalCity = newForceData.CapitalCity;
-            editForceData.allCities.Clear();
-            editForceData.allCities.AddRange(newForceData.allCities);
-            editForceData.Flag = newForceData.Flag;
-            editForceData.Title = newForceData.Title;
-            editForceData.Persons.Clear();
-            editForceData.Persons.AddRange(newForceData.Persons);
+            src_scenario.citySet = scenario.citySet;
+            src_scenario.forceSet = scenario.forceSet;
             Close();
         }
-
 
         #endregion
 
         #region 数据查询
 
-        /// <summary>
-        /// 获取空白城市列表（未被占领）
-        /// </summary>
-        List<ShortCity> GetEmptyCities()
-        {
-            List<ShortCity> result = new List<ShortCity>();
-            if (scenario == null || scenario.citySet == null)
-                return result;
-
-            foreach (var city in scenario.citySet.Values)
-            {
-                if (city != null && city.Id != 0 && city.BuildingType <= 1 && city.BelongForce == 0)
-                    result.Add(city);
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// 获取可用旗帜列表（排除已被其他势力占用的）
-        /// </summary>
-        List<Flag> GetAvailableFlags()
-        {
-            List<Flag> result = new List<Flag>();
-            if (commonData == null || commonData.Flags == null)
-                return result;
-
-            var addData = UIScenarioAddonMenu.AddData;
-            HashSet<int> usedFlagIds = new HashSet<int>();
-            if (addData != null && addData.NewForces != null)
-            {
-                foreach (var nf in addData.NewForces)
-                {
-                    if (nf.Flag != null)
-                        usedFlagIds.Add(nf.Flag.Id);
-                }
-            }
-
-            if (commonData.Flags.objects != null)
-            {
-                foreach (var flag in commonData.Flags.objects)
-                {
-                    if (flag != null && !usedFlagIds.Contains(flag.Id))
-                        result.Add(flag);
-                }
-            }
-            return result;
-        }
 
         #endregion
     }

@@ -5,30 +5,30 @@ using System.Collections.Generic;
 namespace Sango.Core
 {
 
-    public abstract class BuildingBase : SangoObject
+    public abstract class BuildingBase : SangoObjectExtensionData
     {
         public virtual string ColorName => $"<color=#93C86D>{Name}</color>";
 
         /// <summary>
         /// 所属势力
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Force>))]
         [JsonProperty]
-        public Force BelongForce;
+        public int BelongForce;
+        public Force mForce;
 
         /// <summary>
         /// 所属势力
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Corps>))]
         [JsonProperty]
-        public Corps BelongCorps;
+        public int BelongCorps;
+        public Corps mCorps;
 
         /// <summary>
         /// 所属城池
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<City>))]
         [JsonProperty]
-        public City BelongCity;
+        public int BelongCity;
+        public City mCity;
 
         /// <summary>
         /// 建筑类型
@@ -96,17 +96,17 @@ namespace Sango.Core
 
         public override ObjectRender GetRender() { return Render; }
 
-        public bool IsPlayer => BelongForce?.IsPlayer ?? false;
+        public bool IsPlayer => mForce?.IsPlayer ?? false;
 
         /// <summary>
         /// 是否为玩家控制的
         /// </summary>
-        public virtual bool IsPlayerControl => BelongCorps?.IsPlayerControl ?? false;
+        public virtual bool IsPlayerControl => mCorps?.IsPlayerControl ?? false;
 
         /// <summary>
         /// 获取是否为当前的玩家势力
         /// </summary>
-        public bool IsCurPlayer => BelongForce?.IsCurPlayer ?? false;
+        public bool IsCurPlayer => mForce?.IsCurPlayer ?? false;
 
         /// <summary>
         /// 作用范围
@@ -137,10 +137,21 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
+            mForce = scenario.forceSet.Get(BelongForce);
+            mCity = scenario.citySet.Get(BelongCity);
+            mCorps = scenario.corpsSet.Get(BelongCorps);
+
             effectCells = new List<Cell>();
             //BelongForce = scenario.forceSet.Get(_belongForceId);
             //BelongCorps = scenario.corpsSet.Get(_belongCorpsId);
             //BuildingType = scenario.CommonData.BuildingTypes.Get(_buildingTypeId);
+        }
+
+        public override void OnScenarioSave(Scenario scenario)
+        {
+            BelongForce = mForce?.Id ?? 0;
+            BelongCorps = mCorps?.Id ?? 0;
+            BelongCity = mCity?.Id ?? 0;
         }
 
         public override void Init(Scenario scenario)
@@ -156,36 +167,36 @@ namespace Sango.Core
 
         public bool IsAlliance(BuildingBase other)
         {
-            return IsAlliance(BelongForce, other.BelongForce);
+            return IsAlliance(mForce, other.mForce);
         }
 
         public bool IsEnemy(BuildingBase other)
         {
-            return IsEnemy(BelongForce, other.BelongForce);
+            return IsEnemy(mForce, other.mForce);
         }
 
         public bool IsSameForce(BuildingBase other)
         {
-            return IsSameForce(BelongForce, other.BelongForce);
+            return IsSameForce(mForce, other.mForce);
         }
 
         public bool IsAlliance(Troop other)
         {
-            return IsAlliance(BelongForce, other.BelongForce);
+            return IsAlliance(mForce, other.BelongForce);
         }
 
         public bool IsEnemy(Troop other)
         {
-            return IsEnemy(BelongForce, other.BelongForce);
+            return IsEnemy(mForce, other.BelongForce);
         }
 
         public bool IsSameForce(Troop other)
         {
-            return IsSameForce(BelongForce, other.BelongForce);
+            return IsSameForce(mForce, other.BelongForce);
         }
         public bool IsSameForce(Person other)
         {
-            return IsSameForce(BelongForce, other.BelongForce);
+            return IsSameForce(mForce, other.mForce);
         }
 
         public bool IsBeSurrounded()

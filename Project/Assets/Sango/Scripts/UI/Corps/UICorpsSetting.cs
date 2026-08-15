@@ -80,7 +80,7 @@ namespace Sango.UI
             };
 
             targetCorps = objects[0] as Corps;
-            targetForce = targetCorps.BelongForce;
+            targetForce = targetCorps.mForce;
             if (objects.Length > 1)
                 windowTitle.text = objects[1] as string;
             if (objects.Length > 2)
@@ -93,12 +93,12 @@ namespace Sango.UI
             validPersonList.Clear();
             targetForce.ForEachCity(x =>
             {
-                if (x.BelongCorps.IsCaptainCorps && x != targetForce.CapitalCity)
+                if (x.mCorps.IsCaptainCorps && x != targetForce.CapitalCity)
                     validCityList.Add(x);
             });
             if (targetCorps.Id > 0)
             {
-                targetPersonList.Add(targetCorps.Comander);
+                targetPersonList.Add(targetCorps.mComander);
                 targetCityList.AddRange(targetCorps.inti_cities);
                 validCityList.AddRange(targetCorps.inti_cities);
             }
@@ -127,8 +127,8 @@ namespace Sango.UI
         {
             if (targetCorps == null) return;
             corpsNameText.text = targetCorps.Name;
-            commander.SetPerson(targetCorps.Comander);
-            commanderStatus.SetPerson(targetCorps.Comander);
+            commander.SetPerson(targetCorps.mComander);
+            commanderStatus.SetPerson(targetCorps.mComander);
             commanderButton.interactable = targetCityList.Count > 0;
             int cityCount = targetCityList.Count;
             if (cityCount == 0)
@@ -292,7 +292,7 @@ namespace Sango.UI
             targetPersonList = people;
             if (targetPersonList.Count > 0)
             {
-                targetCorps.Comander = targetPersonList[0];
+                targetCorps.mComander = targetPersonList[0];
             }
             UpdateContent();
         }
@@ -308,7 +308,7 @@ namespace Sango.UI
 
         void CheckSure()
         {
-            bool val = (targetCorps.Comander != null && targetCityList.Count > 0 && targetPersonList.Count > 0);
+            bool val = (targetCorps.mComander != null && targetCityList.Count > 0 && targetPersonList.Count > 0);
             if(val)
             {
                 switch (targetCorps.appoint)

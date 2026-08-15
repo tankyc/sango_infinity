@@ -65,9 +65,9 @@ using Sango.Core; namespace Sango.UI
                     name.text = obj.Name;
 
                     Person p = (Person)obj;
-                    if (p.BelongTroop != null)
+                    if (p.mTroop != null)
                     {
-                        name.color = p.BelongTroop.ActionOver ? Color.gray : GameDefine.whiteText;
+                        name.color = p.mTroop.ActionOver ? Color.gray : GameDefine.whiteText;
                     }
                     else
                     {
@@ -97,14 +97,14 @@ using Sango.Core; namespace Sango.UI
             else if (targetObject is Person)
             {
                 Person person = (Person)targetObject;
-                if (person.BelongTroop != null)
+                if (person.mTroop != null)
                 {
-                    Vector3 position = person.BelongTroop.cell.Position;
+                    Vector3 position = person.mTroop.cell.Position;
                     MapRender.Instance.MoveCameraTo(position);
                 }
                 else
                 {
-                    Vector3 position = person.BelongCity.CenterCell.Position;
+                    Vector3 position = person.mCity.CenterCell.Position;
                     MapRender.Instance.MoveCameraTo(position);
                 }
             }

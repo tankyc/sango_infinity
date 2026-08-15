@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Sango.Core;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,18 +13,18 @@ namespace Sango.UI
         public Text cityName;
         public Image flagColor;
         public Button cancelBtn;
-        public Action<int> onClickNew;
-        public Action<int> onClickDelete;
-        public int index;
+        public Action<ShortForce> onClickNew;
+        public Action<ShortForce> onClickDelete;
+        public ShortForce target;
 
         public void OnClickNew()
         {
-            onClickNew?.Invoke(index);
+            onClickNew?.Invoke(target);
         }
 
         public void OnClickDelete()
         {
-            onClickDelete?.Invoke(index);
+            onClickDelete?.Invoke(target);
         }
     }
 }

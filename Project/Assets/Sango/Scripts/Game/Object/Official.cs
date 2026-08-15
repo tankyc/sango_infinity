@@ -10,7 +10,7 @@ namespace Sango.Core
     /// 特性
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
-    public class Official : SangoObject
+    public class Official : SangoObjectExtensionData
     {
         [JsonProperty]
         public int troopsLimit;

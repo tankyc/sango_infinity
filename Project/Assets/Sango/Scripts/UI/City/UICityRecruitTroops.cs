@@ -29,7 +29,7 @@ using Sango.Core; namespace Sango.UI
 
         public void UpdateContent()
         {
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.RecruitTroops)}/{TargetCity.BelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.RecruitTroops)}/{TargetCity.mCorps.ActionPoint}";
             sureButton.interactable = currentSystem.personList.Count > 0;
             for (int i = 0; i < 3; i++)
             {

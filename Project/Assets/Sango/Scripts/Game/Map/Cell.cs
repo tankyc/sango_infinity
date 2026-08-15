@@ -182,7 +182,7 @@ namespace Sango.Core
         public bool CanPassThrough(Troop troops)
         {
             return (this.troop == null || this.troop.BelongForce == troops.BelongForce) &&
-                         (this.building == null || this.building.BelongForce == troops.BelongForce);
+                         (this.building == null || this.building.mForce == troops.BelongForce);
         }
         /// <summary>
         /// 检查部队是否可以移动到该单元格

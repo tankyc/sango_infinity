@@ -15,7 +15,7 @@ using Sango.Core; namespace Sango.UI
         public UIMiniBuldingInfoPanel Show(Building c)
         {
             nameLabel.text = c.Name;
-            SetCorps(c.BelongCorps);
+            SetCorps(c.mCorps);
             ResetPool();
             List<ObjectSortTitle> SortTitles = new List<ObjectSortTitle>(objectSortTitles);
             GameEvent.OnInitBuildingMiniPanel?.Invoke(c, SortTitles);

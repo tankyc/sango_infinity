@@ -44,8 +44,8 @@ namespace Sango.Core.Player
             get
             {
                 // 需要至少两座城
-                return TargetCity.BelongForce.CityBaseCount > 1 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.CallPerson);
+                return TargetCity.mForce.CityBaseCount > 1 &&
+                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.CallPerson);
             }
         }
 
@@ -58,7 +58,7 @@ namespace Sango.Core.Player
                 personList[i].TransformToCity(TargetCity);
             }
 
-            TargetCity.BelongCorps.ActionPoint -= JobType.GetJobCostAP((int)CityJobType.CallPerson);
+            TargetCity.mCorps.ActionPoint -= JobType.GetJobCostAP((int)CityJobType.CallPerson);
             GameMedia.Instance.PlayDoAcitonSfx();
             base.DoJob();
         }

@@ -42,17 +42,17 @@ namespace Sango.Core.Player
             {
                 return TargetCity.gold > 100 &&
                        TargetCity.CheckJobCost(CityJobType.Reward) &&
-                       TargetCity.BelongCorps.GetJobCounter((int)CityJobType.Reward) == 0 &&
-                       TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward);
+                       TargetCity.mCorps.GetJobCounter((int)CityJobType.Reward) == 0 &&
+                       TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward);
             }
         }
 
         public override void OnEnter()
         {
             targetList.Clear();
-            TargetCity.BelongForce.ForEachPerson(x =>
+            TargetCity.mForce.ForEachPerson(x =>
             {
-                if (x != TargetCity.BelongForce.Governor && x.BelongTroop == null && x.loyalty < 100)
+                if (x != TargetCity.mForce.mGovernor && x.mTroop == null && x.loyalty < 100)
                 {
                     targetList.Add(x);
                 }

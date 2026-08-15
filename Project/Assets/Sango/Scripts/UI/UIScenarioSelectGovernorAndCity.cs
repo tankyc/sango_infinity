@@ -22,7 +22,14 @@ namespace Sango.UI
             uIEditWorldMap = (UIEditWorldMap)objects[0];
             OnCreateForce = (Action<PersonLib, ShortCity>)objects[1];
             sangoObjects.Clear();
-            sangoObjects.AddRange(UIScenarioAddonMenu.AddData.UnassignedPersonLibs);
+
+            //foreach (var obj in UIScenarioAddonMenu.AddData.UnassignedPersonLibs)
+            //{
+            //    if (obj.BelongCity == 0)
+            //        sangoObjects.Add(obj);
+            //}
+
+            //sangoObjects.AddRange(UIScenarioAddonMenu.AddData.UnassignedPersonLibs);
             uiGovernorSelector.Init(sangoObjects, PersonLibSortFunction.DefaultSortList);
             uiGovernorSelector.OnSelectCall = OnSelectGovernor;
         }

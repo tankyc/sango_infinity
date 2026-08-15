@@ -40,11 +40,11 @@ namespace Sango.Core.Player
         {
             personList.Clear();
             targetList.Clear();
-            TargetForce = TargetCity.BelongForce;
-            counsellor = TargetForce.Counsellor;
+            TargetForce = TargetCity.mForce;
+            counsellor = TargetForce.mCounsellor;
             Scenario.Cur.personSet.ForEach(x =>
             {
-                if (x.BelongForce == TargetForce && x != TargetForce.Governor && x != TargetForce.Counsellor && !x.IsPrisoner)
+                if (x.mForce == TargetForce && x != TargetForce.mGovernor && x != TargetForce.mCounsellor && !x.IsPrisoner)
                 {
                     targetList.Add(x);
                 }

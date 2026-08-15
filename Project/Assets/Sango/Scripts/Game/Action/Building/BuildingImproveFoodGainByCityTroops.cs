@@ -35,11 +35,11 @@ namespace Sango.Core.Action
 
         void OnBuildingCalculateFoodGain(BuildingBase buildingBase, OverrideData<int> overrideData)
         {
-            if (Force != null && buildingBase.BelongForce != Force) return;
+            if (Force != null && buildingBase.mForce != Force) return;
             if (Building != null && Building != buildingBase) return;
-            if (Building.BelongCity == null) return;
+            if (Building.mCity == null) return;
 
-            int troops = Math.Max(Building.BelongCity.troops, minTroops);
+            int troops = Math.Max(Building.mCity.troops, minTroops);
             int factor = value * (troops - minTroops) / (maxTroops - minTroops);
 
             overrideData.Value = overrideData.Value + overrideData.Value * factor / 100;

@@ -52,9 +52,9 @@ namespace Sango.Core
 
         protected virtual void OnCityRightMouseButtonContextMenuShow(IContextMenuData menuData, City city)
         {
-            Target = city.BelongForce;
+            Target = city.mForce;
             if (CityMenuCanShow())
-                menuData.Add(Name, 20, city.BelongForce, OnClickMenuItem, city.BelongForce != null);
+                menuData.Add(Name, 20, city.mForce, OnClickMenuItem, city.mForce != null);
         }
 
         protected virtual void OnClickMenuItem(IContextMenuItem contextMenuItem)

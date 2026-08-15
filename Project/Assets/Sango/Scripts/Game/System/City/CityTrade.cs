@@ -30,7 +30,7 @@ namespace Sango.Core.Player
                     TargetCity.hasBusiness > 0 &&
                     TargetCity.CheckJobCost(CityJobType.TradeFood) &&
                     TargetCity.GetJobCounter((int)CityJobType.TradeFood) == 0 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.TradeFood);
+                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.TradeFood);
             }
         }
 

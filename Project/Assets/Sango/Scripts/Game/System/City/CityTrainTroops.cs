@@ -31,7 +31,7 @@ namespace Sango.Core.Player
                     TargetCity.CheckJobCost(CityJobType.TrainTroops) &&
                     TargetCity.morale < TargetCity.MaxMorale &&
                     TargetCity.GetJobCounter((int)CityJobType.TrainTroops) == 0 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.TrainTroops);
+                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.TrainTroops);
             }
         }
 

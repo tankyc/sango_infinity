@@ -72,7 +72,7 @@ namespace Sango.Render.Model
 
         public void Init(BuildingBase building)
         {
-            if (building.BelongForce == null)
+            if (building.mForce == null)
             {
                 foreach (FlagRender flag in flags)
                 {
@@ -91,7 +91,7 @@ namespace Sango.Render.Model
                     if (flag != null)
                     {
                         flag.gameObject.SetActive(true);
-                        flag.Init(building.BelongForce);
+                        flag.Init(building.mForce);
                     }
                 }
             }

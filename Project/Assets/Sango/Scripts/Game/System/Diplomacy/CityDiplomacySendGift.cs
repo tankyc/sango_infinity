@@ -28,7 +28,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.SendGift) && TargetCity.gold >= 1000;
+                return TargetCity.freePersons.Count > 0 && TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.SendGift) && TargetCity.gold >= 1000;
             }
         }
 
@@ -57,7 +57,7 @@ namespace Sango.Core.Player
                 return;
 
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.SendGift, TargetCity.BelongForce, targetForces[0], personList[0], JobType.GetJobCost((int)CityJobType.SendGift));
+            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.SendGift, TargetCity.mForce, targetForces[0], personList[0], JobType.GetJobCost((int)CityJobType.SendGift));
             diplomacyManager.DispatchDiplomat(action);
             GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", () =>
             {

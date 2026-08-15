@@ -45,7 +45,7 @@ namespace Sango.Core.Player
             get
             {
                 return TargetCity.troops > 0 && TargetCity.food > 0 && TargetCity.freePersons.Count > 0 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.MakeTansport);
+                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.MakeTansport);
             }
         }
         public override void UpdateJobValue()
@@ -77,7 +77,7 @@ namespace Sango.Core.Player
             TargetTroop.Leader = leader;
             TargetTroop.Member1 = null;
             TargetTroop.Member2 = null;
-            TargetTroop.LandTroopType = TroopType.GetTransportType(scenario, TargetCity.BelongForce);
+            TargetTroop.LandTroopType = TroopType.GetTransportType(scenario, TargetCity.mForce);
             TargetTroop.WaterTroopType = scenario.GetObject<TroopType>(8);
             if (TargetTroop.troops == 0)
             {

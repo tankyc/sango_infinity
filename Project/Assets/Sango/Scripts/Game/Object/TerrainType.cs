@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Sango.Core
 {
     [JsonObject(MemberSerialization.OptOut)]
-    public class TerrainType : SangoObject
+    public class TerrainType : SangoObjectExtensionData
     {
         public int foodDeposit;
         public float[] fertility = new float[2];

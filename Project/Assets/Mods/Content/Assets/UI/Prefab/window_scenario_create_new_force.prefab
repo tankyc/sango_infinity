@@ -1443,6 +1443,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   selectedObj: {fileID: 4060676005042055887}
   normalObj: {fileID: 1343299185874884362}
+  cityName: {fileID: 0}
   inavtiveObj: {fileID: 4192305206665240918}
   overObj:
   - {fileID: 3069508307106872787}
@@ -1614,10 +1615,10 @@ RectTransform:
   m_Father: {fileID: 3433720668476350170}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 1024, y: 768}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &9039031632039893254
 GameObject:
@@ -4403,6 +4404,14 @@ PrefabInstance:
     - target: {fileID: 558642365883369861, guid: 93af6a2b7563dbb429b614cab2bc0177, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2689511320223355646, guid: 93af6a2b7563dbb429b614cab2bc0177, type: 3}
+      propertyPath: m_FontData.m_Alignment
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5585318090526832860, guid: 93af6a2b7563dbb429b614cab2bc0177, type: 3}
+      propertyPath: m_FontData.m_Alignment
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 6864029670843416724, guid: 93af6a2b7563dbb429b614cab2bc0177, type: 3}
       propertyPath: m_Name

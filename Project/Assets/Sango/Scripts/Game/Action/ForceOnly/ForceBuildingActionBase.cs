@@ -44,7 +44,7 @@ namespace Sango.Core.Action
         /// <returns>是否符合条件</returns>
         public virtual bool CheckForceBuilding(BuildingBase buildingBase)
         {
-            if (Force != buildingBase.BelongForce) return false;
+            if (Force != buildingBase.mForce) return false;
             if (kinds != null && !kinds.Contains(buildingBase.BuildingType.kind)) return false;
             return true;
         }

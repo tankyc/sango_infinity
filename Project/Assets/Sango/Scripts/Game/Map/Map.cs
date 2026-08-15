@@ -222,7 +222,7 @@ namespace Sango.Core
                 if (next != null)
                 {
                     if ((next.troop != null && troops.BelongForce != next.troop.BelongForce) ||
-                        (next.building != null && troops.BelongForce != next.building.BelongForce))
+                        (next.building != null && troops.BelongForce != next.building.mForce))
                         return true;
                 }
             }

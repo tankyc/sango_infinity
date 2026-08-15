@@ -40,19 +40,19 @@ namespace Sango.Core.Player
                 Done();
             };
 
-            Force force = TargetBuilding.BelongForce;
+            Force force = TargetBuilding.mForce;
             //GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{force.ColorName}大人，\n终于轮到我们了啊。", null);
-            Person person = force.Counsellor;
-            if (person == null || person.BelongForce != force)
+            Person person = force.mCounsellor;
+            if (person == null || person.mForce != force)
             {
-                int max = TargetBuilding.BelongCity.allPersons.Count;
+                int max = TargetBuilding.mCity.allPersons.Count;
                 if (max > 0)
                 {
-                    person = TargetBuilding.BelongCity.allPersons.Get(GameRandom.Range(0, max));
+                    person = TargetBuilding.mCity.allPersons.Get(GameRandom.Range(0, max));
                 }
                 else
                 {
-                    person = force.Governor;
+                    person = force.mGovernor;
                 }
             }
             dialog.SetPerson(person);

@@ -37,10 +37,10 @@ namespace Sango.Core
 
             // 检查资金：优先检查执行外交的武将所属城市的资金
             int availableGold = 0;
-            if (Diplomat != null && Diplomat.BelongCity != null)
+            if (Diplomat != null && Diplomat.mCity != null)
             {
                 // 如果有执行外交的武将，检查武将所属城市的资金
-                availableGold = Diplomat.BelongCity.gold;
+                availableGold = Diplomat.mCity.gold;
             }
             else if (Sender.CapitalCity != null)
             {
@@ -79,9 +79,9 @@ namespace Sango.Core
 
             // 确定扣除资金的城市：优先武将所属城市，其次首都
             City paymentCity = null;
-            if (Diplomat != null && Diplomat.BelongCity != null)
+            if (Diplomat != null && Diplomat.mCity != null)
             {
-                paymentCity = Diplomat.BelongCity;
+                paymentCity = Diplomat.mCity;
             }
             else if (Sender != null && Sender.CapitalCity != null)
             {
@@ -215,24 +215,24 @@ namespace Sango.Core
             }
             
             // 3. 主公喜好和性格因素
-            if (Receiver.Governor != null)
+            if (Receiver.mGovernor != null)
             {
-                Person governor = Receiver.Governor;
+                Person governor = Receiver.mGovernor;
                 
                 // 性格影响：使用Personality类中的送礼效果加成参数
-                if (governor.personality != null)
+                if (governor.mPersonality != null)
                 {
                     // 获取性格的送礼效果加成（百分比）
-                    int giftEffectBonus = governor.personality.giftEffectAdd;
+                    int giftEffectBonus = governor.mPersonality.giftEffectAdd;
                     // 将百分比转换为系数（例如：10表示+10%，即0.1）
                     float bonusFactor = giftEffectBonus / 100.0f;
                     factor += bonusFactor;
                 }
                 
                 // 相性影响：相性好的话效果更好
-                if (Sender.Governor != null)
+                if (Sender.mGovernor != null)
                 {
-                    int compatibilityDiff = System.Math.Abs(Sender.Governor.compatibility - governor.compatibility);
+                    int compatibilityDiff = System.Math.Abs(Sender.mGovernor.compatibility - governor.compatibility);
                     if (compatibilityDiff< 30)
                     {
                         factor += (30 - compatibilityDiff) / 300.0f; // 最多增加0.1倍效果

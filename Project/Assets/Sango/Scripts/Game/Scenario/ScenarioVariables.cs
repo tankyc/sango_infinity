@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Sango.Core
 {
     [JsonObject(MemberSerialization.OptIn)]
-    public class ScenarioVariables : SangoObject
+    public class ScenarioVariables : SangoObjectExtensionData
     {
         /// <summary>
         /// 最大可存储的行动力上限

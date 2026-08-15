@@ -22,7 +22,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.BelongCorps.ActionPoint >= 1;
+                return TargetCity.freePersons.Count > 0 && TargetCity.mCorps.ActionPoint >= 1;
             }
         }
 

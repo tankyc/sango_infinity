@@ -154,7 +154,7 @@ namespace Sango.Core
                 if (target.HasControlBuff())
                     C = 10;
                 int D = target.Intelligence > troop.Intelligence ? (target.Intelligence - troop.Intelligence) / 6 : 0;
-                int E = target.Leader.personality.falseReportSuccessAdd;
+                int E = target.Leader.mPersonality.falseReportSuccessAdd;
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 20) / 100 + troop.Glamour * 5 / 100 + E + 70 + C;
                 int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
@@ -185,7 +185,7 @@ namespace Sango.Core
                 if (target.HasControlBuff())
                     C = 10;
                 int D = target.Intelligence > troop.Intelligence ? (target.Intelligence - troop.Intelligence) / 6 : 0;
-                int E = target.Leader.personality.disturbSuccessAdd;
+                int E = target.Leader.mPersonality.disturbSuccessAdd;
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 20) / 100 + target.Defence * 5 / 100 + E + 70 + C;
                 int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
@@ -208,7 +208,7 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if (target == null) return 0;
 
-                int E = target.Leader.personality.calmdownSuccessAdd;
+                int E = target.Leader.mPersonality.calmdownSuccessAdd;
                 int V = (int)(Mathf.Sqrt(Mathf.Max(10, troop.Intelligence - 5)) * 11) + E;
                 return V;
             }
@@ -234,7 +234,7 @@ namespace Sango.Core
                 if (target.HasControlBuff())
                     C = 10;
                 int D = target.Intelligence > troop.Intelligence ? (target.Intelligence - troop.Intelligence) / 6 : 0;
-                int E = target.Leader.personality.ambushSuccessAdd;
+                int E = target.Leader.mPersonality.ambushSuccessAdd;
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 33) / 100 + (troop.Attack - target.Defence) * 10 / 100 + E + 80 + C;
                 int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
@@ -264,7 +264,7 @@ namespace Sango.Core
                 if (target.HasControlBuff())
                     C = 10;
                 int D = target.Intelligence > troop.Intelligence ? (target.Intelligence - troop.Intelligence) / 6 : 0;
-                int E = target.Leader.personality.infightingSuccessAdd;
+                int E = target.Leader.mPersonality.infightingSuccessAdd;
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 40) / 100 + E + 80 + C;
                 int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
@@ -293,7 +293,7 @@ namespace Sango.Core
                 int C = 0;
                 if (target.HasControlBuff())
                     C = 10;
-                int E = target.Leader.personality.sorcerySuccessAdd;
+                int E = target.Leader.mPersonality.sorcerySuccessAdd;
 
                 if (troop.Intelligence >= target.Intelligence)
                 {

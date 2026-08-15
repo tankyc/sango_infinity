@@ -4,40 +4,64 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using Task = System.Threading.Tasks.Task;
-using System.Threading;
 
 namespace Sango.Core
 {
     [JsonObject(MemberSerialization.OptIn)]
 
-    public class ShortForce
+    public class ShortForce : SangoObject
     {
-        [JsonProperty(Order = -99)] public int Id;
-        [JsonProperty(Order = -98)] public string Name;
         [JsonProperty] public int Governor;
         [JsonProperty] public int Counsellor;
         [JsonProperty] public int Flag;
         [JsonProperty] public string desc;
         public bool IsPlayer;
+        public bool IsAppend;
+        public int CapitalCity;
+
+        public ShortForce Copy()
+        {
+            return new ShortForce()
+            {
+                Id = Id,
+                Name = Name,
+                Governor = Governor,
+                Counsellor = Counsellor,
+                Flag = Flag,
+                desc = desc,
+                IsPlayer = IsPlayer,
+                IsAppend = IsAppend,
+                CapitalCity = CapitalCity,
+            };
+        }
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
-    public class ShortPerson
+    [JsonObject(MemberSerialization.OptIn)]
+    public class ShortPerson : SangoObject
     {
-        [JsonProperty(Order = -99)] public int Id;
-        [JsonProperty(Order = -98)] public string Name;
-        public int BelongForce;
-        public int BelongCity;
-        public int headIconID;
-        public string imageID;
+        [JsonProperty] public int BelongForce;
+        [JsonProperty] public int BelongCity;
+        [JsonProperty] public int headIconID;
+        [JsonProperty] public string imageID;
+        public PersonLib PersonLib;
+        public int state;
+        public static ShortPerson FormLib(PersonLib personLib)
+        {
+            ShortPerson shortPerson = new ShortPerson();
+            shortPerson.Name = personLib.Name;
+            shortPerson.PersonLib = personLib;
+            shortPerson.BelongForce = personLib.BelongForce;
+            shortPerson.BelongCity = personLib.BelongCity;
+            shortPerson.headIconID = personLib.headIconID;
+            shortPerson.imageID = personLib.imageID;
+            return shortPerson;
+        }
     }
 
 
     [JsonObject(MemberSerialization.OptOut)]
-    public class ShortCity
+    public class ShortCity : SangoObject
     {
-        [JsonProperty(Order = -99)] public int Id;
-        [JsonProperty(Order = -98)] public string Name;
         public int BelongForce;
         public int BuildingType;
         public int x;
@@ -45,6 +69,21 @@ namespace Sango.Core
         public int troops;
         public int gold;
         public int food;
+        public ShortCity Copy()
+        {
+            return new ShortCity()
+            {
+                Id = Id,
+                Name = Name,
+                BelongForce = BelongForce,
+                BuildingType = BuildingType,
+                x = x,
+                y = y,
+                troops = troops,
+                gold = gold,
+                food = food,
+            };
+        }
     }
 
     [JsonObject(MemberSerialization.OptOut)]
@@ -116,9 +155,9 @@ namespace Sango.Core
         [JsonProperty] public ScenarioCommonData CommonData { internal set; get; }
         [JsonProperty] public ScenarioVariables Variables { internal set; get; }
         [JsonProperty] public ShortMap Map { internal set; get; }
-        [JsonProperty] public Dictionary<int, ShortForce> forceSet = new Dictionary<int, ShortForce>();
-        [JsonProperty] public Dictionary<int, ShortPerson> personSet = new Dictionary<int, ShortPerson>();
-        [JsonProperty] public Dictionary<int, ShortCity> citySet = new Dictionary<int, ShortCity>();
+        [JsonProperty] public SangoObjectSet<ShortForce> forceSet = new SangoObjectSet<ShortForce>();
+        [JsonProperty] public SangoObjectSet<ShortPerson> personSet = new SangoObjectSet<ShortPerson>();
+        [JsonProperty] public SangoObjectSet<ShortCity> citySet = new SangoObjectSet<ShortCity>();
         #endregion Data
         public static ShortScenario Cur { get; private set; }
         public static List<ShortScenario> all_scenario_info_list = new List<ShortScenario>();
@@ -130,7 +169,7 @@ namespace Sango.Core
         public bool loadOK = false;
         public bool loadFullPersons = false;
 
-        private ShortScenario()
+        public ShortScenario()
         {
 
         }
@@ -139,7 +178,7 @@ namespace Sango.Core
         {
             this.FilePath = filePath;
             LoadInfo();
-           // LoadContent();
+            // LoadContent();
             loadOK = false;
         }
 
@@ -250,17 +289,21 @@ namespace Sango.Core
                         case "forceSet":
                             // 推进到值（StartObject），反序列化字典
                             if (reader.Read() && reader.TokenType == JsonToken.StartObject)
-                                forceSet = serializer.Deserialize<Dictionary<int, ShortForce>>(reader);
+                            {
+                                ShortForceSetConverter filter = new ShortForceSetConverter();
+                                forceSet = (SangoObjectSet<ShortForce>)filter.ReadJson(
+                                        reader, typeof(SangoObjectSet<ShortForce>), null, serializer);
+                            }
 
                             // 收集所有势力的主公（Governor）与军师（Counsellor）ID
                             if (forceSet != null)
                             {
                                 mainPersonIds = new HashSet<int>();
-                                foreach (var force in forceSet.Values)
+                                forceSet.ForEach(force =>
                                 {
                                     if (force.Governor != 0) mainPersonIds.Add(force.Governor);
                                     if (force.Counsellor != 0) mainPersonIds.Add(force.Counsellor);
-                                }
+                                });
                             }
                             break;
                         case "personSet":
@@ -270,13 +313,13 @@ namespace Sango.Core
                                 {
                                     // 仅加载主公/军师，其余 entry 走 reader.Skip() 零解析
                                     ShortPersonSetConverter filter = new ShortPersonSetConverter(mainPersonIds);
-                                    personSet = (Dictionary<int, ShortPerson>)filter.ReadJson(
-                                        reader, typeof(Dictionary<int, ShortPerson>), null, serializer);
+                                    personSet = (SangoObjectSet<ShortPerson>)filter.ReadJson(
+                                        reader, typeof(SangoObjectSet<ShortPerson>), null, serializer);
                                 }
                                 else
                                 {
                                     // 没有 forceSet 时退回全量加载
-                                    personSet = serializer.Deserialize<Dictionary<int, ShortPerson>>(reader);
+                                    personSet = serializer.Deserialize<SangoObjectSet<ShortPerson>>(reader);
                                 }
                             }
                             // personSet 是最后一个真正需要的目标，加载完成即可跳出
@@ -284,7 +327,11 @@ namespace Sango.Core
                             break;
                         case "citySet":
                             if (reader.Read() && reader.TokenType == JsonToken.StartObject)
-                                citySet = serializer.Deserialize<Dictionary<int, ShortCity>>(reader);
+                            {
+                                ShortCitySetConverter filter = new ShortCitySetConverter();
+                                citySet = (SangoObjectSet<ShortCity>)filter.ReadJson(
+                                        reader, typeof(SangoObjectSet<ShortCity>), null, serializer);
+                            }
                             break;
                         default:
                             // 跳过其他字段（Info / Map / Variables / CommonData 等）
@@ -300,14 +347,18 @@ namespace Sango.Core
             // 玩家确定
             if (Info.playerForceList != null && Info.playerForceList.Length > 0)
             {
-                foreach (var x in forceSet.Values)
+                for (int m = 0; m < forceSet.Count; m++)
                 {
-                    for (int k = 0; k < Info.playerForceList.Length; k++)
+                    ShortForce force = forceSet[m];
+                    if (force != null)
                     {
-                        if (Info.playerForceList[k] == x.Id)
+                        for (int k = 0; k < Info.playerForceList.Length; k++)
                         {
-                            x.IsPlayer = true;
-                            break;
+                            if (Info.playerForceList[k] == force.Id)
+                            {
+                                force.IsPlayer = true;
+                                break;
+                            }
                         }
                     }
                 }
@@ -366,7 +417,7 @@ namespace Sango.Core
                             if (reader.Read() && reader.TokenType == JsonToken.StartObject)
                             {
                                 // 没有 forceSet 时退回全量加载
-                                personSet = serializer.Deserialize<Dictionary<int, ShortPerson>>(reader);
+                                personSet = serializer.Deserialize<SangoObjectSet<ShortPerson>>(reader);
                             }
                             // personSet 是最后一个真正需要的目标，加载完成即可跳出
                             personSetLoaded = true;
@@ -399,5 +450,108 @@ namespace Sango.Core
             return $" {scenarioInfo.id}. {scenarioInfo.year}年 {scenarioInfo.month}月 {scenarioInfo.name}<{mod}>";
         }
 
+        public void RemoveAllAppendData()
+        {
+            for (int i = 1; i < personSet.Count; i++)
+            {
+                ShortPerson shortPerson = personSet[i];
+                if (shortPerson != null)
+                {
+                    if (shortPerson.PersonLib != null)
+                    {
+                        shortPerson.PersonLib.targetShortPerson = null;
+                        personSet.Remove(shortPerson);
+                    }
+                }
+            }
+            forceSet.RemoveAll(x => x.IsAppend);
+        }
+
+        bool needUpdateAppendInfo = true;
+        public void NeedUpdateAppendInfo()
+        {
+            needUpdateAppendInfo = true;
+        }
+        int _AppendPersonCount;
+        int _AssignedPersonCount;
+        int _AppendForceCount;
+        void UpdateAppendInfo()
+        {
+            if (!needUpdateAppendInfo)
+                return;
+            needUpdateAppendInfo = false;
+            _AppendPersonCount = 0;
+            _AssignedPersonCount = 0;
+            _AppendForceCount = 0;
+            for (int i = 1; i < personSet.Count; i++)
+            {
+                ShortPerson shortPerson = personSet[i];
+                if (shortPerson != null)
+                {
+                    if (shortPerson.PersonLib != null)
+                    {
+                        _AppendPersonCount++;
+                        if (shortPerson.BelongCity > 0)
+                            _AssignedPersonCount++;
+                    }
+                }
+            }
+            for (int i = 1; i < forceSet.Count; i++)
+            {
+                ShortForce shortPerson = forceSet[i];
+                if (shortPerson != null)
+                {
+                    if (shortPerson.IsAppend)
+                    {
+                        _AppendForceCount++;
+                    }
+                }
+            }
+        }
+
+        public int AppendPersonCount
+        {
+            get
+            {
+                UpdateAppendInfo();
+                return _AppendPersonCount;
+            }
+        }
+
+        public int AssignedPersonCount
+        {
+            get
+            {
+                UpdateAppendInfo();
+                return _AssignedPersonCount;
+            }
+        }
+        public int AppendForceCount
+        {
+            get
+            {
+                UpdateAppendInfo();
+                return _AppendForceCount;
+            }
+        }
+
+        /// <summary>
+        /// 查找一个未被占用的旗帜。
+        /// </summary>
+        public int FindEmptyFlag()
+        {
+            List<int> used_list = new List<int>();
+            forceSet.ForEach(x => used_list.Add(x.Flag));
+
+            for (int i = CommonData.Flags.Count; i > 0; i--)
+            {
+                Flag flag = CommonData.Flags[i];
+                if (flag != null && !used_list.Contains(flag.Id))
+                {
+                    return flag.Id;
+                }
+            }
+            return 0;
+        }
     }
 }

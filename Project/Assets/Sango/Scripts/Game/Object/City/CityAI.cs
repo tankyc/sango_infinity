@@ -17,7 +17,7 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIAttack(City city, Scenario scenario)
         {
-            if (city.BelongForce == null)
+            if (city.mForce == null)
                 return true;
 
             if (city.TroopMissionType != MissionType.None)
@@ -25,7 +25,7 @@ namespace Sango.Core
                 if (city.TroopMissionType == MissionType.TroopOccupyCity)
                 {
                     City targetCity = scenario.citySet.Get(city.TroopMissionTargetId);
-                    if ((targetCity.BelongForce != null && city.AttackTroopsCount < GameRandom.Range(8, 30)) || (targetCity.BelongForce == null && city.AttackTroopsCount < 2))
+                    if ((targetCity.mForce != null && city.AttackTroopsCount < GameRandom.Range(8, 30)) || (targetCity.mForce == null && city.AttackTroopsCount < 2))
                     {
                         // 白城只去2支部队
                         Troop troop = AIMakeTroop(city, 20, true, scenario);
@@ -35,7 +35,7 @@ namespace Sango.Core
                             city.CurActiveTroop = troop;
 #if SANGO_DEBUG
 
-                            Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}3势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.BelongForce?.Name}的{targetCity.Name}!");
+                            Sango.Log.Info($"{scenario.GetDateStr()}{city.mForce.Name}3势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.mForce?.Name}的{targetCity.Name}!");
 #endif
                         }
                     }
@@ -52,7 +52,7 @@ namespace Sango.Core
                                 troop = city.EnsureTroop(troop, scenario);
                                 city.CurActiveTroop = troop;
 #if SANGO_DEBUG
-                                Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
+                                Sango.Log.Info($"{city.mForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
 #endif
                             }
                         }
@@ -101,9 +101,9 @@ namespace Sango.Core
                 priorityQueue.Clear();
                 city.ForeachNeighborCities(x =>
                 {
-                    if (x.IsEnemy(city) && city.BelongCorps.CheckTargetIsAppointTarget(x))
+                    if (x.IsEnemy(city) && city.mCorps.CheckTargetIsAppointTarget(x))
                     {
-                        if (x.BelongForce == null)
+                        if (x.mForce == null)
                         {
                             priorityQueue.Push(x, 9999);
                         }
@@ -116,12 +116,12 @@ namespace Sango.Core
                                 // 范围大约在
                                 int weight = (int)(2500 * (float)city.virtualFightPower / x.virtualFightPower);
                                 weight = weight * x.DurabilityLimit / x.durability;
-                                int relation = scenario.GetRelation(city.BelongForce, x.BelongForce);
+                                int relation = scenario.GetRelation(city.mForce, x.mForce);
                                 // 8000亲密 6000友好 4000普通 2000中立 0冷漠 -2000敌对 -4000厌恶 -6000仇视 -8000不死不休
                                 // 5 4 3 2 1 0 -1 -2 -3 -4 -5
                                 // 0 1 2 3 4 5 6 7 8 9 10
                                 weight = UnityEngine.Mathf.FloorToInt((float)weight * (1f - (float)relation / 10000f));
-                                if (x.BelongForce.IsPlayer)
+                                if (x.mForce.IsPlayer)
                                 {
                                     weight += 1500;
                                 }
@@ -187,7 +187,7 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AISearching(City city, Scenario scenario)
         {
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
                 return true;
 
             if ((city.invisiblePersons.Count > 0 && city.freePersons.Count > 0 && GameRandom.Chance(80)) || GameRandom.Chance(20))
@@ -213,7 +213,7 @@ namespace Sango.Core
             {
                 city.allPersons.ForEach(x =>
                 {
-                    if (x.BelongTroop == null && city.gold > 500 && x.loyalty <= 90)
+                    if (x.mTroop == null && city.gold > 500 && x.loyalty <= 90)
                     {
                         city.JobRewardPerson(x);
                     }
@@ -256,7 +256,7 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AITransfrom(City city, Scenario scenario)
         {
-            int appointValue = city.BelongCorps.GetAppointValue(Corps.AppointContentType.Transport);
+            int appointValue = city.mCorps.GetAppointValue(Corps.AppointContentType.Transport);
             City targetTransportCity = null;
             if (appointValue > 0)
             {
@@ -324,7 +324,7 @@ namespace Sango.Core
             if (target.troops >= target.TroopsLimit || target.food >= target.foodLimit)
                 return true;
 
-            TroopType troopType = TroopType.GetTransportType(scenario, city.BelongForce);
+            TroopType troopType = TroopType.GetTransportType(scenario, city.mForce);
             if (troopType == null) return true;
 
             //运输比例
@@ -376,7 +376,7 @@ namespace Sango.Core
             troop = city.EnsureTroop(troop, scenario);
             city.CurActiveTroop = troop;
 #if SANGO_DEBUG
-            Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队{troop.troops}出城 向{target.BelongForce?.Name}的{target.Name}运输物资!");
+            Sango.Log.Info($"{scenario.GetDateStr()}{city.mForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队{troop.troops}出城 向{target.mForce?.Name}的{target.Name}运输物资!");
 #endif
             troop.SetMission(MissionType.TroopTransformGoodsToCity, target.Id);
             return true;
@@ -392,7 +392,7 @@ namespace Sango.Core
         {
             if (city.IsEnemiesRound()) return true;
 
-            if (city.BelongCity == null) return true;
+            if (city.mCity == null) return true;
 
             if (city.food > city.FoodLimit * 95 / 100 && city.gold > city.GoldLimit * 95 / 100) return true;
 
@@ -443,7 +443,7 @@ namespace Sango.Core
                 for (int i = 0; i < scenario.troopsSet.Count; ++i)
                 {
                     var c = scenario.troopsSet[i];
-                    if (c != null && c.IsAlive && c.BelongForce == city.BelongForce)
+                    if (c != null && c.IsAlive && c.BelongForce == city.mForce)
                     {
                         if (c.IsTransport && c.missionType == (int)MissionType.TroopTransformGoodsToCity && c.missionTarget == city.Id)
                             return true;
@@ -459,7 +459,7 @@ namespace Sango.Core
                     city.CurActiveTroop = transport;
                     target.Render?.UpdateRender();
 #if SANGO_DEBUG
-                    Sango.Log.Info($"{scenario.GetDateStr()}{target.BelongForce.Name}势力在{target.Name}由{transport.Leader.Name}率领运输队出城 向{city.BelongForce?.Name}的{city.Name}运输物资!");
+                    Sango.Log.Info($"{scenario.GetDateStr()}{target.mForce.Name}势力在{target.Name}由{transport.Leader.Name}率领运输队出城 向{city.mForce?.Name}的{city.Name}运输物资!");
 #endif
                 }
                 return true;
@@ -498,7 +498,7 @@ namespace Sango.Core
                 city.CurActiveTroop = troop;
                 city.Render?.UpdateRender();
 #if SANGO_DEBUG
-                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队出城 向{target.BelongForce?.Name}的{target.Name}运输物资!");
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.mForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队出城 向{target.mForce?.Name}的{target.Name}运输物资!");
 #endif
             }
             return true;
@@ -507,10 +507,10 @@ namespace Sango.Core
 
         public static bool AIBuilding(City city, Scenario scenario)
         {
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Build) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Build) == 1)
                 return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
             {
                 if (GameRandom.Chance(50))
                     return true;
@@ -570,7 +570,7 @@ namespace Sango.Core
             for (int i = 0; i < city.allPersons.Count; i++)
             {
                 Person person = city.allPersons[i];
-                Troop checkTroop = person.BelongTroop;
+                Troop checkTroop = person.mTroop;
                 if (checkTroop != null)
                 {
                     if (checkTroop.missionType == (int)MissionType.TroopBuildBuilding)
@@ -623,7 +623,7 @@ namespace Sango.Core
 
             int randomType = buildTypes[GameRandom.RandomWeightIndex(build_weight, 150)];
 
-            BuildingType buildingType = city.BelongForce.canBuildMilitaryBuildingType.Find(x => x.kind == randomType);
+            BuildingType buildingType = city.mForce.canBuildMilitaryBuildingType.Find(x => x.kind == randomType);
             if (buildingType == null)
                 return true;
 
@@ -1013,9 +1013,9 @@ namespace Sango.Core
             if (city.freePersons.Count == 0) return true;
 
             // 轻视士兵,70%概率不考虑此行动
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
             {
-                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+                if (city.mCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
                 {
                     if (GameRandom.Chance(80))
                         return true;
@@ -1060,10 +1060,10 @@ namespace Sango.Core
             if (city.freePersons.Count <= 0) return true;
             if (city.gold <= 2000) return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
                 return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
                 return true;
 
             int expectationFood = (city.troops * 2);
@@ -1118,9 +1118,9 @@ namespace Sango.Core
         /// </summary>
         private static ForceAI.AIPersonalityType GetAIPersonality(City city)
         {
-            if (city.BelongForce != null)
+            if (city.mForce != null)
             {
-                return ForceAI.GetAIPersonality(city.BelongForce);
+                return ForceAI.GetAIPersonality(city.mForce);
             }
             return ForceAI.AIPersonalityType.Balanced;
         }
@@ -1136,7 +1136,7 @@ namespace Sango.Core
             if (scenario.TurnCount < scenario.Variables.AIAttackProtectedCount)
                 return false;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Attack) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Attack) == 1)
             {
                 city.TroopMissionType = MissionType.None;
                 city.TroopMissionTargetId = 0;
@@ -1324,7 +1324,7 @@ namespace Sango.Core
                 if (itemTypeId < 5 && freeBlacksmithShop == null)
                     continue;
 
-                if (city.BelongCorps.GetAppointValue((Corps.AppointContentType)(itemTypeId - 2)) == 1)
+                if (city.mCorps.GetAppointValue((Corps.AppointContentType)(itemTypeId - 2)) == 1)
                     continue;
 
                 int itemNum = city.itemStore.GetNumber(itemTypeId);
@@ -1364,10 +1364,10 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AICreateBoat(City city, Scenario scenario)
         {
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Boat) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Boat) == 1)
                 return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
             {
                 if (GameRandom.Chance(50))
                     return true;
@@ -1388,7 +1388,7 @@ namespace Sango.Core
                 return true;
 
             ItemType targetItemType = scenario.GetObject<ItemType>(12);
-            if (!targetItemType.IsValid(city.BelongForce))
+            if (!targetItemType.IsValid(city.mForce))
                 targetItemType = scenario.GetObject<ItemType>(11);
 
             // 获取总兵装
@@ -1410,10 +1410,10 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AICreateMachine(City city, Scenario scenario)
         {
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Machine) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Machine) == 1)
                 return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.mCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
             {
                 if (GameRandom.Chance(50))
                     return true;
@@ -1440,14 +1440,14 @@ namespace Sango.Core
             {
                 totalNum = monsterNum;
                 targetItemType = scenario.GetObject<ItemType>(7);
-                if (!targetItemType.IsValid(city.BelongForce))
+                if (!targetItemType.IsValid(city.mForce))
                     targetItemType = scenario.GetObject<ItemType>(6);
             }
             else
             {
                 totalNum = towerNum;
                 targetItemType = scenario.GetObject<ItemType>(9);
-                if (!targetItemType.IsValid(city.BelongForce))
+                if (!targetItemType.IsValid(city.mForce))
                     targetItemType = scenario.GetObject<ItemType>(8);
             }
 
@@ -1611,7 +1611,7 @@ namespace Sango.Core
                 Sango.Log.Error("why 00!!");
                 return null;
             }
-            TroopType troopType = TroopType.GetTransportType(scenario, city.BelongForce);
+            TroopType troopType = TroopType.GetTransportType(scenario, city.mForce);
             if (troopType == null) return null;
 
             Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);

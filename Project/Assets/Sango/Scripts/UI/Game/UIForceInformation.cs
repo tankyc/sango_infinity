@@ -128,12 +128,12 @@ using Sango.Core; namespace Sango.UI
             troopList.Clear();
 
             nameLabel.text = force.Name;
-            leaderPersonItems.SetPerson(force.Governor);
-            leaderStatusItem.SetPerson(force.Governor);
-            counsellorPersonItems.SetPerson(force.Counsellor);
-            intelligenceLabel.text = force.Counsellor?.Intelligence.ToString() ?? "-";
+            leaderPersonItems.SetPerson(force.mGovernor);
+            leaderStatusItem.SetPerson(force.mGovernor);
+            counsellorPersonItems.SetPerson(force.mCounsellor);
+            intelligenceLabel.text = force.mCounsellor?.Intelligence.ToString() ?? "-";
 
-            colorImg.color = force.Flag.color;
+            colorImg.color = force.mFlag.color;
             techniquePointLabel.text = force.TechniquePoint.ToString();
 
             interiorCellCount = 0;
@@ -151,7 +151,7 @@ using Sango.Core; namespace Sango.UI
             Scenario scenario = Scenario.Cur;
             scenario.citySet.ForEach(city =>
             {
-                if (city.BelongForce == force)
+                if (city.mForce == force)
                 {
                     gold += city.gold;
                     goldGain += city.totalGainGold;
@@ -187,7 +187,7 @@ using Sango.Core; namespace Sango.UI
 
             scenario.personSet.ForEach(person =>
             {
-                if (person.BelongForce == force)
+                if (person.mForce == force)
                 {
                     personList.Add(person);
                 }
@@ -203,7 +203,7 @@ using Sango.Core; namespace Sango.UI
 
             scenario.corpsSet.ForEach(person =>
             {
-                if (person.BelongForce == force)
+                if (person.mForce == force)
                 {
                     corpsList.Add(person);
                 }

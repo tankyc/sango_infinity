@@ -720,13 +720,13 @@ namespace Sango.Core
                         City city = (City)beAtkBuildingBase;
                         int damage_troops = Troop.CalculateSkillDamageTroopOnCity(troop, city, this) * criticalFactor / 100;
 #if SANGO_DEBUG
-                        Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.BelongForce?.Name}的 [{beAtkBuildingBase.Name}], 造成兵力伤害:{damage_troops}, 目标剩余兵力: {city.troops}");
+                        Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.mForce?.Name}的 [{beAtkBuildingBase.Name}], 造成兵力伤害:{damage_troops}, 目标剩余兵力: {city.troops}");
 #endif
                         overrideData = Tools.OverrideData<int>.Create(damage_troops);
                         GameEvent.OnSkillDamageBuildingTroops?.Invoke(this, beAtkBuildingBase, overrideData);
                         damage_troops = overrideData.ValueAndRecycle;
                         int ep = damage_troops / 100;
-                        if (!city.IsSameForce(troop) && !city.ChangeTroops(-damage_troops, troop, city.BelongForce != null))
+                        if (!city.IsSameForce(troop) && !city.ChangeTroops(-damage_troops, troop, city.mForce != null))
                         {
                             ep += 100;
                             troop.ForEachPerson(p =>
@@ -744,7 +744,7 @@ namespace Sango.Core
 
                     int damage = Troop.CalculateSkillDamage(troop, beAtkBuildingBase, this) * criticalFactor / 100;
 #if SANGO_DEBUG
-                    Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.BelongForce?.Name}的 [{beAtkBuildingBase.Name}], 造成耐久伤害:{damage}, 目标剩余耐久: {beAtkBuildingBase.durability}");
+                    Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.mForce?.Name}的 [{beAtkBuildingBase.Name}], 造成耐久伤害:{damage}, 目标剩余耐久: {beAtkBuildingBase.durability}");
 #endif
                     overrideData = Tools.OverrideData<int>.Create(damage);
                     GameEvent.OnSkillDamageBuildingDurability?.Invoke(this, beAtkBuildingBase, overrideData);
@@ -788,7 +788,7 @@ namespace Sango.Core
                                     int hitBackDmg = (int)System.Math.Ceiling(hitBack * Troop.CalculateSkillDamage(beAtkBuildingBase, troop, atkBack));
                                     troop.ChangeTroops(-hitBackDmg, beAtkBuildingBase, null, atkBack);
 #if SANGO_DEBUG
-                                    Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkBuildingBase.BelongForce?.Name}的[{beAtkBuildingBase.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
+                                    Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkBuildingBase.mForce?.Name}的[{beAtkBuildingBase.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
 #endif
                                 }
                             }

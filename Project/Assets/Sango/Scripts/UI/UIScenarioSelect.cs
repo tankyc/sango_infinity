@@ -89,9 +89,9 @@ namespace Sango.UI
             scenarioInfoText.text = scenario.GetDateName();
             scenarioDescText.text = scenarioInfo.description;
             int i = 0;
-            foreach (var city in scenario.citySet.Values)
+            foreach (ShortCity city in scenario.citySet)
             {
-
+                if (city == null) continue;
                 if (city.BuildingType > 1) continue;
                 if (city.Id == 0) continue;
 
