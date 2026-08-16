@@ -294,14 +294,36 @@ namespace Sango.Core
         public int BelongCity(ShortScenario scenario)
         {
             if (targetShortPersonId > 0)
-                return scenario.personSet[targetShortPersonId].BelongCity;
+            {
+                ShortPerson person = scenario.personSet[targetShortPersonId];
+                if (person != null)
+                {
+                    return person.BelongCity;
+                }
+                else
+                {
+                    targetShortPersonId = 0;
+                    return 0;
+                }
+            }
             return 0;
         }
 
         public int BelongForce(ShortScenario scenario)
         {
             if (targetShortPersonId > 0)
-                return scenario.personSet[targetShortPersonId].BelongForce;
+            {
+                ShortPerson person = scenario.personSet[targetShortPersonId];
+                if (person != null)
+                {
+                    return person.BelongForce;
+                }
+                else
+                {
+                    targetShortPersonId = 0;
+                    return 0;
+                }
+            }
             return 0;
         }
 

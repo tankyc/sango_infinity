@@ -41,20 +41,22 @@ namespace Sango.UI
         public GameObject hideNodeOnCreateForce;
 
         ShortScenario scenario;
+        ShortScenario src_scenario;
         ScenarioCommonData commonData;
         bool inited;
         bool eventsBound;
 
-        public override void OnOpen()
+        public override void OnOpen(params object[] objects)
         {
             base.OnOpen();
+
+            src_scenario = (ShortScenario)objects[0];
 
             // 按钮对象在 prefab 中手动指派,事件自动绑定(仅绑定一次)
             BindButtonEvents();
 
            
-            ShortScenario.CurSelected.LoadFullPersonContent();
-            scenario = ShortScenario.CurSelected.Copy();
+            scenario = src_scenario.Copy();
 
             if (scenario == null)
             {
@@ -142,7 +144,7 @@ namespace Sango.UI
             for (int i = 0; i < list.Count; i++)
             {
                 PersonLib personLib = list[i];
-                if (personLib.targetShortPersonId > 0)
+                if (personLib.targetShortPersonId == 0)
                 {
                     ShortPerson shortPerson = ShortPerson.FormLib(personLib, scenario);
                     scenario.personSet.Add(shortPerson);
@@ -181,7 +183,10 @@ namespace Sango.UI
 
             if (active)
             {
+                
                 scenario.NeedUpdateAppendInfo();
+                uIEditWorldMap.SetScenario(scenario);
+                uIEditWorldMap.RefreshCity();
                 RefreshInfo();
             }
         }
@@ -218,7 +223,22 @@ namespace Sango.UI
             GameDialog.Open(content, () =>
             {
                 GameDialog.Close();
-                scenario.RemoveAllAppendData();
+
+                List<PersonLib> persons = new List<PersonLib>();
+                if (GameCustomEdit.Instance != null)
+                {
+                    CollectPersonLib(GameCustomEdit.Instance.ModScenarioAddon != null ? GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary : null, persons);
+                    CollectPersonLib(GameCustomEdit.Instance.SelfScenarioAddon != null ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary : null, persons);
+                }
+                // 排除已经部署的
+                persons.ForEach((x) =>
+                {
+                    x.targetShortPersonId = 0;
+                });
+
+                scenario = ShortScenario.CurSelected.Copy();
+                uIEditWorldMap.SetScenario(scenario);
+                uIEditWorldMap.RefreshCity();
                 createForceBtn.interactable = false;
                 assignBtn.interactable = false;
                 initBtn.interactable = false;
@@ -251,11 +271,9 @@ namespace Sango.UI
 
         public void OnNext()
         {
-            ShortScenario.CurSelected = scenario;
-
             // 进入玩家势力选择
             Window.Instance.Close("window_scenario_addon_menu");
-            Window.Instance.Open("window_scenario_force_select");
+            Window.Instance.Open("window_scenario_force_select", scenario);
         }
 
         #endregion
@@ -319,11 +337,11 @@ namespace Sango.UI
             SetCountText(newForceCountText, shortScenario.AppendForceCount);
             SetCountText(assignedCountText, shortScenario.AssignedPersonCount);
             SetCountText(unassignedCountText, shortScenario.AppendPersonCount - shortScenario.AssignedPersonCount);
-            //SetCountText(standbyCountText, AddData.StandbyCount);
+            SetCountText(standbyCountText, 0);
 
             // 按钮可用状态: 登场武将数量 > 0 时,建势力/配属/初始化才可点选
             bool canOperate = shortScenario.AppendPersonCount > 0;
-            SetButtonInteractable(createForceBtn, canOperate);
+            SetButtonInteractable(createForceBtn, false);
             SetButtonInteractable(assignBtn, canOperate);
             SetButtonInteractable(initBtn, canOperate);
         }

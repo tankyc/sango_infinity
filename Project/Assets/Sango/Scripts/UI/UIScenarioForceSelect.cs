@@ -1,13 +1,7 @@
-﻿using Sango.Loader;
-using Sango.Render;
-using System;
+﻿using Sango.Core;
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
-
-using Sango.Core;
 namespace Sango.UI
 {
     /// <summary>
@@ -40,7 +34,7 @@ namespace Sango.UI
 
         public Button nextBtn;
         public Button unSelectBtn;
-
+        ShortScenario targetScenario;
         public GameObject cityObject;
         int MaxSelect = 8;
         List<GameObject> cityList = new List<GameObject>();
@@ -65,7 +59,7 @@ namespace Sango.UI
 
         void SetSelectedForceName()
         {
-            ShortScenario scenario = ShortScenario.CurSelected;
+            ShortScenario scenario = targetScenario;
             for (int i = 0; i < selectedForceNameLabel.Length; i++)
             {
                 if (i < playerList.Count)
@@ -86,11 +80,11 @@ namespace Sango.UI
             }
         }
 
-        public override void OnOpen()
+        public override void OnOpen(params object[] objects)
         {
+            targetScenario = (ShortScenario)objects[0];
             cityToggleList.Clear();
-            ShortScenario scenario = ShortScenario.CurSelected;
-            scenario.LoadFullPersonContent();
+            ShortScenario scenario = targetScenario;
 
             selectedForceCountLabel.text = $"{playerList.Count}/{selectedForceNameLabel.Length}";
             scenarioNameLabel.text = scenario.GetDateName();
@@ -154,7 +148,7 @@ namespace Sango.UI
                 return;
             }
 
-            ShortScenario scenario = ShortScenario.CurSelected;
+            ShortScenario scenario = targetScenario;
             ShortForce force = scenario.forceSet[city.BelongForce];
             ShowForce(force);
         }
@@ -182,7 +176,7 @@ namespace Sango.UI
             }
             else
             {
-                ShortScenario scenario = ShortScenario.CurSelected;
+                ShortScenario scenario = targetScenario;
                 int personCount = 0;
                 foreach (ShortPerson x in scenario.personSet)
                 {
@@ -213,7 +207,7 @@ namespace Sango.UI
                 }
                 forceNameLabel.text = governor.Name;
                 forceHead.enabled = true;
-                forceHead.texture = GameRenderHelper.LoadHeadIcon(ShortScenario.CurSelected.personSet[force.Governor].headIconID, 2);
+                forceHead.texture = GameRenderHelper.LoadHeadIcon(targetScenario.personSet[force.Governor].headIconID, 2);
                 forceCityLabel.text = centerCity.Name;
                 forceCityCountLabel.text = cityCount.ToString();
                 forcePersonCountLabel.text = personCount.ToString();
@@ -233,10 +227,10 @@ namespace Sango.UI
         {
             if (city.BelongForce == 0)
             {
-               return;
+                return;
             }
 
-            ShortScenario scenario = ShortScenario.CurSelected;
+            ShortScenario scenario = targetScenario;
             ShortForce force = scenario.forceSet[city.BelongForce];
 
             if (force == null) return;
@@ -351,14 +345,14 @@ namespace Sango.UI
             for (int j = 0; j < playerList.Count; j++)
             {
                 // 确定第一个视角
-                foreach (ShortForce x in ShortScenario.CurSelected.forceSet)
+                foreach (ShortForce x in targetScenario.forceSet)
                 {
                     if (x == null) continue;
                     if (playerList[j].Id == x.Id)
                     {
-                        ShortPerson person = ShortScenario.CurSelected.personSet[playerList[j].Governor];
-                        ShortCity city = ShortScenario.CurSelected.citySet[person.BelongCity];
-                        Vector3 position = ShortScenario.CurSelected.Map.Coords2Position(city.x, city.y);
+                        ShortPerson person = targetScenario.personSet[playerList[j].Governor];
+                        ShortCity city = targetScenario.citySet[person.BelongCity];
+                        Vector3 position = targetScenario.Map.Coords2Position(city.x, city.y);
                         Scenario.CurSelected.View = new ScenarioView()
                         {
                             cameraPosition = position,
@@ -382,7 +376,7 @@ namespace Sango.UI
             //            if (playerList[j].Id == item.ForceId)
             //            {
             //                ShortCity city = item.CapitalCity;
-            //                Vector3 position = ShortScenario.CurSelected.Map.Coords2Position(city.x, city.y);
+            //                Vector3 position = targetScenario.Map.Coords2Position(city.x, city.y);
             //                Scenario.CurSelected.View = new ScenarioView()
             //                {
             //                    cameraPosition = position,
@@ -400,14 +394,14 @@ namespace Sango.UI
 
             if (playerList.Count == 0)
             {
-                foreach (ShortForce x in ShortScenario.CurSelected.forceSet)
+                foreach (ShortForce x in targetScenario.forceSet)
                 {
                     ShortForce force = x;
                     if (force != null)
                     {
-                        ShortPerson person = ShortScenario.CurSelected.personSet[force.Governor];
-                        ShortCity city = ShortScenario.CurSelected.citySet[person.BelongCity];
-                        Vector3 position = ShortScenario.CurSelected.Map.Coords2Position(city.x, city.y);
+                        ShortPerson person = targetScenario.personSet[force.Governor];
+                        ShortCity city = targetScenario.citySet[person.BelongCity];
+                        Vector3 position = targetScenario.Map.Coords2Position(city.x, city.y);
                         Scenario.CurSelected.View = new ScenarioView()
                         {
                             cameraPosition = position,
@@ -419,7 +413,7 @@ namespace Sango.UI
                 }
             }
             Scenario.CurSelected.Info.playerForceList = forceIds.ToArray();
-            Window.Instance.Open("window_scenario_variables");
+            Window.Instance.Open("window_scenario_variables", targetScenario);
             Window.Instance.Close("window_scenario_force_select");
             //
             //Window.Instance.Open("window_loading");

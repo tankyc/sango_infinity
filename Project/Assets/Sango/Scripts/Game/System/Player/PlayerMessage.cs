@@ -17,7 +17,7 @@ namespace Sango.Core.Player
         /// <param name="msg">文本消息对象</param>
         /// <param name="message">消息系统实例</param>
         public delegate void PlayerTextMessageCallback(TextMessage msg, PlayerMessage message);
-        
+
         /// <summary>
         /// 人物消息回调委托
         /// </summary>
@@ -29,18 +29,18 @@ namespace Sango.Core.Player
         /// 最大消息保存数量
         /// </summary>
         private int maxSaveCount = 100;
-        
+
         /// <summary>
         /// 消息窗口名称
         /// </summary>
         private string windowName = "window_player_message";
-        
+
         /// <summary>
         /// 是否是新的一天
         /// 用于标记是否需要在消息中添加日期信息
         /// </summary>
         private bool newDay = true;
-        
+
         /// <summary>
         /// 消息系统单例实例
         /// </summary>
@@ -61,32 +61,32 @@ namespace Sango.Core.Player
             /// 消息文本内容
             /// </summary>
             public string text;
-            
+
             /// <summary>
             /// 关联的势力
             /// </summary>
             public Force force;
-            
+
             /// <summary>
             /// 消息关联的X坐标
             /// </summary>
             public int x;
-            
+
             /// <summary>
             /// 消息关联的Y坐标
             /// </summary>
             public int y;
-            
+
             /// <summary>
             /// 消息发生的年份
             /// </summary>
             public int year;
-            
+
             /// <summary>
             /// 消息发生的月份
             /// </summary>
             public int month;
-            
+
             /// <summary>
             /// 消息发生的日期
             /// </summary>
@@ -103,7 +103,7 @@ namespace Sango.Core.Player
             /// 关联的人物
             /// </summary>
             public Person person;
-            
+
             /// <summary>
             /// 消息文本内容
             /// </summary>
@@ -114,12 +114,12 @@ namespace Sango.Core.Player
         /// 文本消息列表
         /// </summary>
         public List<TextMessage> textMessages = new List<TextMessage>();
-        
+
         /// <summary>
         /// 人物消息列表
         /// </summary>
         public List<PersonMessage> personMessages = new List<PersonMessage>();
-        
+
         /// <summary>
         /// 游戏场景实例
         /// </summary>
@@ -130,7 +130,7 @@ namespace Sango.Core.Player
         /// 当添加新的文本消息时触发
         /// </summary>
         public PlayerTextMessageCallback onTextMessageAdd;
-        
+
         /// <summary>
         /// 人物消息添加回调
         /// 当添加新的人物消息时触发
@@ -159,7 +159,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonUpgradeOfficial += OnPersonUpgradeOfficial;
             GameEvent.OnForceFall += OnForceFall;
         }
-        
+
         /// <summary>
         /// 系统清理方法
         /// 移除游戏事件监听
@@ -248,7 +248,7 @@ namespace Sango.Core.Player
         private void _AddTextMessage(string text, Force force, int x, int y)
         {
             TextMessage message;
-            if(textMessages == null)
+            if (textMessages == null)
             {
                 return;
             }
@@ -349,7 +349,7 @@ namespace Sango.Core.Player
         {
             Instance._AddPersonMessage(text, person);
         }
-        
+
         /// <summary>
         /// 发现敌方部队事件处理方法
         /// </summary>
@@ -365,7 +365,7 @@ namespace Sango.Core.Player
                 _AddPersonMessage(message, counsellor);
             }
         }
-        
+
         /// <summary>
         /// 建筑建造完成事件处理方法
         /// </summary>
@@ -379,7 +379,7 @@ namespace Sango.Core.Player
                 _AddTextMessage(message, building.mForce, building.x, building.y);
             }
         }
-        
+
         /// <summary>
         /// 建筑升级完成事件处理方法
         /// </summary>
@@ -393,7 +393,7 @@ namespace Sango.Core.Player
                 _AddTextMessage(message, building.mForce, building.x, building.y);
             }
         }
-        
+
         /// <summary>
         /// 武将转移成功事件处理方法
         /// </summary>
@@ -404,7 +404,7 @@ namespace Sango.Core.Player
         {
             if (person.IsCurPlayer)
             {
-                if(fromCity == toCity)
+                if (fromCity == toCity)
                 {
                     string message = $"{person?.ColorName}已经回到{toCity?.ColorName}！";
                     _AddTextMessage(message, person.mForce, toCity.x, toCity.y);
@@ -416,7 +416,7 @@ namespace Sango.Core.Player
                 }
             }
         }
-        
+
         /// <summary>
         /// 城池攻陷事件处理方法
         /// </summary>
@@ -428,7 +428,7 @@ namespace Sango.Core.Player
             Force attackForce = troop.BelongForce;
             bool isAttackCurPlayer = attackForce.IsCurPlayer;
             bool isDefendCurPlayer = lastForce?.IsCurPlayer ?? false;
-            
+
             string message;
             if (isAttackCurPlayer)
             {
@@ -446,7 +446,7 @@ namespace Sango.Core.Player
                 _AddTextMessage(message, attackForce, city.x, city.y);
             }
         }
-        
+
         /// <summary>
         /// 武将逃跑事件处理方法
         /// </summary>
@@ -456,7 +456,7 @@ namespace Sango.Core.Player
         {
             // 检查俘虏是否为当前玩家势力
             bool isCaptiveCurPlayer = person.IsCurPlayer;
-            
+
             // 检查执行方（关押方）是否为当前玩家势力
             bool isCaptorCurPlayer = false;
             if (location is City city)
@@ -467,7 +467,7 @@ namespace Sango.Core.Player
             {
                 isCaptorCurPlayer = troop.IsCurPlayer;
             }
-            
+
             string message;
             if (isCaptiveCurPlayer)
             {
@@ -481,7 +481,7 @@ namespace Sango.Core.Player
                 _AddTextMessage(message, captorForce, 0, 0);
             }
         }
-        
+
         /// <summary>
         /// 俘虏被释放事件处理方法
         /// </summary>
@@ -493,7 +493,7 @@ namespace Sango.Core.Player
             bool isCaptiveCurPlayer = person.IsCurPlayer;
             // 检查释放方是否为当前玩家势力
             bool isReleaseCurPlayer = releaseForce.IsCurPlayer;
-            
+
             string message;
             if (isCaptiveCurPlayer)
             {
@@ -506,7 +506,7 @@ namespace Sango.Core.Player
                 _AddTextMessage(message, releaseForce, 0, 0);
             }
         }
-        
+
         /// <summary>
         /// 俘虏被斩杀事件处理方法
         /// </summary>
@@ -518,7 +518,7 @@ namespace Sango.Core.Player
             bool isCaptiveCurPlayer = person.IsCurPlayer;
             // 检查斩杀方是否为当前玩家势力
             bool isExecuteCurPlayer = executeForce.IsCurPlayer;
-            
+
             string message;
             if (isCaptiveCurPlayer)
             {
@@ -545,7 +545,7 @@ namespace Sango.Core.Player
             {
                 message = $"{person.ColorName}升级到{person.Level.Id}级！";
                 int x, y = 0;
-                if(person.mTroop != null)
+                if (person.mTroop != null)
                 {
                     x = person.mTroop.x;
                     y = person.mTroop.y;
@@ -569,7 +569,7 @@ namespace Sango.Core.Player
         {
             // 检查是否为当前玩家势力
             string message;
-            if (person.IsCurPlayer)
+            if (person.IsCurPlayer && official.Id > 0)
             {
                 message = $"{person.ColorName}官职升到[{person.Official.Name}]";
                 _AddTextMessage(message, person.mForce, 0, 0);

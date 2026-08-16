@@ -24,13 +24,14 @@ namespace Sango.UI
             base.OnOpen(objects);
             sureButton.interactable = false;
             uIEditWorldMap = (UIEditWorldMap)objects[0];
-            mode = (string)objects[1];
             sangoObjects.Clear();
             LastSel.Clear();
 
             src_scenario = (ShortScenario)objects[1];
             scenario = src_scenario.Copy();
 
+            mode = (string)objects[2];
+            uIEditWorldMap.SetScenario(scenario);
             SortList = new List<ObjectSortTitle>
         {
                 PersonLibSortFunction.SortByName,

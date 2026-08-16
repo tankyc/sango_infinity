@@ -32,7 +32,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return true;
+                return TargetCity.mForce.PersonCount > 1;
             }
         }
 

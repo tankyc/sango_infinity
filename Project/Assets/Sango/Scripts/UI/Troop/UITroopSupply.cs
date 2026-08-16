@@ -119,7 +119,7 @@ namespace Sango.UI
             srcStatuItem.SetTroop(srcTroop);
             targetLandTypeItem.SetTroopType(targetTroop.LandTroopType);
             targetWaterypeItem.SetTroopType(targetTroop.WaterTroopType);
-            srcStatuItem.SetTroop(targetTroop);
+            targetStatuItem.SetTroop(targetTroop);
             SetText(srcMoraleText, srcTroop.morale);
             SetText(targetNameText, targetTroop.Name);
             SetText(srcNameText, srcTroop.Name);
@@ -294,11 +294,11 @@ namespace Sango.UI
                 SetText(targetFoodText, targetTroop.food + food);
             }
 
-            int foodCost = srcTroop.PrepeareFoodCost();
+            int foodCost = srcTroop.PrepeareFoodCost(srcTroop.troops - troops);
             int turnCount = (int)((srcTroop.food - food) / foodCost);
             srcfoodDaysText.text = $"{turnCount * 10}日";
 
-            foodCost = targetTroop.PrepeareFoodCost();
+            foodCost = targetTroop.PrepeareFoodCost(targetTroop.troops + troops);
             turnCount = (int)((targetTroop.food + food) / foodCost);
             targetfoodDaysText.text = $"{turnCount * 10}日";
 
@@ -370,8 +370,9 @@ namespace Sango.UI
         /// <summary>“返回”：执行返回回调并关闭窗口</summary>
         public void OnCancel()
         {
+            Close();
             cancelAction?.Invoke();
-            GameSystemManager.Instance.Back();
+            //GameSystemManager.Instance.Back();
         }
 
         /// <summary>“决定”：将当前补给数据交由外部回调处理并关闭窗口</summary>

@@ -1577,6 +1577,18 @@ namespace Sango.Core
         /// </summary>
         public void LeaveToWild()
         {
+            if (IsCommander)
+            {
+                mCorps.mComander = null;
+                mCorps.NeedUpdateCommander();
+            }
+
+            if (IsLeader)
+            {
+                mCity.Leader = null;
+                mCity.NeedUpdateLeader();
+            }
+
             workingBuilding = null;
             loyalty = 0;
             mCity?.RemovePerson(this);

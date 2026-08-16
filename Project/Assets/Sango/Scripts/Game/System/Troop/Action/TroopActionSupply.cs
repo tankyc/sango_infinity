@@ -188,6 +188,7 @@ namespace Sango.Core.Player
                             if(cell.troop != null && cell.troop.IsSameForce(TargetTroop))
                             {
                                 spellCell = cell;
+                                supplyTarget = cell.troop;
                                 Window.Instance.Open("window_troop_supply", TargetTroop, cell.troop, (System.Action<ItemStore, int, int, int>)OnSupply, (System.Action)OnCancelUI);
                             }
                         }

@@ -18,6 +18,7 @@ namespace Sango.Core
         public bool IsPlayer;
         public bool IsAppend;
         public int CapitalCity;
+        public int CapitalCorps;
 
         public ShortForce Copy()
         {
@@ -77,6 +78,7 @@ namespace Sango.Core
     public class ShortCity : SangoObject
     {
         public int BelongForce;
+        public int BelongCorps;
         public int BuildingType;
         public int x;
         public int y;
@@ -90,6 +92,7 @@ namespace Sango.Core
                 Id = Id,
                 Name = Name,
                 BelongForce = BelongForce,
+                BelongCorps = BelongCorps,
                 BuildingType = BuildingType,
                 x = x,
                 y = y,
@@ -470,23 +473,6 @@ namespace Sango.Core
         {
             ScenarioInfo scenarioInfo = Info;
             return $" {scenarioInfo.id}. {scenarioInfo.year}年 {scenarioInfo.month}月 {scenarioInfo.name}<{mod}>";
-        }
-
-        public void RemoveAllAppendData()
-        {
-            for (int i = 1; i < personSet.Count; i++)
-            {
-                ShortPerson shortPerson = personSet[i];
-                if (shortPerson != null)
-                {
-                    if (shortPerson.PersonLib != null)
-                    {
-                        shortPerson.PersonLib.targetShortPersonId = 0;
-                        personSet.Remove(shortPerson);
-                    }
-                }
-            }
-            forceSet.RemoveAll(x => x.IsAppend);
         }
 
         bool needUpdateAppendInfo = true;

@@ -68,6 +68,7 @@ namespace Sango.UI
 
             src_scenario = (ShortScenario)args[1];
             scenario = src_scenario.Copy();
+            commonData = src_scenario.CommonData;
 
             // 初始化对象池
             if (itemPool == null && forceItemTemplate != null && forceItemParent != null)

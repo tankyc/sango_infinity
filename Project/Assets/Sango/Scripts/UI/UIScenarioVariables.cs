@@ -4,6 +4,7 @@ using UnityEngine.UI;
 
 using Sango.Core;
 using System;
+using System.Linq;
 
 namespace Sango.UI
 {
@@ -39,33 +40,43 @@ namespace Sango.UI
         public Action onCancel;
 
         Scenario TargetScenario;
+        ShortScenario TargetShortScenario;
 
         public override void OnOpen()
         {
-            onSure = null; onCancel = null;
-            for (int i = 0; i < itemList.Count; i++)
-                RemoveItem(itemList[i]);
-            itemList.Clear();
-            TargetScenario = Scenario.CurSelected;
-            if (TargetScenario.Variables == null)
-                TargetScenario.LoadVariables();
-            ShowVariables(TargetScenario);
+            
         }
 
         public override void OnOpen(params object[] objects)
         {
-            onSure = null; onCancel = null;
-            for (int i = 0; i < itemList.Count; i++)
-                RemoveItem(itemList[i]);
-            itemList.Clear();
-            TargetScenario = objects[0] as Scenario;
-            if (objects.Length > 1)
-                onSure = objects[1] as System.Action;
-            if (objects.Length > 2)
-                onCancel = objects[2] as System.Action;
-            if (TargetScenario.Variables == null)
-                TargetScenario.LoadVariables();
-            ShowVariables(TargetScenario);
+            if(objects.Length == 1)
+            {
+                onSure = null; onCancel = null;
+                for (int i = 0; i < itemList.Count; i++)
+                    RemoveItem(itemList[i]);
+                itemList.Clear();
+                TargetScenario = Scenario.CurSelected;
+                TargetShortScenario = objects[0] as ShortScenario; 
+                if (TargetScenario.Variables == null)
+                    TargetScenario.LoadVariables();
+                ShowVariables(TargetScenario);
+            }
+            else
+            {
+                onSure = null; onCancel = null;
+                for (int i = 0; i < itemList.Count; i++)
+                    RemoveItem(itemList[i]);
+                itemList.Clear();
+                TargetScenario = objects[0] as Scenario;
+                if (objects.Length > 1)
+                    onSure = objects[1] as System.Action;
+                if (objects.Length > 2)
+                    onCancel = objects[2] as System.Action;
+                if (TargetScenario.Variables == null)
+                    TargetScenario.LoadVariables();
+                ShowVariables(TargetScenario);
+            }
+            
         }
 
         float[] lvlFactor = new float[] { 1f, 1f, 1.2f, 2f };
@@ -584,7 +595,7 @@ namespace Sango.UI
             }
             Window.Instance.Open("window_loading");
             Window.Instance.Close("window_scenario_variables");
-            Scenario.StartScenario(Scenario.CurSelected);
+            Scenario.StartScenario(Scenario.CurSelected, TargetShortScenario);
         }
 
         public virtual void OnCancel()
@@ -595,7 +606,7 @@ namespace Sango.UI
                 return;
             }
             Window.Instance.Close("window_scenario_variables");
-            Window.Instance.Open("window_scenario_force_select");
+            Window.Instance.Open("window_scenario_force_select", TargetShortScenario);
         }
     }
 }

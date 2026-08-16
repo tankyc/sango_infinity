@@ -656,6 +656,12 @@ namespace Sango.Core
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> allPersons 删除 {person.Name} ");
 #endif
+            if(person.workingBuilding != null)
+            {
+                person.workingBuilding.Workers.Remove(person);
+                person.workingBuilding = null;
+            }
+
             allPersons.Remove(person);
             freePersons.Remove(person);
         }
@@ -705,6 +711,13 @@ namespace Sango.Core
             captiveList.Remove(person);
             person.mForce?.BeCaptiveList.Remove(person);
             return person;
+        }
+
+        public City RandomNerghbor()
+        {
+            if (mCity != null)
+                return mCity.RandomNerghbor();
+            return NeighborList[GameRandom.Range(0, NeighborList.Count)];
         }
 
         /// <summary>

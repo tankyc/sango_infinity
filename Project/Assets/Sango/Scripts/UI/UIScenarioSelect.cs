@@ -220,16 +220,16 @@ namespace Sango.UI
             Clear();
             ShortScenario scenario = show_scenario_list[curSelectIndex];
             ShortScenario.CurSelected = scenario;
-
+            scenario.LoadFullPersonContent();
             Scenario.CurSelected = new Scenario(show_scenario_list[curSelectIndex].FilePath);
 
             if(GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary.Count > 0 || GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Count >0)
             {
-                Window.Instance.Open("window_scenario_addon_menu");
+                Window.Instance.Open("window_scenario_addon_menu", scenario);
             }
             else
             {
-                Window.Instance.Open("window_scenario_force_select");
+                Window.Instance.Open("window_scenario_force_select", scenario);
             }
             Window.Instance.Close("window_scenario_select");
         }

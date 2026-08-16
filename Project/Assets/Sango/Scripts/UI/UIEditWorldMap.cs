@@ -28,6 +28,7 @@ namespace Sango.UI
         public void SetScenario(ShortScenario value)
         {
             scenario = value;
+            scenarioName.text = scenario.GetDateName();
         }
 
         public Text scenarioName;
@@ -48,6 +49,19 @@ namespace Sango.UI
         private void Awake()
         {
             createPool = new CreatePool<UIMapCitySelectItem>(cityObject);
+            cityName.text = "";
+            belongForceName.text = "";
+            personCount.text = "";
+            wildCount.text = "";
+            gold.text = "";
+            food.text = "";
+            troops.text = "";
+            duration.text = "";
+            leader.text = "";
+            goldGain.text = "";
+            foodGain.text = "";
+            intorCount.text = "";
+            tese.text = "";
         }
 
         public void RefreshCity()
@@ -58,7 +72,7 @@ namespace Sango.UI
             cityToggleList.Clear();
             createPool.Reset();
 
-            for(int kk = 0; kk < scenario.citySet.Count; kk++)
+            for (int kk = 0; kk < scenario.citySet.Count; kk++)
             {
                 ShortCity city = scenario.citySet[kk];
                 if (city == null) continue;
@@ -204,7 +218,7 @@ namespace Sango.UI
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
                     toggle.SetColor(flag != null ? flag.color : Color.white);
-                    toggle.SetInavtive(true);
+                    toggle.SetInavtive(false);
                     toggle.onSelectShortAction = OnSelectMapCity;
                     toggle.SetSelected(selecte_list.Contains(city));
                 }

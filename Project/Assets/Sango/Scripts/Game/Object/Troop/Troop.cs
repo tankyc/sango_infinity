@@ -532,6 +532,13 @@ namespace Sango.Core
             foodCost = (int)Math.Ceiling(foodCost * foodCostFactor);
             return foodCost;
         }
+        public int PrepeareFoodCost(int target)
+        {
+            Scenario scenario = Scenario.Cur;
+            foodCost = (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInTroop * (target + woundedTroops) * TroopType.foodCostFactor);
+            foodCost = (int)Math.Ceiling(foodCost * foodCostFactor);
+            return foodCost;
+        }
 
         public bool IsNewTroop => liveDays == 0;
 

@@ -33,6 +33,16 @@ namespace Sango.UI
         public Action<List<int>> OnMultiSelectCall;
         List<int> multiSelectList = new List<int>();
 
+        RectTransform[] uIObjectListItemsRect;
+        protected void Awake()
+        {
+            uIObjectListItemsRect = new RectTransform[uIObjectListItems.Length];
+            for (int i = 0; i < uIObjectListItems.Length; i++)
+            {
+                uIObjectListItemsRect[i] = uIObjectListItems[i].GetComponent<RectTransform>();
+            }
+        }
+
         protected UISortButton CreateSortButtonItem()
         {
             GameObject btn = GameObject.Instantiate(sortTitleItem.gameObject, sorltTitleTransform);
@@ -106,6 +116,9 @@ namespace Sango.UI
 
         public void OnSelect(UIObjectListItem listItem)
         {
+            if(listItem.index >= Objects.Count)
+                return;
+
             if(OnSelectCall != null)
             {
                 if (currentSelect != null)
@@ -128,6 +141,18 @@ namespace Sango.UI
                     listItem.SetSelected(true);
                     multiSelectList.Add(listItem.index);
                 }
+                OnMultiSelectCall.Invoke(multiSelectList);
+            }
+        }
+
+        void Call()
+        {
+            if (OnSelectCall != null)
+            {
+                OnSelectCall.Invoke(currentSelect.index);
+            }
+            else if (OnMultiSelectCall != null)
+            {
                 OnMultiSelectCall.Invoke(multiSelectList);
             }
         }
@@ -273,7 +298,6 @@ namespace Sango.UI
             }
         }
 
-
         public virtual void UpdateItemStartIndex(int startIndex)
         {
             for (int i = 0; i < itemCount; i++)
@@ -300,7 +324,6 @@ namespace Sango.UI
             }
         }
 
-
         public void OnClose()
         {
             for (int i = 0; i < sortButtonPool.Count; i++)
@@ -324,7 +347,89 @@ namespace Sango.UI
                 DownShow();
             }
         }
+        bool dragFlag = false;
+        UIObjectListItem currentSelectItem;
 
+        public void OnPersonListItemPressDown(UIObjectListItem item)
+        {
+            if (OnMultiSelectCall == null)
+                return;
+            item.SetPressd(true);
+            currentSelectItem = item;
+            dragFlag = !item.IsSelected();
+        }
+
+
+        public void OnPersonListSelected(UIObjectListItem item)
+        {
+            OnSelect(item);
+        }
+
+        public void OnPersonListItemPressUp(UIObjectListItem item)
+        {
+            if (OnMultiSelectCall == null)
+                return;
+            item.SetPressd(false);
+            Call();
+            if (Input.GetMouseButtonUp(1))
+                return;
+
+            //for (int i = 0; i < itemCount; i++)
+            //{
+            //    RectTransform itemRect = uIObjectListItemsRect[i];
+            //    UIObjectListItem listItem = uIObjectListItems[i];
+            //    if (listItem == currentSelectItem && RectTransformUtility.RectangleContainsScreenPoint(itemRect, Input.mousePosition, Sango.Core.Game.Instance.UICamera))
+            //    {
+            //        OnPersonListSelected(item);
+            //        break;
+            //    }
+            //}
+        }
+
+        public void OnDragPersonListSelected(UIObjectListItem item)
+        {
+            if (OnMultiSelectCall == null)
+                return;
+
+            if (item.index >= Objects.Count)
+                return;
+
+            if (item.IsSelected() && !dragFlag)
+            {
+                item.SetSelected(false);
+                multiSelectList.Remove(item.index);
+            }
+            else if (!item.IsSelected() && dragFlag)
+            {
+                if(item.index < Objects.Count)
+                {
+                    item.SetSelected(true);
+                    multiSelectList.Add(item.index);
+                }
+            }
+
+            for (int i = 0; i < itemCount; i++)
+            {
+                RectTransform itemRect = uIObjectListItemsRect[i];
+                UIObjectListItem listItem = uIObjectListItems[i];
+                if (listItem != item && RectTransformUtility.RectangleContainsScreenPoint(itemRect, Input.mousePosition, Sango.Core.Game.Instance.UICamera))
+                {
+                    if (listItem.index >= Objects.Count)
+                        return;
+
+                    if (listItem.IsSelected() && !dragFlag)
+                    {
+                        listItem.SetSelected(false);
+                        multiSelectList.Remove(listItem.index);
+                    }
+                    else if (!listItem.IsSelected() && dragFlag)
+                    {
+                        listItem.SetSelected(true);
+                        multiSelectList.Add(listItem.index);
+                    }
+                }
+            }
+        }
 
     }
 }

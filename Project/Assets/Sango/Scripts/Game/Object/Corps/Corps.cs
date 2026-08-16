@@ -312,6 +312,15 @@ namespace Sango.Core
             }
         }
 
+        public void CheckValid()
+        {
+            PrepareCityInfo();
+            if(personCount == 0 && number > 1)
+            {
+                mForce.DeleteCorps(this);
+            }
+        }
+
         public void PrepareCityInfo()
         {
             cityCount = 0;
