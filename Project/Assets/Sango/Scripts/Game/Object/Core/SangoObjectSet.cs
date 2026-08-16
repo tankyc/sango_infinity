@@ -97,6 +97,14 @@ namespace Sango.Core
             objects[obj.Id] = null;
         }
 
+        public void Remove(int Id)
+        {
+            if (!Check(Id))
+                return;
+            SearchingBeginIndex = Math.Min(SearchingBeginIndex, Id);
+            objects[Id] = null;
+        }
+
         public override T Get(int id)
         {
             if (!Check(id))

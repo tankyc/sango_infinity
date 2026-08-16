@@ -13,21 +13,10 @@ namespace Sango.UI
         public Button sureButton;
         string mode;
         List<int> LastSel = new List<int>();
+        public ShortScenario scenario;
+        public ShortScenario src_scenario;
 
-        public List<ObjectSortTitle> SortList = new List<ObjectSortTitle>
-        {
-                PersonLibSortFunction.SortByName,
-                PersonLibSortFunction.SortByBelongForce,
-                PersonLibSortFunction.SortByBelongCity,
-                PersonLibSortFunction.SortByYearBorn,
-                PersonLibSortFunction.SortByYearDead,
-                PersonLibSortFunction.SortBySex ,
-                PersonLibSortFunction.SortByCommand,
-                PersonLibSortFunction.SortByStrength,
-                PersonLibSortFunction.SortByIntelligence,
-                PersonLibSortFunction.SortByPolitics,
-                PersonLibSortFunction.SortByGlamour,
-        };
+        public List<ObjectSortTitle> SortList;
 
 
         public override void OnOpen(params object[] objects)
@@ -39,8 +28,25 @@ namespace Sango.UI
             sangoObjects.Clear();
             LastSel.Clear();
 
-            ShortScenario shortScenario = ShortScenario.CurSelected;
-            shortScenario.personSet.ForEach(person =>
+            src_scenario = (ShortScenario)objects[1];
+            scenario = src_scenario.Copy();
+
+            SortList = new List<ObjectSortTitle>
+        {
+                PersonLibSortFunction.SortByName,
+                PersonLibSortFunction.SortByBelongForce(scenario),
+                PersonLibSortFunction.SortByBelongCity(scenario),
+                PersonLibSortFunction.SortByYearBorn,
+                PersonLibSortFunction.SortByYearDead,
+                PersonLibSortFunction.SortBySex ,
+                PersonLibSortFunction.SortByCommand,
+                PersonLibSortFunction.SortByStrength,
+                PersonLibSortFunction.SortByIntelligence,
+                PersonLibSortFunction.SortByPolitics,
+                PersonLibSortFunction.SortByGlamour,
+        };
+
+            scenario.personSet.ForEach(person =>
             {
                 // 指派了,但是不是主公,都可以重新指派
                 if (person.PersonLib != null && person.state != (int)PersonStateType.Governor)
@@ -50,6 +56,8 @@ namespace Sango.UI
             });
             uiForceView.Init(sangoObjects, SortList);
             uiForceView.OnMultiSelectCall = OnMultiSelectCall;
+
+            
         }
 
         public void OnMultiSelectCall(List<int> index)
@@ -83,9 +91,10 @@ namespace Sango.UI
                         PersonLib sangoObject = sangoObjects[LastSel[i]] as PersonLib;
                         if (sangoObject != null)
                         {
-                            sangoObject.targetShortPerson.BelongForce = city.BelongForce;
-                            sangoObject.targetShortPerson.BelongCity = city.Id;
-                            sangoObject.targetShortPerson.state = (int)PersonStateType.Unemployed;
+                            ShortPerson person = scenario.personSet[sangoObject.targetShortPersonId];
+                            person.BelongForce = city.BelongForce;
+                            person.BelongCity = city.Id;
+                            person.state = (int)PersonStateType.Unemployed;
                         }
                     }
                 }
@@ -96,9 +105,10 @@ namespace Sango.UI
                         PersonLib sangoObject = sangoObjects[LastSel[i]] as PersonLib;
                         if (sangoObject != null)
                         {
-                            sangoObject.targetShortPerson.BelongForce = city.BelongForce;
-                            sangoObject.targetShortPerson.BelongCity = city.Id;
-                            sangoObject.targetShortPerson.state = (int)PersonStateType.Normal;
+                            ShortPerson person = scenario.personSet[sangoObject.targetShortPersonId];
+                            person.BelongForce = city.BelongForce;
+                            person.BelongCity = city.Id;
+                            person.state = (int)PersonStateType.Normal;
                         }
                     }
                 }
@@ -111,6 +121,9 @@ namespace Sango.UI
 
         public void OnSure()
         {
+            src_scenario.personSet = scenario.personSet;
+            src_scenario.citySet = scenario.citySet;
+            src_scenario.forceSet = scenario.forceSet;
             Close();
         }
     }

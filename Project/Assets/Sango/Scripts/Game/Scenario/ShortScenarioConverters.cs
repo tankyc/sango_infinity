@@ -232,8 +232,6 @@ namespace Sango.Core
 
         public ShortPersonSetConverter(HashSet<int> allowedIds)
         {
-            if (allowedIds == null)
-                throw new ArgumentNullException(nameof(allowedIds));
             _allowedIds = allowedIds;
             _innerConverter = new ShortPersonConverter();
         }
@@ -267,7 +265,7 @@ namespace Sango.Core
                 if (!reader.Read() || reader.TokenType != JsonToken.StartObject)
                     continue;
 
-                if (!_allowedIds.Contains(id))
+                if (_allowedIds != null && !_allowedIds.Contains(id))
                 {
                     // 非主公/军师：直接跳过整个对象，零解析开销
                     reader.Skip();

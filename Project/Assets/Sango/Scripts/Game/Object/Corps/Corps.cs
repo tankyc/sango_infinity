@@ -166,9 +166,7 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            Sango.Log.Error(BelongForce);
             mForce = scenario.forceSet.Get(BelongForce);
-            Sango.Log.Error(mForce);
             mComander = scenario.personSet.Get(Comander);
         }
 

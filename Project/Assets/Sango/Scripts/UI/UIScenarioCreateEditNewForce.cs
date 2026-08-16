@@ -85,19 +85,8 @@ namespace Sango.UI
             uIEditWorldMap = GetArg<UIEditWorldMap>(args, 0);
             int editForceDataId = GetArgInt(args, 1);
             src_scenario = GetArg<ShortScenario>(args, 2);
-
-            scenario = new ShortScenario();
-            scenario.personSet = ShortScenario.CurSelected.personSet;
-            scenario.CommonData = ShortScenario.CurSelected.CommonData;
-            ShortScenario.CurSelected.citySet.ForEach(x =>
-                scenario.citySet.Add(x.Copy())
-            );
-            ShortScenario.CurSelected.forceSet.ForEach(x =>
-                scenario.forceSet.Add(x.Copy())
-            );
-
+            scenario = src_scenario.Copy();
             newForceData = scenario.forceSet.Get(editForceDataId);
-
             commonData = GetArg<ScenarioCommonData>(args, 3);
             BindButtonEvents();
             RefreshUI();
@@ -267,7 +256,7 @@ namespace Sango.UI
         void OnCreateForce(PersonLib person, ShortCity city)
         {
             // 填充持有的 NewForceData
-            newForceData.Governor = person.targetShortPerson.Id;
+            newForceData.Governor = person.targetShortPersonId;
             newForceData.CapitalCity = city.Id;
             uIEditWorldMap.RefreshCity();
             hideNodeOnEditForce.SetActive(true);
@@ -358,6 +347,7 @@ namespace Sango.UI
         {
             src_scenario.citySet = scenario.citySet;
             src_scenario.forceSet = scenario.forceSet;
+            src_scenario.personSet = scenario.personSet;
             Close();
         }
 

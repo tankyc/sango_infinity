@@ -290,25 +290,19 @@ namespace Sango.Core
         [JsonProperty]
         public int[] FeatureList { get; set; }
 
-        public ShortPerson targetShortPerson;
-        public int BelongCity
+        public int targetShortPersonId;
+        public int BelongCity(ShortScenario scenario)
         {
-            get
-            {
-                if(targetShortPerson != null)
-                    return targetShortPerson.BelongCity;
-                return 0;
-            }
+            if (targetShortPersonId > 0)
+                return scenario.personSet[targetShortPersonId].BelongCity;
+            return 0;
         }
 
-        public int BelongForce
+        public int BelongForce(ShortScenario scenario)
         {
-            get
-            {
-                if (targetShortPerson != null)
-                    return targetShortPerson.BelongForce;
-                return 0;
-            }
+            if (targetShortPersonId > 0)
+                return scenario.personSet[targetShortPersonId].BelongForce;
+            return 0;
         }
 
         public int BelongCorps;

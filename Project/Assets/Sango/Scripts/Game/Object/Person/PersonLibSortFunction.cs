@@ -187,44 +187,66 @@ namespace Sango.Core
             valueObjGet = x => x.machineLv,
             valueObjSet = null,
         };
-        public static SortTitle SortByBelongCity = new SortTitle()
+        public static SortTitle SortByBelongCity(ShortScenario scenario)
         {
-            name = "所属",
-            width = 5.00f,
-            valueGetCall = x =>
-            {
-                if (x.BelongCity > 0)
-                {
-                    return ShortScenario.CurSelected.citySet[x.BelongCity].Name;
-                }
-                else
-                {
-                    return "";
-                }
-            },
-            personSortFunc = (a, b) => a.BelongCity.CompareTo(b.BelongCity),
-            valueObjGet = x => x.BelongCity,
-            valueObjSet = null,
-        };
-        public static SortTitle SortByBelongForce = new SortTitle()
-        {
-            name = "势力",
-            width = 3.00f,
-            valueGetCall = x => {
 
-                if(x.BelongForce > 0)
+            return new SortTitle()
+            {
+                name = "所属",
+                width = 5.00f,
+                valueGetCall = x =>
                 {
-                    return ShortScenario.CurSelected.forceSet[x.BelongForce].Name;
-                }
-                else
-                {
+                    if (x.targetShortPersonId > 0)
+                    {
+                        ShortPerson person = scenario.personSet[x.targetShortPersonId];
+                        if (person.BelongCity > 0)
+                        {
+                            return scenario.citySet[person.BelongCity].Name;
+                        }
+                    }
                     return "";
-                }
                 },
-            personSortFunc = (a, b) => a.BelongForce.CompareTo(b.BelongForce),
-            valueObjGet = x => x.BelongForce,
-            valueObjSet = null,
-        };
+                personSortFunc = (a, b) => a.targetShortPersonId.CompareTo(b.targetShortPersonId),
+                valueObjGet = x => x.targetShortPersonId,
+                valueObjSet = null,
+            };
+        }
+
+        public static SortTitle SortByBelongForce(ShortScenario scenario)
+        {
+
+            return new SortTitle()
+            {
+                name = "势力",
+                width = 3.00f,
+                valueGetCall = x =>
+                {
+                    if (x.targetShortPersonId > 0)
+                    {
+                        ShortPerson person = scenario.personSet[x.targetShortPersonId];
+                        if (person.BelongForce > 0)
+                        {
+                            ShortForce force = scenario.forceSet[person.BelongForce];
+                            return scenario.personSet[force.Governor].Name;
+                        }
+                    }
+                    return "";
+                },
+                personSortFunc = (a, b) =>
+                {
+                    if (a.targetShortPersonId > 0 && b.targetShortPersonId > 0)
+                    {
+                        ShortPerson persona = scenario.personSet[a.targetShortPersonId];
+                        ShortPerson personb = scenario.personSet[b.targetShortPersonId];
+                        return persona.BelongForce.CompareTo(personb.BelongForce);
+                    }
+                    else
+                        return a.targetShortPersonId.CompareTo(b.targetShortPersonId);
+                },
+                valueObjGet = x => x.targetShortPersonId,
+                valueObjSet = null,
+            };
+        }
         //public static SortTitle SortByFeatureList = new SortTitle()
         //{
         //    name = "特技",

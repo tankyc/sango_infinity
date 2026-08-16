@@ -45,19 +45,33 @@ namespace Sango.Core
         [JsonProperty] public string imageID;
         public PersonLib PersonLib;
         public int state;
-        public static ShortPerson FormLib(PersonLib personLib)
+        public static ShortPerson FormLib(PersonLib personLib, ShortScenario scenario)
         {
             ShortPerson shortPerson = new ShortPerson();
             shortPerson.Name = personLib.Name;
             shortPerson.PersonLib = personLib;
-            shortPerson.BelongForce = personLib.BelongForce;
-            shortPerson.BelongCity = personLib.BelongCity;
+            shortPerson.BelongForce = personLib.BelongForce(scenario);
+            shortPerson.BelongCity = personLib.BelongCity(scenario);
             shortPerson.headIconID = personLib.headIconID;
             shortPerson.imageID = personLib.imageID;
             return shortPerson;
         }
-    }
 
+        public ShortPerson Copy()
+        {
+            return new ShortPerson()
+            {
+                Id = Id,
+                Name = Name,
+                BelongForce = BelongForce,
+                BelongCity = BelongCity,
+                headIconID = headIconID,
+                imageID = imageID,
+                PersonLib = PersonLib,
+                state = state,
+            };
+        }
+    }
 
     [JsonObject(MemberSerialization.OptOut)]
     public class ShortCity : SangoObject
@@ -169,9 +183,24 @@ namespace Sango.Core
         public bool loadOK = false;
         public bool loadFullPersons = false;
 
-        public ShortScenario()
+        ShortScenario()
         {
 
+        }
+
+        public ShortScenario Copy()
+        {
+            ShortScenario scenario = new ShortScenario()
+            {
+                Info = Info,
+                FilePath = FilePath,
+                CommonData = CommonData,
+                Map = Map,
+            };
+            citySet.ForEach(x => scenario.citySet.Add(x.Copy()));
+            forceSet.ForEach(x => scenario.forceSet.Add(x.Copy()));
+            personSet.ForEach(x => scenario.personSet.Add(x.Copy()));
+            return scenario;
         }
 
         public ShortScenario(string filePath)
@@ -309,18 +338,9 @@ namespace Sango.Core
                         case "personSet":
                             if (reader.Read() && reader.TokenType == JsonToken.StartObject)
                             {
-                                if (mainPersonIds != null)
-                                {
-                                    // 仅加载主公/军师，其余 entry 走 reader.Skip() 零解析
-                                    ShortPersonSetConverter filter = new ShortPersonSetConverter(mainPersonIds);
-                                    personSet = (SangoObjectSet<ShortPerson>)filter.ReadJson(
-                                        reader, typeof(SangoObjectSet<ShortPerson>), null, serializer);
-                                }
-                                else
-                                {
-                                    // 没有 forceSet 时退回全量加载
-                                    personSet = serializer.Deserialize<SangoObjectSet<ShortPerson>>(reader);
-                                }
+                                ShortPersonSetConverter filter = new ShortPersonSetConverter(mainPersonIds);
+                                personSet = (SangoObjectSet<ShortPerson>)filter.ReadJson(
+                                    reader, typeof(SangoObjectSet<ShortPerson>), null, serializer);
                             }
                             // personSet 是最后一个真正需要的目标，加载完成即可跳出
                             personSetLoaded = true;
@@ -417,7 +437,9 @@ namespace Sango.Core
                             if (reader.Read() && reader.TokenType == JsonToken.StartObject)
                             {
                                 // 没有 forceSet 时退回全量加载
-                                personSet = serializer.Deserialize<SangoObjectSet<ShortPerson>>(reader);
+                                ShortPersonSetConverter filter = new ShortPersonSetConverter(null);
+                                personSet = (SangoObjectSet<ShortPerson>)filter.ReadJson(
+                                    reader, typeof(SangoObjectSet<ShortPerson>), null, serializer);
                             }
                             // personSet 是最后一个真正需要的目标，加载完成即可跳出
                             personSetLoaded = true;
@@ -459,7 +481,7 @@ namespace Sango.Core
                 {
                     if (shortPerson.PersonLib != null)
                     {
-                        shortPerson.PersonLib.targetShortPerson = null;
+                        shortPerson.PersonLib.targetShortPersonId = 0;
                         personSet.Remove(shortPerson);
                     }
                 }

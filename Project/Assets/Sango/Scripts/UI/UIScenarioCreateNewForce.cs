@@ -33,6 +33,7 @@ namespace Sango.UI
 
         // ===== 数据 =====
         ShortScenario scenario;
+        ShortScenario src_scenario;
 
         ScenarioCommonData commonData;
         CreatePool<UICreateForceItem> itemPool;
@@ -56,22 +57,17 @@ namespace Sango.UI
         {
             base.OnOpen(args);
             hasChanged = false;
-            scenario = new ShortScenario();
-            scenario.personSet = ShortScenario.CurSelected.personSet;
-            scenario.CommonData = ShortScenario.CurSelected.CommonData;
 
-            ShortScenario.CurSelected.citySet.ForEach(x =>
-                scenario.citySet.Add(x.Copy())
-            );
-            ShortScenario.CurSelected.forceSet.ForEach(x =>
-                scenario.forceSet.Add(x.Copy())
-            );
-            commonData = scenario.CommonData;
+            
+
             // 从打开者接收 uIEditWorldMap（通过 args 或 public 字段）
             if (args != null && args.Length > 0 && args[0] is UIEditWorldMap map)
             {
                 uIEditWorldMap = map;
             }
+
+            src_scenario = (ShortScenario)args[1];
+            scenario = src_scenario.Copy();
 
             // 初始化对象池
             if (itemPool == null && forceItemTemplate != null && forceItemParent != null)
@@ -333,27 +329,6 @@ namespace Sango.UI
             GameDialog.Open(content, () =>
             {
                 GameDialog.Close();
-                // 清理修改
-                scenario.forceSet.ForEach(x =>
-                {
-                    if (x.IsAppend)
-                    {
-                        scenario.citySet[x.CapitalCity].BelongForce = 0;
-                        scenario.personSet[x.Governor].BelongForce = 0;
-                        scenario.personSet[x.Governor].BelongCity = 0;
-                        scenario.forceSet.Remove(x);
-                    }
-                });
-
-                // 还原
-                exsisitForceList.ForEach(x =>
-                {
-                    scenario.forceSet.Add(x);
-                    scenario.citySet[x.CapitalCity].BelongForce = x.Id;
-                    scenario.personSet[x.Governor].BelongForce = x.Id;
-                    scenario.personSet[x.Governor].BelongCity = x.CapitalCity;
-                });
-
                 Window.Instance.Close("window_scenario_create_new_force");
 
             });
@@ -364,39 +339,9 @@ namespace Sango.UI
         /// </summary>
         public void OnConfirm()
         {
-            ShortScenario.CurSelected.citySet = scenario.citySet;
-            ShortScenario.CurSelected.forceSet = scenario.forceSet;
-
-            // 已配属武将顺理,在野武将无需管理
-            scenario.personSet.ForEach(x =>
-            {
-                if (x.PersonLib != null)
-                {
-                    if (x.state == (int)PersonStateType.Normal)
-                    {
-                        ShortForce force = scenario.forceSet[x.BelongForce];
-                        ShortCity city = scenario.citySet[x.BelongCity];
-                        if (force == null || city == null || city.BelongForce != x.BelongForce)
-                        {
-                            x.state = 0;
-                            x.BelongForce = 0;
-                            x.BelongCity = 0;
-                        }
-                    }
-                    else if (x.state == (int)PersonStateType.Governor)
-                    {
-                        ShortForce force = scenario.forceSet[x.BelongForce];
-                        ShortCity city = scenario.citySet[x.BelongCity];
-                        if (force == null || city == null || force.Governor != x.Id || city.BelongForce != x.BelongForce)
-                        {
-                            x.state = 0;
-                            x.BelongForce = 0;
-                            x.BelongCity = 0;
-                        }
-                    }
-                }
-            });
-
+            src_scenario.citySet = scenario.citySet;
+            src_scenario.forceSet = scenario.forceSet;
+            src_scenario.personSet = scenario.personSet;
             Window.Instance.Close("window_scenario_create_new_force");
         }
 

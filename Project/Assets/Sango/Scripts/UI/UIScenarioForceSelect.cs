@@ -103,6 +103,7 @@ namespace Sango.UI
             int i = 0;
             foreach (ShortCity city in scenario.citySet)
             {
+                if (city == null) continue;
                 if (city.BuildingType > 1) continue;
                 if (city.Id == 0) continue;
                 GameObject cityObj;
@@ -185,7 +186,7 @@ namespace Sango.UI
                 int personCount = 0;
                 foreach (ShortPerson x in scenario.personSet)
                 {
-                    if (x.BelongForce == force.Id)
+                    if (x != null && x.BelongForce == force.Id)
                         personCount++;
                 }
 
@@ -201,6 +202,7 @@ namespace Sango.UI
                 ShortCity centerCity = scenario.citySet[governor.BelongCity];
                 foreach (ShortCity x in scenario.citySet)
                 {
+                    if (x == null) continue;
                     if (x.BelongForce == force.Id && x.BuildingType == 1)
                     {
                         cityCount++;
@@ -351,6 +353,7 @@ namespace Sango.UI
                 // 确定第一个视角
                 foreach (ShortForce x in ShortScenario.CurSelected.forceSet)
                 {
+                    if (x == null) continue;
                     if (playerList[j].Id == x.Id)
                     {
                         ShortPerson person = ShortScenario.CurSelected.personSet[playerList[j].Governor];

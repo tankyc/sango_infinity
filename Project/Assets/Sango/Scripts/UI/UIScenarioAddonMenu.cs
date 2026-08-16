@@ -52,10 +52,9 @@ namespace Sango.UI
             // 按钮对象在 prefab 中手动指派,事件自动绑定(仅绑定一次)
             BindButtonEvents();
 
-            // 确保打开本界面时隐藏节点处于显示状态
-            SetHideNodeActive(true);
-
-            scenario = ShortScenario.CurSelected;
+           
+            ShortScenario.CurSelected.LoadFullPersonContent();
+            scenario = ShortScenario.CurSelected.Copy();
 
             if (scenario == null)
             {
@@ -64,7 +63,6 @@ namespace Sango.UI
                 return;
             }
             // 加载剧本内容(幂等),填充 forceSet/personSet/citySet/Map/CommonData
-            scenario.LoadFullPersonContent();
             commonData = scenario.CommonData != null ? scenario.CommonData : GameData.Instance.ScenarioCommonData;
 
             // 重置本次附加数据
@@ -75,7 +73,7 @@ namespace Sango.UI
             //    if(!scenario.forceSet.ContainsKey(i))
             //        AddData.forceIndexList.Add(i);
             //}
-
+           
             // 右侧地图: 初始化
             if (uIEditWorldMap != null)
             {
@@ -83,7 +81,9 @@ namespace Sango.UI
                 uIEditWorldMap.RefreshCity();
             }
 
-            RefreshInfo();
+            // 确保打开本界面时隐藏节点处于显示状态
+            SetHideNodeActive(true);
+
         }
 
         #region 登场武将
@@ -109,9 +109,14 @@ namespace Sango.UI
             }
 
             // 排除已经部署的
-            persons.RemoveAll(x => x.targetShortPerson != null && x.targetShortPerson.BelongCity > 0);
+            persons.RemoveAll((x) =>
+            {
+                if (x.targetShortPersonId <= 0)
+                    return false;
+                return x.BelongCity(scenario) > 0;
+            });
 
-            LastSelected = persons.FindAll(x => x.targetShortPerson != null);
+            LastSelected = persons.FindAll(x => x.targetShortPersonId > 0);
 
             GameSystemManager.Instance.GetSystem<EditPersonSelectSystem>().Start(
                 persons,
@@ -124,13 +129,12 @@ namespace Sango.UI
 
         void OnAppearedPersonsSelected(List<PersonLib> list)
         {
-            ShortScenario shortScenario = ShortScenario.CurSelected;
             LastSelected.ForEach(x =>
             {
-                if(!list.Contains(x))
+                if (!list.Contains(x))
                 {
-                    shortScenario.personSet.Remove(x.targetShortPerson);
-                    x.targetShortPerson = null;
+                    scenario.personSet.Remove(x.targetShortPersonId);
+                    x.targetShortPersonId = 0;
                 }
             });
 
@@ -138,15 +142,15 @@ namespace Sango.UI
             for (int i = 0; i < list.Count; i++)
             {
                 PersonLib personLib = list[i];
-                if (personLib.targetShortPerson == null)
+                if (personLib.targetShortPersonId > 0)
                 {
-                    ShortPerson shortPerson = ShortPerson.FormLib(personLib);
-                    shortScenario.personSet.Add(shortPerson);
-                    personLib.targetShortPerson = shortPerson;
+                    ShortPerson shortPerson = ShortPerson.FormLib(personLib, scenario);
+                    scenario.personSet.Add(shortPerson);
+                    personLib.targetShortPersonId = shortPerson.Id;
                 }
             }
 
-            shortScenario.NeedUpdateAppendInfo();
+            scenario.NeedUpdateAppendInfo();
             RefreshInfo();
         }
 
@@ -161,7 +165,7 @@ namespace Sango.UI
         {
             // 打开子界面前隐藏指定节点
             SetHideNodeActive(false);
-            Window.Instance.Open("window_scenario_create_new_force", uIEditWorldMap).ugui_instance.OnCloseAction = () =>
+            Window.Instance.Open("window_scenario_create_new_force", uIEditWorldMap, scenario).ugui_instance.OnCloseAction = () =>
             {
                 SetHideNodeActive(true);
             };
@@ -177,7 +181,7 @@ namespace Sango.UI
 
             if (active)
             {
-                ShortScenario.CurSelected.NeedUpdateAppendInfo();
+                scenario.NeedUpdateAppendInfo();
                 RefreshInfo();
             }
         }
@@ -194,7 +198,7 @@ namespace Sango.UI
             // 打开子界面前隐藏指定节点
             SetHideNodeActive(false);
 
-            Window.Instance.Open("window_scenario_edit_select_city", uIEditWorldMap, "AssignPerson").ugui_instance.
+            Window.Instance.Open("window_scenario_edit_select_city", uIEditWorldMap, scenario, "AssignPerson").ugui_instance.
                 OnCloseAction = () =>
                 {
                     SetHideNodeActive(true);
@@ -214,7 +218,7 @@ namespace Sango.UI
             GameDialog.Open(content, () =>
             {
                 GameDialog.Close();
-                ShortScenario.CurSelected.RemoveAllAppendData();
+                scenario.RemoveAllAppendData();
                 createForceBtn.interactable = false;
                 assignBtn.interactable = false;
                 initBtn.interactable = false;
@@ -228,13 +232,12 @@ namespace Sango.UI
 
         public void OnReturn()
         {
-            if (ShortScenario.CurSelected.AppendForceCount > 0)
+            if (scenario.AppendForceCount > 0)
             {
                 string content = $"返回将丢失所有已登场武将和新作势力,确定吗?";
                 GameDialog.Open(content, () =>
                 {
                     GameDialog.Close();
-                    ShortScenario.CurSelected.RemoveAllAppendData();
                     Window.Instance.Close("window_scenario_addon_menu");
                     Window.Instance.Open("window_scenario_select");
                 });
@@ -248,6 +251,8 @@ namespace Sango.UI
 
         public void OnNext()
         {
+            ShortScenario.CurSelected = scenario;
+
             // 进入玩家势力选择
             Window.Instance.Close("window_scenario_addon_menu");
             Window.Instance.Open("window_scenario_force_select");
@@ -308,7 +313,7 @@ namespace Sango.UI
 
         void RefreshInfo()
         {
-            ShortScenario shortScenario = ShortScenario.CurSelected;
+            ShortScenario shortScenario = scenario;
             // 左下角 5 个数量显示
             SetCountText(appearedCountText, shortScenario.AppendPersonCount);
             SetCountText(newForceCountText, shortScenario.AppendForceCount);

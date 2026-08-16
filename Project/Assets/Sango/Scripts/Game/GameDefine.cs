@@ -263,7 +263,10 @@ namespace Sango.Core
         /// 同盟
         /// </summary>
         Alliance = 23,
-
+        /// <summary>
+        /// 同盟
+        /// </summary>
+        DiscardAlliance = 24,
         /// <summary>
         /// 最大工作数量
         /// </summary>
