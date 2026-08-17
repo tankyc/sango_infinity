@@ -899,6 +899,25 @@ namespace Sango.Core
                     if (force.IsAppend)
                     {
                         city.BelongCorps = force.CapitalCorps;
+
+                        bool isCapitalCity = city.Id == force.CapitalCity;
+
+                        City c = scenario.citySet[city.Id];
+                        c.BelongForce = force.Id;
+                        c.BelongCorps = force.CapitalCorps;
+
+                        // 准备兵装,钱粮和士兵
+                        c.food = 43000 - 3000 * scenario.Variables.difficulty;
+                        c.gold = 4300 - 300 * scenario.Variables.difficulty;
+                        c.troops = 11000 - 1000 * scenario.Variables.difficulty + (isCapitalCity ? 10000 : 0);
+                        c.security = 90 - 5 * scenario.Variables.difficulty;
+                        c.morale = 85 - 5 * scenario.Variables.difficulty;
+                        int k = 5500 - 500 * scenario.Variables.difficulty;
+                        c.itemStore.Add(2, k);
+                        c.itemStore.Add(3, k);
+                        c.itemStore.Add(4, k);
+                        k = 2500 - 500 * scenario.Variables.difficulty;
+                        c.itemStore.Add(5, k);
                     }
                 }
             });

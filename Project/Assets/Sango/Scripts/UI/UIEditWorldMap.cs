@@ -94,6 +94,7 @@ namespace Sango.UI
                     toggle.SetInavtive(true);
                     toggle.SetColor(flag != null ? flag.color : Color.white);
                 }
+                toggle.onSelectShortAction = null;
                 toggle.ShowName(city.Name);
                 cityToggleList.Add(toggle);
                 RectTransform rectTransform = toggle.GetComponent<RectTransform>();
@@ -107,8 +108,6 @@ namespace Sango.UI
         {
             if (maxSelectCount > 0)
             {
-
-
                 if (b)
                 {
                     if (selecte_list.Count < maxSelectCount)
@@ -119,7 +118,18 @@ namespace Sango.UI
                     }
                     else
                     {
-                        item.SetSelected(false);
+                        ShortCity last = selecte_list[0];
+                        cityToggleList.ForEach(x =>
+                        {
+                            if (x.shortCity == last)
+                            {
+                                x.SetSelected(false);
+                            }
+                        });
+                        item.SetSelected(true);
+                        selecte_list.RemoveAt(0);
+                        selecte_list.Add(city);
+                        OnSelectCity.Invoke(selecte_list);
                     }
                 }
                 else
@@ -138,6 +148,7 @@ namespace Sango.UI
                 else
                 {
                     selecte_list.Remove(city);
+                    OnSelectCity.Invoke(selecte_list);
                 }
             }
         }
@@ -159,14 +170,13 @@ namespace Sango.UI
                 if (city.Id == 0) continue;
                 UIMapCitySelectItem toggle = createPool.Create();
                 toggle.shortCity = city;
-                toggle.ShowName("");
                 if (city.BelongForce == 0)
                 {
                     toggle.ShowName(city.Name);
                     toggle.SetColor(Color.white);
                     toggle.SetInavtive(false);
                     toggle.onSelectShortAction = OnSelectMapCity;
-                    toggle.SetSelected(selecte_list.Contains(city));
+                    toggle.SetSelected(false);
                 }
                 else
                 {
@@ -175,8 +185,22 @@ namespace Sango.UI
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
                     toggle.SetColor(flag != null ? flag.color : Color.white);
-                    toggle.SetInavtive(true);
-                    toggle.SetSelected(false);
+                    bool contarins = selecte_list.Contains(city);
+                    toggle.SetInavtive(!contarins);
+                    toggle.SetSelected(contarins);
+                    if (contarins)
+                    {
+                        toggle.ShowName(city.Name);
+                        if (maxSelectCount != 1)
+                            toggle.onSelectShortAction = OnSelectMapCity;
+                        else
+                            toggle.onSelectShortAction = null;
+                    }
+                    else
+                    {
+                        toggle.ShowName("");
+                        toggle.onSelectShortAction = null;
+                    }
                 }
                 cityToggleList.Add(toggle);
                 RectTransform rectTransform = toggle.GetComponent<RectTransform>();

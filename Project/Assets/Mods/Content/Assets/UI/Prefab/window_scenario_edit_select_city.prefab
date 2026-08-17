@@ -140,7 +140,7 @@ Canvas:
   m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: -1
   m_SortingLayerID: 0
-  m_SortingOrder: 130
+  m_SortingOrder: 160
   m_TargetDisplay: 0
 --- !u!114 &576643473640125865
 MonoBehaviour:
@@ -4262,7 +4262,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6797192256255555755, guid: cda3bbf2848350048b9352701ccd3516, type: 3}
       propertyPath: m_Text
-      value: "\u5EFA\u7ACB\u65B0\u52BF\u529B"
+      value: "\u65B0\u52BF\u529B\u652F\u914D\u90FD\u5E02"
       objectReference: {fileID: 0}
     - target: {fileID: 6797192256255555755, guid: cda3bbf2848350048b9352701ccd3516, type: 3}
       propertyPath: m_FontData.m_FontSize

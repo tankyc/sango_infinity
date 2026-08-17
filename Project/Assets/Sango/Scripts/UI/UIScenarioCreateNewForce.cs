@@ -57,8 +57,7 @@ namespace Sango.UI
         {
             base.OnOpen(args);
             hasChanged = false;
-
-            
+            confirmBtn.interactable = false;
 
             // 从打开者接收 uIEditWorldMap（通过 args 或 public 字段）
             if (args != null && args.Length > 0 && args[0] is UIEditWorldMap map)
@@ -96,9 +95,8 @@ namespace Sango.UI
         /// </summary>
         void RefreshInfo()
         {
-            //var addData = UIScenarioAddonMenu.AddData;
-            //SetCountText(unassignedNewPersonCountText, addData.UnassignedCount);
-            //SetCountText(assignedNewPersonCountText, addData.AssignedCount);
+            SetCountText(unassignedNewPersonCountText, scenario.AppendPersonCount);
+            SetCountText(assignedNewPersonCountText, scenario.AppendPersonCount - scenario.AssignedPersonCount);
         }
 
         void SetCountText(Text text, int count)
@@ -208,7 +206,7 @@ namespace Sango.UI
                 item.target = force;
                 item.onClickDelete = OnDeleteForce;
                 item.onClickNew = OnClickNewForceSlot;
-
+                item.transform.SetAsLastSibling();
                 activeItems.Add(item);
             }
 
@@ -230,10 +228,11 @@ namespace Sango.UI
                 if (item.cancelBtn != null)
                     item.cancelBtn.interactable = false;
 
+                item.target = null;
                 // 未建势力点击新建
                 item.onClickNew = OnClickNewForceSlot;
                 item.onClickDelete = null;
-
+                item.transform.SetAsLastSibling();
                 activeItems.Add(item);
             }
         }
@@ -246,30 +245,32 @@ namespace Sango.UI
         void OnClickNewForceSlot(ShortForce targetForce)
         {
             // 新建势力
-            if (targetForce == null)
-            {
-                targetForce = new ShortForce();
-                targetForce.IsAppend = true;
-                targetForce.Flag = scenario.FindEmptyFlag();
-                scenario.forceSet.Add(targetForce);
-            }
+            //if (targetForce == null)
+            //{
+            //    targetForce = new ShortForce();
+            //    targetForce.IsAppend = true;
+            //    targetForce.Flag = scenario.FindEmptyFlag();
+            //    scenario.forceSet.Add(targetForce);
+            //}
 
             SetHideNodeActive(false);
-            Window.Instance.Open("window_scenario_edit_new_force", uIEditWorldMap, targetForce.Id, scenario, commonData).ugui_instance.OnCloseAction = () =>
+            Window.Instance.Open("window_scenario_edit_new_force", uIEditWorldMap, targetForce != null ? targetForce.Id : -1 , scenario, commonData).ugui_instance.OnCloseAction = () =>
             {
                 SetHideNodeActive(true);
 
                 // 表明未真正使用
-                if (targetForce.Governor == 0)
-                {
-                    scenario.forceSet.Remove(targetForce);
-                }
+                //if (targetForce.Governor == 0)
+                //{
+                //    scenario.forceSet.Remove(targetForce);
+                //}
                 hasChanged = true;
 
                 // 如果编辑界面确认建立了势力，刷新本界面数据
                 RefreshMap();
                 RefreshForceItems();
                 RefreshInfo();
+
+                confirmBtn.interactable = true;
             };
         }
 

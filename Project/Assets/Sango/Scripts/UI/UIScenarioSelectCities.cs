@@ -11,14 +11,15 @@ namespace Sango.UI
         public UIObjectDisplayPlane uiForceView;
         public List<SangoObject> sangoObjects = new List<SangoObject>();
         public Button sureButton;
-        string mode;
         List<int> LastSel = new List<int>();
         public ShortScenario scenario;
         public ShortScenario src_scenario;
 
         public List<ObjectSortTitle> SortList;
+        public ShortForce targetForce;
 
-
+        List<ShortCity> shortCities1 = new List<ShortCity>();
+        List<ShortPerson> allPersons = new List<ShortPerson>();
         public override void OnOpen(params object[] objects)
         {
             base.OnOpen(objects);
@@ -30,98 +31,104 @@ namespace Sango.UI
             src_scenario = (ShortScenario)objects[1];
             scenario = src_scenario.Copy();
 
-            mode = (string)objects[2];
+            targetForce = (ShortForce)objects[2];
             uIEditWorldMap.SetScenario(scenario);
             SortList = new List<ObjectSortTitle>
-        {
-                PersonLibSortFunction.SortByName,
-                PersonLibSortFunction.SortByBelongForce(scenario),
-                PersonLibSortFunction.SortByBelongCity(scenario),
-                PersonLibSortFunction.SortByYearBorn,
-                PersonLibSortFunction.SortByYearDead,
-                PersonLibSortFunction.SortBySex ,
-                PersonLibSortFunction.SortByCommand,
-                PersonLibSortFunction.SortByStrength,
-                PersonLibSortFunction.SortByIntelligence,
-                PersonLibSortFunction.SortByPolitics,
-                PersonLibSortFunction.SortByGlamour,
-        };
-
-            scenario.personSet.ForEach(person =>
             {
-                // 指派了,但是不是主公,都可以重新指派
-                if (person.PersonLib != null && person.state != (int)PersonStateType.Governor)
+                ShortForceSortFunction.SortByName(scenario),
+                ShortForceSortFunction.SortByPersonCount(scenario),
+                ShortForceSortFunction.SortByCityCount(scenario),
+                ShortForceSortFunction.SortByTotalGold(scenario),
+                ShortForceSortFunction.SortByTotalFood(scenario),
+                ShortForceSortFunction.SortByTotalTroops(scenario),
+            };
+
+            scenario.forceSet.ForEach(f =>
+            {
+                ShortPerson person = scenario.personSet.Get(f.Governor);
+                if (person != null && person.BelongCity > 0)
                 {
-                    sangoObjects.Add(person.PersonLib);
+                    sangoObjects.Add(f);
                 }
             });
+
+            scenario.citySet.ForEach(c =>
+            {
+                if (c.BelongForce == targetForce.Id)
+                {
+                    if (c.Id != targetForce.CapitalCity)
+                        shortCities1.Add(c);
+                }
+            });
+            scenario.personSet.ForEach(person =>
+            {
+                if (person.BelongForce == targetForce.Id)
+                    allPersons.Add(person);
+            });
+
             uiForceView.Init(sangoObjects, SortList);
-            uiForceView.OnMultiSelectCall = OnMultiSelectCall;
+            uiForceView.OnMultiSelectCall = null;
+            uiForceView.OnSelectCall = null;
 
-            
-        }
+            uIEditWorldMap.SetSelectEmptyCity(shortCities1);
 
-        public void OnMultiSelectCall(List<int> index)
-        {
-            LastSel.Clear();
-            LastSel.AddRange(index);
-            if (LastSel.Count > 0)
-            {
-                sureButton.interactable = true;
-                uIEditWorldMap.SetSelectAllCity(null);
-                uIEditWorldMap.OnSelectCity = OnSelectCity;
-                uIEditWorldMap.maxSelectCount = 1;
-            }
-            else
-            {
-                sureButton.interactable = false;
-                uIEditWorldMap.RefreshCity();
-                uIEditWorldMap.OnSelectCity = null;
-            }
+            uIEditWorldMap.OnSelectCity = OnSelectCity;
+            uIEditWorldMap.maxSelectCount = 0;
         }
 
         public void OnSelectCity(List<ShortCity> shortCities)
         {
-            ShortCity city = shortCities[0];
-            if (city != null)
+            shortCities1.Clear();
+            shortCities1.AddRange(shortCities);
+            scenario.citySet.ForEach(c =>
             {
-                if(city.BelongForce == 0)
+                if (c.Id == targetForce.CapitalCity)
+                    return;
+
+                bool contains = shortCities.Contains(c);
+                if (contains)
                 {
-                    for (int i = 0; i < LastSel.Count; i++)
-                    {
-                        PersonLib sangoObject = sangoObjects[LastSel[i]] as PersonLib;
-                        if (sangoObject != null)
-                        {
-                            ShortPerson person = scenario.personSet[sangoObject.targetShortPersonId];
-                            person.BelongForce = city.BelongForce;
-                            person.BelongCity = city.Id;
-                            person.state = (int)PersonStateType.Unemployed;
-                        }
-                    }
+                    c.BelongForce = targetForce.Id;
                 }
                 else
                 {
-                    for (int i = 0; i < LastSel.Count; i++)
+                    if (c.BelongForce == targetForce.Id)
                     {
-                        PersonLib sangoObject = sangoObjects[LastSel[i]] as PersonLib;
-                        if (sangoObject != null)
-                        {
-                            ShortPerson person = scenario.personSet[sangoObject.targetShortPersonId];
-                            person.BelongForce = city.BelongForce;
-                            person.BelongCity = city.Id;
-                            person.state = (int)PersonStateType.Normal;
-                        }
+                        c.BelongForce = 0;
                     }
                 }
-                sureButton.interactable = true;
-                LastSel.Clear();
-                uiForceView.Init(sangoObjects, SortList);
-            }
-            uIEditWorldMap.RefreshCity();
+            });
+
+            sureButton.interactable = true;
+            uIEditWorldMap.SetSelectEmptyCity(shortCities1);
+            uiForceView.Init(sangoObjects, SortList);
+            uIEditWorldMap.OnSelectCity = OnSelectCity;
+            uIEditWorldMap.maxSelectCount = 0;
         }
 
         public void OnSure()
         {
+            List<int> allC = new List<int>();
+            scenario.citySet.ForEach(c =>
+            {
+                if (c.BelongForce == targetForce.Id)
+                {
+                    allC.Add(c.Id);
+                }
+            });
+
+            // 失去都市的武将回归本城
+            scenario.personSet.ForEach(c =>
+            {
+                if (c.BelongForce == targetForce.Id)
+                {
+                    if (!allC.Contains(c.BelongCity))
+                    {
+                        c.BelongCity = targetForce.CapitalCity;
+                    }
+                }
+            });
+
             src_scenario.personSet = scenario.personSet;
             src_scenario.citySet = scenario.citySet;
             src_scenario.forceSet = scenario.forceSet;

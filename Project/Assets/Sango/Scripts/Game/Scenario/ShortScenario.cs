@@ -19,6 +19,11 @@ namespace Sango.Core
         public bool IsAppend;
         public int CapitalCity;
         public int CapitalCorps;
+        public int cityCount;
+        public int personCount;
+        public int totalGold;
+        public int totalFood;
+        public int totalTroops;
 
         public ShortForce Copy()
         {
@@ -560,6 +565,204 @@ namespace Sango.Core
                 }
             }
             return 0;
+        }
+    }
+
+
+    public class ShortForceSortFunction : Singleton<ShortForceSortFunction>
+    {
+        public delegate string PersonValueStrGet(ShortForce person);
+        public delegate int PersonValueGet(ShortForce person);
+        public delegate int PersonSortFunc(ShortForce person1, ShortForce person2);
+
+        /// <summary>
+        /// 获取Person对象属性值的object类型代理
+        /// </summary>
+        /// <param name="person">武将对象</param>
+        /// <returns>属性值</returns>
+        public delegate object PersonValueObjGet(ShortForce person);
+
+        /// <summary>
+        /// 设置Person对象属性值的代理
+        /// </summary>
+        /// <param name="person">武将对象</param>
+        /// <param name="value">新的属性值</param>
+        public delegate void PersonValueObjSet(ShortForce person, object value);
+
+        public class SortTitle : ObjectSortTitle
+        {
+            public PersonValueStrGet valueGetCall;
+            public PersonSortFunc personSortFunc;
+            public PersonValueObjGet valueObjGet;
+            public PersonValueObjSet valueObjSet;
+
+            public override object GetValue(SangoObject obj)
+            {
+                return valueObjGet?.Invoke((ShortForce)obj);
+            }
+
+            public override void SetValue(SangoObject obj, object value)
+            {
+                valueObjSet?.Invoke((ShortForce)obj, value);
+            }
+
+            public override string GetValueStr(SangoObject obj)
+            {
+                return valueGetCall.Invoke((ShortForce)obj);
+            }
+
+            public override int Sort(SangoObject a, SangoObject b)
+            {
+                return personSortFunc.Invoke((ShortForce)a, (ShortForce)b);
+            }
+
+            public SortTitle Copy()
+            {
+                return new SortTitle
+                {
+                    name = name,
+                    alignment = alignment,
+                    width = width,
+                    valueGetCall = valueGetCall,
+                    personSortFunc = personSortFunc,
+                    valueObjGet = valueObjGet,
+                    valueObjSet = valueObjSet,
+                };
+            }
+        }
+
+        public static SortTitle SortByName(ShortScenario scenario)
+        {
+
+            return new SortTitle
+            {
+                name = "势力",
+                width = 3.00f,
+                valueGetCall = x =>
+                {
+
+                    ShortPerson person = scenario.personSet.Get(x.Governor);
+                    return person.Name;
+                },
+                personSortFunc = (a, b) => a.Governor.CompareTo(b.Governor),
+                valueObjGet = x => x.Governor,
+                valueObjSet = null,
+            };
+        }
+
+        public static SortTitle SortByPersonCount(ShortScenario scenario)
+        {
+
+            return new SortTitle()
+            {
+                name = "武将",
+                width = 1.40f,
+                valueGetCall = x =>
+                {
+                    x.personCount = 0;
+                    scenario.personSet.ForEach(p =>
+                    {
+                        if (p.BelongForce == x.Id)
+                        {
+                            x.personCount++;
+                        }
+                    });
+                    return x.personCount.ToString();
+                },
+                personSortFunc = (a, b) => a.personCount.CompareTo(b.personCount),
+                valueObjGet = x => x.personCount,
+                valueObjSet = null,
+            };
+        }
+
+        public static SortTitle SortByCityCount(ShortScenario scenario)
+        {
+
+            return new SortTitle()
+            {
+                name = "都市",
+                width = 1.40f,
+                valueGetCall = x =>
+                {
+                    x.cityCount = 0;
+                    x.totalTroops = 0;
+                    x.totalGold = 0;
+                    x.totalFood = 0;
+                    scenario.citySet.ForEach(p =>
+                    {
+                        if (p.BelongForce == x.Id)
+                        {
+                            x.cityCount++;
+                            x.totalTroops += p.troops;
+                            x.totalGold += p.gold;
+                            x.totalFood += p.food;
+                        }
+                    });
+
+                    if(x.IsAppend)
+                    {
+                        x.totalTroops = x.cityCount * 10000 + 10000;
+                        x.totalGold = x.cityCount * 4000;
+                        x.totalFood = x.cityCount * 40000;
+                    }
+
+                    return x.cityCount.ToString();
+                },
+                personSortFunc = (a, b) => a.cityCount.CompareTo(b.cityCount),
+                valueObjGet = x => x.cityCount,
+                valueObjSet = null,
+            };
+        }
+
+        public static SortTitle SortByTotalGold(ShortScenario scenario)
+        {
+
+            return new SortTitle()
+            {
+                name = "资金",
+                width = 5.00f,
+                valueGetCall = x =>
+                {
+                    return x.totalGold.ToString();
+                },
+                personSortFunc = (a, b) => a.totalGold.CompareTo(b.totalGold),
+                valueObjGet = x => x.totalGold,
+                valueObjSet = null,
+            };
+        }
+
+        public static SortTitle SortByTotalFood(ShortScenario scenario)
+        {
+
+            return new SortTitle()
+            {
+                name = "粮食",
+                width = 5.00f,
+                valueGetCall = x =>
+                {
+                    return x.totalFood.ToString();
+                },
+                personSortFunc = (a, b) => a.totalFood.CompareTo(b.totalFood),
+                valueObjGet = x => x.totalFood,
+                valueObjSet = null,
+            };
+        }
+
+        public static SortTitle SortByTotalTroops(ShortScenario scenario)
+        {
+
+            return new SortTitle()
+            {
+                name = "士兵",
+                width = 5.00f,
+                valueGetCall = x =>
+                {
+                    return x.totalTroops.ToString();
+                },
+                personSortFunc = (a, b) => a.totalTroops.CompareTo(b.totalTroops),
+                valueObjGet = x => x.totalTroops,
+                valueObjSet = null,
+            };
         }
     }
 }

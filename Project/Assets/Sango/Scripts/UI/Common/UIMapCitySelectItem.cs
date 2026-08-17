@@ -29,14 +29,21 @@ using Sango.Core; namespace Sango.UI
         
         public void OnSelect()
         {
-            selectedObj.SetActive(!selectedObj.activeSelf);
             if (city != null)
             {
-                onSelectAction?.Invoke(city, selectedObj.activeSelf);
+                if (onSelectAction != null)
+                {
+                    selectedObj.SetActive(!selectedObj.activeSelf);
+                    onSelectAction.Invoke(city, selectedObj.activeSelf);
+                }
             }
             if (shortCity != null)
             {
-                onSelectShortAction?.Invoke(this, shortCity, selectedObj.activeSelf);
+                if (onSelectShortAction != null)
+                {
+                    selectedObj.SetActive(!selectedObj.activeSelf);
+                    onSelectShortAction.Invoke(this, shortCity, selectedObj.activeSelf);
+                }
             }
         }
 

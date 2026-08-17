@@ -203,7 +203,7 @@ namespace Sango.UI
             // 打开子界面前隐藏指定节点
             SetHideNodeActive(false);
 
-            Window.Instance.Open("window_scenario_edit_select_city", uIEditWorldMap, scenario, "AssignPerson").ugui_instance.
+            Window.Instance.Open("window_scenario_assign_person_to_city", uIEditWorldMap, scenario).ugui_instance.
                 OnCloseAction = () =>
                 {
                     SetHideNodeActive(true);
@@ -341,7 +341,7 @@ namespace Sango.UI
 
             // 按钮可用状态: 登场武将数量 > 0 时,建势力/配属/初始化才可点选
             bool canOperate = shortScenario.AppendPersonCount > 0;
-            SetButtonInteractable(createForceBtn, false);
+            SetButtonInteractable(createForceBtn, canOperate);
             SetButtonInteractable(assignBtn, canOperate);
             SetButtonInteractable(initBtn, canOperate);
         }

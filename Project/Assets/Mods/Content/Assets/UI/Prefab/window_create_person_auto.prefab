@@ -248,7 +248,6 @@ GameObject:
   - component: {fileID: 5973749658295835790}
   - component: {fileID: 174056003858870177}
   - component: {fileID: 576643473640125865}
-  - component: {fileID: 1195453381364328367}
   m_Layer: 5
   m_Name: window_create_person_auto
   m_TagString: Untagged
@@ -318,28 +317,6 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 32
---- !u!114 &1195453381364328367
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9039031632039893254}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 85aa683eeda9fab46a8051ac89c697a9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  title: {fileID: 0}
-  titleObj: {fileID: 0}
-  bigTitleObj: {fileID: 0}
-  integerObj: {fileID: 0}
-  floatObj: {fileID: 0}
-  integerSliderObj: {fileID: 0}
-  floatSliderObj: {fileID: 0}
-  dropdownObj: {fileID: 0}
-  toggleObj: {fileID: 0}
-  toggleGroupObj: {fileID: 0}
 --- !u!1001 &1820097836997930895
 PrefabInstance:
   m_ObjectHideFlags: 0

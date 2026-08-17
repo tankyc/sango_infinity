@@ -1,11 +1,8 @@
-﻿using Sango;
-using Sango.Core;
+﻿using Sango.Core;
 using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using TKNewtonsoft.Json;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,7 +12,7 @@ namespace Sango.UI
     /// 新建武将详情编辑窗口。
     /// 提供“基本设定”与“能力设定”两个标签页，用于编辑 <see cref="PersonLib"/> 数据。
     /// </summary>
-    public class UIPersonCreateDetail : UGUIWindow
+    public class UIPersonCreateAuto : UGUIWindow
     {
         #region 内部快照
         /// <summary>

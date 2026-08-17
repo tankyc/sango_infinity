@@ -21,14 +21,9 @@ namespace Sango.UI
         public Text titleText;
 
         /// <summary>
-        /// 颜色项父节点（通常挂载GridLayoutGroup）。
-        /// </summary>
-        public Transform colorParent;
-
-        /// <summary>
         /// 颜色项预制体，需挂载 <see cref="UISangoObjectSelectItem"/> 组件。
         /// </summary>
-        public GameObject colorItemPrefab;
+        public UISangoObjectSelectItem colorItemPrefab;
 
         /// <summary>
         /// 返回按钮，点击后直接关闭窗口。
@@ -63,12 +58,16 @@ namespace Sango.UI
         /// </summary>
         protected List<UISangoObjectSelectItem> colorItems = new List<UISangoObjectSelectItem>();
 
+        ShortScenario shortScenario;
+        ShortForce shortForce;
+        CreatePool<UISangoObjectSelectItem> createPool;
         #endregion
 
         #region 生命周期
 
         protected override void Awake()
         {
+            createPool = new CreatePool<UISangoObjectSelectItem>(colorItemPrefab);
             base.Awake();
             BindEvents();
         }
@@ -97,49 +96,16 @@ namespace Sango.UI
             usedFlagIds.Clear();
             onColorSelected = null;
 
-            if (objects == null || objects.Length == 0)
+            shortScenario = (ShortScenario)objects[0];
+            shortForce = (ShortForce)objects[1];
+
+            shortScenario.forceSet.ForEach(force =>
             {
-                return;
-            }
-
-            int index = 0;
-
-            // 第一个参数为已占用旗帜ID列表
-            if (index < objects.Length)
-            {
-                object firstArg = objects[index];
-                if (firstArg is List<int> list)
-                {
-                    for (int i = 0; i < list.Count; i++)
-                    {
-                        usedFlagIds.Add(list[i]);
-                    }
-                    index++;
-                }
-                else if (firstArg is int[] array)
-                {
-                    for (int i = 0; i < array.Length; i++)
-                    {
-                        usedFlagIds.Add(array[i]);
-                    }
-                    index++;
-                }
-                else if (firstArg is IEnumerable<int> enumerable)
-                {
-                    foreach (int id in enumerable)
-                    {
-                        usedFlagIds.Add(id);
-                    }
-                    index++;
-                }
-            }
-
+                if(force.Id != shortForce.Id)
+                    usedFlagIds.Add(force.Flag);
+            });
+            onColorSelected = (Action<Flag>)objects[2];
             // 选择回调
-            if (index < objects.Length && objects[index] is Action<Flag> callback)
-            {
-                onColorSelected = callback;
-                index++;
-            }
         }
 
         #endregion
@@ -169,37 +135,7 @@ namespace Sango.UI
         /// </summary>
         protected virtual void RefreshColorItems()
         {
-            if (GameData.Instance == null)
-            {
-                Sango.Log.Error("势力颜色选择窗口：GameData实例为空。");
-                return;
-            }
-
-            if (GameData.Instance.ScenarioCommonData == null)
-            {
-                Sango.Log.Error("势力颜色选择窗口：ScenarioCommonData为空。");
-                return;
-            }
-
-            if (GameData.Instance.ScenarioCommonData.Flags == null)
-            {
-                Sango.Log.Error("势力颜色选择窗口：Flags数据为空。");
-                return;
-            }
-
-            if (colorParent == null)
-            {
-                Sango.Log.Error("势力颜色选择窗口：颜色项父节点未指定。");
-                return;
-            }
-
-            if (colorItemPrefab == null)
-            {
-                Sango.Log.Error("势力颜色选择窗口：颜色项预制体未指定。");
-                return;
-            }
-
-            ClearColorItems();
+            createPool.Reset();
 
             int count = 0;
             GameData.Instance.ScenarioCommonData.Flags.ForEach((Flag flag) =>
@@ -232,34 +168,13 @@ namespace Sango.UI
         /// <param name="isUsed">是否已被占用</param>
         protected virtual void CreateColorItem(Flag flag, bool isUsed)
         {
-            GameObject itemObj = GameObject.Instantiate(colorItemPrefab, colorParent);
-            UISangoObjectSelectItem item = itemObj.GetComponent<UISangoObjectSelectItem>();
-            if (item == null)
-            {
-                item = itemObj.AddComponent<UISangoObjectSelectItem>();
-                Sango.Log.Warning("势力颜色选择窗口：颜色项预制体上未找到UISangoObjectSelectItem组件，已自动添加。");
-            }
+            UISangoObjectSelectItem item = createPool.Create();
             item.target = flag;
             item.onSelectAction = OnColorItemClicked;
             item.SetInavtive(isUsed);
+            item.SetSelected(false);
             item.SetColor(flag.color);
             colorItems.Add(item);
-        }
-
-        /// <summary>
-        /// 清除所有已创建的颜色项。
-        /// </summary>
-        protected virtual void ClearColorItems()
-        {
-            for (int i = 0; i < colorItems.Count; i++)
-            {
-                UISangoObjectSelectItem item = colorItems[i];
-                if (item != null && item.gameObject != null)
-                {
-                    GameObject.Destroy(item.gameObject);
-                }
-            }
-            colorItems.Clear();
         }
 
         #endregion

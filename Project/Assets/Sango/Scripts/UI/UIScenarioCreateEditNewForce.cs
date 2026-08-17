@@ -45,6 +45,8 @@ namespace Sango.UI
         // 初始化按钮
         public Button initBtn;
         public Button sureBtn;
+        public Text unassignedNewPersonCountText;    // 未配属之新武将数量
+        public Text assignedNewPersonCountText;      // 已配属之新武将数量
 
         // ===== 数据 =====
         UIEditWorldMap uIEditWorldMap;
@@ -86,7 +88,19 @@ namespace Sango.UI
             int editForceDataId = GetArgInt(args, 1);
             src_scenario = GetArg<ShortScenario>(args, 2);
             scenario = src_scenario.Copy();
-            newForceData = scenario.forceSet.Get(editForceDataId);
+
+            if (editForceDataId > 0)
+            {
+                newForceData = scenario.forceSet.Get(editForceDataId);
+            }
+            else
+            {
+                newForceData = new ShortForce();
+                newForceData.IsAppend = true;
+                newForceData.Flag = scenario.FindEmptyFlag();
+                scenario.forceSet.Add(newForceData);
+            }
+
             commonData = GetArg<ScenarioCommonData>(args, 3);
             BindButtonEvents();
             RefreshUI();
@@ -165,6 +179,15 @@ namespace Sango.UI
             // 君主头像
             RefreshAvatar();
             sureBtn.interactable = isValid;
+
+            SetCountText(unassignedNewPersonCountText, scenario.AppendPersonCount);
+            SetCountText(assignedNewPersonCountText, scenario.AppendPersonCount - scenario.AssignedPersonCount);
+
+        }
+        void SetCountText(Text text, int count)
+        {
+            if (text != null)
+                text.text = count.ToString();
         }
 
         /// <summary>
@@ -242,7 +265,7 @@ namespace Sango.UI
         /// </summary>
         void OnCreate()
         {
-            Window.Instance.Open("window_scenario_edit_select_governor", uIEditWorldMap, (Action<PersonLib, ShortCity>)OnCreateForce).
+            Window.Instance.Open("window_scenario_edit_select_governor", scenario, newForceData, uIEditWorldMap, (Action<PersonLib, ShortCity>)OnCreateForce).
                 ugui_instance.
                 OnCloseAction = () =>
             {
@@ -268,7 +291,7 @@ namespace Sango.UI
         /// </summary>
         void OnSelectCity()
         {
-            Window.Instance.Open("window_scenario_edit_select_city", uIEditWorldMap, (Action<List<ShortCity>>)OnChangeCites).
+            Window.Instance.Open("window_scenario_edit_select_city", uIEditWorldMap, scenario, newForceData).
                 ugui_instance.
                 OnCloseAction = () =>
                 {
@@ -289,7 +312,7 @@ namespace Sango.UI
         /// </summary>
         void OnSelectFlagColor()
         {
-            Window.Instance.Open("window_flag_color_selector", (Action<Flag>)OnChangeFlag);
+            Window.Instance.Open("window_flag_color_selector", scenario, newForceData, (Action<Flag>)OnChangeFlag);
         }
 
         void OnChangeFlag(Flag flag)
