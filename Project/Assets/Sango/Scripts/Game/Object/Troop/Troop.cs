@@ -1570,6 +1570,8 @@ namespace Sango.Core
             if (dis != 0)
                 target.Render?.ShowInfo(dis, (int)InfoType.Morale);
 
+            ActionOver = true;
+            Render?.UpdateRender();
         }
 
         public bool BuildBuilding(Cell dest, BuildingType buildingType)

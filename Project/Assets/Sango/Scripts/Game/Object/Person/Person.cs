@@ -732,26 +732,50 @@ namespace Sango.Core
         /// <param name="scenario"></param>
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            mForce = scenario.forceSet.Get(BelongForce);
-            mCorps = scenario.corpsSet.Get(BelongCorps);
-            mCity = scenario.citySet.Get(BelongCity);
-            mCurrentCity = scenario.citySet.Get(CurrentCity);
-            mTroop = scenario.troopsSet.Get(BelongTroop);
-            mTroop = scenario.troopsSet.Get(BelongTroop);
-            mPersonality = scenario.CommonData.Personalities.Get(personality);
-            mArgumentation = scenario.CommonData.Argumentations.Get(argumentation);
-            mAttributeChangeType = scenario.CommonData.AttributeChangeTypes.Get(attributeChangeType);
-            if(mAttributeChangeType == null)
-            {
-                mAttributeChangeType = scenario.CommonData.AttributeChangeTypes.Get(1);
-            }
+            if (BelongForce > 0)
+                mForce = scenario.forceSet.Get(BelongForce);
 
+            if (BelongCorps > 0)
+                mCorps = scenario.corpsSet.Get(BelongCorps);
+
+            if (BelongCity > 0)
+                mCity = scenario.citySet.Get(BelongCity);
+
+            if (CurrentCity > 0)
+                mCurrentCity = scenario.citySet.Get(CurrentCity);
+
+            if (BelongTroop > 0)
+                mTroop = scenario.troopsSet.Get(BelongTroop);
+
+            if (personality > 0)
+                mPersonality = scenario.CommonData.Personalities.Get(personality);
+            if (mPersonality == null)
+                mPersonality = scenario.CommonData.Personalities.Get(1);
+
+            if (argumentation > 0)
+                mArgumentation = scenario.CommonData.Argumentations.Get(argumentation);
+            if (mArgumentation == null)
+                mArgumentation = scenario.CommonData.Argumentations.Get(2);
+
+            if (attributeChangeType > 0)
+                mAttributeChangeType = scenario.CommonData.AttributeChangeTypes.Get(attributeChangeType);
+            if (mAttributeChangeType == null)
+                mAttributeChangeType = scenario.CommonData.AttributeChangeTypes.Get(5);
 
             command.master = this;
             strength.master = this;
             intelligence.master = this;
             politics.master = this;
             glamour.master = this;
+
+            if (!scenario.Variables.AgeEnabled || !scenario.Variables.EnableAgeAbilityFactor)
+            {
+                command.UpdateNoAge();
+                strength.UpdateNoAge();
+                intelligence.UpdateNoAge();
+                politics.UpdateNoAge();
+                glamour.UpdateNoAge();
+            }
 
             // 处理义兄弟
             if (Brother != null)
@@ -836,7 +860,10 @@ namespace Sango.Core
                         if (mCurrentCity != null)
                             mCurrentCity.invisiblePersons.Add(this);
                         else if (mCity != null)
+                        {
+                            mCurrentCity = mCity;
                             mCity.invisiblePersons.Add(this);
+                        }
                         break;
                     // 死亡
                     case PersonStateType.Dead:
@@ -1261,12 +1288,17 @@ namespace Sango.Core
         public override bool OnTurnEnd(Scenario scenario)
         {
             // 在野武将移动逻辑
-            if (IsWild)
+            if (IsWild || state == (int)PersonStateType.Invisible)
             {
                 wildTurnCount++;
                 stayTurnCount++;
                 if (stayTurnCount > 5 && GameRandom.Chance(5)) // 10%概率
                 {
+                    if (IsWild)
+                        mCurrentCity.wildPersons.Remove(this);
+                    else
+                        mCurrentCity.invisiblePersons.Remove(this);
+
                     //如果在港关,移动到所属城市
                     if (!mCurrentCity.IsCity())
                     {
@@ -1274,7 +1306,6 @@ namespace Sango.Core
                         mCurrentCity.RemoveWildPerson(this);
                         // 移动到新城市
                         ChangeCurrentCity(targetCity);
-                        targetCity.AddWildPerson(this);
                         mCity = targetCity;
 
                         // 重置停留时间
@@ -1293,10 +1324,8 @@ namespace Sango.Core
                             City targetCity = neighborCities[randomIndex];
                             if (targetCity != null)
                             {
-                                mCurrentCity.RemoveWildPerson(this);
                                 // 移动到新城市
                                 ChangeCurrentCity(targetCity);
-                                targetCity.AddWildPerson(this);
                                 mCity = targetCity;
 
                                 // 重置停留时间
@@ -1307,6 +1336,11 @@ namespace Sango.Core
                             }
                         }
                     }
+
+                    if (IsWild)
+                        mCurrentCity.wildPersons.Add(this);
+                    else
+                        mCurrentCity.invisiblePersons.Add(this);
                 }
             }
             else

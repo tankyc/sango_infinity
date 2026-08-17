@@ -49,7 +49,7 @@ namespace Sango.Core
 
         public override string ToString()
         {
-            return $"{baseValue},{valueExp},{valueFacter},{_value}";
+            return $"{baseValue},{0},{valueExp},{valueFacter},{_value}";
         }
 
         public IAarryDataObject FromArray(int[] content)
@@ -57,6 +57,7 @@ namespace Sango.Core
             int count = content.Length;
             if (count == 0) return this;
             if (count > 0) baseValue = content[0];
+
             int changeId = 1;
             if (count > 1) changeId = content[1];
             if (changeId == 0) changeId = 1;
@@ -64,17 +65,24 @@ namespace Sango.Core
             if (count > 2) valueExp = content[2];
             if (count > 3) valueFacter = content[3];
             if (count > 4) _value = content[4];
+
             return this;
         }
 
         public int[] ToArray()
         {
-            return new int[] { baseValue, changeType.Id, valueExp, valueFacter, _value };
+            return new int[] { baseValue, 0, valueExp, valueFacter, _value };
+        }
+
+        public void UpdateNoAge()
+        {
+            _value = baseValue;
         }
 
         public void Update()
         {
-            _value = ((baseValue * changeType.GetAgeFactor(master.Age)) / 10000 + Math.Min(Scenario.Cur.Variables.MaxAttributeGet, (valueExp / Scenario.Cur.Variables.AttributeExpLevelNeed))) * valueFacter / 10000;
+            _value = ((baseValue * changeType.GetAgeFactor(master.Age)) / 10000 + 
+                Math.Min(Scenario.Cur.Variables.MaxAttributeGet, (valueExp / Scenario.Cur.Variables.AttributeExpLevelNeed))) * valueFacter / 10000;
         }
         public void SetExp(int exp)
         {
@@ -95,14 +103,5 @@ namespace Sango.Core
                 Update();
             }
         }
-
-        //public void OnPersonAgeUpdate(Person person)
-        //{
-        //    AttributeChangeType personAbilityChangeType = Scenario.Cur.CommonData.AttributeChangeTypes.Get(changeType);
-        //    if (personAbilityChangeType == null)
-        //        Sango.Log.Error(changeType);
-        //    ushort factor = personAbilityChangeType.GetAgeFactor(person.Age);
-        //    SetFacter(factor);
-        //}
     }
 }

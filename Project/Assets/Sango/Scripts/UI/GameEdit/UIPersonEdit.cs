@@ -154,15 +154,28 @@ namespace Sango.UI
 
             // 五维属性
             p.command.baseValue = command;
-            p.command.Update();
             p.strength.baseValue = strength;
-            p.strength.Update();
             p.intelligence.baseValue = intelligence;
-            p.intelligence.Update();
             p.politics.baseValue = politics;
-            p.politics.Update();
             p.glamour.baseValue = glamour;
-            p.glamour.Update();
+
+            if (!Scenario.Cur.Variables.AgeEnabled || !Scenario.Cur.Variables.EnableAgeAbilityFactor)
+            {
+                p.glamour.UpdateNoAge();
+                p.command.UpdateNoAge();
+                p.strength.UpdateNoAge();
+                p.intelligence.UpdateNoAge();
+                p.politics.UpdateNoAge();
+            }
+            else
+            {
+                p.glamour.Update();
+                p.command.Update();
+                p.strength.Update();
+                p.intelligence.Update();
+                p.politics.Update();
+            }
+                
 
             // 直接属性
             p.compatibility = compatibility;

@@ -2809,7 +2809,7 @@ namespace Sango.Core
 
             int totalValue = 0;
             int subValue = 0;
-            int maxValue = 0;
+            int maxValue = -99;
             Person maxPerson = null;
             for (int i = 0; i < personList.Length; i++)
             {

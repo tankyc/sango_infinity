@@ -137,9 +137,12 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            mForce = scenario.forceSet.Get(BelongForce);
-            mCity = scenario.citySet.Get(BelongCity);
-            mCorps = scenario.corpsSet.Get(BelongCorps);
+            if(BelongForce >0)
+                mForce = scenario.forceSet.Get(BelongForce);
+            if(BelongCity > 0)
+                mCity = scenario.citySet.Get(BelongCity);
+            if(BelongCorps > 0)
+                mCorps = scenario.corpsSet.Get(BelongCorps);
 
             effectCells = new List<Cell>();
             //BelongForce = scenario.forceSet.Get(_belongForceId);

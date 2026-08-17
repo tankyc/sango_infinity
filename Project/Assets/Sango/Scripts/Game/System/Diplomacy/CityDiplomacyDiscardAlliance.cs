@@ -10,8 +10,7 @@ namespace Sango.Core.Player
 
         public CityDiplomacyDiscardAlliance()
         {
-            customTitleName = "送礼";
-
+            customTitleName = "摒弃";
             customMenuName = "外交/摒弃";
             customMenuOrder = 300;
             windowName = "window_city_diplomacy_discard_alliance";

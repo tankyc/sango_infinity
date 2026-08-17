@@ -208,7 +208,7 @@ namespace Sango.Core.Player
 
         void OnCancelUI()
         {
-            Done();
+            GameSystemManager.Instance.BackTo(GameSystem.GetSystem<TroopSystem>());
         }
     }
 }

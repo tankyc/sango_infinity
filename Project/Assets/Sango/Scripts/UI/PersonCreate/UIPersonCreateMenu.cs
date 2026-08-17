@@ -36,6 +36,7 @@ namespace Sango.UI
         public override void OnOpen()
         {
             base.OnOpen();
+            menuRoot.SetActive(false);
             editPersonList.Clear();
             editPersonLibList.Clear();
             Sango.Core.GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.ForEach(x =>
@@ -53,6 +54,8 @@ namespace Sango.UI
         }
         public void OnAutoCreateNewPerson()
         {
+            Close();
+            GameCustomEdit.Instance.TargetEditPerson = null;
             Window.Instance.Open("window_create_person_auto");
         }
 

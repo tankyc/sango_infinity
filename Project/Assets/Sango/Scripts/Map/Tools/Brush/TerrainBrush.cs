@@ -181,6 +181,8 @@ namespace Sango.Tools
         /// </summary>
         private bool showHeightText = false;
 
+        int heightAdd = 0;
+
         /// <summary>
         /// 高度文本自定义材质球（渲染队列设为Overlay，保证最上层显示）
         /// </summary>
@@ -1087,7 +1089,7 @@ namespace Sango.Tools
                 // 混合模式选择
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("混合模式", GUILayout.Width(80));
-              
+
                 int _blendMode = GUILayout.SelectionGrid(brushBlendMode, blendModes, 2);
                 if (_blendMode != brushBlendMode)
                 {
@@ -1158,7 +1160,7 @@ namespace Sango.Tools
             GUILayout.Space(8);
             UnityEngine.Color lastColor = GUI.backgroundColor;
             GUI.backgroundColor = UnityEngine.Color.cyan;
-            int editMode = GUILayout.SelectionGrid(currentEditMode, toolbarTitle, 3, GUILayout.Width(250),GUILayout.Height(90));
+            int editMode = GUILayout.SelectionGrid(currentEditMode, toolbarTitle, 3, GUILayout.Width(250), GUILayout.Height(90));
             if (editMode != currentEditMode)
             {
                 currentEditMode = editMode;
@@ -1201,6 +1203,40 @@ namespace Sango.Tools
 #endif
                             }
                         }
+
+                        GUILayout.Label("地形整体抬高高度", GUILayout.Width(80));
+                        heightAdd = EditorUtility.IntField(heightAdd, GUILayout.MaxWidth(32));
+                        if (GUILayout.Button("地形整体抬高"))
+                        {
+                            // 收集当前笔刷影响范围内的顶点变化
+                            for (int x = 0; x < editor.mapData.vertex_width; x++)
+                            {
+                                for (int y = 0; y < editor.mapData.vertex_height; y++)
+                                {
+                                    // 使用数学公式计算唯一key：x + width * y
+                                    int vertexKey = x + editor.mapData.vertex_width * y;
+
+                                    MapData.VertexData vertexData = editor.vertexMapData[x][y];
+                                    byte oldValue = vertexData.height;
+                                    if (heightAdd + oldValue > 255)
+                                        oldValue = 255;
+                                    else if (heightAdd + oldValue < 0)
+                                        oldValue = 0;
+                                    else
+                                        vertexData.height = (byte)(oldValue + heightAdd);
+                                }
+                            }
+
+                            for (int i = 0; i < editor.map.mapTerrain.terrainCells.Length; i++)
+                            {
+                                MapCell cell = editor.map.mapTerrain.terrainCells[i];
+                                if (cell != null)
+                                {
+                                    cell.PrepareDatas(false);
+                                }
+                            }
+                        }
+
                     }
                     break;
                 case BrushType.Texture:

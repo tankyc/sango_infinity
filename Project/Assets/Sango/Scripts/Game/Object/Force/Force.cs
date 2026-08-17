@@ -72,7 +72,7 @@ namespace Sango.Core
         /// 首都, 必须是君主所在城市,无论港关
         /// </summary>
         public City CapitalCity => mGovernor.mCity;
-        
+
         /// <summary>
         /// 第一军团
         /// </summary>
@@ -279,9 +279,13 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            mGovernor = scenario.personSet.Get(Governor);
-            mCounsellor = scenario.personSet.Get(Counsellor);
+            if (Governor > 0)
+                mGovernor = scenario.personSet.Get(Governor);
+            if (Counsellor > 0)
+                mCounsellor = scenario.personSet.Get(Counsellor);
             mFlag = scenario.CommonData.Flags.Get(Flag);
+            if (mFlag == null)
+                mFlag = scenario.CommonData.Flags.Get(0);
         }
 
         public override void OnScenarioSave(Scenario scenario)
@@ -740,7 +744,7 @@ namespace Sango.Core
 
                                     // 创建相机移动事件
                                     CameraMoveEvent cameraMoveEvent = RenderEvent.Instance.Create<CameraMoveEvent>();
-                                    cameraMoveEvent.Init(troop.cell.Position, 0.5f, 
+                                    cameraMoveEvent.Init(troop.cell.Position, 0.5f,
                                         GameDialog.DialogStyle.ClickPersonSay, $"{ColorName}大人，\n我军细作传来消息,有敌军正在往我方{targetCity.ColorName}靠近!!。", mCounsellor, null, null).donotReturn = true;
                                     RenderEvent.Instance.Add(cameraMoveEvent);
 
@@ -752,7 +756,7 @@ namespace Sango.Core
                     }
                 }
 
-                if(checkedCity != null)
+                if (checkedCity != null)
                 {
                     CameraMoveEvent cameraMoveEvent = RenderEvent.Instance.Create<CameraMoveEvent>();
                     cameraMoveEvent.Init(MapRender.Instance.GetCameraPos(), 0.5f);
@@ -1250,7 +1254,7 @@ namespace Sango.Core
         /// <param name="cities"></param>
         public void DeleteCorps(Corps corps)
         {
-            if (corps.mForce == null) 
+            if (corps.mForce == null)
             {
                 Scenario.Cur.corpsSet.Remove(corps);
                 return;

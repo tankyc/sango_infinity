@@ -190,6 +190,7 @@ namespace Sango.UI
             // 同时判断陆地与水上兵种的消耗需求，取两者限制下的较小值
             limit = LimitByCostItems(limit, targetTroop.LandTroopType);
             limit = LimitByCostItems(limit, targetTroop.WaterTroopType);
+            limit = System.Math.Min(limit, targetTroop.MaxTroops - targetTroop.troops);
             return limit;
         }
 

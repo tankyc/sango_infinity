@@ -914,7 +914,13 @@ namespace Sango.Core
                     person.CurrentCity = x.BelongCity;
                     person.BelongForce = x.BelongForce;
                     person.state = x.state;
-                    if (!person.IsWild)
+                    if(x.state == 0)
+                    {
+                        x.state = (int)PersonStateType.Invisible;
+                        person.BelongCity = scenario.citySet.RandomGet().Id;
+                        person.CurrentCity = person.BelongCity;
+                    }
+                    else if (!person.IsWild)
                     {
                         City city = scenario.citySet[x.BelongCity];
                         ShortCity shortCity = addData.citySet[x.BelongCity];
