@@ -669,6 +669,7 @@ namespace Sango.UI
             for (int i = 1; i < scenario.citySet.Count; i++)
             {
                 City city = scenario.citySet[i];
+                if(city == null) continue;
                 int selfTroopNum = 0;
                 int enemyTroopNum = 0;
                 for (int j = 0; j < city.areaCellList.Count; j++)
