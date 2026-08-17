@@ -105,7 +105,7 @@ namespace Sango.Core
         /// <summary>
         /// 身平
         /// </summary>
-        [JsonProperty] public int description;
+        [JsonProperty] public string description;
 
         /// <summary>
         /// 头像id
@@ -323,30 +323,32 @@ namespace Sango.Core
         /// <summary>
         /// 父亲
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Person>))]
         [JsonProperty]
-        public Person Father { get; set; }
+        public int Father;
+        public Person mFather { get; set; }
 
         /// <summary>
         /// 母亲
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Person>))]
         [JsonProperty]
-        public Person Mother { get; set; }
+        public int Mother;
+        public Person mMother { get; set; }
 
         /// <summary>
         /// 配偶
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
         [JsonProperty]
-        public SangoObjectList<Person> SpouseList { get; private set; }
+        public int[] SpouseList;
+
+        public SangoObjectList<Person> mSpouseList { get; private set; }
 
         /// <summary>
         /// 兄弟
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Person>))]
         [JsonProperty]
-        public Person Brother { get; set; }
+        public int Brother;
+
+        public Person mBrother { get; set; }
 
         /// <summary>
         /// 兄弟
@@ -356,16 +358,17 @@ namespace Sango.Core
         /// <summary>
         /// 喜欢武将
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
         [JsonProperty]
-        public SangoObjectList<Person> LikePersonList { get; set; }
+        public int[] LikePersonList;
+
+        public SangoObjectList<Person> mLikePersonList { get; set; }
 
         /// <summary>
         /// 厌恶武将
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
         [JsonProperty]
-        public SangoObjectList<Person> HatePersonList { get; set; }
+        public int[] HatePersonList;
+        public SangoObjectList<Person> mHatePersonList { get; set; }
 
         /// <summary>
         /// 儿子们, 由father属性添加至父亲的属性里
@@ -423,8 +426,9 @@ namespace Sango.Core
         /// 武将特性
         /// </summary>
         [JsonProperty]
-        [JsonConverter(typeof(SangoObjectListIDConverter<Feature>))]
-        public SangoObjectList<Feature> FeatureList { get; set; }
+        public int[] FeatureList;
+
+        public SangoObjectList<Feature> mFeatureList { get; set; }
 
         /// <summary>
         /// 库存
@@ -732,35 +736,32 @@ namespace Sango.Core
         /// <param name="scenario"></param>
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            if (BelongForce > 0)
-                mForce = scenario.forceSet.Get(BelongForce);
+            mForce = scenario.Id2Object(scenario.forceSet, BelongForce);
+            mCorps = scenario.Id2Object(scenario.corpsSet, BelongCorps);
+            mCity = scenario.Id2Object(scenario.citySet, BelongCity);
+            mCurrentCity = scenario.Id2Object(scenario.citySet, CurrentCity);
+            mTroop = scenario.Id2Object(scenario.troopsSet, BelongTroop);
 
-            if (BelongCorps > 0)
-                mCorps = scenario.corpsSet.Get(BelongCorps);
+            if (personality <= 0)
+                personality = 1;
+            mPersonality = scenario.Id2Object(scenario.CommonData.Personalities, personality);
 
-            if (BelongCity > 0)
-                mCity = scenario.citySet.Get(BelongCity);
+            if (argumentation <= 0)
+                personality = 2;
+            mArgumentation = scenario.Id2Object(scenario.CommonData.Argumentations, argumentation);
 
-            if (CurrentCity > 0)
-                mCurrentCity = scenario.citySet.Get(CurrentCity);
+            if (attributeChangeType <= 0)
+                attributeChangeType = 5;
+            mAttributeChangeType = scenario.Id2Object(scenario.CommonData.AttributeChangeTypes, attributeChangeType);
 
-            if (BelongTroop > 0)
-                mTroop = scenario.troopsSet.Get(BelongTroop);
+            mFather = scenario.Id2Object(scenario.personSet, Father);
+            mMother = scenario.Id2Object(scenario.personSet, Mother);
+            mBrother = scenario.Id2Object(scenario.personSet, Brother);
 
-            if (personality > 0)
-                mPersonality = scenario.CommonData.Personalities.Get(personality);
-            if (mPersonality == null)
-                mPersonality = scenario.CommonData.Personalities.Get(1);
-
-            if (argumentation > 0)
-                mArgumentation = scenario.CommonData.Argumentations.Get(argumentation);
-            if (mArgumentation == null)
-                mArgumentation = scenario.CommonData.Argumentations.Get(2);
-
-            if (attributeChangeType > 0)
-                mAttributeChangeType = scenario.CommonData.AttributeChangeTypes.Get(attributeChangeType);
-            if (mAttributeChangeType == null)
-                mAttributeChangeType = scenario.CommonData.AttributeChangeTypes.Get(5);
+            mSpouseList = scenario.Array2ObjectList(scenario.personSet, SpouseList);
+            mLikePersonList = scenario.Array2ObjectList(scenario.personSet, LikePersonList);
+            mHatePersonList = scenario.Array2ObjectList(scenario.personSet, HatePersonList);
+            mFeatureList = scenario.Array2ObjectList(scenario.CommonData.Features, FeatureList);
 
             command.master = this;
             strength.master = this;
@@ -778,12 +779,12 @@ namespace Sango.Core
             }
 
             // 处理义兄弟
-            if (Brother != null)
+            if (mBrother != null)
             {
-                if (Brother.BrotherList == null)
-                    Brother.BrotherList = new List<Person>();
+                if (mBrother.BrotherList == null)
+                    mBrother.BrotherList = new List<Person>();
 
-                Brother.BrotherList.Add(this);
+                mBrother.BrotherList.Add(this);
             }
 
             if (IsAlive)
@@ -872,11 +873,11 @@ namespace Sango.Core
             }
 
             // 处理父亲
-            if (Father != null)
-                Father.sonList.Add(this);
+            if (mFather != null)
+                mFather.sonList.Add(this);
 
-            if (Mother != null)
-                Mother.sonList.Add(this);
+            if (mMother != null)
+                mMother.sonList.Add(this);
 
             OnPersonAgeUpdate(scenario);
 
@@ -906,22 +907,31 @@ namespace Sango.Core
             personality = mPersonality?.Id ?? 0;
             argumentation = mArgumentation?.Id ?? 0;
             attributeChangeType = mAttributeChangeType?.Id ?? 0;
+
+            Father = mFather?.Id ?? 0;
+            Mother = mMother?.Id ?? 0;
+            Brother = mBrother?.Id ?? 0;
+
+            SpouseList = mSpouseList?.ToArray() ?? null;
+            LikePersonList = mLikePersonList?.ToArray() ?? null;
+            HatePersonList = mHatePersonList?.ToArray() ?? null;
+            FeatureList = mFeatureList?.ToArray() ?? null;
         }
 
         public override void Init(Scenario scenario)
         {
             base.Init(scenario);
 
-            if (Brother != null)
+            if (mBrother != null)
             {
-                if (Brother == this)
+                if (mBrother == this)
                 {
                     BrotherList.Sort(SangoObject.Compare);
 
                 }
                 else
                 {
-                    BrotherList = Brother.BrotherList;
+                    BrotherList = mBrother.BrotherList;
                 }
             }
         }
@@ -1750,17 +1760,17 @@ namespace Sango.Core
 
         public bool HasFeatrue(int id)
         {
-            if (FeatureList == null || FeatureList.Count == 0) return false;
-            return FeatureList.Contains(id);
+            if (mFeatureList == null || mFeatureList.Count == 0) return false;
+            return mFeatureList.Contains(id);
         }
 
         public bool HasFeatrue(int[] ids)
         {
-            if (FeatureList == null || FeatureList.Count == 0) return false;
+            if (mFeatureList == null || mFeatureList.Count == 0) return false;
             if (ids == null) return false;
             for (int i = 0; i < ids.Length; i++)
             {
-                if (FeatureList.Contains(ids[i])) return true;
+                if (mFeatureList.Contains(ids[i])) return true;
             }
             return false;
         }
@@ -1796,14 +1806,14 @@ namespace Sango.Core
 
         public bool IsLike(Person other)
         {
-            if (other == null || LikePersonList == null) return false;
-            return LikePersonList.Contains(other);
+            if (other == null || mLikePersonList == null) return false;
+            return mLikePersonList.Contains(other);
         }
 
         public bool IsHate(Person other)
         {
-            if (other == null || HatePersonList == null) return false;
-            return HatePersonList.Contains(other);
+            if (other == null || mHatePersonList == null) return false;
+            return mHatePersonList.Contains(other);
         }
 
         public bool IsBrother(Person other)
@@ -1815,10 +1825,10 @@ namespace Sango.Core
         public bool IsParentchild(Person other)
         {
             if (other == null) return false;
-            if (other.Father == this) return true;
-            if (other.Mother == this) return true;
-            if (Father == other) return true;
-            if (Mother == other) return true;
+            if (other.mFather == this) return true;
+            if (other.mMother == this) return true;
+            if (mFather == other) return true;
+            if (mMother == other) return true;
             return false;
         }
 
@@ -1974,6 +1984,14 @@ namespace Sango.Core
                 && strength.baseValue > politics.baseValue;
         }
 
+        public string GetDescription()
+        {
+            if (!string.IsNullOrEmpty(description))
+                return description;
+            
+            return GameLanguage.GetString(Id);
+        }
+
         public static Person FormLib(PersonLib personLib)
         {
             Person person = new Person();
@@ -1982,7 +2000,11 @@ namespace Sango.Core
             person.image_old = personLib.image_old;
             return person;
         }
-
+        private static int[] CloneArray(int[] source)
+        {
+            if (source == null) return new int[0];
+            return (int[])source.Clone();
+        }
         public static Person FormLib2(PersonLib personLib)
         {
             Person person = new Person();
@@ -1991,6 +2013,7 @@ namespace Sango.Core
             person.Name = personLib.familyName + personLib.giveName;
             person.familyNameID = personLib.familyNameID;
             person.familyName = personLib.familyName;
+            person.description = personLib.description;
             person.giveNameID = personLib.giveNameID;
             person.giveName = personLib.giveName;
             person.nickNameID = personLib.nickNameID;
@@ -2002,7 +2025,7 @@ namespace Sango.Core
             person.sex = personLib.sex;
             person.yearBorn = personLib.yearBorn;
             person.yearDead = personLib.yearDead;
-            person.compatibility = personLib.compatibility;
+            person.compatibility = personLib.compatibility & 0xFF;
             person.state = personLib.state;
             person.voice = personLib.voice;
             person.tone = personLib.tone;
@@ -2026,6 +2049,16 @@ namespace Sango.Core
             person.machineLv.baseValue = personLib.machineLv;
             person.personality = personLib.personality;
             person.argumentation = personLib.argumentation;
+
+            person.Father = personLib.Father;
+            person.Mother = personLib.Mother;
+            person.Brother = personLib.Brother;
+
+            person.SpouseList = CloneArray(personLib.SpouseList);
+            person.LikePersonList = CloneArray(personLib.LikePersonList);
+            person.HatePersonList = CloneArray(personLib.LikePersonList);
+            person.FeatureList = CloneArray(personLib.FeatureList);
+
 
             return person;
         }

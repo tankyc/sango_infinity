@@ -914,7 +914,7 @@ namespace Sango.Core
                     person.CurrentCity = x.BelongCity;
                     person.BelongForce = x.BelongForce;
                     person.state = x.state;
-                    if(x.state == 0)
+                    if (x.state == 0)
                     {
                         x.state = (int)PersonStateType.Invisible;
                         person.BelongCity = scenario.citySet.RandomGet().Id;
@@ -1710,5 +1710,44 @@ namespace Sango.Core
             string modifyDir = FilePath.Remove(FilePath.Length - 5);
             //Sango.Log.Error(modifyDir);
         }
+
+        //public T Id2Object<T>(int id) where T : SangoObject, new()
+        //{
+        //    if (id == 0)
+        //        return null;
+
+        //    return GetObject<T>(id);
+        //}
+        //public T Id2Object0<T>(int id) where T : SangoObject, new()
+        //{
+        //    return GetObject<T>(id);
+        //}
+
+        public T Id2Object<T>(SangoObjectSet<T> data, int id) where T : SangoObject, new()
+        {
+            if (id == 0)
+                return null;
+
+            return data.Get(id);
+        }
+        public T Id2Object0<T>(SangoObjectSet<T> data, int id) where T : SangoObject, new()
+        {
+            return data.Get(id);
+        }
+
+        public SangoObjectList<T> Array2ObjectList<T>(SangoObjectSet<T> data, int[] ids) where T : SangoObject, new()
+        {
+            if(ids == null) return null;
+            SangoObjectList<T> sangoObjectList = new SangoObjectList<T>();
+            for (int i = 0; i < ids.Length; i++)
+            {
+                int id = ids[i];
+                T obj = data.Get(id);
+                if(obj != null)
+                    sangoObjectList.Add(obj);
+            }
+            return sangoObjectList;
+        }
+
     }
 }

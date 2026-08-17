@@ -95,12 +95,12 @@ namespace Sango.Core
             }
 
             //目标武将有配偶
-            if (target.SpouseList != null)
+            if (target.mSpouseList != null)
             {
-                for (int i = 0; i < target.SpouseList.Count; i++)
+                for (int i = 0; i < target.mSpouseList.Count; i++)
                 {
                     // 目标武将与配偶在同一势力时，总是失敗
-                    Person spouse = target.SpouseList[i];
+                    Person spouse = target.mSpouseList[i];
                     if (target_is_returnable && spouse.mForce == target.mForce)
                         return true;
                     //目标武将的配偶属於执行武将以外势力时，总是失敗
@@ -122,12 +122,12 @@ namespace Sango.Core
             }
 
             //目标武将有厌恶武将
-            if (target.HatePersonList != null)
+            if (target.mHatePersonList != null)
             {
-                for (int i = 0; i < target.HatePersonList.Count; i++)
+                for (int i = 0; i < target.mHatePersonList.Count; i++)
                 {
                     // 目标武将的厌恶武将是执行武将时，总是失敗
-                    Person person = target.HatePersonList[i];
+                    Person person = target.mHatePersonList[i];
                     if (person == actor)
                         return true;
                     //目标武将的厌恶武将是执行武将的君主时，总是失敗
@@ -138,12 +138,12 @@ namespace Sango.Core
 
 
             //目标武将有亲爱武将
-            if (target.LikePersonList != null)
+            if (target.mLikePersonList != null)
             {
-                for (int i = 0; i < target.LikePersonList.Count; i++)
+                for (int i = 0; i < target.mLikePersonList.Count; i++)
                 {
                     // 目标武将的亲爱武将是目标武将的君主时，总是失敗
-                    Person person = target.LikePersonList[i];
+                    Person person = target.mLikePersonList[i];
                     if (person == actor)
                         return true;
                     //目标武将的亲爱武将是目标武将的君主时，总是失敗

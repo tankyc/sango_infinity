@@ -204,26 +204,26 @@ namespace Sango.Core
         /// <summary>
         /// 父亲
         /// </summary>
-        [JsonProperty]
-        public int Father { get; set; }
+        [JsonProperty] 
+        public int Father;
 
         /// <summary>
         /// 母亲
         /// </summary>
         [JsonProperty]
-        public int Mother { get; set; }
+        public int Mother;
 
         /// <summary>
         /// 配偶
         /// </summary>
-        [JsonProperty]
-        public int[] SpouseList { get; set; }
+        [JsonProperty] 
+        public int[] SpouseList;
 
         /// <summary>
         /// 兄弟
         /// </summary>
         [JsonProperty]
-        public int Brother { get; set; }
+        public int Brother;
 
         /// <summary>
         /// 兄弟
@@ -231,22 +231,16 @@ namespace Sango.Core
         public int[] BrotherList;
 
         /// <summary>
-        /// 義兄弟
-        /// </summary>
-        [JsonProperty]
-        public int[] swornBrotherList { get; set; }
-
-        /// <summary>
         /// 喜欢武将
         /// </summary>
         [JsonProperty]
-        public int[] LikePersonList { get; set; }
+        public int[] LikePersonList;
 
         /// <summary>
         /// 厌恶武将
         /// </summary>
         [JsonProperty]
-        public int[] HatePersonList { get; set; }
+        public int[] HatePersonList;
 
         /// <summary>
         /// 矛

@@ -442,11 +442,11 @@ namespace Sango.Core
             ForEachPerson(x =>
             {
                 x.mTroop = this;
-                if (x.FeatureList != null)
+                if (x.mFeatureList != null)
                 {
-                    for (int i = 0; i < x.FeatureList.Count; i++)
+                    for (int i = 0; i < x.mFeatureList.Count; i++)
                     {
-                        x.FeatureList[i].InitActions(actionList, this, x);
+                        x.mFeatureList[i].InitActions(actionList, this, x);
                     }
                 }
             });
@@ -485,11 +485,11 @@ namespace Sango.Core
             ForEachPerson(x =>
             {
                 x.mTroop = this;
-                if (x.FeatureList != null)
+                if (x.mFeatureList != null)
                 {
-                    for (int i = 0; i < x.FeatureList.Count; i++)
+                    for (int i = 0; i < x.mFeatureList.Count; i++)
                     {
-                        x.FeatureList[i].InitActions(actionList, this, x);
+                        x.mFeatureList[i].InitActions(actionList, this, x);
                     }
                 }
             });

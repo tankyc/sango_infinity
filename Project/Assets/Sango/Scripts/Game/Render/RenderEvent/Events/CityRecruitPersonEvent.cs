@@ -19,13 +19,13 @@ namespace Sango.Render
         void InitJobFeature(Person person)
         {
             sJobActions.Clear();
-            if (person != null && person.FeatureList != null)
+            if (person != null && person.mFeatureList != null)
             {
-                for (int j = 0; j < person.FeatureList.Count; j++)
+                for (int j = 0; j < person.mFeatureList.Count; j++)
                 {
-                    Feature feature = person.FeatureList[j];
+                    Feature feature = person.mFeatureList[j];
                     if (feature.kind == (int)FeatureKindType.CityProduce)
-                        person.FeatureList[j].InitActions(sJobActions, person.mCity);
+                        person.mFeatureList[j].InitActions(sJobActions, person.mCity);
                 }
             }
         }

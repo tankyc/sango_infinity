@@ -502,7 +502,6 @@ namespace Sango.UI
                 Brother = target.Brother,
                 SpouseList = CloneArray(target.SpouseList),
                 BrotherList = CloneArray(target.BrotherList),
-                swornBrotherList = CloneArray(target.swornBrotherList),
                 LikePersonList = CloneArray(target.LikePersonList),
                 HatePersonList = CloneArray(target.HatePersonList),
                 FeatureList = CloneArray(target.FeatureList)
@@ -534,7 +533,7 @@ namespace Sango.UI
             target.yearDead = snapshot.yearDead;
             target.yearAvailable = snapshot.yearAvailable;
             // 相性值占用低 8 位（0-255），高位存储来源武将 ID 仅用于编辑器内显示，保存时只写入相性值
-            target.compatibility = snapshot.compatibility & 0xFF;
+            target.compatibility = snapshot.compatibility;
 
             target.personality = snapshot.personality;
             target.argumentation = snapshot.argumentation;
@@ -564,7 +563,6 @@ namespace Sango.UI
             target.Brother = snapshot.Brother;
             target.SpouseList = CloneArray(snapshot.SpouseList);
             target.BrotherList = CloneArray(snapshot.BrotherList);
-            target.swornBrotherList = CloneArray(snapshot.swornBrotherList);
             target.LikePersonList = CloneArray(snapshot.LikePersonList);
             target.HatePersonList = CloneArray(snapshot.HatePersonList);
             target.FeatureList = CloneArray(snapshot.FeatureList);

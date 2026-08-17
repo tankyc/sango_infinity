@@ -61,5 +61,18 @@ namespace Sango.Core
             }
             //return null;
         }
+
+        public static T Id2Object<T>(Scenario scenario, int id) where T : SangoObject, new()
+        {
+            if (id == 0)
+                return null;
+
+            return scenario.GetObject<T>(id);
+        }
+
+        public static T Id2Object0<T>(Scenario scenario, int id) where T : SangoObject, new()
+        {
+            return scenario.GetObject<T>(id);
+        }
     }
 }

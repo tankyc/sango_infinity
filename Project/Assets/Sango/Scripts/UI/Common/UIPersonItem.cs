@@ -16,8 +16,8 @@ using Sango.Core; namespace Sango.UI
                 headIcon.texture = GameRenderHelper.LoadHeadIcon(person.headIconID, headIconType);
                 headIcon.enabled = true;
                 name.text = person.Name;
-                if (person.FeatureList != null && person.FeatureList.Count > 0)
-                    feature.text = person.FeatureList[0].Name;
+                if (person.mFeatureList != null && person.mFeatureList.Count > 0)
+                    feature.text = person.mFeatureList[0].Name;
                 else
                     feature.text = "";
             }

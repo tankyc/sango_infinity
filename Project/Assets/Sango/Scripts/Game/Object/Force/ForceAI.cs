@@ -1606,11 +1606,11 @@ namespace Sango.Core
                 for (int i = 0; i < destSlot; i++)
                 {
                     Person exsistP = checkPersons[i];
-                    if (exsistP.FeatureList != null)
+                    if (exsistP.mFeatureList != null)
                     {
                         for (int j = 0; j < troopType.matchFeatures.Length; j++)
                         {
-                            if (exsistP.FeatureList.Contains(troopType.matchFeatures[j]))
+                            if (exsistP.mFeatureList.Contains(troopType.matchFeatures[j]))
                             {
                                 alreadtHasFeature = true;
                                 break;
@@ -1628,11 +1628,11 @@ namespace Sango.Core
                     for (int i = 0; i < list.Count; i++)
                     {
                         Person person = personList[i];
-                        if (person.FeatureList != null)
+                        if (person.mFeatureList != null)
                         {
                             for (int j = 0; j < troopType.matchFeatures.Length; j++)
                             {
-                                if (person.FeatureList.Contains(troopType.matchFeatures[j]))
+                                if (person.mFeatureList.Contains(troopType.matchFeatures[j]))
                                 {
                                     checkPersons[destSlot] = person;
                                     person1 = person;
@@ -1817,7 +1817,7 @@ namespace Sango.Core
         /// </summary>
         public static Person[] CounsellorRecommendResearch(List<Person> personList, Technique technique)
         {
-            List<Person> featurePersonList = personList.FindAll(x => x.FeatureList != null && x.FeatureList.Contains(technique.recommandFeatures));
+            List<Person> featurePersonList = personList.FindAll(x => x.mFeatureList != null && x.mFeatureList.Contains(technique.recommandFeatures));
             if (featurePersonList.Count >= 3) return featurePersonList.ToArray();
 
             Person p1 = featurePersonList.Count > 0 ? featurePersonList[0] : null;

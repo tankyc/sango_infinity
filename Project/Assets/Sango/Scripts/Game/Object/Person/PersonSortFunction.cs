@@ -422,12 +422,12 @@ namespace Sango.Core
             valueGetCall = x =>
             {
                 StringBuilder sb = new StringBuilder();
-                if (x.FeatureList != null)
+                if (x.mFeatureList != null)
                 {
-                    for (int i = 0; i < x.FeatureList.Count; i++)
+                    for (int i = 0; i < x.mFeatureList.Count; i++)
                     {
-                        sb.Append(x.FeatureList[i].Name);
-                        if (i < x.FeatureList.Count - 1)
+                        sb.Append(x.mFeatureList[i].Name);
+                        if (i < x.mFeatureList.Count - 1)
                             sb.Append(", ");
                     }
                 }
@@ -435,13 +435,13 @@ namespace Sango.Core
             },
             personSortFunc = (a, b) =>
             {
-                if (a.FeatureList == null && b.FeatureList == null)
+                if (a.mFeatureList == null && b.mFeatureList == null)
                     return 0;
-                if (a.FeatureList != null && b.FeatureList == null)
+                if (a.mFeatureList != null && b.mFeatureList == null)
                     return -1;
-                if (a.FeatureList == null && b.FeatureList != null)
+                if (a.mFeatureList == null && b.mFeatureList != null)
                     return 1;
-                return a.FeatureList.Count.CompareTo(b.FeatureList.Count);
+                return a.mFeatureList.Count.CompareTo(b.mFeatureList.Count);
             },
             valueObjGet = null,
             valueObjSet = null,
@@ -453,15 +453,15 @@ namespace Sango.Core
             width = 30.00f,
             valueGetCall = x =>
             {
-                if (x.FeatureList == null || x.FeatureList.Count == 0)
+                if (x.mFeatureList == null || x.mFeatureList.Count == 0)
                     return string.Empty;
 
                 StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < x.FeatureList.Count; i++)
+                for (int i = 0; i < x.mFeatureList.Count; i++)
                 {
-                    var feat = x.FeatureList[i];
+                    var feat = x.mFeatureList[i];
                     sb.Append(feat.desc ?? string.Empty);
-                    if (i < x.FeatureList.Count - 1)
+                    if (i < x.mFeatureList.Count - 1)
                         sb.Append("\n");
                 }
                 return sb.ToString();
@@ -751,7 +751,7 @@ namespace Sango.Core
         {
             name = "身平",
             width = 2.00f,
-            valueGetCall = x => GameLanguage.GetString(x.Id),
+            valueGetCall = x => x.GetDescription(),
             personSortFunc = (a, b) => a.Id.CompareTo(b.Id),
             valueObjGet = null,
             valueObjSet = null,
@@ -963,20 +963,20 @@ namespace Sango.Core
         {
             name = "父亲",
             width = 2.40f,
-            valueGetCall = x => x == null || x.Father == null ? " " : x.Father.Name,
-            personSortFunc = (a, b) => SangoObject.Compare(a?.Father, b?.Father),
-            valueObjGet = x => x.Father,
-            valueObjSet = (x, v) => x.Father = (Person)v,
+            valueGetCall = x => x == null || x.mFather == null ? " " : x.mFather.Name,
+            personSortFunc = (a, b) => SangoObject.Compare(a?.mFather, b?.mFather),
+            valueObjGet = x => x.mFather,
+            valueObjSet = (x, v) => x.mFather = (Person)v,
         };
 
         public static SortTitle SortByMother = new SortTitle()
         {
             name = "母亲",
             width = 2.40f,
-            valueGetCall = x => x == null || x.Mother == null ? " " : x.Mother.Name,
-            personSortFunc = (a, b) => SangoObject.Compare(a?.Mother, b?.Mother),
-            valueObjGet = x => x.Mother,
-            valueObjSet = (x, v) => x.Mother = (Person)v,
+            valueGetCall = x => x == null || x.mMother == null ? " " : x.mMother.Name,
+            personSortFunc = (a, b) => SangoObject.Compare(a?.mMother, b?.mMother),
+            valueObjGet = x => x.mMother,
+            valueObjSet = (x, v) => x.mMother = (Person)v,
         };
 
         public static SortTitle SortByBrother = new SortTitle()
@@ -1021,10 +1021,10 @@ namespace Sango.Core
             valueGetCall = x =>
             {
                 if (x == null) return " ";
-                if (x.SpouseList == null || x.SpouseList.Count == 0) return " ";
+                if (x.mSpouseList == null || x.mSpouseList.Count == 0) return " ";
 
                 var names = new System.Collections.Generic.List<string>();
-                foreach (Person spouse in x.SpouseList)
+                foreach (Person spouse in x.mSpouseList)
                 {
                     if (spouse != null) names.Add(spouse.Name);
                 }
@@ -1032,15 +1032,15 @@ namespace Sango.Core
             },
             personSortFunc = (a, b) =>
             {
-                if (a.SpouseList != null && b.SpouseList != null)
+                if (a.mSpouseList != null && b.mSpouseList != null)
                 {
-                    return a.SpouseList.Count.CompareTo(b.SpouseList.Count);
+                    return a.mSpouseList.Count.CompareTo(b.mSpouseList.Count);
                 }
 
-                if (a.SpouseList != null)
+                if (a.mSpouseList != null)
                     return 1;
 
-                if (b.SpouseList != null)
+                if (b.mSpouseList != null)
                     return -1;
 
                 return 0;

@@ -92,9 +92,9 @@ namespace Sango.UI
 
             // 特技 - 拷贝FeatureList
             snapshot.EditingFeatures = new List<Feature>();
-            if (p.FeatureList != null)
+            if (p.mFeatureList != null)
             {
-                foreach (Feature f in p.FeatureList)
+                foreach (Feature f in p.mFeatureList)
                 {
                     if (f != null)
                     {
@@ -105,9 +105,9 @@ namespace Sango.UI
 
             // 亲爱武将列表
             snapshot.LikePersons = new List<Person>();
-            if (p.LikePersonList != null)
+            if (p.mLikePersonList != null)
             {
-                foreach (Person likePerson in p.LikePersonList)
+                foreach (Person likePerson in p.mLikePersonList)
                 {
                     if (likePerson != null)
                     {
@@ -118,9 +118,9 @@ namespace Sango.UI
 
             // 厌恶武将列表
             snapshot.HatePersons = new List<Person>();
-            if (p.HatePersonList != null)
+            if (p.mHatePersonList != null)
             {
-                foreach (Person hatePerson in p.HatePersonList)
+                foreach (Person hatePerson in p.mHatePersonList)
                 {
                     if (hatePerson != null)
                     {
@@ -185,16 +185,16 @@ namespace Sango.UI
             // 特技
             if (EditingFeatures != null && EditingFeatures.Count > 0)
             {
-                if (p.FeatureList != null)
-                    p.FeatureList.Clear();
+                if (p.mFeatureList != null)
+                    p.mFeatureList.Clear();
                 else
-                    p.FeatureList = new SangoObjectList<Feature>();
+                    p.mFeatureList = new SangoObjectList<Feature>();
 
                 for (int i = 0; i < EditingFeatures.Count; i++)
                 {
                     if (EditingFeatures[i] != null)
                     {
-                        p.FeatureList.Add(EditingFeatures[i]);
+                        p.mFeatureList.Add(EditingFeatures[i]);
                     }
                 }
             }
@@ -202,44 +202,44 @@ namespace Sango.UI
             // 亲爱武将列表
             if (LikePersons != null && LikePersons.Count > 0)
             {
-                if (p.LikePersonList != null)
-                    p.LikePersonList.Clear();
+                if (p.mLikePersonList != null)
+                    p.mLikePersonList.Clear();
                 else
-                    p.LikePersonList = new SangoObjectList<Person>();
+                    p.mLikePersonList = new SangoObjectList<Person>();
                 for (int i = 0; i < LikePersons.Count; i++)
                 {
                     if (LikePersons[i] != null)
                     {
-                        p.LikePersonList.Add(LikePersons[i]);
+                        p.mLikePersonList.Add(LikePersons[i]);
                     }
                 }
             }
             else
             {
-                if (p.LikePersonList != null)
-                    p.LikePersonList.Clear();
+                if (p.mLikePersonList != null)
+                    p.mLikePersonList.Clear();
             }
 
             // 厌恶武将列表
             if (HatePersons != null && HatePersons.Count > 0)
             {
-                if (p.HatePersonList != null)
-                    p.HatePersonList.Clear();
+                if (p.mHatePersonList != null)
+                    p.mHatePersonList.Clear();
                 else
-                    p.HatePersonList = new SangoObjectList<Person>();
+                    p.mHatePersonList = new SangoObjectList<Person>();
 
                 for (int i = 0; i < HatePersons.Count; i++)
                 {
                     if (HatePersons[i] != null)
                     {
-                        p.HatePersonList.Add(HatePersons[i]);
+                        p.mHatePersonList.Add(HatePersons[i]);
                     }
                 }
             }
             else
             {
-                if (p.HatePersonList != null)
-                    p.HatePersonList.Clear();
+                if (p.mHatePersonList != null)
+                    p.mHatePersonList.Clear();
             }
 
 
