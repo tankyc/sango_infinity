@@ -475,9 +475,9 @@ namespace Sango.Core
             capturingTroop.captiveList.Add(general);
 
             // 从原势力中移除
-            if (general.mForce != null)
+            if (general.mBelongForce != null)
             {
-                general.mForce.BeCaptiveList.Add(general);
+                general.mBelongForce.BeCaptiveList.Add(general);
             }
 
             // 触发俘虏事件

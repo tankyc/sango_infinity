@@ -34,9 +34,9 @@ namespace Sango.UI
 
         public void UpdateContent()
         {
-            who.text = $"{person.mForce.Name}";
+            who.text = $"{person.mBelongForce.Name}";
             target.text = $"{GameSystem.GetSystem<DiplomacyManager>().GetActionName(actionType)}";
-            relationship.text = Scenario.Cur.GetRelation(person.mForce, receiverForce).ToString();
+            relationship.text = Scenario.Cur.GetRelation(person.mBelongForce, receiverForce).ToString();
             gold.text = $"{resourceValue}";
         }
         

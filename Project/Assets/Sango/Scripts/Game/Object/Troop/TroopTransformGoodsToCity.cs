@@ -22,10 +22,10 @@ namespace Sango.Core
                 }
                 else
                 {
-                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                    troop.SetMission(MissionType.TroopReturnCity, troop.mBelongCity.Id);
                 }
 
-                Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
+                Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
                 Troop.NeedPrepareMission();
                 return;
             }

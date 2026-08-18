@@ -139,7 +139,7 @@ namespace Sango.UI
         {
             if (items_inited) return;
             itemPool.Reset();
-            List<ItemType> ItemTypes = Target.BelongForce.createdItemTypes;
+            List<ItemType> ItemTypes = Target.mBelongForce.createdItemTypes;
             int len = ItemTypes.Count;
             for (int i = 0; i < len; i++)
             {

@@ -53,7 +53,7 @@ namespace Sango.UI
 
         void OnPersonActionOver(Person person)
         {
-            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && person.mForce != null && person.IsPlayerControl && person.mForce == Scenario.Cur.CurRunForce)
+            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && person.mBelongForce != null && person.IsPlayerControl && person.mBelongForce == Scenario.Cur.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -64,7 +64,7 @@ namespace Sango.UI
             if (troop == null)
                 return;
 
-            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && troop.BelongForce != null && troop.IsPlayerControl && troop.BelongForce == Scenario.Cur.CurRunForce)
+            if ((curShowType == ShowType.Troop || curShowType == ShowType.Person) && troop.mBelongForce != null && troop.IsPlayerControl && troop.mBelongForce == Scenario.Cur.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -73,7 +73,7 @@ namespace Sango.UI
 
         void OnCityFall(City city, Force lastForce, Troop atk)
         {
-            if (curShowType == ShowType.City && city.IsPlayerControl && city.mForce == Scenario.Cur.CurRunForce)
+            if (curShowType == ShowType.City && city.IsPlayerControl && city.mBelongForce == Scenario.Cur.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -81,7 +81,7 @@ namespace Sango.UI
 
         void OnTroopCreated(Troop troop, Scenario scenario)
         {
-            if (curShowType == ShowType.Troop && troop.IsPlayerControl && troop.BelongForce == scenario.CurRunForce)
+            if (curShowType == ShowType.Troop && troop.IsPlayerControl && troop.mBelongForce == scenario.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -89,7 +89,7 @@ namespace Sango.UI
 
         void OnTroopDestroyed(Troop troop, Scenario scenario)
         {
-            if (curShowType == ShowType.Troop && troop.IsPlayerControl && troop.BelongForce == scenario.CurRunForce)
+            if (curShowType == ShowType.Troop && troop.IsPlayerControl && troop.mBelongForce == scenario.CurRunForce)
             {
                 UpdateShowType();
             }
@@ -133,7 +133,7 @@ namespace Sango.UI
                         governorObj = force.CapitalCity;
                         force.ForEachCityBase(obj =>
                         {
-                            if (governorObj != obj && obj.mCorps.IsPlayerControl)
+                            if (governorObj != obj && obj.mBelongCorps.IsPlayerControl)
                                 sorted_list_City.Add(obj);
                         });
 
@@ -159,7 +159,7 @@ namespace Sango.UI
                         governorObj = force.mGovernor;
                         force.ForEachPerson(obj =>
                         {
-                            if (governorObj != obj && obj.mCorps.IsPlayerControl)
+                            if (governorObj != obj && obj.mBelongCorps.IsPlayerControl)
                                 sorted_list_Person.Add(obj);
                         });
                         sorted_list_Person.Sort((a, b) =>
@@ -182,7 +182,7 @@ namespace Sango.UI
                         governorObj = force.mGovernor.mTroop;
                         force.ForEachTroop(obj =>
                         {
-                            if (governorObj != obj && obj.BelongCorps.IsPlayerControl && !string.IsNullOrEmpty(obj.Name))
+                            if (governorObj != obj && obj.mBelongCorps.IsPlayerControl && !string.IsNullOrEmpty(obj.Name))
                                 sorted_list_Troop.Add(obj);
                         });
                         sorted_list_Troop.Sort((a, b) =>

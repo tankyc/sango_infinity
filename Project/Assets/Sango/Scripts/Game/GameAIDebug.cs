@@ -32,7 +32,7 @@ namespace Sango.Core
         public bool waitForTargetDirectPath = false;
         public void OnTroopAIStart(Troop troop, Scenario scenario)
         {
-            if (troop.BelongForce.Id == EnabledForceId)
+            if (troop.mBelongForce.Id == EnabledForceId)
             {
                 waitForAIPrepare = true;
                 waitForTargetDirectPath = true;
@@ -83,7 +83,7 @@ namespace Sango.Core
         public void ShowMoveRange(List<Cell> moveRange, Troop troop)
         {
             if (!Enabled) return;
-            if (troop.BelongForce.Id != EnabledForceId) return;
+            if (troop.mBelongForce.Id != EnabledForceId) return;
             this.moveRange = moveRange;
             foreach (Cell cell in moveRange)
             {
@@ -117,7 +117,7 @@ namespace Sango.Core
         public void ShowTargetDirectPath(List<Cell> moveRange, Troop troop)
         {
             if (!Enabled) return;
-            if (troop.BelongForce.Id != EnabledForceId) return;
+            if (troop.mBelongForce.Id != EnabledForceId) return;
             this.moveRange = moveRange;
             foreach (Cell cell in moveRange)
             {
@@ -180,7 +180,7 @@ namespace Sango.Core
         public void ShowCellCost(Cell cell, int cost, Troop troop)
         {
             if (!Enabled) return;
-            if (troop.BelongForce.Id != EnabledForceId) return;
+            if (troop.mBelongForce.Id != EnabledForceId) return;
 
             bool find = false;
             foreach (CellTextInfo info in usedTextList)

@@ -221,8 +221,8 @@ namespace Sango.Core
                 Cell next = GetNeighbor(cell, i);
                 if (next != null)
                 {
-                    if ((next.troop != null && troops.BelongForce != next.troop.BelongForce) ||
-                        (next.building != null && troops.BelongForce != next.building.mForce))
+                    if ((next.troop != null && troops.mBelongForce != next.troop.mBelongForce) ||
+                        (next.building != null && troops.mBelongForce != next.building.mBelongForce))
                         return true;
                 }
             }

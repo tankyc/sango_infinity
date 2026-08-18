@@ -24,7 +24,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.mCorps.ActionPoint >= 1;
+                return TargetCity.freePersons.Count > 0 && TargetCity.mBelongCorps.ActionPoint >= 1;
             }
         }
 
@@ -71,8 +71,8 @@ namespace Sango.Core.Player
 
             // 执行赎回俘虏外交行动
             Person diplomat = personList[0];
-            Force sender = diplomat.mForce;
-            Force receiver = TargetCity.mForce;
+            Force sender = diplomat.mBelongForce;
+            Force receiver = TargetCity.mBelongForce;
             
             // 确保发送方和接收方不是同一个势力
             if (sender != null && receiver != null && sender != receiver)

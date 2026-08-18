@@ -80,7 +80,7 @@ namespace Sango.UI
             };
 
             targetCorps = objects[0] as Corps;
-            targetForce = targetCorps.mForce;
+            targetForce = targetCorps.mBelongForce;
             if (objects.Length > 1)
                 windowTitle.text = objects[1] as string;
             if (objects.Length > 2)
@@ -93,7 +93,7 @@ namespace Sango.UI
             validPersonList.Clear();
             targetForce.ForEachCity(x =>
             {
-                if (x.mCorps.IsCaptainCorps && x != targetForce.CapitalCity)
+                if (x.mBelongCorps.IsCaptainCorps && x != targetForce.CapitalCity)
                     validCityList.Add(x);
             });
             if (targetCorps.Id > 0)

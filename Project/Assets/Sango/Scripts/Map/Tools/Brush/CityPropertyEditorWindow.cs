@@ -289,17 +289,17 @@ namespace Sango.Tools
                 }
             });
 
-            int forceIndex = System.Math.Max(0, forces.IndexOf(selectedCity.mForce));
+            int forceIndex = System.Math.Max(0, forces.IndexOf(selectedCity.mBelongForce));
             int newForceIndex = GUILayout.SelectionGrid(forceIndex, forceNames.ToArray(), 1);
             if (newForceIndex != forceIndex && newForceIndex >= 0 && newForceIndex < forces.Count)
             {
                 Force newForce = forces[newForceIndex];
-                selectedCity.mForce = newForce;
+                selectedCity.mBelongForce = newForce;
                 foreach (Person person in editor.scenario.personSet)
                 {
-                    if (person != null && person.mCity == selectedCity)
+                    if (person != null && person.mBelongCity == selectedCity)
                     {
-                        person.mForce = newForce;
+                        person.mBelongForce = newForce;
                     }
                 }
             }
@@ -312,27 +312,27 @@ namespace Sango.Tools
             List<string> corpsNames = new List<string>();
             corpsList.Add(null);
             corpsNames.Add("无");
-            Force cityForce = selectedCity.mForce;
+            Force cityForce = selectedCity.mBelongForce;
             editor.scenario.corpsSet.ForEach((Corps corps) =>
             {
-                if (corps != null && (cityForce == null || corps.mForce == cityForce))
+                if (corps != null && (cityForce == null || corps.mBelongForce == cityForce))
                 {
                     corpsList.Add(corps);
                     corpsNames.Add($"{corps.Id}:{corps.Name}");
                 }
             });
 
-            int corpsIndex = System.Math.Max(0, corpsList.IndexOf(selectedCity.mCorps));
+            int corpsIndex = System.Math.Max(0, corpsList.IndexOf(selectedCity.mBelongCorps));
             int newCorpsIndex = GUILayout.SelectionGrid(corpsIndex, corpsNames.ToArray(), 1);
             if (newCorpsIndex != corpsIndex && newCorpsIndex >= 0 && newCorpsIndex < corpsList.Count)
             {
                 Corps newCorps = corpsList[newCorpsIndex];
-                selectedCity.mCorps = newCorps;
+                selectedCity.mBelongCorps = newCorps;
                 foreach (Person person in editor.scenario.personSet)
                 {
-                    if (person != null && person.mCity == selectedCity)
+                    if (person != null && person.mBelongCity == selectedCity)
                     {
-                        person.mCorps = newCorps;
+                        person.mBelongCorps = newCorps;
                     }
                 }
             }
@@ -354,7 +354,7 @@ namespace Sango.Tools
                 {
                     continue;
                 }
-                bool assigned = person.mCity == selectedCity;
+                bool assigned = person.mBelongCity == selectedCity;
                 GUILayout.BeginHorizontal();
                 bool newAssigned = GUILayout.Toggle(assigned, "", GUILayout.Width(20));
                 GUILayout.Label($"{person.Id}:{person.Name}");
@@ -363,17 +363,17 @@ namespace Sango.Tools
                 {
                     if (newAssigned)
                     {
-                        person.mCity = selectedCity;
+                        person.mBelongCity = selectedCity;
                         person.mCurrentCity = selectedCity;
-                        person.mForce = selectedCity.mForce;
-                        person.mCorps = selectedCity.mCorps;
+                        person.mBelongForce = selectedCity.mBelongForce;
+                        person.mBelongCorps = selectedCity.mBelongCorps;
                     }
                     else
                     {
-                        person.mCity = null;
+                        person.mBelongCity = null;
                         person.mCurrentCity = null;
-                        person.mForce = null;
-                        person.mCorps = null;
+                        person.mBelongForce = null;
+                        person.mBelongCorps = null;
                     }
                 }
             }

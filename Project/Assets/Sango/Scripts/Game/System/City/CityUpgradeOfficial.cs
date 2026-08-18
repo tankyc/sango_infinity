@@ -67,9 +67,9 @@ namespace Sango.Core.Player
                 targetList.Clear();
                 if (TargetCity.gold > 500)
                 {
-                    TargetCity.mForce.ForEachPerson(x =>
+                    TargetCity.mBelongForce.ForEachPerson(x =>
                   {
-                      if (x != TargetCity.mForce.mGovernor && x.CanUpgradeOfficial)
+                      if (x != TargetCity.mBelongForce.mGovernor && x.CanUpgradeOfficial)
                       {
                           targetList.Add(x);
                       }

@@ -24,7 +24,7 @@ namespace Sango.Core.Player
                 return TargetCity.freePersons.Count > 0
                     && TargetCity.agriculture < TargetCity.agricultureLimit
                     && TargetCity.CheckJobCost(CityJobType.Farming)
-                     && TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Farming);
+                     && TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Farming);
             }
         }
 

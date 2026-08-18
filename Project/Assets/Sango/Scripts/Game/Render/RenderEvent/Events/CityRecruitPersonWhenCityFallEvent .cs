@@ -28,7 +28,7 @@ namespace Sango.Render
                 return;
             }
 
-            if (!atk.BelongCorps.IsPlayer)
+            if (!atk.mBelongCorps.IsPlayer)
             {
                 for (int i = captiveList.Count - 1; i >= 0; i--)
                 {
@@ -36,7 +36,7 @@ namespace Sango.Render
                     if (atk.Leader.JobRecruitPerson(person, targetCity, recruitType))
                     {
 #if SANGO_DEBUG
-                        Sango.Log.Info($"{person.Name} 加入了 {atk.BelongForce} 势力!!!");
+                        Sango.Log.Info($"{person.Name} 加入了 {atk.mBelongForce} 势力!!!");
 #endif
                     }
                     else
@@ -77,7 +77,7 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return atk.BelongCorps.IsPlayer;
+            return atk.mBelongCorps.IsPlayer;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

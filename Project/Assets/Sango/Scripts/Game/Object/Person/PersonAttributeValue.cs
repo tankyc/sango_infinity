@@ -7,15 +7,27 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptIn)]
     public class PersonAttributeValue : IAarryDataObject
     {
-        /// <summary>
-        /// 所属
-        /// </summary>
-        public Person master;
-
+        public int changeId = 5;
+        AttributeChangeType _changeType;
         /// <summary>
         /// 能力变化类型
         /// </summary>
-        public AttributeChangeType changeType => master.mAttributeChangeType;
+        public AttributeChangeType changeType
+        {
+            get
+            {
+                if (_changeType == null)
+                {
+                    if (changeId == 0) changeId = 5;
+                    _changeType = GameData.Instance.ScenarioCommonData.AttributeChangeTypes.Get(changeId);
+                }
+                return _changeType;
+            }
+            set
+            {
+                _changeType = value;
+            }
+        }
 
         /// <summary>
         /// 基础能力
@@ -42,6 +54,10 @@ namespace Sango.Core
         /// </summary>
         public int _value;
 
+        int expAddValue;
+        int ageAddValue;
+
+
         /// <summary>
         /// 最终值
         /// </summary>
@@ -49,7 +65,7 @@ namespace Sango.Core
 
         public override string ToString()
         {
-            return $"{baseValue},{0},{valueExp},{valueFacter},{_value}";
+            return $"{baseValue},{changeType.Id},{valueExp},{valueFacter},{_value}";
         }
 
         public IAarryDataObject FromArray(int[] content)
@@ -58,10 +74,8 @@ namespace Sango.Core
             if (count == 0) return this;
             if (count > 0) baseValue = content[0];
 
-            int changeId = 1;
             if (count > 1) changeId = content[1];
-            if (changeId == 0) changeId = 1;
-            //changeType = GameData.Instance.ScenarioCommonData.AttributeChangeTypes.Get(changeId);
+            if (changeId == 0) changeId = 5;
             if (count > 2) valueExp = content[2];
             if (count > 3) valueFacter = content[3];
             if (count > 4) _value = content[4];
@@ -71,28 +85,53 @@ namespace Sango.Core
 
         public int[] ToArray()
         {
-            return new int[] { baseValue, 0, valueExp, valueFacter, _value };
+            return new int[] { baseValue, changeType.Id, valueExp, valueFacter, _value };
         }
 
         public void UpdateNoAge()
         {
-            _value = baseValue;
+            Update(0, null);
         }
 
-        public void Update()
+        public void Update(int age, Scenario scenario)
         {
-            _value = ((baseValue * changeType.GetAgeFactor(master.Age)) / 10000 + 
-                Math.Min(Scenario.Cur.Variables.MaxAttributeGet, (valueExp / Scenario.Cur.Variables.AttributeExpLevelNeed))) * valueFacter / 10000;
+            if(age > 0)
+            {
+                expAddValue = Math.Min(scenario.Variables.MaxAttributeGet, (valueExp / scenario.Variables.AttributeExpLevelNeed));
+                ageAddValue = changeType.GetAgeFactor(age) / 10000;
+                Update();
+            }
+            else
+            {
+                _value = baseValue;
+            }
         }
-        public void SetExp(int exp)
+
+        void UpdateExpValue(Scenario scenario)
         {
-            if (_value - baseValue >= Scenario.Cur.Variables.MaxAttributeGet)
+            expAddValue = Math.Min(scenario.Variables.MaxAttributeGet, (valueExp / scenario.Variables.AttributeExpLevelNeed));
+            _value = (expAddValue + ageAddValue) * valueFacter / 10000;
+        }
+
+        void UpdateAgeValue(int age, Scenario scenario)
+        {
+            Update(age, scenario);
+        }
+
+        void Update()
+        {
+            _value = baseValue + (expAddValue + ageAddValue) * valueFacter / 10000;
+        }
+
+        public void SetExp(int exp, Scenario scenario)
+        {
+            if (expAddValue >= scenario.Variables.MaxAttributeGet)
                 return;
 
             if (valueExp != exp)
             {
                 valueExp = exp;
-                Update();
+                UpdateExpValue(scenario);
             }
         }
         public void SetFacter(int facter)

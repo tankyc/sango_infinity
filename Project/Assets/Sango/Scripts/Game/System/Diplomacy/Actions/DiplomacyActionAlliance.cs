@@ -37,10 +37,10 @@ namespace Sango.Core
 
             // 检查资金：优先检查执行外交的武将所属城市的资金
             int availableGold = 0;
-            if (Diplomat != null && Diplomat.mCity != null)
+            if (Diplomat != null && Diplomat.mBelongCity != null)
             {
                 // 如果有执行外交的武将，检查武将所属城市的资金
-                availableGold = Diplomat.mCity.gold;
+                availableGold = Diplomat.mBelongCity.gold;
             }
             else if (Sender.CapitalCity != null)
             {
@@ -114,9 +114,9 @@ namespace Sango.Core
 
             // 确定扣除资金的城市：优先武将所属城市，其次首都
             City paymentCity = null;
-            if (Diplomat != null && Diplomat.mCity != null)
+            if (Diplomat != null && Diplomat.mBelongCity != null)
             {
-                paymentCity = Diplomat.mCity;
+                paymentCity = Diplomat.mBelongCity;
             }
             else if (Sender != null && Sender.CapitalCity != null)
             {

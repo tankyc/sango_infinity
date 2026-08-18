@@ -53,12 +53,12 @@ namespace Sango.Render
 
             Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
             baseMat.SetTextureScale("_BaseMap", textScale);
-            int final_flag_id = flagId + troop.BelongForce.mFlag.Id % 6;
+            int final_flag_id = flagId + troop.mBelongForce.mFlag.Id % 6;
 
             int x = final_flag_id % xCount;
             int y = final_flag_id / xCount;
 
-            baseMat.SetColor("_Color", troop.BelongForce.mFlag.color);
+            baseMat.SetColor("_Color", troop.mBelongForce.mFlag.color);
 
             Vector2 textOffset = new Vector2(x * (flagW / flagTexWidth) - 0.003f, -y * (flagH / flagTexHeight));
             baseMat.SetTextureOffset("_BaseMap", textOffset);
@@ -75,12 +75,12 @@ namespace Sango.Render
 
             Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
             baseMat.SetTextureScale("_BaseMap", textScale);
-            int final_flag_id = flagId + building.mForce.mFlag.Id % 6;
+            int final_flag_id = flagId + building.mBelongForce.mFlag.Id % 6;
 
             int x = final_flag_id % xCount;
             int y = final_flag_id / xCount;
 
-            baseMat.SetColor("_Color", building.mForce.mFlag.color);
+            baseMat.SetColor("_Color", building.mBelongForce.mFlag.color);
 
             Vector2 textOffset = new Vector2(x * (flagW / flagTexWidth) - 0.003f, -y * (flagH / flagTexHeight));
             baseMat.SetTextureOffset("_BaseMap", textOffset);

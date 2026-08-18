@@ -22,7 +22,7 @@ namespace Sango.Render
             int rs = city.DoJobSearching(person, out target);
             if (rs < 0)
             {
-                if (city.mCorps.IsPlayerControl && searchingType == 0)
+                if (city.mBelongCorps.IsPlayerControl && searchingType == 0)
                 {
                     GameDialog.IDialog dialog3 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, "很遗憾, 什么都没有发现...", () =>
                     {
@@ -38,7 +38,7 @@ namespace Sango.Render
                 return;
             }
 
-            if (!city.mCorps.IsPlayerControl)
+            if (!city.mBelongCorps.IsPlayerControl)
             {
                 if (rs == 0)
                 {
@@ -120,7 +120,7 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return city.mCorps.IsPlayer;
+            return city.mBelongCorps.IsPlayer;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

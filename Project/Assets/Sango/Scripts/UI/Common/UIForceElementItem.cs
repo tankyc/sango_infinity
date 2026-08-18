@@ -104,7 +104,7 @@ using Sango.Core; namespace Sango.UI
                 }
                 else
                 {
-                    Vector3 position = person.mCity.CenterCell.Position;
+                    Vector3 position = person.mBelongCity.CenterCell.Position;
                     MapRender.Instance.MoveCameraTo(position);
                 }
             }

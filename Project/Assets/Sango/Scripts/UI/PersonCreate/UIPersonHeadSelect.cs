@@ -124,13 +124,18 @@ namespace Sango.UI
 
         #region 生命周期
 
+        protected override void Awake()
+        {
+            // 绑定UI事件
+            BindEvents();
+        }
+
         public override void OnOpen(params object[] objs)
         {
             int headId = (int)(objs[0]);
             OnHeadSelected = (Action<int>)(objs[1]);
             filteredHeadDataList = GameCustomEdit.Instance.headDataList;
-            // 绑定UI事件
-            BindEvents();
+           
             RefreshPreview(headId);
             // 重置为第一页
             currentPage = 0;

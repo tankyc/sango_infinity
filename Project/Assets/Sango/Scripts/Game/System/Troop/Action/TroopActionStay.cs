@@ -25,7 +25,7 @@ namespace Sango.Core.Player
 
         protected override void OnTroopActionContextMenuShow(IContextMenuData menuData, Troop troop, Cell actionCell)
         {
-            if (troop.BelongForce != null && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
+            if (troop.mBelongForce != null && troop.mBelongForce.IsPlayer && troop.mBelongForce == Scenario.Cur.CurRunForce)
             {
                 TargetTroop = troop;
                 ActionCell = actionCell;

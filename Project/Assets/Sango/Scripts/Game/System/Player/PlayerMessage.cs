@@ -375,8 +375,8 @@ namespace Sango.Core.Player
         {
             if (building.IsCurPlayer)
             {
-                string message = $"我军在{building.mCity.ColorName}成功建造了{building.Name}！";
-                _AddTextMessage(message, building.mForce, building.x, building.y);
+                string message = $"我军在{building.mBelongCity.ColorName}成功建造了{building.Name}！";
+                _AddTextMessage(message, building.mBelongForce, building.x, building.y);
             }
         }
 
@@ -389,8 +389,8 @@ namespace Sango.Core.Player
         {
             if (building.IsCurPlayer)
             {
-                string message = $"我军在{building.mCity.ColorName}成功将{building.Name}升级完成！";
-                _AddTextMessage(message, building.mForce, building.x, building.y);
+                string message = $"我军在{building.mBelongCity.ColorName}成功将{building.Name}升级完成！";
+                _AddTextMessage(message, building.mBelongForce, building.x, building.y);
             }
         }
 
@@ -398,21 +398,21 @@ namespace Sango.Core.Player
         /// 武将转移成功事件处理方法
         /// </summary>
         /// <param name="person">转移的武将</param>
-        /// <param name="fromCity">来源城池</param>
+        /// <param name="fromBelongCity">来源城池</param>
         /// <param name="toCity">目标城池</param>
-        private void OnPersonChangeCityComplete(Person person, City fromCity, City toCity)
+        private void OnPersonChangeCityComplete(Person person, City fromBelongCity, City toCity)
         {
             if (person.IsCurPlayer)
             {
-                if (fromCity == toCity)
+                if (fromBelongCity == toCity)
                 {
                     string message = $"{person?.ColorName}已经回到{toCity?.ColorName}！";
-                    _AddTextMessage(message, person.mForce, toCity.x, toCity.y);
+                    _AddTextMessage(message, person.mBelongForce, toCity.x, toCity.y);
                 }
                 else
                 {
-                    string message = $"{person.ColorName}已成功从{fromCity?.ColorName}转移到{toCity?.ColorName}！";
-                    _AddTextMessage(message, person.mForce, toCity.x, toCity.y);
+                    string message = $"{person.ColorName}已成功从{fromBelongCity?.ColorName}转移到{toCity?.ColorName}！";
+                    _AddTextMessage(message, person.mBelongForce, toCity.x, toCity.y);
                 }
             }
         }
@@ -425,7 +425,7 @@ namespace Sango.Core.Player
         /// <param name="troop">进攻部队</param>
         private void OnCityFall(City city, Force lastForce, Troop troop)
         {
-            Force attackForce = troop.BelongForce;
+            Force attackForce = troop.mBelongForce;
             bool isAttackCurPlayer = attackForce.IsCurPlayer;
             bool isDefendCurPlayer = lastForce?.IsCurPlayer ?? false;
 
@@ -472,12 +472,12 @@ namespace Sango.Core.Player
             if (isCaptiveCurPlayer)
             {
                 message = $"{person.ColorName}成功逃脱了！";
-                _AddTextMessage(message, person.mForce, 0, 0);
+                _AddTextMessage(message, person.mBelongForce, 0, 0);
             }
             else if (isCaptorCurPlayer)
             {
                 message = $"我方关押的{person.ColorName}逃跑了！";
-                Force captorForce = location is City ? (location as City).mForce : (location as Troop).BelongForce;
+                Force captorForce = location is City ? (location as City).mBelongForce : (location as Troop).mBelongForce;
                 _AddTextMessage(message, captorForce, 0, 0);
             }
         }
@@ -498,7 +498,7 @@ namespace Sango.Core.Player
             if (isCaptiveCurPlayer)
             {
                 message = $"{person.ColorName}被{releaseForce.ColorName}释放了！";
-                _AddTextMessage(message, person.mForce, 0, 0);
+                _AddTextMessage(message, person.mBelongForce, 0, 0);
             }
             else if (isReleaseCurPlayer)
             {
@@ -523,7 +523,7 @@ namespace Sango.Core.Player
             if (isCaptiveCurPlayer)
             {
                 message = $"{person.ColorName}被{executeForce.ColorName}斩杀了！";
-                _AddTextMessage(message, person.mForce, 0, 0);
+                _AddTextMessage(message, person.mBelongForce, 0, 0);
             }
             else if (isExecuteCurPlayer)
             {
@@ -556,7 +556,7 @@ namespace Sango.Core.Player
                     y = person.mCurrentCity.y;
                 }
 
-                _AddTextMessage(message, person.mForce, x, y);
+                _AddTextMessage(message, person.mBelongForce, x, y);
             }
         }
 
@@ -572,7 +572,7 @@ namespace Sango.Core.Player
             if (person.IsCurPlayer && official.Id > 0)
             {
                 message = $"{person.ColorName}官职升到[{person.Official.Name}]";
-                _AddTextMessage(message, person.mForce, 0, 0);
+                _AddTextMessage(message, person.mBelongForce, 0, 0);
             }
         }
 

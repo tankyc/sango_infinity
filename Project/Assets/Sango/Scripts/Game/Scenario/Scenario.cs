@@ -877,6 +877,7 @@ namespace Sango.Core
                     targetForce.Id = force.Id;
                     targetForce.Flag = force.Flag;
                     targetForce.Governor = force.Governor;
+                    targetForce.InitTechniques.FromArray(new int[] { 1, 5, 9, 13, 17, 21, 25, 29, 33 });
 
                     scenario.forceSet.Add(targetForce);
 
@@ -941,6 +942,7 @@ namespace Sango.Core
                     }
                     else if (!person.IsWild)
                     {
+                        person.loyalty = 100;
                         City city = scenario.citySet[x.BelongCity];
                         ShortCity shortCity = addData.citySet[x.BelongCity];
                         person.BelongCorps = System.Math.Max(city.BelongCorps, shortCity.BelongCorps);

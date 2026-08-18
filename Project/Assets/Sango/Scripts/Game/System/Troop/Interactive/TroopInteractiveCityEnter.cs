@@ -19,7 +19,7 @@ namespace Sango.Core.Player
         {
             if (actionCell.building == null || !actionCell.building.IsCityBase()) return false;
 
-            if (actionCell.building.mForce != troop.BelongForce) return false;
+            if (actionCell.building.mBelongForce != troop.mBelongForce) return false;
 
             if (!troop.MoveRange.Contains(actionCell)) return false;
 

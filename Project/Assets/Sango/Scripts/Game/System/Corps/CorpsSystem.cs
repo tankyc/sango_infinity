@@ -38,7 +38,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.mForce.CityCount > 1;
+                return TargetCity.mBelongForce.CityCount > 1;
             }
         }
 
@@ -51,7 +51,7 @@ namespace Sango.Core.Player
             menuData.Clear();
             Scenario.Cur.corpsSet.ForEach(x =>
             {
-                if (x.mForce == TargetCity.mForce)
+                if (x.mBelongForce == TargetCity.mBelongForce)
                 {
                     has[x.number - 1] = true;
                     if (x.number > 1)
@@ -105,7 +105,7 @@ namespace Sango.Core.Player
         {
             showType = 1;
             targetCorps = new Corps();
-            targetCorps.mForce = TargetCity.mForce;
+            targetCorps.mBelongForce = TargetCity.mBelongForce;
             targetCorps.number = targetNumber;
             //targetCorps.policy = 0;
             targetCorps.appoint = 0;
@@ -127,7 +127,7 @@ namespace Sango.Core.Player
                     Corps exsist = x[0];
                     targetCorps = new Corps();
                     targetCorps.Id = exsist.Id;
-                    targetCorps.mForce = exsist.mForce;
+                    targetCorps.mBelongForce = exsist.mBelongForce;
                     targetCorps.number = exsist.number;
                     //targetCorps.policy = exsist.policy;
                     targetCorps.appoint = exsist.appoint;
@@ -138,9 +138,9 @@ namespace Sango.Core.Player
                         targetCorps.appointSetting[i] = exsist.appointSetting[i];
 
                     List<City> targetCityList = new List<City>();
-                    exsist.mForce.ForEachCity(x =>
+                    exsist.mBelongForce.ForEachCity(x =>
                     {
-                        if (x.mCorps == exsist)
+                        if (x.mBelongCorps == exsist)
                             targetCityList.Add(x);
                     });
                     targetCorps.inti_cities = targetCityList;
@@ -181,7 +181,7 @@ namespace Sango.Core.Player
                         ContextMenu.CloseAll();
                         GameMedia.Instance.PlaySfx(56);
                         Done();
-                    }).SetPerson(TargetCity.mForce.mGovernor);
+                    }).SetPerson(TargetCity.mBelongForce.mGovernor);
                 }).cancelAction = () =>
                 {
                     GameDialog.Close();
@@ -192,7 +192,7 @@ namespace Sango.Core.Player
 
         public void CreateCorps()
         {
-            TargetCity.mForce.CreateCorps(targetCorps);
+            TargetCity.mBelongForce.CreateCorps(targetCorps);
             GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{targetCorps.ColorName}就交给我了。", () =>
             {
                 GameDialog.Close();
@@ -206,7 +206,7 @@ namespace Sango.Core.Player
             Corps dest = corps_list.Find(x => x.number == targetCorps.number);
             if (dest == null)
                 return;
-            TargetCity.mForce.ResetCorps(dest, targetCorps);
+            TargetCity.mBelongForce.ResetCorps(dest, targetCorps);
             GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{dest.ColorName}就交给我了。", () =>
             {
                 GameDialog.Close();
@@ -217,17 +217,17 @@ namespace Sango.Core.Player
 
         public void CreateCorps(int number, Person commander, List<City> cities)
         {
-            TargetCity.mForce.CreateCorps(number, commander, cities);
+            TargetCity.mBelongForce.CreateCorps(number, commander, cities);
         }
 
         public void DeleteCorps(int number)
         {
-            TargetCity.mForce.DeleteCorps(number);
+            TargetCity.mBelongForce.DeleteCorps(number);
         }
 
         public void DeleteCorps(Corps corps)
         {
-            TargetCity.mForce.DeleteCorps(corps);
+            TargetCity.mBelongForce.DeleteCorps(corps);
         }
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)
         {

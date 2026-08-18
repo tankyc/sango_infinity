@@ -41,7 +41,7 @@ using Sango.Core; namespace Sango.UI
             }
 
             personCountLabel.text = $"{currentSystem.personList.Count}人";
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.TransformPerson)}/{currentSystem.TargetCity.mCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.TransformPerson)}/{currentSystem.TargetCity.mBelongCorps.ActionPoint}";
 
             if (currentSystem.transformTo.Count > 0)
             {
@@ -82,7 +82,7 @@ using Sango.Core; namespace Sango.UI
         {
             List<City> cities = new List<City>();
             City targetCity = currentSystem.TargetCity;
-            targetCity.mForce.ForEachCityBase(city =>
+            targetCity.mBelongForce.ForEachCityBase(city =>
             {
                 if (city != targetCity)
                 {

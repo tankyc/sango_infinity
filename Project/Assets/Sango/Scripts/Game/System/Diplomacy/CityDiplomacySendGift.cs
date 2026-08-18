@@ -6,7 +6,7 @@ namespace Sango.Core.Player
     public class CityDiplomacySendGift : CityBaseSystem
     {
         public List<Force> targetForces = new List<Force>();
-        public List<ObjectSortTitle> customForceTitleList;
+        public List<ObjectSortTitle> customBelongForceTitleList;
 
 
 
@@ -28,7 +28,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.SendGift) && TargetCity.gold >= 1000;
+                return TargetCity.freePersons.Count > 0 && TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.SendGift) && TargetCity.gold >= 1000;
             }
         }
 
@@ -36,7 +36,7 @@ namespace Sango.Core.Player
         {
             targetForces.Clear();
             personList.Clear();
-            customForceTitleList = new List<ObjectSortTitle>()
+            customBelongForceTitleList = new List<ObjectSortTitle>()
             {
                 ForceSortFunction.SortByName,
                 ForceSortFunction.SortByLeader,
@@ -57,7 +57,7 @@ namespace Sango.Core.Player
                 return;
 
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.SendGift, TargetCity.mForce, targetForces[0], personList[0], JobType.GetJobCost((int)CityJobType.SendGift));
+            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.SendGift, TargetCity.mBelongForce, targetForces[0], personList[0], JobType.GetJobCost((int)CityJobType.SendGift));
             diplomacyManager.DispatchDiplomat(action);
             GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", () =>
             {

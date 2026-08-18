@@ -26,7 +26,7 @@
         protected virtual void OnTroopInteractiveContextDialogShow(ITroopInteractiveDialogData dialogData, Troop troop, Cell actionCell)
         {
 
-            if (troop.BelongForce != null && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
+            if (troop.mBelongForce != null && troop.mBelongForce.IsPlayer && troop.mBelongForce == Scenario.Cur.CurRunForce)
             {
                 TargetTroop = troop;
                 ActionCell = actionCell;
@@ -42,7 +42,7 @@
         protected virtual void OnInteractiveContextMenuShow(IContextMenuData menuData, Troop troop, Cell actionCell)
         {
 
-            if (!string.IsNullOrEmpty(customMenuName) && troop.BelongForce != null && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
+            if (!string.IsNullOrEmpty(customMenuName) && troop.mBelongForce != null && troop.mBelongForce.IsPlayer && troop.mBelongForce == Scenario.Cur.CurRunForce)
             {
                 TargetTroop = troop;
                 ActionCell = actionCell;

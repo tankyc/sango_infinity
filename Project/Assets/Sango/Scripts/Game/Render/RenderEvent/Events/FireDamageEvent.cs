@@ -26,11 +26,11 @@ namespace Sango.Render
         public override void Enter(Scenario scenario)
         {
             time = 0;
-            if(targetTroop != null)
+            if (targetTroop != null)
             {
                 targetTroop.ChangeTroops(-damage, fire, null, 0);
             }
-            else if(targetBuilding != null)
+            else if (targetBuilding != null)
             {
                 targetBuilding.ChangeDurability(-damage, fire);
             }
@@ -38,7 +38,7 @@ namespace Sango.Render
 
         public override void Exit(Scenario scenario)
         {
-           
+
         }
 
         public override bool IsVisible()

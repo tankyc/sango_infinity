@@ -147,9 +147,9 @@ namespace Sango.ScenarioMaker
                 {
                     continue;
                 }
-                person.mForce = null;
-                person.mCorps = null;
-                person.mCity = null;
+                person.mBelongForce = null;
+                person.mBelongCorps = null;
+                person.mBelongCity = null;
                 person.mCurrentCity = null;
                 person.mTroop = null;
             }

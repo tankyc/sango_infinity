@@ -53,7 +53,7 @@ using Sango.Core; namespace Sango.UI
                 cityBuildingSlot.titleObj.SetActive(i % 4 == 0);
                 cityBuildingSlot.SetValid(itemType.targetBuilding != null);
             }
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.CreateItems)}/{currentSystem.TargetCity.mCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.CreateItems)}/{currentSystem.TargetCity.mBelongCorps.ActionPoint}";
 
             OnSelectItemType(itemPool.Get(currentSystem.CurSelectedItemTypeIndex));
             updateNextFrame = 2;

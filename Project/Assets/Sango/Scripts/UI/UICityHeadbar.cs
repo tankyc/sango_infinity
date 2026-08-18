@@ -28,19 +28,19 @@ using Sango.Core; namespace Sango.UI
                 cityInfo = $"*{cityInfo}";
             info.text = cityInfo;
 
-            bg.enabled = building.mForce != null;
+            bg.enabled = building.mBelongForce != null;
 
-            if (building.mForce != null)
+            if (building.mBelongForce != null)
             {
-                bg.color = building.mForce.Color;
+                bg.color = building.mBelongForce.Color;
             }
 
-            Corps corps = building.mCorps;
+            Corps corps = building.mBelongCorps;
             if (corps != null && corps.IsPlayer && corps.Index > 1)
             {
                 corpsNode.SetActive(true);
-                corpsImg.color = building.mCorps.Color;
-                corpsText.text = building.mCorps.Index.ToString();
+                corpsImg.color = building.mBelongCorps.Color;
+                corpsText.text = building.mBelongCorps.Index.ToString();
             }
             else
             {

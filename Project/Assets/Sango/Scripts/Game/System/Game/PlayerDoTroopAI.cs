@@ -24,7 +24,7 @@ namespace Sango.Core.Player
                 for (int i = 0; i < scenario.troopsSet.Count; ++i)
                 {
                     var c = scenario.troopsSet[i];
-                    if (c != null && c.IsAlive && c.BelongForce == force && !c.ActionOver && c.missionType > 0)
+                    if (c != null && c.IsAlive && c.mBelongForce == force && !c.ActionOver && c.missionType > 0)
                     {
                         return true;
                     }
@@ -63,7 +63,7 @@ namespace Sango.Core.Player
             for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
                 var c = scenario.troopsSet[i];
-                if (c != null && c.IsAlive && c.BelongForce == force && !c.ActionOver && c.missionType > 0)
+                if (c != null && c.IsAlive && c.mBelongForce == force && !c.ActionOver && c.missionType > 0)
                 {
                     if (!c.DoAI(scenario))
                         return;

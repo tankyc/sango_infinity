@@ -23,7 +23,7 @@ namespace Sango.Core.Player
 
         protected override bool Check(Troop troop, Cell actionCell)
         {
-            if (actionCell.building == null || actionCell.building.IsCityBase() || actionCell.building.mForce != troop.BelongForce) return false;
+            if (actionCell.building == null || actionCell.building.IsCityBase() || actionCell.building.mBelongForce != troop.mBelongForce) return false;
             if (actionCell.building.isUpgrading || actionCell.building.durability >= actionCell.building.DurabilityLimit) return false;
             TargetBuilding = actionCell.building as Building;
             TargetCell = actionCell;

@@ -13,6 +13,8 @@ namespace Sango
     /// 自动姓名工具类（单例）。
     /// 初始化时通过 Mod 加载所有 Content\Data 下的 NameConfig.json 并合并数据，
     /// 提供随机姓名的方法。
+    /// 名按性别分为男名（MaleGivingName）和女名（FemaleGivingName），
+    /// 可混用的名会同时出现在男名和女名两个集合中。
     /// </summary>
     public class AutoName : Singleton<AutoName>
     {
@@ -23,14 +25,18 @@ namespace Sango
         {
             /// <summary>姓的集合</summary>
             public List<string> FirstName = new List<string>();
-            /// <summary>名的集合</summary>
-            public List<string> GivingName = new List<string>();
+            /// <summary>男名集合</summary>
+            public List<string> MaleGivingName = new List<string>();
+            /// <summary>女名集合</summary>
+            public List<string> FemaleGivingName = new List<string>();
         }
 
         /// <summary>合并后的姓集合</summary>
         private List<string> mFirstNameList = new List<string>();
-        /// <summary>合并后的名集合</summary>
-        private List<string> mGivingNameList = new List<string>();
+        /// <summary>合并后的男名集合</summary>
+        private List<string> mMaleGivingNameList = new List<string>();
+        /// <summary>合并后的女名集合</summary>
+        private List<string> mFemaleGivingNameList = new List<string>();
 
         private bool mInited = false;
 
@@ -44,7 +50,8 @@ namespace Sango
                 return;
 
             mFirstNameList.Clear();
-            mGivingNameList.Clear();
+            mMaleGivingNameList.Clear();
+            mFemaleGivingNameList.Clear();
 
             // 基础数据
             string baseFile = Path.ContentRootPath + "/Data/NameConfig.json";
@@ -78,9 +85,13 @@ namespace Sango
                 {
                     mFirstNameList.AddRange(config.FirstName);
                 }
-                if (config.GivingName != null && config.GivingName.Count > 0)
+                if (config.MaleGivingName != null && config.MaleGivingName.Count > 0)
                 {
-                    mGivingNameList.AddRange(config.GivingName);
+                    mMaleGivingNameList.AddRange(config.MaleGivingName);
+                }
+                if (config.FemaleGivingName != null && config.FemaleGivingName.Count > 0)
+                {
+                    mFemaleGivingNameList.AddRange(config.FemaleGivingName);
                 }
             }
             catch (System.Exception e)
@@ -101,22 +112,52 @@ namespace Sango
         }
 
         /// <summary>
-        /// 获取随机名。
+        /// 获取随机名（不分性别，从男名和女名合并的集合中随机）。
         /// </summary>
         public string GetRandomGivingName()
         {
             EnsureInit();
-            if (mGivingNameList.Count == 0)
+            List<string> all = new List<string>(mMaleGivingNameList);
+            all.AddRange(mFemaleGivingNameList);
+            if (all.Count == 0)
                 return "";
-            return mGivingNameList[Random.Range(0, mGivingNameList.Count)];
+            return all[Random.Range(0, all.Count)];
         }
 
         /// <summary>
-        /// 获取一个随机姓名（姓 + 名）。
+        /// 获取随机名。
+        /// </summary>
+        /// <param name="isMale">true 表示从男名中随机，false 表示从女名中随机</param>
+        public string GetRandomGivingName(bool isMale)
+        {
+            EnsureInit();
+            List<string> list = isMale ? mMaleGivingNameList : mFemaleGivingNameList;
+            if (list == null || list.Count == 0)
+            {
+                // 回退到另一性别的名集合，避免返回空名
+                List<string> other = isMale ? mFemaleGivingNameList : mMaleGivingNameList;
+                list = other;
+            }
+            if (list == null || list.Count == 0)
+                return "";
+            return list[Random.Range(0, list.Count)];
+        }
+
+        /// <summary>
+        /// 获取一个随机姓名（姓 + 名，不分性别）。
         /// </summary>
         public string GetRandomName()
         {
             return GetRandomFirstName() + GetRandomGivingName();
+        }
+
+        /// <summary>
+        /// 获取一个随机姓名（姓 + 名，按性别选择名）。
+        /// </summary>
+        /// <param name="isMale">true 使用男名，false 使用女名</param>
+        public string GetRandomName(bool isMale)
+        {
+            return GetRandomFirstName() + GetRandomGivingName(isMale);
         }
 
         /// <summary>
@@ -130,14 +171,34 @@ namespace Sango
         }
 
         /// <summary>
+        /// 获取一个随机姓名，并通过 out 参数返回姓和名（按性别选择名）。
+        /// </summary>
+        public string GetRandomName(bool isMale, out string firstName, out string givingName)
+        {
+            firstName = GetRandomFirstName();
+            givingName = GetRandomGivingName(isMale);
+            return firstName + givingName;
+        }
+
+        /// <summary>
         /// 姓的数量。
         /// </summary>
         public int FirstNameCount { get { return mFirstNameList.Count; } }
 
         /// <summary>
-        /// 名的数量。
+        /// 男名数量。
         /// </summary>
-        public int GivingNameCount { get { return mGivingNameList.Count; } }
+        public int MaleGivingNameCount { get { return mMaleGivingNameList.Count; } }
+
+        /// <summary>
+        /// 女名数量。
+        /// </summary>
+        public int FemaleGivingNameCount { get { return mFemaleGivingNameList.Count; } }
+
+        /// <summary>
+        /// 名总数（男名 + 女名）。
+        /// </summary>
+        public int GivingNameCount { get { return mMaleGivingNameList.Count + mFemaleGivingNameList.Count; } }
 
         /// <summary>
         /// 确保已初始化。

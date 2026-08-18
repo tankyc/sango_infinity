@@ -45,7 +45,7 @@ namespace Sango.Core.Player
             get
             {
                 return TargetCity.troops > 0 && TargetCity.food > 0 && TargetCity.freePersons.Count > 0 &&
-                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.MakeTansport);
+                    TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.MakeTansport);
             }
         }
         public override void UpdateJobValue()
@@ -77,7 +77,7 @@ namespace Sango.Core.Player
             TargetTroop.Leader = leader;
             TargetTroop.Member1 = null;
             TargetTroop.Member2 = null;
-            TargetTroop.LandTroopType = TroopType.GetTransportType(scenario, TargetCity.mForce);
+            TargetTroop.LandTroopType = TroopType.GetTransportType(scenario, TargetCity.mBelongForce);
             TargetTroop.WaterTroopType = scenario.GetObject<TroopType>(8);
             if (TargetTroop.troops == 0)
             {
@@ -109,7 +109,7 @@ namespace Sango.Core.Player
             });
             TargetCity.Render?.UpdateRender();
             TargetCity.EnsureTroop(TargetTroop, Scenario.Cur);
-            TargetTroop.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.MakeTansport));
+            TargetTroop.mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.MakeTansport));
             Window.Instance.SetVisible(windowName, false);
             GameSystem.GetSystem<TroopSystem>().Start(TargetTroop);
         }
@@ -119,7 +119,7 @@ namespace Sango.Core.Player
             base.OnBack(whoGone);
             if (whoGone is ObjectSelectSystem) return;
             Window.Instance.SetVisible(windowName, true);
-            TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTansport));
+            TargetTroop.mBelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTansport));
             TargetTroop.EnterCity(TargetCity);
             TargetTroop.ForEachPerson(person =>
             {

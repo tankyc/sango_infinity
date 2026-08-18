@@ -21,7 +21,7 @@ namespace Sango.UI
         /// <summary>
         /// 编辑快照：保存当前窗口中对 PersonLib 的修改，确认后再写回目标对象。
         /// </summary>
-        private class Snapshot
+        public class Snapshot
         {
             public string familyName;
             public string giveName;
@@ -429,6 +429,17 @@ namespace Sango.UI
             SwitchTab(true);
             RefreshAll();
         }
+
+        public override void OnOpen(params object[] objs)
+        {
+            base.OnOpen(objs);
+            //InitSnapshot();
+            snapshot = (Snapshot)objs[0];
+            RefreshConfirmButton();
+            SwitchTab(true);
+            RefreshAll();
+        }
+
         #endregion
 
         #region 快照初始化与回写
@@ -640,7 +651,8 @@ namespace Sango.UI
             BindButtonCalculator(glamourButton, glamourText, () => snapshot.glamour, v => snapshot.glamour = v, 1, 100, OnAbilityChanged);
 
             // 成长与持续
-            BindGrowthToggleGroup();
+            //BindGrowthToggleGroup();
+            BindToggleGroup(growthToggles, () => snapshot.attributeChangeType, v => snapshot.attributeChangeType = v, i => i + 1, v => v - 1);
             BindToggleGroup(durationToggles, () => snapshot.attributeDuration, v => snapshot.attributeDuration = v, i => i, v => v);
 
             // 兵种适性（S=3, A=2, B=1, C=0）
@@ -706,7 +718,8 @@ namespace Sango.UI
                 if (yearAvailableText != null) yearAvailableText.text = snapshot.yearAvailable.ToString();
                 if (lifeSpanText != null) lifeSpanText.text = System.Math.Max(0, snapshot.yearDead - snapshot.yearBorn).ToString();
 
-                RefreshToggleGroup(personalityToggles, snapshot.personality, i => i + 1, 1);
+                RefreshToggleGroup(personalityToggles, snapshot.personality, i => i - 1, 1);
+                RefreshToggleGroup(growthToggles, snapshot.attributeChangeType, i => i - 1, 1);
                 RefreshVoiceToggleGroup();
                 RefreshToggleGroup(toneToggles, snapshot.tone, i => i, 0);
                 RefreshToggleGroup(hanLoyaltyToggles, snapshot.kanshitsu, i => i, 0);
@@ -723,7 +736,7 @@ namespace Sango.UI
                 if (glamourText != null) glamourText.text = snapshot.glamour.ToString();
                 OnAbilityChanged();
 
-                RefreshGrowthToggleGroup();
+                //RefreshGrowthToggleGroup();
                 RefreshToggleGroup(durationToggles, snapshot.attributeDuration, i => i, 0);
 
                 RefreshAdaptGroup(spearAdaptToggles, snapshot.spearLv);
@@ -1180,88 +1193,6 @@ namespace Sango.UI
                 if (toggles[i] == null) continue;
                 toggles[i].SetIsOnWithoutNotify(i == index);
             }
-        }
-        #endregion
-
-        #region 成长期绑定
-        /// <summary>
-        /// 绑定成长期 Toggle 组（維持/早熟/普通/晚成）。
-        /// 与 AttributeChangeType 名称对应：維持→持续型，早熟→早熟型，普通→普通型，晚成→晚成型。
-        /// </summary>
-        private void BindGrowthToggleGroup()
-        {
-            if (growthToggles == null) return;
-            for (int i = 0; i < growthToggles.Length; i++)
-            {
-                if (growthToggles[i] == null) continue;
-                int index = i;
-                growthToggles[i].onValueChanged.AddListener((isOn) =>
-                {
-                    if (refreshing) return;
-                    if (isOn)
-                    {
-                        for (int j = 0; j < growthToggles.Length; j++)
-                        {
-                            if (j != index && growthToggles[j] != null && growthToggles[j].isOn)
-                                growthToggles[j].SetIsOnWithoutNotify(false);
-                        }
-                        snapshot.attributeChangeType = GetAttributeChangeTypeIdByIndex(index);
-                    }
-                });
-            }
-        }
-
-        /// <summary>
-        /// 刷新成长期 Toggle 组。
-        /// </summary>
-        private void RefreshGrowthToggleGroup()
-        {
-            if (growthToggles == null) return;
-            int index = GetAttributeChangeTypeIndexById(snapshot.attributeChangeType);
-            for (int i = 0; i < growthToggles.Length; i++)
-            {
-                if (growthToggles[i] == null) continue;
-                growthToggles[i].SetIsOnWithoutNotify(i == index);
-            }
-        }
-
-        /// <summary>
-        /// 将 Toggle 索引映射为 AttributeChangeType Id。
-        /// </summary>
-        private int GetAttributeChangeTypeIdByIndex(int index)
-        {
-            ScenarioCommonData commonData = GameData.Instance.ScenarioCommonData;
-            if (commonData != null && commonData.AttributeChangeTypes != null)
-            {
-                string[] names = { "持续型", "早熟型", "普通型", "晚成型" };
-                if (index >= 0 && index < names.Length)
-                {
-                    foreach (AttributeChangeType t in commonData.AttributeChangeTypes)
-                    {
-                        if (t != null && t.Name == names[index])
-                            return t.Id;
-                    }
-                }
-            }
-            return index + 1;
-        }
-
-        /// <summary>
-        /// 将 AttributeChangeType Id 映射为 Toggle 索引。
-        /// </summary>
-        private int GetAttributeChangeTypeIndexById(int id)
-        {
-            ScenarioCommonData commonData = GameData.Instance.ScenarioCommonData;
-            AttributeChangeType type = null;
-            if (commonData != null && commonData.AttributeChangeTypes != null)
-                type = commonData.AttributeChangeTypes.Get(id);
-            if (type == null) return 0;
-            string[] names = { "持续型", "早熟型", "普通型", "晚成型" };
-            for (int i = 0; i < names.Length; i++)
-            {
-                if (type.Name == names[i]) return i;
-            }
-            return 0;
         }
         #endregion
 

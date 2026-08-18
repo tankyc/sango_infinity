@@ -20,7 +20,7 @@ using Sango.Core; namespace Sango.UI
         public UIMiniPortInfoPanel Show(City c)
         {
             nameLabel.text = c.Name;
-            SetCorps(c.mCorps);
+            SetCorps(c.mBelongCorps);
             ResetPool();
             List<ObjectSortTitle> SortTitles = new List<ObjectSortTitle>(objectSortTitles);
             GameEvent.OnInitPortMiniPanel?.Invoke(c as Port, SortTitles);

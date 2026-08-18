@@ -23,7 +23,7 @@ namespace Sango.Core
             EnemyInfo enemyInfo;
             isNoEnemyAlive = !TargetCity.CheckEnemiesIfAlive(out enemyInfo);
 
-            if (IsMissionComplete || (TargetCity.troops < 2000 && TargetCity == Troop.BelongCity) || (troop.IsWithOutFood() == 1 && GameRandom.Chance(30) ) )
+            if (IsMissionComplete || (TargetCity.troops < 2000 && TargetCity == Troop.mBelongCity) || (troop.IsWithOutFood() == 1 && GameRandom.Chance(30) ) )
             {
                 if (TargetCity.IsEnemy(troop))
                 {
@@ -32,7 +32,7 @@ namespace Sango.Core
                 }
                 else
                 {
-                    Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
+                    Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
                 }
                 Troop.NeedPrepareMission();
                 return;
@@ -46,7 +46,7 @@ namespace Sango.Core
                     nearestEnemy = TargetCity.GetNearestEnemy(troop.cell);
                     if (nearestEnemy == null)
                     {
-                        Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
+                        Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
 
                         isNoEnemyAlive = true;
                         Troop.NeedPrepareMission();

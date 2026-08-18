@@ -50,7 +50,7 @@ namespace Sango.Core.Player
             get
             {
                 return TargetCity.troops > 0 && TargetCity.food > 0 && TargetCity.freePersons.Count > 0 &&
-                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.MakeTroop);
+                    TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.MakeTroop);
             }
         }
         public override void UpdateJobValue()
@@ -140,7 +140,7 @@ namespace Sango.Core.Player
                 TargetCity.freePersons.Remove(person);
             });
             TargetCity.Render?.UpdateRender();
-            TargetTroop.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.MakeTroop));
+            TargetTroop.mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.MakeTroop));
             TargetCity.EnsureTroop(TargetTroop, Scenario.Cur);
             Window.Instance.SetVisible(windowName, false);
             GameSystem.GetSystem<TroopSystem>().Start(TargetTroop);
@@ -151,7 +151,7 @@ namespace Sango.Core.Player
             base.OnBack(whoGone);
             if (whoGone is ObjectSelectSystem) return;
             Window.Instance.SetVisible(windowName, true);
-            TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTroop));
+            TargetTroop.mBelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTroop));
             TargetTroop.EnterCity(TargetCity);
             TargetTroop.ForEachPerson(person =>
             {

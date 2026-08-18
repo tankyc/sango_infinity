@@ -1,6 +1,7 @@
 ﻿using TKNewtonsoft.Json;
 using Sango.Render;
 using System.Collections.Generic;
+using System;
 
 namespace Sango.Core
 {
@@ -14,21 +15,21 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty]
         public int BelongForce;
-        public Force mForce;
+        public Force mBelongForce;
 
         /// <summary>
         /// 所属势力
         /// </summary>
         [JsonProperty]
         public int BelongCorps;
-        public Corps mCorps;
+        public Corps mBelongCorps;
 
         /// <summary>
         /// 所属城池
         /// </summary>
         [JsonProperty]
         public int BelongCity;
-        public City mCity;
+        public City mBelongCity;
 
         /// <summary>
         /// 建筑类型
@@ -96,17 +97,17 @@ namespace Sango.Core
 
         public override ObjectRender GetRender() { return Render; }
 
-        public bool IsPlayer => mForce?.IsPlayer ?? false;
+        public bool IsPlayer => mBelongForce?.IsPlayer ?? false;
 
         /// <summary>
         /// 是否为玩家控制的
         /// </summary>
-        public virtual bool IsPlayerControl => mCorps?.IsPlayerControl ?? false;
+        public virtual bool IsPlayerControl => mBelongCorps?.IsPlayerControl ?? false;
 
         /// <summary>
         /// 获取是否为当前的玩家势力
         /// </summary>
-        public bool IsCurPlayer => mForce?.IsCurPlayer ?? false;
+        public bool IsCurPlayer => mBelongForce?.IsCurPlayer ?? false;
 
         /// <summary>
         /// 作用范围
@@ -137,12 +138,12 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            if(BelongForce >0)
-                mForce = scenario.forceSet.Get(BelongForce);
-            if(BelongCity > 0)
-                mCity = scenario.citySet.Get(BelongCity);
-            if(BelongCorps > 0)
-                mCorps = scenario.corpsSet.Get(BelongCorps);
+            if (BelongForce > 0)
+                mBelongForce = scenario.forceSet.Get(BelongForce);
+            if (BelongCity > 0)
+                mBelongCity = scenario.citySet.Get(BelongCity);
+            if (BelongCorps > 0)
+                mBelongCorps = scenario.corpsSet.Get(BelongCorps);
 
             effectCells = new List<Cell>();
             //BelongForce = scenario.forceSet.Get(_belongForceId);
@@ -152,9 +153,9 @@ namespace Sango.Core
 
         public override void OnScenarioSave(Scenario scenario)
         {
-            BelongForce = mForce?.Id ?? 0;
-            BelongCorps = mCorps?.Id ?? 0;
-            BelongCity = mCity?.Id ?? 0;
+            BelongForce = mBelongForce?.Id ?? 0;
+            BelongCorps = mBelongCorps?.Id ?? 0;
+            BelongCity = mBelongCity?.Id ?? 0;
         }
 
         public override void Init(Scenario scenario)
@@ -170,36 +171,36 @@ namespace Sango.Core
 
         public bool IsAlliance(BuildingBase other)
         {
-            return IsAlliance(mForce, other.mForce);
+            return IsAlliance(mBelongForce, other.mBelongForce);
         }
 
         public bool IsEnemy(BuildingBase other)
         {
-            return IsEnemy(mForce, other.mForce);
+            return IsEnemy(mBelongForce, other.mBelongForce);
         }
 
         public bool IsSameForce(BuildingBase other)
         {
-            return IsSameForce(mForce, other.mForce);
+            return IsSameForce(mBelongForce, other.mBelongForce);
         }
 
         public bool IsAlliance(Troop other)
         {
-            return IsAlliance(mForce, other.BelongForce);
+            return IsAlliance(mBelongForce, other.mBelongForce);
         }
 
         public bool IsEnemy(Troop other)
         {
-            return IsEnemy(mForce, other.BelongForce);
+            return IsEnemy(mBelongForce, other.mBelongForce);
         }
 
         public bool IsSameForce(Troop other)
         {
-            return IsSameForce(mForce, other.BelongForce);
+            return IsSameForce(mBelongForce, other.mBelongForce);
         }
         public bool IsSameForce(Person other)
         {
-            return IsSameForce(mForce, other.mForce);
+            return IsSameForce(mBelongForce, other.mBelongForce);
         }
 
         public bool IsBeSurrounded()
@@ -249,6 +250,11 @@ namespace Sango.Core
             }
 
             durability = durability + num;
+
+            // 火焰不能破城
+            if (num < 0 && IsCityBase() && atk != null && atk.ObjectType == SangoObjectType.Fire)
+                durability = Math.Max(durability, 1);
+
             if (num > 0 && durability >= DurabilityLimit)
             {
                 durability = DurabilityLimit;

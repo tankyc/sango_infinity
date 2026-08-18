@@ -50,7 +50,7 @@ namespace Sango.UI
             1,1,
             0,0,
             3,
-            0
+            0,0
         };
 
         int[] appointSetting;
@@ -97,7 +97,7 @@ namespace Sango.UI
                             break;
                         case 3:
                             {
-                                GameSystem.GetSystem<CitySelectSystem>().Start(targetCorps.mForce.CityList,
+                                GameSystem.GetSystem<CitySelectSystem>().Start(targetCorps.mBelongForce.CityList,
                                     null, 1, (sel_cs) =>
                                     {
                                         if (sel_cs == null || sel_cs.Count == 0) return;
@@ -120,7 +120,7 @@ namespace Sango.UI
         public override void OnOpen(params object[] objects)
         {
             targetCorps = objects[0] as Corps;
-            targetForce = targetCorps.mForce;
+            targetForce = targetCorps.mBelongForce;
             corpsNameText.text = targetCorps.Name;
             uICorpsSetting = objects[1] as UICorpsSetting;
             appointSetting = new int[targetCorps.appointSetting.Length];

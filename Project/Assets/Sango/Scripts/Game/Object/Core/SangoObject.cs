@@ -67,7 +67,11 @@ namespace Sango.Core
         /// <summary>
         /// 计略
         /// </summary>
-        Strategy
+        Strategy,
+        /// <summary>
+        /// 火焰
+        /// </summary>
+        Fire
 
     }
 

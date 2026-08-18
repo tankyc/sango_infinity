@@ -39,7 +39,7 @@ namespace Sango.Core.Player
             bool findNoActionTroop = false;
             Scenario.Cur.troopsSet.ForEach(x =>
             {
-                if (!findNoActionTroop && x.IsAlive && x.BelongForce == Scenario.Cur.CurRunForce && x.BelongCorps.IsPlayerControl && !x.ActionOver && !x.IsAppoint)
+                if (!findNoActionTroop && x.IsAlive && x.mBelongForce == Scenario.Cur.CurRunForce && x.mBelongCorps.IsPlayerControl && !x.ActionOver && !x.IsAppoint)
                     findNoActionTroop = true;
             });
 
@@ -73,7 +73,7 @@ namespace Sango.Core.Player
                 for (int i = 0; i < scenario.troopsSet.Count; ++i)
                 {
                     var c = scenario.troopsSet[i];
-                    if (c != null && c.IsAlive && c.BelongForce == force && !c.ActionOver && c.missionType > 0)
+                    if (c != null && c.IsAlive && c.mBelongForce == force && !c.ActionOver && c.missionType > 0)
                     {
                         if (!c.DoAI(scenario))
                             return;

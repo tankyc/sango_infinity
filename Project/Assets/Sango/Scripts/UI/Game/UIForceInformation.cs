@@ -151,7 +151,7 @@ using Sango.Core; namespace Sango.UI
             Scenario scenario = Scenario.Cur;
             scenario.citySet.ForEach(city =>
             {
-                if (city.mForce == force)
+                if (city.mBelongForce == force)
                 {
                     gold += city.gold;
                     goldGain += city.totalGainGold;
@@ -187,7 +187,7 @@ using Sango.Core; namespace Sango.UI
 
             scenario.personSet.ForEach(person =>
             {
-                if (person.mForce == force)
+                if (person.mBelongForce == force)
                 {
                     personList.Add(person);
                 }
@@ -195,7 +195,7 @@ using Sango.Core; namespace Sango.UI
 
             scenario.troopsSet.ForEach(person =>
             {
-                if (person.BelongForce == force)
+                if (person.mBelongForce == force)
                 {
                     troopList.Add(person);
                 }
@@ -203,7 +203,7 @@ using Sango.Core; namespace Sango.UI
 
             scenario.corpsSet.ForEach(person =>
             {
-                if (person.mForce == force)
+                if (person.mBelongForce == force)
                 {
                     corpsList.Add(person);
                 }

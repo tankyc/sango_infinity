@@ -23,7 +23,6 @@ namespace Sango.Core
             if (existingValue == null)
                 existingValue = Create(objectType);
             PersonAttributeValue dest = existingValue as PersonAttributeValue;
-            dest.master = target as Person;
             List<int> ints = new List<int>();
             while (reader.Read())
             {

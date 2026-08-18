@@ -487,7 +487,7 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = (x) =>
             {
-                if (x.mForce == null || x == x.mForce.mGovernor) return "---";
+                if (x.mBelongForce == null || x == x.mBelongForce.mGovernor) return "---";
                 return System.Math.Min(100, x.loyalty).ToString();
             } ,
             personSortFunc = (a, b) => a.loyalty.CompareTo(b.loyalty),
@@ -695,20 +695,20 @@ namespace Sango.Core
         {
             name = "势力",
             width = 3.00f,
-            valueGetCall = x => x.mForce?.Name ?? "",
-            personSortFunc = (a, b) => SangoObject.Compare(a.mForce, b.mForce),
-            valueObjGet = x => x.mForce,
-            valueObjSet = (x, v) => x.mForce = (Force)v,
+            valueGetCall = x => x.mBelongForce?.Name ?? "",
+            personSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
+            valueObjGet = x => x.mBelongForce,
+            valueObjSet = (x, v) => x.mBelongForce = (Force)v,
         };
 
         public static SortTitle SortByBelongCorps = new SortTitle()
         {
             name = "军团",
             width = 3.40f,
-            valueGetCall = x => x.mCorps?.Name ?? "",
-            personSortFunc = (a, b) => SangoObject.Compare(a.mCorps, b.mCorps),
-            valueObjGet = x => x.mCorps,
-            valueObjSet = (x, v) => x.mCorps = (Corps)v,
+            valueGetCall = x => x.mBelongCorps?.Name ?? "",
+            personSortFunc = (a, b) => SangoObject.Compare(a.mBelongCorps, b.mBelongCorps),
+            valueObjGet = x => x.mBelongCorps,
+            valueObjSet = (x, v) => x.mBelongCorps = (Corps)v,
         };
 
         public static SortTitle SortByBelongTroop = new SortTitle()
@@ -725,10 +725,10 @@ namespace Sango.Core
         {
             name = "所属",
             width = 3.40f,
-            valueGetCall = x => x.mCity?.Name ?? "",
-            personSortFunc = (a, b) => SangoObject.Compare(a.mCity, b.mCity),
-            valueObjGet = x => x.mCity,
-            valueObjSet = (x, v) => x.mCity = (City)v,
+            valueGetCall = x => x.mBelongCity?.Name ?? "",
+            personSortFunc = (a, b) => SangoObject.Compare(a.mBelongCity, b.mBelongCity),
+            valueObjGet = x => x.mBelongCity,
+            valueObjSet = (x, v) => x.mBelongCity = (City)v,
         };
 
         public static SortTitle SortByCurrentCity = new SortTitle()
@@ -879,14 +879,14 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x =>
             {
-                if (x.mCity == null)
+                if (x.mBelongCity == null)
                     return "✕";
-                return x == x.mCity.Leader ? "○" : "✕";
+                return x == x.mBelongCity.Leader ? "○" : "✕";
             },
             personSortFunc = (a, b) =>
             {
-                bool aIsLeader = a.mCity != null && a == a.mCity.Leader;
-                bool bIsLeader = b.mCity != null && b == b.mCity.Leader;
+                bool aIsLeader = a.mBelongCity != null && a == a.mBelongCity.Leader;
+                bool bIsLeader = b.mBelongCity != null && b == b.mBelongCity.Leader;
                 return bIsLeader.CompareTo(aIsLeader);
             },
             valueObjGet = null,
@@ -899,14 +899,14 @@ namespace Sango.Core
             width = 2.00f,
             valueGetCall = x =>
             {
-                if (x.mForce == null)
+                if (x.mBelongForce == null)
                     return "✕";
-                return x == x.mForce.mCounsellor ? "○" : "✕";
+                return x == x.mBelongForce.mCounsellor ? "○" : "✕";
             },
             personSortFunc = (a, b) =>
             {
-                bool aIsCounsellor = a.mForce != null && a == a.mForce.mCounsellor;
-                bool bIsCounsellor = b.mForce != null && b == b.mForce.mCounsellor;
+                bool aIsCounsellor = a.mBelongForce != null && a == a.mBelongForce.mCounsellor;
+                bool bIsCounsellor = b.mBelongForce != null && b == b.mBelongForce.mCounsellor;
                 return bIsCounsellor.CompareTo(aIsCounsellor);
             },
             valueObjGet = null,

@@ -6,7 +6,7 @@ namespace Sango.Core.Player
     public class CityDiplomacyDiscardAlliance : CityBaseSystem
     {
         public List<Force> targetForces = new List<Force>();
-        public List<ObjectSortTitle> customForceTitleList;
+        public List<ObjectSortTitle> customBelongForceTitleList;
 
         public CityDiplomacyDiscardAlliance()
         {
@@ -25,7 +25,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.DiscardAlliance) && TargetCity.gold >= 1000;
+                return TargetCity.freePersons.Count > 0 && TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.DiscardAlliance) && TargetCity.gold >= 1000;
             }
         }
 
@@ -33,7 +33,7 @@ namespace Sango.Core.Player
         {
             targetForces.Clear();
             personList.Clear();
-            customForceTitleList = new List<ObjectSortTitle>()
+            customBelongForceTitleList = new List<ObjectSortTitle>()
             {
                 ForceSortFunction.SortByName,
                 ForceSortFunction.SortByLeader,
@@ -53,7 +53,7 @@ namespace Sango.Core.Player
             if (targetForces.Count <= 0)
                 return;
 
-            TargetCity.mForce.AllianceList.ForEach(x =>
+            TargetCity.mBelongForce.AllianceList.ForEach(x =>
             {
                 if(x.Contains(targetForces[0]))
                 {

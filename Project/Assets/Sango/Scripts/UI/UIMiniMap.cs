@@ -31,7 +31,7 @@ namespace Sango.UI
             public MapCityNodeData(City city, Image image, GameObject gameObject) : base(image, gameObject)
             {
                 this.city = city;
-                Color c = city.mForce == null ? Color.white : city.mForce.mFlag.color;
+                Color c = city.mBelongForce == null ? Color.white : city.mBelongForce.mFlag.color;
                 image.color = c;
             }
 
@@ -45,7 +45,7 @@ namespace Sango.UI
 
             public void UpdateImage()
             {
-                Color c = city.mForce == null ? Color.white : city.mForce.mFlag.color;
+                Color c = city.mBelongForce == null ? Color.white : city.mBelongForce.mFlag.color;
                 image.color = c;
             }
         }
@@ -59,7 +59,7 @@ namespace Sango.UI
             public void Init(Troop troop)
             {
                 this.troop = troop;
-                image.color = troop.BelongForce.mFlag.color;
+                image.color = troop.mBelongForce.mFlag.color;
                 image.enabled = true;
             }
 

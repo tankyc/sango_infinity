@@ -27,7 +27,7 @@ namespace Sango.Core
         /// <summary>
         /// 是否为玩家军团
         /// </summary>
-        public virtual bool IsPlayer => mForce?.IsPlayer ?? false;
+        public virtual bool IsPlayer => mBelongForce?.IsPlayer ?? false;
 
         /// <summary>
         /// 是否为玩家控制的
@@ -39,7 +39,7 @@ namespace Sango.Core
         /// <summary>
         /// 获取是否为当前的玩家势力
         /// </summary>
-        public bool IsCurPlayer => mForce?.IsCurPlayer ?? false;
+        public bool IsCurPlayer => mBelongForce?.IsCurPlayer ?? false;
 
         /// <summary>
         /// AI是否完成行动
@@ -75,7 +75,7 @@ namespace Sango.Core
         [JsonProperty]
         public int BelongForce;
 
-        public Force mForce;
+        public Force mBelongForce;
 
         /// <summary>
         /// 军团长
@@ -144,7 +144,8 @@ namespace Sango.Core
             Attack,
             Transport,
             Build,
-            Max = 13
+            TransportDisable,
+            Max = 14
         }
 
         /// <summary>
@@ -167,14 +168,14 @@ namespace Sango.Core
         public override void OnScenarioPrepare(Scenario scenario)
         {
             if(BelongForce > 0)
-                mForce = scenario.forceSet.Get(BelongForce);
+                mBelongForce = scenario.forceSet.Get(BelongForce);
             if(Comander > 0)
                 mComander = scenario.personSet.Get(Comander);
         }
 
         public override void OnScenarioSave(Scenario scenario)
         {
-            BelongForce = mForce?.Id ?? 0;
+            BelongForce = mBelongForce?.Id ?? 0;
             Comander = mComander?.Id ?? 0;
         }
 
@@ -251,13 +252,13 @@ namespace Sango.Core
 
         public Corps()
         {
-            appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         }
 
         public override void Init(Scenario scenario)
         {
             if (appointSetting == null || appointSetting.Length < (int)AppointContentType.Max)
-                appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+                appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             PrepareCityInfo();
         }
 
@@ -276,11 +277,11 @@ namespace Sango.Core
 
         public bool CheckTargetIsAppointTarget(City city)
         {
-            if (city.mForce == null) return true;
+            if (city.mBelongForce == null) return true;
             if (appoint == (int)AppointType.OccupyCity)
                 return appoint_target == city.Id;
             else if (appoint == (int)AppointType.DestroyForce)
-                return appoint_target == city.mForce.Id;
+                return appoint_target == city.mBelongForce.Id;
             return true;
         }
 
@@ -310,7 +311,7 @@ namespace Sango.Core
             // 不能解散第一军团
             if (cityCount == 0 && number > 1)
             {
-                mForce.DeleteCorps(this);
+                mBelongForce.DeleteCorps(this);
             }
         }
 
@@ -319,7 +320,7 @@ namespace Sango.Core
             PrepareCityInfo();
             if(personCount == 0 && number > 1)
             {
-                mForce.DeleteCorps(this);
+                mBelongForce.DeleteCorps(this);
             }
         }
 
@@ -371,18 +372,18 @@ namespace Sango.Core
                 而军师的智力≤60的时候，军师参数反而小于了没有军师的1，这时候，不要军师就对了，反正一个60智力的军师，说话能靠谱才怪了。
              */
 
-            int governorAdd = (int)(40 * (0.65f + 0.025f * System.Math.Max(0, (int)(System.Math.Max((float)mForce.mGovernor.Command, (float)mForce.mGovernor.Glamour) / 5.0f) - 6)));
+            int governorAdd = (int)(40 * (0.65f + 0.025f * System.Math.Max(0, (int)(System.Math.Max((float)mBelongForce.mGovernor.Command, (float)mBelongForce.mGovernor.Glamour) / 5.0f) - 6)));
             int personAdd = 0;
             List<City> cities = new List<City>();
             int cityCount = 0;
-            mForce.ForEachCityBase((c) =>
+            mBelongForce.ForEachCityBase((c) =>
             {
-                if (c.mCity != null && c.mCity.mForce != mForce)
+                if (c.mBelongCity != null && c.mBelongCity.mBelongForce != mBelongForce)
                     return;
 
                 if (c.IsCity()) cityCount++;
 
-                if (c.mCorps == this)
+                if (c.mBelongCorps == this)
                     cities.Add(c);
             });
             int cityAdd = System.Math.Min(50, 10 * (cityCount - 1));
@@ -395,8 +396,8 @@ namespace Sango.Core
             }
 
             float counsellorFactor = 1.0f;
-            if (mForce.mCounsellor != null)
-                counsellorFactor = 1.2f - 0.01f * (50 - mForce.mCounsellor.Intelligence / 2);
+            if (mBelongForce.mCounsellor != null)
+                counsellorFactor = 1.2f - 0.01f * (50 - mBelongForce.mCounsellor.Intelligence / 2);
 
             //TODO: 建筑影响， 特技影响
 
@@ -404,7 +405,7 @@ namespace Sango.Core
             ActionPoint = System.Math.Max(0, ActionPoint);
 
 
-            if (IsPlayer && mForce == Scenario.Cur.CurRunForce)
+            if (IsPlayer && mBelongForce == Scenario.Cur.CurRunForce)
             {
                 GameEvent.OnCorpsActionPointChange?.Invoke(this);
             }
@@ -414,7 +415,7 @@ namespace Sango.Core
         public void ReduceActionPoint(int v)
         {
             ActionPoint -= v;
-            if (IsPlayer && mForce == Scenario.Cur.CurRunForce)
+            if (IsPlayer && mBelongForce == Scenario.Cur.CurRunForce)
             {
                 GameEvent.OnCorpsActionPointChange?.Invoke(this);
             }
@@ -467,7 +468,7 @@ namespace Sango.Core
                 return true;
 
             // 主军团永远不是委任军团,除此之外全是委任军团
-            if (IsPlayer && mComander == mForce.mGovernor)
+            if (IsPlayer && mComander == mBelongForce.mGovernor)
             {
                 GameEvent.OnPlayerControl?.Invoke(this, scenario);
                 return false;
@@ -531,7 +532,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mCorps == this && c.IsCity())
+                if (c != null && c.IsAlive && c.mBelongCorps == this && c.IsCity())
                 {
                     action(c);
                 }
@@ -544,7 +545,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mCorps == this && c.IsPort())
+                if (c != null && c.IsAlive && c.mBelongCorps == this && c.IsPort())
                 {
                     action(c);
                 }
@@ -557,7 +558,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mCorps == this && c.IsGate())
+                if (c != null && c.IsAlive && c.mBelongCorps == this && c.IsGate())
                 {
                     action(c);
                 }
@@ -570,7 +571,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.personSet.Count; ++i)
             {
                 var c = scenario.personSet[i];
-                if (c != null && c.IsAlive && c.mCorps == this && !c.IsPrisoner)
+                if (c != null && c.IsAlive && c.mBelongCorps == this && !c.IsPrisoner)
                 {
                     action(c);
                 }
@@ -583,7 +584,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
                 var c = scenario.buildingSet[i];
-                if (c != null && c.IsAlive && c.mCorps == this)
+                if (c != null && c.IsAlive && c.mBelongCorps == this)
                 {
                     action(c);
                 }
@@ -596,7 +597,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
                 var c = scenario.troopsSet[i];
-                if (c != null && c.IsAlive && c.BelongCorps == this)
+                if (c != null && c.IsAlive && c.mBelongCorps == this)
                 {
                     action(c);
                 }
@@ -608,11 +609,11 @@ namespace Sango.Core
             cityCount--;
             if (cityCount <= 0)
             {
-                mForce.DeleteCorps(this);
+                mBelongForce.DeleteCorps(this);
             }
             else
             {
-                if (mComander.mCity == target)
+                if (mComander.mBelongCity == target)
                 {
                     mComander?.SetStateNormal();
                     mComander = null;
@@ -672,7 +673,7 @@ namespace Sango.Core
             if (mComander != null)
             {
                 mComander.SetStateCommander();
-                mComander.mCity.UpdateNewLeader();
+                mComander.mBelongCity.UpdateNewLeader();
             }
         }
     }

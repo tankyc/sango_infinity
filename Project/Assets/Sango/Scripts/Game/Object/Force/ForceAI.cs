@@ -379,7 +379,7 @@ namespace Sango.Core
         /// <returns>合适的武将</returns>
         private static Person FindSuitableDiplomat(Force force)
         {
-            if (force.mGovernor?.mCity == null) return null;
+            if (force.mGovernor?.mBelongCity == null) return null;
 
             // 使用ForceAI中的外交推荐方法选择合适的武将
             Person[] recommendedDiplomats = CounsellorRecommendDiplomacy(force.CapitalCity.freePersons);
@@ -775,12 +775,12 @@ namespace Sango.Core
                 return false;
 
             // 检查势力关系
-            int relation = scenario.GetRelation(force, captive.mForce);
+            int relation = scenario.GetRelation(force, captive.mBelongForce);
             if (relation < -5000)
                 return false;
 
             // 检查是否有足够的资金
-            City capital = force.mGovernor?.mCity;
+            City capital = force.mGovernor?.mBelongCity;
             if (capital == null || capital.gold < 2000)
                 return false;
 
@@ -799,12 +799,12 @@ namespace Sango.Core
 
             if (GameRandom.Chance(probability, 10000))
             {
-                captive.mForce?.BeCaptiveList.Remove(captive);
+                captive.mBelongForce?.BeCaptiveList.Remove(captive);
                 captive.mCurrentCity.RemoveCaptive(captive);
                 captive.ChangeBelongCity(force.CapitalCity);
                 captive.SetMission(MissionType.PersonReturn, force.CapitalCity);
 #if SANGO_DEBUG
-                Sango.Log.Info($"{force.Name}成功招降了{captive.mForce?.Name}的{captive.Name}！");
+                Sango.Log.Info($"{force.Name}成功招降了{captive.mBelongForce?.Name}的{captive.Name}！");
 #endif
                 return true;
 
@@ -819,7 +819,7 @@ namespace Sango.Core
             //    return true;
 
             // 检查势力关系
-            int relation = scenario.GetRelation(force, captive.mForce);
+            int relation = scenario.GetRelation(force, captive.mBelongForce);
             if (relation > 5000)
                 return true;
 
@@ -845,7 +845,7 @@ namespace Sango.Core
         private static void ReleaseCaptive(Force force, Person captive, Scenario scenario)
         {
 #if SANGO_DEBUG
-            Sango.Log.Info($"{force.Name}在{captive.mCurrentCity.Name}释放了{captive.mForce?.Name}的{captive.Name}！");
+            Sango.Log.Info($"{force.Name}在{captive.mCurrentCity.Name}释放了{captive.mBelongForce?.Name}的{captive.Name}！");
 #endif
             // 直接调用Person.Escape方法释放俘虏
             captive.Escape(EscapeType.Released, force);
@@ -880,7 +880,7 @@ namespace Sango.Core
                             Person person = people[0];
                             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
                             // 创建外交行为实例并计算成功率
-                            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Ransom, force, captive.mCurrentCity.mForce, person, ransom);
+                            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Ransom, force, captive.mCurrentCity.mBelongForce, person, ransom);
                             int rate = diplomacyManager.CalculateDiplomacySuccessRate(action);
                             if (rate > 50)
                             {
@@ -889,7 +889,7 @@ namespace Sango.Core
                                 city.freePersons.Remove(person);
                                 hasSend = true;
 #if SANGO_DEBUG
-                                Sango.Log.Info($"{captive.mForce?.Name}派遣{person.Name}前往{captive.mCurrentCity.mForce.Name}赎回我方俘虏{captive.Name}！");
+                                Sango.Log.Info($"{captive.mBelongForce?.Name}派遣{person.Name}前往{captive.mCurrentCity.mBelongForce.Name}赎回我方俘虏{captive.Name}！");
 #endif          
                                 return;
                             }
@@ -914,7 +914,7 @@ namespace Sango.Core
         public static bool AITechniques(Force force, Scenario scenario)
         {
             // 检查是否有城市可以进行科技研发
-            City capital = force.mGovernor?.mCity;
+            City capital = force.mGovernor?.mBelongCity;
             if (capital == null)
                 return true;
 
@@ -2083,7 +2083,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mForce == force && c.IsCity())
+                if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
                 {
                     City kCity = c;
                     if (kCity.PersonHole < 0 && kCity.freePersons.Count > 0)
@@ -2115,7 +2115,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mForce == force && c.IsCity())
+                if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
                 {
                     City kCity = c;
                     if (canTransforPersons.Count <= 0)
@@ -2141,7 +2141,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mForce == force && c.IsCity())
+                if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
                 {
                     City kCity = c;
                     if (canTransforPersons.Count <= 0)

@@ -52,8 +52,8 @@ using Sango.Core; namespace Sango.UI
         {
             if (corps != null)
             {
-                forceName.text = corps.mForce.Name;
-                forceColor.color = corps.mForce.Color;
+                forceName.text = corps.mBelongForce.Name;
+                forceColor.color = corps.mBelongForce.Color;
                 corpsColor.color = corps.Color;
                 corpsId.text = corps.Index.ToString();
             }

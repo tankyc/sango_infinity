@@ -21,7 +21,7 @@ namespace Sango.Core.Player
             Force force = Scenario.Cur.CurRunForce;
             //GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{force.ColorName}大人，\n终于轮到我们了啊。", null);
             Person person = force.mCounsellor;
-            if (person == null || person.mForce != force)
+            if (person == null || person.mBelongForce != force)
             {
                 int max = force.CapitalCity.allPersons.Count;
                 person = force.CapitalCity.allPersons.Get(GameRandom.Range(0, max));

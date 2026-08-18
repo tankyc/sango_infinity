@@ -498,7 +498,7 @@ namespace Sango.Core
                 return false;
 
             // 获取目标势力主公所在的城市
-            City targetCity = action.Receiver.mGovernor?.mCity;
+            City targetCity = action.Receiver.mGovernor?.mBelongCity;
             if (targetCity == null)
                 return false;
 
@@ -511,7 +511,7 @@ namespace Sango.Core
             action.Diplomat.SetMission(MissionType.PersonDiplomacy, targetCity, distance, action.Receiver.Id, (int)action.ActionType, action.ResourceValue);
             
             // 将武将从首都的空闲武将列表中移除
-            action.Diplomat.mCity.freePersons.Remove(action.Diplomat);
+            action.Diplomat.mBelongCity.freePersons.Remove(action.Diplomat);
 
             // 调用外交行为的 OnDispatch 方法，用于对不同外交事件做不同处理
             action.OnDispatch();
@@ -544,7 +544,7 @@ namespace Sango.Core
             if (person == null || receiverForce == null)
                 return;
 
-            Force senderForce = person.mForce;
+            Force senderForce = person.mBelongForce;
             if (senderForce == null)
                 return;
 
@@ -564,7 +564,7 @@ namespace Sango.Core
             if (person == null || receiverForce == null)
                 return false;
 
-            Force senderForce = person.mForce;
+            Force senderForce = person.mBelongForce;
             if (senderForce == null)
                 return false;
 
@@ -711,7 +711,7 @@ namespace Sango.Core
             int requiredGold = action.ResourceValue;
             if (requiredGold > 0)
             {
-                City paymentCity = action.Diplomat?.mCity ?? action.Sender.CapitalCity;
+                City paymentCity = action.Diplomat?.mBelongCity ?? action.Sender.CapitalCity;
                 if (paymentCity == null || paymentCity.gold < requiredGold)
                 {
                     result.ErrorCode = DiplomacyError.InsufficientFunds;
@@ -783,7 +783,7 @@ namespace Sango.Core
             {
                 foreach (City neighbor in senderCity.NeighborList)
                 {
-                    if (neighbor.mForce == receiver)
+                    if (neighbor.mBelongForce == receiver)
                     {
                         hasBorder = true;
                         return;

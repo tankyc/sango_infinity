@@ -25,7 +25,7 @@ namespace Sango.Render
                 {
                     Feature feature = person.mFeatureList[j];
                     if (feature.kind == (int)FeatureKindType.CityProduce)
-                        person.mFeatureList[j].InitActions(sJobActions, person.mCity);
+                        person.mFeatureList[j].InitActions(sJobActions, person.mBelongCity);
                 }
             }
         }
@@ -40,7 +40,7 @@ namespace Sango.Render
         public override void Enter(Scenario scenario)
         {
             InitJobFeature(person);
-            if (!person.mCorps.IsPlayer)
+            if (!person.mBelongCorps.IsPlayer)
             {
                 person.JobRecruitPerson(target, (int)PersonRecruitType.Normal);
                 IsDone = true;
@@ -89,7 +89,7 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return person.mCorps.IsPlayer;
+            return person.mBelongCorps.IsPlayer;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

@@ -23,7 +23,7 @@ namespace Sango.Core.Player
 
         protected virtual void OnBuildingContextMenuShow(IContextMenuData menuData, BuildingBase building)
         {
-            if (building.mForce != null && building.mForce.IsPlayer && building.mForce == Scenario.Cur.CurRunForce)
+            if (building.mBelongForce != null && building.mBelongForce.IsPlayer && building.mBelongForce == Scenario.Cur.CurRunForce)
             {
                 TargetBuilding = building;
                 menuData.Add(customMenuName, customMenuOrder, null, OnClickMenuItem, IsValid);

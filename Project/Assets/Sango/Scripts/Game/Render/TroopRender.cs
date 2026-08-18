@@ -153,8 +153,8 @@ namespace Sango.Render
 
         public void UpdateInfo()
         {
-            //textInfo.color = Troop.BelongForce.Flag.color;
-            //textInfo.text = $"<{Troop.BelongForce.Name}>\n[{Troop.Name}队 - {Troop.TroopType.Name}]\n [{Troop.troops}] \n -{Troop.food}-";
+            //textInfo.color = Troop.mBelongForce.Flag.color;
+            //textInfo.text = $"<{Troop.mBelongForce.Name}>\n[{Troop.Name}队 - {Troop.TroopType.Name}]\n [{Troop.troops}] \n -{Troop.food}-";
 
             if (HeadBar != null)
             {

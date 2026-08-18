@@ -23,7 +23,7 @@ using Sango.Core; namespace Sango.UI
             this.troop = troop;
             name.text = troop.Name;
             headIcon.texture = GameRenderHelper.LoadHeadIcon(troop.Leader.headIconID);
-            bg.color = troop.BelongForce.Color;
+            bg.color = troop.mBelongForce.Color;
             skillText.Clear();
             UpdateState(troop);
             GameEvent.OnForceTurnStart += OnForceStart;
@@ -45,10 +45,10 @@ using Sango.Core; namespace Sango.UI
 
         public void UpdateTroopState()
         {
-            if (troop.BelongForce == null) return;
+            if (troop.mBelongForce == null) return;
 
             // 除开自己以外全部不显示
-            if (troop.BelongForce.IsPlayer)
+            if (troop.mBelongForce.IsPlayer)
             {
                 string spName;
                 if(troop.missionType > 0)
@@ -66,7 +66,7 @@ using Sango.Core; namespace Sango.UI
             }
             else
             {
-                Alliance alliance = troop.BelongForce.CheckAlliance(Scenario.Cur.CurRunForce);
+                Alliance alliance = troop.mBelongForce.CheckAlliance(Scenario.Cur.CurRunForce);
                 if (alliance != null)
                 {
                     //TODO: 根据联盟类型显示(同盟或者停战)

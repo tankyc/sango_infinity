@@ -49,7 +49,7 @@ namespace Sango.Core
         {
             scenario.citySet.ForEach(city =>
             {
-                if (!city.IsCity() || city.mCorps == null)
+                if (!city.IsCity() || city.mBelongCorps == null)
                     return;
 
                 // 换季,治安降低
@@ -75,7 +75,7 @@ namespace Sango.Core
         {
             scenario.citySet.ForEach(city =>
             {
-                if (!city.IsCity() || city.mCorps == null)
+                if (!city.IsCity() || city.mBelongCorps == null)
                     return;
 
                 // 换季,治安降低

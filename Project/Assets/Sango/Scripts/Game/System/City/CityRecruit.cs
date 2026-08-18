@@ -38,7 +38,7 @@ namespace Sango.Core.Player
             get
             {
                 return TargetCity.freePersons.Count > 0 &&
-                    TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
+                    TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
             }
         }
 
@@ -128,6 +128,9 @@ namespace Sango.Core.Player
 
         public void SetTarget(List<Person> target)
         {
+            if (target.Count == 0)
+                return;
+
             this.target = target;
             personList.Clear();
 

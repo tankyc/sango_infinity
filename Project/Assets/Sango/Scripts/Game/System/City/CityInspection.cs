@@ -26,7 +26,7 @@ namespace Sango.Core.Player
                     TargetCity.security < 100 &&
                     TargetCity.CheckJobCost(CityJobType.Inspection) &&
                     TargetCity.GetJobCounter((int)CityJobType.Inspection) == 0
-                    && TargetCity.mCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Inspection);
+                    && TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Inspection);
             }
         }
 

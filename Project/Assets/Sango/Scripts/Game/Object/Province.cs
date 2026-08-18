@@ -23,7 +23,7 @@ namespace Sango.Core
 
         public string ColorName => $"<color=#93C86D>{Name}</color>";
 
-        public City RandomCity(Scenario scenario)
+        public City RandomBelongCity(Scenario scenario)
         {
             List<City> cities = new List<City>();
             scenario.citySet.ForEach((city) =>

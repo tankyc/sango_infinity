@@ -6,6 +6,11 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptIn)]
     public class Fire : SangoObject
     {
+        /// <summary>
+        /// 获取对象类型
+        /// </summary>
+        public override SangoObjectType ObjectType => SangoObjectType.Fire;
+
         [JsonProperty]
         public int damage;
 

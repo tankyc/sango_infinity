@@ -9,7 +9,7 @@ namespace Sango.Core
         {
             get
             {
-                return TargetCity != Troop.BelongCity || !TargetCity.IsSameForce(Troop);
+                return TargetCity != Troop.mBelongCity || !TargetCity.IsSameForce(Troop);
             }
         }
 
@@ -22,7 +22,7 @@ namespace Sango.Core
             // 这种情况发生在玩家把部队放在外面没有任何任务,然后将此座城池设置成军团了
             if (TargetCity == null)
             {
-                TargetCity = troop.BelongCity;
+                TargetCity = troop.mBelongCity;
                 troop.SetMission(MissionType.TroopReturnCity, TargetCity.Id);
             }
 

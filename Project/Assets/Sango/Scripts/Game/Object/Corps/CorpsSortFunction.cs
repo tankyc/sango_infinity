@@ -147,10 +147,10 @@ namespace Sango.Core
         {
             name = "势力",
             width = 4.00f,
-            valueStrGetCall = x => x.mForce.Name,
-            valueSortFunc = (a, b) => a.mForce.Name.CompareTo(b.mForce.Name),
-            valueObjGet = x => x.mForce,
-            valueObjSet = (x, v) => x.mForce = (Force)v,
+            valueStrGetCall = x => x.mBelongForce.Name,
+            valueSortFunc = (a, b) => a.mBelongForce.Name.CompareTo(b.mBelongForce.Name),
+            valueObjGet = x => x.mBelongForce,
+            valueObjSet = (x, v) => x.mBelongForce = (Force)v,
         };
 
         public static SortTitle SortByNumber = new SortTitle()

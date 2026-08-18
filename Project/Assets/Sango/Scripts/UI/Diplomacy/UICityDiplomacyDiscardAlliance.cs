@@ -28,13 +28,13 @@ namespace Sango.UI
 
         public void UpdateContent()
         {
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.DiscardAlliance)}/{TargetCity.mCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.DiscardAlliance)}/{TargetCity.mBelongCorps.ActionPoint}";
             sureButton.interactable = currentSystem.targetForces.Count > 0;
             Force targetForce = currentSystem.targetForces.Count > 0 ? currentSystem.targetForces[0] : null;
             if (targetForce != null)
             {
                 target.text = targetForce.Name;
-                relationship.text = Scenario.Cur.GetRelation(TargetCity.mForce, targetForce).ToString();
+                relationship.text = Scenario.Cur.GetRelation(TargetCity.mBelongForce, targetForce).ToString();
             }
             else
             {
@@ -58,14 +58,14 @@ namespace Sango.UI
             List<Force> forces = new List<Force>();
             Scenario.Cur.forceSet.ForEach((x =>
             {
-                if (x.IsAlive && x.mGovernor != null && x != TargetCity.mForce && x.IsAlliance(TargetCity.mForce))
+                if (x.IsAlive && x.mGovernor != null && x != TargetCity.mBelongForce && x.IsAlliance(TargetCity.mBelongForce))
                 { 
                     forces.Add(x);
                 }
             }));
 
             GameSystem.GetSystem<ForceSelectSystem>().Start(forces,
-               currentSystem.targetForces, 1, OnForceChange, currentSystem.customForceTitleList, currentSystem.customTitleName);
+               currentSystem.targetForces, 1, OnForceChange, currentSystem.customBelongForceTitleList, currentSystem.customTitleName);
         }
 
         public virtual void OnForceChange(List<Force> forceList)

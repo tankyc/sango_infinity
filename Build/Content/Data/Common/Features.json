@@ -4,7 +4,6 @@
       "Id": 1,
       "Name": "飞将",
       "desc": "于陆上时不考虑ＺＯＣ、对武力低的敌部队施展战法成功时会心一击",
-      "hasInit": "1",
       "level": 4,
       "kind": 1,
       "actionEntities": [
@@ -40,7 +39,6 @@
       "Id": 2,
       "Name": "遁走",
       "desc": "于陆上时不考虑ＺＯＣ",
-      "hasInit": "1",
       "level": 3,
       "kind": 1,
       "actionEntities": [
@@ -54,7 +52,6 @@
       "Id": 3,
       "Name": "强行",
       "desc": "增加兵器、输送部队以外的陆上部队之移动力",
-      "hasInit": "1",
       "level": 3,
       "kind": 1,
       "actionEntities": [
@@ -75,7 +72,6 @@
       "Id": 4,
       "Name": "长驱",
       "desc": "增加骑兵部队的移动力",
-      "hasInit": "1",
       "level": 2,
       "kind": 1,
       "actionEntities": [
@@ -92,7 +88,6 @@
       "Id": 5,
       "Name": "推进",
       "desc": "于水上时不考虑ＺＯＣ",
-      "hasInit": "1",
       "level": 2,
       "kind": 1,
       "actionEntities": [
@@ -106,7 +101,6 @@
       "Id": 6,
       "Name": "操舵",
       "desc": "增加水上的移动力",
-      "hasInit": "1",
       "level": 2,
       "kind": 1,
       "actionEntities": [
@@ -130,7 +124,6 @@
       "Id": 8,
       "Name": "搬运",
       "desc": "增加输送部队的移动力",
-      "hasInit": "1",
       "level": 2,
       "kind": 1,
       "actionEntities": [
@@ -154,7 +147,6 @@
       "Id": 10,
       "Name": "扫荡",
       "desc": "被攻击的敌方部队气力减少（小）",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -179,7 +171,6 @@
       "Id": 11,
       "Name": "威风",
       "desc": "被攻击的敌方部队气力减少（大）",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -211,7 +202,6 @@
       "Id": 13,
       "Name": "连击",
       "desc": "施展一般攻击时，可连续攻击２次",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -267,7 +257,6 @@
       "Id": 16,
       "Name": "乱战",
       "desc": "于森林中攻击时施展会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -291,7 +280,6 @@
       "Id": 17,
       "Name": "待伏",
       "desc": "伏兵成功时施展会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 4,
       "actionEntities": [
@@ -312,7 +300,6 @@
       "Id": 18,
       "Name": "攻城",
       "desc": "攻击据点、设施、建筑物时施展会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -365,7 +352,6 @@
       "Id": 23,
       "Name": "攻心",
       "desc": "攻击时可将敌方部队的一部分士兵吸收到自军部队中",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -389,7 +375,6 @@
       "Id": 24,
       "Name": "驱逐",
       "desc": "施展一般攻击时会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -404,7 +389,6 @@
       "Id": 25,
       "Name": "射程",
       "desc": "使井阑、投石的射程增加１区格",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -422,7 +406,6 @@
       "Id": 26,
       "Name": "白马",
       "desc": "未研究技巧「骑射」时也可施展骑射；骑射可施展会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -554,7 +537,6 @@
       "Id": 35,
       "Name": "枪将",
       "desc": "对武力比自己低的敌方部队施展枪兵战法成功时会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -589,7 +571,6 @@
       "Id": 36,
       "Name": "戟将",
       "desc": "对武力比自己低的敌方部队施展戟兵战法成功时会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -624,7 +605,6 @@
       "Id": 37,
       "Name": "弓将",
       "desc": "对武力比自己低的敌方部队施展弩兵战法成功时会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -659,7 +639,6 @@
       "Id": 38,
       "Name": "骑将",
       "desc": "对武力比自己低的敌方部队施展骑兵战法成功时会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -694,7 +673,6 @@
       "Id": 39,
       "Name": "水将",
       "desc": "对武力比自己低的敌方部队施展水军战法成功时会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 2,
       "actionEntities": [
@@ -733,7 +711,6 @@
       "Id": 40,
       "Name": "勇将",
       "desc": "对武力比自己低的敌方部队施展全战法成功时会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -765,7 +742,6 @@
       "Id": 41,
       "Name": "神将",
       "desc": "对武力比自己低的敌方部队施展一般攻击及战法成功时会心一击",
-      "hasInit": "1",
       "level": 4,
       "kind": 2,
       "actionEntities": [
@@ -798,7 +774,6 @@
       "Id": 42,
       "Name": "斗神",
       "desc": "枪兵战法与戟兵战法施展成功时会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -834,7 +809,6 @@
       "Id": 43,
       "Name": "枪神",
       "desc": "枪兵战法成功时施展会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -864,7 +838,6 @@
       "Id": 44,
       "Name": "戟神",
       "desc": "戟兵战法成功时施展会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -894,7 +867,6 @@
       "Id": 45,
       "Name": "弓神",
       "desc": "弩兵战法成功时施展会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -924,7 +896,6 @@
       "Id": 46,
       "Name": "骑神",
       "desc": "骑兵战法成功时施展会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -954,7 +925,6 @@
       "Id": 47,
       "Name": "工神",
       "desc": "兵器战法成功时施展会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -987,7 +957,6 @@
       "Id": 48,
       "Name": "水神",
       "desc": "水军战法成功时施展会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -1020,7 +989,6 @@
       "Id": 49,
       "Name": "霸王",
       "desc": "全战法成功时施展会心一击",
-      "hasInit": "1",
       "level": 4,
       "kind": 2,
       "actionEntities": [
@@ -1047,7 +1015,6 @@
       "Id": 50,
       "Name": "疾驰",
       "desc": "对攻击力比自部队低的敌方部队施展骑兵战法成功时，必使其陷入混乱",
-      "hasInit": "1",
       "level": 3,
       "kind": 2,
       "actionEntities": [
@@ -1162,7 +1129,6 @@
       "Id": 54,
       "Name": "火攻",
       "desc": "对智力比自己低的敌方部队施展部队计略「火计」时必定会成功",
-      "hasInit": "1",
       "level": 3,
       "kind": 4,
       "actionEntities": [
@@ -1193,7 +1159,6 @@
       "Id": 55,
       "Name": "言毒",
       "desc": "对智力比自己低的敌方部队施展部队计略「伪报」时，必定会成功",
-      "hasInit": "1",
       "level": 3,
       "kind": 4,
       "actionEntities": [
@@ -1224,7 +1189,6 @@
       "Id": 56,
       "Name": "机智",
       "desc": "对智力比自己低的敌方部队施展部队计略「扰乱」时，必定会成功",
-      "hasInit": "1",
       "level": 3,
       "kind": 4,
       "actionEntities": [
@@ -1255,7 +1219,6 @@
       "Id": 57,
       "Name": "诡计",
       "desc": "对智力比自己低的敌方部队施展部队计略「内讧」时，必定会成功",
-      "hasInit": "1",
       "level": 3,
       "kind": 4,
       "actionEntities": [
@@ -1286,7 +1249,6 @@
       "Id": 58,
       "Name": "虚实",
       "desc": "对智力比自己低的敌方部队施展全部队计略时，必定会成功",
-      "hasInit": "1",
       "level": 4,
       "kind": 4,
       "actionEntities": [
@@ -1314,7 +1276,6 @@
       "Id": 59,
       "Name": "妙计",
       "desc": "对智力比自己低的敌方部队施展部队计略成功时会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 4,
       "actionEntities": [
@@ -1342,7 +1303,6 @@
       "Id": 60,
       "Name": "秘计",
       "desc": "对智力比自己高的敌方部队施展部队计略成功时会心一击",
-      "hasInit": "1",
       "level": 2,
       "kind": 4,
       "actionEntities": [
@@ -1370,7 +1330,6 @@
       "Id": 61,
       "Name": "看破",
       "desc": "必定可识破智力比自己低的敌方部队所施展部队计略",
-      "hasInit": "1",
       "level": 3,
       "kind": 4,
       "actionEntities": [
@@ -1399,7 +1358,6 @@
       "Id": 62,
       "Name": "洞察",
       "desc": "必定可识破敌方部队所施展的部队计略,反击伤害增加为２倍",
-      "hasInit": "1",
       "level": 4,
       "kind": 4,
       "actionEntities": [
@@ -1423,7 +1381,6 @@
       "Id": 63,
       "Name": "火神",
       "desc": "对智力比自己低的敌方部队施展火计时必会成功；于全火攻有所优势",
-      "hasInit": "1",
       "level": 4,
       "kind": 4,
       "actionEntities": [
@@ -1487,7 +1444,6 @@
       "Id": 64,
       "Name": "神算",
       "desc": "对智力比自己低的敌方部队施展计略必会成功；于全计略有所优势",
-      "hasInit": "1",
       "level": 4,
       "kind": 4,
       "actionEntities": [
@@ -1552,7 +1508,6 @@
       "Id": 65,
       "Name": "百出",
       "desc": "部队计略的消费气力减少",
-      "hasInit": "1",
       "level": 4,
       "kind": 4,
       "actionEntities": [
@@ -1570,7 +1525,6 @@
       "Id": 66,
       "Name": "鬼谋",
       "desc": "增广２区格可施展部队计略的范围",
-      "hasInit": "1",
       "level": 3,
       "kind": 4,
       "actionEntities": [
@@ -1615,7 +1569,6 @@
       "Id": 68,
       "Name": "深谋",
       "desc": "部队计略成功时施展会心一击",
-      "hasInit": "1",
       "level": 3,
       "kind": 4,
       "actionEntities": [
@@ -1661,7 +1614,6 @@
       "Id": 73,
       "Name": "规律",
       "desc": "可防止遭受部队计略「伪报」",
-      "hasInit": "1",
       "level": 2,
       "kind": 5,
       "actionEntities": [
@@ -1692,7 +1644,6 @@
       "Id": 74,
       "Name": "沉着",
       "desc": "可防止遭受部队计略「扰乱」",
-      "hasInit": "1",
       "level": 2,
       "kind": 5,
       "actionEntities": [
@@ -1723,7 +1674,6 @@
       "Id": 75,
       "Name": "明镜",
       "desc": "可防止遭受部队计略的「伪报、扰乱」",
-      "hasInit": "1",
       "level": 3,
       "kind": 5,
       "actionEntities": [
@@ -1756,14 +1706,46 @@
       "Name": "奏乐",
       "desc": "每回合回复自军部队的气力",
       "level": 3,
-      "kind": 5
+      "kind": 5,
+      "actionEntities": [
+        {
+          "class": "TroopTriggerAction",
+          "triggerList": [
+            {
+              "class": "TriggerTroopTurnStart"
+            }
+          ],
+          "actionList": [
+            {
+              "class": "TroopChangeMorale",
+              "value": 5
+            }
+          ]
+        }
+      ]
     },
     "77": {
       "Id": 77,
       "Name": "诗想",
-      "desc": "军乐台的回复气力效果增为２倍",
+      "desc": "任何回复气力效果增为２倍",
       "level": 2,
-      "kind": 5
+      "kind": 5,
+      "actionEntities": [
+        {
+          "class": "TroopTriggerAction",
+          "triggerList": [
+            {
+              "class": "TriggerTroopOnMoralChange"
+            }
+          ],
+          "actionList": [
+            {
+              "class": "TroopModifyMorale",
+              "value": 20000
+            }
+          ]
+        }
+      ]
     },
     "78": {
       "Id": 78,
@@ -1783,7 +1765,6 @@
       "Id": 80,
       "Name": "名声",
       "desc": "增加征兵时的士兵数",
-      "hasInit": "1",
       "level": 2,
       "kind": 6,
       "actionEntities": [
@@ -1800,7 +1781,6 @@
       "Id": 81,
       "Name": "能吏",
       "desc": "增加生产枪、戟、弩之兵装时的产量",
-      "hasInit": "1",
       "level": 2,
       "kind": 6,
       "actionEntities": [
@@ -1817,7 +1797,6 @@
       "Id": 82,
       "Name": "繁殖",
       "desc": "增加生产军马之兵装时的产量",
-      "hasInit": "1",
       "level": 2,
       "kind": 6,
       "actionEntities": [
@@ -1834,7 +1813,6 @@
       "Id": 83,
       "Name": "发明",
       "desc": "生产兵器之兵装时所需的生产期间减半",
-      "hasInit": "1",
       "level": 2,
       "kind": 6,
       "actionEntities": [
@@ -1851,7 +1829,6 @@
       "Id": 84,
       "Name": "造船",
       "desc": "生产舰船之兵装时所需的生产期间减半",
-      "hasInit": "1",
       "level": 2,
       "kind": 6,
       "actionEntities": [

@@ -34,7 +34,7 @@ namespace Sango.Render
         {
             Owener = building;
             Building = building;
-            MapObject = MapObject.Create($"{Building.mCity.Name}-{Building.Name}");
+            MapObject = MapObject.Create($"{Building.mBelongCity.Name}-{Building.Name}");
             MapObject.objType = Building.BuildingType.kind;
             MapObject.modelId = Building.BuildingType.Id;
             isComplate = building.isComplate;

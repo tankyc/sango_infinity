@@ -29,13 +29,13 @@ namespace Sango.UI
             if (currentSystem.personList.Count > 0 )
             {
                 string content = $"最适合担任此任务的人，\n除{currentSystem.personList[0].ColorName}之外别无其他人选。";
-                if (currentSystem.personList[0] == TargetCity.mForce.mCounsellor)
+                if (currentSystem.personList[0] == TargetCity.mBelongForce.mCounsellor)
                 {
                     content = $"我对此任务很有信心，\n请务必交给我吧。";
                 }
 
                 GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, content, () => { GameDialog.Close(); UpdateContent(); });
-                Person person = TargetCity.mForce.mCounsellor;
+                Person person = TargetCity.mBelongForce.mCounsellor;
                 dialog.SetPerson(person);
             }
             else
@@ -47,7 +47,7 @@ namespace Sango.UI
         public void UpdateContent()
         {
             int count = currentSystem.personList.Count;
-            action_value.text = $"{count * JobType.GetJobCostAP((int)CityJobType.Searching)}/{TargetCity.mCorps.ActionPoint}";
+            action_value.text = $"{count * JobType.GetJobCostAP((int)CityJobType.Searching)}/{TargetCity.mBelongCorps.ActionPoint}";
             sureButton.interactable = count > 0;
             Person actionPerson = count > 0 ? currentSystem.personList[0] : null;
             personItems.SetPerson(actionPerson);
@@ -71,7 +71,7 @@ namespace Sango.UI
             int apCost = JobType.GetJobCostAP((int)CityJobType.Searching);
             if (apCost > 0)
             {
-                return Math.Min(pCount, TargetCity.mCorps.ActionPoint / apCost);
+                return Math.Min(pCount, TargetCity.mBelongCorps.ActionPoint / apCost);
             }
             else
                 return pCount;

@@ -169,11 +169,11 @@ namespace Sango.UI
             }
             else
             {
-                p.glamour.Update();
-                p.command.Update();
-                p.strength.Update();
-                p.intelligence.Update();
-                p.politics.Update();
+                p.glamour.Update(p.Age, Scenario.Cur);
+                p.command.Update(p.Age, Scenario.Cur);
+                p.strength.Update(p.Age, Scenario.Cur);
+                p.intelligence.Update(p.Age, Scenario.Cur);
+                p.politics.Update(p.Age, Scenario.Cur);
             }
                 
 

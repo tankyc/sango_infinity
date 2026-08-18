@@ -286,30 +286,30 @@ namespace Sango.Core
         {
             name = "势力",
             width = 2.40f,
-            valueStrGetCall = x => x.mForce?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mForce, b.mForce),
-            valueObjGet = x => x.mForce,
-            valueObjSet = (x, v) => x.mForce = (Force)v,
+            valueStrGetCall = x => x.mBelongForce?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
+            valueObjGet = x => x.mBelongForce,
+            valueObjSet = (x, v) => x.mBelongForce = (Force)v,
         };
 
         public static SortTitle SortByBelongCorps = new SortTitle()
         {
             name = "军团",
             width = 4.00f,
-            valueStrGetCall = x => x.mCorps?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mCorps, b.mCorps),
-            valueObjGet = x => x.mCorps,
-            valueObjSet = (x, v) => x.mCorps = (Corps)v,
+            valueStrGetCall = x => x.mBelongCorps?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCorps, b.mBelongCorps),
+            valueObjGet = x => x.mBelongCorps,
+            valueObjSet = (x, v) => x.mBelongCorps = (Corps)v,
         };
 
         public static SortTitle SortByBelongCity = new SortTitle()
         {
             name = "所属",
             width = 2.40f,
-            valueStrGetCall = x => x.mCity?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mCity, b.mCity),
-            valueObjGet = x => x.mCity,
-            valueObjSet = (x, v) => x.mCity = (City)v,
+            valueStrGetCall = x => x.mBelongCity?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCity, b.mBelongCity),
+            valueObjGet = x => x.mBelongCity,
+            valueObjSet = (x, v) => x.mBelongCity = (City)v,
         };
 
         public static SortTitle SortBySecurity = new SortTitle()
@@ -413,7 +413,7 @@ namespace Sango.Core
             if (itemType.kind == 3 || itemType.kind == 4)
             {
                 ItemType tempType = Scenario.Cur.GetObject<ItemType>(id + 1);
-                if (tempType.storeKind == itemType.storeKind && tempType.IsValid(city.mForce))
+                if (tempType.storeKind == itemType.storeKind && tempType.IsValid(city.mBelongForce))
                 {
                     itemType = tempType;
                 }
