@@ -280,7 +280,7 @@ namespace Sango.UI
 
         #region 数据处理
 
-        void CollectPersonLib(SangoObjectSet<PersonLib> set, List<PersonLib> dest)
+        void CollectPersonLib(SangoObjectOffSet<PersonLib> set, List<PersonLib> dest)
         {
             if (set == null)
                 return;

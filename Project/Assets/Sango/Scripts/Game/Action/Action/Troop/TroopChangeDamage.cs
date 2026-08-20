@@ -33,7 +33,7 @@ namespace Sango.Core.Action
             overrideData.Value = overrideData.Value * (100 + value) / 100;
         }
 
-        public override void Execute(Trigger trigger, params object[] sangoObjects)
+        public override void Execute(Trigger trigger)
         {
 
         }

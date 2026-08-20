@@ -1,5 +1,6 @@
 using Sango.Core;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Sango.Render
 {
@@ -7,6 +8,7 @@ namespace Sango.Render
     {
         List<IRenderEventBase> eventQueue = new List<IRenderEventBase>();
         IRenderEventBase CurEvent { get; set; }
+        int EventCount => eventQueue.Count;
         Dictionary<string, Stack<IRenderEventBase>> eventPool = new Dictionary<string, Stack<IRenderEventBase>>();
 
         public T Create<T>() where T : IRenderEventBase, new()
@@ -32,7 +34,7 @@ namespace Sango.Render
 
         public void Add(IRenderEventBase renderEvent)
         {
-            if(CurEvent != null && CurEvent.MarkDepends)
+            if (CurEvent != null && CurEvent.MarkDepends)
             {
                 eventQueue.Add(renderEvent);
                 eventQueue.Remove(CurEvent);
@@ -54,7 +56,7 @@ namespace Sango.Render
             while (eventQueue.Count > 0)
             {
                 CurEvent = eventQueue[0];
-                if(!CurEvent.IsInited)
+                if (!CurEvent.IsInited)
                 {
                     CurEvent.IsInited = true;
                     CurEvent.Enter(scenario);
@@ -84,6 +86,33 @@ namespace Sango.Render
                 eventPool[key] = stack;
             }
             stack.Push(renderEvent);
+        }
+
+        public string Dump()
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine($"GameController.Enabled ={GameController.Instance.Enabled}");
+            stringBuilder.AppendLine($"CurrentCommand  ={GameSystemManager.Instance.CurrentCommand?.GetType()}");
+            if (CurEvent != null)
+            {
+                stringBuilder.AppendLine($"Cur:{CurEvent.GetType()}->{CurEvent.IsDone}");
+                stringBuilder.AppendLine(", Count:" + EventCount);
+                for (int i = 0; i < EventCount; i++)
+                {
+                    IRenderEventBase renderEventBase = eventQueue[i];
+                    stringBuilder.Append($", ({i}):{renderEventBase.GetType()} ->{renderEventBase.IsDone}");
+                }
+            }
+            else
+            {
+                stringBuilder.Append("无!!");
+            }
+            stringBuilder.AppendLine($"GameController.KeyboardMoveEnabled ={GameController.Instance.KeyboardMoveEnabled}");
+            stringBuilder.AppendLine($"GameController.RotateViewEnabled ={GameController.Instance.RotateViewEnabled}");
+            stringBuilder.AppendLine($"GameController.BorderMoveViewEnabled ={GameController.Instance.BorderMoveViewEnabled}");
+            stringBuilder.AppendLine($"GameController.ZoomViewEnabled ={GameController.Instance.ZoomViewEnabled}");
+            stringBuilder.AppendLine($"GameController.DragMoveViewEnabled ={GameController.Instance.DragMoveViewEnabled}");
+            return stringBuilder.ToString();
         }
     }
 }

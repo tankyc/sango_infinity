@@ -187,6 +187,43 @@ namespace Sango
             }
             return split;
         }
+
+        public WindowInterface CreateNewWindow(string windowName)
+        {
+            UnityEngine.GameObject uguiWinObj = PoolManager.Create($"Assets/UI/Prefab/{windowName}.prefab");
+            if (uguiWinObj != null)
+            {
+                uguiWinObj.name = windowName;
+                //Canvas canvas = uguiWinObj.GetComponent<Canvas>();
+                //if (canvas != null)
+                //{
+                //    canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                //    canvas.worldCamera = Sango.Core.Game.Instance.UICamera;
+                //}
+                uguiWinObj.transform.SetParent(Sango.Core.Game.Instance.UIRoot, false);
+
+                GameSetting.Instance.UpdateTargetGameObject(uguiWinObj);
+
+                UGUIWindow uGUIWindow = uguiWinObj.GetComponent<UGUIWindow>();
+                if (uGUIWindow == null)
+                    uGUIWindow = uguiWinObj.AddComponent<UGUIWindow>();
+                uGUIWindow.OnCloseAction = () =>
+                {
+                    PoolManager.Recycle(uguiWinObj);
+                };
+                uguiWinObj.transform.SetAsLastSibling();
+                WindowInfo info = new WindowInfo()
+                {
+                    name = windowName,
+                    packageName = null,
+                    resName = null,
+                    scriptName = null,
+                    instance = new WindowInterface() { ugui_instance = uGUIWindow }
+                };
+                return info.instance;
+            }
+            return null;
+        }
         public WindowInterface CreateWindow(string windowName)
         {
             WindowInfo info;
@@ -207,16 +244,7 @@ namespace Sango
             //}
             //else
             {
-#if UNITY_ANDROID || UNITY_IPHONE
-                //UnityEngine.Object winObj = ObjectLoader.LoadObject<UnityEngine.GameObject>($"Assets/UI/Prefab/{windowName}_mobile.prefab");
-                //if (winObj == null)
-                //    winObj = ObjectLoader.LoadObject<UnityEngine.GameObject>($"Assets/UI/Prefab/{windowName}.prefab");
                 UnityEngine.Object winObj = ObjectLoader.LoadObject<UnityEngine.GameObject>($"Assets/UI/Prefab/{windowName}.prefab");
-
-#else
-                UnityEngine.Object winObj = ObjectLoader.LoadObject<UnityEngine.GameObject>($"Assets/UI/Prefab/{windowName}.prefab");
-
-#endif
                 if (winObj != null)
                 {
                     GameObject uguiWinObj = GameObject.Instantiate(winObj) as GameObject;
@@ -299,6 +327,48 @@ namespace Sango
             WindowInterface win = Open(windowName, objects);
             return win.ugui_instance as T;
         }
+
+
+        public WindowInterface OpenNew(string windowName)
+        {
+#if SANGO_DEBUG
+            UnityEngine.Debug.Log($"显示窗口:{windowName}");
+#endif
+            WindowInterface win = CreateNewWindow(windowName);
+            if (win != null)
+            {
+                win.Open();
+                Sango.Core.GameEvent.OnWindowCreate?.Invoke(windowName, win);
+            }
+            return win;
+        }
+
+        public WindowInterface OpenNew(string windowName, params object[] objects)
+        {
+#if SANGO_DEBUG
+            UnityEngine.Debug.Log($"显示窗口:{windowName}");
+#endif
+            WindowInterface win = CreateNewWindow(windowName);
+            if (win != null)
+            {
+                win.Open(objects);
+                Sango.Core.GameEvent.OnWindowCreate?.Invoke(windowName, win);
+            }
+            return win;
+        }
+
+        public T OpenNew<T>(string windowName) where T : UGUIWindow
+        {
+            WindowInterface win = OpenNew(windowName);
+            return win.ugui_instance as T;
+        }
+
+        public T OpenNew<T>(string windowName, params object[] objects) where T : UGUIWindow
+        {
+            WindowInterface win = OpenNew(windowName, objects);
+            return win.ugui_instance as T;
+        }
+
 
         public WindowInterface GetWindow(string windowName)
         {

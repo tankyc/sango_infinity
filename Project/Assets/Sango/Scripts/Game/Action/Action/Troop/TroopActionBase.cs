@@ -161,7 +161,7 @@ namespace Sango.Core.Action
             return true;
         }
 
-        public override void Execute(Trigger trigger, params object[] sangoObjects)
+        public override void Execute(Trigger trigger)
         {
         }
 

@@ -27,7 +27,7 @@ namespace Sango.Core.Action
             Force = sangoObjects[0] as Force;
             Params = p;
         }
-        public override void Execute(Trigger trigger, params object[] sangoObjects)
+        public override void Execute(Trigger trigger)
         {
         }
     }

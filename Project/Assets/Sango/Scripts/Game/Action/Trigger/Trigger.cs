@@ -23,9 +23,9 @@ namespace Sango.Core
         public virtual Fire TargetFire => null;
         public virtual object ActionObject => null;
         public virtual object TargetObject => null;
-        public virtual Tools.OverrideData<int> DamageOverride => null;
+        public virtual Tools.OverrideData<int> ValueOverride => null;
 
-        public delegate void TriggerCall(Trigger trigger, params object[] sangoObjects);
+        public delegate void TriggerCall(Trigger trigger);
         public TriggerCall triggerCall;
         public virtual Trigger Clone()
         {

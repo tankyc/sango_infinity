@@ -21,13 +21,13 @@ namespace Sango.Core.Action
 
         }
 
-        public override void Execute(Trigger trigger, params object[] sangoObjects)
+        public override void Execute(Trigger trigger)
         {
             if(trigger == null) return;
             if (trigger.ActionTroop != Troop) return;
-            if (trigger.DamageOverride != null && trigger.ActionTroop.IsAlive)
+            if (trigger.ValueOverride != null && trigger.ActionTroop.IsAlive)
             {
-                int hp = trigger.DamageOverride.Value * percent / 100;
+                int hp = trigger.ValueOverride.Value * percent / 100;
                 if (hp > 0)
                 {
                     trigger.ActionTroop.ChangeTroops(hp, trigger.ActionTroop, trigger.ActionSkill, 0);

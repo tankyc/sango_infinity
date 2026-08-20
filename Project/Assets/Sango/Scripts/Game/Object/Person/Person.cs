@@ -766,7 +766,7 @@ namespace Sango.Core
                 politics.UpdateNoAge();
                 glamour.UpdateNoAge();
             }
-           
+
             // 处理义兄弟
             if (mBrother != null)
             {
@@ -922,6 +922,27 @@ namespace Sango.Core
                     BrotherList = mBrother.BrotherList;
                 }
             }
+
+            if (IsPrisoner && mCurrentCity.IsSameForce(this))
+            {
+                if (mBelongForce != null)
+                {
+                    mBelongForce.BeCaptiveList.Remove(this);
+                    state = (int)PersonStateType.Normal;
+                    mCurrentCity.allPersons.Remove(this);
+                    mCurrentCity.allPersons.Add(this);
+                    mCurrentCity.freePersons.Remove(this);
+                    mCurrentCity.freePersons.Add(this);
+                }
+                else
+                {
+                    state = (int)PersonStateType.Unemployed;
+                    mCurrentCity.wildPersons.Remove(this);
+                    mCurrentCity.wildPersons.Add(this);
+                }
+                mCurrentCity.captiveList.Remove(this);
+            }
+
         }
 
         public override bool OnYearStart(Scenario scenario)
@@ -1089,7 +1110,7 @@ namespace Sango.Core
                 case (int)MissionType.PersonBuild:
                     {
                         Building target = scenario.GetObject<Building>(missionTarget);
-                        if (target == null || !target.IsAlive || !target.IsSameForce(this))
+                        if (target == null || !target.IsAlive || !target.IsSameForce(this) || (target.isComplate && !target.isUpgrading))
                         {
                             ClearMission();
                         }
@@ -1547,11 +1568,8 @@ namespace Sango.Core
                 else
                     mCurrentCity.RemoveCaptive(this);
                 state = (int)PersonStateType.Normal;
-
-                if (!JoinToForce(targetCity))
-                {
-                    SetMission(MissionType.PersonReturn, targetCity);
-                }
+                JoinToForce(targetCity);
+                SetMission(MissionType.PersonReturn, targetCity);
             }
             else
             {
@@ -1576,10 +1594,8 @@ namespace Sango.Core
                     {
                         mTroop.RemovePerson(this);
                         ChangeCurrentCity(troop.mCurrentCity);
-                        if (!JoinToForce(targetCity))
-                        {
-                            SetMission(MissionType.PersonReturn, targetCity);
-                        }
+                        JoinToForce(targetCity);
+                        SetMission(MissionType.PersonReturn, targetCity);
                         troop.ResetActionAndStatus();
                     }
                     troop.Render?.UpdateRender();
@@ -1587,10 +1603,8 @@ namespace Sango.Core
                 else
                 {
                     // 有归属
-                    if (!JoinToForce(targetCity))
-                    {
-                        SetMission(MissionType.PersonReturn, targetCity);
-                    }
+                    JoinToForce(targetCity);
+                    SetMission(MissionType.PersonReturn, targetCity);
                 }
             }
             ActionOver = true;
@@ -1983,9 +1997,8 @@ namespace Sango.Core
 
         public string GetDescription()
         {
-            if (!string.IsNullOrEmpty(description))
+            if (!string.IsNullOrEmpty(description) && description != "0")
                 return description;
-            
             return GameLanguage.GetString(Id);
         }
 

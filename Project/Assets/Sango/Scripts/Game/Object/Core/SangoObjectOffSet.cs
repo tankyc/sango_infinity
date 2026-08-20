@@ -9,8 +9,10 @@ namespace Sango.Core
     /// SangoObject限定数组数据集, 限定最大容量, 记住下标从1开始,0作为默认无效值,数据集用0号位来作为默认值
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class SangoObjectSet<T> : Database<T> where T : SangoObject, new()
+    public class SangoObjectOffSet<T> : Database<T> where T : SangoObject, new()
     {
+        public int offset = 0;
+
         public T[] objects;
         public override T Default
         {
@@ -28,11 +30,11 @@ namespace Sango.Core
         public override int Count { get { return MaxCount; } }
         public override T this[int aIndex] { get { return objects[aIndex]; } set { objects[aIndex] = value; } }
 
-        public SangoObjectSet()
+        public SangoObjectOffSet()
         {
             Reset(256);
         }
-        public SangoObjectSet(int length)
+        public SangoObjectOffSet(int length)
         {
             Reset(length);
         }
@@ -63,50 +65,57 @@ namespace Sango.Core
         {
             if (obj.Id < 0)
             {
-                obj.Id = objects.Length;
+                obj.Id = objects.Length + offset;
                 for (int i = SearchingBeginIndex; i < objects.Length; i++)
                 {
                     if (objects[i] == null)
                     {
-                        obj.Id = i;
+                        obj.Id = i + offset;
                         SearchingBeginIndex = i;
                         break;
                     }
                 }
             }
+            else
+            {
+                if (obj.Id < offset)
+                {
+                    obj.Id += offset;
+                }
+            }
 
-            CheckLength(obj.Id + 1);
-            objects[obj.Id] = obj;
+            CheckLength(obj.Id - offset + 1);
+            objects[obj.Id - offset] = obj;
         }
 
         public override void Set(T obj)
         {
             if (obj.Id < 0)
                 return;
-            CheckLength(obj.Id + 1);
-            objects[obj.Id] = obj;
+            CheckLength(obj.Id - offset + 1);
+            objects[obj.Id - offset] = obj;
         }
 
 
         public override void Remove(T obj)
         {
-            SearchingBeginIndex = Math.Min(SearchingBeginIndex, obj.Id);
-            objects[obj.Id] = null;
+            SearchingBeginIndex = Math.Min(SearchingBeginIndex, obj.Id - offset);
+            objects[obj.Id - offset] = null;
         }
 
         public void Remove(int Id)
         {
-            if (!Check(Id))
+            if (!Check(Id - offset))
                 return;
-            SearchingBeginIndex = Math.Min(SearchingBeginIndex, Id);
-            objects[Id] = null;
+            SearchingBeginIndex = Math.Min(SearchingBeginIndex, Id - offset);
+            objects[Id - offset] = null;
         }
 
         public override T Get(int id)
         {
-            if (!Check(id))
+            if (!Check(id - offset))
                 return null;
-            return objects[id];
+            return objects[id - offset];
         }
 
         public override T RandomGet()
@@ -187,6 +196,7 @@ namespace Sango.Core
 
         public override bool Contains(int id)
         {
+            if (!Check(id - offset)) return false;
             return Get(id) != null;
         }
 

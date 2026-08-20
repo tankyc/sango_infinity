@@ -1,4 +1,5 @@
 ﻿using Sango.Render;
+using Sango.UI;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,6 +10,7 @@ namespace Sango.Core
     {
         public interface IDialog
         {
+            UGUIWindow Window { get; set; }
             void StartTalk(List<TalkData> talkData, System.Action talkEndAction);
             void SetPerson(Person person);
             void NextTalk();
@@ -42,7 +44,7 @@ namespace Sango.Core
 
         public static void Close()
         {
-            if(CurInstance != null)
+            if (CurInstance != null)
             {
                 GameMedia.Instance.PlaySfx(4);
                 CurInstance.Close();
@@ -105,6 +107,7 @@ namespace Sango.Core
 
             IDialog uIDialog = windowInterface.ugui_instance.GetComponent<IDialog>();
             if (uIDialog == null) return null;
+            uIDialog.Window = windowInterface.ugui_instance;
             CurInstance = uIDialog;
             GameController.Instance.Enabled = false;
             return uIDialog;

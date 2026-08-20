@@ -18,7 +18,7 @@ namespace Sango.Core.Action
         {
         }
 
-        public override void Execute(Trigger trigger, params object[] sangoObjects)
+        public override void Execute(Trigger trigger)
         {
             if (trigger == null) return;
             if (Force != trigger.ActionForce) return;

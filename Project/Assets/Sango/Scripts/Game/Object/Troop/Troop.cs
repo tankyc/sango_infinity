@@ -26,8 +26,6 @@ namespace Sango.Core
         /// </summary>
         public override SangoObjectType ObjectType => SangoObjectType.Troops;
 
-        public TroopEvent Event { get; set; }
-
         /// <summary>
         /// 带颜色的部队名称
         /// </summary>
@@ -440,7 +438,6 @@ namespace Sango.Core
         public override void Init(Scenario scenario)
         {
             _troopName = $"{Leader?.Name}队";
-            Event = new TroopEvent();
             actionList = new List<ActionBase>();
             ForEachPerson(x =>
             {
@@ -470,6 +467,15 @@ namespace Sango.Core
             foodCost = (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInTroop * (troops + woundedTroops) * TroopType.foodCostFactor);
             foodCost = (int)Math.Ceiling(foodCost * foodCostFactor);
 
+            if (captiveList.Count > 0)
+            {
+                captiveList.RemoveAll(x => x.mTroop != this);
+                captiveList.ForEach(person =>
+                {
+                    if (person.mBelongForce != null)
+                        person.mBelongForce.BeCaptiveList.Add(person);
+                });
+            }
 
             buffManager.Init(this);
             GameEvent.OnTroopEnterCell?.Invoke(this, cell, null);
@@ -509,12 +515,7 @@ namespace Sango.Core
         }
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            captiveList.RemoveAll(x => x.mTroop != this);
-            foreach (Person person in captiveList)
-            {
-                if (person.mBelongForce != null)
-                    person.mBelongForce.BeCaptiveList.Add(person);
-            }
+
             //foreach (SkillInstance s in landSkills)
             //{
             //    s.Init(this, s.skill);
@@ -591,7 +592,6 @@ namespace Sango.Core
                 skillInstance.OnForceTurnStart(scenario);
 
             GameEvent.OnTroopTurnStart?.Invoke(this, scenario);
-            Event.OnTurnStart?.Invoke(this, scenario);
 
             if (Render != null)
             {
@@ -624,7 +624,6 @@ namespace Sango.Core
                 }
             }
             GameEvent.OnTroopTurnEnd?.Invoke(this, scenario);
-            Event.OnTurnEnd?.Invoke(this, scenario);
             return true;
         }
 
@@ -1347,7 +1346,6 @@ namespace Sango.Core
         {
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(num);
             GameEvent.OnTroopChangeTroops?.Invoke(this, atk, skill, atkBack, overrideData);
-            Event.OnChangeTroops?.Invoke(this, atk, skill, atkBack, overrideData);
             num = overrideData.ValueAndRecycle;
 
             if (num == 0)
@@ -1415,7 +1413,6 @@ namespace Sango.Core
         {
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(num);
             GameEvent.OnTroopChangeMorale?.Invoke(this, morale, overrideData);
-            Event.OnChangeMorale?.Invoke(this, morale, overrideData);
             num = overrideData.ValueAndRecycle;
 
             if (num == 0)
@@ -1907,7 +1904,6 @@ namespace Sango.Core
             StrategySkills.Clear();
             landSkills?.Clear();
             waterSkills?.Clear();
-            Event?.Clear();
         }
 
         public void RemovePerson(Person person, bool justRemove = false)

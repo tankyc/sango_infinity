@@ -1859,6 +1859,7 @@ namespace Sango.Core
         /// <param name="person">返回的武将</param>
         public void OnPersonReturnCity(Person person)
         {
+            person.ChangeCurrentCity(this);
 #if SANGO_DEBUG
             Sango.Log.Info($"[{person.mBelongForce.Name}]{person.Name}回到[{mBelongForce.Name}]<{Name}>");
 #endif

@@ -30,6 +30,6 @@ namespace Sango.Core
         public override Fire TargetFire => atk_cell.fire;
         public override object ActionObject => skill;
         public override object TargetObject => atk_cell;
-        public override OverrideData<int> DamageOverride => damageOverride;
+        public override OverrideData<int> ValueOverride => damageOverride;
     }
 }

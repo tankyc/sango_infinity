@@ -7,19 +7,19 @@ namespace Sango.Core
         public override void Init(TriggerCall call, params SangoObject[] sangoObjects)
         {
             base.Init(call, sangoObjects);
-            if (Troop != null)
-                Troop.Event.OnTurnStart += OnTurnStart;
+            GameEvent.OnTroopTurnStart += OnTroopTurnStart;
         }
 
         public override void Clear()
         {
-            if (Troop != null)
-                Troop.Event.OnTurnStart -= OnTurnStart;
+            GameEvent.OnTroopTurnStart -= OnTroopTurnStart;
         }
 
-        public void OnTurnStart(Troop troop, Scenario scenario)
+        public void OnTroopTurnStart(Troop troop, Scenario scenario)
         {
-            triggerCall?.Invoke(this, troop, scenario);
+            if (!CheckForceTroop(troop))
+                return;
+            triggerCall?.Invoke(this);
         }
     }
 }

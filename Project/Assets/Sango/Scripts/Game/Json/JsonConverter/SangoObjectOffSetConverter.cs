@@ -3,12 +3,14 @@ using System;
 
 namespace Sango.Core
 {
-    public class SangoObjectSetConverter<T> : JsonConverter<SangoObjectSet<T>> where T : SangoObject, new()
+    public class SangoObjectOffSetConverter<T> : JsonConverter<SangoObjectOffSet<T>> where T : SangoObject, new()
     {
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             writer.WriteStartObject();
-            SangoObjectSet<T> dest = value as SangoObjectSet<T>;
+            SangoObjectOffSet<T> dest = value as SangoObjectOffSet<T>;
+            writer.WritePropertyName("offset");
+            serializer.Serialize(writer, dest.offset);
             dest.ForEach(x =>
             {
                 writer.WritePropertyName(x.Id.ToString());
@@ -20,21 +22,31 @@ namespace Sango.Core
         {
             if (existingValue == null)
                 existingValue = Create(objectType);
-            SangoObjectSet<T> dest = existingValue as SangoObjectSet<T>;
+            SangoObjectOffSet<T> dest = existingValue as SangoObjectOffSet<T>;
             string lastPropertyName = null;
             while (reader.Read())
             {
-                if(reader.TokenType == JsonToken.PropertyName)
+                if (reader.TokenType == JsonToken.PropertyName)
                 {
-                    lastPropertyName = reader.Value.ToString();
+                    string propertyName = reader.Value.ToString();
+                    if (propertyName == "offset")
+                    {
+                        reader.Read();
+                        int v = serializer.Deserialize<int>(reader);
+                        dest.offset = v;
+                    }
+                    else
+                    {
+                        lastPropertyName = reader.Value.ToString();
+                    }
                 }
                 else if (reader.TokenType == JsonToken.StartObject)
                 {
-                    if(!string.IsNullOrEmpty(lastPropertyName))
+                    if (!string.IsNullOrEmpty(lastPropertyName))
                     {
                         int Id = int.Parse(lastPropertyName);
                         T exsist = dest.Get(Id);
-                        if(exsist != null)
+                        if (exsist != null)
                         {
                             serializer.Populate(reader, exsist);
                             continue;

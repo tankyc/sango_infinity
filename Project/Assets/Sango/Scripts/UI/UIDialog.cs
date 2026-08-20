@@ -23,6 +23,7 @@ namespace Sango.UI
         public Text nameText;
         public List<TalkData> talkData;
         public System.Action talkEndAction;
+        public UGUIWindow Window { get; set; }
 
         public override void OnOpen(params object[] objects)
         {

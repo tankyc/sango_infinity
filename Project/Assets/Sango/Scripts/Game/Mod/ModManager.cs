@@ -465,6 +465,22 @@ namespace Sango.Mod
         }
 
         /// <summary>
+        /// 遍历文件,找到Mod下所有这个路径的文件,一般用来合并json文件
+        /// </summary>
+        /// <param name="path">Assets/AA/BB/cc.dd</param>
+        /// <param name="action"></param>
+        public void EnumFiles(string path, System.Action<Mod, string> action)
+        {
+            for (int i = 0; i < mEnabledModList.Count; i++)
+            {
+                Mod mod = mEnabledModList[i];
+                string targetFile = mod.GetFullPath(path);
+                if (File.Exists(targetFile))
+                    action(mod, targetFile);
+            }
+        }
+
+        /// <summary>
         /// 遍历文件夹,找到Mod下所有这个路径下的文件,一般用来合并指定类型的json文件
         /// </summary>
         /// <param name="path">Assets/AA/BB/cc.dd</param>

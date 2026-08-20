@@ -71,13 +71,13 @@ namespace Sango.Core.Action
             }
         }
 
-        public virtual void OnTrigger(Trigger trigger, params object[] sangoObjects)
+        public virtual void OnTrigger(Trigger trigger)
         {
             if (actionList != null)
             {
                 foreach (var obj in actionList)
                 {
-                    obj.Execute(trigger, sangoObjects);
+                    obj.Execute(trigger);
                 }
             }
         }

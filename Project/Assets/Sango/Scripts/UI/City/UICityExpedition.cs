@@ -358,9 +358,29 @@ using Sango.Core; namespace Sango.UI
 
         void UpdateTroopsInfo()
         {
+            if (targetCity.gold > 0)
+            {
+                goldSlider.SetValueWithoutNotify((float)targetTroop.gold / targetCity.gold);
+                goldSlider.interactable = true;
+            }
+            else
+            {
+                goldSlider.SetValueWithoutNotify(0);
+                goldSlider.interactable = false;
+            }
+
+            if (targetCity.food > 0)
+            {
+                foodSlider.SetValueWithoutNotify((float)targetTroop.food / targetCity.food);
+                foodSlider.interactable = true;
+            }
+            else
+            {
+                foodSlider.SetValueWithoutNotify(0);
+                foodSlider.interactable = false;
+            }
+
             troopsSlider.SetValueWithoutNotify((float)targetTroop.troops / targetTroop.MaxTroops);
-            goldSlider.SetValueWithoutNotify((float)targetTroop.gold / targetCity.gold);
-            foodSlider.SetValueWithoutNotify((float)targetTroop.food / targetCity.food);
             troopsLabel.text = $"{targetTroop.troops}/{targetTroop.MaxTroops}";
             goldLabel.text = $"{targetTroop.gold}/{targetCity.gold}";
             foodLabel.text = $"{targetTroop.food}/{targetCity.food}";

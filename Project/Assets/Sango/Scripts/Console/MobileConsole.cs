@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using UnityEngine;
 using System.Collections.Generic;
+using Sango.Render;
 
 namespace SKFramework
 {
@@ -106,10 +107,22 @@ namespace SKFramework
                     //cmd = GUILayout.TextField(cmd);
                     //if (GUILayout.Button("发送", GUILayout.Width(100))) SendCmd();
                     Color color = GUI.color;
-                    GUI.color = Color.cyan;
+                    GUI.color = Color.green;
+                    int lastSize = GUI.skin.button.fontSize;
+                    GUI.skin.button.fontSize = 30;
+                    FontStyle style = GUI.skin.button.fontStyle;
+                    GUI.skin.button.fontStyle = FontStyle.Bold;
+                    GUILayout.BeginHorizontal();
+                    if (GUILayout.Button("查看卡死", GUILayout.Height(60)))
+                    {
+                        logList.Insert(0, new LogData(Sango.Render.RenderEvent.Instance.Dump(), 2));
+                    }
+                    GUI.color = Color.red;
                     if (GUILayout.Button("关闭调试窗口", GUILayout.Height(60))) Visible = false;
                     GUI.color = color;
-                    //GUILayout.EndHorizontal();
+                    GUI.skin.button.fontSize = lastSize;
+                    GUI.skin.button.fontStyle = style;
+                    GUILayout.EndHorizontal();
                     int width = (int)(Screen.width - EDGE_X * 2 - 30);
                     var queue = this.logList;
                     if (queue.Count > 0)

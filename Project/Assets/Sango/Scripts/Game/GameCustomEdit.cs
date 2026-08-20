@@ -116,25 +116,76 @@ namespace Sango.Core
         public void Init()
         {
             needUpdate_all = true;
-
+            // core武将库ID 1-10000  预留10000个应该够了
             CoreScenarioAddon = LoadScenarioAddon("Data/PersonLibrary.json");
-
-            ModScenarioAddon = new ScenarioAddon();
-            ModManager.Instance.EnumFiles("Data/CustomEdit/CustomPerson.json", file =>
+            CoreScenarioAddon.PersonLibrary.ForEach(x =>
             {
-                ModScenarioAddon.Load(file);
+                CorePersonLibList.Add(x);
             });
 
+            // Mod武将库 10001 - 20000 预留10000个
+            ModScenarioAddon = new ScenarioAddon();
+            ModScenarioAddon.PersonLibrary.offset = 10000;
+            ModManager.Instance.EnumFiles("Data/CustomEdit/CustomPerson.json", (mod, file) =>
+            {
+                int count = ModScenarioAddon.PersonLibrary.Count;
+                ModScenarioAddon.Load(mod, count - 10000, file);
+            });
+            ModScenarioAddon.PersonLibrary.ForEach(x =>
+            {
+                ModedPersonLibList.Add(x);
+                if (x.BrotherList == null || x.BrotherList.Length == 0)
+                {
+                    if (x.Brother > 0)
+                        x.Brother = 0;
+                    return;
+                }
+
+                for (int i = 0; i < x.BrotherList.Length; i++)
+                {
+                    int b = x.BrotherList[i];
+                    PersonLib coreB = FindPersonLib(b);
+                    if (coreB != null && coreB.Brother > 0)
+                        return;
+                }
+
+                x.Brother = x.Id;
+                for (int i = 0; i < x.BrotherList.Length; i++)
+                {
+                    int b = x.BrotherList[i];
+                    PersonLib coreB = FindPersonLib(b);
+                    if (coreB != null)
+                        coreB.Brother = x.Id;
+                }
+            });
+
+            // 自建武将ID 20001起步
             SelfScenarioAddon = new ScenarioAddon();
+            SelfScenarioAddon.PersonLibrary.offset = 20000;
             SelfScenarioAddon.Load(Path.SaveRootPath + "/CustomEdit/CustomPerson.json");
-
-            ModScenarioAddon.PersonLibrary.ForEach(x => ModedPersonLibList.Add(x));
-            CoreScenarioAddon.PersonLibrary.ForEach(x => CorePersonLibList.Add(x));
-
+            SelfScenarioAddon.PersonLibrary.ForEach(x =>
+            {
+                if (x.Id <= 20000)
+                    x.Id += 20000;
+            });
             LoadFaceData();
         }
 
-
+        public PersonLib FindPersonLib(int id)
+        {
+            if (id <= 10000)
+            {
+                return CoreScenarioAddon.PersonLibrary.Get(id);
+            }
+            else if (id <= 20000)
+            {
+                return ModScenarioAddon.PersonLibrary.Get(id);
+            }
+            else
+            {
+                return SelfScenarioAddon.PersonLibrary.Get(id);
+            }
+        }
 
         List<PersonLib> all_personLibs = new List<PersonLib>();
         bool needUpdate_all = true;

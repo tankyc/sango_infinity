@@ -4,24 +4,25 @@ namespace Sango.Core
 {
     public class TriggerTroopOnMoralChange : TroopTrigger
     {
-      
         public override void Init(TriggerCall call, params SangoObject[] sangoObjects)
         {
             base.Init(call, sangoObjects);
-            if (Troop != null)
-                Troop.Event.OnChangeMorale += OnChangeMorale;
+                GameEvent.OnTroopChangeMorale += OnTroopChangeMorale;
         }
 
         public override void Clear()
         {
             if (Troop != null)
-                Troop.Event.OnChangeMorale -= OnChangeMorale;
+                GameEvent.OnTroopChangeMorale -= OnTroopChangeMorale;
         }
 
-        public void OnChangeMorale(Troop troop, int value, OverrideData<int> overrideData)
+        public void OnTroopChangeMorale(Troop troop, int value, OverrideData<int> overrideData)
         {
-            damageOverride = overrideData;
-            triggerCall?.Invoke(this, troop, value, overrideData);
+            if (!CheckForceTroop(troop))
+                return;
+
+            valueOverride = overrideData;
+            triggerCall?.Invoke(this);
         }
     }
 }

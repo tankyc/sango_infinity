@@ -22,7 +22,7 @@ namespace Sango.Core.Action
         /// <summary>
         /// 执行动作
         /// </summary>
-        public abstract void Execute(Trigger trigger, params object[] sangoObjects);
+        public abstract void Execute(Trigger trigger);
 
 
         public virtual void OnForceTurnStart(Force force, Scenario scenario)

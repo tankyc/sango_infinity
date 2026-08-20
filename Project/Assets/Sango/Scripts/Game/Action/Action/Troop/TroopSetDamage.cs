@@ -36,7 +36,7 @@ namespace Sango.Core.Action
             overrideData.Value = value;
         }
 
-        public override void Execute(Trigger trigger, params object[] sangoObjects)
+        public override void Execute(Trigger trigger)
         {
 
         }

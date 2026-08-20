@@ -61,10 +61,8 @@ namespace Sango.UI
 
             public int Father;
             public int Mother;
-            public int Brother;
             public int[] SpouseList = new int[0];
             public int[] BrotherList = new int[0];
-            public int[] swornBrotherList = new int[0];
             public int[] LikePersonList = new int[0];
             public int[] HatePersonList = new int[0];
             public int[] FeatureList = new int[0];
@@ -510,7 +508,6 @@ namespace Sango.UI
 
                 Father = target.Father,
                 Mother = target.Mother,
-                Brother = target.Brother,
                 SpouseList = CloneArray(target.SpouseList),
                 BrotherList = CloneArray(target.BrotherList),
                 LikePersonList = CloneArray(target.LikePersonList),
@@ -571,18 +568,14 @@ namespace Sango.UI
 
             target.Father = snapshot.Father;
             target.Mother = snapshot.Mother;
-            target.Brother = snapshot.Brother;
             target.SpouseList = CloneArray(snapshot.SpouseList);
             target.BrotherList = CloneArray(snapshot.BrotherList);
             target.LikePersonList = CloneArray(snapshot.LikePersonList);
             target.HatePersonList = CloneArray(snapshot.HatePersonList);
             target.FeatureList = CloneArray(snapshot.FeatureList);
 
-            if (GameCustomEdit.Instance != null && GameCustomEdit.Instance.SelfScenarioAddon != null)
-            {
-                GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Add(target);
-                SaveScenarioAddon();
-            }
+            GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Add(target);
+            SaveScenarioAddon();
         }
 
         /// <summary>
@@ -670,7 +663,7 @@ namespace Sango.UI
             BindRelationshipButton(motherCancelButton, () => snapshot.Mother = 0, RefreshMother);
             BindRelationshipButton(spouseSelectButton, true, OnSpouseSelected, IsValidSpouseFilter);
             BindRelationshipButton(spouseCancelButton, () => snapshot.SpouseList = new int[0], RefreshSpouse);
-            BindRelationshipButton(brotherSelectButton, false, OnBrotherSelected);
+            BindRelationshipButton(brotherSelectButton, true, OnBrotherSelected, IsValidBrotherFilter);
             //BindRelationshipButton(brotherCancelButton, () => snapshot.Brother = 0, RefreshBrother);
             //BindRelationshipButton(swornBrotherSelectButton, true, OnSwornBrotherSelected);
             //BindRelationshipButton(swornBrotherCancelButton, () => snapshot.swornBrotherList = new int[0], RefreshSwornBrother);
@@ -883,7 +876,6 @@ namespace Sango.UI
         {
             if (person == null) return false;
             if (person.Id == snapshot.Father || person.Id == snapshot.Mother) return false;
-            if (person.Id == snapshot.Brother) return false;
             if (ContainsId(snapshot.BrotherList, person.Id)) return false;
             if (ContainsId(snapshot.LikePersonList, person.Id)) return false;
             return true;
@@ -1364,9 +1356,46 @@ namespace Sango.UI
             RefreshMother();
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        private bool IsValidBrotherFilter(PersonLib person)
+        {
+            if (person == null) return false;
+            if (person.Brother > 0) return false;
+            PersonLib p = GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Find(x =>
+            {
+                if(x.BrotherList != null)
+                {
+                   for(int i = 0; i < x.BrotherList.Length; i++)
+                    {
+                        if (x.BrotherList[i] == person.Id)
+                            return true;
+                    }
+                }
+                return false;
+            });
+            return p == null;
+        }
+
         private void OnBrotherSelected(List<PersonLib> result)
         {
-            if (result != null && result.Count > 0) snapshot.Brother = result[0].Id;
+            // 先清理原有的关系
+            if (snapshot.BrotherList != null)
+            {
+                snapshot.BrotherList = null;
+            }
+
+            if (result != null && result.Count > 0)
+            {
+                List<int> iList = new List<int>();
+                for (int i = 0; i < result.Count; i++)
+                {
+                    iList.Add(result[i].Id);
+                }
+                snapshot.BrotherList = iList.ToArray();
+            }
+                
             RefreshBrother();
         }
 
@@ -1410,7 +1439,7 @@ namespace Sango.UI
 
         private void RefreshBrother()
         {
-            SetPersonNameText(brotherText, snapshot.Brother);
+            SetPersonNamesText(brotherText, snapshot.BrotherList);
         }
 
         private void RefreshSpouse()

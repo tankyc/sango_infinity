@@ -228,6 +228,7 @@ namespace Sango.Core
         /// <summary>
         /// 兄弟
         /// </summary>
+        [JsonProperty] 
         public int[] BrotherList;
 
         /// <summary>
@@ -285,6 +286,8 @@ namespace Sango.Core
         public int[] FeatureList { get; set; }
 
         public int targetShortPersonId;
+
+        public string modName;
         public int BelongCity(ShortScenario scenario)
         {
             if (targetShortPersonId > 0)

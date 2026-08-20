@@ -6,9 +6,9 @@ namespace Sango.Core
     public abstract class TroopTrigger : Trigger
     {
         public Troop Troop;
-        public Force targetForce;
-        public OverrideData<int> damageOverride;
-        public override OverrideData<int> DamageOverride => damageOverride;
+        public Force Force;
+        public OverrideData<int> valueOverride;
+        public override OverrideData<int> ValueOverride => valueOverride;
         public override Troop ActionTroop => Troop;
         public override Troop TargetTroop => Troop;
         public override Cell ActionCell => Troop.cell;
@@ -18,7 +18,7 @@ namespace Sango.Core
         public override Corps ActionCorps => Troop.mBelongCorps;
         public override Corps TargetCorps => Troop.mBelongCorps;
         public override Force ActionForce => Troop.mBelongForce;
-        public override Force TargetForce => targetForce;
+        public override Force TargetForce => Force;
         public override Fire ActiveFire => Troop.cell.fire;
         public override Fire TargetFire => Troop.cell.fire;
         public override object ActionObject => Troop;
@@ -28,6 +28,17 @@ namespace Sango.Core
         {
             base.Init(call, sangoObjects);
             Troop = sangoObjects[0] as Troop;
+            if(Troop == null)
+            {
+                Force = sangoObjects[0] as Force;
+            }
+        }
+
+        public virtual bool CheckForceTroop(Troop troop)
+        {
+            if (Troop != null && Troop != troop) return false;
+            if (Force != null && Force != troop.mBelongForce) return false;
+            return true;
         }
     }
 }

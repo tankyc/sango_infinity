@@ -927,8 +927,9 @@ namespace Sango.Core
             {
                 if (x.PersonLib != null)
                 {
-                    x.PersonLib.Id = x.Id;
+                    //x.PersonLib.Id = x.Id;
                     Person person = Person.FormLib2(x.PersonLib);
+                    person.Id = x.Id;
                     scenario.personSet.Add(person);
                     person.BelongCity = x.BelongCity;
                     person.CurrentCity = x.BelongCity;
@@ -947,6 +948,40 @@ namespace Sango.Core
                         ShortCity shortCity = addData.citySet[x.BelongCity];
                         person.BelongCorps = System.Math.Max(city.BelongCorps, shortCity.BelongCorps);
                     }
+                     
+                    FixReletionship(ref person.Mother, addData.personSet);
+                    FixReletionship(ref person.Father, addData.personSet);
+                    FixReletionship(ref person.LikePersonList, addData.personSet);
+                    FixReletionship(ref person.HatePersonList, addData.personSet);
+                }
+            });
+
+            List<Person> list = new List<Person>();
+            addData.personSet.ForEach(x =>
+            {
+                if (x.PersonLib != null && x.PersonLib.Id > 20000 && x.PersonLib.BrotherList != null && x.PersonLib.BrotherList.Length > 0)
+                {
+                    list.Clear();
+                    for (int i = 0; i < x.PersonLib.BrotherList.Length; i++)
+                    {
+                        int bro = x.PersonLib.BrotherList[i];
+                        FixReletionship(ref bro, addData.personSet);
+                        Person person = scenario.personSet.Get(bro);
+                        if(person != null)
+                        {
+                            list.Add(person);
+                        }
+                    }
+
+                    if(list.Count > 0)
+                    {
+                        Person person = scenario.personSet.Get(x.Id);
+                        if(person != null)
+                        {
+                            person.Brother = person.Id;
+                            list.ForEach(x => { x.Brother = person.Id; });
+                        }
+                    }
                 }
             });
 
@@ -959,7 +994,24 @@ namespace Sango.Core
             //Cur = null;
         }
 
+        static void FixReletionship(ref int r, SangoObjectSet<ShortPerson> objectSet)
+        {
+            if (r == 0) return;
+            if (r <= 10000) return;
+            int dst = r;
+            ShortPerson shortPerson = objectSet.Find(x => { return x.PersonLib != null && x.PersonLib.Id == dst; });
+            if (shortPerson == null) return;
+            r = shortPerson.Id;
+        }
 
+        static void FixReletionship(ref int[] r, SangoObjectSet<ShortPerson> objectSet)
+        {
+            if (r == null || r.Length == 0) return;
+            for(int i = 0; i < r.Length; i++)
+            {
+                FixReletionship(ref r[i], objectSet);
+            }
+        }
 
         public override void Clear()
         {

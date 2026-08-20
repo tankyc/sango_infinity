@@ -544,6 +544,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: personStatus_selectBtn
       objectReference: {fileID: 0}
+    - target: {fileID: 4268072561067200201, guid: f35490186f8300e4da2a0442b97cce04, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4332149360885916611, guid: f35490186f8300e4da2a0442b97cce04, type: 3}
       propertyPath: m_SizeDelta.x
       value: 125
@@ -1364,6 +1368,14 @@ PrefabInstance:
     - target: {fileID: 6304480342391640508, guid: 06295c20948231541805be8017ababda, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7544163058279511527, guid: 06295c20948231541805be8017ababda, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 8.3292
+      objectReference: {fileID: 0}
+    - target: {fileID: 7544163058279511527, guid: 06295c20948231541805be8017ababda, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 8.3292
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 06295c20948231541805be8017ababda, type: 3}

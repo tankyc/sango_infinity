@@ -6,6 +6,7 @@
  */
 
 using Sango.Core;
+using Sango.UI;
 using UnityEngine;
 
 namespace Sango.Render
@@ -109,6 +110,10 @@ namespace Sango.Render
         public override void Enter(Scenario scenario)
         {
             base.Enter(scenario);
+            GameController.Instance.KeyboardMoveEnabled = false;
+            GameController.Instance.RotateViewEnabled = false;
+            GameController.Instance.DragMoveViewEnabled = false;
+            GameController.Instance.Enabled = false;
             startPosition = MapRender.Instance.GetCameraPos();
             MapRender.Instance.MoveCameraTo(targetPosition, moveDuration);
             if (!string.IsNullOrEmpty(content))
@@ -127,6 +132,11 @@ namespace Sango.Render
                     IsDone = true;
                     cancelAction?.Invoke();
                 };
+
+                dialog.Window.OnCloseAction = () =>
+                {
+                    IsDone = true;
+                };
             }
         }
 
@@ -138,6 +148,12 @@ namespace Sango.Render
                 if (time > moveDuration)
                     IsDone = true;
             }
+            else
+            {
+                time += deltaTime;
+                if (time > 3)
+                    IsDone = true;
+            }
             return IsDone;
         }
 
@@ -147,6 +163,14 @@ namespace Sango.Render
         /// <param name="scenario">场景实例</param>
         public override void Exit(Scenario scenario)
         {
+            GameController.Instance.KeyboardMoveEnabled = true;
+            GameController.Instance.RotateViewEnabled = true;
+            GameController.Instance.DragMoveViewEnabled = true;
+            GameController.Instance.Enabled = true;
+            if(dialog != null)
+            {
+                GameDialog.Close(dialog);
+            }
             if (!donotReturn)
                 MapRender.Instance.MoveCameraTo(startPosition, moveDuration);
         }
