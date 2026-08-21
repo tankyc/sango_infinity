@@ -211,7 +211,6 @@ namespace Sango.Core
         public Troop Remove(Troop troop)
         {
             troopsSet.Remove(troop);
-            GameEvent.OnTroopDestroyed?.Invoke(troop, this);
             return troop;
         }
 

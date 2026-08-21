@@ -92,6 +92,7 @@ namespace Sango.Core
             Register("TriggerWhenSkillAfterHitTroop", CraeteHandle<TriggerWhenSkillAfterHitTroop>);
             Register("TriggerTroopTurnStart", CraeteHandle<TriggerTroopTurnStart>);
             Register("TriggerTroopOnMoralChange", CraeteHandle<TriggerTroopOnMoralChange>);
+            Register("TriggerTroopDestroyTrooFA", CraeteHandle<TriggerTroopDestroyTroop>);
             
         }
     }

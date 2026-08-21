@@ -30,7 +30,7 @@ namespace Sango.Core.Action
             if (trigger == null) return;
             if (trigger.ActionSkill.isAdd) return;
 
-            if (!CheckTroop(trigger.TargetTroop, trigger.ActionTroop, trigger.ActionSkill)) return;
+            if (!CheckTroop(trigger.TargetTroop, trigger.ActionSkill)) return;
 
             SkillInstance skillInstance = SkillInstance.Create(trigger.TargetTroop, Scenario.Cur.GetObject<Skill>(value));
             if (skillInstance != null)

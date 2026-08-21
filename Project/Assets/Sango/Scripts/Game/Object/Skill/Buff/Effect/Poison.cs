@@ -17,7 +17,7 @@ namespace Sango.Core
             // 中毒效果：每回合造成持续伤害
             if (troop.IsAlive)
             {
-                troop.ChangeTroops(-damagePerTurn, null, null, 0);
+                troop.ChangeTroops(-damagePerTurn, null, 0);
             }
         }
     }

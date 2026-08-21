@@ -10,10 +10,12 @@ namespace Sango.Core.Action
     public class TroopChangeMorale : TroopActionBase
     {
         int targetType = 0;
+        bool isDefender = false;
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
             base.Init(p, sangoObjects);
             targetType = p.Value<int>("targetType");
+            isDefender = p.Value<bool>("isDefender");
         }
 
         public override void Clear()
@@ -23,11 +25,18 @@ namespace Sango.Core.Action
 
         public override void Execute(Trigger trigger)
         {
-            if(trigger == null) return;
+            if (trigger == null) return;
 
-            if (trigger.ActionTroop != Troop) return;
+            if (isDefender)
+            {
+                if (trigger.TargetTroop != Troop) return;
+            }
+            else
+            {
+                if (trigger.ActionTroop != Troop) return;
+            }
 
-            if(targetType == 0)
+            if (targetType == 0)
             {
                 if (trigger.ActionTroop == null) return;
 
@@ -40,7 +49,7 @@ namespace Sango.Core.Action
                 trigger.TargetTroop.ChangeMorale(value);
             }
 
-            
+
         }
     }
 }

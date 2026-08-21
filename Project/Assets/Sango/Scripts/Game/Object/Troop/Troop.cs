@@ -1342,10 +1342,10 @@ namespace Sango.Core
             return false;
         }
 
-        public bool ChangeTroops(int num, SangoObject atk, SkillInstance skill, int atkBack)
+        public bool ChangeTroops(int num, SangoObject atk, int atkBack)
         {
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(num);
-            GameEvent.OnTroopChangeTroops?.Invoke(this, atk, skill, atkBack, overrideData);
+            GameEvent.OnTroopChangeTroops?.Invoke(this, atk, atkBack, overrideData);
             num = overrideData.ValueAndRecycle;
 
             if (num == 0)
@@ -1354,11 +1354,15 @@ namespace Sango.Core
             if (Render != null)
             {
                 bool isCrit = false;
-                if (skill != null)
+                if(atk.ObjectType == SangoObjectType.SkillInstance)
                 {
-                    isCrit = skill.IsCritical();
+                    SkillInstance skill = (SkillInstance)atk; 
+                    if (skill != null)
+                    {
+                        isCrit = skill.IsCritical();
+                    }
+                    Render.ShowInfo(num, (int)InfoType.Troop, isCrit);
                 }
-                Render.ShowInfo(num, (int)InfoType.Troop, isCrit);
             }
             troops = troops + num;
             if (num < 0)
@@ -1395,7 +1399,7 @@ namespace Sango.Core
                     GameMedia.Instance.PlaySfx(83);
                 }
 
-                OnDestroy(atk, skill, atkBack);
+                OnDestroy(atk, atkBack);
 
                 // 移除
                 Clear();
@@ -1435,12 +1439,14 @@ namespace Sango.Core
             return captiveChangce;
         }
 
-        public void OnDestroy(SangoObject atk, SkillInstance skill, int atkBack)
+        public void OnDestroy(SangoObject atk, int atkBack)
         {
             // 添加俘虏流程
-            if (atk.ObjectType == SangoObjectType.Troops)
+            if (atk.ObjectType == SangoObjectType.SkillInstance)
             {
-                Troop atkTroop = (Troop)atk;
+                SkillInstance skill = (SkillInstance)atk;
+
+                Troop atkTroop = skill.master;
 
                 List<Person> captives = new List<Person>();
                 if (Leader.state != (int)PersonStateType.Governor)
@@ -1470,6 +1476,9 @@ namespace Sango.Core
                     RenderEvent.Instance.Add(te);
                 }
             }
+
+            GameEvent.OnTroopDestroyed?.Invoke(this, atk, atkBack, Scenario.Cur);
+
         }
 
         public void ReleaseCaptive()
@@ -1904,6 +1913,9 @@ namespace Sango.Core
             StrategySkills.Clear();
             landSkills?.Clear();
             waterSkills?.Clear();
+
+            GameEvent.OnTroopClear?.Invoke(this, Scenario.Cur);
+
         }
 
         public void RemovePerson(Person person, bool justRemove = false)

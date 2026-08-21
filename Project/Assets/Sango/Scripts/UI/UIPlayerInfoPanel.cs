@@ -34,7 +34,7 @@ namespace Sango.UI
         {
             OnDestroy();
             GameEvent.OnTroopCreated += OnTroopCreated;
-            GameEvent.OnTroopDestroyed += OnTroopDestroyed;
+            GameEvent.OnTroopClear += OnTroopClear;
             GameEvent.OnCityFall += OnCityFall;
             GameEvent.OnTroopActionOver += OnTroopActionOver;
             GameEvent.OnPersonActionOver += OnPersonActionOver;
@@ -44,7 +44,7 @@ namespace Sango.UI
         protected override void OnDestroy()
         {
             GameEvent.OnTroopCreated -= OnTroopCreated;
-            GameEvent.OnTroopDestroyed -= OnTroopDestroyed;
+            GameEvent.OnTroopClear -= OnTroopClear;
             GameEvent.OnCityFall -= OnCityFall;
             GameEvent.OnTroopActionOver -= OnTroopActionOver;
             GameEvent.OnPersonActionOver -= OnPersonActionOver;
@@ -87,7 +87,7 @@ namespace Sango.UI
             }
         }
 
-        void OnTroopDestroyed(Troop troop, Scenario scenario)
+        void OnTroopClear(Troop troop, Scenario scenario)
         {
             if (curShowType == ShowType.Troop && troop.IsPlayerControl && troop.mBelongForce == scenario.CurRunForce)
             {

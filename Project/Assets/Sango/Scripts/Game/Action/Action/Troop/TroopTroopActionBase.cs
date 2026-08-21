@@ -37,14 +37,21 @@ namespace Sango.Core.Action
             }
         }
 
-        protected virtual bool CheckTroop(Troop defencer, SangoObject atker, SkillInstance skill)
+        protected virtual bool CheckTroop(Troop defencer, SangoObject atker)
         {
             Troop troop = defencer;
+            SkillInstance skill = null;
+            if(atker != null && atker.ObjectType == SangoObjectType.Skill)
+            {
+                skill = (SkillInstance)atker;
+            }
+
             if (isDefender == 0)
             {
-                if (atker.ObjectType != SangoObjectType.Troops) return false;
+                if (skill == null) 
+                    return false;
 
-                troop = (Troop)atker;
+                troop = skill.master;
             }
             if (Force != null && troop.mBelongForce != Force) return false;
             if (Troop != null && Troop != troop) return false;

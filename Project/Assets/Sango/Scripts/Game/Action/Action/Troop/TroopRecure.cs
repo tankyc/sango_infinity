@@ -30,7 +30,7 @@ namespace Sango.Core.Action
                 int hp = trigger.ValueOverride.Value * percent / 100;
                 if (hp > 0)
                 {
-                    trigger.ActionTroop.ChangeTroops(hp, trigger.ActionTroop, trigger.ActionSkill, 0);
+                    trigger.ActionTroop.ChangeTroops(hp, trigger.ActionSkill, 0);
                 }
             }
         }

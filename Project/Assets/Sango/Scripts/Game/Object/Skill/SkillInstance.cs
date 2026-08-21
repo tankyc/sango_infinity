@@ -387,7 +387,7 @@ namespace Sango.Core
             if (canDamageTroop && where.troop != null)
             {
                 bool isEnemy = where.troop.IsEnemy(who);
-                if(onlySpellToTeam)
+                if (onlySpellToTeam)
                 {
                     return !isEnemy;
                 }
@@ -619,12 +619,11 @@ namespace Sango.Core
                     GameEvent.OnSkillDamageTroop?.Invoke(this, beAtkTroop, damage_overrideData);
                     damage = damage_overrideData.Value;
 
-                    beAtkTroop.ChangeTroops(-damage, troop, this, 0);
-                    troop.mBelongForce.GainTechniquePoint(damage / 1000);
-                    int ep = damage / 100;
+                    beAtkTroop.ChangeTroops(-damage, this, 0);
+                    int ep = Math.Max(1, damage / 1000);
                     if (!beAtkTroop.IsAlive)
                     {
-                        ep += 50;
+                        ep += 25;
                         // 获取对方部分钱粮
                         int getFood = beAtkTroop.food * scenarioVariables.defeatTroopCanGainFoodFactor / 100;
                         int getGold = beAtkTroop.gold * scenarioVariables.defeatTroopCanGainGoldFactor / 100;
@@ -637,6 +636,8 @@ namespace Sango.Core
                             troop.ChangeGold(getGold);
                         }
                     }
+
+                    troop.mBelongForce.GainTechniquePoint(ep);
                     troop.ForEachPerson(p =>
                     {
                         p.GainExp(ep);
@@ -659,12 +660,13 @@ namespace Sango.Core
                             if (this.IsRange())
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalRangeSkill) / 100;
-                                troop.ChangeTroops(-hitBackDmg, beAtkTroop, beAtkTroop.NormalRangeSkill, hitBack);
+                                troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalRangeSkill, hitBack);
 #if SANGO_DEBUG
                                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkTroop.mBelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
 #endif
-                                ep = hitBackDmg / 100;
-                                if (!troop.IsAlive) ep += 50;
+                                ep = Math.Max(1, damage / 1000);
+                                if (!troop.IsAlive) ep += 25;
+                                beAtkTroop.mBelongForce.GainTechniquePoint(ep);
                                 beAtkTroop.ForEachPerson(p =>
                                 {
                                     p.GainExp(ep);
@@ -674,13 +676,15 @@ namespace Sango.Core
                             else
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalSkill) / 100;
-                                troop.ChangeTroops(-hitBackDmg, beAtkTroop, beAtkTroop.NormalSkill, hitBack);
+                                troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalSkill, hitBack);
 #if SANGO_DEBUG
                                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkTroop.mBelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
 #endif
-                                ep = hitBackDmg / 100;
+                                ep = Math.Max(1, damage / 1000);
                                 if (!troop.IsAlive)
                                 {
+                                    ep += 25;
+
                                     // 获取对方部分钱粮
                                     int getFood = troop.food * scenarioVariables.defeatTroopCanGainFoodFactor / 100;
                                     int getGold = troop.gold * scenarioVariables.defeatTroopCanGainGoldFactor / 100;
@@ -692,9 +696,8 @@ namespace Sango.Core
                                     {
                                         beAtkTroop.ChangeGold(getGold);
                                     }
-
-                                    ep += 50;
                                 }
+                                beAtkTroop.mBelongForce.GainTechniquePoint(ep);
                                 beAtkTroop.ForEachPerson(p =>
                                 {
                                     p.GainExp(ep);
@@ -725,10 +728,11 @@ namespace Sango.Core
                         overrideData = Tools.OverrideData<int>.Create(damage_troops);
                         GameEvent.OnSkillDamageBuildingTroops?.Invoke(this, beAtkBuildingBase, overrideData);
                         damage_troops = overrideData.ValueAndRecycle;
-                        int ep = damage_troops / 100;
+                        int ep = Math.Max(1, damage_troops / 1000);
                         if (!city.IsSameForce(troop) && !city.ChangeTroops(-damage_troops, troop, city.mBelongForce != null))
                         {
-                            ep += 100;
+                            ep += 25;
+                            troop.mBelongForce.GainTechniquePoint(ep);
                             troop.ForEachPerson(p =>
                             {
                                 p.GainExp(ep);
@@ -739,6 +743,15 @@ namespace Sango.Core
 #endif
                             city.OnFall(this);
                             return;
+                        }
+                        else
+                        {
+                            troop.mBelongForce.GainTechniquePoint(ep);
+                            troop.ForEachPerson(p =>
+                            {
+                                p.GainExp(ep);
+                                p.merit += ep;
+                            });
                         }
                     }
 
@@ -753,7 +766,8 @@ namespace Sango.Core
 
                     if (beAtkBuildingBase.ChangeDurability(-damage, this))
                     {
-                        int ep = damage / 10 + 100;
+                        int ep = Math.Max(1, damage / 1000) + 25;
+                        troop.mBelongForce.GainTechniquePoint(ep);
                         troop.ForEachPerson(p =>
                         {
                             p.GainExp(ep);
@@ -766,7 +780,8 @@ namespace Sango.Core
                     }
                     else
                     {
-                        int ep = damage / 10;
+                        int ep = Math.Max(1, damage / 1000);
+                        troop.mBelongForce.GainTechniquePoint(ep);
                         troop.ForEachPerson(p =>
                         {
                             p.GainExp(ep);
@@ -786,7 +801,7 @@ namespace Sango.Core
                                 if (atkBack > 0)
                                 {
                                     int hitBackDmg = (int)System.Math.Ceiling(hitBack * Troop.CalculateSkillDamage(beAtkBuildingBase, troop, atkBack));
-                                    troop.ChangeTroops(-hitBackDmg, beAtkBuildingBase, null, atkBack);
+                                    troop.ChangeTroops(-hitBackDmg, beAtkBuildingBase, atkBack);
 #if SANGO_DEBUG
                                     Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkBuildingBase.mBelongForce?.Name}的[{beAtkBuildingBase.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
 #endif
@@ -873,7 +888,7 @@ namespace Sango.Core
                                         if (this.blockFactor > 0 && blockTroop != null && blockTroop.IsEnemy(troop))
                                         {
                                             int blockDmg = targetDamage * this.blockFactor / 100;
-                                            blockTroop.ChangeTroops(-blockDmg, troop, this, -blockFactor);
+                                            blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
                                             int ep = blockDmg / 100;
                                             if (!blockTroop.IsAlive) ep += 50;
                                             troop.ForEachPerson(p =>
@@ -904,7 +919,7 @@ namespace Sango.Core
                                         if (this.blockFactor > 0 && blockTroop != null && blockTroop.IsEnemy(troop))
                                         {
                                             int blockDmg = targetDamage * this.blockFactor / 100;
-                                            blockTroop.ChangeTroops(-blockDmg, troop, this, -blockFactor);
+                                            blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
                                             int ep = blockDmg / 100;
                                             if (!blockTroop.IsAlive) ep += 50;
                                             troop.ForEachPerson(p =>

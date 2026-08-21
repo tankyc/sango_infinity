@@ -345,7 +345,10 @@ namespace Sango.Core
         /// <summary>
         /// 部队溃灭的时候
         /// </summary>
-        public static EventDelegate<Troop, Scenario> OnTroopDestroyed;
+        public static EventDelegate<Troop, SangoObject, int, Scenario> OnTroopDestroyed;
+
+        public static EventDelegate<Troop, Scenario> OnTroopClear;
+
 
         /// <summary>
         /// 部队计算属性的时候
@@ -553,7 +556,7 @@ namespace Sango.Core
         /// <summary>
         /// 当部队兵力变化时
         /// </summary>
-        public static EventDelegate<Troop, SangoObject, SkillInstance, int, OverrideData<int>> OnTroopChangeTroops;
+        public static EventDelegate<Troop, SangoObject, int, OverrideData<int>> OnTroopChangeTroops;
 
         /// <summary>
         /// 当部队气力变化时

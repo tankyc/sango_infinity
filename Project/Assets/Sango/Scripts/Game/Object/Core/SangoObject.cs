@@ -71,7 +71,9 @@ namespace Sango.Core
         /// <summary>
         /// 火焰
         /// </summary>
-        Fire
+        Fire,
+
+        BuffInstance,
 
     }
 

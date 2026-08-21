@@ -196,7 +196,23 @@
       "Name": "昂扬",
       "desc": "打倒敌方部队就可回复气力",
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopTriggerAction",
+          "triggerList": [
+            {
+              "class": "TriggerTroopDestroyTroop"
+            }
+          ],
+          "actionList": [
+            {
+              "class": "TroopChangeMorale",
+              "value": 10
+            }
+          ]
+        }
+      ]
     },
     "13": {
       "Id": 13,
@@ -244,14 +260,38 @@
       "Name": "突袭",
       "desc": "于陆上攻击时，不会受到损伤",
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopSkillCalculateAttackBack",
+          "value": 0,
+          "checkLand": 1,
+          "isDefender": 0,
+          "condition": {
+            "class": "ProbabilityCheck",
+            "probability": 10000
+          }
+        }
+      ]
     },
     "15": {
       "Id": 15,
       "Name": "强袭",
       "desc": "于水上攻击时，不会受到损伤",
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopSkillCalculateAttackBack",
+          "value": 0,
+          "checkLand": 2,
+          "isDefender": 0,
+          "condition": {
+            "class": "ProbabilityCheck",
+            "probability": 10000
+          }
+        }
+      ]
     },
     "16": {
       "Id": 16,
@@ -498,14 +538,43 @@
       "Name": "怒发",
       "desc": "遭受敌方部队的战法攻击时，气力就会回复",
       "level": 2,
-      "kind": 3
+      "kind": 3,
+      "actionEntities": [
+        {
+          "class": "TroopTriggerAction",
+          "triggerList": [
+            {
+              "class": "TriggerWhenSkillAfterHitTroop"
+            }
+          ],
+          "actionList": [
+            {
+              "class": "TroopChangeMorale",
+              "targetType": 1,
+              "isDefender": true,
+              "value": 5
+            }
+          ]
+        }
+      ]
     },
     "32": {
       "Id": 32,
       "Name": "藤甲",
       "desc": "火以外的攻击损伤减半，但火攻的损伤将增为２倍",
       "level": 2,
-      "kind": 3
+      "kind": 3,
+      "actionEntities": [
+        {
+          "class": "TroopChangeDamage",
+          "value": 50,
+          "isDefender": 1
+        },
+        {
+          "class": "TroopModifyFireDamage",
+          "value": 200
+        }
+      ]
     },
     "33": {
       "Id": 33,
@@ -1107,9 +1176,20 @@
     "51": {
       "Id": 51,
       "Name": "射手",
-      "desc": "可于森林使用弩兵战法",
+      "desc": "于森林使用弩兵战法时伤害增加",
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopChangeDamage",
+          "value": 150,
+          "isDefender": 0,
+          "condition": {
+            "class": "TerrainCheck",
+            "terrainType": 6
+          }
+        }
+      ]
     },
     "52": {
       "Id": 52,

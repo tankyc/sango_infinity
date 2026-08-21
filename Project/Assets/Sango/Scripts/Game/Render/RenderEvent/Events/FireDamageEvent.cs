@@ -28,7 +28,7 @@ namespace Sango.Render
             time = 0;
             if (targetTroop != null)
             {
-                targetTroop.ChangeTroops(-damage, fire, null, 0);
+                targetTroop.ChangeTroops(-damage, fire, 0);
             }
             else if (targetBuilding != null)
             {

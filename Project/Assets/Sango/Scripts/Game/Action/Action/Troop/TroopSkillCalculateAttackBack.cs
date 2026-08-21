@@ -28,7 +28,7 @@ namespace Sango.Core.Action
 
         void OnTroopCalculateAttackBack(Troop attacker, Troop defencer, SkillInstance skill, Scenario scenario, OverrideData<int> overrideData)
         {
-            if (!CheckTroop(defencer, attacker, skill)) return;
+            if (!CheckTroop(defencer, skill)) return;
             overrideData.Value = overrideData.Value * value / 100;
         }
     }

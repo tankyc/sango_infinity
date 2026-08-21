@@ -66,7 +66,7 @@ namespace Sango.Core
             int finalCount = values[index];
             int v = target.woundedTroops * finalCount / 100;
             target.woundedTroops = Mathf.Max(0, target.woundedTroops - v);
-            target.ChangeTroops(v, master.master, master, 0);
+            target.ChangeTroops(v, master, 0);
 
         }
     }

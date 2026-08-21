@@ -6,8 +6,10 @@ namespace Sango.Core
 {
     [JsonObject(MemberSerialization.OptIn)]
 
-    public class BuffInstance
+    public class BuffInstance : SangoObject
     {
+        public override SangoObjectType ObjectType => SangoObjectType.BuffInstance;
+
         public BuffManager Manager { get; private set; }
 
         [JsonProperty]

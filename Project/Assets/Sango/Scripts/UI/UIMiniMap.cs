@@ -95,7 +95,7 @@ namespace Sango.UI
         {
             GameEvent.OnTroopEnterCell += OnTroopEnterCell;
             GameEvent.OnTroopCreated += OnTroopCreated;
-            GameEvent.OnTroopDestroyed += OnTroopDestroyed;
+            GameEvent.OnTroopClear += OnTroopClear;
             GameEvent.OnCityFall += OnCityFall;
             GameEvent.OnScenarioInit += OnScenarioInit;
             MapRender.Instance.onValueChanged = OnCameraValueChanged;
@@ -140,7 +140,7 @@ namespace Sango.UI
             mapTroopNodes.Clear();
             mapTroopNodesPool.Clear();
             GameEvent.OnTroopCreated -= OnTroopCreated;
-            GameEvent.OnTroopDestroyed -= OnTroopDestroyed;
+            GameEvent.OnTroopClear -= OnTroopClear;
             GameEvent.OnTroopEnterCell -= OnTroopEnterCell;
             GameEvent.OnCityFall -= OnCityFall;
             GameEvent.OnScenarioInit -= OnScenarioInit;
@@ -199,7 +199,7 @@ namespace Sango.UI
             mapTroopNodes.Add(data);
         }
 
-        void OnTroopDestroyed(Troop troop, Scenario scenario)
+        void OnTroopClear(Troop troop, Scenario scenario)
         {
             for (int i = 0; i < mapTroopNodes.Count; i++)
             {

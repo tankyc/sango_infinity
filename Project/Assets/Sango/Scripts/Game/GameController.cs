@@ -466,7 +466,11 @@ namespace Sango.Core
         /// </summary>
         public void HandleMobileEvent()
         {
-            if (Input.touchCount == 1)
+            if(Input.touchCount == 0)
+            {
+                HandleWindowsEvent();
+            }
+            else if (Input.touchCount == 1)
             {
                 Touch touch = Input.GetTouch(0);
                 if (touch.phase == TouchPhase.Began)
