@@ -636,7 +636,7 @@ namespace Sango.Core
         private void AIPrepare(Scenario scenario)
         {
             // 添加外交AI
-            AICommandList.Add(ForceAI.AIDiplomacy);
+            //AICommandList.Add(ForceAI.AIDiplomacy);
             AICommandList.Add(ForceAI.AICaptives);
             AICommandList.Add(ForceAI.AITechniques);
             AICommandList.Add(ForceAI.AISetOfficial);
