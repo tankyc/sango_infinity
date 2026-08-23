@@ -41,7 +41,7 @@ namespace Sango.Core.Action
         {
             Troop troop = defencer;
             SkillInstance skill = null;
-            if(atker != null && atker.ObjectType == SangoObjectType.Skill)
+            if(atker != null && atker.ObjectType == SangoObjectType.SkillInstance)
             {
                 skill = (SkillInstance)atker;
             }
