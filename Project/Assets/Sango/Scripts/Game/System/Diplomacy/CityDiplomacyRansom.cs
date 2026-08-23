@@ -60,7 +60,6 @@ namespace Sango.Core.Player
 
         public override void OnDestroy()
         {
-            GameDialog.Close();
             Window.Instance.Close(windowName);
         }
 

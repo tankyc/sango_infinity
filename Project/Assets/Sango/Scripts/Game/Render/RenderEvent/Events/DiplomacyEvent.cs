@@ -28,7 +28,6 @@ namespace Sango.Render
         public override void Exit(Scenario scenario)
         {
             Window.Instance.Close("window_city_diplomacy_scene");
-            GameDialog.Close();
         }
 
         public override void Enter(Scenario scenario)

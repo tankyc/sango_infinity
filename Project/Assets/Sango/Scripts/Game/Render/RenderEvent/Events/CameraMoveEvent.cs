@@ -118,25 +118,17 @@ namespace Sango.Render
             MapRender.Instance.MoveCameraTo(targetPosition, moveDuration);
             if (!string.IsNullOrEmpty(content))
             {
-                dialog = GameDialog.Open(dialogStyle, content, () =>
-                {
-                    sureAction?.Invoke();
-                    GameDialog.Close();
-                    IsDone = true;
-                });
-                if (person != null)
-                    dialog.SetPerson(person);
-                dialog.cancelAction = () =>
-                {
-                    GameDialog.Close();
-                    IsDone = true;
-                    cancelAction?.Invoke();
-                };
-
-                dialog.Window.OnCloseAction = () =>
-                {
-                    IsDone = true;
-                };
+                GameDialog.Instance.Open(dialogStyle, content,
+               () =>
+               {
+                   sureAction?.Invoke();
+                   IsDone = true;
+               },
+               () =>
+               {
+                   IsDone = true;
+                   cancelAction?.Invoke();
+               }, person);
             }
         }
 
@@ -167,10 +159,6 @@ namespace Sango.Render
             GameController.Instance.RotateViewEnabled = true;
             GameController.Instance.DragMoveViewEnabled = true;
             GameController.Instance.Enabled = true;
-            if(dialog != null)
-            {
-                GameDialog.Close(dialog);
-            }
             if (!donotReturn)
                 MapRender.Instance.MoveCameraTo(startPosition, moveDuration);
         }

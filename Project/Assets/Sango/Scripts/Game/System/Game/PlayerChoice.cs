@@ -31,15 +31,29 @@
         {
             base.OnDestroy();
             Window.Instance.Close(windowName);
+
+            if (choiceDatas == null || choiceDatas.Length == 0)
+                return;
+
+            ChoiceData data = choiceDatas[0];
+            data.call?.Invoke();
+            choiceDatas = null;
         }
 
         public void OnPlayerChoose(int index)
         {
-            if (index < 0 || index >= choiceDatas.Length)
+            if (choiceDatas == null || index < 0 || index >= choiceDatas.Length)
                 return;
             ChoiceData data = choiceDatas[index];
             data.call?.Invoke();
+            choiceDatas = null;
             Back();
+        }
+
+        public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)
+        {
+            // 不能直接关闭
+
         }
     }
 }

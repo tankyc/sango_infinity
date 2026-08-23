@@ -1,4 +1,5 @@
-﻿using ContextMenu = Sango.UI.ContextMenu;
+﻿using UnityEngine;
+using ContextMenu = Sango.UI.ContextMenu;
 
 namespace Sango.Core.Player
 {
@@ -26,19 +27,7 @@ namespace Sango.Core.Player
             ContextMenu.CloseAll();
             base.OnEnter();
 
-            GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ChoosePersonSay,
-                $"拆除{TargetBuilding.ColorName}后,将无法恢复,确定吗?",
-                   () =>
-                   {
-                       GameDialog.Close();
-                       TargetBuilding.OnFall(null);
-                       Done();
-                   });
-            dialog.cancelAction = () =>
-            {
-                GameDialog.Close();
-                Done();
-            };
+          
 
             Force force = TargetBuilding.mBelongForce;
             //GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{force.ColorName}大人，\n终于轮到我们了啊。", null);
@@ -55,7 +44,17 @@ namespace Sango.Core.Player
                     person = force.mGovernor;
                 }
             }
-            dialog.SetPerson(person);
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ChoosePersonSay,
+               $"拆除{TargetBuilding.ColorName}后,将无法恢复,确定吗?",
+                () =>
+                {
+                    TargetBuilding.OnFall(null);
+                    Done();
+                },
+                () =>
+                {
+                    Done();
+                }, person);
         }
     }
 }

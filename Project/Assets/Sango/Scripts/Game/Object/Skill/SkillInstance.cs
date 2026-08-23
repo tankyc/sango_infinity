@@ -620,7 +620,7 @@ namespace Sango.Core
                     damage = damage_overrideData.Value;
 
                     beAtkTroop.ChangeTroops(-damage, this, 0);
-                    int ep = Math.Max(1, damage / 1000);
+                    int ep = Math.Max(1, damage / 100);
                     if (!beAtkTroop.IsAlive)
                     {
                         ep += 25;
@@ -664,7 +664,7 @@ namespace Sango.Core
 #if SANGO_DEBUG
                                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkTroop.mBelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
 #endif
-                                ep = Math.Max(1, damage / 1000);
+                                ep = Math.Max(1, damage / 100);
                                 if (!troop.IsAlive) ep += 25;
                                 beAtkTroop.mBelongForce.GainTechniquePoint(ep);
                                 beAtkTroop.ForEachPerson(p =>
@@ -680,7 +680,7 @@ namespace Sango.Core
 #if SANGO_DEBUG
                                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkTroop.mBelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
 #endif
-                                ep = Math.Max(1, damage / 1000);
+                                ep = Math.Max(1, damage / 100);
                                 if (!troop.IsAlive)
                                 {
                                     ep += 25;
@@ -728,7 +728,7 @@ namespace Sango.Core
                         overrideData = Tools.OverrideData<int>.Create(damage_troops);
                         GameEvent.OnSkillDamageBuildingTroops?.Invoke(this, beAtkBuildingBase, overrideData);
                         damage_troops = overrideData.ValueAndRecycle;
-                        int ep = Math.Max(1, damage_troops / 1000);
+                        int ep = Math.Max(1, damage_troops / 100);
                         if (!city.IsSameForce(troop) && !city.ChangeTroops(-damage_troops, troop, city.mBelongForce != null))
                         {
                             ep += 25;
@@ -762,11 +762,11 @@ namespace Sango.Core
                     overrideData = Tools.OverrideData<int>.Create(damage);
                     GameEvent.OnSkillDamageBuildingDurability?.Invoke(this, beAtkBuildingBase, overrideData);
                     damage = overrideData.ValueAndRecycle;
-                    troop.mBelongForce.GainTechniquePoint(damage / 1000);
+                    troop.mBelongForce.GainTechniquePoint(damage / 10);
 
                     if (beAtkBuildingBase.ChangeDurability(-damage, this))
                     {
-                        int ep = Math.Max(1, damage / 1000) + 25;
+                        int ep = Math.Max(1, damage / 10) + 25;
                         troop.mBelongForce.GainTechniquePoint(ep);
                         troop.ForEachPerson(p =>
                         {
@@ -780,7 +780,7 @@ namespace Sango.Core
                     }
                     else
                     {
-                        int ep = Math.Max(1, damage / 1000);
+                        int ep = Math.Max(1, damage / 10);
                         troop.mBelongForce.GainTechniquePoint(ep);
                         troop.ForEachPerson(p =>
                         {

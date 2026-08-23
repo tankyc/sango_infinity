@@ -13,21 +13,20 @@ namespace Sango.Core.Player
 
         public override void OnEnter()
         {
-            GameDialog.Open("是否需要回到游戏主菜单", () =>
-            {
-                Done();
-                GameDialog.Close();
-                GameSystem.GetSystem<Player>().QuitToMainMenu();
-            }).cancelAction = () =>
-            {
-                GameDialog.Close();
-                Done();
-            }; ;
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, "是否需要回到游戏主菜单", () =>
+           {
+               Done();
+               GameSystem.GetSystem<Player>().QuitToMainMenu();
+           }
+            , () =>
+             {
+                 Done();
+             });
         }
 
         public override void OnDestroy()
         {
-            GameDialog.Close();
+
         }
     }
 }

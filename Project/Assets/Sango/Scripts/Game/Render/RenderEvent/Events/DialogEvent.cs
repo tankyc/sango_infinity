@@ -9,7 +9,6 @@ namespace Sango.Render
         public Person person;
         public System.Action sureAction;
         public System.Action cancelAction;
-        GameDialog.IDialog dialog;
 
         public void Init(GameDialog.DialogStyle dialogStyle, string content, Person person, System.Action sureAction, System.Action cancelAction)
         {
@@ -22,20 +21,16 @@ namespace Sango.Render
         }
         public override void Enter(Scenario scenario)
         {
-            dialog = GameDialog.Open(dialogStyle, content, () =>
+            GameDialog.Instance.Open(dialogStyle, content, () =>
             {
                 sureAction?.Invoke();
-                GameDialog.Close();
                 IsDone = true;
-            });
-            if (person != null)
-                dialog.SetPerson(person);
-            dialog.SetCancelAction(() =>
+            },
+            () =>
             {
-                GameDialog.Close();
-                IsDone = true;
                 cancelAction?.Invoke();
-            });
+                IsDone = true;
+            }, person);
         }
     }
 }

@@ -414,6 +414,9 @@ namespace Sango.Core
 
         public void ReduceActionPoint(int v)
         {
+            if (!IsPlayer)
+                return;
+
             ActionPoint -= v;
             if (IsPlayer && mBelongForce == Scenario.Cur.CurRunForce)
             {

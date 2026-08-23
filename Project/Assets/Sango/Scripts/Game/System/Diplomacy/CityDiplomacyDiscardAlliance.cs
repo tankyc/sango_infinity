@@ -44,7 +44,6 @@ namespace Sango.Core.Player
 
         public override void OnDestroy()
         {
-            GameDialog.Close();
             Window.Instance.Close(windowName);
         }
 
@@ -64,13 +63,12 @@ namespace Sango.Core.Player
                 }
             });
 
-            GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickSay, $"与{targetForces[0].ColorName}不再是同盟!!", () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickSay, $"与{targetForces[0].ColorName}不再是同盟!!", () =>
             {
                 // 暂时直接招募
-                GameDialog.Close();
                 GameMedia.Instance.PlayDoAcitonSfx();
                 Done();
-            });
+            }, 5);
         }
     }
 }

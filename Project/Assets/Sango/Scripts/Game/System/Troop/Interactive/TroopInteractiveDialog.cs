@@ -21,20 +21,17 @@ namespace Sango.Core.Player
             GameEvent.OnTroopInteractiveContextDialogShow?.Invoke(TroopInteractiveDialogData.InteractiveDialogData, troop, targetCell);
             if (!TroopInteractiveDialogData.InteractiveDialogData.IsEmpty())
             {
-                GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ChoosePersonSay, TroopInteractiveDialogData.InteractiveDialogData.content,
-                    TroopInteractiveDialogData.InteractiveDialogData.sureAction);
-                dialog.cancelAction = () =>
-                {
-                    GameDialog.Close();
-                    if (!GameSystemManager.Instance.BackTo(GameSystem.GetSystem<CityExpedition>()))
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ChoosePersonSay, TroopInteractiveDialogData.InteractiveDialogData.content,
+                    TroopInteractiveDialogData.InteractiveDialogData.sureAction, () =>
                     {
-                        if (!GameSystemManager.Instance.BackTo(GameSystem.GetSystem<CityTransport>()))
+                        if (!GameSystemManager.Instance.BackTo(GameSystem.GetSystem<CityExpedition>()))
                         {
-                            GameSystemManager.Instance.Done();
+                            if (!GameSystemManager.Instance.BackTo(GameSystem.GetSystem<CityTransport>()))
+                            {
+                                GameSystemManager.Instance.Done();
+                            }
                         }
-                    }
-                };
-                dialog.SetPerson(troop.Leader);
+                    }, troop.Leader);
                 GameSystemManager.Instance.Push(this);
             }
         }
@@ -51,27 +48,26 @@ namespace Sango.Core.Player
         /// </summary>
         public override void OnExit()
         {
-            GameDialog.Close();
+
         }
 
         public override void OnDestroy()
         {
-            GameDialog.Close();
             GameSystem.GetSystem<TroopSystem>().ClearShowMovePath();
             GameSystem.GetSystem<TroopSystem>().ClearShowMoveRange();
         }
 
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)
         {
-            switch (eventType)
-            {
-                case CommandEventType.Cancel:
-                case CommandEventType.RClick:
-                    {
-                        GameSystemManager.Instance.Back();
-                        break;
-                    }
-            }
+            //switch (eventType)
+            //{
+            //    case CommandEventType.Cancel:
+            //    case CommandEventType.RClick:
+            //        {
+            //            GameSystemManager.Instance.Back();
+            //            break;
+            //        }
+            //}
         }
     }
 }

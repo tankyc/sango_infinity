@@ -32,9 +32,5 @@ namespace Sango.UI
             playerChoice.OnPlayerChoose(item.index);
         }
 
-        public void OnCancel()
-        {
-            GameController.Instance.OnCancel();
-        }
     }
 }

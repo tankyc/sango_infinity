@@ -220,10 +220,8 @@ namespace Sango.UI
         public void OnResetScenario()
         {
             string content = $"初始化将删除所有已登场武将和新作势力,确定吗?";
-            GameDialog.Open(content, () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, content, () =>
             {
-                GameDialog.Close();
-
                 List<PersonLib> persons = new List<PersonLib>();
                 if (GameCustomEdit.Instance != null)
                 {
@@ -255,9 +253,8 @@ namespace Sango.UI
             if (scenario.AppendForceCount > 0)
             {
                 string content = $"返回将丢失所有已登场武将和新作势力,确定吗?";
-                GameDialog.Open(content, () =>
+                GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, content, () =>
                 {
-                    GameDialog.Close();
                     Window.Instance.Close("window_scenario_addon_menu");
                     Window.Instance.Open("window_scenario_select");
                 });

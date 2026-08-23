@@ -14,9 +14,6 @@ namespace Sango.Render
         /// <summary>目标武将</summary>
         public Person person;
 
-        /// <summary>对话实例</summary>
-        private GameDialog.IDialog dialog;
-
         /// <summary>
         /// 武将属性类型枚举 - 根据五维属性判断武将的定位
         /// </summary>
@@ -46,10 +43,9 @@ namespace Sango.Render
             PersonType type = ClassifyPerson(person);
             string rumorText = GetRumorText(type);
 
-            dialog = GameDialog.Open(GameDialog.DialogStyle.ClickSay, rumorText,
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickSay, rumorText,
             () =>
             {
-                GameDialog.Close();
                 IsDone = true;
             });
         }

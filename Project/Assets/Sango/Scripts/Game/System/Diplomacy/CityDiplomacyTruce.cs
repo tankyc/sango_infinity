@@ -52,13 +52,11 @@ namespace Sango.Core.Player
                     PersonSortFunction.SortByGlamour,
                 };
             }
-
             Window.Instance.Open(windowName);
         }
 
         public override void OnDestroy()
         {
-            GameDialog.Close();
             Window.Instance.Close(windowName);
         }
 

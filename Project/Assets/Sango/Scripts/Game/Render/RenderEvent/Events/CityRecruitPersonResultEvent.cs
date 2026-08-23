@@ -26,32 +26,26 @@ namespace Sango.Render
 
             if (result)
             {
-                GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"成功招募了{target.ColorName}", () =>
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"成功招募了{target.ColorName}", () =>
                 {
                     // TODO:展示武将
                     // 暂时直接招募
-                    GameDialog.Close();
-                    GameDialog.IDialog dialog2 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
                     {
                         // TODO:展示武将
                         // 暂时直接招募
-                        GameDialog.Close();
                         IsDone = true;
-                    });
-                    dialog2.SetPerson(target);
-                });
-                dialog1.SetPerson(person);
+                    },target);
+                },person);
             }
             else
             {
-                GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到 {target.ColorName}", () =>
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到 {target.ColorName}", () =>
                 {
                     // TODO:展示武将
                     // 暂时直接招募
-                    GameDialog.Close();
                     IsDone = true;
-                });
-                dialog1.SetPerson(person);
+                },person);
             }
         }
 

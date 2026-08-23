@@ -78,14 +78,10 @@ zd同学,
         public void QuitGame()
         {
             GameMedia.Instance.PlayButtonSfx();
-            GameDialog.Open("是否要退出游戏??", () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, "是否要退出游戏??", () =>
             {
-                GameDialog.Close();
                 Application.Quit();
-            }).cancelAction = () =>
-            {
-                GameDialog.Close();
-            };
+            });
         }
 
         public void OnGameSetting()

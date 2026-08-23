@@ -49,17 +49,15 @@ namespace Sango.Core.Player
             else
                 content = $"结束{force.ColorName}的战略，\n请问是否确定";
 
-            GameDialog.Open(content, () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, content, () =>
             {
-                GameDialog.Close();
                 updateTroopAI = true;
                 GameEvent.OnPlayerEndTurn?.Invoke(force, scenario);
 
-            }).cancelAction = () =>
+            },() =>
             {
-                GameDialog.Close();
                 Done();
-            };
+            });
         }
 
         public override void Update()
@@ -89,7 +87,6 @@ namespace Sango.Core.Player
 
         public override void OnDestroy()
         {
-            GameDialog.Close();
         }
 
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)

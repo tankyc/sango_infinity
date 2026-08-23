@@ -171,21 +171,16 @@ namespace Sango.Core.Player
                     return;
                 }
 
-                GameDialog.Open($"要将{t.ColorName}解散吗?", () =>
+                GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, $"要将{t.ColorName}解散吗?", () =>
                 {
-                    GameDialog.Close();
-                    GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"如今{t.ColorName}已经没有必要了。", () =>
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"如今{t.ColorName}已经没有必要了。", () =>
                     {
                         DeleteCorps(t.number);
-                        GameDialog.Close();
                         ContextMenu.CloseAll();
                         GameMedia.Instance.PlaySfx(56);
                         Done();
-                    }).SetPerson(TargetCity.mBelongForce.mGovernor);
-                }).cancelAction = () =>
-                {
-                    GameDialog.Close();
-                };
+                    }, TargetCity.mBelongForce.mGovernor);
+                });
             },
             CorpsSortFunction.DefaultSortList, "解散军团");
         }
@@ -193,12 +188,11 @@ namespace Sango.Core.Player
         public void CreateCorps()
         {
             TargetCity.mBelongForce.CreateCorps(targetCorps);
-            GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{targetCorps.ColorName}就交给我了。", () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{targetCorps.ColorName}就交给我了。", () =>
             {
-                GameDialog.Close();
                 GameMedia.Instance.PlayDoAcitonSfx();
                 Done();
-            }).SetPerson(targetCorps.mComander);
+            },targetCorps.mComander);
         }
 
         public void ResetCorps()
@@ -207,11 +201,10 @@ namespace Sango.Core.Player
             if (dest == null)
                 return;
             TargetCity.mBelongForce.ResetCorps(dest, targetCorps);
-            GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{dest.ColorName}就交给我了。", () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{dest.ColorName}就交给我了。", () =>
             {
-                GameDialog.Close();
                 Done();
-            }).SetPerson(dest.mComander);
+            },dest.mComander);
             GameMedia.Instance.PlayDoAcitonSfx();
         }
 

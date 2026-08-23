@@ -507,7 +507,7 @@ namespace Sango.Core
         /// </summary>
         public void CreateInteriorModel()
         {
-            if (interiorModel == null)
+            if (interiorModel == null && building == null)
             {
                 interiorModel = MapObject.Create($"内政地{x}-{y}");
                 interiorModel.objType = 0;

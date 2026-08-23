@@ -14,6 +14,7 @@ namespace Sango.UI
     /// </summary>
     public class UIDialog : UGUIWindow, IDialog
     {
+        DialogData dialogData;
         public Text content;
         public System.Action cancelAction { get; set; }
         public System.Action sureAction { get; set; }
@@ -27,29 +28,35 @@ namespace Sango.UI
 
         public override void OnOpen(params object[] objects)
         {
-            string _content = "";
-            System.Action _sureAction = null;
-            System.Action _cancelAction = null;
-            Vector3 _startPoint = Vector3.zero;
-            if (objects.Length > 0)
-                _content = objects[0] as string;
-            if (objects.Length > 1)
-                _sureAction = objects[1] as System.Action;
-            if (objects.Length > 2)
-                _cancelAction = objects[2] as System.Action;
-            if (objects.Length > 3)
-                _startPoint = (Vector3)objects[3];
-            Init(_content, _sureAction, _cancelAction, _startPoint);
+            dialogData = (DialogData)objects[0];
+            sureAction = dialogData.sureAction;
+            cancelAction = dialogData.cancelAction;
+            content.text = dialogData.content;
+            if (btnRect != null)
+            {
+                Vector2 anchorPos;
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(GetComponent<RectTransform>(),
+                    dialogData.startPoint, Sango.Core.Game.Instance.UICamera, out anchorPos);
+
+                btnRect.anchoredPosition = anchorPos + new Vector2(-74, 0);
+            }
+            SetPerson(dialogData.person);
+            GameMedia.Instance.PlaySfx(dialogData.sound);
         }
 
         public void OnSure()
         {
+            Close();
             sureAction?.Invoke();
         }
 
         public void OnCancel()
         {
-            cancelAction?.Invoke();
+            Close();
+            if(cancelAction == null)
+                sureAction?.Invoke();
+            else
+                cancelAction.Invoke();
         }
 
         public void StartTalk(List<TalkData> talkData, System.Action talkEndAction)

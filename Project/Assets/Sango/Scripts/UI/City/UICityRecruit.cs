@@ -98,15 +98,11 @@ using Sango.Core; namespace Sango.UI
                     content = $"我对此任务很有信心，\n请务必交给我吧。";
                 }
 
-                GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, content, () => { GameDialog.Close(); UpdateContent(); });
-                Person person = TargetCity.mBelongForce.mCounsellor;
-                dialog.SetPerson(person);
+                 GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, content, () => { UpdateContent(); }, TargetCity.mBelongForce.mCounsellor);
             }
             else
             {
-                GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"如今并无适合担任此任务的人选。", () => { GameDialog.Close(); UpdateContent(); });
-                Person person = TargetCity.mBelongForce.mCounsellor;
-                dialog.SetPerson(person);
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"如今并无适合担任此任务的人选。", () => { UpdateContent(); }, TargetCity.mBelongForce.mCounsellor);
             }
         }
 

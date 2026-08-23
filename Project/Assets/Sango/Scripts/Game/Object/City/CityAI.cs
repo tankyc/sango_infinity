@@ -401,12 +401,21 @@ namespace Sango.Core
 
             if (city.food > city.FoodLimit * 95 / 100 && city.gold > city.GoldLimit * 95 / 100) return true;
 
+            //if (city.mBelongCity.mBelongForce != city.mBelongForce)
+            //    return true;
+
+            // 必须军团一致性
+            if (city.mBelongCity.mBelongCorps != city.mBelongCorps)
+                return true;
+
             // 寻找最近的附属城市
-            City target = city.GetNearnestForceCity();
+            //City target = city.GetNearnestForceCity();
+            City target = city.mBelongCity;
 
             if (target == null) return true;
 
-            if (target.IsEnemiesRound()) return true;
+            // 边境城市不做运输
+            if (target.IsBorderCity) return true;
 
             int goldLine = 2500;
             int foodLine = 20000;
@@ -426,9 +435,9 @@ namespace Sango.Core
                 return true;
             }
 
-            if (target.gold >= target.GoldLimit && city.food <= foodLine)
+            if (target.gold >= target.GoldLimit * 9 / 10 && target.food >= target.FoodLimit * 9 / 10)
                 return true;
-            if (target.food >= target.FoodLimit && city.gold <= goldLine)
+            if (city.food <= foodLine && city.gold <= goldLine)
                 return true;
 
             // 检查通路
@@ -441,7 +450,7 @@ namespace Sango.Core
                     return true;
             }
 
-            // 资源够运输, 但是兵力不够, 请求兵力输送
+            // 资源够运输, 但是兵力不够, 请求兵力输送, 需要军团一致性
             if (city.troops < 500)
             {
                 // 有正在运输的部队,不再请求运输队

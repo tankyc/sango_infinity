@@ -6,8 +6,107 @@ using UnityEngine.UI;
 
 namespace Sango.Core
 {
-    public class GameDialog
+    public class GameDialog : Singleton<GameDialog>
     {
+        public enum DialogStyle
+        {
+            Normal,
+            ChoosePersonSay,
+            Window,
+            ClickPersonSay,
+            ClickSay
+        }
+
+        public struct DialogData
+        {
+            public DialogStyle style;
+            public System.Action cancelAction;
+            public System.Action sureAction;
+            public string content;
+            public Person person;
+            public Vector3 startPoint;
+            public int sound;
+            public int bgm;
+        }
+
+        public List<DialogData> dialogDatas = new List<DialogData>();
+        Window.WindowInterface windowInterface;
+
+        public void Open(DialogStyle style, string content, System.Action sureAction, System.Action cancelAction,
+            Person person, Vector3 startPoint, int sound = 0, int bgm = 0)
+        {
+            DialogData dialogData = new DialogData
+            {
+                style = style,
+                sureAction = () =>
+                {
+                    sureAction?.Invoke();
+                    Next();
+                },
+                content = content,
+                cancelAction = () =>
+                {
+                    cancelAction?.Invoke();
+                    Next();
+                },
+                person = person,
+                startPoint = startPoint,
+                sound = sound,
+                bgm = bgm
+            };
+            dialogDatas.Add(dialogData);
+            if (windowInterface == null)
+                Next();
+        }
+
+        public void Open(DialogStyle style, string content, System.Action sureAction, System.Action cancelAction,
+            Person person = null, int sound = 0, int bgm = 0)
+        {
+            Open(style, content, sureAction, cancelAction, person, Input.mousePosition, sound, bgm);
+        }
+        public void Open(DialogStyle style, string content, System.Action sureAction, int sound = 0, int bgm = 0)
+        {
+            Open(style, content, sureAction, null, null, Input.mousePosition, sound, bgm);
+        }
+        public void Open(DialogStyle style, string content, System.Action sureAction, Person person, int sound = 0, int bgm = 0)
+        {
+            Open(style, content, sureAction, null, person, Input.mousePosition, sound, bgm);
+        }
+        void Next()
+        {
+            windowInterface = null;
+            if (dialogDatas.Count == 0)
+            {
+                GameController.Instance.Enabled = true;
+                return;
+            }
+
+            DialogData dialogData = dialogDatas[0];
+            dialogDatas.RemoveAt(0);
+            string windowName = "window_dialog";
+            switch (dialogData.style)
+            {
+                case DialogStyle.ChoosePersonSay:
+                    windowName = "window_dialog2"; break;
+                case DialogStyle.Window:
+                    windowName = "window_dialog3"; break;
+                case DialogStyle.ClickPersonSay:
+                    windowName = "window_dialog4"; break;
+                case DialogStyle.ClickSay:
+                    windowName = "window_dialog5"; break;
+            }
+
+            windowInterface = Window.Instance.Open(windowName, dialogData);
+            //if (windowInterface.ugui_instance == null)
+            //{
+            //    windowInterface = null;
+            //    Next();
+            //    return;
+            //}
+
+            GameController.Instance.Enabled = false;
+        }
+
         public interface IDialog
         {
             UGUIWindow Window { get; set; }
@@ -26,14 +125,7 @@ namespace Sango.Core
         }
         public static IDialog CurInstance;
 
-        public enum DialogStyle
-        {
-            Normal,
-            ChoosePersonSay,
-            Window,
-            ClickPersonSay,
-            ClickSay
-        }
+
         public struct TalkData
         {
             public string text;
@@ -42,76 +134,16 @@ namespace Sango.Core
             public int bgm;
         }
 
-        public static void Close()
+        public static void StartTalk(List<TalkData> talk_content, System.Action endAction)
         {
-            if (CurInstance != null)
+            for(int i = 0; i < talk_content.Count; i++)
             {
-                GameMedia.Instance.PlaySfx(4);
-                CurInstance.Close();
+                TalkData talkData = talk_content[i];
+                if(i == talk_content.Count - 1)
+                    Instance.Open(DialogStyle.ClickPersonSay, talkData.text, () => { endAction?.Invoke(); }, talkData.person, talkData.sound, talkData.bgm);
+                else
+                    Instance.Open(DialogStyle.ClickPersonSay, talkData.text, () => { }, talkData.person, talkData.sound, talkData.bgm);
             }
-            GameController.Instance.Enabled = true;
-            CurInstance = null;
-        }
-        public static void Close(IDialog uIDialog)
-        {
-            if (uIDialog == CurInstance)
-            {
-                GameMedia.Instance.PlaySfx(4);
-                uIDialog.Close();
-            }
-            CurInstance = null;
-            GameController.Instance.Enabled = true;
-        }
-
-
-        public static IDialog StartTalk(List<TalkData> talk_content, System.Action endAction)
-        {
-            string windowName = "window_dialog4";
-            IDialog uIDialog = Open(windowName, "", null, Input.mousePosition);
-            uIDialog.StartTalk(talk_content, endAction);
-            return uIDialog;
-        }
-
-        public static IDialog Open(string content, System.Action sureAction)
-        {
-            return Open(content, sureAction, Input.mousePosition);
-        }
-
-        public static IDialog Open(DialogStyle dialogStyle, string content, System.Action sureAction)
-        {
-            string windowName = "window_dialog";
-            switch (dialogStyle)
-            {
-                case DialogStyle.ChoosePersonSay:
-                    windowName = "window_dialog2"; break;
-                case DialogStyle.Window:
-                    windowName = "window_dialog3"; break;
-                case DialogStyle.ClickPersonSay:
-                    windowName = "window_dialog4"; break;
-                case DialogStyle.ClickSay:
-                    windowName = "window_dialog5"; break;
-            }
-            return Open(windowName, content, sureAction, Input.mousePosition);
-        }
-
-        public static IDialog Open(string content, System.Action sureAction, Vector3 startPoint)
-        {
-            return Open("window_dialog", content, sureAction, startPoint);
-        }
-
-        public static IDialog Open(string windowName, string content, System.Action sureAction, Vector3 startPoint)
-        {
-            Window.WindowInterface windowInterface = Window.Instance.Open(windowName, content, sureAction, (System.Action)Close, startPoint);
-            if (windowInterface.ugui_instance == null)
-                return null;
-
-            IDialog uIDialog = windowInterface.ugui_instance.GetComponent<IDialog>();
-            if (uIDialog == null) return null;
-            uIDialog.Window = windowInterface.ugui_instance;
-            CurInstance = uIDialog;
-            GameController.Instance.Enabled = false;
-            return uIDialog;
         }
     }
-
 }

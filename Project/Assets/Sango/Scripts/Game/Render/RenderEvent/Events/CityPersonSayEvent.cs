@@ -21,11 +21,10 @@ namespace Sango.Render
                 return;
             }
 
-            GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, words, () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, words, () =>
             {
-                GameDialog.Close();
                 IsDone = true;
-            }).SetPerson(person);
+            }, person);
         }
 
         public override void Exit(Scenario scenario)

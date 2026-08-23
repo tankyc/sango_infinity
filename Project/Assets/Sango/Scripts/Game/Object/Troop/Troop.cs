@@ -1245,7 +1245,7 @@ namespace Sango.Core
                 Cell start = cell;
                 for (int i = 1; i < tempCellList.Count; i++)
                 {
-                    bool isLast = i == tempCellList.Count - 1;
+                    bool isLast = (i == (tempCellList.Count - 1));
                     Cell dest = tempCellList[i];
                     TroopMoveEvent @event = RenderEvent.Instance.Create<TroopMoveEvent>();
                     @event.Init(this, start, dest, isLast, null);
@@ -1382,12 +1382,15 @@ namespace Sango.Core
                 if (GameRandom.Chance(50))
                     divFood += _foodCost;
                 ChangeFood(-divFood, false);
+
+                IsAlive = troops > 0;
             }
-
-            if (troops > MaxTroops)
-                troops = MaxTroops;
-
-            IsAlive = troops > 0;
+            else
+            {
+                if (troops > MaxTroops)
+                    troops = MaxTroops;
+            }
+           
             if (!IsAlive)
             {
 #if SANGO_DEBUG
@@ -1869,6 +1872,9 @@ namespace Sango.Core
 
         public override void Clear()
         {
+            mBelongCity.allTroops.Remove(this);
+            Scenario.Cur.Remove(this);
+
             ReleaseCaptive();
             buildingImproveMap.Clear();
             if (actionList != null)
@@ -1883,8 +1889,7 @@ namespace Sango.Core
             if (LandTroopType.isFight && LandTroopType.Id != 1)
                 mBelongCity.allAttackTroops.Remove(this);
 
-            mBelongCity.allTroops.Remove(this);
-            Scenario.Cur.Remove(this);
+            
             ForEachPerson((person) =>
             {
                 person.mTroop = null;

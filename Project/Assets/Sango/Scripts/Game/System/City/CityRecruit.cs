@@ -122,7 +122,6 @@ namespace Sango.Core.Player
         }
         public override void OnDestroy()
         {
-            GameDialog.Close();
             Window.Instance.Close(windowName);
         }
 
@@ -169,14 +168,12 @@ namespace Sango.Core.Player
 
             if (!TargetCity.JobRecruitPerson(personList[0], target[0]))
             {
-                GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧", () =>
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧", () =>
                 {
                     // 暂时直接招募
-                    GameDialog.Close();
                     Done();
 
-                });
-                dialog1.SetPerson(personList[0]);
+                }, personList[0]);
             }
             else
             {

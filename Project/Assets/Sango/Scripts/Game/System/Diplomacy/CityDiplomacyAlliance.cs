@@ -54,7 +54,6 @@ namespace Sango.Core.Player
 
         public override void OnDestroy()
         {
-            GameDialog.Close();
             Window.Instance.Close(windowName);
         }
 
@@ -66,15 +65,12 @@ namespace Sango.Core.Player
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Alliance, TargetCity.mBelongForce, targetForces[0], personList[0], gold);
             diplomacyManager.DispatchDiplomat(action);
-            GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", () =>
             {
                 // 暂时直接招募
-                GameDialog.Close();
-                GameMedia.Instance.PlayDoAcitonSfx();
                 Done();
 
-            });
-            dialog1.SetPerson(personList[0]);
+            }, null, personList[0], 5);
         }
     }
 }

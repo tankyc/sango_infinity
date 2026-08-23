@@ -14,9 +14,6 @@ namespace Sango.Render
         /// <summary>子嗣武将</summary>
         public Person person;
 
-        /// <summary>对话实例</summary>
-        private GameDialog.IDialog dialog;
-
         /// <summary>
         /// 子嗣才能类型枚举
         /// </summary>
@@ -50,21 +47,16 @@ namespace Sango.Render
             // 子嗣宣誓
             string childPledge = GetChildPledge(isFemale, type);
 
-            dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, fatherReport,
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, fatherReport,
             () =>
             {
-                dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, childPledge,
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, childPledge,
                 () =>
                 {
                     GameMedia.Instance.PlayDoAcitonSfx();
-                    GameDialog.Close();
                     IsDone = true;
-                });
-                if (person != null)
-                    dialog.SetPerson(person);
-            });
-            if (father != null)
-                dialog.SetPerson(father);
+                }, person);
+            }, father);
         }
 
         /// <summary>

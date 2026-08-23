@@ -93,9 +93,8 @@ namespace Sango.UI
                 {
                     PersonLib personLib = x[0] as PersonLib;
                     GameCustomEdit.Instance.TargetEditPerson = personLib;
-                    GameDialog.IDialog dialog3 = GameDialog.Open(GameDialog.DialogStyle.Normal, $"确定要删除{personLib.ColorName}, 删除之后将无法找回...", () =>
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, $"确定要删除{personLib.ColorName}, 删除之后将无法找回...", () =>
                     {
-                        GameDialog.Close();
                         GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Remove(personLib);
                         editPersonLibList.Remove(personLib);
                         editPersonList.Remove(personLib);

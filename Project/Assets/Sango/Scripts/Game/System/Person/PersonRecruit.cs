@@ -87,13 +87,11 @@ namespace Sango.Core
                     result = recruitor.JobRecruitPerson(target, recruitType) == true ? 1 : 0;
                 if (result == 1)
                 {
-                    GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
                     {
-                        GameDialog.Close();
                         Back();
                         doneAction?.Invoke(this);
-                    });
-                    dialog1.SetPerson(target);
+                    }, target);
                 }
                 tryLimit--;
             }
@@ -115,21 +113,17 @@ namespace Sango.Core
                     result = recruitor.JobRecruitPerson(target, recruitType) == true ? 1 : 0;
                 if (result == 0)
                 {
-                    GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, talk[GameRandom.Range(0, talk.Length)], () =>
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, talk[GameRandom.Range(0, talk.Length)], () =>
                     {
-                        GameDialog.Close();
-                    });
-                    dialog1.SetPerson(target);
+                    }, target);
                 }
                 else if (result == 1)
                 {
-                    GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
                     {
-                        GameDialog.Close();
                         Back();
                         doneAction?.Invoke(this);
-                    });
-                    dialog1.SetPerson(target);
+                    }, target);
                 }
                 tryLimit--;
             }

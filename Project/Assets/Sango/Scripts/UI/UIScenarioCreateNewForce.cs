@@ -328,11 +328,9 @@ namespace Sango.UI
             }
 
             string content = $"资料尚未储存,返回将丢失所有更改,确定吗?";
-            GameDialog.Open(content, () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, content, () =>
             {
-                GameDialog.Close();
                 Window.Instance.Close("window_scenario_create_new_force");
-
             });
         }
 

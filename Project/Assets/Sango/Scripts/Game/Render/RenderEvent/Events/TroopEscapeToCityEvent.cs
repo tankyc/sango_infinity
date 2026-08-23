@@ -35,6 +35,12 @@ namespace Sango.Render
 
         public override bool Update(Scenario scenario, float deltaTime)
         {
+            if (!troop.IsAlive)
+            {
+                MarkDepends = false;
+                return true;
+            }
+
             MarkDepends = true;
             if (troop.TryMoveToCity(dest))
             {

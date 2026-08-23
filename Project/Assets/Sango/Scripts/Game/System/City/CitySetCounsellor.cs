@@ -74,15 +74,13 @@ namespace Sango.Core.Player
 
             GameMedia.Instance.PlayDoAcitonSfx();
             TargetForce.ChangeCounsellor(personList[0]);
-            GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧", () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧", () =>
             {
                 // TODO:展示武将
                 // 暂时直接招募
-                GameDialog.Close();
                 Done();
 
-            });
-            dialog1.SetPerson(personList[0]);
+            }, personList[0]);
         }
     }
 }

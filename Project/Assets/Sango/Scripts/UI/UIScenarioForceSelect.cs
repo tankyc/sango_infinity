@@ -425,14 +425,10 @@ namespace Sango.UI
         {
             if (playerList.Count == 0)
             {
-                GameDialog.Open("未选择任何势力,将进入上帝放置模式,确定进入游戏吗??", () =>
+                GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, "未选择任何势力,将进入上帝放置模式,确定进入游戏吗??", () =>
                 {
-                    GameDialog.Close();
                     StartGame();
-                }).cancelAction = () =>
-                {
-                    GameDialog.Close();
-                };
+                });
                 return;
             }
 

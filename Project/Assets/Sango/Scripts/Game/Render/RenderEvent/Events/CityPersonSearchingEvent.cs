@@ -24,12 +24,10 @@ namespace Sango.Render
             {
                 if (city.mBelongCorps.IsPlayerControl && searchingType == 0)
                 {
-                    GameDialog.IDialog dialog3 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, "很遗憾, 什么都没有发现...", () =>
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, "很遗憾, 什么都没有发现...", () =>
                     {
-                        GameDialog.Close();
                         IsDone = true;
-                    });
-                    dialog3.SetPerson(person);
+                    }, person);
                 }
                 else
                 {
@@ -50,39 +48,30 @@ namespace Sango.Render
 
             if (rs == 0)
             {
-
                 string content = $"搜索结果，\n发现了名为{target.ColorName}的武将。";
-                GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, content, () =>
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, content, () =>
                 {
-                    GameDialog.Close();
-
                     //展示武将
                     GameSystem.GetSystem<PersonRecruit>().Start(person, target, 0, 1, x =>
                     {
                         if (x.result == 1)
                         {
-                            GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"成功招募了{target.ColorName}", () =>
+                            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"成功招募了{target.ColorName}", () =>
                             {
-                                GameDialog.Close();
-                                GameDialog.IDialog dialog2 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
+                                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
                                 {
-                                    GameDialog.Close();
                                     IsDone = true;
-                                });
-                                dialog2.SetPerson(target);
-                            });
-                            dialog1.SetPerson(person);
+                                }, target);
+                            }, person);
                         }
                         else if (x.result == 0)
                         {
                             if (searchingType == 0)
                             {
-                                GameDialog.IDialog dialog1 = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到{target.ColorName}", () =>
+                                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到{target.ColorName}", () =>
                                 {
-                                    GameDialog.Close();
                                     IsDone = true;
-                                });
-                                dialog1.SetPerson(person);
+                                }, person);
                             }
                             else
                             {
@@ -92,19 +81,16 @@ namespace Sango.Render
                         else
                             IsDone = true;
                     });
-                });
-                dialog.SetPerson(person);
+                }, person);
             }
             else
             {
                 if (searchingType == 0)
                 {
-                    GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"发现了资金{rs}", () =>
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"发现了资金{rs}", () =>
                     {
-                        GameDialog.Close();
                         IsDone = true;
-                    });
-                    dialog.SetPerson(person);
+                    }, person);
                 }
                 else
                 {

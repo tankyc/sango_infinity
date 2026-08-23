@@ -280,7 +280,7 @@ namespace Sango.UI
             //// 重新初始化MOD
             //ModManager.Instance.InitMods(enabledMods.ToArray());
             // 显示提示，需要重启游戏才能生效
-            GameDialog.Open("修改MOD后需要重启游戏才能生效，点击确定重启游戏。", () =>
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, "修改MOD后需要重启游戏才能生效，点击确定重启游戏。", () =>
             {
                 // 重启游戏
                 Application.Quit();
