@@ -123,6 +123,12 @@ namespace Sango.Core
         /// 移动方式（0=手动，1=自动）
         /// </summary>
         public int MovementMode { get; set; } = 0;
+
+        /// <summary>
+        /// 移动端的取消按钮
+        /// </summary>
+        public bool MobileCancel { get; set; } = false;
+
         #endregion
 
         #region 语言设置
@@ -485,6 +491,13 @@ namespace Sango.Core
         {
             PlayerPrefs.SetFloat("KeyboardMoveSpeed", KeyboardMoveSpeed);
             PlayerPrefs.SetInt("MovementMode", MovementMode);
+            PlayerPrefs.SetInt("MobileCancel", MobileCancel ? 1 : 0);
+
+            if(MobileCancel)
+                Window.Instance.Open("window_mobile_cancel");
+            else
+                Window.Instance.Close("window_mobile_cancel");
+
             PlayerPrefs.Save();
         }
 
@@ -558,7 +571,7 @@ namespace Sango.Core
             // 控制设置
             KeyboardMoveSpeed = PlayerPrefs.GetFloat("KeyboardMoveSpeed", 300f);
             MovementMode = PlayerPrefs.GetInt("MovementMode", 0);
-
+            MobileCancel = PlayerPrefs.GetInt("MobileCancel", 0) == 1;
             // 语言设置
             Language = PlayerPrefs.GetString("Language", "zh-CN");
 
@@ -600,6 +613,7 @@ namespace Sango.Core
             // 控制设置
             KeyboardMoveSpeed = 300f;
             MovementMode = 0;
+            MobileCancel = false;
 
             // 语言设置
             Language = "zh-CN";
@@ -836,7 +850,13 @@ namespace Sango.Core
 
             // 控制设置
             setting.AddBigTitle("控制设置");
-
+#if UNITY_ANDROID || UNITY_IPHONE
+            setting.AddToggleItem("取消按钮", MobileCancel, (value) =>
+            {
+                MobileCancel = value;
+                ApplyControlSettings();
+            });
+#endif
             setting.AddSliderItem("键盘移动速度", KeyboardMoveSpeed, 200f, 600f, (value) =>
             {
                 KeyboardMoveSpeed = value;
@@ -862,9 +882,9 @@ namespace Sango.Core
                 Sango.Render.MapRender.Instance.SetKeyBoardMoveSpeed(KeyboardMoveSpeed);
             }
         }
-        #endregion
+#endregion
 
-        #region 应用设置
+#region 应用设置
         /// <summary>
         /// 应用所有设置
         /// </summary>
@@ -879,9 +899,9 @@ namespace Sango.Core
                 Sango.Render.MapRender.Instance.SetKeyBoardMoveSpeed(KeyboardMoveSpeed);
             }
         }
-        #endregion
+#endregion
 
-        #region 音频操作
+#region 音频操作
         /// <summary>
         /// 设置背景音乐音量
         /// </summary>
@@ -921,9 +941,9 @@ namespace Sango.Core
             MasterVolume = Mathf.Clamp01(volume);
             ApplyAudioSettings();
         }
-        #endregion
+#endregion
 
-        #region 默认值和快照
+#region 默认值和快照
         /// <summary>
         /// 还原默认设置
         /// </summary>
@@ -950,6 +970,7 @@ namespace Sango.Core
 
             // 控制设置
             KeyboardMoveSpeed = 300f;
+            MobileCancel = false;
             MovementMode = 0;
 
             // 语言设置
@@ -987,6 +1008,7 @@ namespace Sango.Core
                 CurrentResolutionIndex = CurrentResolutionIndex,
                 BgmVolume = BgmVolume,
                 SfxVolume = SfxVolume,
+                MobileCancel = MobileCancel,
                 MasterVolume = MasterVolume,
                 VSync = VSync,
                 FrameRateLimit = FrameRateLimit,
@@ -1039,7 +1061,7 @@ namespace Sango.Core
             // 应用设置
             ApplyAllSettings();
         }
-        #endregion
+#endregion
 
         public void UpdateTargetGameObject(GameObject target)
         {
@@ -1151,7 +1173,8 @@ namespace Sango.Core
         /// 键盘移动速度
         /// </summary>
         public float KeyboardMoveSpeed { get; set; }
-
+        public bool MobileCancel { get; set; }
+        
         /// <summary>
         /// 移动方式（0=自动，1=手动）
         /// </summary>

@@ -49,7 +49,7 @@ namespace Sango.Core.Player
         public override void Update()
         {
             base.Update();
-            if (!TargetTroop.IsAlive)
+            if (!TargetTroop.IsAlive || TargetTroop.ActionOver)
             {
                 Done();
                 return;

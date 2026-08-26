@@ -24,6 +24,7 @@ namespace Sango.Render
             this.captiveId = captiveId;
             IsDone = false;
             success = false;
+            MarkDepends = true;
         }
         public override void Exit(Scenario scenario)
         {
@@ -137,7 +138,7 @@ namespace Sango.Render
                                         IsDone = true;
                                     });
                                 });
-                                RenderEvent.Instance.AddFront(delay);
+                                RenderEvent.Instance.Add(delay);
                             }
                         }
                         break;
@@ -178,7 +179,7 @@ namespace Sango.Render
                                     IsDone = true;
                                 });
                             });
-                            RenderEvent.Instance.AddFront(delay);
+                            RenderEvent.Instance.Add(delay);
                             // 送礼总是成功
                         }
                         break;

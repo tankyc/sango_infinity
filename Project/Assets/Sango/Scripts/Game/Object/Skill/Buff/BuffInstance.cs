@@ -73,7 +73,7 @@ namespace Sango.Core
             return false;
         }
 
-        public void Clear()
+        public override void Clear()
         {
             Manager.ReleaseAsset(Buff.asset);
             if (effects != null)

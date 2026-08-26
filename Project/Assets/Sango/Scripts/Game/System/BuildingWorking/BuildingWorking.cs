@@ -1133,12 +1133,9 @@ namespace Sango.Core
                             int targetBoatId = building.ProductItemId;
                             if (building.ProductItemId == 0)
                             {
+                                targetBoatId = 12;
                                 ItemType _itemType = scenario.GetObject<ItemType>(targetBoatId);
-                                if (_itemType.IsValid(city.mBelongForce))
-                                {
-                                    targetBoatId = 12;
-                                }
-                                else
+                                if (!_itemType.IsValid(city.mBelongForce))
                                 {
                                     targetBoatId = 11;
                                 }

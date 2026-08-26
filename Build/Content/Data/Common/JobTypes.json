@@ -7,7 +7,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 200,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -19,7 +19,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 200,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -31,7 +31,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 100,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -43,7 +43,7 @@
       "kind": 2,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -55,7 +55,7 @@
       "kind": 3,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 0,
       "linkBuildingKind": 0
@@ -67,7 +67,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 300,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 34
@@ -79,7 +79,7 @@
       "kind": 3,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 1,
       "linkBuildingKind": 0
@@ -91,7 +91,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 35
@@ -103,8 +103,8 @@
       "kind": 1,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
-      "tpGain": 20,
+      "meritGain": 100,
+      "tpGain": 50,
       "limit": 3,
       "linkBuildingKind": 0
     },
@@ -115,8 +115,8 @@
       "kind": 1,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
-      "tpGain": 20,
+      "meritGain": 100,
+      "tpGain": 50,
       "limit": 3,
       "linkBuildingKind": 37
     },
@@ -127,8 +127,8 @@
       "kind": 1,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
-      "tpGain": 20,
+      "meritGain": 100,
+      "tpGain": 50,
       "limit": 3,
       "linkBuildingKind": 38
     },
@@ -139,8 +139,8 @@
       "kind": 1,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
-      "tpGain": 20,
+      "meritGain": 100,
+      "tpGain": 50,
       "limit": 3,
       "linkBuildingKind": 36
     },
@@ -151,7 +151,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 1,
       "linkBuildingKind": 0
@@ -164,7 +164,7 @@
       "costAP": 20,
       "cost": 0,
       "meritGain": 20,
-      "tpGain": 20,
+      "tpGain": 10,
       "limit": 0,
       "linkBuildingKind": 0
     },
@@ -176,7 +176,7 @@
       "costAP": 20,
       "cost": 0,
       "meritGain": 20,
-      "tpGain": 20,
+      "tpGain": 10,
       "limit": 0,
       "linkBuildingKind": 0
     },
@@ -187,8 +187,8 @@
       "kind": 1,
       "costAP": 10,
       "cost": 0,
-      "meritGain": 20,
-      "tpGain": 20,
+      "meritGain": 80,
+      "tpGain": 30,
       "limit": 3,
       "linkBuildingKind": 0
     },
@@ -199,7 +199,7 @@
       "kind": 2,
       "costAP": 10,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -211,7 +211,7 @@
       "kind": 2,
       "costAP": 10,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -223,7 +223,7 @@
       "kind": 4,
       "costAP": 50,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 1000,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -235,7 +235,7 @@
       "kind": 3,
       "costAP": 5,
       "cost": 100,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 0,
       "linkBuildingKind": 0
@@ -247,7 +247,7 @@
       "kind": 3,
       "costAP": 5,
       "cost": 100,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 0,
       "linkBuildingKind": 0
@@ -259,7 +259,7 @@
       "kind": 5,
       "costAP": 30,
       "cost": 1000,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 1,
       "linkBuildingKind": 0
@@ -271,7 +271,7 @@
       "kind": 5,
       "costAP": 30,
       "cost": 0,
-      "meritGain": 20,
+      "meritGain": 40,
       "tpGain": 20,
       "limit": 1,
       "linkBuildingKind": 0

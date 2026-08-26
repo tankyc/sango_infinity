@@ -29,6 +29,15 @@ namespace Sango.Render
                     Person person = captiveList[i];
                     if (atk.Leader.JobRecruitPerson(person, atk.mBelongCity, 1))
                     {
+                        if (person.IsPlayer)
+                        {
+                            PersonJoinToOtherForceEvent personBeCaptiveEvent = new PersonJoinToOtherForceEvent()
+                            {
+                                person = person,
+                                troop = atk
+                            };
+                            RenderEvent.Instance.Add(personBeCaptiveEvent);
+                        }
 #if SANGO_DEBUG
                         Sango.Log.Info($"{person.Name} 加入了 {atk.mBelongForce} 势力!!!");
 #endif
@@ -36,6 +45,15 @@ namespace Sango.Render
                     else
                     {
                         atk.AddCaptive(person);
+                        if (person.IsPlayer)
+                        {
+                            PersonBeCaptiveEvent personBeCaptiveEvent = new PersonBeCaptiveEvent()
+                            {
+                                person = person,
+                                troop = atk
+                            };
+                            RenderEvent.Instance.Add(personBeCaptiveEvent);
+                        }
                     }
                 }
                 captiveList.Clear();

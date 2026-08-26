@@ -333,7 +333,7 @@ namespace Sango.Core
             if (troopType == null) return true;
 
             //运输比例
-            int part = scenario.Variables.TransportPercent;
+            int part = scenario.Variables.TransportPercent - Math.Max(2 - city.BorderLine, 0) * 20;
 
             Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);
             Person leader = persons[0];

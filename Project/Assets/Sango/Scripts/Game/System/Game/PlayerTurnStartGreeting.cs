@@ -33,7 +33,7 @@ namespace Sango.Core.Player
             {
                 Done();
             });
-            RenderEvent.Instance.AddFront(te);
+            RenderEvent.Instance.Add(te);
 
         }
 

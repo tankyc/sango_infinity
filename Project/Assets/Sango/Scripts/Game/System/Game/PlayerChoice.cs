@@ -43,11 +43,14 @@
         public void OnPlayerChoose(int index)
         {
             if (choiceDatas == null || index < 0 || index >= choiceDatas.Length)
+            {
+                Back();
                 return;
+            }
+            Back();
             ChoiceData data = choiceDatas[index];
             data.call?.Invoke();
             choiceDatas = null;
-            Back();
         }
 
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)

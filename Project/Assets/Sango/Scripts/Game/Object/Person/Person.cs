@@ -742,7 +742,7 @@ namespace Sango.Core
             mPersonality = scenario.Id2Object(scenario.CommonData.Personalities, personality);
 
             if (argumentation <= 0)
-                personality = 2;
+                argumentation = 2;
             mArgumentation = scenario.Id2Object(scenario.CommonData.Argumentations, argumentation);
 
             //if (attributeChangeType <= 0)
@@ -1069,7 +1069,7 @@ namespace Sango.Core
                             ClearMission();
                             CityRecruitPersonEvent te = RenderEvent.Instance.Create<CityRecruitPersonEvent>();
                             te.Init(this, dest_person);
-                            RenderEvent.Instance.AddFront(te);
+                            RenderEvent.Instance.Add(te);
                             SetMission(MissionType.PersonReturn, mBelongCity);
                         }
                     }
@@ -1767,6 +1767,11 @@ namespace Sango.Core
                 else
                     break;
             }
+        }
+
+        public void GainMerit(int m)
+        {
+            merit += m;
         }
 
         public bool HasFeatrue(int id)

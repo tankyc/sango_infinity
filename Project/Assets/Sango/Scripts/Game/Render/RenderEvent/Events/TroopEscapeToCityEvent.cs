@@ -14,7 +14,7 @@ namespace Sango.Render
             this.troop = troop;
             this.dest = dest;
             this.doneAction = doneAction;
-            IsDone = false;
+            MarkDepends = true;
         }
 
         public override void Enter(Scenario scenario)
@@ -35,26 +35,24 @@ namespace Sango.Render
 
         public override bool Update(Scenario scenario, float deltaTime)
         {
-            if (!troop.IsAlive)
+            if (!troop.IsAlive || troop.ActionOver)
             {
-                MarkDepends = false;
+                IsDone = true;
                 return true;
             }
 
-            MarkDepends = true;
             if (troop.TryMoveToCity(dest))
             {
-                MarkDepends = false;
                 troop.ActionOver = true;
                 // 移动完成，进入城市
                 if (troop.cell.building == dest)
                 {
                     troop.EnterCity(dest);
                 }
+                IsDone = true;
                 return true;
             }
-            MarkDepends = false;
-            return false;
+            return IsDone;
         }
     }
 }

@@ -618,6 +618,14 @@ namespace Sango.Core
                 if (GameRandom.Chance(GameFormula.Instance.PersonEscapeProbablility_InTroop(person, this, scenario), 10000))
                 {
                     person.Escape(EscapeType.Escape);
+                    if (IsPlayer)
+                    {
+                        PersonEscapeEvent personEscapeEvent = new PersonEscapeEvent()
+                        {
+                            person = person
+                        };
+                        RenderEvent.Instance.Add(personEscapeEvent);
+                    }
 #if SANGO_DEBUG
                     Sango.Log.Info($"{person.Name}逃跑!");
 #endif
@@ -1354,9 +1362,9 @@ namespace Sango.Core
             if (Render != null)
             {
                 bool isCrit = false;
-                if(atk.ObjectType == SangoObjectType.SkillInstance)
+                if (atk.ObjectType == SangoObjectType.SkillInstance)
                 {
-                    SkillInstance skill = (SkillInstance)atk; 
+                    SkillInstance skill = (SkillInstance)atk;
                     if (skill != null)
                     {
                         isCrit = skill.IsCritical();
@@ -1390,7 +1398,7 @@ namespace Sango.Core
                 if (troops > MaxTroops)
                     troops = MaxTroops;
             }
-           
+
             if (!IsAlive)
             {
 #if SANGO_DEBUG
@@ -1682,7 +1690,7 @@ namespace Sango.Core
                     for (int i = 0; i < MoveRange.Count; i++)
                     {
                         Cell cell = MoveRange[i];
-                        if (cell.IsEmpty())
+                        if (cell.IsEmpty() && cell.CanStay(this))
                         {
                             nearnestCellInMoveRange.Push(cell, map.Distance(cell, tryToDest));
                         }
@@ -1889,7 +1897,7 @@ namespace Sango.Core
             if (LandTroopType.isFight && LandTroopType.Id != 1)
                 mBelongCity.allAttackTroops.Remove(this);
 
-            
+
             ForEachPerson((person) =>
             {
                 person.mTroop = null;
@@ -2167,6 +2175,24 @@ namespace Sango.Core
             person.mBelongForce?.BeCaptiveList.Remove(person);
             person.mTroop = null;
             return person;
+        }
+
+        public void GainEP(int gp)
+        {
+            mBelongForce.GainTechniquePoint(gp / 5);
+
+            // 主将获得100%功绩,
+            if(Leader != null)
+            {
+                Leader?.GainMerit(gp);
+                Leader?.GainExp(gp / 5);
+            }
+            int memberGp = gp * 6 / 10;
+            ForEachMember(x =>
+            {
+                x.GainMerit(memberGp);
+                x.GainExp(memberGp / 5);
+            });
         }
     }
 }

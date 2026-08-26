@@ -7,6 +7,7 @@ namespace Sango.Render
     public class RenderEvent : Singleton<RenderEvent>
     {
         List<IRenderEventBase> eventQueue = new List<IRenderEventBase>();
+        List<IRenderEventBase> dependsEventQueue = new List<IRenderEventBase>();
         IRenderEventBase CurEvent { get; set; }
         int EventCount => eventQueue.Count;
         Dictionary<string, Stack<IRenderEventBase>> eventPool = new Dictionary<string, Stack<IRenderEventBase>>();
@@ -34,25 +35,32 @@ namespace Sango.Render
 
         public void Add(IRenderEventBase renderEvent)
         {
-            if (CurEvent != null && CurEvent.MarkDepends)
-            {
-                eventQueue.Add(renderEvent);
-                eventQueue.Remove(CurEvent);
-                eventQueue.Add(CurEvent);
-            }
+            if (renderEvent.MarkDepends)
+                dependsEventQueue.Add(renderEvent);
             else
-            {
                 eventQueue.Add(renderEvent);
-            }
-        }
-
-        public void AddFront(IRenderEventBase renderEvent)
-        {
-            eventQueue.Insert(0, renderEvent);
         }
 
         public bool Update(Scenario scenario, float deltaTime)
         {
+            int count = dependsEventQueue.Count;
+            int evCount = eventQueue.Count;
+            if (count > 0)
+            {
+                for (int i = 0; i < count; ++i)
+                {
+                    IRenderEventBase renderEventBase = dependsEventQueue[i];
+                    if (renderEventBase.Update(scenario, deltaTime))
+                    {
+                        renderEventBase.IsDone = true;
+                    }
+                }
+                dependsEventQueue.RemoveAll(x => x.IsDone);
+            }
+
+            if (evCount == 0 && count > 0)
+                return false;
+
             while (eventQueue.Count > 0)
             {
                 CurEvent = eventQueue[0];
@@ -71,6 +79,7 @@ namespace Sango.Render
                 //ReturnToPool(CurEvent);
                 CurEvent = null;
             }
+
             return true;
         }
 

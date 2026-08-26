@@ -1275,6 +1275,14 @@ namespace Sango.Core
                 if (GameRandom.Chance(GameFormula.Instance.PersonEscapeProbablility_InCity(person, this, scenario), 10000))
                 {
                     person.Escape(EscapeType.Escape);
+                    if(IsPlayer)
+                    {
+                        PersonEscapeEvent personEscapeEvent = new PersonEscapeEvent()
+                        {
+                            person = person
+                        };
+                        RenderEvent.Instance.Add(personEscapeEvent);
+                    }
 #if SANGO_DEBUG
                     Sango.Log.Info($"{person.Name}逃跑!");
 #endif
@@ -2913,7 +2921,7 @@ namespace Sango.Core
             {
                 CityRecruitPersonEvent te = RenderEvent.Instance.Create<CityRecruitPersonEvent>();
                 te.Init(person, dest);
-                RenderEvent.Instance.AddFront(te);
+                RenderEvent.Instance.Add(te);
                 mBelongCorps.ReduceActionPoint(apCost);
                 return true;
             }

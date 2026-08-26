@@ -12,18 +12,15 @@ namespace Sango.Render
 
         public override void Enter(Scenario scenario)
         {
-            for(int i = 0; i < choiceDatas.Length; i++)
+            for (int i = 0; i < choiceDatas.Length; i++)
             {
                 PlayerChoice.ChoiceData choiceData = choiceDatas[i];
                 Action call = choiceData.call;
-                if(call != null)
+                choiceData.call = () =>
                 {
-                    choiceData.call = () =>
-                    {
-                        call();
-                        IsDone = true;
-                    };
-                }
+                    IsDone = true;
+                    call?.Invoke();
+                };
                 choiceDatas[i] = choiceData;
             }
             GameSystem.GetSystem<PlayerChoice>().Start(choiceDatas);
@@ -31,7 +28,7 @@ namespace Sango.Render
 
         public override void Exit(Scenario scenario)
         {
-            
+
         }
 
         public override bool IsVisible()
