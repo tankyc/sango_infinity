@@ -553,6 +553,7 @@ namespace Sango.Core
             ActionOver = false;
             AIFinished = false;
             AIPrepared = false;
+            isMoving = false;
             isMissionPrepared = false;
             skillRenderEvent = null;
             actionRenderEvent = null;
@@ -1241,7 +1242,8 @@ namespace Sango.Core
                 isMoving = false;
                 return true;
             }
-
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append($"{isMoving},");
             if (!isMoving)
             {
                 tempCellList.Clear();
@@ -1271,6 +1273,20 @@ namespace Sango.Core
                     return true;
                 }
             }
+
+
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append($"11{moveRenderEvent},");
+
+            if (moveRenderEvent == null)
+            {
+                isMoving = false;
+                return true;
+            }
+
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append("11,");
+
             return false;
         }
 
@@ -2014,7 +2030,7 @@ namespace Sango.Core
         {
             get
             {
-                if (missionType == 0 && mBelongCity != null)
+                if (missionType == 0 && mBelongCity != null && !IsPlayerControl)
                 {
                     SetMission(MissionType.TroopReturnCity, mBelongCity.Id);
                     NeedPrepareMission();
@@ -2071,7 +2087,8 @@ namespace Sango.Core
             if (GameAIDebug.Instance.WaitForShowAIPrepare())
                 return false;
 #endif
-
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append("1,");
             if (!TroopMissionBehaviour.DoAI(this, scenario))
                 return false;
 
@@ -2182,7 +2199,7 @@ namespace Sango.Core
             mBelongForce.GainTechniquePoint(gp / 5);
 
             // 主将获得100%功绩,
-            if(Leader != null)
+            if (Leader != null)
             {
                 Leader?.GainMerit(gp);
                 Leader?.GainExp(gp / 5);

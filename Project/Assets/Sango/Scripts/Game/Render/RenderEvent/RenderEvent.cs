@@ -101,7 +101,8 @@ namespace Sango.Render
         {
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.AppendLine($"GameController.Enabled ={GameController.Instance.Enabled}");
-            stringBuilder.AppendLine($"CurrentCommand  ={GameSystemManager.Instance.CurrentCommand?.GetType()}");
+            stringBuilder.AppendLine(GameSystemManager.Instance.Dump());
+            //stringBuilder.AppendLine($"CurrentCommand  ={GameSystemManager.Instance.CurrentCommand?.GetType()}");
             if (CurEvent != null)
             {
                 stringBuilder.AppendLine($"Cur:{CurEvent.GetType()}->{CurEvent.IsDone}");

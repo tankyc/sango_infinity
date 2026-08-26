@@ -49,7 +49,7 @@
                 Done();
                 return;
             }
-
+            
             if (!TargetTroop.DoAI(Scenario.Cur))
                 return;
 

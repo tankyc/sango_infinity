@@ -70,7 +70,7 @@ namespace Sango.Core
             if (IsMissionComplete)
             {
                 Troop.NeedPrepareMission();
-                return false;
+                return true;
             }
 
             if (priorityActionData != null)
