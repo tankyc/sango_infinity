@@ -118,7 +118,7 @@ namespace Sango.Core.Player
                 case CommandEventType.RClick:
                     {
                         ContextMenu.CloseAll();
-                        GameSystemManager.Instance.Back();
+                        Back();
                         break;
                     }
 

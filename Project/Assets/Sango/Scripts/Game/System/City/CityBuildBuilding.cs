@@ -295,7 +295,7 @@ namespace Sango.Core.Player
                         else
                         {
                             if (SelectBuildingObject == null)
-                                GameSystemManager.Instance.Back();
+                                Back();
                         }
                         break;
                     }

@@ -250,7 +250,7 @@ namespace Sango.Core
                 case CommandEventType.RClick:
                     {
                         if (SelectBuildingObject == null)
-                            GameSystemManager.Instance.Back();
+                            Back();
                         break;
                     }
             }

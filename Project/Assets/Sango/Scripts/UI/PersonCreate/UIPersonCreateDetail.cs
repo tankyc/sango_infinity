@@ -1618,21 +1618,21 @@ namespace Sango.UI
         {
             ApplySnapshotToTarget();
             Log.Info("新建武将已保存：" + snapshot.familyName + snapshot.giveName);
-            //GameSystemManager.Instance.Back();
+            //Back();
             Close();
             Window.Instance.Open("window_create_person_menu");
         }
 
         private void OnBackClick()
         {
-            // GameSystemManager.Instance.Back();
+            // Back();
             Close();
             Window.Instance.Open("window_create_person_menu");
         }
 
         private void OnCancelClick()
         {
-            // GameSystemManager.Instance.Back();
+            // Back();
             OnBackClick();
         }
         #endregion

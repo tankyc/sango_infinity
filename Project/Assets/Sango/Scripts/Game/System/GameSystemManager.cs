@@ -81,7 +81,7 @@ namespace Sango.Core
                 GameSystem value = propertyInfo.GetValue(null) as GameSystem; // 对于静态属性，此处为null
                 if (value != null)
                 {
-                    if(moduleData.attribute.autoInit)
+                    if (moduleData.attribute.autoInit)
                         value.Init();
                     systemMap.Add(moduleData.attribute.nickName, value);
                 }
@@ -143,7 +143,7 @@ namespace Sango.Core
                 value.OnMessage(message, objects);
         }
 
-        Stack<ICommandEvent> commads = new Stack<ICommandEvent>();
+        List<ICommandEvent> commads = new List<ICommandEvent>();
         public ICommandEvent CurrentCommand { get; private set; }
         public void Push(ICommandEvent command)
         {
@@ -157,7 +157,7 @@ namespace Sango.Core
                 GameEvent.OnSystemStart?.Invoke();
             }
 
-            commads.Push(command);
+            commads.Insert(0, command);
             CurrentCommand?.OnExit();
             CurrentCommand = command;
             command.OnEnter();
@@ -165,9 +165,9 @@ namespace Sango.Core
 
         public bool BackTo(ICommandEvent commandEvent)
         {
-            if(commads.Contains(commandEvent))
+            if (commads.Contains(commandEvent))
             {
-                while(CurrentCommand != null && CurrentCommand != commandEvent)
+                while (CurrentCommand != null && CurrentCommand != commandEvent)
                 {
                     Back();
                 }
@@ -176,37 +176,80 @@ namespace Sango.Core
             return false;
         }
 
-        public void Back()
+        public void Back(ICommandEvent who = null)
         {
-            ICommandEvent command = commads.Pop();
-            command.OnDestroy();
-            if (commads.Count > 0)
+            if (who == null || who == CurrentCommand)
             {
-                CurrentCommand = commads.Peek();
-                CurrentCommand.OnBack(command);
+                if (commads.Count == 0) return;
+
+                ICommandEvent command = commads[0];
+                commads.RemoveAt(0);
+                command.OnDestroy();
+                if (commads.Count > 0)
+                {
+                    CurrentCommand = commads[0];
+                    CurrentCommand.OnBack(command);
+                }
+                else
+                {
+                    CurrentCommand = null;
+                    GameController.Instance.KeyboardMoveEnabled = true;
+                    GameController.Instance.RotateViewEnabled = true;
+                    GameController.Instance.DragMoveViewEnabled = true;
+                    GameController.Instance.ZoomViewEnabled = true;
+                    GameController.Instance.BorderMoveViewEnabled = true;
+                    GameEvent.OnSystemEnd?.Invoke();
+                }
             }
             else
             {
+                for (int i = 0; i < commads.Count; i++)
+                {
+                    ICommandEvent command = commads[i];
+                    if (command == who)
+                    {
+                        commads.RemoveAt(i);
+                        command.OnDestroy();
+                        break;
+                    }
+                }
+            }
+        }
+        public void Done(ICommandEvent who = null)
+        {
+            if (who == null || who == CurrentCommand)
+            {
                 CurrentCommand = null;
+                while (commads.Count > 0)
+                {
+                    commads[0].OnDone();
+                    commads.RemoveAt(0);
+                }
                 GameController.Instance.KeyboardMoveEnabled = true;
                 GameController.Instance.RotateViewEnabled = true;
                 GameController.Instance.DragMoveViewEnabled = true;
                 GameController.Instance.ZoomViewEnabled = true;
                 GameController.Instance.BorderMoveViewEnabled = true;
-                GameEvent.OnSystemEnd?.Invoke();
-
             }
-        }
-        public void Done()
-        {
-            CurrentCommand = null;
-            while (commads.Count > 0)
-                commads.Pop().OnDone();
-            GameController.Instance.KeyboardMoveEnabled = true;
-            GameController.Instance.RotateViewEnabled = true;
-            GameController.Instance.DragMoveViewEnabled = true;
-            GameController.Instance.ZoomViewEnabled = true;
-            GameController.Instance.BorderMoveViewEnabled = true;
+            else
+            {
+                for (int i = 0; i < commads.Count; i++)
+                {
+                    ICommandEvent command = commads[i];
+                    if (command == who)
+                    {
+                        command.OnDone();
+                        int count = commads.Count;
+                        for (int j = i + 1; j < count; j++)
+                        {
+                            command = commads[j];
+                            command.OnDone();
+                        }
+                        commads.RemoveRange(i, count - i);
+                        break;
+                    }
+                }
+            }
         }
         public void Update()
         {
@@ -217,7 +260,7 @@ namespace Sango.Core
 
         public void HandleEvent(CommandEventType eventType, Cell clickCell, Vector3 clickPosition, bool isOverUI)
         {
-            if(eventType == CommandEventType.RClickDown)
+            if (eventType == CommandEventType.RClickDown)
                 RClickCell = clickCell;
 
             if (CurrentCommand != null)
@@ -246,7 +289,7 @@ namespace Sango.Core
                 //    break;
                 case CommandEventType.RClickDown:
                     {
-                       
+
                     }
                     break;
                 case CommandEventType.Cancel:

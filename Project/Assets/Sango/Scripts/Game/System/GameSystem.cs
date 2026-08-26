@@ -12,7 +12,7 @@ namespace Sango.Core
     /// </summary>
     public class GameSystem : ICommandEvent
     {
-        public string Name {  get; protected set; }
+        public string Name { get; protected set; }
 
         public static T GetSystem<T>(string name) where T : GameSystem
         {
@@ -31,8 +31,7 @@ namespace Sango.Core
 
         public virtual void Back()
         {
-            if (GameSystemManager.Instance.CurrentCommand == this)
-                GameSystemManager.Instance.Back();
+            GameSystemManager.Instance.Back(this);
         }
 
         /// <summary>
@@ -64,18 +63,12 @@ namespace Sango.Core
 
         public virtual void Exit()
         {
-            if (GameSystemManager.Instance.CurrentCommand == this)
-            {
-                GameSystemManager.Instance.Back();
-            }
+            GameSystemManager.Instance.Back(this);
         }
 
         public virtual void Done()
         {
-            if (GameSystemManager.Instance.CurrentCommand == this)
-            {
-                GameSystemManager.Instance.Done();
-            }
+            GameSystemManager.Instance.Done(this);
         }
 
         /// <summary>
@@ -113,7 +106,7 @@ namespace Sango.Core
             switch (eventType)
             {
                 case CommandEventType.Cancel:
-                    GameSystemManager.Instance.Back(); break;
+                    Back(); break;
             }
 
         }

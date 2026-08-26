@@ -34,7 +34,7 @@ namespace Sango.Core.Player
             switch (eventType)
             {
                 case CommandEventType.RClick:
-                    GameSystemManager.Instance.Back(); break;
+                    Back(); break;
             }
 
             base.HandleEvent(eventType, cell, clickPosition, isOverUI);

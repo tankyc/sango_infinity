@@ -893,7 +893,7 @@ namespace Sango.UI
             // 将快照所有修改同步回原始Person对象
             snapshot.ApplyTo(Target);
             Log.Info("保存武将编辑: " + Target.Name);
-            GameSystemManager.Instance.Back();
+            GameSystem.GetSystem<PersonEdit>()?.Back();
         }
 
         /// <summary>
@@ -902,7 +902,7 @@ namespace Sango.UI
         public void OnCancelClick()
         {
             Log.Info("取消武将编辑: " + (Target != null ? Target.Name : "null"));
-            GameSystemManager.Instance.Back();
+            GameSystem.GetSystem<PersonEdit>()?.Back();
         }
         #endregion
     }

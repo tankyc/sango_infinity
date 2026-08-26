@@ -89,7 +89,7 @@ using Sango.Core; namespace Sango.UI
         /// </summary>
         public void OnCancel()
         {
-            GameSystemManager.Instance.Back();
+            troopCommandBuildSys.Back();
         }
 
         public void OnSelectBuildingType(UIBuildingTypeItem buildingTypeItem)

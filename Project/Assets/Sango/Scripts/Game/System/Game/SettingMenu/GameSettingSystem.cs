@@ -43,7 +43,7 @@ namespace Sango.Core.Player
                 case CommandEventType.RClickDown:
                     {
                         if (ContextMenu.Close())
-                            GameSystemManager.Instance.Back();
+                            Back();
 
                         break;
                     }

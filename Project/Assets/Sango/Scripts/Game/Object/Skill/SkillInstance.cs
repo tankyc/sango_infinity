@@ -857,13 +857,9 @@ namespace Sango.Core
                                         {
                                             int blockDmg = targetDamage * this.blockFactor / 100;
                                             blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
-                                            int ep = blockDmg / 100;
-                                            if (!blockTroop.IsAlive) ep += 50;
-                                            troop.ForEachPerson(p =>
-                                            {
-                                                p.GainExp(ep);
-                                                p.merit += ep;
-                                            });
+                                            int ep = blockDmg / 10;
+                                            if (!blockTroop.IsAlive) ep += 200;
+                                            troop.GainEP(ep);
                                         }
                                         break;
                                     }
@@ -888,13 +884,10 @@ namespace Sango.Core
                                         {
                                             int blockDmg = targetDamage * this.blockFactor / 100;
                                             blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
-                                            int ep = blockDmg / 100;
-                                            if (!blockTroop.IsAlive) ep += 50;
-                                            troop.ForEachPerson(p =>
-                                            {
-                                                p.GainExp(ep);
-                                                p.merit += ep;
-                                            });
+                                            int ep = blockDmg / 10;
+                                            if (!blockTroop.IsAlive) ep += 200;
+                                            troop.GainEP(ep);
+
                                         }
                                         break;
                                     }

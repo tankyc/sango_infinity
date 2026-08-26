@@ -373,7 +373,7 @@ namespace Sango.UI
         {
             Close();
             cancelAction?.Invoke();
-            //GameSystemManager.Instance.Back();
+            //Back();
         }
 
         /// <summary>“决定”：将当前补给数据交由外部回调处理并关闭窗口</summary>
