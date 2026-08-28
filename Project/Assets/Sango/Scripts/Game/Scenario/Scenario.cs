@@ -936,7 +936,7 @@ namespace Sango.Core
                     person.state = x.state;
                     if (x.state == 0)
                     {
-                        x.state = (int)PersonStateType.Invisible;
+                        person.state = (int)PersonStateType.Invisible;
                         person.BelongCity = scenario.citySet.RandomGet().Id;
                         person.CurrentCity = person.BelongCity;
                     }

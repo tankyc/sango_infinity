@@ -87,26 +87,25 @@ Shader "URP/Effect/UV_RJ_alpha" {
             //uniform sampler2D _rongjietu; uniform float4 _rongjietu_ST;
             //uniform sampler2D _mask; uniform float4 _mask_ST;
             //uniform sampler2D _noise_01; uniform float4 _noise_01_ST;
-            //UNITY_INSTANCING_BUFFER_START( Props )
-            //    UNITY_DEFINE_INSTANCED_PROP( float4, _Tex_color)
-            //    UNITY_DEFINE_INSTANCED_PROP( float, _diffuseUspeed)
-            //    UNITY_DEFINE_INSTANCED_PROP( float, _diffuseVspeed)
-            //    UNITY_DEFINE_INSTANCED_PROP( half, _yici_UV_ONOFF)
-            //    UNITY_DEFINE_INSTANCED_PROP( half, _Tex_RA)
-            //    UNITY_DEFINE_INSTANCED_PROP( half, _rongjieON)
-            //    UNITY_DEFINE_INSTANCED_PROP( float4, _noise_speed)
-            //    UNITY_DEFINE_INSTANCED_PROP( float, _raodongqiangdu)
-            //    UNITY_DEFINE_INSTANCED_PROP( half, _raodong_ONOFF)
-            //UNITY_INSTANCING_BUFFER_END( Props )
+           /* UNITY_INSTANCING_BUFFER_START( Props )
+                UNITY_DEFINE_INSTANCED_PROP( float4, _Tex_color)
+                UNITY_DEFINE_INSTANCED_PROP( float, _diffuseUspeed)
+                UNITY_DEFINE_INSTANCED_PROP( float, _diffuseVspeed)
+                UNITY_DEFINE_INSTANCED_PROP( half, _yici_UV_ONOFF)
+                UNITY_DEFINE_INSTANCED_PROP( half, _Tex_RA)
+                UNITY_DEFINE_INSTANCED_PROP( half, _rongjieON)
+                UNITY_DEFINE_INSTANCED_PROP( float4, _noise_speed)
+                UNITY_DEFINE_INSTANCED_PROP( float, _raodongqiangdu)
+                UNITY_DEFINE_INSTANCED_PROP( half, _raodong_ONOFF)
+            UNITY_INSTANCING_BUFFER_END( Props )*/
             struct VertexInput {
-                float4 vertex : POSITION;
+                 float4 vertex : POSITION;
                 float2 texcoord0 : TEXCOORD0;
                 float4 texcoord1 : TEXCOORD1;
                 float4 vertexColor : COLOR;
             };
             struct VertexOutput {
                 float4 pos : SV_POSITION;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
                 float2 uv0 : TEXCOORD0;
                 float4 uv1 : TEXCOORD1;
                 float4 vertexColor : COLOR;
@@ -115,8 +114,6 @@ Shader "URP/Effect/UV_RJ_alpha" {
             };
             VertexOutput vert (VertexInput v) {
                 VertexOutput o = (VertexOutput)0;
-                UNITY_SETUP_INSTANCE_ID( v );
-                UNITY_TRANSFER_INSTANCE_ID( v, o );
                 o.uv0 = v.texcoord0;
                 o.uv1 = v.texcoord1;
                 o.vertexColor = v.vertexColor;
@@ -126,27 +123,26 @@ Shader "URP/Effect/UV_RJ_alpha" {
                 return o;
             }
             float4 frag(VertexOutput i, float facing : VFACE) : COLOR {
-                UNITY_SETUP_INSTANCE_ID( i );
                 float isFrontFace = ( facing >= 0 ? 1 : 0 );
                 float faceSign = ( facing >= 0 ? 1 : -1 );
 ////// Lighting:
                 float4 node_8425 = _Time;
-                float _diffuseUspeed_var = UNITY_ACCESS_INSTANCED_PROP( Props, _diffuseUspeed );
-                float _diffuseVspeed_var = UNITY_ACCESS_INSTANCED_PROP( Props, _diffuseVspeed );
+                float _diffuseUspeed_var = _diffuseUspeed;
+                float _diffuseVspeed_var = _diffuseVspeed;
                 float4 node_8658 = _Time;
-                float4 _noise_speed_var = UNITY_ACCESS_INSTANCED_PROP( Props, _noise_speed );
+                float4 _noise_speed_var = _noise_speed;
                 float2 node_9904 = ((node_8658.g*float2(_noise_speed_var.r,_noise_speed_var.g))+i.uv0);
                 float4 _noise_01_var = tex2D(_noise_01,TRANSFORM_TEX(node_9904, _noise_01));
-                float _raodongqiangdu_var = UNITY_ACCESS_INSTANCED_PROP( Props, _raodongqiangdu );
-                float _raodong_ONOFF_var = lerp( 0.0, (_noise_01_var.r*_raodongqiangdu_var), UNITY_ACCESS_INSTANCED_PROP( Props, _raodong_ONOFF ) );
-                float2 _yici_UV_ONOFF_var = lerp( ((node_8425.g*float2(_diffuseUspeed_var,_diffuseVspeed_var))+_raodong_ONOFF_var+i.uv0), (i.uv0+float2(i.uv1.r,i.uv1.g)+_raodong_ONOFF_var), UNITY_ACCESS_INSTANCED_PROP( Props, _yici_UV_ONOFF ) );
+                float _raodongqiangdu_var = _raodongqiangdu;
+                float _raodong_ONOFF_var = lerp( 0.0, (_noise_01_var.r*_raodongqiangdu_var), _raodong_ONOFF  );
+                float2 _yici_UV_ONOFF_var = lerp( ((node_8425.g*float2(_diffuseUspeed_var,_diffuseVspeed_var))+_raodong_ONOFF_var+i.uv0), (i.uv0+float2(i.uv1.r,i.uv1.g)+_raodong_ONOFF_var), _yici_UV_ONOFF );
                 float4 _Tex_var = tex2D(_Tex,TRANSFORM_TEX(_yici_UV_ONOFF_var, _Tex));
-                float4 _Tex_color_var = UNITY_ACCESS_INSTANCED_PROP( Props, _Tex_color );
+                float4 _Tex_color_var = _Tex_color;
                 float3 finalColor = (_Tex_var.rgb*_Tex_color_var.rgb*i.vertexColor.rgb);
-                float _Tex_RA_var = lerp( _Tex_var.r, _Tex_var.a, UNITY_ACCESS_INSTANCED_PROP( Props, _Tex_RA ) );
+                float _Tex_RA_var = lerp( _Tex_var.r, _Tex_var.a,  _Tex_RA );
                 float4 _mask_var = tex2D(_mask,TRANSFORM_TEX(i.uv0, _mask));
                 float4 _rongjietu_var = tex2D(_rongjietu,TRANSFORM_TEX(i.uv0, _rongjietu));
-                float _rongjieON_var = lerp( 1.0, step(i.uv1.b,_rongjietu_var.r), UNITY_ACCESS_INSTANCED_PROP( Props, _rongjieON ) );
+                float _rongjieON_var = lerp( 1.0, step(i.uv1.b,_rongjietu_var.r),  _rongjieON );
                 half4 finalRGBA = half4(finalColor,(_Tex_RA_var*_Tex_color_var.a*i.vertexColor.a*_mask_var.r*_rongjieON_var));
                 //UNITY_APPLY_FOG(i.fogCoord, finalRGBA);
                 if (_useFog > 0)

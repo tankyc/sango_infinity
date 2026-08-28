@@ -29,7 +29,7 @@ namespace Sango.UI
 #if UNITY_ANDROID || UNITY_IPHONE
             for (int i = 0; i < menuRoot.Length; i++)
             {
-                menuRoot[i].localScale = Vector3.one * 1.2f;
+                menuRoot[i].localScale = Vector3.one * 1.4f;
             }
 
             //            for(int i = 0; i < returnButtons.Length; ++i)

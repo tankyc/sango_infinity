@@ -558,6 +558,7 @@ namespace Sango.Core
             skillRenderEvent = null;
             actionRenderEvent = null;
             moveRenderEvent = null;
+            troopMissionBehaviour = null;
             if (food <= 0)
             {
                 // 伤兵直接抛弃
@@ -842,6 +843,10 @@ namespace Sango.Core
         }
 
         public bool IsSameForce(BuildingBase other)
+        {
+            return IsSameForce(mBelongForce, other.mBelongForce);
+        }
+        public bool IsSameForce(Person other)
         {
             return IsSameForce(mBelongForce, other.mBelongForce);
         }
@@ -2012,6 +2017,7 @@ namespace Sango.Core
 #endif
             this.missionType = (int)missionType;
             this.missionTarget = missionTarget;
+            NeedPrepareMission();
         }
 
 
@@ -2089,11 +2095,15 @@ namespace Sango.Core
 #endif
             if (GameSystemManager.debug)
                 GameSystemManager.debug_StringBuilder.Append("1,");
-            if (!TroopMissionBehaviour.DoAI(this, scenario))
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append($"12:{temp.GetType()},");
+            if (!temp.DoAI(this, scenario))
                 return false;
-
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append("13,");
             GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
             AIFinished = true;
+            troopMissionBehaviour = null;
             ActionOver = true;
             return true;
         }

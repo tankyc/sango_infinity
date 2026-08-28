@@ -123,10 +123,11 @@ namespace Sango.Core
                 else
                 {
                     // 只有军事建筑和爆炸物需要判断距离限制
+                    // 可以紧挨内政建筑
                     int buildSpace = Scenario.Cur.Variables.BuildingSpace;
                     if (cell.SpiralHasBuilding(buildSpace, (b) =>
                     {
-                        return !b.BuildingType.IsObstacle;
+                        return !b.BuildingType.IsObstacle && !b.BuildingType.IsIntrior;
                     }))
                     {
                         return false;

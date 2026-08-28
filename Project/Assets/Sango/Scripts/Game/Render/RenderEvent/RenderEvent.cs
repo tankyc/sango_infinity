@@ -36,7 +36,9 @@ namespace Sango.Render
         public void Add(IRenderEventBase renderEvent)
         {
             if (renderEvent.MarkDepends)
+            {
                 dependsEventQueue.Add(renderEvent);
+            }
             else
                 eventQueue.Add(renderEvent);
         }
@@ -50,9 +52,17 @@ namespace Sango.Render
                 for (int i = 0; i < count; ++i)
                 {
                     IRenderEventBase renderEventBase = dependsEventQueue[i];
+
+                    if (!renderEventBase.IsInited)
+                    {
+                        renderEventBase.IsInited = true;
+                        renderEventBase.Enter(scenario);
+                    }
+
                     if (renderEventBase.Update(scenario, deltaTime))
                     {
                         renderEventBase.IsDone = true;
+                        renderEventBase.Exit(scenario);
                     }
                 }
                 dependsEventQueue.RemoveAll(x => x.IsDone);
@@ -117,6 +127,13 @@ namespace Sango.Render
             {
                 stringBuilder.Append("无!!");
             }
+            stringBuilder.AppendLine("dependsEvent:");
+            for (int i = 0; i < dependsEventQueue.Count; ++i)
+            {
+                IRenderEventBase renderEventBase = dependsEventQueue[i];
+                stringBuilder.Append($", ({i}):{renderEventBase.GetType()} ->{renderEventBase.IsDone}");
+            }
+
             stringBuilder.AppendLine($"GameController.KeyboardMoveEnabled ={GameController.Instance.KeyboardMoveEnabled}");
             stringBuilder.AppendLine($"GameController.RotateViewEnabled ={GameController.Instance.RotateViewEnabled}");
             stringBuilder.AppendLine($"GameController.BorderMoveViewEnabled ={GameController.Instance.BorderMoveViewEnabled}");
