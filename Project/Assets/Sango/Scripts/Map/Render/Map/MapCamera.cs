@@ -411,7 +411,7 @@ namespace Sango.Render
                 MoveCameraKeyBoard();
                 ZoomCamera();
                 RotateCamera();
-                //MouseDragWorld();
+                MouseDragWorld();
 #else
             MoveCameraKeyBoard();
             ZoomCameraMobile();
@@ -444,10 +444,10 @@ namespace Sango.Render
         {
 
 
-            if (!Input.GetKey(KeyCode.LeftControl) && /*Input.GetKey(KeyCode.Space) &&*/ Input.GetMouseButton(0) && !isPressedUI && !isMouseRotate)
+            if (!Input.GetKey(KeyCode.LeftControl) && /*Input.GetKey(KeyCode.Space) &&*/ Input.GetMouseButton(2) && !isPressedUI && !isMouseRotate)
             {
 
-                if (Input.GetMouseButtonDown(0))
+                if (Input.GetMouseButtonDown(2))
                 {
                     isMouseMoving = false;
 
@@ -484,7 +484,7 @@ namespace Sango.Render
                     }
                 }
             }
-            else if (Input.GetMouseButtonUp(0))
+            else if (Input.GetMouseButtonUp(2))
             {
                 isPressedUI = false;
                 if (isMouseMoving)

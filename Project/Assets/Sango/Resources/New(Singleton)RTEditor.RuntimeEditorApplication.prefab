@@ -799,8 +799,8 @@ MonoBehaviour:
     _orthographicSmoothZoomSpeed: 65
     _perspectiveSmoothZoomSpeed: 400
   _panSettings:
-    _standardPanSpeed: 3
-    _smoothPanSpeed: 3
+    _standardPanSpeed: 35
+    _smoothPanSpeed: 35
     _invertXAxis: 0
     _invertYAxis: 0
   _focusSettings:

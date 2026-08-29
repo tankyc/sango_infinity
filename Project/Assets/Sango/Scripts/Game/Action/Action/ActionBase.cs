@@ -106,6 +106,10 @@ namespace Sango.Core.Action
             Register("BuildingImproveTroopDefence", CraeteHandle<BuildingImproveTroopDefence>);
             Register("BuildingAddTroopMorale", CraeteHandle<BuildingAddTroopMorale>);
             Register("CityImproveJobResult", CraeteHandle<CityImproveJobResult>);
+            Register("CityImproveFoodHarvest", CraeteHandle<CityImproveFoodHarvest>);
+            Register("CityImproveGoldHarvest", CraeteHandle<CityImproveGoldHarvest>);
+            Register("CityGoldHarvestEveryTurn", CraeteHandle<CityGoldHarvestEveryTurn>);
+            Register("CityFoodHarvestEveryMonth", CraeteHandle<CityFoodHarvestEveryMonth>);
             Register("CityImproveJobCounterResult", CraeteHandle<CityImproveJobCounterResult>);
             Register("TroopIgnoreZOC", CraeteHandle<TroopIgnoreZOC>);
             Register("TroopTriggerAction", CraeteHandle<TroopTriggerAction>);
@@ -114,6 +118,7 @@ namespace Sango.Core.Action
             Register("TroopRecure", CraeteHandle<TroopRecure>);
             Register("TroopSetFireDamage", CraeteHandle<TroopSetFireDamage>);
             Register("TroopIgnoreFire", CraeteHandle<TroopIgnoreFire>);
+            Register("TroopImproveSkillSuccess", CraeteHandle<TroopImproveSkillSuccess>);
             Register("TroopChangeSkillCost", CraeteHandle<TroopChangeSkillCost>);
             Register("TroopChangeSkillSpellRange", CraeteHandle<TroopChangeSkillSpellRange>);
             Register("TroopSetSkillCost", CraeteHandle<TroopSetSkillCost>);
@@ -130,7 +135,10 @@ namespace Sango.Core.Action
             Register("TroopAddSkillSpellRange", CraeteHandle<TroopAddSkillSpellRange>);
             Register("TroopModifyMorale", CraeteHandle<TroopModifyMorale>);
             Register("TroopModifyFireDamage", CraeteHandle<TroopModifyFireDamage>);
+            Register("TroopSkillBack", CraeteHandle<TroopSkillBack>);
+
             
+
         }
 
     }

@@ -280,6 +280,17 @@ namespace Sango.Tools
                 if (path != null)
                 {
                     LoadMapFromScenario(path[0]);
+                    editorToolsBarWindow.visible = true;
+                    EditorFreeCamera editorfree = Camera.main.gameObject.GetComponent<Sango.Tools.EditorFreeCamera>();
+                    if (editorfree != null)
+                        editorfree.lookAt = map.mapCamera.GetCenterTransform();
+                    BrushBase brush = CheckBrush();
+                    if (brush != null)
+                        brush.OnEnter();
+                    if (ViewIs311Camera)
+                        SetCameraControlType(1);
+                    else
+                        SetCameraControlType(0);
                 }
             });
             menuData.Add("文件/-", null); // 分隔线
@@ -311,14 +322,17 @@ namespace Sango.Tools
             });
 
             // 视图菜单
-            menuData.Add("视图/固定视角", () =>
+            menuData.Add("视图/游戏视角", () =>
             {
-                ViewIs311Camera = !ViewIs311Camera;
+                
+            }, true, ViewIs311Camera, (b) =>
+            {
+                ViewIs311Camera = b;
                 if (ViewIs311Camera)
                     SetCameraControlType(1);
                 else
                     SetCameraControlType(0);
-            }, true, ViewIs311Camera);
+            });
             menuData.Add("视图/重置相机", () =>
             {
                 map.mapCamera.position = new Vector3(500, 250, 500);
@@ -646,8 +660,8 @@ namespace Sango.Tools
         {
             map.mapCamera.position = new Vector3(0, 500, 0);
             map.mapCamera.lookRotate = new Vector3(90, -90, 0);
-            ViewIs311Camera = false;
-            SetCameraControlType(0);
+            ViewIs311Camera = true;
+            SetCameraControlType(1);
             Camera.main.gameObject.transform.position = map.mapCamera.position;
             Camera.main.gameObject.transform.rotation = Quaternion.Euler(90, -90, 0);
 

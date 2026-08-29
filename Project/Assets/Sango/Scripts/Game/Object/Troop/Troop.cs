@@ -435,10 +435,20 @@ namespace Sango.Core
         public List<ActionBase> actionList;
         public List<Cell> MoveRange = new List<Cell>(256);
 
-        public override void Init(Scenario scenario)
+        static List<Feature> temp_FeatureList = new List<Feature>();
+        public void InitActionList()
         {
-            _troopName = $"{Leader?.Name}队";
-            actionList = new List<ActionBase>();
+            temp_FeatureList.Clear();
+            if (actionList != null)
+            {
+                for (int i = 0; i < actionList.Count; i++)
+                    actionList[i].Clear();
+
+                actionList.Clear();
+            }
+            else
+                actionList = new List<ActionBase>();
+
             ForEachPerson(x =>
             {
                 x.mTroop = this;
@@ -446,11 +456,33 @@ namespace Sango.Core
                 {
                     for (int i = 0; i < x.mFeatureList.Count; i++)
                     {
-                        x.mFeatureList[i].InitActions(actionList, this, x);
+                        Feature feature = x.mFeatureList[i];
+                        if (feature != null && feature.kind <= (int)FeatureKindType.TroopSupport)
+                        {
+                            if (!feature.only)
+                            {
+                                temp_FeatureList.Add(feature);
+                                feature.InitActions(actionList, this, x);
+                            }
+                            else
+                            {
+                                if (!temp_FeatureList.Contains(feature))
+                                {
+                                    temp_FeatureList.Add(feature);
+                                    feature.InitActions(actionList, this, x);
+                                }
+                            }
+                        }
                     }
                 }
             });
+        }
 
+
+        public override void Init(Scenario scenario)
+        {
+            _troopName = $"{Leader?.Name}队";
+            InitActionList();
             StrategySkills.Clear();
             scenario.CommonData.Skills.ForEach(x =>
             {
@@ -483,26 +515,7 @@ namespace Sango.Core
         }
         public void ResetActionAndStatus()
         {
-            if (actionList != null)
-            {
-                for (int i = 0; i < actionList.Count; i++)
-                    actionList[i].Clear();
-
-                actionList.Clear();
-            }
-
-            ForEachPerson(x =>
-            {
-                x.mTroop = this;
-                if (x.mFeatureList != null)
-                {
-                    for (int i = 0; i < x.mFeatureList.Count; i++)
-                    {
-                        x.mFeatureList[i].InitActions(actionList, this, x);
-                    }
-                }
-            });
-
+            InitActionList();
             CalculateAttribute(Scenario.Cur);
         }
 

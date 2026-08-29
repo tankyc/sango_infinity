@@ -1259,7 +1259,7 @@ namespace Sango.Core
                         {
                             if (belongP.mBelongForce != null)
                             {
-                                mBelongForce = mBelongForce;
+                                mBelongForce = belongP.mBelongForce;
                                 mBelongCorps = mBelongForce.CapitalCorps;
                                 mBelongCity = mBelongForce.CapitalCity;
                                 mCurrentCity = mBelongCity;

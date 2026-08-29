@@ -33,6 +33,7 @@ using Sango.Core; namespace Sango.UI
         {
             base.OnOpen();
             City city = (City)objects[0];
+            city.CalculateHarvest();
             ResetPool();
             objectSortTitles = new List<ObjectSortTitle>()
             {

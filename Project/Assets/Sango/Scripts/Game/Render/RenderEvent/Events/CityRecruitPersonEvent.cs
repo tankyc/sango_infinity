@@ -16,16 +16,32 @@ namespace Sango.Render
             this.target = target;
             IsDone = false;
         }
+        List<Feature> temp_FeatureList = new List<Feature>();
         void InitJobFeature(Person person)
         {
             sJobActions.Clear();
+            temp_FeatureList.Clear();
             if (person != null && person.mFeatureList != null)
             {
                 for (int j = 0; j < person.mFeatureList.Count; j++)
                 {
                     Feature feature = person.mFeatureList[j];
-                    if (feature.kind == (int)FeatureKindType.CityProduce)
-                        person.mFeatureList[j].InitActions(sJobActions, person.mBelongCity);
+                    if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
+                    {
+                        if (!feature.only)
+                        {
+                            temp_FeatureList.Add(feature);
+                            feature.InitActions(sJobActions, person.mBelongCity, person);
+                        }
+                        else
+                        {
+                            if (!temp_FeatureList.Contains(feature))
+                            {
+                                temp_FeatureList.Add(feature);
+                                feature.InitActions(sJobActions, person.mBelongCity, person);
+                            }
+                        }
+                    }
                 }
             }
         }

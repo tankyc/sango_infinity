@@ -174,7 +174,7 @@ namespace Sango.UI
             for (int i = 0; i < mapCityNodes.Count; i++)
             {
                 MapCityNodeData data = mapCityNodes[i];
-                if (data.city == city)
+                if (data.city == city || data.city.mBelongCity == city)
                 {
                     data.UpdateImage();
                     return;

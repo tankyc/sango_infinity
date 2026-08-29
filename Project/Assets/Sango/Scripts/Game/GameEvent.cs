@@ -444,7 +444,22 @@ namespace Sango.Core
         /// City, Troop, OverrideData
         /// </summary>
         public static EventDelegate<City> OnCityCalculateHarvest;
+        public static EventDelegate<City, OverrideData<int>> OnCityCalculateGoldHarvest;
+        public static EventDelegate<City, OverrideData<int>> OnCityCalculateGoldHarvestAfter;
+        public static EventDelegate<City, OverrideData<int>> OnCityCalculateFoodHarvest;
+        public static EventDelegate<City, OverrideData<int>> OnCityCalculateFoodHarvestAfter;
 
+        /// <summary>
+        /// 城池获取资金收入
+        /// City, Troop, OverrideData
+        /// </summary>
+        public static EventDelegate<City, OverrideData<int>> OnCityGainGoldHarvest;
+
+        /// <summary>
+        /// 城池获取粮食收入
+        /// City, Troop, OverrideData
+        /// </summary>
+        public static EventDelegate<City, OverrideData<int>> OnCityGainFoodHarvest;
 
         /// <summary>
         /// 可监听改计算部队最大兵力
