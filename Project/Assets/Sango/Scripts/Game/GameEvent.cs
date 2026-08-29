@@ -449,6 +449,9 @@ namespace Sango.Core
         public static EventDelegate<City, OverrideData<int>> OnCityCalculateFoodHarvest;
         public static EventDelegate<City, OverrideData<int>> OnCityCalculateFoodHarvestAfter;
 
+        public static EventDelegate<City, Scenario, OverrideData<int>> OnCityCalculateFoodCost;
+
+
         /// <summary>
         /// 城池获取资金收入
         /// City, Troop, OverrideData

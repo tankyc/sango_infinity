@@ -54,7 +54,7 @@ namespace Sango.UI
         public GameObject resumeObj;
 
         public Button endTurnButton;
-        public Button endTurnButton2;
+        //public Button endTurnButton2;
 
         public GameObject[] fpaObj;
 
@@ -76,15 +76,6 @@ namespace Sango.UI
                     obj.gameObject.SetActive(false);
             }
 #endif
-
-#if UNITY_ANDROID || UNITY_IPHONE
-            endTurnButton.gameObject.SetActive(false);
-            endTurnButton2.gameObject.SetActive(true);
-#else
-            endTurnButton.gameObject.SetActive(true);
-            endTurnButton2.gameObject.SetActive(false);
-#endif
-
             Window.Instance.Close("window_loading");
             GameController.Instance.onCellOverEnter += OnCellOverEnter;
             GameController.Instance.onCellOverExit += OnCellOverExit;
@@ -253,7 +244,6 @@ namespace Sango.UI
         public void OnPlayerEndTurn(Force force, Scenario scenario)
         {
             endTurnButton.interactable = false;
-            endTurnButton2.interactable = false;
             uIPlayerInfoPanel.gameObject.SetActive(false);
         }
 
@@ -264,7 +254,6 @@ namespace Sango.UI
                 forceText.text = "";
                 techPointLabel.text = "";
                 endTurnButton.interactable = false;
-                endTurnButton2.interactable = false;
                 uIPlayerInfoPanel.gameObject.SetActive(false);
                 return;
             }
@@ -272,7 +261,6 @@ namespace Sango.UI
             techPointLabel.text = force.TechniquePoint.ToString();
 
             endTurnButton.interactable = force.IsPlayer;
-            endTurnButton2.interactable = force.IsPlayer;
             uIPlayerInfoPanel.gameObject.SetActive(force.IsPlayer);
 
             if (force.IsPlayer)

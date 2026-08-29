@@ -634,17 +634,8 @@ namespace Sango.Core
                     if (!beAtkTroop.IsAlive)
                     {
                         ep += 200;
-                        // 获取对方部分钱粮
-                        int getFood = beAtkTroop.food * scenarioVariables.defeatTroopCanGainFoodFactor / 100;
-                        int getGold = beAtkTroop.gold * scenarioVariables.defeatTroopCanGainGoldFactor / 100;
-                        if (getFood > 0)
-                        {
-                            troop.ChangeFood(getFood);
-                        }
-                        if (getGold > 0)
-                        {
-                            troop.ChangeGold(getGold);
-                        }
+
+                        troop.GainTargetResource(beAtkTroop, scenario);
                     }
 
                     troop.GainEP(ep);
@@ -684,18 +675,7 @@ namespace Sango.Core
                                 if (!troop.IsAlive)
                                 {
                                     ep += 200;
-
-                                    // 获取对方部分钱粮
-                                    int getFood = troop.food * scenarioVariables.defeatTroopCanGainFoodFactor / 100;
-                                    int getGold = troop.gold * scenarioVariables.defeatTroopCanGainGoldFactor / 100;
-                                    if (getFood > 0)
-                                    {
-                                        beAtkTroop.ChangeFood(getFood);
-                                    }
-                                    if (getGold > 0)
-                                    {
-                                        beAtkTroop.ChangeGold(getGold);
-                                    }
+                                    beAtkTroop.GainTargetResource(troop, scenario);
                                 }
                                 beAtkTroop.GainEP(ep);
 
@@ -868,7 +848,11 @@ namespace Sango.Core
                                             int blockDmg = targetDamage * this.blockFactor / 100;
                                             blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
                                             int ep = blockDmg / 10;
-                                            if (!blockTroop.IsAlive) ep += 200;
+                                            if (!blockTroop.IsAlive)
+                                            {
+                                                ep += 200;
+                                                troop.GainTargetResource(blockTroop, Scenario.Cur);
+                                            }
                                             troop.GainEP(ep);
                                         }
                                         break;
@@ -895,7 +879,11 @@ namespace Sango.Core
                                             int blockDmg = targetDamage * this.blockFactor / 100;
                                             blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
                                             int ep = blockDmg / 10;
-                                            if (!blockTroop.IsAlive) ep += 200;
+                                            if (!blockTroop.IsAlive)
+                                            {
+                                                ep += 200;
+                                                troop.GainTargetResource(blockTroop, Scenario.Cur);
+                                            }
                                             troop.GainEP(ep);
 
                                         }

@@ -1359,6 +1359,10 @@ namespace Sango.Core
             {
                 foodCost += (int)System.Math.Ceiling(population * scenario.Variables.populationFoodCostFactor);
             }
+
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(foodCost);
+            GameEvent.OnCityCalculateFoodCost?.Invoke(this, scenario, overrideData);
+            foodCost = overrideData.ValueAndRecycle;
             return foodCost;
         }
 
@@ -1370,8 +1374,7 @@ namespace Sango.Core
         {
             if (food > 0)
             {
-                int foodCost = 0;
-                foodCost += (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInCity * (troops + woundedTroops));
+                int foodCost = FoodCost(scenario);
                 int needFood = foodCost - food;
                 if (needFood > 0)
                 {

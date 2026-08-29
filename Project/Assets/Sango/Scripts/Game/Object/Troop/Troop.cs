@@ -353,6 +353,10 @@ namespace Sango.Core
         public float waterDamageBuildingExtraFactor;
         public float landDamageBuildingExtraFactor;
 
+
+        public int defeatTroopCanGainFoodFactor;
+        public int defeatTroopCanGainGoldFactor;
+
         public int SpearLv { get; private set; }
         public int HalberdLv { get; private set; }
         public int CrossbowLv { get; private set; }
@@ -382,7 +386,7 @@ namespace Sango.Core
         /// <summary>
         /// 建设力
         /// </summary>
-        public int BuildPower { get; private set; }
+        public int BuildPower { get; set; }
 
         /// <summary>
         /// 统率
@@ -680,6 +684,9 @@ namespace Sango.Core
 
             if (WaterTroopType == null)
                 WaterTroopType = scenario.GetObject<TroopType>(8);
+
+            defeatTroopCanGainFoodFactor = Variables.defeatTroopCanGainFoodFactor;
+            defeatTroopCanGainGoldFactor = Variables.defeatTroopCanGainGoldFactor;
 
             LandTroopTypeLv = -1;
             WaterTroopTypeLv = -1;
@@ -2233,6 +2240,21 @@ namespace Sango.Core
                 x.GainMerit(memberGp);
                 x.GainExp(memberGp / 5);
             });
+        }
+
+        public void GainTargetResource(Troop target)
+        {
+            // 获取对方部分钱粮
+            int getFood = target.food * Math.Max(0, Math.Min(100, defeatTroopCanGainFoodFactor)) / 100;
+            int getGold = target.gold * Math.Max(0, Math.Min(100, defeatTroopCanGainGoldFactor)) / 100;
+            if (getFood > 0)
+            {
+                ChangeFood(getFood);
+            }
+            if (getGold > 0)
+            {
+                ChangeGold(getGold);
+            }
         }
     }
 }

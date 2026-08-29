@@ -375,10 +375,50 @@
     "19": {
       "Id": 19,
       "Name": "掎角",
-      "desc": "施展齐攻时，让对方陷入混乱",
+      "desc": "目标周围有我方三支部队及以上时，攻击和战法有概率让对方陷入混乱",
       "only": true,
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopTriggerAction",
+          "triggerList": [
+            {
+              "class": "TriggerWhenSkillAfterHitTroop"
+            }
+          ],
+          "actionList": [
+            {
+              "class": "TroopAddBuff",
+              "targetType": 1,
+              "buffId": 1,
+              "probability": 10000,
+              "values": [
+                1,
+                2
+              ],
+              "weight": [
+                70,
+                30
+              ],
+              "condition": {
+                "class": "andList",
+                "list": [
+                  {
+                    "class": "TroopAroundTeammateCount",
+                    "count": 3,
+                    "operator": "gte"
+                  },
+                  {
+                    "class": "ProbabilityCheck",
+                    "probability": 5000
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
     },
     "20": {
       "Id": 20,
@@ -405,10 +445,20 @@
     "22": {
       "Id": 22,
       "Name": "掠夺",
-      "desc": "击破敌方部队时，有机会夺取敌将的道具",
+      "desc": "击破敌方部队时，能缴获所有的物资，并有机会夺取敌将的道具",
       "only": true,
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopAddGoldGain",
+          "value": 100
+        },
+        {
+          "class": "TroopAddFoodGain",
+          "value": 100
+        }
+      ]
     },
     "23": {
       "Id": 23,
@@ -558,10 +608,17 @@
     "30": {
       "Id": 30,
       "Name": "铁壁",
-      "desc": "就算被一齐攻击，也会视之为一般攻击",
+      "desc": "攻击损伤减少20%",
       "only": true,
       "level": 2,
-      "kind": 3
+      "kind": 3,
+      "actionEntities": [
+        {
+          "class": "TroopChangeDamage",
+          "value": 80,
+          "isDefender": 1
+        }
+      ]
     },
     "31": {
       "Id": 31,
@@ -1948,7 +2005,13 @@
       "desc": "军事设施建设的耐久上升量增为２倍",
       "only": true,
       "level": 2,
-      "kind": 5
+      "kind": 5,
+      "actionEntities": [
+        {
+          "class": "TroopImproveBuildPower",
+          "value": 200
+        }
+      ]
     },
     "79": {
       "Id": 79,
@@ -1956,7 +2019,17 @@
       "desc": "所属于关所、港口时，士兵不会消费兵粮",
       "only": true,
       "level": 2,
-      "kind": 7
+      "kind": 7,
+      "actionEntities": [
+        {
+          "class": "CityChangeFoodCost",
+          "value": 0,
+          "cityKinds": [
+            2,
+            3
+          ]
+        }
+      ]
     },
     "80": {
       "Id": 80,
@@ -2049,7 +2122,13 @@
       "desc": "研究技巧时的费用减半",
       "only": true,
       "level": 2,
-      "kind": 6
+      "kind": 6,
+      "actionEntities": [
+        {
+          "class": "CityImproveResearchCost",
+          "value": 50
+        }
+      ]
     },
     "86": {
       "Id": 86,
@@ -2057,7 +2136,13 @@
       "desc": "若有未发现的在野人士时执行人材探索的话，必定会发现",
       "only": true,
       "level": 2,
-      "kind": 6
+      "kind": 6,
+      "actionEntities": [
+        {
+          "class": "CityChangeSearchingWild",
+          "value": 100
+        }
+      ]
     },
     "87": {
       "Id": 87,

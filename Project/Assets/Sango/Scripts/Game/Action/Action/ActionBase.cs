@@ -137,8 +137,13 @@ namespace Sango.Core.Action
             Register("TroopModifyFireDamage", CraeteHandle<TroopModifyFireDamage>);
             Register("TroopSkillBack", CraeteHandle<TroopSkillBack>);
 
-            
-
+            Register("CityChangeSearchingWild", CraeteHandle<CityChangeSearchingWild>);
+            Register("CityImproveResearchCost", CraeteHandle<CityImproveResearchCost>);
+            Register("CityImproveSearchingWild", CraeteHandle<CityImproveSearchingWild>);
+            Register("CityChangeFoodCost", CraeteHandle<CityChangeFoodCost>);
+            Register("TroopImproveBuildPower", CraeteHandle<TroopImproveBuildPower>);
+            Register("TroopAddFoodGain", CraeteHandle<TroopAddFoodGain>);
+            Register("TroopAddGoldGain", CraeteHandle<TroopAddGoldGain>);
         }
 
     }
