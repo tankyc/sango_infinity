@@ -491,7 +491,7 @@ namespace Sango.Core
         {
             PlayerPrefs.SetFloat("KeyboardMoveSpeed", KeyboardMoveSpeed);
             PlayerPrefs.SetInt("MovementMode", MovementMode);
-            PlayerPrefs.SetInt("MobileCancel", MobileCancel ? 1 : 0);
+            PlayerPrefs.SetInt("MobileCancel1", MobileCancel ? 1 : 0);
 
             if(MobileCancel)
                 Window.Instance.Open("window_mobile_cancel");
@@ -571,7 +571,7 @@ namespace Sango.Core
             // 控制设置
             KeyboardMoveSpeed = PlayerPrefs.GetFloat("KeyboardMoveSpeed", 300f);
             MovementMode = PlayerPrefs.GetInt("MovementMode", 0);
-            MobileCancel = PlayerPrefs.GetInt("MobileCancel", 0) == 1;
+            MobileCancel = PlayerPrefs.GetInt("MobileCancel1", 1) == 1;
             // 语言设置
             Language = PlayerPrefs.GetString("Language", "zh-CN");
 
@@ -613,7 +613,7 @@ namespace Sango.Core
             // 控制设置
             KeyboardMoveSpeed = 300f;
             MovementMode = 0;
-            MobileCancel = false;
+            MobileCancel = true;
 
             // 语言设置
             Language = "zh-CN";
@@ -970,7 +970,7 @@ namespace Sango.Core
 
             // 控制设置
             KeyboardMoveSpeed = 300f;
-            MobileCancel = false;
+            MobileCancel = true;
             MovementMode = 0;
 
             // 语言设置

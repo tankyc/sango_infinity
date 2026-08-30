@@ -635,7 +635,7 @@ namespace Sango.Core
                     {
                         ep += 200;
 
-                        troop.GainTargetResource(beAtkTroop, scenario);
+                        troop.GainTargetResource(beAtkTroop);
                     }
 
                     troop.GainEP(ep);
@@ -675,7 +675,7 @@ namespace Sango.Core
                                 if (!troop.IsAlive)
                                 {
                                     ep += 200;
-                                    beAtkTroop.GainTargetResource(troop, scenario);
+                                    beAtkTroop.GainTargetResource(troop);
                                 }
                                 beAtkTroop.GainEP(ep);
 
@@ -851,7 +851,7 @@ namespace Sango.Core
                                             if (!blockTroop.IsAlive)
                                             {
                                                 ep += 200;
-                                                troop.GainTargetResource(blockTroop, Scenario.Cur);
+                                                troop.GainTargetResource(blockTroop);
                                             }
                                             troop.GainEP(ep);
                                         }
@@ -882,7 +882,7 @@ namespace Sango.Core
                                             if (!blockTroop.IsAlive)
                                             {
                                                 ep += 200;
-                                                troop.GainTargetResource(blockTroop, Scenario.Cur);
+                                                troop.GainTargetResource(blockTroop);
                                             }
                                             troop.GainEP(ep);
 

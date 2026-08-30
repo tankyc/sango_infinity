@@ -71,12 +71,12 @@ namespace Sango.Core
         /// <summary>
         /// 首都, 必须是君主所在城市,无论港关
         /// </summary>
-        public City CapitalCity => mGovernor.mBelongCity;
+        public City CapitalCity => mGovernor?.mBelongCity;
 
         /// <summary>
         /// 第一军团
         /// </summary>
-        public Corps CapitalCorps => mGovernor.mBelongCorps;
+        public Corps CapitalCorps => mGovernor?.mBelongCorps;
 
         /// <summary>
         /// 主公
