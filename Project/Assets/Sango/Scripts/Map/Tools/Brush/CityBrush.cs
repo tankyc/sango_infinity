@@ -127,7 +127,7 @@ namespace Sango.Tools
         /// <summary>
         /// 工具栏标题数组
         /// </summary>
-        private string[] toolbarTitle = new string[] { "无", "创建", "修改", "连接"/*, "所属", "区域", "地格" */};
+        private string[] toolbarTitle = new string[] { "无", "创建", "修改", "连接", "附属",/* "区域", "地格" */};
 
         public enum CityEditorType : int
         {
@@ -313,14 +313,47 @@ namespace Sango.Tools
                                 case CityType.Gate:
                                     newCity = new Gate();
                                     newCity.BuildingType = GameData.Instance.ScenarioCommonData.BuildingTypes.Get(2);
+
+                                    // 默认为最近的城池属地
+                                    float minDis = 99999;
+                                    editor.scenario.citySet.ForEach(x =>
+                                    {
+                                        if (x.IsCity())
+                                        {
+                                            float len = (x.Render.MapObject.position - center).sqrMagnitude;
+                                            if (len < minDis)
+                                            {
+                                                newCity.mBelongCity = x;
+                                                newCity.BelongCity = x.Id;
+                                                minDis = len;
+                                            }
+                                        }
+                                    });
+
                                     break;
                                 case CityType.Port:
                                     newCity = new Port();
                                     newCity.BuildingType = GameData.Instance.ScenarioCommonData.BuildingTypes.Get(3);
+                                    // 默认为最近的城池属地
+                                    minDis = 99999;
+                                    editor.scenario.citySet.ForEach(x =>
+                                    {
+                                        if (x.IsCity())
+                                        {
+                                            float len = (x.Render.MapObject.position - center).sqrMagnitude;
+                                            if (len < minDis)
+                                            {
+                                                newCity.mBelongCity = x;
+                                                newCity.BelongCity = x.Id;
+                                                minDis = len;
+                                            }
+                                        }
+                                    });
+
                                     break;
                                 default:
                                     newCity = new City();
-                                    newCity.BuildingType = GameData.Instance.ScenarioCommonData.BuildingTypes.Get(1);
+                                    newCity.BuildingType = GameData.Instance.ScenarioCommonData.BuildingTypes.Find(x=>x.kind == selectedModelConfig.modelKind);
                                     break;
                             }
                             newCity.CityLevelType = GameData.Instance.ScenarioCommonData.CityLevelTypes.Get(1);
@@ -348,52 +381,54 @@ namespace Sango.Tools
                     }
                     break;
                 case CityEditorType.Connect:
-                    City city = GetCityAtPosition(center);
-                    if (city != null)
                     {
-                        if (isConnecting && connectStartCity != null)
+                        City city = GetCityAtPosition(center);
+                        if (city != null)
                         {
-                            if (connectStartCity != city)
+                            if (isConnecting && connectStartCity != null)
                             {
-                                bool isNeighbor = connectStartCity.NeighborList.Contains(city);
-                                if (!isNeighbor)
+                                if (connectStartCity != city)
                                 {
-                                    CityNeighborEditCommand command = new CityNeighborEditCommand(editor, connectStartCity, city, true, $"添加邻接城市: {connectStartCity.Name} - {city.Name}");
-                                    editor.undoRedoManager.AddCommand(command, true);
-                                    connectHint = $"添加邻接城市: {connectStartCity.Name} - {city.Name}";
-                                    Sango.Log.Info($"添加邻接城市: {connectStartCity.Name} - {city.Name}");
-                                    //if (showCityLines)
+                                    bool isNeighbor = connectStartCity.NeighborList.Contains(city);
+                                    if (!isNeighbor)
                                     {
-                                        CreateLineRenderers();
+                                        CityNeighborEditCommand command = new CityNeighborEditCommand(editor, connectStartCity, city, true, $"添加邻接城市: {connectStartCity.Name} - {city.Name}");
+                                        editor.undoRedoManager.AddCommand(command, true);
+                                        connectHint = $"添加邻接城市: {connectStartCity.Name} - {city.Name}";
+                                        Sango.Log.Info($"添加邻接城市: {connectStartCity.Name} - {city.Name}");
+                                        //if (showCityLines)
+                                        {
+                                            CreateLineRenderers();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        connectHint = $"城市 {city.Name} 已经是 {connectStartCity.Name} 的邻接城市";
+                                        Sango.Log.Warning($"城市 {city.Name} 已经是 {connectStartCity.Name} 的邻接城市");
                                     }
                                 }
-                                else
+                                isConnecting = false;
+                                connectStartCity = null;
+                            }
+                            else
+                            {
+                                if (selectedCity != null && selectedCity.Render != null)
                                 {
-                                    connectHint = $"城市 {city.Name} 已经是 {connectStartCity.Name} 的邻接城市";
-                                    Sango.Log.Warning($"城市 {city.Name} 已经是 {connectStartCity.Name} 的邻接城市");
+                                    selectedCity.Render.SetFlash(false);
                                 }
+                                selectedCity = city;
+                                if (selectedCity != null && selectedCity.Render != null)
+                                {
+                                    selectedCity.Render.SetFlash(true);
+                                }
+                                Sango.Log.Info($"选中城市: {city.Name}");
                             }
-                            isConnecting = false;
-                            connectStartCity = null;
                         }
-                        else
-                        {
-                            if (selectedCity != null && selectedCity.Render != null)
-                            {
-                                selectedCity.Render.SetFlash(false);
-                            }
-                            selectedCity = city;
-                            if (selectedCity != null && selectedCity.Render != null)
-                            {
-                                selectedCity.Render.SetFlash(true);
-                            }
-                            Sango.Log.Info($"选中城市: {city.Name}");
-                        }
+                        break;
                     }
-                    break;
                 case CityEditorType.Move:
                     {
-                        if(selectedCity == null)
+                        if (selectedCity == null)
                         {
                             selectedCity = GetCityAtPosition(center);
                             if (selectedCity != null && selectedCity.Render != null)
@@ -415,6 +450,52 @@ namespace Sango.Tools
                         }
                     }
                     break;
+                case CityEditorType.Belong:
+                    {
+                        City city = GetCityAtPosition(center);
+                        if (city != null)
+                        {
+                            if (isConnecting && connectStartCity != null)
+                            {
+                                if (connectStartCity != city)
+                                {
+                                    if (connectStartCity.IsCity() == city.IsCity())
+                                    {
+                                        connectHint = $"不能将相同类型的都市附属!!!";
+                                        return;
+                                    }
+
+                                    if (!connectStartCity.IsCity())
+                                    {
+                                        connectStartCity.mBelongCity = city;
+                                        connectStartCity.BelongCity = city.Id;
+                                    }
+                                    else
+                                    {
+                                        city.mBelongCity = connectStartCity;
+                                        city.BelongCity = connectStartCity.Id;
+                                    }
+                                }
+                                isConnecting = false;
+                                connectStartCity = null;
+                                CreateLineRenderers(false);
+                            }
+                            else
+                            {
+                                if (selectedCity != null && selectedCity.Render != null)
+                                {
+                                    selectedCity.Render.SetFlash(false);
+                                }
+                                selectedCity = city;
+                                if (selectedCity != null && selectedCity.Render != null)
+                                {
+                                    selectedCity.Render.SetFlash(true);
+                                }
+                                Sango.Log.Info($"选中城市: {city.Name}");
+                            }
+                        }
+                        break;
+                    }
             }
         }
 
@@ -429,12 +510,24 @@ namespace Sango.Tools
             if (editMode != (int)controlType)
             {
                 controlType = (CityEditorType)editMode;
-
-               editor.SetModelSelectionMod(controlType == CityEditorType.Move);
+                isConnecting = false;
+                editor.SetModelSelectionMod(controlType == CityEditorType.Move);
+                if(controlType != CityEditorType.Move)
+                {
+                    RTEditor.EditorObjectSelection.Instance.ClearSelection(false);
+                    selectedCity = null;
+                }
                 switch (controlType)
                 {
+                    case CityEditorType.None:
+                        {
+                            break;
+                        }
                     case CityEditorType.Connect:
                         CreateLineRenderers();
+                        break;
+                    case CityEditorType.Belong:
+                        CreateLineRenderers(false);
                         break;
                     default:
                         ClearLineRenderers();
@@ -446,11 +539,7 @@ namespace Sango.Tools
             switch (controlType)
             {
                 case CityEditorType.None:
-                    { // 城市类型选择
-                        if (GUILayout.Button("编辑城市属性"))
-                        {
-                            OpenPropertyEditorWindow();
-                        }
+                    { 
                     }
                     break;
                 case CityEditorType.Create:
@@ -547,10 +636,7 @@ namespace Sango.Tools
                                         editor.undoRedoManager.AddCommand(command, true);
                                         Sango.Log.Info($"移除邻接城市: {selectedCity.Name} - {neighbor.Name}");
                                         // 移除邻接城市后刷新linerenderer的展示
-                                        if (showCityLines)
-                                        {
-                                            CreateLineRenderers();
-                                        }
+                                        CreateLineRenderers();
                                     }
                                     GUILayout.EndHorizontal();
                                 }
@@ -570,6 +656,12 @@ namespace Sango.Tools
                             GUILayout.Label($"当前选中城市: {selectedCity.Name}");
                             GUILayout.Space(10);
 
+                            // 城市类型选择
+                            if (GUILayout.Button("编辑城市属性"))
+                            {
+                                OpenPropertyEditorWindow();
+                            }
+
                             // 显示邻接城市
                             GUILayout.Label("邻接城市:");
                             for (int i = 0; i < selectedCity.NeighborList.Count; i++)
@@ -585,14 +677,63 @@ namespace Sango.Tools
                                         editor.undoRedoManager.AddCommand(command, true);
                                         Sango.Log.Info($"移除邻接城市: {selectedCity.Name} - {neighbor.Name}");
                                         // 移除邻接城市后刷新linerenderer的展示
-                                        if (showCityLines)
-                                        {
-                                            CreateLineRenderers();
-                                        }
+                                        CreateLineRenderers();
                                     }
                                     GUILayout.EndHorizontal();
                                 }
                             }
+                        }
+                        else
+                        {
+                            GUILayout.Label("请选择一个城市");
+                        }
+                    }
+                    break;
+                case CityEditorType.Belong:
+                    {
+                        // 城市属性编辑按钮
+                        if (selectedCity != null)
+                        {
+                            GUILayout.Label($"当前选中城市: {selectedCity.Name}");
+                            GUILayout.Space(10);
+
+                            // 连接城市按钮（只在选中城市时展示）
+                            if (selectedCity.IsCity() && GUILayout.Button("选择附庸港关"))
+                            {
+                                isConnecting = true;
+                                connectStartCity = selectedCity;
+                                connectHint = $"开始选择港关，选择目标港关: {selectedCity.Name}";
+                            }
+
+                            if (!selectedCity.IsCity() && GUILayout.Button("选择附庸都市"))
+                            {
+                                isConnecting = true;
+                                connectStartCity = selectedCity;
+                                connectHint = $"开始附庸都市，选择目标都市: {selectedCity.Name}";
+                            }
+
+                            // 显示连接提示
+                            if (!string.IsNullOrEmpty(connectHint))
+                            {
+                                GUILayout.Space(5);
+                                GUILayout.Label(connectHint, new GUIStyle(GUI.skin.label) { fontSize = 12, normal = new GUIStyleState() { textColor = Color.yellow } });
+                            }
+
+                            GUILayout.Space(10);
+
+                            // 显示邻接城市
+                            //if (selectedCity.IsCity())
+                            //{
+                            //    GUILayout.Label("附属城市:");
+                            //    editor.scenario.citySet.ForEach(x =>
+                            //    {
+                            //        if (!x.IsCity() && x.BelongCity == selectedCity.Id)
+                            //        {
+                            //            GUILayout.Label(x.Name);
+                            //            CreateLineRenderers(false);
+                            //        }
+                            //    });
+                            //}
                         }
                         else
                         {
@@ -628,7 +769,7 @@ namespace Sango.Tools
             if (propertyEditorWindow == null)
             {
                 propertyEditorWindow = EditorWindow.AddWindow<CityPropertyEditorWindow>(1102, new UnityEngine.Rect(0, 0, 400, 600), null, "城市属性编辑") as CityPropertyEditorWindow;
-                propertyEditorWindow.Initialize(editor, selectedCity);
+                propertyEditorWindow.Initialize(editor.scenario, editor.undoRedoManager, selectedCity);
             }
             else
             {
@@ -639,7 +780,7 @@ namespace Sango.Tools
 
         public override void OnEnter()
         {
-            if (showCityLines)
+            //if (showCityLines)
             {
                 CreateLineRenderers();
             }
@@ -698,6 +839,11 @@ namespace Sango.Tools
         {
             if (RTEditor.EditorObjectSelection.Instance.SelectedGameObjects.Count > 0)
             {
+                if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+                {
+                    RTEditor.EditorObjectSelection.Instance.ClearSelection(false);
+                    selectedCity = null;
+                }
                 return;
             }
 
@@ -764,14 +910,78 @@ namespace Sango.Tools
 
                         if (selectedCity != null && Input.GetKeyDown(KeyCode.Delete))
                         {
+                            if(selectedCity.IsCity())
+                            {
+                                editor.scenario.citySet.ForEach(x =>
+                                {
+                                    if (x != null)
+                                    {
+                                        if (x.IsCity())
+                                        {
+                                            x.NeighborList.Remove(selectedCity);
+                                        }
+                                        else
+                                        {
+                                            if(x.BelongCity == selectedCity.Id)
+                                            {
+                                                float minDis = 99999;
+                                                editor.scenario.citySet.ForEach(y =>
+                                                {
+                                                    if (y.IsCity() && y != selectedCity)
+                                                    {
+                                                        float len = (x.Render.MapObject.position - y.Render.MapObject.position).sqrMagnitude;
+                                                        if (len < minDis)
+                                                        {
+                                                            x.mBelongCity = y;
+                                                            x.BelongCity = y.Id;
+                                                            minDis = len;
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+
                             editor.scenario.citySet.Remove(selectedCity);
                             selectedCity.Render?.Clear();
                             Sango.Log.Info($"删除城市: {selectedCity.Name}");
+
+
                             selectedCity = null;
                         }
                     }
                     break;
                 case CityEditorType.Connect:
+                    {
+                        if (lineRenderers.Count > 0)
+                        {
+                            UpdateLineRenderers();
+                        }
+
+                        if (Input.GetMouseButtonDown(1))
+                        {
+                            if (isConnecting)
+                            {
+                                isConnecting = false;
+                                connectStartCity = null;
+                                connectHint = "连接操作已取消";
+                                Sango.Log.Info("连接操作已取消");
+                            }
+                            else if (selectedCity != null)
+                            {
+                                if (selectedCity.Render != null)
+                                {
+                                    selectedCity.Render.SetFlash(false);
+                                }
+                                selectedCity = null;
+                                Sango.Log.Info("取消选择城市");
+                            }
+                        }
+                    }
+                    break;
+                case CityEditorType.Belong:
                     {
                         if (lineRenderers.Count > 0)
                         {
@@ -824,7 +1034,7 @@ namespace Sango.Tools
             if (int.TryParse(newValueStr, out int newValue) && newValue != value)
             {
                 newValue = Mathf.Clamp(newValue, min, max);
-                CityEditCommand command = new CityEditCommand(editor, selectedCity, name.ToLower(), value, newValue, $"修改城市{name}: {value} -> {newValue}");
+                CityEditCommand command = new CityEditCommand(selectedCity, name.ToLower(), value, newValue, $"修改城市{name}: {value} -> {newValue}");
                 editor.undoRedoManager.AddCommand(command, true);
                 value = newValue;
             }
@@ -842,7 +1052,7 @@ namespace Sango.Tools
             if (float.TryParse(newValueStr, out float newValue) && newValue != value)
             {
                 newValue = Mathf.Clamp(newValue, min, max);
-                CityEditCommand command = new CityEditCommand(editor, selectedCity, name.ToLower(), value, newValue, $"修改城市{name}: {value} -> {newValue}");
+                CityEditCommand command = new CityEditCommand(selectedCity, name.ToLower(), value, newValue, $"修改城市{name}: {value} -> {newValue}");
                 editor.undoRedoManager.AddCommand(command, true);
                 value = newValue;
             }
@@ -860,7 +1070,7 @@ namespace Sango.Tools
             if (int.TryParse(newValueStr, out int newValue) && newValue != value)
             {
                 newValue = Mathf.Clamp(newValue, min, max);
-                CityEditCommand command = new CityEditCommand(editor, selectedCity, name.ToLower(), value, (byte)newValue, $"修改城市{name}: {value} -> {newValue}");
+                CityEditCommand command = new CityEditCommand(selectedCity, name.ToLower(), value, (byte)newValue, $"修改城市{name}: {value} -> {newValue}");
                 editor.undoRedoManager.AddCommand(command, true);
                 value = (byte)newValue;
             }
@@ -890,19 +1100,9 @@ namespace Sango.Tools
             return null;
         }
 
-        /// <summary>
-        /// 创建城市之间的线路
-        /// </summary>
-        private void CreateLineRenderers()
+        // 定义100个常用颜色
+        Color32[] colorLibrary = new Color32[]
         {
-            ClearLineRenderers();
-
-            if (editor.scenario == null || editor.scenario.citySet == null)
-                return;
-
-            // 定义100个常用颜色
-            Color32[] colorLibrary = new Color32[]
-            {
                 new Color32(255, 0, 0, 255),     // 红色
                 new Color32(0, 0, 255, 255),     // 蓝色
                 new Color32(0, 255, 0, 255),     // 绿色
@@ -1006,18 +1206,119 @@ namespace Sango.Tools
                 new Color32(173, 255, 47, 255),  // 绿黄色
                 new Color32(255, 218, 185, 255), // 粉珊瑚色
                 new Color32(0, 255, 255, 255),   // 青色
-            };
+        };
+
+
+        /// <summary>
+        /// 创建城市之间的线路
+        /// </summary>
+        private void CreateLineRenderers(bool showNeighbor = true)
+        {
+            ClearLineRenderers();
+
+            if (editor.scenario == null || editor.scenario.citySet == null)
+                return;
+
 
             foreach (City city in editor.scenario.citySet)
             {
                 if (city != null && city.Render != null && city.Render.MapObject != null)
                 {
-                    foreach (City neighbor in city.NeighborList)
+                    if (city.IsCity())
                     {
-                        if (neighbor != null && neighbor.Render != null && neighbor.Render.MapObject != null)
+                        if (showNeighbor)
                         {
-                            // 确保只创建一次线路，避免AB和BA重复
-                            if (city.Id > neighbor.Id) // 只处理city.Id > neighbor.Id的情况，确保每个组合只处理一次
+                            foreach (City neighbor in city.NeighborList)
+                            {
+                                if (neighbor != null && neighbor.Render != null && neighbor.Render.MapObject != null)
+                                {
+                                    // 确保只创建一次线路，避免AB和BA重复
+                                    if (city.Id > neighbor.Id) // 只处理city.Id > neighbor.Id的情况，确保每个组合只处理一次
+                                    {
+                                        // 避免重复创建线路
+                                        bool lineExists = false;
+                                        foreach (GameObject lineObj in lineRenderers)
+                                        {
+                                            LineRenderer lineRenderer = lineObj.GetComponent<LineRenderer>();
+                                            if (lineRenderer != null)
+                                            {
+                                                Vector3 start = lineRenderer.GetPosition(0);
+                                                Vector3 end = lineRenderer.GetPosition(2);
+                                                Vector3 cityPos = city.Render.MapObject.transform.position;
+                                                Vector3 neighborPos = neighbor.Render.MapObject.transform.position;
+                                                if ((start == cityPos && end == neighborPos) || (start == neighborPos && end == cityPos))
+                                                {
+                                                    lineExists = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        if (!lineExists)
+                                        {
+                                            GameObject lineObj = new GameObject($"CityLine_{city.Name}_{neighbor.Name}");
+                                            LineRenderer lineRenderer = lineObj.AddComponent<LineRenderer>();
+                                            // 使用Sango/Particles/Alpha Blended shader
+                                            Shader sangoShader = Shader.Find("Sango/Particles/Alpha Blended");
+                                            if (sangoShader != null)
+                                            {
+                                                lineRenderer.material = new Material(sangoShader);
+                                            }
+                                            else
+                                            {
+                                                // 如果找不到Sango shader，使用默认的Unlit/Color作为备份
+                                                lineRenderer.material = new Material(Shader.Find("Unlit/Color"));
+                                            }
+                                            lineRenderer.material.renderQueue = 4000;
+                                            // 设置ZTest为Disabled
+                                            lineRenderer.material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Disabled);
+
+                                            // 根据城市ID从颜色库中获取颜色
+                                            int cityColorIndex = city.Id % colorLibrary.Length;
+                                            int neighborColorIndex = neighbor.Id % colorLibrary.Length;
+                                            Color startColor = colorLibrary[cityColorIndex];
+                                            Color endColor = colorLibrary[neighborColorIndex];
+
+                                            // 设置LineRenderer的颜色渐变
+                                            Gradient gradient = new Gradient();
+                                            gradient.SetKeys(
+                                                new GradientColorKey[] { new GradientColorKey(startColor, 0f), new GradientColorKey(endColor, 1f) },
+                                                new GradientAlphaKey[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) }
+                                            );
+                                            lineRenderer.colorGradient = gradient;
+                                            lineRenderer.numCapVertices = 16;
+                                            lineRenderer.numCornerVertices = 16;
+
+                                            Vector3 startPos = city.Render.MapObject.transform.position;
+                                            Vector3 endPos = neighbor.Render.MapObject.transform.position;
+                                            Vector3 midPos = (startPos + endPos) / 2f;
+
+                                            lineRenderer.positionCount = 3;
+                                            lineRenderer.SetPosition(0, startPos);
+                                            lineRenderer.SetPosition(1, midPos);
+                                            lineRenderer.SetPosition(2, endPos);
+
+                                            lineRenderer.startWidth = 3f;
+                                            lineRenderer.endWidth = 3f;
+                                            lineRenderer.widthCurve = new AnimationCurve(
+                                                new Keyframe(0f, 3f),
+                                                new Keyframe(0.5f, 10f),
+                                                new Keyframe(1f, 3f)
+                                            );
+
+                                            lineRenderers.Add(lineObj);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (city != null && city.Render != null && city.Render.MapObject != null)
+                        {
+                            City neighbor = editor.scenario.citySet.Get(city.BelongCity);
+                            if (neighbor != null && neighbor.Render != null && neighbor.Render.MapObject != null)
                             {
                                 // 避免重复创建线路
                                 bool lineExists = false;

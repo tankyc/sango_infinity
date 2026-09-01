@@ -472,6 +472,8 @@ namespace Sango.Tools
 
             SpawnCityModels();
 
+            scenario.Prepare();
+
             Sango.ScenarioMaker.ScenarioMaker.Instance.SetScenario(scenario);
 
             string message = $"剧本已加载: {System.IO.Path.GetFileName(scenarioPath)}";
@@ -658,7 +660,7 @@ namespace Sango.Tools
 
         void DelaySetFreeCamera()
         {
-            map.mapCamera.position = new Vector3(0, 500, 0);
+            map.mapCamera.position = new Vector3(0, 50, 0);
             map.mapCamera.lookRotate = new Vector3(90, -90, 0);
             ViewIs311Camera = true;
             SetCameraControlType(1);

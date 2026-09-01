@@ -247,13 +247,20 @@ namespace Sango.Render
 
         public void ZoomCamera(float delta)
         {
+            float near = limitDistance.x;
+            float far = limitDistance.y;
+            if (MapEditor.IsEditOn)
+            {
+                near = 0.1f;
+                far = 3000f;
+            }
             distance -= delta * zoomSpeed;
-            if (distance < limitDistance.x)
-                distance = limitDistance.x;
-            else if (distance > limitDistance.y)
-                distance = limitDistance.y;
+            if (distance < near)
+                distance = near;
+            else if (distance > far)
+                distance = far;
 
-            cameraDistanceFactor = (cur_distance - limitDistance.x) / (limitDistance.y - limitDistance.x);
+            cameraDistanceFactor = (cur_distance - near) / (far - near);
         }
 
         public void OffsetCamera(Vector3 offset)
@@ -277,6 +284,11 @@ namespace Sango.Render
 
         public void MoveCameraKeyBoard(bool[] keyFlags)
         {
+            // 编辑模式下鼠标位于UI(含GUI窗口)上时不响应镜头操作
+            if (MapEditor.IsEditOn && IsOverUI())
+            {
+                return;
+            }
             if (keyFlags[0])//(Input.GetAxis("Horizontal")<0)
             {
                 position += -transform.right * keyBoardMoveSpeed * Time.unscaledDeltaTime;
@@ -303,6 +315,11 @@ namespace Sango.Render
 
         private void MoveCameraKeyBoard()
         {
+            // 编辑模式下鼠标位于UI(含GUI窗口)上时不响应镜头移动操作
+            if (MapEditor.IsEditOn && IsOverUI())
+            {
+                return;
+            }
             if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))//(Input.GetAxis("Horizontal")<0)
             {
                 position += -transform.right * keyBoardMoveSpeed * Time.unscaledDeltaTime;
@@ -329,6 +346,11 @@ namespace Sango.Render
 
         private void ZoomCamera()
         {
+            // 编辑模式下鼠标位于UI(含GUI窗口)上时不响应镜头缩放操作
+            if (MapEditor.IsEditOn && IsOverUI())
+            {
+                return;
+            }
             Vector2 scrollWheel = Input.mouseScrollDelta;
             if (scrollWheel.y != 0)
             {
@@ -350,6 +372,11 @@ namespace Sango.Render
 
         private void RotateCamera()
         {
+            // 编辑模式下鼠标位于UI(含GUI窗口)上时不响应镜头旋转操作
+            if (MapEditor.IsEditOn && IsOverUI())
+            {
+                return;
+            }
             if (Input.GetMouseButton(1) && !IsOverUI() && !isMouseMoving)
             {
 
@@ -442,7 +469,11 @@ namespace Sango.Render
         bool isPressedUI = false;
         private void MouseDragWorld()
         {
-
+            // 编辑模式下鼠标位于UI(含GUI窗口)上时不响应镜头拖拽操作
+            if (MapEditor.IsEditOn && IsOverUI())
+            {
+                return;
+            }
 
             if (!Input.GetKey(KeyCode.LeftControl) && /*Input.GetKey(KeyCode.Space) &&*/ Input.GetMouseButton(2) && !isPressedUI && !isMouseRotate)
             {

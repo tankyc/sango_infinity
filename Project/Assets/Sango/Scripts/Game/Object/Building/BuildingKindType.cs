@@ -70,6 +70,12 @@ namespace Sango.Core
         /// </summary>
         Camp = 4,
 
+        /// <summary>
+        /// 小城
+        /// </summary>
+        LittleCity = 5,
+
+
         ///// <summary>
         ///// 砦
         ///// </summary>
@@ -190,5 +196,6 @@ namespace Sango.Core
         /// 村庄
         /// </summary>
         Village,
+
     }
 }

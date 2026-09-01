@@ -1843,6 +1843,29 @@
       "model": "Assets/Model/Prefab/4638.prefab",
       "modelCreate": "Assets/Model/Prefab/4624.prefab",
       "modelBroken": "Assets/Model/Prefab/4624.prefab"
+    },
+    "65": {
+      "Id": 65,
+      "Name": "都市(小)",
+      "majorType": 0,
+      "kind": 5,
+      "level": 1,
+      "canBuild": false,
+      "needTech": 0,
+      "durabilityLimit": 0,
+      "atkBack": 50,
+      "atk": 10,
+      "atkRange": 3,
+      "damageBounds": 0.7,
+      "jobId": 21,
+      "goldGain": 600,
+      "foodGain": 5600,
+      "cost": 0,
+      "radius": 0,
+      "canFire": "false",
+      "techGain": 250,
+      "effectAttrType": 0,
+      "desc": "生产资金、兵粮的据点"
     }
   }
 }

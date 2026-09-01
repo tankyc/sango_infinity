@@ -455,7 +455,6 @@ namespace Sango.Core
 
             ForEachPerson(x =>
             {
-                x.mTroop = this;
                 if (x.mFeatureList != null)
                 {
                     for (int i = 0; i < x.mFeatureList.Count; i++)
@@ -1419,6 +1418,7 @@ namespace Sango.Core
                 if (Render != null && Render.IsVisible())
                 {
                     GameMedia.Instance.PlayPersonSay(Leader, GameRandom.Chance(50) ? 3216 : 3230);
+                    GameParticales.Instance.PlayEfect("Assets/Effect/Prefab/ef_troop_destroy.prefab", Render.MapObject.position, 3);
                 }
 
                 int absNum = System.Math.Abs(num);
@@ -1535,7 +1535,8 @@ namespace Sango.Core
 
         public void ReleaseCaptive()
         {
-            for (int i = 0; i < captiveList.Count; i++)
+            // 必须倒序,因为Escape会修改captiveList
+            for (int i = captiveList.Count - 1; i >= 0; i--)
             {
                 Person person = captiveList[i];
                 person.Escape(EscapeType.TroopDestroyed);
@@ -1808,9 +1809,9 @@ namespace Sango.Core
             // 处理俘虏
             captiveList.ForEach(p =>
             {
+                p.mTroop = null;
                 city.captiveList.Add(p);
                 p.ChangeCurrentCity(city);
-                p.mTroop = null;
             });
             captiveList.Clear();
 

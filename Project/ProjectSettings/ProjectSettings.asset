@@ -54,7 +54,7 @@ PlayerSettings:
   m_MTRendering: 1
   mipStripping: 0
   numberOfMipsStripped: 0
-  m_StackTraceTypes: 010000000100000001000000010000000200000001000000
+  m_StackTraceTypes: 020000000100000001000000010000000200000001000000
   iosShowActivityIndicatorOnLoading: -1
   androidShowActivityIndicatorOnLoading: -1
   iosUseCustomAppBackgroundBehavior: 0
@@ -139,7 +139,7 @@ PlayerSettings:
     16:10: 1
     16:9: 1
     Others: 1
-  bundleVersion: 0.1.0
+  bundleVersion: 0.1.1
   preloadedAssets: []
   metroInputSource: 0
   wsaTransparentSwapchain: 0
@@ -168,7 +168,7 @@ PlayerSettings:
     iPhone: 0.0.79111111
     tvOS: 0
   overrideDefaultApplicationIdentifier: 1
-  AndroidBundleVersionCode: 183
+  AndroidBundleVersionCode: 189
   AndroidMinSdkVersion: 22
   AndroidTargetSdkVersion: 0
   AndroidPreferredInstallLocation: 1
@@ -774,6 +774,7 @@ PlayerSettings:
     Standalone: 1
   il2cppCompilerConfiguration:
     Android: 1
+    Standalone: 1
   managedStrippingLevel:
     Android: 4
     EmbeddedLinux: 1
@@ -793,8 +794,8 @@ PlayerSettings:
   suppressCommonWarnings: 0
   allowUnsafeCode: 1
   useDeterministicCompilation: 1
-  enableRoslynAnalyzers: 0
-  additionalIl2CppArgs: 
+  enableRoslynAnalyzers: 1
+  additionalIl2CppArgs: --linker-flags="-Wl,--stub-group-size=115343360"
   scriptingRuntimeVersion: 1
   gcIncremental: 1
   assemblyVersionValidation: 1

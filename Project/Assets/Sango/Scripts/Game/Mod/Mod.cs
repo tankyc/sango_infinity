@@ -1,4 +1,4 @@
-using HybridCLR;
+//using HybridCLR;
 
 using Sango.Core;
 using System;
@@ -95,33 +95,33 @@ namespace Sango.Mod
 
         public void LoadAssembly()
         {
-            string path = GetFullPath("Metadata");
-            HomologousImageMode mode = HomologousImageMode.SuperSet;
-            Directory.EnumFiles(path, "*.dll", SearchOption.AllDirectories, (file) =>
-            {
-#if SANGO_DEBUG
-                Sango.Log.Info($"LoadMetadataAssembly: {file}");
-#endif
-                byte[] dllBytes = File.ReadAllBytes(file);
-                // 加载assembly对应的dll，会自动为它hook。一旦aot泛型函数的native函数不存在，用解释器版本代码
-                LoadImageErrorCode err = RuntimeApi.LoadMetadataForAOTAssembly(dllBytes, mode);
-#if SANGO_DEBUG
-                Sango.Log.Info($"LoadMetadataForAOTAssembly:{file}. mode:{mode} ret:{err}");
-#endif
-            });
+//            string path = GetFullPath("Metadata");
+//            HomologousImageMode mode = HomologousImageMode.SuperSet;
+//            Directory.EnumFiles(path, "*.dll", SearchOption.AllDirectories, (file) =>
+//            {
+//#if SANGO_DEBUG
+//                Sango.Log.Info($"LoadMetadataAssembly: {file}");
+//#endif
+//                byte[] dllBytes = File.ReadAllBytes(file);
+//                // 加载assembly对应的dll，会自动为它hook。一旦aot泛型函数的native函数不存在，用解释器版本代码
+//                LoadImageErrorCode err = RuntimeApi.LoadMetadataForAOTAssembly(dllBytes, mode);
+//#if SANGO_DEBUG
+//                Sango.Log.Info($"LoadMetadataForAOTAssembly:{file}. mode:{mode} ret:{err}");
+//#endif
+//            });
 
-            path = GetFullPath($"{EntryAssembly}.dll");
-            if (File.Exists(path))
-            {
-#if !UNITY_EDITOR
-                Assembly = Assembly.Load(File.ReadAllBytes(path));
-#else
-                Assembly = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == EntryAssembly);
-#endif
-                // 执行入口函数
-                Type entryType = Assembly.GetType("Entry");
-                entryType.GetMethod("Start").Invoke(null, null);
-            }
+//            path = GetFullPath($"{EntryAssembly}.dll");
+//            if (File.Exists(path))
+//            {
+//#if !UNITY_EDITOR
+//                Assembly = Assembly.Load(File.ReadAllBytes(path));
+//#else
+//                Assembly = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == EntryAssembly);
+//#endif
+//                // 执行入口函数
+//                Type entryType = Assembly.GetType("Entry");
+//                entryType.GetMethod("Start").Invoke(null, null);
+//            }
         }
 
         public void LoadUI()
