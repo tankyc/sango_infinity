@@ -969,6 +969,7 @@ namespace Sango.UI
             if (headIconImage != null)
             {
                 headIconImage.texture = headId > 0 ? GameRenderHelper.LoadHeadIcon(headId, 2) : null;
+                headIconImage.enabled = true;
             }
         }
 

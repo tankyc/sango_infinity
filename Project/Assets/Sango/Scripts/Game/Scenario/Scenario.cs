@@ -808,6 +808,16 @@ namespace Sango.Core
                 Add(file);
                 ShortScenario.Add(file);
             });
+
+            path = $"{Path.CustomEditRootPath}/Scenario";
+            Directory.EnumFiles(path, "*.json", SearchOption.AllDirectories, (file) =>
+            {
+                Sango.Log.Info($"Find Scenario: {file}");
+                Add(file);
+                ShortScenario s = ShortScenario.Add(file);
+                s.ModName = "<color=#22ff22>自定义</color>";
+                s.Info.type = 2;
+            });
         }
 
         public static void OnModInitEnd()

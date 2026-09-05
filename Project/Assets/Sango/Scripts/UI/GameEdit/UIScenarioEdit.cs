@@ -1,5 +1,6 @@
 using Sango.Core;
 using Sango.Core.Player;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -368,6 +369,7 @@ namespace Sango.UI
         {
             if (newButton != null) newButton.onClick.AddListener(OnNewClick);
             if (loadButton != null) loadButton.onClick.AddListener(OnLoadClick);
+
             if (saveButton != null) saveButton.onClick.AddListener(OnSaveClick);
 
             if (infoTabButton != null) infoTabButton.onValueChanged.AddListener((on) => { if (on) SetTab(0); });
@@ -976,33 +978,6 @@ namespace Sango.UI
         /// </summary>
         private void OnNewClick()
         {
-            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
-                "确定要新建空白剧本吗?\n当前未保存的修改将丢失。",
-                () =>
-                {
-                    ScenarioEdit edit = GameSystem.GetSystem<ScenarioEdit>();
-                    if (edit != null)
-                    {
-                        edit.NewScenario();
-                        selectedPerson = null;
-                        selectedForce = null;
-                        selectedCorps = null;
-                        selectedCity = null;
-                        selectedPersons.Clear();
-                        selectedForces.Clear();
-                        selectedCorpsList.Clear();
-                        selectedCities.Clear();
-                        RefreshAll();
-                    }
-                },
-                (System.Action)null);
-        }
-
-        /// <summary>
-        /// 加载剧本按钮 - 打开剧本选择界面(UIScenarioSelect)选择要加载的剧本
-        /// </summary>
-        private void OnLoadClick()
-        {
             ScenarioEdit edit = GameSystem.GetSystem<ScenarioEdit>();
             if (edit == null)
             {
@@ -1023,6 +998,32 @@ namespace Sango.UI
         }
 
         /// <summary>
+        /// 加载剧本按钮 - 打开剧本选择界面(UIScenarioSelect)选择要加载的剧本
+        /// </summary>
+        private void OnLoadClick()
+        {
+            ScenarioEdit edit = GameSystem.GetSystem<ScenarioEdit>();
+            if (edit == null)
+            {
+                return;
+            }
+
+            List<ShortScenario> show_scenario_list = ShortScenario.all_scenario_info_list.FindAll(x => x.Info.type == 2);
+
+            // 打开剧本选择界面,设置返回与确认回调
+            UIScenarioSelect select = Window.Instance.Open<UIScenarioSelect>("window_scenario_select", show_scenario_list, 2);
+            if (select == null)
+            {
+                Log.Warning("剧本选择界面打开失败");
+                return;
+            }
+            select.OnReturnAction = OnLoadSelectReturn;
+            select.OnNextAction = OnLoadSelectNext2;
+            // 隐藏主窗口,避免与全屏选择界面叠加
+            Window.Instance.SetVisible("window_scenario_edit", false);
+        }
+
+        /// <summary>
         /// 剧本选择界面返回 - 恢复剧本编辑器主窗口
         /// </summary>
         private void OnLoadSelectReturn()
@@ -1035,6 +1036,34 @@ namespace Sango.UI
         /// </summary>
         /// <param name="scenario">选择的剧本</param>
         private void OnLoadSelectNext(ShortScenario scenario)
+        {
+            ScenarioEdit edit = GameSystem.GetSystem<ScenarioEdit>();
+            if (edit == null || scenario == null || string.IsNullOrEmpty(scenario.FilePath))
+            {
+                Log.Warning("加载剧本失败:选择的剧本数据无效");
+                Window.Instance.SetVisible("window_scenario_edit", true);
+                return;
+            }
+
+            edit.LoadScenario(scenario.FilePath, true);
+            selectedPerson = null;
+            selectedForce = null;
+            selectedCorps = null;
+            selectedCity = null;
+            selectedPersons.Clear();
+            selectedForces.Clear();
+            selectedCorpsList.Clear();
+            selectedCities.Clear();
+            OnScenarioLoaded();
+            // 恢复剧本编辑器主窗口(选择界面由UIScenarioSelect自行关闭)
+            Window.Instance.SetVisible("window_scenario_edit", true);
+        }
+
+        /// <summary>
+        /// 剧本选择界面确认 - 将选择的剧本(ShortScenario)转换成Scenario并加载到编辑器
+        /// </summary>
+        /// <param name="scenario">选择的剧本</param>
+        private void OnLoadSelectNext2(ShortScenario scenario)
         {
             ScenarioEdit edit = GameSystem.GetSystem<ScenarioEdit>();
             if (edit == null || scenario == null || string.IsNullOrEmpty(scenario.FilePath))
@@ -1069,12 +1098,8 @@ namespace Sango.UI
                 Log.Warning("当前没有可保存的剧本");
                 return;
             }
-            string path = WindowDialog.SaveFileDialog("保存剧本", edit.Scenario.Info.name + ".json", "剧本文件(*.json)|*.json");
-            if (string.IsNullOrEmpty(path))
-            {
-                return;
-            }
-            edit.SaveScenario(path);
+
+            edit.SaveScenario();
             RefreshScenarioName();
         }
         #endregion

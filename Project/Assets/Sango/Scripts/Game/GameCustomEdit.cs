@@ -126,7 +126,7 @@ namespace Sango.Core
             // Mod武将库 10001 - 20000 预留10000个
             ModScenarioAddon = new ScenarioAddon();
             ModScenarioAddon.PersonLibrary.offset = 10000;
-            ModManager.Instance.EnumFiles("Data/CustomEdit/CustomPerson.json", (mod, file) =>
+            ModManager.Instance.EnumFiles("Data/CustomPerson.json", (mod, file) =>
             {
                 int count = ModScenarioAddon.PersonLibrary.Count;
                 ModScenarioAddon.Load(mod, count - 10000, file);
@@ -162,7 +162,7 @@ namespace Sango.Core
             // 自建武将ID 20001起步
             SelfScenarioAddon = new ScenarioAddon();
             SelfScenarioAddon.PersonLibrary.offset = 20000;
-            SelfScenarioAddon.Load(Path.SaveRootPath + "/CustomEdit/CustomPerson.json");
+            SelfScenarioAddon.Load(Path.CustomEditRootPath + "/Data/CustomPerson.json");
             SelfScenarioAddon.PersonLibrary.ForEach(x =>
             {
                 if (x.Id <= 20000)
@@ -234,7 +234,7 @@ namespace Sango.Core
         public void SaveScenarioAddon()
         {
             if (SelfScenarioAddon == null) return;
-            string path = Sango.Path.SaveRootPath + "/CustomEdit/CustomPerson.json";
+            string path = Sango.Path.CustomEditRootPath + "/Data/CustomPerson.json";
             string dir = System.IO.Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
                 System.IO.Directory.CreateDirectory(dir);

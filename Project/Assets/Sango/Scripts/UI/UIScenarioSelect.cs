@@ -26,11 +26,13 @@ namespace Sango.UI
         public RectTransform mapBounds;
         List<GameObject> cityList = new List<GameObject>();
 
+        List<ShortScenario> all_scenario_list;
         List<ShortScenario> show_scenario_list = new List<ShortScenario>();
         CreatePool<UIScenarioItem> CreatePool;
 
         public GameObject sureButton;
         public Toggle firstToggle;
+        public Toggle customToggle;
         public Action OnReturnAction;
         public Action<ShortScenario> OnNextAction;
 
@@ -42,11 +44,23 @@ namespace Sango.UI
 
         public override void OnOpen()
         {
+            all_scenario_list = ShortScenario.all_scenario_info_list;
             firstToggle?.SetIsOnWithoutNotify(true);
+            customToggle?.SetIsOnWithoutNotify(false);
             ShowScenarioByType(0);
+        }
 
-
-
+        public override void OnOpen(params object[] objects)
+        {
+            all_scenario_list = objects[0] as List<ShortScenario>;
+            int showType = 0;
+            if(objects.Length > 1)
+            {
+                showType = (int)objects[1];
+            }
+            firstToggle?.SetIsOnWithoutNotify(false); 
+            customToggle?.SetIsOnWithoutNotify(true);
+            ShowScenarioByType(showType);
         }
 
         public void Clear()
@@ -61,7 +75,7 @@ namespace Sango.UI
                 if (curSelectIndex >= 0 && curSelectIndex < selectedItems.Count)
                     selectedItems[curSelectIndex].SetSelected(false);
             }
-            if(index < selectedItems.Count)
+            if (index < selectedItems.Count)
                 selectedItems[index].SetSelected(true);
             ShowScenario(index);
         }
@@ -144,7 +158,7 @@ namespace Sango.UI
         {
             GameMedia.Instance.PlayCancelSfx();
             Clear();
-            if(OnReturnAction != null)
+            if (OnReturnAction != null)
             {
                 OnReturnAction.Invoke();
                 OnReturnAction = null;
@@ -160,14 +174,12 @@ namespace Sango.UI
         {
             show_scenario_list.Clear();
 
-            for (int i = 0; i < ShortScenario.all_scenario_info_list.Count; i++)
+            for (int i = 0; i < all_scenario_list.Count; i++)
             {
-                ShortScenario shortScenario = ShortScenario.all_scenario_info_list[i];
+                ShortScenario shortScenario = all_scenario_list[i];
                 if (type == shortScenario.Info.type)
                     show_scenario_list.Add(shortScenario);
             }
-
-
 
             infoText.enabled = show_scenario_list.Count == 1;
             curSelectIndex = -1;
@@ -224,6 +236,14 @@ namespace Sango.UI
             }
         }
 
+        public void OnToggleScenarioTypeCustom(bool index)
+        {
+            if (index)
+            {
+                ShowScenarioByType(2);
+            }
+        }
+
         public void OnNext()
         {
             if (curSelectIndex == -1) return;
@@ -251,7 +271,7 @@ namespace Sango.UI
                 }
             }
 
-            
+
             Window.Instance.Close("window_scenario_select");
         }
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN

@@ -142,7 +142,7 @@ namespace Sango.Core
         /// 从文件加载剧本
         /// </summary>
         /// <param name="path">剧本文件路径</param>
-        public void LoadScenario(string path)
+        public void LoadScenario(string path, bool isNew = false)
         {
             if (string.IsNullOrEmpty(path))
             {
@@ -158,6 +158,8 @@ namespace Sango.Core
             Scenario.CommonData = GameData.Instance.ScenarioCommonData;
             Scenario.LoadContent();
             Scenario.Prepare();
+            if (isNew)
+                Scenario.FilePath = "xx";
             Log.Info("剧本加载完成:" + Scenario.Info.name);
         }
 
@@ -181,6 +183,38 @@ namespace Sango.Core
             Scenario.Info.dateTime = DateTime.Now.ToFileTime();
             Scenario.Export(path);
             Log.Info("剧本已保存:" + System.IO.Path.GetFileName(path));
+        }
+
+        public void SaveScenario()
+        {
+            string fileName = System.IO.Path.GetFileName(Scenario.FilePath);
+            string saveFile = $"{Path.CustomEditRootPath}/Scenario/{fileName}";
+            if(File.Exists(saveFile))
+            {
+                SaveScenario(saveFile);
+                return;
+            }
+
+            int id = 1;
+            while (true)
+            {
+                saveFile = $"{Path.CustomEditRootPath}/Scenario/Scenario{id}.json";
+                if (File.Exists(saveFile))
+                {
+                    id++;
+                    continue;
+                }
+
+                try
+                {
+                    SaveScenario(saveFile);
+                }
+                catch (Exception e)
+                {
+                    Sango.Log.Error(e + e.StackTrace);
+                }
+                break;
+            }
         }
 
         /// <summary>

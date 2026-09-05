@@ -133,7 +133,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -1.300003}
+  m_AnchoredPosition: {x: 0, y: -1.3000183}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6698448545182949938
@@ -741,10 +741,10 @@ RectTransform:
   m_Father: {fileID: 2431844784130057326}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -225.54999, y: 198.60107}
-  m_SizeDelta: {x: 451.1, y: 125.1599}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 0, y: 0.5}
+  m_AnchoredPosition: {x: 421, y: 160.47278}
+  m_SizeDelta: {x: 582.7362, y: 178.477}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &3422795678248565447
 MonoBehaviour:
@@ -2702,7 +2702,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -1.300003}
+  m_AnchoredPosition: {x: 0, y: -1.3000183}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8227438189169446753
@@ -3767,7 +3767,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -1.300003}
+  m_AnchoredPosition: {x: 0, y: -1.3000183}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1753238053524510061
@@ -6439,6 +6439,10 @@ PrefabInstance:
       value: "\u662F\u7684\u554A\u6253\u963F\u8FBE\u6492\u554A\u554A"
       objectReference: {fileID: 0}
     - target: {fileID: 1898856993935778433, guid: 478fc5b426190c1499542c7dea057f32, type: 3}
+      propertyPath: m_LineType
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1898856993935778433, guid: 478fc5b426190c1499542c7dea057f32, type: 3}
       propertyPath: m_ContentType
       value: 0
       objectReference: {fileID: 0}
@@ -6548,6 +6552,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5598128849493018831, guid: 478fc5b426190c1499542c7dea057f32, type: 3}
       propertyPath: m_FontData.m_Alignment
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5598128849493018831, guid: 478fc5b426190c1499542c7dea057f32, type: 3}
+      propertyPath: m_FontData.m_HorizontalOverflow
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6610522806489205808, guid: 478fc5b426190c1499542c7dea057f32, type: 3}
