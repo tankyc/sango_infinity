@@ -154,7 +154,7 @@ namespace Sango.Core
             name = "编号",
             width = 2.5f,
             valueStrGetCall = x => x.Id.ToString(),
-            valueSortFunc = (a, b) => a.Name.CompareTo(b.Id),
+            valueSortFunc = (a, b) => a.Id.CompareTo(b.Id),
             valueObjGet = x => x.Id,
             valueObjSet = (x, v) => x.Id = (int)v,
         };
@@ -162,13 +162,10 @@ namespace Sango.Core
         public static SortTitle SortByName = new SortTitle()
         {
             name = "名字",
-            width = 4.00f,
-            valueStrGetCall = x => x.mBelongForce.Name,
-            valueSortFunc = (a, b) => a.mBelongForce.Name.CompareTo(b.mBelongForce.Name),
-            valueObjGet = x => x.mBelongForce,
-            valueObjSet = (x, v) => x.mBelongForce = (Force)v,
-            editType = DataEditType.IntDropdown,
-            dataSetType = DataSetType.Force,
+            width = 7.00f,
+            valueStrGetCall = x => x.ForceNumberName,
+            valueSortFunc = (a, b) => a.ForceNumberName.CompareTo(b.ForceNumberName),
+            valueObjGet = x => x.ForceNumberName,
         };
 
         /// <summary>

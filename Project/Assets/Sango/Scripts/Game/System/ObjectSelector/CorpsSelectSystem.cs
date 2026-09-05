@@ -4,8 +4,16 @@ using System.Collections.Generic;
 namespace Sango.Core.Player
 {
     [GameSystem]
-    public class CorpsSelectSystem : ObjectSelectSystem
+    public class CorpsSelectSystem : ObjectSelectSystem, IObjectSelectSystem<Corps>
     {
+        /// <summary>
+        /// 通用对象选择接口实现 - 供UIDataEdit按数据集类型统一调用
+        /// </summary>
+        void IObjectSelectSystem<Corps>.Start(List<Corps> candidates, List<Corps> resultList, int limit, Action<List<Corps>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
+        {
+            Start(candidates, resultList, limit, action, customSortTitles, cutomSortTitleName);
+        }
+
         protected Action<List<Corps>> finishAction;
         public List<ButtonData> selectButtons;
         public string defualtTitleName = "势力";

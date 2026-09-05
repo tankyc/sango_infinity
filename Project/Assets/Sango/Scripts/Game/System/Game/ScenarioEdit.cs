@@ -56,7 +56,7 @@ namespace Sango.Core
         /// <param name="whoGone">返回的命令</param>
         public override void OnBack(ICommandEvent whoGone)
         {
-            Window.Instance.SetVisible(windowName, true);
+            //Window.Instance.SetVisible(windowName, true);
         }
 
         /// <summary>
@@ -64,7 +64,7 @@ namespace Sango.Core
         /// </summary>
         public override void OnExit()
         {
-            Window.Instance.SetVisible(windowName, false);
+            //Window.Instance.SetVisible(windowName, false);
         }
 
         /// <summary>

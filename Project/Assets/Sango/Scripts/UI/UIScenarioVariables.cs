@@ -94,8 +94,16 @@ namespace Sango.UI
                 variables.goldFactor = lvlFactor[v];
                 variables.playerFoodFactor = player_lvlFactor[v];
                 variables.playerGoldFactor = player_lvlFactor[v];
+                ApplyAIDifficultyBonus(variables, v);
                 RefreshSetting();
             });
+
+            AddTitle("AI每回合加成");
+            AddNumberItem("AI每回合加钱", variables.aiTurnAddGold, 0, 10000, (v) => { variables.aiTurnAddGold = v; });
+            AddNumberItem("AI每回合加粮", variables.aiTurnAddFood, 0, 100000, (v) => { variables.aiTurnAddFood = v; });
+            AddNumberItem("AI每回合加士兵", variables.aiTurnAddTroops, 0, 100000, (v) => { variables.aiTurnAddTroops = v; });
+            AddNumberItem("AI每回合加兵装", variables.aiTurnAddArms, 0, 100000, (v) => { variables.aiTurnAddArms = v; });
+
             AddTitle("剧本基础参数");
             AddNumberItem("电脑粮食倍率", variables.foodFactor, 0, 100, (v) => { variables.foodFactor = v; });
             AddNumberItem("电脑资金倍率", variables.goldFactor, 0, 100, (v) => { variables.goldFactor = v; });
@@ -354,6 +362,37 @@ namespace Sango.UI
             GameEvent.OnScenarioVariablesSetting?.Invoke(this, scenario);
         }
 
+
+
+
+
+        /// <summary>
+        /// 根据难度预设AI每回合加成。
+        /// </summary>
+        void ApplyAIDifficultyBonus(ScenarioVariables variables, int difficulty)
+        {
+            switch (difficulty)
+            {
+                case 2: // 困难
+                    variables.aiTurnAddGold = 200;
+                    variables.aiTurnAddFood = 2000;
+                    variables.aiTurnAddTroops = 500;
+                    variables.aiTurnAddArms = 300;
+                    break;
+                case 3: // 超级
+                    variables.aiTurnAddGold = 500;
+                    variables.aiTurnAddFood = 5000;
+                    variables.aiTurnAddTroops = 1000;
+                    variables.aiTurnAddArms = 800;
+                    break;
+                default:
+                    variables.aiTurnAddGold = 0;
+                    variables.aiTurnAddFood = 0;
+                    variables.aiTurnAddTroops = 0;
+                    variables.aiTurnAddArms = 0;
+                    break;
+            }
+        }
 
         public virtual void RefreshSetting()
         {

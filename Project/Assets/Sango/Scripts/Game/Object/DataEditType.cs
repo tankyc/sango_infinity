@@ -38,6 +38,36 @@ namespace Sango.Core
         /// <summary>特技列表编辑（调用特技选择器多选特技并整体写回）</summary>
         FeatureList = 9,
 
+        /// <summary>多行文本修改（多行InputField，用于长文本描述）</summary>
+        TextArea = 10,
+
+        /// <summary>布尔修改（下拉：是/否，当前值为空时额外提供“无”）</summary>
+        BoolDropdown = 11,
+
+        /// <summary>float类型，使用文本输入（支持小数）</summary>
+        FloatInput = 12,
+
+        /// <summary>float类型，使用计算器输入（与FloatInput共用输入控件，按整数计算器放大100倍输入）</summary>
+        FloatCalculator = 13,
+
+        /// <summary>颜色修改（RGBA分别输入并实时预览，兼容Color与Color32）</summary>
+        ColorPicker = 14,
+
+        /// <summary>对象列表修改（多选对象，通过对应数据集的对象选择器选择，整体写回）</summary>
+        ObjectList = 15,
+
+        /// <summary>Id集合数组修改（多选对象，写回对象的Id数组int[]）</summary>
+        IdArray = 16,
+
+        /// <summary>数值数组修改（int[]/float[]，以逗号或换行分隔编辑）</summary>
+        ArrayEdit = 17,
+
+        /// <summary>Json配置修改（多行富文本，按原类型解析回JArray/JObject）</summary>
+        JsonEdit = 18,
+
+        /// <summary>对象Id下拉（下拉选择对象，写回该对象的Id，用于外键字段）</summary>
+        IdDropdown = 19,
+
     }
 
     /// <summary>
@@ -92,7 +122,43 @@ namespace Sango.Core
         Title = 14,
 
         /// <summary>科技集合（Scenario.CommonData.Techniques）</summary>
-        Technique = 15
+        Technique = 15,
+
+        /// <summary>地形类型集合（Scenario.CommonData.TerrainTypes）</summary>
+        TerrainType = 16,
+
+        /// <summary>建筑类型集合（Scenario.CommonData.BuildingTypes）</summary>
+        BuildingType = 17,
+
+        /// <summary>兵种类型集合（Scenario.CommonData.TroopTypes）</summary>
+        TroopType = 18,
+
+        /// <summary>道具类型集合（Scenario.CommonData.ItemTypes）</summary>
+        ItemType = 19,
+
+        /// <summary>兵种动画集合（Scenario.CommonData.TroopAnimations）</summary>
+        TroopAnimation = 20,
+
+        /// <summary>城市等级集合（Scenario.CommonData.CityLevelTypes）</summary>
+        CityLevelType = 21,
+
+        /// <summary>区域集合（Scenario.CommonData.Regions）</summary>
+        Region = 22,
+
+        /// <summary>技能集合（Scenario.CommonData.Skills）</summary>
+        Skill = 23,
+
+        /// <summary>状态集合（Scenario.CommonData.Buffs）</summary>
+        Buff = 24,
+
+        /// <summary>工作类型集合（Scenario.CommonData.JobTypes）</summary>
+        JobType = 25,
+
+        /// <summary>武将等级集合（Scenario.CommonData.PersonLevels）</summary>
+        PersonLevel = 26,
+
+        /// <summary>武将属性类型集合（Scenario.CommonData.PersonAttributeTypes）</summary>
+        PersonAttributeType = 27,
 
     }
 
@@ -166,5 +232,25 @@ namespace Sango.Core
             new DataEditOption("吕布", 6),
             new DataEditOption("诸葛亮", 7),
         };
+
+        /// <summary>
+        /// 由枚举类型生成下拉选项（显示枚举项名称，值为枚举的int值）
+        /// 用于IntDropdown/EnumDropdown为枚举码字段快速构建候选
+        /// </summary>
+        /// <typeparam name="TEnum">枚举类型</typeparam>
+        /// <param name="nameGetter">名称转换委托，为空时直接使用枚举项名称</param>
+        /// <returns>下拉选项列表</returns>
+        public static List<DataEditOption> FromEnum<TEnum>(System.Func<TEnum, string> nameGetter = null) where TEnum : struct, System.Enum
+        {
+            List<DataEditOption> result = new List<DataEditOption>();
+            System.Array values = System.Enum.GetValues(typeof(TEnum));
+            for (int i = 0; i < values.Length; i++)
+            {
+                TEnum value = (TEnum)values.GetValue(i);
+                string label = nameGetter != null ? nameGetter(value) : value.ToString();
+                result.Add(new DataEditOption(label, System.Convert.ToInt32(value)));
+            }
+            return result;
+        }
     }
 }

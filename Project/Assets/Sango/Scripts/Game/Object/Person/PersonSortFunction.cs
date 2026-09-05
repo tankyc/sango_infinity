@@ -353,7 +353,7 @@ namespace Sango.Core
             name = "编号",
             width = 2.5f,
             valueStrGetCall = x => x.Id.ToString(),
-            valueSortFunc = (a, b) => a.Name.CompareTo(b.Id),
+            valueSortFunc = (a, b) => a.Id.CompareTo(b.Id),
             valueObjGet = x => x.Id,
             valueObjSet = (x, v) => x.Id = (int)v,
         };
@@ -1018,19 +1018,19 @@ namespace Sango.Core
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
             valueObjGet = x => x.mBelongForce,
             valueObjSet = (x, v) => x.mBelongForce = (Force)v,
-            editType = DataEditType.IntDropdown,
+            editType = DataEditType.Object,
             dataSetType = DataSetType.Force,
         };
 
         public static SortTitle SortByBelongCorps = new SortTitle()
         {
             name = "军团",
-            width = 3.40f,
-            valueStrGetCall = x => x.mBelongCorps?.Name ?? "",
+            width = 6.40f,
+            valueStrGetCall = x => x.mBelongCorps?.ForceNumberName ?? "",
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCorps, b.mBelongCorps),
             valueObjGet = x => x.mBelongCorps,
             valueObjSet = (x, v) => x.mBelongCorps = (Corps)v,
-            editType = DataEditType.IntDropdown,
+            editType = DataEditType.Object,
             dataSetType = DataSetType.Corps,
         };
 
@@ -1054,7 +1054,7 @@ namespace Sango.Core
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCity, b.mBelongCity),
             valueObjGet = x => x.mBelongCity,
             valueObjSet = (x, v) => x.mBelongCity = (City)v,
-            editType = DataEditType.CitySelect,
+            editType = DataEditType.Object,
             dataSetType = DataSetType.City,
         };
 
@@ -1643,7 +1643,8 @@ namespace Sango.Core
                 return aStr.CompareTo(bStr);
             },
             valueObjGet = x => x == null ? null : x.image,
-            valueObjSet = null,
+            valueObjSet = (x, v) => x.image = (string)v,
+            editType = DataEditType.Text,
         };
 
         /// <summary>
@@ -1662,7 +1663,8 @@ namespace Sango.Core
                 return aStr.CompareTo(bStr);
             },
             valueObjGet = x => x == null ? null : x.image_old,
-            valueObjSet = null,
+            valueObjSet = (x, v) => x.image_old = (string)v,
+            editType = DataEditType.Text,
         };
 
         /// <summary>

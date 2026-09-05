@@ -75,6 +75,14 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 军团名称
+        /// </summary>
+        public string ForceNumberName
+        {
+            get { return $"{mBelongForce?.ColorName}第{numberTxt[number]}军团"; }
+        }
+
+        /// <summary>
         /// 带颜色的军团名称
         /// </summary>
         public string ColorName { get { return $"<color=#7CCADB>第{numberTxt[number]}军团</color>"; } }

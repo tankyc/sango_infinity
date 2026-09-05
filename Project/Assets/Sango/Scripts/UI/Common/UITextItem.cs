@@ -8,8 +8,8 @@ using Sango.Core; namespace Sango.UI
     {
         public Text label;
         public Image image;
-        ObjectSortTitle objectSortTitle;
-        SangoObject obj;
+        public ObjectSortTitle objectSortTitle;
+        public SangoObject obj;
         public UITextItem SetWidth(float width)
         {
             RectTransform rectTransform = GetComponent<RectTransform>();
@@ -36,21 +36,6 @@ using Sango.Core; namespace Sango.UI
         public void SetObject(SangoObject sanObj)
         {
             this.obj = sanObj;
-        }
-        public void OnClickForEdit()
-        {
-            if(obj != null)
-            {
-                //Sango.Log.Error(objectSortTitle.GetValueStr(obj));
-                UIDataEdit.Show(obj, objectSortTitle, Scenario.Cur, () =>
-                {
-                    SetText(objectSortTitle.GetValueStr(obj));
-                });
-            }
-            else
-            {
-                Sango.Log.Error(objectSortTitle.name);
-            }
         }
 
         public UITextItem SetText(string lab)

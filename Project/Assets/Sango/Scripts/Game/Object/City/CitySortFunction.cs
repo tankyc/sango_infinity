@@ -159,7 +159,7 @@ namespace Sango.Core
             name = "编号",
             width = 2.5f,
             valueStrGetCall = x => x.Id.ToString(),
-            valueSortFunc = (a, b) => a.Name.CompareTo(b.Id),
+            valueSortFunc = (a, b) => a.Id.CompareTo(b.Id),
             valueObjGet = x => x.Id,
             valueObjSet = (x, v) => x.Id = (int)v,
         };

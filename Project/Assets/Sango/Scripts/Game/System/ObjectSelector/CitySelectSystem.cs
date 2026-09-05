@@ -4,8 +4,16 @@ using System.Collections.Generic;
 namespace Sango.Core.Player
 {
     [GameSystem]
-    public class CitySelectSystem : ObjectSelectSystem
+    public class CitySelectSystem : ObjectSelectSystem, IObjectSelectSystem<City>
     {
+        /// <summary>
+        /// 通用对象选择接口实现 - 供UIDataEdit按数据集类型统一调用
+        /// </summary>
+        void IObjectSelectSystem<City>.Start(List<City> candidates, List<City> resultList, int limit, Action<List<City>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
+        {
+            Start(candidates, resultList, limit, action, customSortTitles, cutomSortTitleName);
+        }
+
         protected Action<List<City>> finishAction;
         public List<ButtonData> selectButtons;
         public string defualtTitleName = "城市";

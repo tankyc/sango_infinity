@@ -25,7 +25,9 @@ namespace Sango
 
             public void SetVisible(bool b)
             {
-                ugui_instance?.gameObject.SetActive(b);
+                if (ugui_instance == null) return;
+                if (ugui_instance.gameObject.activeSelf != b)
+                    ugui_instance.gameObject.SetActive(b);
             }
 
             public bool IsVisible()

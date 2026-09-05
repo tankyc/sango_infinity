@@ -5,8 +5,16 @@ using static Sango.Core.PersonSortFunction;
 namespace Sango.Core.Player
 {
     [GameSystem]
-    public class PersonSelectSystem : ObjectSelectSystem
+    public class PersonSelectSystem : ObjectSelectSystem, IObjectSelectSystem<Person>
     {
+        /// <summary>
+        /// 通用对象选择接口实现 - 供UIDataEdit按数据集类型统一调用
+        /// </summary>
+        void IObjectSelectSystem<Person>.Start(List<Person> candidates, List<Person> resultList, int limit, Action<List<Person>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
+        {
+            Start(candidates, resultList, limit, action, customSortTitles, cutomSortTitleName);
+        }
+
         Action<List<Person>> finishAction;
         public List<ButtonData> selectButtons;
 
