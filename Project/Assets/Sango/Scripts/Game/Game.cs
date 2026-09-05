@@ -165,6 +165,7 @@ namespace Sango.Core
         public void EnterMapEditor()
         {
             Window.Instance.Close("window_start");
+            Window.Instance.Close("window_start_project");
             GameObject map = new GameObject("map");
             MapEditor mapEditor = map.AddComponent<MapEditor>();
         }

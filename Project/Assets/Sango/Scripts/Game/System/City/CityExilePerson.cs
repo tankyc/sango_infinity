@@ -62,7 +62,7 @@ namespace Sango.Core.Player
         public override void OnEnter()
         {
             personList.Clear();
-            targetList.Sort((a, b) => -PersonSortFunction.SortByIntelligence.personSortFunc.Invoke(a, b));
+            targetList.Sort((a, b) => -PersonSortFunction.SortByIntelligence.valueSortFunc.Invoke(a, b));
             PersonSelectSystem personSelectSystem = GameSystem.GetSystem<PersonSelectSystem>();
             personSelectSystem.Start(
                 targetList,

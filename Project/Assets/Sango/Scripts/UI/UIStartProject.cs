@@ -31,5 +31,16 @@ namespace Sango.UI
         {
             
         }
+        public void OnMapEditor()
+        {
+            GameMedia.Instance.PlayButtonSfx();
+            Game.Instance.EnterMapEditor();
+        }
+
+        public void OnScenarioEditor()
+        {
+            GameMedia.Instance.PlayButtonSfx();
+            ScenarioEdit.GetSystem<ScenarioEdit>().Push();
+        }
     }
 }

@@ -90,6 +90,11 @@ namespace Sango.Core
                     valueSortFunc = valueSortFunc,
                     valueObjGet = valueObjGet,
                     valueObjSet = valueObjSet,
+                    editType = editType,
+                    dataSetType = dataSetType,
+                    minValue = minValue,
+                    maxValue = maxValue,
+                    customData = customData,
                 };
             }
         }
@@ -149,8 +154,15 @@ namespace Sango.Core
             return "";
         }
 
-       
-
+        public static SortTitle SortById = new SortTitle()
+        {
+            name = "编号",
+            width = 2.5f,
+            valueStrGetCall = x => x.Id.ToString(),
+            valueSortFunc = (a, b) => a.Name.CompareTo(b.Id),
+            valueObjGet = x => x.Id,
+            valueObjSet = (x, v) => x.Id = (int)v,
+        };
 
         public static SortTitle SortByName = new SortTitle()
         {
@@ -160,6 +172,7 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.Name.CompareTo(b.Name),
             valueObjGet = x => x.Name,
             valueObjSet = (x, v) => x.Name = (string)v,
+            editType = DataEditType.Text,
         };
 
         public static SortTitle SortByLeader = new SortTitle()
@@ -182,6 +195,38 @@ namespace Sango.Core
             valueObjSet = null,
         };
 
+        /// <summary>
+        /// 人口排序标题（显示并修改城池人口基础字段population）
+        /// 人口上限受PopulationLimit(人口上限基础值+等级*每级人口上限)限制,此处仅编辑当前人口值
+        /// </summary>
+        public static SortTitle SortByPopulation = new SortTitle()
+        {
+            name = "人口",
+            width = 4.00f,
+            valueStrGetCall = x => x.population.ToString(),
+            valueSortFunc = (a, b) => a.population.CompareTo(b.population),
+            valueObjGet = x => x.population,
+            valueObjSet = (x, v) => x.population = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+        };
+
+        /// <summary>
+        /// 兵役人口排序标题（显示并修改城池兵役人口基础字段troopPopulation）
+        /// 兵役人口不超过MaxTroopPopulation(人口*最大兵役人口比例),此处仅编辑当前值
+        /// </summary>
+        public static SortTitle SortByTroopPopulation = new SortTitle()
+        {
+            name = "兵役人口",
+            width = 4.00f,
+            valueStrGetCall = x => x.troopPopulation.ToString(),
+            valueSortFunc = (a, b) => a.troopPopulation.CompareTo(b.troopPopulation),
+            valueObjGet = x => x.troopPopulation,
+            valueObjSet = (x, v) => x.troopPopulation = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+        };
+
         public static SortTitle SortByTroops = new SortTitle()
         {
             name = "士兵",
@@ -190,6 +235,20 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.troops.CompareTo(b.troops),
             valueObjGet = x => x.troops,
             valueObjSet = (x, v) => x.troops = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+        };
+
+        public static SortTitle SortByBaseTroopsLimit = new SortTitle()
+        {
+            name = "士兵上限",
+            width = 4.00f,
+            valueStrGetCall = x => x.troopsLimit.ToString(),
+            valueSortFunc = (a, b) => a.troopsLimit.CompareTo(b.troopsLimit),
+            valueObjGet = x => x.troopsLimit,
+            valueObjSet = (x, v) => x.troopsLimit = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 10000,
         };
 
         public static SortTitle SortByTroopsLimit = new SortTitle()
@@ -210,6 +269,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.gold.CompareTo(b.gold),
             valueObjGet = x => x.gold,
             valueObjSet = (x, v) => x.gold = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByGoldLimit = new SortTitle()
@@ -222,6 +283,23 @@ namespace Sango.Core
             valueObjSet = null,
         };
 
+        /// <summary>
+        /// 资金上限基础值排序标题（显示并修改金库大小的基础字段goldLimit）
+        /// GoldLimit为只读计算属性(基础值+等级加成+额外加成)，无法直接写入，
+        /// 需要修改基础值时使用本列，写入后持久化字段goldLimit同步生效
+        /// </summary>
+        public static SortTitle SortByBaseGoldLimit = new SortTitle()
+        {
+            name = "资金上限",
+            width = 4.00f,
+            valueStrGetCall = x => x.goldLimit.ToString(),
+            valueSortFunc = (a, b) => a.goldLimit.CompareTo(b.goldLimit),
+            valueObjGet = x => x.goldLimit,
+            valueObjSet = (x, v) => x.goldLimit = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+        };
+
         public static SortTitle SortByFood = new SortTitle()
         {
             name = "兵粮",
@@ -230,6 +308,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.food.CompareTo(b.food),
             valueObjGet = x => x.food,
             valueObjSet = (x, v) => x.food = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByFoodLimit = new SortTitle()
@@ -240,6 +320,54 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.FoodLimit.CompareTo(b.FoodLimit),
             valueObjGet = x => x.FoodLimit,
             valueObjSet = null,
+        };
+
+        /// <summary>
+        /// 兵粮上限基础值排序标题（显示并修改粮仓大小的基础字段foodLimit）
+        /// FoodLimit为只读计算属性(基础值+等级加成+额外加成)，无法直接写入，
+        /// 需要修改基础值时使用本列，写入后持久化字段foodLimit同步生效
+        /// </summary>
+        public static SortTitle SortByBaseFoodLimit = new SortTitle()
+        {
+            name = "兵粮上限",
+            width = 4.00f,
+            valueStrGetCall = x => x.foodLimit.ToString(),
+            valueSortFunc = (a, b) => a.foodLimit.CompareTo(b.foodLimit),
+            valueObjGet = x => x.foodLimit,
+            valueObjSet = (x, v) => x.foodLimit = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+        };
+
+        /// <summary>
+        /// 仓库上限排序标题（显示城池仓库大小总值StoreLimit,只读）
+        /// StoreLimit为只读计算属性(基础值+等级加成+额外加成),需要修改基础值时请使用SortByBaseStoreLimit
+        /// </summary>
+        public static SortTitle SortByStoreLimit = new SortTitle()
+        {
+            name = "仓库上限",
+            width = 4.00f,
+            valueStrGetCall = x => x.StoreLimit.ToString(),
+            valueSortFunc = (a, b) => a.StoreLimit.CompareTo(b.StoreLimit),
+            valueObjGet = x => x.StoreLimit,
+            valueObjSet = null,
+        };
+
+        /// <summary>
+        /// 仓库上限基础值排序标题（显示并修改仓库大小的基础字段storeLimit）
+        /// StoreLimit为只读计算属性(基础值+等级加成+额外加成)，无法直接写入,
+        /// 需要修改基础值时使用本列,写入后持久化字段storeLimit同步生效
+        /// </summary>
+        public static SortTitle SortByBaseStoreLimit = new SortTitle()
+        {
+            name = "仓库上限",
+            width = 4.00f,
+            valueStrGetCall = x => x.storeLimit.ToString(),
+            valueSortFunc = (a, b) => a.storeLimit.CompareTo(b.storeLimit),
+            valueObjGet = x => x.storeLimit,
+            valueObjSet = (x, v) => x.storeLimit = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByLevel = new SortTitle()
@@ -290,6 +418,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
             valueObjGet = x => x.mBelongForce,
             valueObjSet = (x, v) => x.mBelongForce = (Force)v,
+            editType = DataEditType.IntDropdown,
+            dataSetType = DataSetType.Force,
         };
 
         public static SortTitle SortByBelongCorps = new SortTitle()
@@ -300,6 +430,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCorps, b.mBelongCorps),
             valueObjGet = x => x.mBelongCorps,
             valueObjSet = (x, v) => x.mBelongCorps = (Corps)v,
+            editType = DataEditType.IntDropdown,
+            dataSetType = DataSetType.Corps,
         };
 
         public static SortTitle SortByBelongCity = new SortTitle()
@@ -310,6 +442,55 @@ namespace Sango.Core
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCity, b.mBelongCity),
             valueObjGet = x => x.mBelongCity,
             valueObjSet = (x, v) => x.mBelongCity = (City)v,
+            editType = DataEditType.IntDropdown,
+            dataSetType = DataSetType.City,
+        };
+
+        /// <summary>
+        /// 州排序标题（显示并修改城池所属州province）
+        /// province为Province对象引用,通过下拉数据集DataSetType.Province选择
+        /// </summary>
+        public static SortTitle SortByProvince = new SortTitle()
+        {
+            name = "州",
+            width = 2.40f,
+            valueStrGetCall = x => x.province?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.province, b.province),
+            valueObjGet = x => x.province,
+            valueObjSet = (x, v) => x.province = (Province)v,
+            editType = DataEditType.IntDropdown,
+            dataSetType = DataSetType.Province,
+        };
+
+        /// <summary>
+        /// 邻接城市数量排序标题（显示并排序城池相邻城市数量）
+        /// NeighborList为邻接城市列表,由地图道路连通关系决定,内容只读
+        /// </summary>
+        public static SortTitle SortByNeighborCount = new SortTitle()
+        {
+            name = "邻接",
+            width = 2.40f,
+            valueStrGetCall = x => x.NeighborList.Count.ToString(),
+            valueSortFunc = (a, b) => a.NeighborList.Count.CompareTo(b.NeighborList.Count),
+            valueObjGet = x => x.NeighborList.Count,
+            valueObjSet = null,
+        };
+
+        /// <summary>
+        /// 民心排序标题（显示并修改城池民心基础字段popularSupport）
+        /// popularSupport为byte类型字段,民心范围0~100,参考地图编辑器FieldIntRanges设置
+        /// </summary>
+        public static SortTitle SortByPopularSupport = new SortTitle()
+        {
+            name = "民心",
+            width = 2.40f,
+            valueStrGetCall = x => x.popularSupport.ToString(),
+            valueSortFunc = (a, b) => a.popularSupport.CompareTo(b.popularSupport),
+            valueObjGet = x => x.popularSupport,
+            valueObjSet = (x, v) => x.popularSupport = (byte)(int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+            maxValue = 100,
         };
 
         public static SortTitle SortBySecurity = new SortTitle()
@@ -320,6 +501,9 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.security.CompareTo(b.security),
             valueObjGet = x => x.security,
             valueObjSet = (x, v) => x.security = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+            maxValue = 100,
         };
 
         public static SortTitle SortBySecurity_SecurityLimit = new SortTitle()
@@ -341,6 +525,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.durability.CompareTo(b.durability),
             valueObjGet = x => x.durability,
             valueObjSet = (x, v) => x.durability = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByDurability_DurabilityLimit = new SortTitle()
@@ -351,6 +537,23 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.durability.CompareTo(b.durability),
             valueObjGet = x => $"{x.durability}/{x.DurabilityLimit}",
             valueObjSet = null,
+        };
+
+        /// <summary>
+        /// 耐久上限基础值排序标题（显示并修改最大耐久的基础字段durabilityLimit）
+        /// DurabilityLimit为只读计算属性(基础值+等级加成+额外加成)，无法直接写入，
+        /// 需要修改上限基础值时使用本列，写入后持久化字段durabilityLimit同步生效
+        /// </summary>
+        public static SortTitle SortByBaseDurabilityLimit = new SortTitle()
+        {
+            name = "耐久上限",
+            width = 4.00f,
+            valueStrGetCall = x => x.durabilityLimit.ToString(),
+            valueSortFunc = (a, b) => a.durabilityLimit.CompareTo(b.durabilityLimit),
+            valueObjGet = x => x.durabilityLimit,
+            valueObjSet = (x, v) => x.durabilityLimit = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByAllPersonCountInfo = new SortTitle()
@@ -391,6 +594,20 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.morale.CompareTo(b.morale),
             valueObjGet = x => x.morale,
             valueObjSet = (x, v) => x.morale = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+            maxValue = 100,
+        };
+
+        public static SortTitle SortByItemStroe = new SortTitle()
+        {
+            name = "库存",
+            width = 5.40f,
+            valueStrGetCall = x => x.morale.ToString(),
+            valueSortFunc = (a, b) => a.morale.CompareTo(b.morale),
+            valueObjGet = x => x.morale,
+            valueObjSet = (x, v) => x.morale = (int)v,
+            editType = DataEditType.Object,
         };
 
         public static SortTitle GetSortByItemId(int id)
@@ -437,6 +654,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.totalGainGold.CompareTo(b.totalGainGold),
             valueObjGet = x => x.totalGainGold,
             valueObjSet = (x, v) => x.totalGainGold = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByTotalGainFood = new SortTitle()
@@ -447,6 +666,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.totalGainFood.CompareTo(b.totalGainFood),
             valueObjGet = x => x.totalGainFood,
             valueObjSet = (x, v) => x.totalGainFood = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByHasBusiness = new SortTitle()
@@ -457,6 +678,9 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.hasBusiness.CompareTo(b.hasBusiness),
             valueObjGet = x => x.hasBusiness,
             valueObjSet = (x, v) => x.hasBusiness = (byte)(int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+            maxValue = 255,
         };
 
 

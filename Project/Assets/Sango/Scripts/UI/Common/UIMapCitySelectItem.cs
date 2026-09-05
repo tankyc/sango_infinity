@@ -14,11 +14,13 @@ using Sango.Core; namespace Sango.UI
         public GameObject[] overObj;
         public Image[] colorImage;
         public City city;
-        public Action<City, bool> onSelectAction;
+        public Action<UIMapCitySelectItem, City, bool> onSelectAction;
         public Action<City, ShortCity, bool> onOverAction;
 
         public ShortCity shortCity;
         public Action<UIMapCitySelectItem, ShortCity, bool> onSelectShortAction;
+
+
 
         public void ShowName(string name)
         {
@@ -34,7 +36,7 @@ using Sango.Core; namespace Sango.UI
                 if (onSelectAction != null)
                 {
                     selectedObj.SetActive(!selectedObj.activeSelf);
-                    onSelectAction.Invoke(city, selectedObj.activeSelf);
+                    onSelectAction.Invoke(this, city, selectedObj.activeSelf);
                 }
             }
             if (shortCity != null)

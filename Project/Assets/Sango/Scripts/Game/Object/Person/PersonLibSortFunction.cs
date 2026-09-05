@@ -64,6 +64,11 @@ namespace Sango.Core
                     personSortFunc = personSortFunc,
                     valueObjGet = valueObjGet,
                     valueObjSet = valueObjSet,
+                    editType = editType,
+                    dataSetType = dataSetType,
+                    minValue = minValue,
+                    maxValue = maxValue,
+                    customData = customData,
                 };
             }
         }
@@ -76,6 +81,7 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.Name.CompareTo(b.Name),
             valueObjGet = x => x.Name,
             valueObjSet = (x, v) => x.Name = (string)v,
+            editType = DataEditType.Text,
         };
 
         public static SortTitle SortByCommand = new SortTitle()
@@ -312,6 +318,8 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.sex.CompareTo(b.sex),
             valueObjGet = x => x.sex,
             valueObjSet = (x, v) => x.sex = (int)v,
+            editType = DataEditType.IntDropdown,
+            customData = DataEditPresetOptions.SexOptions,
         };
 
         public static SortTitle SortByMerit = new SortTitle()
@@ -322,6 +330,9 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.merit.CompareTo(b.merit),
             valueObjGet = x => x.merit,
             valueObjSet = (x, v) => x.merit = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+            maxValue = 100000,
         };
 
         public static SortTitle SortByExp = new SortTitle()
@@ -352,6 +363,7 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.familyName.CompareTo(b.familyName),
             valueObjGet = x => x.familyName,
             valueObjSet = (x, v) => x.familyName = (string)v,
+            editType = DataEditType.Text,
         };
 
         public static SortTitle SortByGiveName = new SortTitle()
@@ -362,6 +374,7 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.giveName.CompareTo(b.giveName),
             valueObjGet = x => x.giveName,
             valueObjSet = (x, v) => x.giveName = (string)v,
+            editType = DataEditType.Text,
         };
 
         public static SortTitle SortByNickName = new SortTitle()
@@ -372,6 +385,7 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.nickName.CompareTo(b.nickName),
             valueObjGet = x => x.nickName,
             valueObjSet = (x, v) => x.nickName = (string)v,
+            editType = DataEditType.Text,
         };
 
         public static SortTitle SortByYearAvailable = new SortTitle()
@@ -382,6 +396,8 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.yearAvailable.CompareTo(b.yearAvailable),
             valueObjGet = x => x.yearAvailable,
             valueObjSet = (x, v) => x.yearAvailable = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByYearBorn = new SortTitle()
@@ -392,6 +408,8 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.yearBorn.CompareTo(b.yearBorn),
             valueObjGet = x => x.yearBorn,
             valueObjSet = (x, v) => x.yearBorn = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByYearDead = new SortTitle()
@@ -402,6 +420,8 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.yearDead.CompareTo(b.yearDead),
             valueObjGet = x => x.yearDead,
             valueObjSet = (x, v) => x.yearDead = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByCompatibility = new SortTitle()
@@ -412,6 +432,9 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.compatibility.CompareTo(b.compatibility),
             valueObjGet = x => x.compatibility,
             valueObjSet = (x, v) => x.compatibility = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+            maxValue = 255,
         };
 
         public static SortTitle SortByState = new SortTitle()
@@ -438,6 +461,8 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.state.CompareTo(b.state),
             valueObjGet = x => x.state,
             valueObjSet = (x, v) => x.state = (int)v,
+            editType = DataEditType.IntDropdown,
+            customData = DataEditPresetOptions.PersonStateOptions,
         };
 
         public static SortTitle SortByStamina = new SortTitle()
@@ -448,6 +473,9 @@ namespace Sango.Core
             personSortFunc = (a, b) => a.stamina.CompareTo(b.stamina),
             valueObjGet = x => x.stamina,
             valueObjSet = (x, v) => x.stamina = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+            maxValue = 255,
         };
 
         public static List<ObjectSortTitle> DefaultSortList = new List<ObjectSortTitle>

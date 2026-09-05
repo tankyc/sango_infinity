@@ -49,7 +49,7 @@ namespace Sango.Core.Player
                     targetList.Add(x);
                 }
             });
-            targetList.Sort((a, b) => -PersonSortFunction.SortByIntelligence.personSortFunc.Invoke(a, b));
+            targetList.Sort((a, b) => -PersonSortFunction.SortByIntelligence.valueSortFunc.Invoke(a, b));
             Window.Instance.Open(windowName);
         }
         public override void OnDestroy()

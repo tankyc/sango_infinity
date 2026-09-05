@@ -152,6 +152,7 @@ namespace Sango.Core
         /// <summary>
         /// 国库
         /// </summary>
+        [JsonProperty]
         public ItemStore Stroe = new ItemStore();
 
         /// <summary>

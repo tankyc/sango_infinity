@@ -90,6 +90,11 @@ namespace Sango.Core
                     valueSortFunc = valueSortFunc,
                     valueObjGet = valueObjGet,
                     valueObjSet = valueObjSet,
+                    editType = editType,
+                    dataSetType = dataSetType,
+                    minValue = minValue,
+                    maxValue = maxValue,
+                    customData = customData,
                 };
             }
         }
@@ -157,6 +162,7 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.Name.CompareTo(b.Name),
             valueObjGet = x => x.Name,
             valueObjSet = (x, v) => x.Name = (string)v,
+            editType = DataEditType.Text,
         };
 
        
@@ -168,6 +174,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
             valueObjGet = x => x.mBelongForce,
             valueObjSet = (x, v) => x.mBelongForce = (Force)v,
+            editType = DataEditType.IntDropdown,
+            dataSetType = DataSetType.Force,
         };
 
         public static SortTitle SortByBelongCorps = new SortTitle()
@@ -178,6 +186,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCorps, b.mBelongCorps),
             valueObjGet = x => x.mBelongCorps,
             valueObjSet = (x, v) => x.mBelongCorps = (Corps)v,
+            editType = DataEditType.IntDropdown,
+            dataSetType = DataSetType.Corps,
         };
 
         public static SortTitle SortByBelongBuilding = new SortTitle()
@@ -188,6 +198,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCity, b.mBelongCity),
             valueObjGet = x => x.mBelongCity,
             valueObjSet = (x, v) => x.mBelongCity = (City)v,
+            editType = DataEditType.IntDropdown,
+            dataSetType = DataSetType.City,
         };
 
         public static SortTitle SortByDurability = new SortTitle()
@@ -198,6 +210,8 @@ namespace Sango.Core
             valueSortFunc = (a, b) => a.durability.CompareTo(b.durability),
             valueObjGet = x => x.durability,
             valueObjSet = (x, v) => x.durability = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle SortByDurability_DurabilityLimit = new SortTitle()

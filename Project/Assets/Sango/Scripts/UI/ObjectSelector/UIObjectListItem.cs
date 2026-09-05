@@ -1,10 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using Sango.Core;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 namespace Sango.UI
 {
     public class UIObjectListItem : MonoBehaviour
     {
+        public UITextItem idItem;
         public UITextItem textItem;
         public UISelectItem selectItem;
         List<UITextItem> pool = new List<UITextItem>();
@@ -18,6 +20,7 @@ namespace Sango.UI
         public Image selectImg;
         public Image overImg;
         public Image pressImg;
+        public bool hasId = false;
 
         void ScrollCellIndex(int idx)
         {
@@ -41,13 +44,25 @@ namespace Sango.UI
             usedItems.Clear();
         }
 
-        public void Set(string content)
+        public void Set(string content, ObjectSortTitle objectSortTitle = null, SangoObject sangoObject = null)
         {
             selectItem.SetVisible(!string.IsNullOrEmpty(content));
             textItem.SetText(content);
+            textItem.SetObjectSortTitle(objectSortTitle);
+            textItem.SetObject(sangoObject);
+        }
+        public void SetId(string content, ObjectSortTitle objectSortTitle = null, SangoObject sangoObject = null)
+        {
+            if (idItem == null) return;
+            idItem.gameObject.SetActive(hasId);
+            idItem.SetText(content);
+            idItem.SetObjectSortTitle(objectSortTitle);
+            idItem.SetObject(sangoObject);
         }
 
-        public void Add(string content, float width)
+
+
+        public void Add(string content, float width, ObjectSortTitle objectSortTitle = null, SangoObject sangoObject = null)
         {
             UITextItem item;
             if (pool.Count == 0)
@@ -64,9 +79,11 @@ namespace Sango.UI
             item.gameObject.SetActive(true);
             item.SetWidth(width).SetText(content);
             item.transform.SetAsLastSibling();
+            item.SetObjectSortTitle(objectSortTitle);
+            item.SetObject(sangoObject);
         }
 
-        public void Add(string content, float width, int alignment)
+        public void Add(string content, float width, int alignment, ObjectSortTitle objectSortTitle = null, SangoObject sangoObject = null)
         {
             UITextItem item;
             if (pool.Count == 0)
@@ -83,14 +100,84 @@ namespace Sango.UI
             item.gameObject.SetActive(true);
             item.SetWidth(width).SetText(content).SetAlignment((TextAnchor)alignment);
             item.transform.SetAsLastSibling();
+            item.SetObjectSortTitle(objectSortTitle);
+            item.SetObject(sangoObject);
         }
 
-        public void Set(int index, string content)
+        public void Set(int index, string content, ObjectSortTitle objectSortTitle = null, SangoObject sangoObject = null)
         {
-            if (index == 0)
-                Set(content);
+            if(hasId)
+            {
+                if (index == 0)
+                {
+                    SetId(content, objectSortTitle, sangoObject);
+                }
+                else if (index == 1)
+                {
+                    Set(content, objectSortTitle, sangoObject);
+                }
+                else
+                {
+                    UITextItem item = usedItems[index - 2];
+                    item.SetText(content);
+                    item.SetObjectSortTitle(objectSortTitle);
+                    item.SetObject(sangoObject);
+                }
+            }
             else
-                usedItems[index - 1].SetText(content);
+            {
+                if (index == 0)
+                    Set(content, objectSortTitle, sangoObject);
+                else
+                {
+                    UITextItem item = usedItems[index - 1];
+                    item.SetText(content);
+                    item.SetObjectSortTitle(objectSortTitle);
+                    item.SetObject(sangoObject);
+                }
+            }
+           
+        }
+
+        public void Set(SangoObject sangoObject, List<ObjectSortTitle> objectSorts)
+        {
+            for (int i = 0; i < objectSorts.Count; i++)
+            {
+                ObjectSortTitle sortTitle = objectSorts[i];
+                string content = sangoObject == null ? "" : sortTitle.GetValueStr(sangoObject);
+                if(hasId )
+                {
+                    if (i == 0)
+                    {
+                        SetId(content, sortTitle, sangoObject);
+                        continue;
+                    }
+                    else if (i == 1)
+                    {
+                        Set(content, sortTitle, sangoObject);
+                        continue;
+                    }
+
+                    UITextItem item = usedItems[i - 2];
+                    item.SetText(content);
+                    item.SetObjectSortTitle(sortTitle);
+                    item.SetObject(sangoObject);
+                }
+                else
+                {
+                    if (i == 0)
+                    {
+                        Set(content, sortTitle, sangoObject);
+                        continue;
+                    }
+
+                    UITextItem item = usedItems[i - 1];
+                    item.SetText(content);
+                    item.SetObjectSortTitle(sortTitle);
+                    item.SetObject(sangoObject);
+                }
+               
+            }
         }
 
         public void SetSelected(bool b)

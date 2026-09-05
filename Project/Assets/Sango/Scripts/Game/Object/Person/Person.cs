@@ -356,14 +356,14 @@ namespace Sango.Core
         [JsonProperty]
         public int[] LikePersonList;
 
-        public SangoObjectList<Person> mLikePersonList { get; set; }
+        public SangoObjectList<Person> mLikePersonList;
 
         /// <summary>
         /// 厌恶武将
         /// </summary>
         [JsonProperty]
         public int[] HatePersonList;
-        public SangoObjectList<Person> mHatePersonList { get; set; }
+        public SangoObjectList<Person> mHatePersonList;
 
         /// <summary>
         /// 儿子们, 由father属性添加至父亲的属性里
@@ -423,7 +423,7 @@ namespace Sango.Core
         [JsonProperty]
         public int[] FeatureList;
 
-        public SangoObjectList<Feature> mFeatureList { get; set; }
+        public SangoObjectList<Feature> mFeatureList;
 
         /// <summary>
         /// 库存

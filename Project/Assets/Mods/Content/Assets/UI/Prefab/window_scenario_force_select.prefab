@@ -1394,7 +1394,7 @@ Canvas:
   m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: -1
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 20
   m_TargetDisplay: 0
 --- !u!114 &576643473640125865
 MonoBehaviour:
@@ -5614,6 +5614,10 @@ PrefabInstance:
     - target: {fileID: 480498744213203139, guid: 12f4341abfe6e1041a56faf8955ec505, type: 3}
       propertyPath: m_Name
       value: cityObj
+      objectReference: {fileID: 0}
+    - target: {fileID: 480498744213203139, guid: 12f4341abfe6e1041a56faf8955ec505, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 791628731918459477, guid: 12f4341abfe6e1041a56faf8955ec505, type: 3}
       propertyPath: m_Pivot.x

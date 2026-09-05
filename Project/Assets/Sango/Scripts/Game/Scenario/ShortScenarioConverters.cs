@@ -257,7 +257,6 @@ namespace Sango.Core
             {
                 if (reader.TokenType != JsonToken.PropertyName)
                     continue;
-
                 // 字典 key：武将 ID
                 int id = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
 

@@ -51,6 +51,11 @@
                     valueGetCall = valueGetCall,
                     valueSortFunc = valueSortFunc,
                     valueObjSet = valueObjSet,
+                    editType = editType,
+                    dataSetType = dataSetType,
+                    minValue = minValue,
+                    maxValue = maxValue,
+                    customData = customData,
                 };
             }
         }
@@ -63,6 +68,7 @@
             valueStrGetCall = x => x.Name,
             valueSortFunc = (a, b) => a.Name.CompareTo(b.Name),
             valueObjSet = (x, v) => x.Name = (string)v,
+            editType = DataEditType.Text,
         };
 
         public static SortTitle<int> SortByDefence = new SortTitle<int>()
@@ -120,6 +126,8 @@
             valueGetCall = x => x.gold,
             valueSortFunc = (a, b) => a.gold.CompareTo(b.gold),
             valueObjSet = (x, v) => x.gold = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle<int> SortByFood = new SortTitle<int>()
@@ -130,6 +138,8 @@
             valueGetCall = x => x.food,
             valueSortFunc = (a, b) => a.food.CompareTo(b.food),
             valueObjSet = (x, v) => x.food = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle<int> SortByMorale = new SortTitle<int>()
@@ -140,6 +150,8 @@
             valueGetCall = x => x.morale,
             valueSortFunc = (a, b) => a.morale.CompareTo(b.morale),
             valueObjSet = (x, v) => x.morale = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle<int> SortByMoraleByMax = new SortTitle<int>()
@@ -150,6 +162,8 @@
             valueGetCall = x => x.morale,
             valueSortFunc = (a, b) => a.morale.CompareTo(b.morale),
             valueObjSet = (x, v) => x.morale = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle<int> SortByTroops = new SortTitle<int>()
@@ -160,6 +174,8 @@
             valueGetCall = x => x.troops,
             valueSortFunc = (a, b) => a.troops.CompareTo(b.troops),
             valueObjSet = (x, v) => x.troops = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
         };
 
         public static SortTitle<int> SortByMember1 = new SortTitle<int>()

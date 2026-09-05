@@ -83,16 +83,12 @@ namespace Sango.Core
             {
 
                 AICommandList.Add(CityAI.AIRewardPerson);
-                AICommandList.Add(CityAI.AISearching);
-                AICommandList.Add(CityAI.AIRecruitPerson);
                 AICommandList.Add(CityAI.AIAttack);
-                AICommandList.Add(CityAI.AITradeFood);
-                AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITrainTroop);
-
-                if (city.troops < 20000)
+                if (city.troops < 15000)
                 {
                     AICommandList.Add(CityAI.AIRecruitTroop);
+                    AICommandList.Add(CityAI.AICreateItems);
                     AICommandList.Add(CityAI.AIIntrior);
                 }
                 else
@@ -116,7 +112,10 @@ namespace Sango.Core
                         AICommandList.Add(CityAI.AIIntrior);
                     }
                 }
+                AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITradeFood);
+                AICommandList.Add(CityAI.AISearching);
+                AICommandList.Add(CityAI.AIRecruitPerson);
             }
             else
             {

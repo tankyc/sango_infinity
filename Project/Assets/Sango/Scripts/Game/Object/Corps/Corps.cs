@@ -52,9 +52,19 @@ namespace Sango.Core
         public virtual bool AIPrepared { get; set; }
 
         /// <summary>
-        /// 军团编号文本
+        /// 军团编号文本（索引与军团编号一致，覆盖第1~第50军团）
+        /// 编号文本最多保留两位汉字:两位以上编号省略中间的"十"（如编号23显示为"二三"），便于界面紧凑展示；
+        /// 索引0为"零"占位（军团编号从1开始不使用），实际可用编号为1~50；
+        /// 该数组长度同时决定CorpsSystem可新建军团的最大编号(numberTxt.Length - 1)
         /// </summary>
-        public readonly string[] numberTxt = { "零", "一", "二", "三", "四", "五", "六", "七", "八" };
+        public static readonly string[] numberTxt =
+        {
+            "零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
+            "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十",
+            "二一", "二二", "二三", "二四", "二五", "二六", "二七", "二八", "二九", "三十",
+            "三一", "三二", "三三", "三四", "三五", "三六", "三七", "三八", "三九", "四十",
+            "四一", "四二", "四三", "四四", "四五", "四六", "四七", "四八", "四九", "五十",
+        };
 
         /// <summary>
         /// 军团名称
@@ -221,20 +231,55 @@ namespace Sango.Core
         /// </summary>
         public List<City> inti_cities;
 
-        static Color[] colors = new Color[]
+        /// <summary>
+        /// 军团颜色表（共50个,依次对应第1~第50军团,索引=number-1）
+        /// 前11个保留原有配置以兼容既有显示,其余39个由CreateCorpsColors算法填充,
+        /// 任意两个颜色均不相同且辨识度较高
+        /// </summary>
+        static readonly Color[] colors = CreateCorpsColors();
+
+        /// <summary>
+        /// 生成50个高辨识度军团颜色
+        /// 设计说明:
+        /// 1. 第1~第11军团保留原有颜色,保证既有存档与显示不变化;
+        /// 2. 第12~第50军团按黄金角(≈222.5°)在色环上均匀取色,相邻编号色相差大、整体色相不扎堆,
+        ///    同时明度按编号每3个一组递减(0.95/0.73/0.51),即使色相接近也能靠明暗拉开辨识度;
+        /// 3. 饱和度统一为0.9,保证颜色鲜艳清晰
+        /// </summary>
+        static Color[] CreateCorpsColors()
         {
-            Color.cyan,
-            Color.red * 0.8f,
-            Color.yellow * 0.8f,
-            Color.green * 0.8f,
-            Color.blue * 0.8f,
-            Color.gray,
-            Color.magenta * 0.8f,
-            Color.black,
-            Color.green * 0.3f,
-            Color.red * 0.3f,
-            Color.cyan * 0.5f,
-        };
+            Color[] result = new Color[50];
+            // 前11个颜色沿用历史配置,保持旧版本显示习惯
+            Color[] legacy = new Color[]
+            {
+                Color.cyan,
+                Color.red * 0.8f,
+                Color.yellow * 0.8f,
+                Color.green * 0.8f,
+                Color.blue * 0.8f,
+                Color.gray,
+                Color.magenta * 0.8f,
+                Color.black,
+                Color.green * 0.3f,
+                Color.red * 0.3f,
+                Color.cyan * 0.5f,
+            };
+            for (int i = 0; i < legacy.Length; i++)
+                result[i] = legacy[i];
+
+            // 第12~第50军团(共39个)用黄金角填充
+            int legacyCount = legacy.Length;
+            for (int i = legacyCount; i < result.Length; i++)
+            {
+                // 起始色相0.58避开前11色的红黄绿青蓝品红主色区域,后续按黄金比例步进
+                float hue = (0.58f + (i - legacyCount) * 0.618033988749895f) % 1f;
+                // 明度按编号分组递减,保证任意两个编号都可区分
+                float value = 0.95f - ((i - legacyCount) % 3) * 0.22f;
+                float saturation = 0.9f;
+                result[i] = Color.HSVToRGB(hue, saturation, value);
+            }
+            return result;
+        }
 
         public Color Color => colors[number - 1];
 

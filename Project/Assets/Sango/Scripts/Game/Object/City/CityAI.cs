@@ -1043,7 +1043,7 @@ namespace Sango.Core
 
             //if (city.freePersons.Count <= 2) return true;
 
-            int expectationTroops = Math.Min(city.food / 2, city.itemStore.TotalNumber * 3 / 2);
+            int expectationTroops = Math.Max(city.food / 2, city.itemStore.TotalNumber * 3 / 2);
             if (city.troops >= expectationTroops)
                 return true;
 

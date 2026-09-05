@@ -4,6 +4,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 using Sango.Core;
+using System;
+
 namespace Sango.UI
 {
     /// <summary>
@@ -29,6 +31,8 @@ namespace Sango.UI
 
         public GameObject sureButton;
         public Toggle firstToggle;
+        public Action OnReturnAction;
+        public Action<ShortScenario> OnNextAction;
 
         protected override void Awake()
         {
@@ -140,7 +144,15 @@ namespace Sango.UI
         {
             GameMedia.Instance.PlayCancelSfx();
             Clear();
-            Window.Instance.Open("window_start");
+            if(OnReturnAction != null)
+            {
+                OnReturnAction.Invoke();
+                OnReturnAction = null;
+            }
+            else
+            {
+                Window.Instance.Open("window_start");
+            }
             Window.Instance.Close("window_scenario_select");
         }
 
@@ -220,17 +232,26 @@ namespace Sango.UI
             Clear();
             ShortScenario scenario = show_scenario_list[curSelectIndex];
             ShortScenario.CurSelected = scenario;
-            scenario.LoadFullPersonContent();
-            Scenario.CurSelected = new Scenario(show_scenario_list[curSelectIndex].FilePath);
-
-            if(GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary.Count > 0 || GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Count >0)
+            if (OnNextAction != null)
             {
-                Window.Instance.Open("window_scenario_addon_menu", scenario);
+                OnNextAction.Invoke(scenario);
+                OnNextAction = null;
             }
             else
             {
-                Window.Instance.Open("window_scenario_force_select", scenario);
+                scenario.LoadFullPersonContent();
+                Scenario.CurSelected = new Scenario(show_scenario_list[curSelectIndex].FilePath);
+                if (GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary.Count > 0 || GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Count > 0)
+                {
+                    Window.Instance.Open("window_scenario_addon_menu", scenario);
+                }
+                else
+                {
+                    Window.Instance.Open("window_scenario_force_select", scenario);
+                }
             }
+
+            
             Window.Instance.Close("window_scenario_select");
         }
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN

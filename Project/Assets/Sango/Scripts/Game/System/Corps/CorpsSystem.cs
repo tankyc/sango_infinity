@@ -12,7 +12,11 @@ namespace Sango.Core.Player
     public class CorpsSystem : CityBaseSystem
     {
         ContextMenuData menuData = new ContextMenuData();
-        public bool[] has = new bool[8];
+
+        /// <summary>
+        /// 已占用的军团编号标记(索引=编号-1),长度与Corps.numberTxt支持上限(第50军团)保持一致
+        /// </summary>
+        public bool[] has = new bool[Corps.numberTxt.Length];
         public int targetNumber = 0;
         public List<Corps> corps_list = new List<Corps>();
         public List<Corps> target_corps_list = new List<Corps>();
@@ -71,7 +75,7 @@ namespace Sango.Core.Player
             }
 
             // 新建军团菜单
-            menuData.Add("新建军团", 10, this, OnClickMenuItem_CreateCorps, targetNumber > 1 && targetNumber < 10);
+            menuData.Add("新建军团", 10, this, OnClickMenuItem_CreateCorps, targetNumber > 1 && targetNumber < Corps.numberTxt.Length);
 
             // 重编军团菜单
             menuData.Add("重编军团", 11, this, OnClickMenuItem_RearrangeCorps, corps_list.Count > 0);

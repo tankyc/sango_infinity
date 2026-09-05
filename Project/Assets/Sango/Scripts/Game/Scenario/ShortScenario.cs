@@ -627,6 +627,11 @@ namespace Sango.Core
                     personSortFunc = personSortFunc,
                     valueObjGet = valueObjGet,
                     valueObjSet = valueObjSet,
+                    editType = editType,
+                    dataSetType = dataSetType,
+                    minValue = minValue,
+                    maxValue = maxValue,
+                    customData = customData,
                 };
             }
         }
