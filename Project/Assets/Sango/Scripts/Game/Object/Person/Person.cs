@@ -1838,6 +1838,79 @@ namespace Sango.Core
             return BrotherList.Contains(other);
         }
 
+        #region 仲介-关系读写
+        /// <summary>
+        /// 是否已有配偶(含剧本原配, 和亲, 仲介结婚)
+        /// </summary>
+        public bool HasSpouse => mSpouseList != null && mSpouseList.Count > 0;
+
+        /// <summary>
+        /// 是否已属于某个义兄弟组(含剧本原设兄弟, 仲介结义)
+        /// </summary>
+        public bool HasSwornBrother => Brother > 0 || mBrother != null
+            || (BrotherList != null && BrotherList.Count > 0);
+
+        /// <summary>
+        /// other是否为自己的配偶
+        /// </summary>
+        public bool IsSpouse(Person other)
+        {
+            if (other == null || mSpouseList == null) return false;
+            return mSpouseList.Contains(other);
+        }
+
+        /// <summary>
+        /// 把other追加为自己的配偶, 并重建mSpouseList
+        /// </summary>
+        public void AddSpouse(Person other)
+        {
+            if (other == null || other == this) return;
+
+            Scenario scenario = Scenario.Cur;
+            List<int> ids = new List<int>();
+            if (SpouseList != null)
+                ids.AddRange(SpouseList);
+            if (ids.Contains(other.Id))
+                return;
+
+            ids.Add(other.Id);
+            SpouseList = ids.ToArray();
+            mSpouseList = scenario.Array2ObjectList(scenario.personSet, SpouseList);
+        }
+
+        /// <summary>
+        /// 结义: members全部指向组头, 并共享同一个BrotherList实例
+        /// 组头的Brother指向自己, 与PostInit/Init的既有语义保持一致
+        /// </summary>
+        public static void SwornBrothers(List<Person> members)
+        {
+            if (members == null || members.Count < 2) return;
+
+            List<Person> group = new List<Person>(members);
+            group.Sort((a, b) => a.Id.CompareTo(b.Id));
+            Person head = group[0];
+
+            List<Person> brotherList = new List<Person>();
+            head.Brother = head.Id;
+            head.mBrother = head;
+
+            for (int i = 0; i < group.Count; i++)
+            {
+                Person person = group[i];
+                if (person == null) continue;
+
+                person.Brother = head.Id;
+                person.mBrother = head;
+                if (!brotherList.Contains(person))
+                    brotherList.Add(person);
+                // 所有成员共享同一个列表引用
+                person.BrotherList = brotherList;
+            }
+
+            brotherList.Sort(SangoObject.Compare);
+        }
+        #endregion
+
         public bool IsParentchild(Person other)
         {
             if (other == null) return false;
