@@ -12956,7 +12956,7 @@ PrefabInstance:
       objectReference: {fileID: 7488933029063325074}
     - target: {fileID: 4747252626189067971, guid: 05cc6273023accc42aca4131dbd1ae34, type: 3}
       propertyPath: m_Text
-      value: "\u5267\u56E2"
+      value: "\u519B\u56E2"
       objectReference: {fileID: 0}
     - target: {fileID: 4747252626189067971, guid: 05cc6273023accc42aca4131dbd1ae34, type: 3}
       propertyPath: m_Material

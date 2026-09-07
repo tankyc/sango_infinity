@@ -370,6 +370,17 @@ namespace Sango.Core
         /// </summary>
         public int PersonHole { get; set; }
 
+        public Vector3 CityScale
+        {
+            get
+            {
+                if (BuildingType.kind == 1)
+                    return Vector3.one;
+                else
+                    return Vector3.one * 0.75f;
+            }
+        }
+
         //public int eventId;
         //public int specialtyId;
         //public int model_wall;

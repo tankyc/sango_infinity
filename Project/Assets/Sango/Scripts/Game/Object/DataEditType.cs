@@ -160,6 +160,8 @@ namespace Sango.Core
         /// <summary>武将属性类型集合（Scenario.CommonData.PersonAttributeTypes）</summary>
         PersonAttributeType = 27,
 
+        /// <summary>武将属性类型集合（Scenario.CommonData.PersonAttributeTypes）</summary>
+        PersonAbilityName = 28,
     }
 
     /// <summary>

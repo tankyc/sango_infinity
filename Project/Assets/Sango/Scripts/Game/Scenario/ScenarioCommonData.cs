@@ -154,14 +154,20 @@ namespace Sango.Core
         public SangoObjectSet<Argumentation> Argumentations = new SangoObjectSet<Argumentation>();
 
         /// <summary>
+        /// 能力等级
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectSetConverter<AbilityLevelType>))]
+        [JsonProperty]
+        public SangoObjectSet<AbilityLevelType> AbilityLevelTypes = new SangoObjectSet<AbilityLevelType>();
+
+        /// <summary>
         /// 武将库
         /// </summary>
         [JsonConverter(typeof(SangoObjectSetConverter<PersonLib>))]
         [JsonProperty] 
         public SangoObjectSet<PersonLib> PersonLibrary = new SangoObjectSet<PersonLib>();
 
-
-
+        
         public List<ItemType> ItemTypeList { get; set; }
 
         public void Init()

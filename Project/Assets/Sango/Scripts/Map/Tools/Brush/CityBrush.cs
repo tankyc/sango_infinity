@@ -127,7 +127,7 @@ namespace Sango.Tools
         /// <summary>
         /// 工具栏标题数组
         /// </summary>
-        private string[] toolbarTitle = new string[] { "无", "创建", "修改", "连接", "附属",/* "区域", "地格" */};
+        private string[] toolbarTitle = new string[] { "属性", "创建", "移动", "连接", "附属",/* "区域", "地格" */};
 
         public enum CityEditorType : int
         {
@@ -299,6 +299,16 @@ namespace Sango.Tools
         {
             switch (controlType)
             {
+                case CityEditorType.None:
+                    if (selectedCity != null)
+                        selectedCity.Render.SetFlash(false);
+
+                    selectedCity = GetCityAtPosition(center);
+                    if (selectedCity != null && selectedCity.Render != null)
+                    {
+                        selectedCity.Render.SetFlash(true);
+                    }
+                    break;
                 case CityEditorType.Create:
                     {
 
@@ -354,6 +364,10 @@ namespace Sango.Tools
                                 default:
                                     newCity = new City();
                                     newCity.BuildingType = GameData.Instance.ScenarioCommonData.BuildingTypes.Find(x=>x.kind == selectedModelConfig.modelKind);
+                                    newCity.troopsLimit = 100000;
+                                    newCity.storeLimit = 400000;
+                                    newCity.goldLimit = 100000;
+                                    newCity.foodLimit = 1000000;
                                     break;
                             }
                             newCity.CityLevelType = GameData.Instance.ScenarioCommonData.CityLevelTypes.Get(1);
@@ -539,7 +553,12 @@ namespace Sango.Tools
             switch (controlType)
             {
                 case CityEditorType.None:
-                    { 
+                    {
+                        // 城市类型选择
+                        if (GUILayout.Button("编辑城市属性"))
+                        {
+                            OpenPropertyEditorWindow();
+                        }
                     }
                     break;
                 case CityEditorType.Create:
@@ -655,12 +674,6 @@ namespace Sango.Tools
                         {
                             GUILayout.Label($"当前选中城市: {selectedCity.Name}");
                             GUILayout.Space(10);
-
-                            // 城市类型选择
-                            if (GUILayout.Button("编辑城市属性"))
-                            {
-                                OpenPropertyEditorWindow();
-                            }
 
                             // 显示邻接城市
                             GUILayout.Label("邻接城市:");

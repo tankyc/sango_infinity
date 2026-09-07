@@ -124,6 +124,20 @@ namespace Sango.UI
         /// <summary>当前编辑中的临时值</summary>
         protected object curValue;
 
+        /// <summary>
+        /// 当前编辑值的初始显示字符串
+        /// 打开时通过ObjectSortTitle.GetValueStr直接获取，用于初始化文本类控件的显示内容，
+        /// 当GetValue取不到值（或为空）时作为文本/数值控件的初始显示兜底
+        /// </summary>
+        protected string curValueStr;
+
+        /// <summary>
+        /// 当前值是否已被用户修改
+        /// 未修改时对象/对象列表的显示直接使用初始显示字符串curValueStr；
+        /// 修改后改为按当前值curValue转换显示（避免继续显示过期的初始字符串）
+        /// </summary>
+        protected bool valueEdited;
+
         /// <summary>下拉菜单使用的选项列表</summary>
         protected readonly List<DataEditOption> options = new List<DataEditOption>();
 
@@ -237,14 +251,16 @@ namespace Sango.UI
                 return false;
             }
             DataEditType type = sortTitle.editType;
-            if (type == DataEditType.Object || type == DataEditType.IdDropdown)
+            if (type == DataEditType.Object)
             {
                 return true;
             }
             // 对象引用下拉：数据集为对象集合时（排除自定义枚举选项）内部编辑的同样是SangoObject
             if (type == DataEditType.IntDropdown
                 && sortTitle.dataSetType != DataSetType.None
-                && sortTitle.dataSetType != DataSetType.Custom)
+                && sortTitle.dataSetType != DataSetType.Custom
+                && sortTitle.dataSetType != DataSetType.AttributeChangeType
+                && sortTitle.dataSetType != DataSetType.PersonAbilityName)
             {
                 return true;
             }
@@ -364,6 +380,9 @@ namespace Sango.UI
                     return true;
                 case DataSetType.PersonAttributeType:
                     DirectObjectSelect(scenario.CommonData.PersonAttributeTypes, GameSystem.GetSystem<PersonAttributeTypeSelectSystem>(), targets, sortTitle, "选择属性", onConfirm);
+                    return true;
+                case DataSetType.PersonAbilityName:
+                    DirectObjectSelect(scenario.CommonData.AbilityLevelTypes, GameSystem.GetSystem<AbilityLevelTypeSelectSystem>(), targets, sortTitle, "选择适应等级", onConfirm);
                     return true;
                 default:
                     Log.Warning("属性:" + sortTitle.name + " 的数据集类型不支持对象选择,改为打开编辑窗口");
@@ -648,13 +667,17 @@ namespace Sango.UI
 
             // 读取当前值：多对象时取第一个目标的值，并记录各目标的值是否一致
             curValue = ReadValueFrom(Target);
+            // 通过GetValueStr直接获取初始显示字符串，用于初始化文本类控件的显示
+            curValueStr = ReadCurrentValueStr();
             if ((EditType == DataEditType.Text || EditType == DataEditType.TextArea || EditType == DataEditType.JsonEdit) && curValue == null)
             {
-                curValue = ReadCurrentValueStr();
+                curValue = curValueStr;
             }
             // 记录原始值形态，用于写回时还原类型
             RefreshValueTypeFlags();
             valuesMixed = IsValuesMixed();
+            // 初始状态：显示使用curValueStr
+            valueEdited = false;
 
             RefreshUI();
             BindListeners();
@@ -676,11 +699,15 @@ namespace Sango.UI
         {
             if (Target == null || SortTitle == null) return;
             curValue = ReadValueFrom(Target);
+            // 重新显示时同步刷新初始显示字符串（例如从计算器/头像窗口返回时）
+            curValueStr = ReadCurrentValueStr();
             if ((EditType == DataEditType.Text || EditType == DataEditType.TextArea || EditType == DataEditType.JsonEdit) && curValue == null)
             {
-                curValue = ReadCurrentValueStr();
+                curValue = curValueStr;
             }
             valuesMixed = IsValuesMixed();
+            // 重新显示时当前值来自目标对象，视为未修改，显示重新使用curValueStr
+            valueEdited = false;
             RefreshUI();
         }
 
@@ -698,7 +725,9 @@ namespace Sango.UI
             Targets.Clear();
             SortTitle = null;
             curValue = null;
+            curValueStr = null;
             valuesMixed = false;
+            valueEdited = false;
             emptyOptionObject = null;
             jsonText = string.Empty;
             options.Clear();
@@ -768,10 +797,10 @@ namespace Sango.UI
                 || showInt || showCalculator || showFloat || showBool;
             SetActive(clearButton != null ? clearButton.gameObject : null, showClear);
 
-            // 1.文本修改：回填输入框
+            // 1.文本修改：回填输入框（优先当前值，取不到时使用初始显示字符串）
             if (showText && textInput != null)
             {
-                textInput.text = curValue != null ? curValue.ToString() : string.Empty;
+                textInput.text = GetInitialTextValue();
             }
 
             // 3.int文本输入：回填输入框
@@ -834,10 +863,10 @@ namespace Sango.UI
                 RefreshColorPicker();
             }
 
-            // 12.数组：回填数组文本
+            // 12.数组：回填数组文本（数组为空时回退到初始显示字符串）
             if (showArray && arrayInput != null)
             {
-                arrayInput.text = FormatArrayValue(curValue);
+                arrayInput.text = curValue != null ? FormatArrayValue(curValue) : GetInitialTextValue();
             }
         }
 
@@ -896,7 +925,7 @@ namespace Sango.UI
         {
             if (EditType == DataEditType.IdDropdown)
             {
-                return true;
+                return false;
             }
             // 当前存在空值的目标时,必须提供可回退到空值的选项
             if (HasNullValue())
@@ -985,7 +1014,15 @@ namespace Sango.UI
 
             if (objectValueText != null)
             {
-                objectValueText.text = isIdArray ? FormatIdArrayText() : GetDisplayString(curValue);
+                // 未修改时直接使用初始显示字符串（GetValueStr），修改后再按当前值转换显示
+                if (valueEdited)
+                {
+                    objectValueText.text = isIdArray ? FormatIdArrayText() : GetDisplayString(curValue);
+                }
+                else
+                {
+                    objectValueText.text = GetInitialObjectText();
+                }
             }
 
             if (objectSelectButton != null)
@@ -1019,7 +1056,7 @@ namespace Sango.UI
                 if (string.IsNullOrEmpty(jsonText))
                 {
                     JToken token = curValue as JToken;
-                    text = token != null ? token.ToString() : (curValue != null ? curValue.ToString() : string.Empty);
+                    text = token != null ? token.ToString() : GetInitialTextValue();
                 }
                 else
                 {
@@ -1028,7 +1065,7 @@ namespace Sango.UI
             }
             else
             {
-                text = curValue != null ? curValue.ToString() : string.Empty;
+                text = GetInitialTextValue();
             }
             textAreaInput.text = text;
 
@@ -1142,6 +1179,7 @@ namespace Sango.UI
         {
             Color color = ReadColorInputs();
             curValue = color;
+            valueEdited = true;
             RefreshColorPreview(color);
         }
 
@@ -1413,6 +1451,7 @@ namespace Sango.UI
             if (cities == null || cities.Count == 0)
             {
                 curValue = null;
+                valueEdited = true;
                 if (cityDropdown != null)
                 {
                     cityDropdown.SetValueWithoutNotify(0);
@@ -1422,6 +1461,7 @@ namespace Sango.UI
             City city = cities[cities.Count - 1];
             if (city == null) return;
             curValue = city;
+            valueEdited = true;
             if (cityDropdown != null)
             {
                 cityDropdown.SetValueWithoutNotify(GetCityOptionIndex(city));
@@ -1531,6 +1571,9 @@ namespace Sango.UI
                 case DataSetType.PersonAttributeType:
                     AddSetOptions(scenario.CommonData.PersonAttributeTypes);
                     break;
+                case DataSetType.PersonAbilityName:
+                    AddSetOptions(scenario.CommonData.AbilityLevelTypes);
+                    break;
                 default:
                     Log.Warning("属性:" + SortTitle.name + " 未配置可选数据集类型");
                     break;
@@ -1545,6 +1588,8 @@ namespace Sango.UI
         protected void AddSetOptions<T>(Database<T> dataSet) where T : SangoObject, new()
         {
             if (dataSet == null) return;
+            T zero = dataSet.Get(0);
+            if (zero != null) options.Add(new DataEditOption(zero.Name, zero));
             dataSet.ForEach(x =>
             {
                 if (x != null)
@@ -1619,6 +1664,7 @@ namespace Sango.UI
                 case DataSetType.ItemType: return FindInSet(scenario.CommonData.ItemTypes, id);
                 case DataSetType.TroopAnimation: return FindInSet(scenario.CommonData.TroopAnimations, id);
                 case DataSetType.CityLevelType: return FindInSet(scenario.CommonData.CityLevelTypes, id);
+                case DataSetType.PersonAbilityName: return FindInSet(scenario.CommonData.AbilityLevelTypes, id);
                 case DataSetType.Region: return FindInSet(scenario.CommonData.Regions, id);
                 case DataSetType.Skill: return FindInSet(scenario.CommonData.Skills, id);
                 case DataSetType.Buff: return FindInSet(scenario.CommonData.Buffs, id);
@@ -1837,7 +1883,36 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 获取当前编辑值的int表示
+        /// 获取对象/对象列表的初始显示文本
+        /// 优先使用GetValueStr取到的初始显示字符串（如特技列表直接显示“特技A, 特技B”），
+        /// 取不到时再回退到由当前值转换的显示文本
+        /// </summary>
+        /// <returns>初始显示文本</returns>
+        protected string GetInitialObjectText()
+        {
+            if (!string.IsNullOrEmpty(curValueStr))
+            {
+                return curValueStr;
+            }
+            return EditType == DataEditType.IdArray ? FormatIdArrayText() : GetDisplayString(curValue);
+        }
+
+        /// <summary>
+        /// 获取文本类控件的初始显示内容
+        /// 优先使用当前值，当前值为空时使用GetValueStr取到的初始显示字符串
+        /// </summary>
+        /// <returns>初始显示文本</returns>
+        protected string GetInitialTextValue()
+        {
+            if (curValue != null)
+            {
+                return curValue.ToString();
+            }
+            return curValueStr != null ? curValueStr : string.Empty;
+        }
+
+        /// <summary>
+        /// 获取当前编辑值的int表示（当前值为空时回退解析初始显示字符串）
         /// </summary>
         protected int GetIntValue()
         {
@@ -1847,11 +1922,16 @@ namespace Sango.UI
                 int.TryParse((string)curValue, out int result);
                 return result;
             }
+            if (curValue == null && !string.IsNullOrEmpty(curValueStr))
+            {
+                int.TryParse(curValueStr, out int result);
+                return result;
+            }
             return 0;
         }
 
         /// <summary>
-        /// 获取当前编辑值的float表示
+        /// 获取当前编辑值的float表示（当前值为空时回退解析初始显示字符串）
         /// </summary>
         protected float GetFloatValue()
         {
@@ -1861,6 +1941,11 @@ namespace Sango.UI
             if (curValue is string str)
             {
                 float.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out float result);
+                return result;
+            }
+            if (curValue == null && !string.IsNullOrEmpty(curValueStr))
+            {
+                float.TryParse(curValueStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float result);
                 return result;
             }
             return 0f;
@@ -1977,6 +2062,7 @@ namespace Sango.UI
             {
                 curValue = value;
             }
+            valueEdited = true;
         }
 
         /// <summary>
@@ -1995,6 +2081,7 @@ namespace Sango.UI
             if (index >= 0 && index < boolOptions.Count)
             {
                 curValue = boolOptions[index].value;
+                valueEdited = true;
             }
         }
 
@@ -2008,9 +2095,11 @@ namespace Sango.UI
                 case DataEditType.Text:
                 case DataEditType.TextArea:
                     curValue = string.Empty;
+                    curValueStr = string.Empty;
                     break;
                 case DataEditType.JsonEdit:
                     curValue = null;
+                    curValueStr = string.Empty;
                     jsonText = string.Empty;
                     break;
                 case DataEditType.IntInput:
@@ -2045,6 +2134,7 @@ namespace Sango.UI
                     curValue = null;
                     break;
             }
+            valueEdited = true;
             RefreshUI();
         }
 
@@ -2071,6 +2161,7 @@ namespace Sango.UI
         protected void OnCalculatorResult(int value)
         {
             curValue = Math.Min(Math.Max(value, SortTitle.minValue), SortTitle.maxValue);
+            valueEdited = true;
             if (calculatorValueText != null)
             {
                 calculatorValueText.text = curValue.ToString();
@@ -2091,6 +2182,7 @@ namespace Sango.UI
         protected void OnHeadResult(int headId)
         {
             curValue = headId;
+            valueEdited = true;
             RefreshHeadIcon();
         }
 
@@ -2250,6 +2342,9 @@ namespace Sango.UI
                 case DataSetType.PersonAttributeType:
                     StartSelect(scenario.CommonData.PersonAttributeTypes, GameSystem.GetSystem<PersonAttributeTypeSelectSystem>(), multi, "选择属性");
                     break;
+                case DataSetType.PersonAbilityName:
+                    StartSelect(scenario.CommonData.AbilityLevelTypes, GameSystem.GetSystem<AbilityLevelTypeSelectSystem>(), multi, "选择适应等级");
+                    break;
                 default:
                     Log.Warning("属性:" + SortTitle.name + " 的数据集类型不支持对象选择");
                     break;
@@ -2277,21 +2372,24 @@ namespace Sango.UI
 
             // 候选项：首位为虚拟空对象，选中即清空（单选置空，多选清空整个列表）
             List<TObject> candidates = new List<TObject>();
-            TObject empty = CreateEmptyObject<TObject>();
-            candidates.Add(empty);
+            if (dataSet.Get(0) == null)
+            {
+                TObject empty = CreateEmptyObject<TObject>();
+                candidates.Add(empty);
+                emptyOptionObject = empty;
+            }
             CollectSetCandidates(dataSet, candidates);
-            emptyOptionObject = empty;
 
             List<TObject> initial = GetInitialObjects(dataSet);
             if (multi)
             {
-                system.Start(candidates, initial, candidates.Count, (result) => OnMultiObjectSelected(result, empty), null, titleName);
+                system.Start(candidates, initial, candidates.Count, (result) => OnMultiObjectSelected(result, emptyOptionObject), null, titleName);
             }
             else
             {
                 system.Start(candidates, initial, 1, (result) =>
                 {
-                    if (result.Count > 0) OnObjectSelected(result[result.Count - 1], empty);
+                    if (result.Count > 0) OnObjectSelected(result[result.Count - 1], emptyOptionObject);
                 }, null, titleName);
             }
         }
@@ -2330,6 +2428,7 @@ namespace Sango.UI
             if (emptyOption != null && result.Contains(emptyOption as T))
             {
                 curValue = EditType == DataEditType.IdArray ? (object)new int[0] : new List<T>();
+                valueEdited = true;
                 RefreshObjectView();
                 return;
             }
@@ -2347,6 +2446,7 @@ namespace Sango.UI
             {
                 curValue = result;
             }
+            valueEdited = true;
             RefreshObjectView();
         }
 
@@ -2362,10 +2462,12 @@ namespace Sango.UI
             if (EditType == DataEditType.IdDropdown)
             {
                 curValue = isEmpty ? 0 : (obj != null ? obj.Id : 0);
+                valueEdited = true;
                 RefreshDropdown();
                 return;
             }
             curValue = isEmpty ? null : obj;
+            valueEdited = true;
             RefreshObjectView();
         }
 
@@ -2467,6 +2569,7 @@ namespace Sango.UI
         {
             if (result == null) return;
             curValue = result;
+            valueEdited = true;
             RefreshObjectView();
         }
 
@@ -2497,6 +2600,7 @@ namespace Sango.UI
         {
             if (result == null) return;
             curValue = result;
+            valueEdited = true;
             RefreshObjectView();
         }
 
@@ -2513,8 +2617,26 @@ namespace Sango.UI
                 return;
             }
 
+            // 收集前记录用户是否修改过（收集操作本身会把标记置为true）
+            bool editedBeforeCollect = valueEdited;
             if (!CollectCurValue())
             {
+                return;
+            }
+
+            // 文本/数值输入类控件没有变更事件，必须在确认时从控件收集并写回
+            bool collectFromInput = EditType == DataEditType.Text || EditType == DataEditType.TextArea
+                || EditType == DataEditType.JsonEdit || EditType == DataEditType.IntInput
+                || EditType == DataEditType.FloatInput || EditType == DataEditType.FloatCalculator
+                || EditType == DataEditType.ArrayEdit;
+
+            // 未做任何修改且不是从输入框取值的编辑类型（对象/列表/下拉等）：
+            // 直接关闭且不写回，避免“打开后直接确定”把原数据覆盖或清空
+            if (!editedBeforeCollect && !collectFromInput)
+            {
+                Action finishAction = onConfirmAction;
+                CloseSelf();
+                finishAction?.Invoke();
                 return;
             }
 
@@ -2622,6 +2744,7 @@ namespace Sango.UI
                     // 下拉/对象/头像/城池等类型的值在选择时已写入curValue，无需再收集
                     break;
             }
+            valueEdited = true;
             return true;
         }
 

@@ -1274,6 +1274,7 @@ namespace Sango.UI
             Force force = edit.CreateForce(freePersons[0], freeCities[0]);
             if (force != null)
             {
+                force.OnScenarioPrepare(edit.Scenario);
                 selectedForces.Clear();
                 selectedForces.Add(force);
                 RefreshCurrentPage();
@@ -1574,12 +1575,12 @@ namespace Sango.UI
                 PersonSortFunction.SortByPoliticsChangeType,
                 PersonSortFunction.SortByBaseGlamour,
                 PersonSortFunction.SortByGlamourChangeType,
-                PersonSortFunction.SortBySpearLv,
-                PersonSortFunction.SortByHalberdLv,
-                PersonSortFunction.SortByCrossbowLv,
-                PersonSortFunction.SortByRideLv,
-                PersonSortFunction.SortByWaterLv,
-                PersonSortFunction.SortByMachineLv,
+                PersonSortFunction.SortByBaseSpearLv,
+                PersonSortFunction.SortByBaseHalberdLv,
+                PersonSortFunction.SortByBaseCrossbowLv,
+                PersonSortFunction.SortByBaseRideLv,
+                PersonSortFunction.SortByBaseWaterLv,
+                PersonSortFunction.SortByBaseMachineLv,
                 PersonSortFunction.SortByFeatureList,
                 PersonSortFunction.SortByFamilyName,
                 PersonSortFunction.SortByGiveName,

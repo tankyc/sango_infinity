@@ -280,6 +280,8 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
+            if(InitTechniques.Count == 0)
+                InitTechniques.FromArray(new int[] { 1, 5, 9, 13, 17, 21, 25, 29, 33 });
             if (Governor > 0)
                 mGovernor = scenario.personSet.Get(Governor);
             if (Counsellor > 0)

@@ -374,7 +374,7 @@ namespace Sango.Core
         {
             name = "等级",
             width = 2.40f,
-            valueStrGetCall = x => x.CityLevelType.Name,
+            valueStrGetCall = x => x.CityLevelType?.Name,
             valueSortFunc = (a, b) => a.CityLevelType.Id.CompareTo(b.CityLevelType.Id),
             valueObjGet = x => x.CityLevelType,
             valueObjSet = null,

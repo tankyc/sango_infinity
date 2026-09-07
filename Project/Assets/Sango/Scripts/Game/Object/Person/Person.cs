@@ -2124,7 +2124,7 @@ namespace Sango.Core
 
             person.SpouseList = CloneArray(personLib.SpouseList);
             person.LikePersonList = CloneArray(personLib.LikePersonList);
-            person.HatePersonList = CloneArray(personLib.LikePersonList);
+            person.HatePersonList = CloneArray(personLib.HatePersonList);
             person.FeatureList = CloneArray(personLib.FeatureList);
 
 

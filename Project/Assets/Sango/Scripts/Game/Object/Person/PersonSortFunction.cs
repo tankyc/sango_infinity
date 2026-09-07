@@ -139,7 +139,21 @@ namespace Sango.Core
         /// <typeparam name="T">对象类型</typeparam>
         /// <param name="value">通用值</param>
         /// <returns>收集到的对象列表</returns>
-        private static List<T> CollectObjectList<T>(object value) where T : SangoObject
+        private static List<T> CollectObjectList<T>(object value) where T : SangoObject, new()
+        {
+            return CollectObjectList<T>(value, null);
+        }
+
+        /// <summary>
+        /// 从通用object值中收集目标类型的对象列表
+        /// 兼容List&lt;T&gt;/SangoObjectList&lt;T&gt;/单个对象/Id数组/null等输入，并自动去重；
+        /// 传入数据集时，Id集合（如int[]）会按Id从数据集中还原为对象
+        /// </summary>
+        /// <typeparam name="T">对象类型</typeparam>
+        /// <param name="value">通用值</param>
+        /// <param name="dataSet">用于Id还原的数据集，可为空</param>
+        /// <returns>收集到的对象列表</returns>
+        private static List<T> CollectObjectList<T>(object value, Database<T> dataSet) where T : SangoObject, new()
         {
             List<T> list = new List<T>();
             if (value is T)
@@ -151,13 +165,44 @@ namespace Sango.Core
             {
                 foreach (object item in enumerable)
                 {
-                    if (item is T && !list.Contains((T)item))
+                    if (item is T typed)
                     {
-                        list.Add((T)item);
+                        if (!list.Contains(typed))
+                        {
+                            list.Add(typed);
+                        }
+                    }
+                    else if (item is int id && dataSet != null)
+                    {
+                        // Id集合：按Id从数据集中还原对象（如 FeatureList 的 int[] 形态）
+                        T obj = dataSet.Find(id);
+                        if (obj != null && !list.Contains(obj))
+                        {
+                            list.Add(obj);
+                        }
                     }
                 }
             }
             return list;
+        }
+
+        /// <summary>
+        /// 判断传入值是否为空集合（用于区分“用户清空”与“类型转换失败”）
+        /// </summary>
+        /// <param name="value">传入值</param>
+        /// <returns>是否为空集合（非集合类型一律返回false）</returns>
+        private static bool IsEmptyEnumerable(object value)
+        {
+            if (value is string)
+            {
+                return false;
+            }
+            if (value is System.Collections.IEnumerable enumerable)
+            {
+                System.Collections.IEnumerator it = enumerable.GetEnumerator();
+                return !it.MoveNext();
+            }
+            return false;
         }
 
         /// <summary>
@@ -168,10 +213,18 @@ namespace Sango.Core
         public static void SetPersonFeatureList(Person person, object value)
         {
             if (person == null) return;
-            List<Feature> newList = CollectObjectList<Feature>(value);
+            // 传入数据集以支持从Id数组还原特技
+            Scenario scenario = Scenario.Cur;
+            List<Feature> newList = CollectObjectList<Feature>(value, scenario != null ? scenario.CommonData.Features : null);
             if (person.mFeatureList == null)
             {
                 person.mFeatureList = new SangoObjectList<Feature>();
+            }
+            // 防御：传入值非空却收集不到任何特技，说明传入值类型不匹配，保留原数据避免误清空
+            if (newList.Count == 0 && value != null && !IsEmptyEnumerable(value))
+            {
+                Sango.Log.Error("设置武将:" + person.Name + " 的特技失败:传入值类型 " + value.GetType().Name + " 无法转换为特技列表,已保留原数据");
+                return;
             }
             person.mFeatureList.Clear();
             for (int i = 0; i < newList.Count; i++)
@@ -194,10 +247,18 @@ namespace Sango.Core
         public static void SetPersonSpouseList(Person person, object value)
         {
             if (person == null) return;
-            List<Person> newList = CollectObjectList<Person>(value);
+            // 传入数据集以支持从Id数组还原武将
+            Scenario scenario = Scenario.Cur;
+            List<Person> newList = CollectObjectList<Person>(value, scenario != null ? scenario.personSet : null);
             if (person.mSpouseList == null)
             {
                 Sango.Log.Warning("武将:" + person.Name + " 的配偶列表尚未初始化,无法修改");
+                return;
+            }
+            // 防御：传入值非空却收集不到任何配偶，说明传入值类型不匹配，保留原数据避免误清空
+            if (newList.Count == 0 && value != null && !IsEmptyEnumerable(value))
+            {
+                Sango.Log.Error("设置武将:" + person.Name + " 的配偶失败:传入值类型 " + value.GetType().Name + " 无法转换为武将列表,已保留原数据");
                 return;
             }
 
@@ -436,7 +497,8 @@ namespace Sango.Core
             valueStrGetCall = x => x.command.baseValue.ToString(),
             valueSortFunc = (a, b) => a.command.baseValue.CompareTo(b.command.baseValue),
             valueObjGet = x => x.command.baseValue,
-            valueObjSet = (x, v) => {
+            valueObjSet = (x, v) =>
+            {
                 x.command.baseValue = (int)v;
                 x.command.UpdateNoAge();
             }
@@ -453,7 +515,8 @@ namespace Sango.Core
             valueStrGetCall = x => x.strength.baseValue.ToString(),
             valueSortFunc = (a, b) => a.strength.baseValue.CompareTo(b.strength.baseValue),
             valueObjGet = x => x.strength.baseValue,
-            valueObjSet = (x, v) => {
+            valueObjSet = (x, v) =>
+            {
                 x.strength.baseValue = (int)v;
                 x.strength.UpdateNoAge();
             },
@@ -469,7 +532,8 @@ namespace Sango.Core
             valueStrGetCall = x => x.intelligence.baseValue.ToString(),
             valueSortFunc = (a, b) => -a.intelligence.baseValue.CompareTo(b.intelligence.baseValue),
             valueObjGet = x => x.intelligence.baseValue,
-            valueObjSet = (x, v) => {
+            valueObjSet = (x, v) =>
+            {
                 x.intelligence.baseValue = (int)v;
                 x.intelligence.UpdateNoAge();
             },
@@ -485,7 +549,8 @@ namespace Sango.Core
             valueStrGetCall = x => x.politics.baseValue.ToString(),
             valueSortFunc = (a, b) => b.politics.baseValue.CompareTo(a.politics.baseValue),
             valueObjGet = x => x.politics.baseValue,
-            valueObjSet = (x, v) => {
+            valueObjSet = (x, v) =>
+            {
                 x.politics.baseValue = (int)v;
                 x.politics.UpdateNoAge();
             },
@@ -502,7 +567,8 @@ namespace Sango.Core
             valueStrGetCall = x => x.glamour.baseValue.ToString(),
             valueSortFunc = (a, b) => a.glamour.baseValue.CompareTo(b.glamour.baseValue),
             valueObjGet = x => x.glamour.baseValue,
-            valueObjSet = (x, v) => {
+            valueObjSet = (x, v) =>
+            {
                 x.glamour.baseValue = (int)v;
                 x.glamour.UpdateNoAge();
             },
@@ -722,6 +788,78 @@ namespace Sango.Core
             valueObjGet = x => x.MachineLv,
             valueObjSet = null,
         };
+
+        public static SortTitle SortByBaseSpearLv = new SortTitle()
+        {
+            name = "枪兵",
+            width = 2.00f,
+            valueStrGetCall = x => Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.spearLv.baseValue).Name,
+            valueSortFunc = (a, b) => a.spearLv.baseValue.CompareTo(b.spearLv.baseValue),
+            valueObjGet = x => x.spearLv.baseValue,
+            valueObjSet = (x, v) => x.spearLv.baseValue = (int)v,
+            editType = DataEditType.IdDropdown,
+            dataSetType = DataSetType.PersonAbilityName,
+        };
+        public static SortTitle SortByBaseHalberdLv = new SortTitle()
+        {
+            name = "戟兵",
+            width = 2.00f,
+            valueStrGetCall = x => Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.halberdLv.baseValue).Name,
+            valueSortFunc = (a, b) => a.halberdLv.baseValue.CompareTo(b.halberdLv.baseValue),
+            valueObjGet = x => x.halberdLv.baseValue,
+            valueObjSet = (x, v) => x.halberdLv.baseValue = (int)v,
+            editType = DataEditType.IdDropdown,
+            dataSetType = DataSetType.PersonAbilityName,
+        };
+
+        public static SortTitle SortByBaseCrossbowLv = new SortTitle()
+        {
+            name = "弓兵",
+            width = 2.00f,
+            valueStrGetCall = x => Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.crossbowLv.baseValue).Name,
+            valueSortFunc = (a, b) => a.crossbowLv.baseValue.CompareTo(b.crossbowLv.baseValue),
+            valueObjGet = x => x.crossbowLv.baseValue,
+            valueObjSet = (x, v) => x.crossbowLv.baseValue = (int)v,
+            editType = DataEditType.IdDropdown,
+            dataSetType = DataSetType.PersonAbilityName,
+        };
+
+        public static SortTitle SortByBaseRideLv = new SortTitle()
+        {
+            name = "骑兵",
+            width = 2.00f,
+            valueStrGetCall = x => Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.rideLv.baseValue).Name,
+            valueSortFunc = (a, b) => a.rideLv.baseValue.CompareTo(b.rideLv.baseValue),
+            valueObjGet = x => x.rideLv.baseValue,
+            valueObjSet = (x, v) => x.rideLv.baseValue = (int)v,
+            editType = DataEditType.IdDropdown,
+            dataSetType = DataSetType.PersonAbilityName,
+        };
+
+        public static SortTitle SortByBaseWaterLv = new SortTitle()
+        {
+            name = "水军",
+            width = 2.00f,
+            valueStrGetCall = x => Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.waterLv.baseValue).Name,
+            valueSortFunc = (a, b) => a.waterLv.baseValue.CompareTo(b.waterLv.baseValue),
+            valueObjGet = x => x.waterLv.baseValue,
+            valueObjSet = (x, v) => x.waterLv.baseValue = (int)v,
+            editType = DataEditType.IdDropdown,
+            dataSetType = DataSetType.PersonAbilityName,
+        };
+
+        public static SortTitle SortByBaseMachineLv = new SortTitle()
+        {
+            name = "兵器",
+            width = 2.00f,
+            valueStrGetCall = x => Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.machineLv.baseValue).Name,
+            valueSortFunc = (a, b) => a.machineLv.baseValue.CompareTo(b.machineLv.baseValue),
+            valueObjGet = x => x.machineLv.baseValue,
+            valueObjSet = (x, v) => x.machineLv.baseValue = (int)v,
+            editType = DataEditType.IdDropdown,
+            dataSetType = DataSetType.PersonAbilityName,
+        };
+
 
         public static SortTitle SortByFeatureList = new SortTitle()
         {

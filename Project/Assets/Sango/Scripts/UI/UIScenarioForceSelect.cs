@@ -98,7 +98,7 @@ namespace Sango.UI
             foreach (ShortCity city in scenario.citySet)
             {
                 if (city == null) continue;
-                if (city.BuildingType > 1) continue;
+                if (!city.IsCity()) continue;
                 if (city.Id == 0) continue;
                 GameObject cityObj;
                 if (i >= cityList.Count)
@@ -112,6 +112,11 @@ namespace Sango.UI
                     cityObj = cityList[i];
                     cityObj.name = city.Id.ToString();
                 }
+
+                if(city.BuildingType == 1)
+                    cityObj.transform.localScale = Vector3.one;
+                else
+                    cityObj.transform.localScale = Vector3.one * 0.75f;
 
                 i++;
                 UIMapCitySelectItem toggle = cityObj.GetComponent<UIMapCitySelectItem>();

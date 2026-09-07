@@ -128,7 +128,7 @@ using Sango.Core; namespace Sango.UI
             foreach (ShortCity city in scenario.citySet)
             {
 
-                if (city.BuildingType > 1) continue;
+                if (!city.IsCity()) continue;
                 if (city.Id == 0) continue;
 
                 UICityMapItem item = cityPool.Create();

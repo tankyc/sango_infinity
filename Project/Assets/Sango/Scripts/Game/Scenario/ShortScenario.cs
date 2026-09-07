@@ -90,6 +90,24 @@ namespace Sango.Core
         public int troops;
         public int gold;
         public int food;
+
+        public bool IsCity()
+        {
+            return BuildingType == 1 || BuildingType == 65;
+        }
+
+        public Vector3 CityScale
+        {
+            get
+            {
+                if (BuildingType == 1)
+                    return Vector3.one;
+                else
+                    return Vector3.one * 0.75f;
+            }
+        }
+
+
         public ShortCity Copy()
         {
             return new ShortCity()
@@ -704,7 +722,7 @@ namespace Sango.Core
                         }
                     });
 
-                    if(x.IsAppend)
+                    if (x.IsAppend)
                     {
                         x.totalTroops = x.cityCount * 10000 + 10000;
                         x.totalGold = x.cityCount * 4000;

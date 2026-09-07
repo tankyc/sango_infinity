@@ -852,6 +852,8 @@ namespace Sango.Core
             person.nickName = "";
             person.state = (int)PersonStateType.Invalid;
             Scenario.personSet.Add(person);
+            person.OnScenarioPrepare(Scenario);
+
             Log.Info("新建武将完成: " + person.Name);
             return person;
         }
