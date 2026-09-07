@@ -57,10 +57,11 @@ using Sango.Core; namespace Sango.UI
             currentSystem.Exit();
         }
 
+        /// <summary>打开征兵选择器，默认使用名声优先、魅力倒序的排序列。</summary>
         public void OnSelectPerson()
         {
             GameSystem.GetSystem<PersonSelectSystem>().Start(currentSystem.TargetCity.freePersons,
-               currentSystem.personList, 3, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
+               currentSystem.personList, 3, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName, 1);
         }
 
         public virtual void OnPersonChange(List<Person> personList)
