@@ -485,6 +485,7 @@ namespace Sango.Core
         public override void Init(Scenario scenario)
         {
             _troopName = $"{Leader?.Name}队";
+            ForEachPerson(x => x.mTroop = this);
             InitActionList();
             StrategySkills.Clear();
             scenario.CommonData.Skills.ForEach(x =>

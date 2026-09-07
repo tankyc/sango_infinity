@@ -141,7 +141,6 @@ zd同学,
                 cameraDistance = 400f
             };
 
-
             Scenario.StartScenario(scenario);
         }
 
@@ -155,6 +154,11 @@ zd同学,
         public void JumpBilibili()
         {
             Application.OpenURL("https://space.bilibili.com/3546816591170057");
+        }
+
+        public void OnLogin()
+        {
+            Window.Instance.Open("window_login");
         }
     }
 }

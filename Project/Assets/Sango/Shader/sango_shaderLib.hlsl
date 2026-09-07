@@ -115,12 +115,12 @@ TEXTURE2D(_BrushTex);
 float _terrainTypeMaskCol;
 float _terrainTypeMaskRow;
 float _terrainTypeAlpha;
-float _TerrainOverlayShowFlag;
+float _TerrainTypeShowFlag;
 TEXTURE2D(_TerrainTypeTex);
 TEXTURE2D(_TerrainTypeMaskTex);
 #if defined(SANGO_EDITOR)
 TEXTURE2D(_TerrainOverlayTex);
-float _TerrainTypeShowFlag;
+float _TerrainOverlayShowFlag;
 #endif
 #endif
 
@@ -320,9 +320,11 @@ float4 sango_frag(SangoVertexOutput i) : COLOR
 
 	diffuse = lerp(diffuse, diffuse * 0.5 + tarrainTypeColor.rbg, _TerrainTypeShowFlag * _terrainTypeAlpha);
 	//diffuse = diffuse + tarrainTypeColor * _TerrainTypeShowFlag * _terrainTypeAlpha;
-
+#if SANGO_BASE_COLOR
 	half4 overColor = SAMPLE_TEXTURE2D(_TerrainOverlayTex, sampler_BaseMap, baseUV);
-	diffuse = lerp(diffuse, overColor, _TerrainTypeShowFlag);
+	diffuse = lerp(diffuse, overColor, _TerrainOverlayShowFlag);
+#endif
+
 #endif
 	#endif
 

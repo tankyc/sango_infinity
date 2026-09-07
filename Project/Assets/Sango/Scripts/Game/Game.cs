@@ -83,6 +83,7 @@ namespace Sango.Core
             GameLanguage.Instance.Init("cn");
             GameSystemManager.Instance.Init();
             DebateManager.Instance.Init();
+            GameLogin.Instance.Init();
             StartCoroutine(GameInit());
         }
 

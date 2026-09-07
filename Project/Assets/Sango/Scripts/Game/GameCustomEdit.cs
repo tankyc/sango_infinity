@@ -162,6 +162,8 @@ namespace Sango.Core
             // 自建武将ID 20001起步
             SelfScenarioAddon = new ScenarioAddon();
             SelfScenarioAddon.PersonLibrary.offset = 20000;
+            if (File.Exists(Path.CustomEditRootPath + "/CustomPerson.json"))
+                SelfScenarioAddon.Load(Path.CustomEditRootPath + "/CustomPerson.json");
             SelfScenarioAddon.Load(Path.CustomEditRootPath + "/Data/CustomPerson.json");
             SelfScenarioAddon.PersonLibrary.ForEach(x =>
             {
@@ -234,6 +236,10 @@ namespace Sango.Core
         public void SaveScenarioAddon()
         {
             if (SelfScenarioAddon == null) return;
+
+            if (File.Exists(Path.CustomEditRootPath + "/CustomPerson.json"))
+                File.Delete(Path.CustomEditRootPath + "/CustomPerson.json");
+
             string path = Sango.Path.CustomEditRootPath + "/Data/CustomPerson.json";
             string dir = System.IO.Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))

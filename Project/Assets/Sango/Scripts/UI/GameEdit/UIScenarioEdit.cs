@@ -332,7 +332,7 @@ namespace Sango.UI
         public override void OnClose()
         {
             base.OnClose();
-            RemoveListeners();
+            //RemoveListeners();
             selectedPerson = null;
             selectedForce = null;
             selectedCorps = null;
@@ -1772,6 +1772,12 @@ namespace Sango.UI
             {
                 edit.Done();
             }
+        }
+
+        public void OnBackToMenu()
+        {
+            menuObject.SetActive(true);
+            contentObject.SetActive(false);
         }
     }
 }

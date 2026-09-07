@@ -37,7 +37,6 @@ public class GameStart : MonoBehaviour
         //        else UnityEngine.Debug.LogError("失败: " + result.ErrorMessage);
         //    }
         //)); 
-
         initObject.SetActive(true);
         GameEvent.OnGameInit += OnGameInit;
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN

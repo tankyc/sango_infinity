@@ -493,10 +493,13 @@ namespace Sango.Core
             PlayerPrefs.SetInt("MovementMode", MovementMode);
             PlayerPrefs.SetInt("MobileCancel1", MobileCancel ? 1 : 0);
 #if UNITY_ANDROID || UNITY_IPHONE
-            if(MobileCancel)
-                Window.Instance.Open("window_mobile_cancel");
-            else
-                Window.Instance.Close("window_mobile_cancel");
+            if(Window.Instance.IsOpen("window_game"))
+            {
+                if (MobileCancel)
+                    Window.Instance.Open("window_mobile_cancel");
+                else
+                    Window.Instance.Close("window_mobile_cancel");
+            }
 #endif
 
             PlayerPrefs.Save();

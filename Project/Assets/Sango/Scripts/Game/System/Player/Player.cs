@@ -51,7 +51,7 @@ namespace Sango.Core.Player
 
         void OnGameSettingCancel()
         {
-            
+
         }
 
         void OnGameSetting(IVariablesSetting variablesSetting)
@@ -92,11 +92,11 @@ namespace Sango.Core.Player
             }
         }
 
-        string GetSaveFileName(int index)
+        public static string GetSaveFileName(int index)
         {
             return $"{Path.SaveRootPath}/Save/save{index}.json";
         }
-        string GetAutoSaveFileName(int index)
+        public static string GetAutoSaveFileName(int index)
         {
             return $"{Path.SaveRootPath}/Save/auto_save{index}.json";
         }

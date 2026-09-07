@@ -85,6 +85,12 @@ namespace Sango.Tools
         public Texture[] brushTexture;
 
         /// <summary>
+        /// 垫图
+        /// </summary>
+        public Texture overlayTexture;
+        public float overlayOpacity = 0.0f; // 垫图透明度
+
+        /// <summary>
         /// 当前笔刷类型
         /// </summary>
         public BrushType brushType = BrushType.Unknown;
@@ -1071,6 +1077,34 @@ namespace Sango.Tools
                 }
             }
             GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(String.Format("垫图透明度", size), GUILayout.Width(80));
+            float _opacity_overlay = GUILayout.HorizontalSlider(overlayOpacity, 0f, 1f);
+            if (_opacity_overlay != overlayOpacity)
+            {
+                overlayOpacity = _opacity_overlay;
+                Shader.SetGlobalFloat("_TerrainTypeShowFlag", overlayOpacity);
+            }
+            if (GUILayout.Button("加载"))
+            {
+                string [] path = WindowDialog.OpenFileDialog("垫图文件(*.png)|*.png\0");
+                if (path != null)
+                {
+                    string fileName = path[0];
+                    Loader.TextureLoader.LoadFromFile(fileName, null, (UnityEngine.Object obj, object customData) =>
+                    {
+                        if (obj != null)
+                        {
+                            Texture tex = obj as Texture;
+                            overlayTexture = tex;
+                            Shader.SetGlobalTexture("_TerrainOverlayTex", overlayTexture);
+                        }
+                    });
+                }
+            }
             GUILayout.EndHorizontal();
 
             // 画笔透明度调节

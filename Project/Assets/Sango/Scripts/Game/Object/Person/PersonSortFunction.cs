@@ -1437,7 +1437,7 @@ namespace Sango.Core
         {
             name = "官职",
             width = 3.20f,
-            valueStrGetCall = x => x.Official.Name,
+            valueStrGetCall = x => x.Official?.Name,
             valueSortFunc = (a, b) => SangoObject.Compare(a.Official, b.Official),
             valueObjGet = x => x.Official,
             valueObjSet = (x, v) => x.Official = (Official)v,
