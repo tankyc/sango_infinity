@@ -24,16 +24,16 @@ namespace Sango.Core
         /// <summary>
         /// 获取势力的AI个性
         /// </summary>
-        public static AIPersonalityType GetAIPersonality(Force force)
+        public static AIPersonalityType GetAIPersonality(Person person)
         {
             // 基于势力领袖的性格决定AI个性
-            if (force.mGovernor != null && force.mGovernor.mPersonality != null)
+            if (person != null && person.mPersonality != null)
             {
                 // 基于性格特征计算AI个性
-                int warScore = force.mGovernor.mPersonality.warTendencyAdd;
-                int defenseScore = force.mGovernor.mPersonality.defenseTendencyAdd;
-                int diplomacyScore = force.mGovernor.mPersonality.diplomacyTendencyAdd;
-                int economicScore = force.mGovernor.mPersonality.economicTendencyAdd;
+                int warScore = person.mPersonality.warTendencyAdd;
+                int defenseScore = person.mPersonality.defenseTendencyAdd;
+                int diplomacyScore = person.mPersonality.diplomacyTendencyAdd;
+                int economicScore = person.mPersonality.economicTendencyAdd;
 
                 // 找出最高得分的个性类型
                 int maxScore = System.Math.Max(System.Math.Max(warScore, defenseScore), System.Math.Max(diplomacyScore, economicScore));
@@ -69,7 +69,7 @@ namespace Sango.Core
             if (!GameRandom.Chance(30)) return true;
 
             // 获取AI个性
-            AIPersonalityType personality = GetAIPersonality(force);
+            AIPersonalityType personality = GetAIPersonality(force.mGovernor);
 
             // 清理过期的外交免疫时间
             CleanupDiplomacyImmunity(force, scenario);

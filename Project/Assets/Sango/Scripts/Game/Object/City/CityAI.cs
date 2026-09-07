@@ -265,7 +265,7 @@ namespace Sango.Core
                 return true;
             }
 
-            if(city.mBelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
+            if (city.mBelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
             {
                 return true;
             }
@@ -1134,7 +1134,8 @@ namespace Sango.Core
         {
             if (city.mBelongForce != null)
             {
-                return ForceAI.GetAIPersonality(city.mBelongForce);
+                if (city.mBelongCorps != null)
+                    return ForceAI.GetAIPersonality(city.mBelongCorps.mComander);
             }
             return ForceAI.AIPersonalityType.Balanced;
         }
@@ -1175,7 +1176,7 @@ namespace Sango.Core
             if (!city.IsBorderCity)
                 return false;
 
-            if (city.IsEnemiesRound(15))
+            if (city.IsEnemiesRound(6))
                 return false;
 
             List<City> enemiesCities = new List<City>();
@@ -1354,7 +1355,7 @@ namespace Sango.Core
                 //}
             }
 
-            if(validItem.Count == 0)
+            if (validItem.Count == 0)
                 return true;
 
             int[] pr = new int[validItem.Count];
