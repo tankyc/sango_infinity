@@ -285,10 +285,11 @@ namespace Sango.UI
             UpdateContent();
         }
 
+        /// <summary>打开运输选择器，默认使用搬运特性优先的排序列。</summary>
         public void OnSelectPerson()
         {
             GameSystem.GetSystem<PersonSelectSystem>().Start(cityTransportSys.TargetCity.freePersons,
-                cityTransportSys.personList, 3, OnPersonChange, cityTransportSys.customTitleList, cityTransportSys.customTitleName);
+                cityTransportSys.personList, 3, OnPersonChange, cityTransportSys.customTitleList, cityTransportSys.customTitleName, 1);
         }
 
         public void OnSlecteMax()
