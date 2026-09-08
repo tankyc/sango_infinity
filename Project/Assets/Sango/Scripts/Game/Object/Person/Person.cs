@@ -1,5 +1,6 @@
 using TKNewtonsoft.Json;
 using Sango.Render;
+using Sango.Core.Action;
 using System;
 using System.Collections.Generic;
 
@@ -426,6 +427,11 @@ namespace Sango.Core
         public SangoObjectList<Feature> mFeatureList;
 
         /// <summary>
+        /// 武将个人关系类特技装配的动作列表。
+        /// </summary>
+        public List<ActionBase> actionList;
+
+        /// <summary>
         /// 库存
         /// </summary>
         [JsonProperty]
@@ -759,6 +765,8 @@ namespace Sango.Core
             mLikePersonList = scenario.Array2ObjectList(scenario.personSet, LikePersonList);
             mHatePersonList = scenario.Array2ObjectList(scenario.personSet, HatePersonList);
             mFeatureList = scenario.Array2ObjectList(scenario.CommonData.Features, FeatureList);
+            // 特技对象已完成解析后再装配个人关系 Action，确保事件订阅只依赖有效配置。
+            InitPersonActions();
 
             if (!scenario.Variables.AgeEnabled || !scenario.Variables.EnableAgeAbilityFactor)
             {
@@ -1828,6 +1836,91 @@ namespace Sango.Core
         {
             if (mFeatureList == null || mFeatureList.Count == 0) return false;
             return mFeatureList.Contains(id);
+        }
+
+        /// <summary>
+        /// 初始化武将个人关系类特技的 Action。
+        /// 同一武将重复准备剧本时先解除旧订阅，避免事件处理器重复注册。
+        /// </summary>
+        private void InitPersonActions()
+        {
+            if (actionList != null)
+            {
+                for (int i = 0; i < actionList.Count; i++)
+                {
+                    actionList[i].Clear();
+                }
+                actionList.Clear();
+            }
+            else
+            {
+                actionList = new List<ActionBase>();
+            }
+
+            if (mFeatureList == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < mFeatureList.Count; i++)
+            {
+                Feature feature = mFeatureList[i];
+                if (feature != null && feature.kind == (int)FeatureKindType.PersonRelationship)
+                {
+                    feature.InitActions(actionList, this);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 清理武将个人特技的事件订阅，防止剧本卸载后保留失效引用。
+        /// </summary>
+        public override void Clear()
+        {
+            base.Clear();
+            if (actionList == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < actionList.Count; i++)
+            {
+                actionList[i].Clear();
+            }
+            actionList.Clear();
+            actionList = null;
+        }
+
+        /// <summary>
+        /// 永久写入内助带来的婚姻基础能力加成。
+        /// 该方法只应在新增婚姻关系时调用一次；加成写入基础值，因此不会因婚姻关系后续变化而撤销。
+        /// </summary>
+        /// <param name="value">每项基础能力的永久增加值。</param>
+        public void ApplyInnerAssistanceBonus(int value)
+        {
+            command.baseValue += value;
+            strength.baseValue += value;
+            intelligence.baseValue += value;
+            politics.baseValue += value;
+            glamour.baseValue += value;
+
+            // 立即刷新派生能力；编辑器未加载场景时仅按基础值刷新，避免依赖年龄配置。
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null)
+            {
+                command.UpdateNoAge();
+                strength.UpdateNoAge();
+                intelligence.UpdateNoAge();
+                politics.UpdateNoAge();
+                glamour.UpdateNoAge();
+                return;
+            }
+
+            command.Update(Age, scenario);
+            strength.Update(Age, scenario);
+            intelligence.Update(Age, scenario);
+            politics.Update(Age, scenario);
+            glamour.Update(Age, scenario);
         }
 
         public bool HasFeatrue(int[] ids)

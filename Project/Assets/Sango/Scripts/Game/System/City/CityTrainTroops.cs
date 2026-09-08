@@ -33,6 +33,7 @@ namespace Sango.Core.Player
             {
                 name = sortTitle.name,
                 width = sortTitle.width,
+                // 复用武力列的显示内容，仅改写排序规则以优先展示高武力武将。
                 valueStrGetCall = sortTitle.valueStrGetCall,
                 valueObjGet = sortTitle.valueObjGet,
                 valueObjSet = sortTitle.valueObjSet,

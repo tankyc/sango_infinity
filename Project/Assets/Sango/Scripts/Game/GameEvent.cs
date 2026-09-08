@@ -540,6 +540,21 @@ namespace Sango.Core
         public static EventDelegate<Force, OverrideData<int>> OnForcePersonLoyaltyChangeProbability;
 
         /// <summary>
+        /// 势力武将换季忠诚变化结算。监听者可将 shouldLoseLoyalty 设为 false 阻止本次扣忠。
+        /// </summary>
+        public static EventDelegate<Force, Person, OverrideData<bool>> OnForcePersonLoyaltyChange;
+
+        /// <summary>
+        /// 部队计算本次获得的技巧点。仅击破敌方部队时 isDestroyEnemyTroop 为 true。
+        /// </summary>
+        public static EventDelegate<Troop, bool, OverrideData<int>> OnTroopCalculateTechniquePoint;
+
+        /// <summary>
+        /// 新婚关系建立完成。handled 用于保证双方同时拥有内助时仅结算一次。
+        /// </summary>
+        public static EventDelegate<Person, Person, OverrideData<bool>> OnPersonMarriageCreated;
+
+        /// <summary>
         /// 可监听改计算战法成功率(百分比) 必爆, 设置100则为必中, 设置为0则必不中
         /// City, Skill, spellCell, OverrideFunc
         /// </summary>
