@@ -33,11 +33,11 @@ namespace Sango.Core.Player
             {
                 name = sortTitle.name,
                 width = sortTitle.width,
-                valueGetCall = sortTitle.valueGetCall,
+                valueStrGetCall = sortTitle.valueStrGetCall,
                 valueObjGet = sortTitle.valueObjGet,
                 valueObjSet = sortTitle.valueObjSet,
                 // 训练收益以武力为关联属性，数值高的武将优先显示和选择。
-                personSortFunc = (a, b) => b.Strength.CompareTo(a.Strength)
+                valueSortFunc = (a, b) => b.Strength.CompareTo(a.Strength)
             };
             return sortTitle;
         }

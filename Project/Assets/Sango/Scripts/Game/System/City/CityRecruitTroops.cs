@@ -64,7 +64,7 @@ namespace Sango.Core.Player
         private static PersonSortFunction.SortTitle CreateRecruitPersonSortTitle()
         {
             PersonSortFunction.SortTitle sortTitle = PersonSortFunction.GetSortByFeatrueId(80);
-            sortTitle.personSortFunc = (a, b) =>
+            sortTitle.valueSortFunc = (a, b) =>
             {
                 // 先比较名声特性，确保具有征兵加成的武将始终位于列表前部。
                 int featureCompare = b.HasFeatrue(80).CompareTo(a.HasFeatrue(80));

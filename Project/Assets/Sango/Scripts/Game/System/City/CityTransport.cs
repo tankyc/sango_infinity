@@ -96,7 +96,7 @@ namespace Sango.Core.Player
         private static PersonSortFunction.SortTitle CreateTransportPersonSortTitle()
         {
             PersonSortFunction.SortTitle sortTitle = PersonSortFunction.GetSortByFeatrueId(8);
-            sortTitle.personSortFunc = (a, b) =>
+            sortTitle.valueSortFunc = (a, b) =>
             {
                 // 搬运特性提高输送部队移动力，应优先于基础运输能力。
                 int featureCompare = b.HasFeatrue(8).CompareTo(a.HasFeatrue(8));

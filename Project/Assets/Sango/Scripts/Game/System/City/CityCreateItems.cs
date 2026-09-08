@@ -61,7 +61,7 @@ namespace Sango.Core.Player
         private static PersonSortFunction.SortTitle CreateFeaturePrioritySort(int featureId)
         {
             PersonSortFunction.SortTitle sortTitle = PersonSortFunction.GetSortByFeatrueId(featureId);
-            sortTitle.personSortFunc = (a, b) => b.HasFeatrue(featureId).CompareTo(a.HasFeatrue(featureId));
+            sortTitle.valueSortFunc = (a, b) => b.HasFeatrue(featureId).CompareTo(a.HasFeatrue(featureId));
             return sortTitle;
         }
 
@@ -70,7 +70,7 @@ namespace Sango.Core.Player
         {
             int featureId = GetProductionFeatureId();
             PersonSortFunction.SortTitle sortTitle = CreateFeaturePrioritySort(featureId);
-            sortTitle.personSortFunc = (a, b) =>
+            sortTitle.valueSortFunc = (a, b) =>
             {
                 // 先将能直接提升当前兵装生产效果的特性武将排在前面，再比较智力。
                 int featureCompare = b.HasFeatrue(featureId).CompareTo(a.HasFeatrue(featureId));
