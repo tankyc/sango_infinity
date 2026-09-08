@@ -162,7 +162,7 @@ public class GameStart : MonoBehaviour
         /// </summary>
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         Game.Instance.Init(this, Platform.PlatformName.Mac);
-#elif UNITY_STANDALONE_WIN
+#elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
         Game.Instance.Init(this, Platform.PlatformName.Window);
 #elif UNITY_ANDROID
         Game.Instance.Init(this, Platform.PlatformName.Android);
