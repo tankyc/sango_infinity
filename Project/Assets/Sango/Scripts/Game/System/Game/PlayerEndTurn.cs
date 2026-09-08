@@ -91,7 +91,7 @@ namespace Sango.Core.Player
             Force force = scenario.CurRunForce;
             if (force != null)
                 if (force.CurRunCorps != null && !force.CurRunCorps.ActionOver)
-                    GameEvent.OnPlayerEndTurn?.Invoke(force, scenario);
+                    GameEvent.OnPlayerEndTurn?.Invoke(null, scenario);
         }
 
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)

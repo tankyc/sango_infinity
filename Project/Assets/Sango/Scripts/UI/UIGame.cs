@@ -251,16 +251,15 @@ namespace Sango.UI
 
         public void OnPlayerEndTurn(Force force, Scenario scenario)
         {
-            if (endTurnButton.interactable == false)
+            if(force == null)
             {
                 endTurnButton.interactable = true;
                 uIPlayerInfoPanel.gameObject.SetActive(true);
+                return;
             }
-            else
-            {
-                endTurnButton.interactable = false;
-                uIPlayerInfoPanel.gameObject.SetActive(false);
-            }
+
+            endTurnButton.interactable = false;
+            uIPlayerInfoPanel.gameObject.SetActive(false);
         }
 
         public void OnForceStart(Force force, Scenario scenario)
