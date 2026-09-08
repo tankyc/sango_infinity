@@ -71,6 +71,7 @@ using Sango.Core; namespace Sango.UI
             }
         }
 
+        /// <summary>切换兵装类型，并按该兵装对应特性和智力重新生成默认指派。</summary>
         public void OnSelectItemType(UIBuildingTypeItem buildingTypeItem)
         {
             if (currentSystem.CurSelectedItemTypeIndex >= 0)
@@ -82,7 +83,8 @@ using Sango.Core; namespace Sango.UI
             CityCreateItems.ItemTypeInfo curItemType = currentSystem.ItemTypes[buildingTypeItem.index];
             currentSystem.CurSelectedItemType = curItemType;
             currentSystem.TargetBuilding = curItemType.targetBuilding;
-            Person[] builder = ForceAI.CounsellorRecommendCreateItems(currentSystem.TargetCity.freePersons);
+            // 每种兵装的增益特性不同，切换后必须同步刷新默认武将。
+            Person[] builder = currentSystem.GetRecommendedCreatePersons();
             currentSystem.personList.Clear();
             if (builder == null || builder.Length == 0)
             {
@@ -144,10 +146,15 @@ using Sango.Core; namespace Sango.UI
             }
         }
 
+        /// <summary>打开兵装生产武将选择器，展示名称、智力和当前兵装关联特性列。</summary>
         public void OnSelectPerson()
         {
             GameSystem.GetSystem<PersonSelectSystem>().Start(currentSystem.TargetCity.freePersons,
-                currentSystem.personList, 3, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
+                currentSystem.personList, 3, OnPersonChange,
+                // 默认按特性优先、智力倒序；智力列保留供玩家核对。
+                new List<ObjectSortTitle> { PersonSortFunction.SortByName, PersonSortFunction.SortByIntelligence,
+                    currentSystem.GetProductionPersonSortTitle() },
+                currentSystem.customTitleName, 2);
         }
 
         public void OnSure()
