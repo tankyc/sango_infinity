@@ -735,6 +735,8 @@ namespace Sango.Core
             mBelongCorps = scenario.Id2Object(scenario.corpsSet, BelongCorps);
             mBelongCity = scenario.Id2Object(scenario.citySet, BelongCity);
             mCurrentCity = scenario.Id2Object(scenario.citySet, CurrentCity);
+            if (mCurrentCity == null && mBelongCity != null)
+                mCurrentCity = mBelongCity;
             mTroop = scenario.Id2Object(scenario.troopsSet, BelongTroop);
 
             if (personality <= 0)

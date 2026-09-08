@@ -2083,7 +2083,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
+                if (c != null && c.IsAlive && c.mBelongForce == force)
                 {
                     City kCity = c;
                     if (kCity.PersonHole < 0 && kCity.freePersons.Count > 0)

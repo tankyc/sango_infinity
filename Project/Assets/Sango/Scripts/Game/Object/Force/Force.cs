@@ -1,12 +1,12 @@
 using System.Collections.Generic;
-using System.IO;
 using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Linq;
 using TKNewtonsoft.Json.Serialization;
 using Sango.Core.Action;
 using Sango.Render;
 using UnityEngine;
 using System.Linq;
+using System;
+using Unity.Mathematics;
 
 namespace Sango.Core
 {
@@ -280,7 +280,7 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            if(InitTechniques.Count == 0)
+            if (InitTechniques.Count == 0)
                 InitTechniques.FromArray(new int[] { 1, 5, 9, 13, 17, 21, 25, 29, 33 });
             if (Governor > 0)
                 mGovernor = scenario.personSet.Get(Governor);
@@ -782,6 +782,8 @@ namespace Sango.Core
             bool hasNoCheckBorder = false;
             NeighborForceList.Clear();
             NeighborCityList.Clear();
+            List<City> boderCities = new List<City>();
+
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
@@ -807,48 +809,36 @@ namespace Sango.Core
                                 if (neighbor.mBelongForce != null)
                                 {
                                     if (!NeighborForceList.Contains(neighbor.mBelongForce))
-                                    {
                                         NeighborForceList.Add(neighbor.mBelongForce);
-                                    }
                                 }
 
                                 if (!NeighborCityList.Contains(neighbor))
                                     NeighborCityList.Add(neighbor);
                             }
                         }
-                        if (c.borderLine == -1)
-                            hasNoCheckBorder = true;
+
+                        if (c.borderLine == 0)
+                            boderCities.Add(c);
                     }
                 }
             }
 
-            while (hasNoCheckBorder)
+            for (int i = 0; i < scenario.citySet.Count; ++i)
             {
-                for (int i = 0; i < scenario.citySet.Count; ++i)
+                var c = scenario.citySet[i];
+                if (c != null && c.IsAlive && c.mBelongForce == this && c.borderLine < 0)
                 {
-                    var c = scenario.citySet[i];
-                    if (c != null && c.IsAlive && c.mBelongForce == this && c.borderLine < 0)
+                    int minBorder = 99;
+                    // 计算相邻势力
+                    foreach (City neighbor in boderCities)
                     {
-                        int minBorder = 99;
-                        // 计算相邻势力
-                        foreach (City neighbor in c.NeighborList)
-                        {
-                            if (neighbor.borderLine >= 0)
-                                minBorder = Mathf.Min(minBorder, neighbor.borderLine);
-                        }
-                        if (minBorder >= 0)
-                        {
-                            c.borderLine = minBorder + 1;
-                        }
-                        hasNoCheckBorder = c.borderLine == -1;
+                        int bb = scenario.GetCityDistance(c, neighbor);
+                        minBorder = Mathf.Min(minBorder, bb);
                     }
+                    c.borderLine = minBorder;
                 }
             }
-
-
-
         }
-
 
         /// <summary>
         /// 势力回合结束时的回调方法
@@ -1340,12 +1330,16 @@ namespace Sango.Core
             createdItemTypes.Sort(SangoObject.Compare);
         }
 
+        int[] boderLinderCounter = new int[10];
 
         /// <summary>
         /// 准备人才缺口
         /// </summary>
         public void PrepareCityPersonHole(Scenario scenario)
         {
+            Array.Clear(boderLinderCounter, 0, 10);
+            int[] boderLindMax = new int[4] { 52, 24, 12, 8 };
+
             int cityCount = 0;
             BorderCityCount = 0;
             int personCount = 0;
@@ -1355,13 +1349,13 @@ namespace Sango.Core
                 if (c != null && c.mBelongForce == this && c.IsCity())
                 {
                     cityCount++;
-                    if (c.IsBorderCity)
-                        BorderCityCount++;
+                    if (c.borderLine < boderLinderCounter.Length)
+                        boderLinderCounter[c.borderLine]++;
                     c.PersonHole = 0;
                     personCount += c.allPersons.Count;
                 }
             }
-
+            BorderCityCount = boderLinderCounter[0];
             if (cityCount <= 1) return;
             if (BorderCityCount == 0)
                 return;
@@ -1377,24 +1371,48 @@ namespace Sango.Core
                     avarageTotalSeat = personCount;
                 }
             }
-            int boderSeat = avarageTotalSeat / BorderCityCount + noBoderSeat;
-            int upSeat = boderSeat - 15;
+
+            int leftCityCount = cityCount;
+            // 计算圈层的最大人数
+            for (int i = 0; i < boderLindMax.Length; i++)
+            {
+                int dstC = boderLinderCounter[i];
+                if (dstC == 0)
+                {
+                    for (int k = i + 1; k < boderLindMax.Length; k++)
+                        boderLindMax[k] = noBoderSeat;
+                    break;
+                }
+
+                leftCityCount -= dstC;
+                int aveBoderSeat = avarageTotalSeat / dstC + noBoderSeat;
+                aveBoderSeat = Mathf.Min(boderLindMax[i] + GameRandom.Range(boderLindMax[i] / 4), aveBoderSeat);
+                boderLindMax[i] = aveBoderSeat;
+                avarageTotalSeat = avarageTotalSeat - dstC * aveBoderSeat;
+                if (avarageTotalSeat <= 0)
+                {
+                    for (int k = i + 1; k < boderLindMax.Length; k++)
+                        boderLindMax[k] = noBoderSeat;
+                }
+            }
+
+            if (avarageTotalSeat > 0)
+            {
+                noBoderSeat += avarageTotalSeat / leftCityCount;
+            }
 
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
                 if (c != null && c.mBelongForce == this && c.IsCity())
                 {
-                    if (c.IsBorderCity)
+                    if (c.borderLine < boderLindMax.Length)
                     {
-                        c.PersonHole = boderSeat - c.allPersons.Count;
-                    }
-                    else if(upSeat > 0)
-                    {
-                        if(c.borderLine == 1)
-                        {
-                            c.PersonHole = (noBoderSeat + upSeat) - c.allPersons.Count;
-                        }
+                        int dis = boderLindMax[c.borderLine] - c.allPersons.Count;
+                        if (Math.Abs(dis) < boderLindMax[c.borderLine] / 4)
+                            c.PersonHole = 0;
+                        else
+                            c.PersonHole = boderLindMax[c.borderLine] - c.allPersons.Count;
                     }
                     else
                     {

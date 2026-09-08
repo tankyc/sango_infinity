@@ -14,6 +14,8 @@ using Sango.Core; namespace Sango.UI
         public UnityEngine.GameObject corpsNode;
         public Text corpsText;
         public Image corpsImg;
+        public UnityEngine.GameObject boder;
+
         public override void UpdateState(BuildingBase building)
         {
             base.UpdateState(building);
@@ -29,6 +31,8 @@ using Sango.Core; namespace Sango.UI
             info.text = cityInfo;
 
             bg.enabled = building.mBelongForce != null;
+            if (boder != null)
+                boder.SetActive(city.IsBorderCity);
 
             if (building.mBelongForce != null)
             {

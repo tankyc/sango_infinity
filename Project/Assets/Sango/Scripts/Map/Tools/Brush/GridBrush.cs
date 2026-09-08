@@ -10,6 +10,10 @@ using UnityEngine.EventSystems;
 using Sango.Core;
 using System.Collections;
 using Sango.Tools.UndoRedo;
+using UnityEngine.UI;
+using System.Text;
+using static Sango.Render.MapGrid;
+using Unity.VisualScripting;
 
 namespace Sango.Tools
 {
@@ -103,6 +107,7 @@ namespace Sango.Tools
             Texture2D.whiteTexture,
             Texture2D.whiteTexture,
         };
+
 
         /// <summary>
         /// 当前地形类型纹理
@@ -657,6 +662,8 @@ namespace Sango.Tools
 
             if (needCreateTex)
                 Game.Instance.StartCoroutine(CreateLayerTexture());
+
+            InitGridShow();
         }
         public UnityEngine.Color TypeIndexToColor(int index)
         {
@@ -672,6 +679,11 @@ namespace Sango.Tools
         }
         public void SetTerrainMaskShowColor(int x, int y, int index, int colCount, int rowCount)
         {
+            if (brushType == BrushType.Defence || brushType == BrushType.Thief || brushType == BrushType.Interior)
+            {
+                tmpGridDatas[x][y].needUpdate = true;
+                return;
+            }
             int col = index % colCount;
             int row = index / colCount;
             row = rowCount - 1 - row;
@@ -736,6 +748,7 @@ namespace Sango.Tools
                     //    data.ruins = value;
                     //    break;
             }
+
             return data;
         }
         public void UpdateTerrainMaskTex()
@@ -745,7 +758,7 @@ namespace Sango.Tools
 
         public void UpdateTerrainMaskTex(BrushType b)
         {
-
+            BrushType target = b;
             switch (b)
             {
                 case BrushType.TerrainType:
@@ -778,22 +791,27 @@ namespace Sango.Tools
                     //case BrushType.Flood:
                     //case BrushType.Ruins:
                     {
-                        terrainTypeMaskCol = 2;
-                        terrainTypeMaskRow = 2;
+                        //terrainTypeMaskCol = 2;
+                        //terrainTypeMaskRow = 2;
+                        target = BrushType.Area;
+                        terrainTypeMaskCol = 32;
+                        terrainTypeMaskRow = 32;
                     }
                     break;
             }
-            Shader.SetGlobalTexture("_TerrainTypeTex", terrainTypeTexes[(int)b]);
+            Shader.SetGlobalTexture("_TerrainTypeTex", terrainTypeTexes[(int)target]);
 
             Shader.SetGlobalFloat("_terrainTypeMaskCol", terrainTypeMaskCol);
             Shader.SetGlobalFloat("_terrainTypeMaskRow", terrainTypeMaskRow);
+
+
 
             for (int i = 0; i < editor.map.mapGrid.bounds.x; ++i)
             {
                 for (int j = 0; j < editor.map.mapGrid.bounds.y; ++j)
                 {
                     MapGrid.GridData data = editor.map.mapGrid.GetGridData(i, j);
-                    SetTerrainMaskShowColor(i, j, GetGridDataProterty(b, data), terrainTypeMaskCol, terrainTypeMaskRow);
+                    SetTerrainMaskShowColor(i, j, GetGridDataProterty(target, data), terrainTypeMaskCol, terrainTypeMaskRow);
                 }
             }
             terrainTypeMaskTex.Apply(false);
@@ -810,6 +828,7 @@ namespace Sango.Tools
         public override void Clear()
         {
             ClearBrushShow();
+            ClearGridShow();
         }
         public void ClearBrushShow()
         {
@@ -972,8 +991,8 @@ namespace Sango.Tools
             {
                 Shader.SetGlobalFloat("_TerrainTypeShowFlag", 1);
             }
-
             base.Update();
+            UpdateText(MapRender.Instance.ViewRectCache);
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
             RaycastHit hit;
             if (Physics.Raycast(ray, out hit, editor.map.showLimitLength + 2000, editor.rayCastLayer))
@@ -1142,6 +1161,233 @@ namespace Sango.Tools
                 editor.undoRedoManager.AddCommand(command);
             }
 
+        }
+
+        CreatePool<Text> textPool;
+        class TmpGridData
+        {
+            public int x;
+            public int y;
+            public Text text;
+            public bool check;
+            public GridData gridData;
+            public bool needUpdate;
+            bool _visible = false;
+            public CreatePool<Text> Pool;
+            public MapEditor mapEditor;
+
+            public void Clear()
+            {
+                if (text != null)
+                {
+                    Pool.Recycle(text);
+                    text = null;
+                }
+            }
+
+            public void Update()
+            {
+                if (needUpdate)
+                {
+                    needUpdate = false;
+                    bool has = false;
+                    StringBuilder stringBuilder = new StringBuilder();
+                    if (gridData.HasGridState(GridState.Defence))
+                    {
+                        stringBuilder.AppendLine("<color=#1100ff>防</color>");
+                        has = true;
+                    }
+                    if (gridData.HasGridState(GridState.Interior))
+                    {
+                        stringBuilder.AppendLine("<color=#11ff00>内</color>");
+                        has = true;
+                    }
+                    if (gridData.HasGridState(GridState.Thief))
+                    {
+                        stringBuilder.AppendLine("<color=#ff0011>贼</color>");
+                        has = true;
+                    }
+
+                    TerrainType terrainType = Sango.Core.GameData.Instance.ScenarioCommonData.TerrainTypes.Get(gridData.terrainType);
+                    if (terrainType == null)
+                        terrainType = Sango.Core.GameData.Instance.ScenarioCommonData.TerrainTypes[0];
+
+                    if (terrainType.moveable && has)
+                    {
+                        if (text == null)
+                            text = Pool.Create();
+
+                        Vector3 pos = MapRender.Instance.CoordsToPosition(x, y);
+                        pos.y = pos.y + 2f;
+                        text.transform.localPosition = pos;
+                        text.text = stringBuilder.ToString();
+                    }
+                    else
+                    {
+                        Clear();
+                    }
+                }
+            }
+
+            public bool visible
+            {
+                set
+                {
+                    if (_visible != value)
+                    {
+                        _visible = value;
+                        if (value)
+                        {
+                            needUpdate = true;
+                            Update();
+                        }
+                        else
+                        {
+                            Clear();
+                        }
+                    }
+                }
+                get { return _visible; }
+            }
+        }
+        List<TmpGridData> last;
+        List<TmpGridData> temp1 = new List<TmpGridData>();
+        List<TmpGridData> temp2 = new List<TmpGridData>();
+        int switchIndex = 1;
+        Transform textROOT;
+        TmpGridData[][] tmpGridDatas;
+
+        void ClearGridShow()
+        {
+            if (last != null)
+            {
+                for (int i = 0; i < last.Count; i++)
+                {
+                    TmpGridData gridData = last[i];
+                    gridData.visible = false;
+                    gridData.check = false;
+                    gridData.Clear();
+                }
+                last.Clear();
+            }
+            last = temp1;
+            if (last != null)
+            {
+                for (int i = 0; i < last.Count; i++)
+                {
+                    TmpGridData gridData = last[i];
+                    gridData.visible = false;
+                    gridData.check = false;
+                    gridData.Clear();
+                }
+                last.Clear();
+            }
+            last = temp2;
+            if (last != null)
+            {
+                for (int i = 0; i < last.Count; i++)
+                {
+                    TmpGridData gridData = last[i];
+                    gridData.visible = false;
+                    gridData.check = false;
+                    gridData.Clear();
+                }
+                last.Clear();
+            }
+            last = null;
+        }
+
+        void InitGridShow()
+        {
+            if (textROOT == null)
+            {
+                textROOT = GameObject.Find("GridTextRoot").transform;
+            }
+
+            GameObject obj = GameObject.Instantiate(Resources.Load<GameObject>("GridText")) as GameObject;
+            obj.transform.SetParent(textROOT, false);
+            UnityEngine.UI.Text text = obj.GetComponent<UnityEngine.UI.Text>();
+            text.fontSize = 95;
+            text.fontStyle = UnityEngine.FontStyle.Bold;
+            Outline outline = text.AddComponent<Outline>();
+            outline.effectDistance = new Vector2(3, -3);
+            outline.effectColor = UnityEngine.Color.black;
+            textPool = new CreatePool<Text>(text);
+            obj.SetActive(false);
+
+            MapGrid mapGrid = editor.map.mapGrid;
+            tmpGridDatas = new TmpGridData[mapGrid.bounds.x][];
+            for (int i = 0; i < tmpGridDatas.Length; i++)
+                tmpGridDatas[i] = new TmpGridData[mapGrid.bounds.y];
+
+            for (int x = 0; x < tmpGridDatas.Length; x++)
+            {
+                TmpGridData[] xRow = tmpGridDatas[x];
+                for (int y = 0; y < xRow.Length; y++)
+                {
+                    xRow[y] = new TmpGridData()
+                    {
+                        x = x,
+                        y = y,
+                        gridData = mapGrid.GetGridData(x, y),
+                        needUpdate = true,
+                        Pool = textPool,
+                        mapEditor = editor,
+                    };
+                }
+            }
+        }
+
+        public void UpdateText(Tools.Rect rect)
+        {
+            if (!MapEditor.IsEditOn) return;
+            if (last != null)
+            {
+                for (int i = 0; i < last.Count; i++)
+                {
+                    last[i].check = false;
+                }
+            }
+
+            List<TmpGridData> temp = switchIndex % 2 == 0 ? temp1 : temp2;
+            Vector2Int lt = MapRender.Instance.PositionToCoords(rect.yMin, rect.xMin);
+            Vector2Int rb = MapRender.Instance.PositionToCoords(rect.yMax, rect.xMax);
+            StringBuilder stringBuilder = new StringBuilder();
+            MapGrid mapGrid = editor.map.mapGrid;
+            for (int x = lt.x; x <= rb.x; ++x)
+            {
+                for (int y = lt.y; y <= rb.y; ++y)
+                {
+                    if (x >= 0 && x < mapGrid.bounds.x && y >= 0 && y < mapGrid.bounds.y)
+                    {
+
+                        TmpGridData tmpGridData = tmpGridDatas[x][y];
+                        tmpGridData.check = true;
+                        tmpGridData.visible = true;
+                        temp.Add(tmpGridData);
+                        tmpGridData.Update();
+                    }
+                }
+            }
+
+            if (last != null)
+            {
+                for (int i = 0; i < last.Count; i++)
+                {
+                    TmpGridData gridData = last[i];
+                    if (!gridData.check)
+                    {
+                        gridData.visible = false;
+                        gridData.Clear();
+                    }
+                }
+                last.Clear();
+            }
+            if (switchIndex == 1)
+                switchIndex = 2;
+            else
+                switchIndex = 1;
+            last = temp;
         }
 
     }

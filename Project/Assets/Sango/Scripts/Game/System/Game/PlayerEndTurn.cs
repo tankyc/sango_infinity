@@ -87,6 +87,11 @@ namespace Sango.Core.Player
 
         public override void OnDestroy()
         {
+            Scenario scenario = Scenario.Cur;
+            Force force = scenario.CurRunForce;
+            if (force != null)
+                if (force.CurRunCorps != null && !force.CurRunCorps.ActionOver)
+                    GameEvent.OnPlayerEndTurn?.Invoke(force, scenario);
         }
 
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)

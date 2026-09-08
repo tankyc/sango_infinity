@@ -1416,12 +1416,7 @@ namespace Sango.Core
             troops = troops + num;
             if (num < 0)
             {
-                if (Render != null && Render.IsVisible())
-                {
-                    GameMedia.Instance.PlayPersonSay(Leader, GameRandom.Chance(50) ? 3216 : 3230);
-                    GameParticales.Instance.PlayEfect("Assets/Effect/Prefab/ef_troop_destroy.prefab", Render.MapObject.position, 3);
-                }
-
+                
                 int absNum = System.Math.Abs(num);
                 woundedTroops += (int)System.Math.Ceiling(absNum * 0.14f);
                 int _foodCost = (int)System.Math.Ceiling(Scenario.Cur.Variables.baseFoodCostInTroop * absNum * TroopType.foodCostFactor) / 2;
@@ -1434,6 +1429,12 @@ namespace Sango.Core
                 ChangeFood(-divFood, false);
 
                 IsAlive = troops > 0;
+
+                if (!IsAlive && Render != null && Render.IsVisible())
+                {
+                    GameMedia.Instance.PlayPersonSay(Leader, GameRandom.Chance(50) ? 3216 : 3230);
+                    GameParticales.Instance.PlayEfect("Assets/Effect/Prefab/ef_troop_destroy.prefab", Render.MapObject.position, 3);
+                }
             }
             else
             {

@@ -3,6 +3,7 @@ using Sango.Core;
 using Sango.Tools;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace Sango.Render
@@ -84,12 +85,9 @@ namespace Sango.Render
             public int terrainState;
             public ushort areaId;
 
-#if SANGO_DEBUG
 
             public UnityEngine.UI.Text textObj;
-
             public bool visible;
-#endif
 
             //public int terrainState;
 
@@ -550,7 +548,7 @@ namespace Sango.Render
             return hexWorld.PositionToCoords(vector3);
         }
 
-#if SANGO_DEBUG
+        //#if SANGO_DEBUG
 
         List<GridData> last;
         List<GridData> temp1 = new List<GridData>();
@@ -561,8 +559,8 @@ namespace Sango.Render
 
         public void Update(Tools.Rect rect)
         {
-            if (MapEditor.IsEditOn) return;
-            if (GameDebug.enabled == false) return;
+            if (!MapEditor.IsEditOn) return;
+            //if (GameDebug.enabled == false) return;
             if (last != null)
             {
                 for (int i = 0; i < last.Count; i++)
@@ -574,7 +572,7 @@ namespace Sango.Render
             List<GridData> temp = switchIndex % 2 == 0 ? temp1 : temp2;
             Vector2Int lt = map.PositionToCoords(rect.xMin, rect.yMin);
             Vector2Int rb = map.PositionToCoords(rect.xMax, rect.yMax);
-
+            StringBuilder stringBuilder = new StringBuilder();
             for (int x = lt.x; x <= rb.x; ++x)
             {
                 for (int y = lt.y; y <= rb.y; ++y)
@@ -582,13 +580,29 @@ namespace Sango.Render
                     if (x >= 0 && x < bounds.x && y >= 0 && y < bounds.y)
                     {
                         GridData gridData = GetGridData(x, y);
-                        if (gridData.textObj == null)
+                        bool has = false;
+                        stringBuilder.Clear();
+                        if (gridData.HasGridState(GridState.Defence))
                         {
-                            TerrainType terrainType = Sango.Core.GameData.Instance.ScenarioCommonData.TerrainTypes.Get(gridData.terrainType);
-                            if (terrainType == null)
-                                terrainType = Sango.Core.GameData.Instance.ScenarioCommonData.TerrainTypes[0];
-
-                            if (terrainType.moveable)
+                            stringBuilder.AppendLine("<color=#1100ff>防</color>");
+                            has = true;
+                        }
+                        if (gridData.HasGridState(GridState.Interior))
+                        {
+                            stringBuilder.AppendLine("<color=#11ff00>内</color>");
+                            has = true;
+                        }
+                        if (gridData.HasGridState(GridState.Thief))
+                        {
+                            stringBuilder.AppendLine("<color=#ff0011>贼</color>");
+                            has = true;
+                        }
+                        TerrainType terrainType = Sango.Core.GameData.Instance.ScenarioCommonData.TerrainTypes.Get(gridData.terrainType);
+                        if (terrainType == null)
+                            terrainType = Sango.Core.GameData.Instance.ScenarioCommonData.TerrainTypes[0];
+                        if (terrainType.moveable && has)
+                        {
+                            if (gridData.textObj == null)
                             {
                                 if (textROOT == null)
                                 {
@@ -598,21 +612,23 @@ namespace Sango.Render
                                 GameObject obj = GameObject.Instantiate(Resources.Load<GameObject>("GridText")) as GameObject;
                                 obj.transform.SetParent(textROOT, false);
                                 UnityEngine.UI.Text text = obj.GetComponent<UnityEngine.UI.Text>();
-                                text.text = $"{x},{y} \n{terrainType.Name}:{terrainType.baseCost}";
+
                                 gridData.textObj = text;
                                 Vector3 pos = map.CoordsToPosition(x, y);
                                 pos.y = GetGridHeight(x, y) + 5f;
                                 obj.transform.localPosition = pos;
                                 temp.Add(gridData);
                                 gridData.visible = true;
+                                gridData.textObj.text = stringBuilder.ToString();
                             }
-                        }
-                        else
-                        {
-                            if (!gridData.textObj.gameObject.activeInHierarchy)
-                                gridData.textObj.gameObject.SetActive(true);
-                            gridData.visible = true;
-                            temp.Add(gridData);
+                            else
+                            {
+                                if (!gridData.textObj.gameObject.activeInHierarchy)
+                                    gridData.textObj.gameObject.SetActive(true);
+                                gridData.visible = true;
+                                temp.Add(gridData);
+                                gridData.textObj.text = stringBuilder.ToString();
+                            }
                         }
                     }
                 }
@@ -636,6 +652,6 @@ namespace Sango.Render
                 switchIndex = 1;
             last = temp;
         }
-#endif
+        //#endif
     }
 }

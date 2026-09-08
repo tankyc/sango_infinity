@@ -1086,7 +1086,7 @@ namespace Sango.Tools
             if (_opacity_overlay != overlayOpacity)
             {
                 overlayOpacity = _opacity_overlay;
-                Shader.SetGlobalFloat("_TerrainTypeShowFlag", overlayOpacity);
+                Shader.SetGlobalFloat("_TerrainOverlayShowFlag", overlayOpacity);
             }
             if (GUILayout.Button("加载"))
             {
