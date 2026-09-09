@@ -581,7 +581,7 @@ namespace Sango.Core
         /// </summary>
         public int MilitaryAbility
         {
-            get { return Command * 2 + Strength * 3; }
+            get { return Command * 2 + Math.Max(Strength, Intelligence) * 3; }
         }
 
         /// <summary>

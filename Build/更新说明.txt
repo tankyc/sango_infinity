@@ -5,9 +5,11 @@ QQ群: 526620498, 934836298
 下载地址:
 夸克网盘: https://pan.quark.cn/s/caee627a27f6?pwd=bXbJ
 百度网盘: https://pan.baidu.com/s/1ZfS9KJfLem8cM-TKQUh5WQ?pwd=y1b8
+
 0.1.5
 1.修复结束回合点击取消导致卡死
 2.优化城市系统中的人员推荐和排序功能 (by 学徒)
+3.优化AI调度,现在可以将一流武将调度到边境城市
 
 0.1.4
 1.优化AI调度和运输.

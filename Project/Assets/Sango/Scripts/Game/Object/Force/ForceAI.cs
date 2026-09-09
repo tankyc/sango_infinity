@@ -1673,7 +1673,7 @@ namespace Sango.Core
                     return lvl_b.CompareTo(lvl_a);
             });
 
-            if(list.Count == 0)
+            if (list.Count == 0)
                 return checkPersons;
 
             person1 = list[0];
@@ -2074,31 +2074,66 @@ namespace Sango.Core
 
         public static bool AITransfromPerson(Force force, Scenario scenario)
         {
-            if(force.IsPlayer)
+            if (force.IsPlayer)
             {
                 return true;
             }
-
+            int MilitaryAbilityMax = 350;
             List<Person> canTransforPersons = new List<Person>();
+            List<City> cityList = new List<City>();
+
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
                 if (c != null && c.IsAlive && c.mBelongForce == force)
                 {
+                    if (c.IsCity())
+                        cityList.Add(c);
                     City kCity = c;
-                    if (kCity.PersonHole < 0 && kCity.freePersons.Count > 0)
+                    if(kCity.freePersons.Count > 0)
                     {
-                        int count = Math.Abs(kCity.PersonHole);
-                        kCity.freePersons.Sort((a, b) =>
+                        if (kCity.PersonHole < 0 )
                         {
-                            return -a.MilitaryAbility.CompareTo(b.MilitaryAbility);
-                        });
+                            int count = Math.Abs(kCity.PersonHole);
+                            if(kCity.IsBorderCity)
+                            {
+                                // 边境城市让垃圾武将可调度
+                                kCity.freePersons.Sort((a, b) =>
+                                {
+                                    return a.MilitaryAbility.CompareTo(b.MilitaryAbility);
+                                });
+                            }
+                            else
+                            {
+                                // 非边境城市让最好的武将可调度
+                                kCity.freePersons.Sort((a, b) =>
+                                {
+                                    return -a.MilitaryAbility.CompareTo(b.MilitaryAbility);
+                                });
+                            }
 
-                        int maxCount = kCity.freePersons.Count;
-                        for (int k = 0; k < count; k++)
+                            int maxCount = kCity.freePersons.Count;
+                            for (int k = 0; k < maxCount; k++)
+                            {
+                                Person person = kCity.freePersons[k];
+                                if (k < count)
+                                    canTransforPersons.Add(person);
+                                else if(person.MilitaryAbility >= MilitaryAbilityMax)
+                                {
+                                    canTransforPersons.Add(person);
+                                }
+                            }
+                        }
+                        else
                         {
-                            if (k < maxCount)
-                                canTransforPersons.Add(kCity.freePersons[maxCount - 1 - k]);
+                           for (int k = 0; k < kCity.freePersons.Count; ++k)
+                            {
+                                Person person = kCity.freePersons[k];
+                                if(person.MilitaryAbility >= MilitaryAbilityMax)
+                                {
+                                    canTransforPersons.Add(person);
+                                }
+                            }
                         }
                     }
                 }
@@ -2109,56 +2144,94 @@ namespace Sango.Core
 
             canTransforPersons.Sort((a, b) =>
             {
-                return a.MilitaryAbility.CompareTo(b.MilitaryAbility);
+                return -a.MilitaryAbility.CompareTo(b.MilitaryAbility);
             });
 
-            for (int i = 0; i < scenario.citySet.Count; ++i)
+            //cityList.Sort((a, b) => { return a.borderLine.CompareTo(b.borderLine); });
+            int boderStart = 0;
+            while (cityList.Count > 0)
             {
-                var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
+                bool full = true;
+                for (int i = 0; i < cityList.Count; ++i)
                 {
-                    City kCity = c;
-                    if (canTransforPersons.Count <= 0)
-                        break;
-
-                    if (kCity.PersonHole > 0 && kCity.IsBorderCity)
+                    City kCity = cityList[i];
+                    if (boderStart == kCity.borderLine)
                     {
-                        for (int k = 0; k < kCity.PersonHole; k++)
+                        if (kCity.PersonHole > 0)
                         {
                             if (canTransforPersons.Count > 0)
                             {
                                 canTransforPersons[0].TransformToCity(kCity);
                                 canTransforPersons.RemoveAt(0);
+                                kCity.PersonHole--;
                             }
                         }
+
+                        full = full && kCity.PersonHole <= 0;
                     }
 
                     if (canTransforPersons.Count <= 0)
                         break;
                 }
-            }
 
-            for (int i = 0; i < scenario.citySet.Count; ++i)
-            {
-                var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
+                if (canTransforPersons.Count <= 0)
+                    break;
+
+                if (full)
                 {
-                    City kCity = c;
-                    if (canTransforPersons.Count <= 0)
-                        break;
-                    if (kCity.PersonHole > 0 && !kCity.IsBorderCity)
-                    {
-                        for (int k = 0; k < kCity.PersonHole; k++)
-                        {
-                            if (canTransforPersons.Count > 0)
-                            {
-                                canTransforPersons[0].TransformToCity(kCity);
-                                canTransforPersons.RemoveAt(0);
-                            }
-                        }
-                    }
+                    cityList.RemoveAll(x => x.borderLine == boderStart);
+                    boderStart++;
                 }
             }
+
+
+            //for (int i = 0; i < scenario.citySet.Count; ++i)
+            //{
+            //    var c = scenario.citySet[i];
+            //    if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
+            //    {
+            //        City kCity = c;
+            //        if (canTransforPersons.Count <= 0)
+            //            break;
+
+            //        if (kCity.PersonHole > 0 && kCity.IsBorderCity)
+            //        {
+            //            for (int k = 0; k < kCity.PersonHole; k++)
+            //            {
+            //                if (canTransforPersons.Count > 0)
+            //                {
+            //                    canTransforPersons[0].TransformToCity(kCity);
+            //                    canTransforPersons.RemoveAt(0);
+            //                }
+            //            }
+            //        }
+
+            //        if (canTransforPersons.Count <= 0)
+            //            break;
+            //    }
+            //}
+
+            //for (int i = 0; i < scenario.citySet.Count; ++i)
+            //{
+            //    var c = scenario.citySet[i];
+            //    if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
+            //    {
+            //        City kCity = c;
+            //        if (canTransforPersons.Count <= 0)
+            //            break;
+            //        if (kCity.PersonHole > 0 && !kCity.IsBorderCity)
+            //        {
+            //            for (int k = 0; k < kCity.PersonHole; k++)
+            //            {
+            //                if (canTransforPersons.Count > 0)
+            //                {
+            //                    canTransforPersons[0].TransformToCity(kCity);
+            //                    canTransforPersons.RemoveAt(0);
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
             return true;
         }
     }
