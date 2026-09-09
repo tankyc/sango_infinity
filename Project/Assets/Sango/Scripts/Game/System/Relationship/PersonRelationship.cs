@@ -5,8 +5,8 @@ namespace Sango.Core.Player
     /// <summary>
     /// 仲介类指令的抽象基类(结婚/结义)
     /// 本基类不注册为游戏模块, 只有派生类带[GameSystem]才会被创建
-    /// 点击菜单后直接进入PersonSelectSystem选人, 不新增任何窗口/预制体,
-    /// 校验提示与武将应答都走通用的GameDialog
+    /// 点击菜单后直接进入PersonSelectSystem选人,
+    /// 校验提示走通用的GameDialog, 旁白与武将应答走带事件大图的对话弹窗
     /// </summary>
     public abstract class PersonRelationship : CityBaseSystem
     {
@@ -62,7 +62,8 @@ namespace Sango.Core.Player
 
         /// <summary>
         /// 勾选联动过滤: 根据已经勾选的武将决定其他人当下是否显示,
-        /// 取消勾选后自动恢复; 基类统一排除血亲(父母/子女), 子类叠加自己的规则
+        /// 取消勾选后自动恢复; 基类统一排除血亲(父母/子女)与厌恶对象,
+        /// 子类叠加自己的规则
         /// </summary>
         protected virtual bool FilterBySelected(SangoObject target, List<SangoObject> selected)
         {
@@ -71,8 +72,15 @@ namespace Sango.Core.Player
 
             for (int i = 0; i < selected.Count; i++)
             {
+                Person other = selected[i] as Person;
+                if (other == null) continue;
+
                 // 已勾选任意一人的父母/子女不再可选
-                if (IsBloodRelative(person, selected[i] as Person))
+                if (IsBloodRelative(person, other))
+                    return false;
+
+                // 只要有一方厌恶对方就不再显示
+                if (IsHated(person, other))
                     return false;
             }
             return true;
@@ -89,24 +97,56 @@ namespace Sango.Core.Player
         }
 
         /// <summary>
-        /// 从已选的人选中找出一对父母/子女关系
+        /// 两人之间是否存在厌恶关系(单向也算)
+        /// IsHate 读的是 HatePersonList, 只表示"a厌恶b", 所以要双向判断
         /// </summary>
-        static bool FindBloodConflict(List<Person> picked, out Person a, out Person b)
+        protected static bool IsHated(Person a, Person b)
+        {
+            if (a == null || b == null) return false;
+            return a.IsHate(b) || b.IsHate(a);
+        }
+
+        /// <summary>
+        /// 在人选中找出一对被禁止缔结关系的人并给出提示文案;
+        /// 用于兜底(如"一并"一次选满时来不及联动过滤)
+        /// </summary>
+        protected static bool FindForbiddenPair(List<Person> picked, string title, out string errorContent)
         {
             for (int i = 0; i < picked.Count; i++)
             {
                 for (int j = i + 1; j < picked.Count; j++)
                 {
-                    if (IsBloodRelative(picked[i], picked[j]))
+                    Person a = picked[i];
+                    Person b = picked[j];
+                    if (a == null || b == null) continue;
+
+                    if (IsBloodRelative(a, b))
                     {
-                        a = picked[i];
-                        b = picked[j];
+                        errorContent = $"{a.Name}与{b.Name}是父母子女关系, 不能{title}!";
+                        return true;
+                    }
+
+                    bool aHateB = a.IsHate(b);
+                    bool bHateA = b.IsHate(a);
+                    if (aHateB && bHateA)
+                    {
+                        errorContent = $"{a.Name}与{b.Name}互相厌恶, 不能{title}!";
+                        return true;
+                    }
+                    if (aHateB)
+                    {
+                        errorContent = $"{a.Name}厌恶{b.Name}, 不能{title}!";
+                        return true;
+                    }
+                    if (bHateA)
+                    {
+                        errorContent = $"{b.Name}厌恶{a.Name}, 不能{title}!";
                         return true;
                     }
                 }
             }
-            a = null;
-            b = null;
+
+            errorContent = null;
             return false;
         }
 
@@ -127,6 +167,19 @@ namespace Sango.Core.Player
         protected virtual List<Person> GetTalkOrder(List<Person> selected)
         {
             return selected;
+        }
+
+        /// <summary>
+        /// 应答弹窗上显示的事件大图, 在所有对话之前就出现
+        /// </summary>
+        protected abstract string TalkImage(List<Person> selected);
+
+        /// <summary>
+        /// 排在所有武将应答之前的一句旁白, 返回空表示没有旁白
+        /// </summary>
+        protected virtual string GetNarration(List<Person> selected)
+        {
+            return null;
         }
 
         /// <summary>
@@ -264,15 +317,13 @@ namespace Sango.Core.Player
                 return;
             }
 
-            Person conflictA, conflictB;
-            if (FindBloodConflict(selected, out conflictA, out conflictB))
+            // 兜底: 兼容"一并"等一次选满、来不及联动过滤的场合
+            if (FindForbiddenPair(selected, RelationshipTitle, out string errorContent))
             {
-                // 兼容"一并"等一次性选满的跳过联动过滤的场合
-                ShowError($"{conflictA.Name}与{conflictB.Name}是父母子女关系, 不能{RelationshipTitle}!");
+                ShowError(errorContent);
                 return;
             }
 
-            string errorContent;
             if (!Validate(selected, out errorContent))
             {
                 ShowError(errorContent);
@@ -282,12 +333,9 @@ namespace Sango.Core.Player
             List<GameDialog.TalkData> talks = BuildTalks(selected);
             if (talks.Count > 0)
             {
-                // 每位当事武将依次开口应答, 最后一个弹窗关闭后才真正缔结关系
+                // 大图在所有对话之前出现, 对话全部结束后才真正缔结关系
                 confirming = true;
-                GameDialog.StartTalk(talks, () =>
-                {
-                    Commit(selected);
-                });
+                ShowTalkWindow(selected, talks);
                 return;
             }
 
@@ -295,11 +343,43 @@ namespace Sango.Core.Player
         }
 
         /// <summary>
-        /// 收集每个人自己的台词, 生成一人一个的应答弹窗数据
+        /// 仲介应答窗: 上方一张事件大图, 下方文字板逐句显示台词
+        /// </summary>
+        const string TalkWindowName = "window_relationship_talk";
+
+        /// <summary>
+        /// 拉起图片对话窗播放旁白与武将应答, 对话结束后才缔结关系
+        /// </summary>
+        void ShowTalkWindow(List<Person> selected, List<GameDialog.TalkData> talks)
+        {
+            Window.WindowInterface window = Window.Instance.Open(TalkWindowName, TalkImage(selected), talks);
+            if (window == null || window.ugui_instance == null)
+            {
+                Commit(selected);
+                return;
+            }
+
+            // 对话期间暂停游戏逻辑, 与GameDialog的表现保持一致
+            GameController.Instance.Enabled = false;
+            window.ugui_instance.OnCloseAction = () =>
+            {
+                window.ugui_instance.OnCloseAction = null;
+                GameController.Instance.Enabled = true;
+                Commit(selected);
+            };
+        }
+
+        /// <summary>
+        /// 收集旁白和每个人自己的台词, 生成图片对话窗的台词队列
         /// </summary>
         List<GameDialog.TalkData> BuildTalks(List<Person> selected)
         {
             List<GameDialog.TalkData> talks = new List<GameDialog.TalkData>();
+
+            // 旁白没有说话人, 排在最前面, 大图就是在这句话出现之前显示的
+            string narration = GetNarration(selected);
+            if (!string.IsNullOrEmpty(narration))
+                talks.Add(NewTalk(narration, null));
 
             List<Person> order = GetTalkOrder(selected);
             if (order == null || order.Count <= 0)
@@ -313,12 +393,17 @@ namespace Sango.Core.Player
                 string content = GetTalkContent(speaker, selected);
                 if (string.IsNullOrEmpty(content)) continue;
 
-                GameDialog.TalkData talk = new GameDialog.TalkData();
-                talk.text = content;
-                talk.person = speaker;
-                talks.Add(talk);
+                talks.Add(NewTalk(content, speaker));
             }
             return talks;
+        }
+
+        static GameDialog.TalkData NewTalk(string content, Person speaker)
+        {
+            GameDialog.TalkData talk = new GameDialog.TalkData();
+            talk.text = content;
+            talk.person = speaker;
+            return talk;
         }
 
         /// <summary>
@@ -348,6 +433,33 @@ namespace Sango.Core.Player
 
             GameMedia.Instance.PlayDoAcitonSfx();
             Finish();
+        }
+
+        /// <summary>
+        /// 事件发生的时间, 形如"200年1月，"; 取不到剧本信息时为空
+        /// </summary>
+        protected static string DateLine
+        {
+            get
+            {
+                ScenarioInfo info = Scenario.Cur == null ? null : Scenario.Cur.Info;
+                if (info == null) return "";
+                return $"{info.year}年{info.month}月，";
+            }
+        }
+
+        /// <summary>
+        /// 用顿号拼接所有人选的名字
+        /// </summary>
+        protected static string JoinNames(List<Person> picked)
+        {
+            string names = "";
+            for (int i = 0; i < picked.Count; i++)
+            {
+                if (picked[i] == null) continue;
+                names += names.Length == 0 ? picked[i].Name : "、" + picked[i].Name;
+            }
+            return names;
         }
 
         /// <summary>

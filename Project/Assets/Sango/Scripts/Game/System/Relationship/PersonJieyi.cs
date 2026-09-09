@@ -115,6 +115,37 @@ namespace Sango.Core.Player
             return head;
         }
 
+        /// <summary>
+        /// 男性结义大图: 将领盟誓
+        /// </summary>
+        const string MaleImage = "Assets/UI/Texture/34-1.png";
+
+        /// <summary>
+        /// 女性结义大图: 山水云海
+        /// </summary>
+        const string FemaleImage = "Assets/UI/Texture/4851-1.png";
+
+        protected override string TalkImage(List<Person> selected)
+        {
+            return IsFemaleGroup(selected) ? FemaleImage : MaleImage;
+        }
+
+        /// <summary>
+        /// 在大图和武将应答之前, 先宣告结义之事
+        /// </summary>
+        protected override string GetNarration(List<Person> selected)
+        {
+            return $"{DateLine}{JoinNames(selected)}{(IsFemaleGroup(selected) ? "义结金兰。" : "结为异姓兄弟。")}";
+        }
+
+        /// <summary>
+        /// 结义要求全员同性, 看第一个人就能定男/女
+        /// </summary>
+        static bool IsFemaleGroup(List<Person> picked)
+        {
+            return picked.Count > 0 && picked[0] != null && picked[0].sex == 1;
+        }
+
         protected override void Execute(List<Person> selected)
         {
             Person.SwornBrothers(selected);

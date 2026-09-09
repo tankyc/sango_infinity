@@ -125,6 +125,39 @@ namespace Sango.Core.Player
             return selected[0];
         }
 
+        /// <summary>
+        /// sex: 0男 1女
+        /// </summary>
+        static Person GetWoman(List<Person> selected)
+        {
+            for (int i = 0; i < selected.Count; i++)
+            {
+                if (selected[i].sex == 1)
+                    return selected[i];
+            }
+            return selected[0];
+        }
+
+        /// <summary>
+        /// 结婚事件大图: 竹林庭院
+        /// </summary>
+        const string MarriageImage = "Assets/UI/Texture/66-1.png";
+
+        protected override string TalkImage(List<Person> selected)
+        {
+            return MarriageImage;
+        }
+
+        /// <summary>
+        /// 在大图和所有武将应答之前, 先由陛下宣告这门婚事
+        /// </summary>
+        protected override string GetNarration(List<Person> selected)
+        {
+            Person man = GetMan(selected);
+            Person woman = GetWoman(selected);
+            return $"{DateLine}{man.Name}与{woman.Name}喜结连理。";
+        }
+
         protected override void Execute(List<Person> selected)
         {
             Person man = selected[0].sex == 0 ? selected[0] : selected[1];
