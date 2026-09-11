@@ -166,6 +166,21 @@ namespace Sango.Core
         public int MaxMorale => mBelongCity?.MaxMorale ?? 100;
 
         /// <summary>
+        /// 上次因"兄弟同心"推满气力的回合数;
+        /// 用于限制同一对兄弟部队每回合只结算一次。
+        /// 初始值必须为-1: 剧本的 turnCount 从0开始, 用默认的0会让第1回合永远无法触发
+        /// </summary>
+        [JsonProperty]
+        public int swornCheerTurn = -1;
+
+        /// <summary>
+        /// "兄弟同心"对白是否正在进行、气力尚未真正加满的临时标记(不存档)。
+        /// 加气走的是异步对白, 若不在攻击前把它跑完, 部队会一边播对白一边出手,
+        /// 导致本次攻击吃不到刚推满的气力。SpellSkill 会在此标记为真时挂起, 等加气结束再出手。
+        /// </summary>
+        internal bool pendingSwornCheer = false;
+
+        /// <summary>
         /// 移动能力
         /// </summary>
         public int MoveAbility => IsInWater ? waterMoveAbility : landMoveAbility;
@@ -555,6 +570,7 @@ namespace Sango.Core
             AIPrepared = false;
             isMissionPrepared = false;
             skillRenderEvent = null;
+            skillRenderEventIsAssist = false;
             actionRenderEvent = null;
             moveRenderEvent = null;
             if (food <= 0)
@@ -1222,6 +1238,13 @@ namespace Sango.Core
         internal IRenderEventBase skillRenderEvent = null;
 
         /// <summary>
+        /// skillRenderEvent 是否由"援助补刀"排入。
+        /// 援助不属于这支部队自己的行动, 它播完后不能拿来当部队下一次施法的"已完成"信号,
+        /// 否则那次普通攻击会被 SpellSkill 开头的早退分支整个吞掉(没出手却直接结束行动)
+        /// </summary>
+        internal bool skillRenderEventIsAssist;
+
+        /// <summary>
         /// 该方法必须确定destCell在移动范围内
         /// </summary>
         /// <param name="destCell"></param>
@@ -1507,18 +1530,34 @@ namespace Sango.Core
             return troops;
         }
 
-        public bool SpellSkill(SkillInstance skill, Cell spellCell)
+        public bool SpellSkill(SkillInstance skill, Cell spellCell, bool waitForCheer = true)
         {
+            // "兄弟同心"加气走异步对白: 本次攻击想吃的这口气力还没真正加满时先挂起,
+            // 等对白播完(回调里清标记)再真正出手, 从而保证"先提气、再攻击"。
+            // 援助补刀是别人正在结算的攻击的连带演出, 不能被挂起, 故 waitForCheer 传 false。
+            if (waitForCheer && pendingSwornCheer)
+                return false;
 
             if (skillRenderEvent != null)
             {
                 if (skillRenderEvent.IsDone)
                 {
                     skillRenderEvent = null;
-                    return true;
+                    // 援助补刀留下的"已播完"事件不是本次施法的完成信号, 这里return true会让
+                    // 这支部队明明一枪没出, 却被调用方当成"攻击已完成"而结束整个行动
+                    if (!skillRenderEventIsAssist)
+                        return true;
+                    skillRenderEventIsAssist = false;
                 }
                 else
                     return false;
+            }
+            // 确认要排一次新的施法事件了, 抹掉技能实例上可能残留的援助标记,
+            // 否则这次正常攻击会被当成援助折算伤害, 也不会去呼叫别人援助
+            if (skill != null)
+            {
+                skill.assistAttackFlag = false;
+                skillRenderEventIsAssist = false;
             }
             skill.tempCriticalFactor = 100;
             if (skill.CheckSuccess(spellCell))
@@ -1754,7 +1793,558 @@ namespace Sango.Core
                 //{
                 //    Sango.Log.Error($"why {Name}->Render.MapObject is null");
                 //}
+
+                // 只有整段移动结束才结算, 途中经过的格子不触发
+                TryCheerSwornBrother();
             }
+        }
+
+        /// <summary>
+        /// 兄弟同心: 部队移动完成后搜索相邻格子的部队,
+        /// 把所有"主将与自己同属一个兄弟组"的友军部队全部找出来(不止一队),
+        /// 做一次概率检定, 成功则自己与这些兄弟部队的气力一起推满;
+        /// 同一组兄弟部队每回合只结算一次
+        /// </summary>
+        public const int SwornCheerChance = 30;
+
+        /// <summary>
+        /// 执行一次"兄弟同心"检查
+        /// </summary>
+        /// <returns>是否成功推满气力</returns>
+        public bool TryCheerSwornBrother()
+        {
+            if (!IsAlive) return false;
+            // 主将不属于任何兄弟组(剧本原设兄弟/仲介结义)时直接跳过
+            if (Leader == null || !Leader.HasSwornBrother) return false;
+
+            int turn = Scenario.Cur.TurnCount;
+            // 本回合已经结算过
+            if (swornCheerTurn == turn) return false;
+
+            // 先收齐相邻格里全部同组兄弟部队, 不能只找到第一个就算完
+            List<Troop> brothers = new List<Troop>();
+            Cell[] neighbors = cell.Neighbors;
+            for (int i = 0, count = neighbors.Length; i < count; ++i)
+            {
+                Troop other = neighbors[i] == null ? null : neighbors[i].troop;
+                if (CanCheerWith(other, turn))
+                    brothers.Add(other);
+            }
+
+            if (brothers.Count == 0) return false;
+
+            // 在场各队气力本来就都是满的, 不必再走一场对白
+            if (IsAllCheerMoraleFull(brothers)) return false;
+
+            // 整组只做一次判定, 过了就全体推满
+            if (!GameRandom.Chance(SwornCheerChance)) return false;
+
+            // 先记下回合, 免得对白期间又有兄弟部队靠过来重复排队
+            swornCheerTurn = turn;
+            for (int i = 0; i < brothers.Count; i++)
+                brothers[i].swornCheerTurn = turn;
+
+            List<GameDialog.TalkData> talks = BuildCheerTalks(brothers);
+            if (talks.Count == 0)
+            {
+                CheerFullMorale(brothers);
+                return true;
+            }
+
+            // 对白是异步的: 先把自己和所有参与兄弟都标记为"提气进行中",
+            // 让接下来想吃这口气力的攻击挂起等对白播完, 保证"先提气、再攻击"
+            MarkCheerPending(brothers, true);
+
+            // 每个武将各说一句, 全部说完才加气
+            GameDialog.StartTalk(talks, () =>
+            {
+                MarkCheerPending(brothers, false);
+                CheerFullMorale(brothers);
+            });
+            return true;
+        }
+
+        /// <summary>
+        /// 批量设置/清除自己和相邻兄弟部队的"提气进行中"标记
+        /// </summary>
+        void MarkCheerPending(List<Troop> brothers, bool pending)
+        {
+            pendingSwornCheer = pending;
+            for (int i = 0; i < brothers.Count; i++)
+            {
+                Troop brother = brothers[i];
+                if (brother != null)
+                    brother.pendingSwornCheer = pending;
+            }
+        }
+
+        /// <summary>
+        /// 自己与这些兄弟部队的气力是不是都已经满了
+        /// </summary>
+        bool IsAllCheerMoraleFull(List<Troop> brothers)
+        {
+            if (morale < MaxMorale) return false;
+            for (int i = 0; i < brothers.Count; i++)
+            {
+                Troop brother = brothers[i];
+                if (brother.morale < brother.MaxMorale)
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 组织"兄弟同心"的台词: 参与的每支部队里在场武将每人一句, 兄弟组的组头(兄长)先开口
+        /// </summary>
+        List<GameDialog.TalkData> BuildCheerTalks(List<Troop> brothers)
+        {
+            List<GameDialog.TalkData> elderTalks = new List<GameDialog.TalkData>();
+            List<GameDialog.TalkData> youngerTalks = new List<GameDialog.TalkData>();
+
+            // 自己排最前, 其余兄弟部队按相邻格顺序
+            CollectCheerTalks(this, elderTalks, youngerTalks);
+            for (int i = 0; i < brothers.Count; i++)
+                CollectCheerTalks(brothers[i], elderTalks, youngerTalks);
+
+            // 不用Sort(不稳定排序), 直接分两组拼接, 保证兄长在前、同队内主将先于副将
+            List<GameDialog.TalkData> talks = new List<GameDialog.TalkData>(elderTalks.Count + youngerTalks.Count);
+            talks.AddRange(elderTalks);
+            talks.AddRange(youngerTalks);
+            return talks;
+        }
+
+        /// <summary>
+        /// 按主将、副将的顺序收集一支部队里每个人的台词
+        /// </summary>
+        static void CollectCheerTalks(Troop troop, List<GameDialog.TalkData> elderTalks, List<GameDialog.TalkData> youngerTalks)
+        {
+            // 兄弟提气只有主将说话，副将不参与
+            Person person = troop.Leader;
+            if (person == null) return;
+            GameDialog.TalkData talk = new GameDialog.TalkData();
+            talk.person = person;
+            talk.text = CheerTalk(person);
+            if (IsFamilyHead(person))
+                elderTalks.Add(talk);
+            else
+                youngerTalks.Add(talk);
+        }
+
+        /// <summary>
+        /// 是否兄弟组的组头: 仲介结义与剧本原设都是组头的 Brother 指向自己
+        /// </summary>
+        static bool IsFamilyHead(Person person)
+        {
+            return person != null && person.Brother > 0 && person.Brother == person.Id;
+        }
+
+        /// <summary>
+        /// 兄长与幼弟各自的台词, 各备两句随机, 免得反复触发时千篇一律
+        /// </summary>
+        static string CheerTalk(Person person)
+        {
+            return GameRandom.Chance(50)
+                ? $"你我兄弟并肩，定能奋力杀敌！"
+                : "兄弟同心，定能战胜敌军！";
+        }
+
+        /// <summary>
+        /// 相邻格子的这支部队算不算"可以一起受激励的兄弟部队"
+        /// </summary>
+        bool CanCheerWith(Troop other, int turn)
+        {
+            if (other == null || other == this) return false;
+            if (!other.IsAlive || other.Leader == null) return false;
+            if (other.swornCheerTurn == turn) return false;
+
+            // 友军: 同势力或同盟
+            if (!IsSameForce(other) && !IsAlliance(other)) return false;
+
+            // 主将与自己同属一个兄弟组;
+            // 必须用对称的 IsBrotherGroupmate: Person.IsBrother 读的是 BrotherList,
+            // 而幼弟那份列表里不一定含组头, 会让幼弟移动时漏掉兄长那支部队。
+            // 同一个组里的人彼此都是兄弟, 所以相邻的多支部队无需再两两判定
+            if (!Leader.IsBrotherGroupmate(other.Leader)) return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// 对白全部说完后, 把自己和所有相邻兄弟部队的气力一起推到上限
+        /// </summary>
+        void CheerFullMorale(List<Troop> brothers)
+        {
+            CheerSelfFullMorale();
+            for (int i = 0; i < brothers.Count; i++)
+            {
+                Troop brother = brothers[i];
+                if (brother != null)
+                    brother.CheerSelfFullMorale();
+            }
+
+            Sango.Log.Info($"{mBelongForce.Name}的[{Name}]与兄弟部队[{JoinTroopNames(brothers)}]同心同德，{brothers.Count + 1}队气力推满！");
+        }
+
+        /// <summary>
+        /// 用顿号拼接兄弟部队名, 仅供日志使用
+        /// </summary>
+        static string JoinTroopNames(List<Troop> troops)
+        {
+            string names = "";
+            for (int i = 0; i < troops.Count; i++)
+            {
+                if (troops[i] == null) continue;
+                names += names.Length == 0 ? troops[i].Name : "、" + troops[i].Name;
+            }
+            return names;
+        }
+
+        /// <summary>
+        /// 把本部队气力推到上限
+        /// </summary>
+        void CheerSelfFullMorale()
+        {
+            // 对白期间部队可能已经溃灭或回城, 这里要重新检查
+            if (!IsAlive) return;
+
+            int num = MaxMorale - morale;
+            if (num > 0)
+                ChangeMorale(num);
+        }
+
+        /// <summary>
+        /// 援助攻击的伤害折算比例(百分比)
+        /// </summary>
+        public const int AssistAttackDamagePercent = 50;
+
+        /// <summary>
+        /// "辅佐"特性的Id(Features.json: 即使没建立人际关系(厌恶除外)也可获得支援攻击)
+        /// </summary>
+        public const int AssistFeatureId = 27;
+
+        /// <summary>
+        /// 援助搜索半径(格)。以敌军为圆心向外螺旋收候选:
+        /// 一格内只要不是器械就能近战补刀, 两格及以上必须是射程够得着的弓箭军
+        /// </summary>
+        public const int AssistAttackRange = 4;
+
+        // 螺旋候选格与远程射程格: 用静态缓冲复用, 免得每次呼叫援助都分配 List
+        internal static List<Cell> assistSearchCells = new List<Cell>(128);
+        internal static List<Cell> assistRangeCells = new List<Cell>(256);
+
+        /// <summary>
+        /// 各关系的援助概率档位(百分比)
+        /// </summary>
+        public const int AssistChanceSpouse = 50;
+        public const int AssistChanceSwornBrother = 50;
+        public const int AssistChanceAssistFeature = 30;
+        public const int AssistChanceLike = 30;
+        public const int AssistChanceBloodRelative = 20;
+
+        /// <summary>
+        /// 临时诊断开关: 打开后把援助攻击每一层的拦截原因写进日志, 定位完请置回false
+        /// </summary>
+        public static bool AssistDiagnosis = true;
+
+        /// <summary>
+        /// 援助攻击: 本部队攻击敌军却没把它打灭时, 敌军周围 AssistAttackRange 格内的友军部队
+        /// 按其与本部队主将的关系分档判定概率, 命中则各补一记打折的普攻。
+        /// 出手资格按距离分层: 一格内不是器械就能直接近战补刀,
+        /// 两格及以上只能是弓箭军(带远程普攻), 而且敌军要落在它的射程里
+        /// </summary>
+        public void TryAssistAttack(Troop enemy)
+        {
+            if (!IsAlive || enemy == null || !enemy.IsAlive)
+            {
+                LogAssist("呼叫援助中止: 攻击方或敌军已不在场");
+                return;
+            }
+            if (Leader == null)
+            {
+                LogAssist("呼叫援助中止: 攻击方无主将");
+                return;
+            }
+            Cell enemyCell = enemy.cell;
+            Map map = Scenario.Cur == null ? null : Scenario.Cur.Map;
+            if (enemyCell == null || map == null)
+            {
+                LogAssist("呼叫援助中止: 敌军不在地图上");
+                return;
+            }
+
+            // 用 GetSpiral 而不是 SpiralAction: 后者走的 RingAction 在地图边缘会先解引用再判空,
+            // 半径大于1时可能空引用; GetSpiral 内部逐格 GetCell 已判过空
+            // 螺旋由近及远, 天然让身边的部队优先补刀
+            assistSearchCells.Clear();
+            map.GetSpiral(enemyCell, AssistAttackRange, assistSearchCells);
+
+            int candidates = 0;
+            int joined = 0;
+            for (int i = 0, count = assistSearchCells.Count; i < count; ++i)
+            {
+                Cell cell = assistSearchCells[i];
+                // 圆心这一格就是敌军自己站着的格, 不是候选援助位
+                if (cell == enemyCell) continue;
+                Troop helper = cell.troop;
+                if (helper == null) continue;
+                candidates++;
+
+                int distance = map.Distance(enemyCell, cell);
+
+                string block = AssistBlockReason(helper, enemy);
+                if (block != null)
+                {
+                    LogAssist($"{distance}格外的部队[{helper.Name}] 不参与: {block}");
+                    continue;
+                }
+
+                // 兵种与射程按距离分层, 顺带挑出这一发要用哪个普攻技能
+                string reject = null;
+                SkillInstance skill = SelectAssistSkill(helper, cell, enemyCell, distance, out reject);
+                if (skill == null)
+                {
+                    LogAssist($"{distance}格外的部队[{helper.Name}] 出不了手: {reject}");
+                    continue;
+                }
+
+                int chance = CalcAssistChance(this, helper);
+                if (chance <= 0)
+                {
+                    LogAssist($"{distance}格外的部队[{helper.Name}]主将[{helper.Leader.Name}]与[{Leader.Name}]不沾任何关系档, 概率0");
+                    continue;
+                }
+
+                bool hit = GameRandom.Chance(chance);
+                LogAssist($"{distance}格外的部队[{helper.Name}] 关系档概率{chance}%, 判定{(hit ? "通过" : "未通过")}");
+                if (!hit) continue;
+
+                if (DoAssistAttack(helper, enemy, skill))
+                    joined++;
+            }
+
+            LogAssist($"[{Name}] 攻击[{enemy.Name}], 周围{AssistAttackRange}格内共发现 {candidates} 支部队, {joined} 支部队前来支援");
+        }
+
+        /// <summary>
+        /// 援助攻击的临时诊断输出
+        /// </summary>
+        public static void LogAssist(string message)
+        {
+            if (!AssistDiagnosis) return;
+            Sango.Log.Info($"[援助攻击]{message}");
+        }
+
+        /// <summary>
+        /// 按关系分档计算 helper 前来支援 self 本次攻击的概率(百分比)。
+        /// 只取命中的第一档: 夫妇50 / 义兄弟50 / 辅佐特技30 / 亲爱30 / 直系血亲20 / 其他0
+        /// </summary>
+        public static int CalcAssistChance(Troop self, Troop helper)
+        {
+            if (self == null || helper == null)
+            {
+                LogAssist("关系档计算中止: self 或 helper 为空");
+                return 0;
+            }
+
+            Person leader = self.Leader;
+            Person helperLeader = helper.Leader;
+            if (leader == null || helperLeader == null)
+            {
+                LogAssist($"关系档中止: 攻击方主将[{(leader == null ? "null" : leader.Name)}] 援助方主将[{(helperLeader == null ? "null" : helperLeader.Name)}]");
+                return 0;
+            }
+
+            // 诊断需要, 六项判据先全部算完再按优先级取值;
+            // 短路只体现在return顺序上, 结果与逐条if完全一致, 不会出现诊断与实际不符
+            bool isSpouse = leader.IsSpouse(helperLeader);
+            bool isSwornBrother = leader.IsBrotherGroupmate(helperLeader);
+            bool hasAssistFeature = leader.HasFeatrue(AssistFeatureId);
+            bool isLike = leader.IsLike(helperLeader);
+            bool isBloodRelative = leader.IsBloodRelative(helperLeader);
+            bool hated = Person.IsHatedByEither(leader, helperLeader);
+
+            LogAssist($"关系档判定 {leader.Name}→{helperLeader.Name}: 夫妇={isSpouse} 义兄弟={isSwornBrother} 辅佐特性={hasAssistFeature} 亲爱={isLike} 直系血亲={isBloodRelative} 厌恶={hated}");
+
+            // 夫妇与亲爱读的是单向列表, 反向也查一下, 专门暴露"关系只配了一个方向"
+            if (!isSpouse && helperLeader.IsSpouse(leader))
+                LogAssist($"注: {helperLeader.Name}的配偶列表里有{leader.Name}, 但{leader.Name}这边查不到, 所以本方向不算夫妇");
+            if (!isLike && helperLeader.IsLike(leader))
+                LogAssist($"注: {helperLeader.Name}的亲爱列表里有{leader.Name}, 但{leader.Name}没把对方列入亲爱, 所以本方向不算亲爱");
+
+            // 夫妇
+            if (isSpouse)
+                return AssistChanceSpouse;
+
+            // 义兄弟(剧本原设兄弟与本功能同源, 一并归入本档)
+            if (isSwornBrother)
+                return AssistChanceSwornBrother;
+
+            // 持有"辅佐"特性, 且双方没有厌恶
+            if (hasAssistFeature && !hated)
+                return AssistChanceAssistFeature;
+
+            // 亲爱
+            if (isLike)
+                return AssistChanceLike;
+
+            // 直系血亲, 且双方没有厌恶
+            if (isBloodRelative && !hated)
+                return AssistChanceBloodRelative;
+
+            if (hasAssistFeature || isBloodRelative)
+                LogAssist("→ 0 (虽有辅佐特性或血亲, 但双方存在厌恶关系, 被拦下)");
+            else
+                LogAssist("→ 0 (五档全不沾, 改概率常量也不会触发)");
+
+            return 0;
+        }
+
+        /// <summary>
+        /// 这支部队是否具备前来援助的战场条件(不含兵种与射程, 那部分由 SelectAssistSkill 判)
+        /// </summary>
+        bool CanAssistAttack(Troop helper, Troop enemy)
+        {
+            return AssistBlockReason(helper, enemy) == null;
+        }
+
+        /// <summary>
+        /// 战场条件逐条检查; 返回null表示通过, 否则返回被哪一条拦下。
+        /// 兵种、射程这类与距离相关的资格由 SelectAssistSkill 判
+        /// </summary>
+        string AssistBlockReason(Troop helper, Troop enemy)
+        {
+            if (helper == null) return "该格没有部队";
+            // 螺旋把圆心格也收了进来, 那格站的就是敌军自己
+            if (helper == enemy) return "就是敌军本队";
+            // 攻击者自己再打一次不算援助
+            if (helper == this) return "就是攻击方自己";
+            if (!helper.IsAlive) return "无法攻击";
+            // 路上的部队不参与援助: 它的施法槽位会被移动事件清掉, 半路插手会把表现搞乱
+            if (helper.isMoving) return "正在移动";
+            // 必须是自己的友军: 同势力或同盟
+            if (!IsSameForce(helper) && !IsAlliance(helper)) return "既不同势力也不同盟";
+            // 援助方也得真能与敌军交战
+            if (!helper.IsEnemy(enemy)) return "与该敌军不构成敌对";
+            // 前面的援助已经把敌军打灭, 后面的不必再补刀
+            if (!enemy.IsAlive) return "敌军已被打灭";
+            if (enemy.cell == null) return "敌军已不在地图上";
+
+            return null;
+        }
+
+        /// <summary>
+        /// 按援助方与敌军的距离挑出本次补刀要用的普攻, 同时校验兵种与射程是否允许出手。
+        /// 一格: 不是器械就行, 用近战普攻;
+        /// 两格及以上: 只能用带远程普攻的弓箭/弩兵, 而且敌军必须在它的射程之内。
+        /// 返回null表示出不了手, reject 给出原因
+        /// </summary>
+        SkillInstance SelectAssistSkill(Troop helper, Cell helperCell, Cell enemyCell, int distance, out string reject)
+        {
+            reject = null;
+
+            // 兵器队一律不援助: 近战不会使, 远程也不给(两格外只留给弓箭军)
+            if (helper.IsMachine)
+            {
+                reject = "是兵器部队";
+                return null;
+            }
+
+            if (distance <= 1)
+            {
+                SkillInstance melee = helper.NormalSkill;
+                if (melee == null)
+                {
+                    reject = "没有近战普攻";
+                    return null;
+                }
+                return melee;
+            }
+
+            // "是不是弓箭军"以有没有远程普攻为准: 水战时 NormalRangeSkill 会切到水军那一份,
+            // 而 LandTroopType.isRange 只反映陆战兵种, 拿它做判据会把水上的弓兵误杀
+            SkillInstance ranged = helper.NormalRangeSkill;
+            if (ranged == null)
+            {
+                reject = $"与敌军隔{distance}格, 不是弓箭军(没有远程普攻)";
+                return null;
+            }
+
+            // 射程校验: GetSpellRange 给出的是这支部队站在原地能施放的格子集合, 敌军得在里面
+            assistRangeCells.Clear();
+            ranged.GetSpellRange(helper, helperCell, assistRangeCells);
+            bool reachable = false;
+            for (int i = 0, count = assistRangeCells.Count; i < count; ++i)
+            {
+                if (assistRangeCells[i] == enemyCell)
+                {
+                    reachable = true;
+                    break;
+                }
+            }
+            if (!reachable)
+            {
+                reject = $"与敌军隔{distance}格, 超出<{ranged.Name}>的射程";
+                return null;
+            }
+
+            // 与攻击菜单判断"有没有目标可打"用的是同一套条件, 免得这里放行、真正施法却被拒
+            if (!ranged.CanSpellToHere(helper, enemyCell))
+            {
+                reject = $"<{ranged.Name}>对敌军所在格不满足施放条件";
+                return null;
+            }
+
+            return ranged;
+        }
+
+        /// <summary>
+        /// 让支援部队以完全等同于普通攻击的方式出手:
+        /// 走 SpellSkill 进入渲染事件队列, 动画/暴击/伤害/敌军还击/EP/气力消耗全部自动生效,
+        /// 多支部队依次演出而不是瞬间一起扣血。返回是否真的排上了队列
+        /// </summary>
+        bool DoAssistAttack(Troop helper, Troop enemy, SkillInstance skill)
+        {
+            // 与普通攻击同样的释放前置检查(气力不足就不能出手)
+            if (!skill.CanBeSpell(helper))
+            {
+                LogAssist($"[{helper.Name}] 气力不足(需{skill.costEnergy}), 放弃援助");
+                return false;
+            }
+
+            // SpellSkill 开头遇到"已播完但没清空"的旧事件时, 会只清掉旧事件就 return true,
+            // 一个援助事件也不会排, 所以这里必须先把它们清干净
+            if (helper.skillRenderEvent != null)
+            {
+                if (helper.skillRenderEvent.IsDone)
+                    helper.skillRenderEvent = null;
+                else
+                {
+                    LogAssist($"[{helper.Name}] 正在施法, 本次援助放弃");
+                    return false;
+                }
+            }
+
+            helper.SpellSkill(skill, enemy.cell, false);
+
+            // SpellSkill 只是把事件排进队列, 伤害要等轮到该事件才结算,
+            // 所以援助标记必须排在队之后再挂: 它挂在技能实例上, 结算一次即消耗,
+            // 不会像挂在部队上那样残留到该部队自己的下一次攻击
+            if (helper.skillRenderEvent == null)
+            {
+                LogAssist($"[{helper.Name}] 援助未能排入渲染队列, 本次放弃");
+                return false;
+            }
+            skill.assistAttackFlag = true;
+            // 这场援助演完就该把这支部队的施法状态让出来, 它自己的行动还没用
+            helper.skillRenderEventIsAssist = true;
+            // 把事件标成援助: 敌军可能在排队的这几发之间就被打灭了,
+            // 那时这场补刀要整场取消(见 TroopSpellSkillEvent.IsAssistCancelled)。
+            // 普攻必中也不会进暴击分支, 所以援助排出的只会是 TroopSpellSkillEvent
+            if (helper.skillRenderEvent is TroopSpellSkillEvent spellEvent)
+                spellEvent.isAssistAttack = true;
+
+            LogAssist($"[{helper.Name}] 已排入援助攻击队列, 用<{skill.Name}>打[{enemy.Name}]");
+            return true;
         }
 
         public void EnterCity(City city)

@@ -62,7 +62,7 @@ namespace Sango.Core.Player
 
         /// <summary>
         /// 勾选联动过滤: 根据已经勾选的武将决定其他人当下是否显示,
-        /// 取消勾选后自动恢复; 基类统一排除血亲(父母/子女)与厌恶对象,
+        /// 取消勾选后自动恢复; 基类统一排除血缘亲亲和厌恶对象,
         /// 子类叠加自己的规则
         /// </summary>
         protected virtual bool FilterBySelected(SangoObject target, List<SangoObject> selected)
@@ -75,7 +75,7 @@ namespace Sango.Core.Player
                 Person other = selected[i] as Person;
                 if (other == null) continue;
 
-                // 已勾选任意一人的父母/子女不再可选
+                // 与已勾选人有任何血缘关系的一律隐藏(父母子女/兄弟姐妹/祖孙/叔侄/堂表)
                 if (IsBloodRelative(person, other))
                     return false;
 
@@ -87,13 +87,13 @@ namespace Sango.Core.Player
         }
 
         /// <summary>
-        /// 是否直系血亲(父母/子女, 含过继等父子母子关系)
-        /// IsParentchild 已覆盖双向: 对方是自己的父母, 或自己是对方的父母
+        /// 两人是否有血缘关系, 直接用Person.IsBloodRelative:
+        /// 父母子女(含过继) / 同父或同母的兄弟姐妹 / 三代以内有共同祖先
         /// </summary>
         protected static bool IsBloodRelative(Person a, Person b)
         {
             if (a == null || b == null) return false;
-            return a.IsParentchild(b);
+            return a.IsBloodRelative(b);
         }
 
         /// <summary>
@@ -120,9 +120,15 @@ namespace Sango.Core.Player
                     Person b = picked[j];
                     if (a == null || b == null) continue;
 
-                    if (IsBloodRelative(a, b))
+                    if (a.IsParentchild(b))
                     {
                         errorContent = $"{a.Name}与{b.Name}是父母子女关系, 不能{title}!";
+                        return true;
+                    }
+
+                    if (IsBloodRelative(a, b))
+                    {
+                        errorContent = $"{a.Name}与{b.Name}有血缘关系, 不能{title}!";
                         return true;
                     }
 

@@ -1832,10 +1832,120 @@ namespace Sango.Core
             return mHatePersonList.Contains(other);
         }
 
+        /// <summary>
+        /// other是否在自己记录的兄弟列表里
+        /// 注意: 本方法不保证对称! BrotherList 是 PostInit 里每个人只把自己
+        /// 塞进 mBrother.BrotherList 逐步拼出来的, 幼弟那份列表里不一定含组头,
+        /// 所以 "弟.IsBrother(兄)" 会返回false。判断"两人是否同组"请一律用 IsBrotherGroupmate
+        /// </summary>
         public bool IsBrother(Person other)
         {
             if (other == null || BrotherList == null) return false;
             return BrotherList.Contains(other);
+        }
+
+        /// <summary>
+        /// 两人是否同属一个兄弟组(仲介结义与剧本原设通用, 保证对称)
+        /// </summary>
+        public bool IsBrotherGroupmate(Person other)
+        {
+            if (other == null || other == this) return false;
+
+            // 主判据: 同组的人 Brother 全部指向同一个组头Id
+            // (Person.SwornBrothers 与 Scenario 的配表建组都是这个约定, 天生对称)
+            if (Brother > 0 && Brother == other.Brother)
+                return true;
+
+            // 兜底一: 两人解析到的组头是同一个对象
+            if (mBrother != null && mBrother == other.mBrother)
+                return true;
+
+            // 兜底二: 共享同一个兄弟列表实例(List未重载==, 即引用比较)
+            if (BrotherList != null && BrotherList == other.BrotherList)
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// 两人之间是否存在厌恶关系(单向也算)
+        /// IsHate 只表示"自己厌恶对方", 所以必须双向判断
+        /// </summary>
+        public static bool IsHatedByEither(Person a, Person b)
+        {
+            if (a == null || b == null) return false;
+            return a.IsHate(b) || b.IsHate(a);
+        }
+
+        /// <summary>
+        /// 血亲追溯的最大代数(自己往上几代算作同一家族)
+        /// </summary>
+        const int MaxBloodGeneration = 3;
+
+        /// <summary>
+        /// 两人是否有血缘关系:
+        /// 1. 父母子女(含过继)
+        /// 2. 同父或同母的兄弟姐妹(含同父异母, 同母异父)
+        /// 3. 三代以内有共同祖先(祖孙, 叔侄, 堂表兄姊)
+        /// 同胞与义兄弟共用 Brother 字段无法区分, 所以兄弟姐妹一律靠父母字段判定
+        /// </summary>
+        public bool IsBloodRelative(Person other)
+        {
+            if (other == null || other == this) return false;
+            if (IsParentchild(other)) return true;
+
+            // 同一位父亲或同一位母亲即为兄弟姐妹
+            if (mFather != null && mFather == other.mFather) return true;
+            if (mMother != null && mMother == other.mMother) return true;
+
+            return HasCommonAncestor(other);
+        }
+
+        /// <summary>
+        /// 两人往上追 MaxBloodGeneration 代, 是否存在同一个祖先
+        /// 集合里含自己, 所以"自己就是对方的祖辈"这种隔代直系也能命中
+        /// </summary>
+        bool HasCommonAncestor(Person other)
+        {
+            HashSet<Person> myAncestors = CollectAncestors(this);
+            HashSet<Person> otherAncestors = CollectAncestors(other);
+            foreach (Person person in myAncestors)
+            {
+                if (otherAncestors.Contains(person))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 逐层往上收集祖先(含自己), result.Add 兼做去重, 数据错乱成环时也能终止
+        /// </summary>
+        static HashSet<Person> CollectAncestors(Person person)
+        {
+            HashSet<Person> result = new HashSet<Person>();
+            if (person == null)
+                return result;
+
+            result.Add(person);
+            List<Person> current = new List<Person>() { person };
+            for (int i = 0; i < MaxBloodGeneration && current.Count > 0; i++)
+            {
+                List<Person> next = new List<Person>();
+                for (int j = 0; j < current.Count; j++)
+                {
+                    AddAncestor(current[j].mFather, result, next);
+                    AddAncestor(current[j].mMother, result, next);
+                }
+                current = next;
+            }
+            return result;
+        }
+
+        static void AddAncestor(Person parent, HashSet<Person> result, List<Person> next)
+        {
+            if (parent == null || !result.Add(parent))
+                return;
+            next.Add(parent);
         }
 
         #region 仲介-关系读写
