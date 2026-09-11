@@ -42,6 +42,7 @@ namespace Sango.Core
             GameEvent.OnScenarioEnd += OnScenarioEnd;
             GameEvent.OnInitBuildingMiniPanel += OnInitBuildingMiniPanel;
             GameEvent.OnGameSave += OnGameSave;
+            GameEvent.OnCityCalculateHarvest += OnCityCalculateHarvest;
 
             GameEvent.OnGetJobCostAP += OnGetJobCostAP;
 
@@ -65,6 +66,7 @@ namespace Sango.Core
             GameEvent.OnInitBuildingMiniPanel -= OnInitBuildingMiniPanel;
             GameEvent.OnGameSave -= OnGameSave;
             GameEvent.OnGetJobCostAP -= OnGetJobCostAP;
+            GameEvent.OnCityCalculateHarvest -= OnCityCalculateHarvest;
         }
 
         void OnGetJobCostAP(JobType jobType, int cost, OverrideData<int> overrideData)
@@ -577,8 +579,15 @@ namespace Sango.Core
                 }
             }
             Person[] personArray = worker_list.ToArray();
-
+            ScenarioVariables variables = scenario.Variables;
+            City city = building.mBelongCity;
             int person_factor = GetPersonInfuse(personArray, buildingType.effectAttrType);
+            float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
+            float popularSupportInfluence = variables.populationEnable ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
+            float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
+
+            float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
+            float totalGoldFactor = (city.IsPlayer ? variables.playerGoldFactor : variables.goldFactor);
 
             int totalFactor = leader_factor * person_factor;
             int jobId = buildingType.jobId;
@@ -589,7 +598,7 @@ namespace Sango.Core
             // 建筑累积收益
             if (buildingType.foodGain > 0)
             {
-                int value = buildingType.foodGain / classiceGainFactor * totalFactor / 10000;
+                int value = (int)((buildingType.foodGain / classiceGainFactor * totalFactor / 10000) * leftInfluence * (totalFoodFactor + city.extraGainFoodFactor));
                 overrideData.Value = value;
                 GameEvent.OnBuildingCalculateFoodGain?.Invoke(building, overrideData);
                 building.AccumulatedFood += overrideData.Value;
@@ -597,7 +606,7 @@ namespace Sango.Core
 
             if (buildingType.goldGain > 0)
             {
-                int value = buildingType.goldGain / classiceGainFactor * totalFactor / 10000;
+                int value = (int)((buildingType.goldGain / classiceGainFactor * totalFactor / 10000) * leftInfluence * (totalGoldFactor + city.extraGainGoldFactor));
                 overrideData.Value = value;
                 GameEvent.OnBuildingCalculateGoldGain?.Invoke(building, overrideData);
                 building.AccumulatedGold += overrideData.Value;
@@ -706,12 +715,93 @@ namespace Sango.Core
             GameUtility.ClearJobFeature();
         }
 
+        void OnCityCalculateHarvest(City city)
+        {
+            if (city.mBelongCorps == null)
+                return;
+
+            ScenarioVariables variables = Scenario.Cur.Variables;
+
+            // 计算太守对于收入的影响
+            int leader_factor = GetCityLeaderInfuse(city, (int)AttributeType.Politics);
+            int totalFoodValue = 0;// city.BaseGainFood * leader_factor / 100;
+            int totalGoldValue = 0;// city.BaseGainGold * leader_factor / 100;
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(0);
+
+            float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
+            float popularSupportInfluence = variables.populationEnable ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
+            float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
+
+            float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
+            float totalGoldFactor = (city.IsPlayer ? variables.playerGoldFactor : variables.goldFactor);
+
+            // 计算建筑收入
+            city.allBuildings.ForEach(x =>
+            {
+                if (x.isComplate && x.IsIntorBuilding())
+                {
+                    BuildingType buildingType = x.BuildingType;
+                    if (buildingType.foodGain > 0 || buildingType.goldGain > 0)
+                    {
+                        worker_list.Clear();
+                        if (x.Workers != null)
+                        {
+                            for (int i = 0; i < buildingType.workerLimit; i++)
+                            {
+                                Person person = null;
+                                if (i < x.Workers.Count)
+                                    person = x.Workers.Get(i);
+                                if (person != null && person.IsFree && !person.ActionOver)
+                                {
+                                    worker_list.Add(person);
+                                }
+                            }
+                        }
+                        Person[] personArray = worker_list.ToArray();
+                        int person_factor = GetPersonInfuse(personArray, buildingType.effectAttrType);
+                        int totalFactor = leader_factor * person_factor;
+                        GameUtility.InitJobFeature(x.Workers, city, x);
+
+                        if (buildingType.foodGain > 0)
+                        {
+                            int value = (int)((buildingType.foodGain / classiceGainFactor * totalFactor / 10000) * leftInfluence * (totalFoodFactor + city.extraGainFoodFactor));
+                            overrideData.Value = value;
+                            GameEvent.OnBuildingCalculateFoodGain?.Invoke(x, overrideData);
+                            totalFoodValue += overrideData.Value;
+                        }
+
+                        if (buildingType.goldGain > 0)
+                        {
+                            int value = (int)((buildingType.goldGain / classiceGainFactor * totalFactor / 10000) * leftInfluence * (totalGoldFactor + city.extraGainGoldFactor));
+                            overrideData.Value = value;
+                            GameEvent.OnBuildingCalculateGoldGain?.Invoke(x, overrideData);
+                            totalGoldValue += overrideData.Value;
+                        }
+
+                        GameUtility.ClearJobFeature();
+                    }
+                }
+            });
+
+            city.totalGainFood = totalFoodValue * 9 + city.BaseGainFood * leader_factor / 100;
+            overrideData.Value = city.totalGainFood;
+            GameEvent.OnCityCalculateFoodHarvest?.Invoke(city, overrideData);
+            GameEvent.OnCityCalculateFoodHarvestAfter?.Invoke(city, overrideData);
+            city.totalGainFood = overrideData.Value;
+
+            city.totalGainGold = totalGoldValue * 3 + city.BaseGainGold * leader_factor / 100;
+            overrideData.Value = city.totalGainGold;
+            GameEvent.OnCityCalculateGoldHarvest?.Invoke(city, overrideData);
+            GameEvent.OnCityCalculateGoldHarvestAfter?.Invoke(city, overrideData);
+            city.totalGainGold = overrideData.Value;
+        }
+
         /// <summary>
         /// 季度收入粮食
         /// </summary>
         /// <param name="scenario"></param>
         /// <returns></returns>
-        void OnCitySeasonStart(City city, Scenario scenario)
+        public void OnCitySeasonStart(City city, Scenario scenario)
         {
             if (city.mBelongCorps == null)
                 return;
@@ -731,11 +821,10 @@ namespace Sango.Core
                 totalValue += (int)(city.population * scenario.Variables.populationFoodCostFactor * 0.5f);
             }
 
-            float totalFoodFactor = (city.IsPlayer ? scenario.Variables.playerFoodFactor : scenario.Variables.foodFactor);
-            totalValue = (int)(totalValue * totalFoodFactor);
-
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
+            GameEvent.OnCityGainFoodHarvest?.Invoke(city, overrideData);
+            city.AddFood(overrideData.Value);
             //totalValue = GameRandom.Random(totalValue, 0.05f);
-            city.AddFood(totalValue);
 #if SANGO_DEBUG
             Sango.Log.Info($"城市：{city.Name}, 收获粮食：{totalValue}, 现有粮食: {city.food}");
 #endif
@@ -747,7 +836,7 @@ namespace Sango.Core
         /// </summary>
         /// <param name="scenario"></param>
         /// <returns></returns>
-        void OnCityMonthStart(City city, Scenario scenario)
+        public void OnCityMonthStart(City city, Scenario scenario)
         {
             if (city.mBelongCorps == null)
                 return;
@@ -773,17 +862,17 @@ namespace Sango.Core
                 totalValue += (int)(city.population * scenario.Variables.populationGoldIncomeFactor);
             }
 
-            float totalGoldFactor = (city.IsPlayer ? scenario.Variables.playerGoldFactor : scenario.Variables.goldFactor);
-            totalValue = (int)(totalValue * totalGoldFactor);
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
+            GameEvent.OnCityGainGoldHarvest?.Invoke(city, overrideData);
+            city.AddGold(overrideData.Value);
 
             //Sango.Log.Error($"all: t:{totalValue}");
             //totalFoodt = GameRandom.Random(totalFood, 0.05f);
-            city.AddGold(totalValue);
 
 #if SANGO_DEBUG
             Sango.Log.Info($"城市：{city.Name},  收获资金：{totalValue}, 现有资金: {city.gold}");
 #endif
-            city.Render?.ShowInfo(totalValue, (int)InfoType.Gold);
+            city.Render?.ShowInfo(overrideData.Value, (int)InfoType.Gold);
 
         }
 

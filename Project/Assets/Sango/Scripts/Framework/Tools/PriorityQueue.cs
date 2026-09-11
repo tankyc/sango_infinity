@@ -2,7 +2,7 @@
 
 namespace Sango.Tools
 {
-    public class PriorityQueue<T>
+    public class PriorityQueue<T> where T : class
     {
         struct Node<T>
         {
@@ -52,7 +52,7 @@ namespace Sango.Tools
             if (Count == 0)
             {
                 priority = 0;
-                return default(T);
+                return null;
             }
             int pos = Count - 1;
             Node<T> node = nodes[pos];
@@ -66,7 +66,7 @@ namespace Sango.Tools
             if (!reverse)
                 reverse = true;
             if (Count == 0)
-                return default(T);
+                return null;
             int pos = Count - 1;
             T rs = nodes[pos].value;
             nodes.RemoveAt(pos);
@@ -79,7 +79,7 @@ namespace Sango.Tools
             if (Count == 0)
             {
                 priority = 0;
-                return default(T);
+                return null;
             }
             Node<T> node = nodes[0];
             T rs = node.value;
@@ -92,7 +92,7 @@ namespace Sango.Tools
             if (reverse)
                 reverse = false;
             if (Count == 0)
-                return default(T);
+                return null;
             T rs = nodes[0].value;
             nodes.RemoveAt(0);
             return rs;

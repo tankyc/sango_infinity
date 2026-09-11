@@ -368,6 +368,10 @@ namespace Sango.Core
         public float waterDamageBuildingExtraFactor;
         public float landDamageBuildingExtraFactor;
 
+
+        public int defeatTroopCanGainFoodFactor;
+        public int defeatTroopCanGainGoldFactor;
+
         public int SpearLv { get; private set; }
         public int HalberdLv { get; private set; }
         public int CrossbowLv { get; private set; }
@@ -397,7 +401,7 @@ namespace Sango.Core
         /// <summary>
         /// 建设力
         /// </summary>
-        public int BuildPower { get; private set; }
+        public int BuildPower { get; set; }
 
         /// <summary>
         /// 统率
@@ -450,22 +454,54 @@ namespace Sango.Core
         public List<ActionBase> actionList;
         public List<Cell> MoveRange = new List<Cell>(256);
 
-        public override void Init(Scenario scenario)
+        static List<Feature> temp_FeatureList = new List<Feature>();
+        public void InitActionList()
         {
-            _troopName = $"{Leader?.Name}队";
-            actionList = new List<ActionBase>();
+            temp_FeatureList.Clear();
+            if (actionList != null)
+            {
+                for (int i = 0; i < actionList.Count; i++)
+                    actionList[i].Clear();
+
+                actionList.Clear();
+            }
+            else
+                actionList = new List<ActionBase>();
+
             ForEachPerson(x =>
             {
-                x.mTroop = this;
                 if (x.mFeatureList != null)
                 {
                     for (int i = 0; i < x.mFeatureList.Count; i++)
                     {
-                        x.mFeatureList[i].InitActions(actionList, this, x);
+                        Feature feature = x.mFeatureList[i];
+                        if (feature != null && feature.kind <= (int)FeatureKindType.TroopSupport)
+                        {
+                            if (!feature.only)
+                            {
+                                temp_FeatureList.Add(feature);
+                                feature.InitActions(actionList, this, x);
+                            }
+                            else
+                            {
+                                if (!temp_FeatureList.Contains(feature))
+                                {
+                                    temp_FeatureList.Add(feature);
+                                    feature.InitActions(actionList, this, x);
+                                }
+                            }
+                        }
                     }
                 }
             });
+        }
 
+
+        public override void Init(Scenario scenario)
+        {
+            _troopName = $"{Leader?.Name}队";
+            ForEachPerson(x => x.mTroop = this);
+            InitActionList();
             StrategySkills.Clear();
             scenario.CommonData.Skills.ForEach(x =>
             {
@@ -498,26 +534,7 @@ namespace Sango.Core
         }
         public void ResetActionAndStatus()
         {
-            if (actionList != null)
-            {
-                for (int i = 0; i < actionList.Count; i++)
-                    actionList[i].Clear();
-
-                actionList.Clear();
-            }
-
-            ForEachPerson(x =>
-            {
-                x.mTroop = this;
-                if (x.mFeatureList != null)
-                {
-                    for (int i = 0; i < x.mFeatureList.Count; i++)
-                    {
-                        x.mFeatureList[i].InitActions(actionList, this, x);
-                    }
-                }
-            });
-
+            InitActionList();
             CalculateAttribute(Scenario.Cur);
         }
 
@@ -568,11 +585,13 @@ namespace Sango.Core
             ActionOver = false;
             AIFinished = false;
             AIPrepared = false;
+            isMoving = false;
             isMissionPrepared = false;
             skillRenderEvent = null;
             skillRenderEventIsAssist = false;
             actionRenderEvent = null;
             moveRenderEvent = null;
+            troopMissionBehaviour = null;
             if (food <= 0)
             {
                 // 伤兵直接抛弃
@@ -681,6 +700,9 @@ namespace Sango.Core
 
             if (WaterTroopType == null)
                 WaterTroopType = scenario.GetObject<TroopType>(8);
+
+            defeatTroopCanGainFoodFactor = Variables.defeatTroopCanGainFoodFactor;
+            defeatTroopCanGainGoldFactor = Variables.defeatTroopCanGainGoldFactor;
 
             LandTroopTypeLv = -1;
             WaterTroopTypeLv = -1;
@@ -857,6 +879,10 @@ namespace Sango.Core
         }
 
         public bool IsSameForce(BuildingBase other)
+        {
+            return IsSameForce(mBelongForce, other.mBelongForce);
+        }
+        public bool IsSameForce(Person other)
         {
             return IsSameForce(mBelongForce, other.mBelongForce);
         }
@@ -1264,7 +1290,8 @@ namespace Sango.Core
                 isMoving = false;
                 return true;
             }
-
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append($"{isMoving},");
             if (!isMoving)
             {
                 tempCellList.Clear();
@@ -1294,6 +1321,20 @@ namespace Sango.Core
                     return true;
                 }
             }
+
+
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append($"11{moveRenderEvent},");
+
+            if (moveRenderEvent == null)
+            {
+                isMoving = false;
+                return true;
+            }
+
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append("11,");
+
             return false;
         }
 
@@ -1398,11 +1439,7 @@ namespace Sango.Core
             troops = troops + num;
             if (num < 0)
             {
-                if (Render != null && Render.IsVisible())
-                {
-                    GameMedia.Instance.PlayPersonSay(Leader, GameRandom.Chance(50) ? 3216 : 3230);
-                }
-
+                
                 int absNum = System.Math.Abs(num);
                 woundedTroops += (int)System.Math.Ceiling(absNum * 0.14f);
                 int _foodCost = (int)System.Math.Ceiling(Scenario.Cur.Variables.baseFoodCostInTroop * absNum * TroopType.foodCostFactor) / 2;
@@ -1415,6 +1452,12 @@ namespace Sango.Core
                 ChangeFood(-divFood, false);
 
                 IsAlive = troops > 0;
+
+                if (!IsAlive && Render != null && Render.IsVisible())
+                {
+                    GameMedia.Instance.PlayPersonSay(Leader, GameRandom.Chance(50) ? 3216 : 3230);
+                    GameParticales.Instance.PlayEfect("Assets/Effect/Prefab/ef_troop_destroy.prefab", Render.MapObject.position, 3);
+                }
             }
             else
             {
@@ -1517,7 +1560,8 @@ namespace Sango.Core
 
         public void ReleaseCaptive()
         {
-            for (int i = 0; i < captiveList.Count; i++)
+            // 必须倒序,因为Escape会修改captiveList
+            for (int i = captiveList.Count - 1; i >= 0; i--)
             {
                 Person person = captiveList[i];
                 person.Escape(EscapeType.TroopDestroyed);
@@ -2357,9 +2401,9 @@ namespace Sango.Core
             // 处理俘虏
             captiveList.ForEach(p =>
             {
+                p.mTroop = null;
                 city.captiveList.Add(p);
                 p.ChangeCurrentCity(city);
-                p.mTroop = null;
             });
             captiveList.Clear();
 
@@ -2586,6 +2630,7 @@ namespace Sango.Core
 #endif
             this.missionType = (int)missionType;
             this.missionTarget = missionTarget;
+            NeedPrepareMission();
         }
 
 
@@ -2604,7 +2649,7 @@ namespace Sango.Core
         {
             get
             {
-                if (missionType == 0 && mBelongCity != null)
+                if (missionType == 0 && mBelongCity != null && !IsPlayerControl)
                 {
                     SetMission(MissionType.TroopReturnCity, mBelongCity.Id);
                     NeedPrepareMission();
@@ -2661,12 +2706,17 @@ namespace Sango.Core
             if (GameAIDebug.Instance.WaitForShowAIPrepare())
                 return false;
 #endif
-
-            if (!TroopMissionBehaviour.DoAI(this, scenario))
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append("1,");
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append($"12:{temp.GetType()},");
+            if (!temp.DoAI(this, scenario))
                 return false;
-
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append("13,");
             GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
             AIFinished = true;
+            troopMissionBehaviour = null;
             ActionOver = true;
             return true;
         }
@@ -2772,7 +2822,7 @@ namespace Sango.Core
             mBelongForce.GainTechniquePoint(gp / 5);
 
             // 主将获得100%功绩,
-            if(Leader != null)
+            if (Leader != null)
             {
                 Leader?.GainMerit(gp);
                 Leader?.GainExp(gp / 5);
@@ -2783,6 +2833,21 @@ namespace Sango.Core
                 x.GainMerit(memberGp);
                 x.GainExp(memberGp / 5);
             });
+        }
+
+        public void GainTargetResource(Troop target)
+        {
+            // 获取对方部分钱粮
+            int getFood = target.food * Math.Max(0, Math.Min(100, defeatTroopCanGainFoodFactor)) / 100;
+            int getGold = target.gold * Math.Max(0, Math.Min(100, defeatTroopCanGainGoldFactor)) / 100;
+            if (getFood > 0)
+            {
+                ChangeFood(getFood);
+            }
+            if (getGold > 0)
+            {
+                ChangeGold(getGold);
+            }
         }
     }
 }

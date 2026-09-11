@@ -308,8 +308,6 @@ namespace Sango.Core
         {
             ClearJobFeature();
             if (people == null) return;
-
-            sJobActions.Clear();
             for (int i = 0; i < people.Count; ++i)
             {
                 Person person = people[i];
@@ -318,8 +316,22 @@ namespace Sango.Core
                     for (int j = 0; j < person.mFeatureList.Count; j++)
                     {
                         Feature feature = person.mFeatureList[j];
-                        if (feature.kind == (int)FeatureKindType.CityProduce)
-                            person.mFeatureList[j].InitActions(sJobActions, sangoObjects);
+                        if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
+                        {
+                            if (!feature.only)
+                            {
+                                temp_FeatureList.Add(feature);
+                                feature.InitActions(sJobActions, sangoObjects);
+                            }
+                            else
+                            {
+                                if (!temp_FeatureList.Contains(feature))
+                                {
+                                    temp_FeatureList.Add(feature);
+                                    feature.InitActions(sJobActions, sangoObjects);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -337,11 +349,26 @@ namespace Sango.Core
                     {
                         Feature feature = person.mFeatureList[j];
                         if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
-                            feature.InitActions(sJobActions, sangoObjects);
+                        {
+                            if (!feature.only)
+                            {
+                                temp_FeatureList.Add(feature);
+                                feature.InitActions(sJobActions, sangoObjects);
+                            }
+                            else
+                            {
+                                if (!temp_FeatureList.Contains(feature))
+                                {
+                                    temp_FeatureList.Add(feature);
+                                    feature.InitActions(sJobActions, sangoObjects);
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+        static List<Feature> temp_FeatureList = new List<Feature>();
 
         public static void InitJobFeature(Person person, params SangoObject[] sangoObjects)
         {
@@ -352,7 +379,21 @@ namespace Sango.Core
                 {
                     Feature feature = person.mFeatureList[j];
                     if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
-                        feature.InitActions(sJobActions, sangoObjects);
+                    {
+                        if (!feature.only)
+                        {
+                            temp_FeatureList.Add(feature);
+                            feature.InitActions(sJobActions, sangoObjects);
+                        }
+                        else
+                        {
+                            if (!temp_FeatureList.Contains(feature))
+                            {
+                                temp_FeatureList.Add(feature);
+                                feature.InitActions(sJobActions, sangoObjects);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -362,6 +403,7 @@ namespace Sango.Core
             for (int i = 0; i < sJobActions.Count; i++)
                 sJobActions[i].Clear();
             sJobActions.Clear();
+            temp_FeatureList.Clear();
         }
         public static void HexToColor(string hex, out Color color)
         {
@@ -467,7 +509,7 @@ namespace Sango.Core
         {
             if (personList == null || personList.Length == 0)
                 return false;
-            for(int i = 0; i < personList.Length; i++)
+            for (int i = 0; i < personList.Length; i++)
             {
                 if (personList[i] != null)
                 {

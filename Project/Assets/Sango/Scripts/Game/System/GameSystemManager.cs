@@ -3,6 +3,7 @@ using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
 
 namespace Sango.Core
@@ -203,16 +204,8 @@ namespace Sango.Core
             }
             else
             {
-                for (int i = 0; i < commads.Count; i++)
-                {
-                    ICommandEvent command = commads[i];
-                    if (command == who)
-                    {
-                        commads.RemoveAt(i);
-                        command.OnDestroy();
-                        break;
-                    }
-                }
+                who.OnDestroy(); 
+                commads.Remove(who);
             }
         }
         public void Done(ICommandEvent who = null)
@@ -298,6 +291,24 @@ namespace Sango.Core
                     }
                     break;
             }
+        }
+        public static bool debug = false;
+        public static StringBuilder debug_StringBuilder = new StringBuilder();
+        public string Dump()
+        {
+            debug = true;
+            debug_StringBuilder.Clear();
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine($"CurrentCommand  ={CurrentCommand?.GetType()}");
+            for (int i = 0; i < commads.Count; i++)
+            {
+                ICommandEvent command = commads[i];
+                stringBuilder.AppendLine($"{i}— {command?.GetType()}");
+            }
+            CurrentCommand?.Update();
+            debug = false;
+            stringBuilder.AppendLine(debug_StringBuilder.ToString());
+            return stringBuilder.ToString();
         }
     }
 }

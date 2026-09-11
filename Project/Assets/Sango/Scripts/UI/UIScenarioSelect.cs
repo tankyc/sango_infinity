@@ -4,6 +4,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 using Sango.Core;
+using System;
+
 namespace Sango.UI
 {
     /// <summary>
@@ -24,11 +26,15 @@ namespace Sango.UI
         public RectTransform mapBounds;
         List<GameObject> cityList = new List<GameObject>();
 
+        List<ShortScenario> all_scenario_list;
         List<ShortScenario> show_scenario_list = new List<ShortScenario>();
         CreatePool<UIScenarioItem> CreatePool;
 
         public GameObject sureButton;
         public Toggle firstToggle;
+        public Toggle customToggle;
+        public Action OnReturnAction;
+        public Action<ShortScenario> OnNextAction;
 
         protected override void Awake()
         {
@@ -38,11 +44,23 @@ namespace Sango.UI
 
         public override void OnOpen()
         {
+            all_scenario_list = ShortScenario.all_scenario_info_list;
             firstToggle?.SetIsOnWithoutNotify(true);
+            customToggle?.SetIsOnWithoutNotify(false);
             ShowScenarioByType(0);
+        }
 
-
-
+        public override void OnOpen(params object[] objects)
+        {
+            all_scenario_list = objects[0] as List<ShortScenario>;
+            int showType = 0;
+            if(objects.Length > 1)
+            {
+                showType = (int)objects[1];
+            }
+            firstToggle?.SetIsOnWithoutNotify(false); 
+            customToggle?.SetIsOnWithoutNotify(true);
+            ShowScenarioByType(showType);
         }
 
         public void Clear()
@@ -57,7 +75,7 @@ namespace Sango.UI
                 if (curSelectIndex >= 0 && curSelectIndex < selectedItems.Count)
                     selectedItems[curSelectIndex].SetSelected(false);
             }
-            if(index < selectedItems.Count)
+            if (index < selectedItems.Count)
                 selectedItems[index].SetSelected(true);
             ShowScenario(index);
         }
@@ -92,7 +110,7 @@ namespace Sango.UI
             foreach (ShortCity city in scenario.citySet)
             {
                 if (city == null) continue;
-                if (city.BuildingType > 1) continue;
+                if (!city.IsCity()) continue;
                 if (city.Id == 0) continue;
 
                 GameObject cityObj;
@@ -140,7 +158,15 @@ namespace Sango.UI
         {
             GameMedia.Instance.PlayCancelSfx();
             Clear();
-            Window.Instance.Open("window_start");
+            if (OnReturnAction != null)
+            {
+                OnReturnAction.Invoke();
+                OnReturnAction = null;
+            }
+            else
+            {
+                Window.Instance.Open("window_start");
+            }
             Window.Instance.Close("window_scenario_select");
         }
 
@@ -148,14 +174,12 @@ namespace Sango.UI
         {
             show_scenario_list.Clear();
 
-            for (int i = 0; i < ShortScenario.all_scenario_info_list.Count; i++)
+            for (int i = 0; i < all_scenario_list.Count; i++)
             {
-                ShortScenario shortScenario = ShortScenario.all_scenario_info_list[i];
+                ShortScenario shortScenario = all_scenario_list[i];
                 if (type == shortScenario.Info.type)
                     show_scenario_list.Add(shortScenario);
             }
-
-
 
             infoText.enabled = show_scenario_list.Count == 1;
             curSelectIndex = -1;
@@ -212,6 +236,14 @@ namespace Sango.UI
             }
         }
 
+        public void OnToggleScenarioTypeCustom(bool index)
+        {
+            if (index)
+            {
+                ShowScenarioByType(2);
+            }
+        }
+
         public void OnNext()
         {
             if (curSelectIndex == -1) return;
@@ -220,17 +252,26 @@ namespace Sango.UI
             Clear();
             ShortScenario scenario = show_scenario_list[curSelectIndex];
             ShortScenario.CurSelected = scenario;
-            scenario.LoadFullPersonContent();
-            Scenario.CurSelected = new Scenario(show_scenario_list[curSelectIndex].FilePath);
-
-            if(GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary.Count > 0 || GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Count >0)
+            if (OnNextAction != null)
             {
-                Window.Instance.Open("window_scenario_addon_menu", scenario);
+                OnNextAction.Invoke(scenario);
+                OnNextAction = null;
             }
             else
             {
-                Window.Instance.Open("window_scenario_force_select", scenario);
+                scenario.LoadFullPersonContent();
+                Scenario.CurSelected = new Scenario(show_scenario_list[curSelectIndex].FilePath);
+                if (GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary.Count > 0 || GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Count > 0)
+                {
+                    Window.Instance.Open("window_scenario_addon_menu", scenario);
+                }
+                else
+                {
+                    Window.Instance.Open("window_scenario_force_select", scenario);
+                }
             }
+
+
             Window.Instance.Close("window_scenario_select");
         }
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN

@@ -10,6 +10,8 @@ namespace Sango.Core
         [JsonProperty]
         public byte modelType;
         [JsonProperty]
+        public byte modelKind;
+        [JsonProperty]
         public string model;
         [JsonProperty]
         public string texture;

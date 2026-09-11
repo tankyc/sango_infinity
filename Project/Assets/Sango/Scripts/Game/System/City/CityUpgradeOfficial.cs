@@ -169,7 +169,7 @@ namespace Sango.Core.Player
 
         public void SortList()
         {
-            targetList.Sort((a, b) => -PersonSortFunction.SortByOfficial.personSortFunc.Invoke(a, b));
+            targetList.Sort((a, b) => -PersonSortFunction.SortByOfficial.valueSortFunc.Invoke(a, b));
         }
 
         public void AutoClearUpgrade()

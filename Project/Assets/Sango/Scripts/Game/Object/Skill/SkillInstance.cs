@@ -149,6 +149,7 @@ namespace Sango.Core
         protected List<SkillEffect> effects;
         protected SkillVisualizer skillVisualizer;
         public int tempCriticalFactor;
+        public int tempSuccessFactor;
 
         public SkillSuccessMethod skillSuccessMethod;
         public SkillCriticalMethod skillCriticalMethod;
@@ -421,6 +422,8 @@ namespace Sango.Core
         /// <returns></returns>
         public bool CheckSuccess(Cell spellCell)
         {
+            tempSuccessFactor = 1;
+
             // 普通攻击,必中
             if (IsNormal()) return true;
 
@@ -446,7 +449,8 @@ namespace Sango.Core
 #if SANGO_DEBUG
                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
 #endif
-                return false;
+                tempSuccessFactor = 0;
+                    return false;
             }
 
             if (skillSuccessMethod == null)
@@ -454,6 +458,7 @@ namespace Sango.Core
 #if SANGO_DEBUG
                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{successMethod}");
 #endif
+                tempSuccessFactor = 0;
                 return false;
             }
 
@@ -466,7 +471,12 @@ namespace Sango.Core
 #if SANGO_DEBUG
             Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
 #endif
-            return GameRandom.Chance(baseSuccessRate);
+            bool b_suc = GameRandom.Chance(baseSuccessRate);
+            if(!b_suc)
+            {
+                tempSuccessFactor = 0;
+            }
+            return b_suc;
         }
 
         /*
@@ -522,7 +532,7 @@ namespace Sango.Core
 
             int basCriticalRate = skillCriticalMethod.Calculate(this, troop, spellCell);
             overrideData = Tools.OverrideData<int>.Create(basCriticalRate);
-            GameEvent.OnTroopAfterCalculateSkillSuccess?.Invoke(troop, this, spellCell, overrideData);
+            GameEvent.OnTroopAfterCalculateSkillCritical?.Invoke(troop, this, spellCell, overrideData);
             basCriticalRate = overrideData.ValueAndRecycle;
 
             int criticalFactor = 100;
@@ -643,17 +653,8 @@ namespace Sango.Core
                     if (!beAtkTroop.IsAlive)
                     {
                         ep += 200;
-                        // 获取对方部分钱粮
-                        int getFood = beAtkTroop.food * scenarioVariables.defeatTroopCanGainFoodFactor / 100;
-                        int getGold = beAtkTroop.gold * scenarioVariables.defeatTroopCanGainGoldFactor / 100;
-                        if (getFood > 0)
-                        {
-                            troop.ChangeFood(getFood);
-                        }
-                        if (getGold > 0)
-                        {
-                            troop.ChangeGold(getGold);
-                        }
+
+                        troop.GainTargetResource(beAtkTroop);
                     }
 
                     troop.GainEP(ep);
@@ -693,18 +694,7 @@ namespace Sango.Core
                                 if (!troop.IsAlive)
                                 {
                                     ep += 200;
-
-                                    // 获取对方部分钱粮
-                                    int getFood = troop.food * scenarioVariables.defeatTroopCanGainFoodFactor / 100;
-                                    int getGold = troop.gold * scenarioVariables.defeatTroopCanGainGoldFactor / 100;
-                                    if (getFood > 0)
-                                    {
-                                        beAtkTroop.ChangeFood(getFood);
-                                    }
-                                    if (getGold > 0)
-                                    {
-                                        beAtkTroop.ChangeGold(getGold);
-                                    }
+                                    beAtkTroop.GainTargetResource(troop);
                                 }
                                 beAtkTroop.GainEP(ep);
 
@@ -892,7 +882,11 @@ namespace Sango.Core
                                             int blockDmg = targetDamage * this.blockFactor / 100;
                                             blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
                                             int ep = blockDmg / 10;
-                                            if (!blockTroop.IsAlive) ep += 200;
+                                            if (!blockTroop.IsAlive)
+                                            {
+                                                ep += 200;
+                                                troop.GainTargetResource(blockTroop);
+                                            }
                                             troop.GainEP(ep);
                                         }
                                         break;
@@ -919,7 +913,11 @@ namespace Sango.Core
                                             int blockDmg = targetDamage * this.blockFactor / 100;
                                             blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
                                             int ep = blockDmg / 10;
-                                            if (!blockTroop.IsAlive) ep += 200;
+                                            if (!blockTroop.IsAlive)
+                                            {
+                                                ep += 200;
+                                                troop.GainTargetResource(blockTroop);
+                                            }
                                             troop.GainEP(ep);
 
                                         }

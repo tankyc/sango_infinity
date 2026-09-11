@@ -85,6 +85,7 @@ namespace Sango.Core
             Register("TroopStatusCheck", CraeteHandle<TroopStatusCheck>);
            // Register("TroopStrengthCheck", CraeteHandle<TroopStrengthCheck>);
             Register("TroopMoraleCheck", CraeteHandle<TroopMoraleCheck>);
+            Register("TroopAroundTeammateCount", CraeteHandle<TroopAroundTeammateCount>);
 
             // Skill
             Register("SkillIsCritical", CraeteHandle<SkillIsCritical>);

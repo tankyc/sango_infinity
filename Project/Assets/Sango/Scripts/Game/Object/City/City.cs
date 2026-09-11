@@ -1,3 +1,4 @@
+using Sango.Core.Action;
 using Sango.Core.Player;
 using Sango.Render;
 using System;
@@ -369,6 +370,17 @@ namespace Sango.Core
         /// </summary>
         public int PersonHole { get; set; }
 
+        public Vector3 CityScale
+        {
+            get
+            {
+                if (BuildingType.kind == 1)
+                    return Vector3.one;
+                else
+                    return Vector3.one * 0.75f;
+            }
+        }
+
         //public int eventId;
         //public int specialtyId;
         //public int model_wall;
@@ -465,6 +477,11 @@ namespace Sango.Core
         public int InteriorCellCount => interiorCellList.Count;
 
         bool needUpdateLeader = false;
+
+        /// <summary>
+        /// 只有武将特性类型为 7(收入), 8(灾害)才会在都市中生效
+        /// </summary>
+        public List<ActionBase> actionList = new List<ActionBase>();
 
         /// <summary>
         /// 攻击部队数量
@@ -656,9 +673,9 @@ namespace Sango.Core
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> allPersons 删除 {person.Name} ");
 #endif
-            if(person.workingBuilding != null)
+            if (person.workingBuilding != null)
             {
-                if(person.workingBuilding.Workers != null)
+                if (person.workingBuilding.Workers != null)
                     person.workingBuilding.Workers.Remove(person);
                 person.workingBuilding = null;
             }
@@ -878,6 +895,7 @@ namespace Sango.Core
         public override void Init(Scenario scenario)
         {
             base.Init(scenario);
+            InitPersonAction();
 
             // 空闲人员判断
             freePersons.Clear();
@@ -913,6 +931,8 @@ namespace Sango.Core
                 Cell c = interiorCellList[i];
                 c.CreateInteriorModel();
             }
+
+            UpdateNewLeader();
 
             //计算最大士气
             CalculateMaxMorale();
@@ -1207,6 +1227,41 @@ namespace Sango.Core
             }
             return rs;
         }
+        List<Feature> temp_FeatureList = new List<Feature>();
+        public void InitPersonAction()
+        {
+            // 重置
+            for (int i = 0; i < actionList.Count; i++)
+                actionList[i].Clear();
+            actionList.Clear();
+            temp_FeatureList.Clear();
+            allPersons.ForEach(x =>
+            {
+                if (x.mFeatureList != null)
+                {
+                    for (int i = 0; i < x.mFeatureList.Count; i++)
+                    {
+                        Feature feature = x.mFeatureList[i];
+                        if (feature != null && feature.kind == (int)FeatureKindType.CityHarvest || feature.kind == (int)FeatureKindType.CityDisaster)
+                        {
+                            if (!feature.only)
+                            {
+                                temp_FeatureList.Add(feature);
+                                feature.InitActions(actionList, this, x);
+                            }
+                            else
+                            {
+                                if (!temp_FeatureList.Contains(feature))
+                                {
+                                    temp_FeatureList.Add(feature);
+                                    feature.InitActions(actionList, this, x);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
 
         /// <summary>
         /// 势力回合开始时的处理
@@ -1275,7 +1330,7 @@ namespace Sango.Core
                 if (GameRandom.Chance(GameFormula.Instance.PersonEscapeProbablility_InCity(person, this, scenario), 10000))
                 {
                     person.Escape(EscapeType.Escape);
-                    if(IsPlayer)
+                    if (IsPlayer)
                     {
                         PersonEscapeEvent personEscapeEvent = new PersonEscapeEvent()
                         {
@@ -1295,6 +1350,8 @@ namespace Sango.Core
             if (Leader == null || Leader.mBelongCity != this || needUpdateLeader)
                 UpdateNewLeader();
 
+            InitPersonAction();
+
             return base.OnForceTurnEnd(scenario);
         }
 
@@ -1313,6 +1370,10 @@ namespace Sango.Core
             {
                 foodCost += (int)System.Math.Ceiling(population * scenario.Variables.populationFoodCostFactor);
             }
+
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(foodCost);
+            GameEvent.OnCityCalculateFoodCost?.Invoke(this, scenario, overrideData);
+            foodCost = overrideData.ValueAndRecycle;
             return foodCost;
         }
 
@@ -1324,8 +1385,7 @@ namespace Sango.Core
         {
             if (food > 0)
             {
-                int foodCost = 0;
-                foodCost += (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInCity * (troops + woundedTroops));
+                int foodCost = FoodCost(scenario);
                 int needFood = foodCost - food;
                 if (needFood > 0)
                 {

@@ -50,17 +50,26 @@ namespace Sango.Core
             if (IsMissionComplete)
             {
                 Troop.NeedPrepareMission();
-                return false;
+                return true;
             }
-
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append("2,");
             if (priorityActionData != null)
             {
                 if (!priorityActionData.moveFinish && !troop.MoveTo(priorityActionData.movetoCell))
+                {
+                    if (GameSystemManager.debug)
+                        GameSystemManager.debug_StringBuilder.Append("3,");
                     return false;
+                }
                 if (!priorityActionData.moveFinish)
                     priorityActionData.moveFinish = true;
                 if (!troop.SpellSkill(priorityActionData.skill, priorityActionData.spellCell))
+                {
+                    if (GameSystemManager.debug)
+                        GameSystemManager.debug_StringBuilder.Append("4,");
                     return false;
+                }
                 return true;
             }
             else if (troop.TryMoveToCity(TargetCity))
@@ -72,7 +81,8 @@ namespace Sango.Core
                 }
                 return true;
             }
-
+            if (GameSystemManager.debug)
+                GameSystemManager.debug_StringBuilder.Append("10,");
             return false;
         }
     }

@@ -14,7 +14,7 @@
 
         public ChoiceData[] choiceDatas;
         string windowName = "window_choice";
-
+        int selectIndex = 0;
         public void Start(ChoiceData[] choices)
         {
             choiceDatas = choices;
@@ -25,6 +25,7 @@
         {
             base.OnEnter();
             Window.Instance.Open(windowName, this);
+            selectIndex = 0;
         }
 
         public override void OnDestroy()
@@ -35,7 +36,7 @@
             if (choiceDatas == null || choiceDatas.Length == 0)
                 return;
 
-            ChoiceData data = choiceDatas[0];
+            ChoiceData data = choiceDatas[selectIndex];
             data.call?.Invoke();
             choiceDatas = null;
         }
@@ -47,7 +48,12 @@
                 Back();
                 return;
             }
+            selectIndex = index;
             Back();
+
+            if (choiceDatas == null || choiceDatas.Length == 0)
+                return;
+
             ChoiceData data = choiceDatas[index];
             data.call?.Invoke();
             choiceDatas = null;

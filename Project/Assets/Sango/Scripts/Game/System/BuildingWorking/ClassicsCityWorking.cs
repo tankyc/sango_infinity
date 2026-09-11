@@ -83,16 +83,12 @@ namespace Sango.Core
             {
 
                 AICommandList.Add(CityAI.AIRewardPerson);
-                AICommandList.Add(CityAI.AISearching);
-                AICommandList.Add(CityAI.AIRecruitPerson);
                 AICommandList.Add(CityAI.AIAttack);
-                AICommandList.Add(CityAI.AITradeFood);
-                AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITrainTroop);
-
-                if (city.troops < 20000)
+                if (city.troops < 15000)
                 {
                     AICommandList.Add(CityAI.AIRecruitTroop);
+                    AICommandList.Add(CityAI.AICreateItems);
                     AICommandList.Add(CityAI.AIIntrior);
                 }
                 else
@@ -116,7 +112,10 @@ namespace Sango.Core
                         AICommandList.Add(CityAI.AIIntrior);
                     }
                 }
+                AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITradeFood);
+                AICommandList.Add(CityAI.AISearching);
+                AICommandList.Add(CityAI.AIRecruitPerson);
             }
             else
             {
@@ -178,7 +177,7 @@ namespace Sango.Core
             });
 
             float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
-            float popularSupportInfluence = (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence;
+            float popularSupportInfluence = variables.populationEnable ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
             float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
 
             float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
@@ -186,8 +185,19 @@ namespace Sango.Core
 
             //totalGainFood = Mathf.CeilToInt(leftInfluence * totalGainFood * (variables.foodFactor + extraGainFoodFactor));
             //totalGainGold = Mathf.CeilToInt(leftInfluence * totalGainGold * (variables.goldFactor + extraGainGoldFactor));
-            city.totalGainFood = Mathf.CeilToInt(city.totalGainFood * (totalFoodFactor + city.extraGainFoodFactor));
-            city.totalGainGold = Mathf.CeilToInt(city.totalGainGold * (totalGoldFactor + city.extraGainGoldFactor));
+            city.totalGainFood = Mathf.CeilToInt(city.totalGainFood * leftInfluence * (totalFoodFactor + city.extraGainFoodFactor));
+            city.totalGainGold = Mathf.CeilToInt(city.totalGainGold * leftInfluence * (totalGoldFactor + city.extraGainGoldFactor));
+
+
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(city.totalGainFood);
+            GameEvent.OnCityCalculateFoodHarvest?.Invoke(city, overrideData);
+            GameEvent.OnCityCalculateFoodHarvestAfter?.Invoke(city, overrideData);
+            city.totalGainFood = overrideData.Value;
+
+            overrideData.Value = city.totalGainGold;
+            GameEvent.OnCityCalculateGoldHarvest?.Invoke(city, overrideData);
+            GameEvent.OnCityCalculateGoldHarvestAfter?.Invoke(city, overrideData);
+            city.totalGainGold = overrideData.Value;
 
             city.population_increase_factor *= city.extraPopulationFactor;
         }
@@ -203,8 +213,14 @@ namespace Sango.Core
                 return;
 
             int harvest = GameRandom.Random(city.totalGainFood, 0.05f);
+
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(harvest);
+            GameEvent.OnCityGainFoodHarvest?.Invoke(city, overrideData);
+            harvest = overrideData.Value;
+
             city.Render?.ShowInfo(harvest, (int)InfoType.Food);
-            city.food += harvest;
+            city.AddFood(harvest);
+
 #if SANGO_DEBUG
             Sango.Log.Info($"城市：{city.Name}, 收获粮食：{harvest}, 现有粮食: {city.food}");
 #endif
@@ -222,13 +238,16 @@ namespace Sango.Core
                 return;
 
             int inComingGold = GameRandom.Random(city.totalGainGold, 0.05f);
-            city.Render?.ShowInfo(inComingGold, (int)InfoType.Gold);
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(inComingGold);
+            GameEvent.OnCityGainGoldHarvest?.Invoke(city, overrideData);
+            inComingGold = overrideData.Value;
             city.AddGold(inComingGold);
 
 #if SANGO_DEBUG
             Sango.Log.Info($"城市：{city.Name}, 武将人数:{city.allPersons.Count}, 收入<-- 金钱:{inComingGold},  现有金钱: {city.gold}");
 #endif
-            city.Render?.UpdateRender();
+            city.Render?.ShowInfo(inComingGold, (int)InfoType.Gold);
+
         }
 
         static int[][] CityBuildingTemplate = new int[][] {

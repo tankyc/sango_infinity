@@ -57,7 +57,7 @@ namespace Sango.Core.Player
                     targetList.Add(x);
                 }
             });
-            targetList.Sort((a, b) => PersonSortFunction.SortByLoyalty.personSortFunc.Invoke(a, b));
+            targetList.Sort((a, b) => PersonSortFunction.SortByLoyalty.valueSortFunc.Invoke(a, b));
             base.OnEnter();
         }
 

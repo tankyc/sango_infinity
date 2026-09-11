@@ -64,6 +64,11 @@ namespace Sango.Core
                     FeatureSortFunc = FeatureSortFunc,
                     valueObjGet = valueObjGet,
                     valueObjSet = valueObjSet,
+                    editType = editType,
+                    dataSetType = dataSetType,
+                    minValue = minValue,
+                    maxValue = maxValue,
+                    customData = customData,
                 };
             }
         }
@@ -76,6 +81,7 @@ namespace Sango.Core
             FeatureSortFunc = (a, b) => a.Name.CompareTo(b.Name),
             valueObjGet = x => x.Name,
             valueObjSet = (x, v) => x.Name = (string)v,
+            editType = DataEditType.Text,
         };
 
 

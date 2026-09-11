@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using Sango.Core.Object.Arrow;
 using UnityEngine;
 
@@ -87,6 +87,34 @@ namespace Sango.Render
                 }
             }
 
+            return null;
+        }
+
+        /// <summary>
+        /// 在世界坐标位置播放特效(用于技能命中目标格子)
+        /// </summary>
+        /// <param name="assets">特效预制体资源路径</param>
+        /// <param name="worldPos">特效放置的世界坐标</param>
+        /// <param name="autoDestroy">是否自动销毁(粒子特效建议开启)</param>
+        public virtual GameObject PlayEffectAt(string assets, Vector3 worldPos, bool autoDestroy = true)
+        {
+            if (!string.IsNullOrEmpty(assets))
+            {
+                GameObject obj = Sango.Loader.ObjectLoader.LoadObject<GameObject>(assets);
+                if (obj != null)
+                {
+                    GameObject effect = UnityEngine.Object.Instantiate(obj);
+                    effect.transform.position = worldPos;
+                    effect.transform.localPosition = worldPos;
+                    effect.transform.localRotation = Quaternion.identity;
+                    effect.transform.localScale = Vector3.one;
+                    effect.SetActive(true);
+
+                    if (autoDestroy)
+                        UnityEngine.Object.Destroy(effect, 5f);
+                    return effect;
+                }
+            }
             return null;
         }
 

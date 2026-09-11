@@ -41,7 +41,7 @@ namespace Sango.Core.Player
             base.OnEnter();
             ContextMenu.CloseAll();
             GameSystem.GetSystem<TroopActionMenu>().ShowSpellRange();
-            GameSystem.GetSystem<TroopActionMenu>().troopRender.Clear();
+            GameSystem.GetSystem<TroopActionMenu>().troopRender?.Clear();
             MovePath = GameSystem.GetSystem<TroopSystem>().movePath;
 
             if (MovePath.Count <= 1)

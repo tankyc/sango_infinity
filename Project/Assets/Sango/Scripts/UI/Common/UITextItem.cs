@@ -8,6 +8,8 @@ using Sango.Core; namespace Sango.UI
     {
         public Text label;
         public Image image;
+        public ObjectSortTitle objectSortTitle;
+        public SangoObject obj;
         public UITextItem SetWidth(float width)
         {
             RectTransform rectTransform = GetComponent<RectTransform>();
@@ -16,6 +18,24 @@ using Sango.Core; namespace Sango.UI
             if (layoutElement != null)
                 layoutElement.preferredWidth = width;
             return this;
+        }
+
+        public void SetObjectSortTitle(ObjectSortTitle objectSortTitle)
+        {
+            this.objectSortTitle = objectSortTitle;
+            if(objectSortTitle != null)
+            {
+                if(!objectSortTitle.CanEdit)
+                    SetColor(Color.gray);
+                else
+                    SetColor(Color.white);
+            }
+            else
+                SetColor(Color.white);
+        }
+        public void SetObject(SangoObject sanObj)
+        {
+            this.obj = sanObj;
         }
 
         public UITextItem SetText(string lab)

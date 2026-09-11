@@ -44,6 +44,11 @@ namespace Sango.Core
         [JsonProperty] public int level;
 
         /// <summary>
+        /// 是否唯一
+        /// </summary>
+        [JsonProperty] public bool only;
+
+        /// <summary>
         /// 效果实体集合
         /// </summary>
         [JsonProperty]

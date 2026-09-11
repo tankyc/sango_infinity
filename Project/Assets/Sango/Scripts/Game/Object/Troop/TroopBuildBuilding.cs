@@ -92,7 +92,7 @@ namespace Sango.Core
             {
                 Troop.actionRenderEvent = null;
                 Troop.NeedPrepareMission();
-                return false;
+                return true;
             }
 
             if (FinalCell != null)

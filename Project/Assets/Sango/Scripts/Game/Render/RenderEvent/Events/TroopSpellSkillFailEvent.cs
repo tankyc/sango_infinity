@@ -74,6 +74,7 @@ namespace Sango.Render
             {
                 IsDone = true;
                 troop?.Render?.SetAniShow(0);
+                GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
                 return IsDone;
             }
 

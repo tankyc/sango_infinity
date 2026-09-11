@@ -22,6 +22,7 @@ namespace Sango
 #endif
 
         public static string ContentRootPath { get; private set; }
+        public static string CustomEditRootPath { get; private set; }
         public static string ModRootPath { get; private set; }
         public static string SaveRootPath { get; private set; }
         public static string StreamingAssetsPath { get; private set; }
@@ -37,6 +38,7 @@ namespace Sango
             PersistentDataPathPath = Application.persistentDataPath;
             SaveRootPath = Application.persistentDataPath.Replace("\\", "/");
             ContentRootPath = SaveRootPath + "/Content";
+            CustomEditRootPath = SaveRootPath + "/CustomEdit";
             ModRootPath = SaveRootPath + "/Mods";
 #if UNITY_STANDALONE_WIN
 
@@ -63,16 +65,19 @@ namespace Sango
 #if UNITY_EDITOR
             string destDir = System.IO.File.ReadAllText(settingSavePath);
             ContentRootPath = destDir + "/Content";
+            CustomEditRootPath = destDir + "/CustomEdit";
             ModRootPath = destDir + "/Mods";
             SaveRootPath = destDir;
 #endif
 
 #endif
             ContentRootPath.Replace("\\", "/");
+            CustomEditRootPath.Replace("\\", "/");
             ModRootPath.Replace("\\", "/");
             Log.Info("游戏内容目录: " + ContentRootPath, Log.LogType.Game);
             Log.Info("游戏Mod目录: " + ModRootPath, Log.LogType.Game);
             Log.Info("游戏存档目录: " + SaveRootPath, Log.LogType.Game);
+            Log.Info("游戏自定义修改目录: " + CustomEditRootPath, Log.LogType.Game);
         }
 
         static List<string> searchPaths = new List<string>();

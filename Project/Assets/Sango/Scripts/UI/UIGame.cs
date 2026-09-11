@@ -54,7 +54,7 @@ namespace Sango.UI
         public GameObject resumeObj;
 
         public Button endTurnButton;
-        public Button endTurnButton2;
+        //public Button endTurnButton2;
 
         public GameObject[] fpaObj;
 
@@ -76,20 +76,19 @@ namespace Sango.UI
                     obj.gameObject.SetActive(false);
             }
 #endif
-
-#if UNITY_ANDROID || UNITY_IPHONE
-            endTurnButton.gameObject.SetActive(false);
-            endTurnButton2.gameObject.SetActive(true);
-#else
-            endTurnButton.gameObject.SetActive(true);
-            endTurnButton2.gameObject.SetActive(false);
-#endif
-
             Window.Instance.Close("window_loading");
             GameController.Instance.onCellOverEnter += OnCellOverEnter;
             GameController.Instance.onCellOverExit += OnCellOverExit;
 
             Window.Instance.Open("window_object_pop_info");
+
+#if UNITY_ANDROID || UNITY_IPHONE
+            if (GameSetting.Instance.MobileCancel)
+                Window.Instance.Open("window_mobile_cancel");
+            else
+                Window.Instance.Close("window_mobile_cancel");
+#endif
+
         }
 
         public override void OnClose()
@@ -252,8 +251,14 @@ namespace Sango.UI
 
         public void OnPlayerEndTurn(Force force, Scenario scenario)
         {
+            if(force == null)
+            {
+                endTurnButton.interactable = true;
+                uIPlayerInfoPanel.gameObject.SetActive(true);
+                return;
+            }
+
             endTurnButton.interactable = false;
-            endTurnButton2.interactable = false;
             uIPlayerInfoPanel.gameObject.SetActive(false);
         }
 
@@ -264,7 +269,6 @@ namespace Sango.UI
                 forceText.text = "";
                 techPointLabel.text = "";
                 endTurnButton.interactable = false;
-                endTurnButton2.interactable = false;
                 uIPlayerInfoPanel.gameObject.SetActive(false);
                 return;
             }
@@ -272,7 +276,6 @@ namespace Sango.UI
             techPointLabel.text = force.TechniquePoint.ToString();
 
             endTurnButton.interactable = force.IsPlayer;
-            endTurnButton2.interactable = force.IsPlayer;
             uIPlayerInfoPanel.gameObject.SetActive(force.IsPlayer);
 
             if (force.IsPlayer)
@@ -681,7 +684,7 @@ namespace Sango.UI
             for (int i = 1; i < scenario.citySet.Count; i++)
             {
                 City city = scenario.citySet[i];
-                if(city == null) continue;
+                if (city == null) continue;
                 int selfTroopNum = 0;
                 int enemyTroopNum = 0;
                 for (int j = 0; j < city.areaCellList.Count; j++)

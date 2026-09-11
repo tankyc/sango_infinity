@@ -13,7 +13,7 @@ namespace Sango.UI
 {
     /// <summary>
     /// 新建武将详情编辑窗口。
-    /// 提供“基本设定”与“能力设定”两个标签页，用于编辑 <see cref="PersonLib"/> 数据。
+    /// 提供“基本设定”与“能力设定”两个标签页，用于编辑 <see cref="PersonLib"/> 与 <see cref="Person"/> 数据。
     /// </summary>
     public class UIPersonCreateDetail : UGUIWindow
     {
@@ -35,6 +35,17 @@ namespace Sango.UI
             public int yearDead;
             public int yearAvailable;
             public int compatibility;
+
+            // 以下字段仅在 Person 编辑模式（剧本编辑页）下使用
+            public int BelongForce;
+            public int BelongCorps;
+            public int BelongCity;
+            public int state;
+            public string image_old;
+            public int loyalty;
+            public int birthplace;
+            public int official;
+            public ItemStore itemStore = new ItemStore();
 
             public int personality;
             public int argumentation;
@@ -69,6 +80,42 @@ namespace Sango.UI
         }
 
         /// <summary>
+        /// 编辑模式：新建 / 自建武将库 / 当前剧本武将。
+        /// </summary>
+        private enum PersonEditMode
+        {
+            /// <summary>新建武将</summary>
+            Create,
+            /// <summary>编辑自建武将库 PersonLib</summary>
+            PersonLib,
+            /// <summary>编辑当前剧本中的 Person</summary>
+            Person
+        }
+
+        /// <summary>
+        /// 当前编辑模式。
+        /// </summary>
+        private PersonEditMode editMode = PersonEditMode.Create;
+
+        /// <summary>
+        /// 标签页类型。
+        /// </summary>
+        private enum TabType
+        {
+            /// <summary>基本设定</summary>
+            Basic,
+            /// <summary>能力设定</summary>
+            Ability,
+            /// <summary>剧本编辑</summary>
+            Scenario
+        }
+
+        /// <summary>
+        /// Person 编辑模式下的目标武将。
+        /// </summary>
+        private Person targetPerson;
+
+        /// <summary>
         /// 当前编辑快照
         /// </summary>
         private Snapshot snapshot = new Snapshot();
@@ -99,6 +146,16 @@ namespace Sango.UI
         /// 能力设定页面根节点
         /// </summary>
         public GameObject abilityPanel;
+
+        /// <summary>
+        /// 剧本编辑标签页切换（仅在 Person 编辑模式下可见）
+        /// </summary>
+        public Toggle scenarioTabToggle;
+
+        /// <summary>
+        /// 剧本编辑页面根节点（仅在 Person 编辑模式下可见）
+        /// </summary>
+        public GameObject scenarioPanel;
         #endregion
 
         #region 基本设定 - 头像与姓名
@@ -413,6 +470,75 @@ namespace Sango.UI
         public Button cancelButton;
         #endregion
 
+        #region 剧本编辑（仅在 Person 编辑模式下使用）
+        /// <summary>所属势力选择按钮</summary>
+        public Button belongForceSelectButton;
+        /// <summary>所属势力显示文本</summary>
+        public Text belongForceText;
+        /// <summary>所属势力清除按钮</summary>
+        public Button belongForceCancelButton;
+
+        /// <summary>所属军团选择按钮</summary>
+        public Button belongCorpsSelectButton;
+        /// <summary>所属军团显示文本</summary>
+        public Text belongCorpsText;
+        /// <summary>所属军团清除按钮</summary>
+        public Button belongCorpsCancelButton;
+
+        /// <summary>所属城市选择按钮</summary>
+        public Button belongCitySelectButton;
+        /// <summary>所属城市显示文本</summary>
+        public Text belongCityText;
+        /// <summary>所属城市清除按钮</summary>
+        public Button belongCityCancelButton;
+
+        /// <summary>身份下拉菜单</summary>
+        public Dropdown stateDropdown;
+
+        /// <summary>立绘输入框（老年）</summary>
+        public InputField imageInput;
+        /// <summary>立绘输入框（青年）</summary>
+        public InputField imageOldInput;
+
+        /// <summary>登场年按钮</summary>
+        public Button yearAvailableButton;
+        /// <summary>登场年显示文本</summary>
+        public Text yearAvailableTextScenario;
+
+        /// <summary>忠诚按钮</summary>
+        public Button loyaltyButton;
+        /// <summary>忠诚显示文本</summary>
+        public Text loyaltyText;
+
+        /// <summary>义理下拉菜单</summary>
+        public Dropdown argumentationDropdown;
+        /// <summary>出生地下拉菜单</summary>
+        public Dropdown birthplaceDropdown;
+
+        /// <summary>官职选择按钮</summary>
+        public Button officialSelectButton;
+        /// <summary>官职显示文本</summary>
+        public Text officialText;
+        /// <summary>官职清除按钮</summary>
+        public Button officialCancelButton;
+
+        /// <summary>理想下拉菜单</summary>
+        public Dropdown idealDropdown;
+        /// <summary>才干下拉菜单</summary>
+        public Dropdown talentDropdown;
+
+        /// <summary>道具下拉菜单</summary>
+        public Dropdown itemDropdown;
+        /// <summary>道具数量输入框</summary>
+        public InputField itemCountInput;
+        /// <summary>道具添加按钮</summary>
+        public Button itemAddButton;
+        /// <summary>道具清空按钮</summary>
+        public Button itemClearButton;
+        /// <summary>道具列表显示文本</summary>
+        public Text itemListText;
+        #endregion
+
         #region 生命周期
         protected override void Awake()
         {
@@ -423,18 +549,53 @@ namespace Sango.UI
         public override void OnOpen()
         {
             base.OnOpen();
+            editMode = PersonEditMode.Create;
+            targetPerson = null;
             InitSnapshot();
-            SwitchTab(true);
+            // 无参打开时若 GameCustomEdit 存在编辑目标，则视为 PersonLib 编辑模式
+            PersonLib target = GameCustomEdit.Instance != null ? GameCustomEdit.Instance.TargetEditPerson : null;
+            if (target != null)
+                editMode = PersonEditMode.PersonLib;
+            SwitchTab(TabType.Basic);
+            RefreshScenarioTabVisibility();
             RefreshAll();
         }
 
         public override void OnOpen(params object[] objs)
         {
             base.OnOpen(objs);
-            //InitSnapshot();
-            snapshot = (Snapshot)objs[0];
-            RefreshConfirmButton();
-            SwitchTab(true);
+            if (objs != null && objs.Length > 0)
+            {
+                if (objs[0] is Person)
+                {
+                    targetPerson = objs[0] as Person;
+                    editMode = PersonEditMode.Person;
+                    InitSnapshotFromPerson(targetPerson);
+                    RefreshConfirmButton();
+                    SwitchTab(TabType.Basic);
+                    RefreshScenarioTabVisibility();
+                    RefreshAll();
+                    return;
+                }
+                if (objs[0] is Snapshot)
+                {
+                    targetPerson = null;
+                    editMode = PersonEditMode.PersonLib;
+                    snapshot = objs[0] as Snapshot;
+                    RefreshConfirmButton();
+                    SwitchTab(TabType.Basic);
+                    RefreshScenarioTabVisibility();
+                    RefreshAll();
+                    return;
+                }
+            }
+
+            // 未识别到有效参数时按新建武将处理
+            editMode = PersonEditMode.Create;
+            targetPerson = null;
+            InitSnapshot();
+            SwitchTab(TabType.Basic);
+            RefreshScenarioTabVisibility();
             RefreshAll();
         }
 
@@ -517,9 +678,97 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 将快照数据写回目标 PersonLib，并存入自建武将列表。
+        /// 从当前剧本的 <see cref="Person"/> 初始化快照。
+        /// 该模式不依赖 <see cref="GameCustomEdit"/>，所有数据来源均为 <see cref="Scenario.Cur"/>。
+        /// </summary>
+        /// <param name="person">目标武将</param>
+        private void InitSnapshotFromPerson(Person person)
+        {
+            if (person == null)
+            {
+                Log.Error("Person 编辑模式传入的武将对象为空");
+                return;
+            }
+
+            snapshot = new Snapshot
+            {
+                familyName = person.familyName ?? string.Empty,
+                giveName = person.giveName ?? string.Empty,
+                nickName = person.nickName ?? string.Empty,
+                description = person.description ?? string.Empty,
+                sex = person.sex,
+                image = person.image ?? string.Empty,
+                headIconID = person.headIconID,
+
+                yearBorn = person.yearBorn,
+                yearDead = person.yearDead,
+                yearAvailable = person.appearance,
+                compatibility = person.compatibility,
+
+                // 剧本编辑相关字段
+                BelongForce = person.BelongForce,
+                BelongCorps = person.BelongCorps,
+                BelongCity = person.BelongCity,
+                state = person.state,
+                image_old = person.image_old ?? string.Empty,
+                loyalty = person.loyalty,
+                birthplace = person.birthplace,
+                official = person.Official != null ? person.Official.Id : 0,
+                itemStore = person.itemStore != null ? person.itemStore.Copy() : new ItemStore(),
+
+                personality = person.personality,
+                argumentation = person.argumentation,
+                voice = person.voice,
+                tone = person.tone,
+                kanshitsu = person.kanshitsu,
+                ideal = person.ideal,
+                talent = person.talent,
+
+                command = person.command != null ? person.command.baseValue : 50,
+                strength = person.strength != null ? person.strength.baseValue : 50,
+                intelligence = person.intelligence != null ? person.intelligence.baseValue : 50,
+                politics = person.politics != null ? person.politics.baseValue : 50,
+                glamour = person.glamour != null ? person.glamour.baseValue : 50,
+                attributeChangeType = person.command != null ? person.command.changeId : 5,
+                attributeDuration = 0,
+
+                spearLv = person.spearLv != null ? person.spearLv.baseValue : 0,
+                halberdLv = person.halberdLv != null ? person.halberdLv.baseValue : 0,
+                crossbowLv = person.crossbowLv != null ? person.crossbowLv.baseValue : 0,
+                rideLv = person.rideLv != null ? person.rideLv.baseValue : 0,
+                waterLv = person.waterLv != null ? person.waterLv.baseValue : 0,
+                machineLv = person.machineLv != null ? person.machineLv.baseValue : 0,
+
+                Father = person.Father,
+                Mother = person.Mother,
+                SpouseList = CloneArray(person.SpouseList),
+                BrotherList = PersonListToIds(person.BrotherList),
+                LikePersonList = CloneArray(person.LikePersonList),
+                HatePersonList = CloneArray(person.HatePersonList),
+                FeatureList = CloneArray(person.FeatureList)
+            };
+        }
+
+        /// <summary>
+        /// 将快照数据写回目标对象；根据当前编辑模式分别写入 PersonLib 或 Person。
         /// </summary>
         private void ApplySnapshotToTarget()
+        {
+            switch (editMode)
+            {
+                case PersonEditMode.Person:
+                    ApplySnapshotToPerson(targetPerson);
+                    break;
+                default:
+                    ApplySnapshotToPersonLib();
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 将快照写回自建武将库 PersonLib，并存入自建武将列表。
+        /// </summary>
+        private void ApplySnapshotToPersonLib()
         {
             PersonLib target = GameCustomEdit.Instance != null ? GameCustomEdit.Instance.TargetEditPerson : null;
             bool isNew = target == null;
@@ -540,7 +789,7 @@ namespace Sango.UI
             target.yearBorn = snapshot.yearBorn;
             target.yearDead = snapshot.yearDead;
             target.yearAvailable = snapshot.yearAvailable;
-            // 相性值占用低 8 位（0-255），高位存储来源武将 ID 仅用于编辑器内显示，保存时只写入相性值
+            // 相性值范围为 0-255；Person 编辑模式直接保存数值，自建武将模式高位可存储来源武将 ID 用于显示
             target.compatibility = snapshot.compatibility;
 
             target.personality = snapshot.personality;
@@ -579,6 +828,168 @@ namespace Sango.UI
         }
 
         /// <summary>
+        /// 将快照写回当前剧本中的 <see cref="Person"/>。
+        /// 所有引用均来自 <see cref="Scenario.Cur"/>，不操作 <see cref="GameCustomEdit"/>。
+        /// </summary>
+        /// <param name="target">目标武将</param>
+        private void ApplySnapshotToPerson(Person target)
+        {
+            if (target == null) return;
+            Scenario cur = Scenario.Cur;
+
+            target.familyName = snapshot.familyName;
+            target.giveName = snapshot.giveName;
+            target.Name = snapshot.familyName + snapshot.giveName;
+            target.nickName = snapshot.nickName;
+            target.description = snapshot.description;
+            target.sex = snapshot.sex;
+            target.image = snapshot.image;
+            target.headIconID = snapshot.headIconID;
+
+            target.yearBorn = snapshot.yearBorn;
+            target.yearDead = snapshot.yearDead;
+            target.appearance = snapshot.yearAvailable;
+            target.compatibility = snapshot.compatibility;
+
+            // 剧本编辑字段：更新 ID 与运行时引用
+            target.BelongForce = snapshot.BelongForce;
+            target.mBelongForce = snapshot.BelongForce > 0 ? cur.forceSet.Get(snapshot.BelongForce) : null;
+            target.BelongCorps = snapshot.BelongCorps;
+            target.mBelongCorps = snapshot.BelongCorps > 0 ? cur.corpsSet.Get(snapshot.BelongCorps) : null;
+            target.BelongCity = snapshot.BelongCity;
+            target.mBelongCity = snapshot.BelongCity > 0 ? cur.citySet.Get(snapshot.BelongCity) : null;
+            target.state = snapshot.state;
+            target.image_old = snapshot.image_old;
+            target.loyalty = snapshot.loyalty;
+            target.birthplace = snapshot.birthplace;
+            target.Official = snapshot.official > 0 ? cur.CommonData.Officials.Get(snapshot.official) : null;
+            target.itemStore = snapshot.itemStore != null ? snapshot.itemStore.Copy() : new ItemStore();
+
+            target.personality = snapshot.personality;
+            target.argumentation = snapshot.argumentation;
+            target.mArgumentation = snapshot.argumentation > 0 ? cur.CommonData.Argumentations.Get(snapshot.argumentation) : null;
+            target.voice = snapshot.voice;
+            target.tone = snapshot.tone;
+            target.kanshitsu = snapshot.kanshitsu;
+            target.ideal = snapshot.ideal;
+            target.talent = snapshot.talent;
+
+            if (target.command == null) target.command = new PersonAttributeValue();
+            if (target.strength == null) target.strength = new PersonAttributeValue();
+            if (target.intelligence == null) target.intelligence = new PersonAttributeValue();
+            if (target.politics == null) target.politics = new PersonAttributeValue();
+            if (target.glamour == null) target.glamour = new PersonAttributeValue();
+
+            target.command.baseValue = snapshot.command;
+            target.strength.baseValue = snapshot.strength;
+            target.intelligence.baseValue = snapshot.intelligence;
+            target.politics.baseValue = snapshot.politics;
+            target.glamour.baseValue = snapshot.glamour;
+
+            target.command.changeId = snapshot.attributeChangeType;
+            target.strength.changeId = snapshot.attributeChangeType;
+            target.intelligence.changeId = snapshot.attributeChangeType;
+            target.politics.changeId = snapshot.attributeChangeType;
+            target.glamour.changeId = snapshot.attributeChangeType;
+
+            // 强制重新解析 AttributeChangeType 缓存
+            target.command.changeType = null;
+            target.strength.changeType = null;
+            target.intelligence.changeType = null;
+            target.politics.changeType = null;
+            target.glamour.changeType = null;
+
+            if (cur == null || !cur.Variables.AgeEnabled || !cur.Variables.EnableAgeAbilityFactor)
+            {
+                target.command.UpdateNoAge();
+                target.strength.UpdateNoAge();
+                target.intelligence.UpdateNoAge();
+                target.politics.UpdateNoAge();
+                target.glamour.UpdateNoAge();
+            }
+            else
+            {
+                target.command.Update(target.Age, cur);
+                target.strength.Update(target.Age, cur);
+                target.intelligence.Update(target.Age, cur);
+                target.politics.Update(target.Age, cur);
+                target.glamour.Update(target.Age, cur);
+            }
+
+            if (target.spearLv == null) target.spearLv = new PersonAbilityValue();
+            if (target.halberdLv == null) target.halberdLv = new PersonAbilityValue();
+            if (target.crossbowLv == null) target.crossbowLv = new PersonAbilityValue();
+            if (target.rideLv == null) target.rideLv = new PersonAbilityValue();
+            if (target.waterLv == null) target.waterLv = new PersonAbilityValue();
+            if (target.machineLv == null) target.machineLv = new PersonAbilityValue();
+
+            target.spearLv.baseValue = snapshot.spearLv;
+            target.halberdLv.baseValue = snapshot.halberdLv;
+            target.crossbowLv.baseValue = snapshot.crossbowLv;
+            target.rideLv.baseValue = snapshot.rideLv;
+            target.waterLv.baseValue = snapshot.waterLv;
+            target.machineLv.baseValue = snapshot.machineLv;
+
+            target.spearLv.Update();
+            target.halberdLv.Update();
+            target.crossbowLv.Update();
+            target.rideLv.Update();
+            target.waterLv.Update();
+            target.machineLv.Update();
+
+            target.Father = snapshot.Father;
+            target.Mother = snapshot.Mother;
+            target.mFather = GetPersonById(snapshot.Father);
+            target.mMother = GetPersonById(snapshot.Mother);
+            target.SpouseList = CloneArray(snapshot.SpouseList);
+
+            // 兄弟关系：更新运行时列表与序列化字段
+            if (target.BrotherList == null)
+                target.BrotherList = new List<Person>();
+            target.BrotherList.Clear();
+            if (snapshot.BrotherList != null && snapshot.BrotherList.Length > 0)
+            {
+                foreach (int id in snapshot.BrotherList)
+                {
+                    Person brother = GetPersonById(id);
+                    if (brother != null)
+                        target.BrotherList.Add(brother);
+                }
+                target.Brother = snapshot.BrotherList[0];
+                target.mBrother = GetPersonById(target.Brother);
+            }
+            else
+            {
+                target.Brother = 0;
+                target.mBrother = null;
+            }
+
+            target.LikePersonList = CloneArray(snapshot.LikePersonList);
+            target.HatePersonList = CloneArray(snapshot.HatePersonList);
+            target.FeatureList = CloneArray(snapshot.FeatureList);
+
+            // 同步运行时的对象引用列表
+            target.mFeatureList = RefreshPersonObjectList(target.mFeatureList, snapshot.FeatureList, id => cur != null ? cur.CommonData.Features.Get(id) : null);
+            target.mLikePersonList = RefreshPersonObjectList(target.mLikePersonList, snapshot.LikePersonList, id => GetPersonById(id));
+            target.mHatePersonList = RefreshPersonObjectList(target.mHatePersonList, snapshot.HatePersonList, id => GetPersonById(id));
+
+            // mSpouseList 的 setter 为 private，只能清空/添加，不能重新赋值
+            if (target.mSpouseList != null)
+            {
+                target.mSpouseList.Clear();
+                if (snapshot.SpouseList != null)
+                {
+                    foreach (int id in snapshot.SpouseList)
+                    {
+                        Person spouse = GetPersonById(id);
+                        if (spouse != null)
+                            target.mSpouseList.Add(spouse);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// 将当前自建武将数据序列化保存到本地文件。
         /// </summary>
         private void SaveScenarioAddon()
@@ -591,6 +1002,47 @@ namespace Sango.UI
             if (source == null) return new int[0];
             return (int[])source.Clone();
         }
+
+        /// <summary>
+        /// 将 Person 运行时列表转换为 Id 数组。
+        /// </summary>
+        private int[] PersonListToIds(List<Person> list)
+        {
+            if (list == null || list.Count == 0) return new int[0];
+            return list.Where(p => p != null).Select(p => p.Id).Distinct().ToArray();
+        }
+
+        /// <summary>
+        /// 根据武将 Id 从当前剧本中查找 Person。
+        /// </summary>
+        private Person GetPersonById(int personId)
+        {
+            if (personId <= 0) return null;
+            Scenario cur = Scenario.Cur;
+            if (cur == null || cur.personSet == null) return null;
+            return cur.personSet.Get(personId);
+        }
+
+        /// <summary>
+        /// 根据 Id 数组刷新 SangoObjectList 运行时列表。
+        /// </summary>
+        /// <returns>刷新后的运行时列表</returns>
+        private SangoObjectList<T> RefreshPersonObjectList<T>(SangoObjectList<T> list, int[] ids, Func<int, T> getter) where T : SangoObject, new()
+        {
+            if (list == null)
+                list = new SangoObjectList<T>();
+            list.Clear();
+            if (ids != null)
+            {
+                foreach (int id in ids)
+                {
+                    T obj = getter(id);
+                    if (obj != null)
+                        list.Add(obj);
+                }
+            }
+            return list;
+        }
         #endregion
 
         #region 事件绑定
@@ -601,9 +1053,14 @@ namespace Sango.UI
         {
             // 标签页 - Toggle 互斥切换
             if (basicTabToggle != null)
-                basicTabToggle.onValueChanged.AddListener((isOn) => { if (isOn) SwitchTab(true); });
+                basicTabToggle.onValueChanged.AddListener((isOn) => { if (isOn) SwitchTab(TabType.Basic); });
             if (abilityTabToggle != null)
-                abilityTabToggle.onValueChanged.AddListener((isOn) => { if (isOn) SwitchTab(false); });
+                abilityTabToggle.onValueChanged.AddListener((isOn) => { if (isOn) SwitchTab(TabType.Ability); });
+            if (scenarioTabToggle != null)
+                scenarioTabToggle.onValueChanged.AddListener((isOn) => { if (isOn) SwitchTab(TabType.Scenario); });
+
+            // 剧本编辑页（仅在 Person 编辑模式下使用）
+            BindScenarioPanel();
 
             // 姓名与列传（姓和名变化时触发确认按钮校验）
             BindTextInput(familyNameInput, () => snapshot.familyName, v => snapshot.familyName = v, RefreshConfirmButton);
@@ -630,7 +1087,7 @@ namespace Sango.UI
             BindToggleGroup(idealToggles, () => snapshot.ideal, v => snapshot.ideal = v, i => i, v => v);
             BindToggleGroup(talentToggles, () => snapshot.talent, v => snapshot.talent = v, i => i, v => v);
             //BindIntInput(compatibilityInput, () => snapshot.compatibility, v => snapshot.compatibility = v, 0, 255);
-            // 相性（点击选择武将复制其相性值，相性值占低 8 位，高 24 位存储来源武将 ID）
+            // 相性（点击选择武将复制其相性值；Person 编辑模式直接保存数值，自建武将模式低 8 位保存数值，高 24 位存储来源武将 ID）
             if (compatibilitySelectButton != null)
                 compatibilitySelectButton.onClick.AddListener(OpenCompatibilityPersonSelect);
             if (compatibilityCancelButton != null)
@@ -657,19 +1114,19 @@ namespace Sango.UI
             BindAdaptToggleGroup(machineAdaptToggles, () => snapshot.machineLv, v => snapshot.machineLv = v);
 
             // 人际关系（父亲候选武将需为男性，母亲候选武将需为女性，且年龄大于等于自身年龄15岁）
-            BindRelationshipButton(fatherSelectButton, false, OnFatherSelected, IsValidFatherFilter);
+            BindRelationshipSelectButton(fatherSelectButton, false, OnFatherSelectedIds, IsValidFatherFilterLib, IsValidFatherFilterPerson);
             BindRelationshipButton(fatherCancelButton, () => snapshot.Father = 0, RefreshFather);
-            BindRelationshipButton(motherSelectButton, false, OnMotherSelected, IsValidMotherFilter);
+            BindRelationshipSelectButton(motherSelectButton, false, OnMotherSelectedIds, IsValidMotherFilterLib, IsValidMotherFilterPerson);
             BindRelationshipButton(motherCancelButton, () => snapshot.Mother = 0, RefreshMother);
-            BindRelationshipButton(spouseSelectButton, true, OnSpouseSelected, IsValidSpouseFilter);
+            BindRelationshipSelectButton(spouseSelectButton, true, OnSpouseSelectedIds, IsValidSpouseFilterLib, IsValidSpouseFilterPerson);
             BindRelationshipButton(spouseCancelButton, () => snapshot.SpouseList = new int[0], RefreshSpouse);
-            BindRelationshipButton(brotherSelectButton, true, OnBrotherSelected, IsValidBrotherFilter);
+            BindRelationshipSelectButton(brotherSelectButton, true, OnBrotherSelectedIds, IsValidBrotherFilterLib, IsValidBrotherFilterPerson);
             //BindRelationshipButton(brotherCancelButton, () => snapshot.Brother = 0, RefreshBrother);
             //BindRelationshipButton(swornBrotherSelectButton, true, OnSwornBrotherSelected);
             //BindRelationshipButton(swornBrotherCancelButton, () => snapshot.swornBrotherList = new int[0], RefreshSwornBrother);
-            BindRelationshipButton(likeSelectButton, true, OnLikeSelected, IsValidLikeFilter);
+            BindRelationshipSelectButton(likeSelectButton, true, OnLikeSelectedIds, IsValidLikeFilterLib, IsValidLikeFilterPerson);
             //BindRelationshipButton(likeCancelButton, () => snapshot.LikePersonList = new int[0], RefreshLike);
-            BindRelationshipButton(hateSelectButton, true, OnHateSelected, IsValidHateFilter);
+            BindRelationshipSelectButton(hateSelectButton, true, OnHateSelectedIds, IsValidHateFilterLib, IsValidHateFilterPerson);
             //BindRelationshipButton(hateCancelButton, () => snapshot.HatePersonList = new int[0], RefreshHate);
 
             // 特技
@@ -685,6 +1142,62 @@ namespace Sango.UI
             if (confirmButton != null) confirmButton.onClick.AddListener(OnConfirmClick);
             if (backButton != null) backButton.onClick.AddListener(OnBackClick);
             if (cancelButton != null) cancelButton.onClick.AddListener(OnCancelClick);
+        }
+
+        /// <summary>
+        /// 绑定剧本编辑页所有 UI 事件。
+        /// 这些对象即使在非 Person 模式下被绑定，也不会影响其他模式的数据。
+        /// </summary>
+        private void BindScenarioPanel()
+        {
+            // 势力 / 军团 / 城市 / 官职选择
+            if (belongForceSelectButton != null) belongForceSelectButton.onClick.AddListener(OpenBelongForceSelect);
+            if (belongForceCancelButton != null) belongForceCancelButton.onClick.AddListener(() => { snapshot.BelongForce = 0; RefreshBelongForce(); });
+            if (belongCorpsSelectButton != null) belongCorpsSelectButton.onClick.AddListener(OpenBelongCorpsSelect);
+            if (belongCorpsCancelButton != null) belongCorpsCancelButton.onClick.AddListener(() => { snapshot.BelongCorps = 0; RefreshBelongCorps(); });
+            if (belongCitySelectButton != null) belongCitySelectButton.onClick.AddListener(OpenBelongCitySelect);
+            if (belongCityCancelButton != null) belongCityCancelButton.onClick.AddListener(() => { snapshot.BelongCity = 0; RefreshBelongCity(); });
+            if (officialSelectButton != null) officialSelectButton.onClick.AddListener(OpenOfficialSelect);
+            if (officialCancelButton != null) officialCancelButton.onClick.AddListener(() => { snapshot.official = 0; RefreshOfficial(); });
+
+            // 文本输入
+            BindTextInput(imageInput, () => snapshot.image, v => snapshot.image = v);
+            BindTextInput(imageOldInput, () => snapshot.image_old, v => snapshot.image_old = v);
+
+            // 数字输入
+            BindButtonCalculator(yearAvailableButton, yearAvailableTextScenario, () => snapshot.yearAvailable, v => snapshot.yearAvailable = v, 0, 300, null);
+            BindButtonCalculator(loyaltyButton, loyaltyText, () => snapshot.loyalty, v => snapshot.loyalty = v, 0, 255, null);
+
+            // 下拉菜单：初始化选项与事件
+            List<Dropdown.OptionData> stateOptions = new List<Dropdown.OptionData>();
+            List<int> stateValues = new List<int>();
+            GetStateOptions(stateOptions, stateValues);
+            BindDropdown(stateDropdown, stateOptions, stateValues, () => snapshot.state, v => snapshot.state = v);
+
+            List<Dropdown.OptionData> argumentationOptions = new List<Dropdown.OptionData>();
+            List<int> argumentationValues = new List<int>();
+            GetArgumentationOptions(argumentationOptions, argumentationValues);
+            BindDropdown(argumentationDropdown, argumentationOptions, argumentationValues, () => snapshot.argumentation, v => snapshot.argumentation = v);
+
+            List<Dropdown.OptionData> birthplaceOptions = new List<Dropdown.OptionData>();
+            List<int> birthplaceValues = new List<int>();
+            GetBirthplaceOptions(birthplaceOptions, birthplaceValues);
+            BindDropdown(birthplaceDropdown, birthplaceOptions, birthplaceValues, () => snapshot.birthplace, v => snapshot.birthplace = v);
+
+            List<Dropdown.OptionData> idealOptions = new List<Dropdown.OptionData>();
+            List<int> idealValues = new List<int>();
+            GetIdealOptions(idealOptions, idealValues);
+            BindDropdown(idealDropdown, idealOptions, idealValues, () => snapshot.ideal, v => snapshot.ideal = v);
+
+            List<Dropdown.OptionData> talentOptions = new List<Dropdown.OptionData>();
+            List<int> talentValues = new List<int>();
+            GetTalentOptions(talentOptions, talentValues);
+            BindDropdown(talentDropdown, talentOptions, talentValues, () => snapshot.talent, v => snapshot.talent = v);
+
+            // 道具
+            InitItemDropdown();
+            if (itemAddButton != null) itemAddButton.onClick.AddListener(OnItemAddClick);
+            if (itemClearButton != null) itemClearButton.onClick.AddListener(OnItemClearClick);
         }
         #endregion
 
@@ -747,6 +1260,9 @@ namespace Sango.UI
                 RefreshLike();
                 RefreshHate();
                 RefreshFeature();
+
+                RefreshScenarioTabVisibility();
+                RefreshScenarioPanel();
             }
             finally
             {
@@ -757,16 +1273,33 @@ namespace Sango.UI
         /// <summary>
         /// 切换标签页并同步 Toggle 状态。
         /// </summary>
-        /// <param name="isBasic">true=基本设定，false=能力设定</param>
-        private void SwitchTab(bool isBasic)
+        /// <param name="tab">目标标签页</param>
+        private void SwitchTab(TabType tab)
         {
-            if (basicPanel != null) basicPanel.SetActive(isBasic);
-            if (abilityPanel != null) abilityPanel.SetActive(!isBasic);
+            if (basicPanel != null) basicPanel.SetActive(tab == TabType.Basic);
+            if (abilityPanel != null) abilityPanel.SetActive(tab == TabType.Ability);
+            if (scenarioPanel != null) scenarioPanel.SetActive(tab == TabType.Scenario);
+
             // 同步 Toggle 显示状态
-            if (basicTabToggle != null && basicTabToggle.isOn != isBasic)
-                basicTabToggle.SetIsOnWithoutNotify(isBasic);
-            if (abilityTabToggle != null && abilityTabToggle.isOn == isBasic)
-                abilityTabToggle.SetIsOnWithoutNotify(!isBasic);
+            if (basicTabToggle != null && basicTabToggle.isOn != (tab == TabType.Basic))
+                basicTabToggle.SetIsOnWithoutNotify(tab == TabType.Basic);
+            if (abilityTabToggle != null && abilityTabToggle.isOn != (tab == TabType.Ability))
+                abilityTabToggle.SetIsOnWithoutNotify(tab == TabType.Ability);
+            if (scenarioTabToggle != null && scenarioTabToggle.isOn != (tab == TabType.Scenario))
+                scenarioTabToggle.SetIsOnWithoutNotify(tab == TabType.Scenario);
+        }
+
+        /// <summary>
+        /// 根据当前编辑模式刷新剧本编辑标签页可见性。
+        /// 仅在 Person 编辑模式下显示该标签页。
+        /// </summary>
+        private void RefreshScenarioTabVisibility()
+        {
+            bool visible = editMode == PersonEditMode.Person;
+            if (scenarioTabToggle != null) scenarioTabToggle.gameObject.SetActive(visible);
+            // 当剧本编辑页不可见时，自动切回基本设定页
+            if (!visible && scenarioPanel != null && scenarioPanel.activeSelf)
+                SwitchTab(TabType.Basic);
         }
 
         /// <summary>
@@ -808,26 +1341,6 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 父亲候选过滤条件：候选武将必须为男性，且年龄大于等于自身年龄15岁。
-        /// 年龄 = 参考年 - 出生年，参考年对所有武将一致，因此等价于：候选出生年 <= 自身出生年 - 15。
-        /// </summary>
-        private bool IsValidFatherFilter(PersonLib person)
-        {
-            if (person == null) return false;
-            return person.sex == 0 && person.yearBorn <= snapshot.yearBorn - 15;
-        }
-
-        /// <summary>
-        /// 母亲候选过滤条件：候选武将必须为女性，且年龄大于等于自身年龄15岁。
-        /// 年龄 = 参考年 - 出生年，参考年对所有武将一致，因此等价于：候选出生年 <= 自身出生年 - 15。
-        /// </summary>
-        private bool IsValidMotherFilter(PersonLib person)
-        {
-            if (person == null) return false;
-            return person.sex == 1 && person.yearBorn <= snapshot.yearBorn - 15;
-        }
-
-        /// <summary>
         /// 检查父母关系合法性，父亲不为男性、母亲不为女性或年龄差距低于15岁则自动解除关系。
         /// </summary>
         private void CheckParentAgeGap()
@@ -849,36 +1362,6 @@ namespace Sango.UI
                 RefreshMother();
                 Log.Warning("自身年龄变化后，父母关系不再符合性别或年龄要求，已自动解除父母关系");
             }
-        }
-
-        /// <summary>
-        /// 配偶候选过滤条件：候选武将必须与自身性别不同（0=男，1=女）。
-        /// </summary>
-        private bool IsValidSpouseFilter(PersonLib person)
-        {
-            if (person == null) return false;
-            return person.sex != snapshot.sex;
-        }
-
-        /// <summary>
-        /// 亲爱武将候选过滤条件：不能选择已经列入厌恶列表中的武将。
-        /// </summary>
-        private bool IsValidLikeFilter(PersonLib person)
-        {
-            if (person == null) return false;
-            return !ContainsId(snapshot.HatePersonList, person.Id);
-        }
-
-        /// <summary>
-        /// 厌恶武将候选过滤条件：不能选择父母、兄弟以及已经列入亲爱列表中的武将。
-        /// </summary>
-        private bool IsValidHateFilter(PersonLib person)
-        {
-            if (person == null) return false;
-            if (person.Id == snapshot.Father || person.Id == snapshot.Mother) return false;
-            if (ContainsId(snapshot.BrotherList, person.Id)) return false;
-            if (ContainsId(snapshot.LikePersonList, person.Id)) return false;
-            return true;
         }
 
         /// <summary>
@@ -925,14 +1408,24 @@ namespace Sango.UI
             List<int> validList = new List<int>();
             foreach (int spouseId in snapshot.SpouseList)
             {
-                PersonLib spouse = GetPersonLibById(spouseId);
+                int spouseSex = -1;
+                if (editMode == PersonEditMode.Person)
+                {
+                    Person spouse = GetPersonById(spouseId);
+                    if (spouse != null) spouseSex = spouse.sex;
+                }
+                else
+                {
+                    PersonLib spouse = GetPersonLibById(spouseId);
+                    if (spouse != null) spouseSex = spouse.sex;
+                }
                 // 找不到武将信息时保留原 ID，避免误删
-                if (spouse == null)
+                if (spouseSex < 0)
                 {
                     validList.Add(spouseId);
                     continue;
                 }
-                if (spouse.sex == snapshot.sex)
+                if (spouseSex == snapshot.sex)
                 {
                     changed = true;
                     continue;
@@ -953,10 +1446,20 @@ namespace Sango.UI
         private bool IsValidParent(int parentId, int sex)
         {
             if (parentId <= 0) return true;
-            PersonLib parent = GetPersonLibById(parentId);
-            if (parent == null) return true;
-            if (parent.sex != sex) return false;
-            return parent.yearBorn <= snapshot.yearBorn - 15;
+            if (editMode == PersonEditMode.Person)
+            {
+                Person parent = GetPersonById(parentId);
+                if (parent == null) return true;
+                if (parent.sex != sex) return false;
+                return parent.yearBorn <= snapshot.yearBorn - 15;
+            }
+            else
+            {
+                PersonLib parent = GetPersonLibById(parentId);
+                if (parent == null) return true;
+                if (parent.sex != sex) return false;
+                return parent.yearBorn <= snapshot.yearBorn - 15;
+            }
         }
         #endregion
 
@@ -1190,19 +1693,6 @@ namespace Sango.UI
 
         #region 人际关系
         /// <summary>
-        /// 绑定人际关系按钮。
-        /// </summary>
-        /// <param name="button">按钮</param>
-        /// <param name="isMultiSelect">是否为多选</param>
-        /// <param name="onSelected">选择完成回调（多选时参数有效）</param>
-        /// <param name="filter">可选过滤条件（返回 true 的武将才会显示）</param>
-        private void BindRelationshipButton(Button button, bool isMultiSelect, Action<List<PersonLib>> onSelected, Func<PersonLib, bool> filter = null)
-        {
-            if (button == null) return;
-            button.onClick.AddListener(() => OpenPersonSelect(isMultiSelect, onSelected, filter));
-        }
-
-        /// <summary>
         /// 绑定清除型人际关系按钮。
         /// </summary>
         private void BindRelationshipButton(Button button, Action clearAction, Action refreshAction)
@@ -1217,12 +1707,25 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 打开武将选择器，候选列表来自全武将库。
+        /// 绑定模式感知的人际关系选择按钮。
+        /// 根据当前编辑模式，候选列表分别来自当前剧本或自建武将库。
+        /// </summary>
+        private void BindRelationshipSelectButton(Button button, bool isMultiSelect, Action<int[]> onSelectedIds,
+            Func<PersonLib, bool> libFilter = null, Func<Person, bool> personFilter = null)
+        {
+            if (button == null) return;
+            button.onClick.AddListener(() => OpenPersonSelectModeAware(isMultiSelect, onSelectedIds, libFilter, personFilter));
+        }
+
+        /// <summary>
+        /// 打开武将选择器，候选列表根据编辑模式分别来自当前剧本 Person 或自建武将库 PersonLib。
         /// </summary>
         /// <param name="isMultiSelect">是否多选</param>
-        /// <param name="onSelected">选择完成回调</param>
-        /// <param name="filter">可选过滤条件（返回 true 的武将才会显示）</param>
-        private void OpenPersonSelect(bool isMultiSelect, Action<List<PersonLib>> onSelected, Func<PersonLib, bool> filter = null)
+        /// <param name="onSelectedIds">选择完成回调，返回选中的武将 Id 列表</param>
+        /// <param name="libFilter">自建武将库过滤条件</param>
+        /// <param name="personFilter">当前剧本武将过滤条件</param>
+        private void OpenPersonSelectModeAware(bool isMultiSelect, Action<int[]> onSelectedIds,
+            Func<PersonLib, bool> libFilter = null, Func<Person, bool> personFilter = null)
         {
             GameSystem system = GameSystemManager.Instance.GetSystem<EditPersonSelectSystem>();
             if (system == null)
@@ -1232,29 +1735,57 @@ namespace Sango.UI
             }
             EditPersonSelectSystem select = system as EditPersonSelectSystem;
 
-            // 从全武将库中获取数据，并按过滤条件筛选
-            List<PersonLib> allPersons = new List<PersonLib>();
-            List<PersonLib> allPersonLibs = GameCustomEdit.Instance.AllPersonLibs;
-            if (allPersonLibs != null)
+            if (editMode == PersonEditMode.Person)
             {
-                foreach (PersonLib p in allPersonLibs)
+                // 从当前剧本中获取数据，并按过滤条件筛选
+                List<Person> allPersons = new List<Person>();
+                Scenario cur = Scenario.Cur;
+                if (cur != null && cur.personSet != null)
                 {
-                    if (p == null) continue;
-                    if (filter != null && !filter(p)) continue;
-                    allPersons.Add(p);
+                    foreach (Person p in cur.personSet)
+                    {
+                        if (p == null || !p.IsValid) continue;
+                        if (p == targetPerson) continue;
+                        if (personFilter != null && !personFilter(p)) continue;
+                        allPersons.Add(p);
+                    }
                 }
-            }
-            allPersons.Sort((a, b) => PersonLibSortFunction.SortByName.personSortFunc(a, b));
+                allPersons.Sort(PersonSortFunction.SortByName.Sort);
 
-            select.Start(allPersons,
-                new List<PersonLib>(),
-                isMultiSelect ? allPersons.Count : 1,
-                onSelected,
-                PersonLibSortFunction.DefaultSortList, "全部武将");
+                select.Start(allPersons,
+                    new List<Person>(),
+                    isMultiSelect ? allPersons.Count : 1,
+                    (Action<List<Person>>)(result => onSelectedIds?.Invoke(ConvertToIds(result))),
+                    PersonSortFunction.DefaultSortList, "全部武将");
+            }
+            else
+            {
+                // 从全武将库中获取数据，并按过滤条件筛选
+                List<PersonLib> allPersons = new List<PersonLib>();
+                List<PersonLib> allPersonLibs = GameCustomEdit.Instance != null ? GameCustomEdit.Instance.AllPersonLibs : null;
+                if (allPersonLibs != null)
+                {
+                    foreach (PersonLib p in allPersonLibs)
+                    {
+                        if (p == null) continue;
+                        if (libFilter != null && !libFilter(p)) continue;
+                        allPersons.Add(p);
+                    }
+                }
+                allPersons.Sort((a, b) => PersonLibSortFunction.SortByName.personSortFunc(a, b));
+
+                select.Start(allPersons,
+                    new List<PersonLib>(),
+                    isMultiSelect ? allPersons.Count : 1,
+                    (Action<List<PersonLib>>)(result => onSelectedIds?.Invoke(ConvertToIds(result))),
+                    PersonLibSortFunction.DefaultSortList, "全部武将");
+            }
         }
 
         /// <summary>
-        /// 打开相性武将选择器，候选武将来自 <see cref="GameCustomEdit.CoreScenarioAddon"/> 的核心剧本武将库。
+        /// 打开相性武将选择器。
+        /// Person 编辑模式下选择武将后，直接保存其相性值，不保存武将 ID；
+        /// 自建武将模式候选来自 <see cref="GameCustomEdit.CoreScenarioAddon"/> 的核心剧本武将库。
         /// </summary>
         private void OpenCompatibilityPersonSelect()
         {
@@ -1267,38 +1798,65 @@ namespace Sango.UI
             }
             EditPersonSelectSystem select = system as EditPersonSelectSystem;
 
-            // 从核心剧本武将库中收集候选武将
-            List<PersonLib> persons = new List<PersonLib>();
-            ScenarioAddon coreAddon = GameCustomEdit.Instance != null ? GameCustomEdit.Instance.CoreScenarioAddon : null;
-            if (coreAddon != null && coreAddon.PersonLibrary != null)
+            if (editMode == PersonEditMode.Person)
             {
-                coreAddon.PersonLibrary.ForEach(p =>
+                // 从当前剧本中收集候选武将
+                List<Person> persons = new List<Person>();
+                Scenario cur = Scenario.Cur;
+                if (cur != null && cur.personSet != null)
                 {
-                    if (p != null) persons.Add(p);
-                });
+                    foreach (Person p in cur.personSet)
+                    {
+                        if (p != null) persons.Add(p);
+                    }
+                }
+                persons.Sort(PersonSortFunction.SortByName.Sort);
+
+                select.Start(persons,
+                    new List<Person>(),
+                    1,
+                    (Action<List<Person>>)(result =>
+                    {
+                        if (result == null || result.Count == 0) return;
+                        Person selected = result[0];
+                        if (selected == null) return;
+                        int compatibilityValue = selected.compatibility & 0xFF;
+                        // Person 编辑模式下只保存相性值，不再保存来源武将 ID
+                        snapshot.compatibility = compatibilityValue;
+                        RefreshCompatibility();
+                        Log.Info("已复制武将【" + selected.Name + "】的相性：" + compatibilityValue);
+                    }),
+                    PersonSortFunction.DefaultSortList, "全部武将");
             }
-            persons.Sort((a, b) => PersonLibSortFunction.SortByName.personSortFunc(a, b));
+            else
+            {
+                // 从核心剧本武将库中收集候选武将
+                List<PersonLib> persons = new List<PersonLib>();
+                ScenarioAddon coreAddon = GameCustomEdit.Instance != null ? GameCustomEdit.Instance.CoreScenarioAddon : null;
+                if (coreAddon != null && coreAddon.PersonLibrary != null)
+                {
+                    coreAddon.PersonLibrary.ForEach(p =>
+                    {
+                        if (p != null) persons.Add(p);
+                    });
+                }
+                persons.Sort((a, b) => PersonLibSortFunction.SortByName.personSortFunc(a, b));
 
-            select.Start(persons,
-                new List<PersonLib>(),
-                1,
-                OnCompatibilityPersonSelected,
-                PersonLibSortFunction.DefaultSortList, "核心武将");
-        }
-
-        /// <summary>
-        /// 相性武将选择完成：复制该武将的相性值到当前武将。
-        /// 相性值范围为 0-255，占用低 8 位；高 24 位存储来源武将 ID 用于显示姓名。
-        /// </summary>
-        private void OnCompatibilityPersonSelected(List<PersonLib> persons)
-        {
-            if (persons == null || persons.Count == 0) return;
-            PersonLib selected = persons[0];
-            if (selected == null) return;
-            int compatibilityValue = selected.compatibility & 0xFF;
-            snapshot.compatibility = (selected.Id << 8) | compatibilityValue;
-            RefreshCompatibility();
-            Log.Info("已复制武将【" + selected.Name + "】的相性：" + compatibilityValue);
+                select.Start(persons,
+                    new List<PersonLib>(),
+                    1,
+                    (Action<List<PersonLib>>)(result =>
+                    {
+                        if (result == null || result.Count == 0) return;
+                        PersonLib selected = result[0];
+                        if (selected == null) return;
+                        int compatibilityValue = selected.compatibility & 0xFF;
+                        snapshot.compatibility = (selected.Id << 8) | compatibilityValue;
+                        RefreshCompatibility();
+                        Log.Info("已复制武将【" + selected.Name + "】的相性：" + compatibilityValue);
+                    }),
+                    PersonLibSortFunction.DefaultSortList, "核心武将");
+            }
         }
 
         /// <summary>
@@ -1312,112 +1870,195 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 刷新相性显示：若存在来源武将 ID 则显示其姓名，否则相性值大于 0 时显示数值，为 0 时不显示任何内容。
+        /// 刷新相性显示。
+        /// 自建武将模式下若存在来源武将 ID 则显示其姓名；
+        /// Person 编辑模式或没有来源武将时，相性值大于 0 显示数值，为 0 时不显示任何内容。
         /// </summary>
         private void RefreshCompatibility()
         {
             if (compatibilityCancelButton != null)
                 compatibilityCancelButton.interactable = snapshot.compatibility > 0;
             if (compatibilityText == null) return;
-            int sourcePersonId = snapshot.compatibility >> 8;
-            if (sourcePersonId > 0)
+
+            // Person 编辑模式下不解析来源武将 ID，直接显示相性值
+            if (editMode != PersonEditMode.Person)
             {
-                PersonLib source = GetCorePersonById(sourcePersonId);
-                if (source != null)
+                int sourcePersonId = snapshot.compatibility >> 8;
+                if (sourcePersonId > 0)
                 {
-                    compatibilityText.text = source.Name;
-                    return;
+                    string sourceName = GetCompatibilitySourceName(sourcePersonId);
+                    if (!string.IsNullOrEmpty(sourceName))
+                    {
+                        compatibilityText.text = sourceName;
+                        return;
+                    }
                 }
             }
+
             int value = snapshot.compatibility & 0xFF;
             compatibilityText.text = value > 0 ? value.ToString() : string.Empty;
         }
 
         /// <summary>
-        /// 根据武将 Id 从核心剧本武将库中查找武将。
+        /// 根据武将 Id 获取相性来源武将姓名。
+        /// Person 编辑模式从 <see cref="Scenario.Cur.personSet"/> 查找；
+        /// 自建武将模式从 <see cref="GameCustomEdit.CoreScenarioAddon"/> 查找。
         /// </summary>
-        private PersonLib GetCorePersonById(int personId)
+        private string GetCompatibilitySourceName(int personId)
         {
-            if (personId <= 0 || GameCustomEdit.Instance == null) return null;
-            ScenarioAddon coreAddon = GameCustomEdit.Instance.CoreScenarioAddon;
-            if (coreAddon == null || coreAddon.PersonLibrary == null) return null;
-            return coreAddon.PersonLibrary.Find(p => p != null && p.Id == personId);
+            if (personId <= 0) return null;
+            if (editMode == PersonEditMode.Person)
+            {
+                Person p = GetPersonById(personId);
+                return p?.Name;
+            }
+            else
+            {
+                if (GameCustomEdit.Instance == null) return null;
+                ScenarioAddon coreAddon = GameCustomEdit.Instance.CoreScenarioAddon;
+                if (coreAddon == null || coreAddon.PersonLibrary == null) return null;
+                PersonLib source = coreAddon.PersonLibrary.Find(p => p != null && p.Id == personId);
+                return source?.Name;
+            }
         }
 
-        private void OnFatherSelected(List<PersonLib> result)
+        private void OnFatherSelectedIds(int[] ids)
         {
-            if (result != null && result.Count > 0) snapshot.Father = result[0].Id;
+            snapshot.Father = ids != null && ids.Length > 0 ? ids[0] : 0;
             RefreshFather();
         }
 
-        private void OnMotherSelected(List<PersonLib> result)
+        private void OnMotherSelectedIds(int[] ids)
         {
-            if (result != null && result.Count > 0) snapshot.Mother = result[0].Id;
+            snapshot.Mother = ids != null && ids.Length > 0 ? ids[0] : 0;
             RefreshMother();
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        private bool IsValidBrotherFilter(PersonLib person)
+        private bool IsValidFatherFilterLib(PersonLib person)
+        {
+            if (person == null) return false;
+            return person.sex == 0 && person.yearBorn <= snapshot.yearBorn - 15;
+        }
+
+        private bool IsValidFatherFilterPerson(Person person)
+        {
+            if (person == null) return false;
+            return person.sex == 0 && person.yearBorn <= snapshot.yearBorn - 15;
+        }
+
+        private bool IsValidMotherFilterLib(PersonLib person)
+        {
+            if (person == null) return false;
+            return person.sex == 1 && person.yearBorn <= snapshot.yearBorn - 15;
+        }
+
+        private bool IsValidMotherFilterPerson(Person person)
+        {
+            if (person == null) return false;
+            return person.sex == 1 && person.yearBorn <= snapshot.yearBorn - 15;
+        }
+
+        private bool IsValidSpouseFilterLib(PersonLib person)
+        {
+            if (person == null) return false;
+            return person.sex != snapshot.sex;
+        }
+
+        private bool IsValidSpouseFilterPerson(Person person)
+        {
+            if (person == null) return false;
+            return person.sex != snapshot.sex;
+        }
+
+        private bool IsValidLikeFilterLib(PersonLib person)
+        {
+            if (person == null) return false;
+            return !ContainsId(snapshot.HatePersonList, person.Id);
+        }
+
+        private bool IsValidLikeFilterPerson(Person person)
+        {
+            if (person == null) return false;
+            return !ContainsId(snapshot.HatePersonList, person.Id);
+        }
+
+        private bool IsValidHateFilterLib(PersonLib person)
+        {
+            if (person == null) return false;
+            if (person.Id == snapshot.Father || person.Id == snapshot.Mother) return false;
+            if (ContainsId(snapshot.BrotherList, person.Id)) return false;
+            if (ContainsId(snapshot.LikePersonList, person.Id)) return false;
+            return true;
+        }
+
+        private bool IsValidHateFilterPerson(Person person)
+        {
+            if (person == null) return false;
+            if (person.Id == snapshot.Father || person.Id == snapshot.Mother) return false;
+            if (ContainsId(snapshot.BrotherList, person.Id)) return false;
+            if (ContainsId(snapshot.LikePersonList, person.Id)) return false;
+            return true;
+        }
+
+        private bool IsValidBrotherFilterLib(PersonLib person)
         {
             if (person == null) return false;
             if (person.Brother > 0) return false;
-            PersonLib p = GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Find(x =>
-            {
-                if(x.BrotherList != null)
+            PersonLib p = GameCustomEdit.Instance != null && GameCustomEdit.Instance.SelfScenarioAddon != null
+                ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Find(x =>
                 {
-                   for(int i = 0; i < x.BrotherList.Length; i++)
+                    if (x.BrotherList != null)
                     {
-                        if (x.BrotherList[i] == person.Id)
-                            return true;
+                        for (int i = 0; i < x.BrotherList.Length; i++)
+                        {
+                            if (x.BrotherList[i] == person.Id)
+                                return true;
+                        }
                     }
-                }
-                return false;
-            });
+                    return false;
+                })
+                : null;
             return p == null;
         }
 
-        private void OnBrotherSelected(List<PersonLib> result)
+        private bool IsValidBrotherFilterPerson(Person person)
         {
-            // 先清理原有的关系
-            if (snapshot.BrotherList != null)
-            {
-                snapshot.BrotherList = null;
-            }
+            if (person == null) return false;
+            // Person 模式下先放宽兄弟过滤条件，避免复杂运行时关系校验影响编辑
+            return true;
+        }
 
-            if (result != null && result.Count > 0)
-            {
-                List<int> iList = new List<int>();
-                for (int i = 0; i < result.Count; i++)
-                {
-                    iList.Add(result[i].Id);
-                }
-                snapshot.BrotherList = iList.ToArray();
-            }
-                
+        private void OnBrotherSelectedIds(int[] ids)
+        {
+            snapshot.BrotherList = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshBrother();
         }
 
-        private void OnSpouseSelected(List<PersonLib> result)
+        private void OnSpouseSelectedIds(int[] ids)
         {
-            snapshot.SpouseList = ConvertToIds(result);
+            snapshot.SpouseList = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshSpouse();
         }
 
-        private void OnLikeSelected(List<PersonLib> result)
+        private void OnLikeSelectedIds(int[] ids)
         {
-            snapshot.LikePersonList = ConvertToIds(result);
+            snapshot.LikePersonList = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshLike();
         }
 
-        private void OnHateSelected(List<PersonLib> result)
+        private void OnHateSelectedIds(int[] ids)
         {
-            snapshot.HatePersonList = ConvertToIds(result);
+            snapshot.HatePersonList = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshHate();
         }
 
         private int[] ConvertToIds(List<PersonLib> persons)
+        {
+            if (persons == null) return new int[0];
+            return persons.Where(p => p != null).Select(p => p.Id).Distinct().ToArray();
+        }
+
+        private int[] ConvertToIds(List<Person> persons)
         {
             if (persons == null) return new int[0];
             return persons.Where(p => p != null).Select(p => p.Id).Distinct().ToArray();
@@ -1488,13 +2129,22 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 根据武将 Id 获取名称，从全武将库中查找。
+        /// 根据武将 Id 获取名称。
+        /// Person 编辑模式从当前剧本查找，自建武将模式从全武将库查找。
         /// </summary>
         private string GetPersonName(int personId)
         {
             if (personId <= 0) return string.Empty;
-            PersonLib lib = GetPersonLibById(personId);
-            if (lib != null) return lib.Name;
+            if (editMode == PersonEditMode.Person)
+            {
+                Person p = GetPersonById(personId);
+                if (p != null) return p.Name;
+            }
+            else
+            {
+                PersonLib lib = GetPersonLibById(personId);
+                if (lib != null) return lib.Name;
+            }
             return personId.ToString();
         }
 
@@ -1617,23 +2267,441 @@ namespace Sango.UI
         private void OnConfirmClick()
         {
             ApplySnapshotToTarget();
-            Log.Info("新建武将已保存：" + snapshot.familyName + snapshot.giveName);
-            //Back();
-            Close();
-            Window.Instance.Open("window_create_person_menu");
+            if (editMode == PersonEditMode.Person)
+            {
+                Log.Info("武将编辑已保存：" + snapshot.familyName + snapshot.giveName);
+                Close();
+            }
+            else
+            {
+                Log.Info("新建武将已保存：" + snapshot.familyName + snapshot.giveName);
+                //Back();
+                Close();
+                Window.Instance.Open("window_create_person_menu");
+            }
         }
 
         private void OnBackClick()
         {
             // Back();
             Close();
-            Window.Instance.Open("window_create_person_menu");
+            if (editMode != PersonEditMode.Person)
+                Window.Instance.Open("window_create_person_menu");
         }
 
         private void OnCancelClick()
         {
             // Back();
             OnBackClick();
+        }
+        #endregion
+
+        #region 剧本编辑页刷新与交互
+        /// <summary>
+        /// 道具下拉选项缓存：索引对应 Dropdown.value，值对应 ItemType.Id。
+        /// </summary>
+        private List<int> itemDropdownValues = new List<int>();
+
+        /// <summary>
+        /// 刷新剧本编辑页所有 UI 显示。
+        /// </summary>
+        private void RefreshScenarioPanel()
+        {
+            RefreshBelongForce();
+            RefreshBelongCorps();
+            RefreshBelongCity();
+            RefreshOfficial();
+            RefreshStateDropdown();
+            RefreshArgumentationDropdown();
+            RefreshBirthplaceDropdown();
+            RefreshIdealDropdown();
+            RefreshTalentDropdown();
+            RefreshItemList();
+        }
+
+        private void RefreshBelongForce()
+        {
+            if (belongForceText != null) belongForceText.text = GetForceName(snapshot.BelongForce);
+            if (belongForceCancelButton != null) belongForceCancelButton.interactable = snapshot.BelongForce > 0;
+        }
+
+        private void RefreshBelongCorps()
+        {
+            if (belongCorpsText != null) belongCorpsText.text = GetCorpsName(snapshot.BelongCorps);
+            if (belongCorpsCancelButton != null) belongCorpsCancelButton.interactable = snapshot.BelongCorps > 0;
+        }
+
+        private void RefreshBelongCity()
+        {
+            if (belongCityText != null) belongCityText.text = GetCityName(snapshot.BelongCity);
+            if (belongCityCancelButton != null) belongCityCancelButton.interactable = snapshot.BelongCity > 0;
+        }
+
+        private void RefreshOfficial()
+        {
+            if (officialText != null) officialText.text = GetOfficialName(snapshot.official);
+            if (officialCancelButton != null) officialCancelButton.interactable = snapshot.official > 0;
+        }
+
+        private string GetForceName(int forceId)
+        {
+            if (forceId <= 0) return string.Empty;
+            Scenario cur = Scenario.Cur;
+            Force force = cur != null ? cur.forceSet.Get(forceId) : null;
+            return force != null ? force.Name : forceId.ToString();
+        }
+
+        private string GetCorpsName(int corpsId)
+        {
+            if (corpsId <= 0) return string.Empty;
+            Scenario cur = Scenario.Cur;
+            Corps corps = cur != null ? cur.corpsSet.Get(corpsId) : null;
+            return corps != null ? corps.Name : corpsId.ToString();
+        }
+
+        private string GetCityName(int cityId)
+        {
+            if (cityId <= 0) return string.Empty;
+            Scenario cur = Scenario.Cur;
+            City city = cur != null ? cur.citySet.Get(cityId) : null;
+            return city != null ? city.Name : cityId.ToString();
+        }
+
+        private string GetOfficialName(int officialId)
+        {
+            if (officialId <= 0) return string.Empty;
+            Scenario cur = Scenario.Cur;
+            Official official = cur != null ? cur.CommonData.Officials.Get(officialId) : null;
+            return official != null ? official.Name : officialId.ToString();
+        }
+
+        private void OpenBelongForceSelect()
+        {
+            if (refreshing) return;
+            Scenario cur = Scenario.Cur;
+            if (cur == null) return;
+            GameSystem system = GameSystemManager.Instance.GetSystem<ForceSelectSystem>();
+            if (system == null)
+            {
+                Log.Error("未找到 ForceSelectSystem");
+                return;
+            }
+            ForceSelectSystem select = system as ForceSelectSystem;
+            List<Force> forces = new List<Force>();
+            foreach (Force f in cur.forceSet) { if (f != null) forces.Add(f); }
+            Force selected = snapshot.BelongForce > 0 ? cur.forceSet.Get(snapshot.BelongForce) : null;
+            select.Start(forces, selected != null ? new List<Force> { selected } : new List<Force>(), 1,
+                (Action<List<Force>>)(result =>
+                {
+                    if (result == null || result.Count == 0) return;
+                    snapshot.BelongForce = result[0] != null ? result[0].Id : 0;
+                    RefreshBelongForce();
+                }),
+                new List<ObjectSortTitle> { ForceSortFunction.SortByName }, "全部势力");
+        }
+
+        private void OpenBelongCorpsSelect()
+        {
+            if (refreshing) return;
+            Scenario cur = Scenario.Cur;
+            if (cur == null) return;
+            GameSystem system = GameSystemManager.Instance.GetSystem<CorpsSelectSystem>();
+            if (system == null)
+            {
+                Log.Error("未找到 CorpsSelectSystem");
+                return;
+            }
+            CorpsSelectSystem select = system as CorpsSelectSystem;
+            List<Corps> corpsList = new List<Corps>();
+            foreach (Corps c in cur.corpsSet) { if (c != null) corpsList.Add(c); }
+            Corps selected = snapshot.BelongCorps > 0 ? cur.corpsSet.Get(snapshot.BelongCorps) : null;
+            select.Start(corpsList, selected != null ? new List<Corps> { selected } : new List<Corps>(), 1,
+                (Action<List<Corps>>)(result =>
+                {
+                    if (result == null || result.Count == 0) return;
+                    snapshot.BelongCorps = result[0] != null ? result[0].Id : 0;
+                    RefreshBelongCorps();
+                }),
+                new List<ObjectSortTitle> { CorpsSortFunction.SortByName }, "全部军团");
+        }
+
+        private void OpenBelongCitySelect()
+        {
+            if (refreshing) return;
+            Scenario cur = Scenario.Cur;
+            if (cur == null) return;
+            GameSystem system = GameSystemManager.Instance.GetSystem<CitySelectSystem>();
+            if (system == null)
+            {
+                Log.Error("未找到 CitySelectSystem");
+                return;
+            }
+            CitySelectSystem select = system as CitySelectSystem;
+            List<City> cities = new List<City>();
+            foreach (City c in cur.citySet) { if (c != null) cities.Add(c); }
+            City selected = snapshot.BelongCity > 0 ? cur.citySet.Get(snapshot.BelongCity) : null;
+            select.Start(cities, selected != null ? new List<City> { selected } : new List<City>(), 1,
+                (Action<List<City>>)(result =>
+                {
+                    if (result == null || result.Count == 0) return;
+                    snapshot.BelongCity = result[0] != null ? result[0].Id : 0;
+                    RefreshBelongCity();
+                }),
+                new List<ObjectSortTitle> { CitySortFunction.SortByName }, "全部城市");
+        }
+
+        private void OpenOfficialSelect()
+        {
+            if (refreshing) return;
+            Scenario cur = Scenario.Cur;
+            if (cur == null || cur.CommonData.Officials == null) return;
+            List<SangoObject> officials = new List<SangoObject>();
+            cur.CommonData.Officials.ForEach(o => { if (o != null) officials.Add(o); });
+            ObjectSelectSystem select = new ObjectSelectSystem();
+            SangoObject selected = snapshot.official > 0 ? cur.CommonData.Officials.Get(snapshot.official) : null;
+            List<SangoObject> initial = selected != null ? new List<SangoObject> { selected } : new List<SangoObject>();
+            select.Start(officials, initial, 1,
+                (Action<List<SangoObject>>)(result =>
+                {
+                    if (result == null || result.Count == 0) return;
+                    snapshot.official = result[0] != null ? result[0].Id : 0;
+                    RefreshOfficial();
+                }),
+                new List<ObjectSortTitle>(), "全部官职");
+        }
+
+        /// <summary>
+        /// 绑定下拉菜单：options 与 values 一一对应，点击后通过 values 索引写入快照。
+        /// </summary>
+        private void BindDropdown(Dropdown dropdown, List<Dropdown.OptionData> options, List<int> values,
+            Func<int> getter, Action<int> setter)
+        {
+            if (dropdown == null || options == null || values == null) return;
+            dropdown.options = options;
+            dropdown.onValueChanged.AddListener(index =>
+            {
+                if (refreshing) return;
+                if (index >= 0 && index < values.Count)
+                {
+                    setter(values[index]);
+                    // 重新同步显示，避免外部 setter 修正后索引不一致
+                    SetDropdownValue(dropdown, values, getter());
+                }
+            });
+        }
+
+        /// <summary>
+        /// 根据当前值设置 Dropdown 的显示索引。
+        /// </summary>
+        private void SetDropdownValue(Dropdown dropdown, List<int> values, int currentValue)
+        {
+            if (dropdown == null || values == null) return;
+            int index = values.IndexOf(currentValue);
+            if (index < 0) index = 0;
+            dropdown.value = index;
+            dropdown.RefreshShownValue();
+        }
+
+        private void RefreshStateDropdown()
+        {
+            if (stateDropdown == null) return;
+            List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+            List<int> values = new List<int>();
+            GetStateOptions(options, values);
+            if (stateDropdown.options.Count != options.Count) stateDropdown.options = options;
+            SetDropdownValue(stateDropdown, values, snapshot.state);
+        }
+
+        private void RefreshArgumentationDropdown()
+        {
+            if (argumentationDropdown == null) return;
+            List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+            List<int> values = new List<int>();
+            GetArgumentationOptions(options, values);
+            if (argumentationDropdown.options.Count != options.Count) argumentationDropdown.options = options;
+            SetDropdownValue(argumentationDropdown, values, snapshot.argumentation);
+        }
+
+        private void RefreshBirthplaceDropdown()
+        {
+            if (birthplaceDropdown == null) return;
+            List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+            List<int> values = new List<int>();
+            GetBirthplaceOptions(options, values);
+            if (birthplaceDropdown.options.Count != options.Count) birthplaceDropdown.options = options;
+            SetDropdownValue(birthplaceDropdown, values, snapshot.birthplace);
+        }
+
+        private void RefreshIdealDropdown()
+        {
+            if (idealDropdown == null) return;
+            List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+            List<int> values = new List<int>();
+            GetIdealOptions(options, values);
+            if (idealDropdown.options.Count != options.Count) idealDropdown.options = options;
+            SetDropdownValue(idealDropdown, values, snapshot.ideal);
+        }
+
+        private void RefreshTalentDropdown()
+        {
+            if (talentDropdown == null) return;
+            List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+            List<int> values = new List<int>();
+            GetTalentOptions(options, values);
+            if (talentDropdown.options.Count != options.Count) talentDropdown.options = options;
+            SetDropdownValue(talentDropdown, values, snapshot.talent);
+        }
+
+        private void GetStateOptions(List<Dropdown.OptionData> options, List<int> values)
+        {
+            if (options == null || values == null) return;
+            AddOption(options, values, "君主", (int)PersonStateType.Governor);
+            AddOption(options, values, "都督", (int)PersonStateType.Commander);
+            AddOption(options, values, "太守", (int)PersonStateType.Leader);
+            AddOption(options, values, "一般", (int)PersonStateType.Normal);
+            AddOption(options, values, "在野", (int)PersonStateType.Unemployed);
+            AddOption(options, values, "俘虏", (int)PersonStateType.Prisoner);
+            AddOption(options, values, "未登场", (int)PersonStateType.Invalid);
+            AddOption(options, values, "未发现", (int)PersonStateType.Invisible);
+            AddOption(options, values, "已死亡", (int)PersonStateType.Dead);
+        }
+
+        private void GetArgumentationOptions(List<Dropdown.OptionData> options, List<int> values)
+        {
+            if (options == null || values == null) return;
+            Scenario cur = Scenario.Cur;
+            if (cur != null && cur.CommonData.Argumentations != null)
+            {
+                cur.CommonData.Argumentations.ForEach(arg =>
+                {
+                    if (arg != null) AddOption(options, values, arg.Name, arg.Id);
+                });
+            }
+            if (options.Count == 0) AddOption(options, values, "—", 0);
+        }
+
+        private void GetBirthplaceOptions(List<Dropdown.OptionData> options, List<int> values)
+        {
+            if (options == null || values == null) return;
+            Scenario cur = Scenario.Cur;
+            if (cur != null && cur.CommonData.Provinces != null)
+            {
+                cur.CommonData.Provinces.ForEach(prov =>
+                {
+                    if (prov != null) AddOption(options, values, prov.Name, prov.Id);
+                });
+            }
+            if (options.Count == 0) AddOption(options, values, "—", 0);
+        }
+
+        private void GetIdealOptions(List<Dropdown.OptionData> options, List<int> values)
+        {
+            if (options == null || values == null) return;
+            AddOption(options, values, "霸道", 0);
+            AddOption(options, values, "王道", 1);
+            AddOption(options, values, "我道", 2);
+            AddOption(options, values, "割據", 3);
+            AddOption(options, values, "義俠", 4);
+        }
+
+        private void GetTalentOptions(List<Dropdown.OptionData> options, List<int> values)
+        {
+            if (options == null || values == null) return;
+            AddOption(options, values, "王佐", 0);
+            AddOption(options, values, "出世", 1);
+            AddOption(options, values, "安全", 2);
+            AddOption(options, values, "隱遁", 3);
+        }
+
+        private void AddOption(List<Dropdown.OptionData> options, List<int> values, string text, int value)
+        {
+            options.Add(new Dropdown.OptionData(text));
+            values.Add(value);
+        }
+
+        /// <summary>
+        /// 初始化道具下拉菜单选项。
+        /// </summary>
+        private void InitItemDropdown()
+        {
+            if (itemDropdown == null) return;
+            itemDropdownValues.Clear();
+            List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+            Scenario cur = Scenario.Cur;
+            if (cur != null && cur.CommonData.ItemTypes != null)
+            {
+                cur.CommonData.ItemTypes.ForEach(itemType =>
+                {
+                    if (itemType != null)
+                    {
+                        options.Add(new Dropdown.OptionData(itemType.Name));
+                        itemDropdownValues.Add(itemType.storeKind);
+                    }
+                });
+            }
+            if (options.Count == 0) options.Add(new Dropdown.OptionData("—"));
+            itemDropdown.options = options;
+            itemDropdown.value = 0;
+            itemDropdown.RefreshShownValue();
+        }
+
+        /// <summary>
+        /// 道具添加按钮：读取当前选中的道具类型与数量，加入快照的 itemStore。
+        /// </summary>
+        private void OnItemAddClick()
+        {
+            if (refreshing) return;
+            if (itemDropdown == null || itemDropdownValues.Count == 0) return;
+            int index = itemDropdown.value;
+            if (index < 0 || index >= itemDropdownValues.Count) return;
+            int storeKind = itemDropdownValues[index];
+            int count = 1;
+            if (itemCountInput != null && int.TryParse(itemCountInput.text, out int inputCount))
+                count = System.Math.Max(1, inputCount);
+            if (snapshot.itemStore == null) snapshot.itemStore = new ItemStore();
+            snapshot.itemStore.Add(storeKind, count);
+            Log.Info("已添加道具：" + itemDropdown.options[index].text + " × " + count);
+            RefreshItemList();
+        }
+
+        /// <summary>
+        /// 道具清空按钮：清空快照中所有道具。
+        /// </summary>
+        private void OnItemClearClick()
+        {
+            if (refreshing) return;
+            if (snapshot.itemStore != null) snapshot.itemStore.Clear();
+            Log.Info("已清空道具");
+            RefreshItemList();
+        }
+
+        /// <summary>
+        /// 刷新道具列表显示。
+        /// </summary>
+        private void RefreshItemList()
+        {
+            if (itemListText == null) return;
+            if (snapshot.itemStore == null || snapshot.itemStore.Items.Count == 0)
+            {
+                itemListText.text = string.Empty;
+                return;
+            }
+            List<string> lines = new List<string>();
+            foreach (int storeKind in snapshot.itemStore.Items.Keys)
+            {
+                int number = snapshot.itemStore.Items[storeKind];
+                if (number <= 0) continue;
+                string itemName = GetItemTypeName(storeKind);
+                lines.Add(itemName + " × " + number);
+            }
+            itemListText.text = string.Join("\n", lines.ToArray());
+        }
+
+        private string GetItemTypeName(int storeKind)
+        {
+            Scenario cur = Scenario.Cur;
+            ItemType itemType = cur != null ? cur.CommonData.ItemTypes.Get(storeKind) : null;
+            return itemType != null ? itemType.Name : storeKind.ToString();
         }
         #endregion
 

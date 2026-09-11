@@ -121,7 +121,7 @@ namespace Sango.Core
 
         public bool IsCity()
         {
-            return BuildingType.kind == (int)BuildingKindType.City;
+            return BuildingType.kind == (int)BuildingKindType.City || BuildingType.kind == (int)BuildingKindType.LittleCity;
         }
         public bool IsPort()
         {

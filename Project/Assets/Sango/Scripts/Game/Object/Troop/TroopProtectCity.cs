@@ -83,7 +83,7 @@ namespace Sango.Core
             if (IsMissionComplete)
             {
                 Troop.NeedPrepareMission();
-                return false;
+                return true;
             }
 
             // 获取目标城市周围的敌人

@@ -7,7 +7,7 @@ namespace Sango.Core
     /// 角色兵种适应力
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
-    
+
     public class PersonAbilityValue : IAarryDataObject
     {
         public int baseValue;
@@ -19,6 +19,15 @@ namespace Sango.Core
             return $"{baseValue},{valueExp},{value}";
         }
 
+
+        public AbilityLevelType AbilityLevelType
+        {
+            get
+            {
+                return Scenario.Cur.CommonData.AbilityLevelTypes.Get(value);
+            }
+        }
+
         public IAarryDataObject FromArray(int[] content)
         {
             int count = content.Length;
@@ -26,6 +35,7 @@ namespace Sango.Core
             if (count > 0) baseValue = content[0];
             if (count > 1) valueExp = content[1];
             if (count > 2) value = content[2];
+
             return this;
         }
 

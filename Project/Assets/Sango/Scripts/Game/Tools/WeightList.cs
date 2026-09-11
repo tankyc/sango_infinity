@@ -30,6 +30,39 @@ namespace Sango.Tools
             nodes.Add(new Node<T>() { value = value, wight = wight });
         }
 
+        public T Head()
+        {
+            if (Count == 0) return default(T);
+            return nodes[0].value;
+        }
+
+        public void Pop()
+        {
+            if (Count == 0) return;
+            Node<T> node = nodes[0];
+            TotaleWeight -= node.wight;
+            nodes.RemoveAt(0);
+            RandomToHead();
+        }
+
+        public void RandomToHead()
+        {
+            if (Count <= 1) return;
+            int ran = GameRandom.Range(TotaleWeight);
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                Node<T> node = nodes[i];
+                if (ran <= node.wight)
+                {
+                    nodes.RemoveAt(i);
+                    nodes.Insert(0, node);
+                    return;
+                }
+                else
+                    ran -= node.wight;
+            }
+        }
+
         public T RandomGet()
         {
             if (Count == 0) return default(T);
