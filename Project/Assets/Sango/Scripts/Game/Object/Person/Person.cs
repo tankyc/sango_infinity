@@ -1693,7 +1693,7 @@ namespace Sango.Core
                 mBelongCity.Leader = null;
                 mBelongCity.NeedUpdateLeader();
             }
-
+            ClearMission();
             workingBuilding = null;
             loyalty = 0;
             mBelongCity?.RemovePerson(this);

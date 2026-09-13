@@ -413,12 +413,6 @@ namespace Sango.UI
             if (obj is Troop)
             {
                 Troop troop = (Troop)obj;
-
-                if (troop.mBelongForce == null)
-                {
-                    int dd = 33;
-                    dd++;
-                }
                 if (troop.TroopType.isFight)
                     item.name.text = $"[{troop.mBelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}队,{troop.Member1?.Name}{troop.Member2?.Name}";
                 else

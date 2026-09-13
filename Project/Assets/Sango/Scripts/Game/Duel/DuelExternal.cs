@@ -3,13 +3,15 @@
  * 描述：单挑(Duel)系统所依赖的外部类型与工具
  *
  * 【重要说明】
- *   本文件中的类型均为"接口存根"，仅保留单挑系统调用到的接口签名，不包含具体实现。
- *   这是翻译 C++ 单挑系统时遇到的、本项目尚未提供的未知类型（或接口不匹配的类型）。
- *   接入真实游戏时，只需把这些接口桥接到项目已有的 Person / Troop / Force 等业务类即可，
- *   无需改动 Duel.cs / DuelAI.cs / DuelPhase.cs 中的任何单挑逻辑。
+ *   · Person 已改为直接使用游戏的 Sango.Core.Person，本文件不再定义同名类。
+ *     单挑所需的额外访问器由 DuelPersonAdapter.cs 的扩展方法补齐。
+ *   · 其余类型（Unit / Force / District / Item / Engine / GameSystem / Message 等）均为"接口存根"，
+ *     仅保留单挑系统调用到的接口签名。接入真实游戏时把它们桥接到项目业务类即可，
+ *     无需改动 Duel.cs / DuelAI.cs / DuelPhase.cs 中的任何单挑逻辑。
+ *   · 难度 / 寿命 / 功能开关 / 宝物 / 武将ID解析 等全局配置集中在 DuelSettings（DuelPersonAdapter.cs）。
  *
- *   注意：这些类型定义在 Sango.Core.Duel 命名空间下，会优先于外层 Sango.Core 同名类型被解析，
- *         因此不会影响项目既有的 Person / DuelSystem 等类。
+ *   注意：这些存根定义在 Sango.Core.Duel 命名空间下，会优先于外层 Sango.Core 同名类型被解析。
+ *         接入完成后建议直接删除对应存根，改用项目真实类型。
  */
 
 using System;
@@ -70,6 +72,8 @@ namespace Sango.Core.Duel
         {
             if (obj == null) return false;
             if (obj is IAlive a) return a.IsAlive;
+            // 游戏真实武将：已死亡即视为无效
+            if (obj is Person p) return p.state != (int)PersonStateType.Dead;
             return true;
         }
 
@@ -125,40 +129,7 @@ namespace Sango.Core.Duel
         bool IsAlive { get; }
     }
 
-    /// <summary>
-    /// 单挑随机数发生器。
-    /// 反编译代码中所有随机均来自 system 的种子化随机源，为保证单挑可复现，此处独立提供。
-    /// </summary>
-    public static class DuelRandom
-    {
-        private static Random s_random = new Random(Environment.TickCount);
-        private static int s_seed = 0;
-
-        /// <summary>设置随机种子（对应 system 的种子化随机源）</summary>
-        public static void SetSeed(int seed)
-        {
-            s_seed = seed;
-            s_random = new Random(seed);
-        }
-
-        /// <summary>获取当前种子。对应 System::get_seed</summary>
-        public static int GetSeed() { return s_seed; }
-
-        /// <summary>返回 [0, max) 的随机整数。对应 System::rand_int</summary>
-        public static int Range(int max)
-        {
-            if (max <= 0) return 0;
-            lock (s_random) { return s_random.Next(max); }
-        }
-
-        /// <summary>以 percent% 的概率返回 true。对应 System::rand_bool</summary>
-        public static bool Chance(int percent)
-        {
-            if (percent <= 0) return false;
-            if (percent >= 100) return true;
-            return Range(100) < percent;
-        }
-    }
+    // 随机数发生器 DuelRandom 已迁移至 DuelPersonAdapter.cs（默认转发到项目的 GameRandom）
 
     #endregion
 
@@ -352,118 +323,11 @@ namespace Sango.Core.Duel
         void Debug(string text);
     }
 
-    /// <summary>游戏全局对象。对应 C++ Game</summary>
-    public class Game
-    {
-        /// <summary>功能是否被禁用。对应 Game::is_feat_disabled</summary>
-        public virtual bool IsFeatDisabled(Feature feature) { return false; }
-
-        /// <summary>获取武将持有的宝物列表。对应 Game::get_person_item_list</summary>
-        public virtual List<Item> GetPersonItemList(Person person) { return new List<Item>(); }
-    }
-
-    /// <summary>剧本。对应 C++ Scenario</summary>
-    public class Scenario
-    {
-        /// <summary>获取游戏全局对象</summary>
-        public virtual Game GetGame() { return null; }
-
-        /// <summary>以 percent% 的概率返回 true</summary>
-        public virtual bool RandBool(int percent) { return DuelRandom.Chance(percent); }
-
-        /// <summary>获取难度</summary>
-        public virtual Difficulty GetDifficulty() { return Difficulty.Normal; }
-
-        /// <summary>获取寿命模式</summary>
-        public virtual LifeMode GetLifeMode() { return LifeMode.Normal; }
-    }
-
-    /// <summary>
-    /// 武将。对应 C++ Person。
-    /// 仅保留单挑系统调用到的接口，接入时桥接到真实的 Sango.Core.Person。
-    /// </summary>
-    public class Person : IAlive
-    {
-        /// <summary>能力下限。对应 Person::MinStat</summary>
-        public const int MinStat = 1;
-
-        public bool IsAlive { get; set; } = true;
-
-        /// <summary>武将 ID。对应 Person::get_id</summary>
-        public virtual PersonId GetId() { return PersonId.Invalid; }
-
-        /// <summary>姓名</summary>
-        public virtual string GetName() { return string.Empty; }
-
-        /// <summary>所属剧本</summary>
-        public virtual Scenario GetScenario() { return null; }
-
-        /// <summary>所属势力 ID</summary>
-        public virtual int GetForceId() { return -1; }
-
-        /// <summary>所在地区 ID</summary>
-        public virtual int GetDistrictId() { return -1; }
-
-        /// <summary>伤病程度</summary>
-        public virtual int GetShoubyou() { return (int)Shoubyou.Kenkou; }
-
-        /// <summary>体力</summary>
-        public virtual int GetHp() { return 0; }
-
-        /// <summary>年龄</summary>
-        public virtual int GetAge() { return 0; }
-
-        /// <summary>性格</summary>
-        public virtual Seikaku GetSeikaku() { return Seikaku.Reisei; }
-
-        /// <summary>忠诚度</summary>
-        public virtual int GetLoyalty() { return 0; }
-
-        /// <summary>出生地 ID</summary>
-        public virtual int GetBirthplaceId() { return -1; }
-
-        /// <summary>势力颜色</summary>
-        public virtual int GetColor() { return 0; }
-
-        /// <summary>获取能力值</summary>
-        public virtual int GetStat(PersonStatType type) { return 0; }
-
-        /// <summary>依据伤病程度计算能力值。对应 Person::calc_stat</summary>
-        public virtual int CalcStat(PersonStatType type, int shoubyou) { return GetStat(type); }
-
-        /// <summary>是否拥有指定特技</summary>
-        public virtual bool HasSkill(SkillId skill) { return false; }
-
-        /// <summary>是否为玩家武将</summary>
-        public virtual bool IsPlayer() { return false; }
-
-        /// <summary>是否为君主</summary>
-        public virtual bool IsKunshu() { return false; }
-
-        /// <summary>对方是否为血亲</summary>
-        public virtual bool IsFamily(PersonId id) { return false; }
-
-        /// <summary>对方是否为配偶</summary>
-        public virtual bool SpouseIs(PersonId id) { return false; }
-
-        /// <summary>对方是否为义兄弟</summary>
-        public virtual bool IsGikyoudai(PersonId id) { return false; }
-
-        /// <summary>对方是否为夫妇</summary>
-        public virtual bool IsFuufu(PersonId id) { return false; }
-
-        /// <summary>对方是否为义兄弟（别名）</summary>
-        public virtual bool IsKetsuen(PersonId id) { return false; }
-
-        /// <summary>是否憎恶对方</summary>
-        public virtual bool IsHate(PersonId id) { return false; }
-
-        /// <summary>是否喜好对方</summary>
-        public virtual bool IsLike(PersonId id) { return false; }
-
-        /// <summary>与对方的相性距离</summary>
-        public virtual int GetAishouDistance(PersonId id) { return 75; }
-    }
+    // 注意：单挑系统直接使用的 Person 为游戏真实类型 Sango.Core.Person（本命名空间未再定义同名类，
+    //       因此此处的 Person 会解析到外层 Sango.Core.Person）。
+    //       单挑所需的额外访问器由 DuelPersonAdapter.cs 以扩展方法形式补齐。
+    //
+    //       原先的 Game / Scenario 存根已移除，相关全局设置改为 DuelSettings（见 DuelPersonAdapter.cs）。
 
     /// <summary>宝物。对应 C++ Item</summary>
     public class Item : IAlive

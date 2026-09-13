@@ -45,7 +45,7 @@ namespace Sango.Core
             GameSystem.GetSystem<CityInspection>().Init();
             GameSystem.GetSystem<CityTrainTroops>().Init();     // 训练
 
-            GameSystem.GetSystem<CitySeraching>().Init();
+            GameSystem.GetSystem<CitySearching>().Init();
 
             GameEvent.OnCityMonthStart += OnCityMonthStart;
             GameEvent.OnCitySeasonStart += OnCitySeasonStart;
@@ -63,7 +63,7 @@ namespace Sango.Core
             GameSystem.GetSystem<CityInspection>().Clear();
             GameSystem.GetSystem<CityTrainTroops>().Clear();     // 训练
 
-            GameSystem.GetSystem<CitySeraching>().Clear();
+            GameSystem.GetSystem<CitySearching>().Clear();
 
             GameEvent.OnCityMonthStart -= OnCityMonthStart;
             GameEvent.OnCitySeasonStart -= OnCitySeasonStart;

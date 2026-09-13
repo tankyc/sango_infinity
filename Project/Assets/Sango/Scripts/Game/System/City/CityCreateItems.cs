@@ -163,15 +163,23 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.FreePersonCount > 0 && TargetCity.itemStore.TotalNumber < TargetCity.StoreLimit &&
-                    TargetCity.CheckJobCost(CityJobType.CreateItems)
-                    && (TargetCity.GetFreeBuilding((int)BuildingKindType.BlacksmithShop) != null ||
-                        TargetCity.GetFreeBuilding((int)BuildingKindType.Stable) != null ||
-                        TargetCity.GetFreeBuilding((int)BuildingKindType.BoatFactory) != null ||
-                        TargetCity.GetFreeBuilding((int)BuildingKindType.MechineFactory) != null)
-                    &&
-                    TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.CreateItems);
+                if (TargetCity.FreePersonCount <= 0 || !TargetCity.CheckJobCost(CityJobType.CreateItems))
+                    return false;
+                
+                if (TargetCity.mBelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.CreateItems))
+                    return false;
 
+                InitItem();
+                for (int i = 0; i < ItemTypes.Count; i++)
+                {
+                    ItemTypeInfo itemType = ItemTypes[i];
+                    TargetBuilding = itemType.targetBuilding;
+                    if (TargetBuilding != null && TargetCity.itemStore.GetNumber(itemType.itemType.storeKind) < itemType.itemType.TransformLimit(TargetCity.StoreLimit))
+                    {
+                        return true;
+                    }
+                }
+                return false;
             }
         }
 

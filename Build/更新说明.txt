@@ -5,6 +5,11 @@ QQ群: 526620498, 934836298
 下载地址:
 夸克网盘: https://pan.quark.cn/s/caee627a27f6?pwd=bXbJ
 百度网盘: https://pan.baidu.com/s/1ZfS9KJfLem8cM-TKQUh5WQ?pwd=y1b8
+0.1.6
+1.库存上限现在为每种兵装独立上限,船和器械上限为兵装上限/100
+2.增加基础武将库修改应用的开关
+
+
 
 0.1.5
 1.修复结束回合点击取消导致卡死

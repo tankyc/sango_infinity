@@ -1,4 +1,5 @@
 using Sango.Core.Action;
+using Sango.Core.Debate;
 using Sango.Core.Player;
 using Sango.Render;
 using System;
@@ -483,6 +484,8 @@ namespace Sango.Core
         /// </summary>
         public List<ActionBase> actionList = new List<ActionBase>();
 
+        public List<City> subCities = new List<City>();// = new List<Cell>();
+
         /// <summary>
         /// 攻击部队数量
         /// </summary>
@@ -873,6 +876,9 @@ namespace Sango.Core
                 if (person.mBelongForce != null)
                     person.mBelongForce.BeCaptiveList.Add(person);
             }
+
+            if (mBelongCity != null)
+                mBelongCity.subCities.Add(this);
         }
 
         public override void OnScenarioSave(Scenario scenario)
@@ -1724,7 +1730,7 @@ namespace Sango.Core
                 for (int i = 0; i < scenario.citySet.Count; ++i)
                 {
                     var c = scenario.citySet[i];
-                    if (c != null && c.IsAlive && c.mBelongForce == mBelongForce)
+                    if (c != null && c.mBelongForce == mBelongForce)
                     {
                         if (c.IsGate() || c.IsPort())
                         {
@@ -1809,6 +1815,25 @@ namespace Sango.Core
                 });
                 mBelongForce.BeCaptiveList.Clear();
 
+                scenario.personSet.ForEach(x =>
+                {
+                    if (x.mBelongForce == mBelongForce)
+                    {
+                        x.ClearMission();
+                        if (x.IsValid && !x.IsPrisoner)
+                            x.LeaveToWild();
+
+                        x.mBelongForce = null;
+                        x.mBelongCorps = null;
+                    }
+                });
+
+                scenario.corpsSet.ForEach(x =>
+                {
+                    if (x.mBelongForce == atk.mBelongForce)
+                        x.IsAlive = false;
+                });
+
                 // 势力灭亡事件
                 GameEvent.OnForceFall?.Invoke(mBelongForce, this, atk);
 
@@ -1833,7 +1858,8 @@ namespace Sango.Core
                 atk.mBelongForce.CityCount++;
             }
             atk.mBelongForce.CityList.Add(this);
-            lastBelongCorps.UpdateWhenCityChange();
+            if (escapeCity != null)
+                lastBelongCorps.UpdateWhenCityChange();
             atk.mBelongCorps.UpdateWhenCityChange();
 
             // 处理库存和钱粮,兵力
@@ -2180,12 +2206,14 @@ namespace Sango.Core
 
             if (itemType.kind != (int)ItemKindType.Boat) return null;
 
-            if (itemStore.TotalNumber >= StoreLimit) return null;
+            int totalNum = itemStore.GetNumber((int)ItemStoreKindType.Boat);
+            if (totalNum >= itemType.TransformLimit(StoreLimit))
+                return null;
 
             Scenario scenario = Scenario.Cur;
 
             InitJobFeature(personList);
-            int empty = StoreLimit - itemStore.TotalNumber;
+            int empty = itemType.TransformLimit(StoreLimit) - totalNum;
 
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.CreateBoat;
@@ -2348,7 +2376,9 @@ namespace Sango.Core
 
             overrideData.Recycle();
 
-            int empty = StoreLimit - itemStore.TotalNumber;
+            int totalNum = itemStore.GetNumber((int)ItemStoreKindType.Boat);
+
+            int empty = itemType.TransformLimit(StoreLimit) - totalNum;
             totalValue = Math.Min(empty, totalValue);
             int exsistNumber = itemStore.Add(itemType.storeKind, totalValue);
 
@@ -2379,11 +2409,12 @@ namespace Sango.Core
             if (itemType == null) return null;
 
             if (itemType.kind != (int)ItemKindType.Machine) return null;
+            int totalNum = itemStore.GetNumber((int)itemType.storeKind);
+            if (totalNum > itemType.TransformLimit(StoreLimit)) return null;
 
-            if (itemStore.TotalNumber >= StoreLimit) return null;
 
             Scenario scenario = Scenario.Cur;
-            int empty = StoreLimit - itemStore.TotalNumber;
+            int empty = itemType.TransformLimit(StoreLimit) - totalNum;
 
             InitJobFeature(personList);
 
@@ -2551,7 +2582,7 @@ namespace Sango.Core
 
             overrideData.Recycle();
 
-            int empty = StoreLimit - itemStore.TotalNumber;
+            int empty = itemType.TransformLimit(StoreLimit) - itemStore.GetNumber(itemType.storeKind);
             totalValue = Math.Min(empty, totalValue);
             int exsistNumber = itemStore.Add(itemType.storeKind, totalValue);
 
@@ -3112,16 +3143,20 @@ namespace Sango.Core
 
             mBelongCorps.ReduceActionPoint(apCost);
 
+            // 支持发现港关人才
+            List<Person> invisible = new List<Person>(invisiblePersons);
+            subCities.ForEach(x => invisible.AddRange(x.invisiblePersons));
+
             // 发现人才
             int probality = 20 + person.Politics * 3 / 5;
-            if (invisiblePersons.Count > 0)
+            if (invisible.Count > 0)
             {
                 Tools.OverrideData<int> overrideData1 = Tools.OverrideData<int>.Create(probality);
                 GameEvent.OnCityJobSearchingWild?.Invoke(this, jobId, person, overrideData1);
                 probality = overrideData1.ValueAndRecycle;
                 if (GameRandom.Chance(probality))
                 {
-                    target = invisiblePersons[GameRandom.Range(0, invisiblePersons.Count)];
+                    target = invisible[GameRandom.Range(0, invisible.Count)];
                     target.state = (int)PersonStateType.Unemployed;
 
                     if (IsPlayer)
@@ -3133,8 +3168,9 @@ namespace Sango.Core
 #if SANGO_DEBUG
                     Sango.Log.Info($"@内政@[{mBelongForce.Name}]<{Name}>的{person.Name}发现了人才->{target.Name}");
 #endif
-                    RemoveInvisiblePerson(target);
-                    AddWildPerson(target);
+                    target.mCurrentCity.RemoveInvisiblePerson(target);
+                    target.mCurrentCity.AddWildPerson(target);
+
                     person.merit += meritGain;
                     person.GainExp(meritGain);
                     person.ActionOver = true;
@@ -3358,7 +3394,9 @@ namespace Sango.Core
         public int JobCreateItems(Person[] personList, ItemType itemType, Building building, bool isTest = false)
         {
             if (!GameUtility.IsValidPersonArray(personList)) return 0;
-            if (itemStore.TotalNumber >= StoreLimit) return 0;
+
+            int totalNum = itemStore.GetNumber(itemType.storeKind);
+            if (totalNum >= itemType.TransformLimit(StoreLimit)) return 0;
 
             Scenario scenario = Scenario.Cur;
 
@@ -3373,7 +3411,7 @@ namespace Sango.Core
 
             InitJobFeature(personList);
 
-            int empty = StoreLimit - itemStore.TotalNumber;
+            int empty = itemType.TransformLimit(StoreLimit) - totalNum;
 
             ScenarioVariables variables = scenario.Variables;
             int jobId = itemType.Id == 5 ? (int)CityJobType.CreateHorse : (int)CityJobType.CreateItems;
