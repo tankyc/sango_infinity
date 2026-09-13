@@ -308,15 +308,6 @@ namespace Sango.Core
                 {
                     spouse.mSpouseList.Add(person);
                 }
-
-                // 仅将新增关系通知给特技 Action；既有关系和解除关系不会触发内助。
-                if (!oldList.Contains(spouse))
-                {
-                    Tools.OverrideData<bool> handled = Tools.OverrideData<bool>.Create(false);
-                    GameEvent.OnPersonMarriageCreated?.Invoke(person, spouse, handled);
-                    // 事件处理结束后回收临时标记，避免常驻分配。
-                    handled.Recycle();
-                }
             }
         }
 

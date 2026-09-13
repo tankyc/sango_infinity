@@ -1891,38 +1891,6 @@ namespace Sango.Core
             actionList = null;
         }
 
-        /// <summary>
-        /// 永久写入内助带来的婚姻基础能力加成。
-        /// 该方法只应在新增婚姻关系时调用一次；加成写入基础值，因此不会因婚姻关系后续变化而撤销。
-        /// </summary>
-        /// <param name="value">每项基础能力的永久增加值。</param>
-        public void ApplyInnerAssistanceBonus(int value)
-        {
-            command.baseValue += value;
-            strength.baseValue += value;
-            intelligence.baseValue += value;
-            politics.baseValue += value;
-            glamour.baseValue += value;
-
-            // 立即刷新派生能力；编辑器未加载场景时仅按基础值刷新，避免依赖年龄配置。
-            Scenario scenario = Scenario.Cur;
-            if (scenario == null)
-            {
-                command.UpdateNoAge();
-                strength.UpdateNoAge();
-                intelligence.UpdateNoAge();
-                politics.UpdateNoAge();
-                glamour.UpdateNoAge();
-                return;
-            }
-
-            command.Update(Age, scenario);
-            strength.Update(Age, scenario);
-            intelligence.Update(Age, scenario);
-            politics.Update(Age, scenario);
-            glamour.Update(Age, scenario);
-        }
-
         public bool HasFeatrue(int[] ids)
         {
             if (mFeatureList == null || mFeatureList.Count == 0) return false;

@@ -2297,13 +2297,7 @@
       "desc": "若结婚，双方的能力全部＋２",
       "only": true,
       "level": 2,
-      "kind": 9,
-      "actionEntities": [
-        {
-          "class": "PersonApplyMarriageAbilityBonus",
-          "value": 2
-        }
-      ]
+      "kind": 9
     }
   }
 }

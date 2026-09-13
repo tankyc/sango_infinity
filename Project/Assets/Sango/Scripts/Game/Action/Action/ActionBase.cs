@@ -306,8 +306,6 @@ namespace Sango.Core.Action
             Register("CityPreventPersonLoyaltyLoss", CraeteHandle<CityPreventPersonLoyaltyLoss>);
             // 特技 #99 祈愿：春秋季初概率赋予城市丰收状态，并提高状态期间粮食产量至 150%。
             Register("CityBumperHarvest", CraeteHandle<CityBumperHarvest>);
-            // 特技 #100 内助：新婚关系建立时为双方永久增加基础能力 2 点，双方持有仍只结算一次。
-            Register("PersonApplyMarriageAbilityBonus", CraeteHandle<PersonApplyMarriageAbilityBonus>);
         }
 
     }
