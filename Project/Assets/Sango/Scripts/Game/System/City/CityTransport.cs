@@ -96,6 +96,7 @@ namespace Sango.Core.Player
         private static PersonSortFunction.SortTitle CreateTransportPersonSortTitle()
         {
             PersonSortFunction.SortTitle sortTitle = PersonSortFunction.GetSortByFeatrueId(8);
+            // SortTitle 的标准比较器字段为 valueSortFunc，按搬运特性与运输能力排序。
             sortTitle.valueSortFunc = (a, b) =>
             {
                 // 搬运特性提高输送部队移动力，应优先于基础运输能力。

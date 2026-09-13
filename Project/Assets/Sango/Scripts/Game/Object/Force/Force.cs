@@ -934,6 +934,13 @@ namespace Sango.Core
             int v = GameRandom.RandomWeightIndex(loyaltyWeight, 9);
             ForEachPerson(person =>
             {
+                Tools.OverrideData<bool> shouldLoseLoyalty = Tools.OverrideData<bool>.Create(true);
+                // 由城市特技 Action 决定本武将是否受本次换季掉忠影响。
+                GameEvent.OnForcePersonLoyaltyChange?.Invoke(this, person, shouldLoseLoyalty);
+                if (!shouldLoseLoyalty.ValueAndRecycle)
+                {
+                    return;
+                }
                 person.loyalty -= v;
 #if SANGO_DEBUG
                 Sango.Log.Info($"势力：{Name}, 武将：{person.Name}, 忠诚度下降: {v}, 现有忠诚度:{person.loyalty}");

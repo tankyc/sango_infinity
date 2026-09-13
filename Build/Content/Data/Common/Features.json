@@ -440,7 +440,13 @@
       "desc": "击破敌方部队时所获得的技巧点数增为２倍",
       "only": true,
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopImproveDefeatTechniquePoint",
+          "value": 200
+        }
+      ]
     },
     "22": {
       "Id": 22,
@@ -2254,7 +2260,12 @@
       "desc": "所属相同的武将之每个月的忠诚不会下降",
       "only": true,
       "level": 2,
-      "kind": 8
+      "kind": 8,
+      "actionEntities": [
+        {
+          "class": "CityPreventPersonLoyaltyLoss"
+        }
+      ]
     },
     "98": {
       "Id": 98,
@@ -2270,7 +2281,15 @@
       "desc": "所属都市容易出现丰收",
       "only": true,
       "level": 2,
-      "kind": 8
+      "kind": 8,
+      "actionEntities": [
+        {
+          "class": "CityBumperHarvest",
+          "chance": 50,
+          "durationMonths": 3,
+          "foodHarvestFactor": 150
+        }
+      ]
     },
     "100": {
       "Id": 100,

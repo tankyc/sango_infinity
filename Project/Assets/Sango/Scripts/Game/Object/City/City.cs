@@ -47,6 +47,12 @@ namespace Sango.Core
         [JsonProperty] public int gold;
 
         /// <summary>
+        /// 丰收剩余生效月数。
+        /// 大于零时，本城粮食产量提高 50%；每个月初递减，归零后自动失效。
+        /// </summary>
+        [JsonProperty] public int bumperHarvestRemainingMonths;
+
+        /// <summary>
         /// 人口
         /// </summary>
         [JsonProperty] public int population;
@@ -1074,7 +1080,6 @@ namespace Sango.Core
 
             GameEvent.OnCitySeasonStart?.Invoke(this, scenario);
 
-
             return base.OnSeasonStart(scenario);
         }
 
@@ -1248,7 +1253,8 @@ namespace Sango.Core
                     for (int i = 0; i < x.mFeatureList.Count; i++)
                     {
                         Feature feature = x.mFeatureList[i];
-                        if (feature != null && feature.kind == (int)FeatureKindType.CityHarvest || feature.kind == (int)FeatureKindType.CityDisaster)
+                        // 仅城市收入、灾害类特技可在城市装配；括号确保空特技不会继续访问 kind。
+                        if (feature != null && (feature.kind == (int)FeatureKindType.CityHarvest || feature.kind == (int)FeatureKindType.CityDisaster))
                         {
                             if (!feature.only)
                             {
