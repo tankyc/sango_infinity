@@ -2100,19 +2100,16 @@ namespace Sango.Core
         {
             if (!IsAlive || enemy == null || !enemy.IsAlive)
             {
-                LogAssist("呼叫援助中止: 攻击方或敌军已不在场");
                 return;
             }
             if (Leader == null)
             {
-                LogAssist("呼叫援助中止: 攻击方无主将");
                 return;
             }
             Cell enemyCell = enemy.cell;
             Map map = Scenario.Cur == null ? null : Scenario.Cur.Map;
             if (enemyCell == null || map == null)
             {
-                LogAssist("呼叫援助中止: 敌军不在地图上");
                 return;
             }
 
@@ -2138,7 +2135,6 @@ namespace Sango.Core
                 string block = AssistBlockReason(helper, enemy);
                 if (block != null)
                 {
-                    LogAssist($"{distance}格外的部队[{helper.Name}] 不参与: {block}");
                     continue;
                 }
 
@@ -2147,26 +2143,21 @@ namespace Sango.Core
                 SkillInstance skill = SelectAssistSkill(helper, cell, enemyCell, distance, out reject);
                 if (skill == null)
                 {
-                    LogAssist($"{distance}格外的部队[{helper.Name}] 出不了手: {reject}");
                     continue;
                 }
 
                 int chance = CalcAssistChance(this, helper);
                 if (chance <= 0)
                 {
-                    LogAssist($"{distance}格外的部队[{helper.Name}]主将[{helper.Leader.Name}]与[{Leader.Name}]不沾任何关系档, 概率0");
                     continue;
                 }
 
                 bool hit = GameRandom.Chance(chance);
-                LogAssist($"{distance}格外的部队[{helper.Name}] 关系档概率{chance}%, 判定{(hit ? "通过" : "未通过")}");
                 if (!hit) continue;
 
                 if (DoAssistAttack(helper, enemy, skill))
                     joined++;
             }
-
-            LogAssist($"[{Name}] 攻击[{enemy.Name}], 周围{AssistAttackRange}格内共发现 {candidates} 支部队, {joined} 支部队前来支援");
         }
 
         /// <summary>
@@ -2175,7 +2166,6 @@ namespace Sango.Core
         public static void LogAssist(string message)
         {
             if (!AssistDiagnosis) return;
-            Sango.Log.Info($"[援助攻击]{message}");
         }
 
         /// <summary>
@@ -2186,7 +2176,6 @@ namespace Sango.Core
         {
             if (self == null || helper == null)
             {
-                LogAssist("关系档计算中止: self 或 helper 为空");
                 return 0;
             }
 
@@ -2194,7 +2183,6 @@ namespace Sango.Core
             Person helperLeader = helper.Leader;
             if (leader == null || helperLeader == null)
             {
-                LogAssist($"关系档中止: 攻击方主将[{(leader == null ? "null" : leader.Name)}] 援助方主将[{(helperLeader == null ? "null" : helperLeader.Name)}]");
                 return 0;
             }
 
@@ -2207,13 +2195,7 @@ namespace Sango.Core
             bool isBloodRelative = leader.IsBloodRelative(helperLeader);
             bool hated = Person.IsHatedByEither(leader, helperLeader);
 
-            LogAssist($"关系档判定 {leader.Name}→{helperLeader.Name}: 夫妇={isSpouse} 义兄弟={isSwornBrother} 辅佐特性={hasAssistFeature} 亲爱={isLike} 直系血亲={isBloodRelative} 厌恶={hated}");
-
-            // 夫妇与亲爱读的是单向列表, 反向也查一下, 专门暴露"关系只配了一个方向"
-            if (!isSpouse && helperLeader.IsSpouse(leader))
-                LogAssist($"注: {helperLeader.Name}的配偶列表里有{leader.Name}, 但{leader.Name}这边查不到, 所以本方向不算夫妇");
-            if (!isLike && helperLeader.IsLike(leader))
-                LogAssist($"注: {helperLeader.Name}的亲爱列表里有{leader.Name}, 但{leader.Name}没把对方列入亲爱, 所以本方向不算亲爱");
+      
 
             // 夫妇
             if (isSpouse)
