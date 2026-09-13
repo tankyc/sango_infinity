@@ -2799,9 +2799,19 @@ namespace Sango.Core
             return person;
         }
 
-        public void GainEP(int gp)
+        /// <summary>
+        /// 结算部队本次战斗获得的功绩与技巧点。
+        /// 计算本次战斗获得的技巧点，并开放给部队特技 Action 改写。
+        /// 功绩与经验保持原有口径，不受技巧点特技影响。
+        /// </summary>
+        /// <param name="gp">本次战斗获得的原始功绩。</param>
+        /// <param name="isDestroyEnemyTroop">是否由本部队击破敌方部队触发。</param>
+        public void GainEP(int gp, bool isDestroyEnemyTroop = false)
         {
-            mBelongForce.GainTechniquePoint(gp / 5);
+            Tools.OverrideData<int> techniquePoint = Tools.OverrideData<int>.Create(gp / 5);
+            // 由已装配的部队特技决定是否改写本次技巧点，避免按特技 ID 硬编码。
+            GameEvent.OnTroopCalculateTechniquePoint?.Invoke(this, isDestroyEnemyTroop, techniquePoint);
+            mBelongForce.GainTechniquePoint(techniquePoint.ValueAndRecycle);
 
             // 主将获得100%功绩,
             if (Leader != null)

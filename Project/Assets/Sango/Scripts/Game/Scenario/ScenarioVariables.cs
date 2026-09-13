@@ -9,6 +9,11 @@ namespace Sango.Core
     public class ScenarioVariables : SangoObjectExtensionData
     {
         /// <summary>
+        /// 应用基础武将库修改
+        /// </summary>
+        [JsonProperty] public bool ApplyEdit = false;
+
+        /// <summary>
         /// 最大可存储的行动力上限
         /// </summary>
         [JsonProperty] public int ActionPointLimit = 255;

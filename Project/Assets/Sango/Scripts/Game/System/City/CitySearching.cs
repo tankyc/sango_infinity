@@ -3,11 +3,11 @@ using System.Collections.Generic;
 namespace Sango.Core.Player
 {
     [GameSystem(autoInit = false)]
-    public class CitySeraching : CityBaseSystem
+    public class CitySearching : CityBaseSystem
     {
         public List<Person> counsellorRecommendList = new List<Person>();
 
-        public CitySeraching()
+        public CitySearching()
         {
             customTitleName = "探索人才";
 

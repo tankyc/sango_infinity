@@ -39,6 +39,9 @@ namespace Sango.Core.Duel
         /// <summary>动画队列长度</summary>
         public const int MaxAnimQueueSize = 11;
 
+        /// <summary>武力下限。对应 C++ Person::MinStat</summary>
+        public const int MinStat = 1;
+
         #endregion
 
         #region 嵌套类型
@@ -783,6 +786,12 @@ namespace Sango.Core.Duel
             return this.team[team].currentChara;
         }
 
+        /// <summary>获取队伍数据（供 UI 展示与测试读取）</summary>
+        public Team GetTeam(int team)
+        {
+            return this.team[team];
+        }
+
         /// <summary>506850</summary>
         public int GetOpponentTeam(int team)
         {
@@ -854,7 +863,7 @@ namespace Sango.Core.Duel
         public int GetCurrentStrength(int team, bool revised)
         {
             if (!Utils.InRange(this.team[team].currentChara, 0, MaxTeamCharaCount - 1))
-                return Person.MinStat;
+                return MinStat;
             return TeamGetStrength(this.team[team], this.team[team].currentChara, revised);
         }
 
@@ -1185,7 +1194,7 @@ namespace Sango.Core.Duel
                 return false;
             if (!Utils.IsActive(target))
                 return false;
-            return src.IsFamily(target.GetId()) || src.SpouseIs(target.GetId()) || src.IsGikyoudai(target.GetId());
+            return src.IsFamily(target) || src.IsSpouse(target) || src.IsGikyoudai(target);
         }
 
         /// <summary>5078e0。播放合数动画（无表现层时立即结算）</summary>
@@ -1569,8 +1578,7 @@ namespace Sango.Core.Duel
         public static int CalcDuelFtkTeam(Person a, Person b, bool aBow, bool bBow, int aShoubyou, int bShoubyou, out int chance)
         {
             chance = 0;
-            Scenario scenario = a.GetScenario();
-            if (scenario.GetGame().IsFeatDisabled(Feature.DuelFirstTurnKill))
+            if (DuelSettings.IsFeatDisabled(Feature.DuelFirstTurnKill))
                 return -1;
             if (!Utils.IsAlive(a))
                 return -1;
@@ -1583,7 +1591,7 @@ namespace Sango.Core.Duel
             int atkStr;
             int defStr;
             int atkTeam;
-            if (aStr > bStr || (aStr == bStr && scenario.RandBool(70)))
+            if (aStr > bStr || (aStr == bStr && DuelSettings.RandBool(70)))
             {
                 atk = a;
                 def = b;
@@ -1610,32 +1618,26 @@ namespace Sango.Core.Duel
                 n += 5;
             if (!atk.IsPlayer() && def.IsPlayer())
             {
-                if (Utils.IsAlive(scenario))
+                switch (DuelSettings.Difficulty)
                 {
-                    switch (scenario.GetDifficulty())
-                    {
-                        case Difficulty.Normal:
-                            n = n * 4 / 3; // 1.333...
-                            break;
-                        case Difficulty.Hard:
-                            n = n * 3 / 2; // 1.5
-                            break;
-                    }
+                    case Difficulty.Normal:
+                        n = n * 4 / 3; // 1.333...
+                        break;
+                    case Difficulty.Hard:
+                        n = n * 3 / 2; // 1.5
+                        break;
                 }
             }
             else if (atk.IsPlayer() && !def.IsPlayer())
             {
-                if (Utils.IsAlive(scenario))
+                switch (DuelSettings.Difficulty)
                 {
-                    switch (scenario.GetDifficulty())
-                    {
-                        case Difficulty.Normal:
-                            n = n * 4 / 5; // 0.8
-                            break;
-                        case Difficulty.Hard:
-                            n = n / 2; // 0.5
-                            break;
-                    }
+                    case Difficulty.Normal:
+                        n = n * 4 / 5; // 0.8
+                        break;
+                    case Difficulty.Hard:
+                        n = n / 2; // 0.5
+                        break;
                 }
             }
             int age;
@@ -1654,7 +1656,7 @@ namespace Sango.Core.Duel
                     n += 3;
                     break;
                 case PersonId.Kouchuu_Kanshou:
-                    if (Utils.IsAlive(scenario) && scenario.GetLifeMode() == LifeMode.Virtual)
+                    if (DuelSettings.LifeMode == LifeMode.Virtual)
                     {
                         n += 5;
                         break;
@@ -1695,7 +1697,7 @@ namespace Sango.Core.Duel
                     break;
             }
             chance = n;
-            if (scenario.RandBool(n))
+            if (DuelSettings.RandBool(n))
                 return atkTeam;
             return -1;
         }
@@ -1874,28 +1876,28 @@ namespace Sango.Core.Duel
                 return false;
             if (!Utils.IsActive(opponentCurPerson))
                 return false;
-            if ((int)person.GetId() < 0)
+            if (person.Id < 0)
                 return false;
-            if ((int)curPerson.GetId() < 0)
+            if (curPerson.Id < 0)
                 return false;
-            if ((int)opponentCurPerson.GetId() < 0)
+            if (opponentCurPerson.Id < 0)
                 return false;
 
-            if (person.IsGikyoudai(curPerson.GetId()) || person.IsFuufu(curPerson.GetId()))
+            if (person.IsGikyoudai(curPerson) || person.IsSpouse(curPerson))
             {
                 if (blowCounter < 3)
                     return false;
                 return system.RandBool(80);
             }
 
-            if (person.IsHate(opponentCurPerson.GetId()))
+            if (person.IsHate(opponentCurPerson))
             {
                 if (blowCounter < 4)
                     return false;
                 return system.RandBool(60);
             }
 
-            if (person.IsHate(curPerson.GetId()))
+            if (person.IsHate(curPerson))
             {
                 if (!curPerson.IsKunshu())
                     return false;
@@ -1907,7 +1909,7 @@ namespace Sango.Core.Duel
                 return system.RandBool(person.GetLoyalty() / 4);
             }
 
-            if (person.IsLike(curPerson.GetId()) || person.IsKetsuen(curPerson.GetId()))
+            if (person.IsLike(curPerson) || person.IsKetsuen(curPerson))
             {
                 if (blowCounter < 6)
                     return false;
@@ -1918,13 +1920,13 @@ namespace Sango.Core.Duel
             {
                 if (blowCounter < 6)
                     return false;
-                int n = 10 + (75 - person.GetAishouDistance(curPerson.GetId())) / 2; // 10 .. 47
+                int n = 10 + (75 - person.GetAishouDistance(curPerson)) / 2; // 10 .. 47
                 return system.RandBool(n);
             }
 
             if (blowCounter < 6)
                 return false;
-            int n2 = (75 - person.GetAishouDistance(curPerson.GetId())) / 2; // 0 .. 37
+            int n2 = (75 - person.GetAishouDistance(curPerson)) / 2; // 0 .. 37
             if (n2 < 1)
                 n2 = 1;
             return system.RandBool(n2);
@@ -2787,8 +2789,7 @@ namespace Sango.Core.Duel
         public static int CalcDuelFtkTeam(Person a, Person b, out int chance)
         {
             chance = 0;
-            Scenario scenario = a.GetScenario();
-            if (scenario.GetGame().IsFeatDisabled(Feature.DuelFirstTurnKill))
+            if (DuelSettings.IsFeatDisabled(Feature.DuelFirstTurnKill))
                 return -1;
             if (!Utils.IsAlive(a))
                 return -1;
@@ -2798,20 +2799,28 @@ namespace Sango.Core.Duel
             int bShoubyou = b.GetShoubyou();
             bool aBow = false;
             bool bBow = false;
-            foreach (Item item in scenario.GetGame().GetPersonItemList(a))
+            List<Item> aItems = DuelSettings.GetPersonItemList(a);
+            if (aItems != null)
             {
-                if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.Bow)
+                foreach (Item item in aItems)
                 {
-                    aBow = true;
-                    break;
+                    if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.Bow)
+                    {
+                        aBow = true;
+                        break;
+                    }
                 }
             }
-            foreach (Item item in scenario.GetGame().GetPersonItemList(b))
+            List<Item> bItems = DuelSettings.GetPersonItemList(b);
+            if (bItems != null)
             {
-                if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.Bow)
+                foreach (Item item in bItems)
                 {
-                    bBow = true;
-                    break;
+                    if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.Bow)
+                    {
+                        bBow = true;
+                        break;
+                    }
                 }
             }
             return CalcDuelFtkTeam(a, b, aBow, bBow, aShoubyou, bShoubyou, out chance);
@@ -2998,7 +3007,6 @@ namespace Sango.Core.Duel
         /// <summary>50cf90。武力</summary>
         public static int GetDuelStrength(Person self, int shoubyou, bool revised)
         {
-            Scenario scenario = self.GetScenario();
             if (!Utils.IsActive(self))
                 return 0;
             if (!Utils.InRange(shoubyou, 0, (int)Shoubyou.Hinshi))
@@ -3019,7 +3027,7 @@ namespace Sango.Core.Duel
                 case PersonId.Bachou:
                     return n + 3;
                 case PersonId.Kouchuu_Kanshou:
-                    if (Utils.IsAlive(scenario) && scenario.GetLifeMode() == LifeMode.Virtual)
+                    if (DuelSettings.LifeMode == LifeMode.Virtual)
                         return n + 5;
                     age = self.GetAge();
                     if (age < 60)
@@ -3126,7 +3134,7 @@ namespace Sango.Core.Duel
         {
             if (TeamIsActive(self, chara))
                 return GetDuelStrength(TeamGetPerson(self, chara), TeamGetShoubyou(self, chara), revised);
-            return Person.MinStat;
+            return MinStat;
         }
 
         /// <summary>50d420</summary>
@@ -3166,7 +3174,11 @@ namespace Sango.Core.Duel
             self.item = Bitset32.Empty;
             if (!Utils.IsActive(person))
                 return;
-            foreach (Item item in system.GetPersonItemList(person))
+            // 宝物统一从 DuelSettings.GetPersonItemList 获取（单一配置点）
+            List<Item> items = DuelSettings.GetPersonItemList(person);
+            if (items == null)
+                return;
+            foreach (Item item in items)
             {
                 if (!Utils.IsAlive(item))
                     continue;

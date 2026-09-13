@@ -657,7 +657,8 @@ namespace Sango.Core
                         troop.GainTargetResource(beAtkTroop);
                     }
 
-                    troop.GainEP(ep);
+                    // 传入击破结果，使精妙仅在击破敌方部队的本次结算中生效。
+                    troop.GainEP(ep, !beAtkTroop.IsAlive);
 #if SANGO_DEBUG
                     Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkTroop.mBelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}], 造成伤害:{damage}, 目标剩余兵力: {beAtkTroop.GetTroopsNum()}");
 #endif
@@ -681,7 +682,8 @@ namespace Sango.Core
 #endif
                                 ep = Math.Max(1, damage / 10);
                                 if (!troop.IsAlive) ep += 200;
-                                beAtkTroop.GainEP(ep);
+                                // 反击方仅在实际击破进攻部队时触发精妙。
+                                beAtkTroop.GainEP(ep, !troop.IsAlive);
                             }
                             else
                             {
@@ -696,7 +698,8 @@ namespace Sango.Core
                                     ep += 200;
                                     beAtkTroop.GainTargetResource(troop);
                                 }
-                                beAtkTroop.GainEP(ep);
+                                // 反击方仅在实际击破进攻部队时触发精妙。
+                                beAtkTroop.GainEP(ep, !troop.IsAlive);
 
                             }
                         }
@@ -887,7 +890,8 @@ namespace Sango.Core
                                                 ep += 200;
                                                 troop.GainTargetResource(blockTroop);
                                             }
-                                            troop.GainEP(ep);
+                                            // 范围战法逐个结算，必须按当前目标是否被击破传递事实。
+                                            troop.GainEP(ep, !blockTroop.IsAlive);
                                         }
                                         break;
                                     }
@@ -918,7 +922,8 @@ namespace Sango.Core
                                                 ep += 200;
                                                 troop.GainTargetResource(blockTroop);
                                             }
-                                            troop.GainEP(ep);
+                                            // 范围战法逐个结算，必须按当前目标是否被击破传递事实。
+                                            troop.GainEP(ep, !blockTroop.IsAlive);
 
                                         }
                                         break;

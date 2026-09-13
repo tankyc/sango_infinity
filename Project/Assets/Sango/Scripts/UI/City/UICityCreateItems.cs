@@ -51,7 +51,7 @@ using Sango.Core; namespace Sango.UI
                 cityBuildingSlot.onSelected = OnSelectItemType;
                 cityBuildingSlot.SetItemType(itemType.itemType).SetIndex(i).SetSelected(itemType == currentSystem.CurSelectedItemType).SetNum(totalNum);
                 cityBuildingSlot.titleObj.SetActive(i % 4 == 0);
-                cityBuildingSlot.SetValid(itemType.targetBuilding != null);
+                cityBuildingSlot.SetValid(itemType.targetBuilding != null && totalNum < itemType.itemType.TransformLimit(currentSystem.TargetCity.StoreLimit));
             }
             action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.CreateItems)}/{currentSystem.TargetCity.mBelongCorps.ActionPoint}";
 

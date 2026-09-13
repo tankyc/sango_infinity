@@ -105,6 +105,8 @@ namespace Sango.UI
             AddNumberItem("AI每回合加兵装", variables.aiTurnAddArms, 0, 100000, (v) => { variables.aiTurnAddArms = v; });
 
             AddTitle("剧本基础参数");
+            AddToggleItem("<color=#ee2222>编辑生效</color>", variables.ApplyEdit, (v) => { variables.ApplyEdit = v; });
+
             AddNumberItem("电脑粮食倍率", variables.foodFactor, 0, 100, (v) => { variables.foodFactor = v; });
             AddNumberItem("电脑资金倍率", variables.goldFactor, 0, 100, (v) => { variables.goldFactor = v; });
             AddNumberItem("玩家粮食倍率", variables.playerFoodFactor, 0, 100, (v) => { variables.playerFoodFactor = v; });

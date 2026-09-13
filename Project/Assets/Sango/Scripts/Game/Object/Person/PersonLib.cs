@@ -34,6 +34,11 @@ namespace Sango.Core
         [JsonProperty] public string nickName;
 
         /// <summary>
+        /// 武将类型（对应 PersonTypeEnum）
+        /// </summary>
+        [JsonProperty] public int type;
+
+        /// <summary>
         /// 身平/列傳
         /// </summary>
         [JsonProperty] public string description;
@@ -284,6 +289,20 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty]
         public int[] FeatureList { get; set; }
+
+        /// <summary>
+        /// 武将标签（由武将库工具维护，用于分类与按标签筛选；基础武将库不使用该字段）
+        /// 标注 JsonProperty 是为了让游戏保存自建武将时能原样回写，避免标签丢失
+        /// </summary>
+        [JsonProperty]
+        public string[] tags = new string[0];
+
+        /// <summary>
+        /// 最后修改时间（ISO 8601 UTC 字符串，由武将库工具维护；基础武将库不使用该字段）
+        /// 标注 JsonProperty 是为了让游戏保存自建武将时能原样回写，避免修改时间丢失
+        /// </summary>
+        [JsonProperty]
+        public string updatedAt = "";
 
         public int targetShortPersonId;
 
