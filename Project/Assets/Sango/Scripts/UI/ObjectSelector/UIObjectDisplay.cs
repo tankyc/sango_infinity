@@ -245,6 +245,36 @@ namespace Sango.UI
             UpdateItemStartIndex(startIndex);
         }
 
+        /// <summary>
+        /// 数据源被过滤后重绘:
+        /// 修正滚动条并尽量保持玩家当前的浏览位置
+        /// </summary>
+        public void RefreshByFilter()
+        {
+            if (objectSelectSystem == null || objectSelectSystem.Objects == null) return;
+
+            int dataCount = objectSelectSystem.Objects.Count;
+            if (itemCount <= 0 || dataCount <= itemCount)
+            {
+                scrollbar.transform.parent.gameObject.SetActive(false);
+                startIndex = 0;
+            }
+            else
+            {
+                scrollbar.transform.parent.gameObject.SetActive(true);
+                scrollbar.size = System.Math.Max(0.1f, (float)itemCount / (float)dataCount);
+                int maxStart = dataCount - itemCount;
+                if (startIndex > maxStart) startIndex = maxStart;
+                if (startIndex < 0) startIndex = 0;
+                scrollbar.SetValueWithoutNotify((float)startIndex / (float)maxStart);
+            }
+
+            for (int j = 0; j < uIObjectListItems.Length; j++)
+                uIObjectListItems[j].SetOver(false);
+
+            UpdateItemStartIndex(startIndex);
+        }
+
         public void UpShow()
         {
             if (startIndex > 0)

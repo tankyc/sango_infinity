@@ -600,9 +600,24 @@ namespace Sango.Core
 
         List<Cell> tempCellList = new List<Cell>();
 
+        /// <summary>
+        /// 援助攻击标记: 由 Troop.DoAssistAttack 在把施法事件排入队列后挂上, Action 结算时一次性消耗。
+        /// 挂在技能实例上而不是部队上: 一是只有本次施法会被算成援助, 不会残留到该部队的下一次普通攻击;
+        /// 二是技能时间轴(SkillTimelineEvent_ExecuteDamage)绕过渲染事件的 Action() 直接调本方法时同样读得到
+        /// </summary>
+        internal bool assistAttackFlag;
+
         public void Action(Cell spellCell, int criticalFactor)
         {
             Troop troop = master;
+            // 一次性消耗: 取完立刻抹掉, 同一次施法里后续的结算按正常攻击走
+            bool isAssistAttack = assistAttackFlag;
+            if (isAssistAttack)
+            {
+                assistAttackFlag = false;
+                Troop.LogAssist($"[{troop.Name}] 援助攻击开始结算 → [{(spellCell.troop == null ? "已无部队" : spellCell.troop.Name)}]");
+            }
+
             Scenario scenario = Scenario.Cur;
             ScenarioVariables scenarioVariables = scenario.Variables;
             Troop targetTroop = spellCell.troop;
@@ -628,6 +643,10 @@ namespace Sango.Core
                     Tools.OverrideData<int> damage_overrideData = Tools.OverrideData<int>.Create(damage);
                     GameEvent.OnSkillDamageTroop?.Invoke(this, beAtkTroop, damage_overrideData);
                     damage = damage_overrideData.Value;
+
+                    // 援助攻击只折算伤害, 其余流程(反击/EP/击杀奖励)与普通攻击完全一致
+                    if (isAssistAttack)
+                        damage = damage * Troop.AssistAttackDamagePercent / 100;
 
                     beAtkTroop.ChangeTroops(-damage, this, 0);
                     int ep = Math.Max(1, damage / 10);
@@ -686,7 +705,22 @@ namespace Sango.Core
                         }
                     }
                     if (this.master.IsAlive && beAtkTroop.IsAlive)
+                    {
                         GameEvent.OnSkillDamageTroopAfter?.Invoke(this, beAtkTroop, damage_overrideData);
+
+                        // 只对主目标呼叫援助, 免得AOE把每个溅射目标都引来一轮集火;
+                        // !isAssistAttack 是防递归的关键: 援助自身的伤害结算也会走到这里
+                        if (targetTroop == beAtkTroop && !isAssistAttack)
+                            troop.TryAssistAttack(beAtkTroop);
+                        else if (isAssistAttack)
+                            Troop.LogAssist($"[{troop.Name}] 本次就是援助攻击, 不再连锁呼叫");
+                        else
+                            Troop.LogAssist($"技能<{Name}>落点不是主目标, 不呼叫援助");
+                    }
+                    else
+                    {
+                        Troop.LogAssist($"打[{beAtkTroop.Name}]后 攻击方存活={this.master.IsAlive} 目标存活={beAtkTroop.IsAlive}, 不呼叫援助");
+                    }
                 }
 
                 BuildingBase beAtkBuildingBase = atkCell.building;

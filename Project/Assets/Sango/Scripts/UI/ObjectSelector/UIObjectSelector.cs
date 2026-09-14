@@ -46,6 +46,11 @@ namespace Sango.UI
                 }
                 else
                 {
+                    // 超出数据范围的空行(候选不足或已被过滤掉), 必须把上一次的文本清掉
+                    for (int j = 0; j < sortItems.Count; j++)
+                    {
+                        listItem.Set(j, "");
+                    }
                     listItem.SetSelected(false);
                 }
 
