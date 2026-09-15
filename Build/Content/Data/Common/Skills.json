@@ -1133,6 +1133,100 @@
       "personSound": [
         2852
       ]
+    },
+    "29": {
+      "Id": 29,
+      "Name": "落雷",
+      "kind": 3,
+      "atk": 40,
+      "atkDurability": 5,
+      "costEnergy": 50,
+      "successRate": 0,
+      "successMethod": "ThunderboltSuccessMethod",
+      "criticalMethod": "ThunderboltCriticalMethod",
+      "spellRanges": [
+        1,
+        2
+      ],
+      "needAblilityLevel": 0,
+      "isRange": true,
+      "atkOffsetPoint": [
+        5,
+        1
+      ],
+      "actionSound": 88,
+      "skillEffects": [
+        {
+          "class": "SetFire",
+          "probability": 10000,
+          "values": [
+            1,
+            2
+          ],
+          "weight": [
+            70,
+            30
+          ],
+          "condition": {
+            "class": "SkillIsCritical",
+            "result": 0
+          }
+        },
+        {
+          "class": "SetFire",
+          "probability": 10000,
+          "values": [
+            2,
+            3
+          ],
+          "weight": [
+            70,
+            30
+          ],
+          "condition": {
+            "class": "SkillIsCritical",
+            "result": 1
+          }
+        }
+      ],
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "canSpellToCell": true,
+      "onlySpellToTeam": false,
+      "personSound": [
+        2852
+      ]
+    },
+    "30": {
+      "Id": 30,
+      "Name": "妖术",
+      "kind": 3,
+      "atk": 25,
+      "atkDurability": 5,
+      "costEnergy": 30,
+      "successRate": 0,
+      "successMethod": "SorcerySuccessMethod",
+      "criticalMethod": "SorceryCriticalMethod",
+      "spellRanges": [
+        1,
+        2
+      ],
+      "needAblilityLevel": 0,
+      "isRange": true,
+      "actionSound": 88,
+      "canDamageTroop": true,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": false,
+      "canDamageTeam": false,
+      "canSpellToCell": false,
+      "onlySpellToTeam": false,
+      "personSound": [
+        2852
+      ]
     }
   }
 }

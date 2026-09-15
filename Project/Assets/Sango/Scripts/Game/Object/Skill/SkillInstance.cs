@@ -261,7 +261,7 @@ namespace Sango.Core
 
         protected void InitSkillVisualizer()
         {
-            string visualType = skill.visualType ?? (IsRange() ? "Range" : "Default");
+            string visualType = skill.visualType ?? (IsStrategy() ? "Strategy" : (IsRange() ? "Range" : "Default"));
             skillVisualizer = SkillVisualizer.Create(visualType);
             if (skillVisualizer != null)
             {
@@ -548,6 +548,14 @@ namespace Sango.Core
         }
 
 
+        // 落雷技能Id与结算时序:第二段特效序列 519(1.775~4.575s)→522(2.15~3.45s)→521×3(上2.205/中2.305/下2.405开始,各2.16s,比原提前0.15s)
+        // 三处间隔0.1s消失,下处最晚4.565s结束;伤害结算再提前0.5s到3.82s(雷击连击中段即出数字)
+        const int ThunderSkillId = 29;
+        const float ThunderDamageDelay = 3.82f;  // 结算提前0.5s:原4.32s→3.82s
+        const float ThunderSkillOverTime = 4.6f;  // 落雷技能整体时长
+        const int ThunderDamageMin = 1500;  // 落雷固定伤害下限(每队随机)
+        const int ThunderDamageMax = 2500;  // 落雷固定伤害上限(每队随机)
+
         public bool UpdateRender(Cell spellCell, Scenario scenario, float time, System.Action action)
         {
             if (time <= 0f)
@@ -587,12 +595,26 @@ namespace Sango.Core
                     // 播放技能视觉效果
                     PlaySkillVisual(master, spellCell, tempTimelineCellList);
                 }
-                if (time > 1.2f)
-                    action();
-                if (time > 2.5f)
+                if (skill.Id == ThunderSkillId)
                 {
-                    master.Render.SetAniShow(0);
-                    return true;
+                    // 落雷:第二段特效序列最晚约3.45s全部结束,伤害延后到特效播放结束后再结算,避免"先掉血后落雷"
+                    if (time > ThunderDamageDelay)
+                        action();
+                    if (time > ThunderSkillOverTime)
+                    {
+                        master.Render.SetAniShow(0);
+                        return true;
+                    }
+                }
+                else
+                {
+                    if (time > 1.2f)
+                        action();
+                    if (time > 2.5f)
+                    {
+                        master.Render.SetAniShow(0);
+                        return true;
+                    }
                 }
             }
             return false;
@@ -621,7 +643,12 @@ namespace Sango.Core
 
                 if (atk > 0 && beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
                 {
-                    int damage = Troop.CalculateSkillDamage(troop, beAtkTroop, this) * criticalFactor / 100;
+                    // 落雷:固定伤害1500~2500兵力(每队随机),不受攻防兵力公式影响
+                    int damage;
+                    if (skill.Id == ThunderSkillId)
+                        damage = GameRandom.Range(ThunderDamageMin, ThunderDamageMax + 1) * criticalFactor / 100;
+                    else
+                        damage = Troop.CalculateSkillDamage(troop, beAtkTroop, this) * criticalFactor / 100;
                     if (damage < 0)
                         damage = 0;
 
@@ -1001,7 +1028,11 @@ namespace Sango.Core
                 Cell atkCell = target;
                 if (canSpellToCell)
                 {
-                    effects.ForEach(s => s.Action(target));
+                    // 主目标格必定施放效果(如点火);周围邻格只有存在部队/建筑(含城池)才施放,空地不施放
+                    if (atkCell == spellCell || atkCell.troop != null || atkCell.building != null)
+                    {
+                        effects.ForEach(s => s.Action(target));
+                    }
                 }
                 else
                 {

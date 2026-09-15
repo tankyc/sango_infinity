@@ -1,4 +1,4 @@
-﻿using TKNewtonsoft.Json;
+using TKNewtonsoft.Json;
 using TKNewtonsoft.Json.Linq;
 using System.Collections.Generic;
 using UnityEngine;
@@ -315,14 +315,18 @@ namespace Sango.Core
         {
             public override int Calculate(SkillInstance skillInstance, Troop troop, Cell spellCell)
             {
-                Troop target = spellCell.troop;
-                if (target == null) return 0;
-
+                // 公式:成功率 = 施法智力 ×0.6 +15
                 int C = 0;
-                if (target.HasControlBuff())
+                Troop target = spellCell.troop;
+                if (target != null && target.HasControlBuff())
+                {
+                    // 目标混乱/伪报等异常状态,再加10%
                     C = 10;
-              
-                return troop.Intelligence * 60 / 100 + 15 + C;
+                }
+                int V = (int)(troop.Intelligence * 0.6f) + 15 + C;
+                if (V > 99) V = 99;   // 上限99%
+                if (V < 15) V = 15;   // 下限15%
+                return V;
             }
         }
     }
