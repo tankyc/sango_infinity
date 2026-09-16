@@ -1,5 +1,6 @@
 using Sango.Core;
 using Sango.Core.Player;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,6 +13,8 @@ namespace Sango.UI
     /// </summary>
     internal struct PersonEditSnapshot
     {
+        public string image;
+
         #region 兵种适应力 (0=S, 1=A, 2=B, 3=C)
         /// <summary>枪兵适应力</summary>
         public int spearLv;
@@ -69,6 +72,8 @@ namespace Sango.UI
         public static PersonEditSnapshot FromPerson(Person p)
         {
             PersonEditSnapshot snapshot = new PersonEditSnapshot();
+
+            snapshot.image = p.image;
 
             // 兵种适应力
             snapshot.spearLv = p.spearLv.baseValue;
@@ -138,6 +143,8 @@ namespace Sango.UI
         /// <param name="p">目标武将对象</param>
         public void ApplyTo(Person p)
         {
+            p.image = image;
+
             // 兵种适应力
             p.spearLv.baseValue = spearLv;
             p.spearLv.Update();
@@ -258,6 +265,9 @@ namespace Sango.UI
     /// </summary>
     public class UIPersonEdit : UGUIWindow
     {
+        /// <summary>立绘输入框（老年）</summary>
+        public InputField imageInput;
+
         #region 基础引用
         /// <summary>
         /// 根节点
@@ -490,6 +500,8 @@ namespace Sango.UI
         /// </summary>
         private void BindEvents()
         {
+            BindTextInput(imageInput, () => snapshot.image, v => snapshot.image = v);
+
             // 适应力Toggles - 6种兵种 × 4个等级,直接修改快照字段
             BindAdaptToggleGroup(spearAdaptToggles, () => snapshot.spearLv, (v) => snapshot.spearLv = v);
             BindAdaptToggleGroup(halberdAdaptToggles, () => snapshot.halberdLv, (v) => snapshot.halberdLv = v);
@@ -523,6 +535,22 @@ namespace Sango.UI
             // 决定 / 返回
             if (confirmButton != null) confirmButton.onClick.AddListener(OnConfirmClick);
             if (cancelButton != null) cancelButton.onClick.AddListener(OnCancelClick);
+        }
+
+        /// <summary>
+        /// 绑定文本输入框：结束编辑时直接写入快照，支持值变化后的附加回调。
+        /// </summary>
+        private void BindTextInput(InputField input, Func<string> getter, Action<string> setter, Action onChanged = null)
+        {
+            if (input == null) return;
+            input.onEndEdit.AddListener((text) =>
+            {
+                if (refreshing) return;
+                setter(text ?? string.Empty);
+                if (input != null) input.text = getter();
+                onChanged?.Invoke();
+            });
+            input.text = getter().ToString();
         }
 
         /// <summary>

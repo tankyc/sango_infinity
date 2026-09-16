@@ -230,18 +230,33 @@ namespace Sango.Core
         [JsonProperty]
         public override bool ActionOver
         {
-            get => _actionOver;
+            get => actionOver;
             set
             {
-                if (_actionOver != value)
+                if (actionOver != value)
                 {
-                    _actionOver = value;
+                    if (value)
+                    {
+                        if (ActionOverCount > 0)
+                        {
+                            ActionOverCount--;
+                            isExtraAction = true;
+                            return;
+                        }
+                    }
+                    isExtraAction = false;
+                    actionOver = value;
+                    ActionOverCount = 0;
                     GameEvent.OnTroopActionOver?.Invoke(this);
                 }
             }
         }
-        private bool _actionOver;
-        public System.Action overAction;
+        private bool actionOver;
+        // 额外行动的标志
+        public bool isExtraAction = false;
+        // 额外行动的次数
+        public int ActionOverCount = 0;
+
         public bool IsPlayer => mBelongForce?.IsPlayer ?? false;
         /// <summary>
         /// 是否为玩家控制的
@@ -502,12 +517,6 @@ namespace Sango.Core
             _troopName = $"{Leader?.Name}队";
             ForEachPerson(x => x.mTroop = this);
             InitActionList();
-            StrategySkills.Clear();
-            scenario.CommonData.Skills.ForEach(x =>
-            {
-                if (x.IsStrategy())
-                    StrategySkills.Add(SkillInstance.Create(this, x));
-            });
 
             CalculateAttribute(scenario);
             if (LandTroopType.isFight && LandTroopType.Id != 1)
@@ -698,6 +707,13 @@ namespace Sango.Core
             ScenarioVariables Variables = Scenario.Cur.Variables;
             captiveChangce = Variables.captureChangceWhenTroopFall;
 
+            StrategySkills.Clear();
+            scenario.CommonData.Skills.ForEach(x =>
+            {
+                if (x.IsStrategy())
+                    StrategySkills.Add(SkillInstance.Create(this, x));
+            });
+
             if (WaterTroopType == null)
                 WaterTroopType = scenario.GetObject<TroopType>(8);
 
@@ -737,13 +753,7 @@ namespace Sango.Core
                     Skill skill = Scenario.Cur.GetObject<Skill>(LandTroopType.skills[i]);
                     if (skill != null && skill.CanAddToTroop(this, false))
                     {
-                        SkillInstance ins = null;
-                        if (skills != null)
-                            ins = skills.Find(x => x.skill == skill);
-                        if (ins == null)
-                            ins = SkillInstance.Create(this, skill);
-                        ins.master = this;
-                        skillInstances.Add(ins);
+                        skillInstances.Add(SkillInstance.Create(this, skill));
                     }
                 }
             }
@@ -757,13 +767,7 @@ namespace Sango.Core
                     Skill skill = Scenario.Cur.GetObject<Skill>(WaterTroopType.skills[i]);
                     if (skill != null && skill.CanAddToTroop(this, true))
                     {
-                        SkillInstance ins = null;
-                        if (skills != null)
-                            ins = skills.Find(x => x.skill == skill);
-                        if (ins == null)
-                            ins = SkillInstance.Create(this, skill);
-
-                        skillInstances.Add(ins);
+                        skillInstances.Add(SkillInstance.Create(this, skill));
                     }
                 }
             }
@@ -1416,6 +1420,9 @@ namespace Sango.Core
 
         public bool ChangeTroops(int num, SangoObject atk, int atkBack)
         {
+            if (!IsAlive)
+                return false;
+
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(num);
             GameEvent.OnTroopChangeTroops?.Invoke(this, atk, atkBack, overrideData);
             num = overrideData.ValueAndRecycle;
@@ -1439,7 +1446,7 @@ namespace Sango.Core
             troops = troops + num;
             if (num < 0)
             {
-                
+
                 int absNum = System.Math.Abs(num);
                 woundedTroops += (int)System.Math.Ceiling(absNum * 0.14f);
                 int _foodCost = (int)System.Math.Ceiling(Scenario.Cur.Variables.baseFoodCostInTroop * absNum * TroopType.foodCostFactor) / 2;
@@ -2195,7 +2202,7 @@ namespace Sango.Core
             bool isBloodRelative = leader.IsBloodRelative(helperLeader);
             bool hated = Person.IsHatedByEither(leader, helperLeader);
 
-      
+
 
             // 夫妇
             if (isSpouse)

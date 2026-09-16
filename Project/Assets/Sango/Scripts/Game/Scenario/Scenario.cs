@@ -1022,13 +1022,14 @@ namespace Sango.Core
             //Cur.OnWorldLoaded();
             //Event.OnScenarioEnd?.Invoke(Cur);
             //Cur = null;
-            var test = new DuelTestInstance(Cur.personSet.Get(3), Cur.personSet.Get(4), seed: 12345);  // 真实武将
-            test.OnLog = Debug.Log;
-            test.Run();
+            //var test = new DuelTestInstance(Cur.personSet.Get(3), Cur.personSet.Get(4), seed: 12345);  // 真实武将
+            //test.OnLog = Debug.Log;
+            //test.Run();
 
-            var t = new DebateTestInstance(Cur.personSet.Get(290), Cur.personSet.Get(246), seed: 12345);
-            t.OnLog = Debug.Log;
-            t.Run();
+
+            //var t = new DebateTestInstance(Cur.personSet.Get(290), Cur.personSet.Get(246), seed: 12345);
+            //t.OnLog = Debug.Log;
+            //t.Run();
 
         }
 

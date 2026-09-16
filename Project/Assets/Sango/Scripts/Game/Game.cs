@@ -82,6 +82,7 @@ namespace Sango.Core
             GameLanguage.Instance.Init("cn");
             GameSystemManager.Instance.Init();
             GameLogin.Instance.Init();
+            GameVersion.Instance.Init();
             StartCoroutine(GameInit());
         }
 

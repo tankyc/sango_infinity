@@ -37,7 +37,7 @@ namespace Sango.Core
             // 只给正式的城池补充；空城、港关、关卡不补充
             if (!city.IsCity())
                 return;
-            if (city.BelongForce == 0)
+            if (city.mBelongForce == null)
                 return;
             if (city.IsPlayer)
                 return;

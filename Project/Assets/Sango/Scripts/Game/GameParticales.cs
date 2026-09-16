@@ -31,11 +31,7 @@ namespace Sango.Core
                 @object.transform.localScale = scale;
                 @object.transform.localRotation = rot;
 
-                PoolLife poolLife = @object.GetComponent<PoolLife>();
-                if (poolLife == null)
-                    poolLife = @object.AddComponent<PoolLife>();
-
-                poolLife.life = life;
+                PoolLife.AutoRelease(@object, life);
             }
         }
     }

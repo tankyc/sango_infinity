@@ -32,7 +32,7 @@ using Sango.Core; namespace Sango.UI
 
             bg.enabled = building.mBelongForce != null;
             if (boder != null)
-                boder.SetActive(city.IsBorderCity);
+                boder.SetActive(city.IsCity() && city.IsBorderCity);
 
             if (building.mBelongForce != null)
             {

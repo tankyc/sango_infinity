@@ -71,7 +71,7 @@ namespace Sango.Core
         /// </summary>
         public override string Name
         {
-            get { return $"第{numberTxt[number]}军团"; }
+            get { return $"{mBelongForce?.ColorName}第{numberTxt[number]}军团"; }
         }
 
         /// <summary>

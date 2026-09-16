@@ -1681,8 +1681,11 @@ namespace Sango.Core
             if (mBelongCorps == null)
             {
                 ChangeCorps(atk.mBelongCorps);
-                Leader = atk.Leader;
-                atk.EnterCity(this);
+                if (skillInstance != null && !skillInstance.IsRange())
+                {
+                    Leader = atk.Leader;
+                    atk.EnterCity(this);
+                }
                 Render?.UpdateRender();
                 CalculateHarvest();
                 GameEvent.OnCityFall?.Invoke(this, lastBelongForce, atk);
@@ -1725,6 +1728,8 @@ namespace Sango.Core
             // 必须优先处理队伍
             if (escapeCity == null)
             {
+                mBelongForce.IsAlive = false;
+                mBelongCorps.IsAlive = false;
                 // 灭亡后,队伍要清除
                 scenario.troopsSet.ForEach((troop) =>
                 {
@@ -1740,19 +1745,20 @@ namespace Sango.Core
                     {
                         if (c.IsGate() || c.IsPort())
                         {
+                            c.freePersons.Clear();
                             c.allPersons.ForEach(p =>
-                             {
-                                 p.ClearMission();
-                                 p.LeaveToWild();
-                             });
-                            c.allPersons.Clear();
-
-                            for (int j = c.captiveList.Count - 1; j >= 0; j--)
                             {
-                                Person person = c.captiveList[j];
-                                if (person == null) continue;
+                                 p.LeaveToWild();
+                            });
+                            c.allPersons.Clear();
+                            c.allBuildings.ForEach(building =>
+                            {
+                                building.OnFall(atk);
+                            });
+                            c.captiveList.ForEach(person =>
+                            {
                                 person.Escape(EscapeType.Escape);
-                            }
+                            });
                             c.LeaveToWild();
                         }
                     }
@@ -1762,10 +1768,10 @@ namespace Sango.Core
             // 处理缓存队伍信息
             allAttackTroops.Clear();
             allTroops.Clear();
-            for (int i = allPersons.Count - 1; i >= 0; --i)
+            allPersons.ForEach(person =>
             {
-                Person person = allPersons[i];
                 person.ClearMission();
+                person.workingBuilding = null;
                 if (escapeCity != null)
                 {
                     person.OnWillChangeToCity(escapeCity);
@@ -1786,17 +1792,16 @@ namespace Sango.Core
                     person.LeaveToWild();
                     temp_captive_list.Add(person);
                 }
-            }
+            });
+            allPersons.Clear();
+            freePersons.Clear();
 
             //处理建筑
-            for (int i = allBuildings.Count - 1; i >= 0; i--)
+            allBuildings.ForEach(building =>
             {
-                Building building = allBuildings[i];
                 if (building.isComplate && GameRandom.Chance(30))
                 {
                     building.ChangeCorps(atk.mBelongCorps);
-                    if (building.Workers != null)
-                        building.Workers.ForEach(x => x.workingBuilding = null);
                     building.Builder?.Clear();
                     building.Workers?.Clear();
                 }
@@ -1804,7 +1809,9 @@ namespace Sango.Core
                 {
                     building.OnFall(atk);
                 }
-            }
+            });
+            allBuildings.Clear();
+
             Force destroyedForce = null;
             if (escapeCity == null)
             {
@@ -1816,8 +1823,11 @@ namespace Sango.Core
                 mBelongForce.IsAlive = false;
                 mBelongForce.BeCaptiveList.ForEach(x =>
                 {
-                    x.mBelongForce = null;
-                    x.mBelongCorps = null;
+                    if (x.mBelongForce == destroyedForce)
+                    {
+                        x.mBelongForce = null;
+                        x.mBelongCorps = null;
+                    }
                 });
                 mBelongForce.BeCaptiveList.Clear();
 
@@ -1828,7 +1838,8 @@ namespace Sango.Core
                         x.ClearMission();
                         if (x.IsValid && !x.IsPrisoner)
                             x.LeaveToWild();
-
+                        x.workingBuilding = null;
+                        x.mTroop = null;
                         x.mBelongForce = null;
                         x.mBelongCorps = null;
                     }
@@ -1836,7 +1847,7 @@ namespace Sango.Core
 
                 scenario.corpsSet.ForEach(x =>
                 {
-                    if (x.mBelongForce == atk.mBelongForce)
+                    if (x.mBelongForce == mBelongForce)
                         x.IsAlive = false;
                 });
 
@@ -4035,6 +4046,14 @@ namespace Sango.Core
                         }
                     }
                 }
+            }
+
+            // 旧太守不再担任本城太守,必须先降级为一般武将。
+            // 规则2:状态必须与所属匹配。若只提升新太守而不降级旧太守,
+            // 就会出现同一势力内存在多个"太守"状态的武将
+            if (Leader != null && Leader != dest && Leader.IsLeader)
+            {
+                Leader.SetStateNormal();
             }
 
             Leader = dest;
