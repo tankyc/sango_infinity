@@ -660,7 +660,6 @@ namespace Sango.Core
             AIPrepared = false;
             FightPower = 0;
             PersonCount = 0;
-            CityCount = 0;
 #if SANGO_DEBUG
             Sango.Log.Info($"==={Name} 回合===");
 #endif
@@ -775,11 +774,12 @@ namespace Sango.Core
 
         void UpdateTurnInfo(Scenario scenario)
         {
+            CityCount = 0;
+            CityBaseCount = 0;
+            CityList.Clear();
             prepareTechniqueList(scenario);
             UpdateValidCreatedItemTypes();
             UpdateCanBuildBuildingTypes();
-
-            bool hasNoCheckBorder = false;
             NeighborForceList.Clear();
             NeighborCityList.Clear();
             List<City> boderCities = new List<City>();
@@ -789,16 +789,15 @@ namespace Sango.Core
                 var c = scenario.citySet[i];
                 if (c != null && c.IsAlive && c.mBelongForce == this)
                 {
+                    CityList.Add(c);
+                    CityBaseCount++;
 
                     c.OnForceTurnStart(scenario);
                     FightPower += c.FightPower;
                     buildingBaseList.Enqueue(c);
-                    CityBaseCount++;
-
                     if (c.IsCity())
                     {
                         CityCount++;
-
                         c.borderLine = -1;
                         // 计算相邻势力
                         foreach (City neighbor in c.NeighborList)
@@ -1172,6 +1171,17 @@ namespace Sango.Core
             corps.mComander = commander;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
+
+            // 都督必须归入本军团并切换为军团长状态。
+            // 规则2:隶属势力的武将,状态必须与身份匹配,且所属军团必须是本势力下的军团。
+            // 若都督不在下面的 cities 中,漏掉这一步就会出现"都督的所属军团还在别的军团"的不一致
+            if (commander != null)
+            {
+                commander.mBelongForce = this;
+                commander.mBelongCorps = corps;
+                commander.SetStateCommander();
+            }
+
             foreach (var city in cities)
             {
                 city.mBelongCorps = corps;
@@ -1193,7 +1203,9 @@ namespace Sango.Core
             corps.mBelongForce = this;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
-            corps.mComander.state = (int)PersonStateType.Commander;
+            // 使用 SetStateCommander 而非直接赋值:主公不应被降级为军团长,
+            // 直接改写 state 会让主公变成"军团长"状态,破坏状态与身份的对应关系
+            corps.mComander?.SetStateCommander();
             foreach (var city in corps.inti_cities)
             {
                 city.mBelongCorps = corps;
@@ -1403,7 +1415,7 @@ namespace Sango.Core
                 }
             }
 
-            if (avarageTotalSeat > 0)
+            if (avarageTotalSeat > 0 && leftCityCount > 0)
             {
                 noBoderSeat += avarageTotalSeat / leftCityCount;
             }

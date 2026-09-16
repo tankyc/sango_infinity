@@ -33,6 +33,13 @@ namespace Sango.Core.Player
            
         }
 
+        public override void Update()
+        {
+            base.Update();
+            if(!ContextMenu.IsVisible())
+                Done();
+        }
+
         /// <summary>
         /// 离开当前命令的时候触发
         /// </summary>

@@ -796,6 +796,7 @@ namespace Sango.Core
                         {
                             mBelongCity.allPersons.Add(this);
                             mBelongCity.NeedUpdateLeader();
+                            CheckBelongConsistency();
                         }
                         break;
                     // 军团长
@@ -804,6 +805,7 @@ namespace Sango.Core
                         {
                             mBelongCity.allPersons.Add(this);
                             mBelongCity.NeedUpdateLeader();
+                            CheckBelongConsistency();
                         }
                         break;
                     // 太守
@@ -812,6 +814,7 @@ namespace Sango.Core
                         {
                             mBelongCity.allPersons.Add(this);
                             mBelongCity.NeedUpdateLeader();
+                            CheckBelongConsistency();
                         }
                         break;
                     // 一般武将
@@ -819,12 +822,7 @@ namespace Sango.Core
                         if (mBelongCity != null)
                         {
                             mBelongCity.allPersons.Add(this);
-                            if (mBelongForce != mBelongCity.mBelongForce || mBelongCorps != mBelongCity.mBelongCorps)
-                            {
-                                Sango.Log.Error($"[{Id}]{Name}归属force:{mBelongForce?.Name} corps:{mBelongCorps?.Name}, 但在city[{mBelongCity?.Name}] force:{mBelongCity.mBelongForce?.Name} corps:{mBelongCity.mBelongCorps?.Name}");
-                                mBelongForce = mBelongCity.mBelongForce;
-                                mBelongCorps = mBelongCity.mBelongCorps;
-                            }
+                            CheckBelongConsistency();
                         }
                         break;
                     // 在野
@@ -907,6 +905,28 @@ namespace Sango.Core
 
             if (Level == null)
                 Level = scenario.CommonData.PersonLevels[0];
+        }
+
+        /// <summary>
+        /// 校验并修正武将的势力/军团与所属城市之间的归属一致性。
+        /// 规则2:隶属势力的武将(主公/都督/太守/一般),其所属军团必须是所属势力下的军团,
+        /// 并且必须同时拥有隶属城市与所在城市。
+        /// 存档中一旦出现"武将归属 A 势力,却待在 B 势力的城池、或顶着 B 势力的军团"的情况,
+        /// 这里统一以所属城市的归属为准纠正,并输出错误日志便于定位数据错乱的来源。
+        /// </summary>
+        private void CheckBelongConsistency()
+        {
+            // 没有隶属城市时无从比对,直接跳过
+            if (mBelongCity == null)
+                return;
+
+            // 势力与军团都与所属城市一致,属于正常情况
+            if (mBelongForce == mBelongCity.mBelongForce && mBelongCorps == mBelongCity.mBelongCorps)
+                return;
+
+            Sango.Log.Error($"[{Id}]{Name}归属force:{mBelongForce?.Name} corps:{mBelongCorps?.Name}, 但在city[{mBelongCity?.Name}] force:{mBelongCity.mBelongForce?.Name} corps:{mBelongCity.mBelongCorps?.Name}");
+            mBelongForce = mBelongCity.mBelongForce;
+            mBelongCorps = mBelongCity.mBelongCorps;
         }
 
         public override void OnScenarioSave(Scenario scenario)
@@ -1276,7 +1296,7 @@ namespace Sango.Core
                                 mBelongCity.allPersons.Add(this);
                                 mBelongCity.freePersons.Add(this);
                                 state = (int)PersonStateType.Normal;
-
+                                loyalty = 100;
                                 if (IsPlayer)
                                 {
                                     RenderEvent.Instance.Add(new PersonGrowupEvent()
@@ -1348,6 +1368,7 @@ namespace Sango.Core
                             becameCity.allPersons.Add(x);
                             becameCity.freePersons.Add(x);
                             x.state = (int)PersonStateType.Normal;
+                            x.loyalty = 100;
 
                             if (IsPlayer)
                             {
@@ -1455,15 +1476,27 @@ namespace Sango.Core
             }
             else if (IsCommander)
             {
-                mBelongCorps.mComander = null;
-                mBelongCorps.NeedUpdateCommander();
-                mBelongCity.Leader = null;
-                mBelongCity.NeedUpdateLeader();
+                // 都督被俘:让出都督职位并重新推举
+                if (mBelongCorps != null)
+                {
+                    mBelongCorps.mComander = null;
+                    mBelongCorps.NeedUpdateCommander();
+                }
+                // 都督不一定兼任太守,只有本人确实是该城太守时才需要让位
+                if (mBelongCity != null && mBelongCity.Leader == this)
+                {
+                    mBelongCity.Leader = null;
+                    mBelongCity.NeedUpdateLeader();
+                }
             }
             else if (IsLeader)
             {
-                mBelongCity.Leader = null;
-                mBelongCity.NeedUpdateLeader();
+                // 太守被俘:让出太守职位并重新推举
+                if (mBelongCity != null)
+                {
+                    mBelongCity.Leader = null;
+                    mBelongCity.NeedUpdateLeader();
+                }
             }
 
         }
@@ -1523,7 +1556,9 @@ namespace Sango.Core
             {
                 last = mBelongCorps;
                 mBelongCorps = corps;
-                if (mBelongForce != corps.mBelongForce)
+                // 目标军团可能为空(例如城市处于无归属状态),此时只清空军团,势力交由调用方处理,
+                // 直接取 corps.mBelongForce 会触发空引用
+                if (corps != null && mBelongForce != corps.mBelongForce)
                 {
                     mBelongForce = corps.mBelongForce;
                 }
@@ -1573,9 +1608,14 @@ namespace Sango.Core
                 }
                 else
                 {
+                    // 在野武将只登记在野名单,不继承目标城市的势力与军团。
+                    // 规则1:在野武将必须是在野状态、有所在城市、且不能有部队,
+                    // 因此这里显式清空势力/军团,避免"在野却仍隶属某势力"的残留
                     mBelongCity?.RemoveWildPerson(this);
                     city.AddWildPerson(this);
                     mBelongCity = city;
+                    mBelongCorps = null;
+                    mBelongForce = null;
                 }
 
                 mTroop?.OnPersonChangeCity(this, last, city);
@@ -1680,8 +1720,16 @@ namespace Sango.Core
             mBelongForce = city.mBelongForce;
             UpgradeOfficial(Scenario.Cur.CommonData.Officials.Get(0));
             merit = 0;
-            state = (int)PersonStateType.Normal;
-            mBelongCity.AddPerson(this);
+            // 主公不能被降级为一般武将,否则会出现"势力主公却是普通状态"的不一致
+            if (!IsGovernor)
+            {
+                state = (int)PersonStateType.Normal;
+            }
+            // 避免重复入城:调用方可能已经把武将加进过该城的人员名单
+            if (!mBelongCity.allPersons.Contains(this))
+            {
+                mBelongCity.AddPerson(this);
+            }
             return isSameCity;
         }
 
@@ -1706,13 +1754,22 @@ namespace Sango.Core
             loyalty = 0;
             mBelongCity?.RemovePerson(this);
             mCurrentCity?.RemovePerson(this);
+
+            // 下野武将不允许再留在部队中(规则1),必须从部队里正常摘除。
+            // 直接把 mTroop 置空会让部队的主将/成员引用残留,造成双向不一致
+            if (mTroop != null)
+            {
+                mTroop.RemovePerson(this);
+            }
+
             UpgradeOfficial(Scenario.Cur.CommonData.Officials.Get(0));
             merit = 0;
-            mBelongCity = mCurrentCity.mBelongCity == null ? mCurrentCity : mCurrentCity.mBelongCity;
+            // 在港关下野时归属到其隶属的主城;mCurrentCity 可能为空,需要做兜底
+            mBelongCity = mCurrentCity == null ? mBelongCity : (mCurrentCity.mBelongCity == null ? mCurrentCity : mCurrentCity.mBelongCity);
             if (IsPrisoner)
             {
                 mBelongForce?.BeCaptiveList.Remove(this);
-                mCurrentCity.captiveList.Remove(this);
+                mCurrentCity?.captiveList.Remove(this);
 #if SANGO_DEBUG
                 Sango.Log.Info($"@人才@<{Name}>失去势力,进入囚犯下野状态");
 #endif
@@ -1720,12 +1777,20 @@ namespace Sango.Core
             else
             {
 #if SANGO_DEBUG
-                Sango.Log.Info($"@人才@[{mBelongForce.Name}]的<{Name}>下野至{mBelongCity.Name}");
+                Sango.Log.Info($"@人才@[{mBelongForce?.Name}]的<{Name}>下野至{mBelongCity?.Name}");
 #endif
             }
             state = (int)PersonStateType.Unemployed;
             mCurrentCity = mBelongCity;
-            mBelongCity.wildPersons.Add(this);
+            // 在野武将必须挂靠到某个城市的在野名单上(规则1:必须有所在城市)
+            if (mBelongCity != null)
+            {
+                mBelongCity.wildPersons.Add(this);
+            }
+            else
+            {
+                Sango.Log.Error($"@人才@<{Name}>下野失败:没有可挂靠的城市");
+            }
 
             mBelongCorps = null;
             mBelongForce = null;
@@ -1737,7 +1802,8 @@ namespace Sango.Core
             if (!IsPrisoner)
             {
                 Sango.Log.Error($"不是囚犯,无法逃跑!");
-                mCurrentCity.RemoveCaptive(this);
+                // 兜底清理:状态不是俘虏却仍被挂在俘虏列表里时,要把残留引用摘掉
+                mCurrentCity?.RemoveCaptive(this);
                 if (mTroop != null)
                     mTroop.RemoveCaptive(this);
                 return this;
@@ -1758,14 +1824,22 @@ namespace Sango.Core
 
             if (mBelongForce != null && mBelongForce.IsAlive)
             {
+                // 原势力尚存:脱逃后回归原势力都城,状态复位为一般武将
                 state = (int)PersonStateType.Normal;
                 ChangeBelongCity(mBelongForce.CapitalCity);
                 SetMission(MissionType.PersonReturn, mBelongCity);
             }
             else
             {
+                // 原势力已灭亡或本就无势力:转为在野。
+                // 在野武将不允许再持有势力/军团/部队(规则1),这里必须显式清空,
+                // 否则会出现"state 是在野,却仍隶属某个已灭亡势力与其军团"的不一致
+                mBelongForce?.BeCaptiveList.Remove(this);
                 state = (int)PersonStateType.Unemployed;
                 ChangeBelongCity(mCurrentCity);
+                mBelongCorps = null;
+                mBelongForce = null;
+                mTroop = null;
             }
 
             // 根据逃出方式触发对应的事件
@@ -2144,6 +2218,10 @@ namespace Sango.Core
 
         public void Dead()
         {
+            // 必须先缓存俘虏身份:下面会立刻把 state 改写为 Dead,
+            // 改写之后 IsPrisoner 恒为 false,俘虏相关的清理逻辑将永远执行不到
+            bool wasPrisoner = IsPrisoner;
+
             state = (int)PersonStateType.Dead;
             if (mBelongCity != null)
             {
@@ -2152,19 +2230,30 @@ namespace Sango.Core
                 mBelongCity.wildPersons.Remove(this);
             }
 
-            if (IsPrisoner)
+            if (wasPrisoner)
             {
+                // 俘虏死亡:必须从关押方的俘虏名单与势力的被俘名单中一并移除,
+                // 否则会出现"已经死亡的武将仍然挂在俘虏列表里"的残留。
+                // 注意:俘虏入狱时 mBelongCity 已被置空,所在城市应取 mCurrentCity
+                mBelongForce?.BeCaptiveList.Remove(this);
                 if (mTroop != null)
                 {
                     mTroop.captiveList.Remove(this);
                 }
                 else
-                    mBelongCity.captiveList.Remove(this);
+                {
+                    mCurrentCity?.captiveList.Remove(this);
+                }
             }
             else if (mTroop != null)
             {
+                // 非俘虏必须从部队中正常摘除,保证部队主将/成员引用与武将的 mTroop 双向一致
                 mTroop.RemovePerson(this);
             }
+
+            // 死亡武将不再参与任何部队与建造
+            mTroop = null;
+            workingBuilding = null;
         }
 
         public int GetAttribute(int attrType)

@@ -71,9 +71,9 @@ struct VertexOutput
 {
 	UNITY_VERTEX_INPUT_INSTANCE_ID
 	float4 pos : SV_POSITION;
-	float4 screenPos : TEXCOORD2;
+	//float4 screenPos : TEXCOORD2;
 	float2 uv : TEXCOORD0;
-	half fogCoord: TEXCOORD3;
+	half fogCoord: TEXCOORD1;
 
 };
 

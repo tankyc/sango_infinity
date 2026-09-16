@@ -25,7 +25,6 @@ half Alpha(half albedoAlpha, half4 color, half cutoff)
 
 	return alpha;
 }
-
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
@@ -250,21 +249,22 @@ float4 sango_frag(SangoVertexOutput i) : COLOR
 	#endif
 
 	Light mainLight = GetMainLight(i.shadowCoord);
+	float3 normalWS = normalize(i.normal);
 	float3 lightDirection = mainLight.direction;
-	half3 ambient = SampleSH(i.normal).rgb;
+	half3 ambient = SampleSH(normalWS).rgb;
 
     #if SANGO_AMBIENT_NO_LIGHT
 	//阴影数据
 	half shadow = mainLight.shadowAttenuation;
 	// 计算漫反射颜色
-	half NdotL = saturate(dot(lightDirection, i.normal));
+	half NdotL = saturate(dot(normalWS, lightDirection));
 	half3 directDiffuse = lerp(0, ((mainLight.color.rgb)), saturate(NdotL+0.6)) + ambient;
 	half3 diffuse = directDiffuse * _BaseMap_var.rgb;
 	#else
 	//阴影数据
 	half shadow = mainLight.shadowAttenuation;
 	// 计算漫反射颜色
-	half NdotL = saturate(dot(lightDirection, i.normal));
+	half NdotL = saturate(dot(normalWS, lightDirection));
 	half3 directDiffuse = lerp(_ShadowColor.rgb, ((mainLight.color.rgb)), NdotL * shadow)  + ambient * saturate(shadow+0.5);
 	half3 diffuse = directDiffuse * _BaseMap_var.rgb;
 	#endif
@@ -322,7 +322,7 @@ float4 sango_frag(SangoVertexOutput i) : COLOR
 	//diffuse = diffuse + tarrainTypeColor * _TerrainTypeShowFlag * _terrainTypeAlpha;
 #if SANGO_BASE_COLOR
 	half4 overColor = SAMPLE_TEXTURE2D(_TerrainOverlayTex, sampler_BaseMap, baseUV);
-	diffuse = lerp(diffuse, overColor, _TerrainOverlayShowFlag);
+	diffuse = lerp(diffuse, overColor.rgb, _TerrainOverlayShowFlag);
 #endif
 
 #endif

@@ -395,6 +395,11 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AITransfromToBelongCity(City city, Scenario scenario)
         {
+            if (city.mBelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
+            {
+                return true;
+            }
+
             if (city.IsEnemiesRound()) return true;
 
             if (city.mBelongCity == null) return true;

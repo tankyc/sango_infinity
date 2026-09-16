@@ -946,6 +946,29 @@
               }
             ]
           }
+        },
+		{
+          "class": "TroopTriggerAction",
+          "triggerList": [
+            {
+              "class": "TriggerWhenSkillActionEnd"
+            }
+          ],
+          "actionList": [
+            {
+              "class": "TroopResetActionOver",
+			  "value": 1,
+              "condition": {
+                "class": "andList",
+                "list": [             
+				  {
+					"class": "ProbabilityCheck",
+					"probability": 10000
+				  }
+                ]
+              }
+            }
+          ]
         }
       ]
     },

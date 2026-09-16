@@ -60,6 +60,13 @@ namespace Sango.Core
         /// </summary>
         public static EventDelegate<Mod.Mod> OnModUpdate;
 
+        /// <summary>
+        /// 版本检查成功获取到远端版本信息时抛出
+        /// 参数：VersionInfo 远端版本信息，监听者可依据 VersionInfo.hasNewVersion 决定是否弹出更新提示
+        /// 获取失败时不会抛出该事件
+        /// </summary>
+        public static EventDelegate<VersionInfo> OnVersionInfoUpdate;
+
         #endregion Global
 
         #region Scenario

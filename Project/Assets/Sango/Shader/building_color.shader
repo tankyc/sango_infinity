@@ -90,11 +90,10 @@ Shader "Sango/building_color_urp" {
 				#pragma target 3.0
 
 				#define SANGO_BASE_COLOR 1
-				#define SANGO_GRID_COLOR 1
 				#define SANGO_FOG 1
-				#define SANGO_BRUSH 1
+				#define SANGO_ALPHA_TEST 1
 				#define SANGO_TERRAIN_TYPE 1
-				#define SANGO_TERRAIN 1
+				#define SANGO_COLOR 1
 				#include "sango_shaderLib.hlsl"
 				// -------------------------------------
 				// Material Keywords

@@ -205,9 +205,17 @@ namespace Sango.Core.Object.Arrow
         {
             if (explosionEffectPrefab != null)
             {
+                string pName = explosionEffectPrefab.name;
+                GameObject explosion = PoolManager.Get(pName);
+                if (explosion == null)
+                {
+                    PoolManager.Add(pName, explosionEffectPrefab);
+                    explosion = PoolManager.Get(pName);
+                }
                 // 实例化爆炸特效
-                GameObject explosion = Instantiate(explosionEffectPrefab, transform.position, Quaternion.identity);
-
+                //GameObject explosion = Instantiate(explosionEffectPrefab, transform.position, Quaternion.identity);
+                explosion.transform.position = transform.position;
+                explosion.transform.rotation = Quaternion.identity;
                 GameMedia.Instance.PlaySfx(hitSoundId);
 
                 // 查找特效中的粒子系统或动画组件
@@ -217,12 +225,13 @@ namespace Sango.Core.Object.Arrow
                     // 获取粒子系统的持续时间
                     float duration = particleSystem.main.duration;
                     // 延迟销毁特效
-                    Destroy(explosion, duration);
+                    PoolLife.AutoRelease(explosion, duration);
+
                 }
                 else
                 {
                     // 如果没有粒子系统，默认2秒后销毁
-                    Destroy(explosion, 2f);
+                    PoolLife.AutoRelease(explosion, 2f);
                 }
             }
         }

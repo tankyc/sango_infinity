@@ -471,14 +471,17 @@ namespace Sango.Core
                 return;
             }
 
-            // 添加到俘虏列表
-            capturingTroop.captiveList.Add(general);
-
-            // 从原势力中移除
-            if (general.mBelongForce != null)
+            // 先从原部队中摘除,避免原部队的主将/成员引用残留造成双向不一致
+            if (general.mTroop != null && general.mTroop != capturingTroop)
             {
-                general.mBelongForce.BeCaptiveList.Add(general);
+                general.mTroop.RemovePerson(general);
             }
+
+            // 统一走部队的俘虏流程:设置俘虏状态、脱离原城市、
+            // 登记到俘虏名单与势力的被俘名单,保证一步到位。
+            // 规则3:俘虏的状态必须是俘虏。此前这里只登记了名单却没有改状态,
+            // 会出现"人在俘虏列表里,状态却还是一般武将"的不一致
+            capturingTroop.AddCaptive(general);
 
             // 触发俘虏事件
             GameEvent.OnPersonCaptured?.Invoke(general, capturingTroop);

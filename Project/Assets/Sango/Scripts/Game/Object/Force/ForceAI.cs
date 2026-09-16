@@ -799,12 +799,18 @@ namespace Sango.Core
 
             if (GameRandom.Chance(probability, 10000))
             {
+                // 先记录原势力名:招降后 captive 的归属会被改写,日志会失真
+                string lastForceName = captive.mBelongForce?.Name;
                 captive.mBelongForce?.BeCaptiveList.Remove(captive);
-                captive.mCurrentCity.RemoveCaptive(captive);
+                captive.mCurrentCity?.RemoveCaptive(captive);
+                // 招降成功必须把状态从俘虏复位为一般武将,
+                // 否则会出现"已脱离俘虏名单、已加入正常城市,却仍是俘虏状态"的不一致,
+                // 进而导致该武将永远无法被派活(IsFree 恒为 false)
+                captive.state = (int)PersonStateType.Normal;
                 captive.ChangeBelongCity(force.CapitalCity);
                 captive.SetMission(MissionType.PersonReturn, force.CapitalCity);
 #if SANGO_DEBUG
-                Sango.Log.Info($"{force.Name}成功招降了{captive.mBelongForce?.Name}的{captive.Name}！");
+                Sango.Log.Info($"{force.Name}成功招降了{lastForceName}的{captive.Name}！");
 #endif
                 return true;
 

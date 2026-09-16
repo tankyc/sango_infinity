@@ -67,7 +67,7 @@ namespace Sango.Core
             },
             err =>
             {
-                Sango.Log.Error("登录失败");
+                Sango.Log.Warning("登录失败");
                 //Debug.LogWarning("登录失败: " + err + " -> 尝试自动注册...");
                 //StartCoroutine(CloudSaveClient.Register(username, password,
                 //    r2 => Debug.Log($"自动注册并登录成功: {r2.user.username}"),
@@ -78,36 +78,36 @@ namespace Sango.Core
 
         IEnumerator UploadSave(int slot)
         {
-            if (!CloudSaveClient.HasToken) { Debug.LogError("未登录"); yield break; }
+            if (!CloudSaveClient.HasToken) { Sango.Log.Warning("未登录"); yield break; }
 
             string localPath = Sango.Core.Player.Player.GetSaveFileName(slot);
             if (!File.Exists(localPath))
             {
-                Debug.LogWarning($"槽位{slot}本机没有存档文件，无法上传: {localPath}");
+                Sango.Log.Warning($"槽位{slot}本机没有存档文件，无法上传: {localPath}");
                 yield break;
             }
 
-            Debug.Log($"上传槽位{slot}: {localPath} ...");
+            Sango.Log.Warning($"上传槽位{slot}: {localPath} ...");
             yield return CloudSaveClient.UploadToSlotFromFile(
                 slot,
                 localPath,
                 $"save_slot_{slot}.dat",
                 $"槽位{slot} @ {DateTime.Now:yyyy-MM-dd HH:mm}", // 备注里写个时间，方便看新旧
-                resp => Debug.Log($"槽位{slot}上传成功 (云端 id={resp.id}, {CloudSaveClient.FormatSize(resp.size)})"),
-                e => Debug.LogError($"槽位{slot}上传失败: {e}"));
+                resp => Sango.Log.Warning($"槽位{slot}上传成功 (云端 id={resp.id}, {CloudSaveClient.FormatSize(resp.size)})"),
+                e => Sango.Log.Warning($"槽位{slot}上传失败: {e}"));
         }
 
         IEnumerator DownloadSave(int slot)
         {
-            if (!CloudSaveClient.HasToken) { Debug.LogError("未登录"); yield break; }
+            if (!CloudSaveClient.HasToken) { Sango.Log.Warning("未登录"); yield break; }
 
             string dest = Sango.Core.Player.Player.GetSaveFileName(slot);
             if (File.Exists(dest)) System.IO.File.Copy(dest, dest + ".bak", true); // 覆盖前备份
 
-            Debug.Log($"下载槽位{slot} -> {dest} ...");
+            Sango.Log.Warning($"下载槽位{slot} -> {dest} ...");
             yield return CloudSaveClient.DownloadSlotToFile(slot, dest,
-                () => Debug.Log($"槽位{slot}下载完成"),
-                e => Debug.LogError($"槽位{slot}下载失败(可能为空槽): {e}"));
+                () => Sango.Log.Warning($"槽位{slot}下载完成"),
+                e => Sango.Log.Warning($"槽位{slot}下载失败(可能为空槽): {e}"));
         }
 
     }

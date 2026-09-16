@@ -186,8 +186,7 @@ namespace Sango.Core.Action
             // 砦：周围 3 格内己方部队防御力增加 15。
             // 城塞：周围 4 格内己方部队防御力增加 20。
             Register("BuildingImproveTroopDefence", CraeteHandle<BuildingImproveTroopDefence>);
-            // 防御建筑重复注册：保持既有加载顺序；实际增益仍由阵、砦、城塞各自的范围和数值决定。
-            Register("BuildingImproveTroopDefence", CraeteHandle<BuildingImproveTroopDefence>);
+
             // 军乐台：在结算时为周围 2 格内己方部队恢复 10 点气力。
             Register("BuildingAddTroopMorale", CraeteHandle<BuildingAddTroopMorale>);
             // 特技 #80 名声：增加征兵士兵数。
@@ -308,6 +307,9 @@ namespace Sango.Core.Action
             Register("CityPreventPersonLoyaltyLoss", CraeteHandle<CityPreventPersonLoyaltyLoss>);
             // 特技 #99 祈愿：春秋季初概率赋予城市丰收状态，并提高状态期间粮食产量至 150%。
             Register("CityBumperHarvest", CraeteHandle<CityBumperHarvest>);
+            // 让某兵种类型的二动
+            Register("TroopResetActionOver", CraeteHandle<TroopResetActionOver>);
+
         }
 
     }

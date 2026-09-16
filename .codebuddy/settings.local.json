@@ -1,6 +1,6 @@
 {
   "enabledPlugins": {
     "modern-webapp@cb_teams_marketplace": true,
-    "document-skills@cb_teams_marketplace": true
+    "document-skills@cb_teams_marketplace": false
   }
 }
