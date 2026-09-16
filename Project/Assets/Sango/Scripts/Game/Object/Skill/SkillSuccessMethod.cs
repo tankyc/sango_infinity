@@ -315,12 +315,10 @@ namespace Sango.Core
         {
             public override int Calculate(SkillInstance skillInstance, Troop troop, Cell spellCell)
             {
-                // 公式:成功率 = 施法智力 ×0.6 +15
                 int C = 0;
                 Troop target = spellCell.troop;
                 if (target != null && target.HasControlBuff())
                 {
-                    // 目标混乱/伪报等异常状态,再加10%
                     C = 10;
                 }
                 int V = (int)(troop.Intelligence * 0.6f) + 15 + C;

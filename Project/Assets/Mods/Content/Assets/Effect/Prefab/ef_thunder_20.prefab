@@ -44,7 +44,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 80dc07f3864ac2e42aa5d7982d5f219e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sheetPath: Assets/Effect/Sprite/Thunder/Stage1/519.png
+  sheetPath: Assets/Effect/Sprite/Thunder/519.png
   sheet: {fileID: 2800000, guid: a9598e99d02d3ca4d8ac1698a3907c12, type: 3}
   cols: 7
   rows: 5

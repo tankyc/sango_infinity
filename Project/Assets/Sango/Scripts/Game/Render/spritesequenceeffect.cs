@@ -133,9 +133,8 @@ namespace Sango.Render
             mRenderer.sortingOrder = 1000;
 
             // 混合模式决定 Shader:
-            //   0 Additive(默认):加色混合,黑底素材黑自动透明(522等RGB无alpha图),适合黑底特效;
-            //   1 Alpha:正常alpha混合(SrcAlpha,OneMinusSrcAlpha),带alpha抠图素材(520/521等RGBA图)
-            //     颜色 = 原图颜色,不再被背景冲淡,精确还原素材观感
+            //   0 Additive(默认):加色混合,黑底素材黑自动透明(RGB无alpha图),适合黑底特效;
+            //   1 Alpha:正常alpha混合(SrcAlpha,OneMinusSrcAlpha),带alpha抠图素材(RGBA图)
             Shader s = blendMode == 1 ? Shader.Find("Sango/Particles/Alpha Blended") : null;
             if (s == null) s = Shader.Find("ProjectX/Particles/Particles/Additive");
             if (s == null) s = Shader.Find("Mobile/Particles/Additive");
@@ -144,15 +143,12 @@ namespace Sango.Render
 
             Material mat = new Material(s);
             mat.name = "SpriteSequenceEffect_FX";
-            // 加色特效亮度调整:默认 _TintColor(0.5) 乘 2.0 后接近白,易触发 Bloom 泛光显得发虚;
-            // 0.4(亮度≈0.8)偏暗,在明亮场景上无暗底衬托时对比不足显得模糊;
-            // 提亮到 0.55(亮度≈1.1)增强白电光对比更清晰,配合全局Bloom阈值1.5不会过度泛光
+            // 加色特效亮度调整
             mat.SetColor("_TintColor", new Color(0.55f, 0.55f, 0.55f, 0.55f));
             mRenderer.sharedMaterial = mat;
 
             fps = playFps;
 
-            // 优先用 Inspector 直接拖入的贴图引用(零IO); 为null时才走路径加载(带缓存)
             Texture2D sheetTex = sheet != null ? sheet : LoadTexture(sheetPath);
             if (sheetTex == null)
             {
@@ -160,10 +156,8 @@ namespace Sango.Render
                 Destroy(gameObject);
                 return;
             }
-            // Sprite.Create 需要可读贴图:直接拖入的引用若不是可读(导入设置未开),复制一份可读副本
             if (!sheetTex.isReadable)
                 sheetTex = ToReadable(sheetTex);
-            // 点采样 + Clamp:高分辨率图集放大显示时保持锐利(默认Bilinear会插值变模糊,且Clamp防止UV越界渗色)
             sheetTex.filterMode = FilterMode.Point;
             sheetTex.wrapMode = TextureWrapMode.Clamp;
 

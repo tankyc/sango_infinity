@@ -71,7 +71,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-32-2.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-32-2.png
     sheet: {fileID: 2800000, guid: f970288fad0df28438a2db03c9ae767e, type: 3}
     cols: 1
     rows: 1
@@ -97,7 +97,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-1.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-1.png
     sheet: {fileID: 2800000, guid: de307e7985fbff640a10fc60e47bb198, type: 3}
     cols: 1
     rows: 1
@@ -123,7 +123,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-21.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-21.png
     sheet: {fileID: 2800000, guid: 2059480c47211b74a949e5ccd33dc724, type: 3}
     cols: 4
     rows: 2
@@ -149,7 +149,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 04000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-21.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-21.png
     sheet: {fileID: 2800000, guid: 2059480c47211b74a949e5ccd33dc724, type: 3}
     cols: 4
     rows: 2
@@ -175,7 +175,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 05000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-21.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-21.png
     sheet: {fileID: 2800000, guid: 2059480c47211b74a949e5ccd33dc724, type: 3}
     cols: 4
     rows: 2
@@ -201,7 +201,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 07000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-2.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-2.png
     sheet: {fileID: 2800000, guid: 8a4cd8cc489e78641a74a0b0e0a3c83e, type: 3}
     cols: 2
     rows: 2
@@ -227,7 +227,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 02000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-2.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-2.png
     sheet: {fileID: 2800000, guid: 8a4cd8cc489e78641a74a0b0e0a3c83e, type: 3}
     cols: 2
     rows: 2
@@ -253,7 +253,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 03000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-3.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-3.png
     sheet: {fileID: 2800000, guid: a80fa841930fb224ab6d24af5fcefb90, type: 3}
     cols: 2
     rows: 2
@@ -279,7 +279,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 00000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-3.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-3.png
     sheet: {fileID: 2800000, guid: a80fa841930fb224ab6d24af5fcefb90, type: 3}
     cols: 2
     rows: 2
@@ -305,7 +305,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 01000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-3.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-3.png
     sheet: {fileID: 2800000, guid: a80fa841930fb224ab6d24af5fcefb90, type: 3}
     cols: 2
     rows: 2
@@ -331,7 +331,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 02000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-3.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-3.png
     sheet: {fileID: 2800000, guid: a80fa841930fb224ab6d24af5fcefb90, type: 3}
     cols: 2
     rows: 2
@@ -357,7 +357,7 @@ MonoBehaviour:
     alphaEnd: 1
     frameIndexMap: 03000000
     order: 0
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/497-1.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/497-1.png
     sheet: {fileID: 2800000, guid: bb6b37d65b6535545ae7119d390c2360, type: 3}
     cols: 1
     rows: 1
@@ -383,7 +383,7 @@ MonoBehaviour:
     alphaEnd: 0.5
     frameIndexMap: 
     order: 1
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/497-1.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/497-1.png
     sheet: {fileID: 2800000, guid: bb6b37d65b6535545ae7119d390c2360, type: 3}
     cols: 1
     rows: 1
@@ -409,7 +409,7 @@ MonoBehaviour:
     alphaEnd: 0.5
     frameIndexMap: 
     order: 1
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/497-1.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/497-1.png
     sheet: {fileID: 2800000, guid: bb6b37d65b6535545ae7119d390c2360, type: 3}
     cols: 1
     rows: 1
@@ -435,7 +435,7 @@ MonoBehaviour:
     alphaEnd: 0.5
     frameIndexMap: 
     order: 1
-  - sheetPath: Assets/Effect/Sprite/Thunder/Stage1/125-5.png
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-5.png
     sheet: {fileID: 2800000, guid: 2d210991c345dc9479798a23ff169140, type: 3}
     cols: 1
     rows: 1

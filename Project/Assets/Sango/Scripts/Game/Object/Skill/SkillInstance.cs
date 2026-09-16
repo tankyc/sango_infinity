@@ -548,10 +548,10 @@ namespace Sango.Core
         }
 
 
-        // 落雷技能Id与结算时序:第二段特效序列 519(1.775~4.575s)→522(2.15~3.45s)→521×3(上2.205/中2.305/下2.405开始,各2.16s,比原提前0.15s)
+        // 落雷技能Id与结算时序:第二段特效序列 519(1.775~4.575s)→522(2.15~3.45s)→521×3(上2.205/中2.305/下2.405开始,各2.16s)
         // 三处间隔0.1s消失,下处最晚4.565s结束;伤害结算再提前0.5s到3.82s(雷击连击中段即出数字)
         const int ThunderSkillId = 29;
-        const float ThunderDamageDelay = 3.82f;  // 结算提前0.5s:原4.32s→3.82s
+        const float ThunderDamageDelay = 3.82f;  // 结算时间
         const float ThunderSkillOverTime = 4.6f;  // 落雷技能整体时长
         const int ThunderDamageMin = 1500;  // 落雷固定伤害下限(每队随机)
         const int ThunderDamageMax = 2500;  // 落雷固定伤害上限(每队随机)

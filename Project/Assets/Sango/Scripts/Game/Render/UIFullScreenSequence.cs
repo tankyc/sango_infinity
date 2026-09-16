@@ -9,8 +9,6 @@ namespace Sango.Render
     /// <summary>
     /// 全屏序列帧覆盖特效:在 Screen-Space Overlay 画布上叠加多个图层(可全屏铺满或按屏幕比例居中定位),
     /// 每层可为一串序列帧或单张静态图,支持淡入淡出、缩放动画、起始延迟、按帧切换 uvRect。
-    /// 使用加色混合(Additive) Shader——黑色像素自动透明。所有图层播完后自动销毁。
-    /// 参照暴击图(window_skill_crit)的全屏播放方式。
     /// </summary>
     public class UIFullScreenSequence : MonoBehaviour
     {
@@ -18,28 +16,28 @@ namespace Sango.Render
         [Serializable]
         public class Layer
         {
-            [SerializeField] public string sheetPath;      // 图集PNG路径(兜底); 优先使用 sheet 直接引用贴图
-            [SerializeField] public Texture2D sheet;       // 直接拖入图集贴图引用; 非空时跳过运行时路径加载(消除卡顿/加载失败)
+            [SerializeField] public string sheetPath;      // 图集PNG路径(兜底); 
+            [SerializeField] public Texture2D sheet;       // 直接拖入图集贴图引用; 
             [SerializeField] public int cols = 1;
             [SerializeField] public int rows = 1;
             [SerializeField] public int frameCount = 1;
             [SerializeField] public float duration = 1f;   // 整个序列播完的秒数(每帧 = duration/frameCount)
             [SerializeField] public float startDelay = 0f; // 相对组合开始的延迟秒数
-            [SerializeField] public float fadeIn = 0f;     // 淡入时长:从透明→不透明
-            [SerializeField] public float fadeOut = 0f;    // 淡出时长:播完后从不透明→透明
+            [SerializeField] public float fadeIn = 0f;     // 淡入时长
+            [SerializeField] public float fadeOut = 0f;    // 淡出时长
             [SerializeField] public float holdAfterEnd = 0f; // 播完后保持最后一帧多久再淡出
 
-            [SerializeField] public bool useSolidColor = false; // true=整层为纯色(配合 stretch=true 铺满全屏),忽略 sheetPath
+            [SerializeField] public bool useSolidColor = false; // true=整层为纯色(配合 stretch=true 铺满全屏)
             [SerializeField] public Color solidColor = new Color(0f, 0f, 0f, 0f); // 纯色层的颜色(useSolidColor=true时生效)
             [SerializeField] public bool additive = true;  // true=Additive(加色混合)使黑色变透明;false=普通Alpha混合(UI/Default)
-            [SerializeField] public bool stretch = false;  // true=铺满全屏(忽略下述定位/缩放)
-            [SerializeField] public float heightFrac = 0.2f; // stretch=false: 精灵相对屏幕高度的占比(基准尺寸)
+            [SerializeField] public bool stretch = false;  // true=铺满全屏
+            [SerializeField] public float heightFrac = 0.2f; // stretch=false: 精灵相对屏幕高度的占比
             [SerializeField] public float posX = 0f;       // stretch=false: 相对屏幕中心的水平偏移(屏幕宽度比例)
             [SerializeField] public float posY = 0f;       // stretch=false: 相对屏幕中心的垂直偏移(屏幕高度比例)
             [SerializeField] public float scaleStart = 1f; // 缩放起始倍率(叠加在 heightFrac 基准上)
             [SerializeField] public float expandTime = 0f; // 先放大阶段的时长(秒), t∈[0,expandTime] 由 scaleStart 线性放大到 scalePeak
             [SerializeField] public float scalePeak = 1f;  // 放大阶段到达的最大倍率
-            [SerializeField] public float holdScaleTime = 0f; // 放大到 scalePeak 后保持该尺寸的时长(秒)
+            [SerializeField] public float holdScaleTime = 0f; // 放大到 scalePeak 后保持该尺寸的时长
             [SerializeField] public float scaleEnd = 1f;   // 缩放到结束倍率, t∈[expandTime+holdScaleTime,duration] 由 scalePeak 线性过渡到 scaleEnd
             [SerializeField] public float alphaStart = 1f; // 播放开始时的透明度(0~1),与 fadeIn 叠加;用于起始就半透明的层
             [SerializeField] public float alphaEnd = 1f;   // 播放结束时(duration末尾)的透明度(0~1),实现播放过程中渐隐
@@ -100,7 +98,7 @@ namespace Sango.Render
                 }
                 else
                 {
-                    // 优先用 Inspector 直接拖入的贴图引用(零IO,无加载失败风险); 为null时才走路径加载
+                    // 优先用 Inspector 直接拖入的贴图引用(零IO); 为null时才走路径加载
                     Texture2D refTex = layer.sheet;
                     tex = refTex != null ? refTex : LoadTexture(layer.sheetPath);
                     if (tex == null)

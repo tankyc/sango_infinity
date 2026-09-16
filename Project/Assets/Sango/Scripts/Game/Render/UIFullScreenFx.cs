@@ -43,7 +43,7 @@ namespace Sango.Render
 
         /// <summary>
         /// 经 PoolManager 创建全屏特效预制件实例播放(预制件实例池化复用,播完自动回收再取复用)
-        /// 说明:预制件实例仅作为图层配置载体,实际渲染由 Play() 在动态 ScreenSpaceOverlay 画布上完成,
+        /// 预制件实例仅作为图层配置载体,实际渲染由 Play() 在动态 ScreenSpaceOverlay 画布上完成,
         /// 画布播完自行销毁;载体实例 PoolLife 到期回收回池,下次复用,不销毁不残留。
         /// </summary>
         /// <param name="prefabPath">预制件资源路径,如 "Assets/Effect/Prefab/ef_fx_thunder_full.prefab"</param>
