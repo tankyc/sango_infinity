@@ -4,8 +4,16 @@ using System.Collections.Generic;
 namespace Sango.Core.Player
 {
     [GameSystem]
-    public class CitySelectSystem : ObjectSelectSystem
+    public class CitySelectSystem : ObjectSelectSystem, IObjectSelectSystem<City>
     {
+        /// <summary>
+        /// 通用对象选择接口实现 - 供UIDataEdit按数据集类型统一调用
+        /// </summary>
+        void IObjectSelectSystem<City>.Start(List<City> candidates, List<City> resultList, int limit, Action<List<City>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
+        {
+            Start(candidates, resultList, limit, action, customSortTitles, cutomSortTitleName);
+        }
+
         protected Action<List<City>> finishAction;
         public List<ButtonData> selectButtons;
         public string defualtTitleName = "城市";
@@ -35,7 +43,11 @@ namespace Sango.Core.Player
 
         void SelectOnMap()
         {
-
+            // 关闭列表选择器窗口，保留 CitySelectSystem 在游戏系统栈中，
+            // 以便从地图选择器返回时继续使用当前选中状态。
+            Window.Instance.Close("window_object_selector");
+            // 打开地图城市选择器，并将当前系统实例传入以同步数据和回调。
+            Window.Instance.Open("window_map_city_selector", this);
         }
 
         public void Start(List<City> cities, List<City> resultList, int limit, Action<List<City>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)

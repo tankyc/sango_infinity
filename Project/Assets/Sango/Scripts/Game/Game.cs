@@ -10,7 +10,6 @@ using Sango.Mod;
 using Sango.Render;
 using Sango.Tools;
 using Sango.Manager;
-using Sango.Core.Debate;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -82,7 +81,7 @@ namespace Sango.Core
             ModManager.Instance.Init();
             GameLanguage.Instance.Init("cn");
             GameSystemManager.Instance.Init();
-            DebateManager.Instance.Init();
+            GameLogin.Instance.Init();
             StartCoroutine(GameInit());
         }
 
@@ -165,6 +164,7 @@ namespace Sango.Core
         public void EnterMapEditor()
         {
             Window.Instance.Close("window_start");
+            Window.Instance.Close("window_start_project");
             GameObject map = new GameObject("map");
             MapEditor mapEditor = map.AddComponent<MapEditor>();
         }
@@ -197,8 +197,6 @@ namespace Sango.Core
             base.Update();
             // 更新音效管理器
             GameMedia.Instance.Update();
-            // 更新舌战管理器
-            DebateManager.Instance.Update(Time.deltaTime);
             Scenario scenario = Scenario.Cur;
             if (scenario != null)
             {

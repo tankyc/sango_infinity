@@ -250,6 +250,31 @@ namespace Sango.UI
 
         public void OnReturn()
         {
+            List<PersonLib> persons = new List<PersonLib>();
+            if (GameCustomEdit.Instance != null)
+            {
+                CollectPersonLib(GameCustomEdit.Instance.ModScenarioAddon != null ? GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary : null, persons);
+                CollectPersonLib(GameCustomEdit.Instance.SelfScenarioAddon != null ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary : null, persons);
+            }
+            if (persons.Count == 0)
+            {
+                Debug.Log("没有可登场的自建武将,请先在自建武将界面中创建");
+                return;
+            }
+
+            // 只增量添加
+            for (int i = 0; i < persons.Count; i++)
+            {
+                PersonLib personLib = persons[i];
+                if (personLib.targetShortPersonId > 0)
+                {
+                    scenario.personSet.Remove(personLib.targetShortPersonId);
+                    personLib.targetShortPersonId = 0;
+                }
+            }
+
+            scenario.NeedUpdateAppendInfo();
+
             if (scenario.AppendForceCount > 0)
             {
                 string content = $"返回将丢失所有已登场武将和新作势力,确定吗?";

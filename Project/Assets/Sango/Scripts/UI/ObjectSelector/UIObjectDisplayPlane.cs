@@ -3,10 +3,11 @@ using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 namespace Sango.UI
 {
-    public class UIObjectDisplayPlane : MonoBehaviour
+    public class UIObjectDisplayPlane : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         /// <summary>
         /// 点选模式
@@ -20,6 +21,7 @@ namespace Sango.UI
         public Scrollbar scrollbar_h;
         protected List<UISortButton> sortButtonPool = new List<UISortButton>();
         public UISortButton sortTitleItem;
+        public UISortButton idTitleItem;
         public GameObject selectSortBtn;
         public RectTransform sorltTitleTransform;
         public RectTransform maskRect;
@@ -32,8 +34,9 @@ namespace Sango.UI
         public Action<int> OnSelectCall;
         public Action<List<int>> OnMultiSelectCall;
         List<int> multiSelectList = new List<int>();
-
+        public bool hasId = false;
         RectTransform[] uIObjectListItemsRect;
+        bool isMouseOver = false;
         protected void Awake()
         {
             uIObjectListItemsRect = new RectTransform[uIObjectListItems.Length];
@@ -101,6 +104,7 @@ namespace Sango.UI
                 listItem.selectItem.gameObject.SetActive(!clickMode);
                 listItem.SetOver(false);
                 listItem.onSelected = OnSelect;
+                listItem.hasId = hasId;
             }
 
             UpdateSortContent();
@@ -116,10 +120,10 @@ namespace Sango.UI
 
         public void OnSelect(UIObjectListItem listItem)
         {
-            if(listItem.index >= Objects.Count)
+            if (listItem.index >= Objects.Count)
                 return;
 
-            if(OnSelectCall != null)
+            if (OnSelectCall != null)
             {
                 if (currentSelect != null)
                 {
@@ -129,9 +133,9 @@ namespace Sango.UI
                 currentSelect.SetSelected(true);
                 OnSelectCall.Invoke(currentSelect.index);
             }
-            else if(OnMultiSelectCall != null)
+            else if (OnMultiSelectCall != null)
             {
-                if(multiSelectList.Contains(listItem.index))
+                if (multiSelectList.Contains(listItem.index))
                 {
                     listItem.SetSelected(false);
                     multiSelectList.Remove(listItem.index);
@@ -142,6 +146,24 @@ namespace Sango.UI
                     multiSelectList.Add(listItem.index);
                 }
                 OnMultiSelectCall.Invoke(multiSelectList);
+            }
+        }
+
+        public void GetSelectObjects(List<SangoObject> list)
+        {
+            if (OnSelectCall != null)
+            {
+                if (currentSelect.index < Objects.Count)
+                    list.Add(Objects[currentSelect.index]);
+            }
+            else if (OnMultiSelectCall != null)
+            {
+                for (int i = 0; i < multiSelectList.Count; i++)
+                {
+                    int objIndex = multiSelectList[i];
+                    if (objIndex < Objects.Count)
+                        list.Add(Objects[objIndex]);
+                }
             }
         }
 
@@ -170,6 +192,7 @@ namespace Sango.UI
 
         public void UpdateSortContent()
         {
+            idTitleItem?.gameObject.SetActive(hasId);
             itemCount = uIObjectListItems.Length;
             itemWidth = GetContentWidth();
             bool show_scrollbar_h = maskRect.rect.width < itemWidth;
@@ -196,51 +219,114 @@ namespace Sango.UI
                 ObjectSortTitle sortTitle = sortItems[i];
                 UISortButton uIPersonSortButton;
 
-                if (i == 0)
+                if (hasId)
                 {
-                    uIPersonSortButton = sortTitleItem;
-                }
-                else
-                {
-                    if (i - 1 < sortButtonPool.Count)
-                        uIPersonSortButton = sortButtonPool[i - 1];
-                    else
-                        uIPersonSortButton = CreateSortButtonItem();
-                }
-
-
-
-                uIPersonSortButton.gameObject.SetActive(true);
-                uIPersonSortButton.Clear().SetWidth(sortTitle.ContentMaxWidth).SetName(sortTitle.name);
-
-                uIPersonSortButton.onClick = (up) =>
-                {
-                    Objects.Sort(sortTitle.Sort);
-                    if (!up) Objects.Reverse();
-                    scrollbar.SetValueWithoutNotify(0);
-                    OnScrollBarValueChange(0);
-                };
-
-                if (i > 0)
-                {
-                    for (int j = 0; j < itemCount; j++)
+                    if (i == 0)
                     {
-                        UIObjectListItem listItem = uIObjectListItems[j];
-                        listItem.Add("", sortTitle.ContentMaxWidth, sortTitle.alignment);
+                        uIPersonSortButton = idTitleItem;
+                    }
+                    else if (i == 1)
+                    {
+                        uIPersonSortButton = sortTitleItem;
+                    }
+                    else
+                    {
+                        if (i - 2 < sortButtonPool.Count)
+                            uIPersonSortButton = sortButtonPool[i - 2];
+                        else
+                            uIPersonSortButton = CreateSortButtonItem();
+                    }
+
+                    uIPersonSortButton.gameObject.SetActive(true);
+                    uIPersonSortButton.Clear().SetWidth(sortTitle.ContentMaxWidth).SetName(sortTitle.name);
+
+                    uIPersonSortButton.onClick = (up) =>
+                    {
+                        Objects.Sort(sortTitle.Sort);
+                        if (!up) Objects.Reverse();
+                        scrollbar.SetValueWithoutNotify(0);
+                        OnScrollBarValueChange(0);
+                    };
+
+
+                    if (i == 0)
+                    {
+                        for (int j = 0; j < itemCount; j++)
+                        {
+                            UIObjectListItem listItem = uIObjectListItems[j];
+                            listItem.idItem.SetWidth(sortTitle.ContentMaxWidth);
+                        }
+                    }
+                    else if (i == 1)
+                    {
+                        for (int j = 0; j < itemCount; j++)
+                        {
+                            UIObjectListItem listItem = uIObjectListItems[j];
+                            listItem.textItem.SetWidth(sortTitle.ContentMaxWidth);
+                        }
+                    }
+                    else
+                    {
+                        for (int j = 0; j < itemCount; j++)
+                        {
+                            UIObjectListItem listItem = uIObjectListItems[j];
+                            listItem.Add("", sortTitle.ContentMaxWidth, sortTitle.alignment);
+                        }
                     }
                 }
                 else
                 {
-                    for (int j = 0; j < itemCount; j++)
+                    if (i == 0)
                     {
-                        UIObjectListItem listItem = uIObjectListItems[j];
-                        listItem.textItem.SetWidth(sortTitle.ContentMaxWidth);
+                        uIPersonSortButton = sortTitleItem;
+                    }
+                    else
+                    {
+                        if (i - 1 < sortButtonPool.Count)
+                            uIPersonSortButton = sortButtonPool[i - 1];
+                        else
+                            uIPersonSortButton = CreateSortButtonItem();
+                    }
+
+                    uIPersonSortButton.gameObject.SetActive(true);
+                    uIPersonSortButton.Clear().SetWidth(sortTitle.ContentMaxWidth).SetName(sortTitle.name);
+
+                    uIPersonSortButton.onClick = (up) =>
+                    {
+                        Objects.Sort(sortTitle.Sort);
+                        if (!up) Objects.Reverse();
+                        scrollbar.SetValueWithoutNotify(0);
+                        OnScrollBarValueChange(0);
+                    };
+
+                    if (i > 0)
+                    {
+                        for (int j = 0; j < itemCount; j++)
+                        {
+                            UIObjectListItem listItem = uIObjectListItems[j];
+                            listItem.Add("", sortTitle.ContentMaxWidth, sortTitle.alignment);
+                        }
+                    }
+                    else
+                    {
+                        for (int j = 0; j < itemCount; j++)
+                        {
+                            UIObjectListItem listItem = uIObjectListItems[j];
+                            listItem.textItem.SetWidth(sortTitle.ContentMaxWidth);
+                        }
                     }
                 }
             }
-
-            for (int i = sortItems.Count - 1; i < sortButtonPool.Count; i++)
-                sortButtonPool[i].gameObject.SetActive(false);
+            if (hasId)
+            {
+                for (int i = sortItems.Count - 2; i < sortButtonPool.Count; i++)
+                    sortButtonPool[i].gameObject.SetActive(false);
+            }
+            else
+            {
+                for (int i = sortItems.Count - 1; i < sortButtonPool.Count; i++)
+                    sortButtonPool[i].gameObject.SetActive(false);
+            }
         }
 
         public void OnRefresh()
@@ -306,21 +392,134 @@ namespace Sango.UI
                 if (i < Objects.Count)
                 {
                     SangoObject sango = Objects[i + startIndex];
-                    for (int j = 0; j < sortItems.Count; j++)
-                    {
-                        ObjectSortTitle sortTitle = sortItems[j];
-                        listItem.Set(j, sortTitle.GetValueStr(sango));
-                    }
+                    listItem.Set(sango, sortItems);
                 }
                 else
                 {
-                    for (int j = 0; j < sortItems.Count; j++)
-                    {
-                        ObjectSortTitle sortTitle = sortItems[j];
-                        listItem.Set(j, "");
-                    }
+                    listItem.Set(null, sortItems);
                 }
                 listItem.index = i + startIndex;
+
+                // 多选模式下同步选中高亮,避免滚动后选中标记错位
+                if (OnMultiSelectCall != null)
+                {
+                    listItem.SetSelected(multiSelectList.Contains(listItem.index));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 程序化选中指定索引的对象 - 取消旧选中、滚动到可视区域并触发选中回调
+        /// </summary>
+        /// <param name="index">目标索引</param>
+        public void SelectIndex(int index)
+        {
+            if (Objects == null || index < 0 || index >= Objects.Count)
+                return;
+
+            // 取消旧选中
+            if (currentSelect != null)
+            {
+                currentSelect.SetSelected(false);
+                currentSelect = null;
+            }
+
+            // 若目标不在当前可视范围内,滚动到目标位置
+            if (index < startIndex || index >= startIndex + itemCount)
+            {
+                int maxStart = Objects.Count - itemCount;
+                if (maxStart < 0) maxStart = 0;
+                int targetStart = index - itemCount + 1;
+                if (targetStart < 0) targetStart = 0;
+                if (targetStart > maxStart) targetStart = maxStart;
+                float value = maxStart > 0 ? (float)targetStart / (float)maxStart : 0f;
+                scrollbar.SetValueWithoutNotify(value);
+                OnScrollBarValueChange(value);
+            }
+
+            // 高亮对应列表项
+            for (int i = 0; i < uIObjectListItems.Length; i++)
+            {
+                UIObjectListItem listItem = uIObjectListItems[i];
+                if (listItem != null && listItem.index == index)
+                {
+                    currentSelect = listItem;
+                    listItem.SetSelected(true);
+                    break;
+                }
+            }
+
+            if (OnSelectCall != null)
+                OnSelectCall.Invoke(index);
+        }
+
+        /// <summary>
+        /// 同步多选选中状态到可视列表项
+        /// </summary>
+        protected void SyncMultiSelectVisual()
+        {
+            for (int i = 0; i < uIObjectListItems.Length; i++)
+            {
+                UIObjectListItem listItem = uIObjectListItems[i];
+                if (listItem != null)
+                {
+                    listItem.SetSelected(multiSelectList.Contains(listItem.index));
+                }
+            }
+        }
+
+        /// <summary>
+        /// 一键全选 - 选中当前列表中的全部对象(仅多选模式有效)
+        /// </summary>
+        public void SelectAll()
+        {
+            if (Objects == null || OnMultiSelectCall == null)
+                return;
+
+            multiSelectList.Clear();
+            for (int i = 0; i < Objects.Count; i++)
+            {
+                multiSelectList.Add(i);
+            }
+            SyncMultiSelectVisual();
+            OnMultiSelectCall.Invoke(multiSelectList);
+        }
+
+        /// <summary>
+        /// 一键取消 - 清空当前全部选中(仅多选模式有效)
+        /// </summary>
+        public void UnSelectAll()
+        {
+            if (OnMultiSelectCall == null)
+                return;
+
+            multiSelectList.Clear();
+            SyncMultiSelectVisual();
+            OnMultiSelectCall.Invoke(multiSelectList);
+        }
+
+        /// <summary>
+        /// 程序化设置多选索引 - 用于列表刷新后恢复选中状态
+        /// </summary>
+        /// <param name="indexes">目标索引集合</param>
+        public void SetMultiSelect(List<int> indexes)
+        {
+            multiSelectList.Clear();
+            if (indexes != null)
+            {
+                for (int i = 0; i < indexes.Count; i++)
+                {
+                    int index = indexes[i];
+                    if (Objects != null && index >= 0 && index < Objects.Count && !multiSelectList.Contains(index))
+                    {
+                        multiSelectList.Add(index);
+                    }
+                }
+            }
+            SyncMultiSelectVisual();
+            if (OnMultiSelectCall != null)
+            {
+                OnMultiSelectCall.Invoke(multiSelectList);
             }
         }
 
@@ -337,6 +536,8 @@ namespace Sango.UI
 
         public void Update()
         {
+            if (!isMouseOver) return;
+
             Vector2 scrollWheel = Input.mouseScrollDelta;
             if (scrollWheel.y > 0)
             {
@@ -401,7 +602,7 @@ namespace Sango.UI
             }
             else if (!item.IsSelected() && dragFlag)
             {
-                if(item.index < Objects.Count)
+                if (item.index < Objects.Count)
                 {
                     item.SetSelected(true);
                     multiSelectList.Add(item.index);
@@ -431,5 +632,14 @@ namespace Sango.UI
             }
         }
 
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            isMouseOver = true;
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            isMouseOver = false;
+        }
     }
 }

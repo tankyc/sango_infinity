@@ -87,11 +87,6 @@ namespace Sango.Tools
         public MapEditorWindows windows { get; private set; }
 
         /// <summary>
-        /// 菜单扩展类
-        /// </summary>
-        public MapEditorMenu menu { get; private set; }
-
-        /// <summary>
         /// UI地图编辑器组件引用
         /// </summary>
         public UIMapEditor uiMapEditor { get; private set; }

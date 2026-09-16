@@ -33,6 +33,12 @@ namespace Sango.Core
             {
                 scenarioCommonData.Load(file);
             });
+
+            Sango.Directory.EnumFiles(Path.CustomEditRootPath + "/Data/Common", file =>
+            {
+                scenarioCommonData.Load(file);
+            });
+
             ModManager.Instance.EnumFiles("Data/Common", "*.json", System.IO.SearchOption.AllDirectories, file =>
             {
                 scenarioCommonData.Load(file);
@@ -43,6 +49,10 @@ namespace Sango.Core
         {
             ScenarioCommonData scenarioCommonData = new ScenarioCommonData();
             Sango.Directory.EnumFiles(Path.ContentRootPath + "/Data/Common", file =>
+            {
+                scenarioCommonData.Load(file);
+            });
+            Sango.Directory.EnumFiles(Path.CustomEditRootPath + "/Data/Common", file =>
             {
                 scenarioCommonData.Load(file);
             });

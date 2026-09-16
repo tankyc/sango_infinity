@@ -95,5 +95,16 @@ namespace Sango.Core
             return kind == (int)ItemKindType.Horse;
         }
 
+        public int TransformLimit(int limit)
+        {
+            if(p1 == 0)
+            {
+                return limit;
+            }
+            else
+            {
+                return limit * p1 / 1000;
+            }
+        }
     }
 }

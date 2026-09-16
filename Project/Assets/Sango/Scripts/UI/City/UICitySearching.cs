@@ -17,12 +17,12 @@ namespace Sango.UI
         public UIStatusItem statusItem;
 
         City TargetCity;
-        CitySeraching currentSystem;
+        CitySearching currentSystem;
         public Button sureButton;
 
         public override void OnOpen()
         {   
-            currentSystem = GameSystem.GetSystem<CitySeraching>();
+            currentSystem = GameSystem.GetSystem<CitySearching>();
             windiwTitle.text = currentSystem.customTitleName;
             TargetCity = currentSystem.TargetCity;
             personItems.SetPerson(null);

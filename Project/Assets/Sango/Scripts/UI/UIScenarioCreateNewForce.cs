@@ -121,7 +121,7 @@ namespace Sango.UI
                 {
                     if (city == null) continue;
                     exsisitCityList.Add(city.Copy());
-                    if (city != null && city.Id != 0 && city.BuildingType <= 1 && city.BelongForce == 0)
+                    if (city != null && city.Id != 0 && city.IsCity() && city.BelongForce == 0)
                     {
                         emptyCities.Add(city);
                     }

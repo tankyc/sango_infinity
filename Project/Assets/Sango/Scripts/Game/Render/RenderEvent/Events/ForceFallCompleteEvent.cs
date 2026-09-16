@@ -11,7 +11,7 @@ namespace Sango.Render
         {
             IsDone = false;
             
-            string showText = $"{scenario.Info.year}Äê{scenario.Info.month}ÔÂ£¬\n{force.ColorName}ÊÆÁ¦ÃğÍöÁË¡£";
+            string showText = $"{scenario.Info.year}å¹´{scenario.Info.month}æœˆï¼Œ\n{force.ColorName}åŠ¿åŠ›ç­äº¡äº†ã€‚";
             targetWindow = Window.Instance.Open("window_force_destroy", showText);
             GameMedia.Instance.PauseBgm();
             GameMedia.Instance.PlaySfx(44);

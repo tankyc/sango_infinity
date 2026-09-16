@@ -37,7 +37,10 @@ namespace Sango.Mod
             /// <returns></returns>
             public static string MakeUrl(NetModMarket netModMarket, NetModInfo netModInfo)
             {
-                return $"{netModMarket.url}/{netModInfo.id}@{netModInfo.version}.zip";
+                string urlBegin = netModMarket.url;
+                if (urlBegin.EndsWith("/mod_list.txt"))
+                    urlBegin = urlBegin.Substring(0, urlBegin.Length - 13);
+                return $"{urlBegin}/{netModInfo.id}@{netModInfo.version}.zip";
             }
         }
 
@@ -124,7 +127,10 @@ namespace Sango.Mod
 
             foreach (var item in list)
             {
-                yield return GitDownloader.Get(item.url + "/mod_list.txt", (f) =>
+                string urlBegin = item.url;
+                if (urlBegin.EndsWith("/mod_list.txt"))
+                    urlBegin = urlBegin.Substring(0, urlBegin.Length - 13);
+                yield return GitDownloader.Get(urlBegin + "/mod_list.txt", (f) =>
                 {
                     progress?.Invoke(current / cout + f / cout);
                 }

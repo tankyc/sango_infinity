@@ -3,24 +3,28 @@
     "Id": 1,
     "Name": "城类型一",
     "modelType": 1,
+    "modelKind": 1,
     "model": "Assets/Model/Prefab/p_city_1.prefab"
   },
   "2": {
     "Id": 2,
     "Name": "城类型二",
     "modelType": 1,
+    "modelKind": 1,
     "model": "Assets/Model/Prefab/p_city_2.prefab"
   },
   "3": {
     "Id": 3,
     "Name": "港口",
     "modelType": 3,
+    "modelKind": 3,
     "model": "Assets/Model/Prefab/p_port.prefab"
   },
   "4": {
     "Id": 4,
     "Name": "关卡",
     "modelType": 2,
+    "modelKind": 2,
     "model": "Assets/Model/Prefab/p_gate_lv2.prefab"
   },
   "5": {
@@ -111,24 +115,28 @@
     "Id": 19,
     "Name": "小城类型一",
     "modelType": 1,
+    "modelKind": 5,
     "model": "Assets/Model/Prefab/4306.prefab"
   },
   "20": {
     "Id": 20,
     "Name": "小城类型二",
     "modelType": 1,
+    "modelKind": 5,
     "model": "Assets/Model/Prefab/4308.prefab"
   },
   "21": {
     "Id": 21,
     "Name": "小城类型三",
     "modelType": 1,
+    "modelKind": 5,
     "model": "Assets/Model/Prefab/4310.prefab"
   },
   "22": {
     "Id": 22,
     "Name": "小城类型四",
     "modelType": 1,
+    "modelKind": 5,
     "model": "Assets/Model/Prefab/4312.prefab"
   }
 }

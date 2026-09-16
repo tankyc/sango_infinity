@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 863372319581366393}
   - component: {fileID: 3034982687856276050}
   - component: {fileID: -834040996264696334}
+  - component: {fileID: -5871590213262308822}
   m_Layer: 9
   m_Name: 4312
   m_TagString: Untagged
@@ -69,6 +70,19 @@ MonoBehaviour:
   targetRandomRadius: 10
   flightTimeRange: {x: 1, y: 2}
   spawnOffsetRadius: 6
+--- !u!65 &-5871590213262308822
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49680472895992515}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Size: {x: 20, y: 20, z: 20}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &9024452517179574810
 GameObject:
   m_ObjectHideFlags: 0

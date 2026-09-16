@@ -9,6 +9,11 @@ namespace Sango.Core
     public class ScenarioVariables : SangoObjectExtensionData
     {
         /// <summary>
+        /// 应用基础武将库修改
+        /// </summary>
+        [JsonProperty] public bool ApplyEdit = false;
+
+        /// <summary>
         /// 最大可存储的行动力上限
         /// </summary>
         [JsonProperty] public int ActionPointLimit = 255;
@@ -77,6 +82,26 @@ namespace Sango.Core
         /// 难度
         /// </summary>
         [JsonProperty] public int difficulty = 1;
+
+        /// <summary>
+        /// AI每回合获得的钱
+        /// </summary>
+        [JsonProperty] public int aiTurnAddGold = 0;
+
+        /// <summary>
+        /// AI每回合获得的粮
+        /// </summary>
+        [JsonProperty] public int aiTurnAddFood = 0;
+
+        /// <summary>
+        /// AI每回合获得的士兵
+        /// </summary>
+        [JsonProperty] public int aiTurnAddTroops = 0;
+
+        /// <summary>
+        /// AI每回合获得的兵装（非器械、非船）
+        /// </summary>
+        [JsonProperty] public int aiTurnAddArms = 0;
 
         /// <summary>
         /// 可招募的忠诚度,高于或等于此数值不可招募
@@ -1014,6 +1039,21 @@ namespace Sango.Core
                 }
                 return fight_damage_difficulty_factor[fight_damage_difficulty_factor.Length - 1];
             }
+        }
+
+        /// <summary>
+        /// 获取AI每回合实际增加的资源数量。
+        /// </summary>
+        /// <param name="gold">钱</param>
+        /// <param name="food">粮</param>
+        /// <param name="troops">士兵</param>
+        /// <param name="arms">兵装</param>
+        public void GetAIAddValues(out int gold, out int food, out int troops, out int arms)
+        {
+            gold = aiTurnAddGold;
+            food = aiTurnAddFood;
+            troops = aiTurnAddTroops;
+            arms = aiTurnAddArms;
         }
 
         public string GetAbilityName(int lvl)

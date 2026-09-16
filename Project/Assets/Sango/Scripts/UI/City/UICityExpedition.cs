@@ -397,8 +397,8 @@ using Sango.Core; namespace Sango.UI
             for (int i = 0; i < itemCount; i++)
             {
                 ItemType itemType = Scenario.Cur.CommonData.ItemTypeList[i];
-
-                itemLabels[showIndex].gameObject.SetActive(true);
+                if (showIndex < itemLabels.Length)
+                    itemLabels[showIndex].gameObject.SetActive(true);
                 int has = targetCity.itemStore.GetNumber(itemType);
                 int use = 0;
                 if (targetTroop.LandTroopType.costItems != null)
@@ -425,8 +425,11 @@ using Sango.Core; namespace Sango.UI
                         }
                     }
                 }
-                itemLabels[showIndex].SetTitle(itemType.Name);
-                SetItemLabel(itemLabels[showIndex], has, use);
+                if (showIndex < itemLabels.Length)
+                {
+                    itemLabels[showIndex].SetTitle(itemType.Name);
+                    SetItemLabel(itemLabels[showIndex], has, use);
+                }
                 showIndex++;
             }
 

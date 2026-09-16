@@ -5,8 +5,16 @@ using static Sango.Core.PersonSortFunction;
 namespace Sango.Core.Player
 {
     [GameSystem]
-    public class PersonSelectSystem : ObjectSelectSystem
+    public class PersonSelectSystem : ObjectSelectSystem, IObjectSelectSystem<Person>
     {
+        /// <summary>
+        /// 通用对象选择接口实现 - 供UIDataEdit按数据集类型统一调用
+        /// </summary>
+        void IObjectSelectSystem<Person>.Start(List<Person> candidates, List<Person> resultList, int limit, Action<List<Person>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
+        {
+            Start(candidates, resultList, limit, action, customSortTitles, cutomSortTitleName);
+        }
+
         Action<List<Person>> finishAction;
         public List<ButtonData> selectButtons;
 
@@ -37,13 +45,18 @@ namespace Sango.Core.Player
                 for(int i = 0; i < Objects.Count; i++)
                 {
                     SangoObject dest = Objects[i];
-                    if(!selected.Contains(dest))
-                    {
-                        selected.Add(dest);
-                        if (selected.Count >= selectLimit)
-                            break;
-                    }
+                    if(selected.Contains(dest))
+                        continue;
+                    // 勾选联动过滤: 一并选人也只能选彼此兼容的项
+                    // (selected为空时过滤条件全部成立, 第一个人为基准, 后面的人按已有勾选判定)
+                    if (displayFilter != null && !displayFilter(dest))
+                        continue;
+
+                    selected.Add(dest);
+                    if (selected.Count >= selectLimit)
+                        break;
                 }
+                MarkFilterDirty();
                 WindowInterface?.Refresh();
             }
         }
@@ -51,6 +64,7 @@ namespace Sango.Core.Player
         public void UnSelectAll()
         {
             selected.Clear();
+            MarkFilterDirty();
             WindowInterface?.Refresh();
         }
 
@@ -59,6 +73,9 @@ namespace Sango.Core.Player
             donotFinishThisSystem = false;
             selectLimit = Math.Min(limit, persons.Count);
             Objects = new List<SangoObject>(persons);
+            displayFilter = null;
+            filterDirty = false;
+            allObjects = new List<SangoObject>(Objects);
             finishAction = action;
             sureAction = OnBaseSure;
             selected = new List<SangoObject>(resultList);

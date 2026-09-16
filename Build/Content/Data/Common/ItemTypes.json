@@ -4,6 +4,7 @@
       "Id": 1,
       "Name": "剑",
       "kind": 0,
+      "subKind": 0,
       "storeKind": 1,
       "store": false,
       "desc": "标准装备的兵装，威力是最弱的",
@@ -14,6 +15,7 @@
       "Id": 2,
       "Name": "枪",
       "kind": 1,
+      "subKind": 1,
       "storeKind": 2,
       "store": true,
       "desc": "有利于对付骑兵，但不利于戟兵",
@@ -25,6 +27,7 @@
       "Id": 3,
       "Name": "戟",
       "kind": 1,
+      "subKind": 1,
       "storeKind": 3,
       "store": true,
       "desc": "有利于对付枪兵，但不利于骑兵",
@@ -36,6 +39,7 @@
       "Id": 4,
       "Name": "弓",
       "kind": 1,
+      "subKind": 1,
       "storeKind": 4,
       "store": true,
       "desc": "可对２区格之外的敌人执行弓箭攻击",
@@ -47,6 +51,7 @@
       "Id": 5,
       "Name": "军马",
       "kind": 2,
+      "subKind": 2,
       "storeKind": 5,
       "store": true,
       "desc": "有利于对付戟兵，但不利于枪兵",
@@ -58,6 +63,7 @@
       "Id": 6,
       "Name": "冲车",
       "kind": 3,
+      "subKind": 3,
       "storeKind": 6,
       "store": true,
       "nextId": 7,
@@ -71,6 +77,7 @@
       "Id": 7,
       "Name": "木兽",
       "kind": 3,
+      "subKind": 3,
       "storeKind": 6,
       "store": true,
       "validTechId": 1,
@@ -84,6 +91,7 @@
       "Id": 8,
       "Name": "井阑",
       "kind": 3,
+      "subKind": 3,
       "storeKind": 7,
       "store": true,
       "nextId": 8,
@@ -97,6 +105,7 @@
       "Id": 9,
       "Name": "投石",
       "kind": 3,
+      "subKind": 3,
       "storeKind": 7,
       "store": true,
       "validTechId": 2,
@@ -110,6 +119,7 @@
       "Id": 10,
       "Name": "走舸",
       "kind": 4,
+      "subKind": 4,
       "storeKind": 8,
       "store": false,
       "desc": "标准装备的舰船。",
@@ -120,6 +130,7 @@
       "Id": 11,
       "Name": "楼船",
       "kind": 4,
+      "subKind": 4,
       "storeKind": 8,
       "store": true,
       "nextId": 12,
@@ -133,6 +144,7 @@
       "Id": 12,
       "Name": "斗舰",
       "kind": 4,
+      "subKind": 4,
       "storeKind": 8,
       "store": true,
       "validTechId": 2,
@@ -141,6 +153,449 @@
       "icon": "4846-8/4846-8_11",
       "cost": 1000,
       "p1": "8"
+    },
+    "13": {
+      "Id": 13,
+      "Name": "陷阵营兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 13,
+      "store": false,
+      "createBuildingKind": 51,
+      "icon": "4846-8/4846-8_2",
+      "cost": 1000
+    },
+    "14": {
+      "Id": 14,
+      "Name": "虎卫军兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 14,
+      "store": false
+    },
+    "15": {
+      "Id": 15,
+      "Name": "藤甲兵兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 15,
+      "store": false
+    },
+    "16": {
+      "Id": 16,
+      "Name": "青州兵兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 16,
+      "store": false
+    },
+    "17": {
+      "Id": 17,
+      "Name": "白毦兵兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 17,
+      "store": false
+    },
+    "18": {
+      "Id": 18,
+      "Name": "大戟士兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 18,
+      "store": false
+    },
+    "19": {
+      "Id": 19,
+      "Name": "虎豹骑兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 19,
+      "store": false
+    },
+    "20": {
+      "Id": 20,
+      "Name": "白马义从兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 20,
+      "store": false
+    },
+    "21": {
+      "Id": 21,
+      "Name": "西凉铁骑‌兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 21,
+      "store": false
+    },
+    "22": {
+      "Id": 22,
+      "Name": "象兵兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 22,
+      "store": false
+    },
+    "23": {
+      "Id": 23,
+      "Name": "无当飞军兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 23,
+      "store": false
+    },
+    "24": {
+      "Id": 24,
+      "Name": "锦帆军兵符",
+      "kind": 5,
+      "subKind": 8,
+      "storeKind": 24,
+      "store": false
+    },
+    "25": {
+      "Id": 25,
+      "Name": "赤兔马",
+      "kind": 5,
+      "subKind": 0,
+      "storeKind": 25,
+      "store": false
+    },
+    "26": {
+      "Id": 26,
+      "Name": "的卢",
+      "kind": 5,
+      "subKind": 0,
+      "storeKind": 26,
+      "store": false
+    },
+    "27": {
+      "Id": 27,
+      "Name": "爪黄飞电",
+      "kind": 5,
+      "subKind": 0,
+      "storeKind": 27,
+      "store": false
+    },
+    "28": {
+      "Id": 28,
+      "Name": "绝影",
+      "kind": 5,
+      "subKind": 0,
+      "storeKind": 28,
+      "store": false
+    },
+    "29": {
+      "Id": 29,
+      "Name": "大宛马",
+      "kind": 5,
+      "subKind": 0,
+      "storeKind": 29,
+      "store": false
+    },
+    "30": {
+      "Id": 30,
+      "Name": "大宛马",
+      "kind": 5,
+      "subKind": 0,
+      "storeKind": 30,
+      "store": false
+    },
+    "31": {
+      "Id": 31,
+      "Name": "大宛马",
+      "kind": 5,
+      "subKind": 0,
+      "storeKind": 31,
+      "store": false
+    },
+    "32": {
+      "Id": 32,
+      "Name": "七星宝刀",
+      "kind": 5,
+      "subKind": 1,
+      "storeKind": 32,
+      "store": false
+    },
+    "33": {
+      "Id": 33,
+      "Name": "倚天剑",
+      "kind": 5,
+      "subKind": 1,
+      "storeKind": 33,
+      "store": false
+    },
+    "34": {
+      "Id": 34,
+      "Name": "青釭剑",
+      "kind": 5,
+      "subKind": 1,
+      "storeKind": 34,
+      "store": false
+    },
+    "35": {
+      "Id": 35,
+      "Name": "雌雄一对剑",
+      "kind": 5,
+      "subKind": 1,
+      "storeKind": 35,
+      "store": false
+    },
+    "36": {
+      "Id": 36,
+      "Name": "方天画戟",
+      "kind": 5,
+      "subKind": 2,
+      "storeKind": 36,
+      "store": false
+    },
+    "37": {
+      "Id": 37,
+      "Name": "青龙偃月刀",
+      "kind": 5,
+      "subKind": 2,
+      "storeKind": 37,
+      "store": false
+    },
+    "38": {
+      "Id": 38,
+      "Name": "蛇矛",
+      "kind": 5,
+      "subKind": 2,
+      "storeKind": 38,
+      "store": false
+    },
+    "39": {
+      "Id": 39,
+      "Name": "流星锤",
+      "kind": 5,
+      "subKind": 3,
+      "storeKind": 39,
+      "store": false
+    },
+    "40": {
+      "Id": 40,
+      "Name": "飞刀",
+      "kind": 5,
+      "subKind": 3,
+      "storeKind": 40,
+      "store": false
+    },
+    "41": {
+      "Id": 41,
+      "Name": "飞刀",
+      "kind": 5,
+      "subKind": 3,
+      "storeKind": 41,
+      "store": false
+    },
+    "42": {
+      "Id": 42,
+      "Name": "短戟",
+      "kind": 5,
+      "subKind": 3,
+      "storeKind": 42,
+      "store": false
+    },
+    "43": {
+      "Id": 43,
+      "Name": "短戟",
+      "kind": 5,
+      "subKind": 3,
+      "storeKind": 43,
+      "store": false
+    },
+    "44": {
+      "Id": 44,
+      "Name": "手戟",
+      "kind": 5,
+      "subKind": 3,
+      "storeKind": 44,
+      "store": false
+    },
+    "45": {
+      "Id": 45,
+      "Name": "手戟",
+      "kind": 5,
+      "subKind": 3,
+      "storeKind": 45,
+      "store": false
+    },
+    "46": {
+      "Id": 46,
+      "Name": "铁锁",
+      "kind": 5,
+      "subKind": 3,
+      "storeKind": 46,
+      "store": false
+    },
+    "47": {
+      "Id": 47,
+      "Name": "养由基弓",
+      "kind": 5,
+      "subKind": 4,
+      "storeKind": 47,
+      "store": false
+    },
+    "48": {
+      "Id": 48,
+      "Name": "李广弓",
+      "kind": 5,
+      "subKind": 4,
+      "storeKind": 48,
+      "store": false
+    },
+    "49": {
+      "Id": 49,
+      "Name": "檀弓",
+      "kind": 5,
+      "subKind": 4,
+      "storeKind": 49,
+      "store": false
+    },
+    "50": {
+      "Id": 50,
+      "Name": "檀弓",
+      "kind": 5,
+      "subKind": 4,
+      "storeKind": 50,
+      "store": false
+    },
+    "51": {
+      "Id": 51,
+      "Name": "东胡飞弓",
+      "kind": 5,
+      "subKind": 4,
+      "storeKind": 51,
+      "store": false
+    },
+    "52": {
+      "Id": 52,
+      "Name": "东胡飞弓",
+      "kind": 5,
+      "subKind": 4,
+      "storeKind": 52,
+      "store": false
+    },
+    "53": {
+      "Id": 53,
+      "Name": "貊弓",
+      "kind": 5,
+      "subKind": 4,
+      "storeKind": 53,
+      "store": false
+    },
+    "54": {
+      "Id": 54,
+      "Name": "貊弓",
+      "kind": 5,
+      "subKind": 4,
+      "storeKind": 54,
+      "store": false
+    },
+    "55": {
+      "Id": 55,
+      "Name": "孙子兵法",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 55,
+      "store": false
+    },
+    "56": {
+      "Id": 56,
+      "Name": "兵法二十四篇",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 56,
+      "store": false
+    },
+    "57": {
+      "Id": 57,
+      "Name": "孟德新书",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 57,
+      "store": false
+    },
+    "58": {
+      "Id": 58,
+      "Name": "六韬",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 58,
+      "store": false
+    },
+    "59": {
+      "Id": 59,
+      "Name": "三略",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 59,
+      "store": false
+    },
+    "60": {
+      "Id": 60,
+      "Name": "吴子",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 60,
+      "store": false
+    },
+    "61": {
+      "Id": 61,
+      "Name": "尉缭子",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 61,
+      "store": false
+    },
+    "62": {
+      "Id": 62,
+      "Name": "战国策",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 62,
+      "store": false
+    },
+    "63": {
+      "Id": 63,
+      "Name": "司马法",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 63,
+      "store": false
+    },
+    "64": {
+      "Id": 64,
+      "Name": "墨子",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 64,
+      "store": false
+    },
+    "65": {
+      "Id": 65,
+      "Name": "太平要术",
+      "kind": 5,
+      "subKind": 5,
+      "storeKind": 65,
+      "store": false
+    },
+    "66": {
+      "Id": 66,
+      "Name": "玉玺",
+      "kind": 5,
+      "subKind": 6,
+      "storeKind": 66,
+      "store": false
+    },
+    "67": {
+      "Id": 67,
+      "Name": "铜雀",
+      "kind": 5,
+      "subKind": 7,
+      "storeKind": 67,
+      "store": false
     }
   }
 }

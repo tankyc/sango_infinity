@@ -14,6 +14,8 @@ using System.Linq;
 using System.Threading;
 using UnityEngine;
 using Task = System.Threading.Tasks.Task;
+using Sango.Core.Duel;
+using Sango.Core.Debate;
 
 namespace Sango.Core
 {
@@ -808,6 +810,16 @@ namespace Sango.Core
                 Add(file);
                 ShortScenario.Add(file);
             });
+
+            path = $"{Path.CustomEditRootPath}/Scenario";
+            Directory.EnumFiles(path, "*.json", SearchOption.AllDirectories, (file) =>
+            {
+                Sango.Log.Info($"Find Scenario: {file}");
+                Add(file);
+                ShortScenario s = ShortScenario.Add(file);
+                s.ModName = "<color=#22ff22>自定义</color>";
+                s.Info.type = 2;
+            });
         }
 
         public static void OnModInitEnd()
@@ -857,6 +869,25 @@ namespace Sango.Core
             //Cur.OnWorldLoaded();
             //Event.OnScenarioEnd?.Invoke(Cur);
             //Cur = null;
+
+            var test = new DuelTestInstance(Cur.personSet.Get(3), Cur.personSet.Get(4), seed: 12345);  // 真实武将
+            test.OnLog = Debug.Log;
+            test.Run();
+
+            // 或临时造人
+            //new DuelTestInstance("吕布", 95, "赵云", 88, seed: 1).Run();
+
+            //// 或手动组装 Param
+            //var param = new Duel.Param();
+            //param.person[0][0] = luBu;   // 直接塞真实 Person
+            //param.person[1][0] = zhaoYun;
+            //param.shoubyou[i][j] = 0;    // 必须填 0（健康）
+            //param.hp[i][j] = Duel.MaxHP;
+            //var duel = new Duel(mySystem, param);
+            //duel.Init();
+            //while (!duel.OnPhase(0)) { }
+            //duel.ResultHandler();
+
         }
 
         public static void StartScenario(Scenario scenario, ShortScenario addData)
@@ -991,6 +1022,14 @@ namespace Sango.Core
             //Cur.OnWorldLoaded();
             //Event.OnScenarioEnd?.Invoke(Cur);
             //Cur = null;
+            var test = new DuelTestInstance(Cur.personSet.Get(3), Cur.personSet.Get(4), seed: 12345);  // 真实武将
+            test.OnLog = Debug.Log;
+            test.Run();
+
+            var t = new DebateTestInstance(Cur.personSet.Get(290), Cur.personSet.Get(246), seed: 12345);
+            t.OnLog = Debug.Log;
+            t.Run();
+
         }
 
         static void FixReletionship(ref int r, SangoObjectSet<ShortPerson> objectSet)
@@ -1374,8 +1413,12 @@ namespace Sango.Core
         internal bool HasTurnStarted = false;
         internal bool HasTurnEnded = false;
 
+        Duel.Duel duel = null;
+
         public void Run()
         {
+
+
             // 事件处理
             if (!RenderEvent.Instance.Update(this, Time.deltaTime))
                 return;

@@ -5,6 +5,7 @@ using UnityEngine.EventSystems;
 
 public class UIEventPass : MonoBehaviour, IPointerClickHandler, IPointerDownHandler, IPointerUpHandler, IDragHandler
 {
+    public GameObject passToObject;
     public bool nextOnly = true;
     public bool PointerClick = true;
     public bool PointerDown = true;
@@ -12,6 +13,12 @@ public class UIEventPass : MonoBehaviour, IPointerClickHandler, IPointerDownHand
     public bool Drag = true;
     public void PassEvent<T>(PointerEventData data, ExecuteEvents.EventFunction<T> func) where T : IEventSystemHandler
     {
+        if(passToObject != null)
+        {
+            ExecuteEvents.Execute(passToObject, data, func);
+            return;
+        }
+
         List<RaycastResult> results = new List<RaycastResult>();
         EventSystem.current.RaycastAll(data, results);
 

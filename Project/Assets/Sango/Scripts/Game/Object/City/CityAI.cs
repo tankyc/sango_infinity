@@ -265,7 +265,7 @@ namespace Sango.Core
                 return true;
             }
 
-            if(city.mBelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
+            if (city.mBelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
             {
                 return true;
             }
@@ -1041,9 +1041,12 @@ namespace Sango.Core
                 }
             }
 
-            //if (city.freePersons.Count <= 2) return true;
+            int totalNum = 0;
+            for (int itemTypeId = 2; itemTypeId <= 5; itemTypeId++)
+                // 获取总兵装
+                totalNum += city.itemStore.GetNumber(itemTypeId);
 
-            int expectationTroops = Math.Min(city.food / 2, city.itemStore.TotalNumber * 3 / 2);
+            int expectationTroops = Math.Max(city.food / 2, totalNum * 3 / 2);
             if (city.troops >= expectationTroops)
                 return true;
 
@@ -1134,7 +1137,8 @@ namespace Sango.Core
         {
             if (city.mBelongForce != null)
             {
-                return ForceAI.GetAIPersonality(city.mBelongForce);
+                if (city.mBelongCorps != null)
+                    return ForceAI.GetAIPersonality(city.mBelongCorps.mComander);
             }
             return ForceAI.AIPersonalityType.Balanced;
         }
@@ -1175,7 +1179,7 @@ namespace Sango.Core
             if (!city.IsBorderCity)
                 return false;
 
-            if (city.IsEnemiesRound(15))
+            if (city.IsEnemiesRound(6))
                 return false;
 
             List<City> enemiesCities = new List<City>();
@@ -1289,8 +1293,6 @@ namespace Sango.Core
             if (city.gold < 1000)
                 return true;
 
-            if (city.itemStore.TotalNumber >= city.StoreLimit - 1000) return true;
-
             Building freeBlacksmithShop = city.GetFreeBuilding((int)BuildingKindType.BlacksmithShop);
             Building freeStable = city.GetFreeBuilding((int)BuildingKindType.Stable);
             if (freeBlacksmithShop == null && freeStable == null)
@@ -1301,7 +1303,8 @@ namespace Sango.Core
                 // 获取总兵装
                 totalNum += city.itemStore.GetNumber(itemTypeId);
 
-            if (totalNum > city.troops * 2 / 3)
+            // 达到一定兵装后,如果金钱太少则有概率跳过
+            if (totalNum > city.troops * 2 / 3 && city.gold < 1000 && GameRandom.Chance(30))
                 return true;
 
             // 统计适应偏向
@@ -1342,6 +1345,8 @@ namespace Sango.Core
                     continue;
 
                 int itemNum = city.itemStore.GetNumber(itemTypeId);
+                if (itemNum >= city.storeLimit) continue;
+
                 if (itemNum < levelTotal[itemTypeId - 2] * city.troops / sumTotal + 5000)
                     validItem.Add(itemTypeId);
 
@@ -1354,7 +1359,7 @@ namespace Sango.Core
                 //}
             }
 
-            if(validItem.Count == 0)
+            if (validItem.Count == 0)
                 return true;
 
             int[] pr = new int[validItem.Count];
@@ -1392,7 +1397,10 @@ namespace Sango.Core
             if (city.freePersons.Count < 2 || city.gold < 1500)
                 return true;
 
-            if (city.itemStore.TotalNumber >= city.StoreLimit - 1000) return true;
+            ItemType targetItemType = scenario.GetObject<ItemType>(12);
+
+            int totalNum = city.itemStore.GetNumber((int)ItemStoreKindType.Boat);
+            if (totalNum >= targetItemType.TransformLimit(city.StoreLimit)) return true;
 
             Building BoatFactory = city.GetFreeBuilding((int)BuildingKindType.BoatFactory);
             if (BoatFactory == null)
@@ -1401,13 +1409,12 @@ namespace Sango.Core
             if (city.allPersons.Find(x => x.missionType == (int)MissionType.PersonCreateBoat) != null)
                 return true;
 
-            ItemType targetItemType = scenario.GetObject<ItemType>(12);
             if (!targetItemType.IsValid(city.mBelongForce))
                 targetItemType = scenario.GetObject<ItemType>(11);
 
+
             // 获取总兵装
-            int totalNum = city.itemStore.GetNumber(targetItemType);
-            if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1)
+            if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(50))
                 return true;
 
             Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);
@@ -1436,7 +1443,6 @@ namespace Sango.Core
             if (city.freePersons.Count < 2 || city.gold < 1500)
                 return true;
 
-            if (city.itemStore.TotalNumber >= city.StoreLimit - 1000) return true;
 
             Building MechineFactory = city.GetFreeBuilding((int)BuildingKindType.MechineFactory);
             if (MechineFactory == null)
@@ -1465,7 +1471,9 @@ namespace Sango.Core
                     targetItemType = scenario.GetObject<ItemType>(8);
             }
 
-            if (totalNum > (city.troops / 6) * targetItemType.p1 / 1000 + 1)
+            if (totalNum >= targetItemType.TransformLimit(city.StoreLimit)) return true;
+
+            if (totalNum > (city.troops / 6) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(80) )
                 return true;
 
             Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);

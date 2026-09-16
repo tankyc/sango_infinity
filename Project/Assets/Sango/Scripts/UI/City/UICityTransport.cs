@@ -234,8 +234,9 @@ namespace Sango.UI
             for (int i = 0; i < itemCount; i++)
             {
                 ItemType itemType = Scenario.Cur.CommonData.ItemTypeList[i];
+                if (showIndex < itemLabels.Length)
 
-                itemLabels[showIndex].gameObject.SetActive(true);
+                    itemLabels[showIndex].gameObject.SetActive(true);
                 int has = targetCity.itemStore.GetNumber(itemType);
                 int use = 0;
                 if (targetTroop.LandTroopType.costItems != null)
@@ -262,8 +263,11 @@ namespace Sango.UI
                         }
                     }
                 }
-                itemLabels[showIndex].SetTitle(itemType.Name);
-                SetItemLabel(itemLabels[showIndex], has, use);
+                if (showIndex < itemLabels.Length)
+                {
+                    itemLabels[showIndex].SetTitle(itemType.Name);
+                    SetItemLabel(itemLabels[showIndex], has, use);
+                }
                 showIndex++;
             }
 
@@ -281,10 +285,11 @@ namespace Sango.UI
             UpdateContent();
         }
 
+        /// <summary>打开运输选择器，默认使用搬运特性优先的排序列。</summary>
         public void OnSelectPerson()
         {
             GameSystem.GetSystem<PersonSelectSystem>().Start(cityTransportSys.TargetCity.freePersons,
-                cityTransportSys.personList, 3, OnPersonChange, cityTransportSys.customTitleList, cityTransportSys.customTitleName);
+                cityTransportSys.personList, 3, OnPersonChange, cityTransportSys.customTitleList, cityTransportSys.customTitleName, 1);
         }
 
         public void OnSlecteMax()

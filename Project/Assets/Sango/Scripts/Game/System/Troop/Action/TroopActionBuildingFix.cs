@@ -136,7 +136,7 @@ namespace Sango.Core.Player
         }
         void Action(Cell stayCell)
         {
-            GameSystem.GetSystem<TroopActionMenu>().troopRender.Clear();
+            GameSystem.GetSystem<TroopActionMenu>().troopRender?.Clear();
             ContextMenu.CloseAll();
             Cell start = TargetTroop.cell;
 

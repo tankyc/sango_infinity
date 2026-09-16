@@ -444,7 +444,7 @@ namespace Sango.Render
             return texture;
         }
 
-        private Tools.Rect ViewRectCache;
+        public Tools.Rect ViewRectCache;
         public void Update()
         {
             if (mapCamera != null)
@@ -476,10 +476,8 @@ namespace Sango.Render
             if (mapModels != null)
                 mapModels.Update(ViewRectCache);
 
-#if SANGO_DEBUG
-            if (mapGrid != null)
-                mapGrid.Update(ViewRectCache);
-#endif
+            //if (mapGrid != null)
+            //    mapGrid.Update(ViewRectCache);
 
             if (mapSkyBox != null)
                 mapSkyBox.Update();

@@ -142,6 +142,8 @@ namespace Sango.Core
                 mBelongForce = scenario.forceSet.Get(BelongForce);
             if (BelongCity > 0)
                 mBelongCity = scenario.citySet.Get(BelongCity);
+
+
             if (BelongCorps > 0)
                 mBelongCorps = scenario.corpsSet.Get(BelongCorps);
 

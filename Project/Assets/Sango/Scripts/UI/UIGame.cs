@@ -81,6 +81,14 @@ namespace Sango.UI
             GameController.Instance.onCellOverExit += OnCellOverExit;
 
             Window.Instance.Open("window_object_pop_info");
+
+#if UNITY_ANDROID || UNITY_IPHONE
+            if (GameSetting.Instance.MobileCancel)
+                Window.Instance.Open("window_mobile_cancel");
+            else
+                Window.Instance.Close("window_mobile_cancel");
+#endif
+
         }
 
         public override void OnClose()
@@ -243,6 +251,13 @@ namespace Sango.UI
 
         public void OnPlayerEndTurn(Force force, Scenario scenario)
         {
+            if(force == null)
+            {
+                endTurnButton.interactable = true;
+                uIPlayerInfoPanel.gameObject.SetActive(true);
+                return;
+            }
+
             endTurnButton.interactable = false;
             uIPlayerInfoPanel.gameObject.SetActive(false);
         }
@@ -398,12 +413,6 @@ namespace Sango.UI
             if (obj is Troop)
             {
                 Troop troop = (Troop)obj;
-
-                if (troop.mBelongForce == null)
-                {
-                    int dd = 33;
-                    dd++;
-                }
                 if (troop.TroopType.isFight)
                     item.name.text = $"[{troop.mBelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}队,{troop.Member1?.Name}{troop.Member2?.Name}";
                 else
@@ -669,7 +678,7 @@ namespace Sango.UI
             for (int i = 1; i < scenario.citySet.Count; i++)
             {
                 City city = scenario.citySet[i];
-                if(city == null) continue;
+                if (city == null) continue;
                 int selfTroopNum = 0;
                 int enemyTroopNum = 0;
                 for (int j = 0; j < city.areaCellList.Count; j++)
