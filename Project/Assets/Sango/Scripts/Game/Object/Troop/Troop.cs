@@ -1895,30 +1895,22 @@ namespace Sango.Core
             for (int i = 0; i < brothers.Count; i++)
                 brothers[i].swornCheerTurn = turn;
 
-            List<GameDialog.TalkData> talks = BuildCheerTalks(brothers);
-            if (talks.Count == 0)
-            {
-                CheerFullMorale(brothers);
-                return true;
-            }
-
-            // 对白是异步的: 先把自己和所有参与兄弟都标记为"提气进行中",
-            // 让接下来想吃这口气力的攻击挂起等对白播完, 保证"先提气、再攻击"
+            // 同步先挂起即将发起的攻击, 保证"先提气、再攻击"(加气可能在对白结束后才落地)
             MarkCheerPending(brothers, true);
 
-            // 每个武将各说一句, 全部说完才加气
-            GameDialog.StartTalk(talks, () =>
-            {
-                MarkCheerPending(brothers, false);
-                CheerFullMorale(brothers);
-            });
+            // 交给"兄弟同心"渲染事件演出: 只有玩家控制的部队才弹台词对话框,
+            // 电脑(AI)不弹框, 在事件里直接按已通过判定的概率把气力推满
+            List<GameDialog.TalkData> talks = IsPlayerControl ? BuildCheerTalks(brothers) : null;
+            TroopSwornCheerEvent cheerEvent = RenderEvent.Instance.Create<TroopSwornCheerEvent>();
+            cheerEvent.Init(this, brothers, talks);
+            RenderEvent.Instance.Add(cheerEvent);
             return true;
         }
 
         /// <summary>
         /// 批量设置/清除自己和相邻兄弟部队的"提气进行中"标记
         /// </summary>
-        void MarkCheerPending(List<Troop> brothers, bool pending)
+        internal void MarkCheerPending(List<Troop> brothers, bool pending)
         {
             pendingSwornCheer = pending;
             for (int i = 0; i < brothers.Count; i++)
@@ -2023,7 +2015,7 @@ namespace Sango.Core
         /// <summary>
         /// 对白全部说完后, 把自己和所有相邻兄弟部队的气力一起推到上限
         /// </summary>
-        void CheerFullMorale(List<Troop> brothers)
+        internal void CheerFullMorale(List<Troop> brothers)
         {
             CheerSelfFullMorale();
             for (int i = 0; i < brothers.Count; i++)
@@ -2069,11 +2061,6 @@ namespace Sango.Core
         public const int AssistAttackDamagePercent = 50;
 
         /// <summary>
-        /// "辅佐"特性的Id(Features.json: 即使没建立人际关系(厌恶除外)也可获得支援攻击)
-        /// </summary>
-        public const int AssistFeatureId = 27;
-
-        /// <summary>
         /// 援助搜索半径(格)。以敌军为圆心向外螺旋收候选:
         /// 一格内只要不是器械就能近战补刀, 两格及以上必须是射程够得着的弓箭军
         /// </summary>
@@ -2093,9 +2080,10 @@ namespace Sango.Core
         public const int AssistChanceBloodRelative = 20;
 
         /// <summary>
-        /// 临时诊断开关: 打开后把援助攻击每一层的拦截原因写进日志, 定位完请置回false
+        /// 临时诊断开关: 置 true 时把援助攻击每一层的拦截原因/概率/命中写进日志(见 LogAssist 的 [Assist] 输出),
+        /// 功能正常后保持 false; 以后要排查援助问题把它改回 true 即可, 无需动其他代码。
         /// </summary>
-        public static bool AssistDiagnosis = true;
+        public static bool AssistDiagnosis = false;
 
         /// <summary>
         /// 援助攻击: 本部队攻击敌军却没把它打灭时, 敌军周围 AssistAttackRange 格内的友军部队
@@ -2126,6 +2114,8 @@ namespace Sango.Core
             assistSearchCells.Clear();
             map.GetSpiral(enemyCell, AssistAttackRange, assistSearchCells);
 
+            LogAssist($"==== [{this.Name}] 呼叫援助: self持有辅佐={HasAssistFeature()} actionList数={actionList?.Count ?? -1} 候选格={assistSearchCells.Count}");
+
             int candidates = 0;
             int joined = 0;
             for (int i = 0, count = assistSearchCells.Count; i < count; ++i)
@@ -2142,6 +2132,7 @@ namespace Sango.Core
                 string block = AssistBlockReason(helper, enemy);
                 if (block != null)
                 {
+                    LogAssist($"[{helper.Name}] 被拦: {block}");
                     continue;
                 }
 
@@ -2150,21 +2141,25 @@ namespace Sango.Core
                 SkillInstance skill = SelectAssistSkill(helper, cell, enemyCell, distance, out reject);
                 if (skill == null)
                 {
+                    LogAssist($"[{helper.Name}] 出不了手: {reject}");
                     continue;
                 }
 
                 int chance = CalcAssistChance(this, helper);
                 if (chance <= 0)
                 {
+                    LogAssist($"[{helper.Name}] 概率=0, 不援助");
                     continue;
                 }
 
                 bool hit = GameRandom.Chance(chance);
+                LogAssist($"[{helper.Name}] 概率={chance}, {(hit ? "命中→出手" : "未命中")}");
                 if (!hit) continue;
 
                 if (DoAssistAttack(helper, enemy, skill))
                     joined++;
             }
+            LogAssist($"==== [{this.Name}] 援助结束: 候选{candidates} 实际出手{joined}");
         }
 
         /// <summary>
@@ -2173,6 +2168,23 @@ namespace Sango.Core
         public static void LogAssist(string message)
         {
             if (!AssistDiagnosis) return;
+            UnityEngine.Debug.Log("[Assist] " + message);
+        }
+
+        /// <summary>
+        /// 本部队是否持有"辅佐"能力(Leader/Member1/Member2 任一武将即可)。
+        /// 通过 actionList 里是否存在 TroopAssistAttack 这个 Action 来判定,
+        /// actionList 由 InitActionList 汇总全部武将的特性生成, 因此天然覆盖三名武将;
+        /// 只认 Action 类型不认特性 Id, 以后策划改 Id 也不会对不上。
+        /// </summary>
+        public bool HasAssistFeature()
+        {
+            if (actionList == null) return false;
+            for (int i = 0; i < actionList.Count; i++)
+            {
+                if (actionList[i] is TroopAssistAttack) return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -2197,11 +2209,14 @@ namespace Sango.Core
             // 短路只体现在return顺序上, 结果与逐条if完全一致, 不会出现诊断与实际不符
             bool isSpouse = leader.IsSpouse(helperLeader);
             bool isSwornBrother = leader.IsBrotherGroupmate(helperLeader);
-            bool hasAssistFeature = leader.HasFeatrue(AssistFeatureId);
+            // 支援方(helper)任一武将是否持有"辅佐"能力: 辅佐是"持有者主动去助攻邻近友军的攻击",
+            // 故判 helper(来支援的那支部队)而非 self; 改由 Action 判定, 不再硬编码特性 Id
+            bool hasAssistFeature = helper.HasAssistFeature();
             bool isLike = leader.IsLike(helperLeader);
             bool isBloodRelative = leader.IsBloodRelative(helperLeader);
             bool hated = Person.IsHatedByEither(leader, helperLeader);
 
+            LogAssist($"[Calc] [{helperLeader.Name}] 支援 [{leader.Name}]: 夫妇={isSpouse} 义兄弟={isSwornBrother} 辅佐(helper)={hasAssistFeature} 亲爱={isLike} 血亲={isBloodRelative} 厌恶={hated}");
 
 
             // 夫妇
