@@ -226,6 +226,8 @@ namespace Sango.Core.Action
             Register("TroopChangeMorale", CraeteHandle<TroopChangeMorale>);
             // 部队连击：在配置的攻击事件发生时，让符合条件的部队额外再攻击一次。
             Register("TroopComboAttack", CraeteHandle<TroopComboAttack>);
+            // 辅佐能力标记：部队任一武将持有"辅佐"特性时装配本 Action，CalcAssistChance 据此判定可越过人际关系获得支援攻击（按类型识别，不依赖特性 Id）。
+            Register("TroopAssistAttack", CraeteHandle<TroopAssistAttack>);
             // 部队恢复：在配置的事件发生时，为符合条件的部队恢复配置数值的兵力。
             Register("TroopRecure", CraeteHandle<TroopRecure>);
             // 特技 #63 火神：对低智力目标的火计必定成功，并强化火攻相关效果。

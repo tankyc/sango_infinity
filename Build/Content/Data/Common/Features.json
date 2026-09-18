@@ -546,7 +546,13 @@
       "desc": "即使没建立人际关系（厌恶除外）也可获得支援攻击",
       "only": true,
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopAssistAttack",
+          "value": 30
+        }
+      ]
     },
     "28": {
       "Id": 28,
