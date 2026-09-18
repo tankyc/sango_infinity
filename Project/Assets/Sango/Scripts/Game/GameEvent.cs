@@ -684,29 +684,26 @@ namespace Sango.Core
         public static EventDelegate<Person, Official> OnPersonUpgradeOfficial;
 
         /// <summary>
-        /// 当单挑开始时
+        /// 当有人提出单挑请求时（参数为挑战方与应战方部队）。
+        /// 由 DuelChallengeFlow 统一接管：判定是否应战、是否观看、是否带表现层。
+        /// 剧本事件想做"武将之间的单挑"，广播本事件即可，不必自己复制判定流程。
         /// </summary>
-        public static EventDelegate<DuelSystem> OnDuelStart;
+        public static EventDelegate<Troop, Troop> OnDuelChallengeRequest;
 
         /// <summary>
-        /// 当单挑结束时
+        /// 当单挑开始时（参数为参与单挑的挑战方与应战方部队）
         /// </summary>
-        public static EventDelegate<DuelSystem, DuelResult> OnDuelEnd;
+        public static EventDelegate<Troop, Troop> OnDuelStart;
 
         /// <summary>
-        /// 当需要选择决策时
+        /// 当单挑进行中，结果已确定、开始应用结果时（参数为单挑本体）
         /// </summary>
-        public static EventDelegate<DuelSystem> OnDuelDecisionRequired;
+        public static EventDelegate<Duel.Duel> OnDuelFinished;
 
         /// <summary>
-        /// 当单挑决策已做出时
+        /// 当单挑整体结束时（参数为单挑本体，附带胜负队伍与结果）
         /// </summary>
-        public static EventDelegate<DuelSystem> OnDuelDecisionMade;
-
-        /// <summary>
-        /// 当单挑行动发生时
-        /// </summary>
-        public static EventDelegate<DuelSystem, Person, Person, AttackResult> OnDuelAction;
+        public static EventDelegate<Duel.Duel> OnDuelEnd;
 
         /// <summary>
         /// 当获取工作AP消耗的时候

@@ -916,15 +916,16 @@ namespace Sango.Core
         /// 发起单挑
         /// </summary>
         /// <param name="targetTroop">目标部队</param>
+        /// <param name="withView">是否带表现层（false 时瞬时结算）</param>
         /// <returns>是否成功发起单挑</returns>
-        public bool StartDuel(Troop targetTroop)
+        public bool StartDuel(Troop targetTroop, bool withView = true)
         {
             if (targetTroop == null || !IsEnemy(targetTroop))
             {
                 return false;
             }
 
-            return DuelManager.Instance.StartDuel(this, targetTroop);
+            return Duel.DuelManager.Instance.StartDuel(this, targetTroop, withView);
         }
 
         public int GetAttackBackFactor(SkillInstance skill, int distance)

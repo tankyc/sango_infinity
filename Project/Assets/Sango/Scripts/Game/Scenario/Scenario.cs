@@ -14,7 +14,6 @@ using System.Linq;
 using System.Threading;
 using UnityEngine;
 using Task = System.Threading.Tasks.Task;
-using Sango.Core.Duel;
 using Sango.Core.Debate;
 
 namespace Sango.Core
@@ -870,9 +869,9 @@ namespace Sango.Core
             //Event.OnScenarioEnd?.Invoke(Cur);
             //Cur = null;
 
-            var test = new DuelTestInstance(Cur.personSet.Get(3), Cur.personSet.Get(4), seed: 12345);  // 真实武将
-            test.OnLog = Debug.Log;
-            test.Run();
+            //var test = new DuelTestInstance(Cur.personSet.Get(3), Cur.personSet.Get(4), seed: 12345);  // 真实武将
+            //test.OnLog = Debug.Log;
+            //test.Run();
 
             // 或临时造人
             //new DuelTestInstance("吕布", 95, "赵云", 88, seed: 1).Run();
@@ -1414,7 +1413,6 @@ namespace Sango.Core
         internal bool HasTurnStarted = false;
         internal bool HasTurnEnded = false;
 
-        Duel.Duel duel = null;
 
         public void Run()
         {

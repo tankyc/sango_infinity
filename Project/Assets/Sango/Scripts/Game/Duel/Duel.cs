@@ -24,8 +24,8 @@ namespace Sango.Core.Duel
     {
         #region 常量
 
-        /// <summary>每队最多武将数</summary>
-        public const int MaxTeamCharaCount = Unit.MaxMemberCount;
+        /// <summary>每队最多武将数。对应 C++ Unit::MaxMemberCount，与 Sango.Core.Troop 的主将+2 副将一致</summary>
+        public const int MaxTeamCharaCount = 3;
 
         /// <summary>队伍数</summary>
         public const int MaxTeamCount = (int)DuelTeam.DuelTeam_Max;
@@ -52,7 +52,7 @@ namespace Sango.Core.Duel
             /// <summary>参战武将 [队伍][序号]</summary>
             public Person[][] person;
             /// <summary>参战部队</summary>
-            public Unit[] unit;
+            public Troop[] unit;
             /// <summary>起始武将</summary>
             public int[] startChara;
             /// <summary>玩家 ID</summary>
@@ -97,7 +97,7 @@ namespace Sango.Core.Duel
             public Param()
             {
                 person = NewArray2D<Person>(MaxTeamCount, MaxTeamCharaCount);
-                unit = new Unit[MaxTeamCount];
+                unit = new Troop[MaxTeamCount];
                 startChara = new int[] { -1, -1 };
                 playerId = new int[] { -1, -1 };
                 control = new int[] { -1, -1 };
@@ -331,8 +331,8 @@ namespace Sango.Core.Duel
         /// <summary>下回合将进入必杀阶段的队伍</summary>
         protected int specialTryTeam = -1;
 
-        protected GameSystem system = null;
-        protected Engine engine = null;
+        protected DuelGameSystem system = null;
+        protected IDuelView engine = null;
         protected Param param = null;
         protected bool view = false;
 
@@ -369,7 +369,7 @@ namespace Sango.Core.Duel
 
         #region 构造 / 初始化
 
-        public Duel(GameSystem system, Param param)
+        public Duel(DuelGameSystem system, Param param)
         {
             this.system = system;
             this.engine = system != null ? system.GetEngine() : null;
@@ -496,7 +496,7 @@ namespace Sango.Core.Duel
         #region 结算（4d3940 - 4d43c0）
 
         /// <summary>4d3940。负伤报告</summary>
-        public void ResultInjuryReport(Unit unit, Person person, bool last)
+        public void ResultInjuryReport(Troop unit, Person person, bool last)
         {
             if (!Utils.IsAlive(unit))
                 return;
@@ -507,7 +507,7 @@ namespace Sango.Core.Duel
             Message msg = new Message();
             msg.SetObj0Str0(DuelMessageId.LD_WAR_IKKI_INJURY, person, system.GetShoubyouName(person.GetShoubyou()));
             system.HistoryLog(msg, unit, true, person.GetColor());
-            if (person.IsPlayer())
+            if (person.IsPlayerPerson())
             {
                 msg.SetObj0(DuelMessageId.N_WAR_IKKI_INJURY, person);
                 system.Message(system.GetMessage(msg), null, null, true);
@@ -541,7 +541,7 @@ namespace Sango.Core.Duel
                     if (injured[i] == 0)
                         continue;
                     injured[i]--;
-                    Unit unit = ParamGetUnit(param, i, j);
+                    Troop unit = ParamGetUnit(param, i, j);
                     Person person = ParamGetPerson(param, i, j);
                     if (!Utils.IsAlive(unit))
                         continue;
@@ -593,10 +593,10 @@ namespace Sango.Core.Duel
                 return;
             Person winnerPerson = ParamGetWinnerPerson(param);
             Person loserPerson = ParamGetLoserPerson(param);
-            Unit winnerUnit = ParamGetWinnerUnit(param);
-            Unit loserUnit = ParamGetLoserUnit(param);
-            Unit challengerUnit = param.unit[(int)DuelTeam.DuelTeam_Challenger];
-            Unit challengedUnit = param.unit[(int)DuelTeam.DuelTeam_Challenged];
+            Troop winnerUnit = ParamGetWinnerUnit(param);
+            Troop loserUnit = ParamGetLoserUnit(param);
+            Troop challengerUnit = param.unit[(int)DuelTeam.DuelTeam_Challenger];
+            Troop challengedUnit = param.unit[(int)DuelTeam.DuelTeam_Challenged];
             if (!Utils.IsAlive(winnerPerson))
                 return;
             if (!Utils.IsAlive(loserPerson))
@@ -657,12 +657,12 @@ namespace Sango.Core.Duel
                     dead = true;
                     break;
             }
-            if (winnerForce.IsPlayer())
+            if (winnerForce.IsPlayerForce())
             {
                 msg.SetObj0Obj1(DuelMessageId.LB_WAR_IKKI_WIN, winnerPerson, loserPerson);
                 system.HistoryLog(msg, winnerUnit, true, winnerUnit.GetColor());
             }
-            else if (loserForce.IsPlayer())
+            else if (loserForce.IsPlayerForce())
             {
                 msg.SetObj0Obj1(DuelMessageId.LD_WAR_IKKI_LOST, loserPerson, winnerPerson);
                 system.HistoryLog(msg, loserUnit, true, loserUnit.GetColor());
@@ -671,7 +671,7 @@ namespace Sango.Core.Duel
             ResultInjury();
             if (captured)
             {
-                District district = system.GetDistrict(loserPerson.GetDistrictId());
+                City district = system.GetDistrict(loserPerson.GetDistrictId());
                 List<Person> all = new List<Person>();
                 List<Person> capturedList = new List<Person>();
                 all.Add(loserPerson);
@@ -702,7 +702,7 @@ namespace Sango.Core.Duel
             {
                 energyChange = loserUnit.AddEnergy(-15);
                 system.FloatingDamage(energyChange, FloatingCounterType.Energy, loserUnit);
-                int troopsChange = system.UnitAddTroops(loserUnit, -troopsDamage);
+                int troopsChange = system.TroopAddTroops(loserUnit, -troopsDamage);
                 loserUnit.SyncEquipmentQuantity();
                 system.FloatingDamage(troopsChange, FloatingCounterType.Troops, loserUnit);
             }
@@ -771,7 +771,7 @@ namespace Sango.Core.Duel
         /// <summary>5067c0</summary>
         public bool IsPlayer(int team)
         {
-            return Utils.InRange(this.team[team].playerId, 0, Player.Max - 1);
+            return Utils.InRange(this.team[team].playerId, 0, DuelPlayer.Max - 1);
         }
 
         /// <summary>5067f0</summary>
@@ -1616,7 +1616,7 @@ namespace Sango.Core.Duel
             n = Utils.Clamp(n, 0, 100); // 0 .. 92
             if (aBow)
                 n += 5;
-            if (!atk.IsPlayer() && def.IsPlayer())
+            if (!atk.IsPlayerPerson() && def.IsPlayerPerson())
             {
                 switch (DuelSettings.Difficulty)
                 {
@@ -1628,7 +1628,7 @@ namespace Sango.Core.Duel
                         break;
                 }
             }
-            else if (atk.IsPlayer() && !def.IsPlayer())
+            else if (atk.IsPlayerPerson() && !def.IsPlayerPerson())
             {
                 switch (DuelSettings.Difficulty)
                 {
@@ -2799,10 +2799,10 @@ namespace Sango.Core.Duel
             int bShoubyou = b.GetShoubyou();
             bool aBow = false;
             bool bBow = false;
-            List<Item> aItems = DuelSettings.GetPersonItemList(a);
+            List<Equipment> aItems = DuelSettings.GetPersonItemList(a);
             if (aItems != null)
             {
-                foreach (Item item in aItems)
+                foreach (Equipment item in aItems)
                 {
                     if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.Bow)
                     {
@@ -2811,10 +2811,10 @@ namespace Sango.Core.Duel
                     }
                 }
             }
-            List<Item> bItems = DuelSettings.GetPersonItemList(b);
+            List<Equipment> bItems = DuelSettings.GetPersonItemList(b);
             if (bItems != null)
             {
-                foreach (Item item in bItems)
+                foreach (Equipment item in bItems)
                 {
                     if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.Bow)
                     {
@@ -3175,10 +3175,10 @@ namespace Sango.Core.Duel
             if (!Utils.IsActive(person))
                 return;
             // 宝物统一从 DuelSettings.GetPersonItemList 获取（单一配置点）
-            List<Item> items = DuelSettings.GetPersonItemList(person);
+            List<Equipment> items = DuelSettings.GetPersonItemList(person);
             if (items == null)
                 return;
-            foreach (Item item in items)
+            foreach (Equipment item in items)
             {
                 if (!Utils.IsAlive(item))
                     continue;
@@ -3279,7 +3279,7 @@ namespace Sango.Core.Duel
         #region Param 访问（50dac0 - 50e2b0）
 
         /// <summary>50dac0</summary>
-        public Unit ParamGetWinnerUnit(Param self)
+        public Troop ParamGetWinnerUnit(Param self)
         {
             if (!Utils.InRange(self.winnerTeam, 0, MaxTeamCount - 1))
                 return null;
@@ -3287,7 +3287,7 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>50dae0</summary>
-        public Unit ParamGetLoserUnit(Param self)
+        public Troop ParamGetLoserUnit(Param self)
         {
             if (!Utils.InRange(self.loserTeam, 0, MaxTeamCount - 1))
                 return null;
@@ -3305,7 +3305,7 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>50db40</summary>
-        public Unit ParamGetUnit(Param self, int team, int chara)
+        public Troop ParamGetUnit(Param self, int team, int chara)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
                 return null;

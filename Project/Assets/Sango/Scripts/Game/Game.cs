@@ -144,6 +144,9 @@ namespace Sango.Core
             
             GameData.Instance.Init();
 
+            // 安装单挑系统的表现层工厂（卡牌表现 window_duel）
+            Duel.DuelIntegration.Install();
+
             GameEvent.OnGameInit?.Invoke();
             GameState.Instance.ChangeState((int)GameState.State.GAME_START_MENU);
             Window.Instance.Open("window_start");
@@ -198,6 +201,20 @@ namespace Sango.Core
             base.Update();
             // 更新音效管理器
             GameMedia.Instance.Update();
+
+            // 单挑进行中时独占主循环，暂停剧本推进
+            if (Duel.DuelManager.Instance.IsDueling)
+            {
+                Duel.DuelManager.Instance.Update();
+                return;
+            }
+
+            // 单挑发起流程在等玩家回答（是否接受 / 是否观看）时，同样暂停剧本推进
+            if (Duel.DuelChallengeFlow.IsPending)
+            {
+                return;
+            }
+
             Scenario scenario = Scenario.Cur;
             if (scenario != null)
             {

@@ -1,12 +1,12 @@
 using System.Collections.Generic;
+using System.IO;
 using TKNewtonsoft.Json;
+using TKNewtonsoft.Json.Linq;
 using TKNewtonsoft.Json.Serialization;
 using Sango.Core.Action;
 using Sango.Render;
 using UnityEngine;
 using System.Linq;
-using System;
-using Unity.Mathematics;
 
 namespace Sango.Core
 {
@@ -152,7 +152,6 @@ namespace Sango.Core
         /// <summary>
         /// 国库
         /// </summary>
-        [JsonProperty]
         public ItemStore Stroe = new ItemStore();
 
         /// <summary>
@@ -280,8 +279,6 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            if (InitTechniques.Count == 0)
-                InitTechniques.FromArray(new int[] { 1, 5, 9, 13, 17, 21, 25, 29, 33 });
             if (Governor > 0)
                 mGovernor = scenario.personSet.Get(Governor);
             if (Counsellor > 0)
@@ -457,7 +454,7 @@ namespace Sango.Core
             for (int i = 0; i < AllianceList.Count; ++i)
             {
                 Alliance alliance = AllianceList[i];
-                if (alliance.Contains(other))
+                if (alliance.IsAlive && alliance.leftCount > 0 && alliance.Contains(other))
                     return true;
             }
             return false;
@@ -490,10 +487,15 @@ namespace Sango.Core
             for (int i = 0; i < AllianceList.Count; ++i)
             {
                 Alliance alliance = AllianceList[i];
-                if (alliance.Contains(other) && alliance.allianceType == allianceType)
+                if (alliance.IsAlive && alliance.leftCount > 0 && alliance.Contains(other) && alliance.allianceType == allianceType)
                     return alliance;
             }
             return null;
+        }
+
+        public bool IsTruce(Force other)
+        {
+            return CheckAlliance(other, AllianceType.Truce) != null;
         }
 
         //public Corps Add(Corps corps)
@@ -660,6 +662,7 @@ namespace Sango.Core
             AIPrepared = false;
             FightPower = 0;
             PersonCount = 0;
+            CityCount = 0;
 #if SANGO_DEBUG
             Sango.Log.Info($"==={Name} 回合===");
 #endif
@@ -774,30 +777,28 @@ namespace Sango.Core
 
         void UpdateTurnInfo(Scenario scenario)
         {
-            CityCount = 0;
-            CityBaseCount = 0;
-            CityList.Clear();
             prepareTechniqueList(scenario);
             UpdateValidCreatedItemTypes();
             UpdateCanBuildBuildingTypes();
+
+            bool hasNoCheckBorder = false;
             NeighborForceList.Clear();
             NeighborCityList.Clear();
-            List<City> boderCities = new List<City>();
-
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
                 if (c != null && c.IsAlive && c.mBelongForce == this)
                 {
-                    CityList.Add(c);
-                    CityBaseCount++;
 
                     c.OnForceTurnStart(scenario);
                     FightPower += c.FightPower;
                     buildingBaseList.Enqueue(c);
+                    CityBaseCount++;
+
                     if (c.IsCity())
                     {
                         CityCount++;
+
                         c.borderLine = -1;
                         // 计算相邻势力
                         foreach (City neighbor in c.NeighborList)
@@ -808,36 +809,48 @@ namespace Sango.Core
                                 if (neighbor.mBelongForce != null)
                                 {
                                     if (!NeighborForceList.Contains(neighbor.mBelongForce))
+                                    {
                                         NeighborForceList.Add(neighbor.mBelongForce);
+                                    }
                                 }
 
                                 if (!NeighborCityList.Contains(neighbor))
                                     NeighborCityList.Add(neighbor);
                             }
                         }
-
-                        if (c.borderLine == 0)
-                            boderCities.Add(c);
+                        if (c.borderLine == -1)
+                            hasNoCheckBorder = true;
                     }
                 }
             }
 
-            for (int i = 0; i < scenario.citySet.Count; ++i)
+            while (hasNoCheckBorder)
             {
-                var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this && c.borderLine < 0)
+                for (int i = 0; i < scenario.citySet.Count; ++i)
                 {
-                    int minBorder = 99;
-                    // 计算相邻势力
-                    foreach (City neighbor in boderCities)
+                    var c = scenario.citySet[i];
+                    if (c != null && c.IsAlive && c.mBelongForce == this && c.borderLine < 0)
                     {
-                        int bb = scenario.GetCityDistance(c, neighbor);
-                        minBorder = Mathf.Min(minBorder, bb);
+                        int minBorder = 99;
+                        // 计算相邻势力
+                        foreach (City neighbor in c.NeighborList)
+                        {
+                            if (neighbor.borderLine >= 0)
+                                minBorder = Mathf.Min(minBorder, neighbor.borderLine);
+                        }
+                        if (minBorder >= 0)
+                        {
+                            c.borderLine = minBorder + 1;
+                        }
+                        hasNoCheckBorder = c.borderLine == -1;
                     }
-                    c.borderLine = minBorder;
                 }
             }
+
+
+
         }
+
 
         /// <summary>
         /// 势力回合结束时的回调方法
@@ -933,13 +946,6 @@ namespace Sango.Core
             int v = GameRandom.RandomWeightIndex(loyaltyWeight, 9);
             ForEachPerson(person =>
             {
-                Tools.OverrideData<bool> shouldLoseLoyalty = Tools.OverrideData<bool>.Create(true);
-                // 由城市特技 Action 决定本武将是否受本次换季掉忠影响。
-                GameEvent.OnForcePersonLoyaltyChange?.Invoke(this, person, shouldLoseLoyalty);
-                if (!shouldLoseLoyalty.ValueAndRecycle)
-                {
-                    return;
-                }
                 person.loyalty -= v;
 #if SANGO_DEBUG
                 Sango.Log.Info($"势力：{Name}, 武将：{person.Name}, 忠诚度下降: {v}, 现有忠诚度:{person.loyalty}");
@@ -1171,17 +1177,6 @@ namespace Sango.Core
             corps.mComander = commander;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
-
-            // 都督必须归入本军团并切换为军团长状态。
-            // 规则2:隶属势力的武将,状态必须与身份匹配,且所属军团必须是本势力下的军团。
-            // 若都督不在下面的 cities 中,漏掉这一步就会出现"都督的所属军团还在别的军团"的不一致
-            if (commander != null)
-            {
-                commander.mBelongForce = this;
-                commander.mBelongCorps = corps;
-                commander.SetStateCommander();
-            }
-
             foreach (var city in cities)
             {
                 city.mBelongCorps = corps;
@@ -1203,9 +1198,7 @@ namespace Sango.Core
             corps.mBelongForce = this;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
-            // 使用 SetStateCommander 而非直接赋值:主公不应被降级为军团长,
-            // 直接改写 state 会让主公变成"军团长"状态,破坏状态与身份的对应关系
-            corps.mComander?.SetStateCommander();
+            corps.mComander.state = (int)PersonStateType.Commander;
             foreach (var city in corps.inti_cities)
             {
                 city.mBelongCorps = corps;
@@ -1349,16 +1342,12 @@ namespace Sango.Core
             createdItemTypes.Sort(SangoObject.Compare);
         }
 
-        int[] boderLinderCounter = new int[10];
 
         /// <summary>
         /// 准备人才缺口
         /// </summary>
         public void PrepareCityPersonHole(Scenario scenario)
         {
-            Array.Clear(boderLinderCounter, 0, 10);
-            int[] boderLindMax = new int[4] { 52, 24, 12, 8 };
-
             int cityCount = 0;
             BorderCityCount = 0;
             int personCount = 0;
@@ -1368,13 +1357,13 @@ namespace Sango.Core
                 if (c != null && c.mBelongForce == this && c.IsCity())
                 {
                     cityCount++;
-                    if (c.borderLine < boderLinderCounter.Length)
-                        boderLinderCounter[c.borderLine]++;
+                    if (c.IsBorderCity)
+                        BorderCityCount++;
                     c.PersonHole = 0;
                     personCount += c.allPersons.Count;
                 }
             }
-            BorderCityCount = boderLinderCounter[0];
+
             if (cityCount <= 1) return;
             if (BorderCityCount == 0)
                 return;
@@ -1390,48 +1379,24 @@ namespace Sango.Core
                     avarageTotalSeat = personCount;
                 }
             }
-
-            int leftCityCount = cityCount;
-            // 计算圈层的最大人数
-            for (int i = 0; i < boderLindMax.Length; i++)
-            {
-                int dstC = boderLinderCounter[i];
-                if (dstC == 0)
-                {
-                    for (int k = i + 1; k < boderLindMax.Length; k++)
-                        boderLindMax[k] = noBoderSeat;
-                    break;
-                }
-
-                leftCityCount -= dstC;
-                int aveBoderSeat = avarageTotalSeat / dstC + noBoderSeat;
-                aveBoderSeat = Mathf.Min(boderLindMax[i] + GameRandom.Range(boderLindMax[i] / 4), aveBoderSeat);
-                boderLindMax[i] = aveBoderSeat;
-                avarageTotalSeat = avarageTotalSeat - dstC * aveBoderSeat;
-                if (avarageTotalSeat <= 0)
-                {
-                    for (int k = i + 1; k < boderLindMax.Length; k++)
-                        boderLindMax[k] = noBoderSeat;
-                }
-            }
-
-            if (avarageTotalSeat > 0 && leftCityCount > 0)
-            {
-                noBoderSeat += avarageTotalSeat / leftCityCount;
-            }
+            int boderSeat = avarageTotalSeat / BorderCityCount + noBoderSeat;
+            int upSeat = boderSeat - 15;
 
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
                 if (c != null && c.mBelongForce == this && c.IsCity())
                 {
-                    if (c.borderLine < boderLindMax.Length)
+                    if (c.IsBorderCity)
                     {
-                        int dis = boderLindMax[c.borderLine] - c.allPersons.Count;
-                        if (Math.Abs(dis) < boderLindMax[c.borderLine] / 4)
-                            c.PersonHole = 0;
-                        else
-                            c.PersonHole = boderLindMax[c.borderLine] - c.allPersons.Count;
+                        c.PersonHole = boderSeat - c.allPersons.Count;
+                    }
+                    else if(upSeat > 0)
+                    {
+                        if(c.borderLine == 1)
+                        {
+                            c.PersonHole = (noBoderSeat + upSeat) - c.allPersons.Count;
+                        }
                     }
                     else
                     {

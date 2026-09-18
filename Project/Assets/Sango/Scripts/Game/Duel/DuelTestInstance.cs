@@ -5,7 +5,7 @@
  * 用途：
  *   在不依赖任何 UI / 动画 / 场景的前提下驱动一次完整单挑，用于验证单挑的逻辑流程。
  *   默认 view = false，因此：
- *     - 不需要 Engine（GetEngine 返回 null）
+ *     - 不需要 IDuelView（GetEngine 返回 null）
  *     - IsIdle() 恒为 true，阶段状态机不会被"动画播放中"阻塞
  *     - 体力 / 斗志 / 合数在 PlayBlowAnim / PlayHpAnim / PlaySpiritAnim 中立即结算
  *
@@ -21,7 +21,7 @@
  * 常用配置项：
  *   Verbose          - 是否输出每一步状态快照（默认 true）
  *   LogInternalDebug - 是否转发 Duel 内部调试日志（默认 false）
- *   View             - 是否启用表现层（默认 false；置 true 需要提供 Engine）
+ *   View             - 是否启用表现层（默认 false；置 true 需要提供 IDuelView）
  *
  * 注意：
  *   Param.shoubyou 必须填 0（健康），否则武力计算结果会退化为 0
@@ -46,58 +46,37 @@ namespace Sango.Core.Duel
         }
     }
 
-    /// <summary>测试用部队</summary>
-    public class DuelTestUnit : Unit
-    {
-        public override bool IsPlayerControlled() { return false; }
-        public override int GetTroops() { return 10000; }
-        public override int AddEnergy(int value) { return value; }
-        public override int GetColor() { return 0; }
-        public override bool HasMember(PersonId id) { return false; }
-    }
-
     /// <summary>
-    /// 测试用系统：随机源走 DuelRandom（可设种子复现），其余为无副作用实现。
-    /// 接入真实游戏时，请把这些方法替换为对项目实际接口的调用。
+    /// 测试用业务层：随机源走 DuelRandom（可设种子复现），其余为无副作用实现。
+    /// 与真实游戏无关，只用于纯逻辑推演验证；troop 传 null 时会跳过结果结算。
     /// </summary>
-    public class DuelTestSystem : GameSystem
+    public class DuelTestSystem : DuelGameSystem
     {
         private readonly DuelTestLogger m_logger = new DuelTestLogger();
 
         /// <summary>日志回调</summary>
         public Action<string> OnLog { get { return m_logger.OnLog; } set { m_logger.OnLog = value; } }
 
-        public override Engine GetEngine() { return null; }          // view = false，不需要表现层
+        public override IDuelView GetEngine() { return null; }          // view = false，不需要表现层
         public override Logger GetLogger() { return m_logger; }
-        public override int RandInt(int max) { return DuelRandom.Range(max); }
-        public override bool RandBool(int percent) { return DuelRandom.Chance(percent); }
-        public override Difficulty GetDifficulty() { return DuelSettings.Difficulty; }
-        public override LifeMode GetLifeMode() { return DuelSettings.LifeMode; }
-        public override BattleDeathMode GetBattleDeathMode() { return DuelSettings.BattleDeathMode; }
-        public override bool IsFeatDisabled(Feature feature) { return DuelSettings.IsFeatDisabled(feature); }
-        public override Force GetForce(int forceId) { return new Force(); }
-        public override District GetDistrict(int districtId) { return null; }
-        public override List<Item> GetPersonItemList(Person person) { return DuelSettings.GetPersonItemList(person); }
-        public override int GetDuelItemPower(Person person) { return DuelSettings.GetDuelItemPower(person); }
-        public override string GetMessage(Message msg) { return msg.Id.ToString(); }
-        public override SystemEvents GetEvents() { return new SystemEvents(); }
+        public override string GetMessage(Message msg) { return msg != null ? msg.Id.ToString() : string.Empty; }
         public override void Message(string text, object target, object[] args, bool pause) { }
-        public override void HistoryLog(Message msg, Unit unit, bool show, int color) { }
+        public override void HistoryLog(Message msg, Troop troop, bool show, int color) { }
         public override void Ping(object pos, int type, int color) { }
         public override string GetShoubyouName(int shoubyou) { return "伤病" + shoubyou; }
-        public override void PersonSetShoubyou(Person person, int shoubyou) { person.injury = shoubyou; }
-        public override void PersonAddHp(Person person, int value) { person.stamina += value; }
+        public override void PersonSetShoubyou(Person person, int shoubyou) { if (person != null) person.injury = shoubyou; }
+        public override void PersonAddHp(Person person, int value) { if (person != null) person.stamina += value; }
         public override void PersonAddExp(Person person, PersonStatType type, int subType, int value) { }
         public override void PersonAddKouseki(Person person, int value) { }
-        public override void PersonDie(Person person, Person killer, Unit unit, Unit killerUnit, DeathType type, bool flag) { person.Dead(); }
-        public override void HoryoShoguu(List<Person> all, List<Person> captured, Unit loserUnit, Unit winnerUnit) { }
-        public override void PersonDetach(Person person, Person toPerson, Unit toUnit, Unit fromUnit) { }
-        public override void DistrictAppointTotoku(District district, Force force) { }
+        public override void PersonDie(Person person, Person killer, Troop troop, Troop killerTroop, DeathType type, bool flag) { if (person != null) person.Dead(); }
+        public override void HoryoShoguu(List<Person> all, List<Person> captured, Troop loserTroop, Troop winnerTroop) { }
+        public override void PersonDetach(Person person, Person toPerson, Troop toTroop, Troop fromTroop) { }
+        public override void DistrictAppointTotoku(City city, Force force) { }
         public override void ForceSetLike(int forceId, int targetForceId, int value) { }
         public override void ForceAddLike(int forceId, int targetForceId, int value) { }
-        public override void ForceAddTechPoint(Force force, int value, Unit unit) { }
-        public override int UnitAddTroops(Unit unit, int value) { return value; }
-        public override void FloatingDamage(int value, FloatingCounterType type, Unit unit) { }
+        public override void ForceAddTechPoint(Force force, int value, Troop troop) { }
+        public override int TroopAddTroops(Troop troop, int value) { return value; }
+        public override void FloatingDamage(int value, FloatingCounterType type, Troop troop) { }
     }
 
     #endregion
@@ -115,7 +94,7 @@ namespace Sango.Core.Duel
 
         /// <summary>
         /// 是否启用表现层。默认 false（纯逻辑推演）。
-        /// 置为 true 时必须提供 Engine，否则阶段状态机会一直等待动画/输入。
+        /// 置为 true 时必须提供 IDuelView，否则阶段状态机会一直等待动画/输入。
         /// </summary>
         public bool View { get { return Duel != null && Duel.View; } set { if (Duel != null) Duel.View = value; } }
 
@@ -182,7 +161,9 @@ namespace Sango.Core.Duel
                 Param.startChara[i] = 0;
                 Param.control[i] = (int)DuelControl.DuelControl_Auto;   // 默认 AI 托管
                 Param.playerId[i] = -1;
-                Param.unit[i] = new DuelTestUnit();
+                // 纯逻辑推演不提供部队对象：结算逻辑遇到空部队会直接跳过，
+                // 这样测试只验证单挑本身的流程与数值，不触碰游戏世界
+                Param.unit[i] = null;
 
                 for (int j = 0; j < count; j++)
                 {
