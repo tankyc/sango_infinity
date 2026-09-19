@@ -125,6 +125,19 @@ namespace Sango.Core
         }
         public static IDialog CurInstance;
 
+        /// <summary>
+        /// 当前是否真有对话框窗口在显示。
+        ///
+        /// windowInterface 是我们的窗口对象，ugui_instance 为空说明窗口没被创建出来
+        /// （缺 prefab / 没有 UI 上下文等）；这种时候 Open 进来的内容会一直压在 dialogDatas 里，
+        /// 玩家根本点不到。调用方（例如单挑表现层）据此判断"这句台词到底播没播出去"，
+        /// 免得把流程卡在一个永远不会被关闭的对话框上。
+        /// </summary>
+        public bool IsDialogAlive()
+        {
+            return windowInterface != null && windowInterface.HasValid();
+        }
+
 
         public struct TalkData
         {

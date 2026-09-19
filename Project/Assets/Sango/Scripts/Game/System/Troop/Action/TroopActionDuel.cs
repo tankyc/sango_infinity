@@ -199,19 +199,22 @@ namespace Sango.Core.Player
                 return;
             }
 
+            // 叫阵即消耗本方行动：**无论对方应战还是拒绝**都算用掉了这次行动，
+            // 所以要在 Request 之前置位，不能等"接受"之后再补。
+            if (ConsumeChallengerAction)
+                TargetTroop.ActionOver = true;
+
             bool acceptedFlow = Duel.DuelChallengeFlow.Request(
                 TargetTroop, duelTarget, Duel.DuelChallengeFlow.Source.TroopCommand);
 
             if (!acceptedFlow)
             {
-                // 当场被否决（AI 拒绝 / 条件不成立），本次指令到此为止
+                // 对方拒绝 / 流程无法接管：行动已经算用掉了，本次指令到此为止
                 Done();
                 return;
             }
 
             // 单挑成立：之后由 Update() 等待流程（对话框 + 单挑本体）走完
-            if (ConsumeChallengerAction)
-                TargetTroop.ActionOver = true;
             phase = DuelPhase.Waiting;
         }
 

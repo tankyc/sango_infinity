@@ -76,6 +76,13 @@ namespace Sango.Core.Duel
         /// <summary>清除增益状态显示</summary>
         void DuelResetBuff(Duel duel, int team, int buff);
 
+        /// <summary>
+        /// 必杀即将释放：表现层在这里播一句必杀台词（每个必杀只会调一次）。
+        /// 逻辑层随后会停在原地等对话框关掉（DuelIsMessageBoxVisible），
+        /// 也就是"关闭对话框之后才真正释放必杀技"。
+        /// </summary>
+        void DuelSpecialBegin(Duel duel, int team, int chara, int special);
+
         #endregion
 
         #region 表现：播放控制
@@ -111,6 +118,13 @@ namespace Sango.Core.Duel
         /// <summary>必杀取消按钮是否被按下</summary>
         bool DuelIsSpecialCancelButtonPushed(Duel duel);
 
+        /// <summary>
+        /// 玩家是否按了结算画面的「离开」。
+        /// 单挑打完不再自动收场：表现层先播胜利者台词，底部按钮变「离开」，
+        /// 逻辑层/管理器等到这里返回 true 才真正结束并关闭窗口。
+        /// </summary>
+        bool DuelIsLeavePushed(Duel duel);
+
         /// <summary>弹出是否确认对话框</summary>
         bool YesNo(string text);
 
@@ -140,6 +154,7 @@ namespace Sango.Core.Duel
         public virtual void DuelFtk(Duel duel, int team, int chara, int ftkType, int opponentTeam, int opponentChara) { }
         public virtual void DuelResetInvulnerable(Duel duel, int team) { }
         public virtual void DuelResetBuff(Duel duel, int team, int buff) { }
+        public virtual void DuelSpecialBegin(Duel duel, int team, int chara, int special) { }
         public virtual void DuelStop(Duel duel) { }
         public virtual void DuelPlay(Duel duel) { }
         public virtual bool DuelIsStopButtonPushed(Duel duel) { return false; }
@@ -149,6 +164,7 @@ namespace Sango.Core.Duel
         public virtual int DuelGetSwitchingChara(Duel duel, int team) { return -1; }
         public virtual bool DuelIsSpecialButtonPushed(Duel duel, int team) { return false; }
         public virtual bool DuelIsSpecialCancelButtonPushed(Duel duel) { return false; }
+        public virtual bool DuelIsLeavePushed(Duel duel) { return true; }
         public virtual bool YesNo(string text) { return true; }
     }
 }

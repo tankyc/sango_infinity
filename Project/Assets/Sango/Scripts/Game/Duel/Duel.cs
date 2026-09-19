@@ -302,8 +302,18 @@ namespace Sango.Core.Duel
         protected Team[] team = NewTeamArray();
         /// <summary>攻击比例 [挑战方武将][应战方武将]</summary>
         protected int[][] actionRatio = NewArray2D<int>(MaxTeamCharaCount, MaxTeamCharaCount);
-        /// <summary>消息框弹出时中断</summary>
-        protected bool messageboxBlocking = false;
+        /// <summary>
+        /// 消息框（武将对白）弹出时中断。
+        /// 单挑里凡是有对话框都应该停下来等玩家点完，所以默认开启；
+        /// 打开后由 DuelPhase.IsIdle() 每帧询问 IDuelView.DuelIsMessageBoxVisible。
+        /// </summary>
+        protected bool messageboxBlocking = true;
+        /// <summary>
+        /// 本回合的必杀台词是否已经报过。
+        /// 释放前先报一句（DuelSpecialBegin），报完等对话框关掉再结算，所以只能报一次；
+        /// 每个回合结束的 ResetAction 会把它清掉。
+        /// </summary>
+        protected bool specialLineDone = false;
         protected object scene = null;
         protected object ui = null;
         protected object uiStance = null;
@@ -389,7 +399,8 @@ namespace Sango.Core.Duel
             type = -1;
             team = NewTeamArray();
             actionRatio = NewArray2D<int>(MaxTeamCharaCount, MaxTeamCharaCount);
-            messageboxBlocking = false;
+            // 单挑中任何对白弹出都要暂停推进，等玩家点掉再继续
+            messageboxBlocking = true;
             scene = null;
             ui = null;
             uiStance = null;
@@ -1437,6 +1448,7 @@ namespace Sango.Core.Duel
             }
             specialAction = new SpecialAction();
             specialTryTeam = -1;
+            specialLineDone = false;
             if (view && engine != null)
                 engine.DuelResetAnim(this);
         }

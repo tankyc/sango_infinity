@@ -525,6 +525,20 @@ namespace Sango.Core.Duel
                         step = 5;
                         break;
                     }
+
+                    // 先让表现层报一句必杀台词（每个必杀只报一次），
+                    // 玩家把对话框关掉之前不结算——"关闭对话框后才释放必杀技"。
+                    // 对话框弹出时 DuelIsMessageBoxVisible 为 true，IsIdle() 随之返回 false，
+                    // 这一步就会一直卡住；玩家点掉对话框后自然往下走。
+                    if (!specialLineDone)
+                    {
+                        specialLineDone = true;
+                        if (view && engine != null)
+                            engine.DuelSpecialBegin(this, specialAction.team, specialAction.chara, specialAction.type);
+                    }
+                    if (!IsIdle())
+                        break;
+
                     if (specialAction.type == (int)DuelSpecial.DuelSpecial_Taikyaku)
                     {
                         SetNextPhase((int)DuelPhase.DuelPhase_Retreat);

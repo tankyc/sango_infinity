@@ -1434,7 +1434,7 @@ namespace Sango.Core
             if (Render != null)
             {
                 bool isCrit = false;
-                if (atk.ObjectType == SangoObjectType.SkillInstance)
+                if (atk != null && atk.ObjectType == SangoObjectType.SkillInstance)
                 {
                     SkillInstance skill = (SkillInstance)atk;
                     if (skill != null)
@@ -1527,7 +1527,7 @@ namespace Sango.Core
         public void OnDestroy(SangoObject atk, int atkBack)
         {
             // 添加俘虏流程
-            if (atk.ObjectType == SangoObjectType.SkillInstance)
+            if (atk != null && atk.ObjectType == SangoObjectType.SkillInstance)
             {
                 SkillInstance skill = (SkillInstance)atk;
 

@@ -38,52 +38,21 @@ namespace Sango.EditorTools
         }
 
         /// <summary>
-        /// 排版之后的收尾调整。必须在 DuelWindowBuilder 的排版之后调用，
-        /// 因为其中几项依赖排版确定的层级与尺寸。
+        /// 收尾。现在只剩一件事：卡牌头像是空的 RawImage，编辑期会渲染成白色实心方块，
+        /// 先置成全透明，运行时由 CardDuelView 填入头像后恢复不透明。
+        ///
+        /// 以前这里还会把武将条底板调透明、隐藏旧窗口框、把合数提到最上层、改卡面色，
+        /// 这些都会动到位置 / 层级 / 美术图，覆盖美术手工调好的稿子，已全部去掉——
+        /// 相关节点现在由美术自己掌握。
         /// </summary>
         public static string Polish(GameObject root)
         {
             if (root == null) return "root is null";
 
-            // 1) 武将信息条的底板是 20x18 的九宫格色块，拉满整条后会变成一大块实心色板，
-            //    既盖住合数也不是原版的样子。顶部 HUD 已改用图集里的头像框 / 姓名墨刷 /
-            //    墨迹长条，这里把旧底板整体隐去。
-            string[] slots =
-            {
-                "LeftPanel/person", "LeftPanel/person_1", "LeftPanel/person_2",
-                "RightPanel/person", "RightPanel/person_1", "RightPanel/person_2",
-            };
-            int tinted = 0;
-            foreach (string slot in slots)
-            {
-                Transform t = FindPath(root.transform, slot);
-                if (t == null) continue;
-                Image img = t.GetComponent<Image>();
-                if (img == null) continue;
-                Color c = img.color;
-                c.a = 0f;
-                img.color = c;
-                tinted++;
-            }
-
-            // 2) 旧的窗口边框（含"出现武将"标题与竹林背景插图）会压在卡牌区之上，
-            //    《三国志11》单挑界面没有这层边框，直接隐藏。
-            Transform frame = FindPath(root.transform, "win_frame3");
-            if (frame != null) frame.gameObject.SetActive(false);
-
-            // 3) 合数置于最上层，避免被左右武将条遮挡
-            Transform blowBg = FindPath(root.transform, "BlowCounter_bg");
-            if (blowBg != null) blowBg.SetAsLastSibling();
-
-            // 4) 卡面：墨迹图拉大后会变成白色实心块，改为半透明深色底
-            PolishCardFace(root, "CardArea/CardLeft/face");
-            PolishCardFace(root, "CardArea/CardRight/face");
-
-            // 5) 卡牌头像是空的 RawImage，会画成白块，编辑期先隐藏
             HideEmptyRawImage(root, "CardArea/CardLeft/face/head");
             HideEmptyRawImage(root, "CardArea/CardRight/face/head");
 
-            return "收尾：底板透明 " + tinted + " 处，隐藏旧窗口框，合数置顶";
+            return "收尾：空头像占位置透明";
         }
 
         #region 删除历史残留
@@ -218,17 +187,6 @@ namespace Sango.EditorTools
             count += NormalizeSlot(FindPath(root.transform, "RightPanel/person_1"), false, true);
             count += NormalizeSlot(FindPath(root.transform, "RightPanel/person_2"), false, true);
             return count;
-        }
-
-        /// <summary>卡面：去掉墨迹图，改为半透明深色底</summary>
-        private static void PolishCardFace(GameObject root, string path)
-        {
-            Transform t = FindPath(root.transform, path);
-            if (t == null) return;
-            Image img = t.GetComponent<Image>();
-            if (img == null) return;
-            img.sprite = null;
-            img.color = new Color(0.10f, 0.10f, 0.13f, 0.80f);
         }
 
         /// <summary>

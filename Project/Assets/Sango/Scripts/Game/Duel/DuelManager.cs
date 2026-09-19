@@ -199,7 +199,15 @@ namespace Sango.Core.Duel
             // 动画未播完就不推进，等下一帧再来——这正是表现层驱动的本意。
             bool finished = Current.OnPhase(0);
             if (finished)
+            {
+                // 单挑已分胜负，但**不自动退场**：
+                // 表现层还要播胜利者台词，播完把底部按钮变成「离开」，
+                // 玩家点了才收场（关窗口）。没有表现层时 View 为 null，照旧立即结束。
+                if (View != null && !View.DuelIsLeavePushed(Current))
+                    return true;
+
                 Finish();
+            }
             return true;
         }
 
@@ -211,6 +219,12 @@ namespace Sango.Core.Duel
 
             Current = null;
             m_stepMode = false;
+
+            // 结算：把胜负奖惩真正落到游戏世界上（气力 / 兵力 / 伤病写回 / 俘虏流程 / 经验功绩）。
+            // 逻辑层只把结果写进 Param，落地的动作全在 ResultHandler 里，而它此前没有任何调用点，
+            // 所以单挑打完除了动画什么都没有发生。这里统一收口——逐帧推进与瞬时结算都会走到 Finish()。
+            finished.ResultHandler();
+
             GameEvent.OnDuelEnd?.Invoke(finished);
 
             finished.Exit();
