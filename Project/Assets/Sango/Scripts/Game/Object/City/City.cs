@@ -841,6 +841,12 @@ namespace Sango.Core
             base.OnScenarioPrepare(scenario);
             isComplate = true;
 
+            if(durabilityLimit == 0)
+            {
+                Sango.Log.Error($"城池:{Name} 坐标:<{x},{y}>的最大耐久为0!! 默认修复为3000");
+                durabilityLimit = 3000;
+            }
+
             //innerSlot = new int[InsideSlot];
             if (durability <= 0)
                 durability = DurabilityLimit;
