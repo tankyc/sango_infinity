@@ -108,8 +108,12 @@ namespace Sango.Core.Duel
         public static Func<int, int> RandInt = DuelRandom.Range;
 
         /// <summary>
-        /// 根据伤病计算有效武力。默认：伤病每级衰减 20%。
-        /// 伤病 0=健康 / 1=轻伤 / 2=中伤 / 3=重伤，对应系数 100% / 80% / 60% / 40%。
+        /// 根据伤病计算有效武力。
+        ///
+        /// 默认实现从**未折减的武力**（Person.RawStrength）按单挑内部的伤病等级折算：
+        /// 单挑里的伤病可能高过进场时的 person.injury（打到一半挨了必杀会 +1 级），
+        /// 而 Person.Strength 只反映进场时的伤病，所以必须从 Raw 重算，不能乘两次。
+        /// 留下这个钩子是为了让集成层可以换一套自己的算法。
         /// </summary>
         public static Func<Person, int, int> CalcStrength = DefaultCalcStrength;
 
@@ -134,12 +138,11 @@ namespace Sango.Core.Duel
             return (c.r << 16) | (c.g << 8) | c.b;
         }
 
-        /// <summary>默认实现：伤病每级衰减 20% 武力</summary>
+        /// <summary>默认实现：以未折减的武力为底，按单挑内部伤病等级折算（与 Person 同一套系数：三国志11 原版 100/80/50/30）</summary>
         private static int DefaultCalcStrength(Person person, int shoubyou)
         {
-            int strength = person.Strength;
-            int level = Math.Max(0, Math.Min(shoubyou, (int)Shoubyou.Hinshi));
-            return strength * (10 - level * 2) / 10;
+            if (person == null) return 0;
+            return Person.ApplyInjuryDecay(person.RawStrength, shoubyou);
         }
 
         /// <summary>恢复为默认实现</summary>

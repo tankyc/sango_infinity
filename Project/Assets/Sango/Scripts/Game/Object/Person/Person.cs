@@ -538,30 +538,65 @@ namespace Sango.Core
         /// </summary>
         public int MachineLv => machineLv.value;
 
-        /// <summary>
-        /// 统率
-        /// </summary>
-        public int Command => command.Value + GetEquipmentBonus(x => x.commandBonus);
+        /// <summary>伤病等级上限（0=健康 / 1=轻伤 / 2=中伤 / 3=重伤，与 Shoubyou.Hinshi 一致）</summary>
+        public const int InjuryMaxLevel = 3;
 
         /// <summary>
-        /// 武力
+        /// 各等级伤病的能力系数（百分点，下标 = 伤病等级）。
+        ///
+        /// 采用**三国志11 原版数值**：健康 100% / 轻伤 80% / 重伤 50% / 濒危 30%
+        /// （即 轻伤 -20%、重伤 -50%、濒危 -70%）。
+        /// 本项目四档的命名是 健康 / 轻伤 / 中伤 / 重伤，按**档位序号**与 11 的四档一一对应
+        /// （第 3 档就是 Shoubyou.Hinshi，即"濒死/濒危"）。
         /// </summary>
-        public int Strength => strength.Value + GetEquipmentBonus(x => x.strengthBonus);
+        public static readonly int[] InjuryFactorPercent = { 100, 80, 50, 30 };
 
         /// <summary>
-        /// 智力
+        /// 按伤病折算能力值。
+        ///
+        /// 五维（统率 / 武力 / 智力 / 政治 / 魅力）的 getter 都过这一道，
+        /// 所以**外部取到的就是带伤之后的最终值**——部队攻防、单挑、舌战、内政判定自动口径一致；
+        /// 原始数据（baseValue / _value）不动，武将编辑界面看到的仍是底子。
         /// </summary>
-        public int Intelligence => intelligence.Value + GetEquipmentBonus(x => x.intelligenceBonus);
+        public static int ApplyInjuryDecay(int value, int injury)
+        {
+            int level;
+            if (injury <= 0) level = 0;
+            else if (injury > InjuryMaxLevel) level = InjuryMaxLevel;
+            else level = injury;
 
-        /// <summary>
-        /// 政治
-        /// </summary>
-        public int Politics => politics.Value + GetEquipmentBonus(x => x.politicsBonus);
+            return value * InjuryFactorPercent[level] / 100;
+        }
 
-        /// <summary>
-        /// 魅力
-        /// </summary>
-        public int Glamour => glamour.Value + GetEquipmentBonus(x => x.glamourBonus);
+        /// <summary>统率（带伤时按伤病衰减）</summary>
+        public int Command => ApplyInjuryDecay(RawCommand, injury);
+
+        /// <summary>武力（带伤时按伤病衰减）</summary>
+        public int Strength => ApplyInjuryDecay(RawStrength, injury);
+
+        /// <summary>智力（带伤时按伤病衰减）</summary>
+        public int Intelligence => ApplyInjuryDecay(RawIntelligence, injury);
+
+        /// <summary>政治（带伤时按伤病衰减）</summary>
+        public int Politics => ApplyInjuryDecay(RawPolitics, injury);
+
+        /// <summary>魅力（带伤时按伤病衰减）</summary>
+        public int Glamour => ApplyInjuryDecay(RawGlamour, injury);
+
+        /// <summary>统率（不含伤病折减；单挑等需要自己按"当事人当时的伤病"折算的地方用）</summary>
+        public int RawCommand => command.Value + GetEquipmentBonus(x => x.commandBonus);
+
+        /// <summary>武力（不含伤病折减）</summary>
+        public int RawStrength => strength.Value + GetEquipmentBonus(x => x.strengthBonus);
+
+        /// <summary>智力（不含伤病折减）</summary>
+        public int RawIntelligence => intelligence.Value + GetEquipmentBonus(x => x.intelligenceBonus);
+
+        /// <summary>政治（不含伤病折减）</summary>
+        public int RawPolitics => politics.Value + GetEquipmentBonus(x => x.politicsBonus);
+
+        /// <summary>魅力（不含伤病折减）</summary>
+        public int RawGlamour => glamour.Value + GetEquipmentBonus(x => x.glamourBonus);
 
         /// <summary>
         /// 是否可登场
@@ -1272,6 +1307,9 @@ namespace Sango.Core
 
         public override bool OnTurnStart(Scenario scenario)
         {
+            // 伤病恢复：每回合（旬）结算一次，据点内休养才会好转（规则见 PersonInjury）
+            PersonInjury.TryRecover(this);
+
             if (state == (int)PersonStateType.Invalid)
             {
                 if (scenario.Variables.allowInvalidPersonValidWhenYearPass)

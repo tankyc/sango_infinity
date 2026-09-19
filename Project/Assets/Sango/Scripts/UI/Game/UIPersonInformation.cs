@@ -71,6 +71,10 @@ namespace Sango.UI
         bool biographiess_inited = false;
         bool feature_inited = false;
 
+        /// <summary>伤病一栏在 prefab 里的原色（健康时要还原回来，不能写死成白色）</summary>
+        Color injuryLabelColor = Color.clear;
+        bool injuryLabelColorCached = false;
+
         public int showTab = 0;
         public Button item_btn;
 
@@ -160,7 +164,8 @@ namespace Sango.UI
 
             personalityLabel.text = PersonSortFunction.SortByPersonality.GetValueStr(Target);
             ageLabel.text = PersonSortFunction.SortByAge.GetValueStr(Target);
-            injuryyLabel.text = "";// PersonSortFunction.SortBySex.GetValueStr(Target);
+            injuryyLabel.text = PersonSortFunction.SortByInjury.GetValueStr(Target);
+            ApplyInjuryColor();
             itemCountLabel.text = "0";// PersonSortFunction.SortByPersonality.GetValueStr(Target);
             staminaLabel.text = PersonSortFunction.SortByStamina.GetValueStr(Target);
             sexLabel.text = PersonSortFunction.SortBySex.GetValueStr(Target);
@@ -183,6 +188,27 @@ namespace Sango.UI
 
             //featureLabel.text = PersonSortFunction.SortByFeatureList.GetValueStr(Target);
             //featureDescLabel.text = PersonSortFunction.SortByFeatureDesc.GetValueStr(Target);
+        }
+
+        /// <summary>
+        /// 伤病一栏的配色：受伤（injury 1~3）时标红，健康时用 prefab 原色。
+        ///
+        /// 单挑结算会把负伤写进 person.injury，而伤会一直留着（目前没有恢复机制），
+        /// 单挑武将条上"带伤武将名字变红"就靠这一栏给玩家一个出处，
+        /// 否则看起来像是没受伤也乱标红。
+        /// </summary>
+        void ApplyInjuryColor()
+        {
+            if (injuryyLabel == null || injuryyLabel.label == null) return;
+
+            if (!injuryLabelColorCached)
+            {
+                injuryLabelColor = injuryyLabel.label.color;
+                injuryLabelColorCached = true;
+            }
+
+            bool injured = Target != null && Target.injury > 0;
+            injuryyLabel.SetColor(injured ? PersonSortFunction.InjuredTint : injuryLabelColor);
         }
 
         void UpdateFeatureContent()

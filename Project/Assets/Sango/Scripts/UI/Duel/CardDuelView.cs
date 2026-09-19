@@ -470,8 +470,8 @@ namespace Sango.Core.Duel
         /// <summary>已被预约的必杀即将吃掉的刻度，在气条上标成这个颜色</summary>
         public static readonly Color SpiritSpendTint = new Color(1f, 0.35f, 0.3f, 1f);
 
-        /// <summary>受伤武将的名字与武力用红字表示</summary>
-        public static readonly Color InjuredTint = new Color(1f, 0.25f, 0.25f, 1f);
+        /// <summary>受伤武将的名字与武力用红字表示（与武将情报面板共用同一个红）</summary>
+        public static readonly Color InjuredTint = PersonSortFunction.InjuredTint;
 
         /// <summary>必杀按钮是否被按下（逻辑层据此在下一回合进入必杀指令阶段）</summary>
         protected bool m_SpecialPushed = false;

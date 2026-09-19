@@ -1415,6 +1415,30 @@ namespace Sango.Core
             valueObjSet = (x, v) => x.stamina = (int)v,
         };
 
+        /// <summary>伤病等级名称（0=健康 / 1=轻伤 / 2=中伤 / 3=重伤）</summary>
+        private static readonly string[] s_shoubyouNames = { "健康", "轻伤", "中伤", "重伤" };
+
+        /// <summary>伤病等级的显示名；越界一律按"健康"处理</summary>
+        public static string GetShoubyouName(int shoubyou)
+        {
+            if (shoubyou < 0 || shoubyou >= s_shoubyouNames.Length) return s_shoubyouNames[0];
+            return s_shoubyouNames[shoubyou];
+        }
+
+        /// <summary>受伤时文字统一用的红色（单挑武将条 / 武将情报面板共用，避免两处色值走样）</summary>
+        public static readonly Color InjuredTint = new Color(1f, 0.25f, 0.25f, 1f);
+
+        /// <summary>伤病（健康 / 轻伤 / 中伤 / 重伤）。单挑与舌战都会往 person.injury 写值</summary>
+        public static SortTitle SortByInjury = new SortTitle()
+        {
+            name = "伤病",
+            width = 2.00f,
+            valueStrGetCall = x => GetShoubyouName(x != null ? x.injury : 0),
+            valueSortFunc = (a, b) => a.injury.CompareTo(b.injury),
+            valueObjGet = x => x.injury,
+            valueObjSet = (x, v) => x.injury = (int)v,
+        };
+
         // 性格（小写！！！）
         public static SortTitle SortByPersonality = new SortTitle()
         {
