@@ -1069,6 +1069,12 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public bool allowInvalidPersonValidWhenYearPass = true;
 
+        /// <summary>
+        /// 默认计略设置
+        /// </summary>
+        [JsonProperty] public int[] defaultStrategySkills = new int[] { 22, 23, 24, 25, 26, 27, 28 };
+
+
 
         public float DifficultyDamageFactor
         {

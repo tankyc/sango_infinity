@@ -213,6 +213,10 @@ namespace Sango.EditorTools
             Count(view.rightCharaSlots, ref bound, ref total);
             Count(view.leftSpiritPips, ref bound, ref total);
             Count(view.rightSpiritPips, ref bound, ref total);
+            Count(view.cardLeft != null ? view.cardLeft.root : null, ref bound, ref total);
+            Count(view.cardRight != null ? view.cardRight.root : null, ref bound, ref total);
+            Count(view.resultWin != null ? view.resultWin.node : null, ref bound, ref total);
+            Count(view.resultLose != null ? view.resultLose.node : null, ref bound, ref total);
             CountSide(view.leftSide, ref bound, ref total);
             CountSide(view.rightSide, ref bound, ref total);
 

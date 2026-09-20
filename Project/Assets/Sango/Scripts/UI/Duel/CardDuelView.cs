@@ -96,6 +96,220 @@ namespace Sango.Core.Duel
         public Button btnPlay;
         public Text skipHint;
 
+        [Header("左右两张武将卡（CardArea/CardLeft、CardArea/CardRight）")]
+        public DuelCard cardLeft = new DuelCard();
+        public DuelCard cardRight = new DuelCard();
+
+        /// <summary>
+        /// 卡面头像（CardArea/CardLeft/face/head、CardArea/CardRight/face/head）取图时
+        /// 传给 <see cref="GameRenderHelper.LoadHeadIcon(int, int)"/> 的**第二个参数**：
+        /// 1 → Assets/Face/{武将头像编号}_1。设为 0 则用默认图（与武将条一致，即 _2）。
+        /// </summary>
+        public int cardHeadIconType = 1;
+
+        // ---- 卡牌演出参数：时长 / 幅度 / 配色，都可调 ----
+
+        /// <summary>出招前冲的时长（秒）</summary>
+        public float cardAttackDuration = 0.24f;
+        /// <summary>受击 / 闪避 / 登场交替的时长（秒）</summary>
+        public float cardHitDuration = 0.34f;
+        /// <summary>受击序列帧（face/hit）显示多久后自动隐藏（秒）</summary>
+        public float hitFxDuration = 0.2f;
+        /// <summary>卡面飘字的缩放（模板字号 25，1 倍即可）</summary>
+        public float cardFloatScale = 1f;
+        /// <summary>卡面体力低于这个比例（0.3 = 30%）时转成警示色</summary>
+        [Range(0f, 1f)] public float cardLowHpRatio = 0.3f;
+        /// <summary>必杀演出的时长（秒）</summary>
+        public float cardSpecialDuration = 0.55f;
+        /// <summary>一击必杀 / 胜负结算的时长（秒）</summary>
+        public float cardResultDuration = 0.9f;
+        /// <summary>出招的前冲距离（像素）</summary>
+        public float cardAttackDistance = 56f;
+        /// <summary>出招时的放大比例</summary>
+        public float cardAttackScale = 0.14f;
+        /// <summary>受击的后仰距离（像素）</summary>
+        public float cardHitBack = 26f;
+        /// <summary>受击的抖动幅度（像素）</summary>
+        public float cardHitShake = 9f;
+
+        /// <summary>受击时卡面闪红</summary>
+        public static readonly Color CardHitTint = new Color(1f, 0.35f, 0.3f, 1f);
+        /// <summary>必杀 / 一击必杀时卡面泛金</summary>
+        public static readonly Color CardSpecialTint = new Color(1f, 0.85f, 0.42f, 1f);
+        /// <summary>落败后卡面压暗</summary>
+        public static readonly Color CardDownTint = new Color(0.42f, 0.42f, 0.48f, 1f);
+        /// <summary>闪避文字的颜色</summary>
+        public static readonly Color CardDodgeTint = new Color(0.75f, 0.88f, 1f, 1f);
+        /// <summary>飘字：受到的伤害（沿用工程"数值减少"的橙红）</summary>
+        public static readonly Color FloatDamageTint = new Color(1f, 0.479f, 0.231f, 1f);
+
+        [Header("结算大字（CardArea/win、CardArea/lose）：按我方胜负砸下来")]
+        public DuelResultStamp resultWin = new DuelResultStamp();
+        public DuelResultStamp resultLose = new DuelResultStamp();
+
+        /// <summary>砸下来的总时长（秒）：下落 → 落地压扁 → 回弹余震</summary>
+        public float resultSlamDuration = 0.6f;
+        /// <summary>起手高度（像素，从原位置上方多少开始落）</summary>
+        public float resultSlamHeight = 640f;
+        /// <summary>起手的放大倍数（落到 1 倍）</summary>
+        public float resultSlamScale = 1.9f;
+        /// <summary>起手的倾斜角度（度，落到 0）</summary>
+        public float resultSlamAngle = 14f;
+
+        /// <summary>上一合 BlowAnim 的命中/闪避标记（BlowAnim 不带队伍，靠下标与 HPAnim 配对）</summary>
+        protected readonly int[] m_BlowValues = new int[Duel.MaxAnimQueueSize];
+
+        /// <summary>本次体力结算里"谁被谁打了"的清单，供卡牌演出使用（ApplyHpAnim 里填）</summary>
+        protected readonly List<Duel.HPAnim> m_CardHits = new List<Duel.HPAnim>();
+
+
+
+        /// <summary>正在砸下来的结算大字</summary>
+        protected DuelResultStamp m_StampShown;
+        protected float m_StampTime;
+        protected float m_StampDuration;
+
+        /// <summary>
+        /// 卡牌演出种类。演出只动表现（位置 / 缩放 / 配色 / 卡面文字），不改任何逻辑数据。
+        /// </summary>
+        public enum DuelCardFx
+        {
+            None = 0,
+            /// <summary>出招：向对方前冲一下再回位</summary>
+            Attack,
+            /// <summary>受击：后仰 + 抖动 + 卡面闪红</summary>
+            Hit,
+            /// <summary>闪避开：原地侧闪</summary>
+            Dodge,
+            /// <summary>放必杀：大幅前冲 + 卡面泛金</summary>
+            Special,
+            /// <summary>一击必杀：胜方放大泛金（配合败方的 Down）</summary>
+            Ftk,
+            /// <summary>落败 / 退却：卡面压暗、下沉</summary>
+            Down,
+            /// <summary>平局：原地轻晃</summary>
+            Draw,
+            /// <summary>登场 / 交替：新卡弹出</summary>
+            Swap,
+        }
+
+        /// <summary>
+        /// 一张武将卡（CardArea/CardLeft、CardArea/CardRight）。
+        ///
+        /// 职责有两块：
+        ///   1) 信息同步——把当前出战的武将刷到卡面：头像、名字、武力 / 体力 / 斗志；
+        ///      名字带伤标红，明细里武力带伤标红、体力只在过低时变色（伤病不在这显示）。
+        ///   2) 演出——出招、受击、闪避、必杀、负伤、胜负时播放"位置 + 缩放 + 卡面配色 + 飘字"的动画。
+        ///
+        /// 演出时长会压进视图的 m_AnimTimer，逻辑层因此会等这段表演播完再推进（与既有动画一致）。
+        /// </summary>
+        [System.Serializable]
+        public class DuelCard
+        {
+            /// <summary>卡牌根节点（CardLeft / CardRight）</summary>
+            public RectTransform root;
+
+            /// <summary>卡面图（演出时闪色用；就是卡牌根节点上的 Image）</summary>
+            public Image frame;
+
+            /// <summary>受击的序列帧特效（face/hit）。自带 UIImageAnimation，激活即开始播</summary>
+            public GameObject hitFx;
+
+            /// <summary>卡面飘字系统（face/ani_info 上的 AnimationText）：伤害、斗气、各种演出文字都走它</summary>
+            public AnimationText aniInfo;
+
+            // ---- 以下都是运行期状态，不参与序列化 ----
+
+            /// <summary>这张卡代表哪个阵营（左＝挑战方 0，右＝应战方 1）</summary>
+            [System.NonSerialized] public int team = -1;
+
+            /// <summary>原始位置 / 缩放 / 配色是否已经记下（演出结束要还原回去）</summary>
+            [System.NonSerialized] public bool cached;
+            [System.NonSerialized] public Vector2 homePos;
+            [System.NonSerialized] public Vector3 homeScale = Vector3.one;
+            [System.NonSerialized] public Color homeFrame = Color.white;
+
+            /// <summary>当前演出</summary>
+            [System.NonSerialized] public DuelCardFx fx = DuelCardFx.None;
+            [System.NonSerialized] public float fxTime;
+            [System.NonSerialized] public float fxDuration;
+
+            /// <summary>受击序列帧还要显示多久（> 0 表示正在亮）</summary>
+            [System.NonSerialized] public float hitFxTime;
+
+            /// <summary>飘字系统是否已经做好运行时准备（maxTime / 图标子节点）</summary>
+            [System.NonSerialized] public bool aniInfoReady;
+
+            /// <summary>
+            /// 绑定一张卡。节点名找不到时全部留空，后续刷新与演出自动跳过，不会报错。
+            /// </summary>
+            public void Bind(Transform cardRoot)
+            {
+                root = cardRoot as RectTransform;
+                frame = root != null ? root.GetComponent<Image>() : null;
+
+                Transform hit = root != null ? FindDeep(root, "hit") : null;
+                hitFx = hit != null ? hit.gameObject : null;
+
+                Transform ani = root != null ? FindDeep(root, "ani_info") : null;
+                aniInfo = ani != null ? ani.GetComponent<AnimationText>() : null;
+
+                cached = false;
+                aniInfoReady = false;
+                hitFxTime = 0f;
+                fx = DuelCardFx.None;
+                fxTime = 0f;
+                fxDuration = 0f;
+            }
+        }
+
+        /// <summary>
+        /// 结算大字（CardArea/win、CardArea/lose）。
+        /// 平时隐藏，结算时按胜负选一个"砸下来"：从屏幕上方落下、落地压扁、回弹余震。
+        /// 落地后就一直留着，直到窗口关闭 / 下一场开始。
+        /// </summary>
+        [System.Serializable]
+        public class DuelResultStamp
+        {
+            /// <summary>大字节点（win / lose）</summary>
+            public RectTransform node;
+
+            // ---- 运行期（不序列化）----
+            [System.NonSerialized] public bool cached;
+            [System.NonSerialized] public Vector2 homePos;
+            [System.NonSerialized] public Vector3 homeScale = Vector3.one;
+            [System.NonSerialized] public CanvasGroup group;
+
+            /// <summary>绑定节点，原位置/原大小留到第一次演出时再记</summary>
+            public void Bind(RectTransform target)
+            {
+                node = target;
+                cached = false;
+                group = null;
+            }
+
+            /// <summary>记下原始位置 / 大小，并补一个不吃点击的 CanvasGroup（淡入用）</summary>
+            public void EnsureHome()
+            {
+                if (node == null || cached) return;
+
+                homePos = node.anchoredPosition;
+                homeScale = node.localScale;
+
+                group = node.GetComponent<CanvasGroup>();
+                if (group == null) group = node.gameObject.AddComponent<CanvasGroup>();
+                group.interactable = false;
+                group.blocksRaycasts = false;      // 大字绝不吃点击，别挡住底下的「离开」
+
+                cached = true;
+            }
+
+            public void Hide()
+            {
+                if (node != null) node.gameObject.SetActive(false);
+            }
+        }
+
         /// <summary>
         /// 一套命令区。左右各一份，结构完全相同，因此可以各自独立驱动。
         ///   specialBg      必杀技按钮的外层底（进入必杀选择后与方针一起收起）
@@ -473,6 +687,12 @@ namespace Sango.Core.Duel
         /// <summary>受伤武将的名字与武力用红字表示（与武将情报面板共用同一个红）</summary>
         public static readonly Color InjuredTint = PersonSortFunction.InjuredTint;
 
+        /// <summary>卡面明细里"受伤"的富文本色（与 <see cref="InjuredTint"/> 同一个红）</summary>
+        public static readonly string InjuredTag = "#" + ColorUtility.ToHtmlStringRGB(InjuredTint);
+
+        /// <summary>卡面明细里"体力过低"的警示色</summary>
+        public const string LowHpTag = "#FF4D4D";
+
         /// <summary>必杀按钮是否被按下（逻辑层据此在下一回合进入必杀指令阶段）</summary>
         protected bool m_SpecialPushed = false;
 
@@ -622,6 +842,15 @@ namespace Sango.Core.Duel
             // 第 0 合先在第一个指令阶段停住等玩家按「决定」，不自动开打
             m_StopPushed = true;
 
+            // 卡牌演出状态复位：位置/缩放/配色还原成 prefab 原样，原值下次刷新时重新缓存
+            ResetCardFx(cardLeft);
+            ResetCardFx(cardRight);
+            for (int i = 0; i < m_BlowValues.Length; i++) m_BlowValues[i] = -1;
+            m_CardHits.Clear();
+
+            // 结算大字收起（上一场可能还留着「胜 / 败」）
+            HideResultStamp();
+
             RefreshAll();
         }
 
@@ -675,6 +904,14 @@ namespace Sango.Core.Duel
             btnPlay = FindButton(root, "BtnPlayPauseSwitch") ?? FindButton(root, "BtnPlay");
             skipHint = FindComponent<Text>(FindDeep(root, "info"))
                 ?? FindComponent<Text>(FindDeep(root, "SkipHint"));
+
+            // ---- 左右两张武将卡（CardArea 下，名字保持即可，挪位置不影响） ----
+            cardLeft.Bind(FindDeep(root, "CardLeft"));
+            cardRight.Bind(FindDeep(root, "CardRight"));
+
+            // ---- 结算大字（默认关闭，结算时才亮） ----
+            resultWin.Bind(FindDeep(root, "win") as RectTransform);
+            resultLose.Bind(FindDeep(root, "lose") as RectTransform);
         }
 
         /// <summary>
@@ -1258,6 +1495,11 @@ namespace Sango.Core.Duel
         {
             if (m_AnimTimer > 0f && !m_Paused)
                 m_AnimTimer -= Time.deltaTime;
+
+            // 卡牌演出逐帧推进。演出是纯表现，暂停中也要把已经开始的那段播完，
+            // 否则停在指令阶段时卡牌会卡在半路上。
+            TickCards(Time.deltaTime);
+            TickResultStamp(Time.deltaTime);
         }
 
         protected void SetAnimTimer(float duration)
@@ -1317,12 +1559,16 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>刷新左右两侧的武将面板</summary>
+        /// <summary>
+        /// 刷新左右两侧的武将呈现：武将条 + 卡牌。
+        /// 两者是同一份数据的两种画法，所有调用点都希望它们一起更新，所以收在一处。
+        /// </summary>
         protected virtual void RefreshCharaPanels()
         {
             if (m_Duel == null) return;
             RefreshTeamPanel((int)DuelTeam.DuelTeam_Challenger, leftCharaSlots);
             RefreshTeamPanel((int)DuelTeam.DuelTeam_Challenged, rightCharaSlots);
+            RefreshCards();
         }
 
         /// <summary>
@@ -1472,8 +1718,13 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>设置武将头像；没有贴图时置为全透明，避免渲染成白色实心块</summary>
-        protected static void ApplyHead(Transform slot, Person person)
+        /// <summary>
+        /// 设置武将头像；没有贴图时置为全透明，避免渲染成白色实心块。
+        ///
+        /// headIconType &gt; 0 时用它当 <see cref="GameRenderHelper.LoadHeadIcon(int, int)"/> 的第二个参数
+        /// （卡面 CardLeft/face/head、CardRight/face/head 走 1 号图），否则用默认图（武将条）。
+        /// </summary>
+        protected static void ApplyHead(Transform slot, Person person, int headIconType = 0)
         {
             RawImage head = FindComponent<RawImage>(FindDeep(slot, "head"));
             if (head == null) return;
@@ -1482,7 +1733,9 @@ namespace Sango.Core.Duel
             if (GetHeadTexture != null)
                 texture = GetHeadTexture(person);
             else if (person != null)
-                texture = GameRenderHelper.LoadHeadIcon(person.headIconID);
+                texture = headIconType > 0
+                    ? GameRenderHelper.LoadHeadIcon(person.headIconID, headIconType)
+                    : GameRenderHelper.LoadHeadIcon(person.headIconID);
 
             head.texture = texture;
             head.color = texture != null ? Color.white : new Color(1f, 1f, 1f, 0f);
@@ -1769,6 +2022,512 @@ namespace Sango.Core.Duel
 
         #endregion
 
+        #region 卡牌表现（信息同步 + 演出）
+
+        /// <summary>取某一方的卡牌（左＝挑战方 0，右＝应战方 1）</summary>
+        protected DuelCard CardOf(int team)
+        {
+            if (team == (int)DuelTeam.DuelTeam_Challenger) return cardLeft;
+            if (team == (int)DuelTeam.DuelTeam_Challenged) return cardRight;
+            return null;
+        }
+
+        /// <summary>记下卡牌的原始位置 / 缩放 / 配色——演出结束要还原回这一套，所以只能记一次</summary>
+        protected virtual void EnsureCardHome(DuelCard card)
+        {
+            if (card == null || card.root == null || card.cached) return;
+
+            card.homePos = card.root.anchoredPosition;
+            card.homeScale = card.root.localScale;
+            if (card.frame != null) card.homeFrame = card.frame.color;
+
+            // 受击序列帧在 prefab 里是**开着**的（UIImageAnimation 靠 OnEnable 起播），
+            // 所以第一次刷新就要收起来，之后只在挨打的那一刻亮 0.2 秒。
+            if (card.hitFx != null) card.hitFx.SetActive(false);
+            card.hitFxTime = 0f;
+
+            card.cached = true;
+        }
+
+        /// <summary>把卡牌复位（换场用）：还原位置 / 缩放 / 配色并清掉正在播的演出</summary>
+        protected virtual void ResetCardFx(DuelCard card)
+        {
+            if (card == null) return;
+
+            if (card.cached && card.root != null)
+            {
+                card.root.anchoredPosition = card.homePos;
+                card.root.localScale = card.homeScale;
+                if (card.frame != null) card.frame.color = card.homeFrame;
+            }
+
+            // 把飘字与受击特效一起收掉，别把上一场的残留带到下一场
+            if (card.aniInfo != null) card.aniInfo.Clear();
+            if (card.hitFx != null) card.hitFx.SetActive(false);
+            card.hitFxTime = 0f;
+
+            card.cached = false;
+            card.fx = DuelCardFx.None;
+            card.fxTime = 0f;
+            card.fxDuration = 0f;
+        }
+
+        /// <summary>同步左右两张卡的信息</summary>
+        protected virtual void RefreshCards()
+        {
+            RefreshCard(cardLeft, (int)DuelTeam.DuelTeam_Challenger);
+            RefreshCard(cardRight, (int)DuelTeam.DuelTeam_Challenged);
+        }
+
+        /// <summary>把某一方当前出战的武将刷到卡面：头像、名字、武力 / 体力 / 斗志</summary>
+        protected virtual void RefreshCard(DuelCard card, int team)
+        {
+            if (card == null || card.root == null || m_Duel == null) return;
+
+            card.team = team;
+            EnsureCardHome(card);
+
+            int chara = m_Duel.GetCurrentChara(team);
+            Person person = m_Duel.GetCurrentPerson(team);
+
+            // 用**单挑侧**的伤病等级：person.injury 要等结算才写回，
+            // 单挑中挨必杀打出来的当场伤只有这里是最新的（-1 表示不在场）。
+            int shoubyou = m_Duel.TeamGetShoubyou(m_Duel.GetTeam(team), chara);
+            bool injured = shoubyou > (int)Shoubyou.Kenkou;
+
+            // 名字仍是整块标红（单独节点）；明细块内部各字段自己带颜色标签，
+            // 所以这块 Text 本身的颜色用原色即可，别让它一红到底。
+            SetText(card.root, "name", person != null ? person.Name : string.Empty, injured);
+            SetText(card.root, "detail",
+                BuildCardDetail(team, chara, person, injured, DefaultTag(card.root, "detail")), false);
+            ApplyHead(card.root, person, cardHeadIconType);     // 卡面头像走 1 号图（见 cardHeadIconType）
+        }
+
+        /// <summary>
+        /// 卡面明细：武力 / 体力 / 斗志。颜色全部写在串里的富文本标签上，互不牵连：
+        ///   武力——受伤时红字（与武将条同一口径）；
+        ///   体力——平时与其它文字同色，**只在"体力过低"时才换色**：低于
+        ///         <see cref="cardLowHpRatio"/> 的比例（默认 30%）即转警示色；
+        ///   斗志——固定本色。
+        /// 伤病不在这块显示：带伤由名字与武力的红字表达。
+        /// </summary>
+        protected virtual string BuildCardDetail(int team, int chara, Person person, bool injured, string baseTag)
+        {
+            if (person == null || m_Duel == null) return string.Empty;
+
+            // 阈值先取整再比：MaxHP * 0.3f 是 30.000002，直接比会把"正好 30%"也算成过低
+            int hp = m_Duel.GetHp(team, chara);
+            bool lowHp = hp < Mathf.RoundToInt(Duel.MaxHP * cardLowHpRatio);
+
+            return "武力 " + ColorTag(person.Strength.ToString(), injured ? InjuredTag : baseTag)
+                + "\n体力 " + ColorTag(hp + " / " + Duel.MaxHP, lowHp ? LowHpTag : baseTag)
+                + "\n斗志 " + ColorTag(m_Duel.GetSpirit(team, chara).ToString(), baseTag);
+        }
+
+        /// <summary>给一段文字套上富文本颜色标签（卡面这几块 Text 都勾了 Rich Text）</summary>
+        protected static string ColorTag(string text, string color)
+        {
+            return "<color=" + color + ">" + text + "</color>";
+        }
+
+        /// <summary>
+        /// 取某个文本在 prefab 里的原色，转成富文本标签（"#RRGGBB"）。
+        /// 这样"本色"跟着美术调，不会因为代码里写死一个白而和旁边的字对不上。
+        /// </summary>
+        protected string DefaultTag(Transform root, string childName)
+        {
+            Text text = FindText(root, childName);
+            if (text == null) return "#FFFFFF";
+
+            Color color;
+            if (!m_TextDefaultColors.TryGetValue(text, out color))
+            {
+                color = text.color;
+                m_TextDefaultColors[text] = color;
+            }
+            return "#" + ColorUtility.ToHtmlStringRGB(color);
+        }
+
+        /// <summary>
+        /// 播放一段卡牌演出。时长会压进 m_AnimTimer，所以逻辑层会停下来等这段表演播完
+        /// （与既有的 stepDuration / emphasisDuration 同一套机制）。
+        /// </summary>
+        protected virtual void PlayCardFx(DuelCard card, DuelCardFx fx, float duration, Color infoTint, string infoText)
+        {
+            if (card == null || card.root == null) return;
+
+            EnsureCardHome(card);
+
+            card.fx = fx;
+            card.fxTime = 0f;
+            card.fxDuration = Mathf.Max(0.01f, duration);
+
+            // 演出文字交给卡面的飘字系统（ani_info），它自己管淡入淡出与回收
+            if (!string.IsNullOrEmpty(infoText))
+                ShowCardFloat(card, infoText, infoTint);
+
+            SetAnimTimer(card.fxDuration);
+        }
+
+        /// <summary>逐帧推进两张卡的演出（卡牌动作 + 受击序列帧）</summary>
+        protected virtual void TickCards(float deltaTime)
+        {
+            TickCard(cardLeft, 1f, deltaTime);      // 左卡朝右（对方）冲
+            TickCard(cardRight, -1f, deltaTime);
+
+            TickHitFx(cardLeft, deltaTime);
+            TickHitFx(cardRight, deltaTime);
+        }
+
+        /// <summary>受击序列帧：亮 hitFxDuration 秒后自动隐藏</summary>
+        protected virtual void TickHitFx(DuelCard card, float deltaTime)
+        {
+            if (card == null || card.hitFx == null || card.hitFxTime <= 0f) return;
+
+            card.hitFxTime -= deltaTime;
+            if (card.hitFxTime <= 0f)
+            {
+                card.hitFxTime = 0f;
+                card.hitFx.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// 显示一次受击序列帧（face/hit）。节点一激活，UIImageAnimation 就会自己起播，
+        /// 所以这里只负责"亮"和记时，隐藏交给 TickHitFx。
+        /// </summary>
+        protected virtual void PlayHitFx(DuelCard card)
+        {
+            if (card == null || card.hitFx == null) return;
+
+            card.hitFx.SetActive(true);
+            card.hitFxTime = Mathf.Max(0.01f, hitFxDuration);
+        }
+
+        /// <summary>
+        /// 卡面飘字。用的是工程通用组件 AnimationText（face/ani_info 上挂的那个），
+        /// 默认向上飘，颜色与缩放由调用方给。
+        /// </summary>
+        protected virtual void ShowCardFloat(DuelCard card, string text, Color color)
+        {
+            if (card == null || card.aniInfo == null) return;
+            if (string.IsNullOrEmpty(text)) return;
+
+            PrepareAniInfo(card);
+
+            card.aniInfo.flipY = false;         // false = 向上飘（offsetCurveY 是 0 → 40）
+            card.aniInfo.Create(text, color, cardFloatScale);
+        }
+
+        /// <summary>
+        /// 飘字组件的运行时准备，只做一次：
+        ///
+        ///   1) maxTime 是 [NonSerialized]，运行时只会拿到默认值 1，而曲线跑到 3 秒 ——
+        ///      不按曲线重算的话，飘字会在半路被回收（编辑器的 Inspector 就是这么算的）。
+        ///   2) 组件生成飘字副本时会取 label 的**第 0 个子节点**当"图标位"（工程惯例是给
+        ///      数字配上升 / 下降箭头和兵种图标），当前 prefab 的 label 没有子节点，
+        ///      直接调 Create 会抛 IndexOutOfRange，所以缺了就补一个空 Text 上去。
+        /// </summary>
+        protected virtual void PrepareAniInfo(DuelCard card)
+        {
+            if (card == null || card.aniInfo == null || card.aniInfoReady) return;
+
+            AnimationText ani = card.aniInfo;
+
+            ani.maxTime = Mathf.Max(
+                CurveEnd(ani.offsetCurveX), CurveEnd(ani.offsetCurveY),
+                CurveEnd(ani.alphaCurve), CurveEnd(ani.scaleCurve));
+
+            Text template = ani.label;
+            if (template != null && template.transform.childCount == 0)
+            {
+                GameObject icon = new GameObject("head", typeof(RectTransform), typeof(Text));
+                icon.transform.SetParent(template.transform, false);
+                ((RectTransform)icon.transform).anchoredPosition = Vector2.zero;
+
+                Text head = icon.GetComponent<Text>();
+                head.font = template.font;
+                head.fontSize = template.fontSize;
+                head.alignment = TextAnchor.MiddleCenter;
+                head.raycastTarget = false;
+                head.text = string.Empty;
+            }
+
+            card.aniInfoReady = true;
+        }
+
+        /// <summary>取曲线的最后一个关键帧时间（飘字总时长）</summary>
+        protected static float CurveEnd(AnimationCurve curve)
+        {
+            if (curve == null || curve.length == 0) return 0f;
+            return curve.keys[curve.length - 1].time;
+        }
+
+        /// <summary>某一位武将是不是这一方当前出战的那位（飘字只飘在当值武将的卡上）</summary>
+        protected virtual bool IsCurrentChara(int team, int chara)
+        {
+            return m_Duel != null && team >= 0 && chara >= 0 && m_Duel.GetCurrentChara(team) == chara;
+        }
+
+        /// <summary>
+        /// 推进一张卡。所有演出都是"位置 + 缩放 + 卡面配色 + 中央文字"四种通道的组合，
+        /// dir 是"朝对方"的方向（左卡 +1、右卡 -1）。
+        /// </summary>
+        protected virtual void TickCard(DuelCard card, float dir, float deltaTime)
+        {
+            if (card == null || card.root == null) return;
+            EnsureCardHome(card);
+            if (card.fx == DuelCardFx.None) return;
+
+            card.fxTime += deltaTime;
+            float t = card.fxDuration > 0f ? Mathf.Clamp01(card.fxTime / card.fxDuration) : 1f;
+
+            Vector2 pos = card.homePos;
+            Vector3 scale = card.homeScale;
+            Color frame = card.homeFrame;
+
+            switch (card.fx)
+            {
+                case DuelCardFx.Attack:
+                    {
+                        // 前 35% 冲出去，之后收回来
+                        float k = t < 0.35f
+                            ? Mathf.Sin(t / 0.35f * Mathf.PI * 0.5f)
+                            : Mathf.Cos((t - 0.35f) / 0.65f * Mathf.PI * 0.5f);
+                        pos += new Vector2(cardAttackDistance * dir * k, 0f);
+                        scale *= 1f + cardAttackScale * k;
+                        break;
+                    }
+                case DuelCardFx.Special:
+                    {
+                        float k = t < 0.3f
+                            ? Mathf.Sin(t / 0.3f * Mathf.PI * 0.5f)
+                            : Mathf.Cos((t - 0.3f) / 0.7f * Mathf.PI * 0.5f);
+                        pos += new Vector2(cardAttackDistance * 1.6f * dir * k, cardAttackDistance * 0.25f * k);
+                        scale *= 1f + cardAttackScale * 2.2f * k;
+                        frame = Color.Lerp(card.homeFrame, CardSpecialTint, k);
+                        break;
+                    }
+                case DuelCardFx.Hit:
+                    {
+                        float k = Mathf.Sin(t * Mathf.PI);          // 0 → 1 → 0
+                        pos += new Vector2(-cardHitBack * dir * k, 0f);
+                        pos += new Vector2(Mathf.Sin(t * 42f) * cardHitShake * k, 0f);
+                        scale *= 1f - 0.06f * k;
+                        frame = Color.Lerp(card.homeFrame, CardHitTint, k);
+                        break;
+                    }
+                case DuelCardFx.Dodge:
+                    {
+                        float k = Mathf.Sin(t * Mathf.PI);
+                        pos += new Vector2(-cardHitBack * 0.6f * dir * k, cardHitShake * 1.4f * k);
+                        break;
+                    }
+                case DuelCardFx.Ftk:
+                    {
+                        float k = t < 0.25f ? Mathf.Sin(t / 0.25f * Mathf.PI * 0.5f) : 1f;
+                        pos += new Vector2(cardAttackDistance * 1.8f * dir * k, cardAttackDistance * 0.3f * k);
+                        scale *= 1f + cardAttackScale * 3f * k;
+                        frame = Color.Lerp(card.homeFrame, CardSpecialTint, k * 0.9f);
+                        break;
+                    }
+                case DuelCardFx.Down:
+                    {
+                        float k = Mathf.Clamp01(t * 1.6f);
+                        pos += new Vector2(-cardHitBack * 0.5f * dir * k, -26f * k);
+                        scale *= 1f - 0.12f * k;
+                        frame = Color.Lerp(card.homeFrame, CardDownTint, k);
+                        break;
+                    }
+                case DuelCardFx.Draw:
+                    {
+                        pos += new Vector2(0f, cardHitShake * Mathf.Sin(t * Mathf.PI * 2f) * 0.6f);
+                        break;
+                    }
+                case DuelCardFx.Swap:
+                    {
+                        float k = Mathf.Sin(t * Mathf.PI);
+                        scale *= 1f + 0.18f * k;
+                        frame = Color.Lerp(card.homeFrame, Color.white, k * 0.5f);
+                        break;
+                    }
+            }
+
+            card.root.anchoredPosition = pos;
+            card.root.localScale = scale;
+            if (card.frame != null) card.frame.color = frame;
+
+            // 演出结束：复位（演出文字由 ani_info 的飘字系统自己回收，这里不用管）
+            if (t >= 1f)
+            {
+                card.fx = DuelCardFx.None;
+                card.fxTime = 0f;
+                card.fxDuration = 0f;
+                card.root.anchoredPosition = card.homePos;
+                card.root.localScale = card.homeScale;
+                if (card.frame != null) card.frame.color = card.homeFrame;
+            }
+        }
+
+        /// <summary>
+        /// 把这一合的体力结算翻译成卡牌演出：
+        ///   命中 → 攻方出招，守方受击（序列帧特效 + 伤害飘字，挨了必杀再飘一个「负伤」）；
+        ///   被闪避 → 守方原地侧闪、攻方空挥一下。
+        /// </summary>
+        protected virtual void PlayCardHitFx()
+        {
+            if (m_Duel == null || m_CardHits.Count == 0) return;
+
+            for (int i = 0; i < m_CardHits.Count; i++)
+            {
+                Duel.HPAnim hit = m_CardHits[i];
+                bool dodged = i < m_BlowValues.Length && m_BlowValues[i] == 0;
+
+                PlayCardFx(CardOf(hit.atkTeam), DuelCardFx.Attack, cardAttackDuration, Color.white, null);
+
+                DuelCard defCard = CardOf(hit.defTeam);
+
+                if (dodged)
+                {
+                    PlayCardFx(defCard, DuelCardFx.Dodge, cardHitDuration, CardDodgeTint, "闪避");
+                    continue;
+                }
+
+                PlayCardFx(defCard, DuelCardFx.Hit, cardHitDuration, CardHitTint, null);
+
+                // 受击序列帧：亮 hitFxDuration 秒
+                PlayHitFx(defCard);
+
+                // 飘字只飘在"当值武将"的卡上——挨打的若不是当前出战，飘上去会张冠李戴。
+                // 一次挨打只飘一条（伤害与负伤合并）：飘字起点是同一个点，
+                // 两条同时飘会完全叠在一起，看不清也没法分辨。
+                if (!IsCurrentChara(hit.defTeam, hit.defChara)) continue;
+
+                bool wounded = hit.shoubyouDamage > 0;
+                string text = hit.damage > 0 ? "-" + hit.damage : null;
+                if (wounded) text = string.IsNullOrEmpty(text) ? "负伤" : text + " 负伤";
+
+                if (!string.IsNullOrEmpty(text))
+                    ShowCardFloat(defCard, text, wounded ? InjuredTint : FloatDamageTint);
+            }
+
+            for (int i = 0; i < m_BlowValues.Length; i++) m_BlowValues[i] = -1;
+            m_CardHits.Clear();
+        }
+
+        #endregion
+
+        #region 结算大字（win / lose）
+
+        /// <summary>
+        /// 玩家这一侧（归玩家操作的那一方）。两边都不归玩家（纯 AI，理论上不会带界面）时按挑战方算。
+        /// </summary>
+        protected virtual int PlayerTeam()
+        {
+            if (m_Duel == null) return (int)DuelTeam.DuelTeam_Challenger;
+            if (m_Duel.IsManual((int)DuelTeam.DuelTeam_Challenger)) return (int)DuelTeam.DuelTeam_Challenger;
+            if (m_Duel.IsManual((int)DuelTeam.DuelTeam_Challenged)) return (int)DuelTeam.DuelTeam_Challenged;
+            return (int)DuelTeam.DuelTeam_Challenger;
+        }
+
+        /// <summary>收起结算大字（换场、平局时用）</summary>
+        protected virtual void HideResultStamp()
+        {
+            if (resultWin != null) resultWin.Hide();
+            if (resultLose != null) resultLose.Hide();
+            m_StampShown = null;
+            m_StampTime = 0f;
+            m_StampDuration = 0f;
+        }
+
+        /// <summary>
+        /// 结算时按"我方胜负"选一个大字砸下来（win / lose）。
+        /// 平局或胜负未定时两个都不显示，让卡牌上的「平局」去交代结果。
+        /// </summary>
+        protected virtual void PlayResultStamp(bool win)
+        {
+            DuelResultStamp show = win ? resultWin : resultLose;
+            DuelResultStamp hide = win ? resultLose : resultWin;
+
+            if (hide != null) hide.Hide();
+            if (show == null || show.node == null) return;
+
+            show.EnsureHome();
+            show.node.gameObject.SetActive(true);
+            if (show.group != null) show.group.alpha = 0f;
+
+            // 起手：从高处落下、放大、略带倾斜
+            show.node.anchoredPosition = show.homePos + new Vector2(0f, resultSlamHeight);
+            show.node.localScale = show.homeScale * resultSlamScale;
+            show.node.localEulerAngles = new Vector3(0f, 0f, resultSlamAngle);
+
+            m_StampShown = show;
+            m_StampTime = 0f;
+            m_StampDuration = Mathf.Max(0.01f, resultSlamDuration);
+
+            // 让逻辑层等这一下砸完
+            SetAnimTimer(m_StampDuration);
+        }
+
+        /// <summary>
+        /// 推进结算大字：0~62% 加速下落 → 62~78% 落地压扁 → 78~100% 回弹余震。
+        /// 播完停在原位不再动，一直留到关窗 / 下一场。
+        /// </summary>
+        protected virtual void TickResultStamp(float deltaTime)
+        {
+            DuelResultStamp stamp = m_StampShown;
+            if (stamp == null || stamp.node == null) return;
+
+            stamp.EnsureHome();
+
+            m_StampTime += deltaTime;
+            float t = m_StampDuration > 0f ? Mathf.Clamp01(m_StampTime / m_StampDuration) : 1f;
+
+            const float fallEnd = 0.62f;        // 下落结束
+            const float squashEnd = 0.78f;      // 落地压扁结束
+
+            Vector2 pos = stamp.homePos;
+            Vector3 scale = stamp.homeScale;
+            float angle = 0f;
+
+            if (t < fallEnd)
+            {
+                float k = t / fallEnd;
+                float ease = k * k;                                     // 越落越快
+                pos += new Vector2(0f, resultSlamHeight * (1f - ease));
+                scale = stamp.homeScale * Mathf.Lerp(resultSlamScale, 1.05f, ease);
+                angle = resultSlamAngle * (1f - ease);
+            }
+            else if (t < squashEnd)
+            {
+                float k = (t - fallEnd) / (squashEnd - fallEnd);
+                scale = new Vector3(
+                    stamp.homeScale.x * Mathf.Lerp(1.05f, 1.12f, k),
+                    stamp.homeScale.y * Mathf.Lerp(1.05f, 0.86f, k),
+                    stamp.homeScale.z);
+            }
+            else
+            {
+                float k = Mathf.Clamp01((t - squashEnd) / Mathf.Max(0.0001f, 1f - squashEnd));
+                float wobble = Mathf.Sin(k * Mathf.PI * 2f) * (1f - k) * 9f;   // 回弹余震
+                scale = new Vector3(
+                    stamp.homeScale.x * Mathf.Lerp(1.12f, 1f, k),
+                    stamp.homeScale.y * Mathf.Lerp(0.86f, 1f, k),
+                    stamp.homeScale.z);
+                pos += new Vector2(0f, wobble);
+            }
+
+            stamp.node.anchoredPosition = pos;
+            stamp.node.localScale = scale;
+            stamp.node.localEulerAngles = new Vector3(0f, 0f, angle);
+
+            // 前 18% 快速淡入
+            if (stamp.group != null)
+                stamp.group.alpha = Mathf.Clamp01(t / 0.18f);
+        }
+
+        #endregion
+
         #region IDuelView：表现
 
         public virtual bool DuelIsAnimating(Duel duel)
@@ -1904,6 +2663,19 @@ namespace Sango.Core.Duel
             if (PlayResultLines() == 0)
                 FinishResult();          // 没台词可播（或没有对话框系统）→ 直接给「离开」
 
+            // 卡牌演出：败方压暗下沉、胜方亮一下；中间再砸一个结算大字（按我方胜负）
+            int winner = m_Duel != null ? m_Duel.WinnerTeam : -1;
+            if (m_Duel != null && winner >= 0 && winner < Duel.MaxTeamCount)
+            {
+                PlayCardFx(CardOf(winner), DuelCardFx.Swap, cardResultDuration, CardSpecialTint, "胜");
+                PlayCardFx(CardOf(m_Duel.GetOpponentTeam(winner)), DuelCardFx.Down, cardResultDuration, CardDownTint, "败");
+                PlayResultStamp(winner == PlayerTeam());
+            }
+            else
+            {
+                HideResultStamp();          // 平局 / 胜负未定：不砸大字
+            }
+
             SetAnimTimer(emphasisDuration);
             RefreshAll();
         }
@@ -1964,12 +2736,31 @@ namespace Sango.Core.Duel
         public virtual void DuelDraw(Duel duel)
         {
             AppendLog("双方不分胜负。");
+
+            // 卡牌演出：两边都轻轻晃一下，中央亮「平局」
+            PlayCardFx(cardLeft, DuelCardFx.Draw, cardResultDuration, CardSpecialTint, "平局");
+            PlayCardFx(cardRight, DuelCardFx.Draw, cardResultDuration, CardSpecialTint, "平局");
+
             SetAnimTimer(emphasisDuration);
         }
 
         public virtual void DuelRetreat(Duel duel)
         {
             AppendLog("有人退却了。");
+
+            // 退却方 = 非胜方；胜负还没落定时（两边都退）就都标一下
+            int winner = m_Duel != null ? m_Duel.WinnerTeam : -1;
+            if (winner >= 0 && winner < Duel.MaxTeamCount)
+            {
+                PlayCardFx(CardOf(m_Duel.GetOpponentTeam(winner)), DuelCardFx.Down, cardResultDuration, CardDodgeTint, "退却");
+                PlayCardFx(CardOf(winner), DuelCardFx.Swap, cardHitDuration, CardSpecialTint, "进逼");
+            }
+            else
+            {
+                PlayCardFx(cardLeft, DuelCardFx.Down, cardResultDuration, CardDodgeTint, "退却");
+                PlayCardFx(cardRight, DuelCardFx.Down, cardResultDuration, CardDodgeTint, "退却");
+            }
+
             SetAnimTimer(emphasisDuration);
         }
 
@@ -1981,6 +2772,11 @@ namespace Sango.Core.Duel
         /// </summary>
         public virtual void DuelBlowAnim(Duel duel, Duel.BlowAnim[] queue, int count)
         {
+            // 先记下"这一合是命中还是闪避"：BlowAnim 里没有攻守双方，
+            // 紧接着的 DuelHpAnim 才带队伍信息，而两张队列是同一循环生成的、下标一一对应。
+            for (int i = 0; i < count && queue != null && i < queue.Length && i < m_BlowValues.Length; i++)
+                m_BlowValues[i] = queue[i] != null ? queue[i].value : -1;
+
             ApplyBlowAnim(queue, count);
             RefreshBlowCounter();
             RefreshCharaPanels();
@@ -2031,7 +2827,12 @@ namespace Sango.Core.Duel
 
         public virtual void DuelHpAnim(Duel duel, Duel.HPAnim[] queue, int count)
         {
+            m_CardHits.Clear();
             ApplyHpAnim(queue, count);
+
+            // 这一合的攻守双方演给卡牌看（攻方出招 / 守方受击或闪避）
+            PlayCardHitFx();
+
             RefreshCharaPanels();
             SetAnimTimer(stepDuration);
         }
@@ -2088,6 +2889,17 @@ namespace Sango.Core.Duel
 
                 queue[i] = new Duel.HPAnim();
 
+                // 卡牌演出要用攻守双方，而上面刚把队列条目清空，所以先留一份拷贝
+                m_CardHits.Add(new Duel.HPAnim
+                {
+                    damage = anim.damage,
+                    atkTeam = anim.atkTeam,
+                    atkChara = anim.atkChara,
+                    defTeam = anim.defTeam,
+                    defChara = anim.defChara,
+                    shoubyouDamage = anim.shoubyouDamage,
+                });
+
                 if (anim.damage != 0)
                 {
                     Person atk = m_Duel.GetPerson(anim.atkTeam, anim.atkChara);
@@ -2136,6 +2948,9 @@ namespace Sango.Core.Duel
             if (person != null && m_Duel.BlowCounter > 0)
                 PlayLine(person, JoinLine(person, m_Duel.GetPerson(team, 0)));
 
+            // 卡牌演出：新上场的武将弹一下（开局第 0 合也走这里，所以卡片一出场就有戏）
+            PlayCardFx(CardOf(team), DuelCardFx.Swap, cardHitDuration, Color.white, "出战");
+
             SetAnimTimer(emphasisDuration);
         }
 
@@ -2149,6 +2964,10 @@ namespace Sango.Core.Duel
             // 交替按钮的显隐是按"谁是当前出战"算的，换完人必须跟着刷，
             // 否则刚换下去的那位不会重新亮出按钮（就没法再换回来了）
             RefreshCommandPanel();
+
+            // 卡牌演出：换上来的人弹一下
+            PlayCardFx(CardOf(team), DuelCardFx.Swap, cardHitDuration, Color.white, "交替");
+
             SetAnimTimer(emphasisDuration);
         }
 
@@ -2180,6 +2999,9 @@ namespace Sango.Core.Duel
             m_Paused = false;
             RefreshCommandPanel();
 
+            // 卡牌演出：施放者大幅前冲、卡面泛金，卡片中央亮出必杀名
+            PlayCardFx(CardOf(team), DuelCardFx.Special, cardSpecialDuration, CardSpecialTint, SpecialName(special));
+
             if (!specialLineBothSides && !m_Duel.IsManual(team)) return;
 
             Person person = m_Duel.GetPerson(team, chara);
@@ -2208,6 +3030,13 @@ namespace Sango.Core.Duel
             return lines[UnityEngine.Random.Range(0, lines.Length)];
         }
 
+        /// <summary>必杀名（卡牌中央的演出文字用；越界返回空串，卡片就只播动作不出字）</summary>
+        public static string SpecialName(int special)
+        {
+            if (SpecialNames == null || special < 0 || special >= SpecialNames.Length) return string.Empty;
+            return SpecialNames[special];
+        }
+
         public virtual void DuelFtk(Duel duel, int team, int chara, int ftkType, int opponentTeam, int opponentChara)
         {
             Person person = m_Duel.GetPerson(team, chara);
@@ -2215,6 +3044,12 @@ namespace Sango.Core.Duel
             if (person != null && opponent != null)
                 AppendLog("【一击必杀】" + person.Name + " 一举击倒了 " + opponent.Name + "！");
             RefreshCharaPanels();
+
+            // 卡牌演出：胜方大幅冲出泛金、败方剧烈后仰压暗（也算受击，序列帧照亮）
+            PlayCardFx(CardOf(team), DuelCardFx.Ftk, cardResultDuration, CardSpecialTint, "一击必杀");
+            PlayCardFx(CardOf(opponentTeam), DuelCardFx.Hit, cardResultDuration, CardHitTint, null);
+            PlayHitFx(CardOf(opponentTeam));
+
             SetAnimTimer(emphasisDuration * 1.5f);
         }
 

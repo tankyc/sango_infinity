@@ -779,11 +779,12 @@ namespace Sango.Core
             captiveChangce = Variables.captureChangceWhenTroopFall;
 
             StrategySkills.Clear();
-            scenario.CommonData.Skills.ForEach(x =>
+            for(int i = 0; i < Variables.defaultStrategySkills.Length; i++)
             {
-                if (x.IsStrategy())
-                    StrategySkills.Add(SkillInstance.Create(this, x));
-            });
+                Skill skill = scenario.CommonData.Skills.Get(Variables.defaultStrategySkills[i]);
+                if(skill == null) continue;
+                StrategySkills.Add(SkillInstance.Create(this, skill));
+            }
 
             if (WaterTroopType == null)
                 WaterTroopType = scenario.GetObject<TroopType>(8);

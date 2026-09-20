@@ -440,13 +440,7 @@
       "desc": "击破敌方部队时所获得的技巧点数增为２倍",
       "only": true,
       "level": 2,
-      "kind": 2,
-      "actionEntities": [
-        {
-          "class": "TroopImproveDefeatTechniquePoint",
-          "value": 200
-        }
-      ]
+      "kind": 2
     },
     "22": {
       "Id": 22,
@@ -946,29 +940,6 @@
               }
             ]
           }
-        },
-		{
-          "class": "TroopTriggerAction",
-          "triggerList": [
-            {
-              "class": "TriggerWhenSkillActionEnd"
-            }
-          ],
-          "actionList": [
-            {
-              "class": "TroopResetActionOver",
-			  "value": 1,
-              "condition": {
-                "class": "andList",
-                "list": [             
-				  {
-					"class": "ProbabilityCheck",
-					"probability": 10000
-				  }
-                ]
-              }
-            }
-          ]
         }
       ]
     },
@@ -1882,7 +1853,13 @@
       "desc": "可施展部队计略的「妖术」",
       "only": true,
       "level": 3,
-      "kind": 4
+      "kind": 4,
+      "actionEntities": [
+        {
+          "class": "TroopAddSkill",
+          "value": 30
+        }
+      ]
     },
     "72": {
       "Id": 72,
@@ -1890,7 +1867,17 @@
       "desc": "可施展部队计略的「妖术、落雷」",
       "only": true,
       "level": 4,
-      "kind": 4
+      "kind": 4,
+      "actionEntities": [
+        {
+          "class": "TroopAddSkill",
+          "value": 29
+        },
+        {
+          "class": "TroopAddSkill",
+          "value": 30
+        }
+      ]
     },
     "73": {
       "Id": 73,
@@ -2289,12 +2276,7 @@
       "desc": "所属相同的武将之每个月的忠诚不会下降",
       "only": true,
       "level": 2,
-      "kind": 8,
-      "actionEntities": [
-        {
-          "class": "CityPreventPersonLoyaltyLoss"
-        }
-      ]
+      "kind": 8
     },
     "98": {
       "Id": 98,
@@ -2310,15 +2292,7 @@
       "desc": "所属都市容易出现丰收",
       "only": true,
       "level": 2,
-      "kind": 8,
-      "actionEntities": [
-        {
-          "class": "CityBumperHarvest",
-          "chance": 50,
-          "durationMonths": 3,
-          "foodHarvestFactor": 150
-        }
-      ]
+      "kind": 8
     },
     "100": {
       "Id": 100,

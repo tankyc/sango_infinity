@@ -8,6 +8,7 @@
       "atkDurability": 15,
       "costEnergy": 0,
       "successRate": 100,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -36,6 +37,7 @@
       "atkDurability": 5,
       "costEnergy": 0,
       "successRate": 100,
+      "visualType": "Range",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -62,6 +64,7 @@
       "atkDurability": 0,
       "costEnergy": 15,
       "successRate": 70,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -94,6 +97,7 @@
       "atkDurability": 0,
       "costEnergy": 20,
       "successRate": 70,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -157,6 +161,7 @@
       "atkDurability": 0,
       "costEnergy": 25,
       "successRate": 60,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -189,6 +194,7 @@
       "atkDurability": 0,
       "costEnergy": 15,
       "successRate": 70,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -222,6 +228,7 @@
       "atkDurability": 0,
       "costEnergy": 20,
       "successRate": 70,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -252,6 +259,7 @@
       "atkDurability": 0,
       "costEnergy": 25,
       "successRate": 65,
+      "visualType": "CyclonSkill",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -283,6 +291,7 @@
       "atkDurability": 15,
       "costEnergy": 15,
       "successRate": 75,
+      "visualType": "Range",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -345,6 +354,7 @@
       "atkDurability": 15,
       "costEnergy": 20,
       "successRate": 70,
+      "visualType": "Range",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "rangeFilterMethod": "QRSLineMethod",
@@ -378,6 +388,7 @@
       "atkDurability": 15,
       "costEnergy": 25,
       "successRate": 65,
+      "visualType": "Range",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -410,6 +421,7 @@
       "atkDurability": 0,
       "costEnergy": 15,
       "successRate": 70,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -443,6 +455,7 @@
       "atkDurability": 0,
       "costEnergy": 20,
       "successRate": 65,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -474,6 +487,7 @@
       "atkDurability": 0,
       "costEnergy": 25,
       "successRate": 60,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -507,6 +521,7 @@
       "atkDurability": 15,
       "costEnergy": 15,
       "successRate": 100,
+      "visualType": "Range",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -570,6 +585,7 @@
       "atkDurability": 50,
       "costEnergy": 10,
       "successRate": 100,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -597,6 +613,7 @@
       "atkDurability": 60,
       "costEnergy": 15,
       "successRate": 100,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -659,6 +676,7 @@
       "atkDurability": 40,
       "costEnergy": 20,
       "successRate": 100,
+      "visualType": "Range",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -691,6 +709,7 @@
       "atkDurability": 15,
       "costEnergy": 15,
       "successRate": 100,
+      "visualType": "Range",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -752,6 +771,7 @@
       "atkDurability": 30,
       "costEnergy": 15,
       "successRate": 70,
+      "visualType": "Melee",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -786,6 +806,7 @@
       "atkDurability": 40,
       "costEnergy": 20,
       "successRate": 100,
+      "visualType": "Range",
       "successMethod": "CommonMethod",
       "criticalMethod": "CommonMethod",
       "spellRanges": [
@@ -818,6 +839,7 @@
       "atkDurability": 15,
       "costEnergy": 10,
       "successRate": 0,
+      "visualType": "Strategy",
       "successMethod": "FireSuccessMethod",
       "criticalMethod": "FireCriticalMethod",
       "spellRanges": [
@@ -877,6 +899,7 @@
       "kind": 3,
       "costEnergy": 10,
       "successRate": 0,
+      "visualType": "Strategy",
       "successMethod": "PutOutFireSuccessMethod",
       "criticalMethod": "PutOutFireCriticalMethod",
       "spellRanges": [
@@ -910,6 +933,7 @@
       "atk": 1,
       "costEnergy": 15,
       "successRate": 0,
+      "visualType": "Strategy",
       "successMethod": "FalseReportSuccessMethod",
       "criticalMethod": "FalseReportCriticalMethod",
       "spellRanges": [
@@ -973,6 +997,7 @@
       "atk": 1,
       "costEnergy": 15,
       "successRate": 0,
+      "visualType": "Strategy",
       "successMethod": "DisturbSuccessMethod",
       "criticalMethod": "DisturbCriticalMethod",
       "spellRanges": [
@@ -1035,6 +1060,7 @@
       "kind": 3,
       "costEnergy": 10,
       "successRate": 0,
+      "visualType": "Strategy",
       "successMethod": "CalmdownSuccessMethod",
       "criticalMethod": "CalmdownCriticalMethod",
       "spellRanges": [
@@ -1089,6 +1115,7 @@
       "atk": 35,
       "costEnergy": 10,
       "successRate": 0,
+      "visualType": "Strategy",
       "successMethod": "AmbushSuccessMethod",
       "criticalMethod": "AmbushCriticalMethod",
       "spellRanges": [
@@ -1115,6 +1142,7 @@
       "atk": 2,
       "costEnergy": 20,
       "successRate": 0,
+      "visualType": "Strategy",
       "successMethod": "InfightingSuccessMethod",
       "criticalMethod": "InfightingCriticalMethod",
       "spellRanges": [
@@ -1142,6 +1170,7 @@
       "atkDurability": 5,
       "costEnergy": 50,
       "successRate": 0,
+      "visualType": "ThunderboltSkill",
       "successMethod": "ThunderboltSuccessMethod",
       "criticalMethod": "ThunderboltCriticalMethod",
       "spellRanges": [
@@ -1154,7 +1183,6 @@
         5,
         1
       ],
-      "actionSound": 88,
       "skillEffects": [
         {
           "class": "SetFire",
@@ -1189,6 +1217,7 @@
           }
         }
       ],
+      "actionSound": 88,
       "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
@@ -1208,6 +1237,7 @@
       "atkDurability": 5,
       "costEnergy": 30,
       "successRate": 0,
+      "visualType": "Strategy",
       "successMethod": "SorcerySuccessMethod",
       "criticalMethod": "SorceryCriticalMethod",
       "spellRanges": [
@@ -1216,13 +1246,47 @@
       ],
       "needAblilityLevel": 0,
       "isRange": true,
+      "atkOffsetPoint": [
+        5,
+        1
+      ],
+      "skillEffects": [
+        {
+          "class": "TroopAddBuff",
+          "buffId": 1,
+          "probability": 5000,
+          "targetType": 1,
+          "values": [
+            2,
+            4
+          ],
+          "weight": [
+            70,
+            30
+          ]
+        },
+        {
+          "class": "TroopAddBuff",
+          "buffId": 2,
+          "probability": 5000,
+          "targetType": 1,
+          "values": [
+            2,
+            4
+          ],
+          "weight": [
+            70,
+            30
+          ]
+        }
+      ],
       "actionSound": 88,
       "canDamageTroop": true,
       "canDamageMachine": true,
       "canDamageBoat": true,
-      "canDamageBuilding": false,
-      "canDamageTeam": false,
-      "canSpellToCell": false,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "canSpellToCell": true,
       "onlySpellToTeam": false,
       "personSound": [
         2852

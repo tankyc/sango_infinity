@@ -28,26 +28,40 @@ namespace Sango.Core.Action
             if (Troop != null && Troop != troop) return;
 
             Skill skill = scenario.GetObject<Skill>(value);
-            if (kinds == null)
+            if (skill.IsStrategy())
             {
-                if(!troop.landSkills.Exists(x=>x.Id == skill.Id))
-                    troop.landSkills.Add(SkillInstance.Create(troop, skill));
-                if(!troop.waterSkills.Exists(x=>x.Id == skill.Id))
-                    troop.waterSkills.Add(SkillInstance.Create(troop, skill));
+                if (!troop.StrategySkills.Exists(x => x.Id == skill.Id))
+                    troop.StrategySkills.Add(SkillInstance.Create(troop, skill));
             }
             else
             {
-                if (kinds.Contains(troop.LandTroopType.kind))
+                if (kinds == null)
                 {
-                    if(!troop.landSkills.Exists(x=>x.Id == value))
+
+                    if (!troop.landSkills.Exists(x => x.Id == skill.Id))
                         troop.landSkills.Add(SkillInstance.Create(troop, skill));
-                }
-                if (kinds.Contains(troop.WaterTroopType.kind))
-                {
-                    if (!troop.waterSkills.Exists(x => x.Id == value))
+                    if (!troop.waterSkills.Exists(x => x.Id == skill.Id))
                         troop.waterSkills.Add(SkillInstance.Create(troop, skill));
                 }
+                else
+                {
+                    if (kinds.Contains(troop.LandTroopType.kind))
+                    {
+                        if (!troop.landSkills.Exists(x => x.Id == value))
+                            troop.landSkills.Add(SkillInstance.Create(troop, skill));
+
+                    }
+                    if (kinds.Contains(troop.WaterTroopType.kind))
+                    {
+                        if (!troop.waterSkills.Exists(x => x.Id == value))
+                            troop.waterSkills.Add(SkillInstance.Create(troop, skill));
+                    }
+                }
+
             }
+
+
         }
+
     }
 }
