@@ -1,0 +1,463 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &100000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 400000}
+  - component: {fileID: 11400000}
+  m_Layer: 0
+  m_Name: ef_fx_thunder_full
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &400000
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f3a9f1e2c4b4d7a8b0e6c9f3d1a7b39, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  layers:
+  - sheetPath: 
+    sheet: {fileID: 0}
+    cols: 1
+    rows: 1
+    frameCount: 1
+    duration: 1.8
+    startDelay: 0
+    fadeIn: 0.03
+    fadeOut: 0.5
+    holdAfterEnd: 0
+    useSolidColor: 1
+    solidColor: {r: 0.06666667, g: 0.06666667, b: 0.06666667, a: 0.5019608}
+    additive: 1
+    stretch: 1
+    heightFrac: 0.2
+    posX: 0
+    posY: 0
+    scaleStart: 1
+    expandTime: 0
+    scalePeak: 1
+    holdScaleTime: 0
+    scaleEnd: 1
+    alphaStart: 1
+    alphaEnd: 1
+    frameIndexMap: 
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-32-2.png
+    sheet: {fileID: 2800000, guid: f970288fad0df28438a2db03c9ae767e, type: 3}
+    cols: 1
+    rows: 1
+    frameCount: 1
+    duration: 0.2
+    startDelay: 0
+    fadeIn: 0
+    fadeOut: 0
+    holdAfterEnd: 0.525
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 1
+    posX: 0
+    posY: 0
+    scaleStart: 3
+    expandTime: 0
+    scalePeak: 3
+    holdScaleTime: 0
+    scaleEnd: 0.3
+    alphaStart: 1
+    alphaEnd: 1
+    frameIndexMap: 
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-1.png
+    sheet: {fileID: 2800000, guid: de307e7985fbff640a10fc60e47bb198, type: 3}
+    cols: 1
+    rows: 1
+    frameCount: 1
+    duration: 0.1
+    startDelay: 0
+    fadeIn: 0
+    fadeOut: 0.04
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 2
+    posX: 0
+    posY: 0
+    scaleStart: 1
+    expandTime: 0
+    scalePeak: 1
+    holdScaleTime: 0
+    scaleEnd: 1
+    alphaStart: 1
+    alphaEnd: 1
+    frameIndexMap: 
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-21.png
+    sheet: {fileID: 2800000, guid: 2059480c47211b74a949e5ccd33dc724, type: 3}
+    cols: 4
+    rows: 2
+    frameCount: 1
+    duration: 0.075
+    startDelay: 0.1
+    fadeIn: 0.04
+    fadeOut: 0
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.45
+    posX: 0
+    posY: 0.26
+    scaleStart: 1
+    expandTime: 0
+    scalePeak: 1
+    holdScaleTime: 0
+    scaleEnd: 1
+    alphaStart: 1
+    alphaEnd: 1
+    frameIndexMap: 04000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-21.png
+    sheet: {fileID: 2800000, guid: 2059480c47211b74a949e5ccd33dc724, type: 3}
+    cols: 4
+    rows: 2
+    frameCount: 1
+    duration: 0.075
+    startDelay: 0.175
+    fadeIn: 0.02
+    fadeOut: 0.04
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.45
+    posX: 0
+    posY: 0.26
+    scaleStart: 1
+    expandTime: 0
+    scalePeak: 1
+    holdScaleTime: 0
+    scaleEnd: 1
+    alphaStart: 1
+    alphaEnd: 1
+    frameIndexMap: 05000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-21.png
+    sheet: {fileID: 2800000, guid: 2059480c47211b74a949e5ccd33dc724, type: 3}
+    cols: 4
+    rows: 2
+    frameCount: 1
+    duration: 0.15
+    startDelay: 0.2
+    fadeIn: 0.02
+    fadeOut: 0.1
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.45
+    posX: 0
+    posY: -0.26
+    scaleStart: 1
+    expandTime: 0
+    scalePeak: 1
+    holdScaleTime: 0
+    scaleEnd: 1
+    alphaStart: 1
+    alphaEnd: 1
+    frameIndexMap: 07000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-2.png
+    sheet: {fileID: 2800000, guid: 8a4cd8cc489e78641a74a0b0e0a3c83e, type: 3}
+    cols: 2
+    rows: 2
+    frameCount: 1
+    duration: 0.16
+    startDelay: 0.175
+    fadeIn: 0.03
+    fadeOut: 0
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.6
+    posX: 0
+    posY: 0
+    scaleStart: 1
+    expandTime: 0
+    scalePeak: 1
+    holdScaleTime: 0
+    scaleEnd: 1
+    alphaStart: 1
+    alphaEnd: 1
+    frameIndexMap: 02000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-2.png
+    sheet: {fileID: 2800000, guid: 8a4cd8cc489e78641a74a0b0e0a3c83e, type: 3}
+    cols: 2
+    rows: 2
+    frameCount: 1
+    duration: 0.13
+    startDelay: 0.235
+    fadeIn: 0.02
+    fadeOut: 0.06
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.6
+    posX: 0
+    posY: 0
+    scaleStart: 1
+    expandTime: 0
+    scalePeak: 1
+    holdScaleTime: 0
+    scaleEnd: 1
+    alphaStart: 1
+    alphaEnd: 1
+    frameIndexMap: 03000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-3.png
+    sheet: {fileID: 2800000, guid: a80fa841930fb224ab6d24af5fcefb90, type: 3}
+    cols: 2
+    rows: 2
+    frameCount: 1
+    duration: 0.15
+    startDelay: 0.675
+    fadeIn: 0.02
+    fadeOut: 0.03
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.45
+    posX: 0
+    posY: 0
+    scaleStart: 2
+    expandTime: 0
+    scalePeak: 2
+    holdScaleTime: 0
+    scaleEnd: 2
+    alphaStart: 0.4
+    alphaEnd: 1
+    frameIndexMap: 00000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-3.png
+    sheet: {fileID: 2800000, guid: a80fa841930fb224ab6d24af5fcefb90, type: 3}
+    cols: 2
+    rows: 2
+    frameCount: 1
+    duration: 0.15
+    startDelay: 0.825
+    fadeIn: 0.02
+    fadeOut: 0.03
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.45
+    posX: 0
+    posY: 0
+    scaleStart: 2
+    expandTime: 0
+    scalePeak: 2
+    holdScaleTime: 0
+    scaleEnd: 2
+    alphaStart: 0.4
+    alphaEnd: 1
+    frameIndexMap: 01000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-3.png
+    sheet: {fileID: 2800000, guid: a80fa841930fb224ab6d24af5fcefb90, type: 3}
+    cols: 2
+    rows: 2
+    frameCount: 1
+    duration: 0.15
+    startDelay: 0.975
+    fadeIn: 0.02
+    fadeOut: 0.03
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.45
+    posX: 0
+    posY: 0
+    scaleStart: 2
+    expandTime: 0
+    scalePeak: 2
+    holdScaleTime: 0
+    scaleEnd: 2
+    alphaStart: 0.4
+    alphaEnd: 1
+    frameIndexMap: 02000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-3.png
+    sheet: {fileID: 2800000, guid: a80fa841930fb224ab6d24af5fcefb90, type: 3}
+    cols: 2
+    rows: 2
+    frameCount: 1
+    duration: 0.15
+    startDelay: 1.125
+    fadeIn: 0.02
+    fadeOut: 0.03
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.45
+    posX: 0
+    posY: 0
+    scaleStart: 2
+    expandTime: 0
+    scalePeak: 2
+    holdScaleTime: 0
+    scaleEnd: 2
+    alphaStart: 0.4
+    alphaEnd: 1
+    frameIndexMap: 03000000
+    order: 0
+  - sheetPath: Assets/Effect/Sprite/Thunder/497-1.png
+    sheet: {fileID: 2800000, guid: bb6b37d65b6535545ae7119d390c2360, type: 3}
+    cols: 1
+    rows: 1
+    frameCount: 1
+    duration: 0.81
+    startDelay: 0.555
+    fadeIn: 0.05
+    fadeOut: 0
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.4
+    posX: 0
+    posY: 0
+    scaleStart: 1
+    expandTime: 0.81
+    scalePeak: 3
+    holdScaleTime: 0
+    scaleEnd: 3
+    alphaStart: 0.8
+    alphaEnd: 0.5
+    frameIndexMap: 
+    order: 1
+  - sheetPath: Assets/Effect/Sprite/Thunder/497-1.png
+    sheet: {fileID: 2800000, guid: bb6b37d65b6535545ae7119d390c2360, type: 3}
+    cols: 1
+    rows: 1
+    frameCount: 1
+    duration: 0.81
+    startDelay: 0.735
+    fadeIn: 0.05
+    fadeOut: 0
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.4
+    posX: 0
+    posY: 0
+    scaleStart: 1
+    expandTime: 0.81
+    scalePeak: 3
+    holdScaleTime: 0
+    scaleEnd: 3
+    alphaStart: 0.8
+    alphaEnd: 0.5
+    frameIndexMap: 
+    order: 1
+  - sheetPath: Assets/Effect/Sprite/Thunder/497-1.png
+    sheet: {fileID: 2800000, guid: bb6b37d65b6535545ae7119d390c2360, type: 3}
+    cols: 1
+    rows: 1
+    frameCount: 1
+    duration: 0.81
+    startDelay: 0.915
+    fadeIn: 0.05
+    fadeOut: 0
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.4
+    posX: 0
+    posY: 0
+    scaleStart: 1
+    expandTime: 0.81
+    scalePeak: 3
+    holdScaleTime: 0
+    scaleEnd: 3
+    alphaStart: 0.8
+    alphaEnd: 0.5
+    frameIndexMap: 
+    order: 1
+  - sheetPath: Assets/Effect/Sprite/Thunder/125-5.png
+    sheet: {fileID: 2800000, guid: 2d210991c345dc9479798a23ff169140, type: 3}
+    cols: 1
+    rows: 1
+    frameCount: 1
+    duration: 0.3
+    startDelay: 0.65
+    fadeIn: 0.1
+    fadeOut: 0.1
+    holdAfterEnd: 0
+    useSolidColor: 0
+    solidColor: {r: 0, g: 0, b: 0, a: 0}
+    additive: 1
+    stretch: 0
+    heightFrac: 0.2
+    posX: 0
+    posY: 0
+    scaleStart: 0.6
+    expandTime: 0.3
+    scalePeak: 10
+    holdScaleTime: 0
+    scaleEnd: 10
+    alphaStart: 0.6
+    alphaEnd: 0
+    frameIndexMap: 
+    order: 0

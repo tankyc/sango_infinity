@@ -16,12 +16,12 @@ namespace Sango.Core
     /// </summary>
     public class GameParticales : Singleton<GameParticales>
     {
-        public void PlayEfect(string assets, Vector3 where, float life)
+        public GameObject PlayEfect(string assets, Vector3 where, float life)
         {
-            PlayEfect(assets, where, Vector3.one, Quaternion.identity, life);
+            return PlayEfect(assets, where, Vector3.one, Quaternion.identity, life);
         }
 
-        public void PlayEfect(string assets, Vector3 where, Vector3 scale, Quaternion rot, float life)
+        public GameObject PlayEfect(string assets, Vector3 where, Vector3 scale, Quaternion rot, float life)
         {
             GameObject @object = PoolManager.Create(assets);
             if (@object != null)
@@ -33,6 +33,7 @@ namespace Sango.Core
 
                 PoolLife.AutoRelease(@object, life);
             }
+            return @object;
         }
     }
 
