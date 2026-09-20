@@ -1269,7 +1269,11 @@ namespace Sango.Core
                     a.OnTurnStart(this);
             }
 
-            for (int i = 1; i < fireSet.Count; i++)
+            // 【修复】使用快照长度遍历：fireSet.Count(MaxCount) 会随 Add 增长，
+            // 若遍历中新增火焰会导致同一回合内被立即处理（同回合连锁扩散）。
+            // 取快照后，本回合新增的火焰统一留到下一回合处理，保证"每回合蔓延一次"。
+            int fireCount = fireSet.Count;
+            for (int i = 1; i < fireCount; i++)
             {
                 Fire a = fireSet[i];
                 if (a != null && a.IsAlive)
@@ -1338,7 +1342,12 @@ namespace Sango.Core
                     a.OnTurnEnd(this);
             }
 
-            for (int i = 1; i < fireSet.Count; i++)
+            // 【修复】使用快照长度遍历：SpreadFire 会在本回合向 fireSet 追加新火焰，
+            // 若直接用 fireSet.Count 作为循环上界，新增火焰会被本回合立即处理，
+            // 造成同回合连锁蔓延（火势指数式失控）且行为随槽位分配漂移。
+            // 取快照后，本回合新生的火焰留到下一回合才行动 → 稳定地"每回合蔓延一次"。
+            int fireCount = fireSet.Count;
+            for (int i = 1; i < fireCount; i++)
             {
                 Fire a = fireSet[i];
                 if (a != null && a.IsAlive)

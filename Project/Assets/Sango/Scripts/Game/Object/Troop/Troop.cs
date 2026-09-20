@@ -285,6 +285,13 @@ namespace Sango.Core
         [JsonProperty] public int missionParams2;
 
         /// <summary>
+        /// 部队角色：决定"怎么打"（攻坚 / 防守 / 骚扰 / 游击 / 护卫 / 守备），
+        /// 与 <see cref="missionType"/>（去哪）正交。
+        /// 默认 <see cref="TroopRole.Auto"/>，由 <see cref="ResolveRole"/> 依据任务与自身属性自动推导。
+        /// </summary>
+        [JsonProperty] public TroopRole role = TroopRole.Auto;
+
+        /// <summary>
         /// 当前状态管理器
         /// </summary>
         [JsonProperty]
@@ -305,6 +312,57 @@ namespace Sango.Core
         [JsonProperty]
         [JsonConverter(typeof(XY2CellConverter))]
         public Cell missionTargetCell;
+
+        /// <summary>
+        /// 【需求4】判断是否需要向附近的补给队求援：
+        /// 1. 自身状态低于阈值（兵力 / 满编 小于 askSupplyHealthPercent）；
+        /// 2. 范围内存在己方补给队（运输队），且该补给队尚有物资可移交。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="supplier">找到的补给队（未找到时为 null）</param>
+        /// <returns>是否需要求援</returns>
+        public bool IsNeedAskSupply(Scenario scenario, out Troop supplier)
+        {
+            supplier = null;
+
+            AIConfig cfg = AIConfig.Instance;
+            if (cfg.askSupplyHealthPercent <= 0 || scenario == null || cell == null)
+                return false;
+
+            // 1) 状态检查：兵力低于满编阈值，或粮草即将告罄
+            bool lowTroops = MaxTroops > 0 && troops * 100 < MaxTroops * cfg.askSupplyHealthPercent;
+            bool lowFood = IsWithOutFood() == 1;
+            if (!lowTroops && !lowFood)
+                return false;
+
+            // 2) 范围内是否有能补给的己方补给队
+            int range = cfg.askSupplySearchRange;
+            int bestDistance = int.MaxValue;
+            for (int i = 0; i < scenario.troopsSet.Count; i++)
+            {
+                Troop t = scenario.troopsSet[i];
+                if (t == null || !t.IsAlive || t == this)
+                    continue;
+                if (!t.IsTransport || !t.IsSameForce(this) || t.cell == null)
+                    continue;
+                // 补给队自身必须还有物资可给
+                if (t.food <= 0 && t.troops <= 0
+                    && (t.itemStore == null || t.itemStore.TotalNumber <= 0))
+                    continue;
+
+                int distance = scenario.Map.Distance(cell, t.cell);
+                if (distance > range)
+                    continue;
+
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    supplier = t;
+                }
+            }
+
+            return supplier != null;
+        }
 
         public TroopType TroopType
         {
@@ -1424,6 +1482,12 @@ namespace Sango.Core
             if (!IsAlive)
                 return false;
 
+            // 【新增】记录攻击本势力部队的敌方部队,供 AI 主动驱逐
+            if (num < 0 && atk is Troop attacker && attacker.IsAlive && !attacker.IsSameForce(this))
+            {
+                mBelongForce?.MarkThreatTroop(attacker);
+            }
+
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(num);
             GameEvent.OnTroopChangeTroops?.Invoke(this, atk, atkBack, overrideData);
             num = overrideData.ValueAndRecycle;
@@ -1711,6 +1775,8 @@ namespace Sango.Core
         }
 
         Cell tryToDest;
+        /// <summary>寻路用的最近可停留格队列(AI 复用,避免每次分配)</summary>
+        PriorityQueue<Cell> nearestCellQueue = new PriorityQueue<Cell>();
         public bool TryCloseTo(Cell destCell)
         {
             return TryMoveToCell(destCell);
@@ -1777,16 +1843,18 @@ namespace Sango.Core
 
                 if (tryToDest != null && (check == null || !check(tryToDest)) && !tryToDest.CanStay(this))
                 {
-                    PriorityQueue<Cell> nearnestCellInMoveRange = new PriorityQueue<Cell>();
+                    // 【性能优化】复用队列实例,避免每次分配 PriorityQueue
+                    nearestCellQueue.Clear();
+                    nearestCellQueue.reverse = false;
                     for (int i = 0; i < MoveRange.Count; i++)
                     {
                         Cell cell = MoveRange[i];
                         if (cell.IsEmpty() && cell.CanStay(this))
                         {
-                            nearnestCellInMoveRange.Push(cell, map.Distance(cell, tryToDest));
+                            nearestCellQueue.Push(cell, map.Distance(cell, tryToDest));
                         }
                     }
-                    tryToDest = nearnestCellInMoveRange.Lower();
+                    tryToDest = nearestCellQueue.Lower();
                 }
             }
 
@@ -2706,6 +2774,36 @@ namespace Sango.Core
             {
                 temp.Prepare(this, scenario);
                 isMissionPrepared = true;
+
+                // 【修复】Prepare 内部可能通过 SetMission 切换任务（例如 TroopOccupyCity.Prepare 在
+                // 目标失效时改为返城、TroopProtectCity.Prepare 在无敌情时改为返城）。此时 temp 仍指向
+                // 旧任务的行为对象，继续执行会造成"旧对象跑新任务"——本回合空转，且 TargetCity /
+                // priorityActionData 与新任务不匹配。
+                // 切换可能链式发生（进攻 → 协防 → 返城），因此循环刷新直到任务与行为对象一致。
+                for (int guard = 0; guard < 4; guard++)
+                {
+                    TroopMissionBehaviour refreshed = TroopMissionBehaviour;
+                    if (refreshed == null)
+                    {
+                        GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
+                        AIFinished = true;
+                        ActionOver = true;
+                        return true;
+                    }
+
+                    // 任务与行为对象已一致，无需继续刷新
+                    if (refreshed == temp)
+                        break;
+
+                    temp = refreshed;
+
+                    // 新任务的行为对象可能尚未准备（例如被 NeedPrepareMission 标记过），补一次准备
+                    if (!isMissionPrepared)
+                    {
+                        temp.Prepare(this, scenario);
+                        isMissionPrepared = true;
+                    }
+                }
             }
 #if SANGO_DEBUG_AI
             if (GameAIDebug.Instance.WaitForShowAIPrepare())
@@ -2728,15 +2826,301 @@ namespace Sango.Core
 
         public void AIPrepare(Scenario scenario)
         {
-            // 永不退缩
-            //if ((morale <= 5 && GameRandom.Changce(60)) ||
-            //    (troops < 500 && GameRandom.Changce(80)) ||
-            //    food < (int)System.System.Math.Ceiling(scenario.Variables.baseFoodCostInTroop * (troops + woundedTroops) * TroopType.foodCostFactor) * 3 && GameRandom.Changce(80)
-            //    )
-            //{
-            //    missionType = (int)MissionType.ReturnCity;
-            //    missionTarget = BelongCity.Id;
-            //}
+            if (IsPlayerControl)
+                return;
+            if (IsTransport)
+                return;
+
+            AIConfig aiConfig = AIConfig.Instance;
+
+            // 【分级策略】首次行动时固化部队角色（Auto → 按当前任务与自身属性推导一次）。
+            // 角色决定评分权重与作战风格，固化后不再随回合变化，避免行为抖动。
+            if (role == TroopRole.Auto)
+                role = ResolveRole();
+
+            // 【需求4】状态不佳且附近有可补给的补给队 → 切换为"求援"
+            if (missionType != (int)MissionType.TroopAskSupply
+                && missionType != (int)MissionType.TroopReturnCity
+                && missionType != (int)MissionType.TroopMovetoCity
+                && IsNeedAskSupply(scenario, out Troop supplier))
+            {
+                // 【修复】先把原任务记录到 missionParams,求援结束后恢复,
+                // 避免"求援→补满→任务被清空→自动返城"导致原进攻 / 防守任务永久丢失。
+                missionParams1 = (int)missionType;
+                missionParams2 = missionTarget;
+
+                SetMission(MissionType.TroopAskSupply, supplier.Id);
+                NeedPrepareMission();
+#if SANGO_DEBUG
+                Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]状态不佳,向补给队[{supplier.Name}]求援!");
+#endif
+                return;
+            }
+
+            // 已处于返城 / 进城任务,无需重复撤退
+            if (missionType == (int)MissionType.TroopReturnCity || missionType == (int)MissionType.TroopMovetoCity)
+                return;
+
+            // 【分级策略】战场态势不利时主动脱离接触：
+            // 撤退概率完全由当前态势档位决定
+            // （默认：危局 80% / 劣势 40% / 均势 10% / 优势与碾压 0%，均可在 AIConfig 中调整）
+            if (aiConfig.useTierStrategy && aiConfig.useTierRetreat)
+            {
+                TroopTierWeights tierWeights = GetTierWeights(scenario);
+                if (tierWeights != null)
+                {
+                    TroopBattleTier tier = EvaluateTier(scenario);
+                    int retreatChance = tierWeights.retreatChance;
+
+                    // 【领队性格】叠加性格的撤退倾向（莽撞 −20% / 胆小 +20%）。
+                    // 安全阀：危局档忽略性格修正，防止"莽将送死"。
+                    if (!(aiConfig.leaderIgnoreRetreatInCritical && tier == TroopBattleTier.Critical))
+                        retreatChance += GetLeaderRetreatBonus();
+
+                    if (retreatChance > 0 && GameRandom.Chance(Math.Min(100, retreatChance)))
+                    {
+                        City refuge = FindNearestFriendlyCity(scenario);
+
+                        // 【修复】撤退目标就是部队当前所在的城池时（刚出城），撤退无意义：
+                        // 若此时切任务，部队会被"召回本城"而在城池格上反复切换，表现为卡住。
+                        // 此时直接跳过撤退判定，让它继续执行原任务。
+                        if (refuge != null && (cell == null || cell.building != refuge))
+                        {
+                            SetMission(MissionType.TroopMovetoCity, refuge.Id);
+                            NeedPrepareMission();
+#if SANGO_DEBUG
+                            Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]战场态势不利({tier}),主动脱离接触前往{refuge.Name}!");
+#endif
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // 【P2】保存实力:非玩家控制的部队在断粮 / 兵力过低 / 士气崩溃时,主动放弃进攻任务。
+            // 【优化】改成"就近赶赴己方城市 / 港口 / 关卡入驻补给",不再固定返回归属城,
+            // 避免老家太远时部队在半路因断粮 / 兵力耗尽而覆灭。
+            bool outOfFood = IsWithOutFood() == 1;
+            bool tooFewTroops = troops < aiConfig.retreatMinTroops;
+            // 兵力低于满编一定比例时同样视为"兵力过低"(需要 MaxTroops 有效)
+            if (!tooFewTroops && MaxTroops > 0 && aiConfig.retreatTroopPercent > 0
+                && troops * 100 < MaxTroops * aiConfig.retreatTroopPercent)
+            {
+                tooFewTroops = true;
+            }
+            bool lowMorale = morale <= aiConfig.retreatMinMorale;
+
+            if ((outOfFood && GameRandom.Chance(aiConfig.retreatOutOfFoodChance)) ||
+                (tooFewTroops && GameRandom.Chance(aiConfig.retreatFewTroopsChance)) ||
+                (lowMorale && GameRandom.Chance(aiConfig.retreatLowMoraleChance)))
+            {
+                // 就近选择己方据点(城市 / 港口 / 关卡)入驻补给
+                City nearestCity = FindNearestFriendlyCity(scenario);
+                if (nearestCity == null)
+                    return;
+
+                // 使用 TroopMovetoCity(允许任意己方据点)而不是 TroopReturnCity(其完成判定限定归属城),
+                // 这样不会改动通用返城任务的语义,玩家部队不受影响。
+                SetMission(MissionType.TroopMovetoCity, nearestCity.Id);
+                NeedPrepareMission();
+#if SANGO_DEBUG
+                Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]兵力不足或断粮,就近赶赴{nearestCity.Name}补给!");
+#endif
+            }
+        }
+
+        /// <summary>
+        /// 查找距离本部队最近的己方据点(城市 / 港口 / 关卡)。
+        /// 用于缺粮、兵力过低或士气崩溃时就近入驻补给。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>最近的可入驻据点,没有则返回 null</returns>
+        public City FindNearestFriendlyCity(Scenario scenario)
+        {
+            if (scenario == null || scenario.citySet == null)
+                return null;
+
+            Cell selfCell = cell;
+            if (selfCell == null)
+                return null;
+
+            City nearest = null;
+            int bestDistance = int.MaxValue;
+            for (int i = 0; i < scenario.citySet.Count; i++)
+            {
+                City city = scenario.citySet[i];
+                if (city == null || !city.IsAlive)
+                    continue;
+                // 必须是己方据点
+                if (!city.IsSameForce(this))
+                    continue;
+                // 只考虑城市 / 港口 / 关卡
+                if (!city.IsCity() && !city.IsPort() && !city.IsGate())
+                    continue;
+
+                int distance = scenario.Map.Distance(selfCell, city.CenterCell);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = city;
+                }
+            }
+            return nearest;
+        }
+
+        /// <summary>
+        /// 领队性格（无领队或性格数据缺失时为 null）。
+        /// </summary>
+        public Personality LeaderPersonality
+        {
+            get { return Leader != null ? Leader.mPersonality : null; }
+        }
+
+        /// <summary>
+        /// 依据当前任务、自身属性与**领队性格**推导部队角色。
+        ///
+        /// 仅在 <see cref="role"/> 为 <see cref="TroopRole.Auto"/> 时调用一次并固化，
+        /// 避免每回合重算导致行为抖动。
+        /// </summary>
+        /// <returns>推导出的角色</returns>
+        public TroopRole ResolveRole()
+        {
+            // 运输 / 补给队一律按护卫处理
+            if (IsTransport)
+                return TroopRole.Escort;
+
+            // ---------- 先按任务推导 ----------
+            TroopRole missionRole = TroopRole.Auto;
+            switch ((MissionType)missionType)
+            {
+                // 攻打城池 / 建筑 → 攻坚
+                case MissionType.TroopOccupyCity:
+                case MissionType.TroopDestroyBuilding:
+                    missionRole = TroopRole.Assault;
+                    break;
+
+                // 守卫据点 / 友军 → 防守
+                case MissionType.TroopProtectCity:
+                case MissionType.TroopProtectBuilding:
+                case MissionType.TroopProtectTroop:
+                    missionRole = TroopRole.Defender;
+                    break;
+
+                // 补给 / 求援 → 护卫
+                case MissionType.TroopSupplyTroop:
+                case MissionType.TroopAskSupply:
+                    return TroopRole.Escort;
+
+                // 移动 / 待命 → 守备
+                case MissionType.TroopReturnCity:
+                case MissionType.TroopMovetoCity:
+                case MissionType.TroopMovetoCell:
+                case MissionType.TroopMovetoBuild:
+                case MissionType.TroopStay:
+                    return TroopRole.Guard;
+            }
+
+            // ---------- 再按领队性格推导并加权覆盖 ----------
+            // 【分级策略】性格倾向越强越容易覆盖任务：好战指数达到阈值即覆盖任务角色
+            AIConfig cfg = AIConfig.Instance;
+            if (cfg.useLeaderPersonality && cfg.useLeaderRoleOverride)
+            {
+                Personality personality = LeaderPersonality;
+                if (personality != null && personality.troopAggression != 0)
+                {
+                    int strength = Math.Abs(personality.troopAggression);
+                    // 性格允许的覆盖阈值（性格自身可再微调）
+                    int threshold = cfg.leaderRoleOverrideThreshold + personality.troopRoleOverrideAdd;
+                    if (threshold < 0)
+                        threshold = 0;
+
+                    TroopRole leaderRole = personality.troopAggression > 0
+                        ? TroopRole.Assault
+                        : TroopRole.Defender;
+
+                    // 倾向强烈 → 覆盖任务；否则以任务为准；任务无法映射时直接采用性格角色
+                    if (missionRole == TroopRole.Auto || strength >= threshold)
+                        return leaderRole;
+                }
+            }
+
+            if (missionRole != TroopRole.Auto)
+                return missionRole;
+
+            // ---------- 任务与性格均无法判定：按自身属性细分 ----------
+            // 兵力低于满编一半 → 游击（保存实力、择机而动）
+            if (MaxTroops > 0 && troops * 2 < MaxTroops)
+                return TroopRole.Skirmisher;
+
+            // 骑兵适应突出 → 骚扰（高机动，适合打了就跑）
+            if (RideLv >= 2)
+                return TroopRole.Harasser;
+
+            // 其余按攻坚处理
+            return TroopRole.Assault;
+        }
+
+        /// <summary>
+        /// 取得本部队当前生效的角色权重。角色分级关闭或角色未定时返回 null（表示不做角色修正）。
+        /// </summary>
+        /// <returns>角色权重，无则返回 null</returns>
+        public TroopRoleWeights GetRoleWeights()
+        {
+            AIConfig cfg = AIConfig.Instance;
+            if (!cfg.useTroopRole)
+                return null;
+
+            switch (role)
+            {
+                case TroopRole.Assault: return cfg.roleAssault;
+                case TroopRole.Defender: return cfg.roleDefender;
+                case TroopRole.Harasser: return cfg.roleHarasser;
+                case TroopRole.Skirmisher: return cfg.roleSkirmisher;
+                case TroopRole.Escort: return cfg.roleEscort;
+                case TroopRole.Guard: return cfg.roleGuard;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 评估本部队当前所处的战场态势档位（基于局部敌我兵力对比）。
+        ///
+        /// 【性能说明】每次调用会扫描周围 <c>tierScanRange</c> 格内的部队，
+        /// 因此建议每回合评估一次并缓存结果，不要在循环中反复调用。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>态势档位；未启用或无法评估时返回 Even（均势）</returns>
+        public TroopBattleTier EvaluateTier(Scenario scenario)
+        {
+            AIConfig cfg = AIConfig.Instance;
+            if (!cfg.useTierStrategy || scenario == null || cell == null)
+                return TroopBattleTier.Even;
+
+            BattleSituation.BalanceSnapshot balance =
+                BattleSituation.EvaluateBalance(cell, mBelongForce, cfg.tierScanRange, scenario);
+            return BattleSituation.GetTier(balance.balancePercent);
+        }
+
+        /// <summary>
+        /// 取得当前态势档位对应的权重。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>档位权重</returns>
+        public TroopTierWeights GetTierWeights(Scenario scenario)
+        {
+            return AIConfig.Instance.GetTierWeights(EvaluateTier(scenario));
+        }
+
+        /// <summary>
+        /// 领队性格给出的撤退概率修正（%，正值更倾向撤退）。
+        /// </summary>
+        /// <returns>撤退概率修正；未启用或性格缺失时返回 0</returns>
+        public int GetLeaderRetreatBonus()
+        {
+            if (!AIConfig.Instance.useLeaderPersonality)
+                return 0;
+            Personality personality = LeaderPersonality;
+            return personality != null ? personality.troopRetreatAdd : 0;
         }
 
         public void Burn(Cell dest)

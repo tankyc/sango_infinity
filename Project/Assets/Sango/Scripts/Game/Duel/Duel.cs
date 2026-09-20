@@ -1086,11 +1086,16 @@ namespace Sango.Core.Duel
                         return false;
                 }
             }
+            // 【性格】单挑脱战倾向：正值提高退却成功率（胆小 +15），
+            // 负值降低（莽撞 −10，宁可死战）
+            int retreatAdd = GetDuelRetreatAdd(person);
+
             if (blowCounter > 10)
             {
                 int n = blowCounter;                    // 10 ..
                 n += GetHp(team, chara) / 2;            // 0 .. 50
                 n += GetStrength(team, chara, true);    // 1 .. 110
+                n += retreatAdd;
                 return n > system.RandInt(100);
             }
             else
@@ -1098,8 +1103,21 @@ namespace Sango.Core.Duel
                 int n = 0;
                 n += GetHp(team, chara) / 2;            // 0 .. 50
                 n += GetStrength(team, chara, true);    // 1 .. 110
+                n += retreatAdd;
                 return n > system.RandInt(250);
             }
+        }
+
+        /// <summary>
+        /// 领队性格的单挑脱战倾向（%）。性格数据缺失时返回 0（不修正）。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <returns>脱战倾向修正</returns>
+        static int GetDuelRetreatAdd(Person person)
+        {
+            if (person == null || person.mPersonality == null)
+                return 0;
+            return person.mPersonality.duelRetreatAdd;
         }
 
         /// <summary>5074b0。暴击发生概率</summary>

@@ -462,6 +462,47 @@ namespace Sango.Core
         /// 基础火焰伤害
         /// </summary>
         [JsonProperty] public int baseFireDamage = 320;
+
+        /// <summary>
+        /// 火焰每回合向相邻格蔓延的**最大**概率（%），对应可燃性最高的地形（森林 / 荒地）。
+        /// 实际概率只取决于**目标格**的地形可燃性，按比例折算，见 Fire.SpreadFire。
+        /// </summary>
+        [JsonProperty] public int fireSpreadMaxChance = 50;
+
+        /// <summary>
+        /// 地形可燃性（TerrainTypes.fireRate）的基准上限，用于归一化蔓延概率。
+        /// 数据表中森林 / 荒地约 20~25，湿地 5，水域 / 山地为 0。
+        /// </summary>
+        [JsonProperty] public int fireSpreadTerrainRateMax = 25;
+
+        /// <summary>
+        /// 单团火焰每回合最多蔓延的格子数（0 表示不限制）。
+        /// 用于防止火势呈指数式失控。
+        /// </summary>
+        [JsonProperty] public int fireSpreadMaxPerTurn = 2;
+
+        /// <summary>
+        /// 蔓延生成的新火焰存活回合数的**随机上限**。
+        /// 新火焰的寿命在 [1, 该值] 之间随机取值，使火线各团的存续时间参差不齐，
+        /// 蔓延节奏更自然（不会整片火同时熄灭）。
+        /// 设为 0 表示不随机，改为完全继承父火的剩余回合数。
+        /// </summary>
+        [JsonProperty] public int fireSpreadMaxLifespan = 3;
+
+        /// <summary>
+        /// 火焰蔓延的最大代数（0 表示不限制）。
+        /// 由技能 / 计略直接点燃的火焰为第 0 代，每向外蔓延一次代数 +1；
+        /// 达到该代数后不再继续蔓延，从根本上杜绝火势无限扩散。
+        /// </summary>
+        [JsonProperty] public int fireSpreadMaxGeneration = 4;
+
+        /// <summary>
+        /// 火焰每增加一代，蔓延概率与寿命上限的衰减百分比（%）。
+        /// 第 N 代火焰保留 (100 - N × 该值)% 的蔓延概率与寿命上限。
+        /// 默认 20 时：第 1 代 80%、第 2 代 60%、第 3 代 40%、第 4 代 20%，
+        /// 第 5 代衰减至 0（不再蔓延）。
+        /// </summary>
+        [JsonProperty] public int fireSpreadDecayPerGeneration = 20;
         #region 外交系统参数
 
         /// <summary>

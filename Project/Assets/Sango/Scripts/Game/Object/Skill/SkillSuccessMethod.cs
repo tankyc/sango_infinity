@@ -154,7 +154,7 @@ namespace Sango.Core
                 if (target.HasControlBuff())
                     C = 10;
                 int D = target.Intelligence > troop.Intelligence ? (target.Intelligence - troop.Intelligence) / 6 : 0;
-                int E = target.Leader.mPersonality.falseReportSuccessAdd;
+                int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.FalseReport);
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 20) / 100 + troop.Glamour * 5 / 100 + E + 70 + C;
                 int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
@@ -185,7 +185,7 @@ namespace Sango.Core
                 if (target.HasControlBuff())
                     C = 10;
                 int D = target.Intelligence > troop.Intelligence ? (target.Intelligence - troop.Intelligence) / 6 : 0;
-                int E = target.Leader.mPersonality.disturbSuccessAdd;
+                int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Disturb);
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 20) / 100 + target.Defence * 5 / 100 + E + 70 + C;
                 int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
@@ -208,7 +208,7 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if (target == null) return 0;
 
-                int E = target.Leader.mPersonality.calmdownSuccessAdd;
+                int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Calmdown);
                 int V = (int)(Mathf.Sqrt(Mathf.Max(10, troop.Intelligence - 5)) * 11) + E;
                 return V;
             }
@@ -234,7 +234,7 @@ namespace Sango.Core
                 if (target.HasControlBuff())
                     C = 10;
                 int D = target.Intelligence > troop.Intelligence ? (target.Intelligence - troop.Intelligence) / 6 : 0;
-                int E = target.Leader.mPersonality.ambushSuccessAdd;
+                int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Ambush);
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 33) / 100 + (troop.Attack - target.Defence) * 10 / 100 + E + 80 + C;
                 int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
@@ -264,7 +264,7 @@ namespace Sango.Core
                 if (target.HasControlBuff())
                     C = 10;
                 int D = target.Intelligence > troop.Intelligence ? (target.Intelligence - troop.Intelligence) / 6 : 0;
-                int E = target.Leader.mPersonality.infightingSuccessAdd;
+                int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Infighting);
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 40) / 100 + E + 80 + C;
                 int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
@@ -293,7 +293,7 @@ namespace Sango.Core
                 int C = 0;
                 if (target.HasControlBuff())
                     C = 10;
-                int E = target.Leader.mPersonality.sorcerySuccessAdd;
+                int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Sorcery);
 
                 if (troop.Intelligence >= target.Intelligence)
                 {

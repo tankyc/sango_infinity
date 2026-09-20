@@ -238,6 +238,11 @@ namespace Sango.Core
             if (type == 3)
                 n += variables.recruitFirstDiscoveryBonus;
 
+            // 【性格】俘虏处置：招降俘虏 / 破城招降时的性格修正
+            //（type != 0 表示非正常招募，即俘虏招降或破城招降）
+            if (type != 0 && actor.mPersonality != null)
+                n += actor.mPersonality.captiveDealAdd;
+
             int giri = variables.recruitBaseGiri;
             if (type != 0)
                 giri = Math.Min(variables.recruitMaxGiri - argumentation.loyaltyAdd * variables.recruitGiriLoyaltyFactor, variables.recruitBaseGiri);
@@ -267,10 +272,14 @@ namespace Sango.Core
 
             // 如果在城市中，逃跑概率减少
             escapeChance -= variables.escapeCityReduction;
+
+            // 【性格】叛乱风险：不安分的性格更容易伺机越狱，安定的性格则相反
+            if (person.mPersonality != null)
+                escapeChance += person.mPersonality.revoltRiskAdd;
+
             if (escapeChance < 0) escapeChance = 0;
             if (escapeChance > variables.escapeMaxProbability) escapeChance = variables.escapeMaxProbability;
 
-            //TODO: 其他影响越狱的概率
             return escapeChance;
         }
         public delegate int PersonEscapeProbablility_InCityCall(Person person, City city, Scenario scenario);

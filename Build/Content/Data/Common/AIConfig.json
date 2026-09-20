@@ -1,0 +1,173 @@
+{
+  // =========================================================================
+  //  AI 参数配置（支持部分覆盖：只写想改的字段，其余自动沿用代码内置默认值）
+  //  加载路径：Content/Data/Common/AIConfig.json（同样支持 Mod 覆盖）
+  // =========================================================================
+
+  // ------------------------- 城池命令优先级 -------------------------
+  // 最终得分 = 基础分 + 态势动态分 + 个性修正 + 紧急覆盖，按得分降序执行
+  "cityOrder": {
+    // ---------------- 一、基础权重（每条命令的起始分） ----------------
+    "baseAIAttack": 60,
+    "baseAIReinforce": 40,
+    "baseAITradeFood": 30,
+    "baseAIIntrior": 50,
+    "baseAISecurity": 30,
+    "baseAITrainTroop": 25,
+    "baseAIRewardPerson": 20,
+    "baseAIRecruitTroop": 40,
+    "baseAICreateItems": 40,
+    "baseAICreateMachine": 20,
+    "baseAICreateBoat": 20,
+    "baseAISearching": 25,
+    "baseAIRecruitPerson": 25,
+    "baseAITransfrom": 30,
+    "baseAITransfromToBelongCity": 35,
+    "baseAIResearch": 25,
+    "baseAIMakeSupplyTroop": 30,
+
+    // ---------------- 二、态势阈值 ----------------
+    "fillCritical": 0.2,
+    "fillLow": 0.5,
+    "fillHigh": 0.7,
+    "fillFull": 0.9,
+    "troopLowFill": 0.3,
+    "troopMidFill": 0.6,
+    "troopHighFill": 0.7,
+    "weaponCoverRatio": 0.5,
+    "rewardGoldThreshold": 1000,
+    "researchGoldThreshold": 5000,
+    "machineEnough": 60,
+    "securityCritical": 30,
+    "securityLow": 50,
+    "securityOk": 70,
+    "moraleLow": 40,
+    "moraleOk": 60,
+    "weaponCrisisTroops": 1000,
+    "crisisFoodFill": 0.15,
+
+    // ---------------- 三、评分分值 ----------------
+    "scoreAttackBorderBonus": 40,
+    "scoreAttackTroopHighBonus": 30,
+    "scoreAttackTroopLowPenalty": 40,
+    "scoreAttackNoPersonPenalty": 50,
+    "scoreAttackSiegePenalty": 30,
+    "scoreReinforcePerNeighbor": 50,
+    "scoreReinforceTroopBonus": 20,
+    "scoreReinforceSelfSiegePenalty": 100,
+    "scoreFoodCriticalBonus": 80,
+    "scoreFoodLowBonus": 40,
+    "scoreFoodDefaultBonus": 15,
+    "scoreInternalDefault": 10,
+    "scoreInternalSiegePenalty": 60,
+    "scoreInternalBorderPenalty": 20,
+    "scoreInternalRichBonus": 20,
+    "scoreSecurityCriticalBonus": 70,
+    "scoreSecurityLowBonus": 40,
+    "scoreMoraleLowBonus": 60,
+    "scoreMoraleOkBonus": 35,
+    "scoreMoraleDefaultBonus": 5,
+    "scoreRewardBase": 10,
+    "scoreRewardGoldBonus": 10,
+    "scoreRecruitTroopCriticalBonus": 70,
+    "scoreRecruitTroopLowBonus": 40,
+    "scoreRecruitSecurityPenalty": 30,
+    "scoreWeaponCriticalBonus": 50,
+    "scoreWeaponLowBonus": 25,
+    "scoreMachineEnoughPenalty": 30,
+    "scoreMachineBonus": 40,
+    "scoreBoatPortBonus": 15,
+    "scoreBoatPenalty": 10,
+    "scoreSearchingNoPersonPenalty": 50,
+    "scoreSearchingBonus": 15,
+    "scoreRecruitPersonNoPersonPenalty": 30,
+    "scoreRecruitPersonBonus": 20,
+    "scoreTransfromRichBonus": 40,
+    "scoreTransfromDefaultBonus": 5,
+    "scoreTransfromToBelongCityBonus": 30,
+    "scoreResearchSiegePenalty": 60,
+    "scoreResearchGoldBonus": 30,
+    "scoreResearchDefaultBonus": 10,
+    "scoreSupplyBonus": 60,
+    "scoreSupplyPenalty": 50,
+
+    // ---------------- 四、个性修正 ----------------
+    "personalityAggressiveMilitaryBonus": 20,
+    "personalityAggressiveInternalPenalty": 20,
+    "personalityDefensiveMilitaryBonus": 15,
+    "personalityDefensiveInternalBonus": 10,
+    "personalityEconomicInternalBonus": 25,
+    "personalityEconomicMilitaryPenalty": 25,
+    "personalityDiplomaticPersonBonus": 20,
+
+    // ---------------- 五、紧急覆盖 ----------------
+    "siegeDefenseBias": 200,
+    "siegeInternalPenalty": 80,
+    "reinforceBias": 80,
+    "threatBias": 100,
+    "subCityBias": 60,
+    "crisisFoodBias": 150,
+    "crisisSecurityBias": 100,
+    "crisisWeaponBias": 80,
+    "peaceInternalBias": 30,
+    "peaceMilitaryPenalty": 40
+  },
+
+  // ------------------------- 部队态势分档 -------------------------
+  // 部队每回合按"局部敌我兵力占比"分档，档位决定进攻倾向 / 反击容忍 / 撤退概率 / 择优池
+  "useTierStrategy": true,
+  "useTierRetreat": true,
+  "tierScanRange": 12,
+  "tierDecisivePercent": 65,        // 我方占比 ≥ 此值 → 碾压
+  "tierAdvantagedPercent": 45,      // ≥ 此值 → 优势
+  "tierEvenPercent": 35,            // ≥ 此值 → 均势
+  "tierDisadvantagedPercent": 25,   // ≥ 此值 → 劣势；低于 → 危局
+
+  // 倍率均为百分数，100 = 不修正；bestN = 1 表示直接取最优行动，0 = 不择优
+  "tierCritical":      { "attackScale":  50, "counterPenaltyScale": 200, "retreatChance": 80, "bestN": 1 },
+  "tierDisadvantaged": { "attackScale":  80, "counterPenaltyScale": 150, "retreatChance": 40, "bestN": 1 },
+  "tierEven":          { "attackScale": 100, "counterPenaltyScale": 100, "retreatChance": 10, "bestN": 5 },
+  "tierAdvantaged":    { "attackScale": 120, "counterPenaltyScale":  80, "retreatChance":  0, "bestN": 3 },
+  "tierDecisive":      { "attackScale": 140, "counterPenaltyScale":  50, "retreatChance":  0, "bestN": 1 },
+
+  // ------------------------- 部队角色 -------------------------
+  // 角色决定"怎么打"，与任务（去哪）正交
+  "useTroopRole": true,
+  "roleAssault":    { "attackScale": 120, "counterPenaltyScale":  60, "missionFocusScale": 130 },  // 攻坚
+  "roleDefender":   { "attackScale":  90, "counterPenaltyScale": 150, "missionFocusScale": 110 },  // 防守
+  "roleHarasser":   { "attackScale": 110, "counterPenaltyScale":  80, "missionFocusScale": 140 },  // 骚扰
+  "roleSkirmisher": { "attackScale": 100, "counterPenaltyScale": 120, "missionFocusScale":  80 },  // 游击
+  "roleEscort":     { "attackScale":  70, "counterPenaltyScale": 180, "missionFocusScale": 100 },  // 护卫
+  "roleGuard":      { "attackScale":  80, "counterPenaltyScale": 150, "missionFocusScale":  70 },  // 守备
+
+  // ------------------------- 部队技能评分公式 -------------------------
+  // 原为代码内硬编码字面量，外置后可直接调参
+  "scoreSkillBaseFactor": 150,
+  "scoreRangeBonus": 15,
+  "scoreSingleBonus": 5,
+  "scoreEffectBonus": 5,
+  "scoreControlBonus": 30,
+  "scoreStrategySuccessThreshold": 75,
+  "scoreStrategySuccessBonus": 2,
+  "scoreAttackDefenceBase": 200,
+  "scoreMinCostEnergy": 10,
+  "scoreBuildingDamageFactor": 4,
+  "scoreBuildingSingleFactor": 15,
+  "scoreBuildingMultiFactor": 10,
+  "scoreBuildingRangeFactor": 150,
+  "scoreBuildingMeleeFactor": 100,
+  "scoreFriendlyBuildingFactor": -8,
+  "scoreFinalDivisor": 100,
+
+  // ------------------------- 任务权重（倍率 %） -------------------------
+  // 替代原先 500000 / 5 / 1000000 / 30000 / 50000 等魔法数字
+  "taskPrimaryTargetWeight": 5000,
+  "taskOtherTargetWeight": 5,
+  "taskStayBonus": 200,
+  "taskMeleeCloseBonus": 50,
+  "taskBuildingWeight": 100,
+  "taskBigTroopBonus": 30,
+  "taskBigTroopPercent": 150,
+  "protectCityThreatRange": 5,
+  "protectCityNearEnemyBonusPerCell": 40
+}

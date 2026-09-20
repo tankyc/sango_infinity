@@ -3,8 +3,8 @@
  * 描述：单挑应战概率。对应需求"按照性格和能力给一个应战概率"。
  *
  * 设计要点：
- *   · 只使用项目里真实存在的字段，不额外造数据：
- *       性格   Person.mPersonality.warTendencyAdd（战争倾向加成）
+ *   · 数据来源：
+ *       性格   Person.mPersonality.duelAcceptAdd（单挑应战倾向，专有参数）
  *       能力   Person.Strength（武力）
  *       状态   Person.stamina（体力 0~100）、Person.injury（伤病 0~3）
  *       兵力   Troop.troops 的双方比值
@@ -71,9 +71,10 @@ namespace Sango.Core.Duel
 
             int chance = BaseChance;
 
-            // 1) 性格：战争倾向加成越高越好战
+            // 1) 性格：单挑应战倾向（Personality.duelAcceptAdd）
+            //    正值更愿应战（莽撞 +25 / 刚胆 +10），负值更回避（胆小 −20）
             if (target.mPersonality != null)
-                chance += target.mPersonality.warTendencyAdd;
+                chance += target.mPersonality.duelAcceptAdd;
 
             // 2) 能力：武力差，高打低更敢接
             chance += Mathf.RoundToInt((target.Strength - challenger.Strength) * StrengthWeight);

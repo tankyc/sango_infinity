@@ -79,6 +79,39 @@ namespace Sango.Tools
             }
             return nodes[nodes.Count - 1].value;
         }
+        /// <summary>
+        /// 在权重最高的前 N 项中做加权随机。
+        ///
+        /// 用于部队的"按档位动态择优"：态势越好、越有把握时 N 越小（趋近直接取最优解），
+        /// 态势越胶着时 N 越大（保留更多变化，避免 AI 行为僵化）。
+        /// </summary>
+        /// <param name="n">候选池大小；&lt;= 0 或 &gt;= Count 时退化为全局加权随机</param>
+        /// <returns>选中的值；集合为空时返回 default(T)</returns>
+        public T RandomGetTop(int n)
+        {
+            if (Count == 0) return default(T);
+            if (n <= 0 || n >= Count)
+                return RandomGet();
+
+            // nodes 已按权重降序维护，直接取前 n 项做加权随机
+            int total = 0;
+            for (int i = 0; i < n; i++)
+                total += nodes[i].wight;
+
+            if (total <= 0)
+                return nodes[0].value;
+
+            int ran = GameRandom.Range(total);
+            for (int i = 0; i < n; i++)
+            {
+                Node<T> node = nodes[i];
+                if (ran < node.wight)
+                    return node.value;
+                ran -= node.wight;
+            }
+            return nodes[n - 1].value;
+        }
+
         public T FastRandomGet(int downSamlpe)
         {
             if (Count == 0) return default(T);

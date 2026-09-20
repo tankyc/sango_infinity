@@ -280,7 +280,17 @@ namespace Sango.Core
 
         public static int Method_TroopBuildAbility(Troop troop)
         {
-            return (int)(troop.BuildPower * Math.Min(1f, (float)troop.troops / 1000) + 300 * (1f - Math.Pow(1.0 - (Math.Min(troop.troops, 5000.0) / 5000.0), 1.451)));
+            int value = (int)(troop.BuildPower * Math.Min(1f, (float)troop.troops / 1000) + 300 * (1f - Math.Pow(1.0 - (Math.Min(troop.troops, 5000.0) / 5000.0), 1.451)));
+
+            // 【性格】修缮效率：按领队性格的修缮系数折算建筑耐久恢复量
+            Personality personality = troop.LeaderPersonality;
+            if (personality != null && personality.domesticRepairScale > 0 && personality.domesticRepairScale != 100)
+            {
+                long scaled = (long)value * personality.domesticRepairScale / 100;
+                value = scaled > int.MaxValue ? int.MaxValue : (int)scaled;
+            }
+
+            return value;
         }
 
         /// <summary>

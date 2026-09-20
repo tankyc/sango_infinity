@@ -39,8 +39,11 @@ namespace Sango.Core
             }
             else
             {
+                // 【分级策略】传入"态势档位 × 部队角色 × 领队性格"合成策略
+                AIPolicy policy = AIPolicy.Combine(Troop.GetTierWeights(scenario), Troop.GetRoleWeights(), Troop.LeaderPersonality);
+
                 // 获取目标城市周围的敌人
-               TroopAIUtility.PriorityAction(wightList, Troop, TargetTroop.cell, scenario, SkillAttackPriority);
+                TroopAIUtility.PriorityAction(wightList, Troop, TargetTroop.cell, scenario, SkillAttackPriority, null, policy);
                 priorityActionData = wightList.Find((x) =>
                 {
                     for(int i = 0; i < x.targets.Length; i++)
@@ -55,36 +58,25 @@ namespace Sango.Core
                 });
 
                 if (priorityActionData == null)
-                    priorityActionData = wightList.RandomGet();
+                    priorityActionData = wightList.RandomGetTop(policy.bestN);
             }
         }
 
-        // 技能攻击评分
+        /// <summary>
+        /// 技能攻击评分：命中任务指定的追击目标为主目标，其它目标显著降权。
+        /// 加成幅度全部取自 <see cref="AIConfig"/> 的 task* 倍率（不再硬编码 500000 等）。
+        /// </summary>
         public int SkillAttackPriority(Troop troop, SkillInstance skill, Cell target, Cell movetoCell, Cell spellCell)
         {
-            int socer = TroopAIUtility.SkillStatusPriority(troop, skill, target, movetoCell, spellCell);
-            if (socer > 0)
-            {
-                if (!target.IsEmpty() && (target.troop != null))
-                {
-                    if (target.troop == TargetTroop)
-                    {
-                        socer += 500000;
-                        if (movetoCell == troop.cell)
-                            socer += 1000000;
-                    }
-                    else
-                    {
-                        socer = 5;
-                    }
-                }
-                else
-                {
-                    if (movetoCell == troop.cell && !troop.TroopType.isRange)
-                        socer += 50000;
-                }
-            }
-            return socer;
+            int score = TroopAIUtility.SkillStatusPriority(troop, skill, target, movetoCell, spellCell);
+            if (score <= 0)
+                return score;
+
+            bool isStay = movetoCell == troop.cell;
+            bool isPrimary = !target.IsEmpty() && target.troop != null && target.troop == TargetTroop;
+            bool isMeleeClose = isStay && !troop.TroopType.isRange;
+
+            return TroopAIUtility.ApplyTaskBonus(score, isPrimary, isStay, isMeleeClose, troop.GetRoleWeights());
         }
 
         public override bool DoAI(Troop troop, Scenario scenario)

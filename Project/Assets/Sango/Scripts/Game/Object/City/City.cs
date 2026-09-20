@@ -513,6 +513,28 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 本城正在执行**进攻任务**（TroopOccupyCity）的部队数量。
+        ///
+        /// 与 <see cref="AttackTroopsCount"/>（所有在外的战斗部队，含求援 / 撤离中的部队）不同，
+        /// 该值用于判断"还需要补派多少支进攻部队"，避免去求援或撤离中的部队仍占用进攻名额，
+        /// 导致城市误判"已经派够"而不再补派。
+        /// </summary>
+        public int AttackingTroopsCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < allAttackTroops.Count; i++)
+                {
+                    Troop t = allAttackTroops[i];
+                    if (t != null && t.IsAlive && t.missionType == (int)MissionType.TroopOccupyCity)
+                        count++;
+                }
+                return count;
+            }
+        }
+
+        /// <summary>
         /// 增加工作计数
         /// </summary>
         /// <param name="jobId">工作ID</param>
@@ -2356,15 +2378,26 @@ namespace Sango.Core
             });
             if (people.Count == 0) return false;
 
-            InitJobFeature(people.ToArray());
             Scenario scenario = Scenario.Cur;
+            Building building = scenario.GetObject<Building>(buildingId);
+            if (building == null)
+            {
+                for (int i = 0; i < people.Count; i++)
+                {
+                    Person person = people[i];
+                    if (person == null) continue;
+                    person.ClearMission();
+                }
+                return false;
+            }
+            building.isWorking = false;
+
+            InitJobFeature(people.ToArray());
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.CreateBoat;
             int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
-
-            Building building = scenario.GetObject<Building>(buildingId);
-            building.isWorking = false;
+           
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -2384,9 +2417,11 @@ namespace Sango.Core
 #endif
             }
 
-            totalValue = GameUtility.Method_CreateItems(totalValue, building.BuildingType.level) / itemType.p1 / 3;
-
             Person[] personList = people.ToArray();
+
+            totalValue = GameUtility.Method_CreateItems(totalValue, building.BuildingType.level) / itemType.p1 / 3;
+            // 【性格】按执行武将的性格效率折算（多人取平均）
+            totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.CreateBoat);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
@@ -2565,14 +2600,26 @@ namespace Sango.Core
                 }
             });
             if (people.Count == 0) return false;
+            Scenario scenario = Scenario.Cur;
+            Building building = scenario.GetObject<Building>(buildingId);
+            if (building == null)
+            {
+                for (int i = 0; i < people.Count; i++)
+                {
+                    Person person = people[i];
+                    if (person == null) continue;
+                    person.ClearMission();
+                }
+                return false;
+            }
+            building.isWorking = false;
+
 
             InitJobFeature(people.ToArray());
-            Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.CreateMachine;
             int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
-            Building building = scenario.GetObject<Building>(buildingId);
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
 #endif
@@ -2591,9 +2638,11 @@ namespace Sango.Core
 #endif
             }
 
-            totalValue = GameUtility.Method_CreateItems(totalValue, building.BuildingType.level) / itemType.p1 / 3;
-            building.isWorking = false;
             Person[] personList = people.ToArray();
+
+            totalValue = GameUtility.Method_CreateItems(totalValue, building.BuildingType.level) / itemType.p1 / 3;
+            // 【性格】按执行武将的性格效率折算（多人取平均）
+            totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.CreateMachine);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
@@ -2658,6 +2707,8 @@ namespace Sango.Core
             }
 
             totalValue = GameUtility.Method_FarmingAbility(totalValue);
+            // 【性格】按执行武将的性格效率折算（多人取平均）
+            totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.Farming);
 
             overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
@@ -2749,6 +2800,8 @@ namespace Sango.Core
             }
 
             totalValue = GameUtility.Method_DevelopAbility(totalValue);
+            // 【性格】按执行武将的性格效率折算（多人取平均）
+            totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.Develop);
 
             overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
@@ -2803,6 +2856,134 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 按执行武将的**性格效率系数**折算内政产出。
+        ///
+        /// 多人执行时取所有执行武将"该项目效率倍率"的**平均值**；
+        /// 无有效性格数据（或未启用）时返回原值，不做任何修正。
+        /// </summary>
+        /// <param name="value">原始产出值</param>
+        /// <param name="personList">执行武将</param>
+        /// <param name="jobType">内政项目</param>
+        /// <returns>折算后的产出值</returns>
+        public int ApplyPersonalityDomesticScale(int value, Person[] personList, CityJobType jobType)
+        {
+            if (value <= 0 || personList == null || personList.Length == 0)
+                return value;
+
+            int total = 0;
+            int count = 0;
+            for (int i = 0; i < personList.Length; i++)
+            {
+                Person person = personList[i];
+                if (person == null || person.mPersonality == null)
+                    continue;
+
+                int scale = person.mPersonality.GetDomesticScale(jobType);
+                if (scale <= 0)
+                    scale = 100;
+
+                total += scale;
+                count++;
+            }
+
+            if (count == 0)
+                return value;
+
+            // 平均性格效率系数（%）
+            long avgScale = total / count;
+            if (avgScale == 100)
+                return value;
+
+            long result = (long)value * avgScale / 100;
+            if (result > int.MaxValue) result = int.MaxValue;
+            return (int)result;
+        }
+
+        /// <summary>
+        /// 取得执行武将的**性格内政效率平均值**（%，100 = 不修正）。
+        /// </summary>
+        /// <param name="personList">执行武将</param>
+        /// <param name="jobType">内政项目</param>
+        /// <returns>平均效率倍率；无有效数据时返回 100</returns>
+        public int GetPersonalityDomesticScale(Person[] personList, CityJobType jobType)
+        {
+            if (personList == null || personList.Length == 0)
+                return 100;
+
+            int total = 0;
+            int count = 0;
+            for (int i = 0; i < personList.Length; i++)
+            {
+                Person person = personList[i];
+                if (person == null || person.mPersonality == null)
+                    continue;
+
+                int scale = person.mPersonality.GetDomesticScale(jobType);
+                if (scale <= 0)
+                    scale = 100;
+
+                total += scale;
+                count++;
+            }
+
+            if (count == 0)
+                return 100;
+            return total / count;
+        }
+
+        /// <summary>
+        /// 按执行武将的性格建造效率缩短工期（效率越高工期越短）。
+        /// </summary>
+        /// <param name="buildCount">原始工期（回合）</param>
+        /// <param name="personList">执行武将</param>
+        /// <returns>折算后的工期（至少 1 回合）</returns>
+        public int ApplyPersonalityBuildCounter(int buildCount, Person[] personList)
+        {
+            if (buildCount <= 0)
+                return buildCount;
+
+            int scale = GetPersonalityDomesticScale(personList, CityJobType.Build);
+            if (scale <= 0 || scale == 100)
+                return buildCount;
+
+            int result = (int)((long)buildCount * 100 / scale);
+            return result < 1 ? 1 : result;
+        }
+
+        /// <summary>
+        /// 按执行武将的性格搜索效率折算搜索成功率（%）。
+        /// </summary>
+        /// <param name="chance">原始成功率（%）</param>
+        /// <param name="person">执行武将</param>
+        /// <returns>折算后的成功率（至少 1）</returns>
+        public int ApplyPersonalitySearchChance(int chance, Person person)
+        {
+            if (chance <= 0 || person == null || person.mPersonality == null)
+                return chance;
+
+            int scale = person.mPersonality.domesticSearchScale;
+            if (scale <= 0 || scale == 100)
+                return chance;
+
+            int result = (int)((long)chance * scale / 100);
+            return result < 1 ? 1 : result;
+        }
+
+        /// <summary>
+        /// 取得武将性格的"忠诚维持"加成（影响褒奖的忠诚提升量）。
+        /// 由"忠诚维持"与"忠诚漂移"共同构成：前者表示性格本身的归附倾向，
+        /// 后者表示忠诚值的稳定性。
+        /// </summary>
+        /// <param name="person">目标武将</param>
+        /// <returns>忠诚维持加成；无性格数据时返回 0</returns>
+        public static int GetLoyaltyKeepAdd(Person person)
+        {
+            if (person == null || person.mPersonality == null)
+                return 0;
+            return person.mPersonality.loyaltyKeepAdd + person.mPersonality.loyaltyDriftAdd;
+        }
+
+        /// <summary>
         /// 治安巡视
         /// </summary>
         /// <param name="personList">巡视人员</param>
@@ -2847,6 +3028,8 @@ namespace Sango.Core
 
             // 最终数值
             totalValue = GameUtility.Method_SecurityAbility(totalValue, 3);
+            // 【性格】按执行武将的性格效率折算（多人取平均）
+            totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.Inspection);
 
             // 
             overrideData = Tools.OverrideData<int>.Create(totalValue);
@@ -2963,6 +3146,8 @@ namespace Sango.Core
 
             // 最终数值
             totalValue = GameUtility.Method_TrainTroops(totalValue, subValue);
+            // 【性格】按执行武将的性格效率折算（多人取平均）
+            totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.TrainTroops);
 
             overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
@@ -3079,7 +3264,8 @@ namespace Sango.Core
                 stringBuilder.Append(person.Name);
                 stringBuilder.Append(",");
 #endif
-                person.loyalty += 10;
+                // 【性格】忠诚维持：性格影响褒奖的忠诚提升量
+                person.loyalty += 10 + GetLoyaltyKeepAdd(person);
             }
             gold -= totalGoldCost;
             mBelongCorps.ReduceActionPoint(totalApCost);
@@ -3116,7 +3302,8 @@ namespace Sango.Core
             stringBuilder.Append(",");
             int lastLoyalty = person.loyalty;
 #endif
-            person.loyalty += GameRandom.Range(7, 18);
+            // 【性格】忠诚维持：性格影响褒奖的忠诚提升量
+            person.loyalty += GameRandom.Range(7, 18) + GetLoyaltyKeepAdd(person);
             gold -= goldCost;
             mBelongCorps.ReduceActionPoint(apCost);
 
@@ -3172,6 +3359,8 @@ namespace Sango.Core
 
             // 发现人才
             int probality = 20 + person.Politics * 3 / 5;
+            // 【性格】搜索效率：按执行武将性格折算发现成功率
+            probality = ApplyPersonalitySearchChance(probality, person);
             if (invisible.Count > 0)
             {
                 Tools.OverrideData<int> overrideData1 = Tools.OverrideData<int>.Create(probality);
@@ -3211,6 +3400,8 @@ namespace Sango.Core
 
             // 搜索钱财
             probality = person.Politics * 3 / 5;
+            // 【性格】搜索效率：按执行武将性格折算发现成功率
+            probality = ApplyPersonalitySearchChance(probality, person);
             if (!person.ActionOver && GameRandom.Chance(probality))
             {
                 int findGold = GameRandom.Range(person.Politics * 2, person.Politics * 3);
@@ -3331,6 +3522,8 @@ namespace Sango.Core
             }
 
             totalValue = GameUtility.Method_RecruitTroops(totalValue, barracks.BuildingType.level);
+            // 【性格】按执行武将的性格效率折算（多人取平均）
+            totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.RecruitTroops);
 
             overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
@@ -3571,6 +3764,8 @@ namespace Sango.Core
             person.ActionOver = true;
 
             int totalValue = GameUtility.Method_Trade(person.Politics);
+            // 【性格】交易效率：按执行武将性格调整交易比例（多人取平均）
+            totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.TradeFood);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
@@ -4170,6 +4365,40 @@ namespace Sango.Core
             get
             {
                 return enemies.Count;
+            }
+        }
+
+        /// <summary>
+        /// 已预计算的敌方总兵力(供统一战场态势模型复用,避免重复扫描地图)。
+        /// </summary>
+        public int EnemyTroops
+        {
+            get
+            {
+                int total = 0;
+                for (int i = 0; i < enemies.Count; i++)
+                {
+                    if (enemies[i].troop != null)
+                        total += enemies[i].troop.troops;
+                }
+                return total;
+            }
+        }
+
+        /// <summary>
+        /// 最近敌人的距离(int.MaxValue 表示附近没有敌人)。
+        /// </summary>
+        public int NearestEnemyDistance
+        {
+            get
+            {
+                int min = int.MaxValue;
+                for (int i = 0; i < enemies.Count; i++)
+                {
+                    if (enemies[i].distance < min)
+                        min = enemies[i].distance;
+                }
+                return min;
             }
         }
 

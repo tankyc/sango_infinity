@@ -49,5 +49,16 @@ namespace Sango.Core
         TroopMovetoCell,
         TroopMovetoBuild,
 
+        /// <summary>
+        /// 部队补给:补给队自动为前线友军补充粮草 / 兵力,并尽量保持在友军后方规避威胁
+        /// </summary>
+        TroopSupplyTroop,
+
+        /// <summary>
+        /// 部队求援:状态不佳的部队主动接近友方补给队,并请求其对自己执行一次补给。
+        /// 目标必须是运输队(补给队)。
+        /// </summary>
+        TroopAskSupply,
+
     }
 }

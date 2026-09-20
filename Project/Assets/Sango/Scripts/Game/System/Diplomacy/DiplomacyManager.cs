@@ -465,10 +465,11 @@ namespace Sango.Core
                     break;
             }
 
-            // 性格加成
+            // 性格加成：外交倾向（决定是否适合出使）+ 交涉修正（临场发挥）
             if (person.mPersonality != null)
             {
                 score += person.mPersonality.diplomacyTendencyAdd;
+                score += person.mPersonality.negotiationAdd;
             }
 
             return score;

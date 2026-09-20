@@ -111,7 +111,7 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if(target == null) return 0;
 
-                int C = troop.Leader.mPersonality.falseReportCriticalAdd;
+                int C = PersonalitySkillMap.GetMasteryAdd(troop.Leader, PersonalitySkillType.FalseReport);
                 int V = (troop.Intelligence  + C - target.Intelligence / 2) * 10 / 100;
 
                 return V;
@@ -130,7 +130,7 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if (target == null) return 0;
 
-                int C = troop.Leader.mPersonality.disturbCriticalAdd;
+                int C = PersonalitySkillMap.GetMasteryAdd(troop.Leader, PersonalitySkillType.Disturb);
                 int V = (troop.Intelligence + C - target.Intelligence / 2) * 10 / 100;
 
                 return V;
@@ -140,6 +140,7 @@ namespace Sango.Core
         /*
         5)	镇静
             镇静爆击率 ＝ A智*0.1
+            C：根据用计部队主将的性格（Personality.calmdownCriticalAdd）
        */
         public class CalmdownCriticalMethod : SkillCriticalMethod
         {
@@ -147,15 +148,18 @@ namespace Sango.Core
             {
                 Troop target = spellCell.troop;
                 if (target == null) return 0;
-                int V = troop.Intelligence * 10 / 100;
+
+                int C = PersonalitySkillMap.GetMasteryAdd(troop.Leader, PersonalitySkillType.Calmdown);
+                int V = (troop.Intelligence + C) * 10 / 100;
                 return V;
             }
         }
 
         /*
         6)	伏兵
-            伏兵爆击率 ＝ (A智+D-B智/2)*0.1
+            伏兵爆击率 ＝ (A智+D+C-B智/2)*0.1
             D：根据用计部队的兵科，剑=5 枪=10 戟=10 弩=5
+            C：根据用计部队主将的性格（Personality.ambushCriticalAdd）
        */
         public class AmbushCriticalMethod : SkillCriticalMethod
         {
@@ -165,15 +169,17 @@ namespace Sango.Core
                 if (target == null) return 0;
 
                 int D = troop.TroopType.ambushCriticalAdd;
-                int V = (troop.Intelligence + D - target.Intelligence / 2) * 10 / 100;
+                int C = PersonalitySkillMap.GetMasteryAdd(troop.Leader, PersonalitySkillType.Ambush);
+                int V = (troop.Intelligence + D + C - target.Intelligence / 2) * 10 / 100;
                 return V;
             }
         }
 
         /*
         7)	内讧
-            内讧爆击率 ＝ (A智+E-B智/2)*0.1
+            内讧爆击率 ＝ (A智+D+C-B智/2)*0.1
             D：根据用计部队主将的义理，容易背叛=10，无情义=5，普通=0，情理坚定=-5，不会背叛=-10
+            C：根据用计部队主将的性格（Personality.infightingCriticalAdd）
        */
         public class InfightingCriticalMethod : SkillCriticalMethod
         {
@@ -182,8 +188,12 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if (target == null) return 0;
 
-                int D = troop.Leader.mArgumentation.infightingCriticalAdd;
-                int V = (troop.Intelligence + D - target.Intelligence / 2) * 10 / 100;
+                // 【修复】原先未判空即读取 mArgumentation，义理数据缺失时会抛异常
+                int D = troop.Leader != null && troop.Leader.mArgumentation != null
+                    ? troop.Leader.mArgumentation.infightingCriticalAdd
+                    : 0;
+                int C = PersonalitySkillMap.GetMasteryAdd(troop.Leader, PersonalitySkillType.Infighting);
+                int V = (troop.Intelligence + D + C - target.Intelligence / 2) * 10 / 100;
                 return V;
             }
         }
@@ -191,6 +201,7 @@ namespace Sango.Core
         /*
         8)	妖术
             妖术爆击率 ＝ A智*1/3*0.1
+            C：根据用计部队主将的性格（Personality.sorceryCriticalAdd）
        */
         public class SorceryCriticalMethod : SkillCriticalMethod
         {
@@ -199,7 +210,8 @@ namespace Sango.Core
                 Troop target = spellCell.troop;
                 if (target == null) return 0;
 
-                int V = troop.Intelligence / 30;
+                int C = PersonalitySkillMap.GetMasteryAdd(troop.Leader, PersonalitySkillType.Sorcery);
+                int V = (troop.Intelligence + C) / 30;
                 return V;
             }
         }

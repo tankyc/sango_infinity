@@ -1665,6 +1665,14 @@ namespace Sango.Core
         public bool JobRecruitPerson(Person person, City targetCity, int type)
         {
             int probability = GameFormula.Instance.RecruitPersonProbability(this, person, type);
+
+            // 【性格】招募武将效率：按执行武将的性格折算成功率
+            if (mPersonality != null && mPersonality.domesticRecruitPersonScale > 0
+                && mPersonality.domesticRecruitPersonScale != 100)
+            {
+                long scaled = (long)probability * mPersonality.domesticRecruitPersonScale / 100;
+                probability = scaled > 100 ? 100 : (int)scaled;
+            }
 #if SANGO_DEBUG
             Sango.Log.Info($"[{mBelongForce.Name}]<{Name}>登庸 -> {person.Name} 成功率:{probability}");
 #endif
@@ -1915,6 +1923,24 @@ namespace Sango.Core
         /// <param name="add"></param>
         public void GainExp(int add)
         {
+            // 【性格】学习速度 × 成长速度共同影响经验获取量
+            //（冷静型学得更快，莽撞型偏慢）
+            if (mPersonality != null)
+            {
+                int scale = 100;
+                if (mPersonality.learnSpeedScale > 0)
+                    scale = scale * mPersonality.learnSpeedScale / 100;
+                if (mPersonality.growthScale > 0)
+                    scale = scale * mPersonality.growthScale / 100;
+
+                if (scale != 100 && scale > 0)
+                {
+                    long scaled = (long)add * scale / 100;
+                    if (scaled > int.MaxValue) scaled = int.MaxValue;
+                    add = (int)scaled;
+                }
+            }
+
             Exp += add;
             if (Level.Next == null)
                 return;

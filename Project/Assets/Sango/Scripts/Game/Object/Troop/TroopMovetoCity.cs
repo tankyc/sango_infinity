@@ -28,19 +28,23 @@ namespace Sango.Core
                 return;
 
             }
-            else
+
+            // 【修复】部队已经站在目标城池格上（例如态势撤退时"最近己方据点"就是本城）：
+            // 此时不做通路检查，避免返城路径经过敌方建筑时把任务改写为"攻击该建筑"，
+            // 导致部队永远停留在城池格上无法移动，表现为"卡在城池上"。
+            if (troop.cell != null && troop.cell.building == TargetCity)
+                return;
+
+            // 检查通路
+            Troop.tempCellList.Clear();
+            scenario.Map.GetDirectPath(Troop.cell, TargetCity.CenterCell, Troop.tempCellList);
+            for (int i = 0; i < Troop.tempCellList.Count; ++i)
             {
-                // 检查通路
-                Troop.tempCellList.Clear();
-                scenario.Map.GetDirectPath(Troop.cell, TargetCity.CenterCell, Troop.tempCellList);
-                for (int i = 0; i < Troop.tempCellList.Count; ++i)
+                Cell road = Troop.tempCellList[i];
+                if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(Troop))
                 {
-                    Cell road = Troop.tempCellList[i];
-                    if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(Troop))
-                    {
-                        priorityActionData = TroopAIUtility.PriorityAction(Troop, (Cell)null, scenario, SkillStatusPriority);
-                        return;
-                    }
+                    priorityActionData = TroopAIUtility.PriorityAction(Troop, (Cell)null, scenario, SkillStatusPriority);
+                    return;
                 }
             }
         }
@@ -52,6 +56,14 @@ namespace Sango.Core
                 Troop.NeedPrepareMission();
                 return true;
             }
+
+            // 【修复】已在目标城池格上：直接进城，优先于任何攻击行动。
+            if (troop.cell != null && troop.cell.building == TargetCity)
+            {
+                troop.EnterCity(TargetCity);
+                return true;
+            }
+
             if (GameSystemManager.debug)
                 GameSystemManager.debug_StringBuilder.Append("2,");
             if (priorityActionData != null)

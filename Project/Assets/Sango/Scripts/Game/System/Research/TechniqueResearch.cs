@@ -71,6 +71,15 @@ namespace Sango.Core
 
         void OnCityAIPrepare(City city, Scenario scenario)
         {
+            // 仅都市研发科技(港关不参与)
+            if (!city.IsCity())
+                return;
+
+            // 【动态排序】启用时 AIResearch 已由 CityAIOrderPlanner 统一纳入排序,
+            // 此处不再重复注入,避免同一命令被执行两次。
+            if (AIConfig.Instance.useDynamicCityOrder)
+                return;
+
             city.AICommandList.Add(AIResearch);
         }
 

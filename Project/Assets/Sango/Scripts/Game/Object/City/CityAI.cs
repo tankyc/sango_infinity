@@ -20,133 +20,462 @@ namespace Sango.Core
             if (city.mBelongForce == null)
                 return true;
 
-            if (city.TroopMissionType != MissionType.None)
+            // ---------- 一、防守优先 ----------
+            // 【修复】本城受到直接威胁时,无论当前是否正在进攻他城,都必须优先转为防守。
+            // 原逻辑仅在 TroopMissionType == None 时才检查防守,导致"正在进攻他城"的城市
+            // 即便老家被围攻也不会出城防守。
+            bool needDefense = AICanDefense(city, scenario);
+            if (needDefense && city.TroopMissionType != MissionType.TroopProtectCity)
             {
-                if (city.TroopMissionType == MissionType.TroopOccupyCity)
-                {
-                    City targetCity = scenario.citySet.Get(city.TroopMissionTargetId);
-                    if ((targetCity.mBelongForce != null && city.AttackTroopsCount < GameRandom.Range(8, 30)) || (targetCity.mBelongForce == null && city.AttackTroopsCount < 2))
-                    {
-                        // 白城只去2支部队
-                        Troop troop = AIMakeTroop(city, 20, true, scenario);
-                        if (troop != null)
-                        {
-                            troop = city.EnsureTroop(troop, scenario);
-                            city.CurActiveTroop = troop;
-#if SANGO_DEBUG
-
-                            Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}3势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.mBelongForce?.Name}的{targetCity.Name}!");
-#endif
-                        }
-                    }
-                }
-                else if (city.TroopMissionType == MissionType.TroopProtectCity)
-                {
-                    if (city.CheckEnemiesIfAlive())
-                    {
-                        if (city.AttackTroopsCount < Math.Max(3, city.EnemyCount + 2))
-                        {
-                            Troop troop = AIMakeTroop(city, 20, false, scenario);
-                            if (troop != null)
-                            {
-                                troop = city.EnsureTroop(troop, scenario);
-                                city.CurActiveTroop = troop;
-#if SANGO_DEBUG
-                                Sango.Log.Info($"{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
-#endif
-                            }
-                        }
-                    }
-                }
-
-                if (city.CurActiveTroop == null)
-                {
-                    city.TroopMissionType = MissionType.None;
-                    return true;
-                }
-                else
-                {
-                    //city.EnsureTroop(city.CurActiveTroop, scenario);
-                    city.Render?.UpdateRender();
-                }
-                return false;
+                city.TroopMissionType = MissionType.TroopProtectCity;
+                city.TroopMissionTargetId = city.Id;
+                // 召回在外进攻的本城部队回援
+                RecallAttackingTroops(city, scenario);
             }
 
-            if (AICanDefense(city, scenario))
+            // ---------- 二、已有军事任务:持续派遣部队 ----------
+            if (city.TroopMissionType != MissionType.None)
+                return ContinueMilitaryMission(city, scenario);
+
+            // ---------- 三、无任务:按优先级决定新的军事目标 ----------
+
+            // 3.1 防守
+            if (needDefense)
             {
                 city.TroopMissionType = MissionType.TroopProtectCity;
                 city.TroopMissionTargetId = city.Id;
                 return false;
             }
-            else if (AICanAttack(city, scenario))
+
+            // 3.2 驱逐对本势力实施过威胁行为、且仍位于本势力领地内的敌方部队
+            Troop threat = FindThreatTroopInRange(city, scenario);
+            if (threat != null)
             {
-                City lastTargetCity = null;
-                Troop activedTroop = scenario.troopsSet.Find(x => x.IsAlive && x.mBelongCity == city);
-                if (activedTroop != null)
-                {
-                    if (activedTroop.missionType == (int)MissionType.TroopOccupyCity)
+                city.TroopMissionType = MissionType.TroopDestroyTroop;
+                city.TroopMissionTargetId = threat.Id;
+                return false;
+            }
+
+            // 3.3 优先夺回被敌方占领的本城下属港关(不受"仅边境城市进攻"的限制)
+            City prioritySubCity = FindPrioritySubCity(city);
+            if (prioritySubCity != null)
+            {
+                city.TroopMissionType = MissionType.TroopOccupyCity;
+                city.TroopMissionTargetId = prioritySubCity.Id;
+                return false;
+            }
+
+            // 3.4 挑选进攻目标
+            return DecideAttackTarget(city, scenario);
+        }
+
+        /// <summary>
+        /// 已有军事任务时持续派遣部队（进攻 / 防守 / 驱逐）。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否完成</returns>
+        static bool ContinueMilitaryMission(City city, Scenario scenario)
+        {
+            switch (city.TroopMissionType)
+            {
+                case MissionType.TroopOccupyCity:
+                    DispatchOccupyTroop(city, scenario);
+                    break;
+
+                case MissionType.TroopProtectCity:
+                    DispatchDefenseTroop(city, scenario);
+                    break;
+
+                case MissionType.TroopDestroyTroop:
+                    // 目标已被歼灭,任务结束
+                    if (!DispatchDriveOutTroop(city, scenario))
                     {
-                        lastTargetCity = scenario.citySet.Get(activedTroop.missionTarget);
+                        city.TroopMissionType = MissionType.None;
+                        city.TroopMissionTargetId = 0;
+                        return true;
                     }
+                    break;
+            }
+
+            if (city.CurActiveTroop == null)
+            {
+                city.TroopMissionType = MissionType.None;
+                return true;
+            }
+
+            city.Render?.UpdateRender();
+            return false;
+        }
+
+        /// <summary>
+        /// 进攻任务：按目标城池规模决定出兵上限并派遣。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        static void DispatchOccupyTroop(City city, Scenario scenario)
+        {
+            City targetCity = scenario.citySet.Get(city.TroopMissionTargetId);
+            if (targetCity == null)
+                return;
+
+            // 【优化】按目标城池兵力确定出兵上限(打大城派更多部队)，
+            // 替代原先每次判定都随机抖动的出兵门槛。
+            AIConfig aiConfig = AIConfig.Instance;
+            int maxAttackTroops = targetCity.mBelongForce == null
+                ? aiConfig.attackWhiteCityTroopCount
+                : aiConfig.attackBaseTroopCount + targetCity.troops / Math.Max(1, aiConfig.attackTroopsPerTargetTroops);
+            // 【修复】使用"正在进攻的部队数"而不是"所有在外部队数"，
+            // 否则去求援 / 撤离中的部队会占用进攻名额，导致城市误判"已派够"而不再补派。
+            if (city.AttackingTroopsCount >= maxAttackTroops)
+                return;
+
+            Troop troop = AIMakeTroop(city, 20, true, scenario);
+            if (troop == null)
+                return;
+
+            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+#if SANGO_DEBUG
+            Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.mBelongForce?.Name}的{targetCity.Name}!");
+#endif
+        }
+
+        /// <summary>
+        /// 防守任务：本城周边有敌情时派遣守军出城。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        static void DispatchDefenseTroop(City city, Scenario scenario)
+        {
+            // 【修复】不依赖预计算的敌人列表，实时扫描兜底，避免"城池在挨打却不出兵"
+            BattleSituation.ThreatSnapshot defenseThreat = BattleSituation.EvaluateThreat(
+                city.CenterCell, AIConfig.Instance.cityDefenseScanRange, city, scenario);
+            if (!defenseThreat.HasEnemy)
+                return;
+
+            int defenseEnemyCount = Math.Max(city.EnemyCount, defenseThreat.enemyCount);
+            if (city.AttackTroopsCount >= Math.Max(3, defenseEnemyCount + 2))
+                return;
+
+            Troop troop = AIMakeTroop(city, 20, false, scenario);
+            if (troop == null)
+                return;
+
+            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+#if SANGO_DEBUG
+            Sango.Log.Info($"{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
+#endif
+        }
+
+        /// <summary>
+        /// 驱逐任务：目标仍存活则持续派兵追击。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>任务是否仍然有效（false 表示目标已被歼灭）</returns>
+        static bool DispatchDriveOutTroop(City city, Scenario scenario)
+        {
+            Troop threatTroop = scenario.troopsSet.Get(city.TroopMissionTargetId);
+            if (threatTroop == null || !threatTroop.IsAlive)
+                return false;
+
+            if (city.AttackTroopsCount >= AIConfig.Instance.driveOutMaxTroopPerCity)
+                return true;
+
+            Troop troop = AIMakeTroop(city, 10, false, scenario);
+            if (troop == null)
+                return true;
+
+            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+#if SANGO_DEBUG
+            Sango.Log.Info($"{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 驱逐{threatTroop.mBelongForce?.Name}的{threatTroop.Name}!");
+#endif
+            return true;
+        }
+
+        /// <summary>
+        /// 无军事任务时评估并选择进攻目标（含"延续上次目标"逻辑）。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否完成</returns>
+        static bool DecideAttackTarget(City city, Scenario scenario)
+        {
+            if (!AICanAttack(city, scenario))
+                return true;
+
+            // 延续上次的进攻目标，避免每回合重新评估导致部队反复改道
+            City lastTargetCity = null;
+            Troop activedTroop = scenario.troopsSet.Find(x => x.IsAlive && x.mBelongCity == city);
+            if (activedTroop != null && activedTroop.missionType == (int)MissionType.TroopOccupyCity)
+                lastTargetCity = scenario.citySet.Get(activedTroop.missionTarget);
+
+            if (lastTargetCity != null)
+            {
+                city.TroopMissionType = MissionType.TroopOccupyCity;
+                city.TroopMissionTargetId = lastTargetCity.Id;
+                return false;
+            }
+
+            // 按"兵力对比 + 城池耐久 + 外交关系"给邻城打分
+            priorityQueue.Clear();
+            city.ForeachNeighborCities(x =>
+            {
+                if (!x.IsEnemy(city) || !city.mBelongCorps.CheckTargetIsAppointTarget(x))
+                    return;
+
+                if (x.mBelongForce == null)
+                {
+                    priorityQueue.Push(x, 9999);
+                    return;
                 }
 
-                if (lastTargetCity != null)
+                // 需要兵力充足
+                if (city.troops < 20000)
+                    return;
+
+                int weight = (int)(2500 * (float)city.virtualFightPower / x.virtualFightPower);
+                weight = weight * x.DurabilityLimit / x.durability;
+                int relation = scenario.GetRelation(city.mBelongForce, x.mBelongForce);
+                // 8000亲密 6000友好 4000普通 2000中立 0冷漠 -2000敌对 -4000厌恶 -6000仇视 -8000不死不休
+                // 关系越好权重越低(越不愿进攻)，越敌对权重越高
+                weight = UnityEngine.Mathf.FloorToInt((float)weight * (1f - (float)relation / 10000f));
+                if (x.mBelongForce.IsPlayer)
+                    weight += 1500;
+
+                priorityQueue.Push(x, weight);
+            });
+
+            int count = GameRandom.Range(0, UnityEngine.Mathf.Max(0, priorityQueue.Count) + 1);
+            for (int i = 0; i < count; i++)
+            {
+                int priority = 0;
+                City targetCity = priorityQueue.Higher(out priority);
+                if (targetCity == null)
+                    continue;
+
+                // 权重越高越可能被选中
+                if (GameRandom.Chance(priority, 10000))
                 {
                     city.TroopMissionType = MissionType.TroopOccupyCity;
-                    city.TroopMissionTargetId = lastTargetCity.Id;
+                    city.TroopMissionTargetId = targetCity.Id;
                     return false;
                 }
+            }
+            return true;
+        }
 
-                // 计算进攻概率
-                priorityQueue.Clear();
-                city.ForeachNeighborCities(x =>
-                {
-                    if (x.IsEnemy(city) && city.mBelongCorps.CheckTargetIsAppointTarget(x))
-                    {
-                        if (x.mBelongForce == null)
-                        {
-                            priorityQueue.Push(x, 9999);
-                        }
-                        else
-                        {
-                            // 需要兵力充足
-                            //if (city.troops > 30000 || city.troops > x.troops - 5000)
-                            if (city.troops >= 20000)
-                            {
-                                // 范围大约在
-                                int weight = (int)(2500 * (float)city.virtualFightPower / x.virtualFightPower);
-                                weight = weight * x.DurabilityLimit / x.durability;
-                                int relation = scenario.GetRelation(city.mBelongForce, x.mBelongForce);
-                                // 8000亲密 6000友好 4000普通 2000中立 0冷漠 -2000敌对 -4000厌恶 -6000仇视 -8000不死不休
-                                // 5 4 3 2 1 0 -1 -2 -3 -4 -5
-                                // 0 1 2 3 4 5 6 7 8 9 10
-                                weight = UnityEngine.Mathf.FloorToInt((float)weight * (1f - (float)relation / 10000f));
-                                if (x.mBelongForce.IsPlayer)
-                                {
-                                    weight += 1500;
-                                }
-                                priorityQueue.Push(x, weight);
-                            }
-                        }
-                    }
-                });
+        /// <summary>
+        /// 【修复】召回本城在外进攻的部队回援本城。
+        /// 当本城受到攻击时,正在执行 TroopOccupyCity 的本城部队应转为协防本城。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="scenario">场景对象</param>
+        static void RecallAttackingTroops(City city, Scenario scenario)
+        {
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                Troop troop = scenario.troopsSet[i];
+                if (troop == null || !troop.IsAlive)
+                    continue;
+                if (troop.mBelongCity != city)
+                    continue;
+                if (troop.missionType != (int)MissionType.TroopOccupyCity)
+                    continue;
 
-                int count = GameRandom.Range(0, UnityEngine.Mathf.Max(0, priorityQueue.Count) + 1);
-                for (int i = 0; i < count; i++)
+                troop.SetMission(MissionType.TroopProtectCity, city.Id);
+                troop.NeedPrepareMission();
+#if SANGO_DEBUG
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.Name}受到攻击,召回{troop.Leader?.Name}的部队回防!");
+#endif
+            }
+        }
+
+        /// <summary>
+        /// 【新增】查找需要驱逐的威胁部队。
+        /// 威胁部队 = 曾攻击本势力(城池 / 建筑 / 部队)的敌方部队;
+        /// 只要其仍存活、位于本势力领地内、且靠近本城,就需要派兵歼灭。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>需要驱逐的威胁部队,没有则返回 null</returns>
+        static Troop FindThreatTroopInRange(City city, Scenario scenario)
+        {
+            Force force = city.mBelongForce;
+            if (force == null || force.threatTroopIds == null || force.threatTroopIds.Count == 0)
+                return null;
+
+            int range = AIConfig.Instance.driveOutThreatRange;
+            Troop result = null;
+            int bestDistance = int.MaxValue;
+
+            for (int i = force.threatTroopIds.Count - 1; i >= 0; i--)
+            {
+                Troop troop = scenario.troopsSet.Get(force.threatTroopIds[i]);
+                // 懒清理:目标已阵亡或不存在
+                if (troop == null || !troop.IsAlive)
                 {
-                    int priority = 0;
-                    City targetCity = priorityQueue.Higher(out priority);
-                    if (targetCity != null)
-                    {
-                        if (GameRandom.Chance(priority, 10000))
-                        {
-                            city.TroopMissionType = MissionType.TroopOccupyCity;
-                            city.TroopMissionTargetId = targetCity.Id;
-                            return false;
-                        }
-                    }
+                    force.threatTroopIds.RemoveAt(i);
+                    continue;
+                }
+
+                Cell troopCell = troop.cell;
+                if (troopCell == null)
+                    continue;
+
+                // 只处理位于本势力领地内的敌军
+                City ownerCity = troopCell.BelongCity;
+                if (ownerCity == null || ownerCity.mBelongForce != force)
+                    continue;
+
+                // 只处理靠近本城的敌军,避免一城跨越整个势力追击
+                int distance = scenario.Map.Distance(city.CenterCell, troopCell);
+                if (distance > range)
+                    continue;
+
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    result = troop;
                 }
             }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 【新增】查找需要优先夺回的本城下属港关。
+        /// 当本城的下属港口 / 关卡被敌方(或非本势力)占领时,应优先派兵夺回。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <returns>需要夺回的港关,没有则返回 null</returns>
+        static City FindPrioritySubCity(City city)
+        {
+            List<City> subCities = city.subCities;
+            if (subCities == null || subCities.Count == 0)
+                return null;
+
+            City result = null;
+            int bestDistance = int.MaxValue;
+            for (int i = 0; i < subCities.Count; i++)
+            {
+                City sub = subCities[i];
+                if (sub == null || !sub.IsAlive)
+                    continue;
+                // 只考虑港口 / 关卡
+                if (!sub.IsPort() && !sub.IsGate())
+                    continue;
+                // 仍属于本势力,无需夺回
+                if (sub.mBelongForce == city.mBelongForce)
+                    continue;
+
+                // 选择距离本城最近的一个作为优先目标
+                int distance = Scenario.Cur.Map.Distance(city.CenterCell, sub.CenterCell);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    result = sub;
+                }
+            }
+            return result;
+        }
+
+        /// <summary>支援候选城市缓存,避免每次调用分配内存</summary>
+        static readonly List<City> reinforceCandidates = new List<City>(16);
+
+        /// <summary>
+        /// 【新增】AI 支援逻辑:当同势力的邻近城市被围攻、而本城暂无战事时,派出部队前往支援。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否完成</returns>
+        public static bool AIReinforce(City city, Scenario scenario)
+        {
+            if (city.mBelongForce == null)
+                return true;
+
+            // 本城自身已处于军事任务中(进攻或防守),不对外支援
+            if (city.TroopMissionType != MissionType.None)
+                return true;
+
+            // 本城附近有敌人,自保优先
+            if (city.IsEnemiesRound(15))
+                return true;
+
+            // 人手 / 兵力 / 粮食不足,无力支援
+            AIConfig aiConfig = AIConfig.Instance;
+            if (city.freePersons.Count < aiConfig.reinforceMinFreePersons)
+                return true;
+            if (city.troops < aiConfig.reinforceMinTroops || city.food < aiConfig.reinforceMinFood)
+                return true;
+
+            // 统计本城已派出的支援部队,设置上限,避免"抽干"老家守军
+            int reinforcing = 0;
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                Troop t = scenario.troopsSet[i];
+                if (t != null && t.IsAlive && t.mBelongCity == city
+                    && t.missionType == (int)MissionType.TroopProtectCity
+                    && t.missionTarget != city.Id)
+                {
+                    reinforcing++;
+                }
+            }
+            if (reinforcing >= aiConfig.reinforceMaxTroopPerCity)
+                return true;
+
+            // 收集被围攻的邻近友城
+            reinforceCandidates.Clear();
+            for (int i = 0; i < city.NeighborList.Count; ++i)
+            {
+                City neighbor = city.NeighborList[i];
+                if (neighbor == null || !neighbor.IsAlive)
+                    continue;
+                if (neighbor.mBelongForce != city.mBelongForce)
+                    continue;
+                if (!neighbor.CheckEnemiesIfAlive())
+                    continue;
+                reinforceCandidates.Add(neighbor);
+            }
+
+            if (reinforceCandidates.Count == 0)
+                return true;
+
+            // 选择"敌情越重、守军越弱"的城市优先支援
+            City target = null;
+            float bestScore = float.MinValue;
+            for (int i = 0; i < reinforceCandidates.Count; ++i)
+            {
+                City candidate = reinforceCandidates[i];
+                // 【统一态势】复用候选城市已预计算的敌人信息,避免重复扫描地图
+                BattleSituation.ThreatSnapshot threat = BattleSituation.EvaluateCityThreat(candidate);
+                float score = threat.threatLevel - candidate.troops * 0.5f;
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    target = candidate;
+                }
+            }
+
+            if (target == null)
+                return true;
+
+            // 临时指定任务,供 AIMakeTroop 组建部队
+            city.TroopMissionType = MissionType.TroopProtectCity;
+            city.TroopMissionTargetId = target.Id;
+
+            Troop troop = AIMakeTroop(city, 10, false, scenario);
+            if (troop != null)
+            {
+                troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+#if SANGO_DEBUG
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领援军出城 支援{target.Name}!");
+#endif
+            }
+
+            // 恢复本城任务状态,避免影响后续 AIAttack 判断
+            city.TroopMissionType = MissionType.None;
+            city.TroopMissionTargetId = 0;
             return true;
         }
 
@@ -156,25 +485,11 @@ namespace Sango.Core
         /// <param name="scenario"></param>
         public static bool AIIntrior(City city, Scenario scenario)
         {
-            //AIRewardPerson(city, scenario);
-
-            // 兵临城下
+            // 兵临城下时不进行内政建设
             if (city.IsEnemiesRound(9))
                 return true;
 
-            //AIResearch(city, scenario);
             AIBuilding(city, scenario);
-            //AIIntriorBalance(city, scenario);
-
-            //AISearching(city, scenario);
-            //AIRecruitPerson(city, scenario);
-            //AITrainTroop(city, scenario);
-            //AICreateBoat(city, scenario);
-            //AICreateMachine(city, scenario);
-            //if (city.freePersons.Count > 3)
-            //{
-            //    city.JobSearching(city.freePersons.GetRange(0, GameRandom.Range(city.freePersons.Count / 2)).ToArray());
-            //}
             return true;
         }
 
@@ -190,7 +505,19 @@ namespace Sango.Core
             if (city.mBelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
                 return true;
 
-            if ((city.invisiblePersons.Count > 0 && city.freePersons.Count > 0 && GameRandom.Chance(80)) || GameRandom.Chance(20))
+            if (city.freePersons.Count == 0)
+                return true;
+
+            // 【优化】原先为 (有在野 && Chance(80)) || Chance(20)，两个随机条件叠加，
+            // 实际概率约 84% 且难以预期。现改为单一明确概率：有在野武将时提高搜索意愿。
+            AIConfig cfg = AIConfig.Instance;
+            int chance = city.invisiblePersons.Count > 0
+                ? cfg.searchBaseChance + 20
+                : cfg.searchBaseChance;
+            if (chance <= 0)
+                return true;
+
+            if (GameRandom.Chance(Math.Min(100, chance)))
             {
                 Person[] recommandList = ForceAI.CounsellorRecommendSearching(city.freePersons, city, recommandSearchingFeatrues);
                 if (recommandList != null && recommandList.Length > 0)
@@ -202,49 +529,65 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// AI褒奖武将逻辑
+        /// AI褒奖武将逻辑。
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>
         /// <returns>是否完成</returns>
         public static bool AIRewardPerson(City city, Scenario scenario)
         {
-            if (GameRandom.Chance(80))
+            // 【优化】原先用全局 Chance(80) 决定是否褒奖，并对每个低忠诚武将都执行一次，
+            // 可能一次性耗尽金钱。现改为：仅在"确有低忠诚武将"时确定执行，且单回合限制人数。
+            AIConfig cfg = AIConfig.Instance;
+            int rewarded = 0;
+            for (int i = 0; i < city.allPersons.Count; i++)
             {
-                city.allPersons.ForEach(x =>
-                {
-                    if (x.mTroop == null && city.gold > 500 && x.loyalty <= 90)
-                    {
-                        city.JobRewardPerson(x);
-                    }
-                });
+                Person person = city.allPersons[i];
+                if (person == null || person.mTroop != null)
+                    continue;
+                if (person.loyalty > cfg.rewardLoyaltyThreshold)
+                    continue;
+                if (city.gold <= cfg.rewardGoldKeep)
+                    break;
+
+                city.JobRewardPerson(person);
+                rewarded++;
+                if (rewarded >= cfg.rewardMaxPersonPerTurn)
+                    break;
             }
             return true;
         }
 
         /// <summary>
-        /// AI招募武将逻辑
+        /// AI招募武将逻辑。
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>
         /// <returns>是否完成</returns>
         public static bool AIRecruitPerson(City city, Scenario scenario)
         {
-            if (city.wildPersons.Count > 0 && city.freePersons.Count > 0)
+            if (city.wildPersons.Count == 0 || city.freePersons.Count == 0)
+                return true;
+
+            // 【优化】原先对每个在野武将都尝试招募，会一次性占用全部空闲武将；
+            // 现限制单回合招募人数，把机会留给后续回合。
+            int recruited = 0;
+            int maxPerTurn = Math.Max(1, AIConfig.Instance.recruitPersonMaxPerTurn);
+            for (int i = 0; i < city.wildPersons.Count; i++)
             {
-                for (int i = city.wildPersons.Count - 1; i >= 0; i--)
-                {
-                    Person target = city.wildPersons[i];
-                    Person recommandPerson = ForceAI.CounsellorRecommendRecruitPerson(city.freePersons, target, null);
-                    if (recommandPerson != null)
-                    {
-                        city.JobRecruitPerson(recommandPerson, target);
-                    }
-                }
+                Person target = city.wildPersons[i];
+                if (target == null)
+                    continue;
+
+                Person recommandPerson = ForceAI.CounsellorRecommendRecruitPerson(city.freePersons, target, null);
+                if (recommandPerson == null)
+                    continue;
+
+                city.JobRecruitPerson(recommandPerson, target);
+                recruited++;
+                if (recruited >= maxPerTurn)
+                    break;
             }
-            //TODO: 招募其他势力的武将
-
-
             return true;
         }
 
@@ -260,10 +603,9 @@ namespace Sango.Core
 
             if (city.freePersons.Count == 0) return true;
 
-            if (city.troops < 10000 || city.food < 20000)
-            {
+            AIConfig cfg = AIConfig.Instance;
+            if (city.troops < cfg.transportMinTroops || city.food < cfg.transportMinFood)
                 return true;
-            }
 
             if (city.mBelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
             {
@@ -335,7 +677,10 @@ namespace Sango.Core
             //运输比例
             int part = scenario.Variables.TransportPercent - Math.Max(2 - city.BorderLine, 0) * 20;
 
+            // 【修复】原先直接取 persons[0]，推荐结果为空时会抛 NullReferenceException
             Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);
+            if (persons == null || persons.Length == 0 || persons[0] == null)
+                return true;
             Person leader = persons[0];
             city.freePersons.Remove(leader);
 
@@ -377,9 +722,7 @@ namespace Sango.Core
             troop.Member1 = null;
             troop.Member2 = null;
             troop.itemStore = city.itemStore.Split(part);
-            city.Render?.UpdateRender();
-            troop = city.EnsureTroop(troop, scenario);
-            city.CurActiveTroop = troop;
+            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
 #if SANGO_DEBUG
             Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队{troop.troops}出城 向{target.mBelongForce?.Name}的{target.Name}运输物资!");
 #endif
@@ -422,8 +765,9 @@ namespace Sango.Core
             // 边境城市不做运输
             if (target.IsBorderCity) return true;
 
-            int goldLine = 2500;
-            int foodLine = 20000;
+            AIConfig cfg = AIConfig.Instance;
+            int goldLine = cfg.belongTransportGoldLine;
+            int foodLine = cfg.belongTransportFoodLine;
 
             // 资源不够, 人员进入附属城池
             if (city.gold <= goldLine && city.food <= foodLine)
@@ -445,15 +789,9 @@ namespace Sango.Core
             if (city.food <= foodLine && city.gold <= goldLine)
                 return true;
 
-            // 检查通路
-            tempCellList.Clear();
-            scenario.Map.GetDirectPath(city.CenterCell, target.CenterCell, tempCellList);
-            for (int i = 0; i < tempCellList.Count; ++i)
-            {
-                Cell road = tempCellList[i];
-                if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(city))
-                    return true;
-            }
+            // 检查通路（途经敌方建筑会阻断运输）
+            if (!IsPathClear(city, target, scenario))
+                return true;
 
             // 资源够运输, 但是兵力不够, 请求兵力输送, 需要军团一致性
             if (city.troops < 500)
@@ -474,9 +812,8 @@ namespace Sango.Core
                 if (transport != null)
                 {
                     transport.missionParams1 = 1;
-                    transport = target.EnsureTroop(transport, scenario);
+                    transport = CityTroopFactory.EmitTroop(target, transport, scenario);
                     city.CurActiveTroop = transport;
-                    target.Render?.UpdateRender();
 #if SANGO_DEBUG
                     Sango.Log.Info($"{scenario.GetDateStr()}{target.mBelongForce.Name}势力在{target.Name}由{transport.Leader.Name}率领运输队出城 向{city.mBelongForce?.Name}的{city.Name}运输物资!");
 #endif
@@ -512,10 +849,9 @@ namespace Sango.Core
             Troop troop = AIMakeTransportTroop(city, target, 100, gold, food, itemStore, scenario);
             if (troop != null)
             {
-                troop = city.EnsureTroop(troop, scenario);
+                troop = CityTroopFactory.EmitTroop(city, troop, scenario);
                 troop.missionParams1 = 1;
                 city.CurActiveTroop = troop;
-                city.Render?.UpdateRender();
 #if SANGO_DEBUG
                 Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队出城 向{target.mBelongForce?.Name}的{target.Name}运输物资!");
 #endif
@@ -523,6 +859,25 @@ namespace Sango.Core
             return true;
         }
 
+        /// <summary>
+        /// 检查两城之间的直线通路是否畅通（途经的敌方建筑会阻断运输）。
+        /// </summary>
+        /// <param name="city">出发城市</param>
+        /// <param name="target">目标城市</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>通路是否畅通</returns>
+        static bool IsPathClear(City city, City target, Scenario scenario)
+        {
+            tempCellList.Clear();
+            scenario.Map.GetDirectPath(city.CenterCell, target.CenterCell, tempCellList);
+            for (int i = 0; i < tempCellList.Count; ++i)
+            {
+                Cell road = tempCellList[i];
+                if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(city))
+                    return false;
+            }
+            return true;
+        }
 
         public static bool AIBuilding(City city, Scenario scenario)
         {
@@ -542,10 +897,18 @@ namespace Sango.Core
             if (city.freePersons.Count > 6)
                 count = count + (city.freePersons.Count - 3) / 3;
 
+            // 【优化】原先忽略子调用返回值，即使一次建设都没发生也会继续循环。
+            // 现按实际结果提前结束，避免无效调用。
             for (int i = 0; i < count; i++)
-                AIBuildIntriore(city, scenario);
+            {
+                if (!AIBuildIntriore(city, scenario))
+                    break;
+            }
             for (int i = 0; i < count; i++)
-                AIBuildingLevelUp(city, scenario);
+            {
+                if (!AIBuildingLevelUp(city, scenario))
+                    break;
+            }
 
             AIBuildMilitaryBuilding(city, scenario);
             return true;
@@ -682,8 +1045,7 @@ namespace Sango.Core
             troop.missionTargetCell = dest;
             if (builders.Length > 1) troop.Member1 = builders[1];
             if (builders.Length > 2) troop.Member1 = builders[2];
-            city.Render?.UpdateRender();
-            troop = city.EnsureTroop(troop, scenario);
+            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
             city.CurActiveTroop = troop;
             troop.SetMission(MissionType.TroopBuildBuilding, buildingType.Id);
             return true;
@@ -857,7 +1219,7 @@ namespace Sango.Core
             if (city.freePersons.Count < 1) // 至少需要1个武将进行建设
                 return false;
 
-            if (city.gold < 500) // 至少需要500金
+            if (city.gold < AIConfig.Instance.buildMinGold) // 建设所需的最低金钱
                 return false;
 
             // 根据城市类型选择建筑模板
@@ -884,7 +1246,7 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIBuildingTemplate(int templateId, City city, Scenario scenario)
         {
-            if (city.gold < 500)
+            if (city.gold < AIConfig.Instance.buildMinGold)
                 return false;
 
             if (city.freePersons.Count < 1)
@@ -968,6 +1330,8 @@ namespace Sango.Core
                     int buildAbility = GameUtility.Method_PersonBuildAbility(people);
                     int turnCount = buildingType.durabilityLimit % buildAbility == 0 ? 0 : 1;
                     int buildCount = Math.Min(Scenario.Cur.Variables.BuildMaxTurn, buildingType.durabilityLimit / buildAbility + turnCount);
+                    // 【性格】建造效率：按执行武将性格缩短工期
+                    buildCount = city.ApplyPersonalityBuildCounter(buildCount, people);
                     city.JobBuildBuilding(bestPlace, people, buildingType, buildCount);
                     return true; // 成功建设
                 }
@@ -984,7 +1348,7 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIBuildingLevelUp(City city, Scenario scenario)
         {
-            if (city.gold < 500)
+            if (city.gold < AIConfig.Instance.buildMinGold)
                 return false;
 
             if (city.freePersons.Count < 1)
@@ -1010,7 +1374,9 @@ namespace Sango.Core
                         int buildAbility = GameUtility.Method_PersonBuildAbility(people);
                         int turnCount = nextBuildingType.durabilityLimit % buildAbility == 0 ? 0 : 1;
                         int buildCount = Math.Min(Scenario.Cur.Variables.BuildMaxTurn, nextBuildingType.durabilityLimit / buildAbility + turnCount);
-                        if (buildCount <= 6)
+                        // 【性格】建造效率：按执行武将性格缩短工期
+                        buildCount = city.ApplyPersonalityBuildCounter(buildCount, people);
+                        if (buildCount <= AIConfig.Instance.buildUpgradeMaxTurn)
                         {
                             city.JobUpgradeBuilding(building, people, nextBuildingType, buildCount);
                             return true; // 成功升级
@@ -1051,7 +1417,12 @@ namespace Sango.Core
                 // 获取总兵装
                 totalNum += city.itemStore.GetNumber(itemTypeId);
 
-            int expectationTroops = Math.Max(city.food / 2, totalNum * 3 / 2);
+            // 【P2】个性影响:侵略 / 防御型更积极扩军(降低期望门槛),经济 / 外交型更保守
+            ForceAI.AIPersonalityType personality = GetAIPersonality(city);
+            bool militarist = personality == ForceAI.AIPersonalityType.Aggressive
+                           || personality == ForceAI.AIPersonalityType.Defensive;
+            int equipExpectMultiplier = militarist ? 2 : 3;
+            int expectationTroops = Math.Max(city.food / 2, totalNum * equipExpectMultiplier / 2);
             if (city.troops >= expectationTroops)
                 return true;
 
@@ -1079,8 +1450,9 @@ namespace Sango.Core
         /// <returns></returns>
         public static bool AITradeFood(City city, Scenario scenario)
         {
+            AIConfig cfg = AIConfig.Instance;
             if (city.freePersons.Count <= 0) return true;
-            if (city.gold <= 2000) return true;
+            if (city.gold <= cfg.tradeFoodKeepGold) return true;
 
             if (city.mBelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
                 return true;
@@ -1088,17 +1460,17 @@ namespace Sango.Core
             if (city.mBelongCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
                 return true;
 
-            int expectationFood = (city.troops * 2);
+            // 【P2】个性影响:经济型更积极囤粮,其余个性保持默认节奏
+            ForceAI.AIPersonalityType personality = GetAIPersonality(city);
+            int foodExpectMultiplier = personality == ForceAI.AIPersonalityType.Economic ? 3 : 2;
+            int expectationFood = city.troops * foodExpectMultiplier;
             if (city.food > expectationFood)
                 return true;
 
             Person[] people = ForceAI.CounsellorRecommendTrade(city.freePersons);
             if (people == null) return true;
 
-            if (city.JobTradeFood(people, (city.gold - 2000) * 2 / 3))
-            {
-
-            }
+            city.JobTradeFood(people, (city.gold - cfg.tradeFoodKeepGold) * 2 / 3);
             return true;
         }
 
@@ -1124,15 +1496,21 @@ namespace Sango.Core
         /// <returns>是否可以防御</returns>
         public static bool AICanDefense(City city, Scenario scenario)
         {
-            if (city.IsRoadBlocked())
-                return false;
+            // 【修复】原先此处用 city.IsRoadBlocked() 直接否决防守,而该方法会把城池周围的
+            // 己方建筑误判为"道路封锁",导致大城(周边建筑密集)几乎永远不出兵防守。
+            // 现在不再以 IsRoadBlocked 否决,只要城池周边存在敌方部队就允许出城防守。
 
-            City.EnemyInfo enemyInfo;
-            // 兵临城下且敌军存活
-            if (city.IsEnemiesRound(15) && city.CheckEnemiesIfAlive(out enemyInfo))
+            int alertRange = AIConfig.Instance.cityDefenseAlertRange;
+
+            // 1) 复用城市已预计算的敌人信息(零遍历开销)
+            BattleSituation.ThreatSnapshot threat = BattleSituation.EvaluateCityThreat(city);
+            if (threat.HasEnemy && threat.nearestDistance <= alertRange)
                 return true;
 
-            return false;
+            // 2) 预计算信息未覆盖时(如敌军刚抵达、正在攻击本城建筑),实时扫描城池周边兜底
+            BattleSituation.ThreatSnapshot live = BattleSituation.EvaluateThreat(
+                city.CenterCell, AIConfig.Instance.cityDefenseScanRange, city, scenario);
+            return live.HasEnemy;
         }
 
         /// <summary>
@@ -1239,14 +1617,19 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AISecurity(City city, Scenario scenario)
         {
-            if (city.freePersons.Count < 2 || city.gold < 400)
+            AIConfig cfg = AIConfig.Instance;
+            if (city.freePersons.Count < 2 || city.gold < cfg.internalMinGold)
                 return true;
 
             if (city.GetJobCounter((int)CityJobType.Inspection) > 0) return true;
-            //int barracksNum = city.GetIntriorBuildingComplateMaxLevel((int)BuildingKindType.PatrolBureau);
-            //if (barracksNum <= 0) return true;
 
-            if (GameRandom.Chance((100 - city.security) * 4))
+            // 【修复】原先概率为 (100 - security) * 4，治安为 0 时高达 400%，越界且行为异常。
+            // 现做上限钳制，保证概率落在 0~100 之间。
+            int chance = Math.Min(100, (100 - city.security) * 4);
+            if (chance <= 0)
+                return true;
+
+            if (GameRandom.Chance(chance))
             {
                 Person[] people = ForceAI.CounsellorRecommendDevelop(city.freePersons);
                 if (people == null) return true;
@@ -1267,20 +1650,23 @@ namespace Sango.Core
 
             if (city.GetJobCounter((int)CityJobType.TrainTroops) > 0) return true;
 
-            if (city.morale < 50)
+            // 【优化】原先两个分支各自重复调用 CounsellorRecommendTrainTroops + JobTrainTroops，
+            // 现合并为「先算概率，再统一执行」，消除重复代码并做概率上限钳制。
+            AIConfig cfg = AIConfig.Instance;
+            int chance;
+            if (city.morale < cfg.cityMoraleLow)
+                chance = 100;
+            else
+                chance = Math.Min(100, (cfg.trainMoraleBase - city.morale) * 3 / 2);
+
+            if (chance <= 0)
+                return true;
+
+            if (GameRandom.Chance(chance))
             {
                 Person[] people = ForceAI.CounsellorRecommendTrainTroops(city.freePersons);
                 if (people == null) return true;
                 city.JobTrainTroops(people);
-            }
-            else
-            {
-                if (GameRandom.Chance((95 - city.morale) * 3 / 2))
-                {
-                    Person[] people = ForceAI.CounsellorRecommendTrainTroops(city.freePersons);
-                    if (people == null) return true;
-                    city.JobTrainTroops(people);
-                }
             }
             return true;
         }
@@ -1295,7 +1681,7 @@ namespace Sango.Core
         {
             if (city.freePersons.Count == 0) return true;
 
-            if (city.gold < 1000)
+            if (city.gold < AIConfig.Instance.createItemsMinGold)
                 return true;
 
             Building freeBlacksmithShop = city.GetFreeBuilding((int)BuildingKindType.BlacksmithShop);
@@ -1309,7 +1695,7 @@ namespace Sango.Core
                 totalNum += city.itemStore.GetNumber(itemTypeId);
 
             // 达到一定兵装后,如果金钱太少则有概率跳过
-            if (totalNum > city.troops * 2 / 3 && city.gold < 1000 && GameRandom.Chance(30))
+            if (totalNum > city.troops * 2 / 3 && city.gold < AIConfig.Instance.createItemsMinGold && GameRandom.Chance(30))
                 return true;
 
             // 统计适应偏向
@@ -1399,7 +1785,7 @@ namespace Sango.Core
 
             if (city.portList.Count == 0) return true;
 
-            if (city.freePersons.Count < 2 || city.gold < 1500)
+            if (city.freePersons.Count < 2 || city.gold < AIConfig.Instance.createMachineMinGold)
                 return true;
 
             ItemType targetItemType = scenario.GetObject<ItemType>(12);
@@ -1419,7 +1805,7 @@ namespace Sango.Core
 
 
             // 获取总兵装
-            if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(50))
+            if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(20))
                 return true;
 
             Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);
@@ -1445,7 +1831,7 @@ namespace Sango.Core
                     return true;
             }
 
-            if (city.freePersons.Count < 2 || city.gold < 1500)
+            if (city.freePersons.Count < 2 || city.gold < AIConfig.Instance.createMachineMinGold)
                 return true;
 
 
@@ -1478,7 +1864,7 @@ namespace Sango.Core
 
             if (totalNum >= targetItemType.TransformLimit(city.StoreLimit)) return true;
 
-            if (totalNum > (city.troops / 6) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(80) )
+            if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(20) )
                 return true;
 
             Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);
@@ -1553,28 +1939,36 @@ namespace Sango.Core
 
             if (spType == null)
             {
+                // 【修复】原先直接取 freePersons[0]，列表为空时会抛异常；
+                // 兜底兵种也由"随机挑选"改为"挑选与主将适应性最高的兵种"。
                 city.freePersons.Sort((a, b) => b.MilitaryAbility.CompareTo(a.MilitaryAbility));
-                Person person = city.freePersons[0];
-
-                for (int i = 0; i < costEnoughTroopTypes.Count; i++)
+                Person person = city.freePersons.Count > 0 ? city.freePersons[0] : null;
+                if (person != null)
                 {
-                    TroopType troopType = costEnoughTroopTypes[i];
-                    if (Troop.CheckTroopTypeLevel(troopType, person) >= 3)
+                    int bestLevel = -1;
+                    for (int i = 0; i < costEnoughTroopTypes.Count; i++)
                     {
-                        spType = troopType;
-                        break;
+                        TroopType troopType = costEnoughTroopTypes[i];
+                        int level = Troop.CheckTroopTypeLevel(troopType, person);
+                        if (level > bestLevel)
+                        {
+                            bestLevel = level;
+                            spType = troopType;
+                        }
                     }
                 }
                 if (spType == null)
-                    spType = costEnoughTroopTypes[GameRandom.Range(0, costEnoughTroopTypes.Count)];
+                    spType = costEnoughTroopTypes[0];
             }
 
+            // 【修复】推荐结果为空时直接返回，避免后续 people[0] 抛 NullReferenceException
             Person[] people = ForceAI.CounsellorRecommendMakeTroop(city.freePersons, spType, maxPersonCount);
+            if (people == null || people.Length == 0 || people[0] == null)
+                return null;
 
             Troop troop = scenario.CreateTroop();
             troop.energy = city.energy;
             troop.morale = city.morale;
-            //troop.MaxMorale = city.MaxMorale;
             troop.Leader = people[0];
             troop.TroopType = spType;
 
@@ -1614,10 +2008,356 @@ namespace Sango.Core
 
             troop.troops = maxTroopNum;
             troop.food = food;
-            city.Render?.UpdateRender();
+            // 渲染刷新统一由 CityTroopFactory.EmitTroop 负责（此时部队尚未登记进场景）
             troop.SetMission(city.TroopMissionType, city.TroopMissionTargetId);
             return troop;
         }
+        /// <summary>
+        /// 【新增】AI 组建战场补给队。
+        ///
+        /// 触发条件：
+        /// 1. 本城资源(兵力 / 粮草)充足；
+        /// 2. 附近存在需要补给的己方战部队(缺粮或兵力不足)；
+        /// 3. 本城派出的补给队数量未超过上限。
+        ///
+        /// 组建后的补给队携带粮草 / 兵力 / 兵装,执行 TroopSupplyTroop 任务：
+        /// 自动寻找需要补给的友军,保持在友军后方并规避威胁,靠近后完成补给。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否完成</returns>
+        public static bool AIMakeSupplyTroop(City city, Scenario scenario)
+        {
+            if (city.mBelongForce == null)
+                return true;
+
+            // 军团委任:禁止运输时不派补给队
+            if (city.mBelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
+                return true;
+
+            AIConfig aiConfig = AIConfig.Instance;
+
+            // 资源门槛
+            if (city.freePersons.Count < 1)
+                return true;
+            if (city.troops < aiConfig.supplyMinCityTroops)
+                return true;
+            if (city.food < aiConfig.supplyMinCityFood)
+                return true;
+
+            // 本城已派出的补给队数量上限
+            int supplyCount = 0;
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                Troop t = scenario.troopsSet[i];
+                if (t != null && t.IsAlive && t.mBelongCity == city
+                    && t.missionType == (int)MissionType.TroopSupplyTroop)
+                {
+                    supplyCount++;
+                }
+            }
+            if (supplyCount >= aiConfig.supplyMaxPerCity)
+                return true;
+
+            // 【配比门槛】附近需要有足够多的待补给友军,才值得派出一支"战场级"补给队,
+            // 避免出现"一支部队配一个补给队"的浪费。
+            List<Troop> needyTroops = new List<Troop>();
+            CollectNeedyTroops(needyTroops, city, scenario);
+            if (needyTroops.Count < aiConfig.supplyMinNeedyTroops)
+                return true;
+            Troop needy = needyTroops[0];
+
+            // 【游戏规则】部队不允许停留在城市格上。若本城周边战场我方已处于大劣，
+            // 补给队组建后也只能立刻解散或白跑一趟，因此直接不组建。
+            if (TroopSupplyTroop.IsForceLosingAt(city.CenterCell, city.mBelongForce, scenario))
+                return true;
+
+            // 运输队兵种
+            TroopType troopType = TroopType.GetTransportType(scenario, city.mBelongForce);
+            if (troopType == null)
+                return true;
+
+            Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);
+            if (persons == null || persons.Length == 0 || persons[0] == null)
+                return true;
+            Person leader = persons[0];
+            city.freePersons.Remove(leader);
+
+            // 【容量】携带兵力:最多取城池一半,且不超过配置上限(战场级)
+            int carryTroops = System.Math.Min(city.troops / 2, aiConfig.supplyTroopAmount);
+            if (carryTroops <= 0)
+                carryTroops = 1;
+
+            // ---------- 出征条件：兵装必须能装备随队兵力 ----------
+            // 换算与部队组建一致（1 件兵装装备 1 名士兵）：
+            //   · 通用兵装 = 枪 + 戟 + 弩 + 战马（船与器械不能装备普通部队，故不计入）
+            //   · 走水路时船只还需单独满足同等门槛
+            bool needBoat = needy.IsInWater || city.IsPort();
+            int affordable = GetAffordableTroops(city, needBoat);
+            if (affordable < aiConfig.supplyMinCarryTroops)
+                return true;                       // 兵装不足以保障最低出征规模，取消出征
+            if (carryTroops > affordable)
+                carryTroops = affordable;
+
+            // ---------- 兵装 : 兵力 = 1 : 1 ----------
+            // 带多少兵就配多少兵装，避免出现"13000 兵只带 3000 兵装"这类失衡出征。
+            // 只抽取通用兵装（枪 / 戟 / 弩 / 战马）：船只必须留给水军组建、
+            // 器械属攻城装备，都不能被当作补给物资搬走。
+            int landItems = GetAffordableTroops(city, false);
+            if (landItems <= 0)
+                return true;
+            if (carryTroops > landItems)
+                carryTroops = landItems;
+
+            // 按"所需兵装 / 现有兵装"折算抽取比例（至少 1%）
+            int part = Math.Min(100, Math.Max(1, carryTroops * 100 / landItems));
+            ItemStore carryItems = SplitSupplyItems(city, part);
+            if (carryItems == null || carryItems.TotalNumber < carryTroops)
+                carryTroops = carryItems == null ? 0 : carryItems.TotalNumber;
+
+            if (carryTroops < aiConfig.supplyMinCarryTroops)
+            {
+                // 兵装因逐类取整被削得过多 → 取消出征，并把已抽出的兵装原样退回城市
+                ReturnItems(city, carryItems);
+                return true;
+            }
+
+            // ---------- 粮草：按「兵力 × 每兵粮耗 × 可支撑回合数」估算 ----------
+            int carryFood = (int)(carryTroops * scenario.Variables.baseFoodCostInTroop * aiConfig.supplyFoodTurnCount);
+            if (carryFood > aiConfig.supplyFoodAmount)
+                carryFood = aiConfig.supplyFoodAmount;
+            if (carryFood > city.food * 2 / 3)
+                carryFood = city.food * 2 / 3;
+            if (carryFood < 0)
+                carryFood = 0;
+
+            // 【一致性】随队兵力 / 粮草不得低于补给队的"返回线"（supplyReturnTroops / supplyReturnFood），
+            // 否则补给队刚组建就会在 TroopSupplyTroop.IsMissionComplete 中判定为资源不足，
+            // 立刻返城 —— 而它就在本城内，返城等于进城解散，表现为"刚出城就消失"。
+            if (carryTroops < aiConfig.supplyReturnTroops || carryFood < aiConfig.supplyReturnFood)
+            {
+                ReturnItems(city, carryItems);
+                return true;
+            }
+
+            Troop troop = scenario.CreateTroop();
+            troop.energy = city.energy;
+            troop.morale = city.morale;
+            troop.IsAlive = true;
+            troop.Leader = leader;
+            troop.TroopType = troopType;
+            troop.troops = carryTroops;
+            troop.food = carryFood;
+            troop.Member1 = null;
+            troop.Member2 = null;
+            troop.itemStore = carryItems;
+
+            city.troops -= carryTroops;
+            city.food -= carryFood;
+
+            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+            troop.SetMission(MissionType.TroopSupplyTroop, needy.Id);
+            troop.NeedPrepareMission();
+            city.CurActiveTroop = troop;
+#if SANGO_DEBUG
+            Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领补给队出城 支援{needy.Name}!");
+#endif
+            return true;
+        }
+
+        /// <summary>
+        /// 收集本城附近需要补给的己方战部队(缺粮或兵力不足)。
+        /// 用于判断是否值得派出一支战场级补给队(配比门槛)。
+        /// </summary>
+        /// <param name="result">结果列表(会先清空再填充)</param>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        public static void CollectNeedyTroops(List<Troop> result, City city, Scenario scenario)
+        {
+            result.Clear();
+            // 【一致性】与 TroopSupplyTroop.FindSupplyTarget 使用同一范围，
+            // 避免出现"出征时判定有目标、出征后却找不到目标"而白跑一趟。
+            int range = AIConfig.Instance.supplySearchRange;
+            int foodFactor = AIConfig.Instance.supplyFoodThresholdFactor;
+
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                Troop troop = scenario.troopsSet[i];
+                if (troop == null || !troop.IsAlive)
+                    continue;
+                // 只补给同势力的部队
+                if (troop.mBelongForce != city.mBelongForce)
+                    continue;
+                if (troop.IsTransport)
+                    continue;
+                if (troop.missionType == (int)MissionType.TroopSupplyTroop)
+                    continue;
+                // 不补给无任务的城内驻守部队
+                if (troop.missionType <= 0)
+                    continue;
+
+                if (scenario.Map.Distance(city.CenterCell, troop.cell) > range)
+                    continue;
+
+                // 缺粮 或 兵力缺口明显
+                // 缺粮 / 兵力缺口明显 / 兵装不足，任一成立即视为需要补给
+                bool lowFood = troop.food <= 0 || troop.food < troop.troops * foodFactor;
+                bool lowTroops = troop.MaxTroops > 0 && troop.troops < troop.MaxTroops / 2;
+                if (lowFood || lowTroops || IsItemShortage(troop))
+                {
+                    result.Add(troop);
+                }
+            }
+        }
+
+        /// <summary>通用陆军兵装种类（枪 / 戟 / 弩）</summary>
+        static readonly int[] supplyWeaponKinds = new int[]
+        {
+            (int)ItemStoreKindType.Spear,
+            (int)ItemStoreKindType.Halberd,
+            (int)ItemStoreKindType.Crossbow,
+        };
+
+        /// <summary>
+        /// 计算城市当前通用兵装可装备的兵力上限。
+        ///
+        /// 【换算规则】与 <see cref="ItemStore.CheckCostMin"/> / <see cref="ItemStore.CheckItemEnough"/>
+        /// 完全一致：兵种 costItems 形如 [兵装种类, 每千人消耗]，例如枪兵 [2, 1000] 表示
+        /// 每 1000 兵消耗 1000 件枪 —— 即 **1 件兵装装备 1 名士兵**。
+        /// 因此可装备兵力 = 兵装数量。
+        ///
+        /// 通用兵装 = 枪 + 戟 + 弩 + 战马；船与器械不计入（不能用于装备普通部队）。
+        /// 若 <paramref name="requireBoat"/> 为真，则同时受船只数量约束（同样按 1:1）。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="requireBoat">是否要求满足船只需求（走水路时）</param>
+        /// <returns>可装备的兵力上限</returns>
+        public static int GetAffordableTroops(City city, bool requireBoat)
+        {
+            if (city == null || city.itemStore == null)
+                return 0;
+
+            int landItems = city.itemStore.GetNumber(supplyWeaponKinds)
+                          + city.itemStore.GetNumber((int)ItemStoreKindType.Horse);
+            int limit = landItems;
+
+            // 【船的需求】走水路时，船只必须单独满足，不能用陆地兵装替代
+            if (requireBoat)
+            {
+                int boat = city.itemStore.GetNumber((int)ItemStoreKindType.Boat);
+                limit = Math.Min(limit, boat);
+            }
+
+            return Math.Max(0, limit);
+        }
+
+        /// <summary>
+        /// 【补给队出征条件】判断城市总兵装是否足以装备指定兵力。
+        ///
+        /// 换算规则与部队组建一致（1 件兵装装备 1 名士兵）：
+        ///   · 通用兵装（枪 / 戟 / 弩 / 战马）必须满足；
+        ///   · <paramref name="requireBoat"/> 为真时，船只必须**单独**满足同一门槛
+        ///     （船属水军装备，不可被陆地兵装替代）。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="troops">待装备的兵力</param>
+        /// <param name="requireBoat">是否要求满足船只需求（走水路时）</param>
+        /// <returns>兵装是否足够</returns>
+        public static bool HasItemsForTroops(City city, int troops, bool requireBoat)
+        {
+            if (city == null || troops <= 0)
+                return true;
+            return GetAffordableTroops(city, requireBoat) >= troops;
+        }
+
+        /// <summary>
+        /// 【前线兵装比】判断前线部队的兵装是否明显不足：
+        /// 部队携带的通用兵装（枪 / 戟 / 弩 / 战马 / 船）覆盖率低于配置阈值（默认 50%）。
+        /// </summary>
+        /// <param name="troop">前线部队</param>
+        /// <returns>兵装是否不足</returns>
+        public static bool IsItemShortage(Troop troop)
+        {
+            if (troop == null || troop.troops <= 0)
+                return false;
+
+            AIConfig cfg = AIConfig.Instance;
+            if (cfg.supplyNeedyItemPercent <= 0)
+                return false;
+
+            // 换算与部队组建一致（1 件兵装装备 1 名士兵）
+            int need = troop.troops;
+            if (need <= 0)
+                return false;
+
+            int have = 0;
+            if (troop.itemStore != null)
+            {
+                have += troop.itemStore.GetNumber(supplyWeaponKinds);
+                have += troop.itemStore.GetNumber((int)ItemStoreKindType.Horse);
+                have += troop.itemStore.GetNumber((int)ItemStoreKindType.Boat);
+            }
+
+            // 兵装覆盖率低于阈值 → 视为不足
+            return have * 100 < need * cfg.supplyNeedyItemPercent;
+        }
+
+        /// <summary>
+        /// 取消出征时把已抽出的兵装原样退回城市，避免城市凭空损失物资。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="items">已抽出的兵装</param>
+        static void ReturnItems(City city, ItemStore items)
+        {
+            if (city == null || items == null || items.TotalNumber <= 0)
+                return;
+            city.itemStore.Add(items);
+        }
+
+        /// <summary>
+        /// 【兵装携带】按比例抽取可用于补给前线的兵装。
+        ///
+        /// 只抽取通用兵装（枪 / 戟 / 弩 / 战马）：
+        ///   · **不含船只** —— 船需保留给水军组建，不能被当作补给物资搬走；
+        ///   · **不含器械**（冲车 / 投石）—— 属攻城装备，不属于前线补给物资。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="part">抽取比例（1~100）</param>
+        /// <returns>抽出的兵装</returns>
+        public static ItemStore SplitSupplyItems(City city, int part)
+        {
+            ItemStore result = new ItemStore();
+            if (city == null || city.itemStore == null || part <= 0)
+                return result;
+            if (part > 100)
+                part = 100;
+
+            for (int i = 0; i < supplyWeaponKinds.Length; i++)
+                MovePartItems(city, result, supplyWeaponKinds[i], part);
+
+            MovePartItems(city, result, (int)ItemStoreKindType.Horse, part);
+            return result;
+        }
+
+        /// <summary>按比例把城市某一类兵装移入目标容器。</summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="dest">目标容器</param>
+        /// <param name="kind">兵装种类</param>
+        /// <param name="part">比例（1~100）</param>
+        static void MovePartItems(City city, ItemStore dest, int kind, int part)
+        {
+            int have = city.itemStore.GetNumber(kind);
+            if (have <= 0)
+                return;
+
+            int give = have * part / 100;
+            if (give <= 0)
+                return;
+
+            city.itemStore.Remove(kind, give);
+            dest.Add(kind, give);
+        }
+
         /// <summary>
         /// AI创建运输部队逻辑
         /// </summary>
@@ -1641,7 +2381,10 @@ namespace Sango.Core
             TroopType troopType = TroopType.GetTransportType(scenario, city.mBelongForce);
             if (troopType == null) return null;
 
+            // 【修复】原先直接取 persons[0]，推荐结果为空时会抛 NullReferenceException
             Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);
+            if (persons == null || persons.Length == 0 || persons[0] == null)
+                return null;
             Person leader = persons[0];
             city.freePersons.Remove(leader);
 

@@ -194,14 +194,38 @@ namespace Sango.Core
 
         }
 
+        /// <summary>
+        /// 工作制下允许的城池 AI 命令集合。
+        /// 工作制不产出治安 / 训练 / 募兵 / 兵装等独立命令(由建筑工作承担)。
+        /// </summary>
+        static readonly HashSet<string> workModeCommandIds = new HashSet<string>
+        {
+            "AIRewardPerson", "AIAttack", "AIReinforce", "AITradeFood", "AIIntrior",
+            "AITransfrom", "AICreateMachine", "AICreateBoat", "AIMakeSupplyTroop", "AIResearch",
+        };
+
         void OnCityAIPrepare(City city, Scenario scenario)
         {
+            // 港关由 Port / Gate 自身处理,不走都市内政
+            if (!city.IsCity())
+                return;
+
             CityAI.CityBuildingTemplate = CityBuildingTemplate;
             List<System.Func<City, Scenario, bool>> AICommandList = city.AICommandList;
+
+            // 【动态排序】按城池当前态势为命令评分并排序
+            if (AIConfig.Instance.useDynamicCityOrder)
+            {
+                AICommandList.AddRange(CityAIOrderPlanner.Plan(city, scenario, workModeCommandIds));
+                return;
+            }
+
+            // ===== 以下为回退用的硬编码顺序(useDynamicCityOrder = false 时生效) =====
             if (city.IsBorderCity)
             {
                 AICommandList.Add(CityAI.AIRewardPerson);
                 AICommandList.Add(CityAI.AIAttack);
+                AICommandList.Add(CityAI.AIReinforce);
                 AICommandList.Add(CityAI.AITradeFood);
 
                 AICommandList.Add(CityAI.AIIntrior);
@@ -215,8 +239,13 @@ namespace Sango.Core
                 AICommandList.Add(CityAI.AITransfrom);
                 AICommandList.Add(CityAI.AIIntrior);
                 AICommandList.Add(CityAI.AIAttack);
+                AICommandList.Add(CityAI.AIReinforce);
 
             }
+
+            AICommandList.Add(CityAI.AICreateMachine);
+            AICommandList.Add(CityAI.AICreateBoat);
+            AICommandList.Add(CityAI.AIMakeSupplyTroop);
         }
 
         void OnInitBuildingMiniPanel(Building building, List<ObjectSortTitle> objectSortTitles)

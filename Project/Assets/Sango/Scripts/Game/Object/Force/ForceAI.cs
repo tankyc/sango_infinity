@@ -38,6 +38,21 @@ namespace Sango.Core
                 // 找出最高得分的个性类型
                 int maxScore = System.Math.Max(System.Math.Max(warScore, defenseScore), System.Math.Max(diplomacyScore, economicScore));
 
+                // 【修复】无任何倾向(全为 0)时判定为平衡型。
+                // 原逻辑在最高分并列时按 war→defense→diplomacy→economic 顺序短路,
+                // 导致"无明显倾向"的君主一律被判为侵略型。
+                if (maxScore <= 0)
+                    return AIPersonalityType.Balanced;
+
+                // 最高分并列时同样判定为平衡型
+                int maxCount = 0;
+                if (warScore == maxScore) maxCount++;
+                if (defenseScore == maxScore) maxCount++;
+                if (diplomacyScore == maxScore) maxCount++;
+                if (economicScore == maxScore) maxCount++;
+                if (maxCount > 1)
+                    return AIPersonalityType.Balanced;
+
                 if (maxScore == warScore)
                     return AIPersonalityType.Aggressive;
                 else if (maxScore == defenseScore)
@@ -574,9 +589,9 @@ namespace Sango.Core
             // 经济型AI在对方经济实力过强时可能撕毁条约
             if (personality == AIPersonalityType.Economic)
             {
-                int otherForcePower = CalculateForcePower(otherForce);
-                int selfPower = CalculateForcePower(force);
-                if (otherForcePower > selfPower * 1.5f)
+                // 【统一态势】使用统一模型计算敌我实力比(自身不足对方 2/3 时倾向于撕约)
+                float powerRatio = BattleSituation.GetPowerRatio(force, otherForce);
+                if (powerRatio < 1f / 1.5f)
                 {
                     if (GameRandom.Chance(25))
                     {
@@ -595,24 +610,8 @@ namespace Sango.Core
         /// <returns>势力实力值</returns>
         private static int CalculateForcePower(Force force)
         {
-            int power = 0;
-
-            // 城市数量
-            int cityCount = 0;
-            force.ForEachCity(city => cityCount++);
-            power += cityCount * 1000;
-
-            // 兵力
-            int totalTroops = 0;
-            force.ForEachCity(city => totalTroops += city.troops);
-            power += totalTroops;
-
-            // 金钱
-            int totalGold = 0;
-            force.ForEachCity(city => totalGold += city.gold);
-            power += totalGold / 10;
-
-            return power;
+            // 【统一态势】改用统一的战场态势模型计算势力实力,避免各层重复实现
+            return BattleSituation.EvaluateForceSnapshot(force).fightPower;
         }
 
         /// <summary>
@@ -737,12 +736,32 @@ namespace Sango.Core
 
         private static void ProcessCaptives(Force force, Scenario scenario)
         {
+            // 【注意】循环内统一采用"移除后 i--"的写法：因为删除当前元素后，
+            // 后续元素会前移填补该下标，i-- 再配合循环的 i++ 即可回到同一位置继续检查。
+            // 该写法成立的前提是**列表确实缩短了** —— 因此凡是要 i-- 的分支，
+            // 都必须先把元素从列表中真正移除，否则会陷入死循环。
+
             force.ForEachCity(city =>
             {
                 for (int i = 0; i < city.captiveList.Count; i++)
                 {
                     Person captive = city.captiveList[i];
-                    if (captive == null) continue;
+
+                    // 空槽：SangoObjectList 不支持按下标删除，这里直接跳过
+                    //（i++ 会继续前进，不会死循环；列表正常不应含 null）
+                    if (captive == null)
+                        continue;
+
+                    // 【修复】状态与列表不一致（例如已被别处招降 / 释放但引用残留）：
+                    // 主动摘除残留引用，而不是继续对它做"招降 / 释放"处理，
+                    // 否则释放分支会对非俘虏调用 Escape，打出"不是囚犯,无法逃跑!"错误。
+                    if (!captive.IsPrisoner)
+                    {
+                        captive.mBelongForce?.BeCaptiveList.Remove(captive);
+                        city.captiveList.Remove(captive);
+                        i--;
+                        continue;
+                    }
 
                     // 检查是否可以招降
                     if (ProcessCaptives(force, captive, scenario))
@@ -753,11 +772,29 @@ namespace Sango.Core
                 }
             });
 
-            force.ForEachTroop(city =>
+            force.ForEachTroop(troop =>
             {
-                for (int i = 0; i < city.captiveList.Count; i++)
+                for (int i = 0; i < troop.captiveList.Count; i++)
                 {
-                    Person captive = city.captiveList[i];
+                    Person captive = troop.captiveList[i];
+
+                    // 空槽：同上，直接跳过
+                    if (captive == null)
+                        continue;
+
+                    // 【修复】同上：部队俘虏列表同样需要状态守卫与残留清理。
+                    // 这是本次报错的直接触发点 —— 俘虏在城市轮被招降后仍留在
+                    // troop.captiveList 中，部队轮再次处理时会对非俘虏调用 Escape。
+                    if (!captive.IsPrisoner)
+                    {
+                        captive.mBelongForce?.BeCaptiveList.Remove(captive);
+                        if (captive.mTroop == troop)
+                            captive.mTroop = null;
+                        troop.captiveList.Remove(captive);
+                        i--;
+                        continue;
+                    }
+
                     // 检查是否可以招降
                     if (ProcessCaptives(force, captive, scenario))
                     {
@@ -789,7 +826,13 @@ namespace Sango.Core
 
         private static bool TryRecruitCaptive(Force force, Person captive, Scenario scenario)
         {
-            int probability = GameFormula.Instance.RecruitPersonProbability(force.mGovernor, captive, force.Id);
+            // 【修复】原实现把 force.Id（势力 ID）当作 type 传入，语义完全错乱：
+            // type 应为 PersonRecruitType（0 普通登庸 / 1 有势力俘虏 / 2 无势力俘虏），
+            // 传入势力 ID 会让招降概率落入错误的公式分支。这里按俘虏原势力是否尚存选取正确类型。
+            int recruitType = captive.mBelongForce != null
+                ? (int)PersonRecruitType.OnCityFall
+                : (int)PersonRecruitType.OnForceFall;
+            int probability = GameFormula.Instance.RecruitPersonProbability(force.mGovernor, captive, recruitType);
 
             // 根据势力领袖的性格调整招降概率
             if (force.mGovernor != null && force.mGovernor.mPersonality != null)
@@ -801,8 +844,21 @@ namespace Sango.Core
             {
                 // 先记录原势力名:招降后 captive 的归属会被改写,日志会失真
                 string lastForceName = captive.mBelongForce?.Name;
+
+                // 【修复】俘虏可能挂在"部队"或"城池"的列表上，必须按实际归属清理：
+                // 原实现无条件调用 mCurrentCity.RemoveCaptive，若俘虏来自部队俘获
+                // （挂在 troop.captiveList，mCurrentCity 列表里并没有它），
+                // 则会出现两个连锁问题：
+                //   1) 城市列表移除失败，打印"不能移除不存在的!!!"；
+                //   2) troop.captiveList 残留该武将，ProcessCaptives 的部队循环会再次处理它，
+                //      此时 state 已复位为一般武将，释放分支调用 Escape 会报"不是囚犯,无法逃跑!"。
+                if (captive.mTroop != null)
+                    captive.mTroop.RemoveCaptive(captive);
+                else
+                    captive.mCurrentCity?.RemoveCaptive(captive);
+
                 captive.mBelongForce?.BeCaptiveList.Remove(captive);
-                captive.mCurrentCity?.RemoveCaptive(captive);
+
                 // 招降成功必须把状态从俘虏复位为一般武将,
                 // 否则会出现"已脱离俘虏名单、已加入正常城市,却仍是俘虏状态"的不一致,
                 // 进而导致该武将永远无法被派活(IsFree 恒为 false)
@@ -850,8 +906,13 @@ namespace Sango.Core
 
         private static void ReleaseCaptive(Force force, Person captive, Scenario scenario)
         {
+            // 【修复】仅对真正的俘虏执行释放：上游可能已将其招降或释放（state 复位为一般武将），
+            // 此时再调用 Escape 会触发"不是囚犯,无法逃跑!"的错误日志。
+            if (captive == null || !captive.IsPrisoner)
+                return;
+
 #if SANGO_DEBUG
-            Sango.Log.Info($"{force.Name}在{captive.mCurrentCity.Name}释放了{captive.mBelongForce?.Name}的{captive.Name}！");
+            Sango.Log.Info($"{force.Name}在{captive.mCurrentCity?.Name}释放了{captive.mBelongForce?.Name}的{captive.Name}！");
 #endif
             // 直接调用Person.Escape方法释放俘虏
             captive.Escape(EscapeType.Released, force);
@@ -2066,10 +2127,15 @@ namespace Sango.Core
                         }
                     }
 
-                    // AI随机给一个官职
+                    // 【优化】选择可授予中等级最高的官职,避免随机任命浪费高能力武将
                     if (match_officials.Count > 0)
                     {
-                        Official dst = match_officials[GameRandom.Range(match_officials.Count)];
+                        Official dst = match_officials[0];
+                        for (int i = 1; i < match_officials.Count; i++)
+                        {
+                            if (match_officials[i].level > dst.level)
+                                dst = match_officials[i];
+                        }
                         person.UpgradeOfficial(dst);
                     }
                 }

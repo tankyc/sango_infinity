@@ -1,56 +1,277 @@
 {
+  // =========================================================================
+  //  武将性格数据
+  //  倍率类字段（*Scale）默认 100 = 不修正；加值类字段（*Add）默认 0 = 不修正
+  //  未填写的字段自动沿用默认值，行为等同"该维度不受性格影响"
+  //  新增性格 = 新增一条数据，无需改动任何代码
+  // =========================================================================
   "Personalities": {
     "1": {
       "Id": 1,
       "Name": "胆小",
       "kind": 1,
+      "desc": "怯懦谨慎，遇危则退",
+
+      // ---------- 计略抗性（作为目标） ----------
       "falseReportSuccessAdd": 3,
       "disturbSuccessAdd": -2,
       "calmdownSuccessAdd": -5,
       "ambushSuccessAdd": 3,
-      "infightingSuccessAdd": -2,
       "sorcerySuccessAdd": -2,
+      "infightingSuccessAdd": -2,
+
+      // ---------- 计略专精（作为施法者） ----------
       "falseReportCriticalAdd": 10,
-      "disturbCriticalAdd": -5
+      "disturbCriticalAdd": -5,
+      "calmdownCriticalAdd": 0,
+      "ambushCriticalAdd": 5,
+      "sorceryCriticalAdd": -5,
+      "infightingCriticalAdd": 0,
+
+      // ---------- 势力倾向 ----------
+      "warTendencyAdd": -10,
+      "defenseTendencyAdd": 15,
+      "diplomacyTendencyAdd": -5,
+      "economicTendencyAdd": 0,
+      "technologyTendencyAdd": 0,
+      "recruitCaptiveTendencyAdd": -5,
+      "releaseCaptiveTendencyAdd": 10,
+      "ransomCaptiveTendencyAdd": 5,
+
+      // ---------- 部队作战 ----------
+      "troopAttackScale": 80,
+      "troopCounterScale": 150,
+      "troopRetreatAdd": 20,
+      "troopAggression": -40,
+      "troopBestNAdd": 3,
+      "troopSkillScale": 90,
+      "troopRoleOverrideAdd": 0,
+
+      // ---------- 单挑 ----------
+      "duelAcceptAdd": -20,
+      "duelRetreatAdd": 15,
+
+      // ---------- 内政专有 ----------
+      "domesticFarmingScale": 100,
+      "domesticDevelopScale": 100,
+      "domesticSecurityScale": 110,
+      "domesticTrainScale": 95,
+      "domesticSearchScale": 95,
+      "domesticRecruitTroopScale": 95,
+      "domesticRecruitPersonScale": 95,
+      "domesticCreateItemScale": 100,
+      "domesticCreateMachineScale": 100,
+      "domesticCreateBoatScale": 100,
+      "domesticBuildScale": 100,
+      "domesticTradeScale": 95,
+      "domesticRepairScale": 105,
+
+      // ---------- 外交与人事 ----------
+      "giftEffectAdd": 0,
+      "negotiationAdd": -10,
+      "captiveDealAdd": 5,
+      "loyaltyDriftAdd": 10,
+
+      // ---------- 成长与忠诚 ----------
+      "growthScale": 100,
+      "learnSpeedScale": 100,
+      "loyaltyKeepAdd": 15,
+      "revoltRiskAdd": -10
     },
+
     "2": {
       "Id": 2,
       "Name": "冷静",
       "kind": 2,
+      "desc": "沉稳持重，权衡而断",
+
       "falseReportSuccessAdd": 1,
       "disturbSuccessAdd": 0,
       "calmdownSuccessAdd": 5,
       "ambushSuccessAdd": -2,
-      "infightingSuccessAdd": 0,
       "sorcerySuccessAdd": 0,
+      "infightingSuccessAdd": 0,
+
       "falseReportCriticalAdd": 5,
-      "disturbCriticalAdd": 0
+      "disturbCriticalAdd": 0,
+      "calmdownCriticalAdd": 5,
+      "ambushCriticalAdd": 0,
+      "sorceryCriticalAdd": 5,
+      "infightingCriticalAdd": 3,
+
+      "warTendencyAdd": 0,
+      "defenseTendencyAdd": 5,
+      "diplomacyTendencyAdd": 5,
+      "economicTendencyAdd": 5,
+      "technologyTendencyAdd": 5,
+      "recruitCaptiveTendencyAdd": 0,
+      "releaseCaptiveTendencyAdd": 5,
+      "ransomCaptiveTendencyAdd": 0,
+
+      "troopAttackScale": 100,
+      "troopCounterScale": 100,
+      "troopRetreatAdd": 0,
+      "troopAggression": 0,
+      "troopBestNAdd": 0,
+      "troopSkillScale": 110,
+      "troopRoleOverrideAdd": 0,
+
+      "duelAcceptAdd": 0,
+      "duelRetreatAdd": 0,
+
+      "domesticFarmingScale": 105,
+      "domesticDevelopScale": 105,
+      "domesticSecurityScale": 105,
+      "domesticTrainScale": 100,
+      "domesticSearchScale": 110,
+      "domesticRecruitTroopScale": 100,
+      "domesticRecruitPersonScale": 110,
+      "domesticCreateItemScale": 110,
+      "domesticCreateMachineScale": 105,
+      "domesticCreateBoatScale": 105,
+      "domesticBuildScale": 105,
+      "domesticTradeScale": 110,
+      "domesticRepairScale": 105,
+
+      "giftEffectAdd": 10,
+      "negotiationAdd": 10,
+      "captiveDealAdd": 0,
+      "loyaltyDriftAdd": 5,
+
+      "growthScale": 110,
+      "learnSpeedScale": 110,
+      "loyaltyKeepAdd": 10,
+      "revoltRiskAdd": -5
     },
+
     "3": {
       "Id": 3,
       "Name": "刚胆",
       "kind": 3,
+      "desc": "果毅刚直，临阵不乱",
+
       "falseReportSuccessAdd": 0,
       "disturbSuccessAdd": 1,
       "calmdownSuccessAdd": 0,
       "ambushSuccessAdd": 0,
-      "infightingSuccessAdd": 1,
       "sorcerySuccessAdd": 1,
+      "infightingSuccessAdd": 1,
+
       "falseReportCriticalAdd": 0,
-      "disturbCriticalAdd": 5
+      "disturbCriticalAdd": 5,
+      "calmdownCriticalAdd": 3,
+      "ambushCriticalAdd": 3,
+      "sorceryCriticalAdd": 0,
+      "infightingCriticalAdd": 5,
+
+      "warTendencyAdd": 5,
+      "defenseTendencyAdd": 0,
+      "diplomacyTendencyAdd": 0,
+      "economicTendencyAdd": 0,
+      "technologyTendencyAdd": 0,
+      "recruitCaptiveTendencyAdd": 0,
+      "releaseCaptiveTendencyAdd": 0,
+      "ransomCaptiveTendencyAdd": 0,
+
+      "troopAttackScale": 110,
+      "troopCounterScale": 90,
+      "troopRetreatAdd": -5,
+      "troopAggression": 30,
+      "troopBestNAdd": -2,
+      "troopSkillScale": 100,
+      "troopRoleOverrideAdd": 0,
+
+      "duelAcceptAdd": 10,
+      "duelRetreatAdd": -5,
+
+      "domesticFarmingScale": 100,
+      "domesticDevelopScale": 100,
+      "domesticSecurityScale": 100,
+      "domesticTrainScale": 105,
+      "domesticSearchScale": 100,
+      "domesticRecruitTroopScale": 105,
+      "domesticRecruitPersonScale": 100,
+      "domesticCreateItemScale": 100,
+      "domesticCreateMachineScale": 100,
+      "domesticCreateBoatScale": 100,
+      "domesticBuildScale": 105,
+      "domesticTradeScale": 100,
+      "domesticRepairScale": 100,
+
+      "giftEffectAdd": 0,
+      "negotiationAdd": 0,
+      "captiveDealAdd": 0,
+      "loyaltyDriftAdd": 0,
+
+      "growthScale": 100,
+      "learnSpeedScale": 100,
+      "loyaltyKeepAdd": 0,
+      "revoltRiskAdd": 0
     },
+
     "4": {
       "Id": 4,
       "Name": "莽撞",
       "kind": 4,
+      "desc": "勇而无谋，轻进好斗",
+
       "falseReportSuccessAdd": -2,
       "disturbSuccessAdd": 3,
       "calmdownSuccessAdd": -10,
       "ambushSuccessAdd": 1,
-      "infightingSuccessAdd": 3,
       "sorcerySuccessAdd": 3,
+      "infightingSuccessAdd": 3,
+
       "falseReportCriticalAdd": -5,
-      "disturbCriticalAdd": 10
+      "disturbCriticalAdd": 10,
+      "calmdownCriticalAdd": -5,
+      "ambushCriticalAdd": 0,
+      "sorceryCriticalAdd": 5,
+      "infightingCriticalAdd": 10,
+
+      "warTendencyAdd": 15,
+      "defenseTendencyAdd": -10,
+      "diplomacyTendencyAdd": -5,
+      "economicTendencyAdd": -5,
+      "technologyTendencyAdd": -5,
+      "recruitCaptiveTendencyAdd": 5,
+      "releaseCaptiveTendencyAdd": -5,
+      "ransomCaptiveTendencyAdd": 0,
+
+      "troopAttackScale": 130,
+      "troopCounterScale": 60,
+      "troopRetreatAdd": -20,
+      "troopAggression": 60,
+      "troopBestNAdd": -4,
+      "troopSkillScale": 105,
+      "troopRoleOverrideAdd": 0,
+
+      "duelAcceptAdd": 25,
+      "duelRetreatAdd": -10,
+
+      "domesticFarmingScale": 95,
+      "domesticDevelopScale": 95,
+      "domesticSecurityScale": 90,
+      "domesticTrainScale": 105,
+      "domesticSearchScale": 90,
+      "domesticRecruitTroopScale": 105,
+      "domesticRecruitPersonScale": 90,
+      "domesticCreateItemScale": 95,
+      "domesticCreateMachineScale": 95,
+      "domesticCreateBoatScale": 100,
+      "domesticBuildScale": 95,
+      "domesticTradeScale": 90,
+      "domesticRepairScale": 95,
+
+      "giftEffectAdd": -5,
+      "negotiationAdd": -10,
+      "captiveDealAdd": -5,
+      "loyaltyDriftAdd": -10,
+
+      "growthScale": 95,
+      "learnSpeedScale": 95,
+      "loyaltyKeepAdd": -10,
+      "revoltRiskAdd": 10
     }
   }
 }

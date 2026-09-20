@@ -53,6 +53,12 @@ namespace Sango.Core
                     return new TroopMovetoCell();
                 case (int)MissionType.TroopMovetoBuild:
                     return new TroopMovetoBuild();
+                case (int)MissionType.TroopSupplyTroop:
+                    return new TroopSupplyTroop();
+                case (int)MissionType.TroopAskSupply:
+                    return new TroopAskSupply();
+                case (int)MissionType.TroopStay:
+                    return new TroopStay();
                 default:
                     return new TroopReturnCity();
             }

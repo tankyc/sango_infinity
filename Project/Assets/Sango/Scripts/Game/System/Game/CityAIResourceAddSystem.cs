@@ -70,7 +70,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 给城市添加兵装（只包含兵器类道具，不包含器械和船）。
+        /// 给城市添加兵装（兵器类 + 战马，不包含器械和船）。
         /// </summary>
         /// <param name="city">目标城市</param>
         /// <param name="scenario">当前剧本</param>
@@ -87,7 +87,11 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 缓存所有兵器类道具类型。
+        /// 缓存所有"可直接装备部队"的道具类型：兵器类（枪 / 戟 / 弩 / 剑）+ 战马。
+        ///
+        /// 注意：战马（<see cref="ItemKindType.Horse"/>）不属于 <see cref="ItemType.IsWeapon"/>，
+        /// 必须单独纳入 —— 否则电脑城池每回合补兵装时永远补不到马，
+        /// 导致其无法组建骑兵、也无法为运输队 / 骑兵补充装备。
         /// </summary>
         /// <param name="scenario">当前剧本</param>
         void CacheWeaponItemTypes(Scenario scenario)
@@ -99,7 +103,7 @@ namespace Sango.Core
 
             scenario.CommonData.ItemTypes.ForEach(item =>
             {
-                if (item is ItemType itemType && itemType.IsWeapon())
+                if (item is ItemType itemType && (itemType.IsWeapon() || itemType.IsHorse()))
                     weaponItemTypes.Add(itemType);
             });
         }

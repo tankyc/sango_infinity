@@ -172,6 +172,48 @@ namespace Sango.Core
         public List<System.Func<Force, Scenario, bool>> AICommandList = new List<System.Func<Force, Scenario, bool>>();
 
         /// <summary>
+        /// 威胁过本势力的敌方部队ID列表(用于 AI 主动驱逐)。
+        /// 敌方部队攻击本势力的城池 / 建筑 / 部队时会被记录,只要其仍存活且位于本势力领地内,
+        /// 就会由距离最近的城市派兵歼灭。
+        /// </summary>
+        [JsonProperty]
+        public List<int> threatTroopIds = new List<int>();
+
+        /// <summary>
+        /// 记录一个对本势力实施过攻击的敌方部队。
+        /// </summary>
+        /// <param name="troop">实施攻击的敌方部队</param>
+        public void MarkThreatTroop(Troop troop)
+        {
+            if (troop == null || !troop.IsAlive)
+                return;
+            if (threatTroopIds == null)
+                threatTroopIds = new List<int>();
+            if (threatTroopIds.Contains(troop.Id))
+                return;
+            threatTroopIds.Add(troop.Id);
+        }
+
+        /// <summary>
+        /// 清理已阵亡或不存在的威胁部队记录。
+        /// </summary>
+        public void CleanupThreatTroops()
+        {
+            if (threatTroopIds == null || threatTroopIds.Count == 0)
+                return;
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null)
+                return;
+
+            for (int i = threatTroopIds.Count - 1; i >= 0; i--)
+            {
+                Troop troop = scenario.troopsSet.Get(threatTroopIds[i]);
+                if (troop == null || !troop.IsAlive)
+                    threatTroopIds.RemoveAt(i);
+            }
+        }
+
+        /// <summary>
         /// 相邻势力
         /// </summary>
         public List<Force> NeighborForceList = new List<Force>();
@@ -641,6 +683,7 @@ namespace Sango.Core
         private void AIPrepare(Scenario scenario)
         {
             // 添加外交AI
+            // 【暂时屏蔽】AI 势力之间的外交。如需恢复,取消下一行注释即可。
             //AICommandList.Add(ForceAI.AIDiplomacy);
             AICommandList.Add(ForceAI.AICaptives);
             AICommandList.Add(ForceAI.AITechniques);
@@ -663,6 +706,8 @@ namespace Sango.Core
             FightPower = 0;
             PersonCount = 0;
             CityCount = 0;
+            // 清理已阵亡的威胁部队记录
+            CleanupThreatTroops();
 #if SANGO_DEBUG
             Sango.Log.Info($"==={Name} 回合===");
 #endif

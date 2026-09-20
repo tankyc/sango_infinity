@@ -39,28 +39,34 @@ namespace Sango.Core
                     {
                         Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
                     }
-                    else
+                    else if (troop.mBelongCity != null)
                     {
-                        Troop.SetMission(MissionType.TroopStay, 0);
-                        Sango.Log.Error($"{troop.Name} 发呆!!");
+                        // 【修复】目标既不是敌方也不是归属城（例如被改成了其它友城）：
+                        // 纠正为"返回归属城"，而不是切到无意义的 TroopStay 并打印错误日志。
+                        Troop.SetMission(MissionType.TroopReturnCity, troop.mBelongCity.Id);
                     }
                 }
                 troop.NeedPrepareMission();
                 return;
             }
-            else
+
+            // 【修复】部队已经站在目标城池格上（例如刚出城就切到返城任务）：
+            // 此时不做任何通路检查。否则返城路径若经过正在被攻击的敌方建筑，
+            // 会把任务改写为"攻击该建筑"，导致部队永远停留在城池格上反复尝试，表现为"卡在城池上"。
+            // 直接留空 priorityActionData，由 DoAI 走进城分支。
+            if (troop.cell != null && troop.cell.building == TargetCity)
+                return;
+
+            // 检查通路
+            Troop.tempCellList.Clear();
+            scenario.Map.GetDirectPath(Troop.cell, TargetCity.CenterCell, Troop.tempCellList);
+            for (int i = 0; i < Troop.tempCellList.Count; ++i)
             {
-                // 检查通路
-                Troop.tempCellList.Clear();
-                scenario.Map.GetDirectPath(Troop.cell, TargetCity.CenterCell, Troop.tempCellList);
-                for (int i = 0; i < Troop.tempCellList.Count; ++i)
+                Cell road = Troop.tempCellList[i];
+                if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(Troop))
                 {
-                    Cell road = Troop.tempCellList[i];
-                    if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(Troop))
-                    {
-                        priorityActionData = TroopAIUtility.PriorityAction(Troop, (Cell)null, scenario, SkillStatusPriority);
-                        return;
-                    }
+                    priorityActionData = TroopAIUtility.PriorityAction(Troop, (Cell)null, scenario, SkillStatusPriority);
+                    return;
                 }
             }
         }
@@ -70,6 +76,15 @@ namespace Sango.Core
             if (IsMissionComplete)
             {
                 Troop.NeedPrepareMission();
+                return true;
+            }
+
+            // 【修复】已在目标城池格上：直接进城解散，优先于任何攻击行动。
+            // 原先该判断被放在 TryMoveToCity 分支内部，一旦 priorityActionData 非空
+            // 就完全绕过进城逻辑，部队会卡在城池格上无法移动。
+            if (troop.cell != null && troop.cell.building == TargetCity)
+            {
+                troop.EnterCity(TargetCity);
                 return true;
             }
 

@@ -19,7 +19,9 @@ namespace Sango.Core
             if (Troop != troop) Troop = troop;
             if (TargetCity == null || TargetCity.Id != troop.missionTarget) TargetCity = scenario.citySet.Get(Troop.missionTarget);
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
-            if (IsMissionComplete || (!troop.IsPlayerControl && troop.IsWithOutFood() == 1 && GameRandom.Chance(30)))
+            // 【优化】原先此处还有"断粮时 30% 概率撤退"的随机判断,与 Troop.AIPrepare 的
+            // 统一撤退逻辑重复且互相干扰,现统一由 AIPrepare 处理。
+            if (IsMissionComplete)
             {
                 if (TargetCity == null)
                 {
@@ -58,35 +60,34 @@ namespace Sango.Core
             }
         }
 
-        // 技能攻击评分
+        /// <summary>
+        /// 技能攻击评分：命中任务目标城池为主目标，途中遭遇的部队为次要目标。
+        /// 加成幅度全部取自 <see cref="AIConfig"/> 的 task* 倍率（不再硬编码 500000 / 30000 等）。
+        /// </summary>
         public int SkillAttackPriority(Troop troop, SkillInstance skill, Cell target, Cell movetoCell, Cell spellCell)
         {
-            int socer = TroopAIUtility.SkillStatusPriority(troop, skill, target, movetoCell, spellCell);
-            if (socer > 0)
+            int score = TroopAIUtility.SkillStatusPriority(troop, skill, target, movetoCell, spellCell);
+            if (score <= 0)
+                return score;
+
+            AIConfig cfg = AIConfig.Instance;
+            bool isStay = movetoCell == troop.cell;
+            bool isPrimary = false;
+
+            if (!target.IsEmpty() && target.building != null)
             {
-                if (!target.IsEmpty() && (target.building != null))
-                {
-                    if (target.building == TargetCity)
-                    {
-                        socer += 500000;
-                        if (movetoCell == troop.cell)
-                            socer += 1000000;
-                    }
-                    else
-                    {
-                        socer = 5;
-                    }
-                }
-                else 
-                {
-                    // 优先攻击威胁大的敌方部队
-                    if (!target.IsEmpty() && target.troop != null && target.troop.troops > troop.troops * 1.5f)
-                        socer += 30000;
-                    if (movetoCell == troop.cell && !troop.TroopType.isRange)
-                        socer += 50000;
-                }
+                // 主目标：任务指定的敌方城池
+                isPrimary = target.building == TargetCity;
             }
-            return socer;
+            else if (!target.IsEmpty() && target.troop != null)
+            {
+                // 途中遭遇的敌方部队：兵力远大于我方时略有加成（值得优先削弱强敌）
+                if (target.troop.troops * 100 > troop.troops * cfg.taskBigTroopPercent)
+                    score = score + score * cfg.taskBigTroopBonus / 100;
+            }
+
+            bool isMeleeClose = isStay && !troop.TroopType.isRange;
+            return TroopAIUtility.ApplyTaskBonus(score, isPrimary, isStay, isMeleeClose, troop.GetRoleWeights());
         }
 
         public override bool DoAI(Troop troop, Scenario scenario)

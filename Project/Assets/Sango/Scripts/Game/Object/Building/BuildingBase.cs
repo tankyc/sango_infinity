@@ -218,6 +218,14 @@ namespace Sango.Core
             }
             return true;
         }
+        /// <summary>
+        /// 判断城池 / 建筑周围的出兵通道是否被完全封锁。
+        ///
+        /// 【修复】原实现把"己方建筑"也视为封锁(只有空地才算通行),
+        /// 导致周边建筑密集的大城会被误判为"无法出兵",从而永远不派兵防守。
+        /// 现在只有"敌方部队"才构成封锁:空地、建筑以及友军 / 中立部队均视为可通行。
+        /// </summary>
+        /// <returns>是否被敌军完全封锁</returns>
         public bool IsRoadBlocked()
         {
             List<Cell> cells = new List<Cell>();
@@ -226,9 +234,12 @@ namespace Sango.Core
             {
                 Cell cell = cells[i];
                 if (cell == null) continue;
-                if (cell.troop == null && cell.building == null) return false;
-                if (cell.troop != null && !cell.troop.IsEnemy(this)) return false;
+                // 没有部队(空地或仅有建筑) → 可以出兵
+                if (cell.troop == null) return false;
+                // 非敌方部队(友军 / 中立) → 可以出兵
+                if (!cell.troop.IsEnemy(this)) return false;
             }
+            // 四周一圈全部被敌方部队占据,才算真正无法出兵
             return true;
         }
 
@@ -242,6 +253,12 @@ namespace Sango.Core
 
             if (num < 0)
             {
+                // 【新增】记录攻击本势力城池 / 建筑的敌方部队,供 AI 主动驱逐
+                if (atk is Troop attacker && attacker.IsAlive && !attacker.IsSameForce(this))
+                {
+                    mBelongForce?.MarkThreatTroop(attacker);
+                }
+
                 if (Render != null && Render.IsVisible())
                 {
                     if (atk != null && atk.ObjectType == SangoObjectType.Troops)

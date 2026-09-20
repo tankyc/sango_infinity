@@ -66,6 +66,7 @@ namespace Sango.Core
                     damage = Scenario.Cur.Variables.baseFireDamage,
                     intelligence = master.master.Intelligence,
                     cell = targetCell,
+                    generation = 0,                     // 技能直接点燃，视为第 0 代（满额蔓延概率）
                     counter = finalCount
                 };
                 Scenario.Cur.Add(fire);
@@ -75,6 +76,9 @@ namespace Sango.Core
             {
                 fire.intelligence = master.master.Intelligence;
                 fire.counter = finalCount;
+                // 【修正】对已有火焰再次施放火计，视为重新起火，代数归零，
+                // 使其恢复满额蔓延概率，可与蔓延衰减区分开。
+                fire.generation = 0;
             }
 
             if(fire.Render != null && fire.Render.IsVisible())
