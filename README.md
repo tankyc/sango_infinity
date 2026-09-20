@@ -1,6 +1,8 @@
 # 无限三国
 一个基于三国志11的重置项目  
 
+国内镜像地址：https://gitcode.com/gametank/sango_infinity
+
 ## Unity3D版本以及依赖包
 需要使用**Unity3D 2021.3.40f1**以上版本打开Project文件夹项目，需要导入**2DSprite**, **Universal RP**, **Burst**包。  
 
