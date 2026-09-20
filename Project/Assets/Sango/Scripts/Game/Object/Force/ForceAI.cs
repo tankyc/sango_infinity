@@ -1694,7 +1694,7 @@ namespace Sango.Core
                     // 优先战斗力适配的特性主将
                     for (int i = 0; i < list.Count; i++)
                     {
-                        Person person = personList[i];
+                        Person person = list[i];
                         if (person.mFeatureList != null)
                         {
                             for (int j = 0; j < troopType.matchFeatures.Length; j++)

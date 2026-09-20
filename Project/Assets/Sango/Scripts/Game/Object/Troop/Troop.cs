@@ -285,6 +285,19 @@ namespace Sango.Core
         [JsonProperty] public int missionParams2;
 
         /// <summary>
+        /// 【随军增筑】就地修建辅助建筑前记录的原任务类型（0 表示当前不是"随军增筑"流程）。
+        /// 建筑完工后据此恢复原任务，使作战部队不会因顺手修一座军乐台而永久脱离战线。
+        /// 与专职工程队（不需要恢复任务）区分开。
+        /// </summary>
+        [JsonProperty] public int fieldBuildReturnMission;
+
+        /// <summary>
+        /// 【随军增筑】就地修建辅助建筑前记录的原任务目标 Id。
+        /// 与 <see cref="fieldBuildReturnMission"/> 配对，用于恢复原任务的完整上下文。
+        /// </summary>
+        [JsonProperty] public int fieldBuildReturnTarget;
+
+        /// <summary>
         /// 部队角色：决定"怎么打"（攻坚 / 防守 / 骚扰 / 游击 / 护卫 / 守备），
         /// 与 <see cref="missionType"/>（去哪）正交。
         /// 默认 <see cref="TroopRole.Auto"/>，由 <see cref="ResolveRole"/> 依据任务与自身属性自动推导。
@@ -2839,7 +2852,13 @@ namespace Sango.Core
                 role = ResolveRole();
 
             // 【需求4】状态不佳且附近有可补给的补给队 → 切换为"求援"
-            if (missionType != (int)MissionType.TroopAskSupply
+            // 【前线建筑】工兵（TroopBuildBuilding / TroopFixBuilding）不参与求援：
+            //   一是施工任务优先级更高，二是施工行为类用 missionParams1 记录"连建次数"，
+            //   若被求援逻辑改写会导致连建计数错乱。
+            bool isEngineerMission = missionType == (int)MissionType.TroopBuildBuilding
+                                  || missionType == (int)MissionType.TroopFixBuilding;
+            if (!isEngineerMission
+                && missionType != (int)MissionType.TroopAskSupply
                 && missionType != (int)MissionType.TroopReturnCity
                 && missionType != (int)MissionType.TroopMovetoCity
                 && IsNeedAskSupply(scenario, out Troop supplier))
@@ -2926,7 +2945,115 @@ namespace Sango.Core
 #if SANGO_DEBUG
                 Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]兵力不足或断粮,就近赶赴{nearestCity.Name}补给!");
 #endif
+                return;
             }
+
+            // 【前线建筑 / B3 随军增筑】以上撤退判定全部未触发（说明这支部队确实要继续作战），
+            // 此时再看是否该在战场就地修一座辅助建筑。
+            // 放在最后是有意为之：态势不利 / 断粮 / 兵少的部队应当先撤，而不是留下来花钱施工。
+            if (aiConfig.useFieldBuilding)
+                TryBuildFieldBuilding(scenario);
+        }
+
+        /// <summary>
+        /// 【前线建筑 / B3 随军增筑】前线作战部队在战场就地修建战略辅助建筑（军乐台 / 砦 / 箭楼等）。
+        ///
+        /// 与专职工程队（由 <c>CityAI.DispatchBuildingTroop</c> 派遣）互补：
+        ///   · 工程队：由城池成批派遣，负责成片、有计划的建设；
+        ///   · 随军增筑：作战部队在战场态势刚变化时（如鏖战后气力枯竭、粮草将尽）
+        ///     快速就地补建，无需等待后方工程队长途赶来。
+        ///
+        /// 触发条件（需全部满足）：
+        ///   1. 开启了 <c>useFieldBuilding</c>
+        ///   2. 当前为"作战类"任务（返城 / 施工 / 补给 / 求援等任务一律跳过，避免打断既定流程）
+        ///   3. 兵力不低于满编的 <c>fieldBuildMinHealthPercent</c>%（濒临溃败先保命）
+        ///   4. 携带资金足以修建至少一座候选建筑（没钱无法施工）
+        ///   5. 本回合随机命中 <c>fieldBuildChance</c>%（避免频繁打断主线任务）
+        ///   6. 附近存在评分达标的建址（<see cref="BattleSituation.EvaluateFrontSite"/>）
+        ///
+        /// 切换施工任务前会把原任务记录在 <see cref="fieldBuildReturnMission"/> /
+        /// <see cref="fieldBuildReturnTarget"/>，建筑完工后由 <c>TroopBuildBuilding</c> 恢复，
+        /// 因此作战部队不会因顺手修一座建筑而永久脱离战线。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否已切换到就地施工任务</returns>
+        public bool TryBuildFieldBuilding(Scenario scenario)
+        {
+            AIConfig cfg = AIConfig.Instance;
+            if (!cfg.useFieldBuilding || scenario == null || scenario.Map == null
+                || cell == null || mBelongForce == null)
+                return false;
+
+            // 只在"作战类"任务下触发，避免打断返城 / 施工 / 补给 / 求援等既定流程
+            switch ((MissionType)missionType)
+            {
+                case MissionType.TroopOccupyCity:
+                case MissionType.TroopDestroyTroop:
+                case MissionType.TroopDestroyBuilding:
+                case MissionType.TroopProtectCity:
+                case MissionType.TroopBanishTroop:
+                case MissionType.TroopStay:
+                    break;
+                default:
+                    return false;
+            }
+
+            // 濒临溃败的部队优先保命，不施工
+            if (MaxTroops > 0 && cfg.fieldBuildMinHealthPercent > 0
+                && troops * 100 < MaxTroops * cfg.fieldBuildMinHealthPercent)
+                return false;
+
+            List<BuildingType> candidates = mBelongForce.canBuildMilitaryBuildingType;
+            if (candidates == null || candidates.Count == 0)
+                return false;
+
+            // 资金不足最便宜的一座建筑 → 无从施工
+            int minCost = int.MaxValue;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                BuildingType t = candidates[i];
+                if (t != null && t.cost < minCost)
+                    minCost = t.cost;
+            }
+            if (minCost == int.MaxValue || gold < minCost || gold < cfg.fieldBuildMinGold)
+                return false;
+
+            // 概率触发：避免作战部队每回合都跑去盖房子
+            if (cfg.fieldBuildChance <= 0 || !GameRandom.Chance(cfg.fieldBuildChance))
+                return false;
+
+            // 以自身所在格为中心评选建址
+            BattleSituation.FrontSiteInfo best = new BattleSituation.FrontSiteInfo();
+            best.Clear();
+            int range = Math.Max(1, cfg.frontBuildSearchRange);
+            scenario.Map.SpiralAction(cell, range, (c) =>
+            {
+                BattleSituation.FrontSiteInfo info =
+                    BattleSituation.EvaluateFrontSite(c, mBelongForce, scenario);
+                if (!info.isValid || info.cell == null)
+                    return;
+                if (best.cell == null || info.score > best.score)
+                    best = info;
+            });
+
+            if (!best.isValid || best.cell == null)
+                return false;
+
+            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, mBelongForce, scenario);
+            if (buildingType == null || gold < buildingType.cost)
+                return false;
+
+            // 记录原任务，建筑完工后恢复（由 TroopBuildBuilding 的回城分支处理）
+            fieldBuildReturnMission = (int)missionType;
+            fieldBuildReturnTarget = missionTarget;
+
+            missionTargetCell = best.cell;
+            SetMission(MissionType.TroopBuildBuilding, buildingType.Id);
+            NeedPrepareMission();
+#if SANGO_DEBUG
+            Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]就地增筑{buildingType.Name}!");
+#endif
+            return true;
         }
 
         /// <summary>
@@ -2988,6 +3115,14 @@ namespace Sango.Core
             // 运输 / 补给队一律按护卫处理
             if (IsTransport)
                 return TroopRole.Escort;
+
+            // 修建 / 维修建筑 → 工兵。
+            // 【注意】这里必须直接 return，不能走后面的"领队性格覆盖"分支：
+            // 工程队的职责是把前线辅助建筑修起来，若被好战领队覆盖成攻坚角色，
+            // 它会丢下施工任务去正面接战，导致工程队形同虚设。
+            if (missionType == (int)MissionType.TroopBuildBuilding
+                || missionType == (int)MissionType.TroopFixBuilding)
+                return TroopRole.Engineer;
 
             // ---------- 先按任务推导 ----------
             TroopRole missionRole = TroopRole.Auto;
@@ -3078,6 +3213,7 @@ namespace Sango.Core
                 case TroopRole.Skirmisher: return cfg.roleSkirmisher;
                 case TroopRole.Escort: return cfg.roleEscort;
                 case TroopRole.Guard: return cfg.roleGuard;
+                case TroopRole.Engineer: return cfg.roleEngineer;
             }
             return null;
         }

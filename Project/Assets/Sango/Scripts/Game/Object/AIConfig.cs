@@ -323,6 +323,13 @@ namespace Sango.Core
             counterPenaltyScale = 150,
             missionFocusScale = 70,
         };
+        /// <summary>工兵：携带资金修建前线辅助建筑，极度规避接战</summary>
+        public TroopRoleWeights roleEngineer = new TroopRoleWeights
+        {
+            attackScale = 40,
+            counterPenaltyScale = 250,
+            missionFocusScale = 150,
+        };
 
         #endregion
 
@@ -416,6 +423,103 @@ namespace Sango.Core
 
         /// <summary>求援结束后是否恢复原任务（如继续进攻 / 继续防守）</summary>
         public bool askSupplyRestoreMission = true;
+
+        #endregion
+
+        #region 前线战略建筑
+
+        /// <summary>
+        /// 是否启用"前线修建战略辅助建筑"（军乐台 / 太鼓台 / 砦 / 箭楼等）。
+        /// 关闭时将回退到旧逻辑：只在城池辖区（areaCellList）内随机选点建造。
+        /// </summary>
+        public bool useFrontBuilding = true;
+
+        /// <summary>前线候选建址的搜索半径（格）。以城池为中心向外扩展，突破"本城辖区"的限制</summary>
+        public int frontBuildSearchRange = 15;
+
+        /// <summary>每个城池同时派出的工程队上限</summary>
+        public int frontBuildMaxPerCity = 1;
+
+        /// <summary>派出工程队所需的本城最低兵力</summary>
+        public int frontBuildMinTroops = 10000;
+        /// <summary>派出工程队所需的本城最低粮草</summary>
+        public int frontBuildMinFood = 10000;
+        /// <summary>派出工程队所需的本城最低金钱</summary>
+        public int frontBuildMinCityGold = 2000;
+
+        /// <summary>每回合尝试派遣工程队的概率（%）。避免每座城每回合都出兵</summary>
+        public int frontBuildChance = 40;
+
+        /// <summary>
+        /// 工程队携带的资金（金）。0 表示按"目标建筑造价 × frontBuildGoldCostPercent%"自动计算。
+        /// 给足余量以便一次出行连续建造多座建筑。
+        /// </summary>
+        public int frontBuildBudget = 0;
+        /// <summary>自动计算携带资金时的造价倍率（%）：如 300 表示按三倍造价携带，可连建约 3 座</summary>
+        public int frontBuildGoldCostPercent = 300;
+
+        /// <summary>候选建址的最低评分门槛，低于该分不值得派遣工程队</summary>
+        public int frontBuildSiteMinScore = 100;
+
+        /// <summary>覆盖范围内己方兵力低于该值时，该建址视为"无人受益"而放弃</summary>
+        public int frontBuildMinCoverTroops = 3000;
+
+        /// <summary>建址与最近敌人的最小允许距离（格）。过近会被敌人迅速拆除，直接排除</summary>
+        public int frontBuildSafeMinDist = 2;
+        /// <summary>建址与敌人的理想距离带下限（格）</summary>
+        public int frontBuildIdealMinDist = 3;
+        /// <summary>建址与敌人的理想距离带上限（格）。超出该距离视为"太靠后、用不上"</summary>
+        public int frontBuildIdealMaxDist = 12;
+
+        /// <summary>建址威胁扫描半径（格）：用于评估该点会被敌人多快攻击</summary>
+        public int frontBuildThreatRange = 6;
+
+        /// <summary>前线价值评分中"己方覆盖收益"的权重（%）</summary>
+        public int frontCoverWeight = 100;
+        /// <summary>前线价值评分中"战略要道（邻近关 / 港 / 城池）"的权重（%）</summary>
+        public int frontChokeWeight = 80;
+        /// <summary>前线价值评分中"敌方威胁惩罚"的权重（%）</summary>
+        public int frontThreatWeight = 120;
+        /// <summary>前线价值评分中"距理想距离带偏离"的惩罚权重（%）</summary>
+        public int frontDistanceWeight = 60;
+
+        /// <summary>覆盖范围内己方部队平均气力低于该百分比时，优先修建军乐台（%）</summary>
+        public int frontBuildLowMoralePercent = 60;
+        /// <summary>覆盖范围内粮草紧张的己方部队占比超过该百分比时，优先修建省粮建筑（%）</summary>
+        public int frontBuildLowFoodPercent = 40;
+
+        /// <summary>工程队完成一座建筑后是否继续寻找下一个建址（关闭则建完即回城）</summary>
+        public bool frontBuildContinueAfterDone = true;
+        /// <summary>工程队连续建造的最大次数（防止其长期在外）</summary>
+        public int frontBuildMaxContinuous = 3;
+
+        /// <summary>
+        /// 前线建址优先建筑类型（BuildingType.Id），按顺序作为评分并列时的兜底优先级。
+        /// 默认：军乐台(13) → 太鼓台(12) → 阵(4) → 箭楼(7)。
+        /// </summary>
+        public int[] frontBuildPreferredTypes = new int[] { 13, 12, 4, 7 };
+
+        /// <summary>是否让前线作战部队就地增筑辅助建筑（B3：随军增筑）</summary>
+        public bool useFieldBuilding = true;
+        /// <summary>作战部队就地增筑所需的兵力占满编的最低比例（%），低于此值优先保命而非施工</summary>
+        public int fieldBuildMinHealthPercent = 60;
+        /// <summary>作战部队就地增筑时的资金门槛（金），需不低于目标建筑造价</summary>
+        public int fieldBuildMinGold = 0;
+        /// <summary>作战部队就地增筑的触发概率（%）</summary>
+        public int fieldBuildChance = 20;
+
+        /// <summary>
+        /// 常规作战部队出征时携带的资金上限（金）。0 表示不携带（沿用旧行为）。
+        /// 用于支撑 B3"随军增筑"：没有现金就无法就地施工。
+        /// </summary>
+        public int troopCarryGold = 1500;
+        /// <summary>作战部队携款占总兵力的比例上限（%）：防止小部队带走过多资金</summary>
+        public int troopCarryGoldPerTroops = 5;
+
+        /// <summary>补给队可转运的资金比例（%）。0 表示不转运金钱（沿用旧行为）</summary>
+        public int supplyTransferGoldPercent = 30;
+        /// <summary>补给时友军金钱低于该值才视为"缺钱"（金）</summary>
+        public int supplyNeedGoldThreshold = 800;
 
         #endregion
 

@@ -29,6 +29,11 @@ namespace Sango.Core
         Escort = 4,
         /// <summary>守备：驻守据点，不主动出击</summary>
         Guard = 5,
+        /// <summary>
+        /// 工兵：携带资金前往前线修建战略辅助建筑（军乐台 / 砦 / 箭楼等）。
+        /// 以"把建筑修起来"为第一目标，极度规避接战，资金耗尽或无址可建时回城补充。
+        /// </summary>
+        Engineer = 6,
     }
 
     /// <summary>

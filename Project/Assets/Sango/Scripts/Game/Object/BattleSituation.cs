@@ -254,6 +254,300 @@ namespace Sango.Core
 
         #endregion
 
+        #region 前线建址评估（战略辅助建筑）
+
+        /// <summary>
+        /// 前线建址的评估快照。
+        /// 综合"己方覆盖收益 / 战略要道 / 敌方威胁 / 理想距离带"给出一个可比较的评分，
+        /// 供 AI 决定"该把军乐台、砦、箭楼等辅助建筑修在哪里"。
+        /// </summary>
+        public struct FrontSiteInfo
+        {
+            /// <summary>候选格</summary>
+            public Cell cell;
+            /// <summary>综合评分（越高越值得修建，&lt;= 0 表示应放弃）</summary>
+            public int score;
+
+            /// <summary>覆盖范围内的己方兵力合计</summary>
+            public int coverTroops;
+            /// <summary>覆盖范围内的己方部队数量</summary>
+            public int coverCount;
+            /// <summary>覆盖范围内己方部队的平均气力百分比（0~100）</summary>
+            public int avgMoralePercent;
+            /// <summary>覆盖范围内"粮草紧张"的己方部队占比（0~100）</summary>
+            public int lowFoodPercent;
+
+            /// <summary>威胁范围内的敌方兵力合计</summary>
+            public int enemyTroops;
+            /// <summary>到最近敌方部队的距离（格）；没有敌人时为 -1</summary>
+            public int nearestEnemyDist;
+
+            /// <summary>是否邻近战略要道（关 / 港 / 城池）</summary>
+            public bool hasChoke;
+
+            /// <summary>该建址是否可用（通过全部硬性校验）</summary>
+            public bool isValid;
+
+            /// <summary>重置快照</summary>
+            public void Clear()
+            {
+                cell = null;
+                score = 0;
+                coverTroops = 0;
+                coverCount = 0;
+                avgMoralePercent = 100;
+                lowFoodPercent = 0;
+                enemyTroops = 0;
+                nearestEnemyDist = -1;
+                hasChoke = false;
+                isValid = false;
+            }
+        }
+
+        /// <summary>
+        /// 评估某个格子作为"前线战略建筑"建址的价值。
+        ///
+        /// 【硬性排除】以下情况直接判定不可用：
+        ///   · 地形不可建造（<see cref="Cell.CanBuild"/>）
+        ///   · 格上已有部队或建筑（<see cref="Cell.IsEmpty"/>）
+        ///   · 内城格、或与既有建筑间距不足（<c>BuildingSpace</c>）
+        ///   · 距最近敌人近于 <c>frontBuildSafeMinDist</c>（修了也会被立刻拆除）
+        ///   · 覆盖范围内己方兵力低于 <c>frontBuildMinCoverTroops</c>（没人受益）
+        ///
+        /// 【评分维度】
+        ///   1. 覆盖收益：覆盖范围内己方兵力越多越值（建筑效果作用于此范围）
+        ///   2. 战略要道：邻近关 / 港 / 城池时加成（扼守要冲）
+        ///   3. 敌方威胁：威胁范围内敌方兵力越多越危险，作扣分
+        ///   4. 理想距离带：距敌人过近或过远都要扣分
+        /// </summary>
+        /// <param name="cell">候选格</param>
+        /// <param name="selfForce">己方势力（用于敌我判定）；不可为 null</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="coverRange">覆盖范围半径（格），一般取建筑作用的 bound+1</param>
+        /// <returns>评估快照；不合格时 isValid = false</returns>
+        public static FrontSiteInfo EvaluateFrontSite(Cell cell, Force selfForce, Scenario scenario, int coverRange = 3)
+        {
+            FrontSiteInfo info = new FrontSiteInfo();
+            info.Clear();
+            if (cell == null || selfForce == null || scenario == null || scenario.Map == null)
+                return info;
+
+            AIConfig cfg = AIConfig.Instance;
+            Map map = scenario.Map;
+
+            // ---------- 硬性校验：能否在此建造 ----------
+            if (!cell.CanBuild || !cell.IsEmpty() || cell.IsInterior)
+                return info;
+
+            int buildSpace = System.Math.Max(1, scenario.Variables.BuildingSpace);
+            if (cell.SpiralHasBuilding(buildSpace))
+                return info;
+
+            if (coverRange <= 0)
+                coverRange = 3;
+
+            // ---------- 覆盖统计：范围内的己方部队 ----------
+            int coverTroops = 0;
+            int coverCount = 0;
+            int moraleSum = 0;
+            int lowFoodCount = 0;
+
+            // ---------- 威胁统计：范围内的敌方部队 ----------
+            int enemyTroops = 0;
+            int nearestEnemyDist = -1;
+
+            // 威胁范围取"覆盖范围"与配置威胁范围的较大者，保证一次遍历覆盖两种用途
+            int scanRange = System.Math.Max(coverRange, cfg.frontBuildThreatRange);
+            int centerX = cell.x;
+            int centerY = cell.y;
+
+            map.SpiralAction(cell, scanRange, (c) =>
+            {
+                Troop troop = c.troop;
+                if (troop == null || !troop.IsAlive)
+                    return;
+
+                int dist = System.Math.Abs(c.x - centerX) + System.Math.Abs(c.y - centerY);
+
+                if (troop.mBelongForce == selfForce)
+                {
+                    if (dist <= coverRange)
+                    {
+                        coverCount++;
+                        coverTroops += troop.troops;
+                        moraleSum += troop.MaxMorale > 0
+                            ? troop.morale * 100 / troop.MaxMorale
+                            : 100;
+                        if (troop.IsWithOutFood() == 1)
+                            lowFoodCount++;
+                    }
+                }
+                else if (selfForce.IsEnemy(troop.mBelongForce))
+                {
+                    if (dist <= cfg.frontBuildThreatRange)
+                        enemyTroops += troop.troops;
+                    if (nearestEnemyDist < 0 || dist < nearestEnemyDist)
+                        nearestEnemyDist = dist;
+                }
+            });
+
+            info.cell = cell;
+            info.coverTroops = coverTroops;
+            info.coverCount = coverCount;
+            info.avgMoralePercent = coverCount > 0 ? moraleSum / coverCount : 100;
+            info.lowFoodPercent = coverCount > 0 ? lowFoodCount * 100 / coverCount : 0;
+            info.enemyTroops = enemyTroops;
+            info.nearestEnemyDist = nearestEnemyDist;
+
+            // ---------- 安全校验：离敌人太近会被拆 ----------
+            if (nearestEnemyDist >= 0 && nearestEnemyDist < cfg.frontBuildSafeMinDist)
+                return info;
+
+            // ---------- 收益校验：没有己方部队受益则不值得修 ----------
+            if (coverTroops < cfg.frontBuildMinCoverTroops)
+                return info;
+
+            // ---------- 战略要道：邻近关 / 港 / 城池 ----------
+            cell.Spiral(2, (c) =>
+            {
+                BuildingBase b = c.building;
+                if (b == null)
+                    return;
+                if (b.IsCity() || b.IsPort() || b.IsGate())
+                    info.hasChoke = true;
+            });
+
+            // ---------- 综合评分 ----------
+            long score = 0;
+
+            // 1. 覆盖收益：以 10000 兵力为满档，线性计分
+            const int coverTroopsFull = 10000;
+            int coverRatio = coverTroops >= coverTroopsFull
+                ? 100
+                : coverTroops * 100 / coverTroopsFull;
+            score += (long)coverRatio * cfg.frontCoverWeight;
+
+            // 2. 战略要道加成
+            if (info.hasChoke)
+                score += cfg.frontChokeWeight;
+
+            // 3. 距离带：落在理想区间得满分，偏离则按偏差比例扣分
+            int idealMin = cfg.frontBuildIdealMinDist;
+            int idealMax = cfg.frontBuildIdealMaxDist;
+            if (idealMax < idealMin)
+                idealMax = idealMin;
+            if (info.nearestEnemyDist >= 0)
+            {
+                int deviation;
+                if (info.nearestEnemyDist < idealMin)
+                    deviation = idealMin - info.nearestEnemyDist;
+                else if (info.nearestEnemyDist > idealMax)
+                    deviation = info.nearestEnemyDist - idealMax;
+                else
+                    deviation = 0;
+
+                // 每偏离 1 格扣 20%，最多扣满
+                int penalty = System.Math.Min(100, deviation * 20);
+                score += (long)(100 - penalty) * cfg.frontDistanceWeight;
+            }
+
+            // 4. 敌方威胁扣分：威胁范围内敌方兵力越多越危险
+            //    以 20000 兵力为满档，扣分不超过该维度权重
+            const int threatTroopsFull = 20000;
+            int threatRatio = enemyTroops >= threatTroopsFull
+                ? 100
+                : enemyTroops * 100 / threatTroopsFull;
+            score -= (long)threatRatio * cfg.frontThreatWeight;
+
+            if (score < int.MinValue) score = int.MinValue;
+            if (score > int.MaxValue) score = int.MaxValue;
+            info.score = (int)score;
+            info.isValid = info.score >= cfg.frontBuildSiteMinScore;
+            return info;
+        }
+
+        /// <summary>
+        /// 依据建址的战场特征挑选最合适的战略辅助建筑类型。
+        ///
+        /// 【态势驱动】替代原先的"纯权重随机"，按优先级依次判定：
+        ///   1. 平均气力过低 → 军乐台（回气力）
+        ///   2. 缺粮部队占比过高 → 阵 / 砦 / 城塞（降粮耗 + 加防御）
+        ///   3. 邻近要道且敌人不远 → 箭楼 / 连弩楼 / 投石台（自动输出）
+        ///   4. 我方占优 → 太鼓台（加攻击，推进更快）
+        ///   5. 兜底 → frontBuildPreferredTypes 顺序中第一个可建的
+        /// </summary>
+        /// <param name="info">建址评估快照</param>
+        /// <param name="force">己方势力（其 canBuildMilitaryBuildingType 决定可选范围）</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>选中的建筑类型；无可用类型时返回 null</returns>
+        public static BuildingType SelectFrontBuildingType(FrontSiteInfo info, Force force, Scenario scenario)
+        {
+            if (force == null || force.canBuildMilitaryBuildingType == null
+                || force.canBuildMilitaryBuildingType.Count == 0)
+                return null;
+
+            AIConfig cfg = AIConfig.Instance;
+            List<BuildingType> candidates = force.canBuildMilitaryBuildingType;
+
+            // 按 kind 查找（kind 即 BuildingType.Id 语义上的建筑种类）
+            BuildingType PickByKind(params int[] kinds)
+            {
+                for (int i = 0; i < kinds.Length; i++)
+                {
+                    BuildingType t = candidates.Find(x => x.kind == kinds[i]);
+                    if (t != null)
+                        return t;
+                }
+                return null;
+            }
+
+            // 1. 气力不足 → 军乐台(kind 13)
+            if (info.avgMoralePercent > 0 && info.avgMoralePercent < cfg.frontBuildLowMoralePercent)
+            {
+                BuildingType morale = PickByKind(13);
+                if (morale != null)
+                    return morale;
+            }
+
+            // 2. 粮草紧张 → 阵(4) / 砦(5) / 城塞(6)：降粮耗且加防御
+            if (info.lowFoodPercent >= cfg.frontBuildLowFoodPercent)
+            {
+                BuildingType food = PickByKind(4, 5, 6);
+                if (food != null)
+                    return food;
+            }
+
+            // 3. 扼守要道且敌人已在附近 → 箭楼(7) / 连弩楼(8) / 投石台(11)
+            if (info.hasChoke && info.nearestEnemyDist >= 0 && info.nearestEnemyDist <= cfg.frontBuildThreatRange)
+            {
+                BuildingType tower = PickByKind(7, 8, 11);
+                if (tower != null)
+                    return tower;
+            }
+
+            // 4. 我方兵力占优 → 太鼓台(12)：加攻击，利于推进
+            if (info.enemyTroops > 0 && info.coverTroops * 100 / (info.coverTroops + info.enemyTroops) >= cfg.tierAdvantagedPercent)
+            {
+                BuildingType drum = PickByKind(12);
+                if (drum != null)
+                    return drum;
+            }
+
+            // 5. 兜底：按配置的优先序列取第一个本势力可建的类型
+            int[] preferred = cfg.frontBuildPreferredTypes;
+            if (preferred != null && preferred.Length > 0)
+            {
+                BuildingType fallback = PickByKind(preferred);
+                if (fallback != null)
+                    return fallback;
+            }
+
+            // 最终兜底：任取一个可建类型
+            return candidates[0];
+        }
+
+        #endregion
+
         #region 局部威胁
 
         /// <summary>

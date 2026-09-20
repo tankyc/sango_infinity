@@ -361,12 +361,40 @@ namespace Sango.Core
                 itemGive = supplier.itemStore.Split(50);
             }
 
-            if (foodGive <= 0 && troopGive <= 0 && (itemGive == null || itemGive.TotalNumber <= 0))
+            // ---- 资金：让补给队同时输送现金 ----
+            // 【前线建筑】前线部队只有携带现金，才能在战场就地修建辅助建筑（B3 随军增筑）。
+            // 因此补给不再"只送粮不送钱"：仅当友军资金低于阈值时补足，
+            // 并保留补给队自身的最低资金，避免把后勤掏空。
+            AIConfig cfg = AIConfig.Instance;
+            int goldGive = 0;
+            int goldThreshold = cfg.supplyNeedGoldThreshold;
+            if (cfg.supplyTransferGoldPercent > 0
+                && goldThreshold > 0
+                && ally.gold < goldThreshold
+                && supplier.gold > 0)
+            {
+                goldGive = supplier.gold * cfg.supplyTransferGoldPercent / 100;
+
+                // 只补到"够用"为止，不做超额转移
+                int need = goldThreshold - ally.gold;
+                if (goldGive > need)
+                    goldGive = need;
+
+                // 保留补给队自身的最低资金
+                int keep = goldThreshold;
+                if (supplier.gold - goldGive < keep)
+                    goldGive = supplier.gold - keep;
+                if (goldGive < 0)
+                    goldGive = 0;
+            }
+
+            if (foodGive <= 0 && troopGive <= 0 && goldGive <= 0
+                && (itemGive == null || itemGive.TotalNumber <= 0))
                 return false;
 
-            supplier.SupplyTroop(ally, itemGive, 0, foodGive, troopGive);
+            supplier.SupplyTroop(ally, itemGive, goldGive, foodGive, troopGive);
 #if SANGO_DEBUG
-            Sango.Log.Info($"{supplier.mBelongForce?.Name}的补给队[{supplier.Name}]为[{ally.Name}]补充 粮草{foodGive} 兵力{troopGive}!");
+            Sango.Log.Info($"{supplier.mBelongForce?.Name}的补给队[{supplier.Name}]为[{ally.Name}]补充 粮草{foodGive} 兵力{troopGive} 资金{goldGive}!");
 #endif
             return true;
         }

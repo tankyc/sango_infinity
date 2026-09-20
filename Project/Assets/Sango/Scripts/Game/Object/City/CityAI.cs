@@ -975,6 +975,13 @@ namespace Sango.Core
                     troop_dst_cell.Add(t.missionTargetCell);
                 }
             }
+            // 【前线战略建筑】优先尝试把辅助建筑修到真正的前沿战区，
+            // 突破"只能建在本城辖区(areaCellList)"的限制。
+            // 若前线暂无可建点（如全面劣势 / 钱不够），自动回退到下面的旧逻辑。
+            if (AIConfig.Instance.useFrontBuilding
+                && TryBuildFrontBuilding(city, scenario, troop_dst_cell))
+                return true;
+
             Cell dest = null;
             for (int i = 0; i < city.areaCellList.Count; i++)
             {
@@ -1009,16 +1016,108 @@ namespace Sango.Core
             if (buildingType == null)
                 return true;
 
+            return DispatchBuildingTroop(city, scenario, dest, buildingType);
+        }
+
+        /// <summary>
+        /// 【前线战略建筑】在城池周边的战区中评选最优建址，并派遣工程队前往修建。
+        ///
+        /// 与旧逻辑（<see cref="AIBuildMilitaryBuilding"/> 内的辖区遍历）的差别：
+        ///   · 扫描范围：以城池为中心 <c>frontBuildSearchRange</c> 格，覆盖真正的前沿
+        ///   · 选点方式：用 <see cref="BattleSituation.EvaluateFrontSite"/> 综合评分取最优，
+        ///     而非"辖区里随便挑一个"
+        ///   · 选型方式：用 <see cref="BattleSituation.SelectFrontBuildingType"/> 依战场态势决定，
+        ///     而非纯权重随机
+        /// </summary>
+        /// <param name="city">出兵城池</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="occupiedCells">已有工程队在建设中的目标格（避免重复派遣）</param>
+        /// <returns>是否成功派出工程队</returns>
+        static bool TryBuildFrontBuilding(City city, Scenario scenario, List<Cell> occupiedCells)
+        {
+            AIConfig cfg = AIConfig.Instance;
+            Cell origin = city.CenterCell;
+            Force force = city.mBelongForce;
+            if (origin == null || force == null || scenario == null || scenario.Map == null)
+                return false;
+
+            // 本势力当前没有可建的军事建筑（科技未解锁等）时直接放弃
+            if (force.canBuildMilitaryBuildingType == null || force.canBuildMilitaryBuildingType.Count == 0)
+                return false;
+
+            BattleSituation.FrontSiteInfo best = new BattleSituation.FrontSiteInfo();
+            best.Clear();
+
+            int range = Math.Max(1, cfg.frontBuildSearchRange);
+            scenario.Map.SpiralAction(origin, range, (cell) =>
+            {
+                // 跳过已有工程队在建的格子，避免两队抢同一位置
+                if (occupiedCells != null && occupiedCells.Contains(cell))
+                    return;
+
+                BattleSituation.FrontSiteInfo info =
+                    BattleSituation.EvaluateFrontSite(cell, force, scenario);
+                if (!info.isValid || info.cell == null)
+                    return;
+
+                if (best.cell == null || info.score > best.score)
+                    best = info;
+            });
+
+            if (!best.isValid || best.cell == null)
+                return false;
+
+            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, force, scenario);
+            if (buildingType == null)
+                return false;
+
+            return DispatchBuildingTroop(city, scenario, best.cell, buildingType);
+        }
+
+        /// <summary>
+        /// 组建并派出一支"工程队"（携带资金前往指定格修建指定建筑）。
+        ///
+        /// 【资金】携带额优先取 <c>frontBuildBudget</c>；为 0 时按
+        /// "目标建筑造价 × frontBuildGoldCostPercent%" 推算，
+        /// 使工程队一次出行能连续修建多座建筑（配合 <c>frontBuildContinueAfterDone</c>）。
+        /// 出征时从城池金库实际扣除，受城池余额限制。
+        /// </summary>
+        /// <param name="city">出兵城池</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="dest">目标建造格（建筑的邻居格之一，部队将落脚于此）</param>
+        /// <param name="buildingType">要修建的建筑类型</param>
+        /// <returns>是否成功派出</returns>
+        static bool DispatchBuildingTroop(City city, Scenario scenario, Cell dest, BuildingType buildingType)
+        {
+            if (dest == null || buildingType == null)
+                return false;
+
+            AIConfig cfg = AIConfig.Instance;
+
+            // 建址在派遣期间被占用（例如被别的部队占据）则放弃
+            if (!dest.CanBuild || !dest.IsEmpty() || dest.IsInterior
+                || dest.SpiralHasBuilding(Math.Max(1, scenario.Variables.BuildingSpace)))
+                return false;
+
             TroopType troopType = scenario.GetObject<TroopType>(1);
 
             // 组建修建队伍
             Person[] builders = ForceAI.CounsellorRecommendBuild(city.freePersons, buildingType);
             if (builders == null || builders.Length == 0)
-                return true;
+                return false;
 
             int maxTroopNum = 3000;
             int food = (int)(maxTroopNum * scenario.Variables.baseFoodCostInTroop * 20);
-            int carrayGold = buildingType.cost;
+
+            // 资金：固定额度优先，否则按造价倍率推算
+            int carrayGold = cfg.frontBuildBudget > 0
+                ? cfg.frontBuildBudget
+                : buildingType.cost * Math.Max(100, cfg.frontBuildGoldCostPercent) / 100;
+            if (carrayGold > city.gold)
+                carrayGold = city.gold;
+            // 连一座都建不起就没必要出征
+            if (carrayGold < buildingType.cost)
+                return false;
 
             city.troops -= maxTroopNum;
             city.food -= food;
@@ -1035,7 +1134,6 @@ namespace Sango.Core
             Troop troop = scenario.CreateTroop();
             troop.energy = city.energy;
             troop.morale = city.morale;
-            //troop.MaxMorale = city.MaxMorale;
             troop.Leader = builders[0];
             troop.TroopType = troopType;
             troop.troops = maxTroopNum;
@@ -1043,8 +1141,12 @@ namespace Sango.Core
             troop.gold = carrayGold;
             troop.missionType = (int)MissionType.TroopBuildBuilding;
             troop.missionTargetCell = dest;
+            // 【角色】显式标记为工兵：EmitTroop 只在 role == Auto 时才自动推导，
+            // 因此这里设定后不会被覆盖，评分体系会按工兵权重使其极力规避接战。
+            troop.role = TroopRole.Engineer;
             if (builders.Length > 1) troop.Member1 = builders[1];
-            if (builders.Length > 2) troop.Member1 = builders[2];
+            // 【修正】原实现此处误写为 Member1，导致第二名副将被丢弃
+            if (builders.Length > 2) troop.Member2 = builders[2];
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
             city.CurActiveTroop = troop;
             troop.SetMission(MissionType.TroopBuildBuilding, buildingType.Id);
@@ -2008,6 +2110,32 @@ namespace Sango.Core
 
             troop.troops = maxTroopNum;
             troop.food = food;
+
+            // 【前线建筑 / B3 随军增筑】让作战部队携带少量资金。
+            // 有了现金，前线部队才可能在战场就地修建军乐台 / 砦等辅助建筑，
+            // 而不必等待专职工程队从后方赶来。
+            // 携带额同时受"占总兵力比例"与"城池余额"双重限制，避免小部队带走过多资金。
+            AIConfig aiCfg = AIConfig.Instance;
+            if (aiCfg.troopCarryGold > 0 && city.gold > aiCfg.frontBuildMinCityGold)
+            {
+                int carry = aiCfg.troopCarryGold;
+                if (aiCfg.troopCarryGoldPerTroops > 0)
+                {
+                    int byTroops = maxTroopNum * aiCfg.troopCarryGoldPerTroops / 10000;
+                    if (byTroops < carry)
+                        carry = byTroops;
+                }
+                // 保留城池运转所需的资金
+                int usable = city.gold - aiCfg.frontBuildMinCityGold;
+                if (carry > usable)
+                    carry = usable;
+                if (carry > 0)
+                {
+                    troop.gold = carry;
+                    city.gold -= carry;
+                }
+            }
+
             // 渲染刷新统一由 CityTroopFactory.EmitTroop 负责（此时部队尚未登记进场景）
             troop.SetMission(city.TroopMissionType, city.TroopMissionTargetId);
             return troop;
