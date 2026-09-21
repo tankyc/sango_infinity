@@ -277,12 +277,6 @@ namespace Sango.Core.Duel
         /// <summary>一击必杀的合数（8373b8）</summary>
         private static readonly int[] FtkBlowCount = new int[(int)DuelFtkType.DuelFtkType_Max] { 1, 1, 1 };
 
-        /// <summary>必定被格挡的组合（8373f0）</summary>
-        private static readonly PersonId[] BlockTable = new PersonId[3]
-        {
-            PersonId.Ryofu, PersonId.Chouhi, PersonId.Kanu,
-        };
-
         #endregion
 
         #region 字段
@@ -1146,38 +1140,8 @@ namespace Sango.Core.Duel
             Person person = GetPerson(team, chara);
             if (Utils.IsActive(person))
             {
-                int age;
-                switch (person.GetId())
-                {
-                    case PersonId.Chouhi:
-                        chance += 12;
-                        break;
-                    case PersonId.Ryofu:
-                    case PersonId.Kanu:
-                        chance += 3;
-                        break;
-                    case PersonId.Kyocho:
-                    case PersonId.Chouun:
-                    case PersonId.Bachou:
-                        chance += 2;
-                        break;
-                    case PersonId.Kouchuu_Kanshou:
-                        if (system.GetLifeMode() == LifeMode.Virtual)
-                        {
-                            chance += 3;
-                            break;
-                        }
-                        age = person.GetAge();
-                        if (age < 60)
-                            chance += 2;
-                        else if (age < 65)
-                            chance += 3;
-                        else if (age < 70)
-                            chance += 4;
-                        else
-                            chance += 5;
-                        break;
-                }
+                // 会心(暴击)概率的武将个体差异改由"武将单挑行为"数据驱动
+                chance = DuelPersonBehaviours.Get(person).ModifyCriticalChance(person, null, chance, true);
             }
             if (HasItem(team, chara, ItemFlags(DuelItemType.DuelItemType_SerpentBlade)))
                 chance += 3;
@@ -1608,7 +1572,7 @@ namespace Sango.Core.Duel
         public static int CalcDuelFtkTeam(Person a, Person b, bool aBow, bool bBow, int aShoubyou, int bShoubyou, out int chance)
         {
             chance = 0;
-            if (DuelSettings.IsFeatDisabled(Feature.DuelFirstTurnKill))
+            if (DuelRules.IsFeatDisabled(Feature.DuelFirstTurnKill))
                 return -1;
             if (!Utils.IsAlive(a))
                 return -1;
@@ -1621,7 +1585,7 @@ namespace Sango.Core.Duel
             int atkStr;
             int defStr;
             int atkTeam;
-            if (aStr > bStr || (aStr == bStr && DuelSettings.RandBool(70)))
+            if (aStr > bStr || (aStr == bStr && DuelRandom.Chance(70)))
             {
                 atk = a;
                 def = b;
@@ -1648,7 +1612,7 @@ namespace Sango.Core.Duel
                 n += 5;
             if (!atk.IsPlayerPerson() && def.IsPlayerPerson())
             {
-                switch (DuelSettings.Difficulty)
+                switch (DuelRules.GetDifficulty())
                 {
                     case Difficulty.Normal:
                         n = n * 4 / 3; // 1.333...
@@ -1660,7 +1624,7 @@ namespace Sango.Core.Duel
             }
             else if (atk.IsPlayerPerson() && !def.IsPlayerPerson())
             {
-                switch (DuelSettings.Difficulty)
+                switch (DuelRules.GetDifficulty())
                 {
                     case Difficulty.Normal:
                         n = n * 4 / 5; // 0.8
@@ -1670,64 +1634,19 @@ namespace Sango.Core.Duel
                         break;
                 }
             }
-            int age;
-            switch (atk.GetId())
-            {
-                case PersonId.Ryofu:
-                    n += 10;
-                    break;
-                case PersonId.Chouhi:
-                case PersonId.Kanu:
-                    n += 5;
-                    break;
-                case PersonId.Kyocho:
-                case PersonId.Chouun:
-                case PersonId.Bachou:
-                    n += 3;
-                    break;
-                case PersonId.Kouchuu_Kanshou:
-                    if (DuelSettings.LifeMode == LifeMode.Virtual)
-                    {
-                        n += 5;
-                        break;
-                    }
-                    age = atk.GetAge();
-                    if (age < 60)
-                        n += 1;
-                    else if (age < 65)
-                        n += 2;
-                    else if (age < 70)
-                        n += 3;
-                    else if (age < 80)
-                        n += 4;
-                    else if (age < 85)
-                        n += 5;
-                    else if (age < 90)
-                        n += 10;
-                    else
-                        n += 15;
-                    break;
-            }
+            // 一击必杀概率的武将个体差异（含黄忠年龄档）改由"武将单挑行为"数据驱动
+            n = DuelPersonBehaviours.Get(atk).ModifyFtkChance(atk, def, n, true);
             // 武力 70 以上才会发生
             if (atk.GetStat(PersonStatType.Strength) < 70)
                 n = 0;
             // 武力差不足 5 时，必须有弓才会发生
             if (!aBow && atkStr - defStrRev < 5)
                 n = 0;
-            // 对手为吕布、关羽、张飞、许褚、赵云、马超时不会发生
-            switch (def.GetId())
-            {
-                case PersonId.Ryofu:
-                case PersonId.Kanu:
-                case PersonId.Chouhi:
-                case PersonId.Kyocho:
-                case PersonId.Chouun:
-                case PersonId.Bachou:
-                    n = 0;
-                    break;
-            }
+            // 对手免疫一击必杀（名单由"武将单挑行为"数据驱动）
+            if (DuelPersonBehaviours.Get(def).IsFtkImmune(def, atk))
+                n = 0;
             chance = n;
-            if (DuelSettings.RandBool(n))
+            if (DuelRandom.Chance(n))
                 return atkTeam;
             return -1;
         }
@@ -1822,22 +1741,9 @@ namespace Sango.Core.Duel
             else if (HasItem(team, chara, ItemFlags(DuelItemType.DuelItemType_LongSpear)))
                 n = n * 10 / 9; // 1.1...
 
-            switch (GetPersonId(team, chara))
-            {
-                case PersonId.Kouchuu_Kanshou:
-                case PersonId.Kakouen:
-                    if (special.type == (int)DuelSpecial.DuelSpecial_Nisetaikyaku)
-                        n = n * 11 / 10; // 1.1
-                    break;
-                case PersonId.Ousou:
-                case PersonId.Shukuyuu:
-                    if (special.type == (int)DuelSpecial.DuelSpecial_Anki)
-                        n = n * 11 / 10; // 1.1
-                    break;
-                case PersonId.Ryofu:
-                    n = n * 13 / 11; // 1.18...
-                    break;
-            }
+            // 必杀威力的武将个体差异改由"武将单挑行为"数据驱动
+            Person specialPerson = GetPerson(team, chara);
+            n = DuelPersonBehaviours.Get(specialPerson).ModifySpecialDamage(specialPerson, null, special.type, n);
 
             switch (special.type)
             {
@@ -1981,10 +1887,11 @@ namespace Sango.Core.Duel
                 n += 2;
             if (HasItem(bTeam, team[bTeam].currentChara, ItemFlags(DuelItemType.DuelItemType_BlueDragon)))
                 n -= 2;
-            if (GetPersonId(aTeam, team[aTeam].currentChara) == PersonId.Kanu)
-                n += 2;
-            if (GetPersonId(bTeam, team[bTeam].currentChara) == PersonId.Kanu)
-                n -= 2;
+            // 先攻概率的武将个体差异（关羽 +2 / 对面是关羽 −2）改由"武将单挑行为"数据驱动
+            Person firstA = GetPerson(aTeam, team[aTeam].currentChara);
+            Person firstB = GetPerson(bTeam, team[bTeam].currentChara);
+            n = DuelPersonBehaviours.Get(firstA).ModifyFirstChance(firstA, firstB, n);
+            n = DuelPersonBehaviours.Get(firstB).ModifyOpponentFirstChance(firstB, firstA, n);
             n = Utils.Clamp(n, 1, 99);
             if (system.RandBool(n))
                 return aTeam;
@@ -2099,7 +2006,26 @@ namespace Sango.Core.Duel
             return system.RandBool(chance);
         }
 
-        /// <summary>509b40。俘虏概率</summary>
+        /// <summary>
+        /// 509b40。俘虏概率。
+        ///
+        /// 与"部队溃灭时的抓捕"（Troop.OnDestroy）同一套口径，但**多一项单挑获胜的基础抓捕率**：
+        ///     抓捕概率 = clamp(基础抓捕率 + 胜方部队的抓捕率 − 败方武将自身的逃跑系数, 0, 100)
+        ///   其中
+        ///     基础抓捕率 = 剧本参数 captureChangceWhenDuelWin
+        ///                  （这一项原先是硬编码的 80；因为部队那一项现在也加进来了，已下调到 70，
+        ///                   设成 0 即退化为"只看部队抓捕率 − 逃跑系数"）
+        ///     部队抓捕率 = 胜方部队.GetCaptureChangce()
+        ///                  （基础值来自剧本参数 captureChangceWhenTroopFall，可由特技 / 宝物的修改型 Action 调整）
+        ///     逃跑系数   = 败方"当前出战武将"的 person.escapeFactorWhenTroopDestroy
+        ///                  （由 TroopChangeEscapeFactor / TroopChangePersonEscapeFactor 这类 Action 给）
+        ///
+        /// 与部队溃灭抓捕的两点差别：
+        ///   1) 多了上面那项"单挑获胜的基础抓捕率"（部队溃灭只有部队自己的抓捕率）；
+        ///   2) 这里只判败方**当前出战**的那一位（部队溃灭是队里三人各判一次）。
+        /// 保留单挑自己的三条豁免——捕缚总开关关闭 / 本合用了退却 / 双方为血亲·配偶·义兄弟。
+        /// 特技 ID 在本方法里不再特判（强运的免俘改由逃跑系数表达）。
+        /// </summary>
         /// <param name="team">失败方队伍</param>
         public bool CalcCaptureChance(int team)
         {
@@ -2107,18 +2033,25 @@ namespace Sango.Core.Duel
                 return false;
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
                 return false;
-            int chara = GetCurrentChara(team);
-            Debug.Assert(Utils.InRange(chara, 0, MaxTeamCharaCount - 1));
-            Person person = GetPerson(team, chara);
-            if (Utils.IsActive(person) && person.HasSkill(SkillId.Kyouun))
-                return false;
             if (specialAction.type == (int)DuelSpecial.DuelSpecial_Taikyaku)
                 return false;
+            int chara = GetCurrentChara(team);
             int opponentTeam = GetOpponentTeam(team);
             int opponentChara = GetCurrentChara(opponentTeam);
             if (IsFamily(opponentTeam, opponentChara, team, chara))
                 return false;
-            int chance = 80;
+
+            // 单挑获胜的基础抓捕率（剧本参数）+ 胜方部队的抓捕率 − 败方武将自身的逃跑系数
+            //
+            // 注意这里读的是 Troop.IsAlive 属性本身，而不是 Utils.IsAlive：
+            // SangoObject 没有实现 IAlive 接口，Utils.IsAlive 对部队会一路落到最后的 return true，
+            // 恒为"存活"，那个守卫等于没写（武将不受影响 —— Utils.IsAlive 对 Person 有专门分支）。
+            Person loserPerson = GetPerson(team, chara);
+            Troop winnerUnit = ParamGetUnit(param, opponentTeam, opponentChara);
+            int baseChance = system.GetDuelWinCaptureChance();
+            int capture = (winnerUnit != null && winnerUnit.IsAlive) ? winnerUnit.GetCaptureChangce() : 0;
+            int flee = Utils.IsActive(loserPerson) ? loserPerson.escapeFactorWhenTroopDestroy : 0;
+            int chance = Math.Min(100, Math.Max(0, baseChance + capture - flee));
             return system.RandBool(chance);
         }
 
@@ -2360,29 +2293,8 @@ namespace Sango.Core.Duel
             Person person = GetPerson(team, chara);
             Person opponentPerson = GetPerson(opponentTeam, opponentChara);
 
-            switch (person.GetId())
-            {
-                case PersonId.Kakouen:
-                case PersonId.Kouchuu_Kanshou:
-                    if (specialAction.type == (int)DuelSpecial.DuelSpecial_Nisetaikyaku)
-                    {
-                        switch (opponentPerson.GetId())
-                        {
-                            case PersonId.Kanu:
-                            case PersonId.Kyocho:
-                            case PersonId.Chouhi:
-                            case PersonId.Chouun:
-                            case PersonId.Bachou:
-                            case PersonId.Ryofu:
-                                n = n * 11 / 10;
-                                break;
-                            default:
-                                n = 100;
-                                break;
-                        }
-                    }
-                    break;
-            }
+            // 必杀命中伤害的武将个体差异（对特定对手 ×11/10、否则必定命中）改由"武将单挑行为"数据驱动
+            n = DuelPersonBehaviours.Get(person).ModifySpecialHitDamage(person, opponentPerson, specialAction.type, n);
 
             if (Utils.IsActive(opponentPerson) && opponentPerson.HasSkill(SkillId.Kyouun))
                 n = 0;
@@ -2598,8 +2510,9 @@ namespace Sango.Core.Duel
             else if (HasItem(team, chara, ItemFlags(DuelItemType.DuelItemType_LongSpear)))
                 n = n * 10 / 9; // 1.1...
 
-            if (GetPersonId(team, chara) == PersonId.Ryofu)
-                n = n * 13 / 11; // 1.18...
+            // 普通攻击的武将个体差异改由"武将单挑行为"数据驱动
+            Person behaviourPerson = GetPerson(team, chara);
+            n = DuelPersonBehaviours.Get(behaviourPerson).ModifyAttackDamage(behaviourPerson, null, n);
 
             if (HasBuff(team, (int)DuelBuffType.DuelBuffType_Attack))
                 n = n * 5 / 4; // 1.25
@@ -2715,7 +2628,8 @@ namespace Sango.Core.Duel
             Person opponentPerson = GetPerson(opponentTeam, opponentChara);
             Debug.Assert(Utils.IsActive(opponentPerson));
 
-            if (Utils.Contains(BlockTable, person.GetId()) && Utils.Contains(BlockTable, opponentPerson.GetId()) && system.RandBool(50))
+            // 必定格挡的组合改由"武将单挑行为"数据驱动
+            if (DuelPersonBehaviours.Get(person).IsAlwaysBlock(this, person, opponentPerson) && system.RandBool(50))
                 return (int)DuelActionResult.DuelActionResult_Blocked;
 
             int ratio = GetActionRatio(team, chara, opponentTeam, opponentChara);
@@ -2819,7 +2733,7 @@ namespace Sango.Core.Duel
         public static int CalcDuelFtkTeam(Person a, Person b, out int chance)
         {
             chance = 0;
-            if (DuelSettings.IsFeatDisabled(Feature.DuelFirstTurnKill))
+            if (DuelRules.IsFeatDisabled(Feature.DuelFirstTurnKill))
                 return -1;
             if (!Utils.IsAlive(a))
                 return -1;
@@ -3044,35 +2958,8 @@ namespace Sango.Core.Duel
             int n = self.CalcStat(PersonStatType.Strength, shoubyou);
             if (!revised)
                 return n;
-            int age;
-            switch (self.GetId())
-            {
-                case PersonId.Ryofu:
-                    return n + 10;
-                case PersonId.Chouhi:
-                case PersonId.Kanu:
-                    return n + 5;
-                case PersonId.Kyocho:
-                case PersonId.Chouun:
-                case PersonId.Bachou:
-                    return n + 3;
-                case PersonId.Kouchuu_Kanshou:
-                    if (DuelSettings.LifeMode == LifeMode.Virtual)
-                        return n + 5;
-                    age = self.GetAge();
-                    if (age < 60)
-                        return n + 1;
-                    else if (age < 65)
-                        return n + 2;
-                    else if (age < 70)
-                        return n + 3;
-                    else if (age < 80)
-                        return n + 4;
-                    else if (age < 90)
-                        return n + 5;
-                    return n + 10;
-            }
-            return n;
+            // 武力修正（吕布/张飞/关羽…、黄忠年龄档）改由"武将单挑行为"数据驱动
+            return DuelPersonBehaviours.Get(self).ModifyDuelStrength(self, null, n, true);
         }
 
         /// <summary>50d0c0</summary>

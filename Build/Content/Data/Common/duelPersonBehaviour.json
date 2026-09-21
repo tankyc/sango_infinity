@@ -1,0 +1,102 @@
+{
+  "_comment": "武将单挑行为配置。字段都可省略，省略 = 该钩子不加任何修正。倍率一律用 num/den 整数乘算，与单挑内部既有口径一致（如 13/11 = 1.18）。年龄档 maxAge=0 表示剩余全部年龄。id 用 PersonId 枚举名；也可写 personId（武将真实 Id，>=0 时优先命中）。",
+  "behaviours": [
+    {
+      "id": "Ryofu",
+      "name": "吕布",
+      "criticalChanceAdd": 3,
+      "duelStrengthAdd": 10,
+      "ftkChanceAdd": 10,
+      "ftkImmune": true,
+      "attackDamageMulNum": 13,
+      "attackDamageMulDen": 11,
+      "specialDamageMul": [ { "num": 13, "den": 11 } ],
+      "alwaysBlockWith": [ "Ryofu", "Chouhi", "Kanu" ],
+      "aiTable": "Ryofu"
+    },
+    {
+      "id": "Chouhi",
+      "name": "张飞",
+      "criticalChanceAdd": 12,
+      "duelStrengthAdd": 5,
+      "ftkChanceAdd": 5,
+      "ftkImmune": true,
+      "alwaysBlockWith": [ "Ryofu", "Chouhi", "Kanu" ]
+    },
+    {
+      "id": "Kanu",
+      "name": "关羽",
+      "criticalChanceAdd": 3,
+      "duelStrengthAdd": 5,
+      "ftkChanceAdd": 5,
+      "ftkImmune": true,
+      "firstChanceAdd": 2,
+      "opponentFirstChanceAdd": -2,
+      "alwaysBlockWith": [ "Ryofu", "Chouhi", "Kanu" ]
+    },
+    {
+      "id": "Kyocho",
+      "name": "许褚",
+      "criticalChanceAdd": 2,
+      "duelStrengthAdd": 3,
+      "ftkChanceAdd": 3,
+      "ftkImmune": true
+    },
+    {
+      "id": "Chouun",
+      "name": "赵云",
+      "criticalChanceAdd": 2,
+      "duelStrengthAdd": 3,
+      "ftkChanceAdd": 3,
+      "ftkImmune": true
+    },
+    {
+      "id": "Bachou",
+      "name": "马超",
+      "criticalChanceAdd": 2,
+      "duelStrengthAdd": 3,
+      "ftkChanceAdd": 3,
+      "ftkImmune": true
+    },
+    {
+      "id": "Kouchuu_Kanshou",
+      "name": "黄忠",
+      "criticalChanceVirtual": 3,
+      "criticalAge": [ { "maxAge": 60, "add": 2 }, { "maxAge": 65, "add": 3 }, { "maxAge": 70, "add": 4 }, { "maxAge": 0, "add": 5 } ],
+      "duelStrengthVirtual": 5,
+      "duelStrengthAge": [ { "maxAge": 60, "add": 1 }, { "maxAge": 65, "add": 2 }, { "maxAge": 70, "add": 3 }, { "maxAge": 80, "add": 4 }, { "maxAge": 90, "add": 5 }, { "maxAge": 0, "add": 10 } ],
+      "ftkChanceVirtual": 5,
+      "ftkAge": [ { "maxAge": 60, "add": 1 }, { "maxAge": 65, "add": 2 }, { "maxAge": 70, "add": 3 }, { "maxAge": 80, "add": 4 }, { "maxAge": 85, "add": 5 }, { "maxAge": 90, "add": 10 }, { "maxAge": 0, "add": 15 } ],
+      "specialDamageMul": [ { "specials": [ "Nisetaikyaku" ], "num": 11, "den": 10 } ],
+      "specialHitMul": {
+        "specials": [ "Nisetaikyaku" ],
+        "opponents": [ "Kanu", "Kyocho", "Chouhi", "Chouun", "Bachou", "Ryofu" ],
+        "num": 11,
+        "den": 10,
+        "otherwiseValue": 100
+      }
+    },
+    {
+      "id": "Kakouen",
+      "name": "夏侯渊",
+      "specialDamageMul": [ { "specials": [ "Nisetaikyaku" ], "num": 11, "den": 10 } ],
+      "specialHitMul": {
+        "specials": [ "Nisetaikyaku" ],
+        "opponents": [ "Kanu", "Kyocho", "Chouhi", "Chouun", "Bachou", "Ryofu" ],
+        "num": 11,
+        "den": 10,
+        "otherwiseValue": 100
+      }
+    },
+    {
+      "id": "Ousou",
+      "name": "黄盖",
+      "specialDamageMul": [ { "specials": [ "Anki" ], "num": 11, "den": 10 } ]
+    },
+    {
+      "id": "Shukuyuu",
+      "name": "周瑜",
+      "specialDamageMul": [ { "specials": [ "Anki" ], "num": 11, "den": 10 } ]
+    }
+  ]
+}

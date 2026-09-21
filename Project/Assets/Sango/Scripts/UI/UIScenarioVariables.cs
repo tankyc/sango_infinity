@@ -151,6 +151,7 @@ namespace Sango.UI
             AddNumberItem("破城时候的抓捕率(百分比)", variables.captureChangceWhenCityFall, 0, 100, (v) => { variables.captureChangceWhenCityFall = v; });
             AddNumberItem("最后一城时候的抓捕率(百分比)", variables.captureChangceWhenLastCityFall, 0, 100, (v) => { variables.captureChangceWhenLastCityFall = v; });
             AddNumberItem("队伍溃败时候的抓捕率(百分比)", variables.captureChangceWhenTroopFall, 0, 100, (v) => { variables.captureChangceWhenTroopFall = v; });
+            AddNumberItem("单挑获胜时候的基础抓捕率(百分比)", variables.captureChangceWhenDuelWin, 0, 100, (v) => { variables.captureChangceWhenDuelWin = v; });
 
             AddTitle("战斗参数");
             AddNumberItem("新游戏禁战回合", variables.AIAttackProtectedCount, 0, 100, (v) => { variables.AIAttackProtectedCount = v; });
@@ -179,6 +180,13 @@ namespace Sango.UI
             AddNumberItem("武力对暴击的加成值", variables.skillCriticalRateAddByStength, 0, 100, (v) => { variables.skillCriticalRateAddByStength = v; });
             AddNumberItem("暴击倍率(百分比)", variables.skillCriticalFactor, 100, 300, (v) => { variables.skillCriticalFactor = v; });
             AddNumberItem("战法命中后触发单挑的基础概率(百分比)", variables.skillDuelChance, 0, 100, (v) => { variables.skillDuelChance = v; });
+
+            AddTitle("单挑参数");
+            AddToggleGroupItem("单挑寿命模式", variables.duelLifeMode, new List<string> { "普通", "虚拟" }, (v) => { variables.duelLifeMode = v; });
+            AddToggleGroupItem("单挑战死频率", variables.duelDeathMode, new List<string> { "无", "普通", "高" }, (v) => { variables.duelDeathMode = v; });
+            AddToggleItem("单挑-禁用一击必杀(一合取胜)", variables.duelDisableFirstTurnKill, (v) => { variables.duelDisableFirstTurnKill = v; });
+            AddToggleItem("单挑-禁用捕缚(不会捕获敌将)", variables.duelDisableCapture, (v) => { variables.duelDisableCapture = v; });
+            AddToggleItem("单挑-禁用AI退却", variables.duelDisableAIRetreat, (v) => { variables.duelDisableAIRetreat = v; });
             AddNumberItem("基础火焰伤害", variables.baseFireDamage, 100, 3000, (v) => { variables.baseFireDamage = v; });
 
 

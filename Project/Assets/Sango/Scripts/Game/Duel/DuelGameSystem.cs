@@ -145,20 +145,20 @@ namespace Sango.Core.Duel
 
         #region 全局设置
 
-        /// <summary>获取难度</summary>
-        public virtual Difficulty GetDifficulty() { return DuelSettings.Difficulty; }
+        /// <summary>获取难度（读剧本参数 difficulty 并映射到单挑 3 档）</summary>
+        public virtual Difficulty GetDifficulty() { return DuelRules.GetDifficulty(); }
 
-        /// <summary>获取寿命模式</summary>
-        public virtual LifeMode GetLifeMode() { return DuelSettings.LifeMode; }
+        /// <summary>获取寿命模式（读剧本参数 duelLifeMode）</summary>
+        public virtual LifeMode GetLifeMode() { return DuelRules.GetLifeMode(); }
 
-        /// <summary>获取战死频率</summary>
-        public virtual BattleDeathMode GetBattleDeathMode() { return DuelSettings.BattleDeathMode; }
+        /// <summary>获取战死频率（读剧本参数 duelDeathMode）</summary>
+        public virtual BattleDeathMode GetBattleDeathMode() { return DuelRules.GetBattleDeathMode(); }
 
-        /// <summary>功能是否被禁用</summary>
-        public virtual bool IsFeatDisabled(Feature feature)
-        {
-            return DuelSettings.IsFeatDisabled != null && DuelSettings.IsFeatDisabled(feature);
-        }
+        /// <summary>获取单挑获胜的基础抓捕率（读剧本参数 captureChangceWhenDuelWin）</summary>
+        public virtual int GetDuelWinCaptureChance() { return DuelRules.GetDuelWinCaptureChance(); }
+
+        /// <summary>功能是否被禁用（读剧本参数里的三个开关）</summary>
+        public virtual bool IsFeatDisabled(Feature feature) { return DuelRules.IsFeatDisabled(feature); }
 
         #endregion
 

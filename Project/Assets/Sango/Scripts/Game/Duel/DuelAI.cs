@@ -321,8 +321,10 @@ namespace Sango.Core.Duel
             Person person = self.parent.GetPerson(self.team, self.chara);
             if (!Utils.IsActive(person))
                 return null;
-            if (person.GetId() == PersonId.Ryofu)
-                return AiGetTable(self, (int)DuelAIType.DuelAIType_Ryofu, tableId);
+            // 是否使用专属 AI 表由"武将单挑行为"数据驱动（未配置则走下面的性格分支）
+            int behaviourTable = DuelPersonBehaviours.Get(person).GetAITableId(person);
+            if (behaviourTable >= 0)
+                return AiGetTable(self, behaviourTable, tableId);
             switch (person.GetSeikaku())
             {
                 case Seikaku.Shoushin:

@@ -1617,6 +1617,8 @@ namespace Sango.Core
             return duelChance;
         }
 
+
+
         public void OnDestroy(SangoObject atk, int atkBack)
         {
             // 添加俘虏流程

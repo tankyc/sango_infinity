@@ -327,6 +327,18 @@ namespace Sango.Core
         [JsonProperty] public int captureChangceWhenTroopFall = 5;
 
         /// <summary>
+        /// 单挑获胜时候的**基础**抓捕率(百分比)。
+        ///
+        /// 单挑的抓捕率 = 本值 + 胜方部队的抓捕率(即上面那个 captureChangceWhenTroopFall，
+        ///                以及挂在部队上的各种修改型 Action) − 败方武将的逃跑系数，夹在 0~100。
+        /// 这一项原先在 Duel.CalcCaptureChance 里是硬编码的 80；因为现在把部队抓捕率也加了进来，
+        /// 基础值下调到 70 —— 普通部队 + 无逃跑系数时总概率 75%，比原来的平铺 80% 略低，
+        /// 同时给"捕缚类抬抓捕率、马术类抬逃跑系数"留出上下调节余地。
+        /// 设为 0 就退化成"只看部队抓捕率 − 逃跑系数"（与部队溃灭抓捕完全同口径）。
+        /// </summary>
+        [JsonProperty] public int captureChangceWhenDuelWin = 70;
+
+        /// <summary>
         /// 进攻时候留守最低的兵力
         /// </summary>
         [JsonProperty] public int minTroopsKeepWhenAttack = 30000;
@@ -416,7 +428,26 @@ namespace Sango.Core
         /// 战法(kind=2)命中后触发单挑的基础概率(百分比)，0 = 关闭该触发。
         /// 实际概率 = 本值 + 该战法的 duelChanceAdd，夹在 0~100 之间。
         /// </summary>
-        [JsonProperty] public int skillDuelChance = 0;
+        [JsonProperty] public int skillDuelChance = 5;
+
+        /// <summary>
+        /// 单挑寿命模式：0 = 普通，1 = 虚拟（影响老将的武力衰减判定，对应单挑内部的 LifeMode）
+        /// </summary>
+        [JsonProperty] public int duelLifeMode = 0;
+
+        /// <summary>
+        /// 单挑战死频率：0 = 无，1 = 普通(2%)，2 = 高(5%)，对应单挑内部的 BattleDeathMode
+        /// </summary>
+        [JsonProperty] public int duelDeathMode = 1;
+
+        /// <summary>单挑：禁用"一合取胜(一击必杀)"判定</summary>
+        [JsonProperty] public bool duelDisableFirstTurnKill = false;
+
+        /// <summary>单挑：禁用"捕缚"（禁用后单挑结束不会捕获敌将）</summary>
+        [JsonProperty] public bool duelDisableCapture = false;
+
+        /// <summary>单挑：禁用 AI 的"退却"必杀</summary>
+        [JsonProperty] public bool duelDisableAIRetreat = false;
 
         /// <summary>
         /// 每一季度治安下降最大数
