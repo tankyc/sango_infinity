@@ -466,6 +466,19 @@ namespace Sango.Core
         [JsonConverter(typeof(Id2ObjConverter<Building>))]
         public Building workingBuilding;
 
+
+        /// <summary>
+        /// 舌战话术
+        /// </summary>
+        [JsonProperty]
+        public int[] wordTac;
+
+        /// <summary>
+        /// 舌战得意话题
+        /// </summary>
+        [JsonProperty]
+        public int[] wadai;
+
         public int escapeFactorWhenTroopDestroy = 0;
 
         public bool HasItem(int itemTypeId)

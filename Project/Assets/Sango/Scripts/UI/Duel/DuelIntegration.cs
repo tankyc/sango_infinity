@@ -33,6 +33,9 @@ namespace Sango.Core.Duel
 
             // 把"事件发起的单挑"接到统一发起流程（是否应战 / 是否观看都在那里处理）
             DuelChallengeFlow.Install();
+
+            // 战法释放完成后按概率挑起单挑（概率 = 剧本参数 + 战法加成）
+            DuelSkillTrigger.Install();
         }
 
         /// <summary>创建卡牌表现层</summary>

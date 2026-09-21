@@ -413,6 +413,12 @@ namespace Sango.Core
         [JsonProperty] public int skillCriticalFactor = 150;
 
         /// <summary>
+        /// 战法(kind=2)命中后触发单挑的基础概率(百分比)，0 = 关闭该触发。
+        /// 实际概率 = 本值 + 该战法的 duelChanceAdd，夹在 0~100 之间。
+        /// </summary>
+        [JsonProperty] public int skillDuelChance = 0;
+
+        /// <summary>
         /// 每一季度治安下降最大数
         /// </summary>
         [JsonProperty] public int securityChangeOnSeasonStart = -5;

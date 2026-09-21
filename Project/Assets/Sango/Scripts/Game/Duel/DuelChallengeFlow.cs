@@ -37,6 +37,8 @@ namespace Sango.Core.Duel
             TroopCommand,
             /// <summary>剧本事件发起（武将之间的单挑）</summary>
             GameEvent,
+            /// <summary>战法释放完成后按概率挑起</summary>
+            Skill,
         }
 
         /// <summary>是否正在等待玩家回答对话框</summary>
@@ -129,11 +131,14 @@ namespace Sango.Core.Duel
         /// <summary>
         /// 提出一次单挑请求。
         /// </summary>
+        /// <param name="forceAccept">
+        /// true = 强制单挑：不询问玩家、也不掷应战概率，直接进入（战法引发的单挑走这条）。
+        /// </param>
         /// <returns>
         /// true 表示流程已被接管（要么正在等玩家回答，要么已进入单挑）；
         /// false 表示当场就被否决/无法发起，调用方应立即结束自己的指令流程。
         /// </returns>
-        public static bool Request(Troop challenger, Troop challenged, Source source)
+        public static bool Request(Troop challenger, Troop challenged, Source source, bool forceAccept = false)
         {
             if (IsPending) return false;
             if (challenger == null || challenged == null) return false;
@@ -145,6 +150,14 @@ namespace Sango.Core.Duel
 
             // 挑战方先叫阵（排队播，读完自动接应战方的回应）
             PlayLine(challenger.Leader, ChallengeLines);
+
+            // 强制单挑（战法引发）：跳过"是否应战"的询问与概率判定，直接进入。
+            // 叫阵 / 应战台词、以及玩家在场时的"是否观战"询问照旧。
+            if (forceAccept)
+            {
+                AfterAccepted();
+                return true;
+            }
 
             // 应战判定：玩家自己决定，AI 按性格与能力掷骰
             if (challenged.IsPlayer)

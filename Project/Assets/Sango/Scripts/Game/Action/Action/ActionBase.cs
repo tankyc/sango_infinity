@@ -262,6 +262,8 @@ namespace Sango.Core.Action
             Register("TroopChangeSkillAttackRange", CraeteHandle<TroopChangeSkillAttackRange>);
             // 特技 #20 捕缚：击破敌军时必定捕获未持有强运且无名马的敌将。
             Register("TroopChangeCaptiveFactor", CraeteHandle<TroopChangeCaptiveFactor>);
+            // 部队单挑概率变化：战法命中后触发单挑的概率（百分比），在部队属性重算时生效。
+            Register("TroopChangeDuelChance", CraeteHandle<TroopChangeDuelChance>);
             // 特技 #34 血路：部队溃灭时，同部队武将不会被俘虏。
             Register("TroopChangeEscapeFactor", CraeteHandle<TroopChangeEscapeFactor>);
             // 技巧 #7 大盾：受到一般攻击时有 30% 概率不受伤害。

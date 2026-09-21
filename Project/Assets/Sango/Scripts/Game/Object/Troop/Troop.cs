@@ -225,6 +225,13 @@ namespace Sango.Core
         public int captiveChangce = 0;
 
         /// <summary>
+        /// 战法命中后触发单挑的概率(百分比)。
+        /// 基础值取自剧本参数 skillDuelChance，在 CalculateAttribute 里求值，
+        /// 之后可由修改型 Action（TroopChangeDuelChance）在 OnTroopCalculateAttribute 上二次修正。
+        /// </summary>
+        public int duelChance = 0;
+
+        /// <summary>
         /// 是否行动完毕
         /// </summary>
         [JsonProperty]
@@ -777,6 +784,8 @@ namespace Sango.Core
         {
             ScenarioVariables Variables = Scenario.Cur.Variables;
             captiveChangce = Variables.captureChangceWhenTroopFall;
+            // 单挑概率：基础值来自剧本参数，之后由 OnTroopCalculateAttribute 上的修改型 Action 二次修正
+            duelChance = Variables.skillDuelChance;
 
             StrategySkills.Clear();
             for(int i = 0; i < Variables.defaultStrategySkills.Length; i++)
@@ -1600,6 +1609,12 @@ namespace Sango.Core
         public int GetCaptureChangce()
         {
             return captiveChangce;
+        }
+
+        /// <summary>战法命中后触发单挑的概率(百分比)</summary>
+        public int GetDuelChance()
+        {
+            return duelChance;
         }
 
         public void OnDestroy(SangoObject atk, int atkBack)
