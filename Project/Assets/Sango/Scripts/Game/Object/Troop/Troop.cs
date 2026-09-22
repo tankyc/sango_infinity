@@ -57,7 +57,14 @@ namespace Sango.Core
         public Corps mBelongCorps => Leader?.mBelongCorps;
 
         /// <summary>
-        /// 所属城池
+        /// Clear 是否已经执行过。Clear 是部队的最终收尾，可能被"兵力归零"与"武将全部离开"两条路各触发一次，
+        /// 用它保证清理只走一遍（部队对象不会在 Clear 之后复用，Init 时会复位）。
+        /// </summary>
+        private bool isCleared;
+
+        /// <summary>
+        /// 所属城池（由主将**实时**推导）。
+        /// 刻意不做缓存：主将换势力/换城后它必须立刻跟着变，缓存会拿到过期城池而摘错名单。
         /// </summary>
         public City mBelongCity => Leader?.mBelongCity;
 
@@ -592,6 +599,7 @@ namespace Sango.Core
 
         public override void Init(Scenario scenario)
         {
+            isCleared = false;
             _troopName = $"{Leader?.Name}队";
             ForEachPerson(x => x.mTroop = this);
             InitActionList();
@@ -1749,8 +1757,21 @@ namespace Sango.Core
 
         public void SupplyTroop(Troop target, ItemStore itemStore, int gold, int food, int troops)
         {
+            // 【修复】补给方必须保留最低 1 兵，不允许把自己掏空。
+            // 本函数直接改 troops（没有走 ChangeTroops），兵力归零不会触发正常收尾
+            // （IsAlive 不会更新、不会 Clear），会留下"0 兵但仍存活"的幽灵部队，
+            // 继续跑 AI 后在 EnterCity 处以零为分母崩溃。
+            if (troops >= this.troops)
+                troops = this.troops - 1;
+            if (troops < 0)
+                troops = 0;
+
             // 中和士气
-            int m = (morale * troops + target.morale * target.troops) / (target.troops + troops);
+            // 【防御】分母可能为 0（双方兵力同时为 0），此时保持目标原有士气
+            int m = target.morale;
+            int totalTroops = target.troops + troops;
+            if (totalTroops > 0)
+                m = (morale * troops + target.morale * target.troops) / totalTroops;
 
             this.troops -= troops;
             this.gold -= gold;
@@ -2497,6 +2518,8 @@ namespace Sango.Core
 
         public void EnterCity(City city)
         {
+            // 所属城取主将的实时值（不缓存），下面几处统一用它：
+            // 主将已被俘/阵亡时它是 null，这几处都要能安全跳过（?.），否则会在这里空引用崩溃
             City lastBelongCity = mBelongCity;
             city.AddGold(gold);
             city.AddFood(food);
@@ -2517,23 +2540,29 @@ namespace Sango.Core
             city.woundedTroops += woundedTroops;
             city.itemStore.Add(itemStore);
             // 中和士气
-            city.morale = (city.morale * city.troops + morale * troops) / (city.troops + troops);
+            // 【防御】分母可能为 0：本部队兵力已经为 0（补给把兵力全部交出等绕过 ChangeTroops 的
+            // 路径会产生"兵力归零但仍存活"的幽灵部队），且城市吸收后仍无兵力（空城 /
+            // 兵力上限 TroopsLimit 为 0 的据点）。此时没有可供加权平均的兵力，
+            // 保持城市原有士气即可，绝不能强行除以 0。
+            int totalTroops = city.troops + troops;
+            if (totalTroops > 0)
+                city.morale = (city.morale * city.troops + morale * troops) / totalTroops;
             ForEachPerson((person) =>
             {
                 person.ActionOver = true;
             });
 
             if (LandTroopType.isFight && LandTroopType.Id != 1)
-                mBelongCity.allAttackTroops.Remove(this);
+                lastBelongCity?.allAttackTroops.Remove(this);
 
-            mBelongCity.allTroops.Remove(this);
+            lastBelongCity?.allTroops.Remove(this);
             city.Render.UpdateRender();
 
-            if (city == mBelongCity)
+            if (city == lastBelongCity)
             {
                 Clear();
 #if SANGO_DEBUG
-                Sango.Log.Info($"{mBelongForce.Name}的[{Name}]部队回到{city.mBelongForce?.Name}的城池:<{city.Name}>");
+                Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]部队回到{city.mBelongForce?.Name}的城池:<{city.Name}>");
 #endif
                 return;
             }
@@ -2554,7 +2583,7 @@ namespace Sango.Core
                     {
                         new PlayerChoice.ChoiceData()
                         {
-                           lab = $"返回{mBelongCity.ColorName}",
+                           lab = $"返回{lastBelongCity?.ColorName}",
                            call = () =>
                            {
                                foreach(Person person in pList)
@@ -2612,13 +2641,29 @@ namespace Sango.Core
             Clear();
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"{mBelongForce.Name}的[{Name}]部队进入{city.mBelongForce?.Name}的城池:<{city.Name}>");
+            Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]部队进入{city.mBelongForce?.Name}的城池:<{city.Name}>");
 #endif
         }
 
         public override void Clear()
         {
-            mBelongCity.allTroops.Remove(this);
+            ClearWithBelongCity(mBelongCity);
+        }
+
+        /// <summary>
+        /// 部队收尾。belongCity 只用于"把自己从所属城的名单里摘除"：
+        ///   · 常规路径传 mBelongCity —— 主将实时推导，主将换势力/换城后天然跟着变，不会过期；
+        ///   · 武将刚被全部摘除时主将已为空、推导不出来，由调用方在摘除**之前**取好传进来（见 RemovePerson）。
+        /// 传 null 时跳过城池名单摘除（不崩），但会留下脏引用，故调用方尽量给准确值。
+        /// </summary>
+        public void ClearWithBelongCity(City belongCity)
+        {
+            // 收尾只走一遍：兵力归零(ChangeTroops)与武将全部离开(RemovePerson)都可能触发本函数
+            if (isCleared)
+                return;
+            isCleared = true;
+
+            belongCity?.allTroops.Remove(this);
             Scenario.Cur.Remove(this);
 
             ReleaseCaptive();
@@ -2633,7 +2678,7 @@ namespace Sango.Core
             }
 
             if (LandTroopType.isFight && LandTroopType.Id != 1)
-                mBelongCity.allAttackTroops.Remove(this);
+                belongCity?.allAttackTroops.Remove(this);
 
 
             ForEachPerson((person) =>
@@ -2673,6 +2718,9 @@ namespace Sango.Core
         {
             if (person == null) return;
 
+            // 摘除前先取所属城：武将摘光后主将为空，mBelongCity 就推导不出来了，而收尾要用它摘城池名单
+            City belongCity = mBelongCity;
+
             if (Member1 == person)
             {
                 Member1.mTroop = null;
@@ -2697,6 +2745,16 @@ namespace Sango.Core
                     Member1 = Member2;
                     Member2 = null;
                 }
+            }
+
+            // 武将已经全部离开：这支部队没有主体了，走 Clear 做完整收尾。
+            // 必须放在 CalculateAttribute 之前 —— 后者按主将算属性，CalculateMaxTroops 会直接取 Leader，
+            // 主将为空时会在那里空引用。
+            // justRemove 的调用方（重新编组 / 换势力等）只是把武将摘出来，不销毁部队，故跳过。
+            if (!justRemove && Leader == null && Member1 == null && Member2 == null)
+            {
+                ClearWithBelongCity(belongCity);
+                return;
             }
 
             if (!justRemove)
@@ -2782,6 +2840,18 @@ namespace Sango.Core
 
         public override bool DoAI(Scenario scenario)
         {
+            // 【兜底防护】兵力已经归零、但还存活的"幽灵部队"。
+            // 成因：SupplyTroop 一类直接改 troops 的路径没有走 ChangeTroops，
+            // 不会把 IsAlive 置为 false，于是它仍能通过 CorpsAI.AITroops 的存活过滤继续行动；
+            // 执行返城等任务抵达据点后，会在 EnterCity 处以零为分母崩溃。
+            // 这里统一收尾，保证 IsAlive 与 troops 始终一致，避免同类崩溃从其它路径再次出现。
+            if (troops <= 0)
+            {
+                IsAlive = false;
+                Clear();
+                return true;
+            }
+
             if (AIFinished)
                 return true;
 
@@ -3319,6 +3389,13 @@ namespace Sango.Core
         /// <returns>添加的武将</returns>
         public Person AddCaptive(Person person)
         {
+            // 规则：君主(IsGovernor，PersonStateType.Governor)不可被俘虏(收押/登用)，
+            // 只能被"释放"或"斩首"，故这里直接拒绝入库
+            if (person != null && person.IsGovernor)
+            {
+                Sango.Log.Warning($"*{Name} -> 拒绝收押君主 {person.Name}（君主只能被释放或斩首）");
+                return null;
+            }
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> captiveList 添加 {person.Name} ");
 #endif

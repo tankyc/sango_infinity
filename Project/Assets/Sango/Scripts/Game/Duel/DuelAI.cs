@@ -210,7 +210,7 @@ namespace Sango.Core.Duel
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
             new AI.Row( 50, (int)DuelAIRow.DuelAIRow_Switch_38, 0, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Switch_Governor, 0, 0),
             new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Switch_HP_LTE, 33, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_38, 0, 0),
             new AI.Row(),
@@ -219,7 +219,7 @@ namespace Sango.Core.Duel
         private static readonly AI.Row[] TimidSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
-            new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
+            new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Governor, 0, 0),
             new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Switch_NotBestChara, 0, 0),
             new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Switch_HP_LTE, 75, 0),
             new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Switch_StrengthDiff_LTE, 7, 0),
@@ -230,7 +230,7 @@ namespace Sango.Core.Duel
         private static readonly AI.Row[] CalmSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Switch_Governor, 0, 0),
             new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Switch_NotBestChara, 0, 0),
             new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_StrengthDiff_LTE, 7, 0),
             new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Switch_HP_LTE, 50, 0),
@@ -241,7 +241,7 @@ namespace Sango.Core.Duel
         private static readonly AI.Row[] BoldSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
-            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
+            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_Governor, 0, 0),
             new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Switch_HP_LTE, 33, 0),
             new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_StrengthDiff_LTE, 8, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_38, 0, 0),
@@ -251,7 +251,7 @@ namespace Sango.Core.Duel
         private static readonly AI.Row[] RecklessSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
-            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
+            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_Governor, 0, 0),
             new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Switch_HP_LTE, 25, 0),
             new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_StrengthDiff_LTE, 12, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_38, 0, 0),
@@ -611,10 +611,10 @@ namespace Sango.Core.Duel
                         if (!AiCompHp(self, row, (int)DuelAICompOp.DuelAICompOp_LessThanOrEqual))
                             continue;
                         return bestChara;
-                    case (int)DuelAIRow.DuelAIRow_Switch_Kunshu:
+                    case (int)DuelAIRow.DuelAIRow_Switch_Governor:
                         {
                             Person person = GetPerson(self.team, self.chara);
-                            if (person == null || !person.IsKunshu())
+                            if (person == null || !person.IsGovernor)
                                 continue;
                             return bestChara;
                         }

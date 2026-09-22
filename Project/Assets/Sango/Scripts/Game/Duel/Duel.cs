@@ -510,11 +510,11 @@ namespace Sango.Core.Duel
             if (last)
                 system.Ping(unit, (int)PingType.Repeat, unchecked((int)0x80808080));
             Message msg = new Message();
-            msg.SetObj0Str0(DuelMessageId.LD_WAR_IKKI_INJURY, person, system.GetInjuryLevelName(person.GetInjuryLevel()));
+            msg.SetObj0Str0(DuelMessageId.LD_WAR_DUEL_INJURY, person, system.GetInjuryLevelName(person.GetInjuryLevel()));
             system.HistoryLog(msg, unit, true, person.GetColor());
             if (person.IsPlayerPerson())
             {
-                msg.SetObj0(DuelMessageId.N_WAR_IKKI_INJURY, person);
+                msg.SetObj0(DuelMessageId.N_WAR_DUEL_INJURY, person);
                 system.Message(system.GetMessage(msg), null, null, true);
             }
         }
@@ -569,7 +569,7 @@ namespace Sango.Core.Duel
             if (ParamIsManual(param))
             {
                 Message msg = new Message();
-                msg.SetObj0Obj1(DuelMessageId.F_WAR_IKKI_HIKIWAKE_A, challenger, challenged);
+                msg.SetObj0Obj1(DuelMessageId.F_WAR_DUEL_DRAW_A, challenger, challenged);
                 system.Message(system.GetMessage(msg), challenger, null, true);
             }
             ResultInjury();
@@ -629,6 +629,15 @@ namespace Sango.Core.Duel
             // 一方不是普通势力时不发生俘虏或死亡
             if (!winnerForce.IsNormal() || !loserForce.IsNormal())
                 loserResult = (int)DuelCharaResult.DuelCharaResult_Escaped;
+            // 规则(暂时)：君主(主公，PersonStateType.Governor)不可被俘虏、也不会战死 ——
+            // 被俘与战死一律改判为退却(释放)：前者是既定规则，后者是因为"主公死亡后选择继承人"
+            // 的功能还没做。等该功能接入后，把这里和 CalcKillChance 里的君主豁免一起去掉即可。
+            if (loserPerson.IsGovernor
+                && (loserResult == (int)DuelCharaResult.DuelCharaResult_Captured
+                    || loserResult == (int)DuelCharaResult.DuelCharaResult_Dead))
+            {
+                loserResult = (int)DuelCharaResult.DuelCharaResult_Escaped;
+            }
             Message msg = new Message();
             bool captured = false;
             bool dead = false;
@@ -637,18 +646,18 @@ namespace Sango.Core.Duel
                 case (int)DuelCharaResult.DuelCharaResult_Escaped:
                     if (playerControlled)
                     {
-                        msg.SetObj0Obj1(DuelMessageId.F_WAR_IKKI_ATO_A, winnerPerson, loserPerson);
+                        msg.SetObj0Obj1(DuelMessageId.F_WAR_DUEL_ESCAPE_A, winnerPerson, loserPerson);
                         system.Message(system.GetMessage(msg), winnerPerson, null, true);
-                        msg.SetObj0Obj1(DuelMessageId.F_WAR_IKKI_ATO_B, loserPerson, winnerPerson);
+                        msg.SetObj0Obj1(DuelMessageId.F_WAR_DUEL_ESCAPE_B, loserPerson, winnerPerson);
                         system.Message(system.GetMessage(msg), loserPerson, null, true);
                     }
                     break;
                 case (int)DuelCharaResult.DuelCharaResult_Captured:
                     if (playerControlled)
                     {
-                        msg.SetObj0Obj1(DuelMessageId.F_WAR_IKKI_HORYO_A, winnerPerson, loserPerson);
+                        msg.SetObj0Obj1(DuelMessageId.F_WAR_DUEL_CAPTURE_A, winnerPerson, loserPerson);
                         system.Message(system.GetMessage(msg), winnerPerson, null, true);
-                        msg.SetObj0Obj1(DuelMessageId.F_WAR_IKKI_HORYO_B, loserPerson, winnerPerson);
+                        msg.SetObj0Obj1(DuelMessageId.F_WAR_DUEL_CAPTURE_B, loserPerson, winnerPerson);
                         system.Message(system.GetMessage(msg), loserPerson, null, true);
                     }
                     captured = true;
@@ -656,7 +665,7 @@ namespace Sango.Core.Duel
                 case (int)DuelCharaResult.DuelCharaResult_Dead:
                     if (playerControlled)
                     {
-                        msg.SetObj0Obj1(DuelMessageId.F_WAR_IKKI_SHIBOU, winnerPerson, loserPerson);
+                        msg.SetObj0Obj1(DuelMessageId.F_WAR_DUEL_DEATH, winnerPerson, loserPerson);
                         system.Message(system.GetMessage(msg), winnerPerson, null, true);
                     }
                     dead = true;
@@ -664,12 +673,12 @@ namespace Sango.Core.Duel
             }
             if (winnerForce.IsPlayerForce())
             {
-                msg.SetObj0Obj1(DuelMessageId.LB_WAR_IKKI_WIN, winnerPerson, loserPerson);
+                msg.SetObj0Obj1(DuelMessageId.LB_WAR_DUEL_WIN, winnerPerson, loserPerson);
                 system.HistoryLog(msg, winnerUnit, true, winnerUnit.GetColor());
             }
             else if (loserForce.IsPlayerForce())
             {
-                msg.SetObj0Obj1(DuelMessageId.LD_WAR_IKKI_LOST, loserPerson, winnerPerson);
+                msg.SetObj0Obj1(DuelMessageId.LD_WAR_DUEL_LOST, loserPerson, winnerPerson);
                 system.HistoryLog(msg, loserUnit, true, loserUnit.GetColor());
             }
             system.Ping(challengerUnit.GetPos(), 0, unchecked((int)0x80808080));
@@ -681,11 +690,15 @@ namespace Sango.Core.Duel
                 List<Person> capturedList = new List<Person>();
                 all.Add(loserPerson);
                 capturedList.Add(loserPerson);
-                system.HoryoShoguu(all, capturedList, loserUnit, winnerUnit);
+                // 顺序不能反：先摘除败将，再登记俘虏。
+                // 登记俘虏(AddCaptive)会把 person.mTroop 改成捕获方部队、并清空其 mBelongCity；
+                // 若先登记，败方部队就会一直挂着这个"已被俘的主将"引用（mBelongCity 已是 null），
+                // 该部队日后被歼灭时 Troop.Clear 取 mBelongCity 会空引用崩溃。
                 if (loserUnit.HasMember(loserPerson.Id))
                     system.PersonDetach(loserPerson, winnerPerson, winnerUnit, loserUnit);
+                system.TakeCaptives(all, capturedList, loserUnit, winnerUnit);
                 if (Utils.IsAlive(district))
-                    system.DistrictAppointTotoku(district, winnerForce);
+                    system.AppointDistrictCommander(district, winnerForce);
                 if (!Utils.IsAlive(loserUnit) && Utils.IsAlive(loserForce) && winnerForce.IsNormal())
                 {
                     if (loserForce.GetLike(winnerForce.GetId()) > 15)
@@ -1187,7 +1200,7 @@ namespace Sango.Core.Duel
                 return false;
             if (!Utils.IsActive(target))
                 return false;
-            return src.IsFamily(target) || src.IsSpouse(target) || src.IsGikyoudai(target);
+            return src.IsFamily(target) || src.IsSpouse(target);
         }
 
         /// <summary>播放合数动画（无表现层时立即结算）</summary>
@@ -1819,7 +1832,7 @@ namespace Sango.Core.Duel
             if (opponentCurPerson.Id < 0)
                 return false;
 
-            if (person.IsGikyoudai(curPerson) || person.IsSpouse(curPerson))
+            if (person.IsBrother(curPerson) || person.IsSpouse(curPerson))
             {
                 if (blowCounter < 3)
                     return false;
@@ -1835,7 +1848,7 @@ namespace Sango.Core.Duel
 
             if (person.IsHate(curPerson))
             {
-                if (!curPerson.IsKunshu())
+                if (!curPerson.IsGovernor)
                     return false;
                 int curForceId = curPerson.GetForceId();
                 if (curForceId >= 0 && person.GetForceId() != curForceId)
@@ -1845,7 +1858,7 @@ namespace Sango.Core.Duel
                 return system.RandBool(person.GetLoyalty() / 4);
             }
 
-            if (person.IsLike(curPerson) || person.IsKetsuen(curPerson))
+            if (person.IsLike(curPerson) || person.IsBloodKin(curPerson))
             {
                 if (blowCounter < 6)
                     return false;
@@ -1856,13 +1869,13 @@ namespace Sango.Core.Duel
             {
                 if (blowCounter < 6)
                     return false;
-                int n = 10 + (75 - person.GetAishouDistance(curPerson)) / 2; // 10 .. 47
+                int n = 10 + (75 - person.GetCompatibilityDistance(curPerson)) / 2; // 10 .. 47
                 return system.RandBool(n);
             }
 
             if (blowCounter < 6)
                 return false;
-            int n2 = (75 - person.GetAishouDistance(curPerson)) / 2; // 0 .. 37
+            int n2 = (75 - person.GetCompatibilityDistance(curPerson)) / 2; // 0 .. 37
             if (n2 < 1)
                 n2 = 1;
             return system.RandBool(n2);
@@ -1986,6 +1999,11 @@ namespace Sango.Core.Duel
             Debug.Assert(Utils.InRange(chara, 0, MaxTeamCharaCount - 1));
             Person person = GetPerson(team, chara);
             if (Utils.IsActive(person) && person.HasSkill(SkillId.Lucky))
+                return false;
+            // 规则(暂时)：君主(主公)不会战死 —— 目前还没有"主公死亡后选择继承人"的功能，
+            // 故这里一律返回 false；等继承人功能做好后，删掉这一段即可接回战死判定
+            // （同时记得去掉 ResultNormal 里对应的君主改判）。
+            if (person != null && person.IsGovernor)
                 return false;
             if (specialAction.type == (int)DuelSpecial.DuelSpecial_Retreat)
                 return false;
@@ -3355,7 +3373,7 @@ namespace Sango.Core.Duel
                     }
                     Message msg = new Message();
                     msg.SetObj0Obj1Obj2Obj3Obj4Obj5Num0Num1(
-                        DuelMessageId.N_WAR_IKKI_KAKUNIN,
+                        DuelMessageId.N_WAR_DUEL_CONFIRM,
                         param.person[0][0], param.person[0][1], param.person[0][2],
                         param.person[1][0], param.person[1][1], param.person[1][2],
                         challengerCount, challengedCount);

@@ -256,17 +256,17 @@ namespace Sango.Core.Duel
     /// <summary>单挑相关消息文本 ID</summary>
     public enum DuelMessageId
     {
-        LD_WAR_IKKI_INJURY,     // 负伤
-        N_WAR_IKKI_INJURY,
-        F_WAR_IKKI_HIKIWAKE_A,  // 平局
-        F_WAR_IKKI_ATO_A,       // 逃走（胜方视角）
-        F_WAR_IKKI_ATO_B,       // 逃走（败方视角）
-        F_WAR_IKKI_HORYO_A,     // 俘虏（胜方视角）
-        F_WAR_IKKI_HORYO_B,     // 俘虏（败方视角）
-        F_WAR_IKKI_SHIBOU,      // 死亡
-        LB_WAR_IKKI_WIN,        // 胜利
-        LD_WAR_IKKI_LOST,       // 败北
-        N_WAR_IKKI_KAKUNIN,     // 是否进入单挑的确认框
+        LD_WAR_DUEL_INJURY,     // 负伤
+        N_WAR_DUEL_INJURY,
+        F_WAR_DUEL_DRAW_A,  // 平局
+        F_WAR_DUEL_ESCAPE_A,       // 逃走（胜方视角）
+        F_WAR_DUEL_ESCAPE_B,       // 逃走（败方视角）
+        F_WAR_DUEL_CAPTURE_A,     // 俘虏（胜方视角）
+        F_WAR_DUEL_CAPTURE_B,     // 俘虏（败方视角）
+        F_WAR_DUEL_DEATH,      // 死亡
+        LB_WAR_DUEL_WIN,        // 胜利
+        LD_WAR_DUEL_LOST,       // 败北
+        N_WAR_DUEL_CONFIRM,     // 是否进入单挑的确认框
     }
 
     #endregion

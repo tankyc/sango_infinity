@@ -69,9 +69,9 @@ namespace Sango.Core.Duel
         public override void PersonAddExp(Person person, PersonStatType type, int subType, int value) { }
         public override void PersonAddKouseki(Person person, int value) { }
         public override void PersonDie(Person person, Person killer, Troop troop, Troop killerTroop, DeathType type, bool flag) { if (person != null) person.Dead(); }
-        public override void HoryoShoguu(List<Person> all, List<Person> captured, Troop loserTroop, Troop winnerTroop) { }
+        public override void TakeCaptives(List<Person> all, List<Person> captured, Troop loserTroop, Troop winnerTroop) { }
         public override void PersonDetach(Person person, Person toPerson, Troop toTroop, Troop fromTroop) { }
-        public override void DistrictAppointTotoku(City city, Force force) { }
+        public override void AppointDistrictCommander(City city, Force force) { }
         public override void ForceSetLike(int forceId, int targetForceId, int value) { }
         public override void ForceAddLike(int forceId, int targetForceId, int value) { }
         public override void ForceAddTechPoint(Force force, int value, Troop troop) { }

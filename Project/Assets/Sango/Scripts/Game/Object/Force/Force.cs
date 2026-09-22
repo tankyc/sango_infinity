@@ -706,6 +706,7 @@ namespace Sango.Core
             FightPower = 0;
             PersonCount = 0;
             CityCount = 0;
+            CityBaseCount = 0;
             // 清理已阵亡的威胁部队记录
             CleanupThreatTroops();
 #if SANGO_DEBUG

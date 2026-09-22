@@ -203,7 +203,7 @@ namespace Sango.Core
             if (target.mBelongForce != null && type != (int)PersonRecruitType.OnForceFall)
                 targetGovernor = target.mBelongForce.mGovernor;
 
-            int aishou = variables.recruitBaseCompatibility;
+            int compatibility = variables.recruitBaseCompatibility;
             //目标武将在野或是已灭亡势力的俘虏
             if (target.IsWild || type == (int)PersonRecruitType.OnForceFall)
             {
@@ -216,9 +216,9 @@ namespace Sango.Core
             else
             {
                 if (targetGovernor != null)
-                    aishou = target.CompatibilityDistance(targetGovernor);
+                    compatibility = target.CompatibilityDistance(targetGovernor);
             }
-            int n = variables.recruitBaseSuccessRate + (aishou - target.CompatibilityDistance(actorGovernor)) * variables.recruitCompatibilityFactorNumerator / variables.recruitCompatibilityFactorDenominator;
+            int n = variables.recruitBaseSuccessRate + (compatibility - target.CompatibilityDistance(actorGovernor)) * variables.recruitCompatibilityFactorNumerator / variables.recruitCompatibilityFactorDenominator;
             n -= (argumentation.loyaltyAdd + variables.recruitLoyaltyInfluenceBase) * loyalty * variables.recruitLoyaltyInfluenceNumerator / variables.recruitLoyaltyInfluenceDenominator;
             n += Math.Max(actor.Glamour, variables.recruitMinGlamour) * variables.recruitGlamourFactorNumerator / variables.recruitGlamourFactorDenominator;
             n -= target.IsLike(targetGovernor) ? variables.recruitLikePersonInfluence : 0;

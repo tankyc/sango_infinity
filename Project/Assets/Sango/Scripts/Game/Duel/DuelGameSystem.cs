@@ -65,17 +65,17 @@ namespace Sango.Core.Duel
     {
         private static readonly Dictionary<int, string> s_texts = new Dictionary<int, string>
         {
-            { (int)DuelMessageId.LD_WAR_IKKI_INJURY,    "{0}在单挑中负伤（{1}）" },
-            { (int)DuelMessageId.N_WAR_IKKI_INJURY,     "{0}在单挑中负伤了。" },
-            { (int)DuelMessageId.F_WAR_IKKI_HIKIWAKE_A, "{0}与{1}的单挑不分胜负。" },
-            { (int)DuelMessageId.F_WAR_IKKI_ATO_A,      "{0}击退了{1}。" },
-            { (int)DuelMessageId.F_WAR_IKKI_ATO_B,      "{0}被{1}击退了。" },
-            { (int)DuelMessageId.F_WAR_IKKI_HORYO_A,    "{0}生擒了{1}。" },
-            { (int)DuelMessageId.F_WAR_IKKI_HORYO_B,    "{0}被{1}生擒了。" },
-            { (int)DuelMessageId.F_WAR_IKKI_SHIBOU,     "{0}斩杀了{1}。" },
-            { (int)DuelMessageId.LB_WAR_IKKI_WIN,       "{0}在单挑中战胜了{1}。" },
-            { (int)DuelMessageId.LD_WAR_IKKI_LOST,      "{0}在单挑中败给了{1}。" },
-            { (int)DuelMessageId.N_WAR_IKKI_KAKUNIN,    "是否接受{0}的单挑？" },
+            { (int)DuelMessageId.LD_WAR_DUEL_INJURY,    "{0}在单挑中负伤（{1}）" },
+            { (int)DuelMessageId.N_WAR_DUEL_INJURY,     "{0}在单挑中负伤了。" },
+            { (int)DuelMessageId.F_WAR_DUEL_DRAW_A, "{0}与{1}的单挑不分胜负。" },
+            { (int)DuelMessageId.F_WAR_DUEL_ESCAPE_A,      "{0}击退了{1}。" },
+            { (int)DuelMessageId.F_WAR_DUEL_ESCAPE_B,      "{0}被{1}击退了。" },
+            { (int)DuelMessageId.F_WAR_DUEL_CAPTURE_A,    "{0}生擒了{1}。" },
+            { (int)DuelMessageId.F_WAR_DUEL_CAPTURE_B,    "{0}被{1}生擒了。" },
+            { (int)DuelMessageId.F_WAR_DUEL_DEATH,     "{0}斩杀了{1}。" },
+            { (int)DuelMessageId.LB_WAR_DUEL_WIN,       "{0}在单挑中战胜了{1}。" },
+            { (int)DuelMessageId.LD_WAR_DUEL_LOST,      "{0}在单挑中败给了{1}。" },
+            { (int)DuelMessageId.N_WAR_DUEL_CONFIRM,    "是否接受{0}的单挑？" },
         };
 
         /// <summary>获取模板，未登记时返回空串</summary>
@@ -351,8 +351,8 @@ namespace Sango.Core.Duel
             return troop.troops - before;
         }
 
-        /// <summary>俘虏处理。对应 C++ System::horyo_shoguu</summary>
-        public virtual void HoryoShoguu(List<Person> all, List<Person> captured, Troop loserTroop, Troop winnerTroop)
+        /// <summary>俘虏处理：把被俘武将登记到胜方部队。对应 C++ System::horyo_shoguu</summary>
+        public virtual void TakeCaptives(List<Person> all, List<Person> captured, Troop loserTroop, Troop winnerTroop)
         {
             if (captured == null || winnerTroop == null) return;
             for (int i = 0; i < captured.Count; i++)
@@ -364,11 +364,18 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>把武将从原部队摘除</summary>
+        /// <summary>
+        /// 把武将从原部队摘除。
+        ///
+        /// 判据是"该武将是否还登记在这支部队里"(Leader / Member1 / Member2)，**不能用 person.mTroop**：
+        /// 俘虏流程 Troop.AddCaptive 会先把 person.mTroop 改成捕获方部队，按 mTroop 判断就永远不成立，
+        /// 被俘武将便会一直留在原部队的主将/成员字段上（而它的 mBelongCity 已被 AddCaptive 清空）；
+        /// 该部队日后被歼灭时 Troop.Clear 取 mBelongCity 就会空引用崩溃。
+        /// </summary>
         public virtual void PersonDetach(Person person, Person toPerson, Troop toTroop, Troop fromTroop)
         {
             if (person == null || fromTroop == null) return;
-            if (person.mTroop == fromTroop)
+            if (fromTroop.HasMember(person.Id))
                 fromTroop.RemovePerson(person);
         }
 
@@ -381,13 +388,13 @@ namespace Sango.Core.Duel
         /// TODO: 项目里"都督"由军团（Corps）承担，此处的语义是"攻下该地后重设都督"，
         ///       待军团任命规则确定后在此接入。
         /// </summary>
-        public virtual void DistrictAppointTotoku(City city, Force force)
+        public virtual void AppointDistrictCommander(City city, Force force)
         {
-            OnDistrictAppointTotoku?.Invoke(city, force);
+            OnAppointDistrictCommander?.Invoke(city, force);
         }
 
         /// <summary>自定义地区都督任命实现</summary>
-        public static System.Action<City, Force> OnDistrictAppointTotoku;
+        public static System.Action<City, Force> OnAppointDistrictCommander;
 
         /// <summary>设置势力友好度</summary>
         public virtual void ForceSetLike(int forceId, int targetForceId, int value)

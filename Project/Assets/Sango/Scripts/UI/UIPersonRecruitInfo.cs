@@ -22,6 +22,8 @@ using Sango.Core; namespace Sango.UI
 
         public Button recruitBtn1;
         public Button recruitBtn2;
+        /// <summary>收押按钮（君主不可用）。需要在 prefab window_person_recruit_info 上绑定该按钮</summary>
+        public Button detainBtn;
     
         PersonRecruit personRecruit;
         public override void OnOpen()
@@ -30,6 +32,17 @@ using Sango.Core; namespace Sango.UI
             btnGroup_1.gameObject.SetActive(false);
             btnGroup_2.gameObject.SetActive(false);
             personRecruit = GameSystem.GetSystem<PersonRecruit>();
+
+            // 规则：君主(主公)不可被登用/收押，只保留"释放"与"斩首"
+            if (personRecruit.target != null && personRecruit.target.IsGovernor)
+            {
+                titleText.text = "敌方君主";
+                if (detainBtn != null)
+                    detainBtn.interactable = false;
+                SetPerson(personRecruit.target);
+                return;
+            }
+
             if (personRecruit.recruitType == 0)
             {
                 titleText.text = "发现武将";

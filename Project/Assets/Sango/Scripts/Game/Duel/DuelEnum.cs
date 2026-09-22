@@ -273,7 +273,7 @@ namespace Sango.Core.Duel
         DuelAIRow_Stance_Stop_StanceTimer_GTE = 32,      // 方针持续回合 param1 以上
 
         DuelAIRow_Switch_HP_LTE = 33,                    // 体力 param1 以下
-        DuelAIRow_Switch_Kunshu = 34,                    // 当前武将为君主
+        DuelAIRow_Switch_Governor = 34,                  // 当前武将为君主
         DuelAIRow_Switch_StrengthDiff_LTE = 35,          // 敌方武力 - 己方武力 param1 以下
         DuelAIRow_Switch_NotBestChara = 36,              // 不是己方战力最高的武将
         DuelAIRow_Switch_Stop_Invulnerable = 37,         // 无敌状态

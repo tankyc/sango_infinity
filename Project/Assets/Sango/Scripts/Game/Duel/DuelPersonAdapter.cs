@@ -77,15 +77,6 @@ namespace Sango.Core.Duel
     {
         private static readonly List<Equipment> s_emptyItems = new List<Equipment>();
 
-        /// <summary>难度（影响 AI 的必杀/退却倾向）</summary>
-        public static Difficulty Difficulty = Difficulty.Normal;
-
-        /// <summary>寿命模式（影响老将的武力衰减判定）</summary>
-        public static LifeMode LifeMode = LifeMode.Normal;
-
-        /// <summary>战死频率（影响单挑致死的判定）</summary>
-        public static BattleDeathMode BattleDeathMode = BattleDeathMode.Normal;
-
         /// <summary>功能是否被禁用（一击必杀 / 捕缚 / AI 退却 等）</summary>
         public static Func<Feature, bool> IsFeatDisabled = feature => false;
 
@@ -148,9 +139,6 @@ namespace Sango.Core.Duel
         /// <summary>恢复为默认实现</summary>
         public static void Reset()
         {
-            Difficulty = Difficulty.Normal;
-            LifeMode = LifeMode.Normal;
-            BattleDeathMode = BattleDeathMode.Normal;
             IsFeatDisabled = feature => false;
             GetPersonItemList = DefaultGetPersonItemList;
             GetDuelItemPower = person => 0;
@@ -444,12 +432,6 @@ namespace Sango.Core.Duel
             return self != null && (self.IsPlayer || self.IsPlayerControl);
         }
 
-        /// <summary>是否君主</summary>
-        public static bool IsKunshu(this Person self)
-        {
-            return self != null && self.state == (int)PersonStateType.Governor;
-        }
-
         /// <summary>是否为血亲 / 配偶 / 义兄弟（用于一击必杀与俘虏判定的豁免）</summary>
         public static bool IsFamily(this Person self, Person other)
         {
@@ -460,23 +442,16 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>对方是否为义兄弟</summary>
-        public static bool IsGikyoudai(this Person self, Person other)
-        {
-            if (self == null || other == null) return false;
-            return self.IsBrother(other);
-        }
-
-        /// <summary>对方是否为血亲（血缘相同或父子）</summary>
-        public static bool IsKetsuen(this Person self, Person other)
+        /// <summary>对方是否为血亲（血缘值相同或父子）。对应 C++ 的"血縁"判定</summary>
+        public static bool IsBloodKin(this Person self, Person other)
         {
             if (self == null || other == null) return false;
             if (self.consanguinity > 0 && self.consanguinity == other.consanguinity) return true;
             return self.IsParentchild(other);
         }
 
-        /// <summary>与对方的相性距离（0~150，越小越亲近）</summary>
-        public static int GetAishouDistance(this Person self, Person other)
+        /// <summary>与对方的相性距离（0~150，越小越亲近）；任一方为空时按中性值 75 处理</summary>
+        public static int GetCompatibilityDistance(this Person self, Person other)
         {
             if (self == null || other == null) return 75;
             return self.CompatibilityDistance(other);

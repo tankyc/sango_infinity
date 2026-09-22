@@ -350,6 +350,12 @@ namespace Sango.Core
                 troopGive = ally.MaxTroops - ally.troops;
             if (troopGive > supplier.troops)
                 troopGive = supplier.troops;
+            // 【修复】补给队必须给自己保留最低 1 兵，不允许把兵力全部交出。
+            // 兵力归零的补给队不会被 ChangeTroops 正常收尾（SupplyTroop 直接改 troops），
+            // 会变成"0 兵但仍存活"的幽灵部队继续跑 AI，最终在 EnterCity 处以零为分母崩溃。
+            int supplierKeepTroops = 1;
+            if (troopGive > supplier.troops - supplierKeepTroops)
+                troopGive = supplier.troops - supplierKeepTroops;
             if (troopGive < 0)
                 troopGive = 0;
 

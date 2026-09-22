@@ -722,6 +722,13 @@ namespace Sango.Core
         /// <returns>添加的武将</returns>
         public Person AddCaptive(Person person, bool breakCircal = false)
         {
+            // 规则：君主(IsGovernor，PersonStateType.Governor)不可被俘虏(收押/登用)，
+            // 只能被"释放"或"斩首"，故这里直接拒绝入库
+            if (person != null && person.IsGovernor)
+            {
+                Sango.Log.Warning($"*{Name} -> 拒绝收押君主 {person.Name}（君主只能被释放或斩首）");
+                return null;
+            }
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> captiveList 添加 {person.Name} ");
 #endif

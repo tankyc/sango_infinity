@@ -15,6 +15,9 @@ namespace Sango.Core
         public int result = 0;
         public System.Action<PersonRecruit> doneAction;
 
+        /// <summary>目标是否为君主(主公，PersonStateType.Governor)：君主不可被登用/收押，只能释放或斩首</summary>
+        public bool IsTargetGovernor => target != null && target.IsGovernor;
+
         public void Start(Person recruitor, Person target, int recruitType, int tryLimit, System.Action<PersonRecruit> doneAction)
         {
             result = 0;
@@ -79,6 +82,13 @@ namespace Sango.Core
         // 招募
         public void RecruitTarget()
         {
+            // 规则：君主(主公)不可被登用，只能释放或斩首
+            if (IsTargetGovernor)
+            {
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, "此人乃一方之主，岂能屈居人下！只能释放或斩首。", () => { }, target);
+                return;
+            }
+
             if (tryLimit > 0)
             {
                 if (fallCity != null)
@@ -105,6 +115,13 @@ namespace Sango.Core
 
         public void RecruitTarget2()
         {
+            // 规则：君主(主公)不可被登用，只能释放或斩首
+            if (IsTargetGovernor)
+            {
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, "此人乃一方之主，岂能屈居人下！只能释放或斩首。", () => { }, target);
+                return;
+            }
+
             if (tryLimit > 0)
             {
                 if (fallCity != null)
@@ -155,6 +172,13 @@ namespace Sango.Core
         // 收押
         public void DetainTarget()
         {
+            // 规则：君主(主公)不可收押，只能释放或斩首
+            if (IsTargetGovernor)
+            {
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, "此人乃一方之主，只能释放或斩首。", () => { }, target);
+                return;
+            }
+
             result = 3;
             if (fallCity != null)
                 fallCity.AddCaptive(target);
