@@ -187,6 +187,12 @@ namespace Sango.UI
             AddToggleItem("单挑-禁用一击必杀(一合取胜)", variables.duelDisableFirstTurnKill, (v) => { variables.duelDisableFirstTurnKill = v; });
             AddToggleItem("单挑-禁用捕缚(不会捕获敌将)", variables.duelDisableCapture, (v) => { variables.duelDisableCapture = v; });
             AddToggleItem("单挑-禁用AI退却", variables.duelDisableAIRetreat, (v) => { variables.duelDisableAIRetreat = v; });
+
+            AddTitle("舌战参数");
+            AddToggleItem("舌战-禁用会心(不出现追击/留情)", variables.debateDisableCritical, (v) => { variables.debateDisableCritical = v; });
+            AddNumberItem("舌战-外交失败触发概率(百分比)", variables.debateChanceWhenDiplomacyFail, 0, 100, (v) => { variables.debateChanceWhenDiplomacyFail = v; });
+            AddNumberItem("舌战-招募失败触发概率(百分比)", variables.debateChanceWhenRecruitFail, 0, 100, (v) => { variables.debateChanceWhenRecruitFail = v; });
+            AddToggleItem("舌战-AI之间也触发(后台结算不弹界面)", variables.debateAllowAIVsAI, (v) => { variables.debateAllowAIVsAI = v; });
             AddNumberItem("基础火焰伤害", variables.baseFireDamage, 100, 3000, (v) => { variables.baseFireDamage = v; });
 
 

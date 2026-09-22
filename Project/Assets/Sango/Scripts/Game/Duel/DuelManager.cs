@@ -149,14 +149,16 @@ namespace Sango.Core.Duel
                     param.hp[t][count] = Duel.MaxHP;
                     param.spirit[t][count] = 0;
                     // 伤病直接沿用武将当前状态；-1 表示不参战
-                    param.shoubyou[t][count] = Math.Max(0, person.injury);
+                    param.injuryLevel[t][count] = Math.Max(0, person.injury);
                     count++;
                 }
 
                 param.startChara[t] = count > 0 ? 0 : -1;
-                param.playerId[t] = troop.IsPlayer ? 0 : -1;
-                // 玩家部队手动操作，其余交给 AI；无表现层时一律自动
-                bool manual = withView && troop.IsPlayer;
+                // 只有"玩家亲自操作"的部队才算玩家（玩家势力里被 AI 托管的部队不算）
+                bool playerControl = troop.IsPlayerControl;
+                param.playerId[t] = playerControl ? 0 : -1;
+                // 玩家亲自操作的部队手动出招，其余交给 AI；无表现层时一律自动
+                bool manual = withView && playerControl;
                 param.control[t] = manual ? (int)DuelControl.DuelControl_Manual : (int)DuelControl.DuelControl_Auto;
             }
 

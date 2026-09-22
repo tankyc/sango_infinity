@@ -16,13 +16,13 @@ namespace Sango.Core.Duel
     {
         #region AI 决策表
 
-        private static readonly AI.Row[] RyofuSpecialTry =
+        private static readonly AI.Row[] LuBuSpecialTry =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_SpecialTry_Spirit_GTE, 300, 0),
-            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_SpecialTry_Kenshu, 0, 0),
-            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_SpecialTry_Kiai, 0, 0),
+            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_SpecialTry_Steadfast, 0, 0),
+            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_SpecialTry_FightingSpirit, 0, 0),
             new AI.Row( 10, (int)DuelAIRow.DuelAIRow_SpecialTry_Stop, 0, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_AnkiOrMusou, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_HiddenWeaponOrPeerless, 0, 0),
             new AI.Row( 60, (int)DuelAIRow.DuelAIRow_SpecialTry_OpponentHP_LTE, 50, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_SpecialTry_HP_LTE, 25, 0),
             new AI.Row( 30, (int)DuelAIRow.DuelAIRow_SpecialTry_Always, 0, 0),
@@ -30,10 +30,10 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ShoushinSpecialTry =
+        private static readonly AI.Row[] TimidSpecialTry =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_SpecialTry_Spirit_GTE, 300, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_Kenshu, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_Steadfast, 0, 0),
             new AI.Row( 40, (int)DuelAIRow.DuelAIRow_SpecialTry_Stop, 0, 0),
             new AI.Row( 20, (int)DuelAIRow.DuelAIRow_SpecialTry_HP_LTE, 50, 0),
             new AI.Row( 10, (int)DuelAIRow.DuelAIRow_SpecialTry_Always, 0, 0),
@@ -41,27 +41,27 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ReiseiSpecialTry =
+        private static readonly AI.Row[] CalmSpecialTry =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_SpecialTry_Spirit_GTE, 300, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_AnkiOrMusou, 0, 0),
-            new AI.Row( 50, (int)DuelAIRow.DuelAIRow_SpecialTry_Kenshu, 0, 0),
-            new AI.Row( 10, (int)DuelAIRow.DuelAIRow_SpecialTry_Kiai, 0, 0),
-            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_SpecialTry_Kyuusho, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_HiddenWeaponOrPeerless, 0, 0),
+            new AI.Row( 50, (int)DuelAIRow.DuelAIRow_SpecialTry_Steadfast, 0, 0),
+            new AI.Row( 10, (int)DuelAIRow.DuelAIRow_SpecialTry_FightingSpirit, 0, 0),
+            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_SpecialTry_WeakPoint, 0, 0),
             new AI.Row( 40, (int)DuelAIRow.DuelAIRow_SpecialTry_Stop, 0, 0),
             new AI.Row( 10, (int)DuelAIRow.DuelAIRow_SpecialTry_HP_LTE, 50, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_SpecialTry_Stop, 0, 0),
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] GoutanSpecialTry =
+        private static readonly AI.Row[] BoldSpecialTry =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_SpecialTry_Spirit_GTE, 300, 0),
-            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_SpecialTry_Kenshu, 0, 0),
-            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_SpecialTry_Kiai, 0, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_AnkiOrMusou, 0, 0),
+            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_SpecialTry_Steadfast, 0, 0),
+            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_SpecialTry_FightingSpirit, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_HiddenWeaponOrPeerless, 0, 0),
             new AI.Row( 10, (int)DuelAIRow.DuelAIRow_SpecialTry_Stop, 0, 0),
-            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_SpecialTry_Kyuusho, 0, 0),
+            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_SpecialTry_WeakPoint, 0, 0),
             new AI.Row( 35, (int)DuelAIRow.DuelAIRow_SpecialTry_HP_LTE, 50, 0),
             new AI.Row( 80, (int)DuelAIRow.DuelAIRow_SpecialTry_OpponentHP_LTE, 25, 0),
             new AI.Row( 35, (int)DuelAIRow.DuelAIRow_SpecialTry_Always, 0, 0),
@@ -69,11 +69,11 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ChototsuSpecialTry =
+        private static readonly AI.Row[] RecklessSpecialTry =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_SpecialTry_Spirit_GTE, 300, 0),
-            new AI.Row( 20, (int)DuelAIRow.DuelAIRow_SpecialTry_Kiai, 0, 0),
-            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_SpecialTry_Kyuusho, 0, 0),
+            new AI.Row( 20, (int)DuelAIRow.DuelAIRow_SpecialTry_FightingSpirit, 0, 0),
+            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_SpecialTry_WeakPoint, 0, 0),
             new AI.Row( 60, (int)DuelAIRow.DuelAIRow_SpecialTry_HP_LTE, 33, 0),
             new AI.Row( 60, (int)DuelAIRow.DuelAIRow_SpecialTry_OpponentHP_LTE, 33, 0),
             new AI.Row( 50, (int)DuelAIRow.DuelAIRow_SpecialTry_Always, 0, 0),
@@ -81,74 +81,74 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] RyofuSpecial =
+        private static readonly AI.Row[] LuBuSpecial =
         {
-            new AI.Row( 95, (int)DuelAIRow.DuelAIRow_Special_Taikyaku, 12, 0),
-            new AI.Row( 20, (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku, 0, 0),
-            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_Anki, 0, 0),
-            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_AnkiOrMusou, 0, 0),
-            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Special_Anki, 0, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku, 0, 0),
+            new AI.Row( 95, (int)DuelAIRow.DuelAIRow_Special_Retreat, 12, 0),
+            new AI.Row( 20, (int)DuelAIRow.DuelAIRow_Special_FeintRetreat, 0, 0),
+            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon, 0, 0),
+            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_HiddenWeaponOrPeerless, 0, 0),
+            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Special_FeintRetreat, 0, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_Random, 0, 0),
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ShoushinSpecial =
+        private static readonly AI.Row[] TimidSpecial =
         {
-            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_Taikyaku, 16, 0),
-            new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku, 0, 0),
-            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_AnkiOrMusou, 0, 0),
-            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_Anki, 0, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Special_Kenshu, 0, 0),
-            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Special_Kyuusho, 0, 0),
+            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_Retreat, 16, 0),
+            new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_FeintRetreat, 0, 0),
+            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_HiddenWeaponOrPeerless, 0, 0),
+            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Special_Steadfast, 0, 0),
+            new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Special_WeakPoint, 0, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_Random, 0, 0),
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ReiseiSpecial =
+        private static readonly AI.Row[] CalmSpecial =
         {
-            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_Taikyaku, 14, 0),
-            new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku, 0, 0),
-            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_AnkiOrMusou, 0, 0),
-            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_Kiai, 0, 0),
-            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_Kenshu, 0, 0),
-            new AI.Row( 50, (int)DuelAIRow.DuelAIRow_Special_Kyuusho, 0, 0),
-            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Special_Anki, 0, 0),
+            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_Retreat, 14, 0),
+            new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_FeintRetreat, 0, 0),
+            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_HiddenWeaponOrPeerless, 0, 0),
+            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_FightingSpirit, 0, 0),
+            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_Steadfast, 0, 0),
+            new AI.Row( 50, (int)DuelAIRow.DuelAIRow_Special_WeakPoint, 0, 0),
+            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon, 0, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_Random, 0, 0),
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] GoutanSpecial =
+        private static readonly AI.Row[] BoldSpecial =
         {
-            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_Taikyaku, 12, 0),
-            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku, 0, 0),
-            new AI.Row( 10, (int)DuelAIRow.DuelAIRow_Special_Kiai, 0, 0),
-            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_Anki, 0, 0),
-            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Special_AnkiOrMusou, 0, 0),
-            new AI.Row( 10, (int)DuelAIRow.DuelAIRow_Special_Kenshu, 0, 0),
-            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_Kyuusho, 0, 0),
-            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku, 0, 0),
-            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_Anki, 0, 0),
+            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_Retreat, 12, 0),
+            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Special_FeintRetreat, 0, 0),
+            new AI.Row( 10, (int)DuelAIRow.DuelAIRow_Special_FightingSpirit, 0, 0),
+            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon, 0, 0),
+            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Special_HiddenWeaponOrPeerless, 0, 0),
+            new AI.Row( 10, (int)DuelAIRow.DuelAIRow_Special_Steadfast, 0, 0),
+            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_WeakPoint, 0, 0),
+            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_FeintRetreat, 0, 0),
+            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon, 0, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_Random, 0, 0),
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ChototsuSpecial =
+        private static readonly AI.Row[] RecklessSpecial =
         {
-            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Special_Taikyaku, 12, 0),
-            new AI.Row( 20, (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku, 0, 0),
-            new AI.Row( 15, (int)DuelAIRow.DuelAIRow_Special_Kiai, 0, 0),
-            new AI.Row( 50, (int)DuelAIRow.DuelAIRow_Special_Kyuusho, 0, 0),
-            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_Anki, 0, 0),
-            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_Special_Kenshu, 0, 0),
-            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku, 0, 0),
-            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Special_AnkiOrMusou, 0, 0),
-            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_Anki, 0, 0),
+            new AI.Row( 40, (int)DuelAIRow.DuelAIRow_Special_Retreat, 12, 0),
+            new AI.Row( 20, (int)DuelAIRow.DuelAIRow_Special_FeintRetreat, 0, 0),
+            new AI.Row( 15, (int)DuelAIRow.DuelAIRow_Special_FightingSpirit, 0, 0),
+            new AI.Row( 50, (int)DuelAIRow.DuelAIRow_Special_WeakPoint, 0, 0),
+            new AI.Row( 30, (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon, 0, 0),
+            new AI.Row(  5, (int)DuelAIRow.DuelAIRow_Special_Steadfast, 0, 0),
+            new AI.Row( 70, (int)DuelAIRow.DuelAIRow_Special_FeintRetreat, 0, 0),
+            new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Special_HiddenWeaponOrPeerless, 0, 0),
+            new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon, 0, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Special_Random, 0, 0),
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] RyofuStance =
+        private static readonly AI.Row[] LuBuStance =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Stance_A_Invulnerable, 0, 0),
             new AI.Row( 95, (int)DuelAIRow.DuelAIRow_Stance_Stop_StanceTimer_GTE, 1, 0), // 1回合 95% 概率维持
@@ -159,7 +159,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ShoushinStance =
+        private static readonly AI.Row[] TimidStance =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Stance_A_Invulnerable, 0, 0),
             new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Stance_D_BlowCounter_GTE, 40, 0),
@@ -170,7 +170,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ReiseiStance =
+        private static readonly AI.Row[] CalmStance =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Stance_A_Invulnerable, 0, 0),
             new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Stance_Stop_StanceTimer_GTE, 3, 0), // 3回合 90% 概率维持
@@ -182,7 +182,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] GoutanStance =
+        private static readonly AI.Row[] BoldStance =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Stance_A_Invulnerable, 0, 0),
             new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Stance_Stop_StanceTimer_GTE, 2, 0), // 2回合 90% 概率维持
@@ -194,7 +194,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ChototsuStance =
+        private static readonly AI.Row[] RecklessStance =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Stance_A_Invulnerable, 0, 0),
             new AI.Row( 90, (int)DuelAIRow.DuelAIRow_Stance_Stop_StanceTimer_GTE, 1, 0), // 1回合 90% 概率维持
@@ -206,7 +206,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] RyofuSwitch =
+        private static readonly AI.Row[] LuBuSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
             new AI.Row( 50, (int)DuelAIRow.DuelAIRow_Switch_38, 0, 0),
@@ -216,7 +216,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ShoushinSwitch =
+        private static readonly AI.Row[] TimidSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
@@ -227,7 +227,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ReiseiSwitch =
+        private static readonly AI.Row[] CalmSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
             new AI.Row( 80, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
@@ -238,7 +238,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] GoutanSwitch =
+        private static readonly AI.Row[] BoldSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
             new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
@@ -248,7 +248,7 @@ namespace Sango.Core.Duel
             new AI.Row(),
         };
 
-        private static readonly AI.Row[] ChototsuSwitch =
+        private static readonly AI.Row[] RecklessSwitch =
         {
             new AI.Row(100, (int)DuelAIRow.DuelAIRow_Switch_Stop_Invulnerable, 0, 0),
             new AI.Row( 60, (int)DuelAIRow.DuelAIRow_Switch_Kunshu, 0, 0),
@@ -261,18 +261,18 @@ namespace Sango.Core.Duel
         /// <summary>AI 决策总表（8b0a40）[AI 性格][决策表类型]</summary>
         private static readonly AI.Row[][][] AiTable = new AI.Row[][][]
         {
-            new AI.Row[][] { RyofuSpecialTry, RyofuSpecial, RyofuStance, RyofuSwitch },
-            new AI.Row[][] { ShoushinSpecialTry, ShoushinSpecial, ShoushinStance, ShoushinSwitch },
-            new AI.Row[][] { ReiseiSpecialTry, ReiseiSpecial, ReiseiStance, ReiseiSwitch },
-            new AI.Row[][] { GoutanSpecialTry, GoutanSpecial, GoutanStance, GoutanSwitch },
-            new AI.Row[][] { ChototsuSpecialTry, ChototsuSpecial, ChototsuStance, ChototsuSwitch },
+            new AI.Row[][] { LuBuSpecialTry, LuBuSpecial, LuBuStance, LuBuSwitch },
+            new AI.Row[][] { TimidSpecialTry, TimidSpecial, TimidStance, TimidSwitch },
+            new AI.Row[][] { CalmSpecialTry, CalmSpecial, CalmStance, CalmSwitch },
+            new AI.Row[][] { BoldSpecialTry, BoldSpecial, BoldStance, BoldSwitch },
+            new AI.Row[][] { RecklessSpecialTry, RecklessSpecial, RecklessStance, RecklessSwitch },
         };
 
         #endregion
 
         #region AI 实现
 
-        /// <summary>4fb490</summary>
+        /// <summary>刷新 AI 上下文中的当前出战武将（本方与对手）</summary>
         public void AiUpdateChara(AI self)
         {
             if (self.parent == null)
@@ -285,19 +285,19 @@ namespace Sango.Core.Duel
             self.opponentChara = self.parent.GetCurrentChara(self.opponentTeam);
         }
 
-        /// <summary>4fb4d0</summary>
+        /// <summary>按类型与编号取 AI 决策表</summary>
         public AI.Row[] AiGetTable(AI self, int type, int tableId)
         {
             return AiTable[type][tableId];
         }
 
-        /// <summary>4fb500</summary>
+        /// <summary>取指定队伍、指定武将的体力</summary>
         public int AiGetHp(AI self, int team, int chara)
         {
             return self.parent.GetHp(team, chara);
         }
 
-        /// <summary>4fb540</summary>
+        /// <summary>取当前出战武将的体力（opponent = true 时取对手）</summary>
         public int AiGetHp(AI self, bool opponent = false)
         {
             if (!opponent)
@@ -306,7 +306,7 @@ namespace Sango.Core.Duel
                 return AiGetHp(self, self.opponentTeam, self.opponentChara);
         }
 
-        /// <summary>4fb590</summary>
+        /// <summary>取当前出战武将的斗志（opponent = true 时取对手）</summary>
         public int AiGetSpirit(AI self, bool opponent = false)
         {
             if (!opponent)
@@ -315,7 +315,7 @@ namespace Sango.Core.Duel
                 return self.parent.GetSpirit(self.opponentTeam, self.opponentChara);
         }
 
-        /// <summary>4fb5e0</summary>
+        /// <summary>挑决策表：先用武将专属表（行为数据驱动），没有则按性格选</summary>
         public AI.Row[] AiGetTable(AI self, int tableId)
         {
             Person person = self.parent.GetPerson(self.team, self.chara);
@@ -325,21 +325,21 @@ namespace Sango.Core.Duel
             int behaviourTable = DuelPersonBehaviours.Get(person).GetAITableId(person);
             if (behaviourTable >= 0)
                 return AiGetTable(self, behaviourTable, tableId);
-            switch (person.GetSeikaku())
+            switch (person.GetPersonality())
             {
-                case Seikaku.Shoushin:
-                    return AiGetTable(self, (int)DuelAIType.DuelAIType_Shoushin, tableId);
-                case Seikaku.Reisei:
-                    return AiGetTable(self, (int)DuelAIType.DuelAIType_Reisei, tableId);
-                case Seikaku.Goutan:
-                    return AiGetTable(self, (int)DuelAIType.DuelAIType_Goutan, tableId);
-                case Seikaku.Chototsu:
-                    return AiGetTable(self, (int)DuelAIType.DuelAIType_Chototsu, tableId);
+                case DuelPersonality.Timid:
+                    return AiGetTable(self, (int)DuelAIType.DuelAIType_Timid, tableId);
+                case DuelPersonality.Calm:
+                    return AiGetTable(self, (int)DuelAIType.DuelAIType_Calm, tableId);
+                case DuelPersonality.Bold:
+                    return AiGetTable(self, (int)DuelAIType.DuelAIType_Bold, tableId);
+                case DuelPersonality.Reckless:
+                    return AiGetTable(self, (int)DuelAIType.DuelAIType_Reckless, tableId);
             }
             return null;
         }
 
-        /// <summary>4fb6f0</summary>
+        /// <summary>按 AI 比较算子比较两个数值</summary>
         public bool AiComp(AI self, int op, int a, int b)
         {
             switch (op)
@@ -356,19 +356,19 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>4fb750</summary>
+        /// <summary>把体力与决策表里的参数做比较</summary>
         public bool AiCompHp(AI self, AI.Row row, int op, bool opponent = false)
         {
             return AiComp(self, op, AiGetHp(self, opponent), row.param1);
         }
 
-        /// <summary>4fb780</summary>
+        /// <summary>把斗志与决策表里的参数做比较</summary>
         public bool AiCompSpirit(AI self, AI.Row row, int op, bool opponent = false)
         {
             return AiComp(self, op, AiGetSpirit(self, opponent), row.param1);
         }
 
-        /// <summary>4fb7b0</summary>
+        /// <summary>指定必杀当前是否可用（opponent = true 时查对手）</summary>
         public bool AiIsSpecialEnabled(AI self, int special, bool opponent = false)
         {
             if (!opponent)
@@ -377,7 +377,7 @@ namespace Sango.Core.Duel
                 return self.parent.IsSpecialEnabled(self.opponentTeam, self.opponentChara, special);
         }
 
-        /// <summary>4fb830</summary>
+        /// <summary>本方（或对手）是否带有指定增益</summary>
         public bool AiHasBuff(AI self, int buff, bool opponent = false)
         {
             if (!opponent)
@@ -386,7 +386,7 @@ namespace Sango.Core.Duel
                 return self.parent.HasBuff(self.opponentTeam, buff);
         }
 
-        /// <summary>4fb890</summary>
+        /// <summary>走决策表判定本回合要不要尝试发动必杀</summary>
         public bool AiCalcSpecialTry(AI self)
         {
             // 没有可用的必杀
@@ -416,8 +416,8 @@ namespace Sango.Core.Duel
                         if (!AiCompHp(self, row, (int)DuelAICompOp.DuelAICompOp_LessThanOrEqual, true))
                             continue;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_SpecialTry_AnkiOrMusou:
-                        if (!AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Anki) && !AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Musou))
+                    case (int)DuelAIRow.DuelAIRow_SpecialTry_HiddenWeaponOrPeerless:
+                        if (!AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_HiddenWeapon) && !AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Peerless))
                             continue;
                         for (int j = 0; j < (int)DuelBuffType.DuelBuffType_Max; j++)
                         {
@@ -425,19 +425,19 @@ namespace Sango.Core.Duel
                                 return true;
                         }
                         continue;
-                    case (int)DuelAIRow.DuelAIRow_SpecialTry_Kyuusho:
-                        if (!AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Kyuusho))
+                    case (int)DuelAIRow.DuelAIRow_SpecialTry_WeakPoint:
+                        if (!AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_WeakPoint))
                             continue;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_SpecialTry_Kiai:
-                        if (!AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Kiai))
+                    case (int)DuelAIRow.DuelAIRow_SpecialTry_FightingSpirit:
+                        if (!AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_FightingSpirit))
                             continue;
                         // 已处于攻击增益状态
                         if (AiHasBuff(self, (int)DuelBuffType.DuelBuffType_Attack))
                             continue;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_SpecialTry_Kenshu:
-                        if (!AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Kenshu))
+                    case (int)DuelAIRow.DuelAIRow_SpecialTry_Steadfast:
+                        if (!AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Steadfast))
                             continue;
                         // 已处于防御增益状态
                         if (AiHasBuff(self, (int)DuelBuffType.DuelBuffType_Defense))
@@ -453,7 +453,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>4fbb00</summary>
+        /// <summary>初始化队伍 AI：绑定单挑本体、本方与对手队伍，并刷新出战武将</summary>
         public bool AiInit(AI self, int team)
         {
             self.parent = this;
@@ -464,7 +464,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>4fbb70</summary>
+        /// <summary>估算武将战力（体力、武力与宝物加成折算）</summary>
         public int AiGetPower(AI self, int team, int chara)
         {
             int hpCoef = (AiGetHp(self, team, chara) + 9) / 10;             // 0 .. 10
@@ -479,7 +479,7 @@ namespace Sango.Core.Duel
             return n;
         }
 
-        /// <summary>4fbc60</summary>
+        /// <summary>选出该队战力最高的武将</summary>
         public int AiGetBestChara(AI self, int team)
         {
             int bestPower = 0;
@@ -498,7 +498,7 @@ namespace Sango.Core.Duel
             return best;
         }
 
-        /// <summary>4fbcd0</summary>
+        /// <summary>按决策表权重随机挑一个必杀</summary>
         public int AiRandomSpecial(AI self)
         {
             int[] weight = new int[(int)DuelSpecial.DuelSpecial_Max];
@@ -509,31 +509,31 @@ namespace Sango.Core.Duel
                     continue;
                 switch (i)
                 {
-                    case (int)DuelSpecial.DuelSpecial_Hissatsuwaza:
+                    case (int)DuelSpecial.DuelSpecial_DeadlyMove:
                         weightSum += 20;
                         break;
-                    case (int)DuelSpecial.DuelSpecial_Kiai:
+                    case (int)DuelSpecial.DuelSpecial_FightingSpirit:
                         if (AiHasBuff(self, (int)DuelBuffType.DuelBuffType_Attack))
                             continue;
                         weightSum += 3;
                         break;
-                    case (int)DuelSpecial.DuelSpecial_Kenshu:
+                    case (int)DuelSpecial.DuelSpecial_Steadfast:
                         if (AiHasBuff(self, (int)DuelBuffType.DuelBuffType_Defense))
                             continue;
                         weightSum += 3;
                         break;
-                    case (int)DuelSpecial.DuelSpecial_Taikyaku:
+                    case (int)DuelSpecial.DuelSpecial_Retreat:
                         continue;
-                    case (int)DuelSpecial.DuelSpecial_Kyuusho:
+                    case (int)DuelSpecial.DuelSpecial_WeakPoint:
                         weightSum += 20;
                         break;
-                    case (int)DuelSpecial.DuelSpecial_Musou:
+                    case (int)DuelSpecial.DuelSpecial_Peerless:
                         weightSum += 60;
                         break;
-                    case (int)DuelSpecial.DuelSpecial_Anki:
+                    case (int)DuelSpecial.DuelSpecial_HiddenWeapon:
                         weightSum += 20;
                         break;
-                    case (int)DuelSpecial.DuelSpecial_Nisetaikyaku:
+                    case (int)DuelSpecial.DuelSpecial_FeintRetreat:
                         weightSum += 20;
                         break;
                 }
@@ -548,7 +548,7 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>4fbe00</summary>
+        /// <summary>走决策表决定是否交替武将、换谁上场</summary>
         public int AiCalcSwitch(AI self)
         {
             bool canSwitch = false;
@@ -635,7 +635,7 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>4fc1a0</summary>
+        /// <summary>比较两方武将的战力</summary>
         public bool AiCompPower(AI self, int op, int aTeam, int aChara, int bTeam, int bChara)
         {
             int a = AiGetPower(self, aTeam, aChara);
@@ -643,7 +643,7 @@ namespace Sango.Core.Duel
             return AiComp(self, op, a, b);
         }
 
-        /// <summary>4fc1e0</summary>
+        /// <summary>走决策表挑选一个要发动的必杀</summary>
         public int AiCalcSpecial(AI self)
         {
             // 没有可用的必杀
@@ -663,20 +663,20 @@ namespace Sango.Core.Duel
                 bool buff = false;
                 switch (row.id)
                 {
-                    case (int)DuelAIRow.DuelAIRow_Special_Nisetaikyaku:
-                        sp = (int)DuelSpecial.DuelSpecial_Nisetaikyaku;
+                    case (int)DuelAIRow.DuelAIRow_Special_FeintRetreat:
+                        sp = (int)DuelSpecial.DuelSpecial_FeintRetreat;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_Special_Anki:
-                        sp = (int)DuelSpecial.DuelSpecial_Anki;
+                    case (int)DuelAIRow.DuelAIRow_Special_HiddenWeapon:
+                        sp = (int)DuelSpecial.DuelSpecial_HiddenWeapon;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_Special_Kyuusho:
-                        sp = (int)DuelSpecial.DuelSpecial_Kyuusho;
+                    case (int)DuelAIRow.DuelAIRow_Special_WeakPoint:
+                        sp = (int)DuelSpecial.DuelSpecial_WeakPoint;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_Special_AnkiOrMusou:
-                        if (AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Anki))
-                            sp = (int)DuelSpecial.DuelSpecial_Anki;
-                        else if (AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Musou))
-                            sp = (int)DuelSpecial.DuelSpecial_Musou;
+                    case (int)DuelAIRow.DuelAIRow_Special_HiddenWeaponOrPeerless:
+                        if (AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_HiddenWeapon))
+                            sp = (int)DuelSpecial.DuelSpecial_HiddenWeapon;
+                        else if (AiIsSpecialEnabled(self, (int)DuelSpecial.DuelSpecial_Peerless))
+                            sp = (int)DuelSpecial.DuelSpecial_Peerless;
                         for (int j = 0; j < (int)DuelBuffType.DuelBuffType_Max; j++)
                         {
                             if (AiHasBuff(self, j))
@@ -688,17 +688,17 @@ namespace Sango.Core.Duel
                         if (buff)
                             continue;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_Special_Kiai:
+                    case (int)DuelAIRow.DuelAIRow_Special_FightingSpirit:
                         if (AiHasBuff(self, (int)DuelBuffType.DuelBuffType_Attack))
                             continue;
-                        sp = (int)DuelSpecial.DuelSpecial_Kiai;
+                        sp = (int)DuelSpecial.DuelSpecial_FightingSpirit;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_Special_Kenshu:
+                    case (int)DuelAIRow.DuelAIRow_Special_Steadfast:
                         if (AiHasBuff(self, (int)DuelBuffType.DuelBuffType_Defense))
                             continue;
-                        sp = (int)DuelSpecial.DuelSpecial_Kenshu;
+                        sp = (int)DuelSpecial.DuelSpecial_Steadfast;
                         break;
-                    case (int)DuelAIRow.DuelAIRow_Special_Taikyaku:
+                    case (int)DuelAIRow.DuelAIRow_Special_Retreat:
                         if (AiCompHp(self, row, (int)DuelAICompOp.DuelAICompOp_LessThanOrEqual))
                         {
                             AI.Row row2 = new AI.Row(row.chance, row.id, row.param1 + 10, row.param2);
@@ -708,7 +708,7 @@ namespace Sango.Core.Duel
                                 // 有可替换的武将
                                 if (Utils.InRange(chara, 0, MaxTeamCharaCount - 1) && chara != self.chara)
                                     continue;
-                                sp = (int)DuelSpecial.DuelSpecial_Taikyaku;
+                                sp = (int)DuelSpecial.DuelSpecial_Retreat;
                                 break;
                             }
                         }
@@ -725,7 +725,7 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>4fc5a0</summary>
+        /// <summary>走决策表挑选行动方针</summary>
         public int AiCalcStance(AI self)
         {
             int bestChara = AiGetBestChara(self, self.team);

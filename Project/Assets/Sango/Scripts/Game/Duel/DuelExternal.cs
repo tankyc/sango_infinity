@@ -135,21 +135,9 @@ namespace Sango.Core.Duel
 
     #region 武将 / 部队 / 势力 等相关枚举（外部依赖）
 
-    /// <summary>武将 ID</summary>
-    public enum PersonId
-    {
-        Invalid = -1,
-        Ryofu = 0,           // 吕布
-        Chouhi = 1,          // 张飞
-        Kanu = 2,            // 关羽
-        Kyocho = 3,          // 许褚
-        Chouun = 4,          // 赵云
-        Bachou = 5,          // 马超
-        Kouchuu_Kanshou = 6, // 黄忠
-        Kakouen = 7,         // 夏侯渊
-        Ousou = 8,           // 黄盖
-        Shukuyuu = 9,        // 周瑜
-    }
+    // 武将身份统一用**真实 Id**（Person.Id，与 PersonLibrary.json 里的 Id 一致），
+    // 原来那套 PersonId 枚举（只有 10 个名将 + 靠姓名解析）已删除：它既是 PersonLibrary 的重复副本，
+    // 又让"没登记的武将"拿不到正确身份。相关解析器 DuelPersonId 一并删除。
 
     /// <summary>宝物大类（Item::get_type）</summary>
     public enum ItemType
@@ -175,23 +163,23 @@ namespace Sango.Core.Duel
     public enum SkillId
     {
         None = 0,
-        Kyouun = 1, // 强运
+        Lucky = 1, // 强运
     }
 
     /// <summary>性格</summary>
-    public enum Seikaku
+    public enum DuelPersonality
     {
-        Shoushin = 0, // 小心
-        Reisei = 1,   // 冷静
-        Goutan = 2,   // 大胆
-        Chototsu = 3, // 猪突
+        Timid = 0, // 小心
+        Calm = 1,   // 冷静
+        Bold = 2,   // 大胆
+        Reckless = 3, // 猪突
     }
 
     /// <summary>伤病程度</summary>
-    public enum Shoubyou
+    public enum InjuryLevel
     {
-        Kenkou = 0, // 健康
-        Hinshi = 3, // 濒死（原代码中用于上限判断）
+        Healthy = 0, // 健康
+        NearDeath = 3, // 濒死（原代码中用于上限判断）
         Max = 4,
     }
 
@@ -200,7 +188,7 @@ namespace Sango.Core.Duel
     {
         DuelAIRetreat = 0,     // AI 退却
         DuelFirstTurnKill = 1, // 一击必杀（初回合）
-        Hobaku = 2,            // 捕缚
+        Capture = 2,            // 捕缚
     }
 
     /// <summary>难度</summary>

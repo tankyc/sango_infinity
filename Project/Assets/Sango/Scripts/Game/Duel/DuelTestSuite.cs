@@ -84,7 +84,6 @@ namespace Sango.Core.Duel
         {
             // 保证用例之间互不干扰
             DuelSettings.Reset();
-            DuelPersonId.ClearCache();
 
             List<DuelTestResult> results = new List<DuelTestResult>();
 
@@ -102,11 +101,10 @@ namespace Sango.Core.Duel
             Run(results, "B06 最低体力随性格变化", TestDuelMinHp);
             Run(results, "B07 必杀可用性判定", TestSpecialEnabled);
             Run(results, "B08 体力与斗志钳制", TestClamp);
-            Run(results, "B09 伤病钳制", TestShoubyouClamp);
+            Run(results, "B09 伤病钳制", TestInjuryLevelClamp);
 
             // ---- C. 适配层 ----
-            Run(results, "C01 性格自动转换", TestSeikakuMapping);
-            Run(results, "C02 武将ID姓名解析", TestPersonIdResolve);
+            Run(results, "C01 性格自动转换", TestPersonalityMapping);
 
             // ---- D. 有效性与边界 ----
             Run(results, "D01 行动数据有效性校验", TestIsValid);
@@ -123,7 +121,7 @@ namespace Sango.Core.Duel
             Run(results, "E07 实力优势方胜率占优", TestStrengthAdvantage);
 
             // ---- F. 健壮性与压测 ----
-            Run(results, "F01 伤病未初始化不崩溃", TestUninitializedShoubyou);
+            Run(results, "F01 伤病未初始化不崩溃", TestUninitializedInjuryLevel);
             Run(results, "F02 缺少武将时初始化安全", TestMissingPerson);
             Run(results, "F03 随机压测200局", TestStress);
 
@@ -241,14 +239,14 @@ namespace Sango.Core.Duel
             DuelTestInstance t = Make(P("张辽", 80, 1), P("徐晃", 80, 2));
             Duel duel = t.Duel;
 
-            AssertEqual(100, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Hissatsuwaza), "必杀技消耗");
-            AssertEqual(100, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Kiai), "气合消耗");
-            AssertEqual(100, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Kenshu), "坚守消耗");
-            AssertEqual(100, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Taikyaku), "退却消耗");
-            AssertEqual(200, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Kyuusho), "急所消耗");
-            AssertEqual(300, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Musou), "无双消耗");
-            AssertEqual(0, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Anki), "暗器消耗");
-            AssertEqual(0, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Nisetaikyaku), "伪退却消耗");
+            AssertEqual(100, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_DeadlyMove), "必杀技消耗");
+            AssertEqual(100, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_FightingSpirit), "气合消耗");
+            AssertEqual(100, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Steadfast), "坚守消耗");
+            AssertEqual(100, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Retreat), "退却消耗");
+            AssertEqual(200, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_WeakPoint), "急所消耗");
+            AssertEqual(300, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_Peerless), "无双消耗");
+            AssertEqual(0, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_HiddenWeapon), "暗器消耗");
+            AssertEqual(0, duel.GetSpecialSpiritCost((int)DuelSpecial.DuelSpecial_FeintRetreat), "伪退却消耗");
         }
 
         #endregion
@@ -295,22 +293,22 @@ namespace Sango.Core.Duel
             Duel duel = t.Duel;
 
             // 增益类必杀不造成伤害
-            Duel.SpecialAction kiai = new Duel.SpecialAction
+            Duel.SpecialAction fightingSpirit = new Duel.SpecialAction
             {
-                team = 0, chara = 0, type = (int)DuelSpecial.DuelSpecial_Kiai, result = 0
+                team = 0, chara = 0, type = (int)DuelSpecial.DuelSpecial_FightingSpirit, result = 0
             };
-            AssertEqual(0, duel.CalcSpecialDamage(kiai), "气合伤害应为 0");
+            AssertEqual(0, duel.CalcSpecialDamage(fightingSpirit), "气合伤害应为 0");
 
-            Duel.SpecialAction kenshu = new Duel.SpecialAction
+            Duel.SpecialAction steadfast = new Duel.SpecialAction
             {
-                team = 0, chara = 0, type = (int)DuelSpecial.DuelSpecial_Kenshu, result = 0
+                team = 0, chara = 0, type = (int)DuelSpecial.DuelSpecial_Steadfast, result = 0
             };
-            AssertEqual(0, duel.CalcSpecialDamage(kenshu), "坚守伤害应为 0");
+            AssertEqual(0, duel.CalcSpecialDamage(steadfast), "坚守伤害应为 0");
 
             // 攻击类必杀有伤害且不超过上限 80
             for (int sp = 0; sp < (int)DuelSpecial.DuelSpecial_Max; sp++)
             {
-                if (sp == (int)DuelSpecial.DuelSpecial_Kiai || sp == (int)DuelSpecial.DuelSpecial_Kenshu)
+                if (sp == (int)DuelSpecial.DuelSpecial_FightingSpirit || sp == (int)DuelSpecial.DuelSpecial_Steadfast)
                     continue;
                 Duel.SpecialAction act = new Duel.SpecialAction { team = 0, chara = 0, type = sp, result = 0 };
                 int dmg = duel.CalcSpecialDamage(act);
@@ -325,17 +323,17 @@ namespace Sango.Core.Duel
 
             int[] oneHit =
             {
-                (int)DuelSpecial.DuelSpecial_Hissatsuwaza,
-                (int)DuelSpecial.DuelSpecial_Kyuusho,
-                (int)DuelSpecial.DuelSpecial_Musou,
-                (int)DuelSpecial.DuelSpecial_Anki,
-                (int)DuelSpecial.DuelSpecial_Nisetaikyaku,
+                (int)DuelSpecial.DuelSpecial_DeadlyMove,
+                (int)DuelSpecial.DuelSpecial_WeakPoint,
+                (int)DuelSpecial.DuelSpecial_Peerless,
+                (int)DuelSpecial.DuelSpecial_HiddenWeapon,
+                (int)DuelSpecial.DuelSpecial_FeintRetreat,
             };
             int[] zeroHit =
             {
-                (int)DuelSpecial.DuelSpecial_Kiai,
-                (int)DuelSpecial.DuelSpecial_Kenshu,
-                (int)DuelSpecial.DuelSpecial_Taikyaku,
+                (int)DuelSpecial.DuelSpecial_FightingSpirit,
+                (int)DuelSpecial.DuelSpecial_Steadfast,
+                (int)DuelSpecial.DuelSpecial_Retreat,
             };
 
             for (int i = 0; i < oneHit.Length; i++)
@@ -382,23 +380,23 @@ namespace Sango.Core.Duel
             DuelTestInstance t = Make(P("张辽", 80, 1), P("徐晃", 80, 2));
             Duel duel = t.Duel;
 
-            int hissatsu = (int)DuelSpecial.DuelSpecial_Hissatsuwaza;
-            int nise = (int)DuelSpecial.DuelSpecial_Nisetaikyaku;
+            int deadlyMove = (int)DuelSpecial.DuelSpecial_DeadlyMove;
+            int feint = (int)DuelSpecial.DuelSpecial_FeintRetreat;
 
             // 斗志不足时不可用
             duel.SetSpirit(0, 0, 0);
-            Assert(!duel.IsSpecialEnabled(0, 0, hissatsu), "斗志不足时必杀应不可用");
+            Assert(!duel.IsSpecialEnabled(0, 0, deadlyMove), "斗志不足时必杀应不可用");
 
             // 斗志充足时可用
             duel.SetSpirit(0, 0, Duel.MaxSpirit);
-            Assert(duel.IsSpecialEnabled(0, 0, hissatsu), "斗志充足时必杀应可用");
+            Assert(duel.IsSpecialEnabled(0, 0, deadlyMove), "斗志充足时必杀应可用");
 
             // 伪退却需要合数 >= 15（同时需要有剩余次数）
             duel.SetSpirit(0, 0, Duel.MaxSpirit);
-            duel.SetSpecialRemainingCount(0, 0, nise, 1);
-            bool earlyNise = duel.IsSpecialEnabled(0, 0, nise);
+            duel.SetSpecialRemainingCount(0, 0, feint, 1);
+            bool earlyNise = duel.IsSpecialEnabled(0, 0, feint);
             for (int i = 0; i < 15; i++) duel.AddBlowCounter(1);
-            bool lateNise = duel.IsSpecialEnabled(0, 0, nise);
+            bool lateNise = duel.IsSpecialEnabled(0, 0, feint);
             Assert(!earlyNise, "合数不足 15 时伪退却应不可用");
             Assert(lateNise, "合数达到 15 后伪退却应可用");
         }
@@ -425,73 +423,50 @@ namespace Sango.Core.Duel
             AssertEqual(0, duel.GetSpirit(0, 0), "斗志下限钳制");
         }
 
-        private static void TestShoubyouClamp()
+        private static void TestInjuryLevelClamp()
         {
             DuelTestInstance t = Make(P("张辽", 80, 1), P("徐晃", 80, 2));
             Duel duel = t.Duel;
 
-            int max = (int)Shoubyou.Max - 2;
-            duel.AddShoubyou(0, 0, 100);
-            AssertRange(duel.TeamGetShoubyou(duel.GetTeam(0), 0), 0, max, "伤病上限钳制");
+            int max = (int)InjuryLevel.Max - 2;
+            duel.AddInjuryLevel(0, 0, 100);
+            AssertRange(duel.TeamGetInjuryLevel(duel.GetTeam(0), 0), 0, max, "伤病上限钳制");
 
-            duel.AddShoubyou(0, 0, -100);
-            AssertRange(duel.TeamGetShoubyou(duel.GetTeam(0), 0), 0, max, "伤病下限钳制");
+            duel.AddInjuryLevel(0, 0, -100);
+            AssertRange(duel.TeamGetInjuryLevel(duel.GetTeam(0), 0), 0, max, "伤病下限钳制");
         }
 
         #endregion
 
         #region C. 适配层
 
-        private static void TestSeikakuMapping()
+        private static void TestPersonalityMapping()
         {
             string[] names = { "胆小", "冷静", "刚胆", "莽撞" };
-            Seikaku[] expected =
+            DuelPersonality[] expected =
             {
-                Seikaku.Shoushin, Seikaku.Reisei, Seikaku.Goutan, Seikaku.Chototsu
+                DuelPersonality.Timid, DuelPersonality.Calm, DuelPersonality.Bold, DuelPersonality.Reckless
             };
 
             for (int i = 0; i < 4; i++)
             {
                 Person p = P("测试", 80, 100 + i, personality: i + 1);
                 p.mPersonality = new Personality { Id = i + 1, Name = names[i], kind = i + 1 };
-                AssertEqual((int)expected[i], (int)p.GetSeikaku(), $"性格 {names[i]} 映射");
+                AssertEqual((int)expected[i], (int)p.GetPersonality(), $"性格 {names[i]} 映射");
             }
 
             // mPersonality 为空时回退到 personality 字段
             Person p2 = P("测试", 80, 200, personality: 4);
-            AssertEqual((int)Seikaku.Chototsu, (int)p2.GetSeikaku(), "mPersonality 为空时的回退");
+            AssertEqual((int)DuelPersonality.Reckless, (int)p2.GetPersonality(), "mPersonality 为空时的回退");
 
             // 越界值走兜底
             Person p3 = P("测试", 80, 201, personality: 99);
-            AssertEqual((int)DuelSeikaku.Fallback, (int)p3.GetSeikaku(), "越界性格走兜底");
+            AssertEqual((int)DuelPersonalities.Fallback, (int)p3.GetPersonality(), "越界性格走兜底");
         }
 
-        private static void TestPersonIdResolve()
-        {
-            // 解析结果按 Id 缓存，故这里使用与其它用例不冲突的独立 Id
-            DuelPersonId.ClearCache();
-
-            AssertEqual((int)PersonId.Ryofu, (int)P("吕布", 100, 301).GetId(), "吕布");
-            AssertEqual((int)PersonId.Chouhi, (int)P("张飞", 98, 302).GetId(), "张飞");
-            AssertEqual((int)PersonId.Kanu, (int)P("关羽", 97, 303).GetId(), "关羽");
-            AssertEqual((int)PersonId.Kyocho, (int)P("许褚", 94, 304).GetId(), "许褚");
-            AssertEqual((int)PersonId.Chouun, (int)P("赵云", 96, 305).GetId(), "赵云");
-            AssertEqual((int)PersonId.Bachou, (int)P("马超", 95, 306).GetId(), "马超");
-            AssertEqual((int)PersonId.Kouchuu_Kanshou, (int)P("黄忠", 90, 307).GetId(), "黄忠");
-            AssertEqual((int)PersonId.Kakouen, (int)P("夏侯渊", 88, 308).GetId(), "夏侯渊");
-            AssertEqual((int)PersonId.Ousou, (int)P("黄盖", 85, 309).GetId(), "黄盖");
-            AssertEqual((int)PersonId.Shukuyuu, (int)P("周瑜", 80, 310).GetId(), "周瑜");
-
-            // 普通武将不应被误判
-            AssertEqual((int)PersonId.Invalid, (int)P("张辽", 90, 311).GetId(), "普通武将应为 Invalid");
-
-            // IdMap 优先级最高（可覆盖姓名解析）
-            DuelPersonId.IdMap[901] = PersonId.Ryofu;
-            Person custom = P("路人甲", 70, 901);
-            AssertEqual((int)PersonId.Ryofu, (int)custom.GetId(), "IdMap 应优先于姓名");
-            DuelPersonId.IdMap.Remove(901);
-            DuelPersonId.ClearCache();
-        }
+        // C02 原为"武将ID姓名解析"（验证 姓名/IdMap → PersonId 枚举）。
+        // 现在武将身份直接用真实 Id（Person.Id），没有解析这一步，用例随之删除；
+        // "按 Id 命中行为配置"由 DuelPersonBehaviours / DebatePersonBehaviours 各自的用例覆盖。
 
         #endregion
 
@@ -667,7 +642,7 @@ namespace Sango.Core.Duel
 
         #region F. 健壮性与压测
 
-        private static void TestUninitializedShoubyou()
+        private static void TestUninitializedInjuryLevel()
         {
             // 复现"伤病未初始化(-1)"的场景：不应崩溃，且能正常结束
             Person a = P("张辽", 85, 1);
@@ -678,7 +653,7 @@ namespace Sango.Core.Duel
             for (int i = 0; i < Duel.MaxTeamCount; i++)
             {
                 for (int j = 0; j < Duel.MaxTeamCharaCount; j++)
-                    t.Param.shoubyou[i][j] = -1;   // 故意不初始化
+                    t.Param.injuryLevel[i][j] = -1;   // 故意不初始化
             }
             t.Run();
 
@@ -734,7 +709,7 @@ namespace Sango.Core.Duel
                 for (int i = 0; i < Duel.MaxTeamCount; i++)
                 {
                     AssertRange(t.Param.hp[i][0], 0, Duel.MaxHP, $"第 {n} 局队伍{i} 体力越界");
-                    AssertRange(t.Param.shoubyou[i][0], 0, (int)Shoubyou.Max - 2, $"第 {n} 局队伍{i} 伤病越界");
+                    AssertRange(t.Param.injuryLevel[i][0], 0, (int)InjuryLevel.Max - 2, $"第 {n} 局队伍{i} 伤病越界");
                 }
 
                 // 武将结局合法

@@ -88,7 +88,7 @@ namespace Sango.Core.Duel
             /// <summary>斗志 [队伍][序号]</summary>
             public int[][] spirit;
             /// <summary>伤病 [队伍][序号]</summary>
-            public int[][] shoubyou;
+            public int[][] injuryLevel;
             /// <summary>结束时合数</summary>
             public int endBlowCounter = 0;
             /// <summary>状态标记</summary>
@@ -104,12 +104,12 @@ namespace Sango.Core.Duel
                 result = NewArray2D<int>(MaxTeamCount, MaxTeamCharaCount);
                 hp = NewArray2D<int>(MaxTeamCount, MaxTeamCharaCount);
                 spirit = NewArray2D<int>(MaxTeamCount, MaxTeamCharaCount);
-                shoubyou = NewArray2D<int>(MaxTeamCount, MaxTeamCharaCount);
+                injuryLevel = NewArray2D<int>(MaxTeamCount, MaxTeamCharaCount);
 
                 Fill(result, 0);
                 Fill(hp, MaxHP);
                 Fill(spirit, 0);
-                Fill(shoubyou, -1);
+                Fill(injuryLevel, -1);
             }
         }
 
@@ -119,7 +119,7 @@ namespace Sango.Core.Duel
             public Person person = null;
             public int hp = 0;
             public int spirit = 0;
-            public int shoubyou = -1;
+            public int injuryLevel = -1;
             public int stance = -1;
             public int state = -1;
             public int number = -1;
@@ -198,7 +198,7 @@ namespace Sango.Core.Duel
             public int defTeam = -1;
             public int atkChara = -1;
             public int defChara = -1;
-            public int shoubyouDamage = 0;
+            public int injuryDamage = 0;
         }
 
         /// <summary>斗志动画数据。对应 Duel::SpiritAnim</summary>
@@ -500,7 +500,7 @@ namespace Sango.Core.Duel
 
         #region 结算（4d3940 - 4d43c0）
 
-        /// <summary>4d3940。负伤报告</summary>
+        /// <summary>负伤报告</summary>
         public void ResultInjuryReport(Troop unit, Person person, bool last)
         {
             if (!Utils.IsAlive(unit))
@@ -510,7 +510,7 @@ namespace Sango.Core.Duel
             if (last)
                 system.Ping(unit, (int)PingType.Repeat, unchecked((int)0x80808080));
             Message msg = new Message();
-            msg.SetObj0Str0(DuelMessageId.LD_WAR_IKKI_INJURY, person, system.GetShoubyouName(person.GetShoubyou()));
+            msg.SetObj0Str0(DuelMessageId.LD_WAR_IKKI_INJURY, person, system.GetInjuryLevelName(person.GetInjuryLevel()));
             system.HistoryLog(msg, unit, true, person.GetColor());
             if (person.IsPlayerPerson())
             {
@@ -519,7 +519,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>4d3a80。应用伤病与体力</summary>
+        /// <summary>应用伤病与体力</summary>
         public void ResultInjury()
         {
             int[] injured = new int[MaxTeamCount];
@@ -530,10 +530,10 @@ namespace Sango.Core.Duel
                     Person person = ParamGetPerson(param, i, j);
                     if (!Utils.IsAlive(person))
                         continue;
-                    int shoubyou = ParamGetShoubyou(param, i, j);
-                    if (person.GetShoubyou() < shoubyou)
+                    int injuryLevel = ParamGetInjuryLevel(param, i, j);
+                    if (person.GetInjuryLevel() < injuryLevel)
                         injured[i]++;
-                    system.PersonSetShoubyou(person, shoubyou);
+                    system.PersonSetInjuryLevel(person, injuryLevel);
                     int hp = ParamGetHp(param, i, j);
                     hp = Math.Max(hp, 1);
                     system.PersonAddHp(person, hp - person.GetHp());
@@ -557,7 +557,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>4d3bd0。平局结算</summary>
+        /// <summary>平局结算</summary>
         public void ResultDraw()
         {
             Person challenger = ParamGetChallenger(param);
@@ -579,7 +579,7 @@ namespace Sango.Core.Duel
             system.PersonAddKouseki(challenged, 50);
         }
 
-        /// <summary>4d3cb0。胜负结算</summary>
+        /// <summary>胜负结算</summary>
         public void ResultNormal()
         {
             Person challenger = ParamGetChallenger(param);
@@ -682,7 +682,7 @@ namespace Sango.Core.Duel
                 all.Add(loserPerson);
                 capturedList.Add(loserPerson);
                 system.HoryoShoguu(all, capturedList, loserUnit, winnerUnit);
-                if (loserUnit.HasMember(loserPerson.GetId()))
+                if (loserUnit.HasMember(loserPerson.Id))
                     system.PersonDetach(loserPerson, winnerPerson, winnerUnit, loserUnit);
                 if (Utils.IsAlive(district))
                     system.DistrictAppointTotoku(district, winnerForce);
@@ -721,7 +721,7 @@ namespace Sango.Core.Duel
                 system.ForceAddTechPoint(winnerForce, 50, null);
         }
 
-        /// <summary>4d43c0。结算入口</summary>
+        /// <summary>结算入口</summary>
         public void ResultHandler()
         {
             if (Utils.InRange(param.winnerTeam, 0, MaxTeamCount - 1) && Utils.InRange(param.winnerChara, 0, MaxTeamCharaCount - 1))
@@ -734,7 +734,7 @@ namespace Sango.Core.Duel
 
         #region 有效性 / 基础查询（4fc940 - 506ec0）
 
-        /// <summary>4fc940</summary>
+        /// <summary>该行动数据是否有效（队伍、武将、卡牌、方针都在合法范围内）</summary>
         public bool IsValid(Action action)
         {
             if (!Utils.InRange(action.team, 0, MaxTeamCount - 1))
@@ -748,7 +748,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>4fc980</summary>
+        /// <summary>该必杀数据是否有效（队伍与必杀编号合法）</summary>
         public bool IsValid(SpecialAction special)
         {
             if (!Utils.InRange(special.team, 0, MaxTeamCount - 1))
@@ -762,30 +762,30 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>4560a0, v+14。按钮是否可用（教程用）</summary>
+        /// <summary>按钮是否可用（教程用）</summary>
         public virtual bool IsButtonEnabled(int button)
         {
             return true;
         }
 
-        /// <summary>5067b0, v+8</summary>
+        /// <summary>退出回调（基类为空实现，供表现层派生扩展）</summary>
         public virtual void Exit()
         {
         }
 
-        /// <summary>5067c0</summary>
+        /// <summary>该队是否由玩家操作（playerId 落在玩家槽位内）</summary>
         public bool IsPlayer(int team)
         {
             return Utils.InRange(this.team[team].playerId, 0, DuelPlayer.Max - 1);
         }
 
-        /// <summary>5067f0</summary>
+        /// <summary>该队是否手动出招</summary>
         public bool IsManual(int team)
         {
             return this.team[team].control == (int)DuelControl.DuelControl_Manual;
         }
 
-        /// <summary>506820</summary>
+        /// <summary>取该队当前出战武将的序号</summary>
         public int GetCurrentChara(int team)
         {
             return this.team[team].currentChara;
@@ -797,7 +797,7 @@ namespace Sango.Core.Duel
             return this.team[team];
         }
 
-        /// <summary>506850</summary>
+        /// <summary>取对手队伍编号（入参非法时返回 -1）</summary>
         public int GetOpponentTeam(int team)
         {
             if (Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -805,13 +805,13 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>506870</summary>
+        /// <summary>取指定位置的武将</summary>
         public Person GetPerson(int team, int chara)
         {
             return TeamGetPerson(this.team[team], chara);
         }
 
-        /// <summary>5068b0</summary>
+        /// <summary>取当前出战武将（序号非法时返回 null）</summary>
         public Person GetCurrentPerson(int team)
         {
             if (!Utils.InRange(this.team[team].currentChara, 0, MaxTeamCharaCount - 1))
@@ -819,25 +819,25 @@ namespace Sango.Core.Duel
             return TeamGetPerson(this.team[team], this.team[team].currentChara);
         }
 
-        /// <summary>5068f0</summary>
+        /// <summary>取行动方针</summary>
         public int GetStance(int team, int chara)
         {
             return TeamGetStance(this.team[team], chara);
         }
 
-        /// <summary>506930</summary>
+        /// <summary>取体力</summary>
         public int GetHp(int team, int chara)
         {
             return TeamGetHp(this.team[team], chara);
         }
 
-        /// <summary>506970</summary>
+        /// <summary>设置体力</summary>
         public void SetHp(int team, int chara, int value)
         {
             TeamSetHp(this.team[team], chara, value);
         }
 
-        /// <summary>5069b0</summary>
+        /// <summary>增减体力（返回实际变化量）</summary>
         public int AddHp(int team, int chara, int value)
         {
             if (value < 0)
@@ -850,7 +850,7 @@ namespace Sango.Core.Duel
             return TeamAddHp(this.team[team], chara, value);
         }
 
-        /// <summary>506a20</summary>
+        /// <summary>取当前出战武将的体力</summary>
         public int GetCurrentHp(int team)
         {
             if (!Utils.InRange(this.team[team].currentChara, 0, MaxTeamCharaCount - 1))
@@ -858,13 +858,13 @@ namespace Sango.Core.Duel
             return TeamGetHp(this.team[team], this.team[team].currentChara);
         }
 
-        /// <summary>506a60</summary>
+        /// <summary>取武力（revised = 是否按伤病折算）</summary>
         public int GetStrength(int team, int chara, bool revised)
         {
             return TeamGetStrength(this.team[team], chara, revised);
         }
 
-        /// <summary>506aa0</summary>
+        /// <summary>取当前出战武将的武力</summary>
         public int GetCurrentStrength(int team, bool revised)
         {
             if (!Utils.InRange(this.team[team].currentChara, 0, MaxTeamCharaCount - 1))
@@ -872,25 +872,25 @@ namespace Sango.Core.Duel
             return TeamGetStrength(this.team[team], this.team[team].currentChara, revised);
         }
 
-        /// <summary>506ae0</summary>
+        /// <summary>取斗志</summary>
         public int GetSpirit(int team, int chara)
         {
             return TeamGetSpirit(this.team[team], chara);
         }
 
-        /// <summary>506b20</summary>
+        /// <summary>设置斗志</summary>
         public void SetSpirit(int team, int chara, int value)
         {
             TeamSetSpirit(this.team[team], chara, value);
         }
 
-        /// <summary>506b60</summary>
+        /// <summary>增减斗志</summary>
         public int AddSpirit(int team, int chara, int value)
         {
             return TeamAddSpirit(this.team[team], chara, value);
         }
 
-        /// <summary>506ba0</summary>
+        /// <summary>取当前出战武将的斗志</summary>
         public int GetCurrentSpirit(int team, int chara)
         {
             if (!Utils.InRange(this.team[team].currentChara, 0, MaxTeamCharaCount - 1))
@@ -898,48 +898,48 @@ namespace Sango.Core.Duel
             return TeamGetSpirit(this.team[team], this.team[team].currentChara);
         }
 
-        /// <summary>506be0</summary>
+        /// <summary>取交替武将的冷却计时器</summary>
         public int GetSwitchingTimer(int team)
         {
             return this.team[team].switchingTimer;
         }
 
-        /// <summary>506c10</summary>
+        /// <summary>该武将是否负伤（伤病等级非健康）</summary>
         public bool IsInjured(int team, int chara)
         {
-            return TeamGetShoubyou(this.team[team], chara) != (int)Shoubyou.Kenkou;
+            return TeamGetInjuryLevel(this.team[team], chara) != (int)InjuryLevel.Healthy;
         }
 
-        /// <summary>506c50</summary>
+        /// <summary>该队是否带有指定增益</summary>
         public bool HasBuff(int team, int type)
         {
             return TeamHasBuff(this.team[team], type);
         }
 
-        /// <summary>506c90</summary>
+        /// <summary>该武将的宝物是否命中指定的类目位</summary>
         public bool HasItem(int team, int chara, Bitset32 flags)
         {
             return TeamHasItem(this.team[team], chara, flags);
         }
 
-        /// <summary>506cd0</summary>
+        /// <summary>该武将是否处于无敌状态</summary>
         public bool IsInvulnerable(int team, int chara)
         {
             return this.team[team].invulnerableTimer > 0;
         }
 
-        /// <summary>506d10</summary>
+        /// <summary>取行动方针的剩余回合数</summary>
         public int GetStanceTimer(int team)
         {
             return this.team[team].stanceTimer;
         }
 
-        /// <summary>506d40</summary>
+        /// <summary>设置界面对象（原版为空实现）</summary>
         public void SetUi(object ui)
         {
         }
 
-        /// <summary>506d90</summary>
+        /// <summary>判断武将状态（未参战时只要存活就算命中）</summary>
         public bool CheckState(int team, int chara, int state)
         {
             bool active = TeamIsActive(this.team[team], chara);
@@ -948,7 +948,7 @@ namespace Sango.Core.Duel
             return active;
         }
 
-        /// <summary>506e00</summary>
+        /// <summary>该武将是否已登场</summary>
         public bool IsJoined(int team, int chara)
         {
             for (int i = 0; i < (int)DuelCharaState.DuelCharaState_Max; i++)
@@ -961,7 +961,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>506e70</summary>
+        /// <summary>是否有任意一队由玩家手动操作</summary>
         public bool IsManual()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -976,7 +976,7 @@ namespace Sango.Core.Duel
 
         #region 必杀相关（506ec0 - 5074b0）
 
-        /// <summary>506ec0。是否有可用的必杀</summary>
+        /// <summary>是否有可用的必杀</summary>
         public bool CanSpecial(int team, int chara)
         {
             for (int i = 0; i < (int)DuelSpecial.DuelSpecial_Max; i++)
@@ -987,7 +987,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>506f20。必杀剩余次数是否还有</summary>
+        /// <summary>必杀剩余次数是否还有</summary>
         public bool IsSpecialAvailable(int team, int chara, int special)
         {
             if (!Utils.InRange(special, 0, (int)DuelSpecial.DuelSpecial_Max - 1))
@@ -995,13 +995,13 @@ namespace Sango.Core.Duel
             return TeamGetSpecialRemainingCount(this.team[team], chara, special) != 0;
         }
 
-        /// <summary>506f70。必杀斗志消耗</summary>
+        /// <summary>必杀斗志消耗</summary>
         public int GetSpecialSpiritCost(int special)
         {
             return SpecialSpiritCost[special];
         }
 
-        /// <summary>5070f0</summary>
+        /// <summary>设置行动方针（方针变更时重置持续回合）</summary>
         public void SetStance(int team, int chara, int stance)
         {
             if (TeamIsActive(this.team[team], chara) && GetStance(team, chara) != stance)
@@ -1010,25 +1010,25 @@ namespace Sango.Core.Duel
             LogDebug($"Duel::set_stance {team}-{chara} {stance} 0x{system.GetSeed():x}");
         }
 
-        /// <summary>507170</summary>
+        /// <summary>生成交替武将的冷却回合（4~6）</summary>
         public int CreateCooldownTimer(int team, int chara)
         {
             return 4 + system.RandInt(3);
         }
 
-        /// <summary>5071b0</summary>
+        /// <summary>取某必杀的剩余可用次数</summary>
         public int GetSpecialRemainingCount(int team, int chara, int special)
         {
             return TeamGetSpecialRemainingCount(this.team[team], chara, special);
         }
 
-        /// <summary>507200</summary>
+        /// <summary>设置某必杀的剩余可用次数</summary>
         public void SetSpecialRemainingCount(int team, int chara, int special, int value)
         {
             TeamSetSpecialRemainingCount(this.team[team], chara, special, value);
         }
 
-        /// <summary>507250。查表获取攻击比例</summary>
+        /// <summary>查表获取攻击比例</summary>
         public int GetActionRatio(int aTeam, int aChara, int bTeam, int bChara)
         {
             if (aTeam == bTeam)
@@ -1039,29 +1039,29 @@ namespace Sango.Core.Duel
                 return 100 - actionRatio[bChara][aChara];
         }
 
-        /// <summary>5072d0。必杀命中次数</summary>
+        /// <summary>必杀命中次数</summary>
         public int GetSpecialHitCount(SpecialAction special)
         {
             switch (special.type)
             {
-                case (int)DuelSpecial.DuelSpecial_Hissatsuwaza:
-                // case DuelSpecial_Kiai:
-                // case DuelSpecial_Kenshu:
-                // case DuelSpecial_Taikyaku:
-                case (int)DuelSpecial.DuelSpecial_Kyuusho:
-                case (int)DuelSpecial.DuelSpecial_Musou:
-                case (int)DuelSpecial.DuelSpecial_Anki:
-                case (int)DuelSpecial.DuelSpecial_Nisetaikyaku:
+                case (int)DuelSpecial.DuelSpecial_DeadlyMove:
+                // case DuelSpecial_FightingSpirit:
+                // case DuelSpecial_Steadfast:
+                // case DuelSpecial_Retreat:
+                case (int)DuelSpecial.DuelSpecial_WeakPoint:
+                case (int)DuelSpecial.DuelSpecial_Peerless:
+                case (int)DuelSpecial.DuelSpecial_HiddenWeapon:
+                case (int)DuelSpecial.DuelSpecial_FeintRetreat:
                     return 1;
             }
             return 0;
         }
 
-        /// <summary>507320。退却成功概率</summary>
+        /// <summary>退却成功概率</summary>
         public bool CalcRetreatChance(int team, int chara)
         {
             Person person = GetPerson(team, chara);
-            if (Utils.IsActive(person) && person.HasSkill(SkillId.Kyouun))
+            if (Utils.IsActive(person) && person.HasSkill(SkillId.Lucky))
                 return true;
             int opponentTeam = GetOpponentTeam(team);
             int opponentChara = this.team[opponentTeam].currentChara;
@@ -1114,7 +1114,7 @@ namespace Sango.Core.Duel
             return person.mPersonality.duelRetreatAdd;
         }
 
-        /// <summary>5074b0。暴击发生概率</summary>
+        /// <summary>暴击发生概率</summary>
         public bool CalcCriticalChance(int team, int chara)
         {
             int chance = 0;
@@ -1156,13 +1156,13 @@ namespace Sango.Core.Duel
 
         #region 计时器 / 状态更新（507660 - 5083e0）
 
-        /// <summary>507660</summary>
+        /// <summary>生成无敌状态持续回合（5~9）</summary>
         public int CreateInvulnerableTimer(int team, int chara)
         {
             return 5 + system.RandInt(5);
         }
 
-        /// <summary>5076a0</summary>
+        /// <summary>重置增益计时器，并通知表现层</summary>
         public void ResetBuffTimer(int team, int chara, int buff)
         {
             if (view && engine != null)
@@ -1170,7 +1170,7 @@ namespace Sango.Core.Duel
             TeamSetBuffTimer(this.team[team], buff, 0);
         }
 
-        /// <summary>507700。对方是否为血亲或义兄弟</summary>
+        /// <summary>对方是否为血亲或义兄弟</summary>
         public bool IsFamily(int aTeam, int aChara, int bTeam, int bChara)
         {
             if (!Utils.InRange(aTeam, 0, MaxTeamCount - 1))
@@ -1190,7 +1190,7 @@ namespace Sango.Core.Duel
             return src.IsFamily(target) || src.IsSpouse(target) || src.IsGikyoudai(target);
         }
 
-        /// <summary>5078e0。播放合数动画（无表现层时立即结算）</summary>
+        /// <summary>播放合数动画（无表现层时立即结算）</summary>
         public bool PlayBlowAnim(int count)
         {
             if (!Utils.InRange(count, 0, MaxAnimQueueSize - 1))
@@ -1214,7 +1214,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>5079f0。播放体力动画（无表现层时立即结算）</summary>
+        /// <summary>播放体力动画（无表现层时立即结算）</summary>
         public bool PlayHpAnim(int count)
         {
             if (!Utils.InRange(count, 0, MaxAnimQueueSize - 1))
@@ -1231,8 +1231,8 @@ namespace Sango.Core.Duel
                     if (!Utils.InRange(anim.defTeam, 0, MaxTeamCount - 1))
                         continue;
                     AddHp(anim.defTeam, anim.defChara, -anim.damage);
-                    AddShoubyou(anim.defTeam, anim.defChara, anim.shoubyouDamage);
-                    if (anim.shoubyouDamage > 0)
+                    AddInjuryLevel(anim.defTeam, anim.defChara, anim.injuryDamage);
+                    if (anim.injuryDamage > 0)
                         CalcActionRatio();
                     // calc_result 函数中可能会用到，因此初始化
                     hpAnimQueue[i] = new HPAnim();
@@ -1241,7 +1241,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>507b10。播放斗志动画（无表现层时立即结算）</summary>
+        /// <summary>播放斗志动画（无表现层时立即结算）</summary>
         public bool PlaySpiritAnim(int count)
         {
             if (!Utils.InRange(count, 0, MaxAnimQueueSize - 1))
@@ -1266,7 +1266,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>507c30。把结果写回 Param</summary>
+        /// <summary>把结果写回 Param</summary>
         public void UpdateParamResult()
         {
             if (Utils.InRange(winnerTeam, 0, MaxTeamCount - 1) && Utils.InRange(loserTeam, 0, MaxTeamCount - 1))
@@ -1283,7 +1283,7 @@ namespace Sango.Core.Duel
                 for (int j = 0; j < MaxTeamCharaCount; j++)
                 {
                     param.hp[t][j] = TeamGetHp(this.team[t], j);
-                    param.shoubyou[t][j] = TeamGetShoubyou(this.team[t], j);
+                    param.injuryLevel[t][j] = TeamGetInjuryLevel(this.team[t], j);
                 }
             }
             param.endBlowCounter = blowCounter;
@@ -1295,13 +1295,13 @@ namespace Sango.Core.Duel
                 {
                     for (int j = 0; j < team[i].charaCount; j++)
                     {
-                        logger.Debug($"{i}-{j} {param.result[i][j]} {param.hp[i][j]} {param.spirit[i][j]} {param.shoubyou[i][j]}");
+                        logger.Debug($"{i}-{j} {param.result[i][j]} {param.hp[i][j]} {param.spirit[i][j]} {param.injuryLevel[i][j]}");
                     }
                 }
             }
         }
 
-        /// <summary>507e10。更新行动方针</summary>
+        /// <summary>更新行动方针</summary>
         public void UpdateStance(bool player = false)
         {
             if (player)
@@ -1336,7 +1336,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>507f10。确定要使用的必杀</summary>
+        /// <summary>确定要使用的必杀</summary>
         public bool UpdateSpecialAction()
         {
             if (!Utils.InRange(specialTryTeam, 0, MaxTeamCount - 1))
@@ -1359,7 +1359,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>507fd0。更新交替武将</summary>
+        /// <summary>更新交替武将</summary>
         public void UpdateSwitching()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -1376,7 +1376,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>508070。退却胜负判定</summary>
+        /// <summary>退却胜负判定</summary>
         public bool UpdateRetreatResult()
         {
             int opponentTeam = GetOpponentTeam(specialAction.team);
@@ -1387,7 +1387,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>5080f0。推进各类计时器</summary>
+        /// <summary>推进各类计时器</summary>
         public void UpdateTimer()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -1418,7 +1418,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>508200。清空行动队列</summary>
+        /// <summary>清空行动队列</summary>
         public void ResetAction()
         {
             for (int i = 0; i < MaxAnimQueueSize; i++)
@@ -1435,24 +1435,24 @@ namespace Sango.Core.Duel
                 engine.DuelResetAnim(this);
         }
 
-        /// <summary>5082e0。最低体力（低于此值不再参战）</summary>
+        /// <summary>最低体力（低于此值不再参战）</summary>
         public static int GetDuelMinHp(Person self)
         {
             if (!Utils.IsActive(self))
                 return 50;
-            switch (self.GetSeikaku())
+            switch (self.GetPersonality())
             {
-                case Seikaku.Shoushin:
+                case DuelPersonality.Timid:
                     return 80;
-                case Seikaku.Reisei:
+                case DuelPersonality.Calm:
                     return 70;
-                case Seikaku.Goutan:
+                case DuelPersonality.Bold:
                     return 60;
             }
             return 50;
         }
 
-        /// <summary>508330</summary>
+        /// <summary>统计该队武将数（joined = true 时只数已登场的）</summary>
         public int GetCharaCount(int team, bool joined)
         {
             int n = 0;
@@ -1472,7 +1472,7 @@ namespace Sango.Core.Duel
             return n;
         }
 
-        /// <summary>5083a0。合数增减</summary>
+        /// <summary>合数增减</summary>
         public int AddBlowCounter(int value)
         {
             int n = blowCounter;
@@ -1487,20 +1487,20 @@ namespace Sango.Core.Duel
             return blowCounter - n;
         }
 
-        /// <summary>5083e0</summary>
-        public PersonId GetPersonId(int team, int chara)
+        /// <summary>取该位置武将的真实 Id（无效返回 -1）</summary>
+        public int GetPersonId(int team, int chara)
         {
             Person person = TeamGetPerson(this.team[team], chara);
             if (Utils.IsActive(person))
-                return person.GetId();
-            return PersonId.Invalid;
+                return person.Id;
+            return -1;
         }
 
         #endregion
 
         #region 伤病 / 必杀判定（508440 - 5088b0）
 
-        /// <summary>508440。按交替序号查找武将</summary>
+        /// <summary>按交替序号查找武将</summary>
         public int GetChara(int team, int number)
         {
             for (int i = 0; i < MaxTeamCharaCount; i++)
@@ -1511,56 +1511,56 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>5084b0。改变伤病</summary>
-        public void ChangeShoubyou(int team, int chara, int shoubyou)
+        /// <summary>改变伤病</summary>
+        public void ChangeInjuryLevel(int team, int chara, int injuryLevel)
         {
-            int oldShoubyou = TeamGetShoubyou(this.team[team], chara);
-            if (!Utils.InRange(oldShoubyou, 0, (int)Shoubyou.Max - 2))
+            int oldInjuryLevel = TeamGetInjuryLevel(this.team[team], chara);
+            if (!Utils.InRange(oldInjuryLevel, 0, (int)InjuryLevel.Max - 2))
                 return;
-            shoubyou = Utils.Clamp(shoubyou, 0, (int)Shoubyou.Max - 2);
-            TeamSetShoubyou(this.team[team], chara, shoubyou);
-            if (oldShoubyou < shoubyou)
+            injuryLevel = Utils.Clamp(injuryLevel, 0, (int)InjuryLevel.Max - 2);
+            TeamSetInjuryLevel(this.team[team], chara, injuryLevel);
+            if (oldInjuryLevel < injuryLevel)
             {
                 if (team == (reverse ? (int)DuelTeam.DuelTeam_Challenged : (int)DuelTeam.DuelTeam_Challenger))
-                    Utils.SetBits(ref flags, (int)DuelStatus.DuelStatus_ChallengerShoubyouDamaged);
+                    Utils.SetBits(ref flags, (int)DuelStatus.DuelStatus_ChallengerInjuryDamaged);
                 else
-                    Utils.SetBits(ref flags, (int)DuelStatus.DuelStatus_ChallengedShoubyouDamaged);
+                    Utils.SetBits(ref flags, (int)DuelStatus.DuelStatus_ChallengedInjuryDamaged);
             }
         }
 
-        /// <summary>508560。伤病增减</summary>
-        public int AddShoubyou(int team, int chara, int value)
+        /// <summary>伤病增减</summary>
+        public int AddInjuryLevel(int team, int chara, int value)
         {
-            int shoubyou = TeamGetShoubyou(this.team[team], chara);
-            if (!Utils.InRange(shoubyou, 0, (int)Shoubyou.Max - 2))
+            int injuryLevel = TeamGetInjuryLevel(this.team[team], chara);
+            if (!Utils.InRange(injuryLevel, 0, (int)InjuryLevel.Max - 2))
                 return -1;
-            shoubyou = Utils.Clamp(shoubyou + value, 0, (int)Shoubyou.Max - 2);
-            ChangeShoubyou(team, chara, shoubyou);
-            return shoubyou;
+            injuryLevel = Utils.Clamp(injuryLevel + value, 0, (int)InjuryLevel.Max - 2);
+            ChangeInjuryLevel(team, chara, injuryLevel);
+            return injuryLevel;
         }
 
-        /// <summary>5085f0, v+c。必杀是否可用</summary>
+        /// <summary>必杀是否可用</summary>
         public virtual bool IsSpecialEnabled(int team, int chara, int special)
         {
-            if (system.IsFeatDisabled(Feature.DuelAIRetreat) && special == (int)DuelSpecial.DuelSpecial_Taikyaku && !IsPlayer(team))
+            if (system.IsFeatDisabled(Feature.DuelAIRetreat) && special == (int)DuelSpecial.DuelSpecial_Retreat && !IsPlayer(team))
                 return false;
             if (!IsSpecialAvailable(team, chara, special))
                 return false;
             if (GetSpirit(team, chara) < GetSpecialSpiritCost(special))
                 return false;
-            if (special == (int)DuelSpecial.DuelSpecial_Nisetaikyaku)
+            if (special == (int)DuelSpecial.DuelSpecial_FeintRetreat)
                 return blowCounter >= 15;
             return true;
         }
 
-        /// <summary>5086c0。必杀结果</summary>
+        /// <summary>必杀结果</summary>
         public int CalcSpecialResult(SpecialAction special)
         {
             if (!Utils.InRange(special.type, 0, (int)DuelSpecial.DuelSpecial_Max - 1))
                 return -1;
             switch (special.type)
             {
-                case (int)DuelSpecial.DuelSpecial_Taikyaku:
+                case (int)DuelSpecial.DuelSpecial_Retreat:
                     if (CalcRetreatChance(special.team, special.chara))
                         return (int)DuelSpecialResult.DuelSpecialResult_Hit;
                     return (int)DuelSpecialResult.DuelSpecialResult_Miss;
@@ -1568,8 +1568,8 @@ namespace Sango.Core.Duel
             return (int)DuelSpecialResult.DuelSpecialResult_Hit;
         }
 
-        /// <summary>508720。一合取胜的队伍</summary>
-        public static int CalcDuelFtkTeam(Person a, Person b, bool aBow, bool bBow, int aShoubyou, int bShoubyou, out int chance)
+        /// <summary>一合取胜的队伍</summary>
+        public static int CalcDuelFtkTeam(Person a, Person b, bool aBow, bool bBow, int aInjuryLevel, int bInjuryLevel, out int chance)
         {
             chance = 0;
             if (DuelRules.IsFeatDisabled(Feature.DuelFirstTurnKill))
@@ -1578,8 +1578,8 @@ namespace Sango.Core.Duel
                 return -1;
             if (!Utils.IsAlive(b))
                 return -1;
-            int aStr = GetDuelStrength(a, aShoubyou, true);
-            int bStr = GetDuelStrength(b, bShoubyou, true);
+            int aStr = GetDuelStrength(a, aInjuryLevel, true);
+            int bStr = GetDuelStrength(b, bInjuryLevel, true);
             Person atk;
             Person def;
             int atkStr;
@@ -1651,7 +1651,7 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>508b90。计算胜负</summary>
+        /// <summary>计算胜负</summary>
         /// <param name="predict">是否参照 hpAnimArray 预先计算（异步表现层时使用）</param>
         public int CalcResult(bool predict, HPAnim[] hpAnimArray)
         {
@@ -1700,7 +1700,7 @@ namespace Sango.Core.Duel
 
         #region 伤害 / 登场 / 行动（508cc0 - 50c490）
 
-        /// <summary>508cc0。普通攻击伤害</summary>
+        /// <summary>普通攻击伤害</summary>
         public int CalcAttackDamage(int team, int chara)
         {
             int opponentTeam = GetOpponentTeam(team);
@@ -1714,7 +1714,7 @@ namespace Sango.Core.Duel
             return n;
         }
 
-        /// <summary>508da0。必杀伤害</summary>
+        /// <summary>必杀伤害</summary>
         public int CalcSpecialDamage(SpecialAction special)
         {
             int team = special.team;
@@ -1747,20 +1747,20 @@ namespace Sango.Core.Duel
 
             switch (special.type)
             {
-                case (int)DuelSpecial.DuelSpecial_Hissatsuwaza:
+                case (int)DuelSpecial.DuelSpecial_DeadlyMove:
                     n = n * 6 / 5; // 1.2
                     break;
-                case (int)DuelSpecial.DuelSpecial_Musou:
+                case (int)DuelSpecial.DuelSpecial_Peerless:
                     n = n * 3;
                     break;
-                case (int)DuelSpecial.DuelSpecial_Anki:
+                case (int)DuelSpecial.DuelSpecial_HiddenWeapon:
                     n = n * 6 / 5; // 1.2
                     break;
-                case (int)DuelSpecial.DuelSpecial_Nisetaikyaku:
+                case (int)DuelSpecial.DuelSpecial_FeintRetreat:
                     n = n * 3 / 2; // 1.5
                     break;
-                case (int)DuelSpecial.DuelSpecial_Kiai:
-                case (int)DuelSpecial.DuelSpecial_Kenshu:
+                case (int)DuelSpecial.DuelSpecial_FightingSpirit:
+                case (int)DuelSpecial.DuelSpecial_Steadfast:
                     n = 0;
                     break;
             }
@@ -1788,7 +1788,7 @@ namespace Sango.Core.Duel
             return n;
         }
 
-        /// <summary>509120。是否可以参战</summary>
+        /// <summary>是否可以参战</summary>
         public bool CanJoin(int team, int chara)
         {
             int hp = GetHp(team, chara);
@@ -1800,7 +1800,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>509190。是否加入战斗</summary>
+        /// <summary>是否加入战斗</summary>
         public bool CalcJoin(int team, int chara)
         {
             Person person = GetPerson(team, chara);
@@ -1868,7 +1868,7 @@ namespace Sango.Core.Duel
             return system.RandBool(n2);
         }
 
-        /// <summary>509450。本回合先攻的队伍</summary>
+        /// <summary>本回合先攻的队伍</summary>
         public int CalcActorTeam()
         {
             int aTeam = reverse ? (int)DuelTeam.DuelTeam_Challenged : (int)DuelTeam.DuelTeam_Challenger;
@@ -1898,7 +1898,7 @@ namespace Sango.Core.Duel
             return bTeam;
         }
 
-        /// <summary>509690。决定行动</summary>
+        /// <summary>决定行动</summary>
         public int CalcAction(int team, int chara)
         {
             int action = -1;
@@ -1935,7 +1935,7 @@ namespace Sango.Core.Duel
             return action;
         }
 
-        /// <summary>509800</summary>
+        /// <summary>判定一击必杀由哪一队发动（不发生返回 -1）</summary>
         public int CalcFtkTeam()
         {
             Person a = GetCurrentPerson((int)DuelTeam.DuelTeam_Challenger);
@@ -1946,13 +1946,13 @@ namespace Sango.Core.Duel
                 return -1;
             bool aBow = HasItem((int)DuelTeam.DuelTeam_Challenger, team[(int)DuelTeam.DuelTeam_Challenger].currentChara, ItemFlags(DuelItemType.DuelItemType_Bow));
             bool bBow = HasItem((int)DuelTeam.DuelTeam_Challenged, team[(int)DuelTeam.DuelTeam_Challenged].currentChara, ItemFlags(DuelItemType.DuelItemType_Bow));
-            int aShoubyou = TeamGetShoubyou(team[(int)DuelTeam.DuelTeam_Challenger], team[(int)DuelTeam.DuelTeam_Challenger].currentChara);
-            int bShoubyou = TeamGetShoubyou(team[(int)DuelTeam.DuelTeam_Challenged], team[(int)DuelTeam.DuelTeam_Challenged].currentChara);
+            int aInjuryLevel = TeamGetInjuryLevel(team[(int)DuelTeam.DuelTeam_Challenger], team[(int)DuelTeam.DuelTeam_Challenger].currentChara);
+            int bInjuryLevel = TeamGetInjuryLevel(team[(int)DuelTeam.DuelTeam_Challenged], team[(int)DuelTeam.DuelTeam_Challenged].currentChara);
             int chance;
-            return CalcDuelFtkTeam(a, b, aBow, bBow, aShoubyou, bShoubyou, out chance);
+            return CalcDuelFtkTeam(a, b, aBow, bBow, aInjuryLevel, bInjuryLevel, out chance);
         }
 
-        /// <summary>509930</summary>
+        /// <summary>判定一击必杀的类型</summary>
         public int CalcFtkType()
         {
             int aTeam = ftkTeam;
@@ -1976,7 +1976,7 @@ namespace Sango.Core.Duel
             return (int)DuelFtkType.DuelFtkType_Normal;
         }
 
-        /// <summary>509a30。死亡概率</summary>
+        /// <summary>死亡概率</summary>
         /// <param name="team">失败方队伍</param>
         public bool CalcKillChance(int team)
         {
@@ -1985,9 +1985,9 @@ namespace Sango.Core.Duel
             int chara = GetCurrentChara(team);
             Debug.Assert(Utils.InRange(chara, 0, MaxTeamCharaCount - 1));
             Person person = GetPerson(team, chara);
-            if (Utils.IsActive(person) && person.HasSkill(SkillId.Kyouun))
+            if (Utils.IsActive(person) && person.HasSkill(SkillId.Lucky))
                 return false;
-            if (specialAction.type == (int)DuelSpecial.DuelSpecial_Taikyaku)
+            if (specialAction.type == (int)DuelSpecial.DuelSpecial_Retreat)
                 return false;
             int opponentTeam = GetOpponentTeam(team);
             int opponentChara = GetCurrentChara(opponentTeam);
@@ -2029,11 +2029,11 @@ namespace Sango.Core.Duel
         /// <param name="team">失败方队伍</param>
         public bool CalcCaptureChance(int team)
         {
-            if (system.IsFeatDisabled(Feature.Hobaku))
+            if (system.IsFeatDisabled(Feature.Capture))
                 return false;
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
                 return false;
-            if (specialAction.type == (int)DuelSpecial.DuelSpecial_Taikyaku)
+            if (specialAction.type == (int)DuelSpecial.DuelSpecial_Retreat)
                 return false;
             int chara = GetCurrentChara(team);
             int opponentTeam = GetOpponentTeam(team);
@@ -2055,7 +2055,7 @@ namespace Sango.Core.Duel
             return system.RandBool(chance);
         }
 
-        /// <summary>509c10</summary>
+        /// <summary>一击必杀的表现：排入挥砍与扣血动画（放不出来时清掉必杀状态）</summary>
         public bool FtkAnim()
         {
             int opponentTeam = GetOpponentTeam(ftkTeam);
@@ -2085,7 +2085,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>509d20</summary>
+        /// <summary>交替出战武将：换人并重置方针/登场/交替/无敌计时与增益</summary>
         public bool ChangeCurrentChara(int team, int chara)
         {
             if (!TeamChangeCurrentChara(this.team[team], chara))
@@ -2106,7 +2106,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>509e30。计算攻击比例</summary>
+        /// <summary>计算攻击比例</summary>
         public int CalcActionRatio(int aTeam, int aChara, int bTeam, int bChara)
         {
             if (!CheckState(aTeam, aChara, -1) || !CheckState(bTeam, bChara, -1))
@@ -2162,7 +2162,7 @@ namespace Sango.Core.Duel
                 return 100 - Math.Min(bScore * 100 / sum, 99);
         }
 
-        /// <summary>50a120。斗志获取量</summary>
+        /// <summary>斗志获取量</summary>
         /// <param name="attack">true 为攻击时，false 为被击时</param>
         public int CalcSpiritGain(int team, int chara, bool attack, int value)
         {
@@ -2218,7 +2218,7 @@ namespace Sango.Core.Duel
             return n;
         }
 
-        /// <summary>50a2a0</summary>
+        /// <summary>判定本回合由哪一队尝试发动必杀（都没发动返回 -1）</summary>
         public int CalcSpecialTry()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -2245,13 +2245,13 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>50a390</summary>
+        /// <summary>按当前必杀算出命中结果</summary>
         public void UpdateSpecialActionResult()
         {
             specialAction.result = CalcSpecialResult(specialAction);
         }
 
-        /// <summary>50a3b0。闪避概率</summary>
+        /// <summary>闪避概率</summary>
         public bool CalcDodgeChance(int team, int chara)
         {
             int opponentTeam = GetOpponentTeam(team);
@@ -2265,7 +2265,7 @@ namespace Sango.Core.Duel
             return system.RandBool(n);
         }
 
-        /// <summary>50a4b0。必杀致伤概率</summary>
+        /// <summary>必杀致伤概率</summary>
         public bool CalcWoundChance(SpecialAction special)
         {
             int team = special.team;
@@ -2296,13 +2296,13 @@ namespace Sango.Core.Duel
             // 必杀命中伤害的武将个体差异（对特定对手 ×11/10、否则必定命中）改由"武将单挑行为"数据驱动
             n = DuelPersonBehaviours.Get(person).ModifySpecialHitDamage(person, opponentPerson, specialAction.type, n);
 
-            if (Utils.IsActive(opponentPerson) && opponentPerson.HasSkill(SkillId.Kyouun))
+            if (Utils.IsActive(opponentPerson) && opponentPerson.HasSkill(SkillId.Lucky))
                 n = 0;
 
             return system.RandBool(n);
         }
 
-        /// <summary>50afd0。登场</summary>
+        /// <summary>登场</summary>
         public bool JoinAnim()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -2325,7 +2325,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>50b0f0。交替</summary>
+        /// <summary>交替</summary>
         public bool SwitchAnim()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -2344,7 +2344,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>50b1a0。必杀执行</summary>
+        /// <summary>必杀执行</summary>
         public bool SpecialActionAnim()
         {
             int team = specialAction.team;
@@ -2384,26 +2384,26 @@ namespace Sango.Core.Duel
             bool wound = false;
             switch (specialAction.type)
             {
-                case (int)DuelSpecial.DuelSpecial_Kiai:
+                case (int)DuelSpecial.DuelSpecial_FightingSpirit:
                     TeamSetBuffTimer(this.team[team], (int)DuelBuffType.DuelBuffType_Attack, -1);
                     break;
-                case (int)DuelSpecial.DuelSpecial_Kenshu:
+                case (int)DuelSpecial.DuelSpecial_Steadfast:
                     TeamSetBuffTimer(this.team[team], (int)DuelBuffType.DuelBuffType_Defense, -1);
                     break;
-                case (int)DuelSpecial.DuelSpecial_Kyuusho:
-                case (int)DuelSpecial.DuelSpecial_Nisetaikyaku:
+                case (int)DuelSpecial.DuelSpecial_WeakPoint:
+                case (int)DuelSpecial.DuelSpecial_FeintRetreat:
                     wound = CalcWoundChance(specialAction);
                     break;
-                case (int)DuelSpecial.DuelSpecial_Musou:
+                case (int)DuelSpecial.DuelSpecial_Peerless:
                     wound = CalcWoundChance(specialAction);
-                    goto case (int)DuelSpecial.DuelSpecial_Anki;
-                case (int)DuelSpecial.DuelSpecial_Anki:
+                    goto case (int)DuelSpecial.DuelSpecial_HiddenWeapon;
+                case (int)DuelSpecial.DuelSpecial_HiddenWeapon:
                     for (int i = 0; i < (int)DuelBuffType.DuelBuffType_Max; i++)
                         TeamSetBuffTimer(this.team[opponentTeam], i, 0);
                     break;
             }
             if (wound)
-                hpAnimQueue[actionCount - 1].shoubyouDamage = 1;
+                hpAnimQueue[actionCount - 1].injuryDamage = 1;
 
             PlayBlowAnim(actionCount);
             PlayHpAnim(actionCount);
@@ -2411,7 +2411,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>50b5c0。重算攻击比例表</summary>
+        /// <summary>重算攻击比例表</summary>
         public void CalcActionRatio()
         {
             for (int i = 0; i < MaxTeamCharaCount; i++)
@@ -2430,7 +2430,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>50b600</summary>
+        /// <summary>初始化一队：从启动参数取参战武将、组建队伍数据（无人参战则不建队）</summary>
         public bool InitTeam(int team)
         {
             if (reverse)
@@ -2439,7 +2439,7 @@ namespace Sango.Core.Duel
             Person[] personArray = new Person[MaxTeamCharaCount];
             int[] hpArray = new int[MaxTeamCharaCount];
             int[] spiritArray = new int[MaxTeamCharaCount];
-            int[] shoubyouArray = new int[MaxTeamCharaCount];
+            int[] injuryLevelArray = new int[MaxTeamCharaCount];
             for (int i = 0; i < MaxTeamCharaCount; i++)
             {
                 Person person = param.person[team][i];
@@ -2448,7 +2448,7 @@ namespace Sango.Core.Duel
                 personArray[i] = person;
                 hpArray[i] = param.hp[team][i];
                 spiritArray[i] = param.spirit[team][i];
-                shoubyouArray[i] = param.shoubyou[team][i];
+                injuryLevelArray[i] = param.injuryLevel[team][i];
                 count++;
             }
             if (count == 0)
@@ -2456,7 +2456,7 @@ namespace Sango.Core.Duel
             int startChara = param.startChara[team];
             if (!Utils.InRange(startChara, 0, MaxTeamCharaCount - 1))
                 return false;
-            TeamInit(this.team[team], personArray, hpArray, spiritArray, shoubyouArray, count, startChara, param.control[team], param.playerId[team]);
+            TeamInit(this.team[team], personArray, hpArray, spiritArray, injuryLevelArray, count, startChara, param.control[team], param.playerId[team]);
             ChangeCurrentChara(team, startChara);
             TeamSetNumber(this.team[team], startChara, 0);
             for (int i = 0; i < MaxTeamCharaCount; i++)
@@ -2467,13 +2467,13 @@ namespace Sango.Core.Duel
             {
                 for (int i = 0; i < this.team[team].charaCount; i++)
                 {
-                    logger.Debug($"{team}-{i} {this.team[team].chara[i].person.GetId()}{this.team[team].chara[i].person.GetName()} {this.team[team].chara[i].hp} {this.team[team].chara[i].spirit} {this.team[team].chara[i].state} 0x{this.team[team].chara[i].item.Value:x}");
+                    logger.Debug($"{team}-{i} {this.team[team].chara[i].person.Id}{this.team[team].chara[i].person.GetName()} {this.team[team].chara[i].hp} {this.team[team].chara[i].spirit} {this.team[team].chara[i].state} 0x{this.team[team].chara[i].item.Value:x}");
                 }
             }
             return true;
         }
 
-        /// <summary>50b7e0。计算伤害</summary>
+        /// <summary>计算伤害</summary>
         public int CalcDamage(out int atkSpirit, out int defSpirit, int team, int chara, int action, int result)
         {
             atkSpirit = 0;
@@ -2580,7 +2580,7 @@ namespace Sango.Core.Duel
             return n;
         }
 
-        /// <summary>50bb70</summary>
+        /// <summary>判定该队本回合是否有武将可登场（返回登场序号，无则 -1）</summary>
         public int CalcAppearingChara(int team)
         {
             if (!TeamHasSubChara(this.team[team], (int)DuelCharaState.DuelCharaState_NotJoined))
@@ -2612,7 +2612,7 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>50bcb0。行动判定</summary>
+        /// <summary>行动判定</summary>
         public int CalcActionResult(int team, int chara, int action)
         {
             int opponentTeam = GetOpponentTeam(team);
@@ -2648,14 +2648,14 @@ namespace Sango.Core.Duel
             return (int)DuelActionResult.DuelActionResult_Blocked;
         }
 
-        /// <summary>50c170</summary>
+        /// <summary>刷新双方的登场候选武将</summary>
         public void CalcAppearing()
         {
             for (int i = 0; i < MaxTeamCount; i++)
                 appearingChara[i] = CalcAppearingChara(i);
         }
 
-        /// <summary>50c1a0</summary>
+        /// <summary>生成本回合的行动队列（会心连击时排 3~4 次）</summary>
         public void UpdateAction()
         {
             for (int i = 0; i < MaxAnimQueueSize; i++)
@@ -2678,7 +2678,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>50c280。普通攻击执行</summary>
+        /// <summary>普通攻击执行</summary>
         public bool ActionAnim()
         {
             if (actionCount <= 0)
@@ -2729,7 +2729,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>50c490。一合取胜的队伍（自动判定是否持弓）</summary>
+        /// <summary>一合取胜的队伍（自动判定是否持弓）</summary>
         public static int CalcDuelFtkTeam(Person a, Person b, out int chance)
         {
             chance = 0;
@@ -2739,8 +2739,8 @@ namespace Sango.Core.Duel
                 return -1;
             if (!Utils.IsAlive(b))
                 return -1;
-            int aShoubyou = a.GetShoubyou();
-            int bShoubyou = b.GetShoubyou();
+            int aInjuryLevel = a.GetInjuryLevel();
+            int bInjuryLevel = b.GetInjuryLevel();
             bool aBow = false;
             bool bBow = false;
             List<Equipment> aItems = DuelSettings.GetPersonItemList(a);
@@ -2767,14 +2767,14 @@ namespace Sango.Core.Duel
                     }
                 }
             }
-            return CalcDuelFtkTeam(a, b, aBow, bBow, aShoubyou, bShoubyou, out chance);
+            return CalcDuelFtkTeam(a, b, aBow, bBow, aInjuryLevel, bInjuryLevel, out chance);
         }
 
         #endregion
 
         #region 初始化（50c930 - 50d780）
 
-        /// <summary>50c930, v+0</summary>
+        /// <summary>初始化单挑：读入启动参数、建队、初始化 AI，并进入首阶段</summary>
         public virtual void Init()
         {
             LogDebug($"Duel::init 0x{system.GetSeed():x}");
@@ -2797,18 +2797,18 @@ namespace Sango.Core.Duel
             SetNextPhase((int)DuelPhase.DuelPhase_Init);
         }
 
-        /// <summary>50c980</summary>
+        /// <summary>初始化武将的必杀可用次数（暗器 / 伪退却各 1 次）</summary>
         public void CharaInitSpecial(Character self, Person person)
         {
             if (!Utils.IsActive(person))
                 return;
             for (int i = 0; i < self.specialRemainingCount.Length; i++)
                 self.specialRemainingCount[i] = -1;
-            self.specialRemainingCount[(int)DuelSpecial.DuelSpecial_Anki] = self.item[(int)DuelItemType.DuelItemType_ThrowingKnife] ? 1 : 0;
-            self.specialRemainingCount[(int)DuelSpecial.DuelSpecial_Nisetaikyaku] = self.item[(int)DuelItemType.DuelItemType_Bow] ? 1 : 0;
+            self.specialRemainingCount[(int)DuelSpecial.DuelSpecial_HiddenWeapon] = self.item[(int)DuelItemType.DuelItemType_ThrowingKnife] ? 1 : 0;
+            self.specialRemainingCount[(int)DuelSpecial.DuelSpecial_FeintRetreat] = self.item[(int)DuelItemType.DuelItemType_Bow] ? 1 : 0;
         }
 
-        /// <summary>50c9d0</summary>
+        /// <summary>取队内武将（未参战返回 null）</summary>
         public Person TeamGetPerson(Team self, int chara)
         {
             Person person = self.chara[chara].person;
@@ -2817,26 +2817,26 @@ namespace Sango.Core.Duel
             return null;
         }
 
-        /// <summary>50ca20</summary>
+        /// <summary>该位置是否已参战</summary>
         public bool TeamIsActive(Team self, int chara)
         {
             Person person = self.chara[chara].person;
             return Utils.IsActive(person);
         }
 
-        /// <summary>50ca70</summary>
+        /// <summary>设置增益计时器</summary>
         public void TeamSetBuffTimer(Team self, int type, int timer)
         {
             self.buffTimer[type] = timer;
         }
 
-        /// <summary>50ca90</summary>
+        /// <summary>取增益计时器</summary>
         public int TeamGetBuffTimer(Team self, int type)
         {
             return self.buffTimer[type];
         }
 
-        /// <summary>50cab0</summary>
+        /// <summary>取该武将的行动方针（未参战返回 -1）</summary>
         public int TeamGetStance(Team self, int chara)
         {
             if (TeamIsActive(self, chara))
@@ -2844,7 +2844,7 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>50cb00</summary>
+        /// <summary>设置全队行动方针（只改已参战的武将）</summary>
         public void TeamSetStance(Team self, int chara, int stance)
         {
             for (int i = 0; i < MaxTeamCharaCount; i++)
@@ -2854,7 +2854,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>50cb80</summary>
+        /// <summary>取该武将的状态（未参战返回 -1）</summary>
         public int TeamGetState(Team self, int chara)
         {
             if (TeamIsActive(self, chara))
@@ -2862,7 +2862,7 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>50cbd0</summary>
+        /// <summary>取体力（未参战返回满值）</summary>
         public int TeamGetHp(Team self, int chara)
         {
             if (TeamIsActive(self, chara))
@@ -2870,14 +2870,14 @@ namespace Sango.Core.Duel
             return MaxHP;
         }
 
-        /// <summary>50cc20</summary>
+        /// <summary>设置体力</summary>
         public void TeamSetHp(Team self, int chara, int value)
         {
             if (TeamIsActive(self, chara))
                 self.chara[chara].hp = value;
         }
 
-        /// <summary>50cc70</summary>
+        /// <summary>取斗志（未参战返回满值）</summary>
         public int TeamGetSpirit(Team self, int chara)
         {
             if (TeamIsActive(self, chara))
@@ -2885,7 +2885,7 @@ namespace Sango.Core.Duel
             return MaxSpirit;
         }
 
-        /// <summary>50ccc0</summary>
+        /// <summary>设置全队斗志（只改已参战的武将）</summary>
         public void TeamSetSpirit(Team self, int chara, int value)
         {
             for (int i = 0; i < MaxTeamCharaCount; i++)
@@ -2895,22 +2895,22 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>50cd40</summary>
-        public int TeamGetShoubyou(Team self, int chara)
+        /// <summary>取伤病等级（未参战返回 -1）</summary>
+        public int TeamGetInjuryLevel(Team self, int chara)
         {
             if (TeamIsActive(self, chara))
-                return self.chara[chara].shoubyou;
+                return self.chara[chara].injuryLevel;
             return -1;
         }
 
-        /// <summary>50cd90</summary>
-        public void TeamSetShoubyou(Team self, int chara, int shoubyou)
+        /// <summary>设置伤病等级</summary>
+        public void TeamSetInjuryLevel(Team self, int chara, int injuryLevel)
         {
             if (TeamIsActive(self, chara))
-                self.chara[chara].shoubyou = shoubyou;
+                self.chara[chara].injuryLevel = injuryLevel;
         }
 
-        /// <summary>50cde0</summary>
+        /// <summary>取队内序号</summary>
         public int TeamGetNumber(Team self, int chara)
         {
             if (TeamIsActive(self, chara))
@@ -2918,14 +2918,14 @@ namespace Sango.Core.Duel
             return -1;
         }
 
-        /// <summary>50ce30</summary>
+        /// <summary>设置队内序号</summary>
         public void TeamSetNumber(Team self, int chara, int value)
         {
             if (TeamIsActive(self, chara))
                 self.chara[chara].number = value;
         }
 
-        /// <summary>50ce80</summary>
+        /// <summary>取某必杀的剩余可用次数</summary>
         public int TeamGetSpecialRemainingCount(Team self, int chara, int special)
         {
             if (TeamIsActive(self, chara))
@@ -2933,14 +2933,14 @@ namespace Sango.Core.Duel
             return 0;
         }
 
-        /// <summary>50cee0</summary>
+        /// <summary>设置某必杀的剩余可用次数</summary>
         public void TeamSetSpecialRemainingCount(Team self, int chara, int special, int value)
         {
             if (TeamIsActive(self, chara))
                 self.chara[chara].specialRemainingCount[special] = value;
         }
 
-        /// <summary>50cf70</summary>
+        /// <summary>该武将的宝物是否命中指定类目位</summary>
         public bool TeamHasItem(Team self, int chara, Bitset32 flags)
         {
             if (TeamIsActive(self, chara))
@@ -2948,21 +2948,21 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50cf90。武力</summary>
-        public static int GetDuelStrength(Person self, int shoubyou, bool revised)
+        /// <summary>武力</summary>
+        public static int GetDuelStrength(Person self, int injuryLevel, bool revised)
         {
             if (!Utils.IsActive(self))
                 return 0;
-            if (!Utils.InRange(shoubyou, 0, (int)Shoubyou.Hinshi))
+            if (!Utils.InRange(injuryLevel, 0, (int)InjuryLevel.NearDeath))
                 return 0;
-            int n = self.CalcStat(PersonStatType.Strength, shoubyou);
+            int n = self.CalcStat(PersonStatType.Strength, injuryLevel);
             if (!revised)
                 return n;
             // 武力修正（吕布/张飞/关羽…、黄忠年龄档）改由"武将单挑行为"数据驱动
             return DuelPersonBehaviours.Get(self).ModifyDuelStrength(self, null, n, true);
         }
 
-        /// <summary>50d0c0</summary>
+        /// <summary>取当前方针的速度系数</summary>
         public int TeamGetStanceSpeed(Team self, int chara)
         {
             int stance = TeamGetStance(self, chara);
@@ -2970,7 +2970,7 @@ namespace Sango.Core.Duel
             return StanceCoef[stance].speed;
         }
 
-        /// <summary>50d0f0</summary>
+        /// <summary>取当前方针的命中系数</summary>
         public int TeamGetStanceHit(Team self, int chara)
         {
             int stance = TeamGetStance(self, chara);
@@ -2978,7 +2978,7 @@ namespace Sango.Core.Duel
             return StanceCoef[stance].hit;
         }
 
-        /// <summary>50d120</summary>
+        /// <summary>取当前方针的攻击系数</summary>
         public int TeamGetStanceAttack(Team self, int chara)
         {
             int stance = TeamGetStance(self, chara);
@@ -2986,7 +2986,7 @@ namespace Sango.Core.Duel
             return StanceCoef[stance].attack;
         }
 
-        /// <summary>50d150</summary>
+        /// <summary>取当前方针的格挡系数</summary>
         public int TeamGetStanceBlock(Team self, int chara)
         {
             int stance = TeamGetStance(self, chara);
@@ -2994,7 +2994,7 @@ namespace Sango.Core.Duel
             return StanceCoef[stance].block;
         }
 
-        /// <summary>50d180</summary>
+        /// <summary>取当前方针的被击减伤系数</summary>
         public int TeamGetStanceAttackSub(Team self, int chara)
         {
             int stance = TeamGetStance(self, chara);
@@ -3002,7 +3002,7 @@ namespace Sango.Core.Duel
             return StanceCoef[stance].attackSub;
         }
 
-        /// <summary>50d1b0</summary>
+        /// <summary>取当前方针的斗志获取系数</summary>
         public int TeamGetStanceSpiritGain(Team self, int chara)
         {
             int stance = TeamGetStance(self, chara);
@@ -3010,7 +3010,7 @@ namespace Sango.Core.Duel
             return StanceCoef[stance].spiritGain;
         }
 
-        /// <summary>50d270</summary>
+        /// <summary>除当前出战者外，队内是否还有处于指定状态的武将</summary>
         public bool TeamHasSubChara(Team self, int state)
         {
             for (int i = 0; i < MaxTeamCharaCount; i++)
@@ -3025,14 +3025,14 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50d2f0</summary>
+        /// <summary>该队是否带有指定增益（-1 视为常驻）</summary>
         public bool TeamHasBuff(Team self, int type)
         {
             int timer = self.buffTimer[type];
             return timer == -1 || timer > 0;
         }
 
-        /// <summary>50d320</summary>
+        /// <summary>切换出战武将，并把双方状态与增益计时重置</summary>
         public bool TeamChangeCurrentChara(Team self, int chara)
         {
             int oldChara = self.currentChara;
@@ -3046,15 +3046,15 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>50d3e0</summary>
+        /// <summary>取队内武将的武力（未参战返回最小值）</summary>
         public int TeamGetStrength(Team self, int chara, bool revised)
         {
             if (TeamIsActive(self, chara))
-                return GetDuelStrength(TeamGetPerson(self, chara), TeamGetShoubyou(self, chara), revised);
+                return GetDuelStrength(TeamGetPerson(self, chara), TeamGetInjuryLevel(self, chara), revised);
             return MinStat;
         }
 
-        /// <summary>50d420</summary>
+        /// <summary>增减体力（夹在 0~满值之间，返回实际变化量）</summary>
         public int TeamAddHp(Team self, int chara, int value)
         {
             int diff = MaxHP;
@@ -3068,7 +3068,7 @@ namespace Sango.Core.Duel
             return diff;
         }
 
-        /// <summary>50d4a0</summary>
+        /// <summary>增减全队斗志（夹在 0~满值之间，返回实际变化量）</summary>
         public int TeamAddSpirit(Team self, int chara, int value)
         {
             int diff = MaxSpirit;
@@ -3085,7 +3085,7 @@ namespace Sango.Core.Duel
             return diff;
         }
 
-        /// <summary>50d5b0</summary>
+        /// <summary>按武将装备初始化宝物位（马 / 剑 / 长兵器 / 暗器 / 弓）</summary>
         public void CharaInitItem(Character self, Person person)
         {
             self.item = Bitset32.Empty;
@@ -3132,14 +3132,14 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>50d700</summary>
-        public void CharaInit(Character self, Person person, int hp, int spirit, int shoubyou)
+        /// <summary>初始化武将运行时数据（体力、斗志、伤病、宝物与必杀次数）</summary>
+        public void CharaInit(Character self, Person person, int hp, int spirit, int injuryLevel)
         {
             Character fresh = new Character();
             self.person = fresh.person;
             self.hp = fresh.hp;
             self.spirit = fresh.spirit;
-            self.shoubyou = fresh.shoubyou;
+            self.injuryLevel = fresh.injuryLevel;
             self.stance = fresh.stance;
             self.state = fresh.state;
             self.number = fresh.number;
@@ -3151,18 +3151,18 @@ namespace Sango.Core.Duel
             self.person = person;
             self.hp = hp;
             self.spirit = spirit;
-            self.shoubyou = shoubyou;
+            self.injuryLevel = injuryLevel;
             CharaInitItem(self, person);
             CharaInitSpecial(self, person);
         }
 
-        /// <summary>50d780</summary>
-        public void TeamInit(Team self, Person[] personArray, int[] hpArray, int[] spiritArray, int[] shoubyouArray, int count, int currentChara, int control, int playerId)
+        /// <summary>初始化队伍：建武将数组、设出战者与控制方，再逐个初始化武将</summary>
+        public void TeamInit(Team self, Person[] personArray, int[] hpArray, int[] spiritArray, int[] injuryLevelArray, int count, int currentChara, int control, int playerId)
         {
             Debug.Assert(personArray != null);
             Debug.Assert(hpArray != null);
             Debug.Assert(spiritArray != null);
-            Debug.Assert(shoubyouArray != null);
+            Debug.Assert(injuryLevelArray != null);
             Debug.Assert(Utils.InRange(count, 1, MaxTeamCharaCount));
 
             self.chara = Team.NewCharacterArray();
@@ -3184,7 +3184,7 @@ namespace Sango.Core.Duel
                 Person person = personArray[i];
                 if (!Utils.IsActive(person))
                     continue;
-                CharaInit(self.chara[i], person, hpArray[i], spiritArray[i], shoubyouArray[i]);
+                CharaInit(self.chara[i], person, hpArray[i], spiritArray[i], injuryLevelArray[i]);
                 self.chara[i].state = self.currentChara == i
                     ? (int)DuelCharaState.DuelCharaState_Active
                     : (int)DuelCharaState.DuelCharaState_NotJoined;
@@ -3195,7 +3195,7 @@ namespace Sango.Core.Duel
 
         #region Param 访问（50dac0 - 50e2b0）
 
-        /// <summary>50dac0</summary>
+        /// <summary>取胜方部队</summary>
         public Troop ParamGetWinnerUnit(Param self)
         {
             if (!Utils.InRange(self.winnerTeam, 0, MaxTeamCount - 1))
@@ -3203,7 +3203,7 @@ namespace Sango.Core.Duel
             return self.unit[self.winnerTeam];
         }
 
-        /// <summary>50dae0</summary>
+        /// <summary>取败方部队</summary>
         public Troop ParamGetLoserUnit(Param self)
         {
             if (!Utils.InRange(self.loserTeam, 0, MaxTeamCount - 1))
@@ -3211,7 +3211,7 @@ namespace Sango.Core.Duel
             return self.unit[self.loserTeam];
         }
 
-        /// <summary>50db00</summary>
+        /// <summary>取某武将的判定结果</summary>
         public int ParamGetCharaResult(Param self, int team, int chara)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -3221,7 +3221,7 @@ namespace Sango.Core.Duel
             return self.result[team][chara];
         }
 
-        /// <summary>50db40</summary>
+        /// <summary>取该队所属部队（队伍与武将序号都需合法）</summary>
         public Troop ParamGetUnit(Param self, int team, int chara)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -3231,7 +3231,7 @@ namespace Sango.Core.Duel
             return self.unit[team];
         }
 
-        /// <summary>50db80</summary>
+        /// <summary>取启动参数里的体力</summary>
         public int ParamGetHp(Param self, int team, int chara)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -3241,7 +3241,7 @@ namespace Sango.Core.Duel
             return self.hp[team][chara];
         }
 
-        /// <summary>50dbc0</summary>
+        /// <summary>取启动参数里的斗志</summary>
         public int ParamGetSpirit(Param self, int team, int chara)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -3251,17 +3251,17 @@ namespace Sango.Core.Duel
             return self.spirit[team][chara];
         }
 
-        /// <summary>50dc10</summary>
-        public int ParamGetShoubyou(Param self, int team, int chara)
+        /// <summary>取启动参数里的伤病等级</summary>
+        public int ParamGetInjuryLevel(Param self, int team, int chara)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
                 return -1;
             if (!Utils.InRange(chara, 0, MaxTeamCharaCount - 1))
                 return -1;
-            return self.shoubyou[team][chara];
+            return self.injuryLevel[team][chara];
         }
 
-        /// <summary>50dc60</summary>
+        /// <summary>取启动参数里的武将</summary>
         public Person ParamGetPerson(Param self, int team, int chara)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -3271,19 +3271,19 @@ namespace Sango.Core.Duel
             return self.person[team][chara];
         }
 
-        /// <summary>50dca0</summary>
+        /// <summary>取胜方武将</summary>
         public Person ParamGetWinnerPerson(Param self)
         {
             return ParamGetPerson(self, self.winnerTeam, self.winnerChara);
         }
 
-        /// <summary>50dcd0</summary>
+        /// <summary>取败方武将</summary>
         public Person ParamGetLoserPerson(Param self)
         {
             return ParamGetPerson(self, self.loserTeam, self.loserChara);
         }
 
-        /// <summary>50dd00</summary>
+        /// <summary>取该队的首发武将序号</summary>
         public int ParamGetStartChara(Param self, int team)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -3291,7 +3291,7 @@ namespace Sango.Core.Duel
             return self.startChara[team];
         }
 
-        /// <summary>50dd30</summary>
+        /// <summary>取该队的玩家编号（-1 = 非玩家）</summary>
         public int ParamGetPlayerId(Param self, int team)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -3299,7 +3299,7 @@ namespace Sango.Core.Duel
             return self.playerId[team];
         }
 
-        /// <summary>50dd60</summary>
+        /// <summary>取该队的操作方式（手动 / 自动）</summary>
         public int ParamGetControl(Param self, int team)
         {
             if (!Utils.InRange(team, 0, MaxTeamCount - 1))
@@ -3307,13 +3307,13 @@ namespace Sango.Core.Duel
             return self.control[team];
         }
 
-        /// <summary>50dd90</summary>
+        /// <summary>是否有一方为手动操作</summary>
         public bool ParamIsManual(Param self)
         {
             return self.control[0] == (int)DuelControl.DuelControl_Manual || self.control[1] == (int)DuelControl.DuelControl_Manual;
         }
 
-        /// <summary>50e290</summary>
+        /// <summary>取挑战方首发武将</summary>
         public Person ParamGetChallenger(Param self)
         {
             int chara = self.startChara[(int)DuelTeam.DuelTeam_Challenger];
@@ -3322,7 +3322,7 @@ namespace Sango.Core.Duel
             return null;
         }
 
-        /// <summary>50e2b0</summary>
+        /// <summary>取应战方首发武将</summary>
         public Person ParamGetChallenged(Param self)
         {
             int chara = self.startChara[(int)DuelTeam.DuelTeam_Challenged];
@@ -3335,7 +3335,7 @@ namespace Sango.Core.Duel
 
         #region 运行（50ed00）
 
-        /// <summary>50ed00。运行单挑直到结束</summary>
+        /// <summary>运行单挑直到结束</summary>
         /// <returns>是否走了表现层（即玩家确认进入单挑）</returns>
         public bool Run()
         {
@@ -3378,7 +3378,7 @@ namespace Sango.Core.Duel
             return useView;
         }
 
-        /// <summary>682780, v+10</summary>
+        /// <summary>是否教学模式的单挑（派生类可覆盖）</summary>
         public virtual bool IsTutorial()
         {
             return false;

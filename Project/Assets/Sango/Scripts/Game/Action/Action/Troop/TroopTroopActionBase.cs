@@ -19,6 +19,7 @@ namespace Sango.Core.Action
         protected int checkLand;
         protected int isDefender;
         protected int isNormal;
+        protected int isFire;
         protected int isRange;
         protected Condition condition;
 
@@ -29,6 +30,7 @@ namespace Sango.Core.Action
             isDefender = p.Value<int>("isDefender");
             isNormal = p.Value<int>("isNormal");
             isRange = p.Value<int>("isRange");
+            isFire = p.Value<int>("isFire");
             JObject conObj = p.Value<JObject>("condition");
             if (conObj != null)
             {
@@ -60,6 +62,9 @@ namespace Sango.Core.Action
                 return false;
 
             if (!CheckIsRangeSkill(skill, isRange))
+                return false;
+
+            if (isFire == 1 && skill != null)
                 return false;
 
             if (checkLand == 1 && troop.IsInWater)

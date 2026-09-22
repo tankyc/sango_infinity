@@ -82,7 +82,7 @@ namespace Sango.Core.Debate
 
         #region AI 初始化 / 会心
 
-        /// <summary>516fc0</summary>
+        /// <summary>AI 初始化：绑定所属舌战、本方队伍与对手队伍</summary>
         public void AiInit(AI self, Debate parent, int team)
         {
             self.parent = parent;
@@ -90,23 +90,39 @@ namespace Sango.Core.Debate
             self.opponentTeam = GetOpponentTeam(team);
         }
 
-        /// <summary>516fe0</summary>
+        /// <summary>AI 选择会心：怨恨→追击、敬爱→留情，其余随机，最后由武将行为覆盖</summary>
         public int AiCalcCritical(AI self)
         {
             Character character = GetCharacter(self.team);
             Character opponentCharacter = GetCharacter(self.opponentTeam);
             Person person = character.person;
             Person opponentPerson = opponentCharacter.person;
+            int critical;
+            bool related = false;
             if (!Utils.IsAlive(person))
-                return system.RandInt((int)DebateCritical.DebateCritical_Max);
-            if (person.IsHate(opponentPerson))
-                return (int)DebateCritical.DebateCritical_PushOn;
-            if (person.IsLike(opponentPerson))
-                return (int)DebateCritical.DebateCritical_HaveMercy;
-            return system.RandInt((int)DebateCritical.DebateCritical_Max);
+            {
+                critical = system.RandInt((int)DebateCritical.DebateCritical_Max);
+            }
+            else if (person.IsHate(opponentPerson))
+            {
+                critical = (int)DebateCritical.DebateCritical_PushOn;
+                related = true;
+            }
+            else if (person.IsLike(opponentPerson))
+            {
+                critical = (int)DebateCritical.DebateCritical_HaveMercy;
+                related = true;
+            }
+            else
+            {
+                critical = system.RandInt((int)DebateCritical.DebateCritical_Max);
+            }
+
+            // 武将行为（数据驱动，见 DebatePersonBehaviours）：关系/随机先定基础值，再由 behaviour 覆盖
+            return DebatePersonBehaviours.Get(person).ModifyCritical(person, opponentPerson, critical, related);
         }
 
-        /// <summary>517060</summary>
+        /// <summary>统计本方手牌中指定牌的张数（该牌当前不可用时返回 0）</summary>
         public int AiGetCardCount(AI self, int card)
         {
             if (!IsCardAvailable(self.team, card))
@@ -125,7 +141,7 @@ namespace Sango.Core.Debate
 
         #region 条件 / 查找函数
 
-        /// <summary>5170c0。大胆（兴奋）时优先出最低阶话题卡</summary>
+        /// <summary>大胆（兴奋）时优先出最低阶话题卡</summary>
         public int AiCondCardAngerBold(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -153,7 +169,7 @@ namespace Sango.Core.Debate
             return best;
         }
 
-        /// <summary>517190。冷静（兴奋）时再考</summary>
+        /// <summary>冷静（兴奋）时再考</summary>
         public int AiCondCardAngerCalmRethink(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -185,7 +201,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517270。对手大胆（兴奋）</summary>
+        /// <summary>对手大胆（兴奋）</summary>
         public int AiCondCardVsAngerBold(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -242,7 +258,7 @@ namespace Sango.Core.Debate
             return best;
         }
 
-        /// <summary>5173f0。对手冷静（兴奋）</summary>
+        /// <summary>对手冷静（兴奋）</summary>
         public int AiCondCardVsAngerCalm(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -260,7 +276,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517450。己方冷静（兴奋）</summary>
+        /// <summary>己方冷静（兴奋）</summary>
         public int AiCondCardAngerCalm(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -287,7 +303,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517520。大喝 / 诡辩 / 无视</summary>
+        /// <summary>大喝 / 诡辩 / 无视</summary>
         public int AiCondCardShoutSophistryIgnore(AI self, int type, int chance)
         {
             Character character = GetCharacter(self.team);
@@ -337,7 +353,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517650。低阶话题卡</summary>
+        /// <summary>低阶话题卡</summary>
         public int AiCondCardLowTopic(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -365,7 +381,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517720。寻找高阶话题卡</summary>
+        /// <summary>寻找高阶话题卡</summary>
         public int AiFindCardHighTopic(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -382,7 +398,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>5177b0。寻找低阶话题卡</summary>
+        /// <summary>寻找低阶话题卡</summary>
         public int AiFindCardLowTopic(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -399,7 +415,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517840。激昂</summary>
+        /// <summary>激昂</summary>
         public int AiCondCardAgitate(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -425,7 +441,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>5178c0。镇静</summary>
+        /// <summary>镇静</summary>
         public int AiCondCardCompose(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -452,7 +468,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517950。再考</summary>
+        /// <summary>再考</summary>
         public int AiCondCardRethink(AI self, int ignoreOpponent, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -501,7 +517,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517b70。寻找再考</summary>
+        /// <summary>寻找再考</summary>
         public int AiFindCardRethink(AI self, int chance, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -517,7 +533,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517bd0。无视</summary>
+        /// <summary>无视</summary>
         public int AiCondCardIgnore(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -537,7 +553,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>517c30。寻找任意高阶话题卡</summary>
+        /// <summary>寻找任意高阶话题卡</summary>
         public int AiFindCardHighAnyTopic(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -562,7 +578,7 @@ namespace Sango.Core.Debate
             return best;
         }
 
-        /// <summary>517ce0。随机大喝 / 诡辩 / 无视 / 话题卡</summary>
+        /// <summary>随机大喝 / 诡辩 / 无视 / 话题卡</summary>
         public int AiRandCardShoutSophistryIgnoreTopic(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -607,7 +623,7 @@ namespace Sango.Core.Debate
             return table[0];
         }
 
-        /// <summary>517e50。随机出牌</summary>
+        /// <summary>随机出牌</summary>
         public int AiRandCard(AI self, int param1, int param2)
         {
             Character character = GetCharacter(self.team);
@@ -642,7 +658,7 @@ namespace Sango.Core.Debate
 
         #region 主决策入口
 
-        /// <summary>517ef0。计算要出的卡牌</summary>
+        /// <summary>计算要出的卡牌</summary>
         public int AiCalcCard(AI self)
         {
             Character character = GetCharacter(self.team);

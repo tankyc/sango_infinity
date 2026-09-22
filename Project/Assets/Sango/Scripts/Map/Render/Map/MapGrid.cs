@@ -90,15 +90,19 @@ namespace Sango.Render
             public bool visible;
 
             //public int terrainState;
-
+#if UNITY_STANDALONE_WIN
             public San11GridData san11GridData;
+#endif
             public GridData()
             {
+#if UNITY_STANDALONE_WIN
+
                 san11GridData = new San11GridData()
                 {
                     tType = 31,
                     dir = 6
                 };
+#endif
             }
             public void SetTerrainType(byte v)
             {
@@ -318,6 +322,7 @@ namespace Sango.Render
                 int y = i % 200;
                 int x = i / 200;
                 GridData data = gridDatas[x + 28][y + 28];
+#if UNITY_STANDALONE_WIN
 
                 if (data.san11GridData != null)
                 {
@@ -328,6 +333,7 @@ namespace Sango.Render
                     data.san11GridData.interior = (byte)(data.HasGridState(GridState.Interior) ? 1 : 0);
                     data.san11GridData.OnSave(binr);
                 }
+#endif
             }
         }
 
@@ -341,6 +347,8 @@ namespace Sango.Render
                 int y = i % 200;
                 int x = i / 200;
                 GridData data = gridDatas[x + 28][y + 28];
+#if UNITY_STANDALONE_WIN
+
                 San11GridData sanData = new San11GridData();
                 sanData.OnLoad(0, binr);
                 data.terrainType = (byte)(sanData.tType + 1);
@@ -349,6 +357,7 @@ namespace Sango.Render
                 data.SetGridState(GridState.Thief, sanData.thief > 0);
                 data.SetGridState(GridState.Interior, sanData.interior > 0);
                 data.san11GridData = sanData;
+#endif
             }
         }
 

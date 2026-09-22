@@ -4,12 +4,16 @@
  *
  * 流程（对应需求）：
  *   1. 发起方对目标部队提出单挑请求，挑战方随即叫阵一句（ChallengeLines 随机）。
- *   2. 若应战方是玩家 → 弹出「是否接受」；否则用 DuelAcceptChance 掷骰判定 AI 是否应战。
+ *   2. 若应战方由玩家亲自操作 → 弹出「是否接受」；否则用 DuelAcceptChance 掷骰判定 AI 是否应战。
  *   3. 无论应战还是拒绝，应战方都回一句台词（AcceptLines / RefuseLines 随机）。
  *   4. 拒绝是有代价的：应战方气力下降、部分士兵逃散（见 ApplyRefusePenalty）。
- *   5. 接受之后，只要双方中有玩家 → 弹出「是否观看」。
+ *   5. 接受之后，只要双方中有人由玩家亲自操作 → 弹出「是否观看」。
  *   6. 不观看 → 不带表现层启动，逻辑层瞬时跑完出结果。
  *      观看   → 带表现层（window_duel / CardDuelView）启动，由表现层驱动并做出行动表现。
+ *
+ * 【对话的开关】所有对话框（叫阵 / 应战 / 拒绝播报 / 是否观看）都只在 ShouldShowDialog 为真时弹，
+ * 也就是"双方中有人由玩家亲自操作（Troop.IsPlayerControl）"。AI 之间、以及玩家势力里被 AI 托管的部队，
+ * 一律不弹对话框、直接瞬时结算 —— 否则玩家会看到一堆与自己无关的对白。
  *
  * 对话框分两类，各用各的样式：
  *   · 台词       ClickPersonSay（window_dialog4）——带立绘、点一下继续，没有选项按钮。
@@ -46,6 +50,23 @@ namespace Sango.Core.Duel
 
         private static Troop s_Challenger;
         private static Troop s_Challenged;
+
+        /// <summary>
+        /// 该部队是否由玩家**亲自操作**（玩家直属军团，等价 C++ 的 district.is_player() &amp;&amp; get_number()==1）。
+        ///
+        /// 判断对话要不要弹一律用它，不用势力级的 Troop.IsPlayer：
+        /// 玩家势力里交给 AI 托管（非直属军团 / 委任）的部队触发单挑时，不该弹对话框。
+        /// </summary>
+        public static bool IsPlayerControl(Troop troop)
+        {
+            return troop != null && troop.IsPlayerControl;
+        }
+
+        /// <summary>本场单挑是否要弹对话框（双方中有人由玩家亲自操作）</summary>
+        public static bool ShouldShowDialog(Troop challenger, Troop challenged)
+        {
+            return IsPlayerControl(challenger) || IsPlayerControl(challenged);
+        }
 
         #region 可调常量：拒绝的代价
 
@@ -148,19 +169,21 @@ namespace Sango.Core.Duel
             s_Challenger = challenger;
             s_Challenged = challenged;
 
-            // 挑战方先叫阵（排队播，读完自动接应战方的回应）
-            PlayLine(challenger.Leader, ChallengeLines);
+            // 对话只在"有玩家亲自参与"时弹；否则（AI 之间 / 玩家势力的托管部队）全程不弹
+            bool showDialog = ShouldShowDialog(challenger, challenged);
+
+            if (showDialog)
+                PlayLine(challenger.Leader, ChallengeLines);   // 挑战方叫阵（读完自动接应战方的回应）
 
             // 强制单挑（战法引发）：跳过"是否应战"的询问与概率判定，直接进入。
-            // 叫阵 / 应战台词、以及玩家在场时的"是否观战"询问照旧。
             if (forceAccept)
             {
-                AfterAccepted();
+                AfterAccepted(showDialog);
                 return true;
             }
 
-            // 应战判定：玩家自己决定，AI 按性格与能力掷骰
-            if (challenged.IsPlayer)
+            // 应战判定：由玩家亲自操作的部队自己决定，其余按性格与能力掷骰
+            if (IsPlayerControl(challenged))
             {
                 AskAccept();
                 return true;
@@ -168,11 +191,11 @@ namespace Sango.Core.Duel
 
             if (!DuelAcceptChance.Roll(challenged, challenger))
             {
-                Reject(challenged);
+                Reject(challenged, showDialog);
                 return false;
             }
 
-            AfterAccepted();
+            AfterAccepted(showDialog);
             return true;
         }
 
@@ -196,31 +219,29 @@ namespace Sango.Core.Duel
                 () =>
                 {
                     IsPending = false;
-                    AfterAccepted();
+                    AfterAccepted(true);
                 },
                 () =>
                 {
                     IsPending = false;
-                    Reject(challenged);
+                    Reject(challenged, true);
                 },
                 challenger);
         }
 
-        /// <summary>接受之后：先说一句应战台词，涉及玩家就问是否观看，否则直接瞬时结算</summary>
-        private static void AfterAccepted()
+        /// <summary>接受之后：有玩家亲自参与才说应战台词 + 问是否观看，否则直接瞬时结算</summary>
+        private static void AfterAccepted(bool showDialog)
         {
             Troop challenger = s_Challenger;
             Troop challenged = s_Challenged;
 
-            PlayLine(challenged != null ? challenged.Leader : null, AcceptLines);
-
-            bool anyPlayer = (challenger != null && challenger.IsPlayer)
-                          || (challenged != null && challenged.IsPlayer);
-            if (!anyPlayer)
+            if (!showDialog)
             {
                 StartDuel(false);
                 return;
             }
+
+            PlayLine(challenged != null ? challenged.Leader : null, AcceptLines);
 
             string a = challenger != null && challenger.Leader != null ? challenger.Leader.Name : "？";
             string b = challenged != null && challenged.Leader != null ? challenged.Leader.Name : "？";
@@ -264,7 +285,7 @@ namespace Sango.Core.Duel
         /// 播报只是把结果告诉玩家，**不再是「确定 / 取消」那种选择框**——
         /// 拒都拒了，没有可选的余地；改用 ClickSay（点击继续、没有按钮）读过去即可。
         /// </summary>
-        private static void Reject(Troop refuser)
+        private static void Reject(Troop refuser, bool showDialog)
         {
             Troop challenger = s_Challenger;
             s_Challenger = null;
@@ -272,9 +293,8 @@ namespace Sango.Core.Duel
 
             ApplyRefusePenalty(refuser);
 
-            bool anyPlayer = (challenger != null && challenger.IsPlayer)
-                          || (refuser != null && refuser.IsPlayer);
-            if (!anyPlayer) return;
+            // 没有玩家亲自参与（AI 之间）：拒绝台词与代价播报都不弹
+            if (!showDialog) return;
 
             // 拒绝方的台词（排队在挑战方叫阵之后）
             PlayLine(refuser != null ? refuser.Leader : null, RefuseLines);

@@ -450,6 +450,31 @@ namespace Sango.Core
         [JsonProperty] public bool duelDisableAIRetreat = false;
 
         /// <summary>
+        /// 舌战：禁用"会心"（禁用后舌战不再进入会心阶段，
+        /// 胜方不会做出追击 / 留情的抉择，胜利方式固定为普通）。
+        /// 对应 C++ 的 Feature_DebateCritical。
+        /// </summary>
+        [JsonProperty] public bool debateDisableCritical = false;
+
+        /// <summary>
+        /// 外交交涉失败后按概率强制进入舌战的概率(百分比)。0 = 不触发。
+        /// 触发双方：使者 = 执行外交的武将，对方代表 = 接收方势力君主。
+        /// </summary>
+        [JsonProperty] public int debateChanceWhenDiplomacyFail = 20;
+
+        /// <summary>
+        /// 招募(登用)人才失败后按概率强制进入舌战的概率(百分比)。0 = 不触发。
+        /// 触发双方：招募者 = 执行登用的武将，被招募者 = 目标人才。
+        /// </summary>
+        [JsonProperty] public int debateChanceWhenRecruitFail = 30;
+
+        /// <summary>
+        /// 是否允许 AI 之间也触发舌战。false = 只有玩家参与时才触发。
+        /// AI 之间的舌战不带表现层，只在后台结算（不弹界面）。
+        /// </summary>
+        [JsonProperty] public bool debateAllowAIVsAI = true;
+
+        /// <summary>
         /// 每一季度治安下降最大数
         /// </summary>
         [JsonProperty] public int securityChangeOnSeasonStart = -5;

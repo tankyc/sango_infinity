@@ -174,7 +174,7 @@ namespace Sango.UI
 
         void UpdateItemsContent()
         {
-            if (items_inited || itemPool == null) return;
+            if (items_inited || itemPool == null || Target.mBelongForce == null) return;
             items_inited = true;
             itemPool.Reset();
             List<ItemType> ItemTypes = Target.mBelongForce.createdItemTypes;

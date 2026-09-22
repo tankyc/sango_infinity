@@ -24,7 +24,7 @@
  *   View             - 是否启用表现层（默认 false；置 true 需要提供 IDuelView）
  *
  * 注意：
- *   Param.shoubyou 必须填 0（健康），否则武力计算结果会退化为 0
+ *   Param.injuryLevel 必须填 0（健康），否则武力计算结果会退化为 0
  */
 
 using System;
@@ -63,8 +63,8 @@ namespace Sango.Core.Duel
         public override void Message(string text, object target, object[] args, bool pause) { }
         public override void HistoryLog(Message msg, Troop troop, bool show, int color) { }
         public override void Ping(object pos, int type, int color) { }
-        public override string GetShoubyouName(int shoubyou) { return "伤病" + shoubyou; }
-        public override void PersonSetShoubyou(Person person, int shoubyou) { if (person != null) person.injury = shoubyou; }
+        public override string GetInjuryLevelName(int injuryLevel) { return "伤病" + injuryLevel; }
+        public override void PersonSetInjuryLevel(Person person, int injuryLevel) { if (person != null) person.injury = injuryLevel; }
         public override void PersonAddHp(Person person, int value) { if (person != null) person.stamina += value; }
         public override void PersonAddExp(Person person, PersonStatType type, int subType, int value) { }
         public override void PersonAddKouseki(Person person, int value) { }
@@ -171,7 +171,7 @@ namespace Sango.Core.Duel
                     Param.hp[i][j] = Duel.MaxHP;
                     Param.spirit[i][j] = 0;
                     // 伤病必须初始化为健康（0），否则武力计算结果会退化为 0
-                    Param.shoubyou[i][j] = 0;
+                    Param.injuryLevel[i][j] = 0;
                 }
             }
 
@@ -286,7 +286,7 @@ namespace Sango.Core.Duel
                     if (!Utils.IsAlive(Param.person[i][j]))
                         continue;
                     sb.AppendLine($"  队伍{i} {Param.person[i][j].GetName()} 结局={(DuelCharaResult)Param.result[i][j]} " +
-                                  $"hp={Param.hp[i][j]} 伤病={Param.shoubyou[i][j]}");
+                                  $"hp={Param.hp[i][j]} 伤病={Param.injuryLevel[i][j]}");
                 }
             }
             return sb.ToString();

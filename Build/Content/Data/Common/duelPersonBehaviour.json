@@ -1,8 +1,8 @@
 {
-  "_comment": "武将单挑行为配置。字段都可省略，省略 = 该钩子不加任何修正。倍率一律用 num/den 整数乘算，与单挑内部既有口径一致（如 13/11 = 1.18）。年龄档 maxAge=0 表示剩余全部年龄。id 用 PersonId 枚举名；也可写 personId（武将真实 Id，>=0 时优先命中）。",
+  "_comment": "武将单挑行为配置。字段都可省略，省略 = 该钩子不加任何修正。倍率一律用 num/den 整数乘算，与单挑内部既有口径一致（如 13/11 = 1.18）。年龄档 maxAge=0 表示剩余全部年龄。武将一律写**真实 Id**（Person.Id，与 PersonLibrary.json 里的 Id 一致）；名单类字段（alwaysBlockWith / opponents）同样写真实 Id。aiTable 用的是 DuelAIType 枚举名，与武将 Id 无关。",
   "behaviours": [
     {
-      "id": "Ryofu",
+      "personId": 661,
       "name": "吕布",
       "criticalChanceAdd": 3,
       "duelStrengthAdd": 10,
@@ -11,20 +11,20 @@
       "attackDamageMulNum": 13,
       "attackDamageMulDen": 11,
       "specialDamageMul": [ { "num": 13, "den": 11 } ],
-      "alwaysBlockWith": [ "Ryofu", "Chouhi", "Kanu" ],
-      "aiTable": "Ryofu"
+      "alwaysBlockWith": [ 661, 433, 99 ],
+      "aiTable": "LuBu"
     },
     {
-      "id": "Chouhi",
+      "personId": 433,
       "name": "张飞",
       "criticalChanceAdd": 12,
       "duelStrengthAdd": 5,
       "ftkChanceAdd": 5,
       "ftkImmune": true,
-      "alwaysBlockWith": [ "Ryofu", "Chouhi", "Kanu" ]
+      "alwaysBlockWith": [ 661, 433, 99 ]
     },
     {
-      "id": "Kanu",
+      "personId": 99,
       "name": "关羽",
       "criticalChanceAdd": 3,
       "duelStrengthAdd": 5,
@@ -32,10 +32,10 @@
       "ftkImmune": true,
       "firstChanceAdd": 2,
       "opponentFirstChanceAdd": -2,
-      "alwaysBlockWith": [ "Ryofu", "Chouhi", "Kanu" ]
+      "alwaysBlockWith": [ 661, 433, 99 ]
     },
     {
-      "id": "Kyocho",
+      "personId": 145,
       "name": "许褚",
       "criticalChanceAdd": 2,
       "duelStrengthAdd": 3,
@@ -43,7 +43,7 @@
       "ftkImmune": true
     },
     {
-      "id": "Chouun",
+      "personId": 396,
       "name": "赵云",
       "criticalChanceAdd": 2,
       "duelStrengthAdd": 3,
@@ -51,7 +51,7 @@
       "ftkImmune": true
     },
     {
-      "id": "Bachou",
+      "personId": 516,
       "name": "马超",
       "criticalChanceAdd": 2,
       "duelStrengthAdd": 3,
@@ -59,7 +59,7 @@
       "ftkImmune": true
     },
     {
-      "id": "Kouchuu_Kanshou",
+      "personId": 186,
       "name": "黄忠",
       "criticalChanceVirtual": 3,
       "criticalAge": [ { "maxAge": 60, "add": 2 }, { "maxAge": 65, "add": 3 }, { "maxAge": 70, "add": 4 }, { "maxAge": 0, "add": 5 } ],
@@ -67,36 +67,36 @@
       "duelStrengthAge": [ { "maxAge": 60, "add": 1 }, { "maxAge": 65, "add": 2 }, { "maxAge": 70, "add": 3 }, { "maxAge": 80, "add": 4 }, { "maxAge": 90, "add": 5 }, { "maxAge": 0, "add": 10 } ],
       "ftkChanceVirtual": 5,
       "ftkAge": [ { "maxAge": 60, "add": 1 }, { "maxAge": 65, "add": 2 }, { "maxAge": 70, "add": 3 }, { "maxAge": 80, "add": 4 }, { "maxAge": 85, "add": 5 }, { "maxAge": 90, "add": 10 }, { "maxAge": 0, "add": 15 } ],
-      "specialDamageMul": [ { "specials": [ "Nisetaikyaku" ], "num": 11, "den": 10 } ],
+      "specialDamageMul": [ { "specials": [ "FeintRetreat" ], "num": 11, "den": 10 } ],
       "specialHitMul": {
-        "specials": [ "Nisetaikyaku" ],
-        "opponents": [ "Kanu", "Kyocho", "Chouhi", "Chouun", "Bachou", "Ryofu" ],
+        "specials": [ "FeintRetreat" ],
+        "opponents": [ 99, 145, 433, 396, 516, 661 ],
         "num": 11,
         "den": 10,
         "otherwiseValue": 100
       }
     },
     {
-      "id": "Kakouen",
+      "personId": 79,
       "name": "夏侯渊",
-      "specialDamageMul": [ { "specials": [ "Nisetaikyaku" ], "num": 11, "den": 10 } ],
+      "specialDamageMul": [ { "specials": [ "FeintRetreat" ], "num": 11, "den": 10 } ],
       "specialHitMul": {
-        "specials": [ "Nisetaikyaku" ],
-        "opponents": [ "Kanu", "Kyocho", "Chouhi", "Chouun", "Bachou", "Ryofu" ],
+        "specials": [ "FeintRetreat" ],
+        "opponents": [ 99, 145, 433, 396, 516, 661 ],
         "num": 11,
         "den": 10,
         "otherwiseValue": 100
       }
     },
     {
-      "id": "Ousou",
+      "personId": 164,
       "name": "黄盖",
-      "specialDamageMul": [ { "specials": [ "Anki" ], "num": 11, "den": 10 } ]
+      "specialDamageMul": [ { "specials": [ "HiddenWeapon" ], "num": 11, "den": 10 } ]
     },
     {
-      "id": "Shukuyuu",
+      "personId": 246,
       "name": "周瑜",
-      "specialDamageMul": [ { "specials": [ "Anki" ], "num": 11, "den": 10 } ]
+      "specialDamageMul": [ { "specials": [ "HiddenWeapon" ], "num": 11, "den": 10 } ]
     }
   ]
 }

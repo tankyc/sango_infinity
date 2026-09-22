@@ -49,7 +49,7 @@ namespace Sango.Core.Duel
         /// 【临时 · 测试用】为 true 时被挑战方一律应战（概率恒 100），方便反复验证单挑流程。
         /// 不需要时改成 false，或连同 Calc 里那一行判断一起删掉，即恢复正常的性格/能力/兵力判定。
         /// </summary>
-        public const bool DebugAlwaysAccept = true;
+        public const bool DebugAlwaysAccept = false;
 
         #endregion
 

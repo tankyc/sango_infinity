@@ -9,8 +9,7 @@
  * {
  *   "behaviours": [
  *     {
- *       "id": "Ryofu",                  // 单挑内部 PersonId 名（PersonId 枚举名）
- *       "personId": -1,                 // 或直接用武将真实 Id（>= 0 时优先命中）
+ *       "personId": 661,                // 武将真实 Id（Person.Id，与 PersonLibrary.json 一致）
  *       "name": "吕布",
  *       "criticalChanceAdd": 3,         // 会心(暴击)概率 +
  *       "criticalChanceVirtual": 0,     // 会心：虚拟寿命模式下的固定加成（黄忠）
@@ -27,10 +26,10 @@
  *       "opponentFirstChanceAdd": -2,   // 自己作为对手时，对对方先攻概率的修正
  *       "attackDamageMulNum": 13,       // 普通攻击 ×num/den
  *       "attackDamageMulDen": 11,
- *       "specialDamageMul": [ { "specials": ["Nisetaikyaku"], "num": 11, "den": 10 } ],
- *       "specialHitMul":    { "specials": ["Nisetaikyaku"], "opponents": ["Kanu"], "num": 11, "den": 10 },
- *       "alwaysBlockWith": ["Chouhi", "Kanu"],
- *       "aiTable": "Ryofu"
+ *       "specialDamageMul": [ { "specials": ["FeintRetreat"], "num": 11, "den": 10 } ],
+ *       "specialHitMul":    { "specials": ["FeintRetreat"], "opponents": ["GuanYu"], "num": 11, "den": 10 },
+ *       "alwaysBlockWith": [433, 99],   // 名单一律写武将真实 Id
+ *       "aiTable": "LuBu"
  *     }
  *   ]
  * }
@@ -56,9 +55,7 @@ namespace Sango.Core.Duel
     /// <summary>一个武将的行为配置</summary>
     public class DuelPersonBehaviourConfig
     {
-        /// <summary>单挑内部 PersonId 名（PersonId 枚举名，如 "Ryofu"）</summary>
-        public string id;
-        /// <summary>武将真实 Id；>= 0 时优先用它命中</summary>
+        /// <summary>武将真实 Id（Person.Id，与 PersonLibrary.json 里的 Id 一致）</summary>
         public int personId = -1;
         /// <summary>备注名</summary>
         public string name;
@@ -86,7 +83,8 @@ namespace Sango.Core.Duel
         public MulConfig[] specialDamageMul;
         public SpecialHitMulConfig specialHitMul;
 
-        public string[] alwaysBlockWith;
+        /// <summary>互相必定格挡的组合（写武将真实 Id）</summary>
+        public int[] alwaysBlockWith;
         public string aiTable;
     }
 
@@ -101,7 +99,8 @@ namespace Sango.Core.Duel
     /// <summary>对特定对手的倍率配置</summary>
     public class SpecialHitMulConfig : MulConfig
     {
-        public string[] opponents;
+        /// <summary>对手名单（写武将真实 Id）</summary>
+        public int[] opponents;
         /// <summary>对手不在 opponents 名单里时，直接把数值设成它（0 = 不启用，保持原值）</summary>
         public int otherwiseValue;
     }
@@ -142,8 +141,8 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>
-        /// 名字匹配。数据里既能写"带前缀的枚举全名"（DuelSpecial_Nisetaikyaku），
-        /// 也能写"去掉前缀的短名"（Nisetaikyaku），两边都认。
+        /// 名字匹配。数据里既能写"带前缀的枚举全名"（DuelSpecial_FeintRetreat），
+        /// 也能写"去掉前缀的短名"（FeintRetreat），两边都认。
         /// </summary>
         protected static bool MatchEnumName(string[] ids, string fullName, string shortName)
         {
@@ -169,11 +168,16 @@ namespace Sango.Core.Duel
             return MatchEnumName(ids, cur, ShortEnumName(cur));
         }
 
-        protected static bool Match(Person person, string[] ids)
+        /// <summary>按真实 Id 匹配名单（名单里写武将真实 Id）</summary>
+        protected static bool Match(Person person, int[] ids)
         {
             if (ids == null || ids.Length == 0) return false;
             if (person == null) return false;
-            return MatchName(ids, person.GetId().ToString());
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (ids[i] == person.Id) return true;
+            }
+            return false;
         }
 
         /// <summary>按年龄档 + 虚拟模式求一次加成</summary>
@@ -293,22 +297,17 @@ namespace Sango.Core.Duel
         /// <summary>未配置武将使用的行为（全部默认实现）</summary>
         public static readonly DuelPersonBehaviour Default = new DuelPersonBehaviour();
 
-        private static Dictionary<PersonId, DuelPersonBehaviour> s_byPersonId;
-        private static Dictionary<int, DuelPersonBehaviour> s_byRealId;
+        private static Dictionary<int, DuelPersonBehaviour> s_byId;
         private static bool s_loaded;
 
-        /// <summary>按武将取行为（未配置返回 Default）</summary>
+        /// <summary>按武将取行为（未配置返回 Default）。键是武将真实 Id（Person.Id）。</summary>
         public static DuelPersonBehaviour Get(Person person)
         {
             EnsureLoaded();
             if (person == null) return Default;
 
-            if (s_byRealId != null && s_byRealId.TryGetValue(person.Id, out DuelPersonBehaviour byId))
+            if (s_byId != null && s_byId.TryGetValue(person.Id, out DuelPersonBehaviour byId))
                 return byId;
-
-            PersonId pid = person.GetId();
-            if (pid != PersonId.Invalid && s_byPersonId != null && s_byPersonId.TryGetValue(pid, out DuelPersonBehaviour byPid))
-                return byPid;
 
             return Default;
         }
@@ -317,16 +316,14 @@ namespace Sango.Core.Duel
         public static void Reload()
         {
             s_loaded = false;
-            s_byPersonId = null;
-            s_byRealId = null;
+            s_byId = null;
         }
 
         private static void EnsureLoaded()
         {
             if (s_loaded) return;
             s_loaded = true;
-            s_byPersonId = new Dictionary<PersonId, DuelPersonBehaviour>();
-            s_byRealId = new Dictionary<int, DuelPersonBehaviour>();
+            s_byId = new Dictionary<int, DuelPersonBehaviour>();
 
             try
             {
@@ -344,20 +341,14 @@ namespace Sango.Core.Duel
                         DataDrivenDuelPersonBehaviour behaviour = new DataDrivenDuelPersonBehaviour(cfg);
 
                         if (cfg.personId >= 0)
-                            s_byRealId[cfg.personId] = behaviour;
-
-                        if (!string.IsNullOrEmpty(cfg.id))
                         {
-                            try
-                            {
-                                PersonId pid = (PersonId)Enum.Parse(typeof(PersonId), cfg.id, true);
-                                behaviour.personId = pid;
-                                s_byPersonId[pid] = behaviour;
-                            }
-                            catch
-                            {
-                                Sango.Log.Warning("duelPersonBehaviour: 无法识别的 PersonId 名 " + cfg.id);
-                            }
+                            behaviour.personId = cfg.personId;
+                            s_byId[cfg.personId] = behaviour;
+                        }
+                        else
+                        {
+                            Sango.Log.Warning("duelPersonBehaviour: 有一条配置没写 personId（或为负值），已忽略："
+                                + (string.IsNullOrEmpty(cfg.name) ? "(无名)" : cfg.name));
                         }
                     }
                 });

@@ -706,6 +706,22 @@ namespace Sango.Core
         public static EventDelegate<Duel.Duel> OnDuelEnd;
 
         /// <summary>
+        /// 当有人请求发起舌战时（参数为挑战方与应战方武将）。
+        /// 与单挑同理，由 DebateChallengeFlow 统一接管，剧本事件想做"武将之间的舌战"广播本事件即可。
+        /// </summary>
+        public static EventDelegate<Person, Person> OnDebateChallengeRequest;
+
+        /// <summary>
+        /// 当舌战开始时（参数为挑战方与应战方武将）
+        /// </summary>
+        public static EventDelegate<Person, Person> OnDebateStart;
+
+        /// <summary>
+        /// 当舌战整体结束时（参数为舌战本体，胜负与胜利方式在 Param 里）
+        /// </summary>
+        public static EventDelegate<Debate.Debate> OnDebateEnd;
+
+        /// <summary>
         /// 当获取工作AP消耗的时候
         /// </summary>
         public static EventDelegate<JobType, int, OverrideData<int>> OnGetJobCostAP;

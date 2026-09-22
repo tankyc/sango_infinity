@@ -477,8 +477,9 @@ namespace Sango.Core
         /// 舌战得意话题
         /// </summary>
         [JsonProperty]
-        public int[] wadai;
+        public int wadai;
 
+        // 个人逃跑概率
         public int escapeFactorWhenTroopDestroy = 0;
 
         public bool HasItem(int itemTypeId)
@@ -551,7 +552,7 @@ namespace Sango.Core
         /// </summary>
         public int MachineLv => machineLv.value;
 
-        /// <summary>伤病等级上限（0=健康 / 1=轻伤 / 2=中伤 / 3=重伤，与 Shoubyou.Hinshi 一致）</summary>
+        /// <summary>伤病等级上限（0=健康 / 1=轻伤 / 2=中伤 / 3=重伤，与 InjuryLevel.NearDeath 一致）</summary>
         public const int InjuryMaxLevel = 3;
 
         /// <summary>
@@ -560,7 +561,7 @@ namespace Sango.Core
         /// 采用**三国志11 原版数值**：健康 100% / 轻伤 80% / 重伤 50% / 濒危 30%
         /// （即 轻伤 -20%、重伤 -50%、濒危 -70%）。
         /// 本项目四档的命名是 健康 / 轻伤 / 中伤 / 重伤，按**档位序号**与 11 的四档一一对应
-        /// （第 3 档就是 Shoubyou.Hinshi，即"濒死/濒危"）。
+        /// （第 3 档就是 InjuryLevel.NearDeath，即"濒死/濒危"）。
         /// </summary>
         public static readonly int[] InjuryFactorPercent = { 100, 80, 50, 30 };
 
@@ -1694,6 +1695,11 @@ namespace Sango.Core
             if (success)
             {
                 person.BeRecruit(this, targetCity);
+            }
+            else
+            {
+                // 登用失败：按概率强制进入舌战（概率见剧本参数 debateChanceWhenRecruitFail）
+                Sango.Core.Debate.DebateTrigger.OnRecruitFailed(this, person);
             }
             ScenarioVariables variables = Scenario.Cur.Variables;
             int jobId = (int)CityJobType.RecruitPerson;

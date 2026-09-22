@@ -880,7 +880,7 @@ namespace Sango.Core
             //var param = new Duel.Param();
             //param.person[0][0] = luBu;   // 直接塞真实 Person
             //param.person[1][0] = zhaoYun;
-            //param.shoubyou[i][j] = 0;    // 必须填 0（健康）
+            //param.injuryLevel[i][j] = 0;    // 必须填 0（健康）
             //param.hp[i][j] = Duel.MaxHP;
             //var duel = new Duel(mySystem, param);
             //duel.Init();

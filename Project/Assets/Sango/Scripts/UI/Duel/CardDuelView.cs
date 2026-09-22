@@ -82,14 +82,14 @@ namespace Sango.Core.Duel
         /// </summary>
         public int[] specialCellTypes =
         {
-            (int)DuelSpecial.DuelSpecial_Hissatsuwaza,  // 必杀技
-            (int)DuelSpecial.DuelSpecial_Kyuusho,       // 要害
-            (int)DuelSpecial.DuelSpecial_Musou,         // 无双
-            (int)DuelSpecial.DuelSpecial_Nisetaikyaku,  // 伪退
-            (int)DuelSpecial.DuelSpecial_Anki,          // 暗器
-            (int)DuelSpecial.DuelSpecial_Kenshu,        // 坚守
-            (int)DuelSpecial.DuelSpecial_Kiai,          // 集气
-            (int)DuelSpecial.DuelSpecial_Taikyaku,      // 退却
+            (int)DuelSpecial.DuelSpecial_DeadlyMove,  // 必杀技
+            (int)DuelSpecial.DuelSpecial_WeakPoint,       // 要害
+            (int)DuelSpecial.DuelSpecial_Peerless,         // 无双
+            (int)DuelSpecial.DuelSpecial_FeintRetreat,  // 伪退
+            (int)DuelSpecial.DuelSpecial_HiddenWeapon,          // 暗器
+            (int)DuelSpecial.DuelSpecial_Steadfast,        // 坚守
+            (int)DuelSpecial.DuelSpecial_FightingSpirit,          // 集气
+            (int)DuelSpecial.DuelSpecial_Retreat,      // 退却
         };
 
         [Header("底部单一按钮：决定 / 停止 / 终止 / 替换 四态合一")]
@@ -114,7 +114,7 @@ namespace Sango.Core.Duel
         /// <summary>受击 / 闪避 / 登场交替的时长（秒）</summary>
         public float cardHitDuration = 0.34f;
         /// <summary>受击序列帧（face/hit）显示多久后自动隐藏（秒）</summary>
-        public float hitFxDuration = 0.2f;
+        public float hitFxDuration = 0.3f;
         /// <summary>卡面飘字的缩放（模板字号 25，1 倍即可）</summary>
         public float cardFloatScale = 1f;
         /// <summary>卡面体力低于这个比例（0.3 = 30%）时转成警示色</summary>
@@ -1644,7 +1644,7 @@ namespace Sango.Core.Duel
                 // 名字 / 武力 / 头像。
                 // 带伤（进场前就带伤，或单挑中被必杀打伤）→ 名字与武力标红；
                 // 伤病在单挑中会变，而每次变化都会走 DuelHpAnim → RefreshCharaPanels，所以负伤当场就能看到。
-                bool injured = m_Duel.TeamGetShoubyou(teamData, chara) > (int)Shoubyou.Kenkou;
+                bool injured = m_Duel.TeamGetInjuryLevel(teamData, chara) > (int)InjuryLevel.Healthy;
                 SetText(slot, "name", person.Name, injured);
                 SetText(slot, "Strength", "武力 " + person.Strength, injured);
                 ApplyHead(slot, person);
@@ -2092,8 +2092,8 @@ namespace Sango.Core.Duel
 
             // 用**单挑侧**的伤病等级：person.injury 要等结算才写回，
             // 单挑中挨必杀打出来的当场伤只有这里是最新的（-1 表示不在场）。
-            int shoubyou = m_Duel.TeamGetShoubyou(m_Duel.GetTeam(team), chara);
-            bool injured = shoubyou > (int)Shoubyou.Kenkou;
+            int injuryLevel = m_Duel.TeamGetInjuryLevel(m_Duel.GetTeam(team), chara);
+            bool injured = injuryLevel > (int)InjuryLevel.Healthy;
 
             // 名字仍是整块标红（单独节点）；明细块内部各字段自己带颜色标签，
             // 所以这块 Text 本身的颜色用原色即可，别让它一红到底。
@@ -2403,7 +2403,7 @@ namespace Sango.Core.Duel
                 // 两条同时飘会完全叠在一起，看不清也没法分辨。
                 if (!IsCurrentChara(hit.defTeam, hit.defChara)) continue;
 
-                bool wounded = hit.shoubyouDamage > 0;
+                bool wounded = hit.injuryDamage > 0;
                 string text = hit.damage > 0 ? "-" + hit.damage : null;
                 if (wounded) text = string.IsNullOrEmpty(text) ? "负伤" : text + " 负伤";
 
@@ -2876,8 +2876,8 @@ namespace Sango.Core.Duel
                 if (anim.defTeam < 0 || anim.defTeam >= Duel.MaxTeamCount) continue;
 
                 m_Duel.AddHp(anim.defTeam, anim.defChara, -anim.damage);
-                m_Duel.AddShoubyou(anim.defTeam, anim.defChara, anim.shoubyouDamage);
-                if (anim.shoubyouDamage > 0)
+                m_Duel.AddInjuryLevel(anim.defTeam, anim.defChara, anim.injuryDamage);
+                if (anim.injuryDamage > 0)
                 {
                     m_Duel.CalcActionRatio();
 
@@ -2897,7 +2897,7 @@ namespace Sango.Core.Duel
                     atkChara = anim.atkChara,
                     defTeam = anim.defTeam,
                     defChara = anim.defChara,
-                    shoubyouDamage = anim.shoubyouDamage,
+                    injuryDamage = anim.injuryDamage,
                 });
 
                 if (anim.damage != 0)

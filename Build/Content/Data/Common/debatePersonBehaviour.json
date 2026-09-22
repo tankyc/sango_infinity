@@ -1,0 +1,47 @@
+{
+  "_comment": "武将舌战行为配置。字段都可省略，省略 = 该钩子不加任何修正。倍率一律 num/den 整数乘算（11/10 = 1.1），与单挑那份口径一致。命中只按 personId（武将真实 Id，与 PersonLibrary.json 里的 Id 一致）。下面 5 条是**示例**，用来跑通链路 / 演示三种话术写法，具体数值请按你的设定改。",
+  "behaviours": [
+    {
+      "personId": 290,
+      "name": "诸葛亮",
+      "allRhetoric": true,
+      "attackMulNum": 11,
+      "attackMulDen": 10,
+      "hpDamageMulNum": 11,
+      "hpDamageMulDen": 10,
+      "criticalForce": "HaveMercy"
+    },
+    {
+      "personId": 226,
+      "name": "司马懿",
+      "rhetoricAdd": [ 1, 3 ],
+      "attackMulNum": 11,
+      "attackMulDen": 10,
+      "criticalPushOnBias": 20
+    },
+    {
+      "personId": 246,
+      "name": "周瑜",
+      "rhetoricAdd": [ 4 ],
+      "attackMulNum": 11,
+      "attackMulDen": 10,
+      "hpDamageMulNum": 11,
+      "hpDamageMulDen": 10
+    },
+    {
+      "personId": 255,
+      "name": "荀彧",
+      "rhetoricAdd": [ 2, 3 ],
+      "hpDamageMulNum": 9,
+      "hpDamageMulDen": 10,
+      "criticalForce": "HaveMercy"
+    },
+    {
+      "personId": 420,
+      "name": "张昭",
+      "rhetoricOverride": [ 1 ],
+      "attackMulNum": 9,
+      "attackMulDen": 10
+    }
+  ]
+}

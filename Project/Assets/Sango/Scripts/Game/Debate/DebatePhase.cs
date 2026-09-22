@@ -16,12 +16,12 @@ namespace Sango.Core.Debate
 {
     public partial class Debate
     {
-        /// <summary>475810。空阶段处理</summary>
+        /// <summary>空阶段处理</summary>
         public void None()
         {
         }
 
-        /// <summary>51ebe0。阶段驱动。返回 false 表示舌战结束</summary>
+        /// <summary>阶段驱动。返回 false 表示舌战结束</summary>
         public bool Update(int delta)
         {
             if (nextPhase != phase)
@@ -31,28 +31,34 @@ namespace Sango.Core.Debate
                 phase = nextPhase;
                 OnPhaseBegin();
             }
+
+            // 表现层还在播表现（或消息框没关）时停在当前步骤等它 —— 对应单挑各阶段开头的 if (!IsIdle()) break;。
+            // 原 C++ 是在各阶段的 #if s11_removed 空步骤里空转等待，这里统一到入口处节流，等价且不必处处空转。
+            if (!IsIdle())
+                return true;
+
             return OnPhase(delta);
         }
 
-        /// <summary>51ec20。设置下一个阶段</summary>
+        /// <summary>设置下一个阶段</summary>
         public void SetNextPhase(int phase)
         {
             nextPhase = phase;
         }
 
-        /// <summary>51ec30。推进步骤</summary>
+        /// <summary>推进步骤</summary>
         public void IncStep()
         {
             step++;
         }
 
-        /// <summary>51fa70, v+c。阶段是否合法</summary>
+        /// <summary>阶段是否合法</summary>
         public virtual bool IsValidPhase(int phase)
         {
             return phase >= 0;
         }
 
-        /// <summary>51fa90, v+10。阶段开始（8b32f8）</summary>
+        /// <summary>阶段开始</summary>
         public virtual void OnPhaseBegin()
         {
             if (phase < 0)
@@ -68,7 +74,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>51fab0, v+14。阶段处理（8b3320）</summary>
+        /// <summary>阶段处理</summary>
         public virtual bool OnPhase(int delta)
         {
             if (phase < 0)
@@ -89,7 +95,7 @@ namespace Sango.Core.Debate
             return false;
         }
 
-        /// <summary>51fae0, v+18。阶段结束（8b3348）</summary>
+        /// <summary>阶段结束</summary>
         public virtual void OnPhaseEnd()
         {
             if (phase < 0)
@@ -97,7 +103,7 @@ namespace Sango.Core.Debate
             None();
         }
 
-        /// <summary>51fb00。开场阶段</summary>
+        /// <summary>开场阶段</summary>
         public bool OpeningPhase(int delta)
         {
             switch (step)
@@ -122,7 +128,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51fb90。一击必杀阶段</summary>
+        /// <summary>一击必杀阶段</summary>
         public bool FtkPhase(int delta)
         {
             switch (step)
@@ -139,7 +145,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51fbd0。未知阶段</summary>
+        /// <summary>未知阶段</summary>
         public bool Unknown2Phase(int delta)
         {
             switch (step)
@@ -154,7 +160,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51fc00。回合开始阶段</summary>
+        /// <summary>回合开始阶段</summary>
         public bool TurnStartPhase(int delta)
         {
             TurnStart();
@@ -162,7 +168,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51fc40。出牌阶段</summary>
+        /// <summary>出牌阶段</summary>
         public bool PlayPhase(int delta)
         {
             int team = first;
@@ -246,13 +252,13 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51ff40。伤害阶段开始</summary>
+        /// <summary>伤害阶段开始</summary>
         public void DamagePhaseBegin()
         {
             CalcAttacker();
         }
 
-        /// <summary>51ff50。回合结束阶段</summary>
+        /// <summary>回合结束阶段</summary>
         public bool TurnEndPhase(int delta)
         {
             switch (step)
@@ -268,7 +274,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51ff90。会心阶段</summary>
+        /// <summary>会心阶段</summary>
         public bool CriticalPhase(int delta)
         {
             int criticalValue;
@@ -296,7 +302,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>520060。结束阶段</summary>
+        /// <summary>结束阶段</summary>
         public bool ClosingPhase(int delta)
         {
             switch (step)
@@ -321,7 +327,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>520620。愤怒阶段</summary>
+        /// <summary>愤怒阶段</summary>
         public bool AngerPhase(int delta)
         {
             switch (step)
@@ -382,7 +388,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>520820。伤害阶段</summary>
+        /// <summary>伤害阶段</summary>
         public bool DamagePhase(int delta)
         {
             switch (step)

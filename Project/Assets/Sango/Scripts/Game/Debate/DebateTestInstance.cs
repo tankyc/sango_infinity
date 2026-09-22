@@ -16,8 +16,8 @@
  * 【重要】Update(0) 返回 true 表示"仍在继续"，false 表示"已结束"，
  *         与单挑 Duel.OnPhase 的语义相反，封装时已统一为 Step()/Run() 返回"是否结束"。
  *
- * 【重要】Param.characters[i].control = true 表示该方由玩家操作，此时必须提供 Engine
- *        （Run 会调用 engine.YesNo 询问"是否进入舌战"）；AI 对战请保持 false。
+ * 【重要】Param.characters[i].control = true 表示该方由玩家操作，此时必须提供表现层
+ *        （IDebateView；Run 会调用 engine.YesNo 询问"是否进入舌战"）；AI 对战请保持 false。
  */
 
 using System;
@@ -39,32 +39,27 @@ namespace Sango.Core.Debate
     }
 
     /// <summary>
-    /// 业务层系统实现。默认把所有副作用操作做成无副作用/直接改字段，
-    /// 接入真实游戏时请替换为对项目接口的调用。
+    /// 测试用业务层：继承真实业务桥 <see cref="DebateGameSystem"/>，
+    /// 只把"会碰 UI / 音效 / 玩家数据"的副作用改成空实现，其余（随机、世界查询、消息文本）沿用真实实现。
     /// </summary>
-    public class DebateTestSystem : GameSystem
+    public class DebateTestSystem : DebateGameSystem
     {
         private readonly DebateTestLogger m_logger = new DebateTestLogger();
 
         /// <summary>日志回调</summary>
         public Action<string> OnLog { get { return m_logger.OnLog; } set { m_logger.OnLog = value; } }
 
-        public override Engine GetEngine() { return null; }              // 纯逻辑模式无需表现层
+        public override IDebateView GetEngine() { return null; }         // 纯逻辑模式无需表现层
         public override Logger GetLogger() { return m_logger; }
         public override int GetSeed() { return DebateRandom.GetSeed(); }
         public override int RandInt(int max) { return DebateRandom.Range(max); }
         public override bool RandBool(int percent) { return DebateRandom.Chance(percent); }
-        public override bool IsFeatDisabled(Feature feature) { return false; }
-        public override Force GetForce(int forceId) { return new Force(); }
-        public override District GetDistrict(int districtId) { return null; }
-        public override MilitaryUnitObject GetLocationObject(int locationId) { return null; }
-        public override string GetMessage(Message msg) { return msg.Id.ToString(); }
-        public override string GetTopicName(int topic) { return ((Topic)topic).ToString(); }
+        public override bool IsFeatDisabled(Feature feature) { return DebateRules.IsFeatDisabled(feature); }
 
         public override void Message(Message msg, object target, object[] args, bool pause) { }
-        public override void HistoryLog(Point16 pos, int color, string text, bool show) { }
+        public override void HistoryLog(string text, Person person, bool show) { }
         public override void PlaySe(int seId) { }
-        public override void PersonSetInjury(Person person, int injury) { person.injury = injury; }
+        public override void PersonSetInjury(Person person, int injury) { if (person != null) person.injury = injury; }
         public override void PersonAddStatExp(Person person, PersonStatType type, int value, bool show) { }
         public override void PersonAddMerit(Person person, int value) { }
         public override void ForceAddTechPoint(Force force, int value, object unit) { }
@@ -85,7 +80,7 @@ namespace Sango.Core.Debate
 
         /// <summary>
         /// 是否启用表现层。默认 false（纯逻辑推演）。
-        /// 置 true 时必须提供 Engine，否则出牌阶段会一直等待玩家输入。
+        /// 置 true 时必须提供 IDebateView，否则出牌阶段会一直等待玩家输入。
         /// </summary>
         public bool View { get { return Debate != null && Debate.View; } set { if (Debate != null) Debate.View = value; } }
 

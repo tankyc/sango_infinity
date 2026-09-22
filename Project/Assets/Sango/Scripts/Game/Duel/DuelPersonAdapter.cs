@@ -139,10 +139,10 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>默认实现：以未折减的武力为底，按单挑内部伤病等级折算（与 Person 同一套系数：三国志11 原版 100/80/50/30）</summary>
-        private static int DefaultCalcStrength(Person person, int shoubyou)
+        private static int DefaultCalcStrength(Person person, int injuryLevel)
         {
             if (person == null) return 0;
-            return Person.ApplyInjuryDecay(person.RawStrength, shoubyou);
+            return Person.ApplyInjuryDecay(person.RawStrength, injuryLevel);
         }
 
         /// <summary>恢复为默认实现</summary>
@@ -165,68 +165,8 @@ namespace Sango.Core.Duel
 
     #region 武将 ID 解析
 
-    /// <summary>
-    /// 把真实武将解析为单挑内部的 PersonId（吕布 / 关羽 / 张飞 ...）。
-    /// 优先查 IdMap（按 Id 精确匹配，性能最好）；未命中则按姓名匹配。
-    /// 结果按 Id 缓存，避免每次伤害计算都做字符串匹配。
-    /// </summary>
-    public static class DuelPersonId
-    {
-        private static readonly Dictionary<PersonId, string[]> s_names = new Dictionary<PersonId, string[]>
-        {
-            { PersonId.Ryofu,            new[] { "吕布", "呂布" } },
-            { PersonId.Chouhi,           new[] { "张飞", "張飛" } },
-            { PersonId.Kanu,             new[] { "关羽", "關羽" } },
-            { PersonId.Kyocho,           new[] { "许褚", "許褚" } },
-            { PersonId.Chouun,           new[] { "赵云", "趙雲" } },
-            { PersonId.Bachou,           new[] { "马超", "馬超" } },
-            { PersonId.Kouchuu_Kanshou,  new[] { "黄忠", "黃忠" } },
-            { PersonId.Kakouen,          new[] { "夏侯渊", "夏侯淵" } },
-            { PersonId.Ousou,            new[] { "黄盖", "黃蓋" } },
-            { PersonId.Shukuyuu,         new[] { "周瑜" } },
-        };
-
-        /// <summary>按武将 Id 精确映射（优先级最高）。例：IdMap[851] = PersonId.Ryofu;</summary>
-        public static readonly Dictionary<int, PersonId> IdMap = new Dictionary<int, PersonId>();
-
-        private static readonly Dictionary<int, PersonId> s_cache = new Dictionary<int, PersonId>();
-
-        /// <summary>清除姓名匹配缓存（IdMap 或武将数据变动后调用）</summary>
-        public static void ClearCache() { s_cache.Clear(); }
-
-        /// <summary>解析武将，未识别时返回 PersonId.Invalid</summary>
-        public static PersonId Resolve(Person person)
-        {
-            if (person == null) return PersonId.Invalid;
-
-            if (IdMap.TryGetValue(person.Id, out PersonId byId))
-                return byId;
-
-            if (s_cache.TryGetValue(person.Id, out PersonId cached))
-                return cached;
-
-            PersonId result = PersonId.Invalid;
-            string name = person.Name;
-            if (!string.IsNullOrEmpty(name))
-            {
-                foreach (KeyValuePair<PersonId, string[]> kv in s_names)
-                {
-                    for (int i = 0; i < kv.Value.Length; i++)
-                    {
-                        if (name.IndexOf(kv.Value[i], StringComparison.Ordinal) >= 0)
-                        {
-                            result = kv.Key;
-                            break;
-                        }
-                    }
-                    if (result != PersonId.Invalid) break;
-                }
-            }
-
-            s_cache[person.Id] = result;
-            return result;
-        }
-    }
+    // 原来这里是 DuelPersonId（把真实武将按姓名/IdMap 解析成 PersonId 枚举，带缓存）。
+    // 现在武将身份直接用 Person.Id，无需解析：配置、名单、Troop.HasMember 一律比较 int。
 
     #endregion
 
@@ -236,27 +176,27 @@ namespace Sango.Core.Duel
     /// 把真实武将的 personality(性格) 转换为单挑 AI 性格。
     ///
     /// 项目内 Personalities 数据与单挑 AI 性格一一对应：
-    ///   kind = 1 胆小 → Seikaku.Shoushin
-    ///   kind = 2 冷静 → Seikaku.Reisei
-    ///   kind = 3 刚胆 → Seikaku.Goutan
-    ///   kind = 4 莽撞 → Seikaku.Chototsu
-    /// 因此 kind 减 1 即为 Seikaku 枚举值，无需额外配置。
+    ///   kind = 1 胆小 → DuelPersonality.Timid
+    ///   kind = 2 冷静 → DuelPersonality.Calm
+    ///   kind = 3 刚胆 → DuelPersonality.Bold
+    ///   kind = 4 莽撞 → DuelPersonality.Reckless
+    /// 因此 kind 减 1 即为 DuelPersonality 枚举值，无需额外配置。
     /// </summary>
-    public static class DuelSeikaku
+    public static class DuelPersonalities
     {
         /// <summary>性格数量（对应 Personalities 的 1~4）</summary>
         public const int Count = 4;
 
         /// <summary>自定义覆盖：personality 值 → 单挑 AI 性格。仅当项目性格数据与默认值不一致时才需要填写</summary>
-        public static readonly Dictionary<int, Seikaku> PersonalityMap = new Dictionary<int, Seikaku>();
+        public static readonly Dictionary<int, DuelPersonality> PersonalityMap = new Dictionary<int, DuelPersonality>();
 
         /// <summary>兜底性格（数据缺失时使用）</summary>
-        public static Seikaku Fallback = Seikaku.Reisei;
+        public static DuelPersonality Fallback = DuelPersonality.Calm;
 
         /// <summary>自定义解析委托，置空则使用内置转换</summary>
-        public static Func<Person, Seikaku> Resolver = null;
+        public static Func<Person, DuelPersonality> Resolver = null;
 
-        public static Seikaku Resolve(Person person)
+        public static DuelPersonality Resolve(Person person)
         {
             if (person == null) return Fallback;
 
@@ -267,11 +207,11 @@ namespace Sango.Core.Duel
             if (kind <= 0)
                 kind = person.personality;
 
-            if (PersonalityMap.TryGetValue(kind, out Seikaku mapped))
+            if (PersonalityMap.TryGetValue(kind, out DuelPersonality mapped))
                 return mapped;
 
             if (kind >= 1 && kind <= Count)
-                return (Seikaku)(kind - 1);
+                return (DuelPersonality)(kind - 1);
 
             return Fallback;
         }
@@ -284,10 +224,10 @@ namespace Sango.Core.Duel
     public static class DuelFeatureId
     {
         /// <summary>强运：不会战死、不会被俘、必定退却成功</summary>
-        public static int Kyouun = 33;
+        public static int Lucky = 33;
 
         /// <summary>捕缚：单挑获胜时更容易俘虏</summary>
-        public static int Hobaku = 20;
+        public static int Capture = 20;
     }
 
     /// <summary>
@@ -391,12 +331,6 @@ namespace Sango.Core.Duel
     /// </summary>
     public static class PersonDuelExtensions
     {
-        /// <summary>武将标识（解析为单挑内部的 PersonId）</summary>
-        public static PersonId GetId(this Person self)
-        {
-            return DuelPersonId.Resolve(self);
-        }
-
         /// <summary>姓名</summary>
         public static string GetName(this Person self)
         {
@@ -419,7 +353,7 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>伤病程度（0=健康，越大越重）</summary>
-        public static int GetShoubyou(this Person self)
+        public static int GetInjuryLevel(this Person self)
         {
             return self == null ? -1 : self.injury;
         }
@@ -437,9 +371,9 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>单挑 AI 性格</summary>
-        public static Seikaku GetSeikaku(this Person self)
+        public static DuelPersonality GetPersonality(this Person self)
         {
-            return DuelSeikaku.Resolve(self);
+            return DuelPersonalities.Resolve(self);
         }
 
         /// <summary>忠诚度</summary>
@@ -475,11 +409,11 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>按伤病计算后的能力值</summary>
-        public static int CalcStat(this Person self, PersonStatType type, int shoubyou)
+        public static int CalcStat(this Person self, PersonStatType type, int injuryLevel)
         {
             if (self == null) return 0;
             if (type == PersonStatType.Strength && DuelSettings.CalcStrength != null)
-                return DuelSettings.CalcStrength(self, shoubyou);
+                return DuelSettings.CalcStrength(self, injuryLevel);
             return self.GetStat(type);
         }
 
@@ -489,8 +423,8 @@ namespace Sango.Core.Duel
             if (self == null) return false;
             switch (skill)
             {
-                case SkillId.Kyouun:
-                    return DuelFeatureId.Kyouun >= 0 && self.HasFeatrue(DuelFeatureId.Kyouun);
+                case SkillId.Lucky:
+                    return DuelFeatureId.Lucky >= 0 && self.HasFeatrue(DuelFeatureId.Lucky);
             }
             return false;
         }
@@ -622,13 +556,13 @@ namespace Sango.Core.Duel
             return (c.r << 16) | (c.g << 8) | c.b;
         }
 
-        /// <summary>是否包含指定武将</summary>
-        public static bool HasMember(this Troop self, PersonId id)
+        /// <summary>是否包含指定武将（按真实 Id，也就是 Person.Id）</summary>
+        public static bool HasMember(this Troop self, int id)
         {
-            if (self == null || id == PersonId.Invalid) return false;
-            if (DuelPersonId.Resolve(self.Leader) == id) return true;
-            if (DuelPersonId.Resolve(self.Member1) == id) return true;
-            if (DuelPersonId.Resolve(self.Member2) == id) return true;
+            if (self == null || id <= 0) return false;
+            if (self.Leader != null && self.Leader.Id == id) return true;
+            if (self.Member1 != null && self.Member1.Id == id) return true;
+            if (self.Member2 != null && self.Member2.Id == id) return true;
             return false;
         }
     }

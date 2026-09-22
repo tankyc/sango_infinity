@@ -93,7 +93,7 @@ namespace Sango.Core.Duel
     public class DuelGameSystem
     {
         /// <summary>伤病名称（健康 / 轻伤 / 中伤 / 重伤）</summary>
-        private static readonly string[] s_shoubyouNames = { "健康", "轻伤", "中伤", "重伤" };
+        private static readonly string[] s_injuryLevelNames = { "健康", "轻伤", "中伤", "重伤" };
 
         /// <summary>表现层</summary>
         protected IDuelView m_View;
@@ -296,17 +296,17 @@ namespace Sango.Core.Duel
         #region 武将状态
 
         /// <summary>获取伤病名称</summary>
-        public virtual string GetShoubyouName(int shoubyou)
+        public virtual string GetInjuryLevelName(int injuryLevel)
         {
-            if (shoubyou < 0 || shoubyou >= s_shoubyouNames.Length) return s_shoubyouNames[0];
-            return s_shoubyouNames[shoubyou];
+            if (injuryLevel < 0 || injuryLevel >= s_injuryLevelNames.Length) return s_injuryLevelNames[0];
+            return s_injuryLevelNames[injuryLevel];
         }
 
         /// <summary>设置武将伤病（0=健康 ~ 3=重伤）</summary>
-        public virtual void PersonSetShoubyou(Person person, int shoubyou)
+        public virtual void PersonSetInjuryLevel(Person person, int injuryLevel)
         {
             if (person == null) return;
-            person.injury = Math.Max(0, Math.Min(shoubyou, (int)Shoubyou.Hinshi));
+            person.injury = Math.Max(0, Math.Min(injuryLevel, (int)InjuryLevel.NearDeath));
         }
 
         /// <summary>增减武将体力（0 ~ 100）</summary>

@@ -106,7 +106,7 @@ namespace Sango.Core.Debate
             /// <summary>可使用的话术卡数量</summary>
             public int rhetoricCardCount = 0; // 60
 
-            /// <summary>51db00</summary>
+            /// <summary>构造：牌堆各字段已由字段初始化器填好，此处无需额外处理</summary>
             public Deck()
             {
             }
@@ -136,7 +136,7 @@ namespace Sango.Core.Debate
             /// <summary>性格</summary>
             public int personality = -1; // 9c
 
-            /// <summary>51dd00</summary>
+            /// <summary>构造：各字段已由字段初始化器填好，此处无需额外处理</summary>
             public Character()
             {
             }
@@ -209,10 +209,10 @@ namespace Sango.Core.Debate
         protected int comboCounter = 0; // 1a8
         /// <summary>是否连续攻击（小心性格）</summary>
         protected bool combo = false; // 1ac
-        /// <summary>系统（业务层）</summary>
-        protected GameSystem system = null;
-        /// <summary>表现层引擎</summary>
-        protected Engine engine = null;
+        /// <summary>系统（业务层，见 DebateGameSystem.cs）</summary>
+        protected DebateGameSystem system = null;
+        /// <summary>表现层（见 DebateView.cs 的 IDebateView）</summary>
+        protected IDebateView engine = null;
         /// <summary>启动参数</summary>
         protected Param param = null;
         /// <summary>是否启用表现层</summary>
@@ -223,7 +223,7 @@ namespace Sango.Core.Debate
         #region 构造 / 外部访问器
 
         /// <summary>构造舌战。对应 C++ Debate::Debate(System*, Param*)</summary>
-        public Debate(GameSystem system, Param param)
+        public Debate(DebateGameSystem system, Param param)
         {
             this.system = system;
             this.engine = system != null ? system.GetEngine() : null;
@@ -232,6 +232,25 @@ namespace Sango.Core.Debate
 
         /// <summary>是否启用表现层（false 时为纯逻辑推演，数值立即结算）</summary>
         public bool View { get { return view; } set { view = value; } }
+
+        /// <summary>
+        /// 逻辑层是否空闲。表现层正在播表现（动画、结算画面）或消息框开着时返回 false，
+        /// 阶段驱动会停在当前步骤等待。对应单挑的 Duel.IsIdle。
+        ///
+        /// 无表现层（view = false，纯逻辑推演 / 单元测试）或没有表现层实现时恒为 true，数值立即结算。
+        /// </summary>
+        public virtual bool IsIdle()
+        {
+            if (!view)
+                return true;
+            if (engine == null)
+                return true;
+            if (engine.DebateIsAnimating(this))
+                return false;
+            if (system != null && system.MessageBoxVisible && engine.DebateIsMessageBoxVisible(this))
+                return false;
+            return true;
+        }
 
         /// <summary>启动参数 / 结算结果</summary>
         public Param DebateParam { get { return param; } }
@@ -248,11 +267,36 @@ namespace Sango.Core.Debate
         /// <summary>设置当前话题</summary>
         public void SetTopic(int topic) { this.topic = topic; }
 
+        /// <summary>当前话题（对应 C++ wadai_）。表现层用它高亮"与本回合话题一致"的手牌</summary>
+        public int CurrentTopic { get { return topic; } }
+
+        /// <summary>
+        /// 当前胜者（对应 C++ winner_）。
+        /// 注意与 Param.winner 的区别：后者要等 ClosingPhase 末尾的 ParamSetWinner 才写入，
+        /// 而表现层是在 DebateClosing 回调里就要显示胜负的，所以必须读这个。
+        /// </summary>
+        public int CurrentWinner { get { return winner; } }
+
+        /// <summary>当前胜利方式（对应 C++ win_type_），同样先于 Param.winType 就绪</summary>
+        public int CurrentWinType { get { return winType; } }
+
+        /// <summary>
+        /// 该方这一合还能不能再考（对应 C++ can_rethink_）。
+        /// C++ 里这个标记只被 AI 决策行读（ai_cond_card_rethink），玩家侧漏了判断，
+        /// 表现层据此把「再考」牌置灰，避免玩家连点同一张再考卡导致出牌→重抽→再出牌的死循环。
+        /// </summary>
+        public bool CanRethink(int team)
+        {
+            if (!Utils.InRange(team, 0, MaxTeamCount - 1))
+                return false;
+            return canRethink[team];
+        }
+
         #endregion
 
         #region 卡组 / 手牌
 
-        /// <summary>51db90。生成卡组</summary>
+        /// <summary>生成卡组</summary>
         public void DeckGenerate(Deck self)
         {
             // 4, 1, 7, 5, 2, 8, 6, 3, 9
@@ -289,7 +333,7 @@ namespace Sango.Core.Debate
                 Utils.Swap(ref self.table[i % 18], ref self.table[system.RandInt(18)]);
         }
 
-        /// <summary>51dd50。根据智力计算手牌上限</summary>
+        /// <summary>根据智力计算手牌上限</summary>
         public static int GetMaxCardCount(Person person)
         {
             if (!Utils.IsAlive(person))
@@ -304,19 +348,19 @@ namespace Sango.Core.Debate
             return 7;
         }
 
-        /// <summary>51dd90。获取智力</summary>
+        /// <summary>获取智力</summary>
         public int CharacterGetIntelligence(Character self)
         {
             return self.person.GetStat(PersonStatType.PersonStatType_Intelligence);
         }
 
-        /// <summary>51ddc0。获取武力</summary>
+        /// <summary>获取武力</summary>
         public int CharacterGetStrength(Character self)
         {
             return self.person.GetStat(PersonStatType.PersonStatType_Strength);
         }
 
-        /// <summary>51ddf0。获取性格</summary>
+        /// <summary>获取性格</summary>
         public int CharacterGetPersonality(Character self)
         {
             if (Utils.InRange(self.personality, 0, (int)Personality.Personality_Max - 1))
@@ -324,7 +368,7 @@ namespace Sango.Core.Debate
             return self.person.GetPersonality();
         }
 
-        /// <summary>51de20。设置兴奋计时器</summary>
+        /// <summary>设置兴奋计时器</summary>
         public void CharacterSetAngerTimer(Character self)
         {
             switch (CharacterGetPersonality(self))
@@ -340,26 +384,26 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>51de80。递减兴奋计时器</summary>
+        /// <summary>递减兴奋计时器</summary>
         public void CharacterDecAngerTimer(Character self)
         {
             if (self.angerTimer > 0)
                 self.angerTimer--;
         }
 
-        /// <summary>51de90。重置兴奋计时器</summary>
+        /// <summary>重置兴奋计时器</summary>
         public void CharacterResetAngerTimer(Character self)
         {
             self.angerTimer = 0;
         }
 
-        /// <summary>51dea0。手牌排序</summary>
+        /// <summary>手牌排序</summary>
         public void CharacterSortCards(Character self)
         {
             Array.Sort(self.card, 0, self.maxCardCount);
         }
 
-        /// <summary>51def0。补满手牌</summary>
+        /// <summary>补满手牌</summary>
         public void CharacterFillCards(Character self)
         {
             self.card[0] = (int)DebateCard.DebateCard_Rethink;
@@ -388,19 +432,19 @@ namespace Sango.Core.Debate
             CharacterSortCards(self);
         }
 
-        /// <summary>51dfb0。设置手牌</summary>
+        /// <summary>设置手牌</summary>
         public void CharacterSetCard(Character self, int index, int card)
         {
             self.card[index] = card;
         }
 
-        /// <summary>51dfc0。获取手牌</summary>
+        /// <summary>获取手牌</summary>
         public int CharacterGetCard(Character self, int index)
         {
             return self.card[index];
         }
 
-        /// <summary>51dfe0。移除手牌并压缩</summary>
+        /// <summary>移除手牌并压缩</summary>
         public void CharacterRemoveCard(Character self, int index)
         {
             CharacterSetCard(self, index, -1);
@@ -415,7 +459,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>51e070。查找指定手牌下标</summary>
+        /// <summary>查找指定手牌下标</summary>
         public int CharacterGetCardIndex(Character self, int card)
         {
             for (int i = 0; i < self.maxCardCount; i++)
@@ -426,7 +470,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>51e0b0。查找空手牌下标</summary>
+        /// <summary>查找空手牌下标</summary>
         public int CharacterGetEmptyCardIndex(Character self)
         {
             for (int i = 0; i < self.maxCardCount; i++)
@@ -437,7 +481,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>51e0e0。再考（重抽手牌）</summary>
+        /// <summary>再考（重抽手牌）</summary>
         public void CharacterRethink(Character self, int topic)
         {
             for (int i = 0; i < self.maxCardCount; i++)
@@ -459,54 +503,48 @@ namespace Sango.Core.Debate
             CharacterSortCards(self);
         }
 
-        /// <summary>51e170。设置体力</summary>
+        /// <summary>设置体力</summary>
         public void CharacterSetHp(Character self, int value)
         {
             self.hp = Utils.Clamp(value, MinHP, MaxHP);
         }
 
-        /// <summary>51e1a0。增减体力</summary>
+        /// <summary>增减体力</summary>
         public void CharacterAddHp(Character self, int value)
         {
             CharacterSetHp(self, self.hp + value);
         }
 
-        /// <summary>51e1d0。设置愤怒</summary>
+        /// <summary>设置愤怒</summary>
         public void CharacterSetStress(Character self, int value)
         {
             self.stress = Utils.Clamp(value, 0, MaxStress);
         }
 
-        /// <summary>51e1f0。增减愤怒</summary>
+        /// <summary>增减愤怒</summary>
         public void CharacterAddStress(Character self, int value)
         {
             CharacterSetStress(self, self.stress + value);
         }
 
-        /// <summary>51e220。初始化卡组</summary>
+        /// <summary>初始化卡组</summary>
         public bool DeckInit(Deck self, Person person)
         {
-            List<Item> itemList = system.GetPersonItemList(person);
-            bool book = false;
-            foreach (Item item in itemList)
-            {
-                if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.ItemType_Book)
-                {
-                    book = true;
-                    break;
-                }
-            }
+            // 持有"书籍"可解锁全部话术。宝物(Item)暂未接入，改走业务层预留钩子（见 DebateGameSystem.HasAllRhetoric）
+            bool book = system.HasAllRhetoric(person);
+            // 武将行为（数据驱动，见 DebatePersonBehaviours）：wordTac / 书籍是基础值，behaviour 可以追加也能覆盖
+            DebatePersonBehaviour behaviour = DebatePersonBehaviours.Get(person);
             self.rhetoricCardCount = 0;
             for (int i = 0; i < (int)Rhetoric.Rhetoric_Max; i++)
             {
-                if (book || person.HasRhetoric(i))
+                if (behaviour.ModifyRhetoric(person, i, book || person.HasRhetoric(i)))
                     self.rhetoricCard[self.rhetoricCardCount++] = (int)DebateCard.DebateCard_RhetoricFirst + i;
             }
             DeckGenerate(self);
             return true;
         }
 
-        /// <summary>51e350。初始化武将运行时数据</summary>
+        /// <summary>初始化武将运行时数据</summary>
         public bool CharacterInit(Character self, Person person, Person opponentPerson, int hp, bool control)
         {
             if (hp <= 0)
@@ -517,6 +555,8 @@ namespace Sango.Core.Debate
             int opponentInt = opponentPerson.GetStat(PersonStatType.PersonStatType_Intelligence); // 1 .. 100
             int n = 40 * (myInt - opponentInt) / (131 - myInt); // -30 .. 127
             self.attack = 100 + n; // 70 .. 227
+            // 武将行为（数据驱动，见 DebatePersonBehaviours）：公式算完再覆盖
+            self.attack = DebatePersonBehaviours.Get(person).ModifyAttack(person, opponentPerson, self.attack);
             CharacterInitCards(self, GetMaxCardCount(person));
             self.control = control;
             self.stress = 0;
@@ -524,7 +564,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51e420。初始化手牌</summary>
+        /// <summary>初始化手牌</summary>
         public void CharacterInitCards(Character self, int maxCardCount = MaxCardCount)
         {
             self.maxCardCount = maxCardCount;
@@ -538,24 +578,24 @@ namespace Sango.Core.Debate
 
         #region Param 相关
 
-        /// <summary>51e460。根据势力判断操作方</summary>
+        /// <summary>根据势力判断操作方</summary>
         public void ParamSetControl(Param self)
         {
-            District district;
-            district = system.GetDistrict(self.characters[0].person.GetDistrictId());
-            self.characters[0].control = Utils.IsActive(district) && district.IsPlayer() && district.GetNumber() == 1;
-            district = system.GetDistrict(self.characters[1].person.GetDistrictId());
-            self.characters[1].control = Utils.IsActive(district) && district.IsPlayer() && district.GetNumber() == 1;
+            // C++ 的 district 在工程里是军团 Corps：is_player() && get_number()==1 正好等价于 Corps.IsPlayerControl
+            Corps corps = system.GetDistrict(self.characters[0].person.GetDistrictId());
+            self.characters[0].control = Utils.IsActive(corps) && corps.IsPlayerControl;
+            corps = system.GetDistrict(self.characters[1].person.GetDistrictId());
+            self.characters[1].control = Utils.IsActive(corps) && corps.IsPlayerControl;
         }
 
-        /// <summary>51e510。是否挑战方获胜</summary>
+        /// <summary>是否挑战方获胜</summary>
         public bool ParamIsChallengerWin(Param self)
         {
             int team = self.reverse ? (int)DebateTeam.DebateTeam_Challenged : (int)DebateTeam.DebateTeam_Challenger;
             return self.winner == team;
         }
 
-        /// <summary>51e520。获取获胜武将</summary>
+        /// <summary>获取获胜武将</summary>
         public Person ParamGetWinnerPerson(Param self)
         {
             int team = self.reverse ? (int)DebateTeam.DebateTeam_Challenged : (int)DebateTeam.DebateTeam_Challenger;
@@ -566,7 +606,7 @@ namespace Sango.Core.Debate
             return null;
         }
 
-        /// <summary>51e550。获取失败武将</summary>
+        /// <summary>获取失败武将</summary>
         public Person ParamGetLoserPerson(Param self)
         {
             int team = self.reverse ? (int)DebateTeam.DebateTeam_Challenged : (int)DebateTeam.DebateTeam_Challenger;
@@ -577,13 +617,13 @@ namespace Sango.Core.Debate
             return null;
         }
 
-        /// <summary>51e580。获取挑战方武将</summary>
+        /// <summary>获取挑战方武将</summary>
         public Person ParamGetChallengerPerson(Param self)
         {
             return self.characters[(int)DebateTeam.DebateTeam_Challenger].person;
         }
 
-        /// <summary>51e590。获取指定队伍武将（考虑反转）</summary>
+        /// <summary>获取指定队伍武将（考虑反转）</summary>
         public Person ParamGetPerson(Param self, int team)
         {
             if (self.reverse)
@@ -591,7 +631,7 @@ namespace Sango.Core.Debate
             return self.characters[team].person;
         }
 
-        /// <summary>51e5b0。获取指定队伍体力（考虑反转）</summary>
+        /// <summary>获取指定队伍体力（考虑反转）</summary>
         public int ParamGetHp(Param self, int team)
         {
             if (self.reverse)
@@ -599,7 +639,7 @@ namespace Sango.Core.Debate
             return self.characters[team].hp;
         }
 
-        /// <summary>51e5d0。获取指定队伍操作方（考虑反转）</summary>
+        /// <summary>获取指定队伍操作方（考虑反转）</summary>
         public bool ParamGetControl(Param self, int team)
         {
             if (self.reverse)
@@ -607,7 +647,7 @@ namespace Sango.Core.Debate
             return self.characters[team].control;
         }
 
-        /// <summary>51e5f0。结算胜利方（含经验/功绩/伤病/消息）</summary>
+        /// <summary>结算胜利方（含经验/功绩/伤病/消息）</summary>
         public void ParamSetWinner(Param self, int team, int type)
         {
             self.winner = team;
@@ -679,25 +719,21 @@ namespace Sango.Core.Debate
                 }
                 if (opponentPerson.IsPlayerControlled())
                 {
-                    Point16 pos = Point16.NullPos;
-                    MilitaryUnitObject hexObj = system.GetLocationObject(opponentPerson.GetLocationId());
-                    if (Utils.IsAlive(hexObj))
-                        pos = hexObj.GetPos();
                     msg.SetObj0(DebateMessageId.LD_DEB_FATALBLOW_INJURED, opponentPerson);
-                    system.HistoryLog(pos, opponentPerson.GetColor(), system.GetMessage(msg), false);
+                    system.HistoryLog(system.GetMessage(msg), opponentPerson, false);
                 }
             }
             LogDebate($"【舌战结束】胜者：{GetTeamName(team)}，胜利方式：{GetWinTypeName(type)}");
             self.finished = true;
         }
 
-        /// <summary>51e8c0。标记结束</summary>
+        /// <summary>标记结束</summary>
         public void ParamSetFinished(Param self)
         {
             self.finished = true;
         }
 
-        /// <summary>51e8d0。初始化参数（完整）</summary>
+        /// <summary>初始化参数（完整）</summary>
         public bool ParamInit(Param self, Person a, int aHp, bool aControl, Person b, int bHp, bool bControl, bool tutorial)
         {
             aHp = Utils.Clamp(aHp, 1, MaxHP);
@@ -716,7 +752,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51e9f0。参数是否已满</summary>
+        /// <summary>参数是否已满</summary>
         public bool ParamSetIsFull(Param self)
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -727,23 +763,23 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51ea30。初始化参数（按势力判断操作方）</summary>
+        /// <summary>初始化参数（按势力判断操作方）</summary>
         public bool ParamInit(Param self, Person a, int aHp, Person b, int bHp, bool tutorial)
         {
             Force aForce = system.GetForce(a.GetForceId());
             Force bForce = system.GetForce(b.GetForceId());
-            bool aControl = Utils.IsActive(aForce) && aForce.IsPlayer();
-            bool bControl = Utils.IsActive(bForce) && bForce.IsPlayer();
+            bool aControl = Utils.IsActive(aForce) && aForce.IsPlayer;
+            bool bControl = Utils.IsActive(bForce) && bForce.IsPlayer;
             return ParamInit(self, a, aHp, aControl, b, bHp, bControl, tutorial);
         }
 
-        /// <summary>51eb00。初始化参数（满体力）</summary>
+        /// <summary>初始化参数（满体力）</summary>
         public bool ParamInit(Param self, Person a, Person b, bool tutorial)
         {
             return ParamInit(self, a, MaxHP, b, MaxHP, tutorial);
         }
 
-        /// <summary>65cc50。获取挑战方队伍（考虑反转）</summary>
+        /// <summary>获取挑战方队伍（考虑反转）</summary>
         public int ParamGetChallenger(Param self)
         {
             return self.reverse ? (int)DebateTeam.DebateTeam_Challenged : (int)DebateTeam.DebateTeam_Challenger;
@@ -753,7 +789,7 @@ namespace Sango.Core.Debate
 
         #region 卡牌 / 队伍工具
 
-        /// <summary>51eb30。获取对方队伍</summary>
+        /// <summary>获取对方队伍</summary>
         public static int GetOpponentTeam(int team)
         {
             return team == (int)DebateTeam.DebateTeam_Challenger
@@ -761,7 +797,7 @@ namespace Sango.Core.Debate
                 : (int)DebateTeam.DebateTeam_Challenger;
         }
 
-        /// <summary>51eb40。获取卡牌对应话题</summary>
+        /// <summary>获取卡牌对应话题</summary>
         public static int GetCardTopic(int card)
         {
             switch (card)
@@ -782,7 +818,7 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>51eb90。获取卡牌等级（0~2）</summary>
+        /// <summary>获取卡牌等级（0~2）</summary>
         public static int GetCardLevel(int card)
         {
             switch (card)
@@ -803,19 +839,19 @@ namespace Sango.Core.Debate
             return -1;
         }
 
-        /// <summary>51ec70。增减指定队伍体力</summary>
+        /// <summary>增减指定队伍体力</summary>
         public void AddHp(int team, int value)
         {
             CharacterAddHp(GetCharacter(team), value);
         }
 
-        /// <summary>51ec90。增减指定队伍愤怒</summary>
+        /// <summary>增减指定队伍愤怒</summary>
         public void AddStress(int team, int value)
         {
             CharacterAddStress(GetCharacter(team), value);
         }
 
-        /// <summary>51f1f0。获取卡牌威力</summary>
+        /// <summary>获取卡牌威力</summary>
         public static int GetCardPower(int topic, int card)
         {
             switch (card)
@@ -841,7 +877,7 @@ namespace Sango.Core.Debate
 
         #region 出牌 / 判定
 
-        /// <summary>51ecb0。卡牌当前是否可用</summary>
+        /// <summary>卡牌当前是否可用</summary>
         public bool IsCardAvailable(int team, int card)
         {
             int opponentTeam = GetOpponentTeam(team);
@@ -898,7 +934,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51ee00。出牌</summary>
+        /// <summary>出牌</summary>
         public bool PlayCard(int team, int index)
         {
             Character character = GetCharacter(team);
@@ -911,19 +947,19 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>51ee90。获取已出的卡</summary>
+        /// <summary>获取已出的卡</summary>
         public int GetPlayedCard(int team)
         {
             return playedCard[team];
         }
 
-        /// <summary>51eeb0。重置已出的卡</summary>
+        /// <summary>重置已出的卡</summary>
         public void ResetPlayedCard(int team)
         {
             playedCard[team] = -1;
         }
 
-        /// <summary>51eed0。一击必杀判定</summary>
+        /// <summary>一击必杀判定</summary>
         public bool Ftk()
         {
             if (winner == -1)
@@ -953,7 +989,7 @@ namespace Sango.Core.Debate
             return false;
         }
 
-        /// <summary>51efd0。回合开始</summary>
+        /// <summary>回合开始</summary>
         public void TurnStart()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -990,7 +1026,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>51f0c0。回合结束</summary>
+        /// <summary>回合结束</summary>
         public void TurnEnd()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -1036,7 +1072,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>51f250。计算攻击方</summary>
+        /// <summary>计算攻击方</summary>
         public int CalcAttacker()
         {
             int aPower = GetCardPower(topic, playedCard[0]);
@@ -1053,7 +1089,7 @@ namespace Sango.Core.Debate
             return attacker;
         }
 
-        /// <summary>51f300。体力伤害</summary>
+        /// <summary>体力伤害</summary>
         public int CalcHpDamage(int team, int card)
         {
             int topicCoef = 6;
@@ -1099,10 +1135,14 @@ namespace Sango.Core.Debate
             n *= levelCoef;   // 10 .. 20
             n *= topicCoef;   // 6 .. 12
             n /= 1000;        // 42 .. 693（话题3，大胆愤怒）
-            return n;
+
+            // 武将行为（数据驱动，见 DebatePersonBehaviours）：公式算完再覆盖
+            Person self = characters[team].person;
+            Person opponent = characters[GetOpponentTeam(team)].person;
+            return DebatePersonBehaviours.Get(self).ModifyHpDamage(self, opponent, card, n);
         }
 
-        /// <summary>51f3e0。愤怒伤害</summary>
+        /// <summary>愤怒伤害</summary>
         public int CalcStressDamage(int card)
         {
             if (card == (int)DebateCard.DebateCard_Shout)
@@ -1119,7 +1159,7 @@ namespace Sango.Core.Debate
 
         #region 伤害结算
 
-        /// <summary>51f420。平局</summary>
+        /// <summary>平局</summary>
         public void AttackDraw()
         {
             int stressDamage = 15;
@@ -1130,7 +1170,7 @@ namespace Sango.Core.Debate
                 engine.DebateAttackDraw(this, stressDamage);
         }
 
-        /// <summary>51f460。大喝</summary>
+        /// <summary>大喝</summary>
         public void Shout(int team, int hpDamage, int stressDamage)
         {
             int targetTeam = GetOpponentTeam(team);
@@ -1142,7 +1182,7 @@ namespace Sango.Core.Debate
                 engine.DebateShout(this, team, hpDamage, stressDamage);
         }
 
-        /// <summary>51f4c0。话题卡效果（原 C++ topic，因与枚举同名故重命名）</summary>
+        /// <summary>话题卡效果（原 C++ topic，因与枚举同名故重命名）</summary>
         public void TopicCard(int team, int card, int hpDamage, int stressDamage, bool reflected)
         {
             int targetTeam = reflected ? team : GetOpponentTeam(team);
@@ -1157,7 +1197,7 @@ namespace Sango.Core.Debate
                 engine.DebateTopic(this, team, card, hpDamage, stressDamage, reflected);
         }
 
-        /// <summary>51f540。再考</summary>
+        /// <summary>再考</summary>
         public void Rethink(int team)
         {
             Character character = GetCharacter(team);
@@ -1168,7 +1208,7 @@ namespace Sango.Core.Debate
             LogDebate($"【再考】{GetTeamName(team)} 重抽手牌：{HandText(team)}");
         }
 
-        /// <summary>51f580。无视</summary>
+        /// <summary>无视</summary>
         public void Ignore(int team, int stressDamage)
         {
             int targetTeam = GetOpponentTeam(team);
@@ -1179,7 +1219,7 @@ namespace Sango.Core.Debate
                 engine.DebateIgnore(this, team, stressDamage);
         }
 
-        /// <summary>51f5c0。镇静</summary>
+        /// <summary>镇静</summary>
         public void Compose(int team, int stressDamage, bool reflected)
         {
             int targetTeam = reflected ? team : GetOpponentTeam(team);
@@ -1190,7 +1230,7 @@ namespace Sango.Core.Debate
                 engine.DebateCompose(this, team, stressDamage, reflected);
         }
 
-        /// <summary>51f620。激昂</summary>
+        /// <summary>激昂</summary>
         public void Agitate(int team, int stressDamage, bool reflected)
         {
             int targetTeam = reflected ? GetOpponentTeam(team) : team;
@@ -1201,7 +1241,7 @@ namespace Sango.Core.Debate
                 engine.DebateAgitate(this, team, stressDamage, reflected);
         }
 
-        /// <summary>51f680。愤怒触发</summary>
+        /// <summary>愤怒触发</summary>
         public void AngerTrigger(int team, int card)
         {
             Character character = GetCharacter(team);
@@ -1229,7 +1269,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>51f740。愤怒结算</summary>
+        /// <summary>愤怒结算</summary>
         public void Anger()
         {
             if (!Utils.InRange(angering, 0, MaxTeamCount - 1))
@@ -1258,7 +1298,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>51f820。连续攻击（小心性格）</summary>
+        /// <summary>连续攻击（小心性格）</summary>
         public void ComboAttack()
         {
             int team = comboAttacker;
@@ -1281,7 +1321,7 @@ namespace Sango.Core.Debate
             combo = false;
         }
 
-        /// <summary>51f950。判定胜负</summary>
+        /// <summary>判定胜负</summary>
         public bool CalcWinner()
         {
             if (winner == -1)
@@ -1300,7 +1340,7 @@ namespace Sango.Core.Debate
             return false;
         }
 
-        /// <summary>51f9d0。是否可发动会心</summary>
+        /// <summary>是否可发动会心</summary>
         public bool CanCritical()
         {
             if (winner == -1)
@@ -1310,7 +1350,7 @@ namespace Sango.Core.Debate
             return characters[GetOpponentTeam(winner)].hp <= -100;
         }
 
-        /// <summary>51fa30。计算胜利方式</summary>
+        /// <summary>计算胜利方式</summary>
         public void CalcWinType()
         {
             switch (critical)
@@ -1324,7 +1364,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>5202d0。攻击结算</summary>
+        /// <summary>攻击结算</summary>
         public void Attack()
         {
             if (!Utils.InRange(attacker, 0, MaxTeamCount - 1))
@@ -1360,7 +1400,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>5203a0。卡牌附加效果</summary>
+        /// <summary>卡牌附加效果</summary>
         public void Effect(int team, int card)
         {
             int opponentTeam = GetOpponentTeam(team);
@@ -1384,7 +1424,7 @@ namespace Sango.Core.Debate
             }
         }
 
-        /// <summary>520450。计算愤怒方</summary>
+        /// <summary>计算愤怒方</summary>
         public bool CalcAngering(bool canReflect)
         {
             int team = first;
@@ -1421,7 +1461,7 @@ namespace Sango.Core.Debate
             return angering != -1;
         }
 
-        /// <summary>520560。计算崩坏程度</summary>
+        /// <summary>计算崩坏程度</summary>
         public bool CalcCrumbled()
         {
             for (int i = 0; i < MaxTeamCount; i++)
@@ -1436,7 +1476,7 @@ namespace Sango.Core.Debate
             return crumbled[0] || crumbled[1];
         }
 
-        /// <summary>520600, v+4。初始化</summary>
+        /// <summary>初始化</summary>
         public virtual bool Init()
         {
             // 5201c0
@@ -1469,7 +1509,7 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>5207c0。卡牌附加效果（按攻击方先结算）</summary>
+        /// <summary>卡牌附加效果（按攻击方先结算）</summary>
         public void Effect()
         {
             if (!Utils.InRange(attacker, 0, MaxTeamCount - 1))
@@ -1484,7 +1524,7 @@ namespace Sango.Core.Debate
             Effect(opponentTeam, opponentCard);
         }
 
-        /// <summary>520f70。运行舌战主循环</summary>
+        /// <summary>运行舌战主循环</summary>
         public bool Run()
         {
             bool useView = false;
@@ -1503,7 +1543,7 @@ namespace Sango.Core.Debate
             return useView;
         }
 
-        /// <summary>682780, v+8。是否教程</summary>
+        /// <summary>是否教程</summary>
         public virtual bool IsTutorial()
         {
             return false;

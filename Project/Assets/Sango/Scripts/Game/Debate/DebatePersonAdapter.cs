@@ -10,10 +10,12 @@
  *   注意：真实 Person 已有的实例方法（IsLike / IsHate / IsBrother / IsParentchild 等）
  *        优先级高于扩展方法，因此舌战里调用它们时会自动走游戏自带实现。
  *
- * 接入时需要调整的项（都在本文件，集中在 DebateSettings / DebatePersonality）：
- *   1. DebateSettings.HasRhetoric  - 武将是否拥有第 i 个话术（对应 C++ Person::has_rhetoric）
- *   2. DebateSettings.GetLocationId - 武将所在位置（部队）ID，用于历史记录定位
- *   3. DebatePersonality             - 性格转换（默认由 personality 值 1~4 直接映射）
+ * 说明：本文件只保留"真实 Person 上没有、或语义需要翻译"的访问器：
+ *   · 话术    → Person.wordTac（舌战话术索引数组，对应 C++ Person::has_wajutsu）
+ *   · 地区 ID → 工程的军团 Corps（Person.mBelongCorps）
+ *   · 位置 ID → 武将所在部队 Troop（Person.mTroop）
+ *   · 性格    → DebatePersonality（真实 personality 1~4 → 舌战 胆小/冷静/刚胆/莽撞）
+ * 其余（姓名 / 能力 / 势力 / 伤病 / 是否玩家操控）直接读真实 Person 的成员。
  */
 
 using System;
@@ -23,39 +25,11 @@ namespace Sango.Core.Debate
 {
     #region 全局设置 / 钩子
 
-    /// <summary>
-    /// 舌战系统所需的全局设置与外部依赖钩子。
-    /// 接入真实游戏时，按需给这些字段/委托赋值即可，无需改动舌战本体。
-    /// </summary>
+    /// <summary>舌战系统全局设置</summary>
     public static class DebateSettings
     {
         /// <summary>是否输出舌战过程日志（默认开启，输出到 Sango.Log）</summary>
         public static bool EnableLog = true;
-
-        /// <summary>武将是否拥有指定话术（i 与 Rhetoric 枚举一致）。对应 C++ Person::has_rhetoric</summary>
-        public static Func<Person, int, bool> HasRhetoric = (person, index) => false;
-
-        /// <summary>获取武将所在位置（部队）ID，用于历史记录定位。默认 -1（无位置）</summary>
-        public static Func<Person, int> GetLocationId = person => -1;
-
-        /// <summary>获取势力颜色（用于历史日志着色），默认 0</summary>
-        public static Func<Person, int> GetForceColor = person => 0;
-
-        /// <summary>百分概率判定，默认走 DebateRandom</summary>
-        public static Func<int, bool> RandBool = DebateRandom.Chance;
-
-        /// <summary>[0, max) 随机整数，默认走 DebateRandom</summary>
-        public static Func<int, int> RandInt = DebateRandom.Range;
-
-        /// <summary>恢复为默认实现</summary>
-        public static void Reset()
-        {
-            HasRhetoric = (person, index) => false;
-            GetLocationId = person => -1;
-            GetForceColor = person => 0;
-            RandBool = DebateRandom.Chance;
-            RandInt = DebateRandom.Range;
-        }
     }
 
     #endregion
@@ -157,25 +131,21 @@ namespace Sango.Core.Debate
             return self.mBelongForce != null ? self.mBelongForce.Id : self.BelongForce;
         }
 
-        /// <summary>所在地区（城市）ID</summary>
+        /// <summary>
+        /// 所在军团（Corps）ID。对应 C++ 的 district_id ——
+        /// 工程里"地区"由军团承担（Corps.IsPlayerControl 等价于 C++ district.is_player() &amp;&amp; get_number()==1）。
+        /// </summary>
         public static int GetDistrictId(this Person self)
         {
             if (self == null) return -1;
-            City city = self.mCurrentCity ?? self.mBelongCity;
-            return city != null ? city.Id : self.BelongCity;
+            return self.mBelongCorps != null ? self.mBelongCorps.Id : -1;
         }
 
-        /// <summary>所在位置（部队）ID</summary>
+        /// <summary>所在位置（部队 Troop）ID。对应 C++ 的 location_id，用于战报定位</summary>
         public static int GetLocationId(this Person self)
         {
             if (self == null) return -1;
-            return DebateSettings.GetLocationId(self);
-        }
-
-        /// <summary>势力颜色</summary>
-        public static int GetColor(this Person self)
-        {
-            return self == null ? 0 : DebateSettings.GetForceColor(self);
+            return self.mTroop != null ? self.mTroop.Id : -1;
         }
 
         /// <summary>伤病程度（0=健康，越大越重）</summary>
@@ -184,11 +154,19 @@ namespace Sango.Core.Debate
             return self == null ? -1 : self.injury;
         }
 
-        /// <summary>是否拥有指定话术</summary>
+        /// <summary>
+        /// 是否拥有指定话术（index 与 Rhetoric 枚举一致：0=大喝 / 1=诡辩 / 2=无视 / 3=镇静 / 4=激昂）。
+        /// 对应 C++ Person::has_wajutsu，数据源为 Person.wordTac（舌战话术索引数组）。
+        /// </summary>
         public static bool HasRhetoric(this Person self, int index)
         {
-            if (self == null) return false;
-            return DebateSettings.HasRhetoric(self, index);
+            if (self == null || self.wordTac == null) return false;
+            for (int i = 0; i < self.wordTac.Length; i++)
+            {
+                if (self.wordTac[i] == index)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>是否玩家控制</summary>

@@ -17,20 +17,20 @@ namespace Sango.Core.Action
 
             public SkillInstance ActionSkill => self;
             public SkillInstance TargetSkill => null;
-            public Person ActionPerson => self.master.Leader;
+            public Person ActionPerson => self?.master.Leader;
             public Person TargetPerson => atk_cell.troop?.Leader;
-            public Troop ActionTroop => self.master;
+            public Troop ActionTroop => self?.master;
             public Troop TargetTroop => atk_cell.troop;
-            public Cell ActionCell => self.master.cell;
+            public Cell ActionCell => self?.master.cell;
             public Cell TargetCell => atk_cell;
-            public City ActionCity => self.master.mBelongCity;
+            public City ActionCity => self?.master.mBelongCity;
             public City TargetCity => atk_cell.troop?.mBelongCity ?? atk_cell.building?.mBelongCity;
-            public Corps ActionCorps => self.master.mBelongCorps;
+            public Corps ActionCorps => self?.master.mBelongCorps;
             public Corps TargetCorps => atk_cell.troop?.mBelongCorps ?? atk_cell.building?.mBelongCorps;
-            public Force ActionForce => self.master.mBelongForce;
+            public Force ActionForce => self?.master.mBelongForce;
             public Force TargetForce => atk_cell.troop?.mBelongForce ?? atk_cell.building?.mBelongForce;
 
-            public Fire ActiveFire => self.master.cell.fire;
+            public Fire ActiveFire => self?.master.cell.fire;
             public Fire TargetFire => atk_cell.fire;
             public object ActionObject => self;
             public object TargetObject => atk_cell;
@@ -46,17 +46,17 @@ namespace Sango.Core.Action
 
             public SkillInstance ActionSkill => self;
             public SkillInstance TargetSkill => null;
-            public Person ActionPerson => self.master.Leader;
+            public Person ActionPerson => self?.master.Leader;
             public Person TargetPerson => null;
-            public Troop ActionTroop => self.master;
+            public Troop ActionTroop => self?.master;
             public Troop TargetTroop => null;
-            public Cell ActionCell => self.master.cell;
+            public Cell ActionCell => self?.master.cell;
             public Cell TargetCell => null;
-            public City ActionCity => self.master.mBelongCity;
+            public City ActionCity => self?.master.mBelongCity;
             public City TargetCity => null;
-            public Corps ActionCorps => self.master.mBelongCorps;
+            public Corps ActionCorps => self?.master.mBelongCorps;
             public Corps TargetCorps => null;
-            public Force ActionForce => self.master.mBelongForce;
+            public Force ActionForce => self?.master.mBelongForce;
             public Force TargetForce => null;
 
             public Fire ActiveFire => null;
@@ -155,6 +155,19 @@ namespace Sango.Core.Action
         /// <param name="isRangeSkill"></param>
         /// <returns></returns>
         public bool CheckIsRangeSkill(SkillInstance skill, int isRangeSkill)
+        {
+            if ((isRangeSkill == 1 && !skill.IsRange()) || (isRangeSkill == 2 && skill.IsRange()))
+                return false;
+            return true;
+        }
+
+        /// <summary>
+        /// 是否是远程 1远程 2近战 0都可以 
+        /// </summary>
+        /// <param name="skill"></param>
+        /// <param name="isRangeSkill"></param>
+        /// <returns></returns>
+        public bool CheckIsFire(SkillInstance skill, int isRangeSkill)
         {
             if ((isRangeSkill == 1 && !skill.IsRange()) || (isRangeSkill == 2 && skill.IsRange()))
                 return false;

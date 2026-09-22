@@ -41,12 +41,12 @@ namespace Sango.Core.Duel
             return m_phaseFuncs;
         }
 
-        /// <summary>475810</summary>
+        /// <summary>空阶段：什么都不做（原版多数阶段函数都是空实现）</summary>
         public void None()
         {
         }
 
-        /// <summary>506760, v+4。推进一帧</summary>
+        /// <summary>推进一帧</summary>
         /// <returns>true 表示单挑已结束</returns>
         public virtual bool OnPhase(int delta)
         {
@@ -67,7 +67,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>506ff0</summary>
+        /// <summary>设置下一个阶段（负值一律按结束阶段处理）</summary>
         public void SetNextPhase(int phase)
         {
             if (phase < 0)
@@ -75,7 +75,7 @@ namespace Sango.Core.Duel
             nextPhase = phase;
         }
 
-        /// <summary>507020, v+18</summary>
+        /// <summary>阶段结束回调（当前所有阶段都是空实现）</summary>
         public virtual void OnPhaseEnd()
         {
             if (phase >= 0)
@@ -85,7 +85,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>507050, v+1c</summary>
+        /// <summary>阶段开始回调（当前所有阶段都是空实现）</summary>
         public virtual void OnPhaseBegin()
         {
             if (phase >= 0)
@@ -95,7 +95,7 @@ namespace Sango.Core.Duel
             }
         }
 
-        /// <summary>507080, v+20</summary>
+        /// <summary>切换阶段：结束旧阶段 → 进入新阶段 → 步进清零 → 开始新阶段</summary>
         public virtual void OnPhaseChange()
         {
             OnPhaseEnd();
@@ -105,7 +105,7 @@ namespace Sango.Core.Duel
             OnPhaseBegin();
         }
 
-        /// <summary>5070b0, v+28。是否处于空闲（动画播放完毕）状态</summary>
+        /// <summary>是否处于空闲（动画播放完毕）状态</summary>
         public virtual bool IsIdle()
         {
             if (view)
@@ -120,7 +120,7 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>5077f0。初始化阶段</summary>
+        /// <summary>初始化阶段</summary>
         public bool InitPhase(int delta)
         {
             switch (step)
@@ -139,7 +139,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>507850。寒暄阶段</summary>
+        /// <summary>寒暄阶段</summary>
         public bool OpeningPhase(int delta)
         {
             switch (step)
@@ -162,7 +162,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50a6b0。一击必杀阶段</summary>
+        /// <summary>一击必杀阶段</summary>
         public bool FtkPhase(int delta)
         {
             switch (step)
@@ -226,7 +226,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50a8a0。指令输入阶段</summary>
+        /// <summary>指令输入阶段</summary>
         public bool CommandPhase(int delta)
         {
             switch (step)
@@ -299,7 +299,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50aa80。必杀指令输入阶段</summary>
+        /// <summary>必杀指令输入阶段</summary>
         public bool SpecialCommandPhase(int delta)
         {
             switch (step)
@@ -351,7 +351,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50abd0。退却阶段</summary>
+        /// <summary>退却阶段</summary>
         public bool RetreatPhase(int delta)
         {
             switch (step)
@@ -379,7 +379,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50aca0。回合结束阶段</summary>
+        /// <summary>回合结束阶段</summary>
         public bool TurnEndPhase(int delta)
         {
             switch (step)
@@ -416,7 +416,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50ad70。结束阶段</summary>
+        /// <summary>结束阶段</summary>
         public bool ClosingPhase(int delta)
         {
             switch (step)
@@ -474,13 +474,13 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50b5a0, v+24</summary>
+        /// <summary>该阶段编号是否合法（0 ~ 阶段总数-1）</summary>
         public virtual bool IsValidPhase(int phase)
         {
             return Utils.InRange(phase, 0, (int)DuelPhase.DuelPhase_Max - 1);
         }
 
-        /// <summary>50bf30。登场阶段</summary>
+        /// <summary>登场阶段</summary>
         public bool JoinPhase(int delta)
         {
             switch (step)
@@ -511,7 +511,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50bfc0。必杀阶段</summary>
+        /// <summary>必杀阶段</summary>
         public bool SpecialPhase(int delta)
         {
             switch (step)
@@ -539,7 +539,7 @@ namespace Sango.Core.Duel
                     if (!IsIdle())
                         break;
 
-                    if (specialAction.type == (int)DuelSpecial.DuelSpecial_Taikyaku)
+                    if (specialAction.type == (int)DuelSpecial.DuelSpecial_Retreat)
                     {
                         SetNextPhase((int)DuelPhase.DuelPhase_Retreat);
                         break;
@@ -584,7 +584,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50c6b0。回合开始阶段</summary>
+        /// <summary>回合开始阶段</summary>
         public bool TurnStartPhase(int delta)
         {
             switch (step)
@@ -612,7 +612,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50c760。行动开始阶段</summary>
+        /// <summary>行动开始阶段</summary>
         public bool ActionStartPhase(int delta)
         {
             switch (step)
@@ -639,7 +639,7 @@ namespace Sango.Core.Duel
             return false;
         }
 
-        /// <summary>50c7f0。行动结束阶段</summary>
+        /// <summary>行动结束阶段</summary>
         public bool ActionEndPhase(int delta)
         {
             switch (step)

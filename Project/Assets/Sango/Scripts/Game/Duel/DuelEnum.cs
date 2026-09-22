@@ -121,14 +121,14 @@ namespace Sango.Core.Duel
     /// <summary>必杀技类型</summary>
     public enum DuelSpecial
     {
-        DuelSpecial_Hissatsuwaza = 0,  // 必杀技
-        DuelSpecial_Kiai = 1,          // 气合
-        DuelSpecial_Kenshu = 2,        // 坚守
-        DuelSpecial_Taikyaku = 3,      // 退却
-        DuelSpecial_Kyuusho = 4,       // 急所（弱点）
-        DuelSpecial_Musou = 5,         // 无双
-        DuelSpecial_Anki = 6,          // 暗器
-        DuelSpecial_Nisetaikyaku = 7,  // 伪退却
+        DuelSpecial_DeadlyMove = 0,  // 必杀技
+        DuelSpecial_FightingSpirit = 1,          // 气合
+        DuelSpecial_Steadfast = 2,        // 坚守
+        DuelSpecial_Retreat = 3,      // 退却
+        DuelSpecial_WeakPoint = 4,       // 急所（弱点）
+        DuelSpecial_Peerless = 5,         // 无双
+        DuelSpecial_HiddenWeapon = 6,          // 暗器
+        DuelSpecial_FeintRetreat = 7,  // 伪退却
         DuelSpecial_Max = 8,
     }
 
@@ -196,8 +196,8 @@ namespace Sango.Core.Duel
         DuelStatus_Ftk = 0,                         // 0x01 一击必杀
         DuelStatus_ChallengerHPDamaged = 1,         // 0x02 挑战方体力减少
         DuelStatus_ChallengedHPDamaged = 2,         // 0x04 应战方体力减少
-        DuelStatus_ChallengerShoubyouDamaged = 3,   // 0x08 挑战方伤病恶化
-        DuelStatus_ChallengedShoubyouDamaged = 4,   // 0x10 应战方伤病恶化
+        DuelStatus_ChallengerInjuryDamaged = 3,   // 0x08 挑战方伤病恶化
+        DuelStatus_ChallengedInjuryDamaged = 4,   // 0x10 应战方伤病恶化
     }
 
     /// <summary>DuelStatus 对应的实际位掩码</summary>
@@ -206,18 +206,18 @@ namespace Sango.Core.Duel
         public const int Ftk = 1 << (int)DuelStatus.DuelStatus_Ftk;
         public const int ChallengerHPDamaged = 1 << (int)DuelStatus.DuelStatus_ChallengerHPDamaged;
         public const int ChallengedHPDamaged = 1 << (int)DuelStatus.DuelStatus_ChallengedHPDamaged;
-        public const int ChallengerShoubyouDamaged = 1 << (int)DuelStatus.DuelStatus_ChallengerShoubyouDamaged;
-        public const int ChallengedShoubyouDamaged = 1 << (int)DuelStatus.DuelStatus_ChallengedShoubyouDamaged;
+        public const int ChallengerInjuryDamaged = 1 << (int)DuelStatus.DuelStatus_ChallengerInjuryDamaged;
+        public const int ChallengedInjuryDamaged = 1 << (int)DuelStatus.DuelStatus_ChallengedInjuryDamaged;
     }
 
     /// <summary>AI 性格类型（决定使用哪套决策表）</summary>
     public enum DuelAIType
     {
-        DuelAIType_Ryofu = 0,    // 吕布
-        DuelAIType_Shoushin = 1, // 小心
-        DuelAIType_Reisei = 2,   // 冷静
-        DuelAIType_Goutan = 3,   // 大胆
-        DuelAIType_Chototsu = 4, // 猪突
+        DuelAIType_LuBu = 0,    // 吕布
+        DuelAIType_Timid = 1, // 小心
+        DuelAIType_Calm = 2,   // 冷静
+        DuelAIType_Bold = 3,   // 大胆
+        DuelAIType_Reckless = 4, // 猪突
         DuelAIType_Max = 5,
     }
 
@@ -237,21 +237,21 @@ namespace Sango.Core.Duel
         DuelAIRow_SpecialTry_HP_LTE = 0,             // 体力 param1 以下
         DuelAIRow_SpecialTry_Spirit_GTE = 1,         // 斗志 param1 以上
         DuelAIRow_SpecialTry_OpponentHP_LTE = 2,     // 敌方体力 param1 以下
-        DuelAIRow_SpecialTry_AnkiOrMusou = 3,
-        DuelAIRow_SpecialTry_Kyuusho = 4,
-        DuelAIRow_SpecialTry_Kiai = 5,
-        DuelAIRow_SpecialTry_Kenshu = 6,
+        DuelAIRow_SpecialTry_HiddenWeaponOrPeerless = 3,
+        DuelAIRow_SpecialTry_WeakPoint = 4,
+        DuelAIRow_SpecialTry_FightingSpirit = 5,
+        DuelAIRow_SpecialTry_Steadfast = 6,
         DuelAIRow_SpecialTry_Always = 7,
         DuelAIRow_SpecialTry_Stop = 8,
 
         // DuelAITable_Special
-        DuelAIRow_Special_Nisetaikyaku = 9,
-        DuelAIRow_Special_Anki = 10,
-        DuelAIRow_Special_Kyuusho = 11,
-        DuelAIRow_Special_AnkiOrMusou = 12,
-        DuelAIRow_Special_Kiai = 13,
-        DuelAIRow_Special_Kenshu = 14,
-        DuelAIRow_Special_Taikyaku = 15, // 体力 param1 以下，敌方体力 param1 以上
+        DuelAIRow_Special_FeintRetreat = 9,
+        DuelAIRow_Special_HiddenWeapon = 10,
+        DuelAIRow_Special_WeakPoint = 11,
+        DuelAIRow_Special_HiddenWeaponOrPeerless = 12,
+        DuelAIRow_Special_FightingSpirit = 13,
+        DuelAIRow_Special_Steadfast = 14,
+        DuelAIRow_Special_Retreat = 15, // 体力 param1 以下，敌方体力 param1 以上
         DuelAIRow_Special_Random = 16,
 
         // DuelAITable_Stance

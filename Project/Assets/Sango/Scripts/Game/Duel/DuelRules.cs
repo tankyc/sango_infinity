@@ -72,7 +72,7 @@ namespace Sango.Core.Duel
             switch (feature)
             {
                 case Feature.DuelFirstTurnKill: return v.duelDisableFirstTurnKill;
-                case Feature.Hobaku: return v.duelDisableCapture;
+                case Feature.Capture: return v.duelDisableCapture;
                 case Feature.DuelAIRetreat: return v.duelDisableAIRetreat;
             }
             return false;

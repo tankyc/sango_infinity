@@ -147,6 +147,9 @@ namespace Sango.Core
             // 安装单挑系统的表现层工厂（卡牌表现 window_duel）
             Duel.DuelIntegration.Install();
 
+            // 安装舌战系统：表现层工厂（window_debate）+ 玩法触发点（外交失败 / 招募失败按概率进入舌战）
+            Debate.DebateIntegration.Install();
+
             GameEvent.OnGameInit?.Invoke();
             GameState.Instance.ChangeState((int)GameState.State.GAME_START_MENU);
             Window.Instance.Open("window_start");
@@ -212,6 +215,19 @@ namespace Sango.Core
             // 单挑发起流程在等玩家回答（是否接受 / 是否观看）时，同样暂停剧本推进
             if (Duel.DuelChallengeFlow.IsPending)
             {
+                return;
+            }
+
+            // 舌战发起流程在等玩家回答（是否观战）时，同样暂停剧本推进
+            if (Debate.DebateChallengeFlow.IsPending)
+            {
+                return;
+            }
+
+            // 舌战进行中时独占主循环，暂停剧本推进（带界面时逐帧推进，纯 AI 时一次跑完）
+            if (Debate.DebateManager.Instance.IsDebating)
+            {
+                Debate.DebateManager.Instance.Update();
                 return;
             }
 

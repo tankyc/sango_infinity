@@ -17,8 +17,8 @@ namespace Sango.Core.Duel
     /// <summary>武将单挑行为。默认实现 = 不加任何修正。</summary>
     public class DuelPersonBehaviour
     {
-        /// <summary>对应的单挑内部武将标识（调试 / 日志用）</summary>
-        public PersonId personId = PersonId.Invalid;
+        /// <summary>武将真实 Id（Person.Id；-1 = 未指定。调试 / 日志用）</summary>
+        public int personId = -1;
 
         /// <summary>配置名（调试 / 日志用）</summary>
         public string name;
