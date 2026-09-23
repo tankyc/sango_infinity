@@ -527,6 +527,12 @@ namespace Sango.Core
         [JsonProperty] public int baseFireDamage = 320;
 
         /// <summary>
+        /// 是否允许火焰向相邻格蔓延（剧本开关，玩家可在剧本参数界面自行选择）。
+        /// 关掉后火焰照常点燃 / 灼烧 / 熄灭，只是不再向外扩散，见 Fire.SpreadFire。
+        /// </summary>
+        [JsonProperty] public bool fireSpreadEnabled = true;
+
+        /// <summary>
         /// 火焰每回合向相邻格蔓延的**最大**概率（%），对应可燃性最高的地形（森林 / 荒地）。
         /// 实际概率只取决于**目标格**的地形可燃性，按比例折算，见 Fire.SpreadFire。
         /// </summary>
@@ -973,9 +979,11 @@ namespace Sango.Core
         [JsonProperty] public int recruitBaseCompatibility = 25;
 
         /// <summary>
-        /// 招募系统 - 在野武将忠诚度基础值
+        /// 招募系统 - 在野武将（及无势力俘虏）忠诚度基础值。
+        /// 公式里它们用的是"合成忠诚" = 本值 + difficulty × recruitLoyaltyDifficultyFactor
+        ///（默认难度 1 → 30 + 5 = 35），而不是武将的真实忠诚。
         /// </summary>
-        [JsonProperty] public int recruitWildLoyaltyBase = 60;
+        [JsonProperty] public int recruitWildLoyaltyBase = 30;
 
         /// <summary>
         /// 招募系统 - 忠诚度难度系数

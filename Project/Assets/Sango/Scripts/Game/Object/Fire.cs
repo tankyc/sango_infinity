@@ -99,6 +99,11 @@ namespace Sango.Core
                 return;
 
             ScenarioVariables variables = scenario.Variables;
+
+            // 剧本开关：关掉后火焰照常点燃 / 灼烧 / 熄灭，只是不再向相邻格蔓延
+            if (!variables.fireSpreadEnabled)
+                return;
+
             int maxChance = variables.fireSpreadMaxChance;
             int rateMax = variables.fireSpreadTerrainRateMax;
             if (maxChance <= 0 || rateMax <= 0)

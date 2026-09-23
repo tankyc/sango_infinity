@@ -218,9 +218,14 @@ namespace Sango.Core
                 if (!troop.MoveTo(FinalCell))
                     return false;
 
-                // 【防重复建造】目标格已有己方建筑（含仍在施工中的）时不再发起建造，
-                // 否则工程队会在建筑完工前每回合重复调用 BuildBuilding。
-                if (TargetCell.building != null && TargetCell.building.IsSameForce(troop))
+                // 【续建】目标格已有己方建筑时：
+                //   · 已经完工 → 本次施工结束，交给上层决定是否改派下一个建址；
+                //   · 尚未完工 → **继续施工**，必须一直建到修好为止。
+                // 旧写法是"只要格子上有己方建筑就直接 return"，于是工程队把建筑立起来（施工中的壳）
+                // 之后每回合都在这里早退，玩家看到的就是"建一下就站住不动"、建筑永远修不完。
+                //（Troop.BuildBuilding 内部的事件已区分"新建 / 对未完工建筑继续加耐久"，重复调用是安全的）
+                if (TargetCell.building != null && TargetCell.building.IsSameForce(troop)
+                    && TargetCell.building.isComplate)
                     return true;
 
                 if (!troop.BuildBuilding(TargetCell, TargetBuildingType))

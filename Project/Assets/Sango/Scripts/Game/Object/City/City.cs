@@ -2977,18 +2977,52 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 取得武将性格的"忠诚维持"加成（影响褒奖的忠诚提升量）。
-        /// 由"忠诚维持"与"忠诚漂移"共同构成：前者表示性格本身的归附倾向，
-        /// 后者表示忠诚值的稳定性。
+        /// 取得武将性格的"忠诚影响值"，由"忠诚维持"与"忠诚漂移"共同构成：
+        /// 前者表示性格本身的归附倾向（降低掉忠的概率），后者表示忠诚值的稳定性。
+        ///
+        /// 语义：这是一个**概率量（百分点）**，不是直接加到忠诚上的数值。
+        /// 褒奖时由 <see cref="CalcRewardLoyaltyGain"/> 把它当作"额外提升的触发概率"使用，且只取正值。
         /// </summary>
         /// <param name="person">目标武将</param>
-        /// <returns>忠诚维持加成；无性格数据时返回 0</returns>
+        /// <returns>忠诚影响值；无性格数据时返回 0</returns>
         public static int GetLoyaltyKeepAdd(Person person)
         {
             if (person == null || person.mPersonality == null)
                 return 0;
             return person.mPersonality.loyaltyKeepAdd + person.mPersonality.loyaltyDriftAdd;
         }
+
+        #region 褒奖忠诚（概率偏移）
+
+        /// <summary>褒奖的保底忠诚提升：任何情况下结果都大于 10</summary>
+        public const int RewardLoyaltyBase = 11;
+
+        /// <summary>褒奖"概率偏移"命中时的最大额外提升（实际取 1~本值）</summary>
+        public const int RewardLoyaltyExtraMax = 5;
+
+        /// <summary>
+        /// 褒奖的忠诚提升量（概率偏移版）。
+        ///
+        /// 规则：
+        ///   · 保底 <see cref="RewardLoyaltyBase"/> = 11 → 褒奖结果**一定大于 10**；
+        ///   · 性格的"忠诚影响数据"（忠诚维持 + 忠诚漂移，见 <see cref="GetLoyaltyKeepAdd"/>）
+        ///     **只做加法**：取正值后当作百分比概率，命中才追加 1~<see cref="RewardLoyaltyExtraMax"/>
+        ///     的额外提升 —— 即性格值偏移的是"多涨"的概率，而不是像旧公式那样把值直接加减到结果上；
+        ///   · 负值（例如"莽撞"的 -10/-10）一律按 0 处理 → 褒奖永远不会掉忠诚。
+        /// </summary>
+        /// <param name="person">被褒奖的武将</param>
+        /// <returns>本次忠诚提升量（≥ <see cref="RewardLoyaltyBase"/>）</returns>
+        public static int CalcRewardLoyaltyGain(Person person)
+        {
+            int gain = RewardLoyaltyBase;
+            int offset = GetLoyaltyKeepAdd(person);         // 忠诚维持 + 忠诚漂移
+            if (offset <= 0) return gain;                   // 仅做加法：负值不参与
+            if (GameRandom.Chance(System.Math.Min(offset, 100)))
+                gain += GameRandom.Range(1, RewardLoyaltyExtraMax + 1);
+            return gain;
+        }
+
+        #endregion
 
         /// <summary>
         /// 治安巡视
@@ -3271,8 +3305,8 @@ namespace Sango.Core
                 stringBuilder.Append(person.Name);
                 stringBuilder.Append(",");
 #endif
-                // 【性格】忠诚维持：性格影响褒奖的忠诚提升量
-                person.loyalty += 10 + GetLoyaltyKeepAdd(person);
+                // 褒奖忠诚：保底 11（恒 >10）+ 性格忠诚影响值的概率偏移（见 CalcRewardLoyaltyGain）
+                person.loyalty += CalcRewardLoyaltyGain(person);
             }
             gold -= totalGoldCost;
             mBelongCorps.ReduceActionPoint(totalApCost);
@@ -3309,8 +3343,8 @@ namespace Sango.Core
             stringBuilder.Append(",");
             int lastLoyalty = person.loyalty;
 #endif
-            // 【性格】忠诚维持：性格影响褒奖的忠诚提升量
-            person.loyalty += GameRandom.Range(7, 18) + GetLoyaltyKeepAdd(person);
+            // 褒奖忠诚：与多人褒奖同一套口径（保底 11 + 性格忠诚影响值的概率偏移）
+            person.loyalty += CalcRewardLoyaltyGain(person);
             gold -= goldCost;
             mBelongCorps.ReduceActionPoint(apCost);
 

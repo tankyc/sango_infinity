@@ -958,6 +958,8 @@ namespace Sango.Core
         /// <returns>是否成功执行</returns>
         public override bool OnMonthStart(Scenario scenario)
         {
+            // 原版：俘虏每月都可能掉忠（在仕武将只有换季才结算，见 OnSeasonStart）
+            ForceCaptiveLoyaltyChange();
             return base.OnMonthStart(scenario);
         }
 
@@ -968,9 +970,7 @@ namespace Sango.Core
         /// <returns>是否成功执行</returns>
         public override bool OnSeasonStart(Scenario scenario)
         {
-            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(100);
-            GameEvent.OnForcePersonLoyaltyChangeProbability?.Invoke(this, overrideData);
-            if (GameRandom.Chance(overrideData.ValueAndRecycle))
+            if (RollLoyaltyChangeSettlement())
             {
                 ForcePersonLoyaltyChange();
             }
@@ -982,17 +982,79 @@ namespace Sango.Core
         static int[] loyaltyWeight = new int[5] { 2, 3, 2, 1, 1 };
 
         /// <summary>
-        /// 势力武将换季掉忠计算
+        /// 势力武将换季掉忠计算。
+        ///
+        /// 顺序：
+        ///   1) 原版"必不掉忠"资格判定（君主 / 亲爱 / 夫妻 / 义兄弟 / 亲子 / 相性与义理野心 / 城内有仁政），
+        ///      见 PersonLoyaltyRules.CanLoseLoyalty —— 不通过就直接跳过；
+        ///   2) 通过者每人各掷一次掉忠值（原来只掷一次、全势力共用）；
+        ///   3) 扣忠之前再发 GameEvent.OnForcePersonLoyaltyChange 征询监听者：
+        ///      把 shouldLoseLoyalty 置 false 即可否决该武将本次扣忠
+        ///     （例如"阻止本城武将掉忠"的 Action，见 CityPreventPersonLoyaltyLoss）。
         /// </summary>
         public void ForcePersonLoyaltyChange()
         {
-            // TODO: 武将换季掉忠
-            int v = GameRandom.RandomWeightIndex(loyaltyWeight, 9);
+            // TODO: 武将换季掉忠（掉忠量本身仍是占位公式）
             ForEachPerson(person =>
             {
+                // 原版免掉忠条件：命中则本季不进入掉忠结算
+                if (!PersonLoyaltyRules.CanLoseLoyalty(this, person)) return;
+
+                // 每人各掷一次：本次该掉多少
+                int v = GameRandom.RandomWeightIndex(loyaltyWeight, 9);
+
+                // 先问监听者能否否决本次扣忠（默认 true = 照扣）
+                Tools.OverrideData<bool> shouldLoseLoyalty = Tools.OverrideData<bool>.Create(true);
+                GameEvent.OnForcePersonLoyaltyChange?.Invoke(this, person, shouldLoseLoyalty);
+                if (!shouldLoseLoyalty.Value) return;
+
                 person.loyalty -= v;
                 Sango.Log.Info($"势力：{Name}, 武将：{person.Name}, 忠诚度下降: {v}, 现有忠诚度:{person.loyalty}");
             });
+        }
+
+        /// <summary>
+        /// 本势力是否要结算一次掉忠。
+        /// 原版：掌握人心科技有 2/3 概率让武将不进入掉忠计算 —— 数据里给该科技挂一个
+        /// value=33 的 ForcePersonLoyaltyChange（它把基础值 100 压成 33），事件一来即生效；
+        /// 没有该科技时基础值仍是 100，等于必定结算。
+        /// </summary>
+        private bool RollLoyaltyChangeSettlement()
+        {
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(100);
+            GameEvent.OnForcePersonLoyaltyChangeProbability?.Invoke(this, overrideData);
+            return GameRandom.Chance(overrideData.ValueAndRecycle);
+        }
+
+        /// <summary>
+        /// 本势力被俘武将的月度掉忠（原版：俘虏每月都可能掉忠）。
+        ///
+        /// 与换季结算（ForcePersonLoyaltyChange）的区别：
+        ///   · 频率：每月（换季是每 3 个月）；
+        ///   · 免掉忠条件只有三条（亲爱君主 / 夫妻或义兄弟 / 子女或父母），不受「仁政」与
+        ///     "相性差 ≤ 25"保护，见 PersonLoyaltyRules.CanCaptiveLoseLoyalty；
+        ///   · 与原君主相性差 ≥ 25 会额外多掉，义理低掉得更快、义理高掉得慢；
+        ///   · 掌握人心科技：每人各掷一次，本人有 2/3 概率跳过。
+        ///
+        /// 比较对象是被俘势力的君主（原君主）—— 俘虏的本势力归属与 Force.BeCaptiveList
+        /// 都保留在原势力上，因此这里遍历 BeCaptiveList。
+        /// </summary>
+        public void ForceCaptiveLoyaltyChange()
+        {
+            if (BeCaptiveList == null || BeCaptiveList.Count == 0) return;
+
+            Person governor = mGovernor;
+            for (int i = BeCaptiveList.Count - 1; i >= 0; --i)
+            {
+                Person person = BeCaptiveList[i];
+                if (person == null || !person.IsAlive || !person.IsPrisoner) continue;
+                if (!PersonLoyaltyRules.CanCaptiveLoseLoyalty(person, governor)) continue;
+                if (!RollLoyaltyChangeSettlement()) continue;      // 掌握人心：每人各掷一次
+
+                int v = PersonLoyaltyRules.CalcCaptiveLoyaltyLoss(person, governor);
+                person.loyalty = System.Math.Max(0, person.loyalty - v);
+                Sango.Log.Info($"势力：{Name}, 俘虏：{person.Name}, 忠诚度下降: {v}, 现有忠诚度:{person.loyalty}");
+            }
         }
 
         /// <summary>
