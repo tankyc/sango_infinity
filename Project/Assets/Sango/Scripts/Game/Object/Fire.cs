@@ -245,9 +245,7 @@ namespace Sango.Core
             scenario.Add(spread);
             spread.Init(scenario);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"火焰蔓延至 ({target.x},{target.y}) 地形可燃性:{GetTerrainFireRate(target)}");
-#endif
         }
 
         public override void Clear()

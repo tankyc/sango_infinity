@@ -1,4 +1,4 @@
-/*
+﻿/*
  * 文件名：DebateTestInstance.cs
  * 描述：舌战(Debate)系统的运行封装，用于在游戏内创建并驱动一次舌战
  *
@@ -84,7 +84,7 @@ namespace Sango.Core.Debate
         /// </summary>
         public bool View { get { return Debate != null && Debate.View; } set { if (Debate != null) Debate.View = value; } }
 
-        /// <summary>日志回调（不设置则输出到 Console）</summary>
+        /// <summary>日志回调（不设置则直接走 Sango.Log，其输出由编译期符号 SANGO_DEBUG 决定）</summary>
         public Action<string> OnLog;
 
         /// <summary>是否输出每一步状态快照</summary>
@@ -256,9 +256,14 @@ namespace Sango.Core.Debate
         private void Log(string text)
         {
             if (OnLog != null)
+            {
+                // 调用方显式挂了回调（测试 / 调试）：按回调走，不经过总开关
                 OnLog(text);
-            else
-                Console.WriteLine(text);
+                return;
+            }
+
+            // 没有回调时直接走项目日志（Sango.Log 的开关是编译期的 SANGO_DEBUG）
+            Sango.Log.Info(text, Sango.Log.LogType.Game);
         }
 
         /// <summary>阶段名</summary>

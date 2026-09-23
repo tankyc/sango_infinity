@@ -63,9 +63,7 @@ namespace Sango.Core
                     // 添加日志记录
                     string message = $"{receiver.ColorName}派遣使者访问{sender.ColorName}，带来了友好的问候，关系增加了50点！";
                     PlayerMessage.AddTextMessage(message, sender, sender.CapitalCity.x, sender.CapitalCity.y);
-#if SANGO_DEBUG
                     Sango.Log.Info($"@外交事件@{receiver.Name} 的使者访问了 {sender.Name}，关系增加了50点！");
-#endif
                 }
             });
 
@@ -86,9 +84,7 @@ namespace Sango.Core
                     string message = $"{sender.ColorName}与{receiver.ColorName}在边境发生了冲突，关系减少了100点！";
                     PlayerMessage.AddTextMessage(message, sender, sender.CapitalCity.x, sender.CapitalCity.y);
 
-#if SANGO_DEBUG
                     Sango.Log.Info($"@外交事件@{sender.Name} 与 {receiver.Name} 在边境发生了冲突，关系减少了100点！");
-#endif
                 }
             });
 

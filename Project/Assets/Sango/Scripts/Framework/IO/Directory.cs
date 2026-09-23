@@ -128,7 +128,15 @@ namespace Sango
             string[] files = GetFiles(path, searchPattern, searchOption);
             foreach (string file in files)
             {
-                action(file);
+                try
+                {
+                    action(file);
+
+                }
+                catch (Exception e)
+                {
+                    Sango.Log.Error(e.Message + e.StackTrace);
+                }
             }
         }
         static public void EnumDirectories(string path, string searchPattern, SearchOption searchOption, Action<string> action)
@@ -139,7 +147,15 @@ namespace Sango
             string[] files = GetDirectories(path, searchPattern, searchOption);
             foreach (string file in files)
             {
-                action(file);
+                try
+                {
+                    action(file);
+
+                }
+                catch (Exception e)
+                {
+                    Sango.Log.Error(e.Message + e.StackTrace);
+                }
             }
         }
     }

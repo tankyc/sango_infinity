@@ -13,7 +13,7 @@ namespace Sango.Core.Player
             customTitleName = "宣战";
 
             customMenuName = "外交/宣战";
-            customMenuOrder = 303;
+            customMenuOrder = 3400;
             windowName = "window_city_diplomacy_declare_war";
 
         }

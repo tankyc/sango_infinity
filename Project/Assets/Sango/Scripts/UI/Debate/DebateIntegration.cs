@@ -1,4 +1,4 @@
-/*
+﻿/*
  * 文件名：DebateIntegration.cs
  * 描述：舌战系统与游戏 / UI 的集成点（对应单挑的 UI/Duel/DuelIntegration.cs）
  *
@@ -8,10 +8,12 @@
  *   · 将来要换 3D 表现时，只需在此更换 CreateCardView 的实现，
  *     或者在 DebateManager.CreateViewHandler 上挂另一个工厂，逻辑层完全不受影响。
  *
- * 【未接线】按需求舌战暂不接入玩法，所以 Game.cs 目前还没有调用 Install()。
- *   接玩法时两步：
- *     1) Game.Init 里加一行 Debate.DebateIntegration.Install();
- *     2) Game.Update 里照单挑那样驱动 DebateManager.Instance.Update()。
+ * 安装内容（由 Game.Init 调用一次，与 DuelIntegration 并列）：
+ *   · DebateManager 的表现层工厂（CreateCardView / ReleaseCardView）；
+ *   · DebateChallengeFlow：事件发起的舌战走统一发起流程；
+ *   · DebateTrigger：外交失败 / 招募失败后按概率强制进入舌战；
+ *   · DebateConsequence：舌战结束后按胜负改判发起行为（登用 / 外交）为成功。
+ * 驱动由 Game.Update 负责：DrivingFlow 待答 / 舌战进行中都会暂停剧本推进，见 Game.Update。
  */
 
 using Sango.UI;
@@ -27,7 +29,7 @@ namespace Sango.Core.Debate
 
         private static bool s_installed = false;
 
-        /// <summary>安装舌战与游戏的集成（接入玩法时由 Game.Init 调用一次即可）</summary>
+        /// <summary>安装舌战与游戏的集成（由 Game.Init 调用一次即可）</summary>
         public static void Install()
         {
             if (s_installed) return;
@@ -41,6 +43,9 @@ namespace Sango.Core.Debate
 
             // 玩法触发点：外交失败 / 招募失败后按概率强制进入舌战
             DebateTrigger.Install();
+
+            // 舌战结束后的改判：发起方辩胜则把发起行为改判为成功
+            DebateConsequence.Install();
         }
 
         /// <summary>创建卡牌式 2D 表现层</summary>

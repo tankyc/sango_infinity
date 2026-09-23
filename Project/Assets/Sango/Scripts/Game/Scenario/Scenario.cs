@@ -1449,9 +1449,7 @@ namespace Sango.Core
             if (!IncreaseDate())
                 return;
 
-#if SANGO_DEBUG
             Sango.Log.Warning($"{GetDateStr()}  第{Info.turnCount}回");
-#endif
             MakeForceQuene();
 
             HasTurnEnded = false;

@@ -77,9 +77,7 @@ namespace Sango.Mod
             string path = GetFullPath("Data");
             Directory.EnumFiles(path, "*.json", SearchOption.AllDirectories, (file) =>
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"LoadData: {file}");
-#endif
             });
             //Directory.EnumFiles(path, "*.txt", SearchOption.AllDirectories, (file) =>
             //{
@@ -129,9 +127,7 @@ namespace Sango.Mod
             string path = GetFullPath("UI");
             Directory.EnumFiles(path, "*.bytes", SearchOption.TopDirectoryOnly, (file) =>
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"LoadUI: {file}");
-#endif
                 string packageName = System.IO.Path.GetFileNameWithoutExtension(file).Split('_')[0];
                 Window.Instance.AddPackage(file, packageName);
             });
@@ -141,9 +137,7 @@ namespace Sango.Mod
             string path = GetFullPath($"Package/{PlatformUtility.GetPlatformName()}");
             Directory.EnumFiles(path, "*.pkg", SearchOption.TopDirectoryOnly, (file) =>
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"LoadPackage: {file}");
-#endif
                 string packageName = System.IO.Path.GetFileNameWithoutExtension(file).Split('_')[0];
                 PackageManager.Instance.AddPackage(packageName, file, true);
             });
@@ -154,9 +148,7 @@ namespace Sango.Mod
             string path = GetFullPath("Language");
             Directory.EnumFiles(path, "*.json", SearchOption.TopDirectoryOnly, (file) =>
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"Find Language File: {file}");
-#endif
                 GameLanguage.AddFile(file);
             });
         }
@@ -166,12 +158,14 @@ namespace Sango.Mod
             int count = ShortScenario.all_scenario_info_list.Count;
             Directory.EnumFiles(path, "*.json", SearchOption.TopDirectoryOnly, (file) =>
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"Find Scenario: {file}");
-#endif
                 ShortScenario shortScenario = ShortScenario.Add(file);
                 shortScenario.Info.id = count + shortScenario.Info.id;
                 shortScenario.ModName = Name;
+                if (Id == "ScenSrc")
+                    shortScenario.Info.type = 0;
+                else
+                    shortScenario.Info.type = 1;
                 Scenario scenario = Scenario.Add(file);
                 scenario.Info.id = count + scenario.Info.id;
             });

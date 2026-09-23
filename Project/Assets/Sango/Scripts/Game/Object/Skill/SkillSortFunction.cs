@@ -188,6 +188,21 @@ namespace Sango.Core
         };
 
         /// <summary>
+        /// 按释放完成后是否可挑起单挑排序/编辑
+        /// </summary>
+        public static SortTitle SortByCanTriggerDuel = new SortTitle()
+        {
+            name = "可单挑",
+            width = 2.40f,
+            valueStrGetCall = x => x.canTriggerDuel ? "是" : "否",
+            valueSortFunc = (a, b) => a.canTriggerDuel.CompareTo(b.canTriggerDuel),
+            valueObjGet = x => x.canTriggerDuel,
+            // 布尔下拉的"无"（null）按 false 处理，避免写回时转换异常
+            valueObjSet = (x, v) => x.canTriggerDuel = v is bool b && b,
+            editType = DataEditType.BoolDropdown,
+        };
+
+        /// <summary>
         /// 默认排序标题列表
         /// </summary>
         public static List<ObjectSortTitle> DefaultSortList = new List<ObjectSortTitle>
@@ -197,6 +212,7 @@ namespace Sango.Core
             SortByKind,
             SortByCostEnergy,
             SortBySuccessRate,
+            SortByCanTriggerDuel,
         };
     }
 }

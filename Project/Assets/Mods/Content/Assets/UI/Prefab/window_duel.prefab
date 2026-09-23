@@ -6691,6 +6691,7 @@ GameObject:
   - component: {fileID: 519119893894399350}
   - component: {fileID: 5074921837337810807}
   - component: {fileID: 4950557151704978901}
+  - component: {fileID: 1721526821477119581}
   m_Layer: 5
   m_Name: detail
   m_TagString: Untagged
@@ -6738,7 +6739,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 2100000, guid: dcef2bb2db1e9b243adfba24de0757ae, type: 2}
   m_Color: {r: 0.95, g: 0.94, b: 0.88, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -6760,6 +6761,21 @@ MonoBehaviour:
     m_VerticalOverflow: 1
     m_LineSpacing: 1
   m_Text: 
+--- !u!114 &1721526821477119581
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3093239997631242016}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28b9d10c4bd60c34799c18ab5949bbf9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_OutlineColor: {r: 0.12, g: 0.12, b: 0.12, a: 1}
+  m_OutlineWidth: 1.5
+  m_gray: 0
 --- !u!1 &3221836162438890395
 GameObject:
   m_ObjectHideFlags: 0
@@ -7117,6 +7133,7 @@ GameObject:
   - component: {fileID: 8778523243138384025}
   - component: {fileID: 1081662115589072817}
   - component: {fileID: 8339216914476682687}
+  - component: {fileID: 8403411201703318771}
   m_Layer: 5
   m_Name: detail
   m_TagString: Untagged
@@ -7164,7 +7181,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 2100000, guid: dcef2bb2db1e9b243adfba24de0757ae, type: 2}
   m_Color: {r: 0.95, g: 0.94, b: 0.88, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -7186,6 +7203,21 @@ MonoBehaviour:
     m_VerticalOverflow: 1
     m_LineSpacing: 1
   m_Text: 
+--- !u!114 &8403411201703318771
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3388089067220228080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28b9d10c4bd60c34799c18ab5949bbf9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_OutlineColor: {r: 0.12, g: 0.12, b: 0.12, a: 1}
+  m_OutlineWidth: 1.5
+  m_gray: 0
 --- !u!1 &3391423029866143095
 GameObject:
   m_ObjectHideFlags: 0
@@ -11190,6 +11222,10 @@ MonoBehaviour:
   cardAttackScale: 0.14
   cardHitBack: 26
   cardHitShake: 9
+  cardFtkJudgeDistance: 74
+  cardFtkJudgePress: 7
+  cardFtkJudgeScale: 0.1
+  cardFtkJudgeDuration: 1.15
   resultWin:
     node: {fileID: 6822940209772985043}
   resultLose:

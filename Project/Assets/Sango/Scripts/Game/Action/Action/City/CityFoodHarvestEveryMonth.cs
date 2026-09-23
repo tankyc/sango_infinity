@@ -72,9 +72,7 @@ namespace Sango.Core.Action
                 int v = city.totalGainFood * value / 100 / 3;
                 city.AddFood(v);
                 city.Render?.ShowInfo(v, (int)InfoType.Food);
-#if SANGO_DEBUG
             Sango.Log.Info($"城市：{city.Name}, 收获粮食：{v}, 现有粮食: {city.food}");
-#endif
             }
         }
     }

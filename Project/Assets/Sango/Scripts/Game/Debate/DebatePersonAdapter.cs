@@ -25,12 +25,8 @@ namespace Sango.Core.Debate
 {
     #region 全局设置 / 钩子
 
-    /// <summary>舌战系统全局设置</summary>
-    public static class DebateSettings
-    {
-        /// <summary>是否输出舌战过程日志（默认开启，输出到 Sango.Log）</summary>
-        public static bool EnableLog = true;
-    }
+    // 舌战不再有自己的日志设置：日志开关统一由 Sango.Log 的编译期符号 SANGO_DEBUG 控制
+    //（见 Framework/Log/Log.cs），舌战各处直接调用 Sango.Log.Info / Warning / Error。
 
     #endregion
 

@@ -14,7 +14,7 @@ namespace Sango.Core.Player
         {
             customTitleName = "军师";
             customMenuName = "君主/军师";
-            customMenuOrder = 901;
+            customMenuOrder = 4100;
             windowName = "window_city_set_counsellor";
             customTitleList = new List<ObjectSortTitle>()
             {

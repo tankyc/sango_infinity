@@ -73,6 +73,9 @@ namespace Sango.Render
             if (replaceSkill == null)
             {
                 IsDone = true;
+                if (skill.IsStrategy() && troop != null && troop.IsAlive)
+                    troop.ChangeMorale(-skill.costEnergy, false);
+
                 troop?.Render?.SetAniShow(0);
                 GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
                 return IsDone;
@@ -89,10 +92,6 @@ namespace Sango.Render
             if (isAction) return;
             if (replaceSkill != null)
                 replaceSkill.Action(spellCell, 100);
-            else if (skill.IsStrategy() && troop != null && troop.IsAlive)
-            {
-                troop.ChangeMorale(-skill.costEnergy, false);
-            }
             GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
             isAction = true;
         }

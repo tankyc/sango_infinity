@@ -12,7 +12,7 @@ namespace Sango.Core.Player
     {
         protected override string RelationshipTitle => "结婚";
         protected override string RelationshipMenu => "君主/仲介/结婚";
-        protected override int RelationshipMenuOrder => 910;
+        protected override int RelationshipMenuOrder => 4300;
         protected override int SelectLimit => 2;
 
         protected override bool FilterCandidate(Person person)

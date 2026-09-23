@@ -3,18 +3,28 @@
 'Tank Framework
 '*******************************************************************
 */
+using System.Diagnostics;
 using UnityEngine;
 namespace Sango
 {
     /// <summary>
     /// 游戏日志管理器.
     /// 所有游戏日志需要从该处打印
+    ///
+    /// 【编译期开关】六个出口都标了 [Conditional("SANGO_DEBUG")]：
+    ///   · 定义 SANGO_DEBUG 的构建（开发期）：调用保留，正常输出；
+    ///   · 未定义的构建（正式包，以及当前工程默认状态）：编译器把**调用连同实参求值一起删除** ——
+    ///     `Log.Info($"...{a}{b}")` 这种写法既不构造字符串也不发生调用，零开销。
+    ///   需要看日志时：Player Settings → Scripting Define Symbols 里加上 SANGO_DEBUG 即可，不必改代码。
+    ///
+    /// 注意：Error 也在开关内（按"不输出日志"的既有要求）。若希望错误在正式包里始终可见，
+    /// 把 Error 上的 Conditional 去掉即可。
     /// </summary>
     public static class Log
     {
         /// <summary>
         /// 日志输出类型,用来格式化日志的标题,标题颜色
-        /// 为了优化诸如: XLog.Log( ffff(dddd()) );中对于链式结构造成的链式函数性能消耗,XLog并没有开关去控制显示,请自行判断后再调用XLog.如: if(xxx) XLog.Log(ffff);
+        /// 日志有无由编译期开关 SANGO_DEBUG 决定（见类注释），类型只影响标题与颜色。
         /// todo: 日志在真机上写入文件,文件需要定期清理,防止塞满用户储存空间
         /// </summary>
         public enum LogType : int
@@ -58,13 +68,16 @@ namespace Sango
 #endif
         }
 
+        [Conditional("SANGO_DEBUG")]
         public static void Info(object message, LogType t)
         {
             if (t == LogType.None)
-                Debug.Log(message.ToString());
+                UnityEngine.Debug.Log(message.ToString());
             else
-                Debug.Log(format(message, t));
+                UnityEngine.Debug.Log(format(message, t));
         }
+
+        [Conditional("SANGO_DEBUG")]
         public static void Info(object message)
         {
             Info(message, LogType.None);
@@ -73,22 +86,26 @@ namespace Sango
         public static void Error(object message, LogType t)
         {
             if (t == LogType.None)
-                Debug.LogError(message.ToString());
+                UnityEngine.Debug.LogError(message.ToString());
             else
-                Debug.LogError(format(message, t));
+                UnityEngine.Debug.LogError(format(message, t));
         }
+
         public static void Error(object message)
         {
             Error(message, LogType.None);
         }
 
+        [Conditional("SANGO_DEBUG")]
         public static void Warning(object message, LogType t)
         {
             if (t == LogType.None)
-                Debug.LogWarning(message.ToString());
+                UnityEngine.Debug.LogWarning(message.ToString());
             else
-                Debug.LogWarning(format(message, t));
+                UnityEngine.Debug.LogWarning(format(message, t));
         }
+
+        [Conditional("SANGO_DEBUG")]
         public static void Warning(object message)
         {
             Warning(message, LogType.None);

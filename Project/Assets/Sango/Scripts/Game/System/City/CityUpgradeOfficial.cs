@@ -39,7 +39,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByFeatureList,
             };
             customMenuName = "君主/官职";
-            customMenuOrder = 903;
+            customMenuOrder = 4200;
             windowName = "window_official_set";
 
             buttonDatas = new List<ObjectsDisplaySystem.ButtonData>()

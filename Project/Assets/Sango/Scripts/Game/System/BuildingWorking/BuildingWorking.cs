@@ -277,12 +277,13 @@ namespace Sango.Core
             if (city.IsCity() && city.mBelongForce != null && city.mBelongForce.IsPlayer && city.mBelongForce == Scenario.Cur.CurRunForce)
             {
                 bool b = city.GetExtensionData<bool>("AppointWorking");
-                if (!b)
-                    menuData.Add(GameLanguage.GetString(10000003), 99999, city, OnClickMenuItem_CityAutoWorking, true);
-                else
-                    menuData.Add(GameLanguage.GetString(10000004), 99999, city, OnClickMenuItem_CityAutoWorking, true);
+                // 排序值就是框架自己的值，Add 的同时登记进 CityMenuOrder 供 MOD 查询；
+                // 委任按钮的标题是本地化字符串（当不了路径），故用固定 key 登记
+                const int autoWorkingOrder = 99999;
+                CityMenuOrder.Record(CityMenuOrder.AutoAppointWorkingKey, autoWorkingOrder);
+                menuData.Add(GameLanguage.GetString(b ? 10000004 : 10000003), autoWorkingOrder, city, OnClickMenuItem_CityAutoWorking, true);
 
-                menuData.Add("自动设置", 99998, city, OnClickMenuItem_AutoSetWorking, true);
+                CityMenuOrder.Add(menuData, "自动设置", 99998, city, OnClickMenuItem_AutoSetWorking, true);
             }
         }
 
@@ -854,9 +855,7 @@ namespace Sango.Core
             GameEvent.OnCityGainFoodHarvest?.Invoke(city, overrideData);
             city.AddFood(overrideData.Value);
             //totalValue = GameRandom.Random(totalValue, 0.05f);
-#if SANGO_DEBUG
             Sango.Log.Info($"城市：{city.Name}, 收获粮食：{totalValue}, 现有粮食: {city.food}");
-#endif
             city.Render?.ShowInfo(totalValue, (int)InfoType.Food);
         }
 
@@ -898,9 +897,7 @@ namespace Sango.Core
             //Sango.Log.Error($"all: t:{totalValue}");
             //totalFoodt = GameRandom.Random(totalFood, 0.05f);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"城市：{city.Name},  收获资金：{totalValue}, 现有资金: {city.gold}");
-#endif
             city.Render?.ShowInfo(overrideData.Value, (int)InfoType.Gold);
 
         }

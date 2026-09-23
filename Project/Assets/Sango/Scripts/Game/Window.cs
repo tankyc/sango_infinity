@@ -292,9 +292,7 @@ namespace Sango
 
         public WindowInterface Open(string windowName)
         {
-#if SANGO_DEBUG
-            UnityEngine.Debug.Log($"显示窗口:{windowName}");
-#endif
+        Sango.Log.Info($"显示窗口:{windowName}", Sango.Log.LogType.UI);
             WindowInterface win = CreateWindow(windowName);
             if (win != null)
             {
@@ -306,9 +304,7 @@ namespace Sango
 
         public WindowInterface Open(string windowName, params object[] objects)
         {
-#if SANGO_DEBUG
-            UnityEngine.Debug.Log($"显示窗口:{windowName}");
-#endif
+        Sango.Log.Info($"显示窗口:{windowName}", Sango.Log.LogType.UI);
             WindowInterface win = CreateWindow(windowName);
             if (win != null)
             {
@@ -333,9 +329,7 @@ namespace Sango
 
         public WindowInterface OpenNew(string windowName)
         {
-#if SANGO_DEBUG
-            UnityEngine.Debug.Log($"显示窗口:{windowName}");
-#endif
+        Sango.Log.Info($"显示窗口:{windowName}", Sango.Log.LogType.UI);
             WindowInterface win = CreateNewWindow(windowName);
             if (win != null)
             {
@@ -347,9 +341,7 @@ namespace Sango
 
         public WindowInterface OpenNew(string windowName, params object[] objects)
         {
-#if SANGO_DEBUG
-            UnityEngine.Debug.Log($"显示窗口:{windowName}");
-#endif
+        Sango.Log.Info($"显示窗口:{windowName}", Sango.Log.LogType.UI);
             WindowInterface win = CreateNewWindow(windowName);
             if (win != null)
             {
@@ -382,9 +374,7 @@ namespace Sango
 
         public void Close(string windowName)
         {
-#if SANGO_DEBUG
-            UnityEngine.Debug.Log($"隐藏窗口:{windowName}");
-#endif
+        Sango.Log.Info($"隐藏窗口:{windowName}", Sango.Log.LogType.UI);
             WindowInfo info;
             if (windowMap.TryGetValue(windowName, out info))
             {

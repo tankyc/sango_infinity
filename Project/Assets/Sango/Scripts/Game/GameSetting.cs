@@ -350,8 +350,8 @@ namespace Sango.Core
             }
 
             // 如果没找到，使用60fps
-            CurrentFrameRateIndex = 1; // 60fps的索引
-            FrameRateLimit = 60;
+            CurrentFrameRateIndex = 0; // 60fps的索引
+            FrameRateLimit = 30;
         }
         #endregion
 
@@ -566,7 +566,7 @@ namespace Sango.Core
 
             // 图形设置
             VSync = PlayerPrefs.GetInt("VSync", 1) == 1;
-            FrameRateLimit = PlayerPrefs.GetInt("FrameRateLimit", 60);
+            FrameRateLimit = PlayerPrefs.GetInt("FrameRateLimit", 30);
             QualityLevel = PlayerPrefs.GetInt("QualityLevel", 2);
 
             // 后处理开关
@@ -610,7 +610,7 @@ namespace Sango.Core
 
             // 图形设置
             VSync = true;
-            FrameRateLimit = 60;
+            FrameRateLimit = 30;
             QualityLevel = 2;
             IsPostProcessingEnabled = true;
 
@@ -967,7 +967,7 @@ namespace Sango.Core
 
             // 图形设置
             VSync = true;
-            FrameRateLimit = 60;
+            FrameRateLimit = 30;
             CurrentFrameRateIndex = 1;
             QualityLevel = 2;
             IsPostProcessingEnabled = true;

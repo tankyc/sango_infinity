@@ -14,7 +14,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByGlamour,
             };
             customMenuName = "都市/征兵";
-            customMenuOrder = 15;
+            customMenuOrder = 400;
             windowName = "window_city_recruit_troops";
         }
 

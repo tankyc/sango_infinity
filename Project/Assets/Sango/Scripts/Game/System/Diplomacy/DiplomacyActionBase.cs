@@ -86,12 +86,10 @@ namespace Sango.Core
         public virtual void OnDispatch()
         {
             // 默认实现：可以被子类重写以实现不同外交事件的特殊处理
-#if SANGO_DEBUG
             if (Sender != null)
-            {
+        {
                 Sango.Log.Info($"@外交@{Sender.Name} 派遣 {Diplomat?.Name ?? "使者"} 执行{GetActionName()}");
-            }
-#endif
+        }
 
             // 触发派遣事件
             OnDiplomacyDispatch?.Invoke(this);
@@ -121,9 +119,7 @@ namespace Sango.Core
             // 减少关系值
             diplomacyManager.ReduceRelation(Sender, Receiver, penalty);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@外交@{Sender.Name} 对 {Receiver.Name} 的{GetActionName()}行动失败，关系减少了 {penalty} 点");
-#endif
 
             // 触发失败事件
             OnDiplomacyFailed?.Invoke(this, penalty);

@@ -131,9 +131,20 @@ namespace Sango.Core.Duel
         public float cardHitBack = 26f;
         /// <summary>受击的抖动幅度（像素）</summary>
         public float cardHitShake = 9f;
+        /// <summary>一击必杀判定演出：两卡冲向中间的距离（像素）</summary>
+        public float cardFtkJudgeDistance = 74f;
+        /// <summary>一击必杀判定演出：互挤顶动的幅度（像素）</summary>
+        public float cardFtkJudgePress = 7f;
+        /// <summary>一击必杀判定演出：互挤时的放大比例</summary>
+        public float cardFtkJudgeScale = 0.1f;
+        /// <summary>一击必杀判定演出的时长（秒）——判定命中与不中都走它</summary>
+        public float cardFtkJudgeDuration = 1.15f;
 
         /// <summary>受击时卡面闪红</summary>
         public static readonly Color CardHitTint = new Color(1f, 0.35f, 0.3f, 1f);
+
+        /// <summary>一击必杀判定演出时的卡面色（泛暖黄，像两张牌顶在一起较劲）</summary>
+        public static readonly Color CardFtkJudgeTint = new Color(1f, 0.9f, 0.55f, 1f);
         /// <summary>必杀 / 一击必杀时卡面泛金</summary>
         public static readonly Color CardSpecialTint = new Color(1f, 0.85f, 0.42f, 1f);
         /// <summary>落败后卡面压暗</summary>
@@ -185,6 +196,14 @@ namespace Sango.Core.Duel
             Special,
             /// <summary>一击必杀：胜方放大泛金（配合败方的 Down）</summary>
             Ftk,
+            /// <summary>一击必杀判定：两卡冲到中间互挤后归位（判定未命中）</summary>
+            FtkJudgeBack,
+            /// <summary>一击必杀判定：两卡冲到中间互挤后停在中间（判定命中，紧接着接 FtkHoldCenter / HitFromCenter）</summary>
+            FtkJudgeHold,
+            /// <summary>判定命中后的胜方：从中间的挤压位继续泛金放大</summary>
+            FtkHoldCenter,
+            /// <summary>判定命中后的败方：从中间的挤压位被击退</summary>
+            HitFromCenter,
             /// <summary>落败 / 退却：卡面压暗、下沉</summary>
             Down,
             /// <summary>平局：原地轻晃</summary>
@@ -558,17 +577,20 @@ namespace Sango.Core.Duel
         };
 
         /// <summary>
-        /// 副将登场（助战）台词。占位符：{0} 本将名、{1} 本将字、{2} 同队主将名。
+        /// 副将登场（助战）台词。占位符：{0} 本将名、{1} 本将字、{2} 同队主将的称呼（有字用字，无字用名）。
+        ///
+        /// 说话人恒为**入场的副将**，听话人恒为**同队主将**，语气是"向主将请战 / 助主将一臂之力"——
+        /// 别写成主将招呼副将（方向反了）。称呼用字而不直呼其名，例如「子龙勿慌，吾来助你一臂之力！」。
         /// 挑了引用字号的句子而这位武将没填「字」时，会改挑别的（见 JoinLine）。
         /// </summary>
         public static readonly string[] JoinLines =
         {
-            "{0}前来助战！",
-            "{0}来也！",
-            "援军已到，{2}勿忧！",
-            "某乃{0}，字{1}，特来相助！",
-            "将军稍待，{0}助你一臂之力！",
-            "{2}将军，{0}来助阵！",
+            "{2}勿慌，{0}来助你一臂之力！",
+            "{2}稍待，{0}前来助战！",
+            "{2}且宽心，有{0}在此！",
+            "某乃{0}，字{1}，特来相助{2}！",
+            "{2}少歇，这一阵交给{0}！",
+            "{0}来也！{2}但请放心。",
         };
 
         /// <summary>结算台词：胜利者说的，连着播几句</summary>
@@ -603,8 +625,9 @@ namespace Sango.Core.Duel
 
         /// <summary>
         /// 取一句副将助战台词。
-        /// 台词里可以引「名字 / 字 / 主将称呼」——{0} 本将名、{1} 本将字、{2} 同队主将名。
+        /// 台词里可以引「名字 / 字 / 主将称呼」——{0} 本将名、{1} 本将字、{2} 同队主将的称呼。
         /// 没填「字」的武将不会被挑到引用字号的句子，避免出现"某乃张飞，字张飞"这种话。
+        /// {2} 取主将的**字**（"子龙勿慌"这样才自然），主将没填字才退回名字。
         /// </summary>
         public static string JoinLine(Person person, Person leader)
         {
@@ -623,8 +646,14 @@ namespace Sango.Core.Duel
 
             string name = string.IsNullOrEmpty(person.Name) ? "某" : person.Name;
             string nick = hasNick ? person.nickName : name;
-            string leaderName = leader != null && !string.IsNullOrEmpty(leader.Name) ? leader.Name : "将军";
-            return string.Format(picked, name, nick, leaderName);
+            // 主将称呼：优先用字（子龙 / 云长），没填字才退回名字，都没有就用"将军"兜底
+            string leaderCall = "将军";
+            if (leader != null)
+            {
+                if (!string.IsNullOrEmpty(leader.nickName)) leaderCall = leader.nickName;
+                else if (!string.IsNullOrEmpty(leader.Name)) leaderCall = leader.Name;
+            }
+            return string.Format(picked, name, nick, leaderCall);
         }
 
         /// <summary>从一组台词里随机取一句（空数组返回空串，PlayLine 会跳过）</summary>
@@ -2331,12 +2360,55 @@ namespace Sango.Core.Duel
                         frame = Color.Lerp(card.homeFrame, CardSpecialTint, k * 0.9f);
                         break;
                     }
+                case DuelCardFx.FtkJudgeBack:
+                case DuelCardFx.FtkJudgeHold:
+                    {
+                        // 前 30% 冲到中间贴住，之后两卡互相顶（反向小幅抖动）
+                        float k = t < 0.3f ? Mathf.Sin(t / 0.3f * Mathf.PI * 0.5f) : 1f;
+                        float press = t < 0.3f ? 0f : Mathf.Sin((t - 0.3f) / 0.7f * Mathf.PI);
+                        pos += new Vector2(cardFtkJudgeDistance * dir * k, 0f);
+                        pos += new Vector2(-dir * cardFtkJudgePress * press * Mathf.Abs(Mathf.Sin(t * 50f)), 0f);
+                        scale *= 1f + cardFtkJudgeScale * k;
+                        frame = Color.Lerp(card.homeFrame, CardFtkJudgeTint, k);
+
+                        if (card.fx == DuelCardFx.FtkJudgeBack)
+                        {
+                            // 判定没中：后半段退回原位，准备正常流程
+                            float back = t < 0.55f ? 0f : Mathf.Sin((t - 0.55f) / 0.45f * Mathf.PI * 0.5f);
+                            pos = Vector2.Lerp(pos, card.homePos, back);
+                            scale = Vector3.Lerp(scale, card.homeScale, back);
+                            frame = Color.Lerp(frame, card.homeFrame, back);
+                        }
+                        break;
+                    }
+                case DuelCardFx.FtkHoldCenter:
+                    {
+                        // 判定命中：胜方留在中间的挤压位继续泛金放大（不再从原位冲刺）
+                        pos += new Vector2(cardFtkJudgeDistance * dir, 0f);
+                        float k = t < 0.25f ? Mathf.Sin(t / 0.25f * Mathf.PI * 0.5f) : 1f;
+                        scale *= 1f + cardAttackScale * 3f * k;
+                        frame = Color.Lerp(CardFtkJudgeTint, CardSpecialTint, k * 0.9f);
+                        break;
+                    }
+                case DuelCardFx.HitFromCenter:
+                    {
+                        // 判定命中：败方从中间的挤压位被击退
+                        float k = Mathf.Sin(t * Mathf.PI);
+                        pos += new Vector2(cardFtkJudgeDistance * dir, 0f);
+                        pos += new Vector2(-cardHitBack * 1.6f * dir * k, 0f);
+                        pos += new Vector2(Mathf.Sin(t * 42f) * cardHitShake * k, 0f);
+                        scale *= 1f - 0.06f * k;
+                        frame = Color.Lerp(CardFtkJudgeTint, CardHitTint, k);
+                        break;
+                    }
                 case DuelCardFx.Down:
                     {
+                        // 结算压暗：比原来更沉、更暗，好和胜方一眼区分（末帧状态会被保留，见下方复位逻辑）
                         float k = Mathf.Clamp01(t * 1.6f);
-                        pos += new Vector2(-cardHitBack * 0.5f * dir * k, -26f * k);
-                        scale *= 1f - 0.12f * k;
-                        frame = Color.Lerp(card.homeFrame, CardDownTint, k);
+                        pos += new Vector2(-cardHitBack * 0.5f * dir * k, -34f * k);
+                        scale *= 1f - 0.16f * k;
+                        Color dim = Color.Lerp(card.homeFrame, CardDownTint, k);
+                        frame = new Color(dim.r * 0.78f, dim.g * 0.78f, dim.b * 0.78f, dim.a);
                         break;
                     }
                 case DuelCardFx.Draw:
@@ -2360,12 +2432,20 @@ namespace Sango.Core.Duel
             // 演出结束：复位（演出文字由 ani_info 的飘字系统自己回收，这里不用管）
             if (t >= 1f)
             {
+                // 两种演出要保留末帧状态：
+                //   · Down（结算压暗）—— 输的一方要一直暗着，才能和胜方区分出来；
+                //   · FtkJudgeHold（判定命中停在中间）—— 紧接着的 DuelFtk 要从中间接着演。
+                bool keepFinal = card.fx == DuelCardFx.Down || card.fx == DuelCardFx.FtkJudgeHold;
+
                 card.fx = DuelCardFx.None;
                 card.fxTime = 0f;
                 card.fxDuration = 0f;
-                card.root.anchoredPosition = card.homePos;
-                card.root.localScale = card.homeScale;
-                if (card.frame != null) card.frame.color = card.homeFrame;
+                if (!keepFinal)
+                {
+                    card.root.anchoredPosition = card.homePos;
+                    card.root.localScale = card.homeScale;
+                    if (card.frame != null) card.frame.color = card.homeFrame;
+                }
             }
         }
 
@@ -3037,6 +3117,27 @@ namespace Sango.Core.Duel
             return SpecialNames[special];
         }
 
+        /// <summary>
+        /// 一击必杀判定演出：两卡冲到中间互相挤压。
+        /// 判定命中 → 停在中间（FtkJudgeHold），紧接着由 DuelFtk 从中间继续演；
+        /// 判定没中 → 挤压后归位（FtkJudgeBack），随后正常进入回合。
+        /// 时长压进 m_AnimTimer，逻辑层（FtkPhase）会停在这里等它播完。
+        /// </summary>
+        public virtual void DuelFtkJudge(Duel duel, int ftkTeam, int ftkType)
+        {
+            if (duel != m_Duel) Bind(duel);
+
+            bool success = ftkTeam >= 0;
+            DuelCardFx fx = success ? DuelCardFx.FtkJudgeHold : DuelCardFx.FtkJudgeBack;
+
+            AppendLog(success ? "【一合】两将交锋——胜负只在一瞬！" : "【一合】两将交锋，各退一步。");
+
+            PlayCardFx(CardOf((int)DuelTeam.DuelTeam_Challenger), fx, cardFtkJudgeDuration, CardFtkJudgeTint, null);
+            PlayCardFx(CardOf((int)DuelTeam.DuelTeam_Challenged), fx, cardFtkJudgeDuration, CardFtkJudgeTint, null);
+
+            SetAnimTimer(cardFtkJudgeDuration);
+        }
+
         public virtual void DuelFtk(Duel duel, int team, int chara, int ftkType, int opponentTeam, int opponentChara)
         {
             Person person = m_Duel.GetPerson(team, chara);
@@ -3045,9 +3146,10 @@ namespace Sango.Core.Duel
                 AppendLog("【一击必杀】" + person.Name + " 一举击倒了 " + opponent.Name + "！");
             RefreshCharaPanels();
 
-            // 卡牌演出：胜方大幅冲出泛金、败方剧烈后仰压暗（也算受击，序列帧照亮）
-            PlayCardFx(CardOf(team), DuelCardFx.Ftk, cardResultDuration, CardSpecialTint, "一击必杀");
-            PlayCardFx(CardOf(opponentTeam), DuelCardFx.Hit, cardResultDuration, CardHitTint, null);
+            // 卡牌演出：接着"两卡在中间互挤"的位置演——
+            // 胜方留在中间泛金放大，败方从中间被击退（序列帧照亮）。
+            PlayCardFx(CardOf(team), DuelCardFx.FtkHoldCenter, cardResultDuration, CardSpecialTint, "一击必杀");
+            PlayCardFx(CardOf(opponentTeam), DuelCardFx.HitFromCenter, cardResultDuration, CardHitTint, null);
             PlayHitFx(CardOf(opponentTeam));
 
             SetAnimTimer(emphasisDuration * 1.5f);

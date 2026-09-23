@@ -180,7 +180,16 @@ namespace Sango.UI
                 if (type == shortScenario.Info.type)
                     show_scenario_list.Add(shortScenario);
             }
+           // show_scenario_list.Sort((a, b) =>
+           //{
+           //    if (a.Info.year == b.Info.year)
+           //    {
+           //        return a.Info.month.CompareTo(b.Info.month);
+           //    }
+           //    else
+           //        return a.Info.year.CompareTo(b.Info.year);
 
+           // });
             infoText.enabled = show_scenario_list.Count == 1;
             curSelectIndex = -1;
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN

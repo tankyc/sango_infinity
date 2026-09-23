@@ -15,7 +15,7 @@ namespace Sango.Core.Player
             customTitleName = "送礼";
 
             customMenuName = "外交/送礼";
-            customMenuOrder = 300;
+            customMenuOrder = 3000;
             windowName = "window_city_diplomacy_send_gift";
             customTitleList = new List<ObjectSortTitle>()
             {

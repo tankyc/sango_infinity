@@ -13,7 +13,7 @@ namespace Sango.Core.Player
             customTitleName = "请求技术";
 
             customMenuName = "外交/请求技术";
-            customMenuOrder = 305;
+            customMenuOrder = 3500;
             windowName = "window_city_diplomacy_request_technique";
 
         }

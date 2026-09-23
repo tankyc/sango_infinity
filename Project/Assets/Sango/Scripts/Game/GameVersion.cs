@@ -192,7 +192,8 @@ namespace Sango.Core
 
             // 抛出事件，界面层监听该事件后自行弹窗展示更新说明与下载地址
             GameEvent.OnVersionInfoUpdate?.Invoke(info);
-            Window.Instance.Open("window_update");
+            if (info.hasNewVersion)
+                Window.Instance.Open("window_update");
         }
 
         /// <summary>

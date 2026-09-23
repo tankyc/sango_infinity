@@ -37,7 +37,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByFeatureList,
             };
             customMenuName = "军事/出征";
-            customMenuOrder = 100;
+            customMenuOrder = 1100;
             windowName = "window_city_create_troop";
         }
         protected override bool MenuCanShow()

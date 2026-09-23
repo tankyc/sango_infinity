@@ -19,18 +19,9 @@ namespace Sango.Core.Duel
 {
     #region 日志
 
-    /// <summary>单挑日志适配：转发到项目的 Sango.Log</summary>
-    public class DuelLogger : Logger
-    {
-        /// <summary>是否输出调试日志（AI 决策过程等，默认关闭以免刷屏）</summary>
-        public static bool Enabled = false;
-
-        public void Debug(string text)
-        {
-            if (Enabled)
-                Sango.Log.Info(text);
-        }
-    }
+    // 单挑不再自带日志实现类：调试日志直接走项目的 Sango.Log
+    //（Sango.Log 已由编译期开关 SANGO_DEBUG 统一控制：未定义的构建里连实参求值都会被编译器删掉）。
+    // Logger 接口只保留给测试用例注入捕获器（见 DuelTestLogger / SetLogger）。
 
     #endregion
 
@@ -98,8 +89,8 @@ namespace Sango.Core.Duel
         /// <summary>表现层</summary>
         protected IDuelView m_View;
 
-        /// <summary>日志</summary>
-        protected Logger m_Logger = new DuelLogger();
+        /// <summary>日志（默认空：Duel.LogDebug 会直接走 Sango.Log；测试可用 SetLogger 注入捕获器）</summary>
+        protected Logger m_Logger;
 
         /// <summary>事件</summary>
         protected DuelGameEvents m_Events = new DuelGameEvents();

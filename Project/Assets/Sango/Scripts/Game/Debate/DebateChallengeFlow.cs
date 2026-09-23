@@ -7,6 +7,8 @@
  *           IsPending 期间由 Game.Update 暂停剧本推进（对话框还没看完就不往前走）。
  *   · 不同：按需求舌战是"失败后**强制**进入"，所以**不问"是否应战"**、也不掷 AI 应战概率；
  *           玩家唯一的选择是"**是否观战**"——不观战则由 AI 代打，逻辑层瞬时跑完出结果。
+ *           【当前】舌战界面尚未完成，所以"是否观战"的提示照弹，但两个选项都按**不观看**处理，
+ *           恒定由 AI 自动打完、瞬时结算（见 ForceNoView）。
  *
  * 对话框的两点注意（沿用单挑踩过的坑）：
  *   · UIDialog.OnCancel 在 cancelAction 为空时会退化成调用 sureAction，
@@ -35,6 +37,15 @@ namespace Sango.Core.Debate
 
         /// <summary>是否正在等待玩家回答对话框</summary>
         public static bool IsPending { get; private set; }
+
+        /// <summary>
+        /// 是否强制按"不观看"处理。
+        ///
+        /// 【当前为 true】舌战界面（window_debate 的表现层）还没做完，所以"是否观战"的提示照弹，
+        /// 但无论玩家点确定还是取消都按**不观看**走：由 AI 自动对打、逻辑层瞬时结算，不创建表现层。
+        /// 接好表现层后把它改成 false，玩家的选择才会生效（观战则恢复手动出牌）。
+        /// </summary>
+        public static bool ForceNoView = true;
 
         private static Person s_Challenger;
         private static Person s_Challenged;
@@ -100,7 +111,8 @@ namespace Sango.Core.Debate
 
         /// <summary>
         /// 是否观战的询问实现。返回值 true = 观战（带表现层）。
-        /// 置空则用 GameDialog 弹「确定 / 取消」；测试里可替换掉它，直接给定答案。
+        /// 置空则用 GameDialog 弹「确定 / 取消」；测试里可替换掉它，直接给定答案
+        /// （注意仍会被 ForceNoView 压成"不观看"，要真正观战请临时把它置 false）。
         /// </summary>
         public static Func<string, Person, bool> AskWatchHandler;
 
@@ -122,7 +134,7 @@ namespace Sango.Core.Debate
             bool showDialog = DebateTrigger.IsPlayerControl(challenger) || DebateTrigger.IsPlayerControl(challenged);
             if (!showDialog)
             {
-                StartDebate(false);
+                StartDebate(!ForceNoView);
                 return true;
             }
 
@@ -134,15 +146,14 @@ namespace Sango.Core.Debate
 
             if (AskWatchHandler != null)
             {
-                StartDebate(AskWatchHandler(question, challenger));
+                StartDebate(!ForceNoView && AskWatchHandler(question, challenger));
                 return true;
             }
 
             if (GameDialog.Instance == null)
             {
-                // 没有对话框可用（编辑器 / 单元测试）：默认按"观战"处理。
-                // 此时表现层若也拿不到（window_debate 打不开），DebateManager 会退化成无表现层瞬时结算。
-                StartDebate(true);
+                // 没有对话框可用（编辑器 / 单元测试）：当前按不观看处理
+                StartDebate(!ForceNoView);
                 return true;
             }
 
@@ -153,12 +164,13 @@ namespace Sango.Core.Debate
                 () =>
                 {
                     IsPending = false;
-                    StartDebate(true);
+                    // 现在点"确定"同样按不观看处理 —— 舌战界面还没做完，没有可看的演出
+                    StartDebate(!ForceNoView);
                 },
                 () =>
                 {
                     IsPending = false;
-                    StartDebate(false);
+                    StartDebate(!ForceNoView);
                 },
                 challenger);
             return true;

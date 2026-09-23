@@ -135,9 +135,7 @@ namespace Sango.Core
                 return;
 
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-#if SANGO_DEBUG
             Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.mBelongForce?.Name}的{targetCity.Name}!");
-#endif
         }
 
         /// <summary>
@@ -162,9 +160,7 @@ namespace Sango.Core
                 return;
 
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-#if SANGO_DEBUG
             Sango.Log.Info($"{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
-#endif
         }
 
         /// <summary>
@@ -187,9 +183,7 @@ namespace Sango.Core
                 return true;
 
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-#if SANGO_DEBUG
             Sango.Log.Info($"{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 驱逐{threatTroop.mBelongForce?.Name}的{threatTroop.Name}!");
-#endif
             return true;
         }
 
@@ -285,9 +279,7 @@ namespace Sango.Core
 
                 troop.SetMission(MissionType.TroopProtectCity, city.Id);
                 troop.NeedPrepareMission();
-#if SANGO_DEBUG
                 Sango.Log.Info($"{scenario.GetDateStr()}{city.Name}受到攻击,召回{troop.Leader?.Name}的部队回防!");
-#endif
             }
         }
 
@@ -468,9 +460,7 @@ namespace Sango.Core
             if (troop != null)
             {
                 troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-#if SANGO_DEBUG
                 Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领援军出城 支援{target.Name}!");
-#endif
             }
 
             // 恢复本城任务状态,避免影响后续 AIAttack 判断
@@ -723,9 +713,7 @@ namespace Sango.Core
             troop.Member2 = null;
             troop.itemStore = city.itemStore.Split(part);
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-#if SANGO_DEBUG
             Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队{troop.troops}出城 向{target.mBelongForce?.Name}的{target.Name}运输物资!");
-#endif
             troop.SetMission(MissionType.TroopTransformGoodsToCity, target.Id);
             return true;
         }
@@ -814,9 +802,7 @@ namespace Sango.Core
                     transport.missionParams1 = 1;
                     transport = CityTroopFactory.EmitTroop(target, transport, scenario);
                     city.CurActiveTroop = transport;
-#if SANGO_DEBUG
                     Sango.Log.Info($"{scenario.GetDateStr()}{target.mBelongForce.Name}势力在{target.Name}由{transport.Leader.Name}率领运输队出城 向{city.mBelongForce?.Name}的{city.Name}运输物资!");
-#endif
                 }
                 return true;
             }
@@ -852,9 +838,7 @@ namespace Sango.Core
                 troop = CityTroopFactory.EmitTroop(city, troop, scenario);
                 troop.missionParams1 = 1;
                 city.CurActiveTroop = troop;
-#if SANGO_DEBUG
                 Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队出城 向{target.mBelongForce?.Name}的{target.Name}运输物资!");
-#endif
             }
             return true;
         }
@@ -2287,9 +2271,7 @@ namespace Sango.Core
             troop.SetMission(MissionType.TroopSupplyTroop, needy.Id);
             troop.NeedPrepareMission();
             city.CurActiveTroop = troop;
-#if SANGO_DEBUG
             Sango.Log.Info($"{scenario.GetDateStr()}{city.mBelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领补给队出城 支援{needy.Name}!");
-#endif
             return true;
         }
 

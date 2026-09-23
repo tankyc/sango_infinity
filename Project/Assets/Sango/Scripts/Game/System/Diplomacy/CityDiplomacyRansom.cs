@@ -15,7 +15,7 @@ namespace Sango.Core.Player
             customTitleName = "赎回俘虏";
 
             customMenuName = "外交/赎回俘虏";
-            customMenuOrder = 308;
+            customMenuOrder = 3900;
             windowName = "window_city_diplomacy_ransom";
 
         }

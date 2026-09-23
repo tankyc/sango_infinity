@@ -17,10 +17,9 @@
  *   · 带表现层：由外部每帧调用 Update()，逐帧推进（表现层还在播时逻辑层会自己等，见 Debate.IsIdle）；
  *   · 无表现层：Update() 内部一次 Run() 跑完整场，用于 AI 推演与测试。
  *
- * 【未接线】当前按需求"先不接到玩法"，所以还没有任何生产代码调用 Update()。
- *   接玩法时只需两步（见 DebateChallengeFlow 的说明）：
- *     1) Game.cs 的 Game.Init 里加一行 Debate.DebateIntegration.Install();
- *     2) Game.Update 里照单挑那样加一段 if (DebateManager.Instance.IsDebating) { DebateManager.Instance.Update(); return; }
+ * 接线情况（已完成）：
+ *   · 安装：Game.Init 调 Debate.DebateIntegration.Install()（表现层工厂 + 发起流程 + 触发点 + 结束改判）；
+ *   · 驱动：Game.Update 里舌战进行中时调 DebateManager.Instance.Update() 并暂停剧本推进。
  */
 
 using System;

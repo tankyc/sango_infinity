@@ -32,7 +32,7 @@ namespace Sango.Core.Player
                 CorpsSortFunction.SortByLeader,
             };
             customMenuName = "君主/军团";
-            customMenuOrder = 900;
+            customMenuOrder = 4000;
             windowName = "window_corps_menu";
 
 

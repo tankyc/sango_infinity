@@ -81,6 +81,15 @@ namespace Sango.Core
         [JsonProperty] public bool onlySpellToTeam;
 
         /// <summary>
+        /// 释放完成后是否允许挑起单挑。
+        /// 只在**战法**(kind=2)上生效：普攻 / 计略本来就不参与单挑触发（见 DuelSkillTrigger）；
+        /// 置否 = 该战法无论命中与否都不会发起单挑；置是也只是"允许"，最终还要过概率与发起资格。
+        /// 默认 true（与加入本开关之前的行为一致），需要禁掉的战法在数据里勾掉即可。
+        /// 本值在创建战法实例时被复制到 SkillInstance.canTriggerDuel（运行期可由 Action 再改写）。
+        /// </summary>
+        [JsonProperty] public bool canTriggerDuel = true;
+
+        /// <summary>
         /// 是否为远程技能
         /// </summary>
         [JsonProperty] public bool isRange;

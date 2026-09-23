@@ -67,9 +67,7 @@ namespace Sango.Core.Action
                 int v = city.totalGainGold * value / 100 / 3;
                 city.AddGold(v);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"城市：{city.Name}, 武将人数:{city.allPersons.Count}, 收入<-- 金钱:{v},  现有金钱: {city.gold}");
-#endif
                 city.Render?.ShowInfo(v, (int)InfoType.Gold);
             }
         }

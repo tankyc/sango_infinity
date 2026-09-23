@@ -466,7 +466,17 @@ namespace Sango.Mod
                 Mod mod = mEnabledModList[i];
                 string targetFile = mod.GetFullPath(path);
                 if (File.Exists(targetFile))
-                    action(targetFile);
+                {
+                    try
+                    {
+                        action(targetFile);
+
+                    }
+                    catch (Exception e)
+                    {
+                        Sango.Log.Error(e.Message + e.StackTrace);
+                    }
+                }
             }
         }
 
@@ -482,7 +492,17 @@ namespace Sango.Mod
                 Mod mod = mEnabledModList[i];
                 string targetFile = mod.GetFullPath(path);
                 if (File.Exists(targetFile))
-                    action(mod, targetFile);
+                {
+                    try
+                    {
+                        action(mod, targetFile);
+
+                    }
+                    catch(Exception e)
+                    {
+                        Sango.Log.Error(e.Message + e.StackTrace);
+                    }
+                }
             }
         }
 
@@ -513,7 +533,17 @@ namespace Sango.Mod
                 Mod mod = mEnabledModList[i];
                 string targetFile = mod.GetFullPath(path);
                 if (Directory.Exists(targetFile))
-                    action(targetFile);
+                {
+                    try
+                    {
+                        action(targetFile);
+
+                    }
+                    catch (Exception e)
+                    {
+                        Sango.Log.Error(e.Message + e.StackTrace);
+                    }
+                }
             }
         }
 

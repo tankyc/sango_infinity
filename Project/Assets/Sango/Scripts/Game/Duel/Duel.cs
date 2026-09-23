@@ -489,11 +489,18 @@ namespace Sango.Core.Duel
             return new Bitset32((int)type);
         }
 
+        /// <summary>
+        /// 输出单挑过程日志。挂了日志器（测试用例）就先走它，否则直接走项目的 Sango.Log。
+        /// 标 [Conditional]：无 SANGO_DEBUG 的构建里，调用与实参求值一起被编译器删除（零开销）。
+        /// </summary>
+        [Conditional("SANGO_DEBUG")]
         private void LogDebug(string text)
         {
             Logger logger = system != null ? system.GetLogger() : null;
             if (logger != null)
                 logger.Debug(text);
+            else
+                Sango.Log.Info(text, Sango.Log.LogType.Game);
         }
 
         #endregion
@@ -1300,16 +1307,12 @@ namespace Sango.Core.Duel
                 }
             }
             param.endBlowCounter = blowCounter;
-            Logger logger = system != null ? system.GetLogger() : null;
-            if (logger != null)
-            {
-                logger.Debug($"Duel::result {ftkType} {ftkTeam} {param.winnerTeam}-{param.winnerChara} {param.endBlowCounter} 0x{param.flags:x} 0x{system.GetSeed():x}");
+            Sango.Log.Info($"Duel::result {ftkType} {ftkTeam} {param.winnerTeam}-{param.winnerChara} {param.endBlowCounter} 0x{param.flags:x} 0x{system.GetSeed():x}", Sango.Log.LogType.Game);
                 for (int i = 0; i < (int)DuelTeam.DuelTeam_Max; i++)
-                {
+            {
                     for (int j = 0; j < team[i].charaCount; j++)
-                    {
-                        logger.Debug($"{i}-{j} {param.result[i][j]} {param.hp[i][j]} {param.spirit[i][j]} {param.injuryLevel[i][j]}");
-                    }
+                {
+                    Sango.Log.Info($"{i}-{j} {param.result[i][j]} {param.hp[i][j]} {param.spirit[i][j]} {param.injuryLevel[i][j]}", Sango.Log.LogType.Game);
                 }
             }
         }
@@ -2091,6 +2094,13 @@ namespace Sango.Core.Duel
                     hpAnimQueue[0] = anim;
                     if (PlayHpAnim(1))
                     {
+                        // 【修复】队列里排了 1 条体力动画，必须同步 actionCount。
+                        // CalcResult(predict:true, hpAnimQueue) 是按 actionCount 遍历队列"预判"胜负的，
+                        // 而这里是一击必杀阶段——此前的 actionCount 仍为 0（Clear 置 0，且没经过任何行动），
+                        // 于是预判时一条都没算 → 判定"无人胜出" → FtkPhase 落到 default 分支继续打，
+                        // 表现上就是"一击必杀播了却没结算，还能继续点开始推进回合"。
+                        // （无表现层时体力在 PlayHpAnim 里立即结算，所以纯逻辑测试看不到这个问题。）
+                        actionCount = 1;
                         Utils.SetBits(ref flags, (int)DuelStatus.DuelStatus_Ftk);
                         return true;
                     }
@@ -2437,14 +2447,10 @@ namespace Sango.Core.Duel
                 for (int j = 0; j < MaxTeamCharaCount; j++)
                     actionRatio[i][j] = CalcActionRatio((int)DuelTeam.DuelTeam_Challenger, i, (int)DuelTeam.DuelTeam_Challenged, j);
             }
-            Logger logger = system != null ? system.GetLogger() : null;
-            if (logger != null)
+            for (int i = 0; i < MaxTeamCharaCount; i++)
             {
-                for (int i = 0; i < MaxTeamCharaCount; i++)
-                {
-                    for (int j = 0; j < MaxTeamCharaCount; j++)
-                        logger.Debug($"calc_action_ratio {i}-{j} {actionRatio[i][j]}");
-                }
+                for (int j = 0; j < MaxTeamCharaCount; j++)
+                    Sango.Log.Info($"calc_action_ratio {i}-{j} {actionRatio[i][j]}", Sango.Log.LogType.Game);
             }
         }
 
@@ -2480,13 +2486,9 @@ namespace Sango.Core.Duel
             for (int i = 0; i < MaxTeamCharaCount; i++)
                 SetStance(team, i, (int)DuelStance.DuelStance_Spirit);
 
-            Logger logger = system != null ? system.GetLogger() : null;
-            if (logger != null)
-            {
                 for (int i = 0; i < this.team[team].charaCount; i++)
-                {
-                    logger.Debug($"{team}-{i} {this.team[team].chara[i].person.Id}{this.team[team].chara[i].person.GetName()} {this.team[team].chara[i].hp} {this.team[team].chara[i].spirit} {this.team[team].chara[i].state} 0x{this.team[team].chara[i].item.Value:x}");
-                }
+            {
+                Sango.Log.Info($"{team}-{i} {this.team[team].chara[i].person.Id}{this.team[team].chara[i].person.GetName()} {this.team[team].chara[i].hp} {this.team[team].chara[i].spirit} {this.team[team].chara[i].state} 0x{this.team[team].chara[i].item.Value:x}", Sango.Log.LogType.Game);
             }
             return true;
         }

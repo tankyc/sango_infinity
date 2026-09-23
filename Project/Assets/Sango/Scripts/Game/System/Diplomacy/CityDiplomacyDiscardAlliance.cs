@@ -12,7 +12,7 @@ namespace Sango.Core.Player
         {
             customTitleName = "摒弃";
             customMenuName = "外交/摒弃";
-            customMenuOrder = 300;
+            customMenuOrder = 3200;
             windowName = "window_city_diplomacy_discard_alliance";
             customTitleList = new List<ObjectSortTitle>()
             {

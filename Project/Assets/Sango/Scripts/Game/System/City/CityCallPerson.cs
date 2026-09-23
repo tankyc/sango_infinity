@@ -30,7 +30,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByFeatureList,
             };
             customMenuName = "人事/召唤";
-            customMenuOrder = 211;
+            customMenuOrder = 2100;
             windowName = "window_city_person_call";
 
         }

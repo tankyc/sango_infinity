@@ -17,7 +17,7 @@ namespace Sango.Core.Player
             customTitleName = "结盟";
 
             customMenuName = "外交/结盟";
-            customMenuOrder = 301;
+            customMenuOrder = 3100;
             windowName = "window_city_diplomacy_alliance";
             customTitleList = new List<ObjectSortTitle>()
             {

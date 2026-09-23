@@ -13,7 +13,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByPolitics,
             };
             customMenuName = "都市/农业";
-            customMenuOrder = 10;
+            customMenuOrder = 300;
             windowName = "window_city_command_base";
         }
 

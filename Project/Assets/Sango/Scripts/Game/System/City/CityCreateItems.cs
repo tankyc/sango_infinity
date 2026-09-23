@@ -32,7 +32,7 @@ namespace Sango.Core.Player
             customTitleName = "生产兵装";
 
             customMenuName = "都市/生产兵装";
-            customMenuOrder = 30;
+            customMenuOrder = 500;
             windowName = "window_city_create_items";
         }
 

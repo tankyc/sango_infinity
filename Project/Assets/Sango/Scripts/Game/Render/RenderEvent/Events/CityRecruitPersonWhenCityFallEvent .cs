@@ -35,9 +35,7 @@ namespace Sango.Render
                     Person person = captiveList[i];
                     if (atk.Leader.JobRecruitPerson(person, targetCity, recruitType))
                     {
-#if SANGO_DEBUG
                         Sango.Log.Info($"{person.Name} 加入了 {atk.mBelongForce} 势力!!!");
-#endif
                     }
                     else
                     {

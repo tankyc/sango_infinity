@@ -1,4 +1,4 @@
-/*
+﻿/*
  * 文件名：DebateExternal.cs
  * 描述：舌战(Debate)系统所依赖的外部工具类型
  *
@@ -15,7 +15,7 @@
  *   Utils      —— C++ utils:: 命名空间的等价工具（is_alive / in_range / clamp / swap）
  *   IAlive     —— 供 Utils.IsAlive 使用的存活标记接口
  *   DebateRandom —— 随机数发生器，默认转发到工程的 GameRandom
- *   Message / Logger / SangoLogger —— 消息对象与日志
+ *   Message / Logger —— 消息对象与日志接口（日志统一走 Sango.Log，Logger 仅留给测试注入）
  */
 
 using System;
@@ -139,17 +139,9 @@ namespace Sango.Core.Debate
         void Debug(string text);
     }
 
-    /// <summary>
-    /// 默认日志实现：转发到项目的 <see cref="Sango.Log"/>（级别 Game）。
-    /// 舌战的所有过程日志都会经由这里输出到 Unity 控制台。
-    /// </summary>
-    public class SangoLogger : Logger
-    {
-        public void Debug(string text)
-        {
-            Sango.Log.Info(text, Sango.Log.LogType.Game);
-        }
-    }
+    // 舌战不再自带日志实现类：过程日志由 Debate.LogDebate 直接走项目的 Sango.Log
+    //（Sango.Log 已由编译期开关 SANGO_DEBUG 统一控制，未定义时连实参求值都会被删掉）。
+    // Logger 接口只保留给测试用例注入捕获器（见 DebateTestLogger / SetLogger）。
 
     #endregion
 }

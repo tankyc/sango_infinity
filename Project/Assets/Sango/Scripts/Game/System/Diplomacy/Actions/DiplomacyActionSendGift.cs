@@ -93,9 +93,7 @@ namespace Sango.Core
             {
                 paymentCity.gold -= ResourceValue;
 
-#if SANGO_DEBUG
                 Sango.Log.Info($"@外交@{Sender.Name} 送礼花费 {ResourceValue} 金");
-#endif
             }
         }
 
@@ -122,9 +120,7 @@ namespace Sango.Core
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             diplomacyManager.AddRelation(Sender, Receiver, relationIncrease);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 赠送了 {ResourceValue} 金，关系增加了 {relationIncrease}!!");
-#endif
 
             // 触发事件
             GameEvent.OnDiplomacySendGift?.Invoke(Sender, Receiver, ResourceValue, true);
@@ -155,9 +151,7 @@ namespace Sango.Core
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             diplomacyManager.AddRelation(Sender, Receiver, relationIncrease);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 赠送了 {ResourceValue} 金，关系增加了 {relationIncrease}!!");
-#endif
 
             // 触发事件
             GameEvent.OnDiplomacySendGift?.Invoke(Sender, Receiver, ResourceValue, true);

@@ -571,6 +571,10 @@ namespace Sango.Core
         /// 五维（统率 / 武力 / 智力 / 政治 / 魅力）的 getter 都过这一道，
         /// 所以**外部取到的就是带伤之后的最终值**——部队攻防、单挑、舌战、内政判定自动口径一致；
         /// 原始数据（baseValue / _value）不动，武将编辑界面看到的仍是底子。
+        ///
+        /// 【下限 1】折减是整除截断（例如智力 3 在濒危时 3*30/100 = 0），而能力值会被当作除数/乘数
+        /// 参与各种公式（如战法成功率 V2 的分母 A智²+B智²），0 会直接除零、也会让其它公式失真，
+        /// 所以这里兜住下限：折减后的能力永远 ≥ 1。
         /// </summary>
         public static int ApplyInjuryDecay(int value, int injury)
         {
@@ -579,7 +583,8 @@ namespace Sango.Core
             else if (injury > InjuryMaxLevel) level = InjuryMaxLevel;
             else level = injury;
 
-            return value * InjuryFactorPercent[level] / 100;
+            int decayed = value * InjuryFactorPercent[level] / 100;
+            return decayed < 1 ? 1 : decayed;
         }
 
         /// <summary>统率（带伤时按伤病衰减）</summary>
@@ -1469,9 +1474,7 @@ namespace Sango.Core
 
                         // 重置停留时间
                         stayTurnCount = 0;
-#if SANGO_DEBUG
                         Sango.Log.Info($"@人才@在野武将{Name}从{mBelongCity.Name}移动到{targetCity.Name}");
-#endif
                     }
                     else
                     {
@@ -1489,9 +1492,7 @@ namespace Sango.Core
 
                                 // 重置停留时间
                                 stayTurnCount = 0;
-#if SANGO_DEBUG
-                                Sango.Log.Info($"@人才@在野武将{Name}从{mBelongCity.Name}移动到{targetCity.Name}");
-#endif
+                        Sango.Log.Info($"@人才@在野武将{Name}从{mBelongCity.Name}移动到{targetCity.Name}");
                             }
                         }
                     }
@@ -1596,9 +1597,7 @@ namespace Sango.Core
             SetMission(MissionType.PersonReturn, dest);
 
             ActionOver = true;
-#if SANGO_DEBUG
             Sango.Log.Info($"*{mBelongForce?.Name}的{Name}从{mBelongCity.Name}向{dest.Name}转移*");
-#endif
         }
 
         public Corps ChangeCorps(Corps corps)
@@ -1627,9 +1626,7 @@ namespace Sango.Core
         {
             City last = mCurrentCity;
             mCurrentCity = city;
-#if SANGO_DEBUG
             Sango.Log.Info($"*{mBelongForce?.Name}的{Name} 改变所在城市 {last.Name} -> {city.Name}");
-#endif
             GameEvent.OnPersonChangCurrentCity?.Invoke(this, city, last);
             return last;
         }
@@ -1645,9 +1642,7 @@ namespace Sango.Core
             if (mBelongCity != city)
             {
                 last = mBelongCity;
-#if SANGO_DEBUG
                 Sango.Log.Info($"*{mBelongForce?.Name}的{Name} 改变所属城市 {mBelongCity?.Name} => {city.Name}");
-#endif
                 if (!IsWild)
                 {
                     mBelongCity?.RemovePerson(this);
@@ -1687,9 +1682,7 @@ namespace Sango.Core
                 long scaled = (long)probability * mPersonality.domesticRecruitPersonScale / 100;
                 probability = scaled > 100 ? 100 : (int)scaled;
             }
-#if SANGO_DEBUG
             Sango.Log.Info($"[{mBelongForce.Name}]<{Name}>登庸 -> {person.Name} 成功率:{probability}");
-#endif
             //TODO: 招募成功概率计算
             bool success = GameRandom.Chance(probability);
             if (success)
@@ -1698,8 +1691,10 @@ namespace Sango.Core
             }
             else
             {
-                // 登用失败：按概率强制进入舌战（概率见剧本参数 debateChanceWhenRecruitFail）
-                Sango.Core.Debate.DebateTrigger.OnRecruitFailed(this, person);
+                // 登用失败：按概率强制进入舌战（概率见剧本参数 debateChanceWhenRecruitFail）。
+                // 只有目标是在野武将 / 没有势力的俘虏才会触发；辩胜时由 DebateConsequence 改判为登用成功，
+                // 所以要把"登用成功后目标加入的城"一并传过去。
+                Sango.Core.Debate.DebateTrigger.OnRecruitFailed(this, person, targetCity);
             }
             ScenarioVariables variables = Scenario.Cur.Variables;
             int jobId = (int)CityJobType.RecruitPerson;
@@ -1718,9 +1713,7 @@ namespace Sango.Core
 
         public void BeRecruit(Person person, City targetCity)
         {
-#if SANGO_DEBUG
             Sango.Log.Info($"[{person.mBelongForce.Name}]<{person.Name}>登庸成功, {Name}加入了势力{person.mBelongForce.Name}");
-#endif
             loyalty = 80;
             if (IsPrisoner)
             {
@@ -1835,15 +1828,11 @@ namespace Sango.Core
             {
                 mBelongForce?.BeCaptiveList.Remove(this);
                 mCurrentCity?.captiveList.Remove(this);
-#if SANGO_DEBUG
                 Sango.Log.Info($"@人才@<{Name}>失去势力,进入囚犯下野状态");
-#endif
             }
             else
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"@人才@[{mBelongForce?.Name}]的<{Name}>下野至{mBelongCity?.Name}");
-#endif
             }
             state = (int)PersonStateType.Unemployed;
             mCurrentCity = mBelongCity;
@@ -1910,24 +1899,18 @@ namespace Sango.Core
             // 根据逃出方式触发对应的事件
             if (escapeType == EscapeType.Escape)
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"@人才@[{Name}]逃亡!");
-#endif
                 GameEvent.OnPersonEscape?.Invoke(this, mBelongCity);
             }
             else if (escapeType == EscapeType.Released)
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"@人才@[{Name}]被释放!");
-#endif
                 // 被释放的逻辑已经在PersonRecruit.ReleaseTarget中处理
                 GameEvent.OnPersonRelease?.Invoke(this, sangoObject as Force);
             }
             else if (escapeType == EscapeType.TroopDestroyed)
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"@人才@[{Name}]逃亡!");
-#endif
                 // 部队灭亡的情况可以在这里处理
                 GameEvent.OnPersonEscape?.Invoke(this, mBelongCity);
             }
@@ -1974,9 +1957,7 @@ namespace Sango.Core
                     }
                     else
                         break;
-#if SANGO_DEBUG
                     Sango.Log.Info($"@个人@{Name}升级到{Level.Id}级");
-#endif
                     GameEvent.OnPersonLevelUp?.Invoke(this);
                 }
                 else
@@ -2454,9 +2435,7 @@ namespace Sango.Core
             Official = official;
             Official.OnPersonAdd(this);
             merit -= need;
-#if SANGO_DEBUG
             Sango.Log.Info($"@个人@{Name}官职升到[{Official.Name}]!!");
-#endif
             GameEvent.OnPersonUpgradeOfficial?.Invoke(this, last);
         }
 

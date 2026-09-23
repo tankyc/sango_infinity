@@ -29,7 +29,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByFeatureList,
             };
             customMenuName = "军事/运输";
-            customMenuOrder = 110;
+            customMenuOrder = 1200;
             windowName = "window_city_create_transport";
         }
 

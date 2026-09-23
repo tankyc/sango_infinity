@@ -32,7 +32,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByFeatureList,
             };
             customMenuName = "人事/褒赏";
-            customMenuOrder = 241;
+            customMenuOrder = 2400;
             windowName = "window_city_reward";
         }
 

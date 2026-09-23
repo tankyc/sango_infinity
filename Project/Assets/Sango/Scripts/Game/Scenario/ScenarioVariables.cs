@@ -426,7 +426,8 @@ namespace Sango.Core
 
         /// <summary>
         /// 战法(kind=2)命中后触发单挑的基础概率(百分比)，0 = 关闭该触发。
-        /// 实际概率 = 本值 + 该战法的 duelChanceAdd，夹在 0~100 之间。
+        /// 实际概率取发起部队属性 Troop.duelChance（本值 + Action 的修正），夹在 0~100 之间；
+        /// 另外还要求该战法自身的 Skill.canTriggerDuel 为 true（战法级别的开关）。
         /// </summary>
         [JsonProperty] public int skillDuelChance = 5;
 

@@ -34,9 +34,7 @@ namespace Sango.Core
         /// <param name="filewhere"></param>
         private void LoadFile(string filewhere)
         {
-#if SANGO_DEBUG
             Sango.Log.Info($"Load  Language File: {filewhere}");
-#endif
             using (StreamReader file = System.IO.File.OpenText(filewhere))
             using (JsonTextReader reader = new JsonTextReader(file))
             {

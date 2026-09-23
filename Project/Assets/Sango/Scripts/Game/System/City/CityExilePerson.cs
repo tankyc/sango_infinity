@@ -13,7 +13,7 @@ namespace Sango.Core.Player
         {
             customTitleName = "流放";
             customMenuName = "君主/流放";
-            customMenuOrder = 901;
+            customMenuOrder = 4500;
             windowName = "";
             customTitleList = new List<ObjectSortTitle>()
             {

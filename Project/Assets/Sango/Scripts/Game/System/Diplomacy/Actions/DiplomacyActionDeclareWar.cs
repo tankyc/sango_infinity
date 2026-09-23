@@ -70,9 +70,7 @@ namespace Sango.Core
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             diplomacyManager.ReduceRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyDeclareWarRelationDecrease);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 宣战!!");
-#endif
 
             // 触发事件
             GameEvent.OnDiplomacyDeclareWar?.Invoke(Sender, Receiver, true);
@@ -108,9 +106,7 @@ namespace Sango.Core
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             diplomacyManager.ReduceRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyDeclareWarRelationDecrease);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 宣战!!");
-#endif
 
             // 触发事件
             GameEvent.OnDiplomacyDeclareWar?.Invoke(Sender, Receiver, true);

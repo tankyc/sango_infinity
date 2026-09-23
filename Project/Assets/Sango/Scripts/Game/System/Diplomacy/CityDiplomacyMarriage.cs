@@ -13,7 +13,7 @@ namespace Sango.Core.Player
             customTitleName = "和亲";
 
             customMenuName = "外交/和亲";
-            customMenuOrder = 308;
+            customMenuOrder = 3800;
             windowName = "window_city_diplomacy_marriage";
 
         }

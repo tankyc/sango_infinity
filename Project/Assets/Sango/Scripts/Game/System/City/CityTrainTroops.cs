@@ -14,7 +14,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByStrength,
             };
             customMenuName = "军事/训练";
-            customMenuOrder = 103;
+            customMenuOrder = 1000;
             windowName = "window_city_train_troops";
         }
 

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * 文件名：DebatePersonBehaviours.cs
  * 描述：武将舌战行为的注册表 + 数据驱动实现（与单挑的 DuelPersonBehaviours 同款式）。
  *

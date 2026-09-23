@@ -62,7 +62,7 @@ namespace Sango.Core
         {
             Target = city;
             if (CityMenuCanShow())
-                menuData.Add("情报", 1000, city, OnClickMenuItem, true);
+                CityMenuOrder.Add(menuData, "情报", 5000, city, OnClickMenuItem, true);
         }
 #endif
         protected virtual void OnGameSettingContextMenuShow(IContextMenuData menuData)

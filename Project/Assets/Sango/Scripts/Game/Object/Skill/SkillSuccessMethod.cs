@@ -35,6 +35,28 @@ namespace Sango.Core
             return null;
         }
 
+        /// <summary>
+        /// V2 公式里共用的"智力比"部分：A智² * (100 - B智*0.9) * 100 / (A智² + B智²)。
+        ///
+        /// 火计 / 伪报 / 扰乱 / 伏兵 / 内讧 五个成功率算法的 V2 都用到它，原先各自内联，且都直接把
+        /// (A智² + B智²) 当分母 —— **双方智力都为 0 时会除零**：
+        /// 例如部队没有主将（Troop.Intelligence 停留在 0）而目标又不是部队（B=0），
+        /// AI 评估"对建筑施火计"时正好是这个组合（TroopAIUtility.CalcSkillBasePriority → FireSuccessMethod.Calculate）。
+        ///
+        /// 分母为 0 时返回 0（表示毫无把握），调用方各自继续 -D +F ... 即可；其余情况与原先逐位一致。
+        /// </summary>
+        protected static int CalcIntelligenceRatioPart(int aIntelligence, int bIntelligence)
+        {
+            int a = Mathf.Max(0, aIntelligence);
+            int b = Mathf.Max(0, bIntelligence);
+
+            int denominator = a * a + b * b;
+            if (denominator <= 0)
+                return 0;
+
+            return a * a * (100 - b * 90 / 100) * 100 / denominator;
+        }
+
         public static void Init()
         {
             Register("CommonMethod", CraeteHandle<CommonMethod>);
@@ -111,10 +133,9 @@ namespace Sango.Core
                         C = 10;
                     D = B > troop.Intelligence ? (B - troop.Intelligence) / 3 : 0;
                 }
-                int F = spellCell.TerrainType.fireRate;
+                int F = spellCell.TerrainType != null ? spellCell.TerrainType.fireRate : 0;
                 int V1 = (troop.Intelligence * 30 - B * 20) / 100 + 55 + C + G;
-                int V2 = (troop.Intelligence * troop.Intelligence * (100 - B * 90 / 100) * 100 /
-                    (troop.Intelligence * troop.Intelligence + B * B)) / 55 - (100 - troop.Intelligence) * 10 / 100 + F - D + C - 5;
+                int V2 = CalcIntelligenceRatioPart(troop.Intelligence, B) / 55 - (100 - troop.Intelligence) * 10 / 100 + F - D + C - 5;
 
                 return Mathf.Min(V1, V2);
             }
@@ -157,8 +178,7 @@ namespace Sango.Core
                 int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.FalseReport);
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 20) / 100 + troop.Glamour * 5 / 100 + E + 70 + C;
-                int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
-                    (troop.Intelligence * troop.Intelligence + target.Intelligence * target.Intelligence)) / 55 - (100 - troop.Intelligence) * 10 / 100 + troop.Glamour * 5 / 100 + E - D + C;
+                int V2 = CalcIntelligenceRatioPart(troop.Intelligence, target.Intelligence) / 55 - (100 - troop.Intelligence) * 10 / 100 + troop.Glamour * 5 / 100 + E - D + C;
 
                 return Mathf.Min(V1, V2);
             }
@@ -188,8 +208,7 @@ namespace Sango.Core
                 int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Disturb);
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 20) / 100 + target.Defence * 5 / 100 + E + 70 + C;
-                int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
-                    (troop.Intelligence * troop.Intelligence + target.Intelligence * target.Intelligence)) / 55 - (100 - troop.Intelligence) * 10 / 100 + target.Defence * 5 / 100 + E - D + C;
+                int V2 = CalcIntelligenceRatioPart(troop.Intelligence, target.Intelligence) / 55 - (100 - troop.Intelligence) * 10 / 100 + target.Defence * 5 / 100 + E - D + C;
 
                 return Mathf.Min(V1, V2);
             }
@@ -237,8 +256,7 @@ namespace Sango.Core
                 int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Ambush);
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 33) / 100 + (troop.Attack - target.Defence) * 10 / 100 + E + 80 + C;
-                int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
-                    (troop.Intelligence * troop.Intelligence + target.Intelligence * target.Intelligence)) / 50 - (100 - troop.Intelligence) * 10 / 100 + (troop.Attack - target.Defence) * 10 / 100 + E - D + C;
+                int V2 = CalcIntelligenceRatioPart(troop.Intelligence, target.Intelligence) / 50 - (100 - troop.Intelligence) * 10 / 100 + (troop.Attack - target.Defence) * 10 / 100 + E - D + C;
 
                 return Mathf.Min(V1, V2);
             }
@@ -267,8 +285,7 @@ namespace Sango.Core
                 int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Infighting);
 
                 int V1 = (troop.Intelligence * 30 - target.Intelligence * 40) / 100 + E + 80 + C;
-                int V2 = (troop.Intelligence * troop.Intelligence * (100 - target.Intelligence * 90 / 100) * 100 /
-                    (troop.Intelligence * troop.Intelligence + target.Intelligence * target.Intelligence)) / 55 - (100 - troop.Intelligence) * 10 / 100 + E - D + C;
+                int V2 = CalcIntelligenceRatioPart(troop.Intelligence, target.Intelligence) / 55 - (100 - troop.Intelligence) * 10 / 100 + E - D + C;
 
                 return Mathf.Min(V1, V2);
             }

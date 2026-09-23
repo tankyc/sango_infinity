@@ -399,9 +399,7 @@ namespace Sango.Core
                 return false;
 
             supplier.SupplyTroop(ally, itemGive, goldGive, foodGive, troopGive);
-#if SANGO_DEBUG
             Sango.Log.Info($"{supplier.mBelongForce?.Name}的补给队[{supplier.Name}]为[{ally.Name}]补充 粮草{foodGive} 兵力{troopGive} 资金{goldGive}!");
-#endif
             return true;
         }
 

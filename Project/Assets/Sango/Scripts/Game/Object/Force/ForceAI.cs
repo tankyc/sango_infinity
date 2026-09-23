@@ -865,9 +865,7 @@ namespace Sango.Core
                 captive.state = (int)PersonStateType.Normal;
                 captive.ChangeBelongCity(force.CapitalCity);
                 captive.SetMission(MissionType.PersonReturn, force.CapitalCity);
-#if SANGO_DEBUG
                 Sango.Log.Info($"{force.Name}成功招降了{lastForceName}的{captive.Name}！");
-#endif
                 return true;
 
             }
@@ -911,9 +909,7 @@ namespace Sango.Core
             if (captive == null || !captive.IsPrisoner)
                 return;
 
-#if SANGO_DEBUG
             Sango.Log.Info($"{force.Name}在{captive.mCurrentCity?.Name}释放了{captive.mBelongForce?.Name}的{captive.Name}！");
-#endif
             // 直接调用Person.Escape方法释放俘虏
             captive.Escape(EscapeType.Released, force);
         }
@@ -955,9 +951,7 @@ namespace Sango.Core
                                 person.SetMission(MissionType.PersonDiplomacy, captive.mCurrentCity, (int)DiplomacyActionType.Ransom, ransom, person.Id);
                                 city.freePersons.Remove(person);
                                 hasSend = true;
-#if SANGO_DEBUG
                                 Sango.Log.Info($"{captive.mBelongForce?.Name}派遣{person.Name}前往{captive.mCurrentCity.mBelongForce.Name}赎回我方俘虏{captive.Name}！");
-#endif          
                                 return;
                             }
                         }
@@ -1156,9 +1150,7 @@ namespace Sango.Core
             force.ResearchTechnique = technique.Id;
             force.ResearchLeftCounter = researchDays;
 
-#if SANGO_DEBUG
             Sango.Log.Info($"{force.Name}开始研发科技{technique.Name}，预计需要{researchDays}天！");
-#endif
         }
 
         /// <summary>

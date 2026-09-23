@@ -38,9 +38,7 @@ namespace Sango.Render
                             };
                             RenderEvent.Instance.Add(personBeCaptiveEvent);
                         }
-#if SANGO_DEBUG
                         Sango.Log.Info($"{person.Name} 加入了 {atk.mBelongForce} 势力!!!");
-#endif
                     }
                     else
                     {

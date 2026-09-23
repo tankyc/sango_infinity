@@ -36,7 +36,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// ¼ÓÔØjsonÊý¾Ý
+        /// ï¿½ï¿½ï¿½ï¿½jsonï¿½ï¿½ï¿½ï¿½
         /// </summary>
         /// <param name="file"></param>
         public void Load(string file)
@@ -62,9 +62,7 @@ namespace Sango.Core
             if (AudioManager.Instance.VoiceVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"²¥·ÅÓïÒô: {result.res}");
-#endif
+                Sango.Log.Info($"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: {result.res}");
                 return AudioManager.Instance.PlayVoice(result.res);
             }
             return -1;
@@ -75,9 +73,7 @@ namespace Sango.Core
             if (AudioManager.Instance.VoiceVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"²¥·ÅÓïÒô: {result.res}");
-#endif
+                Sango.Log.Info($"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: {result.res}");
                 return AudioManager.Instance.PlayVoice(result.res, volume);
             }
             return -1;
@@ -88,9 +84,7 @@ namespace Sango.Core
             if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"²¥·ÅÒôÐ§: {result.res}");
-#endif
+                Sango.Log.Info($"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§: {result.res}");
                 return AudioManager.Instance.PlaySfx(result.res);
             }
             return -1;
@@ -101,9 +95,7 @@ namespace Sango.Core
             if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"²¥·ÅÒôÐ§: {result.res}");
-#endif
+                Sango.Log.Info($"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§: {result.res}");
                 return AudioManager.Instance.PlaySfxLoop(result.res);
             }
             return -1;
@@ -114,9 +106,7 @@ namespace Sango.Core
             if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"²¥·ÅÒôÐ§: {result.res}");
-#endif
+                Sango.Log.Info($"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§: {result.res}");
                 return AudioManager.Instance.PlaySfx(result.res, volume);
             }
             return -1;
@@ -127,9 +117,7 @@ namespace Sango.Core
             if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"ÑÓ³Ù²¥·ÅÒôÐ§: {result.res}, delay:{delay}");
-#endif
+                Sango.Log.Info($"ï¿½Ó³Ù²ï¿½ï¿½ï¿½ï¿½ï¿½Ð§: {result.res}, delay:{delay}");
                 return AudioManager.Instance.PlayDelayedSfx(result.res, delay);
             }
             return -1;
@@ -139,9 +127,7 @@ namespace Sango.Core
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return;
             if (MediaData.TryGetValue(id, out var result))
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"²¥·Å±³¾°ÒôÀÖ: {result.res}");
-#endif
+                Sango.Log.Info($"ï¿½ï¿½ï¿½Å±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: {result.res}");
                 AudioManager.Instance.PlayBgm(result.res, loop);
             }
         }
@@ -156,9 +142,7 @@ namespace Sango.Core
         {
             if (MediaData.TryGetValue(id, out var result))
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"Í£Ö¹ÒôÐ§: {result.res}");
-#endif
+                Sango.Log.Info($"Í£Ö¹ï¿½ï¿½Ð§: {result.res}");
                 AudioManager.Instance.StopSfx(result.res);
             }
         }
@@ -169,7 +153,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// ÔÝÍ£±³¾°ÒôÀÖ
+        /// ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         /// </summary>
         public void PauseBgm()
         {
@@ -215,11 +199,11 @@ namespace Sango.Core
         public int PlayPersonSay(Person person, int sayId)
         {
             /*
-             * 1.Ñ¡ÔñÂÀ²¼ºÍÖî¸ðÁÁÓïÒô»á×Ô¶¯Ö¸ÏòÄÐÂ³Ã§ºÍÄÐÀä¾²£¬ÐÞ¸Ä¸ÃÎ»ÖÃÓïÒôÎÞÓÃ
-                2.ÄÐÎä½«¸ßÎäºÍµÍÎäÒôÉùÒ»Ñù
-                3.Å®Îä½«£¬ÅÐ¶ÏÎä½«µÄÎä¡¢Í³¡¢ÖÇ¡¢ÕþÖÐÊÇ·ñ"ÎäÁ¦"×î¸ß£¬ÅÐ¶ÏÊÇ¸ßÎä»¹ÊÇµÍÎä£¬Õâ4¸öÖÐÎäÁ¦×î¸ß¾ÍËã¸ßÎä
-            ÄÐÂ³Ã§0		ÄÐ¸Õµ¨1		ÄÐÀä¾²2		ÄÐÐ¡ÐÄ3		Å®¸Õµ¨4		Å®Àä¾²5		ÂÀ²¼6	Öî¸ðÁÁ7
-¸ßÎä	µÍÎä	µÍÎä	¸ßÎä	µÍÎä	¸ßÎä	µÍÎä	¸ßÎä	¸ßÎä	µÍÎä	µÍÎä	¸ßÎä	»ù±¾ÉÏÃ»ÓÃ																											
+             * 1.Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Â³Ã§ï¿½ï¿½ï¿½ï¿½ï¿½ä¾²ï¿½ï¿½ï¿½Þ¸Ä¸ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                2.ï¿½ï¿½ï¿½ä½«ï¿½ï¿½ï¿½ï¿½Íµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
+                3.Å®ï¿½ä½«ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ä½«ï¿½ï¿½ï¿½ä¡¢Í³ï¿½ï¿½ï¿½Ç¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½"ï¿½ï¿½ï¿½ï¿½"ï¿½ï¿½ß£ï¿½ï¿½Ð¶ï¿½ï¿½Ç¸ï¿½ï¿½ä»¹ï¿½Çµï¿½ï¿½ä£¬ï¿½ï¿½4ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+            ï¿½ï¿½Â³Ã§0		ï¿½Ð¸Õµï¿½1		ï¿½ï¿½ï¿½ä¾²2		ï¿½ï¿½Ð¡ï¿½ï¿½3		Å®ï¿½Õµï¿½4		Å®ï¿½ä¾²5		ï¿½ï¿½ï¿½ï¿½6	ï¿½ï¿½ï¿½ï¿½ï¿½7
+ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½	ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½																											
 3132	3133	3134	3135	3136	3137	3138	3139	3140	3141	3142	3143	3144	3145
 
              * */

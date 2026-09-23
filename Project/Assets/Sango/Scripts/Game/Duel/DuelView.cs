@@ -70,6 +70,14 @@ namespace Sango.Core.Duel
         /// <summary>播放一击必杀</summary>
         void DuelFtk(Duel duel, int team, int chara, int ftkType, int opponentTeam, int opponentChara);
 
+        /// <summary>
+        /// 一击必杀**判定**演出：寒暄之后、真正结算之前播一次（对应的是一击必杀的判定阶段）。
+        /// ftkTeam &gt;= 0 表示判定命中，紧接着会调到 DuelFtk 播必杀演出（表现层应让两卡停留在中间承接）；
+        /// ftkTeam &lt; 0 表示没命中，表现层把卡牌归位，随后正常进入回合。
+        /// 逻辑层会停在原地等这段表演播完（DuelIsAnimating），所以播多久由表现层决定。
+        /// </summary>
+        void DuelFtkJudge(Duel duel, int ftkTeam, int ftkType);
+
         /// <summary>清除无敌状态显示</summary>
         void DuelResetInvulnerable(Duel duel, int team);
 
@@ -152,6 +160,7 @@ namespace Sango.Core.Duel
         public virtual void DuelSwitch(Duel duel, int team, int oldChara) { }
         public virtual void DuelChangeCurrentChara(Duel duel, int team) { }
         public virtual void DuelFtk(Duel duel, int team, int chara, int ftkType, int opponentTeam, int opponentChara) { }
+        public virtual void DuelFtkJudge(Duel duel, int ftkTeam, int ftkType) { }
         public virtual void DuelResetInvulnerable(Duel duel, int team) { }
         public virtual void DuelResetBuff(Duel duel, int team, int buff) { }
         public virtual void DuelSpecialBegin(Duel duel, int team, int chara, int special) { }

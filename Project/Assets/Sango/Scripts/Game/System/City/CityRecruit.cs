@@ -21,7 +21,7 @@ namespace Sango.Core.Player
             customActionTitleName = "执行武将";
 
             customMenuName = "人事/登庸武将";
-            customMenuOrder = 231;
+            customMenuOrder = 2300;
             windowName = "window_city_recruit";
 
             customActionTitleList = new List<ObjectSortTitle>()

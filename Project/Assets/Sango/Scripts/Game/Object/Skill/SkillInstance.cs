@@ -86,6 +86,14 @@ namespace Sango.Core
         [JsonProperty] public bool onlySpellToTeam;
 
         /// <summary>
+        /// 释放完成后是否允许挑起单挑。
+        /// 初值由战法定义 Skill.canTriggerDuel 复制而来（见 Init），
+        /// 因此可在运行期被改写：Init 末尾的 GameEvent.OnSkillCalculateAttribute 里挂 Action 即可按需禁掉；
+        /// 旧存档里没有该字段时保持 true，行为与加入本开关之前一致。
+        /// </summary>
+        [JsonProperty] public bool canTriggerDuel = true;
+
+        /// <summary>
         /// 施法范围
         /// </summary>
         [JsonProperty] public int[] spellRanges;
@@ -216,6 +224,7 @@ namespace Sango.Core
             canDamageTeam = skill.canDamageTeam;
             canSpellToCell = skill.canSpellToCell;
             onlySpellToTeam = skill.onlySpellToTeam;
+            canTriggerDuel = skill.canTriggerDuel;
             spellRanges = skill.spellRanges;
             successRate = skill.successRate;
             atkOffsetPoint = skill.atkOffsetPoint;
@@ -439,25 +448,19 @@ namespace Sango.Core
 
             if (baseSuccessRate >= 100)
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
-#endif
+            Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
                 return true;
             }
             else if (baseSuccessRate <= -100)
             {
-#if SANGO_DEBUG
-                Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
-#endif
+            Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
                 tempSuccessFactor = 0;
                     return false;
             }
 
             if (skillSuccessMethod == null)
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{successMethod}");
-#endif
                 tempSuccessFactor = 0;
                 return false;
             }
@@ -468,9 +471,7 @@ namespace Sango.Core
             GameEvent.OnTroopAfterCalculateSkillSuccess?.Invoke(troop, this, spellCell, overrideData);
             baseSuccessRate = overrideData.ValueAndRecycle;
 
-#if SANGO_DEBUG
             Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
-#endif
             bool b_suc = GameRandom.Chance(baseSuccessRate);
             if(!b_suc)
             {
@@ -686,9 +687,7 @@ namespace Sango.Core
 
                     // 传入击破结果，使精妙仅在击破敌方部队的本次结算中生效。
                     troop.GainEP(ep, !beAtkTroop.IsAlive);
-#if SANGO_DEBUG
                     Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkTroop.mBelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}], 造成伤害:{damage}, 目标剩余兵力: {beAtkTroop.GetTroopsNum()}");
-#endif
                     // 反击
                     if (beAtkTroop.IsAlive && targetTroop == beAtkTroop && !beAtkTroop.HasControlBuff())
                     {
@@ -704,9 +703,7 @@ namespace Sango.Core
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalRangeSkill) / 100;
                                 troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalRangeSkill, hitBack);
-#if SANGO_DEBUG
                                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkTroop.mBelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
-#endif
                                 ep = Math.Max(1, damage / 10);
                                 if (!troop.IsAlive) ep += 200;
                                 // 反击方仅在实际击破进攻部队时触发精妙。
@@ -716,9 +713,7 @@ namespace Sango.Core
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalSkill) / 100;
                                 troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalSkill, hitBack);
-#if SANGO_DEBUG
                                 Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkTroop.mBelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
-#endif
                                 ep = Math.Max(1, damage / 10);
                                 if (!troop.IsAlive)
                                 {
@@ -761,9 +756,7 @@ namespace Sango.Core
                     {
                         City city = (City)beAtkBuildingBase;
                         int damage_troops = Troop.CalculateSkillDamageTroopOnCity(troop, city, this) * criticalFactor / 100;
-#if SANGO_DEBUG
                         Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.mBelongForce?.Name}的 [{beAtkBuildingBase.Name}], 造成兵力伤害:{damage_troops}, 目标剩余兵力: {city.troops}");
-#endif
                         overrideData = Tools.OverrideData<int>.Create(damage_troops);
                         GameEvent.OnSkillDamageBuildingTroops?.Invoke(this, beAtkBuildingBase, overrideData);
                         damage_troops = overrideData.ValueAndRecycle;
@@ -777,9 +770,7 @@ namespace Sango.Core
                             else if (city.IsPort())
                                 ep += 300;
                             troop.GainEP(ep);
-#if SANGO_DEBUG
                             Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 攻破城池: <{beAtkBuildingBase.Name}>");
-#endif
                             city.OnFall(this);
                             return;
                         }
@@ -790,9 +781,7 @@ namespace Sango.Core
                     }
 
                     int damage = Troop.CalculateSkillDamage(troop, beAtkBuildingBase, this) * criticalFactor / 100;
-#if SANGO_DEBUG
                     Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.mBelongForce?.Name}的 [{beAtkBuildingBase.Name}], 造成耐久伤害:{damage}, 目标剩余耐久: {beAtkBuildingBase.durability}");
-#endif
                     overrideData = Tools.OverrideData<int>.Create(damage);
                     GameEvent.OnSkillDamageBuildingDurability?.Invoke(this, beAtkBuildingBase, overrideData);
                     damage = overrideData.ValueAndRecycle;
@@ -800,10 +789,8 @@ namespace Sango.Core
                     {
                         int ep = damage + 200;
                         troop.GainEP(ep);
-#if SANGO_DEBUG
 
                         Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 破坏建筑: <{beAtkBuildingBase.Name}>");
-#endif
                     }
                     else
                     {
@@ -824,9 +811,7 @@ namespace Sango.Core
                                 {
                                     int hitBackDmg = (int)System.Math.Ceiling(hitBack * Troop.CalculateSkillDamage(beAtkBuildingBase, troop, atkBack));
                                     troop.ChangeTroops(-hitBackDmg, beAtkBuildingBase, atkBack);
-#if SANGO_DEBUG
                                     Sango.Log.Info($"{troop.mBelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkBuildingBase.mBelongForce?.Name}的[{beAtkBuildingBase.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
-#endif
                                 }
                             }
                         }

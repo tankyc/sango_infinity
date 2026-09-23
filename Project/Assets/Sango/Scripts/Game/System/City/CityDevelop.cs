@@ -13,7 +13,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByIntelligence,
             };
             customMenuName = "都市/商业";
-            customMenuOrder = 5;
+            customMenuOrder = 200;
             windowName = "window_city_command_base";
         }
 

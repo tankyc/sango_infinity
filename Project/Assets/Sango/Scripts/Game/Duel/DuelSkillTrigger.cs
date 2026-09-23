@@ -4,6 +4,9 @@
  *
  * 规则：
  *   · 只处理**战法**（Skill.kind = 2），普攻 / 计略不参与；
+ *   · **战法自身的开关**：SkillInstance.canTriggerDuel = false 时一律不触发。
+ *     该值在 SkillInstance.Init 里由战法定义 Skill.canTriggerDuel 复制而来，
+ *     所以既能按战法在数据里勾选，也能在运行期被 Action（OnSkillCalculateAttribute）临时禁掉；
  *   · 必须**命中**：CheckSuccess 失败时会把 tempSuccessFactor 置 0，那种情况不触发；
  *   · 概率取自**发起部队的属性** Troop.duelChance（百分比，夹在 0~100）。
  *     该属性在 Troop.CalculateAttribute 里求值：基础值 = 剧本参数 Scenario.Cur.Variables.skillDuelChance，
@@ -44,6 +47,7 @@ namespace Sango.Core.Duel
         {
             if (skill == null || skill.master == null || targetTroop == null) return;
             if (skill.skill == null || skill.skill.kind != SkillKindTactic) return;
+            if (!skill.canTriggerDuel) return;                      // 本战法声明不挑起单挑（定义或运行期改写）
             if (ReferenceEquals(s_lastRolled, skill)) return;       // 同一次施法只判定一次
             s_lastRolled = skill;
 
@@ -63,11 +67,12 @@ namespace Sango.Core.Duel
         /// <summary>
         /// 本次战法触发单挑的概率(百分比)。
         /// 直接取发起部队的属性 Troop.duelChance（基础来自剧本参数，可被 Action 修改）；
-        /// 没命中（tempSuccessFactor ≤ 0）恒为 0。
+        /// 战法实例关掉（canTriggerDuel = false）、或没命中（tempSuccessFactor ≤ 0）恒为 0。
         /// </summary>
         public static int CalcChance(SkillInstance skill)
         {
             if (skill == null || skill.skill == null) return 0;
+            if (!skill.canTriggerDuel) return 0;
             if (skill.tempSuccessFactor <= 0) return 0;
             if (skill.master == null) return 0;
 

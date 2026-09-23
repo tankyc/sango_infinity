@@ -12,7 +12,7 @@ namespace Sango.Core.Player
             customTitleName = "探索人才";
 
             customMenuName = "人事/探索人才";
-            customMenuOrder = 221;
+            customMenuOrder = 2200;
             windowName = "window_city_searching";
 
         }

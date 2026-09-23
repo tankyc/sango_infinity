@@ -709,9 +709,7 @@ namespace Sango.Core
             CityBaseCount = 0;
             // 清理已阵亡的威胁部队记录
             CleanupThreatTroops();
-#if SANGO_DEBUG
             Sango.Log.Info($"==={Name} 回合===");
-#endif
 
             for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
@@ -993,9 +991,7 @@ namespace Sango.Core
             ForEachPerson(person =>
             {
                 person.loyalty -= v;
-#if SANGO_DEBUG
                 Sango.Log.Info($"势力：{Name}, 武将：{person.Name}, 忠诚度下降: {v}, 现有忠诚度:{person.loyalty}");
-#endif
             });
         }
 

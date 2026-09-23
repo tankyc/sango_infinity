@@ -52,11 +52,7 @@ namespace Sango.Core.Duel
         {
             if (nextPhase >= 0)
             {
-                Logger logger = system != null ? system.GetLogger() : null;
-                if (logger != null)
-                {
-                    logger.Debug($"on_phase_change {nextPhase} 0x{system.GetSeed():x}");
-                }
+                Sango.Log.Info($"on_phase_change {nextPhase} 0x{system.GetSeed():x}", Sango.Log.LogType.Game);
                 OnPhaseChange();
             }
             if (phase >= 0)
@@ -133,7 +129,11 @@ namespace Sango.Core.Duel
                     step = 2;
                     break;
                 case 2:
-                    SetNextPhase((int)DuelPhase.DuelPhase_FTK);
+                    // 【顺序】先寒暄、再一合。
+                    // 一合（一击必杀）原本排在寒暄之前：一旦命中就直接去 Closing，
+                    // 开场台词根本不会播，玩家"打开界面就直接看到必杀演出"。
+                    // 因此把寒暄提到前面，流程改为 Init → Opening → FTK → 回合。
+                    SetNextPhase((int)DuelPhase.DuelPhase_Opening);
                     break;
             }
             return false;
@@ -176,10 +176,19 @@ namespace Sango.Core.Duel
                         ftkTeam = CalcFtkTeam();
                     if (Utils.InRange(ftkTeam, 0, MaxTeamCount - 1) && !Utils.InRange(ftkType, 0, (int)DuelFtkType.DuelFtkType_Max - 1))
                         ftkType = CalcFtkType();
+                    // 判定演出：不论中不中，都先让表现层播"两卡冲到中间互挤"——
+                    // 中了就停在中间、直接接 DuelFtk；没中则归位，逻辑层会停在 step 2 等它播完。
+                    if (view && engine != null)
+                        engine.DuelFtkJudge(this,
+                            Utils.InRange(ftkType, 0, (int)DuelFtkType.DuelFtkType_Max - 1) ? ftkTeam : -1,
+                            ftkType);
+
                     if (Utils.InRange(ftkType, 0, (int)DuelFtkType.DuelFtkType_Max - 1))
                         step = 2;
                     break;
                 case 2:
+                    if (!IsIdle())
+                        break;              // 等"两卡冲到中间互挤"的判定演出播完
                     step = 6;
                     if (FtkAnim())
                         step = 3;
@@ -213,7 +222,12 @@ namespace Sango.Core.Duel
                     SetNextPhase((int)DuelPhase.DuelPhase_Closing);
                     break;
                 case 6:
-                    SetNextPhase((int)DuelPhase.DuelPhase_Opening);
+                    // 没有一击必杀：寒暄已经在前面播过（Init → Opening → FTK），
+                    // 手动操作时 state 也已由 OpeningPhase 置为 Command，这里直接进入回合。
+                    // 但要等"判定演出 → 卡牌归位"播完，否则下一回合的演出会和它抢画面。
+                    if (!IsIdle())
+                        break;
+                    SetNextPhase((int)DuelPhase.DuelPhase_TurnStart);
                     break;
                 case 7:
                     // 此处正常不会执行

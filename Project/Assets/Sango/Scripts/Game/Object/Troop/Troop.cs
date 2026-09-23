@@ -756,9 +756,7 @@ namespace Sango.Core
                         };
                         RenderEvent.Instance.Add(personEscapeEvent);
                     }
-#if SANGO_DEBUG
                     Sango.Log.Info($"{person.Name}逃跑!");
-#endif
                 }
             }
             GameEvent.OnTroopTurnEnd?.Invoke(this, scenario);
@@ -828,6 +826,20 @@ namespace Sango.Core
                 WaterTroopTypeLv = System.Math.Max(WaterTroopTypeLv, p.WaterLv);
                 p.escapeFactorWhenTroopDestroy = 0;
             });
+
+            // 兜底：能力最小为 1。
+            //
+            // 上面是"初始 -1 + 取全队最大"，因此小于 1 只有两种来历：
+            //   · 队里没有任何武将（ForEachPerson 空转）→ 初始的 -1 被留下来；
+            //   · 队里武将自己的能力值就是 0（数据缺失：未初始化的新建/临时武将等）→ max(-1, 0) = 0。
+            // 两者都会让"把能力当除数"的公式出事（例如战法成功率 V2 的分母 A智²+B智²，
+            // 见 SkillSuccessMethod.CalcIntelligenceRatioPart 的除零修复），也会让把能力当乘数的公式失真。
+            // 这里统一夹到最小 1，作为最后一道防线（正常的 -1 哨兵值全工程无人依赖，已核对）。
+            Command = System.Math.Max(Command, 1);
+            Strength = System.Math.Max(Strength, 1);
+            Intelligence = System.Math.Max(Intelligence, 1);
+            Politics = System.Math.Max(Politics, 1);
+            Glamour = System.Math.Max(Glamour, 1);
 
             List<SkillInstance> skillInstances = new List<SkillInstance>();
             landNormalSkill = null;
@@ -1570,9 +1582,7 @@ namespace Sango.Core
 
             if (!IsAlive)
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 溃灭!!");
-#endif
 
                 if (Render != null && Render.IsVisible())
                 {
@@ -1721,9 +1731,7 @@ namespace Sango.Core
                 int criticalFactor = skill.CheckCritical(spellCell);
                 if (criticalFactor > 100 && !skill.IsNormal())
                 {
-#if SANGO_DEBUG
                     Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 技能: {skill.Name} =>({spellCell.x},{spellCell.y})]  暴击判定成功!  暴击伤害倍率{criticalFactor}!!");
-#endif
                     TroopSpellSkillCriticalEvent @event = RenderEvent.Instance.Create<TroopSpellSkillCriticalEvent>();
                     @event.Init(skill, spellCell, criticalFactor);
                     skillRenderEvent = @event;
@@ -1739,9 +1747,7 @@ namespace Sango.Core
             }
             else
             {
-#if SANGO_DEBUG
                 Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 技能: {skill.Name} =>({spellCell.x},{spellCell.y})]  判定失败! 释放不成功!!");
-#endif
                 TroopSpellSkillFailEvent @event = RenderEvent.Instance.Create<TroopSpellSkillFailEvent>();
                 @event.Init(this, skill, spellCell);
                 skillRenderEvent = @event;
@@ -1942,9 +1948,7 @@ namespace Sango.Core
             GameEvent.OnTroopEnterCell?.Invoke(this, destCell, lastCell);
 
 
-#if SANGO_DEBUG
             Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 移动=> ({destCell.x},{destCell.y})]");
-#endif
 
             if (destCell.fire != null)
                 destCell.fire.BurnTroop(this);
@@ -2561,9 +2565,7 @@ namespace Sango.Core
             if (city == lastBelongCity)
             {
                 Clear();
-#if SANGO_DEBUG
                 Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]部队回到{city.mBelongForce?.Name}的城池:<{city.Name}>");
-#endif
                 return;
             }
 
@@ -2640,9 +2642,7 @@ namespace Sango.Core
 
             Clear();
 
-#if SANGO_DEBUG
             Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]部队进入{city.mBelongForce?.Name}的城池:<{city.Name}>");
-#endif
         }
 
         public override void Clear()
@@ -2787,9 +2787,7 @@ namespace Sango.Core
 
         public void SetMission(MissionType missionType, int missionTarget)
         {
-#if SANGO_DEBUG
             Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 任务变更:{missionType} -> {missionTarget}!!");
-#endif
             this.missionType = (int)missionType;
             this.missionTarget = missionTarget;
             NeedPrepareMission();
@@ -2958,9 +2956,7 @@ namespace Sango.Core
 
                 SetMission(MissionType.TroopAskSupply, supplier.Id);
                 NeedPrepareMission();
-#if SANGO_DEBUG
                 Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]状态不佳,向补给队[{supplier.Name}]求援!");
-#endif
                 return;
             }
 
@@ -2995,9 +2991,7 @@ namespace Sango.Core
                         {
                             SetMission(MissionType.TroopMovetoCity, refuge.Id);
                             NeedPrepareMission();
-#if SANGO_DEBUG
                             Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]战场态势不利({tier}),主动脱离接触前往{refuge.Name}!");
-#endif
                             return;
                         }
                     }
@@ -3030,9 +3024,7 @@ namespace Sango.Core
                 // 这样不会改动通用返城任务的语义,玩家部队不受影响。
                 SetMission(MissionType.TroopMovetoCity, nearestCity.Id);
                 NeedPrepareMission();
-#if SANGO_DEBUG
                 Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]兵力不足或断粮,就近赶赴{nearestCity.Name}补给!");
-#endif
                 return;
             }
 
@@ -3138,9 +3130,7 @@ namespace Sango.Core
             missionTargetCell = best.cell;
             SetMission(MissionType.TroopBuildBuilding, buildingType.Id);
             NeedPrepareMission();
-#if SANGO_DEBUG
             Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]就地增筑{buildingType.Name}!");
-#endif
             return true;
         }
 
@@ -3396,9 +3386,7 @@ namespace Sango.Core
                 Sango.Log.Warning($"*{Name} -> 拒绝收押君主 {person.Name}（君主只能被释放或斩首）");
                 return null;
             }
-#if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> captiveList 添加 {person.Name} ");
-#endif
             person.OnWillBeCaptive();
             person.ClearMission();
             person.state = (int)PersonStateType.Prisoner;
@@ -3415,9 +3403,7 @@ namespace Sango.Core
                 person.mBelongCity = null;
             }
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@人才@[{person.Name}]被<{mBelongForce.Name}>俘虏至{Name}");
-#endif
             return person;
         }
 
@@ -3428,9 +3414,7 @@ namespace Sango.Core
         /// <returns>添加的武将</returns>
         public Person RemoveCaptive(Person person)
         {
-#if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> captiveList 删除 {person.Name} ");
-#endif
             captiveList.Remove(person);
             person.mBelongForce?.BeCaptiveList.Remove(person);
             person.mTroop = null;

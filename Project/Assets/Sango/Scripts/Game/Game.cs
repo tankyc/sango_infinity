@@ -92,9 +92,7 @@ namespace Sango.Core
         public override void Shutdown()
         {
             //MapRender.Instance.Clear();
-#if SANGO_DEBUG
             Sango.Log.Info("游戏关闭");
-#endif
             GameEvent.OnGameShutdown?.Invoke();
         }
 
@@ -103,9 +101,7 @@ namespace Sango.Core
         /// </summary>
         public override void Pause()
         {
-#if SANGO_DEBUG
             Sango.Log.Info("游戏暂停");
-#endif
             GameEvent.OnGamePause?.Invoke();
         }
 
@@ -114,9 +110,7 @@ namespace Sango.Core
         /// </summary>
         public override void Resume()
         {
-#if SANGO_DEBUG
             Sango.Log.Info("游戏恢复");
-#endif
             GameEvent.OnGameResume?.Invoke();
         }
 

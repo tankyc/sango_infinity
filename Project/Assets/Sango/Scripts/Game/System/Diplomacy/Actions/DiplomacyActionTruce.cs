@@ -128,9 +128,7 @@ namespace Sango.Core
             {
                 paymentCity.gold -= ResourceValue;
 
-#if SANGO_DEBUG
                 Sango.Log.Info($"@外交@{Sender.Name} 停战花费 {ResourceValue} 金");
-#endif
             }
         }
 
@@ -181,9 +179,7 @@ namespace Sango.Core
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             diplomacyManager.AddRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyTruceRelationIncrease);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@外交@{Sender.Name} 与 {Receiver.Name} 达成了{Scenario.Cur.Variables.diplomacyTruceDuration / 3}个月的停战协议!!");
-#endif
 
             // 触发事件
             GameEvent.OnDiplomacyTruce?.Invoke(Sender, Receiver, true);
@@ -229,9 +225,7 @@ namespace Sango.Core
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             diplomacyManager.AddRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyTruceRelationIncrease);
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@外交@{Sender.Name} 与 {Receiver.Name} 达成了{Scenario.Cur.Variables.diplomacyTruceDuration / 3}个月的停战协议!!");
-#endif
 
             // 触发事件
             GameEvent.OnDiplomacyTruce?.Invoke(Sender, Receiver, true);

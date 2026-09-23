@@ -27,6 +27,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Sango.Core.Debate
 {
@@ -1625,12 +1626,21 @@ namespace Sango.Core.Debate
             return list.Count > 0 ? string.Join("、", list) : "（空）";
         }
 
-        /// <summary>输出舌战过程日志（统一走 Sango.Log）</summary>
+        /// <summary>
+        /// 输出舌战过程日志。挂了日志器（测试用例）就先走它，否则直接走项目的 Sango.Log。
+        ///
+        /// 标 [Conditional]：无 SANGO_DEBUG 的构建里，编译器把**整个调用连同实参求值一起删掉** ——
+        /// 所以那些重活参数的调用点（如 LogDebate($"...{HandText(team)}...")，HandText 会建 List + Join）
+        /// 在正式包里也没有开销。
+        /// </summary>
+        [Conditional("SANGO_DEBUG")]
         private void LogDebate(string text)
         {
-            Logger logger = system.GetLogger();
+            Logger logger = system != null ? system.GetLogger() : null;
             if (logger != null)
                 logger.Debug(text);
+            else
+                Sango.Log.Info(text, Sango.Log.LogType.Game);
         }
 
         /// <summary>创建参战武将运行时数组</summary>

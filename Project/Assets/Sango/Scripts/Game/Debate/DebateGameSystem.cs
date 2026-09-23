@@ -65,8 +65,8 @@ namespace Sango.Core.Debate
         /// <summary>表现层（见 DebateView.cs）</summary>
         protected IDebateView m_View;
 
-        /// <summary>日志</summary>
-        protected Logger m_Logger = new SangoLogger();
+        /// <summary>日志（默认空：Debate.LogDebate 会直接走 Sango.Log；测试可用 SetLogger 注入捕获器）</summary>
+        protected Logger m_Logger;
 
         /// <summary>消息框是否正在显示（供 Debate.IsIdle 判定是否阻塞逻辑推进）</summary>
         public bool MessageBoxVisible { get; protected set; }
@@ -80,8 +80,8 @@ namespace Sango.Core.Debate
         /// <summary>设置表现层</summary>
         public virtual void SetEngine(IDebateView view) { m_View = view; }
 
-        /// <summary>获取日志对象；关闭日志开关时返回 null</summary>
-        public virtual Logger GetLogger() { return DebateSettings.EnableLog ? m_Logger : null; }
+        /// <summary>获取日志对象（默认 null；非空时 Debate.LogDebate 优先用它输出，测试用例即由此捕获日志）</summary>
+        public virtual Logger GetLogger() { return m_Logger; }
 
         /// <summary>设置日志对象</summary>
         public virtual void SetLogger(Logger logger) { m_Logger = logger; }

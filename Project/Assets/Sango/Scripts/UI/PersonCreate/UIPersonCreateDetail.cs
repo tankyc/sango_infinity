@@ -1494,7 +1494,7 @@ namespace Sango.UI
                 if (input != null) input.text = getter();
                 onChanged?.Invoke();
             });
-            input.text = getter().ToString();
+            input.text = getter();
         }
 
         /// <summary>

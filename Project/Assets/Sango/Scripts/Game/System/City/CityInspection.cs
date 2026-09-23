@@ -14,7 +14,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByCommand,
             };
             customMenuName = "都市/巡视";
-            customMenuOrder = 20;
+            customMenuOrder = 600;
             windowName = "window_city_Inspection";
         }
 

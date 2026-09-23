@@ -1,4 +1,5 @@
 ﻿using Sango.Core;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -32,6 +33,11 @@ namespace Sango.UI
 
         public RectTransform mapBounds;
 
+        public Slider mapScaleSlider;
+        public int mapDefaultSize = 256;
+        public int boundsSize = 570;
+        public float mapScale = 1;
+
         public Button nextBtn;
         public Button unSelectBtn;
         ShortScenario targetScenario;
@@ -40,6 +46,8 @@ namespace Sango.UI
         List<GameObject> cityList = new List<GameObject>();
         List<UIMapCitySelectItem> cityToggleList = new List<UIMapCitySelectItem>();
         List<ShortForce> playerList = new List<ShortForce>();
+
+
 
         protected override void Awake()
         {
@@ -94,6 +102,28 @@ namespace Sango.UI
                 ShowForce((ShortForce)null);
             SetSelectedForceName();
             //nextBtn.interactable = false;
+            mapScaleSlider.SetValueWithoutNotify(0.1f);
+            UpdateMap(scenario, 0.1f);
+
+        }
+
+        public void OnMapScale(float scale)
+        {
+            UpdateMap(targetScenario, scale);
+        }
+
+        public void UpdateMap(ShortScenario scenario, float scale)
+        {
+            int mapW = scenario.Map.Width;
+            int mapH = scenario.Map.Height;
+
+            int minSize = Math.Min(mapW, mapH);
+
+            float targetW = Mathf.LerpUnclamped(mapW / minSize * boundsSize, mapW / mapDefaultSize * mapW / minSize * boundsSize * 2, scale);
+            float targetH = Mathf.LerpUnclamped(mapH / minSize * boundsSize, mapH / mapDefaultSize * mapH / minSize * boundsSize * 2, scale);
+
+            mapBounds.sizeDelta = new Vector2(targetW, targetH);
+
             int i = 0;
             foreach (ShortCity city in scenario.citySet)
             {
@@ -113,7 +143,7 @@ namespace Sango.UI
                     cityObj.name = city.Id.ToString();
                 }
 
-                if(city.BuildingType == 1)
+                if (city.BuildingType == 1)
                     cityObj.transform.localScale = Vector3.one;
                 else
                     cityObj.transform.localScale = Vector3.one * 0.75f;
@@ -133,6 +163,7 @@ namespace Sango.UI
                         Flag flag = scenario.CommonData.Flags[shortForce.Flag];
                         toggle.SetSelected(playerList.Contains(shortForce)).SetInavtive(false).SetColor(flag.color).onSelectShortAction = SetPlayer;
                     }
+                    toggle.ShowName(city.Name);
                     cityToggleList.Add(toggle);
                 }
 

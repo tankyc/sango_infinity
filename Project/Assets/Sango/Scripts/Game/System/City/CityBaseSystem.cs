@@ -19,6 +19,9 @@ namespace Sango.Core.Player
         public override void Init()
         {
             GameEvent.OnCityContextMenuShow += OnCityContextMenuShow;
+
+            // 把本按钮的排序值登记到 CityMenuOrder（记录的是框架已有的值，供 MOD 查询）
+            CityMenuOrder.Record(customMenuName, customMenuOrder);
         }
 
         public override void Clear()
@@ -38,7 +41,8 @@ namespace Sango.Core.Player
             TargetCity = city;
             if (MenuCanShow() && city.mBelongForce != null && city.mBelongForce.IsPlayer && city.mBelongForce == Scenario.Cur.CurRunForce)
             {
-                menuData.Add(customMenuName, customMenuOrder, city, OnClickMenuItem, IsValid);
+                // 排序值仍以本系统自己的 customMenuOrder 为准；Add 的同时登记进 CityMenuOrder 供 MOD 查询
+                CityMenuOrder.Add(menuData, customMenuName, customMenuOrder, city, OnClickMenuItem, IsValid);
             }
         }
         protected virtual void OnClickMenuItem(IContextMenuItem contextMenuItem)

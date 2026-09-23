@@ -517,9 +517,7 @@ namespace Sango.Core
             // 调用外交行为的 OnDispatch 方法，用于对不同外交事件做不同处理
             action.OnDispatch();
 
-#if SANGO_DEBUG
             Sango.Log.Info($"@外交@{action.Sender.Name} 对 {action.Receiver.Name} 派遣了使者 {action.Diplomat.Name} 执行{action.GetActionName()}行动！");
-#endif
 
             return true;
         }

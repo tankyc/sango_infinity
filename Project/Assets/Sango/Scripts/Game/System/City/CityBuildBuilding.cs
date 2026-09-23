@@ -24,7 +24,7 @@ namespace Sango.Core.Player
                 PersonSortFunction.SortByPolitics,
             };
             customMenuName = "都市/开发";
-            customMenuOrder = 0;
+            customMenuOrder = 100;
             windowName = "window_city_trade";
         }
 
