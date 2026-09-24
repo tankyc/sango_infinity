@@ -7,7 +7,7 @@ using System.Collections.Generic;
 #if SANGO_DEBUG
 using System.Text;
 #endif
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Sango.Core

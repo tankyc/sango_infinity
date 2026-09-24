@@ -1,4 +1,4 @@
-﻿using TKNewtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System.Collections.Generic;
 
 namespace Sango.Core
@@ -219,7 +219,7 @@ namespace Sango.Core
         {
             if (File.Exists(file))
             {
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), this);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), this);
             }
         }
 

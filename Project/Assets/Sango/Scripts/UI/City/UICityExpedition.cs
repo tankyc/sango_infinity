@@ -1,11 +1,10 @@
-using TKNewtonsoft.Json.Utilities.LinqBridge;
+using Sango.Core;
 using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-
-using Sango.Core; namespace Sango.UI
+namespace Sango.UI
 {
     public class UICityExpedition : UGUIWindow
     {

@@ -1,5 +1,5 @@
-﻿using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Serialization;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
 
@@ -18,7 +18,7 @@ namespace Sango.Core
             writer.WriteValue(dest.Value);
             writer.WriteEndArray();
         }
-        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer, JsonProperty property, object target)
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
             if (existingValue == null)
                 existingValue = Create(objectType);

@@ -5,7 +5,7 @@
  * 最后修改：2026-03-27
  */
 
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Render;
 using System;
 using System.Collections.Generic;
@@ -1799,7 +1799,7 @@ namespace Sango.Core
                 Info.curForceName = CurRunForce?.Name;
             Sango.Directory.Create(path, false);
             JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-            jsonSerializerSettings.Formatting = TKNewtonsoft.Json.Formatting.Indented;
+            jsonSerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
             jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
             jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用
             JsonSerializer serializer = JsonSerializer.CreateDefault(jsonSerializerSettings);
@@ -1822,7 +1822,7 @@ namespace Sango.Core
             View = null;
             Sango.Directory.Create(path, false);
             JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-            jsonSerializerSettings.Formatting = TKNewtonsoft.Json.Formatting.Indented;
+            jsonSerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
             jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
             jsonSerializerSettings.DefaultValueHandling = DefaultValueHandling.Ignore;
             jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用

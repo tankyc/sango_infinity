@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Sango.ScenarioMaker

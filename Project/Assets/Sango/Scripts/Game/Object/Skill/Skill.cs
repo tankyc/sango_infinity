@@ -7,8 +7,8 @@
 
 using System;
 using System.Collections.Generic;
-using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace Sango.Core

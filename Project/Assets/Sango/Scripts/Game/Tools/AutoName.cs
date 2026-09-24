@@ -80,7 +80,7 @@ namespace Sango
             try
             {
                 NameConfig config = new NameConfig();
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), config);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), config);
                 if (config.FirstName != null && config.FirstName.Count > 0)
                 {
                     mFirstNameList.AddRange(config.FirstName);

@@ -6,7 +6,7 @@
 //  符合 Newtonsoft.Json（TKNewtonsoft.Json）官方推荐的最快反序列化方案。
 // =====================================================================
 
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Globalization;

@@ -1,10 +1,7 @@
-using TKNewtonsoft.Json.Utilities.LinqBridge;
+using Sango.Core;
 using Sango.Core.Player;
-using System;
 using System.Collections.Generic;
 using UnityEngine.UI;
-
-using Sango.Core;
 namespace Sango.UI
 {
     public class UIBuildingWorkSet : UGUIWindow

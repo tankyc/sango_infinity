@@ -613,7 +613,7 @@ public static class SangeEditorTools
         string data = System.IO.File.ReadAllText(savedir);
 
         Dictionary<int, ModelDataaa> datas = new Dictionary<int, ModelDataaa>();
-        datas = TKNewtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<int, ModelDataaa>>(data);
+        datas = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<int, ModelDataaa>>(data);
 
         string matDir = "Assets/Mods/Content/Assets/Model/Materials/";
 

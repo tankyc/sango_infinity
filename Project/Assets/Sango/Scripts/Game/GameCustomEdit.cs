@@ -1,4 +1,4 @@
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Mod;
 using System.Collections.Generic;
 
@@ -64,16 +64,16 @@ namespace Sango.Core
             if (File.Exists(file))
             {
                 HeadEditData data = new HeadEditData();
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), data);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), data);
                 headEditData.HeadIdRanges.AddRange(data.HeadIdRanges);
             }
             // mod在前面
-            ModManager.Instance.EnumFiles("Data/FaceConfig.json", file =>
+            ModManager.Instance.EnumFiles("Data/FaceConfig.json", (System.Action<string>)(file =>
             {
                 HeadEditData data = new HeadEditData();
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), data);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), (object)data);
                 headEditData.HeadIdRanges.AddRange(data.HeadIdRanges);
-            });
+            }));
 
             headDataList.Clear();
             femaleStartIndex = -1;

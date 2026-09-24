@@ -1,6 +1,6 @@
 ﻿using System;
-using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Sango.Core
 {

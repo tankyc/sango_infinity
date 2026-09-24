@@ -1,5 +1,5 @@
-﻿using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Sango.Core.Action;
 using System.Collections.Generic;
 using System.Numerics;

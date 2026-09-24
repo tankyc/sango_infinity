@@ -1,8 +1,8 @@
 using System.IO;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using System.Xml;
 using System.Collections.Generic;
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using Sango.Core.Action;
 
 namespace Sango.Core
@@ -80,7 +80,7 @@ namespace Sango.Core
         /// 效果实体集合
         /// </summary>
         [JsonProperty]
-        public TKNewtonsoft.Json.Linq.JArray actionEntities;
+        public Newtonsoft.Json.Linq.JArray actionEntities;
 
         public void InitActions(List<ActionBase> list, params SangoObject[] sangoObjects)
         {

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace Sango.Core
 {

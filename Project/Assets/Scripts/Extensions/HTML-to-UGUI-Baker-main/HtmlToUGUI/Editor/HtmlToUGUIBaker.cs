@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.IO;
 using System.Collections.Generic;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace Editor.UIBaker
 {
