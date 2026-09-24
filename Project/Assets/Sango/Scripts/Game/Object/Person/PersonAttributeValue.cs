@@ -110,7 +110,7 @@ namespace Sango.Core
         void UpdateExpValue(Scenario scenario)
         {
             expAddValue = Math.Min(scenario.Variables.MaxAttributeGet, (valueExp / scenario.Variables.AttributeExpLevelNeed));
-            _value = (expAddValue + ageAddValue) * valueFacter / 10000;
+            _value = baseValue + (expAddValue + ageAddValue) * valueFacter / 10000;
         }
 
         void UpdateAgeValue(int age, Scenario scenario)

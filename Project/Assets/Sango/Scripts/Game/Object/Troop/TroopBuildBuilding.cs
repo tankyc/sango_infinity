@@ -141,7 +141,7 @@ namespace Sango.Core
         /// </summary>
         /// <param name="scenario">场景对象</param>
         /// <returns>是否已成功改派到新建址</returns>
-        bool TryFindNextSite(Scenario scenario)
+        protected virtual bool TryFindNextSite(Scenario scenario)
         {
             AIConfig cfg = AIConfig.Instance;
             if (!cfg.frontBuildContinueAfterDone)

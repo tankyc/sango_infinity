@@ -263,8 +263,10 @@ namespace Sango.Core
         /// <summary>
         /// 相邻城市
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<City>))]
-        [JsonProperty]
+        // 序列化形态保持 int[]（键名不变，老存档可读）；解析/回写并入本类已有的
+        // OnScenarioPrepare / OnScenarioSave（避免重复定义 CS0111）。
+        [JsonProperty("NeighborList")]
+        public int[] NeighborList_list;
         public SangoObjectList<City> NeighborList = new SangoObjectList<City>();
 
         /// <summary>
@@ -385,20 +387,14 @@ namespace Sango.Core
         public SangoObjectList<Person> allPersons = new SangoObjectList<Person>();
 
         /// <summary>
-        /// 俘虏
+        /// 俘虏（运行期容器，不参与序列化）
         /// </summary>
-        //[JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
-        //[JsonProperty]
         public SangoObjectList<Person> captiveList = new SangoObjectList<Person>();
 
         /// <summary>
         /// 空闲人员数量
         /// </summary>
         public int FreePersonCount => freePersons.Count;
-        /// <summary>
-        /// 人员容纳上限
-        /// </summary>
-        public int PersonHole { get; set; }
 
         public Vector3 CityScale
         {
@@ -423,11 +419,6 @@ namespace Sango.Core
         /// 战斗力是否已更新
         /// </summary>
         internal bool isUpdatedFightPower;
-        /// <summary>
-        /// 边界线是否已检查
-        /// </summary>
-        internal bool boderLineChecked = false;
-
         /// <summary>
         /// 所有攻击部队
         /// </summary>
@@ -943,11 +934,18 @@ namespace Sango.Core
 
             if (BelongCity != null)
                 BelongCity.subCities.Add(this);
+
+            // 【int[] → 对象】本城序列化列表的解析（追加进已有方法）
+            if (NeighborList_list != null && NeighborList_list.Length > 0 && NeighborList.Count == 0)
+                NeighborList.FromArray(NeighborList_list);
         }
 
         public override void OnScenarioSave(Scenario scenario)
         {
             base.OnScenarioSave(scenario);
+
+            // 存档前回写 int[]（追加进已有方法；否则会把读档时的旧 id 存回去）
+            NeighborList_list = NeighborList != null ? NeighborList.ToArray() : null;
         }
 
         /// <summary>
@@ -1104,48 +1102,6 @@ namespace Sango.Core
                 if (c == null) continue;
                 action(c);
             }
-        }
-
-        /// <summary>
-        /// 检查是否为边界城市
-        /// </summary>
-        /// <param name="city">要检查的城市</param>
-        /// <returns>是否为边界城市</returns>
-        static bool _IsBorderCity(City city)
-        {
-            if (city.NeighborList == null)
-                return false;
-            for (int i = 0; i < city.NeighborList.Count; i++)
-            {
-                City c = city.NeighborList[i];
-                if (c == null) continue;
-                if (!city.IsSameForce(c)) return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// 检查边界线
-        /// </summary>
-        /// <param name="city">要检查的城市</param>
-        /// <param name="len">当前长度</param>
-        /// <returns>边界线长度</returns>
-        static int _CheckBorder(City city, int len)
-        {
-            if (!_IsBorderCity(city))
-            {
-                city.boderLineChecked = true;
-                for (int i = 0; i < city.NeighborList.Count; i++)
-                {
-                    City c = city.NeighborList[i];
-                    if (c == null) continue;
-                    if (!c.boderLineChecked && city.IsSameForce(c)) return _CheckBorder(c, len + 1);
-                }
-            }
-            else
-                return len;
-
-            return 0;
         }
 
         /// <summary>
@@ -1373,7 +1329,6 @@ namespace Sango.Core
             AIPrepared = false;
             AIFinished = false;
             ActionOver = false;
-            boderLineChecked = false;
             CalculateHarvest();
             UpdateFightPower();
             JobHealingTroop();
@@ -1422,6 +1377,17 @@ namespace Sango.Core
             isUpdatedFightPower = false;
 
             // 计算俘虏越狱
+            //
+            // 【修复 · "不是囚犯,无法逃跑!" 日志无限重复】
+            // 遍历前先清洗本城俘虏表的**残留引用**（代码里同类清理见 City.cs:928 的
+            // captiveList.RemoveAll(x => x.CurrentCity != this)，只是这条路径漏了）：
+            //   · 已不是俘虏：被登用 / 释放后 state 已变，但本城列表没摘；
+            //   · CurrentCity 已不是本城：被转移 / 换城后旧城列表没摘。
+            // 这两类残留若不清，就会被送进 person.Escape()；而 Escape 的非囚犯分支
+            // 是用 person.CurrentCity 去 RemoveCaptive —— 摘的不是本城这条 → 永远摘不掉，
+            // 于是每个势力回合结束都重复刷一片 Person.cs:1917 的 Sango.Log.Error。
+            captiveList.RemoveAll(x => x == null || !x.IsPrisoner || x.CurrentCity != this);
+
             for (int i = captiveList.Count - 1; i >= 0; i--)
             {
                 Person person = captiveList[i];

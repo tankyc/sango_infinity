@@ -748,6 +748,8 @@ namespace Sango.Core
             prepareList.Add(buildingSet);
             prepareList.Add(troopsSet);
             prepareList.Add(fireSet);
+            // 同盟也要走 prepare：原清单漏了它 → Alliance.ForceList 的解析永远不会被触发。
+            prepareList.Add(allianceSet);
 
             eventReciveList.Add(personSet);
             eventReciveList.Add(buildingSet);
@@ -1114,7 +1116,7 @@ namespace Sango.Core
         // 在Prepare之后
         public override void Init(Scenario scenario)
         {
-            CommonData.Init();
+            CommonData.Init(this);
 
             GameEvent.OnGameShutdown += OnGameShutdown;
             GameEvent.OnGamePause += OnGamePause;
@@ -1158,6 +1160,7 @@ namespace Sango.Core
         /// </summary>
         public void Prepare()
         {
+            CommonData.Prepare(this);
 
             for (int i = 0; i < prepareList.Count; ++i)
             {

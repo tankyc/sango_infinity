@@ -29,22 +29,18 @@ namespace Sango.Core
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
             if (IsMissionComplete)
             {
-                if (troop.IsPlayerControl)
+                // 【说明】原先此处有 `if (troop.IsPlayerControl) ClearMission()` 的补丁。
+                // 玩家第一军团现已改走 PlayerTroopReturnCity（见 PlayerTroopMissions.cs），
+                // 由该类型负责"清空任务交回玩家"，故此处只保留势力 AI 的处理。
+                if (TargetCity.IsEnemy(troop))
                 {
-                    troop.ClearMission();
+                    Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
                 }
-                else
+                else if (troop.BelongCity != null)
                 {
-                    if (TargetCity.IsEnemy(troop))
-                    {
-                        Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
-                    }
-                    else if (troop.BelongCity != null)
-                    {
-                        // 【修复】目标既不是敌方也不是归属城（例如被改成了其它友城）：
-                        // 纠正为"返回归属城"，而不是切到无意义的 TroopStay 并打印错误日志。
-                        Troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
-                    }
+                    // 【修复】目标既不是敌方也不是归属城（例如被改成了其它友城）：
+                    // 纠正为"返回归属城"，而不是切到无意义的 TroopStay 并打印错误日志。
+                    Troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
                 }
                 troop.NeedPrepareMission();
                 return;

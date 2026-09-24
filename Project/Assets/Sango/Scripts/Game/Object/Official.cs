@@ -60,13 +60,31 @@ namespace Sango.Core
         [JsonProperty]
         public int levelNeed;
 
-        [JsonProperty]
-        [JsonConverter(typeof(SangoObjectListIDConverter<Skill>))]
+        // 序列化形态保持 int[]（键名不变，老存档可读）；运行期列表由 OnScenarioPrepare 解析。
+        [JsonProperty("addSkills")]
+        public int[] addSkills_list;
         public SangoObjectList<Skill> addSkills = new SangoObjectList<Skill>();
 
-        [JsonProperty]
-        [JsonConverter(typeof(SangoObjectListIDConverter<Feature>))]
+        [JsonProperty("addFeatures")]
+        public int[] addFeatures_list;
         public SangoObjectList<Feature> addFeatures = new SangoObjectList<Feature>();
+
+        public override void OnScenarioPrepare(Scenario scenario)
+        {
+            base.OnScenarioPrepare(scenario);
+            if (addSkills_list != null && addSkills_list.Length > 0 && addSkills.Count == 0)
+                addSkills.FromArray(addSkills_list);
+            if (addFeatures_list != null && addFeatures_list.Length > 0 && addFeatures.Count == 0)
+                addFeatures.FromArray(addFeatures_list);
+        }
+
+        /// <summary>存档前回写 int[]（否则会把读档时的旧 id 存回去）。</summary>
+        public override void OnScenarioSave(Scenario scenario)
+        {
+            base.OnScenarioSave(scenario);
+            addSkills_list = addSkills != null ? addSkills.ToArray() : null;
+            addFeatures_list = addFeatures != null ? addFeatures.ToArray() : null;
+        }
 
         /// <summary>
         /// 技能效果

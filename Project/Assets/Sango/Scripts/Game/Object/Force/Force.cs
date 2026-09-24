@@ -122,24 +122,24 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 联盟信息
+        /// 联盟信息（序列化形态 = int[]，键名不变；运行期列表在 OnScenarioPrepare 解析、OnScenarioSave 回写）
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Alliance>))]
-        [JsonProperty]
+        [JsonProperty("AllianceList")]
+        public int[] AllianceList_list;
         public SangoObjectList<Alliance> AllianceList = new SangoObjectList<Alliance>();
 
         /// <summary>
         /// 势力独有的初始化科技信息,以此为入口,且可以为势力设置独特的科技树
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Technique>))]
-        [JsonProperty]
+        [JsonProperty("InitTechniques")]
+        public int[] InitTechniques_list;
         public SangoObjectList<Technique> InitTechniques = new SangoObjectList<Technique>();
 
         /// <summary>
         /// 已完成的科技信息
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Technique>))]
-        [JsonProperty]
+        [JsonProperty("Techniques")]
+        public int[] Techniques_list;
         public SangoObjectList<Technique> Techniques = new SangoObjectList<Technique>();
 
         /// <summary>
@@ -297,7 +297,6 @@ namespace Sango.Core
         /// 势力拥有的城寨数量
         /// </summary>
         public int CityBaseCount { get; set; }
-        public int BorderCityCount { get; set; }
 
         /// <summary>
         /// 势力的颜色
@@ -341,12 +340,25 @@ namespace Sango.Core
             mFlag = scenario.CommonData.Flags.Get(Flag);
             if (mFlag == null)
                 mFlag = scenario.CommonData.Flags.Get(0);
+
+            // 【int[] → 对象】本势力序列化列表的解析（追加进已有方法）
+            if (AllianceList_list != null && AllianceList_list.Length > 0 && AllianceList.Count == 0)
+                AllianceList.FromArray(AllianceList_list);
+            if (InitTechniques_list != null && InitTechniques_list.Length > 0 && InitTechniques.Count == 0)
+                InitTechniques.FromArray(InitTechniques_list);
+            if (Techniques_list != null && Techniques_list.Length > 0 && Techniques.Count == 0)
+                Techniques.FromArray(Techniques_list);
         }
 
         public override void OnScenarioSave(Scenario scenario)
         {
             Governor = mGovernor?.Id ?? 0;
             Counsellor = mCounsellor?.Id ?? 0;
+
+            // 存档前回写 int[]（追加进已有方法；否则会把读档时的旧 id 存回去）
+            AllianceList_list = AllianceList != null ? AllianceList.ToArray() : null;
+            InitTechniques_list = InitTechniques != null ? InitTechniques.ToArray() : null;
+            Techniques_list = Techniques != null ? Techniques.ToArray() : null;
         }
 
         /// <summary>
@@ -701,7 +713,12 @@ namespace Sango.Core
             AICommandList.Add(ForceAI.AICaptives);
             AICommandList.Add(ForceAI.AITechniques);
             AICommandList.Add(ForceAI.AISetOfficial);
-            AICommandList.Add(ForceAI.AITransfromPerson);
+            // 【人才部署 · Phase A 影子模式】只计算并输出部署计划，不执行任何调动。
+            // 放在旧调人逻辑之前：报告反映的是本回合开始时"AI 看到的人力分布"。
+            AICommandList.Add(DeploymentShadow.Run);
+
+            // 【Phase C】旧调人逻辑（ForceAI.AITransfromPerson 的 ring 填法）已删除，
+            // 人才部署统一由新系统负责：DeploymentSolver（求解） + DeploymentExecutor（执行）。
 
             GameEvent.OnForceAIPrepare?.Invoke(this, scenario);
         }
@@ -827,7 +844,8 @@ namespace Sango.Core
 
             }
 
-            PrepareCityPersonHole(scenario);
+            // 【Phase C】PrepareCityPersonHole 已删除（旧的"缺几人"标量模型），
+            // 岗位编制改由 DeploymentSolver 按需计算（失效驱动增量）。
 
             return base.OnForceTurnStart(scenario);
         }
@@ -838,7 +856,8 @@ namespace Sango.Core
             UpdateValidCreatedItemTypes();
             UpdateCanBuildBuildingTypes();
 
-            bool hasNoCheckBorder = false;
+            // 圈层计算的 BFS 队列（从所有"边境城"向外扩散，见下方）
+            Queue<City> ringQueue = new Queue<City>();
             NeighborForceList.Clear();
             NeighborCityList.Clear();
             for (int i = 0; i < scenario.citySet.Count; ++i)
@@ -856,51 +875,65 @@ namespace Sango.Core
                     {
                         CityCount++;
 
-                        c.borderLine = -1;
-                        // 计算相邻势力
+                        // 计算相邻势力 / 邻城（外交等模块读这两个列表，保持"只对都市收集"的原语义）
                         foreach (City neighbor in c.NeighborList)
                         {
                             if (!neighbor.IsSameForce(c))
                             {
-                                c.borderLine = 0;
                                 if (neighbor.BelongForce != null)
                                 {
                                     if (!NeighborForceList.Contains(neighbor.BelongForce))
-                                    {
                                         NeighborForceList.Add(neighbor.BelongForce);
-                                    }
                                 }
 
                                 if (!NeighborCityList.Contains(neighbor))
                                     NeighborCityList.Add(neighbor);
                             }
                         }
-                        if (c.borderLine == -1)
-                            hasNoCheckBorder = true;
+                    }
+
+                    // ---------- 圈层初始化 ----------
+                    // 【明确范围】只有都市参与圈层计算；港关/关卡的 borderLine 由
+                    // CityEstablishment.ResolveRing 按其归属都市推导（这里不给它们写值）。
+                    if (c.IsCity())
+                    {
+                        c.borderLine = -1;
+                        for (int n = 0; n < c.NeighborList.Count; n++)
+                        {
+                            City neighbor = c.NeighborList[n];
+                            if (neighbor != null && !neighbor.IsSameForce(c))
+                            {
+                                c.borderLine = 0;              // 与不同势力接壤 = 边境
+                                ringQueue.Enqueue(c);
+                                break;
+                            }
+                        }
                     }
                 }
             }
 
-            while (hasNoCheckBorder)
+            // ---------- 圈层扩散（多源 BFS） ----------
+            // 规则"离边境几跳" = 到最近边境城的跳数，因此等价于从所有边境城做多源 BFS：
+            //   · 一趟 O(n)，结果与城市在 citySet 里的**顺序无关**
+            //     （原来反复扫全表直到收敛：最坏要扫"圈层深度"遍，且一轮无进展时既不推进也不停）；
+            //   · 不会给孤立城写假圈层（旧实现 `minBorder` 初值 99 也会落进 `>= 0` 分支，写出 100）。
+            // 永远到不了边境的城保持 -1，由 CityEstablishment.ResolveRing /
+            // DeploymentSolver.RingOf 按"最深层"兜底。
+            while (ringQueue.Count > 0)
             {
-                for (int i = 0; i < scenario.citySet.Count; ++i)
+                City cur = ringQueue.Dequeue();
+                int nextRing = cur.borderLine + 1;
+
+                for (int n = 0; n < cur.NeighborList.Count; n++)
                 {
-                    var c = scenario.citySet[i];
-                    if (c != null && c.IsAlive && c.BelongForce == this && c.borderLine < 0)
-                    {
-                        int minBorder = 99;
-                        // 计算相邻势力
-                        foreach (City neighbor in c.NeighborList)
-                        {
-                            if (neighbor.borderLine >= 0)
-                                minBorder = Mathf.Min(minBorder, neighbor.borderLine);
-                        }
-                        if (minBorder >= 0)
-                        {
-                            c.borderLine = minBorder + 1;
-                        }
-                        hasNoCheckBorder = c.borderLine == -1;
-                    }
+                    City neighbor = cur.NeighborList[n];
+                    if (neighbor == null || !neighbor.IsAlive) continue;
+                    if (neighbor.BelongForce != this) continue;    // 只扩散自己势力
+                    if (!neighbor.IsCity()) continue;              // 港关不参与圈层（见上方初始化说明）
+                    if (neighbor.borderLine >= 0) continue;        // 已定
+
+                    neighbor.borderLine = nextRing;
+                    ringQueue.Enqueue(neighbor);
                 }
             }
 
@@ -1460,67 +1493,5 @@ namespace Sango.Core
         }
 
 
-        /// <summary>
-        /// 准备人才缺口
-        /// </summary>
-        public void PrepareCityPersonHole(Scenario scenario)
-        {
-            int cityCount = 0;
-            BorderCityCount = 0;
-            int personCount = 0;
-            for (int i = 0; i < scenario.citySet.Count; ++i)
-            {
-                var c = scenario.citySet[i];
-                if (c != null && c.BelongForce == this && c.IsCity())
-                {
-                    cityCount++;
-                    if (c.IsBorderCity)
-                        BorderCityCount++;
-                    c.PersonHole = 0;
-                    personCount += c.allPersons.Count;
-                }
-            }
-
-            if (cityCount <= 1) return;
-            if (BorderCityCount == 0)
-                return;
-
-            int noBoderSeat = 3;
-            int avarageTotalSeat = personCount - cityCount * noBoderSeat;
-            if (avarageTotalSeat <= 0)
-            {
-                noBoderSeat = 1;
-                avarageTotalSeat = personCount - cityCount * noBoderSeat;
-                if (avarageTotalSeat <= 0)
-                {
-                    avarageTotalSeat = personCount;
-                }
-            }
-            int boderSeat = avarageTotalSeat / BorderCityCount + noBoderSeat;
-            int upSeat = boderSeat - 15;
-
-            for (int i = 0; i < scenario.citySet.Count; ++i)
-            {
-                var c = scenario.citySet[i];
-                if (c != null && c.BelongForce == this && c.IsCity())
-                {
-                    if (c.IsBorderCity)
-                    {
-                        c.PersonHole = boderSeat - c.allPersons.Count;
-                    }
-                    else if(upSeat > 0)
-                    {
-                        if(c.borderLine == 1)
-                        {
-                            c.PersonHole = (noBoderSeat + upSeat) - c.allPersons.Count;
-                        }
-                    }
-                    else
-                    {
-                        c.PersonHole = noBoderSeat - c.allPersons.Count;
-                    }
-                }
-            }
-        }
     }
 }

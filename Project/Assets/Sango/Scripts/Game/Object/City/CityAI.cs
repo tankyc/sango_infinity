@@ -563,6 +563,22 @@ namespace Sango.Core
             // 现限制单回合招募人数，把机会留给后续回合。
             int recruited = 0;
             int maxPerTurn = Math.Max(1, AIConfig.Instance.recruitPersonMaxPerTurn);
+
+            // 【在野驱动】在野越多，单回合登用越多 —— 直接按"在野人数"调整调用登用命令的密度
+            // （上限仍受 maxPerTurn 的基数与 scoreRecruitPersonWildBonusMax 之类的封顶约束，
+            //   避免一回合把空闲武将全占满）。
+            int wildCount = city.wildPersons.Count;
+            if (wildCount >= 4)
+            {
+                int byWild = (int)Math.Ceiling(wildCount * 0.5);      // 在野的一半，向上取整
+                if (byWild > maxPerTurn)
+                    maxPerTurn = byWild;
+            }
+
+            // 【前期优先】开局前 N 回合再放宽 1 个名额（与部署层同口径）
+            int forceTurn = DeploymentState.currentForceTurn;
+            if (forceTurn > 0 && forceTurn <= AIConfig.Instance.cityOrder.recruitPersonEarlyTurns)
+                maxPerTurn++;
             for (int i = 0; i < city.wildPersons.Count; i++)
             {
                 Person target = city.wildPersons[i];
@@ -765,9 +781,25 @@ namespace Sango.Core
                     for (int i = city.freePersons.Count - 1; i >= 0; i--)
                     {
                         Person x = city.freePersons[i];
+                        if (x == null) continue;
+
+                        // 【Phase C】统一过执行层闸门：港关 / 前线的守备下限不满足时不再抽人
+                        // （这条路径原本会把港关守将直接迁走，是"港关只出不进"的元凶）
+                        DeploymentWeights deployCfg = AIConfig.Instance != null ? AIConfig.Instance.deployment : null;
+                        if (!DeploymentExecutor.CanTransfer(x, target, deployCfg).allowed)
+                            continue;
+
                         x.TransformToCity(target);
+
+                        // 【Phase C 收口 · 修 Clear 造成的连带丢失】
+                        // 原写法是循环后 city.freePersons.Clear()：被闸门 continue 掉、
+                        // **仍留在本城**的人也会被一并从空闲表删除 → 内政命令 / 登用 / 探索
+                        // 等系统从此"看不到"他们（人要等下次重建空闲表才会再出现）。
+                        // 改为只移除"确实被调走"的那个人；若 TransformToCity 内部已移除，
+                        // 这里做一次带边界与引用的校验，避免误删他人。
+                        if (i < city.freePersons.Count && ReferenceEquals(city.freePersons[i], x))
+                            city.freePersons.RemoveAt(i);
                     }
-                    city.freePersons.Clear();
                 }
                 return true;
             }

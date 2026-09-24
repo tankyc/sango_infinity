@@ -23,14 +23,10 @@ namespace Sango.Core
             // 任务完成后,待命
             if (IsMissionComplete)
             {
-                if (troop.IsPlayerControl)
-                {
-                    troop.ClearMission();
-                }
-                else
-                {
-                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
-                }
+                // 【说明】原先此处有 `if (troop.IsPlayerControl) ClearMission()` 的补丁。
+                // 玩家第一军团现已改走 PlayerTroopFixBuilding，
+                // 由该类型负责"交回玩家"，故此处只保留势力 AI 的处理。
+                troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
                 troop.NeedPrepareMission();
                 return;
             }
@@ -74,14 +70,8 @@ namespace Sango.Core
             if (IsMissionComplete)
             {
                 Troop.actionRenderEvent = null;
-                if (troop.IsPlayerControl)
-                {
-                    troop.ClearMission();
-                }
-                else
-                {
-                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
-                }
+                // 【说明】同 Prepare：玩家第一军团已改走 PlayerTroopFixBuilding
+                troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
                 troop.NeedPrepareMission();
                 return true;
             }

@@ -546,6 +546,17 @@ namespace Sango.Core
 
         #endregion
 
+        #region 人才部署（岗位编制模型）
+
+        /// <summary>
+        /// AI 人才部署的全部权重与阈值（编制规则 / 威胁分档 / 港关守备 / 运输 / 求解成本 / 岗位权重）。
+        /// 可通过 <c>Data/Common/AIConfig.json</c> 的 <c>"deployment"</c> 节点做部分覆盖。
+        /// 当前处于 Phase A **影子模式**（只计算不执行），由 <c>shadowOnly</c> 控制。
+        /// </summary>
+        public DeploymentWeights deployment = new DeploymentWeights();
+
+        #endregion
+
         /// <summary>
         /// 取得指定态势档位的权重集合。
         /// </summary>

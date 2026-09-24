@@ -566,7 +566,7 @@ namespace Sango.Core
         /// </summary>
         private void AIPrepare(Scenario scenario)
         {
-            AICommandQueue.Enqueue(CorpsAI.AITransfromPerson);
+            // 【Phase C】旧调人逻辑（CorpsAI.AITransfromPerson）已删除，人才部署统一由新系统负责。
             AICommandQueue.Enqueue(CorpsAI.AICities);
             AICommandQueue.Enqueue(CorpsAI.AITroops);
 

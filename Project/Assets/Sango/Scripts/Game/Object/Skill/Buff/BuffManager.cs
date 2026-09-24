@@ -24,7 +24,21 @@ namespace Sango.Core
                 if (instanceObj != null)
                     return;
 
+                // 【防御】target 为空（BuffManager 的 Master 未绑定时的调用）或渲染体缺失时直接返回。
+                // 前者是 NRE 的直接来源：异常落在下一行的 target.GetRender() 上，
+                // 说明是"target == null"，而不是 GetRender() 返回 null（那会落在 IsVisible 那行）。
+                if (target == null)
+                {
+                    Sango.Log.Error("[Buff] CreateAsset: target 为空，跳过特效创建（BuffManager 的 Master 未绑定？）");
+                    return;
+                }
+
                 ObjectRender objectRender = target.GetRender();
+                if (objectRender == null)
+                {
+                    Sango.Log.Error("[Buff] CreateAsset: GetRender() 为空，跳过特效创建");
+                    return;
+                }
                 if (!objectRender.IsVisible()) return;
 
                 instanceObj = PoolManager.Create(name);
@@ -182,7 +196,10 @@ namespace Sango.Core
             };
             assetRef[asset] = buffEffectInfo;
 
-            buffEffectInfo.CreateAsset(Master);
+            // 【防御】Master 未绑定时不建特效（引用已登记，后续 Master 就绪后仍会走缓存命中路径）。
+            // 线上出现的 NRE 就是从这里带着 Master == null 进去的。
+            if (Master != null)
+                buffEffectInfo.CreateAsset(Master);
         }
 
         public void ReleaseAsset(string asset)

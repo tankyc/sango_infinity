@@ -49,6 +49,17 @@ namespace Sango.Core
         public int baseAISearching = 25;
         /// <summary>招募武将基础分</summary>
         public int baseAIRecruitPerson = 25;
+
+        // ---- 前期「在野多 → 优先登用」（与部署层同口径）----
+
+        /// <summary>登用命令的在野人数加成：每多 1 名在野武将加多少分</summary>
+        public int scoreRecruitPersonPerWild = 6;
+        /// <summary>在野人数加成的封顶（避免在野几十人时把登用抬到压倒一切）</summary>
+        public int scoreRecruitPersonWildBonusMax = 60;
+        /// <summary>前期窗口内（开场前 N 回合）登用命令的额外加成</summary>
+        public int scoreRecruitPersonEarlyBonus = 25;
+        /// <summary>前期窗口回合数（建议与 <c>DeploymentWeights.earlyGameTurns</c> 同值）</summary>
+        public int recruitPersonEarlyTurns = 10;
         /// <summary>跨城运输基础分</summary>
         public int baseAITransfrom = 30;
         /// <summary>向所属城运输基础分</summary>

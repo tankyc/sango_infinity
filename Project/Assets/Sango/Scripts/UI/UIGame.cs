@@ -182,6 +182,10 @@ namespace Sango.UI
             OnDayUpdate(Scenario.Cur);
             OnForceStart(Scenario.Cur.CurRunForce, Scenario.Cur);
 
+#if UNITY_EDITOR
+            pauseObj.SetActive(true);
+#endif
+
             for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
             {
                 var c = Scenario.Cur.corpsSet[i];

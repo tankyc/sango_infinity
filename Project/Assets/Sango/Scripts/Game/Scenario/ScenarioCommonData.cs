@@ -170,8 +170,13 @@ namespace Sango.Core
         
         public List<ItemType> ItemTypeList { get; set; }
 
-        public void Init()
+        public void Init(Scenario scenario)
         {
+            Provinces.ForEach(x =>
+            {
+                x.Init(scenario);
+            });
+
             ItemTypeList = new List<ItemType>();
             ItemTypes.ForEach(type =>
             {
@@ -183,6 +188,32 @@ namespace Sango.Core
             ItemTypeList.Sort((a, b) => a.Id.CompareTo(b.Id));
         }
 
+        /// <summary>
+        /// 开局准备：对**本类全部数据库**逐项调用 OnScenarioPrepare，
+        /// 由各对象自己把 `int[]` 反序列化字段解析成运行期对象列表。
+        /// 这是列表解析的唯一入口（容器级懒解析机制已删除）。
+        /// </summary>
+        public void Prepare(Scenario scenario)
+        {
+            Provinces.ForEach(x => x.OnScenarioPrepare(scenario));
+            TerrainTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+            BuildingTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+            Features.ForEach(x => x.OnScenarioPrepare(scenario));
+            TroopAnimations.ForEach(x => x.OnScenarioPrepare(scenario));
+            AttributeChangeTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+            PersonAttributeTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+            CityLevelTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+            Flags.ForEach(x => x.OnScenarioPrepare(scenario));
+            Regions.ForEach(x => x.OnScenarioPrepare(scenario));
+            Titles.ForEach(x => x.OnScenarioPrepare(scenario));
+            Officials.ForEach(x => x.OnScenarioPrepare(scenario));
+            Skills.ForEach(x => x.OnScenarioPrepare(scenario));
+            PersonLevels.ForEach(x => x.OnScenarioPrepare(scenario));
+            Personalities.ForEach(x => x.OnScenarioPrepare(scenario));
+            Argumentations.ForEach(x => x.OnScenarioPrepare(scenario));
+            AbilityLevelTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+            PersonLibrary.ForEach(x => x.OnScenarioPrepare(scenario));
+        }
 
         public void Load(string file)
         {

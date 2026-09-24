@@ -154,41 +154,10 @@ namespace Sango.ScenarioMaker
                 person.mBelongTroop = null;
                 // 官职/等级/装备/工作建筑这些"只存 id"的引用也要在这里解析，
                 // 编辑器走的是这条加载路径，不会执行 Person.OnScenarioPrepare
-                person.ResolveReferenceObjects(Scenario);
+                person.OnScenarioPrepare(Scenario);
             }
-
-            ResolveDelayedReferences();
+            Scenario.Prepare();
             Sango.Log.Info($"已加载基础武将数量: {Scenario.personSet.DataCount}");
-        }
-
-        /// <summary>
-        /// 手动触发延迟引用解析，避免影响其他已订阅的剧本事件
-        /// </summary>
-        private void ResolveDelayedReferences()
-        {
-            // 保留：Id2ObjConverter 现在已无字段使用（对象引用都改成了显式 id + 访问时解析），
-            // 这里只是保险地照旧调用一次，不影响任何行为。
-            InvokeDelaySetValue<Id2ObjConverter<SangoObject>>("DelaySetValue", "OnScenarioPrepare");
-            // XY2CellConverter 已被 CellXY + CellXYConverter 取代（不再有全局延迟解析），此处调用已移除
-        }
-
-        /// <summary>
-        /// 通过反射调用延迟引用解析器的静态OnScenarioPrepare方法
-        /// </summary>
-        private void InvokeDelaySetValue<T>(string nestedTypeName, string methodName)
-        {
-            Type converterType = typeof(T);
-            Type nestedType = converterType.GetNestedType(nestedTypeName, BindingFlags.Public | BindingFlags.NonPublic);
-            if (nestedType == null)
-            {
-                return;
-            }
-            MethodInfo method = nestedType.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-            if (method == null)
-            {
-                return;
-            }
-            method.Invoke(null, new object[] { Scenario });
         }
 
         /// <summary>

@@ -47,6 +47,27 @@ namespace Sango.Core
         public bool IsAppoint => missionType > 0;
 
         /// <summary>
+        /// 本部队当前使用的 <see cref="TroopAIType"/>（由"是否玩家第一军团"与"是否已委任"派生）。
+        ///
+        /// 判定口径：
+        ///   · 非玩家第一军团（AI 势力部队、玩家势力非主军团部队）→ <see cref="TroopAIType.Faction"/>
+        ///   · 玩家第一军团且已有任务                              → <see cref="TroopAIType.Appoint"/>
+        ///   · 玩家第一军团且尚无任务                              → <see cref="TroopAIType.None"/>
+        /// </summary>
+        public TroopAIType AIType
+        {
+            get
+            {
+                if (!IsPlayerControl)
+                    return TroopAIType.Faction;
+
+                // 玩家第一军团：有任务即视为"已委任"，交给委任 AI 单纯执行；
+                // 无任务则完全由玩家手动操控，AI 不介入。
+                return IsAppoint ? TroopAIType.Appoint : TroopAIType.None;
+            }
+        }
+
+        /// <summary>
         /// 所属势力
         /// </summary>
         public Force BelongForce => Leader?.BelongForce;
@@ -135,10 +156,8 @@ namespace Sango.Core
 
 
         /// <summary>
-        /// 俘虏列表
+        /// 俘虏列表（运行期容器，不参与序列化）
         /// </summary>
-        //[JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
-        //[JsonProperty]
         public SangoObjectList<Person> captiveList = new SangoObjectList<Person>();
 
 
@@ -377,7 +396,21 @@ namespace Sango.Core
         [JsonProperty]
         public BuffManager buffManager = new BuffManager();
 
-        public void AddBuff(int id, int turnCount, Troop srcTroop) { buffManager.AddBuff(id, turnCount, srcTroop); }
+        public void AddBuff(int id, int turnCount, Troop srcTroop)
+        {
+            // 【根因修复】buffManager 是 [JsonProperty] 字段：读档 / 新建时会被反序列化
+            // 成新的 BuffManager，而它的 Master 只在 Troop.Init（:733 的 buffManager.Init(this)）
+            // 里绑定。在"反序列化完成 → Troop.Init"这个窗口内发生的 AddBuff（技能 / 战斗触发）
+            // 会带着 Master == null 进入 CreateAsset → target.GetRender() 空引用
+            // （BuffManager.cs:27 线上 NRE 的来源）。
+            // 这里在入口自愈：未绑定就先补绑，等价于把 Troop.Init 的那一步提前。
+            if (buffManager == null)
+                buffManager = new BuffManager();
+            if (buffManager.Master == null)
+                buffManager.Init(this);
+
+            buffManager.AddBuff(id, turnCount, srcTroop);
+        }
         public void RemoveBuff(int id) { buffManager.RemoveBuff(id); }
         public void RemoveBuffByKind(int kind) { buffManager.RemoveBuffByKind(kind); }
 
@@ -707,6 +740,12 @@ namespace Sango.Core
         public override void Init(Scenario scenario)
         {
             isCleared = false;
+
+            // 【委任部队】旧存档归一化：把玩家第一军团部队的 TroopXXX 任务
+            // 转成 PlayerTroopXXX（详见 NormalizeAppointMission 的注释）。
+            // 必须放在 Init 靠前位置，避免后续逻辑先按旧枚举建好了行为对象。
+            NormalizeAppointMission();
+
             _troopName = $"{Leader?.Name}队";
             ForEachPerson(x => x.mBelongTroop = this);
             InitActionList();
@@ -773,8 +812,6 @@ namespace Sango.Core
             }
 
             PrepeareFoodCost();
-
-            //MemberList?.InitCache();// = new SangoObjectList<Person>().FromString(_memberListStr, scenario.personSet);
         }
 
         public int PrepeareFoodCost()
@@ -2961,6 +2998,14 @@ namespace Sango.Core
 
         public void SetMission(MissionType missionType, int missionTarget)
         {
+            // 【委任部队】玩家第一军团不使用面向势力 AI 的任务枚举：
+            // 这里统一把 TroopXXX 映射为 PlayerTroopXXX（见 TroopMissionBehaviour.ToPlayerMission）。
+            // 映射收敛在这一处，于是所有派发点——UI 指令层（TroopInteractive*.cs /
+            // CityTransport / TroopActionBuild）与行为类内部的改派代码——都不需要关心
+            // "这支部队是不是委任部队"。
+            if (IsPlayerControl)
+                missionType = TroopMissionBehaviour.ToPlayerMission(missionType);
+
             Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 任务变更:{missionType} -> {missionTarget}!!");
             this.missionType = (int)missionType;
             this.missionTarget = missionTarget;
@@ -2976,6 +3021,40 @@ namespace Sango.Core
             this.missionTargetCell = null;
             this.missionParams1 = 0;
             this.missionParams2 = 0;
+        }
+
+        /// <summary>
+        /// 【委任部队】把任务枚举归一化为委任专用版本（PlayerTroopXXX）。
+        ///
+        /// 【为什么需要】在物理分离之前，玩家第一军团的部队与势力 AI 共用同一套
+        /// TroopXXX 枚举，靠行为类内部的 `if (troop.IsPlayerControl)` 补丁区分收尾行为。
+        /// 补丁已随物理分离删除（语义改由 PlayerTroopXxx 行为类承担），
+        /// 于是旧存档里玩家部队保存的 TroopXXX 会落到势力 AI 版行为类上，
+        /// 任务完成后会"自动改派返城"而不是交回玩家。读档后转换一次即可对齐。
+        ///
+        /// 【幂等性】以下情况不做任何事，因此可以安全地多次调用：
+        ///   · 不属于玩家第一军团（AI 势力 / 玩家非主军团部队，本就该走势力 AI）
+        ///   · 尚无任务（missionType &lt;= 0）
+        ///   · 已是 PlayerTroopXXX
+        ///   · 该方法对 AI 专属任务（补给 / 求援 / 协防城池等）原样返回，不产生变化
+        /// </summary>
+        public void NormalizeAppointMission()
+        {
+            if (!IsPlayerControl)
+                return;
+            if (missionType <= 0)
+                return;
+
+            MissionType current = (MissionType)missionType;
+            if (TroopMissionBehaviour.IsPlayerMission(current))
+                return;
+
+            MissionType mapped = TroopMissionBehaviour.ToPlayerMission(current);
+            if (mapped == current)
+                return;
+
+            missionType = (int)mapped;
+            NeedPrepareMission();
         }
 
         TroopMissionBehaviour troopMissionBehaviour;
@@ -3049,7 +3128,17 @@ namespace Sango.Core
 
             if (!AIPrepared)
             {
-                AIPrepare(scenario);
+                // 【委任部队】兜底归一化：正常情况下 Init 已处理过一次，
+                // 这里再调一次是为了覆盖"运行中部队归属发生变化"的边界
+                //（例如玩家部队被编入 / 移出第一军团）。
+                // 方法本身幂等且开销极小（几次 int 比较）。
+                NormalizeAppointMission();
+
+                // 【AI 分流】按部队的 AI 类型选择"行动前准备"策略（见 TroopAIType）：
+                //   · Faction → 完整启发式 AI
+                //   · Appoint → 委任 AI，不做任何判断，单纯执行被指派的任务
+                //   · None    → 无任务，不准备
+                PrepareByAIType(scenario);
                 AIPrepared = true;
                 GameEvent.OnTroopAIStart?.Invoke(this, scenario);
             }
@@ -3117,6 +3206,62 @@ namespace Sango.Core
             return true;
         }
 
+        /// <summary>
+        /// 【AI 分流】按部队的 <see cref="AIType"/> 执行对应的"行动前准备"。
+        ///
+        /// 两类 AI 共用同一个任务执行层（<see cref="TroopMissionBehaviour"/>），
+        /// 差别只在准备阶段：
+        ///   · <see cref="TroopAIType.Faction"/> → <see cref="AIPrepare"/>（完整启发式）
+        ///   · <see cref="TroopAIType.Appoint"/> → <see cref="AppointPrepare"/>（纯净，无任何判断）
+        ///   · <see cref="TroopAIType.None"/>    → 不做任何准备
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        void PrepareByAIType(Scenario scenario)
+        {
+            switch (AIType)
+            {
+                case TroopAIType.Faction:
+                    AIPrepare(scenario);
+                    break;
+
+                case TroopAIType.Appoint:
+                    AppointPrepare(scenario);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 【委任 AI】玩家第一军团委任部队的"行动前准备"。
+        ///
+        /// 该方法**刻意保持为空**：委任的语义就是"照玩家指派的任务单纯执行"，
+        /// 因此这里不做任何战场态势判断，也不改派 / 追加任务。
+        ///
+        /// 以下都是势力 AI 才有的额外逻辑，委任部队一律不参与：
+        ///   · 态势分档与主动撤退（<see cref="TroopBattleTier"/>）
+        ///   · 断粮 / 兵少 / 低士气的就近补给撤退
+        ///   · 向补给队求援（<see cref="MissionType.TroopAskSupply"/>）
+        ///   · 随军增筑辅助建筑（<see cref="TryBuildFieldBuilding"/>）
+        ///   · 部队角色自动推导（<see cref="ResolveRole"/>）
+        ///
+        /// 保留此方法（而不是干脆不调用）是为了给"委任 AI"一个明确的落点：
+        /// 将来若确有委任专属的准备工作，应当加在这里，而不是往势力 AI 分支里塞条件判断。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        void AppointPrepare(Scenario scenario)
+        {
+            // 委任 AI：无任何额外逻辑，直接进入任务执行层。
+        }
+
+        /// <summary>
+        /// 【势力 AI】AI 势力（及玩家势力非主军团）部队的行动前准备：完整的启发式流程
+        /// （态势撤退 / 就近补给 / 求援 / 随军增筑 / 角色推导等）。
+        ///
+        /// 注意：本方法只应由 <see cref="PrepareByAIType"/> 在
+        /// <see cref="TroopAIType.Faction"/> 分支下调用。方法开头的
+        /// <c>IsPlayerControl</c> 判断是防御性的双保险，防止被其它路径直接调用时
+        /// 让委任部队误入势力 AI 流程。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
         public void AIPrepare(Scenario scenario)
         {
             if (IsPlayerControl)
@@ -3532,6 +3677,13 @@ namespace Sango.Core
         /// <returns>档位权重</returns>
         public TroopTierWeights GetTierWeights(Scenario scenario)
         {
+            // 【委任 AI】委任部队不评估战场态势：返回 null 表示"不做档位修正"。
+            // 这是一处"总闸"——所有态势相关调用（技能评分倍率、行动择优池、
+            // 主动撤退等）都经过本方法，在这里拦掉即可保证委任部队
+            // 在任何任务下都不会因战场形势而改变既定行为。
+            if (AIType == TroopAIType.Appoint)
+                return null;
+
             return AIConfig.Instance.GetTierWeights(EvaluateTier(scenario));
         }
 

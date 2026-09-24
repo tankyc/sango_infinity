@@ -166,6 +166,29 @@ namespace Sango.Core
             CityOrderWeights w = AIConfig.Instance.cityOrder;
             int bias = 0;
 
+            // ---------- 前期：优先登用 ----------
+            // 与部署层同口径（DeploymentState.currentForceTurn，换剧本自动归零）。
+            // "在野人数"驱动的部分落在 CityAI.AIRecruitPerson（按在野数放大单回合登用上限）；
+            // 这里负责把"登用"这条命令在前期窗口内整体抬高，使其排在训练/搜索/开发之前。
+            if (id == "AIRecruitPerson")
+            {
+                // 【在野人数驱动】在野越多，越该优先发登用命令（按每人加分、整体封顶，
+                // 封顶的作用是"不压过军事/危机类命令"）。
+                int wild = s.wildCount;
+                if (wild > 0 && w.scoreRecruitPersonPerWild > 0)
+                {
+                    int byWild = wild * w.scoreRecruitPersonPerWild;
+                    if (byWild > w.scoreRecruitPersonWildBonusMax)
+                        byWild = w.scoreRecruitPersonWildBonusMax;
+                    bias += byWild;
+                }
+
+                // 【前期窗口】额外抬高（与部署层同口径回合号，换剧本自动归零）
+                int turn = DeploymentState.currentForceTurn;
+                if (turn > 0 && turn <= w.recruitPersonEarlyTurns)
+                    bias += w.scoreRecruitPersonEarlyBonus;
+            }
+
             // ---------- 战时态：本城被围 ----------
             if (s.isUnderSiege)
             {

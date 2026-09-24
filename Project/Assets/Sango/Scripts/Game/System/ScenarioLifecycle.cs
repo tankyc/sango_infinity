@@ -72,6 +72,10 @@ namespace Sango.Core
             //    放在最后一步：让各系统先按自己的生命周期正常退订，兜底只处理剩下的。
             GameEventBaseline.Restore();
 
+            // 9.5) 人才部署系统的运行期状态（影子报告计数 + 兵力观察值），跨剧本复位
+            DeploymentShadow.Clear();
+            DeploymentState.Clear();
+
             // 10) 收尾后的快照：正常情况下应与下一次的 shutdown-begin 完全一致（即"无残留"）。
             GameEventDiagnostics.Snapshot("shutdown-end");
         }

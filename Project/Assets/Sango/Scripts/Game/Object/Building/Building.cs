@@ -25,16 +25,27 @@ namespace Sango.Core
         /// <summary>
         /// 建筑的工人列表
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
-        [JsonProperty]
-        public SangoObjectList<Person> Workers { get; set; }
+        // 序列化形态保持 int[]（键名不变，老存档可读）。
+        // 解析写在**本类原有的** OnScenarioPrepare（见 :137）里，避免重复定义（CS0111）。
+        [JsonProperty("Workers")]
+        public int[] Workers_list;
+        public SangoObjectList<Person> Workers { get; set; } = new SangoObjectList<Person>();
+
+        /// <summary>存档前回写 int[]（否则会把读档时的旧 id 存回去）。</summary>
+        public override void OnScenarioSave(Scenario scenario)
+        {
+            base.OnScenarioSave(scenario);
+            Workers_list = Workers != null ? Workers.ToArray() : null;
+            Builder_list = Builder != null ? Builder.ToArray() : null;
+        }
 
         /// <summary>
         /// 建筑的建造者列表
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
-        [JsonProperty]
-        public SangoObjectList<Person> Builder { get; set; }
+        // 序列化形态保持 int[]（键名不变，老存档可读）。
+        [JsonProperty("Builder")]
+        public int[] Builder_list;
+        public SangoObjectList<Person> Builder { get; set; } = new SangoObjectList<Person>();
 
         /// <summary>
         /// 剩余建造或升级的回合数
@@ -118,6 +129,12 @@ namespace Sango.Core
         public override void OnScenarioPrepare(Scenario scenario)
         {
             base.OnScenarioPrepare(scenario);
+
+            // 【int[] → 对象】本类序列化列表的解析（统一放在原有的 OnScenarioPrepare 里）
+            if (Workers_list != null && Workers_list.Length > 0 && Workers.Count == 0)
+                Workers.FromArray(Workers_list);
+            if (Builder_list != null && Builder_list.Length > 0 && Builder.Count == 0)
+                Builder.FromArray(Builder_list);
 
             BelongCity?.OnBuildingCreate(this);
             // 地格占用
