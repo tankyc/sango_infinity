@@ -251,7 +251,7 @@ namespace Sango.Core.Duel
             }
 
             if (!show || troop == null) return;
-            Sango.Core.Player.PlayerMessage.AddTextMessage(text, troop.mBelongForce, troop.x, troop.y);
+            Sango.Core.Player.PlayerMessage.AddTextMessage(text, troop.BelongForce, troop.x, troop.y);
         }
 
         /// <summary>自定义战报输出（置空则使用 PlayerMessage）</summary>
@@ -358,10 +358,10 @@ namespace Sango.Core.Duel
         /// <summary>
         /// 把武将从原部队摘除。
         ///
-        /// 判据是"该武将是否还登记在这支部队里"(Leader / Member1 / Member2)，**不能用 person.mTroop**：
-        /// 俘虏流程 Troop.AddCaptive 会先把 person.mTroop 改成捕获方部队，按 mTroop 判断就永远不成立，
-        /// 被俘武将便会一直留在原部队的主将/成员字段上（而它的 mBelongCity 已被 AddCaptive 清空）；
-        /// 该部队日后被歼灭时 Troop.Clear 取 mBelongCity 就会空引用崩溃。
+        /// 判据是"该武将是否还登记在这支部队里"(Leader / Member1 / Member2)，**不能用 person.mBelongTroop**：
+        /// 俘虏流程 Troop.AddCaptive 会先把 person.mBelongTroop 改成捕获方部队，按 mBelongTroop 判断就永远不成立，
+        /// 被俘武将便会一直留在原部队的主将/成员字段上（而它的 BelongCity 已被 AddCaptive 清空）；
+        /// 该部队日后被歼灭时 Troop.Clear 取 BelongCity 就会空引用崩溃。
         /// </summary>
         public virtual void PersonDetach(Person person, Person toPerson, Troop toTroop, Troop fromTroop)
         {

@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using System;
 using System.Collections.Generic;
 using UnityEngine.UI;
@@ -33,7 +33,7 @@ namespace Sango.UI
             {
                 if (x.PersonLib != null)
                 {
-                    if (x.BelongCity == 0)
+                    if (x.BelongCityId == 0)
                         sangoObjects.Add(x.PersonLib);
                 }
             });
@@ -58,13 +58,13 @@ namespace Sango.UI
         {
             if (city != null)
             {
-                city.BelongForce = 0;
+                city.BelongForceId = 0;
             }
 
             city = shortCities[0];
             if (city != null)
             {
-                city.BelongForce = force.Id;
+                city.BelongForceId = force.Id;
                 uIEditWorldMap.SetSelectEmptyCity(new List<ShortCity> { city });
                 sureButton.interactable = true;
             }
@@ -77,18 +77,18 @@ namespace Sango.UI
             if (force.Governor > 0)
             {
                 ShortPerson shortPerson = scenario.personSet[force.Governor];
-                ShortCity shortCity = scenario.citySet[shortPerson.BelongCity];
-                shortCity.BelongForce = 0;
+                ShortCity shortCity = scenario.citySet[shortPerson.BelongCityId];
+                shortCity.BelongForceId = 0;
 
-                shortPerson.BelongForce = 0;
-                shortPerson.BelongCity = 0;
+                shortPerson.BelongForceId = 0;
+                shortPerson.BelongCityId = 0;
             }
 
             force.Governor = governor.targetShortPersonId;
             force.CapitalCity = city.Id;
             ShortPerson governorPerson = scenario.personSet[force.Governor];
-            governorPerson.BelongCity = city.Id;
-            governorPerson.BelongForce = force.Id;
+            governorPerson.BelongCityId = city.Id;
+            governorPerson.BelongForceId = force.Id;
             governorPerson.state = (int)PersonStateType.Governor;
 
             OnCreateForce?.Invoke(governor, city);

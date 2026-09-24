@@ -22,15 +22,15 @@ namespace Sango.UI
         /// <summary>所属势力ID</summary>
         public int belongForce;
         /// <summary>所属势力引用</summary>
-        public Force mBelongForce;
+        public Force BelongForce;
         /// <summary>所属军团ID</summary>
         public int belongCorps;
         /// <summary>所属军团引用</summary>
-        public Corps mBelongCorps;
+        public Corps BelongCorps;
         /// <summary>所属城池ID</summary>
         public int belongCity;
         /// <summary>所属城池引用</summary>
-        public City mBelongCity;
+        public City BelongCity;
         /// <summary>建筑类型</summary>
         public BuildingType buildingType;
         /// <summary>当前耐久</summary>
@@ -92,12 +92,12 @@ namespace Sango.UI
             snapshot.name = city.Name;
 
             // 归属与建筑
-            snapshot.belongForce = city.BelongForce;
-            snapshot.mBelongForce = city.mBelongForce;
-            snapshot.belongCorps = city.BelongCorps;
-            snapshot.mBelongCorps = city.mBelongCorps;
-            snapshot.belongCity = city.BelongCity;
-            snapshot.mBelongCity = city.mBelongCity;
+            snapshot.belongForce = city.BelongForceId;
+            snapshot.BelongForce = city.BelongForce;
+            snapshot.belongCorps = city.BelongCorpsId;
+            snapshot.BelongCorps = city.BelongCorps;
+            snapshot.belongCity = city.BelongCityId;
+            snapshot.BelongCity = city.BelongCity;
             snapshot.buildingType = city.BuildingType;
             snapshot.durability = city.durability;
             snapshot.durabilityLimit = city.durabilityLimit;
@@ -138,19 +138,19 @@ namespace Sango.UI
             }
 
             // 记录归属旧值,用于同步城内武将
-            int oldBelongForce = city.BelongForce;
-            int oldBelongCorps = city.BelongCorps;
+            int oldBelongForce = city.BelongForceId;
+            int oldBelongCorps = city.BelongCorpsId;
 
             // 基础信息
             city.Name = name;
 
             // 归属与建筑
-            city.BelongForce = belongForce;
-            city.mBelongForce = mBelongForce;
-            city.BelongCorps = belongCorps;
-            city.mBelongCorps = mBelongCorps;
-            city.BelongCity = belongCity;
-            city.mBelongCity = mBelongCity;
+            city.BelongForceId = belongForce;
+            city.BelongForce = BelongForce;
+            city.BelongCorpsId = belongCorps;
+            city.BelongCorps = BelongCorps;
+            city.BelongCityId = belongCity;
+            city.BelongCity = BelongCity;
             city.BuildingType = buildingType;
             city.durability = durability;
             city.durabilityLimit = durabilityLimit;
@@ -185,20 +185,20 @@ namespace Sango.UI
             {
                 foreach (Person person in cur.personSet)
                 {
-                    if (person != null && person.mBelongCity == city)
+                    if (person != null && person.BelongCity == city)
                     {
                         if (oldBelongForce != belongForce)
                         {
-                            person.BelongForce = belongForce;
-                            person.mBelongForce = mBelongForce;
+                            person.BelongForceId = belongForce;
+                            person.BelongForce = BelongForce;
                             // 归属势力变化时,武将军团跟随城市军团
-                            person.BelongCorps = belongCorps;
-                            person.mBelongCorps = mBelongCorps;
+                            person.BelongCorpsId = belongCorps;
+                            person.BelongCorps = BelongCorps;
                         }
                         else if (oldBelongCorps != belongCorps)
                         {
-                            person.BelongCorps = belongCorps;
-                            person.mBelongCorps = mBelongCorps;
+                            person.BelongCorpsId = belongCorps;
+                            person.BelongCorps = BelongCorps;
                         }
                     }
                 }
@@ -528,17 +528,17 @@ namespace Sango.UI
                     {
                         Corps mainCorps = GetMainCorps(force);
                         snapshot.belongCorps = mainCorps != null ? mainCorps.Id : 0;
-                        snapshot.mBelongCorps = mainCorps;
+                        snapshot.BelongCorps = mainCorps;
                     }
                     else
                     {
                         // 没有所属势力时,军团必须置空
                         snapshot.belongCorps = 0;
-                        snapshot.mBelongCorps = null;
+                        snapshot.BelongCorps = null;
                     }
                 }
                 snapshot.belongForce = newForceId;
-                snapshot.mBelongForce = force;
+                snapshot.BelongForce = force;
                 // 刷新军团下拉 - 候选随所属势力过滤
                 RefreshBelongCorpsDropdown();
             });
@@ -546,13 +546,13 @@ namespace Sango.UI
             {
                 Corps corps = obj as Corps;
                 snapshot.belongCorps = corps != null ? corps.Id : 0;
-                snapshot.mBelongCorps = corps;
+                snapshot.BelongCorps = corps;
             });
             BindObjectDropdownSelection(belongCityDropdown, belongCityCandidates, (obj) =>
             {
                 City city = obj as City;
                 snapshot.belongCity = city != null ? city.Id : 0;
-                snapshot.mBelongCity = city;
+                snapshot.BelongCity = city;
             });
             BindObjectDropdownSelection(buildingTypeDropdown, buildingTypeCandidates, (obj) => snapshot.buildingType = obj as BuildingType);
             BindSnapshotInput(durabilityInput, () => snapshot.durability, (v) => snapshot.durability = v);
@@ -727,7 +727,7 @@ namespace Sango.UI
                     }
                 });
             }
-            RefreshObjectDropdown(belongForceDropdown, belongForceCandidates, snapshot.mBelongForce);
+            RefreshObjectDropdown(belongForceDropdown, belongForceCandidates, snapshot.BelongForce);
         }
 
         /// <summary>
@@ -738,28 +738,28 @@ namespace Sango.UI
         {
             if (belongCorpsDropdown == null) return;
             belongCorpsCandidates.Clear();
-            List<Corps> corpsList = GetForceCorpsList(snapshot.mBelongForce);
+            List<Corps> corpsList = GetForceCorpsList(snapshot.BelongForce);
             for (int i = 0; i < corpsList.Count; i++)
             {
                 belongCorpsCandidates.Add(corpsList[i]);
             }
 
             // 没有所属势力时,军团必须置空
-            if (snapshot.mBelongForce == null)
+            if (snapshot.BelongForce == null)
             {
                 snapshot.belongCorps = 0;
-                snapshot.mBelongCorps = null;
+                snapshot.BelongCorps = null;
             }
             // 军团与所属势力不一致时,同样置空
-            else if (snapshot.mBelongCorps != null && snapshot.mBelongCorps.mBelongForce != snapshot.mBelongForce)
+            else if (snapshot.BelongCorps != null && snapshot.BelongCorps.BelongForce != snapshot.BelongForce)
             {
                 snapshot.belongCorps = 0;
-                snapshot.mBelongCorps = null;
+                snapshot.BelongCorps = null;
             }
 
-            RefreshObjectDropdown(belongCorpsDropdown, belongCorpsCandidates, snapshot.mBelongCorps);
+            RefreshObjectDropdown(belongCorpsDropdown, belongCorpsCandidates, snapshot.BelongCorps);
             // 只有存在所属势力且势力下有军团时才能选择军团
-            belongCorpsDropdown.interactable = snapshot.mBelongForce != null && belongCorpsCandidates.Count > 0;
+            belongCorpsDropdown.interactable = snapshot.BelongForce != null && belongCorpsCandidates.Count > 0;
         }
 
         /// <summary>
@@ -777,7 +777,7 @@ namespace Sango.UI
             }
             cur.corpsSet.ForEach(corps =>
             {
-                if (corps != null && (force == null || corps.mBelongForce == force))
+                if (corps != null && (force == null || corps.BelongForce == force))
                 {
                     corpsList.Add(corps);
                 }
@@ -831,7 +831,7 @@ namespace Sango.UI
                     }
                 });
             }
-            RefreshObjectDropdown(belongCityDropdown, belongCityCandidates, snapshot.mBelongCity);
+            RefreshObjectDropdown(belongCityDropdown, belongCityCandidates, snapshot.BelongCity);
         }
 
         /// <summary>

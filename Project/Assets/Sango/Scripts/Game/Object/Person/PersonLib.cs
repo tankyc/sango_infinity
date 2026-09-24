@@ -97,14 +97,14 @@ namespace Sango.Core
         /// <summary>
         /// 性格
         /// </summary>
-        [JsonProperty]
-        public int personality;
+        [JsonProperty("personality")]
+        public int PersonalityId;
 
         /// <summary>
         /// 义理
         /// </summary>
-        [JsonProperty]
-        public int argumentation;
+        [JsonProperty("argumentation")]
+        public int ArgumentationId;
 
         /// <summary>
         /// 音聲
@@ -209,26 +209,26 @@ namespace Sango.Core
         /// <summary>
         /// 父亲
         /// </summary>
-        [JsonProperty] 
-        public int Father;
+        [JsonProperty("Father")] 
+        public int FatherId;
 
         /// <summary>
         /// 母亲
         /// </summary>
-        [JsonProperty]
-        public int Mother;
+        [JsonProperty("Mother")]
+        public int MotherId;
 
         /// <summary>
         /// 配偶
         /// </summary>
-        [JsonProperty] 
-        public int[] SpouseList;
+        [JsonProperty("SpouseList")] 
+        public int[] SpouseListId;
 
         /// <summary>
         /// 兄弟
         /// </summary>
-        [JsonProperty]
-        public int Brother;
+        [JsonProperty("Brother")]
+        public int BrotherId;
 
         /// <summary>
         /// 兄弟
@@ -239,14 +239,14 @@ namespace Sango.Core
         /// <summary>
         /// 喜欢武将
         /// </summary>
-        [JsonProperty]
-        public int[] LikePersonList;
+        [JsonProperty("LikePersonList")]
+        public int[] LikePersonListId;
 
         /// <summary>
         /// 厌恶武将
         /// </summary>
-        [JsonProperty]
-        public int[] HatePersonList;
+        [JsonProperty("HatePersonList")]
+        public int[] HatePersonListId;
 
         /// <summary>
         /// 矛
@@ -288,7 +288,7 @@ namespace Sango.Core
         /// 武将特性
         /// </summary>
         [JsonProperty]
-        public int[] FeatureList { get; set; }
+        public int[] FeatureListId { get; set; }
 
         /// <summary>
         /// 武将标签（由武将库工具维护，用于分类与按标签筛选；基础武将库不使用该字段）
@@ -307,14 +307,14 @@ namespace Sango.Core
         public int targetShortPersonId;
 
         public string modName;
-        public int BelongCity(ShortScenario scenario)
+        public int BelongCityId(ShortScenario scenario)
         {
             if (targetShortPersonId > 0)
             {
                 ShortPerson person = scenario.personSet[targetShortPersonId];
                 if (person != null)
                 {
-                    return person.BelongCity;
+                    return person.BelongCityId;
                 }
                 else
                 {
@@ -325,14 +325,14 @@ namespace Sango.Core
             return 0;
         }
 
-        public int BelongForce(ShortScenario scenario)
+        public int BelongForceId(ShortScenario scenario)
         {
             if (targetShortPersonId > 0)
             {
                 ShortPerson person = scenario.personSet[targetShortPersonId];
                 if (person != null)
                 {
-                    return person.BelongForce;
+                    return person.BelongForceId;
                 }
                 else
                 {
@@ -343,7 +343,7 @@ namespace Sango.Core
             return 0;
         }
 
-        public int BelongCorps;
+        public int BelongCorpsId;
 
     }
 }

@@ -54,7 +54,7 @@ namespace Sango.Core.Action
 
             city.bumperHarvestRemainingMonths = durationMonths;
             // 丰收触发后，玩家与 AI 城市均写入左下角信息窗口。
-            PlayerMessage.AddTextMessage($"{city.ColorName}因祈愿迎来丰收，未来三个月粮食产量提高50%。", city.mBelongForce, city.x, city.y);
+            PlayerMessage.AddTextMessage($"{city.ColorName}因祈愿迎来丰收，未来三个月粮食产量提高50%。", city.BelongForce, city.x, city.y);
         }
 
         /// <summary>

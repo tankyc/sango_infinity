@@ -18,7 +18,7 @@ namespace Sango.Render
         
         public override void Enter(Scenario scenario)
         {
-            if (!person.mBelongCorps.IsPlayer)
+            if (!person.BelongCorps.IsPlayer)
             {
                 IsDone = true;
                 return;
@@ -56,7 +56,7 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return person.mBelongCorps.IsPlayer;
+            return person.BelongCorps.IsPlayer;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

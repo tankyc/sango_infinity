@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System.Collections.Generic;
 using System.Text;
 
@@ -170,10 +170,10 @@ namespace Sango.Core
         {
             name = "势力",
             width = 2.40f,
-            valueStrGetCall = x => x.mBelongForce?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
-            valueObjGet = x => x.mBelongForce,
-            valueObjSet = (x, v) => x.mBelongForce = (Force)v,
+            valueStrGetCall = x => x.BelongForce?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
+            valueObjGet = x => x.BelongForce,
+            valueObjSet = (x, v) => x.BelongForce = (Force)v,
             editType = DataEditType.IntDropdown,
             dataSetType = DataSetType.Force,
         };
@@ -182,10 +182,10 @@ namespace Sango.Core
         {
             name = "军团",
             width = 4.00f,
-            valueStrGetCall = x => x.mBelongCorps?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCorps, b.mBelongCorps),
-            valueObjGet = x => x.mBelongCorps,
-            valueObjSet = (x, v) => x.mBelongCorps = (Corps)v,
+            valueStrGetCall = x => x.BelongCorps?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongCorps, b.BelongCorps),
+            valueObjGet = x => x.BelongCorps,
+            valueObjSet = (x, v) => x.BelongCorps = (Corps)v,
             editType = DataEditType.IntDropdown,
             dataSetType = DataSetType.Corps,
         };
@@ -194,10 +194,10 @@ namespace Sango.Core
         {
             name = "所属",
             width = 2.40f,
-            valueStrGetCall = x => x.mBelongCity?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCity, b.mBelongCity),
-            valueObjGet = x => x.mBelongCity,
-            valueObjSet = (x, v) => x.mBelongCity = (City)v,
+            valueStrGetCall = x => x.BelongCity?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongCity, b.BelongCity),
+            valueObjGet = x => x.BelongCity,
+            valueObjSet = (x, v) => x.BelongCity = (City)v,
             editType = DataEditType.IntDropdown,
             dataSetType = DataSetType.City,
         };

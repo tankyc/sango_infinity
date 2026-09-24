@@ -86,9 +86,9 @@ namespace Sango.Tools
             { "ActionOver", "是否行动完毕" },
 
             // 建筑属性(BuildingBase)
-            { "BelongForce", "所属势力" },
-            { "BelongCorps", "所属军团" },
-            { "BelongCity", "所属城池" },
+            { "BelongForceId", "所属势力" },
+            { "BelongCorpsId", "所属军团" },
+            { "BelongCityId", "所属城池" },
             { "BuildingType", "建筑类型" },
             { "durability", "当前耐久" },
             { "x", "X坐标" },
@@ -139,7 +139,7 @@ namespace Sango.Tools
         private static readonly string[] FieldOrder =
         {
             "Id", "Name",
-            "BelongForce", "BelongCorps", "BelongCity", "BuildingType",
+            "BelongForceId", "BelongCorpsId", "BelongCityId", "BuildingType",
             // 耐久与最大耐久紧邻显示
             "durability", "durabilityLimit", "model",
             "food", "gold", "population", "troopPopulation",
@@ -180,7 +180,7 @@ namespace Sango.Tools
         /// </summary>
         private static readonly HashSet<string> IntIdFieldNames = new HashSet<string>
         {
-            "BelongForce", "BelongCorps", "BelongCity",
+            "BelongForceId", "BelongCorpsId", "BelongCityId",
         };
 
         /// <summary>
@@ -849,42 +849,42 @@ namespace Sango.Tools
         {
             switch (fieldName)
             {
-                case "BelongForce":
+                case "BelongForceId":
                 {
                     Force newForce = newId == 0 ? null : scenario.forceSet.Get(newId);
-                    selectedCity.BelongForce = newId;
-                    selectedCity.mBelongForce = newForce;
+                    selectedCity.BelongForceId = newId;
+                    selectedCity.BelongForce = newForce;
                     // 同步城内武将的归属势力
                     foreach (Person person in scenario.personSet)
                     {
-                        if (person != null && person.mBelongCity == selectedCity)
+                        if (person != null && person.BelongCity == selectedCity)
                         {
-                            person.mBelongForce = newForce;
-                            person.BelongForce = newId;
+                            person.BelongForce = newForce;
+                            person.BelongForceId = newId;
                         }
                     }
                     break;
                 }
-                case "BelongCorps":
+                case "BelongCorpsId":
                 {
                     Corps newCorps = newId == 0 ? null : scenario.corpsSet.Get(newId);
-                    selectedCity.BelongCorps = newId;
-                    selectedCity.mBelongCorps = newCorps;
+                    selectedCity.BelongCorpsId = newId;
+                    selectedCity.BelongCorps = newCorps;
                     // 同步城内武将的归属军团
                     foreach (Person person in scenario.personSet)
                     {
-                        if (person != null && person.mBelongCity == selectedCity)
+                        if (person != null && person.BelongCity == selectedCity)
                         {
-                            person.mBelongCorps = newCorps;
-                            person.BelongCorps = newId;
+                            person.BelongCorps = newCorps;
+                            person.BelongCorpsId = newId;
                         }
                     }
                     break;
                 }
-                case "BelongCity":
+                case "BelongCityId":
                 {
-                    selectedCity.BelongCity = newId;
-                    selectedCity.mBelongCity = newId == 0 ? null : scenario.citySet.Get(newId);
+                    selectedCity.BelongCityId = newId;
+                    selectedCity.BelongCity = newId == 0 ? null : scenario.citySet.Get(newId);
                     break;
                 }
             }
@@ -899,17 +899,17 @@ namespace Sango.Tools
             {
                 return;
             }
-            if (selectedCity.BelongForce != (selectedCity.mBelongForce?.Id ?? 0))
+            if (selectedCity.BelongForceId != (selectedCity.BelongForce?.Id ?? 0))
             {
-                selectedCity.mBelongForce = selectedCity.BelongForce > 0 ? scenario.forceSet.Get(selectedCity.BelongForce) : null;
+                selectedCity.BelongForce = selectedCity.BelongForceId > 0 ? scenario.forceSet.Get(selectedCity.BelongForceId) : null;
             }
-            if (selectedCity.BelongCorps != (selectedCity.mBelongCorps?.Id ?? 0))
+            if (selectedCity.BelongCorpsId != (selectedCity.BelongCorps?.Id ?? 0))
             {
-                selectedCity.mBelongCorps = selectedCity.BelongCorps > 0 ? scenario.corpsSet.Get(selectedCity.BelongCorps) : null;
+                selectedCity.BelongCorps = selectedCity.BelongCorpsId > 0 ? scenario.corpsSet.Get(selectedCity.BelongCorpsId) : null;
             }
-            if (selectedCity.BelongCity != (selectedCity.mBelongCity?.Id ?? 0))
+            if (selectedCity.BelongCityId != (selectedCity.BelongCity?.Id ?? 0))
             {
-                selectedCity.mBelongCity = selectedCity.BelongCity > 0 ? scenario.citySet.Get(selectedCity.BelongCity) : null;
+                selectedCity.BelongCity = selectedCity.BelongCityId > 0 ? scenario.citySet.Get(selectedCity.BelongCityId) : null;
             }
         }
 
@@ -1063,7 +1063,7 @@ namespace Sango.Tools
             }
             switch (fieldName)
             {
-                case "BelongForce":
+                case "BelongForceId":
                     scenario.forceSet.ForEach(force =>
                     {
                         if (force != null)
@@ -1072,7 +1072,7 @@ namespace Sango.Tools
                         }
                     });
                     break;
-                case "BelongCorps":
+                case "BelongCorpsId":
                     scenario.corpsSet.ForEach(corps =>
                     {
                         if (corps != null)
@@ -1081,7 +1081,7 @@ namespace Sango.Tools
                         }
                     });
                     break;
-                case "BelongCity":
+                case "BelongCityId":
                     scenario.citySet.ForEach(city =>
                     {
                         if (city != null)

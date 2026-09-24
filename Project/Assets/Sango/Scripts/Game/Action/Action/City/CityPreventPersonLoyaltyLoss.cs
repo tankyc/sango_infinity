@@ -30,7 +30,7 @@ namespace Sango.Core.Action
         /// </summary>
         private void OnForcePersonLoyaltyChange(Force force, Person person, OverrideData<bool> shouldLoseLoyalty)
         {
-            if (City != person.mBelongCity || City.mBelongForce != force)
+            if (City != person.BelongCity || City.BelongForce != force)
             {
                 return;
             }

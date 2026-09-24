@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,7 +23,7 @@ using Sango.Core; namespace Sango.UI
         public UIMiniCityInfoPanel Show(City c)
         {
             nameLabel.text = c.Name;
-            SetCorps(c.mBelongCorps);
+            SetCorps(c.BelongCorps);
             ResetPool();
             List<ObjectSortTitle> SortTitles = new List<ObjectSortTitle>(objectSortTitles);
             GameEvent.OnInitCityMiniPanel?.Invoke(c, SortTitles);

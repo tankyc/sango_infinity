@@ -1,4 +1,4 @@
-﻿using Sango.Tools;
+using Sango.Tools;
 using static Sango.Core.TroopAIUtility;
 
 namespace Sango.Core
@@ -31,7 +31,7 @@ namespace Sango.Core
                 }
                 else
                 {
-                    troop.SetMission(MissionType.TroopReturnCity, troop.mBelongCity.Id);
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
                 }
                 troop.NeedPrepareMission();
                 return;

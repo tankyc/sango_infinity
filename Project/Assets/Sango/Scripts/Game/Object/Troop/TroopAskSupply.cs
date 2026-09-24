@@ -95,8 +95,8 @@ namespace Sango.Core
             {
                 bool supplied = TroopSupplyTroop.SupplyOne(supplier, troop);
                 Sango.Log.Info(supplied
-                    ? $"{troop.mBelongForce?.Name}的[{troop.Name}]向补给队[{supplier.Name}]求援成功!"
-                    : $"{troop.mBelongForce?.Name}的[{troop.Name}]向补给队[{supplier.Name}]求援,但补给队暂无可用物资!");
+                    ? $"{troop.BelongForce?.Name}的[{troop.Name}]向补给队[{supplier.Name}]求援成功!"
+                    : $"{troop.BelongForce?.Name}的[{troop.Name}]向补给队[{supplier.Name}]求援,但补给队暂无可用物资!");
                 // 补给后仍未恢复时保留任务，下回合继续跟随补给队；已恢复则收尾
                 if (IsMissionComplete)
                     FinishAskSupply(troop);

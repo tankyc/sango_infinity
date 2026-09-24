@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 namespace Sango.Core.Player
 {
     [GameSystem]
@@ -67,9 +67,9 @@ namespace Sango.Core.Player
                 targetList.Clear();
                 if (TargetCity.gold > 500)
                 {
-                    TargetCity.mBelongForce.ForEachPerson(x =>
+                    TargetCity.BelongForce.ForEachPerson(x =>
                   {
-                      if (x != TargetCity.mBelongForce.mGovernor && x.CanUpgradeOfficial)
+                      if (x != TargetCity.BelongForce.mGovernor && x.CanUpgradeOfficial)
                       {
                           targetList.Add(x);
                       }

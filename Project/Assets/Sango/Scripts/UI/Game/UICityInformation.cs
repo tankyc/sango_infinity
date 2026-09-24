@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System.Collections.Generic;
 using UnityEngine.UI;
 
@@ -125,7 +125,7 @@ namespace Sango.UI
             else
             {
                 // TODO: 皇帝
-                emperorLabel.text = city.mBelongCity.Name;
+                emperorLabel.text = city.BelongCity.Name;
             }
             switch (showTab)
             {
@@ -174,10 +174,10 @@ namespace Sango.UI
 
         void UpdateItemsContent()
         {
-            if (items_inited || itemPool == null || Target.mBelongForce == null) return;
+            if (items_inited || itemPool == null || Target.BelongForce == null) return;
             items_inited = true;
             itemPool.Reset();
-            List<ItemType> ItemTypes = Target.mBelongForce.createdItemTypes;
+            List<ItemType> ItemTypes = Target.BelongForce.createdItemTypes;
             int len = ItemTypes.Count;
             for (int i = 0; i < len; i++)
             {
@@ -205,7 +205,7 @@ namespace Sango.UI
             List<BuildingType> canBuildBuildingType = new List<BuildingType>();
             Scenario.Cur.CommonData.BuildingTypes.ForEach(x =>
             {
-                if (x.IsIntrior && x.level == 1 && x.IsValid(Target.mBelongForce) && x.canBuild)
+                if (x.IsIntrior && x.level == 1 && x.IsValid(Target.BelongForce) && x.canBuild)
                 {
                     canBuildBuildingType.Add(x);
                 }

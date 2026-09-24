@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -73,14 +73,14 @@ namespace Sango.UI
                 if (city.Id == 0) continue;
                 UIMapCitySelectItem toggle = createPool.Create();
                 toggle.city = city;
-                if (city.BelongForce == 0)
+                if (city.BelongForceId == 0)
                 {
                     toggle.SetInavtive(true);
                     toggle.SetColor(Color.white);
                 }
                 else
                 {
-                    Force Force = city.mBelongForce;
+                    Force Force = city.BelongForce;
                     if (Force == null)
                         continue;
                     Flag flag = Force.mFlag;
@@ -160,7 +160,7 @@ namespace Sango.UI
                 if (city.Id == 0) continue;
                 UIMapCitySelectItem toggle = createPool.Create();
                 toggle.city = city;
-                if (city.BelongForce == 0)
+                if (city.BelongForceId == 0)
                 {
                     toggle.ShowName(city.Name);
                     toggle.SetColor(Color.white);
@@ -170,7 +170,7 @@ namespace Sango.UI
                 }
                 else
                 {
-                    Force Force = scenario.forceSet.Get(city.BelongForce);
+                    Force Force = scenario.forceSet.Get(city.BelongForceId);
                     if (Force == null)
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[Force.Flag] : null;
@@ -223,9 +223,9 @@ namespace Sango.UI
                 if (!IsCitySelectable(city))
                 {
                     Color c = Color.white;
-                    if (city.BelongForce != 0)
+                    if (city.BelongForceId != 0)
                     {
-                        Force f = scenario.forceSet.Get(city.BelongForce);
+                        Force f = scenario.forceSet.Get(city.BelongForceId);
                         if (f != null)
                         {
                             Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[f.Flag] : null;
@@ -244,7 +244,7 @@ namespace Sango.UI
                     continue;
                 }
 
-                if (city.BelongForce == 0)
+                if (city.BelongForceId == 0)
                 {
                     toggle.SetColor(Color.white);
                     toggle.SetInavtive(false);
@@ -253,7 +253,7 @@ namespace Sango.UI
                 }
                 else
                 {
-                    Force Force = scenario.forceSet.Get(city.BelongForce);
+                    Force Force = scenario.forceSet.Get(city.BelongForceId);
                     if (Force == null)
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[Force.Flag] : null;

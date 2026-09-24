@@ -12,13 +12,39 @@ namespace Sango.Core
 
         public BuffManager Manager { get; private set; }
 
-        [JsonProperty]
-        [JsonConverter(typeof(Id2ObjConverter<Troop>))]
-        public Troop Master { get; private set; }
+        /// <summary>
+        /// 所属部队的 id（存档数值），读取 Master 时按需解析
+        /// </summary>
+        [JsonProperty("Master")]
+        public int MasterId;
 
-        [JsonProperty]
-        [JsonConverter(typeof(Id2ObjConverter<Buff>))]
-        public Buff Buff { get; private set; }
+        Troop mMaster;
+        public Troop Master
+        {
+            get
+            {
+                if (mMaster == null && MasterId > 0) mMaster = IdRef.Resolve<Troop>(MasterId);
+                return mMaster;
+            }
+            private set { mMaster = value; MasterId = value != null ? value.Id : 0; }
+        }
+
+        /// <summary>
+        /// 状态(Buff)的 id（存档数值），读取 Buff 时按需解析
+        /// </summary>
+        [JsonProperty("Buff")]
+        public int BuffId;
+
+        Buff mBuff;
+        public Buff Buff
+        {
+            get
+            {
+                if (mBuff == null && BuffId > 0) mBuff = IdRef.Resolve<Buff>(BuffId);
+                return mBuff;
+            }
+            private set { mBuff = value; BuffId = value != null ? value.Id : 0; }
+        }
 
         [JsonProperty]
         public int leftCounter;

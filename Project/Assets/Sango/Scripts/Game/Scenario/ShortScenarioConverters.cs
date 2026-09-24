@@ -121,10 +121,10 @@ namespace Sango.Core
                         person.Name = reader.Value as string;
                         break;
                     case "BelongForce":
-                        person.BelongForce = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
+                        person.BelongForceId = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
                         break;
                     case "BelongCity":
-                        person.BelongCity = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
+                        person.BelongCityId = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
                         break;
                     case "headIconID":
                         person.headIconID = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
@@ -185,7 +185,7 @@ namespace Sango.Core
                         city.Name = reader.Value as string;
                         break;
                     case "BelongForce":
-                        city.BelongForce = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
+                        city.BelongForceId = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
                         break;
                     case "BuildingType":
                         city.BuildingType = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);

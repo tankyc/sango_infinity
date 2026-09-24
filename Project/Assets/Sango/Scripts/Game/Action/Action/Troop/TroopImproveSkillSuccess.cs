@@ -1,4 +1,4 @@
-﻿using Sango.Core.Tools;
+using Sango.Core.Tools;
 using TKNewtonsoft.Json.Linq;
 
 namespace Sango.Core.Action
@@ -32,7 +32,7 @@ namespace Sango.Core.Action
 
         void OnTroopAfterCalculateSkillSuccess(Troop troop, SkillInstance skill, Cell spellCell, OverrideData<int> overrideData)
         {
-            if (Force != null && troop.mBelongForce != Force) return;
+            if (Force != null && troop.BelongForce != Force) return;
             if (!selfIsTarget)
             {
                 if (Troop != null && Troop != troop) return;

@@ -136,8 +136,8 @@ namespace Sango.Core
                 ModedPersonLibList.Add(x);
                 if (x.BrotherList == null || x.BrotherList.Length == 0)
                 {
-                    if (x.Brother > 0)
-                        x.Brother = 0;
+                    if (x.BrotherId > 0)
+                        x.BrotherId = 0;
                     return;
                 }
 
@@ -145,17 +145,17 @@ namespace Sango.Core
                 {
                     int b = x.BrotherList[i];
                     PersonLib coreB = FindPersonLib(b);
-                    if (coreB != null && coreB.Brother > 0)
+                    if (coreB != null && coreB.BrotherId > 0)
                         return;
                 }
 
-                x.Brother = x.Id;
+                x.BrotherId = x.Id;
                 for (int i = 0; i < x.BrotherList.Length; i++)
                 {
                     int b = x.BrotherList[i];
                     PersonLib coreB = FindPersonLib(b);
                     if (coreB != null)
-                        coreB.Brother = x.Id;
+                        coreB.BrotherId = x.Id;
                 }
             });
 

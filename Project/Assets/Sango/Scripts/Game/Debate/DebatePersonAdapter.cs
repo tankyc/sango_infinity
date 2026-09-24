@@ -12,9 +12,9 @@
  *
  * 说明：本文件只保留"真实 Person 上没有、或语义需要翻译"的访问器：
  *   · 话术    → Person.wordTac（舌战话术索引数组，对应 C++ Person::has_wajutsu）
- *   · 地区 ID → 工程的军团 Corps（Person.mBelongCorps）
- *   · 位置 ID → 武将所在部队 Troop（Person.mTroop）
- *   · 性格    → DebatePersonality（真实 personality 1~4 → 舌战 胆小/冷静/刚胆/莽撞）
+ *   · 地区 ID → 工程的军团 Corps（Person.BelongCorps）
+ *   · 位置 ID → 武将所在部队 Troop（Person.mBelongTroop）
+ *   · 性格    → DebatePersonality（真实 PersonalityId 1~4 → 舌战 胆小/冷静/刚胆/莽撞）
  * 其余（姓名 / 能力 / 势力 / 伤病 / 是否玩家操控）直接读真实 Person 的成员。
  */
 
@@ -33,14 +33,14 @@ namespace Sango.Core.Debate
     #region 性格解析
 
     /// <summary>
-    /// 把真实武将的 personality(性格) 转换为舌战性格。
+    /// 把真实武将的 PersonalityId(性格) 转换为舌战性格。
     ///
     /// 项目内 Personalities 数据（Build/Content/Data/Common/Personalities.json）与舌战性格一一对应：
     ///   kind = 1 胆小 → Personality_Timid（小心）
     ///   kind = 2 冷静 → Personality_Calm （冷静）
     ///   kind = 3 刚胆 → Personality_Bold  （大胆）
     ///   kind = 4 莽撞 → Personality_Reckless（猪突）
-    /// 因此 kind / personality 减 1 即为 Personality 枚举值，无需额外配置。
+    /// 因此 kind / PersonalityId 减 1 即为 Personality 枚举值，无需额外配置。
     ///
     /// 若贵项目改动过性格数据，可用 PersonalityMap 覆盖，或替换 Resolver 委托。
     /// </summary>
@@ -50,7 +50,7 @@ namespace Sango.Core.Debate
         public const int Count = 4;
 
         /// <summary>
-        /// 自定义覆盖：personality 值 → 舌战性格。
+        /// 自定义覆盖：PersonalityId 值 → 舌战性格。
         /// 优先级最高，仅在贵项目性格数据与默认值不一致时才需要填写。
         /// </summary>
         public static readonly Dictionary<int, int> PersonalityMap = new Dictionary<int, int>();
@@ -72,7 +72,7 @@ namespace Sango.Core.Debate
             // 优先用性格对象上的 kind（数据里 kind 与 Id 一致，语义更准确）
             int kind = person.mPersonality != null ? person.mPersonality.kind : 0;
             if (kind <= 0)
-                kind = person.personality;
+                kind = person.PersonalityId;
 
             if (PersonalityMap.TryGetValue(kind, out int mapped))
                 return mapped;
@@ -124,7 +124,7 @@ namespace Sango.Core.Debate
         public static int GetForceId(this Person self)
         {
             if (self == null) return -1;
-            return self.mBelongForce != null ? self.mBelongForce.Id : self.BelongForce;
+            return self.BelongForce != null ? self.BelongForce.Id : self.BelongForceId;
         }
 
         /// <summary>
@@ -134,14 +134,14 @@ namespace Sango.Core.Debate
         public static int GetDistrictId(this Person self)
         {
             if (self == null) return -1;
-            return self.mBelongCorps != null ? self.mBelongCorps.Id : -1;
+            return self.BelongCorps != null ? self.BelongCorps.Id : -1;
         }
 
         /// <summary>所在位置（部队 Troop）ID。对应 C++ 的 location_id，用于战报定位</summary>
         public static int GetLocationId(this Person self)
         {
             if (self == null) return -1;
-            return self.mTroop != null ? self.mTroop.Id : -1;
+            return self.mBelongTroop != null ? self.mBelongTroop.Id : -1;
         }
 
         /// <summary>伤病程度（0=健康，越大越重）</summary>

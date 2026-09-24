@@ -1,0 +1,234 @@
+using UnityEngine;
+
+namespace Sango.Core
+{
+    /// <summary>
+    /// 结盟外交行为
+    /// </summary>
+    public class DiplomacyActionAlliance : DiplomacyActionBase
+    {
+
+
+        /// <summary>
+        /// 初始化结盟外交行为
+        /// </summary>
+        /// <param name="sender">发送方势力</param>
+        /// <param name="receiver">接收方势力</param>
+        /// <param name="diplomat">执行外交的武将</param>
+        /// <param name="resourceValue">资源价值</param>
+        public DiplomacyActionAlliance(Force sender, Force receiver, Person diplomat = null, int resourceValue = 0)
+            : base(DiplomacyActionType.Alliance, sender, receiver, diplomat, resourceValue)
+        {
+            // 如果没有指定资源价值，使用默认值
+            if (resourceValue == 0)
+            {
+                ResourceValue = 3000; // 默认结盟费用
+            }
+        }
+
+        /// <summary>
+        /// 检查是否可以执行结盟行为
+        /// </summary>
+        /// <returns>是否可以执行</returns>
+        public override bool CanPerform()
+        {
+            if (Sender == null || Receiver == null || Sender == Receiver)
+                return false;
+
+            // 检查资金：优先检查执行外交的武将所属城市的资金
+            int availableGold = 0;
+            if (Diplomat != null && Diplomat.mBelongCity != null)
+            {
+                // 如果有执行外交的武将，检查武将所属城市的资金
+                availableGold = Diplomat.mBelongCity.gold;
+            }
+            else if (Sender.CapitalCity != null)
+            {
+                // 否则检查发送方首都的资金
+                availableGold = Sender.CapitalCity.gold;
+            }
+
+            if (availableGold < ResourceValue)
+                return false;
+
+            // 检查关系是否足够
+            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
+            int relation = diplomacyManager.GetRelation(Sender, Receiver);
+            if (relation < Scenario.Cur.Variables.diplomacyAllianceRelationThreshold)
+                return false;
+
+            // 检查是否已经有同盟关系
+            if (Sender.HasActiveAgreement(Receiver))
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// 计算结盟成功率
+        /// </summary>
+        /// <returns>成功率（0-100）</returns>
+        public override int CalculateSuccessRate()
+        {
+            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
+            int relation = diplomacyManager.GetRelation(Sender, Receiver);
+            ScenarioVariables variables = Scenario.Cur.Variables;
+
+            // 关系值越高，成功率越高，最高90%
+            SuccessRate = (int)Mathf.Clamp(variables.diplomacyAllianceBaseSuccessRate + 
+                (relation - variables.diplomacyAllianceRelationThreshold) / variables.diplomacyAllianceRelationFactor, 
+                variables.diplomacyAllianceMinSuccessRate, variables.diplomacyAllianceMaxSuccessRate);
+
+            // 使者能力加成
+            if (Diplomat != null)
+            {
+                int diplomacyAbility = Diplomat.Politics + Diplomat.Glamour / 2;
+                int abilityBonus = Mathf.Min(diplomacyAbility / 10, variables.diplomacyAbilityBonusMax);
+                SuccessRate += abilityBonus;
+            }
+
+            // 金钱加成
+            if (ResourceValue >0)
+            {
+                int resourceBonus = Mathf.Min(ResourceValue / variables.diplomacyResourceBonusFactor, variables.diplomacyResourceBonusMax);
+                SuccessRate += resourceBonus;
+            }
+
+            // 确保成功率在合理范围内
+            SuccessRate = Mathf.Clamp(SuccessRate, 0, 100);
+            return SuccessRate;
+        }
+
+        /// <summary>
+        /// 派遣时触发的回调方法
+        /// 处理结盟的资源消耗
+        /// </summary>
+        public override void OnDispatch()
+        {
+            // 调用基类方法
+            base.OnDispatch();
+
+            // 如果不需要资源，直接返回
+            if (ResourceValue <= 0)
+                return;
+
+            // 确定扣除资金的城市：优先武将所属城市，其次首都
+            City paymentCity = null;
+            if (Diplomat != null && Diplomat.mBelongCity != null)
+            {
+                paymentCity = Diplomat.mBelongCity;
+            }
+            else if (Sender != null && Sender.CapitalCity != null)
+            {
+                paymentCity = Sender.CapitalCity;
+            }
+
+            // 扣除资金
+            if (paymentCity != null && paymentCity.gold >= ResourceValue)
+            {
+                paymentCity.gold -= ResourceValue;
+
+                Sango.Log.Info($"@外交@{Sender.Name} 结盟花费 {ResourceValue} 金");
+            }
+        }
+
+        /// <summary>
+        /// 执行结盟行为
+        /// </summary>
+        /// <returns>是否成功</returns>
+        public override bool Perform()
+        {
+            if (!CanPerform())
+            {
+                // 条件不满足也算失败，触发惩罚
+                OnFailed();
+                return false;
+            }
+
+            // 计算成功率
+            CalculateSuccessRate();
+
+            // 判断是否成功
+            if (!GameRandom.Chance(SuccessRate))
+            {
+                // 成功率失败，触发惩罚
+                OnFailed();
+                return false;
+            }
+
+            // 创建联盟
+            Alliance alliance = new Alliance()
+            {
+                ForceList = new SangoObjectList<Force>(),
+                leftCount = Scenario.Cur.Variables.diplomacyAllianceDuration, // 12个月
+                allianceType = AllianceType.Alliance,
+                IsAlive = true
+            };
+
+            alliance.ForceList.Add(Sender);
+            alliance.ForceList.Add(Receiver);
+
+            // 添加到场景
+            Scenario.Cur.Add(alliance);
+
+            // 添加到势力的联盟列表
+            Sender.AllianceList.Add(alliance);
+            Receiver.AllianceList.Add(alliance);
+
+            // 增加关系
+            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
+            diplomacyManager.AddRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyAllianceRelationIncrease);
+
+            Sango.Log.Info($"@外交@{Sender.Name} 与 {Receiver.Name} 达成了{Scenario.Cur.Variables.diplomacyAllianceDuration / 3}个月的结盟 Id={alliance.Id}!!");
+
+            // 触发事件
+            GameEvent.OnDiplomacyAlliance?.Invoke(Sender, Receiver, true);
+
+            return true;
+        }
+
+        /// <summary>
+        /// 不检查条件直接执行结盟行为
+        /// </summary>
+        /// <param name="success">执行结果（true表示成功，false表示失败）</param>
+        public override void PerformWithoutCheck(bool success)
+        {
+            if (!success)
+            {
+                // 失败时触发惩罚机制
+                OnFailed();
+                // 触发失败事件
+                GameEvent.OnDiplomacyAlliance?.Invoke(Sender, Receiver, false);
+                return;
+            }
+
+            // 创建联盟
+            Alliance alliance = new Alliance()
+            {
+                ForceList = new SangoObjectList<Force>(),
+                leftCount = Scenario.Cur.Variables.diplomacyAllianceDuration, // 12个月
+                allianceType = AllianceType.Alliance,
+                IsAlive = true
+            };
+
+            alliance.ForceList.Add(Sender);
+            alliance.ForceList.Add(Receiver);
+
+            // 添加到场景
+            Scenario.Cur.Add(alliance);
+
+            // 添加到势力的联盟列表
+            Sender.AllianceList.Add(alliance);
+            Receiver.AllianceList.Add(alliance);
+
+            // 增加关系
+            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
+            diplomacyManager.AddRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyAllianceRelationIncrease);
+
+            Sango.Log.Info($"@外交@{Sender.Name} 与 {Receiver.Name} 达成了{Scenario.Cur.Variables.diplomacyAllianceDuration / 3}个月的结盟 Id={alliance.Id}!!");
+
+            // 触发事件
+            GameEvent.OnDiplomacyAlliance?.Invoke(Sender, Receiver, true);
+        }
+    }
+}

@@ -1,4 +1,4 @@
-﻿using TKNewtonsoft.Json.Linq;
+using TKNewtonsoft.Json.Linq;
 using Sango.Core.Tools;
 using System;
 using System.Collections.Generic;
@@ -35,11 +35,11 @@ namespace Sango.Core.Action
 
         void OnBuildingCalculateFoodGain(BuildingBase buildingBase, OverrideData<int> overrideData)
         {
-            if (Force != null && buildingBase.mBelongForce != Force) return;
+            if (Force != null && buildingBase.BelongForce != Force) return;
             if (Building != null && Building != buildingBase) return;
-            if (Building.mBelongCity == null) return;
+            if (Building.BelongCity == null) return;
 
-            int troops = Math.Max(Building.mBelongCity.troops, minTroops);
+            int troops = Math.Max(Building.BelongCity.troops, minTroops);
             int factor = value * (troops - minTroops) / (maxTroops - minTroops);
 
             overrideData.Value = overrideData.Value + overrideData.Value * factor / 100;

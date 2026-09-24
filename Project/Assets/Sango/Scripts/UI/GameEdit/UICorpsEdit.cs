@@ -172,7 +172,7 @@ namespace Sango.UI
             }
             scenario.citySet.ForEach(city =>
             {
-                if (city != null && city.mBelongCorps == Target)
+                if (city != null && city.BelongCorps == Target)
                 {
                     cityDatas.Add(city);
                 }
@@ -193,7 +193,7 @@ namespace Sango.UI
             }
             scenario.citySet.ForEach(city =>
             {
-                if (city != null && city.mBelongForce == Target.mBelongForce && city.mBelongCorps != Target)
+                if (city != null && city.BelongForce == Target.BelongForce && city.BelongCorps != Target)
                 {
                     assignableCities.Add(city);
                 }
@@ -218,7 +218,7 @@ namespace Sango.UI
             }
             scenario.personSet.ForEach(person =>
             {
-                if (person != null && person.mBelongForce == Target.mBelongForce)
+                if (person != null && person.BelongForce == Target.BelongForce)
                 {
                     comanderCandidates.Add(person);
                 }
@@ -297,7 +297,7 @@ namespace Sango.UI
                 if (corpsNameText != null) corpsNameText.text = Target.Name;
                 if (forceNameText != null)
                 {
-                    forceNameText.text = Target.mBelongForce != null ? Target.mBelongForce.Name : "无";
+                    forceNameText.text = Target.BelongForce != null ? Target.BelongForce.Name : "无";
                 }
 
                 // 军团长下拉 - 候选为本势力武将,首位为"无"

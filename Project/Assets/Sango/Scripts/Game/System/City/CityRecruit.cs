@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace Sango.Core.Player
 {
@@ -38,7 +38,7 @@ namespace Sango.Core.Player
             get
             {
                 return TargetCity.freePersons.Count > 0 &&
-                    TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
+                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
             }
         }
 

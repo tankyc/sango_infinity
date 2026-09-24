@@ -125,12 +125,20 @@ namespace Sango.Core
 
         public void SetExp(int exp, Scenario scenario)
         {
-            if (expAddValue >= scenario.Variables.MaxAttributeGet)
-                return;
+            if (scenario == null) return;
 
-            if (valueExp != exp)
+            int expNeed = scenario.Variables.AttributeExpLevelNeed;
+            if (expNeed <= 0) return;                                   // 防止数据配置为 0 时除零
+
+            // 上限直接按经验实算：expAddValue 是缓存字段，只有 Update/UpdateExpValue 之后才有效，
+            // 存档刚载入还没刷新时它可能是 0，用它做封顶判断会失效（经验能越过 MaxAttributeGet）。
+            int expMax = scenario.Variables.MaxAttributeGet * expNeed;
+            if (valueExp >= expMax) return;                             // 已到顶：保持原样（与旧行为一致）
+
+            int next = Math.Min(exp, expMax);
+            if (valueExp != next)
             {
-                valueExp = exp;
+                valueExp = next;
                 UpdateExpValue(scenario);
             }
         }

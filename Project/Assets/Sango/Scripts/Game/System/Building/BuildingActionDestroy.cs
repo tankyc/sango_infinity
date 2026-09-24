@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using ContextMenu = Sango.UI.ContextMenu;
 
 namespace Sango.Core.Player
@@ -29,15 +29,15 @@ namespace Sango.Core.Player
 
           
 
-            Force force = TargetBuilding.mBelongForce;
+            Force force = TargetBuilding.BelongForce;
             //GameDialog.IDialog dialog = GameDialog.Open(GameDialog.DialogStyle.ClickPersonSay, $"{force.ColorName}大人，\n终于轮到我们了啊。", null);
             Person person = force.mCounsellor;
-            if (person == null || person.mBelongForce != force)
+            if (person == null || person.BelongForce != force)
             {
-                int max = TargetBuilding.mBelongCity.allPersons.Count;
+                int max = TargetBuilding.BelongCity.allPersons.Count;
                 if (max > 0)
                 {
-                    person = TargetBuilding.mBelongCity.allPersons.Get(GameRandom.Range(0, max));
+                    person = TargetBuilding.BelongCity.allPersons.Get(GameRandom.Range(0, max));
                 }
                 else
                 {

@@ -1,4 +1,4 @@
-﻿using TKNewtonsoft.Json;
+using TKNewtonsoft.Json;
 using Sango.Render;
 using System;
 using System.Collections.Generic;
@@ -10,8 +10,8 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptIn)]
     public class Gate : City
     {
-        public override int BaseGainGold => mBelongCity.BaseGainGold / 5;
-        public override int BaseGainFood => mBelongCity.BaseGainFood / 5;
+        public override int BaseGainGold => BelongCity.BaseGainGold / 5;
+        public override int BaseGainFood => BelongCity.BaseGainFood / 5;
 
         public override void OnPrepareRender()
         {

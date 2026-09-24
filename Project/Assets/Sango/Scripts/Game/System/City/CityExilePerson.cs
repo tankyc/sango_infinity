@@ -32,12 +32,12 @@ namespace Sango.Core.Player
             get
             {
 
-                TargetForce = TargetCity.mBelongForce;
+                TargetForce = TargetCity.BelongForce;
                 targetList.Clear();
                 // 属下
                 Scenario.Cur.personSet.ForEach(x =>
                 {
-                    if (x.mBelongForce == TargetForce && x != TargetForce.mGovernor && x != TargetForce.mCounsellor && !x.IsPrisoner)
+                    if (x.BelongForce == TargetForce && x != TargetForce.mGovernor && x != TargetForce.mCounsellor && !x.IsPrisoner)
                     {
                         targetList.Add(x);
                     }
@@ -46,7 +46,7 @@ namespace Sango.Core.Player
                 // 俘虏
                 Scenario.Cur.citySet.ForEach((System.Action<City>)(x =>
                 {
-                    if (x.mBelongForce == TargetForce)
+                    if (x.BelongForce == TargetForce)
                     {
                         x.captiveList.ForEach(y =>
                         {
@@ -107,7 +107,7 @@ namespace Sango.Core.Player
                         person.LeaveToWild();
                         // 流放到临近都市
                         person.ChangeBelongCity(TargetCity.RandomNerghbor());
-                        person.mCurrentCity = person.mBelongCity;
+                        person.CurrentCity = person.BelongCity;
                         TargetForce.PersonCount--;
                     }
                 }

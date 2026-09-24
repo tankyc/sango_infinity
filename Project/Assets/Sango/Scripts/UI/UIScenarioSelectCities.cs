@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Sango.Core;
 using UnityEngine.UI;
 
@@ -46,7 +46,7 @@ namespace Sango.UI
             scenario.forceSet.ForEach(f =>
             {
                 ShortPerson person = scenario.personSet.Get(f.Governor);
-                if (person != null && person.BelongCity > 0)
+                if (person != null && person.BelongCityId > 0)
                 {
                     sangoObjects.Add(f);
                 }
@@ -54,7 +54,7 @@ namespace Sango.UI
 
             scenario.citySet.ForEach(c =>
             {
-                if (c.BelongForce == targetForce.Id)
+                if (c.BelongForceId == targetForce.Id)
                 {
                     if (c.Id != targetForce.CapitalCity)
                         shortCities1.Add(c);
@@ -62,7 +62,7 @@ namespace Sango.UI
             });
             scenario.personSet.ForEach(person =>
             {
-                if (person.BelongForce == targetForce.Id)
+                if (person.BelongForceId == targetForce.Id)
                     allPersons.Add(person);
             });
 
@@ -88,13 +88,13 @@ namespace Sango.UI
                 bool contains = shortCities.Contains(c);
                 if (contains)
                 {
-                    c.BelongForce = targetForce.Id;
+                    c.BelongForceId = targetForce.Id;
                 }
                 else
                 {
-                    if (c.BelongForce == targetForce.Id)
+                    if (c.BelongForceId == targetForce.Id)
                     {
-                        c.BelongForce = 0;
+                        c.BelongForceId = 0;
                     }
                 }
             });
@@ -111,7 +111,7 @@ namespace Sango.UI
             List<int> allC = new List<int>();
             scenario.citySet.ForEach(c =>
             {
-                if (c.BelongForce == targetForce.Id)
+                if (c.BelongForceId == targetForce.Id)
                 {
                     allC.Add(c.Id);
                 }
@@ -120,11 +120,11 @@ namespace Sango.UI
             // 失去都市的武将回归本城
             scenario.personSet.ForEach(c =>
             {
-                if (c.BelongForce == targetForce.Id)
+                if (c.BelongForceId == targetForce.Id)
                 {
-                    if (!allC.Contains(c.BelongCity))
+                    if (!allC.Contains(c.BelongCityId))
                     {
-                        c.BelongCity = targetForce.CapitalCity;
+                        c.BelongCityId = targetForce.CapitalCity;
                     }
                 }
             });

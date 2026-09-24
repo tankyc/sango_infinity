@@ -114,13 +114,13 @@ namespace Sango.Core
 
         /// <summary>
         /// 是否在据点内安心休养：不在任何部队里（随军出征也算野外），且有所在城市。
-        /// 注意不能只看 mCurrentCity——编成部队时并不会清空它，只看它会把手上的部队当成"在城里"。
+        /// 注意不能只看 CurrentCity——编成部队时并不会清空它，只看它会把手上的部队当成"在城里"。
         /// </summary>
         public static bool IsRestingInCity(Person person)
         {
             if (person == null) return false;
-            if (person.mTroop != null) return false;
-            return person.mCurrentCity != null;
+            if (person.mBelongTroop != null) return false;
+            return person.CurrentCity != null;
         }
 
         #endregion
@@ -173,7 +173,7 @@ namespace Sango.Core
         {
             if (person == null) return false;
 
-            Troop troop = person.mTroop;
+            Troop troop = person.mBelongTroop;
             if (troop != null)
             {
                 if (IsCompanion(person, troop.Leader)) return true;
@@ -197,7 +197,7 @@ namespace Sango.Core
                 }
             }
 
-            City city = person.mCurrentCity;
+            City city = person.CurrentCity;
             if (city != null && city.allPersons != null)
             {
                 for (int i = 0; i < city.allPersons.Count; i++)

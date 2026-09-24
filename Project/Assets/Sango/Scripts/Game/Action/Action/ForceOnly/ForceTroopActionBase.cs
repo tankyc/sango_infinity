@@ -1,4 +1,4 @@
-﻿using Sango.Core.Tools;
+using Sango.Core.Tools;
 using TKNewtonsoft.Json.Linq;
 using System.Collections.Generic;
 
@@ -25,7 +25,7 @@ namespace Sango.Core.Action
 
         public virtual bool CheckForceTroop(Troop troop)
         {
-            if (Force != troop.mBelongForce) return false;
+            if (Force != troop.BelongForce) return false;
             if (kinds != null && !kinds.Contains(troop.TroopType.kind)) return false;
             return true;
         }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace Sango.Core.Player
 {
@@ -24,7 +24,7 @@ namespace Sango.Core.Player
                 return TargetCity.freePersons.Count > 0
                     && TargetCity.agriculture < TargetCity.agricultureLimit
                     && TargetCity.CheckJobCost(CityJobType.Farming)
-                     && TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Farming);
+                     && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Farming);
             }
         }
 
@@ -46,7 +46,7 @@ namespace Sango.Core.Player
         //    targetUI.value_value.text = $"{TargetCity.agriculture}→{destValue}";
         //    targetUI.value_gold.text = $"{TargetCity.GetJobCost(CityJobType.Farming)}/{TargetCity.gold}";
 
-        //    targetUI.action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.Farming)}/{TargetCity.BelongCorps.ActionPoint}";
+        //    targetUI.action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.Farming)}/{TargetCity.BelongCorpsId.ActionPoint}";
 
         //}
 

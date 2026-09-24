@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Sango.Core
@@ -19,7 +19,7 @@ namespace Sango.Core
         {
             if (Troop != troop) Troop = troop;
             if (TargetBuilding == null || TargetBuilding.Id != troop.missionTarget) TargetBuilding = scenario.GetObject<Building>(Troop.missionTarget);
-            if (TargetCity == null) TargetCity = troop.mBelongCity;
+            if (TargetCity == null) TargetCity = troop.BelongCity;
             // 任务完成后,待命
             if (IsMissionComplete)
             {
@@ -29,7 +29,7 @@ namespace Sango.Core
                 }
                 else
                 {
-                    troop.SetMission(MissionType.TroopReturnCity, troop.mBelongCity.Id);
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
                 }
                 troop.NeedPrepareMission();
                 return;
@@ -80,7 +80,7 @@ namespace Sango.Core
                 }
                 else
                 {
-                    troop.SetMission(MissionType.TroopReturnCity, troop.mBelongCity.Id);
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
                 }
                 troop.NeedPrepareMission();
                 return true;

@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
 using UnityEngine.UI;
@@ -30,7 +30,7 @@ using Sango.Core; namespace Sango.UI
         public void UpdateContent()
         {
             int count = currentSystem.personList.Count;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.Inspection)}/{TargetCity.mBelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.Inspection)}/{TargetCity.BelongCorps.ActionPoint}";
             sureButton.interactable = currentSystem.personList.Count > 0;
             for(int i = 0; i < 3; i++)
             {

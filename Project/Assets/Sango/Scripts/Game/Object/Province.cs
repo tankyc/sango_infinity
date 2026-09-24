@@ -13,9 +13,22 @@ namespace Sango.Core
         [JsonProperty]
         public string desc;
 
-        [JsonConverter(typeof(Id2ObjConverter<Region>))]
-        [JsonProperty]
-        public Region Region { get; set; }
+        /// <summary>
+        /// 所属州的 id（存档数值），读取 Region 时按需解析
+        /// </summary>
+        [JsonProperty("Region")]
+        public int RegionId;
+
+        Region mRegion;
+        public Region Region
+        {
+            get
+            {
+                if (mRegion == null && RegionId > 0) mRegion = IdRef.Resolve<Region>(RegionId);
+                return mRegion;
+            }
+            set { mRegion = value; RegionId = value != null ? value.Id : 0; }
+        }
 
         [JsonConverter(typeof(SangoObjectListIDConverter<Province>))]
         [JsonProperty]

@@ -376,6 +376,13 @@ namespace Sango.UI
             AddNumberItem("发现敌方新建部队的基础概率(万分比)", variables.discoverEnemyTroopBaseProbability, 0, 10000, (v) => { variables.discoverEnemyTroopBaseProbability = v; });
             AddNumberItem("军师智力对发现概率的影响系数(万分比)", variables.discoverEnemyTroopIntelligenceFactor, 0, 1000, (v) => { variables.discoverEnemyTroopIntelligenceFactor = v; });
 
+            AddBigTitle("成长资源获取");
+            AddGainTable("功绩", variables.meritGain, GainValueConfig.MeritPlaces);
+            AddGainTable("技巧点", variables.techniquePointGain, GainValueConfig.TechniquePointPlaces);
+            AddGainTable("武将经验", variables.expGain, GainValueConfig.ExpPlaces);
+            AddGainTable("兵种适性经验", variables.abilityExpGain, GainValueConfig.AbilityExpPlaces);
+            AddGainTable("能力经验", variables.attributeExpGain, GainValueConfig.AttributeExpPlaces);
+
             AddBigTitle("Mod相关");
             GameEvent.OnScenarioVariablesSetting?.Invoke(this, scenario);
         }
@@ -521,6 +528,50 @@ namespace Sango.UI
             obj.SetActive(true);
             obj.transform.SetAsLastSibling();
             return obj;
+        }
+
+        /// <summary>
+        /// 渲染一张"获取地点 → 数值"的配置表。
+        ///
+        /// 键来自 GainPlace 枚举（表归属集中维护在 GainValueConfig 里），
+        /// 所以以后新增获取地点只需加枚举项 + 填默认值，不需要再手写界面行。
+        /// </summary>
+        void AddGainTable(string title, GainValueConfig config, GainPlace[] places)
+        {
+            if (config == null || places == null || places.Length == 0)
+            {
+                AddTitle(title + "（暂无可配置项）");
+                return;
+            }
+
+            AddTitle(title);
+            for (int i = 0; i < places.Length; i++)
+            {
+                GainPlace place = places[i];        // 每轮一个副本，避免闭包捕获循环变量
+
+                if (GainValueConfig.KindOf(place) == GainValueKind.Range)
+                {
+                    // 区间类：最小值 / 最大值两行
+                    config.GetRange(place, out int min, out int max);
+                    AddNumberItem(GainValueConfig.NameOf(place) + " 最小", min, 0, GainValueConfig.MaxOf(place),
+                        v =>
+                        {
+                            config.GetRange(place, out int curMin, out int curMax);
+                            config.SetRange(place, v, curMax);
+                        });
+                    AddNumberItem(GainValueConfig.NameOf(place) + " 最大", max, 0, GainValueConfig.MaxOf(place),
+                        v =>
+                        {
+                            config.GetRange(place, out int curMin, out int curMax);
+                            config.SetRange(place, curMin, v);
+                        });
+                }
+                else
+                {
+                    AddNumberItem(GainValueConfig.NameOf(place), config.Get(place), 0, GainValueConfig.MaxOf(place),
+                        v => config.Set(place, v));
+                }
+            }
         }
 
         public GameObject AddNumberItem(string title, float number, float min, float max, System.Action<float> onChange)

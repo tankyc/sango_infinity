@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -334,9 +334,9 @@ namespace Sango.UI
 
                 // 设置城市颜色
                 Image bgImg = cityObj.transform.GetChild(0).GetComponent<Image>();
-                if (city.BelongForce > 0)
+                if (city.BelongForceId > 0)
                 {
-                    ShortForce shortForce = scenario.forceSet[city.BelongForce];
+                    ShortForce shortForce = scenario.forceSet[city.BelongForceId];
                     Flag flag = scenario.CommonData.Flags[shortForce.Flag];
                     bgImg.color = flag.color;
                 }

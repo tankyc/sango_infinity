@@ -49,12 +49,12 @@ namespace Sango.Core
         /// <summary>
         /// 所属势力
         /// </summary>
-        public Force mBelongForce => Leader?.mBelongForce;
+        public Force BelongForce => Leader?.BelongForce;
 
         /// <summary>
         /// 所属军团
         /// </summary>
-        public Corps mBelongCorps => Leader?.mBelongCorps;
+        public Corps BelongCorps => Leader?.BelongCorps;
 
         /// <summary>
         /// Clear 是否已经执行过。Clear 是部队的最终收尾，可能被"兵力归零"与"武将全部离开"两条路各触发一次，
@@ -66,33 +66,72 @@ namespace Sango.Core
         /// 所属城池（由主将**实时**推导）。
         /// 刻意不做缓存：主将换势力/换城后它必须立刻跟着变，缓存会拿到过期城池而摘错名单。
         /// </summary>
-        public City mBelongCity => Leader?.mBelongCity;
+        public City BelongCity => Leader?.BelongCity;
 
         /// <summary>
         /// 所在城池
         /// </summary>
-        public City mCurrentCity => cell.BelongCity.mBelongCity == null ? cell.BelongCity : cell.BelongCity.mBelongCity;
+        public City CurrentCity => cell.BelongCity.BelongCity == null ? cell.BelongCity : cell.BelongCity.BelongCity;
 
         /// <summary>
-        /// 统领（主将）
+        /// 统领（主将）的 id。存档里只有这个数值，读取 Leader 时按需解析。
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Person>))]
-        [JsonProperty]
-        public Person Leader { get; set; }
+        [JsonProperty("Leader")]
+        public int LeaderId;
+
+        Person mLeader;
+        /// <summary>
+        /// 统领（主将）对象；写入时自动同步 LeaderId
+        /// </summary>
+        public Person Leader
+        {
+            get
+            {
+                if (mLeader == null && LeaderId > 0) mLeader = IdRef.Resolve<Person>(LeaderId);
+                return mLeader;
+            }
+            set { mLeader = value; LeaderId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
-        /// 副将1
+        /// 副将1 的 id（存档数值）
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Person>))]
-        [JsonProperty]
-        public Person Member1 { get; set; }
+        [JsonProperty("Member1")]
+        public int Member1Id;
+
+        Person mMember1;
+        /// <summary>
+        /// 副将1 对象；写入时自动同步 Member1Id
+        /// </summary>
+        public Person Member1
+        {
+            get
+            {
+                if (mMember1 == null && Member1Id > 0) mMember1 = IdRef.Resolve<Person>(Member1Id);
+                return mMember1;
+            }
+            set { mMember1 = value; Member1Id = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
-        /// 副将2
+        /// 副将2 的 id（存档数值）
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Person>))]
-        [JsonProperty]
-        public Person Member2 { get; set; }
+        [JsonProperty("Member2")]
+        public int Member2Id;
+
+        Person mMember2;
+        /// <summary>
+        /// 副将2 对象；写入时自动同步 Member2Id
+        /// </summary>
+        public Person Member2
+        {
+            get
+            {
+                if (mMember2 == null && Member2Id > 0) mMember2 = IdRef.Resolve<Person>(Member2Id);
+                return mMember2;
+            }
+            set { mMember2 = value; Member2Id = value != null ? value.Id : 0; }
+        }
 
 
         /// <summary>
@@ -114,11 +153,25 @@ namespace Sango.Core
         public override string Name => _troopName;
 
         /// <summary>
-        /// 所在格子
+        /// 所在格子的坐标（存档形态仍是 [x, y]）
         /// </summary>
-        [JsonProperty]
-        [JsonConverter(typeof(XY2CellConverter))]
-        public Cell cell;
+        [JsonProperty("cell")]
+        [JsonConverter(typeof(CellXYConverter))]
+        public CellXY cellPos = CellXY.Invalid;
+
+        Cell mCell;
+        /// <summary>
+        /// 所在格子；写入 Cell 时自动同步坐标
+        /// </summary>
+        public Cell cell
+        {
+            get
+            {
+                if (mCell == null) mCell = cellPos.ToCell();
+                return mCell;
+            }
+            set { mCell = value; cellPos = CellXY.From(value); }
+        }
 
         /// <summary>
         /// 坐标x
@@ -170,7 +223,7 @@ namespace Sango.Core
         /// <summary>
         /// 最大士气
         /// </summary>
-        public int MaxMorale => mBelongCity?.MaxMorale ?? 100;
+        public int MaxMorale => BelongCity?.MaxMorale ?? 100;
 
         /// <summary>
         /// 上次因"兄弟同心"推满气力的回合数;
@@ -271,12 +324,12 @@ namespace Sango.Core
         // 额外行动的次数
         public int ActionOverCount = 0;
 
-        public bool IsPlayer => mBelongForce?.IsPlayer ?? false;
+        public bool IsPlayer => BelongForce?.IsPlayer ?? false;
         /// <summary>
         /// 是否为玩家控制的
         /// </summary>
-        public virtual bool IsPlayerControl => mBelongCorps?.IsPlayerControl ?? false;
-        public bool IsCurPlayer => mBelongForce?.IsCurPlayer ?? false;
+        public virtual bool IsPlayerControl => BelongCorps?.IsPlayerControl ?? false;
+        public bool IsCurPlayer => BelongForce?.IsCurPlayer ?? false;
 
         /// <summary>
         /// 当前任务类型
@@ -334,11 +387,25 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 任务地点
+        /// 任务地点的坐标（存档形态仍是 [x, y]）
         /// </summary>
-        [JsonProperty]
-        [JsonConverter(typeof(XY2CellConverter))]
-        public Cell missionTargetCell;
+        [JsonProperty("missionTargetCell")]
+        [JsonConverter(typeof(CellXYConverter))]
+        public CellXY missionTargetCellPos = CellXY.Invalid;
+
+        Cell mMissionTargetCell;
+        /// <summary>
+        /// 任务地点；写入 Cell 时自动同步坐标
+        /// </summary>
+        public Cell missionTargetCell
+        {
+            get
+            {
+                if (mMissionTargetCell == null) mMissionTargetCell = missionTargetCellPos.ToCell();
+                return mMissionTargetCell;
+            }
+            set { mMissionTargetCell = value; missionTargetCellPos = CellXY.From(value); }
+        }
 
         /// <summary>
         /// 【需求4】判断是否需要向附近的补给队求援：
@@ -403,18 +470,44 @@ namespace Sango.Core
         public int TroopTypeLv => IsInWater ? WaterTroopTypeLv : LandTroopTypeLv;
 
         /// <summary>
-        /// 部队类型
+        /// 水上部队类型的 id（存档数值），读取 WaterTroopType 时按需解析
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<TroopType>))]
-        [JsonProperty]
-        public TroopType WaterTroopType { get; set; }
+        [JsonProperty("WaterTroopType")]
+        public int WaterTroopTypeId;
+
+        TroopType mWaterTroopType;
+        /// <summary>
+        /// 水上部队类型；写入时自动同步 WaterTroopTypeId
+        /// </summary>
+        public TroopType WaterTroopType
+        {
+            get
+            {
+                if (mWaterTroopType == null && WaterTroopTypeId > 0) mWaterTroopType = IdRef.Resolve<TroopType>(WaterTroopTypeId);
+                return mWaterTroopType;
+            }
+            set { mWaterTroopType = value; WaterTroopTypeId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
-        /// 部队类型
+        /// 陆上部队类型的 id（存档数值），读取 LandTroopType 时按需解析
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<TroopType>))]
-        [JsonProperty]
-        public TroopType LandTroopType { get; set; }
+        [JsonProperty("LandTroopType")]
+        public int LandTroopTypeId;
+
+        TroopType mLandTroopType;
+        /// <summary>
+        /// 陆上部队类型；写入时自动同步 LandTroopTypeId
+        /// </summary>
+        public TroopType LandTroopType
+        {
+            get
+            {
+                if (mLandTroopType == null && LandTroopTypeId > 0) mLandTroopType = IdRef.Resolve<TroopType>(LandTroopTypeId);
+                return mLandTroopType;
+            }
+            set { mLandTroopType = value; LandTroopTypeId = value != null ? value.Id : 0; }
+        }
 
         public int WaterTroopTypeLv { get; private set; }
         public int LandTroopTypeLv { get; private set; }
@@ -543,7 +636,7 @@ namespace Sango.Core
         /// </summary>
         public bool ignoreFire = false;
 
-        public bool IsJustCreated => x == mBelongCity.x && y == mBelongCity.y;
+        public bool IsJustCreated => x == BelongCity.x && y == BelongCity.y;
 
         public override ObjectRender GetRender() { return Render; }
         public TroopRender Render { get; private set; }
@@ -570,11 +663,11 @@ namespace Sango.Core
 
             ForEachPerson(x =>
             {
-                if (x.mFeatureList != null)
+                if (x.FeatureList != null)
                 {
-                    for (int i = 0; i < x.mFeatureList.Count; i++)
+                    for (int i = 0; i < x.FeatureList.Count; i++)
                     {
-                        Feature feature = x.mFeatureList[i];
+                        Feature feature = x.FeatureList[i];
                         if (feature != null && feature.kind <= (int)FeatureKindType.TroopSupport)
                         {
                             if (!feature.only)
@@ -601,13 +694,13 @@ namespace Sango.Core
         {
             isCleared = false;
             _troopName = $"{Leader?.Name}队";
-            ForEachPerson(x => x.mTroop = this);
+            ForEachPerson(x => x.mBelongTroop = this);
             InitActionList();
 
             CalculateAttribute(scenario);
             if (LandTroopType.isFight && LandTroopType.Id != 1)
-                mBelongCity.allAttackTroops.Add(this);
-            mBelongCity.allTroops.Add(this);
+                BelongCity.allAttackTroops.Add(this);
+            BelongCity.allTroops.Add(this);
             cell.troop = this;
             Render = new TroopRender(this);
             foodCost = (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInTroop * (troops + woundedTroops) * TroopType.foodCostFactor);
@@ -615,11 +708,11 @@ namespace Sango.Core
 
             if (captiveList.Count > 0)
             {
-                captiveList.RemoveAll(x => x.mTroop != this);
+                captiveList.RemoveAll(x => x.mBelongTroop != this);
                 captiveList.ForEach(person =>
                 {
-                    if (person.mBelongForce != null)
-                        person.mBelongForce.BeCaptiveList.Add(person);
+                    if (person.BelongForce != null)
+                        person.BelongForce.BeCaptiveList.Add(person);
                 });
             }
 
@@ -651,6 +744,15 @@ namespace Sango.Core
             //{
             //    s.Init(this, s.skill);
             //}
+            // 【兜底】读档时先修复"主将已空、副将仍在"的中间态：
+            // 主将为空会让 BelongCity 推导为 null，任务取值器不再派任务，部队会永久停摆。
+            // 放在这里正合适：本方法早于 Troop.Init，Init 会按接任后的主将取名与算属性。
+            TryStepUpMemberToLeader();
+            if (Leader == null)
+            {
+                Sango.Log.Warning($"[{Name}]部队读档后既没有主将也没有副将，无法行动（坐标 {cell?.x},{cell?.y}）");
+            }
+
             PrepeareFoodCost();
 
             //MemberList?.InitCache();// = new SangoObjectList<Person>().FromString(_memberListStr, scenario.personSet);
@@ -953,7 +1055,7 @@ namespace Sango.Core
         {
             int max = Leader.TroopsLimit;
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(max);
-            GameEvent.OnTroopCalculateMaxTroops?.Invoke(Leader.mBelongCity, this, overrideData);
+            GameEvent.OnTroopCalculateMaxTroops?.Invoke(Leader.BelongCity, this, overrideData);
             MaxTroops = overrideData.ValueAndRecycle;
         }
 
@@ -975,36 +1077,36 @@ namespace Sango.Core
 
         public bool IsAlliance(BuildingBase other)
         {
-            return IsAlliance(mBelongForce, other.mBelongForce);
+            return IsAlliance(BelongForce, other.BelongForce);
         }
 
         public bool IsEnemy(BuildingBase other)
         {
-            return IsEnemy(mBelongForce, other.mBelongForce);
+            return IsEnemy(BelongForce, other.BelongForce);
         }
 
         public bool IsSameForce(BuildingBase other)
         {
-            return IsSameForce(mBelongForce, other.mBelongForce);
+            return IsSameForce(BelongForce, other.BelongForce);
         }
         public bool IsSameForce(Person other)
         {
-            return IsSameForce(mBelongForce, other.mBelongForce);
+            return IsSameForce(BelongForce, other.BelongForce);
         }
 
         public bool IsAlliance(Troop other)
         {
-            return IsAlliance(mBelongForce, other.mBelongForce);
+            return IsAlliance(BelongForce, other.BelongForce);
         }
 
         public bool IsEnemy(Troop other)
         {
-            return IsEnemy(mBelongForce, other.mBelongForce);
+            return IsEnemy(BelongForce, other.BelongForce);
         }
 
         public bool IsSameForce(Troop other)
         {
-            return IsSameForce(mBelongForce, other.mBelongForce);
+            return IsSameForce(BelongForce, other.BelongForce);
         }
 
         public bool IsTransport => LandTroopType.IsTransport();
@@ -1062,7 +1164,7 @@ namespace Sango.Core
             ScenarioVariables Variables = Scenario.Cur.Variables;
 
             float difficultyDamageFactor = 1;
-            if (attacker.mBelongForce != null && attacker.mBelongForce.IsPlayer)
+            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
                 difficultyDamageFactor = Variables.DifficultyDamageFactor;
 
             int atkBounds = skill != null ? skill.atk : 10;
@@ -1120,7 +1222,7 @@ namespace Sango.Core
             ScenarioVariables Variables = Scenario.Cur.Variables;
 
             float difficultyDamageFactor = 1;
-            if (attacker.mBelongForce != null && attacker.mBelongForce.IsPlayer)
+            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
                 difficultyDamageFactor = Variables.DifficultyDamageFactor;
 
             if (attacker.IsHelepolis)
@@ -1153,7 +1255,7 @@ namespace Sango.Core
             ScenarioVariables Variables = Scenario.Cur.Variables;
 
             float difficultyDamageFactor = 1;
-            if (attacker.mBelongForce != null && attacker.mBelongForce.IsPlayer)
+            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
                 difficultyDamageFactor = Variables.DifficultyDamageFactor;
 
             int atkBounds = skill != null ? skill.atk : 10;
@@ -1215,7 +1317,7 @@ namespace Sango.Core
             int base_troops = attacker.GetSkillMethodAvaliabledTroops();
 
             float difficultyDamageFactor = 1;
-            if (attacker.mBelongForce != null && attacker.mBelongForce.IsPlayer)
+            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
                 difficultyDamageFactor = Variables.DifficultyDamageFactor;
 
             int damage = (int)(
@@ -1262,7 +1364,7 @@ namespace Sango.Core
             int base_troops = attacker.GetSkillMethodAvaliabledTroops();
 
             float difficultyDamageFactor = 1;
-            if (attacker.mBelongForce != null && attacker.mBelongForce.IsPlayer)
+            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
                 difficultyDamageFactor = Variables.DifficultyDamageFactor;
 
             int damage = (int)(
@@ -1528,7 +1630,7 @@ namespace Sango.Core
             // 【新增】记录攻击本势力部队的敌方部队,供 AI 主动驱逐
             if (num < 0 && atk is Troop attacker && attacker.IsAlive && !attacker.IsSameForce(this))
             {
-                mBelongForce?.MarkThreatTroop(attacker);
+                BelongForce?.MarkThreatTroop(attacker);
             }
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(num);
@@ -1582,7 +1684,7 @@ namespace Sango.Core
 
             if (!IsAlive)
             {
-                Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 溃灭!!");
+                Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 溃灭!!");
 
                 if (Render != null && Render.IsVisible())
                 {
@@ -1731,7 +1833,7 @@ namespace Sango.Core
                 int criticalFactor = skill.CheckCritical(spellCell);
                 if (criticalFactor > 100 && !skill.IsNormal())
                 {
-                    Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 技能: {skill.Name} =>({spellCell.x},{spellCell.y})]  暴击判定成功!  暴击伤害倍率{criticalFactor}!!");
+                    Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 技能: {skill.Name} =>({spellCell.x},{spellCell.y})]  暴击判定成功!  暴击伤害倍率{criticalFactor}!!");
                     TroopSpellSkillCriticalEvent @event = RenderEvent.Instance.Create<TroopSpellSkillCriticalEvent>();
                     @event.Init(skill, spellCell, criticalFactor);
                     skillRenderEvent = @event;
@@ -1747,7 +1849,7 @@ namespace Sango.Core
             }
             else
             {
-                Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 技能: {skill.Name} =>({spellCell.x},{spellCell.y})]  判定失败! 释放不成功!!");
+                Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 技能: {skill.Name} =>({spellCell.x},{spellCell.y})]  判定失败! 释放不成功!!");
                 TroopSpellSkillFailEvent @event = RenderEvent.Instance.Create<TroopSpellSkillFailEvent>();
                 @event.Init(this, skill, spellCell);
                 skillRenderEvent = @event;
@@ -1948,7 +2050,7 @@ namespace Sango.Core
             GameEvent.OnTroopEnterCell?.Invoke(this, destCell, lastCell);
 
 
-            Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 移动=> ({destCell.x},{destCell.y})]");
+            Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 移动=> ({destCell.x},{destCell.y})]");
 
             if (destCell.fire != null)
                 destCell.fire.BurnTroop(this);
@@ -2099,11 +2201,11 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 是否兄弟组的组头: 仲介结义与剧本原设都是组头的 Brother 指向自己
+        /// 是否兄弟组的组头: 仲介结义与剧本原设都是组头的 BrotherId 指向自己
         /// </summary>
         static bool IsFamilyHead(Person person)
         {
-            return person != null && person.Brother > 0 && person.Brother == person.Id;
+            return person != null && person.BrotherId > 0 && person.BrotherId == person.Id;
         }
 
         /// <summary>
@@ -2150,7 +2252,7 @@ namespace Sango.Core
                     brother.CheerSelfFullMorale();
             }
 
-            Sango.Log.Info($"{mBelongForce.Name}的[{Name}]与兄弟部队[{JoinTroopNames(brothers)}]同心同德，{brothers.Count + 1}队气力推满！");
+            Sango.Log.Info($"{BelongForce.Name}的[{Name}]与兄弟部队[{JoinTroopNames(brothers)}]同心同德，{brothers.Count + 1}队气力推满！");
         }
 
         /// <summary>
@@ -2524,7 +2626,7 @@ namespace Sango.Core
         {
             // 所属城取主将的实时值（不缓存），下面几处统一用它：
             // 主将已被俘/阵亡时它是 null，这几处都要能安全跳过（?.），否则会在这里空引用崩溃
-            City lastBelongCity = mBelongCity;
+            City lastBelongCity = BelongCity;
             city.AddGold(gold);
             city.AddFood(food);
             city.AddTroops(troops);
@@ -2532,7 +2634,7 @@ namespace Sango.Core
             // 处理俘虏
             captiveList.ForEach(p =>
             {
-                p.mTroop = null;
+                p.mBelongTroop = null;
                 city.captiveList.Add(p);
                 p.ChangeCurrentCity(city);
             });
@@ -2565,14 +2667,14 @@ namespace Sango.Core
             if (city == lastBelongCity)
             {
                 Clear();
-                Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]部队回到{city.mBelongForce?.Name}的城池:<{city.Name}>");
+                Sango.Log.Info($"{BelongForce?.Name}的[{Name}]部队回到{city.BelongForce?.Name}的城池:<{city.Name}>");
                 return;
             }
 
             //missionParams1 == 1 是AI运输的
             if (!TroopType.isFight && missionParams1 <= 0)
             {
-                if (mBelongCorps.IsPlayerControl)
+                if (BelongCorps.IsPlayerControl)
                 {
                     List<Person> pList = new List<Person>();
                     ForEachPerson((person) =>
@@ -2591,7 +2693,7 @@ namespace Sango.Core
                                foreach(Person person in pList)
                                {
                                    person.ChangeCurrentCity(city);
-                                   person.SetMission(MissionType.PersonReturn, person.mBelongCity);
+                                   person.SetMission(MissionType.PersonReturn, person.BelongCity);
                                }
                                pList.Clear();
                            }
@@ -2626,7 +2728,7 @@ namespace Sango.Core
                     ForEachPerson((person) =>
                     {
                         person.ChangeCurrentCity(city);
-                        person.SetMission(MissionType.PersonReturn, person.mBelongCity);
+                        person.SetMission(MissionType.PersonReturn, person.BelongCity);
                     });
                 }
             }
@@ -2642,17 +2744,17 @@ namespace Sango.Core
 
             Clear();
 
-            Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]部队进入{city.mBelongForce?.Name}的城池:<{city.Name}>");
+            Sango.Log.Info($"{BelongForce?.Name}的[{Name}]部队进入{city.BelongForce?.Name}的城池:<{city.Name}>");
         }
 
         public override void Clear()
         {
-            ClearWithBelongCity(mBelongCity);
+            ClearWithBelongCity(BelongCity);
         }
 
         /// <summary>
         /// 部队收尾。belongCity 只用于"把自己从所属城的名单里摘除"：
-        ///   · 常规路径传 mBelongCity —— 主将实时推导，主将换势力/换城后天然跟着变，不会过期；
+        ///   · 常规路径传 BelongCity —— 主将实时推导，主将换势力/换城后天然跟着变，不会过期；
         ///   · 武将刚被全部摘除时主将已为空、推导不出来，由调用方在摘除**之前**取好传进来（见 RemovePerson）。
         /// 传 null 时跳过城池名单摘除（不崩），但会留下脏引用，故调用方尽量给准确值。
         /// </summary>
@@ -2683,7 +2785,7 @@ namespace Sango.Core
 
             ForEachPerson((person) =>
             {
-                person.mTroop = null;
+                person.mBelongTroop = null;
             });
             base.Clear();
             IsAlive = false;
@@ -2718,12 +2820,12 @@ namespace Sango.Core
         {
             if (person == null) return;
 
-            // 摘除前先取所属城：武将摘光后主将为空，mBelongCity 就推导不出来了，而收尾要用它摘城池名单
-            City belongCity = mBelongCity;
+            // 摘除前先取所属城：武将摘光后主将为空，BelongCity 就推导不出来了，而收尾要用它摘城池名单
+            City belongCity = BelongCity;
 
             if (Member1 == person)
             {
-                Member1.mTroop = null;
+                Member1.mBelongTroop = null;
                 Member1 = null;
 
                 Member1 = Member2;
@@ -2731,12 +2833,12 @@ namespace Sango.Core
             }
             else if (Member2 == person)
             {
-                Member2.mTroop = null;
+                Member2.mBelongTroop = null;
                 Member2 = null;
             }
             else if (Leader == person)
             {
-                Leader.mTroop = null;
+                Leader.mBelongTroop = null;
                 Leader = null;
 
                 if (Member1 != null)
@@ -2762,6 +2864,54 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 【兜底】主将缺失时，由尚在的副将接任主将。
+        ///
+        /// 为什么需要：<see cref="BelongCity"/> / <see cref="BelongForce"/> 都是从主将实时推导的
+        /// （<c>Leader?.BelongCity</c>）。主将一旦为空，任务取值器就不再给这支部队派任务
+        /// （TroopMissionBehaviour 要求 BelongCity != null），DoAI 会直接判完成，
+        /// 部队于是永久停在原地 —— 玩家观感就是"部队停在城池上不动"。
+        ///
+        /// <see cref="RemovePerson"/> 已经处理了"运行中主将被摘除"的情况，但下面这些路径仍会留下无主部队：
+        ///   · 读存档：存档里写下的就是"主将已空、副将仍在"的中间状态；
+        ///   · 任何绕过 RemovePerson 直接清空 Leader / LeaderId 的路径。
+        /// 因此这里做一次统一修复，并在读档（OnScenarioPrepare）与 AI 行动前各兜一次。
+        /// </summary>
+        /// <returns>是否发生了接任</returns>
+        public bool TryStepUpMemberToLeader()
+        {
+            if (Leader != null)
+                return false;
+
+            Person next = Member1 != null ? Member1 : Member2;
+            if (next == null)
+                return false;
+
+            // 与 RemovePerson 的接任口径保持一致：副将1 顶上，副将2 前移
+            if (Member1 != null)
+            {
+                Leader = Member1;
+                Member1 = Member2;
+                Member2 = null;
+            }
+            else
+            {
+                Leader = Member2;
+                Member2 = null;
+            }
+
+            // 这几个位置可能来自旧数据，顺手把归属引用补齐
+            // （只补空的，避免覆盖指向其它部队的有效归属）
+            ForEachPerson(p =>
+            {
+                if (p != null && p.mBelongTroop == null)
+                    p.mBelongTroop = this;
+            });
+
+            Sango.Log.Info($"[{Name}]主将缺失，由{Leader?.Name}接任主将");
+            return true;
+        }
+
+        /// <summary>
         /// 加入某个势力,需要指定一个城市
         /// </summary>
         /// <param name="city"></param>
@@ -2771,7 +2921,7 @@ namespace Sango.Core
             ForEachMember(mem =>
             {
                 RemovePerson(mem, true);
-                mem.SetMission(MissionType.PersonReturn, mem.mBelongCity);
+                mem.SetMission(MissionType.PersonReturn, mem.BelongCity);
                 mem.ActionOver = true;
             });
             Leader.JoinToForce(city);
@@ -2787,7 +2937,7 @@ namespace Sango.Core
 
         public void SetMission(MissionType missionType, int missionTarget)
         {
-            Sango.Log.Info($"{mBelongForce.Name}的[{Name} 部队 任务变更:{missionType} -> {missionTarget}!!");
+            Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 任务变更:{missionType} -> {missionTarget}!!");
             this.missionType = (int)missionType;
             this.missionTarget = missionTarget;
             NeedPrepareMission();
@@ -2809,9 +2959,9 @@ namespace Sango.Core
         {
             get
             {
-                if (missionType == 0 && mBelongCity != null && !IsPlayerControl)
+                if (missionType == 0 && BelongCity != null && !IsPlayerControl)
                 {
-                    SetMission(MissionType.TroopReturnCity, mBelongCity.Id);
+                    SetMission(MissionType.TroopReturnCity, BelongCity.Id);
                     NeedPrepareMission();
                 }
 
@@ -2848,6 +2998,26 @@ namespace Sango.Core
                 IsAlive = false;
                 Clear();
                 return true;
+            }
+
+            // 【兜底】主将缺失（阵亡 / 被俘 / 旧存档中间态）时先让副将接任：
+            // 否则 BelongCity 推导为 null，下面的任务取值器会直接返回 null，
+            // 这支部队就会永久停在原地（观感：停在城池上不动）。
+            if (Leader == null)
+            {
+                if (TryStepUpMemberToLeader())
+                {
+                    // 接任者带兵上限可能不同，重算一次（该计算会用到归属城，故加保护）
+                    if (Leader != null && Leader.BelongCity != null)
+                        CalculateMaxTroops();
+                }
+                else if (liveDays <= 1)
+                {
+                    // 无将可接任：说明这支部队已经没有主体了。
+                    // 这里只告警一次（liveDays 每回合自增，因此不会刷屏），不做静默清理——
+                    // 兵力 / 兵装属于玩家或势力的资产，需要人工或后续规则处理。
+                    Sango.Log.Warning($"[{Name}]部队既没有主将也没有副将，无法行动（坐标 {cell?.x},{cell?.y}）");
+                }
             }
 
             if (AIFinished)
@@ -2956,7 +3126,7 @@ namespace Sango.Core
 
                 SetMission(MissionType.TroopAskSupply, supplier.Id);
                 NeedPrepareMission();
-                Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]状态不佳,向补给队[{supplier.Name}]求援!");
+                Sango.Log.Info($"{BelongForce?.Name}的[{Name}]状态不佳,向补给队[{supplier.Name}]求援!");
                 return;
             }
 
@@ -2964,10 +3134,19 @@ namespace Sango.Core
             if (missionType == (int)MissionType.TroopReturnCity || missionType == (int)MissionType.TroopMovetoCity)
                 return;
 
+            // 【出征回合门槛】刚出城的部队不允许立刻掉头回城 / 撤离。
+            //
+            // 成因：态势评级看的是"局部战力比"，刚出城的部队经常一出门就被评成劣势 / 危局；
+            // 而"最近的己方据点"往往就是它刚出的那座城，于是判定撤退后立刻折返，
+            // 在城池格上反复进出，玩家观感就是"部队停在城池上不动"。
+            // 现在要求部队在野外至少待满 retreatMinLiveDays 个回合，才允许做出撤退 / 回避决定。
+            // （只影响非玩家控制的部队——本方法对 IsPlayerControl 已在开头 return）
+            bool canDecideRetreat = aiConfig.retreatMinLiveDays <= 0 || liveDays > aiConfig.retreatMinLiveDays;
+
             // 【分级策略】战场态势不利时主动脱离接触：
             // 撤退概率完全由当前态势档位决定
             // （默认：危局 80% / 劣势 40% / 均势 10% / 优势与碾压 0%，均可在 AIConfig 中调整）
-            if (aiConfig.useTierStrategy && aiConfig.useTierRetreat)
+            if (canDecideRetreat && aiConfig.useTierStrategy && aiConfig.useTierRetreat)
             {
                 TroopTierWeights tierWeights = GetTierWeights(scenario);
                 if (tierWeights != null)
@@ -2991,7 +3170,7 @@ namespace Sango.Core
                         {
                             SetMission(MissionType.TroopMovetoCity, refuge.Id);
                             NeedPrepareMission();
-                            Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]战场态势不利({tier}),主动脱离接触前往{refuge.Name}!");
+                            Sango.Log.Info($"{BelongForce?.Name}的[{Name}]战场态势不利({tier}),主动脱离接触前往{refuge.Name}!");
                             return;
                         }
                     }
@@ -3011,20 +3190,27 @@ namespace Sango.Core
             }
             bool lowMorale = morale <= aiConfig.retreatMinMorale;
 
-            if ((outOfFood && GameRandom.Chance(aiConfig.retreatOutOfFoodChance)) ||
-                (tooFewTroops && GameRandom.Chance(aiConfig.retreatFewTroopsChance)) ||
-                (lowMorale && GameRandom.Chance(aiConfig.retreatLowMoraleChance)))
+            if (canDecideRetreat &&
+                ((outOfFood && GameRandom.Chance(aiConfig.retreatOutOfFoodChance)) ||
+                 (tooFewTroops && GameRandom.Chance(aiConfig.retreatFewTroopsChance)) ||
+                 (lowMorale && GameRandom.Chance(aiConfig.retreatLowMoraleChance))))
             {
                 // 就近选择己方据点(城市 / 港口 / 关卡)入驻补给
                 City nearestCity = FindNearestFriendlyCity(scenario);
                 if (nearestCity == null)
                     return;
 
+                // 【修复】与态势撤退同理：若"最近的己方据点"就是部队脚下的城池
+                // （刚出城 / 已站在本城格上），切任务只会让它原地回城，
+                // 在城池格上反复进出。这里跳过撤退，让它继续执行原任务。
+                if (cell != null && cell.building == nearestCity)
+                    return;
+
                 // 使用 TroopMovetoCity(允许任意己方据点)而不是 TroopReturnCity(其完成判定限定归属城),
                 // 这样不会改动通用返城任务的语义,玩家部队不受影响。
                 SetMission(MissionType.TroopMovetoCity, nearestCity.Id);
                 NeedPrepareMission();
-                Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]兵力不足或断粮,就近赶赴{nearestCity.Name}补给!");
+                Sango.Log.Info($"{BelongForce?.Name}的[{Name}]兵力不足或断粮,就近赶赴{nearestCity.Name}补给!");
                 return;
             }
 
@@ -3061,7 +3247,7 @@ namespace Sango.Core
         {
             AIConfig cfg = AIConfig.Instance;
             if (!cfg.useFieldBuilding || scenario == null || scenario.Map == null
-                || cell == null || mBelongForce == null)
+                || cell == null || BelongForce == null)
                 return false;
 
             // 只在"作战类"任务下触发，避免打断返城 / 施工 / 补给 / 求援等既定流程
@@ -3083,7 +3269,7 @@ namespace Sango.Core
                 && troops * 100 < MaxTroops * cfg.fieldBuildMinHealthPercent)
                 return false;
 
-            List<BuildingType> candidates = mBelongForce.canBuildMilitaryBuildingType;
+            List<BuildingType> candidates = BelongForce.canBuildMilitaryBuildingType;
             if (candidates == null || candidates.Count == 0)
                 return false;
 
@@ -3109,7 +3295,7 @@ namespace Sango.Core
             scenario.Map.SpiralAction(cell, range, (c) =>
             {
                 BattleSituation.FrontSiteInfo info =
-                    BattleSituation.EvaluateFrontSite(c, mBelongForce, scenario);
+                    BattleSituation.EvaluateFrontSite(c, BelongForce, scenario);
                 if (!info.isValid || info.cell == null)
                     return;
                 if (best.cell == null || info.score > best.score)
@@ -3119,7 +3305,7 @@ namespace Sango.Core
             if (!best.isValid || best.cell == null)
                 return false;
 
-            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, mBelongForce, scenario);
+            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, BelongForce, scenario);
             if (buildingType == null || gold < buildingType.cost)
                 return false;
 
@@ -3130,7 +3316,7 @@ namespace Sango.Core
             missionTargetCell = best.cell;
             SetMission(MissionType.TroopBuildBuilding, buildingType.Id);
             NeedPrepareMission();
-            Sango.Log.Info($"{mBelongForce?.Name}的[{Name}]就地增筑{buildingType.Name}!");
+            Sango.Log.Info($"{BelongForce?.Name}的[{Name}]就地增筑{buildingType.Name}!");
             return true;
         }
 
@@ -3238,16 +3424,16 @@ namespace Sango.Core
             AIConfig cfg = AIConfig.Instance;
             if (cfg.useLeaderPersonality && cfg.useLeaderRoleOverride)
             {
-                Personality personality = LeaderPersonality;
-                if (personality != null && personality.troopAggression != 0)
+                Personality PersonalityId = LeaderPersonality;
+                if (PersonalityId != null && PersonalityId.troopAggression != 0)
                 {
-                    int strength = Math.Abs(personality.troopAggression);
+                    int strength = Math.Abs(PersonalityId.troopAggression);
                     // 性格允许的覆盖阈值（性格自身可再微调）
-                    int threshold = cfg.leaderRoleOverrideThreshold + personality.troopRoleOverrideAdd;
+                    int threshold = cfg.leaderRoleOverrideThreshold + PersonalityId.troopRoleOverrideAdd;
                     if (threshold < 0)
                         threshold = 0;
 
-                    TroopRole leaderRole = personality.troopAggression > 0
+                    TroopRole leaderRole = PersonalityId.troopAggression > 0
                         ? TroopRole.Assault
                         : TroopRole.Defender;
 
@@ -3311,7 +3497,7 @@ namespace Sango.Core
                 return TroopBattleTier.Even;
 
             BattleSituation.BalanceSnapshot balance =
-                BattleSituation.EvaluateBalance(cell, mBelongForce, cfg.tierScanRange, scenario);
+                BattleSituation.EvaluateBalance(cell, BelongForce, cfg.tierScanRange, scenario);
             return BattleSituation.GetTier(balance.balancePercent);
         }
 
@@ -3333,8 +3519,8 @@ namespace Sango.Core
         {
             if (!AIConfig.Instance.useLeaderPersonality)
                 return 0;
-            Personality personality = LeaderPersonality;
-            return personality != null ? personality.troopRetreatAdd : 0;
+            Personality PersonalityId = LeaderPersonality;
+            return PersonalityId != null ? PersonalityId.troopRetreatAdd : 0;
         }
 
         public void Burn(Cell dest)
@@ -3391,19 +3577,19 @@ namespace Sango.Core
             person.ClearMission();
             person.state = (int)PersonStateType.Prisoner;
             captiveList.Add(person);
-            person.mBelongForce?.BeCaptiveList.Remove(person);
-            person.mBelongForce?.BeCaptiveList.Add(person);
-            person.mTroop = this;
-            person.ChangeCurrentCity(this.mCurrentCity);
-            if (person.mBelongCity != null)
+            person.BelongForce?.BeCaptiveList.Remove(person);
+            person.BelongForce?.BeCaptiveList.Add(person);
+            person.mBelongTroop = this;
+            person.ChangeCurrentCity(this.CurrentCity);
+            if (person.BelongCity != null)
             {
-                person.mBelongCity.allPersons.Remove(person);
-                person.mBelongCity.wildPersons.Remove(person);
-                person.mBelongCity.freePersons.Remove(person);
-                person.mBelongCity = null;
+                person.BelongCity.allPersons.Remove(person);
+                person.BelongCity.wildPersons.Remove(person);
+                person.BelongCity.freePersons.Remove(person);
+                person.BelongCity = null;
             }
 
-            Sango.Log.Info($"@人才@[{person.Name}]被<{mBelongForce.Name}>俘虏至{Name}");
+            Sango.Log.Info($"@人才@[{person.Name}]被<{BelongForce.Name}>俘虏至{Name}");
             return person;
         }
 
@@ -3416,37 +3602,57 @@ namespace Sango.Core
         {
             Sango.Log.Info($"*{Name} -> captiveList 删除 {person.Name} ");
             captiveList.Remove(person);
-            person.mBelongForce?.BeCaptiveList.Remove(person);
-            person.mTroop = null;
+            person.BelongForce?.BeCaptiveList.Remove(person);
+            person.mBelongTroop = null;
             return person;
         }
 
         /// <summary>
-        /// 结算部队本次战斗获得的功绩与技巧点。
+        /// 结算部队本次战斗获得的功绩、技巧点、武将与兵种适性经验。
         /// 计算本次战斗获得的技巧点，并开放给部队特技 Action 改写。
         /// 功绩与经验保持原有口径，不受技巧点特技影响。
+        /// 各项数值均可在剧本设置里配置（GainPlace）。
         /// </summary>
         /// <param name="gp">本次战斗获得的原始功绩。</param>
         /// <param name="isDestroyEnemyTroop">是否由本部队击破敌方部队触发。</param>
-        public void GainEP(int gp, bool isDestroyEnemyTroop = false)
+        /// <param name="isDestroyCity">是否由本部队攻破城池/关/港触发。</param>
+        public void GainEP(int gp, bool isDestroyEnemyTroop = false, bool isDestroyCity = false)
         {
-            Tools.OverrideData<int> techniquePoint = Tools.OverrideData<int>.Create(gp / 5);
+            Tools.OverrideData<int> techniquePoint = Tools.OverrideData<int>.Create(
+                GainValueConfig.Rate(gp, GainValueConfig.TechniquePoint(GainPlace.TechniquePointFromMerit)));
             // 由已装配的部队特技决定是否改写本次技巧点，避免按特技 ID 硬编码。
             GameEvent.OnTroopCalculateTechniquePoint?.Invoke(this, isDestroyEnemyTroop, techniquePoint);
-            mBelongForce.GainTechniquePoint(techniquePoint.ValueAndRecycle);
+            BelongForce.GainTechniquePoint(techniquePoint.ValueAndRecycle);
 
-            // 主将获得100%功绩,
+            // 主将按配置比例获得功绩(默认100%), 经验按配置比例从功绩折算
             if (Leader != null)
             {
-                Leader?.GainMerit(gp);
-                Leader?.GainExp(gp / 5);
+                Leader?.GainMerit(GainValueConfig.Rate(gp, GainValueConfig.Merit(GainPlace.MeritLeaderFactor)));
+                Leader?.GainExp(GainValueConfig.Rate(gp, GainValueConfig.Exp(GainPlace.ExpFromMerit)));
             }
-            int memberGp = gp * 6 / 10;
+            int memberGp = GainValueConfig.Rate(gp, GainValueConfig.Merit(GainPlace.MeritMemberFactor));
             ForEachMember(x =>
             {
                 x.GainMerit(memberGp);
-                x.GainExp(memberGp / 5);
+                x.GainExp(GainValueConfig.Rate(memberGp, GainValueConfig.Exp(GainPlace.ExpFromMerit)));
             });
+
+            // 兵种适性经验：用哪个兵种就练哪一项适性（TroopType.influenceAbility）
+            int influenceAbility = TroopType != null ? TroopType.influenceAbility : 0;
+            if (influenceAbility > 0)
+            {
+                int abilityExp = GainValueConfig.AbilityExp(GainPlace.AbilityExpAttack);
+                if (isDestroyEnemyTroop)
+                    abilityExp += GainValueConfig.AbilityExp(GainPlace.AbilityExpDestroyTroop);
+                if (isDestroyCity)
+                    abilityExp += GainValueConfig.AbilityExp(GainPlace.AbilityExpDestroyCity);
+
+                if (abilityExp > 0)
+                {
+                    Leader?.GainAbilityExp(influenceAbility, abilityExp);
+                    ForEachMember(x => x.GainAbilityExp(influenceAbility, abilityExp));
+                }
+            }
         }
 
         public void GainTargetResource(Troop target)

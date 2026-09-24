@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System.Collections.Generic;
 using System.Text;
 using Unity.VisualScripting;
@@ -176,7 +176,7 @@ namespace Sango.Core
         {
             name = "军团",
             width = 5.00f,
-            valueStrGetCall = x => $"{x.mBelongForce.ColorName}第{x.number}军团",
+            valueStrGetCall = x => $"{x.BelongForce.ColorName}第{x.number}军团",
             valueSortFunc = (a, b) => a.number.CompareTo(b.number),
             valueObjGet = x => x.number,
             valueObjSet = (x, v) => x.number = (int)v,
@@ -297,10 +297,10 @@ namespace Sango.Core
         {
             name = "势力",
             width = 4.20f,
-            valueStrGetCall = x => x.mBelongForce?.Name ?? "",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
-            valueObjGet = x => x.mBelongForce,
-            valueObjSet = (x, v) => x.mBelongForce = (Force)v,
+            valueStrGetCall = x => x.BelongForce?.Name ?? "",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
+            valueObjGet = x => x.BelongForce,
+            valueObjSet = (x, v) => x.BelongForce = (Force)v,
             editType = DataEditType.IntDropdown,
             dataSetType = DataSetType.Force,
         };

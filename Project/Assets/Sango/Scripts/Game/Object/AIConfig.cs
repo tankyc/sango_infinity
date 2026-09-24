@@ -169,6 +169,17 @@ namespace Sango.Core
         /// <summary>士气过低时的撤退概率（%）</summary>
         public int retreatLowMoraleChance = 50;
 
+        /// <summary>
+        /// 出征回合数门槛：部队在野外待满该回合数之后，才允许做出撤退 / 回避决定。
+        ///
+        /// 用于抑制"刚出城就掉头回城"：刚出城的部队常被判定为劣势 / 危局（态势看的是局部战力比），
+        /// 而"最近的己方据点"往往就是它刚出的那座城，于是被判撤退后立刻折返，
+        /// 表现为部队在城池格上反复进出（观感：部队停在城池上不动）。
+        ///
+        /// 判定为 <c>liveDays &gt; retreatMinLiveDays</c>。0 或负数表示不限制（保持旧行为）。
+        /// </summary>
+        public int retreatMinLiveDays = 3;
+
         #endregion
 
         #region 部队态势分档

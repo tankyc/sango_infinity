@@ -14,12 +14,12 @@ namespace Sango.Core
         public override Troop TargetTroop => DestTroop;
         public override Cell ActionCell => Troop.cell;
         public override Cell TargetCell => DestTroop.cell;
-        public override City ActionCity => Troop.mBelongCity;
-        public override City TargetCity => DestTroop.mBelongCity;
-        public override Corps ActionCorps => Troop.mBelongCorps;
-        public override Corps TargetCorps => DestTroop.mBelongCorps;
+        public override City ActionCity => Troop.BelongCity;
+        public override City TargetCity => DestTroop.BelongCity;
+        public override Corps ActionCorps => Troop.BelongCorps;
+        public override Corps TargetCorps => DestTroop.BelongCorps;
         public override Force ActionForce => Force;
-        public override Force TargetForce => DestTroop.mBelongForce;
+        public override Force TargetForce => DestTroop.BelongForce;
         public override Fire ActiveFire => Troop.cell.fire;
         public override Fire TargetFire => Troop.cell.fire;
         public override object ActionObject => Troop;
@@ -38,7 +38,7 @@ namespace Sango.Core
         public virtual bool CheckForceTroop(Troop troop)
         {
             if (Troop != null && Troop != troop) return false;
-            if (Force != null && Force != troop.mBelongForce) return false;
+            if (Force != null && Force != troop.BelongForce) return false;
             return true;
         }
     }

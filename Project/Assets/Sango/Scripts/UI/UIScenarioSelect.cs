@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -133,9 +133,9 @@ namespace Sango.UI
                 rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
 
                 Image bgImg = cityObj.transform.GetChild(0).GetComponent<Image>();
-                if (city.BelongForce > 0)
+                if (city.BelongForceId > 0)
                 {
-                    ShortForce shortForce = scenario.forceSet[city.BelongForce];
+                    ShortForce shortForce = scenario.forceSet[city.BelongForceId];
                     Flag flag = scenario.CommonData.Flags[shortForce.Flag];
                     bgImg.color = flag.color;
                 }

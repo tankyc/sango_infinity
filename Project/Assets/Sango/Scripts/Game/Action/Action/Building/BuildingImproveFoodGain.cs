@@ -62,13 +62,13 @@ namespace Sango.Core.Action
         /// <param name="overrideData">覆盖数据对象</param>
         void OnBuildingCalculateFoodGain(BuildingBase buildingBase, OverrideData<int> overrideData)
         {
-            if (Force != null && buildingBase.mBelongForce != Force) return;
+            if (Force != null && buildingBase.BelongForce != Force) return;
             if (Building != null && Building != buildingBase) return;
 
             if(bound == 0)
             {
                 int food = 0;
-                Building.mBelongCity.allBuildings.ForEach(b =>
+                Building.BelongCity.allBuildings.ForEach(b =>
                 {
                     if (!b.IsIntorBuilding()) return;
 

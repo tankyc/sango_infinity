@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System.Collections.Generic;
 using UnityEngine.UI;
 
@@ -217,11 +217,11 @@ namespace Sango.UI
             feature_inited = true;
 
             featureObjectPool.Reset();
-            if (Target.mFeatureList != null)
+            if (Target.FeatureList != null)
             {
-                for (int i = 0; i < Target.mFeatureList.Count; i++)
+                for (int i = 0; i < Target.FeatureList.Count; i++)
                 {
-                    Feature feature = Target.mFeatureList[i];
+                    Feature feature = Target.FeatureList[i];
                     if (feature != null)
                     {
                         UITextField uITextField = featureObjectPool.Create();
@@ -243,8 +243,8 @@ namespace Sango.UI
 
             fatherLabel.text = PersonSortFunction.SortByFather.GetValueStr(Target);
             motherLabel.text = PersonSortFunction.SortByMother.GetValueStr(Target);
-            if (Target.mSpouseList != null)
-                spousePersonItem.SetPerson(Target.mSpouseList.Count > 0 ? Target.mSpouseList[0] : null);
+            if (Target.SpouseList != null)
+                spousePersonItem.SetPerson(Target.SpouseList.Count > 0 ? Target.SpouseList[0] : null);
             else
                 spousePersonItem.SetPerson(null);
             for (int i = 0; i < brotherPersonItem.Length; i++)

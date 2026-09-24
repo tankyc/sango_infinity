@@ -123,7 +123,7 @@ namespace Sango.Core
         /// </summary>
         public static bool HasRenZhengInBelongCity(Person person)
         {
-            if (person == null || person.mBelongCity == null) return false;
+            if (person == null || person.BelongCity == null) return false;
 
             Scenario scenario = Scenario.Cur;
             if (scenario == null) return false;
@@ -132,7 +132,7 @@ namespace Sango.Core
             {
                 Person other = scenario.personSet[i];
                 if (other == null || !other.IsAlive) continue;
-                if (other.mBelongCity != person.mBelongCity) continue;
+                if (other.BelongCity != person.BelongCity) continue;
                 if (other.HasFeatrue(RenZhengFeatureId)) return true;
             }
             return false;

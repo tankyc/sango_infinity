@@ -1,4 +1,4 @@
-﻿using TKNewtonsoft.Json.Linq;
+using TKNewtonsoft.Json.Linq;
 using System.Collections.Generic;
 
 namespace Sango.Core.Action
@@ -23,12 +23,12 @@ namespace Sango.Core.Action
             public Troop TargetTroop => atk_cell.troop;
             public Cell ActionCell => self?.master.cell;
             public Cell TargetCell => atk_cell;
-            public City ActionCity => self?.master.mBelongCity;
-            public City TargetCity => atk_cell.troop?.mBelongCity ?? atk_cell.building?.mBelongCity;
-            public Corps ActionCorps => self?.master.mBelongCorps;
-            public Corps TargetCorps => atk_cell.troop?.mBelongCorps ?? atk_cell.building?.mBelongCorps;
-            public Force ActionForce => self?.master.mBelongForce;
-            public Force TargetForce => atk_cell.troop?.mBelongForce ?? atk_cell.building?.mBelongForce;
+            public City ActionCity => self?.master.BelongCity;
+            public City TargetCity => atk_cell.troop?.BelongCity ?? atk_cell.building?.BelongCity;
+            public Corps ActionCorps => self?.master.BelongCorps;
+            public Corps TargetCorps => atk_cell.troop?.BelongCorps ?? atk_cell.building?.BelongCorps;
+            public Force ActionForce => self?.master.BelongForce;
+            public Force TargetForce => atk_cell.troop?.BelongForce ?? atk_cell.building?.BelongForce;
 
             public Fire ActiveFire => self?.master.cell.fire;
             public Fire TargetFire => atk_cell.fire;
@@ -52,11 +52,11 @@ namespace Sango.Core.Action
             public Troop TargetTroop => null;
             public Cell ActionCell => self?.master.cell;
             public Cell TargetCell => null;
-            public City ActionCity => self?.master.mBelongCity;
+            public City ActionCity => self?.master.BelongCity;
             public City TargetCity => null;
-            public Corps ActionCorps => self?.master.mBelongCorps;
+            public Corps ActionCorps => self?.master.BelongCorps;
             public Corps TargetCorps => null;
-            public Force ActionForce => self?.master.mBelongForce;
+            public Force ActionForce => self?.master.BelongForce;
             public Force TargetForce => null;
 
             public Fire ActiveFire => null;
@@ -81,11 +81,11 @@ namespace Sango.Core.Action
             public Troop TargetTroop => null;
             public Cell ActionCell => null;
             public Cell TargetCell => null;
-            public City ActionCity => self.mBelongCity;
+            public City ActionCity => self.BelongCity;
             public City TargetCity => null;
-            public Corps ActionCorps => self.mBelongCorps;
+            public Corps ActionCorps => self.BelongCorps;
             public Corps TargetCorps => null;
-            public Force ActionForce => self.mBelongForce;
+            public Force ActionForce => self.BelongForce;
             public Force TargetForce => null;
 
             public Fire ActiveFire => null;

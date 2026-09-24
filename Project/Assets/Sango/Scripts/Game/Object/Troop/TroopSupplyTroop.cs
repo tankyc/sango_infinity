@@ -115,7 +115,7 @@ namespace Sango.Core
         /// <returns>是否处于大劣态势</returns>
         static bool IsForceLosing(Troop supplier, Scenario scenario)
         {
-            return IsForceLosingAt(supplier.cell, supplier.mBelongForce, scenario);
+            return IsForceLosingAt(supplier.cell, supplier.BelongForce, scenario);
         }
 
         /// <summary>
@@ -149,9 +149,9 @@ namespace Sango.Core
                 if (scenario.Map.Distance(center, t.cell) > range)
                     continue;
 
-                if (t.mBelongForce == force)
+                if (t.BelongForce == force)
                     myPower += t.troops;
-                else if (force.IsEnemy(t.mBelongForce))
+                else if (force.IsEnemy(t.BelongForce))
                     enemyPower += t.troops;
             }
 
@@ -217,7 +217,7 @@ namespace Sango.Core
         {
             City back = troop.FindNearestFriendlyCity(scenario);
             if (back == null)
-                back = troop.mBelongCity;
+                back = troop.BelongCity;
             if (back == null)
                 return;
 
@@ -399,7 +399,7 @@ namespace Sango.Core
                 return false;
 
             supplier.SupplyTroop(ally, itemGive, goldGive, foodGive, troopGive);
-            Sango.Log.Info($"{supplier.mBelongForce?.Name}的补给队[{supplier.Name}]为[{ally.Name}]补充 粮草{foodGive} 兵力{troopGive} 资金{goldGive}!");
+            Sango.Log.Info($"{supplier.BelongForce?.Name}的补给队[{supplier.Name}]为[{ally.Name}]补充 粮草{foodGive} 兵力{troopGive} 资金{goldGive}!");
             return true;
         }
 
@@ -437,7 +437,7 @@ namespace Sango.Core
         /// <returns>需要补给的友军，没有则返回 null</returns>
         Troop FindSupplyTarget(Troop supplier, Scenario scenario)
         {
-            City home = supplier.mBelongCity;
+            City home = supplier.BelongCity;
             if (home == null)
                 return null;
 

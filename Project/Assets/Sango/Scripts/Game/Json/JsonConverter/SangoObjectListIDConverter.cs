@@ -30,8 +30,9 @@ namespace Sango.Core
             {
                 if (reader.TokenType == JsonToken.EndArray)
                 {
+                    // 只把 id 数组缓存下来，等真正被访问时由 SangoObjectList 自己解析
+                    // （不再订阅 GameEvent.OnScenarioPrepare 做"容器级延迟解析"）
                     dest.arrayDataCache = list.ToArray();
-                    dest.MarkToPrepareOnScenario();
                     return dest;
                 }
                 else if (reader.TokenType == JsonToken.Integer)

@@ -1,18 +1,28 @@
-﻿/*
+/*
  * 文件名：DebatePersonBehaviours.cs
  * 描述：武将舌战行为的注册表 + 数据驱动实现（与单挑的 DuelPersonBehaviours 同款式）。
  *
  * 数据文件：Data/Common/debatePersonBehaviour.json（走 ModManager，支持 Mod 覆盖）
  * 未配置的武将 → Default（全部钩子都是默认实现，等于"没有特殊行为"）。
  *
- * 命中方式（按既定决策：只按武将身份，不做特技 / 势力匹配）：
- *   · personId = 武将真实 Id（Person.Id，与 PersonLibrary.json 里的 Id 一致），这是唯一的键。
+ * 命中方式（按既定决策：按武将身份 + 特技，不做势力 / 姓名匹配；**不引入优先级配置**）：
+ *   · personId  = 武将真实 Id（Person.Id，与 PersonLibrary.json 里的 Id 一致）；
+ *   · featureId = 特技 Id（Features.json），一条配置即"所有持有该特技的武将共用的模板"。
+ * 命中顺序是**固定层级**（不是可配的 priority）：
+ *   1) 武将专属条目（personId）命中即用，**不再叠加**特技条目；
+ *   2) 否则按本文件的**声明顺序**，取第一条"该武将持有的特技"对应的条目；
+ *   3) 都没有 → Default（全部钩子默认实现 = 不加任何修正）。
  *
- * 数据格式（每个武将一项，字段都可省略；省略 = 该钩子不加任何修正）：
+ * 话术来源（按既定决策，保持现状，不新增来源）：
+ *   · 基础值 = Person.wordTac（持有"书籍"时由 DebateGameSystem.HasAllRhetoric 置全解锁）；
+ *   · 本文件只做 rhetoricAdd（与 wordTac 取并集）或 rhetoricOverride（以它为准）。
+ *
+ * 数据格式（每个武将 / 每个特技一项，字段都可省略；省略 = 该钩子不加任何修正）：
  * {
  *   "behaviours": [
  *     {
- *       "personId": 290,                              // 武将真实 Id
+ *       "personId": 290,                              // 武将真实 Id（与 featureId 二选一，personId 优先）
+ *       "featureId": 87,                              // 特技 Id（例：87 = 论客），本条对持有者全体生效
  *       "name": "诸葛亮",                              // 备注名
  *       "rhetoricAdd": [ 0, 1, 3 ],                    // 追加话术（与 Person.wordTac 取并集）
  *       "rhetoricOverride": [ 1 ],                     // 覆盖话术（写了就以它为准，无视 wordTac）
@@ -39,8 +49,13 @@ namespace Sango.Core.Debate
     /// <summary>一个武将的舌战行为配置</summary>
     public class DebatePersonBehaviourConfig
     {
-        /// <summary>武将真实 Id（Person.Id，与 PersonLibrary.json 里的 Id 一致）</summary>
+        /// <summary>武将真实 Id（Person.Id，与 PersonLibrary.json 里的 Id 一致）；与 featureId 二选一，personId 优先</summary>
         public int personId = -1;
+        /// <summary>
+        /// 特技 Id（Features.json）。写了这一项的条目对所有**持有该特技**的武将生效，
+        /// 相当于一份可共享的模板；与武将专属条目同时命中时，专属条目优先（不叠加）。
+        /// </summary>
+        public int featureId = -1;
         /// <summary>备注名</summary>
         public string name;
 
@@ -163,10 +178,24 @@ namespace Sango.Core.Debate
         /// <summary>未配置武将使用的行为（全部默认实现）</summary>
         public static readonly DebatePersonBehaviour Default = new DebatePersonBehaviour();
 
+        /// <summary>特技条目：按数据文件声明顺序参与命中（先声明者优先）</summary>
+        private class FeatureRule
+        {
+            public int featureId;
+            public DebatePersonBehaviour behaviour;
+        }
+
         private static Dictionary<int, DebatePersonBehaviour> s_byId;
+        private static List<FeatureRule> s_featureRules;
         private static bool s_loaded;
 
-        /// <summary>按武将取行为（未配置返回 Default）。键是武将真实 Id（Person.Id）。</summary>
+        /// <summary>
+        /// 按武将取行为（未配置返回 Default）。命中顺序为固定层级：
+        ///   1) 武将专属条目（Person.Id）；
+        ///   2) 按声明顺序取第一条"该武将持有的特技"对应的条目；
+        ///   3) Default。
+        /// 专属命中后不再叠加特技条目（无优先级配置，结果确定）。
+        /// </summary>
         public static DebatePersonBehaviour Get(Person person)
         {
             EnsureLoaded();
@@ -174,6 +203,20 @@ namespace Sango.Core.Debate
 
             if (s_byId != null && s_byId.TryGetValue(person.Id, out DebatePersonBehaviour byId))
                 return byId;
+
+            if (s_featureRules != null && s_featureRules.Count > 0)
+            {
+                // 注意：舌战命名空间下存在同名类型 Debate.Feature，这里必须写全限定名
+                SangoObjectList<Sango.Core.Feature> features = person.FeatureList;
+                if (features != null && features.Count > 0)
+                {
+                    for (int i = 0; i < s_featureRules.Count; i++)
+                    {
+                        if (features.Contains(s_featureRules[i].featureId))
+                            return s_featureRules[i].behaviour;
+                    }
+                }
+            }
 
             return Default;
         }
@@ -183,6 +226,7 @@ namespace Sango.Core.Debate
         {
             s_loaded = false;
             s_byId = null;
+            s_featureRules = null;
         }
 
         private static void EnsureLoaded()
@@ -190,6 +234,7 @@ namespace Sango.Core.Debate
             if (s_loaded) return;
             s_loaded = true;
             s_byId = new Dictionary<int, DebatePersonBehaviour>();
+            s_featureRules = new List<FeatureRule>();
 
             try
             {
@@ -208,12 +253,21 @@ namespace Sango.Core.Debate
 
                         if (cfg.personId >= 0)
                         {
+                            // 武将专属条目：同一 Id 重复配置时后写的生效
                             behaviour.personId = cfg.personId;
                             s_byId[cfg.personId] = behaviour;
                         }
+                        else if (cfg.featureId >= 0)
+                        {
+                            // 特技条目：所有持有该特技的武将共用；按声明顺序参与命中
+                            FeatureRule rule = new FeatureRule();
+                            rule.featureId = cfg.featureId;
+                            rule.behaviour = behaviour;
+                            s_featureRules.Add(rule);
+                        }
                         else
                         {
-                            Sango.Log.Warning("debatePersonBehaviour: 有一条配置没写 personId（或为负值），已忽略："
+                            Sango.Log.Warning("debatePersonBehaviour: 有一条配置既没写 personId 也没写 featureId（或都为负值），已忽略："
                                 + (string.IsNullOrEmpty(cfg.name) ? "(无名)" : cfg.name));
                         }
                     }

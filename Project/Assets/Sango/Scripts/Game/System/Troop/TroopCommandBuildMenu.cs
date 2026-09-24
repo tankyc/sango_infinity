@@ -1,4 +1,4 @@
-﻿//using Sango.Render;
+//using Sango.Render;
 //using Sango.UI;
 //using Sango.Render;
 //using System.Collections.Generic;
@@ -27,7 +27,7 @@
 //            canBuildBuildingType.Clear();
 //            Scenario.Cur.CommonData.BuildingTypes.ForEach(x =>
 //            {
-//                if (x.IsOutside && x.canBuild && x.IsValid(TargetTroop.BelongForce))
+//                if (x.IsOutside && x.canBuild && x.IsValid(TargetTroop.BelongForceId))
 //                {
 //                    canBuildBuildingType.Add(x);
 //                }

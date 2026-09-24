@@ -98,7 +98,7 @@ namespace Sango.Core
             {
                 return;
             }
-            if (comander != null && comander.mBelongForce != Target.mBelongForce)
+            if (comander != null && comander.BelongForce != Target.BelongForce)
             {
                 Log.Warning("军团长必须是本势力的武将");
                 return;
@@ -137,13 +137,13 @@ namespace Sango.Core
             {
                 return;
             }
-            if (city.mBelongForce != Target.mBelongForce)
+            if (city.BelongForce != Target.BelongForce)
             {
                 Log.Warning("只能将本势力的城市分配给军团");
                 return;
             }
-            city.BelongCorps = Target.Id;
-            city.mBelongCorps = Target;
+            city.BelongCorpsId = Target.Id;
+            city.BelongCorps = Target;
             Log.Info("城市 " + city.Name + " 已加入军团 " + Target.Name);
         }
 
@@ -157,12 +157,12 @@ namespace Sango.Core
             {
                 return;
             }
-            if (city.mBelongCorps != Target)
+            if (city.BelongCorps != Target)
             {
                 return;
             }
-            city.BelongCorps = 0;
-            city.mBelongCorps = null;
+            city.BelongCorpsId = 0;
+            city.BelongCorps = null;
             Log.Info("城市 " + city.Name + " 已脱离军团 " + Target.Name);
         }
     }

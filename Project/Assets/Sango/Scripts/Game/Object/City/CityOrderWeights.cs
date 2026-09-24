@@ -14,7 +14,7 @@ namespace Sango.Core
     /// 1. 基础权重（base*）      —— 每条命令的起始分；
     /// 2. 态势阈值（*Fill / *Critical ...） —— 评分规则里用到的判定边界；
     /// 3. 评分分值（score*）     —— 态势规则命中时叠加的分值；
-    /// 4. 个性修正（personality*） —— 不同势力个性的倾向；
+    /// 4. 个性修正（PersonalityId*） —— 不同势力个性的倾向；
     /// 5. 紧急覆盖（siege*/crisis*/peace*） —— 战时 / 危机 / 和平态的强制偏移。
     /// </summary>
     public class CityOrderWeights

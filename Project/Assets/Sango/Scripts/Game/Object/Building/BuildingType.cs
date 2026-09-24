@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using TKNewtonsoft.Json;
 using System.Xml;
 using System.Collections.Generic;
@@ -147,7 +147,7 @@ namespace Sango.Core
 
         public bool IsValid(City city)
         {
-            if (!IsValid(city.mBelongForce))
+            if (!IsValid(city.BelongForce))
                 return false;
 
             /// 限制类型 0无限制 1限制一座 2港口限制一座 3大都市限制一座 4全地图限制一座

@@ -1,4 +1,4 @@
-﻿using Sango;
+using Sango;
 using Sango.Core;
 using Sango.Core.Player;
 using System;
@@ -37,9 +37,9 @@ namespace Sango.UI
             public int compatibility;
 
             // 以下字段仅在 Person 编辑模式（剧本编辑页）下使用
-            public int BelongForce;
-            public int BelongCorps;
-            public int BelongCity;
+            public int BelongForceId;
+            public int BelongCorpsId;
+            public int BelongCityId;
             public int state;
             public string image_old;
             public int loyalty;
@@ -47,8 +47,8 @@ namespace Sango.UI
             public int official;
             public ItemStore itemStore = new ItemStore();
 
-            public int personality;
-            public int argumentation;
+            public int PersonalityId;
+            public int ArgumentationId;
             public int voice;
             public int tone;
             public int kanshitsu;
@@ -70,13 +70,13 @@ namespace Sango.UI
             public int waterLv;
             public int machineLv;
 
-            public int Father;
-            public int Mother;
-            public int[] SpouseList = new int[0];
+            public int FatherId;
+            public int MotherId;
+            public int[] SpouseListId = new int[0];
             public int[] BrotherList = new int[0];
-            public int[] LikePersonList = new int[0];
-            public int[] HatePersonList = new int[0];
-            public int[] FeatureList = new int[0];
+            public int[] LikePersonListId = new int[0];
+            public int[] HatePersonListId = new int[0];
+            public int[] FeatureListId = new int[0];
         }
 
         /// <summary>
@@ -644,8 +644,8 @@ namespace Sango.UI
                 yearAvailable = target.yearAvailable,
                 compatibility = target.compatibility,
 
-                personality = target.personality,
-                argumentation = target.argumentation,
+                PersonalityId = target.PersonalityId,
+                ArgumentationId = target.ArgumentationId,
                 voice = target.voice,
                 tone = target.tone,
                 kanshitsu = target.kanshitsu,
@@ -667,13 +667,13 @@ namespace Sango.UI
                 waterLv = target.waterLv,
                 machineLv = target.machineLv,
 
-                Father = target.Father,
-                Mother = target.Mother,
-                SpouseList = CloneArray(target.SpouseList),
+                FatherId = target.FatherId,
+                MotherId = target.MotherId,
+                SpouseListId = CloneArray(target.SpouseListId),
                 BrotherList = CloneArray(target.BrotherList),
-                LikePersonList = CloneArray(target.LikePersonList),
-                HatePersonList = CloneArray(target.HatePersonList),
-                FeatureList = CloneArray(target.FeatureList)
+                LikePersonListId = CloneArray(target.LikePersonListId),
+                HatePersonListId = CloneArray(target.HatePersonListId),
+                FeatureListId = CloneArray(target.FeatureListId)
             };
         }
 
@@ -706,9 +706,9 @@ namespace Sango.UI
                 compatibility = person.compatibility,
 
                 // 剧本编辑相关字段
-                BelongForce = person.BelongForce,
-                BelongCorps = person.BelongCorps,
-                BelongCity = person.BelongCity,
+                BelongForceId = person.BelongForceId,
+                BelongCorpsId = person.BelongCorpsId,
+                BelongCityId = person.BelongCityId,
                 state = person.state,
                 image_old = person.image_old ?? string.Empty,
                 loyalty = person.loyalty,
@@ -716,8 +716,8 @@ namespace Sango.UI
                 official = person.Official != null ? person.Official.Id : 0,
                 itemStore = person.itemStore != null ? person.itemStore.Copy() : new ItemStore(),
 
-                personality = person.personality,
-                argumentation = person.argumentation,
+                PersonalityId = person.PersonalityId,
+                ArgumentationId = person.ArgumentationId,
                 voice = person.voice,
                 tone = person.tone,
                 kanshitsu = person.kanshitsu,
@@ -739,13 +739,13 @@ namespace Sango.UI
                 waterLv = person.waterLv != null ? person.waterLv.baseValue : 0,
                 machineLv = person.machineLv != null ? person.machineLv.baseValue : 0,
 
-                Father = person.Father,
-                Mother = person.Mother,
-                SpouseList = CloneArray(person.SpouseList),
+                FatherId = person.FatherId,
+                MotherId = person.MotherId,
+                SpouseListId = CloneArray(person.SpouseListId),
                 BrotherList = PersonListToIds(person.BrotherList),
-                LikePersonList = CloneArray(person.LikePersonList),
-                HatePersonList = CloneArray(person.HatePersonList),
-                FeatureList = CloneArray(person.FeatureList)
+                LikePersonListId = CloneArray(person.LikePersonListId),
+                HatePersonListId = CloneArray(person.HatePersonListId),
+                FeatureListId = CloneArray(person.FeatureListId)
             };
         }
 
@@ -792,8 +792,8 @@ namespace Sango.UI
             // 相性值范围为 0-255；Person 编辑模式直接保存数值，自建武将模式高位可存储来源武将 ID 用于显示
             target.compatibility = snapshot.compatibility;
 
-            target.personality = snapshot.personality;
-            target.argumentation = snapshot.argumentation;
+            target.PersonalityId = snapshot.PersonalityId;
+            target.ArgumentationId = snapshot.ArgumentationId;
             target.voice = snapshot.voice;
             target.tone = snapshot.tone;
             target.kanshitsu = snapshot.kanshitsu;
@@ -815,13 +815,13 @@ namespace Sango.UI
             target.waterLv = snapshot.waterLv;
             target.machineLv = snapshot.machineLv;
 
-            target.Father = snapshot.Father;
-            target.Mother = snapshot.Mother;
-            target.SpouseList = CloneArray(snapshot.SpouseList);
+            target.FatherId = snapshot.FatherId;
+            target.MotherId = snapshot.MotherId;
+            target.SpouseListId = CloneArray(snapshot.SpouseListId);
             target.BrotherList = CloneArray(snapshot.BrotherList);
-            target.LikePersonList = CloneArray(snapshot.LikePersonList);
-            target.HatePersonList = CloneArray(snapshot.HatePersonList);
-            target.FeatureList = CloneArray(snapshot.FeatureList);
+            target.LikePersonListId = CloneArray(snapshot.LikePersonListId);
+            target.HatePersonListId = CloneArray(snapshot.HatePersonListId);
+            target.FeatureListId = CloneArray(snapshot.FeatureListId);
 
             GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Add(target);
             SaveScenarioAddon();
@@ -852,12 +852,12 @@ namespace Sango.UI
             target.compatibility = snapshot.compatibility;
 
             // 剧本编辑字段：更新 ID 与运行时引用
-            target.BelongForce = snapshot.BelongForce;
-            target.mBelongForce = snapshot.BelongForce > 0 ? cur.forceSet.Get(snapshot.BelongForce) : null;
-            target.BelongCorps = snapshot.BelongCorps;
-            target.mBelongCorps = snapshot.BelongCorps > 0 ? cur.corpsSet.Get(snapshot.BelongCorps) : null;
-            target.BelongCity = snapshot.BelongCity;
-            target.mBelongCity = snapshot.BelongCity > 0 ? cur.citySet.Get(snapshot.BelongCity) : null;
+            target.BelongForceId = snapshot.BelongForceId;
+            target.BelongForce = snapshot.BelongForceId > 0 ? cur.forceSet.Get(snapshot.BelongForceId) : null;
+            target.BelongCorpsId = snapshot.BelongCorpsId;
+            target.BelongCorps = snapshot.BelongCorpsId > 0 ? cur.corpsSet.Get(snapshot.BelongCorpsId) : null;
+            target.BelongCityId = snapshot.BelongCityId;
+            target.BelongCity = snapshot.BelongCityId > 0 ? cur.citySet.Get(snapshot.BelongCityId) : null;
             target.state = snapshot.state;
             target.image_old = snapshot.image_old;
             target.loyalty = snapshot.loyalty;
@@ -865,9 +865,9 @@ namespace Sango.UI
             target.Official = snapshot.official > 0 ? cur.CommonData.Officials.Get(snapshot.official) : null;
             target.itemStore = snapshot.itemStore != null ? snapshot.itemStore.Copy() : new ItemStore();
 
-            target.personality = snapshot.personality;
-            target.argumentation = snapshot.argumentation;
-            target.mArgumentation = snapshot.argumentation > 0 ? cur.CommonData.Argumentations.Get(snapshot.argumentation) : null;
+            target.PersonalityId = snapshot.PersonalityId;
+            target.ArgumentationId = snapshot.ArgumentationId;
+            target.mArgumentation = snapshot.ArgumentationId > 0 ? cur.CommonData.Argumentations.Get(snapshot.ArgumentationId) : null;
             target.voice = snapshot.voice;
             target.tone = snapshot.tone;
             target.kanshitsu = snapshot.kanshitsu;
@@ -937,11 +937,11 @@ namespace Sango.UI
             target.waterLv.Update();
             target.machineLv.Update();
 
-            target.Father = snapshot.Father;
-            target.Mother = snapshot.Mother;
-            target.mFather = GetPersonById(snapshot.Father);
-            target.mMother = GetPersonById(snapshot.Mother);
-            target.SpouseList = CloneArray(snapshot.SpouseList);
+            target.FatherId = snapshot.FatherId;
+            target.MotherId = snapshot.MotherId;
+            target.Father = GetPersonById(snapshot.FatherId);
+            target.Mother = GetPersonById(snapshot.MotherId);
+            target.SpouseListId = CloneArray(snapshot.SpouseListId);
 
             // 兄弟关系：更新运行时列表与序列化字段
             if (target.BrotherList == null)
@@ -955,35 +955,35 @@ namespace Sango.UI
                     if (brother != null)
                         target.BrotherList.Add(brother);
                 }
-                target.Brother = snapshot.BrotherList[0];
-                target.mBrother = GetPersonById(target.Brother);
+                target.BrotherId = snapshot.BrotherList[0];
+                target.Brother = GetPersonById(target.BrotherId);
             }
             else
             {
-                target.Brother = 0;
-                target.mBrother = null;
+                target.BrotherId = 0;
+                target.Brother = null;
             }
 
-            target.LikePersonList = CloneArray(snapshot.LikePersonList);
-            target.HatePersonList = CloneArray(snapshot.HatePersonList);
-            target.FeatureList = CloneArray(snapshot.FeatureList);
+            target.LikePersonListId = CloneArray(snapshot.LikePersonListId);
+            target.HatePersonListId = CloneArray(snapshot.HatePersonListId);
+            target.FeatureListId = CloneArray(snapshot.FeatureListId);
 
             // 同步运行时的对象引用列表
-            target.mFeatureList = RefreshPersonObjectList(target.mFeatureList, snapshot.FeatureList, id => cur != null ? cur.CommonData.Features.Get(id) : null);
-            target.mLikePersonList = RefreshPersonObjectList(target.mLikePersonList, snapshot.LikePersonList, id => GetPersonById(id));
-            target.mHatePersonList = RefreshPersonObjectList(target.mHatePersonList, snapshot.HatePersonList, id => GetPersonById(id));
+            target.FeatureList = RefreshPersonObjectList(target.FeatureList, snapshot.FeatureListId, id => cur != null ? cur.CommonData.Features.Get(id) : null);
+            target.LikePersonList = RefreshPersonObjectList(target.LikePersonList, snapshot.LikePersonListId, id => GetPersonById(id));
+            target.HatePersonList = RefreshPersonObjectList(target.HatePersonList, snapshot.HatePersonListId, id => GetPersonById(id));
 
-            // mSpouseList 的 setter 为 private，只能清空/添加，不能重新赋值
-            if (target.mSpouseList != null)
+            // SpouseList 的 setter 为 private，只能清空/添加，不能重新赋值
+            if (target.SpouseList != null)
             {
-                target.mSpouseList.Clear();
-                if (snapshot.SpouseList != null)
+                target.SpouseList.Clear();
+                if (snapshot.SpouseListId != null)
                 {
-                    foreach (int id in snapshot.SpouseList)
+                    foreach (int id in snapshot.SpouseListId)
                     {
                         Person spouse = GetPersonById(id);
                         if (spouse != null)
-                            target.mSpouseList.Add(spouse);
+                            target.SpouseList.Add(spouse);
                     }
                 }
             }
@@ -1080,7 +1080,7 @@ namespace Sango.UI
             }, 30, 99, OnLifeYearChanged);
 
             // 性格与相性
-            BindToggleGroup(personalityToggles, () => snapshot.personality, v => snapshot.personality = v, i => i + 1, v => v - 1);
+            BindToggleGroup(personalityToggles, () => snapshot.PersonalityId, v => snapshot.PersonalityId = v, i => i + 1, v => v - 1);
             BindVoiceToggleGroup();
             BindToggleGroup(toneToggles, () => snapshot.tone, v => snapshot.tone = v, i => i, v => v);
             BindToggleGroup(hanLoyaltyToggles, () => snapshot.kanshitsu, v => snapshot.kanshitsu = v, i => i, v => v);
@@ -1115,19 +1115,19 @@ namespace Sango.UI
 
             // 人际关系（父亲候选武将需为男性，母亲候选武将需为女性，且年龄大于等于自身年龄15岁）
             BindRelationshipSelectButton(fatherSelectButton, false, OnFatherSelectedIds, IsValidFatherFilterLib, IsValidFatherFilterPerson);
-            BindRelationshipButton(fatherCancelButton, () => snapshot.Father = 0, RefreshFather);
+            BindRelationshipButton(fatherCancelButton, () => snapshot.FatherId = 0, RefreshFather);
             BindRelationshipSelectButton(motherSelectButton, false, OnMotherSelectedIds, IsValidMotherFilterLib, IsValidMotherFilterPerson);
-            BindRelationshipButton(motherCancelButton, () => snapshot.Mother = 0, RefreshMother);
+            BindRelationshipButton(motherCancelButton, () => snapshot.MotherId = 0, RefreshMother);
             BindRelationshipSelectButton(spouseSelectButton, true, OnSpouseSelectedIds, IsValidSpouseFilterLib, IsValidSpouseFilterPerson);
-            BindRelationshipButton(spouseCancelButton, () => snapshot.SpouseList = new int[0], RefreshSpouse);
+            BindRelationshipButton(spouseCancelButton, () => snapshot.SpouseListId = new int[0], RefreshSpouse);
             BindRelationshipSelectButton(brotherSelectButton, true, OnBrotherSelectedIds, IsValidBrotherFilterLib, IsValidBrotherFilterPerson);
-            //BindRelationshipButton(brotherCancelButton, () => snapshot.Brother = 0, RefreshBrother);
+            //BindRelationshipButton(brotherCancelButton, () => snapshot.BrotherId = 0, RefreshBrother);
             //BindRelationshipButton(swornBrotherSelectButton, true, OnSwornBrotherSelected);
             //BindRelationshipButton(swornBrotherCancelButton, () => snapshot.swornBrotherList = new int[0], RefreshSwornBrother);
             BindRelationshipSelectButton(likeSelectButton, true, OnLikeSelectedIds, IsValidLikeFilterLib, IsValidLikeFilterPerson);
-            //BindRelationshipButton(likeCancelButton, () => snapshot.LikePersonList = new int[0], RefreshLike);
+            //BindRelationshipButton(likeCancelButton, () => snapshot.LikePersonListId = new int[0], RefreshLike);
             BindRelationshipSelectButton(hateSelectButton, true, OnHateSelectedIds, IsValidHateFilterLib, IsValidHateFilterPerson);
-            //BindRelationshipButton(hateCancelButton, () => snapshot.HatePersonList = new int[0], RefreshHate);
+            //BindRelationshipButton(hateCancelButton, () => snapshot.HatePersonListId = new int[0], RefreshHate);
 
             // 特技
             if (featureButton != null) featureButton.onClick.AddListener(OnFeatureButtonClick);
@@ -1152,11 +1152,11 @@ namespace Sango.UI
         {
             // 势力 / 军团 / 城市 / 官职选择
             if (belongForceSelectButton != null) belongForceSelectButton.onClick.AddListener(OpenBelongForceSelect);
-            if (belongForceCancelButton != null) belongForceCancelButton.onClick.AddListener(() => { snapshot.BelongForce = 0; RefreshBelongForce(); });
+            if (belongForceCancelButton != null) belongForceCancelButton.onClick.AddListener(() => { snapshot.BelongForceId = 0; RefreshBelongForce(); });
             if (belongCorpsSelectButton != null) belongCorpsSelectButton.onClick.AddListener(OpenBelongCorpsSelect);
-            if (belongCorpsCancelButton != null) belongCorpsCancelButton.onClick.AddListener(() => { snapshot.BelongCorps = 0; RefreshBelongCorps(); });
+            if (belongCorpsCancelButton != null) belongCorpsCancelButton.onClick.AddListener(() => { snapshot.BelongCorpsId = 0; RefreshBelongCorps(); });
             if (belongCitySelectButton != null) belongCitySelectButton.onClick.AddListener(OpenBelongCitySelect);
-            if (belongCityCancelButton != null) belongCityCancelButton.onClick.AddListener(() => { snapshot.BelongCity = 0; RefreshBelongCity(); });
+            if (belongCityCancelButton != null) belongCityCancelButton.onClick.AddListener(() => { snapshot.BelongCityId = 0; RefreshBelongCity(); });
             if (officialSelectButton != null) officialSelectButton.onClick.AddListener(OpenOfficialSelect);
             if (officialCancelButton != null) officialCancelButton.onClick.AddListener(() => { snapshot.official = 0; RefreshOfficial(); });
 
@@ -1177,7 +1177,7 @@ namespace Sango.UI
             List<Dropdown.OptionData> argumentationOptions = new List<Dropdown.OptionData>();
             List<int> argumentationValues = new List<int>();
             GetArgumentationOptions(argumentationOptions, argumentationValues);
-            BindDropdown(argumentationDropdown, argumentationOptions, argumentationValues, () => snapshot.argumentation, v => snapshot.argumentation = v);
+            BindDropdown(argumentationDropdown, argumentationOptions, argumentationValues, () => snapshot.ArgumentationId, v => snapshot.ArgumentationId = v);
 
             List<Dropdown.OptionData> birthplaceOptions = new List<Dropdown.OptionData>();
             List<int> birthplaceValues = new List<int>();
@@ -1224,7 +1224,7 @@ namespace Sango.UI
                 if (yearAvailableText != null) yearAvailableText.text = snapshot.yearAvailable.ToString();
                 if (lifeSpanText != null) lifeSpanText.text = System.Math.Max(0, snapshot.yearDead - snapshot.yearBorn).ToString();
 
-                RefreshToggleGroup(personalityToggles, snapshot.personality, i => i - 1, 1);
+                RefreshToggleGroup(personalityToggles, snapshot.PersonalityId, i => i - 1, 1);
                 RefreshToggleGroup(growthToggles, snapshot.attributeChangeType, i => i - 1, 1);
                 RefreshVoiceToggleGroup();
                 RefreshToggleGroup(toneToggles, snapshot.tone, i => i, 0);
@@ -1346,14 +1346,14 @@ namespace Sango.UI
         private void CheckParentAgeGap()
         {
             bool changed = false;
-            if (snapshot.Father > 0 && !IsValidParent(snapshot.Father, 0))
+            if (snapshot.FatherId > 0 && !IsValidParent(snapshot.FatherId, 0))
             {
-                snapshot.Father = 0;
+                snapshot.FatherId = 0;
                 changed = true;
             }
-            if (snapshot.Mother > 0 && !IsValidParent(snapshot.Mother, 1))
+            if (snapshot.MotherId > 0 && !IsValidParent(snapshot.MotherId, 1))
             {
-                snapshot.Mother = 0;
+                snapshot.MotherId = 0;
                 changed = true;
             }
             if (changed)
@@ -1403,10 +1403,10 @@ namespace Sango.UI
         /// </summary>
         private void CheckSpouseSex()
         {
-            if (snapshot.SpouseList == null || snapshot.SpouseList.Length == 0) return;
+            if (snapshot.SpouseListId == null || snapshot.SpouseListId.Length == 0) return;
             bool changed = false;
             List<int> validList = new List<int>();
-            foreach (int spouseId in snapshot.SpouseList)
+            foreach (int spouseId in snapshot.SpouseListId)
             {
                 int spouseSex = -1;
                 if (editMode == PersonEditMode.Person)
@@ -1434,7 +1434,7 @@ namespace Sango.UI
             }
             if (changed)
             {
-                snapshot.SpouseList = validList.ToArray();
+                snapshot.SpouseListId = validList.ToArray();
                 RefreshSpouse();
                 Log.Warning("自身性别变化后，与配偶性别相同，已自动解除配偶关系");
             }
@@ -1925,13 +1925,13 @@ namespace Sango.UI
 
         private void OnFatherSelectedIds(int[] ids)
         {
-            snapshot.Father = ids != null && ids.Length > 0 ? ids[0] : 0;
+            snapshot.FatherId = ids != null && ids.Length > 0 ? ids[0] : 0;
             RefreshFather();
         }
 
         private void OnMotherSelectedIds(int[] ids)
         {
-            snapshot.Mother = ids != null && ids.Length > 0 ? ids[0] : 0;
+            snapshot.MotherId = ids != null && ids.Length > 0 ? ids[0] : 0;
             RefreshMother();
         }
 
@@ -1974,37 +1974,37 @@ namespace Sango.UI
         private bool IsValidLikeFilterLib(PersonLib person)
         {
             if (person == null) return false;
-            return !ContainsId(snapshot.HatePersonList, person.Id);
+            return !ContainsId(snapshot.HatePersonListId, person.Id);
         }
 
         private bool IsValidLikeFilterPerson(Person person)
         {
             if (person == null) return false;
-            return !ContainsId(snapshot.HatePersonList, person.Id);
+            return !ContainsId(snapshot.HatePersonListId, person.Id);
         }
 
         private bool IsValidHateFilterLib(PersonLib person)
         {
             if (person == null) return false;
-            if (person.Id == snapshot.Father || person.Id == snapshot.Mother) return false;
+            if (person.Id == snapshot.FatherId || person.Id == snapshot.MotherId) return false;
             if (ContainsId(snapshot.BrotherList, person.Id)) return false;
-            if (ContainsId(snapshot.LikePersonList, person.Id)) return false;
+            if (ContainsId(snapshot.LikePersonListId, person.Id)) return false;
             return true;
         }
 
         private bool IsValidHateFilterPerson(Person person)
         {
             if (person == null) return false;
-            if (person.Id == snapshot.Father || person.Id == snapshot.Mother) return false;
+            if (person.Id == snapshot.FatherId || person.Id == snapshot.MotherId) return false;
             if (ContainsId(snapshot.BrotherList, person.Id)) return false;
-            if (ContainsId(snapshot.LikePersonList, person.Id)) return false;
+            if (ContainsId(snapshot.LikePersonListId, person.Id)) return false;
             return true;
         }
 
         private bool IsValidBrotherFilterLib(PersonLib person)
         {
             if (person == null) return false;
-            if (person.Brother > 0) return false;
+            if (person.BrotherId > 0) return false;
             PersonLib p = GameCustomEdit.Instance != null && GameCustomEdit.Instance.SelfScenarioAddon != null
                 ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Find(x =>
                 {
@@ -2037,19 +2037,19 @@ namespace Sango.UI
 
         private void OnSpouseSelectedIds(int[] ids)
         {
-            snapshot.SpouseList = ids != null ? ids.Distinct().ToArray() : new int[0];
+            snapshot.SpouseListId = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshSpouse();
         }
 
         private void OnLikeSelectedIds(int[] ids)
         {
-            snapshot.LikePersonList = ids != null ? ids.Distinct().ToArray() : new int[0];
+            snapshot.LikePersonListId = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshLike();
         }
 
         private void OnHateSelectedIds(int[] ids)
         {
-            snapshot.HatePersonList = ids != null ? ids.Distinct().ToArray() : new int[0];
+            snapshot.HatePersonListId = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshHate();
         }
 
@@ -2067,16 +2067,16 @@ namespace Sango.UI
 
         private void RefreshFather()
         {
-            SetPersonNameText(fatherText, snapshot.Father);
+            SetPersonNameText(fatherText, snapshot.FatherId);
             if (fatherCancelButton != null)
-                fatherCancelButton.interactable = snapshot.Father > 0;
+                fatherCancelButton.interactable = snapshot.FatherId > 0;
         }
 
         private void RefreshMother()
         {
-            SetPersonNameText(motherText, snapshot.Mother);
+            SetPersonNameText(motherText, snapshot.MotherId);
             if (motherCancelButton != null)
-                motherCancelButton.interactable = snapshot.Mother > 0;
+                motherCancelButton.interactable = snapshot.MotherId > 0;
         }
 
         private void RefreshBrother()
@@ -2086,9 +2086,9 @@ namespace Sango.UI
 
         private void RefreshSpouse()
         {
-            SetPersonNamesText(spouseText, snapshot.SpouseList);
+            SetPersonNamesText(spouseText, snapshot.SpouseListId);
             if (spouseCancelButton != null)
-                spouseCancelButton.interactable = snapshot.SpouseList != null && snapshot.SpouseList.Length > 0;
+                spouseCancelButton.interactable = snapshot.SpouseListId != null && snapshot.SpouseListId.Length > 0;
         }
 
         private void RefreshSwornBrother()
@@ -2098,12 +2098,12 @@ namespace Sango.UI
 
         private void RefreshLike()
         {
-            SetPersonNamesText(likeText, snapshot.LikePersonList);
+            SetPersonNamesText(likeText, snapshot.LikePersonListId);
         }
 
         private void RefreshHate()
         {
-            SetPersonNamesText(hateText, snapshot.HatePersonList);
+            SetPersonNamesText(hateText, snapshot.HatePersonListId);
         }
 
         /// <summary>
@@ -2191,9 +2191,9 @@ namespace Sango.UI
             }
 
             List<Feature> initialSelect = new List<Feature>();
-            if (snapshot.FeatureList != null)
+            if (snapshot.FeatureListId != null)
             {
-                foreach (int id in snapshot.FeatureList)
+                foreach (int id in snapshot.FeatureListId)
                 {
                     Feature f = GameData.Instance.ScenarioCommonData.Features.Get(id);
                     if (f != null) initialSelect.Add(f);
@@ -2209,7 +2209,7 @@ namespace Sango.UI
 
         private void OnFeatureSelected(List<Feature> result)
         {
-            snapshot.FeatureList = result != null
+            snapshot.FeatureListId = result != null
                 ? result.Where(f => f != null).Select(f => f.Id).Distinct().ToArray()
                 : new int[0];
             RefreshFeature();
@@ -2217,7 +2217,7 @@ namespace Sango.UI
 
         private void OnFeatureCancelClick()
         {
-            snapshot.FeatureList = new int[0];
+            snapshot.FeatureListId = new int[0];
             RefreshFeature();
         }
 
@@ -2229,14 +2229,14 @@ namespace Sango.UI
         private void RefreshFeature()
         {
             if (featureText == null) return;
-            if (snapshot.FeatureList == null || snapshot.FeatureList.Length == 0)
+            if (snapshot.FeatureListId == null || snapshot.FeatureListId.Length == 0)
             {
                 featureText.text = string.Empty;
                 return;
             }
             ScenarioCommonData scenarioCommonData = GameData.Instance.ScenarioCommonData;
             List<string> names = new List<string>();
-            foreach (int id in snapshot.FeatureList)
+            foreach (int id in snapshot.FeatureListId)
             {
                 Feature f = scenarioCommonData.Features.Get(id);
                 names.Add(f != null ? f.Name : id.ToString());
@@ -2322,20 +2322,20 @@ namespace Sango.UI
 
         private void RefreshBelongForce()
         {
-            if (belongForceText != null) belongForceText.text = GetForceName(snapshot.BelongForce);
-            if (belongForceCancelButton != null) belongForceCancelButton.interactable = snapshot.BelongForce > 0;
+            if (belongForceText != null) belongForceText.text = GetForceName(snapshot.BelongForceId);
+            if (belongForceCancelButton != null) belongForceCancelButton.interactable = snapshot.BelongForceId > 0;
         }
 
         private void RefreshBelongCorps()
         {
-            if (belongCorpsText != null) belongCorpsText.text = GetCorpsName(snapshot.BelongCorps);
-            if (belongCorpsCancelButton != null) belongCorpsCancelButton.interactable = snapshot.BelongCorps > 0;
+            if (belongCorpsText != null) belongCorpsText.text = GetCorpsName(snapshot.BelongCorpsId);
+            if (belongCorpsCancelButton != null) belongCorpsCancelButton.interactable = snapshot.BelongCorpsId > 0;
         }
 
         private void RefreshBelongCity()
         {
-            if (belongCityText != null) belongCityText.text = GetCityName(snapshot.BelongCity);
-            if (belongCityCancelButton != null) belongCityCancelButton.interactable = snapshot.BelongCity > 0;
+            if (belongCityText != null) belongCityText.text = GetCityName(snapshot.BelongCityId);
+            if (belongCityCancelButton != null) belongCityCancelButton.interactable = snapshot.BelongCityId > 0;
         }
 
         private void RefreshOfficial()
@@ -2390,12 +2390,12 @@ namespace Sango.UI
             ForceSelectSystem select = system as ForceSelectSystem;
             List<Force> forces = new List<Force>();
             foreach (Force f in cur.forceSet) { if (f != null) forces.Add(f); }
-            Force selected = snapshot.BelongForce > 0 ? cur.forceSet.Get(snapshot.BelongForce) : null;
+            Force selected = snapshot.BelongForceId > 0 ? cur.forceSet.Get(snapshot.BelongForceId) : null;
             select.Start(forces, selected != null ? new List<Force> { selected } : new List<Force>(), 1,
                 (Action<List<Force>>)(result =>
                 {
                     if (result == null || result.Count == 0) return;
-                    snapshot.BelongForce = result[0] != null ? result[0].Id : 0;
+                    snapshot.BelongForceId = result[0] != null ? result[0].Id : 0;
                     RefreshBelongForce();
                 }),
                 new List<ObjectSortTitle> { ForceSortFunction.SortByName }, "全部势力");
@@ -2415,12 +2415,12 @@ namespace Sango.UI
             CorpsSelectSystem select = system as CorpsSelectSystem;
             List<Corps> corpsList = new List<Corps>();
             foreach (Corps c in cur.corpsSet) { if (c != null) corpsList.Add(c); }
-            Corps selected = snapshot.BelongCorps > 0 ? cur.corpsSet.Get(snapshot.BelongCorps) : null;
+            Corps selected = snapshot.BelongCorpsId > 0 ? cur.corpsSet.Get(snapshot.BelongCorpsId) : null;
             select.Start(corpsList, selected != null ? new List<Corps> { selected } : new List<Corps>(), 1,
                 (Action<List<Corps>>)(result =>
                 {
                     if (result == null || result.Count == 0) return;
-                    snapshot.BelongCorps = result[0] != null ? result[0].Id : 0;
+                    snapshot.BelongCorpsId = result[0] != null ? result[0].Id : 0;
                     RefreshBelongCorps();
                 }),
                 new List<ObjectSortTitle> { CorpsSortFunction.SortByName }, "全部军团");
@@ -2440,12 +2440,12 @@ namespace Sango.UI
             CitySelectSystem select = system as CitySelectSystem;
             List<City> cities = new List<City>();
             foreach (City c in cur.citySet) { if (c != null) cities.Add(c); }
-            City selected = snapshot.BelongCity > 0 ? cur.citySet.Get(snapshot.BelongCity) : null;
+            City selected = snapshot.BelongCityId > 0 ? cur.citySet.Get(snapshot.BelongCityId) : null;
             select.Start(cities, selected != null ? new List<City> { selected } : new List<City>(), 1,
                 (Action<List<City>>)(result =>
                 {
                     if (result == null || result.Count == 0) return;
-                    snapshot.BelongCity = result[0] != null ? result[0].Id : 0;
+                    snapshot.BelongCityId = result[0] != null ? result[0].Id : 0;
                     RefreshBelongCity();
                 }),
                 new List<ObjectSortTitle> { CitySortFunction.SortByName }, "全部城市");
@@ -2520,7 +2520,7 @@ namespace Sango.UI
             List<int> values = new List<int>();
             GetArgumentationOptions(options, values);
             if (argumentationDropdown.options.Count != options.Count) argumentationDropdown.options = options;
-            SetDropdownValue(argumentationDropdown, values, snapshot.argumentation);
+            SetDropdownValue(argumentationDropdown, values, snapshot.ArgumentationId);
         }
 
         private void RefreshBirthplaceDropdown()

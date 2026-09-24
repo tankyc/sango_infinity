@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -156,7 +156,7 @@ namespace Sango.UI
                 int count = 0;
                 scenario.citySet.ForEach(x =>
                 {
-                    if (x.BelongForce == newForceData.Id)
+                    if (x.BelongForceId == newForceData.Id)
                         count++;
                 });
                 cityCountText.text = count.ToString();

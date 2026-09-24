@@ -272,6 +272,13 @@ namespace Sango.Core
         Vector3 worldPlaneDragPosition;
 
         /// <summary>
+        /// 这次触摸是否已经发出过 ClickDown（用来保证 ClickUp 恰好配对一次）。
+        /// 安卓上触摸随时可能被系统取消，取消时必须走一次收尾，
+        /// 否则拖动状态会一直停在"正在移动/旋转"。
+        /// </summary>
+        bool clickDownPushed;
+
+        /// <summary>
         /// 处理单元格悬停
         /// </summary>
         public void HandleOverCell()
@@ -468,6 +475,9 @@ namespace Sango.Core
         {
             if(Input.touchCount == 0)
             {
+                // 触摸已经全部消失（例如切后台期间连 Canceled 都没送到）：
+                // 兜一次收尾，避免上一次的按下状态永远悬着。
+                FlushClickUp(false);
                 HandleWindowsEvent();
             }
             else if (Input.touchCount == 1)
@@ -477,6 +487,7 @@ namespace Sango.Core
                 {
                     bool isOverUI = IsOverUI(touch.fingerId);
                     GameSystemManager.Instance.HandleEvent(CommandEventType.ClickDown, mouseOverCell, dragPosition, isOverUI);
+                    clickDownPushed = true;     // 与后面的 ClickUp 配对
 
                     dragPosition = touch.position;
                     isDragMoving = false;
@@ -533,6 +544,7 @@ namespace Sango.Core
 
                     bool isOverUI = IsOverUI(touch.fingerId);
 
+                    clickDownPushed = false;    // 下面两条路径都会发 ClickUp
                     controlType = ControlType.None;
                     if (isDragMoving)
                     {
@@ -559,6 +571,18 @@ namespace Sango.Core
                     GameSystemManager.Instance.HandleEvent(CommandEventType.ClickUp, mouseOverCell, dragPosition, isOverUI);
 
                 }
+                else if (touch.phase == TouchPhase.Canceled)
+                {
+                    // 触摸被系统取消：切后台/来电、下拉通知栏、侧滑返回、多指误触等，安卓上很常见。
+                    //
+                    // 这里以前完全不处理，于是：
+                    //   · Began 发出的 ClickDown 永远等不到 ClickUp；
+                    //   · controlType 停在 Move/Rotate、isDragMoving/isRotateMoving 留真，
+                    //     后续手指的 Moved 会被当成上一次手势的延续，地图拖不动，甚至看起来"点了没反应"。
+                    //
+                    // 抬手动作不算点击，所以只收尾，不调用 OnClickWorld。
+                    EndTouch(IsOverUI(touch.fingerId));
+                }
             }
             else if (Input.touchCount == 2)
             {
@@ -578,8 +602,13 @@ namespace Sango.Core
                     controlType = ControlType.Rotate;
                 }
                 // 需要先检测,不然会由于有一个是Move而导致检测不到End
-                else if (touch1.phase == TouchPhase.Ended || touch2.phase == TouchPhase.Ended /*|| touch1.phase == TouchPhase.Canceled || touch2.phase == TouchPhase.Canceled*/)
+                else if (touch1.phase == TouchPhase.Ended || touch2.phase == TouchPhase.Ended
+                      || touch1.phase == TouchPhase.Canceled || touch2.phase == TouchPhase.Canceled)
                 {
+                    // 双指手势也要收尾：两根手指都被系统取消时，上面两个 Ended 条件都不会成立，
+                    // 以前这条分支直接不进，controlType 会一直停在 Rotate。
+                    FlushClickUp(false);
+
                     // 返回单手指移动
                     controlType = ControlType.Move;
 
@@ -587,7 +616,7 @@ namespace Sango.Core
                     isDragMoving = true;
 
                     Vector3 touchPosition;
-                    if (touch1.phase != TouchPhase.Ended /*&& touch1.phase != TouchPhase.Canceled*/)
+                    if (touch1.phase != TouchPhase.Ended && touch1.phase != TouchPhase.Canceled)
                     {
                         touchPosition = touch1.position;
                     }
@@ -638,6 +667,31 @@ namespace Sango.Core
                     touchPos[1] = touch2.position;
                 }
             }
+        }
+
+        /// <summary>
+        /// 触摸以"被系统取消"的方式收尾时复位输入状态，并补发一次 ClickUp。
+        /// 见 HandleMobileEvent 里 TouchPhase.Canceled 分支的说明。
+        /// </summary>
+        void EndTouch(bool isOverUI)
+        {
+            controlType = ControlType.None;
+            isDragMoving = false;
+            isRotateMoving = false;
+            FlushClickUp(isOverUI);
+        }
+
+        /// <summary>
+        /// 补发一次 ClickUp（只做收尾，不触发点击动作），与 Began 时发出的 ClickDown 配对。
+        ///
+        /// 目前工程内没有任何 CommandEventType.ClickUp 的处理者，所以补发不会误触发业务；
+        /// 它的意义是保持"一次按下对应一次抬起"的约定，配合 EndTouch 把输入状态复位干净。
+        /// </summary>
+        void FlushClickUp(bool isOverUI)
+        {
+            if (!clickDownPushed) return;
+            clickDownPushed = false;
+            GameSystemManager.Instance.HandleEvent(CommandEventType.ClickUp, mouseOverCell, dragPosition, isOverUI);
         }
 
         /// <summary>

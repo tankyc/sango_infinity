@@ -135,7 +135,7 @@ namespace Sango.Core.Debate
             /// <summary>是否玩家操作</summary>
             public bool control = false; // 98
             /// <summary>性格</summary>
-            public int personality = -1; // 9c
+            public int PersonalityId = -1; // 9c
 
             /// <summary>构造：各字段已由字段初始化器填好，此处无需额外处理</summary>
             public Character()
@@ -364,8 +364,8 @@ namespace Sango.Core.Debate
         /// <summary>获取性格</summary>
         public int CharacterGetPersonality(Character self)
         {
-            if (Utils.InRange(self.personality, 0, (int)Personality.Personality_Max - 1))
-                return self.personality;
+            if (Utils.InRange(self.PersonalityId, 0, (int)Personality.Personality_Max - 1))
+                return self.PersonalityId;
             return self.person.GetPersonality();
         }
 
@@ -490,8 +490,8 @@ namespace Sango.Core.Debate
             CharacterFillCards(self);
             if (self.angerTimer > 0)
             {
-                int personality = CharacterGetPersonality(self);
-                if (personality == (int)Personality.Personality_Calm && system.RandBool(40))
+                int PersonalityId = CharacterGetPersonality(self);
+                if (PersonalityId == (int)Personality.Personality_Calm && system.RandBool(40))
                 {
                     // 8b3294
                     int[] card = {
@@ -655,8 +655,8 @@ namespace Sango.Core.Debate
             self.winType = type;
             Person person = ParamGetPerson(self, team);
             Person opponentPerson = ParamGetPerson(self, GetOpponentTeam(team));
-            int exp = 10;
-            int merit = 100;
+            int exp = GainValueConfig.Roll(GainPlace.DebateAttributeExp);
+            int merit = GainValueConfig.Merit(GainPlace.DebateWin);
             bool injured = false;
             switch (type)
             {
@@ -666,7 +666,7 @@ namespace Sango.Core.Debate
                     {
                         Force force = system.GetForce(person.GetForceId());
                         if (Utils.IsAlive(force))
-                            system.ForceAddTechPoint(force, 50, null);
+                            system.ForceAddTechPoint(force, GainValueConfig.TechniquePoint(GainPlace.DebateWinTechniquePoint), null);
                     }
                     // 负伤
                     if (Utils.IsAlive(opponentPerson))
@@ -682,7 +682,7 @@ namespace Sango.Core.Debate
                     break;
                 case (int)DebateWinType.DebateWinType_PushOn:
                     // 经验增加
-                    exp = 30;
+                    exp = GainValueConfig.Roll(GainPlace.DebateAttributeExpKind);
                     // 负伤
                     if (Utils.IsAlive(opponentPerson))
                     {
@@ -693,7 +693,7 @@ namespace Sango.Core.Debate
                             injured = true;
                         }
                     }
-                    merit = 200;
+                    merit = GainValueConfig.Merit(GainPlace.DebateWinKind);
                     break;
             }
             if (Utils.IsAlive(person))
@@ -703,8 +703,9 @@ namespace Sango.Core.Debate
             }
             if (Utils.IsAlive(opponentPerson))
             {
-                system.PersonAddStatExp(opponentPerson, PersonStatType.PersonStatType_Intelligence, 1, true);
-                system.PersonAddMerit(opponentPerson, 10);
+                system.PersonAddStatExp(opponentPerson, PersonStatType.PersonStatType_Intelligence,
+                    GainValueConfig.AttributeExp(GainPlace.DebateAttributeExpLose), true);
+                system.PersonAddMerit(opponentPerson, GainValueConfig.Merit(GainPlace.DebateLose));
             }
             Message msg = new Message();
             if (Utils.IsAlive(opponentPerson) && injured)
@@ -884,13 +885,13 @@ namespace Sango.Core.Debate
             int opponentTeam = GetOpponentTeam(team);
             Character character = GetCharacter(team);
             Character opponentCharacter = GetCharacter(opponentTeam);
-            int personality = CharacterGetPersonality(character);
+            int PersonalityId = CharacterGetPersonality(character);
             int opponentPersonality = CharacterGetPersonality(opponentCharacter);
             bool angered = false;
             bool opponentAngered = false;
             if (character.angerTimer > 0)
             {
-                switch (personality)
+                switch (PersonalityId)
                 {
                     case (int)Personality.Personality_Calm:
                     case (int)Personality.Personality_Bold:
@@ -913,13 +914,13 @@ namespace Sango.Core.Debate
             switch (card)
             {
                 case (int)DebateCard.DebateCard_Rethink:
-                    if (angered && personality != (int)Personality.Personality_Calm)
+                    if (angered && PersonalityId != (int)Personality.Personality_Calm)
                         return false;
                     return canRethink[team];
                 case (int)DebateCard.DebateCard_Shout:
                 case (int)DebateCard.DebateCard_Sophistry:
                 case (int)DebateCard.DebateCard_Ignore:
-                    if (angered && personality != (int)Personality.Personality_Calm)
+                    if (angered && PersonalityId != (int)Personality.Personality_Calm)
                         return false;
                     if (opponentAngered && opponentPersonality == (int)Personality.Personality_Calm)
                         return false;

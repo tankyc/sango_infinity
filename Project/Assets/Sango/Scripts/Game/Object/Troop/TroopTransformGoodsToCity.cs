@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace Sango.Core
 {
@@ -22,10 +22,10 @@ namespace Sango.Core
                 }
                 else
                 {
-                    troop.SetMission(MissionType.TroopReturnCity, troop.mBelongCity.Id);
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
                 }
 
-                Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
+                Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 Troop.NeedPrepareMission();
                 return;
             }

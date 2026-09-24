@@ -40,13 +40,13 @@ namespace Sango.Core
         /// <summary>
         /// 由态势档位、角色权重与**领队性格**三层合成策略。任一参数为 null 时跳过对应修正。
         ///
-        /// 合成顺序：tier × role × personality → 最终钳制。
+        /// 合成顺序：tier × role × PersonalityId → 最终钳制。
         /// </summary>
         /// <param name="tier">态势档位权重（可为 null）</param>
         /// <param name="role">角色权重（可为 null）</param>
-        /// <param name="personality">领队性格（可为 null，表示不做性格修正）</param>
+        /// <param name="PersonalityId">领队性格（可为 null，表示不做性格修正）</param>
         /// <returns>合成后的策略</returns>
-        public static AIPolicy Combine(TroopTierWeights tier, TroopRoleWeights role, Personality personality)
+        public static AIPolicy Combine(TroopTierWeights tier, TroopRoleWeights role, Personality PersonalityId)
         {
             AIConfig cfg = AIConfig.Instance;
             AIPolicy policy = Default;
@@ -66,19 +66,19 @@ namespace Sango.Core
             }
 
             // ---------- 第三层：领队性格 ----------
-            if (cfg.useLeaderPersonality && personality != null)
+            if (cfg.useLeaderPersonality && PersonalityId != null)
             {
                 // 性格层自身先钳制到 [leaderScaleMin, leaderScaleMax]，防止极端数值拉爆
-                int leaderAttack = ClampScale(personality.troopAttackScale, cfg.leaderScaleMin, cfg.leaderScaleMax);
-                int leaderCounter = ClampScale(personality.troopCounterScale, cfg.leaderScaleMin, cfg.leaderScaleMax);
+                int leaderAttack = ClampScale(PersonalityId.troopAttackScale, cfg.leaderScaleMin, cfg.leaderScaleMax);
+                int leaderCounter = ClampScale(PersonalityId.troopCounterScale, cfg.leaderScaleMin, cfg.leaderScaleMax);
 
                 policy.attackScale = (int)((long)policy.attackScale * leaderAttack / 100);
                 policy.counterPenaltyScale = (int)((long)policy.counterPenaltyScale * leaderCounter / 100);
 
-                policy.retreatBonus = personality.troopRetreatAdd;
+                policy.retreatBonus = PersonalityId.troopRetreatAdd;
 
                 // 性格对择优池的修正：好战者更果断（池更小），怯战者更摇摆（池更大）
-                policy.bestN += personality.troopBestNAdd;
+                policy.bestN += PersonalityId.troopBestNAdd;
             }
 
             // ---------- 最终钳制：防止三层连乘失控 ----------
@@ -100,7 +100,7 @@ namespace Sango.Core
         /// </summary>
         /// <param name="tier">态势档位权重</param>
         /// <param name="role">角色权重</param>
-        /// <param name="personality">领队性格</param>
+        /// <param name="PersonalityId">领队性格</param>
         /// <returns>合成后的策略</returns>
         public static AIPolicy Combine(TroopTierWeights tier, TroopRoleWeights role)
         {

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace Sango.Core.Player
 {
@@ -42,17 +42,17 @@ namespace Sango.Core.Player
             {
                 return TargetCity.gold > 100 &&
                        TargetCity.CheckJobCost(CityJobType.Reward) &&
-                       TargetCity.mBelongCorps.GetJobCounter((int)CityJobType.Reward) == 0 &&
-                       TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward);
+                       TargetCity.BelongCorps.GetJobCounter((int)CityJobType.Reward) == 0 &&
+                       TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward);
             }
         }
 
         public override void OnEnter()
         {
             targetList.Clear();
-            TargetCity.mBelongForce.ForEachPerson(x =>
+            TargetCity.BelongForce.ForEachPerson(x =>
             {
-                if (x != TargetCity.mBelongForce.mGovernor && x.mTroop == null && x.loyalty < 100)
+                if (x != TargetCity.BelongForce.mGovernor && x.mBelongTroop == null && x.loyalty < 100)
                 {
                     targetList.Add(x);
                 }

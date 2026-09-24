@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using TKNewtonsoft.Json;
 using UnityEngine;
@@ -63,12 +63,12 @@ namespace Sango.Core
                     x.modName = mod.Name;
                     
                     // 梳理关系ID
-                    FixID(ref x.Father, start);
-                    FixID(ref x.Mother, start);
-                    FixID(ref x.Brother, start);
+                    FixID(ref x.FatherId, start);
+                    FixID(ref x.MotherId, start);
+                    FixID(ref x.BrotherId, start);
                     FixID(ref x.BrotherList, start);
-                    FixID(ref x.LikePersonList, start);
-                    FixID(ref x.HatePersonList, start);
+                    FixID(ref x.LikePersonListId, start);
+                    FixID(ref x.HatePersonListId, start);
                 });
             }
             return start;

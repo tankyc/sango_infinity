@@ -1,4 +1,4 @@
-﻿/*
+/*
  * 文件名：DebateConsequence.cs
  * 描述：舌战结果对"发起行为"的改判（A 方案）。
  *
@@ -189,7 +189,7 @@ namespace Sango.Core.Debate
                 Sango.Log.Info("【舌战】登用改判：当事武将已死亡，跳过。");
                 return;
             }
-            if (recruiter.mBelongForce == null)
+            if (recruiter.BelongForce == null)
             {
                 Sango.Log.Info("【舌战】登用改判：招募者已无势力，跳过。");
                 return;
@@ -202,7 +202,7 @@ namespace Sango.Core.Debate
             }
 
             // 目标城市兜底：JobRecruitPerson 传进来的就是"目标加入的城"，为空时退回招募者所在城
-            City joinCity = city ?? recruiter.mBelongCity;
+            City joinCity = city ?? recruiter.BelongCity;
             if (joinCity == null)
             {
                 Sango.Log.Warning("【舌战】登用改判：找不到目标城市，跳过。");

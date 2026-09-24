@@ -1,4 +1,4 @@
-﻿using Sango.Core.Tools;
+using Sango.Core.Tools;
 using TKNewtonsoft.Json.Linq;
 
 namespace Sango.Core.Action
@@ -23,7 +23,7 @@ namespace Sango.Core.Action
 
         void OnFireAdd(SkillInstance skillInstance, Fire fire)
         {
-            if (Force != null && skillInstance.master.mBelongForce != Force) return;
+            if (Force != null && skillInstance.master.BelongForce != Force) return;
             if (Troop != null && Troop != skillInstance.master) return;
 
             fire.damage = Scenario.Cur.Variables.baseFireDamage * value / 10000;

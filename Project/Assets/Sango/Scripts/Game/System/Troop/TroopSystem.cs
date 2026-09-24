@@ -1,4 +1,4 @@
-﻿using Sango.Render;
+using Sango.Render;
 using Sango.UI;
 using System.Collections.Generic;
 using UnityEngine;
@@ -19,7 +19,7 @@ namespace Sango.Core.Player
             Troop troop = clickCell.troop;
             if (!troop.IsAlive) return;
             TargetTroop = troop;
-            if (!troop.ActionOver && troop.mBelongForce.IsPlayer && troop.mBelongForce == Scenario.Cur.CurRunForce)
+            if (!troop.ActionOver && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
             {
                 ContextMenuData.MenuData.Clear();
                 GameEvent.OnTroopContextMenuShow?.Invoke(ContextMenuData.MenuData, troop);
@@ -184,7 +184,7 @@ namespace Sango.Core.Player
                         }
 
                         // 排除出征城市
-                        if (TargetTroop.cell.building == TargetTroop.mBelongCity && cell.building == TargetTroop.mBelongCity)
+                        if (TargetTroop.cell.building == TargetTroop.BelongCity && cell.building == TargetTroop.BelongCity)
                             return;
 
                         movePath.Clear();

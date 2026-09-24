@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using Sango.Loader;
 using Sango.Render;
 using System;
@@ -185,7 +185,7 @@ namespace Sango.UI
             for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
             {
                 var c = Scenario.Cur.corpsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == Scenario.Cur.CurRunForce)
+                if (c != null && c.IsAlive && c.BelongForce == Scenario.Cur.CurRunForce)
                 {
                     OnCorpsActionPointChange(c);
                     break;
@@ -201,7 +201,7 @@ namespace Sango.UI
             for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
             {
                 var c = Scenario.Cur.corpsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == Scenario.Cur.CurRunForce)
+                if (c != null && c.IsAlive && c.BelongForce == Scenario.Cur.CurRunForce)
                 {
                     OnCorpsActionPointChange(c);
                     break;
@@ -414,19 +414,19 @@ namespace Sango.UI
             {
                 Troop troop = (Troop)obj;
                 if (troop.TroopType.isFight)
-                    item.name.text = $"[{troop.mBelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}队,{troop.Member1?.Name}{troop.Member2?.Name}";
+                    item.name.text = $"[{troop.BelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}队,{troop.Member1?.Name}{troop.Member2?.Name}";
                 else
-                    item.name.text = $"**[{troop.mBelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}运输队,{troop.Member1?.Name}{troop.Member2?.Name}";
+                    item.name.text = $"**[{troop.BelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}运输队,{troop.Member1?.Name}{troop.Member2?.Name}";
 
-                item.name.color = troop.mBelongForce.mFlag.color;
+                item.name.color = troop.BelongForce.mFlag.color;
             }
             else if (obj is City)
             {
                 City city = (City)obj;
-                if (city.mBelongForce != null)
+                if (city.BelongForce != null)
                 {
-                    item.name.text = $"[{city.mBelongForce.Name}]{city.Name}";
-                    item.name.color = city.mBelongForce.mFlag.color;
+                    item.name.text = $"[{city.BelongForce.Name}]{city.Name}";
+                    item.name.color = city.BelongForce.mFlag.color;
 
                 }
                 else
@@ -686,7 +686,7 @@ namespace Sango.UI
                     Troop troop = city.areaCellList[j].troop;
                     if (troop != null)
                     {
-                        if (troop.mBelongForce == force || troop.mBelongForce.IsAlliance(force))
+                        if (troop.BelongForce == force || troop.BelongForce.IsAlliance(force))
                         {
                             selfTroopNum += troop.troops;
                         }
@@ -698,7 +698,7 @@ namespace Sango.UI
                 }
 
                 // 优先判断劣势
-                if (city.mBelongForce == force)
+                if (city.BelongForce == force)
                 {
                     if (enemyTroopNum > 10000 && selfTroopNum < enemyTroopNum / 4)
                         return 2246;

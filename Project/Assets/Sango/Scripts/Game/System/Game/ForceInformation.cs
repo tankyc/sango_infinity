@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using Sango.UI;
 using System.Collections.Generic;
 
@@ -52,9 +52,9 @@ namespace Sango.Core
 
         protected virtual void OnCityRightMouseButtonContextMenuShow(IContextMenuData menuData, City city)
         {
-            Target = city.mBelongForce;
+            Target = city.BelongForce;
             if (CityMenuCanShow())
-                menuData.Add(Name, 20, city.mBelongForce, OnClickMenuItem, city.mBelongForce != null);
+                menuData.Add(Name, 20, city.BelongForce, OnClickMenuItem, city.BelongForce != null);
         }
 
         protected virtual void OnClickMenuItem(IContextMenuItem contextMenuItem)

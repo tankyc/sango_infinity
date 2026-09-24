@@ -1,4 +1,4 @@
-﻿using TKNewtonsoft.Json;
+using TKNewtonsoft.Json;
 using Sango.Render;
 using System.Collections.Generic;
 using System;
@@ -13,30 +13,43 @@ namespace Sango.Core
         /// <summary>
         /// 所属势力
         /// </summary>
-        [JsonProperty]
-        public int BelongForce;
-        public Force mBelongForce;
+        [JsonProperty("BelongForce")]
+        public int BelongForceId;
+        public Force BelongForce;
 
         /// <summary>
         /// 所属势力
         /// </summary>
-        [JsonProperty]
-        public int BelongCorps;
-        public Corps mBelongCorps;
+        [JsonProperty("BelongCorps")]
+        public int BelongCorpsId;
+        public Corps BelongCorps;
 
         /// <summary>
         /// 所属城池
         /// </summary>
-        [JsonProperty]
-        public int BelongCity;
-        public City mBelongCity;
+        [JsonProperty("BelongCity")]
+        public int BelongCityId;
+        public City BelongCity;
 
         /// <summary>
-        /// 建筑类型
+        /// 建筑类型的 id（存档数值），读取 BuildingType 时按需解析
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<BuildingType>))]
-        [JsonProperty]
-        public BuildingType BuildingType;
+        [JsonProperty("BuildingType")]
+        public int BuildingTypeId;
+
+        BuildingType mBuildingType;
+        /// <summary>
+        /// 建筑类型；写入时自动同步 BuildingTypeId
+        /// </summary>
+        public BuildingType BuildingType
+        {
+            get
+            {
+                if (mBuildingType == null && BuildingTypeId > 0) mBuildingType = IdRef.Resolve<BuildingType>(BuildingTypeId);
+                return mBuildingType;
+            }
+            set { mBuildingType = value; BuildingTypeId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
         /// 当前耐久
@@ -97,17 +110,17 @@ namespace Sango.Core
 
         public override ObjectRender GetRender() { return Render; }
 
-        public bool IsPlayer => mBelongForce?.IsPlayer ?? false;
+        public bool IsPlayer => BelongForce?.IsPlayer ?? false;
 
         /// <summary>
         /// 是否为玩家控制的
         /// </summary>
-        public virtual bool IsPlayerControl => mBelongCorps?.IsPlayerControl ?? false;
+        public virtual bool IsPlayerControl => BelongCorps?.IsPlayerControl ?? false;
 
         /// <summary>
         /// 获取是否为当前的玩家势力
         /// </summary>
-        public bool IsCurPlayer => mBelongForce?.IsCurPlayer ?? false;
+        public bool IsCurPlayer => BelongForce?.IsCurPlayer ?? false;
 
         /// <summary>
         /// 作用范围
@@ -138,26 +151,26 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            if (BelongForce > 0)
-                mBelongForce = scenario.forceSet.Get(BelongForce);
-            if (BelongCity > 0)
-                mBelongCity = scenario.citySet.Get(BelongCity);
+            if (BelongForceId > 0)
+                BelongForce = scenario.forceSet.Get(BelongForceId);
+            if (BelongCityId > 0)
+                BelongCity = scenario.citySet.Get(BelongCityId);
 
 
-            if (BelongCorps > 0)
-                mBelongCorps = scenario.corpsSet.Get(BelongCorps);
+            if (BelongCorpsId > 0)
+                BelongCorps = scenario.corpsSet.Get(BelongCorpsId);
 
             effectCells = new List<Cell>();
-            //BelongForce = scenario.forceSet.Get(_belongForceId);
-            //BelongCorps = scenario.corpsSet.Get(_belongCorpsId);
+            //BelongForceId = scenario.forceSet.Get(_belongForceId);
+            //BelongCorpsId = scenario.corpsSet.Get(_belongCorpsId);
             //BuildingType = scenario.CommonData.BuildingTypes.Get(_buildingTypeId);
         }
 
         public override void OnScenarioSave(Scenario scenario)
         {
-            BelongForce = mBelongForce?.Id ?? 0;
-            BelongCorps = mBelongCorps?.Id ?? 0;
-            BelongCity = mBelongCity?.Id ?? 0;
+            BelongForceId = BelongForce?.Id ?? 0;
+            BelongCorpsId = BelongCorps?.Id ?? 0;
+            BelongCityId = BelongCity?.Id ?? 0;
         }
 
         public override void Init(Scenario scenario)
@@ -173,36 +186,36 @@ namespace Sango.Core
 
         public bool IsAlliance(BuildingBase other)
         {
-            return IsAlliance(mBelongForce, other.mBelongForce);
+            return IsAlliance(BelongForce, other.BelongForce);
         }
 
         public bool IsEnemy(BuildingBase other)
         {
-            return IsEnemy(mBelongForce, other.mBelongForce);
+            return IsEnemy(BelongForce, other.BelongForce);
         }
 
         public bool IsSameForce(BuildingBase other)
         {
-            return IsSameForce(mBelongForce, other.mBelongForce);
+            return IsSameForce(BelongForce, other.BelongForce);
         }
 
         public bool IsAlliance(Troop other)
         {
-            return IsAlliance(mBelongForce, other.mBelongForce);
+            return IsAlliance(BelongForce, other.BelongForce);
         }
 
         public bool IsEnemy(Troop other)
         {
-            return IsEnemy(mBelongForce, other.mBelongForce);
+            return IsEnemy(BelongForce, other.BelongForce);
         }
 
         public bool IsSameForce(Troop other)
         {
-            return IsSameForce(mBelongForce, other.mBelongForce);
+            return IsSameForce(BelongForce, other.BelongForce);
         }
         public bool IsSameForce(Person other)
         {
-            return IsSameForce(mBelongForce, other.mBelongForce);
+            return IsSameForce(BelongForce, other.BelongForce);
         }
 
         public bool IsBeSurrounded()
@@ -256,7 +269,7 @@ namespace Sango.Core
                 // 【新增】记录攻击本势力城池 / 建筑的敌方部队,供 AI 主动驱逐
                 if (atk is Troop attacker && attacker.IsAlive && !attacker.IsSameForce(this))
                 {
-                    mBelongForce?.MarkThreatTroop(attacker);
+                    BelongForce?.MarkThreatTroop(attacker);
                 }
 
                 if (Render != null && Render.IsVisible())

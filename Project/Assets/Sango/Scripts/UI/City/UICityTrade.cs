@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
 using UnityEngine.UI;
@@ -33,7 +33,7 @@ using Sango.Core; namespace Sango.UI
             totalFood = TargetCity.food + currentSystem.wonderNumber * TargetCity.gold * TargetCity.hasBusiness / 100;
             currentP = TargetCity.food / totalFood;
             tradeSlider.SetValueWithoutNotify(currentP);
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.TradeFood)}/{TargetCity.mBelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.TradeFood)}/{TargetCity.BelongCorps.ActionPoint}";
             targetPercent.text = $"1 : {TargetCity.hasBusiness}";
             UpdatePerson();
             UpdateContent();

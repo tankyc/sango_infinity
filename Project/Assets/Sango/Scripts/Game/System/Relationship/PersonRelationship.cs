@@ -98,7 +98,7 @@ namespace Sango.Core.Player
 
         /// <summary>
         /// 两人之间是否存在厌恶关系(单向也算)
-        /// IsHate 读的是 HatePersonList, 只表示"a厌恶b", 所以要双向判断
+        /// IsHate 读的是 HatePersonListId, 只表示"a厌恶b", 所以要双向判断
         /// </summary>
         protected static bool IsHated(Person a, Person b)
         {
@@ -254,10 +254,10 @@ namespace Sango.Core.Player
         {
             get
             {
-                if (TargetCity == null || TargetCity.mBelongForce == null)
+                if (TargetCity == null || TargetCity.BelongForce == null)
                     return false;
 
-                if (TargetCity.mBelongForce.TechniquePoint < TechniqueCost)
+                if (TargetCity.BelongForce.TechniquePoint < TechniqueCost)
                     return false;
 
                 return BuildCandidates() >= 2;
@@ -270,13 +270,13 @@ namespace Sango.Core.Player
         protected int BuildCandidates()
         {
             candidates.Clear();
-            if (TargetCity == null || TargetCity.mBelongForce == null)
+            if (TargetCity == null || TargetCity.BelongForce == null)
                 return 0;
 
-            Force targetForce = TargetCity.mBelongForce;
+            Force targetForce = TargetCity.BelongForce;
             Scenario.Cur.personSet.ForEach(x =>
             {
-                if (x.mBelongForce != targetForce) return;
+                if (x.BelongForce != targetForce) return;
                 if (x.IsDead || x.IsPrisoner) return;
                 if (!FilterCandidate(x)) return;
                 candidates.Add(x);
@@ -433,7 +433,7 @@ namespace Sango.Core.Player
             Execute(selected);
 
             // 扣势力技巧点, GainTechniquePoint 会同时通知UI刷新左上角数值
-            Force force = TargetCity == null ? null : TargetCity.mBelongForce;
+            Force force = TargetCity == null ? null : TargetCity.BelongForce;
             if (force != null)
                 force.GainTechniquePoint(-TechniqueCost);
 

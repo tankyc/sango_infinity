@@ -84,13 +84,13 @@ namespace Sango.Core
             if (!GameRandom.Chance(30)) return true;
 
             // 获取AI个性
-            AIPersonalityType personality = GetAIPersonality(force.mGovernor);
+            AIPersonalityType PersonalityId = GetAIPersonality(force.mGovernor);
 
             // 清理过期的外交免疫时间
             CleanupDiplomacyImmunity(force, scenario);
 
             // 检查是否需要撕毁条约
-            if (CheckBreakAlliance(force, scenario, personality))
+            if (CheckBreakAlliance(force, scenario, PersonalityId))
             {
                 return true;
             }
@@ -108,11 +108,11 @@ namespace Sango.Core
                     if (centerCity.gold >= 2000)
                     {
                         // 防御型AI更倾向于停战
-                        int chance = personality == AIPersonalityType.Defensive ? 20 : 10;
+                        int chance = PersonalityId == AIPersonalityType.Defensive ? 20 : 10;
                         if (GameRandom.Chance(chance))
                         {
                             // 计算附加金钱价值，关系越差，投入越多
-                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Truce, personality);
+                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Truce, PersonalityId);
 
                             // 计算成功率
                             Person diplomat = FindSuitableDiplomat(force);
@@ -153,11 +153,11 @@ namespace Sango.Core
                     if (centerCity.gold >= 3000)
                     {
                         // 外交型AI更倾向于结盟
-                        int chance = personality == AIPersonalityType.Diplomatic ? 30 : 20;
+                        int chance = PersonalityId == AIPersonalityType.Diplomatic ? 30 : 20;
                         if (GameRandom.Chance(chance))
                         {
                             // 计算附加金钱价值，关系越好，投入越多
-                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Alliance, personality);
+                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Alliance, PersonalityId);
 
                             // 计算成功率
                             Person diplomat = FindSuitableDiplomat(force);
@@ -193,11 +193,11 @@ namespace Sango.Core
                 {
                     // 考虑通商
                     // 经济型AI更倾向于通商
-                    int chance = personality == AIPersonalityType.Economic ? 25 : 15;
+                    int chance = PersonalityId == AIPersonalityType.Economic ? 25 : 15;
                     if (GameRandom.Chance(chance))
                     {
                         // 计算附加金钱价值，促进通商成功
-                        int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Trade, personality);
+                        int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Trade, PersonalityId);
 
                         // 计算成功率
                         Person diplomat = FindSuitableDiplomat(force);
@@ -234,11 +234,11 @@ namespace Sango.Core
                     if (centerCity.gold >= 5000)
                     {
                         // 外交型AI更倾向于和亲
-                        int chance = personality == AIPersonalityType.Diplomatic ? 15 : 10;
+                        int chance = PersonalityId == AIPersonalityType.Diplomatic ? 15 : 10;
                         if (GameRandom.Chance(chance))
                         {
                             // 计算附加金钱价值，和亲需要较高投入
-                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Marriage, personality);
+                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Marriage, PersonalityId);
 
                             // 计算成功率
                             Person diplomat = FindSuitableDiplomat(force);
@@ -274,10 +274,10 @@ namespace Sango.Core
                 {
                     // 考虑送礼
                     // 外交型AI更倾向于送礼
-                    int chance = personality == AIPersonalityType.Diplomatic ? 35 : 25;
+                    int chance = PersonalityId == AIPersonalityType.Diplomatic ? 35 : 25;
                     if (GameRandom.Chance(chance))
                     {
-                        int giftValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.SendGift, personality);
+                        int giftValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.SendGift, PersonalityId);
                         if (centerCity.gold >= giftValue)
                         {
                             // 计算成功率
@@ -324,11 +324,11 @@ namespace Sango.Core
                             {
                                 // 考虑结盟
                                 // 侵略型AI更倾向于与敌人的敌人结盟
-                                int chance = personality == AIPersonalityType.Aggressive ? enemysenemy_relation * 2 / 100 : enemysenemy_relation / 100;
+                                int chance = PersonalityId == AIPersonalityType.Aggressive ? enemysenemy_relation * 2 / 100 : enemysenemy_relation / 100;
                                 if (GameRandom.Chance(chance, 100))
                                 {
                                     // 计算附加金钱价值
-                                    int additionalValue = CalculateDiplomacyResourceValue(force, enemysenemy, enemysenemy_relation, DiplomacyActionType.AllianceRequest, personality);
+                                    int additionalValue = CalculateDiplomacyResourceValue(force, enemysenemy, enemysenemy_relation, DiplomacyActionType.AllianceRequest, PersonalityId);
 
                                     // 计算成功率
                                     Person diplomat = FindSuitableDiplomat(force);
@@ -356,7 +356,7 @@ namespace Sango.Core
                             if (centerCity.gold > 2000)
                             {
                                 // 考虑结交
-                                int giftValue = CalculateDiplomacyResourceValue(force, enemysenemy, enemysenemy_relation, DiplomacyActionType.SendGift, personality);
+                                int giftValue = CalculateDiplomacyResourceValue(force, enemysenemy, enemysenemy_relation, DiplomacyActionType.SendGift, PersonalityId);
                                 if (centerCity.gold >= giftValue)
                                 {
                                     // 计算成功率
@@ -394,7 +394,7 @@ namespace Sango.Core
         /// <returns>合适的武将</returns>
         private static Person FindSuitableDiplomat(Force force)
         {
-            if (force.mGovernor?.mBelongCity == null) return null;
+            if (force.mGovernor?.BelongCity == null) return null;
 
             // 使用ForceAI中的外交推荐方法选择合适的武将
             Person[] recommendedDiplomats = CounsellorRecommendDiplomacy(force.CapitalCity.freePersons);
@@ -486,9 +486,9 @@ namespace Sango.Core
         /// </summary>
         /// <param name="force">势力</param>
         /// <param name="scenario">场景</param>
-        /// <param name="personality">AI个性</param>
+        /// <param name="PersonalityId">AI个性</param>
         /// <returns>是否执行了撕毁条约</returns>
-        private static bool CheckBreakAlliance(Force force, Scenario scenario, AIPersonalityType personality)
+        private static bool CheckBreakAlliance(Force force, Scenario scenario, AIPersonalityType PersonalityId)
         {
             // 检查所有当前的同盟和停战协议
             List<Alliance> alliancesToBreak = new List<Alliance>();
@@ -512,7 +512,7 @@ namespace Sango.Core
                 if (otherForce == null) continue;
 
                 // 检查是否需要撕毁条约
-                if (ShouldBreakAlliance(force, otherForce, alliance, scenario, personality))
+                if (ShouldBreakAlliance(force, otherForce, alliance, scenario, PersonalityId))
                 {
                     alliancesToBreak.Add(alliance);
                     targetsToBreak.Add(otherForce);
@@ -544,9 +544,9 @@ namespace Sango.Core
         /// <param name="otherForce">另一方势力</param>
         /// <param name="alliance">条约</param>
         /// <param name="scenario">场景</param>
-        /// <param name="personality">AI个性</param>
+        /// <param name="PersonalityId">AI个性</param>
         /// <returns>是否应该撕毁</returns>
-        private static bool ShouldBreakAlliance(Force force, Force otherForce, Alliance alliance, Scenario scenario, AIPersonalityType personality)
+        private static bool ShouldBreakAlliance(Force force, Force otherForce, Alliance alliance, Scenario scenario, AIPersonalityType PersonalityId)
         {
             int relation = scenario.GetRelation(force, otherForce);
 
@@ -554,7 +554,7 @@ namespace Sango.Core
             if (relation < -500)
             {
                 // 侵略型AI更倾向于撕毁条约
-                int chance = personality == AIPersonalityType.Aggressive ? 40 : 20;
+                int chance = PersonalityId == AIPersonalityType.Aggressive ? 40 : 20;
                 if (GameRandom.Chance(chance))
                 {
                     return true;
@@ -567,7 +567,7 @@ namespace Sango.Core
                 if (force.IsEnemy(enemy) && otherForce.IsAlliance(enemy))
                 {
                     // 侵略型和防御型AI更倾向于撕毁条约
-                    int chance = (personality == AIPersonalityType.Aggressive || personality == AIPersonalityType.Defensive) ? 50 : 30;
+                    int chance = (PersonalityId == AIPersonalityType.Aggressive || PersonalityId == AIPersonalityType.Defensive) ? 50 : 30;
                     if (GameRandom.Chance(chance))
                     {
                         return true;
@@ -579,7 +579,7 @@ namespace Sango.Core
             if (alliance.allianceType == AllianceType.Truce && relation > 500)
             {
                 // 侵略型AI更倾向于撕毁停战协议
-                int chance = personality == AIPersonalityType.Aggressive ? 30 : 15;
+                int chance = PersonalityId == AIPersonalityType.Aggressive ? 30 : 15;
                 if (GameRandom.Chance(chance))
                 {
                     return true;
@@ -587,7 +587,7 @@ namespace Sango.Core
             }
 
             // 经济型AI在对方经济实力过强时可能撕毁条约
-            if (personality == AIPersonalityType.Economic)
+            if (PersonalityId == AIPersonalityType.Economic)
             {
                 // 【统一态势】使用统一模型计算敌我实力比(自身不足对方 2/3 时倾向于撕约)
                 float powerRatio = BattleSituation.GetPowerRatio(force, otherForce);
@@ -621,9 +621,9 @@ namespace Sango.Core
         /// <param name="targetForce">目标势力</param>
         /// <param name="relation">当前关系值</param>
         /// <param name="actionType">外交行动类型</param>
-        /// <param name="personality">AI个性</param>
+        /// <param name="PersonalityId">AI个性</param>
         /// <returns>资源价值</returns>
-        private static int CalculateDiplomacyResourceValue(Force force, Force targetForce, int relation, DiplomacyActionType actionType, AIPersonalityType personality)
+        private static int CalculateDiplomacyResourceValue(Force force, Force targetForce, int relation, DiplomacyActionType actionType, AIPersonalityType PersonalityId)
         {
             City centerCity = force.CapitalCity;
             if (centerCity == null) return 0;
@@ -668,7 +668,7 @@ namespace Sango.Core
             }
 
             // 根据AI个性调整投入
-            switch (personality)
+            switch (PersonalityId)
             {
                 case AIPersonalityType.Diplomatic:
                     // 外交型AI更愿意投入
@@ -757,7 +757,7 @@ namespace Sango.Core
                     // 否则释放分支会对非俘虏调用 Escape，打出"不是囚犯,无法逃跑!"错误。
                     if (!captive.IsPrisoner)
                     {
-                        captive.mBelongForce?.BeCaptiveList.Remove(captive);
+                        captive.BelongForce?.BeCaptiveList.Remove(captive);
                         city.captiveList.Remove(captive);
                         i--;
                         continue;
@@ -787,9 +787,9 @@ namespace Sango.Core
                     // troop.captiveList 中，部队轮再次处理时会对非俘虏调用 Escape。
                     if (!captive.IsPrisoner)
                     {
-                        captive.mBelongForce?.BeCaptiveList.Remove(captive);
-                        if (captive.mTroop == troop)
-                            captive.mTroop = null;
+                        captive.BelongForce?.BeCaptiveList.Remove(captive);
+                        if (captive.mBelongTroop == troop)
+                            captive.mBelongTroop = null;
                         troop.captiveList.Remove(captive);
                         i--;
                         continue;
@@ -812,12 +812,12 @@ namespace Sango.Core
                 return false;
 
             // 检查势力关系
-            int relation = scenario.GetRelation(force, captive.mBelongForce);
+            int relation = scenario.GetRelation(force, captive.BelongForce);
             if (relation < -5000)
                 return false;
 
             // 检查是否有足够的资金
-            City capital = force.mGovernor?.mBelongCity;
+            City capital = force.mGovernor?.BelongCity;
             if (capital == null || capital.gold < 2000)
                 return false;
 
@@ -829,7 +829,7 @@ namespace Sango.Core
             // 【修复】原实现把 force.Id（势力 ID）当作 type 传入，语义完全错乱：
             // type 应为 PersonRecruitType（0 普通登庸 / 1 有势力俘虏 / 2 无势力俘虏），
             // 传入势力 ID 会让招降概率落入错误的公式分支。这里按俘虏原势力是否尚存选取正确类型。
-            int recruitType = captive.mBelongForce != null
+            int recruitType = captive.BelongForce != null
                 ? (int)PersonRecruitType.OnCityFall
                 : (int)PersonRecruitType.OnForceFall;
             int probability = GameFormula.Instance.RecruitPersonProbability(force.mGovernor, captive, recruitType);
@@ -843,21 +843,21 @@ namespace Sango.Core
             if (GameRandom.Chance(probability, 10000))
             {
                 // 先记录原势力名:招降后 captive 的归属会被改写,日志会失真
-                string lastForceName = captive.mBelongForce?.Name;
+                string lastForceName = captive.BelongForce?.Name;
 
                 // 【修复】俘虏可能挂在"部队"或"城池"的列表上，必须按实际归属清理：
-                // 原实现无条件调用 mCurrentCity.RemoveCaptive，若俘虏来自部队俘获
-                // （挂在 troop.captiveList，mCurrentCity 列表里并没有它），
+                // 原实现无条件调用 CurrentCity.RemoveCaptive，若俘虏来自部队俘获
+                // （挂在 troop.captiveList，CurrentCity 列表里并没有它），
                 // 则会出现两个连锁问题：
                 //   1) 城市列表移除失败，打印"不能移除不存在的!!!"；
                 //   2) troop.captiveList 残留该武将，ProcessCaptives 的部队循环会再次处理它，
                 //      此时 state 已复位为一般武将，释放分支调用 Escape 会报"不是囚犯,无法逃跑!"。
-                if (captive.mTroop != null)
-                    captive.mTroop.RemoveCaptive(captive);
+                if (captive.mBelongTroop != null)
+                    captive.mBelongTroop.RemoveCaptive(captive);
                 else
-                    captive.mCurrentCity?.RemoveCaptive(captive);
+                    captive.CurrentCity?.RemoveCaptive(captive);
 
-                captive.mBelongForce?.BeCaptiveList.Remove(captive);
+                captive.BelongForce?.BeCaptiveList.Remove(captive);
 
                 // 招降成功必须把状态从俘虏复位为一般武将,
                 // 否则会出现"已脱离俘虏名单、已加入正常城市,却仍是俘虏状态"的不一致,
@@ -879,12 +879,12 @@ namespace Sango.Core
             //    return true;
 
             // 检查势力关系
-            int relation = scenario.GetRelation(force, captive.mBelongForce);
+            int relation = scenario.GetRelation(force, captive.BelongForce);
             if (relation > 5000)
                 return true;
 
             // 检查是否有足够的粮食
-            City capital = captive.mCurrentCity;
+            City capital = captive.CurrentCity;
             if (capital != null && capital.totalGainGold < capital.GoldCost(scenario))
                 return true;
 
@@ -909,7 +909,7 @@ namespace Sango.Core
             if (captive == null || !captive.IsPrisoner)
                 return;
 
-            Sango.Log.Info($"{force.Name}在{captive.mCurrentCity?.Name}释放了{captive.mBelongForce?.Name}的{captive.Name}！");
+            Sango.Log.Info($"{force.Name}在{captive.CurrentCity?.Name}释放了{captive.BelongForce?.Name}的{captive.Name}！");
             // 直接调用Person.Escape方法释放俘虏
             captive.Escape(EscapeType.Released, force);
         }
@@ -943,15 +943,15 @@ namespace Sango.Core
                             Person person = people[0];
                             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
                             // 创建外交行为实例并计算成功率
-                            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Ransom, force, captive.mCurrentCity.mBelongForce, person, ransom);
+                            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Ransom, force, captive.CurrentCity.BelongForce, person, ransom);
                             int rate = diplomacyManager.CalculateDiplomacySuccessRate(action);
                             if (rate > 50)
                             {
                                 city.gold -= ransom;
-                                person.SetMission(MissionType.PersonDiplomacy, captive.mCurrentCity, (int)DiplomacyActionType.Ransom, ransom, person.Id);
+                                person.SetMission(MissionType.PersonDiplomacy, captive.CurrentCity, (int)DiplomacyActionType.Ransom, ransom, person.Id);
                                 city.freePersons.Remove(person);
                                 hasSend = true;
-                                Sango.Log.Info($"{captive.mBelongForce?.Name}派遣{person.Name}前往{captive.mCurrentCity.mBelongForce.Name}赎回我方俘虏{captive.Name}！");
+                                Sango.Log.Info($"{captive.BelongForce?.Name}派遣{person.Name}前往{captive.CurrentCity.BelongForce.Name}赎回我方俘虏{captive.Name}！");
                                 return;
                             }
                         }
@@ -975,7 +975,7 @@ namespace Sango.Core
         public static bool AITechniques(Force force, Scenario scenario)
         {
             // 检查是否有城市可以进行科技研发
-            City capital = force.mGovernor?.mBelongCity;
+            City capital = force.mGovernor?.BelongCity;
             if (capital == null)
                 return true;
 
@@ -1665,11 +1665,11 @@ namespace Sango.Core
                 for (int i = 0; i < destSlot; i++)
                 {
                     Person exsistP = checkPersons[i];
-                    if (exsistP.mFeatureList != null)
+                    if (exsistP.FeatureList != null)
                     {
                         for (int j = 0; j < troopType.matchFeatures.Length; j++)
                         {
-                            if (exsistP.mFeatureList.Contains(troopType.matchFeatures[j]))
+                            if (exsistP.FeatureList.Contains(troopType.matchFeatures[j]))
                             {
                                 alreadtHasFeature = true;
                                 break;
@@ -1687,11 +1687,11 @@ namespace Sango.Core
                     for (int i = 0; i < list.Count; i++)
                     {
                         Person person = list[i];
-                        if (person.mFeatureList != null)
+                        if (person.FeatureList != null)
                         {
                             for (int j = 0; j < troopType.matchFeatures.Length; j++)
                             {
-                                if (person.mFeatureList.Contains(troopType.matchFeatures[j]))
+                                if (person.FeatureList.Contains(troopType.matchFeatures[j]))
                                 {
                                     checkPersons[destSlot] = person;
                                     person1 = person;
@@ -1876,7 +1876,7 @@ namespace Sango.Core
         /// </summary>
         public static Person[] CounsellorRecommendResearch(List<Person> personList, Technique technique)
         {
-            List<Person> featurePersonList = personList.FindAll(x => x.mFeatureList != null && x.mFeatureList.Contains(technique.recommandFeatures));
+            List<Person> featurePersonList = personList.FindAll(x => x.FeatureList != null && x.FeatureList.Contains(technique.recommandFeatures));
             if (featurePersonList.Count >= 3) return featurePersonList.ToArray();
 
             Person p1 = featurePersonList.Count > 0 ? featurePersonList[0] : null;
@@ -2149,7 +2149,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == force)
+                if (c != null && c.IsAlive && c.BelongForce == force)
                 {
                     if (c.IsCity())
                         cityList.Add(c);
@@ -2252,7 +2252,7 @@ namespace Sango.Core
             //for (int i = 0; i < scenario.citySet.Count; ++i)
             //{
             //    var c = scenario.citySet[i];
-            //    if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
+            //    if (c != null && c.IsAlive && c.BelongForce == force && c.IsCity())
             //    {
             //        City kCity = c;
             //        if (canTransforPersons.Count <= 0)
@@ -2278,7 +2278,7 @@ namespace Sango.Core
             //for (int i = 0; i < scenario.citySet.Count; ++i)
             //{
             //    var c = scenario.citySet[i];
-            //    if (c != null && c.IsAlive && c.mBelongForce == force && c.IsCity())
+            //    if (c != null && c.IsAlive && c.BelongForce == force && c.IsCity())
             //    {
             //        City kCity = c;
             //        if (canTransforPersons.Count <= 0)

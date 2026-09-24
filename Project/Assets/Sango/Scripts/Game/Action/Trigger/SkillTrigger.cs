@@ -19,12 +19,12 @@ namespace Sango.Core
         public override Troop TargetTroop => targetTroop;
         public override Cell ActionCell => skill.master.cell;
         public override Cell TargetCell => atk_cell;
-        public override City ActionCity => skill.master.mBelongCity;
-        public override City TargetCity => targetTroop?.mBelongCity ?? targetBuilding?.mBelongCity;
-        public override Corps ActionCorps => skill.master.mBelongCorps;
-        public override Corps TargetCorps => targetTroop?.mBelongCorps ?? targetBuilding?.mBelongCorps;
-        public override Force ActionForce => skill.master.mBelongForce;
-        public override Force TargetForce => targetTroop?.mBelongForce ?? targetBuilding?.mBelongForce;
+        public override City ActionCity => skill.master.BelongCity;
+        public override City TargetCity => targetTroop?.BelongCity ?? targetBuilding?.BelongCity;
+        public override Corps ActionCorps => skill.master.BelongCorps;
+        public override Corps TargetCorps => targetTroop?.BelongCorps ?? targetBuilding?.BelongCorps;
+        public override Force ActionForce => skill.master.BelongForce;
+        public override Force TargetForce => targetTroop?.BelongForce ?? targetBuilding?.BelongForce;
 
         public override Fire ActiveFire => skill.master.cell.fire;
         public override Fire TargetFire => atk_cell.fire;

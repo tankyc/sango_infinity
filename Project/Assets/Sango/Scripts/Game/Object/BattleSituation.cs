@@ -199,12 +199,12 @@ namespace Sango.Core
                 if (troop == null || !troop.IsAlive)
                     return;
 
-                if (selfForce != null && troop.mBelongForce == selfForce)
+                if (selfForce != null && troop.BelongForce == selfForce)
                 {
                     myCount++;
                     myTroops += troop.troops;
                 }
-                else if (selfForce == null || selfForce.IsEnemy(troop.mBelongForce))
+                else if (selfForce == null || selfForce.IsEnemy(troop.BelongForce))
                 {
                     enemyCount++;
                     enemyTroops += troop.troops;
@@ -369,7 +369,7 @@ namespace Sango.Core
 
                 int dist = System.Math.Abs(c.x - centerX) + System.Math.Abs(c.y - centerY);
 
-                if (troop.mBelongForce == selfForce)
+                if (troop.BelongForce == selfForce)
                 {
                     if (dist <= coverRange)
                     {
@@ -382,7 +382,7 @@ namespace Sango.Core
                             lowFoodCount++;
                     }
                 }
-                else if (selfForce.IsEnemy(troop.mBelongForce))
+                else if (selfForce.IsEnemy(troop.BelongForce))
                 {
                     if (dist <= cfg.frontBuildThreatRange)
                         enemyTroops += troop.troops;

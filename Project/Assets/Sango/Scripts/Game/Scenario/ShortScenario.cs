@@ -1,4 +1,4 @@
-﻿using TKNewtonsoft.Json;
+using TKNewtonsoft.Json;
 using Sango.Hexagon;
 using System.Collections.Generic;
 using System.IO;
@@ -45,8 +45,8 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptIn)]
     public class ShortPerson : SangoObject
     {
-        [JsonProperty] public int BelongForce;
-        [JsonProperty] public int BelongCity;
+        [JsonProperty("BelongForce")] public int BelongForceId;
+        [JsonProperty("BelongCity")] public int BelongCityId;
         [JsonProperty] public int headIconID;
         [JsonProperty] public string imageID;
         public PersonLib PersonLib;
@@ -56,8 +56,8 @@ namespace Sango.Core
             ShortPerson shortPerson = new ShortPerson();
             shortPerson.Name = personLib.Name;
             shortPerson.PersonLib = personLib;
-            shortPerson.BelongForce = personLib.BelongForce(scenario);
-            shortPerson.BelongCity = personLib.BelongCity(scenario);
+            shortPerson.BelongForceId = personLib.BelongForceId(scenario);
+            shortPerson.BelongCityId = personLib.BelongCityId(scenario);
             shortPerson.headIconID = personLib.headIconID;
             shortPerson.imageID = personLib.imageID;
             return shortPerson;
@@ -69,8 +69,8 @@ namespace Sango.Core
             {
                 Id = Id,
                 Name = Name,
-                BelongForce = BelongForce,
-                BelongCity = BelongCity,
+                BelongForceId = BelongForceId,
+                BelongCityId = BelongCityId,
                 headIconID = headIconID,
                 imageID = imageID,
                 PersonLib = PersonLib,
@@ -82,8 +82,9 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptOut)]
     public class ShortCity : SangoObject
     {
-        public int BelongForce;
-        public int BelongCorps;
+        // OptOut：字段默认都会参与序列化，所以改名后必须显式钉住原键名，否则旧剧本文件读不出归属
+        [JsonProperty("BelongForce")] public int BelongForceId;
+        [JsonProperty("BelongCorps")] public int BelongCorpsId;
         public int BuildingType;
         public int x;
         public int y;
@@ -114,8 +115,8 @@ namespace Sango.Core
             {
                 Id = Id,
                 Name = Name,
-                BelongForce = BelongForce,
-                BelongCorps = BelongCorps,
+                BelongForceId = BelongForceId,
+                BelongCorpsId = BelongCorpsId,
                 BuildingType = BuildingType,
                 x = x,
                 y = y,
@@ -522,7 +523,7 @@ namespace Sango.Core
                     if (shortPerson.PersonLib != null)
                     {
                         _AppendPersonCount++;
-                        if (shortPerson.BelongCity > 0)
+                        if (shortPerson.BelongCityId > 0)
                             _AssignedPersonCount++;
                     }
                 }
@@ -685,7 +686,7 @@ namespace Sango.Core
                     x.personCount = 0;
                     scenario.personSet.ForEach(p =>
                     {
-                        if (p.BelongForce == x.Id)
+                        if (p.BelongForceId == x.Id)
                         {
                             x.personCount++;
                         }
@@ -713,7 +714,7 @@ namespace Sango.Core
                     x.totalFood = 0;
                     scenario.citySet.ForEach(p =>
                     {
-                        if (p.BelongForce == x.Id)
+                        if (p.BelongForceId == x.Id)
                         {
                             x.cityCount++;
                             x.totalTroops += p.troops;

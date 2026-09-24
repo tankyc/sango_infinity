@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -147,11 +147,14 @@ namespace Sango.ScenarioMaker
                 {
                     continue;
                 }
-                person.mBelongForce = null;
-                person.mBelongCorps = null;
-                person.mBelongCity = null;
-                person.mCurrentCity = null;
-                person.mTroop = null;
+                person.BelongForce = null;
+                person.BelongCorps = null;
+                person.BelongCity = null;
+                person.CurrentCity = null;
+                person.mBelongTroop = null;
+                // 官职/等级/装备/工作建筑这些"只存 id"的引用也要在这里解析，
+                // 编辑器走的是这条加载路径，不会执行 Person.OnScenarioPrepare
+                person.ResolveReferenceObjects(Scenario);
             }
 
             ResolveDelayedReferences();
@@ -163,8 +166,10 @@ namespace Sango.ScenarioMaker
         /// </summary>
         private void ResolveDelayedReferences()
         {
+            // 保留：Id2ObjConverter 现在已无字段使用（对象引用都改成了显式 id + 访问时解析），
+            // 这里只是保险地照旧调用一次，不影响任何行为。
             InvokeDelaySetValue<Id2ObjConverter<SangoObject>>("DelaySetValue", "OnScenarioPrepare");
-            InvokeDelaySetValue<XY2CellConverter>("DelaySetValue", "OnScenarioPrepare");
+            // XY2CellConverter 已被 CellXY + CellXYConverter 取代（不再有全局延迟解析），此处调用已移除
         }
 
         /// <summary>

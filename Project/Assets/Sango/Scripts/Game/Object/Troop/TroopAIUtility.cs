@@ -559,8 +559,8 @@ namespace Sango.Core
             if (!cfg.useLeaderPersonality || !cfg.useLeaderSkillPreference)
                 return score;
 
-            Personality personality = troop != null ? troop.LeaderPersonality : null;
-            if (personality == null)
+            Personality PersonalityId = troop != null ? troop.LeaderPersonality : null;
+            if (PersonalityId == null)
                 return score;
 
             // 技能 Id → 性格计略类型；不属于性格表的计略不修正
@@ -568,11 +568,11 @@ namespace Sango.Core
             if (skillType == PersonalitySkillType.None)
                 return score;
 
-            int mastery = personality.GetSkillMasteryAdd(skillType);
+            int mastery = PersonalityId.GetSkillMasteryAdd(skillType);
             int masteryScale = 100 + mastery * cfg.leaderSkillTendencyScalePerPoint;
 
             // 计略总倾向 × 专精系数（long 中转防溢出）
-            long scale = (long)ClampPositiveScale(personality.troopSkillScale) * ClampPositiveScale(masteryScale) / 100;
+            long scale = (long)ClampPositiveScale(PersonalityId.troopSkillScale) * ClampPositiveScale(masteryScale) / 100;
 
             if (scale < cfg.leaderSkillScaleMin) scale = cfg.leaderSkillScaleMin;
             if (scale > cfg.leaderSkillScaleMax) scale = cfg.leaderSkillScaleMax;

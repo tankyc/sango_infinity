@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
@@ -113,7 +113,7 @@ namespace Sango.UI
             InitSnapshot();
             GameRandom.Init();
             snapshot.sex = GameRandom.Range(0, 2);
-            snapshot.personality = GameRandom.Range(1, 5);
+            snapshot.PersonalityId = GameRandom.Range(1, 5);
    
             SwitchTab(0);
             OnChangeNameClick();
@@ -184,7 +184,7 @@ namespace Sango.UI
             BindToggleGroup(sexToggles, () => snapshot.sex, v => snapshot.sex = v, i => i, v => v, OnSexChange);
 
             // 性格与相性
-            BindToggleGroup(personalityToggles, () => snapshot.personality, v => snapshot.personality = v, i => i + 1, v => v - 1);
+            BindToggleGroup(personalityToggles, () => snapshot.PersonalityId, v => snapshot.PersonalityId = v, i => i + 1, v => v - 1);
 
             if (heroButton != null) heroButton.onClick.AddListener(OnHeroClick);
             if (counsellorButton != null) counsellorButton.onClick.AddListener(OnCounsellorClick);
@@ -214,7 +214,7 @@ namespace Sango.UI
                 if (nickNameInput != null) nickNameInput.text = snapshot.nickName;
 
                 RefreshToggleGroup(sexToggles, snapshot.sex, i => i, 0);
-                RefreshToggleGroup(personalityToggles, snapshot.personality, i => i - 1, 1);
+                RefreshToggleGroup(personalityToggles, snapshot.PersonalityId, i => i - 1, 1);
                 RefreshStatus();
             }
             finally

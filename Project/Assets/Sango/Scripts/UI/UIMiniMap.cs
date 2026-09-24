@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using Sango.Render;
 using System.Collections.Generic;
 using UnityEngine;
@@ -31,7 +31,7 @@ namespace Sango.UI
             public MapCityNodeData(City city, Image image, GameObject gameObject) : base(image, gameObject)
             {
                 this.city = city;
-                Color c = city.mBelongForce == null ? Color.white : city.mBelongForce.mFlag.color;
+                Color c = city.BelongForce == null ? Color.white : city.BelongForce.mFlag.color;
                 image.color = c;
             }
 
@@ -45,7 +45,7 @@ namespace Sango.UI
 
             public void UpdateImage()
             {
-                Color c = city.mBelongForce == null ? Color.white : city.mBelongForce.mFlag.color;
+                Color c = city.BelongForce == null ? Color.white : city.BelongForce.mFlag.color;
                 image.color = c;
             }
         }
@@ -59,7 +59,7 @@ namespace Sango.UI
             public void Init(Troop troop)
             {
                 this.troop = troop;
-                image.color = troop.mBelongForce.mFlag.color;
+                image.color = troop.BelongForce.mFlag.color;
                 image.enabled = true;
             }
 
@@ -174,7 +174,7 @@ namespace Sango.UI
             for (int i = 0; i < mapCityNodes.Count; i++)
             {
                 MapCityNodeData data = mapCityNodes[i];
-                if (data.city == city || data.city.mBelongCity == city)
+                if (data.city == city || data.city.BelongCity == city)
                 {
                     data.UpdateImage();
                     return;

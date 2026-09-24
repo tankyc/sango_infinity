@@ -283,10 +283,10 @@ namespace Sango.Core
                 if (city != null && city.IsCity())
                 {
                     city.Id = -1;
-                    city.BelongForce = 0;
-                    city.mBelongForce = null;
-                    city.BelongCorps = 0;
-                    city.mBelongCorps = null;
+                    city.BelongForceId = 0;
+                    city.BelongForce = null;
+                    city.BelongCorpsId = 0;
+                    city.BelongCorps = null;
                     Scenario.citySet.Add(city);
                     count++;
                 }
@@ -333,11 +333,11 @@ namespace Sango.Core
                 {
                     return;
                 }
-                person.mBelongForce = null;
-                person.mBelongCorps = null;
-                person.mBelongCity = null;
-                person.mCurrentCity = null;
-                person.mTroop = null;
+                person.BelongForce = null;
+                person.BelongCorps = null;
+                person.BelongCity = null;
+                person.CurrentCity = null;
+                person.mBelongTroop = null;
                 // 默认状态为未登场
                 person.state = (int)PersonStateType.Invalid;
             });
@@ -371,12 +371,12 @@ namespace Sango.Core
                 Log.Error("新建势力需要指定一座都城");
                 return null;
             }
-            if (governor.mBelongForce != null)
+            if (governor.BelongForce != null)
             {
                 Log.Warning("君主武将 " + governor.Name + " 已有势力,无法创建新势力");
                 return null;
             }
-            if (capitalCity.mBelongForce != null)
+            if (capitalCity.BelongForce != null)
             {
                 Log.Warning("都城 " + capitalCity.Name + " 已有势力,无法创建新势力");
                 return null;
@@ -397,25 +397,25 @@ namespace Sango.Core
             // 自动创建主军团 - 编号为1,军团长为势力主公
             Corps mainCorps = new Corps();
             mainCorps.Id = -1;
-            mainCorps.BelongForce = force.Id;
-            mainCorps.mBelongForce = force;
+            mainCorps.BelongForceId = force.Id;
+            mainCorps.BelongForce = force;
             mainCorps.Comander = governor.Id;
             mainCorps.mComander = governor;
             mainCorps.number = 1;
             Scenario.corpsSet.Add(mainCorps);
 
             // 君主归属势力与主军团
-            governor.BelongForce = force.Id;
-            governor.mBelongForce = force;
-            governor.BelongCorps = mainCorps.Id;
-            governor.mBelongCorps = mainCorps;
+            governor.BelongForceId = force.Id;
+            governor.BelongForce = force;
+            governor.BelongCorpsId = mainCorps.Id;
+            governor.BelongCorps = mainCorps;
             governor.state = (int)PersonStateType.Governor;
 
             // 都城归属势力与主军团
-            capitalCity.BelongForce = force.Id;
-            capitalCity.mBelongForce = force;
-            capitalCity.BelongCorps = mainCorps.Id;
-            capitalCity.mBelongCorps = mainCorps;
+            capitalCity.BelongForceId = force.Id;
+            capitalCity.BelongForce = force;
+            capitalCity.BelongCorpsId = mainCorps.Id;
+            capitalCity.BelongCorps = mainCorps;
 
             Log.Info("新建势力完成: " + force.Name + " ,并自动创建主军团");
             return force;
@@ -436,7 +436,7 @@ namespace Sango.Core
             List<Corps> corpsList = new List<Corps>();
             Scenario.corpsSet.ForEach(corps =>
             {
-                if (corps != null && corps.mBelongForce == force)
+                if (corps != null && corps.BelongForce == force)
                 {
                     corpsList.Add(corps);
                 }
@@ -450,7 +450,7 @@ namespace Sango.Core
             List<City> cityList = new List<City>();
             Scenario.citySet.ForEach(city =>
             {
-                if (city != null && city.mBelongForce == force)
+                if (city != null && city.BelongForce == force)
                 {
                     cityList.Add(city);
                 }
@@ -458,17 +458,17 @@ namespace Sango.Core
             for (int i = 0; i < cityList.Count; i++)
             {
                 City city = cityList[i];
-                city.BelongForce = 0;
-                city.mBelongForce = null;
-                city.BelongCorps = 0;
-                city.mBelongCorps = null;
+                city.BelongForceId = 0;
+                city.BelongForce = null;
+                city.BelongCorpsId = 0;
+                city.BelongCorps = null;
             }
 
             // 3. 所有所属武将去势力化 - 状态设置为在野
             List<Person> personList = new List<Person>();
             Scenario.personSet.ForEach(person =>
             {
-                if (person != null && person.mBelongForce == force)
+                if (person != null && person.BelongForce == force)
                 {
                     personList.Add(person);
                 }
@@ -476,10 +476,10 @@ namespace Sango.Core
             for (int i = 0; i < personList.Count; i++)
             {
                 Person person = personList[i];
-                person.BelongForce = 0;
-                person.mBelongForce = null;
-                person.BelongCorps = 0;
-                person.mBelongCorps = null;
+                person.BelongForceId = 0;
+                person.BelongForce = null;
+                person.BelongCorpsId = 0;
+                person.BelongCorps = null;
                 person.state = (int)PersonStateType.Unemployed;
             }
 
@@ -558,9 +558,9 @@ namespace Sango.Core
             {
                 return;
             }
-            if (city.mBelongForce != null && city.mBelongForce != force)
+            if (city.BelongForce != null && city.BelongForce != force)
             {
-                Log.Warning("城市 " + city.Name + " 已属于势力 " + city.mBelongForce.Name);
+                Log.Warning("城市 " + city.Name + " 已属于势力 " + city.BelongForce.Name);
                 return;
             }
             Corps mainCorps = GetMainCorps(force);
@@ -569,10 +569,10 @@ namespace Sango.Core
                 Log.Warning("势力 " + force.Name + " 没有主军团,无法分配城市");
                 return;
             }
-            city.BelongForce = force.Id;
-            city.mBelongForce = force;
-            city.BelongCorps = mainCorps.Id;
-            city.mBelongCorps = mainCorps;
+            city.BelongForceId = force.Id;
+            city.BelongForce = force;
+            city.BelongCorpsId = mainCorps.Id;
+            city.BelongCorps = mainCorps;
             Log.Info("城市 " + city.Name + " 已加入势力 " + force.Name);
         }
 
@@ -587,24 +587,24 @@ namespace Sango.Core
             {
                 return;
             }
-            if (city.mBelongForce != force)
+            if (city.BelongForce != force)
             {
                 return;
             }
-            city.BelongForce = 0;
-            city.mBelongForce = null;
-            city.BelongCorps = 0;
-            city.mBelongCorps = null;
+            city.BelongForceId = 0;
+            city.BelongForce = null;
+            city.BelongCorpsId = 0;
+            city.BelongCorps = null;
 
             // 城内武将同步去势力化 - 状态设置为在野
             Scenario.personSet.ForEach(person =>
             {
-                if (person != null && person.mBelongCity == city && person.mBelongForce == force)
+                if (person != null && person.BelongCity == city && person.BelongForce == force)
                 {
-                    person.BelongForce = 0;
-                    person.mBelongForce = null;
-                    person.BelongCorps = 0;
-                    person.mBelongCorps = null;
+                    person.BelongForceId = 0;
+                    person.BelongForce = null;
+                    person.BelongCorpsId = 0;
+                    person.BelongCorps = null;
                     person.state = (int)PersonStateType.Unemployed;
                 }
             });
@@ -632,7 +632,7 @@ namespace Sango.Core
             Corps first = null;
             Scenario.corpsSet.ForEach(corps =>
             {
-                if (corps != null && corps.mBelongForce == force)
+                if (corps != null && corps.BelongForce == force)
                 {
                     if (corps.IsCaptainCorps)
                     {
@@ -661,7 +661,7 @@ namespace Sango.Core
             }
             Scenario.corpsSet.ForEach(corps =>
             {
-                if (corps != null && (force == null || corps.mBelongForce == force))
+                if (corps != null && (force == null || corps.BelongForce == force))
                 {
                     corpsList.Add(corps);
                 }
@@ -694,7 +694,7 @@ namespace Sango.Core
                 Log.Warning("新建军团需要指定军团长");
                 return null;
             }
-            if (commander.mBelongForce != force)
+            if (commander.BelongForce != force)
             {
                 Log.Warning("军团长 " + commander.Name + " 不属于势力 " + force.Name);
                 return null;
@@ -729,14 +729,14 @@ namespace Sango.Core
             Corps newCorps = new Corps();
             newCorps.Id = -1;
             newCorps.number = number;
-            newCorps.BelongForce = force.Id;
-            newCorps.mBelongForce = force;
+            newCorps.BelongForceId = force.Id;
+            newCorps.BelongForce = force;
             newCorps.Comander = commander.Id;
             newCorps.mComander = commander;
             Scenario.corpsSet.Add(newCorps);
             // 军团长归属新军团
-            commander.BelongCorps = newCorps.Id;
-            commander.mBelongCorps = newCorps;
+            commander.BelongCorpsId = newCorps.Id;
+            commander.BelongCorps = newCorps;
             commander.SetStateCommander();
             Log.Info("新建军团完成: " + newCorps.Name + " ,军团长为 " + commander.Name);
             return newCorps;
@@ -758,7 +758,7 @@ namespace Sango.Core
                 bool used = false;
                 Scenario.corpsSet.ForEach(corps =>
                 {
-                    if (corps != null && corps.mBelongForce == force && corps.number == number)
+                    if (corps != null && corps.BelongForce == force && corps.number == number)
                     {
                         used = true;
                     }
@@ -783,19 +783,19 @@ namespace Sango.Core
                 return false;
             }
             // 未归属势力的游离军团直接移除
-            if (corps.mBelongForce == null)
+            if (corps.BelongForce == null)
             {
                 Scenario.corpsSet.Remove(corps);
                 Log.Info("删除军团完成: " + corps.Name);
                 return true;
             }
             // 第一主军团不可删除
-            if (corps.IsCaptainCorps || corps == corps.mBelongForce.CapitalCorps)
+            if (corps.IsCaptainCorps || corps == corps.BelongForce.CapitalCorps)
             {
                 Log.Warning("第一军团不可删除,只能删除分军团");
                 return false;
             }
-            Force force = corps.mBelongForce;
+            Force force = corps.BelongForce;
             // 势力主军团,删除后原军团的武将与城池转入主军团
             Corps mainCorps = GetMainCorps(force);
             if (mainCorps == null)
@@ -806,19 +806,19 @@ namespace Sango.Core
             // 原军团所属城市转入主军团
             Scenario.citySet.ForEach(city =>
             {
-                if (city != null && city.mBelongCorps == corps)
+                if (city != null && city.BelongCorps == corps)
                 {
-                    city.BelongCorps = mainCorps.Id;
-                    city.mBelongCorps = mainCorps;
+                    city.BelongCorpsId = mainCorps.Id;
+                    city.BelongCorps = mainCorps;
                 }
             });
             // 原军团所属武将转入主军团
             Scenario.personSet.ForEach(person =>
             {
-                if (person != null && person.mBelongCorps == corps)
+                if (person != null && person.BelongCorps == corps)
                 {
-                    person.BelongCorps = mainCorps.Id;
-                    person.mBelongCorps = mainCorps;
+                    person.BelongCorpsId = mainCorps.Id;
+                    person.BelongCorps = mainCorps;
                 }
             });
             // 军团长恢复为普通状态
@@ -871,7 +871,7 @@ namespace Sango.Core
                 return false;
             }
             // 君主不可直接删除,需要先删除其势力
-            if (person.mBelongForce != null && person.mBelongForce.mGovernor == person)
+            if (person.BelongForce != null && person.BelongForce.mGovernor == person)
             {
                 Log.Warning("君主 " + person.Name + " 不可删除,请先在势力页删除其势力");
                 return false;
@@ -895,16 +895,16 @@ namespace Sango.Core
                 }
             });
             // 解除势力/军团/城池等从属关系
-            person.BelongForce = 0;
-            person.mBelongForce = null;
-            person.BelongCorps = 0;
-            person.mBelongCorps = null;
-            person.BelongCity = 0;
-            person.mBelongCity = null;
-            person.CurrentCity = 0;
-            person.mCurrentCity = null;
-            person.BelongTroop = 0;
-            person.mTroop = null;
+            person.BelongForceId = 0;
+            person.BelongForce = null;
+            person.BelongCorpsId = 0;
+            person.BelongCorps = null;
+            person.BelongCityId = 0;
+            person.BelongCity = null;
+            person.CurrentCityId = 0;
+            person.CurrentCity = null;
+            person.BelongTroopId = 0;
+            person.mBelongTroop = null;
             Scenario.personSet.Remove(person);
             Log.Info("删除武将完成: " + person.Name);
             return true;
@@ -930,10 +930,10 @@ namespace Sango.Core
             person.state = (int)PersonStateType.Unemployed;
             if (city != null)
             {
-                person.BelongCity = city.Id;
-                person.mBelongCity = city;
-                person.CurrentCity = city.Id;
-                person.mCurrentCity = city;
+                person.BelongCityId = city.Id;
+                person.BelongCity = city;
+                person.CurrentCityId = city.Id;
+                person.CurrentCity = city;
             }
             Log.Info("武将 " + person.Name + " 已登场");
         }
@@ -951,7 +951,7 @@ namespace Sango.Core
             }
             Scenario.personSet.ForEach(person =>
             {
-                if (person != null && person.mBelongForce == null)
+                if (person != null && person.BelongForce == null)
                 {
                     persons.Add(person);
                 }
@@ -972,7 +972,7 @@ namespace Sango.Core
             }
             Scenario.citySet.ForEach(city =>
             {
-                if (city != null && city.mBelongForce == null)
+                if (city != null && city.BelongForce == null)
                 {
                     cities.Add(city);
                 }

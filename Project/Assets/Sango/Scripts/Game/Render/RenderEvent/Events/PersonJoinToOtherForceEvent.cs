@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 
 namespace Sango.Render
 {
@@ -11,7 +11,7 @@ namespace Sango.Render
         {
             IsDone = false;
             GameDialog.Instance.Open(GameDialog.DialogStyle.ClickSay, 
-                $"不好了,{person.ColorName}加入了{troop.mBelongForce.ColorName}。", 
+                $"不好了,{person.ColorName}加入了{troop.BelongForce.ColorName}。", 
             () =>
             {
                 IsDone = true;

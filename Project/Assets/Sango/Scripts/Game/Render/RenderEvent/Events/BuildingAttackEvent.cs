@@ -73,7 +73,7 @@ namespace Sango.Render
             {
                 int dmg = Troop.CalculateSkillDamage(building, troop, building.GetAttack());
                 troop.ChangeTroops(-dmg, building, 0);
-                Sango.Log.Info($"{building.mBelongForce.Name}的[{building.Name}] 对 {troop.Name} 造成 {dmg} 伤害:, 目标剩余兵力: {troop.GetTroopsNum()}");
+                Sango.Log.Info($"{building.BelongForce.Name}的[{building.Name}] 对 {troop.Name} 造成 {dmg} 伤害:, 目标剩余兵力: {troop.GetTroopsNum()}");
                 troop.Render.UpdateRender();
             }
             isAction = true;

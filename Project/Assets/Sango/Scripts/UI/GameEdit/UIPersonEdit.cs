@@ -97,9 +97,9 @@ namespace Sango.UI
 
             // 特技 - 拷贝FeatureList
             snapshot.EditingFeatures = new List<Feature>();
-            if (p.mFeatureList != null)
+            if (p.FeatureList != null)
             {
-                foreach (Feature f in p.mFeatureList)
+                foreach (Feature f in p.FeatureList)
                 {
                     if (f != null)
                     {
@@ -110,9 +110,9 @@ namespace Sango.UI
 
             // 亲爱武将列表
             snapshot.LikePersons = new List<Person>();
-            if (p.mLikePersonList != null)
+            if (p.LikePersonList != null)
             {
-                foreach (Person likePerson in p.mLikePersonList)
+                foreach (Person likePerson in p.LikePersonList)
                 {
                     if (likePerson != null)
                     {
@@ -123,9 +123,9 @@ namespace Sango.UI
 
             // 厌恶武将列表
             snapshot.HatePersons = new List<Person>();
-            if (p.mHatePersonList != null)
+            if (p.HatePersonList != null)
             {
-                foreach (Person hatePerson in p.mHatePersonList)
+                foreach (Person hatePerson in p.HatePersonList)
                 {
                     if (hatePerson != null)
                     {
@@ -192,16 +192,16 @@ namespace Sango.UI
             // 特技
             if (EditingFeatures != null && EditingFeatures.Count > 0)
             {
-                if (p.mFeatureList != null)
-                    p.mFeatureList.Clear();
+                if (p.FeatureList != null)
+                    p.FeatureList.Clear();
                 else
-                    p.mFeatureList = new SangoObjectList<Feature>();
+                    p.FeatureList = new SangoObjectList<Feature>();
 
                 for (int i = 0; i < EditingFeatures.Count; i++)
                 {
                     if (EditingFeatures[i] != null)
                     {
-                        p.mFeatureList.Add(EditingFeatures[i]);
+                        p.FeatureList.Add(EditingFeatures[i]);
                     }
                 }
             }
@@ -209,51 +209,51 @@ namespace Sango.UI
             // 亲爱武将列表
             if (LikePersons != null && LikePersons.Count > 0)
             {
-                if (p.mLikePersonList != null)
-                    p.mLikePersonList.Clear();
+                if (p.LikePersonList != null)
+                    p.LikePersonList.Clear();
                 else
-                    p.mLikePersonList = new SangoObjectList<Person>();
+                    p.LikePersonList = new SangoObjectList<Person>();
                 for (int i = 0; i < LikePersons.Count; i++)
                 {
                     if (LikePersons[i] != null)
                     {
-                        p.mLikePersonList.Add(LikePersons[i]);
+                        p.LikePersonList.Add(LikePersons[i]);
                     }
                 }
             }
             else
             {
-                if (p.mLikePersonList != null)
-                    p.mLikePersonList.Clear();
+                if (p.LikePersonList != null)
+                    p.LikePersonList.Clear();
             }
 
             // 厌恶武将列表
             if (HatePersons != null && HatePersons.Count > 0)
             {
-                if (p.mHatePersonList != null)
-                    p.mHatePersonList.Clear();
+                if (p.HatePersonList != null)
+                    p.HatePersonList.Clear();
                 else
-                    p.mHatePersonList = new SangoObjectList<Person>();
+                    p.HatePersonList = new SangoObjectList<Person>();
 
                 for (int i = 0; i < HatePersons.Count; i++)
                 {
                     if (HatePersons[i] != null)
                     {
-                        p.mHatePersonList.Add(HatePersons[i]);
+                        p.HatePersonList.Add(HatePersons[i]);
                     }
                 }
             }
             else
             {
-                if (p.mHatePersonList != null)
-                    p.mHatePersonList.Clear();
+                if (p.HatePersonList != null)
+                    p.HatePersonList.Clear();
             }
 
 
             // 刷新部队
-            if(p.mTroop != null)
+            if(p.mBelongTroop != null)
             {
-                p.mTroop.ResetActionAndStatus();
+                p.mBelongTroop.ResetActionAndStatus();
             }
         }
     }
@@ -550,7 +550,7 @@ namespace Sango.UI
                 if (input != null) input.text = getter();
                 onChanged?.Invoke();
             });
-            input.text = getter().ToString();
+            input.text = getter();
         }
 
         /// <summary>

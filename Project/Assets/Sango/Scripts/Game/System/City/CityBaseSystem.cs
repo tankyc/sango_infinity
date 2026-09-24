@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Sango.Core.Player
@@ -39,7 +39,7 @@ namespace Sango.Core.Player
         protected virtual void OnCityContextMenuShow(IContextMenuData menuData, City city)
         {
             TargetCity = city;
-            if (MenuCanShow() && city.mBelongForce != null && city.mBelongForce.IsPlayer && city.mBelongForce == Scenario.Cur.CurRunForce)
+            if (MenuCanShow() && city.BelongForce != null && city.BelongForce.IsPlayer && city.BelongForce == Scenario.Cur.CurRunForce)
             {
                 // 排序值仍以本系统自己的 customMenuOrder 为准；Add 的同时登记进 CityMenuOrder 供 MOD 查询
                 CityMenuOrder.Add(menuData, customMenuName, customMenuOrder, city, OnClickMenuItem, IsValid);

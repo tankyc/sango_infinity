@@ -94,18 +94,18 @@ namespace Sango.Core
             if (!city.IsCity()) return true;
             if (city.IsPlayer) return true;
             if (city.freePersons.Count < 3) return true;
-            if (city.mBelongForce.ResearchTechnique > 0) return true;
-            if (city.mBelongForce.TechniquePoint < 1000) return true;
+            if (city.BelongForce.ResearchTechnique > 0) return true;
+            if (city.BelongForce.TechniquePoint < 1000) return true;
             if (city.gold < 2000) return true;
             if (city.IsEnemiesRound(9))
                 return true;
 
-            Force force = city.mBelongForce;
+            Force force = city.BelongForce;
             for (int i = 0; i < force.canResearchTechniqueList.Count; i++)
             {
                 Technique technique = force.canResearchTechniqueList[i];
                 if (technique == null) continue;
-                if (technique.goldCost <= city.gold && technique.techPointCost <= city.mBelongForce.TechniquePoint)
+                if (technique.goldCost <= city.gold && technique.techPointCost <= city.BelongForce.TechniquePoint)
                 {
                     Person[] ps = ForceAI.CounsellorRecommendResearch(city.freePersons, technique);
                     if (ps != null)
@@ -138,13 +138,13 @@ namespace Sango.Core
             int goldNeed = values[0];
             int tpNeed = values[1];
             int turnCount = values[2];
-            if (city.gold < goldNeed || city.mBelongForce.TechniquePoint < tpNeed)
+            if (city.gold < goldNeed || city.BelongForce.TechniquePoint < tpNeed)
             {
                 return null;
             }
 
             city.gold -= goldNeed;
-            city.mBelongForce.GainTechniquePoint(-tpNeed);
+            city.BelongForce.GainTechniquePoint(-tpNeed);
             int meritGain = JobType.GetJobMeritGain(jobId);
 
 #if SANGO_DEBUG
@@ -157,6 +157,7 @@ namespace Sango.Core
 
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);          // 研究 → 智力经验
                 person.SetMission(MissionType.PersonResearch, technique, turnCount);
                 city.freePersons.Remove(person);
 #if SANGO_DEBUG
@@ -166,13 +167,13 @@ namespace Sango.Core
                 person.ActionOver = true;
             }
 
-            city.mBelongForce.ResearchTechnique = technique.Id;
-            city.mBelongForce.ResearchLeftCounter = turnCount;
+            city.BelongForce.ResearchTechnique = technique.Id;
+            city.BelongForce.ResearchLeftCounter = turnCount;
 
-            city.mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            city.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{city.mBelongForce.Name}]{stringBuilder}在<{city.Name}>开始研究科技: [{technique.Name}], 研究需要{turnCount}回合!");
+            Sango.Log.Info($"@内政@[{city.BelongForce.Name}]{stringBuilder}在<{city.Name}>开始研究科技: [{technique.Name}], 研究需要{turnCount}回合!");
 #endif
 
             city.ClearJobFeature();
@@ -183,15 +184,15 @@ namespace Sango.Core
         {
             get
             {
-                return TargetCity.mBelongForce.ResearchTechnique <= 0 &&
+                return TargetCity.BelongForce.ResearchTechnique <= 0 &&
                      TargetCity.freePersons.Count > 0 &&
-                     TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Research);
+                     TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Research);
             }
         }
 
         public void DoResearch()
         {
-            if (TargetTechnique == null || !TargetTechnique.CanResearch(TargetCity.mBelongForce))
+            if (TargetTechnique == null || !TargetTechnique.CanResearch(TargetCity.BelongForce))
                 return;
 
             TechniqueResearch.JobResearch(TargetCity, personList.ToArray(), TargetTechnique, false);
@@ -201,7 +202,7 @@ namespace Sango.Core
         void OnCityContextMenuShow(IContextMenuData menuData, City city)
         {
             TargetCity = city;
-            if (city.IsCity() && city.mBelongForce != null && city.mBelongForce.IsPlayer && city.mBelongForce == Scenario.Cur.CurRunForce)
+            if (city.IsCity() && city.BelongForce != null && city.BelongForce.IsPlayer && city.BelongForce == Scenario.Cur.CurRunForce)
                 menuData.Add("都市/研究技巧", 2000, city, OnClickMenuItem, IsValid);
         }
 

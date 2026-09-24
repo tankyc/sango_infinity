@@ -1,4 +1,4 @@
-﻿using static Sango.Core.TroopAIUtility;
+using static Sango.Core.TroopAIUtility;
 
 namespace Sango.Core
 {
@@ -9,7 +9,7 @@ namespace Sango.Core
         {
             get
             {
-                return TargetCity != Troop.mBelongCity || !TargetCity.IsSameForce(Troop);
+                return TargetCity != Troop.BelongCity || !TargetCity.IsSameForce(Troop);
             }
         }
 
@@ -22,7 +22,7 @@ namespace Sango.Core
             // 这种情况发生在玩家把部队放在外面没有任何任务,然后将此座城池设置成军团了
             if (TargetCity == null)
             {
-                TargetCity = troop.mBelongCity;
+                TargetCity = troop.BelongCity;
                 troop.SetMission(MissionType.TroopReturnCity, TargetCity.Id);
             }
 
@@ -39,11 +39,11 @@ namespace Sango.Core
                     {
                         Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
                     }
-                    else if (troop.mBelongCity != null)
+                    else if (troop.BelongCity != null)
                     {
                         // 【修复】目标既不是敌方也不是归属城（例如被改成了其它友城）：
                         // 纠正为"返回归属城"，而不是切到无意义的 TroopStay 并打印错误日志。
-                        Troop.SetMission(MissionType.TroopReturnCity, troop.mBelongCity.Id);
+                        Troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
                     }
                 }
                 troop.NeedPrepareMission();

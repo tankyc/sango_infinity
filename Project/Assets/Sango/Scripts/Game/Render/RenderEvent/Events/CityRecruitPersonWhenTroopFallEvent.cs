@@ -22,12 +22,12 @@ namespace Sango.Render
                 return;
             }
 
-            if (!atk.mBelongCorps.IsPlayer)
+            if (!atk.BelongCorps.IsPlayer)
             {
                 for (int i = captiveList.Count - 1; i >= 0; i--)
                 {
                     Person person = captiveList[i];
-                    if (atk.Leader.JobRecruitPerson(person, atk.mBelongCity, 1))
+                    if (atk.Leader.JobRecruitPerson(person, atk.BelongCity, 1))
                     {
                         if (person.IsPlayer)
                         {
@@ -38,7 +38,7 @@ namespace Sango.Render
                             };
                             RenderEvent.Instance.Add(personBeCaptiveEvent);
                         }
-                        Sango.Log.Info($"{person.Name} 加入了 {atk.mBelongForce} 势力!!!");
+                        Sango.Log.Info($"{person.Name} 加入了 {atk.BelongForce} 势力!!!");
                     }
                     else
                     {
@@ -87,7 +87,7 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return atk.mBelongCorps.IsPlayer;
+            return atk.BelongCorps.IsPlayer;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

@@ -26,7 +26,7 @@ namespace Sango.Core.Action
 
         void OnTroopCalculateAttribute(Troop troop, Scenario scenario)
         {
-            if (Force != null && troop.mBelongForce != Force) return;
+            if (Force != null && troop.BelongForce != Force) return;
             if (Troop != null && Troop != troop) return;
 
             if (condition != null)

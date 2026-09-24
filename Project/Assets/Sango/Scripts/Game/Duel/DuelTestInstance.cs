@@ -182,9 +182,9 @@ namespace Sango.Core.Duel
         /// <summary>
         /// 造一个仅含单挑所需字段的测试武将（真实 Sango.Core.Person 实例）
         /// </summary>
-        /// <param name="personality">性格（1胆小 / 2冷静 / 3刚胆 / 4莽撞），直接对应单挑 AI 性格</param>
+        /// <param name="PersonalityId">性格（1胆小 / 2冷静 / 3刚胆 / 4莽撞），直接对应单挑 AI 性格</param>
         public static Person CreatePerson(string name, int strength, int id,
-            int stamina = Duel.MaxHP, int loyalty = 100, int personality = 2)
+            int stamina = Duel.MaxHP, int loyalty = 100, int PersonalityId = 2)
         {
             Person person = new Person();
             person.Id = id;
@@ -196,7 +196,7 @@ namespace Sango.Core.Duel
             person.stamina = stamina;
             person.injury = 0;
             person.loyalty = loyalty;
-            person.personality = personality;
+            person.PersonalityId = PersonalityId;
             return person;
         }
 

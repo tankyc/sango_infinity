@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
@@ -114,14 +114,14 @@ namespace Sango.UI
             emptyCities.Clear();
             availableFlags.Clear();
 
-            // 收集空白城市（BelongForce == 0）
+            // 收集空白城市（BelongForceId == 0）
             if (scenario.citySet != null)
             {
                 foreach (ShortCity city in scenario.citySet)
                 {
                     if (city == null) continue;
                     exsisitCityList.Add(city.Copy());
-                    if (city != null && city.Id != 0 && city.IsCity() && city.BelongForce == 0)
+                    if (city != null && city.Id != 0 && city.IsCity() && city.BelongForceId == 0)
                     {
                         emptyCities.Add(city);
                     }
@@ -186,7 +186,7 @@ namespace Sango.UI
                 ShortForce force = shortForces[i];
                 ShortPerson gov = scenario.personSet[force.Governor];
                 Flag flag = scenario.CommonData.Flags.Get(force.Flag);
-                ShortCity captain = scenario.citySet.Get(gov.BelongCity);
+                ShortCity captain = scenario.citySet.Get(gov.BelongCityId);
                 UICreateForceItem item = itemPool.Create();
                 if (item == null) continue;
 
@@ -289,9 +289,9 @@ namespace Sango.UI
         void OnDeleteForce(ShortForce targetForce)
         {
             scenario.forceSet.Remove(targetForce);
-            scenario.citySet[targetForce.CapitalCity].BelongForce = 0;
-            scenario.personSet[targetForce.Governor].BelongForce = 0;
-            scenario.personSet[targetForce.Governor].BelongCity = 0;
+            scenario.citySet[targetForce.CapitalCity].BelongForceId = 0;
+            scenario.personSet[targetForce.Governor].BelongForceId = 0;
+            scenario.personSet[targetForce.Governor].BelongCityId = 0;
             hasChanged = true;
 
             RefreshMap();

@@ -42,7 +42,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.mBelongForce.CityCount > 1;
+                return TargetCity.BelongForce.CityCount > 1;
             }
         }
 
@@ -55,7 +55,7 @@ namespace Sango.Core.Player
             menuData.Clear();
             Scenario.Cur.corpsSet.ForEach(x =>
             {
-                if (x.mBelongForce == TargetCity.mBelongForce)
+                if (x.BelongForce == TargetCity.BelongForce)
                 {
                     has[x.number - 1] = true;
                     if (x.number > 1)
@@ -109,7 +109,7 @@ namespace Sango.Core.Player
         {
             showType = 1;
             targetCorps = new Corps();
-            targetCorps.mBelongForce = TargetCity.mBelongForce;
+            targetCorps.BelongForce = TargetCity.BelongForce;
             targetCorps.number = targetNumber;
             //targetCorps.policy = 0;
             targetCorps.appoint = 0;
@@ -131,7 +131,7 @@ namespace Sango.Core.Player
                     Corps exsist = x[0];
                     targetCorps = new Corps();
                     targetCorps.Id = exsist.Id;
-                    targetCorps.mBelongForce = exsist.mBelongForce;
+                    targetCorps.BelongForce = exsist.BelongForce;
                     targetCorps.number = exsist.number;
                     //targetCorps.policy = exsist.policy;
                     targetCorps.appoint = exsist.appoint;
@@ -142,9 +142,9 @@ namespace Sango.Core.Player
                         targetCorps.appointSetting[i] = exsist.appointSetting[i];
 
                     List<City> targetCityList = new List<City>();
-                    exsist.mBelongForce.ForEachCity(x =>
+                    exsist.BelongForce.ForEachCity(x =>
                     {
-                        if (x.mBelongCorps == exsist)
+                        if (x.BelongCorps == exsist)
                             targetCityList.Add(x);
                     });
                     targetCorps.inti_cities = targetCityList;
@@ -183,7 +183,7 @@ namespace Sango.Core.Player
                         ContextMenu.CloseAll();
                         GameMedia.Instance.PlaySfx(56);
                         Done();
-                    }, TargetCity.mBelongForce.mGovernor);
+                    }, TargetCity.BelongForce.mGovernor);
                 });
             },
             CorpsSortFunction.DefaultSortList, "解散军团");
@@ -191,7 +191,7 @@ namespace Sango.Core.Player
 
         public void CreateCorps()
         {
-            TargetCity.mBelongForce.CreateCorps(targetCorps);
+            TargetCity.BelongForce.CreateCorps(targetCorps);
             GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{targetCorps.ColorName}就交给我了。", () =>
             {
                 GameMedia.Instance.PlayDoAcitonSfx();
@@ -204,7 +204,7 @@ namespace Sango.Core.Player
             Corps dest = corps_list.Find(x => x.number == targetCorps.number);
             if (dest == null)
                 return;
-            TargetCity.mBelongForce.ResetCorps(dest, targetCorps);
+            TargetCity.BelongForce.ResetCorps(dest, targetCorps);
             GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{dest.ColorName}就交给我了。", () =>
             {
                 Done();
@@ -214,17 +214,17 @@ namespace Sango.Core.Player
 
         public void CreateCorps(int number, Person commander, List<City> cities)
         {
-            TargetCity.mBelongForce.CreateCorps(number, commander, cities);
+            TargetCity.BelongForce.CreateCorps(number, commander, cities);
         }
 
         public void DeleteCorps(int number)
         {
-            TargetCity.mBelongForce.DeleteCorps(number);
+            TargetCity.BelongForce.DeleteCorps(number);
         }
 
         public void DeleteCorps(Corps corps)
         {
-            TargetCity.mBelongForce.DeleteCorps(corps);
+            TargetCity.BelongForce.DeleteCorps(corps);
         }
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)
         {

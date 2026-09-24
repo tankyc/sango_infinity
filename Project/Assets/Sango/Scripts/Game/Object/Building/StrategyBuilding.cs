@@ -18,10 +18,10 @@ namespace Sango.Core
             if (atk.ObjectType != SangoObjectType.Troops)
                 return;
             Troop troop = (Troop)atk;
-            mBelongCity?.OnBuildingDestroy(this);
-            mBelongCity = troop.mBelongCity;
-            mBelongCorps = troop.mBelongCorps;
-            mBelongCity?.OnBuildingCreate(this);
+            BelongCity?.OnBuildingDestroy(this);
+            BelongCity = troop.BelongCity;
+            BelongCorps = troop.BelongCorps;
+            BelongCity?.OnBuildingCreate(this);
             durability = DurabilityLimit / 2;
             Render?.UpdateRender();
         }

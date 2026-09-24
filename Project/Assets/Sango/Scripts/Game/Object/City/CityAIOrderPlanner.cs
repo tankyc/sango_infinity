@@ -124,7 +124,7 @@ namespace Sango.Core
         static int GetPersonalityBias(CitySituation s, string id)
         {
             CityOrderWeights w = AIConfig.Instance.cityOrder;
-            switch (s.personality)
+            switch (s.PersonalityId)
             {
                 case ForceAI.AIPersonalityType.Aggressive:
                     if (id == "AIAttack" || id == "AIRecruitTroop")

@@ -244,11 +244,21 @@ namespace Sango.Core
         public Person Leader;
 
         /// <summary>
-        /// 所属州
+        /// 所属州的 id（存档数值），读取 province 时按需解析
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Province>))]
-        [JsonProperty]
-        public Province province;
+        [JsonProperty("province")]
+        public int ProvinceId;
+
+        Province mProvince;
+        public Province province
+        {
+            get
+            {
+                if (mProvince == null && ProvinceId > 0) mProvince = IdRef.Resolve<Province>(ProvinceId);
+                return mProvince;
+            }
+            set { mProvince = value; ProvinceId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
         /// 相邻城市
@@ -258,11 +268,24 @@ namespace Sango.Core
         public SangoObjectList<City> NeighborList = new SangoObjectList<City>();
 
         /// <summary>
-        /// 城市等级数据
+        /// 城市等级数据的 id（存档数值），读取 CityLevelType 时按需解析
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<CityLevelType>))]
-        [JsonProperty]
-        public CityLevelType CityLevelType;
+        [JsonProperty("CityLevelType")]
+        public int CityLevelTypeId;
+
+        CityLevelType mCityLevelType;
+        /// <summary>
+        /// 城市等级数据；写入时自动同步 CityLevelTypeId
+        /// </summary>
+        public CityLevelType CityLevelType
+        {
+            get
+            {
+                if (mCityLevelType == null && CityLevelTypeId > 0) mCityLevelType = IdRef.Resolve<CityLevelType>(CityLevelTypeId);
+                return mCityLevelType;
+            }
+            set { mCityLevelType = value; CityLevelTypeId = value != null ? value.Id : 0; }
+        }
 
 
 
@@ -426,9 +449,9 @@ namespace Sango.Core
         public void AddAreaCell(Cell cell)
         {
             areaCellList.Add(cell);
-            if (mBelongCity != null)
+            if (BelongCity != null)
             {
-                mBelongCity.AddAreaCell(cell);
+                BelongCity.AddAreaCell(cell);
             }
         }
 
@@ -504,7 +527,7 @@ namespace Sango.Core
                 //for (int i = 0; i < troopSet.Count; i++)
                 //{
                 //    Troop troop = troopSet[i];
-                //    if (troop != null && troop.IsAlive && troop.BelongCity == this)
+                //    if (troop != null && troop.IsAlive && troop.BelongCityId == this)
                 //        troopsCount++;
                 //}
                 //return troopsCount;
@@ -736,20 +759,20 @@ namespace Sango.Core
             person.ClearMission();
             person.state = (int)PersonStateType.Prisoner;
             captiveList.Add(person);
-            person.mBelongForce?.BeCaptiveList.Remove(person);
-            person.mBelongForce?.BeCaptiveList.Add(person);
-            person.mTroop = null;
+            person.BelongForce?.BeCaptiveList.Remove(person);
+            person.BelongForce?.BeCaptiveList.Add(person);
+            person.mBelongTroop = null;
             person.ChangeCurrentCity(this);
-            if (person.mBelongCity != null)
+            if (person.BelongCity != null)
             {
-                person.mBelongCity.allPersons.Remove(person);
-                person.mBelongCity.wildPersons.Remove(person);
-                person.mBelongCity.freePersons.Remove(person);
-                person.mBelongCity = null;
+                person.BelongCity.allPersons.Remove(person);
+                person.BelongCity.wildPersons.Remove(person);
+                person.BelongCity.freePersons.Remove(person);
+                person.BelongCity = null;
             }
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@人才@[{person.Name}]被<{mBelongForce.Name}>俘虏至{Name}");
+            Sango.Log.Info($"@人才@[{person.Name}]被<{BelongForce.Name}>俘虏至{Name}");
 #endif
             return person;
         }
@@ -765,14 +788,14 @@ namespace Sango.Core
             Sango.Log.Info($"*{Name} -> captiveList 删除 {person.Name} ");
 #endif
             captiveList.Remove(person);
-            person.mBelongForce?.BeCaptiveList.Remove(person);
+            person.BelongForce?.BeCaptiveList.Remove(person);
             return person;
         }
 
         public City RandomNerghbor()
         {
-            if (mBelongCity != null)
-                return mBelongCity.RandomNerghbor();
+            if (BelongCity != null)
+                return BelongCity.RandomNerghbor();
             return NeighborList[GameRandom.Range(0, NeighborList.Count)];
         }
 
@@ -904,22 +927,22 @@ namespace Sango.Core
 
                 if (cell.IsInterior)
                 {
-                    if (mBelongCity != null)
-                        mBelongCity.interiorCellList.Add(cell);
+                    if (BelongCity != null)
+                        BelongCity.interiorCellList.Add(cell);
                     else
                         interiorCellList.Add(cell);
                 }
             }
 
-            captiveList.RemoveAll(x => x.mCurrentCity != this);
+            captiveList.RemoveAll(x => x.CurrentCity != this);
             foreach (Person person in captiveList)
             {
-                if (person.mBelongForce != null)
-                    person.mBelongForce.BeCaptiveList.Add(person);
+                if (person.BelongForce != null)
+                    person.BelongForce.BeCaptiveList.Add(person);
             }
 
-            if (mBelongCity != null)
-                mBelongCity.subCities.Add(this);
+            if (BelongCity != null)
+                BelongCity.subCities.Add(this);
         }
 
         public override void OnScenarioSave(Scenario scenario)
@@ -952,20 +975,20 @@ namespace Sango.Core
                     freePersons.Add(person);
             });
 
-            if (mBelongForce != null)
+            if (BelongForce != null)
             {
-                mBelongForce.CityBaseCount++;
-                mBelongForce.CityList.Add(this);
+                BelongForce.CityBaseCount++;
+                BelongForce.CityList.Add(this);
                 if (IsCity())
                 {
-                    mBelongForce.CityCount++;
+                    BelongForce.CityCount++;
                 }
             }
 
             if (IsPort())
-                mBelongCity.portList.Add((Port)this);
+                BelongCity.portList.Add((Port)this);
             else if (IsGate())
-                mBelongCity.gateList.Add((Gate)this);
+                BelongCity.gateList.Add((Gate)this);
 
             if (BuildingType.Id == 1)
             {
@@ -1004,8 +1027,8 @@ namespace Sango.Core
         public void LeaveToWild()
         {
             Leader = null;
-            mBelongCorps = null;
-            mBelongForce = null;
+            BelongCorps = null;
+            BelongForce = null;
             Render?.UpdateRender();
         }
 
@@ -1103,7 +1126,7 @@ namespace Sango.Core
         /// <returns>是否成功</returns>
         public override bool OnSeasonStart(Scenario scenario)
         {
-            //if (BelongCorps == null)
+            //if (BelongCorpsId == null)
             //    return true;
 
             //            int harvest = GameRandom.Random(totalGainFood, 0.05f);
@@ -1152,7 +1175,7 @@ namespace Sango.Core
                 troopPopulation = newTroopPopulation;
             }
 
-            if (mBelongCorps == null)
+            if (BelongCorps == null)
                 return true;
 
             if (Render != null)
@@ -1283,11 +1306,11 @@ namespace Sango.Core
             temp_FeatureList.Clear();
             allPersons.ForEach(x =>
             {
-                if (x.mFeatureList != null)
+                if (x.FeatureList != null)
                 {
-                    for (int i = 0; i < x.mFeatureList.Count; i++)
+                    for (int i = 0; i < x.FeatureList.Count; i++)
                     {
-                        Feature feature = x.mFeatureList[i];
+                        Feature feature = x.FeatureList[i];
                         // 仅城市收入、灾害类特技可在城市装配；括号确保空特技不会继续访问 kind。
                         if (feature != null && (feature.kind == (int)FeatureKindType.CityHarvest || feature.kind == (int)FeatureKindType.CityDisaster))
                         {
@@ -1394,7 +1417,7 @@ namespace Sango.Core
             GameEvent.OnCityTurnEnd?.Invoke(this, scenario);
 
             // 太守不在此城,需要更新太守
-            if (Leader == null || Leader.mBelongCity != this || needUpdateLeader)
+            if (Leader == null || Leader.BelongCity != this || needUpdateLeader)
                 UpdateNewLeader();
 
             InitPersonAction();
@@ -1504,11 +1527,11 @@ namespace Sango.Core
         //{
         //    // 先加入剧本才能分配ID
         //    Add(troop);
-        //    troop.Leader.BelongTroop = troop;
+        //    troop.Leader.BelongTroopId = troop;
         //    for (int i = 0; i < troop.MemberList.Count; i++)
-        //        troop.MemberList[i].BelongTroop = troop;
+        //        troop.MemberList[i].BelongTroopId = troop;
 
-        //    troop.BelongCity = this;
+        //    troop.BelongCityId = this;
         //    troop.cell = CenterCell;
         //    troop.cell.troop = troop;
         //    troop.x = troop.cell.x;
@@ -1518,21 +1541,21 @@ namespace Sango.Core
         //public Person Add(Person person)
         //{
         //    allPersons.Add(person);
-        //    if (BelongCorps == null)
+        //    if (BelongCorpsId == null)
         //    {
-        //        Sango.Log.Error($"why {Name}->BelongCorps is null");
+        //        Sango.Log.Error($"why {Name}->BelongCorpsId is null");
         //    }
-        //    BelongCorps.Add(person);
+        //    BelongCorpsId.Add(person);
         //    return person;
         //}
         //public Troop Add(Troop troops)
         //{
-        //    allTroops.Add(BelongCorps.Add(troops));
+        //    allTroops.Add(BelongCorpsId.Add(troops));
         //    return troops;
         //}
         //public Building Add(Building building)
         //{
-        //    allBuildings.Add(BelongCorps.Add(building));
+        //    allBuildings.Add(BelongCorpsId.Add(building));
         //    return building;
         //}
         //public Troop Add(Troop troop)
@@ -1543,7 +1566,7 @@ namespace Sango.Core
         //public Person Remove(Person person)
         //{
         //    allPersons.Remove(person);
-        //    BelongCorps.Remove(person);
+        //    BelongCorpsId.Remove(person);
         //    return person;
         //}
         //public Troop Remove(Troop troop)
@@ -1553,12 +1576,12 @@ namespace Sango.Core
         //}
         //public Troop Remove(Troop troops)
         //{
-        //    allTroops.Remove(BelongCorps.Remove(troops));
+        //    allTroops.Remove(BelongCorpsId.Remove(troops));
         //    return troops;
         //}
         //public Building Remove(Building building)
         //{
-        //    allBuildings.Remove(BelongCorps.Remove(building));
+        //    allBuildings.Remove(BelongCorpsId.Remove(building));
         //    return building;
         //}
 
@@ -1592,7 +1615,7 @@ namespace Sango.Core
         {
             City nearnest = null;
             int distance = 100000;
-            mBelongForce.ForEachCity(city =>
+            BelongForce.ForEachCity(city =>
             {
                 if (city != this)
                 {
@@ -1617,13 +1640,13 @@ namespace Sango.Core
         public Corps ChangeCorps(Corps other)
         {
             Corps last = null;
-            if (mBelongCorps != other)
+            if (BelongCorps != other)
             {
-                last = mBelongCorps;
-                mBelongCorps = other;
-                if (mBelongForce != other.mBelongForce)
+                last = BelongCorps;
+                BelongCorps = other;
+                if (BelongForce != other.BelongForce)
                 {
-                    mBelongForce = other.mBelongForce;
+                    BelongForce = other.BelongForce;
                 }
                 Render?.UpdateRender();
             }
@@ -1637,11 +1660,11 @@ namespace Sango.Core
         {
             allPersons.ForEach(person =>
             {
-                person.ChangeCorps(mBelongCorps);
+                person.ChangeCorps(BelongCorps);
             });
             allBuildings.ForEach(person =>
             {
-                person.ChangeCorps(mBelongCorps);
+                person.ChangeCorps(BelongCorps);
             });
         }
 
@@ -1655,7 +1678,7 @@ namespace Sango.Core
         public bool ChangeTroops(int num, SangoObject atk, bool showDamage = true)
         {
             // 白城直接占领
-            if (this.mBelongForce == null)
+            if (this.BelongForce == null)
                 return false;
 
             if (showDamage)
@@ -1695,8 +1718,8 @@ namespace Sango.Core
 
             if (atk == null) return;
 
-            Force lastBelongForce = mBelongForce;
-            Corps lastBelongCorps = mBelongCorps;
+            Force lastBelongForce = BelongForce;
+            Corps lastBelongCorps = BelongCorps;
             freePersons.Clear();
 
             // 清理火
@@ -1713,9 +1736,9 @@ namespace Sango.Core
             //this.captiveList.Clear();
 
             // 白城
-            if (mBelongCorps == null)
+            if (BelongCorps == null)
             {
-                ChangeCorps(atk.mBelongCorps);
+                ChangeCorps(atk.BelongCorps);
                 if (skillInstance != null && !skillInstance.IsRange())
                 {
                     Leader = atk.Leader;
@@ -1727,19 +1750,19 @@ namespace Sango.Core
                 return;
             }
 
-            mBelongForce.CityBaseCount--;
-            if (IsCity()) mBelongForce.CityCount--;
-            mBelongForce.CityList.Remove(this);
+            BelongForce.CityBaseCount--;
+            if (IsCity()) BelongForce.CityCount--;
+            BelongForce.CityList.Remove(this);
 
             // 确认一个撤退城市
             City escapeCity = null;
-            if (this == mBelongForce.CapitalCity)
+            if (this == BelongForce.CapitalCity)
                 escapeCity = GetNearnestForceCity();
             else
-                escapeCity = mBelongForce.CapitalCity;
+                escapeCity = BelongForce.CapitalCity;
 
             // 最后一城,港关不算城市数量,必须要有最后一城
-            if (mBelongForce.CityCount == 0)
+            if (BelongForce.CityCount == 0)
             {
                 escapeCity = null;
             }
@@ -1763,12 +1786,12 @@ namespace Sango.Core
             // 必须优先处理队伍
             if (escapeCity == null)
             {
-                mBelongForce.IsAlive = false;
-                mBelongCorps.IsAlive = false;
+                BelongForce.IsAlive = false;
+                BelongCorps.IsAlive = false;
                 // 灭亡后,队伍要清除
                 scenario.troopsSet.ForEach((troop) =>
                 {
-                    if (troop.IsAlive && troop.mBelongForce == this.mBelongForce)
+                    if (troop.IsAlive && troop.BelongForce == this.BelongForce)
                         troop.Clear();
                 });
 
@@ -1776,7 +1799,7 @@ namespace Sango.Core
                 for (int i = 0; i < scenario.citySet.Count; ++i)
                 {
                     var c = scenario.citySet[i];
-                    if (c != null && c.mBelongForce == mBelongForce)
+                    if (c != null && c.BelongForce == BelongForce)
                     {
                         if (c.IsGate() || c.IsPort())
                         {
@@ -1811,14 +1834,14 @@ namespace Sango.Core
                 {
                     person.OnWillChangeToCity(escapeCity);
                     person.ChangeBelongCity(escapeCity);
-                    if (person.mTroop == null && person.mCurrentCity == this && person != person.mBelongForce.mGovernor && GameRandom.Chance(cacaptureChangce))
+                    if (person.mBelongTroop == null && person.CurrentCity == this && person != person.BelongForce.mGovernor && GameRandom.Chance(cacaptureChangce))
                     {
                         temp_captive_list.Add(person);
                     }
                     else
                     {
-                        if (person.mTroop == null)
-                            person.SetMission(MissionType.PersonReturn, person.mBelongCity);
+                        if (person.mBelongTroop == null)
+                            person.SetMission(MissionType.PersonReturn, person.BelongCity);
                     }
                 }
                 else
@@ -1836,7 +1859,7 @@ namespace Sango.Core
             {
                 if (building.isComplate && GameRandom.Chance(30))
                 {
-                    building.ChangeCorps(atk.mBelongCorps);
+                    building.ChangeCorps(atk.BelongCorps);
                     building.Builder?.Clear();
                     building.Workers?.Clear();
                 }
@@ -1850,69 +1873,69 @@ namespace Sango.Core
             Force destroyedForce = null;
             if (escapeCity == null)
             {
-                destroyedForce = mBelongForce;
-                mBelongCorps.IsAlive = false;
+                destroyedForce = BelongForce;
+                BelongCorps.IsAlive = false;
 #if SANGO_DEBUG
-                Sango.Log.Info($"{mBelongForce.Name} 灭亡!!!");
+                Sango.Log.Info($"{BelongForce.Name} 灭亡!!!");
 #endif
-                mBelongForce.IsAlive = false;
-                mBelongForce.BeCaptiveList.ForEach(x =>
+                BelongForce.IsAlive = false;
+                BelongForce.BeCaptiveList.ForEach(x =>
                 {
-                    if (x.mBelongForce == destroyedForce)
+                    if (x.BelongForce == destroyedForce)
                     {
-                        x.mBelongForce = null;
-                        x.mBelongCorps = null;
+                        x.BelongForce = null;
+                        x.BelongCorps = null;
                     }
                 });
-                mBelongForce.BeCaptiveList.Clear();
+                BelongForce.BeCaptiveList.Clear();
 
                 scenario.personSet.ForEach(x =>
                 {
-                    if (x.mBelongForce == mBelongForce)
+                    if (x.BelongForce == BelongForce)
                     {
                         x.ClearMission();
                         if (x.IsValid && !x.IsPrisoner)
                             x.LeaveToWild();
                         x.workingBuilding = null;
-                        x.mTroop = null;
-                        x.mBelongForce = null;
-                        x.mBelongCorps = null;
+                        x.mBelongTroop = null;
+                        x.BelongForce = null;
+                        x.BelongCorps = null;
                     }
                 });
 
                 scenario.corpsSet.ForEach(x =>
                 {
-                    if (x.mBelongForce == mBelongForce)
+                    if (x.BelongForce == BelongForce)
                         x.IsAlive = false;
                 });
 
                 // 势力灭亡事件
-                GameEvent.OnForceFall?.Invoke(mBelongForce, this, atk);
+                GameEvent.OnForceFall?.Invoke(BelongForce, this, atk);
 
                 bool allInOne = true;
                 scenario.citySet.ForEach(x =>
                 {
-                    if (x != this && x.IsCity() && x.mBelongForce != atk.mBelongForce)
+                    if (x != this && x.IsCity() && x.BelongForce != atk.BelongForce)
                         allInOne = false;
                 });
 
                 if (allInOne)
                 {
-                    Sango.Log.Info($"{Scenario.Cur.GetDateStr()} --> {atk.mBelongForce.Name} 统一!!!!!!!!!!!!!!");
+                    Sango.Log.Info($"{Scenario.Cur.GetDateStr()} --> {atk.BelongForce.Name} 统一!!!!!!!!!!!!!!");
                     scenario.OnGamePause();
                 }
             }
 
-            ChangeCorps(atk.mBelongCorps);
-            atk.mBelongForce.CityBaseCount++;
+            ChangeCorps(atk.BelongCorps);
+            atk.BelongForce.CityBaseCount++;
             if (IsCity())
             {
-                atk.mBelongForce.CityCount++;
+                atk.BelongForce.CityCount++;
             }
-            atk.mBelongForce.CityList.Add(this);
+            atk.BelongForce.CityList.Add(this);
             if (escapeCity != null)
                 lastBelongCorps.UpdateWhenCityChange();
-            atk.mBelongCorps.UpdateWhenCityChange();
+            atk.BelongCorps.UpdateWhenCityChange();
 
             // 处理库存和钱粮,兵力
             food = food * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepFoodFactor) * 10 + 10) / 100;
@@ -1948,7 +1971,7 @@ namespace Sango.Core
 
             GameEvent.OnCityFall?.Invoke(this, lastBelongForce, atk);
 
-            if (atk.mBelongCorps.IsPlayer)
+            if (atk.BelongCorps.IsPlayer)
             {
                 RenderEvent.Instance.Add(new Render.CityFallCompleteEvent()
                 {
@@ -1982,18 +2005,18 @@ namespace Sango.Core
             if (this == other)
                 return 0;
 
-            if (mBelongCity != null)
+            if (BelongCity != null)
             {
                 // 隶属范围内,需要1回合
-                if (mBelongCity == other) return 1;
-                return mBelongCity.Distance(other);
+                if (BelongCity == other) return 1;
+                return BelongCity.Distance(other);
             }
 
-            if (other.mBelongCity != null)
+            if (other.BelongCity != null)
             {
                 // 隶属范围内,需要1回合
-                if (other.mBelongCity == this) return 1;
-                other = other.mBelongCity;
+                if (other.BelongCity == this) return 1;
+                other = other.BelongCity;
             }
 
             return Scenario.Cur.GetCityDistance(this, other);
@@ -2007,9 +2030,9 @@ namespace Sango.Core
         {
             person.ChangeCurrentCity(this);
 #if SANGO_DEBUG
-            Sango.Log.Info($"[{person.mBelongForce.Name}]{person.Name}回到[{mBelongForce.Name}]<{Name}>");
+            Sango.Log.Info($"[{person.BelongForce.Name}]{person.Name}回到[{BelongForce.Name}]<{Name}>");
 #endif
-            GameEvent.OnPersonChangeBelongCity?.Invoke(person, person.mBelongCity, this);
+            GameEvent.OnPersonChangeBelongCity?.Invoke(person, person.BelongCity, this);
         }
 
         /// <summary>
@@ -2019,7 +2042,7 @@ namespace Sango.Core
         public void OnPersonTransformEnd(Person person, City from)
         {
 #if SANGO_DEBUG
-            Sango.Log.Info($"[{person.mBelongForce.Name}]{person.Name}到达[{mBelongForce.Name}]<{Name}>");
+            Sango.Log.Info($"[{person.BelongForce.Name}]{person.Name}到达[{BelongForce.Name}]<{Name}>");
 #endif
             GameEvent.OnPersonChangeBelongCity?.Invoke(person, from, this);
         }
@@ -2071,9 +2094,9 @@ namespace Sango.Core
         public Building BuildBuilding(Cell buildCenter, Troop builder, BuildingType buildingType)
         {
             Building building = new Building();
-            building.mBelongForce = mBelongForce;
-            building.mBelongCorps = mBelongCorps;
-            building.mBelongCity = this;
+            building.BelongForce = BelongForce;
+            building.BelongCorps = BelongCorps;
+            building.BelongCity = this;
             building.BuildingType = buildingType;
             building.x = buildCenter.x;
             building.y = buildCenter.y;
@@ -2095,7 +2118,7 @@ namespace Sango.Core
             builder.gold -= buildingType.cost;
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"[{mBelongForce.Name}]在<{Name}>由{builder.Name}开始修建: {building.Name}");
+            Sango.Log.Info($"[{BelongForce.Name}]在<{Name}>由{builder.Name}开始修建: {building.Name}");
 #endif
             building.Render.UpdateRender();
             return building;
@@ -2153,9 +2176,9 @@ namespace Sango.Core
         public Building JobBuildBuilding(Cell buildCenter, Person[] builders, BuildingType buildingType, int buildCount)
         {
             Building building = new Building();
-            building.mBelongForce = mBelongForce;
-            building.mBelongCorps = mBelongCorps;
-            building.mBelongCity = this;
+            building.BelongForce = BelongForce;
+            building.BelongCorps = BelongCorps;
+            building.BelongCity = this;
             building.BuildingType = buildingType;
             building.x = buildCenter.x;
             building.y = buildCenter.y;
@@ -2189,10 +2212,10 @@ namespace Sango.Core
             building.durability = 1;
             building.LeftCounter = buildCount;
             gold -= buildingType.cost;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.Build));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.Build));
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]在<{Name}>由{stringBuilder}开始修建: {building.Name} 需耗时:{buildCount} 回合");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]在<{Name}>由{stringBuilder}开始修建: {building.Name} 需耗时:{buildCount} 回合");
 #endif
             building.Render.UpdateRender();
             return building;
@@ -2234,12 +2257,12 @@ namespace Sango.Core
             building.Builder = sangoObjectList;
             building.LeftCounter = buildCount;
             gold -= upgradeBuildingType.cost;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.UpgradeBuilding));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.UpgradeBuilding));
 
             building.Render?.UpdateRender();
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]在<{Name}>由{stringBuilder}开始升级建筑: {building.Name} 需耗时: {buildCount}回合");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]在<{Name}>由{stringBuilder}开始升级建筑: {building.Name} 需耗时: {buildCount}回合");
 #endif
             return building;
         }
@@ -2344,7 +2367,7 @@ namespace Sango.Core
             }
 
             gold -= goldNeed;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
             building.ActionOver = true;
             SangoObjectList<Person> sangoObjectList = new SangoObjectList<Person>();
             for (int i = 0; i < personList.Length; i++)
@@ -2360,7 +2383,7 @@ namespace Sango.Core
             building.LeftCounter = turnCount;
             building.isWorking = true;
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了舰船生产!开始生产{itemType.Name}, 所需回合:{turnCount}, 建筑:{building.Name}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了舰船生产!开始生产{itemType.Name}, 所需回合:{turnCount}, 建筑:{building.Name}");
 #endif
             ClearJobFeature();
             return null;
@@ -2417,6 +2440,7 @@ namespace Sango.Core
                 if (person == null) continue;
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
                 person.ClearMission();
 #if SANGO_DEBUG
                 stringBuilder.Append(person.Name);
@@ -2447,10 +2471,10 @@ namespace Sango.Core
             totalValue = Math.Min(empty, totalValue);
             int exsistNumber = itemStore.Add(itemType.storeKind, totalValue);
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了船只生产!共生产了{totalValue}{itemType.Name}, 当前数量:{exsistNumber}, 建筑:{building.Name}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了船只生产!共生产了{totalValue}{itemType.Name}, 当前数量:{exsistNumber}, 建筑:{building.Name}");
 #endif
 
             Render?.ShowInfo(totalValue, itemType.Id + 1);
@@ -2563,7 +2587,7 @@ namespace Sango.Core
             }
 
             gold -= goldNeed;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
 
             building.ActionOver = true;
             SangoObjectList<Person> sangoObjectList = new SangoObjectList<Person>();
@@ -2582,7 +2606,7 @@ namespace Sango.Core
             building.isWorking = true;
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了器械生产!开始生产{itemType.Name}, 所需回合:{turnCount}, 建筑:{building.Name}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了器械生产!开始生产{itemType.Name}, 所需回合:{turnCount}, 建筑:{building.Name}");
 #endif
             Render?.UpdateRender();
             ClearJobFeature();
@@ -2638,6 +2662,7 @@ namespace Sango.Core
                 if (person == null) continue;
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
                 person.ClearMission();
 #if SANGO_DEBUG
                 stringBuilder.Append(person.Name);
@@ -2665,10 +2690,10 @@ namespace Sango.Core
             totalValue = Math.Min(empty, totalValue);
             int exsistNumber = itemStore.Add(itemType.storeKind, totalValue);
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了器械生产!共生产了{totalValue}{itemType.Name}, 当前数量:{exsistNumber}, 建筑:{building.Name}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了器械生产!共生产了{totalValue}{itemType.Name}, 当前数量:{exsistNumber}, 建筑:{building.Name}");
 #endif
 
             Render?.ShowInfo(totalValue, itemType.Id + 1);
@@ -2740,6 +2765,7 @@ namespace Sango.Core
 
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
                 freePersons.Remove(person);
 #if SANGO_DEBUG
                 stringBuilder.Append(person.Name);
@@ -2752,9 +2778,9 @@ namespace Sango.Core
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
             gold -= goldNeed;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
             agriculture += totalValue;
             if (agriculture > AgricultureLimit)
                 agriculture = AgricultureLimit;
@@ -2762,7 +2788,7 @@ namespace Sango.Core
             Render?.ShowInfo(totalValue, (int)InfoType.Food);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了开垦!农业值达到了:{agriculture}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了开垦!农业值达到了:{agriculture}");
 #endif
             ClearJobFeature();
             return totalValue;
@@ -2833,6 +2859,7 @@ namespace Sango.Core
 
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
 
                 freePersons.Remove(person);
 #if SANGO_DEBUG
@@ -2846,9 +2873,9 @@ namespace Sango.Core
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
             gold -= goldNeed;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
             commerce += totalValue;
             if (commerce > CommerceLimit)
                 commerce = CommerceLimit;
@@ -2856,7 +2883,7 @@ namespace Sango.Core
             Render?.ShowInfo(totalValue, (int)InfoType.Gold);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了开发!商业值达到了:{commerce}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了开发!商业值达到了:{commerce}");
 #endif
             ClearJobFeature();
             return totalValue;
@@ -3096,6 +3123,7 @@ namespace Sango.Core
 
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
 
                 freePersons.Remove(person);
 #if SANGO_DEBUG
@@ -3109,9 +3137,9 @@ namespace Sango.Core
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
             gold -= goldNeed;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
             security += totalValue;
             if (security > 100)
                 security = 100;
@@ -3119,7 +3147,7 @@ namespace Sango.Core
             Render?.ShowInfo(totalValue, (int)InfoType.Security);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了巡视!治安提升到了:{security}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了巡视!治安提升到了:{security}");
 #endif
             ClearJobFeature();
             return totalValue;
@@ -3212,6 +3240,7 @@ namespace Sango.Core
                 if (person == null) continue;
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
 
                 freePersons.Remove(person);
 #if SANGO_DEBUG
@@ -3224,11 +3253,11 @@ namespace Sango.Core
             overrideData = Tools.OverrideData<int>.Create(techniquePointGain);
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
 
             gold -= goldNeed;
             morale += totalValue;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
             if (morale > MaxMorale)
                 morale = MaxMorale;
 
@@ -3236,7 +3265,7 @@ namespace Sango.Core
             Render?.ShowInfo(totalValue, (int)InfoType.Morale);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了训练!士气提升到了:{morale}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了训练!士气提升到了:{morale}");
 #endif
             ClearJobFeature();
             return totalValue;
@@ -3257,19 +3286,19 @@ namespace Sango.Core
             int apCost = JobType.GetJobCostAP(jobId);
 
             freePersons.Remove(person);
-            if (dest.mCurrentCity == person.mCurrentCity)
+            if (dest.CurrentCity == person.CurrentCity)
             {
                 CityRecruitPersonEvent te = RenderEvent.Instance.Create<CityRecruitPersonEvent>();
                 te.Init(person, dest);
                 RenderEvent.Instance.Add(te);
-                mBelongCorps.ReduceActionPoint(apCost);
+                BelongCorps.ReduceActionPoint(apCost);
                 return true;
             }
             else
             {
-                person.SetMission(MissionType.PersonRecruitPerson, dest, 100, dest.mCurrentCity.Id);
+                person.SetMission(MissionType.PersonRecruitPerson, dest, 100, dest.CurrentCity.Id);
                 person.ActionOver = true;
-                mBelongCorps.ReduceActionPoint(apCost);
+                BelongCorps.ReduceActionPoint(apCost);
                 return false;
             }
         }
@@ -3309,11 +3338,11 @@ namespace Sango.Core
                 person.loyalty += CalcRewardLoyaltyGain(person);
             }
             gold -= totalGoldCost;
-            mBelongCorps.ReduceActionPoint(totalApCost);
-            mBelongCorps.AddJobCounter(jobId);
+            BelongCorps.ReduceActionPoint(totalApCost);
+            BelongCorps.AddJobCounter(jobId);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]在<{Name}>使用资金对{stringBuilder}进行了褒赏!!");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]在<{Name}>使用资金对{stringBuilder}进行了褒赏!!");
 #endif
             return true;
         }
@@ -3346,10 +3375,10 @@ namespace Sango.Core
             // 褒奖忠诚：与多人褒奖同一套口径（保底 11 + 性格忠诚影响值的概率偏移）
             person.loyalty += CalcRewardLoyaltyGain(person);
             gold -= goldCost;
-            mBelongCorps.ReduceActionPoint(apCost);
+            BelongCorps.ReduceActionPoint(apCost);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]在<{Name}>使用资金对{stringBuilder}进行了褒赏!! 忠诚从{lastLoyalty}提升到->{person.loyalty}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]在<{Name}>使用资金对{stringBuilder}进行了褒赏!! 忠诚从{lastLoyalty}提升到->{person.loyalty}");
 #endif
             return true;
         }
@@ -3392,7 +3421,7 @@ namespace Sango.Core
             freePersons.Remove(person);
             InitJobFeature(person);
 
-            mBelongCorps.ReduceActionPoint(apCost);
+            BelongCorps.ReduceActionPoint(apCost);
 
             // 支持发现港关人才
             List<Person> invisible = new List<Person>(invisiblePersons);
@@ -3415,17 +3444,18 @@ namespace Sango.Core
                     if (IsPlayer)
                     {
                         PlayerMessage.AddTextMessage($"{person.ColorName}在{ColorName}发现人才{target.ColorName}。",
-                            mBelongForce, x, y);
+                            BelongForce, x, y);
                     }
 
 #if SANGO_DEBUG
-                    Sango.Log.Info($"@内政@[{mBelongForce.Name}]<{Name}>的{person.Name}发现了人才->{target.Name}");
+                    Sango.Log.Info($"@内政@[{BelongForce.Name}]<{Name}>的{person.Name}发现了人才->{target.Name}");
 #endif
-                    target.mCurrentCity.RemoveInvisiblePerson(target);
-                    target.mCurrentCity.AddWildPerson(target);
+                    target.CurrentCity.RemoveInvisiblePerson(target);
+                    target.CurrentCity.AddWildPerson(target);
 
                     person.merit += meritGain;
                     person.GainExp(meritGain);
+                    person.GainJobAttributeExp(jobId);      // 搜索(找到人物) → 智力经验
                     person.ActionOver = true;
                     ClearJobFeature();
                     return 0;
@@ -3449,13 +3479,14 @@ namespace Sango.Core
                 if (IsPlayer)
                 {
                     PlayerMessage.AddTextMessage($"{person.ColorName}在{ColorName}发现资金{findGold}。",
-                        mBelongForce, x, y);
+                        BelongForce, x, y);
                 }
                 AddGold(findGold);
                 Render?.ShowInfo(findGold, (int)InfoType.Gold);
 
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
                 person.ActionOver = true;
                 ClearJobFeature();
                 return findGold;
@@ -3469,11 +3500,12 @@ namespace Sango.Core
                 if (IsPlayer)
                 {
                     PlayerMessage.AddTextMessage($"{person.ColorName}在{ColorName}什么也没发现。",
-                        mBelongForce, x, y);
+                        BelongForce, x, y);
                 }
 
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
                 person.ActionOver = true;
             }
 
@@ -3481,7 +3513,7 @@ namespace Sango.Core
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, new Person[] { person }, overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
             ClearJobFeature();
             return -1;
         }
@@ -3501,7 +3533,7 @@ namespace Sango.Core
             troops += rs;
             woundedTroops -= rs;
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]<{Name}>进行了士兵治愈!共治愈到{rs}人, 当前士兵提升到了:{troops}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]<{Name}>进行了士兵治愈!共治愈到{rs}人, 当前士兵提升到了:{troops}");
 #endif
             return true;
         }
@@ -3603,6 +3635,7 @@ namespace Sango.Core
                 if (person == null) continue;
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
                 freePersons.Remove(person);
 #if SANGO_DEBUG
                 stringBuilder.Append(person.Name);
@@ -3624,9 +3657,9 @@ namespace Sango.Core
 
             //治安减少
             security -= Math.Min(6, 4 * totalValue / 1000);
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
 
             barracks.ActionOver = true;
 
@@ -3634,7 +3667,7 @@ namespace Sango.Core
             Render?.ShowInfo(totalValue, (int)InfoType.Troop);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了招募!共招募到{troops - lastTroops}人, 当前士兵人数提升到了:{troops}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了招募!共招募到{troops - lastTroops}人, 当前士兵人数提升到了:{troops}");
 #endif
             ClearJobFeature();
             return totalValue;
@@ -3727,7 +3760,7 @@ namespace Sango.Core
                 return totalValue;
             }
 
-            int meritGain = JobType.GetJobLimit(jobId);
+            int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
 
 #if SANGO_DEBUG
@@ -3740,6 +3773,7 @@ namespace Sango.Core
 
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
 
                 freePersons.Remove(person);
 #if SANGO_DEBUG
@@ -3756,9 +3790,9 @@ namespace Sango.Core
             techniquePointGain = overrideData.ValueAndRecycle;
             building.ActionOver = true;
             gold -= goldNeed;
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
 
             if (itemType.Id == 2)
                 Render?.ShowInfo(totalValue, 1);
@@ -3768,7 +3802,7 @@ namespace Sango.Core
                 Render?.ShowInfo(totalValue, itemType.Id);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@内政@[{mBelongForce.Name}]{stringBuilder}对<{Name}>进行了生产兵装!共生产了{totalValue}{itemType.Name}, 当前数量:{exsistNumber}, 建筑:{building.Name}");
+            Sango.Log.Info($"@内政@[{BelongForce.Name}]{stringBuilder}对<{Name}>进行了生产兵装!共生产了{totalValue}{itemType.Name}, 当前数量:{exsistNumber}, 建筑:{building.Name}");
 #endif
             ClearJobFeature();
             return totalValue;
@@ -3791,7 +3825,7 @@ namespace Sango.Core
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.TradeFood;
 
-            int meritGain = JobType.GetJobLimit(jobId);
+            int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
 
             Person person = personList[0];
@@ -3801,6 +3835,7 @@ namespace Sango.Core
 
             person.merit += meritGain;
             person.GainExp(meritGain);
+            person.GainJobAttributeExp(jobId);          // 交易粮食 → 政治经验
             freePersons.Remove(person);
             person.ActionOver = true;
 
@@ -3834,7 +3869,7 @@ namespace Sango.Core
                 Render?.ShowInfo(-goldNum, (int)InfoType.Gold);
                 Render?.ShowInfo(totalValue, (int)InfoType.Food);
 #if SANGO_DEBUG
-                Sango.Log.Info($"@内政@[{mBelongForce.Name}]{person.Name}在<{Name}>花费{goldNum}交易到了{totalValue}粮食, 现有粮食:{food}");
+                Sango.Log.Info($"@内政@[{BelongForce.Name}]{person.Name}在<{Name}>花费{goldNum}交易到了{totalValue}粮食, 现有粮食:{food}");
 #endif
             }
             else
@@ -3849,15 +3884,15 @@ namespace Sango.Core
                 Render?.ShowInfo(totalValue, (int)InfoType.Food);
 
 #if SANGO_DEBUG
-                Sango.Log.Info($"@内政@[{mBelongForce.Name}]{person.Name}在<{Name}>花费{-goldNum}交易到了{totalValue}资金, 现有资金:{gold}");
+                Sango.Log.Info($"@内政@[{BelongForce.Name}]{person.Name}在<{Name}>花费{-goldNum}交易到了{totalValue}资金, 现有资金:{gold}");
 #endif
             }
 
-            mBelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
 
             AddJobCounter(jobId);
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
 
             ClearJobFeature();
             return true;

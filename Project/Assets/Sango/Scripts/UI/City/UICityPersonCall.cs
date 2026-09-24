@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System.Collections.Generic;
 using UnityEngine.UI;
 
@@ -54,7 +54,7 @@ using Sango.Core; namespace Sango.UI
         public void OnSelectPerson()
         {
             List<Person> list = new List<Person>();
-            currentSystem.TargetCity.mBelongForce.ForEachCityBase(city =>
+            currentSystem.TargetCity.BelongForce.ForEachCityBase(city =>
             {
                 if (city != currentSystem.TargetCity)
                 {
@@ -65,7 +65,7 @@ using Sango.Core; namespace Sango.UI
             GameSystem.GetSystem<PersonSelectSystem>().Start(list,
              currentSystem.personList, list.Count, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
 
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.CallPerson)}/{currentSystem.TargetCity.mBelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.CallPerson)}/{currentSystem.TargetCity.BelongCorps.ActionPoint}";
 
 
         }

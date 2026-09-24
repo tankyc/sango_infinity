@@ -1,4 +1,4 @@
-﻿
+
 using Sango.Render;
 using System.Collections.Generic;
 using TKNewtonsoft.Json;
@@ -17,40 +17,91 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 所属势力
+        /// 所属势力的 id（存档数值）。注意：字段名一直叫 BelongForceId，但过去存的是对象，
+        /// 这里改回"id + 对象访问器"，并把 JSON 键钉回最初的 BelongForce。
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Force>))]
-        [JsonProperty]
-        public Force BelongForce;
+        [JsonProperty("BelongForce")]
+        public int BelongForceId;
+
+        Force mBelongForce;
+        public Force BelongForce
+        {
+            get
+            {
+                if (mBelongForce == null && BelongForceId > 0) mBelongForce = IdRef.Resolve<Force>(BelongForceId);
+                return mBelongForce;
+            }
+            set { mBelongForce = value; BelongForceId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
-        /// 所属势力
+        /// 所属军团的 id（存档数值）
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Corps>))]
-        [JsonProperty]
-        public Corps BelongCorps;
+        [JsonProperty("BelongCorps")]
+        public int BelongCorpsId;
+
+        Corps mBelongCorps;
+        public Corps BelongCorps
+        {
+            get
+            {
+                if (mBelongCorps == null && BelongCorpsId > 0) mBelongCorps = IdRef.Resolve<Corps>(BelongCorpsId);
+                return mBelongCorps;
+            }
+            set { mBelongCorps = value; BelongCorpsId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
-        /// 所属城池
+        /// 所属城池的 id（存档数值）
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<City>))]
-        [JsonProperty]
-        public City BelongCity;
+        [JsonProperty("BelongCity")]
+        public int BelongCityId;
+
+        City mBelongCity;
+        public City BelongCity
+        {
+            get
+            {
+                if (mBelongCity == null && BelongCityId > 0) mBelongCity = IdRef.Resolve<City>(BelongCityId);
+                return mBelongCity;
+            }
+            set { mBelongCity = value; BelongCityId = value != null ? value.Id : 0; }
+        }
 
 
         /// <summary>
-        /// 统领
+        /// 统领的 id（存档数值）
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Person>))]
-        [JsonProperty]
-        public Person Leader;
+        [JsonProperty("Leader")]
+        public int LeaderId;
+
+        Person mLeader;
+        public Person Leader
+        {
+            get
+            {
+                if (mLeader == null && LeaderId > 0) mLeader = IdRef.Resolve<Person>(LeaderId);
+                return mLeader;
+            }
+            set { mLeader = value; LeaderId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
-        /// 部队类型
+        /// 部队类型的 id（存档数值）
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<TroopType>))]
-        [JsonProperty]
-        public TroopType TroopType;
+        [JsonProperty("TroopType")]
+        public int TroopTypeId;
+
+        TroopType mTroopType;
+        public TroopType TroopType
+        {
+            get
+            {
+                if (mTroopType == null && TroopTypeId > 0) mTroopType = IdRef.Resolve<TroopType>(TroopTypeId);
+                return mTroopType;
+            }
+            set { mTroopType = value; TroopTypeId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
         /// 士气

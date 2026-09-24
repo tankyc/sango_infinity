@@ -1,4 +1,4 @@
-﻿using Sango.Core.Tools;
+using Sango.Core.Tools;
 using TKNewtonsoft.Json.Linq;
 
 namespace Sango.Core.Action
@@ -22,7 +22,7 @@ namespace Sango.Core.Action
 
         void OnTroopCalculateAttribute(Troop troop, Scenario scenario)
         {
-            if (Force != troop.mBelongForce) return;
+            if (Force != troop.BelongForce) return;
             if (kinds == null)
             {
                 troop.landDefence += value;

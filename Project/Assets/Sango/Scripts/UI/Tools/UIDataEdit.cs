@@ -18,7 +18,7 @@ namespace Sango.UI
     /// 3.IntInput（int文本输入） 4.IntCalculator（UICalculator输入）
     /// 5.HeadIcon（头像选择） 6.Object（对象类型，复合修改）
     /// 7.CitySelect（城池选择，通过UISelectCityWorldMap世界地图选城）
-    /// 8.SpouseList（配偶列表修改，特殊数据修改接口） 9.FeatureList（特技列表修改，特殊数据修改接口）
+    /// 8.SpouseListId（配偶列表修改，特殊数据修改接口） 9.FeatureListId（特技列表修改，特殊数据修改接口）
     /// 10.TextArea（多行文本） 11.BoolDropdown（布尔下拉 是/否/无）
     /// 12.FloatInput（浮点文本输入） 13.FloatCalculator（浮点计算输入，复用FloatInput控件）
     /// 14.ColorPicker（颜色修改，兼容Color与Color32） 15.ObjectList（对象列表多选，走对象选择器）
@@ -64,7 +64,7 @@ namespace Sango.UI
         public RawImage headIconImage;         // 头像预览
         public Button headButton;              // 打开头像选择窗口的按钮
 
-        // 6.对象类型编辑区（Object / ObjectList / IdArray / SpouseList / FeatureList）
+        // 6.对象类型编辑区（Object / ObjectList / IdArray / SpouseListId / FeatureListId）
         public GameObject objectEditRoot;      // 对象编辑根节点
         public Text objectValueText;           // 当前对象/对象列表显示
         public Button objectSelectButton;      // 打开对象选择器的按钮
@@ -653,7 +653,7 @@ namespace Sango.UI
             Target = Targets[0];
 
             // 配偶修改存在唯一约束（一个武将只能被一个其他武将登记为配偶），不支持多对象批量修改
-            if (Targets.Count > 1 && EditType == DataEditType.SpouseList)
+            if (Targets.Count > 1 && EditType == DataEditType.SpouseListId)
             {
                 Log.Warning("配偶不支持多对象批量修改,仅修改 " + Target.Name);
                 Targets.Clear();
@@ -767,8 +767,8 @@ namespace Sango.UI
             bool showObject = EditType == DataEditType.Object;
             bool showCitySelect = EditType == DataEditType.CitySelect;
             // 对象列表类编辑（配偶/特技/通用对象列表/Id集合）复用对象编辑区
-            bool showSpouseList = EditType == DataEditType.SpouseList;
-            bool showFeatureList = EditType == DataEditType.FeatureList;
+            bool showSpouseList = EditType == DataEditType.SpouseListId;
+            bool showFeatureList = EditType == DataEditType.FeatureListId;
             bool showObjectList = EditType == DataEditType.ObjectList || EditType == DataEditType.IdArray;
             bool showListEdit = showSpouseList || showFeatureList || showObjectList;
             // 多行文本类编辑（多行文本/Json）
@@ -1008,7 +1008,7 @@ namespace Sango.UI
         protected void RefreshObjectView()
         {
             bool isObject = EditType == DataEditType.Object;
-            bool isListEdit = EditType == DataEditType.SpouseList || EditType == DataEditType.FeatureList
+            bool isListEdit = EditType == DataEditType.SpouseListId || EditType == DataEditType.FeatureListId
                 || EditType == DataEditType.ObjectList || EditType == DataEditType.IdArray;
             bool isIdArray = EditType == DataEditType.IdArray;
 
@@ -2121,10 +2121,10 @@ namespace Sango.UI
                 case DataEditType.ObjectList:
                     curValue = new List<SangoObject>();
                     break;
-                case DataEditType.SpouseList:
+                case DataEditType.SpouseListId:
                     curValue = new List<Person>();
                     break;
-                case DataEditType.FeatureList:
+                case DataEditType.FeatureListId:
                     curValue = new List<Feature>();
                     break;
                 case DataEditType.ColorPicker:
@@ -2200,12 +2200,12 @@ namespace Sango.UI
             }
 
             // 特殊数据修改接口：配偶/特技使用各自的多选选择器
-            if (EditType == DataEditType.SpouseList)
+            if (EditType == DataEditType.SpouseListId)
             {
                 StartSpouseListSelect(scenario);
                 return;
             }
-            if (EditType == DataEditType.FeatureList)
+            if (EditType == DataEditType.FeatureListId)
             {
                 StartFeatureListSelect(scenario);
                 return;
@@ -2506,7 +2506,7 @@ namespace Sango.UI
             scenario.personSet.ForEach(other =>
             {
                 if (other == null || other == target) return;
-                if (other.mSpouseList != null && other.mSpouseList.Contains(person))
+                if (other.SpouseList != null && other.SpouseList.Contains(person))
                 {
                     registered = true;
                 }
@@ -2543,9 +2543,9 @@ namespace Sango.UI
             List<Person> candidates = BuildSpouseCandidates(scenario, target);
             List<Person> initial = GetObjectListValue<Person>();
             // 已登记在目标名下的旧配偶必须保留在候选中，保证可查看与反选
-            if (target.mSpouseList != null)
+            if (target.SpouseList != null)
             {
-                foreach (Person spouse in target.mSpouseList)
+                foreach (Person spouse in target.SpouseList)
                 {
                     if (spouse != null && !candidates.Contains(spouse))
                     {

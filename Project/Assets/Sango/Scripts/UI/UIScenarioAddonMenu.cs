@@ -1,4 +1,4 @@
-﻿using Sango;
+using Sango;
 using Sango.Core;
 using Sango.Core.Player;
 using System;
@@ -115,7 +115,7 @@ namespace Sango.UI
             {
                 if (x.targetShortPersonId <= 0)
                     return false;
-                return x.BelongCity(scenario) > 0;
+                return x.BelongCityId(scenario) > 0;
             });
 
             LastSelected = persons.FindAll(x => x.targetShortPersonId > 0);
@@ -318,7 +318,7 @@ namespace Sango.UI
             if (uIEditWorldMap == null || uIEditWorldMap.selecte_list == null || uIEditWorldMap.selecte_list.Count == 0)
                 return null;
             ShortCity city = uIEditWorldMap.selecte_list[uIEditWorldMap.selecte_list.Count - 1];
-            if (city == null || city.BelongForce != 0)
+            if (city == null || city.BelongForceId != 0)
                 return null;
             return city;
         }

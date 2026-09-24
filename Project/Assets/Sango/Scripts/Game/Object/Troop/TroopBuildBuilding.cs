@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Sango.Core
@@ -46,7 +46,7 @@ namespace Sango.Core
         {
             if (Troop != troop) Troop = troop;
             if (TargetBuildingType == null || TargetBuildingType.Id != troop.missionTarget) TargetBuildingType = scenario.GetObject<BuildingType>(Troop.missionTarget);
-            if (TargetCity == null) TargetCity = troop.mBelongCity;
+            if (TargetCity == null) TargetCity = troop.BelongCity;
 
             // 【连续建造】目标格需每次都核对：工程队建完一座后会被改派到新的建址，
             // 原来的"仅在 TargetCell == null 时赋值"会导致它一直围着旧目标打转。
@@ -79,9 +79,9 @@ namespace Sango.Core
                     return;
                 }
 
-                if (Troop.mBelongCity != null && Troop.mBelongCity.IsSameForce(Troop))
+                if (Troop.BelongCity != null && Troop.BelongCity.IsSameForce(Troop))
                 {
-                    Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
+                    Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 }
                 else if (TargetCity != null)
                 {
@@ -151,10 +151,10 @@ namespace Sango.Core
                 return false;
 
             Troop troop = Troop;
-            if (troop == null || troop.cell == null || troop.mBelongForce == null)
+            if (troop == null || troop.cell == null || troop.BelongForce == null)
                 return false;
 
-            List<BuildingType> candidates = troop.mBelongForce.canBuildMilitaryBuildingType;
+            List<BuildingType> candidates = troop.BelongForce.canBuildMilitaryBuildingType;
             if (candidates == null || candidates.Count == 0)
                 return false;
 
@@ -181,7 +181,7 @@ namespace Sango.Core
                     return;                     // 刚建完的位置不再考虑
 
                 BattleSituation.FrontSiteInfo info =
-                    BattleSituation.EvaluateFrontSite(cell, troop.mBelongForce, scenario);
+                    BattleSituation.EvaluateFrontSite(cell, troop.BelongForce, scenario);
                 if (!info.isValid || info.cell == null)
                     return;
 
@@ -192,7 +192,7 @@ namespace Sango.Core
             if (!best.isValid || best.cell == null)
                 return false;
 
-            BuildingType next = BattleSituation.SelectFrontBuildingType(best, troop.mBelongForce, scenario);
+            BuildingType next = BattleSituation.SelectFrontBuildingType(best, troop.BelongForce, scenario);
             if (next == null || troop.gold < next.cost)
                 return false;
 

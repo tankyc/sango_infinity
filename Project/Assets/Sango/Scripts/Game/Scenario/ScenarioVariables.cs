@@ -34,9 +34,11 @@ namespace Sango.Core
         [JsonProperty] public bool EnableAgeAbilityFactor = true;
 
         /// <summary>
-        /// 能力每级经验
+        /// 能力每级经验（兵种适性每一级所需经验）。
+        /// 节奏参考：一部队一年约 15 次战斗结算，默认每次攻击结算 3 点 → 约 45 点/年，
+        /// 一级 100 点 ≈ 2.2 年，10 级满级 ≈ 22 年。
         /// </summary>
-        [JsonProperty] public ushort AbilityExpLevelNeed = 1000;
+        [JsonProperty] public ushort AbilityExpLevelNeed = 100;
 
         /// <summary>
         /// 最高能力等级
@@ -52,6 +54,31 @@ namespace Sango.Core
         /// 属性成长不超过这个点数
         /// </summary>
         [JsonProperty] public byte MaxAttributeGet = 30;
+
+        /// <summary>
+        /// 功绩获取配置（键 = GainPlace，缺省回落到内置默认值）
+        /// </summary>
+        [JsonProperty] public GainValueConfig meritGain = new GainValueConfig();
+
+        /// <summary>
+        /// 技巧点获取配置（键 = GainPlace）
+        /// </summary>
+        [JsonProperty] public GainValueConfig techniquePointGain = new GainValueConfig();
+
+        /// <summary>
+        /// 武将等级经验获取配置（键 = GainPlace）
+        /// </summary>
+        [JsonProperty] public GainValueConfig expGain = new GainValueConfig();
+
+        /// <summary>
+        /// 兵种适性经验获取配置（键 = GainPlace，目前尚无产出点）
+        /// </summary>
+        [JsonProperty] public GainValueConfig abilityExpGain = new GainValueConfig();
+
+        /// <summary>
+        /// 能力(属性)经验获取配置（键 = GainPlace）
+        /// </summary>
+        [JsonProperty] public GainValueConfig attributeExpGain = new GainValueConfig();
 
         /// <summary>
         /// 基础伤害

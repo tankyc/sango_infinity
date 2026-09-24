@@ -25,7 +25,7 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.DiscardAlliance) && TargetCity.gold >= 1000;
+                return TargetCity.freePersons.Count > 0 && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.DiscardAlliance) && TargetCity.gold >= 1000;
             }
         }
 
@@ -52,7 +52,7 @@ namespace Sango.Core.Player
             if (targetForces.Count <= 0)
                 return;
 
-            TargetCity.mBelongForce.AllianceList.ForEach(x =>
+            TargetCity.BelongForce.AllianceList.ForEach(x =>
             {
                 if(x.Contains(targetForces[0]))
                 {

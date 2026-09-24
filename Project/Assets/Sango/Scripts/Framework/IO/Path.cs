@@ -71,9 +71,9 @@ namespace Sango
 #endif
 
 #endif
-            ContentRootPath.Replace("\\", "/");
-            CustomEditRootPath.Replace("\\", "/");
-            ModRootPath.Replace("\\", "/");
+            ContentRootPath = ContentRootPath.Replace("\\", "/");
+            CustomEditRootPath = CustomEditRootPath.Replace("\\", "/");
+            ModRootPath = ModRootPath.Replace("\\", "/");
             Log.Info("游戏内容目录: " + ContentRootPath, Log.LogType.Game);
             Log.Info("游戏Mod目录: " + ModRootPath, Log.LogType.Game);
             Log.Info("游戏存档目录: " + SaveRootPath, Log.LogType.Game);

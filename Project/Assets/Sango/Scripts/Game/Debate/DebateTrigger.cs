@@ -1,4 +1,4 @@
-﻿/*
+/*
  * 文件名：DebateTrigger.cs
  * 描述：舌战的玩法触发点（对应单挑的 Game/Duel/DuelSkillTrigger.cs）
  *
@@ -70,7 +70,7 @@ namespace Sango.Core.Debate
             if (target.IsWild) return true;
 
             // 没有势力的俘虏（例如所属势力已灭亡，只剩下俘虏身份）
-            if (target.IsPrisoner && target.mBelongForce == null) return true;
+            if (target.IsPrisoner && target.BelongForce == null) return true;
 
             return false;
         }

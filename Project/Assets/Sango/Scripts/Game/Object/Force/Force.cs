@@ -50,7 +50,7 @@ namespace Sango.Core
         {
             get
             {
-                return isAlive && mGovernor != null && mGovernor.mBelongCity != null;
+                return isAlive && mGovernor != null && mGovernor.BelongCity != null;
             }
             set
             {
@@ -71,12 +71,12 @@ namespace Sango.Core
         /// <summary>
         /// 首都, 必须是君主所在城市,无论港关
         /// </summary>
-        public City CapitalCity => mGovernor?.mBelongCity;
+        public City CapitalCity => mGovernor?.BelongCity;
 
         /// <summary>
         /// 第一军团
         /// </summary>
-        public Corps CapitalCorps => mGovernor?.mBelongCorps;
+        public Corps CapitalCorps => mGovernor?.BelongCorps;
 
         /// <summary>
         /// 主公
@@ -102,11 +102,24 @@ namespace Sango.Core
         public Flag mFlag { get; set; }
 
         /// <summary>
-        /// 爵位
+        /// 爵位的 id（存档数值），读取 Title 时按需解析
         /// </summary>
-        [JsonConverter(typeof(Id2ObjConverter<Title>))]
-        [JsonProperty]
-        public Title Title { get; set; }
+        [JsonProperty("Title")]
+        public int TitleId;
+
+        Title mTitle;
+        /// <summary>
+        /// 爵位；写入时自动同步 TitleId
+        /// </summary>
+        public Title Title
+        {
+            get
+            {
+                if (mTitle == null && TitleId > 0) mTitle = IdRef.Resolve<Title>(TitleId);
+                return mTitle;
+            }
+            set { mTitle = value; TitleId = value != null ? value.Id : 0; }
+        }
 
         /// <summary>
         /// 联盟信息
@@ -611,7 +624,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
                 Corps corps = scenario.corpsSet[i];
-                if (corps != null && corps.IsAlive && corps.mBelongForce == this && !corps.ActionOver)
+                if (corps != null && corps.IsAlive && corps.BelongForce == this && !corps.ActionOver)
                 {
                     CurRunCorps = corps;
                     if (!corps.Run(scenario))
@@ -714,7 +727,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
                 var c = scenario.buildingSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnForceTurnStart(scenario);
                     buildingBaseList.Enqueue(c);
@@ -724,7 +737,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.personSet.Count; ++i)
             {
                 var c = scenario.personSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     PersonCount++;
                     c.OnForceTurnStart(scenario);
@@ -734,7 +747,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
                 var c = scenario.corpsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnForceTurnStart(scenario);
                 }
@@ -745,7 +758,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
                 var c = scenario.troopsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnForceTurnStart(scenario);
                 }
@@ -759,11 +772,11 @@ namespace Sango.Core
                 List<City> checkedCity = null;
                 foreach (Troop troop in scenario.troopsSet)
                 {
-                    if (troop != null && troop.IsAlive && troop.mBelongForce != this && troop.IsNewTroop && troop.missionType == (int)MissionType.TroopOccupyCity)
+                    if (troop != null && troop.IsAlive && troop.BelongForce != this && troop.IsNewTroop && troop.missionType == (int)MissionType.TroopOccupyCity)
                     {
                         // 检查任务目标是否为我方城池
                         var targetCity = scenario.GetObject<City>(troop.missionTarget);
-                        if (targetCity != null && targetCity.mBelongForce == this)
+                        if (targetCity != null && targetCity.BelongForce == this)
                         {
                             // 根据军师智力计算发现概率
                             int baseProbability = scenario.Variables.discoverEnemyTroopBaseProbability;
@@ -778,7 +791,7 @@ namespace Sango.Core
                             if (GameRandom.Chance(totalProbability, 10000))
                             {
                                 // 获取部队所属城市的位置
-                                var troopCity = troop.mBelongCity;
+                                var troopCity = troop.BelongCity;
                                 if (troopCity != null)
                                 {
                                     if (checkedCity == null)
@@ -831,7 +844,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
 
                     c.OnForceTurnStart(scenario);
@@ -850,11 +863,11 @@ namespace Sango.Core
                             if (!neighbor.IsSameForce(c))
                             {
                                 c.borderLine = 0;
-                                if (neighbor.mBelongForce != null)
+                                if (neighbor.BelongForce != null)
                                 {
-                                    if (!NeighborForceList.Contains(neighbor.mBelongForce))
+                                    if (!NeighborForceList.Contains(neighbor.BelongForce))
                                     {
-                                        NeighborForceList.Add(neighbor.mBelongForce);
+                                        NeighborForceList.Add(neighbor.BelongForce);
                                     }
                                 }
 
@@ -873,7 +886,7 @@ namespace Sango.Core
                 for (int i = 0; i < scenario.citySet.Count; ++i)
                 {
                     var c = scenario.citySet[i];
-                    if (c != null && c.IsAlive && c.mBelongForce == this && c.borderLine < 0)
+                    if (c != null && c.IsAlive && c.BelongForce == this && c.borderLine < 0)
                     {
                         int minBorder = 99;
                         // 计算相邻势力
@@ -906,7 +919,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.personSet.Count; ++i)
             {
                 var c = scenario.personSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnForceTurnEnd(scenario);
                 }
@@ -915,7 +928,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
                 var c = scenario.corpsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnForceTurnEnd(scenario);
                 }
@@ -924,7 +937,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnForceTurnEnd(scenario);
                 }
@@ -933,7 +946,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
                 var c = scenario.buildingSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnForceTurnEnd(scenario);
                 }
@@ -942,7 +955,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
                 var c = scenario.troopsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     c.OnForceTurnEnd(scenario);
                 }
@@ -1067,7 +1080,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     action(c);
                 }
@@ -1084,7 +1097,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this && c.IsCity())
+                if (c != null && c.IsAlive && c.BelongForce == this && c.IsCity())
                 {
                     action(c);
                 }
@@ -1101,7 +1114,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this && c.IsGate())
+                if (c != null && c.IsAlive && c.BelongForce == this && c.IsGate())
                 {
                     action(c);
                 }
@@ -1118,7 +1131,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this && c.IsPort())
+                if (c != null && c.IsAlive && c.BelongForce == this && c.IsPort())
                 {
                     action(c);
                 }
@@ -1135,7 +1148,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.personSet.Count; ++i)
             {
                 var c = scenario.personSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     action(c);
                 }
@@ -1152,7 +1165,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
                 var c = scenario.corpsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     action(c);
                 }
@@ -1169,7 +1182,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
                 var c = scenario.buildingSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     action(c);
                 }
@@ -1186,7 +1199,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
                 var c = scenario.troopsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == this)
+                if (c != null && c.IsAlive && c.BelongForce == this)
                 {
                     action(c);
                 }
@@ -1277,21 +1290,21 @@ namespace Sango.Core
         {
             Corps corps = new Corps();
             corps.number = number;
-            corps.mBelongForce = this;
+            corps.BelongForce = this;
             corps.mComander = commander;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
             foreach (var city in cities)
             {
-                city.mBelongCorps = corps;
+                city.BelongCorps = corps;
                 foreach (Person person in city.allPersons)
                 {
-                    person.mBelongCorps = corps;
+                    person.BelongCorps = corps;
 
                 }
                 foreach (Building building in city.allBuildings)
                 {
-                    building.mBelongCorps = corps;
+                    building.BelongCorps = corps;
                 }
             }
             GameEvent.OnCorpsCreate?.Invoke(corps, Scenario.Cur);
@@ -1299,36 +1312,36 @@ namespace Sango.Core
 
         public void CreateCorps(Corps corps)
         {
-            corps.mBelongForce = this;
+            corps.BelongForce = this;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
             corps.mComander.state = (int)PersonStateType.Commander;
             foreach (var city in corps.inti_cities)
             {
-                city.mBelongCorps = corps;
+                city.BelongCorps = corps;
                 foreach (Person person in city.allPersons)
                 {
-                    person.mBelongCorps = corps;
+                    person.BelongCorps = corps;
 
                 }
                 foreach (Building building in city.allBuildings)
                 {
-                    building.mBelongCorps = corps;
+                    building.BelongCorps = corps;
                 }
             }
 
             // 处理港关
             Scenario.Cur.citySet.ForEach(x =>
             {
-                if (x.IsAlive && !x.IsCity() && x.mBelongForce == this && x != corps.mBelongForce.CapitalCity && corps.inti_cities.Contains(x.mBelongCity))
+                if (x.IsAlive && !x.IsCity() && x.BelongForce == this && x != corps.BelongForce.CapitalCity && corps.inti_cities.Contains(x.BelongCity))
                 {
-                    x.mBelongCorps = corps;
+                    x.BelongCorps = corps;
                     x.UpdateCorps();
                 }
             });
 
             corps.inti_cities = null;
-            corps.mComander.mBelongCity.UpdateNewLeader();
+            corps.mComander.BelongCity.UpdateNewLeader();
             corps.PrepareCityInfo();
             GameEvent.OnCorpsCreate?.Invoke(corps, Scenario.Cur);
         }
@@ -1350,7 +1363,7 @@ namespace Sango.Core
             if (number == 1) return;
             Corps corps = Scenario.Cur.corpsSet.Find((x) =>
             {
-                return x.mBelongForce == this && x.number == number;
+                return x.BelongForce == this && x.number == number;
             });
             DeleteCorps(corps);
         }
@@ -1363,7 +1376,7 @@ namespace Sango.Core
         /// <param name="cities"></param>
         public void DeleteCorps(Corps corps)
         {
-            if (corps.mBelongForce == null)
+            if (corps.BelongForce == null)
             {
                 Scenario.Cur.corpsSet.Remove(corps);
                 return;
@@ -1376,25 +1389,25 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             scenario.citySet.ForEach(x =>
             {
-                if (x != null && x.IsAlive && x.mBelongCorps == corps)
+                if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
-                    x.mBelongCorps = governorCorps;
+                    x.BelongCorps = governorCorps;
                 }
             });
 
             scenario.personSet.ForEach(x =>
             {
-                if (x != null && x.IsAlive && x.mBelongCorps == corps)
+                if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
-                    x.mBelongCorps = governorCorps;
+                    x.BelongCorps = governorCorps;
                 }
             });
 
             scenario.buildingSet.ForEach(x =>
             {
-                if (x != null && x.IsAlive && x.mBelongCorps == corps)
+                if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
-                    x.mBelongCorps = governorCorps;
+                    x.BelongCorps = governorCorps;
                 }
             });
             if (corps.mComander != null && corps.mComander.state == (int)PersonStateType.Commander)
@@ -1458,7 +1471,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.mBelongForce == this && c.IsCity())
+                if (c != null && c.BelongForce == this && c.IsCity())
                 {
                     cityCount++;
                     if (c.IsBorderCity)
@@ -1489,7 +1502,7 @@ namespace Sango.Core
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 var c = scenario.citySet[i];
-                if (c != null && c.mBelongForce == this && c.IsCity())
+                if (c != null && c.BelongForce == this && c.IsCity())
                 {
                     if (c.IsBorderCity)
                     {

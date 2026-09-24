@@ -1,76 +1,74 @@
 ﻿using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Serialization;
 using System;
-using System.Collections.Generic;
 
 namespace Sango.Core
 {
-    
-
-    public class XY2CellConverter : JsonConverter<Cell>
+    /// <summary>
+    /// 地图格子的坐标。
+    ///
+    /// 存档形态仍然是 <c>[x, y]</c> 两个数（与旧格式完全一致），
+    /// 但解析不再依赖 <c>GameEvent.OnScenarioPrepare</c> 与反射回填，
+    /// 而是由持有者（如 Troop.cell）在访问时用坐标去地图上取格子。
+    /// </summary>
+    public struct CellXY
     {
-        public struct DelaySetCellValue
+        public int x;
+        public int y;
+
+        public CellXY(int x, int y)
         {
-            public object target;
-            public JsonProperty property;
-            public int x;
-            public int y;
-            public static List<DelaySetCellValue> delaySetValues_List = new List<DelaySetCellValue>();
-            public static void OnScenarioPrepare(Scenario scenario)
-            {
-                for (int i = 0; i < delaySetValues_List.Count; i++)
-                {
-                    DelaySetCellValue setValue = delaySetValues_List[i];
-                    var value = scenario.Map.GetCell(setValue.x, setValue.y);
-                    if (value != null && setValue.property != null)
-                        setValue.property.ValueProvider.SetValue(setValue.target, value);
-                }
-                delaySetValues_List.Clear();
-                GameEvent.OnScenarioPrepare -= OnScenarioPrepare;
-            }
-            public static void Add(DelaySetCellValue setValue)
-            {
-                if (delaySetValues_List.Count == 0)
-                    GameEvent.OnScenarioPrepare += OnScenarioPrepare;
-                delaySetValues_List.Add(setValue);
-            }
+            this.x = x;
+            this.y = y;
         }
 
-        public override Cell Create(Type objectType)
+        /// <summary>无效/未设置（坐标为负数）</summary>
+        public static CellXY Invalid { get { return new CellXY(-1, -1); } }
+
+        public bool IsValid { get { return x >= 0 && y >= 0; } }
+
+        public static CellXY From(Cell cell)
         {
-            return null;
+            if (cell == null) return Invalid;
+            return new CellXY(cell.x, cell.y);
         }
 
+        public Cell ToCell()
+        {
+            if (!IsValid) return null;
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Map == null) return null;
+            return scenario.Map.GetCell(x, y);
+        }
+    }
+
+    public class CellXYConverter : JsonConverter<CellXY>
+    {
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             writer.WriteStartArray();
-            Cell dest = value as Cell;
-            writer.WriteValue(dest.x);
-            writer.WriteValue(dest.y);
+            if (value is CellXY)
+            {
+                CellXY pos = (CellXY)value;
+                writer.WriteValue(pos.x);
+                writer.WriteValue(pos.y);
+            }
             writer.WriteEndArray();
         }
-        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer, JsonProperty property, object target)
+
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            Cell dest = (Cell)existingValue;
+            int x = -1;
+            int y = -1;
             bool xReaded = false;
-            int x = 0, y = 0;
             while (reader.Read())
             {
                 if (reader.TokenType == JsonToken.EndArray)
-                {
-                    DelaySetCellValue.Add(new DelaySetCellValue
-                    {
-                        x = x,
-                        y = y,
-                        target = target,
-                        property = property,
-                    });
-                    return null;
-                }
-                else if (reader.TokenType == JsonToken.Integer)
+                    break;
+
+                if (reader.TokenType == JsonToken.Integer)
                 {
                     int v = serializer.Deserialize<int>(reader);
-                    if(!xReaded)
+                    if (!xReaded)
                     {
                         x = v;
                         xReaded = true;
@@ -81,7 +79,7 @@ namespace Sango.Core
                     }
                 }
             }
-            return null;
+            return new CellXY(x, y);
         }
     }
 }

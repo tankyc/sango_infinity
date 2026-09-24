@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace Sango.Core.Player
 {
@@ -116,7 +116,7 @@ namespace Sango.Core.Player
             Dictionary<int, ItemType> itemMap = new Dictionary<int, ItemType>();
             scenario.CommonData.ItemTypes.ForEach(it =>
             {
-                if (it.cost > 0 && it.IsValid(TargetCity.mBelongForce))
+                if (it.cost > 0 && it.IsValid(TargetCity.BelongForce))
                 {
                     ItemType itemType;
                     if (itemMap.TryGetValue(it.storeKind, out itemType))
@@ -168,7 +168,7 @@ namespace Sango.Core.Player
                 if (TargetCity.FreePersonCount <= 0 || !TargetCity.CheckJobCost(CityJobType.CreateItems))
                     return false;
                 
-                if (TargetCity.mBelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.CreateItems))
+                if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.CreateItems))
                     return false;
 
                 InitItem();
