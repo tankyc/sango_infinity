@@ -576,10 +576,23 @@ namespace Sango.UI
             frameBtnText.text = $"切换帧率:{Application.targetFrameRate}";
         }
 
+        // FPS 文本的静态部分只算一次；数值没变就不写 text
+        // （Text/TMP 的 text setter 会触发 Mesh 重建，比字符串分配贵得多）
+        string fpsPrefix;
+        int lastFpsValue = int.MinValue;
+
         void UpdateFPS()
         {
             float FPS = 1f / deltaTime;
-            fpsText.text = $"Ver:{Application.version}  FPS:{Math.Floor(FPS)}";
+            if (string.IsNullOrEmpty(fpsPrefix))
+                fpsPrefix = $"Ver:{Application.version}  FPS:";
+
+            int fpsValue = Mathf.FloorToInt(FPS);
+            if (fpsValue == lastFpsValue)
+                return;
+
+            lastFpsValue = fpsValue;
+            fpsText.text = fpsPrefix + fpsValue;
         }
 
         void OnMessagePlaneVisible(bool b)

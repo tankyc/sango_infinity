@@ -164,6 +164,35 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 复位输入残留状态（读档收尾、安卓切后台 / 失焦恢复时调用）。
+        ///
+        /// 安卓上触摸可能以 Canceled 收尾（切后台、手势返回、下拉通知栏），
+        /// 此时若状态没清干净，之后的手指会被当成上一次手势的延续：地图拖不动、点屏幕没反应。
+        /// 这里统一收尾，并让 UGUI 的输入模块重新起步（清掉"模拟鼠标仍按着"的卡死状态）。
+        /// </summary>
+        public void ResetInputState()
+        {
+            controlType = ControlType.None;
+            isDragMoving = false;
+            isRotateMoving = false;
+            clickDownPushed = false;
+            Input.ResetInputAxes();
+
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+
+                BaseInputModule inputModule = EventSystem.current.currentInputModule;
+                if (inputModule != null)
+                {
+                    // 停一拍再启动：让 UGUI 丢掉"上一次按压还没结束"的内部状态
+                    inputModule.enabled = false;
+                    inputModule.enabled = true;
+                }
+            }
+        }
+
+        /// <summary>
         /// 检查是否在UI上
         /// </summary>
         /// <returns>是否在UI上</returns>
@@ -235,9 +264,22 @@ namespace Sango.Core
         /// <param name="mousePosition">鼠标位置</param>
         /// <param name="hitPoint">命中点</param>
         /// <returns>单元格</returns>
+        /// <summary>主相机缓存：Camera.main 内部要走一次查找，别放在每帧的悬停路径里反复取。
+        /// 相机被销毁时 Unity 的 != null 会返回 true（假空），因此这里会自然重新获取。</summary>
+        Camera cachedMainCamera;
+
         public Cell CheckMouseIsOnMapCell(Vector3 mousePosition, out Vector3 hitPoint)
         {
-            ray = Camera.main.ScreenPointToRay(mousePosition);
+            if (cachedMainCamera == null)
+                cachedMainCamera = Camera.main;
+
+            if (cachedMainCamera == null)
+            {
+                hitPoint = Vector3.zero;
+                return null;
+            }
+
+            ray = cachedMainCamera.ScreenPointToRay(mousePosition);
             return CheckMouseIsOnMapCell(ray, out hitPoint);
         }
 

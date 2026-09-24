@@ -138,6 +138,20 @@ namespace Sango.Core.Player
         public PlayerPersonMessageCallback onPersonMessageAdd;
 
         /// <summary>
+        /// 清空消息数据（读档 / 回主菜单时调用）。
+        ///
+        /// 只清数据、不管退订——退订交给本系统自身的生命周期
+        /// （GameSystemManager.Done → OnDestroy），避免两处都退订互相干扰。
+        /// </summary>
+        public void ClearMessages()
+        {
+            textMessages.Clear();
+            personMessages.Clear();
+            newDay = true;
+            scenario = null;
+        }
+
+        /// <summary>
         /// 系统初始化方法
         /// 注册游戏事件监听
         /// </summary>

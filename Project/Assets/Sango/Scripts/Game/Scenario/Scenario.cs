@@ -856,6 +856,11 @@ namespace Sango.Core
 
         public static void StartScenario(Scenario scenario)
         {
+            // 开局前拍一次事件基线（只在第一次真正拍，之后不再覆盖）。
+            // 收尾时 ScenarioLifecycle 会按它把 GameEvent 的静态订阅整体还原回"开局前"，
+            // 所以各系统不必再靠"每个类都写对称退订"来防泄漏。
+            GameEventBaseline.CaptureIfNeeded();
+
             GameRandom.Init();
             Cur = scenario;
             scenario.IsAlive = false;
@@ -891,6 +896,9 @@ namespace Sango.Core
 
         public static void StartScenario(Scenario scenario, ShortScenario addData)
         {
+            // 同 StartScenario(Scenario)：开局前拍一次事件基线
+            GameEventBaseline.CaptureIfNeeded();
+
             GameRandom.Init();
             Cur = scenario;
             scenario.IsAlive = false;

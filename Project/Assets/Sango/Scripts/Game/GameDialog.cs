@@ -135,6 +135,28 @@ namespace Sango.Core
         #endregion
 
         /// <summary>
+        /// 清空对话队列与所有状态（读档 / 回主菜单时调用）。
+        ///
+        /// 刻意**不执行**任何用户回调：剧本已经换了，那些回调指向的目标都失效了，
+        /// 跑了只会污染新剧本。队列里的对话直接丢弃。
+        /// </summary>
+        public void Reset()
+        {
+            dialogDatas.Clear();
+            hasCurrent = false;
+            curData = default;
+            curSeq = 0;
+            curWindowName = null;
+            windowInterface = null;
+            advancing = false;
+            CurInstance = null;         // 指向旧窗口的静态引用一并丢弃
+
+            // 对话窗口打开时会把输入关掉（Enabled = false），复位时必须放开，
+            // 否则读档后整个地图 / 游戏系统层都点不动。
+            GameController.Instance.Enabled = true;
+        }
+
+        /// <summary>
         /// 推进队列：把下一条对话交给窗口。
         /// 任何一次"当前对话结束"（点确定/取消、被外部关闭）都会走到这里。
         /// </summary>

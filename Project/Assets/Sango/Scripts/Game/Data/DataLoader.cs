@@ -1465,7 +1465,7 @@ namespace Sango.Core
             byte r;
             if (!byte.TryParse(values[0], out r))
             {
-                Debug.LogError(values[0]);
+                Sango.Log.Error(values[0], Sango.Log.LogType.Assets);
             }
             byte g = byte.Parse(values[1]);
             byte b = byte.Parse(values[2]);

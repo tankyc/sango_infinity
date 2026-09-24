@@ -959,6 +959,35 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 清理城市
+        ///
+        /// 【泄漏修复】城市按武将特技装配出来的 Action（CityImproveGoldHarvest /
+        /// CityImproveFoodHarvest / CityGoldHarvestEveryTurn 等）会订阅
+        /// OnCityCalculateGoldHarvest / OnCityCalculateFoodHarvest / OnCityCalculateFoodCost /
+        /// OnCityGainGoldHarvest / OnCityTurnStart 这些全局事件。
+        ///
+        /// 拆剧本时若不逐个 Clear，它们会带着旧剧本的订阅活到下一次开局：
+        /// 每次读档/重开都会多出一份，GameEventDiagnostics 的 shutdown 快照会看到
+        /// 这些事件的订阅数逐轮递增（实测 +1 ~ +2 / 轮）。
+        ///
+        /// Building / Troop / Person / Force 各自在 Clear 里都做了这件事，城市之前漏了。
+        /// 这里刻意不把 actionList 置 null：工程里可能还有别处直接读 city.actionList
+        /// （InitPersonAction 也没有 null 判断），保留下实例是最安全的选择。
+        /// </summary>
+        public override void Clear()
+        {
+            base.Clear();
+
+            if (actionList != null)
+            {
+                for (int i = 0; i < actionList.Count; i++)
+                    actionList[i].Clear();
+
+                actionList.Clear();
+            }
+        }
+
+        /// <summary>
         /// 初始化城市
         /// </summary>
         /// <param name="scenario">场景对象</param>
@@ -1772,7 +1801,7 @@ namespace Sango.Core
             {
                 if (escapeCity == null)
                 {
-                    Debug.LogError("为啥 escapeCity == null");
+                    Sango.Log.Error("为啥 escapeCity == null", Sango.Log.LogType.Game);
                 }
             }
 #endif

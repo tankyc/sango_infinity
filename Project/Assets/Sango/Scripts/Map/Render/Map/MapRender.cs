@@ -337,7 +337,7 @@ namespace Sango.Render
             FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
             BinaryReader binr = new BinaryReader(fs);
             int versionCode = binr.ReadInt32();
-            Debug.Log("地图版本:" + versionCode);
+            Sango.Log.Info("地图版本:" + versionCode, Sango.Log.LogType.World);
             if (versionCode >= 6)
             {
                 WorkContent = binr.ReadString();

@@ -650,6 +650,20 @@ namespace Sango.Core
         static List<Feature> temp_FeatureList = new List<Feature>();
         public void InitActionList()
         {
+            // 【泄漏修复】已收尾的部队不再装配 Action。
+            //
+            // 收尾（阵亡 / 入城 / 解散 → ClearWithBelongCity）之后 isCleared 为 true，
+            // 此后的 Clear() 会在开头直接 return。如果这时还有路径调用本函数
+            // （ResetActionAndStatus 的几个调用点：武将从部队离开 Person.cs:1814、
+            //   转投势力 Troop.cs:2933、编辑武将窗口 UIPersonEdit.cs:256），
+            // 新装配出来的 Action 订阅就**再也退不掉**了：
+            //   · TroopAddMoveAbility / TroopAddSkill 订阅 OnTroopCalculateAttribute
+            //   · TroopChangeDamage 订阅 OnTroopChangeTroops
+            // 它们会带着旧剧本的订阅活到下一次开局，在 GameEventDiagnostics 的
+            // shutdown-begin 跨次快照里逐轮累积（实测每次 +3 左右）。
+            if (isCleared)
+                return;
+
             temp_FeatureList.Clear();
             if (actionList != null)
             {
@@ -722,6 +736,11 @@ namespace Sango.Core
         }
         public void ResetActionAndStatus()
         {
+            // 已收尾的部队不必重算：InitActionList 里有同样的守卫，
+            // 这里再拦一次，避免对已经不在剧本里的部队做无用的属性重算。
+            if (isCleared)
+                return;
+
             InitActionList();
             CalculateAttribute(Scenario.Cur);
         }
@@ -2811,6 +2830,11 @@ namespace Sango.Core
             StrategySkills.Clear();
             landSkills?.Clear();
             waterSkills?.Clear();
+
+            // 【泄漏修复】状态（Buff）也要清：Stun / Escape 等 BuffEffect 会订阅
+            // OnTroopTurnStart 等全局事件，只在自身 Clear() 里退订。
+            // 拆剧本时不清，它们会带着旧剧本的订阅活到下一次开局（实测每轮累积）。
+            buffManager?.Clear();
 
             GameEvent.OnTroopClear?.Invoke(this, Scenario.Cur);
 

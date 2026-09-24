@@ -53,7 +53,7 @@ namespace Sango.Core.Object.Arrow
             // 保存为预制体
             #if UNITY_EDITOR
             UnityEditor.PrefabUtility.SaveAsPrefabAsset(arrow, prefabPath);
-            Debug.Log("Arrow prefab created at: " + prefabPath);
+            Sango.Log.Info("Arrow prefab created at: " + prefabPath, Sango.Log.LogType.World);
             #endif
             
             // 销毁临时对象

@@ -84,14 +84,14 @@ namespace Sango
         //格式: 路径/?.lua
         static public bool AddSearchPath(string path, bool front = true)
         {
-            Debug.Log("AddSearchPath : " + path);
             int index = searchPaths.IndexOf(path);
             if (index >= 0)
-                return false;
+                return false;           // 已登记过：不重复加、也不刷日志（Mod 重复初始化会走到这里）
             if (front)
                 searchPaths.Insert(0, path);
             else
                 searchPaths.Add(path);
+            Log.Info("AddSearchPath : " + path, Log.LogType.Game);
             return true;
         }
 

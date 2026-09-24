@@ -60,7 +60,7 @@ namespace Sango.Core.Object.Arrow
             // 保存为预制体
             #if UNITY_EDITOR
             UnityEditor.PrefabUtility.SaveAsPrefabAsset(explosionEffect, prefabPath);
-            Debug.Log("Explosion effect prefab created at: " + prefabPath);
+            Sango.Log.Info("Explosion effect prefab created at: " + prefabPath, Sango.Log.LogType.World);
             #endif
             
             // 销毁临时对象

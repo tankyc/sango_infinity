@@ -190,7 +190,7 @@ namespace Sango.Render
 
         public void Create(int size)
         {
-            Debug.Log(string.Format("创建格子: size: {0}", size));
+            Sango.Log.Info(string.Format("创建格子: size: {0}", size), Sango.Log.LogType.World);
             gridSize = Mathf.Max(size, map.mapData.quadSize);
             gridVertexCount = gridSize / map.mapData.quadSize;
             bounds = new Vector2Int(map.mapData.world_width / gridSize, map.mapData.world_height / gridSize);

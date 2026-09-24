@@ -55,6 +55,17 @@ namespace Sango.UI
             GameEvent.OnScenarioInit += OnScenarioInit;
         }
 
+        /// <summary>
+        /// 【泄漏修复】本窗口在 Awake 里订阅 OnScenarioInit，之前**没有**任何退订路径：
+        /// 窗口按名字缓存、回主菜单时销毁重建，于是每重建一次就多留一份订阅
+        /// （GameEventDiagnostics 的 shutdown-begin 跨次对比里 OnScenarioInit 逐轮 +1）。
+        /// </summary>
+        protected override void OnDestroy()
+        {
+            GameEvent.OnScenarioInit -= OnScenarioInit;
+            base.OnDestroy();
+        }
+
         void OnScenarioInit(Scenario scenario)
         {
             Clear();

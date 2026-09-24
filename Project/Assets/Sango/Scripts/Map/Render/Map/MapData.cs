@@ -302,7 +302,7 @@ namespace Sango.Render
                     return (byte)i;
                 }
             }
-            Debug.LogError(string.Format("没找到颜色索引!: r:{0}, g:{1}, b{2}", r, g, b));
+            Sango.Log.Error(string.Format("没找到颜色索引!: r:{0}, g:{1}, b{2}", r, g, b), Sango.Log.LogType.World);
             return 0;
         }
         public static Color32 get_layer_color(int layer)

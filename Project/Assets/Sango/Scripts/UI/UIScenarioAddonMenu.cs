@@ -46,9 +46,29 @@ namespace Sango.UI
         bool inited;
         bool eventsBound;
 
+        List<PersonLib> apped_all_persons = new List<PersonLib>();
+
         public override void OnOpen(params object[] objects)
         {
             base.OnOpen();
+            apped_all_persons.Clear();
+            if (GameCustomEdit.Instance != null)
+            {
+                CollectPersonLib(GameCustomEdit.Instance.ModScenarioAddon != null ? GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary : null, apped_all_persons);
+                CollectPersonLib(GameCustomEdit.Instance.SelfScenarioAddon != null ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary : null, apped_all_persons);
+            }
+            if (apped_all_persons.Count == 0)
+            {
+                Sango.Log.Info("没有可登场的自建武将,请先在自建武将界面中创建", Sango.Log.LogType.UI);
+                return;
+            }
+
+            // 排除已经部署的
+            apped_all_persons.ForEach((x) =>
+            {
+                x.targetShortPersonId = 0;
+            });
+
 
             src_scenario = (ShortScenario)objects[0];
 
@@ -60,7 +80,7 @@ namespace Sango.UI
 
             if (scenario == null)
             {
-                Debug.LogWarning("UIScenarioAddonMenu: ShortScenario.CurSelected 为空,无法打开新武将登场界面");
+                Sango.Log.Warning("UIScenarioAddonMenu: ShortScenario.CurSelected 为空,无法打开新武将登场界面", Sango.Log.LogType.UI);
                 Close();
                 return;
             }
@@ -98,32 +118,26 @@ namespace Sango.UI
         /// </summary>
         public void OnSelectAppearedPersons()
         {
-            List<PersonLib> persons = new List<PersonLib>();
-            if (GameCustomEdit.Instance != null)
+            if (apped_all_persons.Count == 0)
             {
-                CollectPersonLib(GameCustomEdit.Instance.ModScenarioAddon != null ? GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary : null, persons);
-                CollectPersonLib(GameCustomEdit.Instance.SelfScenarioAddon != null ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary : null, persons);
-            }
-            if (persons.Count == 0)
-            {
-                Debug.Log("没有可登场的自建武将,请先在自建武将界面中创建");
+                Sango.Log.Info("没有可登场的自建武将,请先在自建武将界面中创建", Sango.Log.LogType.UI);
                 return;
             }
 
             // 排除已经部署的
-            persons.RemoveAll((x) =>
+            apped_all_persons.RemoveAll((x) =>
             {
                 if (x.targetShortPersonId <= 0)
                     return false;
                 return x.BelongCityId(scenario) > 0;
             });
 
-            LastSelected = persons.FindAll(x => x.targetShortPersonId > 0);
+            LastSelected = apped_all_persons.FindAll(x => x.targetShortPersonId > 0);
 
             GameSystemManager.Instance.GetSystem<EditPersonSelectSystem>().Start(
-                persons,
+                apped_all_persons,
                 LastSelected,
-                persons.Count,
+                apped_all_persons.Count,
                 OnAppearedPersonsSelected,
                 PersonLibSortFunction.DefaultSortList,
                 "登场武将");
@@ -222,14 +236,8 @@ namespace Sango.UI
             string content = $"初始化将删除所有已登场武将和新作势力,确定吗?";
             GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, content, () =>
             {
-                List<PersonLib> persons = new List<PersonLib>();
-                if (GameCustomEdit.Instance != null)
-                {
-                    CollectPersonLib(GameCustomEdit.Instance.ModScenarioAddon != null ? GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary : null, persons);
-                    CollectPersonLib(GameCustomEdit.Instance.SelfScenarioAddon != null ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary : null, persons);
-                }
                 // 排除已经部署的
-                persons.ForEach((x) =>
+                apped_all_persons.ForEach((x) =>
                 {
                     x.targetShortPersonId = 0;
                 });
@@ -250,22 +258,16 @@ namespace Sango.UI
 
         public void OnReturn()
         {
-            List<PersonLib> persons = new List<PersonLib>();
-            if (GameCustomEdit.Instance != null)
+            if (apped_all_persons.Count == 0)
             {
-                CollectPersonLib(GameCustomEdit.Instance.ModScenarioAddon != null ? GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary : null, persons);
-                CollectPersonLib(GameCustomEdit.Instance.SelfScenarioAddon != null ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary : null, persons);
-            }
-            if (persons.Count == 0)
-            {
-                Debug.Log("没有可登场的自建武将,请先在自建武将界面中创建");
+                Sango.Log.Info("没有可登场的自建武将,请先在自建武将界面中创建", Sango.Log.LogType.UI);
                 return;
             }
 
             // 只增量添加
-            for (int i = 0; i < persons.Count; i++)
+            for (int i = 0; i < apped_all_persons.Count; i++)
             {
-                PersonLib personLib = persons[i];
+                PersonLib personLib = apped_all_persons[i];
                 if (personLib.targetShortPersonId > 0)
                 {
                     scenario.personSet.Remove(personLib.targetShortPersonId);

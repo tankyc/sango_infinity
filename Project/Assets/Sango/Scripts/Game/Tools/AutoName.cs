@@ -96,7 +96,7 @@ namespace Sango
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[AutoName] 加载 NameConfig.json 失败: " + file + "\n" + e);
+                Sango.Log.Error("[AutoName] 加载 NameConfig.json 失败: " + file + "\n" + e, Sango.Log.LogType.Game);
             }
         }
 
