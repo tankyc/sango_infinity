@@ -23,6 +23,16 @@ namespace Sango.Core
             if (existingValue == null)
                 existingValue = Create(objectType);
             PersonAttributeValue dest = existingValue as PersonAttributeValue;
+
+            // 兼容旧版武将库数据（未带 dataVersion 版本标记）：五维存的是单个整数，
+            // 这里直接当作基础值，成长类型保持默认（游戏内按 5 普通型处理）。
+            if (reader.TokenType != JsonToken.StartArray)
+            {
+                dest.baseValue = serializer.Deserialize<int>(reader);
+                dest.UpdateNoAge();
+                return dest;
+            }
+
             List<int> ints = new List<int>();
             while (reader.Read())
             {
@@ -34,7 +44,9 @@ namespace Sango.Core
                 else if (reader.TokenType == JsonToken.EndArray)
                 {
                     dest.FromArray(ints.ToArray());
-                    //dest.Update();
+                    // 精简数组（如新版早期的 [基础值, 成长类型Id]）没有"最终值"一项，
+                    // 这里按基础值兜底，避免 Value / Command 等取值口径拿到 0。
+                    if (ints.Count < 5) dest.UpdateNoAge();
                     return dest;
                 }
             }

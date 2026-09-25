@@ -151,7 +151,7 @@ namespace Sango.UI
             // 设置默认值
             snapshot.yearBorn = 190;
             snapshot.yearDead = 289; // 190 + 99
-            snapshot.yearAvailable = 190;
+            snapshot.appearance = 190;
             snapshot.command = 50;
             snapshot.strength = 50;
             snapshot.intelligence = 50;

@@ -998,12 +998,12 @@ namespace Sango.Core
             List<Person> list = new List<Person>();
             addData.personSet.ForEach(x =>
             {
-                if (x.PersonLib != null && x.PersonLib.Id > 20000 && x.PersonLib.BrotherList != null && x.PersonLib.BrotherList.Length > 0)
+                if (x.PersonLib != null && x.PersonLib.Id > 20000 && x.PersonLib.BrotherListId != null && x.PersonLib.BrotherListId.Length > 0)
                 {
                     list.Clear();
-                    for (int i = 0; i < x.PersonLib.BrotherList.Length; i++)
+                    for (int i = 0; i < x.PersonLib.BrotherListId.Length; i++)
                     {
-                        int bro = x.PersonLib.BrotherList[i];
+                        int bro = x.PersonLib.BrotherListId[i];
                         FixReletionship(ref bro, addData.personSet);
                         Person person = scenario.personSet.Get(bro);
                         if(person != null)

@@ -66,7 +66,7 @@ namespace Sango.Core
                     FixID(ref x.FatherId, start);
                     FixID(ref x.MotherId, start);
                     FixID(ref x.BrotherId, start);
-                    FixID(ref x.BrotherList, start);
+                    FixID(ref x.BrotherListId, start);
                     FixID(ref x.LikePersonListId, start);
                     FixID(ref x.HatePersonListId, start);
                 });

@@ -56,8 +56,8 @@ namespace Sango.Core
             ShortPerson shortPerson = new ShortPerson();
             shortPerson.Name = personLib.Name;
             shortPerson.PersonLib = personLib;
-            shortPerson.BelongForceId = personLib.BelongForceId(scenario);
-            shortPerson.BelongCityId = personLib.BelongCityId(scenario);
+            shortPerson.BelongForceId = personLib.GetBelongForceId(scenario);
+            shortPerson.BelongCityId = personLib.GetBelongCityId(scenario);
             shortPerson.headIconID = personLib.headIconID;
             shortPerson.imageID = personLib.imageID;
             return shortPerson;

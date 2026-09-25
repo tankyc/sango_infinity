@@ -134,25 +134,25 @@ namespace Sango.Core
             ModScenarioAddon.PersonLibrary.ForEach(x =>
             {
                 ModedPersonLibList.Add(x);
-                if (x.BrotherList == null || x.BrotherList.Length == 0)
+                if (x.BrotherListId == null || x.BrotherListId.Length == 0)
                 {
                     if (x.BrotherId > 0)
                         x.BrotherId = 0;
                     return;
                 }
 
-                for (int i = 0; i < x.BrotherList.Length; i++)
+                for (int i = 0; i < x.BrotherListId.Length; i++)
                 {
-                    int b = x.BrotherList[i];
+                    int b = x.BrotherListId[i];
                     PersonLib coreB = FindPersonLib(b);
                     if (coreB != null && coreB.BrotherId > 0)
                         return;
                 }
 
                 x.BrotherId = x.Id;
-                for (int i = 0; i < x.BrotherList.Length; i++)
+                for (int i = 0; i < x.BrotherListId.Length; i++)
                 {
-                    int b = x.BrotherList[i];
+                    int b = x.BrotherListId[i];
                     PersonLib coreB = FindPersonLib(b);
                     if (coreB != null)
                         coreB.BrotherId = x.Id;

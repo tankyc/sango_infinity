@@ -2640,6 +2640,7 @@ namespace Sango.Core
             person.image = personLib.image;
             person.image_old = personLib.image_old;
             person.sex = personLib.sex;
+            person.appearance = personLib.appearance;
             person.yearBorn = personLib.yearBorn;
             person.yearDead = personLib.yearDead;
             person.compatibility = personLib.compatibility & 0xFF;
@@ -2653,22 +2654,24 @@ namespace Sango.Core
             person.stamina = personLib.stamina;
             person.Exp = personLib.Exp;
             person.consanguinity = personLib.consanguinity;
-            person.command.baseValue = personLib.command;
-            person.command.changeId = personLib.attributeChangeType;
-            person.strength.baseValue = personLib.strength;
-            person.strength.changeId = personLib.attributeChangeType;
-            person.intelligence.baseValue = personLib.intelligence;
-            person.intelligence.changeId = personLib.attributeChangeType;
-            person.politics.baseValue = personLib.politics;
-            person.politics.changeId = personLib.attributeChangeType;
-            person.glamour.baseValue = personLib.glamour;
-            person.glamour.changeId = personLib.attributeChangeType;
-            person.spearLv.baseValue = personLib.spearLv;
-            person.halberdLv.baseValue = personLib.halberdLv;
-            person.crossbowLv.baseValue = personLib.crossbowLv;
-            person.rideLv.baseValue = personLib.rideLv;
-            person.waterLv.baseValue = personLib.waterLv;
-            person.machineLv.baseValue = personLib.machineLv;
+            // 五维:PersonLib 与 Person 同为 PersonAttributeValue,直接深拷贝基础值与成长类型
+            person.command.baseValue = personLib.command.baseValue;
+            person.command.changeId = personLib.command.changeId;
+            person.strength.baseValue = personLib.strength.baseValue;
+            person.strength.changeId = personLib.strength.changeId;
+            person.intelligence.baseValue = personLib.intelligence.baseValue;
+            person.intelligence.changeId = personLib.intelligence.changeId;
+            person.politics.baseValue = personLib.politics.baseValue;
+            person.politics.changeId = personLib.politics.changeId;
+            person.glamour.baseValue = personLib.glamour.baseValue;
+            person.glamour.changeId = personLib.glamour.changeId;
+            // 兵种适性:同为 PersonAbilityValue
+            person.spearLv.baseValue = personLib.spearLv.baseValue;
+            person.halberdLv.baseValue = personLib.halberdLv.baseValue;
+            person.crossbowLv.baseValue = personLib.crossbowLv.baseValue;
+            person.rideLv.baseValue = personLib.rideLv.baseValue;
+            person.waterLv.baseValue = personLib.waterLv.baseValue;
+            person.machineLv.baseValue = personLib.machineLv.baseValue;
             person.PersonalityId = personLib.PersonalityId;
             person.ArgumentationId = personLib.ArgumentationId;
 

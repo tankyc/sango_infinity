@@ -84,13 +84,15 @@ namespace Sango.Core
             editType = DataEditType.Text,
         };
 
+        // 说明：PersonLib 继承 Person 后，五维是 PersonAttributeValue、兵种适性是 PersonAbilityValue，
+        // 武将库界面展示与排序一律取"基础值 baseValue"（不含伤病/装备/年龄折算），即在库工具里编辑所见的值。
         public static SortTitle SortByCommand = new SortTitle()
         {
             name = "统率",
             width = 2.00f,
-            valueGetCall = x => x.command.ToString(),
-            personSortFunc = (a, b) => a.command.CompareTo(b.command),
-            valueObjGet = x => x.command,
+            valueGetCall = x => x.command.baseValue.ToString(),
+            personSortFunc = (a, b) => a.command.baseValue.CompareTo(b.command.baseValue),
+            valueObjGet = x => x.command.baseValue,
             valueObjSet = null,
         };
 
@@ -98,9 +100,9 @@ namespace Sango.Core
         {
             name = "武力",
             width = 2.00f,
-            valueGetCall = x => x.strength.ToString(),
-            personSortFunc = (a, b) => a.strength.CompareTo(b.strength),
-            valueObjGet = x => x.strength,
+            valueGetCall = x => x.strength.baseValue.ToString(),
+            personSortFunc = (a, b) => a.strength.baseValue.CompareTo(b.strength.baseValue),
+            valueObjGet = x => x.strength.baseValue,
             valueObjSet = null,
         };
 
@@ -108,9 +110,9 @@ namespace Sango.Core
         {
             name = "智力",
             width = 2.00f,
-            valueGetCall = x => x.intelligence.ToString(),
-            personSortFunc = (a, b) => -a.intelligence.CompareTo(b.intelligence),
-            valueObjGet = x => x.intelligence,
+            valueGetCall = x => x.intelligence.baseValue.ToString(),
+            personSortFunc = (a, b) => -a.intelligence.baseValue.CompareTo(b.intelligence.baseValue),
+            valueObjGet = x => x.intelligence.baseValue,
             valueObjSet = null,
         };
 
@@ -118,9 +120,9 @@ namespace Sango.Core
         {
             name = "政治",
             width = 2.00f,
-            valueGetCall = x => x.politics.ToString(),
-            personSortFunc = (a, b) => b.politics.CompareTo(a.politics),
-            valueObjGet = x => x.politics,
+            valueGetCall = x => x.politics.baseValue.ToString(),
+            personSortFunc = (a, b) => b.politics.baseValue.CompareTo(a.politics.baseValue),
+            valueObjGet = x => x.politics.baseValue,
             valueObjSet = null,
         };
 
@@ -128,9 +130,9 @@ namespace Sango.Core
         {
             name = "魅力",
             width = 2.00f,
-            valueGetCall = x => x.glamour.ToString(),
-            personSortFunc = (a, b) => a.glamour.CompareTo(b.glamour),
-            valueObjGet = x => x.glamour,
+            valueGetCall = x => x.glamour.baseValue.ToString(),
+            personSortFunc = (a, b) => a.glamour.baseValue.CompareTo(b.glamour.baseValue),
+            valueObjGet = x => x.glamour.baseValue,
             valueObjSet = null,
         };
 
@@ -138,9 +140,9 @@ namespace Sango.Core
         {
             name = "枪兵",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.spearLv),
-            personSortFunc = (a, b) => a.spearLv.CompareTo(b.spearLv),
-            valueObjGet = x => x.spearLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.spearLv.baseValue),
+            personSortFunc = (a, b) => a.spearLv.baseValue.CompareTo(b.spearLv.baseValue),
+            valueObjGet = x => x.spearLv.baseValue,
             valueObjSet = null,
         };
 
@@ -148,9 +150,9 @@ namespace Sango.Core
         {
             name = "戟兵",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.halberdLv),
-            personSortFunc = (a, b) => a.halberdLv.CompareTo(b.halberdLv),
-            valueObjGet = x => x.halberdLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.halberdLv.baseValue),
+            personSortFunc = (a, b) => a.halberdLv.baseValue.CompareTo(b.halberdLv.baseValue),
+            valueObjGet = x => x.halberdLv.baseValue,
             valueObjSet = null,
         };
 
@@ -158,9 +160,9 @@ namespace Sango.Core
         {
             name = "弓兵",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.crossbowLv),
-            personSortFunc = (a, b) => a.crossbowLv.CompareTo(b.crossbowLv),
-            valueObjGet = x => x.crossbowLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.crossbowLv.baseValue),
+            personSortFunc = (a, b) => a.crossbowLv.baseValue.CompareTo(b.crossbowLv.baseValue),
+            valueObjGet = x => x.crossbowLv.baseValue,
             valueObjSet = null,
         };
 
@@ -168,9 +170,9 @@ namespace Sango.Core
         {
             name = "骑兵",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.rideLv),
-            personSortFunc = (a, b) => a.rideLv.CompareTo(b.rideLv),
-            valueObjGet = x => x.rideLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.rideLv.baseValue),
+            personSortFunc = (a, b) => a.rideLv.baseValue.CompareTo(b.rideLv.baseValue),
+            valueObjGet = x => x.rideLv.baseValue,
             valueObjSet = null,
         };
 
@@ -178,9 +180,9 @@ namespace Sango.Core
         {
             name = "水军",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.waterLv),
-            personSortFunc = (a, b) => a.waterLv.CompareTo(b.waterLv),
-            valueObjGet = x => x.waterLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.waterLv.baseValue),
+            personSortFunc = (a, b) => a.waterLv.baseValue.CompareTo(b.waterLv.baseValue),
+            valueObjGet = x => x.waterLv.baseValue,
             valueObjSet = null,
         };
 
@@ -188,9 +190,9 @@ namespace Sango.Core
         {
             name = "兵器",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.machineLv),
-            personSortFunc = (a, b) => a.machineLv.CompareTo(b.machineLv),
-            valueObjGet = x => x.machineLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.machineLv.baseValue),
+            personSortFunc = (a, b) => a.machineLv.baseValue.CompareTo(b.machineLv.baseValue),
+            valueObjGet = x => x.machineLv.baseValue,
             valueObjSet = null,
         };
         public static SortTitle SortByBelongCity(ShortScenario scenario)
@@ -392,10 +394,10 @@ namespace Sango.Core
         {
             name = "登场年",
             width = 2.00f,
-            valueGetCall = x => x.yearAvailable.ToString(),
-            personSortFunc = (a, b) => a.yearAvailable.CompareTo(b.yearAvailable),
-            valueObjGet = x => x.yearAvailable,
-            valueObjSet = (x, v) => x.yearAvailable = (int)v,
+            valueGetCall = x => x.appearance.ToString(),
+            personSortFunc = (a, b) => a.appearance.CompareTo(b.appearance),
+            valueObjGet = x => x.appearance,
+            valueObjSet = (x, v) => x.appearance = (int)v,
             editType = DataEditType.IntCalculator,
             minValue = 0,
         };

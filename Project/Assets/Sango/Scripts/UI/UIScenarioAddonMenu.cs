@@ -129,7 +129,7 @@ namespace Sango.UI
             {
                 if (x.targetShortPersonId <= 0)
                     return false;
-                return x.BelongCityId(scenario) > 0;
+                return x.GetBelongCityId(scenario) > 0;
             });
 
             LastSelected = apped_all_persons.FindAll(x => x.targetShortPersonId > 0);

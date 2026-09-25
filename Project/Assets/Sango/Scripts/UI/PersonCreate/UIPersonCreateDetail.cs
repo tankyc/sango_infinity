@@ -17,6 +17,18 @@ namespace Sango.UI
     /// </summary>
     public class UIPersonCreateDetail : UGUIWindow
     {
+        /// <summary>
+        /// 五维数量（统率 / 武力 / 智力 / 政治 / 魅力）。
+        /// 同时也是快照 changeIds 与成长类型下拉框 changeTypeDropdown 的下标数量。
+        /// </summary>
+        private const int AbilityCount = 5;
+
+        /// <summary>
+        /// 五维成长类型（对应 AttributeChangeType.Id）的默认值：即游戏内的「5 普通型」。
+        /// 游戏把 changeId = 0 也按普通型处理，这里统一显式写 5。
+        /// </summary>
+        private const int DefaultChangeId = 5;
+
         #region 内部快照
         /// <summary>
         /// 编辑快照：保存当前窗口中对 PersonLib 的修改，确认后再写回目标对象。
@@ -33,7 +45,8 @@ namespace Sango.UI
 
             public int yearBorn;
             public int yearDead;
-            public int yearAvailable;
+            /// <summary>登场年份（对应 Person.appearance）</summary>
+            public int appearance;
             public int compatibility;
 
             // 以下字段仅在 Person 编辑模式（剧本编辑页）下使用
@@ -55,13 +68,26 @@ namespace Sango.UI
             public int ideal;
             public int talent;
 
+            /// <summary>五维的基础值（Person 的 command/strength/... 是 PersonAttributeValue，快照里只存基础值）</summary>
             public int command;
             public int strength;
             public int intelligence;
             public int politics;
             public int glamour;
-            public int attributeChangeType;
-            public int attributeDuration;
+
+            /// <summary>
+            /// 五维各自的成长类型（对应 PersonAttributeValue.changeId）。
+            /// 下标顺序：0=统率 1=武力 2=智力 3=政治 4=魅力，与 changeTypeDropdown 一一对应。
+            /// </summary>
+            public int[] changeIds = new int[AbilityCount];
+
+            /// <summary>
+            /// 构造：五维成长类型默认取「普通型」，避免新建武将时出现 changeId = 0 的未设置状态。
+            /// </summary>
+            public Snapshot()
+            {
+                for (int i = 0; i < changeIds.Length; i++) changeIds[i] = DefaultChangeId;
+            }
 
             public int spearLv;
             public int halberdLv;
@@ -398,16 +424,12 @@ namespace Sango.UI
         public Text abilityTotalText;
         #endregion
 
-        #region 能力设定 - 成长与持续
+        #region 能力设定 - 成长类型
         /// <summary>
-        /// 成长期 Toggle 组（維持/早熟/普通/晚成）
+        /// 五维各自的成长类型下拉框（对应 AttributeChangeType）。
+        /// 下标顺序与 <see cref="Snapshot.changeIds"/> 一致：0=统率 1=武力 2=智力 3=政治 4=魅力。
         /// </summary>
-        public Toggle[] growthToggles = new Toggle[4];
-
-        /// <summary>
-        /// 能力持续 Toggle 组（長/短）
-        /// </summary>
-        public Toggle[] durationToggles = new Toggle[2];
+        public Dropdown[] changeTypeDropdown = new Dropdown[AbilityCount];
         #endregion
 
         #region 能力设定 - 兵种适性
@@ -616,7 +638,7 @@ namespace Sango.UI
                 // 设置默认值
                 snapshot.yearBorn = 190;
                 snapshot.yearDead = 289; // 190 + 99
-                snapshot.yearAvailable = 190;
+                snapshot.appearance = 190;
                 snapshot.command = 50;
                 snapshot.strength = 50;
                 snapshot.intelligence = 50;
@@ -641,7 +663,7 @@ namespace Sango.UI
 
                 yearBorn = target.yearBorn,
                 yearDead = target.yearDead,
-                yearAvailable = target.yearAvailable,
+                appearance = target.appearance,
                 compatibility = target.compatibility,
 
                 PersonalityId = target.PersonalityId,
@@ -652,25 +674,33 @@ namespace Sango.UI
                 ideal = target.ideal,
                 talent = target.talent,
 
-                command = target.command,
-                strength = target.strength,
-                intelligence = target.intelligence,
-                politics = target.politics,
-                glamour = target.glamour,
-                attributeChangeType = target.attributeChangeType,
-                attributeDuration = target.attributeDuration,
+                // 五维/适性：PersonLib 与 Person 同为 PersonAttributeValue / PersonAbilityValue，快照只取基础值
+                command = target.command != null ? target.command.baseValue : 50,
+                strength = target.strength != null ? target.strength.baseValue : 50,
+                intelligence = target.intelligence != null ? target.intelligence.baseValue : 50,
+                politics = target.politics != null ? target.politics.baseValue : 50,
+                glamour = target.glamour != null ? target.glamour.baseValue : 50,
+                // 五维各自的成长类型：下标顺序 0=统率 1=武力 2=智力 3=政治 4=魅力
+                changeIds = new[]
+                {
+                    AttributeChangeIdOf(target.command),
+                    AttributeChangeIdOf(target.strength),
+                    AttributeChangeIdOf(target.intelligence),
+                    AttributeChangeIdOf(target.politics),
+                    AttributeChangeIdOf(target.glamour),
+                },
 
-                spearLv = target.spearLv,
-                halberdLv = target.halberdLv,
-                crossbowLv = target.crossbowLv,
-                rideLv = target.rideLv,
-                waterLv = target.waterLv,
-                machineLv = target.machineLv,
+                spearLv = target.spearLv != null ? target.spearLv.baseValue : 0,
+                halberdLv = target.halberdLv != null ? target.halberdLv.baseValue : 0,
+                crossbowLv = target.crossbowLv != null ? target.crossbowLv.baseValue : 0,
+                rideLv = target.rideLv != null ? target.rideLv.baseValue : 0,
+                waterLv = target.waterLv != null ? target.waterLv.baseValue : 0,
+                machineLv = target.machineLv != null ? target.machineLv.baseValue : 0,
 
                 FatherId = target.FatherId,
                 MotherId = target.MotherId,
                 SpouseListId = CloneArray(target.SpouseListId),
-                BrotherList = CloneArray(target.BrotherList),
+                BrotherList = CloneArray(target.BrotherListId),
                 LikePersonListId = CloneArray(target.LikePersonListId),
                 HatePersonListId = CloneArray(target.HatePersonListId),
                 FeatureListId = CloneArray(target.FeatureListId)
@@ -702,7 +732,7 @@ namespace Sango.UI
 
                 yearBorn = person.yearBorn,
                 yearDead = person.yearDead,
-                yearAvailable = person.appearance,
+                appearance = person.appearance,
                 compatibility = person.compatibility,
 
                 // 剧本编辑相关字段
@@ -729,8 +759,15 @@ namespace Sango.UI
                 intelligence = person.intelligence != null ? person.intelligence.baseValue : 50,
                 politics = person.politics != null ? person.politics.baseValue : 50,
                 glamour = person.glamour != null ? person.glamour.baseValue : 50,
-                attributeChangeType = person.command != null ? person.command.changeId : 5,
-                attributeDuration = 0,
+                // 五维各自的成长类型：下标顺序 0=统率 1=武力 2=智力 3=政治 4=魅力
+                changeIds = new[]
+                {
+                    AttributeChangeIdOf(person.command),
+                    AttributeChangeIdOf(person.strength),
+                    AttributeChangeIdOf(person.intelligence),
+                    AttributeChangeIdOf(person.politics),
+                    AttributeChangeIdOf(person.glamour),
+                },
 
                 spearLv = person.spearLv != null ? person.spearLv.baseValue : 0,
                 halberdLv = person.halberdLv != null ? person.halberdLv.baseValue : 0,
@@ -788,7 +825,7 @@ namespace Sango.UI
 
             target.yearBorn = snapshot.yearBorn;
             target.yearDead = snapshot.yearDead;
-            target.yearAvailable = snapshot.yearAvailable;
+            target.appearance = snapshot.appearance;
             // 相性值范围为 0-255；Person 编辑模式直接保存数值，自建武将模式高位可存储来源武将 ID 用于显示
             target.compatibility = snapshot.compatibility;
 
@@ -800,25 +837,35 @@ namespace Sango.UI
             target.ideal = snapshot.ideal;
             target.talent = snapshot.talent;
 
-            target.command = snapshot.command;
-            target.strength = snapshot.strength;
-            target.intelligence = snapshot.intelligence;
-            target.politics = snapshot.politics;
-            target.glamour = snapshot.glamour;
-            target.attributeChangeType = snapshot.attributeChangeType;
-            target.attributeDuration = snapshot.attributeDuration;
+            // 五维：PersonLib 继承 Person，command/strength/... 是 PersonAttributeValue
+            EnsureAttributeObjects(target);
+            target.command.baseValue = snapshot.command;
+            target.strength.baseValue = snapshot.strength;
+            target.intelligence.baseValue = snapshot.intelligence;
+            target.politics.baseValue = snapshot.politics;
+            target.glamour.baseValue = snapshot.glamour;
+            // 成长类型：五维各自一个值（下标顺序 0=统率 1=武力 2=智力 3=政治 4=魅力）
+            ApplyChangeIds(target);
 
-            target.spearLv = snapshot.spearLv;
-            target.halberdLv = snapshot.halberdLv;
-            target.crossbowLv = snapshot.crossbowLv;
-            target.rideLv = snapshot.rideLv;
-            target.waterLv = snapshot.waterLv;
-            target.machineLv = snapshot.machineLv;
+            // 库条目只作数据模板，这里把"最终值"重算为基础值，保证写出的数组自洽
+            target.command.UpdateNoAge();
+            target.strength.UpdateNoAge();
+            target.intelligence.UpdateNoAge();
+            target.politics.UpdateNoAge();
+            target.glamour.UpdateNoAge();
+
+            // 兵种适性：同样是 Person 的 PersonAbilityValue
+            target.spearLv.baseValue = snapshot.spearLv;
+            target.halberdLv.baseValue = snapshot.halberdLv;
+            target.crossbowLv.baseValue = snapshot.crossbowLv;
+            target.rideLv.baseValue = snapshot.rideLv;
+            target.waterLv.baseValue = snapshot.waterLv;
+            target.machineLv.baseValue = snapshot.machineLv;
 
             target.FatherId = snapshot.FatherId;
             target.MotherId = snapshot.MotherId;
             target.SpouseListId = CloneArray(snapshot.SpouseListId);
-            target.BrotherList = CloneArray(snapshot.BrotherList);
+            target.BrotherListId = CloneArray(snapshot.BrotherList);
             target.LikePersonListId = CloneArray(snapshot.LikePersonListId);
             target.HatePersonListId = CloneArray(snapshot.HatePersonListId);
             target.FeatureListId = CloneArray(snapshot.FeatureListId);
@@ -848,7 +895,7 @@ namespace Sango.UI
 
             target.yearBorn = snapshot.yearBorn;
             target.yearDead = snapshot.yearDead;
-            target.appearance = snapshot.yearAvailable;
+            target.appearance = snapshot.appearance;
             target.compatibility = snapshot.compatibility;
 
             // 剧本编辑字段：更新 ID 与运行时引用
@@ -874,11 +921,7 @@ namespace Sango.UI
             target.ideal = snapshot.ideal;
             target.talent = snapshot.talent;
 
-            if (target.command == null) target.command = new PersonAttributeValue();
-            if (target.strength == null) target.strength = new PersonAttributeValue();
-            if (target.intelligence == null) target.intelligence = new PersonAttributeValue();
-            if (target.politics == null) target.politics = new PersonAttributeValue();
-            if (target.glamour == null) target.glamour = new PersonAttributeValue();
+            EnsureAttributeObjects(target);
 
             target.command.baseValue = snapshot.command;
             target.strength.baseValue = snapshot.strength;
@@ -886,18 +929,8 @@ namespace Sango.UI
             target.politics.baseValue = snapshot.politics;
             target.glamour.baseValue = snapshot.glamour;
 
-            target.command.changeId = snapshot.attributeChangeType;
-            target.strength.changeId = snapshot.attributeChangeType;
-            target.intelligence.changeId = snapshot.attributeChangeType;
-            target.politics.changeId = snapshot.attributeChangeType;
-            target.glamour.changeId = snapshot.attributeChangeType;
-
-            // 强制重新解析 AttributeChangeType 缓存
-            target.command.changeType = null;
-            target.strength.changeType = null;
-            target.intelligence.changeType = null;
-            target.politics.changeType = null;
-            target.glamour.changeType = null;
+            // 成长类型：五维各自一个值；内部会一并清掉 AttributeChangeType 的解析缓存
+            ApplyChangeIds(target);
 
             if (cur == null || !cur.Variables.AgeEnabled || !cur.Variables.EnableAgeAbilityFactor)
             {
@@ -915,13 +948,6 @@ namespace Sango.UI
                 target.politics.Update(target.Age, cur);
                 target.glamour.Update(target.Age, cur);
             }
-
-            if (target.spearLv == null) target.spearLv = new PersonAbilityValue();
-            if (target.halberdLv == null) target.halberdLv = new PersonAbilityValue();
-            if (target.crossbowLv == null) target.crossbowLv = new PersonAbilityValue();
-            if (target.rideLv == null) target.rideLv = new PersonAbilityValue();
-            if (target.waterLv == null) target.waterLv = new PersonAbilityValue();
-            if (target.machineLv == null) target.machineLv = new PersonAbilityValue();
 
             target.spearLv.baseValue = snapshot.spearLv;
             target.halberdLv.baseValue = snapshot.halberdLv;
@@ -1001,6 +1027,87 @@ namespace Sango.UI
         {
             if (source == null) return new int[0];
             return (int[])source.Clone();
+        }
+
+        /// <summary>
+        /// 保证武将的五维与兵种适性对象非空（老数据或反序列化异常时可能为 null），避免写快照时空引用。
+        /// </summary>
+        /// <param name="person">目标武将（Person 或 PersonLib）</param>
+        private static void EnsureAttributeObjects(Person person)
+        {
+            if (person == null) return;
+            if (person.command == null) person.command = new PersonAttributeValue();
+            if (person.strength == null) person.strength = new PersonAttributeValue();
+            if (person.intelligence == null) person.intelligence = new PersonAttributeValue();
+            if (person.politics == null) person.politics = new PersonAttributeValue();
+            if (person.glamour == null) person.glamour = new PersonAttributeValue();
+            if (person.spearLv == null) person.spearLv = new PersonAbilityValue();
+            if (person.halberdLv == null) person.halberdLv = new PersonAbilityValue();
+            if (person.crossbowLv == null) person.crossbowLv = new PersonAbilityValue();
+            if (person.rideLv == null) person.rideLv = new PersonAbilityValue();
+            if (person.waterLv == null) person.waterLv = new PersonAbilityValue();
+            if (person.machineLv == null) person.machineLv = new PersonAbilityValue();
+        }
+
+        /// <summary>
+        /// 取能力对象上的成长类型 Id（对象为空或为未设置(0)时取「普通型」）。
+        /// </summary>
+        /// <param name="value">能力对象（PersonAttributeValue）</param>
+        /// <returns>成长类型 Id</returns>
+        private static int AttributeChangeIdOf(PersonAttributeValue value)
+        {
+            if (value == null || value.changeId <= 0) return DefaultChangeId;
+            return value.changeId;
+        }
+
+        /// <summary>
+        /// 取快照中指定下标（0=统率 1=武力 2=智力 3=政治 4=魅力）的成长类型。
+        /// 快照缺失或值非法时返回默认的「普通型」。
+        /// </summary>
+        /// <param name="index">能力下标</param>
+        /// <returns>成长类型 Id</returns>
+        private int ChangeIdAt(int index)
+        {
+            int[] ids = snapshot.changeIds;
+            if (ids == null || index < 0 || index >= ids.Length) return DefaultChangeId;
+            return ids[index] <= 0 ? DefaultChangeId : ids[index];
+        }
+
+        /// <summary>
+        /// 写入快照中指定下标的成长类型（越界时忽略，非法值统一落回「普通型」）。
+        /// </summary>
+        /// <param name="index">能力下标</param>
+        /// <param name="changeId">成长类型 Id</param>
+        private void SetChangeId(int index, int changeId)
+        {
+            int[] ids = snapshot.changeIds;
+            if (ids == null || index < 0 || index >= ids.Length) return;
+            ids[index] = changeId <= 0 ? DefaultChangeId : changeId;
+        }
+
+        /// <summary>
+        /// 把快照中五维各自的成长类型写回目标武将，并清掉成长类型的解析缓存
+        /// （缓存不清理会导致继续按旧的 AttributeChangeType 计算成长曲线）。
+        /// 下标顺序：0=统率 1=武力 2=智力 3=政治 4=魅力。
+        /// </summary>
+        /// <param name="target">目标武将（Person 或 PersonLib）</param>
+        private void ApplyChangeIds(Person target)
+        {
+            if (target == null) return;
+            EnsureAttributeObjects(target);
+
+            target.command.changeId = ChangeIdAt(0);
+            target.strength.changeId = ChangeIdAt(1);
+            target.intelligence.changeId = ChangeIdAt(2);
+            target.politics.changeId = ChangeIdAt(3);
+            target.glamour.changeId = ChangeIdAt(4);
+
+            // 强制重新解析 AttributeChangeType 缓存
+            target.command.changeType = null;
+            target.strength.changeType = null;
+            target.intelligence.changeType = null;
+            target.politics.changeType = null;
+            target.glamour.changeType = null;
         }
 
         /// <summary>
@@ -1100,10 +1207,8 @@ namespace Sango.UI
             BindButtonCalculator(politicsButton, politicsText, () => snapshot.politics, v => snapshot.politics = v, 1, 100, OnAbilityChanged);
             BindButtonCalculator(glamourButton, glamourText, () => snapshot.glamour, v => snapshot.glamour = v, 1, 100, OnAbilityChanged);
 
-            // 成长与持续
-            //BindGrowthToggleGroup();
-            BindToggleGroup(growthToggles, () => snapshot.attributeChangeType, v => snapshot.attributeChangeType = v, i => i + 1, v => v - 1);
-            BindToggleGroup(durationToggles, () => snapshot.attributeDuration, v => snapshot.attributeDuration = v, i => i, v => v);
+            // 成长类型：五维各自一个下拉框（对应 PersonAttributeValue.changeId）
+            BindChangeTypeDropdowns();
 
             // 兵种适性（S=3, A=2, B=1, C=0）
             BindAdaptToggleGroup(spearAdaptToggles, () => snapshot.spearLv, v => snapshot.spearLv = v);
@@ -1165,7 +1270,7 @@ namespace Sango.UI
             BindTextInput(imageOldInput, () => snapshot.image_old, v => snapshot.image_old = v);
 
             // 数字输入
-            BindButtonCalculator(yearAvailableButton, yearAvailableTextScenario, () => snapshot.yearAvailable, v => snapshot.yearAvailable = v, 0, 300, null);
+            BindButtonCalculator(yearAvailableButton, yearAvailableTextScenario, () => snapshot.appearance, v => snapshot.appearance = v, 0, 300, null);
             BindButtonCalculator(loyaltyButton, loyaltyText, () => snapshot.loyalty, v => snapshot.loyalty = v, 0, 255, null);
 
             // 下拉菜单：初始化选项与事件
@@ -1221,11 +1326,10 @@ namespace Sango.UI
 
                 if (yearBornText != null) yearBornText.text = snapshot.yearBorn.ToString();
                 if (yearDeadText != null) yearDeadText.text = snapshot.yearDead.ToString();
-                if (yearAvailableText != null) yearAvailableText.text = snapshot.yearAvailable.ToString();
+                if (yearAvailableText != null) yearAvailableText.text = snapshot.appearance.ToString();
                 if (lifeSpanText != null) lifeSpanText.text = System.Math.Max(0, snapshot.yearDead - snapshot.yearBorn).ToString();
 
                 RefreshToggleGroup(personalityToggles, snapshot.PersonalityId, i => i - 1, 1);
-                RefreshToggleGroup(growthToggles, snapshot.attributeChangeType, i => i - 1, 1);
                 RefreshVoiceToggleGroup();
                 RefreshToggleGroup(toneToggles, snapshot.tone, i => i, 0);
                 RefreshToggleGroup(hanLoyaltyToggles, snapshot.kanshitsu, i => i, 0);
@@ -1242,8 +1346,8 @@ namespace Sango.UI
                 if (glamourText != null) glamourText.text = snapshot.glamour.ToString();
                 OnAbilityChanged();
 
-                //RefreshGrowthToggleGroup();
-                RefreshToggleGroup(durationToggles, snapshot.attributeDuration, i => i, 0);
+                // 五维各自的成长类型下拉框
+                RefreshChangeTypeDropdowns();
 
                 RefreshAdaptGroup(spearAdaptToggles, snapshot.spearLv);
                 RefreshAdaptGroup(halberdAdaptToggles, snapshot.halberdLv);
@@ -2008,11 +2112,11 @@ namespace Sango.UI
             PersonLib p = GameCustomEdit.Instance != null && GameCustomEdit.Instance.SelfScenarioAddon != null
                 ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Find(x =>
                 {
-                    if (x.BrotherList != null)
+                    if (x.BrotherListId != null)
                     {
-                        for (int i = 0; i < x.BrotherList.Length; i++)
+                        for (int i = 0; i < x.BrotherListId.Length; i++)
                         {
-                            if (x.BrotherList[i] == person.Id)
+                            if (x.BrotherListId[i] == person.Id)
                                 return true;
                         }
                     }
@@ -2501,6 +2605,77 @@ namespace Sango.UI
             if (index < 0) index = 0;
             dropdown.value = index;
             dropdown.RefreshShownValue();
+        }
+
+        /// <summary>
+        /// 绑定五维各自的成长类型下拉框。
+        /// 下标与 <see cref="Snapshot.changeIds"/> 一一对应（0=统率 1=武力 2=智力 3=政治 4=魅力），
+        /// 只处理 prefab 中已赋值的下拉框，未赋值的槽位自动跳过。
+        /// </summary>
+        private void BindChangeTypeDropdowns()
+        {
+            if (changeTypeDropdown == null) return;
+            int count = System.Math.Min(changeTypeDropdown.Length, AbilityCount);
+            for (int i = 0; i < count; i++)
+            {
+                if (changeTypeDropdown[i] == null) continue;
+
+                int index = i;      // 闭包捕获，避免所有下拉框都写到最后一个下标
+                List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+                List<int> values = new List<int>();
+                GetChangeTypeOptions(options, values);
+                BindDropdown(changeTypeDropdown[index], options, values,
+                    () => ChangeIdAt(index),
+                    v => SetChangeId(index, v));
+            }
+        }
+
+        /// <summary>
+        /// 刷新五维成长类型下拉框的选项与选中值。
+        /// </summary>
+        private void RefreshChangeTypeDropdowns()
+        {
+            if (changeTypeDropdown == null) return;
+            int count = System.Math.Min(changeTypeDropdown.Length, AbilityCount);
+            for (int i = 0; i < count; i++)
+            {
+                Dropdown dropdown = changeTypeDropdown[i];
+                if (dropdown == null) continue;
+                List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+                List<int> values = new List<int>();
+                GetChangeTypeOptions(options, values);
+                // 选项数量变化时才重建，避免每帧刷新时反复重建选项导致下拉框被强制收起
+                if (dropdown.options.Count != options.Count) dropdown.options = options;
+                SetDropdownValue(dropdown, values, ChangeIdAt(i));
+            }
+        }
+
+        /// <summary>
+        /// 构建能力成长类型下拉框的选项。
+        /// 取不到剧本数据时退化为 <see cref="ScenarioCommonData"/>，都取不到时只给「普通型」。
+        /// </summary>
+        /// <param name="options">选项文本</param>
+        /// <param name="values">与选项一一对应的成长类型 Id</param>
+        private void GetChangeTypeOptions(List<Dropdown.OptionData> options, List<int> values)
+        {
+            if (options == null || values == null) return;
+
+            SangoObjectSet<AttributeChangeType> types = null;
+            Scenario cur = Scenario.Cur;
+            if (cur != null && cur.CommonData != null) types = cur.CommonData.AttributeChangeTypes;
+            if (types == null && GameData.Instance != null && GameData.Instance.ScenarioCommonData != null)
+                types = GameData.Instance.ScenarioCommonData.AttributeChangeTypes;
+
+            if (types != null)
+            {
+                types.ForEach(type =>
+                {
+                    // Id = 0 是数据里的"未设置"占位（名称同样叫普通型），游戏内按 5 普通型处理，
+                    // 这里跳过，避免下拉框里出现两个同名的「普通型」
+                    if (type != null && type.Id > 0) AddOption(options, values, type.Name, type.Id);
+                });
+            }
+            if (options.Count == 0) AddOption(options, values, "普通型", DefaultChangeId);
         }
 
         private void RefreshStateDropdown()
