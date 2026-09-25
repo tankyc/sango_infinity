@@ -59,6 +59,20 @@ namespace Sango.Core
         /// <summary>影子报告间隔（按势力回合数计；0 = 每回合）</summary>
         public int shadowLogIntervalTurns = 3;
 
+        /// <summary>影子报告的军团 id（0 = 不按军团过滤；&gt;0 = 只报告该军团。仅军团级调度有意义）</summary>
+        public int shadowLogCorpsId = 0;
+
+        // ==================== 军团边界（只约束玩家势力） ====================
+
+        /// <summary>
+        /// 是否强制"军团内调动"边界：源城与目标城必须属于同一军团，**没有例外方向**。
+        ///
+        /// **只对玩家势力生效**：玩家军团之间不互相调人（跨团会打乱玩家自己排好的部署），
+        /// 第一军团由玩家直辖、AI 完全不介入。
+        /// 非玩家（AI）势力以**势力**为边界 —— 势力内可以跨军团调人，不受此开关约束。
+        /// </summary>
+        public bool enforceCorpsBoundary = true;
+
         // ==================== 编制：通用 ====================
 
         /// <summary>基础席位：按城池等级 Id-1 取（小 / 中 / 大 / 巨城）—— 军事岗位的上限</summary>
@@ -157,8 +171,13 @@ namespace Sango.Core
         /// </summary>
         public int defaultTroopsPerGeneral = 10000;
 
-        /// <summary>每支部队配几名将（1.0 = 一将一队；&gt;1 表示允许副将分摊）</summary>
-        public float generalsPerTroop = 1.0f;
+        /// <summary>
+        /// 军事 / 守备岗的**能力下限**：`统率 + 武力` 之和低于此值的人不派去带兵（0 = 不限制）。
+        ///
+        /// 口径是两项原始属性之和（0~200）。默认 80 ≈ 两项平均 40，用来挡住"纯文官 / 文弱武将当将军"
+        /// （例如把大乔派去军事岗）。**硬性军事岗不受此限制** —— 前线必备岗宁可要个弱将也不能空缺。
+        /// </summary>
+        public int militaryMinAbility = 80;
 
         /// <summary>前线城即使没兵也保留的军事岗位（"前线人数一定要保证"）</summary>
         public int minMilitarySeatAtBorder = 3;
@@ -296,6 +315,31 @@ namespace Sango.Core
         public float deputyPerUnit = 0.5f;
 
         /// <summary>
+        /// 军事岗是否**只在"需要用兵"的城**按预想兵力折算队数。
+        ///
+        /// true（默认）= 只有下列城池按 `预想兵力 ÷ troopsPerUnit × (1 + deputyPerUnit)` 编军事岗：
+        ///   · 边境城（圈层 0）—— 随时可能接敌；
+        ///   · 次前线（圈层 1）—— 作为**支援前线**的兵力池；
+        ///   · 威胁达标的城（threatLevel ≥ threatMidAt，任意圈层）。
+        /// 其余（圈层 ≥ 2 且威胁不高）是纯后方，军事岗取 <see cref="rearMilitarySeat"/>（默认 0 = 不设）。
+        ///
+        /// 为什么：后方兵多 ≠ 需要一堆将军在城里待命（将军是给部队带队用的）。
+        /// 旧行为会让"吴 79761 兵 → 24 个军事岗"这类虚高编制把本城武将全锁成"在岗"，吃空抽调池。
+        /// false = 旧行为（所有非港关城都按预想兵力膨胀）。
+        /// </summary>
+        public bool troopSeatOnlyWhenThreatened = true;
+
+        /// <summary>
+        /// **纯后方（圈层 ≥ 2）且威胁未达标**的城的军事岗位数，默认 **0 = 不设军事岗**。
+        ///
+        /// 这类城的人力应该去做常备的运输 / 战略储备（开发），
+        /// 而不是被"军事岗"记账占住、在报告里显得很忙却没有产出。
+        /// 想让后方城留几位将军待命就把它调大；
+        /// 威胁一旦升到 <c>threatMidAt</c>，无论该值多少都会自动改回"按预想兵力折算队数"。
+        /// </summary>
+        public int rearMilitarySeat = 0;
+
+        /// <summary>
         /// 军事岗位硬顶。放开后军事岗取三者较大值：
         ///   ① 按主将带兵上限折算的队数（例：永安 97k 兵 / 7040 → 14 队）；
         ///   ② 基础编制 + 圈层 + 威胁；
@@ -367,11 +411,51 @@ namespace Sango.Core
         /// <summary>禁止重复调动：同一武将在 debounceTurns 个势力回合内不再被调走</summary>
         public int debounceTurns = 2;
 
-        /// <summary>同一座城每回合最多接收多少名外调武将</summary>
+        /// <summary>同一座城每回合最多接收多少名外调武将（基准额度）</summary>
         public int maxTransferPerCityPerTurn = 2;
 
-        /// <summary>同一座城每回合最多向外调出多少名武将</summary>
+        /// <summary>同一座城每回合最多向外调出多少名武将（基准额度）</summary>
         public int maxTransferFromCityPerTurn = 1;
+
+        /// <summary>
+        /// 外调最低匹配分门槛：候选的匹配分低于此值时**不做跨城调动**。
+        ///
+        /// 匹配分 = 能力适配 − 行程成本 − 跨圈层成本（<c>DeploymentSolver.Score</c>），
+        /// 负分意味着"搬过去反而更差"（白耗行程、打断武将现有内政、还触发防抖）。
+        /// 0 = 不设门槛（旧行为）；硬性岗位（<c>Post.required</c>）不受此门槛约束，避免前线必备岗空缺。
+        /// </summary>
+        public float minTransferScore = 0.1f;
+
+        /// <summary>
+        /// 抢占"本城在岗"人选的额外成本。
+        ///
+        /// 外调挑人分两轮：第一轮只看**真正的机动人力**（没被"在岗"记账占用的人），
+        /// 只有第一轮挑不出达标人选时，才进入第二轮"抢占"（分数扣本值）。
+        /// 这样人力优先来自真空闲，只有在明显更划算时才去动别人城里的"在岗"记账。
+        /// 0 = 不区分（抢占与机动人力同权）。
+        /// </summary>
+        public float stealLocalCost = 0.4f;
+
+        /// <summary>
+        /// 势力每回合最多执行的跨城调动**总人数**（全局额度）。
+        /// 目的：一次调整幅度可控；≤0 = 不限制。与"每城额度"是"与"关系。
+        /// </summary>
+        public int maxTransferPerTurn = 12;
+
+        /// <summary>
+        /// 前线 / 高威胁城每回合**额外**的接收额度（叠加在 <see cref="maxTransferPerCityPerTurn"/> 上）。
+        /// 让"缺口最大、最吃紧"的城优先补齐，而不是被后方城的小缺口平均分摊掉额度。
+        /// </summary>
+        public int frontlineExtraReceiveSeat = 2;
+
+        /// <summary>
+        /// 源城"人力超载"判据：空闲人数（<c>City.freePersons</c>）≥ 此值时视为超载城，
+        /// 调出额度放宽到 <see cref="overloadedSendLimit"/>，让囤积城尽快把闲置武将输送出去。
+        /// </summary>
+        public int overloadedFreePersonThreshold = 30;
+
+        /// <summary>人力超载城的每回合调出额度（替代 <see cref="maxTransferFromCityPerTurn"/>）</summary>
+        public int overloadedSendLimit = 5;
 
         /// <summary>港关至少保留的守备人数（低于此值不允许把人调走）</summary>
         public int minPortGateGuard = 1;
@@ -385,7 +469,7 @@ namespace Sango.Core
         /// 军事放开后单城军事岗可达 20~30，1.0 会把内政岗全部挤掉，
         /// 故默认 1.4（允许编制略多于人力，空缺席位属正常）。
         /// </summary>
-        public float maxPostsPerPerson = 1.4f;
+        public float maxPostsPerPerson = 0.8f;
 
 
         // ==================== 求解 ====================
@@ -398,17 +482,6 @@ namespace Sango.Core
         public float costPerTurn = 1.0f;
         /// <summary>一回合多少天（用于把 DistanceDays 折成回合）</summary>
         public int turnDays = 10;
-        /// <summary>军事能力阈值（旧硬编码 350，这里参数化）</summary>
-        public int milFitThreshold = 350;
-        /// <summary>圈层 → 军事槽位权重基数（前线）</summary>
-        public float ringWeightBorder = 3f;
-        /// <summary>次前线军事槽位权重基数</summary>
-        public float ringWeightSubFront = 2f;
-        /// <summary>后方军事槽位权重基数</summary>
-        public float ringWeightRear = 1f;
-        /// <summary>势力个性对槽位权重的影响幅度</summary>
-        public float personalityWeightScale = 0.3f;
-
         // ==================== 岗位权重 ====================
 
         /// <summary>军事岗位权重</summary>

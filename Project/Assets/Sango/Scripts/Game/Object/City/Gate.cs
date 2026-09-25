@@ -21,7 +21,7 @@ namespace Sango.Core
         /// <summary>关隘允许的 AI 命令集合(不做都市内政)</summary>
         static readonly HashSet<string> gateKindCommandIds = new HashSet<string>
         {
-            "AIAttack", "AITransfromToBelongCity",
+            "AIAttack", "AITrainTroop","AITransfromToBelongCity","AIRewardPerson", "AISearching","AIRecruitPerson"
         };
 
         public override void AIPrepare(Scenario scenario)
@@ -40,8 +40,11 @@ namespace Sango.Core
             else
             {
                 AICommandList.Add(CityAI.AIAttack);
-                // 物资输送
                 AICommandList.Add(CityAI.AITransfromToBelongCity);
+                AICommandList.Add(CityAI.AISearching);
+                AICommandList.Add(CityAI.AITrainTroop);
+                AICommandList.Add(CityAI.AIRewardPerson);
+                AICommandList.Add(CityAI.AIRecruitPerson);
             }
 
             GameEvent.OnCityAIPrepare?.Invoke(this, scenario);

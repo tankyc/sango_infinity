@@ -89,6 +89,8 @@ namespace Sango.Core
         public float score;
         /// <summary>是否由本城在册人员直接满足（false = 建议外调）</summary>
         public bool local;
+        /// <summary>源城名（外调时非空；本城在岗为 null）—— 便于核对"人从哪来"</summary>
+        public string fromCityName;
         /// <summary>原因链（"外调/前线 兵力24000/上限12000 内政6点 ..."）</summary>
         public string reason;
     }
@@ -102,6 +104,12 @@ namespace Sango.Core
         public int forceId;
         /// <summary>势力名</summary>
         public string forceName;
+        /// <summary>调度作用域的军团 id（0 = 势力级作用域，无军团边界）</summary>
+        public int corpsId;
+        /// <summary>军团标签（如"第三军团"；势力级作用域为 null，仅用于报告显示）</summary>
+        public string corpsName;
+        /// <summary>是否"只算不调"（仅参考）：玩家直辖的第一军团为 true —— 报告里要标注清楚</summary>
+        public bool adviceOnly;
         /// <summary>本势力可调动（空闲）人数</summary>
         public int personPool;
         /// <summary>全部岗位</summary>
@@ -135,32 +143,59 @@ namespace Sango.Core
             return count;
         }
 
-        /// <summary>生成人类可读报告（供影子模式对拍与调参）。</summary>
-        public string Report()
+        /// <summary>
+        /// 生成人类可读报告（供影子/执行模式对拍与调参）。
+        /// </summary>
+        /// <param name="title">
+        /// 首行标题前缀（如 "[部署执行] 本回合实际调动 13 人"）。
+        /// 为空时用中性的 "[部署]" —— 避免在**执行模式**下被误标成"影子"。
+        /// </param>
+        public string Report(string title = null)
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append("[部署影子] #").Append(forceId).Append(' ').Append(forceName)
-              .Append(" 岗位:").Append(posts.Count)
+
+            // 真实空缺 = 岗位总数 − 在岗 − 建议外调。
+            // 不再用 unmet.Count：那个集合里混着"被围 / 闸门否决 / 额度限流"等非岗位消息，会误导阅读。
+            int vacant = posts.Count - LocalCount() - TransferCount();
+            if (vacant < 0) vacant = 0;
+
+            if (!string.IsNullOrEmpty(title))
+                sb.Append(title).Append(" | ");
+            else
+                sb.Append("[部署] ");
+
+            sb.Append('#').Append(forceId).Append(' ').Append(forceName);
+            if (!string.IsNullOrEmpty(corpsName))
+            {
+                // 军团级作用域：明确指出调度边界；"仅参考"要标出来，
+                // 否则会误以为这些建议已经下发（其实是玩家直辖军团，AI 只算不调）
+                sb.Append(" · ").Append(corpsName);
+                if (adviceOnly)
+                    sb.Append("(仅参考)");
+            }
+            sb.Append(" 岗位:").Append(posts.Count)
               .Append(" 在岗:").Append(LocalCount())
               .Append(" 建议外调:").Append(TransferCount())
-              .Append(" 空缺:").Append(unmet.Count)
+              .Append(" 空缺:").Append(vacant)
               .Append(" 可调动池:").Append(personPool)
               .AppendLine();
 
-            // 按城池聚合：岗位构成 / 在岗 / 建议外调 / 编制依据
+            // 岗型构成汇总：一眼看出"军事岗是否虚高"（按类型聚合成 军事(1)×276，不再一行刷几十遍）
+            sb.Append("   岗位构成: ").Append(KindAggregate(posts, 0)).AppendLine();
+
+            // 按城池聚合：岗位构成 / 在岗 / 建议外调 / 空缺 / 编制依据
+            // 用"已输出城集合"去重（不再依赖 posts 的相邻顺序）：分阶段指派打乱顺序也不会重复打印
+            HashSet<int> printedCities = new HashSet<int>();
             for (int i = 0; i < posts.Count; i++)
             {
                 Post p = posts[i];
-                if (i > 0 && posts[i - 1].cityId == p.cityId)
+                if (!printedCities.Add(p.cityId))
                     continue;
 
                 int postCount = 0, localCount = 0, transferCount = 0;
-                StringBuilder kinds = new StringBuilder();
                 for (int j = 0; j < posts.Count; j++)
                 {
-                    if (posts[j].cityId != p.cityId) continue;
-                    postCount++;
-                    kinds.Append(KindName(posts[j].kind)).Append('(').Append(posts[j].priority).Append(") ");
+                    if (posts[j].cityId == p.cityId) postCount++;
                 }
                 for (int j = 0; j < fillings.Count; j++)
                 {
@@ -169,9 +204,13 @@ namespace Sango.Core
                     else if (fillings[j].personId > 0) transferCount++;
                 }
 
+                int cityVacant = postCount - localCount - transferCount;
+                if (cityVacant < 0) cityVacant = 0;
+
                 sb.Append("  [").Append(p.cityName).Append("] 岗位").Append(postCount)
                   .Append(" 在岗").Append(localCount).Append(" 建议外调").Append(transferCount)
-                  .Append(" | ").Append(kinds.ToString().TrimEnd())
+                  .Append(" 空缺").Append(cityVacant)
+                  .Append(" | ").Append(KindAggregate(posts, p.cityId))
                   .AppendLine();
 
                 // 编制依据（去重后输出，便于核对"为什么有这些岗位"）
@@ -185,12 +224,15 @@ namespace Sango.Core
                 }
             }
 
-            // 建议外调明细（带原因链）
+            // 建议外调明细（带源城与原因链）
             for (int i = 0; i < fillings.Count; i++)
             {
                 PostFilling f = fillings[i];
                 if (f.local || f.personId <= 0) continue;
-                sb.Append("   → ").Append(f.personName).Append(" ⇒ ").Append(f.post.cityName)
+                sb.Append("   → ").Append(f.personName);
+                if (!string.IsNullOrEmpty(f.fromCityName))
+                    sb.Append('(').Append(f.fromCityName).Append(')');
+                sb.Append(" ⇒ ").Append(f.post.cityName)
                   .Append(' ').Append(KindName(f.post.kind))
                   .Append(" 分数").Append(f.score.ToString("F2"))
                   .Append(" | ").Append(f.reason)
@@ -199,7 +241,7 @@ namespace Sango.Core
 
             if (cityInfo != null && cityInfo.Count > 0)
             {
-                sb.AppendLine("   —— 各城人力分布（在册 / 空闲 / 在部队 / 在城）——");
+                sb.AppendLine("   —— 各城人力 vs 岗位（在册 / 空闲 / 在部队 / 在城 | 岗位 / 在岗 / 外调）——");
                 for (int i = 0; i < cityInfo.Count; i++)
                     sb.Append("     ").Append(cityInfo[i]).AppendLine();
             }
@@ -215,6 +257,43 @@ namespace Sango.Core
         /// 用于区分"人不在城"与"人在城但被部队/任务占用"——这两者的处理路径完全不同。
         /// </summary>
         public List<string> cityInfo = new List<string>();
+
+        /// <summary>
+        /// 把岗位按"类型(优先级)"聚合成 <c>军事(1)×276 征兵(2)×12</c> 形式（保持首次出现顺序）。
+        /// </summary>
+        /// <param name="source">岗位表</param>
+        /// <param name="cityId">只统计该城；≤0 = 全部城池</param>
+        /// <returns>聚合文本（无岗位时为空串）</returns>
+        public static string KindAggregate(List<Post> source, int cityId)
+        {
+            if (source == null || source.Count == 0)
+                return "";
+
+            List<string> keys = new List<string>();
+            Dictionary<string, int> counts = new Dictionary<string, int>();
+            for (int i = 0; i < source.Count; i++)
+            {
+                if (cityId > 0 && source[i].cityId != cityId) continue;
+                string key = KindName(source[i].kind) + "(" + source[i].priority + ")";
+                int c;
+                if (counts.TryGetValue(key, out c))
+                    counts[key] = c + 1;
+                else
+                {
+                    counts[key] = 1;
+                    keys.Add(key);
+                }
+            }
+
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < keys.Count; i++)
+            {
+                if (sb.Length > 0) sb.Append(' ');
+                sb.Append(keys[i]);
+                if (counts[keys[i]] > 1) sb.Append('×').Append(counts[keys[i]]);
+            }
+            return sb.ToString();
+        }
 
         /// <summary>岗位中文名（报告用）。</summary>
         public static string KindName(PostKind kind)

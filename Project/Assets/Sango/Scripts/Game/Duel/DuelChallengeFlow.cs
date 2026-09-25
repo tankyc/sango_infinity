@@ -276,6 +276,14 @@ namespace Sango.Core.Duel
             s_Challenged = null;
 
             if (challenger == null || challenged == null) return;
+
+            // 这一句是被对话框回调（"是否应战 / 是否观战"）异步调进来的，
+            // 静态引用 s_Challenger / s_Challenged 可能在等待期间失效：部队被歼灭、势力灭亡清场、
+            // 城池陷落把队伍清掉等。此时若直接拿旧引用开单挑，结算阶段就会去给一支已灭亡的部队
+            // 登记俘虏，出现"同一名武将重复入俘虏名单"。所以真正 StartDuel 之前必须重新校验一次。
+            if (!challenger.IsAlive || !challenged.IsAlive) return;
+            if (!DuelManager.Instance.CanStartDuel(challenger, challenged)) return;
+
             DuelManager.Instance.StartDuel(challenger, challenged, withView);
         }
 

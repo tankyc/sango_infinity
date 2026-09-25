@@ -2414,7 +2414,7 @@ namespace Sango.Core
 
         /// <summary>
         /// 【前线兵装比】判断前线部队的兵装是否明显不足：
-        /// 部队携带的通用兵装（枪 / 戟 / 弩 / 战马 / 船）覆盖率低于配置阈值（默认 50%）。
+        /// 部队实际持有的通用兵装（枪 / 戟 / 弩 / 战马 / 船）覆盖率低于配置阈值（默认 50%）。
         /// </summary>
         /// <param name="troop">前线部队</param>
         /// <returns>兵装是否不足</returns>
@@ -2433,11 +2433,33 @@ namespace Sango.Core
                 return false;
 
             int have = 0;
-            if (troop.itemStore != null)
+            if (troop.IsTransport)
             {
-                have += troop.itemStore.GetNumber(supplyWeaponKinds);
-                have += troop.itemStore.GetNumber((int)ItemStoreKindType.Horse);
-                have += troop.itemStore.GetNumber((int)ItemStoreKindType.Boat);
+                // 运输 / 补给队：兵装就是"装在 itemStore 里、准备送往前线的物资"，按实际携带量计。
+                if (troop.itemStore != null)
+                {
+                    have += troop.itemStore.GetNumber(supplyWeaponKinds);
+                    have += troop.itemStore.GetNumber((int)ItemStoreKindType.Horse);
+                    have += troop.itemStore.GetNumber((int)ItemStoreKindType.Boat);
+                }
+            }
+            else
+            {
+                // 【修复】普通战斗部队的兵装不记在 itemStore 里，而是随兵力齐备
+                // （见 Troop.GetItemNumber：按「兵力 × 兵种消耗系数」推算）。
+                // 原实现直接读 itemStore，对战斗部队恒为 0，于是**所有前线部队永远"兵装不足"**：
+                //   · CollectNeedyTroops 把每一支有任务的部队都算成待补给；
+                //   · CalcSupplyNeed 因此恒 > 0 → 补给队永远找得到目标、永不返城，
+                //     长期黏着前线部队（甚至在城头反复补给不再前进），即"补给队滞留"。
+                have += troop.troops + troop.woundedTroops;
+
+                // 额外接收到的补给兵装会记在 itemStore 里，一并计入
+                if (troop.itemStore != null)
+                {
+                    have += troop.itemStore.GetNumber(supplyWeaponKinds);
+                    have += troop.itemStore.GetNumber((int)ItemStoreKindType.Horse);
+                    have += troop.itemStore.GetNumber((int)ItemStoreKindType.Boat);
+                }
             }
 
             // 兵装覆盖率低于阈值 → 视为不足

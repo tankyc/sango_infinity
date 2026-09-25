@@ -633,6 +633,13 @@ namespace Sango.Core
             if (!IsPlayer && !DoAI(scenario))
                 return false;
 
+            // 【人才部署 · 军团级（方案 B）】玩家势力的军团不走 Force.DoAI，在这里统一补一次调度：
+            //   · 第一军团（君主所在、玩家直辖）：目标城限本军团，但可从全势力**单向**抽调富余人力；
+            //   · 分军团：各自军团内自治（严格边界，池子与目标城都限本军团）。
+            // 注意 Force.Run 在等待玩家操作时会被反复调用，RunPlayerCorps 内部以回合号防重入。
+            if (IsPlayer)
+                DeploymentShadow.RunPlayerCorps(this, scenario);
+
             for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
                 Corps corps = scenario.corpsSet[i];
@@ -846,6 +853,12 @@ namespace Sango.Core
 
             // 【Phase C】PrepareCityPersonHole 已删除（旧的"缺几人"标量模型），
             // 岗位编制改由 DeploymentSolver 按需计算（失效驱动增量）。
+
+            // 【人才部署】推进本势力的部署回合号。
+            // 必须在这里（每回合恰一次）推进，而不是在 Solve 里自增 ——
+            // 玩家势力会按**军团**分别调度（方案 B），若在 Solve 里自增，一个势力有几个军团就会加几次，
+            // 防抖(debounceTurns)与前期加成(earlyGameTurns)的回合标度会全部失真。
+            DeploymentState.BeginForceTurn(Id);
 
             return base.OnForceTurnStart(scenario);
         }

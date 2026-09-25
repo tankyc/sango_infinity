@@ -16,7 +16,10 @@ namespace Sango.Core.Player
             windowName = "window_city_searching";
 
         }
-
+        protected override bool MenuCanShow()
+        {
+            return TargetCity.IsCityBase();
+        }
         public override bool IsValid
         {
             get

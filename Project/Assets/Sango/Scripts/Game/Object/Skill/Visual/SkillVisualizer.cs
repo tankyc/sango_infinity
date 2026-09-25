@@ -68,7 +68,7 @@ namespace Sango.Core
         public override void PlaySkillVisual(Troop troop, Cell spellCell, List<Cell> atkCellList)
         {
             // 近战技能视觉效果
-            troop.Render.SetAniShow(2);
+            troop.Render.SetAniShow(1);
             troop.Render.FaceTo(spellCell.Position);
         }
     }

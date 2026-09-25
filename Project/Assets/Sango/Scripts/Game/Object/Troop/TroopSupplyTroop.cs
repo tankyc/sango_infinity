@@ -84,6 +84,23 @@ namespace Sango.Core
             if (IsTooCloseToEnemy(troop, scenario, out City backCity))
                 return TroopAIUtility.MoveToTargetSafely(troop, backCity.CenterCell, scenario);
 
+            // 【出城优先】部队不允许停留在城池 / 关隘 / 港口等建筑格上。
+            //
+            // 补给队刚组建（或被返城 / 后撤逻辑带回）时会临时停在城头。
+            // 若此时就地给城边友军补给，SupplyOneAdjacentAlly 会 return true 直接结束行动，
+            // 而前线友军几乎永远处于"需要补给"状态（持续减员 / 缺粮），
+            // 于是补给队一回合接一回合地钉在城头补兵，永远不出城 —— 表现为"补给队滞留在城头"。
+            //
+            // 因此停在建筑格上时，本回合只做一件事：离开城头。
+            // 该判断放在"该解散 / 该返城"三个分支之后，保证物资耗尽等收尾逻辑优先生效。
+            if (IsOnBuildingCell(troop))
+            {
+                if (!TryLeaveBuildingCell(troop, scenario))
+                    return false;               // 移动动画未播完，交给下一帧继续
+
+                return true;
+            }
+
             // 1) 与友军相邻 → 本回合只补给其中"最需要"的一支（一回合一支）
             if (SupplyOneAdjacentAlly(troop))
                 return true;
@@ -232,6 +249,65 @@ namespace Sango.Core
 
             troop.SetMission(MissionType.TroopMovetoCity, back.Id);
             troop.NeedPrepareMission();
+        }
+
+        /// <summary>
+        /// 【出城优先】判断补给队是否正停在城池 / 关隘 / 港口等建筑格（城头）上。
+        /// </summary>
+        /// <param name="troop">补给队</param>
+        /// <returns>是否停在建筑格上</returns>
+        static bool IsOnBuildingCell(Troop troop)
+        {
+            return troop != null && troop.cell != null && troop.cell.building != null;
+        }
+
+        /// <summary>
+        /// 【出城优先】把停在城头的补给队送到移动范围内最近的、可停留的空地。
+        ///
+        /// 落脚点由 <see cref="Cell.CanStay"/> 把关（无部队、无建筑、地形可通行），
+        /// 确保离开城头后一定站在合法地块上，不会再出现"停在城头"的情况。
+        /// </summary>
+        /// <param name="troop">补给队</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>
+        /// true  —— 已经站在可停留地块上，或本回合移动范围内确实没有落脚点；
+        /// false —— 正在移动途中，调用方需 return false 等待下一帧。
+        /// </returns>
+        static bool TryLeaveBuildingCell(Troop troop, Scenario scenario)
+        {
+            if (troop.cell == null || troop.cell.building == null)
+                return true;
+
+            Map map = scenario.Map;
+            // 与其它移动逻辑保持同一口径：移动范围只在为空时计算一次
+            if (troop.MoveRange.Count == 0)
+                map.GetMoveRange(troop, troop.MoveRange);
+
+            Cell best = null;
+            int bestDistance = int.MaxValue;
+            for (int i = 0; i < troop.MoveRange.Count; i++)
+            {
+                Cell candidate = troop.MoveRange[i];
+                // 跳过自己所在格（建筑格不可停留）与不可停留的地块
+                if (candidate == null || candidate == troop.cell)
+                    continue;
+                if (!candidate.CanStay(troop))
+                    continue;
+
+                // 选最近的一格：出城这一步尽量少消耗移动力
+                int distance = map.Distance(troop.cell, candidate);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+
+            // 被敌军 / 建筑彻底围死：本回合无处可去，保持临时状态，下次行动再试
+            if (best == null)
+                return true;
+
+            return troop.MoveTo(best);
         }
 
         /// <summary>

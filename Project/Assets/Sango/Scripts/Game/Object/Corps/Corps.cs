@@ -566,7 +566,10 @@ namespace Sango.Core
         /// </summary>
         private void AIPrepare(Scenario scenario)
         {
-            // 【Phase C】旧调人逻辑（CorpsAI.AITransfromPerson）已删除，人才部署统一由新系统负责。
+            // 【Phase C】旧调人逻辑（CorpsAI.AITransfromPerson）已删除。
+            // 【方案 B】人才部署由 DeploymentShadow 负责，入口在 Force 层，这里不再触发（避免重复调度）：
+            //   · AI 势力：Force.AIPrepare → DeploymentShadow.Run（势力级，势力范围 == 其唯一军团）；
+            //   · 玩家势力：Force.Run → DeploymentShadow.RunPlayerCorps（军团级，逐军团调度）。
             AICommandQueue.Enqueue(CorpsAI.AICities);
             AICommandQueue.Enqueue(CorpsAI.AITroops);
 

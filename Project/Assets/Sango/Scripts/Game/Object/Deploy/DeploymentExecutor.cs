@@ -33,6 +33,25 @@ namespace Sango.Core
         /// <returns>判定结果</returns>
         public static Gate CanTransfer(Person person, City dest, DeploymentWeights weights)
         {
+            return CanTransfer(person, dest, weights, false);
+        }
+
+        /// <summary>
+        /// 合法性闸门（带"仅参考"模式）。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <param name="dest">目标城</param>
+        /// <param name="weights">部署参数</param>
+        /// <param name="adviceMode">
+        /// 是否"仅参考"模式：跳过**管理者层面**的两条否决（"人才"开关 / 第一军团直辖）。
+        ///
+        /// 用于玩家直辖军团的参考报告 —— 它要回答的是"如果允许 AI 管，它会怎么调"，
+        /// 若照常否决，报告会被自己的直辖规则清空成"零建议"。位置 / 在途 / 被围 / 军团边界 /
+        /// 源城守备下限等**硬规则仍然照常生效**。
+        /// </param>
+        /// <returns>判定结果</returns>
+        public static Gate CanTransfer(Person person, City dest, DeploymentWeights weights, bool adviceMode)
+        {
             if (person == null || dest == null)
                 return Deny("空引用");
             if (person.IsDead)
@@ -48,16 +67,40 @@ namespace Sango.Core
             if (!person.IsFree)
                 return Deny("在途 / 部队中 / 有任务");
 
-            // 玩家势力：仅"非第一军团 + 人才未托管"才允许 AI 调动（决策 4）
-            if (person.BelongForce.IsPlayer && !AllowPlayerForceTransfer(dest))
-                return Deny("玩家势力未开放人才托管");
+            bool isPlayerForce = person.BelongForce.IsPlayer;
+
+            // ---------- 军团边界（**只约束玩家势力**） ----------
+            // 玩家军团之间不互相调人 —— 跨团会打乱玩家自己排好的部署。
+            // 非玩家势力以**势力**为边界：势力内跨军团调动是允许的（AI 在自己地盘里怎么调人是它自己的事）。
+            City from = person.BelongCity;
+            if (isPlayerForce && (weights == null || weights.enforceCorpsBoundary))
+            {
+                Corps fromCorps = from != null ? from.BelongCorps : null;
+                Corps destCorps = dest.BelongCorps;
+                if (fromCorps != null && destCorps != null && fromCorps != destCorps)
+                    return Deny("跨军团：目标城属于其他军团");
+            }
+
+            // ---------- 军团委任条件（**只约束玩家势力**；"仅参考"模式跳过） ----------
+            // "人才"开关未开启（玩家自己管）的军团，AI 不得代管其人员调动（决策 4）。
+            // 注意：入口层（DeploymentShadow）已按此开关整块跳过未开启的军团，
+            // 这里是**兜底**——防止将来出现绕过入口的调用路径。
+            if (isPlayerForce && !adviceMode)
+            {
+                if (dest.BelongCorps != null && !IsPersonManaged(dest.BelongCorps))
+                    return Deny("目标军团的人才由玩家自己管理");
+
+                // 第一军团（君主所在军团）由玩家直辖，AI 一律不介入：
+                // 玩家自己排好的部署不能被自动调度打乱。
+                if (dest.BelongCorps != null && dest.BelongCorps == person.BelongForce.CapitalCorps)
+                    return Deny("第一军团由玩家直辖");
+            }
 
             // 目标城被围：不派人进去送死
             if (dest.EnemyCount > 0 && dest.NearestEnemyDistance <= BesiegeRange)
                 return Deny("目标城被围");
 
             // 源城守备下限：港关 / 前线不能把人抽空（旧 CityAI 迁人路径的元凶）
-            City from = person.BelongCity;
             if (from != null && weights != null)
             {
                 bool isPortGate = from.IsPort() || from.IsGate();
@@ -97,16 +140,17 @@ namespace Sango.Core
         /// <param name="person">武将</param>
         /// <param name="dest">目标城</param>
         /// <param name="weights">部署参数</param>
-        /// <param name="execute">是否真正执行（影子模式传 false，只判定）</param>
+        /// <param name="execute">是否真正执行（影子模式 / 仅参考传 false，只判定）</param>
         /// <param name="turn">当前势力回合号（用于防抖）</param>
+        /// <param name="adviceMode">是否"仅参考"模式（见 <see cref="CanTransfer(Person, City, DeploymentWeights, bool)"/>）</param>
         /// <param name="reason">返回：失败原因；成功为 null</param>
         /// <returns>是否真的执行了调动</returns>
         public static bool Transfer(Person person, City dest, DeploymentWeights weights, bool execute, int turn,
-            out string reason)
+            bool adviceMode, out string reason)
         {
             reason = null;
 
-            Gate gate = CanTransfer(person, dest, weights);
+            Gate gate = CanTransfer(person, dest, weights, adviceMode);
             if (!gate.allowed)
             {
                 reason = gate.reason;
@@ -117,26 +161,24 @@ namespace Sango.Core
                 return false;                       // 影子模式：只判定
 
             person.TransformToCity(dest);
-            DeploymentState.MarkTransfer(person.Id, dest.Id, turn);
+            DeploymentState.MarkTransfer(person.Id, turn);
             return true;
         }
 
         /// <summary>
-        /// 玩家势力是否允许 AI 代管人才：① 目标军团不是第一军团（首都军团）；
-        /// ② 该军团的人才托管开关未设为"玩家自己管"（沿用 `Corps.AppointContentType.Person`）。
+        /// 该军团的"人才"委任开关是否开启（开启 = 允许 AI 代管其人员调动）。
+        ///
+        /// `Corps.AppointContentType.Person`：**0 = 允许**（AI 代管），**1 = 玩家自己管**。
+        /// **只对玩家势力的军团有意义** —— AI 势力以势力为边界，不受此开关约束。
+        /// 入口层（<see cref="DeploymentShadow.RunPlayerCorps"/>）用它决定"这个军团要不要跑调度"，
+        /// 闸门用它做兜底 —— 两处共用本方法，避免规则分裂。
         /// </summary>
-        /// <param name="dest">目标城</param>
-        /// <returns>是否允许</returns>
-        static bool AllowPlayerForceTransfer(City dest)
+        /// <param name="corps">军团</param>
+        /// <returns>是否允许 AI 代管其人员</returns>
+        public static bool IsPersonManaged(Corps corps)
         {
-            Corps corps = dest.BelongCorps;
             if (corps == null)
                 return false;
-
-            Force force = dest.BelongForce;
-            if (force != null && corps == force.CapitalCorps)
-                return false;                       // 第一军团由玩家直辖
-
             return corps.GetAppointValue(Corps.AppointContentType.Person) != 1;
         }
 

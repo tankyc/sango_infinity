@@ -169,5 +169,46 @@
   "taskBigTroopBonus": 30,
   "taskBigTroopPercent": 150,
   "protectCityThreatRange": 5,
-  "protectCityNearEnemyBonusPerCell": 40
+  "protectCityNearEnemyBonusPerCell": 40,
+
+  // ------------------------- 人才部署（武将调度：岗位编制 / 调动节奏） -------------------------
+  // 只写要覆盖的字段即可，其余沿用代码内置默认值（DeploymentWeights）。
+  // 注意：shadowLogIntervalTurns 现在**只控制日志输出频率**，不再影响调人节奏（每回合都会执行）。
+  "deployment": {
+    "enabled": true,
+    "shadowOnly": false,                // true = 只计算不调人（调试用）
+    "shadowLogEnabled": true,           // 是否输出部署报告（仅编辑器 / 开发包）
+    "shadowLogForceId": -1,             // -1 = 报告所有势力；0 = 只报告玩家；>0 = 指定势力 id
+    "shadowLogIntervalTurns": 3,        // 每 N 个势力回合输出一次报告（只影响日志）
+    "shadowLogCorpsId": 0,              // >0 = 只报告该军团（军团级调度才有意义）
+
+    // ---- 军团边界与人才开关（**只约束玩家势力**，AI 势力以势力为边界） ----
+    // 玩家侧：
+    //   · 军团边界：源城与目标城必须同军团，跨团一律否决；
+    //   · "人才"开关（军团委任界面可改，代码里是 Corps.AppointContentType.Person：
+    //     0 = 允许 AI 代管，1 = 玩家自己管）：只有开启的军团才跑调度，未开启整块跳过；
+    //   · 第一军团（君主所在军团）由玩家直辖，只出"仅参考"影子报告、不调人。
+    // AI 势力侧：目标城与抽调池都是全势力，势力内可跨军团调人，上述三条都不适用。
+    "enforceCorpsBoundary": true,       // 玩家军团边界开关（对 AI 势力无效）
+
+    // ---- 编制基准（本次未改动，仅显式化便于调参） ----
+    "troopExpectFill": 0.8,
+    "troopsPerUnit": 5000,
+    "deputyPerUnit": 0.5,
+    "troopSeatOnlyWhenThreatened": true, // 军事岗只在"前线(圈层0) / 次前线(圈层1) / 威胁达标城"按预想兵力折算
+    "rearMilitarySeat": 0,               // 纯后方(圈层≥2)且威胁未达标的城：军事岗数（0 = 不设，只留运输/战略储备岗）
+
+    // ---- 调动节奏与门槛 ----
+    "debounceTurns": 2,                 // 同一武将 N 个势力回合内不再被调走
+    "maxTransferPerCityPerTurn": 2,     // 每城每回合接收基准额度
+    "frontlineExtraReceiveSeat": 2,     // 前线 / 高威胁城额外接收额度
+    "maxTransferFromCityPerTurn": 1,    // 每城每回合调出基准额度
+    "overloadedFreePersonThreshold": 30,// 空闲 ≥ 此值视为"人力超载城"
+    "overloadedSendLimit": 5,           // 超载城的调出额度
+    "maxTransferPerTurn": 12,           // 势力级每回合调动总人数上限
+    "minTransferScore": 0.1,            // 外调最低匹配分（硬性岗不受限）
+    "stealLocalCost": 0.4,              // 抢占"本城在岗"人选的额外成本（优先用真正的机动人力）
+    "militaryMinAbility": 80,           // 军事/守备岗能力下限：统率+武力 < 此值不派去带兵（硬性岗不受限）
+    "minPortGateGuard": 1               // 港关至少保留的守备人数
+  }
 }

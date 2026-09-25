@@ -26,7 +26,10 @@ namespace Sango.Core.Player
             };
 
         }
-
+        protected override bool MenuCanShow()
+        {
+            return TargetCity.IsCityBase();
+        }
         public override bool IsValid
         {
             get

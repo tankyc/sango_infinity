@@ -82,28 +82,59 @@ namespace Sango.Core
             // 只受 militarySeatHardMax 硬顶约束。
             int milSeat = 0;
             int expectedTroops = 0;
+            int milPlan = 0;                    // 基础编制（大城 + 圈层 + 威胁）—— 岗位生成处要用（编制依据）
+            bool needsTroopSeat = false;        // 是否按预想兵力折算队数 —— 同上
             if (!isPortGate)
             {
                 // 用预想兵力而不是当前兵力：出征 / 灾害 / 被攻击不会让军事编制乱跳，
                 // 也就不会把将军们反复调来调去。
                 expectedTroops = DeploymentState.GetExpectedTroops(city, weights, situation);
 
+                // 【军事岗按兵力折算的**适用范围**】只有"需要用兵"的城才按预想兵力编队数：
+                //   · 边境城（圈层 0）—— 随时可能打起来；
+                //   · 次前线（圈层 1）—— 按兵力折算，作为**支援前线**的兵力池；
+                //   · 威胁达标的城（threatLevel ≥ threatMidAt，任意圈层）—— 敌人已经压过来了。
+                // 其余（圈层 ≥ 2 且威胁不高）是**纯后方**：**不设军事岗**，
+                // 只保留常备的运输 / 战略储备（开发）岗 —— 后方兵多 ≠ 需要一堆将军待命，
+                // 将军是给部队带队用的，纯后方的部队不需要常备编队，
+                // 否则"吴 79761 兵 → 24 个军事岗"这种虚高编制会把本城武将全锁成在岗、吃空抽调池。
+                // 注：圈层 -1（未定）按"最深层"处理，不按兵力编队。
+                needsTroopSeat = !weights.troopSeatOnlyWhenThreatened
+                    || (ring >= 0 && ring <= 1)
+                    || threatLevel >= weights.threatMidAt;
+
                 // 【前线人数保证】队数 = 预想兵力 ÷ 每队编制（默认 **5000 一队**），
                 // 再按"多人队伍（主将 + 副将）"放大：
                 //     人数 = 队数 × (1 + deputyPerUnit)
                 //   例：9 万兵 → 18 队 → 18 × 1.5 = **27 人**（旧算法按主将带兵上限只给 9 人，明显偏低）。
                 // 主将带不满一队编制时，实际队数更多（改按主将上限折算）。
-                int perUnit = weights.troopsPerUnit > 0 ? weights.troopsPerUnit : weights.defaultTroopsPerGeneral;
-                if (perUnit <= 0) perUnit = 5000;
-                if (city.Leader != null && city.Leader.TroopsLimit > 0 && city.Leader.TroopsLimit < perUnit)
-                    perUnit = city.Leader.TroopsLimit;
-                int unitCount = (int)Math.Ceiling(expectedTroops / (double)perUnit);
-                int milByTroops = (int)Math.Ceiling(unitCount * (1.0 + Math.Max(0f, weights.deputyPerUnit)));
-                if (milByTroops < 0) milByTroops = 0;
+                int milByTroops = 0;
+                if (needsTroopSeat)
+                {
+                    int perUnit = weights.troopsPerUnit > 0 ? weights.troopsPerUnit : weights.defaultTroopsPerGeneral;
+                    if (perUnit <= 0) perUnit = 5000;
+                    if (city.Leader != null && city.Leader.TroopsLimit > 0 && city.Leader.TroopsLimit < perUnit)
+                        perUnit = city.Leader.TroopsLimit;
+                    int unitCount = (int)Math.Ceiling(expectedTroops / (double)perUnit);
+                    milByTroops = (int)Math.Ceiling(unitCount * (1.0 + Math.Max(0f, weights.deputyPerUnit)));
+                    if (milByTroops < 0) milByTroops = 0;
+                }
 
                 int milFloor = isBorder ? weights.minMilitarySeatAtBorder : 0;
-                int milPlan = baseSeat + ringSeat + threatSeat;
-                milSeat = Math.Max(Math.Max(milByTroops, milPlan), milFloor);
+                milPlan = baseSeat + ringSeat + threatSeat;
+                if (needsTroopSeat)
+                {
+                    // 接敌城：按兵力队数 / 基础编制 / 前线保底 取较大值
+                    milSeat = Math.Max(Math.Max(milByTroops, milPlan), milFloor);
+                }
+                else
+                {
+                    // 【纯后方（圈层 ≥ 2 且无威胁）】**不设军事岗**（默认 0）。
+                    // 这些城的人力应该去做常备的运输 / 战略储备（开发），
+                    // 而不是被"军事岗"记账占住、在报告里显得很忙却没有产出。
+                    // 若确实想让后方城留几位将军待命，把 rearMilitarySeat 调大即可。
+                    milSeat = Math.Max(0, weights.rearMilitarySeat);
+                }
                 if (milSeat > weights.militarySeatHardMax) milSeat = weights.militarySeatHardMax;
                 if (milSeat < 0) milSeat = 0;
             }
@@ -356,15 +387,22 @@ namespace Sango.Core
             for (int i = 0; i < garrisonSeat; i++)
                 output.Add(MakePost(PostKind.Garrison, 0, true, weights, city, null));
 
+            // 军事岗的态势标签与编制依据（让报告能一眼看出"为什么只有这么多军事岗"）
+            string milTag = isBorder
+                ? "前线"
+                : (threatLevel >= weights.threatHighAt ? "高威胁"
+                    : (threatLevel >= weights.threatMidAt ? "中威胁" : "常规"));
             for (int i = 0; i < milSeat; i++)
             {
                 // 前线 / 高威胁的第一军事岗位视为硬性
                 bool required = (isBorder || threatLevel >= weights.threatHighAt) && i == 0;
                 output.Add(MakePost(PostKind.Military, 1, required, weights, city,
                     i == 0
-                        ? string.Format("军事: {0} 预想兵力{1}(当前{2}/兵力上限{3})",
-                            isBorder ? "前线" : (threatLevel >= weights.threatHighAt ? "高威胁" : "常规"),
-                            expectedTroops, city.troops, city.TroopsLimit)
+                        ? (needsTroopSeat
+                            ? string.Format("军事: {0} 预想兵力{1}(当前{2}/兵力上限{3})",
+                                milTag, expectedTroops, city.troops, city.TroopsLimit)
+                            : string.Format("军事: {0} 未接敌·只留{1}人看家(预想兵力{2}不折算队数)",
+                                milTag, weights.rearMilitarySeat, expectedTroops))
                         : null));
             }
             for (int i = 0; i < recruitSeat; i++)
