@@ -1079,6 +1079,7 @@ namespace Sango.Core
             CalculateMaxTroops();
 
             // 事件可二次修改属性
+            GameEvent.OnTroopBeforeCalculateAttribute?.Invoke(this, scenario);
             GameEvent.OnTroopCalculateAttribute?.Invoke(this, scenario);
             GameEvent.OnTroopAfterCalculateAttribute?.Invoke(this, scenario);
 
