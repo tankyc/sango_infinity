@@ -1245,6 +1245,36 @@ namespace Sango.Core
                         }
                     }
                     break;
+                case (int)MissionType.PersonCityStrategy:
+                    {
+                        // 任务参数约定（与 CityStrategyManager.Dispatch 一一对应）：
+                        // missionTarget = 目标据点城市 Id；p1 = 发起势力 Id；p2 = CityStrategyType；
+                        // p3/p4 = 二虎竞食的两个目标势力 Id；流言只用 p3（目标势力 Id），p4 恒为 0
+                        City targetCity = scenario.citySet.Get(missionTarget);
+                        Force senderForce = scenario.forceSet.Get(missionParams1);
+
+                        // 目标据点或发起势力已经消失时不再移动，直接返程。
+                        // 这里必须先判空再 DoMove：DoMove 会直接解引用 dest.mBelongCity
+                        if (targetCity == null || senderForce == null || !senderForce.IsAlive)
+                        {
+                            SetMission(MissionType.PersonReturn, mBelongCity);
+                            return;
+                        }
+
+                        if (DoMove(targetCity, scenario))
+                        {
+                            CityStrategyResult result = GameSystem.GetSystem<CityStrategyManager>()
+                                .ExecuteMission(this, (CityStrategyType)missionParams2, targetCity, senderForce, missionParams3, missionParams4);
+
+                            // 完成任务，返回原城市。
+                            // 唯独"失败被捕"不返程：City.AddCaptive 已把本将挂成 targetCity 的囚犯
+                            // 并将 mBelongCity 置空，此时 SetMission(PersonReturn, null) 会在
+                            // missionTarget.Id 上直接空引用，且俘虏也不该自己走回敌营
+                            if (result != CityStrategyResult.FailedCaptured)
+                                SetMission(MissionType.PersonReturn, mBelongCity);
+                        }
+                    }
+                    break;
             }
         }
         public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1, int p2, int p3, int p4)
@@ -1968,6 +1998,25 @@ namespace Sango.Core
         public void GainMerit(int m)
         {
             merit += m;
+        }
+
+        /// <summary>
+        /// 增减忠诚并把结果钳制在 0..100，返回钳制后的新值。
+        /// 工程内既有写入点多为裸加减（如 Force.cs 的 person.loyalty -= v 会掉成负数），
+        /// 而显示层只用 Math.Min(100, loyalty) 兜底上限、不兜底下限，脏数据会静默留存并影响
+        /// 褒赏候选与登庸判定；因此计略类需要批量改忠诚时必须走本接口。
+        /// 本期只新增该接口，不回头替换既有裸写入点，避免把技术债修复混进本需求。
+        /// </summary>
+        /// <param name="v">忠诚变化量，可为负</param>
+        /// <returns>钳制后的最新忠诚值</returns>
+        public int AddLoyalty(int v)
+        {
+            loyalty += v;
+            if (loyalty < 0)
+                loyalty = 0;
+            else if (loyalty > 100)
+                loyalty = 100;
+            return loyalty;
         }
 
         public bool HasFeatrue(int id)

@@ -314,6 +314,102 @@ namespace Sango.Core
         public Dictionary<int, int> DiplomacyImmunityTime = new Dictionary<int, int>();
 
         /// <summary>
+        /// 被敌方城市计略（目前只有流言）命中的记录 (key: 施计方势力ID, value: 最近一次被施计的回合)。
+        /// 沿用 DiplomacyImmunityTime 的既有写法：只存绝对回合数（Scenario.TurnCount），
+        /// 过期靠比较而不是逐回合递减，因此不需要挂 OnTurnStart 也不会被读档顺序打乱。
+        /// 用途：AI 在自己的回合里据此对施计方报复性施计，对应原版解密脚本 721 AI优化-流言 的 rumor_timer 语义。
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<int, int> CityStrategyGrudgeTurn = new Dictionary<int, int>();
+
+        /// <summary>
+        /// 被二虎竞食挑动的记录 (key: 被一起挑拨的对方势力ID, value: 挑拨落地的回合)。
+        /// 二虎竞食只改关系数值，不直接动同盟结构；"关系跌破阈值后要不要破盟开战"留给被挑拨的
+        /// 两方在各自 AI 回合里判定（CityStrategyAI），本字段就是那次计略的凭据，且是一次性消耗品。
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<int, int> StrategyWarSeedTurn = new Dictionary<int, int>();
+
+        /// <summary>
+        /// 记下一笔计略仇：本势力被 attacker 施了计略。
+        /// </summary>
+        /// <param name="attacker">施计方势力，为空时不记录</param>
+        public void AddCityStrategyGrudge(Force attacker)
+        {
+            if (attacker == null || attacker == this)
+                return;
+            CityStrategyGrudgeTurn[attacker.Id] = Scenario.Cur?.TurnCount ?? 0;
+        }
+
+        /// <summary>
+        /// 记下二虎竞食的挑拨凭据：本势力与 other 的关系刚刚被第三方打坏。
+        /// 由 CityStrategyActionTwoTigers 在成功结算时调用，双方各记一份。
+        /// </summary>
+        /// <param name="other">一同被挑拨的对方势力</param>
+        public void MarkStrategyWarSeed(Force other)
+        {
+            if (other == null || other == this)
+                return;
+            StrategyWarSeedTurn[other.Id] = Scenario.Cur?.TurnCount ?? 0;
+        }
+
+        /// <summary>
+        /// 取走二虎竞食的挑拨凭据：一次性消费，取过就不再触发第二次破盟，
+        /// 避免同一笔账在后续每个 AI 回合里反复放大。
+        /// </summary>
+        /// <param name="other">被一起挑拨的对方势力</param>
+        /// <returns>存在未消费的凭据返回 true</returns>
+        public bool TakeStrategyWarSeed(Force other)
+        {
+            if (other == null)
+                return false;
+            if (!StrategyWarSeedTurn.TryGetValue(other.Id, out int turn))
+                return false;
+            // 陈旧凭据同样消费掉：只保留"最近一次"挑拨的效力，过期即作废
+            StrategyWarSeedTurn.Remove(other.Id);
+            int keepTurns = Scenario.Cur?.Variables.cityStrategyGrudgeKeepTurns ?? 0;
+            return (Scenario.Cur?.TurnCount ?? 0) - turn <= keepTurns;
+        }
+
+        /// <summary>
+        /// 清掉过期的计略记录，防止两个字典在长局里无上限增长。
+        /// 只由 AI 回合（CityStrategyAI）调用，不参与判定逻辑。
+        /// </summary>
+        /// <param name="keepTurns">超过该回合数的记录视为过期</param>
+        public void CleanupCityStrategyMarks(int keepTurns)
+        {
+            if (keepTurns <= 0)
+                return;
+            PruneTurnDictionary(CityStrategyGrudgeTurn, keepTurns);
+            PruneTurnDictionary(StrategyWarSeedTurn, keepTurns);
+        }
+
+        /// <summary>
+        /// 按"记录时点 + 保留窗口"淘汰过期项。
+        /// </summary>
+        /// <param name="record">key 为对方势力ID、value 为落地回合的字典</param>
+        /// <param name="keepTurns">保留窗口（回合）</param>
+        private static void PruneTurnDictionary(Dictionary<int, int> record, int keepTurns)
+        {
+            if (record == null || record.Count == 0)
+                return;
+            int now = Scenario.Cur?.TurnCount ?? 0;
+            List<int> expired = null;
+            foreach (KeyValuePair<int, int> pair in record)
+            {
+                if (now - pair.Value > keepTurns)
+                {
+                    expired = expired ?? new List<int>();
+                    expired.Add(pair.Key);
+                }
+            }
+            if (expired == null)
+                return;
+            for (int i = 0; i < expired.Count; i++)
+                record.Remove(expired[i]);
+        }
+
+        /// <summary>
         /// 能够建造的建筑集合
         /// </summary>
         public List<BuildingType> canBuildMilitaryBuildingType = new List<BuildingType>();
@@ -685,6 +781,9 @@ namespace Sango.Core
             // 添加外交AI
             // 【暂时屏蔽】AI 势力之间的外交。如需恢复,取消下一行注释即可。
             //AICommandList.Add(ForceAI.AIDiplomacy);
+            // 城市计略AI: 排在被屏蔽的外交界之后, 只处理"流言记仇报复""二虎竞食后的破盟"这类与计略直接相关的决策,
+            // 不接管结盟/停战/通商, 因此不会把上面屏蔽掉的整套外交AI顺带放出来
+            AICommandList.Add(CityStrategyAI.AICityStrategy);
             AICommandList.Add(ForceAI.AICaptives);
             AICommandList.Add(ForceAI.AITechniques);
             AICommandList.Add(ForceAI.AISetOfficial);

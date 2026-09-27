@@ -60,5 +60,11 @@ namespace Sango.Core
         /// </summary>
         TroopAskSupply,
 
+        /// <summary>
+        /// 城市计略任务:武将被派往目标据点,抵达后再结算二虎竞食/流言等计略效果。
+        /// 必须追加在枚举末尾,插在中间会整体移位并破坏旧存档里的 missionType 数值。
+        /// </summary>
+        PersonCityStrategy,
+
     }
 }
