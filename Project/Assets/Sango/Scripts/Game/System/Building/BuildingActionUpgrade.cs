@@ -1,4 +1,4 @@
-﻿using Sango.UI;
+using Sango.UI;
 using System;
 using System.Collections.Generic;
 using ContextMenu = Sango.UI.ContextMenu;
@@ -35,14 +35,14 @@ namespace Sango.Core.Player
             get
             {
                 TargetUpgradeType = Scenario.Cur.GetObject<BuildingType>(TargetBuilding.BuildingType.nextId);
-                return TargetBuilding.mBelongCity.freePersons.Count > 0 && 
-                    TargetBuilding.mBelongCity.gold >= TargetUpgradeType.cost &&
-                    !TargetBuilding.isWorking && TargetBuilding.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.UpgradeBuilding);
+                return TargetBuilding.BelongCity.freePersons.Count > 0 && 
+                    TargetBuilding.BelongCity.gold >= TargetUpgradeType.cost &&
+                    !TargetBuilding.isWorking && TargetBuilding.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.UpgradeBuilding);
             }
         }
         protected override void OnBuildingContextMenuShow(IContextMenuData menuData, BuildingBase building)
         {
-            if (building.mBelongForce != null && building.mBelongForce.IsPlayer && building.mBelongForce == Scenario.Cur.CurRunForce)
+            if (building.BelongForce != null && building.BelongForce.IsPlayer && building.BelongForce == Scenario.Cur.CurRunForce)
             {
                 TargetBuilding = building;
                 if (building.isComplate && !building.isUpgrading && building.BuildingType.nextId > 0)
@@ -70,7 +70,7 @@ namespace Sango.Core.Player
             //Done();
             personList.Clear();
             TargetUpgradeType = Scenario.Cur.GetObject<BuildingType>(TargetBuilding.BuildingType.nextId);
-            Person[] ps = ForceAI.CounsellorRecommendBuild(TargetBuilding.mBelongCity.freePersons, TargetUpgradeType);
+            Person[] ps = ForceAI.CounsellorRecommendBuild(TargetBuilding.BelongCity.freePersons, TargetUpgradeType);
             foreach (Person p in ps)
             {
                 if (p != null)
@@ -90,7 +90,7 @@ namespace Sango.Core.Player
 
         public void DoJob()
         {
-            TargetBuilding.mBelongCity.JobUpgradeBuilding(TargetBuilding as Building, personList.ToArray(), TargetUpgradeType, wonderBuildCounter);
+            TargetBuilding.BelongCity.JobUpgradeBuilding(TargetBuilding as Building, personList.ToArray(), TargetUpgradeType, wonderBuildCounter);
             Done();
         }
 

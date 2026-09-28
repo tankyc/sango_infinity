@@ -33,10 +33,10 @@ namespace Sango.Core
         CitySelect = 7,
 
         /// <summary>配偶列表编辑（多选武将，写回时自动解除原配偶关系并建立新关系，维持“一个人最多被登记为一个其他武将的配偶”）</summary>
-        SpouseList = 8,
+        SpouseListId = 8,
 
         /// <summary>特技列表编辑（调用特技选择器多选特技并整体写回）</summary>
-        FeatureList = 9,
+        FeatureListId = 9,
 
         /// <summary>多行文本修改（多行InputField，用于长文本描述）</summary>
         TextArea = 10,

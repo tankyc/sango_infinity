@@ -123,7 +123,7 @@ namespace Sango.Core.Duel
         /// <summary>默认实现：取武将所属势力的旗色，转成 0xRRGGBB</summary>
         private static int DefaultGetForceColor(Person person)
         {
-            Flag flag = person?.mBelongForce?.mFlag;
+            Flag flag = person?.BelongForce?.mFlag;
             if (flag == null) return 0;
             Color32 c = flag.color;
             return (c.r << 16) | (c.g << 8) | c.b;
@@ -161,7 +161,7 @@ namespace Sango.Core.Duel
     #region 性格 / 特技 / 宝物映射
 
     /// <summary>
-    /// 把真实武将的 personality(性格) 转换为单挑 AI 性格。
+    /// 把真实武将的 PersonalityId(性格) 转换为单挑 AI 性格。
     ///
     /// 项目内 Personalities 数据与单挑 AI 性格一一对应：
     ///   kind = 1 胆小 → DuelPersonality.Timid
@@ -175,7 +175,7 @@ namespace Sango.Core.Duel
         /// <summary>性格数量（对应 Personalities 的 1~4）</summary>
         public const int Count = 4;
 
-        /// <summary>自定义覆盖：personality 值 → 单挑 AI 性格。仅当项目性格数据与默认值不一致时才需要填写</summary>
+        /// <summary>自定义覆盖：PersonalityId 值 → 单挑 AI 性格。仅当项目性格数据与默认值不一致时才需要填写</summary>
         public static readonly Dictionary<int, DuelPersonality> PersonalityMap = new Dictionary<int, DuelPersonality>();
 
         /// <summary>兜底性格（数据缺失时使用）</summary>
@@ -193,7 +193,7 @@ namespace Sango.Core.Duel
 
             int kind = person.mPersonality != null ? person.mPersonality.kind : 0;
             if (kind <= 0)
-                kind = person.personality;
+                kind = person.PersonalityId;
 
             if (PersonalityMap.TryGetValue(kind, out DuelPersonality mapped))
                 return mapped;
@@ -329,15 +329,15 @@ namespace Sango.Core.Duel
         public static int GetForceId(this Person self)
         {
             if (self == null) return -1;
-            return self.mBelongForce != null ? self.mBelongForce.Id : self.BelongForce;
+            return self.BelongForce != null ? self.BelongForce.Id : self.BelongForceId;
         }
 
         /// <summary>所在地区（城市）ID</summary>
         public static int GetDistrictId(this Person self)
         {
             if (self == null) return -1;
-            City city = self.mCurrentCity ?? self.mBelongCity;
-            return city != null ? city.Id : self.BelongCity;
+            City city = self.CurrentCity ?? self.BelongCity;
+            return city != null ? city.Id : self.BelongCityId;
         }
 
         /// <summary>伤病程度（0=健康，越大越重）</summary>
@@ -525,7 +525,7 @@ namespace Sango.Core.Duel
         /// <summary>势力颜色（0xRRGGBB）</summary>
         public static int GetColor(this Troop self)
         {
-            Flag flag = self?.mBelongForce?.mFlag;
+            Flag flag = self?.BelongForce?.mFlag;
             if (flag == null) return 0;
             Color32 c = flag.color;
             return (c.r << 16) | (c.g << 8) | c.b;

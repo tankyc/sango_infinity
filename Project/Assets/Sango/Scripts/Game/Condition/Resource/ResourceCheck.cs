@@ -96,7 +96,7 @@
 //        /// <returns>资源数量</returns>
 //        private int GetResourceAmount(Troop troop)
 //        {
-//            if (troop == null || troop.BelongForce == null)
+//            if (troop == null || troop.BelongForceId == null)
 //                return 0;
             
 //            // 这里简化实现，实际应该从势力的资源管理器中获取

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Sango.Core;
 
 namespace Sango.Render.Model
@@ -72,7 +72,7 @@ namespace Sango.Render.Model
 
         public void Init(BuildingBase building)
         {
-            if (building.mBelongForce == null)
+            if (building.BelongForce == null)
             {
                 foreach (FlagRender flag in flags)
                 {
@@ -91,7 +91,7 @@ namespace Sango.Render.Model
                     if (flag != null)
                     {
                         flag.gameObject.SetActive(true);
-                        flag.Init(building.mBelongForce);
+                        flag.Init(building.BelongForce);
                     }
                 }
             }

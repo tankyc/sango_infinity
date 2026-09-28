@@ -1,4 +1,4 @@
-﻿namespace Sango.Core
+namespace Sango.Core
 {
     public class TroopSortFunction : Singleton<TroopSortFunction>
     {
@@ -202,9 +202,9 @@
         {
             name = "势力",
             width = 2.4f,
-            valueStrGetCall = x => x.mBelongForce?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
-            valueGetCall = x => x.mBelongForce?.Id ?? 0,
+            valueStrGetCall = x => x.BelongForce?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
+            valueGetCall = x => x.BelongForce?.Id ?? 0,
             valueObjSet = null,
         };
 
@@ -212,9 +212,9 @@
         {
             name = "军团",
             width = 4.0f,
-            valueStrGetCall = x => x.mBelongCorps?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCorps, b.mBelongCorps),
-            valueGetCall = x => x.mBelongCorps?.Id ?? 0,
+            valueStrGetCall = x => x.BelongCorps?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongCorps, b.BelongCorps),
+            valueGetCall = x => x.BelongCorps?.Id ?? 0,
             valueObjSet = null,
         };
 
@@ -222,9 +222,9 @@
         {
             name = "所属",
             width = 2.4f,
-            valueStrGetCall = x => x.mBelongCity?.Name ?? "无",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCity, b.mBelongCity),
-            valueGetCall = x => x.mBelongCity?.Id ?? 0,
+            valueStrGetCall = x => x.BelongCity?.Name ?? "无",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongCity, b.BelongCity),
+            valueGetCall = x => x.BelongCity?.Id ?? 0,
             valueObjSet = null,
         };
 

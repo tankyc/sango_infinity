@@ -9,8 +9,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Sango.Render;
 
 namespace Sango.Core
@@ -418,6 +418,17 @@ namespace Sango.Core
         {
             if (ExtensionData == null) return false;
             return ExtensionData.ContainsKey(key);
+        }
+
+        /// <summary>
+        /// 移除指定的扩展数据（旧键迁移到正式字段后清理用）
+        /// </summary>
+        /// <param name="key">键名</param>
+        /// <returns>是否成功移除</returns>
+        public bool RemoveExtensionData(string key)
+        {
+            if (ExtensionData == null) return false;
+            return ExtensionData.Remove(key);
         }
 
 

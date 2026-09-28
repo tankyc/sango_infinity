@@ -1,5 +1,5 @@
 {
-  "_comment": "武将舌战行为配置。字段都可省略，省略 = 该钩子不加任何修正。倍率一律 num/den 整数乘算（11/10 = 1.1），与单挑那份口径一致。命中只按 personId（武将真实 Id，与 PersonLibrary.json 里的 Id 一致）。下面 5 条是**示例**，用来跑通链路 / 演示三种话术写法，具体数值请按你的设定改。",
+  "_comment": "武将 / 特技舌战行为配置。字段都可省略，省略 = 该钩子不加任何修正。倍率一律 num/den 整数乘算（11/10 = 1.1），与单挑那份口径一致。命中方式：personId（武将真实 Id，与 PersonLibrary.json 的 Id 一致）或 featureId（特技 Id，对本特技全体持有者生效）；同一武将既命中专属条目又命中特技条目时【专属优先、不叠加】，多条特技条目同时命中时按本文件【声明顺序】取第一条。话术来源仍是 Person.wordTac（含书籍解锁），这里只做追加 / 覆盖。下面 5 条武将示例 + 1 条特技示例用来跑通链路，具体数值请按你的设定改。",
   "behaviours": [
     {
       "personId": 290,
@@ -42,6 +42,14 @@
       "rhetoricOverride": [ 1 ],
       "attackMulNum": 9,
       "attackMulDen": 10
+    },
+    {
+      "featureId": 87,
+      "name": "特技-论客（示例）",
+      "rhetoricAdd": [ 1 ],
+      "attackMulNum": 105,
+      "attackMulDen": 100,
+      "criticalPushOnBias": 10
     }
   ]
 }

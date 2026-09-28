@@ -1,4 +1,4 @@
-﻿using Sango.Core.Action;
+using Sango.Core.Action;
 using Sango.Core.Tools;
 using System;
 using System.Collections.Generic;
@@ -283,10 +283,10 @@ namespace Sango.Core
             int value = (int)(troop.BuildPower * Math.Min(1f, (float)troop.troops / 1000) + 300 * (1f - Math.Pow(1.0 - (Math.Min(troop.troops, 5000.0) / 5000.0), 1.451)));
 
             // 【性格】修缮效率：按领队性格的修缮系数折算建筑耐久恢复量
-            Personality personality = troop.LeaderPersonality;
-            if (personality != null && personality.domesticRepairScale > 0 && personality.domesticRepairScale != 100)
+            Personality PersonalityId = troop.LeaderPersonality;
+            if (PersonalityId != null && PersonalityId.domesticRepairScale > 0 && PersonalityId.domesticRepairScale != 100)
             {
-                long scaled = (long)value * personality.domesticRepairScale / 100;
+                long scaled = (long)value * PersonalityId.domesticRepairScale / 100;
                 value = scaled > int.MaxValue ? int.MaxValue : (int)scaled;
             }
 
@@ -321,11 +321,11 @@ namespace Sango.Core
             for (int i = 0; i < people.Count; ++i)
             {
                 Person person = people[i];
-                if (person != null && person.mFeatureList != null)
+                if (person != null && person.FeatureList != null)
                 {
-                    for (int j = 0; j < person.mFeatureList.Count; j++)
+                    for (int j = 0; j < person.FeatureList.Count; j++)
                     {
-                        Feature feature = person.mFeatureList[j];
+                        Feature feature = person.FeatureList[j];
                         if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
                         {
                             if (!feature.only)
@@ -353,11 +353,11 @@ namespace Sango.Core
             for (int i = 0; i < people.Length; ++i)
             {
                 Person person = people[i];
-                if (person != null && person.mFeatureList != null)
+                if (person != null && person.FeatureList != null)
                 {
-                    for (int j = 0; j < person.mFeatureList.Count; j++)
+                    for (int j = 0; j < person.FeatureList.Count; j++)
                     {
-                        Feature feature = person.mFeatureList[j];
+                        Feature feature = person.FeatureList[j];
                         if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
                         {
                             if (!feature.only)
@@ -383,11 +383,11 @@ namespace Sango.Core
         public static void InitJobFeature(Person person, params SangoObject[] sangoObjects)
         {
             ClearJobFeature();
-            if (person != null && person.mFeatureList != null)
+            if (person != null && person.FeatureList != null)
             {
-                for (int j = 0; j < person.mFeatureList.Count; j++)
+                for (int j = 0; j < person.FeatureList.Count; j++)
                 {
-                    Feature feature = person.mFeatureList[j];
+                    Feature feature = person.FeatureList[j];
                     if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
                     {
                         if (!feature.only)

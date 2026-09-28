@@ -1,5 +1,5 @@
-﻿using Sango.Core.Tools;
-using TKNewtonsoft.Json.Linq;
+using Sango.Core.Tools;
+using Newtonsoft.Json.Linq;
 
 namespace Sango.Core.Action
 {
@@ -24,7 +24,7 @@ namespace Sango.Core.Action
 
         void OnTroopCalculateAttribute(Troop troop, Scenario scenario)
         {
-            if (Force != troop.mBelongForce) return;
+            if (Force != troop.BelongForce) return;
             int skillId = srcSkillId;
             int replaceSkillId = value;
             Skill skill = scenario.GetObject<Skill>(replaceSkillId);

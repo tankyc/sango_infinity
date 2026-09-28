@@ -135,7 +135,7 @@ namespace Sango.Core
             // 初始化外交管理器
             //DiplomacyManager.Instance.Init();
             //DiplomacyEventManager.Instance.Init();
-            
+
             GameData.Instance.Init();
 
             // 安装单挑系统的表现层工厂（卡牌表现 window_duel）
@@ -193,11 +193,7 @@ namespace Sango.Core
         /// </summary>
         public override void Update()
         {
-            if(!inited) return;
-            GameController.Instance.Update();
-            base.Update();
-            // 更新音效管理器
-            GameMedia.Instance.Update();
+            if (!inited) return;
 
             // 单挑进行中时独占主循环，暂停剧本推进
             if (Duel.DuelManager.Instance.IsDueling)
@@ -228,6 +224,12 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             if (scenario != null)
             {
+                GameController.Instance.Update();
+
+                base.Update();
+                // 更新音效管理器
+                GameMedia.Instance.Update();
+
                 GameEvent.OnScenarioTick?.Invoke(scenario, Time.deltaTime);
                 if (!Scenario.Cur.useThreadRun)
                     Scenario.Cur.Run();

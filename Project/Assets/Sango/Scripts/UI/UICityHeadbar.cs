@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using UnityEngine.UI;
 
 using Sango.Core; namespace Sango.UI
@@ -30,21 +30,21 @@ using Sango.Core; namespace Sango.UI
                 cityInfo = $"*{cityInfo}";
             info.text = cityInfo;
 
-            bg.enabled = building.mBelongForce != null;
+            bg.enabled = building.BelongForce != null;
             if (boder != null)
                 boder.SetActive(city.IsCity() && city.IsBorderCity);
 
-            if (building.mBelongForce != null)
+            if (building.BelongForce != null)
             {
-                bg.color = building.mBelongForce.Color;
+                bg.color = building.BelongForce.Color;
             }
 
-            Corps corps = building.mBelongCorps;
+            Corps corps = building.BelongCorps;
             if (corps != null && corps.IsPlayer && corps.Index > 1)
             {
                 corpsNode.SetActive(true);
-                corpsImg.color = building.mBelongCorps.Color;
-                corpsText.text = building.mBelongCorps.Index.ToString();
+                corpsImg.color = building.BelongCorps.Color;
+                corpsText.text = building.BelongCorps.Index.ToString();
             }
             else
             {

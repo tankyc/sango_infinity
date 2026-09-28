@@ -1,4 +1,4 @@
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using Sango.Render;
 using System.Collections.Generic;
 
@@ -20,7 +20,7 @@ namespace Sango.Core
             if(troop == master.Target)
             {
                 TroopEscapeToCityEvent @event = Render.RenderEvent.Instance.Create<TroopEscapeToCityEvent>();
-                @event.Init(troop, troop.mBelongCity, null);
+                @event.Init(troop, troop.BelongCity, null);
                 Render.RenderEvent.Instance.Add(@event);
             }
         }

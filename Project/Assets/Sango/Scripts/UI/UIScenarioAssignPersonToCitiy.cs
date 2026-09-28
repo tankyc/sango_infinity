@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Sango.Core;
 using UnityEngine.UI;
 
@@ -83,7 +83,7 @@ namespace Sango.UI
             ShortCity city = shortCities[0];
             if (city != null)
             {
-                if (city.BelongForce == 0)
+                if (city.BelongForceId == 0)
                 {
                     for (int i = 0; i < LastSel.Count; i++)
                     {
@@ -91,8 +91,8 @@ namespace Sango.UI
                         if (sangoObject != null)
                         {
                             ShortPerson person = scenario.personSet[sangoObject.targetShortPersonId];
-                            person.BelongForce = city.BelongForce;
-                            person.BelongCity = city.Id;
+                            person.BelongForceId = city.BelongForceId;
+                            person.BelongCityId = city.Id;
                             person.state = (int)PersonStateType.Unemployed;
                         }
                     }
@@ -105,8 +105,8 @@ namespace Sango.UI
                         if (sangoObject != null)
                         {
                             ShortPerson person = scenario.personSet[sangoObject.targetShortPersonId];
-                            person.BelongForce = city.BelongForce;
-                            person.BelongCity = city.Id;
+                            person.BelongForceId = city.BelongForceId;
+                            person.BelongCityId = city.Id;
                             person.state = (int)PersonStateType.Normal;
                         }
                     }

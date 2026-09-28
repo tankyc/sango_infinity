@@ -1,4 +1,4 @@
-﻿using TKNewtonsoft.Json.Converters;
+﻿using Newtonsoft.Json.Converters;
 using System;
 
 namespace Sango.Core

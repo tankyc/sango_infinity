@@ -32,7 +32,7 @@ namespace Sango.Core
         public int areaId;
 
         /// <summary>
-        /// 所属城市
+        /// 所属城市（这是对象引用，不是 id）
         /// </summary>
         public City BelongCity { get; internal set; }
         /// <summary>
@@ -181,8 +181,8 @@ namespace Sango.Core
         /// <returns>是否可以通过</returns>
         public bool CanPassThrough(Troop troops)
         {
-            return (this.troop == null || this.troop.mBelongForce == troops.mBelongForce) &&
-                         (this.building == null || this.building.mBelongForce == troops.mBelongForce);
+            return (this.troop == null || this.troop.BelongForce == troops.BelongForce) &&
+                         (this.building == null || this.building.BelongForce == troops.BelongForce);
         }
         /// <summary>
         /// 检查部队是否可以移动到该单元格

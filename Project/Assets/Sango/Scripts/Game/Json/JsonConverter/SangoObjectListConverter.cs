@@ -1,5 +1,5 @@
-﻿using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Converters;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using System;
 
 namespace Sango.Core

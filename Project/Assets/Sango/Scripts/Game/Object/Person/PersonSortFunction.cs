@@ -174,7 +174,7 @@ namespace Sango.Core
                     }
                     else if (item is int id && dataSet != null)
                     {
-                        // Id集合：按Id从数据集中还原对象（如 FeatureList 的 int[] 形态）
+                        // Id集合：按Id从数据集中还原对象（如 FeatureListId 的 int[] 形态）
                         T obj = dataSet.Find(id);
                         if (obj != null && !list.Contains(obj))
                         {
@@ -216,9 +216,9 @@ namespace Sango.Core
             // 传入数据集以支持从Id数组还原特技
             Scenario scenario = Scenario.Cur;
             List<Feature> newList = CollectObjectList<Feature>(value, scenario != null ? scenario.CommonData.Features : null);
-            if (person.mFeatureList == null)
+            if (person.FeatureList == null)
             {
-                person.mFeatureList = new SangoObjectList<Feature>();
+                person.FeatureList = new SangoObjectList<Feature>();
             }
             // 防御：传入值非空却收集不到任何特技，说明传入值类型不匹配，保留原数据避免误清空
             if (newList.Count == 0 && value != null && !IsEmptyEnumerable(value))
@@ -226,12 +226,12 @@ namespace Sango.Core
                 Sango.Log.Error("设置武将:" + person.Name + " 的特技失败:传入值类型 " + value.GetType().Name + " 无法转换为特技列表,已保留原数据");
                 return;
             }
-            person.mFeatureList.Clear();
+            person.FeatureList.Clear();
             for (int i = 0; i < newList.Count; i++)
             {
                 if (newList[i] != null)
                 {
-                    person.mFeatureList.Add(newList[i]);
+                    person.FeatureList.Add(newList[i]);
                 }
             }
         }
@@ -250,7 +250,7 @@ namespace Sango.Core
             // 传入数据集以支持从Id数组还原武将
             Scenario scenario = Scenario.Cur;
             List<Person> newList = CollectObjectList<Person>(value, scenario != null ? scenario.personSet : null);
-            if (person.mSpouseList == null)
+            if (person.SpouseList == null)
             {
                 Sango.Log.Warning("武将:" + person.Name + " 的配偶列表尚未初始化,无法修改");
                 return;
@@ -264,18 +264,18 @@ namespace Sango.Core
 
             // 1.解除旧关系：移除未保留的旧配偶，同时解除对方列表中对自己的登记
             List<Person> oldList = new List<Person>();
-            foreach (Person old in person.mSpouseList)
+            foreach (Person old in person.SpouseList)
             {
                 if (old != null) oldList.Add(old);
             }
-            person.mSpouseList.Clear();
+            person.SpouseList.Clear();
             for (int i = 0; i < oldList.Count; i++)
             {
                 Person oldSpouse = oldList[i];
                 if (newList.Contains(oldSpouse)) continue;
-                if (oldSpouse.mSpouseList != null && oldSpouse.mSpouseList.Contains(person))
+                if (oldSpouse.SpouseList != null && oldSpouse.SpouseList.Contains(person))
                 {
-                    oldSpouse.mSpouseList.Remove(person);
+                    oldSpouse.SpouseList.Remove(person);
                 }
             }
 
@@ -284,29 +284,29 @@ namespace Sango.Core
             {
                 Person spouse = newList[i];
                 if (spouse == null || spouse == person) continue;
-                if (!person.mSpouseList.Contains(spouse))
+                if (!person.SpouseList.Contains(spouse))
                 {
-                    person.mSpouseList.Add(spouse);
+                    person.SpouseList.Add(spouse);
                 }
-                if (spouse.mSpouseList == null) continue;
+                if (spouse.SpouseList == null) continue;
                 // 解除配偶与其原有配偶的双向登记，确保其只对应一个“A”
                 List<Person> otherSpouses = new List<Person>();
-                foreach (Person other in spouse.mSpouseList)
+                foreach (Person other in spouse.SpouseList)
                 {
                     if (other != null && other != person) otherSpouses.Add(other);
                 }
                 for (int j = 0; j < otherSpouses.Count; j++)
                 {
                     Person other = otherSpouses[j];
-                    spouse.mSpouseList.Remove(other);
-                    if (other.mSpouseList != null && other.mSpouseList.Contains(spouse))
+                    spouse.SpouseList.Remove(other);
+                    if (other.SpouseList != null && other.SpouseList.Contains(spouse))
                     {
-                        other.mSpouseList.Remove(spouse);
+                        other.SpouseList.Remove(spouse);
                     }
                 }
-                if (!spouse.mSpouseList.Contains(person))
+                if (!spouse.SpouseList.Contains(person))
                 {
-                    spouse.mSpouseList.Add(person);
+                    spouse.SpouseList.Add(person);
                 }
             }
         }
@@ -869,12 +869,12 @@ namespace Sango.Core
             valueStrGetCall = x =>
             {
                 StringBuilder sb = new StringBuilder();
-                if (x.mFeatureList != null)
+                if (x.FeatureList != null)
                 {
-                    for (int i = 0; i < x.mFeatureList.Count; i++)
+                    for (int i = 0; i < x.FeatureList.Count; i++)
                     {
-                        sb.Append(x.mFeatureList[i].Name);
-                        if (i < x.mFeatureList.Count - 1)
+                        sb.Append(x.FeatureList[i].Name);
+                        if (i < x.FeatureList.Count - 1)
                             sb.Append(", ");
                     }
                 }
@@ -882,17 +882,17 @@ namespace Sango.Core
             },
             valueSortFunc = (a, b) =>
             {
-                if (a.mFeatureList == null && b.mFeatureList == null)
+                if (a.FeatureList == null && b.FeatureList == null)
                     return 0;
-                if (a.mFeatureList != null && b.mFeatureList == null)
+                if (a.FeatureList != null && b.FeatureList == null)
                     return -1;
-                if (a.mFeatureList == null && b.mFeatureList != null)
+                if (a.FeatureList == null && b.FeatureList != null)
                     return 1;
-                return a.mFeatureList.Count.CompareTo(b.mFeatureList.Count);
+                return a.FeatureList.Count.CompareTo(b.FeatureList.Count);
             },
-            valueObjGet = x => x.mFeatureList,
+            valueObjGet = x => x.FeatureList,
             valueObjSet = (x, v) => SetPersonFeatureList(x, v),
-            editType = DataEditType.FeatureList,
+            editType = DataEditType.FeatureListId,
             dataSetType = DataSetType.Feature,
         };
 
@@ -902,15 +902,15 @@ namespace Sango.Core
             width = 30.00f,
             valueStrGetCall = x =>
             {
-                if (x.mFeatureList == null || x.mFeatureList.Count == 0)
+                if (x.FeatureList == null || x.FeatureList.Count == 0)
                     return string.Empty;
 
                 StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < x.mFeatureList.Count; i++)
+                for (int i = 0; i < x.FeatureList.Count; i++)
                 {
-                    var feat = x.mFeatureList[i];
+                    var feat = x.FeatureList[i];
                     sb.Append(feat.desc ?? string.Empty);
-                    if (i < x.mFeatureList.Count - 1)
+                    if (i < x.FeatureList.Count - 1)
                         sb.Append("\n");
                 }
                 return sb.ToString();
@@ -938,7 +938,7 @@ namespace Sango.Core
             width = 2.00f,
             valueStrGetCall = (x) =>
             {
-                if (x.mBelongForce == null || x == x.mBelongForce.mGovernor) return "---";
+                if (x.BelongForce == null || x == x.BelongForce.mGovernor) return "---";
                 return System.Math.Min(100, x.loyalty).ToString();
             },
             valueSortFunc = (a, b) => a.loyalty.CompareTo(b.loyalty),
@@ -1152,10 +1152,10 @@ namespace Sango.Core
         {
             name = "势力",
             width = 4.20f,
-            valueStrGetCall = x => x.mBelongForce?.Name ?? "",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongForce, b.mBelongForce),
-            valueObjGet = x => x.mBelongForce,
-            valueObjSet = (x, v) => x.mBelongForce = (Force)v,
+            valueStrGetCall = x => x.BelongForce?.Name ?? "",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
+            valueObjGet = x => x.BelongForce,
+            valueObjSet = (x, v) => x.BelongForce = (Force)v,
             editType = DataEditType.Object,
             dataSetType = DataSetType.Force,
         };
@@ -1164,10 +1164,10 @@ namespace Sango.Core
         {
             name = "军团",
             width = 6.40f,
-            valueStrGetCall = x => x.mBelongCorps?.ForceNumberName ?? "",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCorps, b.mBelongCorps),
-            valueObjGet = x => x.mBelongCorps,
-            valueObjSet = (x, v) => x.mBelongCorps = (Corps)v,
+            valueStrGetCall = x => x.BelongCorps?.ForceNumberName ?? "",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongCorps, b.BelongCorps),
+            valueObjGet = x => x.BelongCorps,
+            valueObjSet = (x, v) => x.BelongCorps = (Corps)v,
             editType = DataEditType.Object,
             dataSetType = DataSetType.Corps,
         };
@@ -1176,10 +1176,10 @@ namespace Sango.Core
         {
             name = "部队",
             width = 2.00f,
-            valueStrGetCall = x => x.mTroop?.Name ?? "",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mTroop, b.mTroop),
-            valueObjGet = x => x.mTroop,
-            valueObjSet = (x, v) => x.mTroop = (Troop)v,
+            valueStrGetCall = x => x.mBelongTroop?.Name ?? "",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongTroop, b.mBelongTroop),
+            valueObjGet = x => x.mBelongTroop,
+            valueObjSet = (x, v) => x.mBelongTroop = (Troop)v,
             editType = DataEditType.IntDropdown,
             dataSetType = DataSetType.Troop,
         };
@@ -1188,10 +1188,10 @@ namespace Sango.Core
         {
             name = "所属",
             width = 3.40f,
-            valueStrGetCall = x => x.mBelongCity?.Name ?? "",
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mBelongCity, b.mBelongCity),
-            valueObjGet = x => x.mBelongCity,
-            valueObjSet = (x, v) => x.mBelongCity = (City)v,
+            valueStrGetCall = x => x.BelongCity?.Name ?? "",
+            valueSortFunc = (a, b) => SangoObject.Compare(a.BelongCity, b.BelongCity),
+            valueObjGet = x => x.BelongCity,
+            valueObjSet = (x, v) => x.BelongCity = (City)v,
             editType = DataEditType.Object,
             dataSetType = DataSetType.City,
         };
@@ -1203,13 +1203,13 @@ namespace Sango.Core
             valueStrGetCall = (x) =>
             {
 
-                if (x.mTroop != null)
-                    return x.mTroop.Name;
+                if (x.mBelongTroop != null)
+                    return x.mBelongTroop.Name;
                 else
-                    return x.mCurrentCity?.Name ?? "";
+                    return x.CurrentCity?.Name ?? "";
             },
-            valueSortFunc = (a, b) => SangoObject.Compare(a.mCurrentCity, b.mCurrentCity),
-            valueObjGet = x => x.mCurrentCity,
+            valueSortFunc = (a, b) => SangoObject.Compare(a.CurrentCity, b.CurrentCity),
+            valueObjGet = x => x.CurrentCity,
             valueObjSet = null,
         };
 
@@ -1371,14 +1371,14 @@ namespace Sango.Core
             width = 2.00f,
             valueStrGetCall = x =>
             {
-                if (x.mBelongCity == null)
+                if (x.BelongCity == null)
                     return "✕";
-                return x == x.mBelongCity.Leader ? "○" : "✕";
+                return x == x.BelongCity.Leader ? "○" : "✕";
             },
             valueSortFunc = (a, b) =>
             {
-                bool aIsLeader = a.mBelongCity != null && a == a.mBelongCity.Leader;
-                bool bIsLeader = b.mBelongCity != null && b == b.mBelongCity.Leader;
+                bool aIsLeader = a.BelongCity != null && a == a.BelongCity.Leader;
+                bool bIsLeader = b.BelongCity != null && b == b.BelongCity.Leader;
                 return bIsLeader.CompareTo(aIsLeader);
             },
             valueObjGet = null,
@@ -1391,14 +1391,14 @@ namespace Sango.Core
             width = 2.00f,
             valueStrGetCall = x =>
             {
-                if (x.mBelongForce == null)
+                if (x.BelongForce == null)
                     return "✕";
-                return x == x.mBelongForce.mCounsellor ? "○" : "✕";
+                return x == x.BelongForce.mCounsellor ? "○" : "✕";
             },
             valueSortFunc = (a, b) =>
             {
-                bool aIsCounsellor = a.mBelongForce != null && a == a.mBelongForce.mCounsellor;
-                bool bIsCounsellor = b.mBelongForce != null && b == b.mBelongForce.mCounsellor;
+                bool aIsCounsellor = a.BelongForce != null && a == a.BelongForce.mCounsellor;
+                bool bIsCounsellor = b.BelongForce != null && b == b.BelongForce.mCounsellor;
                 return bIsCounsellor.CompareTo(aIsCounsellor);
             },
             valueObjGet = null,
@@ -1483,10 +1483,10 @@ namespace Sango.Core
         {
             name = "父亲",
             width = 2.40f,
-            valueStrGetCall = x => x == null || x.mFather == null ? " " : x.mFather.Name,
-            valueSortFunc = (a, b) => SangoObject.Compare(a?.mFather, b?.mFather),
-            valueObjGet = x => x.mFather,
-            valueObjSet = (x, v) => x.mFather = (Person)v,
+            valueStrGetCall = x => x == null || x.Father == null ? " " : x.Father.Name,
+            valueSortFunc = (a, b) => SangoObject.Compare(a?.Father, b?.Father),
+            valueObjGet = x => x.Father,
+            valueObjSet = (x, v) => x.Father = (Person)v,
             editType = DataEditType.Object,
             dataSetType = DataSetType.Person,
         };
@@ -1495,10 +1495,10 @@ namespace Sango.Core
         {
             name = "母亲",
             width = 2.40f,
-            valueStrGetCall = x => x == null || x.mMother == null ? " " : x.mMother.Name,
-            valueSortFunc = (a, b) => SangoObject.Compare(a?.mMother, b?.mMother),
-            valueObjGet = x => x.mMother,
-            valueObjSet = (x, v) => x.mMother = (Person)v,
+            valueStrGetCall = x => x == null || x.Mother == null ? " " : x.Mother.Name,
+            valueSortFunc = (a, b) => SangoObject.Compare(a?.Mother, b?.Mother),
+            valueObjGet = x => x.Mother,
+            valueObjSet = (x, v) => x.Mother = (Person)v,
             editType = DataEditType.Object,
             dataSetType = DataSetType.Person,
         };
@@ -1545,10 +1545,10 @@ namespace Sango.Core
             valueStrGetCall = x =>
             {
                 if (x == null) return " ";
-                if (x.mSpouseList == null || x.mSpouseList.Count == 0) return " ";
+                if (x.SpouseList == null || x.SpouseList.Count == 0) return " ";
 
                 var names = new System.Collections.Generic.List<string>();
-                foreach (Person spouse in x.mSpouseList)
+                foreach (Person spouse in x.SpouseList)
                 {
                     if (spouse != null) names.Add(spouse.Name);
                 }
@@ -1556,23 +1556,23 @@ namespace Sango.Core
             },
             valueSortFunc = (a, b) =>
             {
-                if (a.mSpouseList != null && b.mSpouseList != null)
+                if (a.SpouseList != null && b.SpouseList != null)
                 {
-                    return a.mSpouseList.Count.CompareTo(b.mSpouseList.Count);
+                    return a.SpouseList.Count.CompareTo(b.SpouseList.Count);
                 }
 
-                if (a.mSpouseList != null)
+                if (a.SpouseList != null)
                     return 1;
 
-                if (b.mSpouseList != null)
+                if (b.SpouseList != null)
                     return -1;
 
                 return 0;
             },
-            valueObjGet = x => x.mSpouseList,
+            valueObjGet = x => x.SpouseList,
             // 配偶修改走特殊接口：先解除原配偶关系，再建立新关系（维持一人最多被一人登记的约束）
             valueObjSet = (x, v) => SetPersonSpouseList(x, v),
-            editType = DataEditType.SpouseList,
+            editType = DataEditType.SpouseListId,
             dataSetType = DataSetType.Person,
         };
 
@@ -1656,8 +1656,8 @@ namespace Sango.Core
             name = "厌恶武将",
             width = 8.00f,
             alignment = (int)TextAnchor.MiddleLeft,
-            valueStrGetCall = x => GetPersonListText(x == null ? null : x.mHatePersonList),
-            valueSortFunc = (a, b) => CompareListCount(a == null ? null : a.mHatePersonList, b == null ? null : b.mHatePersonList),
+            valueStrGetCall = x => GetPersonListText(x == null ? null : x.HatePersonList),
+            valueSortFunc = (a, b) => CompareListCount(a == null ? null : a.HatePersonList, b == null ? null : b.HatePersonList),
             valueObjGet = null,
             valueObjSet = null,
         };
@@ -1670,8 +1670,8 @@ namespace Sango.Core
             name = "喜爱武将",
             width = 8.00f,
             alignment = (int)TextAnchor.MiddleLeft,
-            valueStrGetCall = x => GetPersonListText(x == null ? null : x.mLikePersonList),
-            valueSortFunc = (a, b) => CompareListCount(a == null ? null : a.mLikePersonList, b == null ? null : b.mLikePersonList),
+            valueStrGetCall = x => GetPersonListText(x == null ? null : x.LikePersonList),
+            valueSortFunc = (a, b) => CompareListCount(a == null ? null : a.LikePersonList, b == null ? null : b.LikePersonList),
             valueObjGet = null,
             valueObjSet = null,
         };

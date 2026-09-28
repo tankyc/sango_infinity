@@ -333,8 +333,8 @@ namespace Sango.Tools
                                             float len = (x.Render.MapObject.position - center).sqrMagnitude;
                                             if (len < minDis)
                                             {
-                                                newCity.mBelongCity = x;
-                                                newCity.BelongCity = x.Id;
+                                                newCity.BelongCity = x;
+                                                newCity.BelongCityId = x.Id;
                                                 minDis = len;
                                             }
                                         }
@@ -353,8 +353,8 @@ namespace Sango.Tools
                                             float len = (x.Render.MapObject.position - center).sqrMagnitude;
                                             if (len < minDis)
                                             {
-                                                newCity.mBelongCity = x;
-                                                newCity.BelongCity = x.Id;
+                                                newCity.BelongCity = x;
+                                                newCity.BelongCityId = x.Id;
                                                 minDis = len;
                                             }
                                         }
@@ -481,13 +481,13 @@ namespace Sango.Tools
 
                                     if (!connectStartCity.IsCity())
                                     {
-                                        connectStartCity.mBelongCity = city;
-                                        connectStartCity.BelongCity = city.Id;
+                                        connectStartCity.BelongCity = city;
+                                        connectStartCity.BelongCityId = city.Id;
                                     }
                                     else
                                     {
-                                        city.mBelongCity = connectStartCity;
-                                        city.BelongCity = connectStartCity.Id;
+                                        city.BelongCity = connectStartCity;
+                                        city.BelongCityId = connectStartCity.Id;
                                     }
                                 }
                                 isConnecting = false;
@@ -740,7 +740,7 @@ namespace Sango.Tools
                             //    GUILayout.Label("附属城市:");
                             //    editor.scenario.citySet.ForEach(x =>
                             //    {
-                            //        if (!x.IsCity() && x.BelongCity == selectedCity.Id)
+                            //        if (!x.IsCity() && x.BelongCityId == selectedCity.Id)
                             //        {
                             //            GUILayout.Label(x.Name);
                             //            CreateLineRenderers(false);
@@ -935,7 +935,7 @@ namespace Sango.Tools
                                         }
                                         else
                                         {
-                                            if(x.BelongCity == selectedCity.Id)
+                                            if(x.BelongCityId == selectedCity.Id)
                                             {
                                                 float minDis = 99999;
                                                 editor.scenario.citySet.ForEach(y =>
@@ -945,8 +945,8 @@ namespace Sango.Tools
                                                         float len = (x.Render.MapObject.position - y.Render.MapObject.position).sqrMagnitude;
                                                         if (len < minDis)
                                                         {
-                                                            x.mBelongCity = y;
-                                                            x.BelongCity = y.Id;
+                                                            x.BelongCity = y;
+                                                            x.BelongCityId = y.Id;
                                                             minDis = len;
                                                         }
                                                     }
@@ -1330,7 +1330,7 @@ namespace Sango.Tools
                     {
                         if (city != null && city.Render != null && city.Render.MapObject != null)
                         {
-                            City neighbor = editor.scenario.citySet.Get(city.BelongCity);
+                            City neighbor = editor.scenario.citySet.Get(city.BelongCityId);
                             if (neighbor != null && neighbor.Render != null && neighbor.Render.MapObject != null)
                             {
                                 // 避免重复创建线路

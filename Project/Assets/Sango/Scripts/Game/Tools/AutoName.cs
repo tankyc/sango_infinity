@@ -80,7 +80,7 @@ namespace Sango
             try
             {
                 NameConfig config = new NameConfig();
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), config);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), config);
                 if (config.FirstName != null && config.FirstName.Count > 0)
                 {
                     mFirstNameList.AddRange(config.FirstName);
@@ -96,7 +96,7 @@ namespace Sango
             }
             catch (System.Exception e)
             {
-                Debug.LogError("[AutoName] 加载 NameConfig.json 失败: " + file + "\n" + e);
+                Sango.Log.Error("[AutoName] 加载 NameConfig.json 失败: " + file + "\n" + e, Sango.Log.LogType.Game);
             }
         }
 

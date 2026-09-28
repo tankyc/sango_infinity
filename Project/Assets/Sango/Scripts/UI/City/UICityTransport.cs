@@ -1,10 +1,8 @@
-﻿using TKNewtonsoft.Json.Utilities.LinqBridge;
+using Sango.Core;
 using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using UnityEngine.UI;
-using Sango.Core;
 namespace Sango.UI
 {
     public class UICityTransport : UGUIWindow
@@ -46,7 +44,7 @@ namespace Sango.UI
 
             itemTypeRect.onItemTypeShow = OnItemTypeShow;
             itemTypeSliderRect.onItemTypeShow = OnItemTypeSliderShow;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.MakeTansport)}/{cityTransportSys.TargetCity.mBelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.MakeTansport)}/{cityTransportSys.TargetCity.BelongCorps.ActionPoint}";
 
             UpdateContent();
         }

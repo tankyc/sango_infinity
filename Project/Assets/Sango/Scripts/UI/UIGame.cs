@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using Sango.Loader;
 using Sango.Render;
 using System;
@@ -182,10 +182,14 @@ namespace Sango.UI
             OnDayUpdate(Scenario.Cur);
             OnForceStart(Scenario.Cur.CurRunForce, Scenario.Cur);
 
+#if UNITY_EDITOR
+            pauseObj.SetActive(true);
+#endif
+
             for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
             {
                 var c = Scenario.Cur.corpsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == Scenario.Cur.CurRunForce)
+                if (c != null && c.IsAlive && c.BelongForce == Scenario.Cur.CurRunForce)
                 {
                     OnCorpsActionPointChange(c);
                     break;
@@ -201,7 +205,7 @@ namespace Sango.UI
             for (int i = 0; i < Scenario.Cur.corpsSet.Count; ++i)
             {
                 var c = Scenario.Cur.corpsSet[i];
-                if (c != null && c.IsAlive && c.mBelongForce == Scenario.Cur.CurRunForce)
+                if (c != null && c.IsAlive && c.BelongForce == Scenario.Cur.CurRunForce)
                 {
                     OnCorpsActionPointChange(c);
                     break;
@@ -414,19 +418,19 @@ namespace Sango.UI
             {
                 Troop troop = (Troop)obj;
                 if (troop.TroopType.isFight)
-                    item.name.text = $"[{troop.mBelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}队,{troop.Member1?.Name}{troop.Member2?.Name}";
+                    item.name.text = $"[{troop.BelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}队,{troop.Member1?.Name}{troop.Member2?.Name}";
                 else
-                    item.name.text = $"**[{troop.mBelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}运输队,{troop.Member1?.Name}{troop.Member2?.Name}";
+                    item.name.text = $"**[{troop.BelongForce.Name}]<{troop.TroopType.Name}>{troop.Name}运输队,{troop.Member1?.Name}{troop.Member2?.Name}";
 
-                item.name.color = troop.mBelongForce.mFlag.color;
+                item.name.color = troop.BelongForce.mFlag.color;
             }
             else if (obj is City)
             {
                 City city = (City)obj;
-                if (city.mBelongForce != null)
+                if (city.BelongForce != null)
                 {
-                    item.name.text = $"[{city.mBelongForce.Name}]{city.Name}";
-                    item.name.color = city.mBelongForce.mFlag.color;
+                    item.name.text = $"[{city.BelongForce.Name}]{city.Name}";
+                    item.name.color = city.BelongForce.mFlag.color;
 
                 }
                 else
@@ -576,10 +580,23 @@ namespace Sango.UI
             frameBtnText.text = $"切换帧率:{Application.targetFrameRate}";
         }
 
+        // FPS 文本的静态部分只算一次；数值没变就不写 text
+        // （Text/TMP 的 text setter 会触发 Mesh 重建，比字符串分配贵得多）
+        string fpsPrefix;
+        int lastFpsValue = int.MinValue;
+
         void UpdateFPS()
         {
             float FPS = 1f / deltaTime;
-            fpsText.text = $"Ver:{Application.version}  FPS:{Math.Floor(FPS)}";
+            if (string.IsNullOrEmpty(fpsPrefix))
+                fpsPrefix = $"Ver:{Application.version}  FPS:";
+
+            int fpsValue = Mathf.FloorToInt(FPS);
+            if (fpsValue == lastFpsValue)
+                return;
+
+            lastFpsValue = fpsValue;
+            fpsText.text = fpsPrefix + fpsValue;
         }
 
         void OnMessagePlaneVisible(bool b)
@@ -686,7 +703,7 @@ namespace Sango.UI
                     Troop troop = city.areaCellList[j].troop;
                     if (troop != null)
                     {
-                        if (troop.mBelongForce == force || troop.mBelongForce.IsAlliance(force))
+                        if (troop.BelongForce == force || troop.BelongForce.IsAlliance(force))
                         {
                             selfTroopNum += troop.troops;
                         }
@@ -698,7 +715,7 @@ namespace Sango.UI
                 }
 
                 // 优先判断劣势
-                if (city.mBelongForce == force)
+                if (city.BelongForce == force)
                 {
                     if (enemyTroopNum > 10000 && selfTroopNum < enemyTroopNum / 4)
                         return 2246;

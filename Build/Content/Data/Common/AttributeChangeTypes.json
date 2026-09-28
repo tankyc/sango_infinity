@@ -1,5 +1,9 @@
 {
   "AttributeChangeTypes": {
+    "0": {
+      "Id": 0,
+      "Name": "普通型"
+    },
     "1": {
       "Id": 1,
       "Name": "超持续型"

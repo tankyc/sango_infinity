@@ -1,4 +1,4 @@
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Hexagon;
 using Sango.Tools;
 using System;
@@ -221,8 +221,8 @@ namespace Sango.Core
                 Cell next = GetNeighbor(cell, i);
                 if (next != null)
                 {
-                    if ((next.troop != null && troops.mBelongForce != next.troop.mBelongForce) ||
-                        (next.building != null && troops.mBelongForce != next.building.mBelongForce))
+                    if ((next.troop != null && troops.BelongForce != next.troop.BelongForce) ||
+                        (next.building != null && troops.BelongForce != next.building.BelongForce))
                         return true;
                 }
             }

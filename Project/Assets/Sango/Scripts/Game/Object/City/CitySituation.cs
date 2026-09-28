@@ -67,6 +67,8 @@ namespace Sango.Core
         // ==================== 人力 ====================
         /// <summary>空闲武将数量</summary>
         public int freePersons;
+        /// <summary>在野武将数量（`city.wildPersons.Count`）—— 用于"登用"命令的排序加分</summary>
+        public int wildCount;
         /// <summary>武将缺口（负值表示缺人）</summary>
         public int personHole;
 
@@ -106,7 +108,7 @@ namespace Sango.Core
 
         // ==================== 势力 ====================
         /// <summary>势力 AI 个性</summary>
-        public ForceAI.AIPersonalityType personality;
+        public ForceAI.AIPersonalityType PersonalityId;
 
         // ==================== 派生比率（0~1） ====================
         /// <summary>兵力充盈度</summary>
@@ -156,7 +158,7 @@ namespace Sango.Core
 
             // ---------- 人力 ----------
             s.freePersons = city.freePersons != null ? city.freePersons.Count : 0;
-            s.personHole = city.PersonHole;
+            s.wildCount = city.wildPersons != null ? city.wildPersons.Count : 0;   // 登用命令排序依据
 
             // ---------- 兵装 ----------
             if (city.itemStore != null)
@@ -181,8 +183,8 @@ namespace Sango.Core
             s.needyAllyCount = CountNeedyAllies(city, scenario);
 
             // ---------- 势力个性 ----------
-            Person commander = city.mBelongCorps != null ? city.mBelongCorps.mComander : null;
-            s.personality = ForceAI.GetAIPersonality(commander);
+            Person commander = city.BelongCorps != null ? city.BelongCorps.mComander : null;
+            s.PersonalityId = ForceAI.GetAIPersonality(commander);
 
             // ---------- 派生比率 ----------
             s.troopFill = Rate(s.troops, s.troopsLimit);
@@ -208,7 +210,7 @@ namespace Sango.Core
                 City n = city.NeighborList[i];
                 if (n == null || !n.IsAlive)
                     continue;
-                if (n.mBelongForce != city.mBelongForce)
+                if (n.BelongForce != city.BelongForce)
                     continue;
                 if (n.CheckEnemiesIfAlive())
                     count++;
@@ -233,7 +235,7 @@ namespace Sango.Core
                     continue;
                 if (!sub.IsPort() && !sub.IsGate())
                     continue;
-                if (sub.mBelongForce != city.mBelongForce)
+                if (sub.BelongForce != city.BelongForce)
                     count++;
             }
             return count;
@@ -247,7 +249,7 @@ namespace Sango.Core
         /// <returns>是否存在可驱逐的威胁部队</returns>
         static bool HasThreatTroop(City city, Scenario scenario)
         {
-            Force force = city.mBelongForce;
+            Force force = city.BelongForce;
             if (force == null || force.threatTroopIds == null || force.threatTroopIds.Count == 0)
                 return false;
 
@@ -282,7 +284,7 @@ namespace Sango.Core
                 Troop t = scenario.troopsSet[i];
                 if (t == null || !t.IsAlive)
                     continue;
-                if (t.mBelongForce != city.mBelongForce)
+                if (t.BelongForce != city.BelongForce)
                     continue;
                 if (t.IsTransport)
                     continue;

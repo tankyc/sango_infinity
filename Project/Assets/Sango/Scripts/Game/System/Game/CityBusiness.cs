@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Sango.Core
 {
@@ -68,7 +68,7 @@ namespace Sango.Core
         {
             scenario.citySet.ForEach(city =>
             {
-                if (!city.IsCity() || city.mBelongCorps == null)
+                if (!city.IsCity() || city.BelongCorps == null)
                     return;
 
                 // 换季,治安降低

@@ -235,8 +235,30 @@ public class GameStart : MonoBehaviour
     void OnApplicationPause(bool ispause)
     {
         if (ispause)
+        {
             Game.Instance.Pause();
+        }
         else
+        {
             Game.Instance.Resume();
+
+            // 切后台期间触摸可能被系统取消（安卓上连 TouchPhase.Canceled 都可能送不到），
+            // 回来时先复位输入残留，否则地图拖不动、点屏幕没反应，只能重启。
+            Sango.Core.GameController.Instance.ResetInputState();
+        }
+    }
+
+    /// <summary>
+    /// 失焦 / 重新获得焦点（通知栏下拉、多任务切换等不一定会触发 OnApplicationPause）。
+    ///
+    /// 只对移动端生效：桌面端点一下窗口就会触发焦点变化，那时玩家很可能正按着鼠标拖拽地图，
+    /// 复位输入会把这次拖拽打断（观感是"拖一半突然停住"），得不偿失。
+    /// </summary>
+    void OnApplicationFocus(bool hasFocus)
+    {
+#if UNITY_ANDROID || UNITY_IPHONE
+        if (hasFocus)
+            Sango.Core.GameController.Instance.ResetInputState();
+#endif
     }
 }

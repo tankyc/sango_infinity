@@ -1,4 +1,4 @@
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Mod;
 using System.Xml;
 
@@ -87,16 +87,16 @@ namespace Sango.Core
 
             ModelConfigs = new SangoObjectMap<ModelConfig>();
             string commonDataFileName = "Data/Model/ModelConfig.json";
-            ModManager.Instance.LoadFile(commonDataFileName, file =>
+            ModManager.Instance.LoadFile(commonDataFileName, (System.Action<string>)(file =>
             {
                 //XmlDocument xmlDocument = new XmlDocument();
                 //xmlDocument.Load(file);
                 //ModelConfigs.Load(xmlDocument.LastChild);
-                JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.Converters.Add(new SangoObjectMapConverter<ModelConfig>());
-                ModelConfigs = TKNewtonsoft.Json.JsonConvert.DeserializeObject<SangoObjectMap<ModelConfig>>(File.ReadAllText(file), jsonSerializerSettings);
+                Newtonsoft.Json.JsonSerializerSettings jsonSerializerSettings = new Newtonsoft.Json.JsonSerializerSettings();
+                jsonSerializerSettings.Converters.Add((Newtonsoft.Json.JsonConverter)new SangoObjectMapConverter<ModelConfig>());
+                ModelConfigs = Newtonsoft.Json.JsonConvert.DeserializeObject<SangoObjectMap<ModelConfig>>(File.ReadAllText(file), (Newtonsoft.Json.JsonSerializerSettings)jsonSerializerSettings);
 
-            });
+            }));
 
             //SimpleJSON.JSONArray node = new SimpleJSON.JSONArray();
             //ModelConfigs.Save(node);

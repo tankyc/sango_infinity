@@ -84,13 +84,15 @@ namespace Sango.Core
             editType = DataEditType.Text,
         };
 
+        // 说明：PersonLib 继承 Person 后，五维是 PersonAttributeValue、兵种适性是 PersonAbilityValue，
+        // 武将库界面展示与排序一律取"基础值 baseValue"（不含伤病/装备/年龄折算），即在库工具里编辑所见的值。
         public static SortTitle SortByCommand = new SortTitle()
         {
             name = "统率",
             width = 2.00f,
-            valueGetCall = x => x.command.ToString(),
-            personSortFunc = (a, b) => a.command.CompareTo(b.command),
-            valueObjGet = x => x.command,
+            valueGetCall = x => x.command.baseValue.ToString(),
+            personSortFunc = (a, b) => a.command.baseValue.CompareTo(b.command.baseValue),
+            valueObjGet = x => x.command.baseValue,
             valueObjSet = null,
         };
 
@@ -98,9 +100,9 @@ namespace Sango.Core
         {
             name = "武力",
             width = 2.00f,
-            valueGetCall = x => x.strength.ToString(),
-            personSortFunc = (a, b) => a.strength.CompareTo(b.strength),
-            valueObjGet = x => x.strength,
+            valueGetCall = x => x.strength.baseValue.ToString(),
+            personSortFunc = (a, b) => a.strength.baseValue.CompareTo(b.strength.baseValue),
+            valueObjGet = x => x.strength.baseValue,
             valueObjSet = null,
         };
 
@@ -108,9 +110,9 @@ namespace Sango.Core
         {
             name = "智力",
             width = 2.00f,
-            valueGetCall = x => x.intelligence.ToString(),
-            personSortFunc = (a, b) => -a.intelligence.CompareTo(b.intelligence),
-            valueObjGet = x => x.intelligence,
+            valueGetCall = x => x.intelligence.baseValue.ToString(),
+            personSortFunc = (a, b) => -a.intelligence.baseValue.CompareTo(b.intelligence.baseValue),
+            valueObjGet = x => x.intelligence.baseValue,
             valueObjSet = null,
         };
 
@@ -118,9 +120,9 @@ namespace Sango.Core
         {
             name = "政治",
             width = 2.00f,
-            valueGetCall = x => x.politics.ToString(),
-            personSortFunc = (a, b) => b.politics.CompareTo(a.politics),
-            valueObjGet = x => x.politics,
+            valueGetCall = x => x.politics.baseValue.ToString(),
+            personSortFunc = (a, b) => b.politics.baseValue.CompareTo(a.politics.baseValue),
+            valueObjGet = x => x.politics.baseValue,
             valueObjSet = null,
         };
 
@@ -128,9 +130,9 @@ namespace Sango.Core
         {
             name = "魅力",
             width = 2.00f,
-            valueGetCall = x => x.glamour.ToString(),
-            personSortFunc = (a, b) => a.glamour.CompareTo(b.glamour),
-            valueObjGet = x => x.glamour,
+            valueGetCall = x => x.glamour.baseValue.ToString(),
+            personSortFunc = (a, b) => a.glamour.baseValue.CompareTo(b.glamour.baseValue),
+            valueObjGet = x => x.glamour.baseValue,
             valueObjSet = null,
         };
 
@@ -138,9 +140,9 @@ namespace Sango.Core
         {
             name = "枪兵",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.spearLv),
-            personSortFunc = (a, b) => a.spearLv.CompareTo(b.spearLv),
-            valueObjGet = x => x.spearLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.spearLv.baseValue),
+            personSortFunc = (a, b) => a.spearLv.baseValue.CompareTo(b.spearLv.baseValue),
+            valueObjGet = x => x.spearLv.baseValue,
             valueObjSet = null,
         };
 
@@ -148,9 +150,9 @@ namespace Sango.Core
         {
             name = "戟兵",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.halberdLv),
-            personSortFunc = (a, b) => a.halberdLv.CompareTo(b.halberdLv),
-            valueObjGet = x => x.halberdLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.halberdLv.baseValue),
+            personSortFunc = (a, b) => a.halberdLv.baseValue.CompareTo(b.halberdLv.baseValue),
+            valueObjGet = x => x.halberdLv.baseValue,
             valueObjSet = null,
         };
 
@@ -158,9 +160,9 @@ namespace Sango.Core
         {
             name = "弓兵",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.crossbowLv),
-            personSortFunc = (a, b) => a.crossbowLv.CompareTo(b.crossbowLv),
-            valueObjGet = x => x.crossbowLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.crossbowLv.baseValue),
+            personSortFunc = (a, b) => a.crossbowLv.baseValue.CompareTo(b.crossbowLv.baseValue),
+            valueObjGet = x => x.crossbowLv.baseValue,
             valueObjSet = null,
         };
 
@@ -168,9 +170,9 @@ namespace Sango.Core
         {
             name = "骑兵",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.rideLv),
-            personSortFunc = (a, b) => a.rideLv.CompareTo(b.rideLv),
-            valueObjGet = x => x.rideLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.rideLv.baseValue),
+            personSortFunc = (a, b) => a.rideLv.baseValue.CompareTo(b.rideLv.baseValue),
+            valueObjGet = x => x.rideLv.baseValue,
             valueObjSet = null,
         };
 
@@ -178,9 +180,9 @@ namespace Sango.Core
         {
             name = "水军",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.waterLv),
-            personSortFunc = (a, b) => a.waterLv.CompareTo(b.waterLv),
-            valueObjGet = x => x.waterLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.waterLv.baseValue),
+            personSortFunc = (a, b) => a.waterLv.baseValue.CompareTo(b.waterLv.baseValue),
+            valueObjGet = x => x.waterLv.baseValue,
             valueObjSet = null,
         };
 
@@ -188,9 +190,9 @@ namespace Sango.Core
         {
             name = "兵器",
             width = 2.00f,
-            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.machineLv),
-            personSortFunc = (a, b) => a.machineLv.CompareTo(b.machineLv),
-            valueObjGet = x => x.machineLv,
+            valueGetCall = x => Scenario.DefaultVariables.GetAbilityName(x.machineLv.baseValue),
+            personSortFunc = (a, b) => a.machineLv.baseValue.CompareTo(b.machineLv.baseValue),
+            valueObjGet = x => x.machineLv.baseValue,
             valueObjSet = null,
         };
         public static SortTitle SortByBelongCity(ShortScenario scenario)
@@ -205,9 +207,9 @@ namespace Sango.Core
                     if (x.targetShortPersonId > 0)
                     {
                         ShortPerson person = scenario.personSet[x.targetShortPersonId];
-                        if (person.BelongCity > 0)
+                        if (person.BelongCityId > 0)
                         {
-                            return scenario.citySet[person.BelongCity].Name;
+                            return scenario.citySet[person.BelongCityId].Name;
                         }
                     }
                     return "";
@@ -230,9 +232,9 @@ namespace Sango.Core
                     if (x.targetShortPersonId > 0)
                     {
                         ShortPerson person = scenario.personSet[x.targetShortPersonId];
-                        if (person.BelongForce > 0)
+                        if (person.BelongForceId > 0)
                         {
-                            ShortForce force = scenario.forceSet[person.BelongForce];
+                            ShortForce force = scenario.forceSet[person.BelongForceId];
                             return scenario.personSet[force.Governor].Name;
                         }
                     }
@@ -244,7 +246,7 @@ namespace Sango.Core
                     {
                         ShortPerson persona = scenario.personSet[a.targetShortPersonId];
                         ShortPerson personb = scenario.personSet[b.targetShortPersonId];
-                        return persona.BelongForce.CompareTo(personb.BelongForce);
+                        return persona.BelongForceId.CompareTo(personb.BelongForceId);
                     }
                     else
                         return a.targetShortPersonId.CompareTo(b.targetShortPersonId);
@@ -261,12 +263,12 @@ namespace Sango.Core
         //    valueGetCall = x =>
         //    {
         //        StringBuilder sb = new StringBuilder();
-        //        if (x.FeatureList != null)
+        //        if (x.FeatureListId != null)
         //        {
-        //            for (int i = 0; i < x.FeatureList.Length; i++)
+        //            for (int i = 0; i < x.FeatureListId.Length; i++)
         //            {
-        //                sb.Append(x.FeatureList[i].Name);
-        //                if (i < x.FeatureList.Count - 1)
+        //                sb.Append(x.FeatureListId[i].Name);
+        //                if (i < x.FeatureListId.Count - 1)
         //                    sb.Append(", ");
         //            }
         //        }
@@ -274,13 +276,13 @@ namespace Sango.Core
         //    },
         //    personSortFunc = (a, b) =>
         //    {
-        //        if (a.FeatureList == null && b.FeatureList == null)
+        //        if (a.FeatureListId == null && b.FeatureListId == null)
         //            return 0;
-        //        if (a.FeatureList != null && b.FeatureList == null)
+        //        if (a.FeatureListId != null && b.FeatureListId == null)
         //            return -1;
-        //        if (a.FeatureList == null && b.FeatureList != null)
+        //        if (a.FeatureListId == null && b.FeatureListId != null)
         //            return 1;
-        //        return a.FeatureList.Count.CompareTo(b.FeatureList.Count);
+        //        return a.FeatureListId.Count.CompareTo(b.FeatureListId.Count);
         //    },
         //    valueObjGet = null,
         //    valueObjSet = null,
@@ -292,15 +294,15 @@ namespace Sango.Core
         //    width = 30.00f,
         //    valueGetCall = x =>
         //    {
-        //        if (x.FeatureList == null || x.FeatureList.Count == 0)
+        //        if (x.FeatureListId == null || x.FeatureListId.Count == 0)
         //            return string.Empty;
 
         //        StringBuilder sb = new StringBuilder();
-        //        for (int i = 0; i < x.FeatureList.Count; i++)
+        //        for (int i = 0; i < x.FeatureListId.Count; i++)
         //        {
-        //            var feat = x.FeatureList[i];
+        //            var feat = x.FeatureListId[i];
         //            sb.Append(feat.desc ?? string.Empty);
-        //            if (i < x.FeatureList.Count - 1)
+        //            if (i < x.FeatureListId.Count - 1)
         //                sb.Append("\n");
         //        }
         //        return sb.ToString();
@@ -392,10 +394,10 @@ namespace Sango.Core
         {
             name = "登场年",
             width = 2.00f,
-            valueGetCall = x => x.yearAvailable.ToString(),
-            personSortFunc = (a, b) => a.yearAvailable.CompareTo(b.yearAvailable),
-            valueObjGet = x => x.yearAvailable,
-            valueObjSet = (x, v) => x.yearAvailable = (int)v,
+            valueGetCall = x => x.appearance.ToString(),
+            personSortFunc = (a, b) => a.appearance.CompareTo(b.appearance),
+            valueObjGet = x => x.appearance,
+            valueObjSet = (x, v) => x.appearance = (int)v,
             editType = DataEditType.IntCalculator,
             minValue = 0,
         };
@@ -496,15 +498,15 @@ namespace Sango.Core
         //{
         //    name = "性格",
         //    width = 2.00f,
-        //    valueGetCall = x => x == null || x.personality == null ? "—" : x.personality.Name,
+        //    valueGetCall = x => x == null || x.PersonalityId == null ? "—" : x.PersonalityId.Name,
         //    personSortFunc = (a, b) =>
         //    {
-        //        string aName = a?.personality?.Name ?? "";
-        //        string bName = b?.personality?.Name ?? "";
+        //        string aName = a?.PersonalityId?.Name ?? "";
+        //        string bName = b?.PersonalityId?.Name ?? "";
         //        return aName.CompareTo(bName);
         //    },
-        //    valueObjGet = x => x.personality,
-        //    valueObjSet = (x, v) => x.personality = (Personality)v,
+        //    valueObjGet = x => x.PersonalityId,
+        //    valueObjSet = (x, v) => x.PersonalityId = (Personality)v,
         //};
 
 
@@ -512,20 +514,20 @@ namespace Sango.Core
         //{
         //    name = "父亲",
         //    width = 2.40f,
-        //    valueGetCall = x => x == null || x.Father == null ? " " : x.Father.Name,
-        //    personSortFunc = (a, b) => SangoObject.Compare(a?.Father, b?.Father),
-        //    valueObjGet = x => x.Father,
-        //    valueObjSet = (x, v) => x.Father = (Person)v,
+        //    valueGetCall = x => x == null || x.FatherId == null ? " " : x.FatherId.Name,
+        //    personSortFunc = (a, b) => SangoObject.Compare(a?.FatherId, b?.FatherId),
+        //    valueObjGet = x => x.FatherId,
+        //    valueObjSet = (x, v) => x.FatherId = (Person)v,
         //};
 
         //public static SortTitle SortByMother = new SortTitle()
         //{
         //    name = "母亲",
         //    width = 2.40f,
-        //    valueGetCall = x => x == null || x.Mother == null ? " " : x.Mother.Name,
-        //    personSortFunc = (a, b) => SangoObject.Compare(a?.Mother, b?.Mother),
-        //    valueObjGet = x => x.Mother,
-        //    valueObjSet = (x, v) => x.Mother = (Person)v,
+        //    valueGetCall = x => x == null || x.MotherId == null ? " " : x.MotherId.Name,
+        //    personSortFunc = (a, b) => SangoObject.Compare(a?.MotherId, b?.MotherId),
+        //    valueObjGet = x => x.MotherId,
+        //    valueObjSet = (x, v) => x.MotherId = (Person)v,
         //};
 
         //public static SortTitle SortByBrother = new SortTitle()
@@ -570,10 +572,10 @@ namespace Sango.Core
         //    valueGetCall = x =>
         //    {
         //        if (x == null) return " ";
-        //        if (x.SpouseList == null || x.SpouseList.Count == 0) return " ";
+        //        if (x.SpouseListId == null || x.SpouseListId.Count == 0) return " ";
 
         //        var names = new System.Collections.Generic.List<string>();
-        //        foreach (Person spouse in x.SpouseList)
+        //        foreach (Person spouse in x.SpouseListId)
         //        {
         //            if (spouse != null) names.Add(spouse.Name);
         //        }
@@ -581,15 +583,15 @@ namespace Sango.Core
         //    },
         //    personSortFunc = (a, b) =>
         //    {
-        //        if (a.SpouseList != null && b.SpouseList != null)
+        //        if (a.SpouseListId != null && b.SpouseListId != null)
         //        {
-        //            return a.SpouseList.Count.CompareTo(b.SpouseList.Count);
+        //            return a.SpouseListId.Count.CompareTo(b.SpouseListId.Count);
         //        }
 
-        //        if (a.SpouseList != null)
+        //        if (a.SpouseListId != null)
         //            return 1;
 
-        //        if (b.SpouseList != null)
+        //        if (b.SpouseListId != null)
         //            return -1;
 
         //        return 0;

@@ -1,4 +1,4 @@
-﻿
+
 using Sango.Render.Model;
 using Sango.UI;
 using Sango.Core;
@@ -24,7 +24,7 @@ namespace Sango.Render
         {
             Owener = building;
             Building = building;
-            MapObject = MapObject.Create($"{Building.mBelongCity.Name}-{Building.Name}");
+            MapObject = MapObject.Create($"{Building.BelongCity.Name}-{Building.Name}");
             MapObject.objType = Building.BuildingType.kind;
             MapObject.modelId = Building.BuildingType.Id;
             isComplate = building.isComplate;

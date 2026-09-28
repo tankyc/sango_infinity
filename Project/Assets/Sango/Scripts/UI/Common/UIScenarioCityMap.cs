@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -47,8 +47,8 @@ using Sango.Core; namespace Sango.UI
                     float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = city.mBelongForce != null ? city.mBelongForce.Color : Color.white;
-                    item.effect?.SetActive(city.mBelongForce == current);
+                    item.icon.color = city.BelongForce != null ? city.BelongForce.Color : Color.white;
+                    item.effect?.SetActive(city.BelongForce == current);
                 }
             });
         }
@@ -68,7 +68,7 @@ using Sango.Core; namespace Sango.UI
                     float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = city.mBelongForce != null ? city.mBelongForce.Color : Color.white;
+                    item.icon.color = city.BelongForce != null ? city.BelongForce.Color : Color.white;
                     item.effect?.SetActive(current.IsCity() && city.Id == current.Id);
                 }
 
@@ -81,7 +81,7 @@ using Sango.Core; namespace Sango.UI
                     float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = city.mBelongForce != null ? city.mBelongForce.Color : Color.white;
+                    item.icon.color = city.BelongForce != null ? city.BelongForce.Color : Color.white;
                     item.effect?.SetActive(true);
                 }
             });
@@ -102,7 +102,7 @@ using Sango.Core; namespace Sango.UI
                     float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = city.mBelongForce != null ? city.mBelongForce.Color : Color.white;
+                    item.icon.color = city.BelongForce != null ? city.BelongForce.Color : Color.white;
                     item.effect?.SetActive(false);
                 }
 
@@ -115,7 +115,7 @@ using Sango.Core; namespace Sango.UI
                     float x = troop.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                     float y = mapBounds.sizeDelta.y / 2 - troop.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                     rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                    item.icon.color = troop.mBelongForce != null ? troop.mBelongForce.Color : Color.white;
+                    item.icon.color = troop.BelongForce != null ? troop.BelongForce.Color : Color.white;
                     item.effect?.SetActive(true);
                 }
             });
@@ -137,9 +137,9 @@ using Sango.Core; namespace Sango.UI
                 float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                 float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
                 rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-                if (city.BelongForce > 0)
+                if (city.BelongForceId > 0)
                 {
-                    ShortForce shortForce = scenario.forceSet[city.BelongForce];
+                    ShortForce shortForce = scenario.forceSet[city.BelongForceId];
                     Flag flag = scenario.CommonData.Flags[shortForce.Flag];
                     item.icon.color = flag.color;
                 }
@@ -148,7 +148,7 @@ using Sango.Core; namespace Sango.UI
                     item.icon.color = Color.white;
                 }
 
-                item.effect?.SetActive(city.BelongForce == current.Id);
+                item.effect?.SetActive(city.BelongForceId == current.Id);
             }
         }
 

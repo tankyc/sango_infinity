@@ -164,9 +164,6 @@ namespace Sango.Tools
                 case "population_increase_factor":
                     city.population_increase_factor = (float)value;
                     break;
-                case "personhole":
-                    city.PersonHole = (int)value;
-                    break;
                 default:
                     // 未在switch中明确处理的JsonProperty字段,通过反射设置
                     SetPropertyByReflection(propertyName, value);

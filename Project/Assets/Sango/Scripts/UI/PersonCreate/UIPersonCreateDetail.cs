@@ -1,11 +1,11 @@
-﻿using Sango;
+using Sango;
 using Sango.Core;
 using Sango.Core.Player;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,6 +17,18 @@ namespace Sango.UI
     /// </summary>
     public class UIPersonCreateDetail : UGUIWindow
     {
+        /// <summary>
+        /// 五维数量（统率 / 武力 / 智力 / 政治 / 魅力）。
+        /// 同时也是快照 changeIds 与成长类型下拉框 changeTypeDropdown 的下标数量。
+        /// </summary>
+        private const int AbilityCount = 5;
+
+        /// <summary>
+        /// 五维成长类型（对应 AttributeChangeType.Id）的默认值：即游戏内的「5 普通型」。
+        /// 游戏把 changeId = 0 也按普通型处理，这里统一显式写 5。
+        /// </summary>
+        private const int DefaultChangeId = 5;
+
         #region 内部快照
         /// <summary>
         /// 编辑快照：保存当前窗口中对 PersonLib 的修改，确认后再写回目标对象。
@@ -33,13 +45,14 @@ namespace Sango.UI
 
             public int yearBorn;
             public int yearDead;
-            public int yearAvailable;
+            /// <summary>登场年份（对应 Person.appearance）</summary>
+            public int appearance;
             public int compatibility;
 
             // 以下字段仅在 Person 编辑模式（剧本编辑页）下使用
-            public int BelongForce;
-            public int BelongCorps;
-            public int BelongCity;
+            public int BelongForceId;
+            public int BelongCorpsId;
+            public int BelongCityId;
             public int state;
             public string image_old;
             public int loyalty;
@@ -47,21 +60,34 @@ namespace Sango.UI
             public int official;
             public ItemStore itemStore = new ItemStore();
 
-            public int personality;
-            public int argumentation;
+            public int PersonalityId;
+            public int ArgumentationId;
             public int voice;
             public int tone;
             public int kanshitsu;
             public int ideal;
             public int talent;
 
+            /// <summary>五维的基础值（Person 的 command/strength/... 是 PersonAttributeValue，快照里只存基础值）</summary>
             public int command;
             public int strength;
             public int intelligence;
             public int politics;
             public int glamour;
-            public int attributeChangeType;
-            public int attributeDuration;
+
+            /// <summary>
+            /// 五维各自的成长类型（对应 PersonAttributeValue.changeId）。
+            /// 下标顺序：0=统率 1=武力 2=智力 3=政治 4=魅力，与 changeTypeDropdown 一一对应。
+            /// </summary>
+            public int[] changeIds = new int[AbilityCount];
+
+            /// <summary>
+            /// 构造：五维成长类型默认取「普通型」，避免新建武将时出现 changeId = 0 的未设置状态。
+            /// </summary>
+            public Snapshot()
+            {
+                for (int i = 0; i < changeIds.Length; i++) changeIds[i] = DefaultChangeId;
+            }
 
             public int spearLv;
             public int halberdLv;
@@ -70,13 +96,13 @@ namespace Sango.UI
             public int waterLv;
             public int machineLv;
 
-            public int Father;
-            public int Mother;
-            public int[] SpouseList = new int[0];
+            public int FatherId;
+            public int MotherId;
+            public int[] SpouseListId = new int[0];
             public int[] BrotherList = new int[0];
-            public int[] LikePersonList = new int[0];
-            public int[] HatePersonList = new int[0];
-            public int[] FeatureList = new int[0];
+            public int[] LikePersonListId = new int[0];
+            public int[] HatePersonListId = new int[0];
+            public int[] FeatureListId = new int[0];
         }
 
         /// <summary>
@@ -398,16 +424,12 @@ namespace Sango.UI
         public Text abilityTotalText;
         #endregion
 
-        #region 能力设定 - 成长与持续
+        #region 能力设定 - 成长类型
         /// <summary>
-        /// 成长期 Toggle 组（維持/早熟/普通/晚成）
+        /// 五维各自的成长类型下拉框（对应 AttributeChangeType）。
+        /// 下标顺序与 <see cref="Snapshot.changeIds"/> 一致：0=统率 1=武力 2=智力 3=政治 4=魅力。
         /// </summary>
-        public Toggle[] growthToggles = new Toggle[4];
-
-        /// <summary>
-        /// 能力持续 Toggle 组（長/短）
-        /// </summary>
-        public Toggle[] durationToggles = new Toggle[2];
+        public Dropdown[] changeTypeDropdown = new Dropdown[AbilityCount];
         #endregion
 
         #region 能力设定 - 兵种适性
@@ -616,7 +638,7 @@ namespace Sango.UI
                 // 设置默认值
                 snapshot.yearBorn = 190;
                 snapshot.yearDead = 289; // 190 + 99
-                snapshot.yearAvailable = 190;
+                snapshot.appearance = 190;
                 snapshot.command = 50;
                 snapshot.strength = 50;
                 snapshot.intelligence = 50;
@@ -641,39 +663,47 @@ namespace Sango.UI
 
                 yearBorn = target.yearBorn,
                 yearDead = target.yearDead,
-                yearAvailable = target.yearAvailable,
+                appearance = target.appearance,
                 compatibility = target.compatibility,
 
-                personality = target.personality,
-                argumentation = target.argumentation,
+                PersonalityId = target.PersonalityId,
+                ArgumentationId = target.ArgumentationId,
                 voice = target.voice,
                 tone = target.tone,
                 kanshitsu = target.kanshitsu,
                 ideal = target.ideal,
                 talent = target.talent,
 
-                command = target.command,
-                strength = target.strength,
-                intelligence = target.intelligence,
-                politics = target.politics,
-                glamour = target.glamour,
-                attributeChangeType = target.attributeChangeType,
-                attributeDuration = target.attributeDuration,
+                // 五维/适性：PersonLib 与 Person 同为 PersonAttributeValue / PersonAbilityValue，快照只取基础值
+                command = target.command != null ? target.command.baseValue : 50,
+                strength = target.strength != null ? target.strength.baseValue : 50,
+                intelligence = target.intelligence != null ? target.intelligence.baseValue : 50,
+                politics = target.politics != null ? target.politics.baseValue : 50,
+                glamour = target.glamour != null ? target.glamour.baseValue : 50,
+                // 五维各自的成长类型：下标顺序 0=统率 1=武力 2=智力 3=政治 4=魅力
+                changeIds = new[]
+                {
+                    AttributeChangeIdOf(target.command),
+                    AttributeChangeIdOf(target.strength),
+                    AttributeChangeIdOf(target.intelligence),
+                    AttributeChangeIdOf(target.politics),
+                    AttributeChangeIdOf(target.glamour),
+                },
 
-                spearLv = target.spearLv,
-                halberdLv = target.halberdLv,
-                crossbowLv = target.crossbowLv,
-                rideLv = target.rideLv,
-                waterLv = target.waterLv,
-                machineLv = target.machineLv,
+                spearLv = target.spearLv != null ? target.spearLv.baseValue : 0,
+                halberdLv = target.halberdLv != null ? target.halberdLv.baseValue : 0,
+                crossbowLv = target.crossbowLv != null ? target.crossbowLv.baseValue : 0,
+                rideLv = target.rideLv != null ? target.rideLv.baseValue : 0,
+                waterLv = target.waterLv != null ? target.waterLv.baseValue : 0,
+                machineLv = target.machineLv != null ? target.machineLv.baseValue : 0,
 
-                Father = target.Father,
-                Mother = target.Mother,
-                SpouseList = CloneArray(target.SpouseList),
-                BrotherList = CloneArray(target.BrotherList),
-                LikePersonList = CloneArray(target.LikePersonList),
-                HatePersonList = CloneArray(target.HatePersonList),
-                FeatureList = CloneArray(target.FeatureList)
+                FatherId = target.FatherId,
+                MotherId = target.MotherId,
+                SpouseListId = CloneArray(target.SpouseListId),
+                BrotherList = CloneArray(target.BrotherListId),
+                LikePersonListId = CloneArray(target.LikePersonListId),
+                HatePersonListId = CloneArray(target.HatePersonListId),
+                FeatureListId = CloneArray(target.FeatureListId)
             };
         }
 
@@ -702,13 +732,13 @@ namespace Sango.UI
 
                 yearBorn = person.yearBorn,
                 yearDead = person.yearDead,
-                yearAvailable = person.appearance,
+                appearance = person.appearance,
                 compatibility = person.compatibility,
 
                 // 剧本编辑相关字段
-                BelongForce = person.BelongForce,
-                BelongCorps = person.BelongCorps,
-                BelongCity = person.BelongCity,
+                BelongForceId = person.BelongForceId,
+                BelongCorpsId = person.BelongCorpsId,
+                BelongCityId = person.BelongCityId,
                 state = person.state,
                 image_old = person.image_old ?? string.Empty,
                 loyalty = person.loyalty,
@@ -716,8 +746,8 @@ namespace Sango.UI
                 official = person.Official != null ? person.Official.Id : 0,
                 itemStore = person.itemStore != null ? person.itemStore.Copy() : new ItemStore(),
 
-                personality = person.personality,
-                argumentation = person.argumentation,
+                PersonalityId = person.PersonalityId,
+                ArgumentationId = person.ArgumentationId,
                 voice = person.voice,
                 tone = person.tone,
                 kanshitsu = person.kanshitsu,
@@ -729,8 +759,15 @@ namespace Sango.UI
                 intelligence = person.intelligence != null ? person.intelligence.baseValue : 50,
                 politics = person.politics != null ? person.politics.baseValue : 50,
                 glamour = person.glamour != null ? person.glamour.baseValue : 50,
-                attributeChangeType = person.command != null ? person.command.changeId : 5,
-                attributeDuration = 0,
+                // 五维各自的成长类型：下标顺序 0=统率 1=武力 2=智力 3=政治 4=魅力
+                changeIds = new[]
+                {
+                    AttributeChangeIdOf(person.command),
+                    AttributeChangeIdOf(person.strength),
+                    AttributeChangeIdOf(person.intelligence),
+                    AttributeChangeIdOf(person.politics),
+                    AttributeChangeIdOf(person.glamour),
+                },
 
                 spearLv = person.spearLv != null ? person.spearLv.baseValue : 0,
                 halberdLv = person.halberdLv != null ? person.halberdLv.baseValue : 0,
@@ -739,13 +776,13 @@ namespace Sango.UI
                 waterLv = person.waterLv != null ? person.waterLv.baseValue : 0,
                 machineLv = person.machineLv != null ? person.machineLv.baseValue : 0,
 
-                Father = person.Father,
-                Mother = person.Mother,
-                SpouseList = CloneArray(person.SpouseList),
+                FatherId = person.FatherId,
+                MotherId = person.MotherId,
+                SpouseListId = CloneArray(person.SpouseListId),
                 BrotherList = PersonListToIds(person.BrotherList),
-                LikePersonList = CloneArray(person.LikePersonList),
-                HatePersonList = CloneArray(person.HatePersonList),
-                FeatureList = CloneArray(person.FeatureList)
+                LikePersonListId = CloneArray(person.LikePersonListId),
+                HatePersonListId = CloneArray(person.HatePersonListId),
+                FeatureListId = CloneArray(person.FeatureListId)
             };
         }
 
@@ -788,40 +825,50 @@ namespace Sango.UI
 
             target.yearBorn = snapshot.yearBorn;
             target.yearDead = snapshot.yearDead;
-            target.yearAvailable = snapshot.yearAvailable;
+            target.appearance = snapshot.appearance;
             // 相性值范围为 0-255；Person 编辑模式直接保存数值，自建武将模式高位可存储来源武将 ID 用于显示
             target.compatibility = snapshot.compatibility;
 
-            target.personality = snapshot.personality;
-            target.argumentation = snapshot.argumentation;
+            target.PersonalityId = snapshot.PersonalityId;
+            target.ArgumentationId = snapshot.ArgumentationId;
             target.voice = snapshot.voice;
             target.tone = snapshot.tone;
             target.kanshitsu = snapshot.kanshitsu;
             target.ideal = snapshot.ideal;
             target.talent = snapshot.talent;
 
-            target.command = snapshot.command;
-            target.strength = snapshot.strength;
-            target.intelligence = snapshot.intelligence;
-            target.politics = snapshot.politics;
-            target.glamour = snapshot.glamour;
-            target.attributeChangeType = snapshot.attributeChangeType;
-            target.attributeDuration = snapshot.attributeDuration;
+            // 五维：PersonLib 继承 Person，command/strength/... 是 PersonAttributeValue
+            EnsureAttributeObjects(target);
+            target.command.baseValue = snapshot.command;
+            target.strength.baseValue = snapshot.strength;
+            target.intelligence.baseValue = snapshot.intelligence;
+            target.politics.baseValue = snapshot.politics;
+            target.glamour.baseValue = snapshot.glamour;
+            // 成长类型：五维各自一个值（下标顺序 0=统率 1=武力 2=智力 3=政治 4=魅力）
+            ApplyChangeIds(target);
 
-            target.spearLv = snapshot.spearLv;
-            target.halberdLv = snapshot.halberdLv;
-            target.crossbowLv = snapshot.crossbowLv;
-            target.rideLv = snapshot.rideLv;
-            target.waterLv = snapshot.waterLv;
-            target.machineLv = snapshot.machineLv;
+            // 库条目只作数据模板，这里把"最终值"重算为基础值，保证写出的数组自洽
+            target.command.UpdateNoAge();
+            target.strength.UpdateNoAge();
+            target.intelligence.UpdateNoAge();
+            target.politics.UpdateNoAge();
+            target.glamour.UpdateNoAge();
 
-            target.Father = snapshot.Father;
-            target.Mother = snapshot.Mother;
-            target.SpouseList = CloneArray(snapshot.SpouseList);
-            target.BrotherList = CloneArray(snapshot.BrotherList);
-            target.LikePersonList = CloneArray(snapshot.LikePersonList);
-            target.HatePersonList = CloneArray(snapshot.HatePersonList);
-            target.FeatureList = CloneArray(snapshot.FeatureList);
+            // 兵种适性：同样是 Person 的 PersonAbilityValue
+            target.spearLv.baseValue = snapshot.spearLv;
+            target.halberdLv.baseValue = snapshot.halberdLv;
+            target.crossbowLv.baseValue = snapshot.crossbowLv;
+            target.rideLv.baseValue = snapshot.rideLv;
+            target.waterLv.baseValue = snapshot.waterLv;
+            target.machineLv.baseValue = snapshot.machineLv;
+
+            target.FatherId = snapshot.FatherId;
+            target.MotherId = snapshot.MotherId;
+            target.SpouseListId = CloneArray(snapshot.SpouseListId);
+            target.BrotherListId = CloneArray(snapshot.BrotherList);
+            target.LikePersonListId = CloneArray(snapshot.LikePersonListId);
+            target.HatePersonListId = CloneArray(snapshot.HatePersonListId);
+            target.FeatureListId = CloneArray(snapshot.FeatureListId);
 
             GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Add(target);
             SaveScenarioAddon();
@@ -848,16 +895,16 @@ namespace Sango.UI
 
             target.yearBorn = snapshot.yearBorn;
             target.yearDead = snapshot.yearDead;
-            target.appearance = snapshot.yearAvailable;
+            target.appearance = snapshot.appearance;
             target.compatibility = snapshot.compatibility;
 
             // 剧本编辑字段：更新 ID 与运行时引用
-            target.BelongForce = snapshot.BelongForce;
-            target.mBelongForce = snapshot.BelongForce > 0 ? cur.forceSet.Get(snapshot.BelongForce) : null;
-            target.BelongCorps = snapshot.BelongCorps;
-            target.mBelongCorps = snapshot.BelongCorps > 0 ? cur.corpsSet.Get(snapshot.BelongCorps) : null;
-            target.BelongCity = snapshot.BelongCity;
-            target.mBelongCity = snapshot.BelongCity > 0 ? cur.citySet.Get(snapshot.BelongCity) : null;
+            target.BelongForceId = snapshot.BelongForceId;
+            target.BelongForce = snapshot.BelongForceId > 0 ? cur.forceSet.Get(snapshot.BelongForceId) : null;
+            target.BelongCorpsId = snapshot.BelongCorpsId;
+            target.BelongCorps = snapshot.BelongCorpsId > 0 ? cur.corpsSet.Get(snapshot.BelongCorpsId) : null;
+            target.BelongCityId = snapshot.BelongCityId;
+            target.BelongCity = snapshot.BelongCityId > 0 ? cur.citySet.Get(snapshot.BelongCityId) : null;
             target.state = snapshot.state;
             target.image_old = snapshot.image_old;
             target.loyalty = snapshot.loyalty;
@@ -865,20 +912,16 @@ namespace Sango.UI
             target.Official = snapshot.official > 0 ? cur.CommonData.Officials.Get(snapshot.official) : null;
             target.itemStore = snapshot.itemStore != null ? snapshot.itemStore.Copy() : new ItemStore();
 
-            target.personality = snapshot.personality;
-            target.argumentation = snapshot.argumentation;
-            target.mArgumentation = snapshot.argumentation > 0 ? cur.CommonData.Argumentations.Get(snapshot.argumentation) : null;
+            target.PersonalityId = snapshot.PersonalityId;
+            target.ArgumentationId = snapshot.ArgumentationId;
+            target.mArgumentation = snapshot.ArgumentationId > 0 ? cur.CommonData.Argumentations.Get(snapshot.ArgumentationId) : null;
             target.voice = snapshot.voice;
             target.tone = snapshot.tone;
             target.kanshitsu = snapshot.kanshitsu;
             target.ideal = snapshot.ideal;
             target.talent = snapshot.talent;
 
-            if (target.command == null) target.command = new PersonAttributeValue();
-            if (target.strength == null) target.strength = new PersonAttributeValue();
-            if (target.intelligence == null) target.intelligence = new PersonAttributeValue();
-            if (target.politics == null) target.politics = new PersonAttributeValue();
-            if (target.glamour == null) target.glamour = new PersonAttributeValue();
+            EnsureAttributeObjects(target);
 
             target.command.baseValue = snapshot.command;
             target.strength.baseValue = snapshot.strength;
@@ -886,18 +929,8 @@ namespace Sango.UI
             target.politics.baseValue = snapshot.politics;
             target.glamour.baseValue = snapshot.glamour;
 
-            target.command.changeId = snapshot.attributeChangeType;
-            target.strength.changeId = snapshot.attributeChangeType;
-            target.intelligence.changeId = snapshot.attributeChangeType;
-            target.politics.changeId = snapshot.attributeChangeType;
-            target.glamour.changeId = snapshot.attributeChangeType;
-
-            // 强制重新解析 AttributeChangeType 缓存
-            target.command.changeType = null;
-            target.strength.changeType = null;
-            target.intelligence.changeType = null;
-            target.politics.changeType = null;
-            target.glamour.changeType = null;
+            // 成长类型：五维各自一个值；内部会一并清掉 AttributeChangeType 的解析缓存
+            ApplyChangeIds(target);
 
             if (cur == null || !cur.Variables.AgeEnabled || !cur.Variables.EnableAgeAbilityFactor)
             {
@@ -916,13 +949,6 @@ namespace Sango.UI
                 target.glamour.Update(target.Age, cur);
             }
 
-            if (target.spearLv == null) target.spearLv = new PersonAbilityValue();
-            if (target.halberdLv == null) target.halberdLv = new PersonAbilityValue();
-            if (target.crossbowLv == null) target.crossbowLv = new PersonAbilityValue();
-            if (target.rideLv == null) target.rideLv = new PersonAbilityValue();
-            if (target.waterLv == null) target.waterLv = new PersonAbilityValue();
-            if (target.machineLv == null) target.machineLv = new PersonAbilityValue();
-
             target.spearLv.baseValue = snapshot.spearLv;
             target.halberdLv.baseValue = snapshot.halberdLv;
             target.crossbowLv.baseValue = snapshot.crossbowLv;
@@ -937,11 +963,11 @@ namespace Sango.UI
             target.waterLv.Update();
             target.machineLv.Update();
 
-            target.Father = snapshot.Father;
-            target.Mother = snapshot.Mother;
-            target.mFather = GetPersonById(snapshot.Father);
-            target.mMother = GetPersonById(snapshot.Mother);
-            target.SpouseList = CloneArray(snapshot.SpouseList);
+            target.FatherId = snapshot.FatherId;
+            target.MotherId = snapshot.MotherId;
+            target.Father = GetPersonById(snapshot.FatherId);
+            target.Mother = GetPersonById(snapshot.MotherId);
+            target.SpouseListId = CloneArray(snapshot.SpouseListId);
 
             // 兄弟关系：更新运行时列表与序列化字段
             if (target.BrotherList == null)
@@ -955,35 +981,35 @@ namespace Sango.UI
                     if (brother != null)
                         target.BrotherList.Add(brother);
                 }
-                target.Brother = snapshot.BrotherList[0];
-                target.mBrother = GetPersonById(target.Brother);
+                target.BrotherId = snapshot.BrotherList[0];
+                target.Brother = GetPersonById(target.BrotherId);
             }
             else
             {
-                target.Brother = 0;
-                target.mBrother = null;
+                target.BrotherId = 0;
+                target.Brother = null;
             }
 
-            target.LikePersonList = CloneArray(snapshot.LikePersonList);
-            target.HatePersonList = CloneArray(snapshot.HatePersonList);
-            target.FeatureList = CloneArray(snapshot.FeatureList);
+            target.LikePersonListId = CloneArray(snapshot.LikePersonListId);
+            target.HatePersonListId = CloneArray(snapshot.HatePersonListId);
+            target.FeatureListId = CloneArray(snapshot.FeatureListId);
 
             // 同步运行时的对象引用列表
-            target.mFeatureList = RefreshPersonObjectList(target.mFeatureList, snapshot.FeatureList, id => cur != null ? cur.CommonData.Features.Get(id) : null);
-            target.mLikePersonList = RefreshPersonObjectList(target.mLikePersonList, snapshot.LikePersonList, id => GetPersonById(id));
-            target.mHatePersonList = RefreshPersonObjectList(target.mHatePersonList, snapshot.HatePersonList, id => GetPersonById(id));
+            target.FeatureList = RefreshPersonObjectList(target.FeatureList, snapshot.FeatureListId, id => cur != null ? cur.CommonData.Features.Get(id) : null);
+            target.LikePersonList = RefreshPersonObjectList(target.LikePersonList, snapshot.LikePersonListId, id => GetPersonById(id));
+            target.HatePersonList = RefreshPersonObjectList(target.HatePersonList, snapshot.HatePersonListId, id => GetPersonById(id));
 
-            // mSpouseList 的 setter 为 private，只能清空/添加，不能重新赋值
-            if (target.mSpouseList != null)
+            // SpouseList 的 setter 为 private，只能清空/添加，不能重新赋值
+            if (target.SpouseList != null)
             {
-                target.mSpouseList.Clear();
-                if (snapshot.SpouseList != null)
+                target.SpouseList.Clear();
+                if (snapshot.SpouseListId != null)
                 {
-                    foreach (int id in snapshot.SpouseList)
+                    foreach (int id in snapshot.SpouseListId)
                     {
                         Person spouse = GetPersonById(id);
                         if (spouse != null)
-                            target.mSpouseList.Add(spouse);
+                            target.SpouseList.Add(spouse);
                     }
                 }
             }
@@ -1001,6 +1027,87 @@ namespace Sango.UI
         {
             if (source == null) return new int[0];
             return (int[])source.Clone();
+        }
+
+        /// <summary>
+        /// 保证武将的五维与兵种适性对象非空（老数据或反序列化异常时可能为 null），避免写快照时空引用。
+        /// </summary>
+        /// <param name="person">目标武将（Person 或 PersonLib）</param>
+        private static void EnsureAttributeObjects(Person person)
+        {
+            if (person == null) return;
+            if (person.command == null) person.command = new PersonAttributeValue();
+            if (person.strength == null) person.strength = new PersonAttributeValue();
+            if (person.intelligence == null) person.intelligence = new PersonAttributeValue();
+            if (person.politics == null) person.politics = new PersonAttributeValue();
+            if (person.glamour == null) person.glamour = new PersonAttributeValue();
+            if (person.spearLv == null) person.spearLv = new PersonAbilityValue();
+            if (person.halberdLv == null) person.halberdLv = new PersonAbilityValue();
+            if (person.crossbowLv == null) person.crossbowLv = new PersonAbilityValue();
+            if (person.rideLv == null) person.rideLv = new PersonAbilityValue();
+            if (person.waterLv == null) person.waterLv = new PersonAbilityValue();
+            if (person.machineLv == null) person.machineLv = new PersonAbilityValue();
+        }
+
+        /// <summary>
+        /// 取能力对象上的成长类型 Id（对象为空或为未设置(0)时取「普通型」）。
+        /// </summary>
+        /// <param name="value">能力对象（PersonAttributeValue）</param>
+        /// <returns>成长类型 Id</returns>
+        private static int AttributeChangeIdOf(PersonAttributeValue value)
+        {
+            if (value == null || value.changeId <= 0) return DefaultChangeId;
+            return value.changeId;
+        }
+
+        /// <summary>
+        /// 取快照中指定下标（0=统率 1=武力 2=智力 3=政治 4=魅力）的成长类型。
+        /// 快照缺失或值非法时返回默认的「普通型」。
+        /// </summary>
+        /// <param name="index">能力下标</param>
+        /// <returns>成长类型 Id</returns>
+        private int ChangeIdAt(int index)
+        {
+            int[] ids = snapshot.changeIds;
+            if (ids == null || index < 0 || index >= ids.Length) return DefaultChangeId;
+            return ids[index] <= 0 ? DefaultChangeId : ids[index];
+        }
+
+        /// <summary>
+        /// 写入快照中指定下标的成长类型（越界时忽略，非法值统一落回「普通型」）。
+        /// </summary>
+        /// <param name="index">能力下标</param>
+        /// <param name="changeId">成长类型 Id</param>
+        private void SetChangeId(int index, int changeId)
+        {
+            int[] ids = snapshot.changeIds;
+            if (ids == null || index < 0 || index >= ids.Length) return;
+            ids[index] = changeId <= 0 ? DefaultChangeId : changeId;
+        }
+
+        /// <summary>
+        /// 把快照中五维各自的成长类型写回目标武将，并清掉成长类型的解析缓存
+        /// （缓存不清理会导致继续按旧的 AttributeChangeType 计算成长曲线）。
+        /// 下标顺序：0=统率 1=武力 2=智力 3=政治 4=魅力。
+        /// </summary>
+        /// <param name="target">目标武将（Person 或 PersonLib）</param>
+        private void ApplyChangeIds(Person target)
+        {
+            if (target == null) return;
+            EnsureAttributeObjects(target);
+
+            target.command.changeId = ChangeIdAt(0);
+            target.strength.changeId = ChangeIdAt(1);
+            target.intelligence.changeId = ChangeIdAt(2);
+            target.politics.changeId = ChangeIdAt(3);
+            target.glamour.changeId = ChangeIdAt(4);
+
+            // 强制重新解析 AttributeChangeType 缓存
+            target.command.changeType = null;
+            target.strength.changeType = null;
+            target.intelligence.changeType = null;
+            target.politics.changeType = null;
+            target.glamour.changeType = null;
         }
 
         /// <summary>
@@ -1080,7 +1187,7 @@ namespace Sango.UI
             }, 30, 99, OnLifeYearChanged);
 
             // 性格与相性
-            BindToggleGroup(personalityToggles, () => snapshot.personality, v => snapshot.personality = v, i => i + 1, v => v - 1);
+            BindToggleGroup(personalityToggles, () => snapshot.PersonalityId, v => snapshot.PersonalityId = v, i => i + 1, v => v - 1);
             BindVoiceToggleGroup();
             BindToggleGroup(toneToggles, () => snapshot.tone, v => snapshot.tone = v, i => i, v => v);
             BindToggleGroup(hanLoyaltyToggles, () => snapshot.kanshitsu, v => snapshot.kanshitsu = v, i => i, v => v);
@@ -1100,10 +1207,8 @@ namespace Sango.UI
             BindButtonCalculator(politicsButton, politicsText, () => snapshot.politics, v => snapshot.politics = v, 1, 100, OnAbilityChanged);
             BindButtonCalculator(glamourButton, glamourText, () => snapshot.glamour, v => snapshot.glamour = v, 1, 100, OnAbilityChanged);
 
-            // 成长与持续
-            //BindGrowthToggleGroup();
-            BindToggleGroup(growthToggles, () => snapshot.attributeChangeType, v => snapshot.attributeChangeType = v, i => i + 1, v => v - 1);
-            BindToggleGroup(durationToggles, () => snapshot.attributeDuration, v => snapshot.attributeDuration = v, i => i, v => v);
+            // 成长类型：五维各自一个下拉框（对应 PersonAttributeValue.changeId）
+            BindChangeTypeDropdowns();
 
             // 兵种适性（S=3, A=2, B=1, C=0）
             BindAdaptToggleGroup(spearAdaptToggles, () => snapshot.spearLv, v => snapshot.spearLv = v);
@@ -1115,19 +1220,19 @@ namespace Sango.UI
 
             // 人际关系（父亲候选武将需为男性，母亲候选武将需为女性，且年龄大于等于自身年龄15岁）
             BindRelationshipSelectButton(fatherSelectButton, false, OnFatherSelectedIds, IsValidFatherFilterLib, IsValidFatherFilterPerson);
-            BindRelationshipButton(fatherCancelButton, () => snapshot.Father = 0, RefreshFather);
+            BindRelationshipButton(fatherCancelButton, () => snapshot.FatherId = 0, RefreshFather);
             BindRelationshipSelectButton(motherSelectButton, false, OnMotherSelectedIds, IsValidMotherFilterLib, IsValidMotherFilterPerson);
-            BindRelationshipButton(motherCancelButton, () => snapshot.Mother = 0, RefreshMother);
+            BindRelationshipButton(motherCancelButton, () => snapshot.MotherId = 0, RefreshMother);
             BindRelationshipSelectButton(spouseSelectButton, true, OnSpouseSelectedIds, IsValidSpouseFilterLib, IsValidSpouseFilterPerson);
-            BindRelationshipButton(spouseCancelButton, () => snapshot.SpouseList = new int[0], RefreshSpouse);
+            BindRelationshipButton(spouseCancelButton, () => snapshot.SpouseListId = new int[0], RefreshSpouse);
             BindRelationshipSelectButton(brotherSelectButton, true, OnBrotherSelectedIds, IsValidBrotherFilterLib, IsValidBrotherFilterPerson);
-            //BindRelationshipButton(brotherCancelButton, () => snapshot.Brother = 0, RefreshBrother);
+            //BindRelationshipButton(brotherCancelButton, () => snapshot.BrotherId = 0, RefreshBrother);
             //BindRelationshipButton(swornBrotherSelectButton, true, OnSwornBrotherSelected);
             //BindRelationshipButton(swornBrotherCancelButton, () => snapshot.swornBrotherList = new int[0], RefreshSwornBrother);
             BindRelationshipSelectButton(likeSelectButton, true, OnLikeSelectedIds, IsValidLikeFilterLib, IsValidLikeFilterPerson);
-            //BindRelationshipButton(likeCancelButton, () => snapshot.LikePersonList = new int[0], RefreshLike);
+            //BindRelationshipButton(likeCancelButton, () => snapshot.LikePersonListId = new int[0], RefreshLike);
             BindRelationshipSelectButton(hateSelectButton, true, OnHateSelectedIds, IsValidHateFilterLib, IsValidHateFilterPerson);
-            //BindRelationshipButton(hateCancelButton, () => snapshot.HatePersonList = new int[0], RefreshHate);
+            //BindRelationshipButton(hateCancelButton, () => snapshot.HatePersonListId = new int[0], RefreshHate);
 
             // 特技
             if (featureButton != null) featureButton.onClick.AddListener(OnFeatureButtonClick);
@@ -1152,11 +1257,11 @@ namespace Sango.UI
         {
             // 势力 / 军团 / 城市 / 官职选择
             if (belongForceSelectButton != null) belongForceSelectButton.onClick.AddListener(OpenBelongForceSelect);
-            if (belongForceCancelButton != null) belongForceCancelButton.onClick.AddListener(() => { snapshot.BelongForce = 0; RefreshBelongForce(); });
+            if (belongForceCancelButton != null) belongForceCancelButton.onClick.AddListener(() => { snapshot.BelongForceId = 0; RefreshBelongForce(); });
             if (belongCorpsSelectButton != null) belongCorpsSelectButton.onClick.AddListener(OpenBelongCorpsSelect);
-            if (belongCorpsCancelButton != null) belongCorpsCancelButton.onClick.AddListener(() => { snapshot.BelongCorps = 0; RefreshBelongCorps(); });
+            if (belongCorpsCancelButton != null) belongCorpsCancelButton.onClick.AddListener(() => { snapshot.BelongCorpsId = 0; RefreshBelongCorps(); });
             if (belongCitySelectButton != null) belongCitySelectButton.onClick.AddListener(OpenBelongCitySelect);
-            if (belongCityCancelButton != null) belongCityCancelButton.onClick.AddListener(() => { snapshot.BelongCity = 0; RefreshBelongCity(); });
+            if (belongCityCancelButton != null) belongCityCancelButton.onClick.AddListener(() => { snapshot.BelongCityId = 0; RefreshBelongCity(); });
             if (officialSelectButton != null) officialSelectButton.onClick.AddListener(OpenOfficialSelect);
             if (officialCancelButton != null) officialCancelButton.onClick.AddListener(() => { snapshot.official = 0; RefreshOfficial(); });
 
@@ -1165,7 +1270,7 @@ namespace Sango.UI
             BindTextInput(imageOldInput, () => snapshot.image_old, v => snapshot.image_old = v);
 
             // 数字输入
-            BindButtonCalculator(yearAvailableButton, yearAvailableTextScenario, () => snapshot.yearAvailable, v => snapshot.yearAvailable = v, 0, 300, null);
+            BindButtonCalculator(yearAvailableButton, yearAvailableTextScenario, () => snapshot.appearance, v => snapshot.appearance = v, 0, 300, null);
             BindButtonCalculator(loyaltyButton, loyaltyText, () => snapshot.loyalty, v => snapshot.loyalty = v, 0, 255, null);
 
             // 下拉菜单：初始化选项与事件
@@ -1177,7 +1282,7 @@ namespace Sango.UI
             List<Dropdown.OptionData> argumentationOptions = new List<Dropdown.OptionData>();
             List<int> argumentationValues = new List<int>();
             GetArgumentationOptions(argumentationOptions, argumentationValues);
-            BindDropdown(argumentationDropdown, argumentationOptions, argumentationValues, () => snapshot.argumentation, v => snapshot.argumentation = v);
+            BindDropdown(argumentationDropdown, argumentationOptions, argumentationValues, () => snapshot.ArgumentationId, v => snapshot.ArgumentationId = v);
 
             List<Dropdown.OptionData> birthplaceOptions = new List<Dropdown.OptionData>();
             List<int> birthplaceValues = new List<int>();
@@ -1221,11 +1326,10 @@ namespace Sango.UI
 
                 if (yearBornText != null) yearBornText.text = snapshot.yearBorn.ToString();
                 if (yearDeadText != null) yearDeadText.text = snapshot.yearDead.ToString();
-                if (yearAvailableText != null) yearAvailableText.text = snapshot.yearAvailable.ToString();
+                if (yearAvailableText != null) yearAvailableText.text = snapshot.appearance.ToString();
                 if (lifeSpanText != null) lifeSpanText.text = System.Math.Max(0, snapshot.yearDead - snapshot.yearBorn).ToString();
 
-                RefreshToggleGroup(personalityToggles, snapshot.personality, i => i - 1, 1);
-                RefreshToggleGroup(growthToggles, snapshot.attributeChangeType, i => i - 1, 1);
+                RefreshToggleGroup(personalityToggles, snapshot.PersonalityId, i => i - 1, 1);
                 RefreshVoiceToggleGroup();
                 RefreshToggleGroup(toneToggles, snapshot.tone, i => i, 0);
                 RefreshToggleGroup(hanLoyaltyToggles, snapshot.kanshitsu, i => i, 0);
@@ -1242,8 +1346,8 @@ namespace Sango.UI
                 if (glamourText != null) glamourText.text = snapshot.glamour.ToString();
                 OnAbilityChanged();
 
-                //RefreshGrowthToggleGroup();
-                RefreshToggleGroup(durationToggles, snapshot.attributeDuration, i => i, 0);
+                // 五维各自的成长类型下拉框
+                RefreshChangeTypeDropdowns();
 
                 RefreshAdaptGroup(spearAdaptToggles, snapshot.spearLv);
                 RefreshAdaptGroup(halberdAdaptToggles, snapshot.halberdLv);
@@ -1346,14 +1450,14 @@ namespace Sango.UI
         private void CheckParentAgeGap()
         {
             bool changed = false;
-            if (snapshot.Father > 0 && !IsValidParent(snapshot.Father, 0))
+            if (snapshot.FatherId > 0 && !IsValidParent(snapshot.FatherId, 0))
             {
-                snapshot.Father = 0;
+                snapshot.FatherId = 0;
                 changed = true;
             }
-            if (snapshot.Mother > 0 && !IsValidParent(snapshot.Mother, 1))
+            if (snapshot.MotherId > 0 && !IsValidParent(snapshot.MotherId, 1))
             {
-                snapshot.Mother = 0;
+                snapshot.MotherId = 0;
                 changed = true;
             }
             if (changed)
@@ -1403,10 +1507,10 @@ namespace Sango.UI
         /// </summary>
         private void CheckSpouseSex()
         {
-            if (snapshot.SpouseList == null || snapshot.SpouseList.Length == 0) return;
+            if (snapshot.SpouseListId == null || snapshot.SpouseListId.Length == 0) return;
             bool changed = false;
             List<int> validList = new List<int>();
-            foreach (int spouseId in snapshot.SpouseList)
+            foreach (int spouseId in snapshot.SpouseListId)
             {
                 int spouseSex = -1;
                 if (editMode == PersonEditMode.Person)
@@ -1434,7 +1538,7 @@ namespace Sango.UI
             }
             if (changed)
             {
-                snapshot.SpouseList = validList.ToArray();
+                snapshot.SpouseListId = validList.ToArray();
                 RefreshSpouse();
                 Log.Warning("自身性别变化后，与配偶性别相同，已自动解除配偶关系");
             }
@@ -1925,13 +2029,13 @@ namespace Sango.UI
 
         private void OnFatherSelectedIds(int[] ids)
         {
-            snapshot.Father = ids != null && ids.Length > 0 ? ids[0] : 0;
+            snapshot.FatherId = ids != null && ids.Length > 0 ? ids[0] : 0;
             RefreshFather();
         }
 
         private void OnMotherSelectedIds(int[] ids)
         {
-            snapshot.Mother = ids != null && ids.Length > 0 ? ids[0] : 0;
+            snapshot.MotherId = ids != null && ids.Length > 0 ? ids[0] : 0;
             RefreshMother();
         }
 
@@ -1974,45 +2078,45 @@ namespace Sango.UI
         private bool IsValidLikeFilterLib(PersonLib person)
         {
             if (person == null) return false;
-            return !ContainsId(snapshot.HatePersonList, person.Id);
+            return !ContainsId(snapshot.HatePersonListId, person.Id);
         }
 
         private bool IsValidLikeFilterPerson(Person person)
         {
             if (person == null) return false;
-            return !ContainsId(snapshot.HatePersonList, person.Id);
+            return !ContainsId(snapshot.HatePersonListId, person.Id);
         }
 
         private bool IsValidHateFilterLib(PersonLib person)
         {
             if (person == null) return false;
-            if (person.Id == snapshot.Father || person.Id == snapshot.Mother) return false;
+            if (person.Id == snapshot.FatherId || person.Id == snapshot.MotherId) return false;
             if (ContainsId(snapshot.BrotherList, person.Id)) return false;
-            if (ContainsId(snapshot.LikePersonList, person.Id)) return false;
+            if (ContainsId(snapshot.LikePersonListId, person.Id)) return false;
             return true;
         }
 
         private bool IsValidHateFilterPerson(Person person)
         {
             if (person == null) return false;
-            if (person.Id == snapshot.Father || person.Id == snapshot.Mother) return false;
+            if (person.Id == snapshot.FatherId || person.Id == snapshot.MotherId) return false;
             if (ContainsId(snapshot.BrotherList, person.Id)) return false;
-            if (ContainsId(snapshot.LikePersonList, person.Id)) return false;
+            if (ContainsId(snapshot.LikePersonListId, person.Id)) return false;
             return true;
         }
 
         private bool IsValidBrotherFilterLib(PersonLib person)
         {
             if (person == null) return false;
-            if (person.Brother > 0) return false;
+            if (person.BrotherId > 0) return false;
             PersonLib p = GameCustomEdit.Instance != null && GameCustomEdit.Instance.SelfScenarioAddon != null
                 ? GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Find(x =>
                 {
-                    if (x.BrotherList != null)
+                    if (x.BrotherListId != null)
                     {
-                        for (int i = 0; i < x.BrotherList.Length; i++)
+                        for (int i = 0; i < x.BrotherListId.Length; i++)
                         {
-                            if (x.BrotherList[i] == person.Id)
+                            if (x.BrotherListId[i] == person.Id)
                                 return true;
                         }
                     }
@@ -2037,19 +2141,19 @@ namespace Sango.UI
 
         private void OnSpouseSelectedIds(int[] ids)
         {
-            snapshot.SpouseList = ids != null ? ids.Distinct().ToArray() : new int[0];
+            snapshot.SpouseListId = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshSpouse();
         }
 
         private void OnLikeSelectedIds(int[] ids)
         {
-            snapshot.LikePersonList = ids != null ? ids.Distinct().ToArray() : new int[0];
+            snapshot.LikePersonListId = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshLike();
         }
 
         private void OnHateSelectedIds(int[] ids)
         {
-            snapshot.HatePersonList = ids != null ? ids.Distinct().ToArray() : new int[0];
+            snapshot.HatePersonListId = ids != null ? ids.Distinct().ToArray() : new int[0];
             RefreshHate();
         }
 
@@ -2067,16 +2171,16 @@ namespace Sango.UI
 
         private void RefreshFather()
         {
-            SetPersonNameText(fatherText, snapshot.Father);
+            SetPersonNameText(fatherText, snapshot.FatherId);
             if (fatherCancelButton != null)
-                fatherCancelButton.interactable = snapshot.Father > 0;
+                fatherCancelButton.interactable = snapshot.FatherId > 0;
         }
 
         private void RefreshMother()
         {
-            SetPersonNameText(motherText, snapshot.Mother);
+            SetPersonNameText(motherText, snapshot.MotherId);
             if (motherCancelButton != null)
-                motherCancelButton.interactable = snapshot.Mother > 0;
+                motherCancelButton.interactable = snapshot.MotherId > 0;
         }
 
         private void RefreshBrother()
@@ -2086,9 +2190,9 @@ namespace Sango.UI
 
         private void RefreshSpouse()
         {
-            SetPersonNamesText(spouseText, snapshot.SpouseList);
+            SetPersonNamesText(spouseText, snapshot.SpouseListId);
             if (spouseCancelButton != null)
-                spouseCancelButton.interactable = snapshot.SpouseList != null && snapshot.SpouseList.Length > 0;
+                spouseCancelButton.interactable = snapshot.SpouseListId != null && snapshot.SpouseListId.Length > 0;
         }
 
         private void RefreshSwornBrother()
@@ -2098,12 +2202,12 @@ namespace Sango.UI
 
         private void RefreshLike()
         {
-            SetPersonNamesText(likeText, snapshot.LikePersonList);
+            SetPersonNamesText(likeText, snapshot.LikePersonListId);
         }
 
         private void RefreshHate()
         {
-            SetPersonNamesText(hateText, snapshot.HatePersonList);
+            SetPersonNamesText(hateText, snapshot.HatePersonListId);
         }
 
         /// <summary>
@@ -2191,9 +2295,9 @@ namespace Sango.UI
             }
 
             List<Feature> initialSelect = new List<Feature>();
-            if (snapshot.FeatureList != null)
+            if (snapshot.FeatureListId != null)
             {
-                foreach (int id in snapshot.FeatureList)
+                foreach (int id in snapshot.FeatureListId)
                 {
                     Feature f = GameData.Instance.ScenarioCommonData.Features.Get(id);
                     if (f != null) initialSelect.Add(f);
@@ -2209,7 +2313,7 @@ namespace Sango.UI
 
         private void OnFeatureSelected(List<Feature> result)
         {
-            snapshot.FeatureList = result != null
+            snapshot.FeatureListId = result != null
                 ? result.Where(f => f != null).Select(f => f.Id).Distinct().ToArray()
                 : new int[0];
             RefreshFeature();
@@ -2217,7 +2321,7 @@ namespace Sango.UI
 
         private void OnFeatureCancelClick()
         {
-            snapshot.FeatureList = new int[0];
+            snapshot.FeatureListId = new int[0];
             RefreshFeature();
         }
 
@@ -2229,14 +2333,14 @@ namespace Sango.UI
         private void RefreshFeature()
         {
             if (featureText == null) return;
-            if (snapshot.FeatureList == null || snapshot.FeatureList.Length == 0)
+            if (snapshot.FeatureListId == null || snapshot.FeatureListId.Length == 0)
             {
                 featureText.text = string.Empty;
                 return;
             }
             ScenarioCommonData scenarioCommonData = GameData.Instance.ScenarioCommonData;
             List<string> names = new List<string>();
-            foreach (int id in snapshot.FeatureList)
+            foreach (int id in snapshot.FeatureListId)
             {
                 Feature f = scenarioCommonData.Features.Get(id);
                 names.Add(f != null ? f.Name : id.ToString());
@@ -2322,20 +2426,20 @@ namespace Sango.UI
 
         private void RefreshBelongForce()
         {
-            if (belongForceText != null) belongForceText.text = GetForceName(snapshot.BelongForce);
-            if (belongForceCancelButton != null) belongForceCancelButton.interactable = snapshot.BelongForce > 0;
+            if (belongForceText != null) belongForceText.text = GetForceName(snapshot.BelongForceId);
+            if (belongForceCancelButton != null) belongForceCancelButton.interactable = snapshot.BelongForceId > 0;
         }
 
         private void RefreshBelongCorps()
         {
-            if (belongCorpsText != null) belongCorpsText.text = GetCorpsName(snapshot.BelongCorps);
-            if (belongCorpsCancelButton != null) belongCorpsCancelButton.interactable = snapshot.BelongCorps > 0;
+            if (belongCorpsText != null) belongCorpsText.text = GetCorpsName(snapshot.BelongCorpsId);
+            if (belongCorpsCancelButton != null) belongCorpsCancelButton.interactable = snapshot.BelongCorpsId > 0;
         }
 
         private void RefreshBelongCity()
         {
-            if (belongCityText != null) belongCityText.text = GetCityName(snapshot.BelongCity);
-            if (belongCityCancelButton != null) belongCityCancelButton.interactable = snapshot.BelongCity > 0;
+            if (belongCityText != null) belongCityText.text = GetCityName(snapshot.BelongCityId);
+            if (belongCityCancelButton != null) belongCityCancelButton.interactable = snapshot.BelongCityId > 0;
         }
 
         private void RefreshOfficial()
@@ -2390,12 +2494,12 @@ namespace Sango.UI
             ForceSelectSystem select = system as ForceSelectSystem;
             List<Force> forces = new List<Force>();
             foreach (Force f in cur.forceSet) { if (f != null) forces.Add(f); }
-            Force selected = snapshot.BelongForce > 0 ? cur.forceSet.Get(snapshot.BelongForce) : null;
+            Force selected = snapshot.BelongForceId > 0 ? cur.forceSet.Get(snapshot.BelongForceId) : null;
             select.Start(forces, selected != null ? new List<Force> { selected } : new List<Force>(), 1,
                 (Action<List<Force>>)(result =>
                 {
                     if (result == null || result.Count == 0) return;
-                    snapshot.BelongForce = result[0] != null ? result[0].Id : 0;
+                    snapshot.BelongForceId = result[0] != null ? result[0].Id : 0;
                     RefreshBelongForce();
                 }),
                 new List<ObjectSortTitle> { ForceSortFunction.SortByName }, "全部势力");
@@ -2415,12 +2519,12 @@ namespace Sango.UI
             CorpsSelectSystem select = system as CorpsSelectSystem;
             List<Corps> corpsList = new List<Corps>();
             foreach (Corps c in cur.corpsSet) { if (c != null) corpsList.Add(c); }
-            Corps selected = snapshot.BelongCorps > 0 ? cur.corpsSet.Get(snapshot.BelongCorps) : null;
+            Corps selected = snapshot.BelongCorpsId > 0 ? cur.corpsSet.Get(snapshot.BelongCorpsId) : null;
             select.Start(corpsList, selected != null ? new List<Corps> { selected } : new List<Corps>(), 1,
                 (Action<List<Corps>>)(result =>
                 {
                     if (result == null || result.Count == 0) return;
-                    snapshot.BelongCorps = result[0] != null ? result[0].Id : 0;
+                    snapshot.BelongCorpsId = result[0] != null ? result[0].Id : 0;
                     RefreshBelongCorps();
                 }),
                 new List<ObjectSortTitle> { CorpsSortFunction.SortByName }, "全部军团");
@@ -2440,12 +2544,12 @@ namespace Sango.UI
             CitySelectSystem select = system as CitySelectSystem;
             List<City> cities = new List<City>();
             foreach (City c in cur.citySet) { if (c != null) cities.Add(c); }
-            City selected = snapshot.BelongCity > 0 ? cur.citySet.Get(snapshot.BelongCity) : null;
+            City selected = snapshot.BelongCityId > 0 ? cur.citySet.Get(snapshot.BelongCityId) : null;
             select.Start(cities, selected != null ? new List<City> { selected } : new List<City>(), 1,
                 (Action<List<City>>)(result =>
                 {
                     if (result == null || result.Count == 0) return;
-                    snapshot.BelongCity = result[0] != null ? result[0].Id : 0;
+                    snapshot.BelongCityId = result[0] != null ? result[0].Id : 0;
                     RefreshBelongCity();
                 }),
                 new List<ObjectSortTitle> { CitySortFunction.SortByName }, "全部城市");
@@ -2503,6 +2607,77 @@ namespace Sango.UI
             dropdown.RefreshShownValue();
         }
 
+        /// <summary>
+        /// 绑定五维各自的成长类型下拉框。
+        /// 下标与 <see cref="Snapshot.changeIds"/> 一一对应（0=统率 1=武力 2=智力 3=政治 4=魅力），
+        /// 只处理 prefab 中已赋值的下拉框，未赋值的槽位自动跳过。
+        /// </summary>
+        private void BindChangeTypeDropdowns()
+        {
+            if (changeTypeDropdown == null) return;
+            int count = System.Math.Min(changeTypeDropdown.Length, AbilityCount);
+            for (int i = 0; i < count; i++)
+            {
+                if (changeTypeDropdown[i] == null) continue;
+
+                int index = i;      // 闭包捕获，避免所有下拉框都写到最后一个下标
+                List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+                List<int> values = new List<int>();
+                GetChangeTypeOptions(options, values);
+                BindDropdown(changeTypeDropdown[index], options, values,
+                    () => ChangeIdAt(index),
+                    v => SetChangeId(index, v));
+            }
+        }
+
+        /// <summary>
+        /// 刷新五维成长类型下拉框的选项与选中值。
+        /// </summary>
+        private void RefreshChangeTypeDropdowns()
+        {
+            if (changeTypeDropdown == null) return;
+            int count = System.Math.Min(changeTypeDropdown.Length, AbilityCount);
+            for (int i = 0; i < count; i++)
+            {
+                Dropdown dropdown = changeTypeDropdown[i];
+                if (dropdown == null) continue;
+                List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
+                List<int> values = new List<int>();
+                GetChangeTypeOptions(options, values);
+                // 选项数量变化时才重建，避免每帧刷新时反复重建选项导致下拉框被强制收起
+                if (dropdown.options.Count != options.Count) dropdown.options = options;
+                SetDropdownValue(dropdown, values, ChangeIdAt(i));
+            }
+        }
+
+        /// <summary>
+        /// 构建能力成长类型下拉框的选项。
+        /// 取不到剧本数据时退化为 <see cref="ScenarioCommonData"/>，都取不到时只给「普通型」。
+        /// </summary>
+        /// <param name="options">选项文本</param>
+        /// <param name="values">与选项一一对应的成长类型 Id</param>
+        private void GetChangeTypeOptions(List<Dropdown.OptionData> options, List<int> values)
+        {
+            if (options == null || values == null) return;
+
+            SangoObjectSet<AttributeChangeType> types = null;
+            Scenario cur = Scenario.Cur;
+            if (cur != null && cur.CommonData != null) types = cur.CommonData.AttributeChangeTypes;
+            if (types == null && GameData.Instance != null && GameData.Instance.ScenarioCommonData != null)
+                types = GameData.Instance.ScenarioCommonData.AttributeChangeTypes;
+
+            if (types != null)
+            {
+                types.ForEach(type =>
+                {
+                    // Id = 0 是数据里的"未设置"占位（名称同样叫普通型），游戏内按 5 普通型处理，
+                    // 这里跳过，避免下拉框里出现两个同名的「普通型」
+                    if (type != null && type.Id > 0) AddOption(options, values, type.Name, type.Id);
+                });
+            }
+            if (options.Count == 0) AddOption(options, values, "普通型", DefaultChangeId);
+        }
+
         private void RefreshStateDropdown()
         {
             if (stateDropdown == null) return;
@@ -2520,7 +2695,7 @@ namespace Sango.UI
             List<int> values = new List<int>();
             GetArgumentationOptions(options, values);
             if (argumentationDropdown.options.Count != options.Count) argumentationDropdown.options = options;
-            SetDropdownValue(argumentationDropdown, values, snapshot.argumentation);
+            SetDropdownValue(argumentationDropdown, values, snapshot.ArgumentationId);
         }
 
         private void RefreshBirthplaceDropdown()

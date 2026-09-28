@@ -1,7 +1,7 @@
 using Sango.Core.Action;
 using System.Collections.Generic;
-using TKNewtonsoft.Json;
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Sango.Core
 {
@@ -45,15 +45,30 @@ namespace Sango.Core
         /// <summary>
         /// 附加特技
         /// </summary>
-        [JsonProperty]
-        [JsonConverter(typeof(SangoObjectListIDConverter<Feature>))]
+        // 序列化形态保持 int[]（键名不变，老存档可读）；运行期列表由 OnScenarioPrepare 解析。
+        [JsonProperty("features")]
+        public int[] features_list;
         public SangoObjectList<Feature> features = new SangoObjectList<Feature>();
+
+        public override void OnScenarioPrepare(Scenario scenario)
+        {
+            base.OnScenarioPrepare(scenario);
+            if (features_list != null && features_list.Length > 0 && features.Count == 0)
+                features.FromArray(features_list);
+        }
+
+        /// <summary>存档前回写 int[]（否则会把读档时的旧 id 存回去）。</summary>
+        public override void OnScenarioSave(Scenario scenario)
+        {
+            base.OnScenarioSave(scenario);
+            features_list = features != null ? features.ToArray() : null;
+        }
 
         /// <summary>
         /// 效果实体集合
         /// </summary>
         [JsonProperty]
-        public TKNewtonsoft.Json.Linq.JArray actionEntities;
+        public Newtonsoft.Json.Linq.JArray actionEntities;
 
         public void InitActions(List<ActionBase> list, params SangoObject[] sangoObjects)
         {

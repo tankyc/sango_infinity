@@ -1,4 +1,4 @@
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Mod;
 using System.Collections.Generic;
 
@@ -64,16 +64,16 @@ namespace Sango.Core
             if (File.Exists(file))
             {
                 HeadEditData data = new HeadEditData();
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), data);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), data);
                 headEditData.HeadIdRanges.AddRange(data.HeadIdRanges);
             }
             // mod在前面
-            ModManager.Instance.EnumFiles("Data/FaceConfig.json", file =>
+            ModManager.Instance.EnumFiles("Data/FaceConfig.json", (System.Action<string>)(file =>
             {
                 HeadEditData data = new HeadEditData();
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), data);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), (object)data);
                 headEditData.HeadIdRanges.AddRange(data.HeadIdRanges);
-            });
+            }));
 
             headDataList.Clear();
             femaleStartIndex = -1;
@@ -134,28 +134,28 @@ namespace Sango.Core
             ModScenarioAddon.PersonLibrary.ForEach(x =>
             {
                 ModedPersonLibList.Add(x);
-                if (x.BrotherList == null || x.BrotherList.Length == 0)
+                if (x.BrotherListId == null || x.BrotherListId.Length == 0)
                 {
-                    if (x.Brother > 0)
-                        x.Brother = 0;
+                    if (x.BrotherId > 0)
+                        x.BrotherId = 0;
                     return;
                 }
 
-                for (int i = 0; i < x.BrotherList.Length; i++)
+                for (int i = 0; i < x.BrotherListId.Length; i++)
                 {
-                    int b = x.BrotherList[i];
+                    int b = x.BrotherListId[i];
                     PersonLib coreB = FindPersonLib(b);
-                    if (coreB != null && coreB.Brother > 0)
+                    if (coreB != null && coreB.BrotherId > 0)
                         return;
                 }
 
-                x.Brother = x.Id;
-                for (int i = 0; i < x.BrotherList.Length; i++)
+                x.BrotherId = x.Id;
+                for (int i = 0; i < x.BrotherListId.Length; i++)
                 {
-                    int b = x.BrotherList[i];
+                    int b = x.BrotherListId[i];
                     PersonLib coreB = FindPersonLib(b);
                     if (coreB != null)
-                        coreB.Brother = x.Id;
+                        coreB.BrotherId = x.Id;
                 }
             });
 

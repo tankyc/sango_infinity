@@ -1,5 +1,5 @@
 ﻿using System.IO;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace Sango.Core
 {

@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Sango.Core
@@ -22,7 +22,7 @@ namespace Sango.Core
             if (File.Exists(file))
             {
                 ScenarioAddon scenarioAddon = new ScenarioAddon();
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), scenarioAddon);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), scenarioAddon);
                 Combine(scenarioAddon);
             }
         }
@@ -53,7 +53,7 @@ namespace Sango.Core
             {
                 ScenarioAddon scenarioAddon = new ScenarioAddon();
                 scenarioAddon.PersonLibrary.offset = PersonLibrary.offset;
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), scenarioAddon);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), scenarioAddon);
                 scenarioAddon.PersonLibrary.ForEach(x =>
                 {
                     x.Id = x.Id + start;
@@ -63,12 +63,12 @@ namespace Sango.Core
                     x.modName = mod.Name;
                     
                     // 梳理关系ID
-                    FixID(ref x.Father, start);
-                    FixID(ref x.Mother, start);
-                    FixID(ref x.Brother, start);
-                    FixID(ref x.BrotherList, start);
-                    FixID(ref x.LikePersonList, start);
-                    FixID(ref x.HatePersonList, start);
+                    FixID(ref x.FatherId, start);
+                    FixID(ref x.MotherId, start);
+                    FixID(ref x.BrotherId, start);
+                    FixID(ref x.BrotherListId, start);
+                    FixID(ref x.LikePersonListId, start);
+                    FixID(ref x.HatePersonListId, start);
                 });
             }
             return start;

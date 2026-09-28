@@ -103,7 +103,7 @@ namespace Sango.Render
                     tex = refTex != null ? refTex : LoadTexture(layer.sheetPath);
                     if (tex == null)
                     {
-                        Debug.LogError($"UIFullScreenSequence: 加载失败 {layer.sheetPath}");
+                        Sango.Log.Error($"UIFullScreenSequence: 加载失败 {layer.sheetPath}", Sango.Log.LogType.UI);
                         mTextures.Add(null);
                         mImages.Add(null);
                         mIsSolid.Add(false);
@@ -310,7 +310,7 @@ namespace Sango.Render
             }
             if (sh == null)
             {
-                Debug.LogError($"UIFullScreenSequence: 找不到可用 Shader,key={key}");
+                Sango.Log.Error($"UIFullScreenSequence: 找不到可用 Shader,key={key}", Sango.Log.LogType.UI);
                 return null;
             }
             mat = new Material(sh);

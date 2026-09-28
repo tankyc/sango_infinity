@@ -16,12 +16,15 @@ namespace Sango.Core.Player
             windowName = "window_city_searching";
 
         }
-
+        protected override bool MenuCanShow()
+        {
+            return TargetCity.IsCityBase();
+        }
         public override bool IsValid
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Searching);
+                return TargetCity.freePersons.Count > 0 && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Searching);
             }
         }
 

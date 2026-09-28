@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,7 +25,7 @@ using Sango.Core; namespace Sango.UI
         public UIMiniTroopInfoPanel Show(Troop c)
         {
             nameLabel.text = c.Name;
-            SetCorps(c.mBelongCorps);
+            SetCorps(c.BelongCorps);
             ResetPool();
             List<ObjectSortTitle> SortTitles = new List<ObjectSortTitle>(objectSortTitles);
             GameEvent.OnInitTroopMiniPanel?.Invoke(c, SortTitles);

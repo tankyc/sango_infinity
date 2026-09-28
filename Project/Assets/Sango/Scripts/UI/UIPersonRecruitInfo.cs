@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -104,10 +104,10 @@ using Sango.Core; namespace Sango.UI
             statusItem.SetPerson(person);
             ageText.text = person.Age.ToString();
             sexText.text = PersonSortFunction.SortBySex.GetValueStr(person);
-            if (person.mFeatureList != null && person.mFeatureList.Count > 0)
+            if (person.FeatureList != null && person.FeatureList.Count > 0)
             {
-                featureText.text = person.mFeatureList[0].Name;
-                featureDescriptionText.text = person.mFeatureList[0].desc;
+                featureText.text = person.FeatureList[0].Name;
+                featureDescriptionText.text = person.FeatureList[0].desc;
             }
             else
             {

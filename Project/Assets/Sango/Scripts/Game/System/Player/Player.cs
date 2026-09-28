@@ -180,14 +180,21 @@ namespace Sango.Core.Player
             Scenario.StartScenario(Scenario.CurSelected);
         }
 
+        /// <summary>
+        /// 关闭当前剧本。读档 / 回主菜单都必须走这里。
+        ///
+        /// 不要直接调 <see cref="Scenario.OnGameShutdown"/>：那只收剧本自身，
+        /// 而表现层事件队列、对话队列、系统栈、AI 参数等常驻对象会留下上一次开局的痕迹，
+        /// 第二次开局就会出现幽灵行为（旧事件被续播、订阅叠加、输入点不动…）。
+        /// </summary>
         public void Quit()
         {
-            Scenario.Cur?.OnGameShutdown();
+            ScenarioLifecycle.BeginShutdown();
         }
 
         public void QuitToMainMenu()
         {
-            Scenario.Cur?.OnGameShutdown();
+            Quit();
             Window.Instance.CloseAll();
             Window.Instance.DestroyAll();
             Window.Instance.Open("window_start");

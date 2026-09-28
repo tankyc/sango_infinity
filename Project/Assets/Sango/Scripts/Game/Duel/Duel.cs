@@ -580,10 +580,10 @@ namespace Sango.Core.Duel
                 system.Message(system.GetMessage(msg), challenger, null, true);
             }
             ResultInjury();
-            system.PersonAddExp(challenger, PersonStatType.Strength, -1, 3);
-            system.PersonAddExp(challenged, PersonStatType.Strength, -1, 3);
-            system.PersonAddKouseki(challenger, 50);
-            system.PersonAddKouseki(challenged, 50);
+            system.PersonAddExp(challenger, PersonStatType.Strength, -1, GainValueConfig.Exp(GainPlace.DuelDrawExp));
+            system.PersonAddExp(challenged, PersonStatType.Strength, -1, GainValueConfig.Exp(GainPlace.DuelDrawExp));
+            system.PersonAddKouseki(challenger, GainValueConfig.Merit(GainPlace.DuelDraw));
+            system.PersonAddKouseki(challenged, GainValueConfig.Merit(GainPlace.DuelDraw));
         }
 
         /// <summary>胜负结算</summary>
@@ -698,9 +698,9 @@ namespace Sango.Core.Duel
                 all.Add(loserPerson);
                 capturedList.Add(loserPerson);
                 // 顺序不能反：先摘除败将，再登记俘虏。
-                // 登记俘虏(AddCaptive)会把 person.mTroop 改成捕获方部队、并清空其 mBelongCity；
-                // 若先登记，败方部队就会一直挂着这个"已被俘的主将"引用（mBelongCity 已是 null），
-                // 该部队日后被歼灭时 Troop.Clear 取 mBelongCity 会空引用崩溃。
+                // 登记俘虏(AddCaptive)会把 person.mBelongTroop 改成捕获方部队、并清空其 BelongCity；
+                // 若先登记，败方部队就会一直挂着这个"已被俘的主将"引用（BelongCity 已是 null），
+                // 该部队日后被歼灭时 Troop.Clear 取 BelongCity 会空引用崩溃。
                 if (loserUnit.HasMember(loserPerson.Id))
                     system.PersonDetach(loserPerson, winnerPerson, winnerUnit, loserUnit);
                 system.TakeCaptives(all, capturedList, loserUnit, winnerUnit);
@@ -731,14 +731,16 @@ namespace Sango.Core.Duel
                 loserUnit.SyncEquipmentQuantity();
                 system.FloatingDamage(troopsChange, FloatingCounterType.Troops, loserUnit);
             }
-            system.PersonAddExp(winnerPerson, PersonStatType.Strength, -1, 10);
+            system.PersonAddExp(winnerPerson, PersonStatType.Strength, -1, GainValueConfig.Exp(GainPlace.DuelWinExp));
             if (Utils.IsAlive(loserPerson))
-                system.PersonAddExp(loserPerson, PersonStatType.Strength, -1, 1);
-            system.PersonAddKouseki(winnerPerson, loserResult == (int)DuelCharaResult.DuelCharaResult_Captured ? 200 : 100);
+                system.PersonAddExp(loserPerson, PersonStatType.Strength, -1, GainValueConfig.Exp(GainPlace.DuelLoseExp));
+            system.PersonAddKouseki(winnerPerson, loserResult == (int)DuelCharaResult.DuelCharaResult_Captured
+                ? GainValueConfig.Merit(GainPlace.DuelCapture)
+                : GainValueConfig.Merit(GainPlace.DuelWin));
             if (Utils.IsAlive(loserPerson))
-                system.PersonAddKouseki(loserPerson, 10);
+                system.PersonAddKouseki(loserPerson, GainValueConfig.Merit(GainPlace.DuelLose));
             if (Utils.IsAlive(winnerForce))
-                system.ForceAddTechPoint(winnerForce, 50, null);
+                system.ForceAddTechPoint(winnerForce, GainValueConfig.TechniquePoint(GainPlace.DuelWinTechniquePoint), null);
         }
 
         /// <summary>结算入口</summary>

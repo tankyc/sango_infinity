@@ -1,4 +1,4 @@
-﻿/*
+/*
  * 文件名：DebateTestInstance.cs
  * 描述：舌战(Debate)系统的运行封装，用于在游戏内创建并驱动一次舌战
  *
@@ -138,7 +138,7 @@ namespace Sango.Core.Debate
         /// <summary>
         /// 造一个仅含舌战所需字段的测试武将（真实 Sango.Core.Person 实例）
         /// </summary>
-        public static Person CreatePerson(string name, int intelligence, int id, int personality = 2)
+        public static Person CreatePerson(string name, int intelligence, int id, int PersonalityId = 2)
         {
             Person person = new Person();
             person.Id = id;
@@ -151,7 +151,7 @@ namespace Sango.Core.Debate
             person.strength.baseValue = 60;
             person.strength._value = 60;
             person.injury = 0;
-            person.personality = personality;
+            person.PersonalityId = PersonalityId;
             return person;
         }
 

@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -80,14 +80,14 @@ namespace Sango.UI
                 if (city.Id == 0) continue;
                 UIMapCitySelectItem toggle = createPool.Create();
                 toggle.shortCity = city;
-                if (city.BelongForce == 0)
+                if (city.BelongForceId == 0)
                 {
                     toggle.SetInavtive(true);
                     toggle.SetColor(Color.white);
                 }
                 else
                 {
-                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForce);
+                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForceId);
                     if (shortForce == null)
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
@@ -170,7 +170,7 @@ namespace Sango.UI
                 if (city.Id == 0) continue;
                 UIMapCitySelectItem toggle = createPool.Create();
                 toggle.shortCity = city;
-                if (city.BelongForce == 0)
+                if (city.BelongForceId == 0)
                 {
                     toggle.ShowName(city.Name);
                     toggle.SetColor(Color.white);
@@ -180,7 +180,7 @@ namespace Sango.UI
                 }
                 else
                 {
-                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForce);
+                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForceId);
                     if (shortForce == null)
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;
@@ -228,7 +228,7 @@ namespace Sango.UI
                 UIMapCitySelectItem toggle = createPool.Create();
                 toggle.shortCity = city;
                 toggle.ShowName(city.Name);
-                if (city.BelongForce == 0)
+                if (city.BelongForceId == 0)
                 {
                     toggle.SetColor(Color.white);
                     toggle.SetInavtive(false);
@@ -237,7 +237,7 @@ namespace Sango.UI
                 }
                 else
                 {
-                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForce);
+                    ShortForce shortForce = scenario.forceSet.Get(city.BelongForceId);
                     if (shortForce == null)
                         continue;
                     Flag flag = scenario.CommonData != null && scenario.CommonData.Flags != null ? scenario.CommonData.Flags[shortForce.Flag] : null;

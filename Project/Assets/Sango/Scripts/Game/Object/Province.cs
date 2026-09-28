@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 namespace Sango.Core
 {
     /// <summary>
@@ -13,15 +13,49 @@ namespace Sango.Core
         [JsonProperty]
         public string desc;
 
-        [JsonConverter(typeof(Id2ObjConverter<Region>))]
-        [JsonProperty]
-        public Region Region { get; set; }
+        /// <summary>
+        /// 所属州的 id（存档数值），读取 Region 时按需解析
+        /// </summary>
+        [JsonProperty("Region")]
+        public int RegionId;
 
-        [JsonConverter(typeof(SangoObjectListIDConverter<Province>))]
-        [JsonProperty]
+        Region mRegion;
+        public Region Region
+        {
+            get
+            {
+                if (mRegion == null && RegionId > 0) mRegion = IdRef.Resolve<Region>(RegionId);
+                return mRegion;
+            }
+            set { mRegion = value; RegionId = value != null ? value.Id : 0; }
+        }
+
         public SangoObjectList<Province> neighbors = new SangoObjectList<Province>();
 
+        [JsonProperty("neighbors")]
+        public int [] neighbors_list;
+
+
         public string ColorName => $"<color=#93C86D>{Name}</color>";
+
+        public override void OnScenarioPrepare(Scenario scenario)
+        {
+            base.OnScenarioPrepare(scenario);
+            if(neighbors_list != null && neighbors_list.Length > 0 && neighbors.Count == 0) {
+                neighbors.FromArray(neighbors_list);
+            }
+        }
+
+        /// <summary>
+        /// 存档前把运行期列表回写成 int[]。
+        /// 缺少这一步的后果：读档后把 id 解析成了对象，运行中还会增删，
+        /// 但 int[] 仍是**读档时的旧值** → 存档会把旧数据写回去（丢改动）。
+        /// </summary>
+        public override void OnScenarioSave(Scenario scenario)
+        {
+            base.OnScenarioSave(scenario);
+            neighbors_list = neighbors != null ? neighbors.ToArray() : null;
+        }
 
         public City RandomBelongCity(Scenario scenario)
         {

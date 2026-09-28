@@ -1,4 +1,4 @@
-﻿using Sango.UI;
+using Sango.UI;
 using System.Collections.Generic;
 using static Sango.Core.PersonSortFunction;
 
@@ -30,7 +30,7 @@ namespace Sango.Core.Player
                     TargetCity.hasBusiness > 0 &&
                     TargetCity.CheckJobCost(CityJobType.TradeFood) &&
                     TargetCity.GetJobCounter((int)CityJobType.TradeFood) == 0 &&
-                    TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.TradeFood);
+                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.TradeFood);
             }
         }
 

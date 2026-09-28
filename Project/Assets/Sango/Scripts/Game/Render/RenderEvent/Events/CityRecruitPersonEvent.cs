@@ -21,24 +21,24 @@ namespace Sango.Render
         {
             sJobActions.Clear();
             temp_FeatureList.Clear();
-            if (person != null && person.mFeatureList != null)
+            if (person != null && person.FeatureList != null)
             {
-                for (int j = 0; j < person.mFeatureList.Count; j++)
+                for (int j = 0; j < person.FeatureList.Count; j++)
                 {
-                    Feature feature = person.mFeatureList[j];
+                    Feature feature = person.FeatureList[j];
                     if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
                     {
                         if (!feature.only)
                         {
                             temp_FeatureList.Add(feature);
-                            feature.InitActions(sJobActions, person.mBelongCity, person);
+                            feature.InitActions(sJobActions, person.BelongCity, person);
                         }
                         else
                         {
                             if (!temp_FeatureList.Contains(feature))
                             {
                                 temp_FeatureList.Add(feature);
-                                feature.InitActions(sJobActions, person.mBelongCity, person);
+                                feature.InitActions(sJobActions, person.BelongCity, person);
                             }
                         }
                     }
@@ -56,7 +56,7 @@ namespace Sango.Render
         public override void Enter(Scenario scenario)
         {
             InitJobFeature(person);
-            if (!person.mBelongCorps.IsPlayer)
+            if (!person.BelongCorps.IsPlayer)
             {
                 person.JobRecruitPerson(target, (int)PersonRecruitType.Normal);
                 IsDone = true;
@@ -95,7 +95,7 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return person.mBelongCorps.IsPlayer;
+            return person.BelongCorps.IsPlayer;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

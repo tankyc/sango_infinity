@@ -26,23 +26,23 @@ using Sango.Core; namespace Sango.UI
             if (currentSystem.personList.Count > 0 )
             {
                 string content = $"最适合担任此任务的人，\n除{currentSystem.personList[0].ColorName}之外别无其他人选。";
-                if (currentSystem.personList[0] == TargetCity.mBelongForce.mCounsellor)
+                if (currentSystem.personList[0] == TargetCity.BelongForce.mCounsellor)
                 {
                     content = $"我对此任务很有信心，\n请务必交给我吧。";
                 }
 
-                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, content, () => { UpdateContent(); }, TargetCity.mBelongForce.mCounsellor);
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, content, () => { UpdateContent(); }, TargetCity.BelongForce.mCounsellor);
             }
             else
             {
-                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"如今并无适合担任此任务的人选。", () => { }, TargetCity.mBelongForce.mCounsellor);
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"如今并无适合担任此任务的人选。", () => { }, TargetCity.BelongForce.mCounsellor);
             }
         }
 
         public void UpdateContent()
         {
             int count = currentSystem.personList.Count;
-            action_value.text = $"{count * 1}/{TargetCity.mBelongCorps.ActionPoint}";
+            action_value.text = $"{count * 1}/{TargetCity.BelongCorps.ActionPoint}";
             sureButton.interactable = count > 0;
             Person actionPerson = count > 0 ? currentSystem.personList[0] : null;
             personItems.SetPerson(actionPerson);
@@ -63,7 +63,7 @@ using Sango.Core; namespace Sango.UI
         public void OnSelectPerson()
         {
             GameSystem.GetSystem<PersonSelectSystem>().Start(TargetCity.freePersons,
-               currentSystem.personList, TargetCity.mBelongCorps.ActionPoint, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
+               currentSystem.personList, TargetCity.BelongCorps.ActionPoint, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
         }
 
         public virtual void OnPersonChange(List<Person> personList)

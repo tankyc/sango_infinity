@@ -1,6 +1,6 @@
-﻿using Sango.Core.Tools;
-using TKNewtonsoft.Json.Linq;
-using TKNewtonsoft.Json;
+using Sango.Core.Tools;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace Sango.Core.Action
 {
@@ -55,7 +55,7 @@ namespace Sango.Core.Action
 
                 troop = skill.master;
             }
-            if (Force != null && troop.mBelongForce != Force) return false;
+            if (Force != null && troop.BelongForce != Force) return false;
             if (Troop != null && Troop != troop) return false;
 
             if (!CheckIsNormalSkill(skill, isNormal))

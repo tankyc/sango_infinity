@@ -35,7 +35,7 @@ namespace Sango.Core
         {
             result = 0;
             this.tryLimit = tryLimit;
-            this.recruitor = atker.mBelongForce.mGovernor;
+            this.recruitor = atker.BelongForce.mGovernor;
             this.fallCity = fallCity;
             this.atker = atker;
             this.target = target;
@@ -151,8 +151,8 @@ namespace Sango.Core
         public void ReleaseTarget()
         {
             result = 2;
-            Force releaseForce = atker?.mBelongForce ?? fallCity?.mBelongForce;
-            target.SetMission(MissionType.PersonReturn, target.mBelongCity);
+            Force releaseForce = atker?.BelongForce ?? fallCity?.BelongForce;
+            target.SetMission(MissionType.PersonReturn, target.BelongCity);
             GameEvent.OnPersonRelease?.Invoke(target, releaseForce);
             Back();
             doneAction?.Invoke(this);
@@ -162,7 +162,7 @@ namespace Sango.Core
         public void KillTarget()
         {
             result = 3;
-            Force executeForce = atker?.mBelongForce ?? fallCity?.mBelongForce;
+            Force executeForce = atker?.BelongForce ?? fallCity?.BelongForce;
             target.Dead();
             GameEvent.OnPersonExecute?.Invoke(target, executeForce);
             Back();

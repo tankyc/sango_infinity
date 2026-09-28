@@ -11,14 +11,12 @@ namespace Sango
     /// 游戏日志管理器.
     /// 所有游戏日志需要从该处打印
     ///
-    /// 【编译期开关】六个出口都标了 [Conditional("SANGO_DEBUG")]：
-    ///   · 定义 SANGO_DEBUG 的构建（开发期）：调用保留，正常输出；
-    ///   · 未定义的构建（正式包，以及当前工程默认状态）：编译器把**调用连同实参求值一起删除** ——
-    ///     `Log.Info($"...{a}{b}")` 这种写法既不构造字符串也不发生调用，零开销。
-    ///   需要看日志时：Player Settings → Scripting Define Symbols 里加上 SANGO_DEBUG 即可，不必改代码。
-    ///
-    /// 注意：Error 也在开关内（按"不输出日志"的既有要求）。若希望错误在正式包里始终可见，
-    /// 把 Error 上的 Conditional 去掉即可。
+    /// 【编译期开关】现有策略（已按"Error 必须进包"确定）：
+    ///   · Info / Warning：标了 [Conditional("SANGO_DEBUG")]。未定义该宏的构建（正式包）里，
+    ///     编译器把**调用连同实参求值一起删除** —— `Log.Info($"...{a}{b}")` 既不构造字符串也不发生调用，零开销。
+    ///     开发期需要看日志时，Player Settings → Scripting Define Symbols 加上 SANGO_DEBUG 即可，不必改代码。
+    ///   · Error：**不加 Conditional，正式包始终输出**（线上排障依赖它）。
+    ///     代价是它的实参会被真实求值，所以不要在每帧路径里塞 Error，也不要传昂贵表达式。
     /// </summary>
     public static class Log
     {

@@ -1,5 +1,5 @@
-﻿using Sango.Core.Tools;
-using TKNewtonsoft.Json.Linq;
+using Sango.Core.Tools;
+using Newtonsoft.Json.Linq;
 
 namespace Sango.Core.Action
 {
@@ -14,17 +14,17 @@ namespace Sango.Core.Action
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
             base.Init(p, sangoObjects);
-            GameEvent.OnTroopCalculateAttribute += OnTroopCalculateAttribute;
+            GameEvent.OnTroopBeforeCalculateAttribute += OnTroopBeforeCalculateAttribute;
         }
 
         public override void Clear()
         {
-            GameEvent.OnTroopCalculateAttribute -= OnTroopCalculateAttribute;
+            GameEvent.OnTroopBeforeCalculateAttribute -= OnTroopBeforeCalculateAttribute;
         }
 
-        void OnTroopCalculateAttribute(Troop troop, Scenario scenario)
+        void OnTroopBeforeCalculateAttribute(Troop troop, Scenario scenario)
         {
-            if (Force != null && troop.mBelongForce != Force) return;
+            if (Force != null && troop.BelongForce != Force) return;
             if (Troop != null && Troop != troop) return;
 
             Skill skill = scenario.GetObject<Skill>(value);

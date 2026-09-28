@@ -1,10 +1,8 @@
-﻿using TKNewtonsoft.Json.Utilities.LinqBridge;
+using Sango.Core;
 using Sango.Core.Player;
-using System;
 using System.Collections.Generic;
 using UnityEngine.UI;
-
-using Sango.Core; namespace Sango.UI
+namespace Sango.UI
 {
     public class UIBuildingUpgrade : UGUIWindow
     {
@@ -43,7 +41,7 @@ using Sango.Core; namespace Sango.UI
             }
 
             value_turn.text = $"{currentSystem.wonderBuildCounter * 10}日";
-            value_gold.text = $"{currentSystem.TargetUpgradeType.cost}/{currentSystem.TargetBuilding.mBelongCity.gold}";
+            value_gold.text = $"{currentSystem.TargetUpgradeType.cost}/{currentSystem.TargetBuilding.BelongCity.gold}";
 
             destBuldingName.text = currentSystem.TargetUpgradeType.Name;
             if (currentSystem.TargetUpgradeType.goldGain == 0)
@@ -54,7 +52,7 @@ using Sango.Core; namespace Sango.UI
                 destFoodProduction.text = "---";
             else
                 destFoodProduction.text = $"{currentSystem.TargetBuilding.BuildingType.foodGain} → {currentSystem.TargetUpgradeType.foodGain}";
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.UpgradeBuilding)}/{currentSystem.TargetBuilding.mBelongCorps.ActionPoint}";
+            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.UpgradeBuilding)}/{currentSystem.TargetBuilding.BelongCorps.ActionPoint}";
         }
 
 
@@ -69,7 +67,7 @@ using Sango.Core; namespace Sango.UI
         }
         public virtual void OnSelectPerson()
         {
-            GameSystem.GetSystem<PersonSelectSystem>().Start(currentSystem.TargetBuilding.mBelongCity.freePersons,
+            GameSystem.GetSystem<PersonSelectSystem>().Start(currentSystem.TargetBuilding.BelongCity.freePersons,
                currentSystem.personList, 3, OnPersonChange, currentSystem.customTitleList, currentSystem.customTitleName);
 
         }

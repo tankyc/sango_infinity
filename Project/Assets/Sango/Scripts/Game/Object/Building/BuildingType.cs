@@ -1,8 +1,8 @@
-﻿using System.IO;
-using TKNewtonsoft.Json;
+using System.IO;
+using Newtonsoft.Json;
 using System.Xml;
 using System.Collections.Generic;
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using Sango.Core.Action;
 
 namespace Sango.Core
@@ -80,7 +80,7 @@ namespace Sango.Core
         /// 效果实体集合
         /// </summary>
         [JsonProperty]
-        public TKNewtonsoft.Json.Linq.JArray actionEntities;
+        public Newtonsoft.Json.Linq.JArray actionEntities;
 
         public void InitActions(List<ActionBase> list, params SangoObject[] sangoObjects)
         {
@@ -147,7 +147,7 @@ namespace Sango.Core
 
         public bool IsValid(City city)
         {
-            if (!IsValid(city.mBelongForce))
+            if (!IsValid(city.BelongForce))
                 return false;
 
             /// 限制类型 0无限制 1限制一座 2港口限制一座 3大都市限制一座 4全地图限制一座

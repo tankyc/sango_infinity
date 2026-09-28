@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Sango.Core
@@ -24,15 +24,15 @@ namespace Sango.Core
         {
             if (Troop != troop) Troop = troop;
             if (TargetBuildingType == null || TargetBuildingType.Id != troop.missionTarget) TargetBuildingType = scenario.GetObject<BuildingType>(Troop.missionTarget);
-            if (TargetCity == null) TargetCity = troop.mBelongCity;
+            if (TargetCity == null) TargetCity = troop.BelongCity;
             if (TargetCell == null) TargetCell = troop.missionTargetCell;
 
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
             if (IsMissionComplete)
             {
-                if (Troop.mBelongCity.IsSameForce(Troop))
+                if (Troop.BelongCity.IsSameForce(Troop))
                 {
-                    Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
+                    Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 }
                 else
                 {

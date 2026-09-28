@@ -1,9 +1,9 @@
-﻿using Sango.Core;
+using Sango.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Sango.ScenarioMaker
@@ -147,43 +147,17 @@ namespace Sango.ScenarioMaker
                 {
                     continue;
                 }
-                person.mBelongForce = null;
-                person.mBelongCorps = null;
-                person.mBelongCity = null;
-                person.mCurrentCity = null;
-                person.mTroop = null;
+                person.BelongForce = null;
+                person.BelongCorps = null;
+                person.BelongCity = null;
+                person.CurrentCity = null;
+                person.mBelongTroop = null;
+                // 官职/等级/装备/工作建筑这些"只存 id"的引用也要在这里解析，
+                // 编辑器走的是这条加载路径，不会执行 Person.OnScenarioPrepare
+                person.OnScenarioPrepare(Scenario);
             }
-
-            ResolveDelayedReferences();
+            Scenario.Prepare();
             Sango.Log.Info($"已加载基础武将数量: {Scenario.personSet.DataCount}");
-        }
-
-        /// <summary>
-        /// 手动触发延迟引用解析，避免影响其他已订阅的剧本事件
-        /// </summary>
-        private void ResolveDelayedReferences()
-        {
-            InvokeDelaySetValue<Id2ObjConverter<SangoObject>>("DelaySetValue", "OnScenarioPrepare");
-            InvokeDelaySetValue<XY2CellConverter>("DelaySetValue", "OnScenarioPrepare");
-        }
-
-        /// <summary>
-        /// 通过反射调用延迟引用解析器的静态OnScenarioPrepare方法
-        /// </summary>
-        private void InvokeDelaySetValue<T>(string nestedTypeName, string methodName)
-        {
-            Type converterType = typeof(T);
-            Type nestedType = converterType.GetNestedType(nestedTypeName, BindingFlags.Public | BindingFlags.NonPublic);
-            if (nestedType == null)
-            {
-                return;
-            }
-            MethodInfo method = nestedType.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-            if (method == null)
-            {
-                return;
-            }
-            method.Invoke(null, new object[] { Scenario });
         }
 
         /// <summary>

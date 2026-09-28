@@ -1,5 +1,5 @@
 using Sango.Core.Tools;
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 
 namespace Sango.Core.Action
@@ -44,7 +44,7 @@ namespace Sango.Core.Action
         /// <returns>是否符合条件</returns>
         public virtual bool CheckForceBuilding(BuildingBase buildingBase)
         {
-            if (Force != buildingBase.mBelongForce) return false;
+            if (Force != buildingBase.BelongForce) return false;
             if (kinds != null && !kinds.Contains(buildingBase.BuildingType.kind)) return false;
             return true;
         }

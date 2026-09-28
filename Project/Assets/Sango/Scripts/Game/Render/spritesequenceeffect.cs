@@ -152,7 +152,7 @@ namespace Sango.Render
             Texture2D sheetTex = sheet != null ? sheet : LoadTexture(sheetPath);
             if (sheetTex == null)
             {
-                Debug.LogError($"SpriteSequenceEffect: 图集加载失败 {sheetPath}");
+                Sango.Log.Error($"SpriteSequenceEffect: 图集加载失败 {sheetPath}", Sango.Log.LogType.World);
                 Destroy(gameObject);
                 return;
             }
@@ -181,7 +181,7 @@ namespace Sango.Render
 
             if (mSprites.Count == 0)
             {
-                Debug.LogError($"SpriteSequenceEffect: 切帧失败 sheet={sheetPath} cols={cols} rows={rows}");
+                Sango.Log.Error($"SpriteSequenceEffect: 切帧失败 sheet={sheetPath} cols={cols} rows={rows}", Sango.Log.LogType.World);
                 Destroy(gameObject);
                 return;
             }

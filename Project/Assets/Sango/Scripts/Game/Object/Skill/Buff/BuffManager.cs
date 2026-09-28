@@ -1,6 +1,6 @@
 ﻿using Sango.Render;
 using System.Collections.Generic;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Sango.Core
@@ -24,7 +24,21 @@ namespace Sango.Core
                 if (instanceObj != null)
                     return;
 
+                // 【防御】target 为空（BuffManager 的 Master 未绑定时的调用）或渲染体缺失时直接返回。
+                // 前者是 NRE 的直接来源：异常落在下一行的 target.GetRender() 上，
+                // 说明是"target == null"，而不是 GetRender() 返回 null（那会落在 IsVisible 那行）。
+                if (target == null)
+                {
+                    Sango.Log.Error("[Buff] CreateAsset: target 为空，跳过特效创建（BuffManager 的 Master 未绑定？）");
+                    return;
+                }
+
                 ObjectRender objectRender = target.GetRender();
+                if (objectRender == null)
+                {
+                    Sango.Log.Error("[Buff] CreateAsset: GetRender() 为空，跳过特效创建");
+                    return;
+                }
                 if (!objectRender.IsVisible()) return;
 
                 instanceObj = PoolManager.Create(name);
@@ -69,6 +83,39 @@ namespace Sango.Core
                 info.ClearAsset();
         }
 
+
+        /// <summary>
+        /// 清空所有状态实例（拆剧本 / 部队收尾时调用）。
+        ///
+        /// 为什么需要：BuffInstance 的 effects（Stun、Escape 等 BuffEffect）会在自己的
+        /// Init 里订阅全局事件（例如 <c>OnTroopTurnStart</c>），且只在各自的 Clear() 里退订
+        /// （见 BuffInstance.Clear → effects[i].Clear）。常规移除路径（RemoveBuff /
+        /// RemoveBuffByKind / TurnUpdate 到期）都没问题，但剧本收尾时如果不清这里，
+        /// 旧剧本仍挂着状态的部队就会把订阅带到下一次开局，订阅数逐轮累积。
+        /// </summary>
+        public void Clear()
+        {
+            if (_buffs != null)
+            {
+                for (int i = 0; i < _buffs.Count; i++)
+                {
+                    BuffInstance buff = _buffs[i];
+                    if (buff != null)
+                        buff.Clear();       // 内部逐个 effects[i].Clear()，完成事件退订
+                }
+                _buffs.Clear();
+            }
+
+            // 表现对象回收（ClearAsset 内部有 null 判断，重复调用安全）
+            foreach (BuffEffectInfo info in assetRef.Values)
+            {
+                if (info != null)
+                    info.ClearAsset();
+            }
+            assetRef.Clear();
+
+            Master = null;
+        }
 
         public void AddBuff(int id, int turnCount, Troop srcTroop)
         {
@@ -149,7 +196,10 @@ namespace Sango.Core
             };
             assetRef[asset] = buffEffectInfo;
 
-            buffEffectInfo.CreateAsset(Master);
+            // 【防御】Master 未绑定时不建特效（引用已登记，后续 Master 就绪后仍会走缓存命中路径）。
+            // 线上出现的 NRE 就是从这里带着 Master == null 进去的。
+            if (Master != null)
+                buffEffectInfo.CreateAsset(Master);
         }
 
         public void ReleaseAsset(string asset)

@@ -12,23 +12,6 @@ namespace Sango.Core
 
     public abstract class Database<T> : IDatabase, IStringDataObject, IAarryDataObject where T : SangoObject, new()
     {
-        internal int[] arrayDataCache;
-        public virtual void InitCache()
-        {
-            if (arrayDataCache != null)
-            {
-                FromArray(arrayDataCache);
-                arrayDataCache = null;
-            }
-        }
-        public virtual void InitCache(Database<T> database)
-        {
-            if (arrayDataCache != null)
-            {
-                FromArray(arrayDataCache, database);
-                arrayDataCache = null;
-            }
-        }
         public abstract T Default { get; }
         public abstract int Count { get; }
         public abstract void Clear();
@@ -156,21 +139,6 @@ namespace Sango.Core
                 Add(database.Get(values[i]));
             }
             return this;
-        }
-
-        public virtual void MarkToPrepareOnScenario()
-        {
-            GameEvent.OnScenarioPrepare += OnScenarioPrepare;
-        }
-        public virtual void OnScenarioPrepare(Scenario scenario)
-        {
-            if (arrayDataCache != null)
-            {
-                Database<T> database = scenario.GetDatabase<T>();
-                FromArray(arrayDataCache, database);
-                arrayDataCache = null;
-            }
-            GameEvent.OnScenarioPrepare -= OnScenarioPrepare;
         }
 
         public virtual IEnumerator GetEnumerator()

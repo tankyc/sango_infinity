@@ -10,7 +10,7 @@
  *   3. 新增性格 = 新增一条 JSON 数据，**无需改动任何代码**。
  */
 
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace Sango.Core
 {

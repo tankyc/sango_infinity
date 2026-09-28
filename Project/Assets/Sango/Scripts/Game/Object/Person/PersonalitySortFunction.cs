@@ -16,9 +16,9 @@ namespace Sango.Core
         /// <summary>
         /// 获取性格对象显示字符串的代理
         /// </summary>
-        /// <param name="personality">性格对象</param>
+        /// <param name="PersonalityId">性格对象</param>
         /// <returns>显示字符串</returns>
-        public delegate string PersonalityValueStrGet(Personality personality);
+        public delegate string PersonalityValueStrGet(Personality PersonalityId);
 
         /// <summary>
         /// 性格对象排序比较的代理
@@ -31,16 +31,16 @@ namespace Sango.Core
         /// <summary>
         /// 获取性格对象属性值的object类型代理
         /// </summary>
-        /// <param name="personality">性格对象</param>
+        /// <param name="PersonalityId">性格对象</param>
         /// <returns>属性值</returns>
-        public delegate object PersonalityValueObjGet(Personality personality);
+        public delegate object PersonalityValueObjGet(Personality PersonalityId);
 
         /// <summary>
         /// 设置性格对象属性值的代理
         /// </summary>
-        /// <param name="personality">性格对象</param>
+        /// <param name="PersonalityId">性格对象</param>
         /// <param name="value">新的属性值</param>
-        public delegate void PersonalityValueObjSet(Personality personality, object value);
+        public delegate void PersonalityValueObjSet(Personality PersonalityId, object value);
 
         /// <summary>
         /// 性格排序标题，封装单个属性的显示、排序与编辑逻辑

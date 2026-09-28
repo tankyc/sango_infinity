@@ -1,4 +1,4 @@
-﻿using Sango.UI;
+using Sango.UI;
 
 namespace Sango.Core.Player
 {
@@ -23,7 +23,7 @@ namespace Sango.Core.Player
 
         protected virtual void OnBuildingContextMenuShow(IContextMenuData menuData, BuildingBase building)
         {
-            if (building.mBelongForce != null && building.mBelongForce.IsPlayer && building.mBelongForce == Scenario.Cur.CurRunForce)
+            if (building.BelongForce != null && building.BelongForce.IsPlayer && building.BelongForce == Scenario.Cur.CurRunForce)
             {
                 TargetBuilding = building;
                 menuData.Add(customMenuName, customMenuOrder, null, OnClickMenuItem, IsValid);

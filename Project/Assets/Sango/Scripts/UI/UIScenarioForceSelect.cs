@@ -1,4 +1,4 @@
-﻿using Sango.Core;
+using Sango.Core;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -53,6 +53,17 @@ namespace Sango.UI
         {
             base.Awake();
             GameEvent.OnScenarioInit += OnScenarioInit;
+        }
+
+        /// <summary>
+        /// 【泄漏修复】本窗口在 Awake 里订阅 OnScenarioInit，之前**没有**任何退订路径：
+        /// 窗口按名字缓存、回主菜单时销毁重建，于是每重建一次就多留一份订阅
+        /// （GameEventDiagnostics 的 shutdown-begin 跨次对比里 OnScenarioInit 逐轮 +1）。
+        /// </summary>
+        protected override void OnDestroy()
+        {
+            GameEvent.OnScenarioInit -= OnScenarioInit;
+            base.OnDestroy();
         }
 
         void OnScenarioInit(Scenario scenario)
@@ -153,13 +164,13 @@ namespace Sango.UI
                 if (toggle != null)
                 {
                     toggle.shortCity = city;
-                    if (city.BelongForce == 0)
+                    if (city.BelongForceId == 0)
                     {
                         toggle.SetSelected(false).SetInavtive(true);
                     }
                     else
                     {
-                        ShortForce shortForce = scenario.forceSet[city.BelongForce];
+                        ShortForce shortForce = scenario.forceSet[city.BelongForceId];
                         Flag flag = scenario.CommonData.Flags[shortForce.Flag];
                         toggle.SetSelected(playerList.Contains(shortForce)).SetInavtive(false).SetColor(flag.color).onSelectShortAction = SetPlayer;
                     }
@@ -185,7 +196,7 @@ namespace Sango.UI
             }
 
             ShortScenario scenario = targetScenario;
-            ShortForce force = scenario.forceSet[city.BelongForce];
+            ShortForce force = scenario.forceSet[city.BelongForceId];
             ShowForce(force);
         }
 
@@ -216,7 +227,7 @@ namespace Sango.UI
                 int personCount = 0;
                 foreach (ShortPerson x in scenario.personSet)
                 {
-                    if (x != null && x.BelongForce == force.Id)
+                    if (x != null && x.BelongForceId == force.Id)
                         personCount++;
                 }
 
@@ -229,11 +240,11 @@ namespace Sango.UI
                 ShortPerson counsellor = null;
                 if (force.Counsellor > 0)
                     counsellor = scenario.personSet[force.Counsellor];
-                ShortCity centerCity = scenario.citySet[governor.BelongCity];
+                ShortCity centerCity = scenario.citySet[governor.BelongCityId];
                 foreach (ShortCity x in scenario.citySet)
                 {
                     if (x == null) continue;
-                    if (x.BelongForce == force.Id && x.BuildingType == 1)
+                    if (x.BelongForceId == force.Id && x.BuildingType == 1)
                     {
                         cityCount++;
                         foodCount += x.food;
@@ -261,13 +272,13 @@ namespace Sango.UI
 
         public void SetPlayer(UIMapCitySelectItem item, ShortCity city, bool b)
         {
-            if (city.BelongForce == 0)
+            if (city.BelongForceId == 0)
             {
                 return;
             }
 
             ShortScenario scenario = targetScenario;
-            ShortForce force = scenario.forceSet[city.BelongForce];
+            ShortForce force = scenario.forceSet[city.BelongForceId];
 
             if (force == null) return;
 
@@ -289,7 +300,7 @@ namespace Sango.UI
             for (int i = 0; i < cityToggleList.Count; i++)
             {
                 UIMapCitySelectItem toggle = cityToggleList[i];
-                if (toggle.shortCity.BelongForce == city.BelongForce)
+                if (toggle.shortCity.BelongForceId == city.BelongForceId)
                 {
                     toggle.SetSelected(b);
                 }
@@ -324,13 +335,13 @@ namespace Sango.UI
 
         public void PointEnterItem(UIMapCitySelectItem item)
         {
-            if (item.shortCity.BelongForce <= 0)
+            if (item.shortCity.BelongForceId <= 0)
                 return;
 
             for (int i = 0; i < cityToggleList.Count; i++)
             {
                 UIMapCitySelectItem toggle = cityToggleList[i];
-                if (toggle.shortCity.BelongForce == item.shortCity.BelongForce)
+                if (toggle.shortCity.BelongForceId == item.shortCity.BelongForceId)
                 {
                     toggle.SetOver(true);
                 }
@@ -341,13 +352,13 @@ namespace Sango.UI
 
         public void PointExitItem(UIMapCitySelectItem item)
         {
-            if (item.shortCity.BelongForce <= 0)
+            if (item.shortCity.BelongForceId <= 0)
                 return;
 
             for (int i = 0; i < cityToggleList.Count; i++)
             {
                 UIMapCitySelectItem toggle = cityToggleList[i];
-                if (toggle.shortCity.BelongForce == item.shortCity.BelongForce)
+                if (toggle.shortCity.BelongForceId == item.shortCity.BelongForceId)
                 {
                     toggle.SetOver(false);
                 }
@@ -387,7 +398,7 @@ namespace Sango.UI
                     if (playerList[j].Id == x.Id)
                     {
                         ShortPerson person = targetScenario.personSet[playerList[j].Governor];
-                        ShortCity city = targetScenario.citySet[person.BelongCity];
+                        ShortCity city = targetScenario.citySet[person.BelongCityId];
                         Vector3 position = targetScenario.Map.Coords2Position(city.x, city.y);
                         Scenario.CurSelected.View = new ScenarioView()
                         {
@@ -436,7 +447,7 @@ namespace Sango.UI
                     if (force != null)
                     {
                         ShortPerson person = targetScenario.personSet[force.Governor];
-                        ShortCity city = targetScenario.citySet[person.BelongCity];
+                        ShortCity city = targetScenario.citySet[person.BelongCityId];
                         Vector3 position = targetScenario.Map.Coords2Position(city.x, city.y);
                         Scenario.CurSelected.View = new ScenarioView()
                         {

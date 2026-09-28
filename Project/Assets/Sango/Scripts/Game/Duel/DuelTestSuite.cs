@@ -171,9 +171,9 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>造一个测试武将</summary>
-        private static Person P(string name, int strength, int id, int personality = 2)
+        private static Person P(string name, int strength, int id, int PersonalityId = 2)
         {
-            return DuelTestInstance.CreatePerson(name, strength, id, personality: personality);
+            return DuelTestInstance.CreatePerson(name, strength, id, PersonalityId: PersonalityId);
         }
 
         /// <summary>构造并初始化一次单挑（不运行）</summary>
@@ -369,10 +369,10 @@ namespace Sango.Core.Duel
 
         private static void TestDuelMinHp()
         {
-            AssertEqual(80, Duel.GetDuelMinHp(P("a", 80, 1, personality: 1)), "胆小最低体力 80");
-            AssertEqual(70, Duel.GetDuelMinHp(P("b", 80, 2, personality: 2)), "冷静最低体力 70");
-            AssertEqual(60, Duel.GetDuelMinHp(P("c", 80, 3, personality: 3)), "刚胆最低体力 60");
-            AssertEqual(50, Duel.GetDuelMinHp(P("d", 80, 4, personality: 4)), "莽撞最低体力 50");
+            AssertEqual(80, Duel.GetDuelMinHp(P("a", 80, 1, PersonalityId: 1)), "胆小最低体力 80");
+            AssertEqual(70, Duel.GetDuelMinHp(P("b", 80, 2, PersonalityId: 2)), "冷静最低体力 70");
+            AssertEqual(60, Duel.GetDuelMinHp(P("c", 80, 3, PersonalityId: 3)), "刚胆最低体力 60");
+            AssertEqual(50, Duel.GetDuelMinHp(P("d", 80, 4, PersonalityId: 4)), "莽撞最低体力 50");
         }
 
         private static void TestSpecialEnabled()
@@ -450,17 +450,17 @@ namespace Sango.Core.Duel
 
             for (int i = 0; i < 4; i++)
             {
-                Person p = P("测试", 80, 100 + i, personality: i + 1);
+                Person p = P("测试", 80, 100 + i, PersonalityId: i + 1);
                 p.mPersonality = new Personality { Id = i + 1, Name = names[i], kind = i + 1 };
                 AssertEqual((int)expected[i], (int)p.GetPersonality(), $"性格 {names[i]} 映射");
             }
 
-            // mPersonality 为空时回退到 personality 字段
-            Person p2 = P("测试", 80, 200, personality: 4);
+            // mPersonality 为空时回退到 PersonalityId 字段
+            Person p2 = P("测试", 80, 200, PersonalityId: 4);
             AssertEqual((int)DuelPersonality.Reckless, (int)p2.GetPersonality(), "mPersonality 为空时的回退");
 
             // 越界值走兜底
-            Person p3 = P("测试", 80, 201, personality: 99);
+            Person p3 = P("测试", 80, 201, PersonalityId: 99);
             AssertEqual((int)DuelPersonalities.Fallback, (int)p3.GetPersonality(), "越界性格走兜底");
         }
 

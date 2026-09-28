@@ -159,6 +159,8 @@ namespace Sango.UI
             AddNumberItem("基准兵力(攻守兵力差)", variables.fight_base_troops_need, 0, 10000, (v) => { variables.fight_base_troops_need = v; });
             AddNumberItem("每多基准兵力,获得一次兵力系数增益", variables.fight_base_troop_count, 0, 1000, (v) => { variables.fight_base_troop_count = v; });
             AddNumberItem("兵力系数增益", (float)variables.fight_damage_magic_number, 0, 0.01f, (v) => { variables.fight_damage_magic_number = v; });
+            AddNumberItem("基础火焰伤害", variables.baseFireDamage, 100, 3000, (v) => { variables.baseFireDamage = v; });
+            AddToggleItem("火焰-允许蔓延到相邻格", variables.fireSpreadEnabled, (v) => { variables.fireSpreadEnabled = v; });
 
             AddTitle("部队参数");
             AddNumberItem("攻击-武力影响(万分比)", variables.fight_troop_attack_strength_factor, 0, 100000, (v) => { variables.fight_troop_attack_strength_factor = v; });
@@ -179,9 +181,9 @@ namespace Sango.UI
             AddNumberItem("基础技能暴击率(百分比)", variables.baseSkillCriticalRate, 0, 100, (v) => { variables.baseSkillCriticalRate = v; });
             AddNumberItem("武力对暴击的加成值", variables.skillCriticalRateAddByStength, 0, 100, (v) => { variables.skillCriticalRateAddByStength = v; });
             AddNumberItem("暴击倍率(百分比)", variables.skillCriticalFactor, 100, 300, (v) => { variables.skillCriticalFactor = v; });
-            AddNumberItem("战法命中后触发单挑的基础概率(百分比)", variables.skillDuelChance, 0, 100, (v) => { variables.skillDuelChance = v; });
-
+     
             AddTitle("单挑参数");
+            AddNumberItem("战法命中后触发单挑的基础概率(百分比)", variables.skillDuelChance, 0, 100, (v) => { variables.skillDuelChance = v; });
             AddToggleGroupItem("单挑寿命模式", variables.duelLifeMode, new List<string> { "普通", "虚拟" }, (v) => { variables.duelLifeMode = v; });
             AddToggleGroupItem("单挑战死频率", variables.duelDeathMode, new List<string> { "无", "普通", "高" }, (v) => { variables.duelDeathMode = v; });
             AddToggleItem("单挑-禁用一击必杀(一合取胜)", variables.duelDisableFirstTurnKill, (v) => { variables.duelDisableFirstTurnKill = v; });
@@ -193,8 +195,7 @@ namespace Sango.UI
             AddNumberItem("舌战-外交失败触发概率(百分比)", variables.debateChanceWhenDiplomacyFail, 0, 100, (v) => { variables.debateChanceWhenDiplomacyFail = v; });
             AddNumberItem("舌战-招募失败触发概率(百分比)", variables.debateChanceWhenRecruitFail, 0, 100, (v) => { variables.debateChanceWhenRecruitFail = v; });
             AddToggleItem("舌战-AI之间也触发(后台结算不弹界面)", variables.debateAllowAIVsAI, (v) => { variables.debateAllowAIVsAI = v; });
-            AddNumberItem("基础火焰伤害", variables.baseFireDamage, 100, 3000, (v) => { variables.baseFireDamage = v; });
-
+     
 
             AddTitle("缴获与保留参数");
             AddNumberItem("近战击溃部队缴获的金钱比例(百分比)", variables.defeatTroopCanGainGoldFactor, 0, 100, (v) => { variables.defeatTroopCanGainGoldFactor = v; });
@@ -375,6 +376,13 @@ namespace Sango.UI
             AddNumberItem("发现敌方新建部队的基础概率(万分比)", variables.discoverEnemyTroopBaseProbability, 0, 10000, (v) => { variables.discoverEnemyTroopBaseProbability = v; });
             AddNumberItem("军师智力对发现概率的影响系数(万分比)", variables.discoverEnemyTroopIntelligenceFactor, 0, 1000, (v) => { variables.discoverEnemyTroopIntelligenceFactor = v; });
 
+            AddBigTitle("成长资源获取");
+            AddGainTable("功绩", variables.meritGain, GainValueConfig.MeritPlaces);
+            AddGainTable("技巧点", variables.techniquePointGain, GainValueConfig.TechniquePointPlaces);
+            AddGainTable("武将经验", variables.expGain, GainValueConfig.ExpPlaces);
+            AddGainTable("兵种适性经验", variables.abilityExpGain, GainValueConfig.AbilityExpPlaces);
+            AddGainTable("能力经验", variables.attributeExpGain, GainValueConfig.AttributeExpPlaces);
+
             AddBigTitle("Mod相关");
             GameEvent.OnScenarioVariablesSetting?.Invoke(this, scenario);
         }
@@ -520,6 +528,50 @@ namespace Sango.UI
             obj.SetActive(true);
             obj.transform.SetAsLastSibling();
             return obj;
+        }
+
+        /// <summary>
+        /// 渲染一张"获取地点 → 数值"的配置表。
+        ///
+        /// 键来自 GainPlace 枚举（表归属集中维护在 GainValueConfig 里），
+        /// 所以以后新增获取地点只需加枚举项 + 填默认值，不需要再手写界面行。
+        /// </summary>
+        void AddGainTable(string title, GainValueConfig config, GainPlace[] places)
+        {
+            if (config == null || places == null || places.Length == 0)
+            {
+                AddTitle(title + "（暂无可配置项）");
+                return;
+            }
+
+            AddTitle(title);
+            for (int i = 0; i < places.Length; i++)
+            {
+                GainPlace place = places[i];        // 每轮一个副本，避免闭包捕获循环变量
+
+                if (GainValueConfig.KindOf(place) == GainValueKind.Range)
+                {
+                    // 区间类：最小值 / 最大值两行
+                    config.GetRange(place, out int min, out int max);
+                    AddNumberItem(GainValueConfig.NameOf(place) + " 最小", min, 0, GainValueConfig.MaxOf(place),
+                        v =>
+                        {
+                            config.GetRange(place, out int curMin, out int curMax);
+                            config.SetRange(place, v, curMax);
+                        });
+                    AddNumberItem(GainValueConfig.NameOf(place) + " 最大", max, 0, GainValueConfig.MaxOf(place),
+                        v =>
+                        {
+                            config.GetRange(place, out int curMin, out int curMax);
+                            config.SetRange(place, curMin, v);
+                        });
+                }
+                else
+                {
+                    AddNumberItem(GainValueConfig.NameOf(place), config.Get(place), 0, GainValueConfig.MaxOf(place),
+                        v => config.Set(place, v));
+                }
+            }
         }
 
         public GameObject AddNumberItem(string title, float number, float min, float max, System.Action<float> onChange)

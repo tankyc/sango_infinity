@@ -13,7 +13,7 @@ namespace Sango.Core.Action
         /// </summary>
         public int AssistChancePercent => value;
 
-        public override void Init(TKNewtonsoft.Json.Linq.JObject p, params SangoObject[] sangoObjects)
+        public override void Init(Newtonsoft.Json.Linq.JObject p, params SangoObject[] sangoObjects)
         {
             // 仅作为能力标记装配到部队 actionList, 无需订阅任何事件。
             base.Init(p, sangoObjects);

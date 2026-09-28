@@ -1294,7 +1294,7 @@ namespace Sango.UI
             }
 
             // 确定所属势力: 优先取主选中军团的所属势力,否则取第一个势力
-            Force force = selectedCorps != null ? selectedCorps.mBelongForce : null;
+            Force force = selectedCorps != null ? selectedCorps.BelongForce : null;
             if (force == null)
             {
                 scenario.forceSet.ForEach(f =>
@@ -1317,7 +1317,7 @@ namespace Sango.UI
             {
                 scenario.personSet.ForEach(person =>
                 {
-                    if (commander == null && person != null && person.mBelongForce == force && force.mGovernor != person)
+                    if (commander == null && person != null && person.BelongForce == force && force.mGovernor != person)
                     {
                         commander = person;
                     }
@@ -1479,7 +1479,7 @@ namespace Sango.UI
                     continue;
                 }
                 bool isMainCorps = corps.IsCaptainCorps
-                    || (corps.mBelongForce != null && corps.mBelongForce.CapitalCorps == corps);
+                    || (corps.BelongForce != null && corps.BelongForce.CapitalCorps == corps);
                 if (isMainCorps)
                 {
                     skipCount++;
@@ -1727,7 +1727,7 @@ namespace Sango.UI
             for (int i = 0; i < scenario.citySet.Count; i++)
             {
                 City city = scenario.citySet[i];
-                if (city != null && city.mBelongForce == force)
+                if (city != null && city.BelongForce == force)
                 {
                     count++;
                 }

@@ -1,10 +1,10 @@
 ﻿
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using TKNewtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
 using System.Diagnostics;

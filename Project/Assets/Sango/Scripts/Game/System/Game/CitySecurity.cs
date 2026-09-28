@@ -1,4 +1,4 @@
-﻿using Sango.Core.Tools;
+using Sango.Core.Tools;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -49,7 +49,7 @@ namespace Sango.Core
         {
             scenario.citySet.ForEach(city =>
             {
-                if (!city.IsCity() || city.mBelongCorps == null)
+                if (!city.IsCity() || city.BelongCorps == null)
                     return;
 
                 // 换季,治安降低
@@ -75,7 +75,7 @@ namespace Sango.Core
         {
             scenario.citySet.ForEach(city =>
             {
-                if (!city.IsCity() || city.mBelongCorps == null)
+                if (!city.IsCity() || city.BelongCorps == null)
                     return;
 
                 // 换季,治安降低
@@ -98,7 +98,7 @@ namespace Sango.Core
         /// <returns></returns>
         public void OnCityTurnStart(City city, Scenario scenario)
         {
-            //if (city.BelongCorps == null)
+            //if (city.BelongCorpsId == null)
             //    return;
 
             //city.allBuildings.ForEach(building =>

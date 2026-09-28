@@ -142,28 +142,28 @@
   "23": {
     "Id": 23,
     "Name": "卫城一",
-    "modelType": 1,
+    "modelType": 2,
     "modelKind": 2,
     "model": "Assets/Model/Prefab/4306.prefab"
   },
   "24": {
     "Id": 24,
     "Name": "卫城二",
-    "modelType": 1,
+    "modelType": 2,
     "modelKind": 2,
     "model": "Assets/Model/Prefab/4308.prefab"
   },
   "25": {
     "Id": 25,
     "Name": "卫城三",
-    "modelType": 1,
+    "modelType": 2,
     "modelKind": 2,
     "model": "Assets/Model/Prefab/4310.prefab"
   },
   "26": {
     "Id": 26,
     "Name": "卫城四",
-    "modelType": 1,
+    "modelType": 2,
     "modelKind": 2,
     "model": "Assets/Model/Prefab/4312.prefab"
   }

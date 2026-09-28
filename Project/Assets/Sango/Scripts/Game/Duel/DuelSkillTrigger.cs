@@ -47,6 +47,14 @@ namespace Sango.Core.Duel
         {
             if (skill == null || skill.master == null || targetTroop == null) return;
             if (skill.skill == null || skill.skill.kind != SkillKindTactic) return;
+
+            // 【部队已灭亡就不再拉单挑】
+            // 本回调拿到的 targetTroop 是施法时的目标引用，这一击很可能已经把他打没了
+            // （ChangeTroops → IsAlive = false，甚至已 Clear）。已灭亡的部队对象仍保留 Leader / cell，
+            // 入口校验照样能通过，结算时又因 Utils.IsAlive 对部队恒为 true 拦不住，
+            // 结果会把同一名武将重复登记成俘虏（"不能重复添加"）。
+            if (!skill.master.IsAlive || !targetTroop.IsAlive) return;
+
             if (!skill.canTriggerDuel) return;                      // 本战法声明不挑起单挑（定义或运行期改写）
             if (ReferenceEquals(s_lastRolled, skill)) return;       // 同一次施法只判定一次
             s_lastRolled = skill;

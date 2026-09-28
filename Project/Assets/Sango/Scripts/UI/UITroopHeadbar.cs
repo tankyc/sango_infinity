@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 
 using Sango.Core; namespace Sango.UI
@@ -23,7 +23,7 @@ using Sango.Core; namespace Sango.UI
             this.troop = troop;
             name.text = troop.Name;
             headIcon.texture = GameRenderHelper.LoadHeadIcon(troop.Leader.headIconID);
-            bg.color = troop.mBelongForce.Color;
+            bg.color = troop.BelongForce.Color;
             skillText.Clear();
             UpdateState(troop);
             GameEvent.OnForceTurnStart += OnForceStart;
@@ -45,10 +45,10 @@ using Sango.Core; namespace Sango.UI
 
         public void UpdateTroopState()
         {
-            if (troop.mBelongForce == null) return;
+            if (troop.BelongForce == null) return;
 
             // 除开自己以外全部不显示
-            if (troop.mBelongForce.IsPlayer)
+            if (troop.BelongForce.IsPlayer)
             {
                 string spName;
                 if(troop.missionType > 0)
@@ -66,7 +66,7 @@ using Sango.Core; namespace Sango.UI
             }
             else
             {
-                Alliance alliance = troop.mBelongForce.CheckAlliance(Scenario.Cur.CurRunForce);
+                Alliance alliance = troop.BelongForce.CheckAlliance(Scenario.Cur.CurRunForce);
                 if (alliance != null)
                 {
                     //TODO: 根据联盟类型显示(同盟或者停战)
@@ -82,22 +82,45 @@ using Sango.Core; namespace Sango.UI
             }
         }
 
+        // 【刷新治理】值没变就不写控件：
+        // Text.text 赋值会触发 Mesh 重建，fillAmount 也会标脏，而本方法在表现层刷新里调用很频繁。
+        int lastStateTroops = int.MinValue;
+        int lastStateMorale = int.MinValue;
+        bool lastStateFood;
+        bool lastStateFoodInited;
+
         public void UpdateState(Troop troop)
         {
-            //TODO: 这里需要拆开刷新,增加刷新标记后在Update刷新
+            // 原 TODO（拆开刷新）先把"值没变就不写"这一步做掉，收益最直接
             UpdateTroopState();
-            energy.fillAmount = (float)troop.morale / troop.MaxMorale;
-            angry.fillAmount = 0;
-            number.text = troop.troops.ToString();
-            bool isWithoutFood = troop.IsWithOutFood() <= 1;
-            food.enabled = isWithoutFood;
-            if (isWithoutFood)
+
+            if (lastStateMorale != troop.morale)
             {
-                foodAni.Play();
+                lastStateMorale = troop.morale;
+                energy.fillAmount = (float)troop.morale / troop.MaxMorale;
             }
-            else
+            angry.fillAmount = 0;
+
+            if (lastStateTroops != troop.troops)
             {
-                foodAni.Stop();
+                lastStateTroops = troop.troops;
+                number.text = troop.troops.ToString();
+            }
+
+            bool isWithoutFood = troop.IsWithOutFood() <= 1;
+            if (!lastStateFoodInited || lastStateFood != isWithoutFood)
+            {
+                lastStateFoodInited = true;
+                lastStateFood = isWithoutFood;
+                food.enabled = isWithoutFood;
+                if (isWithoutFood)
+                {
+                    foodAni.Play();
+                }
+                else
+                {
+                    foodAni.Stop();
+                }
             }
         }
 

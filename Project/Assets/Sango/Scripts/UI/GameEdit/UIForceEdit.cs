@@ -204,7 +204,7 @@ namespace Sango.UI
             }
             scenario.citySet.ForEach(city =>
             {
-                if (city != null && city.mBelongForce == Target)
+                if (city != null && city.BelongForce == Target)
                 {
                     cityDatas.Add(city);
                 }

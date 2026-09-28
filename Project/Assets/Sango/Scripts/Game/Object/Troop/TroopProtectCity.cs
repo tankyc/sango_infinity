@@ -1,4 +1,4 @@
-﻿using static Sango.Core.City;
+using static Sango.Core.City;
 
 namespace Sango.Core
 {
@@ -39,7 +39,7 @@ namespace Sango.Core
             }
 
             // 【优化】移除"断粮时 30% 概率撤退"的随机判断，统一由 Troop.AIPrepare 处理
-            if (IsMissionComplete || (TargetCity.troops < 2000 && TargetCity == Troop.mBelongCity))
+            if (IsMissionComplete || (TargetCity.troops < 2000 && TargetCity == Troop.BelongCity))
             {
                 if (TargetCity.IsEnemy(troop))
                 {
@@ -48,7 +48,7 @@ namespace Sango.Core
                 }
                 else
                 {
-                    Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
+                    Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 }
                 Troop.NeedPrepareMission();
                 return;
@@ -68,7 +68,7 @@ namespace Sango.Core
 
                     if (nearestEnemy == null)
                     {
-                        Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
+                        Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
 
                         isNoEnemyAlive = true;
                         Troop.NeedPrepareMission();

@@ -5,7 +5,7 @@
  * 最后修改：2026-03-27
  */
 
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Render;
 using System;
 using System.Collections.Generic;
@@ -748,6 +748,8 @@ namespace Sango.Core
             prepareList.Add(buildingSet);
             prepareList.Add(troopsSet);
             prepareList.Add(fireSet);
+            // 同盟也要走 prepare：原清单漏了它 → Alliance.ForceList 的解析永远不会被触发。
+            prepareList.Add(allianceSet);
 
             eventReciveList.Add(personSet);
             eventReciveList.Add(buildingSet);
@@ -856,6 +858,11 @@ namespace Sango.Core
 
         public static void StartScenario(Scenario scenario)
         {
+            // 开局前拍一次事件基线（只在第一次真正拍，之后不再覆盖）。
+            // 收尾时 ScenarioLifecycle 会按它把 GameEvent 的静态订阅整体还原回"开局前"，
+            // 所以各系统不必再靠"每个类都写对称退订"来防泄漏。
+            GameEventBaseline.CaptureIfNeeded();
+
             GameRandom.Init();
             Cur = scenario;
             scenario.IsAlive = false;
@@ -891,6 +898,9 @@ namespace Sango.Core
 
         public static void StartScenario(Scenario scenario, ShortScenario addData)
         {
+            // 同 StartScenario(Scenario)：开局前拍一次事件基线
+            GameEventBaseline.CaptureIfNeeded();
+
             GameRandom.Init();
             Cur = scenario;
             scenario.IsAlive = false;
@@ -913,7 +923,7 @@ namespace Sango.Core
                     // 生成第一军团
                     Corps corps = new Corps();
                     corps.number = 1;
-                    corps.BelongForce = force.Id;
+                    corps.BelongForceId = force.Id;
                     corps.Comander = force.Governor;
                     scenario.corpsSet.Add(corps);
 
@@ -923,18 +933,18 @@ namespace Sango.Core
 
             addData.citySet.ForEach(city =>
             {
-                if (city.BelongForce > 0)
+                if (city.BelongForceId > 0)
                 {
-                    ShortForce force = addData.forceSet[city.BelongForce];
+                    ShortForce force = addData.forceSet[city.BelongForceId];
                     if (force.IsAppend)
                     {
-                        city.BelongCorps = force.CapitalCorps;
+                        city.BelongCorpsId = force.CapitalCorps;
 
                         bool isCapitalCity = city.Id == force.CapitalCity;
 
                         City c = scenario.citySet[city.Id];
-                        c.BelongForce = force.Id;
-                        c.BelongCorps = force.CapitalCorps;
+                        c.BelongForceId = force.Id;
+                        c.BelongCorpsId = force.CapitalCorps;
 
                         // 准备兵装,钱粮和士兵
                         c.food = 43000 - 3000 * scenario.Variables.difficulty;
@@ -960,40 +970,40 @@ namespace Sango.Core
                     Person person = Person.FormLib2(x.PersonLib);
                     person.Id = x.Id;
                     scenario.personSet.Add(person);
-                    person.BelongCity = x.BelongCity;
-                    person.CurrentCity = x.BelongCity;
-                    person.BelongForce = x.BelongForce;
+                    person.BelongCityId = x.BelongCityId;
+                    person.CurrentCityId = x.BelongCityId;
+                    person.BelongForceId = x.BelongForceId;
                     person.state = x.state;
                     if (x.state == 0)
                     {
                         person.state = (int)PersonStateType.Invisible;
-                        person.BelongCity = scenario.citySet.RandomGet().Id;
-                        person.CurrentCity = person.BelongCity;
+                        person.BelongCityId = scenario.citySet.RandomGet().Id;
+                        person.CurrentCityId = person.BelongCityId;
                     }
                     else if (!person.IsWild)
                     {
                         person.loyalty = 100;
-                        City city = scenario.citySet[x.BelongCity];
-                        ShortCity shortCity = addData.citySet[x.BelongCity];
-                        person.BelongCorps = System.Math.Max(city.BelongCorps, shortCity.BelongCorps);
+                        City city = scenario.citySet[x.BelongCityId];
+                        ShortCity shortCity = addData.citySet[x.BelongCityId];
+                        person.BelongCorpsId = System.Math.Max(city.BelongCorpsId, shortCity.BelongCorpsId);
                     }
                      
-                    FixReletionship(ref person.Mother, addData.personSet);
-                    FixReletionship(ref person.Father, addData.personSet);
-                    FixReletionship(ref person.LikePersonList, addData.personSet);
-                    FixReletionship(ref person.HatePersonList, addData.personSet);
+                    FixReletionship(ref person.MotherId, addData.personSet);
+                    FixReletionship(ref person.FatherId, addData.personSet);
+                    FixReletionship(ref person.LikePersonListId, addData.personSet);
+                    FixReletionship(ref person.HatePersonListId, addData.personSet);
                 }
             });
 
             List<Person> list = new List<Person>();
             addData.personSet.ForEach(x =>
             {
-                if (x.PersonLib != null && x.PersonLib.Id > 20000 && x.PersonLib.BrotherList != null && x.PersonLib.BrotherList.Length > 0)
+                if (x.PersonLib != null && x.PersonLib.Id > 20000 && x.PersonLib.BrotherListId != null && x.PersonLib.BrotherListId.Length > 0)
                 {
                     list.Clear();
-                    for (int i = 0; i < x.PersonLib.BrotherList.Length; i++)
+                    for (int i = 0; i < x.PersonLib.BrotherListId.Length; i++)
                     {
-                        int bro = x.PersonLib.BrotherList[i];
+                        int bro = x.PersonLib.BrotherListId[i];
                         FixReletionship(ref bro, addData.personSet);
                         Person person = scenario.personSet.Get(bro);
                         if(person != null)
@@ -1007,8 +1017,8 @@ namespace Sango.Core
                         Person person = scenario.personSet.Get(x.Id);
                         if(person != null)
                         {
-                            person.Brother = person.Id;
-                            list.ForEach(x => { x.Brother = person.Id; });
+                            person.BrotherId = person.Id;
+                            list.ForEach(x => { x.BrotherId = person.Id; });
                         }
                     }
                 }
@@ -1106,7 +1116,7 @@ namespace Sango.Core
         // 在Prepare之后
         public override void Init(Scenario scenario)
         {
-            CommonData.Init();
+            CommonData.Init(this);
 
             GameEvent.OnGameShutdown += OnGameShutdown;
             GameEvent.OnGamePause += OnGamePause;
@@ -1150,6 +1160,7 @@ namespace Sango.Core
         /// </summary>
         public void Prepare()
         {
+            CommonData.Prepare(this);
 
             for (int i = 0; i < prepareList.Count; ++i)
             {
@@ -1788,7 +1799,7 @@ namespace Sango.Core
                 Info.curForceName = CurRunForce?.Name;
             Sango.Directory.Create(path, false);
             JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-            jsonSerializerSettings.Formatting = TKNewtonsoft.Json.Formatting.Indented;
+            jsonSerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
             jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
             jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用
             JsonSerializer serializer = JsonSerializer.CreateDefault(jsonSerializerSettings);
@@ -1811,7 +1822,7 @@ namespace Sango.Core
             View = null;
             Sango.Directory.Create(path, false);
             JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-            jsonSerializerSettings.Formatting = TKNewtonsoft.Json.Formatting.Indented;
+            jsonSerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
             jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
             jsonSerializerSettings.DefaultValueHandling = DefaultValueHandling.Ignore;
             jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用

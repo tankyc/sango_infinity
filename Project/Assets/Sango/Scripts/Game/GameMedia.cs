@@ -1,7 +1,7 @@
 using Sango.Manager;
 using Sango.Mod;
 using System.Collections.Generic;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace Sango.Core
 {
@@ -43,7 +43,7 @@ namespace Sango.Core
         {
             if (File.Exists(file))
             {
-                TKNewtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), this);
+                Newtonsoft.Json.JsonConvert.PopulateObject(File.ReadAllText(file), this);
             }
         }
 

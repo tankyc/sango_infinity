@@ -212,11 +212,11 @@ namespace Sango.Core.Debate
 
             if (!show || person == null) return;
 
-            Troop troop = person.mTroop;
+            Troop troop = person.mBelongTroop;
             if (troop != null)
-                Sango.Core.Player.PlayerMessage.AddTextMessage(text, troop.mBelongForce, troop.x, troop.y);
+                Sango.Core.Player.PlayerMessage.AddTextMessage(text, troop.BelongForce, troop.x, troop.y);
             else
-                Sango.Core.Player.PlayerMessage.AddTextMessage(text, person.mBelongForce, 0, 0);
+                Sango.Core.Player.PlayerMessage.AddTextMessage(text, person.BelongForce, 0, 0);
         }
 
         /// <summary>自定义战报输出（置空则使用 PlayerMessage）</summary>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Sango.Core
@@ -46,7 +46,7 @@ namespace Sango.Core
         {
             if (Troop != troop) Troop = troop;
             if (TargetBuildingType == null || TargetBuildingType.Id != troop.missionTarget) TargetBuildingType = scenario.GetObject<BuildingType>(Troop.missionTarget);
-            if (TargetCity == null) TargetCity = troop.mBelongCity;
+            if (TargetCity == null) TargetCity = troop.BelongCity;
 
             // 【连续建造】目标格需每次都核对：工程队建完一座后会被改派到新的建址，
             // 原来的"仅在 TargetCell == null 时赋值"会导致它一直围着旧目标打转。
@@ -79,9 +79,9 @@ namespace Sango.Core
                     return;
                 }
 
-                if (Troop.mBelongCity != null && Troop.mBelongCity.IsSameForce(Troop))
+                if (Troop.BelongCity != null && Troop.BelongCity.IsSameForce(Troop))
                 {
-                    Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
+                    Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 }
                 else if (TargetCity != null)
                 {
@@ -141,7 +141,7 @@ namespace Sango.Core
         /// </summary>
         /// <param name="scenario">场景对象</param>
         /// <returns>是否已成功改派到新建址</returns>
-        bool TryFindNextSite(Scenario scenario)
+        protected virtual bool TryFindNextSite(Scenario scenario)
         {
             AIConfig cfg = AIConfig.Instance;
             if (!cfg.frontBuildContinueAfterDone)
@@ -151,10 +151,10 @@ namespace Sango.Core
                 return false;
 
             Troop troop = Troop;
-            if (troop == null || troop.cell == null || troop.mBelongForce == null)
+            if (troop == null || troop.cell == null || troop.BelongForce == null)
                 return false;
 
-            List<BuildingType> candidates = troop.mBelongForce.canBuildMilitaryBuildingType;
+            List<BuildingType> candidates = troop.BelongForce.canBuildMilitaryBuildingType;
             if (candidates == null || candidates.Count == 0)
                 return false;
 
@@ -181,7 +181,7 @@ namespace Sango.Core
                     return;                     // 刚建完的位置不再考虑
 
                 BattleSituation.FrontSiteInfo info =
-                    BattleSituation.EvaluateFrontSite(cell, troop.mBelongForce, scenario);
+                    BattleSituation.EvaluateFrontSite(cell, troop.BelongForce, scenario);
                 if (!info.isValid || info.cell == null)
                     return;
 
@@ -192,7 +192,7 @@ namespace Sango.Core
             if (!best.isValid || best.cell == null)
                 return false;
 
-            BuildingType next = BattleSituation.SelectFrontBuildingType(best, troop.mBelongForce, scenario);
+            BuildingType next = BattleSituation.SelectFrontBuildingType(best, troop.BelongForce, scenario);
             if (next == null || troop.gold < next.cost)
                 return false;
 
@@ -218,9 +218,14 @@ namespace Sango.Core
                 if (!troop.MoveTo(FinalCell))
                     return false;
 
-                // 【防重复建造】目标格已有己方建筑（含仍在施工中的）时不再发起建造，
-                // 否则工程队会在建筑完工前每回合重复调用 BuildBuilding。
-                if (TargetCell.building != null && TargetCell.building.IsSameForce(troop))
+                // 【续建】目标格已有己方建筑时：
+                //   · 已经完工 → 本次施工结束，交给上层决定是否改派下一个建址；
+                //   · 尚未完工 → **继续施工**，必须一直建到修好为止。
+                // 旧写法是"只要格子上有己方建筑就直接 return"，于是工程队把建筑立起来（施工中的壳）
+                // 之后每回合都在这里早退，玩家看到的就是"建一下就站住不动"、建筑永远修不完。
+                //（Troop.BuildBuilding 内部的事件已区分"新建 / 对未完工建筑继续加耐久"，重复调用是安全的）
+                if (TargetCell.building != null && TargetCell.building.IsSameForce(troop)
+                    && TargetCell.building.isComplate)
                     return true;
 
                 if (!troop.BuildBuilding(TargetCell, TargetBuildingType))

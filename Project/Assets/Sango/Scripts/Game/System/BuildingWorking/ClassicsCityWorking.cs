@@ -168,7 +168,7 @@ namespace Sango.Core
 
         void OnCityCalculateHarvest(City city)
         {
-            if (city.mBelongCorps == null)
+            if (city.BelongCorps == null)
                 return;
 
             ScenarioVariables variables = Scenario.Cur.Variables;
@@ -239,7 +239,7 @@ namespace Sango.Core
         /// <returns></returns>
         void OnCitySeasonStart(City city, Scenario scenario)
         {
-            if (city.mBelongCorps == null)
+            if (city.BelongCorps == null)
                 return;
 
             int harvest = GameRandom.Random(city.totalGainFood, 0.05f);
@@ -262,7 +262,7 @@ namespace Sango.Core
         /// <returns></returns>
         void OnCityMonthStart(City city, Scenario scenario)
         {
-            if (city.mBelongCorps == null)
+            if (city.BelongCorps == null)
                 return;
 
             int inComingGold = GameRandom.Random(city.totalGainGold, 0.05f);

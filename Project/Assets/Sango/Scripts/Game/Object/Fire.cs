@@ -1,5 +1,5 @@
 using System;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Render;
 
 namespace Sango.Core
@@ -29,11 +29,25 @@ namespace Sango.Core
         public int generation;
 
         /// <summary>
-        /// 所在格子
+        /// 所在格子的坐标（存档形态仍是 [x, y]）
         /// </summary>
-        [JsonProperty]
-        [JsonConverter(typeof(XY2CellConverter))]
-        public Cell cell;
+        [JsonProperty("cell")]
+        [JsonConverter(typeof(CellXYConverter))]
+        public CellXY cellPos = CellXY.Invalid;
+
+        Cell mCell;
+        /// <summary>
+        /// 所在格子；写入 Cell 时自动同步坐标
+        /// </summary>
+        public Cell cell
+        {
+            get
+            {
+                if (mCell == null) mCell = cellPos.ToCell();
+                return mCell;
+            }
+            set { mCell = value; cellPos = CellXY.From(value); }
+        }
 
         public FireRender Render { get; private set; }
 
@@ -99,6 +113,11 @@ namespace Sango.Core
                 return;
 
             ScenarioVariables variables = scenario.Variables;
+
+            // 剧本开关：关掉后火焰照常点燃 / 灼烧 / 熄灭，只是不再向相邻格蔓延
+            if (!variables.fireSpreadEnabled)
+                return;
+
             int maxChance = variables.fireSpreadMaxChance;
             int rateMax = variables.fireSpreadTerrainRateMax;
             if (maxChance <= 0 || rateMax <= 0)

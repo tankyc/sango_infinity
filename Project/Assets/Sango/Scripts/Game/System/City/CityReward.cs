@@ -40,15 +40,20 @@ namespace Sango.Core.Player
             windowName = "window_city_reward";
         }
 
+        protected override bool MenuCanShow()
+        {
+            return TargetCity.IsCityBase();
+        }
+
         public override bool IsValid
         {
             get
             {
                 return TargetCity.gold > 100 &&
                        TargetCity.CheckJobCost(CityJobType.Reward) &&
-                       TargetCity.mBelongCorps.GetJobCounter((int)CityJobType.Reward) == 0 &&
-                       TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward) &&
-                       HasRewardTarget();
+                       TargetCity.BelongCorps.GetJobCounter((int)CityJobType.Reward) == 0 &&
+                       TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward)
+                       HasRewardTarget();;
             }
         }
 
@@ -84,7 +89,7 @@ namespace Sango.Core.Player
         public override void OnEnter()
         {
             targetList.Clear();
-            TargetCity.mBelongForce.ForEachPerson(x =>
+            TargetCity.BelongForce.ForEachPerson(x =>
             {
                 if (IsRewardTarget(x))
                 {

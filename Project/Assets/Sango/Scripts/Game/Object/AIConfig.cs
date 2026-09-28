@@ -6,7 +6,7 @@
 
 using System.IO;
 using Sango.Mod;
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace Sango.Core
 {
@@ -168,6 +168,17 @@ namespace Sango.Core
         public int retreatFewTroopsChance = 60;
         /// <summary>士气过低时的撤退概率（%）</summary>
         public int retreatLowMoraleChance = 50;
+
+        /// <summary>
+        /// 出征回合数门槛：部队在野外待满该回合数之后，才允许做出撤退 / 回避决定。
+        ///
+        /// 用于抑制"刚出城就掉头回城"：刚出城的部队常被判定为劣势 / 危局（态势看的是局部战力比），
+        /// 而"最近的己方据点"往往就是它刚出的那座城，于是被判撤退后立刻折返，
+        /// 表现为部队在城池格上反复进出（观感：部队停在城池上不动）。
+        ///
+        /// 判定为 <c>liveDays &gt; retreatMinLiveDays</c>。0 或负数表示不限制（保持旧行为）。
+        /// </summary>
+        public int retreatMinLiveDays = 3;
 
         #endregion
 
@@ -532,6 +543,17 @@ namespace Sango.Core
         /// 可通过 Data/Common/AIConfig.json 的 "cityOrder" 节点做部分覆盖。
         /// </summary>
         public CityOrderWeights cityOrder = new CityOrderWeights();
+
+        #endregion
+
+        #region 人才部署（岗位编制模型）
+
+        /// <summary>
+        /// AI 人才部署的全部权重与阈值（编制规则 / 威胁分档 / 港关守备 / 运输 / 求解成本 / 岗位权重）。
+        /// 可通过 <c>Data/Common/AIConfig.json</c> 的 <c>"deployment"</c> 节点做部分覆盖。
+        /// 当前处于 Phase A **影子模式**（只计算不执行），由 <c>shadowOnly</c> 控制。
+        /// </summary>
+        public DeploymentWeights deployment = new DeploymentWeights();
 
         #endregion
 

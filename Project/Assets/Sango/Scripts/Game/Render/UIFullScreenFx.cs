@@ -19,7 +19,7 @@ namespace Sango.Render
         {
             if (layers == null || layers.Length == 0)
             {
-                Debug.LogWarning($"UIFullScreenFx [{name}]: 未配置任何图层,无法播放");
+                Sango.Log.Warning($"UIFullScreenFx [{name}]: 未配置任何图层,无法播放", Sango.Log.LogType.UI);
                 return;
             }
             UIFullScreenSequence.Play(layers);
@@ -52,14 +52,14 @@ namespace Sango.Render
             GameObject go = PoolManager.Create(prefabPath);
             if (go == null)
             {
-                Debug.LogError($"UIFullScreenFx: 预制件加载失败 {prefabPath}");
+                Sango.Log.Error($"UIFullScreenFx: 预制件加载失败 {prefabPath}", Sango.Log.LogType.UI);
                 return null;
             }
             go.transform.SetParent(null, false); // 从池父节点移出,恢复激活
             UIFullScreenFx fx = go.GetComponent<UIFullScreenFx>();
             if (fx == null)
             {
-                Debug.LogError($"UIFullScreenFx: 预制件 {prefabPath} 未挂 UIFullScreenFx 组件,已回收");
+                Sango.Log.Error($"UIFullScreenFx: 预制件 {prefabPath} 未挂 UIFullScreenFx 组件,已回收", Sango.Log.LogType.UI);
                 PoolManager.Recycle(go);
                 return null;
             }

@@ -27,12 +27,15 @@ namespace Sango.Core.Player
             };
 
         }
-
+        protected override bool MenuCanShow()
+        {
+            return TargetCity.IsCityBase();
+        }
         public override bool IsValid
         {
             get
             {
-                return TargetCity.mBelongForce.PersonCount > 1;
+                return TargetCity.BelongForce.PersonCount > 1;
             }
         }
 
@@ -40,11 +43,11 @@ namespace Sango.Core.Player
         {
             personList.Clear();
             targetList.Clear();
-            TargetForce = TargetCity.mBelongForce;
+            TargetForce = TargetCity.BelongForce;
             counsellor = TargetForce.mCounsellor;
             Scenario.Cur.personSet.ForEach(x =>
             {
-                if (x.mBelongForce == TargetForce && x != TargetForce.mGovernor && x != TargetForce.mCounsellor && !x.IsPrisoner)
+                if (x.BelongForce == TargetForce && x != TargetForce.mGovernor && x != TargetForce.mCounsellor && !x.IsPrisoner)
                 {
                     targetList.Add(x);
                 }

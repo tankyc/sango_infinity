@@ -71,6 +71,12 @@ namespace Sango.Core.Duel
             if (IsDueling) return false;
             if (!CanStartDuel(challenger, challenged)) return false;
 
+            // 【兜底 · 部队已灭亡】
+            // CanStartDuel 是 virtual，子类（或测试替身）可能把它整个替换掉而不带存活校验，
+            // 所以真正开打前这里再确认一次。已灭亡的部队对象仍然保留 Leader / cell 引用，
+            // 若不拦，单挑会一路跑到结算，把败将重复登记成俘虏。
+            if (!challenger.IsAlive || !challenged.IsAlive) return false;
+
             Duel.Param param = BuildParam(challenger, challenged, withView);
             if (param == null) return false;
 
@@ -101,6 +107,12 @@ namespace Sango.Core.Duel
             if (challenger == null || challenged == null) return false;
             if (challenger == challenged) return false;
 
+            // 双方必须都还活着。
+            // 注意必须读部队自己的 IsAlive 属性，不能用 Duel.Utils.IsAlive ——
+            // 后者只对 Person 有专门分支，SangoObject 未实现 IAlive，对部队会一路 return true，
+            // 等于没有判断（同一个坑见 Duel.cs 里“取抓捕率”处改用 winnerUnit.IsAlive 的注释）。
+            if (!challenger.IsAlive || !challenged.IsAlive) return false;
+
             // 双方必须敌对
             if (!challenger.IsEnemy(challenged)) return false;
 
@@ -121,6 +133,12 @@ namespace Sango.Core.Duel
             // 双方距离为 1（相邻）
             if (challenger.cell == null || challenged.cell == null) return false;
             if (Scenario.Cur == null || Scenario.Cur.Map == null) return false;
+
+            // 光有 cell 不够：部队收尾（Troop.ClearWithBelongCity）只清 cell.troop、不清 troop.cell，
+            // 已灭亡的部队仍会带着旧格子通过下面的距离校验。
+            // 所以反过来确认"格子还在自己手里"，格子被别的部队接手 / 已空出来都视为不合格。
+            if (challenger.cell.troop != challenger || challenged.cell.troop != challenged) return false;
+
             if (Scenario.Cur.Map.Distance(challenger.cell, challenged.cell) > 1) return false;
 
             return true;

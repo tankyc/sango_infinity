@@ -25,7 +25,7 @@ namespace Sango.Core
             {
                 if (TargetCity == null)
                 {
-                    Troop.SetMission(MissionType.TroopReturnCity, Troop.mBelongCity.Id);
+                    Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 }
                 else if (!TargetCity.IsSameForce(Troop))
                 {

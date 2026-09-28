@@ -1,4 +1,4 @@
-﻿namespace Sango.Core.Player
+namespace Sango.Core.Player
 {
     /// <summary>
     /// 部队委任-占领城池
@@ -23,7 +23,7 @@
 
             if (actionCell.building == null || !actionCell.building.IsCityBase()) return false;
 
-            if (actionCell.building.mBelongForce == troop.mBelongForce) return false;
+            if (actionCell.building.BelongForce == troop.BelongForce) return false;
 
             if (troop.MoveRange.Contains(actionCell)) return false;
 

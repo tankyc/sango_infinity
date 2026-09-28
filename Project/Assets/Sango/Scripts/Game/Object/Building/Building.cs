@@ -1,4 +1,4 @@
-using TKNewtonsoft.Json;
+using Newtonsoft.Json;
 using Sango.Core.Action;
 using Sango.Render;
 using System.Collections.Generic;
@@ -25,16 +25,27 @@ namespace Sango.Core
         /// <summary>
         /// 建筑的工人列表
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
-        [JsonProperty]
-        public SangoObjectList<Person> Workers { get; set; }
+        // 序列化形态保持 int[]（键名不变，老存档可读）。
+        // 解析写在**本类原有的** OnScenarioPrepare（见 :137）里，避免重复定义（CS0111）。
+        [JsonProperty("Workers")]
+        public int[] Workers_list;
+        public SangoObjectList<Person> Workers { get; set; } = new SangoObjectList<Person>();
+
+        /// <summary>存档前回写 int[]（否则会把读档时的旧 id 存回去）。</summary>
+        public override void OnScenarioSave(Scenario scenario)
+        {
+            base.OnScenarioSave(scenario);
+            Workers_list = Workers != null ? Workers.ToArray() : null;
+            Builder_list = Builder != null ? Builder.ToArray() : null;
+        }
 
         /// <summary>
         /// 建筑的建造者列表
         /// </summary>
-        [JsonConverter(typeof(SangoObjectListIDConverter<Person>))]
-        [JsonProperty]
-        public SangoObjectList<Person> Builder { get; set; }
+        // 序列化形态保持 int[]（键名不变，老存档可读）。
+        [JsonProperty("Builder")]
+        public int[] Builder_list;
+        public SangoObjectList<Person> Builder { get; set; } = new SangoObjectList<Person>();
 
         /// <summary>
         /// 剩余建造或升级的回合数
@@ -119,7 +130,13 @@ namespace Sango.Core
         {
             base.OnScenarioPrepare(scenario);
 
-            mBelongCity?.OnBuildingCreate(this);
+            // 【int[] → 对象】本类序列化列表的解析（统一放在原有的 OnScenarioPrepare 里）
+            if (Workers_list != null && Workers_list.Length > 0 && Workers.Count == 0)
+                Workers.FromArray(Workers_list);
+            if (Builder_list != null && Builder_list.Length > 0 && Builder.Count == 0)
+                Builder.FromArray(Builder_list);
+
+            BelongCity?.OnBuildingCreate(this);
             // 地格占用
             OccupyCellList = new List<Cell>();
             scenario.Map.GetSpiral(x, y, BuildingType.radius, OccupyCellList);
@@ -158,7 +175,7 @@ namespace Sango.Core
         {
             if (!isInited)
             {
-                mBelongCity?.OnBuildingCreate(this);
+                BelongCity?.OnBuildingCreate(this);
                 // 地格占用
                 OccupyCellList = new List<Cell>();
                 scenario.Map.GetSpiral(x, y, BuildingType.radius, OccupyCellList);
@@ -195,7 +212,7 @@ namespace Sango.Core
             {
                 Workers.ForEach(x =>
                 {
-                    if (x.mBelongCity != mBelongCity || x.mBelongForce != mBelongForce || x.mTroop != null)
+                    if (x.BelongCity != BelongCity || x.BelongForce != BelongForce || x.mBelongTroop != null)
                     {
                         Workers.Remove(x);
                         if (x.workingBuilding == this)
@@ -210,8 +227,8 @@ namespace Sango.Core
             {
                 Builder.ForEach(x =>
                 {
-                    if (x.mBelongCity != mBelongCity || x.mBelongForce != mBelongForce || x.mBelongCorps != mBelongCorps ||
-                        x.missionType != (int)MissionType.PersonBuild || x.missionTarget != this.Id || x.mTroop != null)
+                    if (x.BelongCity != BelongCity || x.BelongForce != BelongForce || x.BelongCorps != BelongCorps ||
+                        x.missionType != (int)MissionType.PersonBuild || x.missionTarget != this.Id || x.mBelongTroop != null)
                     {
                         Builder.Remove(x);
                     }
@@ -232,7 +249,7 @@ namespace Sango.Core
                     //CalculateHarvest();
                     SangoObjectList<Person> builder = Builder;
                     OnBuildComplate();
-                    mBelongCity.OnBuildingComplete(this, builder);
+                    BelongCity.OnBuildingComplete(this, builder);
                     GameEvent.OnBuildingComplete?.Invoke(this, builder);
                 }
                 if (LeftCounter > 0)
@@ -251,7 +268,7 @@ namespace Sango.Core
                     //CalculateHarvest();
                     SangoObjectList<Person> builder = Builder;
                     OnUpgradeComplate();
-                    mBelongCity.OnBuildingUpgradeComplete(this, builder);
+                    BelongCity.OnBuildingUpgradeComplete(this, builder);
                     GameEvent.OnBuildingUpgradeComplete?.Invoke(this, builder);
                 }
 
@@ -267,12 +284,12 @@ namespace Sango.Core
 
             if (IsIntorBuilding() && isComplate && !isUpgrading)
             {
-                if(mBelongCity != null && !mBelongCity.IsEnemiesRound(6))
+                if(BelongCity != null && !BelongCity.IsEnemiesRound(6))
                 {
                     // 耐久自修复
                     if (durability < DurabilityLimit)
                     {
-                        ChangeDurability(mBelongCity.Leader?.BaseBuildAbility ?? 50, null);
+                        ChangeDurability(BelongCity.Leader?.BaseBuildAbility ?? 50, null);
                     }
                 }
             }
@@ -308,7 +325,7 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Build;
-            int meritGain = JobType.GetJobLimit(jobId);
+            int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
 
 #if SANGO_DEBUG
@@ -318,6 +335,7 @@ namespace Sango.Core
             {
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 建造 → 政治经验
 #if SANGO_DEBUG
                 stringBuilder.Append(person.Name);
                 stringBuilder.Append(" ");
@@ -325,13 +343,13 @@ namespace Sango.Core
             });
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"[{mBelongCity.Name}]{stringBuilder}完成{Name}建造!!");
+            Sango.Log.Info($"[{BelongCity.Name}]{stringBuilder}完成{Name}建造!!");
 #endif
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(techniquePointGain);
-            GameEvent.OnCityJobGainTechniquePoint?.Invoke(mBelongCity, jobId, Workers.objects.ToArray(), overrideData);
+            GameEvent.OnCityJobGainTechniquePoint?.Invoke(BelongCity, jobId, Workers.objects.ToArray(), overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
             Render.UpdateRender();
 
         }
@@ -344,7 +362,7 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Build;
-            int meritGain = JobType.GetJobLimit(jobId);
+            int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
 
 #if SANGO_DEBUG
@@ -355,6 +373,7 @@ namespace Sango.Core
                 Person person = Builder[i];
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 建造/升级 → 政治经验
 #if SANGO_DEBUG
                 stringBuilder.Append(person.Name);
                 stringBuilder.Append(" ");
@@ -366,13 +385,13 @@ namespace Sango.Core
                 person.ActionOver = false;
             }
 #if SANGO_DEBUG
-            Sango.Log.Info($"[{mBelongCity.Name}]{stringBuilder}完成{Name}建造!!");
+            Sango.Log.Info($"[{BelongCity.Name}]{stringBuilder}完成{Name}建造!!");
 #endif
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(techniquePointGain);
-            GameEvent.OnCityJobGainTechniquePoint?.Invoke(mBelongCity, jobId, Builder.objects.ToArray(), overrideData);
+            GameEvent.OnCityJobGainTechniquePoint?.Invoke(BelongCity, jobId, Builder.objects.ToArray(), overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
             Builder = null;
         }
 
@@ -384,7 +403,7 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Build;
-            int meritGain = JobType.GetJobLimit(jobId);
+            int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
 
             BuildingType nextBuildingType = scenario.GetObject<BuildingType>(BuildingType.nextId);
@@ -400,6 +419,7 @@ namespace Sango.Core
                 Person person = Builder[i];
                 person.merit += meritGain;
                 person.GainExp(meritGain);
+                person.GainJobAttributeExp(jobId);      // 建造/升级 → 政治经验
 #if SANGO_DEBUG
                 stringBuilder.Append(person.Name);
                 stringBuilder.Append(" ");
@@ -410,13 +430,13 @@ namespace Sango.Core
                 }
             }
 #if SANGO_DEBUG
-            Sango.Log.Info($"[{mBelongCity.Name}]{stringBuilder}完成{Name}升级!!");
+            Sango.Log.Info($"[{BelongCity.Name}]{stringBuilder}完成{Name}升级!!");
 #endif
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(techniquePointGain);
-            GameEvent.OnCityJobGainTechniquePoint?.Invoke(mBelongCity, jobId, Builder.objects.ToArray(), overrideData);
+            GameEvent.OnCityJobGainTechniquePoint?.Invoke(BelongCity, jobId, Builder.objects.ToArray(), overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
-            mBelongForce.GainTechniquePoint(techniquePointGain);
+            BelongForce.GainTechniquePoint(techniquePointGain);
             Builder = null;
         }
 
@@ -433,11 +453,11 @@ namespace Sango.Core
                 return;
             }
 
-            mBelongCity.allBuildings.Remove(this);
+            BelongCity.allBuildings.Remove(this);
             dest.allBuildings.Add(this);
 
-            mBelongCorps = dest.mBelongCorps;
-            mBelongForce = dest.mBelongForce;
+            BelongCorps = dest.BelongCorps;
+            BelongForce = dest.BelongForce;
 
             Render?.UpdateRender();
         }
@@ -450,21 +470,21 @@ namespace Sango.Core
         public Corps ChangeCorps(Corps corps)
         {
             Corps last = null;
-            if (!isComplate && mBelongForce != corps.mBelongForce)
+            if (!isComplate && BelongForce != corps.BelongForce)
             {
                 //Sango.Log.Error("不允许转换一个未建好的建筑!!");
                 OnFall(null);
                 return last;
             }
 
-            if (mBelongCorps != corps)
+            if (BelongCorps != corps)
             {
-                last = mBelongCorps;
-                mBelongCorps = corps;
+                last = BelongCorps;
+                BelongCorps = corps;
 
-                if (corps.mBelongForce != mBelongForce)
+                if (corps.BelongForce != BelongForce)
                 {
-                    mBelongForce = corps.mBelongForce;
+                    BelongForce = corps.BelongForce;
                 }
 
                 Render?.UpdateRender();
@@ -548,7 +568,7 @@ namespace Sango.Core
         public override void OnFall(SangoObject atk)
         {
             RemoveAllWorkers();
-            mBelongCity?.OnBuildingDestroy(this);
+            BelongCity?.OnBuildingDestroy(this);
             Clear();
         }
 

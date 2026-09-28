@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace Sango.Core.Player
 {
@@ -31,7 +31,7 @@ namespace Sango.Core.Player
                     TargetCity.security < 100 &&
                     TargetCity.CheckJobCost(CityJobType.Inspection) &&
                     TargetCity.GetJobCounter((int)CityJobType.Inspection) == 0
-                    && TargetCity.mBelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Inspection);
+                    && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Inspection);
             }
         }
 

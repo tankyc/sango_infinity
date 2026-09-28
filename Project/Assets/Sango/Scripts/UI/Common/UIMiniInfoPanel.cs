@@ -1,4 +1,4 @@
-﻿using Sango.Loader;
+using Sango.Loader;
 using Sango.Render;
 using System.Collections.Generic;
 using Unity.VisualScripting;
@@ -52,8 +52,8 @@ using Sango.Core; namespace Sango.UI
         {
             if (corps != null)
             {
-                forceName.text = corps.mBelongForce.Name;
-                forceColor.color = corps.mBelongForce.Color;
+                forceName.text = corps.BelongForce.Name;
+                forceColor.color = corps.BelongForce.Color;
                 corpsColor.color = corps.Color;
                 corpsId.text = corps.Index.ToString();
             }
