@@ -52,8 +52,8 @@ namespace Sango.Core.Player
                 return TargetCity.gold > 100 &&
                        TargetCity.CheckJobCost(CityJobType.Reward) &&
                        TargetCity.BelongCorps.GetJobCounter((int)CityJobType.Reward) == 0 &&
-                       TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward)
-                       HasRewardTarget();;
+                       TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Reward) &&
+                       HasRewardTarget();
             }
         }
 
@@ -66,7 +66,7 @@ namespace Sango.Core.Player
         private bool HasRewardTarget()
         {
             bool found = false;
-            TargetCity.mBelongForce.ForEachPerson(x =>
+            TargetCity.BelongForce.ForEachPerson(x =>
             {
                 // ForEachPerson 不支持中途退出，用 found 短路掉后续命中判断。
                 if (!found && IsRewardTarget(x))
@@ -83,7 +83,7 @@ namespace Sango.Core.Player
         /// <returns>该武将是否可被褒赏。</returns>
         private bool IsRewardTarget(Person person)
         {
-            return person != TargetCity.mBelongForce.mGovernor && person.mTroop == null && person.loyalty < 100;
+            return person != TargetCity.BelongForce.mGovernor && person.mBelongTroop == null && person.loyalty < 100;
         }
 
         public override void OnEnter()

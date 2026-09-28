@@ -245,7 +245,7 @@ namespace Sango.Core
             City targetCity, Force targetForceA, Force targetForceB)
         {
             CityStrategyManager manager = GameSystem.GetSystem<CityStrategyManager>();
-            CityStrategyActionBase action = manager.CreateAction(strategyType, force, envoy.mBelongCity, envoy, targetCity, targetForceA, targetForceB);
+            CityStrategyActionBase action = manager.CreateAction(strategyType, force, envoy.BelongCity, envoy, targetCity, targetForceA, targetForceB);
             if (action == null)
                 return false;
 
@@ -263,7 +263,7 @@ namespace Sango.Core
                 return false;
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@计略@AI施计：{force.Name} 派 {envoy.Name} 自 {envoy.mBelongCity?.Name} 前往 {targetCity.Name} 行{action.GetActionName()}，成功率 {rate}");
+            Sango.Log.Info($"@计略@AI施计：{force.Name} 派 {envoy.Name} 自 {envoy.BelongCity?.Name} 前往 {targetCity.Name} 行{action.GetActionName()}，成功率 {rate}");
 #endif
             return true;
         }
@@ -364,7 +364,7 @@ namespace Sango.Core
                     Person person = city.freePersons[k];
                     if (person == null || !person.IsAlive || !person.IsFree || person.IsGovernor)
                         continue;
-                    if (person.mBelongForce != force)
+                    if (person.BelongForce != force)
                         continue;
 
                     if (best == null || person.Intelligence > best.Intelligence

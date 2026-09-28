@@ -121,7 +121,7 @@ namespace Sango.Core.Player
                     return false;
                 if (BuildEnvoyCandidates().Count <= 0)
                     return false;
-                Corps corps = TargetCity.mBelongCorps;
+                Corps corps = TargetCity.BelongCorps;
                 if (corps != null && corps.ActionPoint < JobActionPointCost)
                     return false;
                 if (TargetCity.gold < JobGoldCost)
@@ -181,10 +181,10 @@ namespace Sango.Core.Player
             counsellorRecommendList.Clear();
             envoySuccessRates.Clear();
 
-            if (!TargetReady || TargetCity == null || TargetCity.mBelongForce == null)
+            if (!TargetReady || TargetCity == null || TargetCity.BelongForce == null)
                 return;
 
-            Person counsellor = TargetCity.mBelongForce.mCounsellor;
+            Person counsellor = TargetCity.BelongForce.mCounsellor;
             if (counsellor == null)
                 return;
 
@@ -236,7 +236,7 @@ namespace Sango.Core.Player
                 return;
 
             Person recommended = counsellorRecommendList[0];
-            Person counsellor = TargetCity.mBelongForce.mCounsellor;
+            Person counsellor = TargetCity.BelongForce.mCounsellor;
             int rate = GetEnvoySuccessRate(recommended);
             string content = $"最适合担任此任务的人，\n除{recommended.ColorName}之外别无其他人选，预计成功率 {rate}%。";
             // 推荐人选本身就是军师时，语气要改成自荐，否则"除他自己之外别无其他人选"读起来不通

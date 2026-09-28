@@ -75,7 +75,7 @@ namespace Sango.UI
                 return;
 
             City targetCity = currentSystem.TargetCity;
-            Corps corps = targetCity != null ? targetCity.mBelongCorps : null;
+            Corps corps = targetCity != null ? targetCity.BelongCorps : null;
             action_value.text = $"{currentSystem.JobActionPointCost}/{corps?.ActionPoint ?? 0}";
             gold.text = $"{currentSystem.JobGoldCost}/{targetCity?.gold ?? 0}";
 

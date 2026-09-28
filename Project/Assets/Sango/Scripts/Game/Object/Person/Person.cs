@@ -1312,10 +1312,10 @@ namespace Sango.Core
                         Force senderForce = scenario.forceSet.Get(missionParams1);
 
                         // 目标据点或发起势力已经消失时不再移动，直接返程。
-                        // 这里必须先判空再 DoMove：DoMove 会直接解引用 dest.mBelongCity
+                        // 这里必须先判空再 DoMove：DoMove 会直接解引用 dest.BelongCity
                         if (targetCity == null || senderForce == null || !senderForce.IsAlive)
                         {
-                            SetMission(MissionType.PersonReturn, mBelongCity);
+                            SetMission(MissionType.PersonReturn, BelongCity);
                             return;
                         }
 
@@ -1326,10 +1326,10 @@ namespace Sango.Core
 
                             // 完成任务，返回原城市。
                             // 唯独"失败被捕"不返程：City.AddCaptive 已把本将挂成 targetCity 的囚犯
-                            // 并将 mBelongCity 置空，此时 SetMission(PersonReturn, null) 会在
+                            // 并将 BelongCity 置空，此时 SetMission(PersonReturn, null) 会在
                             // missionTarget.Id 上直接空引用，且俘虏也不该自己走回敌营
                             if (result != CityStrategyResult.FailedCaptured)
-                                SetMission(MissionType.PersonReturn, mBelongCity);
+                                SetMission(MissionType.PersonReturn, BelongCity);
                         }
                     }
                     break;

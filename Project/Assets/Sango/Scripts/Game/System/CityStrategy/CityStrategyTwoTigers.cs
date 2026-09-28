@@ -236,7 +236,7 @@ namespace Sango.Core.Player
                 return null;
 
             return GameSystem.GetSystem<CityStrategyManager>().CreateAction(
-                StrategyType, TargetCity.mBelongForce, TargetCity, selectedEnvoy, destination, targetForceA, targetForceB);
+                StrategyType, TargetCity.BelongForce, TargetCity, selectedEnvoy, destination, targetForceA, targetForceB);
         }
 
         /// <summary>
@@ -249,7 +249,7 @@ namespace Sango.Core.Player
             if (TargetCity == null)
                 return candidates;
 
-            Force sender = TargetCity.mBelongForce;
+            Force sender = TargetCity.BelongForce;
             Scenario.Cur.forceSet.ForEach((System.Action<Force>)(force =>
             {
                 if (force == null || force == sender)
@@ -322,13 +322,13 @@ namespace Sango.Core.Player
             bool neighbor = false;
             Scenario.Cur.citySet.ForEach((System.Action<City>)(city =>
             {
-                if (neighbor || !city.IsAlive || city.mBelongForce != forceA)
+                if (neighbor || !city.IsAlive || city.BelongForce != forceA)
                     return;
                 SangoObjectList<City> linkList = city.NeighborList;
                 for (int i = 0; i < linkList.Count; i++)
                 {
                     City link = linkList[i];
-                    if (link != null && link.IsAlive && link.mBelongForce == forceB)
+                    if (link != null && link.IsAlive && link.BelongForce == forceB)
                     {
                         neighbor = true;
                         return;

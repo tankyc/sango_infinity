@@ -36,7 +36,7 @@ namespace Sango.Core
         {
             if (Sender == null || TargetCity == null)
                 return false;
-            Force owner = TargetCity.mBelongForce;
+            Force owner = TargetCity.BelongForce;
             if (owner == null || !owner.IsAlive)
                 return false;
             // 流言是攻心术，对自己人施放没有意义，也会在客户端造成治安/忠诚的无端抖动
@@ -97,7 +97,7 @@ namespace Sango.Core
             // 成功且未暴露时受害者并不知道源头，按原版 721 的口径不给报复因由，
             // 否则流言会变成"零风险刷仇恨"，与未发现的语义冲突
             if (result != CityStrategyResult.SucceededUndetected)
-                TargetCity?.mBelongForce?.AddCityStrategyGrudge(Sender);
+                TargetCity?.BelongForce?.AddCityStrategyGrudge(Sender);
         }
 
         /// <summary>

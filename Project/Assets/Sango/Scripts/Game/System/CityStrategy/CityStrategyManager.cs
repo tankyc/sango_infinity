@@ -100,7 +100,7 @@ namespace Sango.Core
             int jobId = (int)action.JobType;
             int goldCost = JobType.GetJobCost(jobId);
             int apCost = JobType.GetJobCostAP(jobId);
-            Corps corps = action.FromCity.mBelongCorps;
+            Corps corps = action.FromCity.BelongCorps;
             if (action.FromCity.gold < goldCost)
                 return false;
             if (corps != null && corps.ActionPoint < apCost)
@@ -153,7 +153,7 @@ namespace Sango.Core
 
             // DoMove 只改 mCurrentCity，mBelongCity 仍是出发城，故出发城与返程目标都直接取使者字段。
             // 被捕分支例外：City.AddCaptive 会把 mBelongCity 置空，所以调用方必须在使者被收押后跳过返程任务
-            City fromCity = envoy.mBelongCity;
+            City fromCity = envoy.BelongCity;
             CityStrategyActionBase action = CreateAction(strategyType, sender, fromCity, envoy, targetCity, targetForceA, targetForceB);
             if (action == null)
                 return CityStrategyResult.Failed;

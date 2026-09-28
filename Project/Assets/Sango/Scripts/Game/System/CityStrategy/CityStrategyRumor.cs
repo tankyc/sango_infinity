@@ -78,10 +78,10 @@ namespace Sango.Core.Player
         {
             get
             {
-                Force owner = targetCity != null ? targetCity.mBelongForce : null;
+                Force owner = targetCity != null ? targetCity.BelongForce : null;
                 if (owner == null || TargetCity == null)
                     return "";
-                return Scenario.Cur.GetRelation(TargetCity.mBelongForce, owner).ToString();
+                return Scenario.Cur.GetRelation(TargetCity.BelongForce, owner).ToString();
             }
         }
 
@@ -162,7 +162,7 @@ namespace Sango.Core.Player
                 return null;
 
             return GameSystem.GetSystem<CityStrategyManager>().CreateAction(
-                StrategyType, TargetCity.mBelongForce, TargetCity, selectedEnvoy, targetCity, targetCity.mBelongForce, null);
+                StrategyType, TargetCity.BelongForce, TargetCity, selectedEnvoy, targetCity, targetCity.BelongForce, null);
         }
 
         /// <summary>
@@ -175,7 +175,7 @@ namespace Sango.Core.Player
             if (TargetCity == null)
                 return candidates;
 
-            Force sender = TargetCity.mBelongForce;
+            Force sender = TargetCity.BelongForce;
             Scenario.Cur.citySet.ForEach((System.Action<City>)(city =>
             {
                 if (city == null || !city.IsAlive)
@@ -183,7 +183,7 @@ namespace Sango.Core.Player
                 // 野城与特殊建筑没有忠诚与治安的攻心对象，只对三方据点生效
                 if (!city.IsCityBase())
                     return;
-                Force owner = city.mBelongForce;
+                Force owner = city.BelongForce;
                 if (owner == null || owner == sender || !owner.IsAlive)
                     return;
                 candidates.Add(city);
