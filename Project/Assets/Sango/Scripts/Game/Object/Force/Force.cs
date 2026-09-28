@@ -429,6 +429,8 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
+            if (!isAlive) return;
+
             if (Governor > 0)
                 mGovernor = scenario.personSet.Get(Governor);
             if (Counsellor > 0)
@@ -463,6 +465,8 @@ namespace Sango.Core
         /// <param name="scenario">当前场景</param>
         public override void Init(Scenario scenario)
         {
+            if (!isAlive) return;
+
             if (mGovernor == null)
             {
                 IsAlive = false;
@@ -475,7 +479,9 @@ namespace Sango.Core
                 x.InitActions(actionList, this);
             });
             InitTechniquesTree(scenario);
-            UpdateTurnInfo(scenario);
+            UpdateTurnInfo(scenario, false);
+
+            Sango.Log.Info($"{ColorName} CityCount = {CityCount}");
         }
 
         public override void Clear()
@@ -841,11 +847,12 @@ namespace Sango.Core
             AIPrepared = false;
             FightPower = 0;
             PersonCount = 0;
-            CityCount = 0;
-            CityBaseCount = 0;
+
             // 清理已阵亡的威胁部队记录
             CleanupThreatTroops();
             Sango.Log.Info($"==={Name} 回合===");
+
+            UpdateTurnInfo(scenario);
 
             for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
@@ -876,8 +883,6 @@ namespace Sango.Core
                 }
             }
 
-
-
             for (int i = 0; i < scenario.troopsSet.Count; ++i)
             {
                 var c = scenario.troopsSet[i];
@@ -886,8 +891,6 @@ namespace Sango.Core
                     c.OnForceTurnStart(scenario);
                 }
             }
-
-            UpdateTurnInfo(scenario);
 
             // 检查敌方新建部队是否有占领我方城池的任务
             if (IsPlayer)
@@ -962,8 +965,30 @@ namespace Sango.Core
             return base.OnForceTurnStart(scenario);
         }
 
-        void UpdateTurnInfo(Scenario scenario)
+        public void UpdateCityCount(Scenario scenario)
         {
+            CityCount = 0;
+            CityBaseCount = 0;
+            CityList.Clear();
+            scenario.citySet.ForEach(x =>
+            {
+                if (x.BelongForce == this)
+                {
+                    CityBaseCount++;
+                    if (x.IsCity())
+                    {
+                        CityCount++;
+                        CityList.Add(x);
+                    }
+                }
+            });
+        }
+
+        void UpdateTurnInfo(Scenario scenario, bool doTurnStart = true)
+        {
+            CityCount = 0;
+            CityBaseCount = 0;
+
             prepareTechniqueList(scenario);
             UpdateValidCreatedItemTypes();
             UpdateCanBuildBuildingTypes();
@@ -977,8 +1002,8 @@ namespace Sango.Core
                 var c = scenario.citySet[i];
                 if (c != null && c.IsAlive && c.BelongForce == this)
                 {
-
-                    c.OnForceTurnStart(scenario);
+                    if (doTurnStart)
+                        c.OnForceTurnStart(scenario);
                     FightPower += c.FightPower;
                     buildingBaseList.Enqueue(c);
                     CityBaseCount++;
@@ -986,6 +1011,7 @@ namespace Sango.Core
                     if (c.IsCity())
                     {
                         CityCount++;
+                        CityList.Add(c);
 
                         // 计算相邻势力 / 邻城（外交等模块读这两个列表，保持"只对都市收集"的原语义）
                         foreach (City neighbor in c.NeighborList)
@@ -1048,7 +1074,6 @@ namespace Sango.Core
                     ringQueue.Enqueue(neighbor);
                 }
             }
-
 
 
         }

@@ -81,6 +81,13 @@ namespace Sango.Core
         [JsonProperty] public GainValueConfig attributeExpGain = new GainValueConfig();
 
         /// <summary>
+        /// 剧本事件奖励配置（键 = GainPlace 的 Event* 段）。
+        /// 事件效果用 { "GainPlace": "键名" } 引用本表，因此事件 JSON 里不出现硬编码数值，
+        /// 调参统一在本表进行（剧本设置界面的"剧本事件奖励"分区）。
+        /// </summary>
+        [JsonProperty] public GainValueConfig eventGain = new GainValueConfig();
+
+        /// <summary>
         /// 基础伤害
         /// </summary>
         [JsonProperty] public float fight_base_damage = 64;
@@ -599,6 +606,25 @@ namespace Sango.Core
         /// 第 5 代衰减至 0（不再蔓延）。
         /// </summary>
         [JsonProperty] public int fireSpreadDecayPerGeneration = 20;
+
+        /// <summary>
+        /// **剧本事件系统总开关**（剧本级，玩家可在剧本参数界面自行开关，随存档持久化）。
+        ///
+        /// 关掉后的行为：
+        ///   · 不再评估任何触发 —— 连条件树都不求值，零开销；
+        ///   · 不再推进定时事件队列；
+        ///   · 不再重试"因演出占用而暂缓"的触发。
+        ///
+        /// 两点刻意的取舍：
+        ///   · **已经在播的那一个事件照常播完** —— 中途掐断会留下半开的窗口与对话框，
+        ///     反而要写一堆清理逻辑；而且玩家关开关时通常正是被某个事件打断。
+        ///   · **定时待办项保留** —— 重新打开后按回合逐条补播（每回合只成功播一条），
+        ///     不会一次性连播二十个事件把玩家埋掉。
+        ///
+        /// 调试面板的"强制触发"**不受本开关影响**（那是显式意图，不是自动触发）。
+        /// </summary>
+        [JsonProperty] public bool eventSystemEnabled = false;
+
         #region 外交系统参数
 
         /// <summary>

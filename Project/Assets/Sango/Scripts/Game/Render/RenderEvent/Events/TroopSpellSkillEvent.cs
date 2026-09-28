@@ -87,6 +87,7 @@ namespace Sango.Render
             {
                 troop.Render.SetSmokeShow(false);
             }
+            GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
         }
 
         public override bool IsVisible()
@@ -120,7 +121,6 @@ namespace Sango.Render
         {
             if (isAction) return;
             skill.Action(spellCell, 100);
-            GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
             isAction = true;
         }
 

@@ -44,14 +44,22 @@ namespace Sango.Core
             // 丰裕度 = (势力总人数 / 势力城数) / staffPerCityBaseline，夹在 [1, staffAbundanceMax]。
             // 1.0 表示"人力紧张，弹性岗位一律按基准"（行为与放开前一致，不误伤小势力）。
             // 例：9 城 196 人 → 21.8 人/城 → 2.5；28 城 50 人 → 1.8 人/城 → 1.0。
-            float abundance = 1f;
-            if (weights.staffAbundanceScaling && city.BelongForce != null)
+            // 势力人均人数 = 势力总人数 ÷ 都市数。
+            // Force.CityCount 只数 IsCity()，港关落在 CityBaseCount 里 → 天然"不计算港关"。
+            float peoplePerCity = 0f;
+            if (city.BelongForce != null)
             {
                 int forceCityCount = Math.Max(1, city.BelongForce.CityCount);
                 int forcePeople = city.BelongForce.PersonCount > 0
                     ? city.BelongForce.PersonCount
                     : personTotal;
-                abundance = (forcePeople / (float)forceCityCount) / Math.Max(1f, weights.staffPerCityBaseline);
+                peoplePerCity = forcePeople / (float)forceCityCount;
+            }
+
+            float abundance = 1f;
+            if (weights.staffAbundanceScaling && city.BelongForce != null)
+            {
+                abundance = peoplePerCity / Math.Max(1f, weights.staffPerCityBaseline);
                 if (abundance < 1f) abundance = 1f;
                 if (abundance > weights.staffAbundanceMax) abundance = weights.staffAbundanceMax;
             }
@@ -84,6 +92,9 @@ namespace Sango.Core
             int expectedTroops = 0;
             int milPlan = 0;                    // 基础编制（大城 + 圈层 + 威胁）—— 岗位生成处要用（编制依据）
             bool needsTroopSeat = false;        // 是否按预想兵力折算队数 —— 同上
+            int milSeatRaw = 0;                 // 收缩前的军事岗原值（报告用：原值 → 收缩后）
+            int milFreeSeat = 0;                // 实际生效的免缩放额度 C（报告用）
+            float milFillRatio = 1f;            // 实际生效的兵力充实度 当前/预想（报告用）
             if (!isPortGate)
             {
                 // 用预想兵力而不是当前兵力：出征 / 灾害 / 被攻击不会让军事编制乱跳，
@@ -126,6 +137,17 @@ namespace Sango.Core
                 {
                     // 接敌城：按兵力队数 / 基础编制 / 前线保底 取较大值
                     milSeat = Math.Max(Math.Max(milByTroops, milPlan), milFloor);
+
+                    // 【兵力充实度收缩】只压"超过免缩放额度"的部分：
+                    //   军事岗 = min(原值, C) + max(0, 原值 − C) × 当前兵力 / 预想兵力
+                    // C = α × 势力人均人数（再乘本城人力因子）。详见 ScaleMilitarySeat 的注释。
+                    // 放在 max(...) 之后、militarySeatHardMax 之前 —— 顺序错了会被硬顶/保底盖掉。
+                    milSeatRaw = milSeat;
+                    milSeat = ScaleMilitarySeat(milSeat, city, expectedTroops, weights, peoplePerCity,
+                        out milFreeSeat, out milFillRatio);
+                    // 保底不受收缩影响：兵少但位置关键的城仍要有守将（与上面的 max 语义一致）
+                    if (milSeat < milPlan) milSeat = milPlan;
+                    if (milSeat < milFloor) milSeat = milFloor;
                 }
                 else
                 {
@@ -399,8 +421,9 @@ namespace Sango.Core
                 output.Add(MakePost(PostKind.Military, 1, required, weights, city,
                     i == 0
                         ? (needsTroopSeat
-                            ? string.Format("军事: {0} 预想兵力{1}(当前{2}/兵力上限{3})",
-                                milTag, expectedTroops, city.troops, city.TroopsLimit)
+                            ? string.Format("军事: {0} 预想兵力{1}(当前{2}/兵力上限{3}) 编制{4}→{5}(免缩放{6} 充实度{7:P0})",
+                                milTag, expectedTroops, city.troops, city.TroopsLimit,
+                                milSeatRaw, milSeat, milFreeSeat, milFillRatio)
                             : string.Format("军事: {0} 未接敌·只留{1}人看家(预想兵力{2}不折算队数)",
                                 milTag, weights.rearMilitarySeat, expectedTroops))
                         : null));
@@ -422,6 +445,69 @@ namespace Sango.Core
                 output.Add(MakePost(PostKind.Develop, 7, false, weights, city, i == 0 ? devTrigger : null));
             for (int i = 0; i < logisticsSeat; i++)
                 output.Add(MakePost(PostKind.Logistics, 8, false, weights, city, logisticsTrigger));
+        }
+
+        /// <summary>
+        /// 军事岗的"兵力充实度收缩"：只压**超过免缩放额度**的部分，额度内与保底都不动。
+        ///
+        ///     军事岗 = min(原值, C) + max(0, 原值 − C) × 当前兵力 / 预想兵力
+        ///
+        ///     C（免缩放额度）= <c>militarySeatFillShare</c> × 势力人均人数
+        ///       人均人数 = 势力总人数 ÷ 都市数（<c>Force.CityCount</c> 只数 <c>IsCity()</c>，不含港关）；
+        ///       可再乘"本城人力因子" min(1, 本城在册 / 人均人数)：空城 → C = 0，整段按兵力折算。
+        ///
+        /// 【为什么需要收缩】预想兵力 = 兵力上限 × troopExpectFill(0.8) × 经济系数，
+        /// 在"上限很大但实际兵很少"的城会放大成数倍（例：颍川郡 预想 102626 / 当前 19056 = 5.4 倍），
+        /// 于是编出几十个没有兵可带的将军岗，把本城武将全锁成"在岗"、吃空调动池。
+        ///
+        /// 【为什么额度按人均人数取】人力越丰裕的势力，保留越多常备军事岗才合理。
+        /// 固定阈值（例如 15）在"人均 29"与"人均 53"的两个存档里力度差一倍；相对值自动适配。
+        ///
+        /// 【为什么用 当前/预想 而不是直接按当前兵力】保留"预想兵力"的抗抖动作用：
+        /// 比例 ≤ 1 恒成立（<c>DeploymentState.GetExpectedTroops</c> 会把当前兵力并进预想；
+        /// 且 <c>useCurrentTroopsWhenHigher</c>），额度内完全不看当前兵力，
+        /// 出征 / 灾害不会把整城的编制打散。觉得仍太抖可设 <c>militarySeatFillRatioFloor</c>。
+        /// </summary>
+        /// <param name="milSeat">收缩前的军事岗（= max(按兵力队数, 基础编制, 前线保底)）</param>
+        /// <param name="city">目标城</param>
+        /// <param name="expectedTroops">预想兵力</param>
+        /// <param name="weights">部署参数</param>
+        /// <param name="peoplePerCity">势力人均人数（总人数 ÷ 都市数，不含港关）</param>
+        /// <param name="freeSeat">输出：实际生效的免缩放额度 C</param>
+        /// <param name="fillRatio">输出：实际生效的兵力充实度（当前 / 预想）</param>
+        /// <returns>收缩后的军事岗</returns>
+        static int ScaleMilitarySeat(int milSeat, City city, int expectedTroops, DeploymentWeights weights,
+            float peoplePerCity, out int freeSeat, out float fillRatio)
+        {
+            freeSeat = 0;
+            fillRatio = 1f;
+
+            if (weights == null || city == null) return milSeat;
+            if (weights.militarySeatFillShare <= 0f) return milSeat;      // 关闭收缩（旧行为）
+            if (peoplePerCity <= 0f) return milSeat;                      // 数据缺失 → 不收缩，别误伤
+
+            float free = peoplePerCity * weights.militarySeatFillShare;
+
+            // 本城人力因子：空城 / 人少的城把额度按比例缩掉（0 → 整段按兵力折算）
+            if (weights.militarySeatFillUseLocalFactor)
+            {
+                int residents = city.allPersons != null ? city.allPersons.Count : 0;
+                float local = residents / peoplePerCity;
+                if (local > 1f) local = 1f;
+                if (local < 0f) local = 0f;
+                free *= local;
+            }
+
+            freeSeat = (int)Math.Round(free);
+            if (milSeat <= freeSeat) return milSeat;                      // 没超额度 → 原样返回
+
+            fillRatio = expectedTroops > 0 ? city.troops / (float)expectedTroops : 1f;
+            if (weights.militarySeatFillRatioFloor > 0f && fillRatio < weights.militarySeatFillRatioFloor)
+                fillRatio = weights.militarySeatFillRatioFloor;
+            if (fillRatio > 1f) fillRatio = 1f;
+            if (fillRatio < 0f) fillRatio = 0f;
+
+            return freeSeat + (int)Math.Round((milSeat - freeSeat) * fillRatio);
         }
 
         /// <summary>截断辅助：从 seat 中最多扣掉 over 个，返回剩余的 over。</summary>

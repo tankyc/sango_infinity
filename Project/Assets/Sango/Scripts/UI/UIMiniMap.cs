@@ -177,7 +177,6 @@ namespace Sango.UI
                 if (data.city == city || data.city.BelongCity == city)
                 {
                     data.UpdateImage();
-                    return;
                 }
             }
         }

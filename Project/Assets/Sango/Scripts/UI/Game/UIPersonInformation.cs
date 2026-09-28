@@ -146,7 +146,7 @@ namespace Sango.UI
             stateLabel.text = PersonSortFunction.SortByState.GetValueStr(Target);
             loyaltyLabel.text = PersonSortFunction.SortByLoyalty.GetValueStr(Target);
             meritLabel.text = PersonSortFunction.SortByMerit.GetValueStr(Target);
-            officialLabel.text = PersonSortFunction.SortByCost.GetValueStr(Target);
+            officialLabel.text = PersonSortFunction.SortByOfficial.GetValueStr(Target);
             troopsLimitLabel.text = PersonSortFunction.SortByTroopsLimit.GetValueStr(Target);
             costLabel.text = PersonSortFunction.SortByBelongCity.GetValueStr(Target);
             missionLabel.text = PersonSortFunction.SortByMissionType.GetValueStr(Target);

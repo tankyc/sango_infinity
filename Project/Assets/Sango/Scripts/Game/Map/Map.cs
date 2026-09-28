@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace Sango.Core
@@ -66,6 +67,7 @@ namespace Sango.Core
         {
             string mapName = scenario.Info.mapType;
             FileName = Path.FindFile($"Map/{mapName}.bin");
+            StringBuilder stringBuilder = new StringBuilder();
             if (File.Exists(FileName))
             {
                 Name = mapName;
@@ -95,9 +97,18 @@ namespace Sango.Core
                         if (terrainType == null)
                             terrainType = scenario.CommonData.TerrainTypes.Get(0);
                         City city = scenario.citySet.Get(areaId);
+
+                        if (terrainType.moveable && city == null)
+                        {
+                            stringBuilder.AppendLine($"地格:<{x},{y}> areaId:{areaId} 可以行走,但是所属城市找不到!!");
+                        }
+
                         CellSet.SetTerrainTypeAndState(x, y, terrainType, terrainState, city);
                     }
                 }
+
+                File.WriteAllText("D:/ddddddd.txt", stringBuilder.ToString());
+
                 reader.Close();
                 fs.Close();
                 reader.Dispose();

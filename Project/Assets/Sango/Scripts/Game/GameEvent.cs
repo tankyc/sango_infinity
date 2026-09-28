@@ -412,6 +412,24 @@ namespace Sango.Core
         public static EventDelegate<City, int, Person, OverrideData<int>> OnCityJobSearchingWild;
 
         /// <summary>
+        /// 「探索人才」**结算完成**（演出结束后才抛）。
+        ///
+        /// 参数：执行者 Person、所在 City、结果码、发现的武将。
+        /// 结果码与 <c>City.DoJobSearching</c> 的返回值一致：
+        ///   0 = 发现人才（末位参数有效）／ &gt;0 = 发现资金，数值即金额 ／ -1 = 一无所获。
+        ///
+        /// 【为什么需要它，而不是用 OnPersonActionOver】
+        /// OnPersonActionOver 是"武将行动结束"这个**通用**信号，它在 City.DoJobSearching
+        /// **执行期间**就被抛出来，于是：
+        ///   · 无法判断探索是成功还是失败（调用方只知道"某人的动作结束了"）；
+        ///   · 抛出时旧演出（CityPersonSearchingEvent）还停在 Enter 里等对话框回调，
+        ///     此刻若启动另一套演出，两边会同时往 GameDialog 投递，窗口互相覆盖。
+        /// 本 hook 在演出**彻底结束**（RenderEvent 调用 Exit）之后才抛，并带上结果码，
+        /// 因此既能区分成败，也不会与旧演出撞车。
+        /// </summary>
+        public static EventDelegate<Person, City, int, Person> OnCityJobSearchingSettled;
+
+        /// <summary>
         /// 可监听改计算城池最大士气
         /// City, Troop, OverrideData
         /// </summary>

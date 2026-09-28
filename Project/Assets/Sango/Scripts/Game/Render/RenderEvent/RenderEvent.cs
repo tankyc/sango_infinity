@@ -72,6 +72,22 @@ namespace Sango.Render
             get { return EventCount == 0 && dependsEventQueue.Count == 0 && CurEvent == null; }
         }
 
+        /// <summary>
+        /// 当前项**之后**是否还有待播事件（不含当前正在播的那项）。
+        ///
+        /// 用途：某个事件在自己的 Exit 里回过头来启动另一套演出（例如剧本事件系统监听
+        /// "探索结算完成"）时，需要判断"我演完了，但这套旧体系接下来还会不会继续演"。
+        /// 只看 IsIdle 是不行的 —— Exit 期间 CurEvent 尚未置空，IsIdle 恒为 false，
+        /// 那样会导致外部事件永远让路；反过来完全不让路，又会在旧体系后面还有戏时抢窗口。
+        ///
+        /// 注意：移动演出是"路径每格排一个事件"，队列很长，所以这里只关心"有没有下一项"，
+        /// 而不是"有没有在播" —— 当前项正在播并不构成冲突，真正会撞的是同时开对话框。
+        /// </summary>
+        public bool HasPendingAfterCurrent
+        {
+            get { return CurEvent != null ? EventCount > 1 : EventCount > 0; }
+        }
+
         public void Add(IRenderEventBase renderEvent)
         {
             if (renderEvent.MarkDepends)

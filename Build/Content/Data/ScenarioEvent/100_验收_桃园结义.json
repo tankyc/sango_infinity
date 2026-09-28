@@ -1,0 +1,166 @@
+[
+  {
+    "Id": 1001,
+    "Name": "验收·桃园结义",
+    "Category": "History",
+    "Description": "【Phase 1 验收事件 1】刘备、关羽、张飞于桃园结为异姓兄弟。\n覆盖能力：ScenarioStart 触发、**Picture 开场图文演出（CG + 标题 + 情境文字，阻塞至玩家点击）**、固定 Id 武将槽（刘备 636 / 关羽 99 / 张飞 433）、多槽位（4 个）、DerivedOfSlot 派生槽、条件树（含 FlagCheck）、选择肢分支、PersonSwornBrothers 结义、PersonSetLoyalty 忠诚、ForceAddHegemonyPoint 霸业点、SetFlag 全局旗标、Message 结果情报。\n\n触发方式：开局自动弹出（ScenarioStart）。\n针对剧本：测试剧本-英雄集结（Id 999）。",
+    "Enabled": true,
+    "Priority": 300,
+    "Level": "Critical",
+    "Mode": "Historical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "ScenarioStart",
+      "Scope": "AnyForce",
+      "Once": true,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionPerson",
+        "Type": "Person",
+        "Source": "Fixed",
+        "SourceArg": "636",
+        "Optional": false,
+        "Label": "刘备"
+      },
+      {
+        "Key": "TargetPerson",
+        "Type": "Person",
+        "Source": "Fixed",
+        "SourceArg": "99",
+        "Optional": false,
+        "Label": "关羽"
+      },
+      {
+        "Key": "Slot3",
+        "Type": "Person",
+        "Source": "Fixed",
+        "SourceArg": "433",
+        "Optional": false,
+        "Label": "张飞"
+      },
+      {
+        "Key": "ActionCity",
+        "Type": "City",
+        "Source": "Fixed",
+        "SourceArg": "31",
+        "Optional": true,
+        "Label": "江陵（本剧本中刘备势力的主城，作为桃园）"
+      },
+      {
+        "Key": "TargetForce",
+        "Type": "Force",
+        "Source": "DerivedOfSlot",
+        "SourceArg": "ActionPerson.BelongForce",
+        "Optional": true,
+        "Label": "刘备所属势力"
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        { "Type": "PersonStateCheck", "Params": { "Slot": "ActionPerson", "State": "Alive" } },
+        { "Type": "PersonStateCheck", "Params": { "Slot": "TargetPerson", "State": "Alive" } },
+        { "Type": "PersonStateCheck", "Params": { "Slot": "Slot3", "State": "Alive" } },
+        { "Type": "FlagCheck", "Params": { "Flag": "SwornBrothersDone", "Expect": false } }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "Picture",
+        "Params": {
+          "Image": "taoyuan_oath",
+          "Title": "桃园结义",
+          "Text": "桃花盛开，{:ActionPerson}、{:TargetPerson}、{:Slot3} 三人于园中对饮。\n（{:ActionCity}）",
+          "MinSeconds": 2.0,
+          "PauseBgm": true
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "如今黄巾当道，天下大乱。" },
+            { "Text": "我欲招募义兵，匡扶汉室，只恨力不能及。" }
+          ]
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "TargetPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "兄长若有此志，关某愿随！" }
+          ]
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "Slot3",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "哈哈哈！俺也一样！" }
+          ]
+        }
+      },
+      {
+        "Op": "Choice",
+        "Params": {
+          "Options": [
+            { "Text": "就在这桃园，结为异姓兄弟", "Next": "oath" },
+            { "Text": "改日再议", "Next": "decline" }
+          ]
+        }
+      },
+
+      { "Op": "Label", "Params": { "Name": "oath" } },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            {
+              "Type": "PersonSwornBrothers",
+              "Params": { "Slots": [ "ActionPerson", "TargetPerson", "Slot3" ] }
+            },
+            {
+              "Type": "PersonSetLoyalty",
+              "Params": { "Slot": "TargetPerson", "Value": 100 }
+            },
+            {
+              "Type": "PersonSetLoyalty",
+              "Params": { "Slot": "Slot3", "Value": 100 }
+            },
+            {
+              "Type": "ForceAddHegemonyPoint",
+              "Params": { "Slot": "TargetForce", "Value": 50 }
+            },
+            {
+              "Type": "SetFlag",
+              "Params": { "Flag": "SwornBrothersDone", "Value": true }
+            }
+          ]
+        }
+      },
+      {
+        "Op": "Message",
+        "Params": { "Text": "刘备、关羽、张飞在桃园结为异姓兄弟。" }
+      },
+      { "Op": "Jump", "Params": { "Target": "end" } },
+
+      { "Op": "Label", "Params": { "Name": "decline" } },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "三人终究没有结为兄弟……" }
+      },
+
+      { "Op": "Label", "Params": { "Name": "end" } },
+      { "Op": "End" }
+    ],
+    "Variables": {}
+  }
+]

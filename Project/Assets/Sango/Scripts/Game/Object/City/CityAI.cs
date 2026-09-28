@@ -130,7 +130,10 @@ namespace Sango.Core
             if (city.AttackingTroopsCount >= maxAttackTroops)
                 return;
 
-            Troop troop = AIMakeTroop(city, 20, true, scenario);
+            List<Cell> path = scenario.GetCityDirectPathToOther(city, targetCity);
+            int turnCount = Math.Max(20, 16 + path.Count / 4);
+
+            Troop troop = AIMakeTroop(city, turnCount, true, scenario);
             if (troop == null)
                 return;
 
@@ -178,7 +181,7 @@ namespace Sango.Core
             if (city.AttackTroopsCount >= AIConfig.Instance.driveOutMaxTroopPerCity)
                 return true;
 
-            Troop troop = AIMakeTroop(city, 10, false, scenario);
+            Troop troop = AIMakeTroop(city, 20, false, scenario);
             if (troop == null)
                 return true;
 
@@ -456,7 +459,10 @@ namespace Sango.Core
             city.TroopMissionType = MissionType.TroopProtectCity;
             city.TroopMissionTargetId = target.Id;
 
-            Troop troop = AIMakeTroop(city, 10, false, scenario);
+            List<Cell> path = scenario.GetCityDirectPathToOther(city, target);
+            int turnCount = Math.Max(20, 16 + path.Count / 4);
+
+            Troop troop = AIMakeTroop(city, turnCount, false, scenario);
             if (troop != null)
             {
                 troop = CityTroopFactory.EmitTroop(city, troop, scenario);
@@ -1657,8 +1663,11 @@ namespace Sango.Core
 
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Attack) == 1)
             {
-                city.TroopMissionType = MissionType.None;
-                city.TroopMissionTargetId = 0;
+                if (city.TroopMissionType == MissionType.TroopOccupyCity)
+                {
+                    city.TroopMissionType = MissionType.None;
+                    city.TroopMissionTargetId = 0;
+                }
                 return false;
             }
 
@@ -1982,7 +1991,7 @@ namespace Sango.Core
 
             if (totalNum >= targetItemType.TransformLimit(city.StoreLimit)) return true;
 
-            if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(20) )
+            if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(20))
                 return true;
 
             Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);

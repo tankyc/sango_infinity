@@ -9,7 +9,7 @@ namespace Sango.Core
             {
                 return (TargetTroop == null ||
                     !TargetTroop.IsAlive ||
-                    !TargetTroop.IsEnemy(Troop) ||
+                    !TargetTroop.IsEnemy(Troop) || TargetTroop.cell.BelongCity == null ||
 
                     // 出了边境即可
                     !TargetTroop.cell.BelongCity.IsSameForce(Troop)

@@ -290,7 +290,7 @@ namespace Sango.Core
                 value = scaled > int.MaxValue ? int.MaxValue : (int)scaled;
             }
 
-            return value;
+            return Math.Max(1, value);
         }
 
         /// <summary>

@@ -1,0 +1,212 @@
+[
+  {
+    "Id": 1301,
+    "Name": "验收·三顾茅庐",
+    "Category": "History",
+    "Description": "【Phase 1 验收事件 2】同一事件重复触发三次，每次演出不同，第三次登用诸葛亮。\n覆盖能力：JobSettled 触发、MaxFireCount=3 次数上限、FireCountCompare 分流三套演出（一份 JSON 演三遍）、**Picture 图文演出（只插在第三顾的正戏上，前两顾扑空不插 —— 避免喧宾夺主、也避免玩家为看空场景多点两次）**、ForceGovernor 槽位（ScopeSlot 引用势力槽）、PersonBelongCheck 带 CitySlot 的归属校验、FlagCheck、Branch 条件分支、Choice 选择肢、PersonRecruit 登用、PersonSetLoyalty、PersonSetVisible、SetFlag。\n\n【为什么用 JobSettled 而不是 JobFinished】OnPersonActionOver 是通用信号、不带结果，且在旧演出（CityPersonSearchingEvent）**执行期间**就抛出来，此刻启动本事件会与旧演出抢 GameDialog；JobSettled 在探索演出**彻底结束之后**才抛，不会撞车。\n\n【为什么本事件不加 JobResults 过滤】本事件关心的是\"玩家又去打听了一次\"，而不是\"这次打听到什么\"，因此任一结果都推进一顾。另一层现实原因：本测试剧本里诸葛亮已在势力内、并非在野，探索根本不可能\"发现\"他，若要求结果为 0 则永远无法触发。真实历史剧本里应改为 JobResults:[0]（即\"这次打听到的是诸葛亮\"）。\n\n触发方式：玩家势力执行\"探索人才\"（人事指令）结算后触发。也可在调试面板强制触发以快速验收三次演出。\n针对剧本：测试剧本-英雄集结（Id 999）。\n\n【设计说明】FireCountCompare 比的是\"本次是第几次触发\"。第一次 <= 1 → 一顾；第二次 == 2 → 二顾；其余 → 三顾。",
+    "Enabled": true,
+    "Priority": 250,
+    "Level": "Critical",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "JobSettled",
+      "Scope": "PlayerForce",
+      "Once": false,
+      "MaxFireCount": 3,
+      "CooldownTurns": 0,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionForce",
+        "Type": "Force",
+        "Source": "PlayerForce",
+        "Optional": false,
+        "Label": "玩家势力"
+      },
+      {
+        "Key": "ActionPerson",
+        "Type": "Person",
+        "Source": "ForceGovernor",
+        "ScopeSlot": "ActionForce",
+        "Optional": false,
+        "Label": "君主（刘备）"
+      },
+      {
+        "Key": "TargetCity",
+        "Type": "City",
+        "Source": "Fixed",
+        "SourceArg": "31",
+        "Optional": false,
+        "Label": "江陵（本剧本中诸葛亮所在城，作为隆中）"
+      },
+      {
+        "Key": "TargetPerson",
+        "Type": "Person",
+        "Source": "Fixed",
+        "SourceArg": "290",
+        "Optional": false,
+        "Label": "诸葛亮"
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        { "Type": "PersonStateCheck", "Params": { "Slot": "TargetPerson", "State": "Alive" } },
+        {
+          "Type": "PersonBelongCheck",
+          "Params": { "Slot": "TargetPerson", "Belong": "InCity", "CitySlot": "TargetCity" }
+        },
+        { "Type": "FlagCheck", "Params": { "Flag": "ThreeVisitsDone", "Expect": false } }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "Branch",
+        "Params": {
+          "Conditions": { "Type": "FireCountCompare", "Params": { "Op": "<=", "Value": 1 } },
+          "Target": "visit1"
+        }
+      },
+      {
+        "Op": "Branch",
+        "Params": {
+          "Conditions": { "Type": "FireCountCompare", "Params": { "Op": "==", "Value": 2 } },
+          "Target": "visit2"
+        }
+      },
+      { "Op": "Jump", "Params": { "Target": "visit3" } },
+
+      { "Op": "Label", "Params": { "Name": "visit1" } },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "第一次拜访 {:TargetCity}。" }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "请问孔明先生可在？" }
+          ]
+        }
+      },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "书童：先生一早就出门去了，不知何时归来。" }
+      },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "刘备怅然而返。" }
+      },
+      { "Op": "Jump", "Params": { "Target": "end" } },
+
+      { "Op": "Label", "Params": { "Name": "visit2" } },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "时值隆冬，第二次拜访 {:TargetCity}。" }
+      },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "家人：家兄访友去了，归期不定。" }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "既如此，备留下一封书信，望先生过目。" }
+          ]
+        }
+      },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "刘备留下书信，第二次失望而归。" }
+      },
+      { "Op": "Jump", "Params": { "Target": "end" } },
+
+      { "Op": "Label", "Params": { "Name": "visit3" } },
+      {
+        "Op": "Picture",
+        "Params": {
+          "Image": "three_visits",
+          "Title": "三顾茅庐",
+          "Text": "新春，{:ActionPerson}第三次来到{:TargetCity}。\n这一次，先生在家。",
+          "MinSeconds": 2.0,
+          "PauseBgm": true
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "TargetPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "将军三顾草庐，亮愧不敢当。" },
+            { "Text": "今曹操拥百万之众，孙权据有江东；将军可占人和、取荆益，成鼎足之势。" }
+          ]
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "先生之言，令备茅塞顿开！愿先生出山相助！" }
+          ]
+        }
+      },
+      {
+        "Op": "Choice",
+        "Params": {
+          "Options": [
+            { "Text": "拜请孔明出山", "Next": "recruit" },
+            { "Text": "容后再议", "Next": "end" }
+          ]
+        }
+      },
+
+      { "Op": "Label", "Params": { "Name": "recruit" } },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            {
+              "Type": "PersonSetVisible",
+              "Params": { "Slot": "TargetPerson", "Value": true }
+            },
+            {
+              "Type": "PersonRecruit",
+              "Params": {
+                "Slot": "TargetPerson",
+                "RecruitorSlot": "ActionPerson",
+                "ForceSlot": "ActionForce",
+                "CitySlot": "TargetCity"
+              }
+            },
+            {
+              "Type": "PersonSetLoyalty",
+              "Params": { "Slot": "TargetPerson", "Value": 100 }
+            },
+            {
+              "Type": "SetFlag",
+              "Params": { "Flag": "ThreeVisitsDone", "Value": true }
+            }
+          ]
+        }
+      },
+      {
+        "Op": "Message",
+        "Params": { "Text": "{:TargetPerson}加入了{:ActionForce}的麾下！" }
+      },
+
+      { "Op": "Label", "Params": { "Name": "end" } },
+      { "Op": "End" }
+    ],
+    "Variables": {}
+  }
+]

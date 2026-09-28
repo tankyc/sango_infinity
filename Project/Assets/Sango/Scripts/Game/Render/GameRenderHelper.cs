@@ -12,6 +12,12 @@ namespace Sango.Core
 
         public static string HeadIconPath = "Assets/Face";
         public static string CriticalImagePath = "Assets/CriticalImage";
+
+        /// <summary>
+        /// 剧本事件的图文演出（CG）资源目录。
+        /// 放在 Assets 下并单独一个目录，是为了让 Mod 能用同样的相对路径覆盖（与 Face / CriticalImage 一致）。
+        /// </summary>
+        public static string EventPicturePath = "Assets/UI/EventPicture";
         public static string TroopHeadbarRes = "Assets/UI/Prefab/window_troop_bar.prefab";
         public static string CityHeadbarRes = "Assets/UI/Prefab/window_city_bar.prefab";
         public static string BuildingHeadbarRes = "Assets/UI/Prefab/window_building_bar.prefab";
@@ -86,6 +92,35 @@ namespace Sango.Core
                 }
             }
             return criticalTexture;
+        }
+
+        /// <summary>
+        /// 加载剧本事件图文演出用的 CG。
+        ///
+        /// 容错的点在于"策划不必写扩展名"：<c>name</c> 可以写 "taoyuan"，
+        /// 也可以写完整相对路径或 "taoyuan.png"。找不到时返回 null，
+        /// 由窗口侧决定是显示占位还是干脆跳过 —— **绝不抛异常、也绝不让事件卡住**。
+        /// </summary>
+        /// <param name="name">资源名或相对路径（不含扩展名也可）</param>
+        /// <returns>贴图；找不到返回 null</returns>
+        public static Texture LoadEventPicture(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+
+            string path = name.StartsWith("Assets/") ? name : $"{EventPicturePath}/{name}";
+
+            Texture tex = ObjectLoader.LoadObject<Texture>(path, "EventPicture", false, false);
+            if (tex != null) return tex;
+
+            // 没写扩展名时补两种最常见的再试
+            if (System.IO.Path.GetExtension(path).Length == 0)
+            {
+                tex = ObjectLoader.LoadObject<Texture>(path + ".png", "EventPicture", false, false);
+                if (tex == null)
+                    tex = ObjectLoader.LoadObject<Texture>(path + ".jpg", "EventPicture", false, false);
+            }
+
+            return tex;
         }
     }
 }

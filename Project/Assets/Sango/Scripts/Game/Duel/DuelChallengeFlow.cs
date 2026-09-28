@@ -45,11 +45,42 @@ namespace Sango.Core.Duel
             Skill,
         }
 
+        /// <summary>
+        /// 单挑请求选项。剧本事件发起单挑时用它把"事件意图"传进来：
+        /// 不问应战、不问是否观战、不播通用台词、使用事件类型的单挑、并可钉死结果。
+        /// </summary>
+        public class RequestOptions
+        {
+            /// <summary>强制应战：不询问玩家、也不掷应战概率，直接进入（战法与事件走这条）</summary>
+            public bool forceAccept;
+
+            /// <summary>
+            /// 强制观战：不弹"是否观战"的询问，直接带表现层启动。
+            /// 仅在有玩家亲自参与时生效（AI 之间不会因此凭空出现观战窗口）。
+            /// </summary>
+            public bool forceView;
+
+            /// <summary>
+            /// 跳过通用台词（叫阵 / 应战 / 拒绝播报）。
+            /// 剧本事件自己已经安排了台词，再播一遍通用台词会两套打架。
+            /// </summary>
+            public bool skipLines;
+
+            /// <summary>单挑类型；事件单挑用 DuelType_Event，会跳过弓箭一击必杀</summary>
+            public DuelType duelType = DuelType.DuelType_2;
+
+            /// <summary>结果强制覆盖（null = 自然结算）</summary>
+            public DuelOutcomeOverride outcome;
+        }
+
         /// <summary>是否正在等待玩家回答对话框</summary>
         public static bool IsPending { get; private set; }
 
         private static Troop s_Challenger;
         private static Troop s_Challenged;
+
+        /// <summary>本次流程的选项。默认值即"普通单挑"，因此不显式设置时行为与改造前一致。</summary>
+        private static RequestOptions s_Options = new RequestOptions();
 
         /// <summary>
         /// 该部队是否由玩家**亲自操作**（玩家直属军团，等价 C++ 的 district.is_player() &amp;&amp; get_number()==1）。
@@ -161,22 +192,43 @@ namespace Sango.Core.Duel
         /// </returns>
         public static bool Request(Troop challenger, Troop challenged, Source source, bool forceAccept = false)
         {
+            return Request(challenger, challenged, source, new RequestOptions { forceAccept = forceAccept });
+        }
+
+        /// <summary>
+        /// 提出一次单挑请求（带选项的重载）。
+        /// 剧本事件用这个重载，可以指定单挑类型与强制结果、并跳过通用台词。
+        /// </summary>
+        /// <param name="challenger">挑战方部队</param>
+        /// <param name="challenged">应战方部队</param>
+        /// <param name="source">发起来源（事件传 Source.GameEvent）</param>
+        /// <param name="options">请求选项</param>
+        /// <returns>
+        /// true 表示流程已被接管（要么正在等玩家回答，要么已进入单挑）；
+        /// false 表示当场就被否决/无法发起，调用方应立即结束自己的指令流程。
+        /// </returns>
+        public static bool Request(Troop challenger, Troop challenged, Source source, RequestOptions options)
+        {
             if (IsPending) return false;
             if (challenger == null || challenged == null) return false;
             if (DuelManager.Instance.IsDueling) return false;
             if (!DuelManager.Instance.CanStartDuel(challenger, challenged)) return false;
 
+            if (options == null) options = new RequestOptions();
+
             s_Challenger = challenger;
             s_Challenged = challenged;
+            s_Options = options;
 
-            // 对话只在"有玩家亲自参与"时弹；否则（AI 之间 / 玩家势力的托管部队）全程不弹
-            bool showDialog = ShouldShowDialog(challenger, challenged);
+            // 对话只在"有玩家亲自参与"时弹；否则（AI 之间 / 玩家势力的托管部队）全程不弹。
+            // 事件传了 skipLines 时也一律不弹——事件自己已经安排了台词，再播通用台词会两套打架。
+            bool showDialog = ShouldShowDialog(challenger, challenged) && !options.skipLines;
 
             if (showDialog)
                 PlayLine(challenger.Leader, ChallengeLines);   // 挑战方叫阵（读完自动接应战方的回应）
 
-            // 强制单挑（战法引发）：跳过"是否应战"的询问与概率判定，直接进入。
-            if (forceAccept)
+            // 强制单挑（战法 / 事件引发）：跳过"是否应战"的询问与概率判定，直接进入。
+            if (options.forceAccept)
             {
                 AfterAccepted(showDialog);
                 return true;
@@ -235,6 +287,14 @@ namespace Sango.Core.Duel
             Troop challenger = s_Challenger;
             Troop challenged = s_Challenged;
 
+            // 事件单挑：事件自己已经演过台词，这里直接进观战演出，不再问"是否观战"。
+            // 仍要求"有玩家亲自参与"——AI 之间不该凭空弹出观战窗口。
+            if (s_Options.forceView && ShouldShowDialog(challenger, challenged))
+            {
+                StartDuel(true);
+                return;
+            }
+
             if (!showDialog)
             {
                 StartDuel(false);
@@ -272,8 +332,10 @@ namespace Sango.Core.Duel
         {
             Troop challenger = s_Challenger;
             Troop challenged = s_Challenged;
+            RequestOptions options = s_Options;
             s_Challenger = null;
             s_Challenged = null;
+            s_Options = new RequestOptions();
 
             if (challenger == null || challenged == null) return;
 
@@ -284,7 +346,7 @@ namespace Sango.Core.Duel
             if (!challenger.IsAlive || !challenged.IsAlive) return;
             if (!DuelManager.Instance.CanStartDuel(challenger, challenged)) return;
 
-            DuelManager.Instance.StartDuel(challenger, challenged, withView);
+            DuelManager.Instance.StartDuel(challenger, challenged, withView, options.duelType, options.outcome);
         }
 
         /// <summary>
@@ -298,6 +360,7 @@ namespace Sango.Core.Duel
             Troop challenger = s_Challenger;
             s_Challenger = null;
             s_Challenged = null;
+            s_Options = new RequestOptions();
 
             ApplyRefusePenalty(refuser);
 

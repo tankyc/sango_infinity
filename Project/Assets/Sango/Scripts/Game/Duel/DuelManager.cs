@@ -65,8 +65,17 @@ namespace Sango.Core.Duel
         /// <param name="challenger">挑战方部队</param>
         /// <param name="challenged">应战方部队</param>
         /// <param name="withView">是否带表现层（false 时瞬时结算，用于 AI 推演）</param>
+        /// <param name="duelType">
+        /// 单挑类型。剧本事件发起时应传 <see cref="DuelType.DuelType_Event"/>：
+        /// 该类型会跳过"弓箭一击必杀"（见 Duel.CalcFtkType），因为事件单挑要的是可预期的演出。
+        /// </param>
+        /// <param name="outcome">
+        /// 结果强制覆盖（null = 自然结算）。事件用它钉死胜负与结局，
+        /// 例如"关羽斩颜良"必须颜良死、"三英战吕布"吕布必须败走但不死。
+        /// </param>
         /// <returns>是否成功发起</returns>
-        public virtual bool StartDuel(Troop challenger, Troop challenged, bool withView = true)
+        public virtual bool StartDuel(Troop challenger, Troop challenged, bool withView = true,
+            DuelType duelType = DuelType.DuelType_2, DuelOutcomeOverride outcome = null)
         {
             if (IsDueling) return false;
             if (!CanStartDuel(challenger, challenged)) return false;
@@ -77,7 +86,7 @@ namespace Sango.Core.Duel
             // 若不拦，单挑会一路跑到结算，把败将重复登记成俘虏。
             if (!challenger.IsAlive || !challenged.IsAlive) return false;
 
-            Duel.Param param = BuildParam(challenger, challenged, withView);
+            Duel.Param param = BuildParam(challenger, challenged, withView, duelType, outcome);
             if (param == null) return false;
 
             View = withView ? CreateViewHandler?.Invoke(null) : null;
@@ -144,8 +153,16 @@ namespace Sango.Core.Duel
             return true;
         }
 
-        /// <summary>组装单挑启动参数</summary>
-        protected virtual Duel.Param BuildParam(Troop challenger, Troop challenged, bool withView)
+        /// <summary>
+        /// 组装单挑启动参数。
+        /// </summary>
+        /// <param name="challenger">挑战方部队</param>
+        /// <param name="challenged">应战方部队</param>
+        /// <param name="withView">是否带表现层</param>
+        /// <param name="duelType">单挑类型（事件单挑传 DuelType_Event）</param>
+        /// <param name="outcome">结果强制覆盖（null = 自然结算）</param>
+        protected virtual Duel.Param BuildParam(Troop challenger, Troop challenged, bool withView,
+            DuelType duelType = DuelType.DuelType_2, DuelOutcomeOverride outcome = null)
         {
             Duel.Param param = new Duel.Param();
             param.unit[(int)DuelTeam.DuelTeam_Challenger] = challenger;
@@ -183,7 +200,10 @@ namespace Sango.Core.Duel
             // 参战武将为空的队伍无法单挑
             if (param.startChara[0] < 0 || param.startChara[1] < 0) return null;
 
-            param.type = (int)DuelType.DuelType_2;
+            // 单挑类型：事件单挑传 DuelType_Event，会跳过弓箭一击必杀（见 Duel.CalcFtkType）
+            param.type = (int)duelType;
+            // 事件结果强制覆盖（null = 自然结算）
+            param.outcome = outcome;
             // 单挑回合数（合数）上限
             param.maxBlowCounter = MaxBlowCounter;
             param.stage = ResolveStageHandler != null

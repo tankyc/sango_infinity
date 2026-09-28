@@ -1,9 +1,64 @@
 [
-{
-  "Id": 1,
-  "eventType" : "PersonTalk"
-  "variables" : ["ActionCounsellor"]
-  "formatContent": "{:ActionForce}大人，\n终于轮到我们了啊。"
+  {
+    "Id": 2001,
+    "Name": "回合开始·军师慰问",
+    "Category": "Common",
+    "Description": "玩家势力回合开始时，由势力内智力最高的武将出场致意。覆盖：PlayerForce 槽位、ForceBestPerson(Intelligence) 槽位、条件树、多句台词、MaxFireCount + CooldownTurns 组合。",
+    "Enabled": true,
+    "Priority": 100,
+    "Level": "Normal",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "TurnStart",
+      "Scope": "PlayerForce",
+      "Once": false,
+      "MaxFireCount": 3,
+      "CooldownTurns": 30,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionForce",
+        "Type": "Force",
+        "Source": "PlayerForce",
+        "Optional": false,
+        "Label": "玩家势力"
+      },
+      {
+        "Key": "ActionCounsellor",
+        "Type": "Person",
+        "Source": "ForceBestPerson",
+        "SourceArg": "Intelligence",
+        "ScopeSlot": "ActionForce",
+        "Optional": false,
+        "Label": "军师（势力内智力最高者）",
+        "Filters": {
+          "Belong": "InForce",
+          "Alive": true
+        }
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        { "Type": "ForceAlive", "Params": { "Slot": "ActionForce" } },
+        { "Type": "PersonStateCheck", "Params": { "Slot": "ActionCounsellor", "State": "Alive" } }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionCounsellor",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "{:ActionForce}大人，\n终于轮到我们了啊。" }
+          ]
+        }
+      },
+      { "Op": "End" }
+    ],
+    "Variables": {}
   }
-}
 ]

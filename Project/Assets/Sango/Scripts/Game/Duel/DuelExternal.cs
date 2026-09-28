@@ -237,10 +237,35 @@ namespace Sango.Core.Duel
         Repeat = 1,
     }
 
-    /// <summary>死亡类型</summary>
+    /// <summary>
+    /// 死亡类型。
+    ///
+    /// 由单挑系统的 System::person_die 使用；剧本事件也借它表达"以何种方式死亡"，
+    /// 因为不同死法在叙事与后续效果上不同：
+    ///   · 阵亡  —— 战死沙场，可能伴随部队溃灭；
+    ///   · 处决  —— 被擒后斩首（白门楼斩吕布、处斩华佗），会损及势力名声；
+    ///   · 自刎  —— 殉国 / 尽忠，激励己方士气；
+    ///   · 病逝  —— 寿终或病死（郭嘉、周瑜），不影响忠诚与士气；
+    ///   · 刺杀  —— 遇刺（孙策、张飞），可能牵出凶手。
+    ///
+    /// 注意：新增成员必须追加在末尾（enum 以 int 落盘，插在中间会改变既有存档的含义）。
+    /// </summary>
     public enum DeathType
     {
+        /// <summary>自然死亡 / 病逝（默认，也是既有存档的唯一取值）</summary>
         Natural = 0,
+
+        /// <summary>阵亡：战死沙场（含单挑落败身死）</summary>
+        Battle = 1,
+
+        /// <summary>处决：被擒后斩首或赐死</summary>
+        Execute = 2,
+
+        /// <summary>自刎：殉国 / 尽忠</summary>
+        Suicide = 3,
+
+        /// <summary>被刺杀</summary>
+        Assassinate = 4,
     }
 
     /// <summary>场景</summary>

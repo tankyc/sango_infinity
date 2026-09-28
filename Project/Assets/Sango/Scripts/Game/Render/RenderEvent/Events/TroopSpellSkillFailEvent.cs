@@ -53,6 +53,8 @@ namespace Sango.Render
             {
                 troop.Render.SetSmokeShow(false);
             }
+            if (replaceSkill == null)
+                GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
         }
 
         public override bool IsVisible()
@@ -77,7 +79,6 @@ namespace Sango.Render
                     troop.ChangeMorale(-skill.costEnergy, false);
 
                 troop?.Render?.SetAniShow(0);
-                GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
                 return IsDone;
             }
 
@@ -92,7 +93,6 @@ namespace Sango.Render
             if (isAction) return;
             if (replaceSkill != null)
                 replaceSkill.Action(spellCell, 100);
-            GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
             isAction = true;
         }
 

@@ -34,7 +34,7 @@ namespace Sango.Core.Player
 
             if (troop.MoveRange.Contains(actionCell)) return false;
 
-            if (!actionCell.troop.cell.BelongCity.IsSameForce(troop))
+            if (actionCell.troop.cell.BelongCity == null || !actionCell.troop.cell.BelongCity.IsSameForce(troop))
                 return false;
 
             DestTroop = actionCell.troop as Troop;

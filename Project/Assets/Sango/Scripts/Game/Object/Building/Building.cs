@@ -235,7 +235,7 @@ namespace Sango.Core
                 });
             }
 
-            if (!isComplate && Builder != null)
+            if (!isComplate && Builder != null && Builder.Count > 0)
             {
                 if (LeftCounter <= 0)
                     LeftCounter = 1;
@@ -255,7 +255,7 @@ namespace Sango.Core
                 if (LeftCounter > 0)
                     LeftCounter--;
             }
-            else if (isUpgrading && Builder != null)
+            else if (isUpgrading && Builder != null && Builder.Count > 0)
             {
                 if (LeftCounter <= 0)
                     LeftCounter = 1;
