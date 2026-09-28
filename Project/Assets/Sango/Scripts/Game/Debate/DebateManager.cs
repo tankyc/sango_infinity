@@ -65,13 +65,18 @@ namespace Sango.Core.Debate
         /// <param name="challenger">挑战方武将</param>
         /// <param name="challenged">应战方武将</param>
         /// <param name="withView">是否带表现层（false 时瞬时结算，用于 AI 推演与测试）</param>
+        /// <param name="outcome">
+        /// 结果强制覆盖（null = 自然结算）。
+        /// 剧本事件用它钉死胜负，例如"诸葛亮舌战群儒"必须全胜、"骂死王朗"王朗必败。
+        /// </param>
         /// <returns>是否成功发起</returns>
-        public virtual bool StartDebate(Person challenger, Person challenged, bool withView = true)
+        public virtual bool StartDebate(Person challenger, Person challenged, bool withView = true,
+            DebateOutcomeOverride outcome = null)
         {
             if (IsDebating) return false;
             if (!CanStartDebate(challenger, challenged)) return false;
 
-            Debate.Param param = BuildParam(challenger, challenged, withView);
+            Debate.Param param = BuildParam(challenger, challenged, withView, outcome);
             if (param == null) return false;
 
             View = withView ? CreateViewHandler?.Invoke(null) : null;
@@ -97,8 +102,15 @@ namespace Sango.Core.Debate
             return true;
         }
 
-        /// <summary>组装舌战启动参数</summary>
-        protected virtual Debate.Param BuildParam(Person challenger, Person challenged, bool withView)
+        /// <summary>
+        /// 组装舌战启动参数。
+        /// </summary>
+        /// <param name="challenger">挑战方武将</param>
+        /// <param name="challenged">应战方武将</param>
+        /// <param name="withView">是否带表现层</param>
+        /// <param name="outcome">结果强制覆盖（null = 自然结算）</param>
+        protected virtual Debate.Param BuildParam(Person challenger, Person challenged, bool withView,
+            DebateOutcomeOverride outcome = null)
         {
             Debate.Param param = new Debate.Param();
 
@@ -116,6 +128,8 @@ namespace Sango.Core.Debate
             param.reverse = !param.characters[0].control && param.characters[1].control;
             param.tutorial = false;
             param.finished = false;
+            // 事件结果强制覆盖（null = 自然结算）
+            param.outcome = outcome;
             return param;
         }
 

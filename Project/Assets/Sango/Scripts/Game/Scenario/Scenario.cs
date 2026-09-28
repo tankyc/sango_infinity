@@ -15,6 +15,7 @@ using System.Threading;
 using UnityEngine;
 using Task = System.Threading.Tasks.Task;
 using Sango.Core.Debate;
+using Sango.Core.Event;
 
 namespace Sango.Core
 {
@@ -58,6 +59,19 @@ namespace Sango.Core
         /// 地图数据
         /// </summary>
         [JsonProperty(Order = -94)] public Map Map { internal set; get; }
+
+        /// <summary>
+        /// 剧本事件的运行时状态（每个事件的触发次数 / 冷却 / 私有变量 / 旗标）。
+        /// 必须随存档持久化：否则读档后 Once 事件会重复触发。
+        /// 读写入口统一走 ScenarioEventManager，外部不要直接改这个列表。
+        /// </summary>
+        [JsonProperty(Order = -93)] public List<EventRunState> EventStates { get; set; }
+
+        /// <summary>
+        /// 事件定时待办队列：跨回合战役事件（如官渡之战分 6 个阶段）的调度表。
+        /// 条目携带"对象类型 + Id"的槽位绑定，跨回合后按类型重新解析，不持有对象引用。
+        /// </summary>
+        [JsonProperty(Order = -92)] public List<ScheduledEventItem> ScheduledEvents { get; set; }
 
         /// <summary>
         /// 势力集合
@@ -240,6 +254,11 @@ namespace Sango.Core
         /// 城市路径缓存映射
         /// </summary>
         public Dictionary<string, List<City>> cityPathMap;
+
+        /// <summary>
+        /// 城市之间的直接路径
+        /// </summary>
+        public Dictionary<string, List<Cell>> cityDirectPath;
 
         #endregion Data
 
@@ -741,9 +760,9 @@ namespace Sango.Core
         {
             LoadBaseContent();
 
-            prepareList.Add(forceSet);
+            prepareList.Add(forceSet);  // 要先初始化势力科技
+            prepareList.Add(citySet);   // city 在 corps之前 以city为准
             prepareList.Add(corpsSet);
-            prepareList.Add(citySet);
             prepareList.Add(personSet);
             prepareList.Add(buildingSet);
             prepareList.Add(troopsSet);
@@ -987,7 +1006,7 @@ namespace Sango.Core
                         ShortCity shortCity = addData.citySet[x.BelongCityId];
                         person.BelongCorpsId = System.Math.Max(city.BelongCorpsId, shortCity.BelongCorpsId);
                     }
-                     
+
                     FixReletionship(ref person.MotherId, addData.personSet);
                     FixReletionship(ref person.FatherId, addData.personSet);
                     FixReletionship(ref person.LikePersonListId, addData.personSet);
@@ -1006,16 +1025,16 @@ namespace Sango.Core
                         int bro = x.PersonLib.BrotherListId[i];
                         FixReletionship(ref bro, addData.personSet);
                         Person person = scenario.personSet.Get(bro);
-                        if(person != null)
+                        if (person != null)
                         {
                             list.Add(person);
                         }
                     }
 
-                    if(list.Count > 0)
+                    if (list.Count > 0)
                     {
                         Person person = scenario.personSet.Get(x.Id);
-                        if(person != null)
+                        if (person != null)
                         {
                             person.BrotherId = person.Id;
                             list.ForEach(x => { x.BrotherId = person.Id; });
@@ -1055,7 +1074,7 @@ namespace Sango.Core
         static void FixReletionship(ref int[] r, SangoObjectSet<ShortPerson> objectSet)
         {
             if (r == null || r.Length == 0) return;
-            for(int i = 0; i < r.Length; i++)
+            for (int i = 0; i < r.Length; i++)
             {
                 FixReletionship(ref r[i], objectSet);
             }
@@ -1127,6 +1146,7 @@ namespace Sango.Core
 
             // 初始化路径缓存
             cityPathMap = new Dictionary<string, List<City>>();
+            cityDirectPath = new Dictionary<string, List<Cell>>();
 
             for (int i = 0; i < prepareList.Count; ++i)
             {
@@ -1442,6 +1462,13 @@ namespace Sango.Core
             if (!RenderEvent.Instance.Update(this, Time.deltaTime))
                 return;
 
+            // 剧本事件演出中：与上面的 RenderEvent 一样挡住整条回合推进。
+            // 不挡的后果：事件停在"等玩家点对话框"时，本方法会继续往下跑完
+            // TurnStart / RunForces / TurnEnd / IncreaseDate —— AI 势力在后台把整个回合推进完，
+            // 玩家点完对话框回来时世界已经变了。
+            if (Sango.Core.Event.ScenarioEventManager.IsPlayingNow)
+                return;
+
             if (!IsAlive)
                 return;
             //#if SANGO_DEBUG
@@ -1557,6 +1584,40 @@ namespace Sango.Core
             List<City> path = FindShortestPath(a, b);
             return path != null ? path.Count - 1 : -1;
         }
+
+        public List<Cell> GetCityDirectPathToOther(City startCity, City endCity)
+        {
+            // 检查参数
+            if (startCity == null || endCity == null)
+                return null;
+
+            // 检查是否是同一个城市
+            if (startCity == endCity)
+            {
+                return new List<Cell>() { startCity.CenterCell };
+            }
+
+            // 检查缓存中是否已有路径
+            string key = $"{startCity.Id}_{endCity.Id}";
+            if (cityDirectPath.ContainsKey(key))
+            {
+                return cityDirectPath[key];
+            }
+            List<Cell> path = new List<Cell>();
+            Map.GetDirectPath(startCity.CenterCell, endCity.CenterCell, path);
+
+            cityDirectPath.Add(key, path);
+
+            // 相反也保存一份
+            List<Cell> path2 = new List<Cell>(path);
+            path2.Reverse();
+
+            string key2 = $"{endCity.Id}_{startCity.Id}";
+            cityDirectPath.Add(key2, path2);
+
+            return path;
+        }
+
 
         /// <summary>
         /// 寻找两个城市之间的最短路径,要求自家势力内
@@ -1869,13 +1930,13 @@ namespace Sango.Core
 
         public SangoObjectList<T> Array2ObjectList<T>(SangoObjectSet<T> data, int[] ids) where T : SangoObject, new()
         {
-            if(ids == null) return null;
+            if (ids == null) return null;
             SangoObjectList<T> sangoObjectList = new SangoObjectList<T>();
             for (int i = 0; i < ids.Length; i++)
             {
                 int id = ids[i];
                 T obj = data.Get(id);
-                if(obj != null)
+                if (obj != null)
                     sangoObjectList.Add(obj);
             }
             return sangoObjectList;

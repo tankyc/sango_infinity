@@ -926,16 +926,17 @@ namespace Sango.Core
                 Log.Warning("武将 " + person.Name + " 已经登场");
                 return;
             }
-            // 以在野状态登场
-            person.state = (int)PersonStateType.Unemployed;
-            if (city != null)
+            if (city == null)
             {
-                person.BelongCityId = city.Id;
-                person.BelongCity = city;
-                person.CurrentCityId = city.Id;
-                person.CurrentCity = city;
+                // 在野武将必须有所在城市，没有城市就不该登场
+                Log.Warning("武将 " + person.Name + " 登场失败：未指定所在城市");
+                return;
             }
-            Log.Info("武将 " + person.Name + " 已登场");
+
+            // 收敛到 Person.Appear：它会一并把武将挂到城市的在野名单（wildPersons）上。
+            // 原先这里只写了 BelongCity / CurrentCity 而漏了名单登记，
+            // 导致通过编辑面板登场的武将在搜索与人口统计里"不存在"。
+            person.Appear(city);
         }
 
         /// <summary>

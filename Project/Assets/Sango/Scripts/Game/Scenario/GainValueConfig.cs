@@ -102,6 +102,44 @@ namespace Sango.Core
         /// <summary>攻破城池 / 关 / 港时额外获得的适性经验</summary>
         AbilityExpDestroyCity = 52,
         #endregion
+
+        #region 剧本事件奖励（独立表 eventGain）
+        //
+        // 为什么事件数值也要走 GainValueConfig：
+        //   事件里出现的"功绩 +500""技巧点 +200"这类数字若写死在事件 JSON 里，
+        //   就无法统一调整节奏、也无法被剧本设置界面覆盖。
+        //   因此事件效果一律用 { "GainPlace": "键名" } 引用配置表，而不是写具体数字。
+        //
+        // 为什么单独开一张表（而不是塞进功绩/技巧点表）：
+        //   事件奖励的调参口径与日常战斗 / 内政完全不同（见下方节奏注释），
+        //   混在一起会让策划在"功绩表"里看到一堆事件键，反而找不到重点。
+        //   独立成 eventGain 后，剧本设置界面可以单开一个"剧本事件奖励"分区。
+        //
+        // 节奏口径（回合制：每人每回合最多一个行为、一年 36 回合）：
+        //   事件是**低频**的（一场战役几十个事件），因此单次给的量应明显高于日常内政，
+        //   否则玩家感觉不到"发生了历史大事"。参考锚点：攻城功绩 1200、单挑胜利 100。
+
+        /// <summary>事件：通用功绩奖励（区间）</summary>
+        EventMeritCommon = 60,
+        /// <summary>事件：重大历史事件的功绩奖励（区间，用于官渡、赤壁这一级）</summary>
+        EventMeritMajor = 61,
+        /// <summary>事件：通用势力技巧点奖励</summary>
+        EventTechniquePointCommon = 62,
+        /// <summary>事件：重大历史事件的势力技巧点奖励</summary>
+        EventTechniquePointMajor = 63,
+        /// <summary>事件：通用能力经验奖励（区间）</summary>
+        EventAttributeExpCommon = 64,
+        /// <summary>事件：处决敌将时给动手方势力的技巧点（"斩颜良"这类）</summary>
+        EventExecuteTechniquePoint = 65,
+        /// <summary>事件：登用名士时给登用者的能力经验（区间）</summary>
+        EventRecruitAttributeExp = 66,
+        /// <summary>事件：忠诚固定提升幅度</summary>
+        EventLoyaltyGain = 67,
+        /// <summary>事件：通用势力霸业点奖励</summary>
+        EventHegemonyPointCommon = 68,
+        /// <summary>事件：重大历史事件的势力霸业点奖励</summary>
+        EventHegemonyPointMajor = 69,
+        #endregion
     }
 
     /// <summary>配置值的语义</summary>
@@ -223,6 +261,12 @@ namespace Sango.Core
         public static int AbilityExp(GainPlace place) { return ValueOf(TableOf(place), place); }
         public static int AttributeExp(GainPlace place) { return ValueOf(TableOf(place), place); }
 
+        /// <summary>
+        /// 读取剧本事件奖励配置（Event* 段的键）。
+        /// 事件效果统一走这里取值，避免在事件 JSON 里硬编码成长数值。
+        /// </summary>
+        public static int Event(GainPlace place) { return ValueOf(TableOf(place), place); }
+
         /// <summary>在 [min, max] 内随机取值（Range 语义的地点用；无剧本时用默认区间）</summary>
         public static int Roll(GainPlace place)
         {
@@ -251,6 +295,7 @@ namespace Sango.Core
             if (Array.IndexOf(TechniquePointPlaces, place) >= 0) return v.techniquePointGain;
             if (Array.IndexOf(ExpPlaces, place) >= 0) return v.expGain;
             if (Array.IndexOf(AbilityExpPlaces, place) >= 0) return v.abilityExpGain;
+            if (Array.IndexOf(EventPlaces, place) >= 0) return v.eventGain;
             return null;
         }
 
@@ -291,6 +336,19 @@ namespace Sango.Core
         {
             GainPlace.AttributeExpFromJob,
             GainPlace.DebateAttributeExp, GainPlace.DebateAttributeExpKind, GainPlace.DebateAttributeExpLose,
+        };
+
+        /// <summary>
+        /// 剧本事件奖励表（独立一张，键为 Event* 段）。
+        /// 事件效果用 { "GainPlace": "键名" } 引用本表，保证成长数值不硬编码在事件 JSON 里。
+        /// </summary>
+        public static readonly GainPlace[] EventPlaces =
+        {
+            GainPlace.EventMeritCommon, GainPlace.EventMeritMajor,
+            GainPlace.EventTechniquePointCommon, GainPlace.EventTechniquePointMajor,
+            GainPlace.EventAttributeExpCommon, GainPlace.EventExecuteTechniquePoint,
+            GainPlace.EventRecruitAttributeExp, GainPlace.EventLoyaltyGain,
+            GainPlace.EventHegemonyPointCommon, GainPlace.EventHegemonyPointMajor,
         };
 
         #endregion
@@ -340,6 +398,21 @@ namespace Sango.Core
                 case GainPlace.AbilityExpAttack: return 3;
                 case GainPlace.AbilityExpDestroyTroop: return 10;
                 case GainPlace.AbilityExpDestroyCity: return 30;
+                // 剧本事件奖励（区间类填下限）。
+                // 节奏口径：事件是低频的（一场战役几十个），单次量应明显高于日常内政，
+                // 否则玩家感觉不到"发生了历史大事"。
+                case GainPlace.EventMeritCommon: return 200;
+                case GainPlace.EventMeritMajor: return 800;
+                case GainPlace.EventTechniquePointCommon: return 100;
+                case GainPlace.EventTechniquePointMajor: return 400;
+                case GainPlace.EventAttributeExpCommon: return 10;
+                case GainPlace.EventExecuteTechniquePoint: return 150;
+                case GainPlace.EventRecruitAttributeExp: return 20;
+                case GainPlace.EventLoyaltyGain: return 10;
+                // 霸业点每回合每武将会自然 +1（20 人势力即 20/回合），
+                // 事件给的量必须明显高于自然增长，否则玩家感知不到
+                case GainPlace.EventHegemonyPointCommon: return 50;
+                case GainPlace.EventHegemonyPointMajor: return 300;
                 default: return 0;
             }
         }
@@ -352,6 +425,10 @@ namespace Sango.Core
                 case GainPlace.AttributeExpFromJob: return 15;
                 case GainPlace.DebateAttributeExp: return 3;
                 case GainPlace.DebateAttributeExpKind: return 3;
+                case GainPlace.EventMeritCommon: return 500;
+                case GainPlace.EventMeritMajor: return 1500;
+                case GainPlace.EventAttributeExpCommon: return 25;
+                case GainPlace.EventRecruitAttributeExp: return 40;
                 default: return DefaultOf(place);
             }
         }
@@ -369,6 +446,10 @@ namespace Sango.Core
                 case GainPlace.AttributeExpFromJob:
                 case GainPlace.DebateAttributeExp:
                 case GainPlace.DebateAttributeExpKind:
+                case GainPlace.EventMeritCommon:
+                case GainPlace.EventMeritMajor:
+                case GainPlace.EventAttributeExpCommon:
+                case GainPlace.EventRecruitAttributeExp:
                     return GainValueKind.Range;
                 default:
                     return GainValueKind.Fixed;
@@ -415,6 +496,17 @@ namespace Sango.Core
                 case GainPlace.AbilityExpAttack: return "兵种适性 攻击结算";
                 case GainPlace.AbilityExpDestroyTroop: return "兵种适性 击破敌部队";
                 case GainPlace.AbilityExpDestroyCity: return "兵种适性 攻破城关港";
+                // 剧本事件奖励
+                case GainPlace.EventMeritCommon: return "事件·通用功绩";
+                case GainPlace.EventMeritMajor: return "事件·重大事件功绩";
+                case GainPlace.EventTechniquePointCommon: return "事件·通用技巧点";
+                case GainPlace.EventTechniquePointMajor: return "事件·重大事件技巧点";
+                case GainPlace.EventAttributeExpCommon: return "事件·通用能力经验";
+                case GainPlace.EventExecuteTechniquePoint: return "事件·处决敌将技巧点";
+                case GainPlace.EventRecruitAttributeExp: return "事件·登用名士能力经验";
+                case GainPlace.EventLoyaltyGain: return "事件·忠诚提升幅度";
+                case GainPlace.EventHegemonyPointCommon: return "事件·通用霸业点";
+                case GainPlace.EventHegemonyPointMajor: return "事件·重大事件霸业点";
                 default: return place.ToString();
             }
         }

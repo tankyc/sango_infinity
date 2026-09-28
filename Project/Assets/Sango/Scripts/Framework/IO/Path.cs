@@ -59,6 +59,7 @@ namespace Sango
             SaveRootPath = destDir;
             ContentRootPath = destDir + "/Content";
             ModRootPath = destDir + "/Mods";
+            CustomEditRootPath = destDir + "/CustomEdit";
 
 #else
 

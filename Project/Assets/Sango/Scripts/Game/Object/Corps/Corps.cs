@@ -185,7 +185,9 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            if(BelongForceId > 0)
+            if (!IsAlive) return;
+
+            if (BelongForceId > 0)
                 BelongForce = scenario.forceSet.Get(BelongForceId);
             if(Comander > 0)
                 mComander = scenario.personSet.Get(Comander);
@@ -310,6 +312,8 @@ namespace Sango.Core
 
         public override void Init(Scenario scenario)
         {
+            if (!IsAlive) return;
+
             if (appointSetting == null || appointSetting.Length < (int)AppointContentType.Max)
                 appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             PrepareCityInfo();

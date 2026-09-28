@@ -884,7 +884,7 @@ namespace Sango.Core
             base.OnScenarioPrepare(scenario);
             isComplate = true;
 
-            if(durabilityLimit == 0)
+            if (durabilityLimit == 0)
             {
                 Sango.Log.Error($"城池:{Name} 坐标:<{x},{y}>的最大耐久为0!! 默认修复为3000");
                 durabilityLimit = 3000;
@@ -992,6 +992,13 @@ namespace Sango.Core
         public override void Init(Scenario scenario)
         {
             base.Init(scenario);
+
+            if (BelongCorps != null && BelongForce != null && BelongCorps.BelongForce != BelongForce)
+            {
+                Sango.Log.Error($"城池:{Name} 所属军团和所属势力不匹配:<{BelongForce.ColorName} => {BelongCorps.ForceNumberName}>");
+                BelongCorps = BelongForce.CapitalCorps;
+            }
+
             InitPersonAction();
 
             // 空闲人员判断
@@ -1001,16 +1008,6 @@ namespace Sango.Core
                 if (!person.ActionOver && person.IsFree)
                     freePersons.Add(person);
             });
-
-            if (BelongForce != null)
-            {
-                BelongForce.CityBaseCount++;
-                BelongForce.CityList.Add(this);
-                if (IsCity())
-                {
-                    BelongForce.CityCount++;
-                }
-            }
 
             if (IsPort())
                 BelongCity.portList.Add((Port)this);
@@ -1745,6 +1742,7 @@ namespace Sango.Core
                 return;
             }
 
+            BelongForce.UpdateCityCount(scenario);
             BelongForce.CityBaseCount--;
             if (IsCity()) BelongForce.CityCount--;
             BelongForce.CityList.Remove(this);
@@ -1801,7 +1799,7 @@ namespace Sango.Core
                             c.freePersons.Clear();
                             c.allPersons.ForEach(p =>
                             {
-                                 p.LeaveToWild();
+                                p.LeaveToWild();
                             });
                             c.allPersons.Clear();
                             c.allBuildings.ForEach(building =>
@@ -1964,6 +1962,8 @@ namespace Sango.Core
             CalculateMaxMorale();
             CalculateLimit();
 
+            // 再保证一次转换成功
+            ChangeCorps(atk.BelongCorps);
             GameEvent.OnCityFall?.Invoke(this, lastBelongForce, atk);
 
             if (atk.BelongCorps.IsPlayer)
@@ -1997,6 +1997,8 @@ namespace Sango.Core
         /// <returns>城市之间的距离</returns>
         public int Distance(City other)
         {
+            if (other == null) return 999;
+
             if (this == other)
                 return 0;
 
@@ -2422,7 +2424,7 @@ namespace Sango.Core
             int jobId = (int)CityJobType.CreateBoat;
             int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
-           
+
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();

@@ -85,6 +85,11 @@ namespace Sango.Core.Debate
             public bool finished = false; // 28
             /// <summary>返回场景</summary>
             public int retScene = (int)Scene.Scene_Max; // 2c
+            /// <summary>
+            /// 事件舌战的结果强制覆盖（null = 不干预，走自然结算）。
+            /// 由 DebateManager.BuildParam 填入，在 ClosingPhase 结算前被消费。
+            /// </summary>
+            public DebateOutcomeOverride outcome = null;
 
             internal static Character[] NewParamCharacterArray()
             {
@@ -646,6 +651,52 @@ namespace Sango.Core.Debate
             if (self.reverse)
                 team = GetOpponentTeam(team);
             return self.characters[team].control;
+        }
+
+        /// <summary>
+        /// 把事件指定的强制胜负写进 winner / winType（事件舌战专用）。
+        ///
+        /// 必须在 <see cref="ParamSetWinner"/> **之前**调用：该方法是结算入口，
+        /// 经验 / 功绩 / 伤病 / 技术点都按传入的胜方发放，晚改就会发错人。
+        ///
+        /// 只改胜负，不改体力——若败方体力尚未归零，表现上会出现"还有余力却已认输"的观感，
+        /// 这类桥段应由事件的演出台词自行交代（如"王朗大叫一声，撞死于马下"）。
+        /// </summary>
+        public void ApplyOutcomeOverride()
+        {
+            DebateOutcomeOverride outcome = param != null ? param.outcome : null;
+            if (outcome == null || outcome.winnerTeam < 0)
+                return;
+
+            int newWinner = outcome.winnerTeam;
+            if (!Utils.InRange(newWinner, 0, MaxTeamCount - 1))
+            {
+                LogDebate($"事件舌战强制结果无效：队伍 {newWinner} 超出范围，忽略");
+                return;
+            }
+
+            // 强制胜方的武将必须有效，否则结算会取到空引用
+            if (!Utils.IsActive(ParamGetPerson(param, newWinner)))
+            {
+                LogDebate($"事件舌战强制结果无效：队伍 {newWinner} 的武将不存在，忽略");
+                return;
+            }
+
+            int oldWinner = winner;
+            winner = newWinner;
+
+            if (outcome.winType >= 0)
+            {
+                winType = outcome.winType;
+            }
+            else if (oldWinner >= 0 && oldWinner != newWinner)
+            {
+                // 胜负被改写时胜利方式必须一起作废：原判定可能算出"留情 / 追击"，
+                // 那是针对原胜方的，套到新胜方身上会自相矛盾。
+                winType = (int)DebateWinType.DebateWinType_Normal;
+            }
+
+            LogDebate($"事件舌战强制结果：胜方队伍={winner}（原判定={oldWinner}）胜利方式={winType}");
         }
 
         /// <summary>结算胜利方（含经验/功绩/伤病/消息）</summary>

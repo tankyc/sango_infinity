@@ -1,16 +1,145 @@
 [
-  "Id": 11,
-{
+  {
+    "Id": 2003,
+    "Name": "探索人才·寻得贤才",
+    "Category": "Common",
+    "Description": "探索后若发现人才，则询问是否登用。覆盖：JobSettled 触发 + JobResults 结果码过滤(0=发现人才) + Alternatives/DerivedOfSlot 派生槽位、CityRandomPerson 候选、带筛选的槽位、Branch 条件分支、Choice 选择肢、PersonRecruit + PersonSetLoyalty + PersonSetVisible 效果组、Message 结果情报。\n\n【为什么不是 JobFinished】OnPersonActionOver 是通用信号、不带结果，无法区分\"发现了人才\"还是\"一无所获\"；而 JobSettled 带结果码，可直接用 JobResults:[0] 精确命中发现人才的情形。\n\n【已知限制】hook 只带回了\"发现了谁\"（第 4 个参数），但一次探索可能发现多名候选人，因此槽位 TargetPerson 目前取的是\"该城在野名单中随机一位\"。若要精确对应 hook 带回的那名武将，需要在 EventContext 里加一个\"hook 实体之外的附加实体\"通道。",
+    "Enabled": true,
+    "Priority": 60,
+    "Level": "Normal",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "JobSettled",
+      "Scope": "PlayerForce",
+      "JobResults": [ 0 ],
+      "Once": false,
+      "CooldownTurns": 5,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionPerson",
+        "Type": "Person",
+        "Source": "EventEntity",
+        "Optional": false,
+        "Label": "执行探索的武将"
+      },
+      {
+        "Key": "ActionForce",
+        "Type": "Force",
+        "Source": "DerivedOfSlot",
+        "SourceArg": "ActionPerson.BelongForce",
+        "Optional": true,
+        "Label": "执行者所属势力（在野时为空）"
+      },
+      {
+        "Key": "TargetCity",
+        "Type": "City",
+        "Source": "DerivedOfSlot",
+        "SourceArg": "ActionPerson.BelongCity",
+        "Optional": true,
+        "Label": "执行者所在城市"
+      },
+      {
+        "Key": "TargetPerson",
+        "Type": "Person",
+        "Source": "CityRandomPerson",
+        "ScopeSlot": "TargetCity",
+        "Optional": true,
+        "Label": "城中在野武将（随机一位）",
+        "Filters": {
+          "Belong": "Free",
+          "Alive": true
+        }
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        { "Type": "PersonStateCheck", "Params": { "Slot": "ActionPerson", "State": "Alive" } }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "{:ActionPerson}在街市中四处打听，寻访贤才……" }
+      },
 
-  "eventType" : "Dialog:ClickPersonSay"
-  "variables" : ["ActionPerson"]
-  "formatContent": "搜索结果，\n发现了名为{:TargetPerson}的武将。"
+      {
+        "Op": "Branch",
+        "Params": {
+          "Conditions": {
+            "Type": "PersonBelongCheck",
+            "Params": { "Slot": "TargetPerson", "Belong": "Any" }
+          },
+          "Target": "found"
+        }
+      },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "可惜，此行并无收获。" }
+      },
+      { "Op": "Jump", "Params": { "Target": "end" } },
+
+      { "Op": "Label", "Params": { "Name": "found" } },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "主公！我在城中发现了一位名叫{:TargetPerson}的人才。" }
+          ]
+        }
+      },
+      {
+        "Op": "Choice",
+        "Params": {
+          "Options": [
+            { "Text": "亲自前往，登用此人", "Next": "recruit" },
+            { "Text": "暂且作罢", "Next": "end" }
+          ]
+        }
+      },
+
+      { "Op": "Label", "Params": { "Name": "recruit" } },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            {
+              "Type": "PersonSetVisible",
+              "Params": { "Slot": "TargetPerson", "Value": true }
+            },
+            {
+              "Type": "PersonRecruit",
+              "Params": {
+                "Slot": "TargetPerson",
+                "RecruitorSlot": "ActionPerson",
+                "ForceSlot": "ActionForce",
+                "CitySlot": "TargetCity"
+              }
+            },
+            {
+              "Type": "PersonSetLoyalty",
+              "Params": { "Slot": "TargetPerson", "Value": 90 }
+            },
+            {
+              "Type": "SetFlag",
+              "Params": { "Flag": "RecruitSucceded", "Value": true }
+            }
+          ]
+        }
+      },
+      {
+        "Op": "Message",
+        "Params": { "Text": "{:TargetPerson}加入了我们的麾下！" }
+      },
+
+      { "Op": "Label", "Params": { "Name": "end" } },
+      { "Op": "End" }
+    ],
+    "Variables": {}
   }
-},
-{
-  "eventType" : "GameSystem:PersonRecruit"
-  "variables" : ["ActionPerson"]
-  "formatContent": "搜索结果，\n发现了名为{:TargetPerson}的武将。"
-  }
-},
 ]

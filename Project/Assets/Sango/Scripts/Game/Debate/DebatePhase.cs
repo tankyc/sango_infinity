@@ -321,6 +321,8 @@ namespace Sango.Core.Debate
                     step++;
                     break;
                 case 3:
+                    // 事件舌战的强制胜负必须在结算之前落地，否则奖励会发给自然判定的胜方
+                    ApplyOutcomeOverride();
                     ParamSetWinner(param, winner, winType);
                     return false;
             }

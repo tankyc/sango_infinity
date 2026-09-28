@@ -1,3 +1,4 @@
+using Sango.Core.Event;
 using Sango.Core.Player;
 using Sango.Render;
 
@@ -51,6 +52,18 @@ namespace Sango.Core
 
             // 5) 输入残留（与"安卓切后台恢复"共用同一个复位方法）
             GameController.Instance.ResetInputState();
+
+            // 5.5) 剧本事件系统的运行期数据：待播队列 / 定时待办 / 每回合计数。
+            //
+            //  为什么必须放在第 6 步之前：Clear() 要用 Scenario.Cur 去清定时待办队列，
+            //  而第 6 步的 OnGameShutdown() 会把 Cur 置为 null。
+            //
+            //  为什么只需要清数据、不需要解除订阅：ScenarioEventManager 是应用级单例，
+            //  它的 GameEvent 订阅发生在 Game.Init 阶段（早于基线快照），
+            //  由第 9 步的 GameEventBaseline.Restore() 保证不被误清，因此终身不解绑是安全的。
+            ScenarioEventManager eventManager = ScenarioEventManager.Instance;
+            if (eventManager != null)
+                eventManager.Clear();
 
             // 6) 剧本自身收尾：End + Clear + Cur = null
             Scenario current = Scenario.Cur;

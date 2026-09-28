@@ -1,9 +1,56 @@
 [
-{
-  "Id": 1,
-  "eventType" : "PersonTalk"
-  "variables" : ["ActionPerson"]
-  "formatContent": "很遗憾, 什么都没有发现..."
+  {
+    "Id": 2002,
+    "Name": "探索人才·无所得",
+    "Category": "Common",
+    "Description": "武将执行\"探索人才\"后一无所获，回禀一句。覆盖：JobSettled 触发 + JobResults 结果码过滤 + EventEntity 槽位 + 条件树 + 旁白。\n\n【为什么不是 JobFinished】OnPersonActionOver 是通用信号、不带结果，且在旧演出**执行期间**就抛出来（会与旧演出抢 GameDialog）。JobSettled 挂在 OnCityJobSearchingSettled 上，在探索演出**彻底结束之后**才抛，并带上结果码，因此既能精确区分成败、也不会与旧演出撞车。\n结果码：0 = 发现人才 / >0 = 发现资金 / -1 = 一无所获。本事件只关心 -1。",
+    "Enabled": true,
+    "Priority": 50,
+    "Level": "Normal",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "JobSettled",
+      "Scope": "PlayerForce",
+      "JobResults": [ -1 ],
+      "Once": false,
+      "CooldownTurns": 5,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionPerson",
+        "Type": "Person",
+        "Source": "EventEntity",
+        "Optional": false,
+        "Label": "执行探索的武将"
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        { "Type": "PersonStateCheck", "Params": { "Slot": "ActionPerson", "State": "Alive" } }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "TalkWindow",
+        "Params": {
+          "Text": "{:ActionPerson}回来了，此行一无所获……"
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "主公，此地并无贤才可用。" }
+          ]
+        }
+      },
+      { "Op": "End" }
+    ],
+    "Variables": {}
   }
-}
 ]

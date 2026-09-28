@@ -172,9 +172,13 @@
   "protectCityNearEnemyBonusPerCell": 40,
 
   // ------------------------- 人才部署（武将调度：岗位编制 / 调动节奏） -------------------------
-  // 只写要覆盖的字段即可，其余沿用代码内置默认值（DeploymentWeights）。
+  // 本节点是 DeploymentWeights 的**完整镜像**：只写要覆盖的字段即可，未出现的字段沿用代码内置默认值。
+  // 下面这些值当前与代码默认一致，放在这里只是方便直接调参、不必改代码。
   // 注意：shadowLogIntervalTurns 现在**只控制日志输出频率**，不再影响调人节奏（每回合都会执行）。
+  // 说明：各岗型的能力权重（PositionWeights：military / recruitTroops / ... 的六个分量）仍留在代码里 ——
+  //       它是不完整覆盖有风险的对象（只写一个分量会把其余分量清 0），需要调时再单独外置。
   "deployment": {
+    // ---- 总开关与报告 ----
     "enabled": true,
     "shadowOnly": false,                // true = 只计算不调人（调试用）
     "shadowLogEnabled": true,           // 是否输出部署报告（仅编辑器 / 开发包）
@@ -191,24 +195,151 @@
     // AI 势力侧：目标城与抽调池都是全势力，势力内可跨军团调人，上述三条都不适用。
     "enforceCorpsBoundary": true,       // 玩家军团边界开关（对 AI 势力无效）
 
-    // ---- 编制基准（本次未改动，仅显式化便于调参） ----
-    "troopExpectFill": 0.8,
-    "troopsPerUnit": 5000,
-    "deputyPerUnit": 0.5,
-    "troopSeatOnlyWhenThreatened": true, // 军事岗只在"前线(圈层0) / 次前线(圈层1) / 威胁达标城"按预想兵力折算
-    "rearMilitarySeat": 0,               // 纯后方(圈层≥2)且威胁未达标的城：军事岗数（0 = 不设，只留运输/战略储备岗）
+    // ---- 编制：通用席位 ----
+    "levelSeat": [3, 4, 5, 6],          // 基础席位，下标 = 城池等级-1（小/中/大/巨）
+    "borderRingBonus": 2,               // 前线(圈层0)额外军事岗
+    "subFrontRingBonus": 1,             // 次前线(圈层1)额外军事岗
+    "threatHighAt": 2000,               // 高威胁阈值（对 threatLevel）
+    "threatMidAt": 800,                 // 中威胁阈值（也是"需要按兵力编队"的判据）
+    "threatHighBonus": 2,               // 高威胁额外军事岗
+    "threatMidBonus": 1,                // 中威胁额外军事岗
+    "portGateMaxSeat": 5,               // 港关守备最大常驻人数
+
+    // ---- 特技组合搭配 ----
+    "featureNoveltyBonus": 0.35,        // 候选能带来本城驻军没有的特技时的加分（军事/守备岗）
+    "enablePortGateDistribute": true,   // 是否把港关纳入编制（false = 港关不接收人）
+
+    // ---- 预想兵力（抗抖动的编制基数） ----
+    "troopExpectFill": 0.8,             // 预想兵力容量部分 = 兵力上限 × 此比例
+    "troopObserveAlpha": 0.25,          // 兵力观察值的慢速均值系数（每回合）
+    "useCurrentTroopsWhenHigher": true, // 当前兵力高于预想值时采用当前值（只上不下）
+    "troopEcoAdjust": true,             // 预想兵力是否按经济（粮草/金钱）修正
+    "troopEcoBase": 0.5,                // 经济系数基数
+    "troopEcoFoodWeight": 0.3,          // 粮草填充率的权重
+    "troopEcoGoldWeight": 0.2,          // 金钱填充率的权重
+    "troopEcoFloor": 0.4,               // 经济系数下限
+    "troopEcoAlpha": 0.25,              // 经济系数的慢速均值系数
+
+    // ---- 预想资源值（资金 / 粮草） ----
+    "goldExpectFill": 0.7,              // 预想资金 = 金库上限 × 此比例（与长期观察值取大）
+    "foodExpectFill": 0.7,              // 预想粮草 = 粮仓上限 × 此比例
+    "resourceObserveAlpha": 0.25,       // 资源观察值的慢速均值系数
+
+    // ---- 开发修正（离边境距离 + 资源富裕度） ----
+    "devRingFactor": [0.5, 0.8, 1.0, 1.15], // 圈层系数表，下标 = borderLine（0 = 边境），超出取末项
+    "devResourceBase": 0.7,             // 资源富裕度对开发修正的贡献下限
+    "devModMin": 0.3,                   // 开发修正下限
+    "devModMax": 1.5,                   // 开发修正上限
+
+    // ---- 军事岗：队数折算与保底 ----
+    "defaultTroopsPerGeneral": 10000,   // 无太守时每名军事将分摊的兵力
+    "troopsPerUnit": 5000,              // 每队编制兵力（军事岗 = 预想兵力 ÷ 此值 = 队数）
+    "deputyPerUnit": 0.5,               // 每队平均副将数（军事岗 = 队数 × (1 + 此值)）
+    "troopSeatOnlyWhenThreatened": true,// 军事岗只在"前线(圈层0) / 次前线(圈层1) / 威胁达标城"按预想兵力折算
+    "rearMilitarySeat": 0,              // 纯后方(圈层≥2)且威胁未达标的城：军事岗数（0 = 不设）
+    "militarySeatHardMax": 60,          // 单城军事岗硬顶
+    "minMilitarySeatAtBorder": 3,       // 前线城即使没兵也保留的军事岗
+    "militaryMinAbility": 80,           // 军事/守备岗能力下限：统率+武力 < 此值不派去带兵（硬性岗不受限）
+
+    // ---- 军事岗：按"兵力充实度"收缩（治"预想兵力虚高 → 编出一堆没兵可带的将军岗"） ----
+    // 公式：军事岗 = min(原值, C) + max(0, 原值 − C) × 当前兵力/预想兵力
+    //       C（免缩放额度）= militarySeatFillShare × 势力人均人数（人均 = 总人数 ÷ 都市数，不含港关）
+    // 例（人均 29）：0.3 → C ≈ 9；某城原值 33、当前/预想 = 0.22 → 9 + 24×0.22 ≈ 14
+    "militarySeatFillShare": 0.3,            // α：额度系数（0 = 关闭收缩，回到旧行为）
+    "militarySeatFillUseLocalFactor": true,  // 再乘 min(1, 本城在册/人均)：空城 → C=0，整段按兵力折算
+    "militarySeatFillRatioFloor": 0.0,       // 充实度下限（0 = 用原始比例；设 0.5 可抑制战损抖动）
+
+    // ---- 最低运转保底（后方保留"运输 + 战略储备"） ----
+    "minSeatAtRearByLevel": [2, 2, 3, 3], // 后方保底席位，下标 = 城池等级-1
+    "rearFloorMinRing": 1,              // 保底生效的圈层下限（≥ 此圈层才算"后方"）
+    "enableDynamicRearFloor": true,     // 用"人均城数"动态推算保底
+    "rearShareRatio": 0.3,              // 动态保底 = 人均城数 × 此值
+    "maxSeatAtRearByLevel": [3, 4, 6, 8], // 后方保底等级上限（防止后方囤人）
+
+    // ---- 开发岗（战略资源积累） ----
+    "interiorPointsPerDevSeat": 3.0,    // 每多少点内政设施等级配 1 名开发将
+    "devSeatNeedsInterior": true,       // 是否要求城内有内政设施才给"缺口加成"
+    "devGapBonusLow": 1,                // 开发缺口低档追加岗
+    "devGapBonusHigh": 2,               // 开发缺口高档追加岗
+    "devGapLow": 0.35,                  // 开发缺口低档阈值
+    "devGapHigh": 0.60,                 // 开发缺口高档阈值
+    "devSeatMax": 3,                    // 开发岗上限（基准；人力丰裕时按 abundance 放宽）
+
+    // ---- 人力丰裕度（弹性岗位随人力放开） ----
+    "staffAbundanceScaling": true,      // 弹性岗上限是否随"人力丰裕度"放宽
+    "staffPerCityBaseline": 8.0,        // 丰裕度基准：人均城数达到此值按 1.0 倍计
+    "staffAbundanceMax": 2.5,           // 丰裕度上限（最多放大的倍数）
+
+    // ---- 各类弹性岗位的独立上限 ----
+    "trainSeatMax": 3,                  // 训练岗上限（游戏内训练最多 3 人）
+    "searchSeatMax": 5,                 // 搜索岗上限
+    "hiddenPerSearchSeat": 25.0,        // 每多少名未发现/在野人才配 1 名搜索将
+    "logisticsSeatMax": 2,              // 后勤岗上限（治安 1 + 粮草 1）
+    "recruitPersonSlotEnabled": true,   // 是否生成"登用"岗
+    "wildPerRecruitSeat": 8.0,          // 每多少名在野武将配 1 名登用将
+    "recruitPersonSeatMax": 5,          // 登用岗上限
+
+    // ---- 前期加成（开局 N 回合内优先登用） ----
+    "earlyGameTurns": 10,               // 前期窗口：开局前 N 个势力回合
+    "earlyRecruitWildThreshold": 4,     // 城内"在野武将"达此数才触发前期登用加成
+    "earlyRecruitPriority": 3,          // 前期登用岗优先级（平时 9）
+    "earlyWildPerRecruitSeat": 4.0,     // 前期"每多少名在野配 1 名登用将"（平时 8）
+
+    // ---- 运输岗 ----
+    "transportSeatMax": 2,              // 运输岗上限
+    "transportExtraSeatAbundance": 1.5, // 扩容到 2 人所需的人力丰裕度
+    "transportSlotEnabled": true,       // 是否生成运输岗
+    "transportMinTroops": 10000,        // 运输源城所需最低兵力
+    "transportMinFood": 20000,          // 运输源城所需最低粮草
+
+    // ---- 跨圈层调动成本（前线有权与内陆交换武将） ----
+    "frontwardCostFactor": 0.25,        // 调向更前线（ring 变小）的成本系数（便宜 = 鼓励前送）
+    "backwardCostFactor": 1.5,          // 调向更后方（ring 变大）的成本系数（贵 = 抑制回撤）
+
+    // ---- 征兵 ----
+    "recruitSlotEnabled": true,         // 是否生成征兵岗
+    "recruitFillTarget": 0.8,           // 兵力低于上限的此比例时需要征兵
+    "recruitSevereFill": 0.5,           // 兵力低于上限的此比例时视为严重缺兵（+1 岗）
+
+    // ---- 军备（兵装 / 器械 / 船） ----
+    "armamentSlotEnabled": true,        // 是否生成军备岗
+    "armamentCoverTarget": 1.0,         // 兵装总量 ÷ 兵力 达到此比例即视为充足
+    "machineCountTarget": 2,            // 器械目标数量（有工坊时才要求）
+    "boatSlotEnabled": true,            // 是否生成船岗（有船厂且是港口时才要求）
+    "armamentNeedsFacility": true,      // 兵装岗是否要求城内有锻冶/马厩
+
+    // ---- 训练（士气） ----
+    "trainSlotEnabled": true,           // 是否生成训练岗
+    "moraleFillTarget": 0.9,            // 士气低于上限的此比例时需要训练
+
+    // ---- 搜索 ----
+    "searchSlotEnabled": true,          // 是否生成搜索岗
+
+    // ---- 后勤 ----
+    "logisticsSecurityTarget": 0.7,     // 治安低于此比例时生成后勤岗（后方城）
+    "logisticsFoodFillTarget": 0.3,     // 粮草低于此比例时生成后勤岗（后方城）
 
     // ---- 调动节奏与门槛 ----
     "debounceTurns": 2,                 // 同一武将 N 个势力回合内不再被调走
     "maxTransferPerCityPerTurn": 2,     // 每城每回合接收基准额度
     "frontlineExtraReceiveSeat": 2,     // 前线 / 高威胁城额外接收额度
-    "maxTransferFromCityPerTurn": 1,    // 每城每回合调出基准额度
-    "overloadedFreePersonThreshold": 30,// 空闲 ≥ 此值视为"人力超载城"
-    "overloadedSendLimit": 5,           // 超载城的调出额度
-    "maxTransferPerTurn": 12,           // 势力级每回合调动总人数上限
+    "maxTransferFromCityPerTurn": 1,    // 源城每回合调出基准额度（净富余算出的额度下限）
+    "sendSurplusPerSeat": 5,            // 净富余 = 本城空闲 − 本城未填岗位；每 N 个净富余多允许调出 1 人
+    "maxSendPerCityPerTurn": 5,         // 源城每回合调出额度硬顶（净富余越多越接近它）
+    "maxTransferPerTurn": 32,           // 势力级每回合调动总人数上限（0 = 不限）
     "minTransferScore": 0.1,            // 外调最低匹配分（硬性岗不受限）
     "stealLocalCost": 0.4,              // 抢占"本城在岗"人选的额外成本（优先用真正的机动人力）
-    "militaryMinAbility": 80,           // 军事/守备岗能力下限：统率+武力 < 此值不派去带兵（硬性岗不受限）
-    "minPortGateGuard": 1               // 港关至少保留的守备人数
+    "minPortGateGuard": 1,              // 港关至少保留的守备人数
+
+    // ---- 编制总量与增量 ----
+    "enableIncrementalPlan": true,      // 城况未变的城复用上回合岗位表
+    "maxPostsPerPerson": 1.1,           // 岗位总数上限 = 势力总人数 × 此值；超出时按城轮转裁撤
+                                        // 参考：0.8 = 偏紧（会明显裁撤）；1.0~1.1 = 编制与人力大致相等；1.4 = 宽松
+
+    // ---- 求解 ----
+    "maxSeatSharePerCity": 0.4,         // 单城岗位数占势力总人数比例上限
+    "crossRingCost": 1.5,               // 跨圈层调动额外成本
+    "costPerTurn": 1.0,                 // 行程成本系数（每回合位移折算）
+    "turnDays": 10                      // 一回合多少天（用于把 DistanceDays 折成回合）
   }
 }

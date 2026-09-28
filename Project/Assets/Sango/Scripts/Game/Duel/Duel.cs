@@ -93,6 +93,11 @@ namespace Sango.Core.Duel
             public int endBlowCounter = 0;
             /// <summary>状态标记</summary>
             public int flags = 0;
+            /// <summary>
+            /// 事件单挑的结果强制覆盖（null = 不干预，走自然结算）。
+            /// 由 DuelManager.BuildParam 填入，在 ResultHandler 入口被消费。
+            /// </summary>
+            public DuelOutcomeOverride outcome = null;
 
             public Param()
             {
@@ -632,14 +637,22 @@ namespace Sango.Core.Duel
             if (!Utils.IsAlive(challengerForce))
                 return;
             system.GetEvents().OnDuelFinished();
+            DuelOutcomeOverride outcome = param.outcome;
             int loserResult = ParamGetCharaResult(param, param.loserTeam, param.loserChara);
-            // 一方不是普通势力时不发生俘虏或死亡
-            if (!winnerForce.IsNormal() || !loserForce.IsNormal())
+            // 事件强制结局：史实桥段需要确定的结果（"斩颜良""骂死王朗"），
+            // 不指定（Max）时保持自然结算。
+            if (outcome != null && outcome.loserResult != DuelCharaResult.DuelCharaResult_Max)
+                loserResult = (int)outcome.loserResult;
+            // 一方不是普通势力时不发生俘虏或死亡（事件可用 ignoreForceKind 强制覆盖）
+            if (!(outcome != null && outcome.ignoreForceKind)
+                && (!winnerForce.IsNormal() || !loserForce.IsNormal()))
                 loserResult = (int)DuelCharaResult.DuelCharaResult_Escaped;
             // 规则(暂时)：君主(主公，PersonStateType.Governor)不可被俘虏、也不会战死 ——
             // 被俘与战死一律改判为退却(释放)：前者是既定规则，后者是因为"主公死亡后选择继承人"
             // 的功能还没做。等该功能接入后，把这里和 CalcKillChance 里的君主豁免一起去掉即可。
-            if (loserPerson.IsGovernor
+            // 事件可用 ignoreGovernorImmunity 绕过（白门楼斩吕布、弑曹髦这类史实桥段）。
+            if (!(outcome != null && outcome.ignoreGovernorImmunity)
+                && loserPerson.IsGovernor
                 && (loserResult == (int)DuelCharaResult.DuelCharaResult_Captured
                     || loserResult == (int)DuelCharaResult.DuelCharaResult_Dead))
             {
@@ -746,10 +759,69 @@ namespace Sango.Core.Duel
         /// <summary>结算入口</summary>
         public void ResultHandler()
         {
+            // 事件单挑的强制结果必须**在判定分支之前**写进 param：
+            // 否则胜负仍由逻辑层随机决出，"关羽斩颜良"就会变成看运气。
+            ApplyOutcomeOverride();
+
             if (Utils.InRange(param.winnerTeam, 0, MaxTeamCount - 1) && Utils.InRange(param.winnerChara, 0, MaxTeamCharaCount - 1))
                 ResultNormal();
             else
                 ResultDraw();
+        }
+
+        /// <summary>
+        /// 把外部指定的强制结果写进 param（事件单挑专用）。
+        ///
+        /// 只覆盖胜负双方，不碰体力 / 伤病 / 过程数据——
+        /// 过程仍由单挑逻辑正常演出，只是"最后谁赢"被钉死。
+        /// 未指定（param.outcome 为 null 或 winnerTeam &lt; 0）时直接返回，等价于不干预。
+        /// </summary>
+        public void ApplyOutcomeOverride()
+        {
+            DuelOutcomeOverride outcome = param != null ? param.outcome : null;
+            if (outcome == null || outcome.winnerTeam < 0)
+                return;
+
+            int winnerTeam = outcome.winnerTeam;
+            if (!Utils.InRange(winnerTeam, 0, MaxTeamCount - 1))
+                return;
+
+            int loserTeam = GetOpponentTeam(winnerTeam);
+            if (!Utils.InRange(loserTeam, 0, MaxTeamCount - 1))
+                return;
+
+            int winnerChara = FirstAliveCharaIndex(winnerTeam);
+            int loserChara = FirstAliveCharaIndex(loserTeam);
+            if (winnerChara < 0 || loserChara < 0)
+                return;
+
+            param.winnerTeam = winnerTeam;
+            param.winnerChara = winnerChara;
+            param.loserTeam = loserTeam;
+            param.loserChara = loserChara;
+
+            LogDebug($"事件单挑强制结果：胜方队伍={winnerTeam} 武将序号={winnerChara}，败方队伍={loserTeam} 武将序号={loserChara}");
+        }
+
+        /// <summary>
+        /// 取队伍中第一个存活的参战武将序号，找不到返回 -1。
+        /// 用于把"强制胜方队伍"落到具体武将上（结算需要 winnerChara / loserChara）。
+        /// </summary>
+        /// <param name="team">队伍编号</param>
+        /// <returns>武将序号；无存活武将时返回 -1</returns>
+        public int FirstAliveCharaIndex(int team)
+        {
+            if (!Utils.InRange(team, 0, MaxTeamCount - 1))
+                return -1;
+
+            for (int i = 0; i < MaxTeamCharaCount; i++)
+            {
+                Person person = ParamGetPerson(param, team, i);
+                if (Utils.IsAlive(person))
+                    return i;
+            }
+
+            return -1;
         }
 
         #endregion
@@ -2008,7 +2080,9 @@ namespace Sango.Core.Duel
             // 规则(暂时)：君主(主公)不会战死 —— 目前还没有"主公死亡后选择继承人"的功能，
             // 故这里一律返回 false；等继承人功能做好后，删掉这一段即可接回战死判定
             // （同时记得去掉 ResultNormal 里对应的君主改判）。
-            if (person != null && person.IsGovernor)
+            // 事件可用 ignoreGovernorImmunity 绕过本豁免。
+            bool governorImmunity = !(param != null && param.outcome != null && param.outcome.ignoreGovernorImmunity);
+            if (governorImmunity && person != null && person.IsGovernor)
                 return false;
             if (specialAction.type == (int)DuelSpecial.DuelSpecial_Retreat)
                 return false;

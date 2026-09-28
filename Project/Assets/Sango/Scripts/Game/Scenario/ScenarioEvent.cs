@@ -1,8 +1,23 @@
 /*
  * 文件名：Scenario.cs
- * 描述：剧本剧情事件类
+ * 描述：剧本剧情事件类（**旧版，已被取代**）
  * 创建日期：2026-03-27
- * 最后修改：2026-03-27
+ * 最后修改：2026-09-26
+ *
+ * ⚠ 本文件里的旧事件体系已被 Sango.Core.Event 命名空间下的新框架取代：
+ *     · 数据结构   ScenarioEvent          → EventDefinition / EventTriggerDef / EventStage
+ *     · 调度器     ScenerioEventManager   → ScenarioEventManager（注意旧类名还把 Scenario 拼错了）
+ *     · 数据源     Data/ScenarioEvent/*.json（旧格式）→ 同目录，但改为新 Schema
+ *     · 占位符     FormatContent          → EventValue.EvalText（同样支持 {:槽位Key}）
+ *
+ *   保留原因：IScenarioEventData 仍是"角色槽命名约定"的规范说明
+ *   （ActionForce / TargetPerson / ActionCity …），新框架的 EventConditionDatabase
+ *   刻意沿用这套命名，使既有 Condition 能不加修改地被事件复用。
+ *   其余类型已无使用者，标记 Obsolete 以防新代码误用。
+ *
+ *   ⚠ 注意：旧类名 ScenarioEvent 与新命名空间里的 ScenarioEventManager 只差一个词，
+ *   在同一文件里同时 using Sango.Core 与 Sango.Core.Event 时要小心歧义。
+ *   旧体系计划在 Phase 6 整体删除。
  */
 
 using Sango.Render;
@@ -14,7 +29,11 @@ using Newtonsoft.Json;
 namespace Sango.Core
 {
     /// <summary>
-    /// 剧情数据获取接口类
+    /// 剧情数据获取接口类。
+    ///
+    /// 本接口没有标记 Obsolete：它是"角色槽命名约定"的规范说明
+    /// （ActionForce / TargetPerson / ActionCity ……），新框架的 EventConditionDatabase
+    /// 沿用同一套 Key，因此这里仍作为命名依据保留。
     /// </summary>
     public interface IScenarioEventData
     {
@@ -40,6 +59,8 @@ namespace Sango.Core
         object TargetObject { get; }
     }
 
+    /// <summary>旧事件类型分类。已被 <see cref="Sango.Core.Event.EventOpType"/>（演出指令集）取代。</summary>
+    [System.Obsolete("旧事件体系已被 Sango.Core.Event 取代，请使用 EventOpType")]
     public enum ScenarioEventType
     {
         Text,
@@ -48,8 +69,10 @@ namespace Sango.Core
     }
 
     /// <summary>
-    /// 剧情逻辑基类
+    /// 剧情逻辑基类。
+    /// 已被 <see cref="Sango.Core.Event.EventRunner"/>（状态机）+ <see cref="Sango.Core.Event.EventStage"/>（指令流）取代。
     /// </summary>
+    [System.Obsolete("旧事件体系已被 Sango.Core.Event 取代，请使用 EventRunner")]
     public class ScenarioEventBase : RenderEventBase
     {
         public IScenarioEventData scenarioEventData;
@@ -57,10 +80,16 @@ namespace Sango.Core
     }
 
     /// <summary>
-    /// 剧本类，管理游戏剧本的所有数据
-    /// 包含势力、武将、城市、部队、建筑等游戏对象
-    /// 负责剧本的加载、保存、运行等核心功能
+    /// 旧版剧本事件数据（一条剧情 = 一个类型 + 一段格式化文本 + 后续事件 Id）。
+    ///
+    /// ⚠ 已被 <see cref="Sango.Core.Event.EventDefinition"/> 取代：
+    ///   旧的"一个事件只有一句文本"无法表达多句台词、选择肢、效果结算与分支，
+    ///   新框架用 EventStage 的线性指令流 + Label/Jump 表达，
+    ///   并支持触发条件、角色槽、跨回合定时队列。
+    ///
+    /// 本类已无外部使用者（只被 ScenerioEventManager 的字典引用），Phase 6 整体删除。
     /// </summary>
+    [System.Obsolete("旧事件体系已被 Sango.Core.Event 取代，请使用 EventDefinition")]
     [JsonObject(MemberSerialization.OptIn)]
     public class ScenarioEvent : SangoObject
     {
@@ -283,6 +312,16 @@ namespace Sango.Core
 
 
 
+    /// <summary>
+    /// 旧事件管理器——**空壳，从未实现过任何功能**，且类名把 Scenario 拼成了 Scenerio。
+    ///
+    /// 完全由 <see cref="Sango.Core.Event.ScenarioEventManager"/> 取代，
+    /// 后者是 [GameSystem]（由 GameSystemManager 反射创建并自动 Init）、
+    /// 负责三源加载、触发判定、定时队列与播放调度。
+    ///
+    /// 保留只是为了避免其它 Mod 的代码引用时直接编译失败；Phase 6 删除。
+    /// </summary>
+    [System.Obsolete("拼写错误且从未实现的空壳，请使用 Sango.Core.Event.ScenarioEventManager")]
     public class ScenerioEventManager : Singleton<ScenerioEventManager>
     {
         public ScenerioEventManager() { }

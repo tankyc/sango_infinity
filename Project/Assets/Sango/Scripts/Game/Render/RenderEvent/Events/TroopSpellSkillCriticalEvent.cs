@@ -71,6 +71,7 @@ namespace Sango.Render
             {
                 troop.Render.SetSmokeShow(false);
             }
+            GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
         }
 
         public override bool IsVisible()
@@ -80,7 +81,7 @@ namespace Sango.Render
 
         public override bool Update(Scenario scenario, float deltaTime)
         {
-            if (!IsVisible() || Input.GetMouseButtonDown(0))
+            if (!IsVisible()/* || Input.GetMouseButtonDown(0)*/)
             {
                 Action();
                 troop?.Render?.SetAniShow(0);
@@ -104,7 +105,6 @@ namespace Sango.Render
                     return IsDone;
                 }
             }
-            
             IsDone = skill.UpdateRender(spellCell, scenario, time, Action);
             time += deltaTime;
             return IsDone;
@@ -116,7 +116,6 @@ namespace Sango.Render
             if (isAction) return;
             skill.Action(spellCell, criticalFactor);
             isAction = true;
-            GameEvent.OnSkillActionEnd?.Invoke(skill, spellCell, targetTroop, targetBuilding);
         }
 
     }

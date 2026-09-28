@@ -162,6 +162,9 @@ namespace Sango.UI
             AddNumberItem("基础火焰伤害", variables.baseFireDamage, 100, 3000, (v) => { variables.baseFireDamage = v; });
             AddToggleItem("火焰-允许蔓延到相邻格", variables.fireSpreadEnabled, (v) => { variables.fireSpreadEnabled = v; });
 
+            AddTitle("剧本事件");
+            AddToggleItem("启用剧本事件系统", variables.eventSystemEnabled, (v) => { variables.eventSystemEnabled = v; });
+
             AddTitle("部队参数");
             AddNumberItem("攻击-武力影响(万分比)", variables.fight_troop_attack_strength_factor, 0, 100000, (v) => { variables.fight_troop_attack_strength_factor = v; });
             AddNumberItem("攻击-智力影响(万分比)", variables.fight_troop_attack_intelligence_factor, 0, 100000, (v) => { variables.fight_troop_attack_intelligence_factor = v; });

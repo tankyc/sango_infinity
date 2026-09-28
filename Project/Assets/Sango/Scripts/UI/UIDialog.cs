@@ -134,14 +134,22 @@ namespace Sango.UI
         {
             base.OnDestroy();
 
-            // Window.DestroyAll 是直接把 GameObject 销毁，不走 Close()，这里也要让状态落地
+            // Window.DestroyAll 是直接把 GameObject 销毁，不走 Close()，这里也要让状态落地。
             if (m_Closed) return;
             m_Closed = true;
             talkData = null;
             talkEndAction = null;
             m_LineIndex = -1;
 
-            GameDialog.Instance.OnWindowClosed(m_Seq, false, false);
+            // allowAdvance: false —— 走到 OnDestroy 说明 GameObject 正在被销毁，
+            // 绝大多数情况是**退出 Play 模式时场景在拆**。这时若让 GameDialog 继续推进队列，
+            // 它会当场开下一个对话窗口，而 Window.CreateWindow 要把新对象 SetParent 到
+            // 正在销毁的 UIRoot 上，直接报
+            //   "Cannot set the parent of the GameObject 'window_dialog4' while its new parent
+            //    'UIRoot' is being destroyed"
+            // 并留下一个没人回收的窗口对象（Unity 退出时报 "Some objects were not cleaned up"）。
+            // 正常的读档 / 回主菜单走的是 Window.Close → OnClose → OnWindowClosed(可推进)，不受影响。
+            GameDialog.Instance.OnWindowClosed(m_Seq, false, false, false);
         }
 
         /// <summary>是否还有**下一句**没显示（注意：不是"当前这句是否存在"）</summary>

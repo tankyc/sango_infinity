@@ -289,8 +289,12 @@ namespace Sango.Core
             // ---------- 1.5) 编制总量约束：岗位总数不该远超势力人力 ----------
             // 否则每座城都停在"岗位 10 / 在岗 3"的空缺态：分布效果被稀释、报告看不出重点，
             // 稀缺人手也会被大量低价值岗位摊薄。
-            // 裁撤方式：按"硬性 → 优先级 → 军事岗边境优先"排序后截尾 ——
-            // 最先被裁的是深后方的后勤 / 开发 / 运输岗，前线军事岗最后动。
+            //
+            // 裁撤方式是**按城轮转**：每轮每座城各裁掉 1 个"该城优先级最低"的岗位，直到裁够。
+            // 为什么不是"整体排序后截尾"：那等于让 city id 当最后的裁决 ——
+            // 同样在前线、同样 10 万兵的城，id 排最后的会被砍到只剩硬性岗（"1 人守城"），
+            // id 靠前的却一个不少。总量不足时应当"各城等比缩减"，而不是由 id 决定生死。
+            // 硬性岗（Post.required）永不裁撤：每城至少保住硬性军事岗 / 港关守备。
             int postBudget = personTotal > 0
                 ? (int)Math.Floor(personTotal * Math.Max(0.1f, weights.maxPostsPerPerson))
                 : int.MaxValue;
@@ -303,11 +307,58 @@ namespace Sango.Core
                         cutRings[cityList[i].Id] = CityEstablishment.ResolveRing(cityList[i]);
                 }
 
+                // 组内按"保留优先"排序（硬性 → 优先级 → 军事岗边境优先 / 内政岗缺口优先 → 稳定兜底），
+                // 于是每城列表的**尾部就是该城最不优先的岗位**，裁撤从尾部取。
                 tasks.Sort(delegate (PostTask a, PostTask b)
                 {
                     return CompareForAssign(a, b, cutRings);
                 });
-                tasks.RemoveRange(postBudget, tasks.Count - postBudget);
+
+                Dictionary<int, List<int>> byCity = new Dictionary<int, List<int>>();
+                for (int i = 0; i < tasks.Count; i++)
+                {
+                    List<int> list;
+                    if (!byCity.TryGetValue(tasks[i].post.cityId, out list))
+                    {
+                        list = new List<int>();
+                        byCity[tasks[i].post.cityId] = list;
+                    }
+                    list.Add(i);
+                }
+
+                List<int> cutCityIds = new List<int>(byCity.Keys);
+                cutCityIds.Sort();                       // 固定顺序 → 结果可复现
+
+                bool[] cut = new bool[tasks.Count];
+                int need = tasks.Count - postBudget;
+                int cutCount = 0;
+                while (cutCount < need)
+                {
+                    bool progress = false;
+                    for (int c = 0; c < cutCityIds.Count && cutCount < need; c++)
+                    {
+                        List<int> list = byCity[cutCityIds[c]];
+                        // 从该城尾部（最不优先）往回找第一个"可裁"的岗位
+                        for (int k = list.Count - 1; k >= 0; k--)
+                        {
+                            int idx = list[k];
+                            if (cut[idx]) continue;
+                            if (tasks[idx].post.required) break;   // 该城只剩硬性岗 → 本轮换下一个城
+                            cut[idx] = true;
+                            cutCount++;
+                            progress = true;
+                            break;
+                        }
+                    }
+                    if (!progress) break;                // 可裁的只剩硬性岗 → 停止（编制会略多于预算）
+                }
+
+                List<PostTask> kept = new List<PostTask>(tasks.Count - cutCount);
+                for (int i = 0; i < tasks.Count; i++)
+                {
+                    if (!cut[i]) kept.Add(tasks[i]);
+                }
+                tasks = kept;
 
                 // 恢复"按城聚集"的顺序，报告才能按城成组输出
                 tasks.Sort(delegate (PostTask a, PostTask b)
@@ -315,6 +366,16 @@ namespace Sango.Core
                     return a.post.cityId.CompareTo(b.post.cityId);
                 });
             }
+
+            // ---------- 1.6) 每城"还缺多少人"的账（调出额度的分母） ----------
+            // 一座城只有在**自己的岗位都填满之后**，多出来的人才算真富余、才允许往别处调。
+            //   postCountByCity = 该城岗位数（裁撤后的最终编制）
+            //   filledByCity    = 该城已填数（本城在岗 + 外调到位），随填充实时递增
+            Dictionary<int, int> postCountByCity = new Dictionary<int, int>();
+            for (int i = 0; i < tasks.Count; i++)
+                BumpCount(postCountByCity, tasks[i].post.cityId);
+
+            Dictionary<int, int> filledByCity = new Dictionary<int, int>();
 
             // ---------- 2) 岗位分两批：前线 / 硬性岗优先，其余岗（后方军事 / 内政族）回填 ----------
             // 【为什么要分阶段】旧实现无条件"先用本城在册人员填满**所有**岗位"：
@@ -407,6 +468,7 @@ namespace Sango.Core
                     {
                         occupied.Add(best.Id);
                         plan.fillings.Add(MakeFilling(task, best, bestScore, true, city, null));
+                        BumpCount(filledByCity, task.post.cityId);      // 本城该岗位已填 → 空缺 −1
                     }
                     else
                     {
@@ -457,6 +519,7 @@ namespace Sango.Core
             Dictionary<int, int> coolingStalled = new Dictionary<int, int>();
             Dictionary<int, int> scoreStalled = new Dictionary<int, int>();
             Dictionary<int, int> vacantStalled = new Dictionary<int, int>();
+            Dictionary<int, int> sourceStalled = new Dictionary<int, int>();
             Dictionary<int, string> stalledCityNames = new Dictionary<int, string>();
             HashSet<int> exhaustedSources = new HashSet<int>();   // 本回合"已调出够多"的源城
             bool globalQuotaUsed = false;                         // 作用域级调动总额度是否已用完
@@ -559,10 +622,14 @@ namespace Sango.Core
                         if (!DeploymentState.CanReceive(scopeKey, turn, city.Id, recvLimit))
                             break;
 
-                        // 源城调出配额：本回合该城已送够人 → 换一个来源，不拉黑这个武将。
-                        // 额度按城况动态取值：人力超载的城放宽，让囤积城尽快把闲置武将从城里输出去。
+                        // 源城调出配额：额度按**净富余**（空闲 − 本城未填岗位）动态取值。
+                        //   自己的缺口还没补满（净富余 ≤ 0）→ **一个人都不许调出**，先保住本城；
+                        //   富余越多额度越大（每 sendSurplusPerSeat 个富余多 1 人），上限 maxSendPerCityPerTurn。
+                        // 注意：CanSend 把 limit ≤ 0 当作"不限制"，所以 0 必须在这里单独判掉。
                         int fromCity = best.BelongCity != null ? best.BelongCity.Id : 0;
-                        if (!DeploymentState.CanSend(scopeKey, turn, fromCity, SendLimitFor(best.BelongCity, weights)))
+                        int sendLimit = SendLimitFor(best.BelongCity,
+                            VacancyOfCity(fromCity, postCountByCity, filledByCity), weights);
+                        if (sendLimit <= 0 || !DeploymentState.CanSend(scopeKey, turn, fromCity, sendLimit))
                         {
                             exhaustedSources.Add(fromCity);
                             continue;
@@ -608,6 +675,15 @@ namespace Sango.Core
                             coolingStalled[city.Id] = n + 1;
                             stalledCityNames[city.Id] = city.Name;
                         }
+                        else if (HasExhaustedOnlyCandidate(pool, transferred, blocked, exhaustedSources))
+                        {
+                            // 池子里**还有**人，只是他们所属的源城本回合已经"送够人"了
+                            // （每城每回合的调出额度）。含义与"真的没人"完全不同：下回合就能动。
+                            int n;
+                            sourceStalled.TryGetValue(city.Id, out n);
+                            sourceStalled[city.Id] = n + 1;
+                            stalledCityNames[city.Id] = city.Name;
+                        }
                         else
                         {
                             // 池中确实没有可用人选（池子被本城在岗 / 前序岗位吃光了）
@@ -633,7 +709,14 @@ namespace Sango.Core
                     // 【改动 B】这个人原本在别的城的"在岗"记账里 → 那条记账作废（人已去更缺人的地方），
                     // 该岗位在报告里会回到"空缺"。作废记录统一在报告前剔除。
                     if (occupied.Contains(chosen.Id))
+                    {
                         revokedPersons.Add(chosen.Id);
+                        // 源城那条"在岗"记账作废 → 它的已填数要减回去。
+                        // 否则源城空缺被低估、净富余被高估，它会持续把本城需要的人继续送出去。
+                        int prevFilled;
+                        if (filledByCity.TryGetValue(chosenFromCity, out prevFilled) && prevFilled > 0)
+                            filledByCity[chosenFromCity] = prevFilled - 1;
+                    }
 
                     occupied.Remove(chosen.Id);
                     transferred.Add(chosen.Id);
@@ -649,6 +732,7 @@ namespace Sango.Core
                         DeploymentState.transferCountThisTurn++;
 
                     plan.fillings.Add(MakeFilling(task, chosen, chosenScore, false, city, fromName));
+                    BumpCount(filledByCity, city.Id);                   // 目标城该岗位已填 → 空缺 −1
                 }
             }
 
@@ -673,6 +757,7 @@ namespace Sango.Core
             AddKeys(scoreStalled, stalledCityIds);
             AddKeys(coolingStalled, stalledCityIds);
             AddKeys(vacantStalled, stalledCityIds);
+            AddKeys(sourceStalled, stalledCityIds);
 
             for (int i = 0; i < stalledCityIds.Count; i++)
             {
@@ -681,6 +766,7 @@ namespace Sango.Core
                 int s = CountOf(scoreStalled, cityId);
                 int c = CountOf(coolingStalled, cityId);
                 int v = CountOf(vacantStalled, cityId);
+                int e = CountOf(sourceStalled, cityId);
 
                 string cname;
                 stalledCityNames.TryGetValue(cityId, out cname);
@@ -695,12 +781,14 @@ namespace Sango.Core
                 }
                 if (s > 0)
                     AppendReason(why, string.Format("净收益不足 {0} 个（门槛 {1:F2}）", s, weights.minTransferScore));
+                if (e > 0)
+                    AppendReason(why, string.Format("源城无可调富余 {0} 个（本城缺口未补满，或本回合调出额度已用完，下回合可继续）", e));
                 if (v > 0)
-                    AppendReason(why, string.Format("池中无可用人选 {0} 个", v));
+                    AppendReason(why, string.Format("池中确实无可用人选 {0} 个", v));
                 if (c > 0)
                     AppendReason(why, string.Format("候选在冷却期 {0} 个（{1} 回合）", c, weights.debounceTurns));
 
-                plan.unmet.Add(string.Format("{0}: {1} 个岗位待补 —— {2}", cname, q + s + c + v, why));
+                plan.unmet.Add(string.Format("{0}: {1} 个岗位待补 —— {2}", cname, q + s + c + v + e, why));
             }
 
             if (globalQuotaUsed)
@@ -810,6 +898,11 @@ namespace Sango.Core
                 if (onlyOccupied != isOccupied) continue;
 
                 if (p.BelongCity != null && exhaustedSources.Contains(p.BelongCity.Id)) continue;
+                // 【已在目标城 → 无需调动】本城人不必（也不能）外调到本城，闸门同样会以"已在目标城"否决。
+                // 必须在**挑人阶段**就排除，否则"抢占在岗"那一轮会把本城在岗记账的人再次提名为
+                // **同一座城的另一个岗位**，被闸门拒掉后还塞进 blocked（本回合彻底出局）：
+                // 既白刷一遍"闸门否决汇总"，也让该城的在岗记录看起来像出了问题。
+                if (p.BelongCity == dest) continue;
                 if (!MeetsMilitaryFloor(p, post, weights)) continue;
 
                 float score = Score(p, post, dest, weights);
@@ -845,6 +938,26 @@ namespace Sango.Core
             if (post.kind != PostKind.Military && post.kind != PostKind.Garrison) return true;
             if (post.required) return true;
             return p.Command + p.Strength >= weights.militaryMinAbility;
+        }
+
+        /// <summary>
+        /// 池中是否存在"**仅因为源城调出额度用完**而被排除"的候选。
+        ///
+        /// 用于把空缺归因从"池中无可用人选"里细分出来 —— 两者含义完全不同：
+        /// 前者下回合就能继续调（源城每回合的调出额度会重置），后者是真的没人可派。
+        /// </summary>
+        static bool HasExhaustedOnlyCandidate(List<Person> pool, HashSet<int> transferred,
+            HashSet<int> blocked, HashSet<int> exhaustedSources)
+        {
+            if (pool == null) return false;
+            for (int i = 0; i < pool.Count; i++)
+            {
+                Person p = pool[i];
+                if (p == null || transferred.Contains(p.Id) || blocked.Contains(p.Id)) continue;
+                if (p.BelongCity != null && exhaustedSources.Contains(p.BelongCity.Id))
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>把计数表的键追加到列表（去重，保持首次出现顺序）。</summary>
@@ -903,17 +1016,54 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 源城本回合的调出额度：人力超载（空闲人数 ≥ <c>overloadedFreePersonThreshold</c>）的城
-        /// 放宽到 <c>overloadedSendLimit</c>，让囤积城尽快把闲置武将输送给缺人的城。
+        /// 源城本回合的调出额度：按**净富余**（空闲人数 − 本城未填岗位数）动态计算。
+        ///
+        /// 【为什么改成相对判据】旧实现是"空闲人数 ≥ 固定阈值 30 才算超载，否则按基准 1 人"，
+        /// 而正常存档里单城空闲很难到 30（曹操存档最大 25）→ 每座城恒等于 1 人/回合，
+        /// 洛阳"空闲 23 / 空缺 2"也只能送出 1 人，全势力上百个缺口被这个额度卡死。
+        ///
+        /// 现在：本城缺口还没补满（净富余 ≤ 0）→ **一个人都不许调出**（先保住自己）；
+        ///       净富余越多额度越大（每 <c>sendSurplusPerSeat</c> 个富余多 1 人），上限 <c>maxSendPerCityPerTurn</c>。
         /// </summary>
-        static int SendLimitFor(City from, DeploymentWeights w)
+        /// <param name="from">源城（人选当前所属的城）</param>
+        /// <param name="ownVacancy">该城本回合还缺多少人（岗位数 − 已填）</param>
+        /// <param name="w">部署参数</param>
+        /// <returns>本回合允许从该城调出的上限；0 = 不许调出（调用处需单独判 0，CanSend 把 ≤0 当作"不限制"）</returns>
+        static int SendLimitFor(City from, int ownVacancy, DeploymentWeights w)
         {
-            if (w == null) return 0;
-            int limit = w.maxTransferFromCityPerTurn;
-            int free = (from != null && from.freePersons != null) ? from.freePersons.Count : 0;
-            if (free >= w.overloadedFreePersonThreshold)
-                limit = Math.Max(limit, w.overloadedSendLimit);
-            return limit;
+            if (w == null || from == null) return 0;
+
+            int free = from.freePersons != null ? from.freePersons.Count : 0;
+            int surplus = free - ownVacancy;              // 净富余：扣掉本城缺口后真多余出来的人
+            if (surplus <= 0) return 0;                   // 自己都还缺人 → 先保住本城
+
+            int baseLimit = Math.Max(1, w.maxTransferFromCityPerTurn);
+            int slope = Math.Max(1, w.sendSurplusPerSeat);
+            int limit = baseLimit + surplus / slope;
+            int hardCap = w.maxSendPerCityPerTurn > 0 ? w.maxSendPerCityPerTurn : baseLimit;
+            return Math.Max(baseLimit, Math.Min(limit, hardCap));
+        }
+
+        /// <summary>本城本回合还缺多少人（岗位数 − 已填；负数按 0 计）。</summary>
+        /// <param name="cityId">城 id</param>
+        /// <param name="postCountByCity">该城岗位数（裁撤后的最终编制）</param>
+        /// <param name="filledByCity">该城已填数（本城在岗 + 外调到位）</param>
+        static int VacancyOfCity(int cityId, Dictionary<int, int> postCountByCity, Dictionary<int, int> filledByCity)
+        {
+            int posts, filled;
+            postCountByCity.TryGetValue(cityId, out posts);
+            filledByCity.TryGetValue(cityId, out filled);
+            int vacancy = posts - filled;
+            return vacancy > 0 ? vacancy : 0;
+        }
+
+        /// <summary>字典计数 +1（键不存在时按 0 起算）。</summary>
+        static void BumpCount(Dictionary<int, int> dict, int key)
+        {
+            if (dict == null) return;
+            int count;
+            dict.TryGetValue(key, out count);
+            dict[key] = count + 1;
         }
 
         /// <summary>本城在岗 / 外调的填充记录（含原因链）。</summary>

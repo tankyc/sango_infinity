@@ -1851,6 +1851,52 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 武将登场：把未登场（Invalid）的武将落到指定城市，以在野状态出现在世界上。
+        ///
+        /// 与 <see cref="LeaveToWild"/> 的收尾约定保持一致：
+        ///   在野武将**必须**挂靠到某个城市的在野名单（City.wildPersons）上，否则玩家搜索不到、
+        ///   城池的在野人数统计也会漏掉他。先落城再改状态，因为状态的登记逻辑依赖 CurrentCity。
+        ///
+        /// 已登场 / 已死亡 / 已成为俘虏的武将不会被本文改变，只打一条警告。
+        /// </summary>
+        /// <param name="city">登场所在城市，不可为 null（在野武将必须有所在城市）</param>
+        /// <returns>是否成功登场</returns>
+        public bool Appear(City city)
+        {
+            if (city == null)
+            {
+                Log.Error($"武将 {Name} 登场失败：未指定所在城市");
+                return false;
+            }
+
+            if (IsValid)
+            {
+                Log.Warning($"武将 {Name} 登场失败：已经登场");
+                return false;
+            }
+
+            if (IsDead)
+            {
+                Log.Warning($"武将 {Name} 登场失败：武将已阵亡");
+                return false;
+            }
+
+            // 先落城再改状态：在野状态的登记依赖 CurrentCity / BelongCity
+            BelongCityId = city.Id;
+            BelongCity = city;
+            CurrentCityId = city.Id;
+            CurrentCity = city;
+            state = (int)PersonStateType.Unemployed;
+
+            // 挂到城市的在野名单上（与 LeaveToWild 同一约定）
+            if (city.wildPersons != null && !city.wildPersons.Contains(this))
+                city.wildPersons.Add(this);
+
+            Log.Info($"武将 {Name} 已在 {city.Name} 登场（在野）");
+            return true;
+        }
+
+        /// <summary>
         /// 下野
         /// </summary>
         public void LeaveToWild()

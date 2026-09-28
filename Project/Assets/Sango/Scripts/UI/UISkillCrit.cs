@@ -13,6 +13,7 @@ namespace Sango.UI
         // 暴击事件数据
         private TroopSpellSkillCriticalEvent _criticalEvent;
 
+        float safeCloseTime = 4;
         /// <summary>
         /// 打开窗口并传递参数
         /// </summary>
@@ -20,6 +21,7 @@ namespace Sango.UI
         public override void Open(params object[] objects)
         {
             base.Open(objects);
+            safeCloseTime = 5;
             if (objects != null && objects.Length > 0)
             {
                 _criticalEvent = objects[0] as TroopSpellSkillCriticalEvent;
@@ -60,6 +62,15 @@ namespace Sango.UI
         {
             base.Refresh();
             InitCritDisplay();
+        }
+
+        public void Update()
+        {
+            safeCloseTime -= Time.deltaTime;
+            if (safeCloseTime <= 0)
+            {
+                Close();
+            }
         }
     }
 }

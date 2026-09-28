@@ -163,6 +163,26 @@ namespace Sango.Core
         void TryAdvance()
         {
             if (advancing) return;      // 已经有人在推进（例如关闭回调里又 Open 了）
+
+            // 场景 / UI 根正在销毁时，**绝不能再开窗口**。
+            // 触发路径：退出 Play 模式 → Unity 销毁场景对象 → UIDialog.OnDestroy
+            //   → OnWindowClosed → TryAdvance → Window.Open → CreateWindow
+            //   → Transform.SetParent(UIRoot) 而 UIRoot 正在销毁，报
+            //   "Cannot set the parent of the GameObject 'window_dialog4' while its new parent
+            //    'UIRoot' is being destroyed"，并留下一个没人回收的窗口对象。
+            // 这时把队列与当前状态一并丢掉：档已经没了，那些回调指向的目标都已失效。
+            if (!CanOpenWindow())
+            {
+                dialogDatas.Clear();
+                hasCurrent = false;
+                curData = default;
+                curSeq = 0;
+                curWindowName = null;
+                windowInterface = null;
+                CurInstance = null;
+                return;
+            }
+
             advancing = true;
             try
             {
@@ -214,6 +234,21 @@ namespace Sango.Core
             }
         }
 
+        /// <summary>
+        /// 现在还能不能安全地创建窗口。
+        ///
+        /// 判据是"UI 根还在"：{@link Window.CreateWindow} 会把新窗口 SetParent 到 Game.Instance.UIRoot，
+        /// 只要它已被销毁（退出 Play 模式 / 切场景），再开窗口必然报错并泄漏对象。
+        /// 注意 UIRoot 是 UnityEngine.Object，它的 == 已被重载，销毁后判 null 为 true。
+        /// </summary>
+        /// <returns>true = 可以创建窗口</returns>
+        static bool CanOpenWindow()
+        {
+            Game game = Game.Instance;
+            if (game == null) return false;
+            return game.UIRoot != null;
+        }
+
         static string WindowNameOf(DialogStyle style)
         {
             switch (style)
@@ -234,7 +269,14 @@ namespace Sango.Core
         /// <param name="invokeAction">是否执行该对话携带的用户回调。
         /// 玩家主动点按钮时为 true；被 Window.Close / CloseAll / DestroyAll 等**外部**关闭时为 false——
         /// 那种场合往往是读档 / 回主菜单，业务回调不该再跑，但状态必须清掉、队列必须继续。</param>
-        public void OnWindowClosed(int seq, bool sure, bool invokeAction = true)
+        /// <param name="allowAdvance">是否允许本次关闭顺带推进队列去开下一条对话。
+        ///
+        /// 只有 <see cref="UIDialog"/> 的 **OnDestroy** 路径会传 false。理由：
+        /// OnDestroy 只在 GameObject 被真正销毁时触发，也就是**场景正在拆**（退出 Play 模式）
+        /// 或有人显式 DestroyAll —— 这两种场合都绝不该再创建新窗口。
+        /// 而 Window.Close / CloseAll 走的是 OnClose 路径（允许推进，"读档后点不动"就靠它兜底）。
+        /// </param>
+        public void OnWindowClosed(int seq, bool sure, bool invokeAction = true, bool allowAdvance = true)
         {
             if (!hasCurrent || seq != curSeq)
             {
@@ -261,8 +303,12 @@ namespace Sango.Core
             }
             finally
             {
-                // 回调里新 Open 的已经排在队尾，这里按 FIFO 继续推进
-                TryAdvance();
+                // 回调里新 Open 的已经排在队尾，这里按 FIFO 继续推进。
+                // 场景销毁中不推进：那样会把队尾那条开成新窗口，挂到正在销毁的 UIRoot 上。
+                if (allowAdvance)
+                    TryAdvance();
+                else
+                    Sango.Log.Info("对话框窗口随场景销毁，丢弃队列中未播出的对话", Sango.Log.LogType.UI);
             }
         }
 
