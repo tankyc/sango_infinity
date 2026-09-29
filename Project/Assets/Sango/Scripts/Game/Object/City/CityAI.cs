@@ -1521,16 +1521,19 @@ namespace Sango.Core
         {
             if (city.freePersons.Count == 0) return true;
 
-            // 轻视士兵,70%概率不考虑此行动
+            // 轻视士兵,按概率不行为
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
             {
+                // 重视资金
                 if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
                 {
+                    // 80%概率不行为
                     if (GameRandom.Chance(80))
                         return true;
                 }
                 else
                 {
+                    // 轻视资金,60%概率
                     if (GameRandom.Chance(60))
                         return true;
                 }

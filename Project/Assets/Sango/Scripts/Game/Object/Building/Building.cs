@@ -208,7 +208,7 @@ namespace Sango.Core
             ActionOver = false;
 
             // 检查人员,自动修复建造和工作关系
-            if(Workers != null && Workers.Count > 0)
+            if (Workers != null && Workers.Count > 0)
             {
                 Workers.ForEach(x =>
                 {
@@ -284,7 +284,7 @@ namespace Sango.Core
 
             if (IsIntorBuilding() && isComplate && !isUpgrading)
             {
-                if(BelongCity != null && !BelongCity.IsEnemiesRound(6))
+                if (BelongCity != null && !BelongCity.IsEnemiesRound(6))
                 {
                     // 耐久自修复
                     if (durability < DurabilityLimit)
@@ -470,7 +470,7 @@ namespace Sango.Core
         public Corps ChangeCorps(Corps corps)
         {
             Corps last = null;
-            if (!isComplate && BelongForce != corps.BelongForce)
+            if ((!isComplate || isUpgrading) && BelongForce != corps.BelongForce)
             {
                 //Sango.Log.Error("不允许转换一个未建好的建筑!!");
                 OnFall(null);
@@ -516,7 +516,7 @@ namespace Sango.Core
                 for (int i = 0; i < Builder.Count; i++)
                 {
                     Person person = Builder[i];
-                    if(person.missionType == (int)MissionType.PersonBuild && person.missionTarget == this.Id)
+                    if (person.missionType == (int)MissionType.PersonBuild && person.missionTarget == this.Id)
                     {
                         person.ClearMission();
                     }

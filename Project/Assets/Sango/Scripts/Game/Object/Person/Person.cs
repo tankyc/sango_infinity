@@ -1029,8 +1029,8 @@ namespace Sango.Core
                 return;
 
             Sango.Log.Error($"[{Id}]{Name}归属force:{BelongForce?.Name} corps:{BelongCorps?.Name}, 但在city[{BelongCity?.Name}] force:{BelongCity.BelongForce?.Name} corps:{BelongCity.BelongCorps?.Name}");
-            BelongForce = BelongCity.BelongForce;
-            BelongCorps = BelongCity.BelongCorps;
+            //BelongForce = BelongCity.BelongForce;
+            //BelongCorps = BelongCity.BelongCorps;
         }
 
         public override void OnScenarioSave(Scenario scenario)
@@ -2571,7 +2571,9 @@ namespace Sango.Core
             // 死亡武将不再参与任何部队与建造
             mBelongTroop = null;
             workingBuilding = null;
-        }
+            BelongForce = null;
+            BelongCorps = null;
+        }   
 
         public int GetAttribute(int attrType)
         {

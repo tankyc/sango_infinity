@@ -41,14 +41,14 @@ namespace Sango.Core.Debate
         public static int GetDiplomacyFailChance()
         {
             ScenarioVariables v = Variables;
-            return v != null ? v.debateChanceWhenDiplomacyFail : 20;
+            return v != null ? v.debateChanceWhenDiplomacyFail : 5;
         }
 
         /// <summary>招募(登用)失败后强制进入舌战的概率（百分比，0 = 不触发）</summary>
         public static int GetRecruitFailChance()
         {
             ScenarioVariables v = Variables;
-            return v != null ? v.debateChanceWhenRecruitFail : 30;
+            return v != null ? v.debateChanceWhenRecruitFail : 10;
         }
 
         /// <summary>是否允许 AI 之间触发舌战（AI 之间的舌战只在后台结算，不弹界面）</summary>

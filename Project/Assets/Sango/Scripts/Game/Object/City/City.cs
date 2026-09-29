@@ -740,7 +740,7 @@ namespace Sango.Core
             // 只能被"释放"或"斩首"，故这里直接拒绝入库
             if (person != null && person.IsGovernor)
             {
-                Sango.Log.Warning($"*{Name} -> 拒绝收押君主 {person.Name}（君主只能被释放或斩首）");
+                Sango.Log.Error($"*{Name} -> 拒绝收押君主 {person.Name}（君主只能被释放或斩首）");
                 return null;
             }
 #if SANGO_DEBUG
@@ -996,7 +996,7 @@ namespace Sango.Core
             if (BelongCorps != null && BelongForce != null && BelongCorps.BelongForce != BelongForce)
             {
                 Sango.Log.Error($"城池:{Name} 所属军团和所属势力不匹配:<{BelongForce.ColorName} => {BelongCorps.ForceNumberName}>");
-                BelongCorps = BelongForce.CapitalCorps;
+                //BelongCorps = BelongForce.CapitalCorps;
             }
 
             InitPersonAction();
@@ -1631,6 +1631,11 @@ namespace Sango.Core
         /// <returns>原来的军团</returns>
         public Corps ChangeCorps(Corps other)
         {
+            if(other.BelongForce != BelongForce)
+            {
+                Sango.Log.Error($"{BelongForce?.ColorName}的{ColorName}城池转换所属军团{other.BelongForce.ColorName},但是势力不一致!!!");
+            }
+
             Corps last = null;
             if (BelongCorps != other)
             {
@@ -1730,7 +1735,8 @@ namespace Sango.Core
             // 白城
             if (BelongCorps == null)
             {
-                ChangeCorps(atk.BelongCorps);
+                BelongCorps = atk.BelongCorps;
+                BelongForce = atk.BelongForce;
                 if (skillInstance != null && !skillInstance.IsRange())
                 {
                     Leader = atk.Leader;
@@ -1850,7 +1856,7 @@ namespace Sango.Core
             //处理建筑
             allBuildings.ForEach(building =>
             {
-                if (building.isComplate && GameRandom.Chance(30))
+                if (building.isComplate && !building.isUpgrading && GameRandom.Chance(30))
                 {
                     building.ChangeCorps(atk.BelongCorps);
                     building.Builder?.Clear();
@@ -1861,7 +1867,6 @@ namespace Sango.Core
                     building.OnFall(atk);
                 }
             });
-            allBuildings.Clear();
 
             Force destroyedForce = null;
             if (escapeCity == null)
@@ -1899,8 +1904,13 @@ namespace Sango.Core
                 scenario.corpsSet.ForEach(x =>
                 {
                     if (x.BelongForce == BelongForce)
+                    {
                         x.IsAlive = false;
+                        scenario.Remove(x);
+                    }
                 });
+
+                scenario.Remove(BelongForce);
 
                 // 势力灭亡事件
                 GameEvent.OnForceFall?.Invoke(BelongForce, this, atk);
@@ -1918,8 +1928,9 @@ namespace Sango.Core
                     scenario.OnGamePause();
                 }
             }
-
-            ChangeCorps(atk.BelongCorps);
+            Leader = null;
+            BelongCorps = atk.BelongCorps;
+            BelongForce = atk.BelongForce;
             atk.BelongForce.CityBaseCount++;
             if (IsCity())
             {
@@ -1963,7 +1974,8 @@ namespace Sango.Core
             CalculateLimit();
 
             // 再保证一次转换成功
-            ChangeCorps(atk.BelongCorps);
+            BelongCorps = atk.BelongCorps;
+            BelongForce = atk.BelongForce;
             GameEvent.OnCityFall?.Invoke(this, lastBelongForce, atk);
 
             if (atk.BelongCorps.IsPlayer)

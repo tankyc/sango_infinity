@@ -18,7 +18,11 @@ namespace Sango.Core
         {
             return !Target.IsCity();
         }
-
+        protected override void OnGameSettingContextMenuShow(IContextMenuData menuData)
+        {
+            Target = default_objects[0] as City;
+            menuData.Add("全港关", 220, null, OnClickMenuItem);
+        }
         public override void Init()
         {
             base.Init();

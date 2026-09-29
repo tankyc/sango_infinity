@@ -241,6 +241,16 @@ namespace Sango.Core.Debate
             return s_topicNames[topic];
         }
 
+        /// <summary>性格名称表，下标与 Personality 枚举一致（胆小 / 冷静 / 刚胆 / 莽撞）</summary>
+        private static readonly string[] s_personalityNames = { "胆小", "冷静", "刚胆", "莽撞" };
+
+        /// <summary>性格名称（表现层与日志共用同一份；未设置时返回 "—"）</summary>
+        public static string PersonalityNameOf(int personalityId)
+        {
+            if (personalityId < 0 || personalityId >= s_personalityNames.Length) return "—";
+            return s_personalityNames[personalityId];
+        }
+
         #endregion
 
         #region 武将结算

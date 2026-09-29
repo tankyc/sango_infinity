@@ -43,7 +43,7 @@ Shader "UI/DefaultBright"
 		Lighting Off
 		ZWrite Off
 		ZTest[_ZTest]
-		Blend One OneMinusSrcAlpha
+		Blend SrcAlpha One
 		ColorMask[_ColorMask]
 
 		Pass

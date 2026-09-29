@@ -429,8 +429,6 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
-            if (!isAlive) return;
-
             if (Governor > 0)
                 mGovernor = scenario.personSet.Get(Governor);
             if (Counsellor > 0)
@@ -465,8 +463,6 @@ namespace Sango.Core
         /// <param name="scenario">当前场景</param>
         public override void Init(Scenario scenario)
         {
-            if (!isAlive) return;
-
             if (mGovernor == null)
             {
                 IsAlive = false;
@@ -852,7 +848,6 @@ namespace Sango.Core
             CleanupThreatTroops();
             Sango.Log.Info($"==={Name} 回合===");
 
-            UpdateTurnInfo(scenario);
 
             for (int i = 0; i < scenario.buildingSet.Count; ++i)
             {
@@ -891,6 +886,8 @@ namespace Sango.Core
                     c.OnForceTurnStart(scenario);
                 }
             }
+
+            UpdateTurnInfo(scenario);
 
             // 检查敌方新建部队是否有占领我方城池的任务
             if (IsPlayer)
