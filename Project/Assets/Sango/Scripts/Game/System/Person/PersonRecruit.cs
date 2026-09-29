@@ -166,9 +166,16 @@ namespace Sango.Core
                     result = recruitor.JobRecruitPerson(target, recruitType) == true ? 1 : 0;
                 if (result == 0)
                 {
-                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, talk[GameRandom.Range(0, talk.Length)], () =>
+                    // 登用失败若已经进入舌战（或正在问"是否观战"），就不再弹"宁死不降"的拒绝台词，
+                    // 否则这句失败台词会跟舌战的台词/对话框抢队列。
+                    bool debateTookOver = Sango.Core.Debate.DebateChallengeFlow.IsPending
+                        || Sango.Core.Debate.DebateManager.Instance.IsDebating;
+                    if (!debateTookOver)
                     {
-                    }, target);
+                        GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, talk[GameRandom.Range(0, talk.Length)], () =>
+                        {
+                        }, target);
+                    }
                 }
                 else if (result == 1)
                 {

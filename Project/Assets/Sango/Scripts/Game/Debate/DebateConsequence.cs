@@ -14,6 +14,8 @@
  *
  * 改判规则：
  *   · 登用失败：让目标武将 BeRecruit（与 JobRecruitPerson 的成功分支同一个动作）；
+ *     另外无论辩胜辩负，都会把发起武将（招募者）的"行动结束"补上 ——
+ *     那次登用的行动结束被 JobRecruitPerson 交给了舌战（见 Person.JobRecruitPerson 失败分支的注释）。
  *   · 外交交涉失败：先返还失败时扣掉的关系值，再用 action.PerformWithoutCheck(true)
  *     把这次外交按"成功"重新落地（结盟 / 停战 / 通商等效果由各 Action 自己实现）。
  *
@@ -152,6 +154,11 @@ namespace Sango.Core.Debate
                 Sango.Log.Warning("【舌战】结束的舌战与登记的发起行为不匹配，跳过改判。");
                 return;
             }
+
+            // 登用失败触发的那次行动，"行动结束"是由 JobRecruitPerson 交给舌战的（它见舌战接管就直接返回了）：
+            // 辩论既然已经结束，这次行动就算做完了 —— 无论辩胜辩负都要补上，否则那名武将会一直"没行动完"。
+            if (kind == Kind.Recruit && recruiter != null)
+                recruiter.ActionOver = true;
 
             // 只有"发起方（挑战方）获胜"才改判；发起方落败则维持原结果（失败）
             if (!debate.ParamIsChallengerWin(debate.DebateParam))

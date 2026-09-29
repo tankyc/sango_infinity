@@ -2,6 +2,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using Sango.Render;
+using System;
 
 namespace SKFramework
 {
@@ -11,7 +12,7 @@ namespace SKFramework
         private static readonly int MAX_LOG = 250;
         private static readonly int WND_ID = 0x1435;
         private static readonly float EDGE_X = 100, EDGE_Y = 50;
-
+        public Action onError;
         struct LogData
         {
             public string str;
@@ -204,6 +205,7 @@ namespace SKFramework
                 case LogType.Error:
                     logList.Add(new LogData(condition + stackTrace, 2));
                     HasError = true;
+                    onError?.Invoke();
                     break;
                 case LogType.Warning:
                     //logList.Add(new LogData(condition, 1));

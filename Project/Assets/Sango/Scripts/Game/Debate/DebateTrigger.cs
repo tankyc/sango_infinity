@@ -43,13 +43,19 @@ namespace Sango.Core.Debate
         /// <param name="recruiter">招募者（执行登用的武将）</param>
         /// <param name="target">被招募者（目标人才）</param>
         /// <param name="targetCity">登用成功后目标加入的城市（即 JobRecruitPerson 的 targetCity）</param>
-        public static void OnRecruitFailed(Person recruiter, Person target, City targetCity)
+        /// <returns>
+        /// 舌战是否接管了这次登用。
+        /// true 时调用方（JobRecruitPerson）应当**立刻返回**：这次的功绩 / 经验 / 技术点与"行动结束"
+        /// 都交给舌战处理（结算在 Debate.ParamSetWinner，行动结束由 DebateConsequence 在舌战结束时补上），
+        /// 原流程不该再往下走；false（概率没中 / 身份不符 / 已在舌战中）则照旧走原失败流程。
+        /// </returns>
+        public static bool OnRecruitFailed(Person recruiter, Person target, City targetCity)
         {
             // 按需求：登用失败触发舌战只对"在野武将 / 没有势力的俘虏"生效
             if (!CanRecruitFailTriggerDebate(target))
-                return;
+                return false;
 
-            TryTrigger(recruiter, target, DebateRules.GetRecruitFailChance(),
+            return TryTrigger(recruiter, target, DebateRules.GetRecruitFailChance(),
                 DebateChallengeFlow.Source.RecruitFail, "登用失败",
                 () => DebateConsequence.RegisterRecruit(recruiter, target, targetCity));
         }
