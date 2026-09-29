@@ -106,14 +106,16 @@ namespace Sango.Core
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             int decrease = Scenario.Cur.Variables.cityStrategyTwoTigersRelationDecrease;
             // 两个目标方之间的关系是对称的，只需扣一次
+            int relationBefore = diplomacyManager.GetRelation(TargetForceA, TargetForceB);
             diplomacyManager.AddRelation(TargetForceA, TargetForceB, -decrease);
 
             int relationNow = diplomacyManager.GetRelation(TargetForceA, TargetForceB);
             string headline = result == CityStrategyResult.SucceededDetected
                 ? "奏效，但使者露了行迹"
                 : "奏效";
+            // 播报带"前值→现值 + 实扣"：关系刻度 ±5000 且会被钳制，只报配置值会虚报（逼近下限时实扣更小）
             BroadcastMessage($"{Sender?.ColorName}派{Diplomat?.ColorName ?? "使者"}施放的{GetActionName()}{headline}，"
-                + $"{TargetForceA?.ColorName}与{TargetForceB.ColorName}的关系下降 {decrease}（现值 {relationNow}）。");
+                + $"{TargetForceA?.ColorName}与{TargetForceB.ColorName}的关系由 {relationBefore} 降至 {relationNow}（实扣 {relationBefore - relationNow}）。");
 
             // 露馅只付关系代价，不影响已经落到两方之间的交情恶化
             if (result == CityStrategyResult.SucceededDetected)
@@ -126,7 +128,7 @@ namespace Sango.Core
             TargetForceB.MarkStrategyWarSeed(TargetForceA);
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@计略@{Sender?.Name} 的{GetActionName()}结果={result}，{TargetForceA?.Name} 与 {TargetForceB?.Name} 的关系 -{decrease} → {relationNow}，抵抗者=({resisterNameA}, {resisterNameB})");
+            Sango.Log.Info($"@计略@{Sender?.Name} 的{GetActionName()}结果={result}，{TargetForceA?.Name} 与 {TargetForceB?.Name} 的关系 {relationBefore} → {relationNow}（配置 -{decrease}，实扣 {relationBefore - relationNow}），抵抗者=({resisterNameA}, {resisterNameB})");
 #endif
         }
 

@@ -349,22 +349,24 @@ namespace Sango.Core
             if (Sender == null)
                 return;
 
+            // 逐个目标方给出"前值→现值"的具体数，而不是只说"关系下降"：
+            // 关系刻度是 ±5000 的抽象值，玩家看不到扣完之后离翻脸还差多少
+            string detail = null;
             if (penalty > 0)
             {
                 DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                ReduceSenderRelation(diplomacyManager, TargetForceA, penalty);
-                ReduceSenderRelation(diplomacyManager, TargetForceB, penalty);
+                detail = ReduceSenderRelation(diplomacyManager, TargetForceA, penalty);
+                string detailB = ReduceSenderRelation(diplomacyManager, TargetForceB, penalty);
+                if (detailB != null)
+                    detail = detail == null ? detailB : $"{detail}；{detailB}";
             }
 
             // 反噬配成 0 时也要广播：否则玩家只知道使者回来了，不知道白跑了一趟
-            string targets = TargetForceB != null
-                ? $"{TargetForceA?.ColorName}与{TargetForceB.ColorName}"
-                : TargetForceA?.ColorName;
             string headlineText = $"{Sender.ColorName}派{Diplomat?.ColorName ?? "使者"}施放的{GetActionName()}{headline}";
-            BroadcastMessage(penalty > 0 ? $"{headlineText}，与{targets}的关系下降 {penalty}。" : $"{headlineText}。");
+            BroadcastMessage(string.IsNullOrEmpty(detail) ? $"{headlineText}。" : $"{headlineText}，{detail}。");
 
 #if SANGO_DEBUG
-            Sango.Log.Info($"@计略@{Sender.Name} 的{GetActionName()}{headline}，与目标方关系扣减 {penalty}");
+            Sango.Log.Info($"@计略@{Sender.Name} 的{GetActionName()}{headline}，与目标方关系扣减 {penalty}：{detail ?? "无（反噬为0或无有效目标）"}");
 #endif
         }
 
@@ -383,16 +385,22 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 对单个目标方扣减与发起方的关系，跳过空引用和自我反噬
+        /// 对单个目标方扣减与发起方的关系，跳过空引用和自我反噬，并回一句可直接播报的前后值。
+        /// 播报用"实扣"而不是配置值：关系值有 ±5000 钳制，逼近下限时的实扣会小于配置值，
+        /// 只报配置值会让玩家以为还能继续扣下去。
         /// </summary>
         /// <param name="diplomacyManager">外交管理器</param>
         /// <param name="target">目标势力，可为 null</param>
         /// <param name="penalty">反噬值（正数）</param>
-        protected void ReduceSenderRelation(DiplomacyManager diplomacyManager, Force target, int penalty)
+        /// <returns>可直接拼接的文案；目标无效时返回 null</returns>
+        protected string ReduceSenderRelation(DiplomacyManager diplomacyManager, Force target, int penalty)
         {
             if (target == null || target == Sender)
-                return;
+                return null;
+            int before = diplomacyManager.GetRelation(Sender, target);
             diplomacyManager.ReduceRelation(Sender, target, penalty);
+            int after = diplomacyManager.GetRelation(Sender, target);
+            return $"与{target.ColorName}的关系由 {before} 降至 {after}（实扣 {before - after}）";
         }
 
         /// <summary>

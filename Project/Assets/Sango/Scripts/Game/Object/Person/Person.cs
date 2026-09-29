@@ -1311,11 +1311,11 @@ namespace Sango.Core
                         City targetCity = scenario.citySet.Get(missionTarget);
                         Force senderForce = scenario.forceSet.Get(missionParams1);
 
-                        // 目标据点或发起势力已经消失时不再移动，直接返程。
+                        // 目标据点或发起势力已经消失时不再移动，直接起程归家。
                         // 这里必须先判空再 DoMove：DoMove 会直接解引用 dest.BelongCity
                         if (targetCity == null || senderForce == null || !senderForce.IsAlive)
                         {
-                            SetMission(MissionType.PersonReturn, BelongCity);
+                            SetReturnHomeMission();
                             return;
                         }
 
@@ -1324,12 +1324,12 @@ namespace Sango.Core
                             CityStrategyResult result = GameSystem.GetSystem<CityStrategyManager>()
                                 .ExecuteMission(this, (CityStrategyType)missionParams2, targetCity, senderForce, missionParams3, missionParams4);
 
-                            // 完成任务，返回原城市。
-                            // 唯独"失败被捕"不返程：City.AddCaptive 已把本将挂成 targetCity 的囚犯
-                            // 并将 BelongCity 置空，此时 SetMission(PersonReturn, null) 会在
-                            // missionTarget.Id 上直接空引用，且俘虏也不该自己走回敌营
+                            // 唯独"失败被捕"不返程：City.AddCaptive 已把本将挂成 targetCity 的囚犯并把
+                            // BelongCity 置空，此时再挂返程既会在 missionTarget.Id 上空引用，
+                            // 俘虏也不该自己走回己营——留在敌城俘虏名单里等处置。
+                            // 其余三态（含"君主豁免导致降级为普通失败"）一律起程返回出发城。
                             if (result != CityStrategyResult.FailedCaptured)
-                                SetMission(MissionType.PersonReturn, BelongCity);
+                                SetReturnHomeMission();
                         }
                     }
                     break;
@@ -1410,6 +1410,32 @@ namespace Sango.Core
             this.missionParams2 = 0;
             this.missionParams3 = 0;
             this.missionParams4 = 0;
+        }
+
+        /// <summary>
+        /// 城市计略（流言 / 二虎竞食）事毕归家的收尾：挂上返程行军任务，按来路逐回合走回归属城。
+        /// 耗时口径：城间行程按单程计（<see cref="City.Distance"/> 的邻接步数，面板折算成 步数×10 日），
+        /// 去程与返程各占一份，所以单程 d 座城的一趟出使共占用 2d 个回合：到家发生在派遣后的第 2d-1 回合末，
+        /// 第 2d 回合本势力回合开始时就能再派活。待命名单不需要在这里手工补 —— 0.2.6 起
+        /// <see cref="Force.OnForceTurnStart"/> 把 <c>UpdateTurnInfo</c>（内含各城 <see cref="City.OnForceTurnStart"/>
+        /// 重建 freePersons）排在武将循环之后，而 <c>ActionOver</c> 正是在武将循环里复位的，
+        /// 所以"上一回合末刚恢复空闲"的武将会在同一回合被收进名单（作者修复"武将要 2 回合后才能再动"的改法）。
+        /// 只给新增的计略分支用：外交仍沿用作者原本写在 <c>UpdateMission</c> 里的
+        /// <c>SetMission(PersonReturn, BelongCity)</c>，不在这里改写既有指令。
+        /// 归属城缺失时只清任务，绝不 <c>SetMission(PersonReturn, null)</c>：
+        /// 该重载直接解引用 missionTarget，而使者被俘时 City.AddCaptive 已把 BelongCity 置空。
+        /// 判空退化为清任务的写法沿用 PersonReturn 自身的失效保护（见 UpdateMission 的 PersonReturn 分支）。
+        /// </summary>
+        public void SetReturnHomeMission()
+        {
+            City homeCity = BelongCity;
+            if (homeCity == null)
+            {
+                ClearMission();
+                return;
+            }
+
+            SetMission(MissionType.PersonReturn, homeCity);
         }
 
         public override bool OnTurnStart(Scenario scenario)
@@ -2573,6 +2599,13 @@ namespace Sango.Core
             workingBuilding = null;
             BelongForce = null;
             BelongCorps = null;
+
+            // 【修复】任务也要一并清掉。回合推进只对 IsAlive 的武将跑 UpdateMission
+            // （Scenario.TurnEnd 里有 IsAlive 过滤），所以在途出使/施计的使者一旦阵亡，
+            // missionType 就永远停在非 0 上：IsFree 恒为 false 还在其次，
+            // 真正的问题是 CityStrategyManager.IsCityStrategyInProgress 只按 missionType 判重、
+            // 不查存活 —— 死掉的使者会永久挡住同一目标城的流言/二虎竞食，外交任务同样悬挂。
+            ClearMission();
         }   
 
         public int GetAttribute(int attrType)
