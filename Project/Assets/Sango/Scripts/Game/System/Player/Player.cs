@@ -15,11 +15,18 @@ namespace Sango.Core.Player
         int[] autoTurn = new int[] { 2, 3, 4, 6, 10 };
         public int currentTurnCount = 0;
 
+        /// <summary>
+        /// 上一次为自动存档计数的回合号，用于"一个大回合只累加一次"。
+        /// 初值 -1：任何剧本的回合号都从 0/1 起，不会与它撞车。
+        /// </summary>
+        int lastCountedTurn = -1;
+
         public override void Init()
         {
             InitSaveFile();
             InitAutoSaveFile();
             currentTurnCount = 0;
+            lastCountedTurn = -1;
             GameEvent.OnForceTurnStart += OnForceTurnStart;
             GameEvent.OnGameSetting += OnGameSetting;
             GameEvent.OnGameSettingApply += OnGameSettingApply;
@@ -79,17 +86,50 @@ namespace Sango.Core.Player
                 });
         }
 
+        /// <summary>
+        /// 自动存档计时。
+        ///
+        /// 为什么仍然挂在"势力回合开始（<see cref="GameEvent.OnForceTurnStart"/>）"而不是"大回合开始"：
+        /// <see cref="AutoSave"/> 会把 <see cref="ScenarioInfo.curForceId"/> 一起写进存档，
+        /// 而读档恢复的做法是"重建队列后从队首逐个出队，直到撞上 curForceId"，撞中之前的势力全部丢弃。
+        /// 大回合开始时 curForceId 还是**上一轮最后行动的那支 AI 势力**（玩家势力被排在队首），
+        /// 在那一刻存档会让玩家势力在读档时被整批丢掉、白等一整个大回合；
+        /// 那支 AI 势力若在存档期间灭亡，恢复循环还会因为队列被取空而直接抛异常。
+        /// 所以存档点必须落在"某支势力刚出队开始行动"的时刻 —— 此时 curForceId 正是队首，读档什么都不丢。
+        ///
+        /// 计时口径改按大回合去重（一个回合只在最先开始行动的势力这里累加一次），于是同时修好两件事：
+        ///   · 上帝放置模式（场上没有玩家势力）以前永远不计进度 → 放置几小时也不会自动存档；
+        ///   · 同时控制多个玩家势力时以前一个回合被累加多次 → 存档间隔被悄悄缩短。
+        /// 单一玩家势力的常规局面下"大回合数 == 玩家回合数"，现有手感不变。
+        /// </summary>
+        /// <param name="force">本回合开始行动的势力</param>
+        /// <param name="scenario">当前剧本</param>
         void OnForceTurnStart(Force force, Scenario scenario)
         {
-            if (autoSave == 1 && force.IsPlayer)
+            if (autoSave != 1 || force == null || scenario == null)
+                return;
+
+            // 本大回合已经计过就直接返回：每个回合只会有"第一支开始行动的势力"走到下面的累加
+            if (scenario.Info.turnCount == lastCountedTurn)
+                return;
+            lastCountedTurn = scenario.Info.turnCount;
+
+            currentTurnCount++;
+            if (currentTurnCount >= autoTurn[autoSaveTurnType])
             {
-                currentTurnCount++;
-                if (currentTurnCount >= autoTurn[autoSaveTurnType])
-                {
-                    AutoSave();
-                    currentTurnCount = 0;
-                }
+                AutoSave();
+                currentTurnCount = 0;
             }
+        }
+
+        /// <summary>
+        /// 跨剧本复位自动存档计时，由 <see cref="ScenarioLifecycle.BeginShutdown"/> 在收尾时调用。
+        /// 不一起复位 <see cref="lastCountedTurn"/> 的话，新剧本首个回合可能被上一次开局留下的回合号吞掉。
+        /// </summary>
+        public void ResetTurnCounters()
+        {
+            currentTurnCount = 0;
+            lastCountedTurn = -1;
         }
 
         public static string GetSaveFileName(int index)

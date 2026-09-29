@@ -41,6 +41,19 @@ namespace Sango.Core
         /// </summary>
         public bool IsCurPlayer => IsPlayer && this == Scenario.Cur.CurRunForce;
 
+        /// <summary>
+        /// 控制权移交的"待生效"请求：-1 = 无；0 = 下个本势力回合交给AI（委托给AI）；1 = 下个本势力回合交给玩家（中途参加）。
+        ///
+        /// 为什么需要它：回合中途直接翻 <see cref="IsPlayer"/> 会出两类状态破坏 ——
+        ///   · 玩家已经动过的回合里，<c>Force.Run</c> 会立刻转入 <c>DoAI</c>，
+        ///     科技 / 官职 / 俘虏 / 计略在同一回合再结算一遍（一次回合两份收益）；
+        ///   · AI 正在跨帧执行命令队列时被接管，半截队列会残留到下次 <c>AIPrepare</c> 之后被重复执行。
+        /// 所以只允许在 <see cref="OnForceTurnStart"/>（AI 状态本来就在此整体复位）这个干净边界上生效。
+        /// 不序列化：存档里的权威口径是 <c>ScenarioInfo.playerForceList</c>，读档时 <c>CheckPlayer</c> 直接按它重建。
+        /// 唯一写入方是 <c>ForceControlService</c>。
+        /// </summary>
+        internal int pendingPlayerControl = -1;
+
         private bool isAlive;
 
         /// <summary>
@@ -838,6 +851,20 @@ namespace Sango.Core
         /// <returns>是否成功执行</returns>
         public override bool OnForceTurnStart(Scenario scenario)
         {
+            // 控制权移交在这里生效（本方法下面就是 AI 状态的整体复位，是唯一的干净边界）。
+            // 放在最前面：后面的建筑 / 人物 / 军团回合结算与 GameEvent.OnForceTurnStart 都要看到新归属。
+            // pending 为 -1（绝大多数回合）时这里什么都不做，不影响任何原有行为。
+            if (pendingPlayerControl >= 0)
+            {
+                bool playerControlled = pendingPlayerControl == 1;
+                pendingPlayerControl = -1;
+                if (IsPlayer != playerControlled)
+                {
+                    IsPlayer = playerControlled;
+                    Sango.Log.Info($"控制权按时机生效:{Name} → {(playerControlled ? "玩家" : "AI")}，第 {scenario.Info.turnCount} 回合");
+                }
+            }
+
             buildingBaseList.Clear();
             AIFinished = false;
             AIPrepared = false;
