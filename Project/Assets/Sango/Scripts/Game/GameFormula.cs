@@ -207,7 +207,11 @@ namespace Sango.Core
             //目标武将在野或是已灭亡势力的俘虏
             if (target.IsWild || type == (int)PersonRecruitType.OnForceFall)
             {
-                loyalty = variables.recruitWildLoyaltyBase + variables.difficulty * variables.recruitLoyaltyDifficultyFactor;
+                loyalty = variables.recruitWildLoyaltyBase;
+                if(actor.IsPlayer)
+                {
+                    loyalty = loyalty + variables.difficulty * variables.recruitLoyaltyDifficultyFactor;
+                }
                 if (!target.IsPrisoner)
                     //义理_普通
                     ArgumentationId = Scenario.Cur.GetObject<Argumentation>(variables.recruitDefaultArgumentationId);

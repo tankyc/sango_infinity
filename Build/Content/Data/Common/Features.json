@@ -627,7 +627,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": 80,
+          "value": -20,
           "isDefender": 1
         }
       ]
@@ -668,7 +668,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": 50,
+          "value": -50,
           "isDefender": 1
         },
         {
@@ -1302,7 +1302,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": 150,
+          "value": 50,
           "isDefender": 0,
           "condition": {
             "class": "TerrainCheck",

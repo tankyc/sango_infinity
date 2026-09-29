@@ -77,9 +77,8 @@ namespace Sango.UI
             }
 #endif
             Window.Instance.Close("window_loading");
-            GameController.Instance.onCellOverEnter += OnCellOverEnter;
-            GameController.Instance.onCellOverExit += OnCellOverExit;
-
+            BindEvent();
+          
             Window.Instance.Open("window_object_pop_info");
 
 #if UNITY_ANDROID || UNITY_IPHONE
@@ -91,10 +90,39 @@ namespace Sango.UI
 
         }
 
-        public override void OnClose()
+        void BindEvent()
         {
+            GameController.Instance.onCellOverEnter += OnCellOverEnter;
+            GameController.Instance.onCellOverExit += OnCellOverExit;
+            GameEvent.OnForceTurnStart += OnForceStart;
+            GameEvent.OnDayUpdate += OnDayUpdate;
+            GameEvent.OnCityFall += OnCityFall;
+            GameEvent.OnSeasonUpdate += OnSeasonUpdate;
+            GameEvent.OnForceGainTechniquePoint += OnForceGainTechniquePoint;
+            GameEvent.OnCorpsActionPointChange += OnCorpsActionPointChange;
+            GameEvent.OnScenarioStart += OnScenarioStart;
+            GameEvent.OnPlayerEndTurn += OnPlayerEndTurn;
+            GameSystem.GetSystem<PlayerMessage>().onVisibleChange += OnMessagePlaneVisible;
+        }
+
+        void ClearEvent()
+        {
+            GameEvent.OnForceTurnStart -= OnForceStart;
+            GameEvent.OnDayUpdate -= OnDayUpdate;
+            GameEvent.OnCityFall -= OnCityFall;
+            GameEvent.OnSeasonUpdate -= OnSeasonUpdate;
+            GameEvent.OnForceGainTechniquePoint -= OnForceGainTechniquePoint;
+            GameEvent.OnCorpsActionPointChange -= OnCorpsActionPointChange;
+            GameEvent.OnScenarioStart -= OnScenarioStart;
+            GameEvent.OnPlayerEndTurn -= OnPlayerEndTurn;
+            GameSystem.GetSystem<PlayerMessage>().onVisibleChange -= OnMessagePlaneVisible;
             GameController.Instance.onCellOverEnter -= OnCellOverEnter;
             GameController.Instance.onCellOverExit -= OnCellOverExit;
+        }
+
+        public override void OnClose()
+        {
+            ClearEvent();
             base.OnClose();
         }
 
@@ -158,17 +186,6 @@ namespace Sango.UI
         {
             //GameEvent.OnTroopCreated += OnTroopChange;
             //GameEvent.OnTroopDestroyed += OnTroopChange;
-            GameEvent.OnForceTurnStart += OnForceStart;
-            GameEvent.OnDayUpdate += OnDayUpdate;
-            GameEvent.OnCityFall += OnCityFall;
-            GameEvent.OnSeasonUpdate += OnSeasonUpdate;
-            GameEvent.OnForceGainTechniquePoint += OnForceGainTechniquePoint;
-            GameEvent.OnCorpsActionPointChange += OnCorpsActionPointChange;
-            GameEvent.OnScenarioStart += OnScenarioStart;
-            GameEvent.OnPlayerEndTurn += OnPlayerEndTurn;
-            GameSystem.GetSystem<PlayerMessage>().onVisibleChange += OnMessagePlaneVisible;
-
-
             //loopScrollRect.prefabSource = this;
             //loopScrollRect.dataSource = this;
 
@@ -216,24 +233,6 @@ namespace Sango.UI
 
         }
 
-        protected override void OnDestroy()
-        {
-            //GameEvent.OnTroopCreated -= OnTroopChange;
-            //GameEvent.OnTroopDestroyed -= OnTroopChange;
-            GameEvent.OnForceTurnStart -= OnForceStart;
-            GameEvent.OnDayUpdate -= OnDayUpdate;
-            GameEvent.OnCityFall -= OnCityFall;
-            GameEvent.OnSeasonUpdate -= OnSeasonUpdate;
-            GameEvent.OnForceGainTechniquePoint -= OnForceGainTechniquePoint;
-            GameEvent.OnCorpsActionPointChange -= OnCorpsActionPointChange;
-            GameEvent.OnScenarioStart -= OnScenarioStart;
-            GameEvent.OnPlayerEndTurn -= OnPlayerEndTurn;
-
-
-            PlayerMessage playerMessage = GameSystem.GetSystem<PlayerMessage>();
-            if (playerMessage != null) playerMessage.onVisibleChange -= OnMessagePlaneVisible;
-
-        }
 
         public void OnCityFall(City city, Force lastForce, Troop atker)
         {

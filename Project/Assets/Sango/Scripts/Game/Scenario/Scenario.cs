@@ -1216,6 +1216,7 @@ namespace Sango.Core
 
             Window.Instance.Close("window_start");
             Window.Instance.Close("window_loading");
+            Window.Instance.Close("window_game");
             Window.Instance.Open("window_game");
 #if SANGO_DEBUG_AI
             GameAIDebug.Instance.Init();
