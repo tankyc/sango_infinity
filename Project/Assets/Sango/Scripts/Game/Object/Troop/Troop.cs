@@ -2681,6 +2681,10 @@ namespace Sango.Core
 
         public void EnterCity(City city)
         {
+            if(city.BelongForce != BelongForce)
+            {
+                Sango.Log.Error($"{BelongForce.ColorName}的{Name}进入了一个不是自身势力{city.BelongForce?.ColorName}{city.ColorName}的城市!");
+            }
             // 所属城取主将的实时值（不缓存），下面几处统一用它：
             // 主将已被俘/阵亡时它是 null，这几处都要能安全跳过（?.），否则会在这里空引用崩溃
             City lastBelongCity = BelongCity;
@@ -3746,7 +3750,7 @@ namespace Sango.Core
             // 只能被"释放"或"斩首"，故这里直接拒绝入库
             if (person != null && person.IsGovernor)
             {
-                Sango.Log.Warning($"*{Name} -> 拒绝收押君主 {person.Name}（君主只能被释放或斩首）");
+                Sango.Log.Error($"*{Name} -> 拒绝收押君主 {person.Name}（君主只能被释放或斩首）");
                 return null;
             }
             Sango.Log.Info($"*{Name} -> captiveList 添加 {person.Name} ");

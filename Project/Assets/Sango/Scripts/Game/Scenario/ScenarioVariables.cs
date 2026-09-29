@@ -495,13 +495,13 @@ namespace Sango.Core
         /// 外交交涉失败后按概率强制进入舌战的概率(百分比)。0 = 不触发。
         /// 触发双方：使者 = 执行外交的武将，对方代表 = 接收方势力君主。
         /// </summary>
-        [JsonProperty] public int debateChanceWhenDiplomacyFail = 20;
+        [JsonProperty] public int debateChanceWhenDiplomacyFail = 5;
 
         /// <summary>
         /// 招募(登用)人才失败后按概率强制进入舌战的概率(百分比)。0 = 不触发。
         /// 触发双方：招募者 = 执行登用的武将，被招募者 = 目标人才。
         /// </summary>
-        [JsonProperty] public int debateChanceWhenRecruitFail = 30;
+        [JsonProperty] public int debateChanceWhenRecruitFail = 10;
 
         /// <summary>
         /// 是否允许 AI 之间也触发舌战。false = 只有玩家参与时才触发。

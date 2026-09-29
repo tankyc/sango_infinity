@@ -69,7 +69,6 @@ namespace Sango.Core
         {
             Target = default_objects[0] as City;
             menuData.Add("全都市", 200, null, OnClickMenuItem);
-            menuData.Add("全港关", 220, null, OnClickMenuItem_PortGat);
         }
 
         protected virtual void OnCityRightMouseButtonContextMenuShow(IContextMenuData menuData, City city)

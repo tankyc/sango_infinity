@@ -7,8 +7,12 @@
  *           IsPending 期间由 Game.Update 暂停剧本推进（对话框还没看完就不往前走）。
  *   · 不同：按需求舌战是"失败后**强制**进入"，所以**不问"是否应战"**、也不掷 AI 应战概率；
  *           玩家唯一的选择是"**是否观战**"——不观战则由 AI 代打，逻辑层瞬时跑完出结果。
- *           【当前】舌战界面尚未完成，所以"是否观战"的提示照弹，但两个选项都按**不观看**处理，
- *           恒定由 AI 自动打完、瞬时结算（见 ForceNoView）。
+ *
+ * "进不进演示"的三个开关（优先级从高到低）：
+ *   1. ForceNoView        排查表现层用的总闸：开着时无论谁参与、选什么，一律不观看；
+ *   2. ForceViewOnEvent   剧本事件的剧情演出是否强制演出（默认 true，事件舌战一律开界面）；
+ *   3. 双方是否有人由玩家**亲自操作**（Person.IsPlayerControl）：
+ *        有人操作 → 弹"是否观战"，观战则手动出牌；没人操作且不强制演出 → 纯逻辑推演，不弹框不开界面。
  *
  * 对话框的两点注意（沿用单挑踩过的坑）：
  *   · UIDialog.OnCancel 在 cancelAction 为空时会退化成调用 sureAction，
@@ -41,11 +45,23 @@ namespace Sango.Core.Debate
         /// <summary>
         /// 是否强制按"不观看"处理。
         ///
-        /// 【当前为 true】舌战界面（window_debate 的表现层）还没做完，所以"是否观战"的提示照弹，
-        /// 但无论玩家点确定还是取消都按**不观看**走：由 AI 自动对打、逻辑层瞬时结算，不创建表现层。
-        /// 接好表现层后把它改成 false，玩家的选择才会生效（观战则恢复手动出牌）。
+        /// 【当前为 false】window_debate 的表现层（CardDebateView）已经和美术界面绑定完毕，
+        /// "是否观战"的提示照弹，玩家点确定就创建表现层手动出牌、点取消就由 AI 自动对打。
+        /// 想临时退回"一律不观看"（例如排查表现层问题时）把它改回 true 即可。
         /// </summary>
-        public static bool ForceNoView = true;
+        public static bool ForceNoView = false;
+
+        /// <summary>
+        /// 剧本事件（广播 <see cref="GameEvent.OnDebateChallengeRequest"/>）发起的舌战是否强制演出。
+        ///
+        /// 【当前为 true】剧情演出（例如"诸葛亮舌战群儒""骂死王朗"）要的就是让玩家看，
+        /// 所以默认打开：事件发起的舌战一律带表现层，即使双方都不是玩家亲自操作（AI 对 AI）也不降级成后台推演。
+        /// 此时双方仍是自动出牌 —— 即"只演给你看，不用你出牌"。
+        ///
+        /// 想让事件舌战也静默结算（例如大批量刷事件时），把它置 false 即可；
+        /// 单个事件也可以直接调 DebateManager.StartDebate(..., forceView: true) 绕过它。
+        /// </summary>
+        public static bool ForceViewOnEvent = true;
 
         private static Person s_Challenger;
         private static Person s_Challenged;
@@ -64,7 +80,8 @@ namespace Sango.Core.Debate
 
         private static void OnChallengeRequest(Person challenger, Person challenged)
         {
-            Request(challenger, challenged, Source.GameEvent);
+            // 剧本事件按 ForceViewOnEvent 决定要不要强制演出（事件广播带不了额外参数，只能走这个总开关）
+            Request(challenger, challenged, Source.GameEvent, ForceViewOnEvent);
         }
 
         #endregion
@@ -119,8 +136,11 @@ namespace Sango.Core.Debate
         /// <summary>
         /// 提出一场舌战。舌战是强制进入的，这里只负责台词与"是否观战"。
         /// </summary>
+        /// <param name="forceView">
+        /// 强制演出：两侧都不是玩家操作时也照样开界面（剧本事件的剧情演出用，见 <see cref="ForceViewOnEvent"/>）。
+        /// </param>
         /// <returns>true = 流程已被接管（正在问 / 已开局）；false = 当场被否决（已在舌战中、武将无效等）</returns>
-        public static bool Request(Person challenger, Person challenged, Source source)
+        public static bool Request(Person challenger, Person challenged, Source source, bool forceView = false)
         {
             if (IsPending) return false;
             if (challenger == null || challenged == null || challenger == challenged) return false;
@@ -130,11 +150,13 @@ namespace Sango.Core.Debate
             s_Challenger = challenger;
             s_Challenged = challenged;
 
-            // 对话只在"有玩家亲自操作的一方"时才弹；否则（AI 之间 / 玩家势力里被 AI 托管的武将）直接后台结算
-            bool showDialog = DebateTrigger.IsPlayerControl(challenger) || DebateTrigger.IsPlayerControl(challenged);
-            if (!showDialog)
+            // 两侧都没有玩家亲自操作（AI 之间 / 玩家势力里被 AI 托管的武将）时：
+            // 不弹对话（没人可问），默认也不进演示、直接后台推演完事；
+            // 只有要求强制演出（剧情事件）才开界面 —— 这时双方仍然自动出牌，玩家只是看。
+            bool playerInvolved = DebateTrigger.IsPlayerControl(challenger) || DebateTrigger.IsPlayerControl(challenged);
+            if (!playerInvolved)
             {
-                StartDebate(!ForceNoView);
+                StartDebate(ResolveWithView(forceView), forceView);
                 return true;
             }
 
@@ -146,14 +168,14 @@ namespace Sango.Core.Debate
 
             if (AskWatchHandler != null)
             {
-                StartDebate(!ForceNoView && AskWatchHandler(question, challenger));
+                StartDebate(ResolveWithView(AskWatchHandler(question, challenger)));
                 return true;
             }
 
             if (GameDialog.Instance == null)
             {
-                // 没有对话框可用（编辑器 / 单元测试）：当前按不观看处理
-                StartDebate(!ForceNoView);
+                // 没有对话框可用（编辑器 / 单元测试）：按不观看处理
+                StartDebate(ResolveWithView(false));
                 return true;
             }
 
@@ -163,21 +185,33 @@ namespace Sango.Core.Debate
                 question,
                 () =>
                 {
+                    // 确定 = 观战：开舌战界面，轮到自己出牌时手动点
                     IsPending = false;
-                    // 现在点"确定"同样按不观看处理 —— 舌战界面还没做完，没有可看的演出
-                    StartDebate(!ForceNoView);
+                    StartDebate(ResolveWithView(true));
                 },
                 () =>
                 {
+                    // 取消 = 不观看：纯逻辑推演，双方都交给 AI 自动出牌
                     IsPending = false;
-                    StartDebate(!ForceNoView);
+                    StartDebate(ResolveWithView(false));
                 },
                 challenger);
             return true;
         }
 
+        /// <summary>
+        /// 把"玩家是否选择观战"落到 withView。
+        /// ForceNoView 是排查表现层用的总闸：开着时无论玩家选什么都按不观看走。
+        /// </summary>
+        private static bool ResolveWithView(bool watch)
+        {
+            return !ForceNoView && watch;
+        }
+
         /// <summary>真正启动舌战（同时清掉暂存的两名武将）</summary>
-        public static void StartDebate(bool withView)
+        /// <param name="withView">是否带表现层</param>
+        /// <param name="forceView">两侧都非玩家操作时也强制演出（剧情事件用）</param>
+        public static void StartDebate(bool withView, bool forceView = false)
         {
             Person challenger = s_Challenger;
             Person challenged = s_Challenged;
@@ -185,7 +219,7 @@ namespace Sango.Core.Debate
             s_Challenged = null;
 
             if (challenger == null || challenged == null) return;
-            DebateManager.Instance.StartDebate(challenger, challenged, withView);
+            DebateManager.Instance.StartDebate(challenger, challenged, withView, null, forceView);
         }
 
         #endregion

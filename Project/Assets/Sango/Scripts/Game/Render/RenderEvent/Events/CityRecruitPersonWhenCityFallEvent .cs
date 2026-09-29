@@ -52,20 +52,11 @@ namespace Sango.Render
 
         void Next()
         {
-            if (captiveList.Count == 0)
+            //展示武将
+            GameSystem.GetSystem<PersonRecruit>().Start(targetCity, atk, captiveList[0], captiveList, recruitType, 3, x =>
             {
                 IsDone = true;
-                return;
-            }
-            else
-            {
-                //展示武将
-                GameSystem.GetSystem<PersonRecruit>().Start(targetCity, atk, captiveList[0], recruitType, 3, x =>
-                {
-                    captiveList.RemoveAt(0);
-                    Next();
-                });
-            }
+            });
         }
 
         public override void Exit(Scenario scenario)

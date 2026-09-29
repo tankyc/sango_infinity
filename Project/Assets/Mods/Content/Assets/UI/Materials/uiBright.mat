@@ -101,7 +101,7 @@ Material:
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
     - _ColorMask: 15
-    - _ColorMultiplier: 0.3
+    - _ColorMultiplier: 1
     - _Cull: 2
     - _Cutoff: 0.5
     - _DetailAlbedoMapScale: 1
@@ -133,6 +133,7 @@ Material:
     - _UseUIAlphaClip: 0
     - _V: 1
     - _WorkflowMode: 1
+    - _ZTest: 4
     - _ZWrite: 1
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}

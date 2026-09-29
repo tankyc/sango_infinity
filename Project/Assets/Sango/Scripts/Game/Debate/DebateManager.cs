@@ -64,17 +64,48 @@ namespace Sango.Core.Debate
         /// </summary>
         /// <param name="challenger">挑战方武将</param>
         /// <param name="challenged">应战方武将</param>
-        /// <param name="withView">是否带表现层（false 时瞬时结算，用于 AI 推演与测试）</param>
+        /// <param name="withView">
+        /// 是否带表现层（false 时瞬时结算，用于 AI 推演与测试）。
+        /// 注意：双方都不是玩家亲自操作时会被强制按 false 处理，除非 <paramref name="forceView"/> 要求演出，见下面的判定。
+        /// </param>
         /// <param name="outcome">
         /// 结果强制覆盖（null = 自然结算）。
         /// 剧本事件用它钉死胜负，例如"诸葛亮舌战群儒"必须全胜、"骂死王朗"王朗必败。
         /// </param>
+        /// <param name="forceView">
+        /// 强制演出：双方都不是玩家亲自操作时也照样带表现层（绕过下面那道"AI 打 AI 就后台推演"的降级）。
+        /// 剧情演出（剧本事件里的武将舌战）要的就是让玩家看，所以给它留了这个开关；
+        /// 注意它只绕过降级，绕不过 <see cref="DebateChallengeFlow.ForceNoView"/> 那个排查用的总闸。
+        /// 强制演出时双方 control 仍为 false —— 也就是"只演给你看，不用你出牌"。
+        /// </param>
         /// <returns>是否成功发起</returns>
         public virtual bool StartDebate(Person challenger, Person challenged, bool withView = true,
-            DebateOutcomeOverride outcome = null)
+            DebateOutcomeOverride outcome = null, bool forceView = false)
         {
             if (IsDebating) return false;
             if (!CanStartDebate(challenger, challenged)) return false;
+
+            // 排查表现层用的总闸（DebateChallengeFlow.ForceNoView）在这里也要生效，
+            // 否则剧本事件直接调本函数并传 forceView 时就绕过去了 —— 开关的意义就是"一律不观看"。
+            if (withView && DebateChallengeFlow.ForceNoView)
+            {
+                Sango.Log.Info("【舌战】ForceNoView 总闸开着，本次舌战不进入演示");
+                withView = false;
+                forceView = false;
+            }
+
+            // 双方都不是玩家**亲自操作**（AI 打 AI）时一律退化成纯逻辑推演：
+            // 既没有人需要出牌、也没有人需要看演出，就不该把舌战界面推给玩家围观。
+            // 判断口径与 BuildParam 里 control / 单挑的 manual 完全一致（玩家直属军团 Person.IsPlayerControl）。
+            if (withView && !forceView && !challenger.IsPlayerControl && !challenged.IsPlayerControl)
+            {
+                Sango.Log.Info($"【舌战】{challenger.Name} VS {challenged.Name} 双方均非玩家操作，直接后台推演（不进入演示）");
+                withView = false;
+            }
+            else if (withView && forceView && !challenger.IsPlayerControl && !challenged.IsPlayerControl)
+            {
+                Sango.Log.Info($"【舌战】{challenger.Name} VS {challenged.Name} 双方均非玩家操作，但要求强制演出（只观看，不出牌）");
+            }
 
             Debate.Param param = BuildParam(challenger, challenged, withView, outcome);
             if (param == null) return false;

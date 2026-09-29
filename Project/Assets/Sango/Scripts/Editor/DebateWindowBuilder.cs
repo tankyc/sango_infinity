@@ -2,22 +2,27 @@
  * 文件名：DebateWindowBuilder.cs
  * 描述：舌战界面 window_debate.prefab 的编辑器构建/重绑工具
  *
- * 布局（1920×1080 参考分辨率，锚点定位）：
- *   · 顶部中央：当前话题 + 话题提示
- *   · 左上 / 右上：双方武将（头像 + 姓名 + 智力 + 体力条 + 愤怒条 + 激昂标记 + 本回合出牌）
- *   · 中央：会心抉择（追击 / 留情，平时隐藏）
- *   · 下方中央：玩家手牌 7 张（横向排列，与本回合话题一致的牌带 ★）
- *   · 右下：战报日志
- *   · 底部：提示 / 结算画面（结算时弹出，点关闭收场）
+ * 节点结构与 window_debate.prefab（美术版，与单挑的 window_duel.prefab 同源）对齐：
+ *   · CardArea/CardLeft、CardRight        左右两张武将卡（头像 / 姓名 / 明细 / 飘字 / 受击特效）
+ *   · CardArea/CardCenter                 中央文字：本回合话题（结算时改成胜负标题）
+ *   · CardArea/win、lose                  结算大字（默认隐藏，由表现层亮一个）
+ *   · left_top/person_left                挑战方武将条（头像 / 姓名 / 智力 / 性格 / hp / mp）
+ *   · right_top/person_right              应战方武将条
+ *   · lfetCommand/buttons/Stance1..7      挑战方手牌（Toggle，与本回合话题一致的带 ★ 与特效）
+ *   · rightCommand/buttons/Stance1..7     应战方手牌
+ *   · BlowCounter_bg/Dialogue1、Dialogue2 会心抉择（追击 / 留情，平时隐藏）
+ *   · BlowCounter_bg/stopBtn/stopBtn      中止 / 关闭结算
+ *   · LogBg/log                           战报日志
+ *   · down/info                           底部操作提示
  *
  * 重要约定（照 DuelWindowBuilder 的经验）：
  *   1. prefab **已存在就只重绑节点引用**，不重建、不覆盖美术手工摆放的位置与图；
  *      要重新生成布局，先删掉 prefab 或调 Build(true)。
- *   2. 字体与飘字节点直接**借** window_duel.prefab 里已经配好的那套
- *      （Text 的字体、AnimationText 的曲线），避免凭空造一套不成形的资源。
+ *      —— 现在的 window_debate.prefab 就是美术版，正常只应该用「仅重绑节点引用」。
+ *   2. 字体**借** window_duel.prefab 里已经配好的那套，避免凭空造一套不成形的资源。
  *   3. 新建的占位节点只给纯色 Image，不给精灵图，等美术替换。
  *
- * 用法：菜单 Sango/舌战/生成舌战界面，或 Sango/舌战/仅重绑节点引用。
+ * 用法：菜单 Sango/舌战/仅重绑节点引用（日常），或 Sango/舌战/生成舌战界面（重建占位）。
  */
 
 using Sango.Core.Debate;
@@ -41,26 +46,26 @@ namespace Sango.EditorTools
         [MenuItem("Sango/舌战/生成舌战界面")]
         public static void BuildFromMenu()
         {
-            Debug.Log(Build(false));
+            Sango.Log.Info(Build(false));
         }
 
         [MenuItem("Sango/舌战/强制重建舌战界面（会覆盖手工排版）")]
         public static void RebuildFromMenu()
         {
-            Debug.Log(Build(true));
+            Sango.Log.Info(Build(true));
         }
 
         [MenuItem("Sango/舌战/仅重绑节点引用")]
         public static void BindOnlyFromMenu()
         {
-            Debug.Log(BindOnly());
+            Sango.Log.Info(BindOnly());
         }
 
         /// <summary>只重绑节点引用（不动布局、不动美术）</summary>
         public static string BindOnly()
         {
             GameObject root = PrefabUtility.LoadPrefabContents(PrefabPath);
-            if (root == null) return "prefab not found: " + PrefabPath;
+            if (root == null) return "找不到 prefab：" + PrefabPath;
 
             try
             {
@@ -68,12 +73,12 @@ namespace Sango.EditorTools
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
                 PrefabUtility.UnloadPrefabContents(root);
                 AssetDatabase.ImportAsset(PrefabPath, ImportAssetOptions.ForceUpdate);
-                return "window_debate 仅绑定 OK；" + bindMsg;
+                return "window_debate 仅绑定完成；" + bindMsg;
             }
             catch (System.Exception e)
             {
                 PrefabUtility.UnloadPrefabContents(root);
-                return "bind failed: " + e.Message;
+                return "绑定失败：" + e.Message;
             }
         }
 
@@ -91,24 +96,15 @@ namespace Sango.EditorTools
             if (exists)
                 AssetDatabase.DeleteAsset(PrefabPath);
 
-            // 借单挑界面里现成的字体与飘字节点
+            // 借单挑界面里现成的字体（舌战与单挑同字体，避免凭空造一套不成形的资源）
             Font font = null;
             GameObject duelRoot = PrefabUtility.LoadPrefabContents(DuelPrefabPath);
-            GameObject floatTemplate = null;
             try
             {
                 if (duelRoot != null)
                 {
                     Text anyText = duelRoot.GetComponentInChildren<Text>(true);
                     if (anyText != null) font = anyText.font;
-
-                    Transform ani = Deep(duelRoot.transform, "ani_info");
-                    if (ani != null)
-                    {
-                        // 注意写全 UnityEngine.Object：Sango 命名空间下另有同名 Object 类
-                        floatTemplate = UnityEngine.Object.Instantiate(ani.gameObject);
-                        floatTemplate.name = "float";
-                    }
                 }
             }
             finally
@@ -122,7 +118,7 @@ namespace Sango.EditorTools
             GameObject root = CreateRoot();
             try
             {
-                BuildLayout(root.transform, font, floatTemplate);
+                BuildLayout(root.transform, font);
                 string bindMsg = BindView(root.transform);
 
                 PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
@@ -131,8 +127,8 @@ namespace Sango.EditorTools
             }
             finally
             {
+                // 注意写全 UnityEngine.Object：Sango 命名空间下另有同名 Object 类
                 UnityEngine.Object.DestroyImmediate(root);
-                if (floatTemplate != null) UnityEngine.Object.DestroyImmediate(floatTemplate);
             }
         }
 
@@ -165,122 +161,152 @@ namespace Sango.EditorTools
             return root;
         }
 
-        /// <summary>搭出整棵界面树</summary>
-        private static void BuildLayout(Transform root, Font font, GameObject floatTemplate)
+        /// <summary>
+        /// 搭出整棵占位界面树。
+        /// 节点名严格按 CardDebateView.AutoBind 的约定来（与美术版 window_debate.prefab 对齐），
+        /// 这样生成出来的占位界面和美术版能共用同一套绑定逻辑。
+        /// </summary>
+        private static void BuildLayout(Transform root, Font font)
         {
             // 半透明遮罩
             Image mask = NewImage("mask", root, 0f, 0f, 0f, 0f, new Color(0f, 0f, 0f, 0.72f));
             Stretch(mask.rectTransform);
 
-            // 顶部：话题
-            Text topic = NewText("topic", root, 0f, 430f, 420f, 70f, 44, TextAnchor.MiddleCenter, "话题", Color.white, font);
-            topic.text = "故事";
-            NewText("topicHint", root, 0f, 380f, 720f, 40f, 22, TextAnchor.MiddleCenter, "", new Color(0.8f, 0.8f, 0.8f, 1f), font);
+            // ---- CardArea：左右两张武将卡 + 中央文字 + 结算大字 ----
+            GameObject cardArea = NewNode("CardArea", root, 0f, 0f, 1344f, 700f);
+            BuildCard(cardArea.transform, "CardLeft", -248f, font);
+            BuildCard(cardArea.transform, "CardRight", 248f, font);
 
-            // 两侧武将区
-            BuildSide(root, "left", -560f, font);
-            BuildSide(root, "right", 560f, font);
+            Text center = NewText("CardCenter", cardArea.transform, 0f, -20.5f, 320f, 49f, 32,
+                TextAnchor.MiddleCenter, "话题：故事", Color.white, font);
+            center.horizontalOverflow = HorizontalWrapMode.Overflow;
 
-            // 会心抉择（默认隐藏，由表现层在需要时点亮）
-            GameObject critical = NewNode("Critical", root, 0f, -80f, 520f, 120f);
-            NewButton("BtnPushOn", critical.transform, -130f, 0f, 220f, 80f, "追击", font);
-            NewButton("BtnMercy", critical.transform, 130f, 0f, 220f, 80f, "留情", font);
-            critical.SetActive(false);
+            // 结算大字：默认隐藏，由表现层在收场时亮一个
+            NewRawImage("win", cardArea.transform, 0f, 188f, 256f, 128f).gameObject.SetActive(false);
+            NewRawImage("lose", cardArea.transform, 0f, 188f, 256f, 128f).gameObject.SetActive(false);
 
-            // 手牌
-            GameObject hand = NewNode("Hand", root, 0f, -360f, 1260f, 220f);
-            HorizontalLayoutGroup layout = hand.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 12f;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = false;
-            layout.childControlWidth = false;
-            layout.childControlHeight = false;
+            // ---- 左右两侧武将条 ----
+            BuildPersonBar(root, "left_top", "person_left", -600f, 400f, font);
+            BuildPersonBar(root, "right_top", "person_right", 600f, 400f, font);
 
-            for (int i = 0; i < Debate.MaxCardCount; i++)
-            {
-                Button b = NewButton("Hand" + i, hand.transform, 0f, 0f, 160f, 210f, "—", font);
-                b.GetComponent<Image>().color = new Color(0.18f, 0.2f, 0.28f, 0.95f);
-            }
+            // ---- 左右两套手牌（每套 7 格 Toggle + ToggleGroup）----
+            BuildHand(root, "lfetCommand", -400f, -300f, font);
+            BuildHand(root, "rightCommand", 400f, -300f, font);
 
-            // 底部提示
-            NewText("hint", root, 0f, -500f, 900f, 44f, 24, TextAnchor.MiddleCenter, "", new Color(1f, 0.92f, 0.7f, 1f), font);
+            // ---- 顶部中央：合数计数器 + 会心抉择 + 中止 ----
+            GameObject blow = NewNode("BlowCounter_bg", root, 0f, 520f, 440f, 116f);
+            NewText("BlowCounter_ten", blow.transform, 0f, 20f, 200f, 60f, 48, TextAnchor.MiddleCenter, "", Color.white, font);
+            NewText("Blow", blow.transform, 90f, 20f, 60f, 60f, 48, TextAnchor.MiddleCenter, "", Color.white, font);
 
-            // 战报
-            GameObject logBg = NewImage("LogBg", root, 600f, -300f, 660f, 320f, new Color(0f, 0f, 0f, 0.55f)).gameObject;
-            Text log = NewText("log", logBg.transform, 0f, 0f, 620f, 280f, 20, TextAnchor.LowerLeft, "", Color.white, font);
+            // 会心抉择二选一：共用一个 ToggleGroup，允许都不选（选中态由表现层清）
+            ToggleGroup criticalGroup = blow.AddComponent<ToggleGroup>();
+            criticalGroup.allowSwitchOff = true;
+
+            GameObject dlg1 = NewToggleNode("Dialogue1", blow.transform, -180f, -80f, 332f, 72f, "追击", font, out Toggle toggle1);
+            GameObject dlg2 = NewToggleNode("Dialogue2", blow.transform, 180f, -80f, 332f, 72f, "留情", font, out Toggle toggle2);
+            if (toggle1 != null) toggle1.group = criticalGroup;
+            if (toggle2 != null) toggle2.group = criticalGroup;
+            dlg1.SetActive(false);
+            dlg2.SetActive(false);
+
+            // 双方本回合出牌展示（纯展示：卡面只是个 Image，按牌的类型换成高亮图）
+            NewToggleNode("card1", blow.transform, -300f, -160f, 128f, 58f, "—", font, out Toggle cardA);
+            NewToggleNode("card2", blow.transform, 300f, -160f, 128f, 58f, "—", font, out Toggle cardB);
+            if (cardA != null) cardA.group = null;
+            if (cardB != null) cardB.group = null;
+
+            GameObject stopBg = NewNode("stopBtn", blow.transform, 0f, -160f, 132f, 50f);
+            NewButton("stopBtn", stopBg.transform, 0f, 0f, 132f, 50f, "中止", font);
+
+            // ---- 底部提示（down/info）----
+            GameObject down = NewNode("down", root, 0f, -500f, 900f, 44f);
+            NewText("info", down.transform, 0f, 0f, 900f, 44f, 24, TextAnchor.MiddleCenter, "", new Color(1f, 0.92f, 0.7f, 1f), font);
+
+            // ---- 战报 ----
+            GameObject logBg = NewImage("LogBg", root, 700f, -300f, 460f, 320f, new Color(0f, 0f, 0f, 0.55f)).gameObject;
+            Text log = NewText("log", logBg.transform, 0f, 0f, 420f, 280f, 20, TextAnchor.LowerLeft, "", Color.white, font);
             log.rectTransform.anchoredPosition = Vector2.zero;
             log.horizontalOverflow = HorizontalWrapMode.Wrap;
             log.verticalOverflow = VerticalWrapMode.Truncate;
 
-            // 飘字：直接借单挑里配好的 AnimationText 节点
-            if (floatTemplate != null)
-            {
-                floatTemplate.transform.SetParent(root, false);
-                RectTransform frt = (RectTransform)floatTemplate.transform;
-                frt.anchorMin = frt.anchorMax = new Vector2(0.5f, 0.5f);
-                frt.pivot = new Vector2(0.5f, 0.5f);
-                frt.anchoredPosition = Vector2.zero;
-            }
-            else
-            {
-                Sango.Log.Warning("舌战界面：没能在 window_duel 里找到 ani_info 飘字节点，本次未生成飘字载体。");
-            }
-
-            // 结算画面（默认隐藏）
-            GameObject result = NewImage("Result", root, 0f, 0f, 900f, 420f, new Color(0.06f, 0.07f, 0.1f, 0.95f)).gameObject;
-            NewText("title", result.transform, 0f, 110f, 800f, 110f, 64, TextAnchor.MiddleCenter, "", new Color(1f, 0.9f, 0.6f, 1f), font);
-            NewText("desc", result.transform, 0f, 20f, 800f, 60f, 28, TextAnchor.MiddleCenter, "", Color.white, font);
-            NewButton("BtnClose", result.transform, 0f, -110f, 220f, 80f, "关闭", font);
-            result.SetActive(false);
+            // ---- 中央飘字（左右卡面的飘字由 BuildCard 各自生成）----
+            NewFloat("float", root, font);
         }
 
-        /// <summary>一侧武将区</summary>
-        private static void BuildSide(Transform root, string sideName, float x, Font font)
+        /// <summary>一张武将卡（CardLeft / CardRight）：脸框 + 头像 + 姓名 + 明细 + 飘字 + 受击特效</summary>
+        private static void BuildCard(Transform parent, string cardName, float x, Font font)
         {
-            GameObject side = NewNode(sideName, root, x, 250f, 640f, 260f);
+            Image frame = NewImage(cardName, parent, x, 0f, 220f, 300f, new Color(0.14f, 0.16f, 0.22f, 0.95f));
 
-            // 头像（RawImage，运行时填纹理）
-            GameObject head = NewNode("head", side.transform, -240f, 0f, 160f, 200f);
-            RawImage raw = head.AddComponent<RawImage>();
-            raw.color = new Color(1f, 1f, 1f, 0.9f);
+            GameObject face = NewNode("face", frame.transform, 0f, 0f, 200f, 230f);
+            NewRawImage("head", face.transform, 0f, 20f, 180f, 180f);
+            NewText("name", face.transform, 0f, -70f, 200f, 40f, 28, TextAnchor.MiddleCenter, "—", Color.white, font);
+            NewText("detail", face.transform, 0f, -105f, 200f, 60f, 18, TextAnchor.UpperCenter, "", new Color(0.9f, 0.9f, 0.9f, 1f), font);
 
-            NewText("name", side.transform, 60f, 90f, 420f, 60f, 36, TextAnchor.MiddleLeft, "—", Color.white, font);
-            NewText("intel", side.transform, 60f, 45f, 420f, 40f, 22, TextAnchor.MiddleLeft, "智力 --", new Color(0.85f, 0.88f, 0.95f, 1f), font);
+            NewFloat("ani_info", face.transform, font);
 
-            // 体力条 / 愤怒条（Filled 横向，运行时按比例改 fillAmount）
-            MakeBar(side.transform, "hpBar", "hpText", -60f, -20f, 420f, "体力", new Color(0.85f, 0.25f, 0.25f, 1f), font);
-            MakeBar(side.transform, "stressBar", "stressText", -60f, -70f, 420f, "愤怒", new Color(0.95f, 0.7f, 0.2f, 1f), font);
-
-            // 激昂标记
-            Text anger = NewText("anger", side.transform, 260f, 90f, 140f, 50f, 26, TextAnchor.MiddleCenter, "激昂", new Color(1f, 0.4f, 0.35f, 1f), font);
-            anger.gameObject.SetActive(false);
-
-            // 本回合出牌
-            NewText("played", side.transform, 60f, -115f, 500f, 40f, 22, TextAnchor.MiddleLeft, "本回合：—", new Color(0.9f, 0.9f, 0.9f, 1f), font);
+            GameObject hit = NewNode("hit", face.transform, 0f, 0f, 128f, 128f);
+            Image hitImage = hit.AddComponent<Image>();
+            hitImage.raycastTarget = false;
+            hitImage.color = new Color(1f, 0.3f, 0.3f, 0.5f);
+            hit.SetActive(false);
         }
 
-        /// <summary>做一条进度条 + 上面的数值文字</summary>
-        private static void MakeBar(Transform parent, string barName, string textName, float x, float y, float width, string label, Color color, Font font)
+        /// <summary>一侧武将条：left_top/person_left、right_top/person_right</summary>
+        private static void BuildPersonBar(Transform root, string topName, string personName, float x, float y, Font font)
         {
-            GameObject bar = NewImage(barName, parent, x, y, width, 28f, new Color(color.r, color.g, color.b, 0.35f)).gameObject;
-            Image bg = bar.GetComponent<Image>();
+            GameObject top = NewNode(topName, root, x, y, 512f, 116f);
+            GameObject person = NewNode(personName, top.transform, 0f, 0f, 512f, 116f);
 
-            GameObject fill = NewImage("fill", bar.transform, 0f, 0f, width, 28f, color).gameObject;
-            Stretch(fill.GetComponent<RectTransform>());
-            Image fillImage = fill.GetComponent<Image>();
-            fillImage.type = Image.Type.Filled;
-            fillImage.fillMethod = Image.FillMethod.Horizontal;
-            fillImage.fillAmount = 1f;
-            fillImage.sprite = null;
+            NewRawImage("head", person.transform, -170f, 0f, 66f, 80f);
+            NewText("name", person.transform, 0f, 32f, 200f, 40f, 30, TextAnchor.MiddleLeft, "—", Color.white, font);
+            NewText("Intelligence", person.transform, 0f, 0f, 200f, 30f, 20, TextAnchor.MiddleLeft, "智力 0", new Color(0.85f, 0.88f, 0.95f, 1f), font);
+            NewText("Personality", person.transform, 0f, -30f, 200f, 30f, 20, TextAnchor.MiddleLeft, "—", new Color(0.85f, 0.88f, 0.95f, 1f), font);
 
-            // 让表现层直接把 bar 当填充图用（fillAmount 作用在 bar 自己身上）
-            bg.type = Image.Type.Filled;
-            bg.fillMethod = Image.FillMethod.Horizontal;
-            bg.fillAmount = 1f;
+            // 体力条（hp/fill + hp/txt）与愤怒条（mp/fill + mp/txt）
+            MakeBar(person.transform, "hp", -60f, -0f, 260f, "体力", new Color(0.85f, 0.25f, 0.25f, 1f), font);
+            MakeBar(person.transform, "mp", -60f, -36f, 260f, "愤怒", new Color(0.95f, 0.7f, 0.2f, 1f), font);
 
-            // 数值文字（覆盖在条上）
-            Text t = NewText(textName, bar.transform, 0f, 0f, width, 28f, 20, TextAnchor.MiddleCenter, label + " --", Color.white, font);
+            // 激昂标记（默认隐藏）
+            GameObject anger = NewNode("eft_1", person.transform, 130f, 0f, 64f, 64f);
+            Image angerImage = anger.AddComponent<Image>();
+            angerImage.raycastTarget = false;
+            angerImage.color = new Color(1f, 0.5f, 0.3f, 0.6f);
+            anger.SetActive(false);
+        }
+
+        /// <summary>一套手牌：命令区根 + buttons(ToggleGroup) + Stance1..7</summary>
+        private static void BuildHand(Transform root, string commandName, float x, float y, Font font)
+        {
+            GameObject command = NewNode(commandName, root, x, y, 408f, 284f);
+            GameObject buttons = NewNode("buttons", command.transform, 0f, 0f, 408f, 284f);
+            ToggleGroup group = buttons.AddComponent<ToggleGroup>();
+            group.allowSwitchOff = true;
+
+            const float radius = 110f;
+            for (int i = 0; i < Debate.MaxCardCount; i++)
+            {
+                float angle = Mathf.PI * 0.5f + Mathf.PI * i / (Debate.MaxCardCount - 1);
+                float cx = Mathf.Cos(angle) * radius;
+                float cy = Mathf.Sin(angle) * radius * 0.6f;
+
+                GameObject cell = NewToggleNode("Stance" + (i + 1), buttons.transform, cx, cy, 96f, 42f, "—", font, out Toggle toggle);
+                if (toggle != null) toggle.group = group;
+            }
+        }
+
+        /// <summary>做一条进度条（bar/fill + bar/txt），供体力与愤怒共用</summary>
+        private static void MakeBar(Transform parent, string barName, float x, float y, float width, string label, Color color, Font font)
+        {
+            GameObject bar = NewNode(barName, parent, x, y, width, 28f);
+
+            Image fill = NewImage("fill", bar.transform, 0f, 0f, width, 28f, color);
+            Stretch(fill.rectTransform);
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillAmount = 1f;
+
+            Text t = NewText("txt", bar.transform, 0f, 0f, width, 28f, 20, TextAnchor.MiddleCenter, label, Color.white, font);
             t.rectTransform.anchoredPosition = Vector2.zero;
         }
 
@@ -302,6 +328,7 @@ namespace Sango.EditorTools
             }
 
             view.Rebind();
+            string skinMsg = AssignCardSkins(view);
 
             // 根节点上不应再有第二个（空的）UGUIWindow：那会让 Window.CreateWindow 拿到空壳
             UGUIWindow[] wins = root.GetComponents<UGUIWindow>();
@@ -316,34 +343,149 @@ namespace Sango.EditorTools
             Count(view.topicHint, ref bound, ref total);
             Count(view.hintText, ref bound, ref total);
             Count(view.logText, ref bound, ref total);
+            Count(view.floatLeft, ref bound, ref total);
+            Count(view.floatRight, ref bound, ref total);
             Count(view.floatText, ref bound, ref total);
-            Count(view.criticalPanel, ref bound, ref total);
-            Count(view.btnPushOn, ref bound, ref total);
-            Count(view.btnMercy, ref bound, ref total);
-            Count(view.resultPanel, ref bound, ref total);
-            Count(view.resultTitle, ref bound, ref total);
-            Count(view.resultDesc, ref bound, ref total);
+            Count(view.sceneImage, ref bound, ref total);
+            Count(view.togglePushOn, ref bound, ref total);
+            Count(view.toggleMercy, ref bound, ref total);
+            Count(view.togglePushOnLabel, ref bound, ref total);
+            Count(view.toggleMercyLabel, ref bound, ref total);
+            Count(view.resultWin, ref bound, ref total);
+            Count(view.resultLose, ref bound, ref total);
             Count(view.btnClose, ref bound, ref total);
-            Count(view.handButtons, ref bound, ref total);
-            Count(view.handLabels, ref bound, ref total);
+            CountSkins(view.cardSkins, ref bound, ref total);
+            CountCard(view.cardLeft, ref bound, ref total);
+            CountCard(view.cardRight, ref bound, ref total);
+            CountPlayedCard(view.playedCardLeft, ref bound, ref total);
+            CountPlayedCard(view.playedCardRight, ref bound, ref total);
             CountSide(view.leftSide, ref bound, ref total);
             CountSide(view.rightSide, ref bound, ref total);
+            CountHand(view.leftHand, ref bound, ref total);
+            CountHand(view.rightHand, ref bound, ref total);
 
-            return "绑定 CardDebateView " + bound + "/" + total + " 项" + (created ? "（新建组件）" : "");
+            return "绑定 CardDebateView " + bound + "/" + total + " 项"
+                + (created ? "（新建组件）" : "")
+                + (string.IsNullOrEmpty(skinMsg) ? "" : "；" + skinMsg);
         }
 
+        /// <summary>统计一张武将卡的绑定情况</summary>
+        private static void CountCard(CardDebateView.DebateCardFace card, ref int bound, ref int total)
+        {
+            if (card == null) return;
+            Count(card.root, ref bound, ref total);
+            Count(card.head, ref bound, ref total);
+            Count(card.nameText, ref bound, ref total);
+            Count(card.detailText, ref bound, ref total);
+            Count(card.hitFx, ref bound, ref total);
+            Count(card.aniInfo, ref bound, ref total);
+        }
+
+        /// <summary>统计一侧武将条的绑定情况</summary>
         private static void CountSide(CardDebateView.DebateSide side, ref int bound, ref int total)
         {
             if (side == null) return;
             Count(side.head, ref bound, ref total);
             Count(side.nameText, ref bound, ref total);
             Count(side.intelText, ref bound, ref total);
+            Count(side.personalityText, ref bound, ref total);
             Count(side.hpBar, ref bound, ref total);
             Count(side.hpText, ref bound, ref total);
             Count(side.stressBar, ref bound, ref total);
             Count(side.stressText, ref bound, ref total);
             Count(side.angerTag, ref bound, ref total);
             Count(side.playedCard, ref bound, ref total);
+        }
+
+        /// <summary>统计一套手牌的绑定情况</summary>
+        private static void CountHand(CardDebateView.DebateHand hand, ref int bound, ref int total)
+        {
+            if (hand == null || hand.cells == null) return;
+            Count(hand.group, ref bound, ref total);
+
+            for (int i = 0; i < hand.cells.Length; i++)
+            {
+                CardDebateView.DebateHandCell cell = hand.cells[i];
+                if (cell == null) continue;
+                Count(cell.frame, ref bound, ref total);
+                Count(cell.toggle, ref bound, ref total);
+                Count(cell.label, ref bound, ref total);
+                Count(cell.fx, ref bound, ref total);
+                Count(cell.sel, ref bound, ref total);
+            }
+        }
+
+        /// <summary>
+        /// 卡牌套图的精灵文件名，顺序与 <see cref="CardDebateView.cardSkins"/> 的下标一致：
+        /// 故事 / 道理 / 时节 / 特殊，每类 4 张：普通 / 按下 / 高亮 / 不可选。
+        /// </summary>
+        private static readonly string[] SkinSpriteNames =
+        {
+            "4848-2_12", "4848-2_11", "4848-2_10", "4848-2_4",    // 故事
+            "4848-2_16", "4848-2_15", "4848-2_14", "4848-2_3",    // 道理
+            "4848-2_8",  "4848-2_7",  "4848-2_6",  "4848-2_2",    // 时节
+            "4848-2_23", "4848-2_22", "4848-2_21", "4848-2_20",   // 特殊
+        };
+
+        /// <summary>卡牌套图所在目录（美术切好的单张 PNG）</summary>
+        private const string SkinSpriteFolder = "Assets/Mods/Content/Assets/UI/AtlasTexture/4848-2";
+
+        /// <summary>把美术给的卡牌套图填进表现层（缺图只报数，不报错）</summary>
+        private static string AssignCardSkins(CardDebateView view)
+        {
+            if (view == null) return "卡牌套图：表现层为空";
+
+            int count = SkinSpriteNames.Length / 4;
+            if (view.cardSkins == null || view.cardSkins.Length != count)
+                view.cardSkins = new CardDebateView.DebateCardSkin[count];
+            for (int i = 0; i < view.cardSkins.Length; i++)
+                if (view.cardSkins[i] == null) view.cardSkins[i] = new CardDebateView.DebateCardSkin();
+
+            int miss = 0;
+            for (int i = 0; i < view.cardSkins.Length; i++)
+            {
+                int b = i * 4;
+                CardDebateView.DebateCardSkin skin = view.cardSkins[i];
+                skin.normal = LoadSkinSprite(SkinSpriteNames[b + 0], ref miss);
+                skin.pressed = LoadSkinSprite(SkinSpriteNames[b + 1], ref miss);
+                skin.highlighted = LoadSkinSprite(SkinSpriteNames[b + 2], ref miss);
+                skin.disabled = LoadSkinSprite(SkinSpriteNames[b + 3], ref miss);
+            }
+
+            return "卡牌套图 " + (SkinSpriteNames.Length - miss) + "/" + SkinSpriteNames.Length
+                + (miss > 0 ? "（缺 " + miss + " 张）" : "");
+        }
+
+        /// <summary>按文件名取套图精灵（切好的单张 PNG，用文件名当资产名）。注意写全 UnityEngine.Sprite</summary>
+        private static UnityEngine.Sprite LoadSkinSprite(string name, ref int miss)
+        {
+            UnityEngine.Sprite sprite = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(SkinSpriteFolder + "/" + name + ".png");
+            if (sprite == null) miss++;
+            return sprite;
+        }
+
+        /// <summary>统计卡牌套图的绑定情况</summary>
+        private static void CountSkins(CardDebateView.DebateCardSkin[] skins, ref int bound, ref int total)
+        {
+            if (skins == null) return;
+            for (int i = 0; i < skins.Length; i++)
+            {
+                if (skins[i] == null) continue;
+                Count(skins[i].normal, ref bound, ref total);
+                Count(skins[i].pressed, ref bound, ref total);
+                Count(skins[i].highlighted, ref bound, ref total);
+                Count(skins[i].disabled, ref bound, ref total);
+            }
+        }
+
+        /// <summary>统计一格出牌展示的绑定情况</summary>
+        private static void CountPlayedCard(CardDebateView.DebatePlayedCard show, ref int bound, ref int total)
+        {
+            if (show == null) return;
+            Count(show.root, ref bound, ref total);
+            Count(show.frame, ref bound, ref total);
+            Count(show.label, ref bound, ref total);
+            Count(show.fx, ref bound, ref total);
         }
 
         #endregion
@@ -401,6 +543,54 @@ namespace Sango.EditorTools
             return button;
         }
 
+        /// <summary>建一个带 RawImage 的节点（头像 / 结算大字用）</summary>
+        private static RawImage NewRawImage(string name, Transform parent, float x, float y, float w, float h)
+        {
+            GameObject go = NewNode(name, parent, x, y, w, h);
+            RawImage raw = go.AddComponent<RawImage>();
+            raw.color = Color.white;
+            raw.raycastTarget = false;
+            return raw;
+        }
+
+        /// <summary>
+        /// 建一个手牌/抉择格：根上是 Image + Toggle，子节点是 sel（选中图）、Label（文字）、eft（特效，默认关）。
+        /// </summary>
+        private static GameObject NewToggleNode(string name, Transform parent, float x, float y, float w, float h,
+            string label, Font font, out Toggle toggle)
+        {
+            Image image = NewImage(name, parent, x, y, w, h, new Color(0.18f, 0.2f, 0.28f, 0.95f));
+            image.raycastTarget = true;
+
+            Image selImage = NewImage("sel", image.transform, 0f, 0f, 0f, 0f, new Color(1f, 1f, 1f, 0.16f));
+            selImage.raycastTarget = false;
+            Stretch(selImage.rectTransform);
+
+            NewText("Label", image.transform, 0f, 0f, w, h, 22, TextAnchor.MiddleCenter, label, Color.white, font);
+
+            Image eftImage = NewImage("eft", image.transform, 0f, 0f, 128f, 48f, new Color(1f, 0.85f, 0.4f, 0.35f));
+            eftImage.raycastTarget = false;
+            eftImage.gameObject.SetActive(false);
+
+            toggle = image.gameObject.AddComponent<Toggle>();
+            toggle.targetGraphic = image;
+            toggle.graphic = selImage;
+
+            return image.gameObject;
+        }
+
+        /// <summary>建一个飘字载体（AnimationText + label 子节点）</summary>
+        private static AnimationText NewFloat(string name, Transform parent, Font font)
+        {
+            GameObject go = NewNode(name, parent, 0f, 0f, 260f, 130f);
+            Text label = NewText("label", go.transform, 0f, 0f, 140f, 100f, 26, TextAnchor.MiddleCenter, "", Color.white, font);
+            label.rectTransform.anchoredPosition = Vector2.zero;
+
+            AnimationText ani = go.AddComponent<AnimationText>();
+            ani.label = label;
+            return ani;
+        }
+
         /// <summary>铺满父节点</summary>
         private static void Stretch(RectTransform rt)
         {
@@ -408,19 +598,6 @@ namespace Sango.EditorTools
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
-        }
-
-        /// <summary>递归按名字查找</summary>
-        private static Transform Deep(Transform root, string name)
-        {
-            if (root == null) return null;
-            if (root.name == name) return root;
-            for (int i = 0; i < root.childCount; i++)
-            {
-                Transform t = Deep(root.GetChild(i), name);
-                if (t != null) return t;
-            }
-            return null;
         }
 
         private static void Count(UnityEngine.Object target, ref int bound, ref int total)
