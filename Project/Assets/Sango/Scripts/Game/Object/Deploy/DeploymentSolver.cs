@@ -93,7 +93,14 @@ namespace Sango.Core
         public static void ClearCache()
         {
             cityCache.Clear();
+            currentTeamDemand = null;
         }
+
+        /// <summary>
+        /// 本回合"推荐队伍要人"的需求快照（每次求解建一次，供打分做 O(1) 查询）。
+        /// 只在主线程、且每次 Solve 都会重建，因此静态缓存是安全的。
+        /// </summary>
+        static TroopTeamDemand currentTeamDemand;
 
         /// <summary>
         /// 编制：优先复用缓存（城况"戳"未变时），否则重建。
@@ -499,6 +506,9 @@ namespace Sango.Core
             }
             // 可调动池 = 全势力的机动人力（含"在岗"的人）——这是"能派出去干活的人"的真实上限
             plan.personPool = pool.Count;
+
+            // 推荐队伍要人：把"队伍成员 / 特技持有者"摊平成 id 集合，供下面打分 O(1) 查询
+            currentTeamDemand = TroopTeamDemand.Build(pool);
 
             // 真正执行的条件：全局不是影子模式，且本作用域不是"仅参考"
             bool execute = !weights.shadowOnly && !dryRun;
@@ -908,7 +918,11 @@ namespace Sango.Core
                 float score = Score(p, post, dest, weights);
                 // 特技组合搭配：军事 / 守备岗优先派"能带来本城还没有的特技"的武将
                 if (post.kind == PostKind.Military || post.kind == PostKind.Garrison)
+                {
                     score += FeatureNovelty(p, dest, weights);
+                    // 推荐队伍要人：把队员 / 特技持有者优先送往前线，配合 AI 出征组队
+                    score += RecommendedTeamBonus(p, dest, weights);
+                }
                 // 抢占"在岗"的人要付出额外成本：优先用真正的机动人力
                 if (isOccupied)
                     score -= weights.stealLocalCost;
@@ -1013,6 +1027,25 @@ namespace Sango.Core
             if (CityEstablishment.ResolveRing(city) <= 0 || threatLevel >= w.threatHighAt)
                 limit += w.frontlineExtraReceiveSeat;
             return limit;
+        }
+
+        /// <summary>
+        /// 推荐队伍加成：候选是某支"要去这个圈层"的推荐队伍的成员（固定武将命中，
+        /// 或持有该队伍的固定特技）→ 加分。
+        ///
+        /// 目的：配合 AI 出征的推荐队伍组队 —— 队伍要的人优先被送到对应前线，
+        /// 而不是被后方城的开发岗截走。需求集合每次求解只建一次（见 <c>currentTeamDemand</c>）。
+        /// </summary>
+        /// <param name="p">候选武将</param>
+        /// <param name="dest">目标城</param>
+        /// <param name="w">部署参数（用 <c>recommendedTeamBonus</c>）</param>
+        static float RecommendedTeamBonus(Person p, City dest, DeploymentWeights w)
+        {
+            if (p == null || dest == null || w == null || w.recommendedTeamBonus <= 0f)
+                return 0f;
+            if (currentTeamDemand == null)
+                return 0f;
+            return currentTeamDemand.BonusFor(p, CityEstablishment.ResolveRing(dest), w.recommendedTeamBonus);
         }
 
         /// <summary>

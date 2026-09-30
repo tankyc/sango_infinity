@@ -1092,6 +1092,15 @@ namespace Sango.Core
             GameEvent.OnGameResume -= OnGameResume;
             MapRender.Instance.OnMapLoaded -= OnWorldLoaded;
             IsAlive = false;
+            forceSet.Clear();
+            corpsSet.Clear();
+            citySet.Clear();
+            personSet.Clear();
+            troopsSet.Clear();
+            buildingSet.Clear();
+            fireSet.Clear();
+            allianceSet.Clear();
+
             base.Clear();
             CommonData = null;
             Variables = null;
@@ -1101,14 +1110,7 @@ namespace Sango.Core
                 Map = null;
             }
 
-            forceSet.Clear();
-            corpsSet.Clear();
-            citySet.Clear();
-            personSet.Clear();
-            troopsSet.Clear();
-            buildingSet.Clear();
-            fireSet.Clear();
-            allianceSet.Clear();
+           
             RelationMap = null;
 
             prepareList.Clear();

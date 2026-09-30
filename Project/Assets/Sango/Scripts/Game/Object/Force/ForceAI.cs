@@ -1599,7 +1599,12 @@ namespace Sango.Core
         /// <summary>
         /// 军师部队推荐指定部队
         /// </summary>
-        public static Person[] CounsellorRecommendMakeTroop(List<Person> personList, TroopType troopType, int maxPersonLimit = 3)
+        /// <param name="personList">候选武将（通常是本城空闲武将）</param>
+        /// <param name="troopType">目标兵种</param>
+        /// <param name="maxPersonLimit">最多几人（与部队的三个槽位对应）</param>
+        /// <param name="city">目标城；**传了才会做推荐队伍的"最低兵力"门槛判定**（拿不出兵就跳过该队伍）</param>
+        public static Person[] CounsellorRecommendMakeTroop(List<Person> personList, TroopType troopType,
+            int maxPersonLimit = 3, City city = null)
         {
             if (personList.Count <= 0)
                 return null;
@@ -1610,7 +1615,14 @@ namespace Sango.Core
             Person[] checkPersons = new Person[3];
             Person person1 = null;
 
-            //TODO: 优先内置推荐队伍
+            // 【推荐队伍优先】本城若有"身份成员凑得齐"的推荐队伍 / 我的队伍（且队伍兵种与本处目标不冲突），
+            // 就直接采用它的成员；没有则回落到下面的常规挑选。
+            // 判定细节见 TroopTeamService.TryPickMembersForTroop（身份成员必须齐全，补位可选）。
+            {
+                List<Person> teamPick = TroopTeamService.TryPickMembersForTroop(personList, troopType, maxPersonLimit, city);
+                if (teamPick != null && teamPick.Count > 0)
+                    return teamPick.ToArray();
+            }
             ///
             int checkValue = 0;
             int v_int = 0;

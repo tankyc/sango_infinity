@@ -2091,8 +2091,21 @@ namespace Sango.Core
                     spType = costEnoughTroopTypes[0];
             }
 
+            // 【推荐队伍优先】本城能凑齐某支推荐队伍（且队伍兵种在当前允许组建的范围内）
+            // → 直接用队伍的兵种与成员，跳过下面的常规挑选。队伍不限兵种时沿用上面选出的 spType。
+            Person[] people = null;
+            TroopTeamCandidate teamPick;
+            if (TroopTeamService.TryPickForAI(city, costEnoughTroopTypes,
+                    CityEstablishment.ResolveRing(city), out teamPick))
+            {
+                if (teamPick.troopType != null)
+                    spType = teamPick.troopType;
+                people = teamPick.members.ToArray();
+            }
+
             // 【修复】推荐结果为空时直接返回，避免后续 people[0] 抛 NullReferenceException
-            Person[] people = ForceAI.CounsellorRecommendMakeTroop(city.freePersons, spType, maxPersonCount);
+            if (people == null || people.Length == 0 || people[0] == null)
+                people = ForceAI.CounsellorRecommendMakeTroop(city.freePersons, spType, maxPersonCount, city);
             if (people == null || people.Length == 0 || people[0] == null)
                 return null;
 

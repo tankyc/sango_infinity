@@ -51,6 +51,8 @@
  * 收场节奏：ClosingPhase 进来先只说收场对白（赢家按追击/留情分两套、输家接一句），
  * 胜负大字与「退出」按钮要对白全播完才亮（见 UpdateResultReveal / RevealResult）；
  * 这段等待期靠 m_ResultOpen 继续把逻辑层挡在收场阶段，所以不会提前收场。
+ * 注意收场那一刻要把**中场没播完的台词队列清掉**（队列上限 3 条，不清的话收场词要排在几条旧台词后面，
+ * 玩家得干等好几秒才看到「退出」），另有 resultRevealTimeout 兜底：对白卡住也照样揭晓。
  *
  * 激昂（愤怒）表现（见 DebateAngerTrigger / RefreshAngerLook / ClearAngerLook）：
  *   · 爆发那一刻：该方卡面飘「激昂」大字 + 抖一下 + 按性格喊一句（胆小 / 冷静 / 刚胆 / 莽撞 各一套台词）；
@@ -289,6 +291,13 @@ namespace Sango.Core.Debate
         /// <summary>激昂爆发的演出时长（秒）；这段里逻辑层会等</summary>
         public float angerBurstDuration = 0.9f;
 
+        /// <summary>
+        /// 收场对白最多等多久（秒）才揭晓结果。
+        /// 正常情况对白一播完就揭晓（收场词最多两条），这个只是兜底：
+        /// 万一某条台词卡住，到点也把「退出」按钮亮出来，别让玩家出不去。
+        /// </summary>
+        public float resultRevealTimeout = 6f;
+
         /// <summary>不可用（再考用尽）手牌的灰字</summary>
         public static readonly Color DisabledCardTint = new Color(0.55f, 0.55f, 0.55f, 1f);
 
@@ -316,6 +325,9 @@ namespace Sango.Core.Debate
         /// 这段等待期靠 m_ResultOpen 继续把逻辑层挡在收场阶段（见 DebateIsAnimating）。
         /// </summary>
         protected bool m_ResultWaiting;
+
+        /// <summary>等对白的兜底倒计时（秒）：到 0 就直接揭晓（见 resultRevealTimeout）</summary>
+        protected float m_ResultWaitTimer;
 
         /// <summary>消息框计数（> 0 时 DebateIsMessageBoxVisible 为 true）</summary>
         protected int m_LineCount;
@@ -744,6 +756,7 @@ namespace Sango.Core.Debate
             m_ResultOpen = false;
             m_ResultPending = 0;
             m_ResultWaiting = false;
+            m_ResultWaitTimer = 0f;
             m_LineCount = 0;
             m_PendingCard = -1;
             m_PendingCardTeam = -1;
@@ -1012,6 +1025,7 @@ namespace Sango.Core.Debate
             m_ResultOpen = false;
             m_ResultWaiting = false;
             m_ResultPending = 0;
+            m_ResultWaitTimer = 0f;
             ClearResultStamp();
             SetOutVisible(false);
         }
@@ -1043,6 +1057,7 @@ namespace Sango.Core.Debate
             // 开场阶段不该有「退出」按钮，收场对白播完才亮（见 UpdateResultReveal）
             m_ResultPending = 0;
             m_ResultWaiting = false;
+            m_ResultWaitTimer = 0f;
             SetOutVisible(false);
             if (topicHint != null) topicHint.text = "与本回合话题一致的卡牌威力更高";
 
@@ -1088,7 +1103,13 @@ namespace Sango.Core.Debate
             // 结果和台词同时砸出来会互相抢，也对不上"最后一句说完才揭晓"的节奏。
             m_ResultPending = player < 0 || winner < 0 ? 0 : (winner == player ? 1 : -1);
             m_ResultWaiting = true;
+            m_ResultWaitTimer = Mathf.Max(1f, resultRevealTimeout);
             SetOutVisible(false);
+
+            // 把中场还没播完的台词丢掉再排收场词：
+            // 队列上限 3 条，收场前往往正压着几条"出牌 / 受击"的旧台词 —— 不丢的话收场词要排在它们后面，
+            // 玩家得干等五六秒才看到结果，运气不好还会因为队列满而被直接挤掉。
+            m_SayQueue.Clear();
             SayClosingLines(debate, winner, winType);
 
             ShowHint("舌战结束");
@@ -2534,8 +2555,16 @@ namespace Sango.Core.Debate
         {
             if (!m_ResultWaiting) return;
 
-            // 还有人在说话、或还有台词排着队 → 再等等，结果不能抢在对白前面
-            if (AnyDialoguePlaying() || m_SayQueue.Count > 0) return;
+            // 还有人在说话、或还有台词排着队 → 再等等，结果不能抢在对白前面；
+            // 但最多等到 resultRevealTimeout：超时就把台词收了直接揭晓，别把玩家卡在出不去的地方。
+            if (AnyDialoguePlaying() || m_SayQueue.Count > 0)
+            {
+                m_ResultWaitTimer -= Time.deltaTime;
+                if (m_ResultWaitTimer > 0f) return;
+
+                Sango.Log.Warning("舌战界面：收场对白超时未播完，直接揭晓结果并收起台词。");
+                ClearDialogues();
+            }
 
             m_ResultWaiting = false;
             int stamp = m_ResultPending;

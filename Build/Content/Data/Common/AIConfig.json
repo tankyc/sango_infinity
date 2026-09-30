@@ -207,6 +207,7 @@
 
     // ---- 特技组合搭配 ----
     "featureNoveltyBonus": 0.35,        // 候选能带来本城驻军没有的特技时的加分（军事/守备岗）
+    "recommendedTeamBonus": 0.25,       // 推荐队伍队员/特技持有者被调往前线的加分（军事/守备岗；0 = 关闭）
     "enablePortGateDistribute": true,   // 是否把港关纳入编制（false = 港关不接收人）
 
     // ---- 预想兵力（抗抖动的编制基数） ----

@@ -36,7 +36,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// ����json����
+        /// 加载json数据
         /// </summary>
         /// <param name="file"></param>
         public void Load(string file)
@@ -62,7 +62,7 @@ namespace Sango.Core
             if (AudioManager.Instance.VoiceVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-                Sango.Log.Info($"��������: {result.res}");
+                Sango.Log.Info($"播放语音: {result.res}");
                 return AudioManager.Instance.PlayVoice(result.res);
             }
             return -1;
@@ -73,7 +73,7 @@ namespace Sango.Core
             if (AudioManager.Instance.VoiceVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-                Sango.Log.Info($"��������: {result.res}");
+                Sango.Log.Info($"播放语音: {result.res}");
                 return AudioManager.Instance.PlayVoice(result.res, volume);
             }
             return -1;
@@ -84,7 +84,7 @@ namespace Sango.Core
             if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-                Sango.Log.Info($"������Ч: {result.res}");
+                Sango.Log.Info($"播放音效: {result.res}");
                 return AudioManager.Instance.PlaySfx(result.res);
             }
             return -1;
@@ -95,7 +95,7 @@ namespace Sango.Core
             if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-                Sango.Log.Info($"������Ч: {result.res}");
+                Sango.Log.Info($"播放音效: {result.res}");
                 return AudioManager.Instance.PlaySfxLoop(result.res);
             }
             return -1;
@@ -106,7 +106,7 @@ namespace Sango.Core
             if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-                Sango.Log.Info($"������Ч: {result.res}");
+                Sango.Log.Info($"播放音效: {result.res}");
                 return AudioManager.Instance.PlaySfx(result.res, volume);
             }
             return -1;
@@ -117,7 +117,7 @@ namespace Sango.Core
             if (AudioManager.Instance.SfxVolume <= 0 || id <= 0) return -1;
             if (MediaData.TryGetValue(id, out var result))
             {
-                Sango.Log.Info($"�ӳٲ�����Ч: {result.res}, delay:{delay}");
+                Sango.Log.Info($"延迟播放音效: {result.res}, delay:{delay}");
                 return AudioManager.Instance.PlayDelayedSfx(result.res, delay);
             }
             return -1;
@@ -127,7 +127,7 @@ namespace Sango.Core
             if (AudioManager.Instance.BgmVolume <= 0 || id <= 0) return;
             if (MediaData.TryGetValue(id, out var result))
             {
-                Sango.Log.Info($"���ű�������: {result.res}");
+                Sango.Log.Info($"播放背景音乐: {result.res}");
                 AudioManager.Instance.PlayBgm(result.res, loop);
             }
         }
@@ -142,7 +142,7 @@ namespace Sango.Core
         {
             if (MediaData.TryGetValue(id, out var result))
             {
-                Sango.Log.Info($"ֹͣ��Ч: {result.res}");
+                Sango.Log.Info($"停止音效: {result.res}");
                 AudioManager.Instance.StopSfx(result.res);
             }
         }
@@ -153,7 +153,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// ��ͣ��������
+        /// 暂停背景音乐
         /// </summary>
         public void PauseBgm()
         {
@@ -199,16 +199,16 @@ namespace Sango.Core
         public int PlayPersonSay(Person person, int sayId)
         {
             /*
-             * 1.ѡ�������������������Զ�ָ����³ç�����侲���޸ĸ�λ����������
-                2.���佫����͵�������һ��
-                3.Ů�佫���ж��佫���䡢ͳ���ǡ������Ƿ�"����"��ߣ��ж��Ǹ��仹�ǵ��䣬��4����������߾������
-            ��³ç0		�иյ�1		���侲2		��С��3		Ů�յ�4		Ů�侲5		����6	�����7
-����	����	����	����	����	����	����	����	����	����	����	����	������û��																											
+             * 1.选择吕布和诸葛亮语音会自动指向男鲁莽和男冷静，修改该位置语音无用
+                2.男武将高武和低武音声一样
+                3.女武将，判断武将的武、统、智、政中是否"武力"最高，判断是高武还是低武，这4个中武力最高就算高武
+            男鲁莽0		男刚胆1		男冷静2		男小心3		女刚胆4		女冷静5		吕布6	诸葛亮7
+高武	低武	低武	高武	低武	高武	低武	高武	高武	低武	低武	高武	基本上没用																											
 3132	3133	3134	3135	3136	3137	3138	3139	3140	3141	3142	3143	3144	3145
 
              * */
             int voic = mapVoice[person.voice];
-            if (person.sex == 1) //Ů
+            if (person.sex == 1) //女
             {
                 if (person.IsHighStength())
                 {

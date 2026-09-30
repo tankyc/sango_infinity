@@ -2829,7 +2829,10 @@ namespace Sango.Core
             belongCity?.allTroops.Remove(this);
             Scenario.Cur.Remove(this);
 
-            ReleaseCaptive();
+            if(Scenario.Cur.IsAlive)
+            {
+                ReleaseCaptive();
+            }
             buildingImproveMap.Clear();
             if (actionList != null)
             {
