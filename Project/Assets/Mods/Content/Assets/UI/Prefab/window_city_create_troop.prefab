@@ -4414,6 +4414,22 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 7669975027225605455}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: OpenNumberPanel_food
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: Sango.UI.UICityExpedition, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 4011182149419705100, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
       propertyPath: m_Text
       value: "\u5175\u7CAE"
@@ -4432,7 +4448,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6260261271830872574, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
       propertyPath: m_Name
-      value: button_7
+      value: food
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
@@ -5096,6 +5112,22 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 7669975027225605455}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: OpenNumberPanel_gold
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: Sango.UI.UICityExpedition, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 4011182149419705100, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
       propertyPath: m_Text
       value: "\u8D44\u91D1"
@@ -5114,7 +5146,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6260261271830872574, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
       propertyPath: m_Name
-      value: button_6
+      value: gold
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
@@ -8804,6 +8836,22 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 7669975027225605455}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: OpenNumberPanel_troops
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: Sango.UI.UICityExpedition, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001644825551185091, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 4011182149419705100, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
       propertyPath: m_Text
       value: "\u58EB\u5175"
@@ -8822,7 +8870,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6260261271830872574, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}
       propertyPath: m_Name
-      value: button_5
+      value: troops
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a372d4f9aa3c0fd4ab514ad9f398a589, type: 3}

@@ -1,82 +1,35 @@
 using Sango.Core;
 using Sango.Core.Player;
+using System;
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Sango.UI
 {
     /// <summary>
-    /// 城市编辑快照 - 保存City可编辑属性的独立副本
+    /// 城市编辑快照 - 保存City中可通过界面修改的属性的独立副本
     /// 界面操作仅修改快照,确认时才同步回Target
     /// </summary>
     internal struct CityEditSnapshot
     {
-        #region 基础信息
-        /// <summary>城市名称</summary>
-        public string name;
-        #endregion
-
-        #region 归属与建筑
-        /// <summary>所属势力ID</summary>
-        public int belongForce;
-        /// <summary>所属势力引用</summary>
-        public Force BelongForce;
-        /// <summary>所属军团ID</summary>
-        public int belongCorps;
-        /// <summary>所属军团引用</summary>
-        public Corps BelongCorps;
-        /// <summary>所属城池ID</summary>
-        public int belongCity;
-        /// <summary>所属城池引用</summary>
-        public City BelongCity;
-        /// <summary>建筑类型</summary>
-        public BuildingType buildingType;
-        /// <summary>当前耐久</summary>
-        public int durability;
-        /// <summary>最大耐久</summary>
-        public int durabilityLimit;
-        /// <summary>模型</summary>
-        public string model;
-        #endregion
-
-        #region 城市资源
-        /// <summary>粮食</summary>
-        public int food;
+        #region 可编辑数据
         /// <summary>金钱</summary>
         public int gold;
-        /// <summary>人口</summary>
-        public int population;
-        /// <summary>兵役人口</summary>
-        public int troopPopulation;
-        /// <summary>库存(独立拷贝)</summary>
-        public ItemStore itemStore;
+        /// <summary>粮食</summary>
+        public int food;
+        /// <summary>兵力</summary>
+        public int troops;
+        /// <summary>士气(气力)</summary>
+        public int morale;
+        /// <summary>耐久</summary>
+        public int durability;
         /// <summary>治安</summary>
         public int security;
-        /// <summary>士气</summary>
-        public int morale;
-        /// <summary>当前兵力</summary>
-        public int troops;
-        /// <summary>可容纳兵力</summary>
-        public int troopsLimit;
-        /// <summary>仓库大小</summary>
-        public int storeLimit;
-        /// <summary>金库大小</summary>
-        public int goldLimit;
-        /// <summary>粮仓大小</summary>
-        public int foodLimit;
-        /// <summary>基础金钱收入</summary>
-        public int baseGainGold;
-        /// <summary>基础粮食收入</summary>
-        public int baseGainFood;
-        #endregion
-
-        #region 州与等级
-        /// <summary>所属州</summary>
-        public Province province;
-        /// <summary>城市等级</summary>
-        public CityLevelType cityLevelType;
+        /// <summary>人口</summary>
+        public int population;
+        /// <summary>兵装库存(独立拷贝,避免直接改到Target)</summary>
+        public ItemStore itemStore;
         #endregion
 
         /// <summary>
@@ -88,40 +41,15 @@ namespace Sango.UI
         {
             CityEditSnapshot snapshot = new CityEditSnapshot();
 
-            // 基础信息
-            snapshot.name = city.Name;
-
-            // 归属与建筑
-            snapshot.belongForce = city.BelongForceId;
-            snapshot.BelongForce = city.BelongForce;
-            snapshot.belongCorps = city.BelongCorpsId;
-            snapshot.BelongCorps = city.BelongCorps;
-            snapshot.belongCity = city.BelongCityId;
-            snapshot.BelongCity = city.BelongCity;
-            snapshot.buildingType = city.BuildingType;
-            snapshot.durability = city.durability;
-            snapshot.durabilityLimit = city.durabilityLimit;
-            snapshot.model = city.model;
-
-            // 城市资源
-            snapshot.food = city.food;
             snapshot.gold = city.gold;
-            snapshot.population = city.population;
-            snapshot.troopPopulation = city.troopPopulation;
-            snapshot.itemStore = city.itemStore != null ? city.itemStore.Copy() : new ItemStore();
-            snapshot.security = city.security;
-            snapshot.morale = city.morale;
+            snapshot.food = city.food;
             snapshot.troops = city.troops;
-            snapshot.troopsLimit = city.troopsLimit;
-            snapshot.storeLimit = city.storeLimit;
-            snapshot.goldLimit = city.goldLimit;
-            snapshot.foodLimit = city.foodLimit;
-            snapshot.baseGainGold = city.baseGainGold;
-            snapshot.baseGainFood = city.baseGainFood;
-
-            // 州与等级
-            snapshot.province = city.province;
-            snapshot.cityLevelType = city.CityLevelType;
+            snapshot.morale = city.morale;
+            snapshot.durability = city.durability;
+            snapshot.security = city.security;
+            snapshot.population = city.population;
+            // 库存必须拷贝一份,否则界面上的增删会立刻作用到原始城市
+            snapshot.itemStore = city.itemStore != null ? city.itemStore.Copy() : new ItemStore();
 
             return snapshot;
         }
@@ -137,82 +65,52 @@ namespace Sango.UI
                 return;
             }
 
-            // 记录归属旧值,用于同步城内武将
-            int oldBelongForce = city.BelongForceId;
-            int oldBelongCorps = city.BelongCorpsId;
-
-            // 基础信息
-            city.Name = name;
-
-            // 归属与建筑
-            city.BelongForceId = belongForce;
-            city.BelongForce = BelongForce;
-            city.BelongCorpsId = belongCorps;
-            city.BelongCorps = BelongCorps;
-            city.BelongCityId = belongCity;
-            city.BelongCity = BelongCity;
-            city.BuildingType = buildingType;
-            city.durability = durability;
-            city.durabilityLimit = durabilityLimit;
-            city.model = model;
-
-            // 城市资源
-            city.food = food;
             city.gold = gold;
+            city.food = food;
+            city.troops = troops;
+            city.morale = morale;
+            city.durability = durability;
+            city.security = security;
             city.population = population;
-            city.troopPopulation = troopPopulation;
             if (itemStore != null)
             {
                 city.itemStore = itemStore;
             }
-            city.security = security;
-            city.morale = morale;
-            city.troops = troops;
-            city.troopsLimit = troopsLimit;
-            city.storeLimit = storeLimit;
-            city.goldLimit = goldLimit;
-            city.foodLimit = foodLimit;
-            city.baseGainGold = baseGainGold;
-            city.baseGainFood = baseGainFood;
 
-            // 州与等级
-            city.province = province;
-            city.CityLevelType = cityLevelType;
-
-            // 同步城内武将的归属势力/军团(仅在归属发生变化时)
-            Scenario cur = Scenario.Cur;
-            if (cur != null && cur.personSet != null)
-            {
-                foreach (Person person in cur.personSet)
-                {
-                    if (person != null && person.BelongCity == city)
-                    {
-                        if (oldBelongForce != belongForce)
-                        {
-                            person.BelongForceId = belongForce;
-                            person.BelongForce = BelongForce;
-                            // 归属势力变化时,武将军团跟随城市军团
-                            person.BelongCorpsId = belongCorps;
-                            person.BelongCorps = BelongCorps;
-                        }
-                        else if (oldBelongCorps != belongCorps)
-                        {
-                            person.BelongCorpsId = belongCorps;
-                            person.BelongCorps = BelongCorps;
-                        }
-                    }
-                }
-            }
+            // 资源变化后重算上限/丰收等派生数据,并刷新渲染显示
+            city.UpdateCalculate();
+            city.Render?.UpdateRender();
         }
     }
 
     /// <summary>
-    /// 城市编辑窗口 - 编辑城市的各类属性、归属、资源、库存等
+    /// 城市(都市)编辑窗口 - 编辑城市的资源、状态、兵装库存,并查看太守与城池分布
     /// 关联窗口: window_edit_city
+    /// 界面结构:
+    ///   root/object_list                        左侧都市列表
+    ///   root/area_all/tab/state                 页签: 基本设定
+    ///   root/area_all/tab/scenario              页签: 能力设定(太守)
+    ///   root/win_frame/button_ok|button_cancel  决定 / 返回
+    ///   root/status_edit                        内容区(资源/归属信息/地图/兵装)
     /// 使用快照模式: 界面操作仅修改快照,确认时才同步到Target
     /// </summary>
     public class UICityEdit : UGUIWindow
     {
+        /// <summary>
+        /// 数值输入器允许的最大值 - 用于没有天然上限的字段(人口/兵装数量)
+        /// </summary>
+        private const int MaxEditValue = 9999999;
+
+        /// <summary>
+        /// 治安上限
+        /// </summary>
+        private const int MaxSecurityLimit = 100;
+
+        /// <summary>
+        /// 气力上限的兜底值(城市最大气力未计算时使用)
+        /// </summary>
+        private const int MaxMoraleLimit = 100;
+
         #region 基础引用
         /// <summary>
         /// 根节点
@@ -220,161 +118,164 @@ namespace Sango.UI
         public RectTransform root;
 
         /// <summary>
-        /// 当前城市名称标签(不可编辑,仅显示)
+        /// 窗口标题(固定为"都市编辑")
         /// </summary>
-        public Text cityNameLabel;
-        #endregion
+        public Text windowTitle;
 
-        #region 左侧城市列表
         /// <summary>
-        /// 城市对象列表 - 展示所有城市,点击切换编辑目标
+        /// 左侧都市列表 - 展示所有都市,点击切换编辑目标
         /// </summary>
         public UIObjectList objectList;
         #endregion
 
-        #region 基础信息
+        #region 页签
         /// <summary>
-        /// 城市名称输入框
+        /// 页签: 基本设定(城池资源/归属信息/地图/兵装)
         /// </summary>
-        public InputField nameInput;
+        public Toggle basicTabToggle;
+
+        /// <summary>
+        /// 页签: 能力设定(太守立绘与五维)
+        /// </summary>
+        public Toggle abilityTabToggle;
+
+        /// <summary>
+        /// 基本设定页显示的节点组(归属信息/资源状态/城池地图/兵装列表)
+        /// </summary>
+        public GameObject[] basicGroup;
+
+        /// <summary>
+        /// 能力设定页显示的节点组(太守立绘与五维)
+        /// </summary>
+        public GameObject[] abilityGroup;
         #endregion
 
-        #region 归属与建筑
+        #region 太守
         /// <summary>
-        /// 所属势力下拉框
+        /// 太守头像(立绘/姓名/特技)
         /// </summary>
-        public Dropdown belongForceDropdown;
+        public UIPersonItem leaderPersonItem;
 
         /// <summary>
-        /// 所属军团下拉框
+        /// 太守五维状态(统率/武力/智力/政治/魅力)
         /// </summary>
-        public Dropdown belongCorpsDropdown;
-
-        /// <summary>
-        /// 所属城池下拉框
-        /// </summary>
-        public Dropdown belongCityDropdown;
-
-        /// <summary>
-        /// 建筑类型下拉框
-        /// </summary>
-        public Dropdown buildingTypeDropdown;
-
-        /// <summary>
-        /// 当前耐久输入框
-        /// </summary>
-        public InputField durabilityInput;
-
-        /// <summary>
-        /// 最大耐久输入框
-        /// </summary>
-        public InputField durabilityLimitInput;
-
-        /// <summary>
-        /// 模型输入框
-        /// </summary>
-        public InputField modelInput;
+        public UIStatusItem leaderStatusItem;
         #endregion
 
-        #region 城市资源
+        #region 归属与人数(只读显示)
         /// <summary>
-        /// 粮食输入框
+        /// 所属势力
         /// </summary>
-        public InputField foodInput;
+        public UITextField forceField;
 
         /// <summary>
-        /// 金钱输入框
+        /// 所属军团
         /// </summary>
-        public InputField goldInput;
+        public UITextField corpsField;
 
         /// <summary>
-        /// 人口输入框
+        /// 所属都市(都市显示自身名称,港关显示所隶属的都市)
         /// </summary>
-        public InputField populationInput;
+        public UITextField cityField;
 
         /// <summary>
-        /// 兵役人口输入框
+        /// 现役武将(空闲/全部)
         /// </summary>
-        public InputField troopPopulationInput;
+        public UITextField personCountField;
 
         /// <summary>
-        /// 治安输入框(0-100)
+        /// 俘虏数量
         /// </summary>
-        public InputField securityInput;
-
-        /// <summary>
-        /// 士气输入框(0-100)
-        /// </summary>
-        public InputField moraleInput;
-
-        /// <summary>
-        /// 当前兵力输入框
-        /// </summary>
-        public InputField troopsInput;
-
-        /// <summary>
-        /// 可容纳兵力输入框
-        /// </summary>
-        public InputField troopsLimitInput;
-
-        /// <summary>
-        /// 仓库大小输入框
-        /// </summary>
-        public InputField storeLimitInput;
-
-        /// <summary>
-        /// 金库大小输入框
-        /// </summary>
-        public InputField goldLimitInput;
-
-        /// <summary>
-        /// 粮仓大小输入框
-        /// </summary>
-        public InputField foodLimitInput;
-
-        /// <summary>
-        /// 基础金钱收入输入框
-        /// </summary>
-        public InputField baseGainGoldInput;
-
-        /// <summary>
-        /// 基础粮食收入输入框
-        /// </summary>
-        public InputField baseGainFoodInput;
+        public UITextField captiveField;
         #endregion
 
-        #region 州与等级
+        #region 资源与状态(点击按钮调出数值输入器)
         /// <summary>
-        /// 所属州下拉框
+        /// 资金 - 点击按钮修改当前值
         /// </summary>
-        public Dropdown provinceDropdown;
+        public Button goldButton;
 
         /// <summary>
-        /// 城市等级下拉框
+        /// 资金显示(当前/上限)
         /// </summary>
-        public Dropdown cityLevelTypeDropdown;
+        public UITextField goldField;
+
+        /// <summary>
+        /// 兵粮 - 点击按钮修改当前值
+        /// </summary>
+        public Button foodButton;
+
+        /// <summary>
+        /// 兵粮显示(当前/上限)
+        /// </summary>
+        public UITextField foodField;
+
+        /// <summary>
+        /// 士兵 - 点击按钮修改当前值
+        /// </summary>
+        public Button troopsButton;
+
+        /// <summary>
+        /// 士兵显示(当前/上限)
+        /// </summary>
+        public UITextField troopsField;
+
+        /// <summary>
+        /// 气力 - 点击按钮修改当前值
+        /// </summary>
+        public Button moraleButton;
+
+        /// <summary>
+        /// 气力显示(当前/上限)
+        /// </summary>
+        public UITextField moraleField;
+
+        /// <summary>
+        /// 耐久 - 点击按钮修改当前值
+        /// </summary>
+        public Button durabilityButton;
+
+        /// <summary>
+        /// 耐久显示(当前/上限)
+        /// </summary>
+        public UITextField durabilityField;
+
+        /// <summary>
+        /// 治安 - 点击按钮修改当前值
+        /// </summary>
+        public Button securityButton;
+
+        /// <summary>
+        /// 治安显示(0-100)
+        /// </summary>
+        public UITextField securityField;
+
+        /// <summary>
+        /// 人口 - 点击按钮修改当前值
+        /// 说明: 对应预制体里的备用节点 food_5(默认隐藏,标题为"资金"),
+        /// 绑定后由代码改写标题为"人口",需要显示时在预制体里勾选激活即可
+        /// </summary>
+        public Button populationButton;
+
+        /// <summary>
+        /// 人口显示
+        /// </summary>
+        public UITextField populationField;
         #endregion
 
-        #region 库存
+        #region 地图
         /// <summary>
-        /// 库存内容显示标签
+        /// 城池分布地图 - 高亮当前编辑的都市
         /// </summary>
-        public Text storeLabel;
+        public UIScenarioCityMap scenarioCityMap;
+        #endregion
 
+        #region 兵装(库存)
         /// <summary>
-        /// 道具选择下拉框
+        /// 兵装列表的池子对象(items/content/item)
+        /// 仅作为模板使用,不参与显示
         /// </summary>
-        public Dropdown storeItemDropdown;
-
-        /// <summary>
-        /// 道具添加数量输入框
-        /// </summary>
-        public InputField storeItemCountInput;
-
-        /// <summary>
-        /// 添加道具按钮
-        /// </summary>
-        public Button storeAddButton;
+        public Button itemObject;
         #endregion
 
         #region 决定/返回
@@ -390,50 +291,61 @@ namespace Sango.UI
         #endregion
 
         /// <summary>
-        /// 目标城市（原始对象，仅在确认时写入）
+        /// 目标城市(原始对象,仅在确认时写入)
         /// </summary>
         public City Target { get; private set; }
 
         /// <summary>
-        /// 编辑快照 - 所有UI操作仅修改快照值
+        /// 编辑快照 - 所有界面操作仅修改快照值
         /// </summary>
         private CityEditSnapshot snapshot;
 
         /// <summary>
         /// 触发刷新标识 - 防止OnValueChanged循环触发
         /// </summary>
-        private bool refreshing = false;
+        private bool refreshing;
 
         /// <summary>
-        /// 全部城市对象列表
+        /// 全部都市对象列表
         /// </summary>
         private List<SangoObject> allCityDatas;
 
-        #region 下拉候选缓存
-        /// <summary>所属势力候选列表</summary>
-        private List<SangoObject> belongForceCandidates = new List<SangoObject>();
-        /// <summary>所属军团候选列表</summary>
-        private List<SangoObject> belongCorpsCandidates = new List<SangoObject>();
-        /// <summary>所属城池候选列表</summary>
-        private List<SangoObject> belongCityCandidates = new List<SangoObject>();
-        /// <summary>建筑类型候选列表</summary>
-        private List<SangoObject> buildingTypeCandidates = new List<SangoObject>();
-        /// <summary>所属州候选列表</summary>
-        private List<SangoObject> provinceCandidates = new List<SangoObject>();
-        /// <summary>城市等级候选列表</summary>
-        private List<SangoObject> cityLevelTypeCandidates = new List<SangoObject>();
-        /// <summary>道具候选列表</summary>
-        private List<SangoObject> storeItemCandidates = new List<SangoObject>();
-        #endregion
+        /// <summary>
+        /// 当前显示的是否为"基本设定"页
+        /// </summary>
+        private bool showBasicTab = true;
+
+        /// <summary>
+        /// 当前势力可储存的兵装类型列表
+        /// 规则: 势力可用(科技满足)且可存储的道具类型,相同storeKind只保留Id最大的一项
+        /// </summary>
+        private readonly List<ItemType> storeItemTypes = new List<ItemType>();
+
+        /// <summary>
+        /// 兵装列表对象池
+        /// </summary>
+        private CreatePool<Button> itemPool;
 
         #region 窗口生命周期
+        /// <summary>
+        /// 初始化 - 创建对象池并绑定只添加一次的按钮/页签事件
+        /// 说明: 页签与数值按钮使用的是闭包回调,无法用RemoveListener撤销,
+        ///       而窗口实例会被反复打开,所以只在Awake里绑定一次
+        /// </summary>
+        protected override void Awake()
+        {
+            base.Awake();
+            InitItemPool();
+            BindFixedEvents();
+        }
+
         /// <summary>
         /// 窗口打开 - 接收目标城市对象并创建编辑快照
         /// </summary>
         /// <param name="objects">参数列表 - objects[0] 为 City</param>
         public override void OnOpen(params object[] objects)
         {
-            // 候选: 所有城市
+            // 候选: 所有都市(与系统菜单的显示条件保持一致)
             allCityDatas = new List<SangoObject>();
             Scenario cur = Scenario.Cur;
             if (cur != null && cur.citySet != null)
@@ -467,7 +379,13 @@ namespace Sango.UI
                 return;
             }
 
-            // 左侧城市列表初始化,默认选中目标城市
+            // 目标可能是港口/关隘(右键菜单之外的入口),补进列表避免列表里找不到编辑目标
+            if (!allCityDatas.Contains(Target))
+            {
+                allCityDatas.Add(Target);
+            }
+
+            // 左侧都市列表初始化,默认选中目标城市
             if (objectList != null)
             {
                 objectList.Init(allCityDatas, CitySortFunction.SortByName, OnSelectEditCity);
@@ -476,22 +394,28 @@ namespace Sango.UI
 
             // 创建编辑快照 - 从Target拷贝所有可编辑数据
             snapshot = CityEditSnapshot.FromCity(Target);
+            showBasicTab = true;
 
             BindEvents();
+            ApplyTabContent();
             Refresh();
         }
 
         /// <summary>
-        /// 左侧城市列表选择回调 - 切换编辑目标并重建快照
+        /// 左侧都市列表选择回调 - 切换编辑目标并重建快照
         /// </summary>
         /// <param name="index">选中城市在列表中的下标</param>
-        void OnSelectEditCity(int index)
+        private void OnSelectEditCity(int index)
         {
-            if (index < 0 || index >= allCityDatas.Count)
+            if (allCityDatas == null || index < 0 || index >= allCityDatas.Count)
             {
                 return;
             }
             Target = allCityDatas[index] as City;
+            if (Target == null)
+            {
+                return;
+            }
             snapshot = CityEditSnapshot.FromCity(Target);
             Refresh();
         }
@@ -507,79 +431,58 @@ namespace Sango.UI
         }
         #endregion
 
+        #region 对象池
+        /// <summary>
+        /// 初始化兵装列表对象池 - 只创建一次,后续复用
+        /// </summary>
+        private void InitItemPool()
+        {
+            if (itemPool != null || itemObject == null)
+            {
+                return;
+            }
+            // 模板节点不显示,由对象池复制出实际行
+            itemObject.gameObject.SetActive(false);
+            itemPool = new CreatePool<Button>(itemObject);
+        }
+        #endregion
+
         #region 事件绑定
         /// <summary>
-        /// 绑定UI事件 - 所有修改操作直接作用于快照
+        /// 绑定只添加一次的事件(页签 + 资源数值按钮)
+        /// 这些回调是闭包,无法用RemoveListener撤销,所以只允许绑定一次
+        /// 注意: 不要清空按钮上的持久化监听(预制体上配置的事件)
+        /// </summary>
+        private void BindFixedEvents()
+        {
+            // 页签
+            BindTabToggle(basicTabToggle, true);
+            BindTabToggle(abilityTabToggle, false);
+
+            // 资源与状态 - 点击按钮弹出数值输入器
+            BindCalculator(goldButton, "资金", () => snapshot.gold, v => snapshot.gold = v,
+                () => Target != null ? Target.GoldLimit : MaxEditValue);
+            BindCalculator(foodButton, "兵粮", () => snapshot.food, v => snapshot.food = v,
+                () => Target != null ? Target.FoodLimit : MaxEditValue);
+            BindCalculator(troopsButton, "士兵", () => snapshot.troops, v => snapshot.troops = v,
+                () => Target != null ? Target.TroopsLimit : MaxEditValue);
+            BindCalculator(moraleButton, "气力", () => snapshot.morale, v => snapshot.morale = v,
+                () => Target != null ? Target.MaxMorale : MaxMoraleLimit);
+            BindCalculator(durabilityButton, "耐久", () => snapshot.durability, v => snapshot.durability = v,
+                () => Target != null ? Target.DurabilityLimit : MaxEditValue);
+            BindCalculator(securityButton, "治安", () => snapshot.security, v => snapshot.security = v,
+                () => MaxSecurityLimit);
+            BindCalculator(populationButton, "人口", () => snapshot.population, v => snapshot.population = v,
+                () => MaxEditValue);
+        }
+
+        /// <summary>
+        /// 绑定每次打开窗口都要重新绑定的事件(决定/返回)
         /// </summary>
         private void BindEvents()
         {
-            // 基础信息
-            BindSnapshotStringInput(nameInput, () => snapshot.name, (v) => snapshot.name = v);
-
-            // 归属与建筑
-            BindObjectDropdownSelection(belongForceDropdown, belongForceCandidates, (obj) =>
-            {
-                Force force = obj as Force;
-                int newForceId = force != null ? force.Id : 0;
-                // 归属势力发生变化时,同步军团为该势力的主军团
-                if (newForceId != snapshot.belongForce)
-                {
-                    if (force != null)
-                    {
-                        Corps mainCorps = GetMainCorps(force);
-                        snapshot.belongCorps = mainCorps != null ? mainCorps.Id : 0;
-                        snapshot.BelongCorps = mainCorps;
-                    }
-                    else
-                    {
-                        // 没有所属势力时,军团必须置空
-                        snapshot.belongCorps = 0;
-                        snapshot.BelongCorps = null;
-                    }
-                }
-                snapshot.belongForce = newForceId;
-                snapshot.BelongForce = force;
-                // 刷新军团下拉 - 候选随所属势力过滤
-                RefreshBelongCorpsDropdown();
-            });
-            BindObjectDropdownSelection(belongCorpsDropdown, belongCorpsCandidates, (obj) =>
-            {
-                Corps corps = obj as Corps;
-                snapshot.belongCorps = corps != null ? corps.Id : 0;
-                snapshot.BelongCorps = corps;
-            });
-            BindObjectDropdownSelection(belongCityDropdown, belongCityCandidates, (obj) =>
-            {
-                City city = obj as City;
-                snapshot.belongCity = city != null ? city.Id : 0;
-                snapshot.BelongCity = city;
-            });
-            BindObjectDropdownSelection(buildingTypeDropdown, buildingTypeCandidates, (obj) => snapshot.buildingType = obj as BuildingType);
-            BindSnapshotInput(durabilityInput, () => snapshot.durability, (v) => snapshot.durability = v);
-            BindSnapshotInput(durabilityLimitInput, () => snapshot.durabilityLimit, (v) => snapshot.durabilityLimit = v);
-            BindSnapshotStringInput(modelInput, () => snapshot.model, (v) => snapshot.model = v);
-
-            // 城市资源
-            BindSnapshotInput(foodInput, () => snapshot.food, (v) => snapshot.food = v);
-            BindSnapshotInput(goldInput, () => snapshot.gold, (v) => snapshot.gold = v);
-            BindSnapshotInput(populationInput, () => snapshot.population, (v) => snapshot.population = v);
-            BindSnapshotInput(troopPopulationInput, () => snapshot.troopPopulation, (v) => snapshot.troopPopulation = v);
-            BindSnapshotInput(securityInput, () => snapshot.security, (v) => snapshot.security = v, 0, 100);
-            BindSnapshotInput(moraleInput, () => snapshot.morale, (v) => snapshot.morale = v, 0, 100);
-            BindSnapshotInput(troopsInput, () => snapshot.troops, (v) => snapshot.troops = v);
-            BindSnapshotInput(troopsLimitInput, () => snapshot.troopsLimit, (v) => snapshot.troopsLimit = v);
-            BindSnapshotInput(storeLimitInput, () => snapshot.storeLimit, (v) => snapshot.storeLimit = v);
-            BindSnapshotInput(goldLimitInput, () => snapshot.goldLimit, (v) => snapshot.goldLimit = v);
-            BindSnapshotInput(foodLimitInput, () => snapshot.foodLimit, (v) => snapshot.foodLimit = v);
-            BindSnapshotInput(baseGainGoldInput, () => snapshot.baseGainGold, (v) => snapshot.baseGainGold = v);
-            BindSnapshotInput(baseGainFoodInput, () => snapshot.baseGainFood, (v) => snapshot.baseGainFood = v);
-
-            // 州与等级
-            BindObjectDropdownSelection(provinceDropdown, provinceCandidates, (obj) => snapshot.province = obj as Province);
-            BindObjectDropdownSelection(cityLevelTypeDropdown, cityLevelTypeCandidates, (obj) => snapshot.cityLevelType = obj as CityLevelType);
-
-            // 库存
-            if (storeAddButton != null) storeAddButton.onClick.AddListener(OnStoreAddClick);
+            // 窗口可能被反复打开,先清掉上一轮的监听,避免重复触发
+            RemoveListeners();
 
             // 决定 / 返回
             if (confirmButton != null) confirmButton.onClick.AddListener(OnConfirmClick);
@@ -587,79 +490,65 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 清理所有按钮监听器
+        /// 清理决定/返回的监听器
         /// </summary>
         private void RemoveListeners()
         {
-            if (storeAddButton != null) storeAddButton.onClick.RemoveListener(OnStoreAddClick);
             if (confirmButton != null) confirmButton.onClick.RemoveListener(OnConfirmClick);
             if (cancelButton != null) cancelButton.onClick.RemoveListener(OnCancelClick);
         }
 
         /// <summary>
-        /// 绑定InputField结束编辑事件 - 验证后写入快照
+        /// 绑定页签切换事件
         /// </summary>
-        /// <param name="input">输入框</param>
-        /// <param name="getter">从快照读取值的函数</param>
-        /// <param name="setter">向快照写入值的函数</param>
-        /// <param name="minValue">取值范围下限</param>
-        /// <param name="maxValue">取值范围上限</param>
-        private void BindSnapshotInput(InputField input, System.Func<int> getter, System.Action<int> setter, int minValue = int.MinValue, int maxValue = int.MaxValue)
+        /// <param name="toggle">页签Toggle</param>
+        /// <param name="basic">是否为"基本设定"页</param>
+        private void BindTabToggle(Toggle toggle, bool basic)
         {
-            if (input == null) return;
-            input.onEndEdit.AddListener((text) =>
+            if (toggle == null) return;
+            toggle.onValueChanged.AddListener((isOn) =>
             {
-                if (Target == null) return;
-                if (int.TryParse(text, out int v))
-                {
-                    // 限制数值范围
-                    v = System.Math.Max(minValue, System.Math.Min(maxValue, v));
-                    setter(v);
-                }
-                // 回显快照中的当前值
-                input.text = getter().ToString();
+                if (refreshing || !isOn) return;
+                showBasicTab = basic;
+                ApplyTabContent();
             });
         }
 
         /// <summary>
-        /// 绑定字符串InputField结束编辑事件 - 写入快照
+        /// 绑定"按钮 + 数值显示": 点击按钮弹出数值输入器(window_calculator),
+        /// 确认后写入快照并刷新显示
         /// </summary>
-        /// <param name="input">输入框</param>
-        /// <param name="getter">从快照读取值的函数</param>
-        /// <param name="setter">向快照写入值的函数</param>
-        private void BindSnapshotStringInput(InputField input, System.Func<string> getter, System.Action<string> setter)
+        /// <param name="button">触发按钮</param>
+        /// <param name="title">数值输入器标题(字段名)</param>
+        /// <param name="getter">从快照读取当前值</param>
+        /// <param name="setter">向快照写入新值</param>
+        /// <param name="maxGetter">取值范围上限的提供者</param>
+        private void BindCalculator(Button button, string title, Func<int> getter, Action<int> setter, Func<int> maxGetter)
         {
-            if (input == null) return;
-            input.onEndEdit.AddListener((text) =>
+            if (button == null) return;
+            button.onClick.AddListener(() =>
             {
-                if (Target == null) return;
-                setter(text);
-                input.text = getter();
-            });
-        }
+                if (refreshing || Target == null) return;
 
-        /// <summary>
-        /// 绑定对象引用下拉框选择事件 - 选择时通过回调写入快照
-        /// </summary>
-        /// <param name="dropdown">下拉框</param>
-        /// <param name="candidates">候选对象列表</param>
-        /// <param name="setter">选中对象回调(index为0表示无)</param>
-        private void BindObjectDropdownSelection(Dropdown dropdown, List<SangoObject> candidates, System.Action<SangoObject> setter)
-        {
-            if (dropdown == null) return;
-            dropdown.onValueChanged.AddListener((index) =>
-            {
-                if (refreshing) return;
-                if (index < 0 || index > candidates.Count) return;
-                SangoObject selected = index == 0 ? null : candidates[index - 1];
-                setter(selected);
+                int current = getter();
+                int max = maxGetter != null ? maxGetter() : MaxEditValue;
+                // 当前值可能超过上限(编辑器改出来的数据),保证不会被输入器压回去
+                if (max < current) max = current;
+
+                Window.Instance.Open("window_calculator", title, current, 0, max,
+                    (Action<int>)((val) =>
+                    {
+                        setter(val);
+                        RefreshValueFields();
+                    }),
+                    null);
             });
         }
         #endregion
 
-        #region UI刷新 - 从快照读取数据
+        #region UI刷新
         /// <summary>
-        /// 刷新窗口 - 将快照当前值同步到UI
+        /// 刷新窗口 - 将快照当前值同步到界面
         /// </summary>
         public override void OnRefresh()
         {
@@ -668,41 +557,12 @@ namespace Sango.UI
             refreshing = true;
             try
             {
-                // 名称 - 从Target读取(标题显示)与快照(可编辑)
-                if (cityNameLabel != null) cityNameLabel.text = Target.Name;
-                if (nameInput != null) nameInput.text = snapshot.name;
-
-                // 归属与建筑 - 从快照读取
-                RefreshBelongForceDropdown();
-                RefreshBelongCorpsDropdown();
-                RefreshBelongCityDropdown();
-                RefreshBuildingTypeDropdown();
-                if (durabilityInput != null) durabilityInput.text = snapshot.durability.ToString();
-                if (durabilityLimitInput != null) durabilityLimitInput.text = snapshot.durabilityLimit.ToString();
-                if (modelInput != null) modelInput.text = snapshot.model ?? "";
-
-                // 城市资源 - 从快照读取
-                if (foodInput != null) foodInput.text = snapshot.food.ToString();
-                if (goldInput != null) goldInput.text = snapshot.gold.ToString();
-                if (populationInput != null) populationInput.text = snapshot.population.ToString();
-                if (troopPopulationInput != null) troopPopulationInput.text = snapshot.troopPopulation.ToString();
-                if (securityInput != null) securityInput.text = snapshot.security.ToString();
-                if (moraleInput != null) moraleInput.text = snapshot.morale.ToString();
-                if (troopsInput != null) troopsInput.text = snapshot.troops.ToString();
-                if (troopsLimitInput != null) troopsLimitInput.text = snapshot.troopsLimit.ToString();
-                if (storeLimitInput != null) storeLimitInput.text = snapshot.storeLimit.ToString();
-                if (goldLimitInput != null) goldLimitInput.text = snapshot.goldLimit.ToString();
-                if (foodLimitInput != null) foodLimitInput.text = snapshot.foodLimit.ToString();
-                if (baseGainGoldInput != null) baseGainGoldInput.text = snapshot.baseGainGold.ToString();
-                if (baseGainFoodInput != null) baseGainFoodInput.text = snapshot.baseGainFood.ToString();
-
-                // 州与等级
-                RefreshProvinceDropdown();
-                RefreshCityLevelTypeDropdown();
-
-                // 库存
-                RefreshStoreLabel();
-                RefreshStoreItemDropdown();
+                RefreshTabToggles();
+                RefreshLeader();
+                RefreshInfoFields();
+                RefreshValueFields();
+                RefreshMap();
+                RefreshItemList();
             }
             finally
             {
@@ -711,315 +571,248 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 刷新所属势力下拉框
+        /// 刷新页签选中状态
         /// </summary>
-        private void RefreshBelongForceDropdown()
+        private void RefreshTabToggles()
         {
-            belongForceCandidates.Clear();
-            Scenario cur = Scenario.Cur;
-            if (cur != null && cur.forceSet != null)
-            {
-                cur.forceSet.ForEach(force =>
-                {
-                    if (force != null)
-                    {
-                        belongForceCandidates.Add(force);
-                    }
-                });
-            }
-            RefreshObjectDropdown(belongForceDropdown, belongForceCandidates, snapshot.BelongForce);
+            if (basicTabToggle != null) basicTabToggle.SetIsOnWithoutNotify(showBasicTab);
+            if (abilityTabToggle != null) abilityTabToggle.SetIsOnWithoutNotify(!showBasicTab);
         }
 
         /// <summary>
-        /// 刷新所属军团下拉框 - 只能选择所属势力下的军团
-        /// 没有所属势力时,军团置空且无法选择
+        /// 按当前页签切换内容区节点的显示
         /// </summary>
-        private void RefreshBelongCorpsDropdown()
+        private void ApplyTabContent()
         {
-            if (belongCorpsDropdown == null) return;
-            belongCorpsCandidates.Clear();
-            List<Corps> corpsList = GetForceCorpsList(snapshot.BelongForce);
-            for (int i = 0; i < corpsList.Count; i++)
-            {
-                belongCorpsCandidates.Add(corpsList[i]);
-            }
-
-            // 没有所属势力时,军团必须置空
-            if (snapshot.BelongForce == null)
-            {
-                snapshot.belongCorps = 0;
-                snapshot.BelongCorps = null;
-            }
-            // 军团与所属势力不一致时,同样置空
-            else if (snapshot.BelongCorps != null && snapshot.BelongCorps.BelongForce != snapshot.BelongForce)
-            {
-                snapshot.belongCorps = 0;
-                snapshot.BelongCorps = null;
-            }
-
-            RefreshObjectDropdown(belongCorpsDropdown, belongCorpsCandidates, snapshot.BelongCorps);
-            // 只有存在所属势力且势力下有军团时才能选择军团
-            belongCorpsDropdown.interactable = snapshot.BelongForce != null && belongCorpsCandidates.Count > 0;
+            SetGroupActive(basicGroup, showBasicTab);
+            SetGroupActive(abilityGroup, !showBasicTab);
         }
 
         /// <summary>
-        /// 获取势力下的所有军团列表
+        /// 批量设置节点组的激活状态
         /// </summary>
-        /// <param name="force">所属势力,为空时返回全部军团</param>
-        /// <returns>军团列表</returns>
-        private List<Corps> GetForceCorpsList(Force force)
+        /// <param name="group">节点组</param>
+        /// <param name="active">是否激活</param>
+        private void SetGroupActive(GameObject[] group, bool active)
         {
-            List<Corps> corpsList = new List<Corps>();
-            Scenario cur = Scenario.Cur;
-            if (cur == null || cur.corpsSet == null)
+            if (group == null) return;
+            for (int i = 0; i < group.Length; i++)
             {
-                return corpsList;
-            }
-            cur.corpsSet.ForEach(corps =>
-            {
-                if (corps != null && (force == null || corps.BelongForce == force))
+                if (group[i] != null && group[i].activeSelf != active)
                 {
-                    corpsList.Add(corps);
-                }
-            });
-            return corpsList;
-        }
-
-        /// <summary>
-        /// 获取势力的主军团 - 优先君主所在军团,其次第一军团,最后势力下第一个军团
-        /// </summary>
-        /// <param name="force">所属势力</param>
-        /// <returns>主军团,势力不存在或无军团时返回null</returns>
-        private Corps GetMainCorps(Force force)
-        {
-            if (force == null)
-            {
-                return null;
-            }
-            // 优先君主所在军团(首都军团)
-            if (force.CapitalCorps != null)
-            {
-                return force.CapitalCorps;
-            }
-            // 其次第一军团(number == 1)
-            List<Corps> corpsList = GetForceCorpsList(force);
-            for (int i = 0; i < corpsList.Count; i++)
-            {
-                if (corpsList[i].IsCaptainCorps)
-                {
-                    return corpsList[i];
+                    group[i].SetActive(active);
                 }
             }
-            // 最后势力下第一个军团
-            return corpsList.Count > 0 ? corpsList[0] : null;
         }
 
         /// <summary>
-        /// 刷新所属城池下拉框
+        /// 刷新太守显示 - 头像与五维
         /// </summary>
-        private void RefreshBelongCityDropdown()
+        private void RefreshLeader()
         {
-            belongCityCandidates.Clear();
+            Person leader = Target != null ? Target.Leader : null;
+            if (leaderPersonItem != null) leaderPersonItem.SetPerson(leader, 2);
+            if (leaderStatusItem != null) leaderStatusItem.SetPerson(leader);
+        }
+
+        /// <summary>
+        /// 刷新归属与人数信息(只读)
+        /// </summary>
+        private void RefreshInfoFields()
+        {
+            City city = Target;
+            // 标题带上当前编辑的城市名,方便确认编辑目标
+            if (windowTitle != null) windowTitle.text = "都市编辑 - " + city.Name;
+            if (forceField != null) forceField.text = CitySortFunction.SortByBelongForce.GetValueStr(city);
+            if (corpsField != null) corpsField.text = CitySortFunction.SortByBelongCorps.GetValueStr(city);
+            // 都市: 都市显示自身名称,港关显示所隶属的都市
+            if (cityField != null) cityField.text = city.BelongCity != null ? city.BelongCity.Name : city.Name;
+            if (personCountField != null) personCountField.text = CitySortFunction.SortByAllPersonCountInfo.GetValueStr(city);
+            if (captiveField != null) captiveField.text = CitySortFunction.SortByCaptiveCount.GetValueStr(city);
+        }
+
+        /// <summary>
+        /// 刷新资源与状态显示(当前/上限)
+        /// </summary>
+        private void RefreshValueFields()
+        {
+            City city = Target;
+            if (city == null) return;
+
+            if (goldField != null) goldField.text = $"{snapshot.gold}/{city.GoldLimit}";
+            if (foodField != null) foodField.text = $"{snapshot.food}/{city.FoodLimit}";
+            if (troopsField != null) troopsField.text = $"{snapshot.troops}/{city.TroopsLimit}";
+            if (moraleField != null) moraleField.text = $"{snapshot.morale}/{city.MaxMorale}";
+            if (durabilityField != null) durabilityField.text = $"{snapshot.durability}/{city.DurabilityLimit}";
+            if (securityField != null) securityField.text = snapshot.security.ToString();
+            if (populationField != null) populationField.text = snapshot.population.ToString();
+
+            // 备用的人口节点标题在预制体里是"资金",绑定后统一改写标题,方便直接启用
+            if (populationButton != null)
+            {
+                Text lab = FindChildText(populationButton.transform, "lab");
+                if (lab != null && lab.text != "人口") lab.text = "人口";
+            }
+        }
+
+        /// <summary>
+        /// 刷新城池分布地图 - 高亮当前编辑的都市
+        /// </summary>
+        private void RefreshMap()
+        {
+            if (scenarioCityMap == null) return;
             Scenario cur = Scenario.Cur;
-            if (cur != null && cur.citySet != null)
-            {
-                cur.citySet.ForEach(city =>
-                {
-                    if (city != null)
-                    {
-                        belongCityCandidates.Add(city);
-                    }
-                });
-            }
-            RefreshObjectDropdown(belongCityDropdown, belongCityCandidates, snapshot.BelongCity);
+            if (cur == null) return;
+            scenarioCityMap.Show(cur, Target);
         }
 
         /// <summary>
-        /// 刷新建筑类型下拉框
+        /// 刷新兵装(库存)列表
+        /// 依据当前势力可储存的道具类型动态生成,每行显示道具名称与库存数量
         /// </summary>
-        private void RefreshBuildingTypeDropdown()
+        private void RefreshItemList()
         {
-            buildingTypeCandidates.Clear();
-            Scenario cur = Scenario.Cur;
-            if (cur != null && cur.CommonData != null && cur.CommonData.BuildingTypes != null)
+            InitItemPool();
+            if (itemPool == null) return;
+
+            itemPool.Reset();
+            BuildStoreItemTypes();
+
+            for (int i = 0; i < storeItemTypes.Count; i++)
             {
-                foreach (BuildingType type in cur.CommonData.BuildingTypes)
-                {
-                    if (type != null)
-                    {
-                        buildingTypeCandidates.Add(type);
-                    }
-                }
+                ItemType itemType = storeItemTypes[i];
+                Button row = itemPool.Create();
+                if (row == null) continue;
+
+                // 命名成道具编号,方便在层级面板中排查
+                row.name = itemType.Id.ToString();
+
+                Text nameLabel = FindChildText(row.transform, "lab");
+                if (nameLabel != null) nameLabel.text = itemType.Name;
+
+                UITextField countField = FindChildComponent<UITextField>(row.transform, "textField");
+                int number = snapshot.itemStore != null ? snapshot.itemStore.GetNumber(itemType) : 0;
+                if (countField != null) countField.text = number.ToString();
+
+                // 对象池会复用行,必须重建回调(闭包捕获当前道具类型)
+                row.onClick.RemoveAllListeners();
+                row.onClick.AddListener(() => OnItemRowClick(itemType));
             }
-            RefreshObjectDropdown(buildingTypeDropdown, buildingTypeCandidates, snapshot.buildingType);
         }
 
         /// <summary>
-        /// 刷新所属州下拉框
+        /// 构建当前势力可储存的兵装类型列表
+        /// 规则: 遍历全部道具类型,只取"可存储"且对该势力可用(科技满足)的项;
+        ///       相同storeKind只保留Id最大的一项(高阶道具优先)
         /// </summary>
-        private void RefreshProvinceDropdown()
+        private void BuildStoreItemTypes()
         {
-            provinceCandidates.Clear();
-            Scenario cur = Scenario.Cur;
-            if (cur != null && cur.CommonData != null && cur.CommonData.Provinces != null)
-            {
-                foreach (Province province in cur.CommonData.Provinces)
-                {
-                    if (province != null)
-                    {
-                        provinceCandidates.Add(province);
-                    }
-                }
-            }
-            RefreshObjectDropdown(provinceDropdown, provinceCandidates, snapshot.province);
-        }
-
-        /// <summary>
-        /// 刷新城市等级下拉框
-        /// </summary>
-        private void RefreshCityLevelTypeDropdown()
-        {
-            cityLevelTypeCandidates.Clear();
-            Scenario cur = Scenario.Cur;
-            if (cur != null && cur.CommonData != null && cur.CommonData.CityLevelTypes != null)
-            {
-                foreach (CityLevelType level in cur.CommonData.CityLevelTypes)
-                {
-                    if (level != null)
-                    {
-                        cityLevelTypeCandidates.Add(level);
-                    }
-                }
-            }
-            RefreshObjectDropdown(cityLevelTypeDropdown, cityLevelTypeCandidates, snapshot.cityLevelType);
-        }
-
-        /// <summary>
-        /// 刷新对象引用下拉框 - 重新填充选项并选中当前值
-        /// </summary>
-        /// <param name="dropdown">下拉框</param>
-        /// <param name="candidates">候选对象列表</param>
-        /// <param name="currentValue">当前选中值(可为空)</param>
-        private void RefreshObjectDropdown(Dropdown dropdown, List<SangoObject> candidates, SangoObject currentValue)
-        {
-            if (dropdown == null) return;
-            dropdown.ClearOptions();
-            List<Dropdown.OptionData> options = new List<Dropdown.OptionData> { new Dropdown.OptionData("无") };
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                SangoObject obj = candidates[i];
-                options.Add(new Dropdown.OptionData($"{obj.Id}.{obj.Name}"));
-            }
-            dropdown.AddOptions(options);
-            int index = 0;
-            if (currentValue != null)
-            {
-                int idx = candidates.IndexOf(currentValue);
-                if (idx >= 0)
-                {
-                    index = idx + 1;
-                }
-            }
-            dropdown.SetValueWithoutNotify(index);
-        }
-
-        /// <summary>
-        /// 刷新库存显示标签 - 从快照库存读取道具列表
-        /// </summary>
-        private void RefreshStoreLabel()
-        {
-            if (storeLabel == null) return;
-            if (snapshot.itemStore == null || snapshot.itemStore.Items.Count == 0)
-            {
-                storeLabel.text = "空";
-                return;
-            }
-            StringBuilder sb = new StringBuilder();
-            foreach (KeyValuePair<int, int> pair in snapshot.itemStore.Items)
-            {
-                ItemType itemType = GetItemType(pair.Key);
-                string itemName = itemType != null ? itemType.Name : $"道具{pair.Key}";
-                if (sb.Length > 0)
-                {
-                    sb.Append("\n");
-                }
-                sb.Append($"{itemName} x{pair.Value}");
-            }
-            storeLabel.text = sb.ToString();
-        }
-
-        /// <summary>
-        /// 刷新道具选择下拉框
-        /// </summary>
-        private void RefreshStoreItemDropdown()
-        {
-            if (storeItemDropdown == null) return;
-            storeItemCandidates.Clear();
-            Scenario cur = Scenario.Cur;
-            if (cur != null && cur.CommonData != null && cur.CommonData.ItemTypes != null)
-            {
-                cur.CommonData.ItemTypes.ForEach(itemType =>
-                {
-                    if (itemType != null)
-                    {
-                        storeItemCandidates.Add(itemType);
-                    }
-                });
-            }
-            storeItemDropdown.ClearOptions();
-            List<Dropdown.OptionData> options = new List<Dropdown.OptionData>();
-            for (int i = 0; i < storeItemCandidates.Count; i++)
-            {
-                SangoObject obj = storeItemCandidates[i];
-                options.Add(new Dropdown.OptionData($"{obj.Id}.{obj.Name}"));
-            }
-            storeItemDropdown.AddOptions(options);
-            storeItemDropdown.SetValueWithoutNotify(0);
-        }
-        #endregion
-
-        #region 库存事件
-        /// <summary>
-        /// 添加道具按钮点击 - 向快照库存中添加道具
-        /// </summary>
-        public void OnStoreAddClick()
-        {
-            if (snapshot.itemStore == null || storeItemDropdown == null)
-            {
-                return;
-            }
-            int index = storeItemDropdown.value;
-            if (index < 0 || index >= storeItemCandidates.Count)
-            {
-                return;
-            }
-            ItemType itemType = storeItemCandidates[index] as ItemType;
-            if (itemType == null)
-            {
-                return;
-            }
-            int number = 1;
-            if (storeItemCountInput != null && int.TryParse(storeItemCountInput.text, out number) && number <= 0)
-            {
-                number = 1;
-            }
-            snapshot.itemStore.Add(itemType, number);
-            RefreshStoreLabel();
-        }
-
-        /// <summary>
-        /// 根据道具存储ID获取道具类型
-        /// </summary>
-        /// <param name="storeKindId">道具存储ID</param>
-        /// <returns>道具类型</returns>
-        private ItemType GetItemType(int storeKindId)
-        {
+            storeItemTypes.Clear();
             Scenario cur = Scenario.Cur;
             if (cur == null || cur.CommonData == null || cur.CommonData.ItemTypes == null)
             {
-                return null;
+                return;
             }
-            return cur.CommonData.ItemTypes.Get(storeKindId);
+
+            Force force = Target != null ? Target.BelongForce : null;
+            Dictionary<int, ItemType> itemMap = new Dictionary<int, ItemType>();
+            cur.CommonData.ItemTypes.ForEach(itemType =>
+            {
+                if (itemType == null || !itemType.store)
+                {
+                    return;
+                }
+                // 归属势力存在时,只保留该势力可用(科技满足)的道具
+                if (force != null && !itemType.IsValid(force))
+                {
+                    return;
+                }
+
+                ItemType hasItemType;
+                if (itemMap.TryGetValue(itemType.storeKind, out hasItemType))
+                {
+                    // 相同storeKind: 取Id最大的一项
+                    if (itemType.Id > hasItemType.Id)
+                    {
+                        itemMap[itemType.storeKind] = itemType;
+                    }
+                }
+                else
+                {
+                    itemMap[itemType.storeKind] = itemType;
+                }
+            });
+
+            foreach (ItemType itemType in itemMap.Values)
+            {
+                storeItemTypes.Add(itemType);
+            }
+            storeItemTypes.Sort(SangoObject.Compare);
+        }
+
+        /// <summary>
+        /// 在子节点中查找文本组件
+        /// </summary>
+        /// <param name="parent">父节点</param>
+        /// <param name="childName">子节点名</param>
+        /// <returns>文本组件,找不到时返回null</returns>
+        private static Text FindChildText(Transform parent, string childName)
+        {
+            if (parent == null) return null;
+            Transform child = parent.Find(childName);
+            return child != null ? child.GetComponent<Text>() : null;
+        }
+
+        /// <summary>
+        /// 在子节点中查找指定组件
+        /// </summary>
+        /// <typeparam name="T">组件类型</typeparam>
+        /// <param name="parent">父节点</param>
+        /// <param name="childName">子节点名</param>
+        /// <returns>组件,找不到时返回null</returns>
+        private static T FindChildComponent<T>(Transform parent, string childName) where T : Component
+        {
+            if (parent == null) return null;
+            Transform child = parent.Find(childName);
+            return child != null ? child.GetComponent<T>() : null;
+        }
+        #endregion
+
+        #region 兵装事件
+        /// <summary>
+        /// 点击兵装行 - 弹出数值输入器修改该道具的库存数量
+        /// 取值范围: 0 ~ itemType.TransformLimit(城池仓库上限)
+        /// </summary>
+        /// <param name="itemType">道具类型</param>
+        private void OnItemRowClick(ItemType itemType)
+        {
+            if (refreshing || Target == null || itemType == null || snapshot.itemStore == null)
+            {
+                return;
+            }
+
+            int current = snapshot.itemStore.GetNumber(itemType);
+            // 道具可按比例调整仓库上限(ItemType.p1),按城池仓库上限换算出本道具的上限
+            int max = itemType.TransformLimit(Target.StoreLimit);
+            if (max < 0) max = 0;
+            // 已有库存可能超过上限,保证不会被输入器压回去
+            if (max < current) max = current;
+
+            Window.Instance.Open("window_calculator", itemType.Name, current, 0, max,
+                (Action<int>)((val) =>
+                {
+                    // 0 表示不库存该道具
+                    if (val <= 0)
+                    {
+                        snapshot.itemStore.Remove(itemType.storeKind);
+                    }
+                    else
+                    {
+                        snapshot.itemStore.Set(itemType.storeKind, val);
+                    }
+                    RefreshItemList();
+                }),
+                null);
         }
         #endregion
 

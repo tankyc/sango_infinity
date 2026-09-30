@@ -144,6 +144,12 @@ namespace Sango.Core
                 case CommandEventType.Cancel:
                 case CommandEventType.RClick:
                     {
+                        // 数值输入器(window_calculator)打开时不响应返回,
+                        // 否则会连同编辑窗口一起退出,留下一个悬空的输入器
+                        if (Window.Instance != null && Window.Instance.IsOpen("window_calculator"))
+                        {
+                            break;
+                        }
                         Back();
                         break;
                     }

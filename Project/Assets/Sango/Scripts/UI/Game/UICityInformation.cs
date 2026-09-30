@@ -351,8 +351,7 @@ namespace Sango.UI
 
         public void OnEdit()
         {
-            CityPropertyEditorWindow propertyEditorWindow = EditorWindow.AddWindow<CityPropertyEditorWindow>(1102, new UnityEngine.Rect(0, 0, 400, 600), null, "城市属性编辑") as CityPropertyEditorWindow;
-            propertyEditorWindow.Initialize(Scenario.Cur, null, Target);
+            GameSystem.GetSystem<CityEdit>().Start(Target);
         }
     }
 }
