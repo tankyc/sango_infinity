@@ -231,7 +231,11 @@ namespace Sango.Core
                 GameMedia.Instance.Update();
 
                 GameEvent.OnScenarioTick?.Invoke(scenario, Time.deltaTime);
-                if (!Scenario.Cur.useThreadRun)
+                // 控制权交接界面（中途参加 / 委托给AI）打开期间冻结回合推进。
+                // 刻意只在 Scenario.Run 这一层拦，而不像上面单挑 / 舌战那样整帧 return：
+                // 那两个是独占演出，这里只要求"世界别在我选势力的时候继续跑"，
+                // 地图输入与对话框必须照常响应，否则玩家取消不掉界面会被自己锁死。
+                if (!Scenario.Cur.useThreadRun && !ForceControlService.IsTurnBlocked)
                     Scenario.Cur.Run();
             }
         }

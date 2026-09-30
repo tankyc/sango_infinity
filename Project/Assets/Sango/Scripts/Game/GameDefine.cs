@@ -264,9 +264,25 @@ namespace Sango.Core
         /// </summary>
         Alliance = 23,
         /// <summary>
-        /// 同盟
+        /// 弃盟
         /// </summary>
         DiscardAlliance = 24,
+
+        /// <summary>
+        /// 二虎竞食：挑拨两个第三方势力的交情
+        /// </summary>
+        TwoTigers = 25,
+
+        /// <summary>
+        /// 驱虎吞狼：本期暂不实现，仅占位以保持与 CityStrategyType 枚举对齐
+        /// </summary>
+        TigerDevour = 26,
+
+        /// <summary>
+        /// 流言：降低敌方据点武将忠诚，目标为都市时同时降低治安
+        /// </summary>
+        Rumor = 27,
+
         /// <summary>
         /// 最大工作数量
         /// </summary>

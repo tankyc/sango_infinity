@@ -568,10 +568,12 @@ namespace Sango.UI
             UpdateContent();
         }
 
+        /// <summary>打开出征选将界面，默认按统率倒序展示，统率最高的武将排在首屏。</summary>
         public void OnSelectPerson()
         {
             GameSystem.GetSystem<PersonSelectSystem>().Start(cityExpeditionSys.TargetCity.freePersons,
-                cityExpeditionSys.personList, 3, OnPersonChange, cityExpeditionSys.customTitleList, cityExpeditionSys.customTitleName);
+                cityExpeditionSys.personList, 3, OnPersonChange, cityExpeditionSys.customTitleList, cityExpeditionSys.customTitleName,
+                CityExpedition.CommandSortTitleIndex);
         }
     }
 }

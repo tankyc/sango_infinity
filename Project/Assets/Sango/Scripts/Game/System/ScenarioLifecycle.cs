@@ -42,6 +42,12 @@ namespace Sango.Core
             //    不调用 Done() 时它们会带着上一个剧本的订阅活到下一次开局。
             GameSystemManager.Instance.Done();
 
+            // 2.5) 控制权交接的"冻结回合推进"令牌兜底清除。
+            //      正常路径下第 2 步的 Done() 会触发交接命令的 OnDestroy 自行注销；
+            //      这里再无条件清一次，是因为窗口被强制拆除等异常路径不会走到注销 ——
+            //      令牌残留会让新剧本一帧都不推进，而且看上去像"卡死"，极难定位。
+            ForceControlService.ClearTurnBlock();
+
             // 3) 对话队列 + 输入开关复位（Enabled 可能停在 false：窗口开不出来等路径）
             GameDialog.Instance.Reset();
 
@@ -77,7 +83,7 @@ namespace Sango.Core
             // 注意：类型要写全名——Sango.Core.Player 同时是命名空间，直接写 Player 会被当成命名空间
             Sango.Core.Player.Player player = GameSystem.GetSystem<Sango.Core.Player.Player>();
             if (player != null)
-                player.currentTurnCount = 0;
+                player.ResetTurnCounters();
 
             // 9) 事件基线兜底还原：把 GameEvent 的静态订阅整体还原回"开局前"（见 GameEventBaseline）。
             //    前面各步是"正常退订"，这一步兜住所有没退干净 / 重复的订阅，
