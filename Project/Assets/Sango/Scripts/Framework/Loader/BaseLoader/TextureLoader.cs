@@ -179,7 +179,16 @@ namespace Sango.Loader
                 Texture2D texture = new Texture2D(2, 2); // 创建一个空的Texture2D对象，这里的2, 2只是为了初始化，实际尺寸应从图片获取
                 texture.LoadImage(fileData); // 使用LoadImage加载图
                 if (textureNeedCompress)
-                    texture.Compress(true);
+                {
+                    try
+                    {
+                        texture.Compress(true);
+                    }
+                    catch (Exception e)
+                    {
+                        Sango.Log.Warning(e);
+                    }
+                }
                 texture.Apply(needMipmap, true);
                 obj = AssetStore.Instance.StoreAsset(filePath, texture) as Texture;
                 return obj;
