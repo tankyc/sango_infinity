@@ -51,11 +51,12 @@ MonoBehaviour:
   frameCount: 28
   playFps: 12.962963
   worldSize: 50
-  startDelay: 2.275
-  frameFadeIn: 0.075
-  screenHeightFactor: 0.5
+  startDelay: 2.385
+  frameFadeIn: 0
+  screenHeightFactor: 0
   pivot: {x: 0.5, y: 0.5}
   blendMode: 1
+  tintColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.5}
   fps: 60
   autoDestroy: 1
   billboard: 1

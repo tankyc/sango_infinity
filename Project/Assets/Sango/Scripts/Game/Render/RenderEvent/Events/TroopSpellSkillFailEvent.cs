@@ -74,6 +74,7 @@ namespace Sango.Render
 
             if (replaceSkill == null)
             {
+                Action();
                 IsDone = true;
                 if (skill.IsStrategy() && troop != null && troop.IsAlive)
                     troop.ChangeMorale(-skill.costEnergy, false);

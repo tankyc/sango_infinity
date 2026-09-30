@@ -65,6 +65,7 @@ namespace Sango.Core
 
             Register("SetFire", CraeteHandle<SetFire>);
             Register("AddBuff", CraeteHandle<AddBuff>);
+            Register("AddBuffRandom", CraeteHandle<AddBuffRandom>);
             Register("RemoveBuffById", CraeteHandle<RemoveBuffById>);
             Register("RemoveBuffByKind", CraeteHandle<RemoveBuffByKind>);
             Register("PutoutFire", CraeteHandle<PutoutFire>);

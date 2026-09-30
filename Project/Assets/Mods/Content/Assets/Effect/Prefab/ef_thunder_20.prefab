@@ -49,13 +49,14 @@ MonoBehaviour:
   cols: 7
   rows: 5
   frameCount: 35
-  playFps: 12.5
-  worldSize: 0
+  playFps: 22.08
+  worldSize: 150
   startDelay: 1.865
-  frameFadeIn: 0.01
-  screenHeightFactor: 0.7
-  pivot: {x: 0.53, y: 0.5}
+  frameFadeIn: 0
+  screenHeightFactor: 0
+  pivot: {x: 0.5, y: 0.5}
   blendMode: 1
+  tintColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.5}
   fps: 60
   autoDestroy: 1
   billboard: 1
