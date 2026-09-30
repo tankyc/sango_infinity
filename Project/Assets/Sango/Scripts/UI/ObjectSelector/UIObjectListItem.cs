@@ -191,6 +191,52 @@ namespace Sango.UI
             return selectImg.enabled;
         }
 
+        /// <summary>“已派去登用”标记（运行时创建：选中圈右侧的黄色小圈，仅供一键登庸的多选界面使用）</summary>
+        Image markImg;
+
+        /// <summary>
+        /// 显示/隐藏“已派去登用”黄色圈标记。
+        /// 首次显示时按需运行时创建（复用选中圈的圆形样式，染成黄色，不依赖预制体改动）。
+        /// </summary>
+        public void SetMark(bool show)
+        {
+            if (show)
+            {
+                if (markImg == null)
+                    markImg = CreateMark();
+                if (markImg != null)
+                    markImg.enabled = true;
+            }
+            else if (markImg != null)
+            {
+                markImg.enabled = false;
+            }
+        }
+
+        Image CreateMark()
+        {
+            if (selectImg == null || selectImg.sprite == null)
+                return null;
+
+            GameObject go = new GameObject("mark_dispatched", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(selectImg.transform, false);
+
+            RectTransform rt = go.GetComponent<RectTransform>();
+            // 锚定在选中圈右侧 3px，竖直居中，尺寸与选中圈相当
+            rt.anchorMin = new Vector2(1f, 0.5f);
+            rt.anchorMax = new Vector2(1f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.anchoredPosition = new Vector2(3f, 0f);
+            rt.sizeDelta = new Vector2(16f, 16f);
+
+            Image img = go.GetComponent<Image>();
+            img.sprite = selectImg.sprite;
+            img.color = new Color(1f, 0.8f, 0.25f, 1f); // 黄色，与“登庸中”提示呼应
+            img.raycastTarget = false;
+            img.enabled = true;
+            return img;
+        }
+
         public void SetOver(bool b)
         {
             overImg.enabled = b;
