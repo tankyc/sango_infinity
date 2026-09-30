@@ -94,6 +94,17 @@ namespace Sango.UI
             Show(currentSystem.all_objects[index] as City);
         }
 
+        /// <summary>
+        /// 窗口刷新 - 子窗口(城市编辑等)返回后重新读取并显示当前城池的数据
+        /// </summary>
+        public override void OnRefresh()
+        {
+            if (Target != null)
+            {
+                Show(Target);
+            }
+        }
+
         public void Show(City city)
         {
             Target = city;
