@@ -118,7 +118,7 @@ Shader "UI/DefaultBright"
 				IN.color.a = round(IN.color.a * alphaPrecision) * invAlphaPrecision;
 
 				half4 color =(tex2D(_MainTex, IN.texcoord) + _TextureSampleAdd);
-				color = color + color * IN.color * _ColorMultiplier;
+				//color = color + color * IN.color * _ColorMultiplier;
 				color=IN.color *color;
 				//ComputeDyeColor_half(color, float4(_H,_S,_V,1), color);
 				//color.rgb = ComputeDyeColor(color.rgb, _HSV) * _Brighting + _HSV2.rgb;

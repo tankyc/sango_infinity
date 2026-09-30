@@ -23,6 +23,10 @@ namespace Sango.UI
 
         private void Start()
         {
+            if(mobileConsole != null)
+            {
+                mobileConsole.onError = OnConsole;
+            }
             info.gameObject.SetActive(false);
             if (UnityEngine.PlayerPrefs.GetInt("game_show_info", 0) == 0)
             {

@@ -87,7 +87,11 @@ namespace Sango.Core
 
         public override void OnBack(ICommandEvent whoGone)
         {
-            Window.Instance.SetVisible(windowName, true);
+            // 子窗口(如武将编辑)返回后重新显示,并刷新窗口数据(编辑过的属性要立刻反映出来)
+            var win = Window.Instance.GetWindow(windowName);
+            if (win == null) return;
+            win.SetVisible(true);
+            win.Refresh();
         }
 
         public override void OnExit()

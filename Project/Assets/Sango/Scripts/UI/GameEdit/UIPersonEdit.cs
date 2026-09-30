@@ -354,6 +354,48 @@ namespace Sango.UI
         public InputField meritInput;
         #endregion
 
+        #region 属性数值输入器按钮(点击调出window_calculator修改对应数值)
+        /// <summary>
+        /// 统率数值按钮 - 点击调出数值输入器
+        /// </summary>
+        public Button commandButton;
+
+        /// <summary>
+        /// 武力数值按钮 - 点击调出数值输入器
+        /// </summary>
+        public Button strengthButton;
+
+        /// <summary>
+        /// 智力数值按钮 - 点击调出数值输入器
+        /// </summary>
+        public Button intelligenceButton;
+
+        /// <summary>
+        /// 政治数值按钮 - 点击调出数值输入器
+        /// </summary>
+        public Button politicsButton;
+
+        /// <summary>
+        /// 魅力数值按钮 - 点击调出数值输入器
+        /// </summary>
+        public Button glamourButton;
+
+        /// <summary>
+        /// 相性数值按钮 - 点击调出数值输入器
+        /// </summary>
+        public Button phaseButton;
+
+        /// <summary>
+        /// 忠诚数值按钮 - 点击调出数值输入器
+        /// </summary>
+        public Button loyaltyButton;
+
+        /// <summary>
+        /// 功绩数值按钮 - 点击调出数值输入器
+        /// </summary>
+        public Button meritButton;
+        #endregion
+
         #region 特技
         /// <summary>
         /// 特技显示标签
@@ -430,6 +472,17 @@ namespace Sango.UI
         public UIObjectList objectList;
         List<SangoObject> allPersonsDatas;
         #region 窗口生命周期
+        /// <summary>
+        /// 初始化 - 绑定只添加一次的按钮事件
+        /// 说明: 数值按钮使用的是闭包回调,无法用RemoveListener撤销,
+        ///       而窗口实例会被反复打开,所以只在Awake里绑定一次
+        /// </summary>
+        protected override void Awake()
+        {
+            base.Awake();
+            BindCalculatorButtons();
+        }
+
         /// <summary>
         /// 窗口打开 - 接收目标武将对象并创建编辑快照
         /// </summary>
@@ -621,6 +674,53 @@ namespace Sango.UI
                 }
                 // 回显快照中的当前值
                 input.text = getter().ToString();
+            });
+        }
+
+        /// <summary>
+        /// 绑定属性数值按钮(button_5 ~ button_12)
+        /// 点击按钮调出数值输入器(window_calculator)修改数值,确认后写回快照并回显到输入框
+        /// 说明: 按钮上的InputField区域仍可直接输入,按钮本身点击的是标题(如"统率")所在区域
+        ///       取值范围与对应的输入框保持一致
+        /// 注意: 这里不清空按钮上的持久化监听(预制体上配置的事件),只在窗口实例存活期内绑定一次
+        /// </summary>
+        private void BindCalculatorButtons()
+        {
+            BindCalculatorButton(commandButton, "统率", commandInput, () => snapshot.command, (v) => snapshot.command = v, 1, 150);
+            BindCalculatorButton(strengthButton, "武力", strengthInput, () => snapshot.strength, (v) => snapshot.strength = v, 1, 150);
+            BindCalculatorButton(intelligenceButton, "智力", intelligenceInput, () => snapshot.intelligence, (v) => snapshot.intelligence = v, 1, 150);
+            BindCalculatorButton(politicsButton, "政治", politicsInput, () => snapshot.politics, (v) => snapshot.politics = v, 1, 150);
+            BindCalculatorButton(glamourButton, "魅力", glamourInput, () => snapshot.glamour, (v) => snapshot.glamour = v, 1, 150);
+            BindCalculatorButton(phaseButton, "相性", phaseInput, () => snapshot.compatibility, (v) => snapshot.compatibility = v, 0, 255);
+            BindCalculatorButton(loyaltyButton, "忠诚", loyaltyInput, () => snapshot.loyalty, (v) => snapshot.loyalty = v, 0, 250);
+            BindCalculatorButton(meritButton, "功绩", meritInput, () => snapshot.merit, (v) => snapshot.merit = v, 0, 100000);
+        }
+
+        /// <summary>
+        /// 绑定"数值按钮 + 输入框": 点击按钮调出数值输入器(window_calculator)修改数值,
+        /// 确认后写入快照并把新值回显到对应的输入框
+        /// </summary>
+        /// <param name="button">触发按钮</param>
+        /// <param name="title">数值输入器标题(字段名)</param>
+        /// <param name="input">数值回显输入框(可为null)</param>
+        /// <param name="getter">从快照读取当前值的函数</param>
+        /// <param name="setter">向快照写入值的函数</param>
+        /// <param name="minValue">取值范围下限</param>
+        /// <param name="maxValue">取值范围上限</param>
+        private void BindCalculatorButton(Button button, string title, InputField input,
+            System.Func<int> getter, System.Action<int> setter, int minValue, int maxValue)
+        {
+            if (button == null) return;
+            button.onClick.AddListener(() =>
+            {
+                if (refreshing || Target == null) return;
+                Window.Instance.Open("window_calculator", title, getter(), minValue, maxValue,
+                    (System.Action<int>)((val) =>
+                    {
+                        setter(val);
+                        if (input != null) input.text = getter().ToString();
+                    }),
+                    null);
             });
         }
         #endregion

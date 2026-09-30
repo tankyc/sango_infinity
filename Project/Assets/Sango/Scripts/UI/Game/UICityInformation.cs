@@ -94,6 +94,17 @@ namespace Sango.UI
             Show(currentSystem.all_objects[index] as City);
         }
 
+        /// <summary>
+        /// 窗口刷新 - 子窗口(城市编辑等)返回后重新读取并显示当前城池的数据
+        /// </summary>
+        public override void OnRefresh()
+        {
+            if (Target != null)
+            {
+                Show(Target);
+            }
+        }
+
         public void Show(City city)
         {
             Target = city;
@@ -351,8 +362,7 @@ namespace Sango.UI
 
         public void OnEdit()
         {
-            CityPropertyEditorWindow propertyEditorWindow = EditorWindow.AddWindow<CityPropertyEditorWindow>(1102, new UnityEngine.Rect(0, 0, 400, 600), null, "城市属性编辑") as CityPropertyEditorWindow;
-            propertyEditorWindow.Initialize(Scenario.Cur, null, Target);
+            GameSystem.GetSystem<CityEdit>().Start(Target);
         }
     }
 }

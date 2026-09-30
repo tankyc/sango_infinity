@@ -27,6 +27,7 @@ namespace Sango.UI
 
         public RectTransform btnRoot;
         public UIButtonItem[] buttons;
+        public Button sureBtn;
 
         bool clickMode = false;
 
@@ -62,6 +63,7 @@ namespace Sango.UI
             // 点选模式
             clickMode = objectSelectSystem.ClickMode;
             selectSortBtn.SetActive(!clickMode);
+            sureBtn?.gameObject.SetActive(!clickMode);
 
             itemCount = uIObjectListItems.Length;
             itemWidth = GetContentWidth();

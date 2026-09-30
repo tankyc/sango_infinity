@@ -1808,7 +1808,12 @@ namespace Sango.Core
                 // 登用失败：按概率强制进入舌战（概率见剧本参数 debateChanceWhenRecruitFail）。
                 // 只有目标是在野武将 / 没有势力的俘虏才会触发；辩胜时由 DebateConsequence 改判为登用成功，
                 // 所以要把"登用成功后目标加入的城"一并传过去。
-                Sango.Core.Debate.DebateTrigger.OnRecruitFailed(this, person, targetCity);
+                //
+                // 舌战一旦接管，这次登用的后续（功绩 / 经验 / 技术点 / 行动结束）就全交给舌战了：
+                // 结算在 Debate.ParamSetWinner，行动结束由 DebateConsequence 在舌战结束时补上，
+                // 所以这里立刻返回，不再往下执行；只有舌战没接管（概率没中 / 身份不符 / 已在舌战中）才继续。
+                if (Sango.Core.Debate.DebateTrigger.OnRecruitFailed(this, person, targetCity))
+                    return false;
             }
             ScenarioVariables variables = Scenario.Cur.Variables;
             int jobId = (int)CityJobType.RecruitPerson;

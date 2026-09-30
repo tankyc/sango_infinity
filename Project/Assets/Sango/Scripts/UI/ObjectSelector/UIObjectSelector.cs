@@ -37,12 +37,18 @@ namespace Sango.UI
                 {
                     SangoObject sango = objectSelectSystem.Objects[destIndex];
                     bool isSelected = objectSelectSystem.selected.Contains(sango);
+                    // 已派去登用的目标武将：画黄色圈标记。
+                    // 仅一键登庸系统活跃期间（CityAllRecruit.IsTargetDispatchedQuery 非空）生效，
+                    // 配属等其他选择场景不受影响。
+                    bool dispatched = sango is Person && CityAllRecruit.IsTargetDispatchedQuery != null
+                        && CityAllRecruit.IsTargetDispatchedQuery((Person)sango);
                     for (int j = 0; j < sortItems.Count; j++)
                     {
                         ObjectSortTitle sortTitle = sortItems[j];
                         listItem.Set(j, sortTitle.GetValueStr(sango));
                     }
                     listItem.SetSelected(isSelected);
+                    listItem.SetMark(dispatched);
                 }
                 else
                 {
@@ -52,6 +58,7 @@ namespace Sango.UI
                         listItem.Set(j, "");
                     }
                     listItem.SetSelected(false);
+                    listItem.SetMark(false);
                 }
 
             }

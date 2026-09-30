@@ -1255,9 +1255,11 @@ namespace Sango.Core.Debate
         {
             Character character = GetCharacter(team);
             CharacterRethink(character, topic);
+            // 先把"这一合用过再考"落下再通知表现层：表现层刷新时要读到最新的 canRethink，
+            // 否则那格「熟虑」会晚一帧才变灰（见 CardDebateView.RefreshHand / CanRethink）。
+            canRethink[team] = false;
             if (view && engine != null)
                 engine.DebateRethink(this, team);
-            canRethink[team] = false;
             LogDebate($"【再考】{GetTeamName(team)} 重抽手牌：{HandText(team)}");
         }
 
@@ -1609,16 +1611,16 @@ namespace Sango.Core.Debate
         /// <summary>卡牌中文名称表，下标与 DebateCard 枚举值一致</summary>
         private static readonly string[] s_cardNames = new string[]
         {
-            "再考",    // 0  DebateCard_Rethink
-            "故事·小", // 1  DebateCard_Story1
-            "故事·中", // 2  DebateCard_Story2
-            "故事·大", // 3  DebateCard_Story3
-            "道理·小", // 4  DebateCard_Logic1
-            "道理·中", // 5  DebateCard_Logic2
-            "道理·大", // 6  DebateCard_Logic3
-            "时势·小", // 7  DebateCard_Trend1
-            "时势·中", // 8  DebateCard_Trend2
-            "时势·大", // 9  DebateCard_Trend3
+            "再考",      // 0  DebateCard_Rethink
+            "故事（小）", // 1  DebateCard_Story1
+            "故事（中）", // 2  DebateCard_Story2
+            "故事（大）", // 3  DebateCard_Story3
+            "道理（小）", // 4  DebateCard_Logic1
+            "道理（中）", // 5  DebateCard_Logic2
+            "道理（大）", // 6  DebateCard_Logic3
+            "时势（小）", // 7  DebateCard_Trend1
+            "时势（中）", // 8  DebateCard_Trend2
+            "时势（大）", // 9  DebateCard_Trend3
             "大喝",    // 10 DebateCard_Shout
             "诡辩",    // 11 DebateCard_Sophistry
             "无视",    // 12 DebateCard_Ignore

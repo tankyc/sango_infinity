@@ -11,9 +11,9 @@
  *   · lfetCommand/buttons/Stance1..7      挑战方手牌（Toggle，与本回合话题一致的带 ★ 与特效）
  *   · rightCommand/buttons/Stance1..7     应战方手牌
  *   · BlowCounter_bg/Dialogue1、Dialogue2 会心抉择（追击 / 留情，平时隐藏）
- *   · BlowCounter_bg/stopBtn/stopBtn      中止 / 关闭结算
- *   · LogBg/log                           战报日志
+ *   · BlowCounter_bg/stopBtn/stopBtn      「中止」按钮：**全程不显示**（当前需求不需要它）
  *   · down/info                           底部操作提示
+ *   · outBtn/img                          「退出」按钮（只在收场对白播完后才亮）
  *
  * 重要约定（照 DuelWindowBuilder 的经验）：
  *   1. prefab **已存在就只重绑节点引用**，不重建、不覆盖美术手工摆放的位置与图；
@@ -193,41 +193,35 @@ namespace Sango.EditorTools
             BuildHand(root, "lfetCommand", -400f, -300f, font);
             BuildHand(root, "rightCommand", 400f, -300f, font);
 
-            // ---- 顶部中央：合数计数器 + 会心抉择 + 中止 ----
+            // ---- 顶部中央：合数计数器 + 会心抉择 + 中止（中止全程隐藏，只占位）----
             GameObject blow = NewNode("BlowCounter_bg", root, 0f, 520f, 440f, 116f);
-            NewText("BlowCounter_ten", blow.transform, 0f, 20f, 200f, 60f, 48, TextAnchor.MiddleCenter, "", Color.white, font);
-            NewText("Blow", blow.transform, 90f, 20f, 60f, 60f, 48, TextAnchor.MiddleCenter, "", Color.white, font);
-
-            // 会心抉择二选一：共用一个 ToggleGroup，允许都不选（选中态由表现层清）
-            ToggleGroup criticalGroup = blow.AddComponent<ToggleGroup>();
-            criticalGroup.allowSwitchOff = true;
-
-            GameObject dlg1 = NewToggleNode("Dialogue1", blow.transform, -180f, -80f, 332f, 72f, "追击", font, out Toggle toggle1);
-            GameObject dlg2 = NewToggleNode("Dialogue2", blow.transform, 180f, -80f, 332f, 72f, "留情", font, out Toggle toggle2);
-            if (toggle1 != null) toggle1.group = criticalGroup;
-            if (toggle2 != null) toggle2.group = criticalGroup;
-            dlg1.SetActive(false);
-            dlg2.SetActive(false);
+            GameObject counter = NewNode("GameObject", blow.transform, 0f, 0f, 440f, 116f);
+            NewText("BlowCounter_ten", counter.transform, 0f, 20f, 200f, 60f, 48, TextAnchor.MiddleCenter, "", Color.white, font);
+            NewText("Blow", counter.transform, 90f, 20f, 60f, 60f, 48, TextAnchor.MiddleCenter, "", Color.white, font);
+            // 话题特效：颜色随当前话题变（序号/合数用的是美术图，这里只占位）
+            NewImage("eft", counter.transform, 0f, 0f, 128f, 128f, new Color(0.68f, 0.97f, 0.5f, 1f));
 
             // 双方本回合出牌展示（纯展示：卡面只是个 Image，按牌的类型换成高亮图）
-            NewToggleNode("card1", blow.transform, -300f, -160f, 128f, 58f, "—", font, out Toggle cardA);
-            NewToggleNode("card2", blow.transform, 300f, -160f, 128f, 58f, "—", font, out Toggle cardB);
+            NewToggleNode("card1", blow.transform, -300f, -160f, 128f, 58f, "--", font, out Toggle cardA);
+            NewToggleNode("card2", blow.transform, 300f, -160f, 128f, 58f, "--", font, out Toggle cardB);
             if (cardA != null) cardA.group = null;
             if (cardB != null) cardB.group = null;
 
+            // 退出按钮（收场对白播完后才亮，点了离开舌战）
+            GameObject outBg = NewNode("outBtn", root, -742f, 91f, 132f, 50f);
+            Button outButton = NewButton("img", outBg.transform, 0f, 0f, 74f, 40f, "", font);
+            NewText("lab", outBg.transform, 0f, 0f, 90f, 30f, 22, TextAnchor.MiddleCenter, "退出", Color.white, font);
+            if (outButton != null) outButton.gameObject.SetActive(true);
+            outBg.SetActive(false);
+
+            // 「中止」：当前需求是全程不显示，这里照样搭出节点（与美术版同名）但默认收起来
             GameObject stopBg = NewNode("stopBtn", blow.transform, 0f, -160f, 132f, 50f);
             NewButton("stopBtn", stopBg.transform, 0f, 0f, 132f, 50f, "中止", font);
+            stopBg.SetActive(false);
 
             // ---- 底部提示（down/info）----
             GameObject down = NewNode("down", root, 0f, -500f, 900f, 44f);
             NewText("info", down.transform, 0f, 0f, 900f, 44f, 24, TextAnchor.MiddleCenter, "", new Color(1f, 0.92f, 0.7f, 1f), font);
-
-            // ---- 战报 ----
-            GameObject logBg = NewImage("LogBg", root, 700f, -300f, 460f, 320f, new Color(0f, 0f, 0f, 0.55f)).gameObject;
-            Text log = NewText("log", logBg.transform, 0f, 0f, 420f, 280f, 20, TextAnchor.LowerLeft, "", Color.white, font);
-            log.rectTransform.anchoredPosition = Vector2.zero;
-            log.horizontalOverflow = HorizontalWrapMode.Wrap;
-            log.verticalOverflow = VerticalWrapMode.Truncate;
 
             // ---- 中央飘字（左右卡面的飘字由 BuildCard 各自生成）----
             NewFloat("float", root, font);
@@ -250,6 +244,18 @@ namespace Sango.EditorTools
             hitImage.raycastTarget = false;
             hitImage.color = new Color(1f, 0.3f, 0.3f, 0.5f);
             hit.SetActive(false);
+
+            // 激昂特效（美术版叫 anger，就是这一块）：默认隐藏，激昂期间由表现层打开
+            GameObject anger = NewNode("anger", face.transform, 0f, 0f, 128f, 128f);
+            Image angerImage = anger.AddComponent<Image>();
+            angerImage.raycastTarget = false;
+            angerImage.color = new Color(1f, 0.55f, 0.3f, 0.5f);
+            anger.SetActive(false);
+
+            // 台词气泡（挂在武将卡上，寒暄 / 出牌 / 受击的随机台词都从这里出）
+            GameObject dialogue = NewImage("Dialogue", frame.transform, 260f, 240f, 332f, 96f, new Color(1f, 1f, 1f, 0.95f)).gameObject;
+            NewText("Label", dialogue.transform, 0f, 0f, 300f, 80f, 20, TextAnchor.MiddleCenter, "", Color.white, font);
+            dialogue.SetActive(false);
         }
 
         /// <summary>一侧武将条：left_top/person_left、right_top/person_right</summary>
@@ -265,10 +271,19 @@ namespace Sango.EditorTools
 
             // 体力条（hp/fill + hp/txt）与愤怒条（mp/fill + mp/txt）
             MakeBar(person.transform, "hp", -60f, -0f, 260f, "体力", new Color(0.85f, 0.25f, 0.25f, 1f), font);
-            MakeBar(person.transform, "mp", -60f, -36f, 260f, "愤怒", new Color(0.95f, 0.7f, 0.2f, 1f), font);
+            GameObject mp = MakeBar(person.transform, "mp", -60f, -36f, 260f, "愤怒", new Color(0.95f, 0.7f, 0.2f, 1f), font);
 
-            // 激昂标记（默认隐藏）
-            GameObject anger = NewNode("eft_1", person.transform, 130f, 0f, 64f, 64f);
+            // 常驻气势（mp/eft_1）与满怒特效（mp/eft_3）：与美术版同名，由表现层按状态开关
+            if (mp != null)
+            {
+                NewImage("eft_1", mp.transform, 0f, 0f, 64f, 64f, new Color(1f, 0.8f, 0.5f, 0.5f)).raycastTarget = false;
+                Image full = NewImage("eft_3", mp.transform, 0f, 0f, 64f, 64f, new Color(1f, 0.4f, 0.3f, 0.6f));
+                full.raycastTarget = false;
+                full.gameObject.SetActive(false);
+            }
+
+            // 激昂特效（美术版叫 anger）：默认隐藏，激昂期间由表现层打开
+            GameObject anger = NewNode("anger", person.transform, 130f, 0f, 64f, 64f);
             Image angerImage = anger.AddComponent<Image>();
             angerImage.raycastTarget = false;
             angerImage.color = new Color(1f, 0.5f, 0.3f, 0.6f);
@@ -296,18 +311,23 @@ namespace Sango.EditorTools
         }
 
         /// <summary>做一条进度条（bar/fill + bar/txt），供体力与愤怒共用</summary>
-        private static void MakeBar(Transform parent, string barName, float x, float y, float width, string label, Color color, Font font)
+        private static GameObject MakeBar(Transform parent, string barName, float x, float y, float width, string label, Color color, Font font)
         {
             GameObject bar = NewNode(barName, parent, x, y, width, 28f);
 
             Image fill = NewImage("fill", bar.transform, 0f, 0f, width, 28f, color);
             Stretch(fill.rectTransform);
+            // 填充统一"垂直、由下往上"（与美术版一致），运行时 SetBar 也会兜一遍
             fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillMethod = Image.FillMethod.Vertical;
+            fill.fillOrigin = (int)Image.OriginVertical.Bottom;
             fill.fillAmount = 1f;
 
             Text t = NewText("txt", bar.transform, 0f, 0f, width, 28f, 20, TextAnchor.MiddleCenter, label, Color.white, font);
             t.rectTransform.anchoredPosition = Vector2.zero;
+
+            // 返回条节点：调用方要往里面挂气势 / 满怒特效（mp/eft_1、mp/eft_3）
+            return bar;
         }
 
         #endregion
@@ -342,18 +362,23 @@ namespace Sango.EditorTools
             Count(view.topicText, ref bound, ref total);
             Count(view.topicHint, ref bound, ref total);
             Count(view.hintText, ref bound, ref total);
-            Count(view.logText, ref bound, ref total);
             Count(view.floatLeft, ref bound, ref total);
             Count(view.floatRight, ref bound, ref total);
             Count(view.floatText, ref bound, ref total);
             Count(view.sceneImage, ref bound, ref total);
-            Count(view.togglePushOn, ref bound, ref total);
-            Count(view.toggleMercy, ref bound, ref total);
-            Count(view.togglePushOnLabel, ref bound, ref total);
-            Count(view.toggleMercyLabel, ref bound, ref total);
+            Count(view.topicEft, ref bound, ref total);
+            Count(view.btnOut, ref bound, ref total);
+            Count(view.outRoot, ref bound, ref total);
+            Count(view.handRootLeft, ref bound, ref total);
+            Count(view.handRootRight, ref bound, ref total);
+            Count(view.dialogueFrameNormal, ref bound, ref total);
+            Count(view.dialogueFrameExcited, ref bound, ref total);
+            CountDialogue(view.dialogueLeft, ref bound, ref total);
+            CountDialogue(view.dialogueRight, ref bound, ref total);
             Count(view.resultWin, ref bound, ref total);
             Count(view.resultLose, ref bound, ref total);
             Count(view.btnClose, ref bound, ref total);
+            Count(view.stopRoot, ref bound, ref total);
             CountSkins(view.cardSkins, ref bound, ref total);
             CountCard(view.cardLeft, ref bound, ref total);
             CountCard(view.cardRight, ref bound, ref total);
@@ -378,6 +403,7 @@ namespace Sango.EditorTools
             Count(card.nameText, ref bound, ref total);
             Count(card.detailText, ref bound, ref total);
             Count(card.hitFx, ref bound, ref total);
+            Count(card.angerFx, ref bound, ref total);
             Count(card.aniInfo, ref bound, ref total);
         }
 
@@ -393,8 +419,19 @@ namespace Sango.EditorTools
             Count(side.hpText, ref bound, ref total);
             Count(side.stressBar, ref bound, ref total);
             Count(side.stressText, ref bound, ref total);
-            Count(side.angerTag, ref bound, ref total);
+            Count(side.standFx, ref bound, ref total);
+            Count(side.angerFx, ref bound, ref total);
+            Count(side.fullStressFx, ref bound, ref total);
             Count(side.playedCard, ref bound, ref total);
+        }
+
+        /// <summary>统计一格台词气泡的绑定情况</summary>
+        private static void CountDialogue(CardDebateView.DebateDialogue dlg, ref int bound, ref int total)
+        {
+            if (dlg == null) return;
+            Count(dlg.root, ref bound, ref total);
+            Count(dlg.frame, ref bound, ref total);
+            Count(dlg.label, ref bound, ref total);
         }
 
         /// <summary>统计一套手牌的绑定情况</summary>
@@ -451,6 +488,12 @@ namespace Sango.EditorTools
                 skin.highlighted = LoadSkinSprite(SkinSpriteNames[b + 2], ref miss);
                 skin.disabled = LoadSkinSprite(SkinSpriteNames[b + 3], ref miss);
             }
+
+            // 台词底板：普通 4848-2_1 / 激动 4848-2_0
+            if (view.dialogueFrameNormal == null)
+                view.dialogueFrameNormal = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(SkinSpriteFolder + "/4848-2_1.png");
+            if (view.dialogueFrameExcited == null)
+                view.dialogueFrameExcited = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(SkinSpriteFolder + "/4848-2_0.png");
 
             return "卡牌套图 " + (SkinSpriteNames.Length - miss) + "/" + SkinSpriteNames.Length
                 + (miss > 0 ? "（缺 " + miss + " 张）" : "");

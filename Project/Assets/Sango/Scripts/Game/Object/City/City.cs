@@ -1730,8 +1730,6 @@ namespace Sango.Core
                 }
             }
 
-            //this.captiveList.Clear();
-
             // 白城
             if (BelongCorps == null)
             {
@@ -1949,18 +1947,21 @@ namespace Sango.Core
             agriculture = agriculture * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepAgriculture) * 10 + 10) / 100;
             commerce = agriculture * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepCommerce) * 10 + 10) / 100;
 
-            // 解救俘虏, 一定是在势力更改后解救
-            for (int i = this.captiveList.Count - 1; i >= 0; i--)
+            // 解救俘虏
+            captiveList.ForEach(person =>
             {
-                Person person = this.captiveList[i];
                 if (person != null && person.IsSameForce(atk))
                 {
                     RemoveCaptive(person);
                     person.state = (int)PersonStateType.Normal;
-                    person.ChangeBelongCity(this);
+                    allPersons.Add(person);
+                    freePersons.Add(person);
+                    person.BelongCorps = BelongCorps;
+                    person.BelongCity = this;
+                    person.CurrentCity = this;
                 }
-            }
-
+            });
+           
             if (skillInstance != null && !skillInstance.IsRange())
             {
                 Leader = atk.Leader;

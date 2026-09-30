@@ -189,19 +189,124 @@ namespace Sango.UI
             UpdateContent();
         }
 
+        /// <summary>
+        /// 是否允许打开数值输入器(与滑块一致: 未选择武将时不能调整)
+        /// </summary>
+        /// <returns>可以打开返回true</returns>
+        bool CanOpenNumberPanel()
+        {
+            if (cityExpeditionSys == null || targetCity == null || targetTroop == null)
+            {
+                return false;
+            }
+            if (cityExpeditionSys.personList.Count == 0)
+            {
+                Log.Warning("出征: 请先选择武将,再设置士兵/资金/兵粮数量");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 计算可携带士兵的上限 - 规则与滑块拖动时保持一致
+        /// 依次受限于: 部队最大兵力 → 城内兵力 → 兵装可支撑的兵力
+        /// </summary>
+        /// <returns>可携带士兵上限</returns>
+        int GetMaxTroops()
+        {
+            int max = targetTroop.MaxTroops;
+            max = System.Math.Min(max, targetCity.troops);
+            max = targetCity.itemStore.CheckCostMin(targetTroop.LandTroopType.costItems, max);
+            max = targetCity.itemStore.CheckCostMin(targetTroop.WaterTroopType.costItems, max);
+            return System.Math.Max(0, max);
+        }
+
+        /// <summary>
+        /// 应用携带士兵数 - 同时按士兵数推算随军兵粮(与滑块同一套规则)
+        /// </summary>
+        /// <param name="troops">期望携带的士兵数</param>
+        void ApplyTroops(int troops)
+        {
+            troops = System.Math.Max(1, troops);
+            troops = System.Math.Min(troops, targetCity.troops);
+            troops = targetCity.itemStore.CheckCostMin(targetTroop.LandTroopType.costItems, troops);
+            troops = targetCity.itemStore.CheckCostMin(targetTroop.WaterTroopType.costItems, troops);
+
+            int wonderFood = (int)(troops * Scenario.Cur.Variables.baseFoodCostInTroop * 20);
+            int food = System.Math.Min(wonderFood, targetCity.food);
+            targetTroop.food = food;
+            targetTroop.troops = troops;
+
+            UpdateTroopsInfo();
+        }
+
+        /// <summary>
+        /// 士兵数值按钮 - 打开数值输入器精确设置携带的士兵数
+        /// 取值范围: 1 ~ min(部队最大兵力, 城内兵力, 兵装可支撑的兵力)
+        /// </summary>
         public void OpenNumberPanel_troops()
         {
+            if (!CanOpenNumberPanel())
+            {
+                return;
+            }
 
+            int current = targetTroop.troops;
+            int max = GetMaxTroops();
+            // 当前值可能超过上限(更换兵种/武将后的残留数据),保证不会被输入器压回去
+            if (max < current) max = current;
+
+            Window.Instance.Open("window_calculator", "士兵", current, 1, max,
+                (Action<int>)((val) => ApplyTroops(val)),
+                null);
         }
 
+        /// <summary>
+        /// 资金数值按钮 - 打开数值输入器精确设置携带的资金
+        /// 取值范围: 0 ~ 城内资金
+        /// </summary>
         public void OpenNumberPanel_gold()
         {
+            if (!CanOpenNumberPanel())
+            {
+                return;
+            }
 
+            int current = targetTroop.gold;
+            int max = targetCity.gold;
+            if (max < current) max = current;
+
+            Window.Instance.Open("window_calculator", "资金", current, 0, max,
+                (Action<int>)((val) =>
+                {
+                    targetTroop.gold = val;
+                    UpdateTroopsInfo();
+                }),
+                null);
         }
 
+        /// <summary>
+        /// 兵粮数值按钮 - 打开数值输入器精确设置携带的兵粮
+        /// 取值范围: 0 ~ 城内兵粮
+        /// </summary>
         public void OpenNumberPanel_food()
         {
+            if (!CanOpenNumberPanel())
+            {
+                return;
+            }
 
+            int current = targetTroop.food;
+            int max = targetCity.food;
+            if (max < current) max = current;
+
+            Window.Instance.Open("window_calculator", "兵粮", current, 0, max,
+                (Action<int>)((val) =>
+                {
+                    targetTroop.food = val;
+                    UpdateTroopsInfo();
+                }),
+                null);
         }
 
         public void OnTroopTypeShowLand(bool b)
@@ -227,18 +332,9 @@ namespace Sango.UI
             if (cityExpeditionSys.personList.Count == 0)
                 return;
 
-            int troop = (int)Math.Ceiling(targetTroop.MaxTroops * p);
-            troop = Math.Max(1, troop);
-            troop = Math.Min(troop, targetCity.troops);
-            troop = targetCity.itemStore.CheckCostMin(targetTroop.LandTroopType.costItems, troop);
-            troop = targetCity.itemStore.CheckCostMin(targetTroop.WaterTroopType.costItems, troop);
-
-            int wonderFood = (int)(troop * Scenario.Cur.Variables.baseFoodCostInTroop * 20);
-            int food = Math.Min(wonderFood, targetCity.food);
-            targetTroop.food = food;
-            targetTroop.troops = troop;
-
-            UpdateTroopsInfo();
+            int troop = (int)System.Math.Ceiling(targetTroop.MaxTroops * p);
+            // 后续的上下限与兵装限制统一在ApplyTroops里处理
+            ApplyTroops(troop);
         }
 
         public void OnGoldSliderValueChanged(float p)

@@ -1156,8 +1156,8 @@ namespace Sango.Tools
                     opacity = v;
                     if (opacity < 0)
                         opacity = 0;
-                    if (opacity > 255)
-                        opacity = 255;
+                    if (opacity > 10000)
+                        opacity = 10000;
                 }
 
                 GUILayout.BeginVertical();
