@@ -275,6 +275,30 @@
       "tpGain": 20,
       "limit": 1,
       "linkBuildingKind": 0
+    },
+    "25": {
+      "Id": 25,
+      "Name": "二虎竞食",
+      "path": "计略/二虎竞食",
+      "kind": 6,
+      "costAP": 30,
+      "cost": 200,
+      "meritGain": 0,
+      "tpGain": 0,
+      "limit": 1,
+      "linkBuildingKind": 0
+    },
+    "27": {
+      "Id": 27,
+      "Name": "流言",
+      "path": "计略/流言",
+      "kind": 6,
+      "costAP": 30,
+      "cost": 200,
+      "meritGain": 0,
+      "tpGain": 0,
+      "limit": 1,
+      "linkBuildingKind": 0
     }
   }
 }

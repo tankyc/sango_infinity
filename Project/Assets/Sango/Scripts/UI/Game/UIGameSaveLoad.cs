@@ -285,12 +285,27 @@ namespace Sango.UI
             id.SetText((index + 1).ToString());
             name.SetText($"{scenarioInfo.year} 年 {scenarioInfo.month}月 {scenarioInfo.day}日   {scenarioInfo.name}");
 
-            ShortForce force = scenario.forceSet[scenarioInfo.playerForceList[0]];
-            head.enabled = true;
-            head.texture = GameRenderHelper.LoadHeadIcon(scenario.personSet[force.Governor].headIconID);
-            forceName.SetText(force.Name);
+            // 上帝放置模式（开局不选势力）存出来的档，playerForceList 是空数组。
+            // 这里以前无条件取 [0]，导致"不选势力 → 存一次档 → 再打开存档/读档界面"直接越界崩掉。
+            // 无玩家势力是设计内的正常状态，所以按空态渲染：头像沿用 ResetScenarioDetail 的关闭方式，
+            // 势力名位置直接写明所处模式，不再输出"0人游玩"这种会被当成数据错误的计数。
+            bool hasPlayerForce = scenarioInfo.playerForceList != null && scenarioInfo.playerForceList.Length > 0;
+            if (hasPlayerForce)
+            {
+                ShortForce force = scenario.forceSet[scenarioInfo.playerForceList[0]];
+                head.enabled = true;
+                head.texture = GameRenderHelper.LoadHeadIcon(scenario.personSet[force.Governor].headIconID);
+                forceName.SetText(force.Name);
+                playNum.SetText($"{scenarioInfo.playerForceList.Length.ToString()}人游玩");
+            }
+            else
+            {
+                head.enabled = false;
+                head.texture = null;
+                forceName.SetText("上帝放置模式");
+                playNum.SetText("无玩家势力");
+            }
             playYear.SetText($"{scenarioInfo.year} 年 {scenarioInfo.month}月 {scenarioInfo.day}日");
-            playNum.SetText($"{scenarioInfo.playerForceList.Length.ToString()}人游玩");
             DateTime date = DateTime.FromFileTime(scenarioInfo.dateTime);
             day.SetText(date.ToString("yyyy-MM-dd"));
             time.SetText(date.ToString("HH:mm:ss"));

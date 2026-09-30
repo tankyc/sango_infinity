@@ -1024,6 +1024,153 @@ namespace Sango.Core
 
         #endregion 外交系统参数
 
+        #region 城市计略系统参数
+
+        /// <summary>
+        /// 城市计略成功率主项系数（百分比）。
+        /// 成功率 = 本系数 × 使者智力² / (使者智力² + 抵抗者智力²) + 智力差修正，再钳到上下限。
+        /// 形状取自原版脚本 206 计略成功率.cpp 的平方和归一化（其原值为 35，对应"对等智力约 17%"，
+        /// 那是部队伪报的强度）；城市计略按"对等智力 50%"标定，故取 100。数值自定，待平衡。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRateCoefficient = 100;
+
+        /// <summary>
+        /// 城市计略智力差修正系数：领先时按 (差值/本系数) 加分，落后时按 (差值×本系数) 减分。
+        /// 原版为"领先 10 点以上 +(差/2)、否则 +(差-10)*2"，城市计略照抄会形成"落后 20 点即 1%"的悬崖，
+        /// 故统一为线性修正，仍保留"落后比领先变化更快"的非对称方向。
+        /// </summary>
+        [JsonProperty] public int cityStrategyIntelligenceFactor = 2;
+
+        /// <summary>
+        /// 城市计略最低成功率（百分比）。对齐原版脚本 206 的"计略成功率下限 = 1"
+        /// </summary>
+        [JsonProperty] public int cityStrategyRateMin = 1;
+
+        /// <summary>
+        /// 城市计略最高成功率（百分比）。原版脚本 206 的上限是 99，这里抬到 100 是为了让
+        /// "军师智力即承诺门槛"能真正兑现：推荐口径只推荐预估成功率 ≥ 军师智力的人，
+        /// 上限留在 99 会让智力 100 的军师永远无人可荐。`GameRandom.Chance` 对 chance >= 100 直接返回 true，
+        /// 所以 100 就是必成。注意本值随存档序列化，改默认值只对新开局生效，老存档仍沿用各自的旧值
+        /// </summary>
+        [JsonProperty] public int cityStrategyRateMax = 100;
+
+        /// <summary>
+        /// 计略"暴露线"（百分比）：成功率低于此值仍成功的，视为险胜露馅，按 detectedPenalty 反噬关系。
+        /// 依据原版流言结果码 721:46 的 wisdom_diff &lt; 60 → "成功被发现"，此处用成功率作等价判据。
+        /// 配成 0 表示成功一律不露馅。
+        /// </summary>
+        [JsonProperty] public int cityStrategyDetectedRateLine = 50;
+
+        /// <summary>
+        /// 计略成功但露馅（险胜）时，对"发起方与各目标方"关系的反噬值。
+        /// 比彻底失败的代价轻，用于表达"事未成但人已露头"。
+        /// </summary>
+        [JsonProperty] public int cityStrategyDetectedPenalty = 100;
+
+        /// <summary>
+        /// 二虎竞食成功后两个目标势力的交情恶化值（固定值，不随成功率缩放）。
+        /// 原版关系区间 0..100，破盟/停战破裂的事件量级是 -30 ~ -50；本工程关系区间为 ±5000，
+        /// 换算后 3000 ≈ 原版 -30。原值 500 换算只有原版 -5（=1 个月的自然漂移），玩家无感，故上调。
+        /// </summary>
+        [JsonProperty] public int cityStrategyTwoTigersRelationDecrease = 3000;
+
+        /// <summary>
+        /// 势力关系恶化到该值（含）以下时，AI 会放弃与对方的同盟并转向敌对。
+        /// 对应原版脚本 808 新外交战争.cpp 的"relations &lt;= 0 即破盟"，按本工程刻度换算为 -3000；
+        /// 原版关系下限映射在本工程刻度上恰好是钳制边界 -5000，永远达不到，故必须显式设线。
+        /// </summary>
+        [JsonProperty] public int cityStrategyWarTriggerRelation = -3000;
+
+        /// <summary>
+        /// 城市计略彻底失败（被识破）时对"发起方与各目标方"关系的反噬值（0 表示不反噬）
+        /// </summary>
+        [JsonProperty] public int cityStrategyFailedPenalty = 200;
+
+        /// <summary>
+        /// 流言成功后武将忠诚下降区间下限（整城掷同一个基准值，再按义理逐人加权）。
+        /// 原版量级参照：每月自然掉忠 0~5（155）、事件级一次性掉忠 2~30（851 s11全事件解析.cpp），
+        /// 原值 10~25 相对偏低端事件过强，收到 8~15。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorLoyaltyDropMin = 8;
+
+        /// <summary>
+        /// 流言成功后武将忠诚下降区间上限（闭区间上界，结算时按 max + 1 传给 GameRandom.Range）
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorLoyaltyDropMax = 15;
+
+        /// <summary>
+        /// 流言忠诚下降的义理加权上限。
+        /// 逐人降幅 = 基准值 + (义理档 - 最低档) / 本系数，义理越低越容易被谣言动摇（对齐 155 的 (义理_高 - giri)/2）。
+        /// 设为 0 表示不加权。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorGiriDivisor = 2;
+
+        /// <summary>
+        /// 流言对都市成功后治安下降区间下限（港/关不受治安影响）。
+        /// 原版量级参照：每季自然下降 0~5（154）、瘟疫单次 2~4（160）、巡查单次约 +3~11（104）。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorSecurityDropMin = 6;
+
+        /// <summary>
+        /// 流言对都市成功后治安下降区间上限（闭区间上界，结算时按 max+1 传给 GameRandom.Range）
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorSecurityDropMax = 12;
+
+        /// <summary>
+        /// 流言失败时使者被捕的基准概率（百分比）。原版的"失败被捕"判据方向自相矛盾
+        /// （721:49 是抵抗值越高越易被捕），故本实现改为"按使者自身智力做只降不增的减免"。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorCaptureBaseRate = 30;
+
+        /// <summary>
+        /// 被捕概率的智力减免起算线：使者智力超过该值才开始减免，低于该值不额外加罚
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorCaptureReliefLine = 70;
+
+        /// <summary>
+        /// 使者智力每超过减免线 1 点，被捕概率下降的百分点数
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorCaptureReliefPerPoint = 1;
+
+        /// <summary>
+        /// 被捕概率下限：再足智多谋也留有一丝风险，避免流言变成零成本指令
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorCaptureMin = 5;
+
+        /// <summary>
+        /// AI 主动施计的智力优势门：使者智力需高出抵抗者该值以上才出手
+        /// （对应原版脚本 #军师之战2.cpp 的"智力差 &lt; 5 不应战"）
+        /// </summary>
+        [JsonProperty] public int cityStrategyAIMinIntelligenceEdge = 5;
+
+        /// <summary>
+        /// AI 每回合愿意主动发动一次城市计略的基准概率（百分比）。
+        /// 原版 255 号脚本对 AI 施计另有资金门槛（gold &gt;= 消耗 × rand(10,20)/10），
+        /// 本工程把"概率 + 资金倍数"两道门都保留，只是概率放在这里调
+        /// </summary>
+        [JsonProperty] public int cityStrategyAIAttemptChance = 25;
+
+        /// <summary>
+        /// 记仇窗口内 AI 报复性施计的概率（百分比）。
+        /// 对应原版 721 AI优化-流言.cpp 的"被流言后 bind 记仇 → 反施流言"，明显高于主动门
+        /// </summary>
+        [JsonProperty] public int cityStrategyAIRevengeChance = 60;
+
+        /// <summary>
+        /// 计略仇与二虎竞食挑拨凭据的有效期（回合，1 回合 = 1 旬）。
+        /// 超窗的记仇不再驱动报复，过期的挑拨凭据也不能再触发破盟，避免长局里累积出连锁反应
+        /// </summary>
+        [JsonProperty] public int cityStrategyGrudgeKeepTurns = 6;
+
+        /// <summary>
+        /// AI 报复流言时的行军距离上限，单位与 City.Distance 一致（最短路径的城数，1 城 = 1 回合行程）。
+        /// 对应原版 721 AI优化-流言.cpp 的"报复范围 = 2 座城"；本工程把港/关也算一跳，故放宽到 3 作容差。
+        /// 配成 0 表示不限制距离。
+        /// </summary>
+        [JsonProperty] public int cityStrategyAIRevengeMaxDays = 3;
+
+        #endregion 城市计略系统参数
+
         #region 招募系统参数
 
         /// <summary>

@@ -1284,6 +1284,41 @@ namespace Sango.Core
             });
         }
 
+        /// <summary>
+        /// 把"本大回合还没行动"的势力提到待行动队列队首。
+        ///
+        /// 供控制权中途移交（玩家接管某势力）时调用：不调用的话，玩家接手的势力若已经排在队列后面，
+        /// 要等前面所有势力都行动完才轮得到，手感上就像"点了参加却没反应"。
+        ///
+        /// 边界说明：
+        ///   · 势力已行动完（不在队列里）时不做任何事 —— 控制权切换本身已经生效，
+        ///     它会在下一次 <see cref="MakeForceQuene"/> 按 playerForceList 被排到大回合最前；
+        ///   · 当前正在行动的势力（<see cref="CurRunForce"/>）也不在队列里，同样走上一条；
+        ///   · 只做重排，不改任何回合状态，因此可以安全地在回合推进过程中调用。
+        /// </summary>
+        /// <param name="force">要提前行动的势力</param>
+        /// <returns>是否真的调整了队列位置</returns>
+        public bool PromoteForceToRunQueueHead(Force force)
+        {
+            if (force == null || runForces == null || runForces.Count == 0)
+                return false;
+
+            // Queue 不支持原地重排：整队取出后按"目标优先 + 其余保持原序"重建
+            List<Force> pending = new List<Force>(runForces);
+            int index = pending.IndexOf(force);
+            if (index <= 0)
+                return false;   // 不在队列中（已行动完）或本来就在队首
+
+            pending.RemoveAt(index);
+            pending.Insert(0, force);
+
+            runForces.Clear();
+            foreach (Force item in pending)
+                runForces.Enqueue(item);
+
+            return true;
+        }
+
         public bool TurnStart()
         {
             if (HasTurnStarted) return true;

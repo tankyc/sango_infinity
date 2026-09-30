@@ -4,9 +4,19 @@ using System.Collections.Generic;
 
 namespace Sango.Core.Player
 {
+    /// <summary>
+    /// 都市军事「出征」Job 的玩家侧入口系统：注册「军事/出征」菜单、定义选将界面的列（默认按统率倒序）、
+    /// 维护目标部队的兵种与兵力配置并派发执行。部队属性与行军的实际结算不在本类，统一委托 Troop 与 City 侧逻辑。
+    /// </summary>
     [GameSystem]
     public class CityExpedition : CityBaseSystem
     {
+        /// <summary>
+        /// 「统率」列在 customTitleList 中的下标，供选将界面打开时指定默认排序列。
+        /// 调整出征列顺序时必须同步本值，否则默认排序会落到错误的列上。
+        /// </summary>
+        public const int CommandSortTitleIndex = 3;
+
         public List<TroopType> ActivedLandTroopTypes = new List<TroopType>();
         public List<TroopType> ActivedWaterTroopTypes = new List<TroopType>();
 
@@ -18,12 +28,13 @@ namespace Sango.Core.Player
         public CityExpedition()
         {
             customTitleName = "出征";
+            // 统率列使用出征专用副本（倒序），配合 CommandSortTitleIndex 使选将界面打开时统率最高者在前。
             customTitleList = new List<ObjectSortTitle>()
             {
                 PersonSortFunction.SortByName,
                 PersonSortFunction.SortByLevel,
                 PersonSortFunction.SortByTroopsLimit,
-                PersonSortFunction.SortByCommand,
+                CreateExpeditionCommandSortTitle(),
                 PersonSortFunction.SortByStrength,
                 PersonSortFunction.SortByIntelligence,
                 PersonSortFunction.SortByPolitics,
@@ -40,6 +51,16 @@ namespace Sango.Core.Player
             customMenuOrder = 1100;
             windowName = "window_city_create_troop";
         }
+
+        /// <summary>创建出征专用统率列：按统率倒序，使统率最高的武将排在选将列表前部。</summary>
+        private static PersonSortFunction.SortTitle CreateExpeditionCommandSortTitle()
+        {
+            // 取共享静态列的副本再覆写比较器，避免把其它界面的统率列默认排序方向一起改成倒序。
+            PersonSortFunction.SortTitle sortTitle = PersonSortFunction.SortByCommand.Copy();
+            sortTitle.valueSortFunc = (a, b) => b.Command.CompareTo(a.Command);
+            return sortTitle;
+        }
+
         protected override bool MenuCanShow()
         {
             return true;
