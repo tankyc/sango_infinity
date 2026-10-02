@@ -13,15 +13,21 @@ namespace Sango.Core.Action
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
             base.Init(p, sangoObjects);
+
+        }
+
+        public override void Clear()
+        {
+        }
+
+        public override void Execute(Trigger trigger)
+        {
             if (Force == null) return;
             Force.ForEachCityBase(x =>
             {
                 x.ChangeDurability(value, null);
             });
-        }
 
-        public override void Clear()
-        {
         }
     }
 }

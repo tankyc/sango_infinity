@@ -12,7 +12,7 @@
  *   6. 该类为 partial：AI 决策在 DebateAI.cs，阶段状态机在 DebatePhase.cs
  *
  * 命名对照（C++ 罗马音 -> 英文）：
- *   wadai/topic_t   -> Topic       话题（故事 / 道理 / 时势）
+ *   wadai/topic_t   -> Topic       话题（故事 / 道理 / 时节）
  *   wajutsu         -> Rhetoric    话术（大喝 / 诡辩 / 无视 / 镇静 / 激昂）
  *   seikaku         -> Personality 性格（胆小 / 冷静 / 刚胆 / 莽撞）
  *   shoubyou        -> Injury      伤病（健康 / 轻伤 / 中伤 / 重伤）
@@ -1398,6 +1398,7 @@ namespace Sango.Core.Debate
         /// <summary>是否可发动会心</summary>
         public bool CanCritical()
         {
+            return true;
             if (winner == -1)
                 return false;
             if (system.IsFeatDisabled(Feature.Feature_DebateCritical))
@@ -1618,9 +1619,9 @@ namespace Sango.Core.Debate
             "道理（小）", // 4  DebateCard_Logic1
             "道理（中）", // 5  DebateCard_Logic2
             "道理（大）", // 6  DebateCard_Logic3
-            "时势（小）", // 7  DebateCard_Trend1
-            "时势（中）", // 8  DebateCard_Trend2
-            "时势（大）", // 9  DebateCard_Trend3
+            "时节（小）", // 7  DebateCard_Trend1
+            "时节（中）", // 8  DebateCard_Trend2
+            "时节（大）", // 9  DebateCard_Trend3
             "大喝",    // 10 DebateCard_Shout
             "诡辩",    // 11 DebateCard_Sophistry
             "无视",    // 12 DebateCard_Ignore

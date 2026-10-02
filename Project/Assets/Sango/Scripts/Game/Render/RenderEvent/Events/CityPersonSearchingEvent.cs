@@ -66,31 +66,31 @@ namespace Sango.Render
                     //展示武将
                     GameSystem.GetSystem<PersonRecruit>().Start(person, target, 0, 1, x =>
                     {
-                        if (x.result == 1)
-                        {
-                            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"成功招募了{target.ColorName}", () =>
-                            {
-                                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
-                                {
-                                    IsDone = true;
-                                }, target);
-                            }, person);
-                        }
-                        else if (x.result == 0)
-                        {
-                            if (searchingType == 0)
-                            {
-                                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到{target.ColorName}", () =>
-                                {
-                                    IsDone = true;
-                                }, person);
-                            }
-                            else
-                            {
-                                IsDone = true;
-                            }
-                        }
-                        else
+                        //if (x.result == 1)
+                        //{
+                        //    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"成功招募了{target.ColorName}", () =>
+                        //    {
+                        //        GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
+                        //        {
+                        //            IsDone = true;
+                        //        }, target);
+                        //    }, person);
+                        //}
+                        //else if (x.result == 0)
+                        //{
+                        //    if (searchingType == 0)
+                        //    {
+                        //        GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到{target.ColorName}", () =>
+                        //        {
+                        //            IsDone = true;
+                        //        }, person);
+                        //    }
+                        //    else
+                        //    {
+                        //        IsDone = true;
+                        //    }
+                        //}
+                        //else
                             IsDone = true;
                     });
                 }, person);

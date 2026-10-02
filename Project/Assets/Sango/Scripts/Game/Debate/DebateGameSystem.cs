@@ -60,7 +60,7 @@ namespace Sango.Core.Debate
     public class DebateGameSystem
     {
         /// <summary>话题名称表，下标与 Topic 枚举一致</summary>
-        private static readonly string[] s_topicNames = { "故事", "道理", "时势" };
+        private static readonly string[] s_topicNames = { "故事", "道理", "时节" };
 
         /// <summary>表现层（见 DebateView.cs）</summary>
         protected IDebateView m_View;

@@ -275,7 +275,7 @@ namespace Sango.Core
 
                     if (result == 1)
                     {
-                        GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
+                        GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{person.ColorName}愿为主公献犬马之劳", () =>
                         {
 
                         }, person);

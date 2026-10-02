@@ -2688,6 +2688,16 @@ namespace Sango.Core
             // 所属城取主将的实时值（不缓存），下面几处统一用它：
             // 主将已被俘/阵亡时它是 null，这几处都要能安全跳过（?.），否则会在这里空引用崩溃
             City lastBelongCity = BelongCity;
+
+            // 中和士气
+            // 【防御】分母可能为 0：本部队兵力已经为 0（补给把兵力全部交出等绕过 ChangeTroops 的
+            // 路径会产生"兵力归零但仍存活"的幽灵部队），且城市吸收后仍无兵力（空城 /
+            // 兵力上限 TroopsLimit 为 0 的据点）。此时没有可供加权平均的兵力，
+            // 保持城市原有士气即可，绝不能强行除以 0。
+            int totalTroops = city.troops + troops;
+            if (totalTroops > 0)
+                city.morale = (city.morale * city.troops + morale * troops) / totalTroops;
+
             city.AddGold(gold);
             city.AddFood(food);
             city.AddTroops(troops);
@@ -2706,14 +2716,7 @@ namespace Sango.Core
             city.itemStore.Gain(WaterTroopType.costItems, troops + woundedTroops);
             city.woundedTroops += woundedTroops;
             city.itemStore.Add(itemStore);
-            // 中和士气
-            // 【防御】分母可能为 0：本部队兵力已经为 0（补给把兵力全部交出等绕过 ChangeTroops 的
-            // 路径会产生"兵力归零但仍存活"的幽灵部队），且城市吸收后仍无兵力（空城 /
-            // 兵力上限 TroopsLimit 为 0 的据点）。此时没有可供加权平均的兵力，
-            // 保持城市原有士气即可，绝不能强行除以 0。
-            int totalTroops = city.troops + troops;
-            if (totalTroops > 0)
-                city.morale = (city.morale * city.troops + morale * troops) / totalTroops;
+           
             ForEachPerson((person) =>
             {
                 person.ActionOver = true;

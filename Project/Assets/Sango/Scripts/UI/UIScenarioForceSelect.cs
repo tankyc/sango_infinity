@@ -164,7 +164,7 @@ namespace Sango.UI
                 if (toggle != null)
                 {
                     toggle.shortCity = city;
-                    if (city.BelongForceId == 0)
+                    if (city.BelongForceId == 0 || scenario.forceSet[city.BelongForceId] == null)
                     {
                         toggle.SetSelected(false).SetInavtive(true);
                     }

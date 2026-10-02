@@ -252,7 +252,7 @@ namespace Sango.Tools
 
                 // 创建临时副本进行修改
                 MapGrid.GridData tempData = data;
-                SetGridDataProterty(brushType, tempData, (byte)value);
+                SetGridDataProterty(brushType, tempData, value);
                 int newValue = GetGridDataProterty(brushType, tempData);
                 SetTerrainMaskShowColor(coord.col, coord.row, newValue, terrainTypeMaskCol, terrainTypeMaskRow);
 
@@ -716,15 +716,15 @@ namespace Sango.Tools
             }
             return 0;
         }
-        public MapGrid.GridData SetGridDataProterty(BrushType brushType, MapGrid.GridData data, byte value)
+        public MapGrid.GridData SetGridDataProterty(BrushType brushType, MapGrid.GridData data, int value)
         {
             switch (brushType)
             {
                 case BrushType.TerrainType:
-                    data.terrainType = value;
+                    data.terrainType = (byte)value;
                     break;
                 case BrushType.Area:
-                    data.areaId = value;
+                    data.areaId = (ushort)value;
                     break;
                 //case BrushType.Trap:
                 //    data.trap = value;
@@ -1127,7 +1127,7 @@ namespace Sango.Tools
 
                 // 创建临时副本进行修改
                 MapGrid.GridData tempData = data;
-                SetGridDataProterty(brushType, tempData, (byte)value);
+                SetGridDataProterty(brushType, tempData, value);
                 int newValue = GetGridDataProterty(brushType, tempData);
                 SetTerrainMaskShowColor(coord.col, coord.row, newValue, terrainTypeMaskCol, terrainTypeMaskRow);
 

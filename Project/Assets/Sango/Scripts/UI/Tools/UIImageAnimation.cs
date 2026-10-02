@@ -9,17 +9,11 @@ namespace Sango.Core.Player
         public UnityEngine.Sprite[] sprites;
         public Image image;
         public float speed;
+        float curTime;
         private int index = 0;
         private void OnEnable()
         {
-            if (image == null)
-                image = GetComponent<Image>();
-            InvokeRepeating("UpdateRender", speed, speed);
-        }
-
-        private void OnDisable()
-        {
-            CancelInvoke();
+            image = GetComponent<Image>();
         }
 
         private void UpdateRender()
@@ -32,6 +26,19 @@ namespace Sango.Core.Player
                 UnityEngine.Sprite spr = sprites[index];
                 image.enabled = (spr != null);
                 image.sprite = spr;
+            }
+        }
+
+        private void Update()
+        {
+            if (image != null)
+            {
+                curTime += Time.deltaTime;
+                if (curTime > speed)
+                {
+                    curTime = 0;
+                    UpdateRender();
+                }
             }
         }
     }

@@ -133,7 +133,7 @@ namespace Sango.UI
                 rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
 
                 Image bgImg = cityObj.transform.GetChild(0).GetComponent<Image>();
-                if (city.BelongForceId > 0)
+                if (city.BelongForceId > 0 && scenario.forceSet[city.BelongForceId] != null)
                 {
                     ShortForce shortForce = scenario.forceSet[city.BelongForceId];
                     Flag flag = scenario.CommonData.Flags[shortForce.Flag];

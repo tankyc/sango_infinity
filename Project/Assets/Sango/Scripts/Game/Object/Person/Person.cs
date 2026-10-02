@@ -1592,8 +1592,9 @@ namespace Sango.Core
                     }
                     else
                     {
+                        City last = CurrentCity;
                         // 随机选择一个邻接城市
-                        SangoObjectList<City> neighborCities = BelongCity.NeighborList;
+                        SangoObjectList<City> neighborCities = CurrentCity.NeighborList;
                         if (neighborCities.Count > 0)
                         {
                             int randomIndex = GameRandom.Range(neighborCities.Count);
@@ -1606,7 +1607,7 @@ namespace Sango.Core
 
                                 // 重置停留时间
                                 stayTurnCount = 0;
-                        Sango.Log.Info($"@人才@在野武将{Name}从{BelongCity.Name}移动到{targetCity.Name}");
+                                Sango.Log.Info($"@人才@在野武将{Name}从{last.Name}移动到{targetCity.Name}");
                             }
                         }
                     }
@@ -2611,7 +2612,7 @@ namespace Sango.Core
             // 真正的问题是 CityStrategyManager.IsCityStrategyInProgress 只按 missionType 判重、
             // 不查存活 —— 死掉的使者会永久挡住同一目标城的流言/二虎竞食，外交任务同样悬挂。
             ClearMission();
-        }   
+        }
 
         public int GetAttribute(int attrType)
         {

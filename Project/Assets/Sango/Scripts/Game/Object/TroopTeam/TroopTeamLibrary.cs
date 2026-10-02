@@ -4,6 +4,19 @@ using Newtonsoft.Json;
 
 namespace Sango.Core
 {
+    /// <summary>保存一支队伍时命中的方式（界面可据此提示"已新增 / 已更新"）。</summary>
+    public enum TroopTeamSaveResult
+    {
+        /// <summary>失败（名字为空 / 超出上限）</summary>
+        Failed = 0,
+        /// <summary>新增了一条</summary>
+        Added = 1,
+        /// <summary>按**同名**覆盖（更新了原有条目）</summary>
+        UpdatedByName = 2,
+        /// <summary>按**内容相同**更新（保留了原来的名字）</summary>
+        UpdatedByContent = 3,
+    }
+
     /// <summary>
     /// 队伍库文件的落盘结构（外面再包一层，方便以后加字段而不破坏旧文件）。
     /// </summary>
@@ -99,31 +112,76 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 保存一支队伍：同名视为"覆盖"（避免玩家反复保存出几十个同名项），否则新增。
+        /// 保存一支队伍，三条规则按优先级：
+        ///   ① 已有**同名**队伍 → 覆盖它的信息（玩家"保存"到选中项走的就是这条）；
+        ///   ② 没有同名、但已有**内容相同**的队伍（同兵种 + 同一批武将 / 同一组特技）→ **更新那一条**，
+        ///      并**保留它原来的名字**（避免"同一队人反复新增"堆出一堆重复项）；
+        ///   ③ 都没有 → 新增。
+        /// 无论哪条都会立即落盘。
         /// </summary>
-        /// <param name="team">队伍（会被 <c>Clone()</c> 一份存下，避免与界面共享引用）</param>
-        /// <param name="replaced">输出：true = 覆盖了已有同名队伍</param>
-        /// <returns>落盘结果（超上限 / 参数非法时为 false）</returns>
-        public static bool Add(TroopTeam team, out bool replaced)
+        /// <param name="team">队伍（内部 <c>Clone()</c> 一份存下，避免与界面共享引用）</param>
+        /// <param name="result">输出：命中方式（新增 / 按名覆盖 / 按内容更新 / 失败）</param>
+        /// <returns>保存后的队伍在列表里的下标（-1 = 失败：名字为空或超出上限）</returns>
+        public static int SaveTeam(TroopTeam team, out TroopTeamSaveResult result)
         {
-            replaced = false;
+            result = TroopTeamSaveResult.Failed;
             if (team == null || string.IsNullOrEmpty(team.name))
-                return false;
+                return -1;
 
             int index = IndexOf(team.name);
             if (index >= 0)
             {
                 teams[index] = team.Clone();
-                replaced = true;
+                result = TroopTeamSaveResult.UpdatedByName;
             }
             else
             {
-                if (teams.Count >= MaxTeams)
-                    return false;
-                teams.Add(team.Clone());
+                int same = IndexOfSameContent(team);
+                if (same >= 0)
+                {
+                    TroopTeam kept = team.Clone();
+                    kept.name = teams[same].name;          // 内容相同 → 保留原有名字
+                    teams[same] = kept;
+                    index = same;
+                    result = TroopTeamSaveResult.UpdatedByContent;
+                }
+                else
+                {
+                    if (teams.Count >= MaxTeams)
+                        return -1;
+                    teams.Add(team.Clone());
+                    index = teams.Count - 1;
+                    result = TroopTeamSaveResult.Added;
+                }
             }
+
             Save();
-            return true;
+            return index;
+        }
+
+        /// <summary>
+        /// 兼容旧调用：保存一支队伍；<paramref name="replaced"/> = 命中了已有条目（按名覆盖或按内容更新）。
+        /// </summary>
+        public static bool Add(TroopTeam team, out bool replaced)
+        {
+            TroopTeamSaveResult result;
+            int index = SaveTeam(team, out result);
+            replaced = result == TroopTeamSaveResult.UpdatedByName
+                    || result == TroopTeamSaveResult.UpdatedByContent;
+            return index >= 0;
+        }
+
+        /// <summary>找"内容相同"的队伍下标（找不到返回 -1）。</summary>
+        public static int IndexOfSameContent(TroopTeam team)
+        {
+            if (team == null)
+                return -1;
+            for (int i = 0; i < teams.Count; i++)
+            {
+                if (teams[i] != null && teams[i].SameContentAs(team))
+                    return i;
+            }
+            return -1;
         }
 
         /// <summary>删除一支队伍并落盘。</summary>

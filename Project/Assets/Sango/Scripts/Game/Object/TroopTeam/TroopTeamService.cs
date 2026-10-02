@@ -16,6 +16,19 @@ namespace Sango.Core
         Unavailable = 3,
     }
 
+    /// <summary>队伍成员槽位的状态（界面据此区分展示：可用 / 被占用 / 不在本城）。</summary>
+    public enum TroopTeamMemberState
+    {
+        /// <summary>该槽没有成员需求（队伍人本来就少）。</summary>
+        Empty = 0,
+        /// <summary>可用：人在本城**空闲**武将里，可以立刻出征。</summary>
+        Ready = 1,
+        /// <summary>被占用：人在本城**在籍**武将里（在部队 / 正在执行任务）。</summary>
+        Busy = 2,
+        /// <summary>不在：这个人不在本城（阵亡 / 被俘 / 未登场），或该槽没人满足条件。</summary>
+        Missing = 3,
+    }
+
     /// <summary>队伍引用（区分"我的队伍"与"推荐模板"）。</summary>
     public struct TroopTeamRef
     {
@@ -28,7 +41,9 @@ namespace Sango.Core
     /// <summary>
     /// 一条待选队伍 + 它在当前城池的评估结果（推荐队伍面板 / AI 出征共用）。
     /// 列表项展示成员时，把 <see cref="members"/>（可用）或 <see cref="busyMembers"/>（被占用）
-    /// 逐个喂给 <c>Sango.UI.UIPersonItem.SetPerson</c> 即可。
+    /// 逐个喂给 <c>Sango.UI.UIPersonItem.SetPerson</c> 即可；
+    /// 需要区分"哪个人不在 / 被占用"时，用 <see cref="slotPersons"/> + <see cref="memberStates"/>
+    /// 按槽位逐个展示（索引 0 = 主将）。
     /// </summary>
     public class TroopTeamCandidate
     {
@@ -44,6 +59,13 @@ namespace Sango.Core
         public List<Person> members;
         /// <summary>被占用 / 在籍但不可用的成员（<see cref="TroopTeamAvailability.MembersBusy"/> 时有值，仅供展示）</summary>
         public List<Person> busyMembers;
+        /// <summary>
+        /// 逐槽位期望的成员（索引 0 = 主将，长度为 <see cref="TroopTeam.MaxMembers"/>）。
+        /// <see cref="TroopTeamMemberState.Missing"/> 的槽也给对象（固定武将按 id 解析，界面可以显示"这个人不在"）。
+        /// </summary>
+        public Person[] slotPersons = new Person[TroopTeam.MaxMembers];
+        /// <summary>逐槽位状态，与 <see cref="slotPersons"/> 一一对应。</summary>
+        public TroopTeamMemberState[] memberStates = new TroopTeamMemberState[TroopTeam.MaxMembers];
         /// <summary>身份成员数（不含补位）</summary>
         public int requiredCount;
         /// <summary>身份成员里当前可用的数量</summary>
@@ -196,6 +218,9 @@ namespace Sango.Core
             c.requiredTroops = team.EffectiveMinTroops;
             c.buildableTroops = BuildableTroops(city, c.troopType);
 
+            // 逐槽位算出"期望的人 + 状态"，供界面在武将头像上区分 可用 / 被占用 / 不在
+            BuildSlotStates(c, city);
+
             // ① 空闲武将（可立刻出征）
             List<Person> free = TroopTeamMatcher.Match(team, city.freePersons, c.troopType);
             c.readyCount = free != null ? free.Count : 0;
@@ -229,6 +254,103 @@ namespace Sango.Core
             }
 
             return c;
+        }
+
+        /// <summary>武将列表里是否有该 id 的人（列表可空；空列表视为没有）。</summary>
+        static bool ContainsPerson(List<Person> list, int personId)
+        {
+            if (list == null || personId <= 0)
+                return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i] != null && list[i].Id == personId)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 逐槽位算出"期望的人 + 状态"（<see cref="TroopTeamCandidate.slotPersons"/> / <see cref="TroopTeamCandidate.memberStates"/>）。
+        ///
+        /// 口径（槽位顺序与 <see cref="TroopTeamMatcher.Match"/> 一致：固定武将 → 固定特技 → 补位）：
+        ///   · 固定武将槽：按 id **直接解析**（人不在本城也能拿到对象，界面才能显示"这个人不在"）→
+        ///     在空闲表 = Ready，在在籍表 = Busy，两边都没有 = Missing；
+        ///   · 固定特技 / 补位槽：拿本城**在籍**武将匹配，匹配到的人落位（在空闲表 = Ready，否则 Busy），
+        ///     一个都没匹配到而队伍又期望这个槽 = Missing（没人满足条件）；
+        ///   · 队伍本来就不到 3 人的空位 = Empty。
+        /// </summary>
+        static void BuildSlotStates(TroopTeamCandidate c, City city)
+        {
+            if (c == null || c.team == null || city == null)
+                return;
+
+            List<Person> free = city.freePersons;
+            List<Person> all = city.allPersons != null ? city.allPersons.objects : null;
+
+            int[] fixedIds = c.team.FixedMemberIds;
+            int slot = 0;
+
+            // ① 固定武将：按 id 解析出对象（与他在不在本城无关）
+            for (int i = 0; i < fixedIds.Length && slot < TroopTeam.MaxMembers; i++)
+            {
+                Person person = IdRef.Resolve<Person>(fixedIds[i]);
+                TroopTeamMemberState state;
+                if (person == null)
+                    state = TroopTeamMemberState.Missing;
+                else if (ContainsPerson(free, person.Id))
+                    state = TroopTeamMemberState.Ready;
+                else if (ContainsPerson(all, person.Id))
+                    state = TroopTeamMemberState.Busy;
+                else
+                    state = TroopTeamMemberState.Missing;
+
+                c.slotPersons[slot] = person;
+                c.memberStates[slot] = state;
+                slot++;
+            }
+
+            // ② 固定特技 / 补位槽：用在籍武将的匹配结果落位（跳过已被固定武将占用的）
+            if (c.team.HasFixedFeatures || c.team.HasFill)
+            {
+                List<Person> matched = TroopTeamMatcher.Match(c.team, all, c.troopType);
+                if (matched != null)
+                {
+                    for (int i = 0; i < matched.Count && slot < TroopTeam.MaxMembers; i++)
+                    {
+                        Person person = matched[i];
+                        if (person == null) continue;
+                        if (FindSlot(c, person.Id) >= 0) continue;      // 已被前面的槽占用
+
+                        c.slotPersons[slot] = person;
+                        c.memberStates[slot] = ContainsPerson(free, person.Id)
+                            ? TroopTeamMemberState.Ready : TroopTeamMemberState.Busy;
+                        slot++;
+                    }
+                }
+            }
+
+            // ③ 队伍期望还有人，但一个都没匹配到 → 标记为"没人满足条件"
+            int planned = c.team.PlannedMemberCount;
+            for (; slot < planned && slot < TroopTeam.MaxMembers; slot++)
+                c.memberStates[slot] = TroopTeamMemberState.Missing;
+
+            // ④ 其余槽位为空槽（保持 slotPersons = null / Empty）
+            for (; slot < TroopTeam.MaxMembers; slot++)
+                c.memberStates[slot] = TroopTeamMemberState.Empty;
+        }
+
+        /// <summary>该武将在候选里已占用哪个槽位（没有返回 -1）。</summary>
+        static int FindSlot(TroopTeamCandidate c, int personId)
+        {
+            if (c == null || personId <= 0)
+                return -1;
+            for (int i = 0; i < c.slotPersons.Length; i++)
+            {
+                Person person = c.slotPersons[i];
+                if (person != null && person.Id == personId)
+                    return i;
+            }
+            return -1;
         }
 
         /// <summary>

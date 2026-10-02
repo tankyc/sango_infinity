@@ -203,6 +203,85 @@ namespace Sango.Core
             return t;
         }
 
+        /// <summary>
+        /// 是否与另一支队伍"内容相同"（保存判重用）：兵种一致，且
+        ///   · 有固定武将 → 是同一批人（**顺序不敏感**，换个主将顺序也算同一支）；
+        ///   · 只有固定特技 → 是同一组特技；
+        ///   · 两者都没有（纯补位队）→ 比较补位条件。
+        /// </summary>
+        public bool SameContentAs(TroopTeam other)
+        {
+            if (other == null)
+                return false;
+            if (troopTypeId != other.troopTypeId)
+                return false;
+
+            int[] a = FixedMemberIds;
+            int[] b = other.FixedMemberIds;
+            if (a.Length > 0 || b.Length > 0)
+            {
+                if (a.Length != b.Length)
+                    return false;
+                for (int i = 0; i < a.Length; i++)
+                {
+                    if (!ContainsId(b, a[i]))
+                        return false;
+                }
+                return true;
+            }
+
+            int[] fa = FixedFeatureIds;
+            int[] fb = other.FixedFeatureIds;
+            if (fa.Length > 0 || fb.Length > 0)
+            {
+                if (fa.Length != fb.Length)
+                    return false;
+                for (int i = 0; i < fa.Length; i++)
+                {
+                    if (!ContainsId(fb, fa[i]))
+                        return false;
+                }
+                return true;
+            }
+
+            return SameFill(fill, other.fill);
+        }
+
+        /// <summary>id 数组是否包含某 id。</summary>
+        static bool ContainsId(int[] ids, int id)
+        {
+            if (ids == null)
+                return false;
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (ids[i] == id)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>补位条件是否相同（空值视为"都没有条件"）。</summary>
+        static bool SameFill(TroopTeamFill a, TroopTeamFill b)
+        {
+            if (a == null || b == null)
+                return a == b;
+            if (a.command != b.command || a.strength != b.strength || a.intelligence != b.intelligence)
+                return false;
+
+            int[] fa = a.featureIds;
+            int[] fb = b.featureIds;
+            if (fa == null) fa = EmptyIds;
+            if (fb == null) fb = EmptyIds;
+            if (fa.Length != fb.Length)
+                return false;
+            for (int i = 0; i < fa.Length; i++)
+            {
+                if (!ContainsId(fb, fa[i]))
+                    return false;
+            }
+            return true;
+        }
+
         static readonly int[] EmptyIds = new int[0];
 
         static int[] Truncate(int[] source)

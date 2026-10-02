@@ -17,7 +17,7 @@ namespace Sango.Core.Player
 
         void OnRClick(Cell clickCell, Vector3 clickPosition, bool isOverUI, Cell downCell)
         {
-            if (!Scenario.Cur.CurRunForce.IsPlayer)
+            if (!Scenario.Cur.CurRunForce.IsPlayer || clickCell == null)
                 return;
 
             if (downCell == clickCell && !clickCell.IsEmpty())

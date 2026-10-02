@@ -226,7 +226,7 @@ namespace Sango.UI
                 size.x = 132;
                 itemRoot.sizeDelta = size;
 
-                scrollbar.size = (float)uIForceElementItems.Length / (float)curDataList.Count;
+                scrollbar.size = System.Math.Max(0.1f, (float)uIForceElementItems.Length / (float)curDataList.Count);
                 scrollbar.SetValueWithoutNotify(0);
                 OnScrollBarValueChange(0);
             }
