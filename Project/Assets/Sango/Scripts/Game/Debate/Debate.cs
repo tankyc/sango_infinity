@@ -1398,7 +1398,6 @@ namespace Sango.Core.Debate
         /// <summary>是否可发动会心</summary>
         public bool CanCritical()
         {
-            return true;
             if (winner == -1)
                 return false;
             if (system.IsFeatDisabled(Feature.Feature_DebateCritical))
