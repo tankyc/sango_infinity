@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Text;
+using UnityEngine;
 
 namespace Sango.Core.Player
 {
@@ -30,6 +31,9 @@ namespace Sango.Core.Player
 
         /// <summary>与 target 索引一一对应的执行武将；null 表示该目标没有可用执行武将</summary>
         public new List<Person> personList = new List<Person>();
+
+        /// <summary>与 target 索引一一对应的登庸概率（军师推荐公式结果；无执行武将时为 0）</summary>
+        public List<int> recruitProbabilities = new List<int>();
 
         /// <summary>已被前面目标占用的执行武将（推荐时排除）</summary>
         readonly List<Person> usedActionPersons = new List<Person>();
@@ -77,6 +81,7 @@ namespace Sango.Core.Player
             personList.Clear();
             target.Clear();
             usedActionPersons.Clear();
+            recruitProbabilities.Clear();
             hasUnavailable = false;
 
             customTargetTitleList = new List<ObjectSortTitle>()
@@ -167,6 +172,7 @@ namespace Sango.Core.Player
             target.Clear();
             personList.Clear();
             usedActionPersons.Clear();
+            recruitProbabilities.Clear();
             hasUnavailable = false;
         }
 
@@ -191,20 +197,24 @@ namespace Sango.Core.Player
 
             personList.Clear();
             usedActionPersons.Clear();
+            recruitProbabilities.Clear();
             hasUnavailable = false;
 
+            // 不可执行的目标（无执行武将 / 推荐概率低于原版军师阈值 30）直接过滤掉，
+            // 只保留能真正登庸的：列表所见即所得，不显示"无可用执行武将"占位行。
             for (int i = 0; i < target.Count; i++)
             {
-                Person action = RecommendActionPerson(target[i]);
+                int prob;
+                Person action = RecommendActionPerson(target[i], out prob);
+                if (action == null)
+                {
+                    target.RemoveAt(i);
+                    i--;
+                    continue;
+                }
                 personList.Add(action);
-                if (action != null)
-                {
-                    usedActionPersons.Add(action);
-                }
-                else
-                {
-                    hasUnavailable = true;
-                }
+                recruitProbabilities.Add(prob);
+                usedActionPersons.Add(action);
             }
         }
 
@@ -215,6 +225,17 @@ namespace Sango.Core.Player
         /// </summary>
         Person RecommendActionPerson(Person dest)
         {
+            int probability;
+            return RecommendActionPerson(dest, out probability);
+        }
+
+        /// <summary>
+        /// 军师推荐（带概率输出）：同上，额外返回最优执行武将的登庸概率，
+        /// 供“打开自动推荐”按概率从高到低排序。
+        /// </summary>
+        Person RecommendActionPerson(Person dest, out int probability)
+        {
+            probability = 0;
             Person best = null;
             int bestProbability = 0;
             for (int i = 0; i < TargetCity.freePersons.Count; i++)
@@ -222,15 +243,91 @@ namespace Sango.Core.Player
                 Person candidate = TargetCity.freePersons[i];
                 if (usedActionPersons.Contains(candidate))
                     continue;
+                // 已派出登庸任务的执行武将（在途）不参与推荐：第二回合打开自动排除，
+                // 避免同一个武将反复被派去登庸
+                if (candidate.missionType == (int)MissionType.PersonRecruitPerson)
+                    continue;
 
-                int probability = GameFormula.Instance.RecruitPersonProbability(candidate, dest, 0);
-                if (probability > 0 && probability > bestProbability)
+                int prob = GameFormula.Instance.RecruitPersonProbability(candidate, dest, 0);
+                // 与原版 CityRecruit 的军师推荐口径一致：概率 >= 30 才认为有推荐人选
+                // （原版 SetTarget 的阈值；概率低于 30 时原版军师"不推荐"，一键登庸同样不推荐）
+                if (prob >= 30 && prob > bestProbability)
                 {
-                    bestProbability = probability;
+                    bestProbability = prob;
                     best = candidate;
                 }
             }
+            probability = bestProbability;
             return best;
+        }
+
+        /// <summary>
+        /// 打开界面时自动推荐（不再要求玩家先点“选择目标武将”）：
+        /// 遍历全部候选目标，排除已派去登庸的目标，按原军师推荐公式为每个目标
+        /// 分配一个不重复的执行武将（概率 &gt; 0 才算有推荐），
+        /// 按登庸概率从高到低排序，最多取到行动力上限（行动力/单次消耗 与
+        /// 可用执行武将数 的较小值）。
+        /// 没有任何可推荐目标时 target 保持为空，UI 显示“暂无推荐登庸武将”。
+        /// </summary>
+        public void AutoRecommend()
+        {
+            target.Clear();
+            personList.Clear();
+            usedActionPersons.Clear();
+            recruitProbabilities.Clear();
+            hasUnavailable = false;
+
+            int maxByAP = TargetCity.BelongCorps.ActionPoint / GetJobAP();
+            int limit = Mathf.Min(TargetCity.freePersons.Count, maxByAP);
+            if (limit <= 0)
+                return;
+
+            List<Person> recTargets = new List<Person>();
+            List<Person> recActions = new List<Person>();
+            List<int> recProbs = new List<int>();
+
+            for (int i = 0; i < targetList.Count && recTargets.Count < limit; i++)
+            {
+                Person dest = targetList[i];
+                if (dest == null || IsTargetDispatched(dest))
+                    continue;
+                int prob;
+                Person action = RecommendActionPerson(dest, out prob);
+                if (action == null)
+                    continue; // 无可用执行武将（概率为 0）→ 不推荐
+                usedActionPersons.Add(action); // 立即占用，后续目标推荐时排除
+                recTargets.Add(dest);
+                recActions.Add(action);
+                recProbs.Add(prob);
+            }
+
+            // 按概率从高到低稳定排序（概率相同保持 targetList 原始顺序）
+            for (int i = 1; i < recProbs.Count; i++)
+            {
+                Person t = recTargets[i];
+                Person a = recActions[i];
+                int p = recProbs[i];
+                int j = i - 1;
+                while (j >= 0 && recProbs[j] < p)
+                {
+                    recTargets[j + 1] = recTargets[j];
+                    recActions[j + 1] = recActions[j];
+                    recProbs[j + 1] = recProbs[j];
+                    j--;
+                }
+                recTargets[j + 1] = t;
+                recActions[j + 1] = a;
+                recProbs[j + 1] = p;
+            }
+
+            int count = Mathf.Min(limit, recTargets.Count);
+            for (int i = 0; i < count; i++)
+            {
+                target.Add(recTargets[i]);
+                personList.Add(recActions[i]);
+                recruitProbabilities.Add(recProbs[i]);
+                usedActionPersons.Add(recActions[i]);
+            }
         }
 
         /// <summary>总行动力消耗 = 单次登庸消耗 × 有执行武将的目标数</summary>
