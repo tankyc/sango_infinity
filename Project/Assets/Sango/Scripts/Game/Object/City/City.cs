@@ -1800,6 +1800,8 @@ namespace Sango.Core
                     {
                         if (c.IsGate() || c.IsPort())
                         {
+                            c.allAttackTroops.Clear();
+                            c.allTroops.Clear();
                             c.freePersons.Clear();
                             c.allPersons.ForEach(p =>
                             {

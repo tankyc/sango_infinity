@@ -1,0 +1,515 @@
+/**
+ * 文件名：faceStore.js
+ * 描述：自定义头像（立绘）资源管理模块。
+ *
+ *       一、资源文件命名（与游戏 Face 目录保持一致）
+ *           - {id}_1.png：半身像（立绘），240 x 240；
+ *           - {id}_2.png：头像，64 x 80。
+ *
+ *       二、自定义头像 ID 分配规则（按用户需求实现）
+ *           - 起始 ID 为 3000；
+ *           - 每 1000 个 ID 为一段，段的千位数字为奇数时分配给男性，
+ *             为偶数时分配给女性：
+ *               男性段：3000-3999、5000-5999、7000-7999 ……
+ *               女性段：4000-4999、6000-6999、8000-8999 ……
+ *           - 因此 3000 为男性首个 ID，4000 为女性首个 ID，
+ *             即“单数千位为男、双数千位为女”；
+ *           - 某一段用满（到达 x999）后，下一位跳至本性别所属的下一个段
+ *             （跨过异性段，号段起点增加 2000），始终满足奇偶性别规则。
+ *
+ *       三、对外能力
+ *           - 列出全部自定义头像及其下一个可用 ID；
+ *           - 保存一张自定义头像（半身像 + 头像，均为 PNG）；
+ *           - 删除指定自定义头像；
+ *           - 将指定头像打包为 ZIP 供下载（ZIP 采用 store 存储，不二次压缩）。
+ *
+ * 创建日期：2026-09-10
+ */
+
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import * as r2 from './r2.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+/** 头像资源目录（与 index.js 中的静态目录保持一致） */
+const FACE_DIR = path.join(__dirname, 'face')
+
+/** 自定义头像起始 ID（男性首个 ID，女性首个 ID 为 4000） */
+export const CUSTOM_FACE_BASE_ID = 3000
+
+/** 性别常量：0=男，1=女（与游戏 Person.sex 一致） */
+export const SEX_MALE = 0
+export const SEX_FEMALE = 1
+
+/** 每个号段容纳的 ID 数量（x000 - x999 共 1000 个） */
+const SEGMENT_SIZE = 1000
+
+/** 号段千位的搜索上限（防止异常情况下无限循环） */
+const MAX_SEGMENT_INDEX = 98
+
+/** 半身像尺寸（宽 x 高） */
+const BUST_SIZE = { width: 240, height: 240 }
+
+/** 头像尺寸（宽 x 高） */
+const FACE_SIZE = { width: 64, height: 80 }
+
+/** 单张图片允许的最大字节数（约 8MB，防止异常大图撑爆内存） */
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+/**
+ * 已存在的自定义头像 ID 缓存。
+ * 首次访问时扫描磁盘建立，之后由保存 / 删除操作增量维护，避免每次请求都遍历目录。
+ * @type {Set<number>|null}
+ */
+let customIdCache = null
+
+/**
+ * 依据 ID 推导性别。
+ * 千位为奇数 => 男；千位为偶数 => 女。
+ * @param {number} id 头像 ID
+ * @returns {number} 0=男，1=女
+ */
+export function sexOfFaceId(id) {
+  const segment = Math.floor(id / SEGMENT_SIZE)
+  return segment % 2 === 1 ? SEX_MALE : SEX_FEMALE
+}
+
+/**
+ * 判断某个 ID 是否属于自定义头像范围。
+ * @param {number} id 头像 ID
+ * @returns {boolean} 是否为自定义头像 ID
+ */
+export function isCustomFaceId(id) {
+  return Number.isInteger(id) && id >= CUSTOM_FACE_BASE_ID
+}
+
+/**
+ * 判断指定性别使用哪个号段。
+ * @param {number} segment 号段序号（即 ID 的千位数字）
+ * @param {number} sex 性别，0=男，1=女
+ * @returns {boolean} 该号段是否属于该性别
+ */
+function segmentBelongsToSex(segment, sex) {
+  const isMaleSegment = segment % 2 === 1
+  return sex === SEX_MALE ? isMaleSegment : !isMaleSegment
+}
+
+/**
+ * 扫描头像目录，收集全部自定义头像 ID。
+ * @returns {Set<number>} 自定义头像 ID 集合
+ */
+function scanCustomIds() {
+  const ids = new Set()
+  if (!fs.existsSync(FACE_DIR)) return ids
+  let files = []
+  try {
+    files = fs.readdirSync(FACE_DIR)
+  } catch {
+    return ids
+  }
+  for (const name of files) {
+    // 仅统计半身像（_1）与头像（_2），忽略其它文件
+    const matched = /^(\d+)_([12])\.png$/i.exec(name)
+    if (!matched) continue
+    const id = Number(matched[1])
+    if (!isCustomFaceId(id)) continue
+    ids.add(id)
+  }
+  return ids
+}
+
+/**
+ * 取得自定义头像 ID 集合（带缓存）。
+ * @returns {Set<number>} 自定义头像 ID 集合
+ */
+function getCustomIds() {
+  if (!customIdCache) customIdCache = scanCustomIds()
+  return customIdCache
+}
+
+/**
+ * 强制使缓存失效，下次访问重新扫描磁盘。
+ */
+export function invalidateFaceCache() {
+  customIdCache = null
+}
+
+/**
+ * 计算指定性别的下一个可用自定义头像 ID。
+ * 按号段顺序（男性 3、5、7 …… 千位；女性 4、6、8 …… 千位）查找首个未被占用的 ID。
+ * @param {number} sex 性别，0=男，1=女
+ * @param {Set<number>} [used] 已占用的 ID 集合，缺省时使用缓存
+ * @returns {number} 下一个可用 ID；号段耗尽时返回 0
+ */
+export function nextFaceId(sex, used) {
+  const occupied = used || getCustomIds()
+  const baseSegment = Math.floor(CUSTOM_FACE_BASE_ID / SEGMENT_SIZE)
+  for (let segment = baseSegment; segment <= MAX_SEGMENT_INDEX; segment++) {
+    // 跳过不属于该性别的号段，保证“单数千位为男、双数千位为女”
+    if (!segmentBelongsToSex(segment, sex)) continue
+    const start = segment * SEGMENT_SIZE
+    for (let id = start; id < start + SEGMENT_SIZE; id++) {
+      if (!occupied.has(id)) return id
+    }
+  }
+  return 0
+}
+
+/**
+ * 解析前端上传的 PNG 图片。
+ * 支持纯 base64 或 dataURL 两种形式，并校验 PNG 文件头与图像尺寸。
+ * @param {string} input 图片内容（base64 或 dataURL）
+ * @param {{width:number,height:number}} expect 期望尺寸
+ * @param {string} label 字段名称（用于错误提示）
+ * @returns {{buffer:Buffer}|{error:string}} 解析结果
+ */
+function decodePng(input, expect, label) {
+  const raw = typeof input === 'string' ? input.trim() : ''
+  if (!raw) return { error: `缺少${label}数据` }
+  // 去掉 dataURL 前缀
+  const base64 = raw.startsWith('data:') ? raw.slice(raw.indexOf(',') + 1) : raw
+  let buffer
+  try {
+    buffer = Buffer.from(base64, 'base64')
+  } catch {
+    return { error: `${label}数据格式不正确` }
+  }
+  if (buffer.length === 0) return { error: `${label}数据为空` }
+  if (buffer.length > MAX_IMAGE_BYTES) return { error: `${label}体积过大（上限 8MB）` }
+  // 校验 PNG 文件头（137 80 78 71 13 10 26 10）
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  for (let i = 0; i < pngSignature.length; i++) {
+    if (buffer[i] !== pngSignature[i]) return { error: `${label}必须为 PNG 格式` }
+  }
+  const size = readPngSize(buffer)
+  if (!size) return { error: `${label}文件已损坏` }
+  if (size.width !== expect.width || size.height !== expect.height) {
+    return {
+      error: `${label}尺寸必须为 ${expect.width}x${expect.height}，当前为 ${size.width}x${size.height}`,
+    }
+  }
+  return { buffer }
+}
+
+/**
+ * 读取 PNG 的像素尺寸（解析 IHDR 数据块）。
+ * @param {Buffer} buffer PNG 文件内容
+ * @returns {{width:number,height:number}|null} 尺寸信息，解析失败返回 null
+ */
+function readPngSize(buffer) {
+  if (buffer.length < 24) return null
+  // 8 字节签名 + 4 字节块长度 + 4 字节块类型（IHDR）后即为宽高
+  const width = buffer.readUInt32BE(16)
+  const height = buffer.readUInt32BE(20)
+  if (!width || !height) return null
+  return { width, height }
+}
+
+/**
+ * 自定义头像文件路径。
+ * @param {number} id 头像 ID
+ * @param {1|2} type 1=半身像，2=头像
+ * @returns {string} 绝对路径
+ */
+function faceFilePath(id, type) {
+  return path.join(FACE_DIR, `${id}_${type}.png`)
+}
+
+/**
+ * 确保头像目录存在。
+ */
+function ensureFaceDir() {
+  if (!fs.existsSync(FACE_DIR)) fs.mkdirSync(FACE_DIR, { recursive: true })
+}
+
+/**
+ * 列出自定义头像列表与下一个可用 ID。
+ * @returns {{items:Array<{id:number,sex:number,hasBust:boolean,hasFace:boolean}>, nextId:{male:number,female:number}}}
+ */
+export function listCustomFaces() {
+  const ids = [...getCustomIds()].sort((a, b) => a - b)
+  const items = ids.map((id) => ({
+    id,
+    sex: sexOfFaceId(id),
+    hasBust: fs.existsSync(faceFilePath(id, 1)),
+    hasFace: fs.existsSync(faceFilePath(id, 2)),
+  }))
+  return {
+    items,
+    /** 各性别的下一个可用 ID（男 / 女分别独立排号） */
+    nextId: {
+      male: nextFaceId(SEX_MALE, getCustomIds()),
+      female: nextFaceId(SEX_FEMALE, getCustomIds()),
+    },
+  }
+}
+
+/**
+ * 保存一张自定义头像（半身像 + 头像）。
+ * @param {object} payload 请求数据
+ * @param {number} payload.sex 性别，0=男，1=女
+ * @param {string} payload.bust 半身像 PNG（base64 或 dataURL）
+ * @param {string} payload.face 头像 PNG（base64 或 dataURL）
+ * @returns {{id:number}|{error:string}} 保存结果
+ */
+export async function saveCustomFace(payload) {
+  const body = payload && typeof payload === 'object' ? payload : {}
+  const sex = Number(body.sex)
+  if (sex !== SEX_MALE && sex !== SEX_FEMALE) {
+    return { error: '请选择性别（男 / 女）' }
+  }
+
+  const bust = decodePng(body.bust, BUST_SIZE, '半身像')
+  if (bust.error) return { error: bust.error }
+  const face = decodePng(body.face, FACE_SIZE, '头像')
+  if (face.error) return { error: face.error }
+
+  const used = getCustomIds()
+  const id = nextFaceId(sex, used)
+  if (!id) return { error: '自定义头像 ID 已用完，请先清理无用头像' }
+
+  const bustName = `${id}_1.png`
+  const faceName = `${id}_2.png`
+
+  ensureFaceDir()
+  try {
+    fs.writeFileSync(faceFilePath(id, 1), bust.buffer)
+    fs.writeFileSync(faceFilePath(id, 2), face.buffer)
+  } catch (err) {
+    removeFaceFiles(id)
+    return { error: `保存失败：${err.message}` }
+  }
+
+  // R2 启用时双写，并且**要么都成功、要么都回滚**：
+  // 若只写成功本地，读路径会把请求 302 到 R2 上并不存在的对象，直接 404。
+  try {
+    await r2.putFace(bustName, bust.buffer)
+    await r2.putFace(faceName, face.buffer)
+  } catch (err) {
+    removeFaceFiles(id)
+    return { error: `已写入本地但同步到 R2 失败，已回滚：${err.message}` }
+  }
+
+  used.add(id)
+  return { id, storage: r2.status().canWrite ? 'local+r2' : 'local' }
+}
+
+/**
+ * 删除指定自定义头像（同时删除半身像与头像）。
+ *
+ * 远端删除失败只记日志、不回滚：本地已经删掉，残留的 R2 对象不会被任何页面引用，
+ * 反倒是因为一次网络抖动就让删除操作整体失败更让人困惑。
+ *
+ * @param {number} id 头像 ID
+ * @returns {Promise<{id:number,warnings?:string[]}|{error:string}>} 删除结果
+ */
+export async function deleteCustomFace(id) {
+  const target = Number(id)
+  if (!isCustomFaceId(target)) return { error: '仅允许删除自定义头像（ID ≥ 3000）' }
+  if (!getCustomIds().has(target)) return { error: `未找到 ID 为 ${target} 的自定义头像` }
+
+  try {
+    fs.rmSync(faceFilePath(target, 1), { force: true })
+    fs.rmSync(faceFilePath(target, 2), { force: true })
+  } catch (err) {
+    return { error: `删除失败：${err.message}` }
+  }
+  getCustomIds().delete(target)
+
+  const warnings = []
+  for (const name of [`${target}_1.png`, `${target}_2.png`]) {
+    try {
+      await r2.deleteFace(name)
+    } catch (err) {
+      warnings.push(`${name}：${err.message}`)
+      console.warn(`[头像] R2 删除失败 ${name}：${err.message}`)
+    }
+  }
+
+  return warnings.length > 0 ? { id: target, warnings } : { id: target }
+}
+
+/**
+ * 清掉某个头像 ID 对应的两个本地文件（保存失败时回滚用）。
+ * @param {number} id 头像 ID
+ */
+function removeFaceFiles(id) {
+  try {
+    fs.rmSync(faceFilePath(id, 1), { force: true })
+    fs.rmSync(faceFilePath(id, 2), { force: true })
+  } catch {
+    /* 回滚失败忽略 */
+  }
+}
+
+/**
+ * 读取指定自定义头像的图片数据。
+ * @param {number[]} ids 头像 ID 列表
+ * @returns {Array<{name:string,data:Buffer}>} 待打包的文件列表
+ */
+export function collectFaceFiles(ids) {
+  const entries = []
+  for (const raw of ids) {
+    const id = Number(raw)
+    if (!isCustomFaceId(id)) continue
+    for (const type of [1, 2]) {
+      const file = faceFilePath(id, type)
+      if (!fs.existsSync(file)) continue
+      entries.push({ name: `${id}_${type}.png`, data: fs.readFileSync(file) })
+    }
+  }
+  return entries
+}
+
+// ─────────────────────────────────────────────────────────────
+// ZIP 打包（store 存储模式）
+// ─────────────────────────────────────────────────────────────
+
+/** CRC32 查表，首次使用时构建 */
+let crcTable = null
+
+/**
+ * 构建 CRC32 查表。
+ * @returns {Int32Array} 查表数组
+ */
+function getCrcTable() {
+  if (crcTable) return crcTable
+  const table = new Int32Array(256)
+  for (let i = 0; i < 256; i++) {
+    let c = i
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    }
+    table[i] = c
+  }
+  crcTable = table
+  return table
+}
+
+/**
+ * 计算缓冲区 CRC32 校验值（ZIP 文件头要求）。
+ * @param {Buffer} buffer 数据
+ * @returns {number} 无符号 CRC32
+ */
+function crc32(buffer) {
+  const table = getCrcTable()
+  let crc = -1
+  for (let i = 0; i < buffer.length; i++) {
+    crc = (crc >>> 8) ^ table[(crc ^ buffer[i]) & 0xff]
+  }
+  return (crc ^ -1) >>> 0
+}
+
+/**
+ * 将 Date 转换为 DOS 格式的日期与时间。
+ * @param {Date} date 时间
+ * @returns {{time:number, date:number}} DOS 时间与日期
+ */
+function toDosDateTime(date) {
+  const year = Math.max(1980, date.getFullYear())
+  return {
+    time: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2),
+    date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
+  }
+}
+
+/**
+ * 生成 ZIP 压缩包（store 模式，PNG 本身已压缩无需二次压缩）。
+ * @param {Array<{name:string,data:Buffer}>} entries 文件列表
+ * @returns {Buffer} ZIP 文件内容
+ */
+export function buildZip(entries) {
+  const now = new Date()
+  const { time, date } = toDosDateTime(now)
+  const localParts = []
+  const centralParts = []
+  let offset = 0
+
+  for (const entry of entries) {
+    const nameBuffer = Buffer.from(entry.name, 'utf8')
+    const data = entry.data
+    const crc = crc32(data)
+
+    // 本地文件头
+    const local = Buffer.alloc(30 + nameBuffer.length)
+    local.writeUInt32LE(0x04034b50, 0)
+    local.writeUInt16LE(20, 4)
+    // 标志位 0x0800：文件名使用 UTF-8 编码
+    local.writeUInt16LE(0x0800, 6)
+    local.writeUInt16LE(0, 8)
+    local.writeUInt16LE(time, 10)
+    local.writeUInt16LE(date, 12)
+    local.writeUInt32LE(crc, 14)
+    local.writeUInt32LE(data.length, 18)
+    local.writeUInt32LE(data.length, 22)
+    local.writeUInt16LE(nameBuffer.length, 26)
+    local.writeUInt16LE(0, 28)
+    nameBuffer.copy(local, 30)
+
+    localParts.push(local, data)
+
+    // 中央目录项
+    const central = Buffer.alloc(46 + nameBuffer.length)
+    central.writeUInt32LE(0x02014b50, 0)
+    central.writeUInt16LE(20, 4)
+    central.writeUInt16LE(20, 6)
+    central.writeUInt16LE(0x0800, 8)
+    central.writeUInt16LE(0, 10)
+    central.writeUInt16LE(time, 12)
+    central.writeUInt16LE(date, 14)
+    central.writeUInt32LE(crc, 16)
+    central.writeUInt32LE(data.length, 20)
+    central.writeUInt32LE(data.length, 24)
+    central.writeUInt16LE(nameBuffer.length, 28)
+    central.writeUInt16LE(0, 30)
+    central.writeUInt16LE(0, 32)
+    central.writeUInt16LE(0, 34)
+    central.writeUInt16LE(0, 36)
+    central.writeUInt32LE(0, 38)
+    central.writeUInt32LE(offset, 42)
+    nameBuffer.copy(central, 46)
+
+    centralParts.push(central)
+    offset += local.length + data.length
+  }
+
+  const centralBuffer = Buffer.concat(centralParts)
+  // 结束记录
+  const end = Buffer.alloc(22)
+  end.writeUInt32LE(0x06054b50, 0)
+  end.writeUInt16LE(0, 4)
+  end.writeUInt16LE(0, 6)
+  end.writeUInt16LE(entries.length, 8)
+  end.writeUInt16LE(entries.length, 10)
+  end.writeUInt32LE(centralBuffer.length, 12)
+  end.writeUInt32LE(offset, 16)
+  end.writeUInt16LE(0, 20)
+
+  return Buffer.concat([...localParts, centralBuffer, end])
+}
+
+/**
+ * 打包下载指定自定义头像。
+ * @param {number[]|null} ids 需要打包的头像 ID；为空表示打包全部自定义头像
+ * @returns {{buffer:Buffer,count:number}|{error:string}} 打包结果
+ */
+export function exportCustomFaces(ids) {
+  const all = [...getCustomIds()].sort((a, b) => a - b)
+  let targets = null
+  if (Array.isArray(ids) && ids.length > 0) {
+    targets = ids.map((n) => Number(n)).filter((n) => all.includes(n))
+  } else {
+    targets = all
+  }
+  if (!targets || targets.length === 0) {
+    return { error: '没有可打包的自定义头像' }
+  }
+  const entries = collectFaceFiles(targets)
+  if (entries.length === 0) {
+    return { error: '没有可打包的头像文件' }
+  }
+  return { buffer: buildZip(entries), count: entries.length }
+}

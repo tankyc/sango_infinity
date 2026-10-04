@@ -35,8 +35,8 @@ namespace Sango
         public static void Init()
         {
             StreamingAssetsPath = Application.streamingAssetsPath;
-            PersistentDataPathPath = Application.persistentDataPath;
-            SaveRootPath = Application.persistentDataPath.Replace("\\", "/");
+            PersistentDataPathPath = GetAndroidDownloadPath();
+            SaveRootPath = PersistentDataPathPath.Replace("\\", "/");
             ContentRootPath = SaveRootPath + "/Content";
             CustomEditRootPath = SaveRootPath + "/CustomEdit";
             ModRootPath = SaveRootPath + "/Mods";
@@ -154,7 +154,7 @@ namespace Sango
             return null;
         }
 
-        static public string FindFile(string [] fileName)
+        static public string FindFile(string[] fileName)
         {
             if (fileName == null)
                 return null;
@@ -162,7 +162,7 @@ namespace Sango
             string fullPath;
             for (int i = 0; i < searchPaths.Count; i++)
             {
-                for(int j = 0; j < fileName.Length; j++)
+                for (int j = 0; j < fileName.Length; j++)
                 {
                     fullPath = string.Format("{0}/{1}", searchPaths[i], fileName[j]);
                     if (System.IO.File.Exists(fullPath))
@@ -221,6 +221,51 @@ namespace Sango
         static public bool IsPathRooted(string fileName)
         {
             return System.IO.Path.IsPathRooted(fileName);
+        }
+
+        /// <summary>
+        /// 获取公共下载目录的完整路径。
+        /// 安卓平台通过 Java 层 Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS)
+        /// 取到公共 Download 文件夹(例如 /storage/emulated/0/Download),该目录属于公共共享目录,
+        /// 应用向其中写入自己创建的文件无需额外申请存储权限;
+        /// 非安卓平台(编辑器/PC)以及安卓取不到时,统一回退到存档根目录下的 Download 子目录,
+        /// 保证调用方不需要再区分平台。目录本身不会在这里创建,
+        /// 需要落盘时请自行调用 Sango.Directory.Create(路径) 后再写入。
+        /// </summary>
+        /// <returns>下载目录的绝对路径,分隔符统一为 '/'</returns>
+        public static string GetAndroidDownloadPath()
+        {
+            string downloadPath = null;
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                // Java: Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                // DIRECTORY_DOWNLOADS 常量的实际取值就是字符串 "Download",这里直接传入以免再取一次静态字段。
+                using (AndroidJavaClass environment = new AndroidJavaClass("android.os.Environment"))
+                {
+                    using (AndroidJavaObject dir = environment.CallStatic<AndroidJavaObject>("getExternalStoragePublicDirectory", "Download"))
+                    {
+                        if (dir != null)
+                            downloadPath = dir.Call<string>("getAbsolutePath");
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                Log.Warning("获取安卓公共下载目录失败: " + e.Message, Log.LogType.Game);
+            }
+#endif
+
+            if (string.IsNullOrEmpty(downloadPath))
+            {
+                // 非安卓平台或安卓取不到公共目录时的兜底: 存档根目录下的 Download 子目录
+                return Application.persistentDataPath;
+            }
+            else
+            {
+                return downloadPath + "/SangoInfinity";
+            }
         }
     }
 }

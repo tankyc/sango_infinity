@@ -92,7 +92,22 @@ namespace Sango.Core
         /// <summary>
         /// 所在城池
         /// </summary>
-        public City CurrentCity => cell.BelongCity.BelongCity == null ? cell.BelongCity : cell.BelongCity.BelongCity;
+        public City CurrentCity
+        {
+            get
+            {
+                if (cell.BelongCity == null)
+                {
+                    Sango.Log.Error($"地块没有所属城池:{cell.x},{cell.y}!!!");
+                    return Leader.BelongCity;
+                }
+                else
+                {
+                    return cell.BelongCity.BelongCity == null ? cell.BelongCity : cell.BelongCity.BelongCity;
+                }
+            }
+        }
+
 
         /// <summary>
         /// 统领（主将）的 id。存档里只有这个数值，读取 Leader 时按需解析。
@@ -952,10 +967,10 @@ namespace Sango.Core
             duelChance = Variables.skillDuelChance;
 
             StrategySkills.Clear();
-            for(int i = 0; i < Variables.defaultStrategySkills.Length; i++)
+            for (int i = 0; i < Variables.defaultStrategySkills.Length; i++)
             {
                 Skill skill = scenario.CommonData.Skills.Get(Variables.defaultStrategySkills[i]);
-                if(skill == null) continue;
+                if (skill == null) continue;
                 StrategySkills.Add(SkillInstance.Create(this, skill));
             }
 
@@ -1805,32 +1820,35 @@ namespace Sango.Core
 
                 Troop atkTroop = skill.master;
 
-                List<Person> captives = new List<Person>();
-                if (Leader.state != (int)PersonStateType.Governor)
+                if (!IsEnemy(atkTroop))
                 {
-                    int p = Math.Max(0, atkTroop.GetCaptureChangce() - Leader.escapeFactorWhenTroopDestroy);
-                    if (GameRandom.Chance(p))
-                        captives.Add(Leader);
-                }
-                if (Member1 != null && Member1.state != (int)PersonStateType.Governor)
-                {
-                    int p = Math.Max(0, atkTroop.GetCaptureChangce() - Member1.escapeFactorWhenTroopDestroy);
-                    if (GameRandom.Chance(p))
-                        captives.Add(Member1);
-                }
+                    List<Person> captives = new List<Person>();
+                    if (Leader.state != (int)PersonStateType.Governor)
+                    {
+                        int p = Math.Max(0, atkTroop.GetCaptureChangce() - Leader.escapeFactorWhenTroopDestroy);
+                        if (GameRandom.Chance(p))
+                            captives.Add(Leader);
+                    }
+                    if (Member1 != null && Member1.state != (int)PersonStateType.Governor)
+                    {
+                        int p = Math.Max(0, atkTroop.GetCaptureChangce() - Member1.escapeFactorWhenTroopDestroy);
+                        if (GameRandom.Chance(p))
+                            captives.Add(Member1);
+                    }
 
-                if (Member2 != null && Member2.state != (int)PersonStateType.Governor)
-                {
-                    int p = Math.Max(0, atkTroop.GetCaptureChangce() - Member2.escapeFactorWhenTroopDestroy);
-                    if (GameRandom.Chance(p))
-                        captives.Add(Member2);
-                }
+                    if (Member2 != null && Member2.state != (int)PersonStateType.Governor)
+                    {
+                        int p = Math.Max(0, atkTroop.GetCaptureChangce() - Member2.escapeFactorWhenTroopDestroy);
+                        if (GameRandom.Chance(p))
+                            captives.Add(Member2);
+                    }
 
-                if (captives.Count > 0)
-                {
-                    CityRecruitPersonWhenTroopFallEvent te = RenderEvent.Instance.Create<CityRecruitPersonWhenTroopFallEvent>();
-                    te.Init(captives, atkTroop);
-                    RenderEvent.Instance.Add(te);
+                    if (captives.Count > 0)
+                    {
+                        CityRecruitPersonWhenTroopFallEvent te = RenderEvent.Instance.Create<CityRecruitPersonWhenTroopFallEvent>();
+                        te.Init(captives, atkTroop);
+                        RenderEvent.Instance.Add(te);
+                    }
                 }
             }
 
@@ -2681,7 +2699,7 @@ namespace Sango.Core
 
         public void EnterCity(City city)
         {
-            if(city.BelongForce != BelongForce)
+            if (city.BelongForce != BelongForce)
             {
                 Sango.Log.Error($"{BelongForce.ColorName}的{Name}进入了一个不是自身势力{city.BelongForce?.ColorName}{city.ColorName}的城市!");
             }
@@ -2716,7 +2734,7 @@ namespace Sango.Core
             city.itemStore.Gain(WaterTroopType.costItems, troops + woundedTroops);
             city.woundedTroops += woundedTroops;
             city.itemStore.Add(itemStore);
-           
+
             ForEachPerson((person) =>
             {
                 person.ActionOver = true;
@@ -2832,7 +2850,7 @@ namespace Sango.Core
             belongCity?.allTroops.Remove(this);
             Scenario.Cur.Remove(this);
 
-            if(Scenario.Cur.IsAlive)
+            if (Scenario.Cur.IsAlive)
             {
                 ReleaseCaptive();
             }
@@ -3009,6 +3027,8 @@ namespace Sango.Core
 
         public void SetMission(MissionType missionType, int missionTarget)
         {
+            if(BelongForce == null) return;
+
             // 【委任部队】玩家第一军团不使用面向势力 AI 的任务枚举：
             // 这里统一把 TroopXXX 映射为 PlayerTroopXXX（见 TroopMissionBehaviour.ToPlayerMission）。
             // 映射收敛在这一处，于是所有派发点——UI 指令层（TroopInteractive*.cs /

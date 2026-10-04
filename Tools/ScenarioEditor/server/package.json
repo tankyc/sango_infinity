@@ -1,0 +1,8 @@
+{
+  "name": "scenario-editor-server",
+  "private": true,
+  "version": "1.0.0",
+  "description": "剧本编辑器后端服务（CommonJS 模块作用域，避免受根目录 type=module 影响）",
+  "type": "commonjs",
+  "main": "index.js"
+}

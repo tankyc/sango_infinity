@@ -1671,6 +1671,10 @@ namespace Sango.Core
 
         public void OnWillChangeToCity(City dest)
         {
+            if (BelongForce != dest.BelongForce && dest.BelongForce != null)
+            {
+                Sango.Log.Error($"{BelongForce?.Name}尝试转到不同势力的城池!!<{dest.BelongForce?.Name}>");
+            }
             // 如果转移主公到其他军团城市,需要解散目标军团
             if (IsGovernor && dest.BelongCorps != BelongCorps)
             {

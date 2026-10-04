@@ -1,0 +1,39 @@
+{
+  "name": "sango-modhub-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sango Infinity 创意工坊（ModHub）后端服务：模组存储 / 浏览 / 订阅 / 下载",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "smoke": "node scripts/smoke.mjs",
+    "seed": "node scripts/seed-demo.mjs",
+    "migrate:s3": "node scripts/migrate-to-s3.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1146.0",
+    "@fastify/formbody": "^8.0.2",
+    "@fastify/multipart": "^9.0.3",
+    "@prisma/client": "^6.7.0",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "yauzl": "^3.2.0",
+    "yazl": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^22.14.0",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
+    "prisma": "^6.7.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

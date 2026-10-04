@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sango Infinity · 特技效果编辑器</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="m-canvas">
+
+<header class="topbar">
+    <div class="brand">特技效果编辑器<span class="ver">v1</span></div>
+    <div class="top-actions">
+        <label class="field-inline">
+            <span>挂载位置</span>
+            <select id="hostSel"></select>
+        </label>
+        <span class="path-hint" id="pathHint"></span>
+        <div class="spacer"></div>
+        <button class="btn" id="btnImport">导入 JSON</button>
+        <button class="btn" id="btnExport">导出工程</button>
+        <button class="btn" id="btnLoadProj">载入工程</button>
+        <button class="btn ghost" id="btnClear">清空</button>
+        <button class="btn ghost" id="btnHelp">帮助</button>
+    </div>
+</header>
+
+<!-- 窄屏（手机 / 平板竖屏）面板切换：三栏改为一次显示一个，避免编辑区被挤没 -->
+<nav class="mtabs" id="mTabs">
+    <button class="mtab" data-view="palette">节点库</button>
+    <button class="mtab active" data-view="canvas">编辑区</button>
+    <button class="mtab" data-view="inspector">属性</button>
+</nav>
+
+<main class="layout">
+
+    <!-- 左：节点库 -->
+    <aside class="panel palette">
+        <div class="ptabs" id="palTabs">
+            <button class="ptab k-action" data-tab="action">效果<span class="cnt" data-cnt="action">0</span></button>
+            <button class="ptab k-trigger" data-tab="trigger">触发器<span class="cnt" data-cnt="trigger">0</span></button>
+            <button class="ptab k-condition" data-tab="condition">条件<span class="cnt" data-cnt="condition">0</span></button>
+        </div>
+        <div class="panel-head">
+            <input type="search" id="paletteSearch" placeholder="搜索：中文名 / class 名">
+        </div>
+        <div class="panel-body" id="paletteBody"></div>
+    </aside>
+
+    <!-- 中：画布 -->
+    <section class="panel canvas">
+        <div class="panel-head">
+            <span class="panel-title">效果树</span>
+            <span class="hint">从左侧拖入节点；卡片上的虚线框为可放置区域</span>
+            <div class="spacer"></div>
+            <button class="btn sm" id="btnExpandAll">展开全部</button>
+            <button class="btn sm" id="btnCollapseAll">折叠全部</button>
+        </div>
+        <div class="panel-body" id="canvasBody" data-drop="1" data-slot="__root__" data-index="-1">
+            <div class="root-slot" data-slot="__root__" data-index="-1" data-drop="1">
+                <div class="slot-title">根 · <span id="rootLabel">actionEntities</span></div>
+                <div class="slot-items" id="rootItems"></div>
+                <div class="slot-empty">把「效果」节点拖到这里</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 右：属性 -->
+    <aside class="panel inspector">
+        <div class="panel-head"><span class="panel-title">属性</span></div>
+        <div class="panel-body" id="inspectorBody">
+            <div class="empty-tip">在画布中选择一个节点</div>
+        </div>
+    </aside>
+</main>
+
+<!-- 底部：JSON -->
+<footer class="jsonbar">
+    <div class="panel-head">
+        <span class="panel-title">JSON 预览</span>
+        <span id="validateBadge" class="badge ok">正常</span>
+        <div class="spacer"></div>
+        <button class="btn sm" id="btnCopyArray">复制数组</button>
+        <button class="btn sm" id="btnCopyWrapped">复制（带字段名）</button>
+        <button class="btn sm" id="btnDownload">下载 .json</button>
+        <button class="btn sm ghost" id="btnToggleJson">收起</button>
+    </div>
+    <div class="json-body">
+        <pre id="jsonOut"></pre>
+        <ul id="issueList" class="issues"></ul>
+    </div>
+</footer>
+
+<!-- 导入模态 -->
+<div class="modal" id="importModal" hidden>
+    <div class="modal-box">
+        <div class="modal-head">导入 JSON<button class="x" data-close>&times;</button></div>
+        <div class="modal-body">
+            <p class="hint">可粘贴：效果数组 <code>[{...}]</code>、单个效果 <code>{...}</code>、
+                或整个配置对象 <code>{"actionEntities": [...]}</code> / <code>{"1": {...}, "2": {...}}</code></p>
+            <textarea id="importText" spellcheck="false" placeholder='例：[ { "class": "TroopTriggerAction", "triggerList": [], "actionList": [] } ]'></textarea>
+            <div id="importMsg" class="msg"></div>
+            <div id="importCandidates" class="candidates"></div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" id="btnDoImport">解析并导入</button>
+            <button class="btn ghost" data-close>取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 帮助模态 -->
+<div class="modal" id="helpModal" hidden>
+    <div class="modal-box wide">
+        <div class="modal-head">使用说明 / 已知坑位<button class="x" data-close>&times;</button></div>
+        <div class="modal-body help-body">
+            <h4>基本流程</h4>
+            <ol>
+                <li>顶部选择挂载位置（特技 / 技法 / 建筑），根容器对应 <code>actionEntities</code> 或 <code>effects</code>。</li>
+                <li>从左侧节点库把节点拖到画布（顶部标签页可切换 <b>效果 / 触发器 / 条件</b>）；容器节点（触发器 + 效果）内部还有「触发时机」「执行效果」两个放置区。</li>
+                <li>选中节点，在右侧填写参数；带 <b>*</b> 的为必填。</li>
+                <li>底部实时预览 JSON，点「复制」粘回对应配置文件。</li>
+                <li>窄屏（手机 / 平板竖屏）下三栏会合并为单栏，用顶部 <b>节点库 / 编辑区 / 属性</b> 切换；触屏不支持拖拽，请点节点右侧的 <b>＋</b> 直接添加节点。</li>
+            </ol>
+            <h4>注意事项（源码层面）</h4>
+            <ul>
+                <li><b>注册名即类名</b>：绝大多数 class 名与类名一致，但 <code>PersonAttributeCompare</code> 对应的类名是 <code>PersonAttributeCheck</code>，导入时会自动识别。</li>
+                <li><b>必填数组</b>：<code>andList / orList.list</code>、<code>SkillIdInList.ids</code>、<code>TroopAddBuff.values / weight</code> 在 C# 中没有判空，缺失会空引用，编辑器会强制输出并校验。</li>
+                <li><b>and / or 是二元结构</b>（固定 L / R 两个字段），<b>andList / orList 是数组</b>（list 字段），两者不可混用。</li>
+                <li><b>同类字段语义不同</b>：<code>tartgetType</code>（建筑系，阵营）与 <code>targetType</code>（部队系，行动方/目标方）拼写与含义都不同；<code>isDefender</code> 在部分类中是 int，在 <code>TroopChangeMorale</code> 中是 bool。</li>
+                <li><b>单位</b>：标注「万分比」的字段 10000 = 100%；标注「百分比」的字段 100 = 不变。概率类（ProbabilityCheck / TroopAddBuff.probability）为万分比，<code>chance</code> 为百分比（0~100）。</li>
+                <li><b>不可用类</b>：<code>TroopAttributeCheck</code>、<code>TerrainHeightCheck</code>、<code>SkillIsSuccess</code>、<code>ResourceCheck</code>、<code>TimeCheck</code>、<code>TriggerList</code> 等未注册或已注释，导入时会提示，不会出现在节点库。</li>
+                <li><b>FactionCheck</b> 仅 <code>ally</code> / <code>enemy</code> 有效，其余值恒为 false。</li>
+                <li>本工具只生成 JSON 字符串，<b>不直接修改任何配置文件</b>；粘贴前建议用 Git 确认差异。</li>
+            </ul>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close>知道了</button></div>
+    </div>
+</div>
+
+<input type="file" id="projFile" accept=".json" hidden>
+
+<script src="schema.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
