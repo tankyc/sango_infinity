@@ -35,7 +35,7 @@ namespace Sango
         public static void Init()
         {
             StreamingAssetsPath = Application.streamingAssetsPath;
-            PersistentDataPathPath = GetAndroidDownloadPath();
+            PersistentDataPathPath = Application.persistentDataPath;
             SaveRootPath = PersistentDataPathPath.Replace("\\", "/");
             ContentRootPath = SaveRootPath + "/Content";
             CustomEditRootPath = SaveRootPath + "/CustomEdit";
@@ -221,35 +221,6 @@ namespace Sango
         static public bool IsPathRooted(string fileName)
         {
             return System.IO.Path.IsPathRooted(fileName);
-        }
-
-        /// <summary>
-        /// 获取公共下载目录的完整路径。
-        /// 安卓平台通过 Java 层 Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS)
-        /// 取到公共 Download 文件夹(例如 /storage/emulated/0/Download),该目录属于公共共享目录,
-        /// 应用向其中写入自己创建的文件无需额外申请存储权限;
-        /// 非安卓平台(编辑器/PC)以及安卓取不到时,统一回退到存档根目录下的 Download 子目录,
-        /// 保证调用方不需要再区分平台。目录本身不会在这里创建,
-        /// 需要落盘时请自行调用 Sango.Directory.Create(路径) 后再写入。
-        /// </summary>
-        /// <returns>下载目录的绝对路径,分隔符统一为 '/'</returns>
-        public static string GetAndroidDownloadPath()
-        {
-            string downloadPath = null;
-
-#if UNITY_ANDROID && !UNITY_EDITOR
-           downloadPath = Application.persistentDataPath.Substring(0, Application.persistentDataPath.IndexOf("Android")) +"Download";
-#endif
-
-            if (string.IsNullOrEmpty(downloadPath))
-            {
-                // 非安卓平台或安卓取不到公共目录时的兜底: 存档根目录下的 Download 子目录
-                return Application.persistentDataPath;
-            }
-            else
-            {
-                return downloadPath + "/SangoInfinity";
-            }
         }
     }
 }

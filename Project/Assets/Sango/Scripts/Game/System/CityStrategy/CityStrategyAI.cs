@@ -120,9 +120,12 @@ namespace Sango.Core
         {
             ScenarioVariables variables = scenario.Variables;
 
-            // 报复：谁在有效期内算过我们，优先对谁施流言（对应原版 721 的 rumor_timer + 报复范围=2 座城）
+            // 报复：谁在有效期内算过我们，优先对谁施流言（对应原版 721 的 rumor_timer + 报复范围=2 座城）。
+            // 凭据一次性消费：无论这次是否真的掷中概率、是否派出使者，这笔账都算还过，
+            // 因此"A 喷 B、B 喷 A"最多往复一轮就会自然熄火，不会每回合无限对喷。
             Force attacker = FindGrudgeAttacker(force, scenario, variables.cityStrategyGrudgeKeepTurns);
-            if (attacker != null && GameRandom.Chance(variables.cityStrategyAIRevengeChance))
+            if (attacker != null && force.TakeCityStrategyGrudge(attacker)
+                && GameRandom.Chance(variables.cityStrategyAIRevengeChance))
             {
                 if (TryDispatchRumor(force, scenario, attacker, variables.cityStrategyAIRevengeMaxDays))
                     return true;
@@ -147,8 +150,10 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 派遣流言使者：先在敌方选一座够得着的据点，再在我方选一个付得出路费的高智力空闲武将，
+        /// 派遣流言使者：先过势力级配额，再在敌方选一座够得着的据点，然后在我方选一个付得出路费的高智力空闲武将，
         /// 两道门槛（智力优势、资金倍数）都过了才交给 CityStrategyManager.Dispatch 落地。
+        /// 配额的意义：把"每个 AI 每回合都可能对邻国喷一次流言"降为"每若干回合才一次"，
+        /// 单独看每座城有冷却（City.lastRumorTurn），势力级再加一道总量闸门，避免多座城轮流被喷。
         /// </summary>
         /// <param name="force">施计方</param>
         /// <param name="scenario">当前场景</param>
@@ -163,6 +168,11 @@ namespace Sango.Core
             if (force.IsAlliance(victim))
                 return false;
 
+            // 势力级配额：距上次派遣不足配额的，本回合不出手
+            int quota = scenario.Variables.cityStrategyAIMaxRumorPerTurns;
+            if (quota > 0 && scenario.TurnCount - force.LastCityStrategyRumorTurn < quota)
+                return false;
+
             City targetCity = PickTargetCity(victim, force, maxDistance);
             if (targetCity == null)
                 return false;
@@ -171,7 +181,11 @@ namespace Sango.Core
             if (envoy == null)
                 return false;
 
-            return DispatchIfWorthIt(scenario, CityStrategyType.Rumor, force, envoy, targetCity, victim, null);
+            bool dispatched = DispatchIfWorthIt(scenario, CityStrategyType.Rumor, force, envoy, targetCity, victim, null);
+            // 只有真的派出去了才续上配额；被智力门/资金门挡下时不算数，下回合仍可尝试
+            if (dispatched)
+                force.LastCityStrategyRumorTurn = scenario.TurnCount;
+            return dispatched;
         }
 
         /// <summary>

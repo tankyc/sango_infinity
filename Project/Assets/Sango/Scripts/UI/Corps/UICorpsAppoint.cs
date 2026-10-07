@@ -44,13 +44,19 @@ namespace Sango.UI
             PersonSortFunction.SortByLevel,
         };
 
+        /// <summary>
+        /// 每个委任按钮的显示/交互类型，下标与 <see cref="Corps.AppointContentType"/> 一一对应。
+        ///   0 = 允许 / 禁止（含末尾的"港关驻军"开关：0 = 允许，1 = 禁止）
+        ///   1 = 重视 / 轻视   2 = 轻视 / 重视   3 = 选择运输目标城（点击后弹城选择器）
+        /// </summary>
         int[] appointShowType = new int[] {
             1,1,1,1,1,1,
             2,
             1,1,
             0,0,
             3,
-            0,0
+            0,0,
+            0
         };
 
         int[] appointSetting;

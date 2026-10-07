@@ -163,7 +163,16 @@ namespace Sango.Core
             Transport,
             Build,
             TransportDisable,
-            Max = 14
+
+            /// <summary>
+            /// 港关驻军：0 = 开（允许 AI 人才调度把武将调动到港 / 关），1 = 关（禁止）。
+            /// 只对玩家势力的军团有意义 —— 非玩家（AI）势力以势力为边界调度，不受军团委任约束。
+            /// 关闭后由 DeploymentSolver / DeploymentExecutor 共同保证"不为港关编制驻军岗位、也不向港关调人"。
+            /// </summary>
+            PortGateGarrison,
+
+            /// <summary>枚举项总数（同时作为 appointSetting 数组长度）</summary>
+            Max = 15
         }
 
         /// <summary>
@@ -305,13 +314,25 @@ namespace Sango.Core
 
         public Corps()
         {
-            appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            // 全 0 = 全部"允许"（含港关驻军默认开），长度跟随 AppointContentType.Max
+            appointSetting = new int[(int)AppointContentType.Max];
         }
 
         public override void Init(Scenario scenario)
         {
-            if (appointSetting == null || appointSetting.Length < (int)AppointContentType.Max)
-                appointSetting = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            if (appointSetting == null)
+            {
+                appointSetting = new int[(int)AppointContentType.Max];
+            }
+            else if (appointSetting.Length < (int)AppointContentType.Max)
+            {
+                // 枚举新增项后，老存档里只有旧长度的数组：这里**扩容并保留玩家已有设置**，
+                // 新增项留作 0（默认值）。整体重置会把玩家辛苦调好的委任方案清零。
+                int[] grown = new int[(int)AppointContentType.Max];
+                for (int i = 0; i < appointSetting.Length; i++)
+                    grown[i] = appointSetting[i];
+                appointSetting = grown;
+            }
             PrepareCityInfo();
         }
 

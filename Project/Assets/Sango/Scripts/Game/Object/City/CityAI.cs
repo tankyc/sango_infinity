@@ -535,23 +535,78 @@ namespace Sango.Core
             // 【优化】原先用全局 Chance(80) 决定是否褒奖，并对每个低忠诚武将都执行一次，
             // 可能一次性耗尽金钱。现改为：仅在"确有低忠诚武将"时确定执行，且单回合限制人数。
             AIConfig cfg = AIConfig.Instance;
+
+            // 【流言响应】被 AI 互喷打低忠诚的武将优先褒奖，并临时放宽单回合褒奖人数，
+            // 让 AI 有能力与被流言削弱的速度赛跑（参数见 ScenarioVariables.cityStrategyRumorVictimReward*）。
+            ScenarioVariables variables = scenario != null ? scenario.Variables : null;
+            int victimTurns = variables != null ? variables.cityStrategyRumorVictimRewardTurns : 0;
+            int victimBoost = variables != null ? variables.cityStrategyRumorVictimRewardBoost : 0;
+            int now = scenario != null ? scenario.TurnCount : 0;
+            bool rumorResponseOn = victimTurns > 0 && victimBoost > 0;
+
+            // 先筛出"最近被流言动摇且忠诚已低于褒奖线"的人，作为第一优先序列
+            int maxReward = Math.Max(1, cfg.rewardMaxPersonPerTurn);
+            List<Person> victims = null;
+            if (rumorResponseOn)
+            {
+                for (int i = 0; i < city.allPersons.Count; i++)
+                {
+                    Person person = city.allPersons[i];
+                    if (person == null || person.mBelongTroop != null)
+                        continue;
+                    if (person.loyalty > cfg.rewardLoyaltyThreshold)
+                        continue;
+                    if (!IsRumorVictim(person, now, victimTurns))
+                        continue;
+                    victims = victims ?? new List<Person>();
+                    victims.Add(person);
+                }
+            }
+
             int rewarded = 0;
+            // 第一轮：确有流言受害者时才放宽人数上限，并优先补他们的忠诚（忠诚最低者优先）
+            if (victims != null && victims.Count > 0)
+            {
+                maxReward += victimBoost;
+                victims.Sort((a, b) => a.loyalty.CompareTo(b.loyalty));
+                for (int i = 0; i < victims.Count; i++)
+                {
+                    if (rewarded >= maxReward || city.gold <= cfg.rewardGoldKeep)
+                        break;
+                    city.JobRewardPerson(victims[i]);
+                    rewarded++;
+                }
+            }
+
+            // 第二轮：其余低忠诚武将照旧补位（跳过第一轮已处理的流言受害者，避免重复褒奖同一人）
             for (int i = 0; i < city.allPersons.Count; i++)
             {
+                if (rewarded >= maxReward || city.gold <= cfg.rewardGoldKeep)
+                    break;
                 Person person = city.allPersons[i];
                 if (person == null || person.mBelongTroop != null)
                     continue;
+                if (rumorResponseOn && IsRumorVictim(person, now, victimTurns))
+                    continue;
                 if (person.loyalty > cfg.rewardLoyaltyThreshold)
                     continue;
-                if (city.gold <= cfg.rewardGoldKeep)
-                    break;
 
                 city.JobRewardPerson(person);
                 rewarded++;
-                if (rewarded >= cfg.rewardMaxPersonPerTurn)
-                    break;
             }
             return true;
+        }
+
+        /// <summary>
+        /// 该武将是否"最近被流言动摇"（用于 AI 褒奖优先序列）。
+        /// </summary>
+        /// <param name="person">候选武将</param>
+        /// <param name="now">当前回合数</param>
+        /// <param name="victimTurns">标记有效期（回合）</param>
+        /// <returns>在有效期内返回 true</returns>
+        private static bool IsRumorVictim(Person person, int now, int victimTurns)
+        {
+            return person != null && person.lastRumorTurn > 0 && now - person.lastRumorTurn <= victimTurns;
         }
 
         /// <summary>

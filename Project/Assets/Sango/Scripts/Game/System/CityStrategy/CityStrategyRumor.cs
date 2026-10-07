@@ -186,6 +186,9 @@ namespace Sango.Core.Player
                 Force owner = city.BelongForce;
                 if (owner == null || owner == sender || !owner.IsAlive)
                     return;
+                // 处于流言免疫窗内的据点暂不可选：避免玩家选完才在抵达时发现效果不落地
+                if (city.IsRumorImmune())
+                    return;
                 candidates.Add(city);
             }));
             return candidates;

@@ -30,6 +30,7 @@ namespace Sango.Core
 
         /// <summary>
         /// 检查是否具备施放条件：目标据点有效且归属其他存活势力。
+        /// 另加一道同城冷却：目标据点处于流言免疫窗内时不允许派遣，避免玩家/AI 白花路费。
         /// </summary>
         /// <returns>可以施放返回 true</returns>
         public override bool CanPerform()
@@ -41,6 +42,9 @@ namespace Sango.Core
                 return false;
             // 流言是攻心术，对自己人施放没有意义，也会在客户端造成治安/忠诚的无端抖动
             if (owner == Sender)
+                return false;
+            // 同城冷却：刚被流言打过的据点短期内免疫，掐断"同一座城被每回合反复刷忠诚"
+            if (TargetCity.IsRumorImmune())
                 return false;
             return true;
         }
@@ -104,24 +108,49 @@ namespace Sango.Core
         /// 落地流言的数值效果：整城存活武将按同一个基准值掉忠诚（逐人按义理加权），都市另掉治安。
         /// 忠诚与治安的降幅各自只掷一次并整城共用（已确认口径），且不随成功率缩放。
         /// GameRandom.Range 的上界是开区间，配置里的 Max 表示闭区间上界，因此传 max + 1。
+        /// 两道防线：① 抵达时若目标城已进入免疫窗则效果不落地；② 逐人受忠诚下限闸门约束，绝不把忠诚压到 floor 以下。
         /// </summary>
         /// <returns>供广播与日志复述的效果摘要</returns>
         private string ApplyEffects()
         {
             ScenarioVariables variables = Scenario.Cur.Variables;
 
+            // 同城冷却：使者可能是在免疫窗开启前出发的，抵达时再兜一次底。
+            // 返回 null 表示"效果未落地"，由 BroadcastEffect 换一句不带"奏效"的文案
+            if (TargetCity.IsRumorImmune())
+            {
+#if SANGO_DEBUG
+                Sango.Log.Info($"@计略@流言抵达 <{TargetCity?.Name}> 时该城仍在免疫窗内，效果不落地");
+#endif
+                return null;
+            }
+
             // 忠诚下降：整城同一基准值，走 Person.AddLoyalty 统一钳制到 0..100
             int baseDrop = GameRandom.Range(variables.cityStrategyRumorLoyaltyDropMin, variables.cityStrategyRumorLoyaltyDropMax + 1);
+            int loyaltyFloor = variables.cityStrategyRumorLoyaltyFloor;
             int affectedCount = 0;
-            int maxDrop = baseDrop;
+            int minDrop = int.MaxValue;
+            int maxDrop = 0;
             TargetCity.allPersons.ForEach(person =>
             {
                 if (person == null || !person.IsAlive)
                     return;
                 // 义理越低越容易被谣言动摇（对齐 155 每月忠诚减少的 (义理_高 - giri)/2 加权方向）
                 int drop = baseDrop + GetGiriWeight(person, variables.cityStrategyRumorGiriDivisor);
+
+                // 忠诚下限闸门：流言永远不能把忠诚压到 floor 以下，
+                // 已被换季/事件压到 floor 之下的武将本次不再受流言影响（drop 被钳成 0）
+                if (loyaltyFloor > 0)
+                    drop = System.Math.Min(drop, person.loyalty - loyaltyFloor);
+                if (drop <= 0)
+                    return;
+
                 person.AddLoyalty(-drop);
+                // 标记"被流言动摇"，供 CityAI 优先褒奖、把忠诚补回来（见 cityStrategyRumorVictimRewardTurns）
+                person.lastRumorTurn = Scenario.Cur.TurnCount;
                 affectedCount++;
+                if (drop < minDrop)
+                    minDrop = drop;
                 if (drop > maxDrop)
                     maxDrop = drop;
             });
@@ -134,10 +163,19 @@ namespace Sango.Core
                 TargetCity.AddSecurity(-securityDrop);
             }
 
+            // 开启同城冷却：只要流言在城中落地（无论忠诚是否还有下降空间）就记录，防止同一座城被连续刷
+            TargetCity.MarkRumorHit();
+
             // 记仇不在这里做：是否记账取决于"有没有暴露发起方"，见 Perform 末尾
 
             // 广播里带上实际生效的武将在数与治安降幅：港/关不降治安，所以治安句必须按 securityDrop 条件拼接
-            string effect = $"{affectedCount} 名武将忠诚下降 {baseDrop}" + (maxDrop > baseDrop ? $"~{maxDrop}" : "");
+            string effect;
+            if (affectedCount <= 0)
+                effect = "但城中武将忠诚已及底线，未再动摇";
+            else if (minDrop == maxDrop)
+                effect = $"{affectedCount} 名武将忠诚下降 {maxDrop}";
+            else
+                effect = $"{affectedCount} 名武将忠诚下降 {minDrop}~{maxDrop}";
             if (securityDrop > 0)
                 effect += $"，治安下降 {securityDrop}";
             return effect;
@@ -161,10 +199,17 @@ namespace Sango.Core
         /// <summary>
         /// 广播流言效果。
         /// </summary>
-        /// <param name="effect">效果摘要</param>
+        /// <param name="effect">效果摘要；为空表示流言抵达时目标城已处于免疫窗，效果未落地</param>
         /// <param name="detected">是否附带露馅说明</param>
         private void BroadcastEffect(string effect, bool detected)
         {
+            // 效果为空：流言扑空（目标城在使者抵达前已进入免疫窗），不能再说"奏效"
+            if (string.IsNullOrEmpty(effect))
+            {
+                BroadcastMessage($"{Sender?.ColorName}派{Diplomat?.ColorName ?? "使者"}施放的{GetActionName()}扑了个空，{TargetCity?.ColorName}军民对谣言早有防备。");
+                return;
+            }
+
             string headline = detected ? "奏效，但使者露了行迹" : "奏效";
             BroadcastMessage($"{Sender?.ColorName}派{Diplomat?.ColorName ?? "使者"}施放的{GetActionName()}{headline}，{TargetCity?.ColorName}城中{effect}。");
 

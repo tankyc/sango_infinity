@@ -236,6 +236,12 @@ namespace Sango.Core
         [JsonProperty] public int loyalty;
 
         /// <summary>
+        /// 最近一次被流言命中并动摇忠诚的回合（Scenario.TurnCount）。小于等于 0 表示近期未受流言影响。
+        /// 供 CityAI 的褒奖响应识别"被 AI 互喷打低"的武将（见 ScenarioVariables.cityStrategyRumorVictimRewardTurns）。
+        /// </summary>
+        [JsonProperty] public int lastRumorTurn;
+
+        /// <summary>
         /// 功绩
         /// </summary>
         [JsonProperty] public int merit;
@@ -1827,6 +1833,11 @@ namespace Sango.Core
             Sango.Log.Info($"[{BelongForce.Name}]<{Name}>登庸 -> {person.Name} 成功率:{probability}");
             //TODO: 招募成功概率计算
             bool success = GameRandom.Chance(probability);
+
+            // 挖角代价：对"在职于其它势力"的武将下手，成败都会拉低我方与其所属势力的关系。
+            // 放在分歧之前结算，保证舌战接管导致提前 return 时这笔代价也不会漏掉。
+            ApplyForeignPoachPenalty(person, targetCity, type, success);
+
             if (success)
             {
                 person.BeRecruit(this, targetCity);
@@ -1857,6 +1868,60 @@ namespace Sango.Core
         public bool JobRecruitPerson(Person person, int type)
         {
             return JobRecruitPerson(person, BelongCity, type);
+        }
+
+        /// <summary>
+        /// 挖角外交代价：登庸"在职于其它势力"的武将时，拉低我方与其所属势力的关系。
+        /// 目的：让"看戏等 AI 互喷把忠诚打低再去登庸"付出真实代价，而不是零成本白捡。
+        /// 判定范围严格限定在普通登庸（PersonRecruitType.Normal）且目标确有存活势力：
+        /// 在野武将、无势力俘虏、破城招降（OnCityFall）与灭亡势力招降（OnForceFall）都不受影响，
+        /// 保持原有的招降手感。成功按 recruitForeignRelationPenalty 扣，失败被察觉按 recruitForeignRelationPenaltyFailed 扣。
+        /// </summary>
+        /// <param name="target">被登庸的武将，可为空</param>
+        /// <param name="targetCity">登庸成功后目标加入的城，用于消息坐标兜底，可为空</param>
+        /// <param name="type">登庸类型，见 PersonRecruitType</param>
+        /// <param name="success">本次登庸是否成功</param>
+        private void ApplyForeignPoachPenalty(Person target, City targetCity, int type, bool success)
+        {
+            if (target == null || target == this)
+                return;
+            // 只有普通登庸（直接对敌方在职武将下手）才算挖角
+            if (type != (int)PersonRecruitType.Normal)
+                return;
+
+            Force myForce = BelongForce;
+            Force targetForce = target.BelongForce;
+            if (myForce == null || targetForce == null || targetForce == myForce)
+                return;
+            // 在野与俘虏不属于"别家编制"，只有仍在敌方势力内的在职武将才付代价
+            if (target.IsWild || target.IsPrisoner || !targetForce.IsAlive)
+                return;
+
+            ScenarioVariables variables = Scenario.Cur != null ? Scenario.Cur.Variables : null;
+            if (variables == null)
+                return;
+            int penalty = success ? variables.recruitForeignRelationPenalty : variables.recruitForeignRelationPenaltyFailed;
+            if (penalty <= 0)
+                return;
+
+            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
+            if (diplomacyManager == null)
+                return;
+
+            int before = diplomacyManager.GetRelation(myForce, targetForce);
+            diplomacyManager.ReduceRelation(myForce, targetForce, penalty);
+            int after = diplomacyManager.GetRelation(myForce, targetForce);
+
+            Sango.Log.Info($"@登庸@{myForce.Name} 挖角 {targetForce.Name} 的 {target.Name}，{(success ? "得手" : "未果且已暴露")}，双方关系由 {before} 降至 {after}（实扣 {before - after}）");
+
+            // 玩家自己挖角时给一条左下角消息，避免玩家看不到关系变化；AI 之间挖角不打扰玩家
+            if (myForce.IsPlayer)
+            {
+                City anchor = BelongCity ?? targetCity;
+                Sango.Core.Player.PlayerMessage.AddTextMessage(
+                    $"挖角{targetForce.ColorName}的{target.ColorName}{(success ? "得手" : "未果且已暴露")}，双方关系由 {before} 降至 {after}。",
+                    myForce, anchor != null ? anchor.x : 0, anchor != null ? anchor.y : 0);
+            }
         }
 
         public void BeRecruit(Person person, City targetCity)

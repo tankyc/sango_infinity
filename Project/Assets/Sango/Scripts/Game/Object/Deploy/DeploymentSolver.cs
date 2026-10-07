@@ -25,6 +25,13 @@ namespace Sango.Core
             public float devGap;
             /// <summary>是否被围（被围城不作为接收目标）</summary>
             public bool underSiege;
+            /// <summary>
+            /// 是否只允许本城在岗填充、**不参与外调**。
+            /// 用于军团委任"港关驻军"关闭时该军团的港 / 关岗位：
+            /// 既不向港关调人（不产生外调需求），也不让港关因为"岗位填不满"而把自己的人当成富余调走
+            /// —— 相当于"AI 不管理这个军团的港关驻军编制"，但也不会把港关抽空。
+            /// </summary>
+            public bool localOnly;
         }
 
         /// <summary>
@@ -215,6 +222,13 @@ namespace Sango.Core
             DeploymentWeights weights = (config != null && config.deployment != null)
                 ? config.deployment : new DeploymentWeights();
 
+            // 【军团委任 · 港关驻军开关】只对军团作用域（只可能是玩家军团）生效。
+            // 关闭时本作用域不为港 / 关编制"可由外调补人"的驻军岗位：
+            //   ① 不向港关调人（外调需求被掐掉）；
+            //   ② 港关也不因岗位填不满而把自己的人当成富余调走（见 PostTask.localOnly）。
+            // 势力级作用域（scope == null，即非玩家势力）恒为开，保证 AI 势力行为完全不变。
+            bool allowPortGateGarrison = scope == null || DeploymentExecutor.IsPortGateGarrisonEnabled(scope);
+
             // 换剧本 → 清掉增量缓存，避免复用上个剧本的岗位表
             if (!ReferenceEquals(cachedScenario, scenario))
             {
@@ -282,6 +296,10 @@ namespace Sango.Core
                 List<Post> posts = GetPosts(city, situation, threatLevel, expectedTroops, weights, personTotal);
 
                 float devGap = CityEstablishment.CalcDevelopGap(city);
+
+                // 港关驻军关闭：本军团的港 / 关岗位标记为"只许本城在岗"，不参与外调
+                bool localOnlyPosts = !allowPortGateGarrison && (city.IsPort() || city.IsGate());
+
                 for (int j = 0; j < posts.Count; j++)
                 {
                     PostTask task;
@@ -289,6 +307,7 @@ namespace Sango.Core
                     task.threatLevel = threatLevel;
                     task.devGap = devGap;
                     task.underSiege = false;
+                    task.localOnly = localOnlyPosts;
                     tasks.Add(task);
                 }
             }
@@ -477,10 +496,13 @@ namespace Sango.Core
                         plan.fillings.Add(MakeFilling(task, best, bestScore, true, city, null));
                         BumpCount(filledByCity, task.post.cityId);      // 本城该岗位已填 → 空缺 −1
                     }
-                    else
+                    else if (!task.localOnly)
                     {
                         batchPending.Add(task);
                     }
+                    // localOnly（港关驻军关闭的港 / 关岗位）：填不满也不进外调批次 ——
+                    // 岗位空缺照常保留（于是港关的"净富余"不会被算高、自己的人不会被当富余调走），
+                    // 但 AI 不会为了补它而向港关调人。
                 }
             };
 

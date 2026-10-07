@@ -297,6 +297,37 @@ namespace Sango.Core
         [JsonProperty]
         public Dictionary<int, int> jobCounter = new Dictionary<int, int>();
 
+        /// <summary>
+        /// 最近一次被流言命中并生效的回合（Scenario.TurnCount）。小于等于 0 表示从未被流言命中。
+        /// 用于流言的同城冷却（ScenarioVariables.cityStrategyRumorImmunityTurns），随存档序列化。
+        /// 判定方式沿用 Force 的计略记录：只比较绝对回合数，不逐回合递减，因此不怕读档顺序。
+        /// </summary>
+        [JsonProperty] public int lastRumorTurn;
+
+        /// <summary>
+        /// 本城当前是否处于流言免疫窗内：窗口内再被流言命中不产生忠诚与治安效果。
+        /// </summary>
+        /// <returns>处于免疫窗内返回 true；无冷却配置或从未被命中时返回 false</returns>
+        public bool IsRumorImmune()
+        {
+            Scenario scenario = Scenario.Cur;
+            ScenarioVariables variables = scenario != null ? scenario.Variables : null;
+            int window = variables != null ? variables.cityStrategyRumorImmunityTurns : 0;
+            if (window <= 0 || lastRumorTurn <= 0 || scenario == null)
+                return false;
+            return (scenario.TurnCount - lastRumorTurn) < window;
+        }
+
+        /// <summary>
+        /// 记下本城刚被流言命中，开启免疫窗。
+        /// </summary>
+        public void MarkRumorHit()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null)
+                lastRumorTurn = scenario.TurnCount;
+        }
+
         //public List<Building> villageList = new List<Building>();
         /// <summary>
         /// 港口列表
