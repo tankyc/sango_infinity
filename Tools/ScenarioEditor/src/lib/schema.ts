@@ -336,15 +336,8 @@ export const PERSON_FIELDS: FieldDef[] = [
   { key: 'death_type', label: '死亡方式', kind: 'enum', group: '生卒与登场', enumMap: DEATH_TYPE_MAP, min: 0, max: 1, legacy: true },
 
   { key: 'headIconID', label: '头像 ID', kind: 'int', group: '形象资源', min: 0, max: 99999, desc: '对应 Assets/Face/{id}_N 的头像贴图编号' },
-  {
-    key: 'imageID',
-    label: '立绘 ID',
-    kind: 'int',
-    group: '形象资源',
-    min: 0,
-    max: 99999,
-    desc: 'C# 中声明为 string（imageID），剧本里写成数字，Newtonsoft 会自动转换',
-  },
+  { key: 'image', label: '暴击图', kind: 'string', group: '形象资源', desc: '立绘相对路径，例如 3/Zhaoyun.png（对应 C# 的 image）' },
+  { key: 'image_old', label: '老年暴击图', kind: 'string', group: '形象资源', desc: '立绘相对路径；留空表示与暴击图共用（对应 C# 的 image_old）' },
   { key: 'tone', label: '语气', kind: 'enum', group: '形象资源', enumMap: TONE_MAP, min: 0, max: 15 },
   { key: 'voice', label: '声音', kind: 'enum', group: '形象资源', enumMap: VOICE_MAP, min: 0, max: 7 },
   { key: 'skeleton', label: '体型', kind: 'enum', group: '形象资源', enumMap: SKELETON_MAP, min: 0, max: 3, legacy: true },

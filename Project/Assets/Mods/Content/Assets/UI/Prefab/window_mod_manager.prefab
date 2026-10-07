@@ -3022,6 +3022,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: InputField
       objectReference: {fileID: 0}
+    - target: {fileID: 6610522806489205808, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8060330257479274099, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
       propertyPath: m_SizeDelta.x
       value: -13.942
@@ -3207,7 +3211,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4885116366686465506, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_Text
-      value: "\u6DFB\u52A0"
+      value: "\u6253\u5F00\u521B\u610F\u5DE5\u574A"
       objectReference: {fileID: 0}
     - target: {fileID: 4885116366686465506, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_FontData.m_FontSize
@@ -3219,7 +3223,7 @@ PrefabInstance:
       objectReference: {fileID: 7996547006756402504}
     - target: {fileID: 4893527537227246125, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: OnAddUrlModMarket
+      value: OpenWorkshop
       objectReference: {fileID: 0}
     - target: {fileID: 4893527537227246125, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
@@ -3255,11 +3259,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8791106963593332225, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 134.98
+      value: 322.92
       objectReference: {fileID: 0}
     - target: {fileID: 8791106963593332225, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 35
+      value: 44.38
       objectReference: {fileID: 0}
     - target: {fileID: 8791106963593332225, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3291,11 +3295,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8791106963593332225, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 404.8319
+      value: 338.54
       objectReference: {fileID: 0}
     - target: {fileID: 8791106963593332225, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -304.94
+      value: -312.79
       objectReference: {fileID: 0}
     - target: {fileID: 8791106963593332225, guid: db42ad90c3d30fa4383a46b5ec613a73, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

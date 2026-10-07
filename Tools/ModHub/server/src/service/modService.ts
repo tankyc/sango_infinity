@@ -12,8 +12,25 @@ import type { TempFile } from './upload';
 import { removeTempFiles } from './upload';
 import { compareVersion, maxVersion } from './version';
 
-/** 模组类型（对应 Steam 创意工坊的分类筛选） */
-export const CATEGORIES = ['scenario', 'person', 'face', 'sound', 'skill', 'ui', 'mixed'] as const;
+/**
+ * 模组类型（对应 Steam 创意工坊的分类筛选）
+ *
+ * 这里是权威名单：前端 catalog.ts 的展示名与 CategoryIcon 的图标必须与之逐一对齐，
+ * 筛选校验与筛选栏计数（browseService）也直接读它。
+ * 新增分类改这一处即可，但前后端的 key 不能只改一边 ——
+ * 对不上的 key 会被 resolveCategory 静默吞成 mixed。
+ */
+export const CATEGORIES = [
+  'scenario',
+  'person',
+  'face',
+  'map',
+  'model',
+  'sound',
+  'skill',
+  'ui',
+  'mixed',
+] as const;
 export type Category = (typeof CATEGORIES)[number];
 
 const ALLOWED_POSTER_EXT = ['.png', '.jpg', '.jpeg', '.webp'];

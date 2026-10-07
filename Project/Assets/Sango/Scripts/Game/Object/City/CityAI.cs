@@ -505,11 +505,11 @@ namespace Sango.Core
                 return true;
 
             // 【优化】原先为 (有在野 && Chance(80)) || Chance(20)，两个随机条件叠加，
-            // 实际概率约 84% 且难以预期。现改为单一明确概率：有在野武将时提高搜索意愿。
+            // 实际概率约 84% 且难以预期。现改为单一明确概率：
+            // 未发现武将越多，搜索意愿越强（每人 +searchInvisibleChancePerPerson，整体封顶 100）。
             AIConfig cfg = AIConfig.Instance;
-            int chance = city.invisiblePersons.Count > 0
-                ? cfg.searchBaseChance + 20
-                : cfg.searchBaseChance;
+            int invisible = city.invisiblePersons.Count;
+            int chance = cfg.searchBaseChance + invisible * cfg.searchInvisibleChancePerPerson;
             if (chance <= 0)
                 return true;
 
@@ -2250,7 +2250,6 @@ namespace Sango.Core
             if (persons == null || persons.Length == 0 || persons[0] == null)
                 return true;
             Person leader = persons[0];
-            city.freePersons.Remove(leader);
 
             // 【容量】携带兵力:最多取城池一半,且不超过配置上限(战场级)
             int carryTroops = System.Math.Min(city.troops / 2, aiConfig.supplyTroopAmount);
@@ -2327,6 +2326,7 @@ namespace Sango.Core
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
             troop.SetMission(MissionType.TroopSupplyTroop, needy.Id);
             troop.NeedPrepareMission();
+            city.freePersons.Remove(leader);
             city.CurActiveTroop = troop;
             Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领补给队出城 支援{needy.Name}!");
             return true;

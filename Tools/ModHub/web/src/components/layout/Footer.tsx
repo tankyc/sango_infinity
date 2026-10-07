@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { PERSON_LIB_URL } from '../../lib/siteLinks';
+import { PERSON_LIB_URL, SCENARIO_URL } from '../../lib/siteLinks';
 
 /** 页脚：版权、导航与客户端接入提示（把「市场地址」直接告诉玩家，方便手动填进模组管理器） */
 export function Footer() {
@@ -32,6 +32,14 @@ export function Footer() {
             className="transition-colors duration-200 hover:text-gold-300"
           >
             武将库
+          </a>
+          <a
+            href={SCENARIO_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="transition-colors duration-200 hover:text-gold-300"
+          >
+            剧本编辑器
           </a>
         </div>
         <p>

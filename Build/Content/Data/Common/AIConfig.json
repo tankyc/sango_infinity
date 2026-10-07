@@ -20,7 +20,7 @@
     "baseAICreateMachine": 20,
     "baseAICreateBoat": 20,
     "baseAISearching": 25,
-    "baseAIRecruitPerson": 25,
+    "baseAIRecruitPerson": 35,
     "baseAITransfrom": 30,
     "baseAITransfromToBelongCity": 35,
     "baseAIResearch": 25,
@@ -80,8 +80,10 @@
     "scoreBoatPenalty": 10,
     "scoreSearchingNoPersonPenalty": 50,
     "scoreSearchingBonus": 15,
+    "scoreSearchingInvisiblePerPerson": 15,
+    "scoreSearchingInvisibleBonusMax": 60,
     "scoreRecruitPersonNoPersonPenalty": 30,
-    "scoreRecruitPersonBonus": 20,
+    "scoreRecruitPersonBonus": 30,
     "scoreTransfromRichBonus": 40,
     "scoreTransfromDefaultBonus": 5,
     "scoreTransfromToBelongCityBonus": 30,
@@ -110,8 +112,21 @@
     "crisisSecurityBias": 100,
     "crisisWeaponBias": 80,
     "peaceInternalBias": 30,
-    "peaceMilitaryPenalty": 40
+    "peaceMilitaryPenalty": 40,
+
+    // ---------------- 六、人才优先顶部抬升 ----------------
+    // 未发现武将 >= 该值 → 搜索命令抬到最高优先级（幅度略低于登用）
+    "searchingInvisibleTopThreshold": 2,
+    "searchingInvisibleTopBias": 600,
+    // 在野武将 >= 该值 → 登用命令抬到最高优先级
+    "recruitPersonWildTopThreshold": 2,
+    "recruitPersonWildTopBias": 700
   },
+
+  // ------------------------- AI 行动概率 -------------------------
+  // 搜索行动基础概率（%）与"每名未发现武将"的额外概率（%）
+  "searchBaseChance": 60,
+  "searchInvisibleChancePerPerson": 15,
 
   // ------------------------- 部队态势分档 -------------------------
   // 部队每回合按"局部敌我兵力占比"分档，档位决定进攻倾向 / 反击容忍 / 撤退概率 / 择优池

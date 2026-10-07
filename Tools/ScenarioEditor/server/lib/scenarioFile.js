@@ -100,24 +100,44 @@ function serializeScenario(scenario) {
 /**
  * 对即将落盘的剧本做防御性结构校验。
  *
- * 只拦截「一定会让游戏无法运行」的问题，业务层面的字段取值校验由前端完成。
+ * 结果分两级，界限是「能不能靠编辑器补救」：
+ *
+ * - `errors`   数据已损坏到无法安全处理（根节点不是对象、集合元素不是对象、
+ *              键与元素 Id 对不上）。这类问题编辑器无从推断原意，必须拒绝，
+ *              否则坏数据落盘后更难收拾。
+ * - `warnings` 只是**字段缺失**（顶层 Id / Name / Info、整块集合不存在）。
+ *              游戏侧对缺失字段取类型默认值，编辑器载入后也会给出校验提示，
+ *              用户完全可以先放进来再补 —— 所以不拦。
+ *
+ * 之所以把「缺字段」从拒绝改为放行：上传接口是给玩家用的，
+ * 从游戏里抠出来的剧本、模组自带的剧本格式各不相同，缺几个顶层字段很常见。
+ * 直接拒绝会让用户没有任何补救机会，只能先去手工改 JSON。
  *
  * @param {any} scenario 剧本对象
- * @returns {string[]} 错误列表，为空表示通过
+ * @returns {{errors:string[], warnings:string[]}}
  */
 function validateStructure(scenario) {
-  const errors = [];
   if (!scenario || typeof scenario !== 'object' || Array.isArray(scenario)) {
-    return ['剧本根节点必须是对象'];
+    return { errors: ['剧本根节点必须是对象'], warnings: [] };
   }
-  if (typeof scenario.Id !== 'number') errors.push('缺少顶层 Id 字段或类型不是数字');
-  if (typeof scenario.Name !== 'string') errors.push('缺少顶层 Name 字段或类型不是字符串');
-  if (!scenario.Info || typeof scenario.Info !== 'object') errors.push('缺少 Info 节点');
+
+  const errors = [];
+  const warnings = [];
+
+  if (typeof scenario.Id !== 'number') {
+    warnings.push('缺少顶层 Id 字段或类型不是数字（按默认值载入）');
+  }
+  if (typeof scenario.Name !== 'string') {
+    warnings.push('缺少顶层 Name 字段或类型不是字符串（按默认值载入）');
+  }
+  if (!scenario.Info || typeof scenario.Info !== 'object') {
+    warnings.push('缺少 Info 节点（按空节点载入）');
+  }
 
   for (const { key, label } of COLLECTIONS) {
     const set = scenario[key];
     if (!set || typeof set !== 'object' || Array.isArray(set)) {
-      errors.push(`${label}集合（${key}）缺失或类型错误`);
+      warnings.push(`${label}集合（${key}）缺失或类型错误（按空集合载入）`);
       continue;
     }
     for (const [id, item] of Object.entries(set)) {
@@ -130,7 +150,8 @@ function validateStructure(scenario) {
       }
     }
   }
-  return errors;
+
+  return { errors, warnings };
 }
 
 /**
@@ -143,12 +164,16 @@ function validateStructure(scenario) {
  */
 function writeScenario(ws, scenario, options = {}) {
   const w = wsOf(ws);
-  const errors = validateStructure(scenario);
+  const { errors, warnings } = validateStructure(scenario);
   if (errors.length > 0) {
     const err = new Error(`剧本结构校验未通过：\n- ${errors.slice(0, 20).join('\n- ')}`);
     err.code = 'EVALIDATION';
     err.details = errors;
     throw err;
+  }
+  // 字段缺失一类的问题放行，但留下痕迹，便于事后排查「存进去的剧本怎么缺东西」
+  if (warnings.length > 0) {
+    console.warn(`[scenario] 剧本存在可放行的结构问题：\n- ${warnings.slice(0, 20).join('\n- ')}`);
   }
 
   // 磁盘内容只读一次：冲突检测与备份都要用，重复读 1.67 MB 没必要

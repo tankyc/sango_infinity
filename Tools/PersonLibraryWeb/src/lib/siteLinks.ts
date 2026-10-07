@@ -13,6 +13,9 @@
 /** 创意工坊站点地址 */
 export const WORKSHOP_URL: string = import.meta.env.VITE_WORKSHOP_URL ?? 'http://localhost:5173';
 
+/** 剧本编辑器站点地址 */
+export const SCENARIO_URL: string = import.meta.env.VITE_SCENARIO_URL ?? 'http://localhost:5273';
+
 /**
  * 本站接口与静态资源的路径前缀（不带尾斜杠）。
  *

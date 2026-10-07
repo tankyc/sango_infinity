@@ -703,6 +703,16 @@ namespace Sango.Core
         /// <param name="person"></param>
         public void AddPerson(Person person)
         {
+            if (person.BelongForce != BelongForce)
+            {
+                Sango.Log.Error($"*{Name}{BelongForce?.Name} -> allPersons 添加 {person.Name}{person.BelongForce?.Name} 势力不一致!!");
+            }
+
+            if (person.BelongCorps != BelongCorps)
+            {
+                Sango.Log.Error($"*{Name}{BelongCorps?.Name} -> allPersons 添加 {person.Name}{person.BelongCorps?.Name} 军团不一致!!");
+            }
+
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> allPersons 添加 {person.Name} ");
 #endif
@@ -1631,7 +1641,7 @@ namespace Sango.Core
         /// <returns>原来的军团</returns>
         public Corps ChangeCorps(Corps other)
         {
-            if(other.BelongForce != BelongForce)
+            if (other.BelongForce != BelongForce)
             {
                 Sango.Log.Error($"{BelongForce?.ColorName}的{ColorName}城池转换所属军团{other.BelongForce.ColorName},但是势力不一致!!!");
             }
@@ -1698,6 +1708,7 @@ namespace Sango.Core
         /// <param name="atker">攻击者</param>
         public override void OnFall(SangoObject atker)
         {
+
             Scenario scenario = Scenario.Cur;
             ScenarioVariables scenarioVariables = Scenario.Cur.Variables;
 
@@ -1714,6 +1725,10 @@ namespace Sango.Core
             }
 
             if (atk == null) return;
+
+            if (BelongForce == atk.BelongForce)
+                return;
+
 
             Force lastBelongForce = BelongForce;
             Corps lastBelongCorps = BelongCorps;
@@ -1956,14 +1971,15 @@ namespace Sango.Core
                 {
                     RemoveCaptive(person);
                     person.state = (int)PersonStateType.Normal;
-                    allPersons.Add(person);
+                    AddPerson(person);
                     freePersons.Add(person);
                     person.BelongCorps = BelongCorps;
+                    person.BelongForce = BelongForce;
                     person.BelongCity = this;
                     person.CurrentCity = this;
                 }
             });
-           
+
             if (skillInstance != null && !skillInstance.IsRange())
             {
                 Leader = atk.Leader;
@@ -4082,6 +4098,9 @@ namespace Sango.Core
         public override bool DoAI(Scenario scenario)
         {
             if (AIFinished)
+                return true;
+
+            if (BelongForce == null)
                 return true;
 
             if (!AIPrepared)

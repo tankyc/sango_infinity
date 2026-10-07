@@ -54,7 +54,7 @@ const FILL_GROUPS: { key: string; label: string; fields: string[] }[] = [
       'type',
     ],
   },
-  { key: 'image', label: '头像 / 立绘', fields: ['headIconID', 'imageID'] },
+  { key: 'image', label: '头像 / 立绘', fields: ['headIconID', 'image', 'image_old'] },
   {
     key: 'relations',
     label: '人际关系',
@@ -138,7 +138,11 @@ function buildPatch(
 
   if (has('image')) {
     if (defined(record.headIconID) && record.headIconID !== 0) patch.headIconID = record.headIconID
-    if (defined(record.imageID) && record.imageID !== 0) patch.imageID = record.imageID
+    // image / image_old 是字符串型立绘路径（暴击图 / 老年暴击图）。
+    // 空串代表「武将库里没有立绘」，此时不覆盖剧本中的已有值。
+    if (typeof record.image === 'string' && record.image !== '') patch.image = record.image
+    if (typeof record.image_old === 'string' && record.image_old !== '')
+      patch.image_old = record.image_old
   }
 
   if (has('level')) {
@@ -300,7 +304,8 @@ export function LibraryDialog({ open, onOpenChange, targetId = null }: LibraryDi
         Level: typeof r.Level === 'number' ? r.Level : 0,
         Official: typeof r.Official === 'number' ? r.Official : 0,
         headIconID: r.headIconID ?? 0,
-        imageID: r.imageID ?? 0,
+        image: r.image ?? '',
+        image_old: r.image_old ?? '',
         birthplace: 1,
         command: [r.command, 5],
         strength: [r.strength, 5],

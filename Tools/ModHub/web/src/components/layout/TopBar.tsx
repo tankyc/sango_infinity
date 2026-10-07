@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
-import { BookUser, Compass, FolderKanban, LogOut, Search, ShieldCheck, Upload, UserRound, type LucideIcon } from 'lucide-react';
+import { BookUser, Compass, FolderKanban, LogOut, ScrollText, Search, ShieldCheck, Upload, UserRound, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/cn';
-import { PERSON_LIB_URL } from '../../lib/siteLinks';
+import { PERSON_LIB_URL, SCENARIO_URL } from '../../lib/siteLinks';
 
 /**
  * 顶部导航
@@ -24,8 +24,10 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/browse', label: '浏览工坊', icon: Compass },
   { to: '/upload', label: '发布模组', icon: Upload },
-  // 站外：武将库。放进主导航是因为「做武将 → 发模组」本来就是同一条工作流
+  // 站外：武将库与剧本编辑器。放进主导航是因为「做武将 / 编剧本 → 发模组」
+  // 本来就是同一条工作流，三站之间来回跳转是常态
   { to: PERSON_LIB_URL, label: '武将库', icon: BookUser, external: true },
+  { to: SCENARIO_URL, label: '剧本编辑器', icon: ScrollText, external: true },
 ];
 
 /** 仅登录用户可见：管理自己发布的模组 */

@@ -1,4 +1,4 @@
-import { BookOpen, Boxes, MonitorSmartphone, Music, Palette, ScrollText, Swords, type LucideIcon } from 'lucide-react';
+import { BookOpen, Box, Boxes, Map, MonitorSmartphone, Music, Palette, ScrollText, Swords, type LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 /**
@@ -10,6 +10,8 @@ const ICONS: Record<string, LucideIcon> = {
   scenario: ScrollText,
   person: Swords,
   face: Palette,
+  map: Map,
+  model: Box,
   sound: Music,
   skill: BookOpen,
   ui: MonitorSmartphone,

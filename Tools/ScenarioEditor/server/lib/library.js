@@ -108,8 +108,8 @@ function normalizePerson(p, lib) {
     argumentation: p.argumentation,
     type: p.type,
     headIconID: p.headIconID,
-    imageID: p.imageID,
-    image: p.image,
+    image: p.image ?? '',
+    image_old: p.image_old ?? '',
     loyalty: p.loyalty,
     Official: p.Official,
     Level: p.Level,
@@ -172,7 +172,10 @@ function toScenarioPerson(rec, override = {}) {
   person.stamina = 100;
   person.injury = 0;
   person.headIconID = num(rec.headIconID, 0);
-  person.imageID = num(rec.imageID, 0);
+  // image / image_old 是字符串型立绘路径（暴击图 / 老年暴击图），
+  // 不是数值型 ID，因此不能走 num() 兜底
+  person.image = rec.image || '';
+  person.image_old = rec.image_old || '';
   person.horse = -1;
   person.left_weapon = -1;
   person.right_weapon = -1;

@@ -135,8 +135,11 @@ Tools/**/baseline/
 Tools/**/*.bak
 
 # ── 部署副本与暂存目录：内容是上面这些的重复拷贝 ──
+# （.*-deploy / .*-staging 是上传给云服务器用的打包目录，
+#   内容可由源码与构建命令重新生成，且其中的数据快照体积不小）
 Tools/**/deploy/
-Tools/.deploy-staging/
+Tools/.*-deploy/
+Tools/.*-staging/
 Tools/**/.newdeploy/
 
 # ── 密钥与凭据：绝不能入库 ──

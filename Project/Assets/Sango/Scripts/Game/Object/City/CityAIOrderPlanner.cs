@@ -187,7 +187,18 @@ namespace Sango.Core
                 int turn = DeploymentState.currentForceTurn;
                 if (turn > 0 && turn <= w.recruitPersonEarlyTurns)
                     bias += w.scoreRecruitPersonEarlyBonus;
+
+                // 【在野人数达到阈值 → 整体抬升到最高优先级】
+                // 默认阈值 2：城内在野武将 >= 2 时，登用优先于其它一切命令（含军事 / 危机）。
+                if (wild >= w.recruitPersonWildTopThreshold)
+                    bias += w.recruitPersonWildTopBias;
             }
+
+            // ---------- 「未发现武将 → 优先搜索」----------
+            // 城里有未发现武将时，搜索是"发现并登用人才"的前置；人数达到阈值（默认 2 人）时
+            // 整体抬升到最高优先级，但幅度略低于"登用"，保证登用始终排在搜索之前。
+            if (id == "AISearching" && s.invisibleCount >= w.searchingInvisibleTopThreshold)
+                bias += w.searchingInvisibleTopBias;
 
             // ---------- 战时态：本城被围 ----------
             if (s.isUnderSiege)

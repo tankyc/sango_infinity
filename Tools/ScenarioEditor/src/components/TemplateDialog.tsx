@@ -187,7 +187,10 @@ export function TemplateDialog({ open, onOpenChange, needInit = false }: Templat
       try {
         const text = await file.text()
         const result = await uploadScenario(text, force)
-        toast.success(`已上传《${result.name}》${result.replaced ? '（已覆盖原剧本，原文件已备份）' : ''}`)
+        // 剧本可能没有顶层 Name（从游戏或模组里抠出来的剧本很常见，这也已不再被拒绝），
+        // 这时退回文件名，避免弹出「已上传《》」这种没有主语的成功提示
+        const title = result.name.trim() || file.name.replace(/\.json$/i, '') || '未命名剧本'
+        toast.success(`已上传《${title}》${result.replaced ? '（已覆盖原剧本，原文件已备份）' : ''}`)
         onOpenChange(false)
         await reload()
       } catch (e) {

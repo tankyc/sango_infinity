@@ -76,12 +76,16 @@ function parseScenarioContent(content) {
     err.code = 'EVALIDATION';
     throw err;
   }
-  const errors = validateStructure(scenario);
+  const { errors, warnings } = validateStructure(scenario);
   if (errors.length > 0) {
     const err = new Error(`剧本结构校验未通过：\n- ${errors.slice(0, 10).join('\n- ')}`);
     err.code = 'EVALIDATION';
     err.details = errors;
     throw err;
+  }
+  // 只是缺字段的话放行 —— 上传的剧本要先能进来，用户才有机会在编辑器里补
+  if (warnings.length > 0) {
+    console.warn(`[templates] 剧本存在可放行的结构问题：\n- ${warnings.slice(0, 10).join('\n- ')}`);
   }
   // 统一按项目风格落盘，避免不同来源的缩进/换行符混进来
   const text = serializeScenario(scenario);

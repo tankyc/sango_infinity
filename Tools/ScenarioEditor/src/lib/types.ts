@@ -145,7 +145,10 @@ export interface LibraryPerson {
   argumentation?: number
   type?: number
   headIconID?: number
-  imageID?: number
+  /** 暴击图（立绘）相对路径 */
+  image?: string
+  /** 老年暴击图相对路径；为空表示与暴击图共用 */
+  image_old?: string
   loyalty?: number
   Official?: number
   Level?: number

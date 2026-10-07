@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  BookUser,
   Building2,
   Command as CommandIcon,
   Database,
@@ -22,12 +23,14 @@ import {
   Save,
   Shield,
   ShieldCheck,
+  Store,
   Sun,
   Undo2,
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { PERSON_LIB_URL, WORKSHOP_URL } from '@/lib/siteLinks'
 import type { CollectionKey } from '@/lib/types'
 import { COLLECTION_META } from '@/lib/types'
 import { useScenarioStore } from '@/state/store'
@@ -230,11 +233,17 @@ export default function App() {
               <p className="text-muted-foreground">
                 从模板库挑一个模板作为起点，内容会复制到你的工作区；也可以让管理员上传一份剧本给你。
               </p>
-            ) : (
+            ) : import.meta.env.DEV ? (
+              // 本机开发：给出可直接照做的启动命令
               <p className="text-muted-foreground">
                 请在 <code className="rounded bg-muted px-1">Tools/ScenarioEditor</code> 目录下执行{' '}
                 <code className="rounded bg-muted px-1">npm run server</code> 启动后端服务（默认端口 3009），
                 然后重试。
+              </p>
+            ) : (
+              // 线上：访问者不是开发者，让他们去执行 npm 命令毫无意义
+              <p className="text-muted-foreground">
+                服务暂时不可用，请稍后刷新页面重试；若持续失败，请联系管理员。
               </p>
             )}
             <div className="mt-2 flex gap-2">
@@ -357,6 +366,38 @@ export default function App() {
             <Button size="sm" className="h-8 gap-1.5" onClick={() => void handleSave()} disabled={saving || !dirty}>
               <Save className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">{saving ? '保存中…' : '保存'}</span>
+            </Button>
+
+            <Separator orientation="vertical" className="mx-0.5 h-6" />
+
+            {/*
+              站外跳转：与同机的武将库、创意工坊三站互链。
+              「做武将 → 编剧本 → 发模组」本来就是同一条创作流程，来回跳转是常态。
+              窄屏只留图标：顶栏按钮已经不少，文字换行会把工具条撑高。
+            */}
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              title={`在新窗口打开武将库：${PERSON_LIB_URL}`}
+            >
+              <a href={PERSON_LIB_URL} target="_blank" rel="noreferrer noopener">
+                <BookUser className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">武将库</span>
+              </a>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              title={`在新窗口打开创意工坊：${WORKSHOP_URL}`}
+            >
+              <a href={WORKSHOP_URL} target="_blank" rel="noreferrer noopener">
+                <Store className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">创意工坊</span>
+              </a>
             </Button>
           </div>
         </div>

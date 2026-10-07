@@ -21,11 +21,9 @@ export interface Person {
   description: string | number
   /** 头像 ID */
   headIconID: number
-  /** 立绘 ID（弃用）。自建库为字符串，基础库为数值 */
-  imageID?: string | number | null
-  /** 立绘 ID */
+  /** 暴击图（立绘）相对路径，例如 3/Zhaoyun.png */
   image: string
-  /** 旧的立绘字段 */
+  /** 老年暴击图相对路径；为空表示与暴击图共用 */
   image_old?: string | null
   /** 性别：0=男，1=女 */
   sex: number
@@ -129,12 +127,12 @@ export interface Person {
 // 武将导入
 // ─────────────────────────────────────────────────────────────
 
-/** 因重名被改名的记录 */
-export interface ImportRename {
-  /** 文件中的原始姓名 */
-  from: string
-  /** 改名后的姓名（追加 #1 / #2 … 后缀） */
-  to: string
+/** 因同名未能导入的记录（导入不再支持改名） */
+export interface ImportConflict {
+  /** 文件中的姓名 */
+  name: string
+  /** 未导入原因 */
+  reason: string
 }
 
 /** 被覆盖的自建武将记录 */
@@ -153,8 +151,8 @@ export interface ImportResult {
   overwritten: ImportOverwrite[]
   /** 因姓名为空被跳过的数量 */
   skipped: number
-  /** 重名改名记录 */
-  renamed: ImportRename[]
+  /** 因同名且未选择覆盖被跳过的记录 */
+  conflicts: ImportConflict[]
   /** 本次写入的武将列表（含新建与被覆盖，均含最终 ID 与姓名） */
   persons: Person[]
   /** 导入后库中武将总数 */

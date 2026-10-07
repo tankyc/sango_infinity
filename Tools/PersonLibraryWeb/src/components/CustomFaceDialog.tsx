@@ -36,6 +36,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ImageCropper, type ImageCropperHandle } from '@/components/ImageCropper'
 import { cn } from '@/lib/utils'
 import { ApiError, createCustomFace, downloadCustomFaces, removeCustomFace } from '@/lib/api'
@@ -45,6 +52,10 @@ import type { CustomFaceResult } from '@/lib/types'
 import {
   ArrowLeft,
   Check,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Download,
   Image as ImageIcon,
   Loader2,
@@ -59,6 +70,12 @@ const BUST_SIZE = { width: 240, height: 240 }
 
 /** 头像输出尺寸 */
 const FACE_SIZE = { width: 64, height: 80 }
+
+/** 自制头像列表每页可选条数 */
+const FACE_PAGE_SIZE_OPTIONS = [24, 48, 96]
+
+/** 自制头像列表默认每页条数 */
+const DEFAULT_FACE_PAGE_SIZE = 48
 
 /** 制作步骤 */
 type Step = 'pick' | 'bust' | 'face' | 'done'
@@ -118,6 +135,9 @@ export function CustomFaceDialog({
   /** 待删除的自定义头像 ID */
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
+  /** 自制头像列表：当前页码与每页条数 */
+  const [facePage, setFacePage] = useState(1)
+  const [facePageSize, setFacePageSize] = useState(DEFAULT_FACE_PAGE_SIZE)
   /** 原生文件控件引用 */
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -135,10 +155,17 @@ export function CustomFaceDialog({
     setSaving(false)
     setDeleteTarget(null)
     setDeleting(false)
+    setFacePage(1)
   }, [open, defaultSex])
 
   /** 下一个可用 ID（按当前选择性别） */
   const nextId = faces ? nextFaceIdOf(faces, sex) : 0
+
+  /** 自制头像总数、总页数与当前页数据（分页后一次只渲染一页，避免长列表堆叠） */
+  const faceItems = faces?.items ?? []
+  const faceTotalPages = Math.max(1, Math.ceil(faceItems.length / facePageSize))
+  const currentFacePage = Math.min(facePage, faceTotalPages)
+  const pageFaces = faceItems.slice((currentFacePage - 1) * facePageSize, currentFacePage * facePageSize)
 
   /**
    * 读取本地图片并进入裁剪步骤。
@@ -217,10 +244,12 @@ export function CustomFaceDialog({
     }
   }
 
-  /** 下载指定头像（打包为 ZIP） */
+  /** 下载指定头像（打包为 ZIP，内含自动生成的 FaceConfig.json） */
   const handleDownload = (ids: number[] | null, fileName: string) => {
     downloadCustomFaces(ids, fileName)
-    toast.success('已开始下载，解压后放入游戏 Face 目录即可')
+    toast.success('已开始下载', {
+      description: 'ZIP 内已附带 FaceConfig.json：图片放入游戏 Face 目录，配置放入 Data 目录',
+    })
   }
 
   /** 删除指定的自定义头像 */
@@ -245,7 +274,7 @@ export function CustomFaceDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 基类 DialogContent 带 sm:max-w-lg，需用同前缀的 sm:max-w-* 覆盖，w-* 无法突破其限制 */}
-      <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(56rem,calc(100vw-2rem))]">
+      <DialogContent className="flex max-h-[94vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(76rem,calc(100vw-2rem))]">
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle className="flex items-center gap-2 font-display text-lg">
             <Sparkles className="size-5 text-primary" />
@@ -347,24 +376,48 @@ export function CustomFaceDialog({
                 <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
-                      服务器已有 {faces.items.length} 个自制头像（点击可下载全部）
+                      服务器已有 {faces.items.length} 个自制头像（点击缩略图可单独下载；
+                      打包 ZIP 会自动附带 FaceConfig.json 容貌配置）
                     </span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownload(null, 'Face_Custom_All.zip')}
-                    >
-                      <Download />
-                      打包下载全部
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select
+                        value={String(facePageSize)}
+                        onValueChange={(v) => {
+                          setFacePageSize(Number(v))
+                          setFacePage(1)
+                        }}
+                      >
+                        <SelectTrigger className="h-7 w-[7.5rem] text-xs" aria-label="每页条数">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FACE_PAGE_SIZE_OPTIONS.map((size) => (
+                            <SelectItem key={size} value={String(size)}>
+                              每页 {size} 个
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(null, 'Face_Custom_All.zip')}
+                      >
+                        <Download />
+                        打包下载全部
+                      </Button>
+                    </div>
                   </div>
-                  <div className="grid max-h-56 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-8">
-                    {faces.items.map((item) => (
+
+                  {/* 分页网格：一页只渲染一页，且不再用固定高度裁切，避免行被截断看起来像堆叠 */}
+                  <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 lg:grid-cols-8">
+                    {pageFaces.map((item) => (
                       <div
                         key={item.id}
-                        className="group relative aspect-square overflow-hidden rounded-md border border-border bg-secondary/40"
-                        title={`ID ${item.id}（${item.sex === 0 ? '男' : '女'}）`}
+                        className="group relative aspect-square cursor-pointer overflow-hidden rounded-md border border-border bg-secondary/40 transition-colors hover:border-primary/60"
+                        title={`ID ${item.id}（${item.sex === 0 ? '男' : '女'}）· 点击下载`}
+                        onClick={() => handleDownload([item.id], `Face_${item.id}.zip`)}
                       >
                         <img
                           src={headIconUrl(item.id, 1)}
@@ -382,14 +435,75 @@ export function CustomFaceDialog({
                           <button
                             type="button"
                             title="删除该头像"
-                            className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-destructive opacity-0 transition-opacity group-hover:opacity-100"
-                            onClick={() => setDeleteTarget(item.id)}
+                            className="absolute right-1 top-1 rounded-full bg-background/80 p-1 text-destructive opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeleteTarget(item.id)
+                            }}
                           >
                             <Trash2 className="size-3" />
                           </button>
                         )}
                       </div>
                     ))}
+                  </div>
+
+                  {/* 分页工具栏：翻页浏览全部自制头像，避免一次渲染上千个缩略图 */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 text-[11px] text-muted-foreground">
+                    <span>
+                      共 {faces.items.length} 个，本页显示第{' '}
+                      {(currentFacePage - 1) * facePageSize + 1} ~{' '}
+                      {Math.min(currentFacePage * facePageSize, faces.items.length)} 个
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2"
+                        disabled={currentFacePage <= 1}
+                        onClick={() => setFacePage(1)}
+                        aria-label="第一页"
+                      >
+                        <ChevronsLeft />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2"
+                        disabled={currentFacePage <= 1}
+                        onClick={() => setFacePage(currentFacePage - 1)}
+                        aria-label="上一页"
+                      >
+                        <ChevronLeft />
+                      </Button>
+                      <span className="px-2">
+                        第 {currentFacePage} / {faceTotalPages} 页
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2"
+                        disabled={currentFacePage >= faceTotalPages}
+                        onClick={() => setFacePage(currentFacePage + 1)}
+                        aria-label="下一页"
+                      >
+                        <ChevronRight />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2"
+                        disabled={currentFacePage >= faceTotalPages}
+                        onClick={() => setFacePage(faceTotalPages)}
+                        aria-label="最后一页"
+                      >
+                        <ChevronsRight />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}

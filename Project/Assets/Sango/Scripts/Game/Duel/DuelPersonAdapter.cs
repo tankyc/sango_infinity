@@ -329,7 +329,7 @@ namespace Sango.Core.Duel
         public static int GetForceId(this Person self)
         {
             if (self == null) return -1;
-            return self.BelongForce != null ? self.BelongForce.Id : self.BelongForceId;
+            return self.BelongForce != null ? self.BelongForce.Id : 0;
         }
 
         /// <summary>所在地区（城市）ID</summary>

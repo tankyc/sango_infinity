@@ -17,7 +17,28 @@ import type { FieldDef, EnumEntry } from './schema'
 import { COLLECTION_FIELDS, resolveEnum, findField } from './schema'
 import { getAttrBase, getAttrChangeId, getAbilityLevel, getArray } from './fields'
 
-/** 各集合的必需字段（缺失即 error） */
+/**
+ * 已弃用的历史键：既不再作为字段表成员，也不参与「未知字段」提示。
+ *
+ * `imageID` 是游戏侧已标记「弃用」的旧立绘 ID（现行字段是 image / image_old）。
+ * 它普遍存在于旧数据里（当前剧本 850 个武将人手一个），若按未知字段逐条提示，
+ * 校验页会被 850 条同类信息淹没，真正的问题反而看不见。
+ *
+ * 注意这只是「不提示」，不是「删除」—— 数据仍原样保留并写回，
+ * 需要查看或清理时，实体详情面板的「未定义的透传字段」分组里依然列得出来。
+ */
+const DEPRECATED_KEYS = new Set(['imageID'])
+
+/**
+ * 各集合的关键字段。
+ *
+ * 缺失时**不再报错**，而是按默认值载入并给出一条警告 ——
+ * 游戏侧（Newtonsoft）对缺失字段本来就取类型默认值（数值 0、引用 0、字符串 null），
+ * 旧剧本与第三方模组少几个键是常态，若按错误处理，这些噪声会把真正的问题淹没掉。
+ *
+ * 唯一的例外是 `Id`：它同时是集合的键，缺失会让实体无法定位、无法保存，
+ * 因此交给下面的 Id 校验按错误处理（见 checkEntity 第 2 步）。
+ */
 const REQUIRED_FIELDS: Record<CollectionKey, string[]> = {
   personSet: [
     'Id',
@@ -106,10 +127,20 @@ export function validateEntity(
   const fields = COLLECTION_FIELDS[collection]
   const id = Number(entity.Id)
 
-  // 1) 必需字段
+  // 1) 字段缺失：按默认值载入，只提示警告
+  //    Id 除外 —— 它缺失会让实体无法定位，由下一步按错误处理
   for (const key of REQUIRED_FIELDS[collection]) {
+    if (key === 'Id') continue
     if (!Object.prototype.hasOwnProperty.call(entity, key)) {
-      issues.push(issue('error', collection, id, key, `缺少必需字段「${key}」`))
+      issues.push(
+        issue(
+          'warning',
+          collection,
+          id,
+          key,
+          `缺少字段「${key}」，已按默认值载入（游戏侧会取类型默认值）`
+        )
+      )
     }
   }
 
@@ -132,6 +163,8 @@ export function validateEntity(
   // 4) 未知字段检测（保留在扩展数据中的键）
   for (const key of Object.keys(entity)) {
     if (findField(fields, key)) continue
+    // 已弃用的历史键静默跳过，避免同类信息刷屏（见 DEPRECATED_KEYS）
+    if (DEPRECATED_KEYS.has(key)) continue
     issues.push(
       issue(
         'info',
@@ -423,15 +456,18 @@ export function validateScenario(scenario: Scenario | null, options: Options | n
   const issues: ValidationIssue[] = []
   const index = buildIndex(scenario)
 
-  // 根节点
+  // 根节点：与后端的 validateStructure 用同一把尺子 ——「字段缺失」按默认值载入、只给警告。
+  // 从游戏或模组里拿来的剧本常缺这几个顶层字段，报错误会直接挡住正常使用；
+  // 真正会让游戏出问题的是数据损坏（集合元素不是对象、键与 Id 对不上），
+  // 那类问题由后端在写入时拒绝，不会因为这里放松而漏掉。
   if (typeof scenario.Id !== 'number') {
-    issues.push(issue('error', 'root', null, 'Id', '剧本根节点的 Id 缺失或不是数字'))
+    issues.push(issue('warning', 'root', null, 'Id', '剧本根节点的 Id 缺失或不是数字，已按默认值载入'))
   }
   if (typeof scenario.Name !== 'string' || scenario.Name.trim() === '') {
-    issues.push(issue('error', 'root', null, 'Name', '剧本名称不能为空'))
+    issues.push(issue('warning', 'root', null, 'Name', '剧本名称为空或缺失，已按默认值载入'))
   }
   if (!scenario.Info || typeof scenario.Info !== 'object') {
-    issues.push(issue('error', 'root', null, 'Info', '缺少 Info 节点'))
+    issues.push(issue('warning', 'root', null, 'Info', '缺少 Info 节点，已按空节点载入'))
   }
 
   // 每个集合

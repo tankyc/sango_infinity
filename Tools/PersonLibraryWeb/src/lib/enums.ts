@@ -110,7 +110,7 @@ export const PERSON_REF_FIELDS = ['Father', 'Mother', 'Brother'] as const
 
 /**
  * 指向其它武将 ID 的数组字段（偏移导出时需同步平移）。
- * 注意：FeatureList 为特性 ID、headIconID / imageID 为头像 ID，不属于武将 ID，不能平移。
+ * 注意：FeatureList 为特性 ID、headIconID 为头像 ID，不属于武将 ID，不能平移。
  * 与服务端 PERSON_ID_LIST_FIELDS 保持一致。
  */
 export const PERSON_REF_LIST_FIELDS = [
@@ -331,7 +331,6 @@ export function createDefaultPerson(): Person {
     nickName: '',
     description: '',
     headIconID: 2000,
-    imageID: null,
     image: '',
     image_old: null,
     sex: 0,

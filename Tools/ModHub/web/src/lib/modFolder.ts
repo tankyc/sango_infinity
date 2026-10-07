@@ -107,19 +107,34 @@ function walkEntry(entry: FileSystemEntry, prefix: string, out: FolderFile[]): P
   });
 }
 
+/** 生成 mod.info 所需的字段 */
+export interface ModInfoSeed {
+  name: string;
+  description?: string;
+  version?: string;
+  /**
+   * 目标模组 id。
+   * 发布新版本时填上，让自动生成的 mod.info 与应用进去的模组自洽；
+   * 首次发布留空即可 —— 那时 id 还没分配，由服务端生成后写回。
+   */
+  id?: string;
+}
+
 export interface ZipFolderOptions {
   /**
    * 包内没有 mod.info 时用来生成一个。
    * 传 null 表示调用方确定包内已有，不需要生成。
    */
-  generateInfo: { name: string; description?: string; version?: string } | null;
+  generateInfo: ModInfoSeed | null;
   /** 打包进度 0–1（读取阶段细分，压缩阶段是整体一次） */
   onProgress?: (ratio: number) => void;
 }
 
 /** 生成 mod.info 文本（与游戏侧 ModPacker 相同的 key=value 格式） */
-function buildModInfo(info: { name: string; description?: string; version?: string }): string {
-  const lines = [`name=${info.name}`];
+function buildModInfo(info: ModInfoSeed): string {
+  const lines: string[] = [];
+  if (info.id) lines.push(`id=${info.id}`);
+  lines.push(`name=${info.name}`);
   if (info.description) lines.push(`description=${info.description.replace(/\r?\n/g, ' ')}`);
   lines.push(`version=${info.version || '1.0'}`);
   return `${lines.join('\n')}\n`;

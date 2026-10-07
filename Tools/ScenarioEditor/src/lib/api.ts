@@ -71,18 +71,49 @@ export function clearToken(): void {
 }
 
 /**
+ * 接口前缀。
+ *
+ * 线上把本工具挂在创意工坊同机的子路径下（nginx 以 /scenario/ 转发并剥掉前缀），
+ * 此时页面地址形如 /scenario/xxx：若继续请求绝对路径 /api/...，
+ * 浏览器会打到站点根目录 —— 那里是创意工坊，请求会串站。
+ *
+ * 前缀由生产构建时的 .env.production 注入（VITE_API_PREFIX=/scenario）。
+ * 本地 dev 不注入 → 前缀为空 → 仍走 /api，vite.config.ts 里的 proxy 原样生效，
+ * 因此开发时不需要任何额外配置。
+ */
+const API_PREFIX: string = (import.meta.env.VITE_API_PREFIX ?? '').replace(/\/+$/, '')
+
+/**
+ * 给接口路径套上部署前缀。
+ *
+ * 只处理以 `/api` 开头的路径：像 `/api/scenario` → `/scenario/api/scenario`。
+ * 其它路径（理论上不该出现）原样返回，避免把别处的 URL 意外改写。
+ *
+ * @param path 以 /api 开头的接口路径
+ * @returns 可直接 fetch 的地址
+ */
+function withApiPrefix(path: string): string {
+  if (!API_PREFIX || !path.startsWith('/api')) return path
+  return `${API_PREFIX}${path}`
+}
+
+/**
  * 给下载类直链补上令牌。
  *
  * 浏览器的 `<a download>` 无法自定义请求头，所以令牌只能走查询参数——
  * 后端 auth 模块对 `?token=` 是一等公民支持。
  *
+ * 接口前缀也在这里统一补上：下载直链由调用方按 `/api/...` 拼装，
+ * 若让每个调用点自己加前缀，漏掉一处就会在线上静默 404。
+ *
  * @param url 原始地址
- * @returns 带令牌的地址
+ * @returns 带前缀与令牌的地址
  */
 export function withToken(url: string): string {
+  const full = withApiPrefix(url)
   const token = getToken()
-  if (!token) return url
-  return `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
+  if (!token) return full
+  return `${full}${full.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
 }
 
 /**
@@ -93,10 +124,13 @@ export function withToken(url: string): string {
  * @returns 解析后的 JSON
  */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // 前缀必须在这里补上：所有接口调用都经过本函数，漏掉这一处会导致
+  // 线上全部接口打到站点根目录（创意工坊）而 404 —— 本地开发因为前缀为空串看不出来。
+  const url = withApiPrefix(path)
   const token = getToken()
   let res: Response
   try {
-    res = await fetch(path, {
+    res = await fetch(url, {
       ...init,
       headers: {
         // 默认按 JSON 发；上传剧本要发原始文本，调用方显式覆盖 Content-Type
@@ -106,7 +140,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     })
   } catch (e) {
-    throw new ApiError(`无法连接后端服务（${path}）：${(e as Error).message}`, 'ENETWORK', 0)
+    throw new ApiError(`无法连接后端服务（${url}）：${(e as Error).message}`, 'ENETWORK', 0)
   }
 
   const text = await res.text()

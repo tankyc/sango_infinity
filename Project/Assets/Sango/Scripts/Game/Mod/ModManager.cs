@@ -285,6 +285,9 @@ namespace Sango.Mod
                             case "author":
                                 mod.Author = c_v[1].Trim();
                                 break;
+                            case "auther":
+                                mod.Author = c_v[1].Trim();
+                                break;
                             case "size":
                                 long.TryParse(c_v[1].Trim(), out mod.Size);
                                 break;

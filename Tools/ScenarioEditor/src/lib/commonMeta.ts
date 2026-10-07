@@ -319,9 +319,8 @@ export const COMMON_FIELD_LABELS: Record<string, string> = {
   waterLv: '水军适性',
   machineLv: '兵器适性',
   headIconID: '头像 ID',
-  imageID: '立绘 ID',
-  image: '立绘文件',
-  image_old: '旧立绘文件',
+  image: '暴击图',
+  image_old: '老年暴击图',
 
   // 都市 / 建筑
   atk: '攻击力',

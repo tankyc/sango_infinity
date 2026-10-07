@@ -116,7 +116,7 @@ type SectionKey = (typeof SECTIONS)[number]['key']
  */
 const SECTION_FIELDS: Record<SectionKey, string[]> = {
   basic: ['type', 'familyName', 'giveName', 'nickName', 'sex', 'description', 'tags'],
-  face: ['headIconID', 'image', 'imageID', 'image_old'],
+  face: ['headIconID', 'image', 'image_old'],
   life: ['yearBorn', 'yearDead', 'appearance'],
   ability: ['command', 'strength', 'intelligence', 'politics', 'glamour'],
   growth: ['state', 'Level', 'Exp', 'merit', 'stamina'],
@@ -621,28 +621,12 @@ export function PersonFormDialog({
                         onChange={(v) => set('image', v)}
                       />
                     )}
-                    {has('imageID') &&
-                      (typeof form.imageID === 'number' ? (
-                        <NumberField
-                          label="立绘 ID（弃用）"
-                          hint="imageID"
-                          value={form.imageID}
-                          min={0}
-                          onChange={(v) => set('imageID', v)}
-                        />
-                      ) : (
-                        <TextField
-                          label="立绘 ID（弃用）"
-                          hint="imageID"
-                          value={(form.imageID as string) ?? ''}
-                          onChange={(v) => set('imageID', v || null)}
-                        />
-                      ))}
                     {has('image_old') && (
                       <TextField
-                        label="旧立绘字段"
+                        label="老年暴击图"
                         hint="image_old"
                         value={form.image_old ?? ''}
+                        placeholder="留空表示与暴击图共用"
                         onChange={(v) => set('image_old', v || null)}
                       />
                     )}

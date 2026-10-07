@@ -49,7 +49,7 @@ model Mod {
   name        String
   summary     String   @default("") // 列表一句话简介
   description String   @default("") // Markdown 正文
-  category    String   @default("mixed") // scenario|person|face|sound|skill|ui|mixed
+  category    String   @default("mixed") // scenario|person|face|map|model|sound|skill|ui|mixed
   posterUrl   String   @default("") // 封面访问路径（相对本站）
   gameVersion String   @default("*") // 需要的游戏版本
   status      String   @default("pending") // pending|approved|rejected|hidden

@@ -38,7 +38,7 @@ import { ImportPersonDialog, type ExistingPersonRef } from '@/components/ImportP
 import { BulkImportDialog } from '@/components/BulkImportDialog'
 import { ExportOffsetDialog } from '@/components/ExportOffsetDialog'
 import { ExportModDialog } from '@/components/ExportModDialog'
-import { WORKSHOP_URL } from '@/lib/siteLinks'
+import { SCENARIO_URL, WORKSHOP_URL } from '@/lib/siteLinks'
 import { BackupRestoreDialog } from '@/components/BackupRestoreDialog'
 import { buildNameIndex, buildPersonOptions } from '@/components/PersonRefPicker'
 import { ABILITY_FIELDS, PERSON_TYPE_CHOICES, SEX_CHOICES, statBaseValue } from '@/lib/enums'
@@ -707,6 +707,14 @@ export function PersonLibraryApp() {
               <a href={WORKSHOP_URL} target="_blank" rel="noreferrer noopener">
                 <ExternalLink />
                 创意工坊
+              </a>
+            </Button>
+
+            {/* 站外跳转：剧本编辑器。自建武将最终要落进剧本，这里给出入口 */}
+            <Button asChild variant="outline" title={`在新窗口打开剧本编辑器：${SCENARIO_URL}`}>
+              <a href={SCENARIO_URL} target="_blank" rel="noreferrer noopener">
+                <ExternalLink />
+                剧本编辑器
               </a>
             </Button>
 

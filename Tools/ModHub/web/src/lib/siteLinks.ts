@@ -13,3 +13,7 @@
 /** 武将库站点地址 */
 export const PERSON_LIB_URL: string =
   import.meta.env.VITE_PERSON_LIB_URL ?? 'http://localhost:5174';
+
+/** 剧本编辑器站点地址 */
+export const SCENARIO_URL: string =
+  import.meta.env.VITE_SCENARIO_URL ?? 'http://localhost:5273';

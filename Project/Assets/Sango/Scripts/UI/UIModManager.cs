@@ -253,7 +253,7 @@ namespace Sango.UI
                 ? $"{mod.Name} v{modVersion}"
                 : $"{mod.Name} v{modVersion}   [{mod.Id}]";
             modDescriptionText.text = mod.Description;
-            authorText.text = mod.Author;
+            authorText.text = $"作者: {mod.Author}";
             if (modPosterImg != null)
             {
                 if (string.IsNullOrEmpty(mod.Poster))
@@ -422,9 +422,9 @@ namespace Sango.UI
 
         bool CheckUrlValid(string url)
         {
-            if(!url.StartsWith("http"))
+            if (!url.StartsWith("http"))
                 return false;
-            else if(!url.EndsWith("/mod_list.txt"))
+            else if (!url.EndsWith("/mod_list.txt"))
                 return false;
             return true;
         }
@@ -452,6 +452,11 @@ namespace Sango.UI
                         loandingTxt.text = $"加载中.....{(int)(f * 100)}%";
                     });
             }
+        }
+
+        public void OpenWorkshop()
+        {
+            Application.OpenURL("http://139.155.98.66/browse");
         }
     }
 }

@@ -238,23 +238,7 @@ namespace Sango
             string downloadPath = null;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
-            try
-            {
-                // Java: Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                // DIRECTORY_DOWNLOADS 常量的实际取值就是字符串 "Download",这里直接传入以免再取一次静态字段。
-                using (AndroidJavaClass environment = new AndroidJavaClass("android.os.Environment"))
-                {
-                    using (AndroidJavaObject dir = environment.CallStatic<AndroidJavaObject>("getExternalStoragePublicDirectory", "Download"))
-                    {
-                        if (dir != null)
-                            downloadPath = dir.Call<string>("getAbsolutePath");
-                    }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Log.Warning("获取安卓公共下载目录失败: " + e.Message, Log.LogType.Game);
-            }
+           downloadPath = Application.persistentDataPath.Substring(0, Application.persistentDataPath.IndexOf("Android")) +"Download";
 #endif
 
             if (string.IsNullOrEmpty(downloadPath))

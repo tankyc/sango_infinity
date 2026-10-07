@@ -124,7 +124,7 @@ namespace Sango.Core.Debate
         public static int GetForceId(this Person self)
         {
             if (self == null) return -1;
-            return self.BelongForce != null ? self.BelongForce.Id : self.BelongForceId;
+            return self.BelongForce != null ? self.BelongForce.Id : 0;
         }
 
         /// <summary>

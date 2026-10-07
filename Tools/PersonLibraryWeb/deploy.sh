@@ -38,6 +38,29 @@ if [ ! -f "$TARGET_DIR/server/data/CustomPerson.json" ]; then
   fi
 fi
 
+# server/data 下有两类文件，处理方式完全不同：
+#   · 运行期数据（用户产生）：CustomPerson.json / accounts.json / .token-secret /
+#     .id-sequence.json —— 以线上为准，见下面的 RUNTIME_PATHS；
+#   · 静态数据（随游戏版本走）：PersonLibrary.json（基础武将库）/ options.json（枚举表）/
+#     referencePersons.json —— 不属于运行期数据，必须由**部署包自带**。
+#
+# 第 3 步会 `rm -rf $TARGET_DIR/server` 再整目录拷贝，所以只要部署包里漏了这 3 个文件，
+# 线上它们就会被删掉、且没有还原步骤兜底 —— 表现为「基础武将库突然查不到人」。
+# 这里提前拦住，而不是等部署完再靠健康检查发现。
+STATIC_DATA_FILES=(PersonLibrary.json options.json referencePersons.json)
+MISSING_STATIC=()
+for f in "${STATIC_DATA_FILES[@]}"; do
+  [ -f "$SOURCE_DIR/server/data/$f" ] || MISSING_STATIC+=("$f")
+done
+if [ ${#MISSING_STATIC[@]} -gt 0 ]; then
+  echo "❌ 部署包缺少静态数据文件：${MISSING_STATIC[*]}"
+  echo "   它们位于 server/data/，不属于运行期数据，必须随部署包一起上传。"
+  echo "   打包时请排除的是运行期文件（CustomPerson.json、accounts.json、"
+  echo "   .token-secret、.id-sequence.json）以及 face/、backups/、node_modules/。"
+  echo "   继续部署会删除线上对应文件，已中止。"
+  exit 1
+fi
+
 log "2/5 暂存线上运行期数据（以线上为准）"
 STASH="$(mktemp -d)"
 RUNTIME_PATHS=(

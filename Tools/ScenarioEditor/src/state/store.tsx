@@ -310,7 +310,9 @@ export function ScenarioProvider({ children }: { children: React.ReactNode }) {
       const message =
         e instanceof ApiError
           ? e.code === 'ENETWORK'
-            ? '无法连接后端服务，请先在 Tools/ScenarioEditor 目录执行 npm run server 启动服务'
+            ? import.meta.env.DEV
+              ? '无法连接后端服务，请先在 Tools/ScenarioEditor 目录执行 npm run server 启动服务'
+              : '无法连接后端服务，请检查网络后刷新页面重试'
             : e.message
           : (e as Error).message
       dispatch({ type: 'LOAD_FAILED', message })

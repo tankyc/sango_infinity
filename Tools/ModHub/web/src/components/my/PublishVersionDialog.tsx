@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
-import { FileArchive, Rocket, X } from 'lucide-react';
+import { useEffect, useState, type DragEvent } from 'react';
+import { FileArchive, FolderOpen, Loader2, Rocket, X } from 'lucide-react';
 import { ApiRequestError, publishModVersion, type MyModRow, type PublishResponse } from '../../lib/api';
 import { compareVersion, formatBytes } from '../../lib/format';
-import { Button } from '../ui/Button';
+import { collectDroppedEntries, filterUsable, zipFolder, type FolderFile } from '../../lib/modFolder';
+import { Button, buttonClass } from '../ui/Button';
 import { Field, Input, Textarea } from '../ui/Field';
 import { Modal } from '../ui/Modal';
 import { ErrorState } from '../ui/Feedback';
+import { cn } from '../../lib/cn';
 
 /**
  * 发布新版本
@@ -24,6 +26,11 @@ export interface PublishVersionDialogProps {
 
 export function PublishVersionDialog({ mod, onClose, onPublished }: PublishVersionDialogProps) {
   const [zip, setZip] = useState<File | null>(null);
+  /** 直接选文件夹时保留原始文件，提交时才打包（避免选完就长时间占着内存） */
+  const [folderFiles, setFolderFiles] = useState<FolderFile[] | null>(null);
+  const [packing, setPacking] = useState(false);
+  const [packProgress, setPackProgress] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const [version, setVersion] = useState('');
   const [changelog, setChangelog] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -33,6 +40,10 @@ export function PublishVersionDialog({ mod, onClose, onPublished }: PublishVersi
   useEffect(() => {
     if (!mod) return;
     setZip(null);
+    setFolderFiles(null);
+    setPacking(false);
+    setPackProgress(0);
+    setDragging(false);
     setVersion('');
     setChangelog('');
     setProgress(0);
@@ -51,14 +62,63 @@ export function PublishVersionDialog({ mod, onClose, onPublished }: PublishVersi
     }
     setError(null);
     setZip(file);
+    setFolderFiles(null);
+  }
+
+  /**
+   * 直接选择（或拖入）整个文件夹。
+   *
+   * 与「发布新模组」保持完全一致：这里只记录文件，等点发布时再打包。
+   * 选完就打会让浏览器长时间占着几百 MB 内存，而作者往往只是想先确认选对没有。
+   */
+  function acceptFolder(files: FolderFile[]) {
+    const usable = filterUsable(files);
+    if (usable.length === 0) {
+      setError({ message: '这个文件夹里没有可用文件（可能只包含 .git 或系统文件）', details: [] });
+      return;
+    }
+    const total = usable.reduce((sum, f) => sum + f.file.size, 0);
+    if (total > MAX_ZIP_BYTES) {
+      setError({
+        message: `文件夹共 ${formatBytes(total)}，打包后还会更大，已超过上限 ${formatBytes(MAX_ZIP_BYTES)}`,
+        details: ['请先精简内容，或自行压缩成 zip 后再上传。'],
+      });
+      return;
+    }
+    setError(null);
+    setFolderFiles(usable);
+    setZip(null);
+  }
+
+  async function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragging(false);
+
+    const dropped = Array.from(e.dataTransfer.files ?? []);
+    // 单个 zip：沿用原来的直接上传方式
+    if (dropped.length === 1 && dropped[0].name.toLowerCase().endsWith('.zip')) {
+      acceptZip(dropped[0]);
+      return;
+    }
+
+    // 其余情况按文件夹处理。拖入目录时 dataTransfer.files 里只有那个目录项，
+    // 拿不到里面的文件，必须用 webkitGetAsEntry 递归读取
+    const entries = await collectDroppedEntries(e.dataTransfer);
+    acceptFolder(entries);
+  }
+
+  /** 清空已选内容 */
+  function clearSelection() {
+    setZip(null);
+    setFolderFiles(null);
   }
 
   async function handleSubmit() {
     if (!mod) return;
     setError(null);
 
-    if (!zip) {
-      setError({ message: '请选择要发布的模组包（zip）', details: [] });
+    if (!zip && !folderFiles) {
+      setError({ message: '请选择要发布的模组包（zip），或直接选择模组文件夹', details: [] });
       return;
     }
     if (version.trim() !== '' && mod.version && compareVersion(version.trim(), mod.version) <= 0) {
@@ -72,8 +132,31 @@ export function PublishVersionDialog({ mod, onClose, onPublished }: PublishVersi
     setSubmitting(true);
     setProgress(0);
     try {
+      // 选的是文件夹：先在浏览器里打成标准 zip，之后走与上传 zip 完全相同的入库流水线。
+      // 包内缺 mod.info 时用模组现有信息生成一个，并带上目标 id，
+      // 这样「只有一个 Data 目录」的文件夹也能直接发新版本。
+      let zipToUpload = zip;
+      if (!zipToUpload && folderFiles) {
+        setPacking(true);
+        setPackProgress(0);
+        zipToUpload = await zipFolder(folderFiles, {
+          generateInfo: {
+            id: mod.id,
+            name: mod.name,
+            version: version.trim() || mod.version || '1.0',
+          },
+          onProgress: setPackProgress,
+        });
+        setPacking(false);
+      }
+      if (!zipToUpload) {
+        // 正常走不到这里（上面已校验过），保留显式分支让类型收敛
+        setError({ message: '请选择要发布的模组包（zip），或直接选择模组文件夹', details: [] });
+        return;
+      }
+
       const res: PublishResponse = await publishModVersion(
-        { id: mod.id, zip, version: version.trim(), changelog },
+        { id: mod.id, zip: zipToUpload, version: version.trim(), changelog },
         setProgress,
       );
       onPublished(`「${mod.name}」已发布新版本 ${res.version.version}`);
@@ -86,6 +169,7 @@ export function PublishVersionDialog({ mod, onClose, onPublished }: PublishVersi
       );
     } finally {
       setSubmitting(false);
+      setPacking(false);
     }
   }
 
@@ -114,10 +198,15 @@ export function PublishVersionDialog({ mod, onClose, onPublished }: PublishVersi
     >
       <div className="space-y-4">
         <div className="rounded-md border border-gold-700/50 bg-gold-500/5 p-3 text-xs leading-relaxed text-paper-400">
-          压缩包内 <code className="font-mono text-gold-300">mod.info</code> 的
+          这个新版本会被并入模组 <code className="font-mono text-gold-300">{mod?.id}</code>。
+          包内 <code className="mx-1 font-mono text-gold-300">mod.info</code> 的
           <code className="mx-1 font-mono text-gold-300">id</code>
-          必须是 <code className="font-mono text-gold-300">{mod?.id}</code>，且顶层目录名与之一致；
-          否则服务端会拒收（避免把内容发到别的模组上）。
+          与目标不一致时，服务端会按目标模组重写并给出提示（不会因此拒收）。
+          <span className="mt-1 block text-paper-500">
+            也可以直接选择模组文件夹，浏览器会自动打成标准 zip；包内缺
+            <code className="mx-1 font-mono text-gold-300">mod.info</code>
+            时，会用下面的版本号与站点上的名称自动生成一个。
+          </span>
           <span className="mt-1 block text-paper-500">
             发布后，服务端会把这里的版本号、作者（你的账号名）与站点上的名称/简介写回包内 mod.info；
             <code className="mx-1 font-mono text-gold-300">poster</code>
@@ -125,8 +214,19 @@ export function PublishVersionDialog({ mod, onClose, onPublished }: PublishVersi
           </span>
         </div>
 
-        <Field label="模组包" htmlFor="ver-zip" required hint={`单个压缩包上限 ${formatBytes(MAX_ZIP_BYTES)}`}>
-          <div className="flex flex-wrap items-center gap-3">
+        <Field label="模组包" required hint={`单个压缩包上限 ${formatBytes(MAX_ZIP_BYTES)}`}>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            className={cn(
+              'rounded-xl border-2 border-dashed p-4 text-center transition-colors duration-200',
+              dragging ? 'border-gold-500 bg-gold-500/10' : 'border-ink-500/80 hover:border-gold-700/70',
+            )}
+          >
             <input
               id="ver-zip"
               type="file"
@@ -134,31 +234,89 @@ export function PublishVersionDialog({ mod, onClose, onPublished }: PublishVersi
               className="hidden"
               onChange={(e) => acceptZip(e.target.files?.[0])}
             />
-            <label
-              htmlFor="ver-zip"
-              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-gold-700/70 px-3 text-sm text-gold-300 transition-colors duration-200 hover:border-gold-500 hover:bg-gold-500/10"
-            >
-              <FileArchive aria-hidden className="h-3.5 w-3.5" />
-              选择 zip
-            </label>
+            <input
+              id="ver-folder"
+              type="file"
+              className="hidden"
+              multiple
+              // webkitdirectory 会让浏览器选择整个文件夹，并把相对路径放进 webkitRelativePath；
+              // TS 的类型里没有这个非标准属性，所以用 spread 绕过去
+              {...({ webkitdirectory: '' } as Record<string, string>)}
+              onChange={(e) => {
+                const picked = Array.from(e.target.files ?? []).map((file) => ({
+                  file,
+                  path: file.webkitRelativePath || file.name,
+                }));
+                acceptFolder(picked);
+                // 清空 value，否则再次选同一个文件夹不会触发 change
+                e.target.value = '';
+              }}
+            />
+
             {zip ? (
-              <>
-                <span className="font-mono text-xs text-paper-300">{zip.name}</span>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <FileArchive aria-hidden className="h-5 w-5 text-gold-400" />
+                <span className="font-mono text-sm text-paper-200">{zip.name}</span>
                 <span className="text-xs text-paper-500">{formatBytes(zip.size)}</span>
                 <Button
                   variant="ghost"
                   size="sm"
                   disabled={submitting}
-                  onClick={() => setZip(null)}
+                  onClick={clearSelection}
                   icon={<X aria-hidden className="h-3.5 w-3.5" />}
                 >
                   移除
                 </Button>
-              </>
+              </div>
+            ) : folderFiles ? (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <FolderOpen aria-hidden className="h-5 w-5 text-gold-400" />
+                <span className="font-mono text-sm text-paper-200">
+                  {folderFiles[0].path.split('/')[0] || '文件夹'}
+                </span>
+                <span className="text-xs text-paper-500">
+                  {folderFiles.length} 个文件 ·{' '}
+                  {formatBytes(folderFiles.reduce((sum, f) => sum + f.file.size, 0))}
+                </span>
+                <span className="text-xs text-bamboo-400">发布时自动打包</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={submitting}
+                  onClick={clearSelection}
+                  icon={<X aria-hidden className="h-3.5 w-3.5" />}
+                >
+                  移除
+                </Button>
+              </div>
             ) : (
-              <span className="text-xs text-paper-500">尚未选择文件</span>
+              <div className="flex flex-col items-center gap-3">
+                <FileArchive aria-hidden className="h-7 w-7 text-paper-500" />
+                <span className="text-sm text-paper-200">拖拽 zip 或整个模组文件夹到此处</span>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <label htmlFor="ver-zip" className={buttonClass('outline', 'sm')}>
+                    <FileArchive aria-hidden className="h-3.5 w-3.5" />
+                    选择 zip
+                  </label>
+                  <label htmlFor="ver-folder" className={buttonClass('gold', 'sm')}>
+                    <FolderOpen aria-hidden className="h-3.5 w-3.5" />
+                    选择文件夹（自动打包）
+                  </label>
+                </div>
+                <span className="text-xs text-paper-500">
+                  选文件夹时会自动忽略 .git、__MACOSX 等系统文件，包内缺 mod.info 则自动生成一个
+                </span>
+              </div>
             )}
           </div>
+
+          {packing ? (
+            <p className="mt-3 flex items-center gap-2 text-xs text-gold-300">
+              <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+              正在打包文件夹… {Math.round(packProgress * 100)}%
+              <span className="text-paper-500">（大文件夹需要几秒，请勿关闭页面）</span>
+            </p>
+          ) : null}
         </Field>
 
         <Field label="版本号" htmlFor="ver-version" hint={`留空则采用包内 mod.info 的版本；需高于 ${mod?.version ?? '当前版本'}`}>

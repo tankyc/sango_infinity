@@ -15,6 +15,8 @@ export const CATEGORIES: CategoryMeta[] = [
   { key: 'scenario', label: '剧本', hint: '新增或改写剧本、势力与初始配置' },
   { key: 'person', label: '武将', hint: '自建武将、五维与特技调整' },
   { key: 'face', label: '头像', hint: '武将立绘、头像与界面素材' },
+  { key: 'map', label: '地图', hint: '战役地图、城池地形与场景布局' },
+  { key: 'model', label: '模型', hint: '武将、兵种与场景的模型资源' },
   { key: 'sound', label: '语音', hint: '战斗语音、音效与背景音乐' },
   { key: 'skill', label: '技能', hint: '战法、特技与 Buff 数值' },
   { key: 'ui', label: '界面', hint: 'UGUI 窗口与交互皮肤' },
