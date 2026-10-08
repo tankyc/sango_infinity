@@ -43,6 +43,8 @@ namespace Sango.Render
             [SerializeField] public float alphaEnd = 1f;   // 播放结束时(duration末尾)的透明度(0~1),实现播放过程中渐隐
             [SerializeField] public int[] frameIndexMap;   // 可选:自定义帧序映射。第i个播放帧取图集第 frameIndexMap[i] 帧(0起)。null=默认自底向上递增
             [SerializeField] public int order = 0;         // 图层层级:数值越大越在上方(覆盖)显示;同order保持创建顺序。默认0=底部
+            [SerializeField] public float rotationSpeed = 0f;   // 度/秒;正=顺时针;0=不旋转(仅 stretch=false 的非全屏层生效)
+
         }
 
         static readonly string DefaultPackage = "Content";
@@ -241,6 +243,17 @@ namespace Sango.Render
                     float tw = th * (frameW / frameH);
                     img.rectTransform.sizeDelta = new Vector2(tw, th);
                     img.rectTransform.anchoredPosition = new Vector2(layer.posX * canvasW, layer.posY * canvasH);
+
+                    // 旋转动画: rotationSpeed 度/秒 (仅非 stretch 层有意义;stretch 层是全屏拉伸,旋转会被拉伸抵消)
+                    if (layer.rotationSpeed != 0f)
+                    {
+                        float angle = layer.rotationSpeed * mTimer;
+                        img.rectTransform.localRotation = Quaternion.Euler(0f, 0f, angle);
+                    }
+                    else
+                    {
+                        img.rectTransform.localRotation = Quaternion.identity;
+                    }
                 }
 
                 // 透明度:基础=播放过程中从 alphaStart 线性过渡到 alphaEnd;再叠加淡入/淡出

@@ -565,10 +565,16 @@ namespace Sango.Core
         // 落雷技能Id与结算时序:第二段特效序列 519(1.775~4.575s)→522(2.15~3.45s)→521×3(上2.205/中2.305/下2.405开始,各2.16s)
         // 三处间隔0.1s消失,下处最晚4.565s结束;伤害结算再提前0.5s到3.82s(雷击连击中段即出数字)
         const int ThunderSkillId = 29;
-        const float ThunderDamageDelay = 3.82f;  // 结算时间
-        const float ThunderSkillOverTime = 4.6f;  // 落雷技能整体时长
-        const int ThunderDamageMin = 1500;  // 落雷固定伤害下限(每队随机)
-        const int ThunderDamageMax = 2500;  // 落雷固定伤害上限(每队随机)
+        const float ThunderDamageDelay = 3.82f;
+        const float ThunderSkillOverTime = 4.6f;
+        const int ThunderDamageMin = 1500;
+        const int ThunderDamageMax = 2500;
+
+        // 妖术(Id=30):buff在524特效播放完毕后结算,让负面状态图标与光效视觉联动更紧密
+        // 524时序:startDelay(1.475)+前12帧/9fps(1.333)+后20帧/40fps(0.5)=3.308s
+        const int DemonSkillId = 30;
+        const float DemonEffectDelay = 3.3f;
+        const float DemonSkillOverTime = 4.5f;
 
         public bool UpdateRender(Cell spellCell, Scenario scenario, float time, System.Action action)
         {
@@ -611,10 +617,20 @@ namespace Sango.Core
                 }
                 if (skill.Id == ThunderSkillId)
                 {
-                    // 落雷:第二段特效序列最晚约3.45s全部结束,伤害延后到特效播放结束后再结算,避免"先掉血后落雷"
                     if (time > ThunderDamageDelay)
                         action();
                     if (time > ThunderSkillOverTime)
+                    {
+                        master.Render.SetAniShow(0);
+                        return true;
+                    }
+                }
+                else if (skill.Id == DemonSkillId)
+                {
+                    // 妖术:buff在525特效结束后结算
+                    if (time > DemonEffectDelay)
+                        action();
+                    if (time > DemonSkillOverTime)
                     {
                         master.Render.SetAniShow(0);
                         return true;
@@ -675,7 +691,8 @@ namespace Sango.Core
                     continue;
                 }
 
-                if (atk > 0 && beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
+                // atk>0 常规伤害; 落雷等独立固定伤害计略 atk=0 也能进分支(由内部 skill.Id 特判走独立公式)
+                if ((atk > 0 || skill.Id == ThunderSkillId) && beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
                 {
                     // 落雷:固定伤害1500~2500兵力(每队随机),不受攻防兵力公式影响
                     int damage;
