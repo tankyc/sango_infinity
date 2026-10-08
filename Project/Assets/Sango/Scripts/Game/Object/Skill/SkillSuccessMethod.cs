@@ -305,21 +305,23 @@ namespace Sango.Core
             public override int Calculate(SkillInstance skillInstance, Troop troop, Cell spellCell)
             {
                 Troop target = spellCell.troop;
-                if (target == null) return 0;
+                if (target == null) return 0; // 妖术不能对空地释放,返回0由外层判定失败
 
-                int C = 0;
-                if (target.HasControlBuff())
-                    C = 10;
+                int C = target.HasControlBuff() ? 10 : 0;
                 int E = PersonalitySkillMap.GetResistAdd(target.Leader, PersonalitySkillType.Sorcery);
 
+                // 原版公式:浮点运算避免整数除法吞掉精度导致恒为负数
+                float baseV = (100f - target.Intelligence * 0.9f);
+                float V;
                 if (troop.Intelligence >= target.Intelligence)
-                {
-                    return (100 - target.Intelligence * 90) / 100 + troop.Intelligence * 10 / 100 + E + C;
-                }
+                    V = baseV + troop.Intelligence * 0.1f + E + C;
                 else
-                {
-                    return (100 - target.Intelligence * 90) / 100 + (100 - troop.Intelligence) * 10 / 100 - 5 + E + C;
-                }
+                    V = baseV + (100 - troop.Intelligence) * 0.1f - 5f + E + C;
+
+                int result = Mathf.RoundToInt(V);
+                if (result > 99) result = 99;
+                if (result < 0) result = 0;
+                return result;
             }
         }
 
@@ -338,7 +340,7 @@ namespace Sango.Core
                 {
                     C = 10;
                 }
-                int V = (int)(troop.Intelligence * 0.6f) + 15 + C;
+                int V = (int)(troop.Intelligence * 6.6f) + 15 + C;
                 if (V > 99) V = 99;   // 上限99%
                 if (V < 15) V = 15;   // 下限15%
                 return V;

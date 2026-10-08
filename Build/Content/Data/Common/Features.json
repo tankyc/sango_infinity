@@ -1472,7 +1472,10 @@
               },
               {
                 "class": "SkillIsStrategySkill",
-                "result": 1
+                "ids": [
+                  30
+                ],
+                "result": 0
               }
             ]
           }
@@ -1673,7 +1676,10 @@
               },
               {
                 "class": "SkillIsStrategySkill",
-                "result": 1
+                "ids": [
+                  30
+                ],
+                "result": 0
               }
             ]
           }
@@ -1691,7 +1697,10 @@
               },
               {
                 "class": "SkillIsStrategySkill",
-                "result": 1
+                "ids": [
+                  30
+                ],
+                "result": 0
               }
             ]
           }
