@@ -107,6 +107,8 @@ namespace Sango.Core
         public int buildUpgradeMaxTurn = 6;
         /// <summary>搜索行动的基础概率（%）</summary>
         public int searchBaseChance = 60;
+        /// <summary>每名未发现武将额外增加的搜索概率（%），体现"未发现越多越勤于搜索"</summary>
+        public int searchInvisibleChancePerPerson = 15;
         /// <summary>招募在野武将的单回合人数上限</summary>
         public int recruitPersonMaxPerTurn = 1;
         /// <summary>士气低于该值时必定训练</summary>

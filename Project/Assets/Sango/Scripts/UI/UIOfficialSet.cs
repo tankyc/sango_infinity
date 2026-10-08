@@ -94,7 +94,7 @@ namespace Sango.UI
             else
             {
                 scrollbar.transform.parent.gameObject.SetActive(true);
-                scrollbar.size = (float)itemCount / (float)dataCount;
+                scrollbar.size = System.Math.Max(0.1f, (float)itemCount / (float)dataCount);
                 scrollbar.SetValueWithoutNotify(0);
             }
 
@@ -107,7 +107,7 @@ namespace Sango.UI
             else
             {
                 official_scrollbar.transform.parent.gameObject.SetActive(true);
-                official_scrollbar.size = (float)uiOfficialItems.Length / (float)dataCount;
+                official_scrollbar.size = System.Math.Max(0.1f, (float)uiOfficialItems.Length / (float)dataCount);
                 official_scrollbar.SetValueWithoutNotify(0);
             }
 
@@ -182,7 +182,7 @@ namespace Sango.UI
             else
             {
                 scrollbar.transform.parent.gameObject.SetActive(true);
-                scrollbar.size = (float)itemCount / (float)dataCount;
+                scrollbar.size = System.Math.Max(0.1f, (float)itemCount / (float)dataCount);
             }
 
             dataCount = cityUpgradeOfficial.upgradeList.Count;
@@ -193,7 +193,7 @@ namespace Sango.UI
             else
             {
                 official_scrollbar.transform.parent.gameObject.SetActive(true);
-                official_scrollbar.size = (float)uiOfficialItems.Length / (float)dataCount;
+                official_scrollbar.size = System.Math.Max(0.1f, (float)uiOfficialItems.Length / (float)dataCount);
             }
 
             //// 重置状态和位置
@@ -400,7 +400,7 @@ namespace Sango.UI
             else
             {
                 select_official_scrollbar.transform.parent.gameObject.SetActive(true);
-                select_official_scrollbar.size = (float)uiSelectOfficialItems.Length / (float)officials.Length;
+                select_official_scrollbar.size = System.Math.Max(0.1f, (float)uiSelectOfficialItems.Length / (float)officials.Length);
                 select_official_scrollbar.SetValueWithoutNotify(0);
             }
             uIPersonItem.SetPerson(selectPerson);

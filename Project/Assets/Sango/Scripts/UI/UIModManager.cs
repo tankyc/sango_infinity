@@ -33,6 +33,12 @@ namespace Sango.UI
         protected int totalCount = 0;
         protected int selectedIndex = 0;
 
+        /// <summary>
+        /// 封面请求序号：远程封面是异步下载的，回调回来时用户可能已经切到别的模组了，
+        /// 用自增的序号判断"这次结果是否还属于当前选中项"，避免串图
+        /// </summary>
+        int posterRequestId = 0;
+
 
 
         List<Mod.Mod> allMods = new List<Mod.Mod>();
@@ -78,7 +84,7 @@ namespace Sango.UI
             else
             {
                 sliderRect.gameObject.SetActive(true);
-                scrollbar.size = (float)itemCount / (float)totalCount;
+                scrollbar.size = System.Math.Max(0.1f, (float)itemCount / (float)totalCount);
                 scrollbar.SetValueWithoutNotify(0);
             }
             startIndex = 0;
@@ -225,6 +231,9 @@ namespace Sango.UI
 
         public void ShowModInfo(int index)
         {
+            // 切换选中项即作废上一次的封面请求（远程封面是异步下载的，回来后可能已经不属于当前项）
+            posterRequestId++;
+
             if (index < 0 || index >= allMods.Count)
             {
                 modInfoText.text = "";
@@ -238,23 +247,40 @@ namespace Sango.UI
             }
 
             Mod.Mod mod = allMods[index];
-            if (mod.IsValidMod())
-                modInfoText.text = $"{mod.Name} v{mod.Version}";
-            else
-                modInfoText.text = $"{mod.Name} v{mod.UrlVersion}";
+            string modVersion = mod.IsValidMod() ? mod.Version : mod.UrlVersion;
+            // 带上模组 ID：它就是前置依赖要填的那个 ID，玩家在游戏里能直接看到、抄给别人
+            modInfoText.text = string.IsNullOrEmpty(mod.Id)
+                ? $"{mod.Name} v{modVersion}"
+                : $"{mod.Name} v{modVersion}   [{mod.Id}]";
             modDescriptionText.text = mod.Description;
-            authorText.text = mod.Author;
-            if (modPosterImg != null && !string.IsNullOrEmpty(mod.Poster))
+            authorText.text = $"作者: {mod.Author}";
+            if (modPosterImg != null)
             {
-                modPosterImg.enabled = true;
-                string posterPath = mod.GetFullPath(mod.Poster);
-                if(!File.Exists(posterPath))
+                if (string.IsNullOrEmpty(mod.Poster))
                 {
-                    modPosterImg.texture = Loader.ObjectLoader.LoadObject<Texture>("Assets/empty.png", false, false);
+                    // 没有封面：清掉上一张，避免显示成上一个模组的图
+                    modPosterImg.texture = null;
+                    modPosterImg.enabled = false;
+                }
+                else if (ModPosterLoader.IsRemote(mod.Poster))
+                {
+                    // 创意工坊上传的封面：包内 mod.info 里记的是封面的 http(s) 地址，需要联网取图。
+                    // 先显示占位图，下载完成后（若期间没切走）再替换。
+                    modPosterImg.enabled = true;
+                    modPosterImg.texture = ModPosterLoader.EmptyTexture();
+
+                    int requestId = posterRequestId;
+                    ModPosterLoader.LoadRemote(this, mod.Poster, texture =>
+                    {
+                        if (modPosterImg == null || requestId != posterRequestId) return;
+                        modPosterImg.texture = texture != null ? texture : ModPosterLoader.EmptyTexture();
+                    });
                 }
                 else
                 {
-                    modPosterImg.texture = Loader.ObjectLoader.LoadObject<Texture>(posterPath, false, false);
+                    // 包内文件名：老包与手工打包的包都是这种，保持原来的同步本地加载
+                    modPosterImg.enabled = true;
+                    modPosterImg.texture = ModPosterLoader.LoadLocal(mod.GetFullPath(mod.Poster));
                 }
             }
         }
@@ -396,9 +422,9 @@ namespace Sango.UI
 
         bool CheckUrlValid(string url)
         {
-            if(!url.StartsWith("http"))
+            if (!url.StartsWith("http"))
                 return false;
-            else if(!url.EndsWith("/mod_list.txt"))
+            else if (!url.EndsWith("/mod_list.txt"))
                 return false;
             return true;
         }
@@ -426,6 +452,11 @@ namespace Sango.UI
                         loandingTxt.text = $"加载中.....{(int)(f * 100)}%";
                     });
             }
+        }
+
+        public void OpenWorkshop()
+        {
+            Application.OpenURL("http://139.155.98.66/browse");
         }
     }
 }

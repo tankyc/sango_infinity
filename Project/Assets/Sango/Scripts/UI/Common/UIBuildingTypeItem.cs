@@ -52,12 +52,25 @@ using Sango.Core; namespace Sango.UI
 
         public UIBuildingTypeItem SetNum(int c)
         {
+            return SetNum(c, false);
+        }
+
+        /// <summary>
+        /// 设置数量文本
+        /// </summary>
+        /// <param name="c">数量，小于0时表示不显示数量(清空文本)</param>
+        /// <param name="changed">数量相对原始值是否发生了变化，变化时使用黄色，未变化时使用白色</param>
+        public UIBuildingTypeItem SetNum(int c, bool changed)
+        {
             if (numLabel == null) return this;
 
             if (c < 0)
                 numLabel.text = "";
             else
                 numLabel.text = c.ToString();
+
+            // 根据数量是否变化切换颜色，变化用黄色提示，未变化恢复白色
+            numLabel.color = changed ? Color.yellow : Color.white;
             return this;
         }
 

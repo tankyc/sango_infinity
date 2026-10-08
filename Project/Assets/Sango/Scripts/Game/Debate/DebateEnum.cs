@@ -4,7 +4,7 @@
  *
  * 命名说明：
  *   原 C++ 中的日/韩罗马音标识符已统一改为英文命名，便于阅读与维护：
- *     wadai    -> Topic      （话题：故事 / 道理 / 时势）
+ *     wadai    -> Topic      （话题：故事 / 道理 / 时节）
  *     wajutsu  -> Rhetoric   （话术：大喝 / 诡辩 / 无视 / 镇静 / 激昂）
  *     seikaku  -> Personality（性格：胆小 / 冷静 / 刚胆 / 莽撞）
  *     shoubyou -> Injury     （伤病：健康 / 轻伤 / 中伤 / 重伤）
@@ -40,9 +40,9 @@ namespace Sango.Core.Debate
         DebateCard_Logic1 = 4,  // 道理·小
         DebateCard_Logic2 = 5,  // 道理·中
         DebateCard_Logic3 = 6,  // 道理·大
-        DebateCard_Trend1 = 7,  // 时势·小
-        DebateCard_Trend2 = 8,  // 时势·中
-        DebateCard_Trend3 = 9,  // 时势·大
+        DebateCard_Trend1 = 7,  // 时节·小
+        DebateCard_Trend2 = 8,  // 时节·中
+        DebateCard_Trend3 = 9,  // 时节·大
         DebateCard_Shout = 0xa,     // 大喝
         DebateCard_Sophistry = 0xb, // 诡辩
         DebateCard_Ignore = 0xc,    // 无视
@@ -50,7 +50,7 @@ namespace Sango.Core.Debate
         DebateCard_Agitate = 0xe,   // 激昂
         DebateCard_Max = 0xf,
 
-        /// <summary>话题卡（故事 / 道理 / 时势）起始</summary>
+        /// <summary>话题卡（故事 / 道理 / 时节）起始</summary>
         DebateCard_TopicFirst = DebateCard_Story1,
         /// <summary>话题卡结束</summary>
         DebateCard_TopicLast = DebateCard_Trend3,
@@ -98,7 +98,7 @@ namespace Sango.Core.Debate
     {
         Topic_Story = 0, // 故事
         Topic_Logic = 1, // 道理
-        Topic_Trend = 2, // 时势
+        Topic_Trend = 2, // 时节
         Topic_Max = 3,
     }
 

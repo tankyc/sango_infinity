@@ -173,7 +173,7 @@ namespace Sango.UI
         }
         public void SetPressd(bool b)
         {
-            pressImg.enabled = b;
+            //pressImg.enabled = b;
         }
 
         public void SetOver(bool b)

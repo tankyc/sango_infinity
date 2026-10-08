@@ -69,6 +69,8 @@ namespace Sango.Core
         public int freePersons;
         /// <summary>在野武将数量（`city.wildPersons.Count`）—— 用于"登用"命令的排序加分</summary>
         public int wildCount;
+        /// <summary>未发现武将数量（本城 + 所属港关的 `invisiblePersons`）—— 用于"搜索"命令的排序加分</summary>
+        public int invisibleCount;
         /// <summary>武将缺口（负值表示缺人）</summary>
         public int personHole;
 
@@ -159,6 +161,8 @@ namespace Sango.Core
             // ---------- 人力 ----------
             s.freePersons = city.freePersons != null ? city.freePersons.Count : 0;
             s.wildCount = city.wildPersons != null ? city.wildPersons.Count : 0;   // 登用命令排序依据
+            // 搜索命令排序依据：与部署层"搜索"岗同口径（本城 + 所属港关的未发现人才）
+            s.invisibleCount = CityEstablishment.CountInvisiblePersons(city);
 
             // ---------- 兵装 ----------
             if (city.itemStore != null)

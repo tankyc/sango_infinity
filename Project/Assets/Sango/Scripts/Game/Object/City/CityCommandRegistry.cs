@@ -159,7 +159,16 @@ namespace Sango.Core
             Add("AISearching", CityAI.AISearching, w.baseAISearching, s =>
             {
                 if (s.freePersons <= 1) return -w.scoreSearchingNoPersonPenalty;
-                return w.scoreSearchingBonus;
+                int score = w.scoreSearchingBonus;
+                // 【未发现武将驱动】城里有未发现武将时，按人数提高搜索意愿（累计加分，整体封顶）
+                if (s.invisibleCount > 0)
+                {
+                    int byInvisible = s.invisibleCount * w.scoreSearchingInvisiblePerPerson;
+                    if (byInvisible > w.scoreSearchingInvisibleBonusMax)
+                        byInvisible = w.scoreSearchingInvisibleBonusMax;
+                    score += byInvisible;
+                }
+                return score;
             });
 
             Add("AIRecruitPerson", CityAI.AIRecruitPerson, w.baseAIRecruitPerson, s =>

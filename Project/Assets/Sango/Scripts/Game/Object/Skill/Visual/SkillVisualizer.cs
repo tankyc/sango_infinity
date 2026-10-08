@@ -119,6 +119,8 @@ namespace Sango.Core
                                                      CycloneFrameCount, pos, fps: CycloneFps, worldSize: CycloneWorldSize);
                 if (eff != null)
                 {
+                    eff.transform.localRotation = Quaternion.Euler(90, 0, 0);
+                    eff.billboardFull = false;
                     eff.autoDestroy = true;
                 }
                 else

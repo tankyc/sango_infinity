@@ -1,0 +1,195 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * 设计规范：Data-Dense Dashboard（数据密集型仪表盘）
+ * - 主色：蓝色（数据 / 信息）
+ * - 强调色：琥珀色（当前操作 / 未保存状态）
+ * - 版式：紧凑栅格、等宽数字、最大化的信息密度
+ * - 支持暗色（默认）与亮色两套主题
+ */
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 224 76% 48%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 214 32% 93%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 214 32% 91%;
+    --accent-foreground: 222 47% 15%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 152 60% 32%;
+    --warning: 32 90% 42%;
+    --border: 214 24% 86%;
+    --input: 214 24% 86%;
+    --ring: 224 76% 48%;
+    --radius: 0.6rem;
+    --grid-line: 214 24% 88%;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+    --card: 221 39% 11%;
+    --card-foreground: 210 40% 96%;
+    --popover: 221 42% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 20%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 48%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 152 55% 45%;
+    --warning: 38 92% 55%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 217 91% 60%;
+    --grid-line: 217 33% 16%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+    font-size: 14px;
+    /* 移动端禁止双击缩放带来的跳动 */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  /* 数字对齐：表格与编辑器中的数值列统一使用等宽数字 */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+    border: 2px solid hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* 移动端滚动条更细 */
+  @media (max-width: 767px) {
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+  }
+}
+
+@layer components {
+  /* 页面背景：只保留顶部光晕，**不画网格**。
+     原先这里还有一层 40px 的背景网格（linear-gradient 横竖各一道）。
+     问题是表格本身是透明的，这层网格会从数据之间的缝隙里透出来，
+     看起来像「凭空多出许多列线」，而且它的位置固定 40px，
+     与真实列宽毫无关系，永远对不上列边界。
+     层次的表达交给卡片底色与数据区底色（.dense-body）就够了。 */
+  .app-shell {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(60% 45% at 12% 0%, hsl(var(--primary) / 0.1), transparent 70%),
+      radial-gradient(50% 40% at 100% 0%, hsl(38 92% 50% / 0.07), transparent 70%);
+    background-size:
+      100% 100%,
+      100% 100%;
+  }
+
+  /* 标题字体 */
+  .font-display {
+    font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+    letter-spacing: 0.03em;
+  }
+
+  /* 数据卡片 */
+  .stat-card {
+    @apply flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5;
+  }
+
+  /* 可点击行 */
+  .row-clickable {
+    @apply cursor-pointer transition-colors duration-150;
+  }
+
+  /* 单元格内的紧凑输入框：去掉默认边框，聚焦时才显示 */
+  .cell-input {
+    @apply h-7 w-full rounded border border-transparent bg-transparent px-1.5 text-[13px] tabular transition-colors;
+    @apply hover:border-border focus:border-primary focus:bg-background focus:outline-none;
+  }
+
+  /* 数据网格：Excel 风格的行列细线。
+     与上面被去掉的「背景网格」有本质区别——这些线画在**真实的行列边界**上：
+     行线跟着行高走，列线跟着 columnWidth 走，因此永远与数据对齐。
+     颜色用 --grid-line（比 --border 更淡一档），保证是「分隔」而不是「框」。 */
+  .dense-row {
+    @apply transition-colors;
+    border-bottom: 1px solid hsl(var(--grid-line));
+  }
+
+  /* 列线：挂在每个单元格的包裹元素上，它会被 grid 拉伸到整行高，
+     所以同一条竖线在相邻行之间是连续的，形成完整的列分隔。 */
+  .dense-cell {
+    border-right: 1px solid hsl(var(--grid-line));
+  }
+
+  /* 数据区底色：比页面底板略亮一点点，形成「数据块浮在页面上」的层次。
+     用 foreground 派生，因此暗色下微微提亮、亮色下微微压暗，两种主题都成立。 */
+  .dense-body {
+    background-color: hsl(var(--foreground) / 0.03);
+  }
+
+  .dense-row:hover {
+    background-color: hsl(var(--accent) / 0.5);
+  }
+
+  .dense-row[data-selected='true'] {
+    background-color: hsl(var(--primary) / 0.12);
+  }
+
+  .dense-row[data-active='true'] {
+    box-shadow: inset 3px 0 0 0 hsl(var(--primary));
+  }
+
+  /* 滚动容器，带稳定的滚动条占位 */
+  .scroll-stable {
+    scrollbar-gutter: stable;
+  }
+}

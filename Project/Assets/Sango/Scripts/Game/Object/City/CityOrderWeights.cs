@@ -47,8 +47,8 @@ namespace Sango.Core
         public int baseAICreateBoat = 20;
         /// <summary>搜索基础分</summary>
         public int baseAISearching = 25;
-        /// <summary>招募武将基础分</summary>
-        public int baseAIRecruitPerson = 25;
+        /// <summary>招募武将基础分（登用整体优先级略高于搜索）</summary>
+        public int baseAIRecruitPerson = 35;
 
         // ---- 前期「在野多 → 优先登用」（与部署层同口径）----
 
@@ -191,11 +191,15 @@ namespace Sango.Core
         public int scoreSearchingNoPersonPenalty = 50;
         /// <summary>AISearching：正常加成</summary>
         public int scoreSearchingBonus = 15;
+        /// <summary>AISearching：每名未发现武将的加分（按人数提高搜索意愿）</summary>
+        public int scoreSearchingInvisiblePerPerson = 15;
+        /// <summary>AISearching：按未发现人数累计加分的封顶</summary>
+        public int scoreSearchingInvisibleBonusMax = 60;
 
         /// <summary>AIRecruitPerson：无人可派惩罚</summary>
         public int scoreRecruitPersonNoPersonPenalty = 30;
         /// <summary>AIRecruitPerson：正常加成</summary>
-        public int scoreRecruitPersonBonus = 20;
+        public int scoreRecruitPersonBonus = 30;
 
         /// <summary>AITransfrom：有富余加成</summary>
         public int scoreTransfromRichBonus = 40;
@@ -259,5 +263,18 @@ namespace Sango.Core
         public int peaceInternalBias = 30;
         /// <summary>和平发展：军事命令降权</summary>
         public int peaceMilitaryPenalty = 40;
+
+        // ==================================================================
+        // 六、「人才优先」顶部抬升（未发现武将 → 搜索；在野武将 → 登用）
+        // ==================================================================
+
+        /// <summary>未发现武将数达到该值时，搜索命令被抬升到最高优先级</summary>
+        public int searchingInvisibleTopThreshold = 2;
+        /// <summary>搜索命令被抬升到最高优先级时的加分（应略低于 recruitPersonWildTopBias，体现"比登用低一点"）</summary>
+        public int searchingInvisibleTopBias = 600;
+        /// <summary>在野武将数达到该值时，登用命令被抬升到最高优先级</summary>
+        public int recruitPersonWildTopThreshold = 2;
+        /// <summary>登用命令被抬升到最高优先级时的加分（需大于军事 / 危机类命令的最大叠加分）</summary>
+        public int recruitPersonWildTopBias = 700;
     }
 }

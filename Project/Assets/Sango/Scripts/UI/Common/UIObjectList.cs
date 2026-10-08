@@ -49,7 +49,7 @@ using Sango.Core; namespace Sango.UI
             else
             {
                 sliderRect.gameObject.SetActive(true);
-                scrollbar.size = (float)itemCount / (float)totalCount;
+                scrollbar.size = Mathf.Max(0.1f, (float)itemCount / (float)totalCount);
                 scrollbar.SetValueWithoutNotify(0);
                 Vector2 size = contentRect.sizeDelta;
                 size.x = content_width;

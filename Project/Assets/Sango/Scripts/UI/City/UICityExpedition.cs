@@ -50,6 +50,27 @@ namespace Sango.UI
         public Slider goldSlider;
         public Slider foodSlider;
 
+        /// <summary>推荐编队面板（默认关闭，由 bg/select 按钮打开）</summary>
+        public GameObject recomandObj;
+
+        /// <summary>推荐队伍列表项模板（池化复制的源节点，自身不显示）</summary>
+        public UITroopTeamItem teamTemplate;
+
+        /// <summary>页码 toggle（每个 toggle 对应一页）</summary>
+        public Toggle[] pageToggles;
+
+        /// <summary>推荐队伍每页最多显示的数量</summary>
+        public const int TeamCountInPage = 30;
+
+        /// <summary>推荐队伍列表项池</summary>
+        List<UITroopTeamItem> teamItemPool = new List<UITroopTeamItem>();
+
+        /// <summary>推荐队伍当前页码</summary>
+        int curTeamPage;
+
+        /// <summary>推荐队伍当前页码（从 0 开始）</summary>
+        public int CurTeamPage { get { return curTeamPage; } }
+
         CityExpedition cityExpeditionSys;
 
         bool showLand = true;
@@ -115,6 +136,11 @@ namespace Sango.UI
 
             action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.MakeTroop)}/{cityExpeditionSys.TargetCity.BelongCorps.ActionPoint}";
 
+            // 推荐编队面板默认关闭，由 select 按钮打开
+            if (recomandObj != null) recomandObj.SetActive(false);
+            // 推荐队伍模板只作为池化复制的源，自身不参与显示
+            if (teamTemplate != null) teamTemplate.gameObject.SetActive(false);
+            InitPageToggles();
 
             UpdateContent();
         }
@@ -187,6 +213,37 @@ namespace Sango.UI
             cityBuildingSlot.SetSelected(true);
 
             UpdateContent();
+        }
+
+        /// <summary>
+        /// 自动编队（绑定在 bg/auto 按钮上）
+        /// 与 AI 出征同一套思路：优先套用本城能立刻凑齐的推荐队伍，否则按适性选兵种再按顾问推荐挑人
+        /// </summary>
+        public void OnAutoMakeFormation()
+        {
+            if (cityExpeditionSys == null) return;
+
+            if (!cityExpeditionSys.AutoMakeFormation())
+            {
+                Log.Warning("出征: 自动编队失败,本城没有可用武将");
+                return;
+            }
+
+            SyncTroopTypeSelect();
+            UpdateContent();
+
+            Log.Info("出征: 自动编队完成");
+        }
+
+        /// <summary>
+        /// 同步陆地 / 水上兵种槽位的选中态
+        /// </summary>
+        void SyncTroopTypeSelect()
+        {
+            for (int i = 0; i < landTroopTypePool.Count; i++)
+                landTroopTypePool[i].SetSelected(cityExpeditionSys.CurSelectLandTrropTypeIndex == i);
+            for (int i = 0; i < waterTroopTypePool.Count; i++)
+                waterTroopTypePool[i].SetSelected(cityExpeditionSys.CurSelectWaterTrropTypeIndex == i);
         }
 
         /// <summary>
@@ -368,7 +425,27 @@ namespace Sango.UI
             }
 
             UpdateTroopStatus();
+            UpdateTroopTypeDesc();
             UpdateTroopsInfo();
+        }
+
+        /// <summary>
+        /// 刷新陆地/水上兵种的说明文本
+        /// 选择陆地或水上兵种后会同步显示其说明
+        /// </summary>
+        void UpdateTroopTypeDesc()
+        {
+            if (landTroopTypeDescLabel != null)
+            {
+                TroopType landTroopType = targetTroop.LandTroopType;
+                landTroopTypeDescLabel.text = landTroopType != null ? landTroopType.desc : "";
+            }
+
+            if (waterTroopTypeDescLabel != null)
+            {
+                TroopType waterTroopType = targetTroop.WaterTroopType;
+                waterTroopTypeDescLabel.text = waterTroopType != null ? waterTroopType.desc : "";
+            }
         }
 
         void UpdateTroopStatus()
@@ -532,6 +609,60 @@ namespace Sango.UI
             {
                 itemLabels[i].gameObject.SetActive(false);
             }
+
+            UpdateTroopTypeItemNums();
+        }
+
+        /// <summary>
+        /// 刷新兵种槽位上的兵装库存数量
+        /// 陆地/水源两列兵种分别按当前选中的兵种计算本次出征的兵装消耗，
+        /// 槽位显示扣除消耗后的库存数量，数量发生变化时用黄色提示，未变化则恢复白色
+        /// </summary>
+        void UpdateTroopTypeItemNums()
+        {
+            for (int i = 0; i < landTroopTypePool.Count && i < cityExpeditionSys.ActivedLandTroopTypes.Count; i++)
+            {
+                UpdateTroopTypeItemNum(landTroopTypePool[i],
+                    cityExpeditionSys.ActivedLandTroopTypes[i],
+                    cityExpeditionSys.CurSelectLandTrropTypeIndex == i);
+            }
+
+            for (int i = 0; i < waterTroopTypePool.Count && i < cityExpeditionSys.ActivedWaterTroopTypes.Count; i++)
+            {
+                UpdateTroopTypeItemNum(waterTroopTypePool[i],
+                    cityExpeditionSys.ActivedWaterTroopTypes[i],
+                    cityExpeditionSys.CurSelectWaterTrropTypeIndex == i);
+            }
+        }
+
+        /// <summary>
+        /// 刷新单个兵种槽位上的兵装库存数量
+        /// </summary>
+        /// <param name="slot">兵种槽位</param>
+        /// <param name="troopType">兵种类型</param>
+        /// <param name="isSelected">该兵种是否为当前选中的兵种</param>
+        void UpdateTroopTypeItemNum(UIBuildingTypeItem slot, TroopType troopType, bool isSelected)
+        {
+            if (slot == null || troopType == null) return;
+
+            // 该兵种没有兵装需求时不显示数量
+            if (troopType.costItems == null || troopType.costItems.Length < 2)
+            {
+                slot.SetNum(-1, false);
+                return;
+            }
+
+            // 库存数量
+            int storeKindId = troopType.costItems[0];
+            int has = targetCity.itemStore.GetNumber(storeKindId);
+
+            // 只有当前选中的兵种才会消耗兵装，未选中的兵种不产生消耗
+            int use = 0;
+            if (isSelected)
+                use = troopType.costItems[1] * targetTroop.troops / 1000;
+
+            // 显示扣除消耗后的数量，消耗大于0说明数量发生了变化(黄色)
+            slot.SetNum(has - use, use > 0);
         }
 
         public void OnSelectWaterType(UIBuildingTypeItem buildingTypeItem)
@@ -574,6 +705,256 @@ namespace Sango.UI
             GameSystem.GetSystem<PersonSelectSystem>().Start(cityExpeditionSys.TargetCity.freePersons,
                 cityExpeditionSys.personList, 3, OnPersonChange, cityExpeditionSys.customTitleList, cityExpeditionSys.customTitleName,
                 CityExpedition.CommandSortTitleIndex);
+        }
+
+        // ============================ 推荐编队 ============================
+
+        /// <summary>
+        /// 打开 / 关闭推荐编队面板（绑定在 bg/select 按钮上）
+        /// </summary>
+        public void OnToggleRecomand()
+        {
+            if (recomandObj == null) return;
+
+            if (recomandObj.activeSelf)
+                OnCloseRecomand();
+            else
+                OnOpenRecomand();
+        }
+
+        /// <summary>
+        /// 打开推荐编队面板
+        /// </summary>
+        public void OnOpenRecomand()
+        {
+            if (recomandObj == null)
+            {
+                Log.Warning("出征: 推荐编队节点未绑定,无法打开");
+                return;
+            }
+
+            recomandObj.SetActive(true);
+            RefreshTeamList();
+        }
+
+        /// <summary>
+        /// 关闭推荐编队面板（套用队伍后自动调用，也可绑到面板的返回 / 确定按钮上）
+        /// </summary>
+        public void OnCloseRecomand()
+        {
+            if (recomandObj != null)
+                recomandObj.SetActive(false);
+        }
+
+        /// <summary>
+        /// 快捷保存当前队伍（绑定在 bg/save 按钮上）
+        /// 队伍按武将 ID 保存；已存在完全相同的武将组合时不重复保存（去重在逻辑层）
+        /// </summary>
+        public void OnSaveTeam()
+        {
+            if (cityExpeditionSys == null || targetCity == null) return;
+
+            if (cityExpeditionSys.personList.Count == 0)
+            {
+                Log.Warning("出征: 请先选择武将,再保存队伍");
+                return;
+            }
+
+            bool created;
+            TroopTeam team = cityExpeditionSys.QuickSaveCurrentTeam(out created);
+            if (team == null)
+            {
+                Log.Warning("出征: 保存队伍失败,队伍数量可能已达上限");
+                return;
+            }
+
+            if (created)
+                Log.Info("出征: 已保存队伍[" + team.name + "]");
+            else
+                Log.Info("出征: 已存在相同武将组合的队伍[" + team.name + "],未重复保存");
+
+            // 推荐编队面板打开时同步刷新列表
+            if (recomandObj != null && recomandObj.activeSelf)
+                RefreshTeamList();
+        }
+
+        /// <summary>
+        /// 绑定页码 toggle 的选中事件（每个 toggle 对应一页）
+        /// </summary>
+        void InitPageToggles()
+        {
+            if (pageToggles == null) return;
+
+            for (int i = 0; i < pageToggles.Length; i++)
+            {
+                if (pageToggles[i] == null) continue;
+
+                int pageIndex = i;
+                pageToggles[i].onValueChanged.RemoveAllListeners();
+                pageToggles[i].onValueChanged.AddListener(isOn =>
+                {
+                    if (isOn) ShowTeamPage(pageIndex);
+                });
+            }
+        }
+
+        /// <summary>
+        /// 重新评估并刷新推荐队伍列表，回到第一页
+        /// 候选数据由逻辑层统一维护（界面只负责显示与点击）
+        /// </summary>
+        void RefreshTeamList()
+        {
+            cityExpeditionSys.RefreshTeamCandidates();
+
+            UpdatePageToggles();
+            ShowTeamPage(0);
+        }
+
+        /// <summary>
+        /// 刷新页码 toggle：按总页数显示 / 隐藏，并把页码写到 toggle 的标题上
+        /// </summary>
+        void UpdatePageToggles()
+        {
+            if (pageToggles == null) return;
+
+            int maxPage = GetMaxTeamPage();
+            for (int i = 0; i < pageToggles.Length; i++)
+            {
+                if (pageToggles[i] == null) continue;
+
+                bool need = i < maxPage;
+                pageToggles[i].gameObject.SetActive(need);
+                if (!need) continue;
+
+                UIToggleItem toggleItem = pageToggles[i].GetComponent<UIToggleItem>();
+                if (toggleItem != null)
+                    toggleItem.SetTitle((i + 1).ToString());
+            }
+        }
+
+        /// <summary>
+        /// 推荐队伍的总页数（每页最多 <see cref="TeamCountInPage"/> 个）
+        /// </summary>
+        int GetMaxTeamPage()
+        {
+            int count = cityExpeditionSys.teamCandidates.Count;
+            if (count == 0) return 1;
+
+            int maxPage = count / TeamCountInPage;
+            if (count % TeamCountInPage != 0)
+                maxPage++;
+            return maxPage;
+        }
+
+        /// <summary>
+        /// 显示指定页的推荐队伍
+        /// </summary>
+        /// <param name="page">页码（从 0 开始）</param>
+        void ShowTeamPage(int page)
+        {
+            if (page < 0) page = 0;
+
+            int maxPage = GetMaxTeamPage();
+            if (page >= maxPage) page = maxPage - 1;
+            curTeamPage = page;
+
+            // 同步页码 toggle 的选中状态（值没变化时不会再次触发事件）
+            if (pageToggles != null)
+            {
+                for (int i = 0; i < pageToggles.Length; i++)
+                {
+                    if (pageToggles[i] == null) continue;
+                    pageToggles[i].isOn = (i == page);
+                }
+            }
+
+            int start = page * TeamCountInPage;
+            int count = System.Math.Min(TeamCountInPage, cityExpeditionSys.teamCandidates.Count - start);
+            if (count < 0) count = 0;
+
+            EnsureTeamItemPool(count);
+
+            for (int i = 0; i < teamItemPool.Count; i++)
+            {
+                if (i < count)
+                {
+                    teamItemPool[i].gameObject.SetActive(true);
+                    teamItemPool[i].SetIndex(start + i).SetData(cityExpeditionSys.teamCandidates[start + i]);
+                }
+                else
+                {
+                    teamItemPool[i].gameObject.SetActive(false);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 保证列表项池的数量足够（不够时复制模板节点）
+        /// </summary>
+        /// <param name="count">本次需要显示的数量</param>
+        void EnsureTeamItemPool(int count)
+        {
+            if (teamTemplate == null) return;
+
+            while (teamItemPool.Count < count)
+            {
+                GameObject go = GameObject.Instantiate(teamTemplate.gameObject, teamTemplate.transform.parent);
+                UITroopTeamItem item = go.GetComponent<UITroopTeamItem>();
+                if (item == null) return;
+
+                item.onApply = OnApplyTeam;
+                item.onDelete = OnDeleteTeam;
+                teamItemPool.Add(item);
+                go.SetActive(true);
+            }
+        }
+
+        /// <summary>
+        /// 套用推荐队伍：把它的成员与推荐兵种设置到当前编队（实际套用由逻辑层完成）
+        /// </summary>
+        /// <param name="item">被点击的列表项</param>
+        void OnApplyTeam(UITroopTeamItem item)
+        {
+            if (item == null || item.candidate == null) return;
+
+            // 不可用的队伍列表项已置灰，这里再兜一层
+            if (!item.candidate.IsReady) return;
+
+            if (!cityExpeditionSys.ApplyTeam(item.candidate.team))
+            {
+                Log.Warning("出征: 队伍[" + item.candidate.name + "]当前用不了");
+                return;
+            }
+
+            SyncTroopTypeSelect();
+
+            UpdateContent();
+            OnCloseRecomand();
+
+            Log.Info("出征: 已套用推荐队伍[" + item.candidate.name + "]");
+        }
+
+        /// <summary>
+        /// 删除玩家自建的队伍（推荐模板只读，不能删除；实际删除由逻辑层完成）
+        /// </summary>
+        /// <param name="item">被点击的列表项</param>
+        void OnDeleteTeam(UITroopTeamItem item)
+        {
+            if (item == null || item.candidate == null || !item.candidate.custom) return;
+
+            // 逻辑层的删除接口按"当前选中"操作，这里先用名字定位到该队伍
+            cityExpeditionSys.selectedTeamIndex = cityExpeditionSys.FindTeamIndex(item.candidate.name);
+            if (!cityExpeditionSys.DeleteSelectedTeam())
+            {
+                Log.Warning("出征: 删除队伍[" + item.candidate.name + "]失败");
+                return;
+            }
+
+            Log.Info("出征: 已删除队伍[" + item.candidate.name + "]");
+
+            // 逻辑层删完已重建过候选，这里只刷新分页显示（停在当前页）
+            UpdatePageToggles();
+            ShowTeamPage(curTeamPage);
         }
     }
 }

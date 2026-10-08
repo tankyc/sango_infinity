@@ -236,6 +236,12 @@ namespace Sango.Core
         [JsonProperty] public int loyalty;
 
         /// <summary>
+        /// 最近一次被流言命中并动摇忠诚的回合（Scenario.TurnCount）。小于等于 0 表示近期未受流言影响。
+        /// 供 CityAI 的褒奖响应识别"被 AI 互喷打低"的武将（见 ScenarioVariables.cityStrategyRumorVictimRewardTurns）。
+        /// </summary>
+        [JsonProperty] public int lastRumorTurn;
+
+        /// <summary>
         /// 功绩
         /// </summary>
         [JsonProperty] public int merit;
@@ -890,6 +896,15 @@ namespace Sango.Core
                 Brother.BrotherList.Add(this);
             }
 
+            if (BelongCity != null && BelongForce != null && BelongCorps != null)
+            {
+                if(state > 4)
+                {
+                    state = 4;
+                }
+            }
+
+
             if (IsAlive)
             {
                 switch ((PersonStateType)state)
@@ -898,7 +913,7 @@ namespace Sango.Core
                     case PersonStateType.Governor:
                         if (BelongCity != null)
                         {
-                            BelongCity.allPersons.Add(this);
+                            BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
                             CheckBelongConsistency();
                         }
@@ -907,7 +922,7 @@ namespace Sango.Core
                     case PersonStateType.Commander:
                         if (BelongCity != null)
                         {
-                            BelongCity.allPersons.Add(this);
+                            BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
                             CheckBelongConsistency();
                         }
@@ -916,7 +931,7 @@ namespace Sango.Core
                     case PersonStateType.Leader:
                         if (BelongCity != null)
                         {
-                            BelongCity.allPersons.Add(this);
+                            BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
                             CheckBelongConsistency();
                         }
@@ -925,12 +940,14 @@ namespace Sango.Core
                     case PersonStateType.Normal:
                         if (BelongCity != null)
                         {
-                            BelongCity.allPersons.Add(this);
+                            BelongCity.AddPerson(this);
                             CheckBelongConsistency();
                         }
                         break;
                     // 在野
                     case PersonStateType.Unemployed:
+                        BelongCorps = null;
+                        BelongForce = null;
                         CurrentCity.wildPersons.Add(this);
                         break;
                     // 囚犯
@@ -950,7 +967,7 @@ namespace Sango.Core
                                 if (BelongForce != null)
                                 {
                                     state = (int)PersonStateType.Normal;
-                                    BelongCity.allPersons.Add(this);
+                                    BelongCity.AddPerson(this);
                                     BelongCity.freePersons.Add(this);
                                 }
                                 else
@@ -969,9 +986,13 @@ namespace Sango.Core
                         break;
                     // 未登场
                     case PersonStateType.Invalid:
+                        BelongCorps = null;
+                        BelongForce = null;
                         break;
                     // 未发现
                     case PersonStateType.Invisible:
+                        BelongCorps = null;
+                        BelongForce = null;
                         if (CurrentCity != null)
                             CurrentCity.invisiblePersons.Add(this);
                         else if (BelongCity != null)
@@ -982,6 +1003,8 @@ namespace Sango.Core
                         break;
                     // 死亡
                     case PersonStateType.Dead:
+                        BelongCorps = null;
+                        BelongForce = null;
                         break;
                 }
             }
@@ -1464,7 +1487,7 @@ namespace Sango.Core
                                 BelongCorps = BelongForce.CapitalCorps;
                                 BelongCity = BelongForce.CapitalCity;
                                 CurrentCity = BelongCity;
-                                BelongCity.allPersons.Add(this);
+                                BelongCity.AddPerson(this);
                                 BelongCity.freePersons.Add(this);
                                 state = (int)PersonStateType.Normal;
                                 loyalty = 100;
@@ -1536,7 +1559,7 @@ namespace Sango.Core
                             }
                             x.BelongCity = becameCity;
                             x.CurrentCity = becameCity;
-                            becameCity.allPersons.Add(x);
+                            becameCity.AddPerson(x);
                             becameCity.freePersons.Add(x);
                             x.state = (int)PersonStateType.Normal;
                             x.loyalty = 100;
@@ -1592,8 +1615,9 @@ namespace Sango.Core
                     }
                     else
                     {
+                        City last = CurrentCity;
                         // 随机选择一个邻接城市
-                        SangoObjectList<City> neighborCities = BelongCity.NeighborList;
+                        SangoObjectList<City> neighborCities = CurrentCity.NeighborList;
                         if (neighborCities.Count > 0)
                         {
                             int randomIndex = GameRandom.Range(neighborCities.Count);
@@ -1606,7 +1630,7 @@ namespace Sango.Core
 
                                 // 重置停留时间
                                 stayTurnCount = 0;
-                        Sango.Log.Info($"@人才@在野武将{Name}从{BelongCity.Name}移动到{targetCity.Name}");
+                                Sango.Log.Info($"@人才@在野武将{Name}从{last.Name}移动到{targetCity.Name}");
                             }
                         }
                     }
@@ -1670,6 +1694,14 @@ namespace Sango.Core
 
         public void OnWillChangeToCity(City dest)
         {
+            if (BelongForce != dest.BelongForce && dest.BelongForce != null)
+            {
+                Sango.Log.Error($"{BelongForce?.Name}的{Name}尝试转到不同势力的城池!!<{dest.BelongForce?.Name}>");
+                BelongForce = null;
+                string name = BelongForce.Name;
+                Sango.Log.Info(name);
+            }
+
             // 如果转移主公到其他军团城市,需要解散目标军团
             if (IsGovernor && dest.BelongCorps != BelongCorps)
             {
@@ -1703,6 +1735,8 @@ namespace Sango.Core
 
         public void TransformToCity(City dest)
         {
+            if (dest == BelongCity) return;
+
             OnWillChangeToCity(dest);
 
             City lastCity = BelongCity;
@@ -1753,19 +1787,19 @@ namespace Sango.Core
         public City ChangeBelongCity(City city)
         {
             City last = null;
-            if (BelongCity != city)
+            if (BelongCity != city || BelongForce != city.BelongForce || BelongCorps != city.BelongCorps)
             {
                 last = BelongCity;
                 Sango.Log.Info($"*{BelongForce?.Name}的{Name} 改变所属城市 {BelongCity?.Name} => {city.Name}");
                 if (!IsWild)
                 {
                     BelongCity?.RemovePerson(this);
-                    city.AddPerson(this);
                     BelongCity = city;
                     if (BelongCorps != city.BelongCorps)
                         BelongCorps = city.BelongCorps;
                     if (BelongForce != city.BelongForce)
                         BelongForce = city.BelongForce;
+                    city.AddPerson(this);
                 }
                 else
                 {
@@ -1773,10 +1807,10 @@ namespace Sango.Core
                     // 规则1:在野武将必须是在野状态、有所在城市、且不能有部队,
                     // 因此这里显式清空势力/军团,避免"在野却仍隶属某势力"的残留
                     BelongCity?.RemoveWildPerson(this);
-                    city.AddWildPerson(this);
                     BelongCity = city;
                     BelongCorps = null;
                     BelongForce = null;
+                    city.AddWildPerson(this);
                 }
 
                 mBelongTroop?.OnPersonChangeCity(this, last, city);
@@ -1799,6 +1833,11 @@ namespace Sango.Core
             Sango.Log.Info($"[{BelongForce.Name}]<{Name}>登庸 -> {person.Name} 成功率:{probability}");
             //TODO: 招募成功概率计算
             bool success = GameRandom.Chance(probability);
+
+            // 挖角代价：对"在职于其它势力"的武将下手，成败都会拉低我方与其所属势力的关系。
+            // 放在分歧之前结算，保证舌战接管导致提前 return 时这笔代价也不会漏掉。
+            ApplyForeignPoachPenalty(person, targetCity, type, success);
+
             if (success)
             {
                 person.BeRecruit(this, targetCity);
@@ -1829,6 +1868,60 @@ namespace Sango.Core
         public bool JobRecruitPerson(Person person, int type)
         {
             return JobRecruitPerson(person, BelongCity, type);
+        }
+
+        /// <summary>
+        /// 挖角外交代价：登庸"在职于其它势力"的武将时，拉低我方与其所属势力的关系。
+        /// 目的：让"看戏等 AI 互喷把忠诚打低再去登庸"付出真实代价，而不是零成本白捡。
+        /// 判定范围严格限定在普通登庸（PersonRecruitType.Normal）且目标确有存活势力：
+        /// 在野武将、无势力俘虏、破城招降（OnCityFall）与灭亡势力招降（OnForceFall）都不受影响，
+        /// 保持原有的招降手感。成功按 recruitForeignRelationPenalty 扣，失败被察觉按 recruitForeignRelationPenaltyFailed 扣。
+        /// </summary>
+        /// <param name="target">被登庸的武将，可为空</param>
+        /// <param name="targetCity">登庸成功后目标加入的城，用于消息坐标兜底，可为空</param>
+        /// <param name="type">登庸类型，见 PersonRecruitType</param>
+        /// <param name="success">本次登庸是否成功</param>
+        private void ApplyForeignPoachPenalty(Person target, City targetCity, int type, bool success)
+        {
+            if (target == null || target == this)
+                return;
+            // 只有普通登庸（直接对敌方在职武将下手）才算挖角
+            if (type != (int)PersonRecruitType.Normal)
+                return;
+
+            Force myForce = BelongForce;
+            Force targetForce = target.BelongForce;
+            if (myForce == null || targetForce == null || targetForce == myForce)
+                return;
+            // 在野与俘虏不属于"别家编制"，只有仍在敌方势力内的在职武将才付代价
+            if (target.IsWild || target.IsPrisoner || !targetForce.IsAlive)
+                return;
+
+            ScenarioVariables variables = Scenario.Cur != null ? Scenario.Cur.Variables : null;
+            if (variables == null)
+                return;
+            int penalty = success ? variables.recruitForeignRelationPenalty : variables.recruitForeignRelationPenaltyFailed;
+            if (penalty <= 0)
+                return;
+
+            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
+            if (diplomacyManager == null)
+                return;
+
+            int before = diplomacyManager.GetRelation(myForce, targetForce);
+            diplomacyManager.ReduceRelation(myForce, targetForce, penalty);
+            int after = diplomacyManager.GetRelation(myForce, targetForce);
+
+            Sango.Log.Info($"@登庸@{myForce.Name} 挖角 {targetForce.Name} 的 {target.Name}，{(success ? "得手" : "未果且已暴露")}，双方关系由 {before} 降至 {after}（实扣 {before - after}）");
+
+            // 玩家自己挖角时给一条左下角消息，避免玩家看不到关系变化；AI 之间挖角不打扰玩家
+            if (myForce.IsPlayer)
+            {
+                City anchor = BelongCity ?? targetCity;
+                Sango.Core.Player.PlayerMessage.AddTextMessage(
+                    $"挖角{targetForce.ColorName}的{target.ColorName}{(success ? "得手" : "未果且已暴露")}，双方关系由 {before} 降至 {after}。",
+                    myForce, anchor != null ? anchor.x : 0, anchor != null ? anchor.y : 0);
+            }
         }
 
         public void BeRecruit(Person person, City targetCity)
@@ -2576,28 +2669,26 @@ namespace Sango.Core
                 BelongCity.allPersons.Remove(this);
                 BelongCity.freePersons.Remove(this);
                 BelongCity.wildPersons.Remove(this);
+                BelongCity.captiveList.Remove(this);
             }
 
-            if (wasPrisoner)
+            if (CurrentCity != null)
             {
-                // 俘虏死亡:必须从关押方的俘虏名单与势力的被俘名单中一并移除,
-                // 否则会出现"已经死亡的武将仍然挂在俘虏列表里"的残留。
-                // 注意:俘虏入狱时 BelongCity 已被置空,所在城市应取 CurrentCity
-                BelongForce?.BeCaptiveList.Remove(this);
-                if (mBelongTroop != null)
-                {
-                    mBelongTroop.captiveList.Remove(this);
-                }
-                else
-                {
-                    CurrentCity?.captiveList.Remove(this);
-                }
+                CurrentCity.allPersons.Remove(this);
+                CurrentCity.freePersons.Remove(this);
+                CurrentCity.wildPersons.Remove(this);
+                CurrentCity.captiveList.Remove(this);
             }
-            else if (mBelongTroop != null)
+
+            if (mBelongTroop != null)
             {
                 // 非俘虏必须从部队中正常摘除,保证部队主将/成员引用与武将的 mBelongTroop 双向一致
+                mBelongTroop.captiveList.Remove(this);
                 mBelongTroop.RemovePerson(this);
+
             }
+
+            BelongForce?.BeCaptiveList.Remove(this);
 
             // 死亡武将不再参与任何部队与建造
             mBelongTroop = null;
@@ -2611,7 +2702,7 @@ namespace Sango.Core
             // 真正的问题是 CityStrategyManager.IsCityStrategyInProgress 只按 missionType 判重、
             // 不查存活 —— 死掉的使者会永久挡住同一目标城的流言/二虎竞食，外交任务同样悬挂。
             ClearMission();
-        }   
+        }
 
         public int GetAttribute(int attrType)
         {

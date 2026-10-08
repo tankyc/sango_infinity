@@ -186,8 +186,8 @@ namespace Sango.EditorTools
             NewRawImage("lose", cardArea.transform, 0f, 188f, 256f, 128f).gameObject.SetActive(false);
 
             // ---- 左右两侧武将条 ----
-            BuildPersonBar(root, "left_top", "person_left", -600f, 400f, font);
-            BuildPersonBar(root, "right_top", "person_right", 600f, 400f, font);
+            BuildPersonBar(root, "left_top", "person_left", -600f, 400f, font, true);    // 左边那位：体力从右往左涨
+            BuildPersonBar(root, "right_top", "person_right", 600f, 400f, font, false);  // 右边那位：体力从左往右涨
 
             // ---- 左右两套手牌（每套 7 格 Toggle + ToggleGroup）----
             BuildHand(root, "lfetCommand", -400f, -300f, font);
@@ -197,7 +197,10 @@ namespace Sango.EditorTools
             GameObject blow = NewNode("BlowCounter_bg", root, 0f, 520f, 440f, 116f);
             GameObject counter = NewNode("GameObject", blow.transform, 0f, 0f, 440f, 116f);
             NewText("BlowCounter_ten", counter.transform, 0f, 20f, 200f, 60f, 48, TextAnchor.MiddleCenter, "", Color.white, font);
-            NewText("Blow", counter.transform, 90f, 20f, 60f, 60f, 48, TextAnchor.MiddleCenter, "", Color.white, font);
+            // 「Blow」在美术版里是**当前话题的名字图**（故事 / 道理 / 时节 三张），这里同样做成 Image 的占位
+            NewImage("Blow", counter.transform, 90f, 20f, 120f, 60f, new Color(1f, 1f, 1f, 0.35f));
+            // 话题特效（颜色随话题变：故事红 / 道理绿 / 时节天空蓝）
+            NewImage("eft", counter.transform, 0f, 0f, 128f, 128f, new Color(1f, 0.3f, 0.28f, 1f));
             // 话题特效：颜色随当前话题变（序号/合数用的是美术图，这里只占位）
             NewImage("eft", counter.transform, 0f, 0f, 128f, 128f, new Color(0.68f, 0.97f, 0.5f, 1f));
 
@@ -259,7 +262,8 @@ namespace Sango.EditorTools
         }
 
         /// <summary>一侧武将条：left_top/person_left、right_top/person_right</summary>
-        private static void BuildPersonBar(Transform root, string topName, string personName, float x, float y, Font font)
+        /// <param name="fromRight">体力条是否从右往左涨（左边那位 true、右边那位 false，两侧镜像）</param>
+        private static void BuildPersonBar(Transform root, string topName, string personName, float x, float y, Font font, bool fromRight)
         {
             GameObject top = NewNode(topName, root, x, y, 512f, 116f);
             GameObject person = NewNode(personName, top.transform, 0f, 0f, 512f, 116f);
@@ -269,8 +273,8 @@ namespace Sango.EditorTools
             NewText("Intelligence", person.transform, 0f, 0f, 200f, 30f, 20, TextAnchor.MiddleLeft, "智力 0", new Color(0.85f, 0.88f, 0.95f, 1f), font);
             NewText("Personality", person.transform, 0f, -30f, 200f, 30f, 20, TextAnchor.MiddleLeft, "—", new Color(0.85f, 0.88f, 0.95f, 1f), font);
 
-            // 体力条（hp/fill + hp/txt）与愤怒条（mp/fill + mp/txt）
-            MakeBar(person.transform, "hp", -60f, -0f, 260f, "体力", new Color(0.85f, 0.25f, 0.25f, 1f), font);
+            // 体力条（hp/fill + hp/txt）：水平、两侧镜像；愤怒条（mp/fill + mp/txt）：垂直由下往上
+            MakeBar(person.transform, "hp", -60f, -0f, 260f, "体力", new Color(0.85f, 0.25f, 0.25f, 1f), font, true, fromRight);
             GameObject mp = MakeBar(person.transform, "mp", -60f, -36f, 260f, "愤怒", new Color(0.95f, 0.7f, 0.2f, 1f), font);
 
             // 常驻气势（mp/eft_1）与满怒特效（mp/eft_3）：与美术版同名，由表现层按状态开关
@@ -311,16 +315,29 @@ namespace Sango.EditorTools
         }
 
         /// <summary>做一条进度条（bar/fill + bar/txt），供体力与愤怒共用</summary>
-        private static GameObject MakeBar(Transform parent, string barName, float x, float y, float width, string label, Color color, Font font)
+        /// <param name="horizontal">true = 水平填充（体力条）；false = 垂直由下往上（愤怒条）</param>
+        /// <param name="fromRight">水平填充时从右往左涨（左边那位）/ 从左往右涨（右边那位）</param>
+        private static GameObject MakeBar(Transform parent, string barName, float x, float y, float width,
+            string label, Color color, Font font, bool horizontal = false, bool fromRight = false)
         {
             GameObject bar = NewNode(barName, parent, x, y, width, 28f);
 
             Image fill = NewImage("fill", bar.transform, 0f, 0f, width, 28f, color);
             Stretch(fill.rectTransform);
-            // 填充统一"垂直、由下往上"（与美术版一致），运行时 SetBar 也会兜一遍
+            // 体力条水平（两侧镜像）、愤怒条垂直由下往上；运行时 SetHpBar / SetStressBar 也会兜一遍
             fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Vertical;
-            fill.fillOrigin = (int)Image.OriginVertical.Bottom;
+            if (horizontal)
+            {
+                fill.fillMethod = Image.FillMethod.Horizontal;
+                fill.fillOrigin = fromRight
+                    ? (int)Image.OriginHorizontal.Right
+                    : (int)Image.OriginHorizontal.Left;
+            }
+            else
+            {
+                fill.fillMethod = Image.FillMethod.Vertical;
+                fill.fillOrigin = (int)Image.OriginVertical.Bottom;
+            }
             fill.fillAmount = 1f;
 
             Text t = NewText("txt", bar.transform, 0f, 0f, width, 28f, 20, TextAnchor.MiddleCenter, label, Color.white, font);
@@ -367,6 +384,8 @@ namespace Sango.EditorTools
             Count(view.floatText, ref bound, ref total);
             Count(view.sceneImage, ref bound, ref total);
             Count(view.topicEft, ref bound, ref total);
+            Count(view.topicLabel, ref bound, ref total);
+            CountTopicSprites(view.topicLabelSprites, ref bound, ref total);
             Count(view.btnOut, ref bound, ref total);
             Count(view.outRoot, ref bound, ref total);
             Count(view.handRootLeft, ref bound, ref total);
@@ -467,6 +486,10 @@ namespace Sango.EditorTools
         /// <summary>卡牌套图所在目录（美术切好的单张 PNG）</summary>
         private const string SkinSpriteFolder = "Assets/Mods/Content/Assets/UI/AtlasTexture/4848-2";
 
+        /// <summary>话题名字图（合数区那张 Blow）所在目录与文件名，顺序与 Topic 一致：故事 / 道理 / 时节</summary>
+        private const string TopicLabelSpriteFolder = "Assets/Mods/Content/Assets/UI/AtlasTexture/4848-1";
+        private static readonly string[] TopicLabelSpriteNames = { "4848-1_15", "4848-1_16", "4848-1_14" };
+
         /// <summary>把美术给的卡牌套图填进表现层（缺图只报数，不报错）</summary>
         private static string AssignCardSkins(CardDebateView view)
         {
@@ -495,6 +518,14 @@ namespace Sango.EditorTools
             if (view.dialogueFrameExcited == null)
                 view.dialogueFrameExcited = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(SkinSpriteFolder + "/4848-2_0.png");
 
+            // 话题名字图（Blow）：story / logic / trend 三张，装进 prefab 后运行时就不用再兜底加载了
+            if (view.topicLabelSprites == null || view.topicLabelSprites.Length != TopicLabelSpriteNames.Length)
+                view.topicLabelSprites = new UnityEngine.Sprite[TopicLabelSpriteNames.Length];
+            for (int i = 0; i < TopicLabelSpriteNames.Length; i++)
+                if (view.topicLabelSprites[i] == null)
+                    view.topicLabelSprites[i] = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(
+                        TopicLabelSpriteFolder + "/" + TopicLabelSpriteNames[i] + ".png");
+
             return "卡牌套图 " + (SkinSpriteNames.Length - miss) + "/" + SkinSpriteNames.Length
                 + (miss > 0 ? "（缺 " + miss + " 张）" : "");
         }
@@ -505,6 +536,14 @@ namespace Sango.EditorTools
             UnityEngine.Sprite sprite = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(SkinSpriteFolder + "/" + name + ".png");
             if (sprite == null) miss++;
             return sprite;
+        }
+
+        /// <summary>统计话题名字图的绑定情况</summary>
+        private static void CountTopicSprites(UnityEngine.Sprite[] sprites, ref int bound, ref int total)
+        {
+            if (sprites == null) return;
+            for (int i = 0; i < sprites.Length; i++)
+                Count(sprites[i], ref bound, ref total);
         }
 
         /// <summary>统计卡牌套图的绑定情况</summary>

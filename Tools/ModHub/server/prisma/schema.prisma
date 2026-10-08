@@ -1,0 +1,192 @@
+// =============================================================
+// Sango ModHub 数据模型
+//
+// 说明（重要）：
+//   1. 当前 provider = sqlite（开发/冷启动）。切换到 MySQL 8 只需改 provider 并把
+//      DATABASE_URL 换成 mysql://... ，再 prisma migrate dev，无需改业务代码。
+//   2. SQLite 不支持 Prisma enum 与 @db.* 原生属性，因此枚举一律用 String，
+//      取值约定写在注释里；MySQL 下如需 VARCHAR(120)/TEXT，可再补 @db 属性。
+//   3. size 用 Int（约 2.1GB 上限）。上传限额本身 ≤ UPLOAD_MAX_ZIP_MB(默认200MB)，
+//      远低于 Int 上限；若日后放开限制，可在 MySQL 下改 BigInt。
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// 用户。若日后并入现有 8080 云存档服务，可直接复用其 users 表
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  password     String // bcrypt 散列
+  nickname     String?
+  avatar       String?
+  role         String    @default("user") // user | reviewer | admin
+  /// 是否被封禁：封禁后拒绝登录（网页与游戏内同一账号体系一并生效）
+  disabled     Boolean   @default(false)
+  /// 最后登录时间：管理后台用于识别长期不活跃账号
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  mods          Mod[]
+  comments      Comment[]
+  commentLikes  CommentLike[]
+  likes         Like[]
+  subscriptions Subscription[]
+  downloads     DownloadLog[]
+}
+
+/// 模组主记录（= Steam 的 Workshop Item）
+model Mod {
+  id          String   @id // = mod.info 的 id，同时是模组目录名
+  authorId    Int
+  author      User     @relation(fields: [authorId], references: [id])
+  name        String
+  summary     String   @default("") // 列表一句话简介
+  description String   @default("") // Markdown 正文
+  category    String   @default("mixed") // scenario|person|face|map|model|sound|skill|ui|mixed
+  posterUrl   String   @default("") // 封面访问路径（相对本站）
+  gameVersion String   @default("*") // 需要的游戏版本
+  status      String   @default("pending") // pending|approved|rejected|hidden
+
+  subscribers Int      @default(0) // ★ Steam 主指标
+  likes       Int      @default(0)
+  views       Int      @default(0)
+  downloads   Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  versions    ModVersion[]
+  contents    ModContent?
+  tags        ModTag[]
+  comments    Comment[]
+  likedBy     Like[]
+  subscriptions Subscription[]
+
+  @@index([status, category])
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+/// 模组版本（多版本留存，Change Notes 在这里）
+model ModVersion {
+  id          Int      @id @default(autoincrement())
+  modId       String
+  mod         Mod      @relation(fields: [modId], references: [id], onDelete: Cascade)
+  version     String // 1.2.0；服务端按此判定 update available
+  changelog   String   @default("") // ★ Change Notes
+  size        Int // zip 字节数
+  fileKey     String // 存储层对象 key（mods/{id}/{version}.zip）
+  fileHash    String // sha256：秒传与完整性校验
+  depends     String   @default("") // mod1;mod2 → Required Items
+  gameVersion String   @default("*")
+  downloads   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@unique([modId, version])
+  @@index([modId, createdAt])
+}
+
+/// 标签（多标签筛选）
+model ModTag {
+  modId String
+  mod   Mod    @relation(fields: [modId], references: [id], onDelete: Cascade)
+  tag   String
+
+  @@id([modId, tag])
+  @@index([tag])
+}
+
+/// 内容透视索引（X-Ray，M5 启用）
+model ModContent {
+  modId     String @id
+  mod       Mod    @relation(fields: [modId], references: [id], onDelete: Cascade)
+  scenarios String @default("[]") // [{id,name,year,forceCount,personCount}]
+  persons   String @default("[]") // [{id,name,command,strength,intelligence,politics,glamour,face}]
+  skills    String @default("[]")
+  buffs     String @default("[]")
+  files     String @default("[]") // 文件树 + 类型统计
+  override  String @default("[]") // 覆盖的 Data/Common 清单（二期冲突检测用）
+}
+
+/// 订阅关系：由网页点击或客户端 sync 上报写入
+model Subscription {
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modId        String
+  mod          Mod      @relation(fields: [modId], references: [id], onDelete: Cascade)
+  localVersion String? // 客户端上报：他现在装的版本 → 判定 update available
+  enabled      Boolean  @default(false) // 客户端上报：是否在 modList.txt 启用清单里
+  syncedAt     DateTime @updatedAt
+
+  @@id([userId, modId])
+  @@index([modId])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  modId     String
+  mod       Mod      @relation(fields: [modId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 只做两层：顶层留言 parentId 为 null，回复也挂在顶层留言下
+  parentId  Int?
+  content   String
+  createdAt DateTime @default(now())
+
+  /// 这条留言收到的点赞（计数用 _count.likes 实时统计）
+  likes     CommentLike[]
+
+  @@index([modId, createdAt])
+}
+
+/// 留言点赞
+///
+/// 用 (commentId, userId) 做联合主键 —— 重复点赞在数据库层面就不可能出现，
+/// 不需要"先查再写"（那中间有并发窗口）。
+///
+/// 点赞数用实时 count，而不是在 Comment 上放一个冗余计数列：用户被删除时
+/// 他的点赞行会级联清理，冗余计数却不会跟着减，久而久之就对不上；
+/// 留言量级很小，实时统计的开销可以忽略。
+model CommentLike {
+  commentId Int
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([commentId, userId])
+  @@index([userId])
+}
+
+model Like {
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modId     String
+  mod       Mod      @relation(fields: [modId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, modId])
+}
+
+/// 下载日志：统计与反刷（M5 的反刷/去重依赖同表）
+model DownloadLog {
+  id        Int      @id @default(autoincrement())
+  modId     String
+  version   String
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipHash    String
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([modId, createdAt])
+  @@index([ipHash, modId, version, createdAt])
+}

@@ -1152,9 +1152,11 @@ namespace Sango.Core
 
         /// <summary>
         /// 记仇窗口内 AI 报复性施计的概率（百分比）。
-        /// 对应原版 721 AI优化-流言.cpp 的"被流言后 bind 记仇 → 反施流言"，明显高于主动门
+        /// 对应原版 721 AI优化-流言.cpp 的"被流言后 bind 记仇 → 反施流言"，明显高于主动门。
+        /// 注意：报复凭据是一次性的（Force.TakeCityStrategyGrudge），同一笔账只会驱动一次报复；
+        /// 默认值由 60 下调到 35，配合一次性凭据掐断"AI 互相无限刷流言"的正反馈。
         /// </summary>
-        [JsonProperty] public int cityStrategyAIRevengeChance = 60;
+        [JsonProperty] public int cityStrategyAIRevengeChance = 35;
 
         /// <summary>
         /// 计略仇与二虎竞食挑拨凭据的有效期（回合，1 回合 = 1 旬）。
@@ -1169,9 +1171,56 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int cityStrategyAIRevengeMaxDays = 3;
 
+        /// <summary>
+        /// 流言忠诚下限闸门：流言无论如何都不能把一名武将的忠诚压到该值以下。
+        /// 配 0 表示不设闸门（回到"流言可以把整城忠诚打到底"的旧口径）。
+        /// 用途：遏制 AI 互相施放流言把整城忠诚打到可登庸线以下，让玩家"看戏等低再登庸"。
+        /// 只约束流言这一条链路，不干预换季掉忠与事件掉忠（那些仍可把忠诚压得更低）。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorLoyaltyFloor = 45;
+
+        /// <summary>
+        /// 同一座据点被流言命中后的免疫回合数：免疫窗内再对该据点施放流言，效果不落地。
+        /// 配 0 表示无冷却。记录落在 City.lastRumorTurn 上，按绝对回合数比较判定，玩家与 AI 同口径，
+        /// 防止同一座城被连续每回合反复刷忠诚。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorImmunityTurns = 5;
+
+        /// <summary>
+        /// AI 势力级流言配额：同一 AI 势力两次流言派遣之间至少间隔的回合数（0 表示不限制）。
+        /// 把"每个 AI 每回合都可能喷一次"降为"偶尔为之"，是掐断 AI 互相刷流言节奏的核心闸门之一。
+        /// 只约束流言，不影响二虎竞食。
+        /// </summary>
+        [JsonProperty] public int cityStrategyAIMaxRumorPerTurns = 3;
+
+        /// <summary>
+        /// "被流言动摇"标记的有效期（回合）：CityAI 据此识别需要优先褒奖的武将，把被喷掉的忠诚补回来。
+        /// 配 0 表示不启用 AI 褒奖响应。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorVictimRewardTurns = 6;
+
+        /// <summary>
+        /// 本城出现"被流言动摇"的武将时，AI 单回合褒奖人数在 AIConfig.rewardMaxPersonPerTurn 之上额外增加的人数。
+        /// 配 0 表示不追加；配额有效期见 cityStrategyRumorVictimRewardTurns。
+        /// </summary>
+        [JsonProperty] public int cityStrategyRumorVictimRewardBoost = 1;
+
         #endregion 城市计略系统参数
 
         #region 招募系统参数
+
+        /// <summary>
+        /// 挖角外交代价 - 成功：登庸"在职于其它势力"的武将得手时，对"我方与该势力"关系造成的下降值。
+        /// 配 0 表示不扣。用途：让"看戏等 AI 互喷把忠诚打低再去登庸"付出真实的外交代价，而不是零成本白捡。
+        /// 只对在职敌将生效：在野武将、无势力俘虏、破城/俘虏招降一律不受影响。
+        /// </summary>
+        [JsonProperty] public int recruitForeignRelationPenalty = 300;
+
+        /// <summary>
+        /// 挖角外交代价 - 失败被察觉：登庸"在职于其它势力"的武将失败时，对双方关系造成的下降值。
+        /// 比成功轻，配 0 表示不扣。用于表达"挖角意图暴露"的分量。
+        /// </summary>
+        [JsonProperty] public int recruitForeignRelationPenaltyFailed = 100;
 
         /// <summary>
         /// 招募系统 - 基础相性值

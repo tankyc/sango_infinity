@@ -1,0 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * 主题：暗色（游戏化）—— 深墨蓝底 + 鎏金强调色
+ * 参考设计系统：Dark Mode (OLED)，并对三国题材做金色强调调整
+ */
+@layer base {
+  :root {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 96%;
+    --card: 222 40% 8%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 44% 7%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 41 78% 56%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 33% 15%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 14%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 41 78% 56%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 96%;
+    --card: 222 40% 8%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 44% 7%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 41 78% 56%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 33% 15%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 14%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 41 78% 56%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  }
+
+  /* 全局滚动条样式 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(217 33% 22%);
+    border-radius: 9999px;
+    border: 2px solid hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(217 33% 30%);
+  }
+}
+
+@layer components {
+  /* 页面背景：深墨底色叠加细腻网格与光晕 */
+  .app-shell {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(60% 45% at 15% 0%, hsl(41 78% 56% / 0.08), transparent 70%),
+      radial-gradient(50% 40% at 100% 0%, hsl(217 70% 45% / 0.12), transparent 70%),
+      linear-gradient(hsl(217 33% 18% / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(217 33% 18% / 0.35) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+  }
+
+  /* 标题使用的衬线字体 */
+  .font-display {
+    font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+    letter-spacing: 0.04em;
+  }
+
+  /* 鎏金文字 */
+  .text-gold {
+    color: hsl(41 80% 62%);
+  }
+
+  /* 卡片悬停效果 */
+  .card-hover {
+    @apply transition-colors duration-200;
+  }
+
+  .card-hover:hover {
+    border-color: hsl(41 60% 40%);
+    background-color: hsl(222 40% 11%);
+  }
+}

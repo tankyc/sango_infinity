@@ -103,7 +103,57 @@
 *.py
 /Terrainxxxx
 /ttaa
-/Tools
+# /Tools 不再整体忽略：工具源码纳入版本控制，排除规则见文件末尾
 /$null
 /Data/scenario
 /docs/script/*
+
+################################################################################
+# Tools：工具源码纳入版本控制
+#
+# 原先这里是单独一行 `/Tools`，整个目录被忽略，于是 Tools 下所有工具
+# （场景编辑器 / 武将库网站 / ModHub / EffectEditor / 朱鹭导入…）都没有版本保护：
+# 不能 diff、不能回滚、误删即永久丢失。
+#
+# 现在放开目录本身，只按「依赖产物 / 资源 / 运行期数据 / 密钥」四类精确排除，
+# 其余源码全部入库。
+################################################################################
+
+# ── 依赖与构建产物（Tools 下合计约 850 MB）──
+Tools/**/node_modules/
+Tools/**/dist/
+Tools/**/build/
+
+# ── 头像资源：单套 110 MB，且存在 server/face 与 deploy/server/face 两份副本 ──
+Tools/**/face/
+
+# ── 运行期数据（管理员上传或自动生成，不属于源码）──
+Tools/**/backups/
+Tools/**/workspaces/
+Tools/**/templates/
+Tools/**/baseline/
+Tools/**/*.bak
+
+# ── 部署副本与暂存目录：内容是上面这些的重复拷贝 ──
+# （.*-deploy / .*-staging 是上传给云服务器用的打包目录，
+#   内容可由源码与构建命令重新生成，且其中的数据快照体积不小）
+Tools/**/deploy/
+Tools/.*-deploy/
+Tools/.*-staging/
+Tools/**/.newdeploy/
+
+# ── 密钥与凭据：绝不能入库 ──
+#   .token-secret  武将库网站的令牌签名密钥，泄露即可伪造任意用户（含超级管理员）的令牌
+#   accounts.json  账号文件，含密码散列与盐
+#   .env           数据库口令、R2 凭据等
+Tools/**/.env
+Tools/**/.env.*
+!Tools/**/.env.example
+Tools/**/.token-secret
+Tools/**/data/accounts.json
+
+# ── 日志与缓存 ──
+Tools/**/*.log
+Tools/**/*.err
+Tools/**/*.tsbuildinfo
+Tools/**/__pycache__/

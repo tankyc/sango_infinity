@@ -100,7 +100,7 @@ namespace Sango.Tools.UndoRedo
                         break;
                     
                     case EditType.Area:
-                        gridData.areaId = (byte)value;
+                        gridData.areaId = (ushort)value;
                         break;
                     
                     case EditType.Interior:

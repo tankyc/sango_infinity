@@ -686,6 +686,11 @@ namespace Sango.Core
                 Cell atkCell = tempCellList[i];
                 Troop beAtkTroop = atkCell.troop;
 
+                if(beAtkTroop != null && !beAtkTroop.IsAlive )
+                {
+                    continue;
+                }
+
                 // atk>0 常规伤害; 落雷等独立固定伤害计略 atk=0 也能进分支(由内部 skill.Id 特判走独立公式)
                 if ((atk > 0 || skill.Id == ThunderSkillId) && beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
                 {
@@ -706,6 +711,7 @@ namespace Sango.Core
                     if (isAssistAttack)
                         damage = damage * Troop.AssistAttackDamagePercent / 100;
 
+                    Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 使用<{this.Name}> 攻击 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}], 造成伤害:{damage}, 目标剩余兵力: {beAtkTroop.GetTroopsNum()}");
                     beAtkTroop.ChangeTroops(-damage, this, 0);
                     int ep = Math.Max(1, GainValueConfig.Rate(damage, GainValueConfig.Merit(GainPlace.CombatTroopDamage)));
                     if (!beAtkTroop.IsAlive)
@@ -717,7 +723,6 @@ namespace Sango.Core
 
                     // 传入击破结果，使精妙仅在击破敌方部队的本次结算中生效。
                     troop.GainEP(ep, !beAtkTroop.IsAlive);
-                    Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkTroop.BelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}], 造成伤害:{damage}, 目标剩余兵力: {beAtkTroop.GetTroopsNum()}");
                     // 反击
                     if (beAtkTroop.IsAlive && targetTroop == beAtkTroop && !beAtkTroop.HasControlBuff())
                     {
@@ -732,8 +737,8 @@ namespace Sango.Core
                             if (this.IsRange())
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalRangeSkill) / 100;
+                                Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 受到 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
                                 troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalRangeSkill, hitBack);
-                                Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkTroop.BelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
                                 ep = Math.Max(1, GainValueConfig.Rate(damage, GainValueConfig.Merit(GainPlace.CombatTroopDamage)));
                                 if (!troop.IsAlive) ep += GainValueConfig.Merit(GainPlace.CombatDestroyTroop);
                                 // 反击方仅在实际击破进攻部队时触发精妙。
@@ -742,8 +747,8 @@ namespace Sango.Core
                             else
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalSkill) / 100;
+                                Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 受到 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
                                 troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalSkill, hitBack);
-                                Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkTroop.BelongForce.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
                                 ep = Math.Max(1, GainValueConfig.Rate(damage, GainValueConfig.Merit(GainPlace.CombatTroopDamage)));
                                 if (!troop.IsAlive)
                                 {
@@ -786,7 +791,7 @@ namespace Sango.Core
                     {
                         City city = (City)beAtkBuildingBase;
                         int damage_troops = Troop.CalculateSkillDamageTroopOnCity(troop, city, this) * criticalFactor / 100;
-                        Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.BelongForce?.Name}的 [{beAtkBuildingBase.Name}], 造成兵力伤害:{damage_troops}, 目标剩余兵力: {city.troops}");
+                        Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.BelongForce?.Name}的 [{beAtkBuildingBase.Name}], 造成兵力伤害:{damage_troops}, 目标剩余兵力: {city.troops}");
                         overrideData = Tools.OverrideData<int>.Create(damage_troops);
                         GameEvent.OnSkillDamageBuildingTroops?.Invoke(this, beAtkBuildingBase, overrideData);
                         damage_troops = overrideData.ValueAndRecycle;
@@ -800,7 +805,7 @@ namespace Sango.Core
                             else if (city.IsPort())
                                 ep += GainValueConfig.Merit(GainPlace.CombatDestroyPort);
                             troop.GainEP(ep, false, true);      // 攻破城池 → 额外适性经验
-                            Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 攻破城池: <{beAtkBuildingBase.Name}>");
+                            Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 攻破城池: <{beAtkBuildingBase.Name}>");
                             city.OnFall(this);
                             return;
                         }
@@ -811,7 +816,7 @@ namespace Sango.Core
                     }
 
                     int damage = Troop.CalculateSkillDamage(troop, beAtkBuildingBase, this) * criticalFactor / 100;
-                    Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.BelongForce?.Name}的 [{beAtkBuildingBase.Name}], 造成耐久伤害:{damage}, 目标剩余耐久: {beAtkBuildingBase.durability}");
+                    Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 使用<{this.Name}> 攻击 {beAtkBuildingBase.BelongForce?.Name}的 [{beAtkBuildingBase.Name}], 造成耐久伤害:{damage}, 目标剩余耐久: {beAtkBuildingBase.durability}");
                     overrideData = Tools.OverrideData<int>.Create(damage);
                     GameEvent.OnSkillDamageBuildingDurability?.Invoke(this, beAtkBuildingBase, overrideData);
                     damage = overrideData.ValueAndRecycle;
@@ -820,7 +825,7 @@ namespace Sango.Core
                         int ep = damage + GainValueConfig.Merit(GainPlace.CombatDestroyBuilding);
                         troop.GainEP(ep);
 
-                        Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 破坏建筑: <{beAtkBuildingBase.Name}>");
+                        Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 破坏建筑: <{beAtkBuildingBase.Name}>");
                     }
                     else
                     {
@@ -840,8 +845,8 @@ namespace Sango.Core
                                 if (atkBack > 0)
                                 {
                                     int hitBackDmg = (int)System.Math.Ceiling(hitBack * Troop.CalculateSkillDamage(beAtkBuildingBase, troop, atkBack));
+                                    Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 受到 {beAtkBuildingBase.BelongForce?.Name}的[{beAtkBuildingBase.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
                                     troop.ChangeTroops(-hitBackDmg, beAtkBuildingBase, atkBack);
-                                    Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} - {troop.TroopType.Name}] 受到 {beAtkBuildingBase.BelongForce?.Name}的[{beAtkBuildingBase.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
                                 }
                             }
                         }

@@ -94,6 +94,13 @@ namespace Sango.Core
                 // 玩家自己排好的部署不能被自动调度打乱。
                 if (dest.BelongCorps != null && dest.BelongCorps == person.BelongForce.CapitalCorps)
                     return Deny("第一军团由玩家直辖");
+
+                // 港关驻军开关（军团委任）：关闭的军团，AI 不得把武将调到港 / 关。
+                // 编制层（DeploymentSolver）已按此开关把港 / 关岗位标记为"只许本城在岗"，
+                // 这里是**兜底** —— 防止将来出现绕过编制层的调用路径。
+                if ((dest.IsPort() || dest.IsGate())
+                    && dest.BelongCorps != null && !IsPortGateGarrisonEnabled(dest.BelongCorps))
+                    return Deny("目标军团的港关驻军已关闭");
             }
 
             // 目标城被围：不派人进去送死
@@ -180,6 +187,24 @@ namespace Sango.Core
             if (corps == null)
                 return false;
             return corps.GetAppointValue(Corps.AppointContentType.Person) != 1;
+        }
+
+        /// <summary>
+        /// 该军团的"港关驻军"开关是否开启（开启 = 允许 AI 人才调度把武将调动到港 / 关）。
+        ///
+        /// `Corps.AppointContentType.PortGateGarrison`：**0 = 开**（默认），**1 = 关**。
+        /// 与"人才"开关一样**只对玩家势力的军团有意义** —— AI 势力以势力为边界，不受此开关约束。
+        /// 编制层（<see cref="DeploymentSolver"/>）用它决定"港 / 关岗位要不要参与外调"，
+        /// 闸门（<see cref="CanTransfer(Person, City, DeploymentWeights, bool)"/>）用它做兜底，
+        /// 两处共用本方法，避免规则分裂。
+        /// </summary>
+        /// <param name="corps">军团</param>
+        /// <returns>是否允许向港关调动武将；军团为空时返回 false（按"关闭"处理，不冒进调人）</returns>
+        public static bool IsPortGateGarrisonEnabled(Corps corps)
+        {
+            if (corps == null)
+                return false;
+            return corps.GetAppointValue(Corps.AppointContentType.PortGateGarrison) != 1;
         }
 
         static Gate Deny(string reason)

@@ -63,13 +63,15 @@ using Sango.Core; namespace Sango.UI
                     Debug.LogError("[AllRecruit] 找不到 CityAllRecruit 系统!");
                     return;
                 }
-                // 残留清理：除"刚从选择界面返回"外，任何打开都视为新会话；
-                // 若系统残留上次的 target（未点"返回"而以其他方式退出 → 系统挂起恢复），
-                // 一律清空，避免"第一次选的武将到最后一次还出现"。
-                if (!selectionReturning && currentSystem.target.Count > 0)
+                // 新打开（非"刚从选择界面返回"）：直接自动推荐——
+                // 打开即按登庸概率从高到低推荐执行武将并填充列表，玩家无需先点
+                // "选择目标武将"按钮；自动推荐内部会清空挂起残留的旧 target，
+                // 避免"第一次选的武将到最后一次还出现"。
+                // 若为选择界面返回（selectionReturning），保留玩家刚手动选好的结果。
+                if (!selectionReturning)
                 {
-                    currentSystem.ClearSelection();
-                    Debug.Log("[AllRecruit v13] 清理挂起残留 target");
+                    currentSystem.AutoRecommend();
+                    Debug.Log("[AllRecruit v13] 打开自动推荐: " + currentSystem.target.Count);
                 }
                 selectionReturning = false;
                 TargetCity = currentSystem.TargetCity;
@@ -582,10 +584,29 @@ using Sango.Core; namespace Sango.UI
             UpdateItemStartIndex();
         }
 
-        /// <summary>按 startIndex 填充固定行（超出数据的行隐藏）</summary>
+        /// <summary>按 startIndex 填充固定行（超出数据的行隐藏；空数据时首行显示占位提示）</summary>
         void UpdateItemStartIndex()
         {
             int dataCount = currentSystem != null ? currentSystem.target.Count : 0;
+            if (dataCount <= 0)
+            {
+                // 没有推荐：第一行显示"暂无推荐登庸武将"，其余行隐藏
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    if (rows[i] == null)
+                        continue;
+                    if (i == 0)
+                    {
+                        rows[i].SetActive(true);
+                        ShowEmptyRow(rows[i]);
+                    }
+                    else
+                    {
+                        rows[i].SetActive(false);
+                    }
+                }
+                return;
+            }
             for (int i = 0; i < rows.Count; i++)
             {
                 GameObject row = rows[i];
@@ -598,7 +619,7 @@ using Sango.Core; namespace Sango.UI
                     Person dest = currentSystem.target[dataIndex];
                     Person action = dataIndex < currentSystem.personList.Count
                         ? currentSystem.personList[dataIndex] : null;
-                    FillRow(row, dest, action);
+                    FillRow(row, dest, action, dataIndex);
                 }
                 else
                 {
@@ -607,9 +628,45 @@ using Sango.Core; namespace Sango.UI
             }
         }
 
-        /// <summary>填充一行：目标武将(person_1) + 执行武将(person_2) + 属性(textField_9~12)</summary>
-        void FillRow(GameObject row, Person dest, Person action)
+        /// <summary>空推荐占位：清空行内容，首格显示"暂无推荐登庸武将"</summary>
+        void ShowEmptyRow(GameObject row)
         {
+            UIPersonItem[] items = row.GetComponentsInChildren<UIPersonItem>(true);
+            if (items.Length > 0)
+            {
+                items[0].SetPerson(null);
+                if (items[0].name != null)
+                {
+                    items[0].name.text = "暂无推荐登庸武将";
+                    items[0].name.color = new Color(0.72f, 0.72f, 0.72f, 1f);
+                }
+            }
+            if (items.Length > 1)
+            {
+                items[1].SetPerson(null);
+                if (items[1].name != null)
+                    items[1].name.text = "";
+            }
+            UITextField[] fields = row.GetComponentsInChildren<UITextField>(true);
+            for (int i = 0; i < fields.Length; i++)
+            {
+                if (fields[i] == null || fields[i].label == null)
+                    continue;
+                Text v = FindValueText(fields[i]);
+                if (v != null)
+                    v.text = "";
+                else
+                    fields[i].text = fields[i].label.text;
+            }
+        }
+
+        /// <summary>填充一行：目标武将(person_1) + 执行武将(person_2) + 属性(textField_9~12)
+        /// 目标名字前显示登庸概率（xx%），让玩家对成功率一目了然</summary>
+        void FillRow(GameObject row, Person dest, Person action, int dataIndex)
+        {
+            int prob = currentSystem != null && dataIndex >= 0
+                && dataIndex < currentSystem.recruitProbabilities.Count
+                ? currentSystem.recruitProbabilities[dataIndex] : 0;
             // 目标/执行武将条目（person_1 上的 UIPersonItem，[0]=目标 [1]=执行）
             UIPersonItem[] items = row.GetComponentsInChildren<UIPersonItem>(true);
             if (items.Length > 0)
@@ -620,8 +677,13 @@ using Sango.Core; namespace Sango.UI
                     if (currentSystem != null && currentSystem.IsTargetDispatched(dest)
                         && items[0].name != null)
                     {
-                        items[0].name.text = dest.Name + "（登庸中）";
+                        items[0].name.text = dest.Name + "（登庸中） " + prob + "%";
                         items[0].name.color = new Color(1f, 0.8f, 0.25f, 1f);
+                    }
+                    else if (items[0].name != null)
+                    {
+                        items[0].name.text = dest.Name + "  " + prob + "%";
+                        items[0].name.color = Color.white;
                     }
                 }
                 else

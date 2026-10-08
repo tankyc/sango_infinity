@@ -13,7 +13,9 @@ namespace Sango.Mod
 {
     public class ModManager : Singleton<ModManager>
     {
-        public string ModListInfoUrl = "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/mods/mod_list.txt";
+        //public string ModListInfoUrl = "https://gitcode.com/gametank/sango_infinity_mod_test/releases/download/mods/mod_list.txt";
+        public string ModListInfoUrl = "http://139.155.98.66/market/mod_list.txt";
+
         public static string EditModName { get; set; }
         public static string MOD_ROOT_DIR = "Mods";
         public static string[] DEFAULT_MODS = { };
@@ -281,6 +283,9 @@ namespace Sango.Mod
                                 mod.EntryAssembly = c_v[1].Trim();
                                 break;
                             case "author":
+                                mod.Author = c_v[1].Trim();
+                                break;
+                            case "auther":
                                 mod.Author = c_v[1].Trim();
                                 break;
                             case "size":

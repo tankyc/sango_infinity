@@ -39,8 +39,17 @@ namespace Sango.UI
 
         public void OnScenarioEditor()
         {
-            GameMedia.Instance.PlayButtonSfx();
-            ScenarioEdit.GetSystem<ScenarioEdit>().Push();
+            Application.OpenURL("http://139.155.98.66/scenario/");
+        }
+
+        public void OnWorkshop()
+        {
+            Application.OpenURL("http://139.155.98.66/browse");
+        }
+
+        public void OnPersonlib()
+        {
+            Application.OpenURL("http://139.155.98.66/personlib/");
         }
     }
 }

@@ -36,7 +36,7 @@ namespace Sango
         {
             StreamingAssetsPath = Application.streamingAssetsPath;
             PersistentDataPathPath = Application.persistentDataPath;
-            SaveRootPath = Application.persistentDataPath.Replace("\\", "/");
+            SaveRootPath = PersistentDataPathPath.Replace("\\", "/");
             ContentRootPath = SaveRootPath + "/Content";
             CustomEditRootPath = SaveRootPath + "/CustomEdit";
             ModRootPath = SaveRootPath + "/Mods";
@@ -154,7 +154,7 @@ namespace Sango
             return null;
         }
 
-        static public string FindFile(string [] fileName)
+        static public string FindFile(string[] fileName)
         {
             if (fileName == null)
                 return null;
@@ -162,7 +162,7 @@ namespace Sango
             string fullPath;
             for (int i = 0; i < searchPaths.Count; i++)
             {
-                for(int j = 0; j < fileName.Length; j++)
+                for (int j = 0; j < fileName.Length; j++)
                 {
                     fullPath = string.Format("{0}/{1}", searchPaths[i], fileName[j]);
                     if (System.IO.File.Exists(fullPath))

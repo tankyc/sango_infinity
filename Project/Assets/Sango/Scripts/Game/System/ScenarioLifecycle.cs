@@ -79,6 +79,9 @@ namespace Sango.Core
             // 7) AI 参数重新加载（含 Mod 覆盖），切剧本后才会按新剧本生效
             AIConfig.Reset();
 
+            // 7.5) 推荐出征队伍模板同理重新加载（含 Mod 覆盖）
+            RecommendedTroopTeams.Reset();
+
             // 8) 跨剧本累加器
             // 注意：类型要写全名——Sango.Core.Player 同时是命名空间，直接写 Player 会被当成命名空间
             Sango.Core.Player.Player player = GameSystem.GetSystem<Sango.Core.Player.Player>();

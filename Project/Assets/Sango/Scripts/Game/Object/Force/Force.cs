@@ -356,6 +356,13 @@ namespace Sango.Core
         public Dictionary<int, int> StrategyWarSeedTurn = new Dictionary<int, int>();
 
         /// <summary>
+        /// 本势力最近一次派遣流言使者的回合（Scenario.TurnCount）。小于等于 0 表示从未派遣。
+        /// 用途：势力级流言配额（ScenarioVariables.cityStrategyAIMaxRumorPerTurns），
+        /// 把"每个 AI 每回合都可能喷一次"降为"每若干回合才一次"，掐断 AI 互相刷流言的节奏。
+        /// </summary>
+        [JsonProperty] public int LastCityStrategyRumorTurn;
+
+        /// <summary>
         /// 记下一笔计略仇：本势力被 attacker 施了计略。
         /// </summary>
         /// <param name="attacker">施计方势力，为空时不记录</param>
@@ -364,6 +371,24 @@ namespace Sango.Core
             if (attacker == null || attacker == this)
                 return;
             CityStrategyGrudgeTurn[attacker.Id] = Scenario.Cur?.TurnCount ?? 0;
+        }
+
+        /// <summary>
+        /// 取走一笔计略仇：一次性消费，取过就不再驱动第二次报复。
+        /// 与 TakeStrategyWarSeed 同一思路，避免"你喷我、我喷你"的正反馈在后续每个 AI 回合里反复放大。
+        /// 陈旧凭据同样消费掉（返回 false），只保留"最近一次"被施计的有效期。
+        /// </summary>
+        /// <param name="attacker">施计方势力</param>
+        /// <returns>存在未消费且未过期的凭据返回 true</returns>
+        public bool TakeCityStrategyGrudge(Force attacker)
+        {
+            if (attacker == null)
+                return false;
+            if (!CityStrategyGrudgeTurn.TryGetValue(attacker.Id, out int turn))
+                return false;
+            CityStrategyGrudgeTurn.Remove(attacker.Id);
+            int keepTurns = Scenario.Cur?.Variables.cityStrategyGrudgeKeepTurns ?? 0;
+            return (Scenario.Cur?.TurnCount ?? 0) - turn <= keepTurns;
         }
 
         /// <summary>

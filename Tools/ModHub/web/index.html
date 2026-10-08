@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="cinder">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sango Infinity 创意工坊</title>
+    <!-- 站点图标：朱砂印章（与默认配色同源） -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta
+      name="description"
+      content="《Sango Infinity 三国·无限》模组工坊：浏览、订阅并发布剧本、武将、头像、语音、技能等模组。"
+    />
+    <!-- 移动端浏览器地址栏配色，跟随默认主题（玄夜朱砂的 ink-900） -->
+    <meta name="theme-color" content="#101014" />
+    <script>
+      // 首屏渲染前应用已保存的配色，避免刷新时闪一下默认色
+      (function () {
+        try {
+          var key = window.localStorage.getItem('sango_modhub_theme');
+          if (key) document.documentElement.dataset.theme = key;
+        } catch (e) {
+          /* 隐私模式下忽略 */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

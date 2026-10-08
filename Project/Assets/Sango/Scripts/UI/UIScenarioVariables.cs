@@ -346,6 +346,8 @@ namespace Sango.UI
             AddTitle("招募系统参数");
             AddNumberItem("可招募的忠诚度阈值", variables.recruitableLine, 0, 100, (v) => { variables.recruitableLine = v; });
             AddNumberItem("玩家招募加成", variables.playerRecruitAdd, 0, 100, (v) => { variables.playerRecruitAdd = v; });
+            AddNumberItem("挖角敌将关系惩罚(成功)", variables.recruitForeignRelationPenalty, 0, 5000, (v) => { variables.recruitForeignRelationPenalty = v; });
+            AddNumberItem("挖角敌将关系惩罚(失败)", variables.recruitForeignRelationPenaltyFailed, 0, 5000, (v) => { variables.recruitForeignRelationPenaltyFailed = v; });
             //AddNumberItem("基础相性值", variables.recruitBaseCompatibility, 0, 100, (v) => { variables.recruitBaseCompatibility = v; });
             //AddNumberItem("在野武将忠诚度基础值", variables.recruitWildLoyaltyBase, 0, 100, (v) => { variables.recruitWildLoyaltyBase = v; });
             //AddNumberItem("忠诚度难度系数", variables.recruitLoyaltyDifficultyFactor, 1, 20, (v) => { variables.recruitLoyaltyDifficultyFactor = v; });
@@ -378,6 +380,15 @@ namespace Sango.UI
             AddTitle("敌方部队发现参数");
             AddNumberItem("发现敌方新建部队的基础概率(万分比)", variables.discoverEnemyTroopBaseProbability, 0, 10000, (v) => { variables.discoverEnemyTroopBaseProbability = v; });
             AddNumberItem("军师智力对发现概率的影响系数(万分比)", variables.discoverEnemyTroopIntelligenceFactor, 0, 1000, (v) => { variables.discoverEnemyTroopIntelligenceFactor = v; });
+
+            // 城市计略（流言）参数：用于遏制 AI 互相刷流言把忠诚打到可登庸线以下
+            AddTitle("城市计略参数");
+            AddNumberItem("流言忠诚下限闸门", variables.cityStrategyRumorLoyaltyFloor, 0, 100, (v) => { variables.cityStrategyRumorLoyaltyFloor = v; });
+            AddNumberItem("同城流言冷却回合", variables.cityStrategyRumorImmunityTurns, 0, 36, (v) => { variables.cityStrategyRumorImmunityTurns = v; });
+            AddNumberItem("AI流言派遣间隔回合", variables.cityStrategyAIMaxRumorPerTurns, 0, 36, (v) => { variables.cityStrategyAIMaxRumorPerTurns = v; });
+            AddNumberItem("AI报复施计概率(%)", variables.cityStrategyAIRevengeChance, 0, 100, (v) => { variables.cityStrategyAIRevengeChance = v; });
+            AddNumberItem("AI褒奖响应标记回合", variables.cityStrategyRumorVictimRewardTurns, 0, 36, (v) => { variables.cityStrategyRumorVictimRewardTurns = v; });
+            AddNumberItem("AI褒奖响应追加人数", variables.cityStrategyRumorVictimRewardBoost, 0, 10, (v) => { variables.cityStrategyRumorVictimRewardBoost = v; });
 
             AddBigTitle("成长资源获取");
             AddGainTable("功绩", variables.meritGain, GainValueConfig.MeritPlaces);

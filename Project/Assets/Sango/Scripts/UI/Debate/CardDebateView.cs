@@ -20,8 +20,10 @@
  *   │   │   └── Dialogue                          该方的台词气泡（美术资源，本类不驱动）
  *   │   ├── CardCenter                           中央文字（原为 "VS"，现用于显示话题 / 胜负）
  *   │   └── win / lose                           结算大字（默认隐藏，结算时亮一个）
- *   ├── BlowCounter_bg                           顶部中央：合数计数器 + 双方出牌
- *   │   ├── GameObject/BlowCounter_ten, Blow      合数（美术资源，逻辑层未使用）
+ *   ├── BlowCounter_bg                           顶部中央：话题 + 合数计数器 + 双方出牌
+ *   │   ├── GameObject/BlowCounter_ten            合数计数器（美术图，逻辑层未使用）
+ *   │   ├── GameObject/Blow                       当前话题的名字图（故事 / 道理 / 时节 三张，换话题换图）
+ *   │   ├── GameObject/eft                        话题特效：颜色随话题变（故事红 / 道理绿 / 时节天空蓝）
  *   │   ├── card1 / card2                         双方本回合出的牌（只是个 Image：按牌的类型换高亮图）
  *   │   └── stopBtn/stopBtn                       「中止」按钮：**当前需求是全程不显示**，绑定时就收起
  *   ├── LogBg/log                                战报（功能已删除：绑定时把这个节点收起来，prefab 里可以删掉）
@@ -48,9 +50,14 @@
  * 手牌末格（Stance7）固定是「熟虑」（再考）：手牌里没有它也照样显示，
  * 能不能用（CanRethink）决定它显示成普通还是不可用（见 BuildSlotOrder / RefreshHand）。
  *
+ * 话题一致特效：手牌格与出牌展示格的 eft（4848-5_xx 序列帧）在"这张牌的话题 == 本回合话题"时点亮（激活即播），
+ * 并按该话题的颜色染色（故事红 / 道理绿 / 时节天蓝，与 Blow 那块的话题特效同一份配色，见 SetTopicEftColor）。
+ *
  * 收场节奏：ClosingPhase 进来先只说收场对白（赢家按追击/留情分两套、输家接一句），
  * 胜负大字与「退出」按钮要对白全播完才亮（见 UpdateResultReveal / RevealResult）；
  * 这段等待期靠 m_ResultOpen 继续把逻辑层挡在收场阶段，所以不会提前收场。
+ * 注意收场那一刻要把**中场没播完的台词队列清掉**（队列上限 3 条，不清的话收场词要排在几条旧台词后面，
+ * 玩家得干等好几秒才看到「退出」），另有 resultRevealTimeout 兜底：对白卡住也照样揭晓。
  *
  * 激昂（愤怒）表现（见 DebateAngerTrigger / RefreshAngerLook / ClearAngerLook）：
  *   · 爆发那一刻：该方卡面飘「激昂」大字 + 抖一下 + 按性格喊一句（胆小 / 冷静 / 刚胆 / 莽撞 各一套台词）；
@@ -76,14 +83,14 @@ namespace Sango.Core.Debate
 
         /// <summary>
         /// 卡牌套图类型。下标刻意与 <see cref="Sango.Core.Debate.Topic"/> 对齐：
-        ///   0 故事 / 1 道理 / 2 时势（美术叫"时节"）/ 3 特殊（再考、大喝、诡辩、无视、镇静、激昂）。
+        ///   0 故事 / 1 道理 / 2 时节（美术叫"时节"）/ 3 特殊（再考、大喝、诡辩、无视、镇静、激昂）。
         /// 这样「牌的套图下标」就是 GetCardTopic(牌)，话题牌不用额外映射，只有话术牌落到 3。
         /// </summary>
         public enum DebateCardSkinType
         {
             Story = 0,   // 故事
             Logic = 1,   // 道理
-            Trend = 2,   // 时势（时节）
+            Trend = 2,   // 时节（时节）
             Special = 3, // 特殊
         }
 
@@ -211,8 +218,30 @@ namespace Sango.Core.Debate
         /// <summary>话题特效（BlowCounter_bg/GameObject/eft）：颜色随当前话题变</summary>
         [Header("话题特效 / 收场")]
         public Image topicEft;
-        /// <summary>话题特效颜色，下标与 Topic 一致（故事 / 道理 / 时势）</summary>
-        public Color[] topicEftColors = NewTopicColors();
+        /// <summary>
+        /// 话题配色，下标与 Topic 一致：故事红 / 道理绿 / 时节天空蓝。
+        /// 用在两处：话题特效（BlowCounter_bg/GameObject/eft）与"话题一致"特效（手牌格 / 出牌展示格的 eft）。
+        /// 注意字段名改动过（原 topicEftColors）：prefab 里存过旧配色，旧值会盖住这里的默认值，
+        /// 换个字段名让旧数据失效、以这里的默认值为准。
+        /// </summary>
+        public Color[] topicColors = NewTopicColors();
+
+        /// <summary>
+        /// 合数区那张「当前话题」名字图（BlowCounter_bg/GameObject/Blow）：
+        /// 美术给的是三张名字图（故事 / 道理 / 时节），换话题就换图。
+        /// </summary>
+        public Image topicLabel;
+        /// <summary>话题名字图，下标与 Topic 一致；空着时按文件名兜底加载（见 TopicLabelSprite）</summary>
+        public UnityEngine.Sprite[] topicLabelSprites = NewTopicSprites();
+
+        /// <summary>话题名字图所在目录（与 GameRenderHelper.BuildingTypeIconPath 同一个约定）</summary>
+        public const string TopicSpriteFolder = "Assets/UI/AtlasTexture/4848-1";
+
+        /// <summary>
+        /// 各话题名字图的文件名，下标与 Topic 一致：
+        /// 0 故事 = 4848-1_15 / 1 道理 = 4848-1_16 / 2 时节（美术写"時節"）= 4848-1_14。
+        /// </summary>
+        private static readonly string[] s_topicLabelFiles = { "4848-1_15", "4848-1_16", "4848-1_14" };
 
         /// <summary>退出舌战的按钮（outBtn/img）</summary>
         public Button btnOut;
@@ -289,6 +318,13 @@ namespace Sango.Core.Debate
         /// <summary>激昂爆发的演出时长（秒）；这段里逻辑层会等</summary>
         public float angerBurstDuration = 0.9f;
 
+        /// <summary>
+        /// 收场对白最多等多久（秒）才揭晓结果。
+        /// 正常情况对白一播完就揭晓（收场词最多两条），这个只是兜底：
+        /// 万一某条台词卡住，到点也把「退出」按钮亮出来，别让玩家出不去。
+        /// </summary>
+        public float resultRevealTimeout = 6f;
+
         /// <summary>不可用（再考用尽）手牌的灰字</summary>
         public static readonly Color DisabledCardTint = new Color(0.55f, 0.55f, 0.55f, 1f);
 
@@ -316,6 +352,9 @@ namespace Sango.Core.Debate
         /// 这段等待期靠 m_ResultOpen 继续把逻辑层挡在收场阶段（见 DebateIsAnimating）。
         /// </summary>
         protected bool m_ResultWaiting;
+
+        /// <summary>等对白的兜底倒计时（秒）：到 0 就直接揭晓（见 resultRevealTimeout）</summary>
+        protected float m_ResultWaitTimer;
 
         /// <summary>消息框计数（> 0 时 DebateIsMessageBoxVisible 为 true）</summary>
         protected int m_LineCount;
@@ -588,6 +627,8 @@ namespace Sango.Core.Debate
             public Text label;
             /// <summary>与本回合话题一致的特效（eft）</summary>
             public GameObject fx;
+            /// <summary>特效上的图（eft 自己的 Image）：按牌的话题染色（故事红 / 道理绿 / 时节天蓝）</summary>
+            public Image fxImage;
             /// <summary>美术的选中覆盖图（sel）</summary>
             public GameObject sel;
 
@@ -603,6 +644,7 @@ namespace Sango.Core.Debate
 
                 Transform eft = FindDeep(root, "eft");
                 fx = eft != null ? eft.gameObject : null;
+                fxImage = eft != null ? eft.GetComponent<Image>() : null;
 
                 Transform selNode = FindDeep(root, "sel");
                 sel = selNode != null ? selNode.gameObject : null;
@@ -693,6 +735,8 @@ namespace Sango.Core.Debate
             public Text label;
             /// <summary>与本回合话题一致的特效（eft）</summary>
             public GameObject fx;
+            /// <summary>特效上的图（eft 自己的 Image）：按牌的话题染色</summary>
+            public Image fxImage;
             /// <summary>没出牌时的占位字</summary>
             public string emptyText = "--";
 
@@ -711,6 +755,7 @@ namespace Sango.Core.Debate
 
                 Transform eft = FindDeep(root, "eft");
                 fx = eft != null ? eft.gameObject : null;
+                fxImage = eft != null ? eft.GetComponent<Image>() : null;
 
                 // 美术在这两格上放了一张常亮的 sel 覆盖图，会把"按牌类型换的高亮底板"整个盖住，
                 // 于是看起来底板永远不换。这里收起来 —— 高亮底板统一由根节点换图表达（与手牌格同一套做法）。
@@ -744,6 +789,7 @@ namespace Sango.Core.Debate
             m_ResultOpen = false;
             m_ResultPending = 0;
             m_ResultWaiting = false;
+            m_ResultWaitTimer = 0f;
             m_LineCount = 0;
             m_PendingCard = -1;
             m_PendingCardTeam = -1;
@@ -845,6 +891,8 @@ namespace Sango.Core.Debate
 
             // ---- 话题特效 / 收场 ----
             topicEft = FindComponent<Image>(FindDeep(root, "BlowCounter_bg/GameObject/eft"));
+            // 当前话题的名字图（美术把合数区那张 Blow 做成了话题名的图）
+            topicLabel = FindComponent<Image>(FindDeep(root, "BlowCounter_bg/GameObject/Blow"));
             btnOut = FindAny<Button>(root, "outBtn/img", "outBtn", "BtnOut");
             outRoot = FindNodeObject(root, "outBtn");
             if (outRoot == null && btnOut != null && btnOut.transform.parent != null)
@@ -1012,6 +1060,7 @@ namespace Sango.Core.Debate
             m_ResultOpen = false;
             m_ResultWaiting = false;
             m_ResultPending = 0;
+            m_ResultWaitTimer = 0f;
             ClearResultStamp();
             SetOutVisible(false);
         }
@@ -1043,6 +1092,7 @@ namespace Sango.Core.Debate
             // 开场阶段不该有「退出」按钮，收场对白播完才亮（见 UpdateResultReveal）
             m_ResultPending = 0;
             m_ResultWaiting = false;
+            m_ResultWaitTimer = 0f;
             SetOutVisible(false);
             if (topicHint != null) topicHint.text = "与本回合话题一致的卡牌威力更高";
 
@@ -1088,7 +1138,13 @@ namespace Sango.Core.Debate
             // 结果和台词同时砸出来会互相抢，也对不上"最后一句说完才揭晓"的节奏。
             m_ResultPending = player < 0 || winner < 0 ? 0 : (winner == player ? 1 : -1);
             m_ResultWaiting = true;
+            m_ResultWaitTimer = Mathf.Max(1f, resultRevealTimeout);
             SetOutVisible(false);
+
+            // 把中场还没播完的台词丢掉再排收场词：
+            // 队列上限 3 条，收场前往往正压着几条"出牌 / 受击"的旧台词 —— 不丢的话收场词要排在它们后面，
+            // 玩家得干等五六秒才看到结果，运气不好还会因为队列满而被直接挤掉。
+            m_SayQueue.Clear();
             SayClosingLines(debate, winner, winType);
 
             ShowHint("舌战结束");
@@ -1460,8 +1516,8 @@ namespace Sango.Core.Debate
             if (topicText != null && !m_ResultOpen)
                 topicText.text = "话题：" + DebateGameSystem.TopicNameOf(m_Debate.CurrentTopic);
 
-            // 话题特效的颜色跟着当前话题走
-            RefreshTopicEft();
+            // 话题名字图与话题特效的颜色都跟着当前话题走
+            RefreshTopicLook();
 
             RefreshSide(leftSide);
             RefreshSide(rightSide);
@@ -1480,15 +1536,53 @@ namespace Sango.Core.Debate
             RefreshPlayedCard(playedCardRight);
         }
 
-        /// <summary>话题特效（BlowCounter_bg/GameObject/eft）随当前话题换色</summary>
-        protected virtual void RefreshTopicEft()
+        /// <summary>
+        /// 当前话题的整体表现（都在 BlowCounter_bg 那一块）：
+        ///   · 名字图（Blow）按话题换图 —— 故事 / 道理 / 时节 三张；
+        ///   · 话题特效（GameObject/eft）染成该话题的颜色 —— 故事红 / 道理绿 / 时节天空蓝。
+        /// </summary>
+        protected virtual void RefreshTopicLook()
         {
-            if (topicEft == null || m_Debate == null) return;
+            if (m_Debate == null) return;
 
             int topic = m_Debate.CurrentTopic;
-            if (topicEftColors == null || topic < 0 || topic >= topicEftColors.Length) return;
 
-            topicEft.color = topicEftColors[topic];
+            if (topicLabel != null)
+            {
+                UnityEngine.Sprite sprite = TopicLabelSprite(topic);
+                if (sprite != null && topicLabel.sprite != sprite) topicLabel.sprite = sprite;
+            }
+
+            if (topicEft != null && topicColors != null && topic >= 0 && topic < topicColors.Length)
+                topicEft.color = topicColors[topic];
+        }
+
+        /// <summary>
+        /// 取某个话题的名字图：优先用 Inspector / prefab 里配好的，没配就按文件名兜底加载
+        /// （与 GameRenderHelper 的图标加载同一个约定，取不到返回 null，调用方保持原图）。
+        /// </summary>
+        protected UnityEngine.Sprite TopicLabelSprite(int topic)
+        {
+            if (topic < 0 || topic >= (int)Topic.Topic_Max) return null;
+
+            if (topicLabelSprites != null && topic < topicLabelSprites.Length && topicLabelSprites[topic] != null)
+                return topicLabelSprites[topic];
+
+            if (topic >= s_topicLabelFiles.Length) return null;
+            return Sango.Loader.ObjectLoader.LoadObject<UnityEngine.Sprite>(
+                $"{TopicSpriteFolder}/{s_topicLabelFiles[topic]}.png");
+        }
+
+        /// <summary>
+        /// 给"话题一致"特效（eft）染上该话题的颜色：故事红 / 道理绿 / 时节天蓝（与话题特效同一份配色）。
+        /// topic 传 -1（空位 / 熟虑 / 话术牌）时用第一个颜色占位 —— 那些牌的特效本来就不会亮。
+        /// </summary>
+        protected void SetTopicEftColor(Image eft, int topic)
+        {
+            if (eft == null || topicColors == null || topicColors.Length == 0) return;
+
+            if (topic < 0 || topic >= topicColors.Length) topic = 0;
+            if (eft.color != topicColors[topic]) eft.color = topicColors[topic];
         }
 
         /// <summary>刷新一侧的武将与状态</summary>
@@ -1511,10 +1605,12 @@ namespace Sango.Core.Debate
                 side.personalityText.text = DebateGameSystem.PersonalityNameOf(m_Debate.CharacterGetPersonality(c));
             if (side.hpText != null)
                 side.hpText.text = c.hp + " / " + Debate.MaxHP;
-            SetBar(side.hpBar, c.hp, Debate.MaxHP);
+            // 体力条水平填充、两侧镜像：左边那位从右往左涨，右边那位从左往右涨
+            SetHpBar(side.hpBar, c.hp, Debate.MaxHP,
+                side.team == (int)DebateTeam.DebateTeam_Challenger);
             if (side.stressText != null)
                 side.stressText.text = c.stress + " / " + Debate.MaxStress;
-            SetBar(side.stressBar, c.stress, Debate.MaxStress);
+            SetStressBar(side.stressBar, c.stress, Debate.MaxStress);
             if (side.playedCard != null)
                 // 与出牌展示区同一个口径：对手的牌名要等双方都出完才亮（prefab 没这个节点时是空操作）
                 side.playedCard.text = "本回合：" + (CanShowCardName(side.team)
@@ -1589,8 +1685,6 @@ namespace Sango.Core.Debate
                 int card = cardIndex >= 0 && c.card != null && cardIndex < c.card.Length ? c.card[cardIndex] : -1;
                 bool hasCard = card >= 0;
 
-                if (cell.fx != null) cell.fx.SetActive(false);
-
                 // ---- 最后一格：固定显示「熟虑」（再考）----
                 // 手牌里没有它（这一合已经用过、或被移除）也照样显示，只是变"不可用"：
                 // 它在手牌里恒占一格（CharacterFillCards 每次都把 card[0] 设成再考），所以位置固定最直观。
@@ -1612,6 +1706,7 @@ namespace Sango.Core.Debate
                         cell.label.color = canUse ? DefaultTextColor(cell.label) : DisabledCardTint;
                     }
                     if (cell.toggle != null) cell.toggle.interactable = canUse && isPlayer;
+                    if (cell.fx != null) cell.fx.SetActive(false);   // 熟虑没有话题，不亮"话题一致"特效
                     continue;
                 }
 
@@ -1625,6 +1720,16 @@ namespace Sango.Core.Debate
                 else state = DebateCardState.Normal;
 
                 ApplyCardSkin(cell.frame, cell.toggle, card, state);
+
+                // 话题一致特效（eft）：这张牌的话题 == 本回合话题就亮（美术给的序列帧，激活即播），
+                // 并按牌的类别上色（故事红 / 道理绿 / 时节天蓝）。
+                // 对手那侧也照亮：他的类别本来就写在牌面上，亮不亮都不多给信息。
+                if (cell.fx != null)
+                {
+                    int cardTopic = hasCard ? Debate.GetCardTopic(card) : -1;
+                    SetTopicEftColor(cell.fxImage, cardTopic);
+                    cell.fx.SetActive(cardTopic >= 0 && cardTopic == debate.CurrentTopic);
+                }
 
                 // 牌名：玩家全名、对手只给类别（见 HandCardLabel）；空位写占位字
                 if (cell.label != null)
@@ -1765,7 +1870,12 @@ namespace Sango.Core.Debate
                 show.label.text = !has ? show.emptyText
                     : (CanShowCardName(show.team) ? CardDisplayName(card) : string.Empty);
 
-            if (show.fx != null) show.fx.SetActive(sameTopic);
+            if (show.fx != null)
+            {
+                // 与手牌格同一套：亮起来时按牌的类别上色（故事红 / 道理绿 / 时节天蓝）
+                SetTopicEftColor(show.fxImage, has ? Debate.GetCardTopic(card) : -1);
+                show.fx.SetActive(sameTopic);
+            }
         }
 
         /// <summary>
@@ -1793,10 +1903,23 @@ namespace Sango.Core.Debate
         }
 
         /// <summary>
-        /// 把一侧体力/愤怒条刷成"当前值 / 上限"。
-        /// 填充方式统一为**垂直、由下往上**（所有 fill 图都这么做，左右两侧一样）。
+        /// 刷体力条（hp/fill）：**水平**填充。
+        /// 两侧是镜像的：左边那位（挑战方）从右往左涨，右边那位从左往右涨 —— 由 fromRight 决定。
         /// </summary>
-        protected static void SetBar(Image bar, int value, int max)
+        protected static void SetHpBar(Image bar, int value, int max, bool fromRight)
+        {
+            if (bar == null) return;
+
+            bar.type = Image.Type.Filled;
+            bar.fillMethod = Image.FillMethod.Horizontal;
+            bar.fillOrigin = fromRight
+                ? (int)Image.OriginHorizontal.Right
+                : (int)Image.OriginHorizontal.Left;
+            bar.fillAmount = max > 0 ? Mathf.Clamp01((float)value / max) : 0f;
+        }
+
+        /// <summary>刷愤怒条（mp/fill）：**垂直**填充，由下往上（两侧一样）</summary>
+        protected static void SetStressBar(Image bar, int value, int max)
         {
             if (bar == null) return;
 
@@ -2184,15 +2307,23 @@ namespace Sango.Core.Debate
         /// <summary>队列最多压几条，防止战况太快时台词堆积</summary>
         protected const int MaxSayQueue = 3;
 
-        /// <summary>话题特效默认配色（下标与 Topic 一致：故事 / 道理 / 时势）</summary>
+        /// <summary>
+        /// 话题特效默认配色（下标与 Topic 一致）：故事红 / 道理绿 / 时节天空蓝。
+        /// </summary>
         protected static Color[] NewTopicColors()
         {
             return new Color[]
             {
-                new Color(0.68f, 0.97f, 0.50f, 1f),   // 故事
-                new Color(0.55f, 0.80f, 1.00f, 1f),   // 道理
-                new Color(1.00f, 0.78f, 0.45f, 1f),   // 时势
+                new Color(1.00f, 0.30f, 0.28f, 1f),   // 故事 —— 红
+                new Color(0.45f, 0.95f, 0.42f, 1f),   // 道理 —— 绿
+                new Color(0.42f, 0.80f, 1.00f, 1f),   // 时节 —— 天空蓝
             };
+        }
+
+        /// <summary>建话题名字图表（3 个话题各一格），保证 Inspector 里有位置可拖</summary>
+        protected static UnityEngine.Sprite[] NewTopicSprites()
+        {
+            return new UnityEngine.Sprite[(int)Topic.Topic_Max];
         }
 
         /// <summary>让某一方说一句台词：没人在说就立刻说，否则排队</summary>
@@ -2534,8 +2665,16 @@ namespace Sango.Core.Debate
         {
             if (!m_ResultWaiting) return;
 
-            // 还有人在说话、或还有台词排着队 → 再等等，结果不能抢在对白前面
-            if (AnyDialoguePlaying() || m_SayQueue.Count > 0) return;
+            // 还有人在说话、或还有台词排着队 → 再等等，结果不能抢在对白前面；
+            // 但最多等到 resultRevealTimeout：超时就把台词收了直接揭晓，别把玩家卡在出不去的地方。
+            if (AnyDialoguePlaying() || m_SayQueue.Count > 0)
+            {
+                m_ResultWaitTimer -= Time.deltaTime;
+                if (m_ResultWaitTimer > 0f) return;
+
+                Sango.Log.Warning("舌战界面：收场对白超时未播完，直接揭晓结果并收起台词。");
+                ClearDialogues();
+            }
 
             m_ResultWaiting = false;
             int stamp = m_ResultPending;

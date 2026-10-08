@@ -6,6 +6,7 @@
  */
 
 using Sango.Core.Action;
+using Sango.Loader;
 using Sango.Mod;
 using Sango.Render;
 using Sango.Tools;
@@ -193,6 +194,12 @@ namespace Sango.Core
         /// </summary>
         public override void Update()
         {
+            // 驱动资源缓存与资源池的生命周期检查
+            // 放在最前面，保证单挑/舌战等独占演出期间以及加载期间也能正常回收资源
+            float deltaTime = Time.deltaTime;
+            //AssetStore.Instance.CheckExpired();
+            //PoolManager.Instance.CheckExpired(deltaTime);
+
             if (!inited) return;
 
             // 单挑进行中时独占主循环，暂停剧本推进

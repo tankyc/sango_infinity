@@ -128,7 +128,17 @@ namespace Sango.Loader
                         }
                         catch (Exception e)
                         {
-                            Sango.Log.Warning(e);
+                            // 压缩失败通常是因为贴图宽高不满足压缩要求(宽高需能被4整除)
+                            // 这里将宽高缩放为距离最近且能被4整除的尺寸后重新压缩
+                            t = ResizeToSizeDivisibleByFour(t, loadData.textureNeedMipmap);
+                            try
+                            {
+                                t.Compress(true);
+                            }
+                            catch (Exception ex)
+                            {
+                                Sango.Log.Warning(ex);
+                            }
                         }
                     }
                     t.Apply(loadData.textureNeedMipmap, true);
@@ -186,7 +196,17 @@ namespace Sango.Loader
                     }
                     catch (Exception e)
                     {
-                        Sango.Log.Warning(e);
+                        // 压缩失败通常是因为贴图宽高不满足压缩要求(宽高需能被4整除)
+                        // 这里将宽高缩放为距离最近且能被4整除的尺寸后重新压缩
+                        texture = ResizeToSizeDivisibleByFour(texture, needMipmap);
+                        try
+                        {
+                            texture.Compress(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            Sango.Log.Warning(ex);
+                        }
                     }
                 }
                 texture.Apply(needMipmap, true);
@@ -194,6 +214,49 @@ namespace Sango.Loader
                 return obj;
             }
             return obj;
+        }
+
+        /// <summary>
+        /// 将贴图的宽高缩放为距离最近且能被4整除的尺寸
+        /// 贴图压缩(如DXT)要求宽高必须是4的倍数，否则压缩会抛出异常
+        /// </summary>
+        /// <param name="texture">原始贴图</param>
+        /// <param name="needMipmap">是否需要生成Mipmap</param>
+        /// <returns>缩放后的新贴图；若原始尺寸已满足要求则返回原贴图</returns>
+        private static Texture2D ResizeToSizeDivisibleByFour(Texture2D texture, bool needMipmap)
+        {
+            // 原始贴图为空时直接返回
+            if (texture == null) return null;
+
+            // 计算距离原始宽高最近且能被4整除的尺寸，最小尺寸不低于4
+            int width = Mathf.Max(4, Mathf.RoundToInt(texture.width / 4f) * 4);
+            int height = Mathf.Max(4, Mathf.RoundToInt(texture.height / 4f) * 4);
+
+            // 尺寸未发生变化，说明原本就满足要求，无需缩放
+            if (width == texture.width && height == texture.height)
+                return texture;
+
+            // 创建目标尺寸的新贴图
+            Texture2D resized = new Texture2D(width, height, TextureFormat.ARGB32, needMipmap);
+            Color[] pixels = new Color[width * height];
+
+            // 逐像素使用双线性采样，保证缩放后的图片质量
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    // 取像素中心点进行采样，避免缩放时产生边缘偏移
+                    pixels[y * width + x] = texture.GetPixelBilinear((x + 0.5f) / width, (y + 0.5f) / height);
+                }
+            }
+
+            resized.SetPixels(pixels);
+            resized.Apply(needMipmap, false);
+
+            // 释放原始贴图，避免内存泄漏
+            UnityTools.DeleteObjImmediate(texture);
+
+            return resized;
         }
     }
 }

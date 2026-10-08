@@ -139,26 +139,23 @@ namespace Sango.Core.Player
             if (target.Count > 0)
             {
                 counsellorRecommendList.Clear();
-
+                Person recruter = null;
+                int lastPro = 0;
                 for (int i = 0; i < TargetCity.freePersons.Count; i++)
                 {
                     Person person = TargetCity.freePersons[i];
                     int probability = GameFormula.Instance.RecruitPersonProbability(person, target[0], 0);
-                    if (probability >= 30)
+                    if (probability >= 30 && probability > lastPro)
                     {
-                        counsellorRecommendList.Add(person);
+                        lastPro = probability;
+                        recruter = person;
+                        //counsellorRecommendList.Add(person);
                     }
                 }
 
-                counsellorRecommendList.Sort((a, b) =>
+                if (recruter != null)
                 {
-                    int probA = GameFormula.Instance.RecruitPersonProbability(a, target[0], 0);
-                    int probB = GameFormula.Instance.RecruitPersonProbability(b, target[0], 0);
-                    return probB.CompareTo(probA);
-                });
-
-                if (counsellorRecommendList.Count > 0)
-                {
+                    counsellorRecommendList.Add(recruter);
                     personList.Add(counsellorRecommendList[0]);
                 }
             }

@@ -24,6 +24,8 @@ namespace Sango.Core
             GameMedia.Instance.Load();
             SkillConfigManager.Instance.Init();
             GameCustomEdit.Instance.Init();
+            // 玩家自建出征队伍（跨存档保留，与自建武将同目录）
+            CustomTroopTeams.Init();
         }
 
 
