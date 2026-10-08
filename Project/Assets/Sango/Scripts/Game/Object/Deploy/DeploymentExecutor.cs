@@ -114,10 +114,17 @@ namespace Sango.Core
                 int floor;
                 if (isPortGate)
                     floor = weights.minPortGateGuard;
-                else if (from.IsBorderCity)
-                    floor = weights.minMilitarySeatAtBorder;
                 else
-                    floor = CityEstablishment.MinRearSeats(from, weights);   // 后方城：1~5（运输 + 资源积累保底）
+                {
+                    if (from.IsBorderCity)
+                        floor = weights.minMilitarySeatAtBorder;
+                    else
+                        floor = CityEstablishment.MinRearSeats(from, weights);  // 后方城：1~5（运输 + 资源积累保底）
+                    // 【非港关城市最低人数】不管上面算出多少，都市都不得被抽到低于 minCityPersons(3)
+                    // —— 一座 0~2 人的城连征兵 / 运输 / 内政都开不了工，比"前线缺人"更糟。
+                    if (floor < weights.minCityPersons)
+                        floor = weights.minCityPersons;
+                }
                 // 【口径修正 · 关键】保底必须按"**可用（空闲）**人数"算，而不是户口人数。
                 // 户口（allPersons）里可能大多数人已在部队 / 正在执行内政任务，于是出现
                 // "在册 10 人、却一个都派不出运输队" → 表现就是"后方被调到 0、资源满了运不出去"。

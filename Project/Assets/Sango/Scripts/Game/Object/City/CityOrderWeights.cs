@@ -259,6 +259,20 @@ namespace Sango.Core
         public int crisisSecurityBias = 100;
         /// <summary>兵装枯竭：造兵装命令加成</summary>
         public int crisisWeaponBias = 80;
+
+        /// <summary>
+        /// 兵装待产：守军**兵装覆盖率**低于 <see cref="weaponCoverRatio"/> 时，造兵装命令按缺口比例
+        /// 追加的抬升（缺口比例 1.0 —— 例如"五万兵、零兵装"—— 时加满这个值）。
+        ///
+        /// 为什么需要额外一档：城池命令是按最终分数排序后**依次执行**的，而每条命令都要吃本城的
+        /// 空闲武将 —— 排在后面等于拿到"人已经被用光"的空池子。兵装枯竭原本只有
+        /// <see cref="crisisWeaponBias"/>(80) + <c>scoreWeaponCriticalBonus</c>(50)，
+        /// 而"人才优先"给搜索 / 登用的抬升是 600 / 700，于是兵装生产长期轮不到人手，
+        /// 城里堆着几万兵却一件兵装都没有（拉不出部队，还在白吃粮）。
+        /// 加上这一档后，缺口大的城会把造兵装排到最前面；缺口不大的城维持原样、不去抢人才优先级。
+        /// 配 0 关闭。
+        /// </summary>
+        public int armsDemandTopBias = 560;
         /// <summary>和平发展：内政 / 运输 / 科技加成</summary>
         public int peaceInternalBias = 30;
         /// <summary>和平发展：军事命令降权</summary>

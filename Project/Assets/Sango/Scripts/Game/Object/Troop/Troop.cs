@@ -260,12 +260,13 @@ namespace Sango.Core
         public int MaxMorale => BelongCity?.MaxMorale ?? 100;
 
         /// <summary>
-        /// 上次因"兄弟同心"推满气力的回合数;
-        /// 用于限制同一对兄弟部队每回合只结算一次。
-        /// 初始值必须为-1: 剧本的 turnCount 从0开始, 用默认的0会让第1回合永远无法触发
+        /// 上次因"兄弟同心"推满气力的**季节编号**（见 <see cref="Scenario.SeasonStamp"/>）。
+        /// 用于限制同一组兄弟部队每季度只结算一次（一年 4 季，每季 9 回合）。
+        /// 初始值取 -1 而非 0：季节编号 = 年 × 4 + 季序号，实际永远大于等于 0，
+        /// 因此开局第一次必然放行（若默认 0，第 0 年的第 1 季会被永久挡住）。
         /// </summary>
         [JsonProperty]
-        public int swornCheerTurn = -1;
+        public int swornCheerSeason = -1;
 
         /// <summary>
         /// "兄弟同心"对白是否正在进行、气力尚未真正加满的临时标记(不存档)。
@@ -2156,9 +2157,9 @@ namespace Sango.Core
         /// 兄弟同心: 部队移动完成后搜索相邻格子的部队,
         /// 把所有"主将与自己同属一个兄弟组"的友军部队全部找出来(不止一队),
         /// 做一次概率检定, 成功则自己与这些兄弟部队的气力一起推满;
-        /// 同一组兄弟部队每回合只结算一次
+        /// 同一组兄弟部队每季度只结算一次
         /// </summary>
-        public const int SwornCheerChance = 30;
+        public const int SwornCheerChance = 10;
 
         /// <summary>
         /// 执行一次"兄弟同心"检查
@@ -2170,9 +2171,9 @@ namespace Sango.Core
             // 主将不属于任何兄弟组(剧本原设兄弟/仲介结义)时直接跳过
             if (Leader == null || !Leader.HasSwornBrother) return false;
 
-            int turn = Scenario.Cur.TurnCount;
-            // 本回合已经结算过
-            if (swornCheerTurn == turn) return false;
+            int season = Scenario.Cur.SeasonStamp;
+            // 本季度已经结算过（每季最多一次，避免一季之内反复把气力推满）
+            if (swornCheerSeason == season) return false;
 
             // 先收齐相邻格里全部同组兄弟部队, 不能只找到第一个就算完
             List<Troop> brothers = new List<Troop>();
@@ -2180,7 +2181,7 @@ namespace Sango.Core
             for (int i = 0, count = neighbors.Length; i < count; ++i)
             {
                 Troop other = neighbors[i] == null ? null : neighbors[i].troop;
-                if (CanCheerWith(other, turn))
+                if (CanCheerWith(other, season))
                     brothers.Add(other);
             }
 
@@ -2192,10 +2193,10 @@ namespace Sango.Core
             // 整组只做一次判定, 过了就全体推满
             if (!GameRandom.Chance(SwornCheerChance)) return false;
 
-            // 先记下回合, 免得对白期间又有兄弟部队靠过来重复排队
-            swornCheerTurn = turn;
+            // 先记下季节, 免得对白期间又有兄弟部队靠过来重复排队（本季度内不再结算）
+            swornCheerSeason = season;
             for (int i = 0; i < brothers.Count; i++)
-                brothers[i].swornCheerTurn = turn;
+                brothers[i].swornCheerSeason = season;
 
             // 同步先挂起即将发起的攻击, 保证"先提气、再攻击"(加气可能在对白结束后才落地)
             MarkCheerPending(brothers, true);
@@ -2296,11 +2297,13 @@ namespace Sango.Core
         /// <summary>
         /// 相邻格子的这支部队算不算"可以一起受激励的兄弟部队"
         /// </summary>
-        bool CanCheerWith(Troop other, int turn)
+        /// <param name="other">相邻格子上的部队</param>
+        /// <param name="season">当前季节编号，本季已结算过的部队不再参与</param>
+        bool CanCheerWith(Troop other, int season)
         {
             if (other == null || other == this) return false;
             if (!other.IsAlive || other.Leader == null) return false;
-            if (other.swornCheerTurn == turn) return false;
+            if (other.swornCheerSeason == season) return false;
 
             // 友军: 同势力或同盟
             if (!IsSameForce(other) && !IsAlliance(other)) return false;

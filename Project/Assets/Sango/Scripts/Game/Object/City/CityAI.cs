@@ -20,6 +20,26 @@ namespace Sango.Core
             if (city.BelongForce == null)
                 return true;
 
+            // ---------- 零、军团委任 · 禁止攻击 ----------
+            // 【本次修复】原先的"禁止攻击"判定只写在 DecideAttackTarget（只有"无军事任务"时才走到），
+            // 于是上一回合留下的 TroopOccupyCity 任务会从下面的"持续派遣部队"分支继续派兵攻城
+            // —— 玩家看到的就是"设了禁止攻击，部队还是被派出去打别的城市"。
+            //
+            // 现在在入口处做两件事：
+            //   ① 撤掉"向外进攻"的城市级任务（守城/回援用的 TroopProtectCity 保留）；
+            //   ② 召回已派到野外的各类进攻性用兵：攻城 / 跨城支援 / 战场补给队 / 前线工程队
+            //      （见 RecallOffensiveTroops）。
+            // 防御性用兵不受影响：守城、回援、驱逐侵入领地的敌军交给下面各分支照常执行。
+            if (IsAttackForbidden(city))
+            {
+                if (city.TroopMissionType == MissionType.TroopOccupyCity)
+                {
+                    city.TroopMissionType = MissionType.None;
+                    city.TroopMissionTargetId = 0;
+                }
+                RecallOffensiveTroops(city, scenario);
+            }
+
             // ---------- 一、防守优先 ----------
             // 【修复】本城受到直接威胁时,无论当前是否正在进攻他城,都必须优先转为防守。
             // 原逻辑仅在 TroopMissionType == None 时才检查防守,导致"正在进攻他城"的城市
@@ -57,7 +77,8 @@ namespace Sango.Core
             }
 
             // 3.3 优先夺回被敌方占领的本城下属港关(不受"仅边境城市进攻"的限制)
-            City prioritySubCity = FindPrioritySubCity(city);
+            // 禁止攻击时跳过：它同样是"派兵去攻打一座被敌方占据的据点"，属向外用兵。
+            City prioritySubCity = IsAttackForbidden(city) ? null : FindPrioritySubCity(city);
             if (prioritySubCity != null)
             {
                 city.TroopMissionType = MissionType.TroopOccupyCity;
@@ -115,6 +136,11 @@ namespace Sango.Core
         /// <param name="scenario">场景对象</param>
         static void DispatchOccupyTroop(City city, Scenario scenario)
         {
+            // 【兜底】军团委任 · 禁止攻击：本方法是"持续派遣"分支唯一的出城攻击出口，
+            // 任务若被别的路径重新设回来，这里再挡一道，保证"禁止攻击"不会被绕过。
+            if (IsAttackForbidden(city))
+                return;
+
             City targetCity = scenario.citySet.Get(city.TroopMissionTargetId);
             if (targetCity == null)
                 return;
@@ -287,6 +313,91 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 【军团委任 · 禁止攻击】召回本城一切"在外用兵"的部队回城待命。
+        ///
+        /// 覆盖已派到野外的四类进攻性用兵：
+        ///   · 攻城部队（TroopOccupyCity）；
+        ///   · 跨城支援部队（TroopProtectCity 且协防目标不是本城）；
+        ///   · 战场补给队（TroopSupplyTroop）—— 随队携带的粮草 / 兵力 / 兵装
+        ///     会在部队进城时由 <c>Troop.EnterCity</c> 原样返还，不会丢失；
+        ///   · 前线工程队（TroopBuildBuilding / TroopMovetoBuild，且建址不在本城辖区内）。
+        ///
+        /// **不召回防御性部队**：守城（TroopProtectCity 目标为本城）、
+        /// 驱逐侵入领地的敌军（TroopDestroyTroop）、辖区内的本地建造工程队一律不动。
+        ///
+        /// 统一改派为 TroopProtectCity(本城)：本城有敌情时它就是守军；无敌情时
+        /// <see cref="TroopProtectCity"/> 的 Prepare 会自行转成返城并进城，与既有召回口径一致。
+        /// 改派后这些部队不再命中本方法的判定，因此重复调用是幂等的、不会刷日志。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="scenario">场景对象</param>
+        static void RecallOffensiveTroops(City city, Scenario scenario)
+        {
+            for (int i = 0; i < scenario.troopsSet.Count; ++i)
+            {
+                Troop troop = scenario.troopsSet[i];
+                if (troop == null || !troop.IsAlive)
+                    continue;
+                if (troop.BelongCity != city)
+                    continue;
+                if (!IsOutwardExpedition(city, troop))
+                    continue;
+
+                troop.SetMission(MissionType.TroopProtectCity, city.Id);
+                troop.NeedPrepareMission();
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.Name}：军团委任已禁止攻击，召回{troop.Leader?.Name}的部队回城待命!");
+            }
+        }
+
+        /// <summary>
+        /// 该部队当前是否在"向外用兵"（禁止攻击时需要召回的口径）。
+        /// 防御性任务（守本城、驱逐侵入领地的敌军）不算；辖区内的本地建造工程队也不算。
+        /// </summary>
+        /// <param name="city">本城（部队的归属城）</param>
+        /// <param name="troop">部队</param>
+        /// <returns>属向外用兵返回 true</returns>
+        static bool IsOutwardExpedition(City city, Troop troop)
+        {
+            switch ((MissionType)troop.missionType)
+            {
+                case MissionType.TroopOccupyCity:
+                    return true;
+
+                case MissionType.TroopProtectCity:
+                    // 协防目标不是本城 = 跨城支援（召回）；目标就是本城 = 守城（保留）
+                    return troop.missionTarget != city.Id;
+
+                case MissionType.TroopSupplyTroop:
+                    return true;
+
+                case MissionType.TroopBuildBuilding:
+                case MissionType.TroopMovetoBuild:
+                    // 只有"建址不在本城辖区"的前线工程队才召回；
+                    // 辖区内的本地建造是这座城自己的建设，不算对外用兵
+                    return !IsBuildSiteInOwnArea(city, troop);
+
+                default:
+                    // 驱逐侵入领地的敌军、返城、待命等一律不动
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// 工程队的建址是否落在本城辖区内（<c>areaCellList</c>）。
+        /// 建址未知（<c>missionTargetCell</c> 为空）时按"辖区内"处理，避免把本地建造误召回。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="troop">工程队</param>
+        /// <returns>建址在本城辖区内（或无从判断）返回 true</returns>
+        static bool IsBuildSiteInOwnArea(City city, Troop troop)
+        {
+            Cell site = troop.missionTargetCell;
+            if (site == null || city.areaCellList == null)
+                return true;
+            return city.areaCellList.Contains(site);
+        }
+
+        /// <summary>
         /// 【新增】查找需要驱逐的威胁部队。
         /// 威胁部队 = 曾攻击本势力(城池 / 建筑 / 部队)的敌方部队;
         /// 只要其仍存活、位于本势力领地内、且靠近本城,就需要派兵歼灭。
@@ -387,6 +498,11 @@ namespace Sango.Core
         public static bool AIReinforce(City city, Scenario scenario)
         {
             if (city.BelongForce == null)
+                return true;
+
+            // 军团委任 · 禁止攻击:跨城支援属"向外用兵",一并禁止。
+            // 注意本城自己挨打时的守城不在这里 —— 那由 AIAttack 的"防守优先"分支负责,不受影响。
+            if (IsAttackForbidden(city))
                 return true;
 
             // 本城自身已处于军事任务中(进攻或防守),不对外支援
@@ -501,7 +617,8 @@ namespace Sango.Core
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
                 return true;
 
-            if (city.freePersons.Count == 0)
+            int freeCount = city.freePersons.Count;
+            if (freeCount == 0)
                 return true;
 
             // 【优化】原先为 (有在野 && Chance(80)) || Chance(20)，两个随机条件叠加，
@@ -519,6 +636,10 @@ namespace Sango.Core
                 if (recommandList != null && recommandList.Length > 0)
                 {
                     city.JobSearching(recommandList.ToArray());
+                }
+                else
+                {
+                    city.JobSearching(city.freePersons.GetRange(0, Math.Min(city.freePersons.Count, invisible)).ToArray());
                 }
             }
             return true;
@@ -658,292 +779,35 @@ namespace Sango.Core
             return true;
         }
 
-        /// <summary>
-        /// AI物资运输逻辑
-        /// </summary>
-        /// <param name="city">城市对象</param>
-        /// <param name="scenario">场景对象</param>
-        /// <returns>是否完成</returns>
-        public static bool AITransfrom(City city, Scenario scenario)
-        {
-            if (city.IsBorderCity) return true;
+        // ==================== 城池运输已移交资源调度 ====================
+        // 原先的 AITransfrom（非边境城 → 一环邻城，按本城库存比例发货）与
+        // AITransfromToBelongCity（港关 → 归属都市）已删除，原因：
+        //   ① 只看得到一环邻城，没有全域缺口视图，做不到"前线优先"；
+        //   ② 按本城固定比例发货，不看目标城的在途量，货到了常常超过上限被丢掉；
+        //   ③ 港关与都市各运各的，互相不知情。
+        // 现在统一由 ResourceDispatcher 以**势力 / 军团**为单位调度（见 Game/Object/Dispatch）：
+        // 圈层水位（前线防御/进攻 → 次前线支援 → 后方储备）、在途记账、安全余量、
+        // 溢出安抚、以及"人员需求交给人才调度"都在那里。
+        // 本文件只保留 AIMakeTransportTroop（组建运输队）与 IsPathClear 两个被复用的工具方法。
 
-            if (city.freePersons.Count == 0) return true;
+        // 港关 → 归属都市的运输（原 AITransfromToBelongCity）同样已移交给资源调度：
+        // 港关与归属都市现在是同一个资源单元（BFS 连通 + 调运成本优惠），
+        // "港关富余上交都市 / 都市缺货从自家港关调 / 港关缺人时从都市补人"都由 ResourceDispatcher 统一处理，
+        // 且不再依赖"向归属城市运输"这一条只对港关生效的专用路径。
 
-            AIConfig cfg = AIConfig.Instance;
-            if (city.troops < cfg.transportMinTroops || city.food < cfg.transportMinFood)
-                return true;
-
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
-            {
-                return true;
-            }
-
-            int appointValue = city.BelongCorps.GetAppointValue(Corps.AppointContentType.Transport);
-            City targetTransportCity = null;
-            if (appointValue > 0)
-            {
-                targetTransportCity = scenario.citySet.Get(appointValue);
-            }
-
-            City target = null;
-            if (targetTransportCity != null)
-            {
-                if (targetTransportCity == city)
-                    return true;
-
-                // 使用寻路方法获取距离
-                List<City> path = scenario.FindShortestPathInForce(city, targetTransportCity);
-                if (path == null || path.Count == 0)
-                {
-                    return true;
-                }
-
-                if (path[0] == city && path.Count == 1)
-                {
-                    return true;
-                }
-
-                if (path[0] == city)
-                    target = path[1];
-                else
-                    target = path[0];
-            }
-            else
-            {
-                // 找到更近的圈层
-                List<City> list = new List<City>();
-                for (int i = 0; i < city.NeighborList.Count; i++)
-                {
-                    City neighbor = city.NeighborList[i];
-                    if (neighbor.borderLine < city.BorderLine)
-                    {
-                        list.Add(neighbor);
-                    }
-                }
-
-                if (list.Count == 0) return true;
-                target = list[0];
-                for (int i = 1; i < list.Count; i++)
-                {
-                    City neighbor = list[i];
-                    if (neighbor.troops < target.troops)
-                        target = neighbor;
-                }
-            }
-
-            if (target == null)
-                return true;
-
-            if (target.troops >= target.TroopsLimit || target.food >= target.foodLimit)
-                return true;
-
-            TroopType troopType = TroopType.GetTransportType(scenario, city.BelongForce);
-            if (troopType == null) return true;
-
-            //运输比例
-            int part = scenario.Variables.TransportPercent - Math.Max(2 - city.BorderLine, 0) * 20;
-
-            // 【修复】原先直接取 persons[0]，推荐结果为空时会抛 NullReferenceException
-            Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);
-            if (persons == null || persons.Length == 0 || persons[0] == null)
-                return true;
-            Person leader = persons[0];
-            city.freePersons.Remove(leader);
-
-            Troop troop = scenario.CreateTroop();
-            troop.energy = city.energy;
-            troop.morale = city.morale;
-            //troop.MaxMorale = city.MaxMorale;
-            troop.Leader = leader;
-            troop.TroopType = troopType;
-            if (target.troops < target.TroopsLimit)
-            {
-                int left = target.TroopsLimit - target.troops;
-                int troops = Math.Min(left, city.troops * part / 100);
-                city.troops -= troops;
-                troop.troops = troops;
-            }
-            else
-            {
-                // 最低运输兵力
-                int troops = 1;
-                city.troops -= troops;
-                troop.troops = troops;
-            }
-
-            if (target.gold < target.GoldLimit)
-            {
-                int left = target.GoldLimit - target.gold;
-                int gold = Math.Min(left, city.gold * part / 100);
-                city.gold -= gold;
-                troop.gold = gold;
-            }
-            if (target.food < target.FoodLimit)
-            {
-                int left = target.FoodLimit - target.food;
-                int food = Math.Min(left, city.food * part / 100);
-                city.food -= food;
-                troop.food = food;
-            }
-            troop.Member1 = null;
-            troop.Member2 = null;
-            troop.itemStore = city.itemStore.Split(part);
-            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-            Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队{troop.troops}出城 向{target.BelongForce?.Name}的{target.Name}运输物资!");
-            troop.SetMission(MissionType.TroopTransformGoodsToCity, target.Id);
-            return true;
-        }
-
-        /// <summary>
-        /// AI向所属城市运输物资逻辑
-        /// </summary>
-        /// <param name="city">城市对象</param>
-        /// <param name="scenario">场景对象</param>
-        /// <returns>是否完成</returns>
-        public static bool AITransfromToBelongCity(City city, Scenario scenario)
-        {
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
-            {
-                return true;
-            }
-
-            if (city.IsEnemiesRound()) return true;
-
-            if (city.BelongCity == null) return true;
-
-            if (city.food > city.FoodLimit * 95 / 100 && city.gold > city.GoldLimit * 95 / 100) return true;
-
-            //if (city.BelongCity.BelongForce != city.BelongForce)
-            //    return true;
-
-            // 必须军团一致性
-            if (city.BelongCity.BelongCorps != city.BelongCorps)
-                return true;
-
-            // 寻找最近的附属城市
-            //City target = city.GetNearnestForceCity();
-            City target = city.BelongCity;
-
-            if (target == null) return true;
-
-            // 边境城市不做运输
-            if (target.IsBorderCity) return true;
-
-            AIConfig cfg = AIConfig.Instance;
-            int goldLine = cfg.belongTransportGoldLine;
-            int foodLine = cfg.belongTransportFoodLine;
-
-            // 资源不够, 人员进入附属城池
-            if (city.gold <= goldLine && city.food <= foodLine)
-            {
-                if (city.freePersons.Count > 0)
-                {
-                    for (int i = city.freePersons.Count - 1; i >= 0; i--)
-                    {
-                        Person x = city.freePersons[i];
-                        if (x == null) continue;
-
-                        // 【Phase C】统一过执行层闸门：港关 / 前线的守备下限不满足时不再抽人
-                        // （这条路径原本会把港关守将直接迁走，是"港关只出不进"的元凶）
-                        DeploymentWeights deployCfg = AIConfig.Instance != null ? AIConfig.Instance.deployment : null;
-                        if (!DeploymentExecutor.CanTransfer(x, target, deployCfg).allowed)
-                            continue;
-
-                        x.TransformToCity(target);
-
-                        // 【Phase C 收口 · 修 Clear 造成的连带丢失】
-                        // 原写法是循环后 city.freePersons.Clear()：被闸门 continue 掉、
-                        // **仍留在本城**的人也会被一并从空闲表删除 → 内政命令 / 登用 / 探索
-                        // 等系统从此"看不到"他们（人要等下次重建空闲表才会再出现）。
-                        // 改为只移除"确实被调走"的那个人；若 TransformToCity 内部已移除，
-                        // 这里做一次带边界与引用的校验，避免误删他人。
-                        if (i < city.freePersons.Count && ReferenceEquals(city.freePersons[i], x))
-                            city.freePersons.RemoveAt(i);
-                    }
-                }
-                return true;
-            }
-
-            if (target.gold >= target.GoldLimit * 9 / 10 && target.food >= target.FoodLimit * 9 / 10)
-                return true;
-            if (city.food <= foodLine && city.gold <= goldLine)
-                return true;
-
-            // 检查通路（途经敌方建筑会阻断运输）
-            if (!IsPathClear(city, target, scenario))
-                return true;
-
-            // 资源够运输, 但是兵力不够, 请求兵力输送, 需要军团一致性
-            if (city.troops < 500)
-            {
-                // 有正在运输的部队,不再请求运输队
-                for (int i = 0; i < scenario.troopsSet.Count; ++i)
-                {
-                    var c = scenario.troopsSet[i];
-                    if (c != null && c.IsAlive && c.BelongForce == city.BelongForce)
-                    {
-                        if (c.IsTransport && c.missionType == (int)MissionType.TroopTransformGoodsToCity && c.missionTarget == city.Id)
-                            return true;
-                    }
-                }
-
-                // 从主城运输兵力过来
-                Troop transport = AIMakeTransportTroop(target, city, 1000, 0, 3000, null, scenario);
-                if (transport != null)
-                {
-                    transport.missionParams1 = 1;
-                    transport = CityTroopFactory.EmitTroop(target, transport, scenario);
-                    city.CurActiveTroop = transport;
-                    Sango.Log.Info($"{scenario.GetDateStr()}{target.BelongForce.Name}势力在{target.Name}由{transport.Leader.Name}率领运输队出城 向{city.BelongForce?.Name}的{city.Name}运输物资!");
-                }
-                return true;
-            }
-            Person[] persons;
-            if (city.allPersons.Count == 0)
-            {
-                // 求人
-                persons = ForceAI.CounsellorRecommendTransportTroop(target.freePersons);
-                if (persons == null)
-                {
-                    return true;
-                }
-                Person who = persons[0];
-                if (who != null)
-                    who.TransformToCity(city);
-                return true;
-            }
-            //运输比例
-            int part = scenario.Variables.TransportPercent;
-            int gold = 0, food = 0;
-            if (target.gold < target.GoldLimit)
-            {
-                gold = Math.Min(target.GoldLimit - target.gold, city.gold * part / 100);
-            }
-            if (target.food < target.FoodLimit)
-            {
-                food = Math.Min(target.FoodLimit - target.food, city.food * part / 100);
-            }
-            ItemStore itemStore = city.itemStore.Split(part, true);
-            Troop troop = AIMakeTransportTroop(city, target, 100, gold, food, itemStore, scenario);
-            if (troop != null)
-            {
-                troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-                troop.missionParams1 = 1;
-                city.CurActiveTroop = troop;
-                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领运输队出城 向{target.BelongForce?.Name}的{target.Name}运输物资!");
-            }
-            return true;
-        }
 
         /// <summary>
         /// 检查两城之间的直线通路是否畅通（途经的敌方建筑会阻断运输）。
+        ///
+        /// 【为什么是 internal】资源调度（<c>ResourceTransfer.Ship</c>）也要用同一条判定：
+        /// 旧的城池运输命令一直会先检查通路再派车，换成资源调度后必须保留，
+        /// 否则运输队会被半路吃掉、整车物资全丢。
         /// </summary>
         /// <param name="city">出发城市</param>
         /// <param name="target">目标城市</param>
         /// <param name="scenario">场景对象</param>
         /// <returns>通路是否畅通</returns>
-        static bool IsPathClear(City city, City target, Scenario scenario)
+        internal static bool IsPathClear(City city, City target, Scenario scenario)
         {
             tempCellList.Clear();
             scenario.Map.GetDirectPath(city.CenterCell, target.CenterCell, tempCellList);
@@ -1055,7 +919,10 @@ namespace Sango.Core
             // 【前线战略建筑】优先尝试把辅助建筑修到真正的前沿战区，
             // 突破"只能建在本城辖区(areaCellList)"的限制。
             // 若前线暂无可建点（如全面劣势 / 钱不够），自动回退到下面的旧逻辑。
-            if (AIConfig.Instance.useFrontBuilding
+            // 军团委任 · 禁止攻击：不向前线派工程队（同属"向外用兵"）；
+            // 下面"辖区内的本地建造"仍然保留，那是本城自己的建设，不算对外用兵。
+            if (!IsAttackForbidden(city)
+                && AIConfig.Instance.useFrontBuilding
                 && TryBuildFrontBuilding(city, scenario, troop_dst_cell))
                 return true;
 
@@ -1709,6 +1576,30 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 军团委任是否"禁止攻击"（<see cref="Corps.AppointContentType.Attack"/> == 1）。
+        ///
+        /// 【语义】禁的是"**向外用兵**"的全部进攻性行为：
+        ///   · 出城攻打敌方城池（<see cref="AIAttack"/>）；
+        ///   · 跨城支援友军（<see cref="AIReinforce"/>）；
+        ///   · 组建战场补给队送物资上前线（<see cref="AIMakeSupplyTroop"/>）；
+        ///   · 派工程队到前线筑垒（<see cref="AIBuildMilitaryBuilding"/> 的"前线战略建筑"部分）。
+        ///
+        /// **不禁止防御性用兵**：本城 / 邻城被围攻时的守城与回援（TroopProtectCity）、
+        /// 驱逐侵入本势力领地的敌军（TroopDestroyTroop）照常执行；
+        /// 辖区内（areaCellList）的本地建设也不受影响。
+        ///
+        /// 判定收敛在这一处，各入口共用，避免规则分裂。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <returns>该城的军团是否禁止对外用兵</returns>
+        public static bool IsAttackForbidden(City city)
+        {
+            if (city == null || city.BelongCorps == null)
+                return false;
+            return city.BelongCorps.GetAppointValue(Corps.AppointContentType.Attack) == 1;
+        }
+
+        /// <summary>
         /// AI是否可以攻击
         /// </summary>
         /// <param name="city">城市对象</param>
@@ -1719,8 +1610,9 @@ namespace Sango.Core
             if (scenario.TurnCount < scenario.Variables.AIAttackProtectedCount)
                 return false;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Attack) == 1)
+            if (IsAttackForbidden(city))
             {
+                // 顺带把残留的进攻任务撤掉（判定与各入口共用 IsAttackForbidden，规则不再分裂）
                 if (city.TroopMissionType == MissionType.TroopOccupyCity)
                 {
                     city.TroopMissionType = MissionType.None;
@@ -1976,7 +1868,17 @@ namespace Sango.Core
             ItemType targetItemType = scenario.GetObject<ItemType>(12);
 
             int totalNum = city.itemStore.GetNumber((int)ItemStoreKindType.Boat);
-            if (totalNum >= targetItemType.TransformLimit(city.StoreLimit)) return true;
+            // 【后方满仓后不应当停产】容器满只说明"该往外运了"，不是停产的信号 ——
+            // 资源调度会把水位以上的富余推向前线（ResourceDispatcher）。
+            // 因此这里只在"满了、**而且这批货运不出去**"时才停产：
+            //   · 本城没被资源调度覆盖（功能关闭 / 军团禁止运输 / 玩家直辖军团…）；
+            //   · 或上一趟调度里这类资源有**背压**（有富余却找不到接收方）。
+            // 两者都不成立就往死里造也无所谓 —— 反正下一趟调度会把它搬空。
+            int boatCapacity = targetItemType.TransformLimit(city.StoreLimit);
+            if (boatCapacity > 0 && totalNum >= boatCapacity
+                && !ResourceDispatchState.CanKeepProducing(city.Id, (int)ResourceKind.Boat,
+                    scenario != null ? scenario.TurnCount : 0))
+                return true;
 
             Building BoatFactory = city.GetFreeBuilding((int)BuildingKindType.BoatFactory);
             if (BoatFactory == null)
@@ -2047,7 +1949,13 @@ namespace Sango.Core
                     targetItemType = scenario.GetObject<ItemType>(8);
             }
 
-            if (totalNum >= targetItemType.TransformLimit(city.StoreLimit)) return true;
+            // 【后方满仓后不应当停产】同 AICreateBoat：满了也继续造，只要资源调度还能把富余运走；
+            // 只有"没被调度覆盖"或"上一趟有背压（运不出去）"时才按原口径停产。
+            int machineCapacity = targetItemType.TransformLimit(city.StoreLimit);
+            if (machineCapacity > 0 && totalNum >= machineCapacity
+                && !ResourceDispatchState.CanKeepProducing(city.Id, (int)ResourceKind.Machine,
+                    scenario != null ? scenario.TurnCount : 0))
+                return true;
 
             if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(20))
                 return true;
@@ -2257,6 +2165,11 @@ namespace Sango.Core
 
             // 军团委任:禁止运输时不派补给队
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
+                return true;
+
+            // 军团委任 · 禁止攻击:战场补给队要把物资送上前线,同属"向外用兵",一并禁止。
+            // 与上面"禁止运输"的区别：那条禁的是城内资源运输，这条禁的是把部队派到前线。
+            if (IsAttackForbidden(city))
                 return true;
 
             AIConfig aiConfig = AIConfig.Instance;

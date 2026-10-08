@@ -40,6 +40,10 @@ namespace Sango.Core
             int ring = ResolveRing(city);
             bool isBorder = ring == 0;
 
+            // 【在城人数】编制要与现实匹配：下面的"前线编制上限"与"最低人数保底"都要用它。
+            int inCity = city.allPersons != null ? city.allPersons.Count : 0;
+            int cityMinPersons = Math.Max(1, weights.minCityPersons);
+
             // ---------- 人力丰裕度（① ② ③ ④ 共用口径） ----------
             // 丰裕度 = (势力总人数 / 势力城数) / staffPerCityBaseline，夹在 [1, staffAbundanceMax]。
             // 1.0 表示"人力紧张，弹性岗位一律按基准"（行为与放开前一致，不误伤小势力）。
@@ -131,7 +135,13 @@ namespace Sango.Core
                     if (milByTroops < 0) milByTroops = 0;
                 }
 
-                int milFloor = isBorder ? weights.minMilitarySeatAtBorder : 0;
+                // 【军事岗保底】前线按 minMilitarySeatAtBorder(3)；
+                // 其余圈层：**人数低于最低保底（< minCityPersons）的城同样编足 3 个军事岗** ——
+                // 这是"把低于 3 人的城补起来"的需求侧：一座 0~2 人的城必须有岗位挂出去，
+                // 否则编制层不会为它要人（报告里就是"岗位 0 / 空缺 0 / 永远没人来"）。
+                int milFloor = isBorder
+                    ? weights.minMilitarySeatAtBorder
+                    : (inCity < cityMinPersons ? cityMinPersons : 0);
                 milPlan = baseSeat + ringSeat + threatSeat;
                 if (needsTroopSeat)
                 {
@@ -158,13 +168,39 @@ namespace Sango.Core
                     milSeat = Math.Max(0, weights.rearMilitarySeat);
                 }
                 if (milSeat > weights.militarySeatHardMax) milSeat = weights.militarySeatHardMax;
+
+                // 【允许边境城减少编制】编制是"要多少人"，但不该超过这座城实际能有的人：
+                //   编制 5、在城 4 人 → 永远挂着 1 个填不满的空缺，而"净富余 = 空闲 − 未填岗位"
+                //   会因此被压小 —— 它的人就调不出去，偏偏人数不足 3 的城正等着人。
+                //   （旧行为：兵多就用"预想兵力 ÷ 每队编制"撑出 15~21 个军事岗，对一座
+                //     只有 1~4 人的城是纯虚高，报告里也解释不清"编制24→18 却只有 5 个岗位"。）
+                // 上限 = max(军事岗保底, 在城人数)：既允许按人数减编制，又不破"最低人数"保底
+                // （0~2 人的城仍是 3 个岗位 —— 那是"要把人补到 3"的需求信号，见 minCityPersons）。
+                int milCap = Math.Max(milFloor, inCity);
+                if (milSeat > milCap) milSeat = milCap;
+
                 if (milSeat < 0) milSeat = 0;
             }
 
-            // ---------- 港关守备（③ 放开：最低 0，常驻最多 5） ----------
+            // ---------- 港关：不常驻武将，只在有军情时才派人 ----------
+            // 军情口径与资源调度同一份数据（被围 / 境内有敌 / 附近有敌 / 邻接外势力城）：
+            //   · 有军情 → 照旧给守备岗（守关口，兼作进攻出发点）；
+            //   · 无军情 → 守备 / 军事岗一律不给，只留一个**运输岗**（把金 / 粮运往归属主城）。
+            // 这样几十个渡口平时就是几个仓储点，不会把势力的武将池占成"在岗"。
+            bool portGateMilitary = isPortGate && (
+                situation.isUnderSiege || situation.hasThreatTroop || situation.enemyCount > 0
+                || (weights.portGateMilitaryNeighbor && situation.hasForeignNeighbor));
+
+            // 无军情港关的运输岗（放在单城上限截断**之后**发放，属于硬需求，见下方 emit）
+            int portGateTransportSeat = 0;
+            if (isPortGate && !portGateMilitary && weights.enablePortGateDistribute
+                && weights.portGateQuietTransportSeat > 0 && city.troops > 0)
+                portGateTransportSeat = weights.portGateQuietTransportSeat;
+
+            // ---------- 港关守备（③ 放开：最低 0，常驻最多 5；**只在有军情时**） ----------
             // 边境 1 + 中威胁 1 + 高威胁 2 + 人力充裕再 +1 → 最多 5；非边境低威胁仍为 0。
             int garrisonSeat = 0;
-            if (isPortGate && weights.enablePortGateDistribute)
+            if (isPortGate && weights.enablePortGateDistribute && portGateMilitary)
             {
                 garrisonSeat = (isBorder ? 1 : 0)
                     + (threatLevel >= weights.threatMidAt ? 1 : 0)
@@ -363,7 +399,11 @@ namespace Sango.Core
                 }
 
                 // 运输（决策①：1~2 人 —— 人力充裕时 2 人）
-                if (weights.transportSlotEnabled && !isBorder
+                // 【资源调度 · 待发存量】本城有货要走（ResourceDispatchState 登记）时，
+                // 前线城也要留运输岗 —— 否则"前线富余运不出去"，只能等着被上限吃掉。
+                bool pendingOutbound = ResourceDispatchState.HasPendingEnvoyDemand(city.Id);
+                if (weights.transportSlotEnabled
+                    && (!isBorder || pendingOutbound)
                     && city.troops >= weights.transportMinTroops && city.food >= weights.transportMinFood
                     && !IsTransportDisabled(city))
                 {
@@ -405,6 +445,17 @@ namespace Sango.Core
                     devSeat += rearMin - supportSeats;      // 缺口优先补"资源积累"（开发）
             }
 
+            // 【资源调度 · 人员需求】本城有货待发、却一个运输岗都没有（前线城 / 军情港关常见）时，
+            // 补一个"运输"岗。刻意放在**单城上限截断之后**（与上面的"后方城保底"同一手法）：
+            // 这是资源调度提出的硬需求 —— 没有这支运输队，本城的存货会被上限直接丢掉，
+            // 所以不该被"人手紧张"截掉。
+            // 【不叠在港关常备运输岗上】无军情港关本来就有 portGateTransportSeat 那个常备运输岗
+            // （它唯一的编制），同一个武将就能把货押走 —— 再挂一个"待发存量"只是白占一个人。
+            int pendingEnvoySeat = 0;
+            if (transportSeat <= 0 && portGateTransportSeat <= 0
+                && ResourceDispatchState.HasPendingEnvoyDemand(city.Id))
+                pendingEnvoySeat = 1;
+
             // ---------- 生成岗位（按优先级：守备 → 军事 → 征兵 → 军备 → 训练 → 搜索 → 运输 → 开发 → 后勤） ----------
             for (int i = 0; i < garrisonSeat; i++)
                 output.Add(MakePost(PostKind.Garrison, 0, true, weights, city, null));
@@ -416,8 +467,12 @@ namespace Sango.Core
                     : (threatLevel >= weights.threatMidAt ? "中威胁" : "常规"));
             for (int i = 0; i < milSeat; i++)
             {
-                // 前线 / 高威胁的第一军事岗位视为硬性
-                bool required = (isBorder || threatLevel >= weights.threatHighAt) && i == 0;
+                // 前线 / 高威胁的第一军事岗位视为硬性；
+                // 【人手极缺城】在城人数低于最低保底（< minCityPersons）的城，第一个军事岗同样是硬性岗
+                // —— 硬性岗**绕过 militaryMinAbility(80) 的能力下限**（见 DeploymentSolver.MeetsMilitaryFloor），
+                // 否则这类城会因为"池里只剩文官"而一个都招不进来（0 人的城永远 0 人）。
+                bool required = (isBorder || threatLevel >= weights.threatHighAt) && i == 0
+                    || (i == 0 && inCity < cityMinPersons);
                 output.Add(MakePost(PostKind.Military, 1, required, weights, city,
                     i == 0
                         ? (needsTroopSeat
@@ -441,6 +496,16 @@ namespace Sango.Core
             for (int i = 0; i < transportSeat; i++)
                 output.Add(MakePost(PostKind.Transport, 6, false, weights, city,
                     string.Format("运输: 兵力{0} 粮{1}", city.troops, city.food)));
+            // "待发存量"补的运输岗：优先级 5（排在默认运输岗 6 之前、训练 4 之后），
+            // 让"有货等着走"的城比普通运输需求更早拿到人。
+            for (int i = 0; i < pendingEnvoySeat; i++)
+                output.Add(MakePost(PostKind.Transport, 5, false, weights, city,
+                    "运输: 待发存量缺运输主将(资源调度提出的人员需求)"));
+            // 【港关·无军情】常备运输岗：把金 / 粮送回归属主城。
+            // 同样放在单城上限截断之后 —— 港关不驻守（无军情时），这个岗位就是它唯一的编制。
+            for (int i = 0; i < portGateTransportSeat; i++)
+                output.Add(MakePost(PostKind.Transport, 6, false, weights, city,
+                    "运输: 港关仓储→归属主城(无军情·不驻守)"));
             for (int i = 0; i < devSeat; i++)
                 output.Add(MakePost(PostKind.Develop, 7, false, weights, city, i == 0 ? devTrigger : null));
             for (int i = 0; i < logisticsSeat; i++)

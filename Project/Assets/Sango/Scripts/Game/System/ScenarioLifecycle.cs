@@ -98,6 +98,10 @@ namespace Sango.Core
             DeploymentShadow.Clear();
             DeploymentState.Clear();
 
+            // 9.6) 资源调度的运行期状态（报告计数 + 防重入标记 + 待发存量人员需求），同样跨剧本复位
+            ResourceDispatcher.Clear();
+            ResourceDispatchState.Clear();
+
             // 10) 收尾后的快照：正常情况下应与下一次的 shutdown-begin 完全一致（即"无残留"）。
             GameEventDiagnostics.Snapshot("shutdown-end");
         }

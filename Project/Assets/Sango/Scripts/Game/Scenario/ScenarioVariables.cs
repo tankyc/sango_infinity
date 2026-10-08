@@ -1380,7 +1380,11 @@ namespace Sango.Core
         [JsonProperty] public int BuildingSpace = 2;
 
         /// <summary>
-        /// 运输比例
+        /// 运输比例【已停止生效】
+        ///
+        /// 旧城池运输（CityAI.AITransfrom / AITransfromToBelongCity）按"本城库存 × 该比例"发货，
+        /// 该命令已被资源调度（ResourceDispatcher）取代：现在按**圈层水位 + 目标缺口 + 在途量**决定发货量，
+        /// 不再用固定比例。字段保留只为兼容老存档（反序列化时不会报错），改它没有任何效果。
         /// </summary>
         [JsonProperty] public int TransportPercent = 80;
 

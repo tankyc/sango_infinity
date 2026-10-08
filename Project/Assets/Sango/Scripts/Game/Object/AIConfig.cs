@@ -89,13 +89,20 @@ namespace Sango.Core
         public int createMachineMinGold = 1500;
         /// <summary>买粮所需保留的最低金钱（低于此值不买粮）</summary>
         public int tradeFoodKeepGold = 2000;
-        /// <summary>运输队所需的本城最低兵力</summary>
+        /// <summary>
+        /// 运输队所需的本城最低兵力【已停止生效】
+        ///
+        /// 旧城池运输（CityAI.AITransfrom / AITransfromToBelongCity）的门槛，随这两条命令一起废弃。
+        /// 资源调度的起运门槛改到 <c>resourceDispatch</c> 节点（minShipGold / minShipFood / minShipTroops / minShipArms）；
+        /// 编制层判断"要不要留运输岗"用的是 <c>DeploymentWeights.transportMinTroops / transportMinFood</c>。
+        /// 字段保留只为兼容旧 AIConfig.json，改它没有任何效果。
+        /// </summary>
         public int transportMinTroops = 10000;
-        /// <summary>运输队所需的本城最低粮草</summary>
+        /// <summary>运输队所需的本城最低粮草【已停止生效，见 transportMinTroops】</summary>
         public int transportMinFood = 20000;
-        /// <summary>向所属城运输时的金钱警戒线（低于该值改为迁人）</summary>
+        /// <summary>向所属城运输时的金钱警戒线【已停止生效：该命令已被资源调度取代】</summary>
         public int belongTransportGoldLine = 2500;
-        /// <summary>向所属城运输时的粮草警戒线（低于该值改为迁人）</summary>
+        /// <summary>向所属城运输时的粮草警戒线【已停止生效：该命令已被资源调度取代】</summary>
         public int belongTransportFoodLine = 20000;
         /// <summary>褒奖武将所需保留的最低金钱</summary>
         public int rewardGoldKeep = 500;
@@ -556,6 +563,21 @@ namespace Sango.Core
         /// 当前处于 Phase A **影子模式**（只计算不执行），由 <c>shadowOnly</c> 控制。
         /// </summary>
         public DeploymentWeights deployment = new DeploymentWeights();
+
+        #endregion
+
+        #region 资源调度（城池之间的物资运输）
+
+        /// <summary>
+        /// AI 资源调度的全部权重与阈值（圈层水位 / 起运门槛 / 配额 / 溢出安抚）。
+        /// 可通过 <c>Data/Common/AIConfig.json</c> 的 <c>"resourceDispatch"</c> 节点做部分覆盖。
+        ///
+        /// 与"人才部署"（<see cref="deployment"/>）是一对姊妹系统：
+        /// 人才调度负责**把人放到正确的城**，资源调度负责**把货放到正确的城**，
+        /// 二者的调度域一致（非玩家势力 = 势力；玩家 = 军团），且资源调度会把
+        /// "有货待发却缺运输主将"作为人员需求交给人才调度。
+        /// </summary>
+        public ResourceDispatchWeights resourceDispatch = new ResourceDispatchWeights();
 
         #endregion
 

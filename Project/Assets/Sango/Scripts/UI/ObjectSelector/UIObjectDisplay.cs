@@ -57,6 +57,10 @@ namespace Sango.UI
         public virtual void Init(ObjectsDisplaySystem objectSelectSystem)
         {
             this.objectSelectSystem = objectSelectSystem;
+            // 反向绑定：过滤（搜索 / 勾选联动）后由系统直接驱动本窗口重绘，
+            // 不依赖 WindowInterface 是否已赋值
+            if (objectSelectSystem != null)
+                objectSelectSystem.BindDisplay(this);
             title.text = objectSelectSystem.customSortTitleName;
             sortItems = objectSelectSystem.customSortItems;
 
@@ -207,8 +211,18 @@ namespace Sango.UI
 
                 uIPersonSortButton.onClick = (up) =>
                 {
-                    objectSelectSystem.Objects.Sort(sortTitle.Sort);
-                    if (!up) objectSelectSystem.Objects.Reverse();
+                    // 排序同时作用于"完整候选集"与"当前显示列表"：
+                    // 否则清空搜索后顺序会跳回旧值，与玩家刚看到的排列对不上
+                    ObjectSelectSystem selectSystem = objectSelectSystem as ObjectSelectSystem;
+                    if (selectSystem != null)
+                    {
+                        selectSystem.SortObjects(sortTitle.Sort, up);
+                    }
+                    else
+                    {
+                        objectSelectSystem.Objects.Sort(sortTitle.Sort);
+                        if (!up) objectSelectSystem.Objects.Reverse();
+                    }
                     scrollbar.SetValueWithoutNotify(0);
                     OnScrollBarValueChange(0);
                 };
@@ -254,6 +268,11 @@ namespace Sango.UI
         public void RefreshByFilter()
         {
             if (objectSelectSystem == null || objectSelectSystem.Objects == null) return;
+
+            // 搜索状态下强制回到列表顶部：沿用上一处滚动位置会把最前面的命中项
+            // 藏在视野之外，玩家会以为"没有列出所有含该字的武将"
+            if (objectSelectSystem.HasSearchKeyword)
+                startIndex = 0;
 
             int dataCount = objectSelectSystem.Objects.Count;
             if (itemCount <= 0 || dataCount <= itemCount)
@@ -360,7 +379,7 @@ namespace Sango.UI
 
         }
 
-        public void Update()
+        public virtual void Update()
         {
             Vector2 scrollWheel = Input.mouseScrollDelta;
             if (scrollWheel.y > 0)

@@ -773,7 +773,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 3844125059979877981}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0.81333333
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -1976,7 +1976,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: -0.000030517578}
   m_SizeDelta: {x: 0, y: 28}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!1 &1180021859273904560
@@ -4390,7 +4390,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 3412471729779312033}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0.81333333
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -6798,7 +6798,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 2580531021604707401}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0.81333333
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -9919,8 +9919,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 7768875580549679153}
   m_HandleRect: {fileID: 5606368027847056675}
   m_Direction: 2
-  m_Value: 0
-  m_Size: 0.81333333
+  m_Value: 1
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -12387,7 +12387,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 977202143799301159}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0.81333333
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -14780,15 +14780,15 @@ MonoBehaviour:
   - {fileID: 9192612104947933149}
   - {fileID: 8614311161755354998}
   waterAdaptToggles:
-  - {fileID: 6473251391521497623}
-  - {fileID: 5277517000145567286}
-  - {fileID: 6196258394137256156}
-  - {fileID: 3117319822701662220}
-  machineAdaptToggles:
   - {fileID: 2917627472123380162}
   - {fileID: 5524298871930061378}
   - {fileID: 9003119217989885303}
   - {fileID: 6752629989923934356}
+  machineAdaptToggles:
+  - {fileID: 6473251391521497623}
+  - {fileID: 5277517000145567286}
+  - {fileID: 6196258394137256156}
+  - {fileID: 3117319822701662220}
   featureText: {fileID: 4215560928155449632}
   featureButton: {fileID: 4924819774963809977}
   specialFeatureButton: {fileID: 0}

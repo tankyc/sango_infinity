@@ -112,6 +112,14 @@ namespace Sango.Core
         public bool adviceOnly;
         /// <summary>本势力可调动（空闲）人数</summary>
         public int personPool;
+        /// <summary>
+        /// 本作用域**在册**武将总数（含在部队 / 有任务的人）——"势力的总盘子"。
+        /// 用途：全局调动额度按它缩放（见 <c>DeploymentWeights.maxTransferPerTurnRatio</c>），
+        /// 并在报告里给出实际额度，解释"为什么这回合只动了 N 人"。
+        /// </summary>
+        public int personTotal;
+        /// <summary>本回合实际生效的全局调动额度（0 = 不限制）</summary>
+        public int transferQuota;
         /// <summary>全部岗位</summary>
         public List<Post> posts = new List<Post>();
         /// <summary>岗位填充结果（含本城在岗与建议外调）</summary>
@@ -177,8 +185,15 @@ namespace Sango.Core
               .Append(" 在岗:").Append(LocalCount())
               .Append(" 建议外调:").Append(TransferCount())
               .Append(" 空缺:").Append(vacant)
-              .Append(" 可调动池:").Append(personPool)
-              .AppendLine();
+              .Append(" 可调动池:").Append(personPool);
+            // 本回合的全局调动额度（含"按在册总人数缩放"后的结果）——
+            // "实际调动 N 人"是被它卡的，写出来才不用去猜
+            if (transferQuota > 0)
+                sb.Append(" 调动额度:").Append(transferQuota)
+                  .Append("(在册").Append(personTotal).Append(')');
+            else
+                sb.Append(" 调动额度:不限");
+            sb.AppendLine();
 
             // 岗型构成汇总：一眼看出"军事岗是否虚高"（按类型聚合成 军事(1)×276，不再一行刷几十遍）
             sb.Append("   岗位构成: ").Append(KindAggregate(posts, 0)).AppendLine();

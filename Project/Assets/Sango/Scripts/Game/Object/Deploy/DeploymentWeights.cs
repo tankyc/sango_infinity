@@ -92,6 +92,25 @@ namespace Sango.Core
         /// <summary>港关守备最大常驻人数（最低 0；决策③ 放开到 5）</summary>
         public int portGateMaxSeat = 5;
 
+        // ------------------------------------------------------------------
+        // 港关：**不常驻武将**（只在有军情时才派人守 / 作为进攻出发点）
+        //
+        // 判定口径与资源调度同一份数据（<see cref="CitySituation.hasForeignNeighbor"/> 等）：
+        //     有军情 = 被围 || 境内有敌军 || 附近有敌军 || 邻接外势力城（含无主城）
+        // 无军情的港关只是"主城伸出去的仓储点"：不放守备 / 军事岗，只留一个**运输岗**
+        // （把金 / 粮运往归属主城；资源调度那一侧同样只让无军情港关往主城送货）。
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// 港关的"军情"是否把**邻接外势力城（含无主城）**也算进去。
+        /// true（默认）= 贴着敌境的渡口 / 关隘算有军情、照常派人驻守；
+        /// false = 只看被围 / 境内有敌军 / 附近有敌军。
+        /// </summary>
+        public bool portGateMilitaryNeighbor = true;
+
+        /// <summary>无军情港关保留的运输岗人数（把金 / 粮运往主城；0 = 一个都不留）</summary>
+        public int portGateQuietTransportSeat = 1;
+
         // ==================== 特技组合搭配（第一步） ====================
 
         /// <summary>
@@ -193,13 +212,32 @@ namespace Sango.Core
         public int minMilitarySeatAtBorder = 3;
 
         /// <summary>
-        /// 最低运转保底（圈层 ≥ <see cref="rearFloorMinRing"/>），按城池等级：**小/中 2、大/巨 3**。
+        /// **非港关城市的最低人数**（统一口径，默认 3）。
+        ///
+        /// 同一数值作用于四件事，保证"任何非港关城市都不会少于 3 人"：
+        ///   ① 源城闸门：非港关城被抽到 ≤ 此值就拒绝调出（<see cref="DeploymentExecutor"/>）；
+        ///   ② 编制保底：人数低于此值的城，军事岗编足此数（哪怕是弱将，也不能空城）；
+        ///   ③ 硬性岗：人数低于此值的城，第一个军事岗是**硬性岗** ——
+        ///      绕过 <c>militaryMinAbility</c>(80) 的能力下限，否则 0~2 人的城
+        ///      会因为"池里只剩文官"而永远收不到人（报告里表现为"池中无可用人选"）；
+        ///   ④ 排序优先：这类城的岗位排在最前拿人（人手极缺比"更靠边境"更急）。
+        /// 港关不在此列（它们的保底是 <see cref="minPortGateGuard"/>）。
+        /// </summary>
+        public int minCityPersons = 3;
+
+        /// <summary>
+        /// 最低运转保底（圈层 ≥ <see cref="rearFloorMinRing"/>），按城池等级。
+        ///
+        /// 默认 **3/3/3/3** —— 与 <see cref="minMilitarySeatAtBorder"/>(前线 3) 统一，
+        /// 即"非港关城市一律保底 3 人"（旧默认 2/2/3/3 让小/中城只能保 2 人，
+        /// 与"最低 3 人"的口径不一致）。
+        ///
         /// 目的：保住"运输"与"战略资源积累"（开发），不让前线把后方抽空。
         /// 同一口径作用于两处：
         ///   ① 编制保底（<see cref="CityEstablishment"/>：后方城的运输/开发席位不低于此值）；
         ///   ② 调动闸门（<see cref="DeploymentExecutor"/>：源城为后方城时，不得抽到低于此值）。
         /// </summary>
-        public int[] minSeatAtRearByLevel = new int[] { 2, 2, 3, 3 };
+        public int[] minSeatAtRearByLevel = new int[] { 3, 3, 3, 3 };
 
         /// <summary>
         /// 最低运转保底生效的圈层下限：圈层 ≥ 此值时受 <see cref="minSeatAtRearByLevel"/> 约束。
@@ -457,8 +495,19 @@ namespace Sango.Core
         /// <summary>禁止重复调动：同一武将在 debounceTurns 个势力回合内不再被调走</summary>
         public int debounceTurns = 2;
 
-        /// <summary>同一座城每回合最多接收多少名外调武将（基准额度）</summary>
-        public int maxTransferPerCityPerTurn = 2;
+        /// <summary>
+        /// 同一座城每回合最多接收多少名外调武将（基准额度）。
+        ///
+        /// 默认 10 —— 这是"缺口最大的城能不能一回合补完"的主要瓶颈：
+        /// 调出端已经放宽（源城可借净富余的一半、全局额度按在册人数的 25% 缩放），
+        /// 若接收端还是 2~4 人/回合，一座缺 9~10 个岗的城仍要磨 3~5 回合，
+        /// 而这期间"源城净富余"还在变（人一忙，可借额度就缩回去了）。
+        ///
+        /// 前线 / 高威胁城在这之上再叠加 <see cref="frontlineExtraReceiveSeat"/>（默认 12 人/回合）。
+        /// 真正的总量约束是全局额度（<see cref="maxTransferPerTurn"/>）与源城净富余 ——
+        /// 接收额度只是防止"一次性把某座城塞满、别的城排队"。
+        /// </summary>
+        public int maxTransferPerCityPerTurn = 10;
 
         /// <summary>同一座城每回合最多向外调出多少名武将（基准额度）</summary>
         public int maxTransferFromCityPerTurn = 1;
@@ -483,10 +532,23 @@ namespace Sango.Core
         public float stealLocalCost = 0.4f;
 
         /// <summary>
-        /// 势力每回合最多执行的跨城调动**总人数**（全局额度）。
-        /// 目的：一次调整幅度可控；≤0 = 不限制。与"每城额度"是"与"关系。
+        /// 势力每回合最多执行的跨城调动**总人数**（全局额度）——这是**下限**：
+        /// 实际额度取 <c>max(本值, 在册总人数 × maxTransferPerTurnRatio)</c>，
+        /// 即"势力越大、一次能调整的幅度越大"，小势力则保持本值不被缩小。
+        /// 目的：一次调整幅度可控；≤0 = 不限制（此时也不做缩放）。与"每城额度"是"与"关系。
         /// </summary>
         public int maxTransferPerTurn = 12;
+
+        /// <summary>
+        /// 全局调动额度按**在册总人数**缩放的比例（见 <see cref="maxTransferPerTurn"/>）。
+        ///
+        /// 默认 0.25 —— 也就是"100 人至少能调动 25 人"：兵力 / 人口上百的势力，
+        /// 一回合 12 人的固定额度会把"全势力上百个岗位缺口"卡上几十回合；
+        /// 按比例缩放后，调动节奏与势力规模自洽（在册人数含在部队 / 有任务的人，
+        /// 即"势力的总盘子"，不因当期忙闲忽大忽小）。
+        /// ≤0 = 不缩放（只按 <see cref="maxTransferPerTurn"/>）。
+        /// </summary>
+        public float maxTransferPerTurnRatio = 0.25f;
 
         /// <summary>
         /// 前线 / 高威胁城每回合**额外**的接收额度（叠加在 <see cref="maxTransferPerCityPerTurn"/> 上）。
@@ -505,12 +567,22 @@ namespace Sango.Core
         /// 洛阳"空闲 23 / 空缺 2"也只能送 1 人，全势力上百个缺口被这个额度卡死。
         /// 相对判据在"汉中空闲 301"与"洛阳空闲 23"两种存档里都成立。
         ///
-        /// 例（本值 = 5、基准 = 1）：净富余 1~4 → 1 人；5~9 → 2 人；10~14 → 3 人；≥20 → 封顶。
+        /// 默认 2 —— 额度 = 净富余 ÷ 2 + 1，即**一次最多借走净富余的一半**：
+        /// 净富余 1 → 1 人；2~3 → 2 人；8 → 5 人；20 → 11 人。
+        /// （净富余 1 也能借 1 人，是因为公式的 +1 基准；不会把一座城抽空。）
         /// </summary>
-        public int sendSurplusPerSeat = 5;
+        public int sendSurplusPerSeat = 2;
 
-        /// <summary>源城每回合调出额度的**硬顶**（<see cref="sendSurplusPerSeat"/> 算出的额度不超过它）</summary>
-        public int maxSendPerCityPerTurn = 5;
+        /// <summary>
+        /// 源城每回合调出额度的**硬顶**（<see cref="sendSurplusPerSeat"/> 算出的额度不超过它）。
+        ///
+        /// 默认 **0 = 不限制** —— 因为"一次最多借净富余的一半"本身就是安全阀，
+        /// 而 5 的硬顶会把"一半"直接截断（净富余 20 时想要 11 人、只放 5 人）。
+        /// 真正兜住突发的是另外两道：目标城的接收额度（<see cref="maxTransferPerCityPerTurn"/>）
+        /// 与全局额度（<see cref="maxTransferPerTurn"/>）。
+        /// 想要"单城每次最多动 N 人"就把本值配上。
+        /// </summary>
+        public int maxSendPerCityPerTurn = 0;
 
         /// <summary>港关至少保留的守备人数（低于此值不允许把人调走）</summary>
         public int minPortGateGuard = 1;

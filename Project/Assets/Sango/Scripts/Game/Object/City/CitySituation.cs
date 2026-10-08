@@ -97,6 +97,14 @@ namespace Sango.Core
         public bool hasStable;
         /// <summary>是否拥有下属港口</summary>
         public bool hasPort;
+        /// <summary>
+        /// 是否**与外界接壤**：邻接城里存在非本势力的城（含无主城）。
+        ///
+        /// 用途：港关（渡口 / 关隘）的"军情"判定 —— 游戏的 <c>borderLine</c> 只刷新**都市**，
+        /// 港关那个字段恒为旧值，所以港关的边境只能这样现算。
+        /// 资源调度（有军情才要货）与人才调度（有军情才驻守）共用同一个口径。
+        /// </summary>
+        public bool hasForeignNeighbor;
 
         // ==================== 战场联动 ====================
         /// <summary>附近需要补给的友军数量（缺粮 / 缺兵）</summary>
@@ -185,6 +193,7 @@ namespace Sango.Core
             s.lostSubCityCount = CountLostSubCities(city);
             s.hasThreatTroop = HasThreatTroop(city, scenario);
             s.needyAllyCount = CountNeedyAllies(city, scenario);
+            s.hasForeignNeighbor = HasForeignNeighbor(city);
 
             // ---------- 势力个性 ----------
             Person commander = city.BelongCorps != null ? city.BelongCorps.mComander : null;
@@ -322,6 +331,26 @@ namespace Sango.Core
                 return 0f;
             float r = (float)value / max;
             return r < 0f ? 0f : (r > 1f ? 1f : r);
+        }
+
+        /// <summary>
+        /// 是否与外界接壤：邻接城里存在**非本势力**的城（含无主城）。
+        /// 口径与游戏自己的边境判定一致（<c>Force.UpdateTurnInfo</c> 的 <c>!neighbor.IsSameForce(c)</c>），
+        /// 但对都市与港关一视同仁 —— 那处只刷新都市，港关直接读会全是旧值。
+        /// </summary>
+        /// <param name="city">城池</param>
+        /// <returns>接壤返回 true</returns>
+        static bool HasForeignNeighbor(City city)
+        {
+            if (city == null || city.NeighborList == null)
+                return false;
+            for (int i = 0; i < city.NeighborList.Count; i++)
+            {
+                City n = city.NeighborList[i];
+                if (n != null && n != city && !n.IsSameForce(city))
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>

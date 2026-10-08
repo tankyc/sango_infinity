@@ -201,7 +201,7 @@ namespace Sango.Core
         static readonly HashSet<string> workModeCommandIds = new HashSet<string>
         {
             "AIRewardPerson", "AIAttack", "AIReinforce", "AITradeFood", "AIIntrior",
-            "AITransfrom", "AICreateMachine", "AICreateBoat", "AIMakeSupplyTroop", "AIResearch",
+            "AICreateMachine", "AICreateBoat", "AIMakeSupplyTroop", "AIResearch",
         };
 
         void OnCityAIPrepare(City city, Scenario scenario)
@@ -235,8 +235,7 @@ namespace Sango.Core
             {
                 AICommandList.Add(CityAI.AIRewardPerson);
                 AICommandList.Add(CityAI.AITradeFood);
-                // 物资输送
-                AICommandList.Add(CityAI.AITransfrom);
+                // 物资输送已移交资源调度（ResourceDispatcher，势力级），这里不再挂城池运输命令
                 AICommandList.Add(CityAI.AIIntrior);
                 AICommandList.Add(CityAI.AIAttack);
                 AICommandList.Add(CityAI.AIReinforce);

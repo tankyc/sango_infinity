@@ -19,9 +19,13 @@ namespace Sango.Core
         }
 
         /// <summary>关隘允许的 AI 命令集合(不做都市内政)</summary>
+        /// <remarks>
+        /// 原先的 "AITransfromToBelongCity"（港关 → 归属都市）已随城池运输一起移除：
+        /// 港关与归属都市现在是同一个资源单元，由 ResourceDispatcher 统一调度。
+        /// </remarks>
         static readonly HashSet<string> gateKindCommandIds = new HashSet<string>
         {
-            "AIAttack", "AITrainTroop","AITransfromToBelongCity","AIRewardPerson", "AISearching","AIRecruitPerson"
+            "AIAttack", "AITrainTroop","AIRewardPerson", "AISearching","AIRecruitPerson"
         };
 
         public override void AIPrepare(Scenario scenario)
@@ -40,7 +44,7 @@ namespace Sango.Core
             else
             {
                 AICommandList.Add(CityAI.AIAttack);
-                AICommandList.Add(CityAI.AITransfromToBelongCity);
+                // 向归属都市运输已移交资源调度（ResourceDispatcher，势力级）
                 AICommandList.Add(CityAI.AISearching);
                 AICommandList.Add(CityAI.AITrainTroop);
                 AICommandList.Add(CityAI.AIRewardPerson);

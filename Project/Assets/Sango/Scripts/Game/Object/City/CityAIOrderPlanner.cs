@@ -229,6 +229,27 @@ namespace Sango.Core
             if (s.weaponCount <= 0 && s.troops > w.weaponCrisisTroops && id == "AICreateItems")
                 bias += w.crisisWeaponBias;
 
+            // ---------- 待产态：兵装覆盖率不足 ----------
+            // 兵没有兵装就拉不出一支部队（组建要按 TroopType.costItems 扣兵装，1 件装备 1 兵，
+            // 见 ItemStore.CheckCostMin），可城里这几万兵还在白吃粮 —— 必须先把兵装造出来。
+            //
+            // 【为什么光有危机加成不够】城池命令是按最终分数排序后**依次执行**的，而每条命令都要吃
+            // 本城的空闲武将：排在后面等于拿到"人已经被用光"的空池子。原来兵装最多只有
+            // crisisWeaponBias(80) + scoreWeaponCriticalBonus(50)，而"人才优先"给搜索 / 登用的抬升
+            // 是 600 / 700，于是兵装生产长期轮不到人手。这里按**缺口比例**补一档抬升（缺口 1.0 =
+            // 一件兵装都没有 → 加满 armsDemandTopBias），让"堆着几万兵却零兵装"的城排到最前；
+            // 缺口不大的城加得很少，不去抢人才命令的优先级。
+            if (id == "AICreateItems" && w.armsDemandTopBias > 0 && s.troops > w.weaponCrisisTroops)
+            {
+                float need = s.troops * w.weaponCoverRatio;
+                if (need > 0f)
+                {
+                    float ratio = 1f - s.weaponCount / need;
+                    if (ratio > 0f)
+                        bias += (int)(w.armsDemandTopBias * (ratio > 1f ? 1f : ratio));
+                }
+            }
+
             // ---------- 发展态：内陆 + 无战事 ----------
             bool peaceful = !s.isUnderSiege
                             && s.besiegedNeighborCount == 0

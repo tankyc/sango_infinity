@@ -313,6 +313,15 @@ namespace Sango.Core
         public int TurnCount => Info.turnCount;
 
         /// <summary>
+        /// 当前季节编号：每年 4 季、每季 3 个月（一年 36 回合，每季 9 回合），
+        /// 编号 = 年 × 4 + 季序号（季序号 0~3 分别对应 1~3 / 4~6 / 7~9 / 10~12 月）。
+        ///
+        /// 专供"每季度最多一次"这类跨回合限频使用：只要比较两次拿到的编号是否相同即可，
+        /// 不必监听 <c>GameEvent.OnSeasonUpdate</c> 去逐回合清零标记，也不会被读档顺序打乱。
+        /// </summary>
+        public int SeasonStamp => Info.year * 4 + (Info.month - 1) / 3;
+
+        /// <summary>
         /// 是否使用线程运行
         /// </summary>
         public bool useThreadRun = false;

@@ -384,6 +384,12 @@ namespace Sango.Core
     {
         public override MissionType MissionType { get { return MissionType.PlayerTroopTransformGoodsToCity; } }
 
+        /// <summary>
+        /// 玩家自己委派的运输队**不**因为"目标城即将失守"就自动回撤 ——
+        /// 要不要冒险把货送进围城，由玩家自己决定（势力 AI 的运输队才会自动回撤）。
+        /// </summary>
+        protected override bool AutoRetreatWhenDoomed { get { return false; } }
+
         public override void Prepare(Troop troop, Scenario scenario)
         {
             if (Troop != troop) Troop = troop;

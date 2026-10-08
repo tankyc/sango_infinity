@@ -32,6 +32,16 @@ namespace Sango.Core
             /// —— 相当于"AI 不管理这个军团的港关驻军编制"，但也不会把港关抽空。
             /// </summary>
             public bool localOnly;
+            /// <summary>
+            /// 本岗位属于"把该城补到最低人数"的那几个岗（该城在城人数 &lt;
+            /// <c>DeploymentWeights.minCityPersons</c>，按岗位优先级取最前面的 N 个，N = 还差多少人）。
+            ///
+            /// 这类岗位**排到最前拿人**、**免行程 / 跨圈层成本**、**门槛降到 0**：
+            /// 一座 0~2 人的城连征兵 / 运输 / 内政都开不了工（资源运不走、兵造不出），
+            /// 比"更靠边境"更急 —— 它是当前最需要人手的地方。
+            /// 只覆盖"补到最低人数"所需的岗，编制里其余的岗仍按常规竞争。
+            /// </summary>
+            public bool lowPop;
         }
 
         /// <summary>
@@ -48,6 +58,13 @@ namespace Sango.Core
         {
             if (a.post.required != b.post.required)
                 return a.post.required ? -1 : 1;
+
+            // 【人手极缺城优先】在城人数低于最低保底（< minCityPersons）的城先拿人：
+            // 它连"征兵 / 运输 / 内政"都开不了工，比"谁更靠边境"更急。
+            // 放在 required 之后、岗位优先级之前 —— 目的就是让"低于 3 人的城"先被补起来。
+            if (a.lowPop != b.lowPop)
+                return a.lowPop ? -1 : 1;
+
             if (a.post.priority != b.post.priority)
                 return a.post.priority.CompareTo(b.post.priority);
 
@@ -151,7 +168,16 @@ namespace Sango.Core
                      | (situation.hasBoatFactory ? 4 : 0)
                      | (situation.hasBlacksmith ? 8 : 0)
                      | (situation.hasStable ? 16 : 0)
-                     | (situation.hasPort ? 32 : 0);
+                     | (situation.hasPort ? 32 : 0)
+                     // 资源调度登记的"待发存量"会临时加一个运输岗（见 CityEstablishment），
+                     // 戳里必须带上它，否则岗位表会被缓存复用、新出现的运输需求看不到人。
+                     | (ResourceDispatchState.HasPendingEnvoyDemand(city.Id) ? 64 : 0)
+                     // 【港关·军情】军情判定（被围 / 附近有敌 / 境内有敌 / 邻接外势力）会决定港关
+                     // "驻守还是只留运输岗"（见 CityEstablishment），三个分量都要进戳，
+                     // 否则军情来了岗位表还被缓存复用、港口拿不到守将。
+                     | (situation.hasThreatTroop ? 128 : 0)
+                     | (situation.hasForeignNeighbor ? 256 : 0)
+                     | (city.EnemyCount > 0 ? 512 : 0);
             int residents = city.allPersons != null ? city.allPersons.Count : 0;
 
             unchecked
@@ -300,6 +326,19 @@ namespace Sango.Core
                 // 港关驻军关闭：本军团的港 / 关岗位标记为"只许本城在岗"，不参与外调
                 bool localOnlyPosts = !allowPortGateGarrison && (city.IsPort() || city.IsGate());
 
+                // 【补到最低人数】本城人数低于非港关最低保底（< minCityPersons，默认 3）时，
+                // 只把"按优先级排在最前的 N 个岗位"当成补人目标（N = 还差多少才到 3）：
+                //   · 这些岗位**排到最前拿人**（比"更靠边境"更急）；
+                //   · **免跨圈层 / 行程成本**（见 Score）—— 一座 0~2 人的城连征兵 / 运输 / 内政
+                //     都开不了工，"回撤贵"这类效率考量不该让它永远空着；
+                //   · 门槛降到 0（见 scoreFloor）—— 宁可要个弱将。
+                // 只补到 3 为止：编制里其余的岗仍按常规竞争，免得一次性抽走一队人去填满后方城。
+                // 港关不参与（它们的保底是 minPortGateGuard，且不产内政）。
+                int inCity = city.allPersons != null ? city.allPersons.Count : 0;
+                int needToMin = (!city.IsPort() && !city.IsGate())
+                    ? Math.Max(0, Math.Max(1, weights.minCityPersons) - inCity)
+                    : 0;
+
                 for (int j = 0; j < posts.Count; j++)
                 {
                     PostTask task;
@@ -308,6 +347,8 @@ namespace Sango.Core
                     task.devGap = devGap;
                     task.underSiege = false;
                     task.localOnly = localOnlyPosts;
+                    // 岗位表本身按优先级生成（守备 → 军事 → 征兵 → 军备 → …）→ 前 N 个就是最要紧的 N 个
+                    task.lowPop = j < needToMin;
                     tasks.Add(task);
                 }
             }
@@ -321,6 +362,7 @@ namespace Sango.Core
             // 同样在前线、同样 10 万兵的城，id 排最后的会被砍到只剩硬性岗（"1 人守城"），
             // id 靠前的却一个不少。总量不足时应当"各城等比缩减"，而不是由 id 决定生死。
             // 硬性岗（Post.required）永不裁撤：每城至少保住硬性军事岗 / 港关守备。
+            // 人数低于最低保底（minCityPersons）的城同样不裁 —— 它的岗位是"补人到 3"的需求信号。
             int postBudget = personTotal > 0
                 ? (int)Math.Floor(personTotal * Math.Max(0.1f, weights.maxPostsPerPerson))
                 : int.MaxValue;
@@ -369,6 +411,11 @@ namespace Sango.Core
                         {
                             int idx = list[k];
                             if (cut[idx]) continue;
+                            // 【人手极缺城不裁】在城人数低于最低保底（< minCityPersons）的城，
+                            // 它的岗位就是"要把人补到 3"的需求信号（见 PostTask.lowPop）——
+                            // 被裁掉等于取消这条需求，这类城会永远停在 0~2 人（运不走货、造不出兵）。
+                            // 代价可忽略：它们总共也就 3 个岗位（编制上限本身就按在城人数夹过）。
+                            if (tasks[idx].lowPop) break;
                             if (tasks[idx].post.required) break;   // 该城只剩硬性岗 → 本轮换下一个城
                             cut[idx] = true;
                             cutCount++;
@@ -511,6 +558,7 @@ namespace Sango.Core
 
             // ---------- 3) 剩余岗位：从可调动池（空闲武将）外调 ----------
             List<Person> pool = new List<Person>();
+            int scopePersons = 0;                        // 本作用域在册武将总数（含在部队 / 有任务的人）
             for (int i = 0; i < scenario.personSet.Count; i++)
             {
                 Person p = scenario.personSet[i];
@@ -520,6 +568,7 @@ namespace Sango.Core
                 //（跨团调人会打乱玩家自己排好的部署；军团之间的隔离是刻意的）
                 if (scope != null && !InCorps(p, scope, force)) continue;
                 if (p.IsDead || p.IsPrisoner) continue;
+                scopePersons++;                          // 在册：活着的本势力（本军团）武将
                 if (!p.IsFree) continue;                 // 部队中 / 有任务 / 在途 → 不可再分配
                 // 【改动 B】只排除"已外调"的人；"本城在岗"的人**仍然入池** ——
                 // 在岗只是记账，别人更需要他时可以被抢走（抢占会扣 stealLocalCost 成本）。
@@ -528,6 +577,15 @@ namespace Sango.Core
             }
             // 可调动池 = 全势力的机动人力（含"在岗"的人）——这是"能派出去干活的人"的真实上限
             plan.personPool = pool.Count;
+
+            // ---------- 3b) 全局调动额度：按**在册总人数**缩放 ----------
+            // 固定 12 人的额度对上百人的势力太小（上百个岗位缺口要卡几十回合），
+            // 对十几人的小势力又偏大。按比例缩放后节奏与规模自洽：
+            // 额度 = max(配置值, ⌈在册总人数 × maxTransferPerTurnRatio⌉)，默认比例 0.25
+            // —— 也就是"100 人至少能调动 25 人"；配置值是**下限**，小势力不被缩小。
+            int globalQuota = GlobalTransferQuota(weights, scopePersons);
+            plan.personTotal = scopePersons;
+            plan.transferQuota = globalQuota;
 
             // 推荐队伍要人：把"队伍成员 / 特技持有者"摊平成 id 集合，供下面打分 O(1) 查询
             currentTeamDemand = TroopTeamDemand.Build(pool);
@@ -577,8 +635,9 @@ namespace Sango.Core
 
                     string kindName = DeploymentPlan.KindName(task.post.kind);
 
-                    // 作用域级总额度：本回合调动幅度已够 → 剩余岗位下回合继续（避免一次大搬家）
-                    if (!DeploymentState.CanTransferGlobal(scopeKey, turn, weights.maxTransferPerTurn))
+                    // 作用域级总额度（按在册总人数缩放，见上）：本回合调动幅度已够
+                    // → 剩余岗位下回合继续（避免一次大搬家）
+                    if (!DeploymentState.CanTransferGlobal(scopeKey, turn, globalQuota))
                     {
                         globalQuotaUsed = true;
                         break;
@@ -594,7 +653,8 @@ namespace Sango.Core
                     bool coolingOnly = false;
                     bool scoreBlocked = false;      // 是否因"最优人选低于门槛"而放弃
 
-                    float scoreFloor = task.post.required ? 0f : weights.minTransferScore;
+                    // 门槛：硬性岗与"补到最低人数"的岗为 0（宁可要个弱将，也不能让城空着）
+                    float scoreFloor = (task.post.required || task.lowPop) ? 0f : weights.minTransferScore;
 
                     while (true)
                     {
@@ -604,12 +664,12 @@ namespace Sango.Core
                         // 人力优先来自真空闲，只有明显更划算时才去动别人城里的"在岗"记账。
                         float bestScore;
                         Person best = ScanBest(task.post, city, pool, transferred, blocked, exhaustedSources,
-                            occupied, false, weights, out bestScore);
+                            occupied, false, task.lowPop, weights, out bestScore);
                         if (best == null || bestScore < scoreFloor)
                         {
                             float stealScore;
                             Person steal = ScanBest(task.post, city, pool, transferred, blocked, exhaustedSources,
-                                occupied, true, weights, out stealScore);
+                                occupied, true, task.lowPop, weights, out stealScore);
                             if (steal != null && stealScore > bestScore)
                             {
                                 best = steal;
@@ -656,7 +716,7 @@ namespace Sango.Core
 
                         // 源城调出配额：额度按**净富余**（空闲 − 本城未填岗位）动态取值。
                         //   自己的缺口还没补满（净富余 ≤ 0）→ **一个人都不许调出**，先保住本城；
-                        //   富余越多额度越大（每 sendSurplusPerSeat 个富余多 1 人），上限 maxSendPerCityPerTurn。
+                        //   富余越多额度越大：净富余 ÷ sendSurplusPerSeat(默认 2) + 1，即**最多借一半**。
                         // 注意：CanSend 把 limit ≤ 0 当作"不限制"，所以 0 必须在这里单独判掉。
                         int fromCity = best.BelongCity != null ? best.BelongCity.Id : 0;
                         int sendLimit = SendLimitFor(best.BelongCity,
@@ -825,8 +885,10 @@ namespace Sango.Core
 
             if (globalQuotaUsed)
             {
-                plan.unmet.Add(string.Format("本作用域本回合调动总额度 {0} 人已用完，剩余岗位下回合继续",
-                    weights.maxTransferPerTurn));
+                plan.unmet.Add(string.Format(
+                    "本作用域本回合调动总额度 {0} 人已用完（在册 {1} 人 × {2:P0} 缩放），剩余岗位下回合继续",
+                    globalQuota, scopePersons,
+                    weights.maxTransferPerTurnRatio > 0f ? weights.maxTransferPerTurnRatio : 0f));
             }
 
             // 【改动 B】剔除被"外调抢占"作废的在岗记账：那些岗位回到空缺（人已调去更缺人的城）。
@@ -910,12 +972,13 @@ namespace Sango.Core
         /// <param name="exhaustedSources">本回合已"送够人"的源城</param>
         /// <param name="occupied">被"本城在岗"记账占用的人</param>
         /// <param name="onlyOccupied">true = 只扫在岗的人（抢占轮）</param>
+        /// <param name="lowPopDest">true = 本岗位属于"把该城补到最低人数"的岗（免行程 / 跨圈层成本）</param>
         /// <param name="weights">部署参数</param>
         /// <param name="bestScore">返回最优人选的分（无人选时为 float.MinValue）</param>
         /// <returns>最优人选；无合适人选时为 null</returns>
         static Person ScanBest(Post post, City dest, List<Person> pool, HashSet<int> transferred,
             HashSet<int> blocked, HashSet<int> exhaustedSources, HashSet<int> occupied,
-            bool onlyOccupied, DeploymentWeights weights, out float bestScore)
+            bool onlyOccupied, bool lowPopDest, DeploymentWeights weights, out float bestScore)
         {
             Person best = null;
             bestScore = float.MinValue;
@@ -935,9 +998,11 @@ namespace Sango.Core
                 // **同一座城的另一个岗位**，被闸门拒掉后还塞进 blocked（本回合彻底出局）：
                 // 既白刷一遍"闸门否决汇总"，也让该城的在岗记录看起来像出了问题。
                 if (p.BelongCity == dest) continue;
-                if (!MeetsMilitaryFloor(p, post, weights)) continue;
+                // 军事 / 守备岗的能力下限（统率+武力）：硬性岗与"补到最低人数"的岗同样豁免 ——
+                // 一座 0~2 人的城宁可先由文官顶着，也不能连 3 个人都凑不齐。
+                if (!MeetsMilitaryFloor(p, post, weights) && !lowPopDest) continue;
 
-                float score = Score(p, post, dest, weights);
+                float score = Score(p, post, dest, lowPopDest, weights);
                 // 特技组合搭配：军事 / 守备岗优先派"能带来本城还没有的特技"的武将
                 if (post.kind == PostKind.Military || post.kind == PostKind.Garrison)
                 {
@@ -977,23 +1042,30 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 池中是否存在"**仅因为源城调出额度用完**而被排除"的候选。
+        /// 池中剩下的候选是否**全部**来自"源城调出额度已用完"的城。
         ///
         /// 用于把空缺归因从"池中无可用人选"里细分出来 —— 两者含义完全不同：
         /// 前者下回合就能继续调（源城每回合的调出额度会重置），后者是真的没人可派。
+        ///
+        /// 【必须是"全部"】旧实现碰到第一个这样的人就返回 true，于是只要池里还有**任何**
+        /// 一座已用尽额度的城的闲人（几乎必然有），每条空缺都会被写成
+        /// "源城无可调富余"—— 真正的原因（例如"军事岗能力下限挡掉了文官"）
+        /// 被这句话盖掉，报告因此指出错误方向。
         /// </summary>
         static bool HasExhaustedOnlyCandidate(List<Person> pool, HashSet<int> transferred,
             HashSet<int> blocked, HashSet<int> exhaustedSources)
         {
-            if (pool == null) return false;
+            if (pool == null || exhaustedSources.Count == 0) return false;
+            bool any = false;
             for (int i = 0; i < pool.Count; i++)
             {
                 Person p = pool[i];
                 if (p == null || transferred.Contains(p.Id) || blocked.Contains(p.Id)) continue;
-                if (p.BelongCity != null && exhaustedSources.Contains(p.BelongCity.Id))
-                    return true;
+                if (p.BelongCity == null || !exhaustedSources.Contains(p.BelongCity.Id))
+                    return false;                            // 还有"非额度用尽"的候选 → 不是这个原因
+                any = true;
             }
-            return false;
+            return any;
         }
 
         /// <summary>把计数表的键追加到列表（去重，保持首次出现顺序）。</summary>
@@ -1078,7 +1150,9 @@ namespace Sango.Core
         /// 洛阳"空闲 23 / 空缺 2"也只能送出 1 人，全势力上百个缺口被这个额度卡死。
         ///
         /// 现在：本城缺口还没补满（净富余 ≤ 0）→ **一个人都不许调出**（先保住自己）；
-        ///       净富余越多额度越大（每 <c>sendSurplusPerSeat</c> 个富余多 1 人），上限 <c>maxSendPerCityPerTurn</c>。
+        ///       净富余越多额度越大：额度 = 净富余 ÷ <c>sendSurplusPerSeat</c>(默认 2) + 1
+        ///       —— 即**一次最多借走净富余的一半**（净富余 1 → 1 人；8 → 5 人；20 → 11 人）。
+        ///       上限由 <c>maxSendPerCityPerTurn</c>（默认 0 = 不限）与全局额度共同兜住。
         /// </summary>
         /// <param name="from">源城（人选当前所属的城）</param>
         /// <param name="ownVacancy">该城本回合还缺多少人（岗位数 − 已填）</param>
@@ -1095,8 +1169,35 @@ namespace Sango.Core
             int baseLimit = Math.Max(1, w.maxTransferFromCityPerTurn);
             int slope = Math.Max(1, w.sendSurplusPerSeat);
             int limit = baseLimit + surplus / slope;
-            int hardCap = w.maxSendPerCityPerTurn > 0 ? w.maxSendPerCityPerTurn : baseLimit;
-            return Math.Max(baseLimit, Math.Min(limit, hardCap));
+
+            // 硬顶：≤0 = 不限制 —— 只由全局额度与"目标城接收额度"兜住。
+            // 之所以默认不限：额度公式本身就是"最多借净富余的一半"，
+            // 再压一个固定硬顶会把这条口径直接截断（净富余 20 想要 11 人却只放 5 人）。
+            if (w.maxSendPerCityPerTurn <= 0)
+                return limit;
+            return Math.Max(baseLimit, Math.Min(limit, w.maxSendPerCityPerTurn));
+        }
+
+        /// <summary>
+        /// 本回合作用域级调动总额度 = <c>max(maxTransferPerTurn, ⌈在册总人数 × 比例⌉)</c>。
+        ///
+        /// 固定额度在不同规模的势力上游离太大：上百人的势力一回合只准动 12 人，
+        /// "全势力上百个岗位缺口"要卡几十回合；十几人的小势力又显得宽松。
+        /// 按**在册总人数**（含在部队 / 有任务的人，即势力的总盘子）缩放后，
+        /// 调动节奏与规模自洽 —— 默认比例 0.25，即"100 人至少能调动 25 人"。
+        /// 配置的 <c>maxTransferPerTurn</c> 是**下限**：配置更高时以配置为准，小势力不被缩小。
+        /// </summary>
+        /// <param name="w">部署参数</param>
+        /// <param name="scopePersons">本作用域在册武将总数</param>
+        /// <returns>本回合额度；≤0 = 不限制</returns>
+        public static int GlobalTransferQuota(DeploymentWeights w, int scopePersons)
+        {
+            if (w == null) return 0;
+            int cfg = w.maxTransferPerTurn;
+            if (cfg <= 0 || w.maxTransferPerTurnRatio <= 0f || scopePersons <= 0)
+                return cfg;                                  // 配 0 就是不限制，缩放不该把它变成有限
+            int scaled = (int)Math.Ceiling(scopePersons * w.maxTransferPerTurnRatio);
+            return scaled > cfg ? scaled : cfg;
         }
 
         /// <summary>本城本回合还缺多少人（岗位数 − 已填；负数按 0 计）。</summary>
@@ -1205,10 +1306,20 @@ namespace Sango.Core
             return 0f;
         }
 
-        /// <summary>匹配分 = 能力适配 − 行程成本 − 跨圈层成本。</summary>
-        static float Score(Person p, Post post, City dest, DeploymentWeights w)
+        /// <summary>
+        /// 匹配分 = 能力适配 − 行程成本 − 跨圈层成本。
+        ///
+        /// <paramref name="lowPopDest"/> = 本岗位属于"把该城补到最低人数（<c>minCityPersons</c>）"的那几个岗：
+        /// 此时**只按能力适配打分**，免掉行程与跨圈层成本 —— 这两项本来是"别为小事折腾武将"的效率考量，
+        /// 可一座 0~2 人的城是**停摆**的（征集不了兵、押不出车、做不了内政），
+        /// 拿"回撤贵 / 路远"把它永远空着，等于用一名武将的行程换掉一整座城的产能。
+        /// （作用范围有限：每城最多补到 minCityPersons 人，源城仍有净富余闸门、每城接收额度与全局额度约束。）
+        /// </summary>
+        static float Score(Person p, Post post, City dest, bool lowPopDest, DeploymentWeights w)
         {
             float fit = Fit(post.weights, p);
+            if (lowPopDest)
+                return fit;
             float travel = 0f;
             if (p.CurrentCity != null && dest != null)
                 travel = p.DistanceDays(dest) / (float)Math.Max(1, w.turnDays) * w.costPerTurn;

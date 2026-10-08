@@ -1284,6 +1284,7 @@ MonoBehaviour:
   - {fileID: 4574352887715429112}
   - {fileID: 4138618352487400069}
   sureBtn: {fileID: 2615132759251461884}
+  searchInput: {fileID: 2110915593397742388}
 --- !u!1 &9167501678661684136
 GameObject:
   m_ObjectHideFlags: 0
@@ -2335,6 +2336,30 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 8734080045334747305}
     m_Modifications:
+    - target: {fileID: 464750742232740609, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+      propertyPath: m_Text
+      value: "\u641C\u7D22"
+      objectReference: {fileID: 0}
+    - target: {fileID: 464750742232740609, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1898856993935778433, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+      propertyPath: m_Text
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 1898856993935778433, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+      propertyPath: m_ContentType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1898856993935778433, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+      propertyPath: m_KeyboardType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1898856993935778433, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+      propertyPath: m_CharacterValidation
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3855022108812647568, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -2420,6 +2445,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5598128849493018831, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+      propertyPath: m_Text
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5598128849493018831, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
       propertyPath: m_FontData.m_MinSize
       value: 2
       objectReference: {fileID: 0}
@@ -2461,6 +2490,17 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+--- !u!114 &2110915593397742388 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1898856993935778433, guid: 2ced61da556368a44acf38564ba40d39, type: 3}
+  m_PrefabInstance: {fileID: 509297000055884213}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6677758096299296133}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d199490a83bb2b844b9695cbf13b01ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &3634027503473841445 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3855022108812647568, guid: 2ced61da556368a44acf38564ba40d39, type: 3}

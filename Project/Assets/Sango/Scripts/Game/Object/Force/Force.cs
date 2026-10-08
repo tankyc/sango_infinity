@@ -774,7 +774,12 @@ namespace Sango.Core
             //   · 分军团：各自军团内自治（严格边界，池子与目标城都限本军团）。
             // 注意 Force.Run 在等待玩家操作时会被反复调用，RunPlayerCorps 内部以回合号防重入。
             if (IsPlayer)
+            {
+                // 【资源调度】玩家军团同理，且**必须排在人才调度之前**：
+                // 资源调度先登记"哪座城有货待发却缺运输主将"，人才调度同一回合就会补人过去。
+                ResourceDispatcher.RunPlayerCorps(this, scenario);
                 DeploymentShadow.RunPlayerCorps(this, scenario);
+            }
 
             for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
@@ -859,6 +864,11 @@ namespace Sango.Core
             AICommandList.Add(ForceAI.AICaptives);
             AICommandList.Add(ForceAI.AITechniques);
             AICommandList.Add(ForceAI.AISetOfficial);
+            // 【资源调度】城池之间的物资运输（圈层水位：前线防御/进攻 → 次前线支援 → 后方储备）。
+            // 刻意排在人才调度**之前**：先算出"哪座城有货要走、缺运输主将"，
+            // 人才调度同一回合就能把运输队主将派过去（人员需求衔接，见 ResourceDispatchState）。
+            AICommandList.Add(ResourceDispatcher.Run);
+
             // 【人才部署 · Phase A 影子模式】只计算并输出部署计划，不执行任何调动。
             // 放在旧调人逻辑之前：报告反映的是本回合开始时"AI 看到的人力分布"。
             AICommandList.Add(DeploymentShadow.Run);

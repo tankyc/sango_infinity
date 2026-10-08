@@ -178,15 +178,13 @@ namespace Sango.Core
             });
 
             // ==================== 运输 ====================
-            Add("AITransfrom", CityAI.AITransfrom, w.baseAITransfrom, s =>
-            {
-                if (s.foodFill > w.fillLow && s.goldFill > w.fillLow) return w.scoreTransfromRichBonus;
-                return w.scoreTransfromDefaultBonus;
-            }, s => !s.isBorderCity);
-
-            Add("AITransfromToBelongCity", CityAI.AITransfromToBelongCity, w.baseAITransfromToBelongCity,
-                s => w.scoreTransfromToBelongCityBonus,
-                s => (s.kind & (CityKind.Port | CityKind.Gate)) != 0);
+            // 【已被资源调度取代】原先的 "AITransfrom"（非边境城 → 一环邻城）与
+            // "AITransfromToBelongCity"（港关 → 归属都市）两条城池命令已经移除：
+            // 它们只看得到一环邻城、按本城库存比例发货，既没有前线优先，也不管在途与上限溢出。
+            // 现在由 ResourceDispatcher 以**势力 / 军团**为单位统一调度，
+            // 港关与归属都市作为同一个资源单元一并参与（见 Game/Object/Dispatch）。
+            // 注：CityOrderWeights 里的 baseAITransfrom* / scoreTransfrom* 仍保留，
+            // 只为兼容旧 AIConfig.json（id 不会再出现在任何命令表里）。
 
             // ==================== 科技 ====================
             Add("AIResearch", TechniqueResearch.AIResearch, w.baseAIResearch, s =>

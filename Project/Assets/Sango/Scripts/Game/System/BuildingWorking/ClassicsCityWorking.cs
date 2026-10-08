@@ -80,7 +80,7 @@ namespace Sango.Core
         /// </summary>
         static readonly HashSet<string> classicModeCommandIds = new HashSet<string>
         {
-            "AIRewardPerson", "AIAttack", "AIReinforce", "AITradeFood", "AIIntrior", "AITransfrom",
+            "AIRewardPerson", "AIAttack", "AIReinforce", "AITradeFood", "AIIntrior",
             "AISecurity", "AITrainTroop", "AICreateItems", "AIRecruitTroop",
             "AISearching", "AIRecruitPerson", "AICreateMachine", "AICreateBoat",
             "AIMakeSupplyTroop", "AIResearch",
@@ -144,11 +144,11 @@ namespace Sango.Core
             }
             else
             {
-                // 物资输送
+                // 物资输送已移交资源调度（ResourceDispatcher，势力级）。
+                // 硬编码回退分支里不再挂城池运输命令，避免与资源调度重复派车。
                 AICommandList.Add(CityAI.AIRewardPerson);
                 AICommandList.Add(CityAI.AISearching);
                 AICommandList.Add(CityAI.AIRecruitPerson);
-                AICommandList.Add(CityAI.AITransfrom);
 
                 AICommandList.Add(CityAI.AISecurity);
                 AICommandList.Add(CityAI.AITradeFood);
