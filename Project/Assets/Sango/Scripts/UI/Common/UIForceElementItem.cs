@@ -4,7 +4,8 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-using Sango.Core; namespace Sango.UI
+using Sango.Core;
+namespace Sango.UI
 {
     public class UIForceElementItem : MonoBehaviour
     {
@@ -57,7 +58,7 @@ using Sango.Core; namespace Sango.UI
                     name.text = obj.Name;
                     name.color = c.FreePersonCount == 0 ? Color.gray : GameDefine.whiteText;
                     icon.enabled = false;
-                    if(c.IsPort()||c.IsGate())
+                    if (c.IsPort() || c.IsGate())
                         name.fontSize = 18;
                 }
                 else if (obj is Person)
@@ -77,9 +78,21 @@ using Sango.Core; namespace Sango.UI
                 }
                 else if (obj is Troop)
                 {
-                    name.text = obj.Name;
+                    Troop troop = (Troop)obj;
+                    name.text = obj.Name + "¶Ó";
                     name.color = obj.ActionOver ? Color.gray : GameDefine.whiteText;
-                    icon.enabled = false;
+                    string spName;
+                    if (troop.missionType > 0)
+                    {
+                        spName = troop.ActionOver ? "4846-9/4846-9_21" : "4846-9/4846-9_19";
+                    }
+                    else
+                    {
+                        spName = troop.ActionOver ? "4846-9/4846-9_17" : "4846-9/4846-9_18";
+                    }
+                    if (!icon.sprite.name.Equals(spName))
+                        icon.sprite = GameRenderHelper.LoadTroopStateIcon(spName);
+                    icon.enabled = true;
                 }
             }
             return this;

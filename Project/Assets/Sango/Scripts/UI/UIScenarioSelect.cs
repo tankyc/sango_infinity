@@ -47,7 +47,7 @@ namespace Sango.UI
             all_scenario_list = ShortScenario.all_scenario_info_list;
             firstToggle?.SetIsOnWithoutNotify(true);
             customToggle?.SetIsOnWithoutNotify(false);
-            ShowScenarioByType(0);
+            ShowScenarioByType(1);
         }
 
         public override void OnOpen(params object[] objects)
@@ -233,7 +233,7 @@ namespace Sango.UI
         {
             if (index)
             {
-                ShowScenarioByType(0);
+                ShowScenarioByType(1);
             }
         }
 
@@ -241,7 +241,7 @@ namespace Sango.UI
         {
             if (index)
             {
-                ShowScenarioByType(1);
+                ShowScenarioByType(0);
             }
         }
 

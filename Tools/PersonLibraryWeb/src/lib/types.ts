@@ -417,6 +417,52 @@ export interface CustomFace {
   hasBust: boolean
   /** 是否已有头像（{id}_2.png） */
   hasFace: boolean
+  /** 上传者账号（历史数据为 null） */
+  uploader: string | null
+  /** 上传者显示名 */
+  uploaderName: string | null
+  /** 创建时间（ISO 字符串，历史数据为 null） */
+  createdAt: string | null
+  /** 最后修改时间（ISO 字符串） */
+  updatedAt: string | null
+  /** 图片缓存版本号（毫秒时间戳，配合 ?v= 绕过强缓存） */
+  version: number
+  /** 被多少位武将的头像字段（headIconID）引用；0 表示无人使用 */
+  usedBy?: number
+}
+
+/** 引用某个自定义头像的武将（删除 / 改 ID 前提示、引用面板展示用） */
+export interface FaceUsagePerson {
+  /** 所属库标识：base=基础武将库，custom=自建武将库 */
+  lib: string
+  /** 所属库名称 */
+  libLabel: string
+  /** 武将 ID */
+  id: number
+  /** 武将姓名 */
+  name: string
+  /** 武将性别：0=男，1=女，-1=未知 */
+  sex?: number
+}
+
+/** 头像引用查询结果 */
+export interface FaceUsageResult {
+  /** 头像 ID */
+  id: number
+  /** 引用该头像的武将数量 */
+  count: number
+  /** 引用该头像的武将列表 */
+  persons: FaceUsagePerson[]
+}
+
+/** 自定义头像上传者（用于按上传者筛查） */
+export interface CustomFaceUploader {
+  /** 上传者账号；null 表示历史数据未记录 */
+  username: string | null
+  /** 展示名 */
+  name: string
+  /** 该上传者的头像数量 */
+  count: number
 }
 
 /** 自定义头像列表接口返回 */
@@ -425,6 +471,10 @@ export interface CustomFaceResult {
   baseId: number
   /** 已存在的自定义头像 */
   items: CustomFace[]
+  /** 空白占位格 ID（被删除 / 搬走后保留的位置，可拖拽入驻） */
+  blankIds: number[]
+  /** 上传者清单（按数量倒序） */
+  uploaders: CustomFaceUploader[]
   /** 各性别的下一个可用 ID */
   nextId: { male: number; female: number }
 }

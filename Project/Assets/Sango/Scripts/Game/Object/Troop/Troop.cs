@@ -762,7 +762,7 @@ namespace Sango.Core
             // 必须放在 Init 靠前位置，避免后续逻辑先按旧枚举建好了行为对象。
             NormalizeAppointMission();
 
-            _troopName = $"{Leader?.Name}队";
+            _troopName = $"{Leader?.Name}";
             ForEachPerson(x => x.mBelongTroop = this);
             InitActionList();
 

@@ -94,3 +94,24 @@ export function headRangeText(sex: number): string {
 export function isCustomFaceId(id: number): boolean {
   return Number.isInteger(id) && id >= CUSTOM_FACE_BASE_ID
 }
+
+/**
+ * 过滤出指定性别的空白占位格。
+ * 空白占位格由 ID 千位决定性别，只能接收同性别头像（拖拽换位必须同性别）。
+ * @param blankIds 全部空白占位格 ID
+ * @param sex 性别，0=男，1=女
+ * @returns 该性别的空白占位格（升序）
+ */
+export function blanksOfSex(blankIds: number[], sex: number): number[] {
+  return blankIds.filter((id) => sexOfFaceId(id) === sex).sort((a, b) => a - b)
+}
+
+/**
+ * 判断两个头像 ID 是否属于同一性别号段。
+ * @param a 头像 ID
+ * @param b 头像 ID
+ * @returns 是否同性别
+ */
+export function isSameFaceSex(a: number, b: number): boolean {
+  return sexOfFaceId(a) === sexOfFaceId(b)
+}

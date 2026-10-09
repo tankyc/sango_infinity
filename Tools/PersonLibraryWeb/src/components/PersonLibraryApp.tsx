@@ -509,6 +509,37 @@ export function PersonLibraryApp() {
     setFormOpen(true)
   }
 
+  /**
+   * 从「头像引用武将」面板打开某位武将的详情。
+   * 目标武将可能属于另一个库，此时先切库并等库数据就绪再打开详情，
+   * 否则编辑弹窗里的关系武将列表仍是旧库的。
+   * @param libKey 目标库标识（base / custom）
+   * @param personId 武将 ID
+   */
+  const openPersonFromFace = async (libKey: string, personId: number) => {
+    const key: LibraryKey = libKey === 'base' ? 'base' : 'custom'
+    try {
+      setCustomFaceOpen(false)
+      let target: Person | undefined
+      if (key === lib) {
+        target = persons.find((p) => p.Id === personId)
+      } else {
+        const data = await fetchLibrary(key)
+        target = data.persons.find((p) => p.Id === personId)
+        setLib(key)
+        await loadLibrary(key)
+      }
+      if (!target) {
+        toast.error(`未找到 ID 为 ${personId} 的武将`)
+        return
+      }
+      setEditing(target)
+      setFormOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '打开武将失败')
+    }
+  }
+
   /** 确认删除 */
   const confirmDelete = async () => {
     if (!deleteTarget) return
@@ -1239,6 +1270,7 @@ export function PersonLibraryApp() {
         }}
         onFacesChanged={loadCustomFaces}
         onRequireLogin={() => setLoginOpen(true)}
+        onOpenPerson={openPersonFromFace}
       />
 
       {/* 武将批量导入弹窗（导入完成后刷新列表） */}

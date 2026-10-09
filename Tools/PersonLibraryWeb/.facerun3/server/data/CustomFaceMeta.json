@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "faces": {
+    "4001": {
+      "uploader": "admin",
+      "uploaderName": "管理员",
+      "createdAt": "2026-10-09T09:10:11.150Z",
+      "updatedAt": "2026-10-09T09:10:11.627Z"
+    }
+  },
+  "blanks": [
+    3000,
+    3002
+  ]
+}

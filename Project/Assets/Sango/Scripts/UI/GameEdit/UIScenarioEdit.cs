@@ -770,10 +770,10 @@ namespace Sango.UI
             // 日期不开放修改,固定为0
             scenario.Info.day = 0;
 
-            // 剧本类型下拉框(0普通剧本 1玩家剧本)
+            // 剧本类型下拉框(1普通剧本 0玩家剧本)
             if (typeDropdownField != null)
             {
-                List<string> typeOptions = new List<string>() { "普通剧本", "玩家剧本" };
+                List<string> typeOptions = new List<string>() { "玩家剧本", "普通剧本",  };
                 typeDropdownField.Set("剧本类型", scenario.Info.type, typeOptions, (v) =>
                 {
                     scenario.Info.type = v;

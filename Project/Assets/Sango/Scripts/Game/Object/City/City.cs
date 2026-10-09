@@ -737,11 +737,15 @@ namespace Sango.Core
             if (person.BelongForce != BelongForce)
             {
                 Sango.Log.Error($"*{Name}{BelongForce?.Name} -> allPersons 添加 {person.Name}{person.BelongForce?.Name} 势力不一致!!");
+                person.BelongForce = BelongForce;
+                person.BelongCorps = BelongCorps;
             }
 
             if (person.BelongCorps != BelongCorps)
             {
                 Sango.Log.Error($"*{Name}{BelongCorps?.Name} -> allPersons 添加 {person.Name}{person.BelongCorps?.Name} 军团不一致!!");
+                person.BelongForce = BelongForce;
+                person.BelongCorps = BelongCorps;
             }
 
 #if SANGO_DEBUG

@@ -40,7 +40,8 @@ fi
 
 # server/data 下有两类文件，处理方式完全不同：
 #   · 运行期数据（用户产生）：CustomPerson.json / accounts.json / .token-secret /
-#     .id-sequence.json —— 以线上为准，见下面的 RUNTIME_PATHS；
+#     .id-sequence.json / CustomFaceMeta.json（自定义头像的上传者、空白占位格）
+#     —— 以线上为准，见下面的 RUNTIME_PATHS；
 #   · 静态数据（随游戏版本走）：PersonLibrary.json（基础武将库）/ options.json（枚举表）/
 #     referencePersons.json —— 不属于运行期数据，必须由**部署包自带**。
 #
@@ -68,6 +69,7 @@ RUNTIME_PATHS=(
   "server/data/accounts.json"
   "server/data/.token-secret"
   "server/data/.id-sequence.json"
+  "server/data/CustomFaceMeta.json"
   "server/face"
   "server/backups"
 )

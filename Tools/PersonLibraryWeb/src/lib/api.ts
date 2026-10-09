@@ -18,6 +18,7 @@ import type {
   ClearResult,
   CurrentUserResult,
   CustomFaceResult,
+  FaceUsageResult,
   ImportResult,
   LibraryKey,
   LibraryResponse,
@@ -483,14 +484,121 @@ export function createCustomFace(payload: {
 
 /**
  * 删除自定义头像（同时删除半身像与头像）。
+ * 服务端会保留该 ID 作为「空白占位格」，列表里仍显示位置，便于后续拖拽换位。
  * @param id 头像 ID
- * @returns 删除结果
+ * @param options 引用同步方式
+ * @returns 删除结果；keep 模式返回 dangling（未处理的引用数），replace 模式返回 replaced/replaceId
  */
-export function removeCustomFace(id: number): Promise<{ id: number }> {
+export function removeCustomFace(
+  id: number,
+  options: { mode?: 'keep' | 'replace'; replaceId?: number } = {},
+): Promise<{ id: number; dangling?: number; replaced?: number; replaceId?: number }> {
+  const payload: Record<string, unknown> = { mode: options.mode === 'replace' ? 'replace' : 'keep' }
+  if (options.replaceId !== undefined) payload.replaceId = options.replaceId
   return apiFetch(`/api/faces/custom/${id}`, {
     method: 'DELETE',
-    headers: headers(),
-  }).then((r) => handle<{ id: number }>(r))
+    headers: headers({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  }).then((r) => handle<{ id: number; dangling?: number; replaced?: number; replaceId?: number }>(r))
+}
+
+/**
+ * 查询某个自定义头像被哪些武将引用（删除 / 改 ID 前提示玩家）。
+ * @param id 头像 ID
+ * @returns 引用该头像的武将列表
+ */
+export function fetchCustomFaceUsage(id: number): Promise<FaceUsageResult> {
+  return apiFetch(`/api/faces/custom/${id}/usage`, { headers: headers() }).then((r) =>
+    handle<FaceUsageResult>(r),
+  )
+}
+
+/**
+ * 批量导入自定义头像（批量导入半身像）。
+ * @param payload 性别与图片对列表（半身像 + 自动生成的小头像）
+ * @returns 新分配的 ID 列表
+ */
+export function createCustomFacesBatch(payload: {
+  /** 归属性别：0=男，1=女 */
+  sex: number
+  /** 图片对（240x240 半身像 + 64x80 头像，dataURL 或 base64） */
+  items: Array<{ bust: string; face: string }>
+}): Promise<{ ids: number[]; count: number }> {
+  return apiFetch('/api/faces/custom/batch', {
+    method: 'POST',
+    headers: headers({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  }).then((r) => handle<{ ids: number[]; count: number }>(r))
+}
+
+/**
+ * 更新已有自定义头像的图片。
+ * 用于「重新导入半身像」与「以半身像为准重新裁剪小头像」。
+ * @param id 头像 ID
+ * @param payload 需要更新的图片（bust / face 至少传一个）
+ * @returns 更新结果（含缓存版本号）
+ */
+export function updateCustomFaceImages(
+  id: number,
+  payload: { bust?: string; face?: string },
+): Promise<{ id: number; updated: string[]; updatedAt: string; version: number }> {
+  return apiFetch(`/api/faces/custom/${id}`, {
+    method: 'PUT',
+    headers: headers({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  }).then((r) => handle<{ id: number; updated: string[]; updatedAt: string; version: number }>(r))
+}
+
+/**
+ * 把自定义头像移动到空白占位格（仅限同性别号段）。
+ * 武将的 headIconID 引用会由服务端一并改到新 ID。
+ * @param id 原头像 ID
+ * @param to 目标空白占位格 ID
+ * @returns 移动结果（remapped 为同步更新的武将条数）
+ */
+export function moveCustomFace(
+  id: number,
+  to: number,
+): Promise<{ from: number; to: number; remapped: number; warnings?: string[] }> {
+  return apiFetch(`/api/faces/custom/${id}/move`, {
+    method: 'POST',
+    headers: headers({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ to }),
+  }).then((r) => handle<{ from: number; to: number; remapped: number; warnings?: string[] }>(r))
+}
+
+/**
+ * 修改自定义头像性别：服务端按目标性别重新分配 ID 并把图片改名搬移。
+ * @param id 头像 ID
+ * @param sex 目标性别，0=男，1=女
+ * @returns 结果（to 为新分配的头像 ID）
+ */
+export function changeCustomFaceSex(
+  id: number,
+  sex: number,
+): Promise<{ from: number; to: number; sex: number; remapped: number; warnings?: string[] }> {
+  return apiFetch(`/api/faces/custom/${id}/sex`, {
+    method: 'POST',
+    headers: headers({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ sex }),
+  }).then((r) => handle<{ from: number; to: number; sex: number; remapped: number; warnings?: string[] }>(r))
+}
+
+/**
+ * 取自定义头像的原始 PNG，返回可直接交给 <img> / 画布的 object URL。
+ *
+ * 走服务端同源接口而不是 /face/{id}_{type}.png：
+ * 配置了 R2 时后者会被 302 到另一域名，画布跨域取图会被污染，
+ * toDataURL() 会直接抛错，无法用于「以半身像为准重新裁剪小头像」。
+ * 调用方负责在不再使用时 URL.revokeObjectURL。
+ * @param id 头像 ID
+ * @param type 1=半身像，2=头像
+ * @returns object URL
+ */
+export async function fetchCustomFaceRaw(id: number, type: 1 | 2): Promise<string> {
+  const res = await apiFetch(`/api/faces/custom/raw?id=${id}&type=${type}`, { headers: headers() })
+  if (!res.ok) throw new ApiError(res.status, `读取头像 ${id} 的图片失败（${res.status}）`)
+  return URL.createObjectURL(await res.blob())
 }
 
 /**

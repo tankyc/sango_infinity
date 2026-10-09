@@ -2149,8 +2149,6 @@ function buildFaceUsageIndex() {
         libLabel: cfg.label,
         id: toInt(person.Id, 0),
         name: toStr(person.Name),
-        /** 武将性别（0=男，1=女，-1=未知），面板里用于区分同名的男女武将 */
-        sex: toInt(person.sex, -1),
       })
       index.set(headId, list)
     }

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "faces": {
+    "3002": {
+      "uploader": "admin",
+      "uploaderName": "管理员",
+      "createdAt": "2026-10-09T08:47:11.444Z",
+      "updatedAt": "2026-10-09T08:47:11.444Z"
+    },
+    "3005": {
+      "uploader": "admin",
+      "uploaderName": "管理员",
+      "createdAt": "2026-10-09T08:47:10.829Z",
+      "updatedAt": "2026-10-09T08:47:11.065Z"
+    },
+    "4001": {
+      "uploader": "admin",
+      "uploaderName": "管理员",
+      "createdAt": "2026-10-09T08:47:10.835Z",
+      "updatedAt": "2026-10-09T08:47:11.256Z"
+    }
+  },
+  "blanks": [
+    3003,
+    3004
+  ]
+}

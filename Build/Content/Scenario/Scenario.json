@@ -9,7 +9,8 @@
     "month": 1,
     "name": "测试剧本-英雄集结",
     "tag": "",
-    "year": 251
+    "year": 251,
+	"type": 1
   },
   "citySet": {
     "1": {

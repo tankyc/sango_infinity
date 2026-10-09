@@ -1,0 +1,4234 @@
+{
+  "PersonLibrary": {
+    "1000": {
+      "Id": 1000,
+      "Name": "赵云#1",
+      "type": 3,
+      "familyName": "赵",
+      "giveName": "云",
+      "nickName": "子龙",
+      "description": "常山真定人。身长八尺，姿颜雄伟。与关羽、张飞并称「燕南三士」，长坂坡单骑救主，一身是胆。",
+      "headIconID": 3000,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 184,
+      "yearBorn": 168,
+      "yearDead": 229,
+      "compatibility": 75,
+      "state": 5,
+      "personality": 3,
+      "argumentation": 4,
+      "voice": 1,
+      "tone": 1,
+      "kanshitsu": 2,
+      "ideal": 1,
+      "talent": 1,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        91,
+        5,
+        0,
+        10000,
+        91
+      ],
+      "strength": [
+        97,
+        5,
+        0,
+        10000,
+        97
+      ],
+      "intelligence": [
+        76,
+        5,
+        0,
+        10000,
+        76
+      ],
+      "politics": [
+        65,
+        5,
+        0,
+        10000,
+        65
+      ],
+      "glamour": [
+        81,
+        5,
+        0,
+        10000,
+        81
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        3,
+        0,
+        3
+      ],
+      "halberdLv": [
+        2,
+        0,
+        2
+      ],
+      "crossbowLv": [
+        2,
+        0,
+        2
+      ],
+      "rideLv": [
+        4,
+        0,
+        4
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        1,
+        0,
+        1
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        1,
+        11,
+        26
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "2026-10-09T09:55:09.997Z",
+      "imageID": null
+    },
+    "1001": {
+      "Id": 1001,
+      "Name": "诸葛亮#1",
+      "type": 3,
+      "familyName": "诸",
+      "giveName": "葛亮",
+      "nickName": "孔明",
+      "description": "琅琊阳都人，号卧龙。躬耕南阳，三顾茅庐而出，隆中定三分天下之计，鞠躬尽瘁，死而后已。",
+      "headIconID": 2012,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 207,
+      "yearBorn": 181,
+      "yearDead": 234,
+      "compatibility": 75,
+      "state": 5,
+      "personality": 2,
+      "argumentation": 5,
+      "voice": 7,
+      "tone": 1,
+      "kanshitsu": 2,
+      "ideal": 1,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        58,
+        5,
+        0,
+        10000,
+        58
+      ],
+      "strength": [
+        38,
+        5,
+        0,
+        10000,
+        38
+      ],
+      "intelligence": [
+        100,
+        5,
+        0,
+        10000,
+        100
+      ],
+      "politics": [
+        100,
+        5,
+        0,
+        10000,
+        100
+      ],
+      "glamour": [
+        92,
+        5,
+        0,
+        10000,
+        92
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        2,
+        0,
+        2
+      ],
+      "rideLv": [
+        1,
+        0,
+        1
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        4,
+        0,
+        4
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        2,
+        12,
+        27,
+        31
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "2026-10-03T16:18:29.568Z",
+      "imageID": null
+    },
+    "1002": {
+      "Id": 1002,
+      "Name": "貂蝉#1",
+      "type": 3,
+      "familyName": "貂",
+      "giveName": "蝉",
+      "nickName": "",
+      "description": "绝世歌姬，姿色倾城。为王允义女，施连环计离间董卓与吕布，终使董卓伏诛。",
+      "headIconID": 2100,
+      "image": "",
+      "image_old": null,
+      "sex": 1,
+      "appearance": 192,
+      "yearBorn": 176,
+      "yearDead": 220,
+      "compatibility": 30,
+      "state": 5,
+      "personality": 2,
+      "argumentation": 3,
+      "voice": 5,
+      "tone": 1,
+      "kanshitsu": 1,
+      "ideal": 4,
+      "talent": 2,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        22,
+        5,
+        0,
+        10000,
+        22
+      ],
+      "strength": [
+        26,
+        5,
+        0,
+        10000,
+        26
+      ],
+      "intelligence": [
+        88,
+        5,
+        0,
+        10000,
+        88
+      ],
+      "politics": [
+        64,
+        5,
+        0,
+        10000,
+        64
+      ],
+      "glamour": [
+        98,
+        5,
+        0,
+        10000,
+        98
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        0,
+        0,
+        0
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        13
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1003": {
+      "Id": 1003,
+      "Name": "张飞#1",
+      "type": 3,
+      "familyName": "张",
+      "giveName": "飞",
+      "nickName": "翼德",
+      "description": "涿郡人。勇猛无双，与关羽并称「万人敌」。长坂桥头一声断喝，曹军无人敢近。",
+      "headIconID": 2008,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 184,
+      "yearBorn": 167,
+      "yearDead": 221,
+      "compatibility": 75,
+      "state": 5,
+      "personality": 4,
+      "argumentation": 2,
+      "voice": 0,
+      "tone": 3,
+      "kanshitsu": 1,
+      "ideal": 2,
+      "talent": 2,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        83,
+        5,
+        0,
+        10000,
+        83
+      ],
+      "strength": [
+        98,
+        5,
+        0,
+        10000,
+        98
+      ],
+      "intelligence": [
+        31,
+        5,
+        0,
+        10000,
+        31
+      ],
+      "politics": [
+        22,
+        5,
+        0,
+        10000,
+        22
+      ],
+      "glamour": [
+        44,
+        5,
+        0,
+        10000,
+        44
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        4,
+        0,
+        4
+      ],
+      "halberdLv": [
+        3,
+        0,
+        3
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        2,
+        0,
+        2
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        1,
+        0,
+        1
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        1,
+        26,
+        42
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1004": {
+      "Id": 1004,
+      "Name": "丁固",
+      "type": 3,
+      "familyName": "丁",
+      "giveName": "固",
+      "nickName": "子贱",
+      "description": "三国时期吴国大臣，孙亮时，为廷尉，参与讨伐会稽、鄱阳、新都叛乱。孙休时任左御史大夫。孙皓迁都武昌后，丁固与右将军诸葛靓镇守建业。",
+      "headIconID": 2079,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 198,
+      "yearDead": 277,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 0,
+      "argumentation": 0,
+      "voice": 0,
+      "tone": 0,
+      "kanshitsu": 1,
+      "ideal": 0,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        55,
+        3,
+        0,
+        10000,
+        55
+      ],
+      "strength": [
+        33,
+        3,
+        0,
+        10000,
+        33
+      ],
+      "intelligence": [
+        70,
+        3,
+        0,
+        10000,
+        70
+      ],
+      "politics": [
+        76,
+        3,
+        0,
+        10000,
+        76
+      ],
+      "glamour": [
+        67,
+        3,
+        0,
+        10000,
+        67
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        363,
+        369
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        1,
+        0,
+        1
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        81
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1005": {
+      "Id": 1005,
+      "Name": "步练师",
+      "type": 3,
+      "familyName": "步",
+      "giveName": "练师",
+      "nickName": "",
+      "description": "临淮郡淮阴县（今江苏省淮安市）人，汉末三国时期孙吴政权妃嫔，吴大帝孙权的追封皇后，后世又称步夫人，步皇后，与孙吴丞相步骘同宗，全公主和朱公主生母。",
+      "headIconID": 2144,
+      "image": "",
+      "image_old": null,
+      "sex": 1,
+      "appearance": 190,
+      "yearBorn": 182,
+      "yearDead": 238,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 4,
+      "tone": 5,
+      "kanshitsu": 0,
+      "ideal": 8,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        20,
+        3,
+        0,
+        10000,
+        20
+      ],
+      "strength": [
+        5,
+        3,
+        0,
+        10000,
+        5
+      ],
+      "intelligence": [
+        73,
+        3,
+        0,
+        10000,
+        73
+      ],
+      "politics": [
+        63,
+        3,
+        0,
+        10000,
+        63
+      ],
+      "glamour": [
+        80,
+        3,
+        0,
+        10000,
+        80
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": [
+        368
+      ],
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        0,
+        0,
+        0
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        2,
+        0,
+        2
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        100
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1006": {
+      "Id": 1006,
+      "Name": "士燮",
+      "type": 3,
+      "familyName": "士",
+      "giveName": "燮",
+      "nickName": "威彦",
+      "description": "",
+      "headIconID": 2028,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 136,
+      "yearDead": 226,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 3,
+      "kanshitsu": 0,
+      "ideal": 3,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        60,
+        5,
+        0,
+        10000,
+        60
+      ],
+      "strength": [
+        37,
+        5,
+        0,
+        10000,
+        37
+      ],
+      "intelligence": [
+        70,
+        5,
+        0,
+        10000,
+        70
+      ],
+      "politics": [
+        70,
+        5,
+        0,
+        10000,
+        70
+      ],
+      "glamour": [
+        50,
+        5,
+        0,
+        10000,
+        50
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        565
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        1,
+        0,
+        1
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        96
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1007": {
+      "Id": 1007,
+      "Name": "句扶",
+      "type": 3,
+      "familyName": "句",
+      "giveName": "扶",
+      "nickName": "孝兴",
+      "description": "字孝兴，汉族，益州巴西郡汉昌县（今四川巴中）人。三国时期蜀汉名将，从征南方、北伐多次立下战功，官至左将军，封为宕渠侯。",
+      "headIconID": 2062,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 190,
+      "yearDead": 249,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 6,
+      "kanshitsu": 1,
+      "ideal": 6,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        70,
+        3,
+        0,
+        10000,
+        70
+      ],
+      "strength": [
+        76,
+        3,
+        0,
+        10000,
+        76
+      ],
+      "intelligence": [
+        68,
+        3,
+        0,
+        10000,
+        68
+      ],
+      "politics": [
+        64,
+        3,
+        0,
+        10000,
+        64
+      ],
+      "glamour": [
+        70,
+        3,
+        0,
+        10000,
+        70
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        46
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        2,
+        0,
+        2
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        3,
+        0,
+        3
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        2,
+        0,
+        2
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        10
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1008": {
+      "Id": 1008,
+      "Name": "史涣",
+      "type": 3,
+      "familyName": "史",
+      "giveName": "涣",
+      "nickName": "公刘",
+      "description": "字公刘，豫州沛国（今安徽淮北）人。东汉末年在曹操帐下将领。",
+      "headIconID": 2053,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 157,
+      "yearDead": 209,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 4,
+      "argumentation": 0,
+      "voice": 3,
+      "tone": 7,
+      "kanshitsu": 1,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        70,
+        3,
+        0,
+        10000,
+        70
+      ],
+      "strength": [
+        82,
+        3,
+        0,
+        10000,
+        82
+      ],
+      "intelligence": [
+        35,
+        3,
+        0,
+        10000,
+        35
+      ],
+      "politics": [
+        26,
+        3,
+        0,
+        10000,
+        26
+      ],
+      "glamour": [
+        38,
+        3,
+        0,
+        10000,
+        38
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        342,
+        344
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        3,
+        0,
+        3
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        0,
+        0,
+        0
+      ],
+      "rideLv": [
+        2,
+        0,
+        2
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        10
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1009": {
+      "Id": 1009,
+      "Name": "任峻",
+      "type": 3,
+      "familyName": "任",
+      "giveName": "峻",
+      "nickName": "伯达",
+      "description": "河南郡中牟县人。董卓作乱时，任峻劝说中牟令杨原治理河南，抵抗暴乱。适逢曹操起兵，任峻征集宗族家客数百人归附曹操，被任命为骑都尉。曹操每次出征，任峻通常在后方补给军需。建安元年（196年），枣祗建议实施屯田，任峻被任命为典农中郎将，在许下招募百姓屯田，当年得谷百万斛，数年间各郡国仓廪皆满",
+      "headIconID": 2039,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 162,
+      "yearDead": 209,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 0,
+      "argumentation": 0,
+      "voice": 0,
+      "tone": 0,
+      "kanshitsu": 0,
+      "ideal": 0,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        68,
+        3,
+        0,
+        10000,
+        68
+      ],
+      "strength": [
+        71,
+        3,
+        0,
+        10000,
+        71
+      ],
+      "intelligence": [
+        65,
+        3,
+        0,
+        10000,
+        65
+      ],
+      "politics": [
+        76,
+        3,
+        0,
+        10000,
+        76
+      ],
+      "glamour": [
+        64,
+        3,
+        0,
+        10000,
+        64
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        344
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        2,
+        0,
+        2
+      ],
+      "crossbowLv": [
+        0,
+        0,
+        0
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        79
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1010": {
+      "Id": 1010,
+      "Name": "柳隐",
+      "type": 3,
+      "familyName": "柳",
+      "giveName": "隐",
+      "nickName": "休然",
+      "description": "",
+      "headIconID": 2039,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 188,
+      "yearDead": 268,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 6,
+      "kanshitsu": 1,
+      "ideal": 6,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        80,
+        3,
+        0,
+        10000,
+        80
+      ],
+      "strength": [
+        75,
+        3,
+        0,
+        10000,
+        75
+      ],
+      "intelligence": [
+        78,
+        3,
+        0,
+        10000,
+        78
+      ],
+      "politics": [
+        66,
+        3,
+        0,
+        10000,
+        66
+      ],
+      "glamour": [
+        56,
+        3,
+        0,
+        10000,
+        56
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        630
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        2,
+        0,
+        2
+      ],
+      "halberdLv": [
+        3,
+        0,
+        3
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        2,
+        0,
+        2
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        28
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1011": {
+      "Id": 1011,
+      "Name": "王元姬",
+      "type": 3,
+      "familyName": "王",
+      "giveName": "元姬",
+      "nickName": "",
+      "description": "东海郡郯县（今山东省郯城县）人，出身魏晋名门东海王氏，曹魏司徒王朗的孙女、经学家王肃的女儿，晋文帝司马昭的妻子，西晋建立后被尊为皇太后，去世后谥号文明皇后，与司马昭合葬于崇阳",
+      "headIconID": 2133,
+      "image": "",
+      "image_old": null,
+      "sex": 1,
+      "appearance": 190,
+      "yearBorn": 217,
+      "yearDead": 268,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 4,
+      "tone": 5,
+      "kanshitsu": 0,
+      "ideal": 2,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        23,
+        3,
+        0,
+        10000,
+        23
+      ],
+      "strength": [
+        5,
+        3,
+        0,
+        10000,
+        5
+      ],
+      "intelligence": [
+        69,
+        3,
+        0,
+        10000,
+        69
+      ],
+      "politics": [
+        77,
+        3,
+        0,
+        10000,
+        77
+      ],
+      "glamour": [
+        82,
+        3,
+        0,
+        10000,
+        82
+      ],
+      "consanguinity": 0,
+      "Father": 37,
+      "Mother": 0,
+      "SpouseList": [
+        229
+      ],
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        23
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1012": {
+      "Id": 1012,
+      "Name": "张超",
+      "type": 3,
+      "familyName": "张",
+      "giveName": "超",
+      "nickName": "",
+      "description": "东平寿张（今山东寿张）人，东汉末年大臣，陈留太守张邈之弟。",
+      "headIconID": 2033,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 166,
+      "yearDead": 196,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 7,
+      "kanshitsu": 2,
+      "ideal": 4,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        68,
+        3,
+        0,
+        10000,
+        68
+      ],
+      "strength": [
+        47,
+        3,
+        0,
+        10000,
+        47
+      ],
+      "intelligence": [
+        73,
+        3,
+        0,
+        10000,
+        73
+      ],
+      "politics": [
+        77,
+        3,
+        0,
+        10000,
+        77
+      ],
+      "glamour": [
+        73,
+        3,
+        0,
+        10000,
+        73
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 431,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        1,
+        0,
+        1
+      ],
+      "halberdLv": [
+        2,
+        0,
+        2
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        2,
+        0,
+        2
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        78
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1013": {
+      "Id": 1013,
+      "Name": "臧洪",
+      "type": 3,
+      "familyName": "臧",
+      "giveName": "洪",
+      "nickName": "",
+      "description": "字子源，广陵射阳（今江苏宝应县东）人，东汉文学家。臧洪十五岁时，以父功拜童子郎，知名太学。\n19\n后举孝廉为郎，任即丘长。中平末，弃官还家，太守张超任为功曹。\n6\n后董卓专权，臧洪劝说张超联合兖州刺史刘岱等起兵讨卓，于酸枣设坛。臧洪升坛盟誓，辞气慷慨，涕泣横下，闻者莫不激扬。后归袁绍，任青州刺史、东郡太守。后张超被曹操围困，求救于臧洪，袁绍不允发兵，臧洪遂与袁绍决裂。袁绍兴兵围东郡，历年攻城不下，便令陈琳写信给臧洪，劝其归降。但臧洪回信拒绝，后城破被杀。",
+      "headIconID": 2054,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 154,
+      "yearDead": 196,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 7,
+      "kanshitsu": 2,
+      "ideal": 4,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        70,
+        3,
+        0,
+        10000,
+        70
+      ],
+      "strength": [
+        52,
+        3,
+        0,
+        10000,
+        52
+      ],
+      "intelligence": [
+        76,
+        3,
+        0,
+        10000,
+        76
+      ],
+      "politics": [
+        81,
+        3,
+        0,
+        10000,
+        81
+      ],
+      "glamour": [
+        82,
+        3,
+        0,
+        10000,
+        82
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        20010
+      ],
+      "HatePersonList": [
+        19
+      ],
+      "spearLv": [
+        1,
+        0,
+        1
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        80
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1014": {
+      "Id": 1014,
+      "Name": "柯比能",
+      "type": 3,
+      "familyName": "柯",
+      "giveName": "比能",
+      "nickName": "",
+      "description": "鲜卑族，汉末三国时期鲜卑族首领。轲比能以勇健、断法公正、不贪财物而为部落大人，据有代郡、上谷一带。自曹操北征后向曹氏进贡表示效忠。魏文帝时，轲比能受封附义王\n",
+      "headIconID": 2061,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 180,
+      "yearDead": 235,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 4,
+      "argumentation": 0,
+      "voice": 3,
+      "tone": 4,
+      "kanshitsu": 0,
+      "ideal": 3,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        73,
+        3,
+        0,
+        10000,
+        73
+      ],
+      "strength": [
+        81,
+        3,
+        0,
+        10000,
+        81
+      ],
+      "intelligence": [
+        43,
+        3,
+        0,
+        10000,
+        43
+      ],
+      "politics": [
+        29,
+        3,
+        0,
+        10000,
+        29
+      ],
+      "glamour": [
+        63,
+        3,
+        0,
+        10000,
+        63
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        2,
+        0,
+        2
+      ],
+      "rideLv": [
+        3,
+        0,
+        3
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        52
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1015": {
+      "Id": 1015,
+      "Name": "蹋顿单于",
+      "type": 3,
+      "familyName": "蹋顿",
+      "giveName": "单于",
+      "nickName": "",
+      "description": "",
+      "headIconID": 2043,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 158,
+      "yearDead": 207,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 4,
+      "argumentation": 0,
+      "voice": 3,
+      "tone": 4,
+      "kanshitsu": 0,
+      "ideal": 3,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        80,
+        5,
+        0,
+        10000,
+        80
+      ],
+      "strength": [
+        82,
+        5,
+        0,
+        10000,
+        82
+      ],
+      "intelligence": [
+        36,
+        5,
+        0,
+        10000,
+        36
+      ],
+      "politics": [
+        33,
+        5,
+        0,
+        10000,
+        33
+      ],
+      "glamour": [
+        56,
+        5,
+        0,
+        10000,
+        56
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        19
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        1,
+        0,
+        1
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        2,
+        0,
+        2
+      ],
+      "rideLv": [
+        3,
+        0,
+        3
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        4
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1016": {
+      "Id": 1016,
+      "Name": "边章",
+      "type": 3,
+      "familyName": "边",
+      "giveName": "章",
+      "nickName": "",
+      "description": "一名边元，凉州金城人，汉末凉州军阀之一，早年与同郡韩遂俱著名西州，朝廷封为为督军从事。",
+      "headIconID": 2009,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 150,
+      "yearDead": 186,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 1,
+      "tone": 2,
+      "kanshitsu": 0,
+      "ideal": 3,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        84,
+        3,
+        0,
+        10000,
+        84
+      ],
+      "strength": [
+        72,
+        3,
+        0,
+        10000,
+        72
+      ],
+      "intelligence": [
+        84,
+        3,
+        0,
+        10000,
+        84
+      ],
+      "politics": [
+        80,
+        3,
+        0,
+        10000,
+        80
+      ],
+      "glamour": [
+        60,
+        3,
+        0,
+        10000,
+        60
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        110
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        2,
+        0,
+        2
+      ],
+      "rideLv": [
+        3,
+        0,
+        3
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        22
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1017": {
+      "Id": 1017,
+      "Name": "杜袭",
+      "type": 3,
+      "familyName": "杜",
+      "giveName": "袭",
+      "nickName": "子绪",
+      "description": "颍川郡定陵县（今河南省襄城县）人。三国时期魏国重臣，东汉末年颍川“四大名士”之一，济阴太守杜根的孙子。",
+      "headIconID": 2022,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 167,
+      "yearDead": 235,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 1,
+      "tone": 6,
+      "kanshitsu": 1,
+      "ideal": 6,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        35,
+        3,
+        0,
+        10000,
+        35
+      ],
+      "strength": [
+        30,
+        3,
+        0,
+        10000,
+        30
+      ],
+      "intelligence": [
+        79,
+        3,
+        0,
+        10000,
+        79
+      ],
+      "politics": [
+        78,
+        3,
+        0,
+        10000,
+        78
+      ],
+      "glamour": [
+        63,
+        3,
+        0,
+        10000,
+        63
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        344,
+        348
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        1,
+        0,
+        1
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        3,
+        0,
+        3
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        78
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1018": {
+      "Id": 1018,
+      "Name": "鲜于辅",
+      "type": 3,
+      "familyName": "鲜",
+      "giveName": "于辅",
+      "nickName": "",
+      "description": "幽州渔阳（今北京市密云县）人。汉末三国时期魏国将领。\n\n原为幽州牧刘虞从事，初平四年，公孙瓒杀害刘虞，鲜于辅与刘和、乌桓峭王、麴义一起合兵大败公孙瓒。公孙瓒败亡后，听从田豫劝告，投顺曹操，封为建忠将军，都督幽州六郡。官渡之战后，拜左度辽将军，封亭侯。\n\n",
+      "headIconID": 2059,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 168,
+      "yearDead": 228,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 7,
+      "kanshitsu": 1,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        69,
+        5,
+        0,
+        10000,
+        69
+      ],
+      "strength": [
+        76,
+        5,
+        0,
+        10000,
+        76
+      ],
+      "intelligence": [
+        46,
+        5,
+        0,
+        10000,
+        46
+      ],
+      "politics": [
+        38,
+        5,
+        0,
+        10000,
+        38
+      ],
+      "glamour": [
+        61,
+        5,
+        0,
+        10000,
+        61
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        478
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        1,
+        0,
+        1
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        2,
+        0,
+        2
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        92
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1019": {
+      "Id": 1019,
+      "Name": "张机",
+      "type": 3,
+      "familyName": "张",
+      "giveName": "机",
+      "nickName": "仲景",
+      "description": "后世尊称他为\"医圣\"‌，和华佗、董奉并称\"建安三神医\"，他写的《伤寒杂病论》确立了中医\"辨证论治\"的基本原则，对后世影响深远",
+      "headIconID": 2029,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 150,
+      "yearDead": 220,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 1,
+      "tone": 6,
+      "kanshitsu": 2,
+      "ideal": 9,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        10,
+        4,
+        0,
+        10000,
+        10
+      ],
+      "strength": [
+        11,
+        4,
+        0,
+        10000,
+        11
+      ],
+      "intelligence": [
+        74,
+        4,
+        0,
+        10000,
+        74
+      ],
+      "politics": [
+        62,
+        4,
+        0,
+        10000,
+        62
+      ],
+      "glamour": [
+        80,
+        4,
+        0,
+        10000,
+        80
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        636
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        0,
+        0,
+        0
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        98
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1020": {
+      "Id": 1020,
+      "Name": "董奉",
+      "type": 3,
+      "familyName": "董",
+      "giveName": "奉",
+      "nickName": "君异",
+      "description": "侯官县董墘村（今福州市长乐区龙田村）人\n\n5\n\n，建安三神医之一。\n\n1\n\n少年学医，曾任侯官县小吏，后拜福山观老道为师研习医术。归隐后于家乡及庐山一带行医，晚年定居庐山太乙馆\n\n4\n\n，在著名的“建安三神医”中，有“医神”华佗和“医圣”张仲景。“医仙”的名片给了董奉",
+      "headIconID": 2002,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 170,
+      "yearDead": 269,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 1,
+      "tone": 6,
+      "kanshitsu": 2,
+      "ideal": 9,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        19,
+        4,
+        0,
+        10000,
+        19
+      ],
+      "strength": [
+        17,
+        4,
+        0,
+        10000,
+        17
+      ],
+      "intelligence": [
+        73,
+        4,
+        0,
+        10000,
+        73
+      ],
+      "politics": [
+        68,
+        4,
+        0,
+        10000,
+        68
+      ],
+      "glamour": [
+        79,
+        4,
+        0,
+        10000,
+        79
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        368
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        0,
+        0,
+        0
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        98
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1021": {
+      "Id": 1021,
+      "Name": "嵇康",
+      "type": 3,
+      "familyName": "嵇",
+      "giveName": "康",
+      "nickName": "叔夜",
+      "description": "谯国铚县（今安徽宿州，一说安徽淮北濉溪）人，祖籍会稽上虞，今浙江绍兴上虞，三国时期曹魏思想家、音乐家、文学家、竹林七贤之一。",
+      "headIconID": 2005,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 223,
+      "yearDead": 264,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 1,
+      "tone": 7,
+      "kanshitsu": 0,
+      "ideal": 9,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        20,
+        3,
+        0,
+        10000,
+        20
+      ],
+      "strength": [
+        13,
+        3,
+        0,
+        10000,
+        13
+      ],
+      "intelligence": [
+        76,
+        3,
+        0,
+        10000,
+        76
+      ],
+      "politics": [
+        72,
+        3,
+        0,
+        10000,
+        72
+      ],
+      "glamour": [
+        80,
+        3,
+        0,
+        10000,
+        80
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        344
+      ],
+      "HatePersonList": [
+        264
+      ],
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        77
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1022": {
+      "Id": 1022,
+      "Name": "宗预",
+      "type": 3,
+      "familyName": "宗",
+      "giveName": "预",
+      "nickName": "德艳",
+      "description": "南阳安众（今河南镇平县东南）人。三国时期蜀汉大臣，\n宗预初随张飞入蜀，任主簿，迁参军右中郎将。受命出使吴国，深得孙权爱戴，对蜀吴联盟的巩固和发展作出贡献。还蜀后迁后将军，督永安，就拜征西大将军，赐爵关内侯。\n\n",
+      "headIconID": 2098,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 188,
+      "yearDead": 264,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 7,
+      "kanshitsu": 1,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        67,
+        5,
+        0,
+        10000,
+        67
+      ],
+      "strength": [
+        72,
+        5,
+        0,
+        10000,
+        72
+      ],
+      "intelligence": [
+        74,
+        5,
+        0,
+        10000,
+        74
+      ],
+      "politics": [
+        65,
+        5,
+        0,
+        10000,
+        65
+      ],
+      "glamour": [
+        36,
+        5,
+        0,
+        10000,
+        36
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        433
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        1,
+        0,
+        1
+      ],
+      "halberdLv": [
+        2,
+        0,
+        2
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        2,
+        0,
+        2
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        87
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1023": {
+      "Id": 1023,
+      "Name": "赵俨",
+      "type": 3,
+      "familyName": "赵",
+      "giveName": "俨",
+      "nickName": "伯然",
+      "description": "4 。\n赵俨\n赵俨（171~245年），字伯然，颍川阳翟（今河南禹州市）。东汉末年颍川“四大名士”之一。\n作为三国时期的魏国名臣，赵俨是魏国的四代功臣，\n赵俨年轻的时候，就已经出名，和阳翟辛毗、许昌陈群、定陵杜袭并称颍川四大名士。\n",
+      "headIconID": 2083,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 171,
+      "yearDead": 245,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 1,
+      "tone": 6,
+      "kanshitsu": 1,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        24,
+        5,
+        0,
+        10000,
+        24
+      ],
+      "strength": [
+        36,
+        5,
+        0,
+        10000,
+        36
+      ],
+      "intelligence": [
+        71,
+        5,
+        0,
+        10000,
+        71
+      ],
+      "politics": [
+        70,
+        5,
+        0,
+        10000,
+        70
+      ],
+      "glamour": [
+        66,
+        5,
+        0,
+        10000,
+        66
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": [
+        637
+      ],
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        1,
+        0,
+        1
+      ],
+      "Exp": 0,
+      "FeatureList": null,
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1024": {
+      "Id": 1024,
+      "Name": "符将军",
+      "type": 3,
+      "familyName": "符",
+      "giveName": "将军",
+      "nickName": "",
+      "description": "自建武将1",
+      "headIconID": 2000,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 170,
+      "yearDead": 289,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 0,
+      "kanshitsu": 0,
+      "ideal": 0,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        95,
+        5,
+        0,
+        10000,
+        95
+      ],
+      "strength": [
+        95,
+        5,
+        0,
+        10000,
+        95
+      ],
+      "intelligence": [
+        95,
+        5,
+        0,
+        10000,
+        95
+      ],
+      "politics": [
+        95,
+        5,
+        0,
+        10000,
+        95
+      ],
+      "glamour": [
+        95,
+        5,
+        0,
+        10000,
+        95
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        3,
+        0,
+        3
+      ],
+      "halberdLv": [
+        3,
+        0,
+        3
+      ],
+      "crossbowLv": [
+        3,
+        0,
+        3
+      ],
+      "rideLv": [
+        3,
+        0,
+        3
+      ],
+      "waterLv": [
+        3,
+        0,
+        3
+      ],
+      "machineLv": [
+        3,
+        0,
+        3
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        1
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1025": {
+      "Id": 1025,
+      "Name": "符抓人",
+      "type": 3,
+      "familyName": "符",
+      "giveName": "抓人",
+      "nickName": "",
+      "description": "抓人用",
+      "headIconID": 2007,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 170,
+      "yearDead": 289,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 0,
+      "argumentation": 0,
+      "voice": 0,
+      "tone": 0,
+      "kanshitsu": 0,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        83,
+        5,
+        0,
+        10000,
+        83
+      ],
+      "strength": [
+        86,
+        5,
+        0,
+        10000,
+        86
+      ],
+      "intelligence": [
+        71,
+        5,
+        0,
+        10000,
+        71
+      ],
+      "politics": [
+        74,
+        5,
+        0,
+        10000,
+        74
+      ],
+      "glamour": [
+        57,
+        5,
+        0,
+        10000,
+        57
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        20022
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        2,
+        0,
+        2
+      ],
+      "halberdLv": [
+        2,
+        0,
+        2
+      ],
+      "crossbowLv": [
+        0,
+        0,
+        0
+      ],
+      "rideLv": [
+        3,
+        0,
+        3
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        20
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1026": {
+      "Id": 1026,
+      "Name": "段煨",
+      "type": 3,
+      "familyName": "段",
+      "giveName": "煨",
+      "nickName": "忠明",
+      "description": "",
+      "headIconID": 2007,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 161,
+      "yearDead": 209,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 7,
+      "kanshitsu": 2,
+      "ideal": 3,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        75,
+        3,
+        0,
+        10000,
+        75
+      ],
+      "strength": [
+        76,
+        3,
+        0,
+        10000,
+        76
+      ],
+      "intelligence": [
+        41,
+        3,
+        0,
+        10000,
+        41
+      ],
+      "politics": [
+        57,
+        3,
+        0,
+        10000,
+        57
+      ],
+      "glamour": [
+        46,
+        3,
+        0,
+        10000,
+        46
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        2,
+        0,
+        2
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": null,
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1027": {
+      "Id": 1027,
+      "Name": "程畿",
+      "type": 3,
+      "familyName": "程",
+      "giveName": "畿",
+      "nickName": "",
+      "description": "汉族，巴西阆中（今四川省阆中市）人 。三国时期蜀汉官员，刘璋割据益州时，程畿为汉昌长。后来，巴西太守庞羲因刘璋猜疑而怀有叛离之心，命令程畿的儿子征召士兵自保，程畿不仅制止儿子的行为，还说服了庞羲，因此受到刘璋的赏识，被刘璋任命为江阳太守，后来刘备取代刘璋担任益州牧，程畿担任从事祭酒。蜀汉建国后，程畿随刘备伐吴，刘备兵败夷陵，程畿不肯撤退，最终奋力战死",
+      "headIconID": 2083,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 175,
+      "yearDead": 222,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 2,
+      "kanshitsu": 1,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        42,
+        3,
+        0,
+        10000,
+        42
+      ],
+      "strength": [
+        47,
+        3,
+        0,
+        10000,
+        47
+      ],
+      "intelligence": [
+        65,
+        3,
+        0,
+        10000,
+        65
+      ],
+      "politics": [
+        67,
+        3,
+        0,
+        10000,
+        67
+      ],
+      "glamour": [
+        62,
+        3,
+        0,
+        10000,
+        62
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": null,
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1028": {
+      "Id": 1028,
+      "Name": "杨彪",
+      "type": 3,
+      "familyName": "杨",
+      "giveName": "彪",
+      "nickName": "文先",
+      "description": "弘农郡华阴县（今陕西华阴东南）人。杨震曾孙。东汉末年名臣",
+      "headIconID": 2095,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 142,
+      "yearDead": 225,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 0,
+      "argumentation": 0,
+      "voice": 0,
+      "tone": 5,
+      "kanshitsu": 0,
+      "ideal": 6,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        30,
+        4,
+        0,
+        10000,
+        30
+      ],
+      "strength": [
+        25,
+        4,
+        0,
+        10000,
+        25
+      ],
+      "intelligence": [
+        77,
+        4,
+        0,
+        10000,
+        77
+      ],
+      "politics": [
+        78,
+        4,
+        0,
+        10000,
+        78
+      ],
+      "glamour": [
+        66,
+        4,
+        0,
+        10000,
+        66
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        1,
+        0,
+        1
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        57
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1029": {
+      "Id": 1029,
+      "Name": "陈袛",
+      "type": 3,
+      "familyName": "陈",
+      "giveName": "袛",
+      "nickName": "奉宗",
+      "description": "汝南（今河南平舆）人，三国时期蜀汉大臣，大司徒许靖兄长的外孙。",
+      "headIconID": 2019,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 197,
+      "yearDead": 258,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 0,
+      "argumentation": 0,
+      "voice": 0,
+      "tone": 3,
+      "kanshitsu": 0,
+      "ideal": 8,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        22,
+        3,
+        0,
+        10000,
+        22
+      ],
+      "strength": [
+        15,
+        3,
+        0,
+        10000,
+        15
+      ],
+      "intelligence": [
+        55,
+        3,
+        0,
+        10000,
+        55
+      ],
+      "politics": [
+        53,
+        3,
+        0,
+        10000,
+        53
+      ],
+      "glamour": [
+        42,
+        3,
+        0,
+        10000,
+        42
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        55
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1030": {
+      "Id": 1030,
+      "Name": "陶璜",
+      "type": 3,
+      "familyName": "陶",
+      "giveName": "璜",
+      "nickName": "世英",
+      "description": "丹阳郡秣陵县（今江苏省南京市）人，三国时期东吴及西晋初年将领、官员。\n初仕吴，为交州刺史。屡战有功，进前将军、交州牧。有谋略，济穷好施，深得人心。建衡三年（271年），与薛珝将兵十万攻交趾，陷之，九真、日南皆降于吴。",
+      "headIconID": 2051,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 235,
+      "yearDead": 301,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 7,
+      "kanshitsu": 0,
+      "ideal": 3,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        79,
+        3,
+        0,
+        10000,
+        79
+      ],
+      "strength": [
+        81,
+        3,
+        0,
+        10000,
+        81
+      ],
+      "intelligence": [
+        82,
+        3,
+        0,
+        10000,
+        82
+      ],
+      "politics": [
+        62,
+        3,
+        0,
+        10000,
+        62
+      ],
+      "glamour": [
+        32,
+        3,
+        0,
+        10000,
+        32
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        2,
+        0,
+        2
+      ],
+      "halberdLv": [
+        3,
+        0,
+        3
+      ],
+      "crossbowLv": [
+        2,
+        0,
+        2
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        2,
+        0,
+        2
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        14
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1031": {
+      "Id": 1031,
+      "Name": "黄琬",
+      "type": 3,
+      "familyName": "黄",
+      "giveName": "琬",
+      "nickName": "子琰",
+      "description": "东汉江夏安陆（今湖北安陆南）人，尚书令黄香曾孙、太尉黄琼之孙。身为司隶校尉的黄琬，埋伏诛杀了祸国殃民的董卓。后被董卓部下逮捕并打入死囚牢，将其残忍杀害，死时52岁",
+      "headIconID": 2022,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 141,
+      "yearDead": 193,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 2,
+      "kanshitsu": 2,
+      "ideal": 6,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        53,
+        3,
+        0,
+        10000,
+        53
+      ],
+      "strength": [
+        34,
+        3,
+        0,
+        10000,
+        34
+      ],
+      "intelligence": [
+        71,
+        3,
+        0,
+        10000,
+        71
+      ],
+      "politics": [
+        78,
+        3,
+        0,
+        10000,
+        78
+      ],
+      "glamour": [
+        60,
+        3,
+        0,
+        10000,
+        60
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        26
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        56
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1032": {
+      "Id": 1032,
+      "Name": "荀爽",
+      "type": 3,
+      "familyName": "荀",
+      "giveName": "爽",
+      "nickName": "慈明",
+      "description": "一名谞，字慈明。颍川颍阴（今河南省许昌市）人。东汉末年官员、经学家\n，名士荀淑第六子\n他自幼聪敏好学，潜心经籍，刻苦勤奋。汉桓帝在位时曾被太常赵典举为至孝，拜郎中，对策上奏见解后，弃官离去。为了躲避第二次党锢之祸，他隐遁汉滨达十余年，专以著述为事，号为“硕儒”。黄巾起义爆发后，党禁解除，荀爽相继被举荐，但都未应命。董卓掌权后，强征荀爽为官。他在九十三日内，接连升至司空，位列台司。荀爽见董卓残暴，便暗中与司徒王允等谋除董卓，\n但在举事前，荀爽便于初平元年（190年）病逝，享年六十三岁",
+      "headIconID": 2072,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 135,
+      "yearDead": 190,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 1,
+      "tone": 5,
+      "kanshitsu": 2,
+      "ideal": 6,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        24,
+        3,
+        0,
+        10000,
+        24
+      ],
+      "strength": [
+        25,
+        3,
+        0,
+        10000,
+        25
+      ],
+      "intelligence": [
+        74,
+        3,
+        0,
+        10000,
+        74
+      ],
+      "politics": [
+        66,
+        3,
+        0,
+        10000,
+        66
+      ],
+      "glamour": [
+        78,
+        3,
+        0,
+        10000,
+        78
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        1,
+        0,
+        1
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": null,
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1033": {
+      "Id": 1033,
+      "Name": "吕乂",
+      "type": 3,
+      "familyName": "吕",
+      "giveName": "乂",
+      "nickName": "季阳",
+      "description": "出身南阳吕氏，其父吕常送益州牧刘焉进入蜀郡后因官道堵塞、不能返回便留在了蜀地，吕乂也随其父一并留在蜀地。刘备平定益州后，吕乂任典曹都尉，管理盐税。后被升任为新都、绵竹县县令，巴西太守。在任期间体恤百姓，在本州各县城中口碑首屈一指。\n诸葛亮北伐时，吕乂被转任为汉中太守，兼任督农，负责供应军需粮草。\n\n",
+      "headIconID": 2095,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 200,
+      "yearDead": 251,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 0,
+      "argumentation": 0,
+      "voice": 0,
+      "tone": 5,
+      "kanshitsu": 1,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        46,
+        3,
+        0,
+        10000,
+        46
+      ],
+      "strength": [
+        32,
+        3,
+        0,
+        10000,
+        32
+      ],
+      "intelligence": [
+        63,
+        3,
+        0,
+        10000,
+        63
+      ],
+      "politics": [
+        71,
+        3,
+        0,
+        10000,
+        71
+      ],
+      "glamour": [
+        52,
+        3,
+        0,
+        10000,
+        52
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        0,
+        0,
+        0
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        8
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1034": {
+      "Id": 1034,
+      "Name": "张裔",
+      "type": 3,
+      "familyName": "张",
+      "giveName": "裔",
+      "nickName": "君嗣",
+      "description": "蜀郡人，刘璋时被举为孝廉，先后任鱼复县县长、州署从事，兼任帐下司马。张飞入蜀支援刘备时，张裔被刘璋任命德阳陌下抵御张飞，一介文官哪里是张飞的对手，张裔被打得落荒而逃，退回成都。刘璋准备投降的时候，张裔作为刘璋的信使前往会见刘备，刘备答应他一定对刘璋以礼相待并安抚刘璋的部下，张裔回到成都，于是开城欢迎刘备，刘备任命张裔为巴郡太守，张裔回成都后担任司金中郎将，负责农具、兵器的制造。",
+      "headIconID": 2080,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 165,
+      "yearDead": 235,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 0,
+      "argumentation": 0,
+      "voice": 0,
+      "tone": 5,
+      "kanshitsu": 1,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        34,
+        3,
+        0,
+        10000,
+        34
+      ],
+      "strength": [
+        43,
+        3,
+        0,
+        10000,
+        43
+      ],
+      "intelligence": [
+        65,
+        3,
+        0,
+        10000,
+        65
+      ],
+      "politics": [
+        69,
+        3,
+        0,
+        10000,
+        69
+      ],
+      "glamour": [
+        56,
+        3,
+        0,
+        10000,
+        56
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        0,
+        0,
+        0
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        2,
+        0,
+        2
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        83
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1035": {
+      "Id": 1035,
+      "Name": "袁隗",
+      "type": 3,
+      "familyName": "袁",
+      "giveName": "隗",
+      "nickName": "次阳",
+      "description": "出身驻马店袁氏，袁绍、袁术叔父。两度担任司徒，但却两次被免官。\n\n中平六年（189年），汉灵帝去世，刘辩继位。朝廷下诏将时任后将军袁隗升任太傅，与大将军何进参录尚书事，二人共同辅政。不久后，洛阳宫变爆发，袁隗与其侄袁绍共同矫诏召宦官任命的司隶校尉樊陵、河南尹许相前来，然后将他们斩杀\n\n",
+      "headIconID": 2090,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 135,
+      "yearDead": 190,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 1,
+      "argumentation": 0,
+      "voice": 0,
+      "tone": 0,
+      "kanshitsu": 2,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        26,
+        3,
+        0,
+        10000,
+        26
+      ],
+      "strength": [
+        25,
+        3,
+        0,
+        10000,
+        25
+      ],
+      "intelligence": [
+        73,
+        3,
+        0,
+        10000,
+        73
+      ],
+      "politics": [
+        78,
+        3,
+        0,
+        10000,
+        78
+      ],
+      "glamour": [
+        64,
+        3,
+        0,
+        10000,
+        64
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": null,
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1036": {
+      "Id": 1036,
+      "Name": "郑泰",
+      "type": 3,
+      "familyName": "郑",
+      "giveName": "泰",
+      "nickName": "公业",
+      "description": "河南开封（今河南省开封市）人。东汉末年官员。\n少有才略，好交豪侠。举孝廉出身，不肯参加公车征辟。汉灵帝末年，大将军何进辅政，征为尚书侍郎，迁侍御史。进谏不用，弃官而去。董卓专政，拜议郎。联合何颙、荀攸共谋诛杀董卓，事泄逃归袁术，出任扬州刺史，卒于途中，时年41岁。\n\n",
+      "headIconID": 2024,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 149,
+      "yearDead": 190,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 2,
+      "argumentation": 0,
+      "voice": 1,
+      "tone": 5,
+      "kanshitsu": 2,
+      "ideal": 5,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        45,
+        3,
+        0,
+        10000,
+        45
+      ],
+      "strength": [
+        29,
+        3,
+        0,
+        10000,
+        29
+      ],
+      "intelligence": [
+        65,
+        3,
+        0,
+        10000,
+        65
+      ],
+      "politics": [
+        72,
+        3,
+        0,
+        10000,
+        72
+      ],
+      "glamour": [
+        79,
+        3,
+        0,
+        10000,
+        79
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": [
+        260
+      ],
+      "HatePersonList": null,
+      "spearLv": [
+        0,
+        0,
+        0
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        0,
+        0,
+        0
+      ],
+      "waterLv": [
+        0,
+        0,
+        0
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        88
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "1037": {
+      "Id": 1037,
+      "Name": "盖勋",
+      "type": 3,
+      "familyName": "盖",
+      "giveName": "勋",
+      "nickName": "元固",
+      "description": "敦煌郡广至县（今甘肃安西县西南）人，东汉末年名将。\n\n盖勋曾任凉州汉阳郡长史，迁任汉阳太守，后入朝为讨虏校尉，颇受汉灵帝刘宏信任，出为京兆尹。灵帝驾崩后，董卓专权，为防止盖勋响应袁绍领导的关东联军，特将其征入朝廷，拜议郎。迁任越骑校尉，出任颍川太守，又被征入朝，因怨愤董卓而失意不已。初平二年（191年），因背疮发作，在长安去世，终年五十一岁\n\n",
+      "headIconID": 2057,
+      "image": "",
+      "image_old": null,
+      "sex": 0,
+      "appearance": 190,
+      "yearBorn": 140,
+      "yearDead": 191,
+      "compatibility": 0,
+      "state": 0,
+      "personality": 3,
+      "argumentation": 0,
+      "voice": 2,
+      "tone": 7,
+      "kanshitsu": 2,
+      "ideal": 6,
+      "talent": 0,
+      "merit": 0,
+      "stamina": 0,
+      "Level": 0,
+      "command": [
+        81,
+        3,
+        0,
+        10000,
+        81
+      ],
+      "strength": [
+        76,
+        3,
+        0,
+        10000,
+        76
+      ],
+      "intelligence": [
+        57,
+        3,
+        0,
+        10000,
+        57
+      ],
+      "politics": [
+        43,
+        3,
+        0,
+        10000,
+        43
+      ],
+      "glamour": [
+        78,
+        3,
+        0,
+        10000,
+        78
+      ],
+      "consanguinity": 0,
+      "Father": 0,
+      "Mother": 0,
+      "SpouseList": null,
+      "Brother": 0,
+      "BrotherList": null,
+      "LikePersonList": null,
+      "HatePersonList": [
+        494
+      ],
+      "spearLv": [
+        2,
+        0,
+        2
+      ],
+      "halberdLv": [
+        1,
+        0,
+        1
+      ],
+      "crossbowLv": [
+        1,
+        0,
+        1
+      ],
+      "rideLv": [
+        3,
+        0,
+        3
+      ],
+      "waterLv": [
+        1,
+        0,
+        1
+      ],
+      "machineLv": [
+        0,
+        0,
+        0
+      ],
+      "Exp": 0,
+      "FeatureList": [
+        52
+      ],
+      "IsAlive": true,
+      "ActionOver": false,
+      "tags": [],
+      "updatedAt": "",
+      "imageID": null
+    },
+    "offset": 1000,
+    "dataVersion": 2
+  }
+}

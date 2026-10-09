@@ -2110,80 +2110,12 @@ app.post('/api/persons/export-mod', (req, res) => {
 // 自定义头像（制作 / 管理 / 打包下载）
 // ─────────────────────────────────────────────────────────────
 
-/** 头像引用索引缓存：头像 ID -> 引用它的武将列表 */
-let faceUsageCache = null
-
-/** 引用索引缓存对应的两个库文件修改时间签名（变化即重建） */
-let faceUsageCacheKey = ''
-
-/**
- * 构建「头像被哪些武将引用」的索引（headIconID）。
- *
- * 删除头像或改变头像 ID 前都要据此提示玩家：直接删除会让这些武将在游戏里变成空头像，
- * 改 ID（拖拽换位 / 修改男女）则需要把这些引用同步改成新 ID。
- * 索引按两个库数据文件的修改时间缓存，武将增删改或改头像后自动重建。
- * @returns {Map<number, Array<{lib:string,libLabel:string,id:number,name:string}>>} 引用索引
- */
-function buildFaceUsageIndex() {
-  const key = Object.keys(LIB_CONFIG)
-    .map((libKey) => `${libKey}:${fileMtime(LIB_CONFIG[libKey].file)}`)
-    .join('|')
-  if (faceUsageCache && faceUsageCacheKey === key) return faceUsageCache
-
-  const index = new Map()
-  for (const libKey of Object.keys(LIB_CONFIG)) {
-    const cfg = LIB_CONFIG[libKey]
-    let persons = []
-    try {
-      persons = readLibrary(libKey).persons
-    } catch (err) {
-      console.warn(`[头像] 读取${cfg.label}头像引用失败：${err.message}`)
-      continue
-    }
-    for (const person of persons) {
-      const headId = toInt(person.headIconID, 0)
-      if (headId <= 0) continue
-      const list = index.get(headId) || []
-      list.push({
-        lib: cfg.key,
-        libLabel: cfg.label,
-        id: toInt(person.Id, 0),
-        name: toStr(person.Name),
-        /** 武将性别（0=男，1=女，-1=未知），面板里用于区分同名的男女武将 */
-        sex: toInt(person.sex, -1),
-      })
-      index.set(headId, list)
-    }
-  }
-
-  faceUsageCache = index
-  faceUsageCacheKey = key
-  return index
-}
-
 /**
  * 自定义头像列表。
  * 返回全部自制头像及其下一个可用 ID，游客可浏览。
- * 每项额外带 usedBy：被多少位武将的头像字段引用（0 表示没人用，可放心删改）。
  */
 app.get('/api/faces/custom', (req, res) => {
-  const data = listCustomFaces()
-  const usage = buildFaceUsageIndex()
-  const items = data.items.map((item) => ({ ...item, usedBy: (usage.get(item.id) || []).length }))
-  res.json({ baseId: CUSTOM_FACE_BASE_ID, ...data, items })
-})
-
-/**
- * 查询某个头像被哪些武将引用（供删除 / 改 ID 前提示玩家）。
- * 返回：{ id, count, persons: [{ lib, libLabel, id, name }] }
- */
-app.get('/api/faces/custom/:id/usage', (req, res) => {
-  const id = toInt(req.params.id, -1)
-  if (!Number.isInteger(id) || id < CUSTOM_FACE_BASE_ID) {
-    return res.status(400).json({ message: '请提供合法的头像 ID' })
-  }
-  const persons = buildFaceUsageIndex().get(id) || []
-  res.json({ id, count: persons.length, persons })
+  res.json({ baseId: CUSTOM_FACE_BASE_ID, ...listCustomFaces() })
 })
 
 /**
@@ -2294,31 +2226,10 @@ app.post('/api/faces/custom/:id/sex', requirePermission(PERMISSIONS.WRITE), asyn
   res.json(result)
 })
 
-/**
- * 删除自定义头像（需写入权限，游客不可用；删除后保留空白占位格）。
- * 请求体可选：{ mode: 'keep' | 'replace', replaceId: number }
- *   - keep（默认）：保留武将的头像引用不变（这些武将会显示为空头像，返回值里给出 dangling 数量）；
- *   - replace：把引用该头像的武将统一改到 replaceId（同步处理，返回值里给出 replaced 数量）。
- */
+/** 删除自定义头像（需写入权限，游客不可用；删除后保留空白占位格） */
 app.delete('/api/faces/custom/:id', requirePermission(PERMISSIONS.WRITE), async (req, res) => {
-  const id = toInt(req.params.id, -1)
-  const mode = req.body && req.body.mode === 'replace' ? 'replace' : 'keep'
-  const replaceId = toInt(req.body && req.body.replaceId, 0)
-  if (mode === 'replace' && replaceId <= 0) {
-    return res.status(400).json({ message: '请选择要替换成的头像 ID' })
-  }
-
-  // 删除前先统计引用：删除后再统计会读到已经写入的新数据，无法反映本次删除的影响
-  const usedBy = (buildFaceUsageIndex().get(id) || []).length
-  const result = await deleteCustomFace(id)
+  const result = await deleteCustomFace(toInt(req.params.id, -1))
   if (result.error) return res.status(400).json({ message: result.error })
-
-  if (mode === 'replace') {
-    result.replaced = remapHeadIconRefs(id, replaceId)
-    result.replaceId = replaceId
-  } else {
-    result.dangling = usedBy
-  }
   res.json(result)
 })
 
