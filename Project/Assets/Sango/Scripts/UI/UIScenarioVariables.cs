@@ -154,7 +154,7 @@ namespace Sango.UI
             AddNumberItem("单挑获胜时候的基础抓捕率(百分比)", variables.captureChangceWhenDuelWin, 0, 100, (v) => { variables.captureChangceWhenDuelWin = v; });
 
             AddTitle("战斗参数");
-            AddNumberItem("新游戏禁战回合", variables.AIAttackProtectedCount, 0, 100, (v) => { variables.AIAttackProtectedCount = v; });
+            AddNumberItem("全局和平回合数", variables.AIAttackProtectedCount, 0, 100, (v) => { variables.AIAttackProtectedCount = v; });
             AddNumberItem("基础伤害", variables.fight_base_damage, 0, 1000, (v) => { variables.fight_base_damage = v; });
             AddNumberItem("基准兵力(攻守兵力差)", variables.fight_base_troops_need, 0, 10000, (v) => { variables.fight_base_troops_need = v; });
             AddNumberItem("每多基准兵力,获得一次兵力系数增益", variables.fight_base_troop_count, 0, 1000, (v) => { variables.fight_base_troop_count = v; });

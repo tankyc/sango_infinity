@@ -32,8 +32,10 @@ namespace Sango.Core
             // 玩家侧的计略由界面两步选择器驱动，AI 不代劳
             if (force.IsPlayer)
                 return true;
-            // 开局若干回合不施计，先让地图上的势力边界稳定下来（与 ForceAI.AIDiplomacy 用同一道门）
-            if (scenario.TurnCount < 10)
+            // 开局若干回合不施计，先让地图上的势力边界稳定下来。
+            // 与 AI 攻击行为共用"全局和平回合数"（Scenario.IsPeacePeriod）：和平期内不挑拨、不破盟宣战，
+            // 避免刚开局就出现势力互相宣战。
+            if (scenario.IsPeacePeriod)
                 return true;
             if (force.mGovernor == null || force.CapitalCity == null)
                 return true;

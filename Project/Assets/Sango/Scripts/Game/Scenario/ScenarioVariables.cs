@@ -311,7 +311,16 @@ namespace Sango.Core
         [JsonProperty] public int BuildMaxTurn = 10;
 
         /// <summary>
-        /// 玩家保护回合(不会受电脑攻击)
+        /// 全局和平回合数。
+        ///
+        /// 开局前若干回合内，所有 AI 势力都不会主动发起攻击行为：
+        ///   · 出城攻打敌方城池 / 夺回被占港关；
+        ///   · 跨城支援友军、向前线派补给队与工程队；
+        ///   · 部队自主改派为进攻任务；
+        ///   · 由计略引起的破盟宣战。
+        /// 玩家（含玩家委任的部队）不受此限制；AI 的防守与驱逐入侵敌军照常执行。
+        ///
+        /// 字段名沿用旧存档的 AIAttackProtectedCount 以保证读档兼容，语义已扩展为"全局和平"。
         /// </summary>
         [JsonProperty] public int AIAttackProtectedCount = 12;
 

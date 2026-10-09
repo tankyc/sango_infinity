@@ -20,17 +20,20 @@ namespace Sango.Core
             if (city.BelongForce == null)
                 return true;
 
-            // ---------- 零、军团委任 · 禁止攻击 ----------
+            // ---------- 零、对外用兵开关：军团委任 · 禁止攻击 / 全局和平期 ----------
             // 【本次修复】原先的"禁止攻击"判定只写在 DecideAttackTarget（只有"无军事任务"时才走到），
             // 于是上一回合留下的 TroopOccupyCity 任务会从下面的"持续派遣部队"分支继续派兵攻城
             // —— 玩家看到的就是"设了禁止攻击，部队还是被派出去打别的城市"。
             //
-            // 现在在入口处做两件事：
+            // 【全局和平回合】除军团委任外，AI 的对外用兵还必须受剧本变量 AIAttackProtectedCount
+            // 的"全局和平回合数"约束：开局前若干回合内所有 AI 势力一律不主动发起攻击。
+            // 两道开关在这里合并处理，避免规则分裂：
             //   ① 撤掉"向外进攻"的城市级任务（守城/回援用的 TroopProtectCity 保留）；
             //   ② 召回已派到野外的各类进攻性用兵：攻城 / 跨城支援 / 战场补给队 / 前线工程队
             //      （见 RecallOffensiveTroops）。
             // 防御性用兵不受影响：守城、回援、驱逐侵入领地的敌军交给下面各分支照常执行。
-            if (IsAttackForbidden(city))
+            bool attackForbidden = IsAttackForbidden(city) || scenario.IsPeacePeriod;
+            if (attackForbidden)
             {
                 if (city.TroopMissionType == MissionType.TroopOccupyCity)
                 {
@@ -77,8 +80,8 @@ namespace Sango.Core
             }
 
             // 3.3 优先夺回被敌方占领的本城下属港关(不受"仅边境城市进攻"的限制)
-            // 禁止攻击时跳过：它同样是"派兵去攻打一座被敌方占据的据点"，属向外用兵。
-            City prioritySubCity = IsAttackForbidden(city) ? null : FindPrioritySubCity(city);
+            // 禁止攻击 / 全局和平期时跳过：它同样是"派兵去攻打一座被敌方占据的据点"，属向外用兵。
+            City prioritySubCity = attackForbidden ? null : FindPrioritySubCity(city);
             if (prioritySubCity != null)
             {
                 city.TroopMissionType = MissionType.TroopOccupyCity;
@@ -136,9 +139,9 @@ namespace Sango.Core
         /// <param name="scenario">场景对象</param>
         static void DispatchOccupyTroop(City city, Scenario scenario)
         {
-            // 【兜底】军团委任 · 禁止攻击：本方法是"持续派遣"分支唯一的出城攻击出口，
-            // 任务若被别的路径重新设回来，这里再挡一道，保证"禁止攻击"不会被绕过。
-            if (IsAttackForbidden(city))
+            // 【兜底】军团委任 · 禁止攻击 / 全局和平期：本方法是"持续派遣"分支唯一的出城攻击出口，
+            // 任务若被别的路径重新设回来，这里再挡一道，保证"禁止攻击"与"和平期"都不会被绕过。
+            if (IsAttackForbidden(city) || scenario.IsPeacePeriod)
                 return;
 
             City targetCity = scenario.citySet.Get(city.TroopMissionTargetId);
@@ -500,9 +503,9 @@ namespace Sango.Core
             if (city.BelongForce == null)
                 return true;
 
-            // 军团委任 · 禁止攻击:跨城支援属"向外用兵",一并禁止。
+            // 军团委任 · 禁止攻击 / 全局和平期:跨城支援属"向外用兵",一并禁止。
             // 注意本城自己挨打时的守城不在这里 —— 那由 AIAttack 的"防守优先"分支负责,不受影响。
-            if (IsAttackForbidden(city))
+            if (IsAttackForbidden(city) || scenario.IsPeacePeriod)
                 return true;
 
             // 本城自身已处于军事任务中(进攻或防守),不对外支援
@@ -919,9 +922,9 @@ namespace Sango.Core
             // 【前线战略建筑】优先尝试把辅助建筑修到真正的前沿战区，
             // 突破"只能建在本城辖区(areaCellList)"的限制。
             // 若前线暂无可建点（如全面劣势 / 钱不够），自动回退到下面的旧逻辑。
-            // 军团委任 · 禁止攻击：不向前线派工程队（同属"向外用兵"）；
+            // 军团委任 · 禁止攻击 / 全局和平期：不向前线派工程队（同属"向外用兵"）；
             // 下面"辖区内的本地建造"仍然保留，那是本城自己的建设，不算对外用兵。
-            if (!IsAttackForbidden(city)
+            if (!IsAttackForbidden(city) && !scenario.IsPeacePeriod
                 && AIConfig.Instance.useFrontBuilding
                 && TryBuildFrontBuilding(city, scenario, troop_dst_cell))
                 return true;
@@ -1038,9 +1041,13 @@ namespace Sango.Core
 
             AIConfig cfg = AIConfig.Instance;
 
-            // 建址在派遣期间被占用（例如被别的部队占据）则放弃
+            // 建址在派遣期间被占用（例如被别的部队占据）则放弃。
+            // 【口径统一】与 BattleSituation.EvaluateFrontSite / BuildingType.CanBuildToHere 一致：
+            // 只避让军事建筑 / 爆炸物，允许紧挨障碍物与内政建筑；
+            // 否则会出现"评估判定可建、派遣却被拒"的不一致。
             if (!dest.CanBuild || !dest.IsEmpty() || dest.IsInterior
-                || dest.SpiralHasBuilding(Math.Max(1, scenario.Variables.BuildingSpace)))
+                || dest.SpiralHasBuilding(Math.Max(1, scenario.Variables.BuildingSpace),
+                    (b) => b.BuildingType != null && !b.BuildingType.IsObstacle && !b.BuildingType.IsIntrior))
                 return false;
 
             TroopType troopType = scenario.GetObject<TroopType>(1);
@@ -1607,7 +1614,8 @@ namespace Sango.Core
         /// <returns>是否可以攻击</returns>
         public static bool AICanAttack(City city, Scenario scenario)
         {
-            if (scenario.TurnCount < scenario.Variables.AIAttackProtectedCount)
+            // 全局和平回合数：开局前若干回合内 AI 不主动进攻（统一判定入口见 Scenario.IsPeacePeriod）
+            if (scenario.IsPeacePeriod)
                 return false;
 
             if (IsAttackForbidden(city))
@@ -2167,9 +2175,9 @@ namespace Sango.Core
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
                 return true;
 
-            // 军团委任 · 禁止攻击:战场补给队要把物资送上前线,同属"向外用兵",一并禁止。
+            // 军团委任 · 禁止攻击 / 全局和平期:战场补给队要把物资送上前线,同属"向外用兵",一并禁止。
             // 与上面"禁止运输"的区别：那条禁的是城内资源运输，这条禁的是把部队派到前线。
-            if (IsAttackForbidden(city))
+            if (IsAttackForbidden(city) || scenario.IsPeacePeriod)
                 return true;
 
             AIConfig aiConfig = AIConfig.Instance;

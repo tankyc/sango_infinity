@@ -31,7 +31,7 @@ namespace Sango.Core
         /// </summary>
         internal static bool LogEnabled
         {
-            get { return UnityEngine.Application.isEditor; }
+            get { return false; }//UnityEngine.Application.isEditor; }
         }
 
         /// <summary>拍一张快照并与上一次同标签快照比较，有差异就写 Warning 日志。</summary>

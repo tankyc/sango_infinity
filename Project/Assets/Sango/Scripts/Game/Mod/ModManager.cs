@@ -561,6 +561,73 @@ namespace Sango.Mod
             GameEvent.OnModUpdate?.Invoke(mod);
         }
 
+        /// <summary>
+        /// 清理市场保存的数据：清空内存中的市场表,并删除市场数据存档文件 mod_market.json
+        /// </summary>
+        public void ClearMarket()
+        {
+            mMarketMap.Clear();
+            if (!string.IsNullOrEmpty(marketSaveFile))
+                File.Delete(marketSaveFile);
+            Sango.Log.Info("市场保存的数据已清理");
+        }
+
+        /// <summary>
+        /// 清理市场保存的数据和所有的模组(重装/排障时使用)
+        /// 清理内容:
+        ///   1. 市场数据: 清空内存中的市场表 mMarketMap,并删除市场数据存档 mod_market.json;
+        ///   2. 所有Mod: 删除Mod根目录下的所有Mod文件夹;
+        ///   3. 内存缓存: 清空已启用的Mod列表 mEnabledModList 与Mod表 mModMap;
+        ///   4. 已启用Mod存档 modList.txt: 其中记录的Mod已被删除,一并删除避免残留脏数据;
+        /// 清理完成后逐个通知界面刷新(GameEvent.OnModUpdate)
+        /// 注意: 本方法是纯粹的清理操作,不会询问玩家;玩家入口见 UIModManager.OnClearAllMods
+        /// (先弹窗确认,确认后才清理,清理完成后重启游戏)
+        /// </summary>
+        public void ClearAll()
+        {
+            Sango.Log.Info("开始清理市场数据和所有模组...");
+
+            // 1.清理市场数据(内存 + 存档文件)
+            ClearMarket();
+
+            // 2.删除Mod根目录下的所有Mod文件夹
+            if (Sango.Directory.Exists(MOD_ROOT_DIR))
+            {
+                string[] dirs = Directory.GetDirectories(MOD_ROOT_DIR, "*", System.IO.SearchOption.TopDirectoryOnly);
+                if (dirs != null)
+                {
+                    for (int i = 0; i < dirs.Length; i++)
+                    {
+                        Sango.Directory.Delete(dirs[i]);
+                        Sango.Log.Info("已删除模组文件夹: " + dirs[i]);
+                    }
+                }
+            }
+
+            // 3.记录被清理的Mod,用于通知界面刷新
+            List<Mod> removedMods = new List<Mod>();
+            if (mModMap != null)
+            {
+                foreach (Mod mod in mModMap.Values)
+                    removedMods.Add(mod);
+            }
+
+            // 4.清空内存缓存
+            if (mEnabledModList != null)
+                mEnabledModList.Clear();
+            if (mModMap != null)
+                mModMap.Clear();
+
+            // 5.已启用Mod列表里记录的Mod都已经被删除,一并删除避免残留脏数据
+            File.Delete($"{MOD_ROOT_DIR}/modList.txt");
+
+            // 6.通知界面移除对应的Mod条目
+            for (int i = 0; i < removedMods.Count; i++)
+                GameEvent.OnModUpdate?.Invoke(removedMods[i]);
+
+            Sango.Log.Info("市场数据和所有模组清理完毕");
+        }
+
         public bool HasMod(Mod mod)
         {
             return mModMap.ContainsKey(mod.Id);

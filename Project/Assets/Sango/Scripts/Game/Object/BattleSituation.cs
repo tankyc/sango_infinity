@@ -339,8 +339,12 @@ namespace Sango.Core
             if (!cell.CanBuild || !cell.IsEmpty() || cell.IsInterior)
                 return info;
 
+            // 【间距口径统一】与 BuildingType.CanBuildToHere（军事建筑分支）一致：
+            // 军事建筑只与"军事建筑 / 爆炸物"保持间距，允许紧挨障碍物与内政建筑。
+            // 原实现用无过滤的 SpiralHasBuilding，会把一批本可建的格子误杀。
             int buildSpace = System.Math.Max(1, scenario.Variables.BuildingSpace);
-            if (cell.SpiralHasBuilding(buildSpace))
+            if (cell.SpiralHasBuilding(buildSpace, (b) =>
+                b.BuildingType != null && !b.BuildingType.IsObstacle && !b.BuildingType.IsIntrior))
                 return info;
 
             if (coverRange <= 0)
@@ -356,18 +360,34 @@ namespace Sango.Core
             int enemyTroops = 0;
             int nearestEnemyDist = -1;
 
-            // 威胁范围取"覆盖范围"与配置威胁范围的较大者，保证一次遍历覆盖两种用途
-            int scanRange = System.Math.Max(coverRange, cfg.frontBuildThreatRange);
+            // 战略要道：范围内存在城池 / 港口 / 关隘
+            bool hasChoke = false;
+
+            // 扫描半径取"覆盖范围 / 威胁范围 / 要道范围"的最大值，
+            // 保证一次螺旋遍历同时完成覆盖统计、威胁统计与要道判定，不额外遍历。
+            int scanRange = System.Math.Max(
+                System.Math.Max(coverRange, cfg.frontBuildThreatRange), cfg.frontChokeScanRange);
             int centerX = cell.x;
             int centerY = cell.y;
 
             map.SpiralAction(cell, scanRange, (c) =>
             {
+                int dist = System.Math.Abs(c.x - centerX) + System.Math.Abs(c.y - centerY);
+
+                // 战略要道：范围内有城池 / 港口 / 关隘（扼守要冲 → 适合箭楼类自动输出建筑）。
+                // 【注意】判定半径必须大于建造间距（BuildingSpace），否则会与上面的间距校验冲突、
+                // 导致 hasChoke 恒为 false（这正是"箭楼从不会被选中"的成因）。
+                if (!hasChoke && dist <= cfg.frontChokeScanRange)
+                {
+                    BuildingBase chokeBuilding = c.building;
+                    if (chokeBuilding != null
+                        && (chokeBuilding.IsCity() || chokeBuilding.IsPort() || chokeBuilding.IsGate()))
+                        hasChoke = true;
+                }
+
                 Troop troop = c.troop;
                 if (troop == null || !troop.IsAlive)
                     return;
-
-                int dist = System.Math.Abs(c.x - centerX) + System.Math.Abs(c.y - centerY);
 
                 if (troop.BelongForce == selfForce)
                 {
@@ -398,6 +418,7 @@ namespace Sango.Core
             info.lowFoodPercent = coverCount > 0 ? lowFoodCount * 100 / coverCount : 0;
             info.enemyTroops = enemyTroops;
             info.nearestEnemyDist = nearestEnemyDist;
+            info.hasChoke = hasChoke;
 
             // ---------- 安全校验：离敌人太近会被拆 ----------
             if (nearestEnemyDist >= 0 && nearestEnemyDist < cfg.frontBuildSafeMinDist)
@@ -406,16 +427,6 @@ namespace Sango.Core
             // ---------- 收益校验：没有己方部队受益则不值得修 ----------
             if (coverTroops < cfg.frontBuildMinCoverTroops)
                 return info;
-
-            // ---------- 战略要道：邻近关 / 港 / 城池 ----------
-            cell.Spiral(2, (c) =>
-            {
-                BuildingBase b = c.building;
-                if (b == null)
-                    return;
-                if (b.IsCity() || b.IsPort() || b.IsGate())
-                    info.hasChoke = true;
-            });
 
             // ---------- 综合评分 ----------
             long score = 0;
@@ -502,10 +513,12 @@ namespace Sango.Core
             }
 
             // 1. 气力不足 → 军乐台(kind 13)
+            //    【去重】建址附近若已有己方军乐台，说明这片区域的回气力需求已被覆盖
+            //    （军乐台效果是范围性的），不再重复修建，转而按下面的其它态势判定。
             if (info.avgMoralePercent > 0 && info.avgMoralePercent < cfg.frontBuildLowMoralePercent)
             {
                 BuildingType morale = PickByKind(13);
-                if (morale != null)
+                if (morale != null && !HasFriendlyBuildingNear(info.cell, morale.kind, cfg.frontMoraleDedupeRange, force))
                     return morale;
             }
 
@@ -533,7 +546,15 @@ namespace Sango.Core
                     return drum;
             }
 
-            // 5. 兜底：按配置的优先序列取第一个本势力可建的类型
+            // 5. 兜底：按 kind→权重表在本势力可建类型中随机挑一个。
+            //    【为什么不再用"优先序列取第一个可建"】军乐台 needTech=0 恒可建，
+            //    那样兜底就等价于"永远建军乐台"；改成权重随机后同一片战场会自然出现
+            //    箭楼 / 太鼓台 / 阵等不同类型。
+            BuildingType weighted = PickByWeightedFallback(candidates, cfg);
+            if (weighted != null)
+                return weighted;
+
+            // 6. 次级兜底：权重表里没有任何可建项时，退回优先序列取第一个可建的
             int[] preferred = cfg.frontBuildPreferredTypes;
             if (preferred != null && preferred.Length > 0)
             {
@@ -544,6 +565,88 @@ namespace Sango.Core
 
             // 最终兜底：任取一个可建类型
             return candidates[0];
+        }
+
+        /// <summary>
+        /// 建址附近（指定半径内）是否已存在指定 kind 的己方建筑。
+        /// 用于避免在同一片区域重复修建效果范围重叠的辅助建筑（如军乐台）。
+        /// </summary>
+        /// <param name="cell">建址（可为 null）</param>
+        /// <param name="kind">建筑 kind</param>
+        /// <param name="range">判定半径（格）；&lt;= 0 表示不做去重</param>
+        /// <param name="force">己方势力</param>
+        /// <returns>附近已有同类己方建筑返回 true</returns>
+        static bool HasFriendlyBuildingNear(Cell cell, int kind, int range, Force force)
+        {
+            if (cell == null || force == null || kind <= 0 || range <= 0)
+                return false;
+
+            bool found = false;
+            cell.Spiral(range, (c) =>
+            {
+                if (found)
+                    return;
+
+                BuildingBase b = c.building;
+                if (b != null && b.BuildingType != null
+                    && b.BuildingType.kind == kind && b.BelongForce == force)
+                    found = true;
+            });
+            return found;
+        }
+
+        /// <summary>
+        /// 兜底选型：按 <see cref="AIConfig.frontFallbackKinds"/> /
+        /// <see cref="AIConfig.frontFallbackWeights"/> 的 kind→权重表，
+        /// 在本势力可建类型中按权重随机挑一个。
+        ///
+        /// 作用：军乐台 needTech=0 恒可建，若兜底仍用"优先序列取第一个可建"，等价于永远建军乐台；
+        /// 改成权重随机后，同一片战场会自然出现箭楼 / 太鼓台 / 阵等不同类型的建筑。
+        /// 未列入权重表的 kind 使用 <see cref="AIConfig.frontFallbackDefaultWeight"/>。
+        /// </summary>
+        /// <param name="candidates">本势力可建的军事建筑</param>
+        /// <param name="cfg">AI 配置</param>
+        /// <returns>选中的建筑类型；权重表内没有任何可建项时返回 null</returns>
+        static BuildingType PickByWeightedFallback(List<BuildingType> candidates, AIConfig cfg)
+        {
+            int[] kinds = cfg.frontFallbackKinds;
+            int[] weights = cfg.frontFallbackWeights;
+            if (candidates == null || kinds == null || weights == null
+                || kinds.Length == 0 || kinds.Length != weights.Length)
+                return null;
+
+            // 先筛出"可建且有正权重"的类型，再按权重随机
+            List<BuildingType> availables = new List<BuildingType>();
+            List<int> availableWeights = new List<int>();
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                BuildingType t = candidates[i];
+                if (t == null)
+                    continue;
+
+                int weight = cfg.frontFallbackDefaultWeight;
+                for (int k = 0; k < kinds.Length; k++)
+                {
+                    if (kinds[k] == t.kind)
+                    {
+                        weight = weights[k];
+                        break;
+                    }
+                }
+                if (weight <= 0)
+                    continue;
+
+                availables.Add(t);
+                availableWeights.Add(weight);
+            }
+
+            if (availables.Count == 0)
+                return null;
+
+            int index = GameRandom.RandomWeightIndex(availableWeights.ToArray());
+            if (index < 0 || index >= availables.Count)
+                index = 0;
+            return availables[index];
         }
 
         #endregion

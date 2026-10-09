@@ -308,8 +308,8 @@ namespace Sango.UI
             // 显示提示，需要重启游戏才能生效
             GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, "修改MOD后需要重启游戏才能生效，点击确定重启游戏。", () =>
             {
-                // 重启游戏
-                Application.Quit();
+                // 重启游戏(按平台分别处理,不是简单的退出)
+                Sango.Platform.RestartGame();
             });
         }
 
@@ -457,6 +457,32 @@ namespace Sango.UI
         public void OpenWorkshop()
         {
             Application.OpenURL("http://139.155.98.66/browse");
+        }
+
+        /// <summary>
+        /// 清理市场数据和所有模组(按钮入口)
+        /// 流程: 先弹对话框询问玩家,点击确定才真正清理,清理完成后提示玩家重启游戏
+        /// </summary>
+        public void OnClearAllMods()
+        {
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
+                "清理将删除市场数据和所有已下载的模组,清理完成后需要重启游戏才能生效。确定要清理吗?",
+                OnConfirmClearAllMods);
+        }
+
+        /// <summary>
+        /// 玩家点击确定后: 清理市场数据和所有模组,然后提示重启游戏
+        /// </summary>
+        void OnConfirmClearAllMods()
+        {
+            ModManager.Instance.ClearAll();
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
+                "清理完成,点击确定重启游戏。",
+                () =>
+                {
+                    // 与修改模组后一致:模组环境需要重启游戏重新初始化
+                    Sango.Platform.RestartGame();
+                });
         }
     }
 }

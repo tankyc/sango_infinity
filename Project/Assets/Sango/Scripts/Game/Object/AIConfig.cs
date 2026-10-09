@@ -494,6 +494,16 @@ namespace Sango.Core
         /// <summary>建址威胁扫描半径（格）：用于评估该点会被敌人多快攻击</summary>
         public int frontBuildThreatRange = 6;
 
+        /// <summary>
+        /// 前线建址"战略要道"判定半径（格）：该范围内的城池 / 港口 / 关隘视为扼守要冲，
+        /// 会导向箭楼 / 连弩楼 / 投石台这类自动输出建筑。
+        ///
+        /// 【必须与建造间距解耦】建址的间距校验会排除"<c>BuildingSpace</c> 格内已有建筑"的格子，
+        /// 若这里也用同样的 2 格，就与间距校验直接冲突、判定恒不成立（箭楼类建筑因此永远选不到）。
+        /// 该值必须明显大于 <c>BuildingSpace</c>，默认 6。
+        /// </summary>
+        public int frontChokeScanRange = 6;
+
         /// <summary>前线价值评分中"己方覆盖收益"的权重（%）</summary>
         public int frontCoverWeight = 100;
         /// <summary>前线价值评分中"战略要道（邻近关 / 港 / 城池）"的权重（%）</summary>
@@ -505,6 +515,14 @@ namespace Sango.Core
 
         /// <summary>覆盖范围内己方部队平均气力低于该百分比时，优先修建军乐台（%）</summary>
         public int frontBuildLowMoralePercent = 60;
+
+        /// <summary>
+        /// 军乐台"去重"半径（格）：建址该半径内若已有己方军乐台，
+        /// 说明这片区域的回气力需求已被覆盖，不再重复修建（军乐台效果是范围性的），
+        /// 转而按其它战场态势判定该建什么。配 0 关闭去重。
+        /// </summary>
+        public int frontMoraleDedupeRange = 4;
+
         /// <summary>覆盖范围内粮草紧张的己方部队占比超过该百分比时，优先修建省粮建筑（%）</summary>
         public int frontBuildLowFoodPercent = 40;
 
@@ -514,7 +532,21 @@ namespace Sango.Core
         public int frontBuildMaxContinuous = 3;
 
         /// <summary>
-        /// 前线建址优先建筑类型（BuildingType.Id），按顺序作为评分并列时的兜底优先级。
+        /// 兜底选型权重表（按建筑 kind 计权，与 <see cref="frontFallbackWeights"/> 一一对应）。
+        ///
+        /// 【为什么要按权重随机】军乐台 needTech=0 恒可建，若兜底仍按"优先序列取第一个可建"，
+        /// 就等价于永远建 军乐台——这正是"AI 只建军乐台"的直接成因。
+        /// 改成权重随机后，同一片战场会自然出现箭楼 / 太鼓台 / 阵等不同类型的建筑。
+        /// 默认：军乐台(13) 30 / 太鼓台(12) 25 / 阵(4) 25 / 箭楼(7) 20。
+        /// </summary>
+        public int[] frontFallbackKinds = new int[] { 13, 12, 4, 7 };
+        /// <summary>兜底选型权重（与 <see cref="frontFallbackKinds"/> 一一对应）</summary>
+        public int[] frontFallbackWeights = new int[] { 30, 25, 25, 20 };
+        /// <summary>未列在 <see cref="frontFallbackKinds"/> 中的 kind，在兜底选型时的权重</summary>
+        public int frontFallbackDefaultWeight = 10;
+
+        /// <summary>
+        /// 前线建址优先建筑类型（按 kind），仅作为"权重表里没有任何可建项"时的次级兜底顺序。
         /// 默认：军乐台(13) → 太鼓台(12) → 阵(4) → 箭楼(7)。
         /// </summary>
         public int[] frontBuildPreferredTypes = new int[] { 13, 12, 4, 7 };

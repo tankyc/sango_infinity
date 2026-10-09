@@ -313,6 +313,18 @@ namespace Sango.Core
         public int TurnCount => Info.turnCount;
 
         /// <summary>
+        /// 是否处于"全局和平期"。
+        ///
+        /// 开局前若干回合（回合数由剧本变量 <see cref="ScenarioVariables.AIAttackProtectedCount"/> 配置）
+        /// 所有 AI 势力一律不主动发起攻击行为，用于让玩家有时间熟悉操作、也让地图上的势力边界稳定下来。
+        /// 受控的行为包括：出城攻城 / 夺回港关 / 跨城支援 / 前线补给与筑垒 / 部队自主改派攻击任务 / 破盟宣战。
+        /// 玩家（含玩家委任的部队）不受此限制，AI 的防守与驱逐入侵敌军也照常执行。
+        ///
+        /// 判定收敛在这一处，所有 AI 进攻入口共用，避免规则分裂。
+        /// </summary>
+        public bool IsPeacePeriod => Variables != null && TurnCount < Variables.AIAttackProtectedCount;
+
+        /// <summary>
         /// 当前季节编号：每年 4 季、每季 3 个月（一年 36 回合，每季 9 回合），
         /// 编号 = 年 × 4 + 季序号（季序号 0~3 分别对应 1~3 / 4~6 / 7~9 / 10~12 月）。
         ///

@@ -104,6 +104,61 @@ namespace Sango
             File.WriteAllText(versionFilePath, PlatformUtility.GetApplicationVersion());
         }
 
+        /// <summary>
+        /// 重启游戏(按平台分别处理)
+        ///
+        /// 用途:模组启用列表/模组数据、资源内容等修改后必须重启才能生效的场合,统一走这里。
+        /// 注意不要各处直接调用 Application.Quit:那只是退出进程,不会重新拉起游戏。
+        /// </summary>
+        public static void RestartGame()
+        {
+            Sango.Log.Info($"重启游戏,当前平台: {GetPlatformName()}");
+
+#if UNITY_EDITOR
+            // 编辑器下没有独立的游戏进程,无法自动重启,只能退出播放模式,由开发者重新运行
+            Sango.Log.Warning("编辑器模式不支持自动重启游戏,已退出播放模式");
+            UnityEditor.EditorApplication.isPlaying = false;
+#elif UNITY_ANDROID
+            // Android:先走原生重启接口(原生侧未实现时会自动回退到标准重启方式),
+            // 全部失败则退化为直接退出游戏
+            if (!PlatformUtility.Restart())
+                Application.Quit();
+#elif UNITY_IOS
+            // iOS:系统不允许应用自我重启,只能退出进程并提示玩家手动重新打开
+            Sango.Log.Warning("iOS平台不支持自动重启游戏,请玩家手动重新打开游戏");
+            Application.Quit();
+#elif UNITY_WEBGL
+            // WebGL:没有进程概念,打开当前页面地址即相当于重新进入游戏(会新开一个标签页)
+            Application.OpenURL(Application.absoluteURL);
+#else
+            // 桌面端(Windows/Mac):重新拉起自身可执行文件,再退出当前进程
+            RestartStandalone();
+#endif
+        }
+
+        /// <summary>
+        /// 桌面端重启:重新拉起自身的可执行文件,失败时退化为直接退出游戏
+        /// </summary>
+        static void RestartStandalone()
+        {
+            try
+            {
+                string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exePath,
+                    WorkingDirectory = System.IO.Directory.GetCurrentDirectory(),
+                    UseShellExecute = true,
+                });
+            }
+            catch (System.Exception e)
+            {
+                Sango.Log.Error("重启游戏失败,将直接退出游戏: " + e.Message);
+            }
+
+            Application.Quit();
+        }
+
         static public void ExtractZipFile(string filePath, string savePath, System.Action<float> progress)
         {
             progress?.Invoke(0);

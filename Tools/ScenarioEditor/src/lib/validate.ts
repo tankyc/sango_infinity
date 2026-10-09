@@ -14,7 +14,7 @@
 import type { ValidationIssue, Scenario, CollectionKey, Entity, Options } from './types'
 import { COLLECTION_META, COLLECTION_ORDER } from './types'
 import type { FieldDef, EnumEntry } from './schema'
-import { COLLECTION_FIELDS, resolveEnum, findField } from './schema'
+import { COLLECTION_FIELDS, resolveEnum, findField, PERSON_STATE_MAP } from './schema'
 import { getAttrBase, getAttrChangeId, getAbilityLevel, getArray } from './fields'
 
 /**
@@ -492,18 +492,88 @@ export function validateScenario(scenario: Scenario | null, options: Options | n
     }
   }
 
-  issues.push(...validateCrossEntity(index))
+  issues.push(...validateCrossEntity(index, options))
 
   return issues
+}
+
+/* ------------------------------------------------------------------ */
+/* 归属链条：据点 -> 都市、武将 -> 军团 -> 势力                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 都市类建筑的 kind —— 自身即都市、不需要再归属别的都市的据点。
+ *
+ * 对应 BuildingTypes.json 的 kind 字段：1 = 都市、5 = 都市(小)。
+ * 数据表中其余 majorType 为 0 的据点（2 = 关所、3 = 港）都隶属于某个都市，
+ * 即俗称的「港关卫」：它们必须在 BelongCity 里指向所属都市，游戏才能判定归属。
+ *
+ * 按 kind 而非 BuildingType 的数值判断：将来数据表新增据点类型时会自带 kind，
+ * 这里无需同步修改；只有取不到 options 时才退回按已知 Id 兜底。
+ */
+const CITY_KINDS = new Set([1, 5])
+
+/** 取不到公共数据表时的兜底：1 = 都市、65 = 都市(小) */
+const CITY_TYPE_IDS = new Set([1, 65])
+
+/**
+ * 判断某建筑类型是否为「必须有所属都市的据点」。
+ *
+ * @param typeId BuildingType 取值
+ * @param options 公共数据表
+ * @returns 需要所属都市时为 true
+ */
+function needsParentCity(typeId: number, options: Options | null): boolean {
+  const entry = options?.buildingTypes?.find((t) => t.id === typeId)
+  if (!entry) return !CITY_TYPE_IDS.has(typeId)
+  return !CITY_KINDS.has(Number(entry.kind))
+}
+
+/**
+ * 取建筑类型名称，用于问题描述。
+ *
+ * @param typeId BuildingType 取值
+ * @param options 公共数据表
+ * @returns 名称（取不到时退回显示 Id）
+ */
+function buildingTypeName(typeId: number, options: Options | null): string {
+  return options?.buildingTypes?.find((t) => t.id === typeId)?.name ?? `建筑类型 ${typeId}`
+}
+
+/** 身分：俘虏（对应 C# PersonStateType.Prisoner） */
+const STATE_PRISONER = 6
+
+/**
+ * 有势力的武将允许的身分。
+ *
+ * 主公(1) / 军团长(2，游戏内枚举名为「都督」) / 太守(3) / 普通(4) / 俘虏(6)。
+ *
+ * 俘虏是唯一的例外：武将战败被俘时仍留在原势力的俘虏名单里 ——
+ * 游戏侧 City.AddCaptive 先把人挂进 BelongForce.BeCaptiveList（保留所属势力），
+ * 再清空 BelongCity，因此「俘虏带势力」是正常状态，不该报错。
+ * 其余身分（在野、未登场、未发现、死亡）若仍带着势力，
+ * 说明改身分时漏清了归属字段。
+ */
+const PERSON_STATES_WITH_FORCE = new Set([1, 2, 3, 4, STATE_PRISONER])
+
+/**
+ * 取身分名称。
+ *
+ * @param state 身分取值
+ * @returns 名称（取不到时退回显示原值）
+ */
+function personStateName(state: number): string {
+  return PERSON_STATE_MAP.find((e) => e.value === state)?.label ?? `未知(${state})`
 }
 
 /**
  * 跨实体一致性校验。
  *
  * @param index 已构建的集合索引
+ * @param options 公共数据表（判断建筑类型是否为都市所必需）
  * @returns 问题列表
  */
-function validateCrossEntity(index: Index): ValidationIssue[] {
+function validateCrossEntity(index: Index, options: Options | null): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const persons = index.byCollection.personSet
   const cities = index.byCollection.citySet
@@ -539,17 +609,67 @@ function validateCrossEntity(index: Index): ValidationIssue[] {
       )
     }
 
-    // 君主/都督/太守等在职身分必须有所属势力
+    // 在职身分必须有所属势力
     if ((state === 1 || state === 2 || state === 3) && belongForce === 0) {
       issues.push(
-        issue('warning', 'personSet', id, 'state', `身分为「${state === 1 ? '君主' : state === 2 ? '都督' : '太守'}」但未归属任何势力`)
+        issue('warning', 'personSet', id, 'state', `身分为「${personStateName(state)}」但未归属任何势力`)
       )
     }
-    if (state === 5 && belongForce !== 0) {
-      issues.push(issue('warning', 'personSet', id, 'state', '身分为「在野」但仍有归属势力'))
+
+    // 俘虏：可以带势力，但不能有所属都市，且必须有所在都市。
+    // 与游戏侧 City.AddCaptive 一一对应 —— 它把 state 置为 Prisoner 后：
+    //   · 保留 BelongForce（挂进原势力的俘虏名单）→ 带势力正常；
+    //   · 用 ChangeCurrentCity 记下关押城池 → 所在都市必填；
+    //   · 把 BelongCity 置空 → 所属都市必须为空（俘虏不属于关押都市的编制）。
+    if (state === STATE_PRISONER) {
+      if (belongCity !== 0) {
+        issues.push(
+          issue(
+            'error',
+            'personSet',
+            id,
+            'BelongCity',
+            `身分为「俘虏」但仍有所属都市 ${belongCity}，俘虏不属于任何都市，应清空所属都市`
+          )
+        )
+      }
+      if (currentCity === 0) {
+        issues.push(
+          issue('error', 'personSet', id, 'CurrentCity', '身分为「俘虏」但没有所在都市，俘虏必须关押在某个都市')
+        )
+      }
     }
-    if (state === 9 && belongForce !== 0) {
-      issues.push(issue('warning', 'personSet', id, 'state', '身分为「死亡」但仍有归属势力'))
+
+    // 有势力的武将：必须有所属军团，且身分只能是主公 / 军团长 / 太守 / 普通 / 俘虏。
+    // 这两条是归属链的完整性问题：
+    //   · 势力下没有军团，武将就落不进任何编制单位 —— 俘虏同样适用，
+    //     因为 AddCaptive 只清 BelongCity，并未清 BelongCorps；
+    //   · 身分与势力并存矛盾（在野、未登场、未发现、死亡却仍挂在势力下），
+    //     通常是改身分时漏清归属字段，游戏会把它当成脏数据。
+    // 身分本身不在候选表内的情况由字段级枚举校验负责，这里只判「能否与势力共存」。
+    if (belongForce !== 0) {
+      if (belongCorps === 0) {
+        issues.push(
+          issue(
+            'error',
+            'personSet',
+            id,
+            'BelongCorps',
+            `有所属势力 ${belongForce} 但没有所属军团，势力下的武将必须归属某个军团`
+          )
+        )
+      }
+      if (!PERSON_STATES_WITH_FORCE.has(state)) {
+        issues.push(
+          issue(
+            'error',
+            'personSet',
+            id,
+            'state',
+            `身分为「${personStateName(state)}」但仍有所属势力 ${belongForce}，有势力的武将身分只能是主公 / 军团长 / 太守 / 普通 / 俘虏`
+          )
+        )
+      }
     }
 
     if (belongCity !== 0 && currentCity !== 0 && belongCity !== currentCity) {
@@ -595,9 +715,25 @@ function validateCrossEntity(index: Index): ValidationIssue[] {
     }
   }
 
-  // 都市：相邻关系双向性
+  // 据点：归属都市 + 相邻关系双向性
   for (const c of cities) {
     const id = Number(c.Id)
+
+    // 非都市据点（关所 / 港）必须有所属都市：这类据点自身没有独立的生产与内政，
+    // 一切归属、补给、兵力都经由所属都市结算，BelongCity 为 0 会让它无处归属。
+    const typeId = Number(c.BuildingType)
+    if (needsParentCity(typeId, options) && Number(c.BelongCity) === 0) {
+      issues.push(
+        issue(
+          'error',
+          'citySet',
+          id,
+          'BelongCity',
+          `「${buildingTypeName(typeId, options)}」必须有所属都市，当前为 0`
+        )
+      )
+    }
+
     const neighbors = getArray(c.NeighborList)
     for (const n of neighbors) {
       const other = cityById.get(n)
@@ -641,10 +777,20 @@ function validateCrossEntity(index: Index): ValidationIssue[] {
     }
   }
 
-  // 军团：军团长归属一致性
+  // 军团：所属势力必填 + 军团长归属一致性
   for (const c of corps) {
     const id = Number(c.Id)
+    const belongForce = Number(c.BelongForce) || 0
     const commander = Number(c.Comander) || 0
+
+    // 军团必须有所属势力：军团是势力下的编制单位，没有势力就无从归属，
+    // 其下武将也会因此形成「有势力、有军团，但军团不认势力」的断裂链条。
+    if (belongForce === 0) {
+      issues.push(
+        issue('error', 'corpsSet', id, 'BelongForce', '军团没有所属势力，军团必须隶属于某个势力')
+      )
+    }
+
     if (commander === 0) {
       issues.push(issue('warning', 'corpsSet', id, 'Comander', '军团未设置军团长'))
       continue

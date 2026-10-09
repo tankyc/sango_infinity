@@ -30,7 +30,7 @@ namespace Sango.Core
         /// <summary>是否输出（编辑器 / 开发包）。</summary>
         static bool LogEnabled
         {
-            get { return UnityEngine.Application.isEditor || UnityEngine.Debug.isDebugBuild; }
+            get { return false; }// UnityEngine.Application.isEditor; }
         }
 
         /// <summary>部署配置是否可用（总开关）。</summary>

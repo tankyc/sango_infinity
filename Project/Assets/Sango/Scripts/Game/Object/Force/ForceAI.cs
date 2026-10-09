@@ -72,7 +72,8 @@ namespace Sango.Core
         /// </summary>
         public static bool AIDiplomacy(Force force, Scenario scenario)
         {
-            if (scenario.TurnCount < 10) return true;
+            // 全局和平期不进行外交动作（与 AI 攻击 / 计略共用 Scenario.IsPeacePeriod 这道门）
+            if (scenario.IsPeacePeriod) return true;
             if (force.IsPlayer) return true;
             if (force.mGovernor == null) return true;
             if (force.CapitalCity == null) return true;

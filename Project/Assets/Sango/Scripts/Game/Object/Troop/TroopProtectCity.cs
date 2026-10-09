@@ -41,7 +41,8 @@ namespace Sango.Core
             // 【优化】移除"断粮时 30% 概率撤退"的随机判断，统一由 Troop.AIPrepare 处理
             if (IsMissionComplete || (TargetCity.troops < 2000 && TargetCity == Troop.BelongCity))
             {
-                if (TargetCity.IsEnemy(troop))
+                // 全局和平期：城池虽失守也不反攻，改为返城待命，避免 AI 部队在和平期内自主发起进攻。
+                if (TargetCity.IsEnemy(troop) && !scenario.IsPeacePeriod)
                 {
                     // 如果城池失守,不返回,直接死战,避免过长的寻路导致性能问题
                     Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);

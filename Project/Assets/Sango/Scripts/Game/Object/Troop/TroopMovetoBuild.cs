@@ -30,7 +30,8 @@ namespace Sango.Core
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
             if (IsMissionComplete)
             {
-                if (Troop.BelongCity.IsSameForce(Troop))
+                // 全局和平期：归属城即使失守也不改派为"攻打它"，改为返城待命，避免 AI 部队自主进攻。
+                if (Troop.BelongCity.IsSameForce(Troop) || scenario.IsPeacePeriod)
                 {
                     Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 }

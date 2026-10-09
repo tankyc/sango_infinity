@@ -32,7 +32,9 @@ namespace Sango.Core
                 // 【说明】原先此处有 `if (troop.IsPlayerControl) ClearMission()` 的补丁。
                 // 玩家第一军团现已改走 PlayerTroopReturnCity（见 PlayerTroopMissions.cs），
                 // 由该类型负责"清空任务交回玩家"，故此处只保留势力 AI 的处理。
-                if (TargetCity.IsEnemy(troop))
+                // 全局和平期：不把返城任务改写成"攻打该城"，避免 AI 部队自主发起进攻，
+                // 走下面的返城分支回归属城。
+                if (TargetCity.IsEnemy(troop) && !scenario.IsPeacePeriod)
                 {
                     Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
                 }
