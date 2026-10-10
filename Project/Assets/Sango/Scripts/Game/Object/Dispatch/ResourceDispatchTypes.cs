@@ -62,6 +62,12 @@ namespace Sango.Core
         /// </summary>
         public int escortArms;
 
+        /// <summary>
+        /// 本条发货的**行程跳数**（源城 → 实际收货城；中转接力时是到中转城那一腿的估算值）。
+        /// 执行层据此算"车队自备口粮"：路上会吃掉的（跳数 × 每跳回合）**外加** 10 天口粮。
+        /// </summary>
+        public int hops;
+
         /// <summary>实际收货城的圈层（中转接力时是**中转城**的圈层，不是最终目标的）</summary>
         public int toRing;
         /// <summary>

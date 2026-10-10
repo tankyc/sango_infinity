@@ -97,8 +97,27 @@ namespace Sango.Core
         public float troopMidFill = 0.6f;
         /// <summary>兵力阈值：高位（充足）</summary>
         public float troopHighFill = 0.7f;
-        /// <summary>兵装目标覆盖率（兵装 / 兵力），低于该比例视为兵装不足</summary>
-        public float weaponCoverRatio = 0.5f;
+        /// <summary>
+        /// 兵装目标覆盖率（兵装 / 兵力）。
+        ///
+        /// 【默认 1.3】守军兵装（枪 / 戟 / 弩 / 马合计）低于"兵力 × 1.3"即视为兵装不足，
+        /// 此时造兵装命令（<c>AICreateItems</c>）会按缺口比例抬升优先级
+        /// （见 <see cref="armsDemandTopBias"/>），缺口越大排得越前，
+        /// 避免"城里堆着几万兵却一件兵装都没有、拉不出部队还在白吃粮"。
+        /// 刻意大于 1.0 是留冗余：运输 / 战损 / 多支部队同时组建都会消耗兵装。
+        /// </summary>
+        public float weaponCoverRatio = 1.3f;
+
+        /// <summary>
+        /// 兵装"危机线"覆盖率（兵装 / 兵力）。低于该比例视为兵装严重枯竭，
+        /// 造兵装命令额外获得 <see cref="scoreWeaponCriticalBonus"/>。
+        ///
+        /// 与 <see cref="weaponCoverRatio"/>（目标线）构成两档：
+        ///   低于危机线 → 严重不足；低于目标线 → 未达目标、继续生产。
+        /// 该值同时被资源调度的"给生产端留人"判定引用
+        /// （<c>ResourceDispatchWeights.armsDemandCoverRatio</c>）。
+        /// </summary>
+        public float weaponCriticalCoverRatio = 0.5f;
         /// <summary>褒奖武将所需的金钱门槛</summary>
         public int rewardGoldThreshold = 1000;
         /// <summary>研发科技所需的金钱门槛</summary>

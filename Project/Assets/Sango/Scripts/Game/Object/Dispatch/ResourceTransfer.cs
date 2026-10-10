@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Sango.Core
 {
@@ -134,6 +135,21 @@ namespace Sango.Core
                 return false;
             }
 
+            // ---------- 陆路预检（运输队过不了河就别派） ----------
+            // 上面那条（与任务侧的 Prepare）用的都是 Map.GetDirectPath 的默认口径：
+            // 只看地形的全局 moveable 标志，**水格也算可走**；而真正走位用的是按本队能力算的
+            // Map.GetMoveRange（进水格要 waterMoveAbility）。两边口径不一致，于是：
+            // 跨河的路线被判成"通畅" → 车队被派出去 → 到岸边后 TryMoveToCell 找不到落脚点
+            // **静默 return true 且一动不动**（表现就是"遇到河流转不过去，在原地转"）。
+            // 这里要求一条**整条不含水格**的通路：走不通就不派车，货留在城里。
+            // 若剧本里运输队确实能走水（水军移动力够跨河），把 transportRequireLandRoute 关掉。
+            if (w != null && w.transportRequireLandRoute
+                && !HasLandRoute(from, to, scenario))
+            {
+                reason = "无陆路可通（需水军）";
+                return false;
+            }
+
             // ---------- 二次夹取 ----------
             // 求解到执行之间局面可能已经变了（部队回城、别的运输队先抢了货），
             // 所以这里按**当前实际库存**再夹一次，绝不让库存变成负数。
@@ -168,6 +184,44 @@ namespace Sango.Core
                 escort = food;
             if (escort < 0)
                 escort = 0;
+
+            // ---------- 车队自备口粮（硬要求，与货物粮**叠加**） ----------
+            // troop.food 是**货物与口粮共用的同一个池**：只运金 / 兵装 / 器械 / 船的单子
+            // 在求解层不带任何护送粮（护送粮只给"运兵"算）→ troop.food = 0 →
+            // 下一回合 Troop.OnForceTurnStart 判 `food <= 0` 且兵力 < 500 → 直接 Clear()：
+            // 车队与整车货当场消失（"运输部队没有粮食也运输东西，还没到就消失了"）。
+            //
+            // 口径（硬要求）：不管运什么，车队都要带够
+            //     **路上会吃掉的（跳数 × 每跳回合）+ 额外 10 天口粮**
+            // —— 而且是**加在货物粮之上**（不是与它取大）：
+            // 池子只有一个，车队吃的就是这批粮；不额外带就等于吃掉货物，
+            // 目标城到手就少了（"必须携带至少路耗 + 10 天"这条正是为了避免这件事）。
+            TroopType convoyType = TroopType.GetTransportType(scenario, from.BelongForce);
+            int cargoFood = food;                                   // 货物粮（运兵时已含护送粮）
+            int crewFood = ResourceBalance.ConvoyFoodFor(troops, shipment.hops, scenario, convoyType, w);
+            if ((long)cargoFood + crewFood > from.food)
+            {
+                // 源城粮不足以"供完货还养车队" → 按粮缩兵（口粮随兵线性变化），缩不下去就不派车。
+                // 宁可不派，也不派一支半路断粮的车（断粮当回合掉 30% 兵，兵力 < 500 直接整队消失）。
+                long budget = (long)from.food - cargoFood;
+                if (budget <= 0 || crewFood <= 0)
+                {
+                    reason = "源城粮不足（含运输队路上口粮）";
+                    return false;
+                }
+                long scaled = (long)troops * budget / crewFood;
+                if (scaled < troops)
+                    troops = (int)scaled;
+                if (troops < 1)
+                    troops = 1;
+                crewFood = ResourceBalance.ConvoyFoodFor(troops, shipment.hops, scenario, convoyType, w);
+                if ((long)cargoFood + crewFood > from.food)
+                {
+                    reason = "源城粮不足（含运输队路上口粮）";
+                    return false;
+                }
+            }
+            food = cargoFood + crewFood;                            // 货物粮 + 车队口粮（叠加）
 
             float safeMargin = w != null ? w.safeMargin : 0.95f;
 
@@ -329,6 +383,33 @@ namespace Sango.Core
                 if (takeArr[i] > 0)
                     cargo.Add(kinds[i], takeArr[i]);
             }
+        }
+
+        /// <summary>
+        /// 两城之间是否存在**整条不含水格**的陆路通路。
+        ///
+        /// 用于"运输队过不了河就别派车"的预检（见 <c>transportRequireLandRoute</c>）。
+        /// 口径说明：<c>Map.GetDirectPath</c> 的默认判定只看地形的全局 <c>moveable</c> 标志
+        /// （水格对"能下水的东西"都是可走的），所以必须自己加一道"排除水格"的过滤 ——
+        /// 这才是运输队（无水上移动力时）真实的可达性。
+        /// <c>GetDirectPath</c> 成功时会把 起点→终点 整条路径写入列表（终点在最后），
+        /// 失败时列表为空 → 据此判定。
+        /// </summary>
+        /// <param name="from">源城</param>
+        /// <param name="to">目标城</param>
+        /// <param name="scenario">剧本</param>
+        /// <returns>true = 有陆路可通</returns>
+        static bool HasLandRoute(City from, City to, Scenario scenario)
+        {
+            if (from == null || to == null || scenario == null || scenario.Map == null)
+                return true;                                    // 拿不到地图 → 不阻塞（宁可派车也不误杀）
+            if (from.CenterCell == null || to.CenterCell == null)
+                return true;
+
+            List<Cell> path = new List<Cell>(256);
+            scenario.Map.GetDirectPath(from.CenterCell, to.CenterCell, path,
+                delegate (Cell c) { return c != null && !c.IsWater; });
+            return path.Count > 0 && path[path.Count - 1] == to.CenterCell;
         }
     }
 }

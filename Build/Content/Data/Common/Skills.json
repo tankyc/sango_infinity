@@ -1194,7 +1194,7 @@
       "Id": 29,
       "Name": "落雷",
       "kind": 3,
-      "atk": 0,
+      "atk": 40,
       "atkDurability": 5,
       "costEnergy": 50,
       "successRate": 0,
@@ -1262,10 +1262,11 @@
       "Id": 30,
       "Name": "妖术",
       "kind": 3,
-      "atk": 0,
-      "costEnergy": 40,
+      "atk": 25,
+      "atkDurability": 5,
+      "costEnergy": 30,
       "successRate": 0,
-      "visualType": "DemonSkill",
+      "visualType": "Strategy",
       "successMethod": "SorcerySuccessMethod",
       "criticalMethod": "SorceryCriticalMethod",
       "spellRanges": [
@@ -1280,12 +1281,24 @@
       ],
       "skillEffects": [
         {
-          "class": "AddBuffRandom",
-          "buffIds": [
-            1,
-            2
+          "class": "TroopAddBuff",
+          "buffId": 1,
+          "probability": 5000,
+          "targetType": 1,
+          "values": [
+            2,
+            4
           ],
-          "probability": 10000,
+          "weight": [
+            70,
+            30
+          ]
+        },
+        {
+          "class": "TroopAddBuff",
+          "buffId": 2,
+          "probability": 5000,
+          "targetType": 1,
           "values": [
             2,
             4
@@ -1298,11 +1311,11 @@
       ],
       "actionSound": 88,
       "canDamageTroop": true,
-      "canDamageMachine": false,
-      "canDamageBoat": false,
-      "canDamageBuilding": false,
-      "canDamageTeam": false,
-      "canSpellToCell": false,
+      "canDamageMachine": true,
+      "canDamageBoat": true,
+      "canDamageBuilding": true,
+      "canDamageTeam": true,
+      "canSpellToCell": true,
       "onlySpellToTeam": false,
       "personSound": [
         2852

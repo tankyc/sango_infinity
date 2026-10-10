@@ -559,6 +559,7 @@ namespace Sango.Core
             });
         }
 
+
         /// <summary>
         /// 单元格检查委托
         /// </summary>
@@ -588,6 +589,16 @@ namespace Sango.Core
         /// 成本字典
         /// </summary>
         Dictionary<Cell, Cell> cost_so_far = new Dictionary<Cell, Cell>();
+
+        /// <summary>
+        /// 【最小消耗寻路】已知最优代价（cell → 累计消耗）。未出现的格子 = 尚未触及。
+        /// </summary>
+        Dictionary<Cell, int> minCostSoFar = new Dictionary<Cell, int>();
+        /// <summary>
+        /// 【最小消耗寻路】已确定（settled）的格子。
+        /// 用于"Dijkstra + 懒删除"：出队时若已确定，说明这条是更贵的历史副本，直接丢弃。
+        /// </summary>
+        HashSet<Cell> settledCells = new HashSet<Cell>();
 
         /// <summary>
         /// 低优先级比较器
@@ -680,6 +691,44 @@ namespace Sango.Core
             }
         }
 
+
+        /// <summary>
+        /// **最小消耗路径**：从部队当前位置到目标格，按"部队移动消耗"最短的那条路。
+        ///
+        /// 【判定口径（刻意最轻）】只看**部队能不能走这个格**：
+        ///   · 地形 + 该部队通行性 = <see cref="Cell.CanMove"/>（水格按水军、陆格按陆军）；
+        ///   · **不看阻挡**（<c>CanPassThrough</c>：谁占着格、是谁的建筑）；
+        ///   · **不看能不能停留**（<c>CanStay</c>：格上有没有部队 / 建筑）；
+        ///   · **不看 ZOC**（完全不碰 <c>Map.IsZOC</c>）。
+        /// 它回答的是"**这条路在地形上通不通、要多少消耗**"，不是"此刻能不能走过去"
+        /// —— 后者要另外判阻挡与 ZOC（例如运输队"能不能过河"该看本方法，
+        /// "路上有没有敌人挡着"另判 <see cref="Cell.CanPassThrough"/>）。
+        ///
+        /// 【代价】每格取 <see cref="Troop.MoveCost"/>（水格用 <c>WaterTroopType</c>、
+        /// 陆格用 <c>LandTroopType</c> 的消耗），起点代价为 0。
+        ///
+        /// 【与 <see cref="GetDirectMovePath"/> 的区别 · 关键】
+        ///   · 那个是"先到先得"的近似 A*：`if (!next._isChecked)` 就入队，**从不做代价松弛**
+        ///     —— 找到的只是"第一条走通的"，不保证最小消耗（绕远路是常态）；
+        ///   · 本方法用 **Dijkstra**（可对已入队格松弛代价 + 已确定的格跳过），
+        ///     得到的是真正的**最小消耗路径**；因此**不加启发式**，免得启发式高估导致次优。
+        ///
+        /// 【终点特例】目标格本身**不判 <c>CanMove</c>** —— 目标常常是城 / 港关 / 被占格，
+        /// 那些格本来就"不能停留"，但它们正是要到达的地方（与 <see cref="GetDirectMovePath"/>
+        /// 里"一定是目标所占格也可以进判断"同一约定）。
+        ///
+        /// 【无法到达】地形上就走不通时 <paramref name="cellList"/> 为**空列表**
+        /// —— 调用方可据此判定"这条路不通"，而不是像旧实现那样当成"移动完成"。
+        /// </summary>
+        /// <param name="troops">部队（决定可走性与每格消耗）</param>
+        /// <param name="dest">目标格</param>
+        /// <param name="cellList">输出：起点 → 目标 的路径（含两端）；**地形上不可达时为空**</param>
+        public void GetMinCostDirectPath(Troop troops, Cell dest, List<Cell> cellList)
+        {
+            if (troops == null)
+                return;
+            GetMinCostDirectPath(troops, troops.cell, dest, cellList);
+        }
 
         /// <summary>
         /// 获取周围的路径,仅判断是否可以行走,最大寻路范围为len
@@ -857,6 +906,157 @@ namespace Sango.Core
                 cell._isZOC = false;
                 cell._isChecked = false;
             }
+        }
+
+        /// <summary>
+        /// **最小消耗路径**（指定起点版）：从 <paramref name="start"/> 到 <paramref name="dest"/>。
+        ///
+        /// 用于"某个候选落点离目标到底要多少消耗"这类判断（起终点都不是部队当前位置时）。
+        /// 判定口径与另一个重载完全一致：只看能不能走，不看阻挡 / 停留 / ZOC。
+        /// </summary>
+        /// <param name="troops">部队（决定可走性与每格消耗）</param>
+        /// <param name="start">起点格</param>
+        /// <param name="dest">目标格</param>
+        /// <param name="cellList">输出：起点 → 目标 的路径（含两端）；**地形上不可达时为空**</param>
+        public void GetMinCostDirectPath(Troop troops, Cell start, Cell dest, List<Cell> cellList)
+        {
+            if (troops == null || start == null || dest == null || cellList == null)
+                return;
+
+            cellList.Clear();
+            if (start == dest)
+            {
+                cellList.Add(dest);
+                return;
+            }
+
+            frontier.Clear();
+            came_from.Clear();
+            minCostSoFar.Clear();
+            settledCells.Clear();
+
+            // 【性能 · A* 启发式】h(n) = 六边形格距 × 每步移动消耗的下界。
+            //   · 下界取该部队水 / 陆两张地形消耗表里的最小值 → h 永远不会高估真实代价（可采纳）；
+            //   · 又因为"每步代价 ≥ 下界、而格距每步至多变 1"，h 满足一致性条件 ——
+            //     所以 A* 给出的仍是与纯 Dijkstra 完全一致的最小消耗路径，只是把搜索收拢到目标方向。
+            //   · 下界为 0（配置缺表 / 含 0 消耗地形）时 h 恒为 0，自动退化成原来的纯 Dijkstra。
+            int stepCostFloor = MoveCostFloor(troops);
+
+            minCostSoFar[start] = 0;
+            came_from[start] = null;
+            frontier.Enqueue(start, stepCostFloor * Distance(start, dest));
+
+            int safe_count = Scenario.Cur.Variables.pathfindingSafeCount;
+            bool found = false;
+
+            while (frontier.Count > 0)
+            {
+                Cell current = frontier.Dequeue();
+                if (!settledCells.Add(current))
+                    continue;                                   // 迟到副本（更贵的旧记录）→ 丢弃
+                if (current == dest)
+                {
+                    found = true;
+                    break;                                      // Dijkstra：目标出队即最优
+                }
+
+                int cur_cost;
+                if (!minCostSoFar.TryGetValue(current, out cur_cost))
+                    continue;
+
+                for (int i = 0; i < 6; i++)
+                {
+                    Cell next = GetNeighbor(current, i);
+                    if (next == null)
+                        continue;
+                    if (settledCells.Contains(next))
+                        continue;                               // 已确定 → 不再松弛
+                    // 只判"部队能不能走这格"；目标格例外（城 / 港关 / 被占格本就不能停留）
+                    if (next != dest && !next.CanMove(troops))
+                        continue;
+
+                    int new_cost = cur_cost + troops.MoveCost(next);
+                    int old_cost;
+                    if (minCostSoFar.TryGetValue(next, out old_cost) && old_cost <= new_cost)
+                        continue;                               // 已有更便宜或同样便宜的路 → 不松弛
+
+                    minCostSoFar[next] = new_cost;
+                    came_from[next] = current;
+                    // f = g + h；h 为 0 时即纯 g，与旧行为完全一致
+                    frontier.Enqueue(next, new_cost + stepCostFloor * Distance(next, dest));
+
+                    if (--safe_count < 0)
+                    {
+                        UnityEngine.Debug.LogError(string.Format(
+                            "最小消耗寻路超出安全次数: [{0}, <{1},{2}> => <{3},{4}>]",
+                            troops.Name, start.x, start.y, dest.x, dest.y));
+                        return;                                 // cellList 保持为空
+                    }
+                }
+            }
+
+            if (!found)
+                return;                                         // 地形上不可达 → 空列表（调用方可据此判定"过不去"）
+
+            // 【性能】原先每步 Insert(0) 都要整体搬移已有元素（路径长 n → O(n²) 拷贝），
+            // 改为尾部追加后一次 Reverse。
+            Cell c = dest;
+            while (c != null)
+            {
+                cellList.Add(c);
+                if (!came_from.TryGetValue(c, out Cell parent))
+                    break;
+                c = parent;
+            }
+            cellList.Reverse();
+        }
+
+        /// <summary>
+        /// 【最小消耗寻路的 A* 启发式系数】"每步移动消耗"的下界。
+        ///
+        /// 取该部队水 / 陆两张地形消耗表里的最小值；两张表都不可用时返回 0。
+        /// 返回 0 表示给不出正的下界（配置缺失，或地形消耗表里存在 0），
+        /// 调用方据此退化为纯 Dijkstra —— 正确性永远不受影响，只是少了剪枝。
+        /// </summary>
+        /// <param name="troops">部队</param>
+        /// <returns>每步消耗下界（≥ 0）</returns>
+        static int MoveCostFloor(Troop troops)
+        {
+            if (troops == null)
+                return 0;
+
+            int min = int.MaxValue;
+            int land = MinMoveCostOf(troops.LandTroopType);
+            int water = MinMoveCostOf(troops.WaterTroopType);
+            if (land < min) min = land;
+            if (water < min) min = water;
+
+            if (min == int.MaxValue || min < 0)
+                return 0;
+            return min;
+        }
+
+        /// <summary>
+        /// 取某兵种地形消耗表里"可通行地形"的最小消耗值；表缺失时返回 <see cref="int.MaxValue"/>。
+        ///
+        /// 【必须只统计正消耗】表里的负值（-1）表示该地形**不可通行**，不是"零成本/负成本"。
+        /// 若把它当成下界，h 会高估真实代价、破坏可采纳性，A* 就可能返回非最优路径。
+        /// </summary>
+        /// <param name="type">兵种（可为 null）</param>
+        /// <returns>可通行地形的最小消耗；无可通行地形时返回 <see cref="int.MaxValue"/></returns>
+        static int MinMoveCostOf(TroopType type)
+        {
+            if (type == null || type.moveCost == null || type.moveCost.Length == 0)
+                return int.MaxValue;
+
+            int min = int.MaxValue;
+            for (int i = 0; i < type.moveCost.Length; i++)
+            {
+                int cost = type.moveCost[i];
+                if (cost > 0 && cost < min)
+                    min = cost;
+            }
+            return min;
         }
 
         /// <summary>

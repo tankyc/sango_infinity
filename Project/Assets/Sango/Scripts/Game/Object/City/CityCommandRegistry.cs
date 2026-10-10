@@ -137,9 +137,14 @@ namespace Sango.Core
 
             Add("AICreateItems", CityAI.AICreateItems, w.baseAICreateItems, s =>
             {
-                int need = (int)(s.troops * w.weaponCoverRatio);
-                if (s.weaponCount < need) return w.scoreWeaponCriticalBonus;
-                if (s.weaponCount < s.troops) return w.scoreWeaponLowBonus;
+                // 两档判定：
+                //   ① 低于危机线（兵力 × weaponCriticalCoverRatio）→ 兵装严重枯竭，拿 critical 加成；
+                //   ② 低于目标线（兵力 × weaponCoverRatio，默认 1.3）→ 未达目标，应当继续生产。
+                // 更深的缺口由 CityAIOrderPlanner 按缺口比例追加抬升（armsDemandTopBias）。
+                int criticalNeed = (int)(s.troops * w.weaponCriticalCoverRatio);
+                int targetNeed = (int)(s.troops * w.weaponCoverRatio);
+                if (s.weaponCount < criticalNeed) return w.scoreWeaponCriticalBonus;
+                if (s.weaponCount < targetNeed) return w.scoreWeaponLowBonus;
                 return 0;
             });
 

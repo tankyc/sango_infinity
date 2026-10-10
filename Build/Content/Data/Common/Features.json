@@ -627,7 +627,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": -20,
+          "value": 80,
           "isDefender": 1
         }
       ]
@@ -668,7 +668,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": -50,
+          "value": 50,
           "isDefender": 1
         },
         {
@@ -1302,7 +1302,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": 50,
+          "value": 150,
           "isDefender": 0,
           "condition": {
             "class": "TerrainCheck",
@@ -1472,10 +1472,7 @@
               },
               {
                 "class": "SkillIsStrategySkill",
-                "ids": [
-                  30
-                ],
-                "result": 0
+                "result": 1
               }
             ]
           }
@@ -1676,10 +1673,7 @@
               },
               {
                 "class": "SkillIsStrategySkill",
-                "ids": [
-                  30
-                ],
-                "result": 0
+                "result": 1
               }
             ]
           }
@@ -1697,10 +1691,7 @@
               },
               {
                 "class": "SkillIsStrategySkill",
-                "ids": [
-                  30
-                ],
-                "result": 0
+                "result": 1
               }
             ]
           }

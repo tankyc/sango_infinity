@@ -370,6 +370,18 @@ namespace Sango.Core
             if (needUpdateCommander)
                 UpdateCommander();
 
+
+            // 【人才部署 · 军团级（方案 B）】玩家势力的军团不走 Force.DoAI，在这里统一补一次调度：
+            //   · 第一军团（君主所在、玩家直辖）：目标城限本军团，但可从全势力**单向**抽调富余人力；
+            //   · 分军团：各自军团内自治（严格边界，池子与目标城都限本军团）。
+            // 注意 Force.Run 在等待玩家操作时会被反复调用，RunPlayerCorps 内部以回合号防重入。
+            if (IsPlayer)
+            {
+                // 【资源调度】玩家军团同理，且**必须排在人才调度之前**：
+                // 资源调度先登记"哪座城有货待发却缺运输主将"，人才调度同一回合就会补人过去。
+                ResourceDispatcher.RunPlayerCorps(BelongForce, scenario);
+                DeploymentShadow.RunPlayerCorps(BelongForce, scenario);
+            }
             return true;
         }
 

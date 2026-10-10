@@ -2060,8 +2060,8 @@ namespace Sango.Core
                 if (tryToDest == null)
                 {
                     //TODO: 移动
-                    map.GetDirectMovePath(this, targetCell, tempCellList);
                     Cell thisCell = this.cell;
+                    map.GetMinCostDirectPath(this, targetCell, tempCellList);
                     for (int i = 1; i < tempCellList.Count; i++)
                     {
                         Cell dest = tempCellList[i];

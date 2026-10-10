@@ -170,8 +170,10 @@ namespace Sango.Core
             /// <param name="amount">货量</param>
             /// <param name="escortFood">本批兵力随车带的护送粮（仅运兵时有意义；须同时按粮草再记一笔）</param>
             /// <param name="escortArms">本批兵力随车带的兵装（仅运兵时有意义；须同时按兵装再记一笔）</param>
+            /// <param name="hops">本条发货的行程跳数（执行层据此算**车队自备口粮**：路耗 + 10 天）</param>
             public void Add(City from, City to, int toRing, int toTier, int toUrgency,
-                string reason, ResourceKind kind, int amount, int escortFood = 0, int escortArms = 0)
+                string reason, ResourceKind kind, int amount, int escortFood = 0, int escortArms = 0,
+                int hops = 0)
             {
                 if (from == null || to == null || amount <= 0)
                     return;
@@ -186,6 +188,8 @@ namespace Sango.Core
                         s.escortFood += escortFood;
                     if (escortArms > 0)
                         s.escortArms += escortArms;
+                    if (hops > s.hops)
+                        s.hops = hops;
                     orders[i] = s;
                     return;
                 }
@@ -201,6 +205,7 @@ namespace Sango.Core
                 fresh.reason = reason;
                 fresh.escortFood = escortFood > 0 ? escortFood : 0;
                 fresh.escortArms = escortArms > 0 ? escortArms : 0;
+                fresh.hops = hops > 0 ? hops : 0;
                 Accumulate(ref fresh, kind, amount);
                 index[key] = orders.Count;
                 orders.Add(fresh);
@@ -1015,6 +1020,42 @@ namespace Sango.Core
             return perTroop <= 0f ? 0 : (int)Math.Ceiling(troops * perTroop);
         }
 
+        /// <summary>
+        /// 运输队**自备口粮**：不管这车运什么，队伍自己路上都要吃粮。
+        ///
+        /// 【为什么单独算】<c>Troop.food</c> 是**货物与口粮共用的同一个池**，而"只运金 / 兵装 /
+        /// 器械 / 船"的单子在求解层不带护送粮（护送粮只给"运兵"算）→ <c>troop.food = 0</c>。
+        /// 后果不是"慢一点"：<c>Troop.OnForceTurnStart</c> 里 <c>food ≤ 0</c> 且兵力 &lt; 500
+        /// 直接 <c>Clear()</c> —— 车队与整车货当回合一起消失。
+        ///
+        /// 口径 = ceil(每回合粮耗) × (行程回合数 + <c>convoyProvisionTurns</c>)：
+        ///   · 行程回合数 = 跳数 × <c>escortTurnsPerHop</c>（运输队走得慢，默认 2 回合/跳）；
+        ///   · <c>convoyProvisionTurns</c> = **额外**要带的"10 天口粮"（不是总回合数，见参数注释）；
+        ///   · 每回合粮耗与游戏一致（<c>baseFoodCostInTroop × 兵力 × 运输兵种粮耗倍率</c>），
+        ///     **先向上取整到 1 再乘** —— 1 兵的车队每回合也要吃 1 粮（游戏就是 ceil），
+        ///     先乘小数会算出"0 粮"这种看着合理、实际必死的数。
+        /// </summary>
+        /// <param name="troops">运输队自身兵力（含随队押运兵）</param>
+        /// <param name="hops">行程跳数（不足 1 按 1 算）</param>
+        /// <param name="scenario">剧本</param>
+        /// <param name="transportType">运输队兵种（取粮耗倍率；为空按 1 倍）</param>
+        /// <param name="w">参数</param>
+        /// <returns>车队应随车携带的口粮（≥1；无法估算时返回 0）</returns>
+        public static int ConvoyFoodFor(int troops, int hops, Scenario scenario, TroopType transportType,
+            ResourceDispatchWeights w)
+        {
+            if (troops <= 0 || scenario == null || scenario.Variables == null)
+                return 0;
+            int perTurn = (int)Math.Ceiling(scenario.Variables.baseFoodCostInTroop * troops
+                * (transportType != null ? transportType.foodCostFactor : 1f));
+            if (perTurn < 1)
+                perTurn = 1;                                     // 兵力再少也要 1 粮/回合（与游戏 ceil 同口径）
+            float perHop = w != null ? Math.Max(1f, w.escortTurnsPerHop) : 2f;
+            float journeyTurns = (hops > 1 ? hops : 1) * perHop;   // 路上要吃的
+            float extraTurns = w != null ? Math.Max(0f, w.convoyProvisionTurns) : 10f;
+            return (int)Math.Ceiling(perTurn * (journeyTurns + extraTurns));
+        }
+
         // ==================== 兵装待产诊断 ====================
 
         /// <summary>
@@ -1525,7 +1566,7 @@ namespace Sango.Core
                         // 理由里写明最终目的地，否则报告只会看到"运到中转城"，看不出目的。
                         string orderReason = relayed ? reason + "·中转前置→" + T.city.Name : reason;
                         book.Add(S.city, D.city, D.ring, T.priorityTier, T.deficitWeight,
-                            orderReason, kind, ship, escortFood, escortArms);
+                            orderReason, kind, ship, escortFood, escortArms, c.rawHops);
                         // 护送粮 / 随行兵装同时按各自资源记一笔
                         // （这样才能真正装上车、也会在报告里显示出来）
                         if (escortFood > 0)

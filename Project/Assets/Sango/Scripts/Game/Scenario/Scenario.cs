@@ -251,9 +251,13 @@ namespace Sango.Core
         public Alliance Remove(Alliance alliance) { allianceSet.Remove(alliance); return alliance; }
 
         /// <summary>
-        /// 城市路径缓存映射
+        /// 城市路径缓存映射。
+        ///
+        /// 键由 <see cref="CityPairKey"/> 打包成 long（出发城 id 在高位、目标城 id 在低位）——
+        /// 原先是 <c>"{a}_{b}"</c> 字符串插值：取城距在人才部署里是"每岗位 × 每候选"级别的调用量，
+        /// 每次插值都会产生一个短命字符串并重新计算哈希，是明确的 GC 与耗时热点。
         /// </summary>
-        public Dictionary<string, List<City>> cityPathMap;
+        public Dictionary<long, List<City>> cityPathMap;
 
         /// <summary>
         /// 城市之间的直接路径
@@ -1168,7 +1172,7 @@ namespace Sango.Core
             MapRender.Instance.ChangeSeason((int)cur_season);
 
             // 初始化路径缓存
-            cityPathMap = new Dictionary<string, List<City>>();
+            cityPathMap = new Dictionary<long, List<City>>();
             cityDirectPath = new Dictionary<string, List<Cell>>();
 
             for (int i = 0; i < prepareList.Count; ++i)
@@ -1624,6 +1628,17 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 城对缓存的键：把两个城 id 打包进一个 long（高位 = 出发城，低位 = 目标城）。
+        ///
+        /// 用它取代 <c>"{a}_{b}"</c> 字符串插值 —— 后者每次调用都要分配字符串并重新哈希，
+        /// 而"取城距"在全势力人才部署里是十万量级的调用，是明确的 GC 热点。
+        /// </summary>
+        public static long CityPairKey(int fromCityId, int toCityId)
+        {
+            return ((long)fromCityId << 32) | (uint)toCityId;
+        }
+
+        /// <summary>
         /// 获取城市之间的相隔距离
         /// </summary>
         /// <param name="a"></param>
@@ -1696,12 +1711,11 @@ namespace Sango.Core
                 return new List<City> { startCity };
             }
 
-            // 检查缓存中是否已有路径
-            string key = $"{startCity.Id}_{endCity.Id}";
-            if (cityPathMap.ContainsKey(key))
-            {
-                return cityPathMap[key];
-            }
+            // 检查缓存中是否已有路径（long 键，无字符串分配）
+            long key = CityPairKey(startCity.Id, endCity.Id);
+            List<City> cachedPath;
+            if (cityPathMap.TryGetValue(key, out cachedPath))
+                return cachedPath;
 
             // 如果缓存中没有，使用BFS算法重新计算路径
             Dictionary<City, City> parentMap = new Dictionary<City, City>();

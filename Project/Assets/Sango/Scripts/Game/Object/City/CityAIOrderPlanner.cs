@@ -236,8 +236,11 @@ namespace Sango.Core
             // 【为什么光有危机加成不够】城池命令是按最终分数排序后**依次执行**的，而每条命令都要吃
             // 本城的空闲武将：排在后面等于拿到"人已经被用光"的空池子。原来兵装最多只有
             // crisisWeaponBias(80) + scoreWeaponCriticalBonus(50)，而"人才优先"给搜索 / 登用的抬升
-            // 是 600 / 700，于是兵装生产长期轮不到人手。这里按**缺口比例**补一档抬升（缺口 1.0 =
-            // 一件兵装都没有 → 加满 armsDemandTopBias），让"堆着几万兵却零兵装"的城排到最前；
+            // 是 600 / 700，于是兵装生产长期轮不到人手。
+            //
+            // 【基准线】need = 兵力 × weaponCoverRatio（默认 1.3）：
+            // 只要"兵装 < 兵力 × 1.3"就算未达目标，按缺口比例抬升；
+            // 缺口 1.0（一件兵装都没有）时加满 armsDemandTopBias，让"堆着几万兵却零兵装"的城排到最前；
             // 缺口不大的城加得很少，不去抢人才命令的优先级。
             if (id == "AICreateItems" && w.armsDemandTopBias > 0 && s.troops > w.weaponCrisisTroops)
             {

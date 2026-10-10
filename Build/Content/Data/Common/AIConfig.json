@@ -34,7 +34,10 @@
     "troopLowFill": 0.3,
     "troopMidFill": 0.6,
     "troopHighFill": 0.7,
-    "weaponCoverRatio": 0.5,
+    // 兵装目标覆盖率（兵装 / 兵力）：守军兵装 < 兵力 × 该值时视为兵装不足，造兵装命令按缺口抬升优先级
+    "weaponCoverRatio": 1.3,
+    // 兵装危机线覆盖率：兵装 < 兵力 × 该值时视为严重枯竭，额外获得 critical 加成
+    "weaponCriticalCoverRatio": 0.5,
     "rewardGoldThreshold": 1000,
     "researchGoldThreshold": 5000,
     "machineEnough": 60,

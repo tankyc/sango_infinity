@@ -119,9 +119,9 @@ namespace Sango.Core
         /// <summary>招募在野武将的单回合人数上限</summary>
         public int recruitPersonMaxPerTurn = 1;
         /// <summary>士气低于该值时必定训练</summary>
-        public int cityMoraleLow = 50;
+        public int cityMoraleLow = 70;
         /// <summary>训练概率的基准士气值（与当前士气之差线性折算概率）</summary>
-        public int trainMoraleBase = 95;
+        public int trainMoraleBase = 100;
 
         #endregion
 

@@ -118,6 +118,7 @@ namespace Sango.Core
         {
             cityCache.Clear();
             currentTeamDemand = null;
+            cityDistanceCache = null;
         }
 
         /// <summary>
@@ -125,6 +126,30 @@ namespace Sango.Core
         /// 只在主线程、且每次 Solve 都会重建，因此静态缓存是安全的。
         /// </summary>
         static TroopTeamDemand currentTeamDemand;
+
+        /// <summary>
+        /// 本趟求解的"城对距离"缓存（每次 Solve 开始时清空复用）。
+        ///
+        /// 【为什么必须有】匹配分 <see cref="Score"/> 的行程成本要对"每个岗位 × 每个候选"算一次，
+        /// 直接走 <c>Person.DistanceDays</c> → <c>City.Distance</c> → <c>Scenario.FindShortestPath</c>：
+        /// 十万次评分就是十万次字典查询与短命分配。而行程只取决于 (出发城, 目标城) 这一对城，
+        /// 按城对缓存后可把寻路查询压到 O(城对数)（几十量级）。
+        ///
+        /// 静态字段的理由与 <see cref="currentTeamDemand"/> 相同：只在主线程、每次 Solve 重建。
+        /// </summary>
+        static Dictionary<long, int> cityDistanceCache;
+
+        /// <summary>
+        /// 本趟求解的行程成本系数（= <c>costPerTurn / max(1, turnDays)</c>）。
+        /// 提前算好，避免每次评分都做一遍除法与 <c>Math.Max</c>。
+        /// </summary>
+        static float travelCostScale = 1f;
+
+        /// <summary>
+        /// 目标城"驻军特技集合"的复用缓冲：每个岗位填一次，供该岗位的所有候选人复用，
+        /// 避免每岗位新建一个 <see cref="HashSet{T}"/>（岗位是数百量级）。
+        /// </summary>
+        static readonly HashSet<int> destFeatureScratch = new HashSet<int>();
 
         /// <summary>
         /// 编制：优先复用缓存（城况"戳"未变时），否则重建。
@@ -254,6 +279,14 @@ namespace Sango.Core
             //   ② 港关也不因岗位填不满而把自己的人当成富余调走（见 PostTask.localOnly）。
             // 势力级作用域（scope == null，即非玩家势力）恒为开，保证 AI 势力行为完全不变。
             bool allowPortGateGarrison = scope == null || DeploymentExecutor.IsPortGateGarrisonEnabled(scope);
+
+            // 【性能】本趟求解的行程相关缓存与系数（详见字段注释）。
+            // 放在最前面，保证后面所有打分路径都能安全复用。
+            if (cityDistanceCache == null)
+                cityDistanceCache = new Dictionary<long, int>(256);
+            else
+                cityDistanceCache.Clear();
+            travelCostScale = weights.costPerTurn / Math.Max(1, weights.turnDays);
 
             // 换剧本 → 清掉增量缓存，避免复用上个剧本的岗位表
             if (!ReferenceEquals(cachedScenario, scenario))
@@ -448,6 +481,15 @@ namespace Sango.Core
             for (int i = 0; i < tasks.Count; i++)
                 BumpCount(postCountByCity, tasks[i].post.cityId);
 
+            // 【性能】城 id → cityList 下标：原先每个岗位都要线性扫一遍 cityList（IndexOfCity），
+            // 在"岗位 × 候选人"量级下累计可观。cityList 在阶段 1 之后不再变化，建一次字典即可。
+            Dictionary<int, int> cityIndexById = new Dictionary<int, int>(cityList.Count);
+            for (int i = 0; i < cityList.Count; i++)
+            {
+                if (cityList[i] != null)
+                    cityIndexById[cityList[i].Id] = i;
+            }
+
             Dictionary<int, int> filledByCity = new Dictionary<int, int>();
 
             // ---------- 2) 岗位分两批：前线 / 硬性岗优先，其余岗（后方军事 / 内政族）回填 ----------
@@ -513,8 +555,9 @@ namespace Sango.Core
                 for (int i = 0; i < batch.Count; i++)
                 {
                     PostTask task = batch[i];
-                    int cityIndex = IndexOfCity(cityList, task.post.cityId);
-                    if (cityIndex < 0) continue;
+                    int cityIndex;
+                    if (!cityIndexById.TryGetValue(task.post.cityId, out cityIndex))
+                        continue;
 
                     City city = cityList[cityIndex];
                     Person best = null;
@@ -629,8 +672,9 @@ namespace Sango.Core
                 for (int i = 0; i < batch.Count; i++)
                 {
                     PostTask task = batch[i];
-                    int cityIndex = IndexOfCity(cityList, task.post.cityId);
-                    if (cityIndex < 0) continue;
+                    int cityIndex;
+                    if (!cityIndexById.TryGetValue(task.post.cityId, out cityIndex))
+                        continue;
                     City city = cityList[cityIndex];
 
                     string kindName = DeploymentPlan.KindName(task.post.kind);
@@ -656,6 +700,11 @@ namespace Sango.Core
                     // 门槛：硬性岗与"补到最低人数"的岗为 0（宁可要个弱将，也不能让城空着）
                     float scoreFloor = (task.post.required || task.lowPop) ? 0f : weights.minTransferScore;
 
+                    // 【性能】目标城的圈层与"驻军特技集合"在本岗位的所有候选人之间是常量，
+                    // 提前算一次，避免在"每人每次评分"里重复计算（见 Score / FeatureNovelty）。
+                    int destRing = CityEstablishment.ResolveRing(city);
+                    FillDestFeatureSet(city, destFeatureScratch);
+
                     while (true)
                     {
                         // 【两轮挑人 · 改动 B】
@@ -664,12 +713,12 @@ namespace Sango.Core
                         // 人力优先来自真空闲，只有明显更划算时才去动别人城里的"在岗"记账。
                         float bestScore;
                         Person best = ScanBest(task.post, city, pool, transferred, blocked, exhaustedSources,
-                            occupied, false, task.lowPop, weights, out bestScore);
+                            occupied, false, task.lowPop, weights, destRing, destFeatureScratch, out bestScore);
                         if (best == null || bestScore < scoreFloor)
                         {
                             float stealScore;
                             Person steal = ScanBest(task.post, city, pool, transferred, blocked, exhaustedSources,
-                                occupied, true, task.lowPop, weights, out stealScore);
+                                occupied, true, task.lowPop, weights, destRing, destFeatureScratch, out stealScore);
                             if (steal != null && stealScore > bestScore)
                             {
                                 best = steal;
@@ -978,7 +1027,8 @@ namespace Sango.Core
         /// <returns>最优人选；无合适人选时为 null</returns>
         static Person ScanBest(Post post, City dest, List<Person> pool, HashSet<int> transferred,
             HashSet<int> blocked, HashSet<int> exhaustedSources, HashSet<int> occupied,
-            bool onlyOccupied, bool lowPopDest, DeploymentWeights weights, out float bestScore)
+            bool onlyOccupied, bool lowPopDest, DeploymentWeights weights,
+            int destRing, HashSet<int> destFeatures, out float bestScore)
         {
             Person best = null;
             bestScore = float.MinValue;
@@ -1002,13 +1052,13 @@ namespace Sango.Core
                 // 一座 0~2 人的城宁可先由文官顶着，也不能连 3 个人都凑不齐。
                 if (!MeetsMilitaryFloor(p, post, weights) && !lowPopDest) continue;
 
-                float score = Score(p, post, dest, lowPopDest, weights);
+                float score = Score(p, post, dest, lowPopDest, weights, destRing);
                 // 特技组合搭配：军事 / 守备岗优先派"能带来本城还没有的特技"的武将
                 if (post.kind == PostKind.Military || post.kind == PostKind.Garrison)
                 {
-                    score += FeatureNovelty(p, dest, weights);
+                    score += FeatureNovelty(p, destFeatures, weights);
                     // 推荐队伍要人：把队员 / 特技持有者优先送往前线，配合 AI 出征组队
-                    score += RecommendedTeamBonus(p, dest, weights);
+                    score += RecommendedTeamBonus(p, destRing, weights);
                 }
                 // 抢占"在岗"的人要付出额外成本：优先用真正的机动人力
                 if (isOccupied)
@@ -1131,15 +1181,15 @@ namespace Sango.Core
         /// 而不是被后方城的开发岗截走。需求集合每次求解只建一次（见 <c>currentTeamDemand</c>）。
         /// </summary>
         /// <param name="p">候选武将</param>
-        /// <param name="dest">目标城</param>
+        /// <param name="destRing">目标城的圈层（由调用方按岗位预算一次，避免每个候选人重复解析）</param>
         /// <param name="w">部署参数（用 <c>recommendedTeamBonus</c>）</param>
-        static float RecommendedTeamBonus(Person p, City dest, DeploymentWeights w)
+        static float RecommendedTeamBonus(Person p, int destRing, DeploymentWeights w)
         {
-            if (p == null || dest == null || w == null || w.recommendedTeamBonus <= 0f)
+            if (p == null || w == null || w.recommendedTeamBonus <= 0f)
                 return 0f;
             if (currentTeamDemand == null)
                 return 0f;
-            return currentTeamDemand.BonusFor(p, CityEstablishment.ResolveRing(dest), w.recommendedTeamBonus);
+            return currentTeamDemand.BonusFor(p, destRing, w.recommendedTeamBonus);
         }
 
         /// <summary>
@@ -1276,34 +1326,56 @@ namespace Sango.Core
         /// 特技组合搭配（第一步）：候选拥有"本城驻军里还没有的特技"时给加分。
         /// 只做**多样性**判断（避免同城堆满同类特技），不做"队伍级 combo 判定"——
         /// 后者需要知道出征编队的组队规则，属后续步骤。
+        ///
+        /// 【性能】目标城驻军的特技集合由调用方按岗位预算一次（见 <see cref="FillDestFeatureSet"/>）：
+        /// 旧实现是"每个候选人 × 每个特技 × 每个驻军"三层遍历（且内层还是 <c>List.Contains</c>），
+        /// 而目标城在同一岗位的所有候选人之间是固定的，重复扫描纯属浪费。
         /// </summary>
-        static float FeatureNovelty(Person p, City dest, DeploymentWeights w)
+        /// <param name="p">候选武将</param>
+        /// <param name="destFeatures">目标城驻军持有的特技 id 集合（可为 null = 空集）</param>
+        /// <param name="w">部署参数（用 <c>featureNoveltyBonus</c>）</param>
+        static float FeatureNovelty(Person p, HashSet<int> destFeatures, DeploymentWeights w)
         {
             if (w == null || w.featureNoveltyBonus <= 0f) return 0f;
             if (p == null || p.FeatureList == null || p.FeatureList.Count == 0) return 0f;
-            if (dest == null || dest.allPersons == null || dest.allPersons.Count == 0) return 0f;
+            if (destFeatures == null || destFeatures.Count == 0) return 0f;
 
             for (int i = 0; i < p.FeatureList.Count; i++)
             {
                 Feature f = p.FeatureList[i];
                 if (f == null) continue;
-
-                bool exists = false;
-                for (int j = 0; j < dest.allPersons.Count; j++)
-                {
-                    Person other = dest.allPersons[j];
-                    if (other == null || other == p) continue;
-                    if (other.mBelongTroop != null) continue;   // 只比"驻军"，出征部队不算
-                    if (other.HasFeatrue(f.Id))
-                    {
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists)
+                if (!destFeatures.Contains(f.Id))
                     return w.featureNoveltyBonus;               // 有一个"新特技"就够
             }
             return 0f;
+        }
+
+        /// <summary>
+        /// 收集目标城"驻军"持有的全部特技 id（出征部队不算，与旧 <see cref="FeatureNovelty"/> 同口径）。
+        /// 写入调用方提供的复用集合，避免"每个岗位新建一个 HashSet"。
+        /// </summary>
+        /// <param name="dest">目标城</param>
+        /// <param name="set">输出集合（会被清空后重填）</param>
+        static void FillDestFeatureSet(City dest, HashSet<int> set)
+        {
+            set.Clear();
+            if (dest == null || dest.allPersons == null)
+                return;
+
+            for (int j = 0; j < dest.allPersons.Count; j++)
+            {
+                Person other = dest.allPersons[j];
+                if (other == null || other.mBelongTroop != null) continue;   // 只比"驻军"
+
+                SangoObjectList<Feature> features = other.FeatureList;
+                if (features == null) continue;
+                for (int k = 0; k < features.Count; k++)
+                {
+                    Feature f = features[k];
+                    if (f != null)
+                        set.Add(f.Id);
+                }
+            }
         }
 
         /// <summary>
@@ -1315,38 +1387,86 @@ namespace Sango.Core
         /// 拿"回撤贵 / 路远"把它永远空着，等于用一名武将的行程换掉一整座城的产能。
         /// （作用范围有限：每城最多补到 minCityPersons 人，源城仍有净富余闸门、每城接收额度与全局额度约束。）
         /// </summary>
-        static float Score(Person p, Post post, City dest, bool lowPopDest, DeploymentWeights w)
+        static float Score(Person p, Post post, City dest, bool lowPopDest, DeploymentWeights w, int destRing)
         {
             float fit = Fit(post.weights, p);
             if (lowPopDest)
                 return fit;
+
+            // 【性能】行程走城对缓存（见 <see cref="cityDistanceCache"/>），系数提前算好（见 travelCostScale）：
+            // 旧实现每次都直连 Scenario.FindShortestPath（字符串 key + 字典查询）并做一次除法。
             float travel = 0f;
             if (p.CurrentCity != null && dest != null)
-                travel = p.DistanceDays(dest) / (float)Math.Max(1, w.turnDays) * w.costPerTurn;
+                travel = TravelDays(p, dest) * travelCostScale;
 
             // 【④ 方向化】跨圈层成本按方向计价：
             //   调向更前线（ring 变小）= 便宜 —— "前线有权利和内陆交换能力武将"；
             //   调向后方（ring 变大）= 贵 —— 抑制无谓回撤与左右横跳。
             // 用 ResolveRing：港关自身 borderLine 恒为 0，直接读会把所有港关误当成前线。
+            // 目标城圈层由调用方按岗位预算一次（destRing），这里只解析候选人自己的出发城。
             float ring = 0f;
             int fromRing = p.BelongCity != null ? CityEstablishment.ResolveRing(p.BelongCity) : 0;
-            int toRing = dest != null ? CityEstablishment.ResolveRing(dest) : 0;
-            if (fromRing != toRing)
-                ring = toRing < fromRing
+            if (fromRing != destRing)
+                ring = destRing < fromRing
                     ? w.crossRingCost * w.frontwardCostFactor
                     : w.crossRingCost * w.backwardCostFactor;
 
             return fit - travel - ring;
         }
 
-        static int IndexOfCity(List<City> cities, int cityId)
+        /// <summary>
+        /// 取"该武将所在城 → 目标城"的行程天数（带城对缓存）。
+        ///
+        /// 口径与 <c>Person.DistanceDays(City)</c> 完全一致（含"港关归约到归属都市"的两层处理），
+        /// 但最内层的"都市 ↔ 都市"距离会落到 <see cref="cityDistanceCache"/>，
+        /// 因此真正调用 <c>Scenario.GetCityDistance</c>（寻路）的次数是本趟求解的城对数，而不是评分数。
+        /// </summary>
+        /// <param name="p">武将</param>
+        /// <param name="dest">目标城</param>
+        /// <returns>行程天数（无法判定时为 999，与原实现一致）</returns>
+        static int TravelDays(Person p, City dest)
         {
-            for (int i = 0; i < cities.Count; i++)
+            if (dest == null) return 0;
+
+            City from = p.mBelongTroop != null
+                ? p.mBelongTroop.cell.BelongCity
+                : (p.BelongCity == null ? p.CurrentCity : p.BelongCity);
+            return CityDistanceCached(dest, from);
+        }
+
+        /// <summary>
+        /// <c>City.Distance</c> 的等价实现（港关归约口径一致），只把最内层的"都市 ↔ 都市"距离缓存起来。
+        /// 复刻而非直接调用，是为了让缓存落在都市这一层 —— 港关归约仍按原逻辑递归走。
+        /// </summary>
+        /// <param name="a">起点城（对应 <c>City.Distance</c> 的 this）</param>
+        /// <param name="b">终点城（对应 <c>City.Distance</c> 的 other）</param>
+        /// <returns>相隔天数</returns>
+        static int CityDistanceCached(City a, City b)
+        {
+            if (a == null || b == null) return 999;
+            if (a == b) return 0;
+
+            if (a.BelongCity != null)
             {
-                if (cities[i] != null && cities[i].Id == cityId)
-                    return i;
+                if (a.BelongCity == b) return 1;             // 隶属范围内，需要 1 回合
+                return CityDistanceCached(a.BelongCity, b);
             }
-            return -1;
+
+            if (b.BelongCity != null)
+            {
+                if (b.BelongCity == a) return 1;
+                b = b.BelongCity;
+            }
+
+            long key = Scenario.CityPairKey(a.Id, b.Id);
+            int dist;
+            if (cityDistanceCache != null && cityDistanceCache.TryGetValue(key, out dist))
+                return dist;
+
+            dist = Scenario.Cur.GetCityDistance(a, b);        // 真正的寻路：本趟只发生 O(城对数) 次
+            if (cityDistanceCache != null)
+                cityDistanceCache[key] = dist;
+            return dist;
         }
 
         /// <summary>未定圈层（-1）在分配顺序里按"最深层"处理，避免被当成"比边境还优先"（【R2】）。</summary>

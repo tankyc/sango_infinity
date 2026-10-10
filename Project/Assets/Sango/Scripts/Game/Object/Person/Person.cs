@@ -998,7 +998,13 @@ namespace Sango.Core
                         else if (BelongCity != null)
                         {
                             CurrentCity = BelongCity;
-                            BelongCity.invisiblePersons.Add(this);
+                            BelongCity = null;
+                            CurrentCity.invisiblePersons.Add(this);
+                        }
+                        else
+                        {
+                            CurrentCity = scenario.citySet.RandomGet();
+                            CurrentCity.invisiblePersons.Add(this);
                         }
                         break;
                     // 死亡
