@@ -106,7 +106,7 @@ namespace Sango.Render
 
         Material skyMat;
         Mesh[] skyMeshes;
-        Transform skyTrans;
+        public Transform skyTrans;
 
         public MapSkyBox(MapRender map) : base(map)
         {
@@ -233,12 +233,13 @@ namespace Sango.Render
             Vector2[] uv = new Vector2[85];
             int[] indexs = new int[16 * 4 * 2 * 3];
 
+            skyTrans = new GameObject("skyBox").transform;
             GameObject sky = new GameObject("skyBox");
-            skyTrans = sky.transform;
+            sky.transform.SetParent(skyTrans, false);
 
             _CreateMaterial();
 
-            skyTrans.localScale = new Vector3(sky_radius_len, sky_height, sky_radius_len);
+            sky.transform.localScale = new Vector3(sky_radius_len, sky_height, sky_radius_len);
             for (int i = 0; i < skyMeshes.Length; i++)
             {
 

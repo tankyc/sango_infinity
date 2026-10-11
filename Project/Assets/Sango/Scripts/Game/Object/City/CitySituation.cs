@@ -182,11 +182,9 @@ namespace Sango.Core
             }
 
             // ---------- 设施 ----------
-            s.hasMachineFactory = HasBuilding(city, BuildingKindType.MechineFactory);
-            s.hasBoatFactory = HasBuilding(city, BuildingKindType.BoatFactory);
-            s.hasBarracks = HasBuilding(city, BuildingKindType.Barracks);
-            s.hasBlacksmith = HasBuilding(city, BuildingKindType.BlacksmithShop);
-            s.hasStable = HasBuilding(city, BuildingKindType.Stable);
+            // 【一次遍历】原来这里连调 5 次 HasBuilding，每次都把 allBuildings 完整走一遍 ——
+            // 同一张表被扫 5 遍。而 Collect 每回合每城还要被调用多次，这个常数开销会被放大。
+            CollectFacilities(city, ref s);
 
             // ---------- 战场联动 ----------
             s.besiegedNeighborCount = CountBesiegedNeighbors(city);
@@ -280,6 +278,78 @@ namespace Sango.Core
             return false;
         }
 
+        // ==================== "参战部队"的势力级缓存 ====================
+        //
+        // 【为什么要缓存】本方法原来对**每座城**都把 scenario.troopsSet（全地图、**所有势力**的部队）
+        // 扫一遍，只在循环体里过滤掉"非本势力"—— 复杂度 O(城数 × 全地图部队数)；
+        // 而 CitySituation.Collect 每回合**每城**要被调用多次（资源调度 / 人才调度 / 城池 AI 命令排序），
+        // 于是同一批部队被反复扫描几十上百遍。这里改成"按势力一次性归集"，各城只扫本势力部队，
+        // 过滤（距离 / 缺粮 / 缺兵）仍在各城现算 —— 那部分才是城独有的。
+        //
+        // 失效条件（任一变化即重建）：换剧本、换回合、troopsSet 长度变化（当回合新出兵的信号）。
+
+        /// <summary>缓存所依附的剧本</summary>
+        static Scenario cachedCombatScenario;
+        /// <summary>缓存对应的全局回合号</summary>
+        static int cachedCombatTurn = -1;
+        /// <summary>建缓存时的部队总数（变化即失效 —— 当回合有新部队入场的信号）</summary>
+        static int cachedCombatTroopCount = -1;
+        /// <summary>势力 id → 该势力"有作战任务的部队"列表</summary>
+        static Dictionary<int, List<Troop>> cachedCombatTroopsByForce;
+        /// <summary>空列表常量（避免每次都 new）</summary>
+        static readonly List<Troop> EmptyCombatTroops = new List<Troop>();
+
+        /// <summary>
+        /// 取某势力"有作战任务的部队"（按势力归集，同一回合只建一次）。
+        /// 该势力当期没有参战部队时返回空列表（不会返回 null）。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>该势力的参战部队列表（可能为空）</returns>
+        static List<Troop> GetCombatTroops(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null || scenario.troopsSet == null)
+                return EmptyCombatTroops;
+
+            int turn = scenario.TurnCount;
+            bool reuse = ReferenceEquals(cachedCombatScenario, scenario)
+                && cachedCombatTurn == turn
+                && cachedCombatTroopCount == scenario.troopsSet.Count
+                && cachedCombatTroopsByForce != null;
+
+            if (!reuse)
+            {
+                cachedCombatScenario = scenario;
+                cachedCombatTurn = turn;
+                cachedCombatTroopCount = scenario.troopsSet.Count;
+                cachedCombatTroopsByForce = new Dictionary<int, List<Troop>>();
+
+                for (int i = 0; i < scenario.troopsSet.Count; i++)
+                {
+                    Troop t = scenario.troopsSet[i];
+                    if (t == null || !t.IsAlive || t.BelongForce == null)
+                        continue;
+                    if (t.IsTransport)
+                        continue;
+                    if (t.missionType <= 0)
+                        continue;                                   // 只统计有作战任务的部队
+                    if (t.missionType == (int)MissionType.TroopSupplyTroop)
+                        continue;
+
+                    List<Troop> bucket;
+                    if (!cachedCombatTroopsByForce.TryGetValue(t.BelongForce.Id, out bucket))
+                    {
+                        bucket = new List<Troop>();
+                        cachedCombatTroopsByForce[t.BelongForce.Id] = bucket;
+                    }
+                    bucket.Add(t);
+                }
+            }
+
+            List<Troop> result;
+            return cachedCombatTroopsByForce.TryGetValue(force.Id, out result) ? result : EmptyCombatTroops;
+        }
+
         /// <summary>
         /// 统计附近需要补给的友军数量（缺粮 / 缺兵，且有作战任务）。
         /// </summary>
@@ -288,23 +358,19 @@ namespace Sango.Core
         /// <returns>需要补给的友军数量</returns>
         static int CountNeedyAllies(City city, Scenario scenario)
         {
+            if (city == null || scenario == null)
+                return 0;
+
             int count = 0;
             int range = AIConfig.Instance.supplySearchRange + 8;
             int foodFactor = AIConfig.Instance.supplyFoodThresholdFactor;
 
-            for (int i = 0; i < scenario.troopsSet.Count; i++)
+            // 只扫**本势力**的参战部队（见上方缓存的说明）
+            List<Troop> troops = GetCombatTroops(city.BelongForce, scenario);
+            for (int i = 0; i < troops.Count; i++)
             {
-                Troop t = scenario.troopsSet[i];
+                Troop t = troops[i];
                 if (t == null || !t.IsAlive)
-                    continue;
-                if (t.BelongForce != city.BelongForce)
-                    continue;
-                if (t.IsTransport)
-                    continue;
-                if (t.missionType == (int)MissionType.TroopSupplyTroop)
-                    continue;
-                // 只统计有作战任务的部队
-                if (t.missionType <= 0)
                     continue;
                 if (scenario.Map.Distance(city.CenterCell, t.cell) > range)
                     continue;
@@ -354,22 +420,40 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 城池是否拥有指定种类的建筑。
+        /// 一次性扫描城内的建筑表，把"关键设施是否存在"的 5 个标志一起置上。
+        ///
+        /// 【为什么合并】原实现是连调 5 次 <c>HasBuilding</c>，每次都把 allBuildings 走一遍 ——
+        /// 同一张表被扫 5 遍；而 <see cref="Collect"/> 每回合每城还要被调用多次，
+        /// 这个常数开销会被成倍放大。5 个标志本来就属于同一次扫描。
         /// </summary>
         /// <param name="city">城市对象</param>
-        /// <param name="kind">建筑种类</param>
-        /// <returns>是否存在</returns>
-        static bool HasBuilding(City city, BuildingKindType kind)
+        /// <param name="s">态势快照（就地写入设施标志）</param>
+        static void CollectFacilities(City city, ref CitySituation s)
         {
-            if (city.allBuildings == null)
-                return false;
+            // 注意：CitySituation 是**值类型**，必须用 ref 传 —— 否则写回的是副本，设施标志会丢。
+            if (city == null || city.allBuildings == null)
+                return;
+
             for (int i = 0; i < city.allBuildings.Count; i++)
             {
                 Building b = city.allBuildings[i];
-                if (b != null && b.BuildingType != null && b.BuildingType.kind == (int)kind)
-                    return true;
+                if (b == null || b.BuildingType == null)
+                    continue;
+
+                switch ((BuildingKindType)b.BuildingType.kind)
+                {
+                    case BuildingKindType.MechineFactory: s.hasMachineFactory = true; break;
+                    case BuildingKindType.BoatFactory: s.hasBoatFactory = true; break;
+                    case BuildingKindType.Barracks: s.hasBarracks = true; break;
+                    case BuildingKindType.BlacksmithShop: s.hasBlacksmith = true; break;
+                    case BuildingKindType.Stable: s.hasStable = true; break;
+                }
+
+                // 5 个都齐了就没必要继续扫（大城建筑多，这一段省得最多）
+                if (s.hasMachineFactory && s.hasBoatFactory && s.hasBarracks
+                    && s.hasBlacksmith && s.hasStable)
+                    break;
             }
-            return false;
         }
     }
 }

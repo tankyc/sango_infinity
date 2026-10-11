@@ -114,6 +114,14 @@ namespace Sango.Core
             public Dictionary<int, int> hops;
             /// <summary>缺口权重（排序用：缺失比例 × 资源权重）</summary>
             public int deficitWeight;
+            /// <summary>
+            /// 归属主城的账本（**港关专用**；非港关、或主城不在本域时为 null）。
+            ///
+            /// 在 <see cref="Solve"/> 建完全部账本后由 <see cref="BuildParentLinks"/> **一次性接好**。
+            /// 用途：无军情港关判断"归属主城还收得下吗"（见 CollectSources 的 portGateDirectShip）。
+            /// 若在那里做线性查找，开销是 O(域城数) × 港关数 × 资源数 × 趟数 —— 必须预连。
+            /// </summary>
+            public Ledger parentLedger;
         }
 
         /// <summary>源城候选（选出"给谁发货最合适"）</summary>
@@ -314,13 +322,17 @@ namespace Sango.Core
             // 域内跳数表：整域一次算完（带缓存），避免每城一次 BFS 的 O(N²) 重复开销
             Dictionary<int, Dictionary<int, int>> hopsTable = GetDomainHops(domain, domainIds, scenario);
 
+            // 【性能】"在途货量"整域**一次**归集（O(部队数)），再按城分发。
+            // 原先是在 BuildLedger 里逐城扫全部部队（O(城数 × 部队数)），域一大就成热点。
+            Dictionary<int, int[]> inboundTable = CollectInbound(scenario);
+
             List<Ledger> ledgers = new List<Ledger>(domain.Count);
             for (int i = 0; i < domain.Count; i++)
             {
                 Ledger L = null;
                 try
                 {
-                    L = BuildLedger(domain[i], scenario, w, hopsTable);
+                    L = BuildLedger(domain[i], scenario, w, hopsTable, inboundTable);
                 }
                 catch (Exception)
                 {
@@ -336,6 +348,9 @@ namespace Sango.Core
             }
             if (ledgers.Count == 0)
                 return plan;
+
+            // 【港关 → 归属主城】一次性把引用接好（见 Ledger.parentLedger 的说明）
+            BuildParentLinks(ledgers);
 
             for (int i = 0; i < ledgers.Count; i++)
             {
@@ -474,8 +489,9 @@ namespace Sango.Core
         /// <param name="scenario">剧本</param>
         /// <param name="w">参数</param>
         /// <param name="hopsTable">本域"城池 id → 域内跳数表"（可为 null，此时按不连通处理）</param>
+        /// <param name="inboundTable">本域"城池 id → 在途货量数组"（见 <see cref="CollectInbound"/>；可为 null）</param>
         static Ledger BuildLedger(City city, Scenario scenario, ResourceDispatchWeights w,
-            Dictionary<int, Dictionary<int, int>> hopsTable)
+            Dictionary<int, Dictionary<int, int>> hopsTable, Dictionary<int, int[]> inboundTable)
         {
             if (city == null)
                 return null;
@@ -516,7 +532,16 @@ namespace Sango.Core
             L.isProducer = situation.hasBlacksmith || situation.hasStable
                 || situation.hasMachineFactory || situation.hasBoatFactory;
 
-            SumInbound(scenario, city.Id, L.inbound);
+            // 在途货量：从整域预归集表里取（表里没有本城就表示"没有货在路上"）
+            if (inboundTable != null)
+            {
+                int[] inbound;
+                if (inboundTable.TryGetValue(city.Id, out inbound) && inbound != null)
+                {
+                    for (int i = 0; i < ResCount; i++)
+                        L.inbound[i] = inbound[i];
+                }
+            }
 
             for (int r = 0; r < ResCount; r++)
             {
@@ -654,7 +679,15 @@ namespace Sango.Core
             float foodPerTroop = scenario != null && scenario.Variables != null
                 ? scenario.Variables.baseFoodCostInTroop : 0.1f;
 
-            float urgency = 0f;
+            // 【合成方式】先把每座前线守备据点的告急程度收齐，再按
+            //     max × (1 − avgWeight) + avg × avgWeight
+            // 合成一个势力级的紧急度。旧行为（avgWeight = 0）是"取最告急的一座"：
+            // 一座小关口被围就会把整个后方抽空 —— 那是单点噪声，不是全局紧急；
+            // 而真正多点同时告急时反倒看不出差别。
+            float maxUrgency = 0f;
+            float sumUrgency = 0f;
+            int counted = 0;
+
             for (int i = 0; i < ledgers.Count; i++)
             {
                 Ledger L = ledgers[i];
@@ -668,14 +701,23 @@ namespace Sango.Core
                 if (L.portGate && !L.military)
                     continue;
 
+                float cityUrgency = 0f;
+
+                // 【时间维度】补给在路上要花"跳数 × 每跳回合"：远端前线必须**提前**告警 ——
+                // 否则等口粮见底才发车，货还在路上兵就已经开始掉了。
+                // 于是把这段路程折算进"口粮还能撑几回合"的判定阈值。
+                float supplyTurns = 0f;
+                if (w.frontUrgencyCountSupplyTurns)
+                    supplyTurns = HopsToRear(L, ledgers) * Math.Max(1f, w.escortTurnsPerHop);
+
                 // 粮：还能撑几回合（1 粮养 10 兵）
                 float perTurn = L.city.troops * foodPerTroop;
-                float vitalFood = perTurn * Math.Max(0f, w.vitalFoodTurns);
+                float vitalFood = perTurn * (Math.Max(0f, w.vitalFoodTurns) + supplyTurns);
                 if (vitalFood > 0f)
                 {
                     float f = 1f - L.city.food / vitalFood;
-                    if (f > urgency)
-                        urgency = f;
+                    if (f > cityUrgency)
+                        cityUrgency = f;
                 }
 
                 // 兵：守军底线。港关的底线是它自己的"扎住线"（2000），不是都市的万人 ——
@@ -686,14 +728,64 @@ namespace Sango.Core
                 if (vitalTroops > 0)
                 {
                     float t = 1f - (float)L.city.troops / vitalTroops;
-                    if (t > urgency)
-                        urgency = t;
+                    if (t > cityUrgency)
+                        cityUrgency = t;
                 }
+
+                if (cityUrgency < 0f)
+                    cityUrgency = 0f;
+                if (cityUrgency > 1f)
+                    cityUrgency = 1f;
+
+                sumUrgency += cityUrgency;
+                counted++;
+                if (cityUrgency > maxUrgency)
+                    maxUrgency = cityUrgency;
             }
 
+            if (counted == 0)
+                return 0f;
+
+            float avgWeight = w.frontUrgencyAvgWeight;
+            if (avgWeight < 0f)
+                avgWeight = 0f;
+            if (avgWeight > 1f)
+                avgWeight = 1f;
+
+            float avgUrgency = sumUrgency / counted;
+            float urgency = maxUrgency * (1f - avgWeight) + avgUrgency * avgWeight;
             if (urgency < 0f)
                 urgency = 0f;
             return urgency > 1f ? 1f : urgency;
+        }
+
+        /// <summary>
+        /// 本城到"最近后方（圈层 ≥ 1）"的跳数 —— 用于把"补给在路上要花的时间"折算进紧急度。
+        ///
+        /// 为什么用"到后方的距离"而不是"到产地的距离"：紧前线的补给来源本来就可能是次前线
+        /// （圈层 1），按"后方产地"算会把距离算得过长。取不到跳数（域内不连通 / 数据缺失 /
+        /// 本域没有后方城）时返回 0 —— 退化成旧行为，不会误报紧急。
+        /// </summary>
+        /// <param name="L">前线城账本</param>
+        /// <param name="ledgers">全部账本</param>
+        /// <returns>跳数（≥ 0；0 = 取不到）</returns>
+        static int HopsToRear(Ledger L, List<Ledger> ledgers)
+        {
+            if (L == null || L.hops == null || L.hops.Count == 0 || ledgers == null)
+                return 0;
+
+            int best = int.MaxValue;
+            for (int i = 0; i < ledgers.Count; i++)
+            {
+                Ledger M = ledgers[i];
+                if (M == null || M.city == null || M.ring < 1)
+                    continue;
+
+                int h;
+                if (L.hops.TryGetValue(M.city.Id, out h) && h > 0 && h < best)
+                    best = h;
+            }
+            return best == int.MaxValue ? 0 : best;
         }
 
         /// <summary>金 / 粮 / 兵 → 对应的**绝对**水位线配置。</summary>
@@ -1145,6 +1237,7 @@ namespace Sango.Core
             if (sumTotal <= 0)
                 return "无可用产出建筑";
 
+            Scenario scenario = Scenario.Cur;
             int producible = 0;
             for (int t = 0; t < 4; t++)
             {
@@ -1154,9 +1247,16 @@ namespace Sango.Core
                 if (itemTypeId < 5 && !smithFree)
                     continue;
 
+                // 容器上限必须与 AICreateItems 同口径：仓库上限（总值 StoreLimit）× 道具 p1 千分比。
+                // 兵装四类无 p1（= 0）→ 满额（每类都能存到整个仓库上限）；船 / 器械 p1 = 10 → 1%。
+                // 两处口径一旦分叉，报告就会误报"仓库已满"（或反过来漏报），调参时会被带偏。
                 int itemNum = city.itemStore.GetNumber(itemTypeId);
-                if (itemNum >= city.storeLimit)                  // 仓库已满
-                    continue;
+                ItemType capacityItem = scenario != null ? scenario.GetObject<ItemType>(itemTypeId) : null;
+                int itemCapacity = capacityItem != null
+                    ? capacityItem.TransformLimit(city.StoreLimit)
+                    : city.StoreLimit;
+                if (itemCapacity > 0 && itemNum >= itemCapacity)
+                    continue;                                    // 这类已达容器上限
                 if (itemNum < levelTotal[t] * city.troops / sumTotal + 5000)
                     producible++;                                // 这类还该造
             }
@@ -1311,7 +1411,7 @@ namespace Sango.Core
                 return -1;
 
             int best = -1;
-            int bestHops = int.MaxValue;
+            int bestScore = int.MaxValue;
 
             for (int i = 0; i < ledgers.Count; i++)
             {
@@ -1336,9 +1436,14 @@ namespace Sango.Core
                 if (ReceiverCapacity(M, kind, AllocMode.OverflowRelief, w) <= 0)
                     continue;
 
-                if (sm < bestHops)
+                // 【优先选"这类资源不缺"的城当中转】它自己的水位已经够了，
+                // 不会把过境货当成自己的缺口吃掉（那是最典型的中转失效）。
+                // 用大权重把"缺货城"整体排到后面，而不是直接排除 —— 前线纵深可能
+                // 全都在缺货，直接排除会让接力彻底失效（宁可中转城自己补一点，也别断链）。
+                int score = sm + (M.need[(int)kind] > 0 ? 1000 : 0);
+                if (score < bestScore)
                 {
-                    bestHops = sm;
+                    bestScore = score;
                     best = i;
                 }
             }
@@ -1359,6 +1464,10 @@ namespace Sango.Core
         static void Allocate(List<Ledger> ledgers, List<int> targetOrder, AllocMode mode, OrderBook book,
             ResourceDispatchWeights w, Scenario scenario, TroopType transportType, float frontUrgency)
         {
+            // 【搭车开关】riderMinRatio 落在 (0, 1) 时才跑第二遍：
+            // ≤ 0 = 关闭搭车；≥ 1 = 搭车门槛与自身门槛一样高（等价于关闭）。
+            int passes = (w.riderMinRatio > 0f && w.riderMinRatio < 1f) ? 2 : 1;
+
             for (int oi = 0; oi < targetOrder.Count; oi++)
             {
                 Ledger T = ledgers[targetOrder[oi]];
@@ -1369,8 +1478,30 @@ namespace Sango.Core
 
                 string reason = ReasonText(T, mode);
 
-                for (int r = 0; r < ResCount; r++)
+                // 【两遍制】把 6 类资源 × 2 遍摊平成一个循环（idx = 遍次 × 6 + 资源下标）：
+                //   · 第一遍（pass = 0）只发**自身达标**的资源 —— 它决定"这趟车成不成立"；
+                //   · 第二遍（pass = 1）只发**搭车**的资源 —— 车既然已经要发（车资是一名押车武将），
+                //     同方向的零头顺路带走是纯增益，不再各自卡门槛（见 acceptMin 的算法）。
+                //
+                // 【第二遍的剪枝】搭车有两个前提：本城第一遍起码发过一单（否则"同向已有单"无从谈起），
+                // 且这类资源本身没在第一遍发过。两个条件都能在**进内层循环之前**判掉，
+                // 于是第二遍在绝大多数目标城上是**整轮跳过**的 —— 省下的正是最贵的 CollectSources。
+                // 用位掩码而不是 bool 数组：每个目标城都要用一次，免得逐城分配。
+                int shippedMask = 0;
+
+                for (int idx = 0; idx < ResCount * passes; idx++)
                 {
+                    int r = idx % ResCount;
+                    int pass = idx / ResCount;
+
+                    if (pass == 1)
+                    {
+                        if (shippedMask == 0)
+                            break;                              // 第一遍一单都没发 → 没有车可搭
+                        if ((shippedMask & (1 << r)) != 0)
+                            continue;                           // 这类资源第一遍已经发过 → 不必再搭
+                    }
+
                     if (!T.active[r])
                         continue;                               // 该资源在本城不参与调度
                     // 六类资源**都有上限**（金 / 粮 / 兵是库容，兵装 / 器械 / 船是道具容器），
@@ -1380,7 +1511,11 @@ namespace Sango.Core
                     if (need <= 0)
                         continue;
 
-                    int minShip = MinShip((ResourceKind)r, w);
+                    // 【两把独立的尺子】baseMin = 按资源的基础门槛；minShip 可能在下面被
+                    // batchShipRatio 抬到"收货城缺口的若干成"。二者在下一步与"距离加价"一起取严，
+                    // 但**不许相乘** —— 见 selfMin 处的说明。
+                    int baseMin = MinShip((ResourceKind)r, w);
+                    int minShip = baseMin;
                     ResourceKind kind = (ResourceKind)r;
 
                     // 【攒够一车再走】一车至少要覆盖收货城缺口的 batchShipRatio，否则这一趟不发：
@@ -1421,9 +1556,31 @@ namespace Sango.Core
 
                         // 限流只看"**新开**几张单"：同一对（源 → 目标）的多种资源会合并成一张单、
                         // 共用一个运输主将，因此给同一目标续运粮草 / 兵装不该被自己的第一张单挡住。
-                        if (!book.HasOrder(S.city.Id, D.city.Id)
-                            && book.FromCount(S.city.Id) >= w.maxShipmentsPerSourceCity)
+                        bool sameOrder = book.HasOrder(S.city.Id, D.city.Id);
+                        if (!sameOrder && book.FromCount(S.city.Id) >= w.maxShipmentsPerSourceCity)
                             continue;
+
+                        // ---------- 【本批的接受标准】 ----------
+                        // 第一遍：自身达标 —— 门槛再按**行程跳数**上浮（minShipHopsFactor）：
+                        //   距离越远越要"一次攒够"才值得发车，免得把运力都花在路上。
+                        // 第二遍·搭车：本对（源 → 实际收货城）必须**已经有一张成立的单**，
+                        //   且这批零头不少于"自身基础门槛 × riderMinRatio"（不为一点零头装卸）。
+                        // 【两把尺子取严，不叠乘】
+                        //   · 批次尺 minShip：基础门槛，可能已被 batchShipRatio 抬到"缺口的若干成"；
+                        //   · 距离尺：只在**基础门槛**上按跳数加价（HopsInflatedMinShip(baseMin)）。
+                        // 若改成叠乘（先被批次抬高、再整体按距离加价），"大缺口 + 远距离"的门槛会变成
+                        // "缺口的 30% × 1.45" —— 源城永远凑不齐，一车都发不出去
+                        //（BatchCrisisBypass 只豁免粮，金 / 兵装 / 器械 / 船会直接停摆）。
+                        int selfMin = Math.Max(HopsInflatedMinShip(baseMin, c.rawHops, w), minShip);
+                        int acceptMin = selfMin;
+                        if (pass == 1)
+                        {
+                            if (!sameOrder)
+                                continue;                       // 本对还没有车 → 无从搭车
+                            acceptMin = (int)Math.Ceiling(MinShip(kind, w) * Math.Max(0f, w.riderMinRatio));
+                            if (acceptMin < 1)
+                                acceptMin = 1;
+                        }
 
                         int avail = SourceAvail(S, kind, mode, w, frontUrgency);
                         if (avail <= 0)
@@ -1466,7 +1623,7 @@ namespace Sango.Core
                                 int maxTroops = (int)(foodUsable / perTroop);
                                 if (maxTroops < ship)
                                     ship = maxTroops;
-                                if (ship < minShip)
+                                if (ship < acceptMin)
                                     continue;                   // 缩到起运门槛以下就不运了
 
                                 escortFood = EscortFoodFor(ship, c.rawHops, scenario, transportType, w);
@@ -1517,7 +1674,7 @@ namespace Sango.Core
                                 int maxTroops = (int)Math.Floor(armsUsable / perTroop);
                                 if (maxTroops < ship)
                                     ship = maxTroops;
-                                if (ship < minShip)
+                                if (ship < acceptMin)
                                     continue;
                                 want = (int)Math.Ceiling(ship * perTroop);
                                 if (want > gap)
@@ -1541,8 +1698,11 @@ namespace Sango.Core
                             }
                         }
 
-                        if (ship < minShip)
+                        if (ship < acceptMin)
                             continue;
+
+                        // 本城这类资源发过车了：第二遍不必再为它搭车，同时也标记"本城有车可搭"
+                        shippedMask |= 1 << r;
 
                         // 记账：源城现有量减少、实际收货城现有量增加（代表"已承诺在途"），
                         // 后面几趟 / 后续资源都会看到这笔账，避免重复发货或超上限。
@@ -1550,16 +1710,29 @@ namespace Sango.Core
                         S.now[r] -= ship;
                         D.now[r] += ship;
                         D.receivedThisRun[r] += ship;      // 本趟刚收下 → 不再被当成自有库存往外发
-                        D.need[r] -= ship;
-                        if (D.need[r] < 0)
-                            D.need[r] = 0;
                         need -= ship;
                         if (relayed)
                         {
+                            // 【过境库存】中转城只是"替前线暂存"这批货，不能让它据为己有 ——
+                            // 把它的**水位目标同步抬高** ship：
+                            //   · 本回合：接收容量（target − now − inbound）与富余（now − target）
+                            //     都保持不变 → 它既不会重复接货，也不会把过境货当场发走；
+                            //   · 下回合：target 由 GetTarget 重算（恢复原值），而 now 已经加上这批货 —
+                            //     于是它自然变成"水位以上的富余"，被源城排序优先转发出去。
+                            // 比"记一笔跨回合的过境账"更稳：状态全在账本里，换回合自动失效，没有残留。
+                            D.target[r] += ship;
+
                             // 中转时"被服务"的其实是最终目标，它的缺口同样要记上
                             T.need[r] -= ship;
                             if (T.need[r] < 0)
                                 T.need[r] = 0;
+                        }
+                        else
+                        {
+                            // 直送：收货城的水位缺口被这批货填上
+                            D.need[r] -= ship;
+                            if (D.need[r] < 0)
+                                D.need[r] = 0;
                         }
 
                         // 排序信息取**最终目标**的档位与紧急度：这张单是替它办的。
@@ -1677,6 +1850,31 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 把起运门槛按**行程跳数**上浮：<c>门槛 × (1 + minShipHopsFactor × (跳数 − 1))</c>。
+        ///
+        /// 【为什么要这道闸】运输队约 2 回合/跳，跨 4 跳就是 8 个回合。
+        /// 如果门槛与距离无关，"源城富余刚好过关"的单会排出很远的路 ——
+        /// 运力（以及一名押车武将）大半消耗在路上，而前线还是拿不到多少。
+        /// 上浮之后，远处的城必须**一次攒得更多**才值得发车；短途（1 跳）不受影响。
+        ///
+        /// 与 <see cref="ResourceDispatchWeights.batchShipRatio"/>（按收货缺口压批次）互补：
+        /// 那条管"一次送多少才划算"，这条管"送多远才划算"。
+        /// </summary>
+        /// <param name="minShip">基础门槛（可能已被 batchShipRatio 抬高）</param>
+        /// <param name="hops">行程跳数</param>
+        /// <param name="w">参数</param>
+        /// <returns>上浮后的门槛（不低于基础门槛）</returns>
+        static int HopsInflatedMinShip(int minShip, int hops, ResourceDispatchWeights w)
+        {
+            if (w == null || w.minShipHopsFactor <= 0f || hops <= 1)
+                return minShip;
+
+            double factor = 1.0 + w.minShipHopsFactor * (hops - 1);
+            int scaled = (int)Math.Ceiling(minShip * factor);
+            return scaled > minShip ? scaled : minShip;
+        }
+
+        /// <summary>
         /// "攒够一车再走"（<see cref="ResourceDispatchWeights.batchShipRatio"/>）的**救急豁免**：
         /// 收货城此刻等不起攒车，货要立刻发。
         ///
@@ -1726,19 +1924,37 @@ namespace Sango.Core
                 if (w.skipBesiegedSource && S.underSiege)
                     continue;
 
-                // 【港关·无军情】只往**归属主城**送货：它是主城伸出去的仓储点，
-                // 由主城统一往前线 / 其它城转（避免几十个渡口各自乱发货、也避免它们去抢运力）。
-                if (w.portGateOnlyToParent && S.portGate && !S.military
-                    && S.city.BelongCity != null && S.city.BelongCity != T.city)
+                // 【便宜的判据先做】可出口量是纯 O(1) 的账本读数，而跳数查询是字典查找 ——
+                // 大势力里绝大多数源城对某类资源根本没有富余，把 SourceAvail 提到跳数之前，
+                // 能在最贵的字典查找发生前就把它们剔掉（本方法每回合要被调用 O(趟数 × 资源数 × 城数) 次）。
+                int avail = SourceAvail(S, kind, mode, w, frontUrgency);
+                if (avail <= 0)
                     continue;
-
-                int hops;
-                if (!S.hops.TryGetValue(T.city.Id, out hops) && !T.hops.TryGetValue(S.city.Id, out hops))
-                    continue;                                   // 域内不连通（被敌占 / 数据缺失）
 
                 bool parentLink = IsParentLink(S.city, T.city);
                 if (!parentLink && S.ring < T.ring)
                     continue;                                   // 不许把前线的东西往后方倒
+
+                // 【港关·无军情】是主城伸出去的仓储点：富余**优先**喂归属主城，
+                // 由主城统一往前线 / 其它城转（避免几十个渡口各自乱发货、也避免它们去抢运力）。
+                //
+                // 【但主城满了必须放行】主城一旦填满，"只喂主城"就变成"永远发不出去"——
+                // 下回合该渡口被登记成背压、产物端跟着停产，货只能堆着等溢出。
+                // 所以主城收不下时（该类资源已到水位 / 主城不在本域），允许直送其它有缺口的城。
+                // 主城账本是 BuildParentLinks 预连好的（不做线性查找）。
+                if (w.portGateOnlyToParent && S.portGate && !S.military
+                    && S.city.BelongCity != null && S.city.BelongCity != T.city)
+                {
+                    Ledger parent = w.portGateDirectShipWhenParentFull ? S.parentLedger : null;
+                    bool parentCanReceive = parent != null && parent.active[(int)kind]
+                        && ReceiverCapacity(parent, kind, mode, w) > 0;
+                    if (parentCanReceive)
+                        continue;                                   // 主城还吃得下 → 仍然只喂主城
+                }
+
+                int hops;
+                if (!S.hops.TryGetValue(T.city.Id, out hops) && !T.hops.TryGetValue(S.city.Id, out hops))
+                    continue;                                   // 域内不连通（被敌占 / 数据缺失）
 
                 SourceCandidate c = new SourceCandidate();
                 c.index = i;
@@ -1751,9 +1967,7 @@ namespace Sango.Core
                     c.hops -= w.designatedTargetBias;
                 if (c.hops < 1)
                     c.hops = 1;
-                c.avail = SourceAvail(S, kind, mode, w, frontUrgency);
-                if (c.avail <= 0)
-                    continue;
+                c.avail = avail;
                 result.Add(c);
             }
 
@@ -1765,6 +1979,36 @@ namespace Sango.Core
                 return a.cityId.CompareTo(b.cityId);
             });
             return result;
+        }
+
+        /// <summary>
+        /// 把每座港关的 <see cref="Ledger.parentLedger"/> 指向其归属主城的账本。
+        /// 一趟 O(N)：先建"城池 id → 账本"索引，再逐城接引用 ——
+        /// 比在 CollectSources 里按需线性查找便宜得多（那里是热路径上的平方级开销）。
+        /// </summary>
+        /// <param name="ledgers">全部账本</param>
+        static void BuildParentLinks(List<Ledger> ledgers)
+        {
+            if (ledgers == null || ledgers.Count == 0)
+                return;
+
+            Dictionary<int, Ledger> byId = new Dictionary<int, Ledger>(ledgers.Count);
+            for (int i = 0; i < ledgers.Count; i++)
+            {
+                Ledger L = ledgers[i];
+                if (L != null && L.city != null)
+                    byId[L.city.Id] = L;
+            }
+
+            for (int i = 0; i < ledgers.Count; i++)
+            {
+                Ledger L = ledgers[i];
+                if (L == null || L.city == null || L.city.BelongCity == null)
+                    continue;
+
+                Ledger parent;
+                L.parentLedger = byId.TryGetValue(L.city.BelongCity.Id, out parent) ? parent : null;
+            }
         }
 
         /// <summary>
@@ -1804,21 +2048,35 @@ namespace Sango.Core
 
         // ==================== 图 / 在途 ====================
 
-        // ---- 域内跳数表缓存 ----
+        // ---- 域内跳数表缓存（**多槽**） ----
         // 每城一张"域内跳数表"意味着 O(N) 次 BFS、整体 O(N²)；而**域内城池集合没变时结果完全一样**
         // （图的边来自静态的地图邻接表 + 港关↔归属都市，只有域本身变了结果才会变）。
-        // 所以按"域城池 id 序列"**精确比较**后复用：只有归属发生变化的那一回合才重算。
+        //
+        // 【为什么是"多槽"而不是"单槽"】一个回合里往往有好几个作用域轮流求解：
+        // 玩家势力是**逐个军团**各跑一次，AI 势力之间也会互相顶掉。
+        // 单槽缓存会把上一个域的跳数表直接挤掉 → 等于每个作用域都从零重建 N 次 BFS。
+        // 这里按"域序列哈希"分槽保存，同一回合内反复复用；换剧本 / 换回合整体清空，
+        // 域本身发生变化则由 SameDomain 兜住（哈希碰撞也拦得住）。
+
+        /// <summary>域跳数表的一个缓存槽。</summary>
+        class HopsCacheEntry
+        {
+            /// <summary>该槽对应的域城池 id 序列（按域采集顺序，逐项精确比较）</summary>
+            public int[] domainIds;
+            /// <summary>城池 id → 域内跳数表</summary>
+            public Dictionary<int, Dictionary<int, int>> hops;
+        }
 
         /// <summary>缓存所依附的剧本</summary>
         static Scenario cachedHopsScenario;
-        /// <summary>缓存对应的域城池 id 序列（按域采集顺序，逐项精确比较）</summary>
-        static int[] cachedHopsDomainIds;
-        /// <summary>缓存：城池 id → 域内跳数表</summary>
-        static Dictionary<int, Dictionary<int, int>> cachedHops;
+        /// <summary>缓存对应的全局回合号（换回合整体清空）</summary>
+        static int cachedHopsTurn = -1;
+        /// <summary>域序列哈希 → 跳数表槽</summary>
+        static readonly Dictionary<int, HopsCacheEntry> hopsCache = new Dictionary<int, HopsCacheEntry>();
 
         /// <summary>
         /// 取本作用域的"每城跳数表"（城池 id → 域内跳数表）。
-        /// 域城池集合与上次完全一致且同一剧本时直接复用缓存，一张 BFS 都不用跑。
+        /// 同一回合内同域的调用直接复用，一张 BFS 都不用跑。
         /// </summary>
         /// <param name="domain">域内城池（采集顺序即比较顺序）</param>
         /// <param name="domainIds">域内城池 id 集合</param>
@@ -1827,12 +2085,22 @@ namespace Sango.Core
         static Dictionary<int, Dictionary<int, int>> GetDomainHops(List<City> domain, HashSet<int> domainIds,
             Scenario scenario)
         {
-            if (domain == null || domainIds == null)
+            if (domain == null || domainIds == null || scenario == null)
                 return null;
 
-            if (ReferenceEquals(cachedHopsScenario, scenario) && cachedHops != null
-                && SameDomain(cachedHopsDomainIds, domain))
-                return cachedHops;
+            int turn = scenario.TurnCount;
+            if (!ReferenceEquals(cachedHopsScenario, scenario) || cachedHopsTurn != turn)
+            {
+                cachedHopsScenario = scenario;
+                cachedHopsTurn = turn;
+                hopsCache.Clear();
+            }
+
+            int key = DomainKey(domain);
+            HopsCacheEntry entry;
+            if (hopsCache.TryGetValue(key, out entry) && entry != null
+                && SameDomain(entry.domainIds, domain))
+                return entry.hops;
 
             Dictionary<int, Dictionary<int, int>> fresh =
                 new Dictionary<int, Dictionary<int, int>>(domain.Count);
@@ -1846,10 +2114,31 @@ namespace Sango.Core
                 fresh[city.Id] = BfsHops(city, domainIds);
             }
 
-            cachedHopsScenario = scenario;
-            cachedHopsDomainIds = ids;
-            cachedHops = fresh;
+            if (entry == null)
+            {
+                entry = new HopsCacheEntry();
+                hopsCache[key] = entry;
+            }
+            entry.domainIds = ids;
+            entry.hops = fresh;
             return fresh;
+        }
+
+        /// <summary>
+        /// 域城池序列的哈希（顺序敏感）。只用于**分槽**，正确性由 <see cref="SameDomain"/> 保证 ——
+        /// 所以这里不需要抗碰撞的强哈希，快就够了。
+        /// </summary>
+        /// <param name="domain">域内城池</param>
+        /// <returns>哈希值</returns>
+        static int DomainKey(List<City> domain)
+        {
+            unchecked
+            {
+                int h = 17;
+                for (int i = 0; i < domain.Count; i++)
+                    h = h * 31 + (domain[i] != null ? domain[i].Id : 0);
+                return h;
+            }
         }
 
         /// <summary>
@@ -1972,17 +2261,16 @@ namespace Sango.Core
         ///     （<c>Troop.EnterCity</c> 里 AddGold / AddFood / AddTroops / itemStore.Add 都有），
         ///     漏算它们就会在"部队回城那一下"把自家城顶爆 —— 正是要避免的事。
         /// </summary>
-        static void SumInbound(Scenario scenario, int cityId, int[] inbound)
+        static Dictionary<int, int[]> CollectInbound(Scenario scenario)
         {
-            if (scenario == null || scenario.troopsSet == null || inbound == null)
-                return;
+            Dictionary<int, int[]> table = new Dictionary<int, int[]>();
+            if (scenario == null || scenario.troopsSet == null)
+                return table;
 
             for (int i = 0; i < scenario.troopsSet.Count; i++)
             {
                 Troop t = scenario.troopsSet[i];
                 if (t == null || !t.IsAlive)
-                    continue;
-                if (t.missionTarget != cityId)
                     continue;
 
                 bool isTransport = t.IsTransport
@@ -1991,6 +2279,17 @@ namespace Sango.Core
                 if (!isTransport && !isReturning)
                     continue;
 
+                int cityId = t.missionTarget;
+                if (cityId <= 0)
+                    continue;
+
+                int[] inbound;
+                if (!table.TryGetValue(cityId, out inbound))
+                {
+                    inbound = new int[ResCount];
+                    table[cityId] = inbound;
+                }
+
                 inbound[(int)ResourceKind.Gold] += t.gold;
                 inbound[(int)ResourceKind.Food] += t.food;
                 inbound[(int)ResourceKind.Troop] += t.troops;
@@ -1998,6 +2297,7 @@ namespace Sango.Core
                 inbound[(int)ResourceKind.Machine] += MachineCount(t.itemStore);
                 inbound[(int)ResourceKind.Boat] += BoatCount(t.itemStore);
             }
+            return table;
         }
 
         /// <summary>兵装件数（枪 / 戟 / 弩 / 马，与 <see cref="CitySituation.weaponCount"/> 同口径）。</summary>

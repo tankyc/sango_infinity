@@ -19,6 +19,7 @@ namespace Sango.UI
         public Text scenarioInfoText;
         public RawImage scenarioPosterImg;
         public Text infoText;
+        public RawImage mapBoundsImg;
 
         List<UIScenarioItem> selectedItems = new List<UIScenarioItem>();
 

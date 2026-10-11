@@ -141,7 +141,7 @@ namespace Sango.Core
                     break;
 
                 case ForceAI.AIPersonalityType.Economic:
-                    if (id == "AIIntrior" || id == "AITradeFood" || id == "AITransfrom")
+                    if (id == "AIIntrior" || id == "AITradeFood")
                         return w.personalityEconomicInternalBonus;
                     if (id == "AIAttack")
                         return -w.personalityEconomicMilitaryPenalty;
@@ -260,7 +260,7 @@ namespace Sango.Core
                             && !s.isBorderCity;
             if (peaceful)
             {
-                if (IsInternalAffair(id) || id == "AITransfrom" || id == "AIResearch")
+                if (IsInternalAffair(id) || id == "AIResearch")
                     bias += w.peaceInternalBias;
                 if (id == "AIAttack")
                     bias -= w.peaceMilitaryPenalty;

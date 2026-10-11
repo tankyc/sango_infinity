@@ -94,10 +94,6 @@ namespace Sango.Tools.UndoRedo
                 {
                     case EditType.Height:
                         vertexData.height = applyNewValue ? change.newValue : change.oldValue;
-                        vertexData.position = new UnityEngine.Vector3(
-                            vertexData.position.x, 
-                            vertexData.height * 0.5f, 
-                            vertexData.position.z);
                         break;
                     
                     case EditType.Texture:
@@ -106,10 +102,6 @@ namespace Sango.Tools.UndoRedo
                     
                     case EditType.Water:
                         vertexData.water = applyNewValue ? change.newValue : change.oldValue;
-                        vertexData.waterPosition = new UnityEngine.Vector3(
-                            vertexData.waterPosition.x, 
-                            vertexData.water * 0.5f, 
-                            vertexData.waterPosition.z);
                         break;
                 }
                 

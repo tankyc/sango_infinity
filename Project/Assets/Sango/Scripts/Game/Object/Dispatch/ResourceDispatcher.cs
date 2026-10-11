@@ -212,6 +212,11 @@ namespace Sango.Core
                 return;
 
             int quota = QuotaFor(plan, w);
+            // 【每目标城车数上限】配额在派车时是"先到先得"：排序靠前的城容易把整个配额吃光，
+            // 排在后面的城即使更缺也一辆车都拿不到，而下回合排序可能又把它们挤在后面（长期饥饿）。
+            // 给每座目标城加一道车数上限，配额就会自然分散到更多城身上 —— 不需要额外的跨回合饥饿状态。
+            int perTarget = Math.Max(1, w.maxShipmentsPerTargetCity);
+            Dictionary<int, int> targetCount = new Dictionary<int, int>();
             int executed = 0;
             for (int i = 0; i < plan.shipments.Count; i++)
             {
@@ -231,6 +236,15 @@ namespace Sango.Core
                 City from = scenario.citySet.Get(s.fromCityId);
                 City to = scenario.citySet.Get(s.toCityId);
 
+                int got;
+                if (targetCount.TryGetValue(s.toCityId, out got) && got >= perTarget)
+                {
+                    // 本回合已经给这座城喂够车了：让出配额给别的城，本单留到下回合重算。
+                    s.failReason = "目标城本回合车数已达上限";
+                    plan.shipments[i] = s;
+                    continue;
+                }
+
                 string reason;
                 bool ok = ResourceTransfer.Ship(from, to, s, scenario, w, out reason);
                 s.executed = ok;
@@ -240,6 +254,8 @@ namespace Sango.Core
                 if (ok)
                 {
                     executed++;
+                    targetCount.TryGetValue(s.toCityId, out got);
+                    targetCount[s.toCityId] = got + 1;
                 }
                 else if (reason == ResourceTransfer.ReasonNoFreeEnvoy && from != null)
                 {

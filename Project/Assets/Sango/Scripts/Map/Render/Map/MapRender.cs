@@ -75,6 +75,27 @@ namespace Sango.Render
 
         }
 
+        public static Texture LoadBoundTex()
+        {
+            return Instance.CreateTexture("map_bounds");
+        }
+
+        public static Texture LoadBoundTex(string mapName)
+        {
+            string destPath = $"Assets/Map/{mapName}/map_bounds";
+            Texture texture = ObjectLoader.LoadObject<Texture>(destPath);
+            if (texture == null)
+            {
+                destPath = $"Assets/Map/Default/map_bounds";
+                texture = ObjectLoader.LoadObject<Texture>(destPath);
+                if (texture == null)
+                {
+                    texture = Texture2D.whiteTexture;
+                }
+            }
+            return texture;
+        }
+
         public void Init()
         {
             WorkContent = "Default";
@@ -424,17 +445,13 @@ namespace Sango.Render
             fs.Close();
         }
 
-        public Texture CreateTexture(string textureName, string extensions = ".png")
+        public Texture CreateTexture(string textureName)
         {
             string destPath = $"Assets/Map/{WorkContent}/{textureName}";
-            if (!textureName.EndsWith(extensions))
-                destPath = destPath + extensions;
             Texture texture = ObjectLoader.LoadObject<Texture>(destPath);
             if (texture == null)
             {
                 destPath = $"Assets/Map/{DefaultContentName}/{textureName}";
-                if (!textureName.EndsWith(extensions))
-                    destPath = destPath + extensions;
                 texture = ObjectLoader.LoadObject<Texture>(destPath);
                 if (texture == null)
                 {
@@ -582,8 +599,9 @@ namespace Sango.Render
         }
         public static bool Raycast(Vector3 origin, Vector3 direction, out Vector3 hitPoint)
         {
-            VertexData[][] vertexDatas = Instance.mapData.vertexDatas;
-            int quadSize = Instance.mapData.quadSize;
+            MapData mapData = Instance.mapData;
+            VertexData[][] vertexDatas = mapData.vertexDatas;
+            int quadSize = mapData.quadSize;
             int startX = (int)origin.z / quadSize;
             int startY = (int)origin.x / quadSize;
 
@@ -593,22 +611,24 @@ namespace Sango.Render
 
             if (deltaX < halfQuadSize && deltaY < halfQuadSize || deltaX > halfQuadSize && deltaY > halfQuadSize || deltaX < halfQuadSize && deltaY > halfQuadSize)
             {
-                VertexData ver0 = vertexDatas[startX][startY];
-                VertexData ver2 = vertexDatas[startX + 1][startY + 1];
-                VertexData ver3 = vertexDatas[startX][startY + 1];
+                int x0 = startX, y0 = startY;
+                int x1 = startX + 1, y1 = startY + 1;
+                VertexData ver0 = vertexDatas[x0][y0];
+                VertexData ver2 = vertexDatas[x1][y1];
+                VertexData ver3 = vertexDatas[x0][y1];
 
                 if ((ver0.water > 0 && ver0.water > ver0.height) || (ver2.water > 0 && ver2.water > ver2.height) || (ver3.water > 0 && ver3.water > ver3.height))
                 {
-                    if (PlaneLineIntersection.GetIntersectionWithXPerpendicularLine(ver0.waterPosition,
-                        ver2.waterPosition, ver3.waterPosition, direction, Vector3.down, out hitPoint))
+                    if (PlaneLineIntersection.GetIntersectionWithXPerpendicularLine(mapData.VertexWaterPosition(ver0, x0, y0),
+                        mapData.VertexWaterPosition(ver2, x1, y1), mapData.VertexWaterPosition(ver3, x0, y1), direction, Vector3.down, out hitPoint))
                     {
                         return true;
                     }
                 }
                 else
                 {
-                    if (PlaneLineIntersection.GetIntersectionWithXPerpendicularLine(ver0.position,
-                        ver2.position, ver3.position, direction, Vector3.down, out hitPoint))
+                    if (PlaneLineIntersection.GetIntersectionWithXPerpendicularLine(mapData.VertexPosition(ver0.height, x0, y0),
+                        mapData.VertexPosition(ver2.height, x1, y1), mapData.VertexPosition(ver3.height, x0, y1), direction, Vector3.down, out hitPoint))
                     {
                         return true;
                     }
@@ -618,13 +638,15 @@ namespace Sango.Render
             }
             else
             {
-                VertexData ver0 = vertexDatas[startX][startY];
-                VertexData ver1 = vertexDatas[startX + 1][startY];
-                VertexData ver2 = vertexDatas[startX + 1][startY + 1];
+                int x0 = startX, y0 = startY;
+                int x1 = startX + 1, y1 = startY + 1;
+                VertexData ver0 = vertexDatas[x0][y0];
+                VertexData ver1 = vertexDatas[x1][y0];
+                VertexData ver2 = vertexDatas[x1][y1];
                 if (ver0.water > 0 || ver1.water > 0 || ver2.water > 0)
                 {
-                    if (PlaneLineIntersection.GetIntersectionWithXPerpendicularLine(ver1.waterPosition,
-                        ver2.waterPosition, ver0.waterPosition, direction, Vector3.down, out hitPoint))
+                    if (PlaneLineIntersection.GetIntersectionWithXPerpendicularLine(mapData.VertexWaterPosition(ver1, x1, y0),
+                        mapData.VertexWaterPosition(ver2, x1, y1), mapData.VertexWaterPosition(ver0, x0, y0), direction, Vector3.down, out hitPoint))
 
                     {
                         return true;
@@ -632,8 +654,8 @@ namespace Sango.Render
                 }
                 else
                 {
-                    if (PlaneLineIntersection.GetIntersectionWithXPerpendicularLine(ver1.position,
-                        ver2.position, ver0.position, direction, Vector3.down, out hitPoint))
+                    if (PlaneLineIntersection.GetIntersectionWithXPerpendicularLine(mapData.VertexPosition(ver1.height, x1, y0),
+                        mapData.VertexPosition(ver2.height, x1, y1), mapData.VertexPosition(ver0.height, x0, y0), direction, Vector3.down, out hitPoint))
 
                     {
                         return true;
@@ -738,7 +760,7 @@ namespace Sango.Render
                 {
                     int vIndex = j * 5 + i;
                     MapData.VertexData vertexData = mapData.GetVertexData(x_start + i, y_start + j);
-                    rs = Mathf.Max(rs, vertexData.position.y);
+                    rs = Mathf.Max(rs, vertexData.height * 0.5f);
                 }
             }
             return rs;

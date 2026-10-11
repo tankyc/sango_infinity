@@ -208,6 +208,8 @@ namespace Sango.Tools
         {
             // 文件菜单
             menuData.Add("文件/新建地图", () => { windows.ShowNewMapWindow(); });
+            // 程序化生成地图：按噪声参数一键生成地形(需先加载或新建地图)
+            menuData.Add("文件/程序化生成地图", () => { windows.ShowMapGenWindow(); });
             menuData.Add("文件/加载地图", () =>
             {
                 string[] path = WindowDialog.OpenFileDialog("加载地图", $"{Path.ContentRootPath}/Map", "地图文件(*.bin)\0*.bin;\0\0");
@@ -416,8 +418,10 @@ namespace Sango.Tools
 
         public void CreateNewMap(int width, int height, string mapName)
         {
-            map.WorkContent = mapName;
+            // 注意：NewMap 内部会调用 Init() 把 WorkContent 重置为 "Default"，
+            // 因此必须在 NewMap 之后再写回 MapKey，否则地图标识会丢失。
             map.NewMap(width, height);
+            map.WorkContent = mapName;
             //map.LoadMap(Sango.Path.FindFile("Data/Map/Editor/default_map.bin"));
             map.mapCamera.position = new Vector3(500, 0, 500);
             map.mapCamera.lookRotate = new Vector3(90, -90, 0);

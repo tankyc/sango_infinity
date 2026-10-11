@@ -1821,7 +1821,7 @@ namespace Sango.Core
 
                 Troop atkTroop = skill.master;
 
-                if (!IsEnemy(atkTroop))
+                if (IsEnemy(atkTroop))
                 {
                     List<Person> captives = new List<Person>();
                     if (Leader.state != (int)PersonStateType.Governor)

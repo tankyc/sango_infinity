@@ -188,8 +188,8 @@ namespace Sango.Core
             // 它们只看得到一环邻城、按本城库存比例发货，既没有前线优先，也不管在途与上限溢出。
             // 现在由 ResourceDispatcher 以**势力 / 军团**为单位统一调度，
             // 港关与归属都市作为同一个资源单元一并参与（见 Game/Object/Dispatch）。
-            // 注：CityOrderWeights 里的 baseAITransfrom* / scoreTransfrom* 仍保留，
-            // 只为兼容旧 AIConfig.json（id 不会再出现在任何命令表里）。
+            // 注：CityOrderWeights 里对应的 baseAITransfrom* / scoreTransfrom* 配置字段
+            // 已一并删除（该 id 不会再出现在任何命令表里，留着只会误导调参）。
 
             // ==================== 科技 ====================
             Add("AIResearch", TechniqueResearch.AIResearch, w.baseAIResearch, s =>

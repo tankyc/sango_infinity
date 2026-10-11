@@ -196,15 +196,39 @@ namespace Sango.Render
 
 
 
+        /// <summary>
+        /// 离开视野后网格再保留多久才释放（秒）。
+        /// 留一段迟滞，避免镜头来回平移时反复重建（单块重建实测约 32ms）。
+        /// 设为 &lt;= 0 可关闭空闲卸载。
+        /// </summary>
+        public float meshUnloadDelay = 6f;
+
         public override void Update()
         {
             if (terrainCells == null) return;
+
+            float dt = Time.deltaTime;
+            bool allowUnload = meshUnloadDelay > 0f;
 
             for (int i = 0; i < terrainCells.Length; i++)
             {
                 MapCell cell = terrainCells[i];
                 if (cell == null) continue;
                 cell.Update();
+
+                if (!allowUnload) continue;
+
+                // 可见 / 正在后台分层构建的块不动
+                if (cell.visible || cell.IsInThreadLoad())
+                {
+                    cell.idleTime = 0f;
+                    continue;
+                }
+                if (!cell.HasMesh()) continue;
+
+                cell.idleTime += dt;
+                if (cell.idleTime >= meshUnloadDelay)
+                    cell.ReleaseMesh();
             }
         }
 

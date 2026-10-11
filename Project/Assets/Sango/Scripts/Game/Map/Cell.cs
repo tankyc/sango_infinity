@@ -562,7 +562,7 @@ namespace Sango.Core
                     int vIndex = j * 5 + i;
                     MapData.VertexData vertexData = mapRender.mapData.GetVertexData(x_start + i, y_start + j);
                     Vector3 v = vectors[vIndex];
-                    v.y = vertexData.position.y;
+                    v.y = vertexData.height * 0.5f;
                     vectors[vIndex] = v;
                 }
             }

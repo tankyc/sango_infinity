@@ -478,10 +478,23 @@ namespace Sango.Core
 
         /// <summary>是否生成运输岗位</summary>
         public bool transportSlotEnabled = true;
-        /// <summary>运输源城所需最低兵力</summary>
+
+        // ---------- 运输源城的"有货可运"判定（**或**关系） ----------
+        //
+        // 三条线**任一**达标就给这座城留运输岗（而不是"兵、粮都必须达标"）：
+        // 只要有一种资源够得上起运门槛，这一趟就有发车依据，同向的其余资源会搭车一并带走
+        // （见 ResourceDispatchWeights.riderMinRatio）。
+        //
+        // 口径刻意与资源调度的起运门槛对齐（<c>resourceDispatch.minShip*</c>：10000 / 30000 / 3000）——
+        // 否则会出现"编制层认为没货、不给运输岗，调度层却认为有货要发"的两套口径打架。
+        // 至于"目标城市到底缺不缺货"，由资源调度侧按收货城缺口判定（编制层不重复算一遍）。
+
+        /// <summary>运输源城所需最低兵力（三类门槛之一，或关系）</summary>
         public int transportMinTroops = 10000;
-        /// <summary>运输源城所需最低粮草</summary>
-        public int transportMinFood = 20000;
+        /// <summary>运输源城所需最低粮草（三类门槛之一，或关系）</summary>
+        public int transportMinFood = 30000;
+        /// <summary>运输源城所需最低金钱（三类门槛之一，或关系）</summary>
+        public int transportMinGold = 3000;
 
         // ==================== 后勤 ====================
 

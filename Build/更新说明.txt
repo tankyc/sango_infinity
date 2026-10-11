@@ -5,6 +5,11 @@ QQ群: 526620498, 934836298
 下载地址:
 夸克网盘: https://pan.quark.cn/s/caee627a27f6?pwd=bXbJ 提取码:bXbJ
 百度网盘: https://pan.baidu.com/s/1ZfS9KJfLem8cM-TKQUh5WQ?pwd=y1b8 提取码:y1b8
+0.3.2
+1.修复旋风斩黑色问题
+2.修复攻破队伍无法抓捕的问题
+3.新增镜头距离设置
+
 
 0.3.1
 1.修复落雷特效不显示问题

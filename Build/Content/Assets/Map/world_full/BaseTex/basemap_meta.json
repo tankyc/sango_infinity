@@ -1,0 +1,17 @@
+{
+ "vertexX": 7201,
+ "vertexY": 4001,
+ "full": [
+  7200,
+  4000
+ ],
+ "small": [
+  2048,
+  1136
+ ],
+ "limit": 2048,
+ "colorSpace": "sRGB/gamma",
+ "mode": "gamut",
+ "shade": 0.85,
+ "seasonTint": false
+}

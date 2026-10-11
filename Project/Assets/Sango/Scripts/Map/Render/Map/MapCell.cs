@@ -67,12 +67,15 @@ namespace Sango.Render
             int maxLayer = map.mapLayer.layerDatas.Length;
             if (gameObject != null)
             {
-                if (mesh.Length == maxLayer)
-                    return;
-                else
+                if (mesh != null && mesh.Length == maxLayer)
                 {
-                    GameObject.Destroy(gameObject);
+                    // 已经建过：可能被 ReleaseMesh 释放了 Mesh 实体，这里只补齐缺的部分
+                    EnsureMeshes(maxLayer);
+                    threadBeginLayer = 0;
+                    return;
                 }
+                GameObject.Destroy(gameObject);
+                gameObject = null;
             }
 
             int layer = LayerMask.NameToLayer("Map");
@@ -92,8 +95,14 @@ namespace Sango.Render
             yIndexCache = new int[_vertex_y_max];
             diffyIndexCache = new bool[_vertex_y_max];
 
+            // 只为本块真正出现的图层建 Mesh/GameObject。
+            // CreateLayers 遇到本块没有该图层的顶点时会整块跳过，预先建好纯属浪费：
+            // 全图 6944 块 x 49 层 = 34 万个 Mesh/GameObject，实测每块平均只有 ~16 层非空。
+            bool[] usedLayer = ResolveUsedLayers(maxLayer);
+
             for (int i = 0; i < maxLayer; ++i)
             {
+                if (!usedLayer[i]) continue;
 
                 MapLayer.LayerData layerData = map.mapLayer.layerDatas[i];
 
@@ -125,6 +134,118 @@ namespace Sango.Render
                 renderer.enabled = false;
             }
             threadBeginLayer = 0;
+        }
+
+        /// <summary>
+        /// 扫描本块覆盖的顶点，返回「本块真正需要建网格的图层」。
+        /// 判定与 CreateLayers 里的跳过条件一致：某图层只要有一个顶点属于它就需要它的网格；
+        /// 水面层（最后一层）只要有一个顶点 water &gt; 0 就需要。
+        /// </summary>
+        bool[] ResolveUsedLayers(int maxLayer)
+        {
+            bool[] used = new bool[maxLayer];
+            MapData.VertexData[][] vm = map.mapData.vertexDatas;
+            if (vm == null || vm.Length == 0) { used[0] = true; return used; }
+
+            int vxMax = vm.Length;
+            int vyMax = vm[0].Length;
+            int waterLayer = maxLayer - 1;
+
+            int xs = Math.Max(0, startCoords.x);
+            int ys = Math.Max(0, startCoords.y);
+            int xe = Math.Min(startCoords.x + quadBounds.x, vxMax - 1);
+            int ye = Math.Min(startCoords.y + quadBounds.y, vyMax - 1);
+            for (int x = xs; x <= xe; x++)
+            {
+                MapData.VertexData[] col = vm[x];
+                for (int y = ys; y <= ye; y++)
+                {
+                    MapData.VertexData v = col[y];
+                    int t = v.textureIndex;
+                    if (t >= 0 && t < maxLayer)
+                        used[t] = true;
+                    if (v.water > 0)
+                        used[waterLayer] = true;
+                }
+            }
+            return used;
+        }
+
+        /// <summary>离开视野后的累计时长（秒），由 MapTerrain 驱动，用于空闲卸载。</summary>
+        public float idleTime;
+
+        /// <summary>本块当前是否持有已建好的网格/GameObject。</summary>
+        public bool HasMesh()
+        {
+            return gameObject != null;
+        }
+
+        /// <summary>
+        /// 补齐被 ReleaseMesh 释放掉的 Mesh 实体（GameObject / Renderer 都还留着）。
+        /// </summary>
+        void EnsureMeshes(int maxLayer)
+        {
+            bool[] used = ResolveUsedLayers(maxLayer);
+            for (int i = 0; i < maxLayer; ++i)
+            {
+                if (!used[i] || mesh[i] != null)
+                    continue;
+
+                Mesh tempMesh = new Mesh();
+                tempMesh.MarkDynamic();
+                tempMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                mesh[i] = tempMesh;
+
+                MeshRenderer r = meshRenderer != null ? meshRenderer[i] : null;
+                if (r != null)
+                {
+                    MeshFilter mf = r.GetComponent<MeshFilter>();
+                    if (mf != null)
+                        mf.sharedMesh = tempMesh;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 释放本块的网格实体（顶点数据仍在地图数据里），下次进入视野会自动重建。
+        ///
+        /// 只销毁 Mesh 本体、保留 GameObject：这样 MapObject.position / worldBounds
+        /// （依赖 gameObject.transform）依然可用，不会在 MapModels.Remove / ClearAllModels
+        /// 这类遍历里空引用。实测网格是每块内存占用的绝对大头（约 95%），
+        /// 保留 GameObject 几乎不损失收益。
+        /// </summary>
+        public void ReleaseMesh()
+        {
+            // 后台分层构建中不要拆，否则回调会踩到半成品
+            if (IsInThreadLoad() || newThrd != null)
+                return;
+            if (mesh == null)
+                return;
+
+            for (int i = 0; i < mesh.Length; ++i)
+            {
+                if (mesh[i] == null)
+                    continue;
+
+                if (meshRenderer != null && meshRenderer[i] != null)
+                {
+                    meshRenderer[i].enabled = false;
+                    if (meshCollider != null && meshCollider[i] != null)
+                        meshCollider[i].sharedMesh = null;
+                }
+                GameObject.Destroy(mesh[i]);
+                mesh[i] = null;
+            }
+
+            if (lmdCache != null)
+            {
+                lmdCache.Clear();       // 归还 LayerMeshData 对象池
+                lmdCache = null;
+            }
+            threadBeginLayer = 0;
+            threadLoadDone = false;
+            threadLoadStart = false;
+            idleTime = 0f;
         }
 
         public override void Clear()
@@ -393,18 +514,18 @@ namespace Sango.Render
             {
                 lmdCache.colorCache.Add(color_black);
             }
-            lmdCache.uvCache.Add(vtex.uv);
+            lmdCache.uvCache.Add(map.mapData.VertexUV(x, y));
 
             if (layerIsWater)
             {
-                lmdCache.vertexCache.Add(vtex.waterPosition - position);
+                lmdCache.vertexCache.Add(map.mapData.VertexWaterPosition(vtex, x, y) - position);
                 lmdCache.normalCache.Add(Vector3.up);
 
             }
             else
             {
-                lmdCache.vertexCache.Add(vtex.position - position);
-                lmdCache.normalCache.Add(vtex.normal);
+                lmdCache.vertexCache.Add(map.mapData.VertexPosition(vtex.height, x, y) - position);
+                lmdCache.normalCache.Add(map.mapData.VertexNormal(vtex, x, y));
             }
         }
 

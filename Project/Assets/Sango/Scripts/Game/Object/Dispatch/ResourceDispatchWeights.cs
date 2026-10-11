@@ -69,10 +69,20 @@ namespace Sango.Core
 
         /// <summary>
         /// 无军情港关的富余是否**只**运往归属主城。
-        /// true（默认）= 只喂主城，主城再统一往前线 / 其它城转（避免几十个渡口各自乱发货）；
+        /// true（默认）= 优先喂主城，主城再统一往前线 / 其它城转（避免几十个渡口各自乱发货）；
         /// false = 与普通城一样按常规梯度发货。
         /// </summary>
         public bool portGateOnlyToParent = true;
+
+        /// <summary>
+        /// 归属主城已经**收不下**（该类资源已到水位，或主城不在本域）时，允许无军情港关
+        /// 把富余**直接运往其它有缺口的城**（默认开）。
+        ///
+        /// 【为什么必须留这道口子】"只喂主城"是"把港关当仓储点"的前提，但主城一旦填满，
+        /// 港口的货就再也发不出去 —— 下回合被登记成"背压"，产物端跟着停产，货只能堆在渡口等溢出。
+        /// 开了它，主城满时港口会自己找下一个缺口（次前线 / 前线），相当于"仓储点满了就直接补给"。
+        /// </summary>
+        public bool portGateDirectShipWhenParentFull = true;
 
         /// <summary>
         /// **有军情**的港关的水位缩放：它按主城那一档（通常是"前线 = 仓容 × 95%"）取水位，
@@ -228,6 +238,27 @@ namespace Sango.Core
         /// </summary>
         public int vitalFrontTroops = 10000;
 
+        /// <summary>
+        /// 前线紧急度的**合成方式**：0 = 只看最告急的那座守备据点（旧行为，单点噪声会被放大）；
+        /// 1 = 只看全部据点的平均值。默认 **0.4**，合成公式：
+        ///     <c>max × (1 − 本值) + avg × 本值</c>
+        ///
+        /// 【为什么要改】旧行为下，一座小关口被围就能把整个势力拉成"告急"、后方被连年抽空；
+        /// 而真正多点同时告急时反倒看不出差别。默认值让"一处告急"只拿到六成力度，
+        /// 必须多点一起紧才逼近满值。
+        /// </summary>
+        public float frontUrgencyAvgWeight = 0.4f;
+
+        /// <summary>
+        /// 是否把"补给在路上要花的时间"计入前线紧急度（默认开）。
+        ///
+        /// 口径：紧急度的口粮判定阈值 = <c>vitalFoodTurns + 本城到最近后方的跳数 × escortTurnsPerHop</c>。
+        /// 理由：运输队约 2 回合/跳，远端前线要 8 个回合才收得到货 —— 等口粮真的见底才发车，
+        /// 货还在路上兵就已经开始掉了。把这段路程提前算进"危险线"，后方才会更早启动。
+        /// 取不到跳数时自动退化为不计（等价于关闭本项）。
+        /// </summary>
+        public bool frontUrgencyCountSupplyTurns = true;
+
         /// <summary>是否启用紧急抽调（关掉则纵深城只出"自身水位以上"的部分）</summary>
         public bool enableEmergencyDrain = true;
 
@@ -355,19 +386,49 @@ namespace Sango.Core
         public int armsDemandProtectPersons = 1;
 
         // ==================== 起运门槛（低于门槛不派车，省人员） ====================
+        //
+        // 【口径 · 或】金 / 粮 / 兵三条门槛是**并列**关系：任一类达到自己的门槛，这一趟就有
+        // 发车依据；同方向上的其余资源随后**搭车**一并带走（见 riderMinRatio），不再各自卡门槛。
+        //
+        // 【判定的量 · 看目标城市】参与门槛比较的量是 `min(收货城缺口, 源城富余, 收货容量)` ——
+        // 也就是"目标城还差多少"，而不是"源城有多少"。目标城不缺货时，源城再富余也不会发车。
+        //
+        // 【数值口径】金 3000 / 粮 30000 / 兵 10000：
+        //   · 兵按"一支运输队也是一支部队"整批走；
+        //   · 粮按"1 粮养 10 兵"的口粮口径（3 万 ≈ 30 万兵一回合的消耗，5 万兵可撑 60 回合）；
+        //   · 金按"本城一次内政花费"的量级（createItemsMinGold 1000 的 3 倍）。
+        // 三条线任一达标即发车，正是为了把"一车只运几百金 / 一千粮"的碎片化运输挡在门外。
 
-        /// <summary>单次最少起运金钱</summary>
-        public int minShipGold = 500;
-        /// <summary>单次最少起运粮草</summary>
-        public int minShipFood = 1000;
-        /// <summary>单次最少起运兵力</summary>
-        public int minShipTroops = 200;
+        /// <summary>单次最少起运金钱（三类门槛之一）</summary>
+        public int minShipGold = 3000;
+        /// <summary>单次最少起运粮草（三类门槛之一）</summary>
+        public int minShipFood = 30000;
+        /// <summary>单次最少起运兵力（三类门槛之一）</summary>
+        public int minShipTroops = 10000;
         /// <summary>单次最少起运兵装</summary>
         public int minShipArms = 50;
         /// <summary>单次最少起运器械</summary>
         public int minShipMachine = 1;
         /// <summary>单次最少起运船</summary>
         public int minShipBoat = 1;
+
+        /// <summary>
+        /// **搭车下限比例**：同一趟车里，未达到自身起运门槛的资源，至少要占到"自己门槛 × 本值"
+        /// 才值得捎带。原因：车已经要发（车资是一名押车武将），顺路带货是纯增益，但不能为
+        /// 一点点货增加装卸 —— 0 = 只要 &gt; 0 就捎带；1 = 必须与单独发车同等门槛（等于关闭搭车）。
+        ///
+        /// 例：金门槛 3000、本值 0.1 → 同一趟车上至少要捎 300 金才装。
+        /// </summary>
+        public float riderMinRatio = 0.1f;
+
+        /// <summary>
+        /// **远程加价**：起运门槛随行程跳数上浮的比例（每多一跳加这么多）。0 = 关闭。
+        ///
+        /// 目的：距离是要花时间的（运输队约 2 回合/跳），"跨 4 跳只送一车金"等于把运力浪费在路上。
+        /// 门槛上浮后，远处的城必须一次攒得更多才值得发车 —— 短途运输不受影响。
+        /// 例：金门槛 3000、本值 0.15、3 跳 → 门槛 = 3000 × (1 + 0.15 × 2) = 3900。
+        /// </summary>
+        public float minShipHopsFactor = 0.15f;
 
         /// <summary>
         /// **攒够一车再走**：一车至少要覆盖收货城该资源缺口的这个比例，否则这一趟不发 ——
@@ -492,6 +553,19 @@ namespace Sango.Core
         public int maxShipmentsPerDomain = 4;
 
         /// <summary>
+        /// 每座**目标城**每回合最多接收几车（默认 2）。
+        ///
+        /// 必要性：配额（<see cref="maxShipmentsPerDomain"/>）在派车时是"先到先得"——
+        /// 排序靠前的城会把整个配额吃掉，排在后面的城即使更缺也一辆车都拿不到，
+        /// 而下一回合排序又可能把它们挤在后面（长期饥饿）。给目标城加一道车数上限后，
+        /// 配额会自然分散到更多城身上，**不需要额外的跨回合饥饿状态**。
+        ///
+        /// 注意：同一对（源城 → 目标城）的多类资源会合并成**一张单**，不受本值影响；
+        /// 本值限制的是"同一座目标城能被多少张不同的单喂货"。
+        /// </summary>
+        public int maxShipmentsPerTargetCity = 2;
+
+        /// <summary>
         /// 配额随规模缩放：每多少座城追加 1 支车的额度（0 = 不缩放，固定用上面的下限）。
         ///
         /// 理由：固定的 4 车额度在小势力够用，但大帝国（20+ 城）会长期"想运的多、配额不够"，
@@ -515,8 +589,15 @@ namespace Sango.Core
         /// <summary>是否启用中转接力（关闭则一律直接投送）</summary>
         public bool enableRelayStaging = true;
 
-        /// <summary>每座城每回合最多向外发几车（避免一座富城把城内空闲武将一次抽空）</summary>
-        public int maxShipmentsPerSourceCity = 1;
+        /// <summary>
+        /// 每座城每回合最多向外发几车（避免一座富城把城内空闲武将一次抽空）。
+        ///
+        /// 默认 2：一座富余的城常常同时要给两三座城供货（尤其"港关 → 归属主城"
+        /// 与"主城 → 前线"同时成立），只准 1 车会让富城的运力闲置、而缺口城排队等。
+        /// 真正兜住"抽空源城"的是 <see cref="minSourceFreePersons"/> 与
+        /// <see cref="ResourceTransfer.Ship"/> 里的留人下限，不靠这里的一刀切。
+        /// </summary>
+        public int maxShipmentsPerSourceCity = 2;
 
         // ==================== 目标城失守判断（送不送 / 撤不撤） ====================
 

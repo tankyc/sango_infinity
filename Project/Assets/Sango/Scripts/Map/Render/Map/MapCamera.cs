@@ -76,7 +76,7 @@ namespace Sango.Render
             transform = camera.transform;
             camera.fieldOfView = fov;
             camera.nearClipPlane = near_clip;
-            if(!MapEditor.IsEditOn)
+            if (!MapEditor.IsEditOn)
                 camera.farClipPlane = far_clip;
             camera.depthTextureMode = DepthTextureMode.Depth;
             camera.clearFlags = CameraClearFlags.Skybox;
@@ -149,7 +149,7 @@ namespace Sango.Render
                 reader.ReadSingle();
             }
 
-            if(versionCode >= 9)
+            if (versionCode >= 9)
             {
                 safeBoder = reader.ReadSingle();
             }
@@ -186,7 +186,7 @@ namespace Sango.Render
                     value.x = map.mapData.world_height - safeBoder;
                 if (value.z > map.mapData.world_width - safeBoder)
                     value.z = map.mapData.world_width - safeBoder;
-          
+
                 look_position = value;
                 lookAt.position = look_position;
                 NeedUpdateCamera();
@@ -261,6 +261,19 @@ namespace Sango.Render
                 distance = far;
 
             cameraDistanceFactor = (cur_distance - near) / (far - near);
+
+            float factor = Math.Max(630, distance) / 630;
+
+            map.showLimitLength = factor * 1100;
+            UnityEngine.RenderSettings.fogStartDistance = factor * map.mapFog.fogStart + 300 * (factor - 1);
+            UnityEngine.RenderSettings.fogEndDistance = factor * map.mapFog.fogEnd + 500 * (factor - 1);
+            if (Camera.main != null)
+                Camera.main.farClipPlane = factor * far_clip + 300 * (factor - 1);
+            if (map.mapSkyBox.skyTrans != null)
+            {
+                map.mapSkyBox.skyTrans.localScale = Vector3.one * factor;
+            }
+
         }
 
         public void OffsetCamera(Vector3 offset)
@@ -456,7 +469,9 @@ namespace Sango.Render
                 UniversalRenderPipelineAsset m_URPAsset = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
                 if (m_URPAsset != null)
                 {
-                    m_URPAsset.shadowDistance = Mathf.Lerp(500, 980, cameraDistanceFactor);
+                    float factor = Math.Max(630, distance) / 630;
+                    float max = 980 * factor;
+                    m_URPAsset.shadowDistance = Mathf.Lerp(500, max, cameraDistanceFactor);
                 }
 
                 transform.LookAt(lookAt);

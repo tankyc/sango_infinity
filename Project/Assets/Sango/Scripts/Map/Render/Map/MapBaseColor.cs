@@ -84,15 +84,51 @@ namespace Sango.Render
                 }
             }
         }
+        /// <summary>
+        /// 是否加载 BaseMap{i}_full.png（实际尺寸）。
+        ///
+        /// 默认 false：加载 BaseMap{i}.png，即「压缩尺寸」——最长边不超过 2048、两边对齐到 4。
+        /// 底图只是地表的整体色调，缩到 2048 视觉上几乎无差别，而纹理走
+        /// TextureLoader（LoadImage 原生尺寸 + Compress(true) 块压缩）：
+        ///   压缩尺寸 2048x1136  -> 约 1.2MB/季，4 季约 4.7MB
+        ///   实际尺寸 7200x4000  -> 约 14.4MB/季，4 季约 58MB，且压缩过程会有 ~115MB/张 的瞬时占用
+        /// 需要高清底图（截图/宣传图）时再打开。
+        /// </summary>
+        public static bool useFullResBaseMap = false;
+
+        /// <summary>按当前设置取某一季的底图；_full 缺失时自动回退到压缩尺寸。</summary>
+        Texture LoadSeasonTexture(int i)
+        {
+            if (useFullResBaseMap)
+            {
+                Texture full = map.CreateTexture($"BaseTex/BaseMap{i}_full");
+                if (full != null && full != Texture2D.whiteTexture)
+                    return full;
+            }
+            return map.CreateTexture($"BaseTex/BaseMap{i}");
+        }
+
+        /// <summary>切换底图清晰度并立即重载（销毁旧的运行时纹理）。</summary>
+        public void SetUseFullResBaseMap(bool full)
+        {
+            useFullResBaseMap = full;
+            for (int i = 0; i < texture.Length; i++)
+            {
+                Texture old = texture[i];
+                texture[i] = LoadSeasonTexture(i);
+                if (old != null && old != Texture2D.whiteTexture)
+                    UnityEngine.Object.Destroy(old);
+            }
+            UpdateRender();
+        }
+
         internal override void OnLoad(int versionCode, BinaryReader reader)
         {
             if (versionCode > 5)
             {
                 for (int i = 0; i < 4; i++)
                 {
-                    string p = $"BaseTex/BaseMap{i}";
-                    Texture tex = map.CreateTexture(p);
-                    texture[i] = tex;
+                    texture[i] = LoadSeasonTexture(i);
                     if (i == curSeason)
                     {
                         UpdateRender();

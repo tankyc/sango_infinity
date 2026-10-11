@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sango.MapGen;
 
 namespace Sango.Tools
 {
@@ -22,7 +23,20 @@ namespace Sango.Tools
         private int newMapWidth = 1024;
         private int newMapHeight = 1024;
         private string newMapKey = "";
-        
+
+        // 程序化生成地图窗口
+        private bool showMapGenWindow = false;
+        private UnityEngine.Rect mapGenWindowRect;
+        private Vector2 mapGenScrollPosition = Vector2.zero;
+        private MapGenConfig mapGenConfig = new MapGenConfig();
+        private RiverGenConfig mapGenRiverConfig = new RiverGenConfig();
+        private bool mapGenWithRiver = true;
+        private CityGenConfig mapGenCityConfig = new CityGenConfig();
+        private bool mapGenWithCity = true;
+        private RoadGenConfig mapGenRoadConfig = new RoadGenConfig();
+        private bool mapGenWithRoad = true;
+        private string mapGenResultText = "尚未生成";
+
         private Vector2 settingsScrollPosition = Vector2.zero;
 
         public MapEditorWindows(MapEditor editor)
@@ -34,6 +48,7 @@ namespace Sango.Tools
         {
             DrawSettingsWindow();
             DrawNewMapWindow();
+            DrawMapGenWindow();
             DrawLightWindow();
             DrawFogWindow();
         }
@@ -46,6 +61,14 @@ namespace Sango.Tools
         public void ShowNewMapWindow()
         {
             showNewMapWindow = true;
+        }
+
+        /// <summary>
+        /// 显示程序化生成地图窗口
+        /// </summary>
+        public void ShowMapGenWindow()
+        {
+            showMapGenWindow = true;
         }
 
         public void ShowLightWindow()
@@ -295,6 +318,327 @@ namespace Sango.Tools
 
                 GUILayout.EndArea();
             }
+        }
+
+        /// <summary>
+        /// 绘制程序化生成地图窗口
+        /// </summary>
+        private void DrawMapGenWindow()
+        {
+            if (!showMapGenWindow)
+                return;
+
+            if (mapGenWindowRect.width == 0)
+            {
+                float windowY = Mathf.Max(MENU_BAR_HEIGHT, Screen.height / 2 - 300);
+                mapGenWindowRect = new UnityEngine.Rect(
+                    Screen.width / 2 - 300,
+                    windowY,
+                    600,
+                    600
+                );
+            }
+
+            // 确保窗口不会与顶部菜单重叠
+            if (mapGenWindowRect.y < MENU_BAR_HEIGHT)
+                mapGenWindowRect.y = MENU_BAR_HEIGHT;
+
+            GUI.DrawTexture(mapGenWindowRect, CreateWindowBackground());
+
+            GUILayout.BeginArea(mapGenWindowRect);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("程序化生成地图", new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter });
+            if (GUILayout.Button("✕", GUILayout.Width(25), GUILayout.Height(25)))
+            {
+                showMapGenWindow = false;
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.Space(10);
+            GUILayout.Label("", GUI.skin.horizontalSlider);
+            GUILayout.Space(10);
+
+            mapGenScrollPosition = GUILayout.BeginScrollView(mapGenScrollPosition, GUILayout.Height(430));
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("基础参数", new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold });
+            GUILayout.Space(6);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("随机种子:", GUILayout.Width(120));
+            string seedStr = GUILayout.TextField(mapGenConfig.seed.ToString(), GUILayout.Width(120));
+            if (int.TryParse(seedStr, out int seed))
+                mapGenConfig.seed = seed;
+            if (GUILayout.Button("随机", GUILayout.Width(60)))
+            {
+                mapGenConfig.seed = UnityEngine.Random.Range(0, 100000000);
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("原版骨架(中国):", GUILayout.Width(120));
+            mapGenConfig.useSkeleton = GUILayout.Toggle(mapGenConfig.useSkeleton, "启用", GUILayout.Width(60));
+            GUILayout.Label("高度权重", GUILayout.Width(60));
+            mapGenConfig.skeletonWeight = GUILayout.HorizontalSlider(mapGenConfig.skeletonWeight, 0f, 1f, GUILayout.Width(180));
+            GUILayout.Label(mapGenConfig.skeletonWeight.ToString("F2"), GUILayout.Width(50));
+            GUILayout.EndHorizontal();
+            GUILayout.Label("骨架：" + mapGenConfig.skeletonPath, new GUIStyle(GUI.skin.label) { fontSize = 11 });
+
+            DrawSliderRow("陆地占比", ref mapGenConfig.landRatio, 0.05f, 0.95f);
+            DrawSliderRow("山地占比", ref mapGenConfig.mountainRatio, 0f, 0.6f);
+            DrawSliderRow("浅滩占比", ref mapGenConfig.shallowRatio, 0f, 0.6f);
+            GUILayout.EndVertical();
+            GUILayout.Space(8);
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("气候与地表", new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold });
+            GUILayout.Space(6);
+            DrawSliderRow("森林阈值", ref mapGenConfig.wetThreshold, 0.3f, 0.9f);
+            DrawSliderRow("荒地阈值", ref mapGenConfig.dryThreshold, 0.1f, 0.7f);
+            DrawSliderRow("砂地阈值", ref mapGenConfig.sandThreshold, 0f, 0.4f);
+            DrawSliderRow("湿地阈值", ref mapGenConfig.swampThreshold, 0.5f, 0.95f);
+            DrawSliderRow("草地/土分割", ref mapGenConfig.soilThreshold, 0f, 1f);
+            GUILayout.EndVertical();
+            GUILayout.Space(8);
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("噪声与细节", new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold });
+            GUILayout.Space(6);
+            DrawSliderRow("地形特征尺寸", ref mapGenConfig.terrainFeatureSize, 4f, 128f);
+            DrawSliderRow("气候特征尺寸", ref mapGenConfig.climateFeatureSize, 8f, 256f);
+            DrawSliderRow("大陆频率", ref mapGenConfig.continentScale, 0.05f, 2f);
+            DrawSliderRow("大陆权重", ref mapGenConfig.continentWeight, 0f, 1f);
+            DrawSliderRow("边缘衰减(格)", ref mapGenConfig.edgeFalloffCells, 0f, 80f);
+            DrawIntSliderRow("海平面高度", ref mapGenConfig.seaLevelByte, 1, 60);
+            DrawIntSliderRow("水面高度", ref mapGenConfig.waterByte, 1, 60);
+            DrawIntSliderRow("最高高度", ref mapGenConfig.maxLandByte, 30, 255);
+            DrawSliderRow("陆地高度曲线", ref mapGenConfig.landHeightCurve, 1f, 8f);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("生成底图:", GUILayout.Width(120));
+            mapGenConfig.generateBaseMap = GUILayout.Toggle(mapGenConfig.generateBaseMap, "启用", GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            DrawSliderRow("底图地形色权重", ref mapGenConfig.baseMapTint, 0f, 1f);
+            DrawSliderRow("底图明暗强度", ref mapGenConfig.baseMapShade, 0f, 1f);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("底图四季差异:", GUILayout.Width(120));
+            mapGenConfig.baseMapSeasonal = GUILayout.Toggle(mapGenConfig.baseMapSeasonal, "启用(冬季含积雪)", GUILayout.Width(160));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("崖贴图分布:", GUILayout.Width(120));
+            mapGenConfig.cliffLayerSpread = GUILayout.Toggle(mapGenConfig.cliffLayerSpread, "启用(按坡度混合岩石贴图)", GUILayout.Width(200));
+            GUILayout.EndHorizontal();
+            DrawSliderRow("陡坡阈值", ref mapGenConfig.cliffSteepSlope, 2f, 60f);
+            DrawSliderRow("缓坡阈值", ref mapGenConfig.cliffGentleSlope, 0f, 30f);
+            GUILayout.Space(4);
+            if (GUILayout.Button("初始化四季贴图层(36 层地表 + 水面)", GUILayout.Height(26)))
+            {
+                if (editor.map == null || editor.map.mapLayer == null)
+                {
+                    mapGenResultText = "初始化失败：当前没有地图";
+                }
+                else
+                {
+                    int layers = SeasonLayerSetup.Setup(editor.map,
+                        SeasonLayerSetup.DefaultTerrainLayerCount, true);
+                    mapGenResultText = layers > 0
+                        ? string.Format("四季贴图层已初始化：共 {0} 层(地表 {1} + 水面 1)", layers, layers - 1)
+                        : "四季贴图层初始化失败";
+                }
+            }
+            GUILayout.EndVertical();
+            GUILayout.Space(8);
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("河流", new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold });
+            GUILayout.Space(6);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("同时生成河流:", GUILayout.Width(120));
+            mapGenWithRiver = GUILayout.Toggle(mapGenWithRiver, "启用", GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("成河汇流量:", GUILayout.Width(120));
+            mapGenRiverConfig.flowThreshold = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenRiverConfig.flowThreshold, 4f, 60f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenRiverConfig.flowThreshold.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("大江加宽倍数:", GUILayout.Width(120));
+            mapGenRiverConfig.widenFlowFactor = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenRiverConfig.widenFlowFactor, 0f, 10f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenRiverConfig.widenFlowFactor.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("大江判定倍数:", GUILayout.Width(120));
+            mapGenRiverConfig.majorRiverFactor = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenRiverConfig.majorRiverFactor, 0f, 20f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenRiverConfig.majorRiverFactor.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("河川水面落差:", GUILayout.Width(120));
+            mapGenConfig.riverDrop = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenConfig.riverDrop, 1f, 40f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenConfig.riverDrop.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("河川岸线下沉:", GUILayout.Width(120));
+            mapGenConfig.riverBankDrop = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenConfig.riverBankDrop, 0f, 20f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenConfig.riverBankDrop.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+            GUILayout.Space(8);
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("城市与领地", new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold });
+            GUILayout.Space(6);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("生成城市:", GUILayout.Width(120));
+            mapGenWithCity = GUILayout.Toggle(mapGenWithCity, "启用", GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("城市数量:", GUILayout.Width(120));
+            mapGenCityConfig.cityCount = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenCityConfig.cityCount, 2f, 120f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenCityConfig.cityCount.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("最小间距(格):", GUILayout.Width(120));
+            mapGenCityConfig.minSpacing = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenCityConfig.minSpacing, 2f, 20f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenCityConfig.minSpacing.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("内政半径(格):", GUILayout.Width(120));
+            mapGenCityConfig.interiorRadius = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenCityConfig.interiorRadius, 0f, 8f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenCityConfig.interiorRadius.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+            GUILayout.Space(8);
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("道路", new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold });
+            GUILayout.Space(6);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("生成道路:", GUILayout.Width(120));
+            mapGenWithRoad = GUILayout.Toggle(mapGenWithRoad, "启用", GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("山地代价:", GUILayout.Width(120));
+            mapGenRoadConfig.cliffCost = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenRoadConfig.cliffCost, 5f, 120f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenRoadConfig.cliffCost.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("渡河代价:", GUILayout.Width(120));
+            mapGenRoadConfig.riverCost = Mathf.RoundToInt(GUILayout.HorizontalSlider(mapGenRoadConfig.riverCost, 5f, 120f, GUILayout.Width(320)));
+            GUILayout.Label(mapGenRoadConfig.riverCost.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+            GUILayout.Space(8);
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label("生成结果", new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold });
+            GUILayout.Space(6);
+            GUILayout.Label(mapGenResultText);
+            GUILayout.EndVertical();
+
+            GUILayout.EndScrollView();
+
+            GUILayout.Space(10);
+            GUILayout.Label("", GUI.skin.horizontalSlider);
+            GUILayout.Space(8);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("开始生成", GUILayout.Width(120), GUILayout.Height(32)))
+            {
+                MapGenResult result = MapGenerator.GenerateAll(editor.map, mapGenConfig,
+                    mapGenWithRiver ? mapGenRiverConfig : null,
+                    mapGenWithCity ? mapGenCityConfig : null,
+                    null,
+                    (mapGenWithCity && mapGenWithRoad) ? mapGenRoadConfig : null);
+                mapGenResultText = BuildMapGenResultText(result);
+            }
+            if (GUILayout.Button("写入剧本城市", GUILayout.Width(140), GUILayout.Height(32)))
+            {
+                if (editor.scenario == null)
+                {
+                    mapGenResultText = "未加载剧本：请先用「文件/从剧本加载地图」加载剧本";
+                }
+                else if (MapGenContext.Current == null || MapGenContext.Current.cities == null)
+                {
+                    mapGenResultText = "尚未生成城市：请先点击「开始生成」";
+                }
+                else
+                {
+                    ScenarioCityGenConfig scenarioCfg = new ScenarioCityGenConfig
+                    {
+                        buildingTypeId = 1,
+                        autoExport = true
+                    };
+                    ScenarioCityResult scenarioResult = ScenarioCityBuilder.Build(
+                        editor.scenario, MapGenContext.Current, scenarioCfg);
+                    mapGenResultText = scenarioResult.message;
+                }
+            }
+            if (GUILayout.Button("关闭", GUILayout.Width(100), GUILayout.Height(32)))
+            {
+                showMapGenWindow = false;
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// 绘制一行带数值显示的滑动条
+        /// </summary>
+        /// <param name="label">标签</param>
+        /// <param name="value">被编辑的数值</param>
+        /// <param name="min">最小值</param>
+        /// <param name="max">最大值</param>
+        private void DrawSliderRow(string label, ref float value, float min, float max)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label + ":", GUILayout.Width(120));
+            value = GUILayout.HorizontalSlider(value, min, max, GUILayout.Width(320));
+            GUILayout.Label(value.ToString("F3"), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// 绘制一行带数值显示的整数滑动条
+        /// </summary>
+        /// <param name="label">标签</param>
+        /// <param name="value">被编辑的整数</param>
+        /// <param name="min">最小值</param>
+        /// <param name="max">最大值</param>
+        private void DrawIntSliderRow(string label, ref int value, int min, int max)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label + ":", GUILayout.Width(120));
+            value = Mathf.RoundToInt(GUILayout.HorizontalSlider(value, min, max, GUILayout.Width(320)));
+            GUILayout.Label(value.ToString(), GUILayout.Width(60));
+            GUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// 把生成结果整理为中文文本
+        /// </summary>
+        /// <param name="result">生成结果</param>
+        /// <returns>展示文本</returns>
+        private string BuildMapGenResultText(MapGenResult result)
+        {
+            if (result == null)
+                return "生成失败";
+
+            if (!result.success)
+                return result.message;
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.AppendLine(result.message);
+            sb.AppendFormat("水域: {0}    浅滩: {1}    山地(崖): {2}\n",
+                result.terrainCounts[9], result.terrainCounts[14], result.terrainCounts[16]);
+            sb.AppendFormat("草地: {0}    土: {1}    砂地: {2}\n",
+                result.terrainCounts[1], result.terrainCounts[2], result.terrainCounts[3]);
+            sb.AppendFormat("森林: {0}    荒地: {1}    湿地: {2}\n",
+                result.terrainCounts[6], result.terrainCounts[10], result.terrainCounts[4]);
+            sb.AppendFormat("都市: {0}    主径: {1}    栈道: {2}    渡所: {3}\n",
+                result.terrainCounts[17], result.terrainCounts[11], result.terrainCounts[12], result.terrainCounts[13]);
+            return sb.ToString();
         }
 
         private void DrawLightWindow()

@@ -89,21 +89,6 @@ namespace Sango.Core
         public int createMachineMinGold = 1500;
         /// <summary>买粮所需保留的最低金钱（低于此值不买粮）</summary>
         public int tradeFoodKeepGold = 2000;
-        /// <summary>
-        /// 运输队所需的本城最低兵力【已停止生效】
-        ///
-        /// 旧城池运输（CityAI.AITransfrom / AITransfromToBelongCity）的门槛，随这两条命令一起废弃。
-        /// 资源调度的起运门槛改到 <c>resourceDispatch</c> 节点（minShipGold / minShipFood / minShipTroops / minShipArms）；
-        /// 编制层判断"要不要留运输岗"用的是 <c>DeploymentWeights.transportMinTroops / transportMinFood</c>。
-        /// 字段保留只为兼容旧 AIConfig.json，改它没有任何效果。
-        /// </summary>
-        public int transportMinTroops = 10000;
-        /// <summary>运输队所需的本城最低粮草【已停止生效，见 transportMinTroops】</summary>
-        public int transportMinFood = 20000;
-        /// <summary>向所属城运输时的金钱警戒线【已停止生效：该命令已被资源调度取代】</summary>
-        public int belongTransportGoldLine = 2500;
-        /// <summary>向所属城运输时的粮草警戒线【已停止生效：该命令已被资源调度取代】</summary>
-        public int belongTransportFoodLine = 20000;
         /// <summary>褒奖武将所需保留的最低金钱</summary>
         public int rewardGoldKeep = 500;
         /// <summary>褒奖武将的忠诚上限（低于该值才褒奖）</summary>

@@ -716,7 +716,7 @@
     },
     "21": {
       "Id": 21,
-      "Name": "地20",
+      "Name": "远海",
       "foodDeposit": 1000,
       "fertility": [
         1.0,
@@ -737,20 +737,20 @@
       "fireDamageRate": 1.0,
       "fireRate": 0,
       "canBuild": false,
-      "viewThrough": false,
-      "isWater": false,
+      "viewThrough": true,
+      "isWater": true,
       "moveable": false,
       "canAmbush": true,
       "baseCost": 999,
       "color": [
-        50,
-        0,
-        0
+        48,
+        86,
+        130
       ]
     },
     "22": {
       "Id": 22,
-      "Name": "地21",
+      "Name": "深海",
       "foodDeposit": 1000,
       "fertility": [
         1.0,
@@ -771,15 +771,15 @@
       "fireDamageRate": 1.0,
       "fireRate": 0,
       "canBuild": false,
-      "viewThrough": false,
-      "isWater": false,
+      "viewThrough": true,
+      "isWater": true,
       "moveable": false,
       "canAmbush": true,
       "baseCost": 999,
       "color": [
-        50,
-        0,
-        0
+        28,
+        56,
+        96
       ]
     },
     "23": {

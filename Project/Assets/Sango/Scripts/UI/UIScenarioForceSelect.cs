@@ -1,4 +1,5 @@
 using Sango.Core;
+using Sango.Render;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -32,6 +33,7 @@ namespace Sango.UI
         public UITextField forceInfoLabel;
 
         public RectTransform mapBounds;
+        public RawImage mapBounds_img;
 
         public Slider mapScaleSlider;
         public int mapDefaultSize = 256;
@@ -104,7 +106,7 @@ namespace Sango.UI
             targetScenario = (ShortScenario)objects[0];
             cityToggleList.Clear();
             ShortScenario scenario = targetScenario;
-
+            mapBounds_img.texture = MapRender.LoadBoundTex(scenario.Info.mapType);
             selectedForceCountLabel.text = $"{playerList.Count}/{selectedForceNameLabel.Length}";
             scenarioNameLabel.text = scenario.GetDateName();
             if (playerList.Count > 0)
@@ -128,12 +130,31 @@ namespace Sango.UI
             int mapW = scenario.Map.Width;
             int mapH = scenario.Map.Height;
 
-            int minSize = Math.Min(mapW, mapH);
+            //int minSize = Math.Min(mapW, mapH);
+            int maxSize = Math.Max(mapW, mapH);
+            int boundsW = boundsSize * mapW / maxSize;
+            int boundsH = boundsSize * mapH / maxSize;
 
-            float targetW = Mathf.LerpUnclamped(mapW / minSize * boundsSize, mapW / mapDefaultSize * mapW / minSize * boundsSize * 2, scale);
-            float targetH = Mathf.LerpUnclamped(mapH / minSize * boundsSize, mapH / mapDefaultSize * mapH / minSize * boundsSize * 2, scale);
+            float targetW = Mathf.LerpUnclamped(boundsW, boundsW * 10, scale);
+            float targetH = Mathf.LerpUnclamped(boundsH, boundsH * 10, scale);
+
+            // 【缩放保位】地图框(mapBounds)的轴心与锚点都在中心, 其 anchoredPosition 即"内容中心"相对
+            // "视口(map 地图框)中心"的偏移量。缩放时若只改尺寸而保留偏移量, 视口中心对应的地图点会跑掉,
+            // 视觉上地图就会跳动。这里先记录缩放前的尺寸与偏移, 反推出视口中心当前对应的那个地图点,
+            // 缩放后再把该地图点重新摆回视口中心, 从而保证缩放前后画面位置在视觉上保持不变
+            Vector2 oldSize = mapBounds.sizeDelta;
+            Vector2 oldPos = mapBounds.anchoredPosition;
 
             mapBounds.sizeDelta = new Vector2(targetW, targetH);
+
+            if (oldSize.x > 0.001f && oldSize.y > 0.001f)
+            {
+                // 视口中心对应的地图点(归一化坐标, 取值 0~1, x 自左向右, y 自下向上)
+                float centerU = 0.5f - oldPos.x / oldSize.x;
+                float centerV = 0.5f - oldPos.y / oldSize.y;
+                // 缩放后让同一个地图点依旧落在视口中心
+                mapBounds.anchoredPosition = new Vector2((0.5f - centerU) * targetW, (0.5f - centerV) * targetH);
+            }
 
             int i = 0;
             foreach (ShortCity city in scenario.citySet)

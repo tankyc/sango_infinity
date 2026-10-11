@@ -37,13 +37,15 @@ namespace Sango.Map.Render
 
         int XY2Index(int x, int y)
         {
-            return x * vertex_x_max + y;
+            // 行跨度必须是「每行顶点数」= vertex_y_max；用 vertex_x_max 会让非正方形地图
+            // 的下标发生碰撞（例如 (0,N) 与 (1,0) 同址），并可能越界。
+            return x * vertex_y_max + y;
         }
 
         public void Execute(int index)
         {
-            int x = index / vertex_x_max;
-            int y = index % vertex_x_max;
+            int x = index / vertex_y_max;
+            int y = index % vertex_y_max;
 
             VertexDataNative data = Input[index];
             data.position = new Vector3(y * quadSize, data.height * 0.5f, x * quadSize);
@@ -168,13 +170,15 @@ namespace Sango.Map.Render
 
         int XY2Index(int x, int y)
         {
-            return x * vertex_x_max + y;
+            // 行跨度必须是「每行顶点数」= vertex_y_max；用 vertex_x_max 会让非正方形地图
+            // 的下标发生碰撞（例如 (0,N) 与 (1,0) 同址），并可能越界。
+            return x * vertex_y_max + y;
         }
 
         public void Execute(int index)
         {
-            int x = index / vertex_x_max;
-            int y = index % vertex_x_max;
+            int x = index / vertex_y_max;
+            int y = index % vertex_y_max;
             VertexDataNative data = Input[index];
             data.normal = VertexNormal(data, x, y);
             Output[index] = data;
@@ -242,13 +246,15 @@ namespace Sango.Map.Render
 
         int XY2Index(int x, int y)
         {
-            return x * vertex_x_max + y;
+            // 行跨度必须是「每行顶点数」= vertex_y_max；用 vertex_x_max 会让非正方形地图
+            // 的下标发生碰撞（例如 (0,N) 与 (1,0) 同址），并可能越界。
+            return x * vertex_y_max + y;
         }
 
         public void Execute(int index)
         {
-            int x = index / vertex_x_max;
-            int y = index % vertex_x_max;
+            int x = index / vertex_y_max;
+            int y = index % vertex_y_max;
             VertexDataNative data = Input[index];
             data.normal = VertexNormal(data, x, y);
             Output[index] = data;

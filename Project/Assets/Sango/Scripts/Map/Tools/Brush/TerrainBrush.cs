@@ -905,7 +905,7 @@ namespace Sango.Tools
         {
             float centerY = center.y;
             center.y = 0;
-            Vector3 vPos = vertexData.position;
+            Vector3 vPos = editor.map.mapData.VertexPosition(vertexData.height, x, y);
             vPos.y = 0;
             float distance = Vector3.Distance(vPos, center);
             if (distance <= size)
@@ -920,9 +920,6 @@ namespace Sango.Tools
                                 destHeight = 255;
                             }
                             vertexData.height = (byte)destHeight;
-                            Vector3 vector3 = vertexData.position;
-                            vector3.y = vertexData.height * 0.5f;
-                            vertexData.position = vector3;
                         }
                         break;
                     case BrushType.LowerHeight:
@@ -933,9 +930,6 @@ namespace Sango.Tools
                                 destHeight = 0;
                             }
                             vertexData.height = (byte)destHeight;
-                            Vector3 vector3 = vertexData.position;
-                            vector3.y = vertexData.height * 0.5f;
-                            vertexData.position = vector3;
                         }
                         break;
                     case BrushType.PullHeight:
@@ -965,9 +959,6 @@ namespace Sango.Tools
                                 destHeight = 0;
                             }
                             vertexData.height = (byte)destHeight;
-                            Vector3 vector3 = vertexData.position;
-                            vector3.y = vertexData.height * 0.5f;
-                            vertexData.position = vector3;
                         }
                         break;
                     case BrushType.SmoothHeight:
@@ -1001,9 +992,6 @@ namespace Sango.Tools
                                 destHeight = 0;
                             }
                             vertexData.height = (byte)destHeight;
-                            Vector3 vector3 = vertexData.position;
-                            vector3.y = vertexData.height * 0.5f;
-                            vertexData.position = vector3;
                         }
                         break;
                     case BrushType.Texture:
@@ -1023,9 +1011,6 @@ namespace Sango.Tools
                                 destHeight = 0;
                             }
                             vertexData.water = (byte)destHeight;
-                            Vector3 vector3 = vertexData.waterPosition;
-                            vector3.y = vertexData.water * 0.5f;
-                            vertexData.waterPosition = vector3;
                         }
                         break;
                     default:
@@ -1599,7 +1584,7 @@ namespace Sango.Tools
                             if (textComp != null)
                             {
                                 textComp.text = vertexData.height.ToString();
-                                textObj.transform.position = vertexData.position + Vector3.up * 0.5f;
+                                textObj.transform.position = editor.mapData.VertexPosition(vertexData.height, x, y) + Vector3.up * 0.5f;
                                 // Billboard：永远面向相机
                                 textObj.transform.rotation = cam.transform.rotation;
                             }

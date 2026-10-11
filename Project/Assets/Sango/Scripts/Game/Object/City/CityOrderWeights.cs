@@ -60,10 +60,6 @@ namespace Sango.Core
         public int scoreRecruitPersonEarlyBonus = 25;
         /// <summary>前期窗口回合数（建议与 <c>DeploymentWeights.earlyGameTurns</c> 同值）</summary>
         public int recruitPersonEarlyTurns = 10;
-        /// <summary>跨城运输基础分</summary>
-        public int baseAITransfrom = 30;
-        /// <summary>向所属城运输基础分</summary>
-        public int baseAITransfromToBelongCity = 35;
         /// <summary>科技研发基础分</summary>
         public int baseAIResearch = 25;
         /// <summary>组建补给队基础分</summary>
@@ -219,13 +215,6 @@ namespace Sango.Core
         public int scoreRecruitPersonNoPersonPenalty = 30;
         /// <summary>AIRecruitPerson：正常加成</summary>
         public int scoreRecruitPersonBonus = 30;
-
-        /// <summary>AITransfrom：有富余加成</summary>
-        public int scoreTransfromRichBonus = 40;
-        /// <summary>AITransfrom：默认加成</summary>
-        public int scoreTransfromDefaultBonus = 5;
-        /// <summary>AITransfromToBelongCity：固定加成</summary>
-        public int scoreTransfromToBelongCityBonus = 30;
 
         /// <summary>AIResearch：被围惩罚</summary>
         public int scoreResearchSiegePenalty = 60;

@@ -1405,6 +1405,7 @@ MonoBehaviour:
   scenarioInfoText: {fileID: 2080822289121962667}
   scenarioPosterImg: {fileID: 8074702822333193271}
   infoText: {fileID: 3870777982727524566}
+  mapBoundsImg: {fileID: 2212056794447212600}
   cityObject: {fileID: 5843862052577369187}
   mapBounds: {fileID: 2026753479867919479}
   sureButton: {fileID: 6727491300006463211}

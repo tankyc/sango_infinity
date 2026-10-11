@@ -113,6 +113,18 @@ namespace Sango.Core
         public int QualityPreset { get; set; } = 2;
         #endregion
 
+        #region 镜头设置
+        /// <summary>
+        /// 镜头最远距离的可选档位，依次对应 MapCamera.limitDistance 的 y 值
+        /// </summary>
+        public static readonly float[] CameraMaxDistances = new float[] { 630f, 800f, 1100f };
+
+        /// <summary>
+        /// 镜头最远距离档位索引（0=中 630，1=远 800，2=最远 1100）
+        /// </summary>
+        public int CameraMaxDistanceIndex { get; set; } = 0;
+        #endregion
+
         #region 控制设置
         /// <summary>
         /// 键盘移动速度
@@ -485,6 +497,30 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 应用镜头最远距离设置：同步修改 MapCamera.limitDistance 的 y 值并持久化
+        /// </summary>
+        public void ApplyCameraDistance()
+        {
+            if (Sango.Render.MapRender.Instance != null)
+            {
+                Sango.Render.MapRender.Instance.SetMaxViewDistance(GetCameraMaxDistance());
+            }
+
+            PlayerPrefs.SetInt("CameraMaxDistanceIndex", CameraMaxDistanceIndex);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>
+        /// 获取当前档位对应的镜头最远距离
+        /// </summary>
+        /// <returns>镜头最远距离</returns>
+        public float GetCameraMaxDistance()
+        {
+            int index = Mathf.Clamp(CameraMaxDistanceIndex, 0, CameraMaxDistances.Length - 1);
+            return CameraMaxDistances[index];
+        }
+
+        /// <summary>
         /// 应用控制设置
         /// </summary>
         public void ApplyControlSettings()
@@ -543,6 +579,7 @@ namespace Sango.Core
             ApplyLargeFontSettings();
             ApplyShadowSettings();
             ApplyQualityPreset();
+            ApplyCameraDistance();
         }
 
         #endregion
@@ -587,6 +624,9 @@ namespace Sango.Core
             // 图形设置 - 阴影与画质
             IsShadowEnabled = PlayerPrefs.GetInt("IsShadowEnabled", 1) == 1;
             QualityPreset = PlayerPrefs.GetInt("QualityPreset", 2);
+
+            // 镜头设置
+            CameraMaxDistanceIndex = PlayerPrefs.GetInt("CameraMaxDistanceIndex", 0);
         }
 
         #endregion
@@ -630,6 +670,9 @@ namespace Sango.Core
             // 图形设置 - 阴影与画质
             IsShadowEnabled = true;
             QualityPreset = 2;
+
+            // 镜头设置
+            CameraMaxDistanceIndex = 0;
 
             // 清除PlayerPrefs
             PlayerPrefs.DeleteAll();
@@ -792,6 +835,15 @@ namespace Sango.Core
                 SetFrameRateByIndex(index);
             });
 
+            // 镜头最远距离：更改后立即同步 MapCamera.limitDistance 的 y 值
+            setting.AddDropdownItem("镜头最远距离", CameraMaxDistanceIndex,
+                new List<string> { "中", "远", "最远" },
+                (index) =>
+                {
+                    CameraMaxDistanceIndex = index;
+                    ApplyCameraDistance();
+                });
+
             // 界面设置
             setting.AddBigTitle("界面设置");
 
@@ -885,6 +937,9 @@ namespace Sango.Core
             {
                 Sango.Render.MapRender.Instance.SetKeyBoardMoveSpeed(KeyboardMoveSpeed);
             }
+
+            // 同步镜头最远距离到新剧本的 MapCamera
+            ApplyCameraDistance();
         }
         #endregion
 
@@ -989,6 +1044,9 @@ namespace Sango.Core
             IsShadowEnabled = true;
             QualityPreset = 2;
 
+            // 镜头设置
+            CameraMaxDistanceIndex = 0;
+
             // 清除PlayerPrefs
             //PlayerPrefs.DeleteAll();
             //PlayerPrefs.Save();
@@ -1027,6 +1085,7 @@ namespace Sango.Core
                 FontName = FontName,
                 IsShadowEnabled = IsShadowEnabled,
                 QualityPreset = QualityPreset,
+                CameraMaxDistanceIndex = CameraMaxDistanceIndex,
             };
         }
 
@@ -1062,6 +1121,7 @@ namespace Sango.Core
             FontName = snapshot.FontName;
             IsShadowEnabled = snapshot.IsShadowEnabled;
             QualityPreset = snapshot.QualityPreset;
+            CameraMaxDistanceIndex = snapshot.CameraMaxDistanceIndex;
             // 应用设置
             ApplyAllSettings();
         }
@@ -1210,6 +1270,11 @@ namespace Sango.Core
         /// 画质预设（0=低，1=中，2=高）
         /// </summary>
         public int QualityPreset { get; set; }
+
+        /// <summary>
+        /// 镜头最远距离档位索引（0=中，1=远，2=最远）
+        /// </summary>
+        public int CameraMaxDistanceIndex { get; set; }
     }
 
 

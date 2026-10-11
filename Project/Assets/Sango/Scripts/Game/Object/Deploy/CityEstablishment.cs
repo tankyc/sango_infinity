@@ -401,10 +401,19 @@ namespace Sango.Core
                 // 运输（决策①：1~2 人 —— 人力充裕时 2 人）
                 // 【资源调度 · 待发存量】本城有货要走（ResourceDispatchState 登记）时，
                 // 前线城也要留运输岗 —— 否则"前线富余运不出去"，只能等着被上限吃掉。
+                //
+                // 【门槛口径 · 或】兵 / 粮 / 金 三条线**任一**达标即留运输岗（见 DeploymentWeights 的说明）：
+                // 只要有一种资源够得上起运门槛，这一趟就有发车依据，同向的其余资源搭车带走 ——
+                // 用"且"会把"兵少而粮多"的城错误地判成无货可运。
+                // 【目标城市】这里只看"源城有没有货"；"目标城缺不缺"由资源调度按收货城缺口判定，
+                // 并通过 ResourceDispatchState 的待发存量回调过来（见下方 pendingEnvoySeat）。
                 bool pendingOutbound = ResourceDispatchState.HasPendingEnvoyDemand(city.Id);
+                bool hasCargo = city.troops >= weights.transportMinTroops
+                    || city.food >= weights.transportMinFood
+                    || city.gold >= weights.transportMinGold;
                 if (weights.transportSlotEnabled
                     && (!isBorder || pendingOutbound)
-                    && city.troops >= weights.transportMinTroops && city.food >= weights.transportMinFood
+                    && hasCargo
                     && !IsTransportDisabled(city))
                 {
                     transportSeat = abundance >= weights.transportExtraSeatAbundance

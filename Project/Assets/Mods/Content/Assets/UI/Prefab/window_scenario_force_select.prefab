@@ -1650,6 +1650,7 @@ MonoBehaviour:
   forceEnemyLabel: {fileID: 5087430031638650372}
   forceInfoLabel: {fileID: 521597558665224429}
   mapBounds: {fileID: 6526627245505340577}
+  mapBounds_img: {fileID: 3027808771309720078}
   mapScaleSlider: {fileID: 6070404436017671392}
   mapDefaultSize: 256
   boundsSize: 500

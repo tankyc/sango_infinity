@@ -1820,8 +1820,31 @@ namespace Sango.Core
                 if (city.BelongCorps.GetAppointValue((Corps.AppointContentType)(itemTypeId - 2)) == 1)
                     continue;
 
+                // 【容器上限 · 与船 / 器械同口径】上限 = 仓库上限 × 该道具的 p1 千分比
+                // （<see cref="ItemType.TransformLimit"/>），且用**总值** StoreLimit
+                // （基础值 + 等级加成 + 额外加成），不再用基础字段 storeLimit。
+                //
+                // 【两类共用同一个公式，靠 p1 区分】
+                //   · 兵装四类（枪 / 戟 / 弓 / 军马）在 ItemTypes.json 里**没有 p1**（= 0）→
+                //     TransformLimit 直接返回满额 —— 即"每类都能存到整个仓库上限"，四类 1:1 并存；
+                //   · 船 / 冲车 / 井阑这类带 p1 = 10 的道具 → 上限 = 仓库上限的 1%，
+                //     免得一座城堆出几万辆投石车。
+                // 与运输侧 ResourceBalance.GetItemGroupLimit（同样 StoreLimit × p1 / 1000，
+                // p1 缺失按满额）保持同一口径。
                 int itemNum = city.itemStore.GetNumber(itemTypeId);
-                if (itemNum >= city.storeLimit) continue;
+                ItemType capacityItem = scenario != null ? scenario.GetObject<ItemType>(itemTypeId) : null;
+                int itemCapacity = capacityItem != null
+                    ? capacityItem.TransformLimit(city.StoreLimit)
+                    : city.StoreLimit;
+
+                // 【满了也继续造】容器满只说明"该往外运了"，不是停产的信号 ——
+                // 资源调度会把水位以上的富余推向前线（ResourceDispatcher）。
+                // 只有"满了、**而且这批货运不出去**"时才停产：本城没被调度覆盖，
+                // 或上一趟调度里这类资源有背压。与 AICreateBoat / AICreateMachine 同一口径。
+                if (itemCapacity > 0 && itemNum >= itemCapacity
+                    && !ResourceDispatchState.CanKeepProducing(city.Id, (int)ResourceKind.Arms,
+                        scenario != null ? scenario.TurnCount : 0))
+                    continue;
 
                 if (itemNum < levelTotal[itemTypeId - 2] * city.troops / sumTotal + 5000)
                     validItem.Add(itemTypeId);

@@ -35,33 +35,42 @@ namespace Sango.Render
 
         }
 
-        public class VertexData
+        /// <summary>
+        /// 顶点数据（4 字节）。
+        ///
+        /// 只保留真实存储量：高度 / 图层 / 水面 / 水面图层。
+        /// position、uv、waterPosition、normal 全部是 (vx, vy, height, water) 的纯函数，
+        /// 原来各存一份（44 字节/顶点），在 1800x1000 这类大图上仅这一项就要 1.4GB；
+        /// 现改为按需计算，见 VertexPosition / VertexUV / VertexWaterPosition / VertexNormal。
+        /// 是 struct 而非 class：放在 VertexData[][] 里既没有对象头也没有引用开销，
+        /// 且 vertexDatas[x][y].height = v 这种写法依然合法（数组元素是左值）。
+        /// </summary>
+        public struct VertexData
         {
             public byte height;
             public byte textureIndex;
             public byte water;
             public byte waterIndex;
 
-            public Vector3 position;
-            public Vector3 waterPosition;
-            public Vector2 uv;
-            public Vector3 normal;
-            public VertexData(VertexDataNative data)
+            public VertexData(byte height, byte textureIndex, byte water, byte waterIndex)
             {
-                height = data.height;
-                textureIndex = data.textureIndex;
-                water = data.water;
-                waterIndex = data.waterIndex;
-                position = data.position;
-                waterPosition = data.waterPosition;
-                uv = data.uv;
-                normal = data.normal;
+                this.height = height;
+                this.textureIndex = textureIndex;
+                this.water = water;
+                this.waterIndex = waterIndex;
             }
-            public VertexData()
-            {
+        }
 
-            }
+        /// <summary>顶点世界坐标：X 对应 vy、Z 对应 vx（与引擎 MapDataJob.VertexPosition 一致）</summary>
+        public Vector3 VertexPosition(byte height, int vx, int vy)
+        {
+            return new Vector3(vy * quadSize, height * 0.5f, vx * quadSize);
+        }
 
+        /// <summary>顶点 UV（与引擎 MapDataJob.VertexUV 一致）</summary>
+        public Vector2 VertexUV(int vx, int vy)
+        {
+            return new Vector2(vx * MapUVPiece.x, vy * MapUVPiece.y);
         }
 
         private Vector2Int _bounds;
@@ -147,75 +156,18 @@ namespace Sango.Render
 
             //float time = Time.realtimeSinceStartup;
 
-            int maxVertexCount = vertex_x_max * vertex_y_max;
-
-            nativeVertexDatas = new NativeArray<VertexDataNative>(maxVertexCount, Allocator.Persistent);
-            needDisposeNativeVertexDatas = true;
-            NativeArray<VertexDataNative> nativeVertexDatasTemp = new NativeArray<VertexDataNative>(maxVertexCount, Allocator.Persistent);
-
-            NativeArray<Vector2Int> neighborVertexArray = new NativeArray<Vector2Int>(6, Allocator.Persistent);
-            for (int i = 0; i < 6; i++)
-            {
-                neighborVertexArray[i] = NeighborVertex[i];
-            }
-
+            // 顶点只保留 4 字节真实数据（height / textureIndex / water / waterIndex），
+            // position、uv、waterPosition、normal 全部改为按需计算，
+            // 因此不再需要两份 VertexDataNative(48 字节/顶点) 中转数组，也不需要那两个 Job。
+            // 大图（1800x1000 = 2881 万顶点）仅这一项就省下约 2.7GB 的加载峰值。
             for (int x = 0; x < vertexDatas.Length; x++)
             {
                 VertexData[] yTable = vertexDatas[x];
                 for (int y = 0; y < yTable.Length; y++)
                 {
-                    VertexDataNative data = new VertexDataNative()
-                    {
-                        height = reader.ReadByte(),
-                        textureIndex = reader.ReadByte(),
-                        water = reader.ReadByte(),
-                    };
-                    //yTable[y] = data;
-                    nativeVertexDatas[x * vertex_x_max + y] = data;
+                    yTable[y] = new VertexData(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), 0);
                 }
             }
-
-            Sango.Map.Render.MapDataJob mapDataJob = new()
-            {
-                Input = nativeVertexDatas,
-                NeighborVertexs = neighborVertexArray,
-                Output = nativeVertexDatasTemp,
-                MapUVPiece = MapUVPiece,
-                vertex_x_max = vertex_x_max,
-                vertex_y_max = vertex_y_max,
-                quadSize = quadSize
-            };
-
-            JobHandle jobHandle = mapDataJob.Schedule(maxVertexCount, 10);
-            jobHandle.Complete();
-
-            Sango.Map.Render.MapDataNormalJob mapDataJob_normal = new()
-            {
-                Input = nativeVertexDatasTemp,
-                NeighborVertexs = neighborVertexArray,
-                Output = nativeVertexDatas,
-                MapUVPiece = MapUVPiece,
-                vertex_x_max = vertex_x_max,
-                vertex_y_max = vertex_y_max,
-                quadSize = quadSize
-            };
-
-            jobHandle = mapDataJob_normal.Schedule(maxVertexCount, 10);
-            jobHandle.Complete();
-
-            for (int x = 0; x < vertexDatas.Length; x++)
-            {
-                VertexData[] yTable = vertexDatas[x];
-                for (int y = 0; y < yTable.Length; y++)
-                {
-                    int index = x * vertex_x_max + y;
-                    yTable[y] = new VertexData(nativeVertexDatas[index]);
-                }
-            }
-
-            nativeVertexDatasTemp.Dispose();
-            neighborVertexArray.Dispose();
-            nativeVertexDatas.Dispose();
             //for (int x = 0; x < vertexDatas.Length; x++)
             //{
             //    VertexData[] yTable = vertexDatas[x];
@@ -422,11 +374,8 @@ namespace Sango.Render
                     height_bmpInfo.ReadB(out rh);
                     if (x < maxWidth && y < maxHeight)
                     {
-                        VertexData vetex = vertexDatas[x][y];
-                        vetex.height = (byte)(255 - rh);
-                        Vector3 vector3 = vetex.position;
-                        vector3.y = vetex.height * 0.5f;
-                        vetex.position = vector3;
+                        // position 由 height 推导，改高度即可，无需同步坐标
+                        vertexDatas[x][y].height = (byte)(255 - rh);
                     }
                 }
 
@@ -647,11 +596,6 @@ namespace Sango.Render
                         water = 0,
                         //TODO:优化贴图数据，用单通道表示，最大图层255个
                         textureIndex = 0,//color_is_layer(rl, gl, bl),
-                        position = new Vector3(y * quadSize, initHeight * 0.5f, x * quadSize),
-                        uv = new Vector2(x * MapUVPiece.x, y * MapUVPiece.y),
-                        normal = Vector3.up,
-                        waterPosition = new Vector3(y * quadSize, 0, x * quadSize)
-
                 };
                 }
             }
@@ -754,7 +698,7 @@ namespace Sango.Render
         }
         public Vector3 VertexNormal(VertexData data, int x, int y)
         {
-            Vector3 vdPos = data.position;
+            Vector3 vdPos = VertexPosition(data.height, x, y);
             Vector3 normal = Vector3.zero;
 
             for (int z = 0; z < 6; z++)
@@ -774,10 +718,10 @@ namespace Sango.Render
                     neighbor_next_x >= 0 && neighbor_next_x < vertex_x_max && neighbor_next_y >= 0 && neighbor_next_y < vertex_y_max)
                 {
                     VertexData n_z = vertexDatas[neighbor_z_x][neighbor_z_y];
-                    Vector3 pos_z = n_z.position;
+                    Vector3 pos_z = VertexPosition(n_z.height, neighbor_z_x, neighbor_z_y);
 
                     VertexData n_next = vertexDatas[neighbor_next_x][neighbor_next_y];
-                    Vector3 pos_n_next = n_next.position;
+                    Vector3 pos_n_next = VertexPosition(n_next.height, neighbor_next_x, neighbor_next_y);
 
                     normal += Vector3.Cross(pos_z - vdPos, pos_n_next - vdPos);
                 }
@@ -839,6 +783,31 @@ namespace Sango.Render
         {
             VertexData data = GetVertexData(worldPos.z, worldPos.x);
             return data.height * 0.5f;
+        }
+
+        // ---- 写接口 ----------------------------------------------------------
+        // VertexData 现在是 struct：GetVertexData 返回的是副本，改它不会影响地图。
+        // 需要改顶点时必须用下面这些写回接口（直接操作数组元素）。
+
+        public void SetVertexTextureIndex(int vx, int vy, byte layer)
+        {
+            if (vx < 0 || vx > vertex_width || vy < 0 || vy > vertex_height)
+                return;
+            vertexDatas[vx][vy].textureIndex = layer;
+        }
+
+        public void SetVertexHeight(int vx, int vy, byte height)
+        {
+            if (vx < 0 || vx > vertex_width || vy < 0 || vy > vertex_height)
+                return;
+            vertexDatas[vx][vy].height = height;
+        }
+
+        public void SetVertexWater(int vx, int vy, byte water)
+        {
+            if (vx < 0 || vx > vertex_width || vy < 0 || vy > vertex_height)
+                return;
+            vertexDatas[vx][vy].water = water;
         }
 
         public float GetWorldWaterHeight(Vector3 worldPos)
