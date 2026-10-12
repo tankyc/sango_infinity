@@ -11,6 +11,39 @@ namespace Sango.Core
         /// </summary>
         private static readonly bool SupportDataVersion = typeof(T) == typeof(PersonLib);
 
+        /// <summary>
+        /// Id → JSON 属性名字符串的缓存。
+        ///
+        /// JSON 对象键必须是字符串，写档时每个对象都要 <c>x.Id.ToString()</c> 分配一个小字符串。
+        /// 同一份存档里 Id 是稳定且稠密的（1..N），缓存后反复保存不再重复分配。
+        /// 数组按需倍增；极端大的 Id 不缓存，避免被个别异常数据把缓存撑爆。
+        /// </summary>
+        static string[] idNameCache = new string[256];
+        const int IdNameCacheLimit = 65536;
+
+        /// <summary>取 Id 对应的属性名字符串（带缓存）。</summary>
+        static string GetIdPropertyName(int id)
+        {
+            if (id < 0 || id >= IdNameCacheLimit)
+                return id.ToString();
+
+            if (id >= idNameCache.Length)
+            {
+                int len = idNameCache.Length;
+                while (len <= id)
+                    len <<= 1;
+                System.Array.Resize(ref idNameCache, len);
+            }
+
+            string cached = idNameCache[id];
+            if (cached == null)
+            {
+                cached = id.ToString();
+                idNameCache[id] = cached;
+            }
+            return cached;
+        }
+
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             writer.WriteStartObject();
@@ -23,7 +56,7 @@ namespace Sango.Core
             }
             dest.ForEach(x =>
             {
-                writer.WritePropertyName(x.Id.ToString());
+                writer.WritePropertyName(GetIdPropertyName(x.Id));
                 serializer.Serialize(writer, x);
             });
             writer.WriteEndObject();

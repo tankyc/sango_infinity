@@ -106,6 +106,18 @@ namespace Sango.Core
         /// </summary>
         public bool hasForeignNeighbor;
 
+        /// <summary>内政地总数（interiorCellList.Count）—— 用于"内政建设优先"判定</summary>
+        public int interiorCellTotal;
+        /// <summary>内政地已建成使用数（格上有建筑即为已用）</summary>
+        public int interiorCellUsed;
+        /// <summary>内政地是否未建满（true 表示还有空的内政地可建）</summary>
+        public bool interiorNotFull;
+        /// <summary>
+        /// 是否存在"已完成但未升到顶"的内政建筑（isComplate 且 nextId > 0 且不在升级中）
+        /// —— 用于"未升级满 → 调高内政优先级"判定。
+        /// </summary>
+        public bool interiorCanUpgrade;
+
         // ==================== 战场联动 ====================
         /// <summary>附近需要补给的友军数量（缺粮 / 缺兵）</summary>
         public int needyAllyCount;
@@ -186,6 +198,9 @@ namespace Sango.Core
             // 同一张表被扫 5 遍。而 Collect 每回合每城还要被调用多次，这个常数开销会被放大。
             CollectFacilities(city, ref s);
 
+            // ---------- 内政地建设 / 升级状态 ----------
+            CollectInteriorState(city, ref s);
+
             // ---------- 战场联动 ----------
             s.besiegedNeighborCount = CountBesiegedNeighbors(city);
             s.lostSubCityCount = CountLostSubCities(city);
@@ -204,6 +219,52 @@ namespace Sango.Core
             s.securityRate = Rate(s.security, 100);
 
             return s;
+        }
+
+        /// <summary>
+        /// 采集内政地的建设与升级状态。
+        ///
+        /// 供城池 AI 的「内政建设优先」覆盖使用：
+        ///   · 内政地未建满 → 建设内政设施应抬到最高优先级；
+        ///   · 内政建筑未升级满（存在已完成且可继续升级的建筑）→ 内政优先级应调高。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="s">态势快照（就地写入内政地状态）</param>
+        static void CollectInteriorState(City city, ref CitySituation s)
+        {
+            // 注意：CitySituation 是**值类型**，必须用 ref 传 —— 否则写回的是副本，状态会丢。
+            if (city == null)
+                return;
+
+            // 内政地总数与已用数：格上有建筑（无论是否建成）即视为"已占用"，
+            // 与 City.IsInteriorBuildFull 的判定口径保持一致。
+            s.interiorCellTotal = city.interiorCellList != null ? city.interiorCellList.Count : 0;
+            if (city.interiorCellList != null)
+            {
+                for (int i = 0; i < city.interiorCellList.Count; i++)
+                {
+                    Cell cell = city.interiorCellList[i];
+                    if (cell != null && cell.building != null)
+                        s.interiorCellUsed++;
+                }
+            }
+            s.interiorNotFull = s.interiorCellUsed < s.interiorCellTotal;
+
+            // 是否存在"已完成且未升到顶"的建筑（正在升级中的不算，避免重复抬升）
+            if (city.allBuildings != null)
+            {
+                for (int i = 0; i < city.allBuildings.Count; i++)
+                {
+                    Building b = city.allBuildings[i];
+                    if (b == null || b.BuildingType == null)
+                        continue;
+                    if (b.isComplate && !b.isUpgrading && b.BuildingType.nextId > 0)
+                    {
+                        s.interiorCanUpgrade = true;
+                        break;
+                    }
+                }
+            }
         }
 
         /// <summary>

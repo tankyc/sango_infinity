@@ -66,6 +66,7 @@ namespace Sango.Render
                 cell.Clear();
             }
             terrainCells = null;
+            frameUpdateCells.Clear();
         }
 
         public override void UpdateRender()
@@ -203,6 +204,36 @@ namespace Sango.Render
         /// </summary>
         public float meshUnloadDelay = 6f;
 
+        /// <summary>
+        /// 逐帧需要处理的块的**工作集**：刚进入视野 / 正在后台分层构建 / 已离开视野但等待空闲卸载的块。
+        ///
+        /// 旧实现每帧遍历全部 <see cref="terrainCells"/>（大地图可达数千块），而其中绝大多数
+        /// 既不可见也没有网格、逐帧什么都不做。改成只遍历工作集后，每帧遍历量从"全图块数"
+        /// 降到"当前视野 + 待卸载块数"，且不改变任何语义：
+        ///   · 变可见由 <see cref="MapCell.visible"/> setter 登记（见 <see cref="AddFrameUpdateCell"/>）；
+        ///   · 网格被回收或块被清理时解登记（<see cref="RemoveFrameUpdateCell"/>）。
+        /// </summary>
+        readonly System.Collections.Generic.List<MapCell> frameUpdateCells = new System.Collections.Generic.List<MapCell>();
+
+        /// <summary>把一个块登记进逐帧工作集（重复登记会被忽略）。</summary>
+        internal void AddFrameUpdateCell(MapCell cell)
+        {
+            if (cell == null || cell.inFrameUpdateList)
+                return;
+
+            cell.inFrameUpdateList = true;
+            frameUpdateCells.Add(cell);
+        }
+
+        /// <summary>把一个块移出逐帧工作集（惰性移除：仅解标记，实际条目在下次遍历时顺带剔除）。</summary>
+        internal void RemoveFrameUpdateCell(MapCell cell)
+        {
+            if (cell == null)
+                return;
+
+            cell.inFrameUpdateList = false;
+        }
+
         public override void Update()
         {
             if (terrainCells == null) return;
@@ -210,11 +241,37 @@ namespace Sango.Render
             float dt = Time.deltaTime;
             bool allowUnload = meshUnloadDelay > 0f;
 
-            for (int i = 0; i < terrainCells.Length; i++)
+            // 编辑态下所有块都要强制可见并保持重建，回退到全量扫描（编辑器性能不敏感，行为保持不变）
+            if (MapEditor.IsEditOn)
             {
-                MapCell cell = terrainCells[i];
-                if (cell == null) continue;
+                for (int i = 0; i < terrainCells.Length; i++)
+                {
+                    MapCell cell = terrainCells[i];
+                    if (cell == null) continue;
+                    cell.Update();
+                }
+                return;
+            }
+
+            // 从后往前遍历：解登记（含被清理）的块就地剔除，尾部删除接近 O(1)
+            for (int i = frameUpdateCells.Count - 1; i >= 0; i--)
+            {
+                MapCell cell = frameUpdateCells[i];
+                if (cell == null || !cell.inFrameUpdateList)
+                {
+                    frameUpdateCells.RemoveAt(i);
+                    continue;
+                }
+
                 cell.Update();
+
+                // 既不可见、又没网格、也没在加载：本块已无事可做，解登记避免长期滞留在工作集里
+                // （相机快速平移时，块可能在"登记变可见"与"真正 Init"之间又被置回不可见）。
+                if (!cell.visible && !cell.IsInThreadLoad() && !cell.HasMesh())
+                {
+                    cell.inFrameUpdateList = false;
+                    continue;
+                }
 
                 if (!allowUnload) continue;
 

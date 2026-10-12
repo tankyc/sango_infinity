@@ -38,6 +38,46 @@ namespace Sango.Render
         static Color color_white = Color.white;
         static Color color_black = new Color(0, 0, 0, 0);
 
+        /// <summary>
+        /// Mesh 对象池。块离开视野后 <see cref="ReleaseMesh"/> 把网格归还到这里、再次进入视野直接复用，
+        /// 省掉"销毁 → 新建"的托管 / 原生内存抖动（单块重建约 32ms，Mesh 分配与首次上传占大头）。
+        /// 只在主线程读写，无需加锁；上限用于兜底，避免极端情况无界增长。
+        /// </summary>
+        static readonly System.Collections.Generic.Stack<Mesh> meshPool = new System.Collections.Generic.Stack<Mesh>();
+        const int MeshPoolLimit = 512;
+
+        /// <summary>取一个可用网格：优先复用池中的，池空才新建。</summary>
+        static Mesh CreateMesh()
+        {
+            if (meshPool.Count > 0)
+                return meshPool.Pop();
+
+            Mesh m = new Mesh();
+            m.MarkDynamic();
+            m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            return m;
+        }
+
+        /// <summary>归还网格：清空几何数据后放回池，超上限则直接销毁。</summary>
+        static void RecycleMesh(Mesh m)
+        {
+            if (m == null) return;
+
+            m.Clear(false);
+            if (meshPool.Count < MeshPoolLimit)
+                meshPool.Push(m);
+            else
+                GameObject.Destroy(m);
+        }
+
+        /// <summary>
+        /// 是否已登记进 <see cref="MapTerrain"/> 的逐帧处理表。
+        ///
+        /// 地形不必每帧扫描全图块：只有"刚进入视野 / 正在后台分层构建 / 等待空闲卸载"的块才有事可做。
+        /// 变可见时由 visible setter 登记，网格被回收或整体清理时解除登记。
+        /// </summary>
+        internal bool inFrameUpdateList = false;
+
         //public Rect bounds;
         private bool _visible = false;
         /// <summary>
@@ -106,17 +146,14 @@ namespace Sango.Render
 
                 MapLayer.LayerData layerData = map.mapLayer.layerDatas[i];
 
-                Mesh tempMesh = new Mesh();
-                tempMesh.MarkDynamic();
-                tempMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                mesh[i] = tempMesh;
+                mesh[i] = CreateMesh();
 
                 GameObject go = new GameObject("Layer - " + i);
                 go.transform.SetParent(gameObject.transform, false);
                 go.layer = layer;
 
                 MeshFilter mf = go.AddComponent<MeshFilter>();
-                mf.sharedMesh = tempMesh;
+                mf.sharedMesh = mesh[i];
                 MeshRenderer renderer = go.AddComponent<MeshRenderer>();
                 if (i < maxLayer - 1 && map.outLineShow)
                 {
@@ -191,17 +228,14 @@ namespace Sango.Render
                 if (!used[i] || mesh[i] != null)
                     continue;
 
-                Mesh tempMesh = new Mesh();
-                tempMesh.MarkDynamic();
-                tempMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-                mesh[i] = tempMesh;
+                mesh[i] = CreateMesh();
 
                 MeshRenderer r = meshRenderer != null ? meshRenderer[i] : null;
                 if (r != null)
                 {
                     MeshFilter mf = r.GetComponent<MeshFilter>();
                     if (mf != null)
-                        mf.sharedMesh = tempMesh;
+                        mf.sharedMesh = mesh[i];
                 }
             }
         }
@@ -217,7 +251,7 @@ namespace Sango.Render
         public void ReleaseMesh()
         {
             // 后台分层构建中不要拆，否则回调会踩到半成品
-            if (IsInThreadLoad() || newThrd != null)
+            if (IsInThreadLoad())
                 return;
             if (mesh == null)
                 return;
@@ -229,11 +263,18 @@ namespace Sango.Render
 
                 if (meshRenderer != null && meshRenderer[i] != null)
                 {
-                    meshRenderer[i].enabled = false;
+                    MeshRenderer r = meshRenderer[i];
+                    r.enabled = false;
+
+                    // 归还池前必须断开 MeshFilter 的引用，否则复用的网格会同时挂在多个块上
+                    MeshFilter mf = r.GetComponent<MeshFilter>();
+                    if (mf != null)
+                        mf.sharedMesh = null;
+
                     if (meshCollider != null && meshCollider[i] != null)
                         meshCollider[i].sharedMesh = null;
                 }
-                GameObject.Destroy(mesh[i]);
+                RecycleMesh(mesh[i]);
                 mesh[i] = null;
             }
 
@@ -246,10 +287,16 @@ namespace Sango.Render
             threadLoadDone = false;
             threadLoadStart = false;
             idleTime = 0f;
+
+            // 解登记：本块已无网格，逐帧循环不必再访问它；下次进入视野会由 visible setter 重新登记。
+            inFrameUpdateList = false;
         }
 
         public override void Clear()
         {
+            // 请求后台分层构建协作式退出：清空后不应再把构建结果回写到已销毁的块上
+            threadCancelRequest = true;
+
             if (gameObject != null)
                 GameObject.Destroy(gameObject);
             if (mesh != null)
@@ -257,9 +304,13 @@ namespace Sango.Render
                 for (int i = 0; i < mesh.Length; ++i)
                 {
                     if (mesh[i] != null)
-                        GameObject.Destroy(mesh[i]);
+                        RecycleMesh(mesh[i]);
+                    mesh[i] = null;
                 }
             }
+
+            // 解登记：本块已整体清理，逐帧循环里彻底移除
+            inFrameUpdateList = false;
         }
 
         public void PrepareDatas(bool needInit = true)
@@ -279,6 +330,7 @@ namespace Sango.Render
                 lmdCache.triangleCount = maxCount * 6;
             }
             threadLoadStart = false;
+            threadCancelRequest = false;    // 同步构建：复位取消请求，保证完整走完
             int maxLayer = map.mapLayer.layerDatas.Length;
             for (int i = 0; i < maxLayer; ++i)
             {
@@ -294,11 +346,29 @@ namespace Sango.Render
         void _PrepareDatas(object stateInfo)
         {
             threadLoadDone = false;
+
+            // 协作式取消：Clear 会置位，构建线程在此自行退出，主线程不再读取其结果。
+            if (threadCancelRequest)
+                return;
+
             CreateLayers(threadBeginLayer, lod);
+
+            if (threadCancelRequest)
+                return;
+
             threadLoadDone = true;
         }
 
-        Thread newThrd;
+        /// <summary>
+        /// 协作式取消标志。
+        ///
+        /// 后台分层构建跑在 ThreadPool 上。旧实现在回调里用 <c>Thread.Abort()</c> 想掐掉上一个线程，
+        /// 但 .NET Core / IL2CPP 已不支持 Thread.Abort（会抛 PlatformNotSupportedException），
+        /// 而且暴力终止线程会让半写状态的地图数据被后续读取。
+        /// 改为协作式取消：置位后构建线程在分层边界自行退出，主线程不再应用其结果。
+        /// </summary>
+        volatile bool threadCancelRequest = false;
+
         bool threadLoadStart = false;
 
         public Tools.Rect bounds { get; set; }
@@ -331,6 +401,11 @@ namespace Sango.Render
                 {
                     _visible = value;
                     _visibleChanged = true;
+
+                    // 刚变可见的块需要立即纳入地形的逐帧处理表：
+                    // 本帧 / 下一帧要完成渲染器开关，并在必要时启动分层网格的异步构建。
+                    if (value && map != null && map.mapTerrain != null)
+                        map.mapTerrain.AddFrameUpdateCell(this);
                 }
             }
         }
@@ -390,6 +465,7 @@ namespace Sango.Render
                 lmdCache.triangleCount = maxCount * 6;
             }
 
+            threadCancelRequest = false;    // 新一轮构建：复位上一次可能残留的取消请求
             threadLoadStart = true;
             ThreadPool.QueueUserWorkItem(new WaitCallback(_PrepareDatas));
         }
@@ -456,12 +532,6 @@ namespace Sango.Render
 
         void OnAsyncPrepareDatasDone(int layer, LayerMeshData lmd)
         {
-            if (newThrd != null)
-            {
-                newThrd.Abort();
-                newThrd = null;
-            }
-
             MeshRenderer r = meshRenderer[layer];
             if (r == null) return;
 
@@ -489,7 +559,8 @@ namespace Sango.Render
             {
                 if (!MapEditor.IsEditOn)
                 {
-                    GameObject.DestroyImmediate(mesh[layer]);
+                    // 运行时不能 DestroyImmediate（会打断同帧内的渲染与批次），改为延迟销毁并回收网格
+                    RecycleMesh(mesh[layer]);
                     GameObject.Destroy(r.gameObject);
                     mesh[layer] = null;
                     meshRenderer[layer] = null;

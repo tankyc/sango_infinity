@@ -441,6 +441,21 @@ namespace Sango.Core
             return troop.MoveTo(best);
         }
 
+        /// <summary>
+        /// 【前置判断】停靠在建筑格（城头）上的部队是否还能走出城：移动范围内
+        /// 是否存在至少一个可停留的空地（由 <see cref="Cell.CanStay"/> 把关）。
+        ///
+        /// 供 AI 出兵的"前置判断"使用：城池被完全围困（无可停留格）时，
+        /// 出征的部队无法离开城头，此时不应再组建 / 派出该部队。
+        /// </summary>
+        /// <param name="troop">已停在建筑格上的部队</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>移动范围内存在可停留格时返回 true</returns>
+        public static bool CanLeaveBuildingCell(Troop troop, Scenario scenario)
+        {
+            return FindLeaveBuildingCell(troop, scenario) != null;
+        }
+
         //public static PriorityActionData PriorityAction(Troop troop, List<Cell> enemyCells, Scenario scenario, SkillAttackPriorityCalculateMethod prioritySkillAtkMethod = null, SkillDefencePriorityCalculateMethod prioritySkillDefMethod = null)
         //{
         //    List<SkillInstance> skill_list = troop.skills;

@@ -20,6 +20,19 @@ namespace Sango.UI
             }
         }
 
+        /// <summary>
+        /// 对象销毁时移除监听,避免悬空回调
+        /// </summary>
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            Button button = GetComponent<Button>();
+            if(button != null)
+            {
+                button.onClick.RemoveListener(PlaySFX);
+            }
+        }
+
         void PlaySFX()
         {
             GameMedia.Instance.PlaySfx(sfxId);

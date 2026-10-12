@@ -167,6 +167,8 @@ namespace Sango.Core
                 return;
 
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+            if (troop == null)
+                return;                             // 城池被围困,无法出城,本次出征已取消
             Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.BelongForce?.Name}的{targetCity.Name}!");
         }
 
@@ -192,6 +194,8 @@ namespace Sango.Core
                 return;
 
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+            if (troop == null)
+                return;                             // 城池被围困,无法出城,本次出征已取消
             Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
         }
 
@@ -215,6 +219,8 @@ namespace Sango.Core
                 return true;
 
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+            if (troop == null)
+                return true;                        // 城池被围困,无法出城,本次出征已取消
             Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 驱逐{threatTroop.BelongForce?.Name}的{threatTroop.Name}!");
             return true;
         }
@@ -585,7 +591,8 @@ namespace Sango.Core
             if (troop != null)
             {
                 troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领援军出城 支援{target.Name}!");
+                if (troop != null)
+                    Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领援军出城 支援{target.Name}!");
             }
 
             // 恢复本城任务状态,避免影响后续 AIAttack 判断
@@ -872,6 +879,9 @@ namespace Sango.Core
             if (city.areaCellList.Count == 0)
                 return true;
 
+            // 【规则】内政地未建设满时，不允许建设城外的军事设施：
+            // 该拦截同时覆盖"辖区内军事建筑"与"前线军事建筑"（TryBuildFrontBuilding
+            // 只在通过本检查后才会被调用），保证 AI 先把内政地建满再考虑军事工事。
             if (!city.IsInteriorBuildFull())
                 return true;
 
@@ -1099,6 +1109,8 @@ namespace Sango.Core
             // 【修正】原实现此处误写为 Member1，导致第二名副将被丢弃
             if (builders.Length > 2) troop.Member2 = builders[2];
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+            if (troop == null)
+                return true;                        // 城池被围困,无法出城,本次出征已取消
             city.CurActiveTroop = troop;
             troop.SetMission(MissionType.TroopBuildBuilding, buildingType.Id);
             return true;
@@ -2323,6 +2335,8 @@ namespace Sango.Core
             city.food -= carryFood;
 
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+            if (troop == null)
+                return true;                        // 城池被围困,无法出城,本次出征已取消
             troop.SetMission(MissionType.TroopSupplyTroop, needy.Id);
             troop.NeedPrepareMission();
             city.freePersons.Remove(leader);

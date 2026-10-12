@@ -596,6 +596,9 @@ namespace Sango.UI
         private void BindTextInput(InputField input, Func<string> getter, Action<string> setter, Action onChanged = null)
         {
             if (input == null) return;
+            // 窗口会被反复打开,先清掉上一轮的运行时监听,避免闭包重复叠加
+            // (RemoveAllListeners 只移除运行时监听,不会清除预制体上配置的持久化监听)
+            input.onEndEdit.RemoveAllListeners();
             input.onEndEdit.AddListener((text) =>
             {
                 if (refreshing) return;
@@ -632,6 +635,9 @@ namespace Sango.UI
             {
                 if (toggles[i] == null) continue;
                 int level = i;
+                // 窗口会被反复打开,先清掉上一轮的运行时监听,避免闭包重复叠加
+                // (RemoveAllListeners 只移除运行时监听,不会清除预制体上配置的持久化监听)
+                toggles[i].onValueChanged.RemoveAllListeners();
                 toggles[i].onValueChanged.AddListener((isOn) =>
                 {
                     if (refreshing) return;
@@ -663,6 +669,9 @@ namespace Sango.UI
             System.Func<int> getter, System.Action<int> setter, int minValue = int.MinValue, int maxValue = int.MaxValue)
         {
             if (input == null) return;
+            // 窗口会被反复打开,先清掉上一轮的运行时监听,避免闭包重复叠加
+            // (RemoveAllListeners 只移除运行时监听,不会清除预制体上配置的持久化监听)
+            input.onEndEdit.RemoveAllListeners();
             input.onEndEdit.AddListener((text) =>
             {
                 if (Target == null) return;

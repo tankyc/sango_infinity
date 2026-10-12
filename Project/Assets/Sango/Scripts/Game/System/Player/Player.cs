@@ -184,7 +184,9 @@ namespace Sango.Core.Player
             string fileName = GetSaveFileName(index + 1);
             GameEvent.OnGameSave?.Invoke(Scenario.Cur, index, false);
             Scenario.Cur.Save(fileName);
-            ShortScenario scenario = new ShortScenario(fileName);
+            // 刚写出的存档，其 Info 就是内存里这一份：直接用副本构造，省掉"再打开文件读一遍 Info"的冗余 IO。
+            // 正文（势力 / 武将 / 城池）仍由 LoadContent 在需要时惰性读取。
+            ShortScenario scenario = ShortScenario.FromInfo(Scenario.Cur.Info.Clone(), fileName);
             all_saved_scenario_list[index] = scenario;
         }
 
@@ -203,7 +205,8 @@ namespace Sango.Core.Player
             string fileName = GetAutoSaveFileName(autoSaveIndex + 1);
             GameEvent.OnGameSave?.Invoke(Scenario.Cur, autoSaveIndex, true);
             Scenario.Cur.Save(fileName);
-            ShortScenario scenario = new ShortScenario(fileName);
+            // 同上：用内存 Info 的副本构造存档列表项，避免存完盘又立刻读一遍文件头。
+            ShortScenario scenario = ShortScenario.FromInfo(Scenario.Cur.Info.Clone(), fileName);
             all_auto_saved_scenario_list[autoSaveIndex] = scenario;
             autoSaveIndex++;
             if (autoSaveIndex >= all_auto_saved_scenario_list.Length)

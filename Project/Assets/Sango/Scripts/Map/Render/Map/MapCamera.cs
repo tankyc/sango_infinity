@@ -33,6 +33,15 @@ namespace Sango.Render
 
         bool changed = false;
 
+        /// <summary>
+        /// 上一次写入 URP 资产的阴影距离（&lt;0 表示尚未写入过）。
+        ///
+        /// URP 资产是**全局共享**对象，改它的 <c>shadowDistance</c> 会让 URP 重新计算所有相机的
+        /// 阴影参数，属于全局副作用。旧实现只要相机有变化就无条件写入（哪怕算出来的值和上次一样），
+        /// 在连续拖拽 / 缩放的帧里会反复触发。这里缓存后判脏：只有目标值发生实质变化才写。
+        /// </summary>
+        float lastShadowDistance = -1f;
+
         public MapCamera(MapRender map) : base(map)
         {
             viewPlane = new Plane(Vector3.up, Vector3.zero);
@@ -471,7 +480,15 @@ namespace Sango.Render
                 {
                     float factor = Math.Max(630, distance) / 630;
                     float max = 980 * factor;
-                    m_URPAsset.shadowDistance = Mathf.Lerp(500, max, cameraDistanceFactor);
+                    float targetShadowDistance = Mathf.Lerp(500, max, cameraDistanceFactor);
+
+                    // 判脏后再写：URP 资产是全局共享对象，无变化时重复赋值会让所有相机重算阴影参数。
+                    // 0.5 的容差是为了过滤拖拽 / 缩放时的亚像素抖动，避免每帧都触发。
+                    if (Mathf.Abs(targetShadowDistance - lastShadowDistance) > 0.5f)
+                    {
+                        lastShadowDistance = targetShadowDistance;
+                        m_URPAsset.shadowDistance = targetShadowDistance;
+                    }
                 }
 
                 transform.LookAt(lookAt);

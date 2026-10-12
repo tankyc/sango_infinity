@@ -253,6 +253,20 @@ namespace Sango.Core
                 }
             }
 
+            // ---------- 「内政建设优先」----------
+            // 内政建筑是兵装 / 募兵 / 器械 / 造船等一切生产的前置：
+            //   · 内政地未建满 → 建设内政设施抬到最高优先级（interiorBuildTopBias）；
+            //   · 内政地已建满但建筑未升级满 → 内政优先级调高（interiorUpgradeBias）。
+            // 战时（本城被围）不抬升：被围时内政命令本就会被整体降权且暂不可执行
+            // （CityAI.AIIntrior 兵临城下时直接返回），此时资源应优先保命。
+            if (id == "AIIntrior" && !s.isUnderSiege)
+            {
+                if (s.interiorNotFull)
+                    bias += w.interiorBuildTopBias;
+                else if (s.interiorCanUpgrade)
+                    bias += w.interiorUpgradeBias;
+            }
+
             // ---------- 发展态：内陆 + 无战事 ----------
             bool peaceful = !s.isUnderSiege
                             && s.besiegedNeighborCount == 0

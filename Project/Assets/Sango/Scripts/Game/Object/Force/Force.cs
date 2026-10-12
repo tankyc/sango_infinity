@@ -198,6 +198,15 @@ namespace Sango.Core
         public List<System.Func<Force, Scenario, bool>> AICommandList = new List<System.Func<Force, Scenario, bool>>();
 
         /// <summary>
+        /// AI 命令队列的读取游标。
+        ///
+        /// 旧实现每执行完一条命令就 <c>AICommandList.RemoveAt(0)</c>，整队跑完是 O(n²) 次数组搬移。
+        /// 改成游标前进、跑完整队后一次性 <c>Clear</c>，摊还成 O(n)（与 RenderEvent 的事件队列同一取舍）。
+        /// 语义不变：命令返回 false 时游标停在原地，下次进入从同一条命令继续。
+        /// </summary>
+        int aiCommandIndex = 0;
+
+        /// <summary>
         /// 威胁过本势力的敌方部队ID列表(用于 AI 主动驱逐)。
         /// 敌方部队攻击本势力的城池 / 建筑 / 部队时会被记录,只要其仍存活且位于本势力领地内,
         /// 就会由距离最近的城市派兵歼灭。
@@ -801,14 +810,19 @@ namespace Sango.Core
                 AIPrepared = true;
             }
 
-            while (AICommandList.Count > 0)
+            // 用游标顺序推进命令队列，避免 RemoveAt(0) 的 O(n) 搬移（整队跑完由 O(n²) 降为 O(n)）。
+            while (aiCommandIndex < AICommandList.Count)
             {
-                System.Func<Force, Scenario, bool> CurrentCommand = AICommandList[0];
+                System.Func<Force, Scenario, bool> CurrentCommand = AICommandList[aiCommandIndex];
                 if (!CurrentCommand.Invoke(this, scenario))
                     return false;
 
-                AICommandList.RemoveAt(0);
+                aiCommandIndex++;
             }
+
+            // 整队跑完：清空队列并复位游标，供下一回合 AIPrepare 重新装填
+            AICommandList.Clear();
+            aiCommandIndex = 0;
 
             GameEvent.OnForceAIEnd?.Invoke(this, scenario);
             AIFinished = true;
@@ -889,6 +903,10 @@ namespace Sango.Core
             }
 
             buildingBaseList.Clear();
+            // 复位 AI 命令队列：上一回合若被中断（未跑完整队）会残留条目，这里统一清空并复位游标，
+            // 保证本回合 AIPrepare 从空队列重新装填。
+            AICommandList.Clear();
+            aiCommandIndex = 0;
             AIFinished = false;
             AIPrepared = false;
             FightPower = 0;

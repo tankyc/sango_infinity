@@ -30,6 +30,12 @@ namespace Sango.Core
         public static ScenarioVariables DefaultVariables = new ScenarioVariables();
 
         /// <summary>
+        /// 无 BOM 的 UTF-8 编码。
+        /// 存档写出时复用同一实例，避免每次保存都新建编码对象（Encoding.UTF8 会带 BOM，不能用）。
+        /// </summary>
+        static readonly System.Text.UTF8Encoding Utf8NoBom = new System.Text.UTF8Encoding(false);
+
+        /// <summary>
         /// 获取对象类型
         /// </summary>
         public override SangoObjectType ObjectType { get { return SangoObjectType.Scenario; } }
@@ -687,20 +693,36 @@ namespace Sango.Core
 
         public void LoadVariables()
         {
+            // 【性能】Info（Order -97）与 Variables（Order -95）在文件里相邻且都在最前面，
+            // 因此一趟流式扫描就能同时取回两者 —— 不再"先 LoadInfo 再 LoadVariables"各开一次文件、各扫一遍。
+            // 两个目标都拿到（或扫到文件末尾）即结束。
+            bool gotInfo = Info != null;
+            bool gotVariables = false;
+
             using (StreamReader file = System.IO.File.OpenText(FilePath))
             using (JsonTextReader reader = new JsonTextReader(file))
             {
                 while (reader.Read()) // Advances to the next token in the JSON stream.
                 {
-                    if (reader.TokenType == JsonToken.StartObject) // Check for start of an object in the JSON stream.
+                    if (reader.TokenType != JsonToken.StartObject) // Check for start of an object in the JSON stream.
+                        continue;
+                    if (string.IsNullOrEmpty(reader.Path))
+                        continue;
+
+                    if (!gotInfo && reader.Path == "Info")
                     {
-                        if (!string.IsNullOrEmpty(reader.Path) && reader.Path == "Variables")
-                        {
-                            Variables = JsonSerializer.CreateDefault().Deserialize<ScenarioVariables>(reader); // Deserialize the object.
-                            Name = Info.name;
-                            return;
-                        }
+                        Info = JsonSerializer.CreateDefault().Deserialize<ScenarioInfo>(reader); // Deserialize the object.
+                        Name = Info != null ? Info.name : Name;
+                        gotInfo = true;
                     }
+                    else if (!gotVariables && reader.Path == "Variables")
+                    {
+                        Variables = JsonSerializer.CreateDefault().Deserialize<ScenarioVariables>(reader); // Deserialize the object.
+                        gotVariables = true;
+                    }
+
+                    if (gotInfo && gotVariables)
+                        return;
                 }
             }
 
@@ -772,7 +794,13 @@ namespace Sango.Core
                 });
             }
 
-            JsonConvert.PopulateObject(File.ReadAllText(FilePath), this);
+            // 【性能】用流式 JsonTextReader 就地填充，避免把整份存档读成一个 string 常驻内存
+            // （大地图 / 后期存档可达数十 MB，ReadAllText 会制造同量级的 LOH 分配）。
+            using (StreamReader sr = System.IO.File.OpenText(FilePath))
+            using (JsonTextReader jr = new JsonTextReader(sr))
+            {
+                JsonSerializer.CreateDefault().Populate(jr, this);
+            }
 
             GameData.Instance.LoadCommonData(CommonData);
 
@@ -1932,12 +1960,14 @@ namespace Sango.Core
             if (string.IsNullOrEmpty(Info.curForceName))
                 Info.curForceName = CurRunForce?.Name;
             Sango.Directory.Create(path, false);
+            // 【性能】存档不再缩进输出：缩进会让文件体积与写出耗时扩大 2~3 倍。
+            // 读取端全部基于 JsonTextReader 流式解析、对空白不敏感，因此新旧格式与新旧存档都可互相读入。
             JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-            jsonSerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
             jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
             jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用
             JsonSerializer serializer = JsonSerializer.CreateDefault(jsonSerializerSettings);
-            using (StreamWriter writer = System.IO.File.CreateText(path))
+            // 用带大缓冲的流式写出，避免逐字符落盘
+            using (StreamWriter writer = new StreamWriter(path, false, Utf8NoBom, 1 << 16))
             {
                 serializer.Serialize(writer, this);
             }

@@ -141,6 +141,23 @@ namespace Sango.Tools
         private ColorPicker picker;
 
         /// <summary>
+        /// 笔刷被销毁时清理动态创建的颜色选择器,
+        /// 否则选择器会残留在场景中并持有对本笔刷的闭包引用
+        /// </summary>
+        private void OnDestroy()
+        {
+            if (picker != null)
+            {
+                picker.onValueChanged.RemoveAllListeners();
+                if (picker.gameObject != null)
+                {
+                    GameObject.Destroy(picker.gameObject);
+                }
+                picker = null;
+            }
+        }
+
+        /// <summary>
         /// 笔刷颜色
         /// </summary>
         private UnityEngine.Color brushColor;

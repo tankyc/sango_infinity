@@ -83,14 +83,24 @@ namespace SangoTools.Editor
 
         private void InitializeRightTools()
         {
+            // 先清掉运行时监听再绑定,保证多次初始化时不会重复叠加
             if (searchButton != null)
+            {
+                searchButton.onClick.RemoveAllListeners();
                 searchButton.onClick.AddListener(() => OnSearchClicked?.Invoke());
-            
+            }
+
             if (userButton != null)
+            {
+                userButton.onClick.RemoveAllListeners();
                 userButton.onClick.AddListener(() => OnUserClicked?.Invoke());
-            
+            }
+
             if (settingsButton != null)
+            {
+                settingsButton.onClick.RemoveAllListeners();
                 settingsButton.onClick.AddListener(() => OnSettingsClicked?.Invoke());
+            }
         }
 
         private void OnMenuButtonClicked(int index)

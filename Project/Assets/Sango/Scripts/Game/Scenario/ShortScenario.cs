@@ -216,6 +216,25 @@ namespace Sango.Core
 
         }
 
+        /// <summary>
+        /// 直接从内存中的 <see cref="ScenarioInfo"/> 构造一个"存档列表用"的短剧本。
+        ///
+        /// 避免"存完盘再打开文件把 Info 读一遍"的冗余 IO：刚写出的存档，其 Info 就是内存里这一份。
+        /// 只填 Info（以及 Name / FilePath）：正文（forceSet / personSet / citySet）仍由
+        /// <see cref="LoadContent"/> 在真正需要时惰性读取，行为与走文件构造完全一致。
+        /// </summary>
+        /// <param name="info">存档当时的信息快照（调用方应传入副本，避免与进行中的剧本共享引用）</param>
+        /// <param name="filePath">存档文件路径</param>
+        public static ShortScenario FromInfo(ScenarioInfo info, string filePath)
+        {
+            ShortScenario scenario = new ShortScenario();
+            scenario.FilePath = filePath;
+            scenario.Info = info;
+            scenario.Name = info != null ? info.name : null;
+            scenario.loadOK = false;
+            return scenario;
+        }
+
         public ShortScenario Copy()
         {
             ShortScenario scenario = new ShortScenario()

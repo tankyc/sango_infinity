@@ -690,6 +690,11 @@ namespace Sango.Core
         public override ObjectRender GetRender() { return Render; }
         public TroopRender Render { get; private set; }
         bool isMissionPrepared = false;
+        /// <summary>
+        /// 【出城兜底】标记任务已结束、但出城移动动画尚未播完。
+        /// 用于任务执行后的保底出城：下一帧继续完成出城，而不再重跑任务行为。
+        /// </summary>
+        bool leavingBuildingCell = false;
         public int foodCost = 0;
         public float foodCostFactor = 1;
 
@@ -856,6 +861,7 @@ namespace Sango.Core
             AIPrepared = false;
             isMoving = false;
             isMissionPrepared = false;
+            leavingBuildingCell = false;
             skillRenderEvent = null;
             skillRenderEventIsAssist = false;
             actionRenderEvent = null;
@@ -3167,6 +3173,21 @@ namespace Sango.Core
             if (AIFinished)
                 return true;
 
+            // 【出城兜底·续】上一帧任务已结束、出城移动动画尚未播完：
+            // 继续完成出城，不再重跑任务行为（防止任务被重复结算）。
+            if (leavingBuildingCell)
+            {
+                if (!TroopAIUtility.TryLeaveBuildingCell(this, scenario))
+                    return false;                   // 出城移动动画仍在播，下一帧继续
+
+                GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
+                AIFinished = true;
+                troopMissionBehaviour = null;
+                leavingBuildingCell = false;
+                ActionOver = true;
+                return true;
+            }
+
             if (!AIPrepared)
             {
                 // 【委任部队】兜底归一化：正常情况下 Init 已处理过一次，
@@ -3187,9 +3208,11 @@ namespace Sango.Core
             TroopMissionBehaviour temp = TroopMissionBehaviour;
             if (temp == null)
             {
-                // 【出城兜底】无任务部队滞留在城池 / 关隘 / 港口等建筑格上时同样执行出城，
+                // 【出城兜底】无任务部队滞留在城池 / 关隘 / 港口等建筑格上时执行出城，
                 // 避免永久滞留在城头（部队不允许停留在建筑格上）。
-                if (TroopAIUtility.IsOnBuildingCell(this))
+                // 仅对非玩家控制的部队生效：受玩家控制的部队（含委任 / 第一军团）停在城头
+                // 时由玩家自行决策，AI 不替玩家挪动。
+                if (!IsPlayerControl && TroopAIUtility.IsOnBuildingCell(this))
                 {
                     if (!TroopAIUtility.TryLeaveBuildingCell(this, scenario))
                         return false;               // 出城移动动画未播完，下一帧继续
@@ -3237,24 +3260,6 @@ namespace Sango.Core
                 }
             }
 
-            // 【出城兜底】部队不允许停留在城池 / 关隘 / 港口等建筑格上（统一规则，推广自补给队）。
-            // 部队因出征创建（EnsureTroop 落在城头）、任务改写、占领异常等原因滞留城头时，
-            // 本回合只做一件事：移动到移动范围内最近的可停留格，不再执行其它任务行为。
-            // 例外：任务目标就是脚下的建筑（返城 / 移动到城任务），
-            // 此时不拦截，交给任务逻辑执行进城解散（EnterCity）。
-            if (TroopAIUtility.IsOnBuildingCell(this)
-                && (temp.TargetCity == null || temp.TargetCity != cell.building as City))
-            {
-                if (!TroopAIUtility.TryLeaveBuildingCell(this, scenario))
-                    return false;                   // 出城移动动画未播完，下一帧继续
-
-                GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
-                AIFinished = true;
-                troopMissionBehaviour = null;
-                ActionOver = true;
-                return true;
-            }
-
 #if SANGO_DEBUG_AI
             if (GameAIDebug.Instance.WaitForShowAIPrepare())
                 return false;
@@ -3265,11 +3270,27 @@ namespace Sango.Core
                 GameSystemManager.debug_StringBuilder.Append($"12:{temp.GetType()},");
             if (!temp.DoAI(this, scenario))
                 return false;
+
+            // 【出城兜底】纯保底：仅在任务本回合动作已完成、部队却仍站在建筑格上时，
+            // 才就近移出城头。正常行军的任务（攻击 / 占领 / 移动 / 返城等）在 DoAI 内
+            // 已离开城头，这里不会触发；只有"任务结束却仍赖在城头"的异常部队
+            // （如 TroopStay 待命、任务改写后停摆）才被移出，不再拦截部队首回合的正常行军。
+            if (IsAlive && TroopAIUtility.IsOnBuildingCell(this))
+            {
+                // 出城移动动画未播完：标记续跑，下一帧继续出城而不重跑任务
+                if (!TroopAIUtility.TryLeaveBuildingCell(this, scenario))
+                {
+                    leavingBuildingCell = true;
+                    return false;
+                }
+            }
+
             if (GameSystemManager.debug)
                 GameSystemManager.debug_StringBuilder.Append("13,");
             GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
             AIFinished = true;
             troopMissionBehaviour = null;
+            leavingBuildingCell = false;
             ActionOver = true;
             return true;
         }
