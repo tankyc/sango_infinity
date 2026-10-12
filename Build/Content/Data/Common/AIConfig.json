@@ -383,7 +383,7 @@
     // ---- 派车配额 ----
     "maxShipmentsPerDomain": 4,         // 每作用域每回合派车数下限（再按城数放大）
     "shipmentsPerCityDivisor": 5,       // 每多少座城追加 1 车额度
-    "maxShipmentsPerSourceCity": 2,     // 每源城每回合最多发几车
+    "maxShipmentsPerSourceCity": 1,     // 每源城每回合最多发几车（一城多队太嘈杂，多类资源靠搭车合并成一单）
     "maxShipmentsPerTargetCity": 2,     // 每目标城每回合最多收几车（防配额被少数城吃光）
 
     // ---- 前线紧急度 ----

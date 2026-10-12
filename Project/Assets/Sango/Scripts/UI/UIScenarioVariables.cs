@@ -246,7 +246,7 @@ namespace Sango.UI
             AddNumberItem("防御时候留守最低的粮食", variables.minFoodKeepWhenDefence, 0, 100000, (v) => { variables.minFoodKeepWhenDefence = v; });
 
             AddTitle("系统参数");
-            AddNumberItem("寻路安全次数限制", variables.pathfindingSafeCount, 1000, 1000000, (v) => { variables.pathfindingSafeCount = v; });
+            AddNumberItem("寻路安全次数限制", variables.pathfindingSafeCount, 1000, 10000000, (v) => { variables.pathfindingSafeCount = v; });
 
             //AddTitle("外交系统参数");
             //AddNumberItem("外交关系阈值 - 结盟", variables.diplomacyAllianceRelationThreshold, -5000, 5000, (v) => { variables.diplomacyAllianceRelationThreshold = v; });

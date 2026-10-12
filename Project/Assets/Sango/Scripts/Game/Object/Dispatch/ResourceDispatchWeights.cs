@@ -592,12 +592,14 @@ namespace Sango.Core
         /// <summary>
         /// 每座城每回合最多向外发几车（避免一座富城把城内空闲武将一次抽空）。
         ///
-        /// 默认 2：一座富余的城常常同时要给两三座城供货（尤其"港关 → 归属主城"
-        /// 与"主城 → 前线"同时成立），只准 1 车会让富城的运力闲置、而缺口城排队等。
-        /// 真正兜住"抽空源城"的是 <see cref="minSourceFreePersons"/> 与
+        /// 默认 **1**：一支运输队就是一名押车武将加一趟在途风险，同一座城同回合连发几支，
+        /// 地图上就是"一城好几只运输队"（玩家视角非常嘈杂），而且每支都要单独走完路途、
+        /// 单独承担被截风险。多类资源合并一张单 + 搭车（<see cref="riderMinRatio"/>）
+        /// 已经足够把一车装满，单城多队属于过度调度。
+        /// 兜住"抽空源城"的是 <see cref="minSourceFreePersons"/> 与
         /// <see cref="ResourceTransfer.Ship"/> 里的留人下限，不靠这里的一刀切。
         /// </summary>
-        public int maxShipmentsPerSourceCity = 2;
+        public int maxShipmentsPerSourceCity = 1;
 
         // ==================== 目标城失守判断（送不送 / 撤不撤） ====================
 

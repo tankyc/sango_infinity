@@ -1653,7 +1653,7 @@ MonoBehaviour:
   mapBounds_img: {fileID: 3027808771309720078}
   mapScaleSlider: {fileID: 6070404436017671392}
   mapDefaultSize: 256
-  boundsSize: 500
+  boundsSize: 448
   mapScale: 1
   nextBtn: {fileID: 1777645361840409674}
   unSelectBtn: {fileID: 2387619812640040631}

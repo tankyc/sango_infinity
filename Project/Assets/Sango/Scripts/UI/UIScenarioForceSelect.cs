@@ -37,7 +37,7 @@ namespace Sango.UI
 
         public Slider mapScaleSlider;
         public int mapDefaultSize = 256;
-        public int boundsSize = 570;
+        public int boundsSize = 448;
         public float mapScale = 1;
 
         public Button nextBtn;
@@ -115,8 +115,8 @@ namespace Sango.UI
                 ShowForce((ShortForce)null);
             SetSelectedForceName();
             //nextBtn.interactable = false;
-            mapScaleSlider.SetValueWithoutNotify(0.1f);
-            UpdateMap(scenario, 0.1f);
+            mapScaleSlider.SetValueWithoutNotify(0);
+            UpdateMap(scenario, 0);
 
         }
 

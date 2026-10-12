@@ -562,7 +562,7 @@ namespace Sango.Core
         /// <summary>
         /// 寻路安全次数限制
         /// </summary>
-        [JsonProperty] public int pathfindingSafeCount = 100000;
+        [JsonProperty] public int pathfindingSafeCount = 10000000;
 
         /// <summary>
         /// 基础火焰伤害

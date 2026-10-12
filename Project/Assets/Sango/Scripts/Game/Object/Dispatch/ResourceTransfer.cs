@@ -239,12 +239,32 @@ namespace Sango.Core
                 (int)ItemStoreKindType.Boat, (int)ItemStoreKindType.Boat,
                 ResourceBalance.BoatCount(to.itemStore), safeMargin);
 
-            // 只有军械的单：城里那批道具可能已经被别的运输队 / 生产消耗掉了，
-            // 或者目标城仓容已满 —— 这时不该派一支只运 1 兵的"空车"出去（白占一个武将）。
-            if (gold <= 0 && food <= 0 && shipment.troops <= 0
+            // ---------- 发车资格（两道，都过才发） ----------
+            //
+            // ① 【空车拦截】必须用**货物粮**（cargoFood）判断，不能用叠加口粮后的 food ——
+            //    车队自备口粮恒 > 0，用它判定会让"求解后货物已被别的队伍抢光"的空车
+            //    靠着几口口粮混过这道闸，变成一支"1 兵 10 粮"的幽灵车队
+            //    （兵是出城兜底的 1，粮是车队口粮 —— 两头都不是货）。
+            if (gold <= 0 && cargoFood <= 0 && shipment.troops <= 0
                 && armsWant <= 0 && machineWant <= 0 && boatWant <= 0)
             {
                 reason = "没有可运的货物";
+                return false;
+            }
+
+            // ② 【二次门槛】夹取到**实际库存**之后，六类资源没有任何一类够得上起运门槛就不发：
+            //    求解到执行之间源城的货可能被别的队伍先拿走了，剩下的零头
+            //    （金几百 / 粮几千）不值得再搭进去一名押车武将 —— 下回合重新求解即可。
+            //    军械的门槛按"件"算（minShipMachine / minShipBoat = 1），运一辆冲车也是正经理由。
+            if (w != null
+                && gold < w.minShipGold
+                && cargoFood < w.minShipFood
+                && troops < w.minShipTroops
+                && armsWant < w.minShipArms
+                && machineWant < w.minShipMachine
+                && boatWant < w.minShipBoat)
+            {
+                reason = "二次夹取后低于起运门槛";
                 return false;
             }
 
