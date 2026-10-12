@@ -1836,10 +1836,32 @@ namespace Sango.Core
                 BelongForce.IsAlive = false;
                 BelongCorps.IsAlive = false;
                 // 灭亡后,队伍要清除
+                // 【修复】troop.BelongForce 由主将实时推导（Leader?.BelongForce）。
+                // 主将已脱离部队（被俘流转 / 阵亡 / 旧存档中间态）的无主部队，
+                // 其 BelongForce 为 null，旧条件会漏掉它们——表现为势力灭亡后
+                // 部队仍残留在地图上且永远拿不到任务（冻结原地）。
+                // 因此增加兜底口径：主将缺失时按副将归属判定（此刻武将尚未全量脱籍，
+                // 副将的 BelongForce 仍指向被灭势力）。
                 scenario.troopsSet.ForEach((troop) =>
                 {
-                    if (troop.IsAlive && troop.BelongForce == this.BelongForce)
+                    if (!troop.IsAlive)
+                        return;
+
+                    // 常规口径：主将推导的所属势力即被灭势力
+                    if (troop.BelongForce == this.BelongForce)
+                    {
                         troop.Clear();
+                        return;
+                    }
+
+                    // 兜底口径：无主部队按副将归属判定
+                    if (troop.Leader == null
+                        && ((troop.Member1 != null && troop.Member1.BelongForce == this.BelongForce)
+                            || (troop.Member2 != null && troop.Member2.BelongForce == this.BelongForce)))
+                    {
+                        Sango.Log.Warning($"势力[{BelongForce.Name}]灭亡时清理了无主部队[{troop.Name}]（主将已脱离，按副将归属判定）");
+                        troop.Clear();
+                    }
                 });
 
                 // 清理港口,关卡
@@ -2000,18 +2022,21 @@ namespace Sango.Core
             commerce = agriculture * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepCommerce) * 10 + 10) / 100;
 
             // 解救俘虏
+            // 【修复】必须先同步军团 / 势力 / 城市，再调用 AddPerson。
+            // 原先顺序颠倒：俘虏携带的旧军团与新城军团不一致时，
+            // AddPerson 的"军团不一致"校验会报错（随后自愈，但反复刷错误日志）。
             captiveList.ForEach(person =>
             {
                 if (person != null && person.IsSameForce(atk))
                 {
                     RemoveCaptive(person);
                     person.state = (int)PersonStateType.Normal;
-                    AddPerson(person);
-                    freePersons.Add(person);
                     person.BelongCorps = BelongCorps;
                     person.BelongForce = BelongForce;
                     person.BelongCity = this;
                     person.CurrentCity = this;
+                    AddPerson(person);
+                    freePersons.Add(person);
                 }
             });
 

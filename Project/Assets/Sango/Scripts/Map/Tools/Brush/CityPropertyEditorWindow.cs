@@ -861,6 +861,10 @@ namespace Sango.Tools
                         {
                             person.BelongForce = newForce;
                             person.BelongForceId = newId;
+                            // 【修复】同步军团：势力变更后保留旧势力军团会造成"势力与军团分家"的归属不一致
+                            if (newForce == null || person.BelongCorps == null
+                                || person.BelongCorps.BelongForce != newForce)
+                                person.BelongCorps = newForce?.CapitalCorps;
                         }
                     }
                     break;

@@ -2702,9 +2702,16 @@ namespace Sango.Core
 
         public void EnterCity(City city)
         {
-            if (city.BelongForce != BelongForce)
+            // 【硬守卫】部队只能进入己方势力城池。
+            // 原先此处只打 Error 日志不拦截，若存在"进城瞬间目的地易主"的时序窗口
+            // （如败退途中城池被第三方攻占），兵力 / 钱粮会被并入敌城。
+            // 现在直接拒绝入城：部队保持原状留在地图上，
+            // 后续由 DoAI 出城兜底 / 待命兜底 / 任务逻辑处理其归宿。
+            // 合法路径（攻破城池后攻方入城等）都在城池 BelongForce 改为攻方之后才调用本方法，不受影响。
+            if (city == null || city.BelongForce != BelongForce)
             {
-                Sango.Log.Error($"{BelongForce.ColorName}的{Name}进入了一个不是自身势力{city.BelongForce?.ColorName}{city.ColorName}的城市!");
+                Sango.Log.Error($"{BelongForce?.ColorName}的{Name}试图进入非自身势力{city?.BelongForce?.ColorName}{city?.ColorName}的城市,已拒绝入城!");
+                return;
             }
             // 所属城取主将的实时值（不缓存），下面几处统一用它：
             // 主将已被俘/阵亡时它是 null，这几处都要能安全跳过（?.），否则会在这里空引用崩溃
@@ -3180,6 +3187,14 @@ namespace Sango.Core
             TroopMissionBehaviour temp = TroopMissionBehaviour;
             if (temp == null)
             {
+                // 【出城兜底】无任务部队滞留在城池 / 关隘 / 港口等建筑格上时同样执行出城，
+                // 避免永久滞留在城头（部队不允许停留在建筑格上）。
+                if (TroopAIUtility.IsOnBuildingCell(this))
+                {
+                    if (!TroopAIUtility.TryLeaveBuildingCell(this, scenario))
+                        return false;               // 出城移动动画未播完，下一帧继续
+                }
+
                 GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
                 AIFinished = true;
                 ActionOver = true;
@@ -3221,6 +3236,25 @@ namespace Sango.Core
                     }
                 }
             }
+
+            // 【出城兜底】部队不允许停留在城池 / 关隘 / 港口等建筑格上（统一规则，推广自补给队）。
+            // 部队因出征创建（EnsureTroop 落在城头）、任务改写、占领异常等原因滞留城头时，
+            // 本回合只做一件事：移动到移动范围内最近的可停留格，不再执行其它任务行为。
+            // 例外：任务目标就是脚下的建筑（返城 / 移动到城任务），
+            // 此时不拦截，交给任务逻辑执行进城解散（EnterCity）。
+            if (TroopAIUtility.IsOnBuildingCell(this)
+                && (temp.TargetCity == null || temp.TargetCity != cell.building as City))
+            {
+                if (!TroopAIUtility.TryLeaveBuildingCell(this, scenario))
+                    return false;                   // 出城移动动画未播完，下一帧继续
+
+                GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
+                AIFinished = true;
+                troopMissionBehaviour = null;
+                ActionOver = true;
+                return true;
+            }
+
 #if SANGO_DEBUG_AI
             if (GameAIDebug.Instance.WaitForShowAIPrepare())
                 return false;

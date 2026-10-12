@@ -919,6 +919,10 @@ namespace Sango.Core
                 }
             }
 
+            // 检查军师情况，必要时清除失效军师或重新设置更合适的军师
+            // 必须放在人物遍历之后，PersonCount 已更新，且军师失效状态（阵亡/被俘/叛离）已在本回合结算完毕
+            CheckCounsellor(scenario);
+
             for (int i = 0; i < scenario.corpsSet.Count; ++i)
             {
                 var c = scenario.corpsSet[i];
@@ -1632,6 +1636,58 @@ namespace Sango.Core
 
             Scenario.Cur.corpsSet.Remove(corps);
             GameEvent.OnCorpsDelete?.Invoke(corps, Scenario.Cur);
+        }
+
+        /// <summary>
+        /// 检查军师情况，必要时重新设置更好的军师
+        /// 规则：
+        /// 1. 当前军师已失效（阵亡/被俘/叛离势力/成为君主）时，先将其清除；
+        /// 2. AI 势力：在军师空缺或出现智力更高的在籍人选时，自动重新任命；
+        /// 3. 玩家势力：仅在军师空缺时自动补任，不覆盖玩家自己的选择。
+        /// </summary>
+        /// <param name="scenario">当前场景</param>
+        public void CheckCounsellor(Scenario scenario)
+        {
+            // 第一步：校验当前军师是否仍然有效（存活、属于本势力、未被俘、且不是君主本人）
+            if (mCounsellor != null &&
+                (!mCounsellor.IsAlive || mCounsellor.BelongForce != this || mCounsellor.IsPrisoner || mCounsellor == mGovernor))
+            {
+                Sango.Log.Info($"{Name} 军师 {mCounsellor.Name} 已失效，撤销其军师职务");
+                ChangeCounsellor(null);
+            }
+
+            // 君主之外没有可任军师的人选，无需继续处理
+            if (PersonCount <= 1) return;
+
+            // 第二步：遍历本势力在籍武将，寻找智力最高的军师候选（排除君主与俘虏）
+            Person best = null;
+            for (int i = 0; i < scenario.personSet.Count; ++i)
+            {
+                var c = scenario.personSet[i];
+                if (c == null || !c.IsAlive || c.BelongForce != this || c.IsPrisoner || c == mGovernor) continue;
+
+                if (best == null || c.Intelligence > best.Intelligence)
+                    best = c;
+            }
+
+            if (best == null) return;
+
+            // 第三步：按势力类型决定是否重新任命
+            if (!IsPlayer)
+            {
+                // AI 势力：军师空缺，或候选人的智力严格高于现任军师时，更换为更好的人选
+                if (mCounsellor == null || best.Intelligence > mCounsellor.Intelligence)
+                {
+                    Sango.Log.Info($"{Name} 任命 {best.Name}（智力 {best.Intelligence}）为军师");
+                    ChangeCounsellor(best);
+                }
+            }
+            else if (mCounsellor == null)
+            {
+                // 玩家势力：只在空缺时自动补任，避免覆盖玩家的军师安排
+                Sango.Log.Info($"{Name} 军师空缺，自动任命 {best.Name}（智力 {best.Intelligence}）为军师");
+                ChangeCounsellor(best);
+            }
         }
 
         /// <summary>

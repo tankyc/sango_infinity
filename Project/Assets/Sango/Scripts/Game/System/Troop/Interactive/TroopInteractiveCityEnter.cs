@@ -58,6 +58,14 @@ namespace Sango.Core.Player
 
         public void OnMoveDone()
         {
+            // 【防御】部队可能在移动动画期间被 Clear（被歼灭 / 势力灭亡清扫等）。
+            // 此时不能再执行进城结算，否则残余兵力 / 钱粮会作为"幽灵资源"并入城池。
+            if (TargetTroop == null || !TargetTroop.IsAlive)
+            {
+                Done();
+                return;
+            }
+
             TargetTroop.ActionOver = true;
             TargetTroop.Render?.UpdateRender();
 

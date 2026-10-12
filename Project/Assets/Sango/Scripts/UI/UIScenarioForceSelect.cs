@@ -106,7 +106,7 @@ namespace Sango.UI
             targetScenario = (ShortScenario)objects[0];
             cityToggleList.Clear();
             ShortScenario scenario = targetScenario;
-            mapBounds_img.texture = MapRender.LoadBoundTex(scenario.Info.mapType);
+            mapBounds_img.texture = MapRender.LoadBoundTex(scenario.Map.WorkContent);
             selectedForceCountLabel.text = $"{playerList.Count}/{selectedForceNameLabel.Length}";
             scenarioNameLabel.text = scenario.GetDateName();
             if (playerList.Count > 0)

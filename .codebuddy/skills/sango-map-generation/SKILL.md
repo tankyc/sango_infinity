@@ -1,15 +1,23 @@
 ---
 name: sango-map-generation
-description: "Provides knowledge and tools for procedurally generating Sango Infinity world maps — terrain, rivers, city placement, territory division, roads, and four-season base maps. Use this skill when generating or regenerating a map, placing cities, writing generated cities into a scenario, painting or querying map cells, or when working with Sango map textures, layers, vertex colors, height bytes, or the four-season texture system."
+description: "Provides knowledge and tools for building Sango Infinity maps — both the in-engine procedural generator (MapGenContext / MapGenerator / MapApi) and the offline Python pipeline that converts a Koei 311 world map into a Sango .bin. Covers terrain, rivers, city placement, territory/areaId assignment, interior land (内政地), roads, sea depth zoning, vertex-height smoothing, and four-season base maps. Use this skill when generating or regenerating a map, hand-writing or rebuilding a map .bin, assigning city territory (areaId), placing or validating interior land, zoning deep sea, smoothing vertex heights, placing cities, writing generated cities into a scenario, painting or querying map cells, or when working with Sango map textures, layers, vertex colors, height bytes, or the four-season texture system."
 ---
 
-# Sango Infinity 程序化地图生成 Skill
+# Sango Infinity 地图构建 Skill（引擎生成器 + Python 转换管线）
 
 ## Overview
 
-Sango Infinity 的地图由「逻辑地格层」与「渲染层（顶点/图层/底图）」共同构成，本技能封装了这两层的实测结论，以及一套完整的程序化生成管线与对外 API（含 MCP 工具 `sango_map`）。
+Sango Infinity 的地图由「逻辑地格层」与「渲染层（顶点/图层/底图）」共同构成。本技能封装了这两层的实测结论，
+以及**两条造图路径**：
 
-适用场景：程序化生成世界地图、调整/重绘地形、选址城市并划分领地、铺设道路、把生成结果写入剧本、为新地图初始化四季地表贴图、排查地图渲染异常（白板/破洞/水面不显示/高度不对）。
+1. **引擎内置程序化生成器**（`MapGenContext` / `MapGenerator` / `MapApi`，含 MCP 工具 `sango_map`）
+   —— 从零生成地形/河流/城市/领地/道路/底图。见 §二~§八。
+2. **离线 Python 转换管线** —— 把已有的 Koei 311 世界图数据转成 Sango `.bin`
+   （自己写 mapGrid + mapData 段）。见 §九 与 `references/python-pipeline.md`。
+
+适用场景：程序化生成世界地图、转换既有世界图并手写 `.bin`、调整/重绘地形、选址城市并划分领地（areaId）、
+生成/校验内政地、铺设道路、海域分档、顶点高度平滑、把生成结果写入剧本、
+为新地图初始化四季地表贴图、排查地图渲染异常（白板/破洞/水面不显示/高度不对/城市建不了东西）。
 
 ## 何时使用
 
@@ -18,6 +26,11 @@ Sango Infinity 的地图由「逻辑地格层」与「渲染层（顶点/图层/
 - 用户要求把生成的城市写进剧本，或询问剧本与地图如何对应
 - 涉及地图贴图图层、四季贴图、底图、顶点色、高度字节的读写与调试
 - 地图出现「白板、地表破洞、水面看不见、高度整体偏移」等问题
+- 用 Python 管线把世界图转成 `Map/*.bin`，或需要**手写地图 `.bin`** 的 mapGrid / mapData 段
+- 涉及 `terrainState`（内政位）、`areaId`（领地归属）、城市规划槽位
+- 生成/校验**内政地**（Interior），或「城市建不了东西」「领地有空白」
+- 海域分档（近海/远海/深海）、可行走孤岛的处理
+- 顶点高度平滑、相邻可通行格高差过大
 
 ---
 
@@ -185,8 +198,20 @@ Sango.Core.GameData.Instance.Init();    // 加载 TerrainTypes / ModelConfigs
 | `Destroy may not be called from edit mode` | 引擎 `MapRender.Clear()` 自身行为，仅非 Play 模式出现，可忽略 |
 | 裸编辑器 `loadMap` 报 `MapObject.position` 空引用 | 缺少完全引导（`MapModels`/`MapObject` 依赖运行时环境），请在编辑器场景内操作 |
 | 编辑器 MapKey 丢失 | `NewMap` 内部 `Init()` 会把 `WorkContent` 重置为 `"Default"`，必须在 `NewMap` **之后**再赋值 |
+| **可行走格大面积没有 areaId** | Python 侧面积分配把不可行走地形当墙 / 截断了搜索距离；海/河/浅滩也被当墙 |
+| **内政地生成了但槽位仍是 0** | `terrainState` 写了内政位，但 `areaId` 不是那座城 |
+| **内政地挡住道路** | 内政候选没排除 `主径(11)`（它是唯一可建造的交通设施） |
+| **相邻可通行格高差压不下去** | 用了就地 Gauss-Seidel → 极限环；必须用同步(Jacobi)区间投影 |
+| **水面整片消失** | 平滑时没把海/河当锚点，海床被抬高顶穿了水面 |
+| **引擎读到旧地形表** | 读了缓存中的 `GameData.Instance.ScenarioCommonData`；实际加载地图用的是 `Scenario.Cur.CommonData` |
+| **Python 归属/距离整体错位且不报错** | `np.where` / `np.argwhere` 返回 `(dim0, dim1)`，写成了 `(y, x)` |
+| **新地形静默变灰** | 只改了 `TerrainTypes.json`，漏了 `BaseMapGenerator.BuildTerrainColor()` 与 `sango_basemap.py` 的 `TC` |
+| **加载别的尺寸地图时 `MapModels` 崩** | 尾部段照抄了 DefaultMap 的模型/标注，必须置空 |
+| **改顶点没反应** | `VertexData` 已是 4 字节 struct，`GetVertexData()` 返回副本；要用 `SetVertexHeight/TextureIndex/Water` |
 
 ## 八、生成后验证清单
+
+**引擎生成器：**
 
 - [ ] 「生成结果」地形统计合理：陆地占比 ≈ `landRatio`（再扣掉河流占用格）
 - [ ] 海高度全 0、川/河高度 1、浅滩 10、水面字节 11
@@ -196,7 +221,62 @@ Sango.Core.GameData.Instance.Init();    // 加载 TerrainTypes / ModelConfigs
 - [ ] 四季底图 4 张内容不同（冬季含积雪）
 - [ ] 保存 `.bin` 后重新加载，同种子结果完全一致
 
-## 九、参考文件
+**Python 管线（重建 `.bin` 之后，字节级 + 引擎侧各查一遍）：**
+
+- [ ] **可行走格 `areaId == 0` 的数量为 0**（含海/河/浅滩；对应引擎里那句被注释掉的诊断）
+- [ ] 每座城 `areaCellList` 非空；港/关也有自己的领地，且港六邻仍有可走水域
+- [ ] 内政格：`terrainState & 4`、`areaId` == 所属城、地形 `canBuild`、**不压在道路上**
+- [ ] 内政格离城 3~16 格、顶点与所属城同高、`InteriorCellCount > 0`
+- [ ] 从任意城市格 BFS，可达格数 == 可行走格总数（无孤岛）
+- [ ] 相邻可通行格超 `--max-step` 的边占比 < 1%
+- [ ] 新增地形在 `TerrainTypes.json` / `TerrainIds.cs` / `BaseMapGenerator.BuildTerrainColor()` / `sango_basemap.TC` 四处一致
+
+## 九、Python 转换管线（Koei 311 世界图 → Sango `.bin`）
+
+引擎自带的生成器之外，另有一条**离线 Python 管线**。当前世界图（1800×1000 格 / 7201×4001 顶点 / 500 城）
+就是用它产出的。运行顺序（各步可单独重跑，均就地写回 `data/sango_full/`）：
+
+| # | 脚本 | 作用 |
+|---|---|---|
+| 1 | `sango_convert.py --ds 1` | 世界图原始数组 → terrain / vheight / vtex / vwater + cities.json |
+| 2 | `sango_fix_roads.py --fix` | 相邻城市不通则切最省路径（跨川→渡所、跨崖→栈道） |
+| 3 | `sango_sea_zones.py` | 海域分档（近海9 可走；远海21 / 深海22 不可走）+ 孤岛桥接/封锁 |
+| 4 | `sango_map_fixes.py` | 城市 7 格平整化+陆地化、内政地生成、可通行格高度平滑 |
+| 5 | `sango_basemap.py --mode gamut --shade 0.85` | 四季底图 |
+| 6 | `sango_build_bin.py` | 写 `Map/<name>.bin`（自己写 mapGrid+mapData 段，尾部段抄 DefaultMap 并置空模型/标注） |
+
+顺序要点：3 必须在 4 之前（内政候选要避开远海/深海）；4 必须在 5、6 之前；2 应排在 3 之前。
+两个脚本都支持 `--report`（只体检不写盘），调参时先用它。
+
+**三条引擎里查不出来、最容易踩的硬事实：**
+
+1. **地格只在地图 `.bin` 里，不在剧本里。** 链路是
+   `剧本.Info.mapType → Map/<name>.bin 的 mapGrid → CellSet.SetTerrainTypeAndState()
+    → City.areaCellList → City.OnScenarioPrepare() → interiorCellList / defenceCellList`。
+   剧本 JSON 只有 `citySet / corpsSet / forceSet / personSet` → 改地格不必重生成剧本。
+2. **内政地要同时满足两件事才生效**：`terrainState` 置位 **4**
+   （`1 << GridState.Interior`，注意 `GridState.Interior = 2`）**且** `areaId` 等于那座城的 id。
+   只写第一条 → 城市建筑槽位仍然是 0。
+3. **面积分配不能让不可行走地形当墙、也不能截断搜索距离**，否则大片可行走格 areaId = 0。
+   引擎 `Map.cs` 里正好有一句被注释掉的诊断 `地格: areaId 可以行走,但是所属城市找不到!!`，
+   **验收标准就是让这个条件计数为 0**。海/河/浅滩 `moveable=true` 也必须分配；
+   领地种子要包含港(18)/关所(19)（各占 1 格并拥有自己的 areaId）。
+
+**两条数值口径（实测标定，直接照用）：**
+
+- **DefaultMap(256×256 中国区) → 世界图**：`world_cell = DefaultMap_cell - 28 + china_lo/china_hi`
+  （`-28` 是 311 可玩区偏移；`china_lo/hi` 见 `data/world/world_info.json`），
+  用 42 座三国城标定，误差 **0.29 格**。
+- **DefaultMap 的实测形态**：都市(17) = **7 格**六边形块、港(18)/关所(19) 各 **1 格**、
+  内政格 **591 个**（每城 2~22、中位 12、离城 2~16 格、100% 土(2)）。
+  城市占地与内政地的目标形态都以它为准。
+
+分段字节格式、运行时地格数据流、坐标换算、算法细节、验证方法与完整陷阱清单见
+`references/python-pipeline.md`。
+
+## 十、参考文件
 
 - `references/map-data-facts.md`：地图文件格式、尺寸换算、高度/图层/四季/底图的**实测数据**与推导过程
 - `references/api-reference.md`：`MapApi` 全部 op、参数 schema、返回格式，以及 MCP 工具说明
+- `references/python-pipeline.md`：Python 转换管线的运行顺序、`.bin` 分段字节格式、运行时地格数据流、
+  areaId/内政地规则、坐标换算、海域分档与孤岛、顶点高度平滑、顶点数据 4 字节化、验证方法

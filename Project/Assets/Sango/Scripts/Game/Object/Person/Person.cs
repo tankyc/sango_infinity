@@ -1058,8 +1058,10 @@ namespace Sango.Core
                 return;
 
             Sango.Log.Error($"[{Id}]{Name}归属force:{BelongForce?.Name} corps:{BelongCorps?.Name}, 但在city[{BelongCity?.Name}] force:{BelongCity.BelongForce?.Name} corps:{BelongCity.BelongCorps?.Name}");
-            //BelongForce = BelongCity.BelongForce;
-            //BelongCorps = BelongCity.BelongCorps;
+            // 【修复】放开自动修正：读档 / 运行期发现归属与所属城不一致时以城为准校正，
+            // 避免脏数据随随机移动 / 登庸 / 内政链路继续传播（原先只报错不修）。
+            BelongForce = BelongCity.BelongForce;
+            BelongCorps = BelongCity.BelongCorps;
         }
 
         public override void OnScenarioSave(Scenario scenario)
@@ -1606,18 +1608,36 @@ namespace Sango.Core
                     else
                         CurrentCity.invisiblePersons.Remove(this);
 
+                    // 【修复】改归属前先从旧所属城的在野名单摘除。
+                    // 旧所属城可能不同于所在城（例如城池陷落后人员未迁移），
+                    // 直接 BelongCity = 新城 会给旧城 wildPersons 留下脏引用（双城挂名），
+                    // 之后旧城的搜索 / 登庸仍可能挑到此人。
+                    // （不可见武将不在 wildPersons 名单里，RemoveWildPerson 对其是无害的空移除。）
+                    BelongCity?.RemoveWildPerson(this);
+
                     //如果在港关,移动到所属城市
                     if (!CurrentCity.IsCity())
                     {
+                        City lastCity = CurrentCity;
                         City targetCity = CurrentCity.BelongCity;
-                        CurrentCity.RemoveWildPerson(this);
+                        if (targetCity == null)
+                        {
+                            // 港关没有隶属主城(异常数据):留在原地,只重置停留计数避免反复触发
+                            Sango.Log.Error($"@人才@在野武将{Name}所在的港关{lastCity.Name}没有隶属主城,无法移动");
+                            stayTurnCount = 0;
+                            if (IsWild)
+                                CurrentCity.wildPersons.Add(this);
+                            else
+                                CurrentCity.invisiblePersons.Add(this);
+                            return base.OnTurnEnd(scenario);
+                        }
                         // 移动到新城市
                         ChangeCurrentCity(targetCity);
                         BelongCity = targetCity;
 
                         // 重置停留时间
                         stayTurnCount = 0;
-                        Sango.Log.Info($"@人才@在野武将{Name}从{BelongCity.Name}移动到{targetCity.Name}");
+                        Sango.Log.Info($"@人才@在野武将{Name}从{lastCity.Name}移动到{targetCity.Name}");
                     }
                     else
                     {
@@ -2047,6 +2067,13 @@ namespace Sango.Core
             CurrentCityId = city.Id;
             CurrentCity = city;
             state = (int)PersonStateType.Unemployed;
+
+            // 【修复】在野武将不允许残留势力/军团（与 LeaveToWild、ChangeBelongCity 在野分支同一约定）。
+            // 事件数据可能给未登场武将配置了势力，或旧存档残留势力；
+            // 只清状态不清势力会产生"在野却有势力"的脏数据，
+            // 后续随随机移动 / 登庸链路传播归属不一致。
+            BelongCorps = null;
+            BelongForce = null;
 
             // 挂到城市的在野名单上（与 LeaveToWild 同一约定）
             if (city.wildPersons != null && !city.wildPersons.Contains(this))

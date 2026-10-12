@@ -135,6 +135,7 @@ namespace Sango.Core
         public string Name;
         public float GridSize;
         HexWorld HexWorld;
+        public string WorkContent;
 
         public static List<ShortMap> all_map_info_list = new List<ShortMap>();
 
@@ -157,7 +158,7 @@ namespace Sango.Core
                 {
                     return;
                 }
-                reader.ReadString();
+                WorkContent = reader.ReadString();
                 int mapWidth = reader.ReadInt32();
                 int mapHeight = reader.ReadInt32();
                 int grid_size = reader.ReadInt32();

@@ -244,9 +244,11 @@ terrainStats
 | 接口 | 说明 |
 |---|---|
 | `MapRender.Instance.NewMap(w,h)` | 新建（会创建渲染对象；内部 `Init()` 会把 `WorkContent` 重置为 `"Default"`，需在其后重新赋值） |
-| `MapRender.Instance.SaveMap(path)` / `LoadMap(path)` | 读写 `.bin`（格式权威，禁止手写字节） |
-| `MapGrid.SetTerrainType(x,y,id)` / `GetGridData(x,y)` | 地格地形读写（`terrainState` / `areaId` 直接改返回对象的字段） |
-| `MapData.vertexDatas[vx][vy]` | 顶点 `height` / `textureIndex` / `water` / `position` / `normal` |
+| `MapRender.Instance.SaveMap(path)` / `LoadMap(path)` | 读写 `.bin`。也可以按 `references/python-pipeline.md` 记录的分段格式**在 Python 里手写**（当前世界图就是这么产出的） |
+| `MapGrid.SetTerrainType(x,y,id)` / `GetGridData(x,y)` | 地格地形读写（`terrainState` / `areaId` 直接改返回对象的字段；`GetGridData` 返回的是内部对象引用，不是副本） |
+| `MapData.vertexDatas[vx][vy]` | 顶点 `height` / `textureIndex` / `water`。**`VertexData` 已是 4 字节 struct，`position`/`uv`/`normal` 不再存储**，改由下面几个入口现算 |
+| `MapData.VertexPosition / VertexUV / VertexWaterPosition / VertexNormal` | 由 `(height, water, vx, vy)` 现算派生量（与从 `.bin` 加载时同一套算法） |
+| `MapData.SetVertexHeight / SetVertexTextureIndex / SetVertexWater` | 改顶点的写接口（`GetVertexData()` 返回的是 struct 副本，改它无效） |
 | `MapTerrain.Rebuild()` | 高度改变后重建地表网格 |
 | `MapLayer.layerDatas` / `LayerData.AutoLoadDiffuse()` | 图层与四季贴图 |
 | `MapBaseColor.texture[4]` / `UpdateRender()` | 四季底图 |
