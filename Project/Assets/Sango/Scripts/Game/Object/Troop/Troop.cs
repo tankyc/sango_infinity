@@ -3275,7 +3275,8 @@ namespace Sango.Core
             // 才就近移出城头。正常行军的任务（攻击 / 占领 / 移动 / 返城等）在 DoAI 内
             // 已离开城头，这里不会触发；只有"任务结束却仍赖在城头"的异常部队
             // （如 TroopStay 待命、任务改写后停摆）才被移出，不再拦截部队首回合的正常行军。
-            if (IsAlive && TroopAIUtility.IsOnBuildingCell(this))
+            // 仅对非玩家控制的部队生效：受玩家控制的部队（含委任 / 第一军团）由玩家自行决策。
+            if (IsAlive && !IsPlayerControl && TroopAIUtility.IsOnBuildingCell(this))
             {
                 // 出城移动动画未播完：标记续跑，下一帧继续出城而不重跑任务
                 if (!TroopAIUtility.TryLeaveBuildingCell(this, scenario))
