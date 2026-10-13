@@ -185,24 +185,41 @@ def exemplar_fill(img, mask_big, block_cells, px, py, radius_cells, log, block_m
 # --------------------------------------------------------------------------- #
 # 城市底座
 # --------------------------------------------------------------------------- #
-def stamp_pedestals(img, cities, px, py, cells_by_type, color, feather, px_size=0):
+def stamp_pedestals(img, cities, px, py, cells_by_type, color, feather, px_size=0,
+                    shape_by_type=None, ring_px=4):
     """盖据点底座。
 
-    px_size > 0 时改为**像素**为单位画一个 px_size×px_size 的实心方块（居中），
-    不带柔化光晕、也不做羽化 —— 单像素被高斯一糊就没了。
+    形状按据点类型选（--shape-by-type，1城 2关 3港）：
+        "px"   画 px_size×px_size 的实心方块（px_size=1 就是单个像素），无光晕、不羽化
+        "ring" 画一圈 1 像素粗的黑框（边长 ring_px 像素，居中于该格）—— 城池用
+        "cells"沿用原来的按格边长 + 柔化光晕（旧行为，保留备用）
+    像素坐标要注意：本图格是「错位砖块」布局，格 (x,y) 的顶点行范围是
+        [4y + (x&1)*2, +4)  ——  奇数 x 的格在纵向偏移半格，取格中心必须带上这一项。
     """
     im = img.convert("RGBA")
     layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
     dr = ImageDraw.Draw(layer)
     core = (color + (255,)) if color else (0, 0, 0, 255)
     soft = (color + (80,)) if color else (0, 0, 0, 80)
+    shape_by_type = shape_by_type or {}
     for name, x, y, bt in cities:
-        if px_size > 0:
+        shape = shape_by_type.get(bt, "px" if px_size > 0 else "cells")
+        if shape in ("px", "ring"):
             cx = int((x + 0.5) * px)
-            cy = int((y + 0.5) * py)
-            h0 = (px_size - 1) // 2
-            dr.rectangle([cx - h0, cy - h0, cx - h0 + px_size - 1, cy - h0 + px_size - 1],
-                         fill=core)
+            cy = int((y + (x & 1) * 0.5 + 0.5) * py)
+            if shape == "px":
+                h0 = (px_size - 1) // 2
+                dr.rectangle([cx - h0, cy - h0, cx - h0 + px_size - 1, cy - h0 + px_size - 1],
+                             fill=core)
+            else:
+                side = max(3, ring_px)
+                h0 = side // 2
+                x0, y0 = cx - h0, cy - h0
+                x1, y1 = x0 + side - 1, y0 + side - 1
+                dr.line([(x0, y0), (x1, y0)], fill=core)          # 上
+                dr.line([(x0, y1), (x1, y1)], fill=core)          # 下
+                dr.line([(x0, y0), (x0, y1)], fill=core)          # 左
+                dr.line([(x1, y0), (x1, y1)], fill=core)          # 右
             continue
         cells = cells_by_type.get(bt, cells_by_type.get(0, 1.6))
         half = cells / 2.0
@@ -245,6 +262,11 @@ def main():
     ap.add_argument("--pedestal-px", type=int, default=0,
                     help=">0 时底座按**像素**画实心方块（如 1 = 单个像素，无光晕无羽化），"
                          "忽略 --pedestal-cells/--pedestal-feather")
+    ap.add_argument("--shape-by-type", default="1:ring,2:px,3:px",
+                    help="按据点类型选形状：1城 2关 3港。ring=一圈 1 像素黑框；px=实心方块；"
+                         "cells=旧行为(按格边长+柔化)")
+    ap.add_argument("--pedestal-ring-px", type=int, default=4,
+                    help="ring 形状的框边长（像素）；2048 底图为 4 像素/格，取 4 正好是该格一圈")
     ap.add_argument("--site-types", default="1,2,3", help="1=城 2=关 3=港")
     ap.add_argument("--analyze", action="store_true")
     ap.add_argument("--apply", action="store_true")
@@ -348,12 +370,18 @@ def main():
                         k, v = kv.split(":")
                         cells_by_type[int(k)] = float(v)
             if args.apply:
+                sbt = {}
+                for kv in str(args.shape_by_type).split(","):
+                    if ":" in kv:
+                        k, v = kv.split(":")
+                        sbt[int(k)] = v.strip()
                 img2 = stamp_pedestals(img2, cities, px, py, cells_by_type,
-                                       col, args.pedestal_feather, args.pedestal_px)
+                                       col, args.pedestal_feather, args.pedestal_px,
+                                       sbt, args.pedestal_ring_px)
                 from collections import Counter as _C
-                size_desc = (f"{args.pedestal_px}x{args.pedestal_px} 像素" if args.pedestal_px > 0
-                             else f"按类型边长 { {k: v for k, v in sorted(cells_by_type.items()) if k} } 格")
-                log(f"    据点底座 {len(cities)} 个  {size_desc}"
+                desc = "  ".join(f"{k}:{v}" for k, v in sorted(sbt.items()))
+                log(f"    据点底座 {len(cities)} 个  形状 {desc}"
+                    f"（px={args.pedestal_px} 像素，ring={args.pedestal_ring_px} 像素）"
                     f"  实际分布 {_C(bt for *_, bt in cities)}")
             else:
                 log(f"    [分析模式] 将盖底座 {len(cities)} 个（边长 {args.pedestal_cells} 格）")
