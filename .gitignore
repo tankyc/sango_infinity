@@ -162,3 +162,4 @@ Tools/**/__pycache__/
 #   第 103 行的 `*.py` 会把 Tools 下所有 Python 工具一起挡掉，与上面
 #   「Tools 源码纳入版本控制」的意图冲突；这里对本目录解除屏蔽。
 !Tools/**/*.py
+/Build/Mods111
