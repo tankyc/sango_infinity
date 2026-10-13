@@ -1,23 +1,24 @@
 # -*- coding: utf-8 -*-
-"""sango_basemap_waterfix.py —— 按地形的「水域 / 非水域」修正底图。
+"""sango_basemap_waterfix.py —— 按地形的「水域 / 非水域」修正底图（v2）。
 
-真值取地形：水域 id 默认 7(川) 8(河) 9(海) 21(远海) 22(深海)。
-美术的水/陆由水体度 B-R 阈值化判定，阈值用地形标定（两类均值中点）。
+v1 的问题（用户反馈）：用「就近克隆像素」补，会在地图上抹出奇奇怪怪的色块。
+v2 改成两条干净的规则：
 
-修正方式（不重新生成、不做任意位移搜索）：
-  确信水域 = 美术判水 ∧ 地形判水；确信陆地 = 美术判陆 ∧ 地形判陆。
-  对每个判错像素，按「到最近的**同类确信**像素」的位移去取材：
-    - 该是水却看着像陆 -> 取最近确信水域的像素
-    - 该是陆却看着像水 -> 取最近确信陆地的像素
-  位移场只在判错区域内有效（区域内局部平均），因此纹理来自同一片邻近区域，
-  手绘质感与地域色都跟着过来。最后按判错掩膜羽化混合，未判错处一律不动。
+  1) 水域：地形判为水的格，**统一成一种颜色**（取美术自身在水域处的颜色中位），
+     可选叠加一层艺术智能体生成的水面材质（默认不叠，保证"统一颜色"）。
+  2) 陆地：地形判为陆、但美术颜色偏蓝（看着像水）的格，用**确信陆地的平滑场**填充 ——
+     平滑场 = 以确信陆地为权重的归一化箱式均值（大半径），因此是连续过渡，
+     不会出现斑块或怪色。
+  3) **外圈保护**：最外 N 格（默认 4 格）一律不动，任何替换都不做。
+  4) 只在上述两类掩膜内改动，边缘做羽化。
 
-注意：不要用「分块一致性最优位移」——块内若同质（整块水/整块陆），
-该度量退化，会得到 (±8,±8) 这类边界解（实测已复现），结果不可用。
+"偏蓝"判据：水体度 B-R 的阈值取「地形水/地形陆 两类均值中点」，用地形标定。
 
 用法：
     python sango_basemap_waterfix.py --bin <bin> --tex-dir <BaseTex> --analyze
     python sango_basemap_waterfix.py ... --apply
+    # 叠加 AI 水面材质（不保证统一色，仅供对比）
+    python sango_basemap_waterfix.py ... --texture <png> --texture-alpha 0.15 --apply
 """
 import argparse
 import sys
@@ -43,21 +44,29 @@ def main():
     ap.add_argument("--tex-dir", required=True)
     ap.add_argument("--water-ids", default="7,8,9,21,22")
     ap.add_argument("--seasons", default="0,1,2,3")
-    ap.add_argument("--min-region", type=int, default=40, help="连通域小于此像素数视为噪声")
-    ap.add_argument("--min-thick", type=float, default=4.0,
-                    help="只修厚度不小于该值（格）的错位区；细河网等艺术笔触不动。0=关闭")
-    ap.add_argument("--smooth", type=int, default=9, help="位移场局部平均窗口（像素）")
-    ap.add_argument("--blend", type=float, default=1.2, help="羽化半径（格）")
+    ap.add_argument("--border", type=int, default=4, help="外圈保护宽度（格），一律不动")
+    ap.add_argument("--water-color", default=None, help="如 131,145,173；默认取美术自身水色")
+    ap.add_argument("--texture", default=None, help="可选：水面材质 png（会按尺寸铺贴）")
+    ap.add_argument("--texture-alpha", type=float, default=0.0,
+                    help="材质叠加强度，0 = 纯统一色（默认）")
+    ap.add_argument("--land-smooth", type=int, default=16, help="陆地平滑场半径（格）")
+    ap.add_argument("--blend", type=float, default=0.7, help="掩膜边缘羽化（格）")
+    ap.add_argument("--preview-alpha", type=float, default=0.15,
+                    help="额外输出一版叠材质的效果供对比")
     ap.add_argument("--analyze", action="store_true")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
 
+    if ndimage is None:
+        print("[错误] 需要 scipy")
+        return
+
     d = parse_bin(str(args.bin_path))
     cx, cy = d["cellsX"], d["cellsY"]
-    terr = d["gridRaw"][..., 0].astype(np.int32).T                 # [y, x]
-    water_cells = np.isin(terr, [int(x) for x in args.water_ids.split(",") if x.strip()])
+    terr = d["gridRaw"][..., 0].astype(np.int32).T
+    Wcell = np.isin(terr, [int(x) for x in args.water_ids.split(",") if x.strip()])
     tex = Path(args.tex_dir)
-
+    border_cells = max(0, args.border)
     logs = []
 
     def log(s=""):
@@ -65,8 +74,13 @@ def main():
         logs.append(s)
 
     log("=" * 78)
-    log(f"按水/非水修正底图: {Path(args.bin_path).name}  格 {cx}x{cy}  水域 id {args.water_ids}"
-        f"  地形水域占比 {water_cells.mean():.3f}")
+    log(f"水/非水修正 v2: {Path(args.bin_path).name}  格 {cx}x{cy}  水域 id {args.water_ids}")
+    log(f"  外圈保护 {border_cells} 格（不动）   陆地平滑半径 {args.land_smooth} 格"
+        f"   材质叠加 {args.texture_alpha}")
+
+    teximg = None
+    if args.texture and args.texture_alpha > 0:
+        teximg = Image.open(args.texture).convert("RGB")
 
     want = {int(x) for x in str(args.seasons).split(",") if x.strip()}
     for si, season in enumerate(SEASONS):
@@ -79,117 +93,103 @@ def main():
         img = Image.open(p).convert("RGB")
         W, H = img.size
         a = np.asarray(img, np.float32)
+        Wm = np.asarray(Image.fromarray((Wcell.astype(np.uint8) * 255), "L")
+                        .resize((W, H), Image.Resampling.NEAREST), np.uint8) > 127
+        # 外圈保护掩膜（图像分辨率）
+        bpx = int(round(border_cells * min(W / cx, H / cy)))
+        prot = np.zeros((H, W), bool)
+        if bpx > 0:
+            prot[:bpx] = prot[-bpx:] = True
+            prot[:, :bpx] = prot[:, -bpx:] = True
         wn = a[..., 2] - a[..., 0]
-        terW = np.asarray(Image.fromarray((water_cells.astype(np.uint8) * 255), "L")
-                          .resize((W, H), Image.Resampling.NEAREST),
-                          np.uint8) > 127
-        thr = float((wn[terW].mean() + wn[~terW].mean()) / 2.0)
-        artW = wn > thr
-        mis = artW != terW
+        thr = float((wn[Wm].mean() + wn[~Wm].mean()) / 2.0)
+        blueish = wn > thr
+
+        # 水色：美术在「地形水 ∧ 偏蓝」处的中位色；不足则退化为「地形水」处中位色
+        sel = Wm & blueish
+        if sel.sum() < 500:
+            sel = Wm
+        if args.water_color:
+            wcol = np.array([int(x) for x in args.water_color.split(",")], np.float32)
+        else:
+            wcol = np.median(a[sel], 0)
+        conf_w = Wm & blueish
+        conf_l = (~Wm) & (~blueish)
         log(f"\n  BaseMap{si} ({season}) {W}x{H}  {W / cx:.3f}x{H / cy:.3f} 像素/格")
-        log(f"    阈值 {thr:+.1f}   美术判水 {artW.mean():.3f}  地形水域 {terW.mean():.3f}"
-            f"   判错 {mis.mean():.4f}")
+        log(f"    偏蓝阈值 {thr:+.1f}   地形水域 {Wm.mean():.3f}   美术偏蓝 {blueish.mean():.3f}")
+        log(f"    水色(取美术自身) {tuple(wcol.round(0).astype(int))}"
+            f"   水域内原色标准差 {a[Wm].std(0).round(1)}")
+        log(f"    确信水 {int(conf_w.sum())} px   确信陆 {int(conf_l.sum())} px")
 
-        if ndimage is None:
-            log("    [错误] 需要 scipy.ndimage")
-            return
-        # 清理：闭运算 + 去过小连通域（按像素尺度）
-        m = ndimage.binary_closing(mis, iterations=1)
-        lab, n = ndimage.label(m)
-        if n:
-            sizes = np.bincount(lab.ravel())
-            keep = [i for i in range(1, n + 1) if sizes[i] >= args.min_region]
-            m = np.isin(lab, keep) if keep else np.zeros_like(m)
-        mis = m
-        # 只修「够厚」的错位区：细河网/谷地是作者的艺术笔触，宽 1~3 格，一律不动。
-        # 做法：腐蚀掉 T 格宽以内的部分，剩下的才算真错位，再膨胀回去并交回原掩膜。
-        if args.min_thick > 0:
-            kpx = max(1, int(round(args.min_thick * min(W / cx, H / cy))))
-            core = ndimage.binary_erosion(mis, iterations=kpx)
-            if core.any():
-                mis = ndimage.binary_dilation(core, iterations=kpx) & mis
-            else:
-                mis = np.zeros_like(mis)
-            log(f"    只保留厚度 >= {args.min_thick} 格的错位区（腐蚀 {kpx} 像素）"
-                f" -> {int(mis.sum())} 像素")
-        need_w = mis & terW            # 该是水、看着像陆
-        need_l = mis & ~terW           # 该是陆、看着像水
-        conf_w = artW & terW           # 确信水
-        conf_l = (~artW) & (~terW)     # 确信陆
-        log(f"    清理后判错 {int(mis.sum())} 像素（该变水 {int(need_w.sum())}"
-            f"  该变陆 {int(need_l.sum())}）")
-        log(f"    确信源: 水 {int(conf_w.sum())}  陆 {int(conf_l.sum())}")
-        if not mis.any() or not conf_w.any() or not conf_l.any():
-            log("    （无需修正或确信源不足，跳过）")
-            continue
+        # 陆地平滑场：以确信陆地为权重的归一化箱式均值
+        R = max(1, int(round(args.land_smooth * min(W / cx, H / cy))))
+        nf = conf_l.astype(np.float32)
+        den = ndimage.uniform_filter(nf, R)
+        field = np.zeros_like(a)
+        for c in range(3):
+            field[..., c] = ndimage.uniform_filter(a[..., c] * nf, R) / np.maximum(den, 1e-6)
 
-        YY, XX = np.mgrid[0:H, 0:W]
-        moved = a.copy()
-        used = np.zeros((H, W), bool)
-        stats = {}
-        for name, need, src in (("水", need_w, conf_w), ("陆", need_l, conf_l)):
-            if not need.any():
-                continue
-            _, idx = ndimage.distance_transform_edt(~src, return_indices=True)
-            dy = (idx[0] - YY).astype(np.float32)
-            dx = (idx[1] - XX).astype(np.float32)
-            md = np.hypot(dy, dx)
-            stats[name] = (int(need.sum()), float(md[need].min()), float(np.median(md[need])),
-                           float(md[need].max()))
-            # 位移场只在该类判错区域内有效，区域内局部平均
-            nf = need.astype(np.float32)
-            k = args.smooth
-            if k > 1:
-                num_y = ndimage.uniform_filter(dy * nf, k)
-                num_x = ndimage.uniform_filter(dx * nf, k)
-                den = ndimage.uniform_filter(nf, k)
-                dy = np.where(den > 1e-6, num_y / np.maximum(den, 1e-6), 0)
-                dx = np.where(den > 1e-6, num_x / np.maximum(den, 1e-6), 0)
-            sy = np.clip((YY + dy).round().astype(np.int32), 0, H - 1)
-            sx = np.clip((XX + dx).round().astype(np.int32), 0, W - 1)
-            moved[need] = a[sy[need], sx[need]]
-            used |= need
-        for name, (cnt, mn, med, mx) in stats.items():
-            log(f"    变{name}: {cnt} 像素  到最近确信源的位移(像素) 最小 {mn:.1f}"
-                f" 中位 {med:.1f} 最大 {mx:.1f}  = {med / min(W / cx, H / cy):.2f} 格")
+        # 目标图
+        new = a.copy()
+        # 1) 水域统一色（可叠材质）
+        if teximg is not None and args.texture_alpha > 0:
+            t = np.asarray(teximg.resize((W, H), Image.Resampling.LANCZOS), np.float32)
+            al = args.texture_alpha
+            new[Wm] = wcol * (1 - al) + t[Wm] * al
+        else:
+            new[Wm] = wcol
+        # 2) 陆地上偏蓝的（看着像水）-> 平滑陆色
+        needL = (~Wm) & blueish
+        new[needL] = field[needL]
 
-        w = np.asarray(Image.fromarray((used * 255).astype(np.uint8), "L")
+        # 3) 掩膜 + 羽化 + 外圈保护
+        chg = (Wm | needL) & ~prot
+        w = np.asarray(Image.fromarray((chg * 255).astype(np.uint8), "L")
                        .filter(ImageFilter.GaussianBlur(args.blend * min(W / cx, H / cy))),
                        np.float32) / 255.0
-        out = a * (1 - w[..., None]) + moved * w[..., None]
+        out = a * (1 - w[..., None]) + new * w[..., None]
+        out[prot] = a[prot]                      # 外圈绝对不动
+        out = np.clip(out, 0, 255)
+        log(f"    改动: 水域填充 {int((Wm & ~prot).sum())} px   陆地去水 {int((needL & ~prot).sum())}"
+            f" px   外圈保护 {int(prot.sum())} px（未动）")
+        log(f"    水域内颜色标准差: 原 {a[Wm].std(0).round(1)} -> 新 {out[Wm].std(0).round(1)}"
+            f"   （越接近 0 越「统一颜色」）")
 
-        # 效果评估：修正后（按位移取材）与地形的判水一致性
-        outW = (out[..., 2] - out[..., 0]) > thr
-        log(f"    一致性（美术判水 vs 地形水域）: 修正前 {float((artW == terW).mean()):.4f}"
-            f" -> 修正后 {float((outW == terW).mean()):.4f}")
-
-        prev = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+        res = Image.fromarray(out.astype(np.uint8))
         if args.apply:
             bak = tex / f"BaseMap{si}.png.bak_before_waterfix"
             if not bak.exists():
                 bak.write_bytes(p.read_bytes())
-            prev.save(p, "PNG", optimize=True)
+            res.save(p, "PNG", optimize=True)
             log(f"    已写出 {p.name}  {p.stat().st_size / 1024:.0f} KB（备份 {bak.name}）")
-        # 预览（并排 + 判错掩膜），缩到可看大小
+        # 预览：原 | 修正 | 掩膜；另出叠材质版
         k = min(1.0, 1400.0 / max(W, H))
         sw, sh = int(W * k), int(H * k)
-        mm = (np.stack([used * 255] * 3, -1)).astype(np.uint8)
+        mm = (np.stack([(chg * 255).astype(np.uint8)] * 3, -1))
         sheet = Image.new("RGB", (sw * 3 + 16, sh), (20, 20, 24))
         sheet.paste(img.resize((sw, sh), Image.Resampling.LANCZOS), (0, 0))
-        sheet.paste(prev.resize((sw, sh), Image.Resampling.LANCZOS), (sw + 8, 0))
+        sheet.paste(res.resize((sw, sh), Image.Resampling.LANCZOS), (sw + 8, 0))
         sheet.paste(Image.fromarray(mm).resize((sw, sh), Image.Resampling.NEAREST), (sw * 2 + 16, 0))
-        o = Path(rf"D:\sango_infinity\Temp\waterfix_{si}_{season}.png")
-        sheet.save(o)
-        sheet.convert("RGB").resize((760, max(1, int(sh * 760 / (sw * 3 + 16)))),
+        sheet.save(Path(rf"D:\sango_infinity\Temp\waterfix2_{si}_{season}.png"))
+        sheet.convert("RGB").resize((820, max(1, int(sh * 820 / (sw * 3 + 16)))),
                                     Image.Resampling.LANCZOS).save(
-            Path(rf"D:\sango_infinity\Temp\waterfix_{si}_{season}_small.jpg"), quality=80)
-        log(f"    预览 {o}")
+            Path(rf"D:\sango_infinity\Temp\waterfix2_{si}_{season}_small.jpg"), quality=82)
+        if teximg is not None and args.preview_alpha > 0 and args.texture_alpha == 0:
+            pv = a.copy()
+            t = np.asarray(teximg.resize((W, H), Image.Resampling.LANCZOS), np.float32)
+            pv[Wm] = wcol * (1 - args.preview_alpha) + t[Wm] * args.preview_alpha
+            pv[needL] = field[needL]
+            Image.fromarray(np.clip(pv, 0, 255).astype(np.uint8)).resize(
+                (sw, sh), Image.Resampling.LANCZOS).convert("RGB").save(
+                Path(rf"D:\sango_infinity\Temp\waterfix2_{si}_{season}_tex_small.jpg"), quality=82)
+            log(f"    另出叠材质预览 waterfix2_{si}_{season}_tex_small.jpg")
+        log(f"    预览 waterfix2_{si}_{season}_small.jpg")
 
     if not args.apply:
-        log("\n（分析模式，未写盘。确认后用 --apply 执行。）")
+        log("\n（分析模式，未写盘）")
     else:
         log("\n完成。")
-    Path(r"D:\sango_infinity\Temp\waterfix_log.txt").write_text("\n".join(logs), encoding="utf-8")
+    Path(r"D:\sango_infinity\Temp\waterfix2_log.txt").write_text("\n".join(logs), encoding="utf-8")
 
 
 if __name__ == "__main__":
