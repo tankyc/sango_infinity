@@ -57,7 +57,7 @@ out.resize((900, 900), Image.Resampling.LANCZOS).save(
 crops = []
 fc = next(((x, y) for x, y in cells if tt[x, y] == 6), (236, 205))
 mc = Counter((x // 32, y // 32) for x, y in cells if tt[x, y] == 16).most_common(1)
-mx, my = (mc[0][0] * 32 + 16, mc[0][1] * 32 + 16) if mc else (256, 256)
+mx, my = (mc[0][0][0] * 32 + 16, mc[0][0][1] * 32 + 16) if mc else (256, 256)
 for cxy, tag in ((fc, "森林(6) 一带"), ((mx, my), "山地(16) 最密块")):
     x0, y0 = cxy
     box = (int((x0 - 40) * px), int((y0 - 40) * py), int((x0 + 40) * px), int((y0 + 40) * py))
