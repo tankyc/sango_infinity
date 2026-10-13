@@ -772,13 +772,27 @@ namespace Sango.Core
             if (Map != null && Map.CellSet != null)
                 return;
 
+            // 同步加载流程：依次执行三个阶段。
+            // 分帧加载流程（见 StartScenarioRoutine）会逐阶段调用并在阶段之间让出一帧。
+            LoadCommonDataStage();
+            LoadScenarioDataStage();
+            LoadMapDataStage();
+        }
+
+        /// <summary>
+        /// 加载阶段1：解析通用数据。
+        /// 解析 Data/Common 下全部 JSON（含 CustomEdit 与 Mod 目录）并实例化整个武将库。
+        /// </summary>
+        public void LoadCommonDataStage()
+        {
+            // 由此来判断是否加载过base了（与 LoadBaseContent 的既有逻辑保持一致）
+            if (Map != null && Map.CellSet != null)
+                return;
+
             CommonData = GameData.Instance.LoadNewCommonData();
 
             if (!Info.isSave)
             {
-                //if (CommonData == null)
-                //    CommonData = GameData.Instance.LoadNewCommonData();
-
                 if (Variables == null)
                     Variables = new ScenarioVariables();
 
@@ -793,6 +807,17 @@ namespace Sango.Core
                     personSet.Add(Person.FormLib(personLib));
                 });
             }
+        }
+
+        /// <summary>
+        /// 加载阶段2：解析剧本本体 JSON。
+        /// 用流式 JsonTextReader 就地填充整个 Scenario.json。
+        /// </summary>
+        public void LoadScenarioDataStage()
+        {
+            // 由此来判断是否加载过base了（与 LoadBaseContent 的既有逻辑保持一致）
+            if (Map != null && Map.CellSet != null)
+                return;
 
             // 【性能】用流式 JsonTextReader 就地填充，避免把整份存档读成一个 string 常驻内存
             // （大地图 / 后期存档可达数十 MB，ReadAllText 会制造同量级的 LOH 分配）。
@@ -802,7 +827,22 @@ namespace Sango.Core
                 JsonSerializer.CreateDefault().Populate(jr, this);
             }
 
+            // 【重要】此处不能删除：Scenario.CommonData 带 [JsonProperty]（见本类 CommonData 定义），
+            // 剧本 JSON 里内嵌了一份（往往残缺/陈旧的）CommonData 段，
+            // 上面的 Populate 会用这份内嵌数据覆盖/清空阶段1从 Data/Common 文件解析出的完整通用数据。
+            // 因此必须再用文件数据恢复一次，否则会出现通用数据丢失
+            // （技能、特性、兵种、州郡等集合为空，直接影响开局与UI显示）。
             GameData.Instance.LoadCommonData(CommonData);
+        }
+
+        /// <summary>
+        /// 加载阶段3：读取地图二进制数据并触发剧本准备事件。
+        /// </summary>
+        public void LoadMapDataStage()
+        {
+            // 由此来判断是否加载过base了（与 LoadBaseContent 的既有逻辑保持一致）
+            if (Map != null && Map.CellSet != null)
+                return;
 
             Map.Load(this);
 
@@ -812,7 +852,18 @@ namespace Sango.Core
         public void LoadContent(string path)
         {
             LoadBaseContent();
+            InitLoadLists();
+        }
 
+        /// <summary>
+        /// 注册开局准备清单（prepareList / eventReciveList）。
+        /// 从 LoadContent 提取出来，供同步流程与分帧加载协程 StartScenarioRoutine 共用。
+        /// 【重要】必须在 Prepare()/Init() 之前调用，否则所有对象的开局准备
+        /// （引用解析、名单挂接等，见各对象 OnScenarioPrepare）都会被整体跳过，
+        /// 进游戏后会出现大量空引用（如武将 CurrentCity 未解析）。
+        /// </summary>
+        public void InitLoadLists()
+        {
             prepareList.Add(forceSet);  // 要先初始化势力科技
             prepareList.Add(citySet);   // city 在 corps之前 以city为准
             prepareList.Add(corpsSet);
@@ -831,6 +882,13 @@ namespace Sango.Core
             eventReciveList.Add(fireSet);
         }
 
+        /// <summary>
+        /// 分帧加载标记：为 true 时 OnWorldLoaded 被回调触发后直接返回，
+        /// 由分帧加载协程 StartScenarioRoutine 在下一帧显式调用 OnWorldLoaded 完成世界初始化。
+        /// 仅供 StartScenarioRoutine 使用，读档等同步流程保持原行为。
+        /// </summary>
+        internal bool deferOnWorldLoaded;
+
         public void LoadWorld()
         {
             MapRender.Instance.Init();
@@ -840,6 +898,12 @@ namespace Sango.Core
 
         public void OnWorldLoaded()
         {
+            // 分帧加载模式下：MapRender.LoadMap 结束时会同步触发 OnMapLoaded 回调，
+            // 此刻只完成了地图数据加载，世界初始化属于下一个进度阶段，
+            // 因此这里直接返回，由 StartScenarioRoutine 在让出一帧后显式调用本方法。
+            if (deferOnWorldLoaded)
+                return;
+
             GameEvent.OnWorldLoadEnd?.Invoke(this);
             this.Map.Init(this);
             GameEvent.OnScenarioPrepare?.Invoke(this);
@@ -849,6 +913,84 @@ namespace Sango.Core
             GameController.Instance.Reset();
             this.Start();
             MapRender.Instance.OnMapLoaded -= OnWorldLoaded;
+        }
+
+        /// <summary>
+        /// 分帧开局协程：与同步版 StartScenario(scenario, ShortScenario) 行为一致，
+        /// 但把加载拆成"解析通用数据 → 解析剧本数据 → 构建开局势力 → 读取地图数据 → 初始化世界"
+        /// 五个阶段，每个重阶段之间让出一帧，使 loading 界面上的进度文本能够真正渲染出来，
+        /// 玩家不再只看到一张静止的"加载中"图。
+        /// 仅用于"选择剧本 → 进入游戏"的新开局流程；读档等其余流程仍走同步的 StartScenario。
+        /// </summary>
+        /// <param name="scenario">要启动的剧本</param>
+        /// <param name="addData">自建势力/自建武将数据</param>
+        /// <returns>协程迭代器</returns>
+        public static System.Collections.IEnumerator StartScenarioRoutine(Scenario scenario, ShortScenario addData)
+        {
+            // 开局前拍一次事件基线（与同步版 StartScenario 保持一致）
+            GameEventBaseline.CaptureIfNeeded();
+
+            GameRandom.Init();
+            Cur = scenario;
+            scenario.IsAlive = false;
+            GameEvent.OnScenarioLoadStart?.Invoke(scenario);
+
+            // 分阶段计时打点：用于确认各阶段实际耗时，指导后续优化方向
+            System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            long lastElapsed = 0;
+
+            // 阶段1：解析通用数据（Data/Common 全部 JSON + 武将库实例化）
+            // 打点用 Info 级别输出（Log.Info 带 [Conditional("SANGO_DEBUG")]，正式包不输出）
+            LoadingProgress.Report("解析通用数据", 0.05f);
+            scenario.LoadCommonDataStage();
+            Sango.Log.Info(string.Format("加载阶段[解析通用数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
+            lastElapsed = stopwatch.ElapsedMilliseconds;
+            yield return null;
+
+            // 阶段2：解析剧本本体 JSON
+            LoadingProgress.Report("解析剧本数据", 0.25f);
+            scenario.LoadScenarioDataStage();
+            Sango.Log.Info(string.Format("加载阶段[解析剧本数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
+            lastElapsed = stopwatch.ElapsedMilliseconds;
+            yield return null;
+
+            // 阶段3：注册开局准备清单 + 合并自建势力/自建武将数据
+            // InitLoadLists 即同步流程中 LoadContent 的后半段（prepareList/eventReciveList 注册），
+            // 漏掉它会导致 Prepare()/Init() 遍历空清单、所有对象的 OnScenarioPrepare 被跳过，
+            // 进游戏后武将 CurrentCity 等引用未解析而大量空引用。
+            LoadingProgress.Report("构建开局势力", 0.45f);
+            scenario.InitLoadLists();
+            ApplyShortScenario(scenario, addData);
+            Sango.Log.Info(string.Format("加载阶段[构建开局势力]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
+            lastElapsed = stopwatch.ElapsedMilliseconds;
+            yield return null;
+
+            scenario.CheckPlayer();
+            GameEvent.OnScenarioLoadEnd?.Invoke(Cur);
+            GameEvent.OnWorldLoadStart?.Invoke(Cur);
+
+            // 阶段4：读取地图数据
+            // 先执行 LoadMapDataStage（即 Map.Load：读取逻辑层地图二进制，
+            // 其中会设置 Map.FileName 与 CellSet，同步流程中由 LoadBaseContent 调用），
+            // 再执行 LoadWorld 构建渲染层地图。
+            // deferOnWorldLoaded 使 LoadMap 末尾触发的 OnWorldLoaded 直接返回，
+            // 世界初始化被推迟到下一阶段单独执行
+            LoadingProgress.Report("读取地图数据", 0.55f);
+            scenario.LoadMapDataStage();
+            scenario.deferOnWorldLoaded = true;
+            scenario.LoadWorld();
+            scenario.deferOnWorldLoaded = false;
+            Sango.Log.Info(string.Format("加载阶段[读取地图数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
+            lastElapsed = stopwatch.ElapsedMilliseconds;
+            yield return null;
+
+            // 阶段5：初始化游戏世界（Map.Init → Prepare → Init → Start，含界面切换）
+            LoadingProgress.Report("初始化世界", 0.8f);
+            scenario.OnWorldLoaded();
+            Sango.Log.Info(string.Format("加载阶段[初始化世界]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
+
+            // 恢复 loading 界面默认文案，供下次加载使用
+            LoadingProgress.Reset();
         }
 
         //public override void Load(BinaryReader reader)
@@ -979,6 +1121,24 @@ namespace Sango.Core
             GameEvent.OnScenarioLoadStart?.Invoke(scenario);
             Cur.LoadContent();
 
+            // 合并自建势力/自建武将数据（与分帧加载协程共用同一实现）
+            ApplyShortScenario(scenario, addData);
+
+            Cur.CheckPlayer();
+            GameEvent.OnScenarioLoadEnd?.Invoke(Cur);
+            GameEvent.OnWorldLoadStart?.Invoke(Cur);
+            Cur.LoadWorld();
+        }
+
+        /// <summary>
+        /// 把 ShortScenario（自建势力/自建武将数据）合并进已加载的剧本。
+        /// 从 StartScenario(scenario, ShortScenario) 中提取出来，
+        /// 供同步开局流程与分帧加载协程 StartScenarioRoutine 共用。
+        /// </summary>
+        /// <param name="scenario">目标剧本（调用方需保证其已通过 LoadContent 加载完毕）</param>
+        /// <param name="addData">自建数据</param>
+        static void ApplyShortScenario(Scenario scenario, ShortScenario addData)
+        {
             //准备军团
             addData.forceSet.ForEach(force =>
             {
@@ -1095,23 +1255,6 @@ namespace Sango.Core
                     }
                 }
             });
-
-            Cur.CheckPlayer();
-            GameEvent.OnScenarioLoadEnd?.Invoke(Cur);
-            GameEvent.OnWorldLoadStart?.Invoke(Cur);
-            Cur.LoadWorld();
-            //Cur.OnWorldLoaded();
-            //Event.OnScenarioEnd?.Invoke(Cur);
-            //Cur = null;
-            //var test = new DuelTestInstance(Cur.personSet.Get(3), Cur.personSet.Get(4), seed: 12345);  // 真实武将
-            //test.OnLog = Debug.Log;
-            //test.Run();
-
-
-            //var t = new DebateTestInstance(Cur.personSet.Get(290), Cur.personSet.Get(246), seed: 12345);
-            //t.OnLog = Debug.Log;
-            //t.Run();
-
         }
 
         static void FixReletionship(ref int r, SangoObjectSet<ShortPerson> objectSet)

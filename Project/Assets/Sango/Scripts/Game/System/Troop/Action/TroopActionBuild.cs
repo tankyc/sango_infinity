@@ -63,9 +63,9 @@ namespace Sango.Core.Player
                 // 周围一格是可以建造的地块
                 Cell stayCell = ActionCell;
                 buildRangeCell.Clear();
-                for (int i = 0; i < stayCell.Neighbors.Length; i++)
+                for (int i = 0; i < 6; i++)
                 {
-                    Cell n = stayCell.Neighbors[i];
+                    Cell n = stayCell.GetNeighbor(i);
                     if (n != null)
                     {
                         if ((n.IsEmpty() && n.moveAble) || n.troop == TargetTroop)
@@ -105,9 +105,9 @@ namespace Sango.Core.Player
             targetBuildingType = buildingType;
             Window.Instance.Close("window_troop_build");
             buildRangeCell.Clear();
-            for (int i = 0; i < ActionCell.Neighbors.Length; i++)
+            for (int i = 0; i < 6; i++)
             {
-                Cell n = ActionCell.Neighbors[i];
+                Cell n = ActionCell.GetNeighbor(i);
                 if (n != null)
                 {
                     if ((n.IsEmpty() && n.moveAble) || n.troop == TargetTroop)

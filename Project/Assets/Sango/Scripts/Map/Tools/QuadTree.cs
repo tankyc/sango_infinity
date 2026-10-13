@@ -365,16 +365,16 @@ namespace Sango.Tools
         private int maxDeep;
         private QuadTree2DNode<T> root;
 
-        public QuadTree2D(Rect bound, int maxDeep = 31) //todo ¿ÉÒÔ¸Ä³É´«Ò»¸öRect
+        public QuadTree2D(Rect bound, int maxDeep = 31) //todo å¯ä»¥æ”¹æˆä¼ ä¸€ä¸ªRect
         {
             this.maxDeep = maxDeep;
             root = new QuadTree2DNode<T>(bound);
         }
-        private void _Add(QuadTree2DNode<T> node, T data, Rect rect, int deep) //·Åµ½×îÉî¿ÉÒÔÍêÈ«°üº¬RectµÄQuadTree2DNodeÀï
+        private void _Add(QuadTree2DNode<T> node, T data, Rect rect, int deep) //æ”¾åˆ°æœ€æ·±å¯ä»¥å®Œå…¨åŒ…å«Rectçš„QuadTree2DNodeé‡Œ
         {
             Rect pRect = node.bound;
             if (deep < maxDeep) {
-                //´´½¨×Ó½Úµã
+                //åˆ›å»ºå­èŠ‚ç‚¹
                 if (node.childs == null) {
                     node.childs = new QuadTree2DNode<T>[4];
                     float nwidth = pRect.width / 2;
@@ -389,23 +389,23 @@ namespace Sango.Tools
                 for (int i = 0; i < 4; i++) {
                     QuadTree2DNode<T> child = node.childs[i];
                     if (child.bound.Contains(rect)) {
-                        //±»¸Ã×Ó½ÚµãÍêÈ«¸²¸Ç£¬¾Í·Åµ½µ±Ç°½Úµã
+                        //è¢«è¯¥å­èŠ‚ç‚¹å®Œå…¨è¦†ç›–ï¼Œå°±æ”¾åˆ°å½“å‰èŠ‚ç‚¹
                         _Add(child, data, rect, deep + 1);
                         return;
                     }
                 }
             }
-            //²»ÄÜ±»ÈÎºÎÒ»¸ö×Ó½ÚµãÍêÈ«¸²¸Ç£¬¾Í·Åµ½µ±Ç°½Úµã
+            //ä¸èƒ½è¢«ä»»ä½•ä¸€ä¸ªå­èŠ‚ç‚¹å®Œå…¨è¦†ç›–ï¼Œå°±æ”¾åˆ°å½“å‰èŠ‚ç‚¹
             node.dataList.Add(data);
             node.boundList.Add(rect);
         }
 
-        private void _Remove(QuadTree2DNode<T> node, T data, Rect rect, int deep) //·Åµ½×îÉî¿ÉÒÔÍêÈ«°üº¬RectµÄQuadTree2DNodeÀï
+        private void _Remove(QuadTree2DNode<T> node, T data, Rect rect, int deep) //æ”¾åˆ°æœ€æ·±å¯ä»¥å®Œå…¨åŒ…å«Rectçš„QuadTree2DNodeé‡Œ
         {
             Rect pRect = node.bound;
             if (deep < maxDeep)
             {
-                //´´½¨×Ó½Úµã
+                //åˆ›å»ºå­èŠ‚ç‚¹
                 if (node.childs != null)
                 {
                     for (int i = 0; i < 4; i++)
@@ -413,14 +413,14 @@ namespace Sango.Tools
                         QuadTree2DNode<T> child = node.childs[i];
                         if (child.bound.Contains(rect))
                         {
-                            //±»¸Ã×Ó½ÚµãÍêÈ«¸²¸Ç£¬¾Í·Åµ½µ±Ç°½Úµã
+                            //è¢«è¯¥å­èŠ‚ç‚¹å®Œå…¨è¦†ç›–ï¼Œå°±æ”¾åˆ°å½“å‰èŠ‚ç‚¹
                             _Remove(child, data, rect, deep + 1);
                             return;
                         }
                     }
                 }
             }
-            //²»ÄÜ±»ÈÎºÎÒ»¸ö×Ó½ÚµãÍêÈ«¸²¸Ç£¬¾Í·Åµ½µ±Ç°½Úµã
+            //ä¸èƒ½è¢«ä»»ä½•ä¸€ä¸ªå­èŠ‚ç‚¹å®Œå…¨è¦†ç›–ï¼Œå°±æ”¾åˆ°å½“å‰èŠ‚ç‚¹
             int objIndex = node.dataList.IndexOf(data);
             if (objIndex >= 0)
             {
@@ -429,7 +429,7 @@ namespace Sango.Tools
             }
         }
 
-        private void _Find(QuadTree2DNode<T> node, Rect rect, List<T> list, bool accuracy) //°ÑËùÓĞºÍRectÏà½»µÄQuaTreeNodeÀïµÄT¼ÓÈëlist
+        private void _Find(QuadTree2DNode<T> node, Rect rect, List<T> list, bool accuracy) //æŠŠæ‰€æœ‰å’ŒRectç›¸äº¤çš„QuaTreeNodeé‡Œçš„TåŠ å…¥list
         {
             int dataCount = node.dataList.Count;
             if (dataCount > 0) {
@@ -447,12 +447,12 @@ namespace Sango.Tools
                 }
 
             }
-            //´´½¨×Ó½Úµã
+            //åˆ›å»ºå­èŠ‚ç‚¹
             if (node.childs == null) {
                 return;
             }
 
-            //Èç¹ûÏà½»£¬¾Í¼ÌĞøµİ¹é
+            //å¦‚æœç›¸äº¤ï¼Œå°±ç»§ç»­é€’å½’
             for (int i = 0; i < 4; i++) {
                 QuadTree2DNode<T> child = node.childs[i];
                 if (child.bound.Overlaps(rect)) {
@@ -460,7 +460,7 @@ namespace Sango.Tools
                 }
             }
         }
-        private void _Find(QuadTree2DNode<T> node, Rect rect, ref T[] list, ref int totalCount, bool accuracy) //°ÑËùÓĞºÍRectÏà½»µÄQuaTreeNodeÀïµÄT¼ÓÈëlist
+        private void _Find(QuadTree2DNode<T> node, Rect rect, ref T[] list, ref int totalCount, bool accuracy) //æŠŠæ‰€æœ‰å’ŒRectç›¸äº¤çš„QuaTreeNodeé‡Œçš„TåŠ å…¥list
         {
             int dataCount = node.dataList.Count;
             if (dataCount > 0) {
@@ -486,12 +486,12 @@ namespace Sango.Tools
                 }
 
             }
-            //´´½¨×Ó½Úµã
+            //åˆ›å»ºå­èŠ‚ç‚¹
             if (node.childs == null) {
                 return;
             }
 
-            //Èç¹ûÏà½»£¬¾Í¼ÌĞøµİ¹é
+            //å¦‚æœç›¸äº¤ï¼Œå°±ç»§ç»­é€’å½’
             for (int i = 0; i < 4; i++) {
                 QuadTree2DNode<T> child = node.childs[i];
                 if (child != null && child.bound.Overlaps(rect)) {
@@ -510,11 +510,21 @@ namespace Sango.Tools
             _Remove(root, data, rect, 1);
         }
 
-        public void Find(Rect rect, List<T> list, bool accuracy = false) //ÕÒµ½µÄ½á¹û²»´ú±íÒ»¶¨Ïà½»£¬Ö»ÊÇ¿ÉÄÜÏà½»
+        /// <summary>
+        /// ä¸€æ¬¡æ€§æ¸…ç©ºæ•´æ£µæ ‘ï¼ˆåªä¿ç•™æ ¹èŠ‚ç‚¹ï¼‰ã€‚
+        /// é€ä¸ª Remove å†…éƒ¨æ˜¯ List.IndexOfï¼Œç‰©ä»¶å¤šæ—¶ä¼šé€€åŒ–æˆå¹³æ–¹çº§å¤æ‚åº¦ï¼š
+        /// ä¸–ç•Œåœ°å›¾é“ºæ»¡æ¤è¢«åæœ‰åå‡ ä¸‡æ¡ï¼Œæ¢å›¾/å…³å›¾æ—¶ä¼šé•¿æ—¶é—´å¡æ­»ï¼Œæ‰€ä»¥å¿…é¡»æ”¯æŒæ•´ä½“é‡ç½®ã€‚
+        /// </summary>
+        public void Clear()
+        {
+            root = new QuadTree2DNode<T>(root.bound);
+        }
+
+        public void Find(Rect rect, List<T> list, bool accuracy = false) //æ‰¾åˆ°çš„ç»“æœä¸ä»£è¡¨ä¸€å®šç›¸äº¤ï¼Œåªæ˜¯å¯èƒ½ç›¸äº¤
         {
             _Find(root, rect, list, accuracy);
         }
-        public int Find(Rect rect, ref T[] list, bool accuracy = false) //ÕÒµ½µÄ½á¹û²»´ú±íÒ»¶¨Ïà½»£¬Ö»ÊÇ¿ÉÄÜÏà½»
+        public int Find(Rect rect, ref T[] list, bool accuracy = false) //æ‰¾åˆ°çš„ç»“æœä¸ä»£è¡¨ä¸€å®šç›¸äº¤ï¼Œåªæ˜¯å¯èƒ½ç›¸äº¤
         {
             int count = 0;
             _Find(root, rect, ref list, ref count, accuracy);

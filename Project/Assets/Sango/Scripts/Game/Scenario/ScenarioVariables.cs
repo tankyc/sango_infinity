@@ -14,6 +14,13 @@ namespace Sango.Core
         [JsonProperty] public bool ApplyEdit = false;
 
         /// <summary>
+        /// 名字最大支持字数。
+        /// 用于约束武将 / 势力 / 城市 / 军团等名字的录入长度，默认 4 字。
+        /// 所有"名字列"(SortByName)的显示宽度均按本值动态计算，见 <see cref="GetNameColumnWidth"/>。
+        /// </summary>
+        [JsonProperty] public int maxNameLength = DefaultMaxNameLength;
+
+        /// <summary>
         /// 最大可存储的行动力上限
         /// </summary>
         [JsonProperty] public int ActionPointLimit = 255;
@@ -1471,5 +1478,56 @@ namespace Sango.Core
                 return attributeNameWithColor[attributeNameWithColor.Length - 1];
             }
         }
+
+        #region 名字列宽度计算（供所有 SortByName 使用）
+
+        /// <summary>
+        /// 内置默认的名字最大支持字数。
+        /// 没有任何剧本（纯逻辑推演 / 编辑器内）时使用，与字段 <see cref="maxNameLength"/> 的默认值一致。
+        /// </summary>
+        public const int DefaultMaxNameLength = 4;
+
+        /// <summary>
+        /// 名字列每个"字"的宽度系数。
+        /// 中文名字按 1.05 个字符宽度估算（略放宽，避免边界字被截断）。
+        /// </summary>
+        public const float NameWidthPerChar = 1.05f;
+
+        /// <summary>
+        /// 计算名字列的内容宽度（单位：字符宽度）。
+        ///
+        /// 宽度 = 1.05 × (名字最大支持字数 + extraChars)。
+        /// 例如默认 4 字：普通名字列 = 1.05 × 4 = 4.2 字宽；军团名（"第N军团"额外 4 字） = 1.05 × (4 + 4) = 8.4 字宽。
+        ///
+        /// 取值优先级：正在运行的剧本(<see cref="Scenario.Cur"/>) → 当前选中的剧本(<see cref="Scenario.CurSelected"/>) → 内置默认变量。
+        /// 这样无论在游戏内、剧本选择预览、还是编辑器里都能得到一致的宽度。
+        /// </summary>
+        /// <param name="extraChars">名字列额外预留的字符数（例如军团名"第N军团"额外 4 字），默认 0</param>
+        /// <returns>名字列内容宽度（单位：字符宽度，实际像素请再乘单字像素）</returns>
+        public static float GetNameColumnWidth(int extraChars = 0)
+        {
+            ScenarioVariables v = GetActive();
+            int len = (v != null && v.maxNameLength > 0) ? v.maxNameLength : DefaultMaxNameLength;
+            return (len + extraChars) * NameWidthPerChar;
+        }
+
+        /// <summary>
+        /// 获取当前生效的剧本变量（运行时优先取正在运行的剧本，其次取当前选中的剧本，最后回落到内置默认变量）。
+        /// </summary>
+        /// <returns>当前生效的剧本变量，永不为空</returns>
+        static ScenarioVariables GetActive()
+        {
+            Scenario cur = Scenario.Cur;
+            if (cur != null && cur.Variables != null)
+                return cur.Variables;
+
+            Scenario selected = Scenario.CurSelected;
+            if (selected != null && selected.Variables != null)
+                return selected.Variables;
+
+            return Scenario.DefaultVariables;
+        }
+
+        #endregion
     }
 }

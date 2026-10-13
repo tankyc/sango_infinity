@@ -9,7 +9,35 @@ namespace Sango.Core
         public float width;
         public int alignment = 4;
         public object customData;
-        public float ContentMaxWidth { get { return width * 25f; } }
+
+        /// <summary>
+        /// 是否为"名字"列。
+        /// 名字列不使用固定的 <see cref="width"/>，而是随剧本参数"名字最大支持字数"
+        /// (<see cref="ScenarioVariables.maxNameLength"/>) 动态计算宽度，见 <see cref="ContentMaxWidth"/>。
+        /// 所有 SortByName 筛选项都应置为 true。
+        /// </summary>
+        public bool isNameColumn;
+
+        /// <summary>
+        /// 名字列额外预留的字符数（仅 <see cref="isNameColumn"/> 为 true 时生效）。
+        /// 例如军团名显示为"第N军团"，需要在名字最大支持字数的基础上额外增加 4 个字的宽度。
+        /// </summary>
+        public int nameExtraChars;
+
+        /// <summary>
+        /// 内容最大宽度（像素）。
+        /// 普通列 = width × 25；
+        /// 名字列 = 1.05 × (名字最大支持字数 + 额外字符数) × 25，其中单字像素沿用 25 的口径。
+        /// </summary>
+        public float ContentMaxWidth
+        {
+            get
+            {
+                if (isNameColumn)
+                    return ScenarioVariables.GetNameColumnWidth(nameExtraChars) * 25f;
+                return width * 25f;
+            }
+        }
 
         /// <summary>
         /// 值修改类型

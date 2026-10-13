@@ -262,16 +262,15 @@ namespace Sango.Core
         /// <returns>是否执行了补给</returns>
         bool SupplyOneAdjacentAlly(Troop supplier)
         {
-            Cell[] neighbors = supplier.cell.Neighbors;
-            if (neighbors == null)
+            if (supplier.cell == null)
                 return false;
 
             Troop bestAlly = null;
             int bestNeed = 0;
 
-            for (int i = 0; i < neighbors.Length; i++)
+            for (int i = 0; i < 6; i++)
             {
-                Cell cell = neighbors[i];
+                Cell cell = supplier.cell.GetNeighbor(i);
                 if (cell == null)
                     continue;
                 Troop ally = cell.troop;
@@ -504,15 +503,14 @@ namespace Sango.Core
             if (nearestEnemy == null)
                 return ally.cell;
 
-            Cell[] neighbors = ally.cell.Neighbors;
-            if (neighbors == null)
+            if (ally.cell == null)
                 return ally.cell;
 
             Cell bestCell = null;
             int bestScore = int.MinValue;
-            for (int i = 0; i < neighbors.Length; i++)
+            for (int i = 0; i < 6; i++)
             {
-                Cell cell = neighbors[i];
+                Cell cell = ally.cell.GetNeighbor(i);
                 if (cell == null)
                     continue;
                 // 必须可停留，且没有被其它部队占据

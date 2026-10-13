@@ -122,6 +122,11 @@ namespace Sango.Core
             /// 若在那里做线性查找，开销是 O(域城数) × 港关数 × 资源数 × 趟数 —— 必须预连。
             /// </summary>
             public Ledger parentLedger;
+            /// <summary>
+            /// 本城当前**在途**的运输车数量（送货中 / 返程中，含玩家手动委派的）。
+            /// 用于"同一座城同一时刻只允许一辆运输车在途"的限制 —— 见 <see cref="CollectSources"/>。
+            /// </summary>
+            public int outboundConvoys;
         }
 
         /// <summary>源城候选（选出"给谁发货最合适"）</summary>
@@ -322,9 +327,9 @@ namespace Sango.Core
             // 域内跳数表：整域一次算完（带缓存），避免每城一次 BFS 的 O(N²) 重复开销
             Dictionary<int, Dictionary<int, int>> hopsTable = GetDomainHops(domain, domainIds, scenario);
 
-            // 【性能】"在途货量"整域**一次**归集（O(部队数)），再按城分发。
+            // 【性能】"在途货量"与"在途运输车"整域**一次**归集（O(部队数)），再按城分发。
             // 原先是在 BuildLedger 里逐城扫全部部队（O(城数 × 部队数)），域一大就成热点。
-            Dictionary<int, int[]> inboundTable = CollectInbound(scenario);
+            Dictionary<int, int[]> inboundTable = CollectInbound(scenario, out Dictionary<int, int> convoysBySource);
 
             List<Ledger> ledgers = new List<Ledger>(domain.Count);
             for (int i = 0; i < domain.Count; i++)
@@ -332,7 +337,7 @@ namespace Sango.Core
                 Ledger L = null;
                 try
                 {
-                    L = BuildLedger(domain[i], scenario, w, hopsTable, inboundTable);
+                    L = BuildLedger(domain[i], scenario, w, hopsTable, inboundTable, convoysBySource);
                 }
                 catch (Exception)
                 {
@@ -490,8 +495,10 @@ namespace Sango.Core
         /// <param name="w">参数</param>
         /// <param name="hopsTable">本域"城池 id → 域内跳数表"（可为 null，此时按不连通处理）</param>
         /// <param name="inboundTable">本域"城池 id → 在途货量数组"（见 <see cref="CollectInbound"/>；可为 null）</param>
+        /// <param name="convoysBySource">本域"出发城 id → 在途运输车数"（见 <see cref="CollectInbound"/>；可为 null）</param>
         static Ledger BuildLedger(City city, Scenario scenario, ResourceDispatchWeights w,
-            Dictionary<int, Dictionary<int, int>> hopsTable, Dictionary<int, int[]> inboundTable)
+            Dictionary<int, Dictionary<int, int>> hopsTable, Dictionary<int, int[]> inboundTable,
+            Dictionary<int, int> convoysBySource)
         {
             if (city == null)
                 return null;
@@ -542,6 +549,10 @@ namespace Sango.Core
                         L.inbound[i] = inbound[i];
                 }
             }
+
+            // 在途运输车数：用于"一城同时在途一辆"的限制（见 CollectSources）
+            if (convoysBySource != null)
+                convoysBySource.TryGetValue(city.Id, out L.outboundConvoys);
 
             for (int r = 0; r < ResCount; r++)
             {
@@ -1920,6 +1931,12 @@ namespace Sango.Core
                 // 源城必须能成军（CreateTransportTroop 要求城内还有兵）
                 if (S.city.troops <= 0)
                     continue;
+                // 【在途限制】同一座城同一时刻只允许一辆运输车在途：
+                // 多辆车队同路并行，地图上挤成一团不说，货还分散在几辆车里 —— 半路被截就是几连丢。
+                // 该城的车没回城之前（送货中 / 返程中），不再把它当源城。
+                if (w.maxConvoysInTransitPerCity > 0
+                    && S.outboundConvoys >= w.maxConvoysInTransitPerCity)
+                    continue;
                 // 【守城优先】兵临城下的城不出货：守军需要这些粮草，运输队也多半出不了城
                 if (w.skipBesiegedSource && S.underSiege)
                     continue;
@@ -2261,9 +2278,11 @@ namespace Sango.Core
         ///     （<c>Troop.EnterCity</c> 里 AddGold / AddFood / AddTroops / itemStore.Add 都有），
         ///     漏算它们就会在"部队回城那一下"把自家城顶爆 —— 正是要避免的事。
         /// </summary>
-        static Dictionary<int, int[]> CollectInbound(Scenario scenario)
+        /// <param name="convoysBySource">输出：出发城 id → 该城当前在途的运输车数（送货中 / 返程中）</param>
+        static Dictionary<int, int[]> CollectInbound(Scenario scenario, out Dictionary<int, int> convoysBySource)
         {
             Dictionary<int, int[]> table = new Dictionary<int, int[]>();
+            convoysBySource = new Dictionary<int, int>();
             if (scenario == null || scenario.troopsSet == null)
                 return table;
 
@@ -2278,6 +2297,19 @@ namespace Sango.Core
                 bool isReturning = t.missionType == (int)MissionType.TroopReturnCity;
                 if (!isTransport && !isReturning)
                     continue;
+
+                // 【在途运输车】按**出发城**归集（与引擎自身的回撤逻辑同用 Troop.BelongCity 口径）。
+                // 只统计运输队本队（送货中 / 返程中的运输队）；普通部队回城不是"车"，不计。
+                if (t.IsTransport)
+                {
+                    City source = t.BelongCity;
+                    if (source != null)
+                    {
+                        int count;
+                        convoysBySource.TryGetValue(source.Id, out count);
+                        convoysBySource[source.Id] = count + 1;
+                    }
+                }
 
                 int cityId = t.missionTarget;
                 if (cityId <= 0)

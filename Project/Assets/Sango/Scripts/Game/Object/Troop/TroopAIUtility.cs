@@ -757,9 +757,19 @@ namespace Sango.Core
                               + (skill.IsSingleSkill() ? cfg.scoreSingleBonus : 0)
                               + (skill.HasEffect() ? cfg.scoreEffectBonus : 0);
 
+                    // 【修复】误伤友军的评分必须恒为负分（越伤越负）。
+                    // 原先直接乘 (troop.Attack - target.troop.Defence + scoreAttackDefenceBase)，
+                    // 当友军防御比我方攻击高出 scoreAttackDefenceBase(默认200) 以上时该乘数为负，
+                    // 与前面的负号相乘后整体变成**正收益**，AI 反而会主动轰击高防御的友军
+                    // （落雷 / 妖术这类 canDamageTeam 的范围计略尤其容易触发）。
+                    // 这里把攻防差钳制到最小 0，保证惩罚项恒为正、整体恒为非正分。
+                    int atkDefDiff = troop.Attack - target.troop.Defence;
+                    if (atkDefDiff < 0)
+                        atkDefDiff = 0;
+
                     return -(skill.atk + bonus) * cfg.scoreSkillBaseFactor
                          / Math.Max(cfg.scoreMinCostEnergy, skill.costEnergy)
-                         * (troop.Attack - target.troop.Defence + cfg.scoreAttackDefenceBase);
+                         * (atkDefDiff + cfg.scoreAttackDefenceBase);
                 }
             }
             else if (target.building != null && skill.canDamageBuilding)

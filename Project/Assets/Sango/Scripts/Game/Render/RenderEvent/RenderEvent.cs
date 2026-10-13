@@ -120,7 +120,15 @@ namespace Sango.Render
                         renderEventBase.Exit(scenario);
                     }
                 }
-                dependsEventQueue.RemoveAll(x => x.IsDone);
+                // 原地压缩移除已完成事件，避免 RemoveAll 闭包每帧产生 GC 分配
+                int writeIndex = 0;
+                for (int i = 0; i < count; ++i)
+                {
+                    if (!dependsEventQueue[i].IsDone)
+                        dependsEventQueue[writeIndex++] = dependsEventQueue[i];
+                }
+                if (writeIndex < count)
+                    dependsEventQueue.RemoveRange(writeIndex, count - writeIndex);
             }
 
             if (evCount == 0 && count > 0)

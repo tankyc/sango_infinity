@@ -60,6 +60,8 @@ namespace Sango.Core
                     name = name,
                     alignment = alignment,
                     width = width,
+                    isNameColumn = isNameColumn,
+                    nameExtraChars = nameExtraChars,
                     valueGetCall = valueGetCall,
                     personSortFunc = personSortFunc,
                     valueObjGet = valueObjGet,
@@ -75,6 +77,7 @@ namespace Sango.Core
 
         public static SortTitle SortByName = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "武将",
             width = 4.20f,
             valueGetCall = x => x.Name,
@@ -225,6 +228,7 @@ namespace Sango.Core
 
             return new SortTitle()
             {
+                isNameColumn = true,        // 名字列：显示君主名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
                 name = "势力",
                 width = 3.00f,
                 valueGetCall = x =>
@@ -359,6 +363,7 @@ namespace Sango.Core
 
         public static SortTitle SortByFamilyName = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：姓，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "姓",
             width = 2.00f,
             valueGetCall = x => x.familyName,
@@ -370,6 +375,7 @@ namespace Sango.Core
 
         public static SortTitle SortByGiveName = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "名",
             width = 2.00f,
             valueGetCall = x => x.giveName,
@@ -381,6 +387,7 @@ namespace Sango.Core
 
         public static SortTitle SortByNickName = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：字，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "字",
             width = 2.00f,
             valueGetCall = x => x.nickName,

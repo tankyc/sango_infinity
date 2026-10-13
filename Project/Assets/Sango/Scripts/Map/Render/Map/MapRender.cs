@@ -346,6 +346,17 @@ namespace Sango.Render
 
         public void LoadMap(string filename)
         {
+            // 耗时打点：用于确认地图二进制读取的实际耗时，指导后续优化方向
+            System.Diagnostics.Stopwatch loadStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            // 子阶段打点：定位 11 个子系统反序列化与材质加载各自的耗时占比
+            System.Diagnostics.Stopwatch stageStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            long lastStage = 0;
+            void LogStage(string stageName)
+            {
+                // 用 Info 级别输出（Log.Info 带 [Conditional("SANGO_DEBUG")]，正式包不输出）
+                Sango.Log.Info(string.Format("地图子阶段[{0}]耗时:{1}毫秒", stageName, stageStopwatch.ElapsedMilliseconds - lastStage), Sango.Log.LogType.World);
+                lastStage = stageStopwatch.ElapsedMilliseconds;
+            }
 
             Clear();
 
@@ -354,6 +365,7 @@ namespace Sango.Render
             FileName = filename;
 
             InitMat();
+            LogStage("初始化材质");
 
             FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
             BinaryReader binr = new BinaryReader(fs);
@@ -377,26 +389,42 @@ namespace Sango.Render
             }
 
             CreateDatas();
+            LogStage("创建渲染子系统");
+
             if (versionCode > 5)
                 mapGrid.OnLoad(versionCode, binr);
+            LogStage("格子数据");
             mapData.OnLoad(versionCode, binr);
+            LogStage("顶点数据");
             mapLayer.OnLoad(versionCode, binr);
+            LogStage("图层");
             mapTerrain.OnLoad(versionCode, binr);
+            LogStage("地形块");
             mapLight.OnLoad(versionCode, binr);
+            LogStage("光照");
             mapFog.OnLoad(versionCode, binr);
+            LogStage("迷雾");
             mapBaseColor.OnLoad(versionCode, binr);
+            LogStage("底色");
             mapSkyBox.OnLoad(versionCode, binr);
             if (versionCode <= 5)
                 mapGrid.OnLoad(versionCode, binr);
+            LogStage("天空盒");
             mapCamera.OnLoad(versionCode, binr);
+            LogStage("相机");
             mapModels.OnLoad(versionCode, binr);
+            LogStage("模型");
             mapLabelSet.OnLoad(versionCode, binr);
+            LogStage("城市标签");
             fs.Flush();
             binr.Close();
             fs.Close();
 
+            Sango.Log.Info(string.Format("地图数据加载耗时:{0}毫秒", loadStopwatch.ElapsedMilliseconds), Sango.Log.LogType.World);
+
             OnMapLoaded?.Invoke();
         }
+
         public void SaveMap(string filename)
         {
             FileStream fs = new FileStream(filename, FileMode.Create, FileAccess.ReadWrite);

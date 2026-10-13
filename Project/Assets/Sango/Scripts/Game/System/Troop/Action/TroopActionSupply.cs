@@ -41,9 +41,9 @@ namespace Sango.Core.Player
                 Cell stayCell = ActionCell;
                 spellRangeCell.Clear();
 
-                for(int i = 0; i < stayCell.Neighbors.Length; i++)
+                for(int i = 0; i < 6; i++)
                 {
-                    Cell dst = stayCell.Neighbors[i];
+                    Cell dst = stayCell.GetNeighbor(i);
                     if (dst != null)
                     {
                         if (dst.troop != null && dst.troop.IsFight && dst.troop.IsSameForce(TargetTroop))

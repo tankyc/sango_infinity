@@ -160,12 +160,29 @@ namespace Sango.Render
             // position、uv、waterPosition、normal 全部改为按需计算，
             // 因此不再需要两份 VertexDataNative(48 字节/顶点) 中转数组，也不需要那两个 Job。
             // 大图（1800x1000 = 2881 万顶点）仅这一项就省下约 2.7GB 的加载峰值。
+            //
+            // 【性能】批量读取优化：原先对每个顶点调用 3 次 BinaryReader.ReadByte，
+            // 大图上是数千万次虚方法调用，开销巨大。
+            // 现改为按行一次性 ReadBytes 读入字节缓冲，再在内存中展开为顶点数据，
+            // 单行缓冲仅 vertex_y_max * 3 字节，不会产生整图级别的大块内存分配。
+            // 磁盘布局为每顶点 3 字节（height / textureIndex / water），waterIndex 恒为 0 不落盘。
+            int rowByteCount = vertex_y_max * 3;
+            byte[] rowBuffer = new byte[rowByteCount];
             for (int x = 0; x < vertexDatas.Length; x++)
             {
                 VertexData[] yTable = vertexDatas[x];
+                if (reader.Read(rowBuffer, 0, rowByteCount) < rowByteCount)
+                {
+                    // 数据不足说明地图文件损坏，按旧逻辑等价于抛出读取越界，这里给出明确的中文日志
+                    Sango.Log.Error("地图顶点数据不完整,文件可能已损坏!", Sango.Log.LogType.World);
+                    return;
+                }
+
+                int offset = 0;
                 for (int y = 0; y < yTable.Length; y++)
                 {
-                    yTable[y] = new VertexData(reader.ReadByte(), reader.ReadByte(), reader.ReadByte(), 0);
+                    yTable[y] = new VertexData(rowBuffer[offset], rowBuffer[offset + 1], rowBuffer[offset + 2], 0);
+                    offset += 3;
                 }
             }
             //for (int x = 0; x < vertexDatas.Length; x++)

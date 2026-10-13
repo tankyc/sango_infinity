@@ -601,6 +601,15 @@ namespace Sango.Core
         /// </summary>
         public int maxShipmentsPerSourceCity = 1;
 
+        /// <summary>
+        /// 同一座城**同时**在途的运输车上限（送货中 / 返程都算在途；0 = 不限）。
+        ///
+        /// 默认 1：一支运输队就是一名押车武将加一趟在途风险，同一座城多辆车同路并行，
+        /// 地图上挤成一团不说，货还分散在几辆车里 —— 半路被截就是几连丢。
+        /// 该城的车没回城之前，调度不再把它当源城；多类资源靠搭车合并进那一辆车。
+        /// </summary>
+        public int maxConvoysInTransitPerCity = 1;
+
         // ==================== 目标城失守判断（送不送 / 撤不撤） ====================
 
         /// <summary>

@@ -300,8 +300,7 @@
     "earlyWildPerRecruitSeat": 4.0,     // 前期"每多少名在野配 1 名登用将"（平时 8）
 
     // ---- 运输岗 ----
-    "transportSeatMax": 2,              // 运输岗上限
-    "transportExtraSeatAbundance": 1.5, // 扩容到 2 人所需的人力丰裕度
+    "transportSeatMax": 1,              // 运输岗上限（每城最多一位：一支运输队一名押车武将）
     "transportSlotEnabled": true,       // 是否生成运输岗
     // 运输源城"有货可运"判定：兵 / 粮 / 金 **任一**达标即留运输岗（或关系，不是"且"），
     // 口径与 resourceDispatch.minShip* 对齐（10000 / 30000 / 3000）
@@ -384,6 +383,7 @@
     "maxShipmentsPerDomain": 4,         // 每作用域每回合派车数下限（再按城数放大）
     "shipmentsPerCityDivisor": 5,       // 每多少座城追加 1 车额度
     "maxShipmentsPerSourceCity": 1,     // 每源城每回合最多发几车（一城多队太嘈杂，多类资源靠搭车合并成一单）
+    "maxConvoysInTransitPerCity": 1,    // 同一城同时在途的运输车上限（送货中/返程都算在途；0 = 不限）
     "maxShipmentsPerTargetCity": 2,     // 每目标城每回合最多收几车（防配额被少数城吃光）
 
     // ---- 前线紧急度 ----

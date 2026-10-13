@@ -1174,9 +1174,20 @@ namespace Sango.Core
                         {
                             if (x.Age >= 16)
                             {
-                                x.CurrentCity = CurrentCity;
+                                // 【修复】父亲没有所在城市时依次回退到所属城/随机城，
+                                // 避免儿子登场后 CurrentCity 为空（会在回合结束的随机移动中空引用）；
+                                // 登记名单应加入儿子 x，原代码误加了父亲 this。
+                                City sonCity = CurrentCity;
+                                if (sonCity == null)
+                                {
+                                    if (BelongCity != null)
+                                        sonCity = BelongCity;
+                                    else
+                                        sonCity = scenario.citySet.RandomGet();
+                                }
+                                x.CurrentCity = sonCity;
                                 x.state = (int)PersonStateType.Invisible;
-                                CurrentCity.invisiblePersons.Add(this);
+                                sonCity.invisiblePersons.Add(x);
                             }
                         }
                     });
@@ -1603,6 +1614,18 @@ namespace Sango.Core
                 stayTurnCount++;
                 if (stayTurnCount > 5 && GameRandom.Chance(5)) // 10%概率
                 {
+                    // 【修复】隐身/在野武将可能没有所在城市（登场数据异常、登场时继承的所在城为空等）。
+                    // 这里自愈：补分配一座随机城并登记到对应名单，避免每回合空引用刷屏。
+                    if (CurrentCity == null)
+                    {
+                        CurrentCity = scenario.citySet.RandomGet();
+                        if (IsWild)
+                            CurrentCity.wildPersons.Add(this);
+                        else
+                            CurrentCity.invisiblePersons.Add(this);
+                        Sango.Log.Error($"@人才@隐身/在野武将{Name}(Id:{Id})没有所在城市,已自动分配到{CurrentCity.Name}");
+                    }
+
                     if (IsWild)
                         CurrentCity.wildPersons.Remove(this);
                     else

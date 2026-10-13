@@ -82,6 +82,8 @@ namespace Sango.Core
                     name = name,
                     alignment = alignment,
                     width = width,
+                    isNameColumn = isNameColumn,
+                    nameExtraChars = nameExtraChars,
                     valueStrGetCall = valueStrGetCall,
                     valueSortFunc = valueSortFunc,
                     valueObjGet = valueObjGet,
@@ -161,6 +163,10 @@ namespace Sango.Core
 
         public static SortTitle SortByName = new SortTitle()
         {
+            // 名字列：宽度按剧本参数"名字最大支持字数"计算(1.05×字数)；
+            // 军团名显示为"第N军团"，需额外预留 4 个字
+            isNameColumn = true,
+            nameExtraChars = 4,
             name = "名字",
             width = 7.00f,
             valueStrGetCall = x => x.ForceNumberName,
@@ -187,6 +193,7 @@ namespace Sango.Core
 
         public static SortTitle SortByLeader = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：显示都督名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "都督",
             width = 2.80f,
             valueStrGetCall = x => x.mComander?.Name ?? "---",
@@ -295,6 +302,7 @@ namespace Sango.Core
 
         public static SortTitle SortByBelongForce = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：显示势力名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "势力",
             width = 4.20f,
             valueStrGetCall = x => x.BelongForce?.Name ?? "",

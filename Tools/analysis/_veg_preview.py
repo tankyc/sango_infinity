@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(".").resolve()))
 from sango_scale_bin import parse_bin          # noqa: E402
 
-BIN = r"D:\世界地图\Map\world_full.bin"
+BIN = r"D:\sango_infinity\Build\Mods\m6dwbcwk\Map\xworld_full.bin"
 SCALE = 0.5                                    # 1800x1000 -> 900x500
 
 d = parse_bin(BIN)

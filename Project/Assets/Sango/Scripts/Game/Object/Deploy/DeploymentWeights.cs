@@ -342,11 +342,14 @@ namespace Sango.Core
         /// </summary>
         public float earlyWildPerRecruitSeat = 4f;
 
-        /// <summary>运输岗位上限（人力充裕时 2 人，否则 1 人）</summary>
-        public int transportSeatMax = 2;
-
-        /// <summary>运输岗位扩容到 2 人所需的人力丰裕度</summary>
-        public float transportExtraSeatAbundance = 1.5f;
+        /// <summary>
+        /// 运输岗位上限（**每城最多一位**）。
+        ///
+        /// 一支运输队只需要一名押车武将；岗位给到 2 人只会让 AI 同城连发几支车队
+        /// （地图嘈杂、在途风险翻倍）。与资源调度侧的"一城同时在途一辆"
+        /// （<c>ResourceDispatchWeights.maxConvoysInTransitPerCity</c>）同一口径。
+        /// </summary>
+        public int transportSeatMax = 1;
 
         // ==================== ② 军事岗位放开 ====================
 

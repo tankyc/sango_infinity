@@ -86,6 +86,8 @@ namespace Sango.Core
                     name = name,
                     alignment = alignment,
                     width = width,
+                    isNameColumn = isNameColumn,
+                    nameExtraChars = nameExtraChars,
                     valueStrGetCall = valueStrGetCall,
                     valueSortFunc = valueSortFunc,
                     valueObjGet = valueObjGet,
@@ -168,6 +170,7 @@ namespace Sango.Core
        
         public static SortTitle SortByBelongForce = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：显示势力名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "势力",
             width = 2.40f,
             valueStrGetCall = x => x.BelongForce?.Name ?? "无",

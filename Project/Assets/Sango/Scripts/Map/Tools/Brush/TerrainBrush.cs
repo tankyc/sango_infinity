@@ -398,6 +398,10 @@ namespace Sango.Tools
                                 change.newValue = newValue;
                                 dragChangesMap.Add(vertexKey, change);
                             }
+
+                            // 顶点数据是 struct：Do() 只改了副本，必须显式写回地图，
+                            // 否则拖拽过程中地图数据不变，画面看不到任何变化
+                            WriteBackVertex(dragEditType, x, y, tempData);
                         }
                     }
                 }
@@ -791,6 +795,10 @@ namespace Sango.Tools
                                             change.oldValue = oldValue;
                                             change.newValue = newValue;
                                             changes.Add(change);
+
+                                            // 顶点数据是 struct：Do() 只改了副本，必须显式写回地图，
+                                            // 否则地图数据不变，后面的 PrepareDatas 刷新出来的还是旧地形
+                                            WriteBackVertex(editType, x, y, tempData);
                                         }
                                     }
                                 }
@@ -916,6 +924,34 @@ namespace Sango.Tools
             copyTexture.Apply();
 
             return copyTexture;
+        }
+
+        /// <summary>
+        /// 把 <see cref="Do"/> 算出的顶点值写回地图数据。
+        ///
+        /// MapData.VertexData 是 struct，Do 通过 ref 改的只是"临时副本"，
+        /// 不写回的话 mapData.vertexDatas 永远不变，
+        /// 而 TerrainEditCommand 又是以"仅记录历史"的方式加入（不会执行），
+        /// 结果就是地形笔刷完全没有效果。
+        /// </summary>
+        /// <param name="editType">编辑类型：高度 / 纹理 / 水面</param>
+        /// <param name="x">顶点 x 索引（vertexDatas 第一维）</param>
+        /// <param name="y">顶点 y 索引（vertexDatas 第二维）</param>
+        /// <param name="data">Do() 修改后的顶点数据</param>
+        private void WriteBackVertex(TerrainEditCommand.EditType editType, int x, int y, MapData.VertexData data)
+        {
+            switch (editType)
+            {
+                case TerrainEditCommand.EditType.Height:
+                    editor.map.mapData.SetVertexHeight(x, y, data.height);
+                    break;
+                case TerrainEditCommand.EditType.Texture:
+                    editor.map.mapData.SetVertexTextureIndex(x, y, data.textureIndex);
+                    break;
+                case TerrainEditCommand.EditType.Water:
+                    editor.map.mapData.SetVertexWater(x, y, data.water);
+                    break;
+            }
         }
 
         public virtual bool Do(Vector3 center, ref MapData.VertexData vertexData, int x, int y)

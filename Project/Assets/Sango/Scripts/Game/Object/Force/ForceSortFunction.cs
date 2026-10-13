@@ -81,6 +81,8 @@ namespace Sango.Core
                     name = name,
                     alignment = alignment,
                     width = width,
+                    isNameColumn = isNameColumn,
+                    nameExtraChars = nameExtraChars,
                     valueStrGetCall = valueStrGetCall,
                     valueSortFunc = valueSortFunc,
                     valueObjGet = valueObjGet,
@@ -195,6 +197,7 @@ namespace Sango.Core
 
         public static SortTitle SortByName = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "势力",
             width = 4.00f,
             valueStrGetCall = x => x.Name,
@@ -206,6 +209,7 @@ namespace Sango.Core
 
         public static SortTitle SortByLeader = new SortTitle()
         {
+            isNameColumn = true,        // 名字列：显示主公名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "主公",
             width = 4.00f,
             valueStrGetCall = x => x.mGovernor?.Name ?? "---",

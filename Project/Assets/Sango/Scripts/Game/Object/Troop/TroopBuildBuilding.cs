@@ -107,7 +107,10 @@ namespace Sango.Core
             List<Cell> emptyCell = new List<Cell>();
             for (int i = 0; i < 6; i++)
             {
-                Cell cell = TargetCell.Neighbors[i];
+                Cell cell = TargetCell.GetNeighbor(i);
+                // 边界格的邻居可能为空，跳过
+                if (cell == null)
+                    continue;
                 if (cell == troop.cell)
                 {
                     FinalCell = cell;

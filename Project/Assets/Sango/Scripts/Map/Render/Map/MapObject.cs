@@ -147,6 +147,33 @@ namespace Sango.Render
             return modelObj.AddComponent<MapObject>();
         }
 
+        /// <summary>
+        /// 模型名称缓存，下标即 modelId。
+        /// GameObject 的名字来自这里：如果每个物件都调一次 modelId.ToString()，
+        /// 十几万个物件就会产生十几万个内容相同的新字符串（约 5MB 托管内存 + 同等规模的 GC 垃圾）。
+        /// 按 modelId 缓存后，全流程只会产生模型种类数（十几个）的字符串。
+        /// </summary>
+        private static readonly string[] modelNameCache = new string[128];
+
+        /// <summary>
+        /// 以模型 ID 创建地图物件（名字走 modelNameCache，避免重复分配字符串）。
+        /// </summary>
+        /// <param name="modelId">模型 ID</param>
+        /// <returns>地图物件</returns>
+        public static MapObject Create(int modelId)
+        {
+            if (modelId < 0 || modelId >= modelNameCache.Length)
+                return Create(modelId.ToString());
+
+            string name = modelNameCache[modelId];
+            if (name == null)
+            {
+                name = modelId.ToString();
+                modelNameCache[modelId] = name;
+            }
+            return Create(name);
+        }
+
         public static MapObject Create(string name, string layerName)
         {
             if (buildingLayer == -1)

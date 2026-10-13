@@ -416,9 +416,9 @@ namespace Sango.Core
                     && hasCargo
                     && !IsTransportDisabled(city))
                 {
-                    transportSeat = abundance >= weights.transportExtraSeatAbundance
-                        ? Math.Max(1, weights.transportSeatMax)
-                        : 1;
+                    // 【每城最多一位】一支运输队只需要一名押车武将，岗位给多了
+                    // 只会让同城连发几支车队（见 DeploymentWeights.transportSeatMax 的说明）。
+                    transportSeat = Math.Max(1, weights.transportSeatMax);
                 }
             }
 

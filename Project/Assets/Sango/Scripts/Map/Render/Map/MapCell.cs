@@ -138,7 +138,8 @@ namespace Sango.Render
             // 只为本块真正出现的图层建 Mesh/GameObject。
             // CreateLayers 遇到本块没有该图层的顶点时会整块跳过，预先建好纯属浪费：
             // 全图 6944 块 x 49 层 = 34 万个 Mesh/GameObject，实测每块平均只有 ~16 层非空。
-            bool[] usedLayer = ResolveUsedLayers(maxLayer);
+            // 注意：编辑器态下不能裁剪，见 ComputeUsedLayers 的说明。
+            bool[] usedLayer = ComputeUsedLayers(maxLayer);
 
             for (int i = 0; i < maxLayer; ++i)
             {
@@ -171,6 +172,31 @@ namespace Sango.Render
                 renderer.enabled = false;
             }
             threadBeginLayer = 0;
+        }
+
+        /// <summary>
+        /// 计算本块需要建网格的图层集合，按编辑器状态分开处理：
+        ///
+        /// · 编辑器态（<see cref="Tools.MapEditor.IsEditOn"/>）：返回**全部图层**。
+        ///   贴图/水面笔刷可以把顶点改成任意图层，而编辑后的刷新走的是
+        ///   <see cref="PrepareDatas"/>（needInit = false），它不会补建缺失的 Mesh/GameObject；
+        ///   一旦在这里裁剪，往"本块没用过的图层"上画就完全看不到效果。
+        ///   编辑器性能不敏感，保持全建即可。
+        ///
+        /// · 运行时：顶点数据不再变化，按本块实际用到的图层裁剪即可，省下大量空 Mesh/GameObject。
+        /// </summary>
+        /// <param name="maxLayer">地图当前图层数量</param>
+        /// <returns>下标为 true 的图层需要建 Mesh/GameObject</returns>
+        bool[] ComputeUsedLayers(int maxLayer)
+        {
+            bool[] used = new bool[maxLayer];
+            if (Tools.MapEditor.IsEditOn)
+            {
+                for (int i = 0; i < maxLayer; ++i)
+                    used[i] = true;
+                return used;
+            }
+            return ResolveUsedLayers(maxLayer);
         }
 
         /// <summary>
@@ -222,7 +248,8 @@ namespace Sango.Render
         /// </summary>
         void EnsureMeshes(int maxLayer)
         {
-            bool[] used = ResolveUsedLayers(maxLayer);
+            // 与 Init 保持一致：编辑器态下补齐所有图层，运行时只补本块用到的图层
+            bool[] used = ComputeUsedLayers(maxLayer);
             for (int i = 0; i < maxLayer; ++i)
             {
                 if (!used[i] || mesh[i] != null)

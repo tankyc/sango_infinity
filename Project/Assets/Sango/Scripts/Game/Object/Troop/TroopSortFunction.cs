@@ -47,6 +47,8 @@ namespace Sango.Core
                     name = name,
                     alignment = alignment,
                     width = width,
+                    isNameColumn = isNameColumn,
+                    nameExtraChars = nameExtraChars,
                     valueStrGetCall = valueStrGetCall,
                     valueGetCall = valueGetCall,
                     valueSortFunc = valueSortFunc,
@@ -62,6 +64,7 @@ namespace Sango.Core
 
         public static SortTitle<string> SortByName = new SortTitle<string>()
         {
+            isNameColumn = true,        // 名字列：宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "武将",
             width = 3.2f,
             valueGetCall = x => x.Name,
@@ -180,6 +183,7 @@ namespace Sango.Core
 
         public static SortTitle<int> SortByMember1 = new SortTitle<int>()
         {
+            isNameColumn = true,        // 名字列：显示副将名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "副将",
             width = 2.0f,
             valueStrGetCall = x => x.Member1 != null ? x.Member1.Name : "",
@@ -190,6 +194,7 @@ namespace Sango.Core
 
         public static SortTitle<int> SortByMember2 = new SortTitle<int>()
         {
+            isNameColumn = true,        // 名字列：显示副将名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "副将",
             width = 2.0f,
             valueStrGetCall = x => x.Member2 != null ? x.Member2.Name : "",
@@ -200,6 +205,7 @@ namespace Sango.Core
 
         public static SortTitle<int> SortByBelongForce = new SortTitle<int>()
         {
+            isNameColumn = true,        // 名字列：显示势力名，宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "势力",
             width = 2.4f,
             valueStrGetCall = x => x.BelongForce?.Name ?? "无",
@@ -210,6 +216,9 @@ namespace Sango.Core
 
         public static SortTitle<int> SortByBelongCorps = new SortTitle<int>()
         {
+            // 名字列：显示军团名(第N军团)，宽度按剧本参数"名字最大支持字数"计算；军团名额外预留 4 字
+            isNameColumn = true,
+            nameExtraChars = 4,
             name = "军团",
             width = 4.0f,
             valueStrGetCall = x => x.BelongCorps?.Name ?? "无",

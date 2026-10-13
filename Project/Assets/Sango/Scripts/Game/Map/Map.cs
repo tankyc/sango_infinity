@@ -177,7 +177,10 @@ namespace Sango.Core
         /// <returns>邻居单元格</returns>
         public Cell GetNeighbor(Cell cell, int dir)
         {
-            return cell.Neighbors[dir];
+            // cell 为空时统一返回 null，调用方需自行判空
+            if (cell == null)
+                return null;
+            return cell.GetNeighbor(dir);
         }
         /// <summary>
         /// 获取单元格的所有邻居
@@ -329,13 +332,13 @@ namespace Sango.Core
                 return;
             }
 
-            Cell cell = start.Neighbors[startDir];
+            // 邻居可能为 null（地图边界），必须先判空再向外推进，否则空引用
+            Cell cell = GetNeighbor(start, startDir);
             for (int i = 1; i < radius; i++)
             {
-                Cell temp = cell.Neighbors[startDir];
                 if (cell == null)
                     return;
-                cell = temp;
+                cell = GetNeighbor(cell, startDir);
             }
 
             int dir = startDir - 4;
@@ -354,10 +357,10 @@ namespace Sango.Core
                 }
                 for (int j = 0; j < radius; j++)
                 {
-                    action?.Invoke(cell);
-                    cell = cell.Neighbors[dir_i];
                     if (cell == null)
                         break;
+                    action?.Invoke(cell);
+                    cell = GetNeighbor(cell, dir_i);
                 }
             }
         }
@@ -675,7 +678,7 @@ namespace Sango.Core
 
                 for (int i = 0; i < 6; i++)
                 {
-                    Cell next = current.Neighbors[i];
+                    Cell next = current.GetNeighbor(i);
                     // 一定是目标所占格也可以进判断
                     if ((next != null && next.moveAble && (action == null || action(next))))
                     {
@@ -754,7 +757,7 @@ namespace Sango.Core
                         cost_so_far[current] = current;
                         for (int i = 0; i < 6; i++)
                         {
-                            Cell next = current.Neighbors[i];
+                            Cell next = current.GetNeighbor(i);
                             // 一定是目标所占格也可以进判断
                             if (next != null && next.moveAble && !cost_so_far.ContainsKey(next))
                             {
@@ -799,7 +802,7 @@ namespace Sango.Core
                         cost_so_far[current] = current;
                         for (int i = 0; i < 6; i++)
                         {
-                            Cell next = current.Neighbors[i];
+                            Cell next = current.GetNeighbor(i);
                             // 一定是目标所占格也可以进判断
                             if (next != null && next.moveAble && !cost_so_far.ContainsKey(next))
                             {
@@ -878,8 +881,8 @@ namespace Sango.Core
                 for (int i = 0; i < 6; i++)
                 {
                     Cell next = GetNeighbor(current, i);
-                    // 一定是目标所占格也可以进判断
-                    if (next == dest || (next != null && next.CanMove(troops) && (action == null || action(next))))
+                    // 邻居可能为空（地图边界），先判空；一定是目标所占格也可以进判断
+                    if (next != null && (next == dest || (next.CanMove(troops) && (action == null || action(next)))))
                     {
                         int next_move_cost = troops.MoveCost(next);
                         int new_cost = cost_current + next_move_cost;

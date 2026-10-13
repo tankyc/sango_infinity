@@ -20,6 +20,10 @@ namespace Sango.UI
         public RawImage scenarioPosterImg;
         public Text infoText;
         public RawImage mapBoundsImg;
+        public Slider mapScaleSlider;
+        public int mapDefaultSize = 256;
+        public int boundsSize = 448;
+        public float mapScale = 1;
 
         List<UIScenarioItem> selectedItems = new List<UIScenarioItem>();
 
@@ -105,15 +109,101 @@ namespace Sango.UI
             scenario.LoadContent();
             ScenarioInfo scenarioInfo = scenario.Info;
 
+            mapBoundsImg.texture = Render.MapRender.LoadBoundTex(scenario.Map.WorkContent);
+
             scenarioInfoText.text = scenario.GetDateName();
             scenarioDescText.text = scenarioInfo.description;
+            //int i = 0;
+            //foreach (ShortCity city in scenario.citySet)
+            //{
+            //    if (city == null) continue;
+            //    if (!city.IsCity()) continue;
+            //    if (city.Id == 0) continue;
+
+            //    GameObject cityObj;
+            //    if (i >= cityList.Count)
+            //    {
+            //        cityObj = GameObject.Instantiate(cityObject, cityObject.transform.parent);
+            //        cityList.Add(cityObj);
+            //        cityObj.name = city.Id.ToString();
+            //    }
+            //    else
+            //    {
+            //        cityObj = cityList[i];
+            //        cityObj.name = city.Id.ToString();
+            //    }
+
+            //    i++;
+            //    RectTransform rectTransform = cityObj.GetComponent<RectTransform>();
+            //    float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
+            //    float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
+            //    rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
+
+            //    Image bgImg = cityObj.transform.GetChild(0).GetComponent<Image>();
+            //    if (city.BelongForceId > 0 && scenario.forceSet[city.BelongForceId] != null)
+            //    {
+            //        ShortForce shortForce = scenario.forceSet[city.BelongForceId];
+            //        Flag flag = scenario.CommonData.Flags[shortForce.Flag];
+            //        bgImg.color = flag.color;
+            //    }
+            //    else
+            //    {
+            //        bgImg.color = Color.white;
+            //    }
+
+            //    cityObj.SetActive(true);
+            //}
+
+            for (int j = 0; j < cityList.Count; j++)
+            {
+                cityList[j].SetActive(false);
+            }
+            mapScaleSlider.SetValueWithoutNotify(0);
+            UpdateMap(scenario, 0);
+        }
+
+        public void OnMapScale(float scale)
+        {
+            UpdateMap(show_scenario_list[curSelectIndex], scale);
+        }
+
+        public void UpdateMap(ShortScenario scenario, float scale)
+        {
+            int mapW = scenario.Map.Width;
+            int mapH = scenario.Map.Height;
+
+            //int minSize = Math.Min(mapW, mapH);
+            int maxSize = Math.Max(mapW, mapH);
+            int boundsW = boundsSize * mapW / maxSize;
+            int boundsH = boundsSize * mapH / maxSize;
+
+            float targetW = Mathf.LerpUnclamped(boundsW, boundsW * 10, scale);
+            float targetH = Mathf.LerpUnclamped(boundsH, boundsH * 10, scale);
+
+            // 【缩放保位】地图框(mapBounds)的轴心与锚点都在中心, 其 anchoredPosition 即"内容中心"相对
+            // "视口(map 地图框)中心"的偏移量。缩放时若只改尺寸而保留偏移量, 视口中心对应的地图点会跑掉,
+            // 视觉上地图就会跳动。这里先记录缩放前的尺寸与偏移, 反推出视口中心当前对应的那个地图点,
+            // 缩放后再把该地图点重新摆回视口中心, 从而保证缩放前后画面位置在视觉上保持不变
+            Vector2 oldSize = mapBounds.sizeDelta;
+            Vector2 oldPos = mapBounds.anchoredPosition;
+
+            mapBounds.sizeDelta = new Vector2(targetW, targetH);
+
+            if (oldSize.x > 0.001f && oldSize.y > 0.001f)
+            {
+                // 视口中心对应的地图点(归一化坐标, 取值 0~1, x 自左向右, y 自下向上)
+                float centerU = 0.5f - oldPos.x / oldSize.x;
+                float centerV = 0.5f - oldPos.y / oldSize.y;
+                // 缩放后让同一个地图点依旧落在视口中心
+                mapBounds.anchoredPosition = new Vector2((0.5f - centerU) * targetW, (0.5f - centerV) * targetH);
+            }
+
             int i = 0;
             foreach (ShortCity city in scenario.citySet)
             {
                 if (city == null) continue;
                 if (!city.IsCity()) continue;
                 if (city.Id == 0) continue;
-
                 GameObject cityObj;
                 if (i >= cityList.Count)
                 {
@@ -127,32 +217,36 @@ namespace Sango.UI
                     cityObj.name = city.Id.ToString();
                 }
 
+                if (city.BuildingType == 1)
+                    cityObj.transform.localScale = Vector3.one;
+                else
+                    cityObj.transform.localScale = Vector3.one * 0.75f;
+
                 i++;
+                UIMapCitySelectItem toggle = cityObj.GetComponent<UIMapCitySelectItem>();
+                if (toggle != null)
+                {
+                    toggle.shortCity = city;
+                    if (city.BelongForceId == 0 || scenario.forceSet[city.BelongForceId] == null)
+                    {
+                        toggle.SetSelected(false).SetInavtive(true).SetColor(Color.white);
+                    }
+                    else
+                    {
+                        ShortForce shortForce = scenario.forceSet[city.BelongForceId];
+                        Flag flag = scenario.CommonData.Flags[shortForce.Flag];
+                        toggle.SetSelected(false).SetInavtive(true).SetColor(flag.color);
+                    }
+                    toggle.ShowName(city.Name);
+                }
+
                 RectTransform rectTransform = cityObj.GetComponent<RectTransform>();
                 float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                 float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;
-                rectTransform.anchoredPosition = new Vector2((int)(x + 0.5f), (int)(y + 0.5f));
-
-                Image bgImg = cityObj.transform.GetChild(0).GetComponent<Image>();
-                if (city.BelongForceId > 0 && scenario.forceSet[city.BelongForceId] != null)
-                {
-                    ShortForce shortForce = scenario.forceSet[city.BelongForceId];
-                    Flag flag = scenario.CommonData.Flags[shortForce.Flag];
-                    bgImg.color = flag.color;
-                }
-                else
-                {
-                    bgImg.color = Color.white;
-                }
+                rectTransform.anchoredPosition = new Vector2(x, y);
 
                 cityObj.SetActive(true);
             }
-
-            for (int j = i; j < cityList.Count; j++)
-            {
-                cityList[j].SetActive(false);
-            }
-
         }
 
         public void OnReturn()
@@ -297,7 +391,7 @@ namespace Sango.UI
                 }
             }
 
-            ShowScenario(-1);
+            //ShowScenario(-1);
 
         }
 #endif

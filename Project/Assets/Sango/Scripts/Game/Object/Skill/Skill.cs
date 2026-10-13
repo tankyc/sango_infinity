@@ -262,10 +262,11 @@ namespace Sango.Core
                             int dir = atker.cell.Cub.DirectionTo(spell.Cub);
                             cells.Add(spell);
                             Cell nCell = atker.cell.GetNeighbor(dir + 1);
-                            if (nCell.moveAble)
+                            // 邻居可能为空（地图边界），先判空
+                            if (nCell != null && nCell.moveAble)
                                 cells.Add(nCell);
                             nCell = atker.cell.GetNeighbor(dir - 1);
-                            if (nCell.moveAble)
+                            if (nCell != null && nCell.moveAble)
                                 cells.Add(nCell);
                         }
                         break;
@@ -441,9 +442,17 @@ namespace Sango.Core
             return atkOffsetPoint == null || atkOffsetPoint.Length == 0;
         }
 
+        /// <summary>
+        /// 技能是否带有附加效果（混乱 / 火伤 / 位移等）。
+        ///
+        /// 【修复】原先实现写成 `skillEffects == null || Count == 0`，语义完全反了：
+        /// 越是没有特效的技能反而返回 true，导致 scoreEffectBonus 加在了错误的对象上，
+        /// 真正带特效的技能拿不到加成。现改为"存在且非空"。
+        /// </summary>
+        /// <returns>带有附加效果时返回 true</returns>
         public bool HasEffect()
         {
-            return skillEffects == null || skillEffects.Count == 0;
+            return skillEffects != null && skillEffects.Count > 0;
         }
 
         public bool CanAddToTroop(Troop troop, bool isWater)

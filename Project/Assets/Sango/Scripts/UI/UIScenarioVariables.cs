@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -106,6 +107,9 @@ namespace Sango.UI
 
             AddTitle("剧本基础参数");
             AddToggleItem("<color=#ee2222>编辑生效</color>", variables.ApplyEdit, (v) => { variables.ApplyEdit = v; });
+
+            // 名字最大支持字数：所有名字列(SortByName)的显示宽度按 1.05 × 本值 计算
+            AddNumberItem("名字最大支持字数", variables.maxNameLength, 1, 20, (v) => { variables.maxNameLength = v; });
 
             AddNumberItem("电脑粮食倍率", variables.foodFactor, 0, 100, (v) => { variables.foodFactor = v; });
             AddNumberItem("电脑资金倍率", variables.goldFactor, 0, 100, (v) => { variables.goldFactor = v; });
@@ -715,9 +719,37 @@ namespace Sango.UI
                 onSure.Invoke();
                 return;
             }
+
+            // 剧本加载全程是同步的（LoadWorld 内部会一路同步执行到 Scenario.Start），
+            // 若在这里直接调用 Scenario.StartScenario，本帧根本来不及把 loading 界面渲染出来，
+            // 玩家看到的只会是画面卡死。
+            // 因此这里改为协程的方式：先显示 loading 界面，等一帧让它真正渲染出来后再执行后续逻辑。
+            // 注意：协程必须挂在常驻对象(App)上启动，因为后续会关闭本界面，
+            // GameObject 一旦被 SetActive(false)，其自身的协程会被中断。
+            App.Instance.StartCoroutine(StartGameRoutine());
+        }
+
+        /// <summary>
+        /// 开始游戏协程：显示 loading 界面 -> 等一帧 -> 关闭剧本参数界面 -> 分帧加载剧本。
+        /// 加载由 Scenario.StartScenarioRoutine 驱动：五个重阶段之间各让出一帧，
+        /// 使 loading 界面上的阶段进度文本能真正渲染出来；
+        /// loading 界面的移除由剧本加载成功后的 Scenario.Start() 负责（关闭 window_loading 并打开 window_game）。
+        /// </summary>
+        /// <returns>协程迭代器</returns>
+        IEnumerator StartGameRoutine()
+        {
+            // 1.先显示 loading 界面
             Window.Instance.Open("window_loading");
+
+            // 2.等待一帧,确保 loading 界面已经显示成功(渲染到屏幕上)之后,再执行后续逻辑
+            yield return null;
+
+            // 3.关闭剧本参数界面
             Window.Instance.Close("window_scenario_variables");
-            Scenario.StartScenario(Scenario.CurSelected, TargetShortScenario);
+
+            // 4.分帧加载剧本:解析通用数据 → 解析剧本数据 → 构建开局势力 → 读取地图数据 → 初始化世界,
+            // 加载成功后由 Scenario.Start() 移除 loading 界面并进入游戏
+            yield return Scenario.StartScenarioRoutine(Scenario.CurSelected, TargetShortScenario);
         }
 
         public virtual void OnCancel()

@@ -66,7 +66,37 @@ namespace Sango.Render
 
             public Texture GetDiffuse(int season)
             {
+                EnsureSeasonTexture(season);
                 return diffuse[season];
+            }
+
+            /// <summary>
+            /// 【性能】确保指定季节的贴图已加载。
+            /// 加载地图时只加载当前季节的贴图（最多 3 张），其余季节在此处按需即时加载，
+            /// 避免开局同步解码最多 12 张 PNG（每张约 2MB）造成的加载卡顿。
+            /// </summary>
+            /// <param name="season">季节索引 0~3</param>
+            void EnsureSeasonTexture(int season)
+            {
+                if (season < 0 || season >= diffuse.Length)
+                    return;
+
+                string seasonName = MapRender.SeasonNames[season];
+                if (diffuse[season] == null && !string.IsNullOrEmpty(diffuseTexName[season]))
+                {
+                    Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{diffuseTexName[season]}");
+                    diffuse[season] = tex;
+                    textureScale = new Vector2(layer.map.mapData.vertex_width * 32 / tex.width,
+                                  -layer.map.mapData.vertex_height * 32 / tex.height);
+                }
+                if (normal[season] == null && !string.IsNullOrEmpty(normalTexName[season]))
+                {
+                    normal[season] = layer.map.CreateTexture($"Terrain/{seasonName}/{normalTexName[season]}");
+                }
+                if (mask[season] == null && !string.IsNullOrEmpty(maskTexName[season]))
+                {
+                    mask[season] = layer.map.CreateTexture($"Terrain/{seasonName}/{maskTexName[season]}");
+                }
             }
             public string GetDiffuseName(int season)
             {
@@ -120,6 +150,9 @@ namespace Sango.Render
             public void UpdateMaterial(int season)
             {
                 if (material == null) return;
+
+                // 【性能】非当前季节的贴图未随地图加载，切换到该季节时按需加载
+                EnsureSeasonTexture(season);
 
                 if (diffuse != null)
                 {
@@ -214,38 +247,53 @@ namespace Sango.Render
                             }
                         }
 
-                        Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{diffuseTexName[i]}");
-                        diffuse[i] = tex;
-                        textureScale = new Vector2(layer.map.mapData.vertex_width * 32 / tex.width,
-                                      -layer.map.mapData.vertex_height * 32 / tex.height);
+                        // 【性能】只加载当前季节的贴图，其余季节置 null，
+                        // 切换季节时由 EnsureSeasonTexture 按需加载（见 UpdateMaterial）
                         if (i == layer.curSeason)
                         {
+                            Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{diffuseTexName[i]}");
+                            diffuse[i] = tex;
+                            textureScale = new Vector2(layer.map.mapData.vertex_width * 32 / tex.width,
+                                          -layer.map.mapData.vertex_height * 32 / tex.height);
                             material.SetTexture("_BaseMap", tex);
                             material.SetTextureScale("_BaseMap", textureScale);
+                        }
+                        else
+                        {
+                            diffuse[i] = null;
                         }
                     }
 
                     normalTexName[i] = reader.ReadString();
                     if (!string.IsNullOrEmpty(normalTexName[i]))
                     {
-
-                        Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{normalTexName[i]}");
-                        normal[i] = tex;
+                        // 【性能】只加载当前季节的贴图，其余季节按需加载
                         if (i == layer.curSeason)
                         {
+                            Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{normalTexName[i]}");
+                            normal[i] = tex;
                             material.SetTexture("_BumpMap", tex);
                             material.SetTextureScale("_BumpMap", textureScale);
+                        }
+                        else
+                        {
+                            normal[i] = null;
                         }
                     }
                     maskTexName[i] = reader.ReadString();
                     if (!string.IsNullOrEmpty(maskTexName[i]))
                     {
-                        Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{maskTexName[i]}");
-                        mask[i] = tex;
+                        // 【性能】只加载当前季节的贴图，其余季节按需加载
                         if (i == layer.curSeason)
                         {
+                            Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{maskTexName[i]}");
+                            mask[i] = tex;
                             material.SetTexture("_MaskMap", tex);
                             material.SetTextureScale("_MaskMap", textureScale);
+                        }
+                        else
+                        {
+                            mask[i] = null;
                         }
                     }
                 }

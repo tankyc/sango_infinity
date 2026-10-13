@@ -36,9 +36,9 @@ namespace Sango.Core.Player
                 // 周围一格是可以建造的地块
                 Cell stayCell = ActionCell;
                 fixBuildingCell.Clear();
-                for (int i = 0; i < stayCell.Neighbors.Length; i++)
+                for (int i = 0; i < 6; i++)
                 {
-                    Cell n = stayCell.Neighbors[i];
+                    Cell n = stayCell.GetNeighbor(i);
                     if (n != null && n.building != null && !n.building.IsCityBase() && n.building.IsSameForce(TargetTroop) && n.building.durability < n.building.DurabilityLimit)
                     {
                         fixBuildingCell.Add(n);

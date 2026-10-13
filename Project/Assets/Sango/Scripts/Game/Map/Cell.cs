@@ -59,11 +59,6 @@ namespace Sango.Core
         //public float Prosperity { get; set; }
 
         /// <summary>
-        /// 邻居单元格数组
-        /// </summary>
-        public Cell[] Neighbors = new Cell[6];
-
-        /// <summary>
         /// 部队
         /// </summary>
         public Troop troop;
@@ -165,13 +160,6 @@ namespace Sango.Core
             else
                 pos.y = MapRender.Instance.mapGrid.GetGridHeight(x, y);
             Position = pos;
-            for (int i = 0; i < 6; i++)
-            {
-                Hexagon.Hex neighbor = Cub.Neighbor(i);
-                Cell neighborCell = map.GetCell(neighbor);
-                if (neighborCell != null)
-                    Neighbors[i] = neighborCell;
-            }
         }
 
         /// <summary>
@@ -267,13 +255,13 @@ namespace Sango.Core
         {
             for (int i = 1; i <= radius; i++)
             {
-                Cell cell = this.Neighbors[4];
+                // 邻居可能为 null（地图边界），必须先判空再继续向外取格，否则空引用
+                Cell cell = GetNeighbor(4);
                 for (int j = 1; j < i; j++)
                 {
-                    Cell temp = cell.Neighbors[4];
                     if (cell == null)
                         break;
-                    cell = temp;
+                    cell = cell.GetNeighbor(4);
                 }
 
                 int dir = 0;
@@ -292,11 +280,11 @@ namespace Sango.Core
                     }
                     for (int k = 0; k < i; k++)
                     {
-                        if (cell.building != null)
-                            return true;
-                        cell = cell.Neighbors[dir_i];
                         if (cell == null)
                             break;
+                        if (cell.building != null)
+                            return true;
+                        cell = cell.GetNeighbor(dir_i);
                     }
                 }
             }
@@ -315,13 +303,13 @@ namespace Sango.Core
         {
             for (int i = 1; i <= radius; i++)
             {
-                Cell cell = this.Neighbors[4];
+                // 邻居可能为 null（地图边界），必须先判空再继续向外取格，否则空引用
+                Cell cell = GetNeighbor(4);
                 for (int j = 1; j < i; j++)
                 {
-                    Cell temp = cell.Neighbors[4];
                     if (cell == null)
                         break;
-                    cell = temp;
+                    cell = cell.GetNeighbor(4);
                 }
 
                 int dir = 0;
@@ -340,14 +328,14 @@ namespace Sango.Core
                     }
                     for (int k = 0; k < i; k++)
                     {
+                        if (cell == null)
+                            break;
                         if (cell.building != null)
                         {
                             if (checkFunc(cell.building))
                                 return true;
                         }
-                        cell = cell.Neighbors[dir_i];
-                        if (cell == null)
-                            break;
+                        cell = cell.GetNeighbor(dir_i);
                     }
                 }
             }
@@ -392,6 +380,9 @@ namespace Sango.Core
             Cell dest = this;
             for (int i = 0; i < length; ++i)
             {
+                // 走到地图边界后邻居为空，立即停止，避免空引用
+                if (dest == null)
+                    break;
                 dest = dest.GetNeighbor(dir);
                 if (dest != null && action != null)
                     action.Add(dest);
@@ -409,6 +400,9 @@ namespace Sango.Core
             Cell dest = this;
             for (int i = 0; i < length; ++i)
             {
+                // 走到地图边界后邻居为空，立即停止，避免空引用
+                if (dest == null)
+                    break;
                 dest = dest.GetNeighbor(dir);
                 if (dest != null && action != null)
                     action(dest);
@@ -425,7 +419,12 @@ namespace Sango.Core
         {
             Cell dest = this;
             for (int i = 0; i < length; ++i)
+            {
+                // 走到地图边界后邻居为空，立即停止，避免空引用
+                if (dest == null)
+                    break;
                 dest = dest.GetNeighbor(dir);
+            }
             return dest;
         }
 
@@ -446,11 +445,14 @@ namespace Sango.Core
         /// <returns>邻居单元格</returns>
         public Cell GetNeighbor(int dir)
         {
+            // 方向归一化到 0~5
             while (dir < 0)
                 dir += 6;
             while (dir >= 6)
                 dir -= 6;
-            return Neighbors[dir];
+            // 直接由立方体坐标现算邻居（Hex 为 struct，无堆分配），
+            // 地图边界外由 Map.GetCell 统一返回 null，调用方需自行判空
+            return Scenario.Cur.Map.GetCell(Cub.Neighbor(dir));
         }
 
         /// <summary>
@@ -463,7 +465,7 @@ namespace Sango.Core
             List<Cell> neighbors = new List<Cell>();
             for (int i = 0; i < 6; i++)
             {
-                Cell neighbor = Neighbors[i];
+                Cell neighbor = GetNeighbor(i);
                 if (neighbor != null)
                 {
                     if (predicate == null || predicate(neighbor))
@@ -483,7 +485,7 @@ namespace Sango.Core
         {
             for (int i = 0; i < 6; i++)
             {
-                Cell neighbor = Neighbors[i];
+                Cell neighbor = GetNeighbor(i);
                 if (neighbor != null)
                 {
                     action(neighbor);

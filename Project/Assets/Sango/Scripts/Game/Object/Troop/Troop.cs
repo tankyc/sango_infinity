@@ -1992,7 +1992,13 @@ namespace Sango.Core
                 target.Render?.ShowInfo(dis, (int)InfoType.Morale);
 
             ActionOver = true;
+            // 【修复】补给方自身的名字板需要刷新
             Render?.UpdateRender();
+            // 【修复】目标部队的兵力/兵粮/士气同样被本函数直接修改，
+            // 但名字板（UITroopHeadbar）没有订阅"数值变化"事件，只有显式调用
+            // UpdateRender 才会刷新，因此必须同时刷新目标部队，否则补给后
+            // 目标部队的名字板会一直显示旧数值直到下一次回合开始。
+            target.Render?.UpdateRender();
         }
 
         public bool BuildBuilding(Cell dest, BuildingType buildingType)
@@ -2183,10 +2189,10 @@ namespace Sango.Core
 
             // 先收齐相邻格里全部同组兄弟部队, 不能只找到第一个就算完
             List<Troop> brothers = new List<Troop>();
-            Cell[] neighbors = cell.Neighbors;
-            for (int i = 0, count = neighbors.Length; i < count; ++i)
+            for (int i = 0; i < 6; ++i)
             {
-                Troop other = neighbors[i] == null ? null : neighbors[i].troop;
+                Cell neighbor = cell.GetNeighbor(i);
+                Troop other = neighbor == null ? null : neighbor.troop;
                 if (CanCheerWith(other, season))
                     brothers.Add(other);
             }

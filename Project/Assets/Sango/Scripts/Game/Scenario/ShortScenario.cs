@@ -662,6 +662,8 @@ namespace Sango.Core
                     name = name,
                     alignment = alignment,
                     width = width,
+                    isNameColumn = isNameColumn,
+                    nameExtraChars = nameExtraChars,
                     valueGetCall = valueGetCall,
                     personSortFunc = personSortFunc,
                     valueObjGet = valueObjGet,
@@ -680,6 +682,7 @@ namespace Sango.Core
 
             return new SortTitle
             {
+                isNameColumn = true,        // 名字列：宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
                 name = "势力",
                 width = 3.00f,
                 valueGetCall = x =>

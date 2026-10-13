@@ -84,9 +84,9 @@ namespace Sango.Core.Action
             else
             {
                 int food = 0;
-                for (int i = 0; i < Building.CenterCell.Neighbors.Length; ++i)
+                for (int i = 0; i < 6; ++i)
                 {
-                    Cell neighbor = Building.CenterCell.Neighbors[i];
+                    Cell neighbor = Building.CenterCell.GetNeighbor(i);
                     if (neighbor == null || !neighbor.IsInterior || neighbor.building == null) continue;
 
                     BuildingBase target = neighbor.building;

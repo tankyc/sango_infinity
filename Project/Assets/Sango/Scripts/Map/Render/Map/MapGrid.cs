@@ -204,15 +204,6 @@ namespace Sango.Render
             GridMaskTexture.wrapMode = TextureWrapMode.Clamp;
             GridMaskTexture.filterMode = FilterMode.Point;
 
-            for (int i = 0; i < bounds.x; ++i)
-            {
-                for (int j = 0; j < bounds.y; ++j)
-                {
-                    GridMaskTexture.SetPixel(i, j, Color.clear);
-                }
-            }
-            GridMaskTexture.Apply(false);
-
             if (RangeMaskTexture != null)
             {
                 GameObject.Destroy(RangeMaskTexture);
@@ -222,27 +213,18 @@ namespace Sango.Render
             RangeMaskTexture.wrapMode = TextureWrapMode.Clamp;
             RangeMaskTexture.filterMode = FilterMode.Point;
 
-            for (int i = 0; i < bounds.x; ++i)
-            {
-                for (int j = 0; j < bounds.y; ++j)
-                {
-                    RangeMaskTexture.SetPixel(i, j, Color.clear);
-                }
-            }
-            RangeMaskTexture.Apply(false);
-
-
             DarkMaskTexture = new Texture2D(bounds.x, bounds.y, TextureFormat.ARGB32, false);
             DarkMaskTexture.wrapMode = TextureWrapMode.Clamp;
             DarkMaskTexture.filterMode = FilterMode.Point;
 
-            for (int i = 0; i < bounds.x; ++i)
-            {
-                for (int j = 0; j < bounds.y; ++j)
-                {
-                    DarkMaskTexture.SetPixel(i, j, Color.clear);
-                }
-            }
+            // 【性能】三张蒙版纹理用 SetPixels32 一次性清空，
+            // 替代原先逐像素 SetPixel（数十万次原生调用）
+            Color32[] clearPixels = new Color32[bounds.x * bounds.y];
+            GridMaskTexture.SetPixels32(clearPixels);
+            RangeMaskTexture.SetPixels32(clearPixels);
+            DarkMaskTexture.SetPixels32(clearPixels);
+            GridMaskTexture.Apply(false);
+            RangeMaskTexture.Apply(false);
             DarkMaskTexture.Apply(false);
 
             Shader.SetGlobalTexture("_GridMask", GridMaskTexture);
@@ -410,28 +392,93 @@ namespace Sango.Render
             Create(size);
             map.OnInitGrid();
 
-            //Create(5, "grid");
-            for (int x = 0; x < gridDatas.Length; ++x)
+            if (versionCode >= 5)
             {
-                GridData[] yTable = gridDatas[x];
-                for (int y = 0; y < yTable.Length; ++y)
+                // 【性能】新版格式每格字节数固定，一次性 ReadBytes 读入内存再解析，
+                // 替代原先数十万次 BinaryReader 调用；
+                // 蒙版纹理也改为 GetPixels32 整块取出 → 内存中改 alpha → SetPixels32 一次写回，
+                // 替代原先每格一次 GetPixel + SetPixel 的原生纹理调用（这是原加载的最大热点）。
+                // 每格字节数: terrainType(1) + terrainState(4,仅v>=7) + areaId(2,仅v>=8)
+                int bytesPerCell = 1;
+                if (versionCode >= 7) bytesPerCell += 4;
+                if (versionCode >= 8) bytesPerCell += 2;
+
+                int width = gridDatas.Length;
+                int height = gridDatas[0].Length;
+                long totalCells = (long)width * height;
+                long totalBytes = totalCells * bytesPerCell;
+                byte[] cellBuffer = reader.ReadBytes((int)totalBytes);
+                if (cellBuffer.Length < totalBytes)
                 {
-                    GridData data = yTable[y];
-                    data.OnLoad(versionCode, reader);
-                    yTable[y] = data;
-                    TerrainType terrainType = GameData.Instance.ScenarioCommonData.TerrainTypes.Get(data.terrainType);
-                    if (terrainType != null && terrainType.moveable)
+                    // 数据不足说明地图文件损坏，给出明确的中文日志
+                    Sango.Log.Error("地图格子数据不完整,文件可能已损坏!", Sango.Log.LogType.World);
+                    return;
+                }
+
+                Color32[] maskPixels = GridMaskTexture.GetPixels32();
+                int maskWidth = GridMaskTexture.width;
+
+                int offset = 0;
+                for (int x = 0; x < width; ++x)
+                {
+                    GridData[] yTable = gridDatas[x];
+                    for (int y = 0; y < height; ++y)
                     {
-                        int py = GridMaskTexture.height - y - 1;
-                        Color c = GridMaskTexture.GetPixel(x, py);
-                        c.a = 1;
-                        GridMaskTexture.SetPixel(x, py, c);
+                        GridData data = yTable[y];
+                        data.terrainType = cellBuffer[offset];
+                        offset += 1;
+                        if (versionCode >= 7)
+                        {
+                            data.terrainState = cellBuffer[offset]
+                                | (cellBuffer[offset + 1] << 8)
+                                | (cellBuffer[offset + 2] << 16)
+                                | (cellBuffer[offset + 3] << 24);
+                            offset += 4;
+                        }
+                        if (versionCode >= 8)
+                        {
+                            data.areaId = (ushort)(cellBuffer[offset] | (cellBuffer[offset + 1] << 8));
+                            offset += 2;
+                        }
+
+                        TerrainType terrainType = GameData.Instance.ScenarioCommonData.TerrainTypes.Get(data.terrainType);
+                        if (terrainType != null && terrainType.moveable)
+                        {
+                            // 纹理按垂直翻转存储（与旧逻辑保持一致）
+                            int py = GridMaskTexture.height - y - 1;
+                            maskPixels[py * maskWidth + x].a = 255;
+                        }
+
+                        map.OnBindGridData(x, y, data);
                     }
+                }
+                GridMaskTexture.SetPixels32(maskPixels);
+            }
+            else
+            {
+                // 旧版本(<5)每格结构不固定（含 311 结构），保留逐格读取
+                for (int x = 0; x < gridDatas.Length; ++x)
+                {
+                    GridData[] yTable = gridDatas[x];
+                    for (int y = 0; y < yTable.Length; ++y)
+                    {
+                        GridData data = yTable[y];
+                        data.OnLoad(versionCode, reader);
+                        yTable[y] = data;
+                        TerrainType terrainType = GameData.Instance.ScenarioCommonData.TerrainTypes.Get(data.terrainType);
+                        if (terrainType != null && terrainType.moveable)
+                        {
+                            int py = GridMaskTexture.height - y - 1;
+                            Color c = GridMaskTexture.GetPixel(x, py);
+                            c.a = 1;
+                            GridMaskTexture.SetPixel(x, py, c);
+                        }
 
-                    map.OnBindGridData(x, y, data);
-
+                        map.OnBindGridData(x, y, data);
+                    }
                 }
             }
+
             if (versionCode >= 6)
                 gridTexName = reader.ReadString();
             SetGridTexture(string.IsNullOrEmpty(gridTexName) ? "grid" : gridTexName);

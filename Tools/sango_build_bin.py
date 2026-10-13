@@ -58,7 +58,7 @@ def enc_str(s):
     return bytes(out) + b
 
 
-def default_tail():
+def default_tail(target_w=None, target_h=None):
     """解析 DefaultMap.bin 的尾部段，返回 (拼接好的尾部字节, mapWidth, mapHeight)。
 
     尾部 = mapLayer + mapTerrain + mapLight + mapFog + mapBaseColor + mapSkyBox
@@ -67,6 +67,14 @@ def default_tail():
     其中 mapModels / mapLabelSet **必须置空**：DefaultMap 里带的是它自己的模型，
     直接抄过来挂到别的尺寸的地图上，MapModels.OnLoad 会因模型越界/异步未就绪而崩
     （MapObject.position 空引用）。其余段原样保留，保证观感与 DefaultMap 一致。
+
+    唯一的例外是 mapSkyBox 的矩形：它是「相机位于世界哪个区域 -> 用哪张天空贴图」的
+    划分（MapSkyBox.Update 用相机 (z,x) 去 Contains 匹配），单位是世界坐标
+    （= mapWidth/Height * quadSize），**必须随地图尺寸等比缩放**。
+    原版 DefaultMap 是世界 5120x5120 上 3x3 的 1706 网格（1706*3≈5120，刚好铺满），
+    照抄到 36000x20000 的世界图就只覆盖左上角 14% x 26%，其余地方天空盒没有贴图
+    （MapSkyBox.OnLoad 会先 allAreas.Clear()，把 Create() 里的白色兜底区域清掉）。
+    传入 target_w/target_h（目标地图的 mapWidth/mapHeight）即自动缩放。
     """
     with open(DEF, "rb") as f:
         assert struct.unpack("<i", f.read(4))[0] == VERSION
@@ -103,11 +111,15 @@ def default_tail():
         basecolor = b""
 
         # 6) MapSkyBox: float2 blend; int32 areaCount; areaCount x { Rect(16) + 4 个字符串 }
+        #    Rect 是世界坐标，必须按「目标地图 / DefaultMap」的尺寸比例缩放（见 docstring）
+        sx = (target_w / float(w)) if target_w else 1.0
+        sy = (target_h / float(h)) if target_h else 1.0
         buf = bytearray(f.read(8))
         ac = struct.unpack("<i", f.read(4))[0]
         buf += struct.pack("<i", ac)
         for _ in range(ac):
-            buf += f.read(16)
+            rx, ry, rw, rh = struct.unpack("<ffff", f.read(16))
+            buf += struct.pack("<ffff", rx * sx, ry * sy, rw * sx, rh * sy)
             for _j in range(4):
                 buf += enc_str(read_str(f))
         skybox = bytes(buf)
@@ -267,8 +279,9 @@ def main():
     np.save(sng / "area.npy", area)
     (sng / "area.bin").write_bytes(area.tobytes())
 
-    tail, dw, dh = default_tail()
-    print(f"DefaultMap 尾部段 {len(tail)} 字节（源 {dw}x{dh}）", flush=True)
+    tail, dw, dh = default_tail(cxn * 4, cyn * 4)
+    print(f"DefaultMap 尾部段 {len(tail)} 字节（源 {dw}x{dh} -> 本图 {cxn * 4}x{cyn * 4}，"
+          f"天空盒矩形已同比缩放）", flush=True)
 
     out = bytearray()
     out += struct.pack("<i", VERSION)

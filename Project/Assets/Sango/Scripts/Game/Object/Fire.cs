@@ -135,21 +135,20 @@ namespace Sango.Core
             if (alivePercent <= 0)
                 return;                             // 衰减殆尽，不再蔓延
 
-            Cell[] neighbors = cell.Neighbors;
-            if (neighbors == null)
+            if (cell == null)
                 return;
 
             int maxSpread = variables.fireSpreadMaxPerTurn;
             int spreadCount = 0;
 
-            for (int i = 0; i < neighbors.Length; i++)
+            for (int i = 0; i < 6; i++)
             {
                 if (maxSpread > 0 && spreadCount >= maxSpread)
                     break;
 
-                Cell neighbor = neighbors[i];
+                Cell neighbor = cell.GetNeighbor(i);
                 if (!CanIgnite(neighbor))
-                    continue;                       // 已有火 / 水域 / 不可燃地形
+                    continue;                       // 已有火 / 水域 / 不可燃地形 / 地图边界
 
                 // 概率只取决于目标格的地形可燃性
                 int chance = GetTerrainFireRate(neighbor) * maxChance / rateMax;
