@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
-"""sango_height_fix.py —— 参考真实高程（ETOPO）修正地图顶点高度。
+"""!! 警告：本脚本存在「转置」缺陷，请勿再直接使用 !!
+   .bin 顶点在文件里是 **vx 外层、vy 内层**（parse_bin 用 reshape(vx_n, vy_n, 3)），
+   线性下标必须写成 (vx * VY + vy)。本脚本有三处按相反顺序处理：
+     1) DEM 上采样得到的 elev 是 [vy, vx]，却当成 [vx, vy] 参与计算（场整体转置）；
+     2) prot 保护掩膜用 np.zeros((VY, VX)) 以 [vy, vx] 填充，却用来索引 [vx, vy] 的数组；
+     3) 写盘偏移与抽样比较都用 (vy * VX + vx)。
+   地图是正方形（2049x2049）时不会报错，只会静默写错位置。
+   需要「按真实高程做起伏」请用 Tools/sango_mountain_undulate.py（已修正顺序且有复核）。
+
+sango_height_fix.py —— 参考真实高程（ETOPO）修正地图顶点高度。
 
 只有一件事：把地图的**高度字节**改成跟着真实高程走，让平地是低地、山是高地。
 
