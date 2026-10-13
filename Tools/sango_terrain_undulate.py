@@ -1,10 +1,21 @@
 # -*- coding: utf-8 -*-
-"""sango_mountain_undulate.py —— 给「不可行走山体」做出真实的起伏。
+"""sango_terrain_undulate.py —— 给指定地形的「平顶」做出起伏（高程图只当起伏参考）。
 
-背景（实测）：本图崖区（terrainType=16，占全图 44.6%）的顶点高度是**离散台阶**
-（0/80/150/180/210/255…，每层内部完全平），所以山顶看起来是一整片平整的平台。
-本工具只做一件事：把真实高程(ETOPO)的**起伏形状**零均值地叠到这些平台上，
-做出山脉的脊与谷 —— 高程图只当起伏参考，不改变地形结构。
+两种用法（同一套算法，只换 --terrain-ids 与幅度）：
+
+  1) 不可行走山体（默认）：
+     实测本图崖区（id 16，占全图 44.6%）顶点高度是**离散台阶**（0/80/150/180/210/255…，
+     每层内部完全平），所以山顶是一整片平整的平台。用较大幅度做出山脉的脊与谷：
+        python sango_terrain_undulate.py --bin <bin> --amp 50 --apply
+
+  2) 大片平地（轻微点缀）：
+     实测草地(id 1，20.1%)/砂地(id 3)/荒地(id 10) 的顶点高度几乎恒为 80，是死平的地面。
+     用很小的幅度点缀出轻微的起伏，按 --normalize local 在平地范围内归一化，
+     使真实高程里那点起伏也能显出来：
+        python sango_terrain_undulate.py --bin <bin> --terrain-ids 1,2,3,4,6,10,11,12,13,20 \
+               --amp 8 --normalize local --apply
+
+起伏形状取真实高程(ETOPO)的中尺度+小尺度频带（零均值），只当参考，不改变地形结构。
 
 硬约束（写盘后逐条复核）：
   1) 只改「不可行走山体」顶点，且该顶点 ±k 顶点邻域必须**全部**在崖内
@@ -137,6 +148,14 @@ def main():
                     help="边界羽化（顶点）：幅度从边界 0 平滑升到满值")
     ap.add_argument("--headroom", type=float, default=30.0,
                     help="为起伏自动压低的上限（字节）：崖区已有 7.3%% 顶点在 255，0=不压低")
+    ap.add_argument("--normalize", default="global", choices=("global", "local"),
+                    help="起伏场归一化：global=按全图 p90（山体用）"
+                         " local=按目标地形范围内 p90（平地用，能把真实高程里那点起伏放出来）")
+    ap.add_argument("--zoom-cells", type=int, default=64, help="局部 1:1 放大预览窗口（格）")
+    ap.add_argument("--backup-tag", default="undulate",
+                    help="备份后缀：.bak_before_<tag>（山体/平地分两次跑时给不同标签，各自可回退）")
+    ap.add_argument("--models", default="on", choices=("on", "off"),
+                    help="把落在改动范围内的模型(树/建筑)高度一起跟平，避免悬空/埋地")
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
@@ -155,7 +174,7 @@ def main():
     H = V[..., 0].astype(np.int32)
     WB = V[..., 2].astype(np.int32)
     print("=" * 84)
-    print(f"山体起伏: {src.name}  格 {cx}x{cy}  顶点 {VX}x{VY}"
+    print(f"地形起伏: {src.name}  格 {cx}x{cy}  顶点 {VX}x{VY}"
           f"  模式 {'写盘' if args.apply else '预览'}")
     print("=" * 84)
 
@@ -169,9 +188,9 @@ def main():
     eb = args.protect + 2
     safe[:eb] = safe[-eb:] = False
     safe[:, :eb] = safe[:, -eb:] = False
-    print(f"  山体(地形 {sorted(ids)})顶点 {int(cliff.sum())}"
-          f"   露出水面 {int((cliff & dry).sum())}   安全可改(±{args.protect} 邻域全在崖内) "
-          f"{int(safe.sum())}")
+    print(f"  目标地形 {sorted(ids)} 顶点 {int(cliff.sum())}"
+          f"   露出水面 {int((cliff & dry).sum())}"
+          f"   安全可改(±{args.protect} 顶点邻域全在目标集内) {int(safe.sum())}")
 
     # ---- 高程起伏场 ----
     latc = [float(x) for x in args.lat.split(",")]
@@ -181,10 +200,18 @@ def main():
     L = ndimage.gaussian_filter(e, args.mid_sigma, mode="nearest")
     B = ndimage.gaussian_filter(e, args.small_sigma, mode="nearest")
     F = (B - L) + args.small_weight * (e - B)                    # 中尺度 + 小尺度
-    sc = float(np.percentile(np.abs(F), 90)) or 1.0
+    cellmask = np.zeros((cx, cy), bool)
+    for t in ids:
+        cellmask |= (tt == t)
+    if args.normalize == "local" and cellmask.any():
+        sc = float(np.percentile(np.abs(F[cellmask]), 90)) or 1.0
+    else:
+        sc = float(np.percentile(np.abs(F), 90)) or 1.0
     F = np.clip(F / sc, -1.5, 1.5)
     print(f"  高程起伏场: 中尺度基准 {np.percentile(np.abs(B - L),90):.0f} m"
-          f"  小尺度基准 {np.percentile(np.abs(e - B),90):.0f} m  归一化 p90 {sc:.0f} m")
+          f"  小尺度基准 {np.percentile(np.abs(e - B),90):.0f} m"
+          f"  归一化({args.normalize}) p90 {sc:.0f} m"
+          f"  目标地形格 {int(cellmask.sum())}")
 
     Fv = upsample_cell_to_vertex(F, VX, VY)                      # (VX, VY) 索引 [vx,vy]
     elevv = upsample_cell_to_vertex(elev, VX, VY)
@@ -227,25 +254,41 @@ def main():
         s = np.degrees(np.arctan(np.hypot(g[0], g[1]) / 5.0))
         return s
     s0, s1 = slope_deg(H), slope_deg(new)
-    print(f"  山体高度: 原 中位 {np.median(H[safe]):.0f}  全局标准差 {H[safe].std():.1f}"
+    print(f"  目标地形高度: 原 中位 {np.median(H[safe]):.0f}  全局标准差 {H[safe].std():.1f}"
           f"  ->  新 中位 {np.median(new[safe]):.0f}  全局标准差 {new[safe].std():.1f}")
     print(f"  坡度(度) 中位: 原 {np.median(s0[safe]):.1f} -> 新 {np.median(s1[safe]):.1f}"
           f"    p90: 原 {np.percentile(s0[safe],90):.1f} -> 新 {np.percentile(s1[safe],90):.1f}"
           f"    p99: 原 {np.percentile(s0[safe],99):.1f} -> 新 {np.percentile(s1[safe],99):.1f}")
-    print(f"  （坡度是「能不能看出山脉」的关键量：p90 从几度提到 20~35 度才有山的感觉）")
+    print("  （坡度即视觉观感：山体目标 p90 20~35 度；平地只想轻微点缀，p90 5~12 度即可）")
     print(f"  安全集之外的改动 {int(((dH != 0) & ~safe).sum())}（必须 0 ✓）"
-          f"   水下崖改动 {int((dH[cliff & ~dry] != 0).sum())}（必须 0 ✓）"
-          f"   可走格顶点改动 {int((dH[~cliff] != 0).sum())}（必须 0 ✓）")
+          f"   目标集内未露出水面的改动 {int((dH[cliff & ~dry] != 0).sum())}（必须 0 ✓）"
+          f"   目标集之外的改动 {int((dH[~cliff] != 0).sum())}（必须 0 ✓）")
 
-    # 预览
+    # 预览：全图 + 目标地形最密处的 1:1 放大（「轻微」这种程度只能靠放大才看得出）
     k = max(1, VX // 900)
     sh0 = shade(H.astype(np.float32) * 0.5, k)
     sh1 = shade(new.astype(np.float32) * 0.5, k)
     sheet = Image.new("RGB", (sh0.size[0] * 2 + 8, sh0.size[1]), (20, 20, 24))
     sheet.paste(sh0.convert("RGB"), (0, 0))
     sheet.paste(sh1.convert("RGB"), (sh0.size[0] + 8, 0))
-    sheet.save(OUT / "mountain_undulate.jpg", quality=88)
-    print(f"  预览（左=现在的高度场 右=起伏后）{OUT / 'mountain_undulate.jpg'}  {sheet.size}")
+    sheet.save(OUT / "terrain_undulate.jpg", quality=88)
+    print(f"  预览（左=现在 右=起伏后）{OUT / 'terrain_undulate.jpg'}  {sheet.size}")
+    if cellmask.any():
+        zc = max(16, int(args.zoom_cells))
+        dens = ndimage.uniform_filter(cellmask.astype(np.float32), zc)
+        iy, ix = np.unravel_index(int(np.argmax(dens)), dens.shape)
+        c0x = max(0, min(ix - zc // 2, cx - zc))
+        c0y = max(0, min(iy - zc // 2, cy - zc))
+        x0, y0 = c0x * 4, c0y * 4
+        box = (x0, y0, min(x0 + zc * 4, VX), min(y0 + zc * 4, VY))
+        f0 = shade(H.astype(np.float32) * 0.5, 1).crop(box)
+        f1 = shade(new.astype(np.float32) * 0.5, 1).crop(box)
+        zs = Image.new("RGB", (f0.size[0] * 2 + 8, f0.size[1]), (20, 20, 24))
+        zs.paste(f0.convert("RGB"), (0, 0))
+        zs.paste(f1.convert("RGB"), (f0.size[0] + 8, 0))
+        zs.save(OUT / "terrain_undulate_zoom.jpg", quality=90)
+        print(f"  局部 1:1 预览（格 x{c0x}..{c0x+zc} / y{c0y}..{c0y+zc}）"
+              f"{OUT / 'terrain_undulate_zoom.jpg'}  {zs.size}")
 
     if not args.apply:
         print("\n（预览模式，未写盘。确认后加 --apply）")
@@ -265,7 +308,30 @@ def main():
             o = vstart + (vx * VY + vy) * stride      # 文件顺序：vx 外层、vy 内层
             raw[o] = nb
             cnt += 1
-    bak = src.with_suffix(src.suffix + ".bak_before_undulate")
+    # 模型高度跟随：按它所在顶点的「本次高度变化量」平移 py（保留作者原本的贴地偏移）
+    n_model = 0
+    m_max = 0.0
+    touched = []
+    if args.models == "on":
+        msec = d["tail"].get("models")
+        if msec and len(msec) >= 3:
+            s0, ms = int(msec[0]), msec[2]
+            q = float(d["quadSize"])
+            for i, m in enumerate(ms):
+                px, py, pz = float(m[4][0]), float(m[4][1]), float(m[4][2])
+                vx, vy = int(round(pz / q)), int(round(px / q))
+                if not (0 <= vx < VX and 0 <= vy < VY):
+                    continue
+                dl = float(new[vx, vy] - H[vx, vy]) * 0.5
+                if abs(dl) < 0.01:
+                    continue
+                struct.pack_into("<f", raw, s0 + 4 + i * 52 + 20, py + dl)
+                touched.append((i, py + dl))
+                n_model += 1
+                m_max = max(m_max, abs(dl))
+            print(f"  模型高度跟随: {n_model} / {len(ms)} 个已按新的地面高度平移"
+                  f"（最大 {m_max:.1f} 世界单位，作者贴地偏移保留）")
+    bak = src.with_suffix(src.suffix + f".bak_before_{args.backup_tag}")
     if not bak.exists():
         bak.write_bytes(src.read_bytes())
     src.write_bytes(bytes(raw))
@@ -283,20 +349,13 @@ def main():
     print(f"  复核 水面可见顶点: 原 {int((WB > H).sum())} -> "
           f"{int((d2['verts'][...,2].astype(int) > H2).sum())}（应不变）")
 
-    # 连带项：地图上的模型(树/关隘/建筑)的 Y 是按旧高度烘的，山体一变会悬空或埋地
+    # 连带项复核：模型 Y 是否已按新地面跟平（写盘后逐点比对预期值）
     try:
-        ms = d2["tail"]["models"][2]
-        q = float(d2["quadSize"])
-        off_list = []
-        for m in ms:
-            wx, wy, wz = float(m[4][0]), float(m[4][1]), float(m[4][2])
-            vx, vy = int(round(wz / q)), int(round(wx / q))
-            if 0 <= vx < VX and 0 <= vy < VY and safe[vx, vy]:
-                off_list.append(abs(wy - new[vx, vy] * 0.5))
-        print(f"  连带项 模型共 {len(ms)} 个，其中落在改动山体上的 {len(off_list)} 个"
-              f"（Y 需重烘）"
-              + (f"；偏差 中位 {np.median(off_list):.1f} 最大 {max(off_list):.1f} 世界单位"
-                 if off_list else ""))
+        ms2 = d2["tail"]["models"][2]
+        bad = sum(1 for i, exp in touched
+                  if abs(float(ms2[i][4][1]) - exp) > 1e-3)
+        print(f"  复核 模型: 共 {len(ms2)} 个，已跟随新的地面高度 {len(touched)} 个，"
+              f"写盘后与预期不符的 {bad}（必须 0 ✓）")
     except Exception as ex:                                   # noqa: BLE001
         print(f"  连带项 模型检查跳过（{ex}）")
 
