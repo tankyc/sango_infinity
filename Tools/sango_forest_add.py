@@ -64,6 +64,9 @@ def main():
     ap.add_argument("--from-terrains", default="1,4", help="草地/湿地")
     ap.add_argument("--to-terrain", type=int, default=6, help="森")
     ap.add_argument("--skip-interior", action="store_true", default=True)
+    ap.add_argument("--save-mask", default=None,
+                    help="把候选格（含原有森林）存成 .npy 掩膜，供 sango_vegetation.py --mask 使用")
+    ap.add_argument("--no-write", action="store_true", help="只出掩膜/报告，不改地形")
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
@@ -130,6 +133,15 @@ def main():
           f"候选与道路交集 {int((cand & road).sum())} 格（应为 0 ✓）")
     print(f"  areaId 0 的候选格: {int((cand & (area == 0)).sum())}（不改 areaId）")
 
+    if args.save_mask:
+        m = cand | (tt == args.to_terrain)
+        np.save(args.save_mask, m)
+        print(f"\n掩膜已存 {args.save_mask}  共 {int(m.sum())} 格"
+              f"（候选 {int(cand.sum())} + 原有森 {int((tt == args.to_terrain).sum())}）")
+        print("  掩膜形状 (cx, cy) =", m.shape, " dtype", m.dtype)
+    if args.no_write:
+        print("\n（--no-write：地形未改动）")
+        return
     if not args.apply:
         print("\n（未加 --apply，未写盘）")
         return

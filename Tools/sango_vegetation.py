@@ -104,6 +104,8 @@ def main():
     ap.add_argument("--out", default=None, help="输出 .bin（默认就地改写，并留 .bak_vegetation）")
     ap.add_argument("--keep-existing-plants", action="store_true",
                     help="保留原有的 objType=6 记录（默认替换：本工具生成的植被是派生物，重跑应幂等）")
+    ap.add_argument("--mask", default=None,
+                    help="可选：格掩膜 .npy（bool，形状 cx*cy）。给了就只在这些格上种（与 terrains 取交集）")
     ap.add_argument("--report", action="store_true", help="只体检不改写")
     ap.add_argument("--apply", action="store_true", help="真要写文件")
     args = ap.parse_args()
@@ -178,6 +180,14 @@ def main():
     tm = np.isin(tt, list(terrains))
     if skip_interior:
         tm &= (st & INTERIOR_BIT) == 0
+    if args.mask:
+        mk = np.load(args.mask).astype(bool)
+        if mk.shape != tm.shape:
+            print(f"[错误] 掩膜形状 {mk.shape} 与候选格 {tm.shape} 不符")
+            return
+        before = int(tm.sum())
+        tm &= mk
+        print(f"  掩膜 {Path(args.mask).name}: {int(mk.sum())} 格   候选 {before} -> {int(tm.sum())}")
     cell_x, cell_y = np.where(tm)
     total_cand = cell_x.size
     by_terrain = Counter(tt[cell_x, cell_y].tolist())
