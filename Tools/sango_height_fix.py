@@ -37,8 +37,8 @@ LON_DEFAULT = "0.049694,0.002809,99.4265"
 SEA = (9, 21, 22)
 RIVER = (7, 8)
 SHALLOW = (14,)
-CURVE = [(0, 18), (100, 26), (300, 45), (800, 88), (1500, 130),
-         (3000, 190), (5000, 235), (6000, 248)]
+CURVE = [(0, 16), (100, 24), (300, 44), (800, 90), (1500, 140),
+         (2500, 190), (4000, 225), (6000, 248)]
 
 
 def elev_to_byte(e, curve):
@@ -59,8 +59,11 @@ def main():
     ap.add_argument("--lon", default=LON_DEFAULT)
     ap.add_argument("--land-min", type=float, default=13.0)
     ap.add_argument("--protect-cells", type=int, default=1, help="与水相邻的顶点保护带（格）")
-    ap.add_argument("--blend", type=float, default=0.65,
+    ap.add_argument("--blend", type=float, default=1.0,
                     help="与原高度混合比例（1=完全用真实高程，0=全保留）")
+    ap.add_argument("--river-drop", type=float, default=3.0,
+                    help="河床相对两岸最低高度的下切量（字节）；0=不处理河流")
+    ap.add_argument("--river-ids", default="7,8", help="河流地形：川/河")
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()
@@ -131,6 +134,24 @@ def main():
     floor = np.maximum(args.land_min, Wb0 + 1.0)
     new[~prot] = np.maximum(new[~prot], floor[~prot])
     new[prot] = H[prot]                       # 保护带一律保留原值
+
+    # ---- 河流：河床按「真实高程修正后的两岸最低点」再下切，并把该处 water 字节抬到河床之上 ----
+    Wnew = (V[..., 1] if V.ndim == 3 else np.zeros_like(H)).astype(np.float32).copy()
+    riv = np.isin(tt, [int(x) for x in args.river_ids.split(",") if x.strip()])
+    if riv.any() and args.river_drop > 0:
+        xs, ys = np.nonzero(riv)
+        bed_vals = []
+        for x, y in zip(xs.tolist(), ys.tolist()):
+            vx0, vy0 = 4 * x, 4 * y + (x & 1) * 2
+            sl = (slice(max(0, vy0 - 2), min(VY, vy0 + 6)),
+                  slice(max(0, vx0 - 2), min(VX, vx0 + 6)))
+            bed = max(1.0, float(new[sl].min()) - args.river_drop)
+            new[sl] = bed                      # 河床：绝不高于两岸
+            Wnew[sl] = np.maximum(Wnew[sl], bed + 1.0)   # 水位在河床之上
+            bed_vals.append(bed)
+        print(f"  河流: 河格 {int(riv.sum())} 个  河床下切 {args.river_drop}"
+              f"  河床高度 中位 {np.median(bed_vals):.0f}"
+              f"  最高 {max(bed_vals):.0f}（均低于两岸最低点）")
     print(f"\n  受保护顶点 {int(prot.sum())} / {H.size} = {prot.mean():.3f}（原值保留）")
     d_all = np.abs(new - H)
     print(f"  高度改动: 最大 {d_all.max():.0f}  平均 {d_all.mean():.1f}"
@@ -200,16 +221,19 @@ def main():
     print(f"  顶点段自动定位: 偏移 {best[1]}（基线后 {best[1] - base} 字节）"
           f" 步长 {best[2]} 抽样匹配率 {best[0]:.3f}")
     vstart, stride = best[1], best[2]
-    cnt = 0
+    cnt = cnt_w = 0
     for vy in range(VY):
         for vx in range(VX):
-            nb = int(round(new[vy, vx]))
-            if nb == int(H[vy, vx]):
-                continue
             o = vstart + (vy * VX + vx) * stride
+            nb = int(round(new[vy, vx]))
             if raw[o] != nb:
                 raw[o] = nb
                 cnt += 1
+            wb = int(round(Wnew[vy, vx]))          # 通道1 = water 字节（仅河流处会变）
+            if o + 1 < len(raw) and raw[o + 1] != wb:
+                raw[o + 1] = wb
+                cnt_w += 1
+    print(f"  改写: 高度顶点 {cnt}   water 字节顶点 {cnt_w}（仅河流处）")
     src.write_bytes(bytes(raw))
     print(f"已写入 {src}  {src.stat().st_size/1024/1024:.2f} MB（备份 {bak.name}）  改写顶点 {cnt}")
 

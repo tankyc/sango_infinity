@@ -185,14 +185,15 @@ def exemplar_fill(img, mask_big, block_cells, px, py, radius_cells, log, block_m
 # --------------------------------------------------------------------------- #
 # 城市底座
 # --------------------------------------------------------------------------- #
-def stamp_pedestals(img, cities, px, py, cells, color, feather):
+def stamp_pedestals(img, cities, px, py, cells_by_type, color, feather):
     im = img.convert("RGBA")
     layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
     dr = ImageDraw.Draw(layer)
-    half = cells / 2.0
     core = (color + (225,)) if color else (0, 0, 0, 225)
     soft = (color + (80,)) if color else (0, 0, 0, 80)
     for name, x, y, bt in cities:
+        cells = cells_by_type.get(bt, cells_by_type.get(0, 1.6))
+        half = cells / 2.0
         cx = (x + 0.5) * px
         cy = (y + 0.5) * py
         rx, ry = half * px, half * py
@@ -222,7 +223,9 @@ def main():
     ap.add_argument("--search-radius", type=int, default=110, help="克隆源搜索半径（格）")
     ap.add_argument("--seasons", default="0,1,2,3")
     ap.add_argument("--pedestal", default="on", choices=("on", "off"))
-    ap.add_argument("--pedestal-cells", type=float, default=1.6)
+    ap.add_argument("--pedestal-cells", type=float, default=1.6, help="默认底座边长（格）")
+    ap.add_argument("--pedestal-cells-by-type", default=None,
+                    help="按据点类型分设边长，如 \"1:1.6,2:1.0,3:1.0\"（1城 2关 3港）")
     ap.add_argument("--pedestal-color", default=None)
     ap.add_argument("--pedestal-feather", type=float, default=0.8)
     ap.add_argument("--site-types", default="1,2,3", help="1=城 2=关 3=港")
@@ -321,10 +324,19 @@ def main():
             total_fix += nfix
         if args.pedestal == "on":
             col = tuple(int(x) for x in args.pedestal_color.split(",")) if args.pedestal_color else None
+            cells_by_type = {0: args.pedestal_cells}
+            if args.pedestal_cells_by_type:
+                for kv in args.pedestal_cells_by_type.split(","):
+                    if ":" in kv:
+                        k, v = kv.split(":")
+                        cells_by_type[int(k)] = float(v)
             if args.apply:
-                img2 = stamp_pedestals(img2, cities, px, py, args.pedestal_cells,
+                img2 = stamp_pedestals(img2, cities, px, py, cells_by_type,
                                        col, args.pedestal_feather)
-                log(f"    城市底座 {len(cities)} 个（边长 {args.pedestal_cells} 格）")
+                from collections import Counter as _C
+                log(f"    城市底座 {len(cities)} 个  按类型边长 "
+                    f"{ {k: v for k, v in sorted(cells_by_type.items()) if k} }"
+                    f"  实际分布 {_C(bt for *_, bt in cities)}")
             else:
                 log(f"    [分析模式] 将盖底座 {len(cities)} 个（边长 {args.pedestal_cells} 格）")
 
