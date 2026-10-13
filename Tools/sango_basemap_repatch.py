@@ -185,13 +185,25 @@ def exemplar_fill(img, mask_big, block_cells, px, py, radius_cells, log, block_m
 # --------------------------------------------------------------------------- #
 # 城市底座
 # --------------------------------------------------------------------------- #
-def stamp_pedestals(img, cities, px, py, cells_by_type, color, feather):
+def stamp_pedestals(img, cities, px, py, cells_by_type, color, feather, px_size=0):
+    """盖据点底座。
+
+    px_size > 0 时改为**像素**为单位画一个 px_size×px_size 的实心方块（居中），
+    不带柔化光晕、也不做羽化 —— 单像素被高斯一糊就没了。
+    """
     im = img.convert("RGBA")
     layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
     dr = ImageDraw.Draw(layer)
-    core = (color + (225,)) if color else (0, 0, 0, 225)
+    core = (color + (255,)) if color else (0, 0, 0, 255)
     soft = (color + (80,)) if color else (0, 0, 0, 80)
     for name, x, y, bt in cities:
+        if px_size > 0:
+            cx = int((x + 0.5) * px)
+            cy = int((y + 0.5) * py)
+            h0 = (px_size - 1) // 2
+            dr.rectangle([cx - h0, cy - h0, cx - h0 + px_size - 1, cy - h0 + px_size - 1],
+                         fill=core)
+            continue
         cells = cells_by_type.get(bt, cells_by_type.get(0, 1.6))
         half = cells / 2.0
         cx = (x + 0.5) * px
@@ -199,7 +211,7 @@ def stamp_pedestals(img, cities, px, py, cells_by_type, color, feather):
         rx, ry = half * px, half * py
         dr.rectangle([cx - rx * 1.4, cy - ry * 1.4, cx + rx * 1.4, cy + ry * 1.4], fill=soft)
         dr.rectangle([cx - rx, cy - ry, cx + rx, cy + ry], fill=core)
-    if feather > 0:
+    if feather > 0 and px_size == 0:
         layer = layer.filter(ImageFilter.GaussianBlur(radius=feather))
     im.alpha_composite(layer)
     return im.convert("RGB")
@@ -213,7 +225,9 @@ def main():
     ap.add_argument("--tex-dir", required=True)
     ap.add_argument("--orig-bin", default=None, help="mod 原始 .bin（默认自动找 .bak_repair/.bak_skybox）")
     ap.add_argument("--water-ids", default="7,8,9,21,22", help="水域地形 id（默认含 川/河）")
-    ap.add_argument("--mismatch-src", default="both", choices=("data", "coast", "both"))
+    ap.add_argument("--mismatch-src", default="both", choices=("data", "coast", "both", "none"),
+                    help="不符判定来源。none = 不做保样式重刷，只盖据点底座"
+                         "（地图数据已被后续工序改动很多时，data 会把那些改动全当成不符）")
     ap.add_argument("--coast-tol", type=float, default=3.0,
                     help="海岸线错位容差（格）：地形水与美术水的最近距离超过它才算错位")
     ap.add_argument("--min-region", type=int, default=60, help="连通域小于该格数视为噪声，忽略")
@@ -228,6 +242,9 @@ def main():
                     help="按据点类型分设边长，如 \"1:1.6,2:1.0,3:1.0\"（1城 2关 3港）")
     ap.add_argument("--pedestal-color", default=None)
     ap.add_argument("--pedestal-feather", type=float, default=0.8)
+    ap.add_argument("--pedestal-px", type=int, default=0,
+                    help=">0 时底座按**像素**画实心方块（如 1 = 单个像素，无光晕无羽化），"
+                         "忽略 --pedestal-cells/--pedestal-feather")
     ap.add_argument("--site-types", default="1,2,3", help="1=城 2=关 3=港")
     ap.add_argument("--analyze", action="store_true")
     ap.add_argument("--apply", action="store_true")
@@ -318,7 +335,7 @@ def main():
 
         mask_big = mask_to_img(mm, (W, H))
         img2 = img
-        if args.apply:
+        if args.apply and mm.any():
             img2, nfix = exemplar_fill(img2, mask_big, args.block, px, py,
                                        args.search_radius, log, block_min=args.block_min)
             total_fix += nfix
@@ -332,10 +349,11 @@ def main():
                         cells_by_type[int(k)] = float(v)
             if args.apply:
                 img2 = stamp_pedestals(img2, cities, px, py, cells_by_type,
-                                       col, args.pedestal_feather)
+                                       col, args.pedestal_feather, args.pedestal_px)
                 from collections import Counter as _C
-                log(f"    城市底座 {len(cities)} 个  按类型边长 "
-                    f"{ {k: v for k, v in sorted(cells_by_type.items()) if k} }"
+                size_desc = (f"{args.pedestal_px}x{args.pedestal_px} 像素" if args.pedestal_px > 0
+                             else f"按类型边长 { {k: v for k, v in sorted(cells_by_type.items()) if k} } 格")
+                log(f"    据点底座 {len(cities)} 个  {size_desc}"
                     f"  实际分布 {_C(bt for *_, bt in cities)}")
             else:
                 log(f"    [分析模式] 将盖底座 {len(cities)} 个（边长 {args.pedestal_cells} 格）")
