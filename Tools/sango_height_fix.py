@@ -122,7 +122,8 @@ def main():
             prot[max(0, vy0):vy0 + 4 + 4 * K, max(0, vx0):vx0 + 4 + 4 * K] = True
         print(f"  {name} 格 {int(mask.sum())} -> 保护顶点累计 {int(prot.sum())}")
 
-    Wb0 = (V[..., 1] if V.ndim == 3 else np.zeros_like(H)).astype(np.float32)
+    # 顶点通道: 0=height 1=textureIndex 2=water（磁盘布局 height/textureIndex/water）
+    Wb0 = (V[..., 2] if V.ndim == 3 else np.zeros_like(H)).astype(np.float32)
     vis = Wb0 > H                              # 当前正在显示水面的顶点
     prot |= vis
     print(f"  另保护「当前已可见水面」的顶点 {int(vis.sum())} 个"
@@ -136,7 +137,7 @@ def main():
     new[prot] = H[prot]                       # 保护带一律保留原值
 
     # ---- 河流：河床按「真实高程修正后的两岸最低点」再下切，并把该处 water 字节抬到河床之上 ----
-    Wnew = (V[..., 1] if V.ndim == 3 else np.zeros_like(H)).astype(np.float32).copy()
+    Wnew = (V[..., 2] if V.ndim == 3 else np.zeros_like(H)).astype(np.float32).copy()
     riv = np.isin(tt, [int(x) for x in args.river_ids.split(",") if x.strip()])
     if riv.any() and args.river_drop > 0:
         xs, ys = np.nonzero(riv)
@@ -174,7 +175,7 @@ def main():
     r_old = float(np.corrcoef(hc_old[m], el[m])[0, 1])
     r_new = float(np.corrcoef(hc_new[m], el[m])[0, 1])
     print(f"\n  陆地「格中心高度 vs 真实高程」相关: 原 {r_old:+.3f} -> 新 {r_new:+.3f}")
-    Wb = (V[..., 1] if V.ndim == 3 else np.zeros_like(H)).astype(np.float32)
+    Wb = (V[..., 2] if V.ndim == 3 else np.zeros_like(H)).astype(np.float32)
     print(f"  水面可见顶点(water字节>height): 原 {int((Wb > H).sum())} -> 新 {int((Wb > new).sum())}"
           f"   （海/河/浅滩保护带内原值保留，应基本不变）")
     print(f"  陆地顶点低于水面字节 11 的: 原 {int(((H < 11) & ~prot).sum())}"
@@ -229,9 +230,9 @@ def main():
             if raw[o] != nb:
                 raw[o] = nb
                 cnt += 1
-            wb = int(round(Wnew[vy, vx]))          # 通道1 = water 字节（仅河流处会变）
-            if o + 1 < len(raw) and raw[o + 1] != wb:
-                raw[o + 1] = wb
+            wb = int(round(Wnew[vy, vx]))          # 通道2 = water 字节（仅河流处会变）
+            if o + 2 < len(raw) and raw[o + 2] != wb:
+                raw[o + 2] = wb
                 cnt_w += 1
     print(f"  改写: 高度顶点 {cnt}   water 字节顶点 {cnt_w}（仅河流处）")
     src.write_bytes(bytes(raw))
