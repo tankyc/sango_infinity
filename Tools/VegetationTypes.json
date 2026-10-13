@@ -5,13 +5,13 @@
 
   "terrains": [6],
   "skipInterior": true,
-  "density": 0.07,
+  "density": 1.0,
   "jitter": 0.0,
   "scale": [1.0, 1.0],
   "seed": 20261013,
   "budget": {
-    "maxPerModel": 1000,
-    "maxTotal": 10000
+    "maxPerModel": 60000,
+    "maxTotal": 250000
   },
 
   "geo": {
