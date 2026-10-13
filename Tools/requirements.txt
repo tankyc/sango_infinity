@@ -1,0 +1,8 @@
+# 运行工具包（san11kit.py 和 tools/ 里的脚本）需要的 Python 库
+numpy>=1.24
+scipy>=1.10
+pyshp>=2.3
+tifffile>=2023.1
+pillow>=9.0
+# 只有重新生成补丁表（tools/patchgen，改游戏代码的人才用）才需要：
+# pefile capstone keystone-engine
