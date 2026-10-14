@@ -299,6 +299,14 @@ namespace Sango.Core.Action
             Register("CityChangeFoodCost", CraeteHandle<CityChangeFoodCost>);
             // 特技 #78 筑城：军事设施建设时的耐久上升量提高至 200%。
             Register("TroopImproveBuildPower", CraeteHandle<TroopImproveBuildPower>);
+            // 特技 #52 猛者：以战法让敌方部队移动区格时，有几率让敌方一名武将负伤。
+            Register("TroopOffsetInjurePerson", CraeteHandle<TroopOffsetInjurePerson>);
+            // 特技 #53 护卫：本部队的武将不会负伤（免伤判定挂在 PersonInjury 的询问事件上，
+            // 因此天然免疫"猛者"这类伤害来源，与订阅先后无关）。
+            Register("TroopPreventPersonInjury", CraeteHandle<TroopPreventPersonInjury>);
+            // 特技 #53 护卫：本部队的武将不会战死（免死判定挂在 Person.DeadInBattle 的询问事件上；
+            // 处决 / 病逝 / 剧情杀走 Person.Dead，不受本特技影响）。
+            Register("TroopPreventPersonBattleDeath", CraeteHandle<TroopPreventPersonBattleDeath>);
             // 特技 #22 掠夺：击破敌军时缴获全部物资，此 Action 负责粮食部分。
             Register("TroopAddFoodGain", CraeteHandle<TroopAddFoodGain>);
             // 特技 #22 掠夺：击破敌军时缴获全部物资，此 Action 负责资金部分。

@@ -627,7 +627,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": 80,
+          "value": -20,
           "isDefender": 1
         }
       ]
@@ -668,7 +668,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": 50,
+          "value": -50,
           "isDefender": 1
         },
         {
@@ -1302,7 +1302,7 @@
       "actionEntities": [
         {
           "class": "TroopChangeDamage",
-          "value": 150,
+          "value": 50,
           "isDefender": 0,
           "condition": {
             "class": "TerrainCheck",
@@ -1314,18 +1314,43 @@
     "52": {
       "Id": 52,
       "Name": "猛者",
-      "desc": "以战法让敌方部队移动区格时，可让敌将负伤",
+      "desc": "以战法让敌方部队移动区格时，可让敌将负伤，攻击损伤增加20%",
       "only": true,
       "level": 2,
-      "kind": 2
+      "kind": 2,
+      "actionEntities": [
+        {
+          "class": "TroopOffsetInjurePerson",
+          "value": 30,
+          "injury": 1
+        },
+        {
+          "class": "TroopChangeDamage",
+          "value": 20,
+          "isDefender": 0
+        }
+      ]
     },
     "53": {
       "Id": 53,
       "Name": "护卫",
-      "desc": "同部队的武将不会战死、负伤",
+      "desc": "同部队的武将不会战死、负伤，攻击损伤减少20%",
       "only": true,
       "level": 2,
-      "kind": 3
+      "kind": 3,
+      "actionEntities": [
+        {
+          "class": "TroopPreventPersonInjury"
+        },
+        {
+          "class": "TroopPreventPersonBattleDeath"
+        },
+        {
+          "class": "TroopChangeDamage",
+          "value": -20,
+          "isDefender": 1
+        }
+      ]
     },
     "54": {
       "Id": 54,

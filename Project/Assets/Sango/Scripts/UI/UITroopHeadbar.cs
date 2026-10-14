@@ -17,13 +17,37 @@ using Sango.Core; namespace Sango.UI
         public UIAnimationText aniText;
         public Troop troop;
         public Animation foodAni;
+
+        /// <summary>
+        /// 上一次写入底框的势力ID。
+        /// 【刷新治理】Image.color 每次赋值都会标脏画布,而 UpdateState 的调用频率很高,
+        /// 因此只在势力真的变了时才写一次。
+        /// </summary>
+        int lastForceId = int.MinValue;
+
+        /// <summary>
+        /// 刷新底框的势力色。
+        ///
+        /// 原先背景色只在 <see cref="Init"/> 里写一次,部队换势力(登庸带兵的武将)之后
+        /// 血条底框会一直停留在旧势力色上,直到模型重新加载(headbar 随之重建)才纠正 ——
+        /// 这正是"登庸成功、他头顶颜色没变化,下个回合才变回来"的直接原因。
+        /// </summary>
+        void UpdateForceColor()
+        {
+            Force force = troop != null ? troop.BelongForce : null;
+            if (force == null) return;
+            if (lastForceId == force.Id) return;
+            lastForceId = force.Id;
+            bg.color = force.Color;
+        }
+
         public void Init(Troop troop)
         {
             aniText = null;
             this.troop = troop;
+            lastForceId = int.MinValue;
             name.text = troop.Name;
             headIcon.texture = GameRenderHelper.LoadHeadIcon(troop.Leader.headIconID);
-            bg.color = troop.BelongForce.Color;
             skillText.Clear();
             UpdateState(troop);
             GameEvent.OnForceTurnStart += OnForceStart;
@@ -91,6 +115,9 @@ using Sango.Core; namespace Sango.UI
 
         public void UpdateState(Troop troop)
         {
+            // 先看势力有没有换:换旗后 UI 的归属色与状态图标口径都要跟着变
+            UpdateForceColor();
+
             // 原 TODO（拆开刷新）先把"值没变就不写"这一步做掉，收益最直接
             UpdateTroopState();
 

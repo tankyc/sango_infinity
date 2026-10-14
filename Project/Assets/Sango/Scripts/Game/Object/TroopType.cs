@@ -313,6 +313,16 @@ namespace Sango.Core
             city.itemStore.Cost(costItems, troops);
         }
 
+        /// <summary>
+        /// 是否剑兵(kind == 1)。
+        /// 剑兵物理孱弱且只带"近战普攻"，AI 在技能判定时会倾向于用计略弥补战力短板。
+        /// </summary>
+        /// <returns>true = 剑兵</returns>
+        public bool IsSword()
+        {
+            return kind == 1;
+        }
+
         public bool IsTransport()
         {
             return kind == 7;

@@ -326,7 +326,9 @@ namespace Sango.Core.Duel
         public virtual void PersonDie(Person person, Person killer, Troop troop, Troop killerTroop, DeathType type, bool flag)
         {
             if (person == null) return;
-            person.Dead();
+            // 单挑落败身死属于"战死"，走带免死判定的接口（特技 #53 护卫 在这里拦截）。
+            // 注意别改回 person.Dead()：那样会绕过 GameEvent.OnPersonCheckBattleDeath，护卫就失效了。
+            person.DeadInBattle(killer != null ? (SangoObject)killer : killerTroop);
         }
 
         #endregion

@@ -18,7 +18,9 @@ namespace Sango.Render
         
         public override void Enter(Scenario scenario)
         {
-            if (!person.BelongCorps.IsPlayer)
+            // 判据用 IsPlayerControl（玩家势力 && 第一军团）而不是 IsPlayer：
+            // 玩家势力委任军团由 AI 代管，不能弹玩家侧的招募结果对话框。
+            if (!person.BelongCorps.IsPlayerControl)
             {
                 IsDone = true;
                 return;
@@ -56,7 +58,8 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return person.BelongCorps.IsPlayer;
+            // 与 Enter 的判据保持一致：委任军团不参与玩家侧演出
+            return person.BelongCorps.IsPlayerControl;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

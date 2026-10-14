@@ -28,7 +28,10 @@ namespace Sango.Render
                 return;
             }
 
-            if (!atk.BelongCorps.IsPlayer)
+            // 判据用 IsPlayerControl（玩家势力 && 第一军团）而不是 IsPlayer：
+            // 玩家势力的委任军团 IsPlayer 也为真，但它由 AI 代管，不能走玩家交互分支，
+            // 否则会在玩家当前界面之上叠出招募窗口，并让回合卡在等待玩家操作上。
+            if (!atk.BelongCorps.IsPlayerControl)
             {
                 for (int i = captiveList.Count - 1; i >= 0; i--)
                 {
@@ -66,7 +69,8 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return atk.BelongCorps.IsPlayer;
+            // 与 Enter 的判据保持一致：委任军团不参与玩家侧演出
+            return atk.BelongCorps.IsPlayerControl;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

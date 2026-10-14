@@ -1885,20 +1885,115 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 军师研究推荐
+        /// 研究队伍人数上限（与 JobType #19 研究的人数限制、技巧研究界面上的三个武将槽位一致）
         /// </summary>
+        const int ResearchPersonLimit = 3;
+
+        /// <summary>
+        /// 研究推荐特技兜底：特技 #85 指导，研究技巧时费用减半（与 CityAI 里 86 眼力的写法保持同一约定）。
+        ///
+        /// 为什么需要兜底：<see cref="Technique.recommandFeatures"/>（以及 JobType 上的同名字段）
+        /// 在数据侧（Technique_技术表 / JobTypes.json）从未导出过，取到的永远是 null，
+        /// 于是"优先把影响研究的特技持有者选进研究队伍"这条链路整体失效：
+        /// 默认推荐的人选永远不含指导持有者，玩家按推荐直接开始研究，费用自然不减半，
+        /// 表现就是"指导特技不生效"。这里按原版行为兜底：城里有指导持有者就优先入队。
+        /// </summary>
+        static readonly int[] defaultResearchRecommandFeatures = new int[] { 85 };
+
+        /// <summary>
+        /// 军师研究推荐
+        ///
+        /// 关键规则：推荐特技（指导）的持有者必须进队伍。
+        /// 因为研究费用/耗旬的加成动作是由"参与者身上的特技"装配的
+        /// （Technique.GetCost → GameUtility.InitJobFeature → CityImproveResearchCost），
+        /// 持有者不参与研究，该特技就等同于没有实现。
+        /// 其余名额按研究所需属性从高到低补足：研究耗旬取三人属性之和，属性越高耗旬越短。
+        /// </summary>
+        /// <param name="personList">候选武将（一般为目标城市的未行动武将）</param>
+        /// <param name="technique">目标技巧</param>
         public static Person[] CounsellorRecommendResearch(List<Person> personList, Technique technique)
         {
-            List<Person> featurePersonList = personList.FindAll(x => x.FeatureList != null && x.FeatureList.Contains(technique.recommandFeatures));
-            if (featurePersonList.Count >= 3) return featurePersonList.ToArray();
+            if (personList == null || personList.Count == 0 || technique == null)
+                return null;
 
-            Person p1 = featurePersonList.Count > 0 ? featurePersonList[0] : null;
-            Person p2 = featurePersonList.Count > 1 ? featurePersonList[1] : null;
+            int[] recommandFeatures = technique.recommandFeatures;
+            if (recommandFeatures == null || recommandFeatures.Length == 0)
+                recommandFeatures = defaultResearchRecommandFeatures;
 
+            List<Person> featurePersonList = personList.FindAll(x => x.FeatureList != null && x.FeatureList.Contains(recommandFeatures));
+            // 持有者足够填满队伍时直接成队（与原逻辑一致）
+            if (featurePersonList.Count >= ResearchPersonLimit)
+                return featurePersonList.GetRange(0, ResearchPersonLimit).ToArray();
+
+            Person[] recommendList = RecommendResearchByAttribute(personList, technique);
+            if (featurePersonList.Count == 0)
+                return recommendList;
+
+            // 把持有者补进推荐队伍：
+            // 候选人数 >= 20 时 RecommendResearchByAttribute 走的是"快速推荐"分支，
+            // 以及原三人约束分支只保证结果"含持有者"、受候选顺序限制可能凑不满三人，
+            // 所以这里统一兜底，保证持有者一定在队伍里。
+            List<Person> result = new List<Person>(ResearchPersonLimit);
+            if (recommendList != null)
+            {
+                for (int i = 0; i < recommendList.Length && result.Count < ResearchPersonLimit; i++)
+                {
+                    if (recommendList[i] != null)
+                        result.Add(recommendList[i]);
+                }
+            }
+
+            for (int i = 0; i < featurePersonList.Count && i < ResearchPersonLimit; i++)
+            {
+                Person holder = featurePersonList[i];
+                if (holder == null || result.Contains(holder))
+                    continue;
+
+                if (result.Count < ResearchPersonLimit)
+                {
+                    result.Add(holder);
+                }
+                else
+                {
+                    // 满员时换掉研究属性最低的一位，尽量少牺牲研究速度
+                    int minIndex = 0;
+                    for (int j = 1; j < result.Count; j++)
+                    {
+                        if (GetResearchAttribute(result[j], technique) < GetResearchAttribute(result[minIndex], technique))
+                            minIndex = j;
+                    }
+                    result[minIndex] = holder;
+                }
+            }
+
+            return result.Count > 0 ? result.ToArray() : null;
+        }
+
+        /// <summary>
+        /// 取武将用于研究的能力值（与研究耗旬使用同一个取属性入口 Person.GetAttribute）
+        /// </summary>
+        /// <param name="person">待取值的武将</param>
+        /// <param name="technique">目标技巧（其 needAttr 指明研究所需属性）</param>
+        static int GetResearchAttribute(Person person, Technique technique)
+        {
+            int needAttr = technique.needAttr;
+            // 越界值沿用原实现 default 分支的约定：按智力计算
+            if (needAttr < (int)AttributeType.Command || needAttr > (int)AttributeType.Glamour)
+                needAttr = (int)AttributeType.Intelligence;
+            return person.GetAttribute(needAttr);
+        }
+
+        /// <summary>
+        /// 按研究所需属性挑选最优三人（不含"推荐特技持有者必须进队"的约束）
+        /// </summary>
+        /// <param name="personList">候选武将</param>
+        /// <param name="technique">目标技巧</param>
+        static Person[] RecommendResearchByAttribute(List<Person> personList, Technique technique)
+        {
             switch (technique.needAttr)
             {
                 case (int)AttributeType.Command:
-                    return CounsellorRecommend3Person(personList, p1, p2, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
+                    return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
                     {
                         int buildAbility = 0;
                         if (check1 != null) buildAbility += check1.Command;
@@ -1924,7 +2019,7 @@ namespace Sango.Core
 
                     });
                 case (int)AttributeType.Strength:
-                    return CounsellorRecommend3Person(personList, p1, p2, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
+                    return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
                     {
                         int buildAbility = 0;
                         if (check1 != null) buildAbility += check1.Strength;
@@ -1950,7 +2045,7 @@ namespace Sango.Core
 
                     });
                 case (int)AttributeType.Intelligence:
-                    return CounsellorRecommend3Person(personList, p1, p2, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
+                    return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
                     {
                         int buildAbility = 0;
                         if (check1 != null) buildAbility += check1.Intelligence;
@@ -1976,7 +2071,7 @@ namespace Sango.Core
 
                     });
                 case (int)AttributeType.Politics:
-                    return CounsellorRecommend3Person(personList, p1, p2, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
+                    return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
                     {
                         int buildAbility = 0;
                         if (check1 != null) buildAbility += check1.Politics;
@@ -2002,7 +2097,7 @@ namespace Sango.Core
 
                     });
                 case (int)AttributeType.Glamour:
-                    return CounsellorRecommend3Person(personList, p1, p2, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
+                    return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
                     {
                         int buildAbility = 0;
                         if (check1 != null) buildAbility += check1.Glamour;
@@ -2029,7 +2124,7 @@ namespace Sango.Core
                     });
                 default:
                     // 默认情况：使用智力作为研发能力
-                    return CounsellorRecommend3Person(personList, p1, p2, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
+                    return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
                     {
                         int buildAbility = 0;
                         if (check1 != null) buildAbility += check1.Intelligence;

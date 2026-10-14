@@ -34,7 +34,7 @@ namespace Sango.UI
             ShortScenario last = scenario;
             scenario = value;
             scenarioName.text = scenario.GetDateName();
-            if(last != scenario)
+            if (last != scenario)
             {
                 mapBounds_img.texture = Render.MapRender.LoadBoundTex(scenario.Map.WorkContent);
                 mapScaleSlider.SetValueWithoutNotify(0);
@@ -77,7 +77,7 @@ namespace Sango.UI
 
         public void Init()
         {
-            
+
         }
 
         public void RefreshCity()
@@ -159,12 +159,10 @@ namespace Sango.UI
 
             for (int kk = 0; kk < scenario.citySet.Count; kk++)
             {
-                ShortCity city = scenario.citySet[kk];
-                if (city == null) continue;
-                if (city.BuildingType > 1) continue;
-                if (city.Id == 0) continue;
+               
                 UIMapCitySelectItem toggle = createPool.Get(kk);
                 if (toggle == null) continue;
+                ShortCity city = toggle.shortCity;
                 RectTransform rectTransform = toggle.GetComponent<RectTransform>();
                 float x = city.x * mapBounds.sizeDelta.x / scenario.Map.Width - mapBounds.sizeDelta.x / 2;
                 float y = mapBounds.sizeDelta.y / 2 - city.y * mapBounds.sizeDelta.y / scenario.Map.Height;

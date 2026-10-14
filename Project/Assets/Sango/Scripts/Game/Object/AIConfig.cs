@@ -361,6 +361,15 @@ namespace Sango.Core
         public int scoreStrategySuccessThreshold = 75;
         /// <summary>策略技能成功率超出门槛时，每点折算的施法距离加成</summary>
         public int scoreStrategySuccessBonus = 2;
+
+        // ---------- 剑兵计略倾向（剑兵只有"近战普攻"，物理输出孱弱，AI 更愿意用计略弥补）----------
+
+        /// <summary>是否启用"剑兵倾向计略"。关闭则剑兵与其它兵种一视同仁</summary>
+        public bool useSwordStrategyPreference = true;
+        /// <summary>剑兵的计略收益倍率（%）。&gt;100 表示比其它兵种更愿意释放计略；设为 100 等于关闭倾向</summary>
+        public int swordStrategyScoreScale = 200;
+        /// <summary>剑兵的计略成功率门槛（%）。低于全局门槛，让智力平平的剑兵队也敢赌计略</summary>
+        public int swordStrategySuccessThreshold = 50;
         /// <summary>攻防差值的基数（避免攻防差为负时整体收益归零）</summary>
         public int scoreAttackDefenceBase = 200;
         /// <summary>技能能耗的最小值（防止除零并限制低耗技能的过高收益）</summary>
@@ -595,6 +604,19 @@ namespace Sango.Core
         /// "有货待发却缺运输主将"作为人员需求交给人才调度。
         /// </summary>
         public ResourceDispatchWeights resourceDispatch = new ResourceDispatchWeights();
+
+        #endregion
+
+        #region 内政建筑规划（动态目标构成）
+
+        /// <summary>
+        /// AI 内政建筑规划的全部权重与阈值（份额权重 / 港口修正 / 排除名单）。
+        /// 可通过 <c>Data/Common/AIConfig.json</c> 的 <c>"buildingPlan"</c> 节点做部分覆盖。
+        ///
+        /// 取代原来的固定建造队列（<c>CityAI.CityBuildingTemplate</c>）：按"逐格贪心 + 边际递减"
+        /// 动态决定下一个建什么，使各类建筑的产出比例随势力需求 / 城池条件漂移。
+        /// </summary>
+        public BuildingPlanWeights buildingPlan = new BuildingPlanWeights();
 
         #endregion
 

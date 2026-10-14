@@ -3417,6 +3417,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: editWorldMap
       objectReference: {fileID: 0}
+    - target: {fileID: 2126367097094378911, guid: ec441038d084a9f429baafa23f0d181c, type: 3}
+      propertyPath: colorImage.Array.size
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2126367097094378911, guid: ec441038d084a9f429baafa23f0d181c, type: 3}
+      propertyPath: colorImage.Array.data[4]
+      value: 
+      objectReference: {fileID: 4583091322060182840}
     - target: {fileID: 3440841860422660511, guid: ec441038d084a9f429baafa23f0d181c, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
@@ -3540,6 +3548,17 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 9148030687928756896, guid: ec441038d084a9f429baafa23f0d181c, type: 3}
   m_PrefabInstance: {fileID: 9144187526734760365}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &4583091322060182840 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4718865716018142357, guid: ec441038d084a9f429baafa23f0d181c, type: 3}
+  m_PrefabInstance: {fileID: 9144187526734760365}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &6300820543337502524 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2997054280429002385, guid: ec441038d084a9f429baafa23f0d181c, type: 3}

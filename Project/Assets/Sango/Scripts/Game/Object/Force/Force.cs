@@ -222,6 +222,9 @@ namespace Sango.Core
         {
             if (troop == null || !troop.IsAlive)
                 return;
+            // 只记"现在仍敌对"的部队:登庸主将等换旗场景下它可能已经不是敌人了
+            if (!IsHostile(troop))
+                return;
             if (threatTroopIds == null)
                 threatTroopIds = new List<int>();
             if (threatTroopIds.Contains(troop.Id))
@@ -230,7 +233,37 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 清理已阵亡或不存在的威胁部队记录。
+        /// 把某支部队从威胁名单里移除。
+        /// 用途:部队换旗(登庸主将)、双方结盟 / 停战之后,立刻停止把它当驱逐目标,
+        /// 否则 AI 会在同一个回合里派兵去打"已经变成自己人"的部队。
+        /// </summary>
+        /// <param name="troop">要移除的部队,可为空</param>
+        public void RemoveThreatTroop(Troop troop)
+        {
+            if (troop == null) return;
+            if (threatTroopIds == null || threatTroopIds.Count == 0) return;
+            threatTroopIds.Remove(troop.Id);
+        }
+
+        /// <summary>
+        /// 该部队现在是否仍应被本势力视为驱逐目标:存活、有归属、且与本势力敌对。
+        /// 部队换旗后这里立刻变为 false,驱逐类 AI(FindThreatTroopInRange / HasThreatTroop)就不会误伤友军。
+        /// </summary>
+        /// <param name="troop">待判定的部队</param>
+        /// <returns>是否仍是威胁</returns>
+        bool IsHostile(Troop troop)
+        {
+            if (troop == null || !troop.IsAlive) return false;
+            // 无归属的部队(主将已脱离但尚未收尾)不属于任何势力,不做驱逐
+            if (troop.BelongForce == null) return false;
+            return IsEnemy(troop.BelongForce);
+        }
+
+        /// <summary>
+        /// 清理已阵亡、不存在或已不再敌对的威胁部队记录。
+        ///
+        /// 【为什么还要判敌我】以前只按"是否存活"过滤,部队换个势力(登庸)之后仍留在名单里,
+        /// 只能等到下一次势力回合开始时处理,于是当回合内 AI 会照着旧名单去打自己人/友军。
         /// </summary>
         public void CleanupThreatTroops()
         {
@@ -243,7 +276,7 @@ namespace Sango.Core
             for (int i = threatTroopIds.Count - 1; i >= 0; i--)
             {
                 Troop troop = scenario.troopsSet.Get(threatTroopIds[i]);
-                if (troop == null || !troop.IsAlive)
+                if (troop == null || !IsHostile(troop))
                     threatTroopIds.RemoveAt(i);
             }
         }

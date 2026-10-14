@@ -59,8 +59,19 @@ namespace Sango.UI
             public void Init(Troop troop)
             {
                 this.troop = troop;
-                image.color = troop.BelongForce.mFlag.color;
+                UpdateColor();
                 image.enabled = true;
+            }
+
+            /// <summary>
+            /// 刷新圆点的势力色。
+            /// 颜色原先只在创建时写一次,部队换旗(登庸带兵的武将等)后圆点会停留在旧势力色上,
+            /// 因此换旗事件要把这里一并纠正。
+            /// </summary>
+            public void UpdateColor()
+            {
+                if (troop == null || troop.BelongForce == null) return;
+                image.color = troop.BelongForce.mFlag.color;
             }
 
             public MapTroopNodeData UpdateCell(Cell dest, RectTransform mapBounds)
@@ -96,6 +107,7 @@ namespace Sango.UI
             GameEvent.OnTroopEnterCell += OnTroopEnterCell;
             GameEvent.OnTroopCreated += OnTroopCreated;
             GameEvent.OnTroopClear += OnTroopClear;
+            GameEvent.OnTroopChangeForce += OnTroopChangeForce;
             GameEvent.OnCityFall += OnCityFall;
             GameEvent.OnScenarioInit += OnScenarioInit;
             MapRender.Instance.onValueChanged = OnCameraValueChanged;
@@ -142,6 +154,7 @@ namespace Sango.UI
             GameEvent.OnTroopCreated -= OnTroopCreated;
             GameEvent.OnTroopClear -= OnTroopClear;
             GameEvent.OnTroopEnterCell -= OnTroopEnterCell;
+            GameEvent.OnTroopChangeForce -= OnTroopChangeForce;
             GameEvent.OnCityFall -= OnCityFall;
             GameEvent.OnScenarioInit -= OnScenarioInit;
 
@@ -196,6 +209,26 @@ namespace Sango.UI
             data.Init(troop);
             data.UpdateCell(troop.cell, mapBounds);
             mapTroopNodes.Add(data);
+        }
+
+        /// <summary>
+        /// 部队更换所属势力(登庸带兵的武将等):小地图圆点颜色跟着换。
+        /// 与城市节点的 OnCityFall -> UpdateImage 是同一套口径。
+        /// </summary>
+        /// <param name="troop">换旗的部队</param>
+        /// <param name="lastForce">换旗前的势力,可为 null</param>
+        /// <param name="force">换旗后的势力,可为 null</param>
+        void OnTroopChangeForce(Troop troop, Force lastForce, Force force)
+        {
+            for (int i = 0; i < mapTroopNodes.Count; i++)
+            {
+                MapTroopNodeData data = mapTroopNodes[i];
+                if (data.troop == troop)
+                {
+                    data.UpdateColor();
+                    return;
+                }
+            }
         }
 
         void OnTroopClear(Troop troop, Scenario scenario)

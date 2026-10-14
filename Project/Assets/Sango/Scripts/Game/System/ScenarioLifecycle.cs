@@ -102,6 +102,10 @@ namespace Sango.Core
             ResourceDispatcher.Clear();
             ResourceDispatchState.Clear();
 
+            // 9.7) 内政建筑规划的运行期状态（势力资源水位快照 + 更换冷却），同样跨剧本复位
+            ForceBuildState.Clear();
+            BuildingPlanState.Clear();
+
             // 10) 收尾后的快照：正常情况下应与下一次的 shutdown-begin 完全一致（即"无残留"）。
             GameEventDiagnostics.Snapshot("shutdown-end");
         }

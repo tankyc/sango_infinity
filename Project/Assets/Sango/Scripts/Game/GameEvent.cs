@@ -356,6 +356,17 @@ namespace Sango.Core
 
         public static EventDelegate<Troop, Scenario> OnTroopClear;
 
+        /// <summary>
+        /// 部队更换所属势力的时候(登庸主将 / 招降等)。
+        ///
+        /// 派发该事件的原因:部队的"归属"是 <c>Leader.BelongForce</c> 的实时派生,数据层改完就生效,
+        /// 但表现层(旗帜材质色、头顶血条底色、小地图圆点色)都是**只在模型加载时写入一次**的,
+        /// 不派事件就会出现"登庸成功、部队却还顶着敌国颜色"的当回合不一致。
+        /// 表现层监听方统一在这里按新势力色重刷(参考城市侧的 CityFall -> MapCityNodeData.UpdateImage)。
+        /// 参数:部队、换旗前的势力(可为 null)、换旗后的势力(可为 null)
+        /// </summary>
+        public static EventDelegate<Troop, Force, Force> OnTroopChangeForce;
+
 
         /// <summary>
         /// 部队计算属性的时候
@@ -551,6 +562,26 @@ namespace Sango.Core
         public static EventDelegate<Person> OnPersonLevelUp;
 
         /// <summary>
+        /// 武将负伤事件：伤病等级被加重之后触发（受伤武将, 造成伤害的部队，可能为空）
+        /// </summary>
+        public static EventDelegate<Person, Troop> OnPersonInjury;
+
+        /// <summary>
+        /// 询问某武将能否负伤：免伤效果在这里拦截（如特技 #53 护卫），把 canInjure 设为 false 即免疫本次伤病。
+        /// 由 PersonInjury.Injure 在**写入伤病之前**派发，所以拦截方不需要关心与伤害来源的先后顺序。
+        /// 受伤武将, 伤害来源(部队/战法/单挑等，可为空), 是否允许受伤
+        /// </summary>
+        public static EventDelegate<Person, SangoObject, OverrideData<bool>> OnPersonCheckInjury;
+
+        /// <summary>
+        /// 询问某武将能否战死：免死效果在这里拦截（如特技 #53 护卫），把 canDie 设为 false 即免于本次战死。
+        /// 由 Person.DeadInBattle 在**任何死亡处理之前**派发，与 OnPersonCheckInjury 同一套顺序约定。
+        /// 只覆盖"战死"（单挑落败身死等战场死亡）；处决、病逝、剧本事件死亡走 Person.Dead，不派发本事件。
+        /// 战死武将, 致死来源(部队/决斗对手等，可为空), 是否允许战死
+        /// </summary>
+        public static EventDelegate<Person, SangoObject, OverrideData<bool>> OnPersonCheckBattleDeath;
+
+        /// <summary>
         /// 武将装备变更事件
         /// </summary>
         public static EventDelegate<Person> OnPersonEquipmentChanged;
@@ -651,6 +682,15 @@ namespace Sango.Core
         /// 技能实例命中建筑耐久
         /// </summary>
         public static EventDelegate<SkillInstance, BuildingBase, OverrideData<int>> OnSkillDamageBuildingDurability;
+
+        /// <summary>
+        /// 战法的位移效果把敌方部队推走之后（施法部队, 被位移部队, 位移格数）。
+        ///
+        /// 只在"目标真的换了格子"时派发：被挡住 / 无处可去（没推动）不派发，
+        /// 因为依赖它的特技（特技 #52 猛者）语义就是"以战法让敌方部队移动区格"。
+        /// 施法者自己位移（Master 系列）不算，只有目标部队被推走才派发。
+        /// </summary>
+        public static EventDelegate<Troop, Troop, int> OnTroopSkillOffset;
 
         /// <summary>
         /// 技能实例效果触发结束

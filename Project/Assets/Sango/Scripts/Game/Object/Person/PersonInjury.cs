@@ -125,6 +125,57 @@ namespace Sango.Core
 
         #endregion
 
+        #region 受伤
+
+        /// <summary>
+        /// 让武将负伤：伤病等级加重 <paramref name="level"/> 级，封顶 <see cref="Person.InjuryMaxLevel"/>。
+        ///
+        /// 这里是"加重伤病"的**唯一规则入口**，也是所有免伤效果的拦截点：
+        /// 能力和 UI 都会自动跟着变（五维 getter 过 Person.ApplyInjuryDecay，
+        /// 武将名会按 PersonSortFunction.InjuredTint 标红），
+        /// 调用方（如特技 #52 猛者）只需要在加重成功后自己补日志 / 发 GameEvent.OnPersonInjury 做提示。
+        ///
+        /// 【顺序】"能不能受伤"在**写入伤病之前**判定：
+        ///   GameEvent.OnPersonCheckInjury → 特技 #53 护卫 把 canInjure 置 false 即可免疫。
+        /// 因此护卫天然免疫猛者（猛者的负伤最终也走本接口），既与两者的订阅先后无关，
+        /// 也不存在"已经打伤再回滚"的问题。
+        /// </summary>
+        /// <param name="person">受伤的武将</param>
+        /// <param name="level">加重的等级，默认 1（健康→轻伤）</param>
+        /// <param name="source">伤害来源（部队 / 战法 / 单挑等，可空；供监听者判断上下文）</param>
+        /// <returns>是否真的加重了（已死 / 被免伤 / 已到伤病上限时返回 false）</returns>
+        public static bool Injure(Person person, int level = 1, SangoObject source = null)
+        {
+            if (person == null || !person.IsAlive) return false;
+            if (level <= 0) level = 1;
+            if (!CanInjure(person, source)) return false;
+
+            int next = person.injury + level;
+            if (next > Person.InjuryMaxLevel) next = Person.InjuryMaxLevel;
+            if (next <= person.injury) return false;
+
+            person.injury = next;
+            return true;
+        }
+
+        /// <summary>
+        /// 询问"该武将能否负伤"：免伤效果（特技 #53 护卫 等）在 <see cref="GameEvent.OnPersonCheckInjury"/> 上拦截。
+        /// </summary>
+        /// <param name="person">待判定的武将</param>
+        /// <param name="source">伤害来源，可为空</param>
+        /// <returns>false 表示本次伤病应被免疫</returns>
+        public static bool CanInjure(Person person, SangoObject source = null)
+        {
+            if (person == null) return false;
+            if (GameEvent.OnPersonCheckInjury == null) return true;
+
+            Tools.OverrideData<bool> canInjure = Tools.OverrideData<bool>.Create(true);
+            GameEvent.OnPersonCheckInjury(person, source, canInjure);
+            return canInjure.ValueAndRecycle;
+        }
+
+        #endregion
+
         #region 一次性治愈（华佗一类事件用）
 
         /// <summary>把一座城里的伤员全部治愈，返回治愈人数</summary>

@@ -14,6 +14,20 @@ namespace Sango.Core
         public string desc;
 
         /// <summary>
+        /// 建筑规划偏好：建筑小类（<c>BuildingKindType</c> 的整数值）→ 份额权重乘数
+        /// （**百分比，100 = 不修正**）。
+        ///
+        /// 例：幽州多马 → <c>"buildBias": { "36": 150 }</c>，即该州的厩舍权重 ×1.5。
+        /// 未列出的建筑小类按 100（不修正）计。
+        ///
+        /// 【默认没有】字段默认 null = 该州没有特性，规划器读到 null 就整层跳过修正，
+        /// 因此 Provinces.json 与所有既有剧本数据都**不需要任何改动**。
+        ///
+        /// 【优先级】本州配置**优先于**所属地域（<see cref="Region"/>.buildBias），两者不相乘。
+        /// </summary>
+        [JsonProperty] public Dictionary<int, int> buildBias;
+
+        /// <summary>
         /// 所属州的 id（存档数值），读取 Region 时按需解析
         /// </summary>
         [JsonProperty("Region")]

@@ -170,6 +170,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonRelease += OnPersonRelease;
             GameEvent.OnPersonExecute += OnPersonExecute;
             GameEvent.OnPersonLevelUp += OnPersonLevelUp;
+            GameEvent.OnPersonInjury += OnPersonInjury;
             GameEvent.OnPersonUpgradeOfficial += OnPersonUpgradeOfficial;
             GameEvent.OnForceFall += OnForceFall;
         }
@@ -193,6 +194,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonRelease -= OnPersonRelease;
             GameEvent.OnPersonExecute -= OnPersonExecute;
             GameEvent.OnPersonLevelUp -= OnPersonLevelUp;
+            GameEvent.OnPersonInjury -= OnPersonInjury;
             GameEvent.OnPersonUpgradeOfficial -= OnPersonUpgradeOfficial;
             GameEvent.OnForceFall -= OnForceFall;
         }
@@ -267,6 +269,17 @@ namespace Sango.Core.Player
                 return;
             }
 
+            // 没有可用的剧本上下文时直接丢弃这条消息。
+            //
+            // 为什么会走到这里：读档 / 回主菜单的收尾流程（ScenarioLifecycle.BeginShutdown）
+            // 会先执行 ClearMessages()（消息数据清空 + scenario 置空），随后才收剧本自身；
+            // 而剧本收场时清场（部队释放俘虏等）仍会派发 OnPersonEscape 之类的事件回到本系统，
+            // 此时既没有日期可记、也不该播消息音效。此处若继续访问 scenario.Info 就会抛空引用。
+            // 另外开局前（OnScenarioInit 之前）事件也可能早于剧本就绪到达，同样需要拦住。
+            if (scenario == null || scenario.Info == null)
+            {
+                return;
+            }
 
             // 检查消息数量是否超过上限
             if (textMessages.Count >= maxSaveCount)
@@ -587,6 +600,38 @@ namespace Sango.Core.Player
             {
                 message = $"{person.ColorName}官职升到[{person.Official.Name}]";
                 _AddTextMessage(message, person.BelongForce, 0, 0);
+            }
+        }
+
+        /// <summary>
+        /// 武将负伤事件处理方法
+        /// </summary>
+        /// <param name="person">负伤的武将</param>
+        /// <param name="fromTroop">造成伤害的部队（如特技"猛者"推送敌军的部队），可能为空</param>
+        private void OnPersonInjury(Person person, Troop fromTroop)
+        {
+            if (person == null) return;
+
+            // 播报位置：优先随军部队，其次所在城市（与其它人物消息的口径一致）
+            int x = 0, y = 0;
+            if (person.mBelongTroop != null)
+            {
+                x = person.mBelongTroop.x;
+                y = person.mBelongTroop.y;
+            }
+            else if (person.CurrentCity != null)
+            {
+                x = person.CurrentCity.x;
+                y = person.CurrentCity.y;
+            }
+
+            if (person.IsCurPlayer)
+            {
+                _AddTextMessage($"{person.ColorName}负伤了！", person.BelongForce, x, y);
+            }
+            else if (fromTroop != null && fromTroop.IsCurPlayer)
+            {
+                _AddTextMessage($"我军战法击伤了{person.ColorName}！", fromTroop.BelongForce, x, y);
             }
         }
 

@@ -126,7 +126,8 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return city.BelongCorps.IsPlayer;
+            // 与 Enter 的判据保持一致：只有玩家第一军团参与玩家侧演出
+            return city.BelongCorps.IsPlayerControl;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

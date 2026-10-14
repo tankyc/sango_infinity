@@ -167,6 +167,9 @@ namespace Sango.Render
 
             if (TroopModel != null)
             {
+                // 势力色不在 UpdateTroop 里(它只刷兵力),单独走旗帜刷新:
+                // 部队换旗后靠它在下一次表现层刷新时把旗色纠过来。
+                TroopModel.UpdateFlag(Troop);
                 TroopModel.UpdateTroop(Troop);
             }
         }

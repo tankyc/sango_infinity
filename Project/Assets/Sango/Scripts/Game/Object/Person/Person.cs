@@ -2760,6 +2760,36 @@ namespace Sango.Core
             ClearMission();
         }
 
+        /// <summary>
+        /// 战死接口：战场上的死亡（单挑落败身死等），是"战死"的统一入口。
+        ///
+        /// 免死效果（特技 #53 护卫）在派发的 <see cref="GameEvent.OnPersonCheckBattleDeath"/> 上拦截，
+        /// 判定发生在**任何死亡处理之前**（与 <see cref="PersonInjury.Injure"/> 的同一套顺序约定）：
+        /// 监听者把 canDie 置 false 即免于本次战死，本方法直接返回 false、武将状态一点都不动，
+        /// 因此"谁先订阅"不影响结果，也不需要事后回滚。
+        ///
+        /// 注意区分：处决（斩首）、病逝、剧本事件的死亡都走 <see cref="Dead"/>，**不走**本接口，
+        /// 所以护卫不会让同部队武将免于被斩首或剧情杀。
+        /// </summary>
+        /// <param name="source">致死来源（部队 / 战法 / 决斗对手等，可空；供监听者判断上下文）</param>
+        /// <returns>是否真的战死（被免死 / 已死亡时返回 false）</returns>
+        public bool DeadInBattle(SangoObject source = null)
+        {
+            // 判"是否已死"用 state 而不是 SangoObject.IsAlive：武将死亡时只把 state 置为 Dead，
+            // IsAlive 这个序列化标记不会被改写（Utils.IsAlive 对武将同样是读 state）。
+            if (state == (int)PersonStateType.Dead) return false;
+
+            if (GameEvent.OnPersonCheckBattleDeath != null)
+            {
+                Tools.OverrideData<bool> canDie = Tools.OverrideData<bool>.Create(true);
+                GameEvent.OnPersonCheckBattleDeath(this, source, canDie);
+                if (!canDie.ValueAndRecycle) return false;
+            }
+
+            Dead();
+            return true;
+        }
+
         public int GetAttribute(int attrType)
         {
             switch (attrType)

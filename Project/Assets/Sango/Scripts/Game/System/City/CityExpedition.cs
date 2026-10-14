@@ -25,6 +25,17 @@ namespace Sango.Core.Player
 
         public Troop TargetTroop { get; set; }
 
+        /// <summary>
+        /// 本次出征是否已经真正派发过部队（即 <see cref="DoJob"/> 是否成功执行）。
+        ///
+        /// 只有它为 true 时 <see cref="OnBack"/> 才应该做"取消出征"的回滚：
+        ///   · 玩家还没点出征（只是打开界面看了眼，或被别的系统顶到下面）时，
+        ///     钱粮、行动点都没动过，武将也还在 freePersons 里，
+        ///     照常回滚会把武将重复加进自由列表，并且 TargetTroop 没有主将还会空引用。
+        /// 每次 <see cref="OnEnter"/> 重置，回滚完成后一并复位。
+        /// </summary>
+        bool dispatched;
+
         public CityExpedition()
         {
             customTitleName = "出征";
@@ -109,6 +120,7 @@ namespace Sango.Core.Player
 
         public override void OnEnter()
         {
+            dispatched = false;
             personList.Clear();
             TargetTroop = new Troop();
             List<TroopType> activeTroopTypes = new List<TroopType>();
@@ -164,6 +176,10 @@ namespace Sango.Core.Player
             TargetCity.Render?.UpdateRender();
             TargetTroop.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.MakeTroop));
             TargetCity.EnsureTroop(TargetTroop, Scenario.Cur);
+            // 标记已派发：此后从 TroopSystem（含"部队返回"的 BackTo）退回本系统时，
+            // OnBack 才需要把这次出征回滚掉。放在真正扣完钱粮、部队已进城之后置位，
+            // 保证"标记为真"与"确实发生过扣减/派发"严格对齐。
+            dispatched = true;
             Window.Instance.SetVisible(windowName, false);
             GameSystem.GetSystem<TroopSystem>().Start(TargetTroop);
         }
@@ -172,7 +188,20 @@ namespace Sango.Core.Player
         {
             base.OnBack(whoGone);
             if (whoGone is ObjectSelectSystem) return;
+
             Window.Instance.SetVisible(windowName, true);
+
+            // 只有"确实派发过部队"才需要回滚：钱粮/行动点是 DoJob 扣的，武将是 DoJob 从
+            // freePersons 摘掉的，没派发过就什么都没发生。这里不能用"主将是否为空"来判断，
+            // 因为玩家已经选好将但还没点出征时主将同样非空——那种情况下若照常回滚，
+            // 会把武将重复加回自由列表（此时他们并未被摘掉）；
+            // 而主将为空时 TargetTroop.BelongCorps 为空又会抛空引用异常，
+            // 把上层流程的回调（例如登用 PersonRecruit 在 Back() 之后才调用的 doneAction）打断，
+            // 对应渲染事件永不完成、Scenario.Run 每帧提前返回，表现为整个回合卡死。
+            if (!dispatched)
+                return;
+
+            dispatched = false;
             TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTroop));
             TargetTroop.EnterCity(TargetCity);
             TargetTroop.ForEachPerson(person =>

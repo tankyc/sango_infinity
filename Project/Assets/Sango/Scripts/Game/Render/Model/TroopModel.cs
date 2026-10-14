@@ -118,6 +118,17 @@ namespace Sango.Render.Model
             }
         }
 
+        /// <summary>
+        /// 刷新旗帜所属势力:部队换旗(登庸主将 / 招降)后立刻把旗色调成新势力色。
+        /// 内部带"值没变就不写"的守卫,可以随表现层刷新被高频调用。
+        /// </summary>
+        /// <param name="troop">所属部队</param>
+        public void UpdateFlag(Troop troop)
+        {
+            if (flag != null)
+                flag.UpdateForce(troop);
+        }
+
         public void SetAniShow(int name, bool onlyRenderAni = false)
         {
             if (troopsRender != null)

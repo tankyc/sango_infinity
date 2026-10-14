@@ -443,6 +443,15 @@ namespace Sango.Core
                 if (ownerCity == null || ownerCity.BelongForce != force)
                     continue;
 
+                // 领地归属是"地"的数据,判断不了这支部队现在是谁的人:
+                // 登庸主将会让敌军部队原地换旗,此时它站在我方领地上却已经是我军,
+                // 必须在这里补一次敌我判定并顺手从驱逐名单里摘掉,否则 AI 会派兵打自己人。
+                if (!troop.IsEnemy(city))
+                {
+                    force.threatTroopIds.RemoveAt(i);
+                    continue;
+                }
+
                 // 只处理靠近本城的敌军,避免一城跨越整个势力追击
                 int distance = scenario.Map.Distance(city.CenterCell, troopCell);
                 if (distance > range)
@@ -1278,28 +1287,85 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIBuildIntriore(City city, Scenario scenario)
         {
-            if (city.IsInteriorBuildFull())
-                return false; // 返回false表示没有建设
-
             if (city.freePersons.Count < 1) // 至少需要1个武将进行建设
                 return false;
 
             if (city.gold < AIConfig.Instance.buildMinGold) // 建设所需的最低金钱
                 return false;
 
-            // 根据城市类型选择建筑模板
-            int templateId = 0;
-            if (city.IsBorderCity)
+            // ---------- 一、还有空位：直接新建 ----------
+            if (!city.IsInteriorBuildFull())
             {
-                templateId = city.portList.Count > 0 ? 3 : 1;
-            }
-            else
-            {
-                templateId = city.portList.Count > 0 ? 2 : 0;
+                // 【动态规划 · 规划器启用时完全接管】
+                // 注意：规划器返回 null 表示"当前没有需求"（钱粮已够 / 产出建筑名额已满 …），
+                // 这时**不建才是正确行为**，绝不能回退到旧模板 ——
+                // 否则等于把"按需求建"又变回"按固定队列建"，需求之外还会硬塞建筑。
+                if (BuildingPlanner.IsEnabled)
+                {
+                    BuildingType planned = BuildingPlanner.PickNextBuilding(city, scenario);
+                    return planned != null && BuildOne(city, scenario, planned);
+                }
+
+                // 【回退】规划器未启用 → 沿用旧的固定模板
+                int templateId = 0;
+                if (city.IsBorderCity)
+                {
+                    templateId = city.portList.Count > 0 ? 3 : 1;
+                }
+                else
+                {
+                    templateId = city.portList.Count > 0 ? 2 : 0;
+                }
+
+                // 执行建设
+                return AIBuildingTemplate(templateId, city, scenario);
             }
 
-            // 执行建设
-            return AIBuildingTemplate(templateId, city, scenario);
+            // ---------- 二、内政地已建满：尝试"拆旧建新"腾位 ----------
+            return TryReplaceBuilding(city, scenario);
+        }
+
+        /// <summary>
+        /// 执行一次"拆旧建新"：先由规划器判定（拆哪座、建哪座），再由本方法落地。
+        ///
+        /// 【为什么判定与执行分家】规划器只回答"该不该换、换哪两座"，**不碰建筑表** ——
+        /// 拆除会修改 <c>city.allBuildings</c>（OnBuildingDestroy → Remove），
+        /// 必须在遍历之外进行：SangoObjectList.ForEach 是倒序索引循环，
+        /// 在其中删除"非当前元素"会重复处理甚至越界。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否完成了一次更换</returns>
+        public static bool TryReplaceBuilding(City city, Scenario scenario)
+        {
+            Building outgoing;
+            BuildingType incoming;
+            if (!BuildingPlanner.TryPlanReplace(city, scenario, out outgoing, out incoming))
+                return false;
+
+            // 先拆：OnFall 会移除建筑、释放工人、维护 buildingCountMap 并重算产出。
+            // 注意它不退还建造花费 —— 这正是"更换的代价"。
+            outgoing.OnFall(null);
+
+            // 再建：此时内政地已腾出一格。
+            if (!BuildOne(city, scenario, incoming))
+            {
+                // 预检（空闲武将 / 金钱 / 有空位）已保证此处基本不会失败；
+                // 万一失败也只是白拆一座 —— 刻意**不占用冷却**，下一轮会补建。
+                return false;
+            }
+
+            // 只有真正拆建成功才登记冷却
+            BuildingPlanState.MarkReplaced(city.Id, scenario.TurnCount);
+
+            // 调试日志（与建筑规划器同一取舍：Info(object) / Warning 带
+            // [Conditional("SANGO_DEBUG")] 会被静默丢弃，所以用带 LogType 的 Info 重载）
+            Sango.Log.Info(string.Format("[建筑规划] {0}({1}) 更换建筑: 拆 {2} → 建 {3}",
+                city.Name,
+                city.BelongForce != null ? city.BelongForce.Name : "-",
+                outgoing.Name, incoming.Name), Sango.Log.LogType.None);
+
+            return true;
         }
 
         /// <summary>
@@ -1383,26 +1449,52 @@ namespace Sango.Core
                 }
 
                 if (city.gold < buildingType.cost)
-                    return false;
+                    return false; // 金钱不够，后面也不用再试
 
-                Cell bestPlace = buildingType.GetBestPlace(city);
-                if (bestPlace == null)
-                    return false;
-
-                Person[] people = ForceAI.CounsellorRecommendBuild(city.freePersons, buildingType);
-                if (people != null && people.Length > 0)
-                {
-                    int buildAbility = GameUtility.Method_PersonBuildAbility(people);
-                    int turnCount = buildingType.durabilityLimit % buildAbility == 0 ? 0 : 1;
-                    int buildCount = Math.Min(Scenario.Cur.Variables.BuildMaxTurn, buildingType.durabilityLimit / buildAbility + turnCount);
-                    // 【性格】建造效率：按执行武将性格缩短工期
-                    buildCount = city.ApplyPersonalityBuildCounter(buildCount, people);
-                    city.JobBuildBuilding(bestPlace, people, buildingType, buildCount);
+                // 落地逻辑统一走 BuildOne（与动态规划路径共用同一份实现）
+                if (BuildOne(city, scenario, buildingType))
                     return true; // 成功建设
-                }
             }
 
             return false; // 没有建设
+        }
+
+        /// <summary>
+        /// 按指定建筑类型落地一次建造
+        /// （选位 → 荐人 → 算工期 → 性格修正 → 扣钱扣行动点 → 挂建造任务）。
+        ///
+        /// 【为什么抽出来】这是建造的**唯一下沉点** —— 动态规划路径（<see cref="BuildingPlanner"/>）
+        /// 与回退的固定模板路径都走它，避免两套落地逻辑漂移
+        /// （比如只有一边做了性格工期修正，另一边漏了）。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="buildingType">要建的内政设施类型</param>
+        /// <returns>是否成功挂上建造任务</returns>
+        public static bool BuildOne(City city, Scenario scenario, BuildingType buildingType)
+        {
+            if (city == null || scenario == null || buildingType == null)
+                return false;
+
+            if (city.gold < buildingType.cost)
+                return false;
+
+            Cell bestPlace = buildingType.GetBestPlace(city);
+            if (bestPlace == null)
+                return false;
+
+            Person[] people = ForceAI.CounsellorRecommendBuild(city.freePersons, buildingType);
+            if (people == null || people.Length == 0)
+                return false;
+
+            int buildAbility = GameUtility.Method_PersonBuildAbility(people);
+            int turnCount = buildingType.durabilityLimit % buildAbility == 0 ? 0 : 1;
+            int buildCount = Math.Min(Scenario.Cur.Variables.BuildMaxTurn,
+                buildingType.durabilityLimit / buildAbility + turnCount);
+            // 【性格】建造效率：按执行武将性格缩短工期
+            buildCount = city.ApplyPersonalityBuildCounter(buildCount, people);
+            city.JobBuildBuilding(bestPlace, people, buildingType, buildCount);
+            return true;
         }
 
         /// <summary>
@@ -1769,22 +1861,56 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// AI生产兵装逻辑
+        /// AI生产兵装逻辑（一回合可能生产多次）。
+        ///
+        /// 【紧急扩产】兵装严重不足且资金富余时允许多产几次，让多建的锻冶厂 / 厩舍同时动起来。
+        /// 次数上限 = 1 + <c>buildingPlan.armsEmergencyMaxExtra</c>；实际还受"空闲建筑数"与
+        /// "空闲武将数"约束（每次生产占用一座建筑 + 一批武将，武将执行后即退出空闲池）。
+        ///
+        /// 【为什么不必考虑行动点】<c>Corps.ReduceActionPoint</c> 对非玩家势力**直接 return**
+        /// （见 Corps.cs），AI 的行动点根本扣不动 —— 这里的次数上限只为节奏与观感而设，
+        /// 不是资源约束。
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>是否完成</returns>
+        /// <returns>恒定 true（与其它城池 AI 命令一致，不阻断命令队列）</returns>
         public static bool AICreateItems(City city, Scenario scenario)
         {
-            if (city.freePersons.Count == 0) return true;
+            int maxRounds = 1;
+            if (BuildingPlanner.ShouldEmergencyExpandArms(city, scenario))
+            {
+                BuildingPlanWeights w = AIConfig.Instance.buildingPlan;
+                if (w != null)
+                    maxRounds += w.armsEmergencyMaxExtra;
+            }
+
+            for (int round = 0; round < maxRounds; round++)
+            {
+                if (!ProduceArmsOnce(city, scenario))
+                    break;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 尝试生产**一次**兵装：取一座空闲锻冶厂 / 厩舍，按武将兵种适应度挑一种仍有缺口的兵装，
+        /// 派人生成。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>本次是否成功挂上生产任务</returns>
+        public static bool ProduceArmsOnce(City city, Scenario scenario)
+        {
+            if (city.freePersons.Count == 0) return false;
 
             if (city.gold < AIConfig.Instance.createItemsMinGold)
-                return true;
+                return false;
 
             Building freeBlacksmithShop = city.GetFreeBuilding((int)BuildingKindType.BlacksmithShop);
             Building freeStable = city.GetFreeBuilding((int)BuildingKindType.Stable);
             if (freeBlacksmithShop == null && freeStable == null)
-                return true;
+                return false;
 
             int totalNum = 0;
             for (int itemTypeId = 2; itemTypeId <= 5; itemTypeId++)
@@ -1793,7 +1919,7 @@ namespace Sango.Core
 
             // 达到一定兵装后,如果金钱太少则有概率跳过
             if (totalNum > city.troops * 2 / 3 && city.gold < AIConfig.Instance.createItemsMinGold && GameRandom.Chance(30))
-                return true;
+                return false;
 
             // 统计适应偏向
             int[] levelTotal = new int[4] { 1, 1, 1, 1 };
@@ -1871,7 +1997,7 @@ namespace Sango.Core
             }
 
             if (validItem.Count == 0)
-                return true;
+                return false;
 
             int[] pr = new int[validItem.Count];
             for (int i = 0; i < pr.Length; i++)
@@ -1879,7 +2005,7 @@ namespace Sango.Core
 
             int targetItemId = validItem[GameRandom.RandomWeightIndex(pr)];
             Person[] people = ForceAI.CounsellorRecommendCreateItems(city.freePersons);
-            if (people == null) return true;
+            if (people == null) return false;
             ItemType itemType = Scenario.Cur.GetObject<ItemType>(targetItemId);
             city.JobCreateItems(people, itemType, targetItemId == 5 ? freeStable : freeBlacksmithShop);
 
@@ -2022,6 +2148,11 @@ namespace Sango.Core
             if (city.troops == 0) return null;
 
             int minEquipNeed = 5000;
+
+            // 兵装不足改用剑兵兜底时，剑兵队伍至少要能编成这么多人才值得出征；
+            // 连这个数都凑不齐就固守城池，避免小股剑兵出城被白吃。
+            const int SwordFallbackMinTroops = 3000;
+
             if (isAttack)
             {
                 if (city.freePersons.Count < 2) return null;
@@ -2031,7 +2162,9 @@ namespace Sango.Core
             else
             {
                 if (city.troops < scenario.Variables.minTroopsKeepWhenDefence) return null;
-                if (city.food < scenario.Variables.minTroopsKeepWhenDefence) return null;
+                // 【修正】原先误用兵力阈值 minTroopsKeepWhenDefence 判粮食，
+                // 现改回粮食专属阈值 minFoodKeepWhenDefence，与进攻分支的写法一致。
+                if (city.food < scenario.Variables.minFoodKeepWhenDefence) return null;
                 minEquipNeed = 1500;
             }
 
@@ -2039,7 +2172,11 @@ namespace Sango.Core
             List<TroopType> costEnoughTroopTypes = new List<TroopType>();
             TroopType.GetCostEnoughTroopTypeList(city, costEnoughTroopTypes, minEquipNeed);
 
-            // 去掉剑兵(进攻不允许)
+            // 先摘下剑兵(Id=1)备用：剑兵不消耗任何兵装(其 costItems 为空)，
+            // 是防守方在兵装不足时唯一还能组建的兵种，详见下方列表为空时的兜底分支。
+            TroopType swordTroopType = costEnoughTroopTypes.Find(x => x.Id == 1);
+
+            // 去掉剑兵(进攻不允许)与非陆地兵种
             costEnoughTroopTypes.RemoveAll(x => x.Id == 1 || !x.isLand);
 
             // 小于4支部队不带器械, 防守不组建器械
@@ -2058,8 +2195,23 @@ namespace Sango.Core
                 }
             }
 
+            // 兵装不足的兜底：防守方在"以 minEquipNeed(防守=1500)兵为基准，也组建不出
+            // 任何一种兵装兵种"时，退而使用不需兵装的剑兵出城迎敌 —— 城池宁可派剑兵上阵，
+            // 也不能因为装备短缺而放任敌军围城；进攻方依然严格禁止组建剑兵。
+            bool useSwordFallback = false;
             if (costEnoughTroopTypes.Count == 0)
-                return null;
+            {
+                if (isAttack || swordTroopType == null)
+                    return null;
+
+                // 城里兵太少，连一支阈值以上的剑兵队伍都拉不出来 → 不如固守
+                if (city.troops <= SwordFallbackMinTroops)
+                    return null;
+
+                costEnoughTroopTypes.Add(swordTroopType);
+                useSwordFallback = true;
+                Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}兵装不足，改用剑兵组建队伍出城防守!");
+            }
 
             int maxPersonCount = city.freePersons.Count > 13 ? 3 : (city.freePersons.Count < 6 ? 1 : 2);
 
@@ -2133,6 +2285,14 @@ namespace Sango.Core
                 maxTroopNum = (city.troops / 2000) * 1000;
 
             maxTroopNum = city.itemStore.CheckCostMin(spType.costItems, maxTroopNum);
+
+            // 剑兵兜底(兵装不足改派剑兵)：实际能编成的兵力必须超过阈值才出征，
+            // 否则出城也只是送掉一支弱旅，不如全师固守城池。
+            if (useSwordFallback && maxTroopNum <= SwordFallbackMinTroops)
+            {
+                Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}兵装短缺，剑兵队伍最多只能编成{maxTroopNum}人，放弃出城防守");
+                return null;
+            }
 
             // 粮食
             int turnCostFood = (int)(maxTroopNum * scenario.Variables.baseFoodCostInTroop);

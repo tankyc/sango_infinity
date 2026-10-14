@@ -869,6 +869,11 @@ namespace Sango.Core
         public void DoOffset(Troop troop, Troop targetTroop, int targetDamage)
         {
             if (targetTroop == null || offsetAction == null || offsetAction.Length <= 0) return;
+
+            // 位移结算前先记下目标所在格：结算后要判断"目标有没有真的被推走"，
+            // 靠它给「猛者」这类特技（让被位移的敌方武将负伤）发信号。
+            Cell targetCellBefore = targetTroop.cell;
+
             List<Cell> checkList = new List<Cell>();
             int dir = troop.cell.DirectionTo(targetTroop.cell);
             for (int k = 0; k < this.offsetAction.Length; k += 2)
@@ -1074,6 +1079,13 @@ namespace Sango.Core
                         }
                         break;
                 }
+            }
+
+            // 目标真的被推走了才发信号（施法部队, 被位移部队, 位移格数）：
+            // 被挡住 / 无处可去时格子没变，不算"让敌方部队移动区格"。
+            if (targetTroop.IsAlive && targetCellBefore != null && targetTroop.cell != null && targetTroop.cell != targetCellBefore)
+            {
+                GameEvent.OnTroopSkillOffset?.Invoke(troop, targetTroop, targetCellBefore.Distance(targetTroop.cell));
             }
         }
 

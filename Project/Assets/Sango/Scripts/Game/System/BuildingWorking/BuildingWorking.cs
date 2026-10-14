@@ -26,9 +26,37 @@ namespace Sango.Core
         int classiceGainFactor = 5;
 
         /// <summary>
+        /// 当前内政方式：0 = 工作内政（工作制），1 = 经典内政。**全局唯一只读入口**。
+        ///
+        /// 与实例字段 <see cref="selectedWorkingType"/> 由后者的 setter 保持同步，
+        /// 供 AI / 系统在不持有 BuildingWorking 实例时读取
+        /// （例如建筑规划的目标构成按模式分档、诊断日志标注当前模式）。
+        ///
+        /// 【注意】**建筑能不能建**请一律以 <see cref="BuildingType.canBuild"/> 为准
+        /// （统一入口：<see cref="BuildingType.CanBuildInteriorAt"/>），不要用本值自行推断 ——
+        /// 模式对建筑的影响就是在 <c>ScenarioInit</c> / <c>ScenarioClear</c> 里改写 canBuild 实现的。
+        /// </summary>
+        public static int CurrentWorkingType { get; private set; } = 1;
+
+        /// <summary>
+        /// 是否处于工作制内政（<see cref="CurrentWorkingType"/> == 0）。
+        /// </summary>
+        public static bool IsWorkMode => CurrentWorkingType == 0;
+
+        int mSelectedWorkingType = 1;
+
+        /// <summary>
         /// 0是工作制 1是经典内政
         /// </summary>
-        int selectedWorkingType = 1;
+        int selectedWorkingType
+        {
+            get { return mSelectedWorkingType; }
+            set
+            {
+                mSelectedWorkingType = value;
+                CurrentWorkingType = value;
+            }
+        }
 
         public override void Init()
         {
@@ -201,7 +229,7 @@ namespace Sango.Core
         static readonly HashSet<string> workModeCommandIds = new HashSet<string>
         {
             "AIRewardPerson", "AIAttack", "AIReinforce", "AITradeFood", "AIIntrior",
-            "AICreateMachine", "AICreateBoat", "AIMakeSupplyTroop", "AIResearch",
+             "AIMakeSupplyTroop", "AIResearch",
         };
 
         void OnCityAIPrepare(City city, Scenario scenario)

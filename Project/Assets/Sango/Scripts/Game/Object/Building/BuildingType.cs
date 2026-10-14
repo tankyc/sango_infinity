@@ -176,5 +176,28 @@ namespace Sango.Core
             return city.GetEmptyInteriorCell();
         }
 
+        /// <summary>
+        /// 该建筑能否作为**内政设施**建在指定城市（AI 与玩家同一口径）。
+        ///
+        /// 过滤条件与玩家侧可建列表逐条一致（见 <c>CityBuildBuilding.InitCanBuildingTypes</c>）：
+        ///   · <see cref="IsIntrior"/> —— 只取内政设施（majorType = Interior）；
+        ///   · <c>level == 1</c> —— 只取一级形态：升级是沿 <see cref="nextId"/> 推进的，
+        ///     二级/三级形态不应出现在"新建"候选里；
+        ///   · <see cref="canBuild"/> —— 逐建筑的可建开关。**内政方式**（工作制 / 经典内政）
+        ///     正是靠它翻转 军事府(42) / 人才府(43) 来开关的
+        ///     （见 <c>BuildingWorking.ScenarioInit</c> / <c>ScenarioClear</c>），
+        ///     所以读它即可自动适配当前模式，无需另行判断内政方式；
+        ///   · <see cref="IsValid(City)"/> —— 科技前置（needTech）与数量限制（limitType / buildNumLimit）。
+        /// </summary>
+        /// <param name="city">目标城市</param>
+        /// <returns>可建返回 true</returns>
+        public bool CanBuildInteriorAt(City city)
+        {
+            if (city == null)
+                return false;
+
+            return IsIntrior && level == 1 && canBuild && IsValid(city);
+        }
+
     }
 }

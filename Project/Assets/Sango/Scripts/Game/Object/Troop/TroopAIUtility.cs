@@ -631,7 +631,13 @@ namespace Sango.Core
             // 【领队性格】计略释放偏好：领队擅长的计略获得收益加成，不擅长的被降权。
             // 仅对计略类技能生效，普攻与战法不受影响。
             if (skill.IsStrategy())
+            {
                 score = ApplyLeaderSkillPreference(score, troop, skill);
+
+                // 【兵种倾向】剑兵只带"近战普攻"，物理输出孱弱，对计略额外加成，
+                // 使其更倾向于靠计略弥补战力短板。
+                score = ApplyTroopTypeSkillPreference(score, troop, skill);
+            }
 
             return score;
         }
@@ -679,6 +685,52 @@ namespace Sango.Core
             long result = (long)score * scale / 100;
             if (result > int.MaxValue) result = int.MaxValue;
             return (int)result;
+        }
+
+        /// <summary>
+        /// 兵种计略倾向：剑兵（<see cref="Troop.IsSword"/>）只有"近战普攻"这一种物理手段，
+        /// 硬拼必亏，因此对计略技能的收益额外加成，让其更倾向于释放计略。
+        ///
+        /// 只对计略类技能生效，普攻 / 战法不受影响；倍率由
+        /// <see cref="AIConfig.swordStrategyScoreScale"/> 配置（100 = 与其它兵种无差别）。
+        /// </summary>
+        /// <param name="score">经过领队性格修正后的收益分（正数）</param>
+        /// <param name="troop">行动部队</param>
+        /// <param name="skill">使用的技能</param>
+        /// <returns>调整后的收益分</returns>
+        static int ApplyTroopTypeSkillPreference(int score, Troop troop, SkillInstance skill)
+        {
+            AIConfig cfg = AIConfig.Instance;
+            if (!cfg.useSwordStrategyPreference)
+                return score;
+
+            if (troop == null || troop.LandTroopType == null || !troop.IsSword)
+                return score;
+
+            int scale = cfg.swordStrategyScoreScale;
+            if (scale <= 0 || scale == 100)
+                return score;
+
+            long result = (long)score * scale / 100;
+            if (result > int.MaxValue) result = int.MaxValue;
+            return (int)result;
+        }
+
+        /// <summary>
+        /// 计略成功率门槛：默认取 <see cref="AIConfig.scoreStrategySuccessThreshold"/>；
+        /// 剑兵物理孱弱，门槛放宽为 <see cref="AIConfig.swordStrategySuccessThreshold"/>，
+        /// 否则智力平平的剑兵队计略评分恒为 0，"倾向计略"的加权也无从生效。
+        /// </summary>
+        /// <param name="troop">行动部队</param>
+        /// <returns>成功率门槛（%）</returns>
+        static int StrategySuccessThreshold(Troop troop)
+        {
+            AIConfig cfg = AIConfig.Instance;
+            if (cfg.useSwordStrategyPreference
+                && troop != null && troop.LandTroopType != null && troop.IsSword)
+                return cfg.swordStrategySuccessThreshold;
+
+            return cfg.scoreStrategySuccessThreshold;
         }
 
         /// <summary>
@@ -732,7 +784,9 @@ namespace Sango.Core
                                 return 0;
 
                             int succ = skill.skillSuccessMethod.Calculate(skill, troop, target);
-                            if (succ < cfg.scoreStrategySuccessThreshold)
+                            // 成功率门槛按兵种取：剑兵门槛更低，允许其赌一赌计略
+                            //（见 AIConfig 的"剑兵计略倾向"参数）
+                            if (succ < StrategySuccessThreshold(troop))
                                 return 0;
                         }
                     }

@@ -22,7 +22,12 @@ namespace Sango.Render
                 return;
             }
 
-            if (!atk.BelongCorps.IsPlayer)
+            // 判据必须用 IsPlayerControl（玩家势力 && 第一军团），不能用 IsPlayer：
+            // 委任军团（玩家势力里非第一军团）的 IsPlayer 同样为真，但它由 AI 代管，
+            // 一旦误走玩家分支就会在玩家当前界面（例如"创建队伍"）之上叠出招募窗口，
+            // 而本事件只有等玩家操作完成后才会置 IsDone，于是整条回合推进
+            // （Scenario.Run → RenderEvent.Update）被永久卡住。委任军团必须和 AI 势力一样无界面结算。
+            if (!atk.BelongCorps.IsPlayerControl)
             {
                 for (int i = captiveList.Count - 1; i >= 0; i--)
                 {
@@ -87,7 +92,8 @@ namespace Sango.Render
 
         public override bool IsVisible()
         {
-            return atk.BelongCorps.IsPlayer;
+            // 与 Enter 的判据保持一致：委任军团不参与玩家侧演出
+            return atk.BelongCorps.IsPlayerControl;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

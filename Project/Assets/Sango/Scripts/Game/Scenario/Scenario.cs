@@ -768,7 +768,11 @@ namespace Sango.Core
             Cur = this;
             IsAlive = false;
 
-            // 由此来判断是否加载过base了
+            // 【重要】"是否加载过 base" 的判断只允许出现在这里（整个流程的最开头，判断一次）。
+            // 读档时 Map.CellSet 是随存档 JSON 一起反序列化出来的，阶段方法内部若各自再判断一次，
+            // 阶段3 就会在 Map.CellSet 非空时被跳过，导致 Map.Load(this) 与
+            // GameEvent.OnScenarioPrepare 不再执行，读档出现数据处理缺失
+            // （如武将 BelongCity 未挂接，进游戏后任务系统空引用）。
             if (Map != null && Map.CellSet != null)
                 return;
 
@@ -782,13 +786,10 @@ namespace Sango.Core
         /// <summary>
         /// 加载阶段1：解析通用数据。
         /// 解析 Data/Common 下全部 JSON（含 CustomEdit 与 Mod 目录）并实例化整个武将库。
+        /// 注意：本方法不做"是否已加载"的判断，由调用方统一判断（见 LoadBaseContent）。
         /// </summary>
         public void LoadCommonDataStage()
         {
-            // 由此来判断是否加载过base了（与 LoadBaseContent 的既有逻辑保持一致）
-            if (Map != null && Map.CellSet != null)
-                return;
-
             CommonData = GameData.Instance.LoadNewCommonData();
 
             if (!Info.isSave)
@@ -812,13 +813,10 @@ namespace Sango.Core
         /// <summary>
         /// 加载阶段2：解析剧本本体 JSON。
         /// 用流式 JsonTextReader 就地填充整个 Scenario.json。
+        /// 注意：本方法不做"是否已加载"的判断，由调用方统一判断（见 LoadBaseContent）。
         /// </summary>
         public void LoadScenarioDataStage()
         {
-            // 由此来判断是否加载过base了（与 LoadBaseContent 的既有逻辑保持一致）
-            if (Map != null && Map.CellSet != null)
-                return;
-
             // 【性能】用流式 JsonTextReader 就地填充，避免把整份存档读成一个 string 常驻内存
             // （大地图 / 后期存档可达数十 MB，ReadAllText 会制造同量级的 LOH 分配）。
             using (StreamReader sr = System.IO.File.OpenText(FilePath))
@@ -837,13 +835,12 @@ namespace Sango.Core
 
         /// <summary>
         /// 加载阶段3：读取地图二进制数据并触发剧本准备事件。
+        /// 注意：本方法不做"是否已加载"的判断，由调用方统一判断（见 LoadBaseContent）。
+        /// 读档时 Map.CellSet 可能已由存档 JSON 反序列化出来，但 Map.Load(this)
+        /// 与 OnScenarioPrepare 事件仍必须执行，不能因为该判断被跳过。
         /// </summary>
         public void LoadMapDataStage()
         {
-            // 由此来判断是否加载过base了（与 LoadBaseContent 的既有逻辑保持一致）
-            if (Map != null && Map.CellSet != null)
-                return;
-
             Map.Load(this);
 
             GameEvent.OnScenarioPrepare?.Invoke(this);
@@ -939,20 +936,27 @@ namespace Sango.Core
             System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
             long lastElapsed = 0;
 
-            // 阶段1：解析通用数据（Data/Common 全部 JSON + 武将库实例化）
-            // 打点用 Info 级别输出（Log.Info 带 [Conditional("SANGO_DEBUG")]，正式包不输出）
-            LoadingProgress.Report("解析通用数据", 0.05f);
-            scenario.LoadCommonDataStage();
-            Sango.Log.Info(string.Format("加载阶段[解析通用数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
-            lastElapsed = stopwatch.ElapsedMilliseconds;
-            yield return null;
+            // 与 LoadBaseContent 开头保持一致的"是否加载过 base"判断，且只判断这一次
+            // （阶段方法内部不再各自判断，否则读档时会跳过 Map.Load 与 OnScenarioPrepare，
+            //   导致 Map.CellSet 已从存档 JSON 反序列化出来却仍有数据处理缺失）
+            bool needParseContent = scenario.Map == null || scenario.Map.CellSet == null;
 
-            // 阶段2：解析剧本本体 JSON
-            LoadingProgress.Report("解析剧本数据", 0.25f);
-            scenario.LoadScenarioDataStage();
-            Sango.Log.Info(string.Format("加载阶段[解析剧本数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
-            lastElapsed = stopwatch.ElapsedMilliseconds;
-            yield return null;
+            if (needParseContent)
+            {
+                // 阶段1：解析通用数据（Data/Common 全部 JSON + 武将库实例化）
+                LoadingProgress.Report("解析通用数据", 0.05f);
+                scenario.LoadCommonDataStage();
+                Sango.Log.Info(string.Format("加载阶段[解析通用数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
+                lastElapsed = stopwatch.ElapsedMilliseconds;
+                yield return null;
+
+                // 阶段2：解析剧本本体 JSON
+                LoadingProgress.Report("解析剧本数据", 0.25f);
+                scenario.LoadScenarioDataStage();
+                Sango.Log.Info(string.Format("加载阶段[解析剧本数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
+                lastElapsed = stopwatch.ElapsedMilliseconds;
+                yield return null;
+            }
 
             // 阶段3：注册开局准备清单 + 合并自建势力/自建武将数据
             // InitLoadLists 即同步流程中 LoadContent 的后半段（prepareList/eventReciveList 注册），

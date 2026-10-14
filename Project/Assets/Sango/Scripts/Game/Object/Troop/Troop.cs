@@ -68,14 +68,97 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 所属势力
+        /// 势力缓存（**仅运行期，不入档**）。
+        ///
+        /// 为什么需要它：所属势力原本完全由主将实时推导（Leader?.BelongForce），
+        /// 主将一旦脱离编制（阵亡 / 被俘 / 下野 / 被移出队伍）部队就立刻"没有势力"了，
+        /// 而收尾链路恰好全都在这时读它：
+        ///   · 破城解救俘虏（City.OnFall 的 person.IsSameForce(atk)）；
+        ///   · 破城招降演出的分支判据（CityRecruitPersonWhenCityFallEvent 的 atk.BelongCorps.IsPlayerControl）；
+        ///   · 部队溃灭抓捕（Troop.OnDestroy 的 IsEnemy(atkTroop)）、势力灭亡时清理无主部队（City.OnFall）；
+        ///   · 各类战报日志（"{BelongForce?.Name}的[部队]溃灭"）。
+        /// 主将已脱离时这些判断会集体落空 —— 典型表现就是"自家武将被自家城池当成俘虏关着"。
+        ///
+        /// 维护口径（三句话）：
+        ///   1) 主将在位且势力非空：以主将为准，顺手把最新归属写进缓存（主将换势力 / 换军团后不会返回过期值）；
+        ///   2) 主将被清空 / 顶替：在 Leader 的 setter 里先把**旧主将**的归属落进缓存，供之后兜底；
+        ///   3) 主将在位但势力为空：如实返回 null，且不动缓存（脏数据不掩盖，交给上层报错定位）。
         /// </summary>
-        public Force BelongForce => Leader?.BelongForce;
+        Force mBelongForce;
 
         /// <summary>
-        /// 所属军团
+        /// 军团缓存（**仅运行期，不入档**）。与 <see cref="mBelongForce"/> 同一口径。
+        ///
+        /// 势力兜底必须连军团一起兜住：只兜势力会出现"有势力、没军团"的错配，
+        /// 而调用方几乎都是配对使用（atk.BelongCorps.IsPlayerControl、
+        /// building.ChangeCorps(atk.BelongCorps)、City.OnFall 的 BelongCorps = atk.BelongCorps）→ 直接空引用。
         /// </summary>
-        public Corps BelongCorps => Leader?.BelongCorps;
+        Corps mBelongCorps;
+
+        /// <summary>
+        /// 所属势力（主将实时推导；主将已脱离编制时用缓存兜底）
+        /// </summary>
+        public Force BelongForce
+        {
+            get
+            {
+                Force force;
+                Corps corps;
+                // 主将在位：以主将为准（SyncBelongCache 内部会同步缓存）
+                if (SyncBelongCache(out force, out corps))
+                    return force;
+
+                // 主将已脱离：用最后一次已知归属兜底
+                return mBelongForce;
+            }
+        }
+
+        /// <summary>
+        /// 所属军团（主将实时推导；主将已脱离编制时用缓存兜底）
+        /// </summary>
+        public Corps BelongCorps
+        {
+            get
+            {
+                Force force;
+                Corps corps;
+                // 主将在位：以主将为准（SyncBelongCache 内部会同步缓存）
+                if (SyncBelongCache(out force, out corps))
+                    return corps;
+
+                // 主将已脱离：用最后一次已知归属兜底
+                return mBelongCorps;
+            }
+        }
+
+        /// <summary>
+        /// 主将在位时把势力 / 军团同步进缓存；主将缺失时不写入，由调用方改用缓存兜底。
+        /// </summary>
+        /// <param name="force">主将当前势力（主将缺失时为 null）</param>
+        /// <param name="corps">主将当前军团（主将缺失时为 null）</param>
+        /// <returns>主将是否存在：true 时调用方以主将为准，false 时改用缓存兜底</returns>
+        bool SyncBelongCache(out Force force, out Corps corps)
+        {
+            force = null;
+            corps = null;
+
+            Person leader = Leader;
+            if (leader == null)
+                return false;
+
+            force = leader.BelongForce;
+            corps = leader.BelongCorps;
+
+            // 只在主将势力非空时刷新缓存：主将顶着空势力（脏数据）时不覆盖最后一次有效归属，
+            // 保证他被清空后，兜底值仍是"最近一次真实归属"而不是 null
+            if (force != null)
+            {
+                mBelongForce = force;
+                mBelongCorps = corps;
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Clear 是否已经执行过。Clear 是部队的最终收尾，可能被"兵力归零"与"武将全部离开"两条路各触发一次，
@@ -117,7 +200,7 @@ namespace Sango.Core
 
         Person mLeader;
         /// <summary>
-        /// 统领（主将）对象；写入时自动同步 LeaderId
+        /// 统领（主将）对象；写入时自动同步 LeaderId，并把旧主将的归属落进势力缓存
         /// </summary>
         public Person Leader
         {
@@ -126,7 +209,24 @@ namespace Sango.Core
                 if (mLeader == null && LeaderId > 0) mLeader = IdRef.Resolve<Person>(LeaderId);
                 return mLeader;
             }
-            set { mLeader = value; LeaderId = value != null ? value.Id : 0; }
+            set
+            {
+                // 【势力缓存】主将换人 / 被清空前，先把**旧主将**的归属存进缓存：
+                // 主将一被置空，BelongForce 就推导不出势力了，而收尾链路
+                // （破城解救俘虏、溃灭抓捕、势力灭亡清无主部队、战报日志）都在这时读它。
+                //
+                // 这里刻意读 Leader 属性而不是 mLeader 字段：读档路径下主将还没被解析，
+                // 直接读字段会拿到 null，白白漏掉这次缓存。
+                Person old = Leader;
+                if (old != null && old.BelongForce != null)
+                {
+                    mBelongForce = old.BelongForce;
+                    mBelongCorps = old.BelongCorps;
+                }
+
+                mLeader = value;
+                LeaderId = value != null ? value.Id : 0;
+            }
         }
 
         /// <summary>
@@ -762,6 +862,17 @@ namespace Sango.Core
         {
             isCleared = false;
 
+            // 【势力缓存复位】Init 是部队对象的初始化入口（新建部队 / 读档重建都走这里），
+            // 先把上一次生命周期可能残留的缓存清掉，再按当前主将建立一次：
+            //   · 新建部队：Leader 通常已由调用方赋值（走 setter），这里同步一次同样成立；
+            //   · 读档：Leader 由 LeaderId 懒解析，这里主动触发一次解析并把归属写进缓存；
+            //   · 主将暂时解析不出来也不影响：此后每次访问 BelongForce / BelongCorps 都会重试同步。
+            mBelongForce = null;
+            mBelongCorps = null;
+            Force cacheForce;
+            Corps cacheCorps;
+            SyncBelongCache(out cacheForce, out cacheCorps);
+
             // 【委任部队】旧存档归一化：把玩家第一军团部队的 TroopXXX 任务
             // 转成 PlayerTroopXXX（详见 NormalizeAppointMission 的注释）。
             // 必须放在 Init 靠前位置，避免后续逻辑先按旧枚举建好了行为对象。
@@ -961,6 +1072,21 @@ namespace Sango.Core
             if (Leader != null) action(Leader);
             if (Member1 != null) action(Member1);
             if (Member2 != null) action(Member2);
+        }
+
+        /// <summary>
+        /// 该武将是否登记在本部队里（主将 / 副将1 / 副将2）。
+        ///
+        /// 判"同部队"用它而不是 <c>person.mBelongTroop</c>：后者在部队收尾（ClearWithBelongCity）、
+        /// 俘虏流程（Troop.AddCaptive）里会被清空或改写，而特技（如 #53 护卫）要的是
+        /// "此时此刻还在不在这个编制里"，用编制成员判定才不会被这些中间状态影响。
+        /// </summary>
+        /// <param name="person">待判定的武将</param>
+        /// <returns>是否为本部队成员</returns>
+        public bool HasPerson(Person person)
+        {
+            if (person == null) return false;
+            return person == Leader || person == Member1 || person == Member2;
         }
 
         /// <summary>
@@ -1188,6 +1314,8 @@ namespace Sango.Core
             return IsSameForce(BelongForce, other.BelongForce);
         }
 
+        /// <summary>是否剑兵（物理孱弱，AI 技能判定时倾向于释放计略）</summary>
+        public bool IsSword => LandTroopType.IsSword();
         public bool IsTransport => LandTroopType.IsTransport();
         public bool IsMachine => LandTroopType.IsMachine();
         public bool IsHelepolis => LandTroopType.IsHelepolis();
@@ -3025,21 +3153,92 @@ namespace Sango.Core
 
         /// <summary>
         /// 加入某个势力,需要指定一个城市
+        ///
+        /// 【为什么要带一大段收尾】Troop 的 <see cref="BelongForce"/> / <see cref="BelongCorps"/> /
+        /// <see cref="BelongCity"/> 都是主将的实时派生,主将一改归属就立刻跟着变,数据层看起来什么都不用做。
+        /// 真正不会自动同步的有三样:
+        ///   1. 所属城的 allTroops / allAttackTroops 名单 —— 只在组建、入城、收尾时维护;
+        ///   2. 各势力记录的威胁名单 —— 换旗后旧仇家的 AI 仍会按名单派兵来"驱逐"它;
+        ///   3. 表现层的势力色 —— 旗帜材质色与头顶血条底色只在模型加载时写入一次。
+        /// 漏掉任一项都会出现"登庸成功、部队却还顶着敌国颜色、甚至还被当敌人打"的当回合不一致。
         /// </summary>
-        /// <param name="city"></param>
+        /// <param name="city">主将即将归属的城市</param>
+        /// <returns>是否发生了换旗(目标是同势力 / 参数为空时返回 false)</returns>
         public bool JoinToForce(City city)
         {
+            if (city == null || Leader == null) return false;
             if (Leader.IsSameForce(city)) return false;
-            ForEachMember(mem =>
+
+            City lastBelongCity = BelongCity;
+            Force lastForce = BelongForce;
+
+            // 先取快照再摘人:RemovePerson 会把副将2前移到副将1的位置,
+            // 边遍历边删必然漏掉副将2,让他留在编制里还挂着敌方归属(等于部队里混着敌将)。
+            Person[] members = new Person[] { Member1, Member2 };
+            for (int i = 0; i < members.Length; i++)
             {
+                Person mem = members[i];
+                if (mem == null) continue;
+
                 RemovePerson(mem, true);
-                mem.SetMission(MissionType.PersonReturn, mem.BelongCity);
+                // 遣返回自己的所属城;所属城为空(城池已陷落)时退回所在城,避免把 null 塞进任务目标
+                City homeCity = mem.BelongCity ?? mem.CurrentCity;
+                if (homeCity != null)
+                    mem.SetMission(MissionType.PersonReturn, homeCity);
                 mem.ActionOver = true;
-            });
+            }
+
+            // 旧任务是旧东家下的命令(多半就是打新东家),留着会让刚归顺的部队继续敌对行为
+            ClearMission();
+
             Leader.JoinToForce(city);
             ResetActionAndStatus();
+            OnBelongForceChanged(lastForce, lastBelongCity);
             return true;
         }
+
+        /// <summary>
+        /// 所属势力变化后的统一收尾:迁移城市部队名单、清理各势力的威胁记录、刷新表现层势力色。
+        /// </summary>
+        /// <param name="lastForce">换旗前的所属势力,可为空</param>
+        /// <param name="lastBelongCity">换旗前的所属城,可为空</param>
+        void OnBelongForceChanged(Force lastForce, City lastBelongCity)
+        {
+            City newBelongCity = BelongCity;
+
+            // 1. 城市部队名单迁移:名单只在组建 / 入城 / 收尾时维护,换旗必须手工搬,
+            //    否则旧城的兵力与"来犯部队"统计里还留着它,新城部队面板里却没有它。
+            if (lastBelongCity != newBelongCity)
+            {
+                lastBelongCity?.allTroops.Remove(this);
+                if (IsListedAsAttackTroop)
+                    lastBelongCity?.allAttackTroops.Remove(this);
+
+                if (newBelongCity != null)
+                {
+                    if (!newBelongCity.allTroops.Contains(this))
+                        newBelongCity.allTroops.Add(this);
+                    if (IsListedAsAttackTroop && !newBelongCity.allAttackTroops.Contains(this))
+                        newBelongCity.allAttackTroops.Add(this);
+                }
+            }
+
+            // 2. 威胁名单:换旗后它对许多势力来说已经不是敌人(甚至成了友军),
+            //    必须立刻摘掉,否则当回合内 AI 仍会出兵打自己人。
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null)
+                scenario.forceSet.ForEach(force => force?.RemoveThreatTroop(this));
+
+            // 3. 表现层:旗帜 / 头顶血条底色在登庸后立刻按新势力色重刷
+            Render?.UpdateRender();
+            GameEvent.OnTroopChangeForce?.Invoke(this, lastForce, BelongForce);
+        }
+
+        /// <summary>
+        /// 本部队是否属于"会登记进城市 allAttackTroops 的作战部队"。
+        /// 口径与组建时的登记条件保持一致(战斗兵种 && 非 Id==1),搬运名单时两边必须用同一把尺子。
+        /// </summary>
+        bool IsListedAsAttackTroop => LandTroopType != null && LandTroopType.isFight && LandTroopType.Id != 1;
 
         public void OnPersonChangeCity(Person person, City old_city, City new_city)
         {
