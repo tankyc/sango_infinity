@@ -12,6 +12,11 @@ namespace Sango.Core
         [JsonProperty] public byte kind;
 
         /// <summary>
+        /// 子类型
+        /// </summary>
+        [JsonProperty] public byte subKind;
+
+        /// <summary>
         /// 次类型
         /// </summary>
         [JsonProperty] public byte storeKind;

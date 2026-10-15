@@ -56,6 +56,11 @@ namespace Sango.Mod
             public string auther;
             public string description;
             public string poster;
+            /// <summary>
+            /// 前置依赖模组Id,多个用分号隔开,例如 "modA;modB"
+            /// 市场列表带上依赖后,未安装的模组也能在下载时自动把依赖一起下下来
+            /// </summary>
+            public string depends;
         }
 
         public Mod[] GetEnabledMods()
@@ -229,6 +234,10 @@ namespace Sango.Mod
                     mod.UrlVersion = info.version;
                     mod.Size = info.size;
                     mod.MarketName = content.name;
+                    // 本地已安装的模组以包内 mod.info 的依赖为准,
+                    // 只有当包内没有写依赖时,才用市场列表里的依赖补上
+                    if (string.IsNullOrEmpty(mod.Depends))
+                        mod.Depends = info.depends;
                 }
                 else
                 {
@@ -239,6 +248,8 @@ namespace Sango.Mod
                     mod.Author = info.auther;
                     mod.Size = info.size;
                     mod.Poster = info.poster;
+                    // 未安装的模组只有市场列表这一个依赖来源
+                    mod.Depends = info.depends;
                     mod.Url = NetModMarket.MakeUrl(content, info);
                     mod.MarketName = content.name;
                     mModMap.Add(info.id, mod);
@@ -631,6 +642,126 @@ namespace Sango.Mod
         public bool HasMod(Mod mod)
         {
             return mModMap.ContainsKey(mod.Id);
+        }
+
+        /// <summary>
+        /// 根据模组Id获取模组
+        /// </summary>
+        /// <param name="id">模组唯一标识</param>
+        /// <returns>找到的模组,找不到返回null</returns>
+        public Mod GetModById(string id)
+        {
+            if (string.IsNullOrEmpty(id) || mModMap == null)
+                return null;
+            mModMap.TryGetValue(id, out Mod mod);
+            return mod;
+        }
+
+        /// <summary>
+        /// 解析依赖字符串(mod.info 的 depends,或市场列表的 depends)
+        /// 支持分号/逗号/竖线分隔,并自动去掉空白项,例如 "modA;modB" / "modA,modB"
+        /// </summary>
+        /// <param name="depends">依赖字符串</param>
+        /// <returns>依赖模组Id数组,无依赖时返回空数组</returns>
+        public static string[] ParseDepends(string depends)
+        {
+            if (string.IsNullOrEmpty(depends))
+                return System.Array.Empty<string>();
+
+            string[] arr = depends.Split(new char[] { ';', ',', '|' }, System.StringSplitOptions.RemoveEmptyEntries);
+            List<string> result = new List<string>();
+            for (int i = 0; i < arr.Length; i++)
+            {
+                string depId = arr[i].Trim();
+                if (!string.IsNullOrEmpty(depId))
+                    result.Add(depId);
+            }
+            return result.ToArray();
+        }
+
+        /// <summary>
+        /// 收集某个模组的全部前置依赖(递归、去重)
+        /// 返回顺序为"最底层依赖在最前,自身在最后",可直接当作下载顺序或加载顺序使用
+        /// </summary>
+        /// <param name="mod">目标模组</param>
+        /// <returns>依赖在前、自身在后的模组列表</returns>
+        public List<Mod> CollectDepends(Mod mod)
+        {
+            List<Mod> result = new List<Mod>();
+            CollectDependsRecursive(mod, result, new HashSet<string>());
+            return result;
+        }
+
+        /// <summary>
+        /// 递归收集依赖(深度优先后序:先把最底层依赖放进去,最后放自己)
+        /// </summary>
+        /// <param name="mod">当前访问的模组</param>
+        /// <param name="result">收集结果</param>
+        /// <param name="visited">已访问过的模组Id,用于去重与避免循环依赖死递归</param>
+        private void CollectDependsRecursive(Mod mod, List<Mod> result, HashSet<string> visited)
+        {
+            if (mod == null)
+                return;
+
+            // 已访问过说明存在重复引用或循环依赖,直接返回
+            if (!string.IsNullOrEmpty(mod.Id))
+            {
+                if (visited.Contains(mod.Id))
+                    return;
+                visited.Add(mod.Id);
+            }
+
+            string[] depIds = ParseDepends(mod.Depends);
+            for (int i = 0; i < depIds.Length; i++)
+            {
+                Mod dep = GetModById(depIds[i]);
+                if (dep != null)
+                    CollectDependsRecursive(dep, result, visited);
+                else
+                    Sango.Log.Warning($"模组 {mod.Id} 依赖的模组 {depIds[i]} 未找到(本地与市场均无)");
+            }
+
+            result.Add(mod);
+        }
+
+        /// <summary>
+        /// 获取某个模组(含递归依赖)中"本地与市场都找不到"的依赖Id列表
+        /// 用于在下载/勾选前提示玩家,避免依赖缺失导致模组无法正常运行
+        /// </summary>
+        /// <param name="mod">目标模组</param>
+        /// <returns>缺失的依赖Id列表</returns>
+        public List<string> GetMissingDepends(Mod mod)
+        {
+            List<string> missing = new List<string>();
+            CollectMissingDepends(mod, missing, new HashSet<string>());
+            return missing;
+        }
+
+        /// <summary>
+        /// 递归查找缺失的依赖
+        /// </summary>
+        /// <param name="mod">当前访问的模组</param>
+        /// <param name="missing">缺失依赖收集结果</param>
+        /// <param name="visited">已访问过的模组Id</param>
+        private void CollectMissingDepends(Mod mod, List<string> missing, HashSet<string> visited)
+        {
+            if (mod == null || string.IsNullOrEmpty(mod.Id) || !visited.Add(mod.Id))
+                return;
+
+            string[] depIds = ParseDepends(mod.Depends);
+            for (int i = 0; i < depIds.Length; i++)
+            {
+                Mod dep = GetModById(depIds[i]);
+                if (dep == null)
+                {
+                    if (!missing.Contains(depIds[i]))
+                        missing.Add(depIds[i]);
+                }
+                else
+                {
+                    CollectMissingDepends(dep, missing, visited);
+                }
+            }
         }
     }
 }

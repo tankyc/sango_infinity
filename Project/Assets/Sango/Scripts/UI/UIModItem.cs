@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,22 +28,36 @@ namespace Sango.UI
         public int targetIndex;
         private System.Action onClickCall;
         private System.Action<int, bool> onToggleCall;
-        public System.Action<int> onUpCall;
-        public System.Action<int> onDownCall;
         public System.Action<UIModItem> onDownloadCall;
 
         public Button upButton;
         public Button downButton;
+
+        /// <summary>
+        /// 所属的Mod管理窗口
+        /// 上移/下移统一由 UIModManager 处理,本项只负责把自己交给窗口
+        /// </summary>
+        UIModManager manager;
         float pressTime;
         bool isPress = false;
         public void OnClickDownload()
         {
             //onDownloadCall?.Invoke(this);
-            if (mod != null)
+            if (mod == null || mod.IsDownloading())
+                return;
+
+            // 下载前先检查依赖是否都能找到:找不到的依赖无法自动下载,需要先提示玩家
+            List<string> missingDepends = ModManager.Instance.GetMissingDepends(mod);
+            if (missingDepends.Count > 0)
             {
-                if (!mod.IsDownloading())
-                    mod.Download();
+                GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
+                    $"该模组依赖以下模组,但本地与市场均未找到:\n{string.Join("\n", missingDepends)}\n是否仍要下载?",
+                    () => mod.Download());
+                return;
             }
+
+            // Download 内部会先把未安装的前置依赖依次下载完,再下载本模组
+            mod.Download();
         }
 
         public void SetMod(Mod.Mod m)
@@ -87,13 +102,35 @@ namespace Sango.UI
             }
         }
 
+        /// <summary>
+        /// 绑定所属的Mod管理窗口
+        /// </summary>
+        public UIModItem SetManager(UIModManager m)
+        {
+            manager = m;
+            return this;
+        }
+
+        /// <summary>
+        /// 点击上移按钮:先把自己置为当前选中项,再请求窗口上移一位
+        /// </summary>
         public void OnClickUp()
         {
-            onUpCall?.Invoke(targetIndex);
+            if (manager == null)
+                return;
+            manager.OnItemSelected(this);
+            manager.ModUp();
         }
+
+        /// <summary>
+        /// 点击下移按钮:先把自己置为当前选中项,再请求窗口下移一位
+        /// </summary>
         public void OnClickDown()
         {
-            onDownCall?.Invoke(targetIndex);
+            if (manager == null)
+                return;
+            manager.OnItemSelected(this);
+            manager.ModDown();
         }
 
         public UIModItem SetName(string name)
@@ -129,26 +166,50 @@ namespace Sango.UI
         {
             if (enableToggle != null)
             {
-                enableToggle.isOn = enabled;
-            }
-            if (upButton != null)
-            {
-                upButton.gameObject.SetActive(false);
-            }
-            if (downButton != null)
-            {
-                downButton.gameObject.SetActive(false);
+                // 用 SetIsOnWithoutNotify:列表刷新时会反复设置勾选状态,
+                // 若走 isOn 会反过来触发 onValueChanged,造成"刷新即勾选/取勾"的递归
+                enableToggle.SetIsOnWithoutNotify(enabled);
             }
             return this;
         }
 
+        /// <summary>
+        /// 设置选中状态
+        /// 选中项会显示上移/下移按钮(用于快速调整模组顺序),非选中项隐藏按钮
+        /// </summary>
         public UIModItem SetSelected(bool selected)
         {
             if (selectedImage != null)
             {
-                selectedImage.gameObject.SetActive(selected);
+                // 只切换 sel 图片组件的 enabled,不整体隐藏 GameObject,
+                // 避免影响 sel 节点下其它子对象/布局
+                selectedImage.enabled = selected;
             }
+            if (upButton != null)
+            {
+                upButton.gameObject.SetActive(selected);
+            }
+            if (downButton != null)
+            {
+                downButton.gameObject.SetActive(selected);
+            }
+            return this;
+        }
 
+        /// <summary>
+        /// 设置上移/下移按钮是否可点击
+        /// 位于列表第一位时上移不可用,位于最后一位时下移不可用
+        /// </summary>
+        public UIModItem SetArrowInteractable(bool canUp, bool canDown)
+        {
+            if (upButton != null)
+            {
+                upButton.interactable = canUp;
+            }
+            if (downButton != null)
+            {
+                downButton.interactable = canDown;
+            }
             return this;
         }
 
@@ -178,31 +239,8 @@ namespace Sango.UI
 
         public void SetOver(bool b)
         {
+            // 只控制悬停高亮;上移/下移按钮的显隐由选中状态(SetSelected)决定
             overImg.enabled = b;
-
-
-            if (enableToggle != null && enableToggle.isOn == true)
-            {
-                if (upButton != null)
-                {
-                    upButton.gameObject.SetActive(b);
-                }
-                if (downButton != null)
-                {
-                    downButton.gameObject.SetActive(b);
-                }
-            }
-            else
-            {
-                if (upButton != null)
-                {
-                    upButton.gameObject.SetActive(false);
-                }
-                if (downButton != null)
-                {
-                    downButton.gameObject.SetActive(false);
-                }
-            }
         }
 
         private void Update()
@@ -223,7 +261,7 @@ namespace Sango.UI
                 if (isPress)
                 {
                     pressTime += Time.deltaTime;
-                    if (pressTime > 3)
+                    if (pressTime > 2)
                     {
                         deleteBtn.gameObject.SetActive(true);
                         isPress = false;

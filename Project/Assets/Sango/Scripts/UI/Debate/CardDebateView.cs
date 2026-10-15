@@ -338,6 +338,17 @@ namespace Sango.Core.Debate
         /// <summary>动画节拍：> 0 时 DebateIsAnimating 返回 true，逻辑层停在当前步骤</summary>
         protected float m_AnimTimer;
 
+        /// <summary>
+        /// 动画节拍的**截止时刻**（Time.unscaledTime，秒）。与 m_AnimTimer 同时设置，但它不需要 Update 递减。
+        ///
+        /// 为什么需要它：m_AnimTimer 只在 <see cref="Update"/> 里递减，而 Unity 只在窗口 GameObject 处于
+        /// 激活状态时才调用该组件的 Update。窗口一旦被别的界面盖住 / 停用（或组件被禁用），计时器就永远 > 0，
+        /// 逻辑层会被无限期挡在"等演出播完"这一步 —— 现象就是某一方迟迟不出牌、整局卡死（只能强退）。
+        /// 这里再用一个与帧率、与 Update 是否在跑都无关的截止时刻兜底：过了它就当作演出结束（见 DebateIsAnimating）。
+        /// 正常情况（Update 正常跑、timeScale ≥ 1）计时器先归零，这个兜底永远用不到。
+        /// </summary>
+        protected float m_AnimDeadline;
+
         /// <summary>结算画面是否还开着（开着就一直阻塞逻辑层收场）</summary>
         protected bool m_ResultOpen;
 
@@ -356,6 +367,13 @@ namespace Sango.Core.Debate
         /// <summary>等对白的兜底倒计时（秒）：到 0 就直接揭晓（见 resultRevealTimeout）</summary>
         protected float m_ResultWaitTimer;
 
+        /// <summary>
+        /// 等对白的**截止时刻**（Time.unscaledTime，秒）。与 m_ResultWaitTimer 同时设置，
+        /// 兜底口径同 <see cref="m_AnimDeadline"/>：Update 没在跑时收场对白不会自己收，
+        /// 「退出」按钮就永远亮不出来，逻辑层被 m_ResultOpen 一直挡在收场阶段 —— 玩家连点都点不了。
+        /// </summary>
+        protected float m_ResultWaitDeadline;
+
         /// <summary>消息框计数（> 0 时 DebateIsMessageBoxVisible 为 true）</summary>
         protected int m_LineCount;
 
@@ -371,6 +389,12 @@ namespace Sango.Core.Debate
 
         /// <summary>点了牌之后"选中态"还要亮多久（> 0 表示先让玩家看见再出牌）</summary>
         protected float m_CardConfirmTimer;
+
+        /// <summary>
+        /// 出牌确认停顿的**截止时刻**（Time.unscaledTime，秒）。兜底口径同 <see cref="m_AnimDeadline"/>：
+        /// 计时器只在 Update 里递减，Update 不跑时玩家点了牌也交不出去（逻辑层一直等这一方出牌 → 卡死）。
+        /// </summary>
+        protected float m_CardConfirmDeadline;
 
         /// <summary>会心（追击/留情）是否已经问过玩家（PlayerChoice 是异步的，只问一次）</summary>
         protected bool m_CriticalAsked;
@@ -786,10 +810,12 @@ namespace Sango.Core.Debate
         {
             m_Debate = debate;
             m_AnimTimer = 0f;
+            m_AnimDeadline = 0f;
             m_ResultOpen = false;
             m_ResultPending = 0;
             m_ResultWaiting = false;
             m_ResultWaitTimer = 0f;
+            m_ResultWaitDeadline = 0f;
             m_LineCount = 0;
             m_PendingCard = -1;
             m_PendingCardTeam = -1;
@@ -1040,6 +1066,7 @@ namespace Sango.Core.Debate
             m_PendingCard = index;
             m_PendingCardTeam = team;
             m_CardConfirmTimer = Mathf.Max(0f, cardConfirmDuration);
+            m_CardConfirmDeadline = Time.unscaledTime + m_CardConfirmTimer;
         }
 
         /// <summary>追击（也可以由别的地方直接调它给答案）</summary>
@@ -1061,6 +1088,7 @@ namespace Sango.Core.Debate
             m_ResultWaiting = false;
             m_ResultPending = 0;
             m_ResultWaitTimer = 0f;
+            m_ResultWaitDeadline = 0f;
             ClearResultStamp();
             SetOutVisible(false);
         }
@@ -1072,6 +1100,22 @@ namespace Sango.Core.Debate
         public virtual bool DebateIsAnimating(Debate debate)
         {
             if (debate != m_Debate) Bind(debate);
+
+            // 【卡死兜底】本方法由逻辑层每帧调用（Debate.IsIdle），是表现层里唯一"必定会被跑到"的心跳，
+            // 所以与 Update 无关的兜底都放在这里：
+            //   1) 动画节拍过了截止时刻 → 当作演出播完，放行逻辑层（否则逻辑层会永远停在"等演出"这一步）；
+            //   2) 收场对白超过兜底时长还没收完 → 直接把结果揭晓（否则「退出」按钮永远不亮，
+            //      逻辑层被 m_ResultOpen 一直挡在收场阶段，玩家连收场都点不出去）。
+            // 正常情况下（Update 正常递减、timeScale ≥ 1）这两条都不会触发，行为与改动前一致。
+            if (m_AnimTimer > 0f && Time.unscaledTime >= m_AnimDeadline)
+                m_AnimTimer = 0f;
+
+            if (m_ResultWaiting && Time.unscaledTime >= m_ResultWaitDeadline)
+            {
+                m_ResultWaitTimer = 0f;
+                UpdateResultReveal();
+            }
+
             return m_AnimTimer > 0f || m_ResultOpen;
         }
 
@@ -1139,6 +1183,8 @@ namespace Sango.Core.Debate
             m_ResultPending = player < 0 || winner < 0 ? 0 : (winner == player ? 1 : -1);
             m_ResultWaiting = true;
             m_ResultWaitTimer = Mathf.Max(1f, resultRevealTimeout);
+            // 同时记下与 Update 无关的截止时刻（见 m_ResultWaitDeadline）
+            m_ResultWaitDeadline = Time.unscaledTime + m_ResultWaitTimer;
             SetOutVisible(false);
 
             // 把中场还没播完的台词丢掉再排收场词：
@@ -1416,7 +1462,14 @@ namespace Sango.Core.Debate
 
             // 刚点下去：先把"选中态"亮完，再交出下标（否则高亮只闪一帧，玩家看不见）
             if (m_CardConfirmTimer > 0f)
-                return -1;
+            {
+                // 兜底：计时器只在 Update 里递减，窗口被停用 / 组件被禁用时它不会动，
+                // 玩家点了牌就永远交不出去（逻辑层一直等这一方出牌 → 卡死）。
+                // 过了与 Update 无关的截止时刻就直接放行。
+                if (Time.unscaledTime < m_CardConfirmDeadline)
+                    return -1;
+                m_CardConfirmTimer = 0f;
+            }
 
             int index = m_PendingCard;
             m_PendingCard = -1;
@@ -1528,9 +1581,9 @@ namespace Sango.Core.Debate
             for (int i = 0; i < Debate.MaxTeamCount; i++)
                 RefreshAngerLook(i, m_Debate.GetCharacter(i), SideOf(i), CardOf(i));
 
-            int player = PlayerTeam(m_Debate);
-            RefreshHand(m_Debate, leftHand.team, player);
-            RefreshHand(m_Debate, rightHand.team, player);
+            // 手牌可点性由 RefreshHand 内部按每一侧的 Character.control 判定（双方都是玩家操作时两侧都可点）
+            RefreshHand(m_Debate, leftHand.team);
+            RefreshHand(m_Debate, rightHand.team);
 
             RefreshPlayedCard(playedCardLeft);
             RefreshPlayedCard(playedCardRight);
@@ -1653,12 +1706,16 @@ namespace Sango.Core.Debate
         ///   · 用不了的（不是玩家操作的一方、空位、熟虑已用过）→ 不可选图，且不可点；
         ///   · 其余 → 普通图，按住时由 Selectable 的 SpriteSwap 换成按下图。
         ///
+        /// “归玩家操作”按 <see cref="Debate.Character.control"/> **逐侧**判定（与逻辑层等牌的口径一致），
+        /// 双方都由玩家操作时两侧都可点 —— 见下方 isPlayer 处的说明。
+        ///
         /// 排布：格子**一律显示**（没牌就写占位字）；**最后一格固定是「熟虑」**（见 BuildSlotOrder），
         /// 其余格子放这一合的手牌（话题牌在前、话术牌在后）。玩家点的是槽位，回给逻辑层的仍是真实的手牌下标。
         ///
-        /// 牌名：玩家自己写全名（"故事·大"），对手只写类别（"故事"）—— 大小是这一合要比的信息，不给对手看。
+        /// 牌名：由玩家操作的一侧写全名（"故事·大"），对手（AI 侧）只写类别（"故事"）
+        /// —— 大小是这一合要比的信息，不给对手看。
         /// </summary>
-        protected virtual void RefreshHand(Debate debate, int team, int playerTeam)
+        protected virtual void RefreshHand(Debate debate, int team)
         {
             DebateHand hand = HandOf(team);
             if (hand == null || debate == null || hand.cells == null) return;
@@ -1666,7 +1723,15 @@ namespace Sango.Core.Debate
             Debate.Character c = debate.GetCharacter(team);
             if (c == null) return;
 
-            bool isPlayer = team == playerTeam;
+            // 【卡死修复】"归玩家操作"必须与逻辑层同口径：逻辑层只要 characters[i].control 为 true，
+            // 就会调 engine.DebateSelectCard(this, i) 坐等玩家点牌（见 DebatePhase.PlayPhase 出牌阶段 step 0 / step 5）。
+            // 原来这里判的是 team == PlayerTeam(debate)（= 第一个 control 的队）：双方都由玩家操作时
+            // （舌战允许双方同势力甚至自己人，两人都在玩家直属军团 → 两侧 control 都是 true），
+            // 第二方的手牌会被刷成"不可选"（见下面 cell.toggle.interactable = usable && isPlayer），
+            // 玩家点不动它 → 逻辑层永远等不到那一方出牌 → 舌战定在原地，表现就是"对面不选牌卡死"。
+            // 单挑的 CardDuelView 是按每一侧的 Duel.IsManual(team) 分别判定的（"左侧若也是玩家则同样可操作"），
+            // 舌战这边漏了同一条；本文件头部注释本来也写的是"哪一侧归玩家点由 Character.control 决定"。
+            bool isPlayer = c.control;
             bool thisSideSelected = isPlayer && m_PendingCardTeam == team;
 
             BuildSlotOrder(hand, c);
@@ -1880,15 +1945,18 @@ namespace Sango.Core.Debate
 
         /// <summary>
         /// 这一方的牌名现在能不能亮。
-        ///   · 玩家自己那边：随时能看（自己出的牌没必要藏）；
-        ///   · 对手那边：只亮底板（按牌类型换图），要等**双方都出完牌**才揭晓真正的牌名 ——
+        ///   · 由玩家操作的那一侧：随时能看（自己出的牌没必要藏）；
+        ///   · 对手（AI 侧）：只亮底板（按牌类型换图），要等**双方都出完牌**才揭晓真正的牌名 ——
         ///     所以对手先出牌时同样看不到名字（见 hideOpponentCardNames）。
         /// </summary>
         protected virtual bool CanShowCardName(int team)
         {
             if (!hideOpponentCardNames) return true;
             if (m_Debate == null) return true;
-            if (team == PlayerTeam(m_Debate)) return true;
+            // 口径与 RefreshHand 一致：由玩家操作的每一侧都能看到自己的牌名
+            // （双方都由玩家操作时，两边都要亮，否则第二方连自己点过的牌都认不出来）
+            Debate.Character c = m_Debate.GetCharacter(team);
+            if (c != null && c.control) return true;
             return BothPlayed();
         }
 
@@ -1993,7 +2061,11 @@ namespace Sango.Core.Debate
         protected void SetAnimTimer(float duration)
         {
             if (duration > m_AnimTimer)
+            {
                 m_AnimTimer = duration;
+                // 同时记下与 Update 无关的截止时刻，作为"Update 没在跑"时的兜底放行依据
+                m_AnimDeadline = Time.unscaledTime + duration;
+            }
         }
 
         /// <summary>底部提示</summary>
@@ -2024,6 +2096,7 @@ namespace Sango.Core.Debate
             SelectToggle(rightHand, -1);
             m_PendingCard = -1;
             m_CardConfirmTimer = 0f;
+            m_CardConfirmDeadline = 0f;
         }
 
         /// <summary>

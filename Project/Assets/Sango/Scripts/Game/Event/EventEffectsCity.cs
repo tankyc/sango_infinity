@@ -217,7 +217,11 @@ namespace Sango.Core.Event
             }
 
             Force oldForce = city.BelongForce;
+            // ChangeCorps 只改城市自身的军团归属，城内武将 / 建筑 / 俘虏三份名单必须由
+            // UpdateCorps 跟着改。漏掉它就会出现"城已属新军团、人还留在旧军团"，
+            // 之后任何一次入城 / 读档重登记都会报"军团不一致"。
             city.ChangeCorps(corps);
+            city.UpdateCorps();
 
             string from = oldForce != null ? oldForce.Name : "无势力";
             Log.Info($"事件：{city.Name} 由 {from} 转归 {city.BelongForce?.Name}");

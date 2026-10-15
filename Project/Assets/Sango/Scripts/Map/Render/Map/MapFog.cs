@@ -52,6 +52,9 @@ namespace Sango.Render
             RenderSettings.fogColor = fog_color[curSeason];
             RenderSettings.fogStartDistance = fog_start[curSeason];
             RenderSettings.fogEndDistance = fog_end[curSeason];
+            // 切换季节会写入当前季的原始雾效参数,这里按镜头视距重新调整,避免覆盖动态雾效距离
+            if (map.mapCamera != null)
+                map.mapCamera.ApplyViewDistance();
             //Shader.SetGlobalFloat("_MixBegin", fog_start[curSeason]);
             //Shader.SetGlobalFloat("_MixEnd", fog_end[curSeason]);
             //Shader.SetGlobalFloat("_MixPower", fog_density[curSeason]);
@@ -72,6 +75,9 @@ namespace Sango.Render
             {
                 fog_start[curSeason] = value;
                 RenderSettings.fogStartDistance = fog_start[curSeason];
+                // 修改雾参数后按镜头视距重新调整,保持动态雾效距离一致
+                if (map.mapCamera != null)
+                    map.mapCamera.ApplyViewDistance();
             }
         }
         public float fogEnd
@@ -81,6 +87,9 @@ namespace Sango.Render
             {
                 fog_end[curSeason] = value;
                 RenderSettings.fogEndDistance = fog_end[curSeason];
+                // 修改雾参数后按镜头视距重新调整,保持动态雾效距离一致
+                if (map.mapCamera != null)
+                    map.mapCamera.ApplyViewDistance();
             }
         }
         public float fogDensity

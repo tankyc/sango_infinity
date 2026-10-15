@@ -252,10 +252,12 @@ namespace Sango.Core.Duel
             if (CategoryMap.TryGetValue(item.Id, out ItemType mapped))
                 return mapped;
 
-            switch (item.kind)
+            // 宝物统一 kind = Treasure（ItemTypes.json 中所有宝物均为 5），
+            // subKind = 0（TreasureKind.FamousHorse）为名马 → 单挑中的名马
+            if (item.kind == (int)ItemKindType.Treasure
+                && item.subKind == (int)TreasureKind.FamousHorse)
             {
-                case (int)ItemKindType.Equipment_Horse:
-                    return ItemType.EliteHorse;
+                return ItemType.EliteHorse;
             }
 
             switch (item.storeKind)

@@ -61,6 +61,7 @@ def main():
     ap.add_argument("--src", default=str(DEF_SNG), help="sango_convert.py 的输出目录")
     ap.add_argument("--map-key", default="world", help="地图标识，需与 Map/<key>.bin 对应")
     ap.add_argument("--out", default=str(ROOT / "Scenario_world.json"))
+    ap.add_argument("--id", type=int, default=0, help="剧本 Info.id（0=按 ds 自动 1000/1001）")
     args = ap.parse_args()
     sng = Path(args.src)
 
@@ -142,7 +143,7 @@ def main():
     # ---- 5) Info 指向新地图
     info = dict(base["Info"])
     info["mapType"] = args.map_key
-    info["id"] = 1000 if ds >= 2 else 1001
+    info["id"] = args.id if args.id else (1000 if ds >= 2 else 1001)
     info["name"] = "世界地圖-英雄集結" if ds >= 2 else "世界地圖-英雄集結(全尺寸)"
     info["type"] = 1
     info["description"] = ("以 ETOPO 全球高程與 Natural Earth 河湖生成的歐亞大陸世界地圖，"

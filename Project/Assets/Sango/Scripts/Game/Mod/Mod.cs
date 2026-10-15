@@ -192,23 +192,103 @@ namespace Sango.Mod
             return !string.IsNullOrEmpty(ModDirName);
         }
 
+        /// <summary>
+        /// 下载本模组
+        /// 若本模组存在前置依赖(可能还有多层的间接依赖),会先把"未安装"的依赖依次下载完成,
+        /// 再下载本模组,保证下载完成后依赖链是完整的
+        /// </summary>
         public void Download()
         {
-            // 下载
-            isDownloading = true;
-            loadProgress = 0;
-            App.Instance.StartCoroutine(GitDownloader.DownloadAndExtract(Url, ModManager.MOD_ROOT_DIR,
+            if (isDownloading)
+                return;
+
+            // 收集"底层依赖在最前,自身在最后"的下载队列(递归依赖,已去重)
+            List<Mod> downloadList = ModManager.Instance.CollectDepends(this);
+            App.Instance.StartCoroutine(DownloadCoroutine(downloadList));
+        }
+
+        /// <summary>
+        /// 依次下载队列中的模组(协程)
+        /// 队列顺序已由 CollectDepends 保证为"依赖在前,本体在后",因此顺序下载即可满足依赖关系
+        /// </summary>
+        /// <param name="downloadList">待下载的模组列表(依赖在前,本体在后)</param>
+        private System.Collections.IEnumerator DownloadCoroutine(List<Mod> downloadList)
+        {
+            for (int i = 0; i < downloadList.Count; i++)
+            {
+                Mod target = downloadList[i];
+
+                // 除本体之外的依赖:已安装的直接跳过,只补下"缺失"的依赖,
+                // 避免下载一个模组时顺手把依赖升级了(那应该由玩家自己决定)
+                if (target != this && target.IsValidMod())
+                {
+                    Sango.Log.Info($"前置依赖已安装,跳过下载: {target.Id}");
+                    continue;
+                }
+
+                // 已有别的下载任务在跑时跳过,避免同一个模组被重复下载
+                if (target.isDownloading)
+                {
+                    Sango.Log.Info($"模组正在下载中,跳过: {target.Id}");
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(target.Url))
+                {
+                    Sango.Log.Warning($"模组没有下载地址,无法下载: {target.Id}");
+                    continue;
+                }
+
+                Sango.Log.Info($"开始下载模组: {target.Id}");
+                bool success = false;
+                yield return DownloadOne(target, (ok) => success = ok);
+
+                if (!success)
+                {
+                    // 依赖下载失败时不再继续,避免下载出一个依赖残缺的模组
+                    Sango.Log.Error($"模组下载失败,已中断后续下载: {target.Id}");
+                    yield break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 下载单个模组并等待其完成(协程)
+        /// </summary>
+        /// <param name="target">要下载的模组</param>
+        /// <param name="onDone">完成回调,参数表示是否成功</param>
+        private System.Collections.IEnumerator DownloadOne(Mod target, System.Action<bool> onDone)
+        {
+            target.isDownloading = true;
+            target.loadProgress = 0;
+
+            GitDownloader.GitDownloadResult result = null;
+            yield return GitDownloader.DownloadAndExtract(target.Url, ModManager.MOD_ROOT_DIR,
                 (progress) =>
                 {
-                    loadProgress = progress;
+                    target.loadProgress = progress;
                 },
                 (content) =>
                 {
-                    loadProgress = 1;
-                    ModManager.Instance.UpdateMod($"{content.ExtractTargetPath}/{Id}", this);
-                    isDownloading = false;
+                    result = content;
                 }
-            ));
+            );
+
+            target.loadProgress = 1;
+            target.isDownloading = false;
+
+            bool success = result != null && result.IsSuccess;
+            if (success)
+            {
+                // 下载完成后重新读取 mod.info,刷新名字/版本/依赖等信息
+                ModManager.Instance.UpdateMod($"{result.ExtractTargetPath}/{target.Id}", target);
+            }
+            else
+            {
+                Sango.Log.Error($"模组下载失败: {target.Id} {(result != null ? result.ErrorMessage : "无返回结果")}");
+            }
+
+            onDone?.Invoke(success);
         }
     }
 }

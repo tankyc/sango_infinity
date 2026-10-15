@@ -231,12 +231,19 @@ namespace Sango.Core
         /// <summary>兵器缺口小于该值时不再为此建工房</summary>
         public int machineNeedMinGap = 1;
 
-        /// <summary>舰船需求 = 守军兵力 ÷ 该值（每 N 兵 1 艘）</summary>
-        public int boatTroopsPerUnit = 2000;
-
         /// <summary>
-        /// 舰船缺口小于该值时不再为此建造船厂（同样是**艘数**级，阈值取 1~3）。
+        /// **有港口**城池的舰船持有率 —— 相对**舰船库存上限**的比例。
+        ///
+        /// 【口径】舰船（楼船 / 斗舰）与兵器一样带 <c>p1 = 10</c>，
+        /// 即库存上限 = 仓库上限 × 10/1000 = 1%。有港口的城要保持高保有率（70%），
+        /// 才能随时拉出水军；没港口的城不备船（无水域可用）。
         /// </summary>
+        public float boatHoldRatioPort = 0.7f;
+
+        /// <summary>无港口城池的舰船持有率（默认 0：船没地方用）</summary>
+        public float boatHoldRatioInland = 0f;
+
+        /// <summary>舰船缺口小于该值时不再为此建造船厂</summary>
         public int boatNeedMinGap = 1;
 
         // ---- 硬性基础（打底产能） ----

@@ -763,15 +763,32 @@ namespace Sango.Core
                         if (!DeploymentState.CanReceive(scopeKey, turn, city.Id, recvLimit))
                             break;
 
+                        // 【无源城武将例外（死循环根因修复）】BelongCity == null 的人没有"源城"可保护，
+                        // 不参与源城调出额度判定，直接放行（闸门允许"无城 → 编入城市"）。
+                        // 若照旧走下面的额度分支：SendLimitFor(null) 恒返回 0 → 记入 exhaustedSources(0)，
+                        // 而 ScanBest 的源城过滤**对无城武将不生效**（它只按 p.BelongCity.Id 过滤），
+                        // 下一轮仍会选中同一个人 → while(true) 死循环。
+                        if (best.BelongCity == null)
+                        {
+                            chosen = best;
+                            chosenScore = bestScore;
+                            chosenFromCity = 0;             // 0 = 无源城（报告 / 记账侧按"无"处理）
+                            break;
+                        }
+
                         // 源城调出配额：额度按**净富余**（空闲 − 本城未填岗位）动态取值。
                         //   自己的缺口还没补满（净富余 ≤ 0）→ **一个人都不许调出**，先保住本城；
                         //   富余越多额度越大：净富余 ÷ sendSurplusPerSeat(默认 2) + 1，即**最多借一半**。
                         // 注意：CanSend 把 limit ≤ 0 当作"不限制"，所以 0 必须在这里单独判掉。
-                        int fromCity = best.BelongCity != null ? best.BelongCity.Id : 0;
+                        int fromCity = best.BelongCity.Id;
                         int sendLimit = SendLimitFor(best.BelongCity,
                             VacancyOfCity(fromCity, postCountByCity, filledByCity), weights);
                         if (sendLimit <= 0 || !DeploymentState.CanSend(scopeKey, turn, fromCity, sendLimit))
                         {
+                            // 【死循环兜底】同一人再计入 blocked：exhaustedSources 只按"源城 id"过滤，
+                            // 一旦候选人的源城判定与 ScanBest 的过滤口径出现不一致（无城武将 / 将来新增
+                            // 的过滤条件），同一人就会被反复选中、反复否决 —— 本回合直接排除他，保证收敛。
+                            blocked.Add(best.Id);
                             exhaustedSources.Add(fromCity);
                             continue;
                         }
@@ -867,7 +884,9 @@ namespace Sango.Core
                     // 这里若再读 chosen.BelongCity 就把"调出"记到了目标城头上 ——
                     // 后果是源城的调出配额**永远统计不到**（CanSend 永远放行），
                     // 一个城可以在一回合内被抽走多人（日志里柴桑 / 乌林港各被抽 3 人即此因）。
-                    DeploymentState.MarkSend(scopeKey, turn, chosenFromCity);
+                    // chosenFromCity == 0 表示无源城武将（BelongCity == null），没有额度可记。
+                    if (chosenFromCity != 0)
+                        DeploymentState.MarkSend(scopeKey, turn, chosenFromCity);
                     DeploymentState.MarkTransferGlobal(scopeKey, turn);
                     if (execute)
                         DeploymentState.transferCountThisTurn++;
@@ -1110,10 +1129,17 @@ namespace Sango.Core
             for (int i = 0; i < pool.Count; i++)
             {
                 Person p = pool[i];
-                if (p == null || transferred.Contains(p.Id) || blocked.Contains(p.Id)) continue;
-                if (p.BelongCity == null || !exhaustedSources.Contains(p.BelongCity.Id))
-                    return false;                            // 还有"非额度用尽"的候选 → 不是这个原因
-                any = true;
+                if (p == null || transferred.Contains(p.Id)) continue;
+                // 源城额度用尽的人**先于** blocked 判定：while 循环的"死循环兜底"会把
+                // 因源城额度被挡下的人计入 blocked，若先按 blocked 跳过，这类空缺会被
+                // 误归因为"池中确实无可用人选"，而真正的可归因原因是"源城无可调富余"。
+                if (p.BelongCity != null && exhaustedSources.Contains(p.BelongCity.Id))
+                {
+                    any = true;
+                    continue;
+                }
+                if (blocked.Contains(p.Id)) continue;
+                return false;                            // 还有"非额度用尽"的候选 → 不是这个原因
             }
             return any;
         }

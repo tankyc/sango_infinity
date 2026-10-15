@@ -7,7 +7,9 @@
  *      因此能拿到使者 action.Diplomat 与对方代表 action.Receiver.mGovernor）。
  *      按需求排除两类外交：宣战（DeclareWar）与送礼（SendGift）不触发。
  *   2. 招募(登用)失败 —— 由 Person.JobRecruitPerson 在失败分支调 OnRecruitFailed（该处没有现成事件，
- *      所以直接调这里的入口）。覆盖：玩家城池登庸、异城任务到达、搜索、人才府、破城/部队灭亡招降、AI 城池登用。
+ *      所以直接调这里的入口）。覆盖：玩家城池登庸、异城任务到达、搜索、人才府、AI 城池登用等普通登庸(PersonRecruitType.Normal)。
+ *      【入口限定】破城招降(OnCityFall)与灭亡势力招降(OnForceFall)不触发舌战 ——
+ *      该链在破城演出的 RenderEvent 里同步执行，舌战叠上去后 AI 不出牌会卡死演出（2026-10-15 修复）。
  *      【身份限制】按需求，登用失败触发舌战只对"在野武将"或"没有势力的俘虏"生效
  *      （见 CanRecruitFailTriggerDebate）；敌方/他势力在职武将、有势力的俘虏都不触发。
  *      未覆盖：AI 招降俘虏走 ForceAI.TryRecruitCaptive 的独立掷骰（要接的话在 ForceAI.cs 的失败分支补一行同样调用）。

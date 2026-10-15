@@ -56,6 +56,13 @@ namespace Sango.Core.Debate
         /// <summary>手牌上限</summary>
         public const int MaxCardCount = 7;
 
+        /// <summary>
+        /// 卡住看门狗阈值：同一阶段 + 同一步骤连续停留多少帧就报一条警告（60fps 下约 10 秒）。
+        /// 舌战靠"玩家点牌 / 表现层播完"回报来推进，任何一处不回报都会静默卡死（只能强退），
+        /// 这里只做日志（见 DebatePhase.Update），不改变任何行为。
+        /// </summary>
+        public const int StallWarnFrames = 600;
+
         #endregion
 
         #region 嵌套类型
@@ -183,6 +190,12 @@ namespace Sango.Core.Debate
         protected int nextPhase = -1; // 8
         /// <summary>当前阶段内步骤</summary>
         protected int step = 0; // c
+        /// <summary>看门狗：上一次观察到的阶段</summary>
+        protected int watchLastPhase = -1;
+        /// <summary>看门狗：上一次观察到的步骤</summary>
+        protected int watchLastStep = -1;
+        /// <summary>看门狗：(阶段, 步骤) 已连续停留的帧数</summary>
+        protected int watchStallFrames = 0;
         /// <summary>参战武将运行时数据</summary>
         protected Character[] characters = NewCharacterArray(); // 10
         /// <summary>AI 上下文（下标为队伍）</summary>

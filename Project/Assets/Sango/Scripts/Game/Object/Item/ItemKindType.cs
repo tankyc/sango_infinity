@@ -40,16 +40,146 @@ namespace Sango.Core
         /// <summary>
         /// 船
         /// </summary>
-        Boat,
+        Boat = 4,
+
+        /// <summary>
+        /// 宝物
+        /// </summary>
+        Treasure = 5,
 
         /// <summary>
         /// 装备
         /// </summary>
-        Equipment_Weapon,
+        Equipment = 6,
+    }
 
-        Equipment_Horse,
+    public enum WeaponKind : int
+    {
+        Sword,
+        Spear,
+        Halberd,
+        CrossBow,
+    }
 
-        Equipment_Armor
+    /// <summary>
+    /// 器械种类（对应道具库中的攻城器具）
+    /// </summary>
+    public enum MachineKind : int
+    {
+        /// <summary>
+        /// 无
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// 冲车 —— 对城关港耐久伤害极高
+        /// </summary>
+        Helepolis,
+
+        /// <summary>
+        /// 井阑 —— 对城内部队可远程攻击
+        /// </summary>
+        SiegeTower,
+
+        /// <summary>
+        /// 投石车 —— 范围攻击，可攻城可野战
+        /// </summary>
+        Catapult,
+
+        /// <summary>
+        /// 木兽 —— 火攻器械，施放火计
+        /// </summary>
+        WoodenBeast,
+    }
+
+    /// <summary>
+    /// 船只种类（对应道具库中的船只）
+    /// </summary>
+    public enum BoatKind : int
+    {
+        /// <summary>
+        /// 无
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// 走舸 —— 基础船只，无战法
+        /// </summary>
+        LightBoat,
+
+        /// <summary>
+        /// 楼船 —— 大型船只，可施展箭雨等战法
+        /// </summary>
+        TowerShip,
+
+        /// <summary>
+        /// 斗舰 —— 顶级船只，可施展近接战法
+        /// </summary>
+        FightingShip,
+    }
+
+    public enum EquipmentKind : int
+    {
+        Weapon,
+        Horse,
+        Armor
+    }
+
+    /// <summary>
+    /// 宝物种类（与数据 ItemTypes.json 中宝物的 subKind 一一对应）
+    /// 宝物统一使用 kind = ItemKindType.Treasure，再以 subKind 细分小类
+    /// </summary>
+    public enum TreasureKind : int
+    {
+        /// <summary>
+        /// 名马 —— 赤兔马、的卢、爪黄飞电、绝影、大宛马等，提升撤退成功率
+        /// </summary>
+        FamousHorse = 0,
+
+        /// <summary>
+        /// 宝剑 —— 七星宝刀、倚天剑、青釭剑、雌雄一对剑等
+        /// </summary>
+        Sword = 1,
+
+        /// <summary>
+        /// 长柄武器 —— 方天画戟、青龙偃月刀、蛇矛等
+        /// </summary>
+        LongWeapon = 2,
+
+        /// <summary>
+        /// 暗器 —— 流星锤、飞刀、短戟、手戟、铁锁等
+        /// </summary>
+        HiddenWeapon = 3,
+
+        /// <summary>
+        /// 宝弓 —— 养由基弓、李广弓、檀弓、东胡飞弓、貊弓等
+        /// </summary>
+        Bow = 4,
+
+        /// <summary>
+        /// 书籍 —— 孙子兵法、六韬、三略、太平要术等，提升能力经验获取
+        /// </summary>
+        Book = 5,
+
+        /// <summary>
+        /// 玉器 —— 玉玺等礼器，登庸时效果显著
+        /// </summary>
+        Jade = 6,
+
+        /// <summary>
+        /// 珍玩 —— 铜雀等奇珍
+        /// </summary>
+        Curio = 7,
+
+        /// <summary>
+        /// 兵符 —— 陷阵营、虎豹骑等精锐部队兵符
+        /// </summary>
+        TroopTally = 8,
+
+        /// <summary>
+        /// 铠甲 —— 预留分类，当前数据中暂无此类宝物
+        /// </summary>
+        Armor = 9,
     }
 
     /*

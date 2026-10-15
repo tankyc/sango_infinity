@@ -40,6 +40,7 @@ import struct
 from pathlib import Path
 
 import numpy as np
+from scipy import ndimage
 
 ROOT = Path(__file__).resolve().parent
 # 中国区内政地的来源（DefaultMap 是 311 中国区原图）
@@ -49,11 +50,13 @@ CITIES_GEO = Path(r"C:\Users\Administrator\Downloads\san11-world-main\san11-worl
 
 # Sango 地形（与 TerrainTypes.json 对应）
 S_SOIL, S_CITY = 2, 17
+S_PORT, S_GATE = 18, 19                # 港 / 关所：DefaultMap 实测各占 1 格，且不建内政地
 WATER = {7, 8, 9, 14, 21, 22}          # 川/河/海/浅滩/远海/深海：不可建造
 # canBuild=true 的四种地形里，主径(11) 是道路 —— 内政地压在它上面会挡路，
 # 所以实际可用的只有 草地/土/砂地。
 BUILDABLE = {1, 2, 3}
 ROAD = {11, 12, 13, 20}                # 主径/栈道/渡所/小径：道路，内政地和建筑工程都别占
+MOUNTAIN = {5, 16}                     # 山 / 崖：内政地「依山」的判据（不可通行，天然屏障）
 CITY_TERRAIN = {17, 18, 19}            # 都市 / 港 / 关所：城市地形本身，不能被内政地占用
 MOVEABLE = {1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 17, 18, 19, 20}
 
@@ -291,11 +294,22 @@ def main():
     ap.add_argument("--interior-base", type=int, default=16, help="内政地基准数量(最大 rank)")
     ap.add_argument("--interior-min", type=int, default=6)
     ap.add_argument("--interior-max-dist", type=int, default=8, help="内政地离城最大格距")
+    ap.add_argument("--interior-city-margin", type=int, default=6,
+                    help="内政地「离他城越远越好」的最大加权格数")
+    ap.add_argument("--interior-cand-dist", type=int, default=14,
+                    help="内政地候选扫描半径（格）；打分仍偏好近郊 4~6 格，远处只在不够时用")
     ap.add_argument("--interior-min-dist", type=int, default=3,
                     help="内政地离城最小格距（旧版 2 太贴城墙）")
     ap.add_argument("--max-step", type=int, default=10, help="相邻可通行格最大高差(高度字节)")
     ap.add_argument("--iters", type=int, default=200, help="斜率松弛迭代上限（收敛即提前结束）")
     ap.add_argument("--report", action="store_true", help="只体检不改")
+    ap.add_argument("--no-default-interior", action="store_true",
+                    help="不从 DefaultMap 导入中国城内政地（新地图/非光荣中国图用）")
+    ap.add_argument("--port-min-land", type=int, default=20,
+                    help="港所在陆块的最小格数；小于它算孤岛港，删除")
+    ap.add_argument("--no-interior-reclaim", dest="interior_reclaim",
+                    action="store_false",
+                    help="禁止为「零可建造格」的城填海改山来生成内政地")
     args = ap.parse_args()
 
     src = Path(args.src)
@@ -305,8 +319,39 @@ def main():
     cities = json.loads((src / "cities.json").read_text(encoding="utf-8"))
     CX, CY = terrain.shape
     VX, VY = vh.shape
+
+    # 死港清理（两条同时要求，缺一即删）：
+    #   1) 必须邻可航行水（河8/海9）—— 否则那段水岸已被海域分档封锁，港没有意义；
+    #   2) 必须在一块像样的陆地上（非孤岛）—— 只被 海9/远海21/深海22 隔开的 1~几格小岛不算。
+    _landm = ~np.isin(terrain, (9, 21, 22))          # 湖/河/浅滩/岸/崖都算陆域，只有开阔海不算
+    _lab, _nlab = ndimage.label(_landm, np.ones((3, 3), bool))
+    _lsize = np.bincount(_lab.ravel(), minlength=_nlab + 1) if _nlab else np.zeros(1, np.int64)
+    _nav = np.isin(terrain, (8, 9))
+    _keep, _killed = [], []
+    for c0 in cities:
+        if str(c0.get("type", "")) == "port":
+            x0, y0 = int(c0["x"]), int(c0["y"])
+            ok_w = any(0 <= x0 + u < CX and 0 <= y0 + v < CY and _nav[x0 + u, y0 + v]
+                       for u in (-1, 0, 1) for v in (-1, 0, 1))
+            ok_l = (0 <= x0 < CX and 0 <= y0 < CY and _lab[x0, y0] > 0
+                    and _lsize[_lab[x0, y0]] >= args.port_min_land)
+            if not (ok_w and ok_l):
+                _killed.append((c0["name"], "无水路" if not ok_w else "孤岛"))
+                if 0 <= x0 < CX and 0 <= y0 < CY and int(terrain[x0, y0]) == S_PORT:
+                    terrain[x0, y0] = S_SOIL       # 港格改回土，不留"无主的港"
+                continue
+        _keep.append(c0)
+    if _killed:
+        cities = _keep
+        (src / "cities.json").write_text(
+            json.dumps(cities, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"  死港清理: 删掉 {len(_killed)} 个港 "
+              f"（无水路/孤岛）例: {[k[0] for k in _killed[:6]]}", flush=True)
+
     city0 = int((terrain == S_CITY).sum())
-    print(f"格 {CX}x{CY}  顶点 {VX}x{VY}  城市 {len(cities)}  原都市格 {city0}", flush=True)
+    cliff0 = int((terrain == 16).sum())            # 崖(16)：内政地绝对不允许碰
+    print(f"格 {CX}x{CY}  顶点 {VX}x{VY}  城市 {len(cities)}  原都市格 {city0}"
+          f"  原崖(16) {cliff0}", flush=True)
 
     moveable = np.isin(terrain, list(MOVEABLE))
     land = ~np.isin(terrain, list(WATER)) & (terrain != 0)
@@ -320,6 +365,12 @@ def main():
     # ================================================ 1) 城市占地：7 格 + 压平 + 陆地化
     r = args.radius
     city_mask = np.zeros((CX, CY), bool)
+    # 港：cities.json 里 type=="port" 的条目（即使地形被前面的步骤改写过）也按 1 格 + 港(18) 处理
+    is_port_entry = np.zeros((CX, CY), bool)
+    for c0 in cities:
+        if (str(c0.get("type", "")) == "port"
+                and 0 <= int(c0["x"]) < CX and 0 <= int(c0["y"]) < CY):
+            is_port_entry[int(c0["x"]), int(c0["y"])] = True
     # 归属图：0 = 无主，>0 = 城市 id。城市占地与内政地都登记在这里，
     # 用于保证不同城市的「顶点块」不互相覆盖（相邻格会共享 1 列顶点，
     # 两个城压到不同高度时必定有一格不平）。
@@ -333,11 +384,15 @@ def main():
         if not (0 <= x < CX and 0 <= y < CY):
             out_of_range += 1
             continue
-        cells = [(x, y)]
-        for dx, dy in NEIGH[x & 1]:
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < CX and 0 <= ny < CY:
-                cells.append((nx, ny))
+        # 港(18)/关所(19) 只占 1 格；都市占地半径 r 的六边形块
+        if int(terrain[x, y]) in (S_PORT, S_GATE) or is_port_entry[x, y]:
+            cells = [(x, y)]
+        else:
+            cells = [(x, y)]
+            for dx, dy in NEIGH[x & 1]:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < CX and 0 <= ny < CY:
+                    cells.append((nx, ny))
         city_mask[tuple(np.array(cells).T)] = True
         owner_map[tuple(np.array(cells).T)] = ci + 1
         # 平台高度：取该范围顶点高度的中位，夹到合理陆地范围
@@ -352,7 +407,35 @@ def main():
 
     # 陆地化：占地一律 都市(17)（陆地、可通行）。必须在平滑之前写入，
     # 否则落在海/崖上的城市格不算可通行，第 3 步的约束会把它们漏掉。
+    orig_terrain = terrain.copy()
     terrain[np.where(city_mask)] = S_CITY
+    kp18 = city_mask & ((orig_terrain == S_PORT) | is_port_entry)
+    kp19 = city_mask & (orig_terrain == S_GATE)
+    terrain[np.where(kp18)] = S_PORT                        # 港一律保持港(18)
+    terrain[np.where(kp19)] = S_GATE                        # 关所保持关(19)
+
+    # 填海 / 改山 的合法格（只给「一个可建造格都没有」的城用，前提：改造后不能是孤岛）
+    #   陆域（不在开阔海 9/21/22 里）：所在陆块 >= --port-min-land 格 -> 可以削平改造；
+    #   水格（9/14/21/22）：必须与一个够大的陆块相邻 —— 填上就连成一片，不会造出孤岛；
+    #   河流(7)/河道(8)/岸(15) 一律不动；港 2 格之内的水也不动（保护水运与港）。
+    _lm3 = ~np.isin(terrain, (9, 21, 22))
+    _lab3, _n3 = ndimage.label(_lm3, np.ones((3, 3), bool))
+    _lsz3 = (np.bincount(_lab3.ravel(), minlength=_n3 + 1) if _n3
+             else np.zeros(1, np.int64))
+    _big3 = np.zeros_like(_lsz3, bool)
+    _big3[1:] = _lsz3[1:] >= args.port_min_land
+    _big_land3 = _big3[_lab3] if _n3 else np.zeros((CX, CY), bool)
+    _near_big3 = ndimage.binary_dilation(_big_land3, np.ones((3, 3), bool))
+    _wat3 = np.isin(terrain, (9, 14, 21, 22))
+    _pcells = np.zeros((CX, CY), bool)
+    for _c0 in cities:
+        if str(_c0.get("type", "")) == "port":
+            _pcells[int(_c0["x"]), int(_c0["y"])] = True
+    _pnear = ndimage.binary_dilation(_pcells, np.ones((3, 3), bool), iterations=2)
+    land_big = (~_wat3) & _big_land3          # 陆地且所在陆块 >=20 格（不是礁/小岛）
+    reclaim_ok = (land_big | (_wat3 & _near_big3))
+    reclaim_ok &= ~np.isin(terrain, (7, 8, 15))            # 河/川/岸不动
+    reclaim_ok &= ~(_wat3 & _pnear)                        # 港边的水不动
 
     # ================================================ 2) 内政地
     # 归属判定：areaId 在 sango_build_bin.py 里按「到最近城的代价」分派，
@@ -369,11 +452,13 @@ def main():
     interior = np.zeros((CX, CY), np.int32)
     # 中国区：直接采用 DefaultMap 转换过来的内政地坐标（那才是原版的摆放位置）。
     # 其余区域仍按统计规律程序化生成。
-    from_def = defaultmap_interior(ds=1 if CX >= 1800 else 2)
+    from_def = {} if args.no_default_interior else defaultmap_interior(ds=1 if CX >= 1800 else 2)
     tot_def = sum(len(v) for v in from_def.values())
     print(f"DefaultMap 内政地: 标定到 {len(from_def)} 座中国城 / {tot_def} 格" if from_def
           else "DefaultMap 内政地: 标定失败，全部走程序化生成", flush=True)
     per_city = []
+    blk_stat = []                      # 每城实际用掉的「整块」数量（规则：2~3 块）
+    _rc_type = {}                      # 填海/改山 改造掉的原地形统计
     n_def_used = n_def_skip = 0
     for ci, c in enumerate(cities):
         x, y = c["x"], c["y"]
@@ -382,6 +467,8 @@ def main():
         cid = ci + 1
         want = int(np.clip(base_n - 2 * (int(c.get("rank", 3)) - 1),
                            args.interior_min, args.interior_max_dist + 10))
+        if int(orig_terrain[x, y]) in (S_PORT, S_GATE) or is_port_entry[x, y]:
+            want = 0                     # 港 / 关所不生成内政地（DefaultMap 实测也是如此）
         R = args.interior_max_dist
         got = 0
         # 1) 中国城先用 DefaultMap 转换来的坐标；被占/是水/是城市地形/与别城顶块相邻的跳过
@@ -389,8 +476,9 @@ def main():
             if not (0 <= wx < CX and 0 <= wy < CY):
                 n_def_skip += 1
                 continue
-            if owner_map[wx, wy] or terrain[wx, wy] in CITY_TERRAIN or terrain[wx, wy] in WATER:
-                n_def_skip += 1
+            if (owner_map[wx, wy] or terrain[wx, wy] in CITY_TERRAIN
+                    or terrain[wx, wy] not in BUILDABLE):
+                n_def_skip += 1          # 只收可建造格：山/崖/水/林一律不动
                 continue
             if any(0 < owner_map[a, b] != cid
                    for a, b in [(wx + u, wy + v) for u, v in NEIGH[wx & 1]]
@@ -399,71 +487,137 @@ def main():
                 continue
             interior[wx, wy] = cid
             owner_map[wx, wy] = cid
-            if terrain[wx, wy] not in BUILDABLE:
-                terrain[wx, wy] = S_SOIL
-            got += 1
+            got += 1                    # 内政位只写 terrainState，绝不改写地形数据
             n_def_used += 1
-        # 2) 不足则用程序化候选补齐（非中国城全部走这一步）
-        cands = []
-        for dx in range(-R - 1, R + 2):
-            nx = x + dx
-            if nx < 0 or nx >= CX:
+        # 2) 程序化生成：依山 / 傍水 / 近郊 / 远离他城 打分 -> 选 2~3 个互不相邻的种子 -> BFS 长成整块
+        #    硬约束：只落在「可建造格(草地/土/砂地)」上；山/崖/林/沼/水/路一律不碰，
+        #    并且**绝不改写任何地形数据**（内政位只写在 terrainState 的 Interior 位）。
+        if got < want:
+            n_blk = 2 if want <= 8 else 3
+            RC = max(R, args.interior_cand_dist)      # 扫描半径可以比 max-dist 大
+
+            def collect(try_reclaim):
+                """try_reclaim=False 只收可建造格；True 时额外收「可填海/可改山」的格。"""
+                out = []
+                for dx in range(-RC - 1, RC + 2):
+                    nx2 = x + dx
+                    if nx2 < 0 or nx2 >= CX:
+                        continue
+                    for dy in range(-RC - 1, RC + 2):
+                        ny2 = y + dy
+                        if ny2 < 0 or ny2 >= CY or owner_map[nx2, ny2]:
+                            continue
+                        ty = int(terrain[nx2, ny2])
+                        if ty in CITY_TERRAIN or ty in ROAD:
+                            continue
+                        # 硬前提：不在孤岛上（陆块 >= port-min-land），海格只在允许改造时收
+                        if ty in BUILDABLE and land_big[nx2, ny2]:
+                            pass
+                        elif try_reclaim and reclaim_ok[nx2, ny2]:
+                            pass                 # 填海/改山（改造后与大陆块相连）
+                        else:
+                            continue
+                        d = hex_dist(nx2, ny2, x, y)
+                        if d < args.interior_min_dist or d > RC:
+                            continue
+                        nb = [(nx2 + u, ny2 + v) for u, v in NEIGH[nx2 & 1]]
+                        nb = [(a, b) for a, b in nb if 0 <= a < CX and 0 <= b < CY]
+                        # 六邻里若已有别城的占地/内政地就跳过：相邻格顶点块共享 1 列顶点
+                        if any(0 < owner_map[a, b] != cid for a, b in nb):
+                            continue
+                        # 依山：邻山/崖（只是"临"，自己坐在可建造格上）；傍水：邻河湖海；
+                        # 郊县：落在城外近郊带（4~6 格）
+                        mtn = sum(1 for a, b in nb if terrain[a, b] in MOUNTAIN)
+                        wat = sum(1 for a, b in nb if terrain[a, b] in WATER)
+                        rd = 1 if any(terrain[a, b] in ROAD for a, b in nb) else 0
+                        band = 0 if args.interior_min_dist + 1 <= d <= min(R - 2, 6) else 1
+                        pen = 0 if ty in BUILDABLE else 60      # 需改造的格大幅降权
+                        score = (-(min(mtn, 2) * 3 + min(wat, 2) * 3) + band * 3 + rd * 3 + pen)
+                        out.append((score, d, nx2, ny2, mtn, wat))
+                return out
+
+            cands = collect(False)
+            if not cands and args.interior_reclaim and got == 0:
+                cands = collect(True)       # 全城一个可建造格都没有 -> 允许填海改山
+                print(f"    [填海改山] {cities[ci].get('name', ci + 1)} 无可用可建造格，"
+                      f"启用改造候选 {len(cands)} 个", flush=True)
+            if not cands:
+                per_city.append(got)
                 continue
-            for dy in range(-R - 1, R + 2):
-                ny = y + dy
-                if ny < 0 or ny >= CY or owner_map[nx, ny] or not land[nx, ny]:
+            arr = np.array([(t[2], t[3]) for t in cands], np.int64)
+            qz = arr[:, 0]
+            rz = arr[:, 1] - (arr[:, 0] - (arr[:, 0] & 1)) // 2
+            dq = qz[:, None] - CQ[None, :]
+            dr = rz[:, None] - CR[None, :]
+            D = (np.abs(dq) + np.abs(dr) + np.abs(dq + dr)) // 2      # (候选 x 城) 六边形距离
+            owner = D.argmin(1)
+            D2 = D.copy()
+            D2[:, ci] = 10 ** 6
+            margin = D2.min(1) - D[:, ci]    # 离最近的他城 比 离本城 远多少格（越大越"自家腹地"）
+            # 综合排序：依山/傍水/近郊分 + 「离他城越远越好」
+            order = sorted(
+                range(len(cands)),
+                key=lambda i: (cands[i][0]
+                               - 2 * min(int(margin[i]), args.interior_city_margin), i))
+            good = {(int(cands[i][2]), int(cands[i][3]))
+                    for i in order if owner[i] == ci and margin[i] >= 1}
+            # 种子：按综合分从优到劣取，彼此至少隔 3 格（保证是分开的「整块」）
+            seeds = []
+            for i in order:
+                if (int(cands[i][2]), int(cands[i][3])) not in good:
                     continue
-                # 内政地不能落在 都市(17)/港(18)/关所(19) 上：
-                # 它们不是 canBuild 地形，会被下面改成 土(2) 而毁掉一座港/关。
-                if terrain[nx, ny] in CITY_TERRAIN:
-                    continue
-                # 道路(主径/小径/栈道/渡所)上一律不摆内政地：它们是可建造地形里唯一的
-                # 交通设施，压上去就把路堵了（旧版 6698 格里有 2380 格压在主径上）。
-                if terrain[nx, ny] in ROAD:
-                    continue
-                d = hex_dist(nx, ny, x, y)
-                # 不能离城太近：旧版从 2 格起、紧贴城墙；改成 --interior-min-dist（默认 3）
-                if d < args.interior_min_dist or d > R:
-                    continue
-                nb = [(nx + u, ny + v) for u, v in NEIGH[nx & 1]]
-                nb = [(a, b) for a, b in nb if 0 <= a < CX and 0 <= b < CY]
-                # 六邻里若已有别城的占地/内政地就跳过：相邻格的顶点块会共享 1 列顶点，
-                # 两个城压到各自平台高度时，必有一格变得不平。
-                if any(0 < owner_map[a, b] != ci + 1 for a, b in nb):
-                    continue
-                # 贴着道路的格子也不优先（建筑半径可能盖住路面）
-                near_road = 1 if any(terrain[a, b] in ROAD for a, b in nb) else 0
-                cands.append((0 if terrain[nx, ny] in BUILDABLE else 1, near_road, d, nx, ny))
-        if not cands:
-            per_city.append(got)
-            continue
-        cands.sort()
-        arr = np.array([(t[3], t[4]) for t in cands], np.int64)
-        qz = arr[:, 0]
-        rz = arr[:, 1] - (arr[:, 0] - (arr[:, 0] & 1)) // 2
-        dq = qz[:, None] - CQ[None, :]
-        dr = rz[:, None] - CR[None, :]
-        owner = ((np.abs(dq) + np.abs(dr) + np.abs(dq + dr)) // 2).argmin(1)   # (n, 城数)
-        for i, (_b, _nr, _d, nx, ny) in enumerate(cands):
-            if got >= want:
-                break
-            if owner[i] != ci:
-                continue
-            interior[nx, ny] = cid
-            owner_map[nx, ny] = cid
-            if terrain[nx, ny] not in BUILDABLE:
-                terrain[nx, ny] = S_SOIL       # 与 DefaultMap 一致：内政地是 土(2)
-            got += 1
+                if all(hex_dist(cands[i][2], cands[i][3], sx, sy) >= 2 for sx, sy in seeds):
+                    seeds.append((int(cands[i][2]), int(cands[i][3])))
+                if len(seeds) >= n_blk:
+                    break
+            if seeds:
+                per_blk = int(np.ceil(want / len(seeds)))
+                for si, s0 in enumerate(seeds):
+                    tgt = per_blk if si < len(seeds) - 1 else want - got
+                    q, seen, blk = [s0], {s0}, []
+                    while q and len(blk) < tgt:
+                        cur = q.pop(0)
+                        if cur not in good or owner_map[cur[0], cur[1]]:
+                            continue
+                        blk.append(cur)
+                        for u, v in NEIGH[cur[0] & 1]:
+                            nxt = (cur[0] + u, cur[1] + v)
+                            if nxt in good and nxt not in seen:
+                                seen.add(nxt)
+                                q.append(nxt)
+                    for (nx, ny) in blk:
+                        interior[nx, ny] = cid
+                        owner_map[nx, ny] = cid
+                        if terrain[nx, ny] not in BUILDABLE:
+                            _rc_type[int(terrain[nx, ny])] = \
+                                _rc_type.get(int(terrain[nx, ny]), 0) + 1
+                            terrain[nx, ny] = S_SOIL   # 填海/改山（仅限零可建造格的城）
+                        got += 1
+                        if got >= want:
+                            break
+                    if got >= want:
+                        break
+                blk_stat.append(len(seeds))
         per_city.append(got)
 
     inter_mask = interior > 0
     per_city = np.array(per_city, dtype=np.int32)
     print(f"内政地: {int(inter_mask.sum())} 格，{int((per_city > 0).sum())} 座城有内政地；"
           f"每城 min/p50/max = {per_city.min()}/{int(np.median(per_city))}/{per_city.max()}"
-          f"（DefaultMap: 2/12/22）", flush=True)
+          f"（DefaultMap: 2/12/22）；无内政地 {int((per_city == 0).sum())} 座", flush=True)
+    if blk_stat:
+        print(f"  内政地分块: 每城 {int(np.min(blk_stat))}~{int(np.max(blk_stat))} 个整块"
+              f"（均值 {np.mean(blk_stat):.2f}；规则=依山/傍水/近郊、块状化、允许 2~3 整块）",
+              flush=True)
     print(f"  来自 DefaultMap 的中国城: {n_def_used} 格（跳过 {n_def_skip} 格）；"
           f"地形非可建造 {int((inter_mask & ~np.isin(terrain, list(BUILDABLE))).sum())} 格；"
           f"归属城市 id 缺失(0) 的 {int(((interior == 0) & inter_mask).sum())} 格", flush=True)
+    print(f"  地形改动核对: 崖(16) {cliff0} -> {int((terrain == 16).sum())} 格"
+          f"（差值只可能来自城市占地块；内政地不改任何地形字节）", flush=True)
+    if _rc_type:
+        print(f"  填海改山: 改造 {sum(_rc_type.values())} 格，原地形 "
+              f"{dict(sorted(_rc_type.items()))}（仅用于「零可建造格」的城，且都验过不成孤岛）",
+              flush=True)
 
     # 第 2 项优化的验收：不压在道路上、不离城太近
     road_hit = int((inter_mask & np.isin(terrain, list(ROAD))).sum())

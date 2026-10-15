@@ -271,6 +271,17 @@ namespace Sango.Render
 
             cameraDistanceFactor = (cur_distance - near) / (far - near);
 
+            // 根据当前镜头距离动态调整雾效等视距参数
+            ApplyViewDistance();
+
+        }
+
+        /// <summary>
+        /// 根据当前镜头距离动态调整雾效起始/结束距离、远裁剪面、天空盒缩放等视距参数。
+        /// 切换季节或修改雾效参数后会写入原始值,需要重新调用本方法按视距修正。
+        /// </summary>
+        public void ApplyViewDistance()
+        {
             float factor = Math.Max(630, distance) / 630;
 
             map.showLimitLength = factor * 1100;
@@ -282,7 +293,6 @@ namespace Sango.Render
             {
                 map.mapSkyBox.skyTrans.localScale = Vector3.one * factor;
             }
-
         }
 
         public void OffsetCamera(Vector3 offset)

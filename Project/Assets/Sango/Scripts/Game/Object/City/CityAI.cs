@@ -2286,6 +2286,14 @@ namespace Sango.Core
 
             maxTroopNum = city.itemStore.CheckCostMin(spType.costItems, maxTroopNum);
 
+            // 【水军】挑一个可用的水上兵种（大船优先，兵力不足则回落走舸），
+            // 并按舰船再约束一次兵力 —— 下面 WaterTroopType.Cost 会真的扣船，
+            // 而它不做任何检查，不在这里先卡住会把舰船库存扣成负数。
+            TroopType waterTroopType = PickWaterTroopType(scenario, city, maxTroopNum);
+            if (waterTroopType == null)
+                return null;    // 兵种数据缺失，放弃本次出征（避免后续 Cost 空引用）
+            maxTroopNum = city.itemStore.CheckCostMin(waterTroopType.costItems, maxTroopNum);
+
             // 剑兵兜底(兵装不足改派剑兵)：实际能编成的兵力必须超过阈值才出征，
             // 否则出城也只是送掉一支弱旅，不如全师固守城池。
             if (useSwordFallback && maxTroopNum <= SwordFallbackMinTroops)
@@ -2307,7 +2315,7 @@ namespace Sango.Core
 
                 food = turnCostFood * minTurn;
             }
-            troop.WaterTroopType = scenario.GetObject<TroopType>(8);
+            troop.WaterTroopType = waterTroopType;
             troop.LandTroopType.Cost(city, maxTroopNum);
             troop.WaterTroopType.Cost(city, maxTroopNum);
             city.troops -= maxTroopNum;
@@ -2347,6 +2355,89 @@ namespace Sango.Core
             troop.SetMission(city.TroopMissionType, city.TroopMissionTargetId);
             return troop;
         }
+
+        /// <summary>
+        /// 本次出征"至少要有多少兵"才值得启用大船：低于此值一律用不耗船的走舸。
+        /// </summary>
+        const int MinTroopsForBigShip = 3000;
+
+        /// <summary>
+        /// 为出征部队挑一个可用的**水上兵种**：优先大船（斗舰 / 楼船），兵力不足则回落走舸。
+        ///
+        /// 【原来写死了什么】旧代码是 <c>scenario.GetObject&lt;TroopType&gt;(8)</c> —— 那是**走舸**，
+        /// 一条 <c>costItems</c> 为空、**不消耗舰船**的小船。于是城里攒下的楼船 / 斗舰永远用不上，
+        /// 造船厂产出的舰船只能烂在仓库里。
+        ///
+        /// 【挑法】遍历所有可用的水上兵种（<c>!isLand &amp;&amp; isFight</c>），逐个判断：
+        ///   ① **兵力够** —— 本次出征兵力低于 <see cref="MinTroopsForBigShip"/> 时**一律不选大船**：
+        ///      小部队占用舰船不划算，而走舸不耗船、战力损失有限；
+        ///   ② **科技**满足 —— 见 <see cref="TroopType.IsValid"/>：
+        ///      斗舰要科技 23；楼船的 <c>validTechId = -23</c> 表示"该科技之前可用"，是它的下位替代；
+        ///   ③ **舰船够** —— 按它的 <c>costItems</c> 折算这支部队能装备多少兵
+        ///      （<see cref="ItemStore.CheckCostMin"/>），少于本次兵力就说明船不够，
+        ///      硬用会把编成拖小（且 <c>Cost</c> 不做检查，会把库存扣成负数）。
+        /// 在满足 ①②③ 的大船里取 **atk 最高**的一种（斗舰 100 &gt; 楼船 90）。
+        /// 一艘都不满足时回落到**不耗船**的水上兵种（走舸），保证永远有船可用。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="city">出发城市</param>
+        /// <param name="maxTroopNum">本次出征的最大兵力</param>
+        /// <returns>选中的水上兵种（读不到数据时返回 null）</returns>
+        static TroopType PickWaterTroopType(Scenario scenario, City city, int maxTroopNum)
+        {
+            if (scenario == null || scenario.CommonData == null)
+                return null;
+
+            Force force = city != null ? city.BelongForce : null;
+            TroopType fallback = null;      // 不耗船的保底（走舸）
+            TroopType best = null;
+            int bestAtk = -1;
+
+            // 兵力不足以支撑大船的舰船消耗 → 直接走保底，不再挑大船
+            bool allowBigShip = city != null && maxTroopNum >= MinTroopsForBigShip;
+
+            var types = scenario.CommonData.TroopTypes;
+            for (int i = 0; i < types.Count; i++)
+            {
+                TroopType t = types[i];
+                if (t == null || t.isLand || !t.isFight)
+                    continue;                                   // 只看可战斗的水上兵种
+
+                if (force != null && !t.IsValid(force))
+                    continue;                                   // 科技不满足
+
+                // 不消耗舰船的（走舸）只作保底，不参与大船竞争
+                if (t.costItems == null || t.costItems.Length == 0)
+                {
+                    if (fallback == null)
+                        fallback = t;
+                    continue;
+                }
+
+                if (!allowBigShip)
+                    continue;                                   // 兵力不足，不选大船
+
+                // 船不足以装备本次全部兵力 → 不选大船
+                int canEquip = city.itemStore.CheckCostMin(t.costItems, maxTroopNum);
+                if (canEquip < maxTroopNum)
+                    continue;
+
+                if (t.atk > bestAtk)
+                {
+                    bestAtk = t.atk;
+                    best = t;
+                }
+            }
+
+            if (best != null)
+                return best;
+            if (fallback != null)
+                return fallback;
+
+            // 兜底：数据异常时仍给走舸，保持旧行为不退化
+            return scenario.GetObject<TroopType>(8);
+        }
+
         /// <summary>
         /// 【新增】AI 组建战场补给队。
         ///

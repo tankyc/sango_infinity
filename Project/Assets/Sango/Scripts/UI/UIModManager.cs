@@ -107,6 +107,11 @@ namespace Sango.UI
                 enabledMods.Remove(mod);
                 totalCount = allMods.Count;
             }
+            // 有模组被删除时,选中下标可能越界,这里做一次收敛
+            if (totalCount <= 0)
+                selectedIndex = 0;
+            else if (selectedIndex >= totalCount)
+                selectedIndex = totalCount - 1;
             UpdateItemStartIndex(startIndex);
         }
 
@@ -159,27 +164,157 @@ namespace Sango.UI
             ShowModInfo(index);
         }
 
+        /// <summary>
+        /// 勾选/取消勾选某个模组
+        /// 勾选时:自动把该模组的所有前置依赖一并勾选;
+        /// 取消时:自动把依赖该模组的已启用模组一并取消,保证依赖关系始终完整
+        /// </summary>
         public void OnToggleMod(int index, bool isEnabled)
         {
+            if (index < 0 || index >= allMods.Count)
+                return;
+
             Mod.Mod mod = allMods[index];
             if (isEnabled)
+                EnableModWithDepends(mod);
+            else
+                DisableModWithDependents(mod);
+
+            // 依赖关系变化后重新排序(依赖在前),并让选中项跟随
+            RefreshModListOrder();
+        }
+
+        /// <summary>
+        /// 勾选模组时,连同它的前置依赖一起勾选(递归)
+        /// 尚未下载的依赖会单独提示玩家,不会写进启用列表
+        /// </summary>
+        void EnableModWithDepends(Mod.Mod mod)
+        {
+            List<Mod.Mod> chain = ModManager.Instance.CollectDepends(mod);
+            List<string> notDownloaded = new List<string>();
+            for (int i = 0; i < chain.Count; i++)
             {
-                if (!enabledMods.Contains(mod))
+                Mod.Mod dep = chain[i];
+                if (dep == mod)
+                    continue;
+
+                // 依赖还没下载时不能启用,记下来提示玩家先下载
+                if (!dep.IsValidMod())
                 {
-                    enabledMods.Add(mod);
+                    notDownloaded.Add(string.IsNullOrEmpty(dep.Name) ? dep.Id : dep.Name);
+                    continue;
+                }
+
+                if (!enabledMods.Contains(dep))
+                    enabledMods.Add(dep);
+            }
+
+            if (!enabledMods.Contains(mod))
+                enabledMods.Add(mod);
+
+            if (notDownloaded.Count > 0)
+            {
+                GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
+                    $"以下前置模组尚未下载,下载后依赖会自动勾选:\n{string.Join("\n", notDownloaded)}",
+                    () => { });
+            }
+        }
+
+        /// <summary>
+        /// 取消勾选模组时,把所有(直接或间接)依赖它的已启用模组一并取消
+        /// </summary>
+        void DisableModWithDependents(Mod.Mod mod)
+        {
+            // 先收集被牵连的模组(含自身)
+            List<Mod.Mod> affected = new List<Mod.Mod>();
+            affected.Add(mod);
+
+            // 反复扫描,直到没有新的模组被牵连为止(处理多层依赖)
+            bool changed = true;
+            while (changed)
+            {
+                changed = false;
+                for (int i = 0; i < enabledMods.Count; i++)
+                {
+                    Mod.Mod candidate = enabledMods[i];
+                    if (IsModInList(affected, candidate))
+                        continue;
+
+                    string[] depIds = ModManager.ParseDepends(candidate.Depends);
+                    for (int j = 0; j < depIds.Length; j++)
+                    {
+                        if (IsModIdInList(affected, depIds[j]))
+                        {
+                            affected.Add(candidate);
+                            changed = true;
+                            break;
+                        }
+                    }
                 }
             }
-            else
+
+            // 统一取消勾选
+            for (int i = 0; i < affected.Count; i++)
+                enabledMods.Remove(affected[i]);
+        }
+
+        /// <summary>
+        /// 判断模组是否在列表中(按引用比较)
+        /// </summary>
+        static bool IsModInList(List<Mod.Mod> list, Mod.Mod mod)
+        {
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] == mod)
+                    return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 判断模组Id是否在列表中
+        /// </summary>
+        static bool IsModIdInList(List<Mod.Mod> list, string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return false;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i].Id == id)
+                    return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 重新排列模组列表:
+        /// 1. 已启用的模组排到前面,并按依赖做拓扑排序(被依赖者在前);
+        /// 2. 未启用的模组保持原有相对顺序排在后面;
+        /// 3. 重排后让当前选中项继续保持选中,并滚动到可见区域
+        /// </summary>
+        void RefreshModListOrder()
+        {
+            Mod.Mod selectedMod = (selectedIndex >= 0 && selectedIndex < allMods.Count) ? allMods[selectedIndex] : null;
+
+            SortMod();
+            totalCount = allMods.Count;
+
+            if (selectedMod != null)
             {
-                enabledMods.Remove(mod);
+                int newIndex = allMods.IndexOf(selectedMod);
+                if (newIndex >= 0)
+                    selectedIndex = newIndex;
             }
-            //SortMod();
+            if (selectedIndex < 0 || selectedIndex >= allMods.Count)
+                selectedIndex = 0;
+
+            ScrollToSelected();
             UpdateItemStartIndex(startIndex);
         }
 
+        /// <summary>
+        /// 对已启用的模组做依赖拓扑排序,并把未启用的模组接在后面
+        /// </summary>
         void SortMod()
         {
-            List<Mod.Mod> mods = new List<Mod.Mod>(enabledMods);
+            // 已启用的模组先按依赖拓扑排序,保证"被依赖的模组"排在前面(加载顺序满足依赖)
+            List<Mod.Mod> mods = SortModsByDepends(enabledMods);
             for (int i = 0; i < allMods.Count; i++)
             {
                 Mod.Mod dest = allMods[i];
@@ -189,44 +324,198 @@ namespace Sango.UI
             allMods = mods;
         }
 
-
-        public void OnModUp(int index)
+        /// <summary>
+        /// 对模组集合做依赖拓扑排序(深度优先,后序输出)
+        /// 结果中:被依赖的模组在前,依赖它们的模组在后;无依赖关系的模组尽量保持原相对顺序;
+        /// 遇到循环依赖时自动跳过,避免死循环
+        /// </summary>
+        /// <param name="mods">待排序的模组集合</param>
+        /// <returns>依赖优先的模组列表</returns>
+        List<Mod.Mod> SortModsByDepends(List<Mod.Mod> mods)
         {
-            Mod.Mod mod = allMods[index];
-            int i = 0;
-            for (int j = 1; j < allMods.Count; j++)
+            List<Mod.Mod> sorted = new List<Mod.Mod>();
+            HashSet<Mod.Mod> visited = new HashSet<Mod.Mod>();
+            HashSet<Mod.Mod> visiting = new HashSet<Mod.Mod>();
+            for (int i = 0; i < mods.Count; i++)
+                VisitModForSort(mods[i], mods, sorted, visited, visiting);
+            return sorted;
+        }
+
+        /// <summary>
+        /// 拓扑排序的单次深度优先访问
+        /// </summary>
+        /// <param name="mod">当前访问的模组</param>
+        /// <param name="mods">本次排序的模组集合(只在其中查找依赖,避免把未启用的模组混进来)</param>
+        /// <param name="sorted">排序结果</param>
+        /// <param name="visited">已排好的模组</param>
+        /// <param name="visiting">正在访问路径上的模组(用于检测循环依赖)</param>
+        void VisitModForSort(Mod.Mod mod, List<Mod.Mod> mods, List<Mod.Mod> sorted,
+            HashSet<Mod.Mod> visited, HashSet<Mod.Mod> visiting)
+        {
+            if (mod == null || visited.Contains(mod) || visiting.Contains(mod))
+                return;
+
+            visiting.Add(mod);
+
+            string[] depIds = ModManager.ParseDepends(mod.Depends);
+            for (int i = 0; i < depIds.Length; i++)
             {
-                if (allMods[j] == mod)
+                Mod.Mod dep = null;
+                for (int j = 0; j < mods.Count; j++)
                 {
-                    Mod.Mod temp = allMods[i];
-                    allMods[i] = mod;
-                    allMods[j] = temp;
+                    if (mods[j].Id == depIds[i])
+                    {
+                        dep = mods[j];
+                        break;
+                    }
                 }
-                else
-                    i++;
+                if (dep != null)
+                    VisitModForSort(dep, mods, sorted, visited, visiting);
             }
-            //SortMod();
+
+            visiting.Remove(mod);
+            visited.Add(mod);
+            sorted.Add(mod);
+        }
+
+        /// <summary>
+        /// 上移:把当前选中项向上移动一位
+        /// </summary>
+        public void ModUp()
+        {
+            MoveSelectedBy(-1);
+        }
+
+        /// <summary>
+        /// 下移:把当前选中项向下移动一位
+        /// </summary>
+        public void ModDown()
+        {
+            MoveSelectedBy(1);
+        }
+
+        /// <summary>
+        /// 置顶:把当前选中项直接移到第一位
+        /// </summary>
+        public void UpToFront()
+        {
+            MoveSelectedTo(0);
+        }
+
+        /// <summary>
+        /// 置底:把当前选中项直接移到最后一位
+        /// </summary>
+        public void DownToEnd()
+        {
+            MoveSelectedTo(allMods.Count - 1);
+        }
+
+        /// <summary>
+        /// 当前选中项相对移动(offset 为 -1 表示上移一位,1 表示下移一位)
+        /// </summary>
+        /// <param name="offset">相对偏移量</param>
+        void MoveSelectedBy(int offset)
+        {
+            if (!HasSelected())
+                return;
+            MoveTo(selectedIndex, selectedIndex + offset);
+        }
+
+        /// <summary>
+        /// 当前选中项移动到指定下标
+        /// </summary>
+        /// <param name="targetIndex">目标下标</param>
+        void MoveSelectedTo(int targetIndex)
+        {
+            if (!HasSelected())
+                return;
+            MoveTo(selectedIndex, targetIndex);
+        }
+
+        /// <summary>
+        /// 是否存在有效的选中项
+        /// </summary>
+        bool HasSelected()
+        {
+            return selectedIndex >= 0 && selectedIndex < allMods.Count;
+        }
+
+        /// <summary>
+        /// 把第 fromIndex 个模组移动到 toIndex 位置(中间模组依次顺移,而不是两两交换)
+        /// 移动后:
+        ///   1. 选中项跟随被移动的模组;
+        ///   2. 同步启用列表的顺序,避免下次勾选/取消模组时被重新排序把手动顺序冲掉;
+        ///   3. 让选中项保持在可视区域内(位于当前界面第一位/最后一位时,列表同步位移显示)
+        /// </summary>
+        /// <param name="fromIndex">被移动模组当前所在下标</param>
+        /// <param name="toIndex">目标下标</param>
+        void MoveTo(int fromIndex, int toIndex)
+        {
+            if (fromIndex < 0 || fromIndex >= allMods.Count)
+                return;
+            if (toIndex < 0 || toIndex >= allMods.Count)
+                return;
+            if (fromIndex == toIndex)
+                return;
+
+            Mod.Mod mod = allMods[fromIndex];
+            allMods.RemoveAt(fromIndex);
+            allMods.Insert(toIndex, mod);
+
+            // 选中项跟随被移动的模组
+            selectedIndex = toIndex;
+
+            SyncEnabledOrder();
+
+            // 被移动到显示区外时(原本在界面第一位/最后一位),同步滚动让选中项继续可见
+            ScrollToSelected();
             UpdateItemStartIndex(startIndex);
         }
 
-        public void OnModDown(int index)
+        /// <summary>
+        /// 让已启用列表 enabledMods 的顺序与界面列表 allMods 中已启用模组的顺序保持一致
+        /// 否则下次勾选/取消模组触发 SortMod 重排时,会按旧的启用顺序把玩家手动调整好的顺序冲掉
+        /// </summary>
+        void SyncEnabledOrder()
         {
-            Mod.Mod mod = allMods[index];
-            int i = 1;
-            for (int j = 0; j < allMods.Count - 1; j++)
+            List<Mod.Mod> ordered = new List<Mod.Mod>(enabledMods.Count);
+            for (int i = 0; i < allMods.Count; i++)
             {
-                if (allMods[j] == mod)
-                {
-                    Mod.Mod temp = allMods[i];
-                    allMods[i] = mod;
-                    allMods[j] = temp;
-                }
-                else
-                    i++;
+                Mod.Mod mod = allMods[i];
+                if (enabledMods.Contains(mod))
+                    ordered.Add(mod);
             }
+            enabledMods = ordered;
+        }
 
-            //SortMod();
-            UpdateItemStartIndex(startIndex);
+        /// <summary>
+        /// 让当前选中项保持在可视区域内(必要时调整 startIndex)
+        /// </summary>
+        void ScrollToSelected()
+        {
+            if (totalCount <= itemCount)
+            {
+                startIndex = 0;
+            }
+            else
+            {
+                int maxStart = totalCount - itemCount;
+                if (selectedIndex < startIndex)
+                    startIndex = selectedIndex;
+                else if (selectedIndex >= startIndex + itemCount)
+                    startIndex = selectedIndex - itemCount + 1;
+                startIndex = UnityEngine.Mathf.Clamp(startIndex, 0, maxStart);
+            }
+            SyncScrollbar();
+        }
+
+        /// <summary>
+        /// 把当前滚动位置同步到滚动条(不触发滚动条回调)
+        /// </summary>
+        void SyncScrollbar()
+        {
+            if (scrollbar != null && totalCount > itemCount)
+                scrollbar.SetValueWithoutNotify((float)startIndex / (totalCount - itemCount));
         }
 
         public void ShowModInfo(int index)
@@ -294,12 +583,15 @@ namespace Sango.UI
         public void OnApply()
         {
 
-            List<Mod.Mod> sorted_list = new List<Mod.Mod>();
+            List<Mod.Mod> enabled_list = new List<Mod.Mod>();
             foreach (Mod.Mod mod in allMods)
             {
                 if (enabledMods.Contains(mod))
-                    sorted_list.Add(mod);
+                    enabled_list.Add(mod);
             }
+
+            // 保存前再做一次依赖拓扑排序,保证"前置依赖"永远排在"依赖它的模组"之前(先加载)
+            List<Mod.Mod> sorted_list = SortModsByDepends(enabled_list);
 
             // 保存MOD列表
             ModManager.Instance.SaveModList(sorted_list.ToArray());
@@ -331,10 +623,11 @@ namespace Sango.UI
                 {
                     Mod.Mod mod = allMods[destIndex];
                     listItem.SetSelected(selectedIndex == destIndex).
-                        SetEnabled(enabledMods.Contains(mod));
+                        SetEnabled(enabledMods.Contains(mod)).
+                        SetArrowInteractable(destIndex > 0, destIndex < totalCount - 1);
                     listItem.BindToggleCall(OnToggleMod);
-                    listItem.onUpCall = OnModUp;
-                    listItem.onDownCall = OnModDown;
+                    // 上移/下移统一由本窗口处理,列表项只持有窗口引用
+                    listItem.SetManager(this);
                     listItem.SetMod(mod);
                 }
                 else

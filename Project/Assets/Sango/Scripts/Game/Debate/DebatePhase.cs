@@ -32,6 +32,28 @@ namespace Sango.Core.Debate
                 OnPhaseBegin();
             }
 
+            // ---- 卡住看门狗（纯日志，不改变任何行为）----
+            // 同一阶段 + 同一步骤连续停留超过 StallWarnFrames 帧，基本只有两种可能：
+            //   1) 在等某一方出牌（PlayPhase step0/step5）：若那一侧 control=true 却没人点得动它的手牌，
+            //      或者表现层没把玩家的选择交回来，就会永远等下去（现象就是"某方一直不出牌，卡死"）；
+            //   2) 表现层一直不放行（IsIdle 恒为 false：动画计时器/结算画面/消息框没回收完）。
+            // 这里把上下文打出来（哪一方要出牌、手牌、已出的牌、是否空闲），免得再遇到只能靠猜。
+            if (phase == watchLastPhase && step == watchLastStep)
+            {
+                watchStallFrames++;
+                if (watchStallFrames == StallWarnFrames)
+                    LogDebate($"【警告】舌战疑似卡住：阶段={phase} 步骤={step} 已停留 {watchStallFrames} 帧；"
+                              + $"空闲={IsIdle()}；"
+                              + $"队0 control={characters[0].control} 手牌={HandText(0)} 已出={GetPlayedCard(0)}；"
+                              + $"队1 control={characters[1].control} 手牌={HandText(1)} 已出={GetPlayedCard(1)}");
+            }
+            else
+            {
+                watchLastPhase = phase;
+                watchLastStep = step;
+                watchStallFrames = 0;
+            }
+
             // 表现层还在播表现（或消息框没关）时停在当前步骤等它 —— 对应单挑各阶段开头的 if (!IsIdle()) break;。
             // 原 C++ 是在各阶段的 #if s11_removed 空步骤里空转等待，这里统一到入口处节流，等价且不必处处空转。
             if (!IsIdle())

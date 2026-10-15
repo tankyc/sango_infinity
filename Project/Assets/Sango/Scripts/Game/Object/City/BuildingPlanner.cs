@@ -509,20 +509,56 @@ namespace Sango.Core
             return city.StoreLimit / 100;
         }
 
-        /// <summary>舰船缺口 = 守军兵力 ÷ 每艘兵数 − 现有舰船；没有下属港口的城不需要船。</summary>
+        /// <summary>
+        /// 舰船缺口 = **舰船库存上限 × 持有率** − 现有舰船数。
+        ///
+        /// 【为什么以库存上限为基准】舰船（楼船 / 斗舰）带 <c>p1 = 10</c>，
+        /// 库存上限 = 仓库上限的 1%。按上限的比例备货才有明确上限可言 ——
+        /// 按兵力量级算会得出"3 万兵要 3 万艘船"这种不可达的数字。
+        ///
+        /// 有港口的城按 <see cref="BuildingPlanWeights.boatHoldRatioPort"/>(70%)，
+        /// 无港口的城默认不备船。
+        /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="w">规划参数</param>
+        /// <param name="scenario">场景对象（读 ItemType 求库存上限）</param>
         /// <returns>缺口（可为负）</returns>
-        static int BoatNeed(City city, BuildingPlanWeights w)
+        static int BoatNeed(City city, BuildingPlanWeights w, Scenario scenario)
         {
-            if (city.portList == null || city.portList.Count == 0)
-                return 0;
+            bool hasPort = city.portList != null && city.portList.Count > 0;
+            float ratio = hasPort ? w.boatHoldRatioPort : w.boatHoldRatioInland;
+            if (ratio <= 0f)
+                return 0;                                       // 无港口：不备船
 
-            int per = w.boatTroopsPerUnit > 0 ? w.boatTroopsPerUnit : 2000;
+            int capacity = BoatCapacity(city, scenario);
+            int want = (int)(capacity * ratio);
             int have = city.itemStore != null
                 ? city.itemStore.GetNumber((int)ItemStoreKindType.Boat)
                 : 0;
-            return city.troops / per - have;
+            return want - have;
+        }
+
+        /// <summary>
+        /// 舰船库存上限：从**造船厂的产出清单**里取一种舰船，按它的 <c>p1</c> 换算
+        /// （楼船 / 斗舰 p1 均为 10 → 上限 = 仓库上限 × 10/1000 = 1%）。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>库存上限（读不到数据时按 1% 兜底）</returns>
+        static int BoatCapacity(City city, Scenario scenario)
+        {
+            if (scenario != null)
+            {
+                BuildingType factory = scenario.GetObject<BuildingType>((int)BuildingKindType.BoatFactory);
+                if (factory != null && factory.productItems != null && factory.productItems.Length > 0)
+                {
+                    ItemType t = scenario.GetObject<ItemType>(factory.productItems[0]);
+                    if (t != null)
+                        return t.TransformLimit(city.StoreLimit);
+                }
+            }
+
+            return city.StoreLimit / 100;
         }
 
         /// <summary>器械数量（冲车 + 投石）。</summary>
@@ -559,7 +595,7 @@ namespace Sango.Core
                     return MachineNeed(city, w, scenario) >= w.machineNeedMinGap;
 
                 case BuildingKindType.BoatFactory:
-                    return BoatNeed(city, w) >= w.boatNeedMinGap;
+                    return BoatNeed(city, w, scenario) >= w.boatNeedMinGap;
 
                 default:
                     return false;

@@ -904,6 +904,12 @@ namespace Sango.Core
                 }
             }
 
+            // 修正一下所属城市
+            if(state <= 4)
+            {
+                if(BelongCity == null && CurrentCity != null)
+                    BelongCity = CurrentCity;
+            }
 
             if (IsAlive)
             {
@@ -964,6 +970,7 @@ namespace Sango.Core
                             if (CurrentCity.IsSameForce(this))
                             {
                                 BelongCity = CurrentCity;
+                                BelongCorps = CurrentCity.BelongCorps;
                                 if (BelongForce != null)
                                 {
                                     state = (int)PersonStateType.Normal;
@@ -1897,10 +1904,15 @@ namespace Sango.Core
                 // 只有目标是在野武将 / 没有势力的俘虏才会触发；辩胜时由 DebateConsequence 改判为登用成功，
                 // 所以要把"登用成功后目标加入的城"一并传过去。
                 //
+                // 【入口限定】只有普通登庸(PersonRecruitType.Normal)才接舌战入口；
+                // 破城招降(OnCityFall)与灭亡势力招降(OnForceFall)不触发舌战：
+                // 这条链在破城演出的 RenderEvent 里同步执行，舌战窗口叠在演出上后 AI 不出牌会卡死整场演出。
+                //
                 // 舌战一旦接管，这次登用的后续（功绩 / 经验 / 技术点 / 行动结束）就全交给舌战了：
                 // 结算在 Debate.ParamSetWinner，行动结束由 DebateConsequence 在舌战结束时补上，
                 // 所以这里立刻返回，不再往下执行；只有舌战没接管（概率没中 / 身份不符 / 已在舌战中）才继续。
-                if (Sango.Core.Debate.DebateTrigger.OnRecruitFailed(this, person, targetCity))
+                if (type == (int)PersonRecruitType.Normal
+                    && Sango.Core.Debate.DebateTrigger.OnRecruitFailed(this, person, targetCity))
                     return false;
             }
             ScenarioVariables variables = Scenario.Cur.Variables;
@@ -2836,36 +2848,43 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 装备武器
+        /// 装备武器（宝物类武器：宝剑 / 长柄武器 / 暗器 / 宝弓）
         /// </summary>
         /// <param name="weapon">武器</param>
         public void EquipWeapon(Equipment weapon)
         {
-            if (weapon != null && weapon.kind == (int)ItemKindType.Equipment_Weapon)
+            // 宝物统一 kind = Treasure，再按 subKind 细分；1~4 为可装备的武器类宝物
+            if (weapon != null && weapon.kind == (int)ItemKindType.Treasure
+                && weapon.subKind >= (int)TreasureKind.Sword
+                && weapon.subKind <= (int)TreasureKind.Bow)
             {
                 EquippedWeapon = weapon;
             }
         }
 
         /// <summary>
-        /// 装备马
+        /// 装备马（宝物类名马：赤兔马、的卢等）
         /// </summary>
         /// <param name="horse">马</param>
         public void EquipHorse(Equipment horse)
         {
-            if (horse != null && horse.kind == (int)ItemKindType.Equipment_Horse)
+            // 宝物统一 kind = Treasure，subKind = 0 为名马
+            if (horse != null && horse.kind == (int)ItemKindType.Treasure
+                && horse.subKind == (int)TreasureKind.FamousHorse)
             {
                 EquippedHorse = horse;
             }
         }
 
         /// <summary>
-        /// 装备铠甲
+        /// 装备铠甲（宝物类铠甲，当前数据中暂无此类宝物）
         /// </summary>
         /// <param name="armor">铠甲</param>
         public void EquipArmor(Equipment armor)
         {
-            if (armor != null && armor.kind == (int)ItemKindType.Equipment_Armor)
+            // 宝物统一 kind = Treasure，subKind = Armor 为预留的铠甲分类
+            if (armor != null && armor.kind == (int)ItemKindType.Treasure
+                && armor.subKind == (int)TreasureKind.Armor)
             {
                 EquippedArmor = armor;
             }

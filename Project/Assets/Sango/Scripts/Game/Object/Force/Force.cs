@@ -1566,19 +1566,7 @@ namespace Sango.Core
             corps.mComander = commander;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
-            foreach (var city in cities)
-            {
-                city.BelongCorps = corps;
-                foreach (Person person in city.allPersons)
-                {
-                    person.BelongCorps = corps;
-
-                }
-                foreach (Building building in city.allBuildings)
-                {
-                    building.BelongCorps = corps;
-                }
-            }
+            ChangeCitiesCorps(corps, cities);
             GameEvent.OnCorpsCreate?.Invoke(corps, Scenario.Cur);
         }
 
@@ -1588,34 +1576,55 @@ namespace Sango.Core
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
             corps.mComander.state = (int)PersonStateType.Commander;
-            foreach (var city in corps.inti_cities)
-            {
-                city.BelongCorps = corps;
-                foreach (Person person in city.allPersons)
-                {
-                    person.BelongCorps = corps;
-
-                }
-                foreach (Building building in city.allBuildings)
-                {
-                    building.BelongCorps = corps;
-                }
-            }
-
-            // 处理港关
-            Scenario.Cur.citySet.ForEach(x =>
-            {
-                if (x.IsAlive && !x.IsCity() && x.BelongForce == this && x != corps.BelongForce.CapitalCity && corps.inti_cities.Contains(x.BelongCity))
-                {
-                    x.BelongCorps = corps;
-                    x.UpdateCorps();
-                }
-            });
+            ChangeCitiesCorps(corps, corps.inti_cities);
 
             corps.inti_cities = null;
             corps.mComander.BelongCity.UpdateNewLeader();
             corps.PrepareCityInfo();
             GameEvent.OnCorpsCreate?.Invoke(corps, Scenario.Cur);
+        }
+
+        /// <summary>
+        /// 把一批都市（连同其下属港关）整体改旗到指定军团。
+        ///
+        /// 【为什么要统一收敛到这里】一个城池的"军团归属"散落在六处名单上：
+        /// 城市自身、在籍武将、建筑、俘虏、下属港关、港关内武将。
+        /// 只要漏掉任意一处，就会留下"城属新军团、人属旧军团"的分裂，
+        /// 之后任何一次 AddPerson（入城 / 读档重登记 / 释放俘虏）都会打出"军团不一致"的错误日志。
+        /// 因此这里不再手工逐个字段赋值，统一走 <see cref="City.ChangeCorps"/> + <see cref="City.UpdateCorps"/>，
+        /// 与"重编军团"之外的其它改军团入口保持同一口径。
+        /// </summary>
+        /// <param name="corps">目标军团</param>
+        /// <param name="cities">要划入该军团的都市列表，可为空</param>
+        static void ChangeCitiesCorps(Corps corps, List<City> cities)
+        {
+            if (corps == null || cities == null)
+                return;
+
+            for (int i = 0; i < cities.Count; i++)
+            {
+                City city = cities[i];
+                if (city == null)
+                    continue;
+
+                city.ChangeCorps(corps);
+                city.UpdateCorps();
+            }
+
+            // 港关随所属都市一起改旗：都市划入新军团后，其下属港 / 关若仍留在旧军团，
+            // 港关内的驻守武将与港关自身的归属就会和都市分裂
+            // （典型表现：之后把守将调回都市，AddPerson 立刻报"军团不一致"）。
+            // 【注意】这一段以前只在 CreateCorps(Corps) 里写过，CreateCorps(int,...) 那个重载完全漏了，
+            // 现在两个入口共用本方法，口径不会再分裂。
+            Scenario.Cur.citySet.ForEach(x =>
+            {
+                if (x != null && x.IsAlive && !x.IsCity() && x.BelongForce == corps.BelongForce
+                    && x.BelongCity != null && cities.Contains(x.BelongCity))
+                {
+                    x.ChangeCorps(corps);
+                    x.UpdateCorps();
+                }
+            });
         }
 
         public void ResetCorps(Corps corps, Corps copy)

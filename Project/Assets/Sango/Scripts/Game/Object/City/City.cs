@@ -745,6 +745,7 @@ namespace Sango.Core
         {
             if (person.BelongForce != BelongForce)
             {
+                Sango.Log.Error($"调用栈: {new System.Diagnostics.StackTrace(true)}");
                 Sango.Log.Error($"*{Name}{BelongForce?.Name} -> allPersons 添加 {person.Name}{person.BelongForce?.Name} 势力不一致!!");
                 person.BelongForce = BelongForce;
                 person.BelongCorps = BelongCorps;
@@ -752,15 +753,29 @@ namespace Sango.Core
 
             if (person.BelongCorps != BelongCorps)
             {
+                Sango.Log.Error($"调用栈: {new System.Diagnostics.StackTrace(true)}");
                 Sango.Log.Error($"*{Name}{BelongCorps?.Name} -> allPersons 添加 {person.Name}{person.BelongCorps?.Name} 军团不一致!!");
                 person.BelongForce = BelongForce;
                 person.BelongCorps = BelongCorps;
             }
 
+            // 【归属兜底】上面的自愈只修正了武将身上的势力 / 军团，若他的"所属城"还挂在别处，
+            // 旧城的 allPersons 会留下脏引用：面板人数、人才搜索、任务指派仍会挑到他，
+            // 而且下次 RemovePerson 会在错误的城里做移除（真正该摘的那份永远摘不掉）。
+            // 因此这里把户口一并迁到本城。
+            if (person.BelongCity != this)
+            {
+                person.BelongCity?.RemovePerson(person);
+                person.BelongCity = this;
+            }
+
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> allPersons 添加 {person.Name} ");
 #endif
-            allPersons.Add(person);
+            // 去重：读档重登记 / 重复入城等路径可能对同一个人重复调用 AddPerson，
+            // 名单里出现两份会让城市人数统计与遍历逻辑凭空翻倍。
+            if (!allPersons.Contains(person))
+                allPersons.Add(person);
         }
 
         /// <summary>
@@ -1710,6 +1725,11 @@ namespace Sango.Core
 
         /// <summary>
         /// 改变军团后,需要用此方法更新所属信息
+        ///
+        /// 【覆盖面】城池的"军团归属"散落在三份名单里：在籍武将(allPersons)、建筑(allBuildings)、
+        /// 俘虏(captiveList)。只改城市自身的 BelongCorps 而不调用本方法，就会留下
+        /// "城属A团、人属B团"的分裂 —— 之后任何一次 AddPerson（读档重登记 / 入城 / 释放 / 归返）
+        /// 都会打出"军团不一致"的错误日志。故改军团一律用 ChangeCorps + UpdateCorps 成对调用。
         /// </summary>
         public void UpdateCorps()
         {
@@ -1720,6 +1740,16 @@ namespace Sango.Core
             allBuildings.ForEach(person =>
             {
                 person.ChangeCorps(BelongCorps);
+            });
+
+            // 俘虏名单也要跟：同势力的"自家俘虏"（城陷 / 读档中途态）若军团停在旧值，
+            // 之后释放 / 归返时同样会撞上 AddPerson 的校验。
+            // 但敌方俘虏的势力与军团代表其原属国，登庸 / 释放 / 逃走的判定要读它，
+            // 绝不能一并改，所以这里只同步"势力已经与自己相同"的那部分。
+            captiveList.ForEach(person =>
+            {
+                if (person != null && person.BelongForce == BelongForce)
+                    person.ChangeCorps(BelongCorps);
             });
         }
 
@@ -2032,7 +2062,7 @@ namespace Sango.Core
             troops = troops * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepTroopsFactor) * 10 + 10) / 100;
             itemStore.Split((100 - (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepItemFactor) * 10 + 10)) / 100);
             agriculture = agriculture * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepAgriculture) * 10 + 10) / 100;
-            commerce = agriculture * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepCommerce) * 10 + 10) / 100;
+            commerce = commerce * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepCommerce) * 10 + 10) / 100;
 
             // 解救俘虏
             // 【修复】必须先同步军团 / 势力 / 城市，再调用 AddPerson。
