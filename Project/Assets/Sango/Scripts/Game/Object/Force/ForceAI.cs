@@ -1019,7 +1019,7 @@ namespace Sango.Core
             Dictionary<Technique, float> techniqueWeights = new Dictionary<Technique, float>();
 
             // 收集所有可研发的科技
-            foreach (Technique technique in scenario.CommonData.Techniques)
+            foreach (Technique technique in force.InitTechniques)
             {
                 if (IsTechniqueAvailable(force, technique, scenario))
                 {

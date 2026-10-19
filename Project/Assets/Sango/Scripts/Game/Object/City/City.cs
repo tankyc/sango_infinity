@@ -75,6 +75,12 @@ namespace Sango.Core
         public ItemStore itemStore = new ItemStore();
 
         /// <summary>
+        /// 本城上次产出宝物 / 装备的回合号（&lt;= 0 表示从未产出）。
+        /// 与 <see cref="ScenarioVariables.itemDiscoverGain"/> 的城市冷却配合使用，见 <see cref="ForceItemDiscover"/>。
+        /// </summary>
+        [JsonProperty] public int lastItemDiscoverTurn = -1;
+
+        /// <summary>
         /// 商业值
         /// </summary>
         [JsonProperty] public int commerce;
@@ -2033,7 +2039,7 @@ namespace Sango.Core
                 bool allInOne = true;
                 scenario.citySet.ForEach(x =>
                 {
-                    if (x != this && x.IsCity() && x.BelongForce != atk.BelongForce)
+                    if (x != this && x.IsCity() && x.BelongForce != null && x.BelongForce != atk.BelongForce)
                         allInOne = false;
                 });
 
@@ -2041,6 +2047,12 @@ namespace Sango.Core
                 {
                     Sango.Log.Info($"{Scenario.Cur.GetDateStr()} --> {atk.BelongForce.Name} 统一!!!!!!!!!!!!!!");
                     scenario.OnGamePause();
+
+                    // 天下一统：广播给剧本事件系统，播放"统一天下"终局剧本事件（image + 确认退出）。
+                    // 刻意放在 OnGamePause 之后：先把主循环停住，让终局演出独占画面，
+                    // 期间不会有 AI 势力在后台把回合跑完。
+                    GameEvent.OnWorldUnified?.Invoke(atk.BelongForce);
+                    return;
                 }
             }
             Leader = null;
@@ -3516,6 +3528,69 @@ namespace Sango.Core
 
 
         /// <summary>
+        /// 授予宝物 / 装备（数据侧）。
+        ///
+        /// 本方法只做两件事：扣势力行动力、记本回合工作次数；道具与忠诚的状态变更
+        /// 全部委托 <see cref="ItemGrantRules.Grant"/>（与玩家侧入口共用一个口径）。
+        /// 校验不通过时**不扣行动力**，避免玩家白付代价。
+        /// </summary>
+        /// <param name="person">目标武将（须为本城在职武将）</param>
+        /// <param name="item">待授予的珍品（须在本势力国库中）</param>
+        /// <returns>执行成功返回 true；校验不通过返回 false</returns>
+        public bool JobGrantItem(Person person, ItemType item)
+        {
+            string reason;
+            if (!ItemGrantRules.CanGrant(this, person, item, out reason))
+            {
+                Sango.Log.Warning($"[授予]<{Name}>无法授予{(person != null ? person.Name : "空武将")}" +
+                                  $"{(item != null ? item.Name : "空道具")}：{reason}");
+                return false;
+            }
+
+            int jobId = (int)CityJobType.GrantItem;
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+
+            string grantReason;
+            ItemType replaced = ItemGrantRules.Grant(this, person, item, out grantReason);
+            if (replaced == null && !string.IsNullOrEmpty(grantReason))
+                return false;
+
+            BelongCorps.AddJobCounter(jobId);
+            return true;
+        }
+
+        /// <summary>
+        /// 没收宝物 / 装备（数据侧）。
+        ///
+        /// 与授予对称：本方法只管行动力与工作次数，道具 / 忠诚 / 特效的状态变更
+        /// 全部委托 <see cref="ItemGrantRules.Confiscate"/>。
+        /// </summary>
+        /// <param name="person">目标武将（须为本城在职武将）</param>
+        /// <param name="item">待没收的珍品（须在该武将身上或装备栏中）</param>
+        /// <returns>执行成功返回 true；校验不通过返回 false</returns>
+        public bool JobConfiscateItem(Person person, ItemType item)
+        {
+            string reason;
+            if (!ItemGrantRules.CanConfiscate(this, person, item, out reason))
+            {
+                Sango.Log.Warning($"[没收]<{Name}>无法没收{(person != null ? person.Name : "空武将")}" +
+                                  $"{(item != null ? item.Name : "空道具")}：{reason}");
+                return false;
+            }
+
+            int jobId = (int)CityJobType.ConfiscateItem;
+            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+
+            string confiscateReason;
+            ItemType taken = ItemGrantRules.Confiscate(this, person, item, out confiscateReason);
+            if (taken == null)
+                return false;
+
+            BelongCorps.AddJobCounter(jobId);
+            return true;
+        }
+
+        /// <summary>
         /// 搜索
         /// </summary>
         /// <param name="personList">搜索人员</param>
@@ -3539,8 +3614,12 @@ namespace Sango.Core
         /// </summary>
         /// <param name="person">执行搜索的武将</param>
         /// <param name="target">找到的目标武将</param>
-        /// <returns>搜索结果：0表示找到人才，正数表示找到的金钱，-1表示什么也没找到</returns>
-        public int DoJobSearching(Person person, out Person target)
+        /// <param name="foundItem">找到的宝物 / 装备（已进势力国库）</param>
+        /// <returns>
+        /// 搜索结果：0 = 找到人才，正数 = 找到的金钱数额，-2 = 找到宝物 / 装备，-1 = 什么也没找到。
+        /// 道具结果码取负值是为了不与"金钱数额"混淆（金钱是任意正整数）。
+        /// </returns>
+        public int DoJobSearching(Person person, out Person target, out ItemType foundItem)
         {
             Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
@@ -3549,6 +3628,7 @@ namespace Sango.Core
             int techniquePointGain = JobType.GetJobTPGain(jobId);
             int apCost = JobType.GetJobCostAP(jobId);
             target = null;
+            foundItem = null;
             freePersons.Remove(person);
             InitJobFeature(person);
 
@@ -3593,12 +3673,32 @@ namespace Sango.Core
                 }
             }
 
-            //TODO: 搜索道具
-            //if (!person.ActionOver && GameRandom.Changce((int)(3 * ability_improve)))
-            //{
-            //    person.ActionOver = true;
-            //    continue;
-            //}
+            // 搜索宝物 / 装备：概率受执行武将政治 / 智力影响，另有开局保护、势力与城市冷却、
+            // 累计上限、单件唯一等限流（详见 ForceItemDiscover）。命中后产出**直接进势力国库**。
+            if (!person.ActionOver)
+            {
+                foundItem = ForceItemDiscover.TryDiscover(this, person);
+                if (foundItem != null)
+                {
+                    if (IsPlayer)
+                    {
+                        // 道具名按品级上色（见 ItemType.ColorName）；下面的日志保持纯文本，不要带 <color> 标记
+                        PlayerMessage.AddTextMessage($"{person.ColorName}在{ColorName}发现{foundItem.ColorName}。",
+                            BelongForce, x, y);
+                    }
+
+#if SANGO_DEBUG
+                    Sango.Log.Info($"@内政@[{BelongForce.Name}]<{Name}>的{person.Name}发现了{foundItem.Name}");
+#endif
+
+                    person.merit += meritGain;
+                    person.GainExp(meritGain);
+                    person.GainJobAttributeExp(jobId);      // 搜索(找到宝物/装备) → 智力经验
+                    person.ActionOver = true;
+                    ClearJobFeature();
+                    return -2;
+                }
+            }
 
             // 搜索钱财
             probality = person.Politics * 3 / 5;

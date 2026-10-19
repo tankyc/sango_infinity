@@ -263,7 +263,9 @@ namespace Sango.Mod
             target.loadProgress = 0;
 
             GitDownloader.GitDownloadResult result = null;
-            yield return GitDownloader.DownloadAndExtract(target.Url, ModManager.MOD_ROOT_DIR,
+            // 用"整体替换"的方式安装:先解压到临时目录,校验通过后才替换旧版本,
+            // 避免直接覆盖解压导致旧版本删掉的文件残留
+            yield return GitDownloader.DownloadAndInstall(target.Url, ModManager.MOD_ROOT_DIR, target.Id,
                 (progress) =>
                 {
                     target.loadProgress = progress;

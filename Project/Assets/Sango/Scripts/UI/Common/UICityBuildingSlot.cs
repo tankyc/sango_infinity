@@ -13,7 +13,8 @@ using Sango.Core; namespace Sango.UI
         public Transform personNode;
         public Button upgradeBtn;
         public Transform emptyNode;
-        public Image buildImage;
+        /// <summary>建筑图标（RawImage + Texture，与建筑选择列表同口径）</summary>
+        public RawImage buildImage;
         public Text nameLabel;
         public OnClickAction onClickCall;
         public Transform progress;
@@ -43,7 +44,7 @@ using Sango.Core; namespace Sango.UI
                 nameLabel.enabled = true;
 
                 nameLabel.text = building.BuildingType.Name;
-                buildImage.sprite = GameRenderHelper.LoadBuildingTypeIcon(building.BuildingType.icon);
+                buildImage.texture = GameRenderHelper.LoadBuildingIcon(building.BuildingType.icon);
                 if (!building.isComplate)
                 {
                     personNode.gameObject.SetActive(true);

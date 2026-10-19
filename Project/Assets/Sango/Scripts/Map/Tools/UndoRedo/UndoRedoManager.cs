@@ -67,7 +67,12 @@ namespace Sango.Tools.UndoRedo
             undoStack.Push(command);
             
             // 清空重做栈（新操作后无法重做之前的操作）
-            redoStack.Clear();
+            // 必须先让命令自己释放资源：创建类命令被撤销后物件已移出地图，
+            // 此时只清空引用会让它的 GameObject 变成无人回收的孤儿
+            while (redoStack.Count > 0)
+            {
+                redoStack.Pop().Destroy();
+            }
             
             // 限制历史记录数量
             if (undoStack.Count > MaxHistoryCount)

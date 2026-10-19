@@ -55,8 +55,35 @@ namespace Sango.Core
         /// </summary>
         public void Clear()
         {
-            CellSet.Clear();
-            CellSet = null;
+            // 加载失败、或存档反序列化只留下空壳时 CellSet 可能为 null，
+            // 这里必须判空：否则剧本收尾链路（Scenario.Clear → Map.Clear）会再抛一次空引用
+            if (CellSet != null)
+            {
+                CellSet.Clear();
+                CellSet = null;
+            }
+        }
+
+        /// <summary>
+        /// 兜底构建六边形世界
+        ///
+        /// 只在 <see cref="Load"/> 无法解析地图文件（文件缺失 / 版本过低）时调用。
+        /// HexWorld 是 <see cref="GetCell(UnityEngine.Vector3)"/> 的必要前提，缺了它地图交互会每帧空引用，
+        /// 这里刻意只补 HexWorld、不重建 CellSet —— 读档时 CellSet 可能已由存档 JSON 反序列化出来，
+        /// 重建会把上层已挂接的数据一起丢掉。
+        /// </summary>
+        void EnsureHexWorld()
+        {
+            if (HexWorld != null) return;
+            if (Width <= 0 || Height <= 0)
+            {
+                Sango.Log.Error("地图尺寸未知(Width/Height 为 0)，无法构建六边形世界，地图交互将不可用");
+                return;
+            }
+
+            float gridSize = GridSize > 0 ? GridSize : 20f;
+            // 不改变任何已有数据，只补上坐标换算所需的世界对象
+            HexWorld = new Hexagon.HexWorld(new Hexagon.Point(gridSize, gridSize), new Hexagon.Point(0, 0));
         }
 
         /// <summary>
@@ -67,15 +94,25 @@ namespace Sango.Core
         {
             string mapName = scenario.Info.mapType;
             FileName = Path.FindFile($"Map/{mapName}.bin");
-            //StringBuilder stringBuilder = new StringBuilder();
-            if (File.Exists(FileName))
+            if (!File.Exists(FileName))
             {
-                Name = mapName;
-                FileStream fs = new FileStream(FileName, FileMode.Open, FileAccess.Read);
-                BinaryReader reader = new BinaryReader(fs);
+                // 过去这里是静默返回：Map 非 null 但 HexWorld 永远为 null，
+                // 之后每一帧的地图交互都会空引用，而且日志里没有任何线索
+                Sango.Log.Error($"地图文件不存在:Map/{mapName}.bin，地图逻辑数据不可用");
+                EnsureHexWorld();
+                return;
+            }
+
+            Name = mapName;
+            // 用 using 保证任何提前返回（例如版本过低）都能释放文件句柄
+            using (FileStream fs = new FileStream(FileName, FileMode.Open, FileAccess.Read))
+            using (BinaryReader reader = new BinaryReader(fs))
+            {
                 int versionCode = reader.ReadInt32();
                 if (versionCode < 6)
                 {
+                    Sango.Log.Error($"地图文件版本过低:{versionCode}(需要>=6)，地图逻辑数据不可用");
+                    EnsureHexWorld();
                     return;
                 }
                 ContentDir = reader.ReadString();
@@ -97,22 +134,9 @@ namespace Sango.Core
                         if (terrainType == null)
                             terrainType = scenario.CommonData.TerrainTypes.Get(0);
                         City city = scenario.citySet.Get(areaId);
-
-                        //if (terrainType.moveable && city == null)
-                        //{
-                        //    stringBuilder.AppendLine($"地格:<{x},{y}> areaId:{areaId} 可以行走,但是所属城市找不到!!");
-                        //}
-
                         CellSet.SetTerrainTypeAndState(x, y, terrainType, terrainState, city);
                     }
                 }
-
-                //File.WriteAllText("D:/ddddddd.txt", stringBuilder.ToString());
-
-                reader.Close();
-                fs.Close();
-                reader.Dispose();
-                fs.Dispose();
             }
         }
         /// <summary>
@@ -166,6 +190,10 @@ namespace Sango.Core
         /// <returns>单元格对象</returns>
         public Cell GetCell(UnityEngine.Vector3 position)
         {
+            // 分帧加载的前几帧 HexWorld / CellSet 还没建好，此时若被射线命中会直接空引用，
+            // 统一在这里兜住，调用方只需对返回值判空（约定见 GetNeighbor）
+            if (HexWorld == null || CellSet == null)
+                return null;
             Vector2Int coords = HexWorld.PositionToCoords(position);
             return CellSet.GetCell(coords.x, coords.y);
         }

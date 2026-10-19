@@ -6,6 +6,7 @@
  * 最后修改：2026-07-01
  */
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
@@ -262,6 +263,249 @@ namespace Sango
             onProgress?.Invoke(1f);
             Log.Info("Git 资源下载并解压完成: " + gitUrl + " -> " + targetFolder, Log.LogType.Download);
             onComplete?.Invoke(result);
+        }
+
+        /// <summary>
+        /// 下载并以"整体替换"的方式安装模组(协程版)
+        ///
+        /// 与直接覆盖解压的区别:
+        ///   1. 先解压到模组根目录下的临时文件夹,安装过程中完全不碰已有模组;
+        ///   2. 在临时文件夹里定位真正的模组目录(含 mod.info 的那一层),并校验 mod.info 中的 id;
+        ///   3. 把旧模组目录改名备份,再把新目录整体移动为 &lt;rootFolder&gt;/&lt;expectModId&gt;;
+        ///   4. 成功后删除备份与临时目录,任何一步失败都回滚,旧版本保持可用。
+        ///
+        /// 这样可以避免"新版本已经删掉的文件仍残留在旧目录里被继续加载"的问题。
+        /// </summary>
+        /// <param name="gitUrl">下载地址</param>
+        /// <param name="rootFolder">模组根目录(Mods)</param>
+        /// <param name="expectModId">期望的模组Id,同时也是安装后的目录名</param>
+        /// <param name="onProgress">进度回调,范围 0~1</param>
+        /// <param name="onComplete">完成回调,返回安装结果</param>
+        public static IEnumerator DownloadAndInstall(string gitUrl, string rootFolder, string expectModId,
+            System.Action<float> onProgress, System.Action<GitDownloadResult> onComplete)
+        {
+            GitDownloadResult result = new GitDownloadResult();
+            result.ExtractTargetPath = rootFolder;
+
+            if (string.IsNullOrEmpty(expectModId))
+            {
+                result.Error = GitDownloadError.InvalidUrl;
+                result.ErrorMessage = "模组Id为空,无法安装";
+                Log.Warning(result.ErrorMessage, Log.LogType.Download);
+                onComplete?.Invoke(result);
+                yield break;
+            }
+
+            if (!Sango.Directory.Exists(rootFolder))
+                Sango.Directory.Create(rootFolder);
+
+            // 临时解压目录:与正式目录同盘,后面才能用 Move 完成"整体替换"
+            string stamp = System.DateTime.Now.Ticks.ToString();
+            string tempFolder = System.IO.Path.Combine(rootFolder, $".tmp_{expectModId}_{stamp}");
+
+            // 1.解压到临时目录
+            GitDownloadResult extractResult = null;
+            yield return DownloadAndExtract(gitUrl, tempFolder, onProgress, (r) => extractResult = r);
+
+            if (extractResult == null || !extractResult.IsSuccess)
+            {
+                // 解压失败:丢掉临时目录,旧版本原样保留
+                SafeDeleteDirectory(tempFolder);
+                result.Error = extractResult != null ? extractResult.Error : GitDownloadError.ExtractError;
+                result.ErrorMessage = extractResult != null ? extractResult.ErrorMessage : "解压失败";
+                onComplete?.Invoke(result);
+                yield break;
+            }
+
+            // 2.定位模组目录并校验 mod.info
+            string modRoot = FindModRoot(tempFolder, expectModId);
+            if (string.IsNullOrEmpty(modRoot))
+            {
+                SafeDeleteDirectory(tempFolder);
+                result.Error = GitDownloadError.ExtractError;
+                result.ErrorMessage = "下载包中没有找到 mod.info,已取消安装";
+                Log.Warning(result.ErrorMessage + " URL: " + gitUrl, Log.LogType.Download);
+                onComplete?.Invoke(result);
+                yield break;
+            }
+
+            string realModId = ReadModInfoValue(modRoot, "id");
+            if (!string.IsNullOrEmpty(realModId) && realModId != expectModId)
+            {
+                SafeDeleteDirectory(tempFolder);
+                result.Error = GitDownloadError.ExtractError;
+                result.ErrorMessage = $"下载包内的模组Id({realModId})与期望的Id({expectModId})不一致,已取消安装";
+                Log.Warning(result.ErrorMessage + " URL: " + gitUrl, Log.LogType.Download);
+                onComplete?.Invoke(result);
+                yield break;
+            }
+
+            // 3.整体替换:旧目录先改名备份,新目录再顶上,失败可以回滚
+            string finalFolder = System.IO.Path.Combine(rootFolder, expectModId);
+            string backupFolder = null;
+            if (System.IO.Directory.Exists(finalFolder))
+            {
+                backupFolder = System.IO.Path.Combine(rootFolder, $".old_{expectModId}_{stamp}");
+                try
+                {
+                    System.IO.Directory.Move(finalFolder, backupFolder);
+                }
+                catch (System.Exception e)
+                {
+                    SafeDeleteDirectory(tempFolder);
+                    result.Error = GitDownloadError.ExtractError;
+                    result.ErrorMessage = "旧模组目录无法移动(可能文件被占用,请重启游戏后再更新): " + e.Message;
+                    Log.Warning(result.ErrorMessage, Log.LogType.Download);
+                    onComplete?.Invoke(result);
+                    yield break;
+                }
+            }
+
+            try
+            {
+                System.IO.Directory.Move(modRoot, finalFolder);
+            }
+            catch (System.Exception e)
+            {
+                // 回滚:把备份改回原名,保证旧版本仍然可用
+                if (!string.IsNullOrEmpty(backupFolder) && System.IO.Directory.Exists(backupFolder))
+                {
+                    try { System.IO.Directory.Move(backupFolder, finalFolder); } catch { }
+                }
+                SafeDeleteDirectory(tempFolder);
+                result.Error = GitDownloadError.ExtractError;
+                result.ErrorMessage = "安装新版本失败,已回滚到旧版本: " + e.Message;
+                Log.Warning(result.ErrorMessage, Log.LogType.Download);
+                onComplete?.Invoke(result);
+                yield break;
+            }
+
+            // 4.清理备份与临时目录
+            SafeDeleteDirectory(tempFolder);
+            if (!string.IsNullOrEmpty(backupFolder))
+                SafeDeleteDirectory(backupFolder);
+
+            result.IsSuccess = true;
+            result.ExtractTargetPath = rootFolder;
+            onProgress?.Invoke(1f);
+            Log.Info("模组已整体替换安装完成: " + finalFolder, Log.LogType.Download);
+            onComplete?.Invoke(result);
+        }
+
+        /// <summary>
+        /// 判断目录名是否是安装过程中的临时目录(临时解压目录 / 旧版本备份目录)
+        /// 这类目录不能当作正常模组加载
+        /// </summary>
+        /// <param name="dir">目录路径</param>
+        /// <returns>是临时目录返回true</returns>
+        public static bool IsTempModDirectory(string dir)
+        {
+            if (string.IsNullOrEmpty(dir))
+                return false;
+            string name = System.IO.Path.GetFileName(dir.TrimEnd('/', '\\'));
+            return name.StartsWith(".tmp_") || name.StartsWith(".old_");
+        }
+
+        /// <summary>
+        /// 安全删除目录(目录不存在或删除失败都不会抛异常)
+        /// </summary>
+        static void SafeDeleteDirectory(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return;
+            try
+            {
+                if (System.IO.Directory.Exists(path))
+                    System.IO.Directory.Delete(path, true);
+            }
+            catch (System.Exception e)
+            {
+                Log.Warning("删除目录失败: " + path + " " + e.Message, Log.LogType.Download);
+            }
+        }
+
+        /// <summary>
+        /// 在解压出来的临时目录里定位真正的模组目录(含 mod.info 的那一层)
+        /// 优先返回 mod.info 中 id 与期望Id一致的那个,都不匹配时返回第一个找到的目录
+        /// </summary>
+        /// <param name="tempFolder">临时解压目录</param>
+        /// <param name="expectModId">期望的模组Id</param>
+        /// <returns>模组目录路径,没找到返回null</returns>
+        static string FindModRoot(string tempFolder, string expectModId)
+        {
+            List<string> candidates = new List<string>();
+            CollectModRoots(tempFolder, 0, 3, candidates);
+
+            if (candidates.Count == 0)
+                return null;
+            if (candidates.Count == 1)
+                return candidates[0];
+
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (ReadModInfoValue(candidates[i], "id") == expectModId)
+                    return candidates[i];
+            }
+            return candidates[0];
+        }
+
+        /// <summary>
+        /// 递归收集含 mod.info 的目录(限制最大深度,避免遍历整棵解压树)
+        /// </summary>
+        /// <param name="dir">当前目录</param>
+        /// <param name="depth">当前深度</param>
+        /// <param name="maxDepth">最大深度</param>
+        /// <param name="result">收集结果</param>
+        static void CollectModRoots(string dir, int depth, int maxDepth, List<string> result)
+        {
+            if (depth > maxDepth || !System.IO.Directory.Exists(dir))
+                return;
+
+            if (System.IO.File.Exists(System.IO.Path.Combine(dir, "mod.info")))
+            {
+                result.Add(dir);
+                return;
+            }
+
+            string[] subDirs = System.IO.Directory.GetDirectories(dir);
+            for (int i = 0; i < subDirs.Length; i++)
+                CollectModRoots(subDirs[i], depth + 1, maxDepth, result);
+        }
+
+        /// <summary>
+        /// 读取 mod.info 中指定键的值(逐行 key=value,键名不区分大小写)
+        /// </summary>
+        /// <param name="modDir">模组目录</param>
+        /// <param name="key">键名(小写),例如 id</param>
+        /// <returns>键对应的值,读取失败返回null</returns>
+        static string ReadModInfoValue(string modDir, string key)
+        {
+            string infoFile = System.IO.Path.Combine(modDir, "mod.info");
+            if (!System.IO.File.Exists(infoFile))
+                return null;
+
+            try
+            {
+                string[] lines = System.IO.File.ReadAllLines(infoFile);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    string line = lines[i];
+                    if (string.IsNullOrEmpty(line))
+                        continue;
+
+                    int index = line.IndexOf('=');
+                    if (index <= 0)
+                        continue;
+
+                    if (line.Substring(0, index).Trim().ToLower() == key)
+                        return line.Substring(index + 1).Trim();
+                }
+            }
+            catch (System.Exception e)
+            {
+                Log.Warning("读取 mod.info 失败: " + infoFile + " " + e.Message, Log.LogType.Download);
+            }
+            return null;
         }
 
         /// <summary>

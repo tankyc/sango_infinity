@@ -281,6 +281,15 @@ namespace Sango.Core
         /// 当势力灭亡的时候
         /// </summary>
         public static EventDelegate<Force, City, Troop> OnForceFall;
+
+        /// <summary>
+        /// 当某个势力统一天下的时候（占领了全地图所有城池）。
+        /// 由 <see cref="Sango.Core.City"/> 在"攻陷敌势力最后一座城池、且全图城池已尽归进攻方"时抛出。
+        /// 剧本事件系统据此播放终局剧本事件（见 EventTriggerKind.WorldUnified），
+        /// 与势力灭亡（OnForceFall）不同：这里是**胜利结局**，全图再无第二个势力。
+        /// </summary>
+        public static EventDelegate<Force> OnWorldUnified;
+
         public static EventDelegate<Force, int> OnForceGainTechniquePoint;
         public static EventDelegate<Force, int> OnForceGainHegemonyPoint;
         public static EventDelegate<Force, Technique> OnForceResearchComplete;
@@ -427,7 +436,8 @@ namespace Sango.Core
         ///
         /// 参数：执行者 Person、所在 City、结果码、发现的武将。
         /// 结果码与 <c>City.DoJobSearching</c> 的返回值一致：
-        ///   0 = 发现人才（末位参数有效）／ &gt;0 = 发现资金，数值即金额 ／ -1 = 一无所获。
+        ///   0 = 发现人才（末位参数有效）／ &gt;0 = 发现资金，数值即金额 ／
+        ///   -2 = 发现宝物 / 装备（道具已进势力国库，本事件不带出道具对象）／ -1 = 一无所获。
         ///
         /// 【为什么需要它，而不是用 OnPersonActionOver】
         /// OnPersonActionOver 是"武将行动结束"这个**通用**信号，它在 City.DoJobSearching

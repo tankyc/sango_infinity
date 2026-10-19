@@ -270,7 +270,7 @@ namespace Sango.Core
         {
             base.Clear();
 
-            if(cell != null)
+            if (cell != null)
                 cell.fire = null;
 
             if (Render != null)
@@ -301,8 +301,8 @@ namespace Sango.Core
             if (troop == null) return;
             if (troop.ignoreFire) return;
 
-            int dmg = damage + intelligence * 2 - troop.Intelligence - troop.Defence;
-           // if (troop.ChangeTroops(-dmg, this, false))
+            int dmg = GameRandom.Random(damage + Math.Max(0, intelligence * 2 - troop.Intelligence - troop.Defence), 0.1f);
+            // if (troop.ChangeTroops(-dmg, this, false))
             {
                 FireDamageEvent @event = RenderEvent.Instance.Create<FireDamageEvent>();
                 @event.Init(this, dmg, troop, null);
@@ -315,7 +315,7 @@ namespace Sango.Core
             if (building == null) return;
 
             // 火焰不能决定城池归属
-            int dmg = damage / 3 + intelligence / 2;
+            int dmg = GameRandom.Random(damage / 3 + intelligence / 2, 0.1f);
             if (building.durability < dmg)
                 dmg = building.durability - 1;
             if (dmg > 0)
@@ -324,6 +324,7 @@ namespace Sango.Core
                 FireDamageEvent @event = RenderEvent.Instance.Create<FireDamageEvent>();
                 @event.Init(this, dmg, null, building);
                 RenderEvent.Instance.Add(@event);
+
             }
         }
 

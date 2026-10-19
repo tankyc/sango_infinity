@@ -164,6 +164,18 @@ namespace Sango.Core.Event
         /// </summary>
         bool pictureClosedPending;
 
+        /// <summary>
+        /// 结局界面（window_ending）的剩余展示时长（秒）。&gt;0 表示正在展示。
+        ///
+        /// 为什么把计时放在事件系统里，而不是给 window_ending 挂一个脚本：
+        /// 该窗口只是个静态感谢画面（prefab 上没有任何 MonoBehaviour），
+        /// 而事件系统此刻本就独占着流程、每帧都有 Update 在跑，
+        /// 由它倒计时既不用改美术资产，也不会多出一个需要维护生命周期的组件。
+        ///
+        /// 计时期间事件保持 waiting，不推进任何指令；归零后收窗并返回开始页面。
+        /// </summary>
+        float endingCountdown;
+
         /// <summary>每帧驱动：等待结束后继续推进指令流</summary>
         public override void Update()
         {
@@ -189,6 +201,19 @@ namespace Sango.Core.Event
                 {
                     waitingDuel = false;
                     waiting = false;
+                }
+                return;
+            }
+
+            // 结局界面倒计时（window_ending）：展示满若干秒后收窗并返回开始页面。
+            // 必须排在 waiting 判断之前 —— 展示期间事件刻意保持 waiting，不会再有指令推进。
+            if (endingCountdown > 0f)
+            {
+                endingCountdown -= UnityEngine.Time.deltaTime;
+                if (endingCountdown <= 0f)
+                {
+                    endingCountdown = 0f;
+                    FinishEndingAndReturnToTitle();
                 }
                 return;
             }

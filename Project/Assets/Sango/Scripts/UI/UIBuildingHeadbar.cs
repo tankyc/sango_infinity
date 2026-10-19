@@ -10,7 +10,8 @@ namespace Sango.UI
         public UIWorker[] workers;
         public RectTransform workerNode;
         public RectTransform productNode;
-        public Image productImg;
+        /// <summary>产出道具图标（RawImage + Texture，与道具格 UIBuildingTypeItem 同口径）</summary>
+        public RawImage productImg;
 
         public void ShowWorker(Building building)
         {
@@ -50,7 +51,7 @@ namespace Sango.UI
             ItemType itemType = Scenario.Cur.GetObject<ItemType>(building.ProductItemId);
             if (itemType != null)
             {
-                productImg.sprite = GameRenderHelper.LoadBuildingTypeIcon(itemType.icon);
+                productImg.texture = GameRenderHelper.LoadItemIcon(itemType.icon);
             }
         }
 

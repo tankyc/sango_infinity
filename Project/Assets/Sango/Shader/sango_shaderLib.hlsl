@@ -43,6 +43,14 @@ half _Alpha;
 #define APPLY_FOG 1            
 #endif
 
+// 地形法线贴图参数（仅 SANGO_TERRAIN_LIT 使用）。
+// 本项目是 Gamma 颜色空间（ProjectSettings 的 m_ActiveColorSpace = 0），
+// 运行时纹理不会被 sRGB 解码，采样值就是法线原始编码值，可直接 *2-1；
+// 只有 Linear 空间下才需要还原，见 SangoSampledNormalValue。
+float4 _BumpMap_ST;
+half _NormalScale;
+half _NormalFlipY;
+
 #if SANGO_WATER
 float _HorizontalAmount;
 float _VerticalAmount;
@@ -132,6 +140,11 @@ SAMPLER(smp_point_clamp);
 
 #if SANGO_BASE_COLOR || SANGO_BASE_COLOR_ADD
 TEXTURE2D(_BaseTex);
+#endif
+
+// 地形法线贴图（Sango/terrain_urp_lit 使用，对应 MapLayer.LayerData.isLit == true）
+#if SANGO_TERRAIN_LIT
+TEXTURE2D(_BumpMap);
 #endif
 
 #if SANGO_GRID_COLOR
@@ -234,6 +247,57 @@ SangoVertexOutput sango_vert(SangoVertexInput v)
 	return o;
 }
 
+// ---------------------------------------------------------------------------
+// 地形法线贴图：切线空间法线 -> 世界空间法线
+//
+// 地形顶点不携带 TANGENT，但地表 UV 是"平面映射"：
+//   MapData.VertexUV(vx, vy) = (vx/vertex_width, vy/vertex_height)
+//   MapData.VertexPosition    = (vy*quadSize, height*0.5, vx*quadSize)
+// 即 u 沿世界 +Z、v 沿世界 -X（MapLayer 的 textureScale.y 为负）。
+// 因此切线基可直接取 T=(0,0,1)、B=(-1,0,0)，再用几何法线正交化，
+// 无需给 mesh 增加切线流。
+// ---------------------------------------------------------------------------
+#if SANGO_TERRAIN_LIT
+// 取出贴图里 0~1 的法线编码值。
+//
+// Gamma 空间（本项目）：GPU 不对 sRGB 纹理解码，采样到的就是贴图原始编码值，原样返回。
+// Linear 空间：运行时纹理由 TextureLoader 以 new Texture2D(2,2)（linear=false）创建，
+//             会被当成 sRGB 解码，此时必须反向编码还原，否则整个法线场会偏亮、方向错乱。
+half3 SangoSampledNormalValue(half3 c)
+{
+#if defined(UNITY_COLORSPACE_GAMMA)
+	return c;
+#else
+	half3 lo = c * 12.92;
+	half3 hi = 1.055 * pow(max(c, 1e-4), 1.0 / 2.4) - 0.055;
+	return half3(c.r < 0.0031308 ? lo.r : hi.r,
+	             c.g < 0.0031308 ? lo.g : hi.g,
+	             c.b < 0.0031308 ? lo.b : hi.b);
+#endif
+}
+
+float3 SangoTerrainNormalWS(SangoVertexOutput i)
+{
+	float3 N = normalize(i.normal);
+
+	half3 n = SAMPLE_TEXTURE2D(_BumpMap, sampler_BaseMap, i.uv).rgb;
+	n = SangoSampledNormalValue(n);             // Gamma 空间下原样返回
+	n.g = lerp(n.g, 1.0h - n.g, _NormalFlipY);  // DirectX(Y-) 风格法线贴图可置 1 翻转
+
+	half3 nTS = n * 2.0h - 1.0h;
+	nTS.xy *= max(_NormalScale, 0.0h);
+
+	const float3 T0 = float3(0, 0, 1);
+	const float3 B0 = float3(-1, 0, 0);
+
+	float3 T = T0 - N * dot(N, T0);
+	T = normalize(T + 1e-5 * B0);               // 退化保护（N 与 T0 平行时）
+	float3 B = normalize(cross(T, N));
+
+	return normalize(T * nTS.x + B * nTS.y + N * nTS.z);
+}
+#endif
+
 float4 sango_frag(SangoVertexOutput i) : COLOR
 {
 	UNITY_SETUP_INSTANCE_ID(i);
@@ -249,7 +313,12 @@ float4 sango_frag(SangoVertexOutput i) : COLOR
 	#endif
 
 	Light mainLight = GetMainLight(i.shadowCoord);
+#if SANGO_TERRAIN_LIT
+	// 有法线贴图时用扰动后的世界法线参与漫反射，地形才有立体凹凸感
+	float3 normalWS = SangoTerrainNormalWS(i);
+#else
 	float3 normalWS = normalize(i.normal);
+#endif
 	float3 lightDirection = mainLight.direction;
 	half3 ambient = SampleSH(normalWS).rgb;
 

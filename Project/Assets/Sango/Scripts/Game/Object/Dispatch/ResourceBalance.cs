@@ -2292,6 +2292,14 @@ namespace Sango.Core
                 if (t == null || !t.IsAlive)
                     continue;
 
+                // 兵种解析失败的部队：Troop.IsTransport 等已兜底成 false（见 Troop 里的说明），
+                // 于是它在途的货会被少算 —— 那会让城池被顶爆却查不出原因。
+                // 这里把它点名出来，让脏数据可见（每回合每支部队最多一条）。
+                if (t.LandTroopType == null)
+                {
+                    Sango.Log.Warning($"@资源调度@部队<{t.Id}>的兵种解析失败(LandTroopTypeId={t.LandTroopTypeId})，本回合其在途货量未计入");
+                }
+
                 bool isTransport = t.IsTransport
                     && t.missionType == (int)MissionType.TroopTransformGoodsToCity;
                 bool isReturning = t.missionType == (int)MissionType.TroopReturnCity;

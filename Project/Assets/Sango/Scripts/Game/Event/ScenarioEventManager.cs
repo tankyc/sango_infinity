@@ -153,7 +153,13 @@ namespace Sango.Core.Event
         /// <summary>
         /// 剧本事件系统总开关（剧本参数：<see cref="ScenarioVariables.eventSystemEnabled"/>）。
         ///
-        /// 关掉后：不评估任何触发、不推进定时队列、不重试暂缓项 —— 但**正在播的那一个事件会播完**。
+        /// 只管控**常规剧本事件**：关掉后常规事件不再触发、定时队列不推进、暂缓项不重试。
+        ///
+        /// **固定游戏事件**（<see cref="EventDefinition.AlwaysEnabled"/>）是例外：
+        /// 它们承担"游戏流程完整性"（结局演出、退出出口），无论开关如何都照常触发。
+        /// 因此本属性为 false **不等于**"事件系统完全停摆"。
+        ///
+        /// 另外：**正在播的那一个事件会播完**（中途掐断会留下半开窗口）。
         /// 详见 <see cref="ScenarioVariables.eventSystemEnabled"/> 的注释。
         ///
         /// 剧本未加载 / 变量缺失时按"启用"处理：宁可多播，也不要因为数据缺失让整个系统静默失效。
@@ -174,7 +180,7 @@ namespace Sango.Core.Event
                     lastEnabledState = enabled;
                     Log.Info(enabled
                         ? "剧本事件系统：已启用"
-                        : "剧本事件系统：已关闭（不再评估触发、不再推进定时队列；正在播的事件会播完）");
+                        : "剧本事件系统：已关闭（常规剧本事件不再触发、定时队列暂停；固定游戏事件仍会触发，正在播的事件会播完）");
                 }
 
                 return enabled;
@@ -249,6 +255,9 @@ namespace Sango.Core.Event
 
             // —— 势力灭亡 ——
             GameEvent.OnForceFall += OnForceFall;
+
+            // —— 统一天下（天下一统）：剧本终局事件（胜利结局）——
+            GameEvent.OnWorldUnified += OnWorldUnified;
 
             // —— 部队创建 / 消灭 ——
             GameEvent.OnTroopCreated += OnTroopCreated;
@@ -365,18 +374,23 @@ namespace Sango.Core.Event
         {
             ResetTurnCounters();
 
-            // 总开关关掉时直接返回：不推进定时队列、不重试暂缓项、不求值任何候选。
+            // 总开关关掉时：不推进定时队列、不重试暂缓项。
             // 定时队列里的待办项**保留**（不丢），重新打开后按回合逐条补播。
-            if (!Enabled) return;
+            //
+            // 但**不能在这里早返回** —— 第三步的 EvaluateKind 会按事件自身的
+            // AlwaysEnabled 过滤，让"固定游戏事件"（统一天下等结局事件）在开关关闭后照常触发。
+            // 早返回会把这些事件一起静默掉，恰好抹掉了这条分类存在的意义。
+            if (Enabled)
+            {
+                // 第一步：推进定时队列（跨回合事件链在此接上）
+                ProcessScheduledQueue(scenario);
 
-            // 第一步：推进定时队列（跨回合事件链在此接上）
-            ProcessScheduledQueue(scenario);
+                // 第二步：重试上一回合因"演出占用"而暂缓的触发。
+                // 放在这里是因为回合开始时上一回合的所有演出（含 AI 行军）都已结束，是天然的安静点。
+                DrainDeferred();
+            }
 
-            // 第二步：重试上一回合因"演出占用"而暂缓的触发。
-            // 放在这里是因为回合开始时上一回合的所有演出（含 AI 行军）都已结束，是天然的安静点。
-            DrainDeferred();
-
-            // 第三步：评估本回合的常驻时机事件
+            // 第三步：评估本回合的常驻时机事件（常规事件由 EvaluateKind 内部按开关过滤）
             EvaluateKind(EventTriggerKind.TurnStart, null);
             EvaluateKind(EventTriggerKind.DateReach, null);
         }
@@ -444,6 +458,27 @@ namespace Sango.Core.Event
         void OnForceFall(Force force, City city, Troop troop)
         {
             EvaluateKind(EventTriggerKind.ForceFall, force);
+        }
+
+        /// <summary>
+        /// 统一天下（天下一统）。
+        ///
+        /// 【为什么走 urgent 模式，绕过让路闸门】
+        /// 抛出这一 hook 的调用点（City 陷落处理的 allInOne 分支）紧接着就调了
+        /// <c>Scenario.OnGamePause()</c>，主循环（<c>Scenario.Run</c> 的后台线程）当场停住。
+        /// 而常规的让路策略是"暂缓到下一回合开始重试"——那个回合永远不会到来，
+        /// 结局事件就会被永久吞掉。因此这里跳过让路闸门，立刻试播。
+        ///
+        /// 【安全边界】<see cref="EvaluateKind"/> 仍会挡住"IsPlaying"，即已有事件在播时不抢；
+        /// 而此刻玩家刚攻陷最后一座城，对话框与旧演出队列都是干净的，抢窗口的风险极低。
+        /// </summary>
+        /// <param name="force">统一天下的势力（通常即玩家势力）</param>
+        void OnWorldUnified(Force force)
+        {
+            Log.Info($"剧本事件：检测到【{force?.Name}】统一天下，立即尝试播放结局事件");
+
+            // urgent = true：跳过"让路暂缓"，否则主循环已停，暂缓项永远等不到下一回合
+            EvaluateKind(EventTriggerKind.WorldUnified, force, true);
         }
 
         void OnTroopCreated(Troop troop, Scenario scenario)
@@ -539,9 +574,27 @@ namespace Sango.Core.Event
         /// <returns>是否成功播放了一个事件</returns>
         public bool EvaluateKind(EventTriggerKind kind, SangoObject entity)
         {
-            // 总开关：所有 hook 驱动的自动触发都从这里进来，闸门放这一处即可覆盖全部触发时机
-            if (!Enabled) return false;
+            return EvaluateKind(kind, entity, false);
+        }
+
+        /// <summary>
+        /// 评估某个触发时机的全部候选事件，命中即播放（带紧急模式）。
+        /// </summary>
+        /// <param name="kind">触发时机</param>
+        /// <param name="entity">hook 注入的事件实体（可为 null）</param>
+        /// <param name="urgent">true = 跳过"让路暂缓"，立刻试播。
+        /// 仅用于"主循环马上就要停住、暂缓等于永久丢失"的场合（统一天下）。</param>
+        /// <returns>是否成功播放了一个事件</returns>
+        public bool EvaluateKind(EventTriggerKind kind, SangoObject entity, bool urgent)
+        {
             if (!database.Loaded || IsPlaying) return false;
+
+            // 总开关：所有 hook 驱动的自动触发都从这里进来，闸门放这一处即可覆盖全部触发时机。
+            //
+            // 但**不能直接 return** —— 关掉后仍要放行"固定游戏事件"
+            // （EventDefinition.AlwaysEnabled，如统一天下结局）。
+            // 因此这里只取一次开关值，真正的过滤放到候选循环里按事件自己的标记做。
+            bool switchOn = Enabled;
 
             // 让路：旧体系（RenderEvent）或对话框正在占用时，本轮不启动新演出。
             //
@@ -551,7 +604,10 @@ namespace Sango.Core.Event
             // 事件若在此刻启动，就会和旧演出抢对话框。
             //
             // 刻意**不丢弃而是暂缓** —— 与"一次 hook 只播一个事件、其余留到下回合"是同一策略。
-            if (IsBlockedByOtherPresentation())
+            //
+            // urgent 时**不暂缓**：调用方（统一天下）抛出 hook 之后主循环就停了，
+            // 暂缓到"下一回合"等于这件事永远不会发生。此时宁可冒抢窗口的风险也要立刻试播。
+            if (!urgent && IsBlockedByOtherPresentation())
             {
                 Defer(kind, entity, currentJobResult);
                 return false;
@@ -571,9 +627,14 @@ namespace Sango.Core.Event
             for (int i = 0; i < sortedBuffer.Count; i++)
             {
                 if (evaluatedThisTurn >= MaxEventEvalPerTurn) return false;
-                evaluatedThisTurn++;
 
-                if (TryFireEvent(sortedBuffer[i], kind, entity)) return true;
+                // 总开关关闭时跳过常规剧本事件：连条件树都不求值（"关掉就等于零开销"）。
+                // 只留下 AlwaysEnabled 的固定游戏事件继续往下过闸。
+                EventDefinition candidate = sortedBuffer[i];
+                if (!switchOn && (candidate == null || !candidate.AlwaysEnabled)) continue;
+
+                evaluatedThisTurn++;
+                if (TryFireEvent(candidate, kind, entity)) return true;
             }
 
             return false;
@@ -674,10 +735,15 @@ namespace Sango.Core.Event
         /// <returns>是否已开始播放</returns>
         public bool TryFireEvent(EventDefinition def, EventTriggerKind kind, SangoObject entity)
         {
+            if (def == null || !def.Enabled) return false;
+
             // 总开关。EvaluateKind 已挡过一道，这里再挡是为了覆盖"绕过 EvaluateKind 直接调本方法"
             // 的调用方（例如以后调试面板想单独重试某个事件）。
-            if (!Enabled) return false;
-            if (def == null || !def.Enabled) return false;
+            //
+            // 固定游戏事件（AlwaysEnabled）例外：它们承担结局 / 流程完整性，不受玩家开关影响。
+            // 判断必须放在 def 判空之后 —— 先取 def.AlwaysEnabled 就是空引用。
+            if (!Enabled && !def.AlwaysEnabled) return false;
+
             if (IsPlaying) return false;
 
             EventTriggerDef trigger = def.Trigger;

@@ -7,11 +7,14 @@ namespace Sango.Render
         public City city;
         public Person person;
         public Person target;
+        /// <summary>本次探索发现的宝物 / 装备（结果码 -2 时有效，已进势力国库）</summary>
+        public ItemType foundItem;
         public int searchingType = 0; // 1是工作制
 
         /// <summary>
         /// 本次探索的结果码（与 <see cref="City.DoJobSearching"/> 返回值一致）：
-        /// 0 = 发现人才（<see cref="target"/> 有效）／ &gt;0 = 发现资金数额 ／ -1 = 一无所获。
+        /// 0 = 发现人才（<see cref="target"/> 有效）／ &gt;0 = 发现资金数额 ／
+        /// -2 = 发现宝物 / 装备（<see cref="foundItem"/> 有效）／ -1 = 一无所获。
         ///
         /// 记录下来是为了在 <see cref="Exit"/> 里抛 <see cref="GameEvent.OnCityJobSearchingSettled"/> ——
         /// 演出结束时 Enter 的局部变量已经没了，结果必须随事件实例带着。
@@ -24,14 +27,36 @@ namespace Sango.Render
             this.city = city;
             this.person = person;
             this.target = null;
+            this.foundItem = null;
             searchResult = -1;
             searchingType = 0;
             IsDone = false;
         }
         public override void Enter(Scenario scenario)
         {
-            int rs = city.DoJobSearching(person, out target);
+            int rs = city.DoJobSearching(person, out target, out foundItem);
             searchResult = rs;
+
+            // 发现宝物 / 装备：道具已在结算里进势力国库，这里只做展示
+            if (rs == -2)
+            {
+                if (city.BelongCorps.IsPlayerControl && searchingType == 0)
+                {
+                    // 珍品按**品级**上色（见 ItemType.ColorName），与武将名用 ColorName 是同一套富文本约定
+                    string itemName = foundItem != null ? foundItem.ColorName : "珍品";
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay,
+                        $"发现了{itemName}，已收入国库。", () =>
+                        {
+                            IsDone = true;
+                        }, person);
+                }
+                else
+                {
+                    IsDone = true;
+                }
+                return;
+            }
+
             if (rs < 0)
             {
                 if (city.BelongCorps.IsPlayerControl && searchingType == 0)

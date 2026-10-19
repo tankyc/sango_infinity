@@ -6,8 +6,10 @@ using Sango.Core; namespace Sango.UI
 {
     public class UIBuildingTypeItem : MonoBehaviour
     {
-        public Image icon;
-        public Image icon1;
+        /// <summary>主图标（RawImage + Texture：建筑走 Assets/BuildingIcon，道具走 Assets/ItemIcon）</summary>
+        public RawImage icon;
+        /// <summary>角标图标（与主图标同一张纹理）</summary>
+        public RawImage icon1;
         public GameObject titleObj;
         public Text nameLabel;
         public Text costLabel;
@@ -92,9 +94,9 @@ using Sango.Core; namespace Sango.UI
                 nameLabel.text = buildingType.Name;
                 if (costLabel != null)
                     costLabel.text = buildingType.cost.ToString();
-                icon.sprite = GameRenderHelper.LoadBuildingTypeIcon(buildingType.icon);
+                icon.texture = GameRenderHelper.LoadBuildingIcon(buildingType.icon);
                 if (icon1 != null)
-                    icon1.sprite = icon.sprite;
+                    icon1.texture = icon.texture;
                 if (numLabel != null)
                     numLabel.text = "";
             }
@@ -119,9 +121,10 @@ using Sango.Core; namespace Sango.UI
                 nameLabel.text = itemType.Name;
                 if (costLabel != null)
                     costLabel.text = itemType.cost.ToString();
-                icon.sprite = GameRenderHelper.LoadBuildingTypeIcon(itemType.icon);
+                // 道具走道具图标目录（Assets/ItemIcon），与建筑图标不是同一批资源
+                icon.texture = GameRenderHelper.LoadItemIcon(itemType.icon);
                 if (icon1 != null)
-                    icon1.sprite = icon.sprite;
+                    icon1.texture = icon.texture;
                 if (numLabel != null)
                     numLabel.text = "";
                 icon.color = new Color(0.85f, 0.85f, 0.85f);
@@ -147,9 +150,10 @@ using Sango.Core; namespace Sango.UI
                 nameLabel.text = troopType.Name;
                 if (costLabel != null)
                     costLabel.text = "";
-                icon.sprite = GameRenderHelper.LoadBuildingTypeIcon(troopType.icon);
+                // 兵种图标尚未迁移，LoadBuildingIcon 会自动兜底到老图集（见其两级查找说明）
+                icon.texture = GameRenderHelper.LoadBuildingIcon(troopType.icon);
                 if (icon1 != null)
-                    icon1.sprite = icon.sprite;
+                    icon1.texture = icon.texture;
                 if (numLabel != null)
                     numLabel.text = "";
                 icon.color = new Color(0.85f, 0.85f, 0.85f);

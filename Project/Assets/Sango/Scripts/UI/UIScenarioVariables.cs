@@ -167,7 +167,7 @@ namespace Sango.UI
             AddToggleItem("火焰-允许蔓延到相邻格", variables.fireSpreadEnabled, (v) => { variables.fireSpreadEnabled = v; });
 
             AddTitle("剧本事件");
-            AddToggleItem("启用剧本事件系统", variables.eventSystemEnabled, (v) => { variables.eventSystemEnabled = v; });
+            AddToggleItem("启用剧本事件（常规剧情）", variables.eventSystemEnabled, (v) => { variables.eventSystemEnabled = v; });
 
             AddTitle("部队参数");
             AddNumberItem("攻击-武力影响(万分比)", variables.fight_troop_attack_strength_factor, 0, 100000, (v) => { variables.fight_troop_attack_strength_factor = v; });
@@ -400,6 +400,19 @@ namespace Sango.UI
             AddGainTable("武将经验", variables.expGain, GainValueConfig.ExpPlaces);
             AddGainTable("兵种适性经验", variables.abilityExpGain, GainValueConfig.AbilityExpPlaces);
             AddGainTable("能力经验", variables.attributeExpGain, GainValueConfig.AttributeExpPlaces);
+
+            // 宝物与装备：搜索人才的产出概率 / 限流（GainValueConfig 的 ItemDiscover* 段）
+            // 与国库容量。节奏口径见 ForceItemDiscover 的类注释。
+            AddBigTitle("宝物与装备产出");
+            AddGainTable("搜索人才产出", variables.itemDiscoverGain, GainValueConfig.ItemDiscoverPlaces);
+            // 国库容量：两项同时为 0 = 不设上限（策划案 4.2 的 v1 默认口径），
+            // 任意一项调到大于 0 即恢复「基础容量 + 城数 × 每城增量」的上限计算
+            AddNumberItem("国库基础容量(件，0=不限)", variables.treasuryLimitBase, 0, 999, (v) => { variables.treasuryLimitBase = v; });
+            AddNumberItem("国库每城容量增量(件，0=不限)", variables.treasuryLimitPerCity, 0, 99, (v) => { variables.treasuryLimitPerCity = v; });
+
+            // 授予 / 没收：按珍品品级（1~5）计算的忠诚增减曲线
+            // （GainValueConfig 的 ItemGrant* / ItemConfiscate* 段，见 ItemGrantRules）
+            AddGainTable("授予 / 没收忠诚", variables.itemGrantGain, GainValueConfig.ItemGrantPlaces);
 
             AddBigTitle("Mod相关");
             GameEvent.OnScenarioVariablesSetting?.Invoke(this, scenario);

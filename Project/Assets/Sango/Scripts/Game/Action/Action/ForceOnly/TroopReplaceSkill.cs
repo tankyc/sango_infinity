@@ -30,22 +30,22 @@ namespace Sango.Core.Action
             Skill skill = scenario.GetObject<Skill>(replaceSkillId);
             if (kinds == null)
             {
-                troop.landSkills.RemoveAll(x => x.skill.Id == skillId);
-                troop.landSkills.Add(SkillInstance.Create(troop, skill));
-                troop.waterSkills.RemoveAll(x => x.skill.Id == skillId);
-                troop.waterSkills.Add(SkillInstance.Create(troop, skill));
+                if (troop.landSkills.RemoveAll(x => x.skill.Id == skillId) > 0)
+                    troop.landSkills.Add(SkillInstance.Create(troop, skill));
+                if (troop.waterSkills.RemoveAll(x => x.skill.Id == skillId) > 0)
+                    troop.waterSkills.Add(SkillInstance.Create(troop, skill));
             }
             else
             {
                 if (kinds.Contains(troop.LandTroopType.kind))
                 {
-                    troop.landSkills.RemoveAll(x => x.skill.Id == skillId);
-                    troop.landSkills.Add(SkillInstance.Create(troop, skill));
+                    if (troop.landSkills.RemoveAll(x => x.skill.Id == skillId) > 0)
+                        troop.landSkills.Add(SkillInstance.Create(troop, skill));
                 }
                 if (kinds.Contains(troop.WaterTroopType.kind))
                 {
-                    troop.waterSkills.RemoveAll(x => x.skill.Id == skillId);
-                    troop.waterSkills.Add(SkillInstance.Create(troop, skill));
+                    if (troop.waterSkills.RemoveAll(x => x.skill.Id == skillId) > 0)
+                        troop.waterSkills.Add(SkillInstance.Create(troop, skill));
                 }
             }
         }

@@ -14,6 +14,19 @@ namespace Sango.Render
             public string[] normalTexName = new string[4];
             public string[] maskTexName = new string[4];
             public bool isLit = false;
+
+            /// <summary>
+            /// 是否水面层（layerDatas 的最后一层）。
+            /// 水面层使用 Sango/water_urp 着色器，任何情况下都不该被换成地表着色器，
+            /// 因此 SetLit / ApplyLitShader 需要据此跳过。
+            /// </summary>
+            public bool isWaterLayer = false;
+
+            /// <summary>
+            /// 法线着色器是否已就绪（见 ApplyLitShader）。
+            /// 用于避免每帧重复切换着色器、重复写 _NormalScale / 平坦法线。
+            /// </summary>
+            private bool litShaderReady = false;
             public Texture[] diffuse = new Texture[4];
             public Texture[] normal = new Texture[4];
             public Texture[] mask = new Texture[4];
@@ -37,6 +50,7 @@ namespace Sango.Render
             public LayerData(MapLayer layer, Material mat)
             {
                 this.layer = layer;
+                isWaterLayer = true;        // 走这个构造函数的只有水面层(见 MapLayer 构造/OnLoad)
                 diffuse = new Texture[4] { Texture2D.whiteTexture, Texture2D.whiteTexture, Texture2D.whiteTexture, Texture2D.whiteTexture };
                 normal = new Texture[4] { Texture2D.whiteTexture, Texture2D.whiteTexture, Texture2D.whiteTexture, Texture2D.whiteTexture };
                 mask = new Texture[4] { Texture2D.blackTexture, Texture2D.blackTexture, Texture2D.blackTexture, Texture2D.blackTexture };
@@ -85,9 +99,12 @@ namespace Sango.Render
                 if (diffuse[season] == null && !string.IsNullOrEmpty(diffuseTexName[season]))
                 {
                     Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{diffuseTexName[season]}");
-                    diffuse[season] = tex;
-                    textureScale = new Vector2(layer.map.mapData.vertex_width * 32 / tex.width,
-                                  -layer.map.mapData.vertex_height * 32 / tex.height);
+                    if (tex != null)
+                    {
+                        diffuse[season] = tex;
+                        textureScale = new Vector2(layer.map.mapData.vertex_width * 32 / tex.width,
+                                      -layer.map.mapData.vertex_height * 32 / tex.height);
+                    }
                 }
                 if (normal[season] == null && !string.IsNullOrEmpty(normalTexName[season]))
                 {
@@ -151,6 +168,10 @@ namespace Sango.Render
             {
                 if (material == null) return;
 
+                // isLit(启用 normal/mask) 时必须用带法线采样的着色器变体，
+                // 否则 SetTexture("_BumpMap") 设了也没人采样（这是旧代码的实际状态）
+                ApplyLitShader();
+
                 // 【性能】非当前季节的贴图未随地图加载，切换到该季节时按需加载
                 EnsureSeasonTexture(season);
 
@@ -161,30 +182,75 @@ namespace Sango.Render
                 }
                 if (isLit)
                 {
-                    if (normal != null)
+                    // normal[] 的初值是 Texture2D.whiteTexture，直接设进去会被当成 (1,1,1) 法线，
+                    // 归一化后整个法线场会歪掉。只有拿到真实法线贴图才设置，
+                    // 否则保留着色器属性里的平坦默认值（"bump" = (0.5,0.5,1)）
+                    Texture normalTex = normal[season];
+                    if (normalTex != null && normalTex != Texture2D.whiteTexture)
                     {
-                        material.SetTexture("_BumpMap", normal[season]);
+                        material.SetTexture("_BumpMap", normalTex);
                         material.SetTextureScale("_BumpMap", textureScale);
-
                     }
-                    if (mask != null)
+
+                    // mask[] 的初值是 blackTexture，同理避开未加载的情况
+                    Texture maskTex = mask[season];
+                    if (maskTex != null && maskTex != Texture2D.blackTexture)
                     {
-                        material.SetTexture("_MaskMap", mask[season]);
+                        material.SetTexture("_MaskMap", maskTex);
                         material.SetTextureScale("_MaskMap", textureScale);
                     }
                 }
             }
+            /// <summary>
+            /// 按 <see cref="isLit"/> 应用地表着色器。
+            ///
+            /// 点亮时切到 <c>Sango/terrain_urp_lit</c>：该变体在片元里采样 <c>_BumpMap</c>，
+            /// 用扰动后的世界法线参与漫反射（见 sango_shaderLib.hlsl 的 SANGO_TERRAIN_LIT 段）。
+            /// 未点亮时**不动**着色器，保持创建时的状态（普通地表 = terrain_urp，水面 = water_urp），
+            /// 避免误把水面层换成地表着色器。
+            /// 变体缺失（未打进包）时静默退回原着色器，不影响渲染。
+            /// </summary>
+            public void ApplyLitShader()
+            {
+                if (material == null || !isLit || isWaterLayer)
+                    return;
+                if (litShaderReady)
+                    return;
+
+                Shader lit = Shader.Find("Sango/terrain_urp_lit");
+                if (lit == null)
+                    return;
+
+                if (material.shader != lit)
+                    material.shader = lit;
+
+                // _NormalScale 材质默认值可能为 0，那样凹凸会被完全压平，这里兜底为 1
+                if (material.HasProperty("_NormalScale"))
+                    material.SetFloat("_NormalScale", 1f);
+
+                // 兜底：实测 new Material 后 _BumpMap 取到的是 null，
+                // 若直接被绑成白色纹理，shader 里 (1,1,1)*2-1 会得到非法法线、整个地形明暗错乱。
+                // 这里显式给平坦法线 normalTexture = (0.5,0.5,1)；稍后 EnsureSeasonTexture
+                // 加载到真实法线贴图时会被 UpdateMaterial 覆盖。
+                if (material.GetTexture("_BumpMap") == null)
+                    material.SetTexture("_BumpMap", Texture2D.normalTexture);
+
+                litShaderReady = true;
+            }
+
             public void SetLit(bool b)
             {
                 isLit = b;
+                litShaderReady = false;     // 状态变了，允许 ApplyLitShader 重新初始化
                 if (b)
                 {
-                    // material.shader = Shader.Find("Universal Render Pipeline/Lit");
-                    material.shader = Shader.Find("Sango/terrain_urp");
+                    ApplyLitShader();
                 }
-                else
+                else if (material != null && !isWaterLayer)
                 {
-                    material.shader = Shader.Find("Sango/terrain_urp");
+                    Shader basic = Shader.Find("Sango/terrain_urp");
+                    if (basic != null)
+                        material.shader = basic;
                 }
             }
 
@@ -272,8 +338,14 @@ namespace Sango.Render
                         {
                             Texture tex = layer.map.CreateTexture($"Terrain/{seasonName}/{normalTexName[i]}");
                             normal[i] = tex;
-                            material.SetTexture("_BumpMap", tex);
-                            material.SetTextureScale("_BumpMap", textureScale);
+                            // 贴图缺失时 CreateTexture 会返回 null，绝不能把 null 塞进 _BumpMap：
+                            // 那样会被绑成白色纹理，(1,1,1)*2-1 得到非法法线，整个地形明暗错乱。
+                            // 此时保留 ApplyLitShader 里设好的平坦法线即可。
+                            if (tex != null)
+                            {
+                                material.SetTexture("_BumpMap", tex);
+                                material.SetTextureScale("_BumpMap", textureScale);
+                            }
                         }
                         else
                         {

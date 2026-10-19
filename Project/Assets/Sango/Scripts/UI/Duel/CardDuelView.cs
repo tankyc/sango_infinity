@@ -1675,7 +1675,7 @@ namespace Sango.Core.Duel
                 // 伤病在单挑中会变，而每次变化都会走 DuelHpAnim → RefreshCharaPanels，所以负伤当场就能看到。
                 bool injured = m_Duel.TeamGetInjuryLevel(teamData, chara) > (int)InjuryLevel.Healthy;
                 SetText(slot, "name", person.Name, injured);
-                SetText(slot, "Strength", "武力 " + person.Strength, injured);
+                SetText(slot, "Strength", "武力 " + GetDisplayStrength(team, chara, person), injured);
                 ApplyHead(slot, person);
 
                 // 生命
@@ -2148,9 +2148,30 @@ namespace Sango.Core.Duel
             int hp = m_Duel.GetHp(team, chara);
             bool lowHp = hp < Mathf.RoundToInt(Duel.MaxHP * cardLowHpRatio);
 
-            return "武力 " + ColorTag(person.Strength.ToString(), injured ? InjuredTag : baseTag)
+            return "武力 " + ColorTag(GetDisplayStrength(team, chara, person).ToString(), injured ? InjuredTag : baseTag)
                 + "\n体力 " + ColorTag(hp + " / " + Duel.MaxHP, lowHp ? LowHpTag : baseTag)
                 + "\n斗志 " + ColorTag(m_Duel.GetSpirit(team, chara).ToString(), baseTag);
+        }
+
+        /// <summary>
+        /// 面板上显示的武力：以武将底子（RawStrength）按**单挑侧**的伤病等级折算。
+        ///
+        /// 单挑中的伤病随时会涨（挨必杀会 +1 级），而 person.injury 要等单挑结算才由
+        /// Duel.ResultInjury 写回，所以不能直接读 person.Strength —— 那样"打到一半被打伤"的武将
+        /// 面板上会一直显示受伤前的武力，与本回合实际参与攻击比例计算的武力对不上。
+        ///
+        /// revised 取 false：只做伤病折减，不算"武将单挑行为"里的隐藏修正（那些不进面板）。
+        /// </summary>
+        protected virtual int GetDisplayStrength(int team, int chara, Person person)
+        {
+            if (person == null) return 0;
+
+            int injuryLevel = m_Duel != null ? m_Duel.TeamGetInjuryLevel(m_Duel.GetTeam(team), chara) : 0;
+            if (injuryLevel < 0) injuryLevel = 0;   // -1：不在场（已阵亡）
+
+            int strength = Duel.GetDuelStrength(person, injuryLevel, false);
+            // 已阵亡时 GetDuelStrength 返回 0，保留武将自身的值，避免面板出现"武力 0"
+            return strength > 0 ? strength : person.Strength;
         }
 
         /// <summary>给一段文字套上富文本颜色标签（卡面这几块 Text 都勾了 Rich Text）</summary>

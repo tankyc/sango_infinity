@@ -95,6 +95,37 @@ namespace Sango.Core
         [JsonProperty] public GainValueConfig eventGain = new GainValueConfig();
 
         /// <summary>
+        /// 宝物 / 装备产出配置（键 = GainPlace 的 ItemDiscover* 段）。
+        /// 探索人才时的珍品产出概率、势力与城市冷却、开局保护、累计上限都在本表调参，
+        /// 代码侧不硬编码（见 <see cref="Sango.Core.ForceItemDiscover"/>）。
+        /// </summary>
+        [JsonProperty] public GainValueConfig itemDiscoverGain = new GainValueConfig();
+
+        /// <summary>
+        /// 国库基础容量（宝物与装备合计件数）。
+        /// 国库上限 = 本值 + 己方城数 × <see cref="treasuryLimitPerCity"/>，
+        /// 口径见 <see cref="Sango.Core.Force.TreasuryLimit"/>。
+        ///
+        /// **默认 0 = 不设上限**（策划案 4.2：v1 暂不限制国库容量，先把产出与授予链路跑通）。
+        /// 本值与 <see cref="treasuryLimitPerCity"/> **同时**为 0 时表示完全关闭容量限制；
+        /// 任意一项配成大于 0 即恢复上限计算。
+        /// </summary>
+        [JsonProperty] public int treasuryLimitBase = 0;
+
+        /// <summary>
+        /// 国库每城容量增量（每多一座城可多存几件珍品）。
+        /// 默认 0 = 不设上限（与 <see cref="treasuryLimitBase"/> 同时为 0 时生效）。
+        /// </summary>
+        [JsonProperty] public int treasuryLimitPerCity = 0;
+
+        /// <summary>
+        /// 授予 / 没收配置（键 = GainPlace 的 ItemGrant* / ItemConfiscate* 段）。
+        /// 按珍品品级计算的忠诚增减曲线在本表调参，代码侧不硬编码
+        /// （见 <see cref="Sango.Core.ItemGrantRules"/>）。
+        /// </summary>
+        [JsonProperty] public GainValueConfig itemGrantGain = new GainValueConfig();
+
+        /// <summary>
         /// 基础伤害
         /// </summary>
         [JsonProperty] public float fight_base_damage = 64;
@@ -626,10 +657,15 @@ namespace Sango.Core
         /// <summary>
         /// **剧本事件系统总开关**（剧本级，玩家可在剧本参数界面自行开关，随存档持久化）。
         ///
-        /// 关掉后的行为：
-        ///   · 不再评估任何触发 —— 连条件树都不求值，零开销；
+        /// 只管控**常规剧本事件**。关掉后的行为：
+        ///   · 常规事件不再评估任何触发 —— 连条件树都不求值，零开销；
         ///   · 不再推进定时事件队列；
         ///   · 不再重试"因演出占用而暂缓"的触发。
+        ///
+        /// **固定游戏事件不受影响**：标记了
+        /// <see cref="Sango.Core.Event.EventDefinition.AlwaysEnabled"/> 的事件
+        /// （结局演出、必须给玩家的退出出口等）照常触发 —— 它们是"游戏流程完整性"的一部分，
+        /// 被关掉会让剧本断在半路（例如统一天下后既没有结局、也回不到开始页面）。
         ///
         /// 两点刻意的取舍：
         ///   · **已经在播的那一个事件照常播完** —— 中途掐断会留下半开的窗口与对话框，

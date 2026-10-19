@@ -86,6 +86,8 @@ namespace Sango.Core
            // Register("TroopStrengthCheck", CraeteHandle<TroopStrengthCheck>);
             Register("TroopMoraleCheck", CraeteHandle<TroopMoraleCheck>);
             Register("TroopAroundTeammateCount", CraeteHandle<TroopAroundTeammateCount>);
+            // 兵种适性检查：比较部队(自己或目标)指定兵种的适性等级
+            Register("TroopAbilityCheck", CraeteHandle<TroopAbilityCheck>);
 
             // Skill
             Register("SkillIsCritical", CraeteHandle<SkillIsCritical>);

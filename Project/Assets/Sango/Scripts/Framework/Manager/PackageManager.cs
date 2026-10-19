@@ -66,6 +66,12 @@ namespace Sango
                 editorObj = UnityEditor.AssetDatabase.LoadAssetAtPath(assetsPath, assetType);
                 if (editorObj != null) return editorObj;
 
+                // 道具图标（Assets/ItemIcon）已统一为 .jpg，这里必须一并探测：
+                // 少了这一行，编辑器下 jpg 资源只能靠运行时 TextureLoader 兜底，打包路径会取不到图
+                assetsPath = $"Assets/Mods/{packageName}/{assetName}.jpg";
+                editorObj = UnityEditor.AssetDatabase.LoadAssetAtPath(assetsPath, assetType);
+                if (editorObj != null) return editorObj;
+
                 assetsPath = $"Assets/Mods/{packageName}/{assetName}.jpeg";
                 editorObj = UnityEditor.AssetDatabase.LoadAssetAtPath(assetsPath, assetType);
                 if (editorObj != null) return editorObj;

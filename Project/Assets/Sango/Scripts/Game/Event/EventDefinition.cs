@@ -111,6 +111,23 @@ namespace Sango.Core.Event
         /// <summary>是否启用</summary>
         [JsonProperty] public bool Enabled = true;
 
+        /// <summary>
+        /// 是否为「固定游戏事件」（不受剧本事件总开关影响）。
+        ///
+        /// 剧本事件按"是否吃玩家开关"分成两类：
+        ///   · **常规剧本事件**（本字段 false，缺省）：跟随剧本参数里的
+        ///     「启用剧本事件系统」(<see cref="ScenarioVariables.eventSystemEnabled"/>)，
+        ///     玩家关掉后不再触发。历史事件、探索/登用这类内容向的事件都属于这一类。
+        ///   · **固定游戏事件**（本字段 true）：无论总开关如何都照常触发。
+        ///     它们承担的是"游戏流程完整性"——结局演出、必须给玩家的退出出口等。
+        ///     例如「统一天下」：玩家关掉开关后若连结局都不播，剧本就断在半路，
+        ///     既没有结局演出、也拿不到返回开始页面的入口。
+        ///
+        /// 【边界】只绕过**总开关**，不绕过触发次数 / 冷却 / 年份 / 作用域 / 条件树 / 概率。
+        /// "固定"指的是"不受玩家开关影响"，不是"无条件发生"。
+        /// </summary>
+        [JsonProperty] public bool AlwaysEnabled;
+
         /// <summary>优先级：越大越先播放；同优先级按 Id 升序</summary>
         [JsonProperty] public int Priority;
 

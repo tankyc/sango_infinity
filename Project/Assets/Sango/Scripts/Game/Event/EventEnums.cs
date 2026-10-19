@@ -119,6 +119,16 @@ namespace Sango.Core.Event
         /// 结果码过滤见 <see cref="EventTriggerDef.JobResults"/>。
         /// </summary>
         JobSettled = 29,
+
+        /// <summary>
+        /// 统一天下（OnWorldUnified）——某势力占领了全地图所有城池，剧本胜利结局。
+        ///
+        /// 与 <see cref="ForceFall"/>（败亡）相对：那时是"自己没了"，这里是"别人没了、天下归一"。
+        /// 触发时点很特殊：抛出这一 hook 时 <c>Scenario.OnGamePause()</c> 已经把主循环停住，
+        /// 因此调度器对这类事件**绕过让路闸门**立即播放（详见 ScenarioEventManager.OnWorldUnified），
+        /// 否则一旦被暂缓到"下一回合"，那个回合永远不会到来。
+        /// </summary>
+        WorldUnified = 30,
     }
 
     /// <summary>
@@ -344,6 +354,20 @@ namespace Sango.Core.Event
 
         /// <summary>提前收掉图文窗口（正常情况玩家点击会自行关闭，这条用于分支里强制收场）</summary>
         PictureClose = 30,
+
+        /// <summary>
+        /// 退出剧本：弹出确认对话框，玩家点确定后关闭当前剧本、返回开始页面（window_start）。
+        ///
+        /// 用于**剧本终局事件**的收尾（"统一天下"等）。流程是：
+        /// <c>GameDialog</c> 确认框 → 打开 <c>window_ending</c> 结局界面展示若干秒
+        /// （参数 <c>EndingSeconds</c>，缺省 5 秒）→ <c>Player.QuitToMainMenu()</c>。
+        /// 回收走的是与设置菜单"返回主菜单"同一条链路（ScenarioLifecycle.BeginShutdown），
+        /// 表现层队列、对话队列、系统栈都会被正确收尾，不会留下幽灵订阅。
+        ///
+        /// **确定与取消都进结局界面**：统一天下后主循环已被暂停，取消也没有可回去的
+        /// 游戏状态，两个按钮只是给玩家一个"再想想"的缓冲，最终收尾路径必须唯一。
+        /// </summary>
+        QuitScenario = 31,
     }
 
     /// <summary>

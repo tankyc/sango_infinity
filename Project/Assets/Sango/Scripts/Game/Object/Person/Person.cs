@@ -446,6 +446,15 @@ namespace Sango.Core
         public List<ActionBase> actionList;
 
         /// <summary>
+        /// 装备与随身宝物提供的特效动作列表。
+        ///
+        /// 与 <see cref="actionList"/>（武将特技）**分开两张表**：换装备 / 授予 / 没收时只重建本表，
+        /// 不会把武将自身的特技订阅一起清掉（两边都订阅同一批 GameEvent，混在一张表里必然互相清除）。
+        /// 重建时机见 <see cref="BuildEquipActions"/>。
+        /// </summary>
+        public List<ActionBase> equipActionList;
+
+        /// <summary>
         /// 库存
         /// </summary>
         [JsonProperty]
@@ -454,12 +463,16 @@ namespace Sango.Core
 
         /// <summary>
         /// 装备的武器（存档里只存 EquippedWeaponId 这个数值，加载时由 ResolveReferenceObjects 解析）
+        ///
+        /// 【为什么是 ItemType 而不是 Equipment】
+        ///   道具库由 <c>SangoObjectMap&lt;ItemType&gt;</c> 承载，反序列化统一产出 ItemType 实例，
+        ///   写成 Equipment 会永远解析成 null（装备系统此前一直空转的原因）。
         /// </summary>
         [JsonProperty("EquippedWeapon")]
         public int EquippedWeaponId;
 
         /// <summary>装备的武器对象（不参与序列化，见 EquippedWeaponId）</summary>
-        public Equipment EquippedWeapon { get; set; }
+        public ItemType EquippedWeapon { get; set; }
 
         /// <summary>
         /// 装备的马（存档里只存 EquippedHorseId）
@@ -468,7 +481,7 @@ namespace Sango.Core
         public int EquippedHorseId;
 
         /// <summary>装备的马对象（不参与序列化，见 EquippedHorseId）</summary>
-        public Equipment EquippedHorse { get; set; }
+        public ItemType EquippedHorse { get; set; }
 
         /// <summary>
         /// 装备的铠甲（存档里只存 EquippedArmorId）
@@ -477,7 +490,17 @@ namespace Sango.Core
         public int EquippedArmorId;
 
         /// <summary>装备的铠甲对象（不参与序列化，见 EquippedArmorId）</summary>
-        public Equipment EquippedArmor { get; set; }
+        public ItemType EquippedArmor { get; set; }
+
+        /// <summary>
+        /// 随身宝物（存档里只存 EquippedTreasureId）。
+        /// 非装备类宝物（书籍 / 玉器 / 珍玩 / 兵符等）不占装备栏，授予后随身立即生效，**每人限 1 件**。
+        /// </summary>
+        [JsonProperty("EquippedTreasure")]
+        public int EquippedTreasureId;
+
+        /// <summary>随身宝物对象（不参与序列化，见 EquippedTreasureId）</summary>
+        public ItemType EquippedTreasure { get; set; }
 
         [JsonProperty]
         public int bannedForceId;
@@ -829,12 +852,13 @@ namespace Sango.Core
             Level = IdToObject<PersonLevel>(scenario, LevelId);
             workingBuilding = IdToObject<Building>(scenario, workingBuildingId);
 
-            // 装备存放在道具库(ItemTypes)里、Equipment 是 ItemType 的子类，所以按 ItemType 查再转回 Equipment。
-            // 旧写法把 typeof(Equipment) 交给 Scenario.GetObject，而分派表里只有 ItemType 分支，
-            // 结果装备每次加载都是 null —— 这里一并修正。
-            EquippedWeapon = IdToObject<ItemType>(scenario, EquippedWeaponId) as Equipment;
-            EquippedHorse = IdToObject<ItemType>(scenario, EquippedHorseId) as Equipment;
-            EquippedArmor = IdToObject<ItemType>(scenario, EquippedArmorId) as Equipment;
+            // 装备存放在道具库(ItemTypes)里，运行期一律是 ItemType 实例（见 EquippedWeapon 字段注释）。
+            // 解析完之后立刻重建装备特效，保证读档后效果与存档前一致（见 BuildEquipActions）。
+            EquippedWeapon = IdToObject<ItemType>(scenario, EquippedWeaponId);
+            EquippedHorse = IdToObject<ItemType>(scenario, EquippedHorseId);
+            EquippedArmor = IdToObject<ItemType>(scenario, EquippedArmorId);
+            EquippedTreasure = IdToObject<ItemType>(scenario, EquippedTreasureId);
+            BuildEquipActions();
         }
 
         /// <summary>id → 对象；id &lt;= 0 表示没有，返回 null（与 Id2ObjConverter.Id2Object 的口径一致）</summary>
@@ -898,16 +922,16 @@ namespace Sango.Core
 
             if (BelongCity != null && BelongForce != null && BelongCorps != null)
             {
-                if(state > 4)
+                if (state > 4)
                 {
                     state = 4;
                 }
             }
 
             // 修正一下所属城市
-            if(state <= 4)
+            if (state <= 4)
             {
-                if(BelongCity == null && CurrentCity != null)
+                if (BelongCity == null && CurrentCity != null)
                     BelongCity = CurrentCity;
             }
 
@@ -917,10 +941,18 @@ namespace Sango.Core
                 {
                     // 处理主公
                     case PersonStateType.Governor:
+
+
                         if (BelongCity != null)
                         {
+                            BelongCorps = BelongCity.BelongCorps;
+                            BelongForce = BelongCity.BelongForce;
                             BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
+
+                            if (BelongForce.Governor != Id)
+                                state = (int)PersonStateType.Normal;
+
                             CheckBelongConsistency();
                         }
                         break;
@@ -928,7 +960,13 @@ namespace Sango.Core
                     case PersonStateType.Commander:
                         if (BelongCity != null)
                         {
+                            BelongCorps = BelongCity.BelongCorps;
+                            BelongForce = BelongCity.BelongForce;
                             BelongCity.AddPerson(this);
+
+                            if (BelongCorps.Comander != Id)
+                                state = (int)PersonStateType.Normal;
+
                             BelongCity.NeedUpdateLeader();
                             CheckBelongConsistency();
                         }
@@ -937,8 +975,15 @@ namespace Sango.Core
                     case PersonStateType.Leader:
                         if (BelongCity != null)
                         {
+                            BelongCorps = BelongCity.BelongCorps;
+                            BelongForce = BelongCity.BelongForce;
                             BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
+                            if (BelongCity.Leader == null)
+                                BelongCity.Leader = this;
+                            else if (BelongCity.Leader != null)
+                                state = (int)PersonStateType.Normal;
+
                             CheckBelongConsistency();
                         }
                         break;
@@ -946,6 +991,8 @@ namespace Sango.Core
                     case PersonStateType.Normal:
                         if (BelongCity != null)
                         {
+                            BelongCorps = BelongCity.BelongCorps;
+                            BelongForce = BelongCity.BelongForce;
                             BelongCity.AddPerson(this);
                             CheckBelongConsistency();
                         }
@@ -954,7 +1001,18 @@ namespace Sango.Core
                     case PersonStateType.Unemployed:
                         BelongCorps = null;
                         BelongForce = null;
-                        CurrentCity.wildPersons.Add(this);
+                        if (BelongCity != null)
+                        {
+                            CurrentCity = BelongCity;
+                            BelongCity = null;
+                        }
+                        if (CurrentCity != null)
+                            CurrentCity.wildPersons.Add(this);
+                        else
+                        {
+                            state = (int)PersonStateType.Invalid;
+                            CurrentCity = scenario.citySet.RandomGet();
+                        }
                         break;
                     // 囚犯
                     case PersonStateType.Prisoner:
@@ -1087,6 +1145,7 @@ namespace Sango.Core
             EquippedWeaponId = EquippedWeapon?.Id ?? 0;
             EquippedHorseId = EquippedHorse?.Id ?? 0;
             EquippedArmorId = EquippedArmor?.Id ?? 0;
+            EquippedTreasureId = EquippedTreasure?.Id ?? 0;
             workingBuildingId = workingBuilding?.Id ?? 0;
 
             FatherId = Father?.Id ?? 0;
@@ -2472,6 +2531,17 @@ namespace Sango.Core
             }
             actionList.Clear();
             actionList = null;
+
+            // 装备 / 随身宝的特效订阅同样要清掉，否则剧本卸载后会保留失效引用
+            if (equipActionList != null)
+            {
+                for (int i = 0; i < equipActionList.Count; i++)
+                {
+                    equipActionList[i].Clear();
+                }
+                equipActionList.Clear();
+                equipActionList = null;
+            }
         }
 
         public bool HasFeatrue(int[] ids)
@@ -2821,11 +2891,15 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 获取装备的属性加成
+        /// 获取珍品（装备栏 + 随身宝）的属性加成。
+        ///
+        /// 口径：三个装备栏与随身宝的加成**全额叠加**。
+        /// 这是"道具固定五维加成"的唯一出口 —— 外部通过 Command / Strength / Intelligence /
+        /// Politics / Glamour 取值时已自动包含，无需各处改动（见各 RawXxx 属性）。
         /// </summary>
-        /// <param name="getBonus">获取单个装备加成的委托</param>
+        /// <param name="getBonus">取单个道具某项加成的委托</param>
         /// <returns>总加成值</returns>
-        private int GetEquipmentBonus(System.Func<Equipment, int> getBonus)
+        private int GetEquipmentBonus(System.Func<ItemType, int> getBonus)
         {
             int bonus = 0;
 
@@ -2834,84 +2908,191 @@ namespace Sango.Core
                 bonus += getBonus(EquippedWeapon);
             }
 
+            if (EquippedArmor != null)
+            {
+                bonus += getBonus(EquippedArmor);
+            }
+
             if (EquippedHorse != null)
             {
                 bonus += getBonus(EquippedHorse);
             }
 
-            if (EquippedArmor != null)
+            if (EquippedTreasure != null)
             {
-                bonus += getBonus(EquippedArmor);
+                bonus += getBonus(EquippedTreasure);
             }
 
             return bonus;
         }
 
         /// <summary>
-        /// 装备武器（宝物类武器：宝剑 / 长柄武器 / 暗器 / 宝弓）
+        /// 该道具能否装进指定装备栏。
+        /// 判定统一走 <see cref="ItemType.GetEquipSlot"/>：装备类按 subKind 匹配，
+        /// 宝物只有武器（宝剑 / 长柄 / 暗器 / 宝弓）与名马可以上栏。
         /// </summary>
-        /// <param name="weapon">武器</param>
-        public void EquipWeapon(Equipment weapon)
+        /// <param name="item">道具</param>
+        /// <param name="slot">目标栏位</param>
+        /// <returns>可装备返回 true</returns>
+        public bool CanEquip(ItemType item, EquipmentKind slot)
         {
-            // 宝物统一 kind = Treasure，再按 subKind 细分；1~4 为可装备的武器类宝物
-            if (weapon != null && weapon.kind == (int)ItemKindType.Treasure
-                && weapon.subKind >= (int)TreasureKind.Sword
-                && weapon.subKind <= (int)TreasureKind.Bow)
-            {
-                EquippedWeapon = weapon;
-            }
+            return item != null && item.GetEquipSlot() == (int)slot;
         }
 
         /// <summary>
-        /// 装备马（宝物类名马：赤兔马、的卢等）
+        /// 装备武器（武器类装备，或宝物中的宝剑 / 长柄武器 / 暗器 / 宝弓）
         /// </summary>
-        /// <param name="horse">马</param>
-        public void EquipHorse(Equipment horse)
+        /// <param name="weapon">武器道具</param>
+        /// <returns>装备成功返回 true；栏位不符返回 false</returns>
+        public bool EquipWeapon(ItemType weapon)
         {
-            // 宝物统一 kind = Treasure，subKind = 0 为名马
-            if (horse != null && horse.kind == (int)ItemKindType.Treasure
-                && horse.subKind == (int)TreasureKind.FamousHorse)
-            {
-                EquippedHorse = horse;
-            }
+            if (!CanEquip(weapon, EquipmentKind.Weapon))
+                return false;
+
+            EquippedWeapon = weapon;
+            BuildEquipActions();
+            return true;
         }
 
         /// <summary>
-        /// 装备铠甲（宝物类铠甲，当前数据中暂无此类宝物）
+        /// 装备铠甲（铠甲类装备，或日后预留的宝物铠甲分类）
         /// </summary>
-        /// <param name="armor">铠甲</param>
-        public void EquipArmor(Equipment armor)
+        /// <param name="armor">铠甲道具</param>
+        /// <returns>装备成功返回 true</returns>
+        public bool EquipArmor(ItemType armor)
         {
-            // 宝物统一 kind = Treasure，subKind = Armor 为预留的铠甲分类
-            if (armor != null && armor.kind == (int)ItemKindType.Treasure
-                && armor.subKind == (int)TreasureKind.Armor)
+            if (!CanEquip(armor, EquipmentKind.Armor))
+                return false;
+
+            EquippedArmor = armor;
+            BuildEquipActions();
+            return true;
+        }
+
+        /// <summary>
+        /// 装备马匹（马匹类装备，或宝物中的名马：赤兔马、的卢等）
+        /// </summary>
+        /// <param name="horse">马匹道具</param>
+        /// <returns>装备成功返回 true</returns>
+        public bool EquipHorse(ItemType horse)
+        {
+            if (!CanEquip(horse, EquipmentKind.Horse))
+                return false;
+
+            EquippedHorse = horse;
+            BuildEquipActions();
+            return true;
+        }
+
+        /// <summary>
+        /// 装备随身宝物（不占装备栏的宝物：书籍 / 玉器 / 珍玩 / 兵符等）。
+        ///
+        /// 每人限 1 件；替换时旧宝物由调用方退回国库（见 ItemGrantRules），
+        /// 本方法只负责换装与重建特效。
+        /// </summary>
+        /// <param name="treasure">宝物道具</param>
+        /// <returns>装备成功返回 true；装备类或武器 / 名马类宝物应走对应装备栏，返回 false</returns>
+        public bool EquipTreasure(ItemType treasure)
+        {
+            if (treasure == null || !treasure.IsTreasure() || treasure.NeedEquipSlot())
+                return false;
+
+            EquippedTreasure = treasure;
+            BuildEquipActions();
+            return true;
+        }
+
+        /// <summary>
+        /// 按当前装备栏与随身宝重建特效动作表。
+        ///
+        /// 与武将特技（<see cref="actionList"/>）**分开维护**：本方法只清 <see cref="equipActionList"/>，
+        /// 不会误伤武将自身的特技订阅。
+        ///
+        /// 必须调用的时机（漏一处就会出现"装了装备没效果"或"卸了效果还在"）：
+        ///   ① 读档完成（ResolveReferenceObjects）
+        ///   ② 装备 / 卸下武器、铠甲、马匹、随身宝
+        ///   ③ 授予 / 没收 执行完成
+        ///   ④ 该道具的初始化时机与武将特技一致（见 OnScenarioPrepare）
+        /// </summary>
+        public void BuildEquipActions()
+        {
+            if (equipActionList == null)
             {
-                EquippedArmor = armor;
+                equipActionList = new List<ActionBase>();
             }
+            else
+            {
+                for (int i = 0; i < equipActionList.Count; i++)
+                {
+                    equipActionList[i].Clear();
+                }
+                equipActionList.Clear();
+            }
+
+            EquippedWeapon?.InitActions(equipActionList, this);
+            EquippedArmor?.InitActions(equipActionList, this);
+            EquippedHorse?.InitActions(equipActionList, this);
+            EquippedTreasure?.InitActions(equipActionList, this);
         }
 
         /// <summary>
         /// 卸下武器
         /// </summary>
-        public void UnequipWeapon()
+        /// <returns>被卸下的武器；本来就没装备返回 null</returns>
+        public ItemType UnequipWeapon()
         {
-            EquippedWeapon = null;
-        }
+            ItemType last = EquippedWeapon;
+            if (last == null)
+                return null;
 
-        /// <summary>
-        /// 卸下马
-        /// </summary>
-        public void UnequipHorse()
-        {
-            EquippedHorse = null;
+            EquippedWeapon = null;
+            BuildEquipActions();
+            return last;
         }
 
         /// <summary>
         /// 卸下铠甲
         /// </summary>
-        public void UnequipArmor()
+        /// <returns>被卸下的铠甲；本来就没装备返回 null</returns>
+        public ItemType UnequipArmor()
         {
+            ItemType last = EquippedArmor;
+            if (last == null)
+                return null;
+
             EquippedArmor = null;
+            BuildEquipActions();
+            return last;
+        }
+
+        /// <summary>
+        /// 卸下马匹
+        /// </summary>
+        /// <returns>被卸下的马匹；本来就没装备返回 null</returns>
+        public ItemType UnequipHorse()
+        {
+            ItemType last = EquippedHorse;
+            if (last == null)
+                return null;
+
+            EquippedHorse = null;
+            BuildEquipActions();
+            return last;
+        }
+
+        /// <summary>
+        /// 卸下随身宝物
+        /// </summary>
+        /// <returns>被卸下的宝物；本来就没有返回 null</returns>
+        public ItemType UnequipTreasure()
+        {
+            ItemType last = EquippedTreasure;
+            if (last == null)
+                return null;
+
+            EquippedTreasure = null;
+            BuildEquipActions();
+            return last;
         }
 
         public void UpgradeOfficial(Official official)

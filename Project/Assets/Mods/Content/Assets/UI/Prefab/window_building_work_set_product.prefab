@@ -917,18 +917,10 @@ PrefabInstance:
       propertyPath: m_SizeDelta.y
       value: 25
       objectReference: {fileID: 0}
-    - target: {fileID: 5657079945702439855, guid: 9a37dcd8939bbd2478c2db197176fe6b, type: 3}
-      propertyPath: m_Sprite
-      value: 
-      objectReference: {fileID: 21300000, guid: 4b839a7fb569dd248995efb4a9a20bcd, type: 3}
     - target: {fileID: 6708058820569531363, guid: 9a37dcd8939bbd2478c2db197176fe6b, type: 3}
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6747839930072076739, guid: 9a37dcd8939bbd2478c2db197176fe6b, type: 3}
-      propertyPath: m_Sprite
-      value: 
-      objectReference: {fileID: 21300000, guid: 4b839a7fb569dd248995efb4a9a20bcd, type: 3}
     - target: {fileID: 7299851457250847828, guid: 9a37dcd8939bbd2478c2db197176fe6b, type: 3}
       propertyPath: m_SizeDelta.x
       value: 128.57143

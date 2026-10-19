@@ -3,7 +3,7 @@
  * 描述：单挑系统与游戏真实对象之间的适配层
  *
  * 设计说明：
- *   · 单挑系统内部一律使用游戏真实类型：Person（武将）/ Troop（部队）/ Force（势力）/ Equipment（宝物）。
+ *   · 单挑系统内部一律使用游戏真实类型：Person（武将）/ Troop（部队）/ Force（势力）/ ItemType（宝物与装备）。
  *   · 真实类型没有提供单挑所需的全部访问器，这里用【扩展方法】补齐，
  *     单挑本体（Duel.cs / DuelAI.cs / DuelPhase.cs）无需大改即可直接使用真实对象。
  *   · 已有实例成员（Person.IsSpouse / Person.IsBrother / Person.IsParentchild /
@@ -75,7 +75,7 @@ namespace Sango.Core.Duel
     /// </summary>
     public static class DuelSettings
     {
-        private static readonly List<Equipment> s_emptyItems = new List<Equipment>();
+        private static readonly List<Sango.Core.ItemType> s_emptyItems = new List<Sango.Core.ItemType>();
 
         /// <summary>功能是否被禁用（一击必杀 / 捕缚 / AI 退却 等）</summary>
         public static Func<Feature, bool> IsFeatDisabled = feature => false;
@@ -84,7 +84,7 @@ namespace Sango.Core.Duel
         /// 获取武将持有的宝物列表（影响单挑中的名马 / 剑 / 长武器 / 暗器 / 弓）。
         /// 默认取武将的武器、马匹、护甲三件装备。
         /// </summary>
-        public static Func<Person, List<Equipment>> GetPersonItemList = DefaultGetPersonItemList;
+        public static Func<Person, List<Sango.Core.ItemType>> GetPersonItemList = DefaultGetPersonItemList;
 
         /// <summary>获取武将宝物提供的单挑战力加成，默认 0</summary>
         public static Func<Person, int> GetDuelItemPower = person => 0;
@@ -109,14 +109,15 @@ namespace Sango.Core.Duel
         public static Func<Person, int, int> CalcStrength = DefaultCalcStrength;
 
         /// <summary>默认实现：从武将的三件装备中取宝物列表</summary>
-        private static List<Equipment> DefaultGetPersonItemList(Person person)
+        private static List<Sango.Core.ItemType> DefaultGetPersonItemList(Person person)
         {
             if (person == null) return s_emptyItems;
 
-            List<Equipment> list = new List<Equipment>(3);
+            List<Sango.Core.ItemType> list = new List<Sango.Core.ItemType>(4);
             if (person.EquippedWeapon != null) list.Add(person.EquippedWeapon);
             if (person.EquippedHorse != null) list.Add(person.EquippedHorse);
             if (person.EquippedArmor != null) list.Add(person.EquippedArmor);
+            if (person.EquippedTreasure != null) list.Add(person.EquippedTreasure);
             return list;
         }
 
@@ -219,18 +220,21 @@ namespace Sango.Core.Duel
     }
 
     /// <summary>
-    /// 宝物 → 单挑宝物大类 / 特殊宝物 ID 的映射。
+    /// 宝物 / 装备 → 单挑宝物大类 / 特殊宝物 ID 的映射。
     ///
-    /// 项目里宝物是 Equipment（继承 ItemType），其分类靠 kind(ItemKindType) + storeKind(ItemStoreKindType)。
-    /// 单挑只关心"名马 / 剑 / 长武器 / 弓 / 暗器"这几类，以及三件有名宝物，
-    /// 因此这里给出默认映射，并允许用 CategoryMap / SpecialMap 按宝物 Id 覆盖。
+    /// 分类依据（按可靠性从高到低）：
+    ///   ① 宝物：kind = Treasure + subKind（<see cref="TreasureKind"/>），数据完整，直接映射
+    ///   ② 装备武器：kind = Equipment 只有"武器 / 铠甲 / 马匹"三档，没有剑/枪/弓之分，
+    ///      只能按名称片段识别（与下方特殊宝物、暗器的名称匹配同一风格）
+    ///   ③ 兵装（剑/枪/戟/弓/军马）：沿用 storeKind 分组（<see cref="ItemStoreKindType"/>）
+    /// 另外允许用 CategoryMap / SpecialMap 按道具 Id 覆盖上述默认结果。
     /// </summary>
     public static class DuelItemMap
     {
-        /// <summary>按宝物 Id 覆盖大类：Equipment.Id → ItemType</summary>
+        /// <summary>按道具 Id 覆盖大类：道具 Id → ItemType</summary>
         public static readonly Dictionary<int, ItemType> CategoryMap = new Dictionary<int, ItemType>();
 
-        /// <summary>按宝物 Id 覆盖特殊宝物：Equipment.Id → ItemId</summary>
+        /// <summary>按道具 Id 覆盖特殊宝物：道具 Id → ItemId</summary>
         public static readonly Dictionary<int, ItemId> SpecialMap = new Dictionary<int, ItemId>();
 
         /// <summary>按名字片段匹配的特殊宝物（名宝）</summary>
@@ -244,22 +248,70 @@ namespace Sango.Core.Duel
         /// <summary>暗器的名称片段</summary>
         private static readonly string[] s_throwingKnifeNames = { "暗器", "手戟", "飞刀", "短戟" };
 
-        /// <summary>解析宝物大类</summary>
-        public static ItemType GetCategory(Equipment item)
+        /// <summary>
+        /// 装备武器按名称片段归入单挑大类。
+        /// 装备数据只有"武器 / 铠甲 / 马匹"三档（没有剑 / 枪 / 弓的系），单挑需要更细的分类，
+        /// 因此按名字识别 —— 与下方特殊宝物、暗器的做法一致，命中即返回，顺序敏感。
+        /// </summary>
+        private static readonly (string key, ItemType type)[] s_equipWeaponNames =
+        {
+            ("剑",   ItemType.Sword),
+            ("刀",   ItemType.Sword),
+            ("枪",   ItemType.LongSpear),
+            ("矛",   ItemType.LongSpear),
+            ("戟",   ItemType.LongSpear),
+            ("槊",   ItemType.LongSpear),
+            ("钩镰", ItemType.LongSpear),
+            ("弓",   ItemType.Bow),
+            ("弩",   ItemType.Bow),
+        };
+
+        /// <summary>解析道具的单挑大类</summary>
+        public static ItemType GetCategory(Sango.Core.ItemType item)
         {
             if (item == null) return ItemType.None;
 
             if (CategoryMap.TryGetValue(item.Id, out ItemType mapped))
                 return mapped;
 
-            // 宝物统一 kind = Treasure（ItemTypes.json 中所有宝物均为 5），
-            // subKind = 0（TreasureKind.FamousHorse）为名马 → 单挑中的名马
-            if (item.kind == (int)ItemKindType.Treasure
-                && item.subKind == (int)TreasureKind.FamousHorse)
+            // ① 宝物：kind = Treasure + subKind（数据完整，直接映射）
+            if (item.kind == (int)ItemKindType.Treasure)
             {
-                return ItemType.EliteHorse;
+                switch (item.subKind)
+                {
+                    case (int)TreasureKind.FamousHorse:  return ItemType.EliteHorse;
+                    case (int)TreasureKind.Sword:        return ItemType.Sword;
+                    case (int)TreasureKind.LongWeapon:   return ItemType.LongSpear;
+                    case (int)TreasureKind.HiddenWeapon: return ItemType.ThrowingKnife;
+                    case (int)TreasureKind.Bow:          return ItemType.Bow;
+                }
+                // 书籍 / 玉器 / 珍玩 / 兵符对单挑没有加成
+                return ItemType.None;
             }
 
+            // ② 装备：马匹即名马；铠甲无单挑加成；武器按名称细分类
+            if (item.kind == (int)ItemKindType.Equipment)
+            {
+                if (item.subKind == (int)EquipmentKind.Horse)
+                    return ItemType.EliteHorse;
+
+                if (item.subKind == (int)EquipmentKind.Weapon)
+                {
+                    string name = item.Name;
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        for (int i = 0; i < s_equipWeaponNames.Length; i++)
+                        {
+                            if (name.IndexOf(s_equipWeaponNames[i].key, StringComparison.Ordinal) >= 0)
+                                return s_equipWeaponNames[i].type;
+                        }
+                    }
+                }
+
+                return ItemType.None;
+            }
+
+            // ③ 兵装：沿用 storeKind 分组
             switch (item.storeKind)
             {
                 case (int)ItemStoreKindType.Sword:
@@ -277,7 +329,7 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>解析特殊宝物 ID（非名宝返回 ItemId.Invalid）</summary>
-        public static ItemId GetSpecialId(Equipment item)
+        public static ItemId GetSpecialId(Sango.Core.ItemType item)
         {
             if (item == null) return ItemId.Invalid;
 
@@ -298,7 +350,7 @@ namespace Sango.Core.Duel
         }
 
         /// <summary>是否为暗器</summary>
-        private static bool IsThrowingKnife(Equipment item)
+        private static bool IsThrowingKnife(Sango.Core.ItemType item)
         {
             string name = item.Name;
             if (string.IsNullOrEmpty(name)) return false;
@@ -460,17 +512,17 @@ namespace Sango.Core.Duel
         }
     }
 
-    /// <summary>为 Sango.Core.Equipment（宝物）补齐单挑所需的访问器</summary>
+    /// <summary>为 Sango.Core.ItemType（宝物 / 装备）补齐单挑所需的访问器</summary>
     public static class EquipmentDuelExtensions
     {
         /// <summary>宝物大类。对应 C++ Item::get_type</summary>
-        public static ItemType GetTypeValue(this Equipment self)
+        public static ItemType GetTypeValue(this Sango.Core.ItemType self)
         {
             return DuelItemMap.GetCategory(self);
         }
 
         /// <summary>特殊宝物 ID。对应 C++ Item::get_id</summary>
-        public static ItemId GetItemId(this Equipment self)
+        public static ItemId GetItemId(this Sango.Core.ItemType self)
         {
             return DuelItemMap.GetSpecialId(self);
         }

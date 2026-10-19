@@ -234,6 +234,15 @@ namespace Sango.Core
                 GameController.Instance.Update();
 
                 base.Update();
+
+                // 剧本可能就在上一行的系统更新里被收尾了：
+                // 事件系统播完结局界面（window_ending）后会走
+                // Player.QuitToMainMenu() → ScenarioLifecycle.BeginShutdown()，
+                // 其第 6 步会把 Scenario.Cur 置为 null。
+                // 此处若继续往下走，音效 / 回合推进 / Scenario.Cur.useThreadRun
+                // 都在作用于一个已经销毁的剧本，会在本方法末尾抛 NullReferenceException。
+                if (Scenario.Cur == null) return;
+
                 // 更新音效管理器
                 GameMedia.Instance.Update();
 

@@ -427,6 +427,14 @@ namespace Sango.Core
         public int duelChance = 0;
 
         /// <summary>
+        /// 部队辅佐概率(百分比)，初始为 0。
+        /// CalculateAttribute 里每次复位为 0，之后由装配了"辅佐"特性的 Action(TroopAssistAttack)
+        /// 在 OnTroopCalculateAttribute 上取 Max(不叠加)写入。
+        /// Troop.CalcAssistChance 在关系档位(夫妇/义兄弟/亲爱/血亲)均未命中时按此值兜底判定援助概率。
+        /// </summary>
+        public int assistChance = 0;
+
+        /// <summary>
         /// 是否行动完毕
         /// </summary>
         [JsonProperty]
@@ -883,7 +891,7 @@ namespace Sango.Core
             InitActionList();
 
             CalculateAttribute(scenario);
-            if (LandTroopType.isFight && LandTroopType.Id != 1)
+            if (LandTroopType != null && LandTroopType.isFight && LandTroopType.Id != 1)
                 BelongCity.allAttackTroops.Add(this);
             BelongCity.allTroops.Add(this);
             cell.troop = this;
@@ -1098,6 +1106,9 @@ namespace Sango.Core
             captiveChangce = Variables.captureChangceWhenTroopFall;
             // 单挑概率：基础值来自剧本参数，之后由 OnTroopCalculateAttribute 上的修改型 Action 二次修正
             duelChance = Variables.skillDuelChance;
+            // 辅佐概率：每次计算先复位为 0，随后由 TroopAssistAttack 在 OnTroopCalculateAttribute 上取 Max 写入，
+            // 保证武将变动/换阵后概率跟随重算，且不会跨次叠加
+            assistChance = 0;
 
             StrategySkills.Clear();
             for (int i = 0; i < Variables.defaultStrategySkills.Length; i++)
@@ -1314,13 +1325,20 @@ namespace Sango.Core
             return IsSameForce(BelongForce, other.BelongForce);
         }
 
+        // 【重要】下面这组"兵种判定"必须对 LandTroopType 为 null 兜底，不能直接解引用。
+        //
+        // LandTroopType 是**按需解析**的可空引用（见上面的属性：靠 LandTroopTypeId 经 IdRef.Resolve
+        // 反查，id <= 0 或查不到兵种就返回 null）。而这组属性被 AI、资源调度（ResourceBalance）、
+        // 技能判定等大量外部代码当作"必定非空"用 —— 只要有一支部队的兵种数据异常，
+        // 就会把整回合的流程一起打崩（原先是 ResourceBalance.CollectInbound 里的 NullReferenceException）。
+        // 统一兜底成 false，把"一支部队的数据问题"限制在该部队自身。
         /// <summary>是否剑兵（物理孱弱，AI 技能判定时倾向于释放计略）</summary>
-        public bool IsSword => LandTroopType.IsSword();
-        public bool IsTransport => LandTroopType.IsTransport();
-        public bool IsMachine => LandTroopType.IsMachine();
-        public bool IsHelepolis => LandTroopType.IsHelepolis();
-        public bool IsFight => LandTroopType.isFight;
-        public bool IsRange => LandTroopType.isRange;
+        public bool IsSword => LandTroopType != null && LandTroopType.IsSword();
+        public bool IsTransport => LandTroopType != null && LandTroopType.IsTransport();
+        public bool IsMachine => LandTroopType != null && LandTroopType.IsMachine();
+        public bool IsHelepolis => LandTroopType != null && LandTroopType.IsHelepolis();
+        public bool IsFight => LandTroopType != null && LandTroopType.isFight;
+        public bool IsRange => LandTroopType != null && LandTroopType.isRange;
 
         /// <summary>
         /// 发起单挑
@@ -2516,11 +2534,11 @@ namespace Sango.Core
         internal static List<Cell> assistRangeCells = new List<Cell>(256);
 
         /// <summary>
-        /// 各关系的援助概率档位(百分比)
+        /// 各关系的援助概率档位(百分比)。
+        /// 辅佐特技的概率不再用常量: 由 Features.json 的 value 经 TroopAssistAttack 写入 Troop.assistChance
         /// </summary>
         public const int AssistChanceSpouse = 50;
         public const int AssistChanceSwornBrother = 50;
-        public const int AssistChanceAssistFeature = 30;
         public const int AssistChanceLike = 30;
         public const int AssistChanceBloodRelative = 20;
 
@@ -2559,7 +2577,7 @@ namespace Sango.Core
             assistSearchCells.Clear();
             map.GetSpiral(enemyCell, AssistAttackRange, assistSearchCells);
 
-            LogAssist($"==== [{this.Name}] 呼叫援助: self持有辅佐={HasAssistFeature()} actionList数={actionList?.Count ?? -1} 候选格={assistSearchCells.Count}");
+            LogAssist($"==== [{this.Name}] 呼叫援助: 候选格={assistSearchCells.Count}");
 
             int candidates = 0;
             int joined = 0;
@@ -2617,24 +2635,13 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 本部队是否持有"辅佐"能力(Leader/Member1/Member2 任一武将即可)。
-        /// 通过 actionList 里是否存在 TroopAssistAttack 这个 Action 来判定,
-        /// actionList 由 InitActionList 汇总全部武将的特性生成, 因此天然覆盖三名武将;
-        /// 只认 Action 类型不认特性 Id, 以后策划改 Id 也不会对不上。
-        /// </summary>
-        public bool HasAssistFeature()
-        {
-            if (actionList == null) return false;
-            for (int i = 0; i < actionList.Count; i++)
-            {
-                if (actionList[i] is TroopAssistAttack) return true;
-            }
-            return false;
-        }
-
-        /// <summary>
         /// 按关系分档计算 helper 前来支援 self 本次攻击的概率(百分比)。
-        /// 只取命中的第一档: 夫妇50 / 义兄弟50 / 辅佐特技30 / 亲爱30 / 直系血亲20 / 其他0
+        /// 关系档位: 夫妇50 / 义兄弟50 / 亲爱30 / 直系血亲20(需无厌恶);
+        /// 关系档位结果与支援方部队的辅佐概率(helper.assistChance)取Max(不叠加)作为最终概率,
+        /// 辅佐率仅在双方没有厌恶时参与取Max。
+        /// 效率优化: 最终结果取Max, 任何档位值 ≤ 当前最大值时都不可能改变结果,
+        /// 因此昂贵的武将关系判定(配偶/义兄弟/亲爱/血亲)能省则省, 只在可能改变Max时才执行;
+        /// 厌恶判定也只在需要它(辅佐率参与比较或血亲档)时才查
         /// </summary>
         public static int CalcAssistChance(Troop self, Troop helper)
         {
@@ -2650,46 +2657,72 @@ namespace Sango.Core
                 return 0;
             }
 
-            // 诊断需要, 六项判据先全部算完再按优先级取值;
-            // 短路只体现在return顺序上, 结果与逐条if完全一致, 不会出现诊断与实际不符
-            bool isSpouse = leader.IsSpouse(helperLeader);
-            bool isSwornBrother = leader.IsBrotherGroupmate(helperLeader);
-            // 支援方(helper)任一武将是否持有"辅佐"能力: 辅佐是"持有者主动去助攻邻近友军的攻击",
-            // 故判 helper(来支援的那支部队)而非 self; 改由 Action 判定, 不再硬编码特性 Id
-            bool hasAssistFeature = helper.HasAssistFeature();
-            bool isLike = leader.IsLike(helperLeader);
-            bool isBloodRelative = leader.IsBloodRelative(helperLeader);
-            bool hated = Person.IsHatedByEither(leader, helperLeader);
+            // 支援方(helper)部队的辅佐概率: 辅佐是"持有者主动去助攻邻近友军的攻击",
+            // 故取 helper(来支援的那支部队)而非 self; 该值由 TroopAssistAttack 在属性计算阶段写入,
+            // 任一武将持有"辅佐"即生效, 多名武将取Max不叠加。
+            // 字段读取, 不涉及关系表查找, 先拿它当比较基准
+            int chance = helper.assistChance;
 
-            LogAssist($"[Calc] [{helperLeader.Name}] 支援 [{leader.Name}]: 夫妇={isSpouse} 义兄弟={isSwornBrother} 辅佐(helper)={hasAssistFeature} 亲爱={isLike} 血亲={isBloodRelative} 厌恶={hated}");
+            // 厌恶只在两处生效: 拦下辅佐率、拦下血亲档; 都用不到时就不做这次关系表查找
+            bool hated = false;
+            bool hatedChecked = false;
+            if (chance > 0)
+            {
+                // 辅佐率参与比较前先查厌恶, 查过就用结果, 后面血亲档不必重复查
+                hatedChecked = true;
+                hated = Person.IsHatedByEither(leader, helperLeader);
+                // 辅佐率被厌恶拦下时不再参与取Max, 置0后关系档位照常判定
+                if (hated)
+                    chance = 0;
+            }
 
+            // 关系档位取命中的第一档; 某档的值已 ≤ chance 时, 命中也改变不了Max, 直接跳过该档判定
+            if (chance < AssistChanceSpouse)
+            {
+                // 夫妇50 / 义兄弟50
+                if (leader.IsSpouse(helperLeader))
+                    chance = AssistChanceSpouse;
+                else if (leader.IsBrotherGroupmate(helperLeader))
+                    chance = AssistChanceSwornBrother;
+                else if (chance < AssistChanceLike && leader.IsLike(helperLeader))
+                    // 亲爱30
+                    chance = AssistChanceLike;
+                else if (chance < AssistChanceBloodRelative && !hated && leader.IsBloodRelative(helperLeader))
+                {
+                    // 直系血亲20: 该档要求双方没有厌恶; 厌恶若尚未查过(辅佐率为0的路径), 此处补查一次
+                    if (!hatedChecked)
+                    {
+                        hatedChecked = true;
+                        hated = Person.IsHatedByEither(leader, helperLeader);
+                    }
+                    if (!hated)
+                        chance = AssistChanceBloodRelative;
+                }
+            }
 
-            // 夫妇
-            if (isSpouse)
-                return AssistChanceSpouse;
+            // 诊断输出: 先判开关再拼字符串, 避免热路径上无谓的字符串分配;
+            // 为还原完整判定过程, 诊断时才补算被跳过的关系项
+            if (AssistDiagnosis)
+            {
+                bool isSpouse = leader.IsSpouse(helperLeader);
+                bool isSwornBrother = leader.IsBrotherGroupmate(helperLeader);
+                bool isLike = leader.IsLike(helperLeader);
+                bool isBloodRelative = leader.IsBloodRelative(helperLeader);
+                int rawAssistChance = helper.assistChance;
+                LogAssist($"[Calc] [{helperLeader.Name}] 支援 [{leader.Name}]: 夫妇={isSpouse} 义兄弟={isSwornBrother} 辅佐率(helper)={rawAssistChance} 亲爱={isLike} 血亲={isBloodRelative} 厌恶={hated}");
 
-            // 义兄弟(剧本原设兄弟与本功能同源, 一并归入本档)
-            if (isSwornBrother)
-                return AssistChanceSwornBrother;
+                if (chance <= 0)
+                {
+                    if (rawAssistChance > 0 || isBloodRelative)
+                        LogAssist("→ 0 (虽有辅佐率或血亲, 但双方存在厌恶关系, 被拦下)");
+                    else
+                        LogAssist("→ 0 (关系档位与辅佐率全不沾, 改概率常量也不会触发)");
+                }
+                else
+                    LogAssist($"→ {chance}");
+            }
 
-            // 持有"辅佐"特性, 且双方没有厌恶
-            if (hasAssistFeature && !hated)
-                return AssistChanceAssistFeature;
-
-            // 亲爱
-            if (isLike)
-                return AssistChanceLike;
-
-            // 直系血亲, 且双方没有厌恶
-            if (isBloodRelative && !hated)
-                return AssistChanceBloodRelative;
-
-            if (hasAssistFeature || isBloodRelative)
-                LogAssist("→ 0 (虽有辅佐特性或血亲, 但双方存在厌恶关系, 被拦下)");
-            else
-                LogAssist("→ 0 (五档全不沾, 改概率常量也不会触发)");
-
-            return 0;
+            return chance;
         }
 
         /// <summary>
@@ -2890,7 +2923,7 @@ namespace Sango.Core
                 person.ActionOver = true;
             });
 
-            if (LandTroopType.isFight && LandTroopType.Id != 1)
+            if (LandTroopType != null && LandTroopType.isFight && LandTroopType.Id != 1)
                 lastBelongCity?.allAttackTroops.Remove(this);
 
             lastBelongCity?.allTroops.Remove(this);
@@ -2904,7 +2937,9 @@ namespace Sango.Core
             }
 
             //missionParams1 == 1 是AI运输的
-            if (!TroopType.isFight && missionParams1 <= 0)
+            // TroopType 是 IsInWater ? WaterTroopType : LandTroopType（都可能为 null，见上面的说明），
+            // 数据异常时按"非战斗部队"处理，别让一支脏部队卡住进城流程。
+            if ((TroopType == null || !TroopType.isFight) && missionParams1 <= 0)
             {
                 if (BelongCorps.IsPlayerControl)
                 {
@@ -3014,7 +3049,7 @@ namespace Sango.Core
                 actionList = null;
             }
 
-            if (LandTroopType.isFight && LandTroopType.Id != 1)
+            if (LandTroopType != null && LandTroopType.isFight && LandTroopType.Id != 1)
                 belongCity?.allAttackTroops.Remove(this);
 
 
@@ -3100,7 +3135,16 @@ namespace Sango.Core
             }
 
             if (!justRemove)
+            {
+                // 重算属性前先按当前在队武将重建 Action:
+                // RemovePerson 的部分调用方(下野/俘虏摘除/单挑摘除等)之后不会调 ResetActionAndStatus,
+                // 若不在这里重建, 已离队武将装配的 Action(如辅佐的 TroopAssistAttack)仍订阅着
+                // OnTroopCalculateAttribute, 会在下面的重算里把旧概率写回去, 部队会一直带着
+                // 离队武将的能力直到下次 ResetActionAndStatus。
+                // InitActionList 自带 isCleared 守卫, 收尾过的部队进来是无害空转。
+                InitActionList();
                 CalculateAttribute(Scenario.Cur);
+            }
         }
 
         /// <summary>

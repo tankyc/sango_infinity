@@ -284,6 +284,19 @@ namespace Sango.Core
         Rumor = 27,
 
         /// <summary>
+        /// 授予宝物 / 装备：把国库里的一件珍品授予本城在职武将，
+        /// 装备类自动上栏、宝物类随身携带，并按品级提升忠诚。
+        /// 编号 28 起为珍品相关工作的连续段（编号显式写死、只允许追加）。
+        /// </summary>
+        GrantItem = 28,
+
+        /// <summary>
+        /// 没收宝物 / 装备：把武将身上（含装备栏）的一件珍品收回国库，
+        /// 并按品级扣减忠诚。
+        /// </summary>
+        ConfiscateItem = 29,
+
+        /// <summary>
         /// 最大工作数量
         /// </summary>
         MaxJobCount

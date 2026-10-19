@@ -404,6 +404,9 @@ namespace Sango.Render
             {
                 staticObjectsQuadTree.Remove(obj, obj.worldBounds);
                 //staticObjectMap.Remove(obj.objId);
+                // 同步入册标记：OnDisable/OnEnable 靠它判断是否需要重新加回地图，
+                // 否则撤销删除后物件无法回到列表，保存时就被丢掉了
+                obj.isAdded = false;
             }
         }
 
@@ -415,16 +418,19 @@ namespace Sango.Render
                 {
                     staticObjectsQuadTree.Remove(obj, obj.worldBounds);
                     //staticObjectMap.Remove(obj.objId);
+                    obj.isAdded = false;
                 }
             }
             else
             {
-                dynamicObjects.Remove(obj);
+                if (dynamicObjects.Remove(obj))
+                    obj.isAdded = false;
             }
         }
         public void RemoveDynamic(IMapManageObject obj)
         {
-            dynamicObjects.Remove(obj);
+            if (dynamicObjects.Remove(obj))
+                obj.isAdded = false;
         }
 
         public bool IsInView(IMapManageObject obj)

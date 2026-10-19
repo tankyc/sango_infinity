@@ -326,7 +326,10 @@ namespace Sango.Core
         public void HandleOverCell()
         {
             if (Scenario.Cur == null) return;
-            if (Scenario.Cur.Map == null) return;
+            // 分帧加载期间 Map 会先被创建（阶段1），HexWorld 要等到阶段4读取地图二进制才建立。
+            // 这几帧里上一局的地图碰撞体还留在场景中（退出剧本不销毁地图渲染），
+            // 射线一旦命中就会走到 Map.GetCell(hitPoint)，必须连 HexWorld 一起挡住。
+            if (Scenario.Cur.Map == null || Scenario.Cur.Map.HexWorld == null) return;
 
             Cell overCell = CheckMouseIsOnMapCell(Input.mousePosition, out Vector3 hitPoint);
             if (overCell != mouseOverCell)

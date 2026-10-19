@@ -2839,10 +2839,10 @@ namespace Sango.Core.Duel
             int bInjuryLevel = b.GetInjuryLevel();
             bool aBow = false;
             bool bBow = false;
-            List<Equipment> aItems = DuelSettings.GetPersonItemList(a);
+            List<Sango.Core.ItemType> aItems = DuelSettings.GetPersonItemList(a);
             if (aItems != null)
             {
-                foreach (Equipment item in aItems)
+                foreach (Sango.Core.ItemType item in aItems)
                 {
                     if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.Bow)
                     {
@@ -2851,10 +2851,10 @@ namespace Sango.Core.Duel
                     }
                 }
             }
-            List<Equipment> bItems = DuelSettings.GetPersonItemList(b);
+            List<Sango.Core.ItemType> bItems = DuelSettings.GetPersonItemList(b);
             if (bItems != null)
             {
-                foreach (Equipment item in bItems)
+                foreach (Sango.Core.ItemType item in bItems)
                 {
                     if (Utils.IsAlive(item) && item.GetTypeValue() == ItemType.Bow)
                     {
@@ -3188,10 +3188,10 @@ namespace Sango.Core.Duel
             if (!Utils.IsActive(person))
                 return;
             // 宝物统一从 DuelSettings.GetPersonItemList 获取（单一配置点）
-            List<Equipment> items = DuelSettings.GetPersonItemList(person);
+            List<Sango.Core.ItemType> items = DuelSettings.GetPersonItemList(person);
             if (items == null)
                 return;
-            foreach (Equipment item in items)
+            foreach (Sango.Core.ItemType item in items)
             {
                 if (!Utils.IsAlive(item))
                     continue;

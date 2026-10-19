@@ -33,6 +33,13 @@ namespace Sango.Render
             else if (targetBuilding != null)
             {
                 targetBuilding.ChangeDurability(-damage, fire);
+
+                if (targetBuilding.IsCityBase())
+                {
+                    int dmg = GameRandom.Random(fire.damage + fire.intelligence * 2, 0.2f);
+                    City city = (City)(targetBuilding);
+                    city.ChangeTroops(-dmg, fire);
+                }
             }
         }
 

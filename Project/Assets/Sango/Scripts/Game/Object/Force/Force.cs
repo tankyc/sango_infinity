@@ -176,9 +176,35 @@ namespace Sango.Core
         [JsonProperty] public int PolicyType { get; set; }
 
         /// <summary>
-        /// 国库
+        /// 国库（存放宝物与装备等珍品）。
+        ///
+        /// 与城市道具库的分工：兵装 / 器械 / 船存各城的 <c>City.itemStore</c>（生产、运输、出征消耗都在那边），
+        /// 只有 kind = <see cref="ItemKindType.Treasure"/> / <see cref="ItemKindType.Equipment"/> 的珍品入国库。
+        /// 珍品的 storeKind 即其自身 Id，因此每件道具在国库中独占一格（数量恒为 0 或 1），
+        /// 授予 / 没收都只在本表上做加减。
+        ///
+        /// 老存档没有该字段，读档时缺省为空国库，无需迁移。
         /// </summary>
-        public ItemStore Stroe = new ItemStore();
+        [JsonProperty]
+        [JsonConverter(typeof(ItemStoreConverter))]
+        public ItemStore Treasury = new ItemStore();
+
+        /// <summary>
+        /// 本势力上次产出宝物 / 装备的回合号（&lt;= 0 表示从未产出）。
+        /// 与 <see cref="ScenarioVariables.itemDiscoverGain"/> 的势力冷却配合使用，见 <see cref="ForceItemDiscover"/>。
+        /// </summary>
+        [JsonProperty] public int lastItemDiscoverTurn = -1;
+
+        /// <summary>
+        /// 本势力历史城池数峰值。
+        /// 产出累计上限按峰值算（<see cref="ForceItemDiscover"/> 第④层），避免被打残后又能重新刷满额度。
+        /// </summary>
+        [JsonProperty] public int peakCityCount = 0;
+
+        /// <summary>
+        /// 本势力已产出的珍品 Id 清单（保证每件道具本局只出现一次）。
+        /// </summary>
+        [JsonProperty] public List<int> discoveredItemIds = new List<int>();
 
         /// <summary>
         /// 当前研究的技术
@@ -1084,6 +1110,152 @@ namespace Sango.Core
                     }
                 }
             });
+
+            // 记录历史峰值：产出累计上限按峰值城数计算（掉城不回收额度）
+            if (CityCount > peakCityCount)
+                peakCityCount = CityCount;
+        }
+
+        // ==================== 国库（宝物 / 装备） ====================
+        //
+        // 只有珍品（kind = Treasure / Equipment）进出本表；兵装 / 器械 / 船一律走 City.itemStore。
+        // 授予 / 没收 / 搜索产出的唯一收口点就是下面这几个方法，不要在别处直接动 Treasury.Items。
+
+        /// <summary>
+        /// 国库容量上限（宝物与装备合计件数）：基础容量 + 城数 × 每城增量。
+        /// 参数取自剧本设置（<see cref="ScenarioVariables.treasuryLimitBase"/> /
+        /// <see cref="ScenarioVariables.treasuryLimitPerCity"/>）。
+        ///
+        /// **返回值 0 表示不设上限**：两个配置项同时配置为 0 时走这条分支
+        /// （策划案 4.2「国库暂不设上限」的默认口径）。
+        /// </summary>
+        public int TreasuryLimit
+        {
+            get
+            {
+                Scenario scenario = Scenario.Cur;
+                int baseLimit = scenario != null ? scenario.Variables.treasuryLimitBase : 0;
+                int perCity = scenario != null ? scenario.Variables.treasuryLimitPerCity : 0;
+
+                // 两项都为 0：显式关闭容量限制（不是"容量为 0"，见上方注释）
+                if (baseLimit <= 0 && perCity <= 0)
+                    return 0;
+
+                int limit = baseLimit + CityList.Count * perCity;
+                return limit > 0 ? limit : 0;
+            }
+        }
+
+        /// <summary>
+        /// 国库是否还能再放入指定数量的珍品
+        /// </summary>
+        /// <param name="number">待放入数量</param>
+        /// <returns>能放下返回 true（不设上限时恒为 true）</returns>
+        public bool CanAddTreasury(int number = 1)
+        {
+            if (Treasury == null)
+                return false;
+
+            int limit = TreasuryLimit;
+            // 0 = 不设上限（策划案 4.2），此时容量不构成拦截条件
+            if (limit <= 0)
+                return true;
+
+            return Treasury.TotalNumber + number <= limit;
+        }
+
+        /// <summary>
+        /// 向国库放入珍品（宝物 / 装备）
+        /// </summary>
+        /// <param name="item">道具类型，须为珍品</param>
+        /// <param name="number">数量，默认 1</param>
+        /// <returns>放入后的库存数量；道具非法或国库已满时返回 -1</returns>
+        public int AddTreasury(ItemType item, int number = 1)
+        {
+            if (item == null || !item.IsRareItem() || number <= 0)
+            {
+                Sango.Log.Warning($"[国库]{Name}放入道具失败：道具非法或数量为0。");
+                return -1;
+            }
+
+            if (!CanAddTreasury(number))
+            {
+                Sango.Log.Warning($"[国库]{Name}的国库已满（{Treasury.TotalNumber}/{TreasuryLimit}），无法放入{item.Name}。");
+                return -1;
+            }
+
+            return Treasury.Add(item, number);
+        }
+
+        /// <summary>
+        /// 从国库取出珍品
+        /// </summary>
+        /// <param name="item">道具类型</param>
+        /// <param name="number">数量，默认 1</param>
+        /// <returns>取出后的剩余数量</returns>
+        public int RemoveTreasury(ItemType item, int number = 1)
+        {
+            if (item == null || Treasury == null)
+                return 0;
+
+            return Treasury.Remove(item, number);
+        }
+
+        /// <summary>
+        /// 国库中某件珍品的数量
+        /// </summary>
+        /// <param name="item">道具类型</param>
+        /// <returns>数量，无该道具返回 0</returns>
+        public int GetTreasuryCount(ItemType item)
+        {
+            if (item == null || Treasury == null)
+                return 0;
+
+            return Treasury.GetNumber(item);
+        }
+
+        /// <summary>
+        /// 国库中是否有该珍品
+        /// </summary>
+        /// <param name="item">道具类型</param>
+        /// <returns>持有返回 true</returns>
+        public bool HasTreasury(ItemType item)
+        {
+            return GetTreasuryCount(item) > 0;
+        }
+
+        /// <summary>
+        /// 收集国库中的珍品列表（按 Id 升序，保证 UI 显示顺序稳定）
+        /// </summary>
+        /// <param name="result">结果列表（会先清空）</param>
+        /// <param name="rareOnly">true = 只收宝物 / 装备（国库正常只会存这两类）</param>
+        public void GetTreasuryItems(List<ItemType> result, bool rareOnly = true)
+        {
+            if (result == null)
+                return;
+
+            result.Clear();
+
+            Scenario scenario = Scenario.Cur;
+            if (Treasury == null || scenario == null || scenario.CommonData == null)
+                return;
+
+            foreach (KeyValuePair<int, int> kv in Treasury.Items)
+            {
+                if (kv.Value <= 0)
+                    continue;
+
+                ItemType item = scenario.CommonData.ItemTypes.Get(kv.Key);
+                if (item == null)
+                    continue;
+
+                if (rareOnly && !item.IsRareItem())
+                    continue;
+
+                result.Add(item);
+            }
+
+            result.Sort((a, b) => a.Id.CompareTo(b.Id));
         }
 
         void UpdateTurnInfo(Scenario scenario, bool doTurnStart = true)

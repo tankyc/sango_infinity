@@ -76,6 +76,13 @@ namespace Sango.Core
             if (current != null)
                 current.OnGameShutdown();
 
+            // 6.5) 地图渲染层：销毁 mapRoot（含全部「Map区域_x_y」的 Mesh / MeshCollider / 材质）。
+            //   以前只在 MapRender.LoadMap 开头清理，于是退回主菜单后上一局的碰撞体一直留在场景里；
+            //   下一次分帧加载的前 3 帧，新 Map 的 HexWorld 还没建好，鼠标射线却能命中旧碰撞体，
+            //   导致 Map.GetCell 每帧空引用（同一进程第二次开局必现）。
+            //   位置刻意放在剧本自身收尾之后：前面的 End/Clear 仍可正常访问地图渲染对象。
+            MapRender.Instance.Clear();
+
             // 7) AI 参数重新加载（含 Mod 覆盖），切剧本后才会按新剧本生效
             AIConfig.Reset();
 

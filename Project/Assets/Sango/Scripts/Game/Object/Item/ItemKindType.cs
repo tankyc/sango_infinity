@@ -118,11 +118,27 @@ namespace Sango.Core
         FightingShip,
     }
 
+    /// <summary>
+    /// 装备种类（与数据 ItemTypes.json 中装备的 subKind 一一对应）
+    /// 装备统一使用 kind = ItemKindType.Equipment，再以 subKind 细分三类；
+    /// 装备必须装入武将对应装备栏才会生效（见 Person.EquippedWeapon / EquippedArmor / EquippedHorse）
+    /// </summary>
     public enum EquipmentKind : int
     {
-        Weapon,
-        Horse,
-        Armor
+        /// <summary>
+        /// 武器 —— 剑 / 枪 / 戟 / 弩 各系，装入武器栏生效
+        /// </summary>
+        Weapon = 0,
+
+        /// <summary>
+        /// 铠甲 —— 装入铠甲栏生效
+        /// </summary>
+        Armor = 1,
+
+        /// <summary>
+        /// 马匹 —— 装入马匹栏生效
+        /// </summary>
+        Horse = 2,
     }
 
     /// <summary>

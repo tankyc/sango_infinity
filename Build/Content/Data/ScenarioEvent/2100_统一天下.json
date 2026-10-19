@@ -1,0 +1,56 @@
+[
+  {
+    "Id": 2100,
+    "Name": "统一天下",
+    "Category": "Common",
+    "Description": "【剧本终局事件 · 统一模板】玩家势力攻陷全地图最后一座敌城、天下一统时播放。\n覆盖能力：WorldUnified 触发（urgent 立即播放）、Picture 图文演出（CG 占位图 unify_world.jpg + 标题 + 情境文字，阻塞至玩家点击）、TalkWindow 旁白、QuitScenario 确认框（确定 → 退出剧本返回开始页面；取消 → 恢复主循环继续游戏）。\n\n触发链路：City 陷落 allInOne 分支 → GameEvent.OnWorldUnified → EventTriggerKind.WorldUnified（urgent 模式，跳过让路闸门）。\n为什么必须 urgent：该分支在抛 hook 之前调了 Scenario.OnGamePause()，主循环当场停住，常规的“暂缓到下一回合重试”永远不会到来。\n\n图片占位：Build/Content/Assets/UI/EventPicture/unify_world.jpg（占位命名，jpg 格式，待美术替换；也可整图替换为序列帧）。",
+    "Enabled": true,
+    "AlwaysEnabled": true,
+    "Priority": 500,
+    "Level": "Critical",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "WorldUnified",
+      "Scope": "PlayerForce",
+      "Once": true,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionForce",
+        "Type": "Force",
+        "Source": "PlayerForce",
+        "Optional": false,
+        "Label": "玩家势力（完成统一的一方）"
+      }
+    ],
+    "Stages": [
+      {
+        "Op": "Picture",
+        "Params": {
+          "Image": "unify_world",
+          "Title": "天下一统",
+          "Text": "烽烟散尽，四海归一。\n自乱世以来群雄并起、征战不休，\n如今城池尽归一处，天下再无一争之力。",
+          "MinSeconds": 3.0,
+          "PauseBgm": true
+        }
+      },
+      {
+        "Op": "TalkWindow",
+        "Params": {
+          "Text": "疆土已尽归我手，天下再无第二个势力。\n连年的征伐，终于在此刻走到了终点。"
+        }
+      },
+      {
+        "Op": "QuitScenario",
+        "Params": {
+          "Text": "天下一统，是否退出当前剧本、返回开始页面？",
+          "EndingSeconds": 5
+        }
+      },
+      { "Op": "End" }
+    ],
+    "Variables": {}
+  }
+]

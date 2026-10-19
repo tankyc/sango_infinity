@@ -140,6 +140,110 @@ namespace Sango.Core
         /// <summary>事件：重大历史事件的势力霸业点奖励</summary>
         EventHegemonyPointMajor = 69,
         #endregion
+
+        #region 宝物 / 装备产出（独立表 itemDiscoverGain）
+        //
+        // 为什么单独开一张表：
+        //   探索人才产出珍品是"资源供给"而不是"成长数值"，调参口径与功绩 / 经验完全不同；
+        //   独立成 itemDiscoverGain 后，剧本设置界面可以单开一个"宝物与装备产出"分区。
+        //
+        // 概率口径（百分比，与 GameRandom.Chance 一致）：
+        //   装备概率 = ItemDiscoverBaseChance
+        //            + 政治 × ItemDiscoverFromPolitics / 100
+        //            + 智力 × ItemDiscoverFromIntelligence / 100
+        //            （封顶 ItemDiscoverChanceCap）
+        //            + ItemDiscoverGlobalBonus（全局加成，**封顶之后**加，不受上限约束）
+        //   宝物概率 = 装备概率 × ItemDiscoverTreasureRate / 100
+        // 例：政治 90 / 智力 80，默认 2 + 9 + 4 = 15%。
+        //
+        // 节奏（回合制：每人每回合最多一个行为、一年 36 回合）：
+        //   一个 8 城势力约 3 人常驻搜索 ⇒ 约 60 次/年 × 10~15% ≈ 6~9 次命中，
+        //   再被"势力冷却 ItemDiscoverForceCooldown"截断 —— 早期填 6 回合（6 件/年）时，
+        //   真正的闸门其实是累计上限（3 + 城数×1 = 11 件），20 年只有 11 件，与策划案
+        //   3.5 的"20 年累计 30~40 件"对不上（P6 回归仿真的结论）。
+        //   现行默认值按 3.5 反推：
+        //     势力冷却 12 回合 ⇒ 上限 3 件/年、城市冷却 18 回合 ⇒ 单城 2 件/年、
+        //     累计上限 10 + 峰值城数×3 ⇒ 3 城 19 / 8 城 34 / 15 城 55 件。
+        //   仿真结果：3 城 ≈ 0.95 件/年、8 城 ≈ 1.7 件/年、15 城 ≈ 1.9~2.7 件/年，
+        //   与 3.5 的 1 / 1.5~2 / 2~3 全部吻合。
+
+        /// <summary>发现道具的基础概率（百分比）</summary>
+        ItemDiscoverBaseChance = 80,
+        /// <summary>政治对发现概率的折算（百分比：政治 × 值 / 100）</summary>
+        ItemDiscoverFromPolitics = 81,
+        /// <summary>智力对发现概率的折算（百分比：智力 × 值 / 100）</summary>
+        ItemDiscoverFromIntelligence = 82,
+        /// <summary>发现概率上限（百分比）</summary>
+        ItemDiscoverChanceCap = 83,
+        /// <summary>宝物概率相对装备概率的折算（百分比）</summary>
+        ItemDiscoverTreasureRate = 84,
+        /// <summary>
+        /// 同一势力的产出冷却（回合）：距上次产出不足该值则不产出。
+        /// 数值即「势力每年最多产出几件」的倒数：36 ÷ 该值 = 件/年上限（默认 12 ⇒ 3 件/年）。
+        /// </summary>
+        ItemDiscoverForceCooldown = 85,
+        /// <summary>
+        /// 同一城市的产出冷却（回合）。
+        /// 单城产出上限 = 36 ÷ 该值（默认 18 ⇒ 单城 2 件/年）；搜索分散在多城时本项不构成闸门。
+        /// </summary>
+        ItemDiscoverCityCooldown = 86,
+        /// <summary>开局保护回合数：此前不产出，避免开局爆装备（默认 12 回合 = 1 年）</summary>
+        ItemDiscoverStartProtect = 87,
+        /// <summary>
+        /// 势力累计产出上限的固定部分（件）。这是"一局到底能拿到多少件"的长线天花板，
+        /// 与 <see cref="ItemDiscoverMaxPerCity"/> 一起按策划案 3.5 的 20 年累计量反推
+        /// （默认 10 + 峰值城数 × 3：3 城 19 / 8 城 34 / 15 城 55 件）。
+        /// </summary>
+        ItemDiscoverMaxBase = 88,
+        /// <summary>势力累计产出上限的每城增量（件/城，按历史峰值城数计，掉城不回收额度）</summary>
+        ItemDiscoverMaxPerCity = 89,
+        /// <summary>
+        /// 全局搜索加成（百分比，直接加在最终概率上）。**默认 0**，正常剧本保持 0 即可。
+        ///
+        /// 加在 <see cref="ItemDiscoverChanceCap"/> 封顶**之后**，所以不受概率上限约束 ——
+        /// 设 100 即必中。用途：测试"道具能不能搜出来"，
+        /// 或 Mod 想在不动基础数值的前提下整体调高 / 调低产出率。
+        ///
+        /// 注意：本项只影响"概率是否命中"，**不绕过**五层限流
+        /// （开局保护 / 势力冷却 / 城市冷却 / 累计上限 / 单件唯一）。
+        /// 想连续看到产出，需同时把 ItemDiscoverStartProtect、
+        /// ItemDiscoverForceCooldown、ItemDiscoverCityCooldown 设为 0，
+        /// 并把 ItemDiscoverMaxBase 放大。
+        /// </summary>
+        ItemDiscoverGlobalBonus = 90,
+        #endregion
+
+        #region 授予 / 没收（独立表 itemGrantGain）
+        //
+        // 为什么单独开一张表：
+        //   授予 / 没收改的是**忠诚**（人），搜索产出改的是**资源**（物），
+        //   两者的调参口径无关；混进 itemDiscoverGain 会让策划在"产出"表里看到"忠诚"键。
+        //
+        // 忠诚曲线（按珍品品级 grade 1~5 计）：
+        //   授予忠诚 = +(ItemGrantLoyaltyBase + grade × ItemGrantLoyaltyPerGrade)
+        //              默认 +3 + grade×3 → 凡品 6 / 良品 9 / 优品 12 / 极品 15 / 神品 18
+        //   没收忠诚 = -(ItemConfiscateLoyaltyBase + grade × ItemConfiscateLoyaltyPerGrade)
+        //              默认 -(4 + grade×3) → 凡品 -7 / 神品 -19
+        //   没收略高于授予：把"抢回来的东西"再给出去要付两次忠诚代价，符合三国志11 的手感，
+        //   也让"反复授予 / 没收刷忠诚"这条路亏本（净损失 = 没收 − 授予 = 1）。
+        //
+        // 节奏（回合制：每人每回合最多一个行为、一年 36 回合）：
+        //   授予 / 没收各限每势力每回合 1 次（见 JobTypes.json 的 limit 与 jobCounter 判定），
+        //   因此忠诚只能靠珍品逐件微调 —— 一年最多 ±36 次操作，
+        //   但受"每件珍品只产出一次 + 一局珍品总量（3.5 节：8 城中局 20 年约 34 件）"双重限制，
+        //   实际远低于此。国库容量 v1 暂不设上限（策划案 4.2），不构成额外闸门。
+        //
+        // 忠诚钳制 0~100 由 Person.AddLoyalty 统一处理，此处只管增量。
+
+        /// <summary>授予忠诚的基础值</summary>
+        ItemGrantLoyaltyBase = 100,
+        /// <summary>授予忠诚的每品级增量</summary>
+        ItemGrantLoyaltyPerGrade = 101,
+        /// <summary>没收忠诚的基础值（取正数，代码里按负向扣减）</summary>
+        ItemConfiscateLoyaltyBase = 102,
+        /// <summary>没收忠诚的每品级增量（取正数，代码里按负向扣减）</summary>
+        ItemConfiscateLoyaltyPerGrade = 103,
+        #endregion
     }
 
     /// <summary>配置值的语义</summary>
@@ -267,6 +371,18 @@ namespace Sango.Core
         /// </summary>
         public static int Event(GainPlace place) { return ValueOf(TableOf(place), place); }
 
+        /// <summary>
+        /// 读取宝物 / 装备产出配置（ItemDiscover* 段的键）。
+        /// 探索人才产出珍品的概率与各项限制统一走这里取值，避免在逻辑里硬编码。
+        /// </summary>
+        public static int ItemDiscover(GainPlace place) { return ValueOf(TableOf(place), place); }
+
+        /// <summary>
+        /// 读取授予 / 没收配置（ItemGrant* / ItemConfiscate* 段的键）。
+        /// 忠诚增减曲线统一走这里取值，避免在规则类里硬编码（见 ItemGrantRules）。
+        /// </summary>
+        public static int ItemGrant(GainPlace place) { return ValueOf(TableOf(place), place); }
+
         /// <summary>在 [min, max] 内随机取值（Range 语义的地点用；无剧本时用默认区间）</summary>
         public static int Roll(GainPlace place)
         {
@@ -296,6 +412,8 @@ namespace Sango.Core
             if (Array.IndexOf(ExpPlaces, place) >= 0) return v.expGain;
             if (Array.IndexOf(AbilityExpPlaces, place) >= 0) return v.abilityExpGain;
             if (Array.IndexOf(EventPlaces, place) >= 0) return v.eventGain;
+            if (Array.IndexOf(ItemDiscoverPlaces, place) >= 0) return v.itemDiscoverGain;
+            if (Array.IndexOf(ItemGrantPlaces, place) >= 0) return v.itemGrantGain;
             return null;
         }
 
@@ -349,6 +467,31 @@ namespace Sango.Core
             GainPlace.EventAttributeExpCommon, GainPlace.EventExecuteTechniquePoint,
             GainPlace.EventRecruitAttributeExp, GainPlace.EventLoyaltyGain,
             GainPlace.EventHegemonyPointCommon, GainPlace.EventHegemonyPointMajor,
+        };
+
+        /// <summary>
+        /// 宝物 / 装备产出表（独立一张，键为 ItemDiscover* 段）。
+        /// 探索人才时的珍品产出概率与各项限制都从这里取值，代码侧不硬编码（见 ForceItemDiscover）。
+        /// </summary>
+        public static readonly GainPlace[] ItemDiscoverPlaces =
+        {
+            GainPlace.ItemDiscoverBaseChance, GainPlace.ItemDiscoverFromPolitics,
+            GainPlace.ItemDiscoverFromIntelligence, GainPlace.ItemDiscoverChanceCap,
+            GainPlace.ItemDiscoverTreasureRate,
+            GainPlace.ItemDiscoverForceCooldown, GainPlace.ItemDiscoverCityCooldown,
+            GainPlace.ItemDiscoverStartProtect,
+            GainPlace.ItemDiscoverMaxBase, GainPlace.ItemDiscoverMaxPerCity,
+            GainPlace.ItemDiscoverGlobalBonus,
+        };
+
+        /// <summary>
+        /// 授予 / 没收表（独立一张，键为 ItemGrant* / ItemConfiscate* 段）。
+        /// 忠诚增减曲线从这里取值，代码侧不硬编码（见 ItemGrantRules）。
+        /// </summary>
+        public static readonly GainPlace[] ItemGrantPlaces =
+        {
+            GainPlace.ItemGrantLoyaltyBase, GainPlace.ItemGrantLoyaltyPerGrade,
+            GainPlace.ItemConfiscateLoyaltyBase, GainPlace.ItemConfiscateLoyaltyPerGrade,
         };
 
         #endregion
@@ -413,6 +556,31 @@ namespace Sango.Core
                 // 事件给的量必须明显高于自然增长，否则玩家感知不到
                 case GainPlace.EventHegemonyPointCommon: return 50;
                 case GainPlace.EventHegemonyPointMajor: return 300;
+                // 宝物 / 装备产出
+                case GainPlace.ItemDiscoverBaseChance: return 2;
+                case GainPlace.ItemDiscoverFromPolitics: return 10;      // 政治每 10 点 +1%
+                case GainPlace.ItemDiscoverFromIntelligence: return 5;   // 智力每 20 点 +1%
+                case GainPlace.ItemDiscoverChanceCap: return 20;
+                case GainPlace.ItemDiscoverTreasureRate: return 60;
+                // P6 回归后调整：原 6 / 12 / 3 / 1 的节奏只有 0.3~0.9 件/年，
+                // 与策划案 3.5 的 1 / 1.5~2 / 2~3 件/年差一档，且 20 年累计被上限卡在 6~18 件。
+                // 现按 3.5 的"20 年累计 30~40 件"反推：势力冷却 3 件/年、单城 2 件/年、
+                // 累计上限 10 + 峰值城数 × 3。
+                case GainPlace.ItemDiscoverForceCooldown: return 12;
+                case GainPlace.ItemDiscoverCityCooldown: return 18;
+                case GainPlace.ItemDiscoverStartProtect: return 12;
+                case GainPlace.ItemDiscoverMaxBase: return 10;
+                case GainPlace.ItemDiscoverMaxPerCity: return 3;
+                // 全局搜索加成：默认关闭，只有测试 / Mod 才会去动它
+                case GainPlace.ItemDiscoverGlobalBonus: return 0;
+                // 授予 / 没收的忠诚曲线（品级 1~5）：
+                //   授予 +3 + grade×3 → 6 / 9 / 12 / 15 / 18
+                //   没收 -(4 + grade×3) → -7 / -10 / -13 / -16 / -19
+                // 没收比授予高 1 点，保证"授予后再没收"是净亏，堵住刷忠诚的漏洞。
+                case GainPlace.ItemGrantLoyaltyBase: return 3;
+                case GainPlace.ItemGrantLoyaltyPerGrade: return 3;
+                case GainPlace.ItemConfiscateLoyaltyBase: return 4;
+                case GainPlace.ItemConfiscateLoyaltyPerGrade: return 3;
                 default: return 0;
             }
         }
@@ -442,6 +610,9 @@ namespace Sango.Core
                 case GainPlace.MeritMemberFactor:
                 case GainPlace.TechniquePointFromMerit:
                 case GainPlace.ExpFromMerit:
+                case GainPlace.ItemDiscoverFromPolitics:
+                case GainPlace.ItemDiscoverFromIntelligence:
+                case GainPlace.ItemDiscoverTreasureRate:
                     return GainValueKind.Rate;
                 case GainPlace.AttributeExpFromJob:
                 case GainPlace.DebateAttributeExp:
@@ -507,6 +678,23 @@ namespace Sango.Core
                 case GainPlace.EventLoyaltyGain: return "事件·忠诚提升幅度";
                 case GainPlace.EventHegemonyPointCommon: return "事件·通用霸业点";
                 case GainPlace.EventHegemonyPointMajor: return "事件·重大事件霸业点";
+                // 宝物 / 装备产出
+                case GainPlace.ItemDiscoverBaseChance: return "发现道具基础概率(%)";
+                case GainPlace.ItemDiscoverFromPolitics: return "政治折算(%)";
+                case GainPlace.ItemDiscoverFromIntelligence: return "智力折算(%)";
+                case GainPlace.ItemDiscoverChanceCap: return "发现概率上限(%)";
+                case GainPlace.ItemDiscoverTreasureRate: return "宝物相对装备比例(%)";
+                case GainPlace.ItemDiscoverForceCooldown: return "势力产出冷却(回合)";
+                case GainPlace.ItemDiscoverCityCooldown: return "城市产出冷却(回合)";
+                case GainPlace.ItemDiscoverStartProtect: return "开局保护(回合)";
+                case GainPlace.ItemDiscoverMaxBase: return "势力产出上限(固定)";
+                case GainPlace.ItemDiscoverMaxPerCity: return "势力产出上限(每城)";
+                case GainPlace.ItemDiscoverGlobalBonus: return "全局搜索加成(%)";
+                // 授予 / 没收
+                case GainPlace.ItemGrantLoyaltyBase: return "授予忠诚·基础";
+                case GainPlace.ItemGrantLoyaltyPerGrade: return "授予忠诚·每品级";
+                case GainPlace.ItemConfiscateLoyaltyBase: return "没收忠诚·基础";
+                case GainPlace.ItemConfiscateLoyaltyPerGrade: return "没收忠诚·每品级";
                 default: return place.ToString();
             }
         }

@@ -21,6 +21,10 @@ using Sango.UI;
 using System;
 using System.Collections.Generic;
 
+// 别名：Sango.Core.Event 是 Sango.Core 的子命名空间，直接写 Player 会被名字查找
+// 解析成子命名空间 Sango.Core.Player（CS0118，与 Duel 那次是同一类坑）。
+using PlayerSystem = Sango.Core.Player.Player;
+
 namespace Sango.Core.Event
 {
     public partial class EventRunner
@@ -74,6 +78,7 @@ namespace Sango.Core.Event
                 case EventOpType.DebateFake: OpDebateFake(stage); break;
                 case EventOpType.Picture: OpPicture(stage); break;
                 case EventOpType.PictureClose: OpPictureClose(); break;
+                case EventOpType.QuitScenario: OpQuitScenario(stage); break;
                 case EventOpType.End: Finish(true, "遇到 End 指令"); break;
                 default: OpNotImplemented(stage); break;
             }
@@ -148,7 +153,9 @@ namespace Sango.Core.Event
             };
 
             SetWaiting(true);
-            GameDialog.Instance.OpenTalk(talks, OnPresentationDone, GameDialog.DialogStyle.Window);
+            // window_dialog5（ClickSay）：点击继续，不带"确定/取消"按钮。
+            // 事件里的旁白/情报只是"告知"，给玩家一对无意义的选择按钮反而会让人犹豫。
+            GameDialog.Instance.OpenTalk(talks, OnPresentationDone, GameDialog.DialogStyle.ClickSay);
         }
 
         /// <summary>把指令的 Lines 数组转成台词链，并替换占位符</summary>
@@ -417,7 +424,9 @@ namespace Sango.Core.Event
             };
 
             SetWaiting(true);
-            GameDialog.Instance.OpenTalk(talks, OnPresentationDone, GameDialog.DialogStyle.Window);
+            // window_dialog5（ClickSay）：点击继续，不带"确定/取消"按钮。
+            // 事件里的旁白/情报只是"告知"，给玩家一对无意义的选择按钮反而会让人犹豫。
+            GameDialog.Instance.OpenTalk(talks, OnPresentationDone, GameDialog.DialogStyle.ClickSay);
         }
 
         #endregion
@@ -714,6 +723,115 @@ namespace Sango.Core.Event
         void OnPictureClosed()
         {
             pictureClosedPending = true;
+        }
+
+        #endregion
+
+        #region 退出剧本
+
+        /// <summary>
+        /// 结局界面的默认展示时长（秒）。
+        ///
+        /// 统一天下后主循环已被 <c>Scenario.OnGamePause()</c> 停住，若直接跳回开始页面，
+        /// 玩家会感觉"刚赢一下就黑屏了"。先给一段结局画面作为收尾。
+        /// </summary>
+        const float DefaultEndingSeconds = 5f;
+
+        /// <summary>本次确认框使用的结局界面时长（由指令的 EndingSeconds 参数决定）</summary>
+        float endingDuration = DefaultEndingSeconds;
+
+        /// <summary>
+        /// 退出剧本：弹一个确认对话框，**无论玩家点确定还是取消**，都会进入结局界面
+        /// （window_ending）展示若干秒，再关闭剧本、返回开始页面。
+        ///
+        /// 参数：`Text`（确认框正文，可省）／`EndingSeconds`（结局界面展示秒数，缺省 5）。
+        ///
+        /// 【为什么两个按钮结果一样】
+        /// 统一天下是剧本终局，此刻主循环已经停住（<c>Scenario.OnGamePause</c>），
+        /// "取消"并没有可以回去的游戏状态。保留取消按钮只是给玩家一个"我再想想"的缓冲，
+        /// 真正的收尾统一走结局界面，避免两条分支各写一套退出逻辑、日后行为分叉。
+        ///
+        /// 【为什么不用 Op: Choice（window_choice）】
+        /// Choice 是"剧情分支选择肢"，会入 PlayerChoice 系统栈并把选项当作事件分支；
+        /// 而这里是**收尾确认**，语义上就该走 GameDialog 的通用确认框（与设置里的
+        /// "返回主菜单"完全同一条链路），玩家一眼就知道这是系统级确认而非剧情选项。
+        /// </summary>
+        /// <param name="stage">指令</param>
+        void OpQuitScenario(EventStage stage)
+        {
+            if (skipPresentation)
+            {
+                // UI 已不可用（场景销毁中 / 退出 Play 模式）：没有可确认的对象，直接放行
+                Log.Info($"事件 {Context.definition} 的退出剧本指令因 UI 不可用被跳过");
+                return;
+            }
+
+            endingDuration = DefaultEndingSeconds;
+            if (stage.Params != null && stage.Params["EndingSeconds"] != null)
+                endingDuration = stage.Params.Value<float>("EndingSeconds");
+            if (endingDuration <= 0f) endingDuration = DefaultEndingSeconds;
+
+            string text = EvalTextOf(stage.GetString("Text"));
+            if (string.IsNullOrEmpty(text))
+                text = "是否退出当前剧本，返回开始页面？";
+
+            SetWaiting(true);
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, text, OnQuitConfirmed, OnQuitCancelled);
+        }
+
+        /// <summary>玩家点了"确定"：进入结局界面</summary>
+        void OnQuitConfirmed()
+        {
+            PlayEndingAndQuit();
+        }
+
+        /// <summary>玩家点了"取消"：同样进入结局界面（终局没有可返回的游戏状态）</summary>
+        void OnQuitCancelled()
+        {
+            PlayEndingAndQuit();
+        }
+
+        /// <summary>
+        /// 打开结局界面并开始倒计时。倒计时由 <see cref="EventRunner.Update"/> 每帧驱动，
+        /// 归零后调用 <see cref="FinishEndingAndReturnToTitle"/>。
+        ///
+        /// 注意事件在这里**先不结束**：它要继续挂在系统栈上，Update 才会被调用。
+        /// window_ending 本身只是个静态画面（prefab 上没有脚本），不需要它自己回掉。
+        /// </summary>
+        void PlayEndingAndQuit()
+        {
+            if (Context == null) return;
+            if (endingCountdown > 0f) return;   // 防重入：窗口关闭回调可能来两次
+
+            Window.Instance.Open("window_ending");
+
+            endingCountdown = endingDuration;
+            SetWaiting(true);
+
+            Log.Info($"剧本结局：展示 window_ending {endingCountdown:F1} 秒后返回开始页面");
+        }
+
+        /// <summary>结局界面展示完毕：收窗、结束事件、返回开始页面</summary>
+        void FinishEndingAndReturnToTitle()
+        {
+            endingCountdown = 0f;
+
+            Window.Instance.Close("window_ending");
+
+            // 先主动结束事件再走回收链路：
+            // 回收链路里的 GameSystemManager.Done() 会把本系统出栈并触发 OnDestroy，
+            // 那时 Context 还在就会走"被外部中断"分支、打一条误导性的警告日志；
+            // 这里先把事件正常收尾，OnDestroy 便无事可做。
+            Finish(false, "结局界面播放完毕，返回开始页面");
+
+            PlayerSystem player = GameSystem.GetSystem<PlayerSystem>();
+            if (player == null)
+            {
+                Log.Error("退出剧本失败：Player 系统不可用，无法返回开始页面");
+                return;
+            }
+
+            player.QuitToMainMenu();
         }
 
         #endregion

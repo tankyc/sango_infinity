@@ -18,7 +18,7 @@ using Sango.Core; namespace Sango.UI
             }
             statusTitle1[index].text = title;
             statusValue[index].titleLabel.text = title;
-            statusValue[index].text = value.ToString();
+            statusValue[index].text = ObjectSortTitle.GetAttributeColorText(value);
             status.scaleLenth[index] = Mathf.Min(1, value / maxValue);
             status.UpdateContent();
         }

@@ -122,12 +122,54 @@ namespace Sango
             return false;
         }
         /// <summary>
+        /// 图片扩展名候选表。内容目录里的贴图会批量换格式(png -> jpg),
+        /// 代码里写死的旧扩展名路径靠它兜底命中。
+        /// </summary>
+        static readonly string[] ImageExtensions = { ".png", ".jpg", ".jpeg" };
+
+        /// <summary>
         /// e.g. Assets/Texture/11.png -> ${ContentRootPath}/Assets/Texture/11.png 
         /// or ${ModName}/Assets/Texture/11.png 
+        /// 先按原路径精确查找;找不到且是图片扩展名时,再换同名其它图片格式查找。
         /// </summary>
         /// <param name="fileName"></param>
         /// <returns></returns>
         static public string FindFile(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+                return null;
+
+            // ① 精确匹配,保证原路径优先级最高
+            string fullPath = FindFileExact(fileName);
+            if (!string.IsNullOrEmpty(fullPath))
+                return fullPath;
+
+            // ② 扩展名回退: png 换成 jpg/jpeg 再找一遍
+            //    (贴图批量转格式后,代码里写死的 .png 路径不至于失效)
+            string ext = System.IO.Path.GetExtension(fileName);
+            if (string.IsNullOrEmpty(ext))
+                return null;
+
+            string baseName = fileName.Substring(0, fileName.Length - ext.Length);
+            for (int i = 0; i < ImageExtensions.Length; i++)
+            {
+                if (string.Equals(ImageExtensions[i], ext, System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                fullPath = FindFileExact(baseName + ImageExtensions[i]);
+                if (!string.IsNullOrEmpty(fullPath))
+                    return fullPath;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 精确查找文件,不做任何扩展名推测
+        /// </summary>
+        /// <param name="fileName">相对资源路径</param>
+        /// <returns>存在的完整路径,不存在返回 null</returns>
+        static public string FindFileExact(string fileName)
         {
             if (string.IsNullOrEmpty(fileName))
                 return null;

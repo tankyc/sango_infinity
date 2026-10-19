@@ -204,6 +204,17 @@ namespace Sango.Mod
                 for (int i = 0; i < dirs.Length; i++)
                 {
                     string mod_dir = dirs[i];
+
+                    // 跳过安装过程中残留的临时解压目录/旧版本备份目录(上次更新异常中断留下的),
+                    // 它们不是正常模组,直接忽略并顺手清理
+                    if (GitDownloader.IsTempModDirectory(mod_dir))
+                    {
+                        Sango.Log.Warning("跳过残留的临时模组目录: " + mod_dir);
+                        try { Sango.Directory.Delete(mod_dir); }
+                        catch (System.Exception e) { Sango.Log.Warning("清理临时模组目录失败: " + e.Message); }
+                        continue;
+                    }
+
                     Mod mod = LoadMod(mod_dir);
                     if (mod != null)
                     {

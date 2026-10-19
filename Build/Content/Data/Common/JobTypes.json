@@ -299,6 +299,30 @@
       "tpGain": 0,
       "limit": 1,
       "linkBuildingKind": 0
+    },
+    "28": {
+      "Id": 28,
+      "Name": "授予宝物",
+      "path": "人事/授予宝物",
+      "kind": 3,
+      "costAP": 5,
+      "cost": 0,
+      "meritGain": 40,
+      "tpGain": 20,
+      "limit": 1,
+      "linkBuildingKind": 0
+    },
+    "29": {
+      "Id": 29,
+      "Name": "没收宝物",
+      "path": "人事/没收宝物",
+      "kind": 3,
+      "costAP": 5,
+      "cost": 0,
+      "meritGain": 40,
+      "tpGain": 20,
+      "limit": 1,
+      "linkBuildingKind": 0
     }
   }
 }

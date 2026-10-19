@@ -377,21 +377,21 @@ namespace Sango.Core
         };
 
         /// <summary>
-        /// 国库排序标题（显示国库兵装等道具内容，修改方式未定，暂不支持编辑）
+        /// 国库排序标题（显示国库中的宝物 / 装备，修改方式未定，暂不支持编辑）
         /// </summary>
         public static SortTitle SortByStroe = new SortTitle()
         {
             name = "国库",
             width = 8.00f,
             alignment = (int)UnityEngine.TextAnchor.MiddleLeft,
-            valueStrGetCall = x => GetItemStoreText(x == null ? null : x.Stroe),
+            valueStrGetCall = x => GetItemStoreText(x == null ? null : x.Treasury),
             valueSortFunc = (a, b) =>
             {
-                int aCount = a == null || a.Stroe == null ? 0 : a.Stroe.TotalNumber;
-                int bCount = b == null || b.Stroe == null ? 0 : b.Stroe.TotalNumber;
+                int aCount = a == null || a.Treasury == null ? 0 : a.Treasury.TotalNumber;
+                int bCount = b == null || b.Treasury == null ? 0 : b.Treasury.TotalNumber;
                 return aCount.CompareTo(bCount);
             },
-            valueObjGet = x => x == null ? null : x.Stroe,
+            valueObjGet = x => x == null ? null : x.Treasury,
             valueObjSet = null,
         };
 
@@ -788,7 +788,7 @@ namespace Sango.Core
                 return columns;
 
             List<ItemType> itemTypes = scenario.CommonData.ItemTypeList;
-            List<byte> usedStoreKinds = new List<byte>();
+            List<int> usedStoreKinds = new List<int>();
             for (int i = 0; i < itemTypes.Count; i++)
             {
                 ItemType itemType = itemTypes[i];

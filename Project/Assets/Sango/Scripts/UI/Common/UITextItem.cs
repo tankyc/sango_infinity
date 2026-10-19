@@ -23,15 +23,9 @@ using Sango.Core; namespace Sango.UI
         public void SetObjectSortTitle(ObjectSortTitle objectSortTitle)
         {
             this.objectSortTitle = objectSortTitle;
-            if(objectSortTitle != null)
-            {
-                if(!objectSortTitle.CanEdit)
-                    SetColor(Color.gray);
-                else
-                    SetColor(Color.white);
-            }
-            else
-                SetColor(Color.white);
+            // 不再根据"是否可编辑"改变文本颜色，统一使用默认颜色（白色）。
+            // 武将属性/适性等需要按数值等级变色的列，由筛选项在 GetValueStr 中直接返回带颜色标签的文本。
+            SetColor(Color.white);
         }
         public void SetObject(SangoObject sanObj)
         {
