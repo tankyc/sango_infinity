@@ -56,7 +56,7 @@
         -1
       ],
       "desc": "标准装备的兵装，威力是最弱的",
-      "icon": "4846-8/4846-8_0",
+      "icon": "1",
       "model": "Assets/Model/Prefab/Troops1.prefab",
       "aniIds": [
         13,
@@ -136,7 +136,7 @@
         -1
       ],
       "desc": "有利于对付骑兵，但不利于戟兵",
-      "icon": "4846-8/4846-8_1",
+      "icon": "2",
       "model": "Assets/Model/Prefab/Troops2.prefab",
       "aniIds": [
         10,
@@ -216,7 +216,7 @@
         -1
       ],
       "desc": "有利于对付枪兵，但不利于骑兵",
-      "icon": "4846-8/4846-8_2",
+      "icon": "3",
       "model": "Assets/Model/Prefab/Troops3.prefab",
       "aniIds": [
         1,
@@ -296,7 +296,7 @@
         -1
       ],
       "desc": "可对２区格之外的敌人执行弓箭攻击",
-      "icon": "4846-8/4846-8_3",
+      "icon": "4",
       "model": "Assets/Model/Prefab/Troops4.prefab",
       "aniIds": [
         7,
@@ -375,7 +375,7 @@
         -1
       ],
       "desc": "有利于对付戟兵，但不利于枪兵",
-      "icon": "4846-8/4846-8_4",
+      "icon": "5",
       "model": "Assets/Model/Prefab/Troops5.prefab",
       "aniIds": [
         4,
@@ -565,7 +565,7 @@
         -1
       ],
       "desc": "标准装备的舰船。",
-      "icon": "4846-8/4846-8_9",
+      "icon": "10",
       "model": "Assets/Model/Prefab/2221.prefab",
       "moveSound": 63
     },
@@ -638,7 +638,7 @@
         -1
       ],
       "desc": "大型船，移动力、装甲都比走舸强化许多",
-      "icon": "4846-8/4846-8_10",
+      "icon": "11",
       "model": "Assets/Model/Prefab/2223.prefab",
       "moveSound": 63
     },
@@ -712,7 +712,7 @@
         -1
       ],
       "desc": "将楼船强化后的舰船，可执行投石攻击",
-      "icon": "4846-8/4846-8_11",
+      "icon": "12",
       "model": "Assets/Model/Prefab/2225.prefab",
       "moveSound": 63
     },
@@ -781,7 +781,7 @@
         -1
       ],
       "desc": "直接攻击建筑物的兵器，可大大削弱建筑物的耐久",
-      "icon": "4846-8/4846-8_5",
+      "icon": "6",
       "model": "Assets/Model/Prefab/2227.prefab",
       "aniIds": [
         4,
@@ -855,7 +855,7 @@
         -1
       ],
       "desc": "将冲车强化后的兵器，可削减建筑物的耐久，并放火",
-      "icon": "4846-8/4846-8_8",
+      "icon": "7",
       "model": "Assets/Model/Prefab/2227.prefab",
       "aniIds": [
         1,
@@ -929,7 +929,7 @@
         -1
       ],
       "desc": "以弓箭攻击建筑物的兵器，可大大削减士兵数",
-      "icon": "4846-8/4846-8_6",
+      "icon": "8",
       "model": "Assets/Model/Prefab/p_jinlan.prefab",
       "aniIds": [
         4,
@@ -1003,7 +1003,7 @@
         -1
       ],
       "desc": "强化井阑后的兵器，以投石攻击３区格外之敌方耐久与士兵",
-      "icon": "4846-8/4846-8_7",
+      "icon": "9",
       "model": "Assets/Model/Prefab/p_toushi.prefab",
       "aniIds": [
         4,

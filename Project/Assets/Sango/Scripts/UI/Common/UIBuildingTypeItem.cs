@@ -151,7 +151,7 @@ using Sango.Core; namespace Sango.UI
                 if (costLabel != null)
                     costLabel.text = "";
                 // 兵种图标尚未迁移，LoadBuildingIcon 会自动兜底到老图集（见其两级查找说明）
-                icon.texture = GameRenderHelper.LoadBuildingIcon(troopType.icon);
+                icon.texture = GameRenderHelper.LoadItemIcon(troopType.icon);
                 if (icon1 != null)
                     icon1.texture = icon.texture;
                 if (numLabel != null)
