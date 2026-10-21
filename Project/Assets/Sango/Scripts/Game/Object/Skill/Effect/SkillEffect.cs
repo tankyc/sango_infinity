@@ -71,6 +71,13 @@ namespace Sango.Core
             Register("PutoutFire", CraeteHandle<PutoutFire>);
             Register("RecureWoundedTroops", CraeteHandle<RecureWoundedTroops>);
 
+            // 扩展批次（2026-10-19）：战法侧的数值效果。
+            // 与 ActionBase 是两张独立注册表：这里注册的东西只能写进 Skills.json 的 skillEffects。
+            Register("ChangeMorale", CraeteHandle<ChangeMorale>);                       // 目标士气增减
+            Register("DrainTroops", CraeteHandle<DrainTroops>);                         // 吸血
+            Register("DamageBuildingDurability", CraeteHandle<DamageBuildingDurability>); // 附加耐久伤害
+            Register("DamageCityTroops", CraeteHandle<DamageCityTroops>);               // 附加城内兵力伤害
+
         }
 
 

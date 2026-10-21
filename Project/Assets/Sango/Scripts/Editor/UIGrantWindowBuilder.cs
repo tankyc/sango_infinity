@@ -221,7 +221,7 @@ namespace Sango.EditorTools
             Text hintLabel = AddText(rightCol, "hint", "", 20, TextAnchor.UpperLeft, new Color(1f, 0.88f, 0.45f));
             TopLeft(hintLabel.gameObject, 12f, 406f, 400f, 54f);
 
-            // ---------- 底部：行动力（贴在右下，避开 win_frame 左下的确定/取消） ----------
+            // ---------- 底部：技巧点消耗（贴在右下，避开 win_frame 左下的确定/取消） ----------
             GameObject actionValue = NewUI("action_value", panel.transform);
             RectTransform actionRect = actionValue.GetComponent<RectTransform>();
             actionRect.anchorMin = new Vector2(1f, 0f);
@@ -234,7 +234,7 @@ namespace Sango.EditorTools
             Stretch(actionLabel.GetComponent<RectTransform>(), 0f, 0f, 0f, 0f);
             actionField.label = actionLabel;
 
-            Text actionTitle = AddText(panel, "action_title", "行动力", 22, TextAnchor.MiddleRight, new Color(1f, 1f, 1f, 0.8f));
+            Text actionTitle = AddText(panel, "action_title", "技巧点", 22, TextAnchor.MiddleRight, new Color(1f, 1f, 1f, 0.8f));
             RectTransform actionTitleRect = TopLeft(actionTitle.gameObject, 0f, 0f, 90f, 26f);
             actionTitleRect.anchorMin = new Vector2(1f, 0f);
             actionTitleRect.anchorMax = new Vector2(1f, 0f);

@@ -6,9 +6,9 @@ namespace Sango.Core
     /// 授予 / 没收珍品（宝物与装备）的**统一规则层**。
     ///
     /// 【为什么单独成类】
-    ///   授予与没收改的是同一批状态（国库 / 武将背包 / 装备栏 / 随身宝 / 忠诚 / 特效动作表），
+    ///   授予与没收改的是同一批状态（国库 / 武将背包 / 装备栏 / 宝物 / 特效动作表），
     ///   只是方向相反。玩家侧入口（CityGrantItem）只负责"能不能点、给谁点"，
-    ///   数据侧（City.JobGrantItem / City.JobConfiscateItem）只负责扣行动力与记账，
+    ///   数据侧（City.JobGrantItem / City.JobConfiscateItem）只负责扣技巧点与记账，
     ///   两边的规则口径**全部**收口在本类，避免出现"窗口允许、执行失败"这种分叉
     ///   （与 CityReward 的 IsRewardTarget 同思路）。
     ///
@@ -16,7 +16,7 @@ namespace Sango.Core
     ///   一件珍品（<see cref="ItemType.IsRareItem"/>）在同一时刻只可能存在三个位置之一：
     ///     ① 势力国库（<see cref="Force.Treasury"/>）—— 未分配
     ///     ② 武将背包（<see cref="Person.itemStore"/>）—— 已分配
-    ///     ③ 武将装备栏 / 随身宝（<see cref="Person.EquippedWeapon"/> 等）—— 已分配且已生效
+    ///     ③ 武将装备栏 / 宝物（<see cref="Person.EquippedWeapon"/> 等）—— 已分配且已生效
     ///   因为珍品的 storeKind 就是自身 Id（每件唯一），所以"背包里有"与"已装备"是同时成立的：
     ///   装备栏是**视图**，背包是**账本**。授予 / 没收必须同时改这两处，否则会出现
     ///   "卸下来了但背包里还在"这类幽灵道具。
@@ -26,10 +26,13 @@ namespace Sango.Core
     ///   · 其余宝物（书籍 / 玉器 / 珍玩 / 兵符）→ 随身携带，每人限 1 件，授予即生效
     ///   替换时**被换下的旧道具退回国库**（不留在武将背包里），见 <see cref="Grant"/>。
     ///
-    /// 【忠诚曲线】一律走 <see cref="GainValueConfig"/> 的 itemGrantGain 表（规则 32），
-    ///   授予 +(基础 + 品级 × 每级)、没收 -(基础 + 品级 × 每级)，默认值见 GainValueConfig.DefaultOf。
-    ///   忠诚钳制 0~100 由 <see cref="Person.AddLoyalty"/> 统一处理，本类只算增量。
-    ///   没收后忠诚过低的"出走判定"复用现有掉忠 → 出走链路，本类不新增规则。
+    /// 【成本与定位】本功能是**装备管理**，不是人事赏罚（2026-10 改版）：
+    ///   · 不消耗行动力、不限每回合次数 —— 可以在同一界面连续给多名武将调整装备
+    ///   · **不改变忠诚**（授予 / 没收纯属搬运；忠诚只走褒赏 / 出征等原有链路）
+    ///   · 每变更**一件**珍品扣技巧点（<see cref="GetTechniqueCost"/>，默认 50，
+    ///     剧本设置里的 <see cref="ScenarioVariables.itemChangeTechniqueCost"/> 可调，配 0 = 免费）
+    ///   成本判定同样收口在本类：<see cref="CanGrant"/> / <see cref="CanConfiscate"/> 负责拦，
+    ///   <see cref="Grant"/> / <see cref="Confiscate"/> 负责扣，两边口径一致。
     /// </summary>
     public static class ItemGrantRules
     {
@@ -49,6 +52,8 @@ namespace Sango.Core
         public const string ReasonNotInCity = "只能对本城武将操作";
         /// <summary>该武将身上没有这件珍品</summary>
         public const string ReasonNoPersonItem = "该武将身上没有这件珍品";
+        /// <summary>势力技巧点不足（成本见 <see cref="GetTechniqueCost"/>）</summary>
+        public const string ReasonNotEnoughTechnique = "技巧点不足，无法完成装备变更";
 
         #endregion
 
@@ -89,37 +94,48 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 授予该珍品时武将获得的忠诚增量（正数）。
-        /// 公式：基础 + 品级 × 每级增量；品级缺失（0）时只给基础值。
+        /// 装备变更的技巧点成本（授予或没收**一件**珍品）。
+        /// 口径取自剧本设置 <see cref="ScenarioVariables.itemChangeTechniqueCost"/>，默认 50；
+        /// 配 0 = 免费。所有调用方都从这里取值，禁止硬编码（与规则 32 的"数值走配置"一致）。
         /// </summary>
-        /// <param name="item">待授予的珍品</param>
-        /// <returns>忠诚增量（&gt;= 0）</returns>
-        public static int GetGrantLoyalty(ItemType item)
+        /// <returns>本次变更需要消耗的技巧点（&gt;= 0）</returns>
+        public static int GetTechniqueCost()
         {
-            if (item == null)
-                return 0;
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Variables == null)
+                return 50;
 
-            int grade = item.grade > 0 ? item.grade : 0;
-            int loyalty = GainValueConfig.ItemGrant(GainPlace.ItemGrantLoyaltyBase)
-                        + grade * GainValueConfig.ItemGrant(GainPlace.ItemGrantLoyaltyPerGrade);
-            return loyalty < 0 ? 0 : loyalty;
+            int cost = scenario.Variables.itemChangeTechniqueCost;
+            return cost < 0 ? 0 : cost;
         }
 
         /// <summary>
-        /// 没收该珍品时武将损失的忠诚值（**正数**，调用方按负向扣减）。
-        /// 公式：基础 + 品级 × 每级增量；比授予略高，使"授予后再没收"成为净亏，堵住刷忠诚的漏洞。
+        /// 势力是否有足够技巧点支付一次装备变更。
+        ///
+        /// 注意：这里判的是"够不够一次"，UI 侧可以连续操作，每执行一次就重新判一次；
+        /// 成本配成 0 时恒为 true（沙盒调试）。
         /// </summary>
-        /// <param name="item">待没收的珍品</param>
-        /// <returns>忠诚损失量（&gt;= 0）</returns>
-        public static int GetConfiscateLoyalty(ItemType item)
+        /// <param name="force">势力</param>
+        /// <returns>够付返回 true</returns>
+        public static bool CanPayTechnique(Force force)
         {
-            if (item == null)
-                return 0;
+            if (force == null)
+                return false;
 
-            int grade = item.grade > 0 ? item.grade : 0;
-            int loyalty = GainValueConfig.ItemGrant(GainPlace.ItemConfiscateLoyaltyBase)
-                        + grade * GainValueConfig.ItemGrant(GainPlace.ItemConfiscateLoyaltyPerGrade);
-            return loyalty < 0 ? 0 : loyalty;
+            return force.TechniquePoint >= GetTechniqueCost();
+        }
+
+        /// <summary>
+        /// 拼「技巧点不足」的具体文案（需要 / 当前），供窗口红字直接显示。
+        /// 比 "技巧点不足" 多给两个数字，玩家能直接判断还差多少。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <returns>中文原因文案</returns>
+        static string BuildNotEnoughTechniqueReason(Force force)
+        {
+            int need = GetTechniqueCost();
+            int have = force != null ? force.TechniquePoint : 0;
+            return $"技巧点不足（需要 {need}，当前 {have}）";
         }
 
         /// <summary>
@@ -141,7 +157,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 列出该武将身上（装备栏 + 随身宝 + 背包账本）所有可被没收的珍品。
+        /// 列出该武将身上（装备栏 + 宝物 + 背包账本）所有可被没收的珍品。
         /// 以背包账本为准遍历：装备栏里的道具必然也记账在背包里（见类注释）。
         /// </summary>
         /// <param name="person">武将</param>
@@ -195,6 +211,13 @@ namespace Sango.Core
             }
 
             Force force = city.BelongForce;
+            // 成本：每变更一件扣技巧点（与 Grant 里的扣费同源，避免"UI 允许、执行时扣不起"）
+            if (!CanPayTechnique(force))
+            {
+                reason = BuildNotEnoughTechniqueReason(force);
+                return false;
+            }
+
             // 国库里必须真有这件（一件珍品只可能在一个位置，见类注释）
             if (!force.HasTreasury(item))
             {
@@ -246,12 +269,19 @@ namespace Sango.Core
                 return false;
             }
 
+            // 成本：每变更一件扣技巧点（与 Confiscate 里的扣费同源）
+            if (!CanPayTechnique(force))
+            {
+                reason = BuildNotEnoughTechniqueReason(force);
+                return false;
+            }
+
             reason = ReasonNone;
             return true;
         }
 
         /// <summary>
-        /// 执行授予：国库取出 → 武将背包记账 → 装入装备栏或随身宝（旧件退回国库）→ 加忠诚 → 重建特效。
+        /// 执行授予：扣技巧点 → 国库取出 → 武将背包记账 → 装入装备栏或宝物（旧件退回国库）→ 重建特效。
         ///
         /// 顺序说明（不能随意调换）：
         ///   ① 先从国库取走待授予道具，再处理被替换的旧件 ——
@@ -269,6 +299,20 @@ namespace Sango.Core
                 return null;
 
             Force force = city.BelongForce;
+
+            // 成本**预扣**：CanGrant 已确认够付，这里用同一口径再断言一次才扣 ——
+            // 防止"校验通过 → 执行"之间成本被动态改大（Mod / 剧本变量在事件里被改写），
+            // 那样会扣成负数。技巧点在任何情况下都不允许被扣成负值。
+            int cost = GetTechniqueCost();
+            if (cost > force.TechniquePoint)
+            {
+                reason = ReasonNotEnoughTechnique;
+                return null;
+            }
+
+            if (cost > 0)
+                force.GainTechniquePoint(-cost);
+
             force.RemoveTreasury(item, 1);
             person.itemStore.Add(item, 1);
 
@@ -284,13 +328,10 @@ namespace Sango.Core
                 }
             }
 
-            int gain = GetGrantLoyalty(item);
-            int old = person.loyalty;
-            person.AddLoyalty(gain);
             person.BuildEquipActions();
 
             Sango.Log.Info($"@内政@[{force.Name}]<{city.Name}>授予{person.Name}{item.Name}，" +
-                           $"忠诚 {old}→{person.loyalty}（+{gain}）" +
+                           $"消耗技巧点 {cost}（余 {force.TechniquePoint}）" +
                            (replaced != null ? $"，替换下{replaced.Name}已退回国库" : ""));
 
             reason = ReasonNone;
@@ -298,7 +339,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 执行没收：先从装备栏卸下（若是已装备的道具）→ 从背包除名 → 放回国库 → 扣忠诚 → 重建特效。
+        /// 执行没收：扣技巧点 → 从装备栏卸下（若是已装备的道具）→ 从背包除名 → 放回国库 → 重建特效。
         /// </summary>
         /// <param name="city">执行操作的城市</param>
         /// <param name="person">目标武将</param>
@@ -312,6 +353,17 @@ namespace Sango.Core
 
             Force force = city.BelongForce;
 
+            // ⓪ 成本**预扣**：与 CanConfiscate 同一口径，先断言够付再扣（技巧点不允许扣成负数）
+            int cost = GetTechniqueCost();
+            if (cost > force.TechniquePoint)
+            {
+                reason = ReasonNotEnoughTechnique;
+                return null;
+            }
+
+            if (cost > 0)
+                force.GainTechniquePoint(-cost);
+
             // ① 若正装备在栏位上，先卸下（UnequipXxx 内部会重建特效）
             UnequipFromSlot(person, item);
             // ② 背包除名（装备栏与背包是"视图 / 账本"的关系，必须同时清）
@@ -319,20 +371,17 @@ namespace Sango.Core
             // ③ 进国库（CanConfiscate 已确认有位）
             force.AddTreasury(item, 1);
 
-            int loss = GetConfiscateLoyalty(item);
-            int old = person.loyalty;
-            person.AddLoyalty(-loss);
             person.BuildEquipActions();
 
             Sango.Log.Info($"@内政@[{force.Name}]<{city.Name}>没收{person.Name}的{item.Name}，" +
-                           $"忠诚 {old}→{person.loyalty}（-{loss}）");
+                           $"消耗技巧点 {cost}（余 {force.TechniquePoint}）");
 
             reason = ReasonNone;
             return item;
         }
 
         /// <summary>
-        /// 把珍品装到它该待的位置：装备类与宝物里的武器 / 名马进装备栏，其余宝物作随身宝。
+        /// 把珍品装到它该待的位置：装备类与宝物里的武器 / 名马进装备栏，其余宝物进「宝物」格。
         /// </summary>
         /// <param name="person">目标武将</param>
         /// <param name="item">待装珍品</param>
@@ -362,7 +411,7 @@ namespace Sango.Core
                     }
                 default:
                     {
-                        // 其余宝物：随身 1 件，替换时旧宝退回国库
+                        // 其余宝物：进「宝物」格，每人 1 件，替换时旧宝退回国库
                         ItemType old = person.EquippedTreasure;
                         person.EquipTreasure(item);
                         return old;

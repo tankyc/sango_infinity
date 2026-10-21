@@ -129,6 +129,126 @@ namespace Sango.Core.Event
         /// 否则一旦被暂缓到"下一回合"，那个回合永远不会到来。
         /// </summary>
         WorldUnified = 30,
+
+        // ====================================================================
+        // 以下为第二批触发时机。
+        // 每一项都对应 GameEvent 里**真实存在**的 hook，签名见各项注释；
+        // 订阅与回调统一在 ScenarioEventManager.Init / #region GameEvent hook 入口。
+        // ====================================================================
+
+        /// <summary>势力回合结束（OnForceTurnEnd：Force, Scenario）——势力回合收尾的旁白</summary>
+        ForceTurnEnd = 31,
+
+        /// <summary>玩家结束回合（OnPlayerEndTurn：Force, Scenario）——玩家点"结束回合"这一刻</summary>
+        PlayerEndTurn = 32,
+
+        /// <summary>城市回合开始（OnCityTurnStart：City, Scenario）——单城视角的回合事件</summary>
+        CityTurnStart = 33,
+
+        /// <summary>城市月度开始（OnCityMonthStart：City, Scenario）——月度城池事件</summary>
+        CityMonthStart = 34,
+
+        /// <summary>城市季节开始（OnCitySeasonStart：City, Scenario）——换季时的城池事件</summary>
+        CitySeasonStart = 35,
+
+        /// <summary>部队回合开始（OnTroopTurnStart：Troop, Scenario）——断粮、思归等</summary>
+        TroopTurnStart = 36,
+
+        /// <summary>部队行动结束（OnTroopActionOver：Troop）</summary>
+        TroopActionOver = 37,
+
+        /// <summary>部队清理（OnTroopClear：Troop, Scenario）</summary>
+        TroopClear = 38,
+
+        /// <summary>
+        /// 部队易主（OnTroopChangeForce：Troop, Force oldForce, Force newForce）——倒戈、收编。
+        /// 事件实体注入的是**部队**，新旧势力需由事件自己用槽位或条件读取。
+        /// </summary>
+        TroopChangeForce = 39,
+
+        /// <summary>军团创建（OnCorpsCreate：Corps, Scenario）——五虎上将、军团编制类剧情</summary>
+        CorpsCreated = 40,
+
+        /// <summary>军团解散（OnCorpsDelete：Corps, Scenario）</summary>
+        CorpsDeleted = 41,
+
+        /// <summary>技巧研发完成（OnForceResearchComplete：Force, Technique）——发明投石车等</summary>
+        ForceResearchComplete = 42,
+
+        /// <summary>军师变更（OnForceChangeCounsellor：Force, Person）</summary>
+        ForceChangeCounsellor = 43,
+
+        /// <summary>建筑升级完成（OnBuildingUpgradeComplete：Building, SangoObjectList&lt;Person&gt;）</summary>
+        BuildingUpgradeComplete = 44,
+
+        /// <summary>武将升级（OnPersonLevelUp：Person）</summary>
+        PersonLevelUp = 45,
+
+        /// <summary>武将负伤（OnPersonInjury：Person, Troop）——中箭、带伤</summary>
+        PersonInjury = 46,
+
+        /// <summary>武将获释（OnPersonRelease：Person, Force）——与"逃脱"不同，这是被主动释放</summary>
+        PersonRelease = 47,
+
+        /// <summary>武将调任（OnPersonChangCurrentCity：Person, City from, City to）</summary>
+        PersonChangeCurrentCity = 48,
+
+        /// <summary>武将升官（OnPersonUpgradeOfficial：Person, Official）</summary>
+        PersonUpgradeOfficial = 49,
+
+        /// <summary>发现敌军（OnDiscoverEnemyTroop：Force, City, Troop, Person）——注入的是发现方势力</summary>
+        DiscoverEnemyTroop = 50,
+
+        /// <summary>火势蔓延（OnFireAdd：SkillInstance, Fire）——赤壁、夷陵的火攻演出</summary>
+        FireAdd = 51,
+
+        /// <summary>城市工作结算（OnCityJobResult：City, int result, Person[], OverrideData&lt;int&gt;）</summary>
+        CityJobResult = 52,
+
+        /// <summary>城市工作反击结算（OnCityJobCounterResult：City, int, Person[], OverrideData&lt;int&gt;）</summary>
+        CityJobCounterResult = 53,
+
+        /// <summary>城市金钱收获（OnCityGainGoldHarvest：City, OverrideData&lt;int&gt;）</summary>
+        CityGainGoldHarvest = 54,
+
+        /// <summary>城市粮草收获（OnCityGainFoodHarvest：City, OverrideData&lt;int&gt;）</summary>
+        CityGainFoodHarvest = 55,
+
+        /// <summary>单挑开始（OnDuelStart：Troop a, Troop b）——注入的是发起方部队</summary>
+        DuelStart = 56,
+
+        /// <summary>单挑挑战（OnDuelChallengeRequest：Troop a, Troop b）</summary>
+        DuelChallenge = 57,
+
+        /// <summary>舌战开始（OnDebateStart：Person a, Person b）——注入的是发起方武将</summary>
+        DebateStart = 58,
+
+        /// <summary>舌战挑战（OnDebateChallengeRequest：Person a, Person b）</summary>
+        DebateChallenge = 59,
+
+        /// <summary>战法结算结束（OnSkillActionEnd：SkillInstance, Cell, Troop, BuildingBase）</summary>
+        SkillActionEnd = 60,
+
+        /// <summary>破盟（OnDiplomacyBreakAlliance：Force a, Force b, bool success）</summary>
+        DiplomacyBreakAlliance = 61,
+
+        /// <summary>收到结盟请求（OnDiplomacyAllianceRequest：Force a, Force b, bool success）</summary>
+        DiplomacyAllianceRequest = 62,
+
+        /// <summary>收到停战请求（OnDiplomacyTruceRequest：Force a, Force b, bool success）</summary>
+        DiplomacyTruceRequest = 63,
+
+        /// <summary>请求技巧（OnDiplomacyRequestTechnique：Force a, Force b, int, bool）</summary>
+        DiplomacyRequestTechnique = 64,
+
+        /// <summary>请求兵力（OnDiplomacyRequestTroops：Force a, Force b, int, bool）</summary>
+        DiplomacyRequestTroops = 65,
+
+        /// <summary>双边贸易（OnDiplomacyTrade：Force a, Force b, bool）</summary>
+        DiplomacyTrade = 66,
+
+        /// <summary>赎回俘虏（OnDiplomacyRansom：Force a, Force b, int, bool）</summary>
+        DiplomacyRansom = 67,
     }
 
     /// <summary>
@@ -224,6 +344,27 @@ namespace Sango.Core.Event
 
         /// <summary>由剧本变量指定（SourceArg 为变量名）</summary>
         ScenarioVariable = 16,
+
+        // ---- 多实体注入（第二批）----------------------------------------
+        // 有些 hook 天然带两个参与方（单挑双方、外交双方、舌战双方），
+        // 单一 eventEntity 装不下。约定：EventEntity 恒为第 1 个，
+        // EventEntity2/3/4 按 hook 参数顺序取第 2/3/4 个。
+
+        /// <summary>hook 注入的第 2 个实体（如单挑的应战方势力 / 部队）</summary>
+        EventEntity2 = 17,
+
+        /// <summary>hook 注入的第 3 个实体</summary>
+        EventEntity3 = 18,
+
+        /// <summary>hook 注入的第 4 个实体</summary>
+        EventEntity4 = 19,
+
+        /// <summary>
+        /// hook 注入的格子（仅 Type = Cell 的槽位可用）。
+        /// Cell 不是 SangoObject，因此它走 EventConditionDatabase.cellSlots 这条独立通道，
+        /// 不参与 SangoObject 的槽位字典。
+        /// </summary>
+        EventCell = 20,
     }
 
     /// <summary>

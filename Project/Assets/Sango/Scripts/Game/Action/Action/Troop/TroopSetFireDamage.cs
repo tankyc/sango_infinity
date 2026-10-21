@@ -4,9 +4,10 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 部队忽略ZOC
-    /// land: 0 忽略水上 1 忽略陆地 2都忽略
-    /// value 万分比
+    /// 设定火焰伤害数值（覆盖）。
+    ///
+    /// 接入事件：OnFireAdd（火焰生成时），实际伤害 = 剧本 baseFireDamage × value / 10000，
+    /// 即 value = 10000 表示一倍基础火焰伤害，20000 表示两倍。
     /// </summary>
     public class TroopSetFireDamage : TroopActionBase
     {

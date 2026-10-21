@@ -549,7 +549,8 @@ namespace Sango.Core.Event
 
     /// <summary>
     /// 武将状态判定。State 取值：
-    /// Alive（未死亡）/ Dead / Prisoner（俘虏）/ Wild（在野）/ Normal（仕官）/ Invisible（未发现）
+    /// Alive（未死亡）/ Dead / Prisoner（俘虏）/ Wild（在野）/ Normal（仕官）/
+    /// Invisible（未发现）/ Unappear（未登场）
     /// </summary>
     public class PersonStateCheck : Condition
     {
@@ -581,6 +582,8 @@ namespace Sango.Core.Event
                 case "Wild": return person.IsWild;
                 case "Normal": return person.state == (int)PersonStateType.Normal;
                 case "Invisible": return person.Invisible;
+                // 未登场：还没在任何剧本节点上出现过（state == Invalid）
+                case "Unappear": return person.state == (int)PersonStateType.Invalid;
                 default: return false;
             }
         }

@@ -91,12 +91,30 @@ namespace Sango.UI
             OnScrollBarValueChange(0);
             GameEvent.OnModUpdate -= OnModUpdate;
             GameEvent.OnModUpdate += OnModUpdate;
+            GameEvent.OnModDownloadFailed -= OnModDownloadFailed;
+            GameEvent.OnModDownloadFailed += OnModDownloadFailed;
         }
 
         public override void OnClose()
         {
             GameEvent.OnModUpdate -= OnModUpdate;
+            GameEvent.OnModDownloadFailed -= OnModDownloadFailed;
             base.OnClose();
+        }
+
+        /// <summary>
+        /// 模组下载失败时的界面反馈
+        /// 失败原因必须弹给玩家看:否则进度条一消失就什么都没了,
+        /// 玩家会以为"点了下载没有任何反应"(正式包还会把 Warning 日志整句编译剔除)
+        /// </summary>
+        /// <param name="mod">下载失败的模组</param>
+        /// <param name="reason">失败原因(中文,可直接展示)</param>
+        void OnModDownloadFailed(Mod.Mod mod, string reason)
+        {
+            string modName = mod == null ? "" : (string.IsNullOrEmpty(mod.Name) ? mod.Id : mod.Name);
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
+                $"模组下载失败: {modName}\n{reason}",
+                () => { });
         }
 
         void OnModUpdate(Mod.Mod mod)

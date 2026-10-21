@@ -18,8 +18,17 @@ namespace Sango.Core.Event
     ///   1) 逻辑组合（由本类直接处理，不走 Condition 工厂）：
     ///      { "Type": "and", "Children": [ { ... }, { ... } ] }
     ///      { "Type": "or",  "Children": [ { ... }, { ... } ] }
+    ///      { "Type": "not", "Children": [ { ... }, { ... } ] }
     ///   2) 叶子条件（交给既有的 <see cref="Condition"/> 工厂）：
     ///      { "Type": "ForceAlive", "Params": { "Slot": "ActionForce" } }
+    ///
+    /// 语义（与编辑器 EventEditor 的提示保持一致）：
+    ///   · null / 空条件            → 恒成立；
+    ///   · and / andList            → 全部子条件成立；
+    ///   · or  / orList             → 任一子条件成立；
+    ///   · not                      → 所有子条件都**不**成立才成立（即"一个都不能满足"，
+    ///                                单子条件时就是常规的取反）；
+    ///   · 空 and / 空 or / 空 not  → 不成立（编辑器会对空组报错提醒）。
     ///
     /// 关于 Params：为了让 JSON 可读（参数与元信息分开），写的时候用 Params 包一层；
     /// 求值前本类会把 Params 的内容**拍平到根节点**，这样条件实现里直接 p.Value&lt;int&gt;("Slot")
@@ -38,6 +47,8 @@ namespace Sango.Core.Event
         const string TypeOr = "or";
         /// <summary>逻辑或列表的 Type 名</summary>
         const string TypeOrList = "orList";
+        /// <summary>逻辑取反（全部不成立）的 Type 名</summary>
+        const string TypeNot = "not";
 
         /// <summary>
         /// 求值一个条件树节点。
@@ -48,11 +59,46 @@ namespace Sango.Core.Event
         /// <returns>条件是否成立</returns>
         public static bool Evaluate(JObject node, EventConditionDatabase database, out string failReason)
         {
+            return Evaluate(node, database, out failReason, null, 0);
+        }
+
+        /// <summary>
+        /// 求值一个条件树节点，并把每个节点的判定结果写进 trace（供事件 DebugLog 打印）。
+        ///
+        /// 与无 trace 版本的区别：**关闭短路**。
+        /// 正常求值遇到"且"的第一条不满足就返回，日志里只会看到一条原因；
+        /// 带 trace 时会把所有子条件都跑一遍，于是能一次列全"到底还差几条、分别差在哪"。
+        /// 最终结果与短路版本完全一致（且 = 全部成立，或 = 任一成立）。
+        /// </summary>
+        /// <param name="node">条件树节点</param>
+        /// <param name="database">条件数据库</param>
+        /// <param name="failReason">输出：未满足的中文原因</param>
+        /// <param name="trace">输出：逐条判定过程（null 表示不收集）</param>
+        /// <returns>条件是否成立</returns>
+        public static bool Evaluate(JObject node, EventConditionDatabase database, out string failReason, List<string> trace)
+        {
+            return Evaluate(node, database, out failReason, trace, 0);
+        }
+
+        /// <summary>
+        /// 求值实现（带追踪与缩进深度）。
+        /// </summary>
+        /// <param name="node">条件树节点</param>
+        /// <param name="database">条件数据库</param>
+        /// <param name="failReason">输出：未满足的中文原因</param>
+        /// <param name="trace">输出：逐条判定过程；null 表示不收集（此时保持原有的短路行为）</param>
+        /// <param name="depth">缩进层级（0 = 根）</param>
+        /// <returns>条件是否成立</returns>
+        static bool Evaluate(JObject node, EventConditionDatabase database, out string failReason,
+            List<string> trace, int depth)
+        {
             failReason = null;
+            string indent = Indent(depth);
 
             if (node == null)
             {
                 failReason = "条件为空";
+                if (trace != null) trace.Add($"{indent}√ 条件为空，按恒成立处理");
                 return true;
             }
 
@@ -60,15 +106,19 @@ namespace Sango.Core.Event
             if (string.IsNullOrEmpty(type))
             {
                 failReason = "条件缺少 Type 字段";
+                if (trace != null) trace.Add($"{indent}× 条件缺少 Type 字段");
                 return false;
             }
 
             // —— 逻辑组合：本类自己处理，以便控制 Children 这种更易读的写法 ——
             if (type == TypeAnd || type == TypeAndList)
-                return EvaluateAll(node, database, true, out failReason);
+                return EvaluateAll(node, database, true, out failReason, trace, depth);
 
             if (type == TypeOr || type == TypeOrList)
-                return EvaluateAll(node, database, false, out failReason);
+                return EvaluateAll(node, database, false, out failReason, trace, depth);
+
+            if (type == TypeNot)
+                return EvaluateNot(node, database, out failReason, trace, depth);
 
             // —— 叶子条件：交给既有的 Condition 工厂 ——
             Condition condition = Condition.Create(type);
@@ -76,6 +126,7 @@ namespace Sango.Core.Event
             {
                 failReason = $"条件类型未注册：{type}";
                 Log.Warning($"事件条件求值失败：{failReason}");
+                if (trace != null) trace.Add($"{indent}× {failReason}");
                 return false;
             }
 
@@ -86,12 +137,15 @@ namespace Sango.Core.Event
                 bool ok = condition.Check(database);
                 if (!ok)
                     failReason = DescribeLeaf(type, flattened);
+                if (trace != null)
+                    trace.Add($"{indent}{(ok ? "√" : "×")} {DescribeLeaf(type, flattened, ok)}");
                 return ok;
             }
             catch (Exception e)
             {
                 failReason = $"条件求值异常：{type} → {e.Message}";
                 Log.Error($"事件条件求值异常：{failReason}");
+                if (trace != null) trace.Add($"{indent}× {failReason}");
                 return false;
             }
         }
@@ -132,33 +186,50 @@ namespace Sango.Core.Event
         /// <param name="database">条件数据库</param>
         /// <param name="isAnd">true = 与；false = 或</param>
         /// <param name="failReason">输出：未满足的中文原因</param>
+        /// <param name="trace">输出：逐条判定过程；null 表示不收集（保持原有短路行为）</param>
+        /// <param name="depth">缩进层级</param>
         /// <returns>逻辑组合的结果</returns>
-        static bool EvaluateAll(JObject node, EventConditionDatabase database, bool isAnd, out string failReason)
+        static bool EvaluateAll(JObject node, EventConditionDatabase database, bool isAnd, out string failReason,
+            List<string> trace, int depth)
         {
             failReason = null;
+            string indent = Indent(depth);
+            string kindText = isAnd ? "且" : "或";
 
             JArray children = node["Children"] as JArray;
             if (children == null || children.Count == 0)
             {
                 failReason = isAnd ? "and 条件没有子条件" : "or 条件没有子条件";
+                if (trace != null) trace.Add($"{indent}× {kindText} 组没有子条件，判为不成立");
                 return false;
             }
+
+            int total = children.Count;
+            int okCount = 0;
+            // 只有收集 trace 时才记录所有失败原因（不短路）；否则保持"第一条失败即返回"
+            List<string> fails = trace != null ? new List<string>() : null;
 
             for (int i = 0; i < children.Count; i++)
             {
                 JObject child = children[i] as JObject;
-                bool ok = Evaluate(child, database, out string childReason);
+                bool ok = Evaluate(child, database, out string childReason, trace, depth + 1);
+
+                if (ok) okCount++;
 
                 if (isAnd && !ok)
                 {
-                    // 与条件：任一不成立即整体不成立，直接短路
-                    failReason = childReason;
-                    return false;
+                    if (fails == null)
+                    {
+                        // 与条件：任一不成立即整体不成立，直接短路
+                        failReason = childReason;
+                        return false;
+                    }
+                    fails.Add(childReason);
                 }
 
-                if (!isAnd && ok)
+                if (!isAnd && ok && fails == null)
                 {
-                    // 或条件：任一成立即整体成立
+                    // 或条件：任一成立即整体成立（仅在非 trace 模式下短路）
                     failReason = null;
                     return true;
                 }
@@ -166,12 +237,79 @@ namespace Sango.Core.Event
 
             if (isAnd)
             {
+                if (okCount == total)
+                {
+                    failReason = null;
+                    if (trace != null) trace.Add($"{indent}√ {kindText}：{total} 条全部成立");
+                    return true;
+                }
+
+                // 把全部不满足项拼成一句，方便一眼看出"还差哪几条"
+                failReason = fails.Count == 1
+                    ? fails[0]
+                    : $"{fails.Count} 条条件未满足：" + string.Join("；", fails);
+                if (trace != null) trace.Add($"{indent}× {kindText}：{total} 条中有 {total - okCount} 条不成立");
+                return false;
+            }
+
+            if (okCount > 0)
+            {
                 failReason = null;
+                if (trace != null) trace.Add($"{indent}√ {kindText}：{total} 条中 {okCount} 条成立");
                 return true;
             }
 
             failReason = "or 条件的所有分支都不成立";
+            if (trace != null) trace.Add($"{indent}× {kindText}：{total} 条全部不成立");
             return false;
+        }
+
+        /// <summary>
+        /// 求值逻辑取反（not）节点：所有子条件都**不**成立时才成立。
+        ///
+        /// 为什么是"全部不成立"而不是"整体取反"：
+        /// 编辑器里 not 组的文案是「以下条件全部不成立」，这里与之一致；
+        /// 只有一个子条件时，两者完全等价（即常见的取反用法）。
+        /// </summary>
+        /// <param name="node">not 节点</param>
+        /// <param name="database">条件数据库</param>
+        /// <param name="failReason">输出：未满足的中文原因</param>
+        /// <param name="trace">输出：逐条判定过程；null 表示不收集（保持原有短路行为）</param>
+        /// <param name="depth">缩进层级</param>
+        /// <returns>取反结果</returns>
+        static bool EvaluateNot(JObject node, EventConditionDatabase database, out string failReason,
+            List<string> trace, int depth)
+        {
+            failReason = null;
+            string indent = Indent(depth);
+
+            JArray children = node["Children"] as JArray;
+            if (children == null || children.Count == 0)
+            {
+                // 空取反组没有可判定的对象，按"失败即安全"返回不成立，并在编辑器里报错提醒
+                failReason = "not 条件没有子条件";
+                if (trace != null) trace.Add($"{indent}× 取反组没有子条件，判为不成立");
+                return false;
+            }
+
+            for (int i = 0; i < children.Count; i++)
+            {
+                JObject child = children[i] as JObject;
+                bool ok = Evaluate(child, database, out string _, trace, depth + 1);
+
+                // 只要有一个子条件成立，取反就不成立（短路）
+                if (ok)
+                {
+                    failReason = $"not 条件被满足：第 {i + 1} 个子条件成立了";
+                    if (trace != null) trace.Add($"{indent}× 取反失败：第 {i + 1} 个子条件成立");
+                    return false;
+                }
+            }
+
+            // 全部子条件都不成立 → 取反成立
+            failReason = null;
+            if (trace != null) trace.Add($"{indent}√ 取反成立：{children.Count} 条子条件全部不成立");
+            return true;
         }
 
         /// <summary>
@@ -240,10 +378,29 @@ namespace Sango.Core.Event
         /// <returns>中文描述</returns>
         static string DescribeLeaf(string type, JObject flattened)
         {
+            return DescribeLeaf(type, flattened, false);
+        }
+
+        /// <summary>
+        /// 生成叶子条件的中文描述（可指定成立与否，供 DebugLog 的逐条追踪使用）。
+        /// </summary>
+        /// <param name="type">条件类型名</param>
+        /// <param name="flattened">拍平后的条件节点</param>
+        /// <param name="ok">条件是否成立</param>
+        /// <returns>中文描述</returns>
+        static string DescribeLeaf(string type, JObject flattened, bool ok)
+        {
             string slot = flattened != null ? flattened.Value<string>("Slot") : null;
-            if (!string.IsNullOrEmpty(slot))
-                return $"条件未满足：{type}（槽位 {slot}）";
-            return $"条件未满足：{type}";
+            string head = ok ? "条件成立" : "条件未满足";
+            return !string.IsNullOrEmpty(slot) ? $"{head}：{type}（槽位 {slot}）" : $"{head}：{type}";
+        }
+
+        /// <summary>日志缩进：每层两个空格</summary>
+        /// <param name="depth">层级</param>
+        /// <returns>缩进字符串</returns>
+        static string Indent(int depth)
+        {
+            return depth <= 0 ? string.Empty : new string(' ', depth * 2);
         }
 
         #region 槽位解析（跨回合用）

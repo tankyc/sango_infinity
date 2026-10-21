@@ -141,6 +141,30 @@ namespace Sango.Core.Player
             return $"{Path.SaveRootPath}/Save/auto_save{index}.json";
         }
 
+        /// <summary>
+        /// 读取一个存档槽位的基础信息(只读文件头部的 Info 段,不解析地图/势力)
+        /// 存档损坏或缺少基础信息时返回 null,该槽位按"空存档"显示,不会让整个读档界面打不开
+        /// </summary>
+        /// <param name="fileName">存档文件完整路径</param>
+        ShortScenario LoadSaveInfo(string fileName)
+        {
+            try
+            {
+                ShortScenario scenario = new ShortScenario(fileName);
+                if (scenario.Info == null)
+                {
+                    Sango.Log.Error($"存档缺少基础信息,已跳过: {fileName}");
+                    return null;
+                }
+                return scenario;
+            }
+            catch (System.Exception e)
+            {
+                Sango.Log.Error($"存档读取失败,已跳过: {fileName} {e.Message}");
+                return null;
+            }
+        }
+
         void InitSaveFile()
         {
             for (int i = 1; i <= all_saved_scenario_list.Length; i++)
@@ -149,8 +173,7 @@ namespace Sango.Core.Player
                 if (File.Exists(fileName))
                 {
                     Sango.Log.Info($"Find Saved data : {fileName}");
-                    ShortScenario scenario = new ShortScenario(fileName);
-                    all_saved_scenario_list[i - 1] = scenario;
+                    all_saved_scenario_list[i - 1] = LoadSaveInfo(fileName);
                 }
             }
         }
@@ -162,8 +185,8 @@ namespace Sango.Core.Player
                 if (File.Exists(fileName))
                 {
                     Sango.Log.Info($"Find Saved data : {fileName}");
-                    ShortScenario scenario = new ShortScenario(fileName);
-                    if (scenario.Info.dateTime > autoSaveTime)
+                    ShortScenario scenario = LoadSaveInfo(fileName);
+                    if (scenario != null && scenario.Info.dateTime > autoSaveTime)
                     {
                         autoSaveTime = scenario.Info.dateTime;
                         autoSaveIndex = i - 1;
@@ -192,12 +215,62 @@ namespace Sango.Core.Player
 
         public void Load(int index)
         {
-            Window.Instance.CloseAll();
-            Window.Instance.Open("window_loading");
-            Quit();
-            string fileName = GetSaveFileName(index + 1);
-            Scenario.CurSelected = new Scenario(fileName);
-            Scenario.StartScenario(Scenario.CurSelected);
+            LoadFromFile(GetSaveFileName(index + 1));
+        }
+
+        /// <summary>
+        /// 读档统一入口:整条链路都包在保护里。
+        /// 模组与存档不一致时,剧本数据很可能在中途对不上而抛异常(数组越界/空引用/配置缺失),
+        /// 一旦失败必须回到主菜单并提示玩家,绝不能把人留在"只初始化了一半"的剧本里。
+        /// </summary>
+        /// <param name="fileName">存档文件完整路径</param>
+        void LoadFromFile(string fileName)
+        {
+            try
+            {
+                Window.Instance.CloseAll();
+                Window.Instance.Open("window_loading");
+                Quit();
+                Scenario.CurSelected = new Scenario(fileName);
+                Scenario.StartScenario(Scenario.CurSelected);
+            }
+            catch (System.Exception e)
+            {
+                OnLoadFailed(fileName, e);
+            }
+        }
+
+        /// <summary>
+        /// 读档失败兜底:回主菜单 + 弹提示。
+        /// 收尾过程本身也可能因为半成品数据抛异常,所以每一步都单独兜一层,
+        /// 保证玩家至少能看到失败原因,而不是卡在 loading 界面。
+        /// </summary>
+        /// <param name="fileName">出错的存档文件</param>
+        /// <param name="e">原始异常</param>
+        void OnLoadFailed(string fileName, System.Exception e)
+        {
+            Sango.Log.Error($"读档失败: {fileName}\n{e.Message}\n{e.StackTrace}");
+
+            try
+            {
+                Scenario.CurSelected = null;
+                QuitToMainMenu();
+            }
+            catch (System.Exception quitError)
+            {
+                Sango.Log.Error("读档失败后回主菜单再次出错: " + quitError.Message);
+            }
+
+            try
+            {
+                GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
+                    "存档加载失败,可能是因为模组与存档不一致导致的数据缺失。\n"
+                    + $"（存档: {System.IO.Path.GetFileName(fileName)}）", null);
+            }
+            catch (System.Exception dialogError)
+            {
+                Sango.Log.Error("读档失败提示弹窗打开失败: " + dialogError.Message);
+            }
         }
 
         public void AutoSave()
@@ -215,12 +288,7 @@ namespace Sango.Core.Player
 
         public void LoadAutoFile(int index)
         {
-            Window.Instance.CloseAll();
-            Window.Instance.Open("window_loading");
-            Quit();
-            string fileName = GetAutoSaveFileName(index + 1);
-            Scenario.CurSelected = new Scenario(fileName);
-            Scenario.StartScenario(Scenario.CurSelected);
+            LoadFromFile(GetAutoSaveFileName(index + 1));
         }
 
         /// <summary>

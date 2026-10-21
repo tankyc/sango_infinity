@@ -6,30 +6,37 @@ using Sango.Render;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 给范围内的部队添加BUFF
-    /// value:buffID bound: 生效范围 targetType: 作用目标范围, 0己方 1敌人 2所有
+    /// 建筑回合开始时，给范围内的部队附加 BUFF。
+    ///
+    /// 接入事件：OnBuildingTurnStart（建筑回合开始，且建筑必须已完工）。
+    ///
+    /// 参数：
+    /// value      BUFF 的 Id
+    /// counter    BUFF 持续回合数
+    /// bound      生效范围（格），-1 表示使用建筑自身的 effectCells（建筑效果范围）
+    /// targetType 作用对象 0 己方 / 1 敌人 / 2 所有（旧配置键名拼写为 tartgetType，仍然兼容）
     /// </summary>
     public class BuildingAddBuff : BuildingActionBase
     {
         /// <summary>
-        /// buffID
+        /// BUFF 的 Id
         /// </summary>
         int value;
 
         /// <summary>
-        /// buff回合
+        /// BUFF 持续回合数
         /// </summary>
         int counter;
 
         /// <summary>
-        /// 生效范围
+        /// 生效范围（格），-1 表示使用建筑自身的 effectCells
         /// </summary>
         int bound;
 
         /// <summary>
-        /// 作用目标范围, 0己方 1敌人 2所有
+        /// 作用对象范围：0 己方 / 1 敌人 / 2 所有
         /// </summary>
-        int tartgetType;
+        int targetType;
 
         /// <summary>
         /// 初始化
@@ -47,11 +54,11 @@ namespace Sango.Core.Action
             value = p.Value<int>("value");
             counter = p.Value<int>("counter");
             bound = p.Value<int>("bound");
-            tartgetType = p.Value<int>("tartgetType");
+            targetType = ReadTargetType(p);
         }
 
         /// <summary>
-        /// 清理建筑资金产量提升动作
+        /// 清理建筑回合开始的 BUFF 动作
         /// </summary>
         public override void Clear()
         {
@@ -72,9 +79,9 @@ namespace Sango.Core.Action
                         if (cell.troop != null)
                         {
                             Troop troop = cell.troop;
-                            if (tartgetType == 0 && !troop.IsSameForce(Building))
+                            if (targetType == 0 && !troop.IsSameForce(Building))
                                 continue;
-                            if (tartgetType == 1 && !troop.IsEnemy(Building))
+                            if (targetType == 1 && !troop.IsEnemy(Building))
                                 continue;
 
                             target_list.Add(troop);
@@ -90,9 +97,9 @@ namespace Sango.Core.Action
                         if (cell.troop != null)
                         {
                             Troop troop = cell.troop;
-                            if (tartgetType == 0 && !troop.IsSameForce(Building))
+                            if (targetType == 0 && !troop.IsSameForce(Building))
                                 return;
-                            if (tartgetType == 1 && !troop.IsEnemy(Building))
+                            if (targetType == 1 && !troop.IsEnemy(Building))
                                 return;
 
                             target_list.Add(troop);

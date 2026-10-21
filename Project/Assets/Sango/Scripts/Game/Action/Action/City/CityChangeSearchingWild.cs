@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 提升工作效率
-    /// value: 百分比
-    /// jobIds: 工作ID集合
+    /// 把人才探索的结果改为固定值 value。
+    ///
+    /// 接入事件：OnCityJobSearchingWild（人才探索结算时）。
     /// </summary>
     public class CityChangeSearchingWild : CityActionBase
     {

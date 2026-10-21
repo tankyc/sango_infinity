@@ -7,6 +7,7 @@ namespace Sango.Core.Action
     /// 部队恢复：在配置的事件发生时，按百分比把事件数值(如战法造成的伤害)转换成兵力补回部队。
     /// percent：恢复百分比, 恢复兵力 = 事件数值 × percent / 100
     /// targetType：恢复对象(判断敌我), 0 己方(触发事件的部队, 默认) 1 敌方(事件的目标部队)
+    /// 接入事件：无（容器触发）——由所在「触发器 + 效果」容器的触发器决定时机，单独挂载不生效
     /// </summary>
     public class TroopRecure : TroopActionBase
     {

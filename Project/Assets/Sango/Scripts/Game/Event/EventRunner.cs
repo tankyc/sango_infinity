@@ -58,6 +58,52 @@ namespace Sango.Core.Event
         bool aborted;
 
         /// <summary>
+        /// 事件开始前的镜头状态（位置 + 距离）。
+        /// 演出里用 Camera 指令推镜头后，事件结束自动还原，避免玩家回到大地图时视角被留在别处。
+        /// </summary>
+        bool cameraCaptured;
+
+        /// <summary>事件开始前的镜头中心</summary>
+        UnityEngine.Vector3 cameraSavedPosition;
+
+        /// <summary>事件开始前的镜头距离</summary>
+        float cameraSavedDistance;
+
+        /// <summary>本次事件是否保留镜头（Camera 指令 Persist=true 时置位）</summary>
+        bool cameraPersist;
+
+        /// <summary>
+        /// 嵌套调用栈（Op: CallEvent）。
+        /// 栈顶是"父事件被挂起的位置"，子事件播完后原样恢复。
+        /// </summary>
+        readonly Stack<CallFrame> callStack = new Stack<CallFrame>();
+
+        /// <summary>嵌套调用最大深度：防止 A 调 B、B 又调 A 的递归成环</summary>
+        const int MaxCallDepth = 8;
+
+        /// <summary>当前嵌套深度（调试面板用）</summary>
+        public int CallDepth { get { return callStack.Count; } }
+
+        /// <summary>嵌套调用的一帧：父事件被挂起时的执行位置与演出设置</summary>
+        class CallFrame
+        {
+            /// <summary>父事件上下文（槽位 / 变量）</summary>
+            public EventContext context;
+
+            /// <summary>父事件指令流</summary>
+            public List<EventStage> stages;
+
+            /// <summary>父事件程序计数器（已指向 CallEvent 的下一条）</summary>
+            public int pc;
+
+            /// <summary>父事件的 Label 索引</summary>
+            public Dictionary<string, int> labels;
+
+            /// <summary>父事件是否处于"跳过演出"状态</summary>
+            public bool skipPresentation;
+        }
+
+        /// <summary>
         /// 播放结束回调（无论正常结束还是中止都会调用一次）。
         /// 必须写成 System.Action：本文件在 Sango.Core.Event 下，
         /// 而 Sango.Core 里有一个 Action **命名空间**，写裸 Action 会被解析成命名空间（CS0118）。
@@ -108,6 +154,8 @@ namespace Sango.Core.Event
             onFinished = finished;
             resultMessages.Clear();
 
+            CaptureCameraState();
+
             BuildLabelIndex();
 
             Log.Info($"事件开始播放：{definition}（共 {(stages != null ? stages.Count : 0)} 条指令）");
@@ -119,6 +167,96 @@ namespace Sango.Core.Event
             Step();
 
             return true;
+        }
+
+        /// <summary>
+        /// 内联执行另一个事件（Op: CallEvent）。
+        ///
+        /// 当前事件被压栈挂起，子事件从第一条指令开始播；子事件 End 或播完后自动回到
+        /// 父事件的下一条指令。两边的 Context 相互独立（槽位 / 私有变量不共享），
+        /// 需要跨事件共享状态请用全局旗标（SetFlag）。
+        /// </summary>
+        /// <param name="eventId">子事件 Id</param>
+        /// <returns>是否成功切入子事件（找不到事件 / 条件不满足 / 超过深度时返回 false，父事件继续）</returns>
+        public bool CallSubEvent(int eventId)
+        {
+            if (Context == null) return false;
+
+            if (callStack.Count >= MaxCallDepth)
+            {
+                Log.Warning($"事件 {Context.definition} 的 CallEvent 嵌套超过 {MaxCallDepth} 层（疑似递归调用事件 {eventId}），已忽略");
+                return false;
+            }
+
+            ScenarioEventManager manager = ScenarioEventManager.Instance;
+            EventDefinition def;
+            EventContext childContext;
+            if (manager == null || !manager.TryBuildCallContext(eventId, out def, out childContext))
+                return false;
+
+            callStack.Push(new CallFrame
+            {
+                context = Context,
+                stages = stages,
+                pc = pc,
+                labels = labels,
+                skipPresentation = skipPresentation,
+            });
+
+            Log.Info($"事件 {Context.definition} 嵌套调用事件 {def}（深度 {callStack.Count}，共 {callStack.Count + 1} 层）");
+
+            Context = childContext;
+            stages = def.Stages;
+            pc = 0;
+            // 必须置空：BuildLabelIndex 会 Clear 复用同一个字典，直接清会把父事件的索引毁掉
+            labels = null;
+            BuildLabelIndex();
+
+            // skipPresentation 不重置：父事件被 SkipAll 时子事件也不该演出
+            return true;
+        }
+
+        /// <summary>
+        /// 从子事件返回父事件，恢复挂起时的执行位置。
+        /// </summary>
+        /// <param name="countFired">是否把子事件计入触发次数（中止不计，与顶层事件一致）</param>
+        void ReturnToCaller(bool countFired)
+        {
+            CallFrame frame = callStack.Pop();
+
+            if (countFired)
+            {
+                ScenarioEventManager manager = ScenarioEventManager.Instance;
+                if (manager != null) manager.NotifyCalledEventFinished(Context.definition.Id);
+            }
+
+            Context = frame.context;
+            stages = frame.stages;
+            pc = frame.pc;
+            labels = frame.labels;
+            // "跳过演出"是单向的：子事件里触发过 SkipAll 时，父事件也不该再演下去
+            skipPresentation = frame.skipPresentation || skipPresentation;
+            waiting = false;
+            waitTimer = 0f;
+        }
+
+        /// <summary>
+        /// 当前指令流走到尽头（End 或越界）。
+        /// 有父事件则回到父事件继续执行并返回 true；没有父事件则整体结束并返回 false。
+        /// </summary>
+        /// <param name="success">是否正常结束</param>
+        /// <param name="reason">中文原因（日志用）</param>
+        /// <returns>是否只结束了子事件（调用方需要继续跑指令循环）</returns>
+        internal bool CompleteEvent(bool success, string reason)
+        {
+            if (callStack.Count > 0)
+            {
+                ReturnToCaller(success);
+                return true;
+            }
+
+            Finish(success, reason);
+            return false;
         }
 
         /// <summary>建立 Label → 下标索引（一次遍历，避免每次 Jump 都线性查找）</summary>
@@ -145,6 +283,46 @@ namespace Sango.Core.Event
             }
         }
 
+        /// <summary>
+        /// 记录事件开始前的镜头状态。
+        /// 取不到地图（调试/无渲染环境）时只标记未捕获，后续还原自动跳过。
+        /// </summary>
+        void CaptureCameraState()
+        {
+            cameraCaptured = false;
+            cameraPersist = false;
+            cameraSavedPosition = UnityEngine.Vector3.zero;
+            cameraSavedDistance = 0f;
+
+            Sango.Render.MapRender map = Sango.Render.MapRender.Instance;
+            if (map == null || map.mapCamera == null) return;
+
+            cameraSavedPosition = map.mapCamera.position;
+            cameraSavedDistance = map.mapCamera.distance;
+            cameraCaptured = true;
+        }
+
+        /// <summary>
+        /// 还原事件开始前的镜头。
+        /// Camera 指令带 Persist=true 时保留演出最后定格的位置（例如结局画面想让玩家看战场）。
+        /// </summary>
+        void RestoreCameraState()
+        {
+            if (!cameraCaptured) return;
+
+            cameraCaptured = false;
+            bool persist = cameraPersist;
+            cameraPersist = false;
+            if (persist) return;
+
+            Sango.Render.MapRender map = Sango.Render.MapRender.Instance;
+            if (map == null || map.mapCamera == null) return;
+
+            // 0.4 秒回拉：比瞬间跳回更不容易让人晕，也不会拖到玩家已经点开菜单
+            map.MoveCameraTo(cameraSavedPosition, 0.4f);
+            if (cameraSavedDistance > 0f) map.mapCamera.distance = cameraSavedDistance;
+        }
+
         #endregion
 
         #region 驱动
@@ -163,6 +341,13 @@ namespace Sango.Core.Event
         /// 它执行完 OnClose() 后还有一句 IsOpen = false，会把"重入后新打开的状态"覆盖掉。
         /// </summary>
         bool pictureClosedPending;
+
+        /// <summary>
+        /// Window 指令打开的窗口被玩家关闭，等下一帧再续播。
+        /// 与 pictureClosedPending 同理：关闭动作发生在 UGUIWindow.Close() 内部，
+        /// 同步续播会把新打开的状态覆盖掉。
+        /// </summary>
+        bool windowClosedPending;
 
         /// <summary>
         /// 结局界面（window_ending）的剩余展示时长（秒）。&gt;0 表示正在展示。
@@ -186,6 +371,15 @@ namespace Sango.Core.Event
             if (pictureClosedPending)
             {
                 pictureClosedPending = false;
+                SetWaiting(false);
+                Step();
+                return;
+            }
+
+            // Window 指令打开的窗口关闭后的续播（同样推迟一帧）
+            if (windowClosedPending)
+            {
+                windowClosedPending = false;
                 SetWaiting(false);
                 Step();
                 return;
@@ -256,22 +450,17 @@ namespace Sango.Core.Event
             stepping = true;
             try
             {
-                if (stages == null || pc >= stages.Count)
-                {
-                    Finish(true, "指令流结束");
-                    return;
-                }
-
                 // 单次 Step 的指令上限：防止 Jump 成环导致死循环卡死整帧
                 const int maxOpsPerStep = 256;
                 int executed = 0;
 
                 while (Context != null && !waiting && waitTimer <= 0f && !aborted)
                 {
-                    if (pc < 0 || pc >= stages.Count)
+                    // 子事件播完会回到父事件，pc 指向父事件的下一条，这里自然继续循环
+                    if (stages == null || pc < 0 || pc >= stages.Count)
                     {
-                        Finish(true, "指令流结束");
-                        return;
+                        if (!CompleteEvent(true, "指令流结束")) return;
+                        continue;
                     }
 
                     if (++executed > maxOpsPerStep)
@@ -314,6 +503,15 @@ namespace Sango.Core.Event
             int before = pc;
             pc++;
 
+            // 事件打开 DebugLog 时，每条指令执行前打一行（含指令序号与关键参数），
+            // 执行后若 pc 不是"下一条"则再补一行跳转目标 —— 这样分支/跳转到哪一步一目了然
+            bool debugLog = Context != null && Context.definition != null && Context.definition.DebugLog;
+            if (debugLog)
+            {
+                int total = stages != null ? stages.Count : 0;
+                Log.Info($"[事件调试] {Context.definition} 执行第 {before + 1}/{total} 条：{DescribeStage(stage)}");
+            }
+
             try
             {
                 RunOp(stage);
@@ -324,6 +522,35 @@ namespace Sango.Core.Event
 
                 // 异常时不回退 pc，避免同一条指令反复抛异常形成死循环
                 if (pc <= before) pc = before + 1;
+            }
+
+            if (debugLog && Context != null)
+            {
+                int total = stages != null ? stages.Count : 0;
+                if (pc != before + 1 && pc >= 0 && pc < total)
+                    Log.Info($"[事件调试] {Context.definition} 跳转到第 {pc + 1} 条");
+                else if (pc >= total)
+                    Log.Info($"[事件调试] {Context.definition} 指令流结束（共 {total} 条）");
+            }
+        }
+
+        /// <summary>
+        /// 日志用的一句话指令描述：Op 名 + 关键参数（Label 名 / 跳转目标），
+        /// 让"执行到第几条"不只是一串数字。
+        /// </summary>
+        /// <param name="stage">指令</param>
+        /// <returns>描述文本</returns>
+        static string DescribeStage(EventStage stage)
+        {
+            if (stage == null) return "（空指令）";
+
+            switch (stage.Op)
+            {
+                case EventOpType.Label: return $"Label（{stage.GetString("Name")}）";
+                case EventOpType.Jump: return $"Jump → {stage.GetString("Target")}";
+                case EventOpType.Branch: return $"Branch（条件不成立则继续下一条）→ {stage.GetString("Target")}";
+                case EventOpType.Choice: return "Choice（选择肢）";
+                default: return stage.Op.ToString();
             }
         }
 
@@ -388,6 +615,9 @@ namespace Sango.Core.Event
 
             Log.Info($"事件结束：{definition}（{(success ? "正常" : "中止")}，{reason}）");
 
+            // 演出结束把镜头还给玩家（Camera 指令 Persist=true 时跳过）
+            RestoreCameraState();
+
             // 先清状态再回调：回调里可能立刻启动下一个事件
             Context = null;
             stages = null;
@@ -399,6 +629,8 @@ namespace Sango.Core.Event
             skipPresentation = false;
             waitingDuel = false;
             pictureClosedPending = false;
+            windowClosedPending = false;
+            callStack.Clear();
 
             // 退出系统栈。
             // 用 Back(this) 而不是 Back()：Back() 弹的是栈顶，若此时栈顶是别人
@@ -410,10 +642,20 @@ namespace Sango.Core.Event
             callback?.Invoke();
         }
 
-        /// <summary>中止播放（槽位失效、异常等）</summary>
+        /// <summary>
+        /// 中止播放（槽位失效、异常等）。
+        /// 若当前在子事件里，只中止子事件并回到父事件，不牵连整场演出。
+        /// </summary>
         /// <param name="reason">中文原因</param>
         public void Abort(string reason)
         {
+            if (Context != null && callStack.Count > 0)
+            {
+                Log.Warning($"子事件 {Context.definition} 中止（{reason}），返回上级事件继续");
+                ReturnToCaller(false);
+                return;
+            }
+
             aborted = true;
             Finish(false, reason);
         }
@@ -440,6 +682,8 @@ namespace Sango.Core.Event
                 skipPresentation = false;
                 waitingDuel = false;
                 pictureClosedPending = false;
+                windowClosedPending = false;
+                callStack.Clear();
 
                 callback?.Invoke();
             }
@@ -458,6 +702,8 @@ namespace Sango.Core.Event
             skipPresentation = false;
             waitingDuel = false;
             pictureClosedPending = false;
+            windowClosedPending = false;
+            callStack.Clear();
             resultMessages.Clear();
             labels?.Clear();
         }

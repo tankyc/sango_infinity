@@ -1319,9 +1319,18 @@ namespace Sango.Core
 
         public void OnGameShutdown()
         {
-            End();
-            Clear();
-            Cur = null;
+            // 用 finally 保证 Cur 一定被置空:
+            // 读档失败时剧本只初始化了一半,End/Clear 很可能在中途抛异常,
+            // 若不置空,下一次开局会拿到这个半成品,连带后续步骤全部错乱。
+            try
+            {
+                End();
+                Clear();
+            }
+            finally
+            {
+                Cur = null;
+            }
         }
         public void OnGamePause()
         {
@@ -2106,6 +2115,10 @@ namespace Sango.Core
             Info.dateTime = DateTime.Now.ToFileTime();
             if (string.IsNullOrEmpty(Info.curForceName))
                 Info.curForceName = CurRunForce?.Name;
+
+            // 记录存档时启用的模组列表:读档时据此与当前模组对比,
+            // 不一致的存档只允许展示基础信息,并且需要玩家确认后才尝试加载
+            Info.mods = Sango.Mod.ModManager.Instance.GetEnabledModIds();
             Sango.Directory.Create(path, false);
             // 【性能】存档不再缩进输出：缩进会让文件体积与写出耗时扩大 2~3 倍。
             // 读取端全部基于 JsonTextReader 流式解析、对空白不敏感，因此新旧格式与新旧存档都可互相读入。

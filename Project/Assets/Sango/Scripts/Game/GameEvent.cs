@@ -61,6 +61,13 @@ namespace Sango.Core
         public static EventDelegate<Mod.Mod> OnModUpdate;
 
         /// <summary>
+        /// 模组下载失败时抛出
+        /// 参数1: 下载失败的模组;参数2: 失败原因(已翻译成中文,可直接展示给玩家)
+        /// 失败不能只写日志:正式包会把 Info/Warning 编译剔除,界面若不提示,玩家看到的就是"点了下载没反应"
+        /// </summary>
+        public static EventDelegate<Mod.Mod, string> OnModDownloadFailed;
+
+        /// <summary>
         /// 版本检查成功获取到远端版本信息时抛出
         /// 参数：VersionInfo 远端版本信息，监听者可依据 VersionInfo.hasNewVersion 决定是否弹出更新提示
         /// 获取失败时不会抛出该事件

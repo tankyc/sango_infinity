@@ -4,12 +4,11 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 某兵种类型战法的成功率增加-前 (必中)
-    /// value:增加值（百分比）  100则为必中,在计算成功率之前直接(跳过后面的成功率计算)
-    /// kinds： 兵种类型  
-    /// checkLand： 0:只检查kinds 1:只对landType检查kinds，2只对waterType检查kinds 
-    /// isNormal：  0都可以 2非 1是 
-    /// condition： 额外条件 支持参数(troop,troop,skill)
+    /// 战法成功率修正（value 为百分比点数）。
+    ///
+    /// 接入事件：value >= 100 时订阅 OnTroopBeforeCalculateSkillSuccess（可在计算前直接顶成必中），
+    /// 否则订阅 OnTroopAfterCalculateSkillSuccess（在计算结果上加减）。
+    /// kinds / isNormal / isRange / condition 为通用过滤条件。
     /// </summary>
     public class TroopSkillCalculateSuccess : TroopTroopActionBase
     {
@@ -47,6 +46,8 @@ namespace Sango.Core.Action
             }
             else
             {
+                // 【空引用修复】施放格子可能为空，此时无法判定归属，直接跳过
+                if (spellCell == null) return;
                 if (Troop != null && Troop != spellCell.troop) return;
             }
 

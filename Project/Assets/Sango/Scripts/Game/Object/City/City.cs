@@ -3530,9 +3530,10 @@ namespace Sango.Core
         /// <summary>
         /// 授予宝物 / 装备（数据侧）。
         ///
-        /// 本方法只做两件事：扣势力行动力、记本回合工作次数；道具与忠诚的状态变更
-        /// 全部委托 <see cref="ItemGrantRules.Grant"/>（与玩家侧入口共用一个口径）。
-        /// 校验不通过时**不扣行动力**，避免玩家白付代价。
+        /// 定位（2026-10 改版）：装备管理操作，**不占行动力、不记回合工作次数、不改忠诚**。
+        /// 唯一成本是技巧点，由 <see cref="ItemGrantRules.Grant"/> 内部按件扣除；
+        /// 本方法只做校验与转发，因此可以在同一回合连续调用任意多次（够技巧点就行）。
+        /// 校验不通过时**不扣技巧点**，避免玩家白付代价。
         /// </summary>
         /// <param name="person">目标武将（须为本城在职武将）</param>
         /// <param name="item">待授予的珍品（须在本势力国库中）</param>
@@ -3547,23 +3548,19 @@ namespace Sango.Core
                 return false;
             }
 
-            int jobId = (int)CityJobType.GrantItem;
-            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
-
             string grantReason;
             ItemType replaced = ItemGrantRules.Grant(this, person, item, out grantReason);
             if (replaced == null && !string.IsNullOrEmpty(grantReason))
                 return false;
 
-            BelongCorps.AddJobCounter(jobId);
             return true;
         }
 
         /// <summary>
         /// 没收宝物 / 装备（数据侧）。
         ///
-        /// 与授予对称：本方法只管行动力与工作次数，道具 / 忠诚 / 特效的状态变更
-        /// 全部委托 <see cref="ItemGrantRules.Confiscate"/>。
+        /// 与授予对称：不占行动力、不记回合工作次数、不改忠诚，
+        /// 成本只有技巧点（由 <see cref="ItemGrantRules.Confiscate"/> 内部按件扣除）。
         /// </summary>
         /// <param name="person">目标武将（须为本城在职武将）</param>
         /// <param name="item">待没收的珍品（须在该武将身上或装备栏中）</param>
@@ -3578,15 +3575,11 @@ namespace Sango.Core
                 return false;
             }
 
-            int jobId = (int)CityJobType.ConfiscateItem;
-            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
-
             string confiscateReason;
             ItemType taken = ItemGrantRules.Confiscate(this, person, item, out confiscateReason);
             if (taken == null)
                 return false;
 
-            BelongCorps.AddJobCounter(jobId);
             return true;
         }
 

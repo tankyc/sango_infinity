@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 提升工作效率
-    /// value: 百分比
-    /// jobIds: 工作ID集合
+    /// 把据点士兵的粮食消耗改为固定值 value。
+    ///
+    /// 接入事件：OnCityCalculateFoodCost（据点士兵粮食消耗计算时）。
     /// </summary>
     public class CityChangeFoodCost : CityActionBase
     {

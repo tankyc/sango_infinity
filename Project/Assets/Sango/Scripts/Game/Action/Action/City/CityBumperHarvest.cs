@@ -5,7 +5,11 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 在春秋季初按概率授予城市丰收状态，并在状态期间提高粮食产量。
+    /// 春 / 秋季开始时概率赋予"丰收"状态，提升之后若干月的粮食产量。
+    ///
+    /// 接入事件：OnCitySeasonStart（换季判定）+ OnCityMonthStart（状态计时）
+    /// + OnCityCalculateFoodHarvest（按状态放大产量）。
+    /// 参数：chance 触发概率；durationMonths 持续月数；foodHarvestFactor 产量系数百分比。
     /// </summary>
     public class CityBumperHarvest : CityActionBase
     {

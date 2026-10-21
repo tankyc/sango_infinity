@@ -6,6 +6,7 @@ namespace Sango.Core.Action
     /// <summary>
     /// 某兵种攻击力增加
     /// value: 增加值  kinds:兵种kind   checkLand 0:只检查kinds 1:只对landType检查kinds 2只对waterType检查kinds
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
     public class TroopAddMoveAbility : TroopActionBase
     {

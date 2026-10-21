@@ -7,6 +7,7 @@ namespace Sango.Core.Action
     /// 本 Action 不再直接参与援助判定: 它订阅 OnTroopCalculateAttribute,
     /// 在部队属性计算阶段把数据里配置的辅佐概率(百分比)以取Max(不叠加)的方式写入 Troop.assistChance,
     /// 由 Troop.CalcAssistChance 在关系档位均未命中时读取该值兜底判定。
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
     public class TroopAssistAttack : TroopActionBase
     {

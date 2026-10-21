@@ -27,8 +27,12 @@ namespace Sango.Core.Action
         /// <param name="sangoObjects">游戏对象</param>
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
+            // 防御性判断：装配方传空数组时不应抛 IndexOutOfRangeException
+            if (sangoObjects == null || sangoObjects.Length == 0)
+                return;
+
             City = sangoObjects[0] as City;
-            if(City == null)
+            if (City == null)
             {
                 Force = sangoObjects[0] as Force;
             }

@@ -1,87 +1,44 @@
-﻿using Sango.Core.Tools;
-using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 部队忽略ZOC
-    /// land: 0 忽略水上 1 忽略陆地 2都忽略
+    /// 部队触发器容器：triggerList 决定触发时机，actionList 内的效果在该时机依次执行。
+    ///
+    /// 子效果自身不订阅任何事件，单独挂在特技 / 技法上不会生效。
+    /// 装配逻辑已抽到 ActionContainer，建筑 / 城市分别用 BuildingTriggerAction / CityTriggerAction。
     /// </summary>
     public class TroopTriggerAction : TroopActionBase
     {
-        List<Trigger> triggerList;
-        List<ActionBase> actionList;
+        /// <summary>容器内容</summary>
+        readonly ActionContainer container = new ActionContainer();
 
+        /// <summary>
+        /// 初始化容器
+        /// </summary>
+        /// <param name="p">JSON参数对象</param>
+        /// <param name="sangoObjects">相关的游戏对象</param>
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
             base.Init(p, sangoObjects);
-
-            // 初始化触发器
-            JArray triggerArray = p.Value<JArray>("triggerList");
-            if (triggerArray != null)
-            {
-                triggerList = new List<Trigger>(triggerArray.Count);
-                for (int i = 0; i < triggerArray.Count; i++)
-                {
-                    JObject valus = triggerArray[i] as JObject;
-                    Trigger action = Trigger.Create(valus.Value<string>("class"));
-                    if (action != null)
-                    {
-                        action.Init(OnTrigger, sangoObjects);
-                        triggerList.Add(action);
-                    }
-                }
-            }
-
-            // 初始化效果
-            JArray actionArray = p.Value<JArray>("actionList");
-            if (actionArray != null)
-            {
-                actionList = new List<ActionBase>(actionArray.Count);
-                for (int i = 0; i < actionArray.Count; i++)
-                {
-                    JObject valus = actionArray[i] as JObject;
-                    ActionBase action = ActionBase.Create(valus.Value<string>("class"));
-                    if (action != null)
-                    {
-                        action.Init(valus, sangoObjects);
-                        actionList.Add(action);
-                    }
-                }
-            }
+            container.Init(p, sangoObjects);
         }
 
+        /// <summary>
+        /// 清理容器（退订所有触发器 + 子效果）
+        /// </summary>
         public override void Clear()
         {
-            if (triggerList != null)
-            {
-                foreach (var obj in triggerList)
-                {
-                    obj.Clear();
-                }
-            }
-
-            if (actionList != null)
-            {
-                foreach (var obj in actionList)
-                {
-                    obj.Clear();
-                }
-            }
+            container.Clear();
         }
 
+        /// <summary>
+        /// 触发器回调：依次执行容器内的效果
+        /// </summary>
+        /// <param name="trigger">触发事件</param>
         public virtual void OnTrigger(Trigger trigger)
         {
-            if (actionList != null)
-            {
-                foreach (var obj in actionList)
-                {
-                    obj.Execute(trigger);
-                }
-            }
+            container.Dispatch(trigger);
         }
-
-
     }
 }

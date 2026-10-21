@@ -5,10 +5,11 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 改变某兵种类型战法的气力消耗
-    /// value： 改变值
-    /// kinds： 兵种类型 
-    /// condition： 额外条件
+    /// 在原有施放距离基础上追加 value 层（每层 +1 格）。
+    ///
+    /// 【遗留代码】实现与 TroopAddSkillSpellRange 完全重复，且未在 ActionBase 注册，当前不可用；
+    /// 保留仅为兼容可能存在的历史引用，新配置请使用 TroopAddSkillSpellRange。
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
     public class TroopSetSkillSpellRange : TroopTroopActionBase
     {
@@ -25,6 +26,10 @@ namespace Sango.Core.Action
 
         void SetRange(SkillInstance skillInstance)
         {
+            // 【越界修复】spellRanges 为空时原实现会访问 [-1] 抛 IndexOutOfRangeException
+            if (skillInstance == null || skillInstance.spellRanges == null || skillInstance.spellRanges.Length == 0)
+                return;
+
             List<int> rangeL = new List<int>(skillInstance.spellRanges);
             int end_v = skillInstance.spellRanges[skillInstance.spellRanges.Length - 1];
             for (int i = 0; i < value; ++i)

@@ -10,9 +10,12 @@ using Sango.Core; namespace Sango.UI
     ///
     /// 【布局】
     ///   左：珍品列表（授予 = 国库珍品；没收 = 当前武将身上的珍品）
-    ///   中：选中珍品的详情（图标 / 品级 / 五维加成 / 特效 / 说明）+ 忠诚变化预览
+    ///   中：选中珍品的详情（图标 / 品级 / 五维加成 / 特效 / 说明）+ 技巧点结算预览
     ///   右：目标武将（头像、姓名、忠诚、当前装备），点"选择武将"走既有的 PersonSelectSystem
-    ///   底：行动力消耗、不能确认的原因 / 软提示、确认 / 取消
+    ///   底：技巧点消耗 / 余额、不能确认的原因 / 软提示、确认 / 取消
+    ///
+    /// 【连续操作】确认后窗口不关闭（见 CityItemGrantBase.DoJob），
+    ///   玩家可以在同一回合里依次给多名武将调整装备，每件扣一次技巧点。
     ///
     /// 【为什么两个 Job 共用一个窗口】
     ///   授予与没收界面完全同构，只有"左侧列表的来源"与"忠诚变化方向"相反。
@@ -28,7 +31,7 @@ using Sango.Core; namespace Sango.UI
         /// <summary>窗口标题（授予宝物 / 没收宝物）</summary>
         public Text windowTitle;
 
-        /// <summary>左侧列表来源提示（"国库珍品" / "该武将随身与装备"）</summary>
+        /// <summary>左侧列表来源提示（"国库珍品" / "该武将的宝物与装备"）</summary>
         public Text itemListTip;
 
         /// <summary>左侧珍品格模板（须挂 Button，点击走 UIBuildingTypeItem.onSelected）</summary>
@@ -107,7 +110,7 @@ using Sango.Core; namespace Sango.UI
                 windowTitle.text = currentSystem.customTitleName;
 
             if (itemListTip != null)
-                itemListTip.text = currentSystem.IsGrantMode ? "国库珍品" : "该武将随身与装备";
+                itemListTip.text = currentSystem.IsGrantMode ? "国库珍品" : "该武将的宝物与装备";
 
             BindButtons();
             RefreshAll();
@@ -232,27 +235,28 @@ using Sango.Core; namespace Sango.UI
 
             if (action_value != null)
             {
-                int cost = JobType.GetJobCostAP((int)currentSystem.GrantJobType);
-                action_value.text = $"{cost}/{currentSystem.TargetCity.BelongCorps.ActionPoint}";
+                // 成本已从行动力改为技巧点（见 CityItemGrantBase 类注释）
+                action_value.text = $"{currentSystem.TechniqueCost}/{currentSystem.TechniquePoint}";
             }
 
             if (loyaltyChangeLabel != null)
             {
+                // 字段名沿用旧 prefab 绑定（原"忠诚变化预览"），现用于展示技巧点结算预览。
+                // 改名会断掉预制体的序列化引用，所以不改字段名，只改内容。
                 if (person == null || item == null || !currentSystem.CanConfirm)
                 {
                     loyaltyChangeLabel.text = "";
                 }
                 else
                 {
-                    int after = person.loyalty + currentSystem.loyaltyPreview;
+                    int cost = currentSystem.TechniqueCost;
+                    int before = currentSystem.TechniquePoint;
+                    int after = before - cost;
                     if (after < 0) after = 0;
-                    else if (after > 100) after = 100;
 
-                    string sign = currentSystem.loyaltyPreview >= 0
-                        ? $"(+{currentSystem.loyaltyPreview})" : $"({currentSystem.loyaltyPreview})";
-                    string color = currentSystem.loyaltyPreview >= 0 ? "#5BD97A" : "#FF6B5A";
-                    loyaltyChangeLabel.text =
-                        $"忠诚 {person.loyalty} → {after} <color={color}>{sign}</color>";
+                    loyaltyChangeLabel.text = cost > 0
+                        ? $"技巧点 {before} → {after} <color=#FF6B5A>(-{cost})</color>"
+                        : "本次不消耗技巧点";
                 }
             }
 
@@ -313,14 +317,16 @@ using Sango.Core; namespace Sango.UI
             RefreshAll();
         }
 
-        /// <summary>确认执行</summary>
+        /// <summary>确认执行（连续操作：成功后窗口不关闭，只刷新）</summary>
         public void OnSure()
         {
             if (currentSystem == null || !currentSystem.CanConfirm)
                 return;
 
-            // 成功后系统会 Done() → 窗口随系统 OnDestroy 关闭；失败时留在窗口里让玩家改选
+            // DoJob 内部不再 Done()，执行成功后由这里刷新整窗：
+            // 左侧列表（国库 / 武将身上已变）、右侧装备概览、底部技巧点余额
             currentSystem.DoJob();
+            RefreshAll();
         }
 
         /// <summary>取消（退出当前工作）</summary>
@@ -379,7 +385,7 @@ using Sango.Core; namespace Sango.UI
         static string BuildEquipText(Person person)
         {
             return $"武器：{NameOf(person.EquippedWeapon)}   铠甲：{NameOf(person.EquippedArmor)}\n" +
-                   $"马匹：{NameOf(person.EquippedHorse)}   随身宝：{NameOf(person.EquippedTreasure)}";
+                   $"马匹：{NameOf(person.EquippedHorse)}   宝物：{NameOf(person.EquippedTreasure)}";
         }
 
         /// <summary>取道具名；为空时显示"－"</summary>

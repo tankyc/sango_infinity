@@ -4,10 +4,10 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 改变某兵种类型战法的气力消耗
-    /// value： 改变值
-    /// kinds： 兵种类型 
-    /// condition： 额外条件
+    /// 往部队的战法列表里追加一个战法。
+    ///
+    /// 接入事件：OnTroopBeforeCalculateAttribute（属性重算前），重复追加同一战法会被跳过。
+    /// 参数：value 为战法 Id。
     /// </summary>
     public class TroopAddSkill : TroopTroopActionBase
     {

@@ -92,7 +92,17 @@ namespace Sango.Core.Event
         struct DeferredTrigger
         {
             public EventTriggerKind kind;
-            public SangoObject entity;
+
+            /// <summary>
+            /// 注入的实体数组（索引 0 与旧字段 entity 等价）。
+            /// 暂缓后重试时必须原样还原，否则"多参与方"事件在让路一轮后会丢掉第 2/3 个实体，
+            /// 表现为"第一次能触发、被暂缓一次后再也绑不上槽位"。
+            /// </summary>
+            public SangoObject[] entities;
+
+            /// <summary>注入的格子（可为 null）</summary>
+            public Cell cell;
+
             public int jobResult;
         }
 
@@ -284,6 +294,74 @@ namespace Sango.Core.Event
             GameEvent.OnDiplomacySendGift += OnDiplomacySendGift;
             GameEvent.OnDiplomacyMarriage += OnDiplomacyMarriage;
 
+            // ================================================================
+            // 第二批订阅（对应 EventTriggerKind 31~67）。
+            //
+            // 【为什么整批放在 Init 里】GameEvent 的订阅属于"应用级订阅"，
+            // 由 GameEventBaseline 兜底、终身不解绑（见类注释），因此这里只增不减。
+            // 新增触发时机时，只需要在此加一行订阅 + 下方区域加一个三行回调。
+            // ================================================================
+
+            // —— 回合节奏（势力 / 城市 / 部队） ——
+            GameEvent.OnForceTurnEnd += OnForceTurnEnd;
+            GameEvent.OnPlayerEndTurn += OnPlayerEndTurn;
+            GameEvent.OnCityTurnStart += OnCityTurnStart;
+            GameEvent.OnCityMonthStart += OnCityMonthStart;
+            GameEvent.OnCitySeasonStart += OnCitySeasonStart;
+            GameEvent.OnTroopTurnStart += OnTroopTurnStart;
+            GameEvent.OnTroopActionOver += OnTroopActionOver;
+            GameEvent.OnTroopClear += OnTroopClear;
+
+            // —— 军团 ——
+            GameEvent.OnCorpsCreate += OnCorpsCreate;
+            GameEvent.OnCorpsDelete += OnCorpsDelete;
+
+            // —— 势力成长 ——
+            GameEvent.OnForceResearchComplete += OnForceResearchComplete;
+            GameEvent.OnForceChangeCounsellor += OnForceChangeCounsellor;
+
+            // —— 建筑（补齐：BuildingComplete 早已在枚举里定义，此前一直漏订阅，属于死枚举） ——
+            GameEvent.OnBuildingComplete += OnBuildingComplete;
+            GameEvent.OnBuildingUpgradeComplete += OnBuildingUpgradeComplete;
+
+            // —— 武将成长 / 人事 ——
+            GameEvent.OnPersonLevelUp += OnPersonLevelUp;
+            GameEvent.OnPersonInjury += OnPersonInjury;
+            GameEvent.OnPersonRelease += OnPersonRelease;
+            GameEvent.OnPersonChangCurrentCity += OnPersonChangCurrentCity;
+            GameEvent.OnPersonUpgradeOfficial += OnPersonUpgradeOfficial;
+
+            // —— 战场 ——
+            GameEvent.OnTroopChangeForce += OnTroopChangeForce;
+            GameEvent.OnDiscoverEnemyTroop += OnDiscoverEnemyTroop;
+            GameEvent.OnFireAdd += OnFireAdd;
+            GameEvent.OnSkillActionEnd += OnSkillActionEnd;
+            GameEvent.OnDuelStart += OnDuelStart;
+            GameEvent.OnDuelChallengeRequest += OnDuelChallengeRequest;
+            GameEvent.OnDebateStart += OnDebateStart;
+            GameEvent.OnDebateChallengeRequest += OnDebateChallengeRequest;
+
+            // 单挑结算：枚举注释写的是 OnDuelFinished，此前只订阅了 OnDuelEnd。
+            // 两个 hook 的时序不同（一个是"演出结束"，一个是"结算完成"），
+            // 因此两个都订上：先到的那个赢，后到的会被 EvaluateKind 的 IsPlaying 挡掉，
+            // 不会重复播放；若前一个条件不满足，后一个仍有机会，避免漏触发。
+            GameEvent.OnDuelFinished += OnDuelFinished;
+
+            // —— 城市工作 / 收获 ——
+            GameEvent.OnCityJobResult += OnCityJobResult;
+            GameEvent.OnCityJobCounterResult += OnCityJobCounterResult;
+            GameEvent.OnCityGainGoldHarvest += OnCityGainGoldHarvest;
+            GameEvent.OnCityGainFoodHarvest += OnCityGainFoodHarvest;
+
+            // —— 外交细分 ——
+            GameEvent.OnDiplomacyBreakAlliance += OnDiplomacyBreakAlliance;
+            GameEvent.OnDiplomacyAllianceRequest += OnDiplomacyAllianceRequest;
+            GameEvent.OnDiplomacyTruceRequest += OnDiplomacyTruceRequest;
+            GameEvent.OnDiplomacyRequestTechnique += OnDiplomacyRequestTechnique;
+            GameEvent.OnDiplomacyRequestTroops += OnDiplomacyRequestTroops;
+            GameEvent.OnDiplomacyTrade += OnDiplomacyTrade;
+            GameEvent.OnDiplomacyRansom += OnDiplomacyRansom;
+
             Log.Info("剧本事件系统初始化完成");
         }
 
@@ -453,6 +531,13 @@ namespace Sango.Core.Event
         void OnPersonChangeBelongCity(Person person, City from, City to)
         {
             EvaluateKind(EventTriggerKind.PersonJoinForce, person);
+
+            // 同一个 hook 兼作"武将登场"：登场的定义是"武将首次有了所在城市"，
+            // 在此之前 from 为 null（未登场 / 在野且无归属）。
+            // 引擎没有独立的 OnPersonAppear，这里是唯一能观察到这次状态迁移的公共信号，
+            // 因此靠 from == null 做一次判别 —— 早先 PersonAppear 枚举一直没人调用，属于死枚举。
+            if (from == null && to != null)
+                EvaluateKind(EventTriggerKind.PersonAppear, person);
         }
 
         void OnForceFall(Force force, City city, Troop troop)
@@ -558,6 +643,235 @@ namespace Sango.Core.Event
             EvaluateKind(EventTriggerKind.DiplomacyMarriage, a);
         }
 
+        // ====================================================================
+        // 第二批 hook 入口（EventTriggerKind 31~67）
+        //
+        // 【统一写法】每个回调只做一件事：把 hook 里"最有代表性的那个对象"
+        // 作为事件实体交给 EvaluateKind，剩下的参与方由事件自己的槽位声明去解析。
+        // 为什么不做多实体注入：现有的 EventSlotSource.EventEntity 是单实体模型，
+        // 多实体需要改 EventContext / EventSlotResolver / 槽位命名规则三处，
+        // 属于独立一轮改造；本批先保证"事件能按时机触发"，
+        // 需要第二个参与方时用 ForceSlot / TargetForce 等固定槽位表达即可。
+        // ====================================================================
+
+        void OnForceTurnEnd(Force force, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.ForceTurnEnd, force);
+        }
+
+        void OnPlayerEndTurn(Force force, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.PlayerEndTurn, force);
+        }
+
+        void OnCityTurnStart(City city, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.CityTurnStart, city);
+        }
+
+        void OnCityMonthStart(City city, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.CityMonthStart, city);
+        }
+
+        void OnCitySeasonStart(City city, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.CitySeasonStart, city);
+        }
+
+        void OnTroopTurnStart(Troop troop, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.TroopTurnStart, troop);
+        }
+
+        /// <summary>部队行动结束：注入部队，供"行军途中"类事件判断</summary>
+        /// <param name="troop">行动结束的部队</param>
+        void OnTroopActionOver(Troop troop)
+        {
+            EvaluateKind(EventTriggerKind.TroopActionOver, troop);
+        }
+
+        void OnTroopClear(Troop troop, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.TroopClear, troop);
+        }
+
+        /// <summary>
+        /// 部队易主：注入部队本体（新旧势力在 hook 参数里，事件侧用条件读当前归属即可，
+        /// 因为调用此回调时归属已经改完，oldForce 参数只对"变化量"有意义）。
+        /// </summary>
+        /// <param name="troop">易主的部队</param>
+        /// <param name="oldForce">原势力</param>
+        /// <param name="newForce">新势力</param>
+        void OnTroopChangeForce(Troop troop, Force oldForce, Force newForce)
+        {
+            EvaluateKind(EventTriggerKind.TroopChangeForce, troop);
+        }
+
+        void OnCorpsCreate(Corps corps, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.CorpsCreated, corps);
+        }
+
+        void OnCorpsDelete(Corps corps, Scenario scenario)
+        {
+            EvaluateKind(EventTriggerKind.CorpsDeleted, corps);
+        }
+
+        void OnForceResearchComplete(Force force, Technique technique)
+        {
+            EvaluateKind(EventTriggerKind.ForceResearchComplete, force);
+        }
+
+        void OnForceChangeCounsellor(Force force, Person person)
+        {
+            EvaluateKind(EventTriggerKind.ForceChangeCounsellor, force);
+        }
+
+        /// <summary>建筑完工：注入建筑（合流时 building 必然非空）</summary>
+        /// <param name="building">完工的建筑</param>
+        /// <param name="workers">参与建造的武将</param>
+        void OnBuildingComplete(Building building, SangoObjectList<Person> workers)
+        {
+            EvaluateKind(EventTriggerKind.BuildingComplete, building);
+        }
+
+        void OnBuildingUpgradeComplete(Building building, SangoObjectList<Person> workers)
+        {
+            EvaluateKind(EventTriggerKind.BuildingUpgradeComplete, building);
+        }
+
+        void OnPersonLevelUp(Person person)
+        {
+            EvaluateKind(EventTriggerKind.PersonLevelUp, person);
+        }
+
+        void OnPersonInjury(Person person, Troop troop)
+        {
+            EvaluateKind(EventTriggerKind.PersonInjury, person);
+        }
+
+        void OnPersonRelease(Person person, Force force)
+        {
+            EvaluateKind(EventTriggerKind.PersonRelease, person);
+        }
+
+        void OnPersonChangCurrentCity(Person person, City from, City to)
+        {
+            EvaluateKind(EventTriggerKind.PersonChangeCurrentCity, person);
+        }
+
+        void OnPersonUpgradeOfficial(Person person, Official official)
+        {
+            EvaluateKind(EventTriggerKind.PersonUpgradeOfficial, person);
+        }
+
+        void OnDiscoverEnemyTroop(Force force, City city, Troop troop, Person person)
+        {
+            EvaluateKind(EventTriggerKind.DiscoverEnemyTroop, force);
+        }
+
+        /// <summary>
+        /// 火势蔓延：hook 参数是战法实例与 Fire 对象，都不是 SangoObject，
+        /// 因此不注入实体，参与方由事件槽位自己声明。
+        /// </summary>
+        /// <param name="skill">引发火势的战法</param>
+        /// <param name="fire">火对象</param>
+        void OnFireAdd(SkillInstance skill, Fire fire)
+        {
+            EvaluateKind(EventTriggerKind.FireAdd, null);
+        }
+
+        void OnSkillActionEnd(SkillInstance skill, Cell cell, Troop troop, BuildingBase building)
+        {
+            EvaluateKind(EventTriggerKind.SkillActionEnd, troop);
+        }
+
+        void OnDuelStart(Troop a, Troop b)
+        {
+            EvaluateKind(EventTriggerKind.DuelStart, a);
+        }
+
+        void OnDuelChallengeRequest(Troop a, Troop b)
+        {
+            EvaluateKind(EventTriggerKind.DuelChallenge, a);
+        }
+
+        void OnDebateStart(Person a, Person b)
+        {
+            EvaluateKind(EventTriggerKind.DebateStart, a);
+        }
+
+        void OnDebateChallengeRequest(Person a, Person b)
+        {
+            EvaluateKind(EventTriggerKind.DebateChallenge, a);
+        }
+
+        /// <summary>
+        /// 单挑结算完成（OnDuelFinished）。
+        /// 与 OnDuelEnd 的区别见 Init 里的订阅说明：两个都订，靠 IsPlaying 去重。
+        /// </summary>
+        /// <param name="duel">单挑对象</param>
+        void OnDuelFinished(Sango.Core.Duel.Duel duel)
+        {
+            EvaluateKind(EventTriggerKind.DuelFinished, null);
+        }
+
+        void OnCityJobResult(City city, int result, Person[] persons, Sango.Core.Tools.OverrideData<int> data)
+        {
+            EvaluateKind(EventTriggerKind.CityJobResult, city);
+        }
+
+        void OnCityJobCounterResult(City city, int result, Person[] persons, Sango.Core.Tools.OverrideData<int> data)
+        {
+            EvaluateKind(EventTriggerKind.CityJobCounterResult, city);
+        }
+
+        void OnCityGainGoldHarvest(City city, Sango.Core.Tools.OverrideData<int> data)
+        {
+            EvaluateKind(EventTriggerKind.CityGainGoldHarvest, city);
+        }
+
+        void OnCityGainFoodHarvest(City city, Sango.Core.Tools.OverrideData<int> data)
+        {
+            EvaluateKind(EventTriggerKind.CityGainFoodHarvest, city);
+        }
+
+        void OnDiplomacyBreakAlliance(Force a, Force b, bool success)
+        {
+            EvaluateKind(EventTriggerKind.DiplomacyBreakAlliance, a);
+        }
+
+        void OnDiplomacyAllianceRequest(Force a, Force b, bool success)
+        {
+            EvaluateKind(EventTriggerKind.DiplomacyAllianceRequest, a);
+        }
+
+        void OnDiplomacyTruceRequest(Force a, Force b, bool success)
+        {
+            EvaluateKind(EventTriggerKind.DiplomacyTruceRequest, a);
+        }
+
+        void OnDiplomacyRequestTechnique(Force a, Force b, int amount, bool success)
+        {
+            EvaluateKind(EventTriggerKind.DiplomacyRequestTechnique, a);
+        }
+
+        void OnDiplomacyRequestTroops(Force a, Force b, int amount, bool success)
+        {
+            EvaluateKind(EventTriggerKind.DiplomacyRequestTroops, a);
+        }
+
+        void OnDiplomacyTrade(Force a, Force b, bool success)
+        {
+            EvaluateKind(EventTriggerKind.DiplomacyTrade, a);
+        }
+
+        void OnDiplomacyRansom(Force a, Force b, int amount, bool success)
+        {
+            EvaluateKind(EventTriggerKind.DiplomacyRansom, a);
+        }
+
         #endregion
 
         #region 候选评估与播放
@@ -578,6 +892,23 @@ namespace Sango.Core.Event
         }
 
         /// <summary>
+        /// 多实体 + 格子注入版本（供单挑双方、外交双方、建造选址这类 hook 使用）。
+        ///
+        /// 【约定】entities 的第 0 个等价于旧的 entity；
+        /// 事件里的 <see cref="EventSlotSource.EventEntity"/> 取第 1 个，
+        /// EventEntity2/3/4 依次取后续元素；cell 供 Type = Cell 的槽位使用。
+        /// 数组里允许出现 null（hook 的某些参数天然可空），槽位解析会按"取不到"处理。
+        /// </summary>
+        /// <param name="kind">触发时机</param>
+        /// <param name="entities">hook 注入的实体数组（可含 null）</param>
+        /// <param name="cell">hook 注入的格子（可为 null）</param>
+        /// <returns>是否成功播放了一个事件</returns>
+        public bool EvaluateKind(EventTriggerKind kind, SangoObject[] entities, Cell cell)
+        {
+            return EvaluateKindInternal(kind, entities, cell, false);
+        }
+
+        /// <summary>
         /// 评估某个触发时机的全部候选事件，命中即播放（带紧急模式）。
         /// </summary>
         /// <param name="kind">触发时机</param>
@@ -587,6 +918,27 @@ namespace Sango.Core.Event
         /// <returns>是否成功播放了一个事件</returns>
         public bool EvaluateKind(EventTriggerKind kind, SangoObject entity, bool urgent)
         {
+            SangoObject[] entities = entity != null ? new SangoObject[] { entity } : null;
+            return EvaluateKindInternal(kind, entities, null, urgent);
+        }
+
+        /// <summary>
+        /// 评估的统一实现（多实体 + 格子）。
+        ///
+        /// 【为什么单开一个 Internal】旧的单实体入口有两个（带 / 不带 urgent），
+        /// 若各自复制一份实现，日后加一道闸门就得改两处、必漏一处。
+        /// 因此全部收敛到这里，旧入口只做参数打包。
+        /// </summary>
+        /// <param name="kind">触发时机</param>
+        /// <param name="entities">注入的实体数组（可为 null）</param>
+        /// <param name="cell">注入的格子（可为 null）</param>
+        /// <param name="urgent">true = 跳过让路暂缓</param>
+        /// <returns>是否成功播放了一个事件</returns>
+        bool EvaluateKindInternal(EventTriggerKind kind, SangoObject[] entities, Cell cell, bool urgent)
+        {
+            // 作用域过滤 / 工作类型过滤仍按"第一个实体"判定，与旧行为一致
+            SangoObject entity = (entities != null && entities.Length > 0) ? entities[0] : null;
+
             if (!database.Loaded || IsPlaying) return false;
 
             // 总开关：所有 hook 驱动的自动触发都从这里进来，闸门放这一处即可覆盖全部触发时机。
@@ -609,7 +961,7 @@ namespace Sango.Core.Event
             // 暂缓到"下一回合"等于这件事永远不会发生。此时宁可冒抢窗口的风险也要立刻试播。
             if (!urgent && IsBlockedByOtherPresentation())
             {
-                Defer(kind, entity, currentJobResult);
+                Defer(kind, entities, cell, currentJobResult);
                 return false;
             }
 
@@ -634,7 +986,7 @@ namespace Sango.Core.Event
                 if (!switchOn && (candidate == null || !candidate.AlwaysEnabled)) continue;
 
                 evaluatedThisTurn++;
-                if (TryFireEvent(candidate, kind, entity)) return true;
+                if (TryFireEvent(candidate, kind, entities, cell)) return true;
             }
 
             return false;
@@ -667,9 +1019,10 @@ namespace Sango.Core.Event
         /// 把一次触发放进暂缓队列，等下一回合开始重试。
         /// </summary>
         /// <param name="kind">触发时机</param>
-        /// <param name="entity">hook 注入的实体</param>
+        /// <param name="entities">hook 注入的实体数组（可为 null）</param>
+        /// <param name="cell">hook 注入的格子（可为 null）</param>
         /// <param name="jobResult">工作结果码（非 JobSettled 时传 int.MinValue）</param>
-        void Defer(EventTriggerKind kind, SangoObject entity, int jobResult)
+        void Defer(EventTriggerKind kind, SangoObject[] entities, Cell cell, int jobResult)
         {
             if (deferredTriggers.Count >= MaxDeferredTriggers)
             {
@@ -677,7 +1030,7 @@ namespace Sango.Core.Event
                 return;
             }
 
-            deferredTriggers.Add(new DeferredTrigger { kind = kind, entity = entity, jobResult = jobResult });
+            deferredTriggers.Add(new DeferredTrigger { kind = kind, entities = entities, cell = cell, jobResult = jobResult });
             Log.Info($"剧本事件：{kind} 触发让路给正在进行的演出，已暂缓（当前暂缓 {deferredTriggers.Count} 项）");
         }
 
@@ -702,7 +1055,7 @@ namespace Sango.Core.Event
                 {
                     if (IsPlaying)
                     {
-                        Defer(deferBuffer[i].kind, deferBuffer[i].entity, deferBuffer[i].jobResult);
+                        Defer(deferBuffer[i].kind, deferBuffer[i].entities, deferBuffer[i].cell, deferBuffer[i].jobResult);
                         continue;
                     }
 
@@ -710,12 +1063,12 @@ namespace Sango.Core.Event
                     {
                         // 仍然被占着：整批留在暂缓里，本轮不再尝试
                         for (int j = i; j < deferBuffer.Count; j++)
-                            Defer(deferBuffer[j].kind, deferBuffer[j].entity, deferBuffer[j].jobResult);
+                            Defer(deferBuffer[j].kind, deferBuffer[j].entities, deferBuffer[j].cell, deferBuffer[j].jobResult);
                         break;
                     }
 
                     currentJobResult = deferBuffer[i].jobResult;
-                    EvaluateKind(deferBuffer[i].kind, deferBuffer[i].entity);
+                    EvaluateKindInternal(deferBuffer[i].kind, deferBuffer[i].entities, deferBuffer[i].cell, false);
                 }
             }
             finally
@@ -735,16 +1088,56 @@ namespace Sango.Core.Event
         /// <returns>是否已开始播放</returns>
         public bool TryFireEvent(EventDefinition def, EventTriggerKind kind, SangoObject entity)
         {
-            if (def == null || !def.Enabled) return false;
+            SangoObject[] entities = entity != null ? new SangoObject[] { entity } : null;
+            return TryFireEvent(def, kind, entities, null);
+        }
+
+        /// <summary>
+        /// 尝试触发一个事件（多实体 + 格子版本）。
+        /// 具体的闸门顺序见旧重载上方注释，两者共用同一份实现。
+        /// </summary>
+        /// <param name="def">事件定义</param>
+        /// <param name="kind">触发时机</param>
+        /// <param name="entities">注入的实体数组（可为 null）</param>
+        /// <param name="cell">注入的格子（可为 null）</param>
+        /// <returns>是否已开始播放</returns>
+        public bool TryFireEvent(EventDefinition def, EventTriggerKind kind, SangoObject[] entities, Cell cell)
+        {
+            SangoObject entity = (entities != null && entities.Length > 0) ? entities[0] : null;
+
+            if (def == null) return false;
+
+            // 闸门未通过的统一出口：记录 LastFailReason；打开了 DebugLog 的事件额外打一行"卡在哪一步"。
+            // 用局部函数是为了不把十几处 return 各写一遍日志，也避免有人改漏。
+            bool Fail(EventRunState st, string step, string reason)
+            {
+                if (st != null) st.LastFailReason = reason;
+                if (def.DebugLog) Log.Info($"[事件调试] {def} 未触发 @{step}：{reason}");
+                return false;
+            }
+
+            if (!def.Enabled)
+            {
+                if (def.DebugLog) Log.Info($"[事件调试] {def} 未触发 @事件开关：Enabled = false");
+                return false;
+            }
 
             // 总开关。EvaluateKind 已挡过一道，这里再挡是为了覆盖"绕过 EvaluateKind 直接调本方法"
             // 的调用方（例如以后调试面板想单独重试某个事件）。
             //
             // 固定游戏事件（AlwaysEnabled）例外：它们承担结局 / 流程完整性，不受玩家开关影响。
             // 判断必须放在 def 判空之后 —— 先取 def.AlwaysEnabled 就是空引用。
-            if (!Enabled && !def.AlwaysEnabled) return false;
+            if (!Enabled && !def.AlwaysEnabled)
+            {
+                if (def.DebugLog) Log.Info($"[事件调试] {def} 未触发 @总开关：剧本事件总开关已关闭");
+                return false;
+            }
 
-            if (IsPlaying) return false;
+            if (IsPlaying)
+            {
+                if (def.DebugLog) Log.Info($"[事件调试] {def} 本次跳过：已有别的事件在播放");
+                return false;
+            }
 
             EventTriggerDef trigger = def.Trigger;
             if (trigger == null) return false;
@@ -754,57 +1147,39 @@ namespace Sango.Core.Event
 
             // ① 触发次数上限（Once / MaxFireCount）
             if (trigger.IsExhausted(state.FireCount))
-            {
-                state.LastFailReason = "触发次数已用尽";
-                return false;
-            }
+                return Fail(state, "①触发次数", "触发次数已用尽");
 
             // ② 冷却
             int curTurn = Scenario.Cur != null && Scenario.Cur.Info != null ? Scenario.Cur.Info.turnCount : 0;
             if (trigger.CooldownTurns > 0 && state.LastFireTurn >= 0
                 && curTurn - state.LastFireTurn < trigger.CooldownTurns)
             {
-                state.LastFailReason = $"冷却中（还需 {trigger.CooldownTurns - (curTurn - state.LastFireTurn)} 回合）";
-                return false;
+                return Fail(state, "②冷却",
+                    $"冷却中（还需 {trigger.CooldownTurns - (curTurn - state.LastFireTurn)} 回合）");
             }
 
             // ②-2 工作类型 / 结果过滤。
             // 调试面板的强制触发走 FireEventNow（它不经过本方法），因此不需要额外的跳过开关。
             if (!MatchJobFilter(def, entity, out string jobReason))
-            {
-                state.LastFailReason = jobReason;
-                return false;
-            }
+                return Fail(state, "②工作类型/结果过滤", jobReason);
 
             // ③ 年份索引（二级裁剪：把大部分历史事件在本年份直接排除）
             int curYear = Scenario.Cur != null && Scenario.Cur.Info != null ? Scenario.Cur.Info.year : 0;
             if (!trigger.MatchYear(curYear))
-            {
-                state.LastFailReason = $"当前年份 {curYear} 不在 {trigger.EarliestYear}~{trigger.LatestYear} 区间";
-                return false;
-            }
+                return Fail(state, "③年份索引", $"当前年份 {curYear} 不在 {trigger.EarliestYear}~{trigger.LatestYear} 区间");
 
             // ④ 作用域
             if (!MatchScope(def, entity))
-            {
-                state.LastFailReason = "触发作用域不匹配";
-                return false;
-            }
+                return Fail(state, "④作用域", $"触发作用域不匹配（要求 {def.Trigger.Scope}）");
 
             // ⑤ 剧本绑定过滤
             int scenarioId = Scenario.Cur != null && Scenario.Cur.Info != null ? Scenario.Cur.Info.id : 0;
             if (!EventDatabase.MatchScenarioFilter(def, scenarioStartYear, scenarioId))
-            {
-                state.LastFailReason = "当前剧本不适用该事件";
-                return false;
-            }
+                return Fail(state, "⑤剧本过滤", "当前剧本不适用该事件");
 
             // ⑥ 密度控制（Critical 级不受限）
             if (def.Level != EventLevel.Critical && firedThisTurn >= MaxEventFirePerTurn)
-            {
-                state.LastFailReason = $"本回合事件密度已达上限（{MaxEventFirePerTurn}）";
-                return false;
-            }
+                return Fail(state, "⑥密度控制", $"本回合事件密度已达上限（{MaxEventFirePerTurn}）");
 
             // ⑦ 槽位绑定（失败即放弃，且不改任何世界状态）
             EventContext context = new EventContext
@@ -814,31 +1189,37 @@ namespace Sango.Core.Event
                 fireCount = state.FireCount + 1,
                 fireKind = kind,
                 eventEntity = entity,
+                // 多实体与格子：单实体场景下 entities 只有一个元素，行为与改造前完全一致
+                eventEntities = entities != null ? new List<SangoObject>(entities) : null,
+                eventCell = cell,
             };
 
             if (!EventSlotResolver.ResolveAll(def, context))
             {
-                state.LastFailReason = context.slotFailReason ?? "槽位绑定失败";
-                return false;
+                LogSlotBindings(def, context);
+                return Fail(state, "⑦槽位绑定", context.slotFailReason ?? "槽位绑定失败");
             }
+            // 绑定成功也打一份，方便确认"条件里的 Slot 到底绑到了谁"
+            LogSlotBindings(def, context);
 
             // ⑧ 条件树
             context.database.fireCount = context.fireCount;
             context.database.eventId = def.Id;
-            if (!EventConditionEvaluator.Evaluate(def.Conditions, context.database, out string reason))
+
+            // DebugLog 打开时收集逐条判定过程；此时求值不短路，能把所有不满足项一次列全
+            List<string> condTrace = def.DebugLog ? new List<string>() : null;
+            if (!EventConditionEvaluator.Evaluate(def.Conditions, context.database, out string reason, condTrace))
             {
-                state.LastFailReason = reason;
-                return false;
+                LogConditionTrace(def, condTrace, reason);
+                return Fail(state, "⑧条件树", reason);
             }
+            if (def.DebugLog) Log.Info($"[事件调试] {def} 条件树全部满足（检查了 {condTrace.Count} 个节点）");
 
             // ⑨ 触发概率（放在最后：先过廉价闸门再掷骰，避免白白消耗随机数）
             if (trigger.Chance < 100)
             {
                 if (trigger.Chance <= 0 || !GameRandom.Chance(trigger.Chance))
-                {
-                    state.LastFailReason = $"触发概率未命中（{trigger.Chance}%）";
-                    return false;
-                }
+                    return Fail(state, "⑨触发概率", $"触发概率未命中（{trigger.Chance}%）");
             }
 
             // ⑩ 延迟播放。前置条件**全部满足之后**才登记，因为 DelayTurns 的语义是
@@ -863,6 +1244,65 @@ namespace Sango.Core.Event
             state.LastFailReason = null;
             return PlayEvent(def, context, state);
         }
+
+        #region 调试日志（事件 DebugLog）
+
+        /// <summary>
+        /// 把条件树的逐条判定过程打进日志。
+        /// 只在事件打开了 DebugLog 时输出；trace 为空（例如条件树本身就是空）时静默。
+        /// </summary>
+        /// <param name="def">事件定义</param>
+        /// <param name="trace">逐条判定过程</param>
+        /// <param name="failReason">整体结论</param>
+        static void LogConditionTrace(EventDefinition def, List<string> trace, string failReason)
+        {
+            if (def == null || !def.DebugLog) return;
+
+            if (trace == null || trace.Count == 0)
+            {
+                Log.Info($"[事件调试] {def} 条件树为空（或没有可追踪的节点），按恒成立处理");
+                return;
+            }
+
+            Log.Info($"[事件调试] {def} 条件判定过程（共 {trace.Count} 行，√ 成立 / × 不成立）：");
+            for (int i = 0; i < trace.Count; i++)
+                Log.Info($"    {trace[i]}");
+
+            if (!string.IsNullOrEmpty(failReason))
+                Log.Info($"[事件调试] {def} 条件结论：{failReason}");
+        }
+
+        /// <summary>
+        /// 把每个角色槽的绑定结果打进日志（绑到了谁 / 未绑定）。
+        /// 条件里写错槽位 Key、或者人物已死亡导致绑定失败时，这是最快能看出来的地方。
+        /// </summary>
+        /// <param name="def">事件定义</param>
+        /// <param name="context">事件上下文</param>
+        static void LogSlotBindings(EventDefinition def, EventContext context)
+        {
+            if (def == null || !def.DebugLog || def.Slots == null || def.Slots.Count == 0) return;
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < def.Slots.Count; i++)
+            {
+                EventActorSlot slot = def.Slots[i];
+                if (slot == null || string.IsNullOrEmpty(slot.Key)) continue;
+
+                SangoObject obj = context != null ? context.GetSlot(slot.Key) : null;
+                sb.Append("    ");
+                sb.Append(slot.Key);
+                sb.Append("（");
+                sb.Append(slot.Type);
+                sb.Append("）= ");
+                sb.Append(obj != null ? obj.Name : "未绑定");
+                if (slot.Optional) sb.Append(" [可选]");
+                sb.Append('\n');
+            }
+
+            Log.Info($"[事件调试] {def} 槽位绑定：\n{sb}");
+        }
+
+        #endregion
 
         /// <summary>
         /// Trigger.DelayTurns 登记的待办用**负数** SourceEventId 做标记，
@@ -1159,6 +1599,73 @@ namespace Sango.Core.Event
             }
 
             return PlayEvent(def, context, state);
+        }
+
+        /// <summary>
+        /// 为 Op: CallEvent 构建子事件上下文（不启动新的播放，由 EventRunner 内联执行）。
+        ///
+        /// 与 <see cref="FireEventNow"/> 的区别：
+        ///   · 不检查 IsPlaying —— 调用方本身就是正在播放的事件；
+        ///   · 不占用 runningEventId、不计本回合事件密度（子事件属于同一场演出）；
+        ///   · 仍然做槽位绑定与条件求值：子事件条件不满足时视为调用失败。
+        /// </summary>
+        /// <param name="eventId">子事件 Id</param>
+        /// <param name="def">输出：事件定义</param>
+        /// <param name="context">输出：已绑定槽位的上下文</param>
+        /// <returns>是否可以内联执行</returns>
+        public bool TryBuildCallContext(int eventId, out EventDefinition def, out EventContext context)
+        {
+            def = null;
+            context = null;
+
+            EventDefinition found = database.Get(eventId);
+            if (found == null)
+            {
+                Log.Warning($"CallEvent 失败：找不到事件 {eventId}");
+                return false;
+            }
+
+            EventRunState state = GetState(eventId, true);
+            EventContext ctx = new EventContext
+            {
+                definition = found,
+                state = state,
+                fireCount = state != null ? state.FireCount + 1 : 1,
+                fireKind = EventTriggerKind.ManualCall,
+            };
+
+            if (!EventSlotResolver.ResolveAll(found, ctx))
+            {
+                string reason = ctx.slotFailReason ?? "槽位绑定失败";
+                if (state != null) state.LastFailReason = reason;
+                Log.Warning($"CallEvent {found} 失败：{reason}");
+                return false;
+            }
+
+            ctx.database.fireCount = ctx.fireCount;
+            ctx.database.eventId = found.Id;
+
+            if (!EventConditionEvaluator.Evaluate(found.Conditions, ctx.database, out string failReason))
+            {
+                if (state != null) state.LastFailReason = failReason;
+                Log.Warning($"CallEvent {found} 的条件未满足：{failReason}");
+                return false;
+            }
+
+            def = found;
+            context = ctx;
+            return true;
+        }
+
+        /// <summary>
+        /// 子事件（Op: CallEvent）正常播完：计入触发次数。
+        /// 刻意不碰 runningEventId —— 外层事件还在播。
+        /// </summary>
+        /// <param name="eventId">子事件 Id</param>
+        public void NotifyCalledEventFinished(int eventId)
+        {
+            if (eventId <= 0) return;
+            MarkFired(eventId, 0);
         }
 
         #endregion

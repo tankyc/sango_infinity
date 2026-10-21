@@ -6,6 +6,7 @@ namespace Sango.Core.Action
     /// <summary>
     /// 增加势力城池的士气上限 
     /// value: 值  kinds: 城市类型
+    /// 接入事件：OnCityCalculateMaxMorale
     /// </summary>
     public class ForceCityMaxMorale : ForceBuildingActionBase
     {

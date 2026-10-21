@@ -10,6 +10,7 @@ namespace Sango.Core.Action
     /// checkLand： 0:只检查kinds 1:只对landType检查kinds，2只对waterType检查kinds 
     /// isNormal：  0都可以 2非 1是 
     /// condition： 额外条件 支持参数(troop,troop,skill)
+    /// 接入事件：OnTroopAfterCalculateSkillSuccess
     /// </summary>
     public class TroopImproveSkillSuccess : TroopTroopActionBase
     {
@@ -39,6 +40,8 @@ namespace Sango.Core.Action
             }
             else
             {
+                // 【空引用修复】施放格子可能为空，此时无法判定归属，直接跳过
+                if (spellCell == null) return;
                 if (Troop != null && Troop != spellCell.troop) return;
             }
 

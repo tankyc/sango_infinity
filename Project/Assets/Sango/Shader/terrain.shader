@@ -40,6 +40,7 @@ Shader "Sango/terrain_urp" {
 				#define SANGO_BRUSH 1
 				#define SANGO_TERRAIN_TYPE 1
 				#define SANGO_TERRAIN 1
+				#define SANGO_FACTION_MAP 1
 				#include "sango_shaderLib.hlsl"
 
 				#pragma skip_variants DIRLIGHTMAP_COMBINED

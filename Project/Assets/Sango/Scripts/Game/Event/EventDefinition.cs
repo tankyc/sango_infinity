@@ -143,6 +143,20 @@ namespace Sango.Core.Event
         /// <summary>是否允许打断玩家当前操作（false = 只在回合开始等空闲点触发）</summary>
         [JsonProperty] public bool Interrupt = true;
 
+        /// <summary>
+        /// 调试日志开关（缺省关闭）。
+        ///
+        /// 打开后，这个事件的**判定过程**会逐条打到日志里（Sango.Log，Info 级）：
+        ///   · 触发检查阶段：卡在哪一道闸（触发次数 / 冷却 / 年份 / 作用域 / 剧本过滤 / 密度 /
+        ///     槽位绑定 / 条件树 / 概率），以及每个槽位绑到了谁；
+        ///   · 条件树：每个子条件的成立与否（且组不满足时会列出**全部**不满足项，不是只报第一条）；
+        ///   · 演出阶段：执行到第几条指令、是哪个 Op，以及跳转后落到了第几条。
+        ///
+        /// 【只影响日志】不改变任何判定与演出行为，可以随存档发布；
+        /// 打开后每回合检查都会打一行，排查完记得关掉（尤其 AnyForce 作用域的事件）。
+        /// </summary>
+        [JsonProperty] public bool DebugLog;
+
         /// <summary>事件链元信息（可为空）</summary>
         [JsonProperty] public EventChainInfo Chain;
 

@@ -103,6 +103,10 @@ namespace Sango.Core.Action
 
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
+            // 防御性判断：装配方传空数组时不应抛 IndexOutOfRangeException
+            if (sangoObjects == null || sangoObjects.Length == 0)
+                return;
+
             Troop = sangoObjects[0] as Troop;
             if(Troop == null)
                 Force = sangoObjects[0] as Force;
@@ -118,11 +122,14 @@ namespace Sango.Core.Action
         }
 
         /// <summary>
-        /// 兵种类型(0全兵种全地形 -1陆地 -2水上)
+        /// 检查部队当前所处地形是否与指定兵种类型匹配。
+        ///
+        /// checkTroopTypeKind：0 全兵种全地形 / -1 仅陆地 / -2 仅水上 / >0 指定兵种 Kind。
+        /// 说明：当前没有调用方（由各 Action 自己内联判断），保留作为公共工具。
         /// </summary>
-        /// <param name="troop"></param>
-        /// <param name="checkTroopTypeKind"></param>
-        /// <returns></returns>
+        /// <param name="troop">部队对象</param>
+        /// <param name="checkTroopTypeKind">兵种类型过滤值</param>
+        /// <returns>是否匹配</returns>
         public bool CheckTroopTypeKind(Troop troop, int checkTroopTypeKind)
         {
             if (checkTroopTypeKind == -1 && troop.IsInWater)
@@ -155,19 +162,6 @@ namespace Sango.Core.Action
         /// <param name="isRangeSkill"></param>
         /// <returns></returns>
         public bool CheckIsRangeSkill(SkillInstance skill, int isRangeSkill)
-        {
-            if ((isRangeSkill == 1 && !skill.IsRange()) || (isRangeSkill == 2 && skill.IsRange()))
-                return false;
-            return true;
-        }
-
-        /// <summary>
-        /// 是否是远程 1远程 2近战 0都可以 
-        /// </summary>
-        /// <param name="skill"></param>
-        /// <param name="isRangeSkill"></param>
-        /// <returns></returns>
-        public bool CheckIsFire(SkillInstance skill, int isRangeSkill)
         {
             if ((isRangeSkill == 1 && !skill.IsRange()) || (isRangeSkill == 2 && skill.IsRange()))
                 return false;

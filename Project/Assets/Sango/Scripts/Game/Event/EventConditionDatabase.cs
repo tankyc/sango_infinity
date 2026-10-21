@@ -28,6 +28,15 @@ namespace Sango.Core.Event
         public readonly Dictionary<string, SangoObject> slots = new Dictionary<string, SangoObject>();
 
         /// <summary>
+        /// 格子槽位绑定表：槽位 Key → 格子。
+        ///
+        /// 【为什么要单独一张表】事件里确实需要"某个格子"（建筑选址、火攻落点、地形改写），
+        /// 但 Cell 不是 <see cref="SangoObject"/>，塞不进上面的 slots。
+        /// 与其让槽位系统假装支持、再在运行期做类型转换失败，不如给它一条显式通道。
+        /// </summary>
+        public readonly Dictionary<string, Cell> cellSlots = new Dictionary<string, Cell>();
+
+        /// <summary>
         /// 本次是第几次触发（1-based）。
         /// 供 FireCountCompare 使用——三顾茅庐靠它分流"一顾 / 二顾 / 三顾"。
         /// 之所以放在数据库而不是让条件去拿 EventContext：
@@ -72,10 +81,22 @@ namespace Sango.Core.Event
             return GetSlot(key) as T;
         }
 
+        /// <summary>
+        /// 按槽位 Key 取格子。
+        /// </summary>
+        /// <param name="key">槽位 Key</param>
+        /// <returns>绑定的格子；不存在返回 null</returns>
+        public Cell GetCellSlot(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+            return cellSlots.TryGetValue(key, out Cell cell) ? cell : null;
+        }
+
         /// <summary>清空所有槽位绑定（复用实例时调用，避免上一事件的槽位泄漏）</summary>
         public void Clear()
         {
             slots.Clear();
+            cellSlots.Clear();
             ActionCell = null;
             TargetCell = null;
             ActionSkill = null;

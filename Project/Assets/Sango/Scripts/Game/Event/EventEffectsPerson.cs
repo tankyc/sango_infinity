@@ -119,6 +119,88 @@ namespace Sango.Core.Event
     }
 
     /// <summary>
+    /// 武将加入势力（不走登用判定）。
+    ///
+    /// 与 <see cref="PersonRecruitEffect"/> 的区别：
+    ///   · 语义是"剧情直接归顺 / 出山"，不需要指定登用者，也不做登用成功判定；
+    ///   · 城池必须属于目标势力（底层 JoinToForce 是"按城的势力归属"写 BelongForce 的），
+    ///     传了不属于该势力的城会自动回退到势力主城，避免把人挂到别的势力；
+    ///   · 支持可选 Loyalty：不填沿用 BeRecruit 的 80，填了则覆盖。
+    ///
+    /// 底层仍然复用 <see cref="Person.BeRecruit"/>：它会清在野 / 未发现 / 俘虏名单、
+    /// 处理所在部队、写归属城池与势力并补任务，手写这些字段极易漏项。
+    /// 三顾茅庐这类"感召出山"、剧情归顺、俘虏释放后转投都适合用它。
+    /// </summary>
+    [EventEffectMeta("武将加入势力",
+        "让武将直接加入指定势力（剧情归顺 / 出山），可选落城与忠诚；不走登用判定",
+        "Slot", "ForceSlot", "CitySlot", "Loyalty")]
+    public class PersonJoinForceEffect : EventEffectBase
+    {
+        /// <summary>执行</summary>
+        /// <param name="context">上下文</param>
+        /// <returns>是否成功</returns>
+        public override bool Execute(EventContext context)
+        {
+            Person person = GetSlot<Person>("Slot", context);
+            if (person == null)
+            {
+                WarnSlotMissing("Slot", GetString("Slot"));
+                return false;
+            }
+
+            if (person.IsDead)
+            {
+                Log.Warning($"武将加入势力失败：{person.Name} 已死亡");
+                return false;
+            }
+
+            Force force = GetSlot<Force>("ForceSlot", context);
+            if (force == null)
+            {
+                Log.Warning($"武将加入势力失败：{person.Name} 的目标势力槽位未绑定");
+                return false;
+            }
+
+            // BeRecruit 内部用"登用者所在势力"决定归属，因此这里固定传目标势力的君主
+            Person inviter = force.mGovernor;
+            if (inviter == null)
+            {
+                Log.Warning($"武将加入势力失败：{force.Name} 没有君主，无法确定归属");
+                return false;
+            }
+
+            // 城池必须属于目标势力：JoinToForce 是"按城的势力归属"写入 BelongForce 的
+            City city = GetSlot<City>("CitySlot", context);
+            if (city == null || city.BelongForce != force) city = force.CapitalCity;
+            if (city == null)
+            {
+                Log.Warning($"武将加入势力失败：{force.Name} 找不到可用的城");
+                return false;
+            }
+
+            // 未登场的人没有归属城与势力，先补一次登场流程，
+            // 否则 BeRecruit 里的 BelongCity?.RemovePerson 等清理都会空转
+            if (!person.IsValid) person.Appear(city);
+
+            person.BeRecruit(inviter, city);
+
+            person.ClearMission();
+            person.CurrentCity = city;
+            person.ActionOver = false;
+            city.freePersons.Add(person);
+
+            // 忠诚：BeRecruit 固定置 80；剧情需要更高/更低时在这里覆盖
+            if (!string.IsNullOrEmpty(GetString("Loyalty")))
+            {
+                person.loyalty = PersonSetLoyaltyEffect.Clamp(EvalInt("Loyalty", context, person.loyalty), 0, 100);
+            }
+
+            Log.Info($"事件：{person.Name} 加入了 {force.Name}（{city.Name}），忠诚 {person.loyalty}");
+            return true;
+        }
+    }
+
+    /// <summary>
     /// 结义：把若干武将结为异姓兄弟（桃园结义）。
     ///
     /// 走项目既有的 <see cref="Person.SwornBrothers"/>，收益由引擎自动生效：
@@ -422,6 +504,8 @@ namespace Sango.Core.Event
             EventEffectBase.Register("PersonSetLoyalty", EventEffectBase.CreateHandle<PersonSetLoyaltyEffect>);
             EventEffectBase.Register("PersonAddLoyalty", EventEffectBase.CreateHandle<PersonAddLoyaltyEffect>);
             EventEffectBase.Register("PersonRecruit", EventEffectBase.CreateHandle<PersonRecruitEffect>);
+            // 武将加入势力（剧情归顺 / 出山，不走登用判定）
+            EventEffectBase.Register("PersonJoinForce", EventEffectBase.CreateHandle<PersonJoinForceEffect>);
             EventEffectBase.Register("PersonSwornBrothers", EventEffectBase.CreateHandle<PersonSwornBrothersEffect>);
             EventEffectBase.Register("PersonAppear", EventEffectBase.CreateHandle<PersonAppearEffect>);
             EventEffectBase.Register("PersonSetVisible", EventEffectBase.CreateHandle<PersonSetVisibleEffect>);

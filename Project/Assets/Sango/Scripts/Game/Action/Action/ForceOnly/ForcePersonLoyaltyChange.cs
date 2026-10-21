@@ -5,6 +5,7 @@ namespace Sango.Core.Action
 {
     /// <summary>
     /// 势力忠诚减少概率  value:修改值(百分比)
+    /// 接入事件：OnForcePersonLoyaltyChangeProbability
     /// </summary>
     public class ForcePersonLoyaltyChange : ForceActionBase
     {

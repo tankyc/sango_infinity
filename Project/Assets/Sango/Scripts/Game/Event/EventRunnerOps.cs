@@ -9,9 +9,12 @@
  *
  * 指令分两类：
  *   · 已实现（Phase 1）：Talk / TalkWindow / Choice / Effect / Label / Jump / Branch /
- *     SetVar / SetFlag / Message / Wait / End / SkipAll / Parallel / Schedule / Duel / DebateFake
- *   · 待实现（Phase 3，需表现层支持）：Camera / Bgm / Se / Voice / Window / Battle /
- *     InfoPanel / SceneChange / WeatherEffect / FireEffect / CloseUp —— 目前只记日志并跳过，
+ *     SetVar / SetFlag / Message / Wait / End / SkipAll / Parallel / Schedule / Duel / DebateFake /
+ *     Picture / PictureClose / QuitScenario
+ *   · Phase 2 演出增强：Bgm / Se / Voice / Camera / Window（复用 AudioManager / MapRender / Window）
+ *   · Phase 2 流程增强：CallEvent（内联调用子事件，见 EventRunner.CallSubEvent）
+ *   · 待实现（Phase 3，需表现层支持）：Battle / InfoPanel / SceneChange / WeatherEffect /
+ *     FireEffect / CloseUp —— 目前只记日志并跳过，
  *     这样数据可以先写、演出后补，不会因为缺指令而卡住流程。
  */
 
@@ -79,7 +82,13 @@ namespace Sango.Core.Event
                 case EventOpType.Picture: OpPicture(stage); break;
                 case EventOpType.PictureClose: OpPictureClose(); break;
                 case EventOpType.QuitScenario: OpQuitScenario(stage); break;
-                case EventOpType.End: Finish(true, "遇到 End 指令"); break;
+                case EventOpType.Bgm: OpBgm(stage); break;
+                case EventOpType.Se: OpSe(stage); break;
+                case EventOpType.Voice: OpVoice(stage); break;
+                case EventOpType.Camera: OpCamera(stage); break;
+                case EventOpType.CallEvent: OpCallEvent(stage); break;
+                case EventOpType.Window: OpWindow(stage); break;
+                case EventOpType.End: CompleteEvent(true, "遇到 End 指令"); break;
                 default: OpNotImplemented(stage); break;
             }
         }
@@ -305,6 +314,32 @@ namespace Sango.Core.Event
         void OpJump(EventStage stage)
         {
             JumpTo(stage.GetString("Target"));
+        }
+
+        /// <summary>
+        /// 内联调用另一个事件（子流程）。
+        ///
+        /// 参数：
+        ///   EventId = 目标事件 Id
+        ///
+        /// 语义：
+        ///   · 当前事件暂停，子事件从第一条指令开始播；
+        ///   · 子事件 End（或播到末尾）后，回到本指令的**下一条**继续；
+        ///   · 两边的槽位 / 私有变量互相独立，要共享状态请用 SetFlag（全局旗标）；
+        ///   · 子事件条件不满足、槽位绑定失败、或嵌套超过 8 层时，本指令退化为"跳过"，
+        ///     父事件照常继续——与其它指令的失败兜底保持一致。
+        /// </summary>
+        /// <param name="stage">指令</param>
+        void OpCallEvent(EventStage stage)
+        {
+            int eventId = stage.GetInt("EventId");
+            if (eventId <= 0)
+            {
+                Log.Warning($"事件 {Context.definition} 的 CallEvent 指令没有指定 EventId");
+                return;
+            }
+
+            CallSubEvent(eventId);
         }
 
         /// <summary>条件跳转</summary>
@@ -832,6 +867,243 @@ namespace Sango.Core.Event
             }
 
             player.QuitToMainMenu();
+        }
+
+        #endregion
+
+        #region 音频与镜头演出
+
+        /// <summary>
+        /// 背景音乐。
+        ///
+        /// 参数：
+        ///   Action  = Play（默认）/ Stop / Pause / Resume
+        ///   Audio   = 音频资源名（走 AudioManager，与 BGM 资源同名）
+        ///   MediaId = GameMedia 里的音频 Id（与 Audio 二选一，仅 Play 用）
+        ///   Loop    = 是否循环（默认 true）
+        ///   Fade    = 淡入淡出秒数（0 = 立即切换）
+        /// </summary>
+        /// <param name="stage">指令</param>
+        void OpBgm(EventStage stage)
+        {
+            Sango.Manager.AudioManager audio = Sango.Manager.AudioManager.Instance;
+            if (audio == null) return;
+
+            string action = stage.GetString("Action", "Play");
+            switch (action)
+            {
+                case "Stop": audio.StopBgm(); return;
+                case "Pause": audio.PauseBgm(); return;
+                case "Resume": audio.ResumeBgm(); return;
+            }
+
+            bool loop = stage.GetBool("Loop", true);
+            float fade = stage.Params != null && stage.Params["Fade"] != null
+                ? stage.Params.Value<float>("Fade")
+                : 0f;
+
+            string res = stage.GetString("Audio");
+            if (!string.IsNullOrEmpty(res))
+            {
+                if (fade > 0f) audio.SwitchBgmWithFade(res, loop, fade);
+                else audio.SwitchBgm(res, loop);
+                return;
+            }
+
+            // 兼容按媒体 Id 配乐：GameMedia 内部把 Id 映射成资源名
+            int mediaId = stage.GetInt("MediaId");
+            if (mediaId > 0) GameMedia.Instance.PlayBgm(mediaId, loop);
+            else Log.Warning($"事件 {Context.definition} 的 Bgm 指令既没有 Audio 也没有 MediaId");
+        }
+
+        /// <summary>
+        /// 播放一次音效（不等待播放结束）。
+        /// 参数：Audio / MediaId（二选一）、Volume（0~1，默认 1）。
+        /// </summary>
+        /// <param name="stage">指令</param>
+        void OpSe(EventStage stage)
+        {
+            float volume = stage.Params != null && stage.Params["Volume"] != null
+                ? stage.Params.Value<float>("Volume")
+                : 1f;
+
+            string res = stage.GetString("Audio");
+            if (!string.IsNullOrEmpty(res))
+            {
+                Sango.Manager.AudioManager.Instance.PlaySfx(res, volume);
+                return;
+            }
+
+            int mediaId = stage.GetInt("MediaId");
+            if (mediaId > 0) GameMedia.Instance.PlaySfx(mediaId, volume);
+            else Log.Warning($"事件 {Context.definition} 的 Se 指令既没有 Audio 也没有 MediaId");
+        }
+
+        /// <summary>
+        /// 播放一句人物语音（不阻塞流程，正常应与台词同时使用）。
+        /// 参数：Audio（语音资源名）、Volume（0~1，默认 1）。
+        /// </summary>
+        /// <param name="stage">指令</param>
+        void OpVoice(EventStage stage)
+        {
+            string res = stage.GetString("Audio");
+            if (string.IsNullOrEmpty(res))
+            {
+                Log.Warning($"事件 {Context.definition} 的 Voice 指令没有指定 Audio");
+                return;
+            }
+
+            float volume = stage.Params != null && stage.Params["Volume"] != null
+                ? stage.Params.Value<float>("Volume")
+                : 1f;
+
+            Sango.Manager.AudioManager.Instance.PlayVoice(res, volume);
+        }
+
+        /// <summary>
+        /// 镜头演出：把镜头平滑推到某个格子。
+        ///
+        /// 参数：
+        ///   Slot     = 聚焦对象槽位（Cell / 部队 / 城池 / 建筑 / 武将所在城）
+        ///   X / Y    = 没有槽位时直接指定格子坐标
+        ///   Seconds  = 移动耗时（默认 0.6 秒）
+        ///   Distance = 推近后的镜头距离（&lt;=0 表示不改）
+        ///   Persist  = 事件结束后是否保留这个镜头（默认 false，结束后自动还原）
+        /// </summary>
+        /// <param name="stage">指令</param>
+        void OpCamera(EventStage stage)
+        {
+            if (skipPresentation) return;
+
+            Sango.Render.MapRender map = Sango.Render.MapRender.Instance;
+            if (map == null || map.mapCamera == null) return;   // 无地图环境（调试）直接跳过
+
+            if (stage.GetBool("Persist", false)) cameraPersist = true;
+
+            UnityEngine.Vector3 target;
+            if (!TryResolveCameraTarget(stage, out target))
+            {
+                Log.Warning($"事件 {Context.definition} 的 Camera 指令找不到聚焦目标（Slot 未绑定，或 X/Y 无效）");
+                return;
+            }
+
+            float seconds = stage.Params != null && stage.Params["Seconds"] != null
+                ? stage.Params.Value<float>("Seconds")
+                : 0.6f;
+
+            map.MoveCameraTo(target, seconds);
+
+            float distance = stage.Params != null && stage.Params["Distance"] != null
+                ? stage.Params.Value<float>("Distance")
+                : 0f;
+            if (distance > 0f) map.mapCamera.distance = distance;
+        }
+
+        /// <summary>解析 Camera 指令的聚焦点（世界坐标）</summary>
+        /// <param name="stage">指令</param>
+        /// <param name="target">输出：世界坐标</param>
+        /// <returns>是否解析成功</returns>
+        bool TryResolveCameraTarget(EventStage stage, out UnityEngine.Vector3 target)
+        {
+            target = UnityEngine.Vector3.zero;
+
+            // 1) 槽位优先：格子 / 部队 / 城池 / 建筑 / 武将所在城
+            string slotKey = stage.GetString("Slot");
+            if (!string.IsNullOrEmpty(slotKey))
+            {
+                Cell cell = ResolveCellOfSlot(slotKey);
+                if (cell == null) return false;
+                target = cell.Position;
+                return true;
+            }
+
+            // 2) 直接给格子坐标
+            if (stage.Params == null || (stage.Params["X"] == null && stage.Params["Y"] == null)) return false;
+            if (Scenario.Cur == null || Scenario.Cur.Map == null) return false;
+
+            Cell byCoords = Scenario.Cur.Map.GetCell(stage.GetInt("X"), stage.GetInt("Y"));
+            if (byCoords == null) return false;
+            target = byCoords.Position;
+            return true;
+        }
+
+        /// <summary>
+        /// 取槽位对象所在的格子。
+        /// 部队用所在格；城池 / 建筑用中心格；武将优先当前所在城。
+        /// </summary>
+        /// <param name="key">槽位 Key</param>
+        /// <returns>格子；无法解析返回 null</returns>
+        Cell ResolveCellOfSlot(string key)
+        {
+            Cell cellSlot = Context.GetCell(key);
+            if (cellSlot != null) return cellSlot;
+
+            SangoObject obj = Context.GetSlot(key);
+            if (obj is Troop troop) return troop.cell;
+            if (obj is City city) return city.CenterCell;
+            if (obj is Building building) return building.CenterCell;
+            if (obj is Person person)
+            {
+                if (person.CurrentCity != null) return person.CurrentCity.CenterCell;
+                if (person.BelongCity != null) return person.BelongCity.CenterCell;
+                return null;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 打开 / 关闭任意 UI 窗口。
+        ///
+        /// 参数：
+        ///   Name  = 窗口名（如 window_city_info_panel）
+        ///   Slot  = 可选，把槽位对象作为窗口的初始化参数（情报面板需要）
+        ///   Close = true 表示关闭该窗口，其余参数忽略
+        ///   Wait  = true 时等玩家关窗后才继续（窗口必须有可关闭的 UI，否则事件会卡住）
+        /// </summary>
+        /// <param name="stage">指令</param>
+        void OpWindow(EventStage stage)
+        {
+            if (skipPresentation) return;
+
+            string name = stage.GetString("Name");
+            if (string.IsNullOrEmpty(name))
+            {
+                Log.Warning($"事件 {Context.definition} 的 Window 指令没有指定窗口名");
+                return;
+            }
+
+            if (stage.GetBool("Close", false))
+            {
+                Window.Instance.Close(name);
+                return;
+            }
+
+            object arg = null;
+            string slotKey = stage.GetString("Slot");
+            if (!string.IsNullOrEmpty(slotKey)) arg = Context.GetSlot(slotKey);
+
+            Window.WindowInterface win = arg != null
+                ? Window.Instance.Open(name, arg)
+                : Window.Instance.Open(name);
+
+            if (win == null || !win.HasValid())
+            {
+                Log.Warning($"事件 {Context.definition} 的 Window 指令打开 {name} 失败（未注册或缺预制件），已跳过");
+                return;
+            }
+
+            if (stage.GetBool("Wait", false) && win.ugui_instance != null)
+            {
+                // 关闭回调只做标记，续播推迟到下一帧（理由同图文窗口）
+                win.ugui_instance.OnCloseAction = OnWindowClosed;
+                SetWaiting(true);
+            }
+        }
+
+        /// <summary>Window 指令打开的窗口被玩家关闭</summary>
+        void OnWindowClosed()
+        {
+            windowClosedPending = true;
         }
 
         #endregion

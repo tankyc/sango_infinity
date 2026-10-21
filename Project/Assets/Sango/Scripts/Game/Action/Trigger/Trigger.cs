@@ -42,38 +42,38 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// ¶¯×÷´´½¨Î¯ÍĞ
+        /// åŠ¨ä½œåˆ›å»ºå§”æ‰˜
         /// </summary>
         public delegate Trigger TriggerCreator();
 
         /// <summary>
-        /// ¶¯×÷´´½¨Ó³Éä
+        /// åŠ¨ä½œåˆ›å»ºæ˜ å°„
         /// </summary>
         public static Dictionary<string, TriggerCreator> CreateMap = new Dictionary<string, TriggerCreator>();
         /// <summary>
-        /// ×¢²á¶¯×÷
+        /// æ³¨å†ŒåŠ¨ä½œ
         /// </summary>
-        /// <param name="name">¶¯×÷Ãû³Æ</param>
-        /// <param name="action">¶¯×÷´´½¨Æ÷</param>
+        /// <param name="name">åŠ¨ä½œåç§°</param>
+        /// <param name="action">åŠ¨ä½œåˆ›å»ºå™¨</param>
         public static void Register(string name, TriggerCreator action)
         {
             CreateMap[name] = action;
         }
 
         /// <summary>
-        /// ´´½¨¶¯×÷´¦ÀíÆ÷
+        /// åˆ›å»ºåŠ¨ä½œå¤„ç†å™¨
         /// </summary>
-        /// <typeparam name="T">¶¯×÷ÀàĞÍ</typeparam>
-        /// <returns>¶¯×÷ÊµÀı</returns>
+        /// <typeparam name="T">åŠ¨ä½œç±»å‹</typeparam>
+        /// <returns>åŠ¨ä½œå®ä¾‹</returns>
         public static Trigger CraeteHandle<T>() where T : Trigger, new()
         {
             return new T();
         }
         /// <summary>
-        /// ´´½¨¶¯×÷
+        /// åˆ›å»ºåŠ¨ä½œ
         /// </summary>
-        /// <param name="name">¶¯×÷Ãû³Æ</param>
-        /// <returns>¶¯×÷ÊµÀı</returns>
+        /// <param name="name">åŠ¨ä½œåç§°</param>
+        /// <returns>åŠ¨ä½œå®ä¾‹</returns>
         public static Trigger Create(string name)
         {
             TriggerCreator actionBaseCreator;
@@ -83,7 +83,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// ³õÊ¼»¯ËùÓĞ¶¯×÷
+        /// åˆå§‹åŒ–æ‰€æœ‰åŠ¨ä½œ
         /// </summary>
         public static void Init()
         {
@@ -93,6 +93,22 @@ namespace Sango.Core
             Register("TriggerTroopTurnStart", CraeteHandle<TriggerTroopTurnStart>);
             Register("TriggerTroopOnMoralChange", CraeteHandle<TriggerTroopOnMoralChange>);
             Register("TriggerTroopDestroyTroop", CraeteHandle<TriggerTroopDestroyTroop>);
+
+            // å»ºç­‘å®¿ä¸»ï¼ˆé…åˆ BuildingTriggerAction ä½¿ç”¨ï¼‰
+            Register("TriggerBuildingTurnStart", CraeteHandle<TriggerBuildingTurnStart>);
+            Register("TriggerBuildingTurnEnd", CraeteHandle<TriggerBuildingTurnEnd>);
+            Register("TriggerBuildingComplete", CraeteHandle<TriggerBuildingComplete>);
+
+            // åŸå¸‚å®¿ä¸»ï¼ˆé…åˆ CityTriggerAction ä½¿ç”¨ï¼‰
+            Register("TriggerCityTurnStart", CraeteHandle<TriggerCityTurnStart>);
+            Register("TriggerCityTurnEnd", CraeteHandle<TriggerCityTurnEnd>);
+            Register("TriggerCityMonthStart", CraeteHandle<TriggerCityMonthStart>);
+            Register("TriggerCitySeasonStart", CraeteHandle<TriggerCitySeasonStart>);
+            Register("TriggerCityFall", CraeteHandle<TriggerCityFall>);
+
+            // åŠ¿åŠ›å®¿ä¸»ï¼ˆé…åˆ ForceTriggerAction ä½¿ç”¨ï¼‰
+            Register("TriggerForceTurnStart", CraeteHandle<TriggerForceTurnStart>);
+            Register("TriggerForceTurnEnd", CraeteHandle<TriggerForceTurnEnd>);
             
         }
     }

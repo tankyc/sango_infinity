@@ -6,8 +6,8 @@ namespace Sango.Core.Action
     /// <summary>
     /// 某兵种战法威力(百分比)增加
     /// value: 增加值(百分比) kinds: 兵种类型
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
-    /// 
     public class TroopAddDamageTroopExtraFactor : ForceTroopActionBase
     {
         public override void Init(JObject p, params SangoObject[] sangoObjects)

@@ -4,9 +4,9 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 提升粮食收入
-    /// value: 百分比
-    /// jobIds: 工作ID集合
+    /// 提高城市粮食收入系数（value 为百分比）。
+    ///
+    /// 接入事件：OnCityCalculateFoodHarvest（城市粮食收入计算时）。
     /// </summary>
     public class CityImproveFoodHarvest : CityActionBase
     {

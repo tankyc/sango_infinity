@@ -12,6 +12,7 @@ namespace Sango.Core.Action
     /// 数据用途说明：本项目用"逃跑系数拉满（value:200）"表达免俘 —— 特技 #34 血路
     /// （部队溃灭时同部队武将不会被俘）、特技 #33 强运 都是这么配的，
     /// 判定点见 Troop.ChangeTroops 与 Duel.CalcCaptureChance。
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
     public class TroopChangeEscapeFactor : TroopTroopActionBase
     {

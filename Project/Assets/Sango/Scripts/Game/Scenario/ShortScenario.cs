@@ -206,6 +206,78 @@ namespace Sango.Core
         public static ShortScenario CurSelected { get; set; }
         public string ModName { internal set; get; }
 
+        /// <summary>模组一致性是否已经算过(延迟计算,见 EnsureModsState)</summary>
+        bool modsStateReady;
+        /// <summary>内部缓存:模组是否不一致</summary>
+        bool modsDiffer;
+        /// <summary>内部缓存:差异说明</summary>
+        string modsDiffMessage;
+
+        /// <summary>
+        /// 存档记录的模组列表与"当前启用的模组"是否不一致。
+        /// 仅在存档(<see cref="ScenarioInfo.isSave"/>)上有意义;
+        /// 不一致时读档界面只展示基础信息(不解析地图/势力),并且必须玩家确认后才尝试加载。
+        ///
+        /// 注意:这里必须是"用时才算"的延迟计算 —— 存档列表在启动时(<see cref="Sango.Core.Player.Player.Init"/>)
+        /// 就被扫描了,而那时 <see cref="Sango.Mod.ModManager.InitMods"/> 还没执行、启用列表还是空的,
+        /// 提前比对会把所有存档都误判成"模组不一致"。
+        /// </summary>
+        public bool ModsDiffer
+        {
+            get
+            {
+                EnsureModsState();
+                return modsDiffer;
+            }
+        }
+
+        /// <summary>
+        /// 模组差异说明(中文,面向玩家),一致时为 null
+        /// </summary>
+        public string ModsDiffMessage
+        {
+            get
+            {
+                EnsureModsState();
+                return modsDiffMessage;
+            }
+        }
+
+        /// <summary>
+        /// 让模组一致性状态失效,下次访问 <see cref="ModsDiffer"/> 时重新计算。
+        /// 存档刚保存完、或模组列表变化后调用。
+        /// </summary>
+        public void RefreshModsState()
+        {
+            modsStateReady = false;
+            modsDiffer = false;
+            modsDiffMessage = null;
+        }
+
+        /// <summary>
+        /// 延迟计算"存档记录的模组"与"当前启用模组"的差异。
+        /// 只使用文件头部的 Info,不触发地图/势力解析。
+        /// </summary>
+        void EnsureModsState()
+        {
+            if (modsStateReady)
+                return;
+            modsStateReady = true;
+            modsDiffer = false;
+            modsDiffMessage = null;
+
+            // 只有存档才有"当时的模组环境"这一概念;剧本定义文件不参与对比
+            if (Info == null || !Info.isSave)
+                return;
+
+            string message;
+            if (!Sango.Mod.ModManager.Instance.MatchSavedMods(Info.mods, out message))
+            {
+                modsDiffer = true;
+                modsDiffMessage = message;
+            }
+        }
+
         public string FilePath { internal set; get; }
         Task task;
         public bool loadOK = false;
@@ -232,6 +304,8 @@ namespace Sango.Core
             scenario.Info = info;
             scenario.Name = info != null ? info.name : null;
             scenario.loadOK = false;
+            // 刚保存出来的存档,其 Info 已记录当前模组;这里同样刷新一次,保证列表颜色立即正确
+            scenario.RefreshModsState();
             return scenario;
         }
 
@@ -296,21 +370,35 @@ namespace Sango.Core
         {
             FilePath = path;
 
-            using (StreamReader file = System.IO.File.OpenText(FilePath))
-            using (JsonTextReader reader = new JsonTextReader(file))
+            // 只读文件头部的 Info 段,不解析地图/势力/武将。
+            // 这里必须做异常保护:存档损坏(JSON 截断/被改坏)时不能让整个存档列表初始化直接抛出去,
+            // 否则玩家一进读档界面就整个界面打不开。
+            try
             {
-                while (reader.Read()) // Advances to the next token in the JSON stream.
+                using (StreamReader file = System.IO.File.OpenText(FilePath))
+                using (JsonTextReader reader = new JsonTextReader(file))
                 {
-                    if (reader.TokenType == JsonToken.StartObject) // Check for start of an object in the JSON stream.
+                    while (reader.Read()) // Advances to the next token in the JSON stream.
                     {
-                        if (!string.IsNullOrEmpty(reader.Path) && reader.Path == "Info")
+                        if (reader.TokenType == JsonToken.StartObject) // Check for start of an object in the JSON stream.
                         {
-                            Info = JsonSerializer.CreateDefault().Deserialize<ScenarioInfo>(reader); // Deserialize the object.
-                            Name = Info.name;
-                            return;
+                            if (!string.IsNullOrEmpty(reader.Path) && reader.Path == "Info")
+                            {
+                                Info = JsonSerializer.CreateDefault().Deserialize<ScenarioInfo>(reader); // Deserialize the object.
+                                Name = Info != null ? Info.name : null;
+                                RefreshModsState();
+                                return;
+                            }
                         }
                     }
                 }
+            }
+            catch (System.Exception e)
+            {
+                Info = null;
+                Name = null;
+                RefreshModsState();
+                Sango.Log.Error($"存档信息读取失败(文件可能已损坏): {path} {e.Message}");
             }
         }
 

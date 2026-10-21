@@ -9,6 +9,7 @@ namespace Sango.Core.Action
     /// value： 改变值
     /// kinds： 兵种类型 
     /// condition： 额外条件
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
     public class TroopAddGoldGain : TroopTroopActionBase
     {

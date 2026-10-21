@@ -144,6 +144,11 @@ namespace Sango.Loader
         {
             if (string.IsNullOrEmpty(assetName)) return null;
 
+            // 模组私有资源协议(mod://模组Id/路径 或 模组Id:路径)必须在冒号分包之前处理,
+            // 否则会被误拆成 "PackageName:AssetPath"
+            if (ModAssetPath.IsModUri(assetName))
+                return LoadObject(assetName, null, objType, ps);
+
             string[] split_str = assetName.Split(new char[] { ':' });
             string packageName = null;
             string objName = assetName;
@@ -158,6 +163,19 @@ namespace Sango.Loader
         public static UnityEngine.Object LoadObject(string assetName, string packageName, System.Type objType, params object[] ps)
         {
             string objName = assetName;
+
+            // 模组私有资源协议:先解析成该模组 Private 目录下的绝对路径,再按普通"裸文件"流程加载
+            // 解析失败直接返回 null,不回落包或内容目录 —— 引用带模组Id就必须命中该模组,否则宁可报错
+            bool isPrivateAsset = false;
+            if (ModAssetPath.IsModUri(assetName))
+            {
+                string privateFile = ModAssetPath.Resolve(assetName);
+                if (string.IsNullOrEmpty(privateFile))
+                    return null;
+                objName = privateFile;
+                packageName = null;
+                isPrivateAsset = true;
+            }
 
             // 优先外面读取
             UnityEngine.Object obj = null;
@@ -191,7 +209,7 @@ namespace Sango.Loader
                 obj = AudioLoader.LoadFromFileSync(objName, is3D);
             }
 
-            if (obj == null)
+            if (obj == null && !isPrivateAsset)
             {
                 obj = LoadFromPackage(assetName, packageName, objType, ps);
                 if (obj == null)

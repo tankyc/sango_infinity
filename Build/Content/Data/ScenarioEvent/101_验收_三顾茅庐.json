@@ -2,8 +2,9 @@
   {
     "Id": 1301,
     "Name": "验收·三顾茅庐",
+    "DebugLog": true,
     "Category": "History",
-    "Description": "【Phase 1 验收事件 2】同一事件重复触发三次，每次演出不同，第三次登用诸葛亮。\n覆盖能力：JobSettled 触发、MaxFireCount=3 次数上限、FireCountCompare 分流三套演出（一份 JSON 演三遍）、**Picture 图文演出（只插在第三顾的正戏上，前两顾扑空不插 —— 避免喧宾夺主、也避免玩家为看空场景多点两次）**、ForceGovernor 槽位（ScopeSlot 引用势力槽）、PersonBelongCheck 带 CitySlot 的归属校验、FlagCheck、Branch 条件分支、Choice 选择肢、PersonRecruit 登用、PersonSetLoyalty、PersonSetVisible、SetFlag。\n\n【为什么用 JobSettled 而不是 JobFinished】OnPersonActionOver 是通用信号、不带结果，且在旧演出（CityPersonSearchingEvent）**执行期间**就抛出来，此刻启动本事件会与旧演出抢 GameDialog；JobSettled 在探索演出**彻底结束之后**才抛，不会撞车。\n\n【为什么本事件不加 JobResults 过滤】本事件关心的是\"玩家又去打听了一次\"，而不是\"这次打听到什么\"，因此任一结果都推进一顾。另一层现实原因：本测试剧本里诸葛亮已在势力内、并非在野，探索根本不可能\"发现\"他，若要求结果为 0 则永远无法触发。真实历史剧本里应改为 JobResults:[0]（即\"这次打听到的是诸葛亮\"）。\n\n触发方式：玩家势力执行\"探索人才\"（人事指令）结算后触发。也可在调试面板强制触发以快速验收三次演出。\n针对剧本：测试剧本-英雄集结（Id 999）。\n\n【设计说明】FireCountCompare 比的是\"本次是第几次触发\"。第一次 <= 1 → 一顾；第二次 == 2 → 二顾；其余 → 三顾。",
+    "Description": "【Phase 1 验收事件 2】同一事件重复触发三次，每次演出不同，第三次让诸葛亮出山加入势力。\n覆盖能力：JobSettled 触发、MaxFireCount=3 次数上限、FireCountCompare 分流三套演出（一份 JSON 演三遍）、**Picture 图文演出（只插在第三顾的正戏上，前两顾扑空不插 —— 避免喧宾夺主、也避免玩家为看空场景多点两次）**、ForceGovernor 槽位（ScopeSlot 引用势力槽）、PersonBelongCheck 带 CitySlot 的归属校验、FlagCheck、Branch 条件分支、Choice 选择肢、**PersonJoinForce 武将加入势力（不走登用判定，内部自动处理 在野/未发现/未登场 三种来源）**、SetFlag。\n\n【触发前提：诸葛亮还没出仕】条件是 or 三选一（任一满足即可触发）：\n· 在野（Wild）且人在 TargetCity；\n· 未发现（Invisible）且人在 TargetCity；\n· 未登场（Unappear）—— 这类人物没有归属城，所以单独一支、不校验城市。\n只要他已经在任何势力仕官，三种状态都不成立，本事件不会触发。\n\n【为什么用 JobSettled 而不是 JobFinished】OnPersonActionOver 是通用信号、不带结果，且在旧演出（CityPersonSearchingEvent）**执行期间**就抛出来，此刻启动本事件会与旧演出抢 GameDialog；JobSettled 在探索演出**彻底结束之后**才抛，不会撞车。\n\n【为什么本事件不加 JobResults 过滤】本事件关心的是\"玩家又去打听了一次\"，而不是\"这次打听到什么\"，因此任一结果都推进一顾。另一层现实原因：本测试剧本里诸葛亮已仕官于势力 2，不满足\"在野 / 未发现 / 未登场\"的新条件，验收前需要先改他的状态（或改用真实历史剧本），否则事件不会触发。真实历史剧本里应改为 JobResults:[0]（即\"这次打听到的是诸葛亮\"）。\n\n触发方式：玩家势力执行\"探索人才\"（人事指令）结算后触发。也可在调试面板强制触发以快速验收三次演出。\n针对剧本：测试剧本-英雄集结（Id 999）。\n\n【设计说明】FireCountCompare 比的是\"本次是第几次触发\"。第一次 <= 1 → 一顾；第二次 == 2 → 二顾；其余 → 三顾。",
     "Enabled": true,
     "Priority": 250,
     "Level": "Critical",
@@ -53,12 +54,40 @@
     "Conditions": {
       "Type": "and",
       "Children": [
-        { "Type": "PersonStateCheck", "Params": { "Slot": "TargetPerson", "State": "Alive" } },
+        { "Type": "FlagCheck", "Params": { "Flag": "ThreeVisitsDone", "Expect": false } },
         {
-          "Type": "PersonBelongCheck",
-          "Params": { "Slot": "TargetPerson", "Belong": "InCity", "CitySlot": "TargetCity" }
-        },
-        { "Type": "FlagCheck", "Params": { "Flag": "ThreeVisitsDone", "Expect": false } }
+          "_note": "诸葛亮必须还没出仕：在野 / 未发现 / 未登场，三者满足其一即可",
+          "Type": "or",
+          "Children": [
+            {
+              "_note": "在野：Belong 用 Free（判 IsWild），城市用 CitySlot 限定在隆中",
+              "Type": "and",
+              "Children": [
+                { "Type": "PersonStateCheck", "Params": { "Slot": "TargetPerson", "State": "Wild" } },
+                {
+                  "Type": "PersonBelongCheck",
+                  "Params": { "Slot": "TargetPerson", "Belong": "Free", "CitySlot": "TargetCity" }
+                }
+              ]
+            },
+            {
+              "_note": "未发现：这类人通常没有 BelongCity，所以 Belong 用 Any，只靠 CitySlot 校验位置",
+              "Type": "and",
+              "Children": [
+                { "Type": "PersonStateCheck", "Params": { "Slot": "TargetPerson", "State": "Invisible" } },
+                {
+                  "Type": "PersonBelongCheck",
+                  "Params": { "Slot": "TargetPerson", "Belong": "Any", "CitySlot": "TargetCity" }
+                }
+              ]
+            },
+            {
+              "_note": "未登场的人没有归属城，因此这一支不校验 TargetCity",
+              "Type": "PersonStateCheck",
+              "Params": { "Slot": "TargetPerson", "State": "Unappear" }
+            }
+          ]
+        }
       ]
     },
     "Stages": [
@@ -176,21 +205,14 @@
         "Params": {
           "Effects": [
             {
-              "Type": "PersonSetVisible",
-              "Params": { "Slot": "TargetPerson", "Value": true }
-            },
-            {
-              "Type": "PersonRecruit",
+              "_note": "用「武将加入势力」而不是「登用武将」：这是感召出山，不是登用判定、也不需要登用者；它内部会处理 在野 / 未发现 / 未登场 三种来源状态，因此不再需要 PersonSetVisible、PersonSetLoyalty",
+              "Type": "PersonJoinForce",
               "Params": {
                 "Slot": "TargetPerson",
-                "RecruitorSlot": "ActionPerson",
                 "ForceSlot": "ActionForce",
-                "CitySlot": "TargetCity"
+                "CitySlot": "TargetCity",
+                "Loyalty": 100
               }
-            },
-            {
-              "Type": "PersonSetLoyalty",
-              "Params": { "Slot": "TargetPerson", "Value": 100 }
             },
             {
               "Type": "SetFlag",

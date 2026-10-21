@@ -4,8 +4,9 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 部队忽略ZOC
-    /// land: 0 忽略水上 1 忽略陆地 2都忽略
+    /// 部队免疫火焰伤害，无参数。
+    ///
+    /// 接入事件：OnTroopCalculateAttribute（属性重算时写入标记，供火焰结算读取）。
     /// </summary>
     public class TroopIgnoreFire : TroopActionBase
     {

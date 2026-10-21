@@ -15,6 +15,7 @@ namespace Sango.Core.Action
     /// 本动作装配在**施法方**部队上（Troop.InitActionList 按武将特技装配），
     /// 因此只处理"本部队施法、把敌军推走"的那一次位移，与三国志11 的猛者口径一致
     /// （特技持有者的部队用战法推动敌部队 → 敌将负伤）。
+    /// 接入事件：OnTroopSkillOffset
     /// </summary>
     public class TroopOffsetInjurePerson : TroopActionBase
     {

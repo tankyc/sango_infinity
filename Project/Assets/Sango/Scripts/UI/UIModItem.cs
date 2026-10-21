@@ -43,8 +43,16 @@ namespace Sango.UI
         public void OnClickDownload()
         {
             //onDownloadCall?.Invoke(this);
-            if (mod == null || mod.IsDownloading())
+            if (mod == null)
                 return;
+
+            // 下载中再点一次 = 取消下载。
+            // 已下载的部分保留在 .part 文件里,下次点下载会从断点继续
+            if (mod.IsDownloading())
+            {
+                mod.CancelDownload();
+                return;
+            }
 
             // 下载前先检查依赖是否都能找到:找不到的依赖无法自动下载,需要先提示玩家
             List<string> missingDepends = ModManager.Instance.GetMissingDepends(mod);
@@ -68,6 +76,8 @@ namespace Sango.UI
                 deleteBtn.gameObject.SetActive(false);
                 enableToggle.gameObject.SetActive(mod.IsValidMod());
                 downloadBtn.gameObject.SetActive(mod.CanUpgrage());
+                // 下载中会把按钮文案临时改成"取消",这里恢复正常文案
+                downloadBtn.SetTitle("下载");
                 SetName(mod.Name);
                 if (mod.CanUpgrage())
                 {
@@ -243,17 +253,58 @@ namespace Sango.UI
             overImg.enabled = b;
         }
 
+        /// <summary>上一次显示的下载百分比,避免每帧重建字符串产生GC</summary>
+        int lastDownloadPercent = -1;
+
+        /// <summary>上一帧是否处于下载中,用于下载结束时恢复正常的版本信息显示</summary>
+        bool wasDownloading;
+
+        /// <summary>下载按钮当前是否已切换成"取消"文案</summary>
+        bool downloadBtnShowsCancel;
+
         private void Update()
         {
             if (mod != null && mod.IsDownloading())
             {
+                wasDownloading = true;
                 progressImg.enabled = true;
                 progressImg.fillAmount = mod.loadProgress;
+
+                // 下载中把按钮换成"取消":玩家随时可以中断,已下载部分会保留
+                if (downloadBtn != null && !downloadBtnShowsCancel)
+                {
+                    downloadBtnShowsCancel = true;
+                    downloadBtn.SetTitle("取消");
+                }
+
+                // 下载过程必须有可见反馈(百分比+进度条):
+                // 网络卡住时进度条可能长时间停在 0%,不给文字反馈玩家就会认为"点了下载没有任何反应"
+                int percent = (int)(UnityEngine.Mathf.Clamp01(mod.loadProgress) * 100f);
+                if (percent != lastDownloadPercent)
+                {
+                    lastDownloadPercent = percent;
+                    SetVersion($"下载中 {percent}%");
+                }
             }
             else
             {
                 progressImg.enabled = false;
                 progressImg.fillAmount = 0;
+                lastDownloadPercent = -1;
+
+                if (downloadBtn != null && downloadBtnShowsCancel)
+                {
+                    downloadBtnShowsCancel = false;
+                    downloadBtn.SetTitle("下载");
+                }
+
+                // 下载刚结束:恢复名字/版本信息(失败原因由 UIModManager 弹窗提示)
+                if (wasDownloading)
+                {
+                    wasDownloading = false;
+                    if (mod != null)
+                        SetMod(mod);
+                }
             }
 
             if (mod != null)

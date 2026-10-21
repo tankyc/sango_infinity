@@ -213,37 +213,6 @@ namespace Sango.Core
         ItemDiscoverGlobalBonus = 90,
         #endregion
 
-        #region 授予 / 没收（独立表 itemGrantGain）
-        //
-        // 为什么单独开一张表：
-        //   授予 / 没收改的是**忠诚**（人），搜索产出改的是**资源**（物），
-        //   两者的调参口径无关；混进 itemDiscoverGain 会让策划在"产出"表里看到"忠诚"键。
-        //
-        // 忠诚曲线（按珍品品级 grade 1~5 计）：
-        //   授予忠诚 = +(ItemGrantLoyaltyBase + grade × ItemGrantLoyaltyPerGrade)
-        //              默认 +3 + grade×3 → 凡品 6 / 良品 9 / 优品 12 / 极品 15 / 神品 18
-        //   没收忠诚 = -(ItemConfiscateLoyaltyBase + grade × ItemConfiscateLoyaltyPerGrade)
-        //              默认 -(4 + grade×3) → 凡品 -7 / 神品 -19
-        //   没收略高于授予：把"抢回来的东西"再给出去要付两次忠诚代价，符合三国志11 的手感，
-        //   也让"反复授予 / 没收刷忠诚"这条路亏本（净损失 = 没收 − 授予 = 1）。
-        //
-        // 节奏（回合制：每人每回合最多一个行为、一年 36 回合）：
-        //   授予 / 没收各限每势力每回合 1 次（见 JobTypes.json 的 limit 与 jobCounter 判定），
-        //   因此忠诚只能靠珍品逐件微调 —— 一年最多 ±36 次操作，
-        //   但受"每件珍品只产出一次 + 一局珍品总量（3.5 节：8 城中局 20 年约 34 件）"双重限制，
-        //   实际远低于此。国库容量 v1 暂不设上限（策划案 4.2），不构成额外闸门。
-        //
-        // 忠诚钳制 0~100 由 Person.AddLoyalty 统一处理，此处只管增量。
-
-        /// <summary>授予忠诚的基础值</summary>
-        ItemGrantLoyaltyBase = 100,
-        /// <summary>授予忠诚的每品级增量</summary>
-        ItemGrantLoyaltyPerGrade = 101,
-        /// <summary>没收忠诚的基础值（取正数，代码里按负向扣减）</summary>
-        ItemConfiscateLoyaltyBase = 102,
-        /// <summary>没收忠诚的每品级增量（取正数，代码里按负向扣减）</summary>
-        ItemConfiscateLoyaltyPerGrade = 103,
-        #endregion
     }
 
     /// <summary>配置值的语义</summary>
@@ -377,12 +346,6 @@ namespace Sango.Core
         /// </summary>
         public static int ItemDiscover(GainPlace place) { return ValueOf(TableOf(place), place); }
 
-        /// <summary>
-        /// 读取授予 / 没收配置（ItemGrant* / ItemConfiscate* 段的键）。
-        /// 忠诚增减曲线统一走这里取值，避免在规则类里硬编码（见 ItemGrantRules）。
-        /// </summary>
-        public static int ItemGrant(GainPlace place) { return ValueOf(TableOf(place), place); }
-
         /// <summary>在 [min, max] 内随机取值（Range 语义的地点用；无剧本时用默认区间）</summary>
         public static int Roll(GainPlace place)
         {
@@ -413,7 +376,6 @@ namespace Sango.Core
             if (Array.IndexOf(AbilityExpPlaces, place) >= 0) return v.abilityExpGain;
             if (Array.IndexOf(EventPlaces, place) >= 0) return v.eventGain;
             if (Array.IndexOf(ItemDiscoverPlaces, place) >= 0) return v.itemDiscoverGain;
-            if (Array.IndexOf(ItemGrantPlaces, place) >= 0) return v.itemGrantGain;
             return null;
         }
 
@@ -484,16 +446,6 @@ namespace Sango.Core
             GainPlace.ItemDiscoverGlobalBonus,
         };
 
-        /// <summary>
-        /// 授予 / 没收表（独立一张，键为 ItemGrant* / ItemConfiscate* 段）。
-        /// 忠诚增减曲线从这里取值，代码侧不硬编码（见 ItemGrantRules）。
-        /// </summary>
-        public static readonly GainPlace[] ItemGrantPlaces =
-        {
-            GainPlace.ItemGrantLoyaltyBase, GainPlace.ItemGrantLoyaltyPerGrade,
-            GainPlace.ItemConfiscateLoyaltyBase, GainPlace.ItemConfiscateLoyaltyPerGrade,
-        };
-
         #endregion
 
         /// <summary>内置默认值（固定值类的数值 / 百分比类的百分比 / 区间类的下限）</summary>
@@ -535,9 +487,10 @@ namespace Sango.Core
                 //   按一人一年约 20 次工作算，平均 12.5 点/次 ≈ 250 点/年 = 1 点属性/年
                 //   （与 AttributeExpLevelNeed = 250 正好对齐；30 点上限约 30 年，符合一场战役的长度）
                 case GainPlace.AttributeExpFromJob: return 10;
-                // 兵种适性经验（与 AbilityExpLevelNeed = 100 对齐）。
-                // 节奏：一个部队一年约 15 次战斗结算（含反击），3 点/次 ≈ 45 点/年
-                //   → 一级 100 点约 2.2 年，10 级满级约 22 年（击破 / 攻城会明显加速）
+                // 兵种适性经验（各级门槛来自剧本通用数据 AbilityLevelTypes.json 的 exp 字段）。
+                // 节奏：一个部队一年约 15 次战斗结算（含反击），3 点/次 ≈ 45 点/年；
+                //   现数据为每级 255 点、共 8 级，从 0 级升满需 7×255 = 1785 点 ≈ 40 年
+                //   （击破 / 攻城会明显加速）；若要贴近"一级约 2.3 年、满级约 22 年"，需下调各级 exp
                 case GainPlace.AbilityExpAttack: return 3;
                 case GainPlace.AbilityExpDestroyTroop: return 10;
                 case GainPlace.AbilityExpDestroyCity: return 30;
@@ -573,14 +526,6 @@ namespace Sango.Core
                 case GainPlace.ItemDiscoverMaxPerCity: return 3;
                 // 全局搜索加成：默认关闭，只有测试 / Mod 才会去动它
                 case GainPlace.ItemDiscoverGlobalBonus: return 0;
-                // 授予 / 没收的忠诚曲线（品级 1~5）：
-                //   授予 +3 + grade×3 → 6 / 9 / 12 / 15 / 18
-                //   没收 -(4 + grade×3) → -7 / -10 / -13 / -16 / -19
-                // 没收比授予高 1 点，保证"授予后再没收"是净亏，堵住刷忠诚的漏洞。
-                case GainPlace.ItemGrantLoyaltyBase: return 3;
-                case GainPlace.ItemGrantLoyaltyPerGrade: return 3;
-                case GainPlace.ItemConfiscateLoyaltyBase: return 4;
-                case GainPlace.ItemConfiscateLoyaltyPerGrade: return 3;
                 default: return 0;
             }
         }
@@ -690,11 +635,6 @@ namespace Sango.Core
                 case GainPlace.ItemDiscoverMaxBase: return "势力产出上限(固定)";
                 case GainPlace.ItemDiscoverMaxPerCity: return "势力产出上限(每城)";
                 case GainPlace.ItemDiscoverGlobalBonus: return "全局搜索加成(%)";
-                // 授予 / 没收
-                case GainPlace.ItemGrantLoyaltyBase: return "授予忠诚·基础";
-                case GainPlace.ItemGrantLoyaltyPerGrade: return "授予忠诚·每品级";
-                case GainPlace.ItemConfiscateLoyaltyBase: return "没收忠诚·基础";
-                case GainPlace.ItemConfiscateLoyaltyPerGrade: return "没收忠诚·每品级";
                 default: return place.ToString();
             }
         }

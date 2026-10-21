@@ -5,11 +5,11 @@ using UnityEngine;
 namespace Sango.Core
 {
     /// <summary>
-    /// ¹æ·¶×ÊÔ´¼ÓÔØÁ÷³Ì
-    /// 1.×ÊÔ´Â·¾¶¹æ·¶: PackageName:Assets/AAA/BBB/CCC.ddd ¶¼ÊÇ»ùÓÚAssetsÎÄ¼ş¼ĞµÄ×ÊÔ´Â·¾¶, PackageNameÎª°üÃû
-    /// 2.´øÓĞ°üÃûµÄÎÄ¼şÂ·¾¶»áÓÅÏÈ²éÕÒ¶ÔÓ¦µÄ°ü,°üÄÚÈç¹ûÕÒµ½ÔòÖ±½Ó¼ÓÔØ²¢·µ»Ø
-    /// 3.²éÕÒModÎÄ¼ş,Í¨¹ıPath.Find()ÅĞ¶ÏÊÇ·ñÓĞÎÄ¼ş,ÕÒµ½ºóÖ±½Ó´´½¨²¢·µ»Ø
-    /// 4.×îºó²éÕÒContentÎÄ¼ş¼Ğ,ÅĞ¶ÏÊÇ·ñÓĞÎÄ¼ş,ÕÒµ½ºóÖ±½Ó´´½¨²¢·µ»Ø
+    /// è§„èŒƒèµ„æºåŠ è½½æµç¨‹
+    /// 1.èµ„æºè·¯å¾„è§„èŒƒ: PackageName:Assets/AAA/BBB/CCC.ddd éƒ½æ˜¯åŸºäºAssetsæ–‡ä»¶å¤¹çš„èµ„æºè·¯å¾„, PackageNameä¸ºåŒ…å
+    /// 2.å¸¦æœ‰åŒ…åçš„æ–‡ä»¶è·¯å¾„ä¼šä¼˜å…ˆæŸ¥æ‰¾å¯¹åº”çš„åŒ…,åŒ…å†…å¦‚æœæ‰¾åˆ°åˆ™ç›´æ¥åŠ è½½å¹¶è¿”å›
+    /// 3.æŸ¥æ‰¾Modæ–‡ä»¶,é€šè¿‡Path.Find()åˆ¤æ–­æ˜¯å¦æœ‰æ–‡ä»¶,æ‰¾åˆ°åç›´æ¥åˆ›å»ºå¹¶è¿”å›
+    /// 4.æœ€åæŸ¥æ‰¾Contentæ–‡ä»¶å¤¹,åˆ¤æ–­æ˜¯å¦æœ‰æ–‡ä»¶,æ‰¾åˆ°åç›´æ¥åˆ›å»ºå¹¶è¿”å›
     /// </summary>
     public class AssetLoader
     {
@@ -19,7 +19,7 @@ namespace Sango.Core
         private static Type SpriteType = typeof(UnityEngine.Sprite);
 
         /// <summary>
-        /// assetName = "PackageName:AssetPath" PackageName = "Resources"Ê±ÔÚResourcesÎÄ¼ş¼ĞÖĞ¶ÁÈ¡
+        /// assetName = "PackageName:AssetPath" PackageName = "Resources"æ—¶åœ¨Resourcesæ–‡ä»¶å¤¹ä¸­è¯»å–
         /// </summary>
         /// <param name="assetPath"></param>
         /// <param name="objType"></param>
@@ -28,13 +28,26 @@ namespace Sango.Core
         public static UnityEngine.Object LoadAsset(string assetPath, System.Type objType, params object[] ps)
         {
             if (string.IsNullOrEmpty(assetPath)) return null;
-            string[] split_str = assetPath.Split(new char[] { ':' });
             string packageName = null;
             string objName = assetPath;
-            if (split_str.Length > 1)
+
+            // æ¨¡ç»„ç§æœ‰èµ„æºåè®®(mod://æ¨¡ç»„Id/è·¯å¾„ æˆ– æ¨¡ç»„Id:è·¯å¾„):
+            // å…ˆè§£ææˆè¯¥æ¨¡ç»„ Private ç›®å½•ä¸‹çš„ç»å¯¹è·¯å¾„,å†åšå†’å·åˆ†åŒ…(å¦åˆ™ä¼šè¢«ç›˜ç¬¦/å†’å·æ‹†é”™),
+            // è§£æå¤±è´¥ç›´æ¥è¿”å› null,ä¿è¯"å¼•ç”¨äº†å“ªä¸ªæ¨¡ç»„å°±åªè¯»å“ªä¸ªæ¨¡ç»„"
+            if (ModAssetPath.IsModUri(assetPath))
             {
-                packageName = split_str[0];
-                objName = split_str[1];
+                objName = ModAssetPath.Resolve(assetPath);
+                if (string.IsNullOrEmpty(objName))
+                    return null;
+            }
+            else
+            {
+                string[] split_str = assetPath.Split(new char[] { ':' });
+                if (split_str.Length > 1)
+                {
+                    packageName = split_str[0];
+                    objName = split_str[1];
+                }
             }
 
             if (!string.IsNullOrEmpty(packageName))

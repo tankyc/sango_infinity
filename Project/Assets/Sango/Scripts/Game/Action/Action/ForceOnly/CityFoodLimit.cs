@@ -7,6 +7,7 @@ namespace Sango.Core.Action
     /// 某类型城池的最大兵粮增加
     /// value: 值, 
     /// kinds: 建筑类型
+    /// 接入事件：OnCityCalculateMaxFood
     /// </summary>
     public class CityFoodLimit : ForceBuildingActionBase
     {

@@ -6,6 +6,7 @@ namespace Sango.Core.Action
     /// <summary>
     /// 增加势力全队伍的兵力上限 
     /// value: 增加值 kinds: 兵种类型
+    /// 接入事件：OnTroopCalculateMaxTroops
     /// </summary>
     public class ForceTroopMaxTroop : ForceTroopActionBase
     {

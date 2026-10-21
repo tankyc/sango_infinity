@@ -19,9 +19,32 @@ using Sango.Core; namespace Sango.UI
         public RectTransform root;
         public int targetIndex;
 
+        /// <summary>存档名在"正常态"下的颜色(警告态结束后要还原)</summary>
+        Color normalNameColor = Color.white;
+
+        void Awake()
+        {
+            if (name != null)
+                normalNameColor = name.color;
+        }
+
         public UIScenarioSaveItem SetName(string n)
         {
             name.text = n;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置"不可直接读取"的警告态:存档名置红。
+        /// 目前用于"存档记录的模组与当前启用模组不一致"的存档 —— 这类档仍可展示基础信息,
+        /// 但必须先跟玩家确认风险后才能尝试读取。
+        /// </summary>
+        /// <param name="warning">true=置红提示</param>
+        public UIScenarioSaveItem SetWarning(bool warning)
+        {
+            if (name == null)
+                return this;
+            name.color = warning ? Color.red : normalNameColor;
             return this;
         }
 

@@ -48,7 +48,7 @@ namespace Sango
             string destDir;
             if (File.Exists("./contentDir"))
             {
-                destDir = System.IO.Path.GetFullPath(File.ReadAllText("./assetDir"));
+                destDir = System.IO.Path.GetFullPath(File.ReadAllText("./contentDir"));
             }
             else
             {
@@ -139,6 +139,11 @@ namespace Sango
             if (string.IsNullOrEmpty(fileName))
                 return null;
 
+            // 模组私有资源引用(mod://模组Id/路径 或 模组Id:路径):
+            // 只查该模组的 Private 目录,命中即返回;解析失败直接返回 null,不参与普通搜索、也不回落
+            if (ModAssetPath.IsModUri(fileName))
+                return ModAssetPath.Resolve(fileName);
+
             // ① 精确匹配,保证原路径优先级最高
             string fullPath = FindFileExact(fileName);
             if (!string.IsNullOrEmpty(fullPath))
@@ -177,7 +182,12 @@ namespace Sango
             if (System.IO.Path.IsPathRooted(fileName))
                 return fileName;
 
+            // 模组私有资源引用:只查指定模组的 Private 目录,不参与普通搜索
+            if (ModAssetPath.IsModUri(fileName))
+                return ModAssetPath.Resolve(fileName);
+
             string fullPath;
+            // ① 普通搜索路径(各模组目录,后加载的模组优先)
             for (int i = 0; i < searchPaths.Count; i++)
             {
                 fullPath = string.Format("{0}/{1}", searchPaths[i], fileName);
@@ -187,6 +197,7 @@ namespace Sango
                 }
             }
 
+            // ② 内容根目录兜底
             fullPath = $"{ContentRootPath}/{fileName}";
             if (System.IO.File.Exists(fullPath))
             {
@@ -202,10 +213,24 @@ namespace Sango
                 return null;
 
             string fullPath;
+            // ① 模组私有资源引用:逐个候选按私有协议解析,命中即返回
+            for (int j = 0; j < fileName.Length; j++)
+            {
+                if (ModAssetPath.IsModUri(fileName[j]))
+                {
+                    fullPath = ModAssetPath.Resolve(fileName[j]);
+                    if (!string.IsNullOrEmpty(fullPath))
+                        return fullPath;
+                }
+            }
+
+            // ② 普通搜索路径(跳过私有协议引用,它们只走上面的私有解析)
             for (int i = 0; i < searchPaths.Count; i++)
             {
                 for (int j = 0; j < fileName.Length; j++)
                 {
+                    if (ModAssetPath.IsModUri(fileName[j]))
+                        continue;
                     fullPath = string.Format("{0}/{1}", searchPaths[i], fileName[j]);
                     if (System.IO.File.Exists(fullPath))
                     {
@@ -216,6 +241,8 @@ namespace Sango
 
             for (int j = 0; j < fileName.Length; j++)
             {
+                if (ModAssetPath.IsModUri(fileName[j]))
+                    continue;
                 fullPath = $"{ContentRootPath}/{fileName[j]}";
                 if (System.IO.File.Exists(fullPath))
                 {
@@ -241,7 +268,12 @@ namespace Sango
             if (System.IO.Path.IsPathRooted(dirName))
                 return dirName;
 
+            // 模组私有资源引用:只查指定模组的 Private 目录,不参与普通搜索
+            if (ModAssetPath.IsModUri(dirName))
+                return ModAssetPath.ResolveDirectory(dirName);
+
             string fullPath;
+            // ① 普通搜索路径(各模组目录,后加载的模组优先)
             for (int i = 0; i < searchPaths.Count; i++)
             {
                 fullPath = string.Format("{0}/{1}", searchPaths[i], dirName);
@@ -251,6 +283,7 @@ namespace Sango
                 }
             }
 
+            // ② 内容根目录兜底
             fullPath = $"{ContentRootPath}/{dirName}";
             if (System.IO.Directory.Exists(fullPath))
             {

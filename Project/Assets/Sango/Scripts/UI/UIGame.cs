@@ -735,5 +735,10 @@ namespace Sango.UI
 
             return dstBgm;
         }
+
+        public void OpenStrategyMap()
+        {
+            Window.Instance.Open("window_strategy_map");
+        }
     }
 }

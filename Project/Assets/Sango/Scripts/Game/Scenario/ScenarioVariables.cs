@@ -41,13 +41,6 @@ namespace Sango.Core
         [JsonProperty] public bool EnableAgeAbilityFactor = true;
 
         /// <summary>
-        /// 能力每级经验（兵种适性每一级所需经验）。
-        /// 节奏参考：一部队一年约 15 次战斗结算，默认每次攻击结算 3 点 → 约 45 点/年，
-        /// 一级 100 点 ≈ 2.2 年，10 级满级 ≈ 22 年。
-        /// </summary>
-        [JsonProperty] public ushort AbilityExpLevelNeed = 100;
-
-        /// <summary>
         /// 最高能力等级
         /// </summary>
         [JsonProperty] public byte MaxAbilityLevel = 10;
@@ -119,11 +112,14 @@ namespace Sango.Core
         [JsonProperty] public int treasuryLimitPerCity = 0;
 
         /// <summary>
-        /// 授予 / 没收配置（键 = GainPlace 的 ItemGrant* / ItemConfiscate* 段）。
-        /// 按珍品品级计算的忠诚增减曲线在本表调参，代码侧不硬编码
-        /// （见 <see cref="Sango.Core.ItemGrantRules"/>）。
+        /// 装备变更技巧点消耗：授予或没收**一件**珍品（宝物 / 装备）扣多少技巧点。
+        ///
+        /// 定位说明（2026-10 改版）：授予 / 没收不再走"人事赏罚"（不占行动力、不限每回合次数、
+        /// 不影响忠诚），而是当作**装备管理**操作 —— 成本只有技巧点，调参口径见
+        /// <see cref="Sango.Core.ItemGrantRules.GetTechniqueCost"/>。
+        /// 默认 50；配 0 = 免费（纯沙盒调试用）。
         /// </summary>
-        [JsonProperty] public GainValueConfig itemGrantGain = new GainValueConfig();
+        [JsonProperty] public int itemChangeTechniqueCost = 50;
 
         /// <summary>
         /// 基础伤害
@@ -675,7 +671,7 @@ namespace Sango.Core
         ///
         /// 调试面板的"强制触发"**不受本开关影响**（那是显式意图，不是自动触发）。
         /// </summary>
-        [JsonProperty] public bool eventSystemEnabled = false;
+        [JsonProperty] public bool eventSystemEnabled = true;
 
         #region 外交系统参数
 
@@ -1479,16 +1475,45 @@ namespace Sango.Core
             arms = aiTurnAddArms;
         }
 
+        /// <summary>
+        /// 取适应等级名称。
+        ///
+        /// 【取值顺序】
+        /// <list type="number">
+        /// <item>优先查剧本通用数据 <c>AbilityLevelTypes.json</c>（见 <see cref="PersonAbilityValue.GetLevelName"/>）：
+        /// 这是当前唯一的适应等级配置源，级数不限于 4 级，可支持 Ｓ１/Ｓ２… 等扩展等级；</item>
+        /// <item>数据未就绪或等级下标超出配置时，回退到剧本参数 <see cref="personAbilityName"/> 数组（旧数据兜底）；</item>
+        /// <item>仍然超范围时交给可扩展钩子 <see cref="GameEvent.OnGetAbilityName"/>，最后取数组末位。</item>
+        /// </list>
+        /// </summary>
+        /// <param name="lvl">适应等级下标（负数按 0 处理）</param>
+        /// <returns>适应等级名称</returns>
         public string GetAbilityName(int lvl)
         {
-            if (lvl < personAbilityName.Length)
-                return personAbilityName[lvl];
-            else
+            if (lvl < 0) lvl = 0;
+
+            // 1.优先 AbilityLevelTypes
+            string name = PersonAbilityValue.GetLevelName(lvl);
+            if (!string.IsNullOrEmpty(name))
+                return name;
+
+            // 2.回退到剧本参数数组
+            if (personAbilityName != null && personAbilityName.Length > 0)
             {
+                if (lvl < personAbilityName.Length)
+                    return personAbilityName[lvl];
+
+                // 3.超出旧数组范围：走可扩展钩子，再不行取末位
                 if (GameEvent.OnGetAbilityName != null)
-                    return GameEvent.OnGetAbilityName(lvl);
+                {
+                    string ext = GameEvent.OnGetAbilityName(lvl);
+                    if (!string.IsNullOrEmpty(ext))
+                        return ext;
+                }
                 return personAbilityName[personAbilityName.Length - 1];
             }
+
+            return string.Empty;
         }
 
         public string GetAttributeName(int lvl)

@@ -22,7 +22,7 @@ namespace Sango.Core
         /// 剧本事件的图文演出（CG）资源目录。
         /// 放在 Assets 下并单独一个目录，是为了让 Mod 能用同样的相对路径覆盖（与 Face / CriticalImage 一致）。
         /// </summary>
-        public static string EventPicturePath = "Assets/UI/EventPicture";
+        public static string EventPicturePath = "Assets/EventPicture";
         public static string TroopHeadbarRes = "Assets/UI/Prefab/window_troop_bar.prefab";
         public static string CityHeadbarRes = "Assets/UI/Prefab/window_city_bar.prefab";
         public static string BuildingHeadbarRes = "Assets/UI/Prefab/window_building_bar.prefab";
@@ -73,6 +73,22 @@ namespace Sango.Core
         public static string EmptyIconPath = "Assets/empty.png";
 
         /// <summary>
+        /// 按"模组私有资源引用"加载图标。
+        ///
+        /// 数据里的 icon 字段可以写 <c>mod://模组Id/相对路径</c>（推荐）或 <c>模组Id:相对路径</c>，
+        /// 表示固定读取该模组 <c>Private</c> 目录下的文件，不参与全局搜索，也不会被其他模组覆盖。
+        /// 不是私有引用（或该模组未登记）时返回 null，由调用方继续走原有的默认目录逻辑。
+        /// </summary>
+        /// <param name="resName">数据里的资源字段值</param>
+        /// <returns>命中的贴图；非私有引用或加载失败返回 null</returns>
+        public static Texture LoadModPrivateIcon(string resName)
+        {
+            if (!ModAssetPath.IsModUri(resName))
+                return null;
+            return ObjectLoader.LoadObject<Texture>(resName);
+        }
+
+        /// <summary>
         /// 按道具的 icon 字段加载图标纹理（配 <c>RawImage</c> 使用，与 <see cref="LoadHeadIcon"/> 同一套口径）。
         ///
         /// 容错口径与头像 / 事件 CG 相同：<c>icon</c> 可以只写 Id（"107"），也可以写子目录形式
@@ -88,7 +104,13 @@ namespace Sango.Core
         {
             Texture texture = null;
 
-            if (!string.IsNullOrEmpty(icon))
+            // 模组私有资源引用(mod://模组Id/路径 或 模组Id:路径):
+            // 固定只读该模组的 Private 目录,不再拼默认目录、也不受其他模组影响
+            if (ModAssetPath.IsModUri(icon))
+            {
+                texture = LoadModPrivateIcon(icon);
+            }
+            else if (!string.IsNullOrEmpty(icon))
             {
                 string itemPath = icon.StartsWith("Assets/") ? icon : $"{ItemIconPath}/{icon}";
                 texture = ObjectLoader.LoadObject<Texture>(itemPath, "Content");
@@ -126,7 +148,12 @@ namespace Sango.Core
         {
             Texture texture = null;
 
-            if (!string.IsNullOrEmpty(icon))
+            // 模组私有资源引用:固定只读该模组的 Private 目录,不再拼默认目录、也不受其他模组影响
+            if (ModAssetPath.IsModUri(icon))
+            {
+                texture = LoadModPrivateIcon(icon);
+            }
+            else if (!string.IsNullOrEmpty(icon))
             {
                 if (icon.StartsWith("Assets/"))
                 {
@@ -161,6 +188,10 @@ namespace Sango.Core
         /// <returns>暴击图纹理</returns>
         public static Texture LoadCriticalImage(string id)
         {
+            // 模组私有资源引用:固定只读该模组的 Private 目录,不再拼暴击图目录
+            if (ModAssetPath.IsModUri(id))
+                return LoadModPrivateIcon(id);
+
             string criticalPath = $"{CriticalImagePath}/{id}";
             string extension = System.IO.Path.GetExtension(id);
             if (!string.IsNullOrEmpty(extension))
@@ -192,6 +223,10 @@ namespace Sango.Core
         public static Texture LoadEventPicture(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
+
+            // 模组私有资源引用:固定读取该模组 Private 目录,不再拼事件图目录,也不回落到公共图
+            if (ModAssetPath.IsModUri(name))
+                return LoadModPrivateIcon(name);
 
             string path = name.StartsWith("Assets/") ? name : $"{EventPicturePath}/{name}";
 

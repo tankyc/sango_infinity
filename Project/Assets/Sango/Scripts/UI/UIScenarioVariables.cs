@@ -410,9 +410,9 @@ namespace Sango.UI
             AddNumberItem("国库基础容量(件，0=不限)", variables.treasuryLimitBase, 0, 999, (v) => { variables.treasuryLimitBase = v; });
             AddNumberItem("国库每城容量增量(件，0=不限)", variables.treasuryLimitPerCity, 0, 99, (v) => { variables.treasuryLimitPerCity = v; });
 
-            // 授予 / 没收：按珍品品级（1~5）计算的忠诚增减曲线
-            // （GainValueConfig 的 ItemGrant* / ItemConfiscate* 段，见 ItemGrantRules）
-            AddGainTable("授予 / 没收忠诚", variables.itemGrantGain, GainValueConfig.ItemGrantPlaces);
+            // 装备变更（授予 / 没收一件珍品）的成本：技巧点，默认 50，0 = 免费。
+            // 2026-10 改版后不再有忠诚曲线、不占行动力、不限每回合次数（见 ItemGrantRules）。
+            AddNumberItem("装备变更技巧点消耗(0=免费)", variables.itemChangeTechniqueCost, 0, 10000, (v) => { variables.itemChangeTechniqueCost = v; });
 
             AddBigTitle("Mod相关");
             GameEvent.OnScenarioVariablesSetting?.Invoke(this, scenario);

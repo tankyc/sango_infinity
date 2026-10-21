@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace Sango.Core.Action 
 { 
     /// <summary>
-    /// 提升工作效率
-    /// value: 百分比
-    /// jobIds: 工作ID集合
+    /// 提高城市工作产出（value 为百分比，jobIds 限定生效的工作类型）。
+    ///
+    /// 接入事件：OnCityJobResult（城市工作产出结算时）。
     /// </summary>
     public class CityImproveJobResult : CityActionBase
     {

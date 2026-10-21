@@ -41,6 +41,14 @@ namespace Sango.Core
         public long dateTime;
 
         /// <summary>
+        /// 存档时记录的已启用模组 Id 列表(按加载顺序)。
+        /// 读档时用它和"当前启用的模组"做对比:不一致时只展示基础信息,并在玩家确认后才尝试加载。
+        /// 老存档没有这个字段 → 为 null,表示"不知道当时用了哪些模组"。
+        /// </summary>
+        [JsonProperty]
+        public string[] mods;
+
+        /// <summary>
         /// 生成一份浅拷贝，供"存档列表快照"使用。
         ///
         /// 存档列表里的 ShortScenario 需要一份**当时**的 Info（日期 / 回合数等）：
@@ -52,6 +60,8 @@ namespace Sango.Core
             ScenarioInfo copy = (ScenarioInfo)MemberwiseClone();
             if (playerForceList != null)
                 copy.playerForceList = (int[])playerForceList.Clone();
+            if (mods != null)
+                copy.mods = (string[])mods.Clone();
             return copy;
         }
     }

@@ -795,10 +795,15 @@ namespace Sango.Core
         {
             name = "枪兵",
             width = 2.00f,
-            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.spearLv.baseValue).Name, x.spearLv.baseValue),
+            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(PersonAbilityValue.GetLevelName(x.spearLv.baseValue), x.spearLv.baseValue),
             valueSortFunc = (a, b) => a.spearLv.baseValue.CompareTo(b.spearLv.baseValue),
             valueObjGet = x => x.spearLv.baseValue,
-            valueObjSet = (x, v) => x.spearLv.baseValue = (int)v,
+            // 只改原始适应力，之后必须重算当前等级（value），否则战斗读到的等级不会变
+            valueObjSet = (x, v) =>
+            {
+                x.spearLv.baseValue = (int)v;
+                x.spearLv.Update();
+            },
             editType = DataEditType.IdDropdown,
             dataSetType = DataSetType.PersonAbilityName,
         };
@@ -806,10 +811,15 @@ namespace Sango.Core
         {
             name = "戟兵",
             width = 2.00f,
-            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.halberdLv.baseValue).Name, x.halberdLv.baseValue),
+            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(PersonAbilityValue.GetLevelName(x.halberdLv.baseValue), x.halberdLv.baseValue),
             valueSortFunc = (a, b) => a.halberdLv.baseValue.CompareTo(b.halberdLv.baseValue),
             valueObjGet = x => x.halberdLv.baseValue,
-            valueObjSet = (x, v) => x.halberdLv.baseValue = (int)v,
+            // 只改原始适应力，之后必须重算当前等级（value）
+            valueObjSet = (x, v) =>
+            {
+                x.halberdLv.baseValue = (int)v;
+                x.halberdLv.Update();
+            },
             editType = DataEditType.IdDropdown,
             dataSetType = DataSetType.PersonAbilityName,
         };
@@ -818,10 +828,15 @@ namespace Sango.Core
         {
             name = "弓兵",
             width = 2.00f,
-            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.crossbowLv.baseValue).Name, x.crossbowLv.baseValue),
+            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(PersonAbilityValue.GetLevelName(x.crossbowLv.baseValue), x.crossbowLv.baseValue),
             valueSortFunc = (a, b) => a.crossbowLv.baseValue.CompareTo(b.crossbowLv.baseValue),
             valueObjGet = x => x.crossbowLv.baseValue,
-            valueObjSet = (x, v) => x.crossbowLv.baseValue = (int)v,
+            // 只改原始适应力，之后必须重算当前等级（value）
+            valueObjSet = (x, v) =>
+            {
+                x.crossbowLv.baseValue = (int)v;
+                x.crossbowLv.Update();
+            },
             editType = DataEditType.IdDropdown,
             dataSetType = DataSetType.PersonAbilityName,
         };
@@ -830,10 +845,15 @@ namespace Sango.Core
         {
             name = "骑兵",
             width = 2.00f,
-            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.rideLv.baseValue).Name, x.rideLv.baseValue),
+            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(PersonAbilityValue.GetLevelName(x.rideLv.baseValue), x.rideLv.baseValue),
             valueSortFunc = (a, b) => a.rideLv.baseValue.CompareTo(b.rideLv.baseValue),
             valueObjGet = x => x.rideLv.baseValue,
-            valueObjSet = (x, v) => x.rideLv.baseValue = (int)v,
+            // 只改原始适应力，之后必须重算当前等级（value）
+            valueObjSet = (x, v) =>
+            {
+                x.rideLv.baseValue = (int)v;
+                x.rideLv.Update();
+            },
             editType = DataEditType.IdDropdown,
             dataSetType = DataSetType.PersonAbilityName,
         };
@@ -842,10 +862,15 @@ namespace Sango.Core
         {
             name = "水军",
             width = 2.00f,
-            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.waterLv.baseValue).Name, x.waterLv.baseValue),
+            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(PersonAbilityValue.GetLevelName(x.waterLv.baseValue), x.waterLv.baseValue),
             valueSortFunc = (a, b) => a.waterLv.baseValue.CompareTo(b.waterLv.baseValue),
             valueObjGet = x => x.waterLv.baseValue,
-            valueObjSet = (x, v) => x.waterLv.baseValue = (int)v,
+            // 只改原始适应力，之后必须重算当前等级（value）
+            valueObjSet = (x, v) =>
+            {
+                x.waterLv.baseValue = (int)v;
+                x.waterLv.Update();
+            },
             editType = DataEditType.IdDropdown,
             dataSetType = DataSetType.PersonAbilityName,
         };
@@ -854,10 +879,15 @@ namespace Sango.Core
         {
             name = "兵器",
             width = 2.00f,
-            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(Scenario.Cur.CommonData.AbilityLevelTypes.Get(x.machineLv.baseValue).Name, x.machineLv.baseValue),
+            valueStrGetCall = x => ObjectSortTitle.GetAbilityColorText(PersonAbilityValue.GetLevelName(x.machineLv.baseValue), x.machineLv.baseValue),
             valueSortFunc = (a, b) => a.machineLv.baseValue.CompareTo(b.machineLv.baseValue),
             valueObjGet = x => x.machineLv.baseValue,
-            valueObjSet = (x, v) => x.machineLv.baseValue = (int)v,
+            // 只改原始适应力，之后必须重算当前等级（value）
+            valueObjSet = (x, v) =>
+            {
+                x.machineLv.baseValue = (int)v;
+                x.machineLv.Update();
+            },
             editType = DataEditType.IdDropdown,
             dataSetType = DataSetType.PersonAbilityName,
         };

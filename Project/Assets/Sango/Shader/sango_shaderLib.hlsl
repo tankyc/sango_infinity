@@ -154,6 +154,12 @@ TEXTURE2D(_RangeMask);
 TEXTURE2D(_DarkMask);
 #endif
 
+// 战略地图：逐格势力归属贴图（RGB = 势力色/边界色，A = 有无归属）
+#if SANGO_FACTION_MAP
+TEXTURE2D(_FactionMap);
+float _FactionMapAlpha;
+#endif
+
 #if SANGO_TEXT
 TEXTURE2D(_TextTex);
 float _TextFactor;
@@ -418,6 +424,20 @@ float4 sango_frag(SangoVertexOutput i) : COLOR
 	diffuse = lerp(diffuse, half3(1, 0, 0), flag * gridMaskColor.r);
 	diffuse = lerp(diffuse, diffuse * half3(0.5, 0.5, 0.5), saturate(_DarkFlag * (1 - darkMaskColor.a)));
 	diffuse = lerp(diffuse, diffuse * rangeMaskColor.rgb, rangeMaskColor.a);
+#endif
+
+#if SANGO_FACTION_MAP
+	// 战略地图：按地格采样势力归属贴图。
+	// 采样公式与 _GridMask 完全一致（odd-q 半格偏移 + 归一化 UV + 垂直翻转），
+	// 因此贴图里一个地格占用的像素块恰好对齐到对应的六边形地格。
+	float factionRow = floor(i.posWorld.z / (_GridSize) % 2);
+	float2 factionBaseUV = float2(i.posWorld.z / (_MapWidth), 1 - i.posWorld.x / (_MapHeight));
+	float2 factionUV = float2(factionBaseUV.x, factionBaseUV.y + factionRow * 0.5 / (_MapHeight / _GridSize));
+	half4 factionMapColor = SAMPLE_TEXTURE2D(_FactionMap, smpPoint, factionUV);
+	half factionAlpha = saturate(factionMapColor.a * _FactionMapAlpha);
+	// 颜色（势力色 / 白色兜底 / 黑色地域边界）全部由 CPU 逐格写入贴图，
+	// 这里不再做任何加工，只按 alpha 原样混合，保证边界就是纯黑
+	diffuse = lerp(diffuse, factionMapColor.rgb, factionAlpha);
 #endif
 
 	#if SANGO_BRUSH

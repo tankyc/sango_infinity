@@ -172,7 +172,7 @@ namespace Sango.Core.Duel
             return Scenario.Cur.citySet.Get(districtId);
         }
 
-        /// <summary>获取武将持有的宝物列表（装备栏三件 + 随身宝）</summary>
+        /// <summary>获取武将持有的宝物列表（装备栏三件 + 宝物）</summary>
         public virtual List<Sango.Core.ItemType> GetPersonItemList(Person person)
         {
             return DuelSettings.GetPersonItemList != null

@@ -189,6 +189,18 @@ namespace Sango.Core.Action
 
             // 军乐台：在结算时为周围 2 格内己方部队恢复 10 点气力。
             Register("BuildingAddTroopMorale", CraeteHandle<BuildingAddTroopMorale>);
+
+            // 通用建筑光环：以建筑中心格为圆心，给半径内部队提供攻击 / 防御常驻加成。
+            // 属性、数值、半径、敌我、叠加规则全部由 JSON 配置，新增建筑不需要再写代码。
+            Register("BuildingAura", CraeteHandle<BuildingAura>);
+            // 建筑触发器容器：triggerList 决定时机（回合开始/结束、建造完成），actionList 依次执行。
+            Register("BuildingTriggerAction", CraeteHandle<BuildingTriggerAction>);
+            // 城市触发器容器：triggerList 决定时机（回合开始/结束、月初、换季、陷落），actionList 依次执行。
+            Register("CityTriggerAction", CraeteHandle<CityTriggerAction>);
+            // 势力触发器容器：triggerList 决定时机（势力回合开始/结束），actionList 依次执行。
+            Register("ForceTriggerAction", CraeteHandle<ForceTriggerAction>);
+            // 通用部队光环：以部队所在格为圆心，给半径内部队提供攻击 / 防御常驻加成，跟随部队移动。
+            Register("TroopAura", CraeteHandle<TroopAura>);
             // 特技 #80 名声：增加征兵士兵数。
             // 特技 #81 能吏：增加枪、戟、弩兵装产量。
             // 特技 #82 繁殖：增加军马兵装产量。
@@ -320,6 +332,41 @@ namespace Sango.Core.Action
             Register("CityBumperHarvest", CraeteHandle<CityBumperHarvest>);
             // 让某兵种类型的二动
             Register("TroopResetActionOver", CraeteHandle<TroopResetActionOver>);
+
+            // ================================================================
+            // 扩展批次（2026-10-19）：补齐三个"引擎有接口、玩法没接上"的战斗结算点，
+            // 以及内政 / 经济 / 建筑产出的收益修正。
+            //
+            // 装配说明：
+            //   · TroopSkill* 系列用 TroopTroopActionBase，特技（装配部队）与科技（装配势力）都能用；
+            //   · City* / Building* 系列用 ForceActionBase，只用于科技（特技装配时取不到 Force）。
+            // ================================================================
+
+            // 暴击伤害系数（%）：value 100 = 不变，120 = ×1.2
+            Register("TroopSkillCriticalFactor", CraeteHandle<TroopSkillCriticalFactor>);
+            // 战法对建筑/城池的耐久伤害（%）
+            Register("TroopSkillDamageBuildingDurability", CraeteHandle<TroopSkillDamageBuildingDurability>);
+            // 战法对城内/建筑内兵力的伤害（%）
+            Register("TroopSkillDamageBuildingTroops", CraeteHandle<TroopSkillDamageBuildingTroops>);
+
+            // 内政工作的金钱消耗（%）：value -20 = 降 20%
+            Register("CityJobCostModify", CraeteHandle<CityJobCostModify>);
+            // 内政工作的功绩收益（%）
+            Register("CityJobMeritGain", CraeteHandle<CityJobMeritGain>);
+            // 内政工作的技巧点收益（%）
+            Register("CityJobTechniquePointGain", CraeteHandle<CityJobTechniquePointGain>);
+
+            // 城市金收获的最终修正（%）
+            Register("CityGoldHarvestAfter", CraeteHandle<CityGoldHarvestAfter>);
+            // 城市粮收获的最终修正（%）
+            Register("CityFoodHarvestAfter", CraeteHandle<CityFoodHarvestAfter>);
+            // 月度治安变化（加值，非百分比）
+            Register("CitySecurityChangeMonth", CraeteHandle<CitySecurityChangeMonth>);
+
+            // 建筑人口产出修正（%）
+            Register("BuildingPopulationGain", CraeteHandle<BuildingPopulationGain>);
+            // 建筑自身产出修正（%）
+            Register("BuildingProductGain", CraeteHandle<BuildingProductGain>);
 
         }
 

@@ -4,14 +4,9 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 某兵种类型战法的增减伤害  
-    /// value： 增加值(百分比) 
-    /// kinds： 兵种类型 
-    /// checkLand： 0:只检查kinds 1:只对landType检查kinds 2只对waterType检查kinds 
-    /// isDefender 0攻击方 1受击方 
-    /// isNormal  0都可以 1是 2不是
-    /// isRange 0都可以 1是 2不是
-    /// condition： 额外条件 支持参数(troop,troop,skill)
+    /// 按百分比增减本次兵力变化量（value 可为负）。
+    ///
+    /// 接入事件：OnTroopChangeTroops（兵力增减结算时），这是"改伤害"的正确挂点。
     /// </summary>
     public class TroopChangeDamage : TroopTroopActionBase
     {

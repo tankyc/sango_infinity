@@ -24,9 +24,11 @@ namespace Sango.Core.Player
     ///   IsValid（菜单置灰）与 OnEnter（进窗口）复用同一批判定，避免出现
     ///   "菜单能点、进去发现没东西可操作"。
     ///
-    /// 【行动力与回合限制】
-    ///   消耗与次数上限读 JobTypes.json 的 28 / 29 号行（costAP = 5、每势力每回合 1 次），
-    ///   不占用被授予武将本人的行动（该武将当回合仍可内政 / 出征）。
+    /// 【成本与次数】（2026-10 改版：从"人事赏罚"改为"装备管理"）
+    ///   每变更**一件**珍品扣技巧点（<see cref="ItemGrantRules.GetTechniqueCost"/>，
+    ///   默认 50，剧本设置「宝物与装备产出」分区可调，配 0 = 免费）。
+    ///   不占行动力、**不限每回合次数、不改忠诚**：
+    ///   确认一次后窗口不关闭，可以继续切换武将连续调整，直到技巧点不够或玩家点取消。
     /// </summary>
     public abstract class CityItemGrantBase : CityBaseSystem
     {
@@ -43,10 +45,20 @@ namespace Sango.Core.Player
         public ItemType selectedItem;
 
         /// <summary>
-        /// 当前选中的珍品将带来的忠诚变化（正 = 提升、负 = 下降），供窗口显示"78 → 86 (+8)"。
-        /// 未选中或不能操作时为 0。
+        /// 本次装备变更消耗的技巧点（供窗口显示"消耗 50 / 剩余 1200"）。
+        /// 取值统一走 <see cref="ItemGrantRules.GetTechniqueCost"/>，窗口不自己算。
         /// </summary>
-        public int loyaltyPreview;
+        public int TechniqueCost => ItemGrantRules.GetTechniqueCost();
+
+        /// <summary>所属势力当前技巧点余额（窗口显示用；势力为空时返回 0）</summary>
+        public int TechniquePoint
+        {
+            get
+            {
+                Force force = TargetCity != null ? TargetCity.BelongForce : null;
+                return force != null ? force.TechniquePoint : 0;
+            }
+        }
 
         /// <summary>
         /// 硬性不能确认时的中文原因（可确认时为空串）。
@@ -59,7 +71,11 @@ namespace Sango.Core.Player
         /// </summary>
         public string hintText = "";
 
-        /// <summary>本系统对应的城市工作类型（决定行动力消耗与每回合次数上限）</summary>
+        /// <summary>
+        /// 本系统对应的城市工作类型。
+        /// 2026-10 改版后**不再用于成本与次数判定**（改动只按件扣技巧点），
+        /// 仅保留为工作类型标识，供菜单归组与日志追溯使用。
+        /// </summary>
         public abstract CityJobType GrantJobType { get; }
 
         /// <summary>true = 授予（国库 → 武将）；false = 没收（武将 → 国库）</summary>
@@ -90,11 +106,9 @@ namespace Sango.Core.Player
                 if (corps == null || force == null)
                     return false;
 
-                // 每势力每回合各 1 次（批次计数由 JobTypes.json 的 limit 与 jobCounter 共同约束）
-                if (corps.GetJobCounter((int)GrantJobType) > 0)
-                    return false;
-
-                if (corps.ActionPoint < JobType.GetJobCostAP((int)GrantJobType))
+                // 成本只有技巧点：不占行动力、不限每回合次数（同一回合可连续调整多名武将）
+                // 注意：JobTypes.json 里的 limit 字段全项目未被引用，不参与此处判定
+                if (!ItemGrantRules.CanPayTechnique(force))
                     return false;
 
                 if (!TargetCity.CheckJobCost(GrantJobType))
@@ -228,7 +242,6 @@ namespace Sango.Core.Player
         /// </summary>
         public void RefreshPreview()
         {
-            loyaltyPreview = 0;
             blockReason = ItemGrantRules.ReasonNone;
             hintText = "";
 
@@ -252,12 +265,6 @@ namespace Sango.Core.Player
                     blockReason = reason;
                     return;
                 }
-
-                loyaltyPreview = ItemGrantRules.GetGrantLoyalty(selectedItem);
-
-                // 忠诚已满：授予照常执行（道具要落地），只是不再有忠诚收益
-                if (TargetPerson.loyalty >= 100)
-                    hintText = "忠诚已满，本次授予没有额外忠诚收益";
             }
             else
             {
@@ -266,18 +273,21 @@ namespace Sango.Core.Player
                     blockReason = reason;
                     return;
                 }
-
-                loyaltyPreview = -ItemGrantRules.GetConfiscateLoyalty(selectedItem);
-
-                // 没收会掉忠，掉到什么程度由 AddLoyalty 钳制，这里只提示下限
-                if (TargetPerson.loyalty + loyaltyPreview <= 0)
-                    hintText = "忠诚将降至下限，注意可能触发出走";
             }
+
+            // 软提示：本次消耗与余额（只做信息展示，不阻止确认）
+            int cost = TechniqueCost;
+            hintText = cost > 0
+                ? $"本次消耗技巧点 {cost}，当前余额 {TechniquePoint}"
+                : "技巧点消耗已关闭（配置为 0）";
         }
 
         /// <summary>
-        /// 执行工作：把当前"武将 + 珍品"交给数据侧落地。
+        /// 执行一次装备变更：把当前"武将 + 珍品"交给数据侧落地。
         /// 执行前再刷新一次预览，防止窗口停留期间外部状态变化（如国库被别处动过）。
+        ///
+        /// **不调用 Done()**：本功能是装备管理，不是一次性的内政工作 —— 确认后窗口保持打开，
+        /// 玩家可以继续给同一名或另一名武将调整，直到技巧点不够或主动取消（见类注释）。
         /// </summary>
         public override void DoJob()
         {
@@ -292,14 +302,17 @@ namespace Sango.Core.Player
             if (!ok)
                 return;
 
-            Done();
             GameMedia.Instance.PlayDoAcitonSfx();
+
+            // 继续操作：重建左侧列表（国库 / 武将身上已变化）并回到首个可选项，
+            // 右侧武将保持不变，玩家可直接切换下一名武将。
+            RefreshItemList();
         }
     }
 
     /// <summary>
-    /// 都市人事「授予宝物」：把国库里的一件珍品授予本城武将
-    /// （装备类自动上栏、宝物类随身携带，被替换的旧件退回国库），并按品级提升忠诚。
+    /// 都市「授予宝物」：把国库里的一件珍品授予本城武将
+    /// （装备类自动上栏、宝物类随身携带，被替换的旧件退回国库），每件消耗技巧点。
     /// </summary>
     [GameSystem]
     public class CityGrantItem : CityItemGrantBase
@@ -331,7 +344,7 @@ namespace Sango.Core.Player
     }
 
     /// <summary>
-    /// 都市人事「没收宝物」：把本城武将身上（含装备栏）的一件珍品收回国库，并按品级扣减忠诚。
+    /// 都市「没收宝物」：把本城武将身上（含装备栏）的一件珍品收回国库，每件消耗技巧点（不扣忠诚）。
     /// </summary>
     [GameSystem]
     public class CityConfiscateItem : CityItemGrantBase

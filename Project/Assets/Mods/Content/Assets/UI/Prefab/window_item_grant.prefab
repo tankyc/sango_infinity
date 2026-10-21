@@ -314,7 +314,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: -198, y: 50}
+  m_AnchoredPosition: {x: -189.3, y: 70.6}
   m_SizeDelta: {x: 90, y: 26}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!222 &7498310211070748344
@@ -1225,7 +1225,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: -40, y: 50}
+  m_AnchoredPosition: {x: -31.300049, y: 70.600006}
   m_SizeDelta: {x: 150, y: 26}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!114 &6849868559018864623
@@ -2129,7 +2129,7 @@ Canvas:
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
-  m_OverrideSorting: 0
+  m_OverrideSorting: 1
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
@@ -2153,7 +2153,7 @@ MonoBehaviour:
   m_BlockingObjects: 0
   m_BlockingMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 32
 --- !u!114 &8108007186343734563
 MonoBehaviour:
   m_ObjectHideFlags: 0

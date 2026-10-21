@@ -5,14 +5,11 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 某兵种类型战法的增减伤害  
-    /// value： 增加值(百分比) 
-    /// kinds： 兵种类型 
-    /// checkLand： 0:只检查kinds 1:只对landType检查kinds 2只对waterType检查kinds 
-    /// isDefender 0攻击方 1受击方 
-    /// isNormal  0都可以 1是 2不是
-    /// isRange 0都可以 1是 2不是
-    /// condition： 额外条件 支持参数(troop,troop,skill)
+    /// 遭受攻击时对攻击者施展指定战法（容器触发）。
+    ///
+    /// 必须放进「触发器 + 效果」容器的 actionList 内；自身不订阅事件。
+    /// 参数：value 为反击使用的战法 Id。
+    /// 接入事件：无（容器触发）——由所在「触发器 + 效果」容器的触发器决定时机，单独挂载不生效
     /// </summary>
     public class TroopAttackBack : TroopTroopActionBase
     {

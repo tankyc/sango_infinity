@@ -8,6 +8,7 @@ namespace Sango.Core.Action
     /// 建筑的反击力修改,
     /// value: 值(百分比), 
     /// kinds: 建筑类型
+    /// 接入事件：OnBuildCalculateAttackBack
     /// </summary>
     public class BuildingBaseAttackBack : ForceBuildingActionBase
     {

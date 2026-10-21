@@ -244,6 +244,16 @@ namespace Sango.Core.Event
             EventEffectsPerson.RegisterAll();
             EventEffectsCity.RegisterAll();
             EventEffectsWorld.RegisterAll();
+
+            // 第二批：按对象维度拆文件，避免单文件无限膨胀
+            EventEffectsForce.RegisterAll();        // 势力 / 军团
+            EventEffectsCityExt.RegisterAll();      // 城市数值 / 俘虏 / 改名
+            EventEffectsPersonExt.RegisterAll();    // 五维 / 适性 / 特技 / 关系
+            EventEffectsTroop.RegisterAll();        // 部队数值
+            EventEffectsDiplomacy.RegisterAll();    // 外交盟约 / 技巧授予
+            EventEffectsTroopCreate.RegisterAll();  // 部队编成：创建 / 解散 / 瞬移 / 换兵种
+
+            Log.Info($"剧本事件效果注册完成，当前效果总数 {CreateMap.Count}");
         }
 
         #endregion

@@ -6,6 +6,7 @@ namespace Sango.Core.Action
     /// <summary>
     /// 某兵种战法耐久破坏威力(百分比)增加
     /// value: 增加值(百分比) kinds: 兵种类型
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
     public class TroopAddDamageBuildingExtraFactor : ForceTroopActionBase
     {

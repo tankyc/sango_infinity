@@ -4,7 +4,9 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 阻止本城市所属武将在换季结算时降低忠诚。
+    /// 拦截本城武将的换季掉忠。
+    ///
+    /// 接入事件：OnForcePersonLoyaltyChange（势力武将忠诚下降结算时）。
     /// </summary>
     public class CityPreventPersonLoyaltyLoss : CityActionBase
     {

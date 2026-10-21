@@ -18,6 +18,7 @@ namespace Sango.Core.Action
     ///
     /// 保护范围是"同部队"：护卫武将自己在内（他也在本部队编制里），用
     /// <see cref="Troop.HasPerson"/> 判编制成员，避免 person.mBelongTroop 在收尾/俘虏流程里被改写导致误判。
+    /// 接入事件：OnPersonCheckInjury
     /// </summary>
     public class TroopPreventPersonInjury : TroopActionBase
     {

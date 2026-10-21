@@ -7,6 +7,7 @@ namespace Sango.Core.Action
     /// 按value修改气力获取  
     /// value： 增加值(万分比) 
     /// modifyType: 0只改变增加值 1只改变减少值
+    /// 接入事件：无（容器触发）——由所在「触发器 + 效果」容器的触发器决定时机，单独挂载不生效
     /// </summary>
     public class TroopModifyMorale : TroopActionBase
     {

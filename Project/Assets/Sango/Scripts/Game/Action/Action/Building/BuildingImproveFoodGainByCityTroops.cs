@@ -10,6 +10,7 @@ namespace Sango.Core.Action
     /// minTroops : 最小士兵数，低于此数量按此数量计算
     /// maxTroops : 最大士兵数，高于此数量按此数量计算
     /// value : 最大倍率
+    /// 接入事件：OnBuildingCalculateFoodGain
     /// </summary>
     public class BuildingImproveFoodGainByCityTroops : BuildingActionBase
     {

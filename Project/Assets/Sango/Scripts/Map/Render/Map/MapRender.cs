@@ -48,6 +48,8 @@ namespace Sango.Render
         public MapModels mapModels;
         public MapWater mapWater;
         public MapLabelSet mapLabelSet;
+        // 战略地图图层：按地格烘焙势力色与势力/州边界，默认不显示
+        public MapStrategyMap mapStrategyMap;
         public OnSeasonChange onSeasonChange;
 
         // camera move
@@ -213,6 +215,14 @@ namespace Sango.Render
 
         private void CreateDatas(bool newData = true)
         {
+            // 重建子系统前先释放上一份战略地图：
+            // 它订阅的是静态的 GameEvent，不先退订会让旧实例一直收到城池易主回调
+            if (mapStrategyMap != null)
+            {
+                mapStrategyMap.Clear();
+                mapStrategyMap = null;
+            }
+
             // 必须第一个初始化
             if (newData)
             {
@@ -229,6 +239,8 @@ namespace Sango.Render
             mapCamera = new MapCamera(this);
             mapSkyBox = new MapSkyBox(this);
             mapGrid = new MapGrid(this);
+            // 依赖 mapGrid 的 bounds（在 mapGrid.Init 之后才能确定贴图尺寸），故放在其后面创建
+            mapStrategyMap = new MapStrategyMap(this);
             mapModels = new MapModels(this);
             mapLabelSet = new MapLabelSet(this);
 
@@ -242,6 +254,7 @@ namespace Sango.Render
             mapCamera.Init();
             mapSkyBox.Init();
             mapGrid.Init();
+            mapStrategyMap.Init();
             mapLabelSet.Init();
         }
 
@@ -332,6 +345,8 @@ namespace Sango.Render
                 mapSkyBox.Clear();
             if (mapGrid != null)
                 mapGrid.Clear();
+            if (mapStrategyMap != null)
+                mapStrategyMap.Clear();
             if (mapLabelSet != null)
                 mapLabelSet.Clear();
 
@@ -529,6 +544,10 @@ namespace Sango.Render
 
             if (mapLayer != null)
                 mapLayer.Update();
+
+            // 战略地图只在打脏标记后重建一次，这里必须每帧驱动
+            if (mapStrategyMap != null)
+                mapStrategyMap.Update();
         }
 
         public void UpdateImmediate()
@@ -614,6 +633,27 @@ namespace Sango.Render
         public void EndSetRangeMask()
         {
             mapGrid.ApplyRangMask();
+        }
+
+        /// <summary>显示 / 隐藏战略地图图层（按地格填充势力色并绘制势力边界）</summary>
+        public void ShowStrategyMap(bool show)
+        {
+            if (mapStrategyMap != null)
+                mapStrategyMap.SetVisible(show);
+        }
+
+        /// <summary>显示 / 隐藏战略地图上的地域边界（城池辖区界线）</summary>
+        public void ShowStrategyAreaBorder(bool show)
+        {
+            if (mapStrategyMap != null)
+                mapStrategyMap.SetAreaBorderVisible(show);
+        }
+
+        /// <summary>战略地图上的势力归属发生变化时打脏标记（通常由城池易主事件自动完成）</summary>
+        public void RefreshStrategyMap()
+        {
+            if (mapStrategyMap != null)
+                mapStrategyMap.MarkDirty();
         }
 
         public void OffsetCamera(Vector3 offset)

@@ -9,8 +9,8 @@ public class ModelPostprocessor : AssetPostprocessor
     /// <param name="m"></param>
     /// <param name="r"></param>
     /// <returns></returns>
-    Material OnAssignMaterialModel(Material m, Renderer r)
-    {
-        return AssetDatabase.LoadAssetAtPath<Material>("Assets/emptyformat.mat");
-    }
+    //Material OnAssignMaterialModel(Material m, Renderer r)
+    //{
+    //    return AssetDatabase.LoadAssetAtPath<Material>("Assets/emptyformat.mat");
+    //}
 }

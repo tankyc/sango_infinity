@@ -10,6 +10,7 @@ namespace Sango.Core.Action
     /// condition： 额外条件（如兵种、攻守、是否一般攻击等，见 TroopConditionDatabase）
     ///
     /// 与 TroopChangeCaptiveFactor 同一套路：部队属性重算时，在基础值（剧本参数）之上增减。
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
     public class TroopChangeDuelChance : TroopTroopActionBase
     {

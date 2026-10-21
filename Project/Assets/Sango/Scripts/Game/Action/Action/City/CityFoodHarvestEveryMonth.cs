@@ -4,9 +4,10 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 提升粮食收入
-    /// value: 百分比
-    /// jobIds: 工作ID集合
+    /// 让城市每月额外获得粮食（征税 / 屯田类效果的粮食版）。
+    ///
+    /// 接入事件：OnCityGainFoodHarvest（把常规粮食收入按 value 缩放）
+    /// + OnCityMonthStart（月初跨季时再补发一次）。
     /// </summary>
     public class CityFoodHarvestEveryMonth : CityActionBase
     {

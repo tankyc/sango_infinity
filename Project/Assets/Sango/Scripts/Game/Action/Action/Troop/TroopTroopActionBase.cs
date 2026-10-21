@@ -5,14 +5,15 @@ using Newtonsoft.Json;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 某兵种类型战法的增减伤害  p1:0攻击方 1受击方 p2:兵种类型(0全兵种全地形 -1陆地 -2水上) p3:增加值(百分比) p4: 是否一般攻击 -1都可以 p5: 是否是远程 -1都可以 p6:其他条件(troop,troop,skill)
-    /// value 增加值(百分比)
-    /// kinds 兵种类型
-    /// checkLand 0:只检查kinds 1:只对landType检查kinds 2只对waterType检查kinds
-    /// isDefender 0攻击方 1受击方 
-    /// isNormal  0都可以 1是 2不是
-    /// isRange 0都可以 1是 2不是
-    /// condition 额外条件 支持参数(troop,troop,skill)
+    /// 部队→部队类效果基类（"归属部队"与"被作用部队"分离的场景）。
+    ///
+    /// 公共参数：
+    /// kinds      兵种类型过滤，null 表示不限制
+    /// isDefender 0 攻击方 / 1 受击方
+    /// isNormal   -1 不限 / 0 仅战法 / 1 仅一般攻击
+    /// isRange    -1 不限 / 1 远程 / 2 近战
+    /// isFire     0 不限 / 1 仅一般攻击（当前实现与 isNormal 重叠，数据中未使用）
+    /// condition  额外条件（TroopSkillConditionDatabase）
     /// </summary>
     public abstract class TroopTroopActionBase : TroopActionBase
     {
@@ -64,6 +65,9 @@ namespace Sango.Core.Action
             if (!CheckIsRangeSkill(skill, isRange))
                 return false;
 
+            // isFire：Skill 上并没有"是否火焰战法"的判定，这里的实现退化为
+            // "isFire == 1 时只放行一般攻击"，与 isNormal == 1 完全重叠。
+            // 现有配置未使用，建议留空；等 Skill 增加火焰标记后再实现真正的火焰过滤。
             if (isFire == 1 && skill != null)
                 return false;
 

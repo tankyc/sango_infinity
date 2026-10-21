@@ -100,6 +100,8 @@ namespace Sango.Core
             Register("PersonAttributeCompare", CraeteHandle<PersonAttributeCheck>);
             Register("PersonLoyaltyCheck", CraeteHandle<PersonLoyaltyCheck>);
             Register("PersonLevelCheck", CraeteHandle<PersonLevelCheck>);
+            // 武将关系检查：夫妻 / 同胞 / 义兄弟 / 亲子 / 血亲 / 亲爱 / 厌恶（需 ActionPerson 与 TargetPerson 同时在场上）
+            Register("PersonRelationCheck", CraeteHandle<PersonRelationCheck>);
 
             // Terrain
             Register("TerrainCheck", CraeteHandle<TerrainCheck>);

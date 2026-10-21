@@ -33,44 +33,112 @@ namespace Sango.Core.Event
             inited = true;
 
             // —— 事件流程类（依赖事件自身状态，不依赖世界）——
-            Condition.Register("FireCountCompare", Condition.CraeteHandle<FireCountCompare>);
-            Condition.Register("EventFired", Condition.CraeteHandle<EventFiredCheck>);
-            Condition.Register("EventFiredCountCompare", Condition.CraeteHandle<EventFiredCountCompare>);
-            Condition.Register("EventOutcomeCheck", Condition.CraeteHandle<EventOutcomeCheck>);
-            Condition.Register("FlagCheck", Condition.CraeteHandle<FlagCheck>);
-            Condition.Register("VarCompare", Condition.CraeteHandle<VarCompare>);
-            Condition.Register("ScenarioVarCompare", Condition.CraeteHandle<ScenarioVarCompare>);
-            Condition.Register("RandomChance", Condition.CraeteHandle<EventRandomChanceCheck>);
+            RegisterUnique("FireCountCompare", Condition.CraeteHandle<FireCountCompare>);
+            RegisterUnique("EventFired", Condition.CraeteHandle<EventFiredCheck>);
+            RegisterUnique("EventFiredCountCompare", Condition.CraeteHandle<EventFiredCountCompare>);
+            RegisterUnique("EventOutcomeCheck", Condition.CraeteHandle<EventOutcomeCheck>);
+            RegisterUnique("FlagCheck", Condition.CraeteHandle<FlagCheck>);
+            RegisterUnique("VarCompare", Condition.CraeteHandle<VarCompare>);
+            RegisterUnique("ScenarioVarCompare", Condition.CraeteHandle<ScenarioVarCompare>);
+            RegisterUnique("RandomChance", Condition.CraeteHandle<EventRandomChanceCheck>);
 
             // —— 时间类 ——
-            Condition.Register("TimeRange", Condition.CraeteHandle<TimeRangeCheck>);
-            Condition.Register("DateCheck", Condition.CraeteHandle<EventDateCheck>);
-            Condition.Register("ScenarioYearCheck", Condition.CraeteHandle<ScenarioYearCheck>);
+            RegisterUnique("TimeRange", Condition.CraeteHandle<TimeRangeCheck>);
+            RegisterUnique("DateCheck", Condition.CraeteHandle<EventDateCheck>);
+            RegisterUnique("ScenarioYearCheck", Condition.CraeteHandle<ScenarioYearCheck>);
 
             // —— 势力类 ——
-            Condition.Register("ForceAlive", Condition.CraeteHandle<ForceAliveCheck>);
-            Condition.Register("ForceCityCount", Condition.CraeteHandle<ForceCityCountCheck>);
-            Condition.Register("ForceHasCity", Condition.CraeteHandle<ForceHasCityCheck>);
-            Condition.Register("ForceHasPerson", Condition.CraeteHandle<ForceHasPersonCheck>);
-            Condition.Register("PlayerForceCheck", Condition.CraeteHandle<PlayerForceCheck>);
-            Condition.Register("DifficultyCheck", Condition.CraeteHandle<EventDifficultyCheck>);
+            RegisterUnique("ForceAlive", Condition.CraeteHandle<ForceAliveCheck>);
+            RegisterUnique("ForceCityCount", Condition.CraeteHandle<ForceCityCountCheck>);
+            RegisterUnique("ForceHasCity", Condition.CraeteHandle<ForceHasCityCheck>);
+            RegisterUnique("ForceHasPerson", Condition.CraeteHandle<ForceHasPersonCheck>);
+            RegisterUnique("PlayerForceCheck", Condition.CraeteHandle<PlayerForceCheck>);
+            RegisterUnique("DifficultyCheck", Condition.CraeteHandle<EventDifficultyCheck>);
 
             // —— 武将类 ——
-            Condition.Register("PersonStateCheck", Condition.CraeteHandle<PersonStateCheck>);
-            Condition.Register("PersonBelongCheck", Condition.CraeteHandle<PersonBelongCheck>);
-            Condition.Register("PersonLoyaltyCheck", Condition.CraeteHandle<EventPersonLoyaltyCheck>);
-            Condition.Register("PersonVisible", Condition.CraeteHandle<PersonVisibleCheck>);
-            Condition.Register("PersonNotUsedBySlot", Condition.CraeteHandle<PersonNotUsedBySlotCheck>);
-            Condition.Register("PersonInForce", Condition.CraeteHandle<PersonInForceCheck>);
-            Condition.Register("PersonIsGovernorOf", Condition.CraeteHandle<PersonIsGovernorOfCheck>);
+            RegisterUnique("PersonStateCheck", Condition.CraeteHandle<PersonStateCheck>);
+            RegisterUnique("PersonBelongCheck", Condition.CraeteHandle<PersonBelongCheck>);
+            // 注意：不能叫 "PersonLoyaltyCheck"。核心条件（Condition.Init）已经用这个名字注册了
+            // Sango.Core.PersonLoyaltyCheck，参数是 checkTarget/value/operator；
+            // 而事件版参数是 Slot/Min/Max。两者同名会让事件版**静默覆盖**核心版
+            // （Condition.Register 是字典索引赋值，不报警），
+            // 于是任何按旧格式写的技能/战法条件都会落到事件版解析：槽位读不到、Min/Max 均为 -1，
+            // 结果恒为 true。故事件版改名为 EventPersonLoyalty，与核心版共存。
+            RegisterUnique("EventPersonLoyalty", Condition.CraeteHandle<EventPersonLoyaltyCheck>);
+            RegisterUnique("PersonVisible", Condition.CraeteHandle<PersonVisibleCheck>);
+            RegisterUnique("PersonNotUsedBySlot", Condition.CraeteHandle<PersonNotUsedBySlotCheck>);
+            RegisterUnique("PersonInForce", Condition.CraeteHandle<PersonInForceCheck>);
+            RegisterUnique("PersonIsGovernorOf", Condition.CraeteHandle<PersonIsGovernorOfCheck>);
 
             // —— 城市 / 部队类 ——
-            Condition.Register("CityHasWildPerson", Condition.CraeteHandle<CityHasWildPersonCheck>);
-            Condition.Register("CityBelongForce", Condition.CraeteHandle<CityBelongForceCheck>);
-            Condition.Register("TroopExists", Condition.CraeteHandle<TroopExistsCheck>);
-            Condition.Register("TroopDistanceCheck", Condition.CraeteHandle<TroopDistanceCheck>);
+            RegisterUnique("CityHasWildPerson", Condition.CraeteHandle<CityHasWildPersonCheck>);
+            RegisterUnique("CityBelongForce", Condition.CraeteHandle<CityBelongForceCheck>);
+            RegisterUnique("TroopExists", Condition.CraeteHandle<TroopExistsCheck>);
+            RegisterUnique("TroopDistanceCheck", Condition.CraeteHandle<TroopDistanceCheck>);
+
+            // —— 第二批：势力宏观量与外交 ——
+            RegisterUnique("ForcePersonCount", Condition.CraeteHandle<ForcePersonCountCheck>);
+            RegisterUnique("ForceHasTechnique", Condition.CraeteHandle<ForceHasTechniqueCheck>);
+            RegisterUnique("ForceTechniquePoint", Condition.CraeteHandle<ForceTechniquePointCheck>);
+            RegisterUnique("ForceHegemonyPoint", Condition.CraeteHandle<ForceHegemonyPointCheck>);
+            RegisterUnique("ForceFightPower", Condition.CraeteHandle<ForceFightPowerCheck>);
+            RegisterUnique("ForceTitle", Condition.CraeteHandle<ForceTitleCheck>);
+            RegisterUnique("ForceGovernorIs", Condition.CraeteHandle<ForceGovernorIsCheck>);
+            RegisterUnique("ForceCounsellorIs", Condition.CraeteHandle<ForceCounsellorIsCheck>);
+            RegisterUnique("ForceRelation", Condition.CraeteHandle<ForceRelationCheck>);
+
+            // —— 第二批：城市状态 ——
+            RegisterUnique("CityProvince", Condition.CraeteHandle<CityProvinceCheck>);
+            RegisterUnique("CityPrisonerCount", Condition.CraeteHandle<CityPrisonerCountCheck>);
+            RegisterUnique("CityGovernorIs", Condition.CraeteHandle<CityGovernorIsCheck>);
+            RegisterUnique("CityNeighborBelongForce", Condition.CraeteHandle<CityNeighborBelongForceCheck>);
+            RegisterUnique("CityIsFrontline", Condition.CraeteHandle<CityIsFrontlineCheck>);
+            RegisterUnique("CityHasBuilding", Condition.CraeteHandle<CityHasBuildingCheck>);
+            RegisterUnique("CityTroopsRatio", Condition.CraeteHandle<CityTroopsRatioCheck>);
+
+            // —— 第二批：武将关系与状态 ——
+            RegisterUnique("PersonHasFeature", Condition.CraeteHandle<PersonHasFeatureCheck>);
+            RegisterUnique("PersonAbility", Condition.CraeteHandle<PersonAbilityCheck>);
+            RegisterUnique("PersonOfficial", Condition.CraeteHandle<PersonOfficialCheck>);
+            RegisterUnique("PersonIsPrisoner", Condition.CraeteHandle<PersonIsPrisonerCheck>);
+            RegisterUnique("PersonIsInTroop", Condition.CraeteHandle<PersonIsInTroopCheck>);
+            RegisterUnique("PersonIsFree", Condition.CraeteHandle<PersonIsFreeCheck>);
+            RegisterUnique("PersonRelation", Condition.CraeteHandle<PersonRelationCheck>);
+            // 是否已属于兄弟组（剧本原设兄弟 / 结义产物）：桃园结义这类"三人都还没结义"的前置判断用它
+            RegisterUnique("PersonHasBrother", Condition.CraeteHandle<PersonHasBrotherCheck>);
+            RegisterUnique("PersonAge", Condition.CraeteHandle<PersonAgeCheck>);
+            RegisterUnique("PersonGender", Condition.CraeteHandle<PersonGenderCheck>);
+            RegisterUnique("PersonIdeal", Condition.CraeteHandle<PersonIdealCheck>);
+            RegisterUnique("PersonInjury", Condition.CraeteHandle<PersonInjuryCheck>);
+
+            // —— 第二批：部队状态 ——
+            RegisterUnique("TroopType", Condition.CraeteHandle<TroopTypeCheck>);
+            RegisterUnique("TroopSkill", Condition.CraeteHandle<TroopSkillCheck>);
+            RegisterUnique("TroopEnergy", Condition.CraeteHandle<TroopEnergyCheck>);
+            RegisterUnique("TroopMoraleRatio", Condition.CraeteHandle<TroopMoraleRatioCheck>);
+            RegisterUnique("TroopIsInWater", Condition.CraeteHandle<TroopIsInWaterCheck>);
 
             Log.Info($"剧本事件条件注册完成，当前条件总数 {Condition.CreateMap.Count}");
+        }
+
+        /// <summary>
+        /// 注册一个事件条件；若名字已被占用则**跳过并告警**，绝不做静默覆盖。
+        ///
+        /// 【为什么不用 Condition.Register】它是 <c>CreateMap[name] = creator</c>，
+        /// 同名直接覆盖、不报警。核心条件（Condition.Init）先注册、事件条件后注册，
+        /// 一旦重名就会把核心条件在生产环境里悄悄换掉，
+        /// 表现为"某个战法条件突然恒为 true"，极难排查（本文件历史上有过一例）。
+        /// </summary>
+        /// <param name="name">条件名（事件 JSON 里的 Type）</param>
+        /// <param name="creator">创建器</param>
+        static void RegisterUnique(string name, Condition.ConditionCreator creator)
+        {
+            if (Condition.CreateMap.ContainsKey(name))
+            {
+                Log.Warning($"剧本事件条件注册冲突，已跳过：{name}（同名条件已存在，请改用事件专用名）");
+                return;
+            }
+            Condition.Register(name, creator);
         }
     }
 

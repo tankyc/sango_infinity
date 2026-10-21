@@ -7,6 +7,7 @@ namespace Sango.Core.Action
     /// 某类型城池的最大仓库存量增加
     /// value: 值
     /// kinds: 城市类型
+    /// 接入事件：OnCityCalculateMaxItemStoreSize
     /// </summary>
     public class CityStoreLimit : ForceBuildingActionBase
     {

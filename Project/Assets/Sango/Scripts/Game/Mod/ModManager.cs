@@ -65,7 +65,196 @@ namespace Sango.Mod
 
         public Mod[] GetEnabledMods()
         {
+            if (mEnabledModList == null)
+                return System.Array.Empty<Mod>();
             return mEnabledModList.ToArray();
+        }
+
+        /// <summary>
+        /// 获取当前启用模组的 Id 列表(按加载顺序)
+        /// 存档时写入 <see cref="Sango.Core.ScenarioInfo.mods"/>,读档时用于对比
+        /// </summary>
+        public string[] GetEnabledModIds()
+        {
+            if (mEnabledModList == null || mEnabledModList.Count == 0)
+                return System.Array.Empty<string>();
+
+            string[] ids = new string[mEnabledModList.Count];
+            for (int i = 0; i < mEnabledModList.Count; i++)
+            {
+                Mod mod = mEnabledModList[i];
+                ids[i] = mod != null ? mod.Id : null;
+            }
+            return ids;
+        }
+
+        /// <summary>
+        /// 对比"存档记录的模组列表"与"当前启用的模组列表"
+        ///
+        /// 判定口径:
+        ///   · 集合不同(缺少 / 新增)→ 不一致;
+        ///   · 集合相同但顺序不同 → 也不一致(模组加载顺序会影响同名资源的覆盖优先级);
+        ///   · 存档没有记录(老存档,mods 为 null)→ 当前一个模组都没启用才算一致,否则按不一致处理,
+        ///     因为无法保证存档内容与当前数据对得上。
+        /// </summary>
+        /// <param name="savedMods">存档里记录的模组 Id 列表,可为 null</param>
+        /// <param name="message">输出:面向玩家的差异说明(中文,可能多行);一致时为 null</param>
+        /// <returns>true=一致(可以正常读档)</returns>
+        public bool MatchSavedMods(string[] savedMods, out string message)
+        {
+            message = null;
+            string[] curMods = GetEnabledModIds();
+            int curCount = curMods != null ? curMods.Length : 0;
+            int savedCount = savedMods != null ? savedMods.Length : 0;
+
+            // 老存档没有模组信息:当前也没启用任何模组时视为一致
+            if (savedMods == null)
+            {
+                if (curCount == 0)
+                    return true;
+
+                message = "该存档是旧版本保存的,没有记录使用的模组。\r\n"
+                        + $"当前启用的模组: {string.Join("、", curMods)}\r\n"
+                        + "继续读取可能因数据不匹配而失败。";
+                return false;
+            }
+
+            // 先看顺序是否完全一致(最常见的情况,直接返回)
+            bool sameOrder = curCount == savedCount;
+            if (sameOrder)
+            {
+                for (int i = 0; i < curCount; i++)
+                {
+                    if (!string.Equals(curMods[i], savedMods[i], System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        sameOrder = false;
+                        break;
+                    }
+                }
+                if (sameOrder)
+                    return true;
+            }
+
+            // 顺序不同时再算集合差异,给玩家更准确的提示
+            HashSet<string> savedSet = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < savedCount; i++)
+            {
+                if (!string.IsNullOrEmpty(savedMods[i]))
+                    savedSet.Add(savedMods[i]);
+            }
+
+            HashSet<string> curSet = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < curCount; i++)
+            {
+                if (!string.IsNullOrEmpty(curMods[i]))
+                    curSet.Add(curMods[i]);
+            }
+
+            List<string> missing = new List<string>();   // 存档有、当前没有
+            foreach (string id in savedSet)
+            {
+                if (!curSet.Contains(id))
+                    missing.Add(id);
+            }
+
+            List<string> added = new List<string>();     // 当前有、存档没有
+            foreach (string id in curSet)
+            {
+                if (!savedSet.Contains(id))
+                    added.Add(id);
+            }
+
+            if (missing.Count == 0 && added.Count == 0)
+            {
+                message = "存档使用的模组与当前一致,但加载顺序不同。\r\n"
+                        + "模组顺序会影响同名资源的覆盖结果,继续读取仍可能出现异常。";
+                return false;
+            }
+
+            message = "存档使用的模组与当前不一致。\r\n";
+            if (missing.Count > 0)
+                message += $"缺少模组: {string.Join("、", missing)}\r\n";
+            if (added.Count > 0)
+                message += $"新增模组: {string.Join("、", added)}\r\n";
+            message += "继续读取很可能导致数据错乱或加载失败。";
+            return false;
+        }
+
+        /// <summary>
+        /// 检查"存档记录的模组"在当前环境的满足情况。
+        ///
+        /// 用途:读档发现模组不一致时,先看缺的模组是不是"已经下载、只是没激活"。
+        /// 如果全部满足,就可以提示玩家按存档记录启用模组并重启,把模组环境还原成存档时的样子,
+        /// 而不是让玩家硬读一个大概率崩掉的存档。
+        /// </summary>
+        /// <param name="savedMods">存档记录的模组 Id 列表(可为 null = 老存档没有记录)</param>
+        /// <param name="notDownloaded">输出:本机没有下载的模组 Id</param>
+        /// <param name="inactive">输出:已下载但当前未激活的模组 Id</param>
+        /// <returns>
+        /// true = 存档需要的模组在本机都能找到(此时可以走"激活并重启"的流程);
+        /// false = 有模组没下载,或者存档没有记录模组信息
+        /// </returns>
+        public bool CheckSavedModsAvailable(string[] savedMods, out List<string> notDownloaded, out List<string> inactive)
+        {
+            notDownloaded = new List<string>();
+            inactive = new List<string>();
+
+            // 老存档没有模组记录(null):不知道当时用了什么,无法还原,
+            // 交给"模组不一致"的普通警告处理。
+            // 注意:空数组([])是"记录了当时没有启用任何模组",属于可还原的情况(等于全部停用)。
+            if (savedMods == null)
+                return false;
+
+            HashSet<string> enabledSet = new HashSet<string>(GetEnabledModIds(), System.StringComparer.OrdinalIgnoreCase);
+            HashSet<string> visited = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < savedMods.Length; i++)
+            {
+                string id = savedMods[i];
+                if (string.IsNullOrEmpty(id) || !visited.Add(id))
+                    continue;
+
+                Mod mod;
+                if (mModMap == null || !mModMap.TryGetValue(id, out mod) || mod == null)
+                    notDownloaded.Add(id);              // 本机没有这个模组
+                else if (!enabledSet.Contains(id))
+                    inactive.Add(id);                   // 下载了但没激活
+            }
+
+            return notDownloaded.Count == 0;
+        }
+
+        /// <summary>
+        /// 按 Id 列表重建"启用模组列表"并写入 modList.txt(重启后生效)。
+        /// 顺序严格按传入的 Id 顺序 —— 模组顺序会影响同名资源的覆盖结果,
+        /// 只有顺序也和存档一致,读档才真正安全。
+        /// 传入列表里没有的模组会被停用(不写进 modList.txt)。
+        /// </summary>
+        /// <param name="modIds">目标启用列表(通常是存档记录的模组 Id)</param>
+        /// <returns>true=已成功写入</returns>
+        public bool ApplyModListByIds(string[] modIds)
+        {
+            if (modIds == null)
+                return false;
+
+            List<Mod> mods = new List<Mod>();
+            HashSet<string> visited = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < modIds.Length; i++)
+            {
+                string id = modIds[i];
+                if (string.IsNullOrEmpty(id) || !visited.Add(id))
+                    continue;
+
+                Mod mod;
+                if (mModMap != null && mModMap.TryGetValue(id, out mod) && mod != null)
+                    mods.Add(mod);
+                else
+                    Sango.Log.Warning($"按存档启用模组时找不到该模组,已跳过: {id}");
+            }
+
+            SaveModList(mods.ToArray());
+            Sango.Log.Info("已按存档记录写入模组启用列表,重启后生效: " + string.Join(",", mods.ConvertAll(m => m.Id)));
+            return true;
         }
 
         string marketSaveFile;
@@ -77,20 +266,29 @@ namespace Sango.Mod
 
         public void AddMarketFromUrl(string url, Action onComplete, Action<float> onProgress = null)
         {
-            bool hasError = false;
             App.Instance.StartCoroutine(GitDownloader.Get(url,
                onProgress,
                (content) =>
                {
                    if (string.IsNullOrEmpty(content))
                    {
-                       hasError = true;
+                       // 失败必须留下 Error 日志(Info/Warning 在正式包会被编译剔除),
+                       // 否则线上玩家反馈"模组列表加载不出来"时完全查不到原因
+                       Sango.Log.Error("市场数据拉取失败: " + url);
                    }
                    else
                    {
-                       InitMarket(content);
-                       SaveMarket();
+                       try
+                       {
+                           InitMarket(content);
+                           SaveMarket();
+                       }
+                       catch (Exception e)
+                       {
+                           Sango.Log.Error("解析市场数据失败: " + e.Message + " URL: " + url);
+                       }
                    }
+                   // 无论成功失败都要回调,否则界面会永远停在"加载中"
                    onComplete?.Invoke();
                }
            ));
@@ -113,33 +311,58 @@ namespace Sango.Mod
         public void LoadMarketAsync(Action complete, Action<float> progress)
         {
             mMarketMap.Clear();
+
+            // 本地缓存读取失败(文件损坏/被改成空文件)时要有兜底:
+            // 旧实现会在这里抛异常,协程根本不会启动,界面会一直停在"加载中 0%",
+            // 玩家看到的就是"点了没反应"
+            bool hasCache = false;
             if (File.Exists(marketSaveFile))
             {
-                JsonConvert.PopulateObject(Sango.File.ReadAllText(marketSaveFile), mMarketMap);
-                App.Instance.StartCoroutine(LoadMarketAsCoroutine(complete, progress));
+                try
+                {
+                    string json = Sango.File.ReadAllText(marketSaveFile);
+                    JsonConvert.PopulateObject(json, mMarketMap);
+                    hasCache = mMarketMap.Count > 0;
+                }
+                catch (Exception e)
+                {
+                    Sango.Log.Error("读取市场缓存失败,准备从网络重新拉取: " + e.Message);
+                    mMarketMap.Clear();
+                }
             }
+
+            if (hasCache)
+                App.Instance.StartCoroutine(LoadMarketAsCoroutine(complete, progress));
             else
                 ModManager.Instance.AddMarketFromUrl(ModListInfoUrl, complete, progress);
         }
 
         IEnumerator LoadMarketAsCoroutine(Action complete, Action<float> progress)
         {
-            float cout = mMarketMap.Count;
-            float current = 0;
+            // 用 int 计数:原来用 float 比较 current == cout,遇到浮点误差时可能永远不相等,
+            // complete 不回调,界面就一直卡在"加载中"
+            int total = mMarketMap.Count;
+            int current = 0;
             List<NetModMarket> list = new List<NetModMarket>();
             foreach (var item in mMarketMap)
             {
                 list.Add(item.Value);
             }
 
+            if (total <= 0)
+            {
+                complete?.Invoke();
+                yield break;
+            }
+
             foreach (var item in list)
             {
                 string urlBegin = item.url;
-                if (urlBegin.EndsWith("/mod_list.txt"))
+                if (!string.IsNullOrEmpty(urlBegin) && urlBegin.EndsWith("/mod_list.txt"))
                     urlBegin = urlBegin.Substring(0, urlBegin.Length - 13);
                 yield return GitDownloader.Get(urlBegin + "/mod_list.txt", (f) =>
                 {
-                    progress?.Invoke(current / cout + f / cout);
+                    progress?.Invoke((current + f) / total);
                 }
                 , (content) =>
                 {
@@ -148,8 +371,12 @@ namespace Sango.Mod
                         InitMarket(content);
                         SaveMarket();
                     }
+                    else
+                    {
+                        Sango.Log.Error("市场列表拉取失败: " + urlBegin);
+                    }
                     current++;
-                    if (current == cout)
+                    if (current >= total)
                         complete?.Invoke();
                 });
             }
@@ -383,6 +610,46 @@ namespace Sango.Mod
             return path.ToArray();
         }
 
+        /// <summary>
+        /// 获取某个模组私有目录下文件的完整路径(显式调用,不参与全局搜索)
+        /// </summary>
+        /// <param name="modId">模组唯一标识</param>
+        /// <param name="relativePath">相对私有目录的路径,例如 Data/Common/AIConfig.json</param>
+        /// <param name="fullPath">输出:存在的完整路径;不存在返回 false</param>
+        /// <returns>true=文件存在</returns>
+        public bool TryGetPrivateFile(string modId, string relativePath, out string fullPath)
+        {
+            fullPath = null;
+            if (string.IsNullOrEmpty(modId) || string.IsNullOrEmpty(relativePath))
+                return false;
+
+            // 统一走协议解析(静默版):顺带完成"模组是否启用""路径是否越界"的校验
+            return ModAssetPath.TryResolve($"{ModAssetPath.Scheme}{modId}/{relativePath}", out fullPath);
+        }
+
+        /// <summary>
+        /// 加载某个模组私有目录下的配置文件(显式调用)
+        /// 与全局合并规则无关:由调用方决定什么时候加载、是否覆盖,因此不会被其他模组影响
+        /// </summary>
+        /// <param name="modId">模组唯一标识</param>
+        /// <param name="relativePath">相对私有目录的路径,例如 Data/Common/AIConfig.json</param>
+        /// <param name="action">文件存在时的回调</param>
+        /// <returns>true=命中并执行了回调</returns>
+        public bool LoadPrivateFile(string modId, string relativePath, System.Action<string> action)
+        {
+            string fullPath;
+            if (!TryGetPrivateFile(modId, relativePath, out fullPath))
+                return false;
+
+            action?.Invoke(fullPath);
+            return true;
+        }
+
+        /// <summary>
+        /// 按"整文件覆盖"的语义加载一个文件:命中即返回
+        /// 查找顺序为 内容根目录 -> 各模组目录;
+        /// 需要读取某个模组的私有目录时,请改用 <see cref="LoadPrivateFile"/> 显式指定模组Id
+        /// </summary>
         public void LoadFile(string filename, System.Action<string> mergeAction)
         {
             string baseFile = Path.FindFile(filename);
@@ -454,6 +721,10 @@ namespace Sango.Mod
 
             mEnabledModList.Clear();
 
+            // 私有资源目录只做"登记",不加入搜索路径、不参与模组间覆盖;
+            // 只有显式引用(mod://模组Id/路径 或 模组Id:路径)时才会被访问
+            ModAssetPath.ClearModRoots();
+
             if (modNames != null)
             {
                 for (int i = 0; i < modNames.Length; i++)
@@ -469,6 +740,12 @@ namespace Sango.Mod
             for (int i = 0; i < mEnabledModList.Count; i++)
             {
                 Mod mod = mEnabledModList[i];
+
+                // 私有资源目录:只登记"模组Id -> 私有目录"的映射,供 mod://模组Id/路径 显式引用
+                // 它不会进入搜索路径,因此不会覆盖任何模组的普通资源,也不会被其他模组覆盖
+                if (mod.HasPrivateDir)
+                    ModAssetPath.RegisterModRoot(mod.Id, mod.PrivateDir);
+
                 Path.AddSearchPath($"{mod.ModDir}", true);
                 mod.LoadLanguage();
                 mod.LoadScenario();
@@ -579,6 +856,8 @@ namespace Sango.Mod
             if (mEnabledModList.Contains(mod))
                 mEnabledModList.Remove(mod);
             mModMap.Remove(mod.Id);
+            // 注销私有资源目录,避免卸载后仍能通过 mod://模组Id/路径 访问到已删除的模组
+            ModAssetPath.UnregisterModRoot(mod.Id);
             Sango.Directory.Delete(mod.ModDir);
             GameEvent.OnModUpdate?.Invoke(mod);
         }
@@ -639,6 +918,8 @@ namespace Sango.Mod
                 mEnabledModList.Clear();
             if (mModMap != null)
                 mModMap.Clear();
+            // 私有资源登记表一并清空:模组目录都删了,再按 mod://模组Id/路径 访问只会读到不存在的文件
+            ModAssetPath.ClearModRoots();
 
             // 5.已启用Mod列表里记录的Mod都已经被删除,一并删除避免残留脏数据
             File.Delete($"{MOD_ROOT_DIR}/modList.txt");

@@ -42,6 +42,32 @@ namespace Sango.Core.Event
         public SangoObject eventEntity;
 
         /// <summary>
+        /// 本次 hook 注入的全部实体（按 hook 参数顺序，索引 0 与 <see cref="eventEntity"/> 相同）。
+        ///
+        /// 【为什么还要保留 eventEntity】它是既有 API，槽位解析与大量回调都直接读它；
+        /// 多实体只是为了容纳"单挑双方""外交双方"这类 hook，
+        /// 单实体场景下 eventsEntities 只有一个元素，行为与过去完全一致。
+        /// </summary>
+        public List<SangoObject> eventEntities;
+
+        /// <summary>
+        /// 本次 hook 注入的格子（可为 null）。
+        /// Cell 不是 SangoObject，因此单独一个字段承载，供 Type = Cell 的槽位解析。
+        /// </summary>
+        public Cell eventCell;
+
+        /// <summary>
+        /// 取第 index 个注入实体（0-based）；越界或未注入返回 null。
+        /// </summary>
+        /// <param name="index">序号（0 = 第一个）</param>
+        /// <returns>实体；无则 null</returns>
+        public SangoObject GetEventEntity(int index)
+        {
+            if (eventEntities == null || index < 0 || index >= eventEntities.Count) return null;
+            return eventEntities[index];
+        }
+
+        /// <summary>
         /// 跨回合继承用的槽位绑定（类型 + Id）。
         /// 由槽位解析阶段填充，Op: Schedule 直接取它登记定时待办。
         /// </summary>
@@ -80,6 +106,29 @@ namespace Sango.Core.Event
         public T GetSlot<T>(string key) where T : SangoObject
         {
             return database != null ? database.GetSlot<T>(key) : null;
+        }
+
+        /// <summary>
+        /// 按 Key 取格子槽位。
+        /// </summary>
+        /// <param name="key">槽位 Key</param>
+        /// <returns>绑定的格子；无则 null</returns>
+        public Cell GetCell(string key)
+        {
+            return database != null ? database.GetCellSlot(key) : null;
+        }
+
+        /// <summary>
+        /// 绑定一个格子到槽位。
+        /// 格子是运行时对象、不进存档，因此**不记录**到 boundSlots（跨回合继承对格子没有意义）。
+        /// </summary>
+        /// <param name="key">槽位 Key</param>
+        /// <param name="cell">格子</param>
+        public void BindCellSlot(string key, Cell cell)
+        {
+            if (string.IsNullOrEmpty(key) || cell == null) return;
+            if (database == null) database = new EventConditionDatabase();
+            database.cellSlots[key] = cell;
         }
 
         /// <summary>

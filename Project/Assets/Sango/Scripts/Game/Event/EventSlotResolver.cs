@@ -90,6 +90,29 @@ namespace Sango.Core.Event
                     continue;
                 }
 
+                // Cell 槽位走独立通道：Cell 不继承 SangoObject，塞不进普通槽位字典。
+                // 这是"多实体 / 格子注入"改造的一部分，供建筑选址、火攻落点、地形改写使用。
+                if (slot.Type == EventSlotType.Cell)
+                {
+                    Cell cell = ResolveCell(slot, context);
+                    if (cell == null)
+                    {
+                        string cellReason = $"格子槽位 {slot.Key} 解析失败（来源 {slot.Source}）";
+                        if (slot.Optional)
+                        {
+                            Log.Warning($"事件 {definition} 的{cellReason}（可选槽位，置空继续）");
+                            continue;
+                        }
+
+                        context.slotFailReason = cellReason;
+                        Log.Info($"事件 {definition} 的{cellReason}，放弃本次触发");
+                        return false;
+                    }
+
+                    context.BindCellSlot(slot.Key, cell);
+                    continue;
+                }
+
                 SangoObject resolved = Resolve(slot, context);
                 if (resolved == null)
                 {
@@ -171,6 +194,16 @@ namespace Sango.Core.Event
                     if (context == null || context.eventEntity == null) return null;
                     return MatchType(context.eventEntity, slot.Type) ? context.eventEntity : null;
 
+                // ---- 多实体注入：索引 1/2/3 分别对应 hook 的第 2/3/4 个参数 ----
+                case EventSlotSource.EventEntity2:
+                    return MatchEventEntity(context, 1, slot);
+
+                case EventSlotSource.EventEntity3:
+                    return MatchEventEntity(context, 2, slot);
+
+                case EventSlotSource.EventEntity4:
+                    return MatchEventEntity(context, 3, slot);
+
                 case EventSlotSource.PlayerForce:
                     return FindPlayerForce(scenario);
 
@@ -240,6 +273,68 @@ namespace Sango.Core.Event
         }
 
         #region 各来源的实现
+
+        /// <summary>
+        /// 按索引取 hook 注入的实体并做类型匹配。
+        /// </summary>
+        /// <param name="context">运行时上下文</param>
+        /// <param name="index">实体序号（0-based，0 = 第一个）</param>
+        /// <param name="slot">槽位声明（取 Type）</param>
+        /// <returns>类型匹配的实体；无则 null</returns>
+        static SangoObject MatchEventEntity(EventContext context, int index, EventActorSlot slot)
+        {
+            SangoObject entity = context != null ? context.GetEventEntity(index) : null;
+            if (entity == null) return null;
+            return MatchType(entity, slot.Type) ? entity : null;
+        }
+
+        /// <summary>
+        /// 解析一个格子槽位（Type = Cell）。
+        ///
+        /// 支持的来源只有两种：
+        ///   · EventCell     —— hook 直接注入的格子（建造、火攻、地形类 hook）；
+        ///   · DerivedOfSlot —— 从已绑定的槽位对象上取格子（部队取 cell，城市 / 建筑取 CenterCell）。
+        ///
+        /// 其余来源对"格子"没有定义，这里明确告警而不是静默返回 null——
+        /// 与 ResolveBySource 的 default 分支同一态度：宁可日志吵，也不要"事件不触发却查不出原因"。
+        /// </summary>
+        /// <param name="slot">槽位声明</param>
+        /// <param name="context">运行时上下文</param>
+        /// <returns>格子；失败返回 null</returns>
+        static Cell ResolveCell(EventActorSlot slot, EventContext context)
+        {
+            if (slot == null || context == null) return null;
+
+            switch (slot.Source)
+            {
+                case EventSlotSource.EventCell:
+                    return context.eventCell;
+
+                case EventSlotSource.DerivedOfSlot:
+                    return GetCellOfObject(ResolveDerived(slot.SourceArg, context));
+
+                default:
+                    Log.Warning($"格子槽位 {slot.Key} 不支持来源 {slot.Source}（可用 EventCell / DerivedOfSlot）");
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// 取一个游戏对象所在的格子。
+        /// 部队取自身所在格；城市与建筑取中心格；其余对象没有"所处格子"的概念，返回 null。
+        /// </summary>
+        /// <param name="obj">游戏对象</param>
+        /// <returns>格子；无则 null</returns>
+        static Cell GetCellOfObject(SangoObject obj)
+        {
+            if (obj == null) return null;
+
+            // 顺序不能颠倒：City 继承 BuildingBase，先判 City 更直观，也不影响结果
+            if (obj is Troop troop) return troop.cell;
+            if (obj is City city) return city.CenterCell;
+            if (obj is Building building) return building.CenterCell;
+            return null;
+        }
 
         /// <summary>找玩家操作的势力（可能有多家，取第一个）</summary>
         /// <param name="scenario">剧本</param>

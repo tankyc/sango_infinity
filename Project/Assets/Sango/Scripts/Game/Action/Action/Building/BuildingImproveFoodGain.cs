@@ -7,6 +7,7 @@ namespace Sango.Core.Action
     /// <summary>
     /// 计算建筑的粮食产量，并提升系数  
     /// value:提升系数（百分比） kinds：有效kind类型合集 bound: 生效范围 0：该城市全局 1：周围一圈
+    /// 接入事件：OnBuildingCalculateFoodGain
     /// </summary>
     public class BuildingImproveFoodGain : BuildingActionBase
     {

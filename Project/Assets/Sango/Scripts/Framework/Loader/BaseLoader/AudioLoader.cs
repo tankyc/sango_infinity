@@ -118,7 +118,9 @@ namespace Sango.Loader
         /// <param name="customData">自定义数据</param>
         public static void LoadFromFileAsync(string filePath, OnObjectLoaded callback, bool is3D = false, object customData = null)
         {
-            if (!File.Exists(filePath))
+            // 与同步版口径一致:先走 Path.FindFile,这样 mod://模组Id/路径 这类私有引用也能被解析
+            filePath = Path.FindFile(filePath);
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
             {
                 Debug.LogError($"音频文件不存在: {filePath}");
                 callback?.Invoke(null, customData);

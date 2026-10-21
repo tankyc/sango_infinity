@@ -5,10 +5,10 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 改变某兵种类型战法的气力消耗
-    /// value： 改变值
-    /// kinds： 兵种类型 
-    /// condition： 额外条件
+    /// 把战法的命中波及范围设为 value（覆盖）。
+    ///
+    /// 接入事件：OnTroopCalculateAttribute（部队属性重算时）。
+    /// 与 TroopAddSkillAttackRange（在原有范围上追加）区分。
     /// </summary>
     public class TroopChangeSkillAttackRange : TroopTroopActionBase
     {

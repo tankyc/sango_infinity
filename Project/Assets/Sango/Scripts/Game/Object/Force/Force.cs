@@ -624,6 +624,135 @@ namespace Sango.Core
             });
         }
 
+        /// <summary>
+        /// 授予一项技巧（供剧本事件、外交请求等外部流程使用）。
+        ///
+        /// 【为什么必须封装在这里】授予技巧不是"往 Techniques 里加一条"那么简单：
+        ///   · Techniques 是运行期对象列表，存档字段是 Techniques_list，两者要同步；
+        ///   · 技巧的被动效果要靠 <see cref="Technique.InitActions"/> 注册进 actionList，
+        ///     漏了就会出现"科技树里已点亮、实际效果却全都没有"；
+        ///   · techniqueTree / canBuildMilitaryBuildingType 都是派生数据，必须重建。
+        /// 这三件事都在 Force 内部，外部拼不出来，因此提供这个入口。
+        /// </summary>
+        /// <param name="technique">技巧</param>
+        /// <returns>true = 本次新授予；false = 参数为空或已掌握</returns>
+        public bool GainTechnique(Technique technique)
+        {
+            if (technique == null) return false;
+
+            if (Techniques == null)
+                Techniques = new SangoObjectList<Technique>();
+
+            // 已掌握就不再重复注册被动效果，否则 actionList 会堆积重复项
+            if (Techniques.Contains(technique.Id)) return false;
+
+            Techniques.Add(technique);
+            // 存档字段同步（OnScenarioSave 也会同步，但这里立刻刷一遍便于中途存档）
+            Techniques_list = Techniques.ToArray();
+
+            if (actionList == null) actionList = new List<ActionBase>();
+            technique.InitActions(actionList, this);
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null)
+            {
+                InitTechniquesTree(scenario);
+                UpdateCanBuildBuildingTypes();
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 让本势力灭亡（供剧本事件调用）。
+        ///
+        /// 【安全前置】要求本势力**已经没有任何城池**，否则直接拒绝。
+        /// 理由：城池移交（ChangeCorps / UpdateCorps）牵动城内武将、建筑、俘虏三份名单，
+        /// 必须先由事件逐城移交完毕，再走灭亡清理；把两件事揉在一起，
+        /// 一旦中途失败就会留下"城已改属、人还在旧势力"的半死状态。
+        /// 事件里的正确写法是：CityChangeBelong × N → ForceExtinguish。
+        ///
+        /// 【与城池陷落流程的关系】引擎在"最后一城陷落"时有一段内联的灭亡清理
+        /// （City.cs 的 destroyedForce 段）。本方法是同一套语义的事件侧入口：
+        /// 军团失效 → 势力失效 → 俘虏解绑 → 武将下野 → 从场景移除 → 抛 OnForceFall。
+        /// 两处若改动必须同步，否则会出现"事件灭亡的势力残留军团""陷落的势力没清俘虏"。
+        /// </summary>
+        /// <returns>true = 已执行灭亡；false = 前置不满足</returns>
+        public bool Extinguish()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null) return false;
+
+            if (IsPlayer)
+            {
+                Sango.Log.Warning($"事件：拒绝灭亡玩家势力 {Name}（玩家势力灭亡请走游戏结束流程，不要用事件效果）");
+                return false;
+            }
+
+            // 前置：必须已经无城
+            bool hasCity = false;
+            scenario.citySet.ForEach(x =>
+            {
+                if (x != null && x.BelongForce == this) hasCity = true;
+            });
+            if (hasCity)
+            {
+                Sango.Log.Warning($"事件：{Name} 名下仍有城池，拒绝灭亡。请先用城池易主效果逐城移交");
+                return false;
+            }
+
+            Force destroyedForce = this;
+
+            // ① 军团失效并移出场景
+            scenario.corpsSet.ForEach(x =>
+            {
+                if (x != null && x.BelongForce == destroyedForce)
+                {
+                    x.IsAlive = false;
+                    scenario.Remove(x);
+                }
+            });
+
+            // ② 本势力关押的俘虏解除归属，避免指向一个已不存在的势力
+            if (BeCaptiveList != null)
+            {
+                BeCaptiveList.ForEach(x =>
+                {
+                    if (x != null && x.BelongForce == destroyedForce)
+                    {
+                        x.BelongForce = null;
+                        x.BelongCorps = null;
+                    }
+                });
+                BeCaptiveList.Clear();
+            }
+
+            // ③ 全势力武将下野（与城池陷落时的"最后一城"分支同一口径）
+            scenario.personSet.ForEach(x =>
+            {
+                if (x == null || x.BelongForce != destroyedForce) return;
+
+                x.ClearMission();
+                if (x.IsValid && !x.IsPrisoner)
+                    x.LeaveToWild();
+                x.workingBuilding = null;
+                x.mBelongTroop = null;
+                x.BelongForce = null;
+                x.BelongCorps = null;
+            });
+
+            // ④ 本势力失效并移出场景
+            IsAlive = false;
+            scenario.Remove(this);
+
+            // ⑤ 抛出灭亡信号（city / troop 传 null 表示"非城池陷落导致"，
+            //    订阅方 ScenarioEventManager.OnForceFall 只用第一个参数，安全）
+            GameEvent.OnForceFall?.Invoke(this, null, null);
+
+            Sango.Log.Info($"事件：{Name} 势力灭亡");
+            return true;
+        }
+
         void InitTechniquesTree(Scenario scenario)
         {
             techniqueMaxLevel = 0;

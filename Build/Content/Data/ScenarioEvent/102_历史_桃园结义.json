@@ -1,0 +1,155 @@
+[
+  {
+    "Id": 1302,
+    "Name": "历史·桃园结义",
+    "Category": "History",
+    "Description": "【历史事件】刘备、关羽、张飞三人尚未结义、且此刻同在一座城时触发，桃园祭天结为异姓兄弟。\n\n【触发条件】\n· 三人都「还没有兄弟组」——用 PersonHasBrother + Expect=false 判定，口径是 Person.HasSwornBrother（剧本原设兄弟 BrotherId/Brother 与结义产物 BrotherList 都算），比两两比对 PersonRelation 更准；\n· 三人在同一座城——城池槽 Town 由 DerivedOfSlot 从「LiuBei.CurrentCity」派生，再让三人各自用 PersonBelongCheck + CitySlot 校验，所以不需要写死城 Id，人走到哪座城就在哪座城结义；\n· FireCountCompare==0 与 Trigger.Once 双保险，只播一次。\n\n【注意】\n· 如果希望「三人都在野」才触发，各自再加一条 PersonStateCheck(Wild) 即可（本事件没有强制，剧情上刘备已起兵时也能结义）；\n· 收尾用 Picture 指令播一张 CG（taoyuan_oath），资源放在 Content/Assets/EventPicture/ 下（png/jpg 均可，缺图时自动降级为只显示文字，不会中断事件）；\n· 若要把结义后的人直接并入某个势力，在效果里追加 PersonJoinForce（武将加入势力）；\n· 槽位用的是 Fixed 人物 Id（刘备 636 / 关羽 99 / 张飞 433），换剧本时按新剧本的人物 Id 调整。\n\n针对剧本：测试剧本-英雄集结（Id 999）；正式剧本里请确认三人 Id 与初始状态。",
+    "Enabled": true,
+    "Priority": 300,
+    "Level": "Critical",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "TurnStart",
+      "Scope": "AnyForce",
+      "Once": true,
+      "MaxFireCount": 1,
+      "CooldownTurns": 0,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "LiuBei",
+        "Type": "Person",
+        "Source": "Fixed",
+        "SourceArg": "636",
+        "Optional": false,
+        "Label": "刘备"
+      },
+      {
+        "Key": "GuanYu",
+        "Type": "Person",
+        "Source": "Fixed",
+        "SourceArg": "99",
+        "Optional": false,
+        "Label": "关羽"
+      },
+      {
+        "Key": "ZhangFei",
+        "Type": "Person",
+        "Source": "Fixed",
+        "SourceArg": "433",
+        "Optional": false,
+        "Label": "张飞"
+      },
+      {
+        "Key": "Town",
+        "Type": "City",
+        "Source": "DerivedOfSlot",
+        "SourceArg": "LiuBei.CurrentCity",
+        "Optional": false,
+        "Label": "结义之地（随刘备当前所在城）"
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        { "Type": "FireCountCompare", "Params": { "Op": "==", "Value": 0 } },
+
+        {
+          "_note": "三人各自都还没有兄弟组（原设兄弟 + 结义产物都算）",
+          "Type": "PersonHasBrother",
+          "Params": { "Slot": "LiuBei", "Expect": false }
+        },
+        { "Type": "PersonHasBrother", "Params": { "Slot": "GuanYu", "Expect": false } },
+        { "Type": "PersonHasBrother", "Params": { "Slot": "ZhangFei", "Expect": false } },
+
+        {
+          "_note": "三人在同一座城：Town 由刘备当前所在城派生，其余两人比对自己所在的城",
+          "Type": "PersonBelongCheck",
+          "Params": { "Slot": "LiuBei", "Belong": "Any", "CitySlot": "Town" }
+        },
+        {
+          "Type": "PersonBelongCheck",
+          "Params": { "Slot": "GuanYu", "Belong": "Any", "CitySlot": "Town" }
+        },
+        {
+          "Type": "PersonBelongCheck",
+          "Params": { "Slot": "ZhangFei", "Belong": "Any", "CitySlot": "Town" }
+        }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "TalkWindow",
+        "Params": {
+          "Text": "桃花盛开，落英缤纷。三人在 {:Town} 相遇，一见如故。"
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ZhangFei",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "此间有一桃园，花开正盛。明日当于园中祭告天地，我三人结为兄弟，协力同心，然后可图大事。" }
+          ]
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "GuanYu",
+          "Style": "ClickPersonSay",
+          "Lines": [{ "Text": "如此甚好，关某愿随二位。" }]
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "LiuBei",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "念刘备、关羽、张飞，虽然异姓，既结为兄弟，则同心协力，救困扶危；上报国家，下安黎庶。" },
+            { "Text": "不求同年同月同日生，只愿同年同月同日死。皇天后土，实鉴此心。" }
+          ]
+        }
+      },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            {
+              "_note": "结义：写入兄弟组（BrotherId + 共享 BrotherList），之后自动享援助、不掉忠等收益",
+              "Type": "PersonSwornBrothers",
+              "Params": { "Slots": ["LiuBei", "GuanYu", "ZhangFei"] }
+            },
+            {
+              "Type": "SetFlag",
+              "Params": { "Flag": "SwornBrothersDone", "Value": true }
+            }
+          ]
+        }
+      },
+      {
+        "_note": "收尾 CG：图片放在 Content/Assets/EventPicture/taoyuan_oath.png，缺图时自动降级为只显示文字",
+        "Op": "Picture",
+        "Params": {
+          "Image": "taoyuan_oath",
+          "Title": "桃园结义",
+          "Text": "{:LiuBei}、{:GuanYu}、{:ZhangFei} 于 {:Town} 桃园祭告天地，结为异姓兄弟。\n不求同年同月同日生，只愿同年同月同日死。",
+          "MinSeconds": 2.0,
+          "PauseBgm": true
+        }
+      },
+      {
+        "Op": "Message",
+        "Params": {
+          "Text": "{:LiuBei}、{:GuanYu}、{:ZhangFei} 于 {:Town} 桃园结义！"
+        }
+      },
+      { "Op": "End" }
+    ],
+    "Variables": {}
+  }
+]

@@ -6,6 +6,7 @@ namespace Sango.Core.Action
     /// <summary>
     /// 某兵种攻击力增加
     /// value: 增加值 kinds: 兵种类型
+    /// 接入事件：OnTroopCalculateAttribute
     /// </summary>
     public class TroopAddAttack : ForceTroopActionBase
     {

@@ -4,12 +4,10 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 某兵种类型战法的暴击率增加
-    /// value： 增加值(百分比) 
-    /// kinds： 兵种类型  
-    /// checkLand： 0:只检查kinds 1:只对landType检查kinds 2只对waterType检查kinds 
-    /// isNormal  0都可以 1是 2不是
-    /// condition： 额外条件 支持参数(troop,troop,skill)
+    /// 战法会心率修正（value 为百分比点数）。
+    ///
+    /// 接入事件：|value| >= 100 时订阅 OnTroopBeforeCalculateSkillCritical（计算前覆盖），
+    /// 否则订阅 OnTroopAfterCalculateSkillCritical（在计算结果上加减）。
     /// </summary>
     public class TroopSkillCalculateCritical : TroopTroopActionBase
     {
@@ -47,6 +45,8 @@ namespace Sango.Core.Action
             }
             else
             {
+                // 【空引用修复】施放格子可能为空（例如无格子的全局判定），此时无法判定归属
+                if (spellCell == null) return;
                 if (Troop != null && Troop != spellCell.troop) return;
             }
 

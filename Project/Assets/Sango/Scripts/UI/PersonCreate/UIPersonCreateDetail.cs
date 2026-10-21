@@ -862,6 +862,14 @@ namespace Sango.UI
             target.waterLv.baseValue = snapshot.waterLv;
             target.machineLv.baseValue = snapshot.machineLv;
 
+            // 写的是"原始适应力"，当前等级必须同步重算，保证序列化出的数组自洽
+            target.spearLv.Update();
+            target.halberdLv.Update();
+            target.crossbowLv.Update();
+            target.rideLv.Update();
+            target.waterLv.Update();
+            target.machineLv.Update();
+
             target.FatherId = snapshot.FatherId;
             target.MotherId = snapshot.MotherId;
             target.SpouseListId = CloneArray(snapshot.SpouseListId);

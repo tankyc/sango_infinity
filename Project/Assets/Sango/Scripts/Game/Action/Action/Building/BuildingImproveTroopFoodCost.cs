@@ -7,6 +7,7 @@ namespace Sango.Core.Action
     /// <summary>
     /// 提升范围内部队的粮食消耗
     /// value:提升值(百分比) bound: 生效范围 targetType: 作用目标范围, 0己方 1敌人 2所有
+    /// 接入事件：无（容器触发）——由所在「触发器 + 效果」容器的触发器决定时机，单独挂载不生效
     /// </summary>
     public class BuildingImproveTroopFoodCost : BuildingImproveBase
     {

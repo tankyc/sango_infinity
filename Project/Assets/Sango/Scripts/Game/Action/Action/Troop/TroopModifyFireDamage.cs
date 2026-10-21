@@ -4,9 +4,9 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 部队忽略ZOC
-    /// land: 0 忽略水上 1 忽略陆地 2都忽略
-    /// value 万分比
+    /// 按万分比缩放火焰伤害（乘法）。
+    ///
+    /// 接入事件：OnFireAdd（火焰生成时）。
     /// </summary>
     public class TroopModifyFireDamage : TroopActionBase
     {

@@ -7,6 +7,7 @@ namespace Sango.Core.Action
     /// <summary>
     /// 某类型城池的最大耐久增加
     /// value: 值, kinds: 建筑类型
+    /// 接入事件：OnCityCalculateMaxDurability
     /// </summary>
     public class CityDurabilityLimit : ForceBuildingActionBase
     {

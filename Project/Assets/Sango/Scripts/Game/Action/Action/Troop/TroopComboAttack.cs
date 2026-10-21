@@ -5,8 +5,12 @@ using Newtonsoft.Json.Linq;
 namespace Sango.Core.Action
 {
     /// <summary>
-    /// 战法额外释放连击
-    /// count： 额外次数
+    /// 战法额外释放连击（容器触发）。
+    ///
+    /// 必须放进「触发器 + 效果」容器的 actionList 内；自身不订阅事件。
+    /// 参数：count 额外释放次数；value 连击时使用的战法 Id（留空则用原战法）；
+    /// condition 触发条件；comboCondition 连击目标条件。
+    /// 接入事件：无（容器触发）——由所在「触发器 + 效果」容器的触发器决定时机，单独挂载不生效
     /// </summary>
     public class TroopComboAttack : TroopActionBase
     {

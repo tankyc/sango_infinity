@@ -882,6 +882,47 @@ namespace Sango.Core
                 OnCancel();
             }
 
+            HandleStrategyMapKey();
+
+        }
+
+        /// <summary>
+        /// 战略地图快捷键：
+        /// Ctrl + M 打开 / 关闭「大地图预览」窗口；
+        /// Ctrl + B 切换州（地域）边界；
+        /// Ctrl + G 切换是否在三维地表上叠加势力色。
+        /// 与 UI 按钮走的是同一套入口（MapRender.ShowStrategyMap / ShowStrategyAreaBorder）。
+        /// </summary>
+        void HandleStrategyMapKey()
+        {
+            if (!Input.GetKey(KeyCode.LeftControl) && !Input.GetKey(KeyCode.RightControl))
+                return;
+
+            // Ctrl + M：大地图预览窗口
+            if (Input.GetKeyDown(KeyCode.M))
+            {
+                Window window = Window.Instance;
+                if (window != null)
+                {
+                    if (window.IsOpen("window_strategy_map"))
+                        window.Close("window_strategy_map");
+                    else
+                        window.Open("window_strategy_map");
+                }
+                return;
+            }
+
+            MapRender mapRender = MapRender.Instance;
+            if (mapRender == null || mapRender.mapStrategyMap == null)
+                return;
+
+            // Ctrl + B：地域边界（城池辖区界线）
+            if (Input.GetKeyDown(KeyCode.B))
+                mapRender.mapStrategyMap.SetAreaBorderVisible(!mapRender.mapStrategyMap.showAreaBorder);
+
+            // Ctrl + G：地表叠加势力色
+            if (Input.GetKeyDown(KeyCode.G))
+                mapRender.mapStrategyMap.SetVisible(!mapRender.mapStrategyMap.IsVisible);
         }
 
         /// <summary>

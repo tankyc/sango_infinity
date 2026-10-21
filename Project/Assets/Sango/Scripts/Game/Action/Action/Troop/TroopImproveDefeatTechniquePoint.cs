@@ -5,6 +5,7 @@ namespace Sango.Core.Action
 {
     /// <summary>
     /// 击破敌方部队时按配置倍率提高本部队获得的技巧点。
+    /// 接入事件：OnTroopCalculateTechniquePoint
     /// </summary>
     public class TroopImproveDefeatTechniquePoint : TroopActionBase
     {
