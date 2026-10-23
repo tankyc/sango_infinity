@@ -121,6 +121,16 @@ namespace Sango.UI
             if (variables.AgeEnabled)
                 AddToggleItem("能力随年龄变化", variables.EnableAgeAbilityFactor, (v) => { variables.EnableAgeAbilityFactor = v; });
 
+            // 寿命模式（对应 Open311 的 LifeModeEnum，结算见 PersonLifeCycle.MonthlySettlement）：
+            //   0 史实    —— 按武将死亡年推算，会正常老死
+            //   1 长寿    —— 整体延后 PersonLifeCycle.LongevityLife 年（默认 20）
+            //   2 虚构    —— 不结算寿终，只有战死 / 处决 / 事件会死人
+            //   3 无死亡  —— 同虚构，保留给"英雄集结"类剧本
+            // 注意：与上面的「年龄生效」不是一回事 —— 那个只控制能力值是否随年龄衰减。
+            AddToggleGroupItem("寿命模式", variables.lifeMode,
+                new List<string> { "史实", "长寿", "虚构", "无死亡" },
+                (v) => { variables.lifeMode = v; });
+
             AddNumberItem("建筑间隔距离", variables.BuildingSpace, 0, 2, (v) => { variables.BuildingSpace = v; });
             AddToggleItem("是否让武将在登场年份到达后登场", variables.allowInvalidPersonValidWhenYearPass, (v) => { variables.allowInvalidPersonValidWhenYearPass = v;});
 

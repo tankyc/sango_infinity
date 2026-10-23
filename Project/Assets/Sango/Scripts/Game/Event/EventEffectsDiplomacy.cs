@@ -52,9 +52,9 @@ namespace Sango.Core.Event
             {
                 case "alliance": type = AllianceType.Alliance; break;
                 case "truce": type = AllianceType.Truce; break;
-                case "trade": type = AllianceType.Trade; break;
+                // "trade" 已删除：原版没有通商命令，盟约只有同盟与停战
                 default:
-                    Log.Warning($"事件：建立盟约失败 —— 未知的 Type={typeText}（可用 Alliance/Truce/Trade）");
+                    Log.Warning($"事件：建立盟约失败 —— 未知的 Type={typeText}（可用 Alliance/Truce）");
                     return false;
             }
 
@@ -111,7 +111,6 @@ namespace Sango.Core.Event
             {
                 case AllianceType.Alliance: return "同盟";
                 case AllianceType.Truce: return "停战";
-                case AllianceType.Trade: return "通商";
                 default: return "盟约";
             }
         }
@@ -165,9 +164,8 @@ namespace Sango.Core.Event
             {
                 case "alliance": type = AllianceType.Alliance; break;
                 case "truce": type = AllianceType.Truce; break;
-                case "trade": type = AllianceType.Trade; break;
                 default:
-                    Log.Warning($"事件：破除盟约失败 —— 未知的 Type={typeText}");
+                    Log.Warning($"事件：破除盟约失败 —— 未知的 Type={typeText}（可用 Alliance/Truce）");
                     return false;
             }
 

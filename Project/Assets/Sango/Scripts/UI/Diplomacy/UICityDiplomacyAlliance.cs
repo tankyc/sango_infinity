@@ -19,12 +19,27 @@ namespace Sango.UI
         public UIStatusItem statusItem;
 
         City TargetCity;
-        CityDiplomacyAlliance currentSystem;
+
+        /// <summary>
+        /// 当前活跃的外交命令。
+        ///
+        /// 【为什么不是 GetSystem&lt;CityDiplomacyAlliance&gt;】这个窗口被四个命令共用：
+        /// 结盟 / 劝降 / 俘虏交换 / 请求援军 —— 界面元素（目标势力、使者、关系、距离、确认）
+        /// 完全通用，只有标题与金额条不同。具体是哪一个由各命令在 OnEnter 里登记到
+        /// <see cref="CityDiplomacyBase.Current"/>。
+        /// </summary>
+        CityDiplomacyBase currentSystem;
         public Button sureButton;
 
         public override void OnOpen()
         {
-            currentSystem = GameSystem.GetSystem<CityDiplomacyAlliance>();
+            currentSystem = CityDiplomacyBase.Current;
+            if (currentSystem == null)
+            {
+                Sango.Log.Error("window_city_diplomacy_alliance 打开时没有活跃的外交命令");
+                return;
+            }
+
             windowTitle.text = currentSystem.customTitleName;
             TargetCity = currentSystem.TargetCity;
             UpdateContent();
@@ -51,8 +66,20 @@ namespace Sango.UI
                 relationship.text = "";
                 days.text = "";
             }
-            goldSlider.SetValueWithoutNotify((float)currentSystem.gold / TargetCity.gold);
-            gold.text = $"{currentSystem.gold}/{TargetCity.gold}";
+            // 金额条按命令需要显示：劝降不花钱（NeedGold = false），直接隐藏滑块与数值
+            bool needGold = currentSystem.NeedGold;
+            if (goldSlider != null)
+                goldSlider.gameObject.SetActive(needGold);
+
+            if (needGold && TargetCity.gold > 0)
+            {
+                goldSlider.SetValueWithoutNotify((float)currentSystem.gold / TargetCity.gold);
+                gold.text = $"{currentSystem.gold}/{TargetCity.gold}";
+            }
+            else
+            {
+                gold.text = "";
+            }
         }
 
         public void OnSure()

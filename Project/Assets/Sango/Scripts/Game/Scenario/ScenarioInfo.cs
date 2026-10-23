@@ -21,6 +21,16 @@ namespace Sango.Core
         public int year;
         [JsonProperty]
         public int month;
+
+        /// <summary>
+        /// 开局年份（对应 Open311 的 start_year）。
+        ///
+        /// 用途：寿终结算有一道"开局第一年不结算"的门槛，避免剧本里本该已死的武将
+        /// 在第一个月就集体去世。老存档没有这个字段 → 读入为 0，
+        /// 结算时按 <see cref="year"/> 兜底（等同"当年开局"，寿终从下一年才开始）。
+        /// </summary>
+        [JsonProperty]
+        public int startYear;
         [JsonProperty]
         public int day;
         [JsonProperty]

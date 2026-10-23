@@ -68,324 +68,395 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// AI外交
+        /// AI 外交调度 —— 对齐 Open311 的 `GameAI::force_diplomacy`
+        /// （`s11_game_ai_force_cmd_dip.cpp:5-74`）。
+        ///
+        /// 【原版的固定顺序】annex → discard → alliance → donate → ceasefire → exchange → reinforce，
+        /// 逐项 try，某项成功即止。第一版实现 **alliance / donate / ceasefire** 三项：
+        ///   · annex 需要实力评分与"相邻敌对势力数"统计，放下一版；
+        ///   · discard 需要"无战事周数"统计，放下一版；
+        ///   · exchange 已并入 <see cref="AICaptives"/>（赎买己方俘虏走 Exchange 的只索要模式）；
+        ///   · reinforce 需要部队部署系统配合（约定出兵后得真的派兵）。
+        ///
+        /// 【开门条件】前 9 回合不外交（原版 `get_turn() < 9`）、和平期不外交、
+        /// 禁谈期内不外交（`diplomacyBanTimer`）、首都必须有空闲武将可当使者。
+        /// 之后每回合整体只掷一次 30%（原版 `rand_bool(30)`），不是每个势力每回合都外交。
         /// </summary>
         public static bool AIDiplomacy(Force force, Scenario scenario)
         {
-            // 全局和平期不进行外交动作（与 AI 攻击 / 计略共用 Scenario.IsPeacePeriod 这道门）
-            if (scenario.IsPeacePeriod) return true;
+            if (force == null || scenario == null) return true;
+            if (!force.IsAlive) return true;
             if (force.IsPlayer) return true;
-            if (force.mGovernor == null) return true;
-            if (force.CapitalCity == null) return true;
+            if (scenario.IsPeacePeriod) return true;
+            if (force.mGovernor == null || force.CapitalCity == null) return true;
+            if (force.CapitalCity.freePersons == null || force.CapitalCity.freePersons.Count == 0) return true;
 
-            City centerCity = force.CapitalCity;
-            if (centerCity.freePersons.Count == 0)
-                return true;
+            int turn = scenario.TurnCount;
+            if (turn < 9) return true;                  // 原版：前 9 回合完全不外交
+            if (force.diplomacyBanTimer > 0) return true;
 
-            if (!GameRandom.Chance(30)) return true;
-
-            // 获取AI个性
-            AIPersonalityType PersonalityId = GetAIPersonality(force.mGovernor);
-
-            // 清理过期的外交免疫时间
-            CleanupDiplomacyImmunity(force, scenario);
-
-            // 检查是否需要撕毁条约
-            if (CheckBreakAlliance(force, scenario, PersonalityId))
-            {
-                return true;
-            }
-
-            // 优先处理停战请求
-            foreach (Force neighbor in force.NeighborForceList)
-            {
-                if (force.IsAlliance(neighbor)) continue;
-                if (IsInDiplomacyImmunity(force, neighbor.Id)) continue;
-
-                int relation = scenario.GetRelation(force, neighbor);
-                if (relation < -500)
-                {
-                    // 考虑停战
-                    if (centerCity.gold >= 2000)
-                    {
-                        // 防御型AI更倾向于停战
-                        int chance = PersonalityId == AIPersonalityType.Defensive ? 20 : 10;
-                        if (GameRandom.Chance(chance))
-                        {
-                            // 计算附加金钱价值，关系越差，投入越多
-                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Truce, PersonalityId);
-
-                            // 计算成功率
-                            Person diplomat = FindSuitableDiplomat(force);
-                            if (diplomat != null)
-                            {
-                                DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                                // 创建外交行为实例并计算成功率
-                                DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Truce, force, neighbor, diplomat, additionalValue);
-                                int successRate = diplomacyManager.CalculateDiplomacySuccessRate(action);
-                                if (successRate >= 20)
-                                {
-                                    bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.Truce, force, neighbor, diplomat, additionalValue);
-                                    if (!success)
-                                    {
-                                        RecordDiplomacyFailure(force, neighbor.Id);
-                                    }
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 处理结盟
-            foreach (Force neighbor in force.NeighborForceList)
-            {
-                // 不和玩家结盟
-                if (neighbor.IsPlayer && GameRandom.Chance(95)) continue;
-
-                if (force.IsAlliance(neighbor)) continue;
-                if (IsInDiplomacyImmunity(force, neighbor.Id)) continue;
-                if (neighbor == force) continue;
-                int relation = scenario.GetRelation(force, neighbor);
-                if (relation >= 1000)
-                {
-                    // 考虑结盟
-                    if (centerCity.gold >= 3000)
-                    {
-                        // 外交型AI更倾向于结盟
-                        int chance = PersonalityId == AIPersonalityType.Diplomatic ? 30 : 20;
-                        if (GameRandom.Chance(chance))
-                        {
-                            // 计算附加金钱价值，关系越好，投入越多
-                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Alliance, PersonalityId);
-
-                            // 计算成功率
-                            Person diplomat = FindSuitableDiplomat(force);
-                            if (diplomat != null)
-                            {
-                                DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                                // 创建外交行为实例并计算成功率
-                                DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Alliance, force, neighbor, diplomat, additionalValue);
-                                int successRate = diplomacyManager.CalculateDiplomacySuccessRate(action);
-                                if (successRate >= 20)
-                                {
-                                    bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.Alliance, force, neighbor, diplomat, additionalValue);
-                                    if (!success)
-                                    {
-                                        RecordDiplomacyFailure(force, neighbor.Id);
-                                    }
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 处理通商
-            foreach (Force neighbor in force.NeighborForceList)
-            {
-                if (force.IsAlliance(neighbor)) continue;
-                if (IsInDiplomacyImmunity(force, neighbor.Id)) continue;
-
-                int relation = scenario.GetRelation(force, neighbor);
-                if (relation >= 0)
-                {
-                    // 考虑通商
-                    // 经济型AI更倾向于通商
-                    int chance = PersonalityId == AIPersonalityType.Economic ? 25 : 15;
-                    if (GameRandom.Chance(chance))
-                    {
-                        // 计算附加金钱价值，促进通商成功
-                        int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Trade, PersonalityId);
-
-                        // 计算成功率
-                        Person diplomat = FindSuitableDiplomat(force);
-                        if (diplomat != null)
-                        {
-                            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                            // 创建外交行为实例并计算成功率
-                            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Trade, force, neighbor, diplomat, additionalValue);
-                            int successRate = diplomacyManager.CalculateDiplomacySuccessRate(action);
-                            if (successRate >= 20)
-                            {
-                                bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.Trade, force, neighbor, diplomat, additionalValue);
-                                if (!success)
-                                {
-                                    RecordDiplomacyFailure(force, neighbor.Id);
-                                }
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 处理和亲
-            foreach (Force neighbor in force.NeighborForceList)
-            {
-                if (force.IsAlliance(neighbor)) continue;
-                if (IsInDiplomacyImmunity(force, neighbor.Id)) continue;
-
-                int relation = scenario.GetRelation(force, neighbor);
-                if (relation >= 800)
-                {
-                    // 考虑和亲
-                    if (centerCity.gold >= 5000)
-                    {
-                        // 外交型AI更倾向于和亲
-                        int chance = PersonalityId == AIPersonalityType.Diplomatic ? 15 : 10;
-                        if (GameRandom.Chance(chance))
-                        {
-                            // 计算附加金钱价值，和亲需要较高投入
-                            int additionalValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.Marriage, PersonalityId);
-
-                            // 计算成功率
-                            Person diplomat = FindSuitableDiplomat(force);
-                            if (diplomat != null)
-                            {
-                                DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                                // 创建外交行为实例并计算成功率
-                                DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Marriage, force, neighbor, diplomat, additionalValue);
-                                int successRate = diplomacyManager.CalculateDiplomacySuccessRate(action);
-                                if (successRate >= 20)
-                                {
-                                    bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.Marriage, force, neighbor, diplomat, additionalValue);
-                                    if (!success)
-                                    {
-                                        RecordDiplomacyFailure(force, neighbor.Id);
-                                    }
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 处理送礼
-            foreach (Force neighbor in force.NeighborForceList)
-            {
-                if (force.IsAlliance(neighbor)) continue;
-                if (IsInDiplomacyImmunity(force, neighbor.Id)) continue;
-
-                int relation = scenario.GetRelation(force, neighbor);
-                if (relation < 500 && centerCity.gold >= 1000)
-                {
-                    // 考虑送礼
-                    // 外交型AI更倾向于送礼
-                    int chance = PersonalityId == AIPersonalityType.Diplomatic ? 35 : 25;
-                    if (GameRandom.Chance(chance))
-                    {
-                        int giftValue = CalculateDiplomacyResourceValue(force, neighbor, relation, DiplomacyActionType.SendGift, PersonalityId);
-                        if (centerCity.gold >= giftValue)
-                        {
-                            // 计算成功率
-                            Person diplomat = FindSuitableDiplomat(force);
-                            if (diplomat != null)
-                            {
-                                DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                                // 创建外交行为实例并计算成功率
-                                DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.SendGift, force, neighbor, diplomat, giftValue);
-                                int successRate = diplomacyManager.CalculateDiplomacySuccessRate(action);
-                                if (successRate >= 20)
-                                {
-                                    bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.SendGift, force, neighbor, diplomat, giftValue);
-                                    if (!success)
-                                    {
-                                        RecordDiplomacyFailure(force, neighbor.Id);
-                                    }
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 敌人的敌人就是朋友
-            foreach (Force neighbor in force.NeighborForceList)
-            {
-                if (force.IsAlliance(neighbor)) continue;
-
-                int neighborRelation = scenario.GetRelation(neighbor, force);
-                if (neighborRelation > 0) continue;
-
-                foreach (Force enemysenemy in neighbor.NeighborForceList)
-                {
-                    if (enemysenemy != force && !enemysenemy.IsAlliance(neighbor) && !force.NeighborForceList.Contains(enemysenemy) && !enemysenemy.IsAlliance(force))
-                    {
-                        if (IsInDiplomacyImmunity(force, enemysenemy.Id)) continue;
-
-                        int enemysenemy_relation = scenario.GetRelation(enemysenemy, force);
-                        if (enemysenemy_relation > 1000)
-                        {
-                            if (centerCity.gold > 3000)
-                            {
-                                // 考虑结盟
-                                // 侵略型AI更倾向于与敌人的敌人结盟
-                                int chance = PersonalityId == AIPersonalityType.Aggressive ? enemysenemy_relation * 2 / 100 : enemysenemy_relation / 100;
-                                if (GameRandom.Chance(chance, 100))
-                                {
-                                    // 计算附加金钱价值
-                                    int additionalValue = CalculateDiplomacyResourceValue(force, enemysenemy, enemysenemy_relation, DiplomacyActionType.AllianceRequest, PersonalityId);
-
-                                    // 计算成功率
-                                    Person diplomat = FindSuitableDiplomat(force);
-                                    if (diplomat != null)
-                                    {
-                                        DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                                        // 创建外交行为实例并计算成功率
-                                        DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.AllianceRequest, force, enemysenemy, diplomat, additionalValue);
-                                        int successRate = diplomacyManager.CalculateDiplomacySuccessRate(action);
-                                        if (successRate >= 20)
-                                        {
-                                            bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.AllianceRequest, force, enemysenemy, diplomat, additionalValue);
-                                            if (!success)
-                                            {
-                                                RecordDiplomacyFailure(force, enemysenemy.Id);
-                                            }
-                                            return true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        else if (enemysenemy_relation > 0)
-                        {
-                            if (centerCity.gold > 2000)
-                            {
-                                // 考虑结交
-                                int giftValue = CalculateDiplomacyResourceValue(force, enemysenemy, enemysenemy_relation, DiplomacyActionType.SendGift, PersonalityId);
-                                if (centerCity.gold >= giftValue)
-                                {
-                                    // 计算成功率
-                                    Person diplomat = FindSuitableDiplomat(force);
-                                    if (diplomat != null)
-                                    {
-                                        DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                                        // 创建外交行为实例并计算成功率
-                                        DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.SendGift, force, enemysenemy, diplomat, giftValue);
-                                        int successRate = diplomacyManager.CalculateDiplomacySuccessRate(action);
-                                        if (successRate >= 20)
-                                        {
-                                            bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.SendGift, force, enemysenemy, diplomat, giftValue);
-                                            if (!success)
-                                            {
-                                                RecordDiplomacyFailure(force, enemysenemy.Id);
-                                            }
-                                            return true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // 【原版结构】没有全局概率，七项各自判频率，成功即止（:7-74）。
+            // 顺序：annex → discard → alliance → donate → ceasefire → exchange → reinforce。
+            if (TryAIAnnex(force, scenario, turn)) return true;
+            if (TryAIDiscard(force, scenario, turn)) return true;
+            if (TryAIAlliance(force, scenario, turn)) return true;
+            if (TryAIDonate(force, scenario, turn)) return true;
+            if (TryAICeasefire(force, scenario, turn)) return true;
+            if (TryAIExchange(force, scenario, turn)) return true;
+            if (TryAIReinforce(force, scenario, turn)) return true;
 
             return true;
+        }
+
+        /// <summary>
+        /// 本方是否有"交战中的据点"（原版 `kyoten_count_[KyotenState_Battle] != 0`）。
+        ///
+        /// 【近似口径】敌方部队正处在我方城池上 = 领地被入侵。
+        /// 原版是 AI 表里逐据点维护的实时状态，这里每次现算（O(部队数)），
+        /// 对外交这种低频决策完全够用。
+        /// </summary>
+        static bool HasBattleKyoten(Force force, Scenario scenario)
+        {
+            if (scenario == null || scenario.troopsSet == null) return false;
+
+            for (int i = 0; i < scenario.troopsSet.Count; i++)
+            {
+                Troop troop = scenario.troopsSet[i];
+                if (troop == null || !troop.IsAlive) continue;
+
+                Force tf = troop.BelongForce;
+                if (tf == null || tf == force) continue;
+                if (force.IsAlliance(tf)) continue;
+
+                City c = troop.CurrentCity;
+                if (c != null && c.BelongForce == force)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// AI 主动结盟 —— 原版 `can_attempt_alliance`（`s11_game_ai_force_cmd_dip.cpp:317-331`）：
+        /// 友好度 ≥ 70、尚未同盟、且**自己正被威胁**（原版 `has_hostile`）才考虑。
+        /// 本项目用"存在友好度 &lt; 20 的相邻势力"近似"被威胁"，避免依赖未统一的敌对字段。
+        /// </summary>
+        static bool TryAIAlliance(Force force, Scenario scenario, int turn)
+        {
+            // 原版：rand_bool(30)（:234），且**本方没有交战据点**（:236）才谈结盟
+            if (HasBattleKyoten(force, scenario)) return false;
+            if (!GameRandom.Chance(30)) return false;
+
+            if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
+                return false;
+
+            bool threatened = false;
+            for (int i = 0; i < force.NeighborForceList.Count; i++)
+            {
+                Force n = force.NeighborForceList[i];
+                if (n != null && n.IsAlive && force.GetLike(n) < 20) { threatened = true; break; }
+            }
+            if (!threatened) return false;
+
+            Force best = null;
+            int bestLike = -1;
+            for (int i = 0; i < force.NeighborForceList.Count; i++)
+            {
+                Force n = force.NeighborForceList[i];
+                if (n == null || !n.IsAlive || n == force) continue;
+                if (force.IsAlliance(n)) continue;
+
+                int like = force.GetLike(n);
+                if (like < DiplomacyRules.AiAllianceLikeThreshold) continue;
+                if (like > bestLike) { bestLike = like; best = n; }
+            }
+
+            if (best == null) return false;
+
+            Person diplomat = FindSuitableDiplomat(force);
+            if (diplomat == null) return false;
+
+            DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
+            DiplomacyActionBase action = dm.CreateDiplomacyAction(
+                DiplomacyActionType.Alliance, force, best, diplomat, 3000);
+            if (action == null || !action.CanPerform()) return false;
+
+            dm.DispatchDiplomat(action);
+            Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向 {best.Name} 提议结盟（友好度 {bestLike}）");
+            return true;
+        }
+
+        /// <summary>
+        /// AI 主动送礼 —— 原版 `force_donate`（`s11_game_ai_force_cmd_dip.cpp:334-427`）：
+        /// 送礼是**为结盟铺路**的手段 —— 目标友好度达到 70（同盟门槛）后就不再送。
+        /// 原版还要求 `turn % 5 == force_id % 5` 错峰，这里保留。
+        /// </summary>
+        static bool TryAIDonate(Force force, Scenario scenario, int turn)
+        {
+            // 原版：rand_bool(30)（:340）+ 无交战据点（:342）+ turn % 5 错峰（:346）
+            if (HasBattleKyoten(force, scenario)) return false;
+            if (!GameRandom.Chance(30)) return false;
+            if (turn % 5 != force.Id % 5) return false;
+
+            if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
+                return false;
+
+            City capital = force.CapitalCity;
+            const int minGold = 5000;
+            if (capital == null || capital.gold < minGold) return false;
+
+            // 目标：友好度最高的"还没到结盟门槛"的相邻势力（拉一把就能结盟的那个）
+            Force best = null;
+            int bestLike = -1;
+            for (int i = 0; i < force.NeighborForceList.Count; i++)
+            {
+                Force n = force.NeighborForceList[i];
+                if (n == null || !n.IsAlive || n == force) continue;
+
+                int like = force.GetLike(n);
+                if (like >= DiplomacyRules.AiAllianceLikeThreshold) continue;   // 已经够结盟，不用再送
+                if (like < 20) continue;                                        // 险恶关系送礼也无用
+                if (like > bestLike) { bestLike = like; best = n; }
+            }
+
+            if (best == null) return false;
+
+            Person diplomat = FindSuitableDiplomat(force);
+            if (diplomat == null) return false;
+
+            DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
+            DiplomacyActionBase action = dm.CreateDiplomacyAction(
+                DiplomacyActionType.SendGift, force, best, diplomat, 1000);
+            if (action == null || !action.CanPerform()) return false;
+
+            dm.DispatchDiplomat(action);
+            Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向 {best.Name} 送礼（友好度 {bestLike}）");
+            return true;
+        }
+
+        /// <summary>
+        /// AI 主动停战 —— 原版 `force_ceasefire` / `force_preventive_ceasefire`
+        /// （`s11_game_ai_force_cmd_dip.cpp:442-682`）：
+        /// 与关系恶劣的相邻势力求和，期限按实力排名折算（`power_rank * 72 / 100`，夹在 6~72 周）。
+        /// 本项目用"相邻势力里友好度最低者"近似"打不过的那一家"。
+        /// </summary>
+        static bool TryAICeasefire(Force force, Scenario scenario, int turn)
+        {
+            // 原版两条路径（:530 战时 / :632 预防）：
+            //   · 有交战据点 → turn % 21 错峰，且只对"打进来的那家"求和；
+            //   · 无交战据点 → turn % 6 错峰（势力数 ≥3 时才错峰），属于"预防性停战"。
+            bool inBattle = HasBattleKyoten(force, scenario);
+            if (inBattle)
+            {
+                if (turn % 21 != force.Id % 21) return false;
+            }
+            else
+            {
+                if (CountAliveForces(scenario) >= 3 && turn % 6 != force.Id % 6) return false;
+            }
+
+            if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
+                return false;
+
+            Force worst = null;
+            int worstLike = 101;
+            for (int i = 0; i < force.NeighborForceList.Count; i++)
+            {
+                Force n = force.NeighborForceList[i];
+                if (n == null || !n.IsAlive || n == force) continue;
+                if (force.IsAlliance(n) || force.IsTruce(n)) continue;
+
+                int like = force.GetLike(n);
+                if (like < worstLike) { worstLike = like; worst = n; }
+            }
+
+            if (worst == null || worstLike >= 40) return false;   // 关系不算差，没必要求和
+
+            Person diplomat = FindSuitableDiplomat(force);
+            if (diplomat == null) return false;
+
+            DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
+            DiplomacyActionBase action = dm.CreateDiplomacyAction(
+                DiplomacyActionType.Truce, force, worst, diplomat, 2000);
+            if (action == null || !action.CanPerform()) return false;
+
+            dm.DispatchDiplomat(action);
+            Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向 {worst.Name} 提议停战（友好度 {worstLike}）");
+            return true;
+        }
+
+        /// <summary>场上存活势力数（对应原版 `force_list.size()`）</summary>
+        static int CountAliveForces(Scenario scenario)
+        {
+            if (scenario == null || scenario.forceSet == null) return 0;
+
+            int n = 0;
+            for (int i = 0; i < scenario.forceSet.Count; i++)
+            {
+                Force f = scenario.forceSet[i];
+                if (f != null && f.IsAlive) n++;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// AI 劝降 —— 原版 `force_annex`（`:77-126`）：
+        /// `turn ≥ 36`、近 18 回合势力数无变化、`rand_bool(power_rank)`。
+        /// 本项目没有 `power_rank`，用"本势力城数占全场城数的百分比"近似（越强势越可能劝降）。
+        /// </summary>
+        static bool TryAIAnnex(Force force, Scenario scenario, int turn)
+        {
+            if (turn < 36) return false;
+            if (CountAliveForces(scenario) <= 2) return false;
+
+            int totalCities = 0;
+            if (scenario.forceSet != null)
+            {
+                for (int i = 0; i < scenario.forceSet.Count; i++)
+                {
+                    Force f = scenario.forceSet[i];
+                    if (f != null && f.IsAlive) totalCities += f.CityCount;
+                }
+            }
+
+            int rank = totalCities > 0 ? force.CityCount * 100 / totalCities : 0;
+            if (!GameRandom.Chance(Math.Min(rank, 100))) return false;
+
+            if (force.NeighborForceList == null) return false;
+
+            for (int i = 0; i < force.NeighborForceList.Count; i++)
+            {
+                Force target = force.NeighborForceList[i];
+                if (target == null || !target.IsAlive || target == force) continue;
+                if (target.IsPlayer) continue;
+                if (force.IsAlliance(target)) continue;
+
+                Person diplomat = FindSuitableDiplomat(force);
+                if (diplomat == null) return false;
+
+                DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
+                DiplomacyActionBase action = dm.CreateDiplomacyAction(
+                    DiplomacyActionType.Annex, force, target, diplomat, 0);
+                if (action == null || !action.CanPerform()) continue;
+
+                dm.DispatchDiplomat(action);
+                Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 劝降 {target.Name}（实力占比 {rank}%）");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// AI 破弃同盟 —— 原版 `force_discard`（`:128-226`）。
+        /// 原版两条判据：友好度 ≤ `58 - 义理*3`，或"无战事周数 ≥ `72 + 义理*12`"。
+        /// 本项目没有"无战事周数"统计，先只保留友好度这一条（阈值取中位 58）。
+        /// </summary>
+        static bool TryAIDiscard(Force force, Scenario scenario, int turn)
+        {
+            if (force.AllianceList == null || force.AllianceList.Count == 0) return false;
+
+            for (int i = 0; i < force.AllianceList.Count; i++)
+            {
+                Alliance a = force.AllianceList[i];
+                if (a == null || !a.IsAlive || a.allianceType != AllianceType.Alliance) continue;
+
+                for (int j = 0; j < a.ForceList.Count; j++)
+                {
+                    Force other = a.ForceList[j];
+                    if (other == null || other == force) continue;
+                    if (force.GetLike(other) > 58) continue;    // 关系还过得去，不背盟
+                    if (!GameRandom.Chance(30)) continue;
+
+                    a.IsAlive = false;
+                    a.leftCount = 0;
+                    force.AllianceList.Remove(a);
+                    other.AllianceList.Remove(a);
+
+                    // 原版破弃：友好度 -50、技术点 -50（:861-898）
+                    force.AddLike(other, DiplomacyRules.DiscardLikePenalty);
+                    force.GainTechniquePoint(-DiplomacyRules.DiscardTechCost);
+
+                    // 原版同时 force_break_ceasefire：破弃同盟 = 关系回到敌对，停战一并作废
+                    BreakTruce(force, other);
+
+                    Sango.Log.Info($"@外交AI@{force.Name} 破弃了与 {other.Name} 的同盟");
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 作废两势力之间的停战协议（对应 Open311 的 `force_break_ceasefire`）。
+        /// 破弃同盟时调用：关系回到敌对，停战不能再留着。
+        /// </summary>
+        static void BreakTruce(Force a, Force b)
+        {
+            if (a == null || b == null || a.AllianceList == null || b.AllianceList == null)
+                return;
+
+            for (int i = a.AllianceList.Count - 1; i >= 0; i--)
+            {
+                Alliance t = a.AllianceList[i];
+                if (t == null || t.allianceType != AllianceType.Truce || !t.Contains(b))
+                    continue;
+
+                t.IsAlive = false;
+                t.leftCount = 0;
+                a.AllianceList.Remove(t);
+                b.AllianceList.Remove(t);
+            }
+        }
+
+        /// <summary>
+        /// AI 俘虏交换 —— 原版 `force_exchange`（`:684-775`）。
+        /// 本项目的"赎回自家俘虏"已经由 <see cref="AICaptives"/> 走 Exchange 的只索要模式，
+        /// 这里不再重复实现"双方换俘"，直接让位，避免同一回合两处派使者。
+        /// </summary>
+        static bool TryAIExchange(Force force, Scenario scenario, int turn)
+        {
+            return false;
+        }
+
+        /// <summary>
+        /// AI 请求援军 —— 原版 `force_reinforce`（`:777-906`）：
+        /// `rand_bool(30)`、无交战据点、**只对玩家同盟**提出。
+        /// </summary>
+        static bool TryAIReinforce(Force force, Scenario scenario, int turn)
+        {
+            if (force.requestForceId >= 0 || force.requestTimer > 0) return false;
+            if (HasBattleKyoten(force, scenario)) return false;
+            if (!GameRandom.Chance(30)) return false;
+
+            if (force.AllianceList == null) return false;
+
+            for (int i = 0; i < force.AllianceList.Count; i++)
+            {
+                Alliance a = force.AllianceList[i];
+                if (a == null || !a.IsAlive || a.allianceType != AllianceType.Alliance) continue;
+
+                for (int j = 0; j < a.ForceList.Count; j++)
+                {
+                    Force ally = a.ForceList[j];
+                    if (ally == null || ally == force || !ally.IsPlayer) continue;
+
+                    Person diplomat = FindSuitableDiplomat(force);
+                    if (diplomat == null) return false;
+
+                    DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
+                    DiplomacyActionBase action = dm.CreateDiplomacyAction(
+                        DiplomacyActionType.Reinforce, force, ally, diplomat, 1000);
+                    if (action == null || !action.CanPerform()) continue;
+
+                    dm.DispatchDiplomat(action);
+                    Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向盟友 {ally.Name} 请求援军");
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -648,21 +719,8 @@ namespace Sango.Core
                     baseValue = 3000 + (relation / 5);
                     baseValue = System.Math.Max(2000, System.Math.Min(baseValue, 8000));
                     break;
-                case DiplomacyActionType.Marriage:
-                    // 和亲需要最高投入
-                    baseValue = 5000 + (relation / 3);
-                    baseValue = System.Math.Max(3000, System.Math.Min(baseValue, 10000));
-                    break;
-                case DiplomacyActionType.Trade:
-                    // 通商投入适中
-                    baseValue = 1000 + (relation / 10);
-                    baseValue = System.Math.Max(500, System.Math.Min(baseValue, 3000));
-                    break;
-                case DiplomacyActionType.AllianceRequest:
-                    // 请求结盟投入适中
-                    baseValue = 2000 + (relation / 5);
-                    baseValue = System.Math.Max(1500, System.Math.Min(baseValue, 5000));
-                    break;
+                // Marriage / Trade / AllianceRequest 三个分支已删除：
+                // 原版没有这些命令，对应枚举项已移除。
                 default:
                     baseValue = 1000;
                     break;
@@ -681,7 +739,7 @@ namespace Sango.Core
                     break;
                 case AIPersonalityType.Aggressive:
                     // 侵略型AI在结盟时投入较多
-                    if (actionType == DiplomacyActionType.Alliance || actionType == DiplomacyActionType.AllianceRequest)
+                    if (actionType == DiplomacyActionType.Alliance)
                     {
                         baseValue = (int)(baseValue * 1.1f);
                     }
@@ -944,12 +1002,14 @@ namespace Sango.Core
                             Person person = people[0];
                             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
                             // 创建外交行为实例并计算成功率
-                            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Ransom, force, captive.CurrentCity.BelongForce, person, ransom);
+                            // 原版没有独立的"赎回"命令，赎买只是俘虏交换的退化形态
+                            // （try_exchange 的 release == nullptr 分支 = 只索要、不带回）。
+                            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Exchange, force, captive.CurrentCity.BelongForce, person, ransom);
                             int rate = diplomacyManager.CalculateDiplomacySuccessRate(action);
                             if (rate > 50)
                             {
                                 city.gold -= ransom;
-                                person.SetMission(MissionType.PersonDiplomacy, captive.CurrentCity, (int)DiplomacyActionType.Ransom, ransom, person.Id);
+                                person.SetMission(MissionType.PersonDiplomacy, captive.CurrentCity, (int)DiplomacyActionType.Exchange, ransom, person.Id);
                                 city.freePersons.Remove(person);
                                 hasSend = true;
                                 Sango.Log.Info($"{captive.BelongForce?.Name}派遣{person.Name}前往{captive.CurrentCity.BelongForce.Name}赎回我方俘虏{captive.Name}！");

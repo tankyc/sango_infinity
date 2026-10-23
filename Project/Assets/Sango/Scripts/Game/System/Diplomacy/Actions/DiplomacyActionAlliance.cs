@@ -51,17 +51,42 @@ namespace Sango.Core
             if (availableGold < ResourceValue)
                 return false;
 
-            // 检查关系是否足够
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            int relation = diplomacyManager.GetRelation(Sender, Receiver);
-            if (relation < Scenario.Cur.Variables.diplomacyAllianceRelationThreshold)
-                return false;
+            // 【原版对齐】原版 can_alliance_command（s11_sys_person_order_diplomacy.cpp:438-473）
+            // 的前置只有三条：行动力、金 ≥ 1000、存在未同盟势力。
+            // **没有"友好度必须达到某阈值"这道门槛** —— 友好度只进判定公式（(110 - like) * 2），
+            // 关系太差时自然算不过线。
+            // 旧的 relation >= diplomacyAllianceRelationThreshold 与公式门槛重复，
+            // 会让低友好度区间的成功/失败边界变得不可预测，故删除。
 
             // 检查是否已经有同盟关系
             if (Sender.HasActiveAgreement(Receiver))
                 return false;
 
+            // 【原版对齐】`get_high_value_horyo`（`:150`、`:183`）：对方手里握着我方俘虏时，
+            // 同盟谈判直接失败 —— 自己人都没要回来，对方不可能先跟你结盟。
+            // 原版按"功绩最高"筛选，这里简化为"只要关押着我方俘虏就否决"（偏严格）。
+            if (HasOwnCaptiveHeldBy(Receiver, Sender))
+                return false;
+
             return true;
+        }
+
+        /// <summary>
+        /// 对方是否关押着发起方的俘虏（对应原版 `get_high_value_horyo`）。
+        /// </summary>
+        static bool HasOwnCaptiveHeldBy(Force holder, Force owner)
+        {
+            if (holder == null || owner == null || holder.BeCaptiveList == null)
+                return false;
+
+            bool found = false;
+            holder.BeCaptiveList.ForEach(p =>
+            {
+                if (!found && p != null && p.IsAlive && p.BelongForce == owner)
+                    found = true;
+            });
+
+            return found;
         }
 
         /// <summary>
@@ -70,32 +95,23 @@ namespace Sango.Core
         /// <returns>成功率（0-100）</returns>
         public override int CalculateSuccessRate()
         {
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            int relation = diplomacyManager.GetRelation(Sender, Receiver);
-            ScenarioVariables variables = Scenario.Cur.Variables;
+            // 【原版对齐】try_alliance（s11_sys_person_order_diplomacy.cpp:709-738）：
+            //   n = 政治 - 相性/5 + 金/150 + rel_coef(1,-1,1)*10，再乘难度系数
+            //   n > (110 - like) * 2 → 成功；(100 - like) * 2 → 舌战
+            // 旧实现用的是 0~10000 关系尺度的自造公式，已整体替换。
+            // 前置否决（对方手握我方高价值俘虏 / 目标君主厌恶我方君主且使者无"论客"）
+            // 由调用方在 CanPerform 里判，这里只算分。
+            DiplomacyRules.Result result = DiplomacyRules.TryAlliance(
+                Diplomat,
+                Sender != null ? Sender.mGovernor : null,
+                Receiver != null ? Receiver.mGovernor : null,
+                Sender,
+                Receiver,
+                ResourceValue,
+                Scenario.Cur.Variables.difficulty);
 
-            // 关系值越高，成功率越高，最高90%
-            SuccessRate = (int)Mathf.Clamp(variables.diplomacyAllianceBaseSuccessRate + 
-                (relation - variables.diplomacyAllianceRelationThreshold) / variables.diplomacyAllianceRelationFactor, 
-                variables.diplomacyAllianceMinSuccessRate, variables.diplomacyAllianceMaxSuccessRate);
-
-            // 使者能力加成
-            if (Diplomat != null)
-            {
-                int diplomacyAbility = Diplomat.Politics + Diplomat.Glamour / 2;
-                int abilityBonus = Mathf.Min(diplomacyAbility / 10, variables.diplomacyAbilityBonusMax);
-                SuccessRate += abilityBonus;
-            }
-
-            // 金钱加成
-            if (ResourceValue >0)
-            {
-                int resourceBonus = Mathf.Min(ResourceValue / variables.diplomacyResourceBonusFactor, variables.diplomacyResourceBonusMax);
-                SuccessRate += resourceBonus;
-            }
-
-            // 确保成功率在合理范围内
-            SuccessRate = Mathf.Clamp(SuccessRate, 0, 100);
+            LastResult = result;
+            SuccessRate = DiplomacyRules.ToSuccessRate(result);
             return SuccessRate;
         }
 
@@ -148,11 +164,14 @@ namespace Sango.Core
             // 计算成功率
             CalculateSuccessRate();
 
+            // 原版 try_alliance 返回 Debate → 确定性进入舌战（不掷骰、不落地失败）
+            if (TryHandOverToDebate()) return false;
+
             // 判断是否成功
             if (!GameRandom.Chance(SuccessRate))
             {
-                // 成功率失败，触发惩罚
-                OnFailed();
+                // 失败走统一出口：广播事件（舌战可接管）。（原版同盟失败不扣友好度）
+                PerformWithoutCheck(false);
                 return false;
             }
 
@@ -175,9 +194,12 @@ namespace Sango.Core
             Sender.AllianceList.Add(alliance);
             Receiver.AllianceList.Add(alliance);
 
-            // 增加关系
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            diplomacyManager.AddRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyAllianceRelationIncrease);
+            // 【原版成功奖励】`s11_sys_person_order_diplomacy.cpp:611-632`：
+            //   force_add_like(actor, target, +10) + 技术点 +50
+            // 旧实现走的是 0~10000 关系尺度的 diplomacyAllianceRelationIncrease，
+            // 与 like 口径（0~100）不是一回事，已换掉。
+            Sender.AddLike(Receiver, DiplomacyRules.AllianceLikeGain);
+            Sender.GainTechniquePoint(DiplomacyRules.AllianceTechGain);
 
             Sango.Log.Info($"@外交@{Sender.Name} 与 {Receiver.Name} 达成了{Scenario.Cur.Variables.diplomacyAllianceDuration / 3}个月的结盟 Id={alliance.Id}!!");
 
@@ -195,9 +217,15 @@ namespace Sango.Core
         {
             if (!success)
             {
-                // 失败时触发惩罚机制
-                OnFailed();
-                // 触发失败事件
+                // 【原版失败处理】`:633-646`：**不扣友好度**，只做两件事：
+                //   ① 广播失败事件（DebateTrigger 订阅它 → 按概率转舌战）；
+                //   ② 目标是玩家时，给发起方设 9 周禁谈期。
+                // 旧实现走 OnFailed()，它按 0~10000 关系尺度扣值，与重构后的 like 口径冲突，已替换。
+                RaiseFailedEvent(0);
+
+                if (Receiver != null && Receiver.IsPlayer)
+                    Sender.diplomacyBanTimer = DiplomacyRules.DiplomacyBanTurns;
+
                 GameEvent.OnDiplomacyAlliance?.Invoke(Sender, Receiver, false);
                 return;
             }
@@ -221,9 +249,12 @@ namespace Sango.Core
             Sender.AllianceList.Add(alliance);
             Receiver.AllianceList.Add(alliance);
 
-            // 增加关系
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            diplomacyManager.AddRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyAllianceRelationIncrease);
+            // 【原版成功奖励】`s11_sys_person_order_diplomacy.cpp:611-632`：
+            //   force_add_like(actor, target, +10) + 技术点 +50
+            // 旧实现走的是 0~10000 关系尺度的 diplomacyAllianceRelationIncrease，
+            // 与 like 口径（0~100）不是一回事，已换掉。
+            Sender.AddLike(Receiver, DiplomacyRules.AllianceLikeGain);
+            Sender.GainTechniquePoint(DiplomacyRules.AllianceTechGain);
 
             Sango.Log.Info($"@外交@{Sender.Name} 与 {Receiver.Name} 达成了{Scenario.Cur.Variables.diplomacyAllianceDuration / 3}个月的结盟 Id={alliance.Id}!!");
 

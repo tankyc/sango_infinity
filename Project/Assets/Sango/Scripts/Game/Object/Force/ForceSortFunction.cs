@@ -865,7 +865,6 @@ namespace Sango.Core
                 switch (alliance.allianceType)
                 {
                     case AllianceType.Truce: typeName = "停战"; break;
-                    case AllianceType.Trade: typeName = "通商"; break;
                     default: typeName = "同盟"; break;
                 }
                 for (int j = 0; j < alliance.ForceList.Count; j++)

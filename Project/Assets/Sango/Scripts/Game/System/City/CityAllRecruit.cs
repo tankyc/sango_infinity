@@ -107,14 +107,25 @@ namespace Sango.Core.Player
                 {
                     x.allPersons.ForEach(y =>
                     {
-                        if (y.state != (int)PersonStateType.Governor && y.state != (int)PersonStateType.Prisoner)
+                        // 【禁止仕官】半年内被本势力拒绝过的人不进候选（对应 Open311 banned_kunshu）
+                        if (y.state != (int)PersonStateType.Governor
+                            && y.state != (int)PersonStateType.Prisoner
+                            && !y.IsBannedFrom(TargetCity.BelongForce))
                             targetList.Add(y);
                     });
-                    x.wildPersons.ForEach(y => { targetList.Add(y); });
+                    x.wildPersons.ForEach(y =>
+                    {
+                        if (!y.IsBannedFrom(TargetCity.BelongForce))
+                            targetList.Add(y);
+                    });
                 }
                 else
                 {
-                    x.wildPersons.ForEach(y => { targetList.Add(y); });
+                    x.wildPersons.ForEach(y =>
+                    {
+                        if (!y.IsBannedFrom(TargetCity.BelongForce))
+                            targetList.Add(y);
+                    });
                     x.captiveList.ForEach(y => { targetList.Add(y); });
                 }
             });

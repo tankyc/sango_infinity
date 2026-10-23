@@ -143,10 +143,40 @@ namespace Sango.Render
                         }
                         break;
                     case DiplomacyActionType.Truce:
-                        // 关系值越高，成功率越高，最高80%
+                        PlayAutoNegotiation(
+                            $"{person.BelongForce.ColorName}军的{person.ColorName}，此来何意？",
+                            "连年征战，两败俱伤。\n我家主公愿与贵军休兵停战，不知意下如何？",
+                            "也罢，就暂且休兵吧。",
+                            "停战？恕难从命。");
                         break;
                     case DiplomacyActionType.DeclareWar:
-                        // 宣战总是成功
+                        // 宣战恒成功（Action 的成功率固定 100），这里仍然走同一条演出/结算链
+                        PlayAutoNegotiation(
+                            $"{person.BelongForce.ColorName}军的{person.ColorName}，有何贵干？",
+                            "我代表我家主公前来通告：\n自今日起，我方与贵军断绝往来！",
+                            "既然如此，战场上见吧。",
+                            "哦？那便拭目以待。");
+                        break;
+                    case DiplomacyActionType.Annex:
+                        PlayAutoNegotiation(
+                            $"{person.BelongForce.ColorName}军的{person.ColorName}，忽然造访所为何事？",
+                            "贵军已无回天之力。\n若肯归顺我方，可保全军上下性命无虞。",
+                            "……罢了，我等愿降。",
+                            "宁死不降！请回吧。");
+                        break;
+                    case DiplomacyActionType.Exchange:
+                        PlayAutoNegotiation(
+                            $"{person.BelongForce.ColorName}军的{person.ColorName}，来谈什么？",
+                            "两家各有俘获。\n不如将俘虏各自交还，免得将士埋骨他乡。",
+                            "此言有理，就此交换吧。",
+                            "俘虏之事，不必再提。");
+                        break;
+                    case DiplomacyActionType.Reinforce:
+                        PlayAutoNegotiation(
+                            $"{person.BelongForce.ColorName}军的{person.ColorName}，可是有求于我？",
+                            "我军正与强敌苦战，\n恳请贵军念在同盟之谊，发兵相助！",
+                            "既是同盟，自当相助。",
+                            "我军自顾不暇，恕难从命。");
                         break;
                     case DiplomacyActionType.SendGift:
                         {
@@ -183,27 +213,9 @@ namespace Sango.Render
                             // 送礼总是成功
                         }
                         break;
-                    case DiplomacyActionType.RequestTechnique:
-                        // 关系值越高，成功率越高，最高85%
-                        break;
-                    case DiplomacyActionType.RequestTroops:
-                        // 关系值越高，成功率越高，最高80%
-                        break;
-                    case DiplomacyActionType.Trade:
-                        // 关系值越高，成功率越高，最高95%
-                        break;
-                    case DiplomacyActionType.Marriage:
-                        // 关系值越高，成功率越高，最高95%
-                        break;
-                    case DiplomacyActionType.AllianceRequest:
-                        // 关系值越高，成功率越高，最高85%
-                        break;
-                    case DiplomacyActionType.TruceRequest:
-                        // 关系值越高，成功率越高，最高75%
-                        break;
-                    case DiplomacyActionType.Ransom:
-                        // 关系值越高，成功率越高，最高90%
-                        break;
+                    // 请求技术 / 请求兵力 / 通商 / 和亲 / 请求结盟 / 请求停战 / 赎回俘虏：
+                    // 原版没有这些命令（7 个使者命令见 s11_sys_person_order_diplomacy.cpp），
+                    // 对应枚举项与演出分支已删除。
                     default:
                         break;
                 }
@@ -292,6 +304,95 @@ namespace Sango.Render
                 person.SetMission(MissionType.PersonReturn, person.BelongCity);
                 IsDone = true;
             }
+        }
+
+        /// <summary>
+        /// 通用的外交谈判演出。
+        ///
+        /// 适用于除"送礼 / 结盟"之外的所有命令（停战、宣战、劝降、俘虏交换、请求援军），
+        /// 它们的分支结构完全一致，只是台词不同：
+        ///   · 目标是玩家 → 弹 `window_city_diplomacy_player_check_dialog`，由玩家点同意 / 拒绝；
+        ///   · 目标是 AI   → 用 <see cref="DiplomacyManager.CalculateDiplomacySuccessRate"/> 判成败，
+        ///                   播对应结果台词后调 <see cref="DiplomacyManager.ExecuteDiplomacyMission"/>。
+        ///
+        /// 【为什么不再各写一遍】旧实现里 7 个 case 全是空注释（`// 关系值越高…`），
+        /// 使者抵达后既不演出也不结算，命令等于没生效。收敛到本方法后，
+        /// 后续新增命令只要给一句台词即可。
+        /// </summary>
+        /// <param name="openText">对方开场白</param>
+        /// <param name="proposeText">使者提出请求</param>
+        /// <param name="acceptText">对方答应</param>
+        /// <param name="refuseText">对方拒绝</param>
+        void PlayAutoNegotiation(string openText, string proposeText, string acceptText, string refuseText)
+        {
+            List<GameDialog.TalkData> talkDatas = new List<GameDialog.TalkData>
+            {
+                new GameDialog.TalkData { person = receiverForce.mGovernor, text = openText },
+                new GameDialog.TalkData { person = person, text = proposeText },
+            };
+
+            // 目标是玩家：交给玩家决定
+            if (receiverForce.IsPlayer)
+            {
+                GameDialog.StartTalk(talkDatas, () =>
+                {
+                    System.Action sureAction = () =>
+                    {
+                        talkDatas.Clear();
+                        talkDatas.Add(new GameDialog.TalkData { person = receiverForce.mGovernor, text = acceptText });
+                        GameDialog.StartTalk(talkDatas, () =>
+                        {
+                            GameSystem.GetSystem<DiplomacyManager>().ExecuteDiplomacyMission(
+                                true, person, actionType, receiverForce, resourceValue);
+                            person.SetMission(MissionType.PersonReturn, person.BelongCity);
+                            IsDone = true;
+                        });
+                    };
+
+                    System.Action cancelAction = () =>
+                    {
+                        talkDatas.Clear();
+                        talkDatas.Add(new GameDialog.TalkData { person = receiverForce.mGovernor, text = refuseText });
+                        GameDialog.StartTalk(talkDatas, () =>
+                        {
+                            GameSystem.GetSystem<DiplomacyManager>().ExecuteDiplomacyMission(
+                                false, person, actionType, receiverForce, resourceValue);
+                            person.SetMission(MissionType.PersonReturn, person.BelongCity);
+                            IsDone = true;
+                        });
+                    };
+
+                    Window.Instance.Open("window_city_diplomacy_player_check_dialog",
+                        actionType, person, receiverForce, resourceValue, sureAction, cancelAction);
+                });
+                return;
+            }
+
+            // 目标是 AI：按成功率判定
+            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
+            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(
+                actionType, person.BelongForce, receiverForce, person, resourceValue);
+
+            bool success = action != null
+                           && GameRandom.Chance(diplomacyManager.CalculateDiplomacySuccessRate(action));
+
+            DelayEvent delay = RenderEvent.Instance.Create<DelayEvent>();
+            delay.Init(1, () =>
+            {
+                talkDatas.Add(new GameDialog.TalkData
+                {
+                    person = receiverForce.mGovernor,
+                    text = success ? acceptText : refuseText,
+                });
+
+                GameDialog.StartTalk(talkDatas, () =>
+                {
+                    diplomacyManager.ExecuteDiplomacyMission(success, person, actionType, receiverForce, resourceValue);
+                    person.SetMission(MissionType.PersonReturn, person.BelongCity);
+                    IsDone = true;
+                });
+            });
+            RenderEvent.Instance.Add(delay);
         }
     }
 }

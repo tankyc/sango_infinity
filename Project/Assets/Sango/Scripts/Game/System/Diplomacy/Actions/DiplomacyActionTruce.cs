@@ -51,11 +51,11 @@ namespace Sango.Core
             if (availableGold < ResourceValue)
                 return false;
 
-            // 检查关系是否足够
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            int relation = diplomacyManager.GetRelation(Sender, Receiver);
-            if (relation < Scenario.Cur.Variables.diplomacyTruceRelationThreshold)
-                return false;
+            // 【原版对齐】原版 can_ceasefire_command（s11_sys_person_order_diplomacy.cpp:987-1020）
+            // 只要求"存在未同盟的势力"，**没有友好度死门槛** —— 友好度在公式里体现为
+            // `time*4/3 - like/4 + 80` 这条线：关系越差，越难谈成，但永远不是绝对不可能。
+            // 旧实现额外加了 relation >= diplomacyTruceRelationThreshold，等于把
+            // "关系极差时也可能求和成功"这条原版设计直接掐掉了，故删除。
 
             // 检查是否已经有停战协议
             if (Sender.HasActiveAgreement(Receiver))
@@ -70,32 +70,23 @@ namespace Sango.Core
         /// <returns>成功率（0-100）</returns>
         public override int CalculateSuccessRate()
         {
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            int relation = diplomacyManager.GetRelation(Sender, Receiver);
-            ScenarioVariables variables = Scenario.Cur.Variables;
+            // 【原版对齐】try_ceasefire（s11_sys_person_order_diplomacy.cpp:1229-1310）：
+            //   n = √政治*9 - 相性²/90 + rel_coef(10,-15,20) + 金/110，再乘难度系数
+            //   n > time*4/3 - like/4 + 80 → 成功；+70 → 舌战
+            // 停战期取剧本参数 diplomacyTruceDuration（本项目一回合 = 一旬，单位与原版的"周"不同，
+            // 但公式里的 time 只作为难度锚点，语义一致）。
+            DiplomacyRules.Result result = DiplomacyRules.TryCeasefire(
+                Diplomat,
+                Sender != null ? Sender.mGovernor : null,
+                Receiver != null ? Receiver.mGovernor : null,
+                Sender,
+                Receiver,
+                Scenario.Cur.Variables.diplomacyTruceDuration,
+                ResourceValue,
+                Scenario.Cur.Variables.difficulty);
 
-            // 关系值越高，成功率越高，最高80%
-            SuccessRate = (int)Mathf.Clamp(variables.diplomacyTruceBaseSuccessRate + 
-                (relation - variables.diplomacyTruceRelationThreshold) / variables.diplomacyTruceRelationFactor, 
-                variables.diplomacyTruceMinSuccessRate, variables.diplomacyTruceMaxSuccessRate);
-
-            // 使者能力加成
-            if (Diplomat != null)
-            {
-                int diplomacyAbility = Diplomat.Politics + Diplomat.Glamour / 2;
-                int abilityBonus = Mathf.Min(diplomacyAbility / 10, variables.diplomacyAbilityBonusMax);
-                SuccessRate += abilityBonus;
-            }
-
-            // 金钱加成
-            if (ResourceValue >0)
-            {
-                int resourceBonus = Mathf.Min(ResourceValue / variables.diplomacyResourceBonusFactor, variables.diplomacyResourceBonusMax);
-                SuccessRate += resourceBonus;
-            }
-
-            // 确保成功率在合理范围内
-            SuccessRate = Mathf.Clamp(SuccessRate, 0, 100);
+            LastResult = result;
+            SuccessRate = DiplomacyRules.ToSuccessRate(result);
             return SuccessRate;
         }
 
@@ -148,11 +139,14 @@ namespace Sango.Core
             // 计算成功率
             CalculateSuccessRate();
 
+            // 原版 try_ceasefire 返回 Debate → 确定性进入舌战（不掷骰、不落地失败）
+            if (TryHandOverToDebate()) return false;
+
             // 判断是否成功
             if (!GameRandom.Chance(SuccessRate))
             {
-                // 成功率失败，触发惩罚
-                OnFailed();
+                // 失败走统一出口：广播事件（舌战可接管）。（原版停战失败不扣友好度）
+                PerformWithoutCheck(false);
                 return false;
             }
 
@@ -195,9 +189,15 @@ namespace Sango.Core
         {
             if (!success)
             {
-                // 失败时触发惩罚机制
-                OnFailed();
-                // 触发失败事件
+                // 【原版失败处理】`:1152-1165`：**不扣友好度**，只做两件事：
+                //   ① 广播失败事件（DebateTrigger 订阅它 → 按概率转舌战）；
+                //   ② 目标是玩家时，给发起方设 9 周禁谈期。
+                // 旧实现走 OnFailed()，它按 0~10000 关系尺度扣值，与重构后的 like 口径冲突，已替换。
+                RaiseFailedEvent(0);
+
+                if (Receiver != null && Receiver.IsPlayer)
+                    Sender.diplomacyBanTimer = DiplomacyRules.DiplomacyBanTurns;
+
                 GameEvent.OnDiplomacyTruce?.Invoke(Sender, Receiver, false);
                 return;
             }

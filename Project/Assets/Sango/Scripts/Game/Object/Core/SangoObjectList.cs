@@ -87,10 +87,10 @@ namespace Sango.Core
                 return;
             }
 
-            if (!mObjects.Contains(obj))
-            {
-                Sango.Log.Warning("不能移除不存在的!!!");
-            }
+            //if (!mObjects.Contains(obj))
+            //{
+            //    Sango.Log.Warning("不能移除不存在的!!!");
+            //}
 #endif
             mObjects.Remove(obj);
         }

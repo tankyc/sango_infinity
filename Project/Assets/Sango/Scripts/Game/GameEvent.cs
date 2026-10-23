@@ -878,6 +878,21 @@ namespace Sango.Core
         /// 执行赎回俘虏
         /// </summary>
         public static EventDelegate<Force, Force, int, bool> OnDiplomacyRansom;
+
+        /// <summary>
+        /// 执行劝降（原版 Annex）
+        /// </summary>
+        public static EventDelegate<Force, Force, bool> OnDiplomacyAnnex;
+
+        /// <summary>
+        /// 执行俘虏交换（原版 Exchange）
+        /// </summary>
+        public static EventDelegate<Force, Force, int, bool> OnDiplomacyExchange;
+
+        /// <summary>
+        /// 执行请求援军（原版 Reinforce）
+        /// </summary>
+        public static EventDelegate<Force, Force, int, bool> OnDiplomacyReinforce;
         #endregion Diplomacy
 
         #region bridge

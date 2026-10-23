@@ -647,14 +647,22 @@ namespace Sango.Core.Duel
             if (!(outcome != null && outcome.ignoreForceKind)
                 && (!winnerForce.IsNormal() || !loserForce.IsNormal()))
                 loserResult = (int)DuelCharaResult.DuelCharaResult_Escaped;
-            // 规则(暂时)：君主(主公，PersonStateType.Governor)不可被俘虏、也不会战死 ——
-            // 被俘与战死一律改判为退却(释放)：前者是既定规则，后者是因为"主公死亡后选择继承人"
-            // 的功能还没做。等该功能接入后，把这里和 CalcKillChance 里的君主豁免一起去掉即可。
-            // 事件可用 ignoreGovernorImmunity 绕过（白门楼斩吕布、弑曹髦这类史实桥段）。
+            // 【君主：可战死，但不可被俘】
+            //
+            // 战死这部分已经完全放开（上一版删掉了 CalcKillChance 的豁免）：
+            // Force.SelectSuccessor + Force.Succeed 已接入 Person.Dead()，君主战死会正常继承，
+            // 无继任者则 Force.Ruin，与原版 force_succeed 一致。
+            //
+            // 被俘这部分仍然是"改判释放"，对齐原版 horyo_shoguu 的判定顺序：
+            //     shodan1 → betrayal_chance → shodan2 → is_kunshu? → Kaihou → hobaku
+            // `is_kunshu` 的检查排在 `hobaku`（收押）之前，所以君主永远不会被收押。
+            //
+            // 与原版的唯一差异：原版允许对君主走 betrayal_chance（招降），
+            // 本项目按设计收紧为"君主不可招降"，因此这里连 Captured 一并改判。
+            // 事件可用 ignoreGovernorImmunity 绕过（白门楼斩吕布这类桥段要处斩而非释放）。
             if (!(outcome != null && outcome.ignoreGovernorImmunity)
-                && loserPerson.IsGovernor
-                && (loserResult == (int)DuelCharaResult.DuelCharaResult_Captured
-                    || loserResult == (int)DuelCharaResult.DuelCharaResult_Dead))
+                && loserPerson.IsActiveGovernor
+                && loserResult == (int)DuelCharaResult.DuelCharaResult_Captured)
             {
                 loserResult = (int)DuelCharaResult.DuelCharaResult_Escaped;
             }
@@ -2077,13 +2085,9 @@ namespace Sango.Core.Duel
             Person person = GetPerson(team, chara);
             if (Utils.IsActive(person) && person.HasSkill(SkillId.Lucky))
                 return false;
-            // 规则(暂时)：君主(主公)不会战死 —— 目前还没有"主公死亡后选择继承人"的功能，
-            // 故这里一律返回 false；等继承人功能做好后，删掉这一段即可接回战死判定
-            // （同时记得去掉 ResultNormal 里对应的君主改判）。
-            // 事件可用 ignoreGovernorImmunity 绕过本豁免。
-            bool governorImmunity = !(param != null && param.outcome != null && param.outcome.ignoreGovernorImmunity);
-            if (governorImmunity && person != null && person.IsGovernor)
-                return false;
+            // 【已移除"君主不会战死"的临时豁免】
+            // 继承功能（Force.SelectSuccessor / Succeed）已接入 Person.Dead()，
+            // 君主战死会正常走继承或势力灭亡，与原版一致。
             if (specialAction.type == (int)DuelSpecial.DuelSpecial_Retreat)
                 return false;
             int opponentTeam = GetOpponentTeam(team);
@@ -2552,10 +2556,20 @@ namespace Sango.Core.Duel
                 count++;
             }
             if (count == 0)
+            {
+                // 打日志是为了定位上游：正常流程下 BuildParam 已经挡掉空队伍，
+                // 走到这里说明 param 是别处构造的（事件单挑 / 测试替身），
+                // 或者传入时成员还活着、构造后又死亡。
+                LogDebug($"Duel::init_team {team} 无可参战武将（person 全空或全部已死亡）");
                 return false;
+            }
+
             int startChara = param.startChara[team];
             if (!Utils.InRange(startChara, 0, MaxTeamCharaCount - 1))
+            {
+                LogDebug($"Duel::init_team {team} startChara 非法({startChara})");
                 return false;
+            }
             TeamInit(this.team[team], personArray, hpArray, spiritArray, injuryLevelArray, count, startChara, param.control[team], param.playerId[team]);
             ChangeCurrentChara(team, startChara);
             TeamSetNumber(this.team[team], startChara, 0);
@@ -2884,11 +2898,37 @@ namespace Sango.Core.Duel
             type = param.type;
             if (!Utils.InRange(type, 0, (int)DuelType.DuelType_Max - 1))
                 type = (int)DuelType.DuelType_2;
+            // 【健壮性】InitTeam 返回 false 表示该队没有可参战武将（param.person 全空
+            // 或 startChara 非法）。原实现忽略返回值，对没建队的队伍照样 AiInit ——
+            // 而 AiInit 里 GetCurrentChara 对空队伍返回 -1，AiCalcSpecialTry 拿着 -1
+            // 走进 TeamIsActive 就是越界异常。
+            //
+            // 正常流程下 DuelManager.BuildParam 会挡住空队伍（startChara < 0 → return null），
+            // 但 Param 是 public 类，事件单挑 / 测试替身都可能直接构造，
+            // 这里必须自己保证"没建队就不进 AI、不进行回合推进"。
+            bool[] teamReady = new bool[MaxTeamCount];
             for (int i = 0; i < MaxTeamCount; i++)
-                InitTeam(i);
+                teamReady[i] = InitTeam(i);
+
             for (int i = 0; i < MaxTeamCount; i++)
-                AiInit(ai[i], i);
+            {
+                if (teamReady[i])
+                    AiInit(ai[i], i);
+                else
+                    LogDebug($"Duel::init 队伍 {i} 无参战武将，跳过 AI 初始化");
+            }
+
             CalcActionRatio();
+
+            // 任一方没有参战武将：单挑没有意义，直接进收尾阶段。
+            // Closing 阶段在 winnerTeam 非法时会走 ResultDraw（无俘虏、无伤害），
+            // 比继续推进阶段机更安全。
+            if (!teamReady[0] || !teamReady[1])
+            {
+                LogDebug($"Duel::init 参战状态异常（challenger={teamReady[0]}, challenged={teamReady[1]}），直接收尾");
+                SetNextPhase((int)DuelPhase.DuelPhase_Closing);
+                return;
+            }
 
             SetNextPhase((int)DuelPhase.DuelPhase_Init);
         }
@@ -2907,6 +2947,10 @@ namespace Sango.Core.Duel
         /// <summary>取队内武将（未参战返回 null）</summary>
         public Person TeamGetPerson(Team self, int chara)
         {
+            // 索引保护：语义同 TeamIsActive（chara 可能是 AI 的 -1 默认值）
+            if (self == null || !Utils.InRange(chara, 0, MaxTeamCharaCount - 1))
+                return null;
+
             Person person = self.chara[chara].person;
             if (Utils.IsActive(person))
                 return person;
@@ -2916,6 +2960,12 @@ namespace Sango.Core.Duel
         /// <summary>该位置是否已参战</summary>
         public bool TeamIsActive(Team self, int chara)
         {
+            // 【防御】chara 可能来自 AI.chara，而 AI 初始化时若 team/opponentTeam
+            // 越界会提前 return，chara 保持默认值 -1；GetCurrentChara 也可能返回 -1。
+            // 这里做兜底，避免所有 TeamGetXxx 系列都踩负索引。
+            if (self == null || !Utils.InRange(chara, 0, MaxTeamCharaCount - 1))
+                return false;
+
             Person person = self.chara[chara].person;
             return Utils.IsActive(person);
         }

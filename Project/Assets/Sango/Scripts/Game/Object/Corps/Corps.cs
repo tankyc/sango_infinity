@@ -366,6 +366,12 @@ namespace Sango.Core
             AIPrepared = false;
             AddActionPoint(scenario);
             ActionOver = false;
+
+            // 城市部队名单（allTroops / allAttackTroops）是运行期缓存、不存档：
+            // 每回合按部队池重建一次，漏删 / 漏加的病态数据最多存活一回合。
+            // 口径见 City.RebuildTroopLists。
+            ForEachCity(city => city.RebuildTroopLists());
+
             PrepareCityInfo();
             if (needUpdateCommander)
                 UpdateCommander();

@@ -369,6 +369,8 @@ namespace Sango.Core
                         titleList.Add(SortByName);
                         titleList.Add(SortByMissionType);
                         titleList.Add(SortByMissionTarget);
+                        // 剩余天数：在途武将能看到还要走多久（原版有 order_timer，这里按图距现算）
+                        titleList.Add(SortByRemainDays);
                         //                        titleList.Add(GetSortByDistanceDay);
                         titleList.Add(SortByAction);
                         break;
@@ -1124,17 +1126,108 @@ namespace Sango.Core
         {
             name = "行动",
             width = 2.00f,
-            valueStrGetCall = x => x == null ? "—" : (x.ActionOver ? "已" : "未"),
+            valueStrGetCall = x =>
+            {
+                if (x == null)
+                    return "—";
+                // 在途武将的 ActionOver 恒为 true（IsFree 为 false 导致回合开始就被置 true），
+                // 直接显示"已"会让玩家误以为"这个月已经动过了"，实际是在赶路
+                if (x.IsOnTheWay())
+                    return "移动中";
+                return x.ActionOver ? "已" : "未";
+            },
             valueSortFunc = (a, b) => a.ActionOver.CompareTo(b.ActionOver),
             valueObjGet = x => x.ActionOver,
             valueObjSet = (x, v) => x.ActionOver = (bool)v,
         };
 
+        /// <summary>
+        /// 任务类型的中文名。
+        ///
+        /// 原先直接输出枚举的整数值（"8"），玩家看不出在干什么；
+        /// 这里做一次映射，并把"PersonReturn 且人还在路上"显示成"移动中"，
+        /// 因为 PersonReturn 同时承担"出发前往目标城"和"返程"两种语义，
+        /// 光看枚举分不出来。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <returns>任务名</returns>
+        public static string GetMissionTypeName(Person person)
+        {
+            if (person == null)
+                return "—";
+            if (person.missionType == 0)
+                return "无";
+
+            switch ((MissionType)person.missionType)
+            {
+                case MissionType.PersonReturn:
+                    return person.IsOnTheWay() ? "移动中" : "返回";
+
+                case MissionType.PersonTransform: return "调动";
+                case MissionType.PersonRecruitPerson: return "登用";
+                case MissionType.PersonDiplomacy: return "外交";
+                case MissionType.PersonCityStrategy: return "计略";
+                case MissionType.PersonBuild: return "建造";
+                case MissionType.PersonWork: return "工作";
+                case MissionType.PersonResearch: return "研究";
+                case MissionType.PersonCreateBoat: return "造船";
+                case MissionType.PersonCreateMachine: return "造兵器";
+                case MissionType.PersonInTroop: return "随军";
+
+                default:
+                    return ((MissionType)person.missionType).ToString();
+            }
+        }
+
+        /// <summary>
+        /// 任务目标的可读名（城名 / 武将名 / 建筑名）。
+        ///
+        /// 不同任务把目标存在不同字段里，直接显示 missionTarget 的整数 Id
+        /// 对玩家没有意义（"目标 37"）。这里按任务类型解析成对象名。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <returns>目标名</returns>
+        public static string GetMissionTargetName(Person person)
+        {
+            if (person == null || person.missionType == 0)
+                return "无";
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null)
+                return person.missionTarget.ToString();
+
+            switch ((MissionType)person.missionType)
+            {
+                case MissionType.PersonReturn:
+                case MissionType.PersonDiplomacy:
+                case MissionType.PersonCityStrategy:
+                    {
+                        City city = scenario.citySet.Get(person.missionTarget);
+                        return city != null ? city.Name : person.missionTarget.ToString();
+                    }
+
+                case MissionType.PersonRecruitPerson:
+                    {
+                        Person target = scenario.personSet.Get(person.missionTarget);
+                        return target != null ? target.Name : person.missionTarget.ToString();
+                    }
+
+                case MissionType.PersonBuild:
+                    {
+                        Building building = scenario.GetObject<Building>(person.missionTarget);
+                        return building != null ? building.Name : person.missionTarget.ToString();
+                    }
+
+                default:
+                    return person.missionTarget.ToString();
+            }
+        }
+
         public static SortTitle SortByMissionType = new SortTitle()
         {
             name = "任务",
             width = 2.00f,
-            valueStrGetCall = x => x == null ? "—" : (x.missionType == 0 ? "无" : x.missionType.ToString()),
+            valueStrGetCall = x => GetMissionTypeName(x),
             valueSortFunc = (a, b) => a.missionType.CompareTo(b.missionType),
             valueObjGet = x => x.missionType,
             valueObjSet = (x, v) => x.missionType = (int)v,
@@ -1143,11 +1236,33 @@ namespace Sango.Core
         public static SortTitle SortByMissionTarget = new SortTitle()
         {
             name = "目标",
-            width = 2.00f,
-            valueStrGetCall = x => x == null ? "—" : (x.missionTarget == 0 ? "无" : x.missionTarget.ToString()),
+            width = 2.40f,
+            valueStrGetCall = x => GetMissionTargetName(x),
             valueSortFunc = (a, b) => a.missionTarget.CompareTo(b.missionTarget),
             valueObjGet = x => x.missionTarget,
             valueObjSet = (x, v) => x.missionTarget = (int)v,
+        };
+
+        /// <summary>
+        /// 任务剩余天数（在途武将专用）。
+        ///
+        /// 项目里没有 order_timer 这类倒计时，这里按"当前位置到目标城的邻接步数 × 10 日"
+        /// 现算，口径与 City.Distance / DistanceDays 一致。逐回合推进会自然变小。
+        /// </summary>
+        public static SortTitle SortByRemainDays = new SortTitle()
+        {
+            name = "剩余",
+            width = 2.00f,
+            valueStrGetCall = x =>
+            {
+                if (x == null || x.missionType == 0)
+                    return "—";
+                int days = x.RemainMissionDays();
+                return days > 0 ? $"{days}日" : "—";
+            },
+            valueSortFunc = (a, b) => a.RemainMissionDays().CompareTo(b.RemainMissionDays()),
+            valueObjGet = x => x.RemainMissionDays(),
+            valueObjSet = null,
         };
 
         public static SortTitle SortByIsFree = new SortTitle()

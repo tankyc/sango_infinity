@@ -88,68 +88,10 @@ namespace Sango.Core
                 }
             });
 
-            _diplomacyEvents.Add(new DiplomacyEvent
-            {
-                Id = 3,
-                Name = "贸易提议",
-                Description = "对方提出了贸易合作的提议。",
-                MinRelation = 300,
-                MaxRelation = 800,
-                Probability = 10,
-                Effect = (sender, receiver) =>
-                {
-                    // 尝试通商
-                    DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                    bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.Trade, sender, receiver);
-                    // 添加日志记录
-                    if (success)
-                    {
-                        string message = $"{receiver.ColorName}向{sender.ColorName}提出了贸易合作的提议，双方达成了通商协议！";
-                        PlayerMessage.AddTextMessage(message, sender, sender.CapitalCity.x, sender.CapitalCity.y);
-
-                    }
-                }
-            });
-
-            _diplomacyEvents.Add(new DiplomacyEvent
-            {
-                Id = 4,
-                Name = "结盟邀请",
-                Description = "对方邀请你结成同盟。",
-                MinRelation = 800,
-                MaxRelation = 1500,
-                Probability = 5,
-                Effect = (sender, receiver) =>
-                {
-                    // 尝试结盟
-                    DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                    bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.AllianceRequest, receiver, sender);
-                    // 添加日志记录
-                    string message = $"{receiver.ColorName}邀请{sender.ColorName}结成同盟！";
-                    PlayerMessage.AddTextMessage(message, sender, sender.CapitalCity.x, sender.CapitalCity.y);
-
-                }
-            });
-
-            _diplomacyEvents.Add(new DiplomacyEvent
-            {
-                Id = 5,
-                Name = "停战请求",
-                Description = "对方请求停战。",
-                MinRelation = -800,
-                MaxRelation = -300,
-                Probability = 7,
-                Effect = (sender, receiver) =>
-                {
-                    // 尝试停战
-                    DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                    bool success = diplomacyManager.PerformDiplomacyAction(DiplomacyActionType.TruceRequest, receiver, sender);
-                    // 添加日志记录
-                    string message = $"{receiver.ColorName}请求与{sender.ColorName}停战！";
-                    PlayerMessage.AddTextMessage(message, sender, sender.CapitalCity.x, sender.CapitalCity.y);
-
-                }
-            });
+            // Id 3/4/5 原本是"贸易提议 / 结盟邀请 / 停战请求"三条随机外交事件，
+            // 它们调用的 Trade / AllianceRequest / TruceRequest 命令在原版里并不存在，已整体删除。
+            // 同盟与停战的正规入口是使者命令（CityDiplomacyAlliance / CityDiplomacyTruce），
+            // 不再由随机事件直接改关系。
         }
 
         /// <summary>

@@ -15,7 +15,7 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty("BelongForce")]
         public int BelongForceId;
-        public Force BelongForce;
+        public virtual Force BelongForce { get; set; }
 
         /// <summary>
         /// 所属势力
@@ -160,14 +160,39 @@ namespace Sango.Core
             if (BelongCorpsId > 0)
                 BelongCorps = scenario.corpsSet.Get(BelongCorpsId);
 
+            // 【归属治理 · 与原版对齐】据点的势力由所挂军团派生（Open311: Force <- Corps <- City）。
+            // 存档里可能出现"势力=A、军团=B 势力的军团"的历史脏数据，
+            // 这里以军团为锚点纠正，避免读档后整局带着不一致继续跑。
+            // 地图建筑（Building）不参与：它的势力是独立记录的 owner_force，
+            // 内政设施则跟随所属都市，都不是军团派生。
+            if (this is City && BelongCorps != null && BelongForceId != BelongCorps.BelongForceId)
+            {
+                Sango.Log.Warning($"*[归属]{Name} 读档势力 {BelongForce?.Name ?? "无"} 与军团 {BelongCorps.Name} 的势力 {BelongCorps.BelongForce?.Name ?? "无"} 不一致，已以军团为准");
+                BelongForceId = BelongCorps.BelongForceId;
+                BelongForce = scenario.forceSet.Get(BelongForceId);
+
+            }
+
             effectCells = new List<Cell>();
             //BelongForceId = scenario.forceSet.Get(_belongForceId);
             //BelongCorpsId = scenario.corpsSet.Get(_belongCorpsId);
             //BuildingType = scenario.CommonData.BuildingTypes.Get(_buildingTypeId);
+
+            // 陷阱 / 障碍在存档里可能残留归属（旧存档或编辑器直接赋值）。
+            // 读档时按"建成即中立"纠正一次（对齐 Open311 set_completed 的副作用）。
+            // BuildingType 是懒解析，此处若尚未就绪会返回 null，
+            // OnCompleted 内部会安全跳过，由 GovernanceValidator 的年度巡检兜底。
+            if (this is Building building && building.isComplate)
+                building.OnCompleted();
         }
 
         public override void OnScenarioSave(Scenario scenario)
         {
+            // 【归属治理】据点的势力永远与军团保持一致，避免把不一致写进存档。
+            // 存档是脏数据扩散的关键节点：一旦写进文件，读档只能靠局部兜底捞回。
+            if (this is City && BelongCorps != null)
+                BelongForce = BelongCorps.BelongForce;
+
             BelongForceId = BelongForce?.Id ?? 0;
             BelongCorpsId = BelongCorps?.Id ?? 0;
             BelongCityId = BelongCity?.Id ?? 0;
@@ -272,16 +297,33 @@ namespace Sango.Core
                     BelongForce?.MarkThreatTroop(attacker);
                 }
 
-                if (Render != null && Render.IsVisible())
+                // 【命中即爆】陷阱类设施被攻击命中的瞬间就引爆，并由下面的通用流程销毁。
+                // 对齐 Open311：火球 / 落石在被攻击命中时立即结算范围伤害并自毁。
+                //
+                // 返回 true 时**跳过**常规耐久累加：否则 OnHit 里已置 0 的 durability
+                // 又被加一次 num，中间值变成负数（日志/UI 会显示 -500 之类的脏值）。
+                if (OnHit(atk))
                 {
-                    if (atk != null && atk.ObjectType == SangoObjectType.Troops)
+                    durability = 0;
+                    // 直接进入下方的"耐久 <= 0 → 销毁"判定
+                }
+                else
+                {
+                    if (Render != null && Render.IsVisible())
                     {
-                        GameMedia.Instance.PlaySfx(93);
+                        if (atk != null && atk.ObjectType == SangoObjectType.Troops)
+                        {
+                            GameMedia.Instance.PlaySfx(93);
+                        }
                     }
+
+                    durability = durability + num;
                 }
             }
-
-            durability = durability + num;
+            else
+            {
+                durability = durability + num;
+            }
 
             // 火焰不能破城
             if (num < 0 && IsCityBase() && atk != null && atk.ObjectType == SangoObjectType.Fire)
@@ -294,6 +336,7 @@ namespace Sango.Core
                 {
                     isComplate = true;
                     OnComplate(atk);
+                    OnCompleted();
                 }
             }
             else
@@ -316,6 +359,35 @@ namespace Sango.Core
 
         }
         public virtual void OnComplate(SangoObject atk)
+        {
+
+        }
+
+        /// <summary>
+        /// 被攻击命中时的钩子（耐久扣减之前调用）。
+        ///
+        /// 返回 true 表示本设施已在钩子内自行销毁，<see cref="ChangeDurability"/>
+        /// 会立即返回 true 且不再结算耐久。陷阱（火球 / 落石）靠这个实现"命中即爆"。
+        /// </summary>
+        /// <param name="atk">攻击者</param>
+        /// <returns>是否已自行销毁</returns>
+        public virtual bool OnHit(SangoObject atk)
+        {
+            return false;
+        }
+
+        /// <summary>
+        /// 建造完成状态翻到 true 之后的统一收尾钩子。
+        ///
+        /// 与 <see cref="OnComplate"/> 的分工：
+        ///   · OnComplate 处理"建造者拿到功绩/技巧点"这类带上下文的结算；
+        ///   · 本方法处理"设施完成后的归属 / 状态归一"，不依赖建造者是谁。
+        ///
+        /// 对应 Open311 的 Building::set_completed 里的副作用
+        /// （陷阱 / 障碍建成后清 owner_force）。放在钩子里是因为它有两条触发路径：
+        /// 耐久被打满（ChangeDurability）与建造进度推进（Building.Attach）。
+        /// </summary>
+        public virtual void OnCompleted()
         {
 
         }

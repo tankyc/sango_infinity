@@ -39,6 +39,15 @@ namespace Sango.Core
         public int SuccessRate { get; protected set; }
 
         /// <summary>
+        /// 最近一次判定结果（各 Action 的 CalculateSuccessRate 填写）。
+        ///
+        /// 【用途】原版 `try_*` 返回三态，其中 `Debate` 表示"该进舌战，而不是直接判失败"。
+        /// 本项目 Action 对外仍暴露 0~100 成功率（兼容旧 UI / AI），中间结果靠本字段带出来，
+        /// 由 <see cref="Perform"/> 决定是否把这次交涉转交舌战。
+        /// </summary>
+        public DiplomacyRules.Result LastResult { get; protected set; }
+
+        /// <summary>
         /// 初始化外交行为
         /// </summary>
         /// <param name="actionType">外交行动类型</param>
@@ -126,6 +135,36 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 判定这次交涉是否应当转交舌战（原版 `try_*` 返回 `Debate` 的语义）。
+        ///
+        /// 各 Action 的 <see cref="Perform"/> 在算出判定结果后调用本方法；
+        /// 返回 true 表示舌战已接管，调用方**直接 return**，不要落地失败结算。
+        /// </summary>
+        protected bool TryHandOverToDebate()
+        {
+            if (LastResult != DiplomacyRules.Result.Debate)
+                return false;
+
+            return Sango.Core.Debate.DebateTrigger.ForceDiplomacyDebate(this);
+        }
+
+        /// <summary>
+        /// 只广播失败事件，**不扣旧的关系值**。
+        ///
+        /// 【为什么单独开一个入口】基类 <see cref="OnFailed"/> 会按 0~10000 的关系尺度扣值，
+        /// 那是外交重构前的口径；重构后各 Action 已按原版公式自带惩罚（劝降 -30 like、
+        /// 援军 -25 技术点等），再走 OnFailed 会重复扣。
+        /// 但失败事件本身必须发：<see cref="Sango.Core.Debate.DebateTrigger"/> 订阅
+        /// <see cref="OnDiplomacyFailed"/> 来实现"外交失败 → 按概率进舌战"，
+        /// 不发这个事件，舌战永远接不上。
+        /// </summary>
+        /// <param name="penalty">本次失败造成的损失（仅用于事件监听方展示，本方法不据此扣值）</param>
+        protected void RaiseFailedEvent(int penalty)
+        {
+            OnDiplomacyFailed?.Invoke(this, penalty);
+        }
+
+        /// <summary>
         /// 计算失败惩罚值
         /// </summary>
         /// <param name="currentRelation">当前关系值</param>
@@ -173,20 +212,12 @@ namespace Sango.Core
                     return "宣战";
                 case DiplomacyActionType.SendGift:
                     return "送礼";
-                case DiplomacyActionType.RequestTechnique:
-                    return "请求技术";
-                case DiplomacyActionType.RequestTroops:
-                    return "请求兵力";
-                case DiplomacyActionType.Trade:
-                    return "通商";
-                case DiplomacyActionType.Marriage:
-                    return "和亲";
-                case DiplomacyActionType.AllianceRequest:
-                    return "请求结盟";
-                case DiplomacyActionType.TruceRequest:
-                    return "请求停战";
-                case DiplomacyActionType.Ransom:
-                    return "赎回俘虏";
+                case DiplomacyActionType.Annex:
+                    return "劝降";
+                case DiplomacyActionType.Exchange:
+                    return "俘虏交换";
+                case DiplomacyActionType.Reinforce:
+                    return "请求援军";
                 default:
                     return "未知行动";
             }
@@ -217,40 +248,24 @@ namespace Sango.Core
         /// 送礼
         /// </summary>
         SendGift = 3,
-        
+
+        // 4~10 号原本是 请求技术 / 请求兵力 / 通商 / 和亲 / 请求结盟 / 请求停战 / 赎回俘虏。
+        // 原版（s11_sys_person_order_diplomacy.cpp）只有 7 个使者命令，这些自作命令已删除；
+        // 数值刻意保留空缺，避免老存档里已存在的 actionType 数字被重新解释成别的命令。
+
         /// <summary>
-        /// 请求技术
+        /// 劝降（原版 Annex / 0x13）
         /// </summary>
-        RequestTechnique = 4,
-        
+        Annex = 11,
+
         /// <summary>
-        /// 请求兵力
+        /// 俘虏交换（原版 Exchange / 0x14）
         /// </summary>
-        RequestTroops = 5,
-        
+        Exchange = 12,
+
         /// <summary>
-        /// 通商
+        /// 请求援军（原版 Reinforce / 0x15）
         /// </summary>
-        Trade = 6,
-        
-        /// <summary>
-        /// 和亲
-        /// </summary>
-        Marriage = 7,
-        
-        /// <summary>
-        /// 请求结盟
-        /// </summary>
-        AllianceRequest = 8,
-        
-        /// <summary>
-        /// 请求停战
-        /// </summary>
-        TruceRequest = 9,
-        
-        /// <summary>
-        /// 赎回俘虏
-        /// </summary>
-        Ransom = 10
+        Reinforce = 13,
     }
 }

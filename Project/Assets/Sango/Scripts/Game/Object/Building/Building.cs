@@ -246,6 +246,7 @@ namespace Sango.Core
                 {
                     durability = BuildingType.durabilityLimit;
                     isComplate = true;
+                    OnCompleted();
                     //CalculateHarvest();
                     SangoObjectList<Person> builder = Builder;
                     OnBuildComplate();
@@ -463,6 +464,38 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 建造完成后的归属归一（对齐 Open311 的 Building::set_completed）。
+        ///
+        /// 陷阱（Explosive）与障碍（Obstacle）一旦建成就不再属于任何势力：
+        ///   · 它们的效果对敌我一致（谁踩都触发），挂在建造方名下会出现
+        ///     "敌方踩雷算我方战果""设施归属面板显示我方却处在中立区域"之类的错乱；
+        ///   · 原版因此在 set_completed 里无条件把 owner_force 清成 -1，
+        ///     而 has_builder() 仍为 true → get_force_id() 返回 -1 = 中立。
+        ///
+        /// 原版例外：堤防（Levee）虽归在陷阱类型，但 is_trap_type() 显式排除它，
+        /// 不参与中立化。本项目目前没有堤防设施；若后续加入，需在这里按 kind 排除。
+        /// </summary>
+        public override void OnCompleted()
+        {
+            base.OnCompleted();
+
+            BuildingType type = BuildingType;
+            if (type == null)
+                return;
+
+            if (type.IsExplosive || type.IsObstacle)
+            {
+                // 原版例外：堤防（Levee）虽然归在陷阱类型里，但 is_trap_type() 显式排除它。
+                // 它需要长期归属修复方（谁修的堤谁负责），不能中立化。
+                if (type.kind == (int)BuildingKindType.Levee)
+                    return;
+
+                BelongForce = null;
+                BelongCorps = null;
+            }
+        }
+
+        /// <summary>
         /// 改变建筑所属的军团
         /// </summary>
         /// <param name="corps">目标军团</param>
@@ -470,7 +503,14 @@ namespace Sango.Core
         public Corps ChangeCorps(Corps corps)
         {
             Corps last = null;
-            if ((!isComplate || isUpgrading) && BelongForce != corps.BelongForce)
+
+            // 军团可以为 null（城变无主 / 中立化），此时势力也应清空。
+            // 原版 building_set_district_id 对 district 为 -1 是合法输入，
+            // 直接解引用 corps.BelongForce 会在这里空引用崩溃。
+            Force newForce = corps != null ? corps.BelongForce : null;
+
+            // 未完工建筑跨势力易手 = 直接拆除（对齐原版：建造中的设施不留给敌方）
+            if ((!isComplate || isUpgrading) && BelongForce != newForce)
             {
                 //Sango.Log.Error("不允许转换一个未建好的建筑!!");
                 OnFall(null);
@@ -482,9 +522,9 @@ namespace Sango.Core
                 last = BelongCorps;
                 BelongCorps = corps;
 
-                if (corps.BelongForce != BelongForce)
+                if (newForce != BelongForce)
                 {
-                    BelongForce = corps.BelongForce;
+                    BelongForce = newForce;
                 }
 
                 Render?.UpdateRender();
@@ -567,9 +607,33 @@ namespace Sango.Core
         /// <param name="atk">攻击者</param>
         public override void OnFall(SangoObject atk)
         {
+            // 陷阱的爆发已改挂在 OnHit（命中即爆），这里不再触发。
+            // 走到 OnFall 说明是"非攻击性销毁"（势力灭亡清场、中立化、未完工拆除、
+            // 编辑器删除），这些场景原版也是直接移除、不引爆。
             RemoveAllWorkers();
             BelongCity?.OnBuildingDestroy(this);
             Clear();
+        }
+
+        /// <summary>
+        /// 被攻击命中：陷阱立即引爆（对齐 Open311 的火球 / 落石）。
+        ///
+        /// 只负责"结算效果"，销毁仍走 ChangeDurability 的通用流程
+        /// （耐久归零 → OnFall → 摘工人 / 通知所属城 / 归还槽位）。
+        /// 早期版本在这里直接调 OnFall，会让对象在调用方读 Name / 结算战功之前
+        /// 就归还对象池，日志与功绩都会读到已被复用的脏数据。
+        /// </summary>
+        /// <param name="atk">攻击者</param>
+        /// <returns>true = 本次命中已特殊处理，ChangeDurability 会把耐久直接归零</returns>
+        public override bool OnHit(SangoObject atk)
+        {
+            if (!BuildingTrapEffect.CanTrigger(this))
+                return false;
+
+            // 结算爆发（此时 CenterCell / BuildingType 仍有效）
+            BuildingTrapEffect.Trigger(this, atk);
+
+            return true;
         }
 
         /// <summary>

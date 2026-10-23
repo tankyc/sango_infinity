@@ -103,6 +103,113 @@ namespace Sango.Core
         [JsonConverter(typeof(SangoObjectSetConverter<Person>))]
         [JsonProperty] public SangoObjectSet<Person> personSet = new SangoObjectSet<Person>();
 
+        // ==================================================================
+        // 在途武将表（对应 Open311 的 Scenario::actors_）
+        //
+        // 【为什么需要】回合结束时要推进所有"有未完成任务"的武将（出征返程、出使、
+        // 登用、计略、运输等）。原先的实现是每回合遍历整个 personSet（1000~2000 人），
+        // 逐个进 Person.OnTurnEnd -> UpdateMission，再由 missionType 分支决定做不做
+        // ——绝大多数人 missionType == 0，纯粹空转。
+        // Open311 用 actors_ 只收录任务中的武将，回合推进只遍历这张表。
+        //
+        // 【生命周期】运行期派生，不参与序列化：
+        //   · 登记：Person.SetMission（任何任务下发时）
+        //   · 移除：Person.ClearMission（任务结束/被取消/武将死亡）
+        //   · 读档重建：Person.OnScenarioPrepare 里按 missionType 重新登记
+        //   · 自愈：Scenario.UpdateActors 每个回合清理"已死亡/已无任务"的残留条目
+        // ==================================================================
+
+        /// <summary>在途武将（有未完成任务者）</summary>
+        readonly List<Person> actors = new List<Person>();
+
+        /// <summary>在途武将 Id 索引，用于 O(1) 去重</summary>
+        readonly HashSet<int> actorIdSet = new HashSet<int>();
+
+        /// <summary>在途武将表的只读视图（供调试/统计查看，不要直接改）</summary>
+        public IReadOnlyList<Person> Actors => actors;
+
+        /// <summary>
+        /// 登记一个在途武将（对应 Open311 的 set_actor）。
+        /// 幂等：同一武将重复登记不会产生多条记录。
+        /// </summary>
+        /// <param name="person">武将</param>
+        public void RegisterActor(Person person)
+        {
+            if (person == null)
+                return;
+            if (actorIdSet.Add(person.Id))
+                actors.Add(person);
+        }
+
+        /// <summary>
+        /// 移除一个在途武将（对应 Open311 在 reset_order/cancel_order 里的摘除）。
+        /// </summary>
+        /// <param name="person">武将</param>
+        public void UnregisterActor(Person person)
+        {
+            if (person == null)
+                return;
+            if (!actorIdSet.Remove(person.Id))
+                return;
+
+            // 列表移除是 O(n)，但在途表本身很小（通常个位数），且只在任务结束时触发
+            for (int i = 0; i < actors.Count; i++)
+            {
+                Person p = actors[i];
+                if (p == null || p.Id == person.Id)
+                {
+                    actors.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 清理在途表中的失效条目（对应 Open311 的 update_actors）。
+        /// 结束的途径很多（死亡、被俘、城中止、势力灭亡），
+        /// 不能保证每条都走到 UnregisterActor，所以每个回合开始推进前先扫一遍。
+        /// </summary>
+        /// <returns>清理掉的条目数</returns>
+        public int UpdateActors()
+        {
+            int removed = 0;
+            for (int i = actors.Count - 1; i >= 0; i--)
+            {
+                Person person = actors[i];
+                if (person == null || !person.IsAlive || person.IsDead || person.missionType == 0)
+                {
+                    if (person != null)
+                        actorIdSet.Remove(person.Id);
+                    actors.RemoveAt(i);
+                    removed++;
+                }
+            }
+            return removed;
+        }
+
+        /// <summary>
+        /// 全量重建在途武将表。读档/开局后调用一次即可，
+        /// 对应 Open311 里 actors_ 的"由所有人物的 order_id 派生"语义。
+        /// </summary>
+        public void RebuildActors()
+        {
+            actors.Clear();
+            actorIdSet.Clear();
+
+            if (personSet == null)
+                return;
+
+            for (int i = 0; i < personSet.Count; i++)
+            {
+                Person person = personSet[i];
+                if (person != null && person.IsAlive && !person.IsDead && person.missionType != 0)
+                    RegisterActor(person);
+            }
+
+            if (actors.Count > 0)
+                Sango.Log.Info($"*[在途武将]重建完成，共 {actors.Count} 人在执行任务");
+        }
+
         /// <summary>
         /// 部队集合
         /// </summary>
@@ -1300,6 +1407,10 @@ namespace Sango.Core
             buildingSet.Clear();
             fireSet.Clear();
             allianceSet.Clear();
+            // 在途武将表是运行期派生容器，不随存档走，清场时必须一起清掉，
+            // 否则会残留上一局的 Person 引用
+            actors.Clear();
+            actorIdSet.Clear();
 
             base.Clear();
             CommonData = null;
@@ -1397,6 +1508,31 @@ namespace Sango.Core
             {
                 prepareList[i].ForEach(o => { o.OnScenarioPrepare(this); });
             }
+
+            // 【配属】自建 / 古代武将没有剧本指定归属时随机落地
+            // （对应 Open311 Game::init_person 的 person_dispatch 兜底）。
+            // 必须在 OnScenarioPrepare 之后：那时对象引用才解析完成，能判断归属是否为空。
+            PersonLifeCycle.EnsureSpawned(this);
+
+            // 【部队名单】allTroops / allAttackTroops 不参与存档，读档 / 开局后一律为空，
+            // 必须在武将归属解析完（EnsureSpawned 之后）按部队池重建一次，
+            // 否则一直在外的部队要等到回城才会重新出现在城市面板与 AI 统计里。
+            // 运行期还有每势力回合开始的一次重建（Corps.OnForceTurnStart），两处口径一致。
+            if (citySet != null)
+            {
+                for (int i = 0; i < citySet.Count; i++)
+                {
+                    City c = citySet[i];
+                    if (c != null && c.IsAlive)
+                        c.RebuildTroopLists();
+                }
+            }
+
+            // 【生命周期】开局年份固化：老存档没有 startYear，读入为 0，
+            // 这里补成当前年，否则寿终结算会永远处在"开局第一年"而永不触发。
+            if (Info != null && Info.startYear <= 0)
+                Info.startYear = Info.year;
+
             //MapRender.Instance.Update();
         }
 
@@ -1606,11 +1742,31 @@ namespace Sango.Core
         public bool TurnEnd()
         {
             if (HasTurnEnded) return true;
+
+            // 1) 全池扫描：在野 / 未发现武将的随机游荡（对应 Open311 random_move 的全池遍历）。
+            //    每个武将内部先做"停留回合数 + 概率"判断，绝大多数人一次比较就返回，
+            //    真正的任务推进不在这里（见下面第 2 段）。
             for (int i = 1; i < personSet.Count; i++)
             {
                 Person person = personSet[i];
                 if (person != null && person.IsAlive)
                     person.OnTurnEnd(this);
+            }
+
+            // 2) 在途武将表：只推进"有未完成任务"的武将
+            //    （对应 Open311 Game::update_person_order 只遍历 actors_）。
+            //    先清理失效条目，再对快照遍历 —— 任务完成时会把武将移出表，
+            //    直接遍历原表会在中途改动集合。
+            UpdateActors();
+            if (actors.Count > 0)
+            {
+                Person[] snapshot = actors.ToArray();
+                for (int i = 0; i < snapshot.Length; i++)
+                {
+                    Person person = snapshot[i];
+                    if (person != null && person.IsAlive && person.missionType != 0)
+                        person.UpdateMission(this);
+                }
             }
 
             for (int i = 1; i < allianceSet.Count; i++)
@@ -1768,6 +1924,16 @@ namespace Sango.Core
             {
                 eventReciveList[i].ForEach(o => { if (o.IsAlive) o.OnMonthStart(this); });
             }
+
+            // 【生命周期】月度寿终结算（对应 Open311 Game::shoubyou_death）：
+            // 先处决上月标记的人，再按寿命模式抽样标记本轮。
+            // 放在事件回调之后：让剧情/势力先行结算，避免"本月刚被事件救活的人又被寿终"。
+            PersonLifeCycle.MonthlySettlement(this);
+
+            // 伤病月度更新（对应 Game::update_shoubyou）：
+            // 有伤者恢复一级，无伤者按超龄程度判定是否患病
+            PersonLifeCycle.MonthlyInjuryUpdate(this);
+
             return base.OnMonthStart(scenario);
         }
         public override bool OnMonthEnd(Scenario scenario)
@@ -1784,6 +1950,19 @@ namespace Sango.Core
             {
                 eventReciveList[i].ForEach(o => { if (o.IsAlive) o.OnYearStart(this); });
             }
+
+            // 【归属巡检】年度开场统一打扫一次武将/城池/军团的归属链。
+            // 背景：身份(state)、所属城、所在城、势力、军团五个字段分散在业务各处写入，
+            // 漏改一处就会留下"在野却有势力""太守指向已阵亡武将""都市属A港口属B"这类脏数据，
+            // 并会在后续的随机移动/登庸/内政链路里持续扩散。
+            // 这里以"城为锚点"做一次全量对齐，把已经产生的脏数据修掉。
+            GovernanceValidator.ValidateAll(this, true);
+
+            // 【生命周期】关系清理（对应 Open311 Game::init_person 的关系维护段）：
+            // 摘掉历史武将关系列表里指向已故武将的项。
+            // 必须排在归属巡检之后：巡检可能刚把一批人判成死亡状态。
+            PersonLifeCycle.AnnualRelationshipCleanup(this);
+
             return base.OnYearStart(scenario);
         }
         public override bool OnYearEnd(Scenario scenario)
@@ -2101,6 +2280,11 @@ namespace Sango.Core
 
         public void Save(string path)
         {
+            // 【归属巡检】存档前再对齐一次归属链，避免把脏数据固化进存档。
+            // 存档是"脏数据扩散"的关键节点：一旦写进文件，读档后的重建逻辑
+            // 只能靠 OnScenarioPrepare 的局部兜底，很难全部捞回来。
+            GovernanceValidator.ValidateAll(this, true);
+
             for (int i = 0; i < prepareList.Count; ++i)
             {
                 prepareList[i].ForEach(o => { o.OnScenarioSave(this); });

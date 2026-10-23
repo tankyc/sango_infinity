@@ -599,6 +599,20 @@ namespace Sango.Core
         [JsonProperty] public int pathfindingSafeCount = 10000000;
 
         /// <summary>
+        /// 寿命模式（对应 Open311 的 LifeModeEnum）。
+        ///
+        /// 0 = 史实：按武将的死亡年推算，能力值越高越晚寿终，会正常老死；
+        /// 1 = 长寿：在史实基础上整体延后 <see cref="PersonLifeCycle.LongevityLife"/> 年，
+        ///    相当于"人人都活得久"，势力不会因老将凋零而断层；
+        /// 2 = 虚构：不结算寿终（只有战死/处决/事件会死人）；
+        /// 3 = 虚构无死亡：与虚构相同，保留给"英雄集结"类剧本。
+        ///
+        /// 默认 **虚构无死亡（3）**：本项目当前以"武将不因年龄退场"为默认体验；
+        /// 需要史实寿终时，在剧本参数界面把「寿命模式」改成"史实"即可（老存档保留自己存档里的值）。
+        /// </summary>
+        [JsonProperty] public int lifeMode = 3;
+
+        /// <summary>
         /// 基础火焰伤害
         /// </summary>
         [JsonProperty] public int baseFireDamage = 320;

@@ -51,6 +51,11 @@ namespace Sango.Core
             if (availableGold < ResourceValue)
                 return false;
 
+            // 【原版对齐】友好度已达上限时不可再赠送
+            // （原版 get_donatable_force_list 会把 like >= max_force_like_ 的势力直接剔除，:376-383）
+            if (Sender.GetLike(Receiver) >= DiplomacyRules.MaxLike)
+                return false;
+
             return true;
         }
 
@@ -111,16 +116,16 @@ namespace Sango.Core
                 return false;
             }
 
-            // 计算关系增加量（考虑多种因素）
-            int relationIncrease = CalculateDynamicRelationIncrease();
+            // 计算友好度增量（like 单位，2~20）
+            int likeGain = CalculateDonateLikeGain();
 
             Receiver.CapitalCity.gold += ResourceValue;
 
-            // 增加关系
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            diplomacyManager.AddRelation(Sender, Receiver, relationIncrease);
+            // 写入友好度：走 Force.AddLike（内部换算回 RelationMap 的 -5000~5000）
+            Sender.AddLike(Receiver, likeGain);
 
-            Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 赠送了 {ResourceValue} 金，关系增加了 {relationIncrease}!!");
+            Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 赠送了 {ResourceValue} 金，" +
+                           $"友好度 +{likeGain}（当前 {Sender.GetLike(Receiver)}）");
 
             // 触发事件
             GameEvent.OnDiplomacySendGift?.Invoke(Sender, Receiver, ResourceValue, true);
@@ -144,117 +149,39 @@ namespace Sango.Core
 
             Receiver.CapitalCity.gold += ResourceValue;
 
-            // 计算关系增加量（考虑多种因素）
-            int relationIncrease = CalculateDynamicRelationIncrease();
+            // 计算友好度增量（like 单位，2~20）
+            int likeGain = CalculateDonateLikeGain();
 
-            // 增加关系
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            diplomacyManager.AddRelation(Sender, Receiver, relationIncrease);
+            // 写入友好度：走 Force.AddLike（内部换算回 RelationMap）
+            Sender.AddLike(Receiver, likeGain);
 
-            Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 赠送了 {ResourceValue} 金，关系增加了 {relationIncrease}!!");
+            Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 赠送了 {ResourceValue} 金，" +
+                           $"友好度 +{likeGain}（当前 {Sender.GetLike(Receiver)}）");
 
             // 触发事件
             GameEvent.OnDiplomacySendGift?.Invoke(Sender, Receiver, ResourceValue, true);
         }
 
         /// <summary>
-        /// 动态计算送礼的关系增加量
-        /// 考虑因素：对象势力的金钱、势力对比、主公喜好、性格等
+        /// 送礼带来的友好度增量 —— 原版 `calc_donate_like_change`（s11_sys_person_order_diplomacy.cpp:385-406）。
+        ///
+        /// 【为什么整体替换旧实现】旧版是"每 10 金 +1 关系 + 势力贫富/强弱/性格/关系四类修正"的
+        /// 自造公式，结果落在 RelationMap 的 -5000~5000 尺度上，与 Open311 的 like（0~100）完全不同调，
+        /// 而且它把"送多少钱"当成了主要变量 —— 原版送礼金额只影响花费，不直接放大友好度。
+        ///
+        /// 原版只看三样（详见 DiplomacyRules.CalcDonateLikeGain）：
+        ///   · 使者政治；
+        ///   · 双方君主相性差（上限 50，厌恶则强制 50）；
+        ///   · 目标君主对**使者本人**的亲爱 / 厌恶 / 义兄弟 / 夫妻关系。
+        /// 返回 2~20（like 单位），由调用方用 <see cref="Force.AddLike"/> 写入。
         /// </summary>
-        /// <returns>关系增加量</returns>
-        private int CalculateDynamicRelationIncrease()
+        /// <returns>友好度增量（0~100 尺度）</returns>
+        private int CalculateDonateLikeGain()
         {
-            ScenarioVariables variables = Scenario.Cur.Variables;
-            
-            // 基础关系增加量（每10金增加1点关系）
-            int baseIncrease = ResourceValue / variables.diplomacySendGiftRelationFactor;
-            
-            // 计算各种因素的修正系数
-            float factor = 1.0f;
-            
-            // 1. 对象势力的金钱因素：越穷的势力越看重礼物
-            int receiverTotalGold = 0;
-            Receiver.ForEachCity(city =>
-            {
-                receiverTotalGold += city.gold;
-            });
-            
-            // 如果接收方很穷，增加礼物效果
-            if (receiverTotalGold< 5000)
-            {
-                factor += (5000 - receiverTotalGold) / 10000.0f; // 最多增加0.5倍效果
-            }
-            // 如果接收方很富，减少礼物效果
-            else if (receiverTotalGold >50000)
-            {
-                factor -= (receiverTotalGold - 50000) / 200000.0f; // 最多减少0.25倍效果
-                factor = Mathf.Max(factor, 0.75f); // 最低保持0.75倍效果
-            }
-            
-            // 2. 势力对比因素：弱小势力向强大势力送礼效果更好
-            int senderPower = Sender.FightPower >0 ? Sender.FightPower : 1;
-            int receiverPower = Receiver.FightPower > 0 ? Receiver.FightPower : 1;
-            float powerRatio = (float)senderPower / receiverPower;
-            
-            // 当发送方势力较弱时，增加礼物效果
-            if (powerRatio< 0.5f)
-            {
-                factor += (0.5f - powerRatio) * 0.4f; // 最多增加0.2倍效果
-            }
-            // 当发送方势力较强时，减少礼物效果
-            else if (powerRatio >2.0f)
-            {
-                factor -= (powerRatio - 2.0f) * 0.1f; // 最多减少0.2倍效果
-                factor = Mathf.Max(factor, 0.8f); // 最低保持0.8倍效果
-            }
-            
-            // 3. 主公喜好和性格因素
-            if (Receiver.mGovernor != null)
-            {
-                Person governor = Receiver.mGovernor;
-                
-                // 性格影响：使用Personality类中的送礼效果加成参数
-                if (governor.mPersonality != null)
-                {
-                    // 获取性格的送礼效果加成（百分比）
-                    int giftEffectBonus = governor.mPersonality.giftEffectAdd;
-                    // 将百分比转换为系数（例如：10表示+10%，即0.1）
-                    float bonusFactor = giftEffectBonus / 100.0f;
-                    factor += bonusFactor;
-                }
-                
-                // 相性影响：相性好的话效果更好
-                if (Sender.mGovernor != null)
-                {
-                    int compatibilityDiff = System.Math.Abs(Sender.mGovernor.compatibility - governor.compatibility);
-                    if (compatibilityDiff< 30)
-                    {
-                        factor += (30 - compatibilityDiff) / 300.0f; // 最多增加0.1倍效果
-                    }
-                }
-                
-                // 政治属性影响：政治高的主公更看重外交
-                factor += governor.Politics / 1000.0f; // 最多增加0.1倍效果
-            }
-            
-            // 4. 关系基础影响：关系越差，送礼效果越好
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            int currentRelation = diplomacyManager.GetRelation(Sender, Receiver);
-            if (currentRelation < 0)
-            {
-                factor += Mathf.Abs(currentRelation) / 2000.0f; // 最多增加0.5倍效果
-            }
-            else if (currentRelation >1000)
-            {
-                factor -= currentRelation / 4000.0f; // 最多减少0.25倍效果
-                factor = Mathf.Max(factor, 0.75f); // 最低保持0.75倍效果
-            }
-            
-            // 计算最终关系增加量
-            int finalIncrease = Mathf.RoundToInt(baseIncrease * factor);
-            
-            // 确保关系增加量至少为1
-            return Mathf.Max(finalIncrease, 1);
+            return DiplomacyRules.CalcDonateLikeGain(
+                Diplomat,
+                Sender != null ? Sender.mGovernor : null,
+                Receiver != null ? Receiver.mGovernor : null);
         }
     }
 }

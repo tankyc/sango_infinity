@@ -162,7 +162,8 @@ namespace Sango.UI
             costLabel.text = PersonSortFunction.SortByBelongCity.GetValueStr(Target);
             missionLabel.text = PersonSortFunction.SortByMissionType.GetValueStr(Target);
             missionTargetLabel.text = PersonSortFunction.SortByMissionTarget.GetValueStr(Target);
-            dayLabel.text = "";// PersonSortFunction.SortByBelongCity.GetValueStr(Target);
+            // 在途武将显示剩余天数（按当前图距现算），无任务时为 "—"
+            dayLabel.text = PersonSortFunction.SortByRemainDays.GetValueStr(Target);
             actionoverLabel.text = PersonSortFunction.SortByAction.GetValueStr(Target);
             levelLabel.text = PersonSortFunction.SortByLevel.GetValueStr(Target);
             expLabel.text = PersonSortFunction.SortByExp.GetValueStr(Target);

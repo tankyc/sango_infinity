@@ -904,7 +904,10 @@ namespace Sango.Core
                 captiveList.RemoveAll(x => x.mBelongTroop != this);
                 captiveList.ForEach(person =>
                 {
-                    if (person.BelongForce != null)
+                    // 去重：BeCaptiveList 是普通 List，重复添加不会报错但会让
+                    // ForceCaptiveLoyaltyChange 对同一俘虏掷两次掉忠骰。
+                    // 读档 + 重新初始化可能多次走到这里。
+                    if (person.BelongForce != null && !person.BelongForce.BeCaptiveList.Contains(person))
                         person.BelongForce.BeCaptiveList.Add(person);
                 });
             }
@@ -2875,15 +2878,36 @@ namespace Sango.Core
 
         public void EnterCity(City city)
         {
-            // 【硬守卫】部队只能进入己方势力城池。
-            // 原先此处只打 Error 日志不拦截，若存在"进城瞬间目的地易主"的时序窗口
-            // （如败退途中城池被第三方攻占），兵力 / 钱粮会被并入敌城。
-            // 现在直接拒绝入城：部队保持原状留在地图上，
-            // 后续由 DoAI 出城兜底 / 待命兜底 / 任务逻辑处理其归宿。
-            // 合法路径（攻破城池后攻方入城等）都在城池 BelongForce 改为攻方之后才调用本方法，不受影响。
-            if (city == null || city.BelongForce != BelongForce)
+            if (city == null)
             {
-                Sango.Log.Error($"{BelongForce?.ColorName}的{Name}试图进入非自身势力{city?.BelongForce?.ColorName}{city?.ColorName}的城市,已拒绝入城!");
+                Sango.Log.Error($"{BelongForce?.ColorName}的{Name}试图进入空引用城市,已拒绝入城!");
+                return;
+            }
+
+            // 【原版对齐】无主空城可以直接占领。
+            // Open311 的 unit_enter 开头就有这条：`if (building->get_force_id() == -1)`
+            // 先 building_change_district 把城挂到自己军团，再走正常入城流程。
+            // 缺了它，被中立化 / 势力灭亡清空的城会变成"死城"——谁都不能进，
+            // 只能等归属巡检或编辑器处理，AI 会一圈圈绕着走。
+            if (city.BelongForce == null)
+            {
+                if (BelongCorps == null)
+                {
+                    Sango.Log.Error($"{BelongForce?.ColorName}的{Name}试图占领{city.ColorName}，但自己没有军团归属,已拒绝");
+                    return;
+                }
+
+                Sango.Log.Info($"{BelongForce?.ColorName}的{Name}占领了无主据点{city.ColorName}");
+                CityStateSystem.SetCorps(city, BelongCorps);
+            }
+
+            // 【硬守卫】其余情况只允许进入己方势力城池：
+            // 若存在"进城瞬间目的地易主"的时序窗口（如败退途中城池被第三方攻占），
+            // 直接拒绝入城，避免兵力 / 钱粮被并入敌城。部队保持原状留在地图上，
+            // 后续由 DoAI 出城兜底 / 待命兜底 / 任务逻辑处理其归宿。
+            if (city.BelongForce != BelongForce)
+            {
+                Sango.Log.Error($"{BelongForce?.ColorName}的{Name}试图进入非自身势力{city.BelongForce?.ColorName}{city.ColorName}的城市,已拒绝入城!");
                 return;
             }
             // 所属城取主将的实时值（不缓存），下面几处统一用它：
@@ -2903,11 +2927,17 @@ namespace Sango.Core
             city.AddFood(food);
             city.AddTroops(troops);
 
-            // 处理俘虏
+            // 处理俘虏：随军俘虏就地转押入城。
+            // 必须先去重 —— SangoObjectList.Add 遇到重复元素会打错误日志，
+            // 而俘虏可能因为以下原因已经在本城的 captiveList 里：
+            //   · 本城就是他原来的关押城，部队只是出门转了一圈又回来；
+            //   · 同一回合内先 AddCaptive 后又触发入城；
+            //   · 历史存档里残留的重复登记。
             captiveList.ForEach(p =>
             {
                 p.mBelongTroop = null;
-                city.captiveList.Add(p);
+                if (!city.captiveList.Contains(p))
+                    city.captiveList.Add(p);
                 p.ChangeCurrentCity(city);
             });
             captiveList.Clear();
@@ -2972,9 +3002,8 @@ namespace Sango.Core
                            {
                                foreach(Person person in pList)
                                {
-                                   person.OnWillChangeToCity(city);
-                                   person.ChangeBelongCity(city);
-                                   person.ChangeCurrentCity(city);
+                                   // 【归属治理】留在本城 = 入城，统一走 person_enter 语义
+                                   PersonStateSystem.Enter(person, city, PersonChangeReason.Entered);
                                }
                                pList.Clear();
                            }
@@ -3003,9 +3032,12 @@ namespace Sango.Core
             {
                 ForEachPerson((person) =>
                 {
-                    person.OnWillChangeToCity(city);
-                    person.ChangeBelongCity(city);
-                    person.ChangeCurrentCity(city);
+                    // 【归属治理】入城 = 入城事件（对应 Open311 unit_enter 里
+                    // person_set_location_id + service 改指入城据点 + building_appoint_taishu）。
+                    // 统一走 PersonStateSystem.Enter：迁户口、改所在地、维护在籍名册、标记太守重算。
+                    // 原先这里手写 ChangeBelongCity + ChangeCurrentCity，漏掉了太守重算 ——
+                    // 部队把城里最后一名在籍武将带走再送回来时，城会一直停在"太守为空"。
+                    PersonStateSystem.Enter(person, city, PersonChangeReason.Entered);
                 });
             }
 
@@ -3056,6 +3088,33 @@ namespace Sango.Core
             ForEachPerson((person) =>
             {
                 person.mBelongTroop = null;
+
+                // 【原版对齐】部队消失后武将必须重新有落脚点。
+                // Open311 的 unit_disband 会：取最近据点 -> person_set_location_id，
+                // 所属城与落点不同则额外 person_leave + Return 命令；
+                // 溃灭路径则 person_set_zaiya 转在野。
+                // 这里原先只清 mBelongTroop，武将的 CurrentCity 会停在"部队最后经过的城"
+                // （可能是敌方城，甚至为空），形成"户口在己方城、人飘在野外"的脏状态。
+                //
+                // 归一处理：有所属城就落回所属城（入城口径与 person_enter 一致），
+                // 没有所属城（势力已灭）则转在野由巡检安置。
+                if (person.IsPrisoner)
+                    return;
+
+                City home = person.BelongCity;
+                if (home != null)
+                {
+                    if (person.CurrentCity != home)
+                        person.ChangeCurrentCity(home);
+                }
+                else if (person.IsWild || person.Invisible)
+                {
+                    // 本来就无势力归属：保持原地，由在下野/未发现名册里待着即可
+                }
+                else
+                {
+                    PersonStateSystem.LeaveToWild(person, person.CurrentCity, PersonChangeReason.Fixed);
+                }
             });
             base.Clear();
             IsAlive = false;
@@ -3281,8 +3340,11 @@ namespace Sango.Core
         /// <summary>
         /// 本部队是否属于"会登记进城市 allAttackTroops 的作战部队"。
         /// 口径与组建时的登记条件保持一致(战斗兵种 && 非 Id==1),搬运名单时两边必须用同一把尺子。
+        ///
+        /// public 是给 <see cref="City.RebuildTroopLists"/> 用的：重建名单时必须与
+        /// 组建 / 换旗用同一把尺子，否则会出现"组建时进了、重建时漏掉"的分叉。
         /// </summary>
-        bool IsListedAsAttackTroop => LandTroopType != null && LandTroopType.isFight && LandTroopType.Id != 1;
+        public bool IsListedAsAttackTroop => LandTroopType != null && LandTroopType.isFight && LandTroopType.Id != 1;
 
         public void OnPersonChangeCity(Person person, City old_city, City new_city)
         {
@@ -4080,31 +4142,23 @@ namespace Sango.Core
         /// <returns>添加的武将</returns>
         public Person AddCaptive(Person person)
         {
-            // 规则：君主(IsGovernor，PersonStateType.Governor)不可被俘虏(收押/登用)，
-            // 只能被"释放"或"斩首"，故这里直接拒绝入库
-            if (person != null && person.IsGovernor)
+            if (person == null)
+                return null;
+
+            // 规则：势力尚存的君主不可被俘虏(收押/登用)，只能被"释放"或"斩首"。
+            // 用 IsActiveGovernor：势力已灭亡的君主下野后是普通在野武将，可被收押/招募。
+            if (person.IsActiveGovernor)
             {
-                Sango.Log.Error($"*{Name} -> 拒绝收押君主 {person.Name}（君主只能被释放或斩首）");
+                Sango.Log.Error($"*{Name} -> 拒绝收押君主 {person.Name}（势力尚存，只能被释放或斩首）");
                 return null;
             }
-            Sango.Log.Info($"*{Name} -> captiveList 添加 {person.Name} ");
-            person.OnWillBeCaptive();
-            person.ClearMission();
-            person.state = (int)PersonStateType.Prisoner;
-            captiveList.Add(person);
-            person.BelongForce?.BeCaptiveList.Remove(person);
-            person.BelongForce?.BeCaptiveList.Add(person);
-            person.mBelongTroop = this;
-            person.ChangeCurrentCity(this.CurrentCity);
-            if (person.BelongCity != null)
-            {
-                person.BelongCity.allPersons.Remove(person);
-                person.BelongCity.wildPersons.Remove(person);
-                person.BelongCity.freePersons.Remove(person);
-                person.BelongCity = null;
-            }
 
-            Sango.Log.Info($"@人才@[{person.Name}]被<{BelongForce.Name}>俘虏至{Name}");
+            // 【归属治理】部队收押统一走 PersonStateSystem.ToCaptive（对应 Open311 的 System::capture）。
+            // 原先这里与 City.AddCaptive 各写一套"改 state + 摘名册 + 置空/赋值部队字段"，
+            // 两处口径稍有差异就会产生"人在俘虏名单里却还是 Normal""旧城名册留着脏引用"。
+            PersonStateSystem.ToCaptive(person, CurrentCity, PersonChangeReason.Captured, this);
+
+            Sango.Log.Info($"@人才@[{person.Name}]被<{BelongForce?.Name}>俘虏至{Name}");
             return person;
         }
 

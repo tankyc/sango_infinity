@@ -92,9 +92,63 @@ namespace Sango.Core
         ArrowTower = 7,
 
         /// <summary>
-        /// 墙
+        /// 墙（土垒 / 石墙共用此 kind，靠 BuildingType.Id 区分）
         /// </summary>
         Wall = 9,
+
+        // ==================== 障碍 / 陷阱（对齐原版 FacilityId） ====================
+        //
+        // 原版这一段是 FacilityId_Fire(0x10) ~ FacilityId_PheasantTower(0x1e)，
+        // 本项目按"原版 facility_id + 1"的既有规律落到 17~30。
+        // 数据来源：Data/Export/Common/BuildingType_建筑类型.xlsx
+        //   障碍 = majorType 2（Obstacle）
+        //   陷阱 = majorType 3（Explosive，原版叫 Trap）
+        //
+        // 【归属规则】这两类建成后立刻中立（清 BelongForce / BelongCorps），
+        // 见 Building.OnCompleted 与 GovernanceValidator。
+        // 唯一例外是堤防（Levee）：原版 is_trap_type() 显式排除它，不参与中立化。
+
+        /// <summary>火种</summary>
+        Fire = 17,
+
+        /// <summary>火焰种</summary>
+        HellFire = 18,
+
+        /// <summary>火球</summary>
+        FireBall = 19,
+
+        /// <summary>火焰球</summary>
+        HellFireBall = 20,
+
+        /// <summary>火船</summary>
+        FireShip = 21,
+
+        /// <summary>业火球</summary>
+        InfernoBall = 22,
+
+        /// <summary>业火种</summary>
+        Inferno = 23,
+
+        /// <summary>落石</summary>
+        Rockfall = 24,
+
+        /// <summary>堤防（陷阱类型，但**不参与**建成即中立）</summary>
+        Levee = 25,
+
+        /// <summary>浅滩</summary>
+        Sandbar = 26,
+
+        /// <summary>山岳</summary>
+        Mountains = 27,
+
+        /// <summary>长城</summary>
+        GreatWall = 28,
+
+        /// <summary>遗迹</summary>
+        Relic = 29,
+
+        /// <summary>庙</summary>
+        Shrine = 30,
 
 
         /// <summary>

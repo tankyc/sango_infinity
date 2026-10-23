@@ -22,12 +22,10 @@ using Sango.Core; namespace Sango.UI
         public Button truceButton;
         public Button declareWarButton;
         public Button sendGiftButton;
-        public Button requestTechniqueButton;
-        public Button requestTroopsButton;
-        public Button tradeButton;
-        public Button marriageButton;
-        public Button allianceRequestButton;
-        public Button truceRequestButton;
+
+        // 请求技术 / 请求兵力 / 通商 / 和亲 / 请求结盟 / 请求停战 的按钮字段已删除：
+        // 原版没有这些命令（`s11_sys_person_order_diplomacy.cpp` 只有 7 个），
+        // 保留占位按钮只会让玩家点了没反应。prefab 上对应的对象也应一并移除。
         public Button cancelButton;
 
         private DiplomacySystem _diplomacySystem;
@@ -209,12 +207,8 @@ using Sango.Core; namespace Sango.UI
             truceButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.Truce, currentForce, _selectedForce);
             declareWarButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.DeclareWar, currentForce, _selectedForce);
             sendGiftButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.SendGift, currentForce, _selectedForce);
-            requestTechniqueButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.RequestTechnique, currentForce, _selectedForce);
-            requestTroopsButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.RequestTroops, currentForce, _selectedForce);
-            tradeButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.Trade, currentForce, _selectedForce);
-            marriageButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.Marriage, currentForce, _selectedForce);
-            allianceRequestButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.AllianceRequest, currentForce, _selectedForce);
-            truceRequestButton.interactable = diplomacyManager.CanPerformDiplomacyAction(DiplomacyActionType.TruceRequest, currentForce, _selectedForce);
+            // 请求技术 / 请求兵力 / 通商 / 和亲 / 请求结盟 / 请求停战：原版没有这些命令，
+            // 对应的按钮与处理方法已整体删除（占位 UI 只会让玩家点了没反应）。
         }
 
         /// <summary>
@@ -247,12 +241,6 @@ using Sango.Core; namespace Sango.UI
             truceButton.interactable = interactable;
             declareWarButton.interactable = interactable;
             sendGiftButton.interactable = interactable;
-            requestTechniqueButton.interactable = interactable;
-            requestTroopsButton.interactable = interactable;
-            tradeButton.interactable = interactable;
-            marriageButton.interactable = interactable;
-            allianceRequestButton.interactable = interactable;
-            truceRequestButton.interactable = interactable;
         }
 
         /// <summary>
@@ -307,88 +295,6 @@ using Sango.Core; namespace Sango.UI
             int giftAmount = Scenario.Cur.Variables.diplomacySendGiftAmount;
             bool success = _diplomacySystem.PerformDiplomacyAction(DiplomacyActionType.SendGift, _selectedForce, _selectedDiplomat, giftAmount);
             UpdateActionResult(success, "送礼");
-        }
-
-        /// <summary>
-        /// 执行请求技术
-        /// </summary>
-        public void OnRequestTechniqueButton()
-        {
-            if (_selectedForce == null || _selectedDiplomat == null)
-                return;
-
-            UpdateSuccessRateDisplay(DiplomacyActionType.RequestTechnique);
-            // 这里可以弹出一个技术选择框，让玩家选择要请求的技术
-            // 暂时使用默认值1
-            bool success = _diplomacySystem.PerformDiplomacyAction(DiplomacyActionType.RequestTechnique, _selectedForce, _selectedDiplomat, 1);
-            UpdateActionResult(success, "请求技术");
-        }
-
-        /// <summary>
-        /// 执行请求兵力
-        /// </summary>
-        public void OnRequestTroopsButton()
-        {
-            if (_selectedForce == null || _selectedDiplomat == null)
-                return;
-
-            UpdateSuccessRateDisplay(DiplomacyActionType.RequestTroops);
-            // 这里可以弹出一个输入框，让玩家输入请求的兵力数量
-            // 暂时使用默认值1000
-            bool success = _diplomacySystem.PerformDiplomacyAction(DiplomacyActionType.RequestTroops, _selectedForce, _selectedDiplomat, 1000);
-            UpdateActionResult(success, "请求兵力");
-        }
-
-        /// <summary>
-        /// 执行通商
-        /// </summary>
-        public void OnTradeButton()
-        {
-            if (_selectedForce == null || _selectedDiplomat == null)
-                return;
-
-            UpdateSuccessRateDisplay(DiplomacyActionType.Trade);
-            bool success = _diplomacySystem.PerformDiplomacyAction(DiplomacyActionType.Trade, _selectedForce, _selectedDiplomat);
-            UpdateActionResult(success, "通商");
-        }
-
-        /// <summary>
-        /// 执行和亲
-        /// </summary>
-        public void OnMarriageButton()
-        {
-            if (_selectedForce == null || _selectedDiplomat == null)
-                return;
-
-            UpdateSuccessRateDisplay(DiplomacyActionType.Marriage);
-            bool success = _diplomacySystem.PerformDiplomacyAction(DiplomacyActionType.Marriage, _selectedForce, _selectedDiplomat);
-            UpdateActionResult(success, "和亲");
-        }
-
-        /// <summary>
-        /// 执行请求结盟
-        /// </summary>
-        public void OnAllianceRequestButton()
-        {
-            if (_selectedForce == null || _selectedDiplomat == null)
-                return;
-
-            UpdateSuccessRateDisplay(DiplomacyActionType.AllianceRequest);
-            bool success = _diplomacySystem.PerformDiplomacyAction(DiplomacyActionType.AllianceRequest, _selectedForce, _selectedDiplomat);
-            UpdateActionResult(success, "请求结盟");
-        }
-
-        /// <summary>
-        /// 执行请求停战
-        /// </summary>
-        public void OnTruceRequestButton()
-        {
-            if (_selectedForce == null || _selectedDiplomat == null)
-                return;
-
-            UpdateSuccessRateDisplay(DiplomacyActionType.TruceRequest);
-            bool success = _diplomacySystem.PerformDiplomacyAction(DiplomacyActionType.TruceRequest, _selectedForce, _selectedDiplomat);
-            UpdateActionResult(success, "请求停战");
         }
 
         /// <summary>

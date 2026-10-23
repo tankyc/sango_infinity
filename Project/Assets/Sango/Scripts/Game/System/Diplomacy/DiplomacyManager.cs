@@ -165,6 +165,15 @@ namespace Sango.Core
                     return new DiplomacyActionDeclareWar(sender, receiver, diplomat);
                 case DiplomacyActionType.SendGift:
                     return new DiplomacyActionSendGift(sender, receiver, diplomat, resourceValue);
+                case DiplomacyActionType.Annex:
+                    // 劝降（原版 Annex / 0x13）
+                    return new DiplomacyActionAnnex(sender, receiver, diplomat, resourceValue);
+                case DiplomacyActionType.Exchange:
+                    // 俘虏交换（原版 Exchange / 0x14）
+                    return new DiplomacyActionExchange(sender, receiver, diplomat, resourceValue);
+                case DiplomacyActionType.Reinforce:
+                    // 援军请求（原版 Reinforce / 0x15）
+                    return new DiplomacyActionReinforce(sender, receiver, diplomat, resourceValue);
                 // 其他外交行为类型可以在这里添加
                 default:
                     return null;
@@ -214,20 +223,8 @@ namespace Sango.Core
                     return "宣战";
                 case DiplomacyActionType.SendGift:
                     return "送礼";
-                case DiplomacyActionType.RequestTechnique:
-                    return "请求技术";
-                case DiplomacyActionType.RequestTroops:
-                    return "请求兵力";
-                case DiplomacyActionType.Trade:
-                    return "通商";
-                case DiplomacyActionType.Marriage:
-                    return "和亲";
-                case DiplomacyActionType.AllianceRequest:
-                    return "请求结盟";
-                case DiplomacyActionType.TruceRequest:
-                    return "请求停战";
-                case DiplomacyActionType.Ransom:
-                    return "赎回俘虏";
+                // 请求技术 / 请求兵力 / 通商 / 和亲 / 请求结盟 / 请求停战 / 赎回俘虏
+                // 对应的枚举项已删除（原版没有这些命令），这里不再保留分支。
                 default:
                     return "未知行动";
             }
@@ -452,11 +449,6 @@ namespace Sango.Core
                 case DiplomacyActionType.DeclareWar:
                     // 宣战看重统率和武力
                     score = person.Command + person.Strength;
-                    break;
-                    
-                case DiplomacyActionType.RequestTechnique:
-                    // 请求技术看重智力
-                    score = person.Intelligence * 2;
                     break;
                     
                 default:

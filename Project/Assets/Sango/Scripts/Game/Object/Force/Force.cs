@@ -63,13 +63,37 @@ namespace Sango.Core
         {
             get
             {
-                return isAlive && mGovernor != null && mGovernor.BelongCity != null;
+                // 【与原版对齐】Open311 的 Force::is_alive() 只判"是否还有君主"（kunshu_ >= 0），
+                // 与城池无关。原实现额外要求 mGovernor.BelongCity != null，
+                // 会把以下三种正常状态误判成"势力已灭亡"：
+                //   · 君主正在城与城之间移动（在途时户口/所在地可能短暂为空）；
+                //   · 君主随军出征、主城刚失陷但势力还有其它城；
+                //   · 君主刚死亡、继位者尚未接管的同一帧。
+                // 一旦误判，该势力会从 UI 列表与 AI 循环里消失，城池却仍挂着它的军团。
+                // 真正的灭亡由 City.OnFall 在"最后一座城陷落"时显式置 IsAlive = false。
+                // 这里额外要求君主本人存活，避免"君主已死但 flag 还没翻"的窗口期。
+                return isAlive && mGovernor != null && mGovernor.IsAlive && !mGovernor.IsDead;
             }
             set
             {
                 isAlive = value;
             }
         }
+
+        /// <summary>
+        /// 势力是否还有首都（君主所在地）。
+        ///
+        /// 与 <see cref="IsAlive"/> 解耦：势力可以暂时没有首都
+        /// （君主在途、随军出征、刚被攻陷主城）但依然存活。
+        /// 需要"势力是否还有立足点"的判断请用这个，不要用 IsAlive。
+        /// </summary>
+        public bool HasCapital => mGovernor != null && mGovernor.BelongCity != null;
+
+        /// <summary>
+        /// 势力是否还有据点（对应 Open311 的 force_is_not_empty 的城池部分）。
+        /// 与 IsAlive 解耦：原版靠它 + "有武将"共同判定势力是否该灭亡。
+        /// </summary>
+        public bool HasCity => CityCount > 0 || CityBaseCount > 0;
 
         /// <summary>
         /// 获取势力的名称
@@ -405,6 +429,79 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty]
         public Dictionary<int, int> DiplomacyImmunityTime = new Dictionary<int, int>();
+
+        // ================= 原版外交计时器（对齐 Open311 s11_scen.h:882-900）=================
+        //
+        // 原版三套计时器都以「周」为单位并逐周递减（s11_game_week.cpp:259-319）；
+        // 本项目一个回合 = 一旬，这里统一按「回合」递减，语义等价（换算只影响显示文案）。
+
+        /// <summary>
+        /// 我方请求援军的对象势力 Id（-1 = 无请求）。对应 Open311 的 request_force_。
+        /// 只有「援军请求」成功时写入，到期或被撤回时清回 -1。
+        /// </summary>
+        [JsonProperty] public int requestForceId = -1;
+
+        /// <summary>
+        /// 援军请求的剩余回合数。归零时要撤回当初为此派出的部队。对应 request_timer_。
+        /// </summary>
+        [JsonProperty] public int requestTimer = 0;
+
+        /// <summary>
+        /// 外交禁令剩余回合数：我方（玩家）提案被 AI 拒绝后进入禁谈期，期间 AI 不再受理我方提案。
+        /// 对应 Open311 的 diplomacy_ban_timer_（失败分支里的 force_set_diplomacy_ban_timer(9)）。
+        /// </summary>
+        [JsonProperty] public int diplomacyBanTimer = 0;
+
+        /// <summary>
+        /// 对指定势力的友好度（0~100，50 = 中立）。对齐 Open311 的 Force::get_like。
+        ///
+        /// 【为什么做换算而不是新增字段】本项目的关系值存在 Scenario.RelationMap
+        /// （-5000~5000，且 Scenario.AddRelation 是**双向写入**，本身已经对称），
+        /// 与 Open311 的 like（0~100、同样对称）只差一个尺度：
+        ///     relation = (like - 50) * 100
+        /// 保留原存储可以兼容老存档与现有 UI，同时让原版判定公式可以逐行照抄。
+        /// </summary>
+        /// <param name="other">目标势力</param>
+        /// <returns>0~100 的友好度，取不到场景时返回中立值 50</returns>
+        public int GetLike(Force other)
+        {
+            if (other == null || other == this) return 50;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null) return 50;
+
+            return 50 + scenario.GetRelation(this, other) / 100;
+        }
+
+        /// <summary>
+        /// 设置友好度（0~100），内部换算回 RelationMap。对应 Open311 的 Force::set_like。
+        /// </summary>
+        /// <param name="other">目标势力</param>
+        /// <param name="like">目标友好度，超出 0~100 会被截断</param>
+        public void SetLike(Force other, int like)
+        {
+            if (other == null || other == this) return;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null) return;
+
+            if (like < 0) like = 0;
+            else if (like > 100) like = 100;
+
+            int target = (like - 50) * 100;
+            scenario.AddRelation(this, other, target - scenario.GetRelation(this, other));
+        }
+
+        /// <summary>
+        /// 增减友好度（双向对称写入）。对应 Open311 的 force_add_like（s11_sys_scen_force.cpp:120-134）。
+        /// </summary>
+        /// <param name="other">目标势力</param>
+        /// <param name="delta">变化量，可为负</param>
+        public void AddLike(Force other, int delta)
+        {
+            if (other == null || other == this || delta == 0) return;
+            SetLike(other, GetLike(other) + delta);
+        }
 
         /// <summary>
         /// 被敌方城市计略（目前只有流言）命中的记录 (key: 施计方势力ID, value: 最近一次被施计的回合)。
@@ -828,21 +925,7 @@ namespace Sango.Core
             return false;
         }
 
-        /// <summary>
-        /// 判断是否与另一势力有贸易协议
-        /// </summary>
-        /// <param name="other">另一势力</param>
-        /// <returns>是否有贸易协议</returns>
-        public bool HasActiveTradeAgreement(Force other)
-        {
-            for (int i = 0; i < AllianceList.Count; ++i)
-            {
-                Alliance alliance = AllianceList[i];
-                if (alliance.Contains(other) && alliance.allianceType == AllianceType.Trade)
-                    return true;
-            }
-            return false;
-        }
+        // HasActiveTradeAgreement 已删除：原版没有通商命令，AllianceType.Trade 随之移除。
 
         /// <summary>
         /// 判断是否与另一势力有任何协议
@@ -1045,9 +1128,9 @@ namespace Sango.Core
         /// </summary>
         private void AIPrepare(Scenario scenario)
         {
-            // 添加外交AI
-            // 【暂时屏蔽】AI 势力之间的外交。如需恢复,取消下一行注释即可。
-            //AICommandList.Add(ForceAI.AIDiplomacy);
+            // 外交 AI：已按原版 7 命令重写（同盟 / 送礼 / 停战三项落地，见 ForceAI.AIDiplomacy）。
+            // 排在计略 AI 之前：先决定"要不要拉盟友/求和"，再决定是否用流言、二虎竞食。
+            AICommandList.Add(ForceAI.AIDiplomacy);
             // 城市计略AI: 排在被屏蔽的外交界之后, 只处理"流言记仇报复""二虎竞食后的破盟"这类与计略直接相关的决策,
             // 不接管结盟/停战/通商, 因此不会把上面屏蔽掉的整套外交AI顺带放出来
             AICommandList.Add(CityStrategyAI.AICityStrategy);
@@ -1076,6 +1159,27 @@ namespace Sango.Core
         /// <returns>是否成功执行</returns>
         public override bool OnForceTurnStart(Scenario scenario)
         {
+            // 【外交计时器】每回合递减（对齐 Open311 的 s11_game_week.cpp:287-319）。
+            //
+            // 这三个字段都是"剩余回合数"，**只写不减会永久生效**：
+            //   · diplomacyBanTimer 不归零 → AIDiplomacy 第一行就 return，该势力永远不再外交；
+            //   · requestTimer 不归零 → 永远无法再次请求援军。
+            // 早期实现只写了递增 / 赋值，没有递减点，等于给自己埋了个静默死锁。
+            if (diplomacyBanTimer > 0)
+                diplomacyBanTimer--;
+
+            if (requestTimer > 0)
+            {
+                requestTimer--;
+                if (requestTimer <= 0)
+                {
+                    // 请求到期：清掉对象（原版同时会撤回为此派出的援军部队，
+                    // 本项目尚未真正派兵，因此这里只清状态）
+                    requestForceId = -1;
+                    Sango.Log.Info($"*[外交]{Name} 的援军请求已到期");
+                }
+            }
+
             // 控制权移交在这里生效（本方法下面就是 AI 状态的整体复位，是唯一的干净边界）。
             // 放在最前面：后面的建筑 / 人物 / 军团回合结算与 GameEvent.OnForceTurnStart 都要看到新归属。
             // pending 为 -1（绝大多数回合）时这里什么都不做，不影响任何原有行为。
@@ -1594,8 +1698,10 @@ namespace Sango.Core
                 GameEvent.OnForcePersonLoyaltyChange?.Invoke(this, person, shouldLoseLoyalty);
                 if (!shouldLoseLoyalty.Value) return;
 
-                person.loyalty -= v;
-                Sango.Log.Info($"势力：{Name}, 武将：{person.Name}, 忠诚度下降: {v}, 现有忠诚度:{person.loyalty}");
+                // 走 AddLoyalty 而不是裸 `-=`：0 忠诚的人被连续扣忠会变成负数，
+                // 而显示层只兜上限不兜下限，脏数据会静默留存（见 Person.AddLoyalty 注释）。
+                int newLoyalty = person.AddLoyalty(-v);
+                Sango.Log.Info($"势力：{Name}, 武将：{person.Name}, 忠诚度下降: {v}, 现有忠诚度:{newLoyalty}");
             });
         }
 
@@ -1867,7 +1973,7 @@ namespace Sango.Core
             corps.mComander = commander;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
-            ChangeCitiesCorps(corps, cities);
+            ChangeCitiesCorps(corps, cities, this);
             GameEvent.OnCorpsCreate?.Invoke(corps, Scenario.Cur);
         }
 
@@ -1876,8 +1982,39 @@ namespace Sango.Core
             corps.BelongForce = this;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
+
+            // 【原版对齐】支军团继承主军团的方针与委任目标。
+            // Open311 create_district 在 number != 1 时会复制主军团的
+            // policy / policy_target 与 mid_objective（本项目对应 appoint / appoint_target）。
+            // 不继承的话新军团是"无方针"，AI 第一回合会按默认发展处理，
+            // 玩家刚设好的"攻略某势力"意图当场丢失。
+            Corps mainCorps = CapitalCorps;
+            if (mainCorps != null && mainCorps != corps)
+            {
+                corps.policy = mainCorps.policy;
+                corps.policy_target = mainCorps.policy_target;
+                corps.appoint = mainCorps.appoint;
+                corps.appoint_target = mainCorps.appoint_target;
+            }
+
+            // 【原版对齐】都督所在城必须属于本军团。
+            // Open311 create_district 里有一段：
+            //     Building* city_building = city->get_building();
+            //     if (not std::ranges::contains(building_list, city_building))
+            //         building_list.push_back(city_building);
+            // 即"玩家没勾选军团长所在城时自动补上"。
+            // 缺了它会出现"军团长不在自己军团里"的分裂：都督的 BelongCorps 还是旧军团，
+            // 而这个新军团的 mComander 指向他，两边互相矛盾。
+            if (corps.mComander != null && corps.mComander.BelongCity != null)
+            {
+                if (corps.inti_cities == null)
+                    corps.inti_cities = new List<City>();
+                if (!corps.inti_cities.Contains(corps.mComander.BelongCity))
+                    corps.inti_cities.Add(corps.mComander.BelongCity);
+            }
+
             corps.mComander.state = (int)PersonStateType.Commander;
-            ChangeCitiesCorps(corps, corps.inti_cities);
+            ChangeCitiesCorps(corps, corps.inti_cities, this);
 
             corps.inti_cities = null;
             corps.mComander.BelongCity.UpdateNewLeader();
@@ -1897,7 +2034,7 @@ namespace Sango.Core
         /// </summary>
         /// <param name="corps">目标军团</param>
         /// <param name="cities">要划入该军团的都市列表，可为空</param>
-        static void ChangeCitiesCorps(Corps corps, List<City> cities)
+        static void ChangeCitiesCorps(Corps corps, List<City> cities, Force force)
         {
             if (corps == null || cities == null)
                 return;
@@ -1912,20 +2049,421 @@ namespace Sango.Core
                 city.UpdateCorps();
             }
 
-            // 港关随所属都市一起改旗：都市划入新军团后，其下属港 / 关若仍留在旧军团，
-            // 港关内的驻守武将与港关自身的归属就会和都市分裂
-            // （典型表现：之后把守将调回都市，AddPerson 立刻报"军团不一致"）。
-            // 【注意】这一段以前只在 CreateCorps(Corps) 里写过，CreateCorps(int,...) 那个重载完全漏了，
-            // 现在两个入口共用本方法，口径不会再分裂。
+            // 【原版对齐】把"选中都市的附庸港关"一并带走，但排除君主驻守的据点。
+            //
+            // 证据 1（新建）Open311 exec_district_new_command：
+            //     for (i = 0; i < KyotenId_ExMax; i++) {
+            //         Building* b = get_building(get_kyoten_building_id(i));
+            //         if (!is_alive(b) || b->get_force_id() != force_id
+            //             || kunshu->get_service_id() == i            // ← 排除君主驻地
+            //             || center->get_building_id() == i)          // ← 排除都督城
+            //             continue;
+            //         District* d = get_district(b->get_district_id());
+            //         if (is_alive(d) && d->get_number() != 1) continue;  // ← 限第一军团
+            //         if (city_list[b->get_area_city_id()])              // ← 港关返回所属都市 id
+            //             building_list.push_back(b);
+            //     }
+            //
+            // 证据 2（重编）exec_district_reform_command 用同样的
+            //   city_district_id[building->get_area_city_id()] 决定每个据点去向，
+            //   同样以 kunshu->get_service_id() == i 排除君主驻地。
+            //
+            // 所以"主公在港关"不是靠"完全不带港关"来解决，而是靠
+            // "跳过君主驻守的那一个"—— 其余港关照常跟随所属都市改编。
+            int governorServiceId = 0;
+            Person governor = force != null ? force.mGovernor : null;
+            if (governor != null && governor.BelongCity != null)
+                governorServiceId = governor.BelongCity.Id;
+
             Scenario.Cur.citySet.ForEach(x =>
             {
-                if (x != null && x.IsAlive && !x.IsCity() && x.BelongForce == corps.BelongForce
-                    && x.BelongCity != null && cities.Contains(x.BelongCity))
+                if (x == null || !x.IsAlive)
+                    return;
+                // 都市已在上面处理过，这里只看港关
+                if (x.IsCity())
+                    return;
+                if (x.BelongForce != corps.BelongForce)
+                    return;
+                if (x.BelongCity == null || !cities.Contains(x.BelongCity))
+                    return;
+
+                // ① 君主驻守的据点不参与改编（原版 kunshu->get_service_id() == i）
+                if (governorServiceId > 0 && x.Id == governorServiceId)
                 {
-                    x.ChangeCorps(corps);
-                    x.UpdateCorps();
+                    Sango.Log.Info($"*[军团]{x.Name} 由君主驻守，不参与本次军团改编");
+                    return;
                 }
+
+                // ② 新建时只带走当前属第一军团的港关
+                //    （原版 district->get_number() != 1 则跳过；重编入口自行放开这个限制）
+                if (x.BelongCorps != null && !x.BelongCorps.IsCaptainCorps)
+                    return;
+
+                x.ChangeCorps(corps);
+                x.UpdateCorps();
             });
+        }
+
+        /// <summary>
+        /// 选择继任君主（对应 Open311 的 System::select_successor 的 AI 分支）。
+        ///
+        /// 原版的完整规则是：亲缘关系优先 → 官职 → Id，玩家势力还会弹窗让玩家挑。
+        /// 这里简化成"血缘 &gt; 官职等级 &gt; 统率 &gt; Id"，不弹窗（玩家势力也自动选）。
+        ///
+        /// 【为什么必须有这一步】没有它，君主一死 mGovernor 就悬空，
+        /// 而 Force.IsAlive 要求君主存活 → 势力从 UI 与 AI 循环里凭空消失，
+        /// 城、军团、武将却都还在，形成无法自愈的悬空势力。
+        /// </summary>
+        /// <param name="oldGovernor">刚死亡的君主</param>
+        /// <returns>继任者；无人可继时返回 null（应由调用方走 Ruin）</returns>
+        public Person SelectSuccessor(Person oldGovernor)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.personSet == null)
+                return null;
+
+            Person best = null;
+            long bestScore = long.MinValue;
+
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.IsDead)
+                    continue;
+                if (person == oldGovernor)
+                    continue;
+                if (person.BelongForce != this)
+                    continue;
+
+                // 原版候选身份：{Kunshu, Totoku, Taishu, Ippan}
+                PersonStateType st = (PersonStateType)person.state;
+                if (st != PersonStateType.Governor
+                    && st != PersonStateType.Commander
+                    && st != PersonStateType.Leader
+                    && st != PersonStateType.Normal)
+                    continue;
+
+                long score = 0;
+                if (IsRelative(person, oldGovernor))
+                    score += 1000000L;
+                score += (long)(person.Official != null ? person.Official.level : 0) * 10000L;
+                score += person.Command;
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = person;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>
+        /// 君主继承（对应 Open311 的 System::force_koukei）。
+        ///
+        /// 顺序照搬原版：
+        ///   ① 旧君主降为一般/太守（未死时；已死则跳过）
+        ///   ② 新君主升为君主
+        ///   ③ 解任新君主的军师身份、清官职
+        ///   ④ 都城迁到新君主所在城
+        ///   ⑤ 旧第一军团并入新君主所在军团
+        ///   ⑥ 新君主所在城重选太守
+        /// </summary>
+        /// <param name="successor">继任者</param>
+        /// <param name="oldCapitalCorps">
+        /// 旧君主生前所属军团。必须由调用方传入：君主死亡路径里
+        /// <see cref="Person.Dead"/> 已把 <c>BelongCorps</c> 置空，
+        /// 这里再读 <c>oldGovernor.BelongCorps</c> 只会拿到 null，第 ⑤ 步就静默失效。
+        /// </param>
+        /// <returns>是否继承成功</returns>
+        public bool Succeed(Person successor, Corps oldCapitalCorps = null)
+        {
+            // 注意用字段 isAlive 而不是属性 IsAlive：
+            // 此刻 mGovernor 还指向已死的前任，属性会返回 false，导致继承永远走不进来。
+            if (!isAlive || successor == null || successor.IsDead)
+                return false;
+            if (successor.BelongForce != this)
+                return false;
+
+            Person oldGovernor = mGovernor;
+
+            // ① 旧君主降级（已死的不动，Dead() 已把身份置为 Dead）
+            if (oldGovernor != null && oldGovernor != successor && !oldGovernor.IsDead)
+                PersonStateSystem.SetState(oldGovernor, PersonStateType.Normal, PersonChangeReason.ForceChanged);
+
+            // ② 新君主上位
+            Governor = successor.Id;
+            mGovernor = successor;
+            PersonStateSystem.SetState(successor, PersonStateType.Governor, PersonChangeReason.ForceChanged);
+
+            // ③ 解任军师 + 清官职
+            if (mCounsellor == successor)
+            {
+                Counsellor = 0;
+                mCounsellor = null;
+            }
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null && scenario.CommonData != null && scenario.CommonData.Officials != null)
+                successor.UpgradeOfficial(scenario.CommonData.Officials.Get(0));
+
+            // ④ 都城自动跟随
+            //    CapitalCity 是派生属性（=> mGovernor?.BelongCity），
+            //    ② 已经把 mGovernor 换成 successor，这里不需要也无法赋值。
+
+            // ⑤ 军团收编：**保留第 1 军团**，把继任者原所在军团并入它。
+            //
+            // Open311 force_koukei：
+            //     District* old_district = get_district(successor->get_district_id());  // 继任者原军团
+            //     District* new_district = get_district(self->get_district_id());       // 势力第 1 军团
+            //     district_dissolve(old_district, new_district);   // 第一参数被解散
+            //     district_set_totoku_id(new_district, successor_id);
+            // 即"继任者军团 → 第 1 军团"，方向不能反：
+            // 第 1 军团承载势力主城与君主直辖部队，跨级合并会让这些城临时失去主军团编号。
+            //
+            // 军团来源优先用调用方传入的 oldCapitalCorps：君主死亡路径里
+            // Dead() 早已把 oldGovernor.BelongCorps 置空，回读只会拿到 null。
+            Corps firstCorps = oldCapitalCorps;
+            if (firstCorps == null || !firstCorps.IsAlive)
+                firstCorps = FindCorpsByNumber(1);
+
+            Corps successorCorps = successor.BelongCorps;
+            if (firstCorps != null && successorCorps != null && firstCorps != successorCorps)
+            {
+                Sango.Log.Info($"*[继承]{successorCorps.Name} 并入 {firstCorps.Name}");
+                MergeCorps(successorCorps, firstCorps);
+
+                // 合并后重新拿一次继任者的军团（MergeCorps 已把他改挂到 firstCorps）
+                successorCorps = successor.BelongCorps;
+            }
+
+            // 新君主坐镇第 1 军团。第 1 军团在 Sango 不设都督（IsCaptainCorps 直接跳过
+            // UpdateCommander），所以这里只需保证 mComander 不指向别人。
+            if (firstCorps != null && firstCorps.IsAlive)
+            {
+                firstCorps.mComander = null;
+                firstCorps.Comander = 0;
+            }
+
+            // ⑥ 新君主所在城重选太守（原版 building_change_taishu(service, successor) 的等价物）
+            successor.BelongCity?.NeedUpdateLeader();
+
+            Sango.Log.Info($"*[继承]{Name} 主公 {oldGovernor?.Name ?? "无"} -> {successor.Name}");
+            return true;
+        }
+
+        /// <summary>
+        /// 两名武将是否有血缘关系（父子/母子）。
+        /// </summary>
+        /// <param name="a">甲</param>
+        /// <param name="b">乙</param>
+        /// <returns>是否有血缘</returns>
+        private static bool IsRelative(Person a, Person b)
+        {
+            if (a == null || b == null)
+                return false;
+            if (a.Father == b || a.Mother == b)
+                return true;
+            if (b.Father == a || b.Mother == a)
+                return true;
+            return a.Brother == b || b.Brother == a;
+        }
+
+        /// <summary>
+        /// 势力是否还有任何存活武将（对应 Open311 的 force_is_not_empty 的武将部分）。
+        /// </summary>
+        /// <returns>是否还有存活武将</returns>
+        public bool HasAnyAlivePerson()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.personSet == null)
+                return false;
+
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.IsDead)
+                    continue;
+                if (person.BelongForce == this)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 取本势力的第一座城（用于灭亡时的演出上下文）。
+        /// </summary>
+        /// <returns>第一座城；没有时返回 null</returns>
+        public City FirstCity()
+        {
+            City first = null;
+            ForEachCity(c =>
+            {
+                if (first == null && c != null && c.IsAlive)
+                    first = c;
+            });
+            return first;
+        }
+
+        /// <summary>
+        /// 投降移交：把本势力全部据点并入胜方的第一军团
+        /// （对应 Open311 的 System::force_surrender_all_buildings）。
+        ///
+        /// 与 <see cref="Ruin"/> 的区别：
+        ///   · Ruin            = 彻底灭亡，城池已被打光，武将全部下野；
+        ///   · SurrenderAll    = 劝降合并，城池、武将、资源整体并入胜方。
+        ///
+        /// 原版投降分支的顺序是"先移交城池 → 再 person_change_force 把武将转给胜方
+        /// （君主先降为都督）→ 最后才标记灭亡"。这里只做第一步，
+        /// 因为武将转籍必须走 <see cref="PersonStateSystem.Recruit"/>（要维护
+        /// 势力俘虏索引、官职、忠诚、军团名册），由调用方按需逐个处理，
+        /// 硬塞进本方法会把两件事的失败半径绑在一起。
+        ///
+        /// 【为什么并入第一军团】原版 district_dissolve 的固定目标就是 1 号军团；
+        /// 本项目第一军团 = 君主所在军团（CapitalCorps），语义等价。
+        /// </summary>
+        /// <param name="winner">受降方</param>
+        /// <returns>移交的据点数；受降方没有第一军团时返回 -1</returns>
+        public int SurrenderAllBuildings(Force winner)
+        {
+            if (winner == null || winner == this || !IsAlive)
+                return 0;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null)
+                return 0;
+
+            Corps winnerCorps = winner.CapitalCorps;
+            if (winnerCorps == null)
+            {
+                Sango.Log.Error($"*[投降]{Name} 无法移交：{winner.Name} 没有第一军团");
+                return -1;
+            }
+
+            int moved = 0;
+            scenario.citySet.ForEach(x =>
+            {
+                if (x == null || !x.IsAlive || x.BelongForce != this)
+                    return;
+                CityStateSystem.SetCorps(x, winnerCorps);
+                moved++;
+            });
+
+            Sango.Log.Info($"*[投降]{Name} 的 {moved} 座据点移交给 {winner.Name}（{winnerCorps.Name}）");
+            return moved;
+        }
+
+        /// <summary>
+        /// 势力灭亡（对应 Open311 的 System::force_ruin，非投降分支）。
+        ///
+        /// 【为什么独立成方法】原先这段逻辑内联在 <see cref="City.OnFall"/> 的
+        /// "最后一城"分支里，与城池陷落、战斗结算、演出回调缠在一起：
+        ///   · 无法复用于"事件灭国""编辑器删除势力"等场景；
+        ///   · 任何一处漏掉（比如新增一种攻城来源）就会留下半个灭亡的势力。
+        ///
+        /// 【处理顺序照搬原版】
+        ///   ① 标记灭亡（先置位，后续遍历用 is_alive 过滤就不会再碰到它）
+        ///   ② 释放本势力关押的俘虏：只清归属、不销毁对象
+        ///   ③ 全势力武将下野（俘虏保留身份，只清归属）
+        ///   ④ 解散全部军团
+        ///   ⑤ 从剧本移除势力
+        ///   ⑥ 广播灭亡事件
+        ///   ⑦ 判定天下一统
+        ///
+        /// 注意：城池清空、据点改旗这些**不在这里做**，由调用方（城陷流程）负责 ——
+        /// 原版 force_ruin 里的 force_empty_all_kyotens 处理的是"投降时剩余的城"，
+        /// 本项目走到这里时已经是最后一座城陷落，城由 OnFall 自己收尾。
+        /// </summary>
+        /// <param name="by">导致灭亡的势力，可为 null（被火焰/事件灭亡）</param>
+        /// <param name="fallCity">陷落的最后一座城，用于事件上下文</param>
+        /// <param name="byObject">导致灭亡的具体对象（部队/火/事件），可为 null</param>
+        /// <returns>true = 达成天下一统，调用方应立即中止后续流程</returns>
+        public bool Ruin(Force by, City fallCity, SangoObject byObject)
+        {
+            Scenario scenario = Scenario.Cur;
+            // 用字段 isAlive 而不是属性 IsAlive：君主刚死亡、继承尚未执行时，
+            // 属性会因 mGovernor 指向死者而返回 false —— 那恰恰是需要走 Ruin 的时刻。
+            if (scenario == null || !isAlive)
+                return false;
+
+#if SANGO_DEBUG
+            // 【灭亡总览】把"谁灭了谁、最后丢的是哪座城"写清楚，
+            // 否则城陷日志之后只剩一句"XX 灭亡!!!"，回溯不出上下文
+            Sango.Log.Info($"*[灭亡]{Name} 势力灭亡（最后据点 {fallCity?.Name ?? "无"}" +
+                           $"，被 {(by?.Name ?? byObject?.Name ?? "无")} 攻灭）");
+#endif
+
+            // ① 标记灭亡
+            IsAlive = false;
+
+            // ② 本势力关押的俘虏：解除归属（原版只清 force/district，不销毁对象）
+            if (BeCaptiveList != null)
+            {
+                BeCaptiveList.ForEach(x =>
+                {
+                    if (x != null && x.BelongForce == this)
+                    {
+                        x.BelongForce = null;
+                        x.BelongCorps = null;
+                    }
+                });
+                BeCaptiveList.Clear();
+            }
+
+            // ③ 全势力武将下野
+            scenario.personSet.ForEach(x =>
+            {
+                if (x == null || x.BelongForce != this)
+                    return;
+
+                x.ClearMission();
+                // 俘虏不重复走 LeaveToWild（他们本来就没有户口）
+                if (x.IsValid && !x.IsPrisoner)
+                    x.LeaveToWild();
+                x.workingBuilding = null;
+                x.mBelongTroop = null;
+                x.BelongForce = null;
+                x.BelongCorps = null;
+            });
+
+            // ④ 解散全部军团
+            scenario.corpsSet.ForEach(x =>
+            {
+                if (x == null || x.BelongForce != this)
+                    return;
+                x.IsAlive = false;
+                scenario.Remove(x);
+            });
+
+            // ⑤ 从剧本移除势力
+            scenario.Remove(this);
+
+            // ⑥ 灭亡事件。委托签名是 (Force, City, Troop)，
+            //    而 byObject 可能不是部队（火焰 / 事件 / 归属巡检），必须安全转换。
+            GameEvent.OnForceFall?.Invoke(this, fallCity, byObject as Troop);
+
+            // ⑦ 天下一统判定：除灭亡方外，所有城都归同一个势力
+            if (by == null)
+                return false;
+
+            bool allInOne = true;
+            scenario.citySet.ForEach(x =>
+            {
+                if (x != null && x.IsCity() && x.BelongForce != null && x.BelongForce != by)
+                    allInOne = false;
+            });
+
+            if (!allInOne)
+                return false;
+
+            Sango.Log.Info($"{scenario.GetDateStr()} --> {by.Name} 统一!!!!!!!!!!!!!!");
+            scenario.OnGamePause();
+
+            // 终局演出放在 pause 之后：先停主循环，避免 AI 在后台把回合跑完
+            GameEvent.OnWorldUnified?.Invoke(by);
+            return true;
         }
 
         public void ResetCorps(Corps corps, Corps copy)
@@ -1940,6 +2478,85 @@ namespace Sango.Core
         /// <param name="number"></param>
         /// <param name="commander"></param>
         /// <param name="cities"></param>
+        /// <summary>
+        /// 把 <paramref name="from"/> 军团的全部据点 / 武将 / 建筑划给 <paramref name="to"/>，
+        /// 然后解散 <paramref name="from"/>。
+        ///
+        /// 对应 Open311 的 `district_dissolve(self, merge_dest)` 的合并分支：
+        /// 第一参数是被解散方，第二参数是接收方。原版 `force_koukei` 的调用是
+        /// `district_dissolve(继任者原军团, 第1军团)` —— **保留第 1 军团**，
+        /// 把继任者所在的军团并进去。
+        ///
+        /// 与 <see cref="DeleteCorps(Corps)"/> 的区别：DeleteCorps 硬编码接收方为
+        /// `CapitalCorps`（= 君主所在军团），君主继承时会指向"即将被解散"的那个军团，
+        /// 形成自我合并；这里允许显式指定接收方。
+        /// </summary>
+        /// <param name="from">被解散的军团</param>
+        /// <param name="to">接收方军团</param>
+        public void MergeCorps(Corps from, Corps to)
+        {
+            if (from == null || to == null || from == to || !from.IsAlive)
+                return;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null)
+                return;
+
+            // 旧军团长卸任（原版 district_dissolve 开头：能当太守则太守，否则一般）。
+            // SetStateNormal 对君主有保护，不会把君主降级。
+            if (from.mComander != null)
+            {
+                if (from.mComander.IsAlive && !from.mComander.IsDead)
+                    from.mComander.SetStateNormal();
+                from.mComander = null;
+                from.Comander = 0;
+            }
+
+            scenario.citySet.ForEach(x =>
+            {
+                if (x != null && x.IsAlive && x.BelongCorps == from)
+                    CityStateSystem.SetCorps(x, to);
+            });
+
+            scenario.personSet.ForEach(x =>
+            {
+                if (x != null && x.IsAlive && x.BelongCorps == from)
+                    x.ChangeCorps(to);
+            });
+
+            scenario.buildingSet.ForEach(x =>
+            {
+                if (x != null && x.IsAlive && x.BelongCorps == from)
+                {
+                    x.BelongCorps = to;
+                    x.BelongForce = to.BelongForce;
+                }
+            });
+
+            from.IsAlive = false;
+            scenario.Remove(from);
+        }
+
+        /// <summary>
+        /// 按编号找本势力的军团。
+        /// </summary>
+        /// <param name="number">军团编号</param>
+        /// <returns>军团；不存在时返回 null</returns>
+        public Corps FindCorpsByNumber(int number)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.corpsSet == null)
+                return null;
+
+            Corps result = null;
+            scenario.corpsSet.ForEach(x =>
+            {
+                if (result == null && x != null && x.IsAlive && x.BelongForce == this && x.number == number)
+                    result = x;
+            });
+            return result;
+        }
+
         public void DeleteCorps(int number)
         {
             if (number == 1) return;
@@ -1968,12 +2585,23 @@ namespace Sango.Core
                 return;
 
             Corps governorCorps = CapitalCorps;
+            if (governorCorps == null)
+            {
+                Sango.Log.Error($"*军团解散失败：势力{Name}找不到可接收的第一军团");
+                return;
+            }
+
             Scenario scenario = Scenario.Cur;
+
+            // 【归属治理】军团解散 = 把本军团名下的据点/武将/建筑整体划归第一军团。
+            // 原先三处都是裸赋 BelongCorps，不同步 BelongForce，也不清城内的
+            // 名册与太守状态；一旦目标军团势力与当前记录不一致，
+            // 就会留下"城属A团、人属B团"的分裂（正是本项目最常报的归属错误）。
             scenario.citySet.ForEach(x =>
             {
                 if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
-                    x.BelongCorps = governorCorps;
+                    CityStateSystem.SetCorps(x, governorCorps);
                 }
             });
 
@@ -1981,7 +2609,11 @@ namespace Sango.Core
             {
                 if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
-                    x.BelongCorps = governorCorps;
+                    // 【原版对齐】军团解散只做"成员改挂"，不清官职、不解军师、不降级。
+                    // Open311 district_dissolve 对成员只调 person_set_district_id 一步；
+                    // 清官职（person_set_rank_id(RankId_None)）属于 person_change_district
+                    // 的换势力语义，用在这里会让整团武将无端丢掉官职。
+                    x.ChangeCorps(governorCorps);
                 }
             });
 
@@ -1990,10 +2622,12 @@ namespace Sango.Core
                 if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
                     x.BelongCorps = governorCorps;
+                    x.BelongForce = governorCorps.BelongForce;
                 }
             });
+
             if (corps.mComander != null && corps.mComander.state == (int)PersonStateType.Commander)
-                corps.mComander.state = (int)PersonStateType.Normal;
+                PersonStateSystem.SetState(corps.mComander, PersonStateType.Normal, PersonChangeReason.DistrictChanged);
 
             Scenario.Cur.corpsSet.Remove(corps);
             GameEvent.OnCorpsDelete?.Invoke(corps, Scenario.Cur);

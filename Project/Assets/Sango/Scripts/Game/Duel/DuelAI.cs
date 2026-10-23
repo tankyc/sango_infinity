@@ -389,6 +389,12 @@ namespace Sango.Core.Duel
         /// <summary>走决策表判定本回合要不要尝试发动必杀</summary>
         public bool AiCalcSpecialTry(AI self)
         {
+            // 【防御】AI 初始化失败时 chara 会保持 -1（team/opponentTeam 越界提前 return，
+            // 或 GetCurrentChara 返回 -1）。此时没有任何可发动必杀的武将，直接判定为 false，
+            // 不能带着 -1 进 CanSpecial → TeamIsActive → self.chara[-1] 抛越界。
+            if (self == null || !Utils.InRange(self.chara, 0, MaxTeamCharaCount - 1))
+                return false;
+
             // 没有可用的必杀
             if (!self.parent.CanSpecial(self.team, self.chara))
                 return false;

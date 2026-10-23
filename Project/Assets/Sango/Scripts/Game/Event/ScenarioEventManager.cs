@@ -109,6 +109,16 @@ namespace Sango.Core.Event
         /// <summary>暂缓上限。旧演出迟迟不结束时不无限堆积，超了明确报错并丢弃。</summary>
         const int MaxDeferredTriggers = 32;
 
+        /// <summary>
+        /// 本回合新增的暂缓项数。
+        /// 只计数不逐条打日志：TroopLeaveCell 按格触发，AI 大军行军一回合几十上百次，
+        /// 逐条输出会把控制台刷爆（见 <see cref="ReportDeferredStats"/>）。
+        /// </summary>
+        int deferredAddCount;
+
+        /// <summary>本回合因队列满被丢弃的触发数，与 <see cref="deferredAddCount"/> 一起在回合开始时汇总</summary>
+        int deferredDropCount;
+
         /// <summary>暂缓队列（下一回合开始时重试）</summary>
         readonly List<DeferredTrigger> deferredTriggers = new List<DeferredTrigger>();
 
@@ -404,6 +414,10 @@ namespace Sango.Core.Event
             deferBuffer.Clear();
             drainingDeferred = false;
             currentJobResult = int.MinValue;
+
+            // 换局 / 读档时统计也要归零，否则上一局的丢弃数会算到新局头上
+            deferredAddCount = 0;
+            deferredDropCount = 0;
         }
 
         void OnScenarioStart(Scenario scenario)
@@ -450,6 +464,9 @@ namespace Sango.Core.Event
 
         void OnTurnStart(Scenario scenario)
         {
+            // 先把上一回合的暂缓 / 丢弃情况汇总成一条日志（每回合最多一条），再复位计数。
+            // 必须排在 DrainDeferred 之前：那份统计属于"上一回合"，本轮重试的结果要算到下一回合。
+            ReportDeferredStats();
             ResetTurnCounters();
 
             // 总开关关掉时：不推进定时队列、不重试暂缓项。
@@ -1026,12 +1043,15 @@ namespace Sango.Core.Event
         {
             if (deferredTriggers.Count >= MaxDeferredTriggers)
             {
-                Log.Warning($"剧本事件：暂缓队列已满（{MaxDeferredTriggers}），本次 {kind} 触发被丢弃。若频繁出现，说明旧体系的演出长时间不结束");
+                // 只计数，不在这里打日志：TroopLeaveCell 每移一格就触发一次，
+                // 队列一满就会逐条 Warning 刷屏，真正的线索反而被淹没。
+                // 汇总出口见 ReportDeferredStats（每回合最多一条）。
+                deferredDropCount++;
                 return;
             }
 
             deferredTriggers.Add(new DeferredTrigger { kind = kind, entities = entities, cell = cell, jobResult = jobResult });
-            Log.Info($"剧本事件：{kind} 触发让路给正在进行的演出，已暂缓（当前暂缓 {deferredTriggers.Count} 项）");
+            deferredAddCount++;
         }
 
         /// <summary>
@@ -1076,6 +1096,34 @@ namespace Sango.Core.Event
                 currentJobResult = int.MinValue;
                 drainingDeferred = false;
             }
+        }
+
+        /// <summary>
+        /// 汇总上一回合的暂缓 / 丢弃情况（**每回合最多一条日志**）。
+        ///
+        /// 为什么汇总而不是逐条：
+        ///   · TroopLeaveCell / TroopEnterCell 是**按格**触发的，AI 大军行军一回合几十上百次；
+        ///   · 旧体系的移动演出又是"路径每格排一个事件"，一旦演出长时间不结束
+        ///     （<see cref="IsBlockedByOtherPresentation"/> 持续为 true），暂缓队列会瞬间填满；
+        ///   · 逐条 Warning 会把控制台刷爆，"为什么被挡"这条关键信息反而看不见。
+        /// 因此 Defer 只累加计数，由本方法在回合开始时统一输出一次。
+        /// </summary>
+        void ReportDeferredStats()
+        {
+            if (deferredDropCount > 0)
+            {
+                Log.Warning($"剧本事件：上回合暂缓队列已满（上限 {MaxDeferredTriggers} 项），" +
+                            $"新增 {deferredAddCount} 项、丢弃 {deferredDropCount} 次触发，" +
+                            $"当前队列 {deferredTriggers.Count} 项。" +
+                            "持续出现说明旧体系的演出长时间不结束（移动演出按格排队）。");
+            }
+            else if (deferredAddCount > 0)
+            {
+                Log.Info($"剧本事件：上回合暂缓 {deferredAddCount} 项，当前队列 {deferredTriggers.Count} 项");
+            }
+
+            deferredAddCount = 0;
+            deferredDropCount = 0;
         }
 
         /// <summary>

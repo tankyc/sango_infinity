@@ -4,14 +4,8 @@ using System.Collections.Generic;
 namespace Sango.Core.Player
 {
     [GameSystem]
-    public class CityDiplomacyAlliance : CityBaseSystem
+    public class CityDiplomacyAlliance : CityDiplomacyBase
     {
-        public List<Force> targetForces = new List<Force>();
-        public List<ObjectSortTitle> customBelongForceTitleList;
-        public int gold;
-
-
-
         public CityDiplomacyAlliance()
         {
             customTitleName = "结盟";
@@ -38,6 +32,7 @@ namespace Sango.Core.Player
 
         public override void OnEnter()
         {
+            Activate();     // 复用 window_city_diplomacy_alliance 时，UI 靠它拿到当前命令
             gold = 0;
             targetForces.Clear();
             personList.Clear();
@@ -54,6 +49,7 @@ namespace Sango.Core.Player
 
         public override void OnDestroy()
         {
+            Deactivate();
             Window.Instance.Close(windowName);
         }
 

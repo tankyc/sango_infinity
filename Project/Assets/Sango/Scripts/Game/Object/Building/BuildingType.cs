@@ -103,9 +103,26 @@ namespace Sango.Core
                 return IsIntrior;
             else
             {
-                if (!cell.CanBuild)
+                // 【陷阱的地形约束】火船只能建在水面，落石只能建在陆地。
+                // 若不拦，玩家花钱建出来的火船在岸上永远不会引爆
+                //（BuildingTrapEffect 会判"不在水面"直接返回），等于造了个废设施。
+                bool isWaterTrap = IsExplosive && kind == (int)BuildingKindType.FireShip;
+
+                if (isWaterTrap)
                 {
-                    return false;
+                    // 水域的 terrain.canBuild 通常为 false（不允许常规军事设施），
+                    // 因此火船跳过该检查，只要求"水面 + 空格"
+                    if (!cell.IsWater || cell.building != null || cell.troop != null)
+                        return false;
+                }
+                else
+                {
+                    if (!cell.CanBuild)
+                        return false;
+
+                    // 落石需要陆地
+                    if (IsExplosive && kind == (int)BuildingKindType.Rockfall && cell.IsWater)
+                        return false;
                 }
 
                 if (IsObstacle)

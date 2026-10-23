@@ -109,7 +109,12 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 设置军团编号 - 范围为1-8
+        /// 设置军团编号。
+        ///
+        /// 【上限口径】本项目把军团编号上限从原版的 1~8 扩展到 1~50，
+        /// 唯一权威是 <see cref="Corps.numberTxt"/> 的长度（索引 0 为"零"占位）。
+        /// 这里不能再硬编码 8：新建军团链路（CorpsSystem / ScenarioEdit）已按
+        /// numberTxt.Length 取号，两边口径不一致会让"能建到 50 但编辑只能改到 8"。
         /// </summary>
         /// <param name="number">新的军团编号</param>
         public void SetNumber(int number)
@@ -118,9 +123,11 @@ namespace Sango.Core
             {
                 return;
             }
-            if (number < 1 || number > 8)
+
+            int maxNumber = Corps.numberTxt.Length - 1;
+            if (number < 1 || number > maxNumber)
             {
-                Log.Warning("军团编号范围: 1-8");
+                Log.Warning($"军团编号范围: 1-{maxNumber}");
                 return;
             }
             Target.number = number;

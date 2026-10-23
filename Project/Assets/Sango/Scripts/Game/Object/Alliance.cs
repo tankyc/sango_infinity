@@ -16,10 +16,9 @@ namespace Sango.Core
         /// 停战协议
         /// </summary>
         Truce = 2,
-        /// <summary>
-        /// 通商协议
-        /// </summary>
-        Trade = 3
+
+        // 通商协议（Trade = 3）已删除：原版没有通商命令，盟约只有"同盟"与"停战"两种。
+        // 数值 3 刻意保留空缺，避免老存档里已有的 allianceType 被重新解释。
     }
 
     [JsonObject(MemberSerialization.OptIn)]
@@ -72,16 +71,10 @@ namespace Sango.Core
                     stringBuilder.Append(" ");
 #endif
                     force.AllianceList.Remove(this);
-                    
-                    // 如果是通商协议，还原黄金收入
-                    if (allianceType == AllianceType.Trade)
-                    {
-                        force.ForEachCity(city => city.baseGainGold -= 50);
-                    }
                 }
 
 #if SANGO_DEBUG
-                string allianceTypeStr = allianceType == AllianceType.Alliance ? "同盟" : (allianceType == AllianceType.Truce ? "停战协议" : "通商协议");
+                string allianceTypeStr = allianceType == AllianceType.Alliance ? "同盟" : "停战协议";
                 Sango.Log.Info($"@外交@{stringBuilder.ToString()} 的{allianceTypeStr} {Id} 于{scenario.GetDateStr()} 结束!!");
 #endif
 

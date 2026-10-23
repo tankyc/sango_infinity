@@ -100,6 +100,42 @@ namespace Sango.Core.Debate
         }
 
         /// <summary>
+        /// **强制**进入外交舌战，不掷概率。
+        ///
+        /// 【为什么需要这个入口】原版 `try_alliance / try_ceasefire / try_annex / try_exchange /
+        /// try_reinforce` 返回三态，其中 `Debate` 表示"这次交涉被拖进舌战"，
+        /// 是**确定性**的一步，不是"失败之后再赌一次"。
+        /// 旧实现把所有 `Debate` 都折算成 50% 成功率，等于丢掉了舌战这条支线。
+        ///
+        /// 调用方（各 Action 的 `Perform`）在 `LastResult == Debate` 时调用本方法；
+        /// 返回 true 表示舌战已接管，调用方**必须直接 return**，不要落地失败结算 ——
+        /// 舌战结束后由 <see cref="DebateConsequence"/> 把发起行为改判为成功或保持失败。
+        /// </summary>
+        /// <param name="action">外交行为</param>
+        /// <returns>舌战是否接管</returns>
+        public static bool ForceDiplomacyDebate(DiplomacyActionBase action)
+        {
+            if (action == null) return false;
+            if (!IsDiplomacyTypeAllowed(action.ActionType)) return false;
+
+            Person diplomat = action.Diplomat;
+            Person rival = action.Receiver != null ? action.Receiver.mGovernor : null;
+            if (diplomat == null || rival == null) return false;
+            if (DebateManager.Instance != null && DebateManager.Instance.IsDebating) return false;
+
+            // 先登记改判，再开舌战：开局被否决（Request 返回 false）时撤掉登记
+            DebateConsequence.RegisterDiplomacy(diplomat, rival, action, 0);
+
+            bool started = DebateChallengeFlow.Request(
+                diplomat, rival, DebateChallengeFlow.Source.DiplomacyFail, false);
+
+            if (!started)
+                DebateConsequence.ClearPending();
+
+            return started;
+        }
+
+        /// <summary>
         /// 该外交类型是否允许触发舌战。
         /// 按需求排除：宣战（本就要打，不必辩）与送礼（不算交涉）不触发。
         /// </summary>

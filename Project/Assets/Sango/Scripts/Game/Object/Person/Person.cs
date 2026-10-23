@@ -236,6 +236,62 @@ namespace Sango.Core
         [JsonProperty] public int loyalty;
 
         /// <summary>
+        /// 武将种类（对应 Open311 的 person_type_t type_）。
+        ///
+        /// 与 <see cref="state"/> 正交：state 是"当前身份/生存状态"（会变），
+        /// 本字段是"数据来源分类"（运行期不变）。默认 -1 = 未分类，
+        /// 老存档读入后就是 -1，不会误判成历史武将。
+        /// </summary>
+        [JsonProperty] public int type = (int)PersonType.None;
+
+        /// <summary>
+        /// 异族类型（0 = 非异族；1~4 = 羌 / 山越 / 乌丸 / 南蛮，取值见 <see cref="BarbarianConfig.Tribe"/>）。
+        ///
+        /// 【固化时机】剧本加载 / 读档 / 编辑器加载都会走 <see cref="OnScenarioPrepare"/>，
+        /// 在那里由 <see cref="FixupBarbarianTribe"/> 按「Id + 名字」双重校验写入一次。
+        /// 之后运行期只读本字段（O(1)），不再每次都遍历配置表做字符串比较。
+        ///
+        /// 【随存档保存】字段参与序列化，所以老存档读入后也会在第一次加载时补写，
+        /// 后续进游戏不再重复查表。
+        ///
+        /// 【不覆盖已有值】固化只在字段为 0 时写入：编辑器 / Mod 手工把某人标成异族
+        /// （或把某人清成非异族）后，后续加载不会把它改回去。
+        /// </summary>
+        [JsonProperty] public int barbarianTribe = 0;
+
+        /// <summary>
+        /// 是否已被判定寿终（对应 Open311 的 PersonStatus_EstimatedDeath）。
+        ///
+        /// 原版寿终是两段式：先按月抽样"标记"，下一次结算才真正死亡。
+        /// 这样做的目的是让死亡分批发生（不会同一个月里所有人一起没），
+        /// 也给玩家留出一回合的缓冲去应对（任命新太守、调整军队）。
+        /// </summary>
+        [JsonProperty] public bool estimatedDeath;
+
+        /// <summary>
+        /// 死亡类型（对应 Open311 的 DeathType_Natural / DeathType_NonNatural）。
+        ///
+        /// 影响寿终概率：非自然死亡（战死、处决未遂等）的武将寿命按能力值再扣，
+        /// 且抽样系数从 4 降到 1 ——  equivalente 于"重伤在身、更容易早逝"。
+        /// </summary>
+        [JsonProperty] public int deathType = (int)PersonDeathType.Natural;
+
+        /// <summary>
+        /// 禁止仕官的势力君主 Id（对应 Open311 的 banned_kunshu_id）。
+        ///
+        /// 语义：换势力 / 被俘后的一段时间内，不能重新投效这个君主。
+        /// -1 表示无限制。老存档没有该字段，反序列化后为 0（= 无限制），
+        /// 但为了与"Id 从 1 开始"的约定一致，判断时统一用 <see cref="BanTimer"/> > 0。
+        /// </summary>
+        [JsonProperty] public int BannedKunshuId = -1;
+
+        /// <summary>
+        /// 禁止仕官剩余回合数（对应 Open311 的 ban_timer，单位为月）。
+        /// 本项目一个月 = 一个回合，故 6 即半年。
+        /// </summary>
+        [JsonProperty] public int BanTimer;
+
+        /// <summary>
         /// 最近一次被流言命中并动摇忠诚的回合（Scenario.TurnCount）。小于等于 0 表示近期未受流言影响。
         /// 供 CityAI 的褒奖响应识别"被 AI 互喷打低"的武将（见 ScenarioVariables.cityStrategyRumorVictimRewardTurns）。
         /// </summary>
@@ -538,6 +594,126 @@ namespace Sango.Core
         public bool IsLeader => state == (int)PersonStateType.Leader;
         public bool IsCommander => state == (int)PersonStateType.Commander;
         public bool IsGovernor => state == (int)PersonStateType.Governor;
+
+        /// <summary>
+        /// 是否"在世势力"的君主 —— 收押 / 招降的门禁判定。
+        ///
+        /// 与 <see cref="IsGovernor"/> 的区别：势力灭亡后君主会下野，
+        /// state 变成 Unemployed，此时 IsGovernor 自然为 false；
+        /// 但如果灭亡流程还没跑到"下野"那一步（比如单挑结算早于势力清理），
+        /// 他的 state 仍停在 Governor，用 IsGovernor 拦截就会误伤。
+        ///
+        /// 这里同时要求"势力还在"，所以：
+        ///   · 势力存活 → 君主不可被收押 / 招降（只能释放或斩杀）；
+        ///   · 势力已灭亡 → 放行（可被收押、可被招募）。
+        /// 语义与"势力灭亡后君主只是一介在野武将"一致。
+        /// </summary>
+        public bool IsActiveGovernor => IsGovernor && BelongForce != null && BelongForce.IsAlive;
+
+        // ==================== 武将种类（对应 Open311 Person::is_xxx） ====================
+        // 这些判定的语义与原版一一对应，注意 is_event 覆盖 NPC 两种取值。
+
+        /// <summary>是否历史武将</summary>
+        public bool IsHistorical => type == (int)PersonType.Historical;
+
+        /// <summary>是否古代武将</summary>
+        public bool IsAncient => type == (int)PersonType.Ancient;
+
+        /// <summary>是否自建武将</summary>
+        public bool IsCustom => type == (int)PersonType.Custom;
+
+        /// <summary>是否临时武将（贼军/战场生成）</summary>
+        public bool IsTemporary => type == (int)PersonType.Temporary;
+
+        /// <summary>是否 NPC</summary>
+        public bool IsNpc => type == (int)PersonType.Npc;
+
+        /// <summary>
+        /// 是否事件类武将（事件 + NPC）。
+        /// 原版 Person::is_event 就是这个双值判定，用于把这类人排除在
+        /// 寿命结算、自然死亡、婚姻等常规流程之外。
+        /// </summary>
+        public bool IsEventPerson => type == (int)PersonType.Event || type == (int)PersonType.Npc;
+
+        /// <summary>
+        /// 是否异族武将（乌丸 / 羌族 / 山越 / 南蛮）。
+        ///
+        /// 读 <see cref="barbarianTribe"/> 这个**已固化**的字段，不再每次比对配置表。
+        /// 字段由 <see cref="OnScenarioPrepare"/> 在剧本加载时写入，见 <see cref="FixupBarbarianTribe"/>。
+        /// 注意：在 <see cref="OnScenarioPrepare"/> 之前（例如刚 new 出来还没准备的编辑器对象）
+        /// 该字段为 0，本属性返回 false —— 属于保守方向，不会误排除正常武将。
+        /// </summary>
+        public bool IsBarbarian => barbarianTribe != 0;
+
+        /// <summary>
+        /// 异族类型的强类型视图（<see cref="BarbarianConfig.Tribe"/>）。
+        /// 读写都直接落到 <see cref="barbarianTribe"/>，便于后续按族刷怪 / 分组。
+        /// </summary>
+        public BarbarianConfig.Tribe BarbarianTribe
+        {
+            get { return (BarbarianConfig.Tribe)barbarianTribe; }
+            set { barbarianTribe = (int)value; }
+        }
+
+        /// <summary>
+        /// 按 <see cref="BarbarianConfig"/> 固化异族类型（**只在当前为 0 时写入**）。
+        ///
+        /// 调用时机：<see cref="OnScenarioPrepare"/> —— 剧本加载、读档、基础武将编辑器
+        /// 三条加载路径都会经过这里，所以只需挂一处。
+        /// 已有标记时不覆盖，保留编辑器 / Mod 手工指定的结果。
+        /// </summary>
+        public void FixupBarbarianTribe()
+        {
+            if (barbarianTribe != 0)
+                return;
+
+            barbarianTribe = (int)BarbarianConfig.GetTribe(Id, Name);
+        }
+
+        /// <summary>
+        /// 是否"特殊武将"（事件 / NPC / 异族）。
+        ///
+        /// 原版对应 `is_event() or is_iminzoku() or is_bandit()` 这条三连表达式：
+        /// 凡是"只该由常规武将参与"的流程（归属巡检、寿命结算、登用、军团编成、流言…）
+        /// 都要先排除这批人。本项目没有 Force.ForceType，异族用 Id+名字配置兜底。
+        /// </summary>
+        public bool IsSpecialPerson => IsEventPerson || IsBarbarian;
+
+        /// <summary>
+        /// 是否可参与常规人生周期（寿命/死亡/婚姻/血缘维护）。
+        /// 对应原版各处 `not is_event() and not is_temporary()` 的组合条件；
+        /// 异族与事件同类，同样不参与——它们由异族系统按需生成/回收，
+        /// 不该被自然死亡淘汰（原版异族武将是 PersonType_Temporary）。
+        /// </summary>
+        public bool HasLifeCycle => !IsSpecialPerson && !IsTemporary;
+
+        /// <summary>
+        /// 推算寿命终止年（对应 Open311 的 Person::get_estimated_death）。
+        ///
+        /// 原版 = 基础死亡年（death_）+ 长寿特技加成，再钳到数据库最大年。
+        /// 本项目没有"长寿"特技，直接用 yearDead；
+        /// yearDead <= 0 视为"无限寿命"（自建武将常见），返回 int.MaxValue 让寿终结算跳过。
+        /// </summary>
+        /// <returns>寿命终止年</returns>
+        public int GetEstimatedDeathYear()
+        {
+            return yearDead > 0 ? yearDead : int.MaxValue;
+        }
+
+        /// <summary>
+        /// 是否因寿终而被标记（下一次月度结算会真正死亡）。
+        /// </summary>
+        /// <returns>是否已标记寿终</returns>
+        public bool IsEstimatedDeath => estimatedDeath;
+
+        /// <summary>
+        /// 是否可编入部队。
+        ///
+        /// 原版 Unit::can_set_member 是白名单（历史/古代/自建/临时），
+        /// 这里改成"排除事件与 NPC"的黑名单：老存档与剧本内嵌武将的 type 是 -1（None），
+        /// 用白名单会把整批未分类武将挡在编队之外，属于功能性倒退。
+        /// </summary>
+        public bool CanBeTroopMember => !IsEventPerson;
 
         public void SetStateNormal() { state = (int)PersonStateType.Normal; }
         public void SetStateLeader()
@@ -870,6 +1046,10 @@ namespace Sango.Core
 
         public override void OnScenarioPrepare(Scenario scenario)
         {
+            // 异族标记固化：配置表（Id + 名字双重校验）→ 运行时字段，只写一次。
+            // 放在最前面：后续任何流程（含归属巡检、寿命、编成）都依赖 IsBarbarian。
+            FixupBarbarianTribe();
+
             ResolveReferenceObjects(scenario);      // 官职/等级/装备/工作建筑：只存 id，在这里解析
             BelongForce = scenario.Id2Object(scenario.forceSet, BelongForceId);
             BelongCorps = scenario.Id2Object(scenario.corpsSet, BelongCorpsId);
@@ -945,11 +1125,12 @@ namespace Sango.Core
 
                         if (BelongCity != null)
                         {
-                            BelongCorps = BelongCity.BelongCorps;
-                            BelongForce = BelongCity.BelongForce;
+                            BelongCorpsId = BelongCity.BelongCorpsId;
+                            BelongCorps = scenario.Id2Object(scenario.corpsSet, BelongCorpsId);
+                            BelongForceId = BelongCorps.BelongForceId;
+                            BelongForce = scenario.Id2Object(scenario.forceSet, BelongForceId);
                             BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
-
                             if (BelongForce.Governor != Id)
                                 state = (int)PersonStateType.Normal;
 
@@ -1007,7 +1188,7 @@ namespace Sango.Core
                             BelongCity = null;
                         }
                         if (CurrentCity != null)
-                            CurrentCity.wildPersons.Add(this);
+                            CurrentCity.AddWildPerson(this);
                         else
                         {
                             state = (int)PersonStateType.Invalid;
@@ -1016,11 +1197,15 @@ namespace Sango.Core
                         break;
                     // 囚犯
                     case PersonStateType.Prisoner:
+                        // 【去重】读档时 Troop/City 的 OnScenarioPrepare 可能已经把本人登记进
+                        // 对应名册，这里再无条件 Add 会触发 SangoObjectList 的"不能重复添加"
+                        // 错误日志（并且旧实现会把重复元素真的插进去）。
                         if (mBelongTroop != null)
                         {
-                            if (BelongForce != null)
+                            if (BelongForce != null && !BelongForce.BeCaptiveList.Contains(this))
                                 BelongForce.BeCaptiveList.Add(this);
-                            mBelongTroop.captiveList.Add(this);
+                            if (!mBelongTroop.captiveList.Contains(this))
+                                mBelongTroop.captiveList.Add(this);
                         }
                         else
                         {
@@ -1038,14 +1223,15 @@ namespace Sango.Core
                                 else
                                 {
                                     state = (int)PersonStateType.Unemployed;
-                                    BelongCity.wildPersons.Add(this);
+                                    BelongCity.AddWildPerson(this);
                                 }
                             }
                             else
                             {
-                                if (BelongForce != null)
+                                if (BelongForce != null && !BelongForce.BeCaptiveList.Contains(this))
                                     BelongForce.BeCaptiveList.Add(this);
-                                CurrentCity.captiveList.Add(this);
+                                if (!CurrentCity.captiveList.Contains(this))
+                                    CurrentCity.captiveList.Add(this);
                             }
                         }
                         break;
@@ -1059,17 +1245,17 @@ namespace Sango.Core
                         BelongCorps = null;
                         BelongForce = null;
                         if (CurrentCity != null)
-                            CurrentCity.invisiblePersons.Add(this);
+                            CurrentCity.AddInvisiblePerson(this);
                         else if (BelongCity != null)
                         {
                             CurrentCity = BelongCity;
                             BelongCity = null;
-                            CurrentCity.invisiblePersons.Add(this);
+                            CurrentCity.AddInvisiblePerson(this);
                         }
                         else
                         {
                             CurrentCity = scenario.citySet.RandomGet();
-                            CurrentCity.invisiblePersons.Add(this);
+                            CurrentCity.AddInvisiblePerson(this);
                         }
                         break;
                     // 死亡
@@ -1103,6 +1289,12 @@ namespace Sango.Core
 
             if (Level == null)
                 Level = scenario.CommonData.PersonLevels[0];
+
+            // 【在途武将表】读档后按任务重建（对应 Open311 actors_ 的派生重建）。
+            // 这张表不参与序列化 —— 它是"从每个人的 missionType 派生"的运行期索引，
+            // 存盘再读回来只需重扫一遍即可，避免存档里多一份需要维护的冗余数据。
+            if (missionType != 0 && IsAlive && !IsDead)
+                scenario.RegisterActor(this);
         }
 
         /// <summary>
@@ -1225,7 +1417,7 @@ namespace Sango.Core
                             city = scenario.citySet.RandomGet();
 
                         // 这里要处理登场城池
-                        city.invisiblePersons.Add(this);
+                        city.AddInvisiblePerson(this);
                         CurrentCity = city;
                     }
                 }
@@ -1253,7 +1445,7 @@ namespace Sango.Core
                                 }
                                 x.CurrentCity = sonCity;
                                 x.state = (int)PersonStateType.Invisible;
-                                sonCity.invisiblePersons.Add(x);
+                                sonCity.AddInvisiblePerson(x);
                             }
                         }
                     });
@@ -1263,29 +1455,47 @@ namespace Sango.Core
             return base.OnYearStart(scenario);
         }
 
+        /// <summary>
+        /// 沿城市邻接图走一站（对应 Open311 的 get_next_city_id + person_set_location_building_id）。
+        ///
+        /// 每回合只推进一个领接城，抵达终点才返回 true。移动耗时因此等于城间邻接步数，
+        /// 与原版"一站 = 一回合"的口径一致。
+        /// </summary>
+        /// <param name="dest">最终目的地（可以是港口/关隘，内部归一到所属都市）</param>
+        /// <param name="scenario">当前剧本</param>
+        /// <returns>是否已抵达终点</returns>
         public bool DoMove(City dest, Scenario scenario)
         {
+            if (dest == null)
+                return true;
+
             City target = dest.BelongCity == null ? dest : dest.BelongCity;
+            if (CurrentCity == null)
+                return true;
             City currentCity = CurrentCity.BelongCity == null ? CurrentCity : CurrentCity.BelongCity;
 
+            // 已经在目的地
             if (target == currentCity)
-            {
                 return true;
-            }
 
             // 找到最短移动路径
             List<City> path = scenario.FindShortestPath(currentCity, target);
             if (path == null || path.Count <= 1)
             {
+                // 路网不连通（数据异常）：视为抵达，由调用方迁户口兜底，
+                // 避免任务永久悬挂把武将锁死在"移动中"
+                Sango.Log.Error($"*{Name} 找不到 {currentCity.Name} -> {target.Name} 的路径，已强制结束移动");
                 return true;
             }
 
             City next = path[1];
             ChangeCurrentCity(next);
-            if (next == dest)
-            {
+
+            // 注意比较的是 target 而不是 dest：
+            // 目的地若是港口/关隘，dest 与都市永不相等，会导致永远无法抵达
+            if (next == target)
                 return true;
-            }
+
             return false;
         }
 
@@ -1298,15 +1508,26 @@ namespace Sango.Core
                 case (int)MissionType.PersonReturn:
                     {
                         City dest = scenario.citySet.Get(missionTarget);
-                        if (!this.IsSameForce(dest))
+
+                        // 目的地失效（被攻陷 / Id 越界 / 无势力）：改回出发城，没有出发城则取消任务。
+                        // 原版对应 get_next_city_id 返回 -1 时的 person_reset_order。
+                        if (dest == null || !this.IsSameForce(dest))
                         {
-                            if (BelongForce != null)
+                            if (BelongCity != null && BelongCity != dest)
                             {
                                 SetMission(MissionType.PersonReturn, BelongCity);
                             }
                             else
                             {
-                                ClearMission();
+                                // 出发城也没了（城陷/势力灭亡）：不在这里"以城市为准"改势力
+                                // —— 出发城可能已属敌方，用城校正会把己方武将瞬间改成敌方。
+                                // 交给 ReturnHome 改去本势力都城，找不到则清任务由巡检安置。
+                                //
+                                // 【级别】这是**正常改道**，不是异常：城陷后返程改去都城属于预期流程
+                                // （与 PersonStateSystem.ReturnHome 的同款日志保持一致，那边也是 Info）。
+                                // 用 Warning 会让"城陷"这种常态事件在控制台标黄，掩盖真正的问题。
+                                Sango.Log.Info($"*{Name} 的返程目的失效且无出发城，改去本势力都城");
+                                PersonStateSystem.ReturnHome(this);
                             }
                             return;
                         }
@@ -1445,68 +1666,50 @@ namespace Sango.Core
         }
         public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1, int p2, int p3, int p4)
         {
+            SetMissionInternal(missionType, missionTarget, missionCounter, p1, p2, p3, p4);
+        }
+
+        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1, int p2, int p3)
+        {
+            SetMissionInternal(missionType, missionTarget, missionCounter, p1, p2, p3, 0);
+        }
+
+        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1, int p2)
+        {
+            SetMissionInternal(missionType, missionTarget, missionCounter, p1, p2, 0, 0);
+        }
+
+        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1)
+        {
+            SetMissionInternal(missionType, missionTarget, missionCounter, p1, 0, 0, 0);
+        }
+
+        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter)
+        {
+            SetMissionInternal(missionType, missionTarget, missionCounter, 0, 0, 0, 0);
+        }
+
+        public void SetMission(MissionType missionType, SangoObject missionTarget)
+        {
+            SetMissionInternal(missionType, missionTarget, 0, 0, 0, 0, 0);
+        }
+
+        /// <summary>
+        /// 任务下发的唯一实现：写字段 -> 同步"在途武将表"。
+        ///
+        /// 对应 Open311 的 person_change_order（末尾 set_actor）。
+        /// 收口到一处是为了保证"有任务 = 在在途表里"这条不变式不会被某个重载漏掉。
+        /// </summary>
+        private void SetMissionInternal(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1, int p2, int p3, int p4)
+        {
             this.missionType = (int)missionType;
-            this.missionTarget = missionTarget.Id;
+            this.missionTarget = missionTarget != null ? missionTarget.Id : 0;
             this.missionCounter = missionCounter;
             this.missionParams1 = p1;
             this.missionParams2 = p2;
             this.missionParams3 = p3;
             this.missionParams4 = p4;
-        }
-
-        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1, int p2, int p3)
-        {
-            this.missionType = (int)missionType;
-            this.missionTarget = missionTarget.Id;
-            this.missionCounter = missionCounter;
-            this.missionParams1 = p1;
-            this.missionParams2 = p2;
-            this.missionParams3 = p3;
-            this.missionParams4 = 0;
-        }
-
-        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1, int p2)
-        {
-            this.missionType = (int)missionType;
-            this.missionTarget = missionTarget.Id;
-            this.missionCounter = missionCounter;
-            this.missionParams1 = p1;
-            this.missionParams2 = p2;
-            this.missionParams3 = 0;
-            this.missionParams4 = 0;
-        }
-
-        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter, int p1)
-        {
-            this.missionType = (int)missionType;
-            this.missionTarget = missionTarget.Id;
-            this.missionCounter = missionCounter;
-            this.missionParams1 = p1;
-            this.missionParams2 = 0;
-            this.missionParams3 = 0;
-            this.missionParams4 = 0;
-        }
-
-        public void SetMission(MissionType missionType, SangoObject missionTarget, int missionCounter)
-        {
-            this.missionType = (int)missionType;
-            this.missionTarget = missionTarget.Id;
-            this.missionCounter = missionCounter;
-            this.missionParams1 = 0;
-            this.missionParams2 = 0;
-            this.missionParams3 = 0;
-            this.missionParams4 = 0;
-        }
-
-        public void SetMission(MissionType missionType, SangoObject missionTarget)
-        {
-            this.missionType = (int)missionType;
-            this.missionTarget = missionTarget.Id;
-            this.missionCounter = 0;
-            this.missionParams1 = 0;
-            this.missionParams2 = 0;
-            this.missionParams3 = 0;
-            this.missionParams4 = 0;
+            NotifyMissionChanged();
         }
 
         public void ClearMission()
@@ -1518,6 +1721,24 @@ namespace Sango.Core
             this.missionParams2 = 0;
             this.missionParams3 = 0;
             this.missionParams4 = 0;
+            NotifyMissionChanged();
+        }
+
+        /// <summary>
+        /// 任务变更后同步"在途武将表"（对应 Open311 的 set_actor / 摘除）。
+        /// 有任务就登记、无任务就移除；Scenario 未就绪时静默跳过
+        /// （编辑器/单测里会直接改任务，没有全局剧本上下文）。
+        /// </summary>
+        private void NotifyMissionChanged()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null)
+                return;
+
+            if (missionType != 0)
+                scenario.RegisterActor(this);
+            else
+                scenario.UnregisterActor(this);
         }
 
         /// <summary>
@@ -1604,7 +1825,7 @@ namespace Sango.Core
                                 city = scenario.citySet.RandomGet();
 
                             // 这里要处理登场城池
-                            city.invisiblePersons.Add(this);
+                            city.AddInvisiblePerson(this);
                             CurrentCity = city;
 
                             RenderEvent.Instance.Add(new PersonValidEvent()
@@ -1620,6 +1841,15 @@ namespace Sango.Core
         }
         public override bool OnForceTurnStart(Scenario scenario)
         {
+            // 【禁止仕官】每回合递减（对应 Open311 的 ban_timer 月度衰减）。
+            // 归零时清掉君主 Id，避免残留值永久挡住重新投效。
+            if (BanTimer > 0)
+            {
+                BanTimer--;
+                if (BanTimer <= 0)
+                    BannedKunshuId = -1;
+            }
+
             if (BelongForce != null && IsAlive)
             {
                 BelongForce.GainHegemonyPoint(1);
@@ -1634,19 +1864,18 @@ namespace Sango.Core
                     {
                         if (x.Age >= 16)
                         {
-                            x.BelongForce = BelongForce;
-                            x.BelongCorps = BelongCorps;
-
-                            City becameCity = BelongCity;
-                            if (IsPrisoner)
+                            // 【归属治理】成年出仕 = 入城（对应 Open311 的 person_debut -> person_enter）。
+                            // 原先这里手写"赋三字段 + 裸 AddPerson + 裸 freePersons.Add + 手改 state"，
+                            // 漏掉了在野/未发现名册的摘除，且把刚登场的人直接塞进空闲名单
+                            // （他本回合还没行动过，本该等回合刷新后再入名单）。
+                            City becameCity = IsPrisoner ? BelongForce?.CapitalCity : BelongCity;
+                            if (becameCity == null)
                             {
-                                becameCity = BelongForce.CapitalCity;
+                                Sango.Log.Error($"*{Name} 的儿子 {x.Name} 成年，但找不到可出仕的城池");
+                                return;
                             }
-                            x.BelongCity = becameCity;
-                            x.CurrentCity = becameCity;
-                            becameCity.AddPerson(x);
-                            becameCity.freePersons.Add(x);
-                            x.state = (int)PersonStateType.Normal;
+
+                            PersonStateSystem.Enter(x, becameCity, PersonChangeReason.Appeared);
                             x.loyalty = 100;
 
                             if (IsPlayer)
@@ -1686,9 +1915,9 @@ namespace Sango.Core
                     {
                         CurrentCity = scenario.citySet.RandomGet();
                         if (IsWild)
-                            CurrentCity.wildPersons.Add(this);
+                            CurrentCity.AddWildPerson(this);
                         else
-                            CurrentCity.invisiblePersons.Add(this);
+                            CurrentCity.AddInvisiblePerson(this);
                         Sango.Log.Error($"@人才@隐身/在野武将{Name}(Id:{Id})没有所在城市,已自动分配到{CurrentCity.Name}");
                     }
 
@@ -1715,9 +1944,9 @@ namespace Sango.Core
                             Sango.Log.Error($"@人才@在野武将{Name}所在的港关{lastCity.Name}没有隶属主城,无法移动");
                             stayTurnCount = 0;
                             if (IsWild)
-                                CurrentCity.wildPersons.Add(this);
+                                CurrentCity.AddWildPerson(this);
                             else
-                                CurrentCity.invisiblePersons.Add(this);
+                                CurrentCity.AddInvisiblePerson(this);
                             return base.OnTurnEnd(scenario);
                         }
                         // 移动到新城市
@@ -1753,7 +1982,7 @@ namespace Sango.Core
                     if (IsWild)
                         CurrentCity.wildPersons.Add(this);
                     else
-                        CurrentCity.invisiblePersons.Add(this);
+                        CurrentCity.AddInvisiblePerson(this);
                 }
             }
             else
@@ -1761,7 +1990,9 @@ namespace Sango.Core
                 wildTurnCount = 0;
             }
 
-            UpdateMission(scenario);
+            // 【性能】任务推进（UpdateMission）不在这里做：
+            // 改由 Scenario.TurnEnd 遍历"在途武将表"驱动（对应 Open311 的 actors_）。
+            // 本方法保留的是"在野/未发现武将随机游荡"这类与任务无关、必须全池扫描的逻辑。
             return base.OnTurnEnd(scenario);
         }
 
@@ -1807,28 +2038,40 @@ namespace Sango.Core
 
         }
 
-        public void OnWillChangeToCity(City dest)
+        /// <summary>
+        /// 迁城前的准备：处理君主/都督/太守的职务让渡。
+        /// 返回 false 表示这次迁移不合法（跨势力），调用方应改走归顺流程。
+        /// </summary>
+        /// <param name="dest">目标城</param>
+        /// <returns>是否可以继续迁移</returns>
+        public bool OnWillChangeToCity(City dest)
         {
-            if (BelongForce != dest.BelongForce && dest.BelongForce != null)
+            if (dest == null)
             {
-                Sango.Log.Error($"{BelongForce?.Name}的{Name}尝试转到不同势力的城池!!<{dest.BelongForce?.Name}>");
-                BelongForce = null;
-                string name = BelongForce.Name;
-                Sango.Log.Info(name);
+                Sango.Log.Error($"{Name} 迁城失败：目标城为空");
+                return false;
             }
 
-            // 如果转移主公到其他军团城市,需要解散目标军团
-            if (IsGovernor && dest.BelongCorps != BelongCorps)
+            if (BelongForce != dest.BelongForce && dest.BelongForce != null)
             {
-                Corps corps = dest.BelongCorps;
-                dest.ChangeCorps(BelongCorps);
-                dest.UpdateCorps();
-                dest.Render?.UpdateRender();
-                corps.RemoveCity(dest);
-                BelongCity.NeedUpdateLeader();
-                dest.NeedUpdateLeader();
+                // 跨势力迁城不是"移动"，而是"归顺"，必须走 PersonStateSystem.Recruit。
+                // 原先这里把 BelongForce 置 null（并紧接着解引用它）——既会空引用崩溃，
+                // 又会留下"无势力的在籍武将"这种非法状态。
+                Sango.Log.Error($"{BelongForce?.Name}的{Name} 尝试转到不同势力的城池 <{dest.BelongForce.Name}>，已拒绝");
+                return false;
             }
-            else if (IsCommander)
+
+            // 【原版对齐】出发只做"职务让渡"，**不改目标城的军团**。
+            //
+            // 依据：Open311 person_leave 里那段"君主 → 目标城改挂君主军团"，
+            // 前置条件是 move == true，而所有调用点（Move / Summon / 外交 / 计略 / 录用 /
+            // 部队解散回城）传入的都是 false —— 该分支实际是死代码。
+            // 目标城改挂只发生在**到达时**的 person_enter（见 PersonStateSystem.Enter）。
+            //
+            // 早期版本在这里就把目标城改挂到君主军团，会出现"人还在路上，
+            // 城已经换军团"的中间态：那座城的太守被提前重算、军团账本提前变动，
+            // 途中若任务被取消（目的城易主 / 势力灭亡），城就永久留在了错的军团。
+            if (IsCommander)
             {
                 if (dest.BelongCorps != BelongCorps)
                 {
@@ -1839,28 +2082,40 @@ namespace Sango.Core
                 {
                     dest.NeedUpdateLeader();
                 }
-                BelongCity.NeedUpdateLeader();
+                BelongCity?.NeedUpdateLeader();
             }
             else if (IsLeader)
             {
                 SetStateNormal();
-                BelongCity.NeedUpdateLeader();
+                BelongCity?.NeedUpdateLeader();
             }
+            else if (IsGovernor)
+            {
+                // 君主离城：本身不降级，但旧城若由他兼着太守要重算
+                BelongCity?.NeedUpdateLeader();
+            }
+
+            return true;
         }
 
         public void TransformToCity(City dest)
         {
-            if (dest == BelongCity) return;
+            if (dest == null || dest == BelongCity) return;
 
-            OnWillChangeToCity(dest);
+            // 跨势力迁城不是"移动"，是"归顺"，由调用方改走 PersonStateSystem.Recruit
+            if (!OnWillChangeToCity(dest)) return;
 
             City lastCity = BelongCity;
-            ChangeBelongCity(dest);
-            //dest.AddPerson(this);
+
+            // 【原版对齐】出发只记"离城"，不改所属城（对应 Open311 的 person_leave）。
+            // 户口（BelongCity）与在籍名册要等真正走到目的地后，
+            // 由 City.OnPersonReturnCity -> PersonStateSystem.Enter 统一迁移。
+            // 原先出发即改户口，会导致武将人还在路上却已经算目标城的在籍成员，
+            // 被太守任命 / 人才调度 / 兵役统计提前纳入，"移动中"这个状态也失去意义。
             SetMission(MissionType.PersonReturn, dest);
 
             ActionOver = true;
-            Sango.Log.Info($"*{BelongForce?.Name}的{Name}从{BelongCity.Name}向{dest.Name}转移*");
+            Sango.Log.Info($"*{BelongForce?.Name}的{Name}从{lastCity?.Name ?? "无"}向{dest.Name}转移*");
         }
 
         public Corps ChangeCorps(Corps corps)
@@ -1870,12 +2125,14 @@ namespace Sango.Core
             {
                 last = BelongCorps;
                 BelongCorps = corps;
-                // 目标军团可能为空(例如城市处于无归属状态),此时只清空军团,势力交由调用方处理,
-                // 直接取 corps.BelongForce 会触发空引用
-                if (corps != null && BelongForce != corps.BelongForce)
-                {
-                    BelongForce = corps.BelongForce;
-                }
+
+                // 【锚点】势力由军团派生（Open311: Person::get_force_id = district_->force_）。
+                // 原先这里只改军团不同步势力，于是 City.UpdateCorps 批量改军团之后，
+                // 会出现"人在新军团、势力还是旧势力"的分裂 —— 这类数据只能靠年度巡检兜，
+                // 期间 AI 出兵判断、俸禄、外交全都在读错的势力。
+                Force newForce = corps != null ? corps.BelongForce : null;
+                if (BelongForce != newForce)
+                    BelongForce = newForce;
             }
             return last;
         }
@@ -1888,8 +2145,13 @@ namespace Sango.Core
         public City ChangeCurrentCity(City city)
         {
             City last = CurrentCity;
+            if (last == city)
+                return last;
+
             CurrentCity = city;
-            Sango.Log.Info($"*{BelongForce?.Name}的{Name} 改变所在城市 {last.Name} -> {city.Name}");
+            // 日志与事件都要容忍空城：俘虏释放、城陷撤离、登用归顺等路径
+            // 都会出现"从无城到有城"或"从有城到无城"的迁移
+            Sango.Log.Info($"*{BelongForce?.Name}的{Name} 改变所在城市 {last?.Name ?? "无"} -> {city?.Name ?? "无"}");
             GameEvent.OnPersonChangCurrentCity?.Invoke(this, city, last);
             return last;
         }
@@ -1902,6 +2164,15 @@ namespace Sango.Core
         public City ChangeBelongCity(City city)
         {
             City last = null;
+
+            // 目标城为空只允许"清空户口"这一种语义，且必须经 LeaveToWild 处理，
+            // 否则直接解引用 city.BelongForce 会空引用（城陷撤离 / 军团解散的中间态会走到这里）
+            if (city == null)
+            {
+                Sango.Log.Error($"*{Name} 改变所属城市失败：目标城为空");
+                return BelongCity;
+            }
+
             if (BelongCity != city || BelongForce != city.BelongForce || BelongCorps != city.BelongCorps)
             {
                 last = BelongCity;
@@ -1912,8 +2183,11 @@ namespace Sango.Core
                     BelongCity = city;
                     if (BelongCorps != city.BelongCorps)
                         BelongCorps = city.BelongCorps;
-                    if (BelongForce != city.BelongForce)
-                        BelongForce = city.BelongForce;
+                    // 【锚点】势力由军团派生（Open311: Person::get_force_id = district_->force_），
+                    // 不直接读城的势力字段 —— 城若留着与军团不一致的旧势力，会把武将一起带偏。
+                    Force newForce = BelongCorps != null ? BelongCorps.BelongForce : city.BelongForce;
+                    if (BelongForce != newForce)
+                        BelongForce = newForce;
                     city.AddPerson(this);
                 }
                 else
@@ -1929,6 +2203,32 @@ namespace Sango.Core
                 }
 
                 mBelongTroop?.OnPersonChangeCity(this, last, city);
+
+                // 【太守失效的根源之一】户口迁走后，旧城的 Leader 会变成悬空引用：
+                // 旧城的太守可能是本人，而"他已经不属于本城"这件事只有这里知道。
+                // 原先靠每个调用方自己补 NeedUpdateLeader，漏一处就会留下
+                // "*[归属巡检] xx 太守 xx 已失效（已调离）" 这类日志，且要等年度巡检才修。
+                //
+                // 【为什么这里要立即重算，而不是只打标记】
+                //   NeedUpdateLeader 只在 City.OnForceTurnEnd 被消费，而年末巡检
+                //   （Scenario.OnYearStart → GovernanceValidator）跑在"迁移"与"城市回合结束"之间，
+                //   只打标记的话，先被巡检抓到一条"太守已失效"，白报一次。
+                //   原版也是迁移后立刻 building_appoint_taishu(old_service, false)
+                //   （s11_sys_scen_person.cpp:1025-1026），这里对齐。
+                if (last != null && last != city)
+                {
+                    if (last.Leader == this)
+                    {
+                        // 本人就是旧城太守：旧城名册里已经摘掉他，立刻重选
+                        last.Leader = null;
+                        last.UpdateNewLeader();
+                    }
+                    else
+                    {
+                        // 其他人当太守：只需记账，交给城市回合结束统一重算
+                        last.NeedUpdateLeader();
+                    }
+                }
             }
             return last;
         }
@@ -2046,18 +2346,26 @@ namespace Sango.Core
 
         public void BeRecruit(Person person, City targetCity)
         {
+            // 【禁止仕官】最后一道闸：候选列表已经过滤过，这里防的是
+            // 剧本事件 / AI 直调 / 旧存档残留等在途绕过 UI 的接入点。
+            if (IsBannedFrom(targetCity?.BelongForce))
+            {
+                Sango.Log.Warning($"*[登用]{Name} 半年内被 {targetCity.BelongForce.Name} 禁止仕官，本次登用无效");
+                return;
+            }
+
             Sango.Log.Info($"[{person.BelongForce.Name}]<{person.Name}>登庸成功, {Name}加入了势力{person.BelongForce.Name}");
             loyalty = 80;
 
             if (IsPrisoner)
             {
                 BelongForce?.BeCaptiveList.Remove(this);
-                // 囚犯从监牢中移除
+                // 囚犯从监牢中移除。身份转换与名册迁移交给 JoinToForce -> Recruit 统一处理，
+                // 这里手改 state 会绕过名册重建，留下"身份是一般武将却仍在 captiveList 里"的脏数据
                 if (mBelongTroop != null)
                     mBelongTroop.RemoveCaptive(this);
                 else
-                    CurrentCity.RemoveCaptive(this);
-                state = (int)PersonStateType.Normal;
+                    CurrentCity?.RemoveCaptive(this);
                 JoinToForce(targetCity);
                 SetMission(MissionType.PersonReturn, targetCity);
             }
@@ -2107,21 +2415,23 @@ namespace Sango.Core
         public bool JoinToForce(City city)
         {
             bool isSameCity = CurrentCity == city;
-            BelongCity = city;
-            BelongCorps = city.BelongCorps;
-            BelongForce = city.BelongForce;
+
+            // 【归属治理】加入势力统一走 PersonStateSystem.Recruit（对应 Open311 的 person_change_force）。
+            // 原先这里直接给 BelongCity/BelongCorps/BelongForce 三连赋 + 手改 state，
+            // 会漏掉四件事：旧城 allPersons 的摘除、在野/未发现/俘虏名册的摘除、
+            // 部队字段的清理、在途命令的取消，从而留下
+            // "人在新城的名单里、旧城也还挂着一份"的双份脏数据。
+            PersonStateSystem.Recruit(this, city, PersonChangeReason.Employed);
+
             UpgradeOfficial(Scenario.Cur.CommonData.Officials.Get(0));
             merit = 0;
+
             // 主公不能被降级为一般武将,否则会出现"势力主公却是普通状态"的不一致
-            if (!IsGovernor)
+            if (!IsGovernor && state != (int)PersonStateType.Normal)
             {
-                state = (int)PersonStateType.Normal;
+                PersonStateSystem.SetState(this, PersonStateType.Normal, PersonChangeReason.Employed);
             }
-            // 避免重复入城:调用方可能已经把武将加进过该城的人员名单
-            if (!BelongCity.allPersons.Contains(this))
-            {
-                BelongCity.AddPerson(this);
-            }
+
             return isSameCity;
         }
 
@@ -2156,23 +2466,11 @@ namespace Sango.Core
                 return false;
             }
 
-            // 先落城再改状态：在野状态的登记依赖 CurrentCity / BelongCity
-            BelongCityId = city.Id;
-            BelongCity = city;
-            CurrentCityId = city.Id;
-            CurrentCity = city;
-            state = (int)PersonStateType.Unemployed;
-
-            // 【修复】在野武将不允许残留势力/军团（与 LeaveToWild、ChangeBelongCity 在野分支同一约定）。
-            // 事件数据可能给未登场武将配置了势力，或旧存档残留势力；
-            // 只清状态不清势力会产生"在野却有势力"的脏数据，
-            // 后续随随机移动 / 登庸链路传播归属不一致。
-            BelongCorps = null;
-            BelongForce = null;
-
-            // 挂到城市的在野名单上（与 LeaveToWild 同一约定）
-            if (city.wildPersons != null && !city.wildPersons.Contains(this))
-                city.wildPersons.Add(this);
+            // 【归属治理】登场 = 落到指定城并转为在野，
+            // 统一走 PersonStateSystem.LeaveToWild（对应 Open311 的 person_appear -> person_set_zaiya）。
+            // 内部负责：摘除残留势力/军团/部队、清命令、改身份、登记 wildPersons；
+            // 原先这里手写"先落城再改 state"的顺序，容易被后续调用者改坏。
+            PersonStateSystem.LeaveToWild(this, city, PersonChangeReason.Appeared);
 
             Log.Info($"武将 {Name} 已在 {city.Name} 登场（在野）");
             return true;
@@ -2221,12 +2519,16 @@ namespace Sango.Core
             {
                 Sango.Log.Info($"@人才@[{BelongForce?.Name}]的<{Name}>下野至{BelongCity?.Name}");
             }
-            state = (int)PersonStateType.Unemployed;
+            // 【归属治理】身份切换走统一入口（对应 Open311 person_set_zaiya 里的 set_mibun），
+            // 内部会按新旧身份重建城市侧名册（从 allPersons 摘出、登记到 wildPersons），
+            // 避免"state 是野武将、人却还留在在籍名单里"的分裂
+            PersonStateSystem.SetState(this, PersonStateType.Unemployed, PersonChangeReason.LeftToWild);
+
             CurrentCity = BelongCity;
             // 在野武将必须挂靠到某个城市的在野名单上(规则1:必须有所在城市)
             if (BelongCity != null)
             {
-                BelongCity.wildPersons.Add(this);
+                BelongCity.AddWildPerson(this);
             }
             else
             {
@@ -2265,22 +2567,30 @@ namespace Sango.Core
 
             if (BelongForce != null && BelongForce.IsAlive)
             {
-                // 原势力尚存:脱逃后回归原势力都城,状态复位为一般武将
-                state = (int)PersonStateType.Normal;
-                ChangeBelongCity(BelongForce.CapitalCity);
-                SetMission(MissionType.PersonReturn, BelongCity);
+                // 原势力尚存:脱逃后回归原势力都城,状态复位为一般武将。
+                // 【归属治理】顺序必须是"先改身份、再迁城"：
+                // 此时 BelongCity 还是 null，名册重建不会误登记到关押城；
+                // 随后 Enter 走正常的入城流程，把户口落到都城并在籍名单登记。
+                City capital = BelongForce.CapitalCity;
+                BelongForce.BeCaptiveList.Remove(this);
+
+                if (capital != null)
+                {
+                    PersonStateSystem.SetState(this, PersonStateType.Normal, PersonChangeReason.Released);
+                    PersonStateSystem.Enter(this, capital, PersonChangeReason.Released);
+                    SetMission(MissionType.PersonReturn, BelongCity ?? capital);
+                }
+                else
+                {
+                    PersonStateSystem.SetState(this, PersonStateType.Normal, PersonChangeReason.Released);
+                }
             }
             else
             {
                 // 原势力已灭亡或本就无势力:转为在野。
-                // 在野武将不允许再持有势力/军团/部队(规则1),这里必须显式清空,
-                // 否则会出现"state 是在野,却仍隶属某个已灭亡势力与其军团"的不一致
-                BelongForce?.BeCaptiveList.Remove(this);
-                state = (int)PersonStateType.Unemployed;
-                ChangeBelongCity(CurrentCity);
-                BelongCorps = null;
-                BelongForce = null;
-                mBelongTroop = null;
+                // 【归属治理】统一下野入口负责清势力/军团/部队并登记 wildPersons，
+                // 避免"state 是在野,却仍隶属某个已灭亡势力与其军团"的不一致
+                PersonStateSystem.LeaveToWild(this, CurrentCity, PersonChangeReason.Released);
             }
 
             // 根据逃出方式触发对应的事件
@@ -2478,6 +2788,95 @@ namespace Sango.Core
             else if (loyalty > 100)
                 loyalty = 100;
             return loyalty;
+        }
+
+        /// <summary>
+        /// 当前任务的目标城。
+        ///
+        /// 不同任务把目的地存在不同字段里（见 UpdateMission 的各个分支），
+        /// 这里集中解析，供 UI 与"剩余天数"复用。
+        /// </summary>
+        /// <returns>目标城；没有目标或目标不是城时返回 null</returns>
+        public City GetMissionTargetCity()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || missionType == 0)
+                return null;
+
+            switch ((MissionType)missionType)
+            {
+                // 这三个的目的地直接是城 Id
+                case MissionType.PersonReturn:
+                case MissionType.PersonDiplomacy:
+                case MissionType.PersonCityStrategy:
+                    return scenario.citySet.Get(missionTarget);
+
+                // 登用任务：missionTarget 是被登用的武将，目的地城在 missionParams1
+                case MissionType.PersonRecruitPerson:
+                    return scenario.citySet.Get(missionParams1);
+
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// 任务剩余天数估算（城间邻接步数 × 10 日，与项目里 DistanceDays 的口径一致）。
+        ///
+        /// 没有任务、没有目标城、或已经站在目标城时返回 0。
+        /// 注意这是"按当前图距估算"，不是精确倒计时 —— 逐回合推进时它会自然变小。
+        /// </summary>
+        /// <returns>剩余天数</returns>
+        public int RemainMissionDays()
+        {
+            if (missionType == 0)
+                return 0;
+
+            City dest = GetMissionTargetCity();
+            if (dest == null)
+                return 0;
+
+            City from = CurrentCity;
+            if (from == null || from == dest)
+                return 0;
+
+            int distance = from.Distance(dest);
+            return distance > 0 ? distance * 10 : 0;
+        }
+
+        /// <summary>
+        /// 是否处于"在路上"状态（有任务、且人不在任务的终点）。
+        ///
+        /// 与 IsFree 的区别：IsFree 判"能不能派活"，本项判"是不是正在赶路"。
+        /// 用途是让人物面板把 PersonReturn 显示成"移动中"而不是"返回"。
+        /// </summary>
+        /// <returns>是否在途</returns>
+        public bool IsOnTheWay()
+        {
+            if (missionType == 0 || mBelongTroop != null || IsPrisoner || IsDead)
+                return false;
+
+            City dest = GetMissionTargetCity();
+            if (dest == null)
+                return false;
+
+            return CurrentCity != null && CurrentCity != dest;
+        }
+
+        /// <summary>
+        /// 是否被指定势力"禁止仕官"（对应 Open311 的 banned_kunshu_id 读侧）。
+        ///
+        /// 语义：刚从该势力离开的人，半年内不能被重新登用回去。
+        /// 判定以 <see cref="BanTimer"/> 为准：归零后君主 Id 会被清成 -1，
+        /// 因此老存档里残留的 BannedKunshuId 不会永久生效。
+        /// </summary>
+        /// <param name="force">目标势力</param>
+        /// <returns>是否禁止仕官</returns>
+        public bool IsBannedFrom(Force force)
+        {
+            if (force == null || BanTimer <= 0)
+                return false;
+            return BannedKunshuId > 0 && BannedKunshuId == force.Governor;
         }
 
 
@@ -2802,21 +3201,37 @@ namespace Sango.Core
             // 改写之后 IsPrisoner 恒为 false,俘虏相关的清理逻辑将永远执行不到
             bool wasPrisoner = IsPrisoner;
 
-            state = (int)PersonStateType.Dead;
+            // 【君主继承】必须在 SetState(Dead) 之前缓存势力与军团：
+            // 改 state 后 IsGovernor 立刻为 false，末尾还会把 BelongForce / BelongCorps 都置空。
+            // 军团必须一起缓存：Succeed 要把"旧第一军团"并入新君主所在军团，
+            // 而那时 oldGovernor.BelongCorps 已经是 null，拿不到接收方。
+            Force dyingForce = IsGovernor ? BelongForce : null;
+            Corps dyingCorps = IsGovernor ? BelongCorps : null;
+
+            // 【归属治理】身份切换走统一入口（对应 Open311 person_die 的 set_mibun(Shibou)）。
+            // 内部会按"在籍 -> 死亡"自动把本人从所属城的在籍名册摘掉；
+            // 下面再手工兜一遍所属城与所在城，覆盖两者不同的情况。
+            PersonStateSystem.SetState(this, PersonStateType.Dead, PersonChangeReason.Died);
+
             if (BelongCity != null)
             {
-                BelongCity.allPersons.Remove(this);
-                BelongCity.freePersons.Remove(this);
-                BelongCity.wildPersons.Remove(this);
-                BelongCity.captiveList.Remove(this);
+                // 走 RemovePerson 而不是裸集合删除：它会同步摘除工作建筑的工人引用
+                BelongCity.RemovePerson(this);
+                BelongCity.RemoveWildPerson(this);
+                BelongCity.RemoveInvisiblePerson(this);
+                BelongCity.RemoveCaptive(this);
+
+                // 死者若是该城太守，必须立即标记重算，否则 city.Leader 会指向一个死人，
+                // 直到年度巡检才被发现（期间该城没有可用太守，AI 调度会跳过它）。
+                BelongCity.NeedUpdateLeader();
             }
 
             if (CurrentCity != null)
             {
-                CurrentCity.allPersons.Remove(this);
-                CurrentCity.freePersons.Remove(this);
-                CurrentCity.wildPersons.Remove(this);
-                CurrentCity.captiveList.Remove(this);
+                CurrentCity.RemovePerson(this);
+                CurrentCity.RemoveWildPerson(this);
+                CurrentCity.RemoveInvisiblePerson(this);
+                CurrentCity.RemoveCaptive(this);
             }
 
             if (mBelongTroop != null)
@@ -2841,6 +3256,27 @@ namespace Sango.Core
             // 真正的问题是 CityStrategyManager.IsCityStrategyInProgress 只按 missionType 判重、
             // 不查存活 —— 死掉的使者会永久挡住同一目标城的流言/二虎竞食，外交任务同样悬挂。
             ClearMission();
+
+            // 【君主继承】收尾之后再处理：此时本人已彻底脱离势力，
+            // SelectSuccessor 不会把他算进候选。对应 Open311 person_die -> force_succeed。
+            //
+            // 没有这一步会出现：君主一死 mGovernor 悬空 → Force.IsAlive 返回 false
+            // → 势力从 UI 与 AI 循环里消失，但城、军团、武将都还在，无法自愈。
+            if (dyingForce != null)
+            {
+                Person successor = dyingForce.SelectSuccessor(this);
+                if (successor != null)
+                {
+                    // 传入"死前所属军团"：Succeed 会把它并入新君主所在军团
+                    dyingForce.Succeed(successor, dyingCorps);
+                }
+                else
+                {
+                    // 原版 force_succeed 在无继任者时直接 force_ruin
+                    Sango.Log.Warning($"*[势力]{dyingForce.Name} 主公 {Name} 死亡且无继任者，势力灭亡");
+                    dyingForce.Ruin(null, dyingForce.FirstCity(), null);
+                }
+            }
         }
 
         /// <summary>
@@ -3159,6 +3595,9 @@ namespace Sango.Core
             person.yearDead = personLib.yearDead;
             person.compatibility = personLib.compatibility & 0xFF;
             person.state = personLib.state;
+            // 武将种类：PersonLib.type 存的就是 PersonTypeEnum 的取值（见 PersonLib 字段注释），
+            // 不复制会让所有从武将库生成的武将都停留在 None，寿命/编成/事件过滤全部失效
+            person.type = personLib.type;
             person.voice = personLib.voice;
             person.tone = personLib.tone;
             person.kanshitsu = personLib.kanshitsu;

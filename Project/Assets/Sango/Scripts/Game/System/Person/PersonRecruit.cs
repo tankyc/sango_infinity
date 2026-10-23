@@ -19,8 +19,13 @@ namespace Sango.Core
         public List<Person> all_persons;
         List<Person> recruited_list = new List<Person>();
 
-        /// <summary>目标是否为君主(主公，PersonStateType.Governor)：君主不可被登用/收押，只能释放或斩首</summary>
-        public bool IsTargetGovernor => target != null && target.IsGovernor;
+        /// <summary>
+        /// 目标是否为"势力尚存的君主"：这类武将不可被登用/收押，只能释放或斩首。
+        ///
+        /// 势力已灭亡的君主（下野后 state 变成 Unemployed）不在此列 ——
+        /// 他只是一介在野武将，可以被收押、可以被招募。
+        /// </summary>
+        public bool IsTargetGovernor => target != null && target.IsActiveGovernor;
 
         public void Start(Person recruitor, Person target, int recruitType, int tryLimit, System.Action<PersonRecruit> doneAction)
         {
