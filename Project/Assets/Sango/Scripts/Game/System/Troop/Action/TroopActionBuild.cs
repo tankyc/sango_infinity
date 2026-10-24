@@ -48,10 +48,20 @@ namespace Sango.Core.Player
 
                 InitCanBuildingTypes();
 
+                // 【军事府：领地内建军事设施 8 折】
+                // 门禁必须与实际扣费同源（扣费在 City.BuildBuilding），否则会出现
+                // "按钮亮着、点下去资金不够"。判定按部队所属城是否有军事府。
+                bool hasMilitaryOffice = TargetTroop.BelongCity != null
+                    && CityFacilityRequirement.HasGovFacility(
+                        TargetTroop.BelongCity, InteriorFacilityKind.MilitaryOffice);
+
                 bool hasEnoughGold = false;
                 for (int j = 0; j < canBuildBuildingType.Count; j++)
                 {
-                    if (canBuildBuildingType[j].cost <= TargetTroop.gold)
+                    int cost = canBuildBuildingType[j].cost;
+                    if (hasMilitaryOffice)
+                        cost = cost * 8 / 10;
+                    if (cost <= TargetTroop.gold)
                     {
                         hasEnoughGold = true;
                         break;

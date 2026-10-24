@@ -183,8 +183,8 @@ namespace Sango.Core
                     bias += byWild;
                 }
 
-                // 【前期窗口】额外抬高（与部署层同口径回合号，换剧本自动归零）
-                int turn = DeploymentState.currentForceTurn;
+                // 【前期窗口】额外抬高（回合号取自剧本，换剧本自动归零）
+                int turn = Scenario.Cur != null ? Scenario.Cur.TurnCount : 0;
                 if (turn > 0 && turn <= w.recruitPersonEarlyTurns)
                     bias += w.scoreRecruitPersonEarlyBonus;
 

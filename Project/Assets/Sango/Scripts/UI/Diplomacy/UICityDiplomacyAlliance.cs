@@ -48,7 +48,10 @@ namespace Sango.UI
         public void UpdateContent()
         {
             int count = currentSystem.personList.Count;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.SendGift)}/{TargetCity.BelongCorps.ActionPoint}";
+            // 【修正】这里原先取的是 SendGift 的 AP，与同盟命令实际消耗的 Alliance 不一致；
+            // 两者数值若不同会出现"显示 8、实际扣 10"。现按本命令的真实成本显示，
+            // 并走本城口径（外交府可减半）。
+            action_value.text = $"{TargetCity.GetJobCostAP(CityJobType.Alliance)}/{TargetCity.BelongCorps.ActionPoint}";
             sureButton.interactable = currentSystem.personList.Count > 0 && currentSystem.targetForces.Count > 0;
             Person actionPerson = count > 0 ? currentSystem.personList[0] : null;
             personItems.SetPerson(actionPerson);
@@ -57,7 +60,7 @@ namespace Sango.UI
             if (targetForce != null)
             {
                 target.text = targetForce.Name;
-                relationship.text = Scenario.Cur.GetRelation(TargetCity.BelongForce, targetForce).ToString();
+                relationship.text = DiplomacyRules.FormatLike(TargetCity.BelongForce.GetLike(targetForce));
                 days.text = $"{TargetCity.Distance(targetForce.CapitalCity)}0日";
             }
             else

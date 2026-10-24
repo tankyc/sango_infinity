@@ -509,10 +509,25 @@ namespace Sango.Core
             // 直接解引用 corps.BelongForce 会在这里空引用崩溃。
             Force newForce = corps != null ? corps.BelongForce : null;
 
-            // 未完工建筑跨势力易手 = 直接拆除（对齐原版：建造中的设施不留给敌方）
+            // 【同一军团：只纠正势力字段，绝不拆除】
+            // `CityStateSystem.SyncBuildings` 会遍历城内的内政设施、对"军团与城不一致"的逐个调本方法。
+            // 若此时军团其实没变、只是 `BelongForce` 缓存脏了，旧逻辑会命中下面的
+            // "未完工 → OnFall" 分支，把在建设施静默清掉 ——
+            // 表现为"最后一个空格建了没建好就没了、且没有任何拆除日志"。
+            if (BelongCorps == corps)
+            {
+                if (corps != null && BelongForce != newForce)
+                    BelongForce = newForce;
+                return last;
+            }
+
+            // 未完工 / 升级中的建筑**跨势力**易手 = 直接拆除
+            // （对齐原版：建造中的设施不留给敌方）
             if ((!isComplate || isUpgrading) && BelongForce != newForce)
             {
-                //Sango.Log.Error("不允许转换一个未建好的建筑!!");
+                // 【必须打日志】这条路径此前完全静默，是"建筑凭空消失却查不到原因"的主要来源之一
+                Sango.Log.Info($"*[建筑]{Name} 未完工且随城易主，拆除"
+                    + $"（{BelongForce?.Name ?? "无势力"} → {newForce?.Name ?? "无势力"}）");
                 OnFall(null);
                 return last;
             }

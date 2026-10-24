@@ -81,9 +81,32 @@ namespace Sango.Core.Player
         {
             get
             {
+                // 出阵位已满（周边没有空地站部队）则不可出征 ——
+                // 对齐原版 can_deploy_command 的 has_empty_place（s11_sys_person_order_military.cpp:210-219）
+                if (!TargetCity.HasEmptyCellForTroop())
+                    return false;
                 return TargetCity.troops > 0 && TargetCity.food > 0 && TargetCity.freePersons.Count > 0 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.MakeTroop);
+                    TargetCity.BelongCorps.ActionPoint >= TargetCity.GetJobCostAP(CityJobType.MakeTroop);
             }
+        }
+
+        /// <inheritdoc/>
+        public override string GetInvalidReason(City city)
+        {
+            if (city != null)
+                TargetCity = city;
+            if (!TargetCity.HasEmptyCellForTroop())
+                return "出阵位已满";
+            if (TargetCity.troops <= 0)
+                return "城中无兵";
+            if (TargetCity.food <= 0)
+                return "城中无粮";
+            if (TargetCity.freePersons.Count <= 0)
+                return "无空闲武将";
+            // 与 IsValid 同源：走本城口径（军事府可减半）
+            if (TargetCity.BelongCorps.ActionPoint < TargetCity.GetJobCostAP(CityJobType.MakeTroop))
+                return "行动力不足";
+            return null;
         }
         public override void UpdateJobValue()
         {
@@ -174,7 +197,8 @@ namespace Sango.Core.Player
                 TargetCity.freePersons.Remove(person);
             });
             TargetCity.Render?.UpdateRender();
-            TargetTroop.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.MakeTroop));
+            // 走本城口径：军事府可让出阵 AP 减半（与 IsValid :89 同源）
+            TargetTroop.BelongCorps.ReduceActionPoint(TargetCity.GetJobCostAP(CityJobType.MakeTroop));
             TargetCity.EnsureTroop(TargetTroop, Scenario.Cur);
             // 标记已派发：此后从 TroopSystem（含"部队返回"的 BackTo）退回本系统时，
             // OnBack 才需要把这次出征回滚掉。放在真正扣完钱粮、部队已进城之后置位，
@@ -202,7 +226,8 @@ namespace Sango.Core.Player
                 return;
 
             dispatched = false;
-            TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTroop));
+            // 回滚金额必须与 :199 的扣减同源，否则回滚会多退/少退
+            TargetTroop.BelongCorps.ReduceActionPoint(-TargetCity.GetJobCostAP(CityJobType.MakeTroop));
             TargetTroop.EnterCity(TargetCity);
             TargetTroop.ForEachPerson(person =>
             {
@@ -260,7 +285,7 @@ namespace Sango.Core.Player
             // ① 推荐队伍优先（与 CityAI.AIMakeTroop 同一套判定口径）
             TroopTeamCandidate teamPick;
             if (TroopTeamService.TryPickForAI(TargetCity, ActiveTroopTypes(),
-                    CityEstablishment.ResolveRing(TargetCity), out teamPick)
+                    TargetCity.ResolveRing(), out teamPick)
                 && ApplyTeam(teamPick.team))
             {
                 return true;

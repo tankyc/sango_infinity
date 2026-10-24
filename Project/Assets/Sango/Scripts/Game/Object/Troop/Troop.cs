@@ -1912,6 +1912,25 @@ namespace Sango.Core
 
             if (!IsAlive)
             {
+                // 【关系值：部队被击破】压到 15 地板
+                // 对齐 s11_sys_scen_unit.cpp:428-443（与城池陷落、设施摧毁同构）。
+                // 这里与 `Clear()` 的区别：`Clear()` 也用于"进城解散 / 正常返城"，
+                // 不能在那里判断；而 `ChangeTroops` 的兵力归零分支只由战斗触发。
+                if (atk != null)
+                {
+                    // `SangoObject` 基类没有 BelongForce，必须按实际类型取：
+                    //   · 部队攻击 → atk as Troop
+                    //   · 战法伤害 → SkillInstance.master（施法部队）
+                    Force atkForce = null;
+                    if (atk is Troop atkTroop)
+                        atkForce = atkTroop.BelongForce;
+                    else if (atk is SkillInstance skillInstance && skillInstance.master != null)
+                        atkForce = skillInstance.master.BelongForce;
+
+                    if (atkForce != null)
+                        DiplomacyRules.ApplyHostilityPenalty(atkForce, BelongForce);
+                }
+
                 Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 溃灭!!");
 
                 if (Render != null && Render.IsVisible())
@@ -3364,7 +3383,10 @@ namespace Sango.Core
             if (IsPlayerControl)
                 missionType = TroopMissionBehaviour.ToPlayerMission(missionType);
 
-            Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 任务变更:{missionType} -> {missionTarget}!!");
+            // 【日志格式】原写法 `任务变更:XxxCity -> 13` 里的 13 是**目标 Id**，
+            // 极易被误读成"任务类型变成了 13（TroopTransformGoodsToCity）"。
+            // 改为显式标注目标，避免排查时看错。
+            Sango.Log.Info($"{BelongForce.Name}的[{Name}] 部队任务 → {missionType}（目标 Id={missionTarget}）");
             this.missionType = (int)missionType;
             this.missionTarget = missionTarget;
             NeedPrepareMission();

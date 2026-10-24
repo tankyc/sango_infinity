@@ -341,7 +341,7 @@ namespace Sango.Core
         ///
         /// 【原版语义】Open311 里 Gate/Port 各自持有 district_，是可以被单独攻占的
         /// 独立据点 —— 港口与所属都市分属不同势力是**合法状态**（三国志11 原版即如此），
-        /// kyoten_kanraku 只处理当前那一座据点，从不做都市 → 港关的联动改旗。
+        /// 城陷事件 只处理当前那一座据点，从不做都市 → 港关的联动改旗。
         ///
         /// 因此这里只有两种情况：
         ///   · district_ == null  → 无主港关，**合法**，不干预；
@@ -381,6 +381,396 @@ namespace Sango.Core
 
             city.NeedUpdateLeader();
             city.UpdateNewLeader();
+        }
+
+        /// <summary>
+        /// 太守带城独立：让指定武将带着当前所在都市脱离原势力，建立新势力。
+        ///
+        /// 对齐出处：Open311 `s11_sys_event_independence.cpp:89-` 的
+        /// <c>create_force_independence(person, local, koukei)</c>。
+        /// 「驱虎吞狼」成功后的效果就是它（`s11_sys_person_order_strategy.cpp:769`
+        /// 调用 <c>create_force_independence(target, false, false)</c>）——
+        /// 注意原版是"太守独立建国"，**不是**"带城投奔发起方"。
+        ///
+        /// 【与 <see cref="Neutralize"/> 的区别】Neutralize 会把在籍武将迁往最近己方据点，
+        /// 本方法**不迁人**：整城连同城内武将一起改属新势力。
+        /// </summary>
+        /// <param name="person">要独立的武将（须在本城任职，不能是君主）</param>
+        /// <param name="reason">变更原因</param>
+        /// <returns>新建的势力；失败返回 null</returns>
+        public static Force CreateIndependence(Person person, CityChangeReason reason = CityChangeReason.Event)
+        {
+            if (person == null || !person.IsAlive)
+                return null;
+
+            City city = person.BelongCity ?? person.CurrentCity;
+            if (city == null || !city.IsCity())
+                return null;
+
+            // 君主不能"独立" —— :97
+            if (person.IsGovernor)
+                return null;
+
+            Force oldForce = city.BelongForce;
+
+            // 原势力君主不能与本人在同一座城 —— :121-125
+            if (oldForce != null)
+            {
+                Person kunshu = oldForce.mGovernor;
+                if (kunshu != null && kunshu.IsAlive && kunshu.CurrentCity == city)
+                    return null;
+            }
+
+            // 必须是太守 / 都督；普通武将则顶替原太守 —— :99-107
+            int state = person.state;
+            bool isLeaderOrHigher = state == (int)PersonStateType.Leader
+                || state == (int)PersonStateType.Commander
+                || state == (int)PersonStateType.Governor;
+            if (!isLeaderOrHigher)
+            {
+                Person taishu = city.Leader;
+                if (taishu == null || taishu == person || !taishu.IsAlive)
+                    return null;
+                if (taishu.state == (int)PersonStateType.Leader)
+                    PersonStateSystem.SetState(taishu, PersonStateType.Normal, PersonChangeReason.None);
+                PersonStateSystem.SetState(person, PersonStateType.Leader, PersonChangeReason.None);
+                AppointTaishu(city);
+            }
+
+            // 逐个判定城内武将"是否跟随独立" —— 对齐 independence_join_chance（:268-309）。
+            // 注意：原版**不是**全城跟随，而是逐人掷骰；不跟随者迁往最近的己方据点。
+            Scenario scenario = Scenario.Cur;
+            Person oldKunshu = oldForce != null ? oldForce.mGovernor : null;
+
+            System.Collections.Generic.List<Person> joined = new System.Collections.Generic.List<Person>();
+            System.Collections.Generic.List<Person> notJoined = new System.Collections.Generic.List<Person>();
+            if (city.allPersons != null)
+            {
+                for (int i = 0; i < city.allPersons.Count; i++)
+                {
+                    Person p = city.allPersons[i];
+                    if (p == null || !p.IsAlive || p == person)
+                        continue;
+                    if (IsIndependenceFollower(p, person, oldKunshu, scenario))
+                        joined.Add(p);
+                    else
+                        notJoined.Add(p);
+                }
+            }
+
+            // 原势力军师若正是独立者本人 → 解任 —— :181-182
+            if (oldForce != null && oldForce.mCounsellor == person)
+                oldForce.mCounsellor = null;
+
+            // 城与"跟随者"去势力化（不跟随者稍后单独迁走）
+            city.BelongForceId = 0;
+            city.BelongForce = null;
+            city.BelongCorpsId = 0;
+            city.BelongCorps = null;
+            SyncBuildings(city);
+
+            for (int i = 0; i < joined.Count; i++)
+            {
+                Person p = joined[i];
+                p.BelongForceId = 0;
+                p.BelongForce = null;
+                p.BelongCorpsId = 0;
+                p.BelongCorps = null;
+            }
+
+            // 不跟随者迁往最近的己方据点；一处都没有则强制跟随 —— :160-172
+            City retreatCity = oldForce != null ? FindRetreatCity(oldForce, city) : null;
+            if (retreatCity != null)
+            {
+                for (int i = 0; i < notJoined.Count; i++)
+                {
+                    Person p = notJoined[i];
+                    PersonStateSystem.MoveToCity(p, retreatCity, PersonChangeReason.ForceChanged);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < notJoined.Count; i++)
+                {
+                    Person p = notJoined[i];
+                    p.BelongForceId = 0;
+                    p.BelongForce = null;
+                    p.BelongCorpsId = 0;
+                    p.BelongCorps = null;
+                    joined.Add(p);
+                }
+            }
+
+            // 建新势力：编辑器的 CreateForce 本身就要求"君主无势力、都城无势力"
+            ScenarioEdit edit = GameSystem.GetSystem<ScenarioEdit>();
+            Force newForce = edit != null ? edit.CreateForce(person, city) : null;
+            if (newForce == null)
+            {
+                Sango.Log.Error($"*[独立]{person.Name} 在 {city.Name} 独立失败：新势力创建返回空");
+                RebuildForceLedger(oldForce);
+                return null;
+            }
+
+            // 跟随者归入新势力
+            Corps mainCorps = newForce.CapitalCorps;
+            for (int i = 0; i < joined.Count; i++)
+            {
+                Person p = joined[i];
+                p.BelongForceId = newForce.Id;
+                p.BelongForce = newForce;
+                p.BelongCorpsId = mainCorps != null ? mainCorps.Id : 0;
+                p.BelongCorps = mainCorps;
+                // 换势力时复位褒赏标记 —— 对齐原版 person_change_force（s11_sys_scen_person.cpp:751）
+                p.SetBonusDone(false);
+                if (p.state != (int)PersonStateType.Leader
+                    && p.state != (int)PersonStateType.Commander
+                    && p.state != (int)PersonStateType.Governor)
+                    PersonStateSystem.SetState(p, PersonStateType.Normal, PersonChangeReason.ForceChanged);
+            }
+
+            RebuildForceLedger(oldForce);
+            RebuildForceLedger(newForce);
+
+            // 原势力已无城 → 灭亡（原版 force_ruin 的等价处理）
+            if (oldForce != null && oldForce.IsAlive && (oldForce.CityList == null || oldForce.CityList.Count == 0))
+            {
+                oldForce.Ruin(null, city, person);
+                Sango.Log.Info($"*[独立]{oldForce.Name} 因最后一座城独立而灭亡");
+            }
+
+            Sango.Log.Info($"*[独立]{person.Name} 在 {city.Name} 建立 {newForce.Name}（原因 {reason}），" +
+                $"原属 {oldForce?.Name ?? "在野"}，跟随 {joined.Count} 人、离去 {notJoined.Count} 人");
+            return newForce;
+        }
+
+        /// <summary>
+        /// 独立时某武将是否跟随。
+        ///
+        /// 对齐出处：s11_sys_event_independence.cpp:268-309 independence_join_chance。
+        /// 判定链：
+        ///   ① 前置：存活、君主本人有效、本人不在部队中、没有出境类任务
+        ///   ② 厌恶君主且不厌恶主谋，或忠诚 &lt;80 → 掷"起事概率"
+        ///   ③ 与主谋同据点 → 掷"随从概率"
+        /// </summary>
+        /// <param name="self">待判定武将</param>
+        /// <param name="leader">发起独立的主谋</param>
+        /// <param name="kunshu">原势力君主</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>跟随返回 true</returns>
+        static bool IsIndependenceFollower(Person self, Person leader, Person kunshu, Scenario scenario)
+        {
+            if (self == null || !self.IsAlive || leader == null || !leader.IsAlive)
+                return false;
+            if (kunshu == null || !kunshu.IsGovernor)
+                return false;
+            // 在部队中不跟随 —— :272
+            if (self.mBelongTroop != null)
+                return false;
+            // 有任务在身（出阵 / 运输 / 计略等）→ 不跟随。原版只放行留城类指令，
+            // 这里保守取"必须处于待命"，差异仅影响正在城里干活的少数人。
+            if (self.missionType != (int)MissionType.None)
+                return false;
+
+            // ② 厌恶君主且不厌恶主谋，或忠诚 <80 —— :294-302
+            bool hateKunshu = self.IsHate(kunshu);
+            bool hateLeader = self.IsHate(leader);
+            if ((hateKunshu && !hateLeader) || self.loyalty < 80)
+            {
+                if (IndependenceChance(self, scenario))
+                    return true;
+            }
+
+            // ③ 与主谋同据点 —— :303-307
+            City selfCity = self.BelongCity ?? self.CurrentCity;
+            City leaderCity = leader.BelongCity ?? leader.CurrentCity;
+            if (selfCity != null && selfCity == leaderCity)
+            {
+                if (JoinChance(self, leader, kunshu))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// "起事概率"。对齐 s11_sys_event_independence.cpp:58-77 independence_chance。
+        /// <code>
+        /// n = (75 - loyalty) 钳到 0
+        /// n *= (ambition + 4) / 4
+        /// n -= giri * 10
+        /// 难度：Normal ×1.5、Hard ×1.8
+        /// rand_bool(n)
+        /// </code>
+        /// </summary>
+        /// <param name="self">武将</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>命中返回 true</returns>
+        static bool IndependenceChance(Person self, Scenario scenario)
+        {
+            if (self == null)
+                return false;
+
+            int n = 75 - self.loyalty;
+            if (n < 0)
+                n = 0;
+            n *= (self.ambition + 4) / 4;
+            n -= GetGiri(self) * 10;
+            if (n < 0)
+                n = 0;
+
+            int difficulty = scenario != null ? scenario.Variables.difficulty : 0;
+            if (difficulty == 1)
+                n = n * 3 / 2;
+            else if (difficulty == 2)
+                n = n * 18 / 10;
+
+            return GameRandom.Chance(n);
+        }
+
+        /// <summary>
+        /// "随从概率"。逐段对齐 s11_sys_scen_person.cpp:599-641 的 join_chance。
+        /// <code>
+        /// ① 与自己的君主是夫妻/结义 → 绝不背叛（false）
+        /// ② 与主谋是夫妻/结义，或厌恶君主 → 必跟随（true）
+        /// ③ 不厌恶主谋的君主时：
+        ///     a. 自己势力里（除主谋/自己）有自己的夫妻/结义 → 不跟随
+        ///     b. 主谋势力里有自己的夫妻/结义 → 跟随
+        ///     c. 不亲爱君主，且（亲爱主谋的君主 或 亲爱主谋 或 义理≤2 且 忠诚<100）→ 跟随
+        /// ④ 高智/高武者按 n*(giri+1)/5 的概率"看清形势不跟随"
+        /// ⑤ 其余情况跟随
+        /// </code>
+        /// </summary>
+        /// <param name="self">武将</param>
+        /// <param name="leader">主谋</param>
+        /// <param name="kunshu">原势力君主</param>
+        /// <returns>跟随返回 true</returns>
+        static bool JoinChance(Person self, Person leader, Person kunshu)
+        {
+            if (self == null || !self.IsAlive || leader == null || !leader.IsAlive)
+                return false;
+
+            Person selfKunshu = self.BelongForce != null ? self.BelongForce.mGovernor : kunshu;
+            Person leaderKunshu = leader.BelongForce != null ? leader.BelongForce.mGovernor : null;
+            if (selfKunshu == null || leaderKunshu == null)
+                return false;
+
+            if (self == leader)
+                return true;
+
+            // ① 与自己的君主是夫妻/结义 → 绝不背叛 —— :612-613
+            if (IsSpouseOrSworn(self, selfKunshu))
+                return false;
+
+            // ② 与主谋是夫妻/结义，或厌恶君主 → 必跟随 —— :614-615
+            if (IsSpouseOrSworn(self, leader) || self.IsHate(selfKunshu))
+                return true;
+
+            // ③ 不厌恶主谋的君主 —— :616-636
+            if (!self.IsHate(leaderKunshu))
+            {
+                // 3a 自己势力里还有牵挂 → 不跟随 —— :618-623
+                if (HasSpouseOrSwornInForce(self, self.BelongForce, leader))
+                    return false;
+                // 3b 主谋势力里有牵挂 → 跟随 —— :624-627
+                if (HasSpouseOrSwornInForce(self, leader.BelongForce, null))
+                    return true;
+                // 3c 不亲爱君主 —— :628-635
+                if (!self.IsLike(selfKunshu))
+                {
+                    if (self.IsLike(leaderKunshu) || self.IsLike(leader))
+                        return true;
+                    int giri = GetGiri(self);
+                    if (giri != 3 && giri != 4 && self.loyalty < 100)
+                        return true;
+                }
+            }
+
+            // ④ 高智/高武者有概率不跟随 —— :637-639
+            int n = System.Math.Max(System.Math.Max(self.Intelligence, self.Strength), 50);
+            if (GameRandom.Chance(n * (GetGiri(self) + 1) / 5))
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// 两人是否为夫妻或结义关系。
+        /// 对齐原版 `is_fuufu_or_gikyoudai`：夫妻看 <see cref="Person.SpouseList"/>，
+        /// 结义看 <see cref="Person.Brother"/>（组头）与 <see cref="Person.BrotherList"/>（同组）。
+        /// </summary>
+        /// <param name="a">武将 A</param>
+        /// <param name="b">武将 B</param>
+        /// <returns>是夫妻或结义返回 true</returns>
+        static bool IsSpouseOrSworn(Person a, Person b)
+        {
+            if (a == null || b == null || a == b)
+                return false;
+            if (a.IsSpouse(b) || b.IsSpouse(a))
+                return true;
+            if (a.Brother == b || b.Brother == a)
+                return true;
+            if (a.BrotherList != null && a.BrotherList.Contains(b))
+                return true;
+            if (b.BrotherList != null && b.BrotherList.Contains(a))
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 指定势力里是否存在"自己的夫妻/结义"。
+        /// 对齐原版 `has_fuufu_or_gikyoudai(self, person_list)`。
+        /// </summary>
+        /// <param name="self">武将</param>
+        /// <param name="force">要检索的势力</param>
+        /// <param name="exclude">排除的对象（通常是主谋本人）</param>
+        /// <returns>存在返回 true</returns>
+        static bool HasSpouseOrSwornInForce(Person self, Force force, Person exclude)
+        {
+            if (self == null || force == null)
+                return false;
+
+            if (self.SpouseList != null)
+            {
+                for (int i = 0; i < self.SpouseList.Count; i++)
+                {
+                    Person p = self.SpouseList[i];
+                    if (p == null || p == exclude || !p.IsAlive)
+                        continue;
+                    if (p.BelongForce == force)
+                        return true;
+                }
+            }
+
+            if (self.Brother != null && self.Brother != exclude && self.Brother.IsAlive
+                && self.Brother.BelongForce == force)
+                return true;
+
+            if (self.BrotherList != null)
+            {
+                for (int i = 0; i < self.BrotherList.Count; i++)
+                {
+                    Person p = self.BrotherList[i];
+                    if (p == null || p == self || p == exclude || !p.IsAlive)
+                        continue;
+                    if (p.BelongForce == force)
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 取义理档位（0~4）。本项目 `Argumentation.kind` 是 1~5，减 1 对齐原版 Giri_*（0~4）。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <returns>0~4</returns>
+        static int GetGiri(Person person)
+        {
+            if (person == null || person.mArgumentation == null)
+                return 2;
+            int giri = person.mArgumentation.kind - 1;
+            if (giri < 0) giri = 0;
+            if (giri > 4) giri = 4;
+            return giri;
         }
 
         /// <summary>

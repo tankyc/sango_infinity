@@ -173,3 +173,177 @@ Sango 用 `city.BelongForce` 做锚点会踩这个场景：在途武将的 `Belo
 **为什么不能直接调 `UpdateCorps`**：它会连在籍武将一起改，而城陷路径里武将已由调用方处理完毕，在途武将更不该被改成新势力军团。
 
 **教训**：原版"动态继承"的字段，在改成"存储字段"时必须找出**所有**写入路径补齐。
+
+## 11. `read_lints` 会漏报编译错误
+
+**现象**：连续两轮改动后 `read_lints` 都返回 `0 error`，但 Unity 实际编译失败：
+
+| 轮次 | 实际错误 | `read_lints` 结果 |
+|---|---|---|
+| 1 | `CS0111: Type 'City' already defines a member called 'GetJobCost' with the same parameter types` | **0 error** |
+| 2 | `CS1061: 'Scenario' does not contain a definition for 'Month'` | **0 error** |
+
+**根因**：`read_lints` 读的是 IDE 诊断缓存，Unity 重新编译后缓存未及时失效。
+
+**修法**：
+- **以 `read_console(types=[error])` 为唯一可信来源**
+- `refresh_unity` 返回 success 只代表"刷新完成"，**不代表编译通过**
+- `read_lints` 只作辅助，永远不能据此写"编译通过"
+
+**配套**：`read_console` 会因编辑器重导入返回 `ping not answered`。超时期间禁止继续堆改动（错误会累积），应：
+1. 只做小步改动
+2. 回复里列出本轮动过的**全部文件清单**，方便用户对照 Console
+3. 请用户手动贴报错
+
+**教训**：工具报告"干净"不等于真的干净。诊断链上有缓存时，要选**离编译器最近**的那个。
+
+## 12. 门禁与扣费不同源（15 处事故）
+
+**现象**：玩家看到"按钮亮着可点，点下去资金/行动力不够"，或反过来"按钮灰着、其实够"。
+
+**五类根因**：
+
+| 类型 | 案例 |
+|---|---|
+| 门禁折后价、扣费原价 | 出阵：门禁 `GetJobCostAP`（军事府 5）、扣费 `JobType.GetJobCostAP`（10）→ 多扣 5 |
+| 门禁查 A、扣费扣 B | 能力研究：`ActionPoint < ResearchGoldCost * 2`（**金币常量**当 AP 门槛） |
+| 门禁写死金额 | 亲善 `gold >= 1000`，扣费 `GetJobCost()`（外交府减半 500） |
+| 门禁查、扣费不扣 | 八项外交从不 `ReduceActionPoint`；摒弃/交换要 1000 金却免费 |
+| 门禁不查、扣费失败 | 技巧研究不查金/技巧点，执行时 `return null` 静默失败 |
+
+**修法**：
+1. 收敛城级入口 `City.GetJobCostAP` / `City.GetJobCost`，门禁与执行**都走它**
+2. 执行方法**开头**二次复核资源（必须放在"注册对象 / 摘武将 / 置状态位"**之前**，否则留下孤儿对象）
+3. 批量操作按**总价**判（褒赏按人数、建造按所选建筑）
+4. `cost = 0` 的工作不能用 `CheckJobCost` 当资金门禁（恒真）
+
+**教训**：一对"能不能点 / 扣多少"只要分开写，就一定会漂移。收敛成一个入口。
+
+## 13. 双尺度并存导致数值失真
+
+**现象**：同一"关系值"两套刻度 —— 存储 raw（-5000~5000）、业务 like（0~100）。
+
+| 调用 | 写的值 | 实际 | 原版 |
+|---|---|---|---|
+| 停战 | `AddRelation(+300 raw)` | +3 like | **不改** |
+| 宣战 | `ReduceRelation(-1000 raw)` | -10 like | **无此规则** |
+| 外交事件 | `AddRelation(+50 raw)` | **+0**（整数除法） | —— |
+| 计略失败 | `200 raw` | ≈ 2 like | -8 |
+
+**修法**：存储也改成原版 0~100；旧档用**值域探测**迁移（不是版本号）——
+因为"直接加载原版剧本"时原版值天然在 0~100 内，不会误触发。
+
+**迁移代码要点**：
+```csharp
+bool legacy = false;
+for (...) if (row[j] < 0 || row[j] > 100) { legacy = true; break; }
+if (legacy) row[j] = Clamp(50 + raw / 100, 0, 100);   // 换算 + 超范围修正
+```
+
+**连带**：迁移后所有按 raw 设计的 `ScenarioVariables` 默认值必须 ÷100（本次 15 个）。
+
+**教训**：两套刻度的换算藏在 getter 里时，写入口一定会漏。
+
+## 14. 把单点规则套到全体对象
+
+**现象**：AI 反复"建农场 → 拆农场 → 再建"，同一块地永远空着。
+
+**根因**：`FindUnnecessaryBuilding` 的实现
+
+| 原版 | 本项目 |
+|---|---|
+| `get_unnecessary_facility_list(city, FacilityId_Mint)`：**只判铸币厂**，看周边**市场**数 | 对**所有**内政设施判"周边**同类** < 3 即冗余" |
+
+后果：孤立农场（周边没有别的农场）→ 判冗余 → 拆掉 → AI 再建 → 死循环。
+
+**教训**：原版函数名的**参数**（`FacilityId_Mint`）就是适用范围，不是"举例"。
+
+## 15. "没有日志但对象消失了" = 存在静默清理路径
+
+**现象**：玩家反馈"建筑凭空少一座，日志里查不到"。
+
+**全库搜的结果**：7 条拆除路径里有 **2 条完全静默**：
+
+| 路径 | 是否打日志 |
+|---|---|
+| `AIDestroy` Battle 分支 | ✅ |
+| `AIDestroy` 冗余判定 | ✅ |
+| `TryReplaceBuilding` | ❌ 静默 |
+| `City.OnYearStart` 清黑市 | ❌ 静默 |
+| **`Building.ChangeCorps` 未完工** | ❌ **静默且每次同步都触发** |
+| `ChangeCity` 未完工 | 有 Error |
+
+**最阴的一条**：`ChangeCorps` 里 `if ((!isComplate || isUpgrading) && BelongForce != newForce) OnFall()`，
+而 `CityStateSystem.SyncBuildings` 只比较 `BelongCorps` —— 当"军团一致、势力字段脏了"时也会命中，
+导致**每次军团同步都把在建设施清掉**。
+
+**修法**：
+1. 一条路径一条路径搜（`OnFall` / `Clear()` / `Remove`），**逐个加日志**
+2. `ChangeCorps` 先判 `BelongCorps == corps` 就直接纠正字段返回，不进入拆除判定
+
+**教训**：排查"对象莫名消失"时，**不要只信日志**，要把销毁入口穷举一遍。
+
+## 16. 新增方法前必须搜同名
+
+**现象**：`CS0111` —— `City` 已有 `GetJobCost(CityJobType)`，我又加了一个同签名方法。
+
+**根因**：为了加"外交府亲善减半"直接新写方法，没先搜 `GetJobCost`。
+
+**修法**：把新逻辑**合并进已有方法**（放在 `OnCityCheckJobCost` override 之后），
+并让 `CheckJobCost` 改为调用 `GetJobCost`（它原本复制了一份实现，会二次分叉）。
+
+**教训**：给已有类加"城级封装"前，先 `grep "public .* GetJobCost"`。
+
+## 17. `SangoObject` 是弱基类，不保证有子类字段
+
+**现象**：`CS1061: 'SangoObject' does not contain a definition for 'BelongForce'`。
+
+**场景**：`Troop.ChangeTroops(int num, SangoObject atk, int atkBack)` —— 参数是基类，
+但要取"攻击方势力"。
+
+**修法**：按实际类型取，且注意**战法伤害的攻方挂在 `SkillInstance.master`**：
+
+```csharp
+Force atkForce = null;
+if (atk is Troop atkTroop) atkForce = atkTroop.BelongForce;
+else if (atk is SkillInstance si && si.master != null) atkForce = si.master.BelongForce;
+```
+
+**教训**：拿 `SangoObject` 当参数的方法里，任何子类字段都要先 `is` 判定。
+
+## 18. 一价多做：一次 AP 干 N 件事
+
+**现象**：AI 城的建造速度快得离谱，行动力像用不完。
+
+**根因**：`AIBuilding` 内部按武将人数放大 `count`：
+
+```csharp
+int count = 1;
+if (city.freePersons.Count > 6) count += (city.freePersons.Count - 3) / 3;
+for (i < count) AIBuildIntriore(...);      // 建 N 座
+for (i < count) AIBuildingLevelUp(...);    // 升 N 座
+AIBuildMilitaryBuilding(...);              // 再建 1 座
+```
+
+而 `OutpostCommand` 只扣**一次** `GetJobCostAP(Build)` → 20 个武将的城用一次代价完成 13 次建造。
+
+**原版**：`kyoten_develop` 一次只建**一座**、扣**一次** AP（`:141-145`）。
+
+**修法**：拆分——建造 1 座、升级走 `AIOrderId.Merge`、军事建筑走 `AIOrderId.Build`，各自独立记账。
+
+**教训**：`count` 这类"按规模放大"的循环，必须对应"按规模扣费"，否则就是作弊入口。
+
+## 19. AI 军团"建→拆→建"死循环的三个独立成因
+
+同一个现象（城里建筑反复消失/重建）追出三层，每层单独都能造成循环：
+
+| # | 成因 | 修法 |
+|---|---|---|
+| 1 | **拆旧建新**（`TryReplaceBuilding`）是自创逻辑，原版没有 | 切断调用，建满时直接返回 false |
+| 2 | **冗余判定套到全体设施** + 比较"同类"而非"配套" | 只判铸币厂/谷仓，看市场/农田 |
+| 3 | **升级中的建筑被当成已完工拆掉**（`JobUpgradeBuilding` 只置 `isUpgrading`，`isComplate` 仍 true） | `FindUnnecessaryBuilding` 补 `isUpgrading` 排除 |
+
+**补充**：原版"建满"判据是 `设施数量 >= 内政地数量`，因为**吸收合并会让数量下降**、之后还能继续发展；
+本项目没有吸收合并，数量永不下降 → 必须改用**总等级**判据（每座建筑沿 `nextId` 链推算最终等级）。
+
+**教训**：一个"循环"现象背后常有多条独立回路，修一条不会好，要逐条穷举。

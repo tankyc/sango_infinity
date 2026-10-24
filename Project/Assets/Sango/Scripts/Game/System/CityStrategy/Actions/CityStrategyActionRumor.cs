@@ -67,7 +67,21 @@ namespace Sango.Core
         public override int CalculateSuccessRate()
         {
             Resister = GetResistance(TargetForceA, TargetCity);
-            SuccessRate = CalculateRate(Diplomat?.Intelligence ?? 0, Resister?.Intelligence ?? 0);
+            int rate = CalculateRate(Diplomat?.Intelligence ?? 0, Resister?.Intelligence ?? 0);
+
+            // 【计略府】流言成功率 +20%
+            // 对齐 calc_rumor_score（s11_sys_person_order_strategy.cpp:1170-1178）：
+            //   无计略府 `facility_coef = 10`，有则 `= 12`；
+            //   该项以 `actor_int * actor_int * facility_coef / 10` 参与，
+            //   即把"智力平方"这一主导项放大 20%，因此整体成功率约 +20%。
+            City fromCity = Diplomat?.BelongCity;
+            if (fromCity != null
+                && CityFacilityRequirement.HasGovFacility(fromCity, InteriorFacilityKind.StrategemOffice))
+            {
+                rate = rate * 120 / 100;
+            }
+
+            SuccessRate = System.Math.Min(rate, 100);
             return SuccessRate;
         }
 
@@ -97,11 +111,9 @@ namespace Sango.Core
                     break;
             }
 
-            // 记仇：只有"对方查出了是谁干的"的三种结果才记账（露馅、失败、失败被擒）。
-            // 成功且未暴露时受害者并不知道源头，按原版 721 的口径不给报复因由，
-            // 否则流言会变成"零风险刷仇恨"，与未发现的语义冲突
-            if (result != CityStrategyResult.SucceededUndetected)
-                TargetCity?.BelongForce?.AddCityStrategyGrudge(Sender);
+            // 【已移除】原先这里会给受害者记一笔"计略仇"（AddCityStrategyGrudge），
+            // 供势力级 AI 在后续回合报复性施计。势力级主动施计已整体删除，
+            // 主动施计全部由据点命令 AIOrderId_Strategy 触发，因此这份凭据没有消费者。
         }
 
         /// <summary>

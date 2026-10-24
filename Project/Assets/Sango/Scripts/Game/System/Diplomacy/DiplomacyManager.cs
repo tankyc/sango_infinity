@@ -236,49 +236,96 @@ namespace Sango.Core
         /// <param name="scenario">场景</param>
         private void HandleMonthlyRelationChanges(Scenario scenario)
         {
-            if (scenario == null || scenario.forceSet.Count< 2)
+            if (scenario == null || scenario.forceSet.Count < 2)
                 return;
 
+            // ============ 友好度月度变化：严格对齐 Game::force_like_change ============
+            // 出处：s11_game_month.cpp:1324-1451。
+            //
+            // 原版是"向基准值 base 回归的随机漫步"，而不是单向衰减：
+            //   base = max(5 * (9 - 难度) - 相性距离 / 5, 0)      // 难度 0/1/2 → 45/40/35 减相性
+            //   · like > 10 且 base >= like → 增（玩家参与 +0~1，纯 AI +0~2）
+            //   · like > 10 且 base <  like → 减（玩家参与 -0~2，纯 AI -0~1）
+            //   · like <= 10                → 只有 base <= like 才减，否则**完全冻结**
+            // 另外还有按相性距离与难度决定的**频率门控**（不是每月都结算）。
+            //
+            // 【旧实现的三个问题（均已修正）】
+            //   ① 只有"50% 概率 -1"，关系只降不升，除送礼外没有任何回升途径；
+            //   ② 同盟分支用 `AddRelation(+50 raw)`，除以 100 后整数归零 → **实际增长为 0**；
+            //   ③ 完全没有相性、难度、频率门控。
             int forceCount = scenario.forceSet.Count;
-            ScenarioVariables variables = scenario.Variables;
-            
-            for (int i = 0; i< forceCount; ++i)
+
+            // 【难度钳制】原版 `get_difficulty()` 只有 Easy(0)/Normal(1)/Hard(2) 三档，
+            // 关系基准 `base = 5 * (9 - difficulty) - aishou/5` 对应 45 / 40 / 35。
+            // 本项目 `Variables.difficulty` 是普通 int，超出范围会让 base 失真（甚至负数）。
+            int difficulty = scenario.Variables.difficulty;
+            if (difficulty < 0) difficulty = 0;
+            else if (difficulty > 2) difficulty = 2;
+            bool easy = difficulty == 0;
+
+            // 月份取 `Info.month`（1~12），不是 Scenario 上的属性
+            int month = scenario.Info.month;
+            bool oddMonth = (month % 2) == 1;
+            bool quarterMonth = month == 1 || month == 4 || month == 7 || month == 10;
+            bool halfMonth = month == 1 || month == 7;
+
+            for (int i = 0; i < forceCount; ++i)
             {
                 Force forceA = scenario.forceSet[i];
-                if (forceA == null || !forceA.IsAlive)
+                if (forceA == null || !forceA.IsAlive || forceA.mGovernor == null)
                     continue;
+                Person kunshuA = forceA.mGovernor;
 
                 for (int j = i + 1; j < forceCount; ++j)
                 {
                     Force forceB = scenario.forceSet[j];
-                    if (forceB == null || !forceB.IsAlive)
+                    if (forceB == null || !forceB.IsAlive || forceB.mGovernor == null)
                         continue;
+                    Person kunshuB = forceB.mGovernor;
 
-                    // 检查是否有同盟或停战协议
-                    bool hasAlliance = forceA.IsAlliance(forceB);
-                    
-                    // 关系变化概率
-                    int chance = variables.relationChangeChance;
-                    
-                    // 同盟关系变化概率降低，且变化值为正
-                    if (hasAlliance)
+                    int aishou = kunshuA.CompatibilityDistance(kunshuB);
+
+                    // ① 频率门控：相性越远越少结算
+                    if (aishou > 50)
                     {
-                        chance = chance / 2;
-                        if (GameRandom.Chance(chance))
-                        {
-                            // 同盟关系缓慢增长
-                            AddRelation(forceA, forceB, variables.diplomacyMonthlyAllianceRelationIncrease);
-                        }
+                        if (easy && !oddMonth) continue;
+                    }
+                    else if (aishou > 20)
+                    {
+                        if (easy) { if (!quarterMonth) continue; }
+                        else { if (!oddMonth) continue; }
                     }
                     else
                     {
-                        // 普通关系有一定概率下降
-                        if (GameRandom.Chance(chance))
-                        {
-                            // 关系自然衰减
-                            ReduceRelation(forceA, forceB, variables.diplomacyMonthlyNormalRelationDecrease);
-                        }
+                        if (easy) { if (!halfMonth) continue; }
+                        else { if (!quarterMonth) continue; }
                     }
+
+                    // ② 回归基准
+                    int like = forceA.GetLike(forceB);
+                    int baseLike = System.Math.Max(5 * (9 - difficulty) - aishou / 5, 0);
+                    bool playerInvolved = forceA.IsPlayer || forceB.IsPlayer;
+
+                    int n = 0;
+                    if (like > 10)
+                    {
+                        if (baseLike >= like)
+                            n = playerInvolved ? GameRandom.Range(0, 2) : GameRandom.Range(0, 3);
+                        else
+                            n = playerInvolved ? -GameRandom.Range(0, 3) : -GameRandom.Range(0, 2);
+                    }
+                    else
+                    {
+                        // like <= 10：只有基准比它还低才继续跌，否则冻结（原版的设计）
+                        if (baseLike <= like)
+                            n = playerInvolved ? -GameRandom.Range(0, 3) : -GameRandom.Range(0, 2);
+                    }
+
+                    if (n == 0)
+                        continue;
+
+                    // AddLike 内部双向写 + 0~100 钳制，与原版 force_set_like 一致
+                    forceA.AddLike(forceB, n);
                 }
             }
         }
@@ -499,6 +546,25 @@ namespace Sango.Core
             int distance = action.Diplomat.DistanceDays(targetCity);
             if (distance<= 0)
                 distance = 1;
+
+            // 【扣行动力】此前整个外交流程**一处都没扣**，等于八项外交不受行动力约束，
+            // 而各命令的 `IsValid` 却按 `GetJobCostAP` 判了门槛 —— 门禁与扣费彻底脱钩。
+            // 这里在派遣时统一扣一次，口径与门禁同源（走 City.GetJobCostAP，含外交府减半）。
+            // 弃盟（DiscardAlliance）不派使者，由 CityDiplomacyDiscardAlliance 自己扣。
+            City fromCity = action.Diplomat.BelongCity;
+            if (fromCity != null && fromCity.BelongCorps != null)
+            {
+                CityJobType apJob = action.ActionType == DiplomacyActionType.SendGift
+                    ? CityJobType.SendGift
+                    : CityJobType.Alliance;      // 停战 / 劝降 / 交换 / 援军 复用同盟成本
+                int apCost = fromCity.GetJobCostAP(apJob);
+                if (apCost > 0)
+                {
+                    if (fromCity.BelongCorps.ActionPoint < apCost)
+                        return false;            // 二次防御：兜住"门禁通过后被别处花掉"的情形
+                    fromCity.BelongCorps.ReduceActionPoint(apCost);
+                }
+            }
 
             // 设置外交任务
             action.Diplomat.SetMission(MissionType.PersonDiplomacy, targetCity, distance, action.Receiver.Id, (int)action.ActionType, action.ResourceValue);

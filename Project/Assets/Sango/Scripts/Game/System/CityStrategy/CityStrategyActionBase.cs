@@ -17,7 +17,7 @@ namespace Sango.Core
         TwoTigers = 0,
 
         /// <summary>
-        /// 驱虎吞狼：本期暂不实现，仅占位以保持与 CityJobType 的对齐关系
+        /// 驱虎吞狼：策反敌方太守，使其带城独立
         /// </summary>
         TigerDevour = 1,
 

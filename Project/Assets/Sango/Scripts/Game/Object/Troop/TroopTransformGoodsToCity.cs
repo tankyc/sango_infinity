@@ -16,12 +16,12 @@ namespace Sango.Core
         protected virtual bool AutoRetreatWhenDoomed { get { return true; } }
 
         /// <summary>
-        /// 任务是否结束：目标城已易主 / 已不存在，或**即将失守**。
+        /// 任务是否结束：目标城已易主 / 已不存在。
         ///
-        /// 【及时回撤】"兵临城下且守军明显劣势"时同样判为结束，
-        /// 于是 <see cref="Prepare"/> 会把运输队转回创建城（<c>TroopReturnCity</c>），
-        /// 整车的金 / 粮 / 兵 / 军械原路带回 —— 免得跟着城池一起丢。
-        /// 判定与调度侧共用 <see cref="ResourceBalance.IsTargetDoomed"/>，两边不会走偏。
+        /// 说明：原来这里还会在"目标城兵临城下且守军明显劣势"时提前回撤
+        /// （依赖已删除的 <c>ResourceBalance.IsTargetDoomed</c> 与资源调度的
+        /// <c>doomedDefenseRatio</c> 权重）。原版运输队没有这种撤退判定：
+        /// 运输部队抵达目标城就直接卸货，被打掉就损失。为保持与原版一致，该分支一并移除。
         /// </summary>
         public override bool IsMissionComplete
         {
@@ -29,14 +29,6 @@ namespace Sango.Core
             {
                 if (TargetCity == null || !TargetCity.IsSameForce(Troop))
                     return true;
-
-                if (AutoRetreatWhenDoomed && Troop != null && !Troop.IsPlayerControl)
-                {
-                    AIConfig config = AIConfig.Instance;
-                    ResourceDispatchWeights w = config != null ? config.resourceDispatch : null;
-                    if (ResourceBalance.IsTargetDoomed(TargetCity, w != null ? w.doomedDefenseRatio : 0f))
-                        return true;
-                }
                 return false;
             }
         }

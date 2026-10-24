@@ -63,11 +63,52 @@ namespace Sango.Core.Player
             {
                 InitCanBuildingTypes();
 
-                return TargetCity.freePersons.Count > 0 
-                    && TargetCity.gold > 200 
-                    && !TargetCity.IsInteriorBuildFull() 
-                    && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Build);
+                // 敌军兵临则禁止建设 —— 对齐原版 can_build_command 的 building_has_enemy
+                if (TargetCity.HasEnemyNearby())
+                    return false;
+
+                if (TargetCity.freePersons.Count <= 0)
+                    return false;
+                if (TargetCity.IsInteriorBuildFull())
+                    return false;
+                // 没有任何可建设施时不亮（否则点进去是空列表）
+                if (canBuildBuildingType.Count <= 0)
+                    return false;
+                if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.Build))
+                    return false;
+
+                // 【按"最便宜的可建项"判金】原先写死 `gold > 200`，与各建筑实际造价脱钩：
+                // 造价 400 的建筑在 250 金时按钮仍亮，点进去选完才在
+                // `City.JobBuildBuilding` 里 `gold -= cost` —— 直接把资金扣成负数。
+                int minCost = int.MaxValue;
+                for (int i = 0; i < canBuildBuildingType.Count; i++)
+                {
+                    BuildingType t = canBuildBuildingType[i];
+                    if (t != null && t.cost < minCost)
+                        minCost = t.cost;
+                }
+                return TargetCity.gold >= minCost;
             }
+        }
+
+        /// <inheritdoc/>
+        public override string GetInvalidReason(City city)
+        {
+            if (city != null)
+                TargetCity = city;
+            if (TargetCity.HasEnemyNearby())
+                return "敌军兵临";
+            if (TargetCity.freePersons.Count <= 0)
+                return "无空闲武将";
+            if (TargetCity.gold <= 200)
+                return "资金不足";
+            if (TargetCity.IsInteriorBuildFull())
+                return "内政用地已满";
+            if (canBuildBuildingType.Count <= 0)
+                return "无可建设施";
+            if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.Build))
+                return "行动力不足";
+            return null;
         }
         void InitCanBuildingTypes()
         {

@@ -21,11 +21,32 @@ namespace Sango.Core.Player
         {
             get
             {
+                // 兵临城下禁止开发 —— 对齐 can_develop_command（s11_sys_person_order_city.cpp:25-33）
+                if (TargetCity.HasEnemyNearby())
+                    return false;
                 return TargetCity.freePersons.Count > 0 
                     && TargetCity.commerce < TargetCity.commerceLimit 
                     && TargetCity.CheckJobCost(CityJobType.Develop)
                     && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Develop);
             }
+        }
+
+        /// <inheritdoc/>
+        public override string GetInvalidReason(City city)
+        {
+            if (city != null)
+                TargetCity = city;
+            if (TargetCity.HasEnemyNearby())
+                return "敌军兵临";
+            if (TargetCity.freePersons.Count <= 0)
+                return "无空闲武将";
+            if (TargetCity.commerce >= TargetCity.commerceLimit)
+                return "商业已达上限";
+            if (!TargetCity.CheckJobCost(CityJobType.Develop))
+                return "资金不足";
+            if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.Develop))
+                return "行动力不足";
+            return null;
         }
 
         //protected override void OnUIInit()

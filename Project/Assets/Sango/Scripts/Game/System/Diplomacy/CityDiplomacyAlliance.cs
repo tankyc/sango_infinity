@@ -26,7 +26,9 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Alliance) && TargetCity.gold >= 1000;
+                return TargetCity.freePersons.Count > 0
+                    && TargetCity.BelongCorps.ActionPoint >= TargetCity.GetJobCostAP(CityJobType.Alliance)
+                    && TargetCity.gold >= 1000;
             }
         }
 

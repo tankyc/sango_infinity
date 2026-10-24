@@ -63,6 +63,9 @@ namespace Sango.Core
                     case "Flag":
                         force.Flag = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
                         break;
+                    case "Nation":
+                        force.Nation = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
+                        break;
                     case "desc":
                         force.desc = reader.Value as string;
                         break;

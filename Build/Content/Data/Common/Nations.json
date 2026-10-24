@@ -1,0 +1,676 @@
+{
+  "Nations": {
+    "1": {
+      "Id": 1,
+      "Name": "魏",
+      "desc": "以兖、冀两州为中心的国家。战国七雄之一，也是三晋之一。",
+      "iconId": 5,
+      "isHistorical": 1,
+      "fame": 82
+    },
+    "2": {
+      "Id": 2,
+      "Name": "吴",
+      "desc": "以扬州东部为中心的国家。周文王之叔父·太白为其开国之祖。",
+      "iconId": 24,
+      "isHistorical": 1,
+      "fame": 45
+    },
+    "3": {
+      "Id": 3,
+      "Name": "蜀",
+      "desc": "以益州南部为中心的国家。自古以来巴蜀即被称为「天府之国」。",
+      "iconId": 38,
+      "isHistorical": 1,
+      "fame": 68
+    },
+    "4": {
+      "Id": 4,
+      "Name": "晋",
+      "desc": "以华北一带为中心的大国家。之後分裂为韩、魏、赵三国。",
+      "iconId": 12,
+      "isHistorical": 1,
+      "fame": 54
+    },
+    "5": {
+      "Id": 5,
+      "Name": "成",
+      "desc": "袁术所建立的国家。其名有一说为「仲」。",
+      "iconId": 14,
+      "isHistorical": 1,
+      "fame": 44
+    },
+    "6": {
+      "Id": 6,
+      "Name": "黄巾",
+      "desc": "由张角所组成的叛乱军。成员头上所绑之黄巾为其名由来。",
+      "iconId": 4,
+      "isHistorical": 0,
+      "fame": 64
+    },
+    "7": {
+      "Id": 7,
+      "Name": "汉",
+      "desc": "高祖·刘邦打倒秦及楚後建立的王朝。前汉後汉共维持了四百年。",
+      "iconId": 9,
+      "isHistorical": 0,
+      "fame": 70
+    },
+    "8": {
+      "Id": 8,
+      "Name": "夏",
+      "desc": "被称为华夏史上最古老的统一王朝。传说中为禹所开创。",
+      "iconId": 15,
+      "isHistorical": 1,
+      "fame": 52
+    },
+    "9": {
+      "Id": 9,
+      "Name": "商",
+      "desc": "汤推翻夏之後建立的统一王朝。也称为「殷」。",
+      "iconId": 15,
+      "isHistorical": 1,
+      "fame": 57
+    },
+    "10": {
+      "Id": 10,
+      "Name": "周",
+      "desc": "武王·姬发推翻殷商後建立的统一王朝。东周西周共维持了八百年。",
+      "iconId": 12,
+      "isHistorical": 1,
+      "fame": 47
+    },
+    "11": {
+      "Id": 11,
+      "Name": "秦",
+      "desc": "由秦始皇所建立的统一王朝。终结了春秋战国之世，一统诸制度。",
+      "iconId": 20,
+      "isHistorical": 1,
+      "fame": 56
+    },
+    "12": {
+      "Id": 12,
+      "Name": "新",
+      "desc": "王莽篡汉所建立的王朝。最後被光武帝·刘秀给推翻。",
+      "iconId": 15,
+      "isHistorical": 1,
+      "fame": 65
+    },
+    "13": {
+      "Id": 13,
+      "Name": "燕",
+      "desc": "以幽、冀两州为中心的国家。战国七雄之一，召公为其开国之祖。",
+      "iconId": 2,
+      "isHistorical": 1,
+      "fame": 78
+    },
+    "14": {
+      "Id": 14,
+      "Name": "赵",
+      "desc": "以并、冀两州为中心的国家。战国七雄之一，也是三晋之一。",
+      "iconId": 6,
+      "isHistorical": 1,
+      "fame": 71
+    },
+    "15": {
+      "Id": 15,
+      "Name": "齐",
+      "desc": "以青、徐两州为中心的国家。战国七雄之一，太公望为其开国之祖。",
+      "iconId": 4,
+      "isHistorical": 1,
+      "fame": 72
+    },
+    "16": {
+      "Id": 16,
+      "Name": "纪",
+      "desc": "以青州为中心的小国。於春秋时代为齐所灭。",
+      "iconId": 7,
+      "isHistorical": 1,
+      "fame": 50
+    },
+    "17": {
+      "Id": 17,
+      "Name": "鲁",
+      "desc": "以兖、徐两州为中心的国家。周公旦为其开国之祖，孔子出生於此。",
+      "iconId": 12,
+      "isHistorical": 1,
+      "fame": 77
+    },
+    "18": {
+      "Id": 18,
+      "Name": "曹",
+      "desc": "以兖州北部为中心的国家。周武王之弟·曹叔振铎为其开国之祖。",
+      "iconId": 13,
+      "isHistorical": 1,
+      "fame": 58
+    },
+    "19": {
+      "Id": 19,
+      "Name": "薛",
+      "desc": "以徐州中部为中心的国家。战国四公子之一的孟尝君即被封於此。",
+      "iconId": 14,
+      "isHistorical": 1,
+      "fame": 80
+    },
+    "20": {
+      "Id": 20,
+      "Name": "徐",
+      "desc": "以徐州南部为中心的小国。在春秋时代被吴国灭亡。",
+      "iconId": 8,
+      "isHistorical": 1,
+      "fame": 53
+    },
+    "21": {
+      "Id": 21,
+      "Name": "宋",
+      "desc": "以豫州为中心的国家。微子启为其开国之祖，由商朝遗民所组成。",
+      "iconId": 13,
+      "isHistorical": 1,
+      "fame": 46
+    },
+    "22": {
+      "Id": 22,
+      "Name": "陈",
+      "desc": "以豫州西部为中心的国家。据说是舜的後代所建立。",
+      "iconId": 25,
+      "isHistorical": 1,
+      "fame": 62
+    },
+    "23": {
+      "Id": 23,
+      "Name": "苏",
+      "desc": "以司隶为中心的小国。为商末的倾国美女·妲己之故乡。",
+      "iconId": 16,
+      "isHistorical": 1,
+      "fame": 83
+    },
+    "24": {
+      "Id": 24,
+      "Name": "韩",
+      "desc": "以司隶为中心的国家。战国七雄之一，也是三晋之一。",
+      "iconId": 11,
+      "isHistorical": 1,
+      "fame": 81
+    },
+    "25": {
+      "Id": 25,
+      "Name": "卫",
+      "desc": "以司隶北部为中心的国家。周武王之弟·康叔封为其开国之祖。",
+      "iconId": 15,
+      "isHistorical": 1,
+      "fame": 74
+    },
+    "26": {
+      "Id": 26,
+      "Name": "郑",
+      "desc": "以司隶南部为中心的国家。周宣王之庶弟·姬友为其开国之祖。",
+      "iconId": 13,
+      "isHistorical": 1,
+      "fame": 76
+    },
+    "27": {
+      "Id": 27,
+      "Name": "许",
+      "desc": "以豫州西部为中心的国家。据说是伯夷的後代所建立。",
+      "iconId": 16,
+      "isHistorical": 1,
+      "fame": 61
+    },
+    "28": {
+      "Id": 28,
+      "Name": "虞",
+      "desc": "以司隶西部为中心的国家。据说是周文王的伯父·虞仲雍之後裔。",
+      "iconId": 15,
+      "isHistorical": 1,
+      "fame": 67
+    },
+    "29": {
+      "Id": 29,
+      "Name": "梁",
+      "desc": "以司隶西北部为中心的小国。於春秋时代为秦所灭。",
+      "iconId": 19,
+      "isHistorical": 1,
+      "fame": 59
+    },
+    "30": {
+      "Id": 30,
+      "Name": "凉",
+      "desc": "以凉州为中心的国家。在之後的五胡十六国时期常被拿来当作国号。",
+      "iconId": 20,
+      "isHistorical": 1,
+      "fame": 60
+    },
+    "31": {
+      "Id": 31,
+      "Name": "蔡",
+      "desc": "以淮南为中心的小国。周武王之弟·蔡叔度为其开国之祖。",
+      "iconId": 27,
+      "isHistorical": 1,
+      "fame": 73
+    },
+    "32": {
+      "Id": 32,
+      "Name": "唐",
+      "desc": "以荆州东北部为中心的小国。据说是尧的後裔所建之国。",
+      "iconId": 29,
+      "isHistorical": 1,
+      "fame": 51
+    },
+    "33": {
+      "Id": 33,
+      "Name": "邓",
+      "desc": "以荆州北部为中心的小国。於春秋时代为楚所灭。",
+      "iconId": 35,
+      "isHistorical": 1,
+      "fame": 75
+    },
+    "34": {
+      "Id": 34,
+      "Name": "申",
+      "desc": "以荆州北部为中心的小国。据说是伯夷的後裔所建之国。",
+      "iconId": 18,
+      "isHistorical": 1,
+      "fame": 43
+    },
+    "35": {
+      "Id": 35,
+      "Name": "随",
+      "desc": "以荆州东北部为中心的小国。於春秋时代为楚所灭。",
+      "iconId": 30,
+      "isHistorical": 1,
+      "fame": 79
+    },
+    "36": {
+      "Id": 36,
+      "Name": "楚",
+      "desc": "以荆、扬州为中心的大国。为战国七雄之一，尔後项羽也採用此称。",
+      "iconId": 31,
+      "isHistorical": 1,
+      "fame": 66
+    },
+    "37": {
+      "Id": 37,
+      "Name": "越",
+      "desc": "以扬州南部为中心的国家。据说是禹的後裔所建之国。",
+      "iconId": 23,
+      "isHistorical": 1,
+      "fame": 63
+    },
+    "38": {
+      "Id": 38,
+      "Name": "乌丸",
+      "desc": "佔据幽州北部的異民族。自汉初开始自称为东胡的後裔。",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 55
+    },
+    "39": {
+      "Id": 39,
+      "Name": "羌族",
+      "desc": "佔据雍、凉州的異民族。自後汉时期开始传出名声。",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 48
+    },
+    "40": {
+      "Id": 40,
+      "Name": "山越",
+      "desc": "佔据扬州南部的異民族。自古以来就频繁地骚擾边境。",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 42
+    },
+    "41": {
+      "Id": 41,
+      "Name": "南蛮",
+      "desc": "佔据益州南部的異民族。自古以来就频繁地骚擾边境。",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 49
+    },
+    "42": {
+      "Id": 42,
+      "Name": "贼",
+      "desc": "因对於统治势力有所不满而反叛的武力集团。",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 69
+    },
+    "43": {
+      "Id": 43,
+      "Name": "儐1",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 41
+    },
+    "44": {
+      "Id": 44,
+      "Name": "儐2",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 40
+    },
+    "45": {
+      "Id": 45,
+      "Name": "儐3",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 39
+    },
+    "46": {
+      "Id": 46,
+      "Name": "儐4",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 38
+    },
+    "47": {
+      "Id": 47,
+      "Name": "儐5",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 37
+    },
+    "48": {
+      "Id": 48,
+      "Name": "儐6",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 36
+    },
+    "49": {
+      "Id": 49,
+      "Name": "儐7",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 35
+    },
+    "50": {
+      "Id": 50,
+      "Name": "儐8",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 34
+    },
+    "51": {
+      "Id": 51,
+      "Name": "儐9",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 33
+    },
+    "52": {
+      "Id": 52,
+      "Name": "儐10",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 32
+    },
+    "53": {
+      "Id": 53,
+      "Name": "儐11",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 31
+    },
+    "54": {
+      "Id": 54,
+      "Name": "儐12",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 30
+    },
+    "55": {
+      "Id": 55,
+      "Name": "儐13",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 29
+    },
+    "56": {
+      "Id": 56,
+      "Name": "儐14",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 28
+    },
+    "57": {
+      "Id": 57,
+      "Name": "儐15",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 27
+    },
+    "58": {
+      "Id": 58,
+      "Name": "儐16",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 26
+    },
+    "59": {
+      "Id": 59,
+      "Name": "儐17",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 25
+    },
+    "60": {
+      "Id": 60,
+      "Name": "儐18",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 24
+    },
+    "61": {
+      "Id": 61,
+      "Name": "儐19",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 23
+    },
+    "62": {
+      "Id": 62,
+      "Name": "儐20",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 22
+    },
+    "63": {
+      "Id": 63,
+      "Name": "儐21",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 21
+    },
+    "64": {
+      "Id": 64,
+      "Name": "儐22",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 20
+    },
+    "65": {
+      "Id": 65,
+      "Name": "儐23",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 19
+    },
+    "66": {
+      "Id": 66,
+      "Name": "儐24",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 18
+    },
+    "67": {
+      "Id": 67,
+      "Name": "儐25",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 17
+    },
+    "68": {
+      "Id": 68,
+      "Name": "儐26",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 16
+    },
+    "69": {
+      "Id": 69,
+      "Name": "儐27",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 15
+    },
+    "70": {
+      "Id": 70,
+      "Name": "儐28",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 14
+    },
+    "71": {
+      "Id": 71,
+      "Name": "儐29",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 13
+    },
+    "72": {
+      "Id": 72,
+      "Name": "儐30",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 12
+    },
+    "73": {
+      "Id": 73,
+      "Name": "儐31",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 11
+    },
+    "74": {
+      "Id": 74,
+      "Name": "儐32",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 10
+    },
+    "75": {
+      "Id": 75,
+      "Name": "儐33",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 9
+    },
+    "76": {
+      "Id": 76,
+      "Name": "儐34",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 8
+    },
+    "77": {
+      "Id": 77,
+      "Name": "儐35",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 7
+    },
+    "78": {
+      "Id": 78,
+      "Name": "儐36",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 6
+    },
+    "79": {
+      "Id": 79,
+      "Name": "儐37",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 5
+    },
+    "80": {
+      "Id": 80,
+      "Name": "儐38",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 4
+    },
+    "81": {
+      "Id": 81,
+      "Name": "儐39",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 3
+    },
+    "82": {
+      "Id": 82,
+      "Name": "儐40",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 2
+    },
+    "83": {
+      "Id": 83,
+      "Name": "儐41",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 1
+    },
+    "84": {
+      "Id": 84,
+      "Name": "儐42",
+      "desc": "国号说明",
+      "iconId": 0,
+      "isHistorical": 0,
+      "fame": 0
+    }
+  }
+}

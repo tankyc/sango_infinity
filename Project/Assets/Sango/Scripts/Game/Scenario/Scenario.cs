@@ -583,6 +583,10 @@ namespace Sango.Core
             {
                 return CommonData.Titles as Database<T>;
             }
+            else if (tType == typeof(Nation))
+            {
+                return CommonData.Nations as Database<T>;
+            }
             else if (tType == typeof(CityLevelType))
             {
                 return CommonData.CityLevelTypes as Database<T>;
@@ -712,6 +716,10 @@ namespace Sango.Core
             else if (tType == typeof(Title))
             {
                 return CommonData.Titles.Get(id);
+            }
+            else if (tType == typeof(Nation))
+            {
+                return CommonData.Nations.Get(id);
             }
             else if (tType == typeof(CityLevelType))
             {
@@ -898,6 +906,11 @@ namespace Sango.Core
         public void LoadCommonDataStage()
         {
             CommonData = GameData.Instance.LoadNewCommonData();
+
+            // 动态补全 Skill 类能力条目（Abilities.json 只手工填了基础能力与兵种适性）。
+            // 必须在任何势力初始化之前执行 —— InitForceHiddenAbilities 要按槽位从表里挑能力。
+            // 生成规则是确定性的，读档重新生成也能与存档里的 hiddenAbilityIds 对应上。
+            AbilityStudySystem.EnsureSkillAbilities(this);
 
             if (!Info.isSave)
             {
@@ -1259,6 +1272,7 @@ namespace Sango.Core
                     targetForce.Id = force.Id;
                     targetForce.Flag = force.Flag;
                     targetForce.Governor = force.Governor;
+                    targetForce.NationId = force.Nation;
                     targetForce.InitTechniques.FromArray(new int[] { 1, 5, 9, 13, 17, 21, 25, 29, 33 });
 
                     scenario.forceSet.Add(targetForce);
@@ -1484,13 +1498,58 @@ namespace Sango.Core
                     RelationMap[i] = new int[forceCount];
                 }
 
+                // 新开剧本：所有势力之间中立（原版 force_set_like(50)）
                 for (int i = 0; i < forceCount; ++i)
                 {
                     for (int j = i + 1; j < forceCount; ++j)
                     {
-                        RelationMap[i][j] = 0;
-                        RelationMap[j][i] = 0;
+                        RelationMap[i][j] = DiplomacyRules.DefaultLike;
+                        RelationMap[j][i] = DiplomacyRules.DefaultLike;
                     }
+                }
+            }
+            else
+            {
+                // 【关系值尺度迁移 —— 值域探测（方案 A）】
+                // 旧版本 RelationMap 存的是 raw(-5000~5000)，`like = 50 + raw/100`；
+                // 现在改为与 Open311 `Force::like_` 同尺度的 0~100
+                //（原版剧本文件里的 like 也是 0~100，直接加载无需转换）。
+                //
+                // 探测规则：只要发现任一值落在 0~100 之外，就判定整张表是旧格式，
+                // 整体换算并钳制。反过来，加载原版剧本时其值天然在 0~100 内，
+                // 不会误触发迁移 —— 这正是选择"值域探测"而非"版本号"的原因。
+                int rows = RelationMap.Length;
+                bool legacy = false;
+                for (int i = 0; i < rows && !legacy; ++i)
+                {
+                    int[] row = RelationMap[i];
+                    if (row == null) continue;
+                    for (int j = 0; j < row.Length; ++j)
+                    {
+                        if (row[j] < 0 || row[j] > DiplomacyRules.MaxLike)
+                        {
+                            legacy = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (legacy)
+                {
+                    for (int i = 0; i < rows; ++i)
+                    {
+                        int[] row = RelationMap[i];
+                        if (row == null) continue;
+                        for (int j = 0; j < row.Length; ++j)
+                        {
+                            int like = DiplomacyRules.DefaultLike + row[j] / 100;
+                            // 超范围修正（raw 可能超界，换算后同样要钳）
+                            if (like < 0) like = 0;
+                            else if (like > DiplomacyRules.MaxLike) like = DiplomacyRules.MaxLike;
+                            row[j] = like;
+                        }
+                    }
+                    Sango.Log.Info("[关系值]检测到旧格式关系表（-5000~5000），已迁移为 0~100");
                 }
             }
 
@@ -1693,6 +1752,10 @@ namespace Sango.Core
                 if (a != null && a.IsAlive)
                     a.OnTurnStart(this);
             }
+
+            // 【逃兵】兵临城下的据点按 sqrt(troops) 逃兵 —— 对齐 Game::desertion
+            // （s11_game_week.cpp:905-925）。原版按周结算，本项目一回合 = 一旬 = 原版一周。
+            CityDesertion.OnTurnStart(this);
 
             GameEvent.OnTurnStart?.Invoke(this);
 
@@ -1925,6 +1988,10 @@ namespace Sango.Core
                 eventReciveList[i].ForEach(o => { if (o.IsAlive) o.OnMonthStart(this); });
             }
 
+            // 【关押计时】月度俘虏关押月数 +1（对应 Open311 Game::update_person_monthly_timer），
+            // 必须排在寿终结算之前 —— 原版这个顺序。
+            PersonLifeCycle.MonthlyPrisonTimerUpdate(this);
+
             // 【生命周期】月度寿终结算（对应 Open311 Game::shoubyou_death）：
             // 先处决上月标记的人，再按寿命模式抽样标记本轮。
             // 放在事件回调之后：让剧情/势力先行结算，避免"本月刚被事件救活的人又被寿终"。
@@ -1934,7 +2001,44 @@ namespace Sango.Core
             // 有伤者恢复一级，无伤者按超龄程度判定是否患病
             PersonLifeCycle.MonthlyInjuryUpdate(this);
 
+            // 【灾害】月度灾害循环：自愈 → 传播 → 转正 → 感染 → 丰收（4 月抽样 / 7 月转正）。
+            // 对齐 Open311 s11_game_month.cpp:337-375。
+            // 必须排在粮价刷新**之前** —— 粮价要按当月的灾害状态取值。
+            CityDisasterCycle.OnMonthStart(scenario);
+
+            // 【粮价】逐城按月份预设表刷新粮价（对应 Open311 System::city_update_rate
+            // 的 use_preset 分支，在每月开始时调用；月中的随机漂移由商人 AI 消费时读取当前值）。
+            UpdateCityRate(scenario);
+
             return base.OnMonthStart(scenario);
+        }
+
+        /// <summary>
+        /// 逐城刷新粮价。
+        ///
+        /// 对齐出处：Open311 System::city_update_rate（s11_sys_scen_city.cpp:110-179）。
+        /// 月在 1~12 时走预设表（`rate = 平准 + 步长 × rand(档数)`），
+        /// 得到 30~70 之间的季节价：7 月最贵（60~70），6 月最便宜（30~50）。
+        /// <para>
+        /// 原版另有"月中随机漂移 + 灾害修正"的非预设分支，本项目没有灾害状态系统，
+        /// 该分支未接；月内粮价视为恒定，对商人 AI 的判断影响很小。
+        /// </para>
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        static void UpdateCityRate(Scenario scenario)
+        {
+            if (scenario == null || scenario.citySet == null)
+                return;
+            int month = scenario.Info != null ? scenario.Info.month : 1;
+            if (month < 1 || month > 12)
+                return;
+
+            scenario.citySet.ForEach(city =>
+            {
+                if (city == null || !city.IsAlive)
+                    return;
+                city.UpdateRate(month, true);
+            });
         }
         public override bool OnMonthEnd(Scenario scenario)
         {
@@ -2238,6 +2342,75 @@ namespace Sango.Core
             Scenario.Cur.IsAlive = true;
         }
 
+        /// <summary>存活势力数历史（最近若干个回合）。运行期缓存，不参与存档。</summary>
+        readonly List<int> forceCountHistory = new List<int>();
+
+        /// <summary>最近一次记录历史时的回合号，用于"同回合只记一次"的惰性记录。</summary>
+        int forceCountHistoryTurn = -1;
+
+        /// <summary>历史长度上限（原版 ScenarioAI::MaxMapInfoCount 的等价物）</summary>
+        const int ForceCountHistoryMax = 32;
+
+        /// <summary>
+        /// 惰性记录当前回合的存活势力数（同一回合只记一次）。
+        ///
+        /// 【为什么不做成每回合显式调用】这份历史只服务于劝降 AI 的一条判定，
+        /// 挂在 IncreaseDate 里等于给所有存档路径加一次无用开销；
+        /// 改成"谁读谁记"，第一年读不到历史时自动退化为 0（原版同样如此）。
+        /// </summary>
+        void EnsureForceCountHistory()
+        {
+            if (forceCountHistoryTurn == TurnCount) return;
+            forceCountHistoryTurn = TurnCount;
+
+            int alive = 0;
+            if (forceSet != null)
+            {
+                for (int i = 0; i < forceSet.Count; i++)
+                {
+                    Force f = forceSet[i];
+                    if (f != null && f.IsAlive) alive++;
+                }
+            }
+
+            forceCountHistory.Add(alive);
+            if (forceCountHistory.Count > ForceCountHistoryMax)
+                forceCountHistory.RemoveAt(0);
+        }
+
+        /// <summary>
+        /// 最近 N 回合内"存活势力数"的最大偏差 —— 对应原版
+        /// `ai_table_get_force_count_high_diff`（`s11_sys_scen_ai.cpp:1001-1020`）。
+        ///
+        /// 返回 0 表示期间势力数没有变化（没有势力灭亡 / 新势力登场）；
+        /// 有变化时返回与历史最高或最低的相对偏差（绝对值较大的那个）。
+        /// 劝降 AI 要求它为 0 —— 局势还在剧烈洗牌时不去劝降。
+        /// </summary>
+        /// <param name="turns">回看回合数</param>
+        public int GetForceCountHighDiff(int turns)
+        {
+            EnsureForceCountHistory();
+
+            if (turns <= 0 || forceCountHistory.Count <= 1)
+                return 0;
+
+            if (turns > forceCountHistory.Count - 1)
+                turns = forceCountHistory.Count - 1;
+
+            int cur = forceCountHistory[forceCountHistory.Count - 1];
+            int max = cur;
+            int min = cur;
+
+            for (int i = 1; i <= turns; i++)
+            {
+                int v = forceCountHistory[forceCountHistory.Count - 1 - i];
+                if (v > max) max = v;
+                if (v < min) min = v;
+            }
+
+            return cur - min >= max - cur ? cur - min : cur - max;
+        }
+
         public int GetRelation(Force forceA, Force forceB)
         {
             if (forceA == null || forceB == null || forceA == forceB)
@@ -2261,8 +2434,10 @@ namespace Sango.Core
 
             int r = RelationMap[forceA.Id][forceB.Id] + v;
 
-            if (r < -5000) r = -5000;
-            else if (r > 5000) r = 5000;
+            // 【尺度已改为 0~100】与 Open311 的 Force::like_ 一致（原版剧本文件同样是 0~100），
+            // 不再是 -5000~5000 的 raw 值。
+            if (r < 0) r = 0;
+            else if (r > DiplomacyRules.MaxLike) r = DiplomacyRules.MaxLike;
 
             RelationMap[forceA.Id][forceB.Id] = r;
             RelationMap[forceB.Id][forceA.Id] = r;

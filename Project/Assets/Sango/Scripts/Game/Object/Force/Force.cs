@@ -11,6 +11,24 @@ using System.Linq;
 namespace Sango.Core
 {
     /// <summary>
+    /// 势力类型。对齐 Open311 的 `Force::is_normal()` / `is_iminzoku()` / `is_bandit()`
+    /// （s11_scen.h:711-715，字段在 :912 `type_`）。
+    /// <para>
+    /// 原版大量 AI 分支以此为前置条件，例如"普通势力且国力排名 &lt;50 才走弱国保守策略"，
+    /// 异民族与贼势力不参与这类判断。
+    /// </para>
+    /// </summary>
+    public enum ForceType : int
+    {
+        /// <summary>普通势力</summary>
+        Normal = 0,
+        /// <summary>异民族势力</summary>
+        Barbarian = 1,
+        /// <summary>贼势力（黄巾 / 山贼）</summary>
+        Bandit = 2,
+    }
+
+    /// <summary>
     /// 势力类，继承自SangoObject，用于管理游戏中的势力对象
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
@@ -35,6 +53,26 @@ namespace Sango.Core
         /// 获取或设置是否为玩家势力
         /// </summary>
         public virtual bool IsPlayer { get; set; }
+
+        /// <summary>
+        /// 势力类型（<see cref="ForceType"/>）。
+        /// 原版剧本数据带这个字段；本项目剧本 forceSet 没有对应键，
+        /// 默认 0（普通），并在 <see cref="IsBarbarian"/> 里对"君主属于异民族部落"做兜底推导。
+        /// </summary>
+        [JsonProperty] public int forceType;
+
+        /// <summary>是否异民族势力：显式类型为异民族，或君主本人属于异民族部落</summary>
+        public bool IsBarbarian => forceType == (int)ForceType.Barbarian
+            || (mGovernor != null && mGovernor.barbarianTribe > 0);
+
+        /// <summary>是否贼势力（黄巾 / 山贼）</summary>
+        public bool IsBandit => forceType == (int)ForceType.Bandit;
+
+        /// <summary>
+        /// 是否普通势力（既非异民族也非贼）。
+        /// 对齐 Open311 `Force::is_normal()`，是大量"弱国保守策略"分支的前置条件。
+        /// </summary>
+        public bool IsNormal => !IsBarbarian && !IsBandit;
 
         /// <summary>
         /// 获取是否为当前的玩家势力
@@ -159,6 +197,27 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 国号 id（存档数值），读取 Nation 时按需解析。
+        /// 对齐 Open311 的 `force->nation_id`；0 表示未定国号。
+        /// </summary>
+        [JsonProperty("Nation")]
+        public int NationId;
+
+        Nation mNation;
+        /// <summary>
+        /// 国号；写入时自动同步 NationId
+        /// </summary>
+        public Nation Nation
+        {
+            get
+            {
+                if (mNation == null && NationId > 0) mNation = IdRef.Resolve<Nation>(NationId);
+                return mNation;
+            }
+            set { mNation = value; NationId = value != null ? value.Id : 0; }
+        }
+
+        /// <summary>
         /// 联盟信息（序列化形态 = int[]，键名不变；运行期列表在 OnScenarioPrepare 解析、OnScenarioSave 回写）
         /// </summary>
         [JsonProperty("AllianceList")]
@@ -241,6 +300,195 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty]
         public int ResearchLeftCounter { get; set; }
+
+        /// <summary>
+        /// 据点守将表：key = 据点（City）Id，value = 守将（Person）Id。
+        ///
+        /// 对齐出处：Open311 `s11_game_ai_force.cpp:214-219` 的 `context_->outpost[i].guard`。
+        /// 那份数据存在 ScenarioAI 里跨回合保留，是据点 AI 里唯一需要持久化的字段
+        /// （其余如 state / action_point / exist_enemy3 等每回合由 势力据点态势装载 重算）。
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<int, int> guardPersonIds = new Dictionary<int, int>();
+
+        /// <summary>
+        /// 各据点"上次派出运输队的回合号"：key = 据点（City）Id，value = 剧本回合数。
+        ///
+        /// 对齐出处：Open311 s11_game_ai_kyoten_cmd_mil_transport.cpp:45 的
+        /// <c>ai_table_get_turns_since_last_transport(building_id) &lt; 18</c> —— 同一据点 18 回合内不重复发车，
+        /// 避免 AI 把同一座城的库存反复抽干。
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<int, int> lastTransportTurn = new Dictionary<int, int>();
+
+        /// <summary>
+        /// 本势力"当前锁定为敌人"的势力 Id 集合。
+        ///
+        /// 对齐出处：Open311 `s11_game_ai_force.cpp:432-462` 的 set_hostile_force 写入的
+        /// AI 敌对势力表。原版这张表只影响 AI 的决策优先级（先打谁、跟谁求和），
+        /// **不改变** IsEnemy 的同盟/敌对判定 —— 这里保持同样语义。
+        /// </summary>
+        [JsonProperty]
+        public HashSet<int> hostileForceIds = new HashSet<int>();
+
+        /// <summary>
+        /// 本势力"当前视为友好"的势力 Id 集合（同盟或敌人的敌人）。
+        /// 对齐出处：同上，set_friendly_force（`s11_game_ai_force.cpp:464-522`）。
+        /// </summary>
+        [JsonProperty]
+        public HashSet<int> friendlyForceIds = new HashSet<int>();
+
+        /// <summary>
+        /// 本势力最后一次"派兵出征"的回合号。
+        ///
+        /// 对齐出处：Open311 `s11_sys_scen_ai.cpp:468-472` 的 ai_table_update_last_attack_turn
+        /// （在攻击出阵 / 防御出阵成功时写入），以及 `:1039-1044` 的取回合差。
+        /// 用途：`set_friendly_force` 用它判断"是否已经 18 回合没动过手"（s11_game_ai_force.cpp:467-474）。
+        /// 初值 0 与原版一致（开局即视为"很久没打"）。
+        /// </summary>
+        [JsonProperty]
+        public int lastAttackTurn = 0;
+
+        /// <summary>
+        /// 记录"本势力刚派出部队出征"。
+        /// 对齐出处：s11_sys_scen_ai.cpp:468-472。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        public void MarkAttackTurn(Scenario scenario)
+        {
+            lastAttackTurn = scenario != null ? scenario.TurnCount : lastAttackTurn;
+        }
+
+        /// <summary>
+        /// 距最后一次出征的回合数。
+        /// 对齐出处：s11_sys_scen_ai.cpp:1039-1044。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>回合数（≥0）</returns>
+        public int GetTurnsSinceLastAttack(Scenario scenario)
+        {
+            int now = scenario != null ? scenario.TurnCount : 0;
+            return System.Math.Max(now - lastAttackTurn, 0);
+        }
+
+        // ==================== 能力研究 / 培育 ====================
+
+        /// <summary>
+        /// 隐藏能力槽位数量 —— 对齐 Open311 <c>Force::MaxHiddenAbilityCount</c>（s11_scen.h:695）。
+        /// </summary>
+        public const int MaxHiddenAbilityCount = 10;
+
+        /// <summary>
+        /// 隐藏能力槽位（对齐 Open311 <c>Force::hidden_ability_[10]</c>，s11_scen.h:905；-1 = 空）。
+        /// <para>开局由 <see cref="Sango.Core.AbilityStudySystem.InitForceHiddenAbilities"/> 按势力
+        /// "最弱维偏好"随机填 5 个槽（对齐 s11_sys_scen_force.cpp:701-802 force_init_hidden_ability）。
+        /// 只有 <c>Ability.hiddenSlot &gt;= 0</c> 且已进槽的能力才能被研究
+        /// （对齐 s11_sys_scen_ability.cpp:12-13 的 is_ability_researchable 门）。</para>
+        /// <para>老存档无此字段 → 反序列化后保持初始值（全 -1 = 无隐藏能力），行为与历史存档一致。</para>
+        /// </summary>
+        [JsonProperty]
+        public int[] hiddenAbilityIds = NewHiddenAbilityArray();
+
+        /// <summary>构造全 -1 的隐藏槽位数组（0 是合法能力 Id，不能用默认零数组）</summary>
+        static int[] NewHiddenAbilityArray()
+        {
+            int[] array = new int[MaxHiddenAbilityCount];
+            for (int i = 0; i < array.Length; i++)
+                array[i] = -1;
+            return array;
+        }
+
+        /// <summary>取指定下标的隐藏能力 Id（越界返回 -1，对齐 s11_scen_obj_force.cpp:490-495）</summary>
+        public int GetHiddenAbilityId(int index)
+        {
+            if (hiddenAbilityIds == null || index < 0 || index >= hiddenAbilityIds.Length)
+                return -1;
+            return hiddenAbilityIds[index];
+        }
+
+        /// <summary>写入指定下标的隐藏能力 Id（越界忽略，对齐 s11_scen_obj_force.cpp:497-503）</summary>
+        public void SetHiddenAbilityId(int index, int abilityId)
+        {
+            if (hiddenAbilityIds == null || index < 0 || index >= hiddenAbilityIds.Length)
+                return;
+            hiddenAbilityIds[index] = abilityId;
+        }
+
+        /// <summary>该能力是否在本势力隐藏槽位中（对齐 s11_scen_obj_force.cpp:505-513 get_hidden_ability_index）</summary>
+        public bool HasHiddenAbility(int abilityId)
+        {
+            if (hiddenAbilityIds == null || abilityId < 0)
+                return false;
+            for (int i = 0; i < hiddenAbilityIds.Length; i++)
+            {
+                if (hiddenAbilityIds[i] == abilityId)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 本势力已掌握（研究完成）的能力 Id 集合。
+        ///
+        /// 对齐出处：Open311 的 `forces_[id].learned_abilities_` 与
+        /// `has_ability()` / `get_researchable_ability_list()` 的前置判断。
+        /// </summary>
+        [JsonProperty]
+        public HashSet<int> learnedAbilityIds = new HashSet<int>();
+
+        /// <summary>
+        /// 各能力在本势力内已被学习的次数（key = Ability Id）。
+        /// 对齐出处：Open311 `Force::get_learning_counter(ability_id)`，
+        /// 与 `Ability::get_learning_limit_count()` 比较决定还能不能再学。
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<int, int> abilityLearnCounters = new Dictionary<int, int>();
+
+        /// <summary>
+        /// 正在研究的能力 Id（-1 表示空闲）。
+        /// 对齐出处：Open311 `Force::get_researching_ability_id()`。
+        /// </summary>
+        [JsonProperty]
+        public int researchingAbilityId = -1;
+
+        /// <summary>当前研究还需的回合数（归零即完成，能力进入 <see cref="learnedAbilityIds"/>）</summary>
+        [JsonProperty]
+        public int researchingTurnsLeft;
+
+        /// <summary>
+        /// 本势力是否已掌握某条能力。
+        /// 对齐出处：Open311 `Force::has_ability()`。
+        /// </summary>
+        /// <param name="abilityId">能力 Id</param>
+        /// <returns>已掌握返回 true</returns>
+        public bool HasAbility(int abilityId)
+        {
+            return learnedAbilityIds != null && learnedAbilityIds.Contains(abilityId);
+        }
+
+        /// <summary>
+        /// 取某条能力在本势力内已被学习的次数。
+        /// 对齐出处：Open311 `Force::get_learning_counter()`。
+        /// </summary>
+        /// <param name="abilityId">能力 Id</param>
+        /// <returns>已学次数</returns>
+        public int GetAbilityLearnCount(int abilityId)
+        {
+            if (abilityLearnCounters == null)
+                return 0;
+            return abilityLearnCounters.TryGetValue(abilityId, out int count) ? count : 0;
+        }
+
+        /// <summary>
+        /// 记录"本势力又有一人学会了这条能力"。
+        /// </summary>
+        /// <param name="abilityId">能力 Id</param>
+        public void MarkAbilityLearned(int abilityId)
+        {
+            if (abilityLearnCounters == null)
+                abilityLearnCounters = new Dictionary<int, int>();
+            abilityLearnCounters[abilityId] = GetAbilityLearnCount(abilityId) + 1;
+        }
 
         /// <summary>
         /// AI指令集
@@ -465,12 +713,14 @@ namespace Sango.Core
         /// <returns>0~100 的友好度，取不到场景时返回中立值 50</returns>
         public int GetLike(Force other)
         {
-            if (other == null || other == this) return 50;
+            if (other == null || other == this) return DiplomacyRules.DefaultLike;
 
             Scenario scenario = Scenario.Cur;
-            if (scenario == null) return 50;
+            if (scenario == null) return DiplomacyRules.DefaultLike;
 
-            return 50 + scenario.GetRelation(this, other) / 100;
+            // 【已改为 0~100 直存】RelationMap 现在与 Open311 的 Force::like_ 同尺度，
+            // 不再做 `50 + raw/100` 的换算。
+            return scenario.GetRelation(this, other);
         }
 
         /// <summary>
@@ -486,10 +736,13 @@ namespace Sango.Core
             if (scenario == null) return;
 
             if (like < 0) like = 0;
-            else if (like > 100) like = 100;
+            else if (like > DiplomacyRules.MaxLike) like = DiplomacyRules.MaxLike;
 
-            int target = (like - 50) * 100;
-            scenario.AddRelation(this, other, target - scenario.GetRelation(this, other));
+            // 【已改为 0~100 直存】直接写目标值，不再换算成 raw
+            int current = scenario.GetRelation(this, other);
+            if (like == current)
+                return;
+            scenario.AddRelation(this, other, like - current);
         }
 
         /// <summary>
@@ -504,14 +757,6 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 被敌方城市计略（目前只有流言）命中的记录 (key: 施计方势力ID, value: 最近一次被施计的回合)。
-        /// 沿用 DiplomacyImmunityTime 的既有写法：只存绝对回合数（Scenario.TurnCount），
-        /// 过期靠比较而不是逐回合递减，因此不需要挂 OnTurnStart 也不会被读档顺序打乱。
-        /// 用途：AI 在自己的回合里据此对施计方报复性施计，对应原版解密脚本 721 AI优化-流言 的 rumor_timer 语义。
-        /// </summary>
-        [JsonProperty]
-        public Dictionary<int, int> CityStrategyGrudgeTurn = new Dictionary<int, int>();
-
         /// <summary>
         /// 被二虎竞食挑动的记录 (key: 被一起挑拨的对方势力ID, value: 挑拨落地的回合)。
         /// 二虎竞食只改关系数值，不直接动同盟结构；"关系跌破阈值后要不要破盟开战"留给被挑拨的
@@ -519,42 +764,6 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty]
         public Dictionary<int, int> StrategyWarSeedTurn = new Dictionary<int, int>();
-
-        /// <summary>
-        /// 本势力最近一次派遣流言使者的回合（Scenario.TurnCount）。小于等于 0 表示从未派遣。
-        /// 用途：势力级流言配额（ScenarioVariables.cityStrategyAIMaxRumorPerTurns），
-        /// 把"每个 AI 每回合都可能喷一次"降为"每若干回合才一次"，掐断 AI 互相刷流言的节奏。
-        /// </summary>
-        [JsonProperty] public int LastCityStrategyRumorTurn;
-
-        /// <summary>
-        /// 记下一笔计略仇：本势力被 attacker 施了计略。
-        /// </summary>
-        /// <param name="attacker">施计方势力，为空时不记录</param>
-        public void AddCityStrategyGrudge(Force attacker)
-        {
-            if (attacker == null || attacker == this)
-                return;
-            CityStrategyGrudgeTurn[attacker.Id] = Scenario.Cur?.TurnCount ?? 0;
-        }
-
-        /// <summary>
-        /// 取走一笔计略仇：一次性消费，取过就不再驱动第二次报复。
-        /// 与 TakeStrategyWarSeed 同一思路，避免"你喷我、我喷你"的正反馈在后续每个 AI 回合里反复放大。
-        /// 陈旧凭据同样消费掉（返回 false），只保留"最近一次"被施计的有效期。
-        /// </summary>
-        /// <param name="attacker">施计方势力</param>
-        /// <returns>存在未消费且未过期的凭据返回 true</returns>
-        public bool TakeCityStrategyGrudge(Force attacker)
-        {
-            if (attacker == null)
-                return false;
-            if (!CityStrategyGrudgeTurn.TryGetValue(attacker.Id, out int turn))
-                return false;
-            CityStrategyGrudgeTurn.Remove(attacker.Id);
-            int keepTurns = Scenario.Cur?.Variables.cityStrategyGrudgeKeepTurns ?? 0;
-            return (Scenario.Cur?.TurnCount ?? 0) - turn <= keepTurns;
-        }
 
         /// <summary>
         /// 记下二虎竞食的挑拨凭据：本势力与 other 的关系刚刚被第三方打坏。
@@ -595,7 +804,6 @@ namespace Sango.Core
         {
             if (keepTurns <= 0)
                 return;
-            PruneTurnDictionary(CityStrategyGrudgeTurn, keepTurns);
             PruneTurnDictionary(StrategyWarSeedTurn, keepTurns);
         }
 
@@ -640,6 +848,10 @@ namespace Sango.Core
             if (mFlag == null)
                 mFlag = scenario.CommonData.Flags.Get(0);
 
+            // 国号解析（存档只存 Id，按需解析成对象）
+            if (NationId > 0)
+                mNation = scenario.CommonData.Nations.Get(NationId);
+
             // 【int[] → 对象】本势力序列化列表的解析（追加进已有方法）
             if (AllianceList_list != null && AllianceList_list.Length > 0 && AllianceList.Count == 0)
                 AllianceList.FromArray(AllianceList_list);
@@ -647,6 +859,27 @@ namespace Sango.Core
                 InitTechniques.FromArray(InitTechniques_list);
             if (Techniques_list != null && Techniques_list.Length > 0 && Techniques.Count == 0)
                 Techniques.FromArray(Techniques_list);
+
+            // 隐藏能力槽：只在"槽位全空"时初始化（新开局），读档时保留存档内容。
+            // 对齐 Open311 force_init_hidden_ability（s11_sys_scen_force.cpp:701-802）。
+            if (IsAllHiddenAbilityEmpty())
+                AbilityStudySystem.InitForceHiddenAbilities(this, scenario);
+        }
+
+        /// <summary>
+        /// 隐藏能力槽是否全空（新开局为 true，读档后一般为 false）。
+        /// </summary>
+        /// <returns>全空返回 true</returns>
+        public bool IsAllHiddenAbilityEmpty()
+        {
+            if (hiddenAbilityIds == null)
+                return true;
+            for (int i = 0; i < hiddenAbilityIds.Length; i++)
+            {
+                if (hiddenAbilityIds[i] >= 0)
+                    return false;
+            }
+            return true;
         }
 
         public override void OnScenarioSave(Scenario scenario)
@@ -1032,6 +1265,68 @@ namespace Sango.Core
         //    return building;
         //}
 
+        /// <summary>军团编号上限 —— 原版 `Force::MaxDistrictCount = 8`（s11_scen.h:693）</summary>
+        public const int MaxCorpsNumber = 8;
+
+        /// <summary>
+        /// 是否允许新建军团 —— 严格对齐 Open311 `can_district_new_command`
+        ///（s11_sys_person_order_kunshu.cpp:172-238）。
+        ///
+        /// 原版四道门槛：
+        /// <list type="number">
+        /// <item>有空余军团编号（1..8）</item>
+        /// <item>第 1 军团存在</item>
+        /// <item>第 1 军团至少 **2 座城**</item>
+        /// <item>第 1 军团里至少 **2 座城有武将**（君主 / 都督 / 太守 / 一般都算）</item>
+        /// </list>
+        /// <para>
+        /// 本项目原先只判 `CityCount > 1`，玩家可以从只有 2 座城的主军团里再拆出 1 座，
+        /// 让主军团只剩 0 城，形成无法反击的脏状态。
+        /// </para>
+        /// </summary>
+        /// <returns>允许新建返回 true</returns>
+        public bool CanCreateCorps()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.corpsSet == null || scenario.citySet == null)
+                return false;
+
+            // ① 第 1 军团必须存在；同时统计已用编号
+            Corps first = null;
+            int usedNumbers = 0;
+            for (int i = 0; i < scenario.corpsSet.Count; i++)
+            {
+                Corps c = scenario.corpsSet[i];
+                if (c == null || !c.IsAlive || c.BelongForce != this)
+                    continue;
+                usedNumbers++;
+                if (c.number == 1)
+                    first = c;
+            }
+            if (first == null)
+                return false;
+
+            // ② 空余编号（原版 1..8）
+            if (usedNumbers >= MaxCorpsNumber)
+                return false;
+
+            // ③④ 第 1 军团的城数 / 有武将的城数
+            int firstCityCount = 0;
+            int firstCityWithPerson = 0;
+            for (int i = 0; i < scenario.citySet.Count; i++)
+            {
+                City c = scenario.citySet[i];
+                if (c == null || !c.IsAlive || c.BelongForce != this || c.BelongCorps != first)
+                    continue;
+
+                firstCityCount++;
+                if (c.allPersons != null && c.allPersons.Count > 0)
+                    firstCityWithPerson++;
+            }
+
+            return firstCityCount >= 2 && firstCityWithPerson >= 2;
+        }
+
         /// <summary>
         /// 运行势力逻辑
         /// </summary>
@@ -1128,26 +1423,42 @@ namespace Sango.Core
         /// </summary>
         private void AIPrepare(Scenario scenario)
         {
+            // 【据点态势采集】对齐 Open311 normal_force_ai 的第一步 load_force_data
+            // （s11_game_ai_force.cpp:145-155）：在势力做任何决策前，先把全势力据点的
+            // 状态（前/中/后/战斗）、收支、距国境距离、守将算出来。
+            // 后面的军团调度（CorpsAI.AIDistrictCommand）与据点命令队列（CityAI.UpdateOutpostData）
+            // 全都依赖这份数据，必须排在最前面。
+            if (AIConfig.Instance.useOutpostStateOrder)
+                AICommandList.Add(ForceAI.AIPrepareForceData);
+
+            // 【势力级命令】严格按 Open311 force_command 的九步顺序排：
+            //   banish → ranks → strategist →（districts）→ personnel →
+            //   diplomacy → research_tech → research_ability → learn
+            // 见 s11_game_ai_force_cmd.cpp:127-201。
+            AICommandList.Add(ForceAI.AIForceBanish);       // ① 流放俘虏
+            AICommandList.Add(ForceAI.AIForceRanks);        // ② 封官（每 3 回合错峰）
+            AICommandList.Add(ForceAI.AIForceStrategist);   // ③ 军师任命（决定行动力倍率）
+            AICommandList.Add(ForceAI.AIForceDistricts);    // ④ 军团重编（开关 useAutoCorpsSplit）
+            // ⑤ force_personnel：守将召唤不适用（本项目守将不参与行动）；
+            //    授宝改造为"按性格 favoriteItemIds 授予"，见 AIForceReward。
+            AICommandList.Add(ForceAI.AIForceReward);
+
             // 外交 AI：已按原版 7 命令重写（同盟 / 送礼 / 停战三项落地，见 ForceAI.AIDiplomacy）。
             // 排在计略 AI 之前：先决定"要不要拉盟友/求和"，再决定是否用流言、二虎竞食。
-            AICommandList.Add(ForceAI.AIDiplomacy);
+            AICommandList.Add(ForceAI.AIDiplomacy);         // ⑥ 外交
             // 城市计略AI: 排在被屏蔽的外交界之后, 只处理"流言记仇报复""二虎竞食后的破盟"这类与计略直接相关的决策,
             // 不接管结盟/停战/通商, 因此不会把上面屏蔽掉的整套外交AI顺带放出来
             AICommandList.Add(CityStrategyAI.AICityStrategy);
             AICommandList.Add(ForceAI.AICaptives);
-            AICommandList.Add(ForceAI.AITechniques);
-            AICommandList.Add(ForceAI.AISetOfficial);
-            // 【资源调度】城池之间的物资运输（圈层水位：前线防御/进攻 → 次前线支援 → 后方储备）。
-            // 刻意排在人才调度**之前**：先算出"哪座城有货要走、缺运输主将"，
-            // 人才调度同一回合就能把运输队主将派过去（人员需求衔接，见 ResourceDispatchState）。
-            AICommandList.Add(ResourceDispatcher.Run);
+            AICommandList.Add(ForceAI.AITechniques);        // ⑦ 技巧研究
+            AICommandList.Add(ForceAI.AIForceResearchAbility); // ⑧ 能力研究
+            AICommandList.Add(ForceAI.AIForceLearn);           // ⑨ 能力培育（基础能力 / 兵种适性）
 
-            // 【人才部署 · Phase A 影子模式】只计算并输出部署计划，不执行任何调动。
-            // 放在旧调人逻辑之前：报告反映的是本回合开始时"AI 看到的人力分布"。
-            AICommandList.Add(DeploymentShadow.Run);
-
-            // 【Phase C】旧调人逻辑（ForceAI.AITransfromPerson 的 ring 填法）已删除，
-            // 人才部署统一由新系统负责：DeploymentSolver（求解） + DeploymentExecutor（执行）。
+            // 【已移除】人才部署（DeploymentShadow / Solver / Executor）与资源调度（ResourceDispatcher）
+            // 两套自建系统按"严格对齐原版"的要求删除。它们的职责回到原版对应命令：
+            //   · 人才调动 → 据点级 移动命令 / 召唤命令（见 CityAIOutpostCommand.cs）
+            //                + 军团级 district_move（见 CorpsAIDistrict.cs）
+            //   · 物资运输 → 据点级 运输命令 / 支援命令（见 CityAIOutpostCommand.cs）
 
             GameEvent.OnForceAIPrepare?.Invoke(this, scenario);
         }
@@ -1314,14 +1625,9 @@ namespace Sango.Core
 
             }
 
-            // 【Phase C】PrepareCityPersonHole 已删除（旧的"缺几人"标量模型），
-            // 岗位编制改由 DeploymentSolver 按需计算（失效驱动增量）。
-
-            // 【人才部署】推进本势力的部署回合号。
-            // 必须在这里（每回合恰一次）推进，而不是在 Solve 里自增 ——
-            // 玩家势力会按**军团**分别调度（方案 B），若在 Solve 里自增，一个势力有几个军团就会加几次，
-            // 防抖(debounceTurns)与前期加成(earlyGameTurns)的回合标度会全部失真。
-            DeploymentState.BeginForceTurn(Id);
+            // 【已删除】PrepareCityPersonHole（旧的"缺几人"标量模型）、
+            // DeploymentSolver（岗位编制求解）与 DeploymentState.BeginForceTurn（部署回合号）
+            // 均随人才部署系统移除。人员调动的判定回到原版据点级命令。
 
             return base.OnForceTurnStart(scenario);
         }
@@ -1539,7 +1845,7 @@ namespace Sango.Core
 
                     // ---------- 圈层初始化 ----------
                     // 【明确范围】只有都市参与圈层计算；港关/关卡的 borderLine 由
-                    // CityEstablishment.ResolveRing 按其归属都市推导（这里不给它们写值）。
+                    // City.ResolveRing 按其归属都市推导（这里不给它们写值）。
                     if (c.IsCity())
                     {
                         c.borderLine = -1;
@@ -1562,8 +1868,7 @@ namespace Sango.Core
             //   · 一趟 O(n)，结果与城市在 citySet 里的**顺序无关**
             //     （原来反复扫全表直到收敛：最坏要扫"圈层深度"遍，且一轮无进展时既不推进也不停）；
             //   · 不会给孤立城写假圈层（旧实现 `minBorder` 初值 99 也会落进 `>= 0` 分支，写出 100）。
-            // 永远到不了边境的城保持 -1，由 CityEstablishment.ResolveRing /
-            // DeploymentSolver.RingOf 按"最深层"兜底。
+            // 永远到不了边境的城保持 -1（无边境的孤立势力）。
             while (ringQueue.Count > 0)
             {
                 City cur = ringQueue.Dequeue();
@@ -1692,6 +1997,16 @@ namespace Sango.Core
 
                 // 每人各掷一次：本次该掉多少
                 int v = GameRandom.RandomWeightIndex(loyaltyWeight, 9);
+
+                // 【符节台】**只对俘虏生效**：关押的城建有符节台时，掉忠量 +2。
+                // 原版 s11_game_month.cpp:1491-1494 的 `n += 2` 落在 loyalty_change 的
+                // "俘虏 / 不满武将"分支里，实际作用对象就是被关押者；普通在职武将不吃这个加成。
+                if (person.IsPrisoner
+                    && person.BelongCity != null
+                    && CityFacilityRequirement.HasGovFacility(person.BelongCity, InteriorFacilityKind.TallyOffice))
+                {
+                    v += 2;
+                }
 
                 // 先问监听者能否否决本次扣忠（默认 true = 照扣）
                 Tools.OverrideData<bool> shouldLoseLoyalty = Tools.OverrideData<bool>.Create(true);
@@ -1984,17 +2299,17 @@ namespace Sango.Core
             corps.Init(Scenario.Cur);
 
             // 【原版对齐】支军团继承主军团的方针与委任目标。
-            // Open311 create_district 在 number != 1 时会复制主军团的
-            // policy / policy_target 与 mid_objective（本项目对应 appoint / appoint_target）。
+            // Open311 create_district 在 number != 1 时会复制主军团的 policy / policy_target
+            // 与 mid_objective（本项目把 policy 合并进 appoint / appoint_target）。
             // 不继承的话新军团是"无方针"，AI 第一回合会按默认发展处理，
             // 玩家刚设好的"攻略某势力"意图当场丢失。
             Corps mainCorps = CapitalCorps;
             if (mainCorps != null && mainCorps != corps)
             {
-                corps.policy = mainCorps.policy;
-                corps.policy_target = mainCorps.policy_target;
                 corps.appoint = mainCorps.appoint;
                 corps.appoint_target = mainCorps.appoint_target;
+                corps.mid_objective = mainCorps.mid_objective;
+                corps.mid_objective_target = mainCorps.mid_objective_target;
             }
 
             // 【原版对齐】都督所在城必须属于本军团。
@@ -2052,8 +2367,8 @@ namespace Sango.Core
             // 【原版对齐】把"选中都市的附庸港关"一并带走，但排除君主驻守的据点。
             //
             // 证据 1（新建）Open311 exec_district_new_command：
-            //     for (i = 0; i < KyotenId_ExMax; i++) {
-            //         Building* b = get_building(get_kyoten_building_id(i));
+            //     for (i = 0; i < 据点槽位数; i++) {
+            //         Building* b = get_building(据点建筑 Id(i));
             //         if (!is_alive(b) || b->get_force_id() != force_id
             //             || kunshu->get_service_id() == i            // ← 排除君主驻地
             //             || center->get_building_id() == i)          // ← 排除都督城
@@ -2102,6 +2417,61 @@ namespace Sango.Core
                 x.ChangeCorps(corps);
                 x.UpdateCorps();
             });
+
+            // 【原版第二条：邻接他势力城的港关】
+            // 对齐 s11_game_ai_district_sep.cpp:181-198：
+            //   对新军团每座城，若它邻接**他势力**的城，
+            //   则把那座邻城的下属港关（仍属本源军团）一并划走。
+            // 原版意图：前线军团要负责边境，边境城旁边的港关跟着走。
+            //
+            // 【防御】这条会造出"港关归新军团、所属都市仍在老军团"的跨军团状态。
+            // 原版靠 district_appoint_totoku 等机制兜底，本项目没有，因此：
+            //   · 只处理仍属本源军团（未被上面第一条带走）的港关；
+            //   · 跳过君主驻守；
+            //   · 落位后补一次 UpdateCorps，保证在籍武将/建筑随港关一起走。
+            for (int i = 0; i < cities.Count; i++)
+            {
+                City city = cities[i];
+                if (city == null || city.NeighborList == null)
+                    continue;
+
+                for (int n = 0; n < city.NeighborList.Count; n++)
+                {
+                    City neighbor = city.NeighborList[n];
+                    if (neighbor == null || !neighbor.IsAlive)
+                        continue;
+                    // 只看"他势力"的邻城
+                    if (neighbor.BelongForce == corps.BelongForce)
+                        continue;
+
+                    Scenario.Cur.citySet.ForEach(child =>
+                    {
+                        if (child == null || !child.IsAlive)
+                            return;
+                        // 只处理港关（都市在上面的主循环里已处理）
+                        if (child.IsCity())
+                            return;
+                        // 必须是这座邻城的下属港关
+                        if (child.BelongCity != neighbor)
+                            return;
+                        if (child.BelongForce != corps.BelongForce)
+                            return;
+                        // 已在目标军团（或被第一条带走）
+                        if (child.BelongCorps == corps)
+                            return;
+
+                        if (governorServiceId > 0 && child.Id == governorServiceId)
+                        {
+                            Sango.Log.Info($"*[军团]{child.Name} 由君主驻守，不参与本次军团改编");
+                            return;
+                        }
+
+                        child.ChangeCorps(corps);
+                        child.UpdateCorps();
+                        Sango.Log.Info($"*[军团]{child.Name} 因邻接他势力据点 {neighbor.Name}，随前线城划入新军团");
+                    });
+                }
+            }
         }
 
         /// <summary>
@@ -2373,7 +2743,7 @@ namespace Sango.Core
         ///   ⑦ 判定天下一统
         ///
         /// 注意：城池清空、据点改旗这些**不在这里做**，由调用方（城陷流程）负责 ——
-        /// 原版 force_ruin 里的 force_empty_all_kyotens 处理的是"投降时剩余的城"，
+        /// 原版 force_ruin 里的 force_empty_all_outposts 处理的是"投降时剩余的城"，
         /// 本项目走到这里时已经是最后一座城陷落，城由 OnFall 自己收尾。
         /// </summary>
         /// <param name="by">导致灭亡的势力，可为 null（被火焰/事件灭亡）</param>
@@ -2687,11 +3057,15 @@ namespace Sango.Core
 
         /// <summary>
         /// 更换军师
+        /// <para>同步持久化字段 <see cref="Counsellor"/>（Id）与运行时引用 <see cref="mCounsellor"/>，
+        /// 并广播 <see cref="GameEvent.OnForceChangeCounsellor"/> 事件（ForceChangeCounsellor 类剧情依赖它）。
+        /// 与 EventEffectsForce / PersonStateSystem 的直接双赋值口径一致，调用方不要再手写双赋值。</para>
         /// </summary>
-        /// <param name="dest">新军师</param>
+        /// <param name="dest">新军师（传 null 表示解任）</param>
         public void ChangeCounsellor(Person dest)
         {
             Person old = mCounsellor;
+            Counsellor = dest != null ? dest.Id : 0;
             mCounsellor = dest;
             GameEvent.OnForceChangeCounsellor?.Invoke(this, old);
         }

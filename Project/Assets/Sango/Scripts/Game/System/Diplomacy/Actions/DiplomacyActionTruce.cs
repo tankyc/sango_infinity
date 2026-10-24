@@ -30,6 +30,24 @@ namespace Sango.Core
         /// 检查是否可以执行停战行为
         /// </summary>
         /// <returns>是否可以执行</returns>
+        /// <summary>
+        /// 本次停战期限（回合）。0 = 用剧本参数 <c>diplomacyTruceDuration</c>。
+        ///
+        /// 【为什么需要】原版停战期限由 AI 按实力排名折算：
+        /// `time = power_rank * 72 / 100`，clamp 6..72（`s11_game_ai_force_cmd_dip.cpp:600`）。
+        /// 旧实现只能读全局剧本参数，AI 无法按自身强弱谈不同的期限。
+        /// </summary>
+        public int TruceDuration { get; set; }
+
+        /// <summary>结算用的停战期限：显式指定优先，否则取剧本参数，并 clamp 到 6~72。</summary>
+        int ResolveTruceDuration()
+        {
+            int d = TruceDuration > 0 ? TruceDuration : Scenario.Cur.Variables.diplomacyTruceDuration;
+            if (d < 6) d = 6;
+            if (d > 72) d = 72;
+            return d;
+        }
+
         public override bool CanPerform()
         {
             if (Sender == null || Receiver == null || Sender == Receiver)
@@ -154,7 +172,7 @@ namespace Sango.Core
             Alliance truce = new Alliance()
             {
                 ForceList = new SangoObjectList<Force>(),
-                leftCount = Scenario.Cur.Variables.diplomacyTruceDuration, // 6个月
+                leftCount = ResolveTruceDuration(),
                 allianceType = AllianceType.Truce, // 停战类型
                 IsAlive = true
             };
@@ -169,9 +187,9 @@ namespace Sango.Core
             Sender.AllianceList.Add(truce);
             Receiver.AllianceList.Add(truce);
 
-            // 增加关系
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            diplomacyManager.AddRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyTruceRelationIncrease);
+            // 【已移除"停战加友好度"】原版停战成功**不改友好度**
+            //（s11_sys_person_order_diplomacy.cpp:1132-1151 只写 ceasefire_timer 与技巧点 +30）。
+            // 这里原先 +300 raw（≈ +3 like），属于多算：停战只是停火，不代表关系变好。
 
             Sango.Log.Info($"@外交@{Sender.Name} 与 {Receiver.Name} 达成了{Scenario.Cur.Variables.diplomacyTruceDuration / 3}个月的停战协议!!");
 
@@ -206,7 +224,7 @@ namespace Sango.Core
             Alliance truce = new Alliance()
             {
                 ForceList = new SangoObjectList<Force>(),
-                leftCount = Scenario.Cur.Variables.diplomacyTruceDuration, // 6个月
+                leftCount = ResolveTruceDuration(),
                 allianceType = AllianceType.Truce, // 停战类型
                 IsAlive = true
             };
@@ -221,9 +239,9 @@ namespace Sango.Core
             Sender.AllianceList.Add(truce);
             Receiver.AllianceList.Add(truce);
 
-            // 增加关系
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            diplomacyManager.AddRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyTruceRelationIncrease);
+            // 【已移除"停战加友好度"】原版停战成功**不改友好度**
+            //（s11_sys_person_order_diplomacy.cpp:1132-1151 只写 ceasefire_timer 与技巧点 +30）。
+            // 这里原先 +300 raw（≈ +3 like），属于多算：停战只是停火，不代表关系变好。
 
             Sango.Log.Info($"@外交@{Sender.Name} 与 {Receiver.Name} 达成了{Scenario.Cur.Variables.diplomacyTruceDuration / 3}个月的停战协议!!");
 

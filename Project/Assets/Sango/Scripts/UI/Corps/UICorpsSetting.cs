@@ -309,6 +309,37 @@ namespace Sango.UI
         void CheckSure()
         {
             bool val = (targetCorps.mComander != null && targetCityList.Count > 0 && targetPersonList.Count > 0);
+
+            // 【新建军团：主军团必须留 ≥2 城】
+            // 对齐 can_district_new_command（s11_sys_person_order_kunshu.cpp:204-205）。
+            // 若不拦，玩家能把主军团的城市全划走，留下一个 0 城军团
+            //（无法征兵 / 无法反击 / AI 调度与都督任命都会失效）。
+            if (val && targetCorps.number != 1 && Scenario.Cur != null)
+            {
+                Corps firstCorps = null;
+                Scenario.Cur.corpsSet.ForEach(x =>
+                {
+                    if (x != null && x.IsAlive
+                        && x.BelongForce == targetCorps.BelongForce && x.number == 1)
+                        firstCorps = x;
+                });
+
+                if (firstCorps != null)
+                {
+                    int firstCityCount = 0;
+                    Scenario.Cur.citySet.ForEach(x =>
+                    {
+                        if (x != null && x.IsAlive
+                            && x.BelongForce == targetCorps.BelongForce && x.BelongCorps == firstCorps)
+                            firstCityCount++;
+                    });
+
+                    // 选中要划走的城即为从主军团拆走的数量
+                    if (firstCityCount - targetCityList.Count < 2)
+                        val = false;
+                }
+            }
+
             if(val)
             {
                 switch (targetCorps.appoint)

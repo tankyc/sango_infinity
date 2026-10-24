@@ -44,13 +44,16 @@ namespace Sango.Core.Player
                 if (force == null || force.BeCaptiveList == null || force.BeCaptiveList.Count <= 0)
                     return false;
 
-                if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.Alliance))
+                if (TargetCity.BelongCorps.ActionPoint < TargetCity.GetJobCostAP(CityJobType.Alliance))
                     return false;
 
                 if (force.diplomacyBanTimer > 0)
                     return false;
 
-                return TargetCity.gold >= 1000;
+                // 【去掉 gold >= 1000】俘虏交换只是"以人换人"，执行侧
+                // DiplomacyActionExchange 里没有任何资金扣减；原先的门禁凭空要求 1000 金，
+                // 资金不足时按钮白灰。
+                return true;
             }
         }
 

@@ -36,7 +36,7 @@ namespace Sango.UI
         {
             who.text = $"{person.BelongForce.Name}";
             target.text = $"{GameSystem.GetSystem<DiplomacyManager>().GetActionName(actionType)}";
-            relationship.text = Scenario.Cur.GetRelation(person.BelongForce, receiverForce).ToString();
+            relationship.text = DiplomacyRules.FormatLike(person.BelongForce.GetLike(receiverForce));
             gold.text = $"{resourceValue}";
         }
         

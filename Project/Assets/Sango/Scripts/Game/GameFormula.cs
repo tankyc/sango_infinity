@@ -186,6 +186,9 @@ namespace Sango.Core
                 return p + playerAdd;
 
             int loyalty = target.loyalty;
+            // 灭国招降：忠诚按不超过 70 参与计算 —— 对齐原版 `if (type == Touyou_HoryouShoguu_Ruined) loyalty = min(loyalty, 70)`
+            if (type == (int)PersonRecruitType.OnForceFall && loyalty > 70)
+                loyalty = 70;
             if (type == (int)PersonRecruitType.Normal)
             {
                 // 普通招募武将
@@ -207,11 +210,9 @@ namespace Sango.Core
             //目标武将在野或是已灭亡势力的俘虏
             if (target.IsWild || type == (int)PersonRecruitType.OnForceFall)
             {
-                loyalty = variables.recruitWildLoyaltyBase;
-                if(actor.IsPlayer)
-                {
-                    loyalty = loyalty + variables.difficulty * variables.recruitLoyaltyDifficultyFactor;
-                }
+                // 对齐原版（s11_sys_scen_person.cpp:2209-2210）：
+                // 在野或已灭势力的俘虏，忠诚按固定值参与计算 —— 简单难度 60，其它难度 70。
+                loyalty = variables.difficulty == 0 ? 60 : variables.recruitWildLoyaltyBase;
                 if (!target.IsPrisoner)
                     //义理_普通
                     ArgumentationId = Scenario.Cur.GetObject<Argumentation>(variables.recruitDefaultArgumentationId);
@@ -229,13 +230,14 @@ namespace Sango.Core
             n -= target.IsParentchild(targetGovernor) ? variables.recruitParentChildInfluence : 0;
             n += target.IsHate(targetGovernor) ? variables.recruitHatePersonInfluence : 0;
             n += target.IsPrisoner ? variables.recruitPrisonerInfluence : 0;
+            // 随机浮动 —— 原版 `rand_int(Giri_Max - giri)`（s11_sys_scen_person.cpp:2222）
             n += GameRandom.Range(0, Math.Max(0, variables.recruitRandomMax - ArgumentationId.loyaltyAdd));
-            
-            // 在野回合数加成,每在野1回合加成3%
-            n += target.wildTurnCount * 3;
 
-            // 主公魅力影响
-            n += actorGovernor.Glamour / variables.recruitGovernorGlamourFactor;
+            // 【已删除】原实现还有两项原版不存在的加成：
+            //   · `target.wildTurnCount * 3`（在野每回合 +3%）
+            //   · `actorGovernor.Glamour / recruitGovernorGlamourFactor`（君主魅力）
+            // 原版 get_normal_persuasion_chance 只取执行者本人的魅力（`actor.get_charisma`），
+            // 也没有在野回合累积项，故一并移除。
             n = Math.Max(n, 0);
 
             // 第一次发现,成功率加成;

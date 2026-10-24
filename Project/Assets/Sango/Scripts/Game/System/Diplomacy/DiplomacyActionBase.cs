@@ -174,16 +174,22 @@ namespace Sango.Core
             // 基础惩罚值
             int basePenalty = Scenario.Cur.Variables.diplomacyFailedBasePenalty;
 
-            // 关系越差，惩罚越小（已经敌对了，再差也差不到哪去）
-            if (currentRelation < 0)
+            // 【兼容旧存档】旧档里该值是 raw 量级（默认 300），
+            // 而关系表已改为 0~100，惩罚也应落在 like 尺度（默认 3）。按 /100 折算。
+            if (basePenalty > 100)
+                basePenalty /= 100;
+
+            // 阈值同步改为 like 尺度（0~100）：
+            //   低于"不和"线（40）→ 惩罚递减；高于"好意"线（60）→ 惩罚递增。
+            // 原先的 `< 0` / `> 500` 是 raw(-5000~5000) 的判断，在 0~100 下永远不成立。
+            if (currentRelation < 40)
             {
-                float factor = 1.0f - ((float)Math.Abs(currentRelation) / 2000.0f);
+                float factor = 1.0f - ((float)(40 - currentRelation) / 40.0f);
                 basePenalty = (int)(basePenalty * factor);
             }
-            // 关系越好，惩罚越大（背叛感更强）
-            else if (currentRelation > 500)
+            else if (currentRelation > 60)
             {
-                float factor = 1.0f + ((float)currentRelation / 2000.0f);
+                float factor = 1.0f + ((float)(currentRelation - 60) / 40.0f);
                 basePenalty = (int)(basePenalty * factor);
             }
 

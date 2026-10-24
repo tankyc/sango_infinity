@@ -44,9 +44,32 @@ namespace Sango.Core.Player
         {
             get
             {
+                // 出阵位已满则不可组建运输队 —— 同出征，对齐 has_empty_place
+                // （s11_sys_person_order_military.cpp:272-281）
+                if (!TargetCity.HasEmptyCellForTroop())
+                    return false;
                 return TargetCity.troops > 0 && TargetCity.food > 0 && TargetCity.freePersons.Count > 0 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.MakeTansport);
+                    TargetCity.BelongCorps.ActionPoint >= TargetCity.GetJobCostAP(CityJobType.MakeTansport);
             }
+        }
+
+        /// <inheritdoc/>
+        public override string GetInvalidReason(City city)
+        {
+            if (city != null)
+                TargetCity = city;
+            if (!TargetCity.HasEmptyCellForTroop())
+                return "出阵位已满";
+            if (TargetCity.troops <= 0)
+                return "城中无兵";
+            if (TargetCity.food <= 0)
+                return "城中无粮";
+            if (TargetCity.freePersons.Count <= 0)
+                return "无空闲武将";
+            // 与 IsValid 同源（运输本身无折扣建筑，但统一口径便于将来扩展）
+            if (TargetCity.BelongCorps.ActionPoint < TargetCity.GetJobCostAP(CityJobType.MakeTansport))
+                return "行动力不足";
+            return null;
         }
         public override void UpdateJobValue()
         {

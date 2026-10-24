@@ -196,11 +196,11 @@ namespace Sango.Core
             GameEvent.OnCityContextMenuShow += OnCityContextMenuShow;
             GameEvent.OnCityAIPrepare += OnCityAIPrepare;
 
-            Scenario.Cur.CommonData.BuildingTypes.ForEach(x =>
-            {
-                if (x.Id >= 42 && x.Id <= 43)
-                    x.canBuild = true;
-            });
+            // 【注意】符节台(41) ~ 炼兵所(46) 的可建标记**不在这里控制**。
+            // 这几座在原版是 FacilityType_Government、限每城 1 座，与"工作制 / 经典内政"无关，
+            // 因此它们的 canBuild 直接写在 `BuildingTypes.json` 里（均为 true）。
+            // 早期版本在工作制 ScenarioInit 里开、ScenarioClear 里关，
+            // 导致经典内政下被关掉、玩家永远看不到这几座建筑。
         }
 
         void ScenarioClear()
@@ -214,12 +214,8 @@ namespace Sango.Core
             GameEvent.OnCityContextMenuShow -= OnCityContextMenuShow;
             GameEvent.OnCityAIPrepare -= OnCityAIPrepare;
 
-            Scenario.Cur.CommonData.BuildingTypes.ForEach(x =>
-            {
-                if (x.Id >= 42 && x.Id <= 43)
-                    x.canBuild = false;
-            });
-
+            // 可建标记由 `BuildingTypes.json` 静态定义，清理由数据层负责，这里不再触碰
+            // （详见 ScenarioInit 中的说明）。
         }
 
         /// <summary>

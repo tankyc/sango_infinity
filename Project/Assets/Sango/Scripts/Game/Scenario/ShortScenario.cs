@@ -14,6 +14,8 @@ namespace Sango.Core
         [JsonProperty] public int Governor;
         [JsonProperty] public int Counsellor;
         [JsonProperty] public int Flag;
+        /// <summary>国号 Id（对齐 Open311 `nation_id`；0 表示未定国号）</summary>
+        [JsonProperty] public int Nation;
         [JsonProperty] public string desc;
         public bool IsPlayer;
         public bool IsAppend;
@@ -34,6 +36,7 @@ namespace Sango.Core
                 Governor = Governor,
                 Counsellor = Counsellor,
                 Flag = Flag,
+                Nation = Nation,
                 desc = desc,
                 IsPlayer = IsPlayer,
                 IsAppend = IsAppend,

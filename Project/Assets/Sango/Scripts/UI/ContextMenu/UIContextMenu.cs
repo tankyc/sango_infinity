@@ -105,10 +105,14 @@ namespace Sango.UI
                     if (!string.IsNullOrEmpty(contextMenuData.title))
                     {
                         UIMenuItem obj = CreteNode(showDepth);
-                        obj.SetParent(root.transform).SetValid(contextMenuData.valid).SetTitle(contextMenuData.title).SetListener(() =>
-                        {
-                            contextMenuData.OnClick(obj);
-                        });
+                        // 先 SetTitle 再 SetValid：置灰原因要拼在原标题后面
+                        obj.SetParent(root.transform)
+                           .SetTitle(contextMenuData.title)
+                           .SetValid(contextMenuData.valid, contextMenuData.disabledReason)
+                           .SetListener(() =>
+                           {
+                               contextMenuData.OnClick(obj);
+                           });
                     }
                     else
                     {

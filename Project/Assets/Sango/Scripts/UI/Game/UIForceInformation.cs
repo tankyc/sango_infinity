@@ -210,12 +210,12 @@ using Sango.Core; namespace Sango.UI
             });
 
 
-            // TODO: 皇帝
+            // TODO: 皇帝 —— 本工程尚未实现「拥立皇帝」系统（原版 koutei 表 + 禅让/篡夺事件）
             emperorLabel.text = "--";
-            // TODO: 国号
-            countryLabel.text = "--";
-            // TODO: 爵位
-            dukeLabel.text = "--";
+            // 国号：按 force.NationId 从 Nations 表解析（对齐 Open311 `force->nation_id`）
+            countryLabel.text = force.Nation != null ? force.Nation.Name : "--";
+            // 爵位：沿用已有的 force.Title
+            dukeLabel.text = force.Title != null ? force.Title.Name : "--";
 
             corpsCountLabel.text = corpsList.Count.ToString();
             cityCountLabel.text = cityList.Count.ToString();
@@ -262,7 +262,11 @@ using Sango.Core; namespace Sango.UI
             food_enoughLabel.text = "";
 
             stopwarLabel.text = "--";
-            relationshipLabel.text = scenario.GetRelation(force, scenario.CurRunForce).ToString();
+            // 【对齐原版显示】原先直接输出 raw 关系值（-5000~5000），玩家无法判断远近。
+            // 原版是 0~100 的友好度 + 五档文字（险恶 / 不和 / 中立 / 好意 / 亲密）。
+            Force curForce = scenario.CurRunForce;
+            int like = (curForce != null) ? force.GetLike(curForce) : DiplomacyRules.DefaultLike;
+            relationshipLabel.text = DiplomacyRules.FormatLike(like);
             friendlyLabel.text = "--";
         }
 

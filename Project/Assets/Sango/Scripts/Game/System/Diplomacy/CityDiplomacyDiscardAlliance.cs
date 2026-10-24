@@ -25,7 +25,10 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.DiscardAlliance) && TargetCity.gold >= 1000;
+                // 【去掉 gold >= 1000】弃盟只是解除同盟关系，DoJob 里没有任何资金扣减；
+                // 原先的门禁凭空要求 1000 金，资金不足时按钮白灰。
+                return TargetCity.freePersons.Count > 0
+                    && TargetCity.BelongCorps.ActionPoint >= TargetCity.GetJobCostAP(CityJobType.DiscardAlliance);
             }
         }
 
@@ -51,6 +54,21 @@ namespace Sango.Core.Player
         {
             if (targetForces.Count <= 0)
                 return;
+
+            // 【扣行动力】弃盟不派使者（不经 DiplomacyManager.DispatchDiplomat），
+            // 因此必须在这里自己扣一次，口径与 IsValid 同源（含外交府减半）。
+            if (TargetCity.BelongCorps != null)
+                TargetCity.BelongCorps.ReduceActionPoint(TargetCity.GetJobCostAP(CityJobType.DiscardAlliance));
+
+            // 【关系值与技巧点惩罚】对齐原版破弃同盟（s11_sys_person_order_diplomacy.cpp:861-898）：
+            // 友好度 -50、技巧点 -50，并中断停战。
+            // 此前**只有 AI 侧**会扣（ForceAI.cs），玩家可以零成本反复背盟。
+            Force myForce = TargetCity.BelongForce;
+            if (myForce != null && targetForces.Count > 0 && targetForces[0] != null)
+            {
+                myForce.AddLike(targetForces[0], DiplomacyRules.DiscardLikePenalty);
+                myForce.GainTechniquePoint(-DiplomacyRules.DiscardTechCost);
+            }
 
             TargetCity.BelongForce.AllianceList.ForEach(x =>
             {

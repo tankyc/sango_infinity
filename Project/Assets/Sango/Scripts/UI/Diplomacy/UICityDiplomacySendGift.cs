@@ -33,7 +33,8 @@ namespace Sango.UI
         public void UpdateContent()
         {
             int count = currentSystem.personList.Count;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.SendGift)}/{TargetCity.BelongCorps.ActionPoint}";
+            // 与本城口径一致：外交府可让亲善 AP 减半
+            action_value.text = $"{TargetCity.GetJobCostAP(CityJobType.SendGift)}/{TargetCity.BelongCorps.ActionPoint}";
             sureButton.interactable = currentSystem.personList.Count > 0 && currentSystem.targetForces.Count > 0;
             Person actionPerson = count > 0 ? currentSystem.personList[0] : null;
             personItems.SetPerson(actionPerson);
@@ -42,7 +43,9 @@ namespace Sango.UI
             if (targetForce != null)
             {
                 target.text = targetForce.Name;
-                relationship.text = Scenario.Cur.GetRelation(TargetCity.BelongForce, targetForce).ToString();
+                // 统一为 0~100 友好度 + 原版五档（险恶/不和/中立/好意/亲密），
+                // 不再输出 raw 关系值。
+                relationship.text = DiplomacyRules.FormatLike(TargetCity.BelongForce.GetLike(targetForce));
                 days.text = $"{TargetCity.Distance(targetForce.CapitalCity)}0日";
             }
             else
@@ -51,7 +54,8 @@ namespace Sango.UI
                 relationship.text = "";
                 days.text = "";
             }
-            gold.text = $"{JobType.GetJobCost((int)CityJobType.SendGift)}/{TargetCity.gold}";
+            // 与本城口径一致：外交府可让亲善资金减半
+            gold.text = $"{TargetCity.GetJobCost(CityJobType.SendGift)}/{TargetCity.gold}";
         }
 
         public void OnSure()

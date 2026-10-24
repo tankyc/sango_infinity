@@ -6,7 +6,7 @@
  *   原 C++ 中的日/韩罗马音标识符已统一改为英文命名，便于阅读与维护：
  *     wadai    -> Topic      （话题：故事 / 道理 / 时节）
  *     wajutsu  -> Rhetoric   （话术：大喝 / 诡辩 / 无视 / 镇静 / 激昂）
- *     seikaku  -> Personality（性格：胆小 / 冷静 / 刚胆 / 莽撞）
+ *     性格枚举 -> Personality（性格：胆小 / 冷静 / 刚胆 / 莽撞）
  *     shoubyou -> Injury     （伤病：健康 / 轻伤 / 中伤 / 重伤）
  *     daikatsu -> Shout      （大喝）
  *     kiben    -> Sophistry  （诡辩）
@@ -113,7 +113,7 @@ namespace Sango.Core.Debate
         Rhetoric_Max = 5,
     }
 
-    /// <summary>性格。对应 C++ seikaku_t（影响愤怒持续回合与出牌限制）</summary>
+    /// <summary>性格（影响愤怒持续回合与出牌限制）</summary>
     public enum Personality
     {
         Personality_Timid = 0,    // 胆小

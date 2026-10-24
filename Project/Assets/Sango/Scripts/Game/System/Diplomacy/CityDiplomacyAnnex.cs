@@ -41,7 +41,7 @@ namespace Sango.Core.Player
                     return false;
 
                 // 劝降不放宽行动力要求：沿用结盟的 AP 成本
-                if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.Alliance))
+                if (TargetCity.BelongCorps.ActionPoint < TargetCity.GetJobCostAP(CityJobType.Alliance))
                     return false;
 
                 // 禁谈期内不可发起

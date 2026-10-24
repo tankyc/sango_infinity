@@ -67,5 +67,20 @@ namespace Sango.Core
             if (t != null) return t.limit;
             return 0;
         }
+
+        /// <summary>
+        /// 该工作"推荐优先"的特技 Id 列表（数据来自 <c>JobTypes.json</c> 的 <c>recommandFeatures</c>）。
+        ///
+        /// 用途：AI 挑执行者时，带这些特技的人优先。
+        /// 对应原版各命令挑选执行者时传入的 `skill_id` 参数
+        /// （如运输命令的 `transport_actor_comp(a, b, SkillId_Unpan)`）。
+        /// </summary>
+        /// <param name="jobId">工作 Id</param>
+        /// <returns>特技 Id 数组；未配置返回 null</returns>
+        public static int[] GetJobRecommendFeatures(int jobId)
+        {
+            JobType t = Scenario.Cur.CommonData.JobTypes.Get(jobId);
+            return t != null ? t.recommandFeatures : null;
+        }
     }
 }

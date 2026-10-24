@@ -18,6 +18,11 @@ namespace Sango.Core.Player
         {
             get
             {
+                // 兵临城下禁止拆除 —— 对齐 can_destroy_command
+                // （s11_sys_person_order_building.cpp:13-20 的 building_has_enemy 判定）
+                City city = TargetBuilding != null ? TargetBuilding.BelongCity : null;
+                if (city != null && city.HasEnemyNearby())
+                    return false;
                 return true;
             }
         }

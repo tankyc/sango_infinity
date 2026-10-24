@@ -3,7 +3,7 @@
     "dataVersion": 2,
     "1": {
       "Id": 1,
-      "Name": "阿会喃",
+      "ambition": 1,      "Name": "阿会喃",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -43,7 +43,7 @@
     },
     "2": {
       "Id": 2,
-      "Name": "韦昭",
+      "ambition": 1,      "Name": "韦昭",
       "BelongCity": 24,
       "familyName": "韦",
       "giveName": "昭",
@@ -77,7 +77,7 @@
     },
     "3": {
       "Id": 3,
-      "Name": "伊籍",
+      "ambition": 0,      "Name": "伊籍",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -121,7 +121,7 @@
     },
     "4": {
       "Id": 4,
-      "Name": "尹赏",
+      "ambition": 1,      "Name": "尹赏",
       "BelongCity": 21,
       "familyName": "尹",
       "giveName": "赏",
@@ -158,7 +158,7 @@
     },
     "5": {
       "Id": 5,
-      "Name": "尹大目",
+      "ambition": 1,      "Name": "尹大目",
       "BelongCity": 7,
       "familyName": "尹",
       "giveName": "大目",
@@ -194,7 +194,7 @@
     },
     "6": {
       "Id": 6,
-      "Name": "尹默",
+      "ambition": 0,      "Name": "尹默",
       "BelongCity": 38,
       "familyName": "尹",
       "giveName": "默",
@@ -231,7 +231,7 @@
     },
     "7": {
       "Id": 7,
-      "Name": "于禁",
+      "ambition": 2,      "Name": "于禁",
       "BelongForce": 18,
       "BelongCorps": 18,
       "BelongCity": 13,
@@ -273,7 +273,7 @@
     },
     "8": {
       "Id": 8,
-      "Name": "于诠",
+      "ambition": 0,      "Name": "于诠",
       "BelongCity": 24,
       "familyName": "于",
       "giveName": "诠",
@@ -309,7 +309,7 @@
     },
     "9": {
       "Id": 9,
-      "Name": "卫瓘",
+      "ambition": 3,      "Name": "卫瓘",
       "BelongForce": 35,
       "BelongCorps": 35,
       "BelongCity": 38,
@@ -351,7 +351,7 @@
     },
     "10": {
       "Id": 10,
-      "Name": "袁遗",
+      "ambition": 2,      "Name": "袁遗",
       "BelongForce": 18,
       "BelongCorps": 18,
       "BelongCity": 13,
@@ -390,7 +390,7 @@
     },
     "11": {
       "Id": 11,
-      "Name": "袁胤",
+      "ambition": 2,      "Name": "袁胤",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -425,7 +425,7 @@
     },
     "12": {
       "Id": 12,
-      "Name": "阎宇",
+      "ambition": 3,      "Name": "阎宇",
       "BelongCity": 31,
       "familyName": "阎",
       "giveName": "宇",
@@ -465,7 +465,7 @@
     },
     "13": {
       "Id": 13,
-      "Name": "袁涣",
+      "ambition": 0,      "Name": "袁涣",
       "BelongCity": 15,
       "familyName": "袁",
       "giveName": "涣",
@@ -502,7 +502,7 @@
     },
     "14": {
       "Id": 14,
-      "Name": "袁熙",
+      "ambition": 1,      "Name": "袁熙",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -542,7 +542,7 @@
     },
     "15": {
       "Id": 15,
-      "Name": "阎行",
+      "ambition": 3,      "Name": "阎行",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -581,7 +581,7 @@
     },
     "16": {
       "Id": 16,
-      "Name": "阎柔",
+      "ambition": 0,      "Name": "阎柔",
       "BelongForce": 14,
       "BelongCorps": 14,
       "BelongCity": 3,
@@ -619,7 +619,7 @@
     },
     "17": {
       "Id": 17,
-      "Name": "袁术",
+      "ambition": 4,      "Name": "袁术",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -663,7 +663,7 @@
     },
     "18": {
       "Id": 18,
-      "Name": "袁尚",
+      "ambition": 4,      "Name": "袁尚",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -709,7 +709,7 @@
     },
     "19": {
       "Id": 19,
-      "Name": "袁绍",
+      "ambition": 4,      "Name": "袁绍",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -759,7 +759,7 @@
     },
     "20": {
       "Id": 20,
-      "Name": "阎象",
+      "ambition": 1,      "Name": "阎象",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -794,7 +794,7 @@
     },
     "21": {
       "Id": 21,
-      "Name": "袁谭",
+      "ambition": 4,      "Name": "袁谭",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -834,7 +834,7 @@
     },
     "22": {
       "Id": 22,
-      "Name": "阎圃",
+      "ambition": 2,      "Name": "阎圃",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -872,7 +872,7 @@
     },
     "23": {
       "Id": 23,
-      "Name": "袁耀",
+      "ambition": 1,      "Name": "袁耀",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -908,7 +908,7 @@
     },
     "24": {
       "Id": 24,
-      "Name": "王威",
+      "ambition": 2,      "Name": "王威",
       "BelongCity": 30,
       "familyName": "王",
       "giveName": "威",
@@ -941,7 +941,7 @@
     },
     "25": {
       "Id": 25,
-      "Name": "王异",
+      "ambition": 2,      "Name": "王异",
       "BelongCity": 21,
       "familyName": "王",
       "giveName": "異",
@@ -980,7 +980,7 @@
     },
     "26": {
       "Id": 26,
-      "Name": "王允",
+      "ambition": 2,      "Name": "王允",
       "BelongForce": 29,
       "BelongCorps": 29,
       "BelongCity": 18,
@@ -1019,7 +1019,7 @@
     },
     "27": {
       "Id": 27,
-      "Name": "王基",
+      "ambition": 1,      "Name": "王基",
       "BelongCity": 8,
       "familyName": "王",
       "giveName": "基",
@@ -1056,7 +1056,7 @@
     },
     "28": {
       "Id": 28,
-      "Name": "王颀",
+      "ambition": 1,      "Name": "王颀",
       "BelongForce": 36,
       "BelongCorps": 36,
       "BelongCity": 39,
@@ -1095,7 +1095,7 @@
     },
     "29": {
       "Id": 29,
-      "Name": "王匡",
+      "ambition": 3,      "Name": "王匡",
       "BelongForce": 29,
       "BelongCorps": 29,
       "BelongCity": 18,
@@ -1134,7 +1134,7 @@
     },
     "30": {
       "Id": 30,
-      "Name": "王业",
+      "ambition": 0,      "Name": "王业",
       "BelongCity": 33,
       "familyName": "王",
       "giveName": "业",
@@ -1167,7 +1167,7 @@
     },
     "31": {
       "Id": 31,
-      "Name": "王经",
+      "ambition": 1,      "Name": "王经",
       "BelongCity": 5,
       "familyName": "王",
       "giveName": "经",
@@ -1204,7 +1204,7 @@
     },
     "32": {
       "Id": 32,
-      "Name": "王伉",
+      "ambition": 1,      "Name": "王伉",
       "BelongCity": 40,
       "familyName": "王",
       "giveName": "伉",
@@ -1243,7 +1243,7 @@
     },
     "33": {
       "Id": 33,
-      "Name": "王浑",
+      "ambition": 2,      "Name": "王浑",
       "BelongCity": 6,
       "familyName": "王",
       "giveName": "浑",
@@ -1281,7 +1281,7 @@
     },
     "34": {
       "Id": 34,
-      "Name": "王粲",
+      "ambition": 0,      "Name": "王粲",
       "BelongCity": 12,
       "familyName": "王",
       "giveName": "粲",
@@ -1319,7 +1319,7 @@
     },
     "35": {
       "Id": 35,
-      "Name": "王修",
+      "ambition": 0,      "Name": "王修",
       "BelongForce": 17,
       "BelongCorps": 17,
       "BelongCity": 8,
@@ -1355,7 +1355,7 @@
     },
     "36": {
       "Id": 36,
-      "Name": "王戎",
+      "ambition": 0,      "Name": "王戎",
       "BelongCity": 10,
       "familyName": "王",
       "giveName": "戎",
@@ -1389,7 +1389,7 @@
     },
     "37": {
       "Id": 37,
-      "Name": "王肃",
+      "ambition": 2,      "Name": "王肃",
       "BelongForce": 22,
       "BelongCorps": 22,
       "BelongCity": 25,
@@ -1426,7 +1426,7 @@
     },
     "38": {
       "Id": 38,
-      "Name": "王浚",
+      "ambition": 2,      "Name": "王浚",
       "BelongCity": 16,
       "familyName": "王",
       "giveName": "濬",
@@ -1463,7 +1463,7 @@
     },
     "39": {
       "Id": 39,
-      "Name": "王祥",
+      "ambition": 1,      "Name": "王祥",
       "BelongCity": 10,
       "familyName": "王",
       "giveName": "祥",
@@ -1500,7 +1500,7 @@
     },
     "40": {
       "Id": 40,
-      "Name": "区星",
+      "ambition": 4,      "Name": "区星",
       "BelongCity": 32,
       "familyName": "区",
       "giveName": "星",
@@ -1533,7 +1533,7 @@
     },
     "41": {
       "Id": 41,
-      "Name": "王双",
+      "ambition": 1,      "Name": "王双",
       "BelongCity": 21,
       "familyName": "王",
       "giveName": "双",
@@ -1570,7 +1570,7 @@
     },
     "42": {
       "Id": 42,
-      "Name": "王忠",
+      "ambition": 0,      "Name": "王忠",
       "BelongCity": 12,
       "familyName": "王",
       "giveName": "忠",
@@ -1603,7 +1603,7 @@
     },
     "43": {
       "Id": 43,
-      "Name": "王昶",
+      "ambition": 2,      "Name": "王昶",
       "BelongCity": 6,
       "familyName": "王",
       "giveName": "昶",
@@ -1643,7 +1643,7 @@
     },
     "44": {
       "Id": 44,
-      "Name": "王韬",
+      "ambition": 1,      "Name": "王韬",
       "BelongCity": 21,
       "familyName": "王",
       "giveName": "韬",
@@ -1676,7 +1676,7 @@
     },
     "45": {
       "Id": 45,
-      "Name": "王惇",
+      "ambition": 2,      "Name": "王惇",
       "BelongCity": 23,
       "familyName": "王",
       "giveName": "惇",
@@ -1712,7 +1712,7 @@
     },
     "46": {
       "Id": 46,
-      "Name": "王平",
+      "ambition": 2,      "Name": "王平",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -1754,7 +1754,7 @@
     },
     "47": {
       "Id": 47,
-      "Name": "王甫",
+      "ambition": 1,      "Name": "王甫",
       "BelongCity": 40,
       "familyName": "王",
       "giveName": "甫",
@@ -1795,7 +1795,7 @@
     },
     "48": {
       "Id": 48,
-      "Name": "王门",
+      "ambition": 1,      "Name": "王门",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -1830,7 +1830,7 @@
     },
     "49": {
       "Id": 49,
-      "Name": "王凌",
+      "ambition": 4,      "Name": "王凌",
       "BelongCity": 6,
       "familyName": "王",
       "giveName": "淩",
@@ -1869,7 +1869,7 @@
     },
     "50": {
       "Id": 50,
-      "Name": "王累",
+      "ambition": 1,      "Name": "王累",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -1907,7 +1907,7 @@
     },
     "51": {
       "Id": 51,
-      "Name": "王朗",
+      "ambition": 3,      "Name": "王朗",
       "BelongForce": 22,
       "BelongCorps": 22,
       "BelongCity": 25,
@@ -1943,7 +1943,7 @@
     },
     "52": {
       "Id": 52,
-      "Name": "温恢",
+      "ambition": 1,      "Name": "温恢",
       "BelongCity": 6,
       "familyName": "温",
       "giveName": "恢",
@@ -1983,7 +1983,7 @@
     },
     "53": {
       "Id": 53,
-      "Name": "何晏",
+      "ambition": 4,      "Name": "何晏",
       "BelongForce": 29,
       "BelongCorps": 29,
       "BelongCity": 18,
@@ -2025,7 +2025,7 @@
     },
     "54": {
       "Id": 54,
-      "Name": "蒯越",
+      "ambition": 2,      "Name": "蒯越",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -2064,7 +2064,7 @@
     },
     "55": {
       "Id": 55,
-      "Name": "蒯良",
+      "ambition": 2,      "Name": "蒯良",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -2103,7 +2103,7 @@
     },
     "56": {
       "Id": 56,
-      "Name": "贾华",
+      "ambition": 1,      "Name": "贾华",
       "BelongCity": 26,
       "familyName": "贾",
       "giveName": "华",
@@ -2136,7 +2136,7 @@
     },
     "57": {
       "Id": 57,
-      "Name": "华核",
+      "ambition": 0,      "Name": "华核",
       "BelongCity": 24,
       "familyName": "华",
       "giveName": "覈",
@@ -2173,7 +2173,7 @@
     },
     "58": {
       "Id": 58,
-      "Name": "贾逵",
+      "ambition": 2,      "Name": "贾逵",
       "BelongCity": 16,
       "familyName": "贾",
       "giveName": "逵",
@@ -2213,7 +2213,7 @@
     },
     "59": {
       "Id": 59,
-      "Name": "何仪",
+      "ambition": 2,      "Name": "何仪",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -2248,7 +2248,7 @@
     },
     "60": {
       "Id": 60,
-      "Name": "华歆",
+      "ambition": 3,      "Name": "华歆",
       "BelongForce": 22,
       "BelongCorps": 22,
       "BelongCity": 25,
@@ -2284,7 +2284,7 @@
     },
     "61": {
       "Id": 61,
-      "Name": "贾诩",
+      "ambition": 2,      "Name": "贾诩",
       "BelongForce": 25,
       "BelongCorps": 25,
       "BelongCity": 17,
@@ -2327,7 +2327,7 @@
     },
     "62": {
       "Id": 62,
-      "Name": "郭奕",
+      "ambition": 1,      "Name": "郭奕",
       "BelongCity": 14,
       "familyName": "郭",
       "giveName": "奕",
@@ -2365,7 +2365,7 @@
     },
     "63": {
       "Id": 63,
-      "Name": "郭援",
+      "ambition": 2,      "Name": "郭援",
       "BelongCity": 4,
       "familyName": "郭",
       "giveName": "援",
@@ -2398,7 +2398,7 @@
     },
     "64": {
       "Id": 64,
-      "Name": "郭嘉",
+      "ambition": 2,      "Name": "郭嘉",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -2444,7 +2444,7 @@
     },
     "65": {
       "Id": 65,
-      "Name": "鄂焕",
+      "ambition": 1,      "Name": "鄂焕",
       "BelongForce": 27,
       "BelongCorps": 27,
       "BelongCity": 41,
@@ -2482,7 +2482,7 @@
     },
     "66": {
       "Id": 66,
-      "Name": "郭汜",
+      "ambition": 4,      "Name": "郭汜",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -2517,7 +2517,7 @@
     },
     "67": {
       "Id": 67,
-      "Name": "乐就",
+      "ambition": 2,      "Name": "乐就",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -2552,7 +2552,7 @@
     },
     "68": {
       "Id": 68,
-      "Name": "霍峻",
+      "ambition": 1,      "Name": "霍峻",
       "BelongCity": 31,
       "familyName": "霍",
       "giveName": "峻",
@@ -2592,7 +2592,7 @@
     },
     "69": {
       "Id": 69,
-      "Name": "郝昭",
+      "ambition": 2,      "Name": "郝昭",
       "BelongCity": 6,
       "familyName": "郝",
       "giveName": "昭",
@@ -2629,7 +2629,7 @@
     },
     "70": {
       "Id": 70,
-      "Name": "乐进",
+      "ambition": 1,      "Name": "乐进",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -2673,7 +2673,7 @@
     },
     "71": {
       "Id": 71,
-      "Name": "乐綝",
+      "ambition": 2,      "Name": "乐綝",
       "BelongCity": 12,
       "familyName": "乐",
       "giveName": "綝",
@@ -2710,7 +2710,7 @@
     },
     "72": {
       "Id": 72,
-      "Name": "郭图",
+      "ambition": 3,      "Name": "郭图",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -2750,7 +2750,7 @@
     },
     "73": {
       "Id": 73,
-      "Name": "郭马",
+      "ambition": 3,      "Name": "郭马",
       "BelongCity": 34,
       "familyName": "郭",
       "giveName": "马",
@@ -2783,7 +2783,7 @@
     },
     "74": {
       "Id": 74,
-      "Name": "郝萌",
+      "ambition": 2,      "Name": "郝萌",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -2818,7 +2818,7 @@
     },
     "75": {
       "Id": 75,
-      "Name": "郭攸之",
+      "ambition": 0,      "Name": "郭攸之",
       "BelongCity": 17,
       "familyName": "郭",
       "giveName": "攸之",
@@ -2852,7 +2852,7 @@
     },
     "76": {
       "Id": 76,
-      "Name": "霍弋",
+      "ambition": 1,      "Name": "霍弋",
       "BelongCity": 31,
       "familyName": "霍",
       "giveName": "弋",
@@ -2890,7 +2890,7 @@
     },
     "77": {
       "Id": 77,
-      "Name": "郭淮",
+      "ambition": 2,      "Name": "郭淮",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -2933,7 +2933,7 @@
     },
     "78": {
       "Id": 78,
-      "Name": "夏侯威",
+      "ambition": 2,      "Name": "夏侯威",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -2970,7 +2970,7 @@
     },
     "79": {
       "Id": 79,
-      "Name": "夏侯渊",
+      "ambition": 2,      "Name": "夏侯渊",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3017,7 +3017,7 @@
     },
     "80": {
       "Id": 80,
-      "Name": "夏侯恩",
+      "ambition": 1,      "Name": "夏侯恩",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3052,7 +3052,7 @@
     },
     "81": {
       "Id": 81,
-      "Name": "夏侯和",
+      "ambition": 1,      "Name": "夏侯和",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3089,7 +3089,7 @@
     },
     "82": {
       "Id": 82,
-      "Name": "夏侯惠",
+      "ambition": 2,      "Name": "夏侯惠",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3126,7 +3126,7 @@
     },
     "83": {
       "Id": 83,
-      "Name": "夏侯玄",
+      "ambition": 3,      "Name": "夏侯玄",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -3172,7 +3172,7 @@
     },
     "84": {
       "Id": 84,
-      "Name": "夏侯尚",
+      "ambition": 2,      "Name": "夏侯尚",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3213,7 +3213,7 @@
     },
     "85": {
       "Id": 85,
-      "Name": "夏侯德",
+      "ambition": 2,      "Name": "夏侯德",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3248,7 +3248,7 @@
     },
     "86": {
       "Id": 86,
-      "Name": "夏侯惇",
+      "ambition": 2,      "Name": "夏侯惇",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3295,7 +3295,7 @@
     },
     "87": {
       "Id": 87,
-      "Name": "夏侯霸",
+      "ambition": 3,      "Name": "夏侯霸",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3339,7 +3339,7 @@
     },
     "88": {
       "Id": 88,
-      "Name": "夏侯楙",
+      "ambition": 2,      "Name": "夏侯楙",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -3379,7 +3379,7 @@
     },
     "89": {
       "Id": 89,
-      "Name": "夏侯令女",
+      "ambition": 0,      "Name": "夏侯令女",
       "BelongCity": 13,
       "familyName": "夏侯",
       "giveName": "令女",
@@ -3415,7 +3415,7 @@
     },
     "90": {
       "Id": 90,
-      "Name": "贾充",
+      "ambition": 4,      "Name": "贾充",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -3460,7 +3460,7 @@
     },
     "91": {
       "Id": 91,
-      "Name": "何植",
+      "ambition": 2,      "Name": "何植",
       "BelongCity": 24,
       "familyName": "何",
       "giveName": "植",
@@ -3493,7 +3493,7 @@
     },
     "92": {
       "Id": 92,
-      "Name": "何进",
+      "ambition": 4,      "Name": "何进",
       "BelongForce": 29,
       "BelongCorps": 29,
       "BelongCity": 18,
@@ -3529,7 +3529,7 @@
     },
     "93": {
       "Id": 93,
-      "Name": "贺齐",
+      "ambition": 2,      "Name": "贺齐",
       "BelongCity": 25,
       "familyName": "贺",
       "giveName": "齐",
@@ -3566,7 +3566,7 @@
     },
     "94": {
       "Id": 94,
-      "Name": "贾范",
+      "ambition": 1,      "Name": "贾范",
       "BelongForce": 13,
       "BelongCorps": 13,
       "BelongCity": 1,
@@ -3601,7 +3601,7 @@
     },
     "95": {
       "Id": 95,
-      "Name": "花鬘",
+      "ambition": 2,      "Name": "花鬘",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -3645,7 +3645,7 @@
     },
     "96": {
       "Id": 96,
-      "Name": "华雄",
+      "ambition": 2,      "Name": "华雄",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -3683,7 +3683,7 @@
     },
     "97": {
       "Id": 97,
-      "Name": "关彝",
+      "ambition": 0,      "Name": "关彝",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -3722,7 +3722,7 @@
     },
     "98": {
       "Id": 98,
-      "Name": "韩胤",
+      "ambition": 2,      "Name": "韩胤",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -3757,7 +3757,7 @@
     },
     "99": {
       "Id": 99,
-      "Name": "关羽",
+      "ambition": 1,      "Name": "关羽",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -3810,7 +3810,7 @@
     },
     "100": {
       "Id": 100,
-      "Name": "桓阶",
+      "ambition": 3,      "Name": "桓阶",
       "BelongCity": 32,
       "familyName": "桓",
       "giveName": "阶",
@@ -3848,7 +3848,7 @@
     },
     "101": {
       "Id": 101,
-      "Name": "管亥",
+      "ambition": 2,      "Name": "管亥",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -3883,7 +3883,7 @@
     },
     "102": {
       "Id": 102,
-      "Name": "毌丘俭",
+      "ambition": 4,      "Name": "毌丘俭",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -3925,7 +3925,7 @@
     },
     "103": {
       "Id": 103,
-      "Name": "毌丘秀",
+      "ambition": 1,      "Name": "毌丘秀",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -3960,7 +3960,7 @@
     },
     "104": {
       "Id": 104,
-      "Name": "毌丘甸",
+      "ambition": 2,      "Name": "毌丘甸",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -3997,7 +3997,7 @@
     },
     "105": {
       "Id": 105,
-      "Name": "韩莒子",
+      "ambition": 2,      "Name": "韩莒子",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -4032,7 +4032,7 @@
     },
     "106": {
       "Id": 106,
-      "Name": "韩玄",
+      "ambition": 3,      "Name": "韩玄",
       "BelongForce": 31,
       "BelongCorps": 31,
       "BelongCity": 32,
@@ -4067,7 +4067,7 @@
     },
     "107": {
       "Id": 107,
-      "Name": "韩浩",
+      "ambition": 2,      "Name": "韩浩",
       "BelongForce": 31,
       "BelongCorps": 31,
       "BelongCity": 32,
@@ -4109,7 +4109,7 @@
     },
     "108": {
       "Id": 108,
-      "Name": "关兴",
+      "ambition": 1,      "Name": "关兴",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -4153,7 +4153,7 @@
     },
     "109": {
       "Id": 109,
-      "Name": "关索",
+      "ambition": 1,      "Name": "关索",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -4196,7 +4196,7 @@
     },
     "110": {
       "Id": 110,
-      "Name": "韩遂",
+      "ambition": 4,      "Name": "韩遂",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -4239,7 +4239,7 @@
     },
     "111": {
       "Id": 111,
-      "Name": "韩嵩",
+      "ambition": 0,      "Name": "韩嵩",
       "BelongCity": 30,
       "familyName": "韩",
       "giveName": "嵩",
@@ -4273,7 +4273,7 @@
     },
     "112": {
       "Id": 112,
-      "Name": "关靖",
+      "ambition": 2,      "Name": "关靖",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -4309,7 +4309,7 @@
     },
     "113": {
       "Id": 113,
-      "Name": "韩暹",
+      "ambition": 3,      "Name": "韩暹",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -4344,7 +4344,7 @@
     },
     "114": {
       "Id": 114,
-      "Name": "阚泽",
+      "ambition": 2,      "Name": "阚泽",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -4388,7 +4388,7 @@
     },
     "115": {
       "Id": 115,
-      "Name": "韩忠",
+      "ambition": 3,      "Name": "韩忠",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -4423,7 +4423,7 @@
     },
     "116": {
       "Id": 116,
-      "Name": "关统",
+      "ambition": 1,      "Name": "关统",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -4459,7 +4459,7 @@
     },
     "117": {
       "Id": 117,
-      "Name": "韩当",
+      "ambition": 2,      "Name": "韩当",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -4503,7 +4503,7 @@
     },
     "118": {
       "Id": 118,
-      "Name": "韩德",
+      "ambition": 1,      "Name": "韩德",
       "BelongCity": 20,
       "familyName": "韩",
       "giveName": "德",
@@ -4539,7 +4539,7 @@
     },
     "119": {
       "Id": 119,
-      "Name": "甘宁",
+      "ambition": 2,      "Name": "甘宁",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -4586,7 +4586,7 @@
     },
     "120": {
       "Id": 120,
-      "Name": "桓范",
+      "ambition": 2,      "Name": "桓范",
       "BelongCity": 10,
       "familyName": "桓",
       "giveName": "範",
@@ -4623,7 +4623,7 @@
     },
     "121": {
       "Id": 121,
-      "Name": "韩馥",
+      "ambition": 0,      "Name": "韩馥",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -4659,7 +4659,7 @@
     },
     "122": {
       "Id": 122,
-      "Name": "关平",
+      "ambition": 1,      "Name": "关平",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -4704,7 +4704,7 @@
     },
     "123": {
       "Id": 123,
-      "Name": "简雍",
+      "ambition": 1,      "Name": "简雍",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -4747,7 +4747,7 @@
     },
     "124": {
       "Id": 124,
-      "Name": "颜良",
+      "ambition": 2,      "Name": "颜良",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -4786,7 +4786,7 @@
     },
     "125": {
       "Id": 125,
-      "Name": "魏延",
+      "ambition": 4,      "Name": "魏延",
       "BelongForce": 31,
       "BelongCorps": 31,
       "BelongCity": 32,
@@ -4833,7 +4833,7 @@
     },
     "126": {
       "Id": 126,
-      "Name": "曲义",
+      "ambition": 3,      "Name": "曲义",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -4871,7 +4871,7 @@
     },
     "127": {
       "Id": 127,
-      "Name": "戏志才",
+      "ambition": 1,      "Name": "戏志才",
       "BelongCity": 14,
       "familyName": "戏",
       "giveName": "志才",
@@ -4904,7 +4904,7 @@
     },
     "128": {
       "Id": 128,
-      "Name": "魏续",
+      "ambition": 1,      "Name": "魏续",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -4943,7 +4943,7 @@
     },
     "129": {
       "Id": 129,
-      "Name": "魏邈",
+      "ambition": 2,      "Name": "魏邈",
       "BelongCity": 23,
       "familyName": "魏",
       "giveName": "邈",
@@ -4976,7 +4976,7 @@
     },
     "130": {
       "Id": 130,
-      "Name": "魏讽",
+      "ambition": 4,      "Name": "魏讽",
       "BelongCity": 10,
       "familyName": "魏",
       "giveName": "讽",
@@ -5016,7 +5016,7 @@
     },
     "131": {
       "Id": 131,
-      "Name": "魏攸",
+      "ambition": 1,      "Name": "魏攸",
       "BelongForce": 14,
       "BelongCorps": 14,
       "BelongCity": 3,
@@ -5051,7 +5051,7 @@
     },
     "132": {
       "Id": 132,
-      "Name": "牛金",
+      "ambition": 2,      "Name": "牛金",
       "BelongCity": 17,
       "familyName": "牛",
       "giveName": "金",
@@ -5090,7 +5090,7 @@
     },
     "133": {
       "Id": 133,
-      "Name": "丘建",
+      "ambition": 1,      "Name": "丘建",
       "BelongForce": 35,
       "BelongCorps": 35,
       "BelongCity": 38,
@@ -5125,7 +5125,7 @@
     },
     "134": {
       "Id": 134,
-      "Name": "牛辅",
+      "ambition": 0,      "Name": "牛辅",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -5161,7 +5161,7 @@
     },
     "135": {
       "Id": 135,
-      "Name": "丘本",
+      "ambition": 2,      "Name": "丘本",
       "BelongForce": 36,
       "BelongCorps": 36,
       "BelongCity": 39,
@@ -5196,7 +5196,7 @@
     },
     "136": {
       "Id": 136,
-      "Name": "季雍",
+      "ambition": 1,      "Name": "季雍",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -5231,7 +5231,7 @@
     },
     "137": {
       "Id": 137,
-      "Name": "姜维",
+      "ambition": 3,      "Name": "姜维",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -5283,7 +5283,7 @@
     },
     "138": {
       "Id": 138,
-      "Name": "巩志",
+      "ambition": 2,      "Name": "巩志",
       "BelongForce": 32,
       "BelongCorps": 32,
       "BelongCity": 33,
@@ -5318,7 +5318,7 @@
     },
     "139": {
       "Id": 139,
-      "Name": "桥蕤",
+      "ambition": 1,      "Name": "桥蕤",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -5353,7 +5353,7 @@
     },
     "140": {
       "Id": 140,
-      "Name": "龚都",
+      "ambition": 1,      "Name": "龚都",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -5391,7 +5391,7 @@
     },
     "141": {
       "Id": 141,
-      "Name": "桥瑁",
+      "ambition": 2,      "Name": "桥瑁",
       "BelongForce": 18,
       "BelongCorps": 18,
       "BelongCity": 13,
@@ -5430,7 +5430,7 @@
     },
     "142": {
       "Id": 142,
-      "Name": "许仪",
+      "ambition": 1,      "Name": "许仪",
       "BelongForce": 35,
       "BelongCorps": 35,
       "BelongCity": 38,
@@ -5466,7 +5466,7 @@
     },
     "143": {
       "Id": 143,
-      "Name": "许贡",
+      "ambition": 3,      "Name": "许贡",
       "BelongForce": 22,
       "BelongCorps": 22,
       "BelongCity": 25,
@@ -5501,7 +5501,7 @@
     },
     "144": {
       "Id": 144,
-      "Name": "许靖",
+      "ambition": 1,      "Name": "许靖",
       "BelongForce": 20,
       "BelongCorps": 20,
       "BelongCity": 15,
@@ -5537,7 +5537,7 @@
     },
     "145": {
       "Id": 145,
-      "Name": "许褚",
+      "ambition": 1,      "Name": "许褚",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -5584,7 +5584,7 @@
     },
     "146": {
       "Id": 146,
-      "Name": "许攸",
+      "ambition": 3,      "Name": "许攸",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -5623,7 +5623,7 @@
     },
     "147": {
       "Id": 147,
-      "Name": "纪灵",
+      "ambition": 2,      "Name": "纪灵",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -5658,7 +5658,7 @@
     },
     "148": {
       "Id": 148,
-      "Name": "金祎",
+      "ambition": 3,      "Name": "金祎",
       "BelongForce": 32,
       "BelongCorps": 32,
       "BelongCity": 33,
@@ -5695,7 +5695,7 @@
     },
     "149": {
       "Id": 149,
-      "Name": "金环三结",
+      "ambition": 0,      "Name": "金环三结",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -5734,7 +5734,7 @@
     },
     "150": {
       "Id": 150,
-      "Name": "金旋",
+      "ambition": 2,      "Name": "金旋",
       "BelongForce": 32,
       "BelongCorps": 32,
       "BelongCity": 33,
@@ -5770,7 +5770,7 @@
     },
     "151": {
       "Id": 151,
-      "Name": "虞汜",
+      "ambition": 1,      "Name": "虞汜",
       "BelongForce": 22,
       "BelongCorps": 22,
       "BelongCity": 25,
@@ -5807,7 +5807,7 @@
     },
     "152": {
       "Id": 152,
-      "Name": "虞翻",
+      "ambition": 2,      "Name": "虞翻",
       "BelongForce": 22,
       "BelongCorps": 22,
       "BelongCity": 25,
@@ -5851,7 +5851,7 @@
     },
     "153": {
       "Id": 153,
-      "Name": "邢道荣",
+      "ambition": 2,      "Name": "邢道荣",
       "BelongForce": 34,
       "BelongCorps": 34,
       "BelongCity": 35,
@@ -5886,7 +5886,7 @@
     },
     "154": {
       "Id": 154,
-      "Name": "郄正",
+      "ambition": 1,      "Name": "郄正",
       "BelongCity": 16,
       "familyName": "郤",
       "giveName": "正",
@@ -5923,7 +5923,7 @@
     },
     "155": {
       "Id": 155,
-      "Name": "严颜",
+      "ambition": 1,      "Name": "严颜",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -5965,7 +5965,7 @@
     },
     "156": {
       "Id": 156,
-      "Name": "牵弘",
+      "ambition": 2,      "Name": "牵弘",
       "BelongForce": 36,
       "BelongCorps": 36,
       "BelongCity": 39,
@@ -6004,7 +6004,7 @@
     },
     "157": {
       "Id": 157,
-      "Name": "严纲",
+      "ambition": 1,      "Name": "严纲",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -6039,7 +6039,7 @@
     },
     "158": {
       "Id": 158,
-      "Name": "严畯",
+      "ambition": 2,      "Name": "严畯",
       "BelongCity": 24,
       "familyName": "严",
       "giveName": "畯",
@@ -6078,7 +6078,7 @@
     },
     "159": {
       "Id": 159,
-      "Name": "牵招",
+      "ambition": 1,      "Name": "牵招",
       "BelongCity": 4,
       "familyName": "牵",
       "giveName": "招",
@@ -6115,7 +6115,7 @@
     },
     "160": {
       "Id": 160,
-      "Name": "严政",
+      "ambition": 3,      "Name": "严政",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -6150,7 +6150,7 @@
     },
     "161": {
       "Id": 161,
-      "Name": "严白虎",
+      "ambition": 4,      "Name": "严白虎",
       "BelongForce": 23,
       "BelongCorps": 23,
       "BelongCity": 24,
@@ -6188,7 +6188,7 @@
     },
     "162": {
       "Id": 162,
-      "Name": "严舆",
+      "ambition": 3,      "Name": "严舆",
       "BelongForce": 23,
       "BelongCorps": 23,
       "BelongCity": 24,
@@ -6226,7 +6226,7 @@
     },
     "163": {
       "Id": 163,
-      "Name": "吴懿",
+      "ambition": 2,      "Name": "吴懿",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -6265,7 +6265,7 @@
     },
     "164": {
       "Id": 164,
-      "Name": "黄盖",
+      "ambition": 2,      "Name": "黄盖",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -6310,7 +6310,7 @@
     },
     "165": {
       "Id": 165,
-      "Name": "高干",
+      "ambition": 1,      "Name": "高干",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -6346,7 +6346,7 @@
     },
     "166": {
       "Id": 166,
-      "Name": "黄月英",
+      "ambition": 0,      "Name": "黄月英",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -6391,7 +6391,7 @@
     },
     "167": {
       "Id": 167,
-      "Name": "黄权",
+      "ambition": 2,      "Name": "黄权",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -6430,7 +6430,7 @@
     },
     "168": {
       "Id": 168,
-      "Name": "黄皓",
+      "ambition": 3,      "Name": "黄皓",
       "BelongCity": 40,
       "familyName": "黄",
       "giveName": "皓",
@@ -6470,7 +6470,7 @@
     },
     "169": {
       "Id": 169,
-      "Name": "高柔",
+      "ambition": 1,      "Name": "高柔",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -6506,7 +6506,7 @@
     },
     "170": {
       "Id": 170,
-      "Name": "高顺",
+      "ambition": 2,      "Name": "高顺",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -6551,7 +6551,7 @@
     },
     "171": {
       "Id": 171,
-      "Name": "高翔",
+      "ambition": 2,      "Name": "高翔",
       "BelongCity": 38,
       "familyName": "高",
       "giveName": "翔",
@@ -6587,7 +6587,7 @@
     },
     "172": {
       "Id": 172,
-      "Name": "高升",
+      "ambition": 2,      "Name": "高升",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -6622,7 +6622,7 @@
     },
     "173": {
       "Id": 173,
-      "Name": "黄崇",
+      "ambition": 2,      "Name": "黄崇",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -6658,7 +6658,7 @@
     },
     "174": {
       "Id": 174,
-      "Name": "侯成",
+      "ambition": 1,      "Name": "侯成",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -6697,7 +6697,7 @@
     },
     "175": {
       "Id": 175,
-      "Name": "侯选",
+      "ambition": 2,      "Name": "侯选",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -6732,7 +6732,7 @@
     },
     "176": {
       "Id": 176,
-      "Name": "黄祖",
+      "ambition": 2,      "Name": "黄祖",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -6770,7 +6770,7 @@
     },
     "177": {
       "Id": 177,
-      "Name": "公孙越",
+      "ambition": 2,      "Name": "公孙越",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -6808,7 +6808,7 @@
     },
     "178": {
       "Id": 178,
-      "Name": "公孙渊",
+      "ambition": 4,      "Name": "公孙渊",
       "BelongForce": 13,
       "BelongCorps": 13,
       "BelongCity": 1,
@@ -6845,7 +6845,7 @@
     },
     "179": {
       "Id": 179,
-      "Name": "公孙恭",
+      "ambition": 3,      "Name": "公孙恭",
       "BelongForce": 13,
       "BelongCorps": 13,
       "BelongCity": 1,
@@ -6881,7 +6881,7 @@
     },
     "180": {
       "Id": 180,
-      "Name": "公孙康",
+      "ambition": 4,      "Name": "公孙康",
       "BelongForce": 13,
       "BelongCorps": 13,
       "BelongCity": 1,
@@ -6920,7 +6920,7 @@
     },
     "181": {
       "Id": 181,
-      "Name": "公孙瓒",
+      "ambition": 4,      "Name": "公孙瓒",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -6967,7 +6967,7 @@
     },
     "182": {
       "Id": 182,
-      "Name": "公孙续",
+      "ambition": 1,      "Name": "公孙续",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -7006,7 +7006,7 @@
     },
     "183": {
       "Id": 183,
-      "Name": "公孙度",
+      "ambition": 4,      "Name": "公孙度",
       "BelongForce": 13,
       "BelongCorps": 13,
       "BelongCity": 1,
@@ -7042,7 +7042,7 @@
     },
     "184": {
       "Id": 184,
-      "Name": "公孙范",
+      "ambition": 2,      "Name": "公孙范",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -7080,7 +7080,7 @@
     },
     "185": {
       "Id": 185,
-      "Name": "孔胄",
+      "ambition": 2,      "Name": "孔胄",
       "BelongForce": 20,
       "BelongCorps": 20,
       "BelongCity": 15,
@@ -7116,7 +7116,7 @@
     },
     "186": {
       "Id": 186,
-      "Name": "黄忠",
+      "ambition": 2,      "Name": "黄忠",
       "BelongForce": 31,
       "BelongCorps": 31,
       "BelongCity": 32,
@@ -7160,7 +7160,7 @@
     },
     "187": {
       "Id": 187,
-      "Name": "高定",
+      "ambition": 4,      "Name": "高定",
       "BelongForce": 27,
       "BelongCorps": 27,
       "BelongCity": 41,
@@ -7195,7 +7195,7 @@
     },
     "188": {
       "Id": 188,
-      "Name": "高堂隆",
+      "ambition": 0,      "Name": "高堂隆",
       "BelongCity": 13,
       "familyName": "高堂",
       "giveName": "隆",
@@ -7229,7 +7229,7 @@
     },
     "189": {
       "Id": 189,
-      "Name": "高沛",
+      "ambition": 2,      "Name": "高沛",
       "BelongCity": 38,
       "familyName": "高",
       "giveName": "沛",
@@ -7262,7 +7262,7 @@
     },
     "190": {
       "Id": 190,
-      "Name": "皇甫嵩",
+      "ambition": 2,      "Name": "皇甫嵩",
       "BelongForce": 29,
       "BelongCorps": 29,
       "BelongCity": 18,
@@ -7301,7 +7301,7 @@
     },
     "191": {
       "Id": 191,
-      "Name": "孔融",
+      "ambition": 3,      "Name": "孔融",
       "BelongForce": 17,
       "BelongCorps": 17,
       "BelongCity": 8,
@@ -7340,7 +7340,7 @@
     },
     "192": {
       "Id": 192,
-      "Name": "高览",
+      "ambition": 1,      "Name": "高览",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -7378,7 +7378,7 @@
     },
     "193": {
       "Id": 193,
-      "Name": "伍延",
+      "ambition": 0,      "Name": "伍延",
       "BelongCity": 31,
       "familyName": "伍",
       "giveName": "延",
@@ -7411,7 +7411,7 @@
     },
     "194": {
       "Id": 194,
-      "Name": "吴巨",
+      "ambition": 3,      "Name": "吴巨",
       "BelongCity": 3,
       "familyName": "吴",
       "giveName": "巨",
@@ -7444,7 +7444,7 @@
     },
     "195": {
       "Id": 195,
-      "Name": "国渊",
+      "ambition": 0,      "Name": "国渊",
       "BelongCity": 8,
       "familyName": "国",
       "giveName": "渊",
@@ -7481,7 +7481,7 @@
     },
     "196": {
       "Id": 196,
-      "Name": "吴景",
+      "ambition": 2,      "Name": "吴景",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -7516,7 +7516,7 @@
     },
     "197": {
       "Id": 197,
-      "Name": "吾彦",
+      "ambition": 1,      "Name": "吾彦",
       "BelongCity": 23,
       "familyName": "吾",
       "giveName": "彦",
@@ -7553,7 +7553,7 @@
     },
     "198": {
       "Id": 198,
-      "Name": "吴纲",
+      "ambition": 1,      "Name": "吴纲",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -7588,7 +7588,7 @@
     },
     "199": {
       "Id": 199,
-      "Name": "吴国太",
+      "ambition": 0,      "Name": "吴国太",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -7633,7 +7633,7 @@
     },
     "200": {
       "Id": 200,
-      "Name": "胡济",
+      "ambition": 1,      "Name": "胡济",
       "BelongCity": 29,
       "familyName": "胡",
       "giveName": "济",
@@ -7667,7 +7667,7 @@
     },
     "201": {
       "Id": 201,
-      "Name": "吾粲",
+      "ambition": 1,      "Name": "吾粲",
       "BelongCity": 27,
       "familyName": "吾",
       "giveName": "粲",
@@ -7704,7 +7704,7 @@
     },
     "202": {
       "Id": 202,
-      "Name": "胡质",
+      "ambition": 1,      "Name": "胡质",
       "BelongCity": 11,
       "familyName": "胡",
       "giveName": "质",
@@ -7738,7 +7738,7 @@
     },
     "203": {
       "Id": 203,
-      "Name": "吴质",
+      "ambition": 2,      "Name": "吴质",
       "BelongCity": 8,
       "familyName": "吴",
       "giveName": "质",
@@ -7777,7 +7777,7 @@
     },
     "204": {
       "Id": 204,
-      "Name": "胡车儿",
+      "ambition": 0,      "Name": "胡车儿",
       "BelongForce": 25,
       "BelongCorps": 25,
       "BelongCity": 17,
@@ -7815,7 +7815,7 @@
     },
     "205": {
       "Id": 205,
-      "Name": "胡遵",
+      "ambition": 1,      "Name": "胡遵",
       "BelongCity": 20,
       "familyName": "胡",
       "giveName": "遵",
@@ -7848,7 +7848,7 @@
     },
     "206": {
       "Id": 206,
-      "Name": "胡轸",
+      "ambition": 2,      "Name": "胡轸",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -7884,7 +7884,7 @@
     },
     "207": {
       "Id": 207,
-      "Name": "顾谭",
+      "ambition": 1,      "Name": "顾谭",
       "BelongCity": 25,
       "familyName": "顾",
       "giveName": "谭",
@@ -7925,7 +7925,7 @@
     },
     "208": {
       "Id": 208,
-      "Name": "兀突骨",
+      "ambition": 2,      "Name": "兀突骨",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -7963,7 +7963,7 @@
     },
     "209": {
       "Id": 209,
-      "Name": "胡班",
+      "ambition": 1,      "Name": "胡班",
       "BelongCity": 12,
       "familyName": "胡",
       "giveName": "班",
@@ -7996,7 +7996,7 @@
     },
     "210": {
       "Id": 210,
-      "Name": "吴班",
+      "ambition": 2,      "Name": "吴班",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -8032,7 +8032,7 @@
     },
     "211": {
       "Id": 211,
-      "Name": "胡奋",
+      "ambition": 2,      "Name": "胡奋",
       "BelongCity": 20,
       "familyName": "胡",
       "giveName": "奋",
@@ -8070,7 +8070,7 @@
     },
     "212": {
       "Id": 212,
-      "Name": "顾雍",
+      "ambition": 0,      "Name": "顾雍",
       "BelongCity": 24,
       "familyName": "顾",
       "giveName": "雍",
@@ -8107,7 +8107,7 @@
     },
     "213": {
       "Id": 213,
-      "Name": "吴兰",
+      "ambition": 2,      "Name": "吴兰",
       "BelongCity": 40,
       "familyName": "吴",
       "giveName": "兰",
@@ -8143,7 +8143,7 @@
     },
     "214": {
       "Id": 214,
-      "Name": "胡烈",
+      "ambition": 1,      "Name": "胡烈",
       "BelongForce": 35,
       "BelongCorps": 35,
       "BelongCity": 38,
@@ -8180,7 +8180,7 @@
     },
     "215": {
       "Id": 215,
-      "Name": "崔琰",
+      "ambition": 1,      "Name": "崔琰",
       "BelongCity": 5,
       "familyName": "崔",
       "giveName": "琰",
@@ -8220,7 +8220,7 @@
     },
     "216": {
       "Id": 216,
-      "Name": "蔡琰",
+      "ambition": 0,      "Name": "蔡琰",
       "BelongCity": 16,
       "familyName": "蔡",
       "giveName": "琰",
@@ -8257,7 +8257,7 @@
     },
     "217": {
       "Id": 217,
-      "Name": "蔡和",
+      "ambition": 1,      "Name": "蔡和",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -8292,7 +8292,7 @@
     },
     "218": {
       "Id": 218,
-      "Name": "蔡氏",
+      "ambition": 3,      "Name": "蔡氏",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -8337,7 +8337,7 @@
     },
     "219": {
       "Id": 219,
-      "Name": "蔡中",
+      "ambition": 1,      "Name": "蔡中",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -8372,7 +8372,7 @@
     },
     "220": {
       "Id": 220,
-      "Name": "蔡瑁",
+      "ambition": 3,      "Name": "蔡瑁",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -8418,7 +8418,7 @@
     },
     "221": {
       "Id": 221,
-      "Name": "崔林",
+      "ambition": 1,      "Name": "崔林",
       "BelongCity": 7,
       "familyName": "崔",
       "giveName": "林",
@@ -8455,7 +8455,7 @@
     },
     "222": {
       "Id": 222,
-      "Name": "左奕",
+      "ambition": 2,      "Name": "左奕",
       "BelongCity": 33,
       "familyName": "左",
       "giveName": "奕",
@@ -8488,7 +8488,7 @@
     },
     "223": {
       "Id": 223,
-      "Name": "笮融",
+      "ambition": 4,      "Name": "笮融",
       "BelongForce": 24,
       "BelongCorps": 24,
       "BelongCity": 23,
@@ -8526,7 +8526,7 @@
     },
     "224": {
       "Id": 224,
-      "Name": "施朔",
+      "ambition": 1,      "Name": "施朔",
       "BelongCity": 23,
       "familyName": "施",
       "giveName": "朔",
@@ -8559,7 +8559,7 @@
     },
     "225": {
       "Id": 225,
-      "Name": "师纂",
+      "ambition": 2,      "Name": "师纂",
       "BelongForce": 36,
       "BelongCorps": 36,
       "BelongCity": 39,
@@ -8594,7 +8594,7 @@
     },
     "226": {
       "Id": 226,
-      "Name": "司马懿",
+      "ambition": 4,      "Name": "司马懿",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8643,7 +8643,7 @@
     },
     "227": {
       "Id": 227,
-      "Name": "司马炎",
+      "ambition": 4,      "Name": "司马炎",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8687,7 +8687,7 @@
     },
     "228": {
       "Id": 228,
-      "Name": "司马师",
+      "ambition": 4,      "Name": "司马师",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8733,7 +8733,7 @@
     },
     "229": {
       "Id": 229,
-      "Name": "司马昭",
+      "ambition": 4,      "Name": "司马昭",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8778,7 +8778,7 @@
     },
     "230": {
       "Id": 230,
-      "Name": "司马胄",
+      "ambition": 0,      "Name": "司马胄",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8815,7 +8815,7 @@
     },
     "231": {
       "Id": 231,
-      "Name": "司马孚",
+      "ambition": 0,      "Name": "司马孚",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8854,7 +8854,7 @@
     },
     "232": {
       "Id": 232,
-      "Name": "司马望",
+      "ambition": 1,      "Name": "司马望",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8891,7 +8891,7 @@
     },
     "233": {
       "Id": 233,
-      "Name": "司马攸",
+      "ambition": 0,      "Name": "司马攸",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8931,7 +8931,7 @@
     },
     "234": {
       "Id": 234,
-      "Name": "司马朗",
+      "ambition": 0,      "Name": "司马朗",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -8971,7 +8971,7 @@
     },
     "235": {
       "Id": 235,
-      "Name": "谢旌",
+      "ambition": 1,      "Name": "谢旌",
       "BelongCity": 23,
       "familyName": "谢",
       "giveName": "旌",
@@ -9004,7 +9004,7 @@
     },
     "236": {
       "Id": 236,
-      "Name": "车冑",
+      "ambition": 2,      "Name": "车冑",
       "BelongCity": 9,
       "familyName": "车",
       "giveName": "冑",
@@ -9037,7 +9037,7 @@
     },
     "237": {
       "Id": 237,
-      "Name": "沙摩柯",
+      "ambition": 0,      "Name": "沙摩柯",
       "BelongCity": 33,
       "familyName": "沙",
       "giveName": "摩柯",
@@ -9073,7 +9073,7 @@
     },
     "238": {
       "Id": 238,
-      "Name": "朱异",
+      "ambition": 1,      "Name": "朱异",
       "BelongCity": 24,
       "familyName": "朱",
       "giveName": "異",
@@ -9111,7 +9111,7 @@
     },
     "239": {
       "Id": 239,
-      "Name": "周昕",
+      "ambition": 0,      "Name": "周昕",
       "BelongForce": 24,
       "BelongCorps": 24,
       "BelongCity": 23,
@@ -9150,7 +9150,7 @@
     },
     "240": {
       "Id": 240,
-      "Name": "周昂",
+      "ambition": 2,      "Name": "周昂",
       "BelongCity": 25,
       "familyName": "周",
       "giveName": "昂",
@@ -9183,7 +9183,7 @@
     },
     "241": {
       "Id": 241,
-      "Name": "周旨",
+      "ambition": 1,      "Name": "周旨",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -9221,7 +9221,7 @@
     },
     "242": {
       "Id": 242,
-      "Name": "周仓",
+      "ambition": 0,      "Name": "周仓",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -9264,7 +9264,7 @@
     },
     "243": {
       "Id": 243,
-      "Name": "周泰",
+      "ambition": 1,      "Name": "周泰",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -9307,7 +9307,7 @@
     },
     "244": {
       "Id": 244,
-      "Name": "州泰",
+      "ambition": 2,      "Name": "州泰",
       "BelongCity": 17,
       "familyName": "州",
       "giveName": "泰",
@@ -9340,7 +9340,7 @@
     },
     "245": {
       "Id": 245,
-      "Name": "周鲂",
+      "ambition": 2,      "Name": "周鲂",
       "BelongCity": 26,
       "familyName": "周",
       "giveName": "鲂",
@@ -9377,7 +9377,7 @@
     },
     "246": {
       "Id": 246,
-      "Name": "周瑜",
+      "ambition": 2,      "Name": "周瑜",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -9431,7 +9431,7 @@
     },
     "247": {
       "Id": 247,
-      "Name": "朱桓",
+      "ambition": 2,      "Name": "朱桓",
       "BelongCity": 24,
       "familyName": "朱",
       "giveName": "桓",
@@ -9468,7 +9468,7 @@
     },
     "248": {
       "Id": 248,
-      "Name": "朱据",
+      "ambition": 1,      "Name": "朱据",
       "BelongCity": 24,
       "familyName": "朱",
       "giveName": "据",
@@ -9505,7 +9505,7 @@
     },
     "249": {
       "Id": 249,
-      "Name": "祝融",
+      "ambition": 2,      "Name": "祝融",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -9549,7 +9549,7 @@
     },
     "250": {
       "Id": 250,
-      "Name": "朱儁",
+      "ambition": 1,      "Name": "朱儁",
       "BelongForce": 29,
       "BelongCorps": 29,
       "BelongCity": 18,
@@ -9588,7 +9588,7 @@
     },
     "251": {
       "Id": 251,
-      "Name": "朱然",
+      "ambition": 2,      "Name": "朱然",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -9631,7 +9631,7 @@
     },
     "252": {
       "Id": 252,
-      "Name": "朱治",
+      "ambition": 1,      "Name": "朱治",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -9670,7 +9670,7 @@
     },
     "253": {
       "Id": 253,
-      "Name": "朱褒",
+      "ambition": 4,      "Name": "朱褒",
       "BelongForce": 27,
       "BelongCorps": 27,
       "BelongCity": 41,
@@ -9705,7 +9705,7 @@
     },
     "254": {
       "Id": 254,
-      "Name": "朱灵",
+      "ambition": 1,      "Name": "朱灵",
       "BelongCity": 5,
       "familyName": "朱",
       "giveName": "灵",
@@ -9739,7 +9739,7 @@
     },
     "255": {
       "Id": 255,
-      "Name": "荀彧",
+      "ambition": 0,      "Name": "荀彧",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -9785,7 +9785,7 @@
     },
     "256": {
       "Id": 256,
-      "Name": "淳于琼",
+      "ambition": 3,      "Name": "淳于琼",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -9821,7 +9821,7 @@
     },
     "257": {
       "Id": 257,
-      "Name": "荀顗",
+      "ambition": 2,      "Name": "荀顗",
       "BelongCity": 14,
       "familyName": "荀",
       "giveName": "顗",
@@ -9861,7 +9861,7 @@
     },
     "258": {
       "Id": 258,
-      "Name": "荀勖",
+      "ambition": 3,      "Name": "荀勖",
       "BelongCity": 14,
       "familyName": "荀",
       "giveName": "勖",
@@ -9895,7 +9895,7 @@
     },
     "259": {
       "Id": 259,
-      "Name": "荀谌",
+      "ambition": 0,      "Name": "荀谌",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -9931,7 +9931,7 @@
     },
     "260": {
       "Id": 260,
-      "Name": "荀攸",
+      "ambition": 2,      "Name": "荀攸",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -9974,7 +9974,7 @@
     },
     "261": {
       "Id": 261,
-      "Name": "焦彝",
+      "ambition": 2,      "Name": "焦彝",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -10009,7 +10009,7 @@
     },
     "262": {
       "Id": 262,
-      "Name": "锺毓",
+      "ambition": 0,      "Name": "锺毓",
       "BelongCity": 14,
       "familyName": "锺",
       "giveName": "毓",
@@ -10049,7 +10049,7 @@
     },
     "263": {
       "Id": 263,
-      "Name": "蒋琬",
+      "ambition": 2,      "Name": "蒋琬",
       "BelongCity": 35,
       "familyName": "蒋",
       "giveName": "琬",
@@ -10086,7 +10086,7 @@
     },
     "264": {
       "Id": 264,
-      "Name": "锺会",
+      "ambition": 4,      "Name": "锺会",
       "BelongForce": 35,
       "BelongCorps": 35,
       "BelongCity": 38,
@@ -10132,7 +10132,7 @@
     },
     "265": {
       "Id": 265,
-      "Name": "蒋干",
+      "ambition": 2,      "Name": "蒋干",
       "BelongCity": 27,
       "familyName": "蒋",
       "giveName": "幹",
@@ -10166,7 +10166,7 @@
     },
     "266": {
       "Id": 266,
-      "Name": "蒋义渠",
+      "ambition": 1,      "Name": "蒋义渠",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -10201,7 +10201,7 @@
     },
     "267": {
       "Id": 267,
-      "Name": "小乔",
+      "ambition": 0,      "Name": "小乔",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -10248,7 +10248,7 @@
     },
     "268": {
       "Id": 268,
-      "Name": "蒋钦",
+      "ambition": 1,      "Name": "蒋钦",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -10290,7 +10290,7 @@
     },
     "269": {
       "Id": 269,
-      "Name": "蒋济",
+      "ambition": 2,      "Name": "蒋济",
       "BelongCity": 11,
       "familyName": "蒋",
       "giveName": "济",
@@ -10327,7 +10327,7 @@
     },
     "270": {
       "Id": 270,
-      "Name": "谯周",
+      "ambition": 2,      "Name": "谯周",
       "BelongCity": 40,
       "familyName": "谯",
       "giveName": "周",
@@ -10365,7 +10365,7 @@
     },
     "271": {
       "Id": 271,
-      "Name": "蒋舒",
+      "ambition": 2,      "Name": "蒋舒",
       "BelongCity": 37,
       "familyName": "蒋",
       "giveName": "舒",
@@ -10398,7 +10398,7 @@
     },
     "272": {
       "Id": 272,
-      "Name": "焦触",
+      "ambition": 2,      "Name": "焦触",
       "BelongCity": 4,
       "familyName": "焦",
       "giveName": "触",
@@ -10431,7 +10431,7 @@
     },
     "273": {
       "Id": 273,
-      "Name": "向宠",
+      "ambition": 1,      "Name": "向宠",
       "BelongCity": 30,
       "familyName": "向",
       "giveName": "宠",
@@ -10467,7 +10467,7 @@
     },
     "274": {
       "Id": 274,
-      "Name": "邵悌",
+      "ambition": 1,      "Name": "邵悌",
       "BelongCity": 5,
       "familyName": "邵",
       "giveName": "悌",
@@ -10501,7 +10501,7 @@
     },
     "275": {
       "Id": 275,
-      "Name": "蒋班",
+      "ambition": 1,      "Name": "蒋班",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -10536,7 +10536,7 @@
     },
     "276": {
       "Id": 276,
-      "Name": "蒋斌",
+      "ambition": 0,      "Name": "蒋斌",
       "BelongForce": 35,
       "BelongCorps": 35,
       "BelongCity": 38,
@@ -10575,7 +10575,7 @@
     },
     "277": {
       "Id": 277,
-      "Name": "锺繇",
+      "ambition": 2,      "Name": "锺繇",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -10620,7 +10620,7 @@
     },
     "278": {
       "Id": 278,
-      "Name": "锺离牧",
+      "ambition": 2,      "Name": "锺离牧",
       "BelongCity": 26,
       "familyName": "锺離",
       "giveName": "牧",
@@ -10657,7 +10657,7 @@
     },
     "279": {
       "Id": 279,
-      "Name": "向朗",
+      "ambition": 1,      "Name": "向朗",
       "BelongCity": 30,
       "familyName": "向",
       "giveName": "朗",
@@ -10694,7 +10694,7 @@
     },
     "280": {
       "Id": 280,
-      "Name": "徐荣",
+      "ambition": 2,      "Name": "徐荣",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -10732,7 +10732,7 @@
     },
     "281": {
       "Id": 281,
-      "Name": "诸葛恪",
+      "ambition": 4,      "Name": "诸葛恪",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -10782,7 +10782,7 @@
     },
     "282": {
       "Id": 282,
-      "Name": "诸葛乔",
+      "ambition": 1,      "Name": "诸葛乔",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -10819,7 +10819,7 @@
     },
     "283": {
       "Id": 283,
-      "Name": "诸葛瑾",
+      "ambition": 1,      "Name": "诸葛瑾",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -10864,7 +10864,7 @@
     },
     "284": {
       "Id": 284,
-      "Name": "诸葛均",
+      "ambition": 0,      "Name": "诸葛均",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -10899,7 +10899,7 @@
     },
     "285": {
       "Id": 285,
-      "Name": "诸葛绪",
+      "ambition": 1,      "Name": "诸葛绪",
       "BelongForce": 35,
       "BelongCorps": 35,
       "BelongCity": 38,
@@ -10934,7 +10934,7 @@
     },
     "286": {
       "Id": 286,
-      "Name": "诸葛尚",
+      "ambition": 2,      "Name": "诸葛尚",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -10976,7 +10976,7 @@
     },
     "287": {
       "Id": 287,
-      "Name": "诸葛靓",
+      "ambition": 2,      "Name": "诸葛靓",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -11013,7 +11013,7 @@
     },
     "288": {
       "Id": 288,
-      "Name": "诸葛瞻",
+      "ambition": 1,      "Name": "诸葛瞻",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -11054,7 +11054,7 @@
     },
     "289": {
       "Id": 289,
-      "Name": "诸葛诞",
+      "ambition": 4,      "Name": "诸葛诞",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -11102,7 +11102,7 @@
     },
     "290": {
       "Id": 290,
-      "Name": "诸葛亮",
+      "ambition": 1,      "Name": "诸葛亮",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -11157,7 +11157,7 @@
     },
     "291": {
       "Id": 291,
-      "Name": "徐晃",
+      "ambition": 2,      "Name": "徐晃",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -11203,7 +11203,7 @@
     },
     "292": {
       "Id": 292,
-      "Name": "徐氏",
+      "ambition": 0,      "Name": "徐氏",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -11247,7 +11247,7 @@
     },
     "293": {
       "Id": 293,
-      "Name": "徐质",
+      "ambition": 0,      "Name": "徐质",
       "BelongCity": 20,
       "familyName": "徐",
       "giveName": "质",
@@ -11283,7 +11283,7 @@
     },
     "294": {
       "Id": 294,
-      "Name": "徐庶",
+      "ambition": 1,      "Name": "徐庶",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -11326,7 +11326,7 @@
     },
     "295": {
       "Id": 295,
-      "Name": "徐盛",
+      "ambition": 2,      "Name": "徐盛",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -11368,7 +11368,7 @@
     },
     "296": {
       "Id": 296,
-      "Name": "徐邈",
+      "ambition": 1,      "Name": "徐邈",
       "BelongCity": 3,
       "familyName": "徐",
       "giveName": "邈",
@@ -11405,7 +11405,7 @@
     },
     "297": {
       "Id": 297,
-      "Name": "沈莹",
+      "ambition": 2,      "Name": "沈莹",
       "BelongCity": 23,
       "familyName": "沈",
       "giveName": "莹",
@@ -11441,7 +11441,7 @@
     },
     "298": {
       "Id": 298,
-      "Name": "申仪",
+      "ambition": 2,      "Name": "申仪",
       "BelongCity": 19,
       "familyName": "申",
       "giveName": "仪",
@@ -11477,7 +11477,7 @@
     },
     "299": {
       "Id": 299,
-      "Name": "辛宪英",
+      "ambition": 0,      "Name": "辛宪英",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -11516,7 +11516,7 @@
     },
     "300": {
       "Id": 300,
-      "Name": "岑昏",
+      "ambition": 3,      "Name": "岑昏",
       "BelongCity": 23,
       "familyName": "岑",
       "giveName": "昏",
@@ -11552,7 +11552,7 @@
     },
     "301": {
       "Id": 301,
-      "Name": "甄氏",
+      "ambition": 0,      "Name": "甄氏",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -11593,7 +11593,7 @@
     },
     "302": {
       "Id": 302,
-      "Name": "辛敞",
+      "ambition": 0,      "Name": "辛敞",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -11630,7 +11630,7 @@
     },
     "303": {
       "Id": 303,
-      "Name": "申耽",
+      "ambition": 2,      "Name": "申耽",
       "BelongCity": 19,
       "familyName": "申",
       "giveName": "耽",
@@ -11667,7 +11667,7 @@
     },
     "304": {
       "Id": 304,
-      "Name": "审配",
+      "ambition": 2,      "Name": "审配",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -11715,7 +11715,7 @@
     },
     "305": {
       "Id": 305,
-      "Name": "辛毘",
+      "ambition": 1,      "Name": "辛毘",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -11751,7 +11751,7 @@
     },
     "306": {
       "Id": 306,
-      "Name": "辛评",
+      "ambition": 1,      "Name": "辛评",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -11790,7 +11790,7 @@
     },
     "307": {
       "Id": 307,
-      "Name": "秦宓",
+      "ambition": 1,      "Name": "秦宓",
       "BelongCity": 40,
       "familyName": "秦",
       "giveName": "宓",
@@ -11827,7 +11827,7 @@
     },
     "308": {
       "Id": 308,
-      "Name": "秦朗",
+      "ambition": 2,      "Name": "秦朗",
       "BelongCity": 6,
       "familyName": "秦",
       "giveName": "朗",
@@ -11861,7 +11861,7 @@
     },
     "309": {
       "Id": 309,
-      "Name": "眭元进",
+      "ambition": 2,      "Name": "眭元进",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -11896,7 +11896,7 @@
     },
     "310": {
       "Id": 310,
-      "Name": "眭固",
+      "ambition": 3,      "Name": "眭固",
       "BelongCity": 6,
       "familyName": "眭",
       "giveName": "固",
@@ -11933,7 +11933,7 @@
     },
     "311": {
       "Id": 311,
-      "Name": "邹氏",
+      "ambition": 0,      "Name": "邹氏",
       "BelongForce": 25,
       "BelongCorps": 25,
       "BelongCity": 17,
@@ -11974,7 +11974,7 @@
     },
     "312": {
       "Id": 312,
-      "Name": "邹靖",
+      "ambition": 1,      "Name": "邹靖",
       "BelongCity": 3,
       "familyName": "邹",
       "giveName": "靖",
@@ -12007,7 +12007,7 @@
     },
     "313": {
       "Id": 313,
-      "Name": "邹丹",
+      "ambition": 1,      "Name": "邹丹",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -12042,7 +12042,7 @@
     },
     "314": {
       "Id": 314,
-      "Name": "成宜",
+      "ambition": 2,      "Name": "成宜",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -12080,7 +12080,7 @@
     },
     "315": {
       "Id": 315,
-      "Name": "成公英",
+      "ambition": 1,      "Name": "成公英",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -12118,7 +12118,7 @@
     },
     "316": {
       "Id": 316,
-      "Name": "盛曼",
+      "ambition": 1,      "Name": "盛曼",
       "BelongCity": 31,
       "familyName": "盛",
       "giveName": "曼",
@@ -12151,7 +12151,7 @@
     },
     "317": {
       "Id": 317,
-      "Name": "石苞",
+      "ambition": 2,      "Name": "石苞",
       "BelongCity": 4,
       "familyName": "石",
       "giveName": "苞",
@@ -12191,7 +12191,7 @@
     },
     "318": {
       "Id": 318,
-      "Name": "薛莹",
+      "ambition": 0,      "Name": "薛莹",
       "BelongCity": 10,
       "familyName": "薛",
       "giveName": "莹",
@@ -12226,7 +12226,7 @@
     },
     "319": {
       "Id": 319,
-      "Name": "薛珝",
+      "ambition": 0,      "Name": "薛珝",
       "BelongCity": 10,
       "familyName": "薛",
       "giveName": "珝",
@@ -12260,7 +12260,7 @@
     },
     "320": {
       "Id": 320,
-      "Name": "薛综",
+      "ambition": 2,      "Name": "薛综",
       "BelongCity": 10,
       "familyName": "薛",
       "giveName": "综",
@@ -12294,7 +12294,7 @@
     },
     "321": {
       "Id": 321,
-      "Name": "全祎",
+      "ambition": 0,      "Name": "全祎",
       "BelongCity": 24,
       "familyName": "全",
       "giveName": "禕",
@@ -12328,7 +12328,7 @@
     },
     "322": {
       "Id": 322,
-      "Name": "全怿",
+      "ambition": 1,      "Name": "全怿",
       "BelongCity": 24,
       "familyName": "全",
       "giveName": "怿",
@@ -12362,7 +12362,7 @@
     },
     "323": {
       "Id": 323,
-      "Name": "全纪",
+      "ambition": 1,      "Name": "全纪",
       "BelongCity": 24,
       "familyName": "全",
       "giveName": "纪",
@@ -12396,7 +12396,7 @@
     },
     "324": {
       "Id": 324,
-      "Name": "单经",
+      "ambition": 1,      "Name": "单经",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -12431,7 +12431,7 @@
     },
     "325": {
       "Id": 325,
-      "Name": "全尚",
+      "ambition": 0,      "Name": "全尚",
       "BelongCity": 24,
       "familyName": "全",
       "giveName": "尚",
@@ -12464,7 +12464,7 @@
     },
     "326": {
       "Id": 326,
-      "Name": "全琮",
+      "ambition": 2,      "Name": "全琮",
       "BelongCity": 24,
       "familyName": "全",
       "giveName": "琮",
@@ -12507,7 +12507,7 @@
     },
     "327": {
       "Id": 327,
-      "Name": "全端",
+      "ambition": 0,      "Name": "全端",
       "BelongCity": 24,
       "familyName": "全",
       "giveName": "端",
@@ -12541,7 +12541,7 @@
     },
     "328": {
       "Id": 328,
-      "Name": "曹宇",
+      "ambition": 0,      "Name": "曹宇",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12581,7 +12581,7 @@
     },
     "329": {
       "Id": 329,
-      "Name": "曹叡",
+      "ambition": 3,      "Name": "曹叡",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12632,7 +12632,7 @@
     },
     "330": {
       "Id": 330,
-      "Name": "曹奂",
+      "ambition": 0,      "Name": "曹奂",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12669,7 +12669,7 @@
     },
     "331": {
       "Id": 331,
-      "Name": "曹羲",
+      "ambition": 1,      "Name": "曹羲",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12705,7 +12705,7 @@
     },
     "332": {
       "Id": 332,
-      "Name": "曹休",
+      "ambition": 2,      "Name": "曹休",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12744,7 +12744,7 @@
     },
     "333": {
       "Id": 333,
-      "Name": "曹训",
+      "ambition": 2,      "Name": "曹训",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12780,7 +12780,7 @@
     },
     "334": {
       "Id": 334,
-      "Name": "宋宪",
+      "ambition": 1,      "Name": "宋宪",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -12819,7 +12819,7 @@
     },
     "335": {
       "Id": 335,
-      "Name": "宋谦",
+      "ambition": 1,      "Name": "宋谦",
       "BelongCity": 26,
       "familyName": "宋",
       "giveName": "谦",
@@ -12852,7 +12852,7 @@
     },
     "336": {
       "Id": 336,
-      "Name": "曹昂",
+      "ambition": 0,      "Name": "曹昂",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12895,7 +12895,7 @@
     },
     "337": {
       "Id": 337,
-      "Name": "曹洪",
+      "ambition": 2,      "Name": "曹洪",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12940,7 +12940,7 @@
     },
     "338": {
       "Id": 338,
-      "Name": "曹纯",
+      "ambition": 2,      "Name": "曹纯",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -12976,7 +12976,7 @@
     },
     "339": {
       "Id": 339,
-      "Name": "曹彰",
+      "ambition": 3,      "Name": "曹彰",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13020,7 +13020,7 @@
     },
     "340": {
       "Id": 340,
-      "Name": "曹植",
+      "ambition": 0,      "Name": "曹植",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13071,7 +13071,7 @@
     },
     "341": {
       "Id": 341,
-      "Name": "曹真",
+      "ambition": 2,      "Name": "曹真",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13113,7 +13113,7 @@
     },
     "342": {
       "Id": 342,
-      "Name": "曹仁",
+      "ambition": 2,      "Name": "曹仁",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13159,7 +13159,7 @@
     },
     "343": {
       "Id": 343,
-      "Name": "曹性",
+      "ambition": 2,      "Name": "曹性",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -13194,7 +13194,7 @@
     },
     "344": {
       "Id": 344,
-      "Name": "曹操",
+      "ambition": 4,      "Name": "曹操",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13251,7 +13251,7 @@
     },
     "345": {
       "Id": 345,
-      "Name": "曹爽",
+      "ambition": 4,      "Name": "曹爽",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13297,7 +13297,7 @@
     },
     "346": {
       "Id": 346,
-      "Name": "曹冲",
+      "ambition": 0,      "Name": "曹冲",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13337,7 +13337,7 @@
     },
     "347": {
       "Id": 347,
-      "Name": "臧霸",
+      "ambition": 1,      "Name": "臧霸",
       "BelongForce": 19,
       "BelongCorps": 19,
       "BelongCity": 10,
@@ -13379,7 +13379,7 @@
     },
     "348": {
       "Id": 348,
-      "Name": "曹丕",
+      "ambition": 4,      "Name": "曹丕",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13437,7 +13437,7 @@
     },
     "349": {
       "Id": 349,
-      "Name": "曹豹",
+      "ambition": 1,      "Name": "曹豹",
       "BelongForce": 19,
       "BelongCorps": 19,
       "BelongCity": 10,
@@ -13472,7 +13472,7 @@
     },
     "350": {
       "Id": 350,
-      "Name": "曹芳",
+      "ambition": 0,      "Name": "曹芳",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13509,7 +13509,7 @@
     },
     "351": {
       "Id": 351,
-      "Name": "曹髦",
+      "ambition": 2,      "Name": "曹髦",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13551,7 +13551,7 @@
     },
     "352": {
       "Id": 352,
-      "Name": "曹熊",
+      "ambition": 0,      "Name": "曹熊",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -13588,7 +13588,7 @@
     },
     "353": {
       "Id": 353,
-      "Name": "沮鹄",
+      "ambition": 1,      "Name": "沮鹄",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -13624,7 +13624,7 @@
     },
     "354": {
       "Id": 354,
-      "Name": "沮授",
+      "ambition": 2,      "Name": "沮授",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -13659,7 +13659,7 @@
     },
     "355": {
       "Id": 355,
-      "Name": "苏飞",
+      "ambition": 2,      "Name": "苏飞",
       "BelongCity": 28,
       "familyName": "苏",
       "giveName": "飞",
@@ -13692,7 +13692,7 @@
     },
     "356": {
       "Id": 356,
-      "Name": "祖茂",
+      "ambition": 1,      "Name": "祖茂",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -13731,7 +13731,7 @@
     },
     "357": {
       "Id": 357,
-      "Name": "苏由",
+      "ambition": 2,      "Name": "苏由",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -13766,7 +13766,7 @@
     },
     "358": {
       "Id": 358,
-      "Name": "孙异",
+      "ambition": 2,      "Name": "孙异",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -13802,7 +13802,7 @@
     },
     "359": {
       "Id": 359,
-      "Name": "孙和",
+      "ambition": 2,      "Name": "孙和",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -13846,7 +13846,7 @@
     },
     "360": {
       "Id": 360,
-      "Name": "孙桓",
+      "ambition": 2,      "Name": "孙桓",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -13885,7 +13885,7 @@
     },
     "361": {
       "Id": 361,
-      "Name": "孙观",
+      "ambition": 2,      "Name": "孙观",
       "BelongForce": 19,
       "BelongCorps": 19,
       "BelongCity": 10,
@@ -13927,7 +13927,7 @@
     },
     "362": {
       "Id": 362,
-      "Name": "孙冀",
+      "ambition": 1,      "Name": "孙冀",
       "BelongCity": 24,
       "familyName": "孙",
       "giveName": "冀",
@@ -13960,7 +13960,7 @@
     },
     "363": {
       "Id": 363,
-      "Name": "孙休",
+      "ambition": 1,      "Name": "孙休",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14004,7 +14004,7 @@
     },
     "364": {
       "Id": 364,
-      "Name": "孙匡",
+      "ambition": 1,      "Name": "孙匡",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14042,7 +14042,7 @@
     },
     "365": {
       "Id": 365,
-      "Name": "孙歆",
+      "ambition": 1,      "Name": "孙歆",
       "BelongCity": 24,
       "familyName": "孙",
       "giveName": "歆",
@@ -14075,7 +14075,7 @@
     },
     "366": {
       "Id": 366,
-      "Name": "孙坚",
+      "ambition": 3,      "Name": "孙坚",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14126,7 +14126,7 @@
     },
     "367": {
       "Id": 367,
-      "Name": "孙干",
+      "ambition": 0,      "Name": "孙干",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -14169,7 +14169,7 @@
     },
     "368": {
       "Id": 368,
-      "Name": "孙权",
+      "ambition": 4,      "Name": "孙权",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14218,7 +14218,7 @@
     },
     "369": {
       "Id": 369,
-      "Name": "孙皓",
+      "ambition": 3,      "Name": "孙皓",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14264,7 +14264,7 @@
     },
     "370": {
       "Id": 370,
-      "Name": "孙皎",
+      "ambition": 2,      "Name": "孙皎",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14307,7 +14307,7 @@
     },
     "371": {
       "Id": 371,
-      "Name": "孙策",
+      "ambition": 3,      "Name": "孙策",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14362,7 +14362,7 @@
     },
     "372": {
       "Id": 372,
-      "Name": "孙氏",
+      "ambition": 0,      "Name": "孙氏",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14404,7 +14404,7 @@
     },
     "373": {
       "Id": 373,
-      "Name": "孙秀",
+      "ambition": 2,      "Name": "孙秀",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14442,7 +14442,7 @@
     },
     "374": {
       "Id": 374,
-      "Name": "孙峻",
+      "ambition": 4,      "Name": "孙峻",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14485,7 +14485,7 @@
     },
     "375": {
       "Id": 375,
-      "Name": "孙韶",
+      "ambition": 2,      "Name": "孙韶",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14524,7 +14524,7 @@
     },
     "376": {
       "Id": 376,
-      "Name": "孙尚香",
+      "ambition": 2,      "Name": "孙尚香",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14572,7 +14572,7 @@
     },
     "377": {
       "Id": 377,
-      "Name": "孙震",
+      "ambition": 1,      "Name": "孙震",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14607,7 +14607,7 @@
     },
     "378": {
       "Id": 378,
-      "Name": "孙静",
+      "ambition": 0,      "Name": "孙静",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14643,7 +14643,7 @@
     },
     "379": {
       "Id": 379,
-      "Name": "孙仲",
+      "ambition": 2,      "Name": "孙仲",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -14678,7 +14678,7 @@
     },
     "380": {
       "Id": 380,
-      "Name": "孙綝",
+      "ambition": 4,      "Name": "孙綝",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14719,7 +14719,7 @@
     },
     "381": {
       "Id": 381,
-      "Name": "孙登",
+      "ambition": 0,      "Name": "孙登",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14766,7 +14766,7 @@
     },
     "382": {
       "Id": 382,
-      "Name": "孙瑜",
+      "ambition": 2,      "Name": "孙瑜",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14806,7 +14806,7 @@
     },
     "383": {
       "Id": 383,
-      "Name": "孙翊",
+      "ambition": 2,      "Name": "孙翊",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14854,7 +14854,7 @@
     },
     "384": {
       "Id": 384,
-      "Name": "孙亮",
+      "ambition": 1,      "Name": "孙亮",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14894,7 +14894,7 @@
     },
     "385": {
       "Id": 385,
-      "Name": "孙礼",
+      "ambition": 1,      "Name": "孙礼",
       "BelongCity": 3,
       "familyName": "孙",
       "giveName": "礼",
@@ -14931,7 +14931,7 @@
     },
     "386": {
       "Id": 386,
-      "Name": "孙朗",
+      "ambition": 2,      "Name": "孙朗",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -14969,7 +14969,7 @@
     },
     "387": {
       "Id": 387,
-      "Name": "孙鲁班",
+      "ambition": 3,      "Name": "孙鲁班",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -15016,7 +15016,7 @@
     },
     "388": {
       "Id": 388,
-      "Name": "大乔",
+      "ambition": 0,      "Name": "大乔",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -15063,7 +15063,7 @@
     },
     "389": {
       "Id": 389,
-      "Name": "太史享",
+      "ambition": 0,      "Name": "太史享",
       "BelongForce": 17,
       "BelongCorps": 17,
       "BelongCity": 8,
@@ -15100,7 +15100,7 @@
     },
     "390": {
       "Id": 390,
-      "Name": "太史慈",
+      "ambition": 2,      "Name": "太史慈",
       "BelongForce": 17,
       "BelongCorps": 17,
       "BelongCity": 8,
@@ -15143,7 +15143,7 @@
     },
     "391": {
       "Id": 391,
-      "Name": "带来洞主",
+      "ambition": 1,      "Name": "带来洞主",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -15181,7 +15181,7 @@
     },
     "392": {
       "Id": 392,
-      "Name": "戴陵",
+      "ambition": 1,      "Name": "戴陵",
       "BelongCity": 20,
       "familyName": "戴",
       "giveName": "陵",
@@ -15214,7 +15214,7 @@
     },
     "393": {
       "Id": 393,
-      "Name": "朵思大王",
+      "ambition": 3,      "Name": "朵思大王",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -15252,7 +15252,7 @@
     },
     "394": {
       "Id": 394,
-      "Name": "谭雄",
+      "ambition": 0,      "Name": "谭雄",
       "BelongCity": 33,
       "familyName": "谭",
       "giveName": "雄",
@@ -15285,7 +15285,7 @@
     },
     "395": {
       "Id": 395,
-      "Name": "张允",
+      "ambition": 2,      "Name": "张允",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -15324,7 +15324,7 @@
     },
     "396": {
       "Id": 396,
-      "Name": "赵云",
+      "ambition": 0,      "Name": "赵云",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -15370,7 +15370,7 @@
     },
     "397": {
       "Id": 397,
-      "Name": "张卫",
+      "ambition": 2,      "Name": "张卫",
       "BelongForce": 10,
       "BelongCorps": 10,
       "BelongCity": 37,
@@ -15405,7 +15405,7 @@
     },
     "398": {
       "Id": 398,
-      "Name": "张英",
+      "ambition": 2,      "Name": "张英",
       "BelongForce": 24,
       "BelongCorps": 24,
       "BelongCity": 23,
@@ -15440,7 +15440,7 @@
     },
     "399": {
       "Id": 399,
-      "Name": "张燕",
+      "ambition": 3,      "Name": "张燕",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -15478,7 +15478,7 @@
     },
     "400": {
       "Id": 400,
-      "Name": "张横",
+      "ambition": 1,      "Name": "张横",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -15513,7 +15513,7 @@
     },
     "401": {
       "Id": 401,
-      "Name": "张温",
+      "ambition": 2,      "Name": "张温",
       "BelongCity": 24,
       "familyName": "张",
       "giveName": "温",
@@ -15547,7 +15547,7 @@
     },
     "402": {
       "Id": 402,
-      "Name": "张华",
+      "ambition": 2,      "Name": "张华",
       "BelongCity": 3,
       "familyName": "张",
       "giveName": "华",
@@ -15584,7 +15584,7 @@
     },
     "403": {
       "Id": 403,
-      "Name": "张闿",
+      "ambition": 2,      "Name": "张闿",
       "BelongForce": 19,
       "BelongCorps": 19,
       "BelongCity": 10,
@@ -15622,7 +15622,7 @@
     },
     "404": {
       "Id": 404,
-      "Name": "张角",
+      "ambition": 4,      "Name": "张角",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -15661,7 +15661,7 @@
     },
     "405": {
       "Id": 405,
-      "Name": "张既",
+      "ambition": 1,      "Name": "张既",
       "BelongCity": 18,
       "familyName": "张",
       "giveName": "既",
@@ -15702,7 +15702,7 @@
     },
     "406": {
       "Id": 406,
-      "Name": "张休",
+      "ambition": 0,      "Name": "张休",
       "BelongCity": 9,
       "familyName": "张",
       "giveName": "休",
@@ -15743,7 +15743,7 @@
     },
     "407": {
       "Id": 407,
-      "Name": "张球",
+      "ambition": 1,      "Name": "张球",
       "BelongCity": 11,
       "familyName": "张",
       "giveName": "球",
@@ -15779,7 +15779,7 @@
     },
     "408": {
       "Id": 408,
-      "Name": "张嶷",
+      "ambition": 2,      "Name": "张嶷",
       "BelongCity": 40,
       "familyName": "张",
       "giveName": "嶷",
@@ -15816,7 +15816,7 @@
     },
     "409": {
       "Id": 409,
-      "Name": "张勋",
+      "ambition": 2,      "Name": "张勋",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -15851,7 +15851,7 @@
     },
     "410": {
       "Id": 410,
-      "Name": "张虎",
+      "ambition": 1,      "Name": "张虎",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -15890,7 +15890,7 @@
     },
     "411": {
       "Id": 411,
-      "Name": "张纮",
+      "ambition": 1,      "Name": "张纮",
       "BelongCity": 9,
       "familyName": "张",
       "giveName": "紘",
@@ -15931,7 +15931,7 @@
     },
     "412": {
       "Id": 412,
-      "Name": "张合",
+      "ambition": 2,      "Name": "张合",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -15978,7 +15978,7 @@
     },
     "413": {
       "Id": 413,
-      "Name": "赵广",
+      "ambition": 1,      "Name": "赵广",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -16014,7 +16014,7 @@
     },
     "414": {
       "Id": 414,
-      "Name": "赵弘",
+      "ambition": 3,      "Name": "赵弘",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -16049,7 +16049,7 @@
     },
     "415": {
       "Id": 415,
-      "Name": "张济",
+      "ambition": 2,      "Name": "张济",
       "BelongForce": 25,
       "BelongCorps": 25,
       "BelongCity": 17,
@@ -16087,7 +16087,7 @@
     },
     "416": {
       "Id": 416,
-      "Name": "张绣",
+      "ambition": 3,      "Name": "张绣",
       "BelongForce": 25,
       "BelongCorps": 25,
       "BelongCity": 17,
@@ -16128,7 +16128,7 @@
     },
     "417": {
       "Id": 417,
-      "Name": "张缉",
+      "ambition": 2,      "Name": "张缉",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -16171,7 +16171,7 @@
     },
     "418": {
       "Id": 418,
-      "Name": "张遵",
+      "ambition": 1,      "Name": "张遵",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -16207,7 +16207,7 @@
     },
     "419": {
       "Id": 419,
-      "Name": "张春华",
+      "ambition": 0,      "Name": "张春华",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -16248,7 +16248,7 @@
     },
     "420": {
       "Id": 420,
-      "Name": "张昭",
+      "ambition": 2,      "Name": "张昭",
       "BelongCity": 9,
       "familyName": "张",
       "giveName": "昭",
@@ -16288,7 +16288,7 @@
     },
     "421": {
       "Id": 421,
-      "Name": "张松",
+      "ambition": 2,      "Name": "张松",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -16333,7 +16333,7 @@
     },
     "422": {
       "Id": 422,
-      "Name": "张绍",
+      "ambition": 0,      "Name": "张绍",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -16369,7 +16369,7 @@
     },
     "423": {
       "Id": 423,
-      "Name": "张承",
+      "ambition": 1,      "Name": "张承",
       "BelongCity": 9,
       "familyName": "张",
       "giveName": "承",
@@ -16413,7 +16413,7 @@
     },
     "424": {
       "Id": 424,
-      "Name": "张任",
+      "ambition": 1,      "Name": "张任",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -16454,7 +16454,7 @@
     },
     "425": {
       "Id": 425,
-      "Name": "貂蝉",
+      "ambition": 0,      "Name": "貂蝉",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -16496,7 +16496,7 @@
     },
     "426": {
       "Id": 426,
-      "Name": "张悌",
+      "ambition": 2,      "Name": "张悌",
       "BelongCity": 30,
       "familyName": "张",
       "giveName": "悌",
@@ -16533,7 +16533,7 @@
     },
     "427": {
       "Id": 427,
-      "Name": "赵统",
+      "ambition": 1,      "Name": "赵统",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -16569,7 +16569,7 @@
     },
     "428": {
       "Id": 428,
-      "Name": "张特",
+      "ambition": 1,      "Name": "张特",
       "BelongCity": 3,
       "familyName": "张",
       "giveName": "特",
@@ -16606,7 +16606,7 @@
     },
     "429": {
       "Id": 429,
-      "Name": "张南",
+      "ambition": 2,      "Name": "张南",
       "BelongCity": 4,
       "familyName": "张",
       "giveName": "南",
@@ -16639,7 +16639,7 @@
     },
     "430": {
       "Id": 430,
-      "Name": "张南",
+      "ambition": 2,      "Name": "张南",
       "BelongCity": 33,
       "familyName": "张",
       "giveName": "南",
@@ -16673,7 +16673,7 @@
     },
     "431": {
       "Id": 431,
-      "Name": "张邈",
+      "ambition": 3,      "Name": "张邈",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -16716,7 +16716,7 @@
     },
     "432": {
       "Id": 432,
-      "Name": "赵范",
+      "ambition": 1,      "Name": "赵范",
       "BelongForce": 33,
       "BelongCorps": 33,
       "BelongCity": 34,
@@ -16751,7 +16751,7 @@
     },
     "433": {
       "Id": 433,
-      "Name": "张飞",
+      "ambition": 0,      "Name": "张飞",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -16803,7 +16803,7 @@
     },
     "434": {
       "Id": 434,
-      "Name": "张布",
+      "ambition": 3,      "Name": "张布",
       "BelongCity": 24,
       "familyName": "张",
       "giveName": "布",
@@ -16840,7 +16840,7 @@
     },
     "435": {
       "Id": 435,
-      "Name": "张苞",
+      "ambition": 1,      "Name": "张苞",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -16883,7 +16883,7 @@
     },
     "436": {
       "Id": 436,
-      "Name": "张宝",
+      "ambition": 4,      "Name": "张宝",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -16921,7 +16921,7 @@
     },
     "437": {
       "Id": 437,
-      "Name": "张曼成",
+      "ambition": 3,      "Name": "张曼成",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -16959,7 +16959,7 @@
     },
     "438": {
       "Id": 438,
-      "Name": "张杨",
+      "ambition": 0,      "Name": "张杨",
       "BelongForce": 30,
       "BelongCorps": 30,
       "BelongCity": 6,
@@ -16995,7 +16995,7 @@
     },
     "439": {
       "Id": 439,
-      "Name": "张翼",
+      "ambition": 1,      "Name": "张翼",
       "BelongCity": 40,
       "familyName": "张",
       "giveName": "翼",
@@ -17032,7 +17032,7 @@
     },
     "440": {
       "Id": 440,
-      "Name": "张辽",
+      "ambition": 2,      "Name": "张辽",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -17079,7 +17079,7 @@
     },
     "441": {
       "Id": 441,
-      "Name": "张梁",
+      "ambition": 4,      "Name": "张梁",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -17117,7 +17117,7 @@
     },
     "442": {
       "Id": 442,
-      "Name": "赵累",
+      "ambition": 0,      "Name": "赵累",
       "BelongCity": 31,
       "familyName": "赵",
       "giveName": "累",
@@ -17158,7 +17158,7 @@
     },
     "443": {
       "Id": 443,
-      "Name": "张鲁",
+      "ambition": 3,      "Name": "张鲁",
       "BelongForce": 10,
       "BelongCorps": 10,
       "BelongCity": 37,
@@ -17200,7 +17200,7 @@
     },
     "444": {
       "Id": 444,
-      "Name": "陈横",
+      "ambition": 2,      "Name": "陈横",
       "BelongForce": 24,
       "BelongCorps": 24,
       "BelongCity": 23,
@@ -17235,7 +17235,7 @@
     },
     "445": {
       "Id": 445,
-      "Name": "陈应",
+      "ambition": 1,      "Name": "陈应",
       "BelongForce": 33,
       "BelongCorps": 33,
       "BelongCity": 34,
@@ -17273,7 +17273,7 @@
     },
     "446": {
       "Id": 446,
-      "Name": "陈纪",
+      "ambition": 1,      "Name": "陈纪",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -17308,7 +17308,7 @@
     },
     "447": {
       "Id": 447,
-      "Name": "陈宫",
+      "ambition": 3,      "Name": "陈宫",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -17354,7 +17354,7 @@
     },
     "448": {
       "Id": 448,
-      "Name": "陈矫",
+      "ambition": 3,      "Name": "陈矫",
       "BelongCity": 9,
       "familyName": "陈",
       "giveName": "矫",
@@ -17395,7 +17395,7 @@
     },
     "449": {
       "Id": 449,
-      "Name": "陈群",
+      "ambition": 2,      "Name": "陈群",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -17436,7 +17436,7 @@
     },
     "450": {
       "Id": 450,
-      "Name": "陈珪",
+      "ambition": 1,      "Name": "陈珪",
       "BelongForce": 19,
       "BelongCorps": 19,
       "BelongCity": 10,
@@ -17481,7 +17481,7 @@
     },
     "451": {
       "Id": 451,
-      "Name": "陈骞",
+      "ambition": 1,      "Name": "陈骞",
       "BelongCity": 9,
       "familyName": "陈",
       "giveName": "骞",
@@ -17516,7 +17516,7 @@
     },
     "452": {
       "Id": 452,
-      "Name": "陈寿",
+      "ambition": 2,      "Name": "陈寿",
       "BelongCity": 40,
       "familyName": "陈",
       "giveName": "寿",
@@ -17553,7 +17553,7 @@
     },
     "453": {
       "Id": 453,
-      "Name": "陈式",
+      "ambition": 2,      "Name": "陈式",
       "BelongCity": 40,
       "familyName": "陈",
       "giveName": "式",
@@ -17595,7 +17595,7 @@
     },
     "454": {
       "Id": 454,
-      "Name": "陈震",
+      "ambition": 1,      "Name": "陈震",
       "BelongCity": 17,
       "familyName": "陈",
       "giveName": "震",
@@ -17629,7 +17629,7 @@
     },
     "455": {
       "Id": 455,
-      "Name": "陈泰",
+      "ambition": 1,      "Name": "陈泰",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -17676,7 +17676,7 @@
     },
     "456": {
       "Id": 456,
-      "Name": "陈登",
+      "ambition": 2,      "Name": "陈登",
       "BelongForce": 19,
       "BelongCorps": 19,
       "BelongCity": 10,
@@ -17723,7 +17723,7 @@
     },
     "457": {
       "Id": 457,
-      "Name": "陈到",
+      "ambition": 1,      "Name": "陈到",
       "BelongCity": 15,
       "familyName": "陈",
       "giveName": "到",
@@ -17757,7 +17757,7 @@
     },
     "458": {
       "Id": 458,
-      "Name": "陈表",
+      "ambition": 1,      "Name": "陈表",
       "BelongCity": 26,
       "familyName": "陈",
       "giveName": "表",
@@ -17801,7 +17801,7 @@
     },
     "459": {
       "Id": 459,
-      "Name": "陈武",
+      "ambition": 1,      "Name": "陈武",
       "BelongCity": 26,
       "familyName": "陈",
       "giveName": "武",
@@ -17838,7 +17838,7 @@
     },
     "460": {
       "Id": 460,
-      "Name": "陈兰",
+      "ambition": 2,      "Name": "陈兰",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -17876,7 +17876,7 @@
     },
     "461": {
       "Id": 461,
-      "Name": "陈琳",
+      "ambition": 1,      "Name": "陈琳",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -17919,7 +17919,7 @@
     },
     "462": {
       "Id": 462,
-      "Name": "程昱",
+      "ambition": 2,      "Name": "程昱",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -17963,7 +17963,7 @@
     },
     "463": {
       "Id": 463,
-      "Name": "程远志",
+      "ambition": 3,      "Name": "程远志",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -17998,7 +17998,7 @@
     },
     "464": {
       "Id": 464,
-      "Name": "丁仪",
+      "ambition": 3,      "Name": "丁仪",
       "BelongCity": 10,
       "familyName": "丁",
       "giveName": "仪",
@@ -18035,7 +18035,7 @@
     },
     "465": {
       "Id": 465,
-      "Name": "程银",
+      "ambition": 2,      "Name": "程银",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -18070,7 +18070,7 @@
     },
     "466": {
       "Id": 466,
-      "Name": "丁原",
+      "ambition": 3,      "Name": "丁原",
       "BelongForce": 30,
       "BelongCorps": 30,
       "BelongCity": 6,
@@ -18109,7 +18109,7 @@
     },
     "467": {
       "Id": 467,
-      "Name": "程普",
+      "ambition": 2,      "Name": "程普",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -18154,7 +18154,7 @@
     },
     "468": {
       "Id": 468,
-      "Name": "程武",
+      "ambition": 2,      "Name": "程武",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -18190,7 +18190,7 @@
     },
     "469": {
       "Id": 469,
-      "Name": "程秉",
+      "ambition": 1,      "Name": "程秉",
       "BelongCity": 15,
       "familyName": "程",
       "giveName": "秉",
@@ -18224,7 +18224,7 @@
     },
     "470": {
       "Id": 470,
-      "Name": "丁奉",
+      "ambition": 2,      "Name": "丁奉",
       "BelongCity": 26,
       "familyName": "丁",
       "giveName": "奉",
@@ -18264,7 +18264,7 @@
     },
     "471": {
       "Id": 471,
-      "Name": "丁封",
+      "ambition": 1,      "Name": "丁封",
       "BelongCity": 26,
       "familyName": "丁",
       "giveName": "封",
@@ -18297,7 +18297,7 @@
     },
     "472": {
       "Id": 472,
-      "Name": "典韦",
+      "ambition": 1,      "Name": "典韦",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -18342,7 +18342,7 @@
     },
     "473": {
       "Id": 473,
-      "Name": "田楷",
+      "ambition": 2,      "Name": "田楷",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -18377,7 +18377,7 @@
     },
     "474": {
       "Id": 474,
-      "Name": "田续",
+      "ambition": 1,      "Name": "田续",
       "BelongForce": 35,
       "BelongCorps": 35,
       "BelongCity": 38,
@@ -18415,7 +18415,7 @@
     },
     "475": {
       "Id": 475,
-      "Name": "田畴",
+      "ambition": 2,      "Name": "田畴",
       "BelongForce": 14,
       "BelongCorps": 14,
       "BelongCity": 3,
@@ -18458,7 +18458,7 @@
     },
     "476": {
       "Id": 476,
-      "Name": "田丰",
+      "ambition": 2,      "Name": "田丰",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -18498,7 +18498,7 @@
     },
     "477": {
       "Id": 477,
-      "Name": "典满",
+      "ambition": 1,      "Name": "典满",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -18534,7 +18534,7 @@
     },
     "478": {
       "Id": 478,
-      "Name": "田予",
+      "ambition": 1,      "Name": "田予",
       "BelongForce": 12,
       "BelongCorps": 12,
       "BelongCity": 2,
@@ -18576,7 +18576,7 @@
     },
     "479": {
       "Id": 479,
-      "Name": "滕胤",
+      "ambition": 3,      "Name": "滕胤",
       "BelongCity": 8,
       "familyName": "滕",
       "giveName": "胤",
@@ -18614,7 +18614,7 @@
     },
     "480": {
       "Id": 480,
-      "Name": "董允",
+      "ambition": 1,      "Name": "董允",
       "BelongCity": 31,
       "familyName": "董",
       "giveName": "允",
@@ -18655,7 +18655,7 @@
     },
     "481": {
       "Id": 481,
-      "Name": "董和",
+      "ambition": 0,      "Name": "董和",
       "BelongCity": 31,
       "familyName": "董",
       "giveName": "和",
@@ -18692,7 +18692,7 @@
     },
     "482": {
       "Id": 482,
-      "Name": "邓艾",
+      "ambition": 3,      "Name": "邓艾",
       "BelongForce": 36,
       "BelongCorps": 36,
       "BelongCity": 39,
@@ -18740,7 +18740,7 @@
     },
     "483": {
       "Id": 483,
-      "Name": "党均",
+      "ambition": 1,      "Name": "党均",
       "BelongForce": 36,
       "BelongCorps": 36,
       "BelongCity": 39,
@@ -18775,7 +18775,7 @@
     },
     "484": {
       "Id": 484,
-      "Name": "董厥",
+      "ambition": 2,      "Name": "董厥",
       "BelongCity": 29,
       "familyName": "董",
       "giveName": "厥",
@@ -18809,7 +18809,7 @@
     },
     "485": {
       "Id": 485,
-      "Name": "陶谦",
+      "ambition": 3,      "Name": "陶谦",
       "BelongForce": 19,
       "BelongCorps": 19,
       "BelongCity": 10,
@@ -18845,7 +18845,7 @@
     },
     "486": {
       "Id": 486,
-      "Name": "邓贤",
+      "ambition": 2,      "Name": "邓贤",
       "BelongCity": 22,
       "familyName": "邓",
       "giveName": "贤",
@@ -18878,7 +18878,7 @@
     },
     "487": {
       "Id": 487,
-      "Name": "邓芝",
+      "ambition": 1,      "Name": "邓芝",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -18920,7 +18920,7 @@
     },
     "488": {
       "Id": 488,
-      "Name": "唐咨",
+      "ambition": 2,      "Name": "唐咨",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -18958,7 +18958,7 @@
     },
     "489": {
       "Id": 489,
-      "Name": "董袭",
+      "ambition": 2,      "Name": "董袭",
       "BelongCity": 25,
       "familyName": "董",
       "giveName": "袭",
@@ -18995,7 +18995,7 @@
     },
     "490": {
       "Id": 490,
-      "Name": "滕修",
+      "ambition": 1,      "Name": "滕修",
       "BelongCity": 17,
       "familyName": "滕",
       "giveName": "脩",
@@ -19029,7 +19029,7 @@
     },
     "491": {
       "Id": 491,
-      "Name": "陶浚",
+      "ambition": 2,      "Name": "陶浚",
       "BelongCity": 23,
       "familyName": "陶",
       "giveName": "濬",
@@ -19062,7 +19062,7 @@
     },
     "492": {
       "Id": 492,
-      "Name": "董承",
+      "ambition": 1,      "Name": "董承",
       "BelongForce": 29,
       "BelongCorps": 29,
       "BelongCity": 18,
@@ -19097,7 +19097,7 @@
     },
     "493": {
       "Id": 493,
-      "Name": "董昭",
+      "ambition": 1,      "Name": "董昭",
       "BelongCity": 12,
       "familyName": "董",
       "giveName": "昭",
@@ -19134,7 +19134,7 @@
     },
     "494": {
       "Id": 494,
-      "Name": "董卓",
+      "ambition": 4,      "Name": "董卓",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -19178,7 +19178,7 @@
     },
     "495": {
       "Id": 495,
-      "Name": "邓忠",
+      "ambition": 2,      "Name": "邓忠",
       "BelongForce": 36,
       "BelongCorps": 36,
       "BelongCity": 39,
@@ -19217,7 +19217,7 @@
     },
     "496": {
       "Id": 496,
-      "Name": "董朝",
+      "ambition": 0,      "Name": "董朝",
       "BelongCity": 25,
       "familyName": "董",
       "giveName": "朝",
@@ -19250,7 +19250,7 @@
     },
     "497": {
       "Id": 497,
-      "Name": "董荼那",
+      "ambition": 0,      "Name": "董荼那",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -19289,7 +19289,7 @@
     },
     "498": {
       "Id": 498,
-      "Name": "唐彬",
+      "ambition": 2,      "Name": "唐彬",
       "BelongCity": 10,
       "familyName": "唐",
       "giveName": "彬",
@@ -19323,7 +19323,7 @@
     },
     "499": {
       "Id": 499,
-      "Name": "董旻",
+      "ambition": 2,      "Name": "董旻",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -19359,7 +19359,7 @@
     },
     "500": {
       "Id": 500,
-      "Name": "邓茂",
+      "ambition": 3,      "Name": "邓茂",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -19394,7 +19394,7 @@
     },
     "501": {
       "Id": 501,
-      "Name": "杜畿",
+      "ambition": 0,      "Name": "杜畿",
       "BelongCity": 18,
       "familyName": "杜",
       "giveName": "畿",
@@ -19431,7 +19431,7 @@
     },
     "502": {
       "Id": 502,
-      "Name": "杜预",
+      "ambition": 2,      "Name": "杜预",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -19473,7 +19473,7 @@
     },
     "503": {
       "Id": 503,
-      "Name": "宁随",
+      "ambition": 1,      "Name": "宁随",
       "BelongCity": 21,
       "familyName": "甯",
       "giveName": "随",
@@ -19509,7 +19509,7 @@
     },
     "504": {
       "Id": 504,
-      "Name": "裴元绍",
+      "ambition": 0,      "Name": "裴元绍",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -19547,7 +19547,7 @@
     },
     "505": {
       "Id": 505,
-      "Name": "裴秀",
+      "ambition": 2,      "Name": "裴秀",
       "BelongCity": 6,
       "familyName": "裴",
       "giveName": "秀",
@@ -19588,7 +19588,7 @@
     },
     "506": {
       "Id": 506,
-      "Name": "马云禄",
+      "ambition": 2,      "Name": "马云禄",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 22,
@@ -19635,7 +19635,7 @@
     },
     "507": {
       "Id": 507,
-      "Name": "马玩",
+      "ambition": 2,      "Name": "马玩",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -19670,7 +19670,7 @@
     },
     "508": {
       "Id": 508,
-      "Name": "马休",
+      "ambition": 1,      "Name": "马休",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 22,
@@ -19718,7 +19718,7 @@
     },
     "509": {
       "Id": 509,
-      "Name": "马钧",
+      "ambition": 0,      "Name": "马钧",
       "BelongCity": 20,
       "familyName": "马",
       "giveName": "钧",
@@ -19755,7 +19755,7 @@
     },
     "510": {
       "Id": 510,
-      "Name": "波才",
+      "ambition": 3,      "Name": "波才",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -19793,7 +19793,7 @@
     },
     "511": {
       "Id": 511,
-      "Name": "马遵",
+      "ambition": 1,      "Name": "马遵",
       "BelongCity": 21,
       "familyName": "马",
       "giveName": "遵",
@@ -19826,7 +19826,7 @@
     },
     "512": {
       "Id": 512,
-      "Name": "马谡",
+      "ambition": 3,      "Name": "马谡",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -19870,7 +19870,7 @@
     },
     "513": {
       "Id": 513,
-      "Name": "马岱",
+      "ambition": 1,      "Name": "马岱",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 22,
@@ -19918,7 +19918,7 @@
     },
     "514": {
       "Id": 514,
-      "Name": "马忠",
+      "ambition": 2,      "Name": "马忠",
       "BelongCity": 27,
       "familyName": "马",
       "giveName": "忠",
@@ -19954,7 +19954,7 @@
     },
     "515": {
       "Id": 515,
-      "Name": "马忠",
+      "ambition": 2,      "Name": "马忠",
       "BelongCity": 38,
       "familyName": "马",
       "giveName": "忠",
@@ -19991,7 +19991,7 @@
     },
     "516": {
       "Id": 516,
-      "Name": "马超",
+      "ambition": 3,      "Name": "马超",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 22,
@@ -20042,7 +20042,7 @@
     },
     "517": {
       "Id": 517,
-      "Name": "马铁",
+      "ambition": 1,      "Name": "马铁",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 22,
@@ -20090,7 +20090,7 @@
     },
     "518": {
       "Id": 518,
-      "Name": "马腾",
+      "ambition": 3,      "Name": "马腾",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 22,
@@ -20140,7 +20140,7 @@
     },
     "519": {
       "Id": 519,
-      "Name": "马邈",
+      "ambition": 1,      "Name": "马邈",
       "BelongCity": 38,
       "familyName": "马",
       "giveName": "邈",
@@ -20173,7 +20173,7 @@
     },
     "520": {
       "Id": 520,
-      "Name": "马良",
+      "ambition": 2,      "Name": "马良",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -20216,7 +20216,7 @@
     },
     "521": {
       "Id": 521,
-      "Name": "万彧",
+      "ambition": 2,      "Name": "万彧",
       "BelongCity": 23,
       "familyName": "万",
       "giveName": "彧",
@@ -20252,7 +20252,7 @@
     },
     "522": {
       "Id": 522,
-      "Name": "樊建",
+      "ambition": 1,      "Name": "樊建",
       "BelongCity": 29,
       "familyName": "樊",
       "giveName": "建",
@@ -20286,7 +20286,7 @@
     },
     "523": {
       "Id": 523,
-      "Name": "樊氏",
+      "ambition": 0,      "Name": "樊氏",
       "BelongForce": 33,
       "BelongCorps": 33,
       "BelongCity": 34,
@@ -20324,7 +20324,7 @@
     },
     "524": {
       "Id": 524,
-      "Name": "潘浚",
+      "ambition": 1,      "Name": "潘浚",
       "BelongCity": 33,
       "familyName": "潘",
       "giveName": "濬",
@@ -20358,7 +20358,7 @@
     },
     "525": {
       "Id": 525,
-      "Name": "潘璋",
+      "ambition": 3,      "Name": "潘璋",
       "BelongCity": 13,
       "familyName": "潘",
       "giveName": "璋",
@@ -20395,7 +20395,7 @@
     },
     "526": {
       "Id": 526,
-      "Name": "樊稠",
+      "ambition": 3,      "Name": "樊稠",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -20433,7 +20433,7 @@
     },
     "527": {
       "Id": 527,
-      "Name": "樊能",
+      "ambition": 2,      "Name": "樊能",
       "BelongForce": 24,
       "BelongCorps": 24,
       "BelongCity": 23,
@@ -20468,7 +20468,7 @@
     },
     "528": {
       "Id": 528,
-      "Name": "潘凤",
+      "ambition": 1,      "Name": "潘凤",
       "BelongForce": 15,
       "BelongCorps": 15,
       "BelongCity": 7,
@@ -20503,7 +20503,7 @@
     },
     "529": {
       "Id": 529,
-      "Name": "费祎",
+      "ambition": 2,      "Name": "费祎",
       "BelongCity": 28,
       "familyName": "费",
       "giveName": "禕",
@@ -20543,7 +20543,7 @@
     },
     "530": {
       "Id": 530,
-      "Name": "卑衍",
+      "ambition": 2,      "Name": "卑衍",
       "BelongForce": 13,
       "BelongCorps": 13,
       "BelongCity": 1,
@@ -20578,7 +20578,7 @@
     },
     "531": {
       "Id": 531,
-      "Name": "费诗",
+      "ambition": 1,      "Name": "费诗",
       "BelongCity": 21,
       "familyName": "费",
       "giveName": "诗",
@@ -20612,7 +20612,7 @@
     },
     "532": {
       "Id": 532,
-      "Name": "糜氏",
+      "ambition": 0,      "Name": "糜氏",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -20653,7 +20653,7 @@
     },
     "533": {
       "Id": 533,
-      "Name": "糜竺",
+      "ambition": 1,      "Name": "糜竺",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -20695,7 +20695,7 @@
     },
     "534": {
       "Id": 534,
-      "Name": "糜芳",
+      "ambition": 2,      "Name": "糜芳",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -20737,7 +20737,7 @@
     },
     "535": {
       "Id": 535,
-      "Name": "费耀",
+      "ambition": 0,      "Name": "费耀",
       "BelongCity": 21,
       "familyName": "费",
       "giveName": "耀",
@@ -20770,7 +20770,7 @@
     },
     "536": {
       "Id": 536,
-      "Name": "武安国",
+      "ambition": 2,      "Name": "武安国",
       "BelongForce": 17,
       "BelongCorps": 17,
       "BelongCity": 8,
@@ -20805,7 +20805,7 @@
     },
     "537": {
       "Id": 537,
-      "Name": "冯习",
+      "ambition": 2,      "Name": "冯习",
       "BelongCity": 31,
       "familyName": "冯",
       "giveName": "习",
@@ -20839,7 +20839,7 @@
     },
     "538": {
       "Id": 538,
-      "Name": "傅嘏",
+      "ambition": 1,      "Name": "傅嘏",
       "BelongCity": 18,
       "familyName": "傅",
       "giveName": "嘏",
@@ -20878,7 +20878,7 @@
     },
     "539": {
       "Id": 539,
-      "Name": "傅士仁",
+      "ambition": 2,      "Name": "傅士仁",
       "BelongCity": 3,
       "familyName": "傅士",
       "giveName": "仁",
@@ -20918,7 +20918,7 @@
     },
     "540": {
       "Id": 540,
-      "Name": "傅佥",
+      "ambition": 1,      "Name": "傅佥",
       "BelongCity": 29,
       "familyName": "傅",
       "giveName": "佥",
@@ -20958,7 +20958,7 @@
     },
     "541": {
       "Id": 541,
-      "Name": "傅巽",
+      "ambition": 0,      "Name": "傅巽",
       "BelongCity": 18,
       "familyName": "傅",
       "giveName": "巽",
@@ -20992,7 +20992,7 @@
     },
     "542": {
       "Id": 542,
-      "Name": "傅彤",
+      "ambition": 1,      "Name": "傅彤",
       "BelongCity": 29,
       "familyName": "傅",
       "giveName": "彤",
@@ -21028,7 +21028,7 @@
     },
     "543": {
       "Id": 543,
-      "Name": "文鸯",
+      "ambition": 2,      "Name": "文鸯",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -21067,7 +21067,7 @@
     },
     "544": {
       "Id": 544,
-      "Name": "文钦",
+      "ambition": 4,      "Name": "文钦",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -21110,7 +21110,7 @@
     },
     "545": {
       "Id": 545,
-      "Name": "文虎",
+      "ambition": 1,      "Name": "文虎",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -21146,7 +21146,7 @@
     },
     "546": {
       "Id": 546,
-      "Name": "文丑",
+      "ambition": 2,      "Name": "文丑",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -21188,7 +21188,7 @@
     },
     "547": {
       "Id": 547,
-      "Name": "文聘",
+      "ambition": 2,      "Name": "文聘",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -21227,7 +21227,7 @@
     },
     "548": {
       "Id": 548,
-      "Name": "卞喜",
+      "ambition": 2,      "Name": "卞喜",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -21262,7 +21262,7 @@
     },
     "549": {
       "Id": 549,
-      "Name": "卞氏",
+      "ambition": 0,      "Name": "卞氏",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -21303,7 +21303,7 @@
     },
     "550": {
       "Id": 550,
-      "Name": "方悦",
+      "ambition": 1,      "Name": "方悦",
       "BelongCity": 6,
       "familyName": "方",
       "giveName": "悦",
@@ -21336,7 +21336,7 @@
     },
     "551": {
       "Id": 551,
-      "Name": "庞会",
+      "ambition": 0,      "Name": "庞会",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 22,
@@ -21378,7 +21378,7 @@
     },
     "552": {
       "Id": 552,
-      "Name": "忙牙长",
+      "ambition": 0,      "Name": "忙牙长",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -21413,7 +21413,7 @@
     },
     "553": {
       "Id": 553,
-      "Name": "逢纪",
+      "ambition": 2,      "Name": "逢纪",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -21452,7 +21452,7 @@
     },
     "554": {
       "Id": 554,
-      "Name": "庞羲",
+      "ambition": 3,      "Name": "庞羲",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -21487,7 +21487,7 @@
     },
     "555": {
       "Id": 555,
-      "Name": "鲍三娘",
+      "ambition": 2,      "Name": "鲍三娘",
       "BelongCity": 31,
       "familyName": "鲍",
       "giveName": "三娘",
@@ -21527,7 +21527,7 @@
     },
     "556": {
       "Id": 556,
-      "Name": "鲍信",
+      "ambition": 1,      "Name": "鲍信",
       "BelongForce": 18,
       "BelongCorps": 18,
       "BelongCity": 13,
@@ -21568,7 +21568,7 @@
     },
     "557": {
       "Id": 557,
-      "Name": "法正",
+      "ambition": 2,      "Name": "法正",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -21613,7 +21613,7 @@
     },
     "558": {
       "Id": 558,
-      "Name": "庞统",
+      "ambition": 2,      "Name": "庞统",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -21658,7 +21658,7 @@
     },
     "559": {
       "Id": 559,
-      "Name": "庞德",
+      "ambition": 1,      "Name": "庞德",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 22,
@@ -21698,7 +21698,7 @@
     },
     "560": {
       "Id": 560,
-      "Name": "鲍隆",
+      "ambition": 1,      "Name": "鲍隆",
       "BelongForce": 33,
       "BelongCorps": 33,
       "BelongCity": 34,
@@ -21736,7 +21736,7 @@
     },
     "561": {
       "Id": 561,
-      "Name": "步协",
+      "ambition": 1,      "Name": "步协",
       "BelongCity": 11,
       "familyName": "步",
       "giveName": "协",
@@ -21770,7 +21770,7 @@
     },
     "562": {
       "Id": 562,
-      "Name": "穆顺",
+      "ambition": 2,      "Name": "穆顺",
       "BelongForce": 30,
       "BelongCorps": 30,
       "BelongCity": 6,
@@ -21805,7 +21805,7 @@
     },
     "563": {
       "Id": 563,
-      "Name": "濮阳兴",
+      "ambition": 2,      "Name": "濮阳兴",
       "BelongCity": 12,
       "familyName": "濮阳",
       "giveName": "兴",
@@ -21843,7 +21843,7 @@
     },
     "564": {
       "Id": 564,
-      "Name": "木鹿大王",
+      "ambition": 1,      "Name": "木鹿大王",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -21881,7 +21881,7 @@
     },
     "565": {
       "Id": 565,
-      "Name": "步骘",
+      "ambition": 1,      "Name": "步骘",
       "BelongCity": 11,
       "familyName": "步",
       "giveName": "骘",
@@ -21926,7 +21926,7 @@
     },
     "566": {
       "Id": 566,
-      "Name": "步阐",
+      "ambition": 3,      "Name": "步阐",
       "BelongCity": 11,
       "familyName": "步",
       "giveName": "阐",
@@ -21960,7 +21960,7 @@
     },
     "567": {
       "Id": 567,
-      "Name": "满宠",
+      "ambition": 2,      "Name": "满宠",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -22004,7 +22004,7 @@
     },
     "568": {
       "Id": 568,
-      "Name": "毛玠",
+      "ambition": 1,      "Name": "毛玠",
       "BelongCity": 13,
       "familyName": "毛",
       "giveName": "玠",
@@ -22045,7 +22045,7 @@
     },
     "569": {
       "Id": 569,
-      "Name": "孟获",
+      "ambition": 3,      "Name": "孟获",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -22090,7 +22090,7 @@
     },
     "570": {
       "Id": 570,
-      "Name": "孟宗",
+      "ambition": 0,      "Name": "孟宗",
       "BelongCity": 28,
       "familyName": "孟",
       "giveName": "宗",
@@ -22124,7 +22124,7 @@
     },
     "571": {
       "Id": 571,
-      "Name": "孟达",
+      "ambition": 4,      "Name": "孟达",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -22172,7 +22172,7 @@
     },
     "572": {
       "Id": 572,
-      "Name": "孟优",
+      "ambition": 2,      "Name": "孟优",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -22210,7 +22210,7 @@
     },
     "573": {
       "Id": 573,
-      "Name": "俞涉",
+      "ambition": 2,      "Name": "俞涉",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -22245,7 +22245,7 @@
     },
     "574": {
       "Id": 574,
-      "Name": "杨怀",
+      "ambition": 2,      "Name": "杨怀",
       "BelongCity": 38,
       "familyName": "杨",
       "giveName": "懷",
@@ -22281,7 +22281,7 @@
     },
     "575": {
       "Id": 575,
-      "Name": "雍闿",
+      "ambition": 4,      "Name": "雍闿",
       "BelongForce": 27,
       "BelongCorps": 27,
       "BelongCity": 41,
@@ -22319,7 +22319,7 @@
     },
     "576": {
       "Id": 576,
-      "Name": "杨仪",
+      "ambition": 4,      "Name": "杨仪",
       "BelongCity": 30,
       "familyName": "杨",
       "giveName": "仪",
@@ -22360,7 +22360,7 @@
     },
     "577": {
       "Id": 577,
-      "Name": "杨欣",
+      "ambition": 1,      "Name": "杨欣",
       "BelongForce": 36,
       "BelongCorps": 36,
       "BelongCity": 39,
@@ -22395,7 +22395,7 @@
     },
     "578": {
       "Id": 578,
-      "Name": "羊祜",
+      "ambition": 2,      "Name": "羊祜",
       "BelongForce": 16,
       "BelongCorps": 16,
       "BelongCity": 16,
@@ -22438,7 +22438,7 @@
     },
     "579": {
       "Id": 579,
-      "Name": "杨弘",
+      "ambition": 3,      "Name": "杨弘",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -22473,7 +22473,7 @@
     },
     "580": {
       "Id": 580,
-      "Name": "杨昂",
+      "ambition": 2,      "Name": "杨昂",
       "BelongForce": 10,
       "BelongCorps": 10,
       "BelongCity": 37,
@@ -22508,7 +22508,7 @@
     },
     "581": {
       "Id": 581,
-      "Name": "杨济",
+      "ambition": 2,      "Name": "杨济",
       "BelongCity": 16,
       "familyName": "杨",
       "giveName": "济",
@@ -22542,7 +22542,7 @@
     },
     "582": {
       "Id": 582,
-      "Name": "杨丑",
+      "ambition": 3,      "Name": "杨丑",
       "BelongForce": 30,
       "BelongCorps": 30,
       "BelongCity": 6,
@@ -22577,7 +22577,7 @@
     },
     "583": {
       "Id": 583,
-      "Name": "杨修",
+      "ambition": 2,      "Name": "杨修",
       "BelongCity": 16,
       "familyName": "杨",
       "giveName": "修",
@@ -22616,7 +22616,7 @@
     },
     "584": {
       "Id": 584,
-      "Name": "杨秋",
+      "ambition": 1,      "Name": "杨秋",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -22651,7 +22651,7 @@
     },
     "585": {
       "Id": 585,
-      "Name": "杨松",
+      "ambition": 2,      "Name": "杨松",
       "BelongForce": 10,
       "BelongCorps": 10,
       "BelongCity": 37,
@@ -22686,7 +22686,7 @@
     },
     "586": {
       "Id": 586,
-      "Name": "杨任",
+      "ambition": 1,      "Name": "杨任",
       "BelongForce": 10,
       "BelongCorps": 10,
       "BelongCity": 37,
@@ -22721,7 +22721,7 @@
     },
     "587": {
       "Id": 587,
-      "Name": "杨祚",
+      "ambition": 0,      "Name": "杨祚",
       "BelongForce": 13,
       "BelongCorps": 13,
       "BelongCity": 1,
@@ -22756,7 +22756,7 @@
     },
     "588": {
       "Id": 588,
-      "Name": "杨肇",
+      "ambition": 2,      "Name": "杨肇",
       "BelongCity": 6,
       "familyName": "杨",
       "giveName": "肇",
@@ -22789,7 +22789,7 @@
     },
     "589": {
       "Id": 589,
-      "Name": "杨柏",
+      "ambition": 1,      "Name": "杨柏",
       "BelongForce": 10,
       "BelongCorps": 10,
       "BelongCity": 37,
@@ -22827,7 +22827,7 @@
     },
     "590": {
       "Id": 590,
-      "Name": "杨阜",
+      "ambition": 2,      "Name": "杨阜",
       "BelongCity": 21,
       "familyName": "杨",
       "giveName": "阜",
@@ -22864,7 +22864,7 @@
     },
     "591": {
       "Id": 591,
-      "Name": "杨奉",
+      "ambition": 3,      "Name": "杨奉",
       "BelongCity": 16,
       "familyName": "杨",
       "giveName": "奉",
@@ -22897,7 +22897,7 @@
     },
     "592": {
       "Id": 592,
-      "Name": "杨锋",
+      "ambition": 2,      "Name": "杨锋",
       "BelongForce": 26,
       "BelongCorps": 26,
       "BelongCity": 42,
@@ -22932,7 +22932,7 @@
     },
     "593": {
       "Id": 593,
-      "Name": "雷铜",
+      "ambition": 1,      "Name": "雷铜",
       "BelongCity": 40,
       "familyName": "雷",
       "giveName": "铜",
@@ -22969,7 +22969,7 @@
     },
     "594": {
       "Id": 594,
-      "Name": "雷薄",
+      "ambition": 2,      "Name": "雷薄",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -23007,7 +23007,7 @@
     },
     "595": {
       "Id": 595,
-      "Name": "骆统",
+      "ambition": 2,      "Name": "骆统",
       "BelongCity": 25,
       "familyName": "骆",
       "giveName": "统",
@@ -23044,7 +23044,7 @@
     },
     "596": {
       "Id": 596,
-      "Name": "罗宪",
+      "ambition": 1,      "Name": "罗宪",
       "BelongCity": 30,
       "familyName": "罗",
       "giveName": "宪",
@@ -23081,7 +23081,7 @@
     },
     "597": {
       "Id": 597,
-      "Name": "李异",
+      "ambition": 2,      "Name": "李异",
       "BelongCity": 33,
       "familyName": "李",
       "giveName": "異",
@@ -23114,7 +23114,7 @@
     },
     "598": {
       "Id": 598,
-      "Name": "李恢",
+      "ambition": 2,      "Name": "李恢",
       "BelongCity": 41,
       "familyName": "李",
       "giveName": "恢",
@@ -23154,7 +23154,7 @@
     },
     "599": {
       "Id": 599,
-      "Name": "李傕",
+      "ambition": 4,      "Name": "李傕",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -23190,7 +23190,7 @@
     },
     "600": {
       "Id": 600,
-      "Name": "陆凯",
+      "ambition": 2,      "Name": "陆凯",
       "BelongCity": 24,
       "familyName": "陆",
       "giveName": "凯",
@@ -23224,7 +23224,7 @@
     },
     "601": {
       "Id": 601,
-      "Name": "陆抗",
+      "ambition": 1,      "Name": "陆抗",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -23268,7 +23268,7 @@
     },
     "602": {
       "Id": 602,
-      "Name": "陆绩",
+      "ambition": 1,      "Name": "陆绩",
       "BelongCity": 24,
       "familyName": "陆",
       "giveName": "绩",
@@ -23309,7 +23309,7 @@
     },
     "603": {
       "Id": 603,
-      "Name": "陆逊",
+      "ambition": 1,      "Name": "陆逊",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -23357,7 +23357,7 @@
     },
     "604": {
       "Id": 604,
-      "Name": "李严",
+      "ambition": 2,      "Name": "李严",
       "BelongCity": 17,
       "familyName": "李",
       "giveName": "严",
@@ -23398,7 +23398,7 @@
     },
     "605": {
       "Id": 605,
-      "Name": "李儒",
+      "ambition": 3,      "Name": "李儒",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -23439,7 +23439,7 @@
     },
     "606": {
       "Id": 606,
-      "Name": "李肃",
+      "ambition": 2,      "Name": "李肃",
       "BelongForce": 6,
       "BelongCorps": 6,
       "BelongCity": 20,
@@ -23477,7 +23477,7 @@
     },
     "607": {
       "Id": 607,
-      "Name": "李胜",
+      "ambition": 2,      "Name": "李胜",
       "BelongCity": 17,
       "familyName": "李",
       "giveName": "勝",
@@ -23514,7 +23514,7 @@
     },
     "608": {
       "Id": 608,
-      "Name": "李堪",
+      "ambition": 1,      "Name": "李堪",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -23549,7 +23549,7 @@
     },
     "609": {
       "Id": 609,
-      "Name": "李通",
+      "ambition": 1,      "Name": "李通",
       "BelongCity": 15,
       "familyName": "李",
       "giveName": "通",
@@ -23586,7 +23586,7 @@
     },
     "610": {
       "Id": 610,
-      "Name": "李典",
+      "ambition": 1,      "Name": "李典",
       "BelongForce": 1,
       "BelongCorps": 1,
       "BelongCity": 14,
@@ -23630,7 +23630,7 @@
     },
     "611": {
       "Id": 611,
-      "Name": "李孚",
+      "ambition": 2,      "Name": "李孚",
       "BelongCity": 4,
       "familyName": "李",
       "giveName": "孚",
@@ -23664,7 +23664,7 @@
     },
     "612": {
       "Id": 612,
-      "Name": "李丰",
+      "ambition": 1,      "Name": "李丰",
       "BelongCity": 17,
       "familyName": "李",
       "giveName": "豐",
@@ -23701,7 +23701,7 @@
     },
     "613": {
       "Id": 613,
-      "Name": "李丰",
+      "ambition": 3,      "Name": "李丰",
       "BelongForce": 37,
       "BelongCorps": 37,
       "BelongCity": 11,
@@ -23744,7 +23744,7 @@
     },
     "614": {
       "Id": 614,
-      "Name": "李丰",
+      "ambition": 2,      "Name": "李丰",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -23779,7 +23779,7 @@
     },
     "615": {
       "Id": 615,
-      "Name": "刘焉",
+      "ambition": 4,      "Name": "刘焉",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -23815,7 +23815,7 @@
     },
     "616": {
       "Id": 616,
-      "Name": "刘和",
+      "ambition": 1,      "Name": "刘和",
       "BelongForce": 14,
       "BelongCorps": 14,
       "BelongCity": 3,
@@ -23851,7 +23851,7 @@
     },
     "617": {
       "Id": 617,
-      "Name": "刘璝",
+      "ambition": 0,      "Name": "刘璝",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -23886,7 +23886,7 @@
     },
     "618": {
       "Id": 618,
-      "Name": "刘琦",
+      "ambition": 0,      "Name": "刘琦",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -23922,7 +23922,7 @@
     },
     "619": {
       "Id": 619,
-      "Name": "刘虞",
+      "ambition": 0,      "Name": "刘虞",
       "BelongForce": 14,
       "BelongCorps": 14,
       "BelongCity": 3,
@@ -23964,7 +23964,7 @@
     },
     "620": {
       "Id": 620,
-      "Name": "刘勋",
+      "ambition": 3,      "Name": "刘勋",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -24000,7 +24000,7 @@
     },
     "621": {
       "Id": 621,
-      "Name": "刘贤",
+      "ambition": 2,      "Name": "刘贤",
       "BelongForce": 34,
       "BelongCorps": 34,
       "BelongCity": 35,
@@ -24036,7 +24036,7 @@
     },
     "622": {
       "Id": 622,
-      "Name": "留赞",
+      "ambition": 0,      "Name": "留赞",
       "BelongCity": 25,
       "familyName": "留",
       "giveName": "赞",
@@ -24076,7 +24076,7 @@
     },
     "623": {
       "Id": 623,
-      "Name": "刘氏",
+      "ambition": 3,      "Name": "刘氏",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -24117,7 +24117,7 @@
     },
     "624": {
       "Id": 624,
-      "Name": "刘循",
+      "ambition": 0,      "Name": "刘循",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -24153,7 +24153,7 @@
     },
     "625": {
       "Id": 625,
-      "Name": "刘璋",
+      "ambition": 0,      "Name": "刘璋",
       "BelongForce": 5,
       "BelongCorps": 5,
       "BelongCity": 40,
@@ -24193,7 +24193,7 @@
     },
     "626": {
       "Id": 626,
-      "Name": "刘劭",
+      "ambition": 0,      "Name": "刘劭",
       "BelongCity": 7,
       "familyName": "刘",
       "giveName": "劭",
@@ -24230,7 +24230,7 @@
     },
     "627": {
       "Id": 627,
-      "Name": "刘丞",
+      "ambition": 1,      "Name": "刘丞",
       "BelongCity": 24,
       "familyName": "刘",
       "giveName": "丞",
@@ -24263,7 +24263,7 @@
     },
     "628": {
       "Id": 628,
-      "Name": "刘谌",
+      "ambition": 3,      "Name": "刘谌",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -24305,7 +24305,7 @@
     },
     "629": {
       "Id": 629,
-      "Name": "刘璇",
+      "ambition": 0,      "Name": "刘璇",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -24342,7 +24342,7 @@
     },
     "630": {
       "Id": 630,
-      "Name": "刘禅",
+      "ambition": 0,      "Name": "刘禅",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -24386,7 +24386,7 @@
     },
     "631": {
       "Id": 631,
-      "Name": "刘琮",
+      "ambition": 0,      "Name": "刘琮",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -24427,7 +24427,7 @@
     },
     "632": {
       "Id": 632,
-      "Name": "刘岱",
+      "ambition": 3,      "Name": "刘岱",
       "BelongForce": 18,
       "BelongCorps": 18,
       "BelongCity": 13,
@@ -24463,7 +24463,7 @@
     },
     "633": {
       "Id": 633,
-      "Name": "刘度",
+      "ambition": 0,      "Name": "刘度",
       "BelongForce": 34,
       "BelongCorps": 34,
       "BelongCity": 35,
@@ -24498,7 +24498,7 @@
     },
     "634": {
       "Id": 634,
-      "Name": "刘巴",
+      "ambition": 2,      "Name": "刘巴",
       "BelongCity": 35,
       "familyName": "刘",
       "giveName": "巴",
@@ -24536,7 +24536,7 @@
     },
     "635": {
       "Id": 635,
-      "Name": "刘盘",
+      "ambition": 2,      "Name": "刘盘",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -24574,7 +24574,7 @@
     },
     "636": {
       "Id": 636,
-      "Name": "刘备",
+      "ambition": 4,      "Name": "刘备",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -24629,7 +24629,7 @@
     },
     "637": {
       "Id": 637,
-      "Name": "刘表",
+      "ambition": 1,      "Name": "刘表",
       "BelongForce": 7,
       "BelongCorps": 7,
       "BelongCity": 30,
@@ -24672,7 +24672,7 @@
     },
     "638": {
       "Id": 638,
-      "Name": "刘馥",
+      "ambition": 1,      "Name": "刘馥",
       "BelongCity": 13,
       "familyName": "刘",
       "giveName": "馥",
@@ -24709,7 +24709,7 @@
     },
     "639": {
       "Id": 639,
-      "Name": "留平",
+      "ambition": 2,      "Name": "留平",
       "BelongCity": 25,
       "familyName": "留",
       "giveName": "平",
@@ -24746,7 +24746,7 @@
     },
     "640": {
       "Id": 640,
-      "Name": "刘辟",
+      "ambition": 1,      "Name": "刘辟",
       "BelongForce": 28,
       "BelongCorps": 28,
       "BelongCity": 12,
@@ -24787,7 +24787,7 @@
     },
     "641": {
       "Id": 641,
-      "Name": "刘封",
+      "ambition": 0,      "Name": "刘封",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -24832,7 +24832,7 @@
     },
     "642": {
       "Id": 642,
-      "Name": "刘晔",
+      "ambition": 2,      "Name": "刘晔",
       "BelongCity": 11,
       "familyName": "刘",
       "giveName": "晔",
@@ -24874,7 +24874,7 @@
     },
     "643": {
       "Id": 643,
-      "Name": "刘繇",
+      "ambition": 2,      "Name": "刘繇",
       "BelongForce": 24,
       "BelongCorps": 24,
       "BelongCity": 23,
@@ -24910,7 +24910,7 @@
     },
     "644": {
       "Id": 644,
-      "Name": "留略",
+      "ambition": 2,      "Name": "留略",
       "BelongCity": 25,
       "familyName": "留",
       "giveName": "略",
@@ -24947,7 +24947,7 @@
     },
     "645": {
       "Id": 645,
-      "Name": "吕威璜",
+      "ambition": 2,      "Name": "吕威璜",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -24982,7 +24982,7 @@
     },
     "646": {
       "Id": 646,
-      "Name": "廖化",
+      "ambition": 2,      "Name": "廖化",
       "BelongForce": 2,
       "BelongCorps": 2,
       "BelongCity": 31,
@@ -25025,7 +25025,7 @@
     },
     "647": {
       "Id": 647,
-      "Name": "梁兴",
+      "ambition": 1,      "Name": "梁兴",
       "BelongForce": 21,
       "BelongCorps": 21,
       "BelongCity": 21,
@@ -25060,7 +25060,7 @@
     },
     "648": {
       "Id": 648,
-      "Name": "梁纲",
+      "ambition": 2,      "Name": "梁纲",
       "BelongForce": 9,
       "BelongCorps": 9,
       "BelongCity": 26,
@@ -25095,7 +25095,7 @@
     },
     "649": {
       "Id": 649,
-      "Name": "梁习",
+      "ambition": 0,      "Name": "梁习",
       "BelongCity": 13,
       "familyName": "梁",
       "giveName": "习",
@@ -25132,7 +25132,7 @@
     },
     "650": {
       "Id": 650,
-      "Name": "梁绪",
+      "ambition": 1,      "Name": "梁绪",
       "BelongCity": 21,
       "familyName": "梁",
       "giveName": "绪",
@@ -25169,7 +25169,7 @@
     },
     "651": {
       "Id": 651,
-      "Name": "凌操",
+      "ambition": 2,      "Name": "凌操",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -25207,7 +25207,7 @@
     },
     "652": {
       "Id": 652,
-      "Name": "凌统",
+      "ambition": 2,      "Name": "凌统",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -25251,7 +25251,7 @@
     },
     "653": {
       "Id": 653,
-      "Name": "廖立",
+      "ambition": 3,      "Name": "廖立",
       "BelongCity": 33,
       "familyName": "廖",
       "giveName": "立",
@@ -25288,7 +25288,7 @@
     },
     "654": {
       "Id": 654,
-      "Name": "吕凯",
+      "ambition": 1,      "Name": "吕凯",
       "BelongCity": 42,
       "familyName": "吕",
       "giveName": "凯",
@@ -25328,7 +25328,7 @@
     },
     "655": {
       "Id": 655,
-      "Name": "吕据",
+      "ambition": 1,      "Name": "吕据",
       "BelongCity": 15,
       "familyName": "吕",
       "giveName": "据",
@@ -25369,7 +25369,7 @@
     },
     "656": {
       "Id": 656,
-      "Name": "吕虔",
+      "ambition": 2,      "Name": "吕虔",
       "BelongCity": 12,
       "familyName": "吕",
       "giveName": "虔",
@@ -25412,7 +25412,7 @@
     },
     "657": {
       "Id": 657,
-      "Name": "吕旷",
+      "ambition": 2,      "Name": "吕旷",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -25447,7 +25447,7 @@
     },
     "658": {
       "Id": 658,
-      "Name": "吕翔",
+      "ambition": 2,      "Name": "吕翔",
       "BelongForce": 8,
       "BelongCorps": 8,
       "BelongCity": 4,
@@ -25482,7 +25482,7 @@
     },
     "659": {
       "Id": 659,
-      "Name": "吕岱",
+      "ambition": 1,      "Name": "吕岱",
       "BelongCity": 9,
       "familyName": "吕",
       "giveName": "岱",
@@ -25519,7 +25519,7 @@
     },
     "660": {
       "Id": 660,
-      "Name": "吕范",
+      "ambition": 1,      "Name": "吕范",
       "BelongCity": 15,
       "familyName": "吕",
       "giveName": "範",
@@ -25556,7 +25556,7 @@
     },
     "661": {
       "Id": 661,
-      "Name": "吕布",
+      "ambition": 4,      "Name": "吕布",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -25609,7 +25609,7 @@
     },
     "662": {
       "Id": 662,
-      "Name": "吕蒙",
+      "ambition": 2,      "Name": "吕蒙",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -25654,7 +25654,7 @@
     },
     "663": {
       "Id": 663,
-      "Name": "吕玲绮",
+      "ambition": 2,      "Name": "吕玲绮",
       "BelongForce": 11,
       "BelongCorps": 11,
       "BelongCity": 9,
@@ -25696,7 +25696,7 @@
     },
     "664": {
       "Id": 664,
-      "Name": "伦直",
+      "ambition": 0,      "Name": "伦直",
       "BelongForce": 13,
       "BelongCorps": 13,
       "BelongCity": 1,
@@ -25731,7 +25731,7 @@
     },
     "665": {
       "Id": 665,
-      "Name": "冷苞",
+      "ambition": 2,      "Name": "冷苞",
       "BelongCity": 40,
       "familyName": "冷",
       "giveName": "苞",
@@ -25767,7 +25767,7 @@
     },
     "666": {
       "Id": 666,
-      "Name": "娄圭",
+      "ambition": 3,      "Name": "娄圭",
       "BelongCity": 17,
       "familyName": "娄",
       "giveName": "圭",
@@ -25804,7 +25804,7 @@
     },
     "667": {
       "Id": 667,
-      "Name": "楼玄",
+      "ambition": 1,      "Name": "楼玄",
       "BelongCity": 10,
       "familyName": "楼",
       "giveName": "玄",
@@ -25841,7 +25841,7 @@
     },
     "668": {
       "Id": 668,
-      "Name": "鲁肃",
+      "ambition": 2,      "Name": "鲁肃",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -25886,7 +25886,7 @@
     },
     "669": {
       "Id": 669,
-      "Name": "鲁淑",
+      "ambition": 1,      "Name": "鲁淑",
       "BelongForce": 3,
       "BelongCorps": 3,
       "BelongCity": 27,
@@ -25928,7 +25928,7 @@
     },
     "670": {
       "Id": 670,
-      "Name": "卢植",
+      "ambition": 0,      "Name": "卢植",
       "BelongForce": 29,
       "BelongCorps": 29,
       "BelongCity": 18,
@@ -25974,7 +25974,7 @@
     },
     "671": {
       "Id": 671,
-      "Name": "史实０１",
+      "ambition": 2,      "Name": "史实０１",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０１",
@@ -26008,7 +26008,7 @@
     },
     "672": {
       "Id": 672,
-      "Name": "史实０２",
+      "ambition": 2,      "Name": "史实０２",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０２",
@@ -26042,7 +26042,7 @@
     },
     "673": {
       "Id": 673,
-      "Name": "史实０３",
+      "ambition": 2,      "Name": "史实０３",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０３",
@@ -26076,7 +26076,7 @@
     },
     "674": {
       "Id": 674,
-      "Name": "史实０４",
+      "ambition": 2,      "Name": "史实０４",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０４",
@@ -26110,7 +26110,7 @@
     },
     "675": {
       "Id": 675,
-      "Name": "史实０５",
+      "ambition": 2,      "Name": "史实０５",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０５",
@@ -26144,7 +26144,7 @@
     },
     "676": {
       "Id": 676,
-      "Name": "史实０６",
+      "ambition": 2,      "Name": "史实０６",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０６",
@@ -26178,7 +26178,7 @@
     },
     "677": {
       "Id": 677,
-      "Name": "史实０７",
+      "ambition": 2,      "Name": "史实０７",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０７",
@@ -26212,7 +26212,7 @@
     },
     "678": {
       "Id": 678,
-      "Name": "史实０８",
+      "ambition": 2,      "Name": "史实０８",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０８",
@@ -26246,7 +26246,7 @@
     },
     "679": {
       "Id": 679,
-      "Name": "史实０９",
+      "ambition": 2,      "Name": "史实０９",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "０９",
@@ -26280,7 +26280,7 @@
     },
     "680": {
       "Id": 680,
-      "Name": "史实１０",
+      "ambition": 2,      "Name": "史实１０",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１０",
@@ -26314,7 +26314,7 @@
     },
     "681": {
       "Id": 681,
-      "Name": "史实１１",
+      "ambition": 2,      "Name": "史实１１",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１１",
@@ -26348,7 +26348,7 @@
     },
     "682": {
       "Id": 682,
-      "Name": "史实１２",
+      "ambition": 2,      "Name": "史实１２",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１２",
@@ -26382,7 +26382,7 @@
     },
     "683": {
       "Id": 683,
-      "Name": "史实１３",
+      "ambition": 2,      "Name": "史实１３",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１３",
@@ -26416,7 +26416,7 @@
     },
     "684": {
       "Id": 684,
-      "Name": "史实１４",
+      "ambition": 2,      "Name": "史实１４",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１４",
@@ -26450,7 +26450,7 @@
     },
     "685": {
       "Id": 685,
-      "Name": "史实１５",
+      "ambition": 2,      "Name": "史实１５",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１５",
@@ -26484,7 +26484,7 @@
     },
     "686": {
       "Id": 686,
-      "Name": "史实１６",
+      "ambition": 2,      "Name": "史实１６",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１６",
@@ -26518,7 +26518,7 @@
     },
     "687": {
       "Id": 687,
-      "Name": "史实１７",
+      "ambition": 2,      "Name": "史实１７",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１７",
@@ -26552,7 +26552,7 @@
     },
     "688": {
       "Id": 688,
-      "Name": "史实１８",
+      "ambition": 2,      "Name": "史实１８",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１８",
@@ -26586,7 +26586,7 @@
     },
     "689": {
       "Id": 689,
-      "Name": "史实１９",
+      "ambition": 2,      "Name": "史实１９",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "１９",
@@ -26620,7 +26620,7 @@
     },
     "690": {
       "Id": 690,
-      "Name": "史实２０",
+      "ambition": 2,      "Name": "史实２０",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２０",
@@ -26654,7 +26654,7 @@
     },
     "691": {
       "Id": 691,
-      "Name": "史实２１",
+      "ambition": 2,      "Name": "史实２１",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２１",
@@ -26688,7 +26688,7 @@
     },
     "692": {
       "Id": 692,
-      "Name": "史实２２",
+      "ambition": 2,      "Name": "史实２２",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２２",
@@ -26722,7 +26722,7 @@
     },
     "693": {
       "Id": 693,
-      "Name": "史实２３",
+      "ambition": 2,      "Name": "史实２３",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２３",
@@ -26756,7 +26756,7 @@
     },
     "694": {
       "Id": 694,
-      "Name": "史实２４",
+      "ambition": 2,      "Name": "史实２４",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２４",
@@ -26790,7 +26790,7 @@
     },
     "695": {
       "Id": 695,
-      "Name": "史实２５",
+      "ambition": 2,      "Name": "史实２５",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２５",
@@ -26824,7 +26824,7 @@
     },
     "696": {
       "Id": 696,
-      "Name": "史实２６",
+      "ambition": 2,      "Name": "史实２６",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２６",
@@ -26858,7 +26858,7 @@
     },
     "697": {
       "Id": 697,
-      "Name": "史实２７",
+      "ambition": 2,      "Name": "史实２７",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２７",
@@ -26892,7 +26892,7 @@
     },
     "698": {
       "Id": 698,
-      "Name": "史实２８",
+      "ambition": 2,      "Name": "史实２８",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２８",
@@ -26926,7 +26926,7 @@
     },
     "699": {
       "Id": 699,
-      "Name": "史实２９",
+      "ambition": 2,      "Name": "史实２９",
       "BelongCity": 0,
       "familyName": "史实",
       "giveName": "２９",
@@ -26960,7 +26960,7 @@
     },
     "700": {
       "Id": 700,
-      "Name": "刘协",
+      "ambition": 2,      "Name": "刘协",
       "BelongCity": 0,
       "familyName": "刘",
       "giveName": "协",
@@ -26994,7 +26994,7 @@
     },
     "701": {
       "Id": 701,
-      "Name": "灵帝",
+      "ambition": 2,      "Name": "灵帝",
       "BelongCity": 18,
       "familyName": "灵",
       "giveName": "帝",
@@ -27030,7 +27030,7 @@
     },
     "702": {
       "Id": 702,
-      "Name": "少帝",
+      "ambition": 2,      "Name": "少帝",
       "BelongCity": 18,
       "familyName": "少",
       "giveName": "帝",
@@ -27066,7 +27066,7 @@
     },
     "703": {
       "Id": 703,
-      "Name": "献帝",
+      "ambition": 2,      "Name": "献帝",
       "BelongCity": 18,
       "familyName": "献",
       "giveName": "帝",
@@ -27099,7 +27099,7 @@
     },
     "704": {
       "Id": 704,
-      "Name": "于吉",
+      "ambition": 2,      "Name": "于吉",
       "BelongCity": 24,
       "familyName": "于",
       "giveName": "吉",
@@ -27138,7 +27138,7 @@
     },
     "705": {
       "Id": 705,
-      "Name": "华佗",
+      "ambition": 2,      "Name": "华佗",
       "BelongCity": 26,
       "familyName": "华",
       "giveName": "佗",
@@ -27177,7 +27177,7 @@
     },
     "706": {
       "Id": 706,
-      "Name": "管辂",
+      "ambition": 2,      "Name": "管辂",
       "BelongCity": 5,
       "familyName": "管",
       "giveName": "辂",
@@ -27213,7 +27213,7 @@
     },
     "707": {
       "Id": 707,
-      "Name": "许劭",
+      "ambition": 2,      "Name": "许劭",
       "BelongCity": 15,
       "familyName": "许",
       "giveName": "劭",
@@ -27252,7 +27252,7 @@
     },
     "708": {
       "Id": 708,
-      "Name": "左慈",
+      "ambition": 2,      "Name": "左慈",
       "BelongCity": 40,
       "familyName": "左",
       "giveName": "慈",
@@ -27294,7 +27294,7 @@
     },
     "709": {
       "Id": 709,
-      "Name": "司马徽",
+      "ambition": 2,      "Name": "司马徽",
       "BelongCity": 30,
       "familyName": "司马",
       "giveName": "徽",
@@ -27335,7 +27335,7 @@
     },
     "710": {
       "Id": 710,
-      "Name": "祢衡",
+      "ambition": 2,      "Name": "祢衡",
       "BelongCity": 5,
       "familyName": "禰",
       "giveName": "衡",
@@ -27376,7 +27376,7 @@
     },
     "711": {
       "Id": 711,
-      "Name": "黄承彦",
+      "ambition": 2,      "Name": "黄承彦",
       "BelongCity": 30,
       "familyName": "黄",
       "giveName": "承彦",
@@ -27412,7 +27412,7 @@
     },
     "712": {
       "Id": 712,
-      "Name": "桥玄",
+      "ambition": 2,      "Name": "桥玄",
       "BelongCity": 26,
       "familyName": "桥",
       "giveName": "玄",
@@ -27448,7 +27448,7 @@
     },
     "713": {
       "Id": 713,
-      "Name": "北斗",
+      "ambition": 2,      "Name": "北斗",
       "BelongCity": 5,
       "familyName": "北",
       "giveName": "斗",
@@ -27481,7 +27481,7 @@
     },
     "714": {
       "Id": 714,
-      "Name": "南斗",
+      "ambition": 2,      "Name": "南斗",
       "BelongCity": 5,
       "familyName": "南",
       "giveName": "斗",
@@ -27514,7 +27514,7 @@
     },
     "715": {
       "Id": 715,
-      "Name": "盗贼",
+      "ambition": 2,      "Name": "盗贼",
       "BelongCity": 0,
       "familyName": "盗",
       "giveName": "贼",
@@ -27547,7 +27547,7 @@
     },
     "716": {
       "Id": 716,
-      "Name": "文官",
+      "ambition": 2,      "Name": "文官",
       "BelongCity": 0,
       "familyName": "文",
       "giveName": "官",
@@ -27580,7 +27580,7 @@
     },
     "717": {
       "Id": 717,
-      "Name": "士兵",
+      "ambition": 2,      "Name": "士兵",
       "BelongCity": 0,
       "familyName": "士",
       "giveName": "兵",
@@ -27613,7 +27613,7 @@
     },
     "718": {
       "Id": 718,
-      "Name": "男",
+      "ambition": 2,      "Name": "男",
       "BelongCity": 0,
       "familyName": "男",
       "description": "羌族武将。\n\n羌族与氐同属吐蕃系遊牧民族。西汉时代，与匈奴一同扩展塞外民族之势力，却因西元前５４年之匈奴内乱，导致势力渐次衰退。尔後虽与汉民族融合，因受迫害而屡次发起反叛。但於东汉末期即彻底受镇压，移至渭水上游之金城、陇西、汉阳、安定等地之近处居住。２１１年，於曹操发起讨伐张鲁之西征军时，流有羌族血之马超因反应过度而发起反叛一事，其原委即为此。\n\n",
@@ -27645,7 +27645,7 @@
     },
     "719": {
       "Id": 719,
-      "Name": "女",
+      "ambition": 2,      "Name": "女",
       "BelongCity": 0,
       "familyName": "女",
       "description": "率领山越武将之头目。\n\n山越於东汉末期，与平定江东之孙策、孙权等之吴军展开激烈对立。程普、太史慈、韩当、周泰、吕蒙等多数吴将皆前往平定山越。武将当中，贺齐之功绩泰半为镇压山越。於演义中，陆逊於夷陵之战时於魏蜀被视为无名小卒，事实上其讨伐山越立功无数。山越虽因诸葛恪之懷柔之策以致势力缩小，但依然不断进行抵抗。结果，吴国不但无法平定山越，甚至连进军中原之事都无法达成便为晋国所灭。\n\n",
@@ -27677,7 +27677,7 @@
     },
     "720": {
       "Id": 720,
-      "Name": "老人",
+      "ambition": 2,      "Name": "老人",
       "BelongCity": 0,
       "familyName": "老",
       "giveName": "人",
@@ -27710,7 +27710,7 @@
     },
     "721": {
       "Id": 721,
-      "Name": "小孩",
+      "ambition": 2,      "Name": "小孩",
       "BelongCity": 0,
       "familyName": "小",
       "giveName": "孩",
@@ -27743,7 +27743,7 @@
     },
     "722": {
       "Id": 722,
-      "Name": "乌丸头目",
+      "ambition": 2,      "Name": "乌丸头目",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 0,
@@ -27778,7 +27778,7 @@
     },
     "723": {
       "Id": 723,
-      "Name": "乌丸武将",
+      "ambition": 2,      "Name": "乌丸武将",
       "BelongForce": 4,
       "BelongCorps": 4,
       "BelongCity": 0,
@@ -27813,7 +27813,7 @@
     },
     "724": {
       "Id": 724,
-      "Name": "羌族头目",
+      "ambition": 2,      "Name": "羌族头目",
       "BelongForce": 38,
       "BelongCorps": 38,
       "BelongCity": 0,
@@ -27848,7 +27848,7 @@
     },
     "725": {
       "Id": 725,
-      "Name": "羌族武将",
+      "ambition": 2,      "Name": "羌族武将",
       "BelongForce": 38,
       "BelongCorps": 38,
       "BelongCity": 0,
@@ -27883,7 +27883,7 @@
     },
     "726": {
       "Id": 726,
-      "Name": "山越头目",
+      "ambition": 2,      "Name": "山越头目",
       "BelongForce": 39,
       "BelongCorps": 39,
       "BelongCity": 0,
@@ -27918,7 +27918,7 @@
     },
     "727": {
       "Id": 727,
-      "Name": "山越武将",
+      "ambition": 2,      "Name": "山越武将",
       "BelongForce": 39,
       "BelongCorps": 39,
       "BelongCity": 0,
@@ -27953,7 +27953,7 @@
     },
     "728": {
       "Id": 728,
-      "Name": "南蛮头目",
+      "ambition": 2,      "Name": "南蛮头目",
       "BelongForce": 41,
       "BelongCorps": 41,
       "BelongCity": 0,
@@ -27988,7 +27988,7 @@
     },
     "729": {
       "Id": 729,
-      "Name": "南蛮武将",
+      "ambition": 2,      "Name": "南蛮武将",
       "BelongForce": 41,
       "BelongCorps": 41,
       "BelongCity": 0,
@@ -28023,7 +28023,7 @@
     },
     "730": {
       "Id": 730,
-      "Name": "张让",
+      "ambition": 2,      "Name": "张让",
       "BelongCity": 16,
       "familyName": "张",
       "giveName": "让",
@@ -28059,7 +28059,7 @@
     },
     "731": {
       "Id": 731,
-      "Name": "蹇硕",
+      "ambition": 2,      "Name": "蹇硕",
       "BelongCity": 16,
       "familyName": "蹇",
       "giveName": "硕",
@@ -28095,7 +28095,7 @@
     },
     "732": {
       "Id": 732,
-      "Name": "婴儿",
+      "ambition": 2,      "Name": "婴儿",
       "BelongCity": 0,
       "familyName": "婴",
       "giveName": "兒",
@@ -28128,7 +28128,7 @@
     },
     "733": {
       "Id": 733,
-      "Name": "传令",
+      "ambition": 2,      "Name": "传令",
       "BelongCity": 0,
       "familyName": "传",
       "giveName": "令",
@@ -28161,7 +28161,7 @@
     },
     "734": {
       "Id": 734,
-      "Name": "权势者",
+      "ambition": 2,      "Name": "权势者",
       "BelongCity": 0,
       "familyName": "权势",
       "giveName": "者",
@@ -28194,7 +28194,7 @@
     },
     "735": {
       "Id": 735,
-      "Name": "医生",
+      "ambition": 2,      "Name": "医生",
       "BelongCity": 0,
       "familyName": "医",
       "giveName": "生",
@@ -28227,7 +28227,7 @@
     },
     "736": {
       "Id": 736,
-      "Name": "天文官",
+      "ambition": 2,      "Name": "天文官",
       "BelongCity": 0,
       "familyName": "天文",
       "giveName": "官",
@@ -28260,7 +28260,7 @@
     },
     "737": {
       "Id": 737,
-      "Name": "皇后",
+      "ambition": 2,      "Name": "皇后",
       "BelongCity": 0,
       "familyName": "皇",
       "giveName": "后",
@@ -28293,7 +28293,7 @@
     },
     "738": {
       "Id": 738,
-      "Name": "老翁",
+      "ambition": 2,      "Name": "老翁",
       "BelongCity": 0,
       "familyName": "老",
       "giveName": "翁",
@@ -28326,7 +28326,7 @@
     },
     "739": {
       "Id": 739,
-      "Name": "老婆婆",
+      "ambition": 2,      "Name": "老婆婆",
       "BelongCity": 0,
       "familyName": "老",
       "giveName": "婆婆",
@@ -28359,7 +28359,7 @@
     },
     "740": {
       "Id": 740,
-      "Name": "仙人",
+      "ambition": 2,      "Name": "仙人",
       "BelongCity": 0,
       "familyName": "仙",
       "giveName": "人",
@@ -28392,7 +28392,7 @@
     },
     "741": {
       "Id": 741,
-      "Name": "恶臣",
+      "ambition": 2,      "Name": "恶臣",
       "BelongCity": 0,
       "familyName": "恶",
       "giveName": "臣",
@@ -28425,7 +28425,7 @@
     },
     "742": {
       "Id": 742,
-      "Name": "宦官",
+      "ambition": 2,      "Name": "宦官",
       "BelongCity": 0,
       "familyName": "宦",
       "giveName": "官",
@@ -28458,7 +28458,7 @@
     },
     "743": {
       "Id": 743,
-      "Name": "使者",
+      "ambition": 2,      "Name": "使者",
       "BelongCity": 0,
       "familyName": "使",
       "giveName": "者",
@@ -28491,7 +28491,7 @@
     },
     "744": {
       "Id": 744,
-      "Name": "武将",
+      "ambition": 2,      "Name": "武将",
       "BelongCity": 0,
       "familyName": "武",
       "giveName": "将",
@@ -28524,7 +28524,7 @@
     },
     "745": {
       "Id": 745,
-      "Name": "卫兵",
+      "ambition": 2,      "Name": "卫兵",
       "BelongCity": 0,
       "familyName": "卫",
       "giveName": "兵",
@@ -28557,7 +28557,7 @@
     },
     "746": {
       "Id": 746,
-      "Name": "贼将",
+      "ambition": 2,      "Name": "贼将",
       "BelongForce": 42,
       "BelongCorps": 42,
       "BelongCity": 0,
@@ -28592,7 +28592,7 @@
     },
     "747": {
       "Id": 747,
-      "Name": "黄巾党",
+      "ambition": 2,      "Name": "黄巾党",
       "BelongCity": 0,
       "familyName": "黄巾",
       "giveName": "黨",
@@ -28625,7 +28625,7 @@
     },
     "748": {
       "Id": 748,
-      "Name": "武艺者",
+      "ambition": 2,      "Name": "武艺者",
       "BelongCity": 0,
       "familyName": "武艺",
       "giveName": "者",
@@ -28658,7 +28658,7 @@
     },
     "749": {
       "Id": 749,
-      "Name": "农民",
+      "ambition": 2,      "Name": "农民",
       "BelongCity": 0,
       "familyName": "农",
       "giveName": "民",
@@ -28691,7 +28691,7 @@
     },
     "750": {
       "Id": 750,
-      "Name": "商人",
+      "ambition": 2,      "Name": "商人",
       "BelongCity": 0,
       "familyName": "商",
       "giveName": "人",
@@ -28724,7 +28724,7 @@
     },
     "751": {
       "Id": 751,
-      "Name": "劳动者",
+      "ambition": 2,      "Name": "劳动者",
       "BelongCity": 0,
       "familyName": "劳动",
       "giveName": "者",
@@ -28757,7 +28757,7 @@
     },
     "752": {
       "Id": 752,
-      "Name": "年轻人",
+      "ambition": 2,      "Name": "年轻人",
       "BelongCity": 0,
       "familyName": "年轻",
       "giveName": "人",
@@ -28790,7 +28790,7 @@
     },
     "753": {
       "Id": 753,
-      "Name": "平民姑娘",
+      "ambition": 2,      "Name": "平民姑娘",
       "BelongCity": 0,
       "familyName": "平民",
       "giveName": "姑娘",
@@ -28823,7 +28823,7 @@
     },
     "754": {
       "Id": 754,
-      "Name": "男童",
+      "ambition": 2,      "Name": "男童",
       "BelongCity": 0,
       "familyName": "男",
       "giveName": "童",
@@ -28856,7 +28856,7 @@
     },
     "755": {
       "Id": 755,
-      "Name": "女童",
+      "ambition": 2,      "Name": "女童",
       "BelongCity": 0,
       "familyName": "女",
       "giveName": "童",
@@ -28889,7 +28889,7 @@
     },
     "756": {
       "Id": 756,
-      "Name": "富翁",
+      "ambition": 2,      "Name": "富翁",
       "BelongCity": 0,
       "familyName": "富",
       "giveName": "翁",
@@ -28922,7 +28922,7 @@
     },
     "757": {
       "Id": 757,
-      "Name": "职人",
+      "ambition": 2,      "Name": "职人",
       "BelongCity": 0,
       "familyName": "职",
       "giveName": "人",
@@ -28955,7 +28955,7 @@
     },
     "758": {
       "Id": 758,
-      "Name": "小偷",
+      "ambition": 2,      "Name": "小偷",
       "BelongCity": 0,
       "familyName": "小",
       "giveName": "偷",
@@ -28988,7 +28988,7 @@
     },
     "759": {
       "Id": 759,
-      "Name": "旅人",
+      "ambition": 2,      "Name": "旅人",
       "BelongCity": 0,
       "familyName": "旅",
       "giveName": "人",
@@ -29021,7 +29021,7 @@
     },
     "760": {
       "Id": 760,
-      "Name": "酒家姑娘",
+      "ambition": 2,      "Name": "酒家姑娘",
       "BelongCity": 0,
       "familyName": "酒家",
       "giveName": "姑娘",
@@ -29054,7 +29054,7 @@
     },
     "761": {
       "Id": 761,
-      "Name": "客栈姑娘",
+      "ambition": 2,      "Name": "客栈姑娘",
       "BelongCity": 0,
       "familyName": "客栈",
       "giveName": "姑娘",
@@ -29087,7 +29087,7 @@
     },
     "762": {
       "Id": 762,
-      "Name": "渔夫",
+      "ambition": 2,      "Name": "渔夫",
       "BelongCity": 0,
       "familyName": "渔",
       "giveName": "夫",
@@ -29120,7 +29120,7 @@
     },
     "763": {
       "Id": 763,
-      "Name": "学者",
+      "ambition": 2,      "Name": "学者",
       "BelongCity": 0,
       "familyName": "学",
       "giveName": "者",
@@ -29153,7 +29153,7 @@
     },
     "764": {
       "Id": 764,
-      "Name": "事６４",
+      "ambition": 2,      "Name": "事６４",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "６４",
@@ -29186,7 +29186,7 @@
     },
     "765": {
       "Id": 765,
-      "Name": "事６５",
+      "ambition": 2,      "Name": "事６５",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "６５",
@@ -29219,7 +29219,7 @@
     },
     "766": {
       "Id": 766,
-      "Name": "事６６",
+      "ambition": 2,      "Name": "事６６",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "６６",
@@ -29252,7 +29252,7 @@
     },
     "767": {
       "Id": 767,
-      "Name": "事６７",
+      "ambition": 2,      "Name": "事６７",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "６７",
@@ -29285,7 +29285,7 @@
     },
     "768": {
       "Id": 768,
-      "Name": "事６８",
+      "ambition": 2,      "Name": "事６８",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "６８",
@@ -29318,7 +29318,7 @@
     },
     "769": {
       "Id": 769,
-      "Name": "事６９",
+      "ambition": 2,      "Name": "事６９",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "６９",
@@ -29351,7 +29351,7 @@
     },
     "770": {
       "Id": 770,
-      "Name": "事７０",
+      "ambition": 2,      "Name": "事７０",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７０",
@@ -29384,7 +29384,7 @@
     },
     "771": {
       "Id": 771,
-      "Name": "事７１",
+      "ambition": 2,      "Name": "事７１",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７１",
@@ -29417,7 +29417,7 @@
     },
     "772": {
       "Id": 772,
-      "Name": "事７２",
+      "ambition": 2,      "Name": "事７２",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７２",
@@ -29450,7 +29450,7 @@
     },
     "773": {
       "Id": 773,
-      "Name": "事７３",
+      "ambition": 2,      "Name": "事７３",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７３",
@@ -29483,7 +29483,7 @@
     },
     "774": {
       "Id": 774,
-      "Name": "事７４",
+      "ambition": 2,      "Name": "事７４",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７４",
@@ -29516,7 +29516,7 @@
     },
     "775": {
       "Id": 775,
-      "Name": "事７５",
+      "ambition": 2,      "Name": "事７５",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７５",
@@ -29549,7 +29549,7 @@
     },
     "776": {
       "Id": 776,
-      "Name": "事７６",
+      "ambition": 2,      "Name": "事７６",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７６",
@@ -29582,7 +29582,7 @@
     },
     "777": {
       "Id": 777,
-      "Name": "事７７",
+      "ambition": 2,      "Name": "事７７",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７７",
@@ -29615,7 +29615,7 @@
     },
     "778": {
       "Id": 778,
-      "Name": "事７８",
+      "ambition": 2,      "Name": "事７８",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７８",
@@ -29648,7 +29648,7 @@
     },
     "779": {
       "Id": 779,
-      "Name": "事７９",
+      "ambition": 2,      "Name": "事７９",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "７９",
@@ -29681,7 +29681,7 @@
     },
     "780": {
       "Id": 780,
-      "Name": "事８０",
+      "ambition": 2,      "Name": "事８０",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８０",
@@ -29714,7 +29714,7 @@
     },
     "781": {
       "Id": 781,
-      "Name": "事８１",
+      "ambition": 2,      "Name": "事８１",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８１",
@@ -29747,7 +29747,7 @@
     },
     "782": {
       "Id": 782,
-      "Name": "事８２",
+      "ambition": 2,      "Name": "事８２",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８２",
@@ -29780,7 +29780,7 @@
     },
     "783": {
       "Id": 783,
-      "Name": "事８３",
+      "ambition": 2,      "Name": "事８３",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８３",
@@ -29813,7 +29813,7 @@
     },
     "784": {
       "Id": 784,
-      "Name": "事８４",
+      "ambition": 2,      "Name": "事８４",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８４",
@@ -29846,7 +29846,7 @@
     },
     "785": {
       "Id": 785,
-      "Name": "事８５",
+      "ambition": 2,      "Name": "事８５",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８５",
@@ -29879,7 +29879,7 @@
     },
     "786": {
       "Id": 786,
-      "Name": "事８６",
+      "ambition": 2,      "Name": "事８６",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８６",
@@ -29912,7 +29912,7 @@
     },
     "787": {
       "Id": 787,
-      "Name": "事８７",
+      "ambition": 2,      "Name": "事８７",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８７",
@@ -29945,7 +29945,7 @@
     },
     "788": {
       "Id": 788,
-      "Name": "事８８",
+      "ambition": 2,      "Name": "事８８",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８８",
@@ -29978,7 +29978,7 @@
     },
     "789": {
       "Id": 789,
-      "Name": "事８９",
+      "ambition": 2,      "Name": "事８９",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "８９",
@@ -30011,7 +30011,7 @@
     },
     "790": {
       "Id": 790,
-      "Name": "事９０",
+      "ambition": 2,      "Name": "事９０",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９０",
@@ -30044,7 +30044,7 @@
     },
     "791": {
       "Id": 791,
-      "Name": "事９１",
+      "ambition": 2,      "Name": "事９１",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９１",
@@ -30077,7 +30077,7 @@
     },
     "792": {
       "Id": 792,
-      "Name": "事９２",
+      "ambition": 2,      "Name": "事９２",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９２",
@@ -30110,7 +30110,7 @@
     },
     "793": {
       "Id": 793,
-      "Name": "事９３",
+      "ambition": 2,      "Name": "事９３",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９３",
@@ -30143,7 +30143,7 @@
     },
     "794": {
       "Id": 794,
-      "Name": "事９４",
+      "ambition": 2,      "Name": "事９４",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９４",
@@ -30176,7 +30176,7 @@
     },
     "795": {
       "Id": 795,
-      "Name": "事９５",
+      "ambition": 2,      "Name": "事９５",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９５",
@@ -30209,7 +30209,7 @@
     },
     "796": {
       "Id": 796,
-      "Name": "事９６",
+      "ambition": 2,      "Name": "事９６",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９６",
@@ -30242,7 +30242,7 @@
     },
     "797": {
       "Id": 797,
-      "Name": "事９７",
+      "ambition": 2,      "Name": "事９７",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９７",
@@ -30275,7 +30275,7 @@
     },
     "798": {
       "Id": 798,
-      "Name": "事９８",
+      "ambition": 2,      "Name": "事９８",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９８",
@@ -30308,7 +30308,7 @@
     },
     "799": {
       "Id": 799,
-      "Name": "事９９",
+      "ambition": 2,      "Name": "事９９",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "９９",
@@ -30341,7 +30341,7 @@
     },
     "800": {
       "Id": 800,
-      "Name": "事Ａ０",
+      "ambition": 2,      "Name": "事Ａ０",
       "BelongCity": 0,
       "familyName": "事",
       "giveName": "Ａ０",
@@ -30374,7 +30374,7 @@
     },
     "801": {
       "Id": 801,
-      "Name": "孔丘",
+      "ambition": 0,      "Name": "孔丘",
       "BelongCity": 0,
       "familyName": "孔",
       "giveName": "丘",
@@ -30418,7 +30418,7 @@
     },
     "802": {
       "Id": 802,
-      "Name": "孙膑",
+      "ambition": 1,      "Name": "孙膑",
       "BelongCity": 0,
       "familyName": "孙",
       "giveName": "膑",
@@ -30457,7 +30457,7 @@
     },
     "803": {
       "Id": 803,
-      "Name": "张仪",
+      "ambition": 3,      "Name": "张仪",
       "BelongCity": 0,
       "familyName": "张",
       "giveName": "仪",
@@ -30493,7 +30493,7 @@
     },
     "804": {
       "Id": 804,
-      "Name": "乐毅",
+      "ambition": 1,      "Name": "乐毅",
       "BelongCity": 0,
       "familyName": "乐",
       "giveName": "毅",
@@ -30533,7 +30533,7 @@
     },
     "805": {
       "Id": 805,
-      "Name": "蔺相如",
+      "ambition": 0,      "Name": "蔺相如",
       "BelongCity": 0,
       "familyName": "蔺",
       "giveName": "相如",
@@ -30575,7 +30575,7 @@
     },
     "806": {
       "Id": 806,
-      "Name": "白起",
+      "ambition": 0,      "Name": "白起",
       "BelongCity": 0,
       "familyName": "白",
       "giveName": "起",
@@ -30611,7 +30611,7 @@
     },
     "807": {
       "Id": 807,
-      "Name": "赢政",
+      "ambition": 4,      "Name": "赢政",
       "BelongCity": 0,
       "familyName": "赢",
       "giveName": "政",
@@ -30651,7 +30651,7 @@
     },
     "808": {
       "Id": 808,
-      "Name": "李斯",
+      "ambition": 3,      "Name": "李斯",
       "BelongCity": 0,
       "familyName": "李",
       "giveName": "斯",
@@ -30690,7 +30690,7 @@
     },
     "809": {
       "Id": 809,
-      "Name": "王翦",
+      "ambition": 1,      "Name": "王翦",
       "BelongCity": 0,
       "familyName": "王",
       "giveName": "翦",
@@ -30731,7 +30731,7 @@
     },
     "810": {
       "Id": 810,
-      "Name": "蒙恬",
+      "ambition": 1,      "Name": "蒙恬",
       "BelongCity": 0,
       "familyName": "蒙",
       "giveName": "恬",
@@ -30770,7 +30770,7 @@
     },
     "811": {
       "Id": 811,
-      "Name": "项籍",
+      "ambition": 4,      "Name": "项籍",
       "BelongCity": 0,
       "familyName": "项",
       "giveName": "籍",
@@ -30810,7 +30810,7 @@
     },
     "812": {
       "Id": 812,
-      "Name": "范增",
+      "ambition": 2,      "Name": "范增",
       "BelongCity": 0,
       "familyName": "范",
       "giveName": "增",
@@ -30849,7 +30849,7 @@
     },
     "813": {
       "Id": 813,
-      "Name": "英布",
+      "ambition": 3,      "Name": "英布",
       "BelongCity": 0,
       "familyName": "英",
       "giveName": "布",
@@ -30885,7 +30885,7 @@
     },
     "814": {
       "Id": 814,
-      "Name": "刘邦",
+      "ambition": 4,      "Name": "刘邦",
       "BelongCity": 0,
       "familyName": "刘",
       "giveName": "邦",
@@ -30927,7 +30927,7 @@
     },
     "815": {
       "Id": 815,
-      "Name": "张良",
+      "ambition": 0,      "Name": "张良",
       "BelongCity": 0,
       "familyName": "张",
       "giveName": "良",
@@ -30968,7 +30968,7 @@
     },
     "816": {
       "Id": 816,
-      "Name": "韩信",
+      "ambition": 1,      "Name": "韩信",
       "BelongCity": 0,
       "familyName": "韩",
       "giveName": "信",
@@ -31007,7 +31007,7 @@
     },
     "817": {
       "Id": 817,
-      "Name": "彭越",
+      "ambition": 3,      "Name": "彭越",
       "BelongCity": 0,
       "familyName": "彭",
       "giveName": "越",
@@ -31044,7 +31044,7 @@
     },
     "818": {
       "Id": 818,
-      "Name": "霍去病",
+      "ambition": 1,      "Name": "霍去病",
       "BelongCity": 0,
       "familyName": "霍",
       "giveName": "去病",
@@ -31080,7 +31080,7 @@
     },
     "819": {
       "Id": 819,
-      "Name": "杨大眼",
+      "ambition": 2,      "Name": "杨大眼",
       "BelongCity": 0,
       "familyName": "杨",
       "giveName": "大眼",
@@ -31120,7 +31120,7 @@
     },
     "820": {
       "Id": 820,
-      "Name": "陈庆之",
+      "ambition": 2,      "Name": "陈庆之",
       "BelongCity": 0,
       "familyName": "陈",
       "giveName": "庆之",
@@ -31157,7 +31157,7 @@
     },
     "821": {
       "Id": 821,
-      "Name": "高长恭",
+      "ambition": 2,      "Name": "高长恭",
       "BelongCity": 0,
       "familyName": "高",
       "giveName": "长恭",
@@ -31196,7 +31196,7 @@
     },
     "822": {
       "Id": 822,
-      "Name": "李绩",
+      "ambition": 2,      "Name": "李绩",
       "BelongCity": 0,
       "familyName": "李",
       "giveName": "绩",
@@ -31233,7 +31233,7 @@
     },
     "823": {
       "Id": 823,
-      "Name": "秦琼",
+      "ambition": 1,      "Name": "秦琼",
       "BelongCity": 0,
       "familyName": "秦",
       "giveName": "琼",
@@ -31273,7 +31273,7 @@
     },
     "824": {
       "Id": 824,
-      "Name": "尉迟恭",
+      "ambition": 0,      "Name": "尉迟恭",
       "BelongCity": 0,
       "familyName": "尉迟",
       "giveName": "恭",
@@ -31313,7 +31313,7 @@
     },
     "825": {
       "Id": 825,
-      "Name": "岳飞",
+      "ambition": 0,      "Name": "岳飞",
       "BelongCity": 0,
       "familyName": "岳",
       "giveName": "飞",
@@ -31357,7 +31357,7 @@
     },
     "826": {
       "Id": 826,
-      "Name": "秦良玉",
+      "ambition": 1,      "Name": "秦良玉",
       "BelongCity": 0,
       "familyName": "秦",
       "giveName": "良玉",
@@ -31397,7 +31397,7 @@
     },
     "827": {
       "Id": 827,
-      "Name": "郑成功",
+      "ambition": 3,      "Name": "郑成功",
       "BelongCity": 0,
       "familyName": "郑",
       "giveName": "成功",
@@ -31437,7 +31437,7 @@
     },
     "828": {
       "Id": 828,
-      "Name": "管夷吾",
+      "ambition": 4,      "Name": "管夷吾",
       "BelongCity": 0,
       "familyName": "管",
       "giveName": "夷吾",
@@ -31479,7 +31479,7 @@
     },
     "829": {
       "Id": 829,
-      "Name": "鲍叔牙",
+      "ambition": 0,      "Name": "鲍叔牙",
       "BelongCity": 0,
       "familyName": "鲍",
       "giveName": "叔牙",
@@ -31518,7 +31518,7 @@
     },
     "830": {
       "Id": 830,
-      "Name": "吕尚",
+      "ambition": 2,      "Name": "吕尚",
       "BelongCity": 0,
       "familyName": "吕",
       "giveName": "尚",
@@ -31557,7 +31557,7 @@
     },
     "831": {
       "Id": 831,
-      "Name": "吴起",
+      "ambition": 4,      "Name": "吴起",
       "BelongCity": 0,
       "familyName": "吴",
       "giveName": "起",
@@ -31596,7 +31596,7 @@
     },
     "832": {
       "Id": 832,
-      "Name": "萧何",
+      "ambition": 1,      "Name": "萧何",
       "BelongCity": 0,
       "familyName": "萧",
       "giveName": "何",

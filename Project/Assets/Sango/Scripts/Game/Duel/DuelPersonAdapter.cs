@@ -192,9 +192,8 @@ namespace Sango.Core.Duel
             if (Resolver != null)
                 return Resolver(person);
 
-            int kind = person.mPersonality != null ? person.mPersonality.kind : 0;
-            if (kind <= 0)
-                kind = person.PersonalityId;
+            // 只读性格对象上的 kind，不再回退到 PersonalityId —— 性格判定统一走内嵌属性
+            int kind = person.PersonalityKind;
 
             if (PersonalityMap.TryGetValue(kind, out DuelPersonality mapped))
                 return mapped;

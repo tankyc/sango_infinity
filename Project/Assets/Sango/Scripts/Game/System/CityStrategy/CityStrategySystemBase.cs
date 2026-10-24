@@ -106,9 +106,14 @@ namespace Sango.Core.Player
         public int JobGoldCost => JobType.GetJobCost((int)StrategyJob);
 
         /// <summary>
-        /// 本计略的行动力消耗，供窗口读取
+        /// 本计略的行动力消耗，供窗口读取。
+        ///
+        /// 走本城口径：计略府可让三项计略的行动力减半
+        /// （原版 s11_sys_person_order_strategy.cpp 各命令的 AP 计算处）。
         /// </summary>
-        public int JobActionPointCost => JobType.GetJobCostAP((int)StrategyJob);
+        public int JobActionPointCost => TargetCity != null
+            ? TargetCity.GetJobCostAP(StrategyJob)
+            : JobType.GetJobCostAP((int)StrategyJob);
 
         /// <summary>
         /// 菜单项是否可用：出发城有效、本城有空闲武将、行动力与金钱够、且存在足够多的合法目标

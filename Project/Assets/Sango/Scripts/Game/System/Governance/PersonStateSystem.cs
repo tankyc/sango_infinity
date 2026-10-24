@@ -533,6 +533,8 @@ namespace Sango.Core
 
             person.OnWillBeCaptive();
             person.ClearMission();
+            // 关押计时归零 —— 对齐 Open311 的 prison_timer_（入狱即 0，每月 +1）
+            person.prisonTimer = 0;
 
             // 从原部队摘除必须经部队接口，直接置空会留下双向不一致。
             // 注意捕获者本身可能就是这支部队，摘完要重新挂回去，故这里排除 troop==oldTroop。

@@ -68,6 +68,21 @@ namespace Sango.Core
             if (city.IsInteriorBuildFull())
                 return null;
 
+            // 【原版权重表优先】对齐 Open311 的 dev_ai_select_facility_id
+            // （s11_game_ai_kyoten_cmd_dev_ai.cpp:372-653）。
+            // 原版按"城特产 + 据点四态 + 已有设施数 vs 硬上限 + 金够不够"做加权随机，
+            // 与本类原先的"粮 / 金缺口驱动"是两套判据。
+            // 本项目不实现选址（内政地按顺序填），但"建什么"完全可对齐。
+            if (AIConfig.Instance.useOutpostBuildRule)
+            {
+                BuildingType byRule = PickNextBuildingByOutpostRule(city, scenario);
+                if (byRule != null)
+                    return byRule;
+                // 原版规则判定"当前没有该建的"（钱不够 / 全到上限 / 禁建）→ 直接返回，
+                // 不再回退到缺口驱动，否则等于绕过原版的 max 压制。
+                return null;
+            }
+
             DemandContext ctx = BuildContext(city, scenario, w);
 
             // 调试日志（Error 级别）：只在真正选出目标时收集并输出，
@@ -81,6 +96,356 @@ namespace Sango.Core
                 LogBuildPlan(city, scenario, best, ctx, logCandidates);
 
             return best;
+        }
+
+        /// <summary>
+        /// 按 Open311 的据点内政权重表选"下一个该建什么"。
+        ///
+        /// 对齐出处：s11_game_ai_kyoten_cmd_dev_ai.cpp:372-653 dev_ai_select_facility_id。
+        /// 三段结构照搬：
+        ///   ① 金 &lt; 200 且能建黑市且月份 ≤ 8 → 直接建黑市
+        ///   ② 内政未达最低配置 → 只在缺项里加权挑（weight = 最低配置 − 现有数）
+        ///   ③ 已达最低配置 → 常规权重表 + 7 项修正 + max 压制 + 金过滤 → 加权随机
+        /// <para>
+        /// 【未搬的两处】原版"邻域已满则禁建同类、改为升级"依赖自由选址的邻接统计，
+        /// 本项目内政地按顺序填、没有邻域概念，改用"同类数量 ≥ 2 即视为到顶"；
+        /// 城特技（指导 / 论客）相关的加成未接（需先把 Feature 语义固化）。
+        /// </para>
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>要建的建筑类型；原版判定不该建时返回 null</returns>
+        public static BuildingType PickNextBuildingByOutpostRule(City city, Scenario scenario)
+        {
+            if (city == null || scenario == null || city.BelongForce == null)
+                return null;
+            if (city.IsInteriorBuildFull())
+                return null;
+
+            int[] count = new int[CityFacilityRequirement.KindArraySize];
+            CityFacilityRequirement.CountGovFacility(city, count);
+
+            // ---- ① 黑市：金 <200 且够造价、空位比最低配置多、月份 ≤8 —— :386-401
+            const int kindBlackMarket = (int)InteriorFacilityKind.BlackMarket;
+            if (city.gold < 200)
+            {
+                BuildingType blackMarket = GetFacilityType(scenario, kindBlackMarket);
+                if (blackMarket != null && city.gold >= blackMarket.cost)
+                {
+                    int[] minTmp = new int[CityFacilityRequirement.KindArraySize];
+                    CityFacilityRequirement.GetMinGovFacilityCount(city, minTmp);
+                    int minSum = 0;
+                    for (int i = 0; i < minTmp.Length; i++)
+                        minSum += minTmp[i];
+                    // 原版判据：黑市数量 < 内政地总数 − 最低配置总数
+                    // （意思是"建了黑市之后，剩下的地还够把必需设施补齐"）
+                    int devCount = city.interiorCellList != null ? city.interiorCellList.Count : 0;
+                    if (count[kindBlackMarket] < devCount - minSum)
+                    {
+                        int month = scenario.Info != null ? scenario.Info.month : 1;
+                        if (month <= 8)
+                            return blackMarket;
+                    }
+                }
+            }
+
+            int[] weight = new int[CityFacilityRequirement.KindArraySize];
+
+            // ---- ② 内政未达最低配置：只在缺项里挑 —— :404-437
+            if (!CityFacilityRequirement.MeetsMinGovFacilityCount(city))
+            {
+                int[] min = new int[CityFacilityRequirement.KindArraySize];
+                CityFacilityRequirement.GetMinGovFacilityCount(city, min);
+                for (int i = 0; i < weight.Length; i++)
+                {
+                    if (min[i] <= count[i])
+                        continue;
+                    weight[i] = 1;
+                }
+                // 钱不够的剔除（对应 check_gold_cost）
+                ClearUnaffordable(weight, city, scenario);
+                return ChooseWeighted(weight, scenario);
+            }
+
+            // ---- ③ 常规权重表 —— :439-652
+            int[] max = new int[CityFacilityRequirement.KindArraySize];
+            for (int i = 0; i < max.Length; i++)
+                max[i] = -1;                    // -1 = 不限
+
+            max[(int)InteriorFacilityKind.Barracks] = 2;
+            max[(int)InteriorFacilityKind.Smith] = 2;
+            max[(int)InteriorFacilityKind.Stable] = 2;
+            max[(int)InteriorFacilityKind.Workshop] = 1;
+            max[(int)InteriorFacilityKind.Shipyard] = 1;
+            max[(int)InteriorFacilityKind.Mint] = 1;
+            max[(int)InteriorFacilityKind.Garner] = 1;
+            max[(int)InteriorFacilityKind.TallyOffice] = 1;
+            max[(int)InteriorFacilityKind.MilitaryOffice] = 1;
+            max[(int)InteriorFacilityKind.PersonnelOffice] = 1;
+            max[(int)InteriorFacilityKind.DiplomaticOffice] = 1;
+            max[(int)InteriorFacilityKind.StrategemOffice] = 1;
+            max[(int)InteriorFacilityKind.TrainingSchool] = 1;
+            max[(int)InteriorFacilityKind.CentralMarket] = 1;
+            max[(int)InteriorFacilityKind.FishMarket] = 1;
+            max[kindBlackMarket] = 0;           // 恒禁（只在分支①特批）
+            max[(int)InteriorFacilityKind.MilitaryFarm] = 1;
+
+            weight[(int)InteriorFacilityKind.Market] = 10;
+            weight[(int)InteriorFacilityKind.Farm] = 10;
+            weight[(int)InteriorFacilityKind.Barracks] = 10;
+            weight[(int)InteriorFacilityKind.Smith] = 4;
+            weight[(int)InteriorFacilityKind.Stable] = 4;
+            weight[(int)InteriorFacilityKind.Workshop] = 4;
+            weight[(int)InteriorFacilityKind.Shipyard] = 6;
+            weight[(int)InteriorFacilityKind.Mint] = 1;
+            weight[(int)InteriorFacilityKind.Garner] = 1;
+            weight[(int)InteriorFacilityKind.TallyOffice] = 0;
+            weight[(int)InteriorFacilityKind.MilitaryOffice] = 1;
+            weight[(int)InteriorFacilityKind.PersonnelOffice] = 1;
+            weight[(int)InteriorFacilityKind.DiplomaticOffice] = 0;
+            weight[(int)InteriorFacilityKind.StrategemOffice] = 0;
+            weight[(int)InteriorFacilityKind.TrainingSchool] = 2;
+            weight[(int)InteriorFacilityKind.CentralMarket] = 10;
+            weight[(int)InteriorFacilityKind.FishMarket] = 10;
+            weight[(int)InteriorFacilityKind.MilitaryFarm] = 10;
+
+            // 城特产修正 —— :508-517
+            switch (city.specialty)
+            {
+                case 0:     // 枪
+                case 1:     // 戟
+                case 2:     // 弩
+                    weight[(int)InteriorFacilityKind.Smith] = 10;
+                    break;
+                case 3:     // 马
+                    weight[(int)InteriorFacilityKind.Stable] = 6;
+                    break;
+                case 4:     // 兵器
+                    weight[(int)InteriorFacilityKind.Workshop] = 10;
+                    break;
+                case 5:     // 水军
+                    weight[(int)InteriorFacilityKind.Shipyard] = 9;
+                    break;
+                default:    // 6 大都市
+                    weight[(int)InteriorFacilityKind.Barracks] = 12;
+                    break;
+            }
+
+            // 【符节台按俘虏数量加权】
+            // 【偏离原版】原版（s11_game_ai_kyoten_cmd_dev_ai.cpp:519-521）是
+            // "有俘虏即 +9"，不随数量变化。
+            // 本项目把符节台的效果收窄为"**仅影响俘虏的掉忠**"之后，
+            // 它的价值与关押人数直接相关，因此改为按数量加权：
+            // 每名俘虏 +3、封顶 +15（3 人时即为原版的 +9 强度，6 人封顶）。
+            int captiveCount = city.captiveList != null ? city.captiveList.Count : 0;
+            if (captiveCount > 0)
+                weight[(int)InteriorFacilityKind.TallyOffice] += System.Math.Min(captiveCount * 3, 15);
+
+            // 已有造船厂 → 炼兵所 +3 —— :561-563
+            if (count[(int)InteriorFacilityKind.Shipyard] > 0)
+                weight[(int)InteriorFacilityKind.TrainingSchool] += 3;
+
+            // ---- max 压制 —— :565-616
+            // 原版判"Lv3 已有 或 Lv1/Lv2 邻域已满"；本项目无邻域，等价为"已有 2 座即到顶"
+            if (count[(int)InteriorFacilityKind.Barracks] >= 2)
+                max[(int)InteriorFacilityKind.Barracks] = 0;
+            if (count[(int)InteriorFacilityKind.Smith] >= 2)
+                max[(int)InteriorFacilityKind.Smith] = 0;
+            if (count[(int)InteriorFacilityKind.Stable] >= 2)
+                max[(int)InteriorFacilityKind.Stable] = 0;
+
+            OutpostInfo info = OutpostRuntime.Find(city.Id);
+            bool isRear = info != null && info.state == OutpostState.Rear;
+            bool isFront = info != null && info.state == OutpostState.Front;
+
+            // 后方且非特产地：不建厩舍 / 工房 —— :580-586
+            if (isRear && city.specialty != 3)
+                max[(int)InteriorFacilityKind.Stable] = 0;
+            if (isRear && city.specialty != 4)
+                max[(int)InteriorFacilityKind.Workshop] = 0;
+
+            // 无港口 → 不建造船厂 —— :588-601
+            if (city.portList == null || city.portList.Count == 0)
+                max[(int)InteriorFacilityKind.Shipyard] = 0;
+
+            // 非前线 → 不建军事府 / 炼兵所 —— :603-608
+            if (!isFront)
+            {
+                max[(int)InteriorFacilityKind.MilitaryOffice] = 0;
+                max[(int)InteriorFacilityKind.TrainingSchool] = 0;
+            }
+
+            // 兵力 <15000 → 不建军屯农 —— :610-612
+            if (city.troops < 15000)
+                max[(int)InteriorFacilityKind.MilitaryFarm] = 0;
+
+            // 无谷仓 + 农场 ≥3 → 谷仓权重拉到 10 —— :614-616
+            if (count[(int)InteriorFacilityKind.Garner] == 0 && count[(int)InteriorFacilityKind.Farm] >= 3)
+                weight[(int)InteriorFacilityKind.Garner] = 10;
+
+            // 玩家军团设置 —— :629-631（原版按委任关掉某些项）
+            CheckPlayerCorpsSetting(weight, max, city);
+
+            // 已达上限的种类清零 —— :639-644
+            // 【硬约束】这一步之后，需求修正**不能**把被清零的项救回来。
+            for (int i = 0; i < weight.Length; i++)
+            {
+                if (max[i] >= 0 && count[i] >= max[i])
+                    weight[i] = 0;
+            }
+
+            // ---- 需求修正：把 Sango 的缺口驱动叠加到原版权重上 ----
+            // 【为什么只改市场 / 农场】原版这两项 max = -1（无上限）、权重恒为 10，
+            // 实际唯一决定因素就是"内政地还没满" —— 这是原版权重表最粗的一处。
+            // 其余 17 项都有 max 与特产加权，描述的是"这座城该有什么"，属结构性偏好，
+            // 按缺口去改会让兵器特产的城在缺粮时跑去建农场，破坏原版设计。
+            //
+            // 【边界】只缩放仍 > 0 的项；0 权重（被 max / 禁建清掉的）不会被救回。
+            if (AIConfig.Instance.useDemandCorrection)
+            {
+                BuildingPlanWeights w = GetWeights();
+                if (w != null)
+                {
+                    DemandContext ctx = BuildContext(city, scenario, w);
+                    int market = (int)InteriorFacilityKind.Market;
+                    int farm = (int)InteriorFacilityKind.Farm;
+                    if (weight[market] > 0)
+                        weight[market] = ScaleWeight(weight[market], DemandFactor(ctx.goldNeed, city.gold));
+                    if (weight[farm] > 0)
+                        weight[farm] = ScaleWeight(weight[farm], DemandFactor(ctx.foodNeed, city.food));
+                }
+            }
+
+            // 钱不够的清零 —— :646-647
+            ClearUnaffordable(weight, city, scenario);
+
+            return ChooseWeighted(weight, scenario);
+        }
+
+        /// <summary>
+        /// 按缺口给权重乘一个系数。缺口越大越优先，绝对富余时降权（但不归零 ——
+        /// 原版市场 / 农场无上限，只靠权重决定，降到 0 会让"地很多但暂时不缺"的城停止建设）。
+        /// </summary>
+        /// <param name="need">年缺口（&gt; 0 表示缺）</param>
+        /// <param name="stock">现有存量</param>
+        /// <returns>倍率（0.5 ~ 2.0）</returns>
+        static float DemandFactor(int need, int stock)
+        {
+            if (need <= 0)
+                return 0.5f;        // 绝对富余 → 降权一半
+            if (stock <= 0)
+                return 2.0f;        // 库存见底 → 加倍
+            if (need > stock)
+                return 1.5f;        // 缺口大于存量 → 加权
+            return 1.2f;            // 有缺口 → 略加权
+        }
+
+        /// <summary>
+        /// 按倍率缩放权重，结果至少为 1（保证原本 &gt; 0 的项不会因取整被抹成 0）。
+        /// </summary>
+        /// <param name="weight">原权重</param>
+        /// <param name="factor">倍率</param>
+        /// <returns>新权重</returns>
+        static int ScaleWeight(int weight, float factor)
+        {
+            if (weight <= 0)
+                return 0;
+            int scaled = (int)(weight * factor + 0.5f);
+            return scaled > 0 ? scaled : 1;
+        }
+
+        /// <summary>
+        /// 把"钱不够造价"的种类权重清零。对齐 dev_ai.cpp:683-690 的 check_gold_cost。
+        /// </summary>
+        /// <param name="weight">权重数组</param>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        static void ClearUnaffordable(int[] weight, City city, Scenario scenario)
+        {
+            for (int i = 0; i < weight.Length; i++)
+            {
+                if (weight[i] <= 0)
+                    continue;
+                BuildingType type = GetFacilityType(scenario, i);
+                if (type == null || city.gold < type.cost)
+                    weight[i] = 0;
+            }
+        }
+
+        /// <summary>
+        /// 玩家子军团按委任关掉对应设施。对齐 dev_ai.cpp:692-763 的 check_player_district_settings。
+        /// </summary>
+        /// <param name="weight">权重数组（此处只清 max）</param>
+        /// <param name="max">上限数组</param>
+        /// <param name="city">城市对象</param>
+        static void CheckPlayerCorpsSetting(int[] weight, int[] max, City city)
+        {
+            if (city.BelongForce == null || !city.BelongForce.IsPlayer)
+                return;
+            Corps corps = city.BelongCorps;
+            if (corps == null)
+                return;
+
+            if (corps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
+            {
+                max[(int)InteriorFacilityKind.Farm] = 0;
+                max[(int)InteriorFacilityKind.Garner] = 0;
+            }
+            if (corps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
+                max[(int)InteriorFacilityKind.Barracks] = 0;
+            if (corps.GetAppointValue(Corps.AppointContentType.MakeItem_Horse) == 1)
+                max[(int)InteriorFacilityKind.Stable] = 0;
+            if (corps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1
+                || corps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1
+                || corps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1)
+                max[(int)InteriorFacilityKind.Smith] = 0;
+            if (corps.GetAppointValue(Corps.AppointContentType.MakeItem_Boat) == 1)
+                max[(int)InteriorFacilityKind.Shipyard] = 0;
+            if (corps.GetAppointValue(Corps.AppointContentType.MakeItem_Machine) == 1)
+                max[(int)InteriorFacilityKind.Workshop] = 0;
+        }
+
+        /// <summary>
+        /// 加权随机选一个种类。对齐 dev_ai.cpp:870-889 的 ai_table_choice。
+        /// </summary>
+        /// <param name="weight">权重数组</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>选中的建筑类型；权重全 0 时返回 null</returns>
+        static BuildingType ChooseWeighted(int[] weight, Scenario scenario)
+        {
+            int total = 0;
+            for (int i = 0; i < weight.Length; i++)
+                total += weight[i];
+            if (total <= 0)
+                return null;
+
+            int roll = GameRandom.Range(0, total);
+            for (int i = 0; i < weight.Length; i++)
+            {
+                if (weight[i] <= 0)
+                    continue;
+                roll -= weight[i];
+                if (roll < 0)
+                    return GetFacilityType(scenario, i);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 按内政设施 kind 取 Lv1 的建筑类型。
+        /// 本项目 <c>BuildingTypes.json</c> 里 Lv1 条目的 Id 与 kind 相同（32~50），Lv2/Lv3 是 51~64。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="kind">设施种类</param>
+        /// <returns>建筑类型；不存在返回 null</returns>
+        static BuildingType GetFacilityType(Scenario scenario, int kind)
+        {
+            if (scenario == null)
+                return null;
+            BuildingType type = scenario.GetObject<BuildingType>(kind);
+            if (type == null || type.level != 1)
+                return null;
+            return type;
         }
 
         /// <summary>

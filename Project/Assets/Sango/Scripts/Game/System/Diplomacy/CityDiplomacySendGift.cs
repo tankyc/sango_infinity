@@ -28,7 +28,11 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.SendGift) && TargetCity.gold >= 1000;
+                // 资金门槛必须与 DoJob 的实际扣费同源（外交府可让亲善资金减半），
+                // 原先写死 `gold >= 1000`，与扣费值不同源。
+                return TargetCity.freePersons.Count > 0
+                    && TargetCity.BelongCorps.ActionPoint >= TargetCity.GetJobCostAP(CityJobType.SendGift)
+                    && TargetCity.gold >= TargetCity.GetJobCost(CityJobType.SendGift);
             }
         }
 
@@ -56,7 +60,10 @@ namespace Sango.Core.Player
                 return;
 
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.SendGift, TargetCity.BelongForce, targetForces[0], personList[0], JobType.GetJobCost((int)CityJobType.SendGift));
+            // 走本城口径：外交府可让亲善资金减半
+            DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(
+                DiplomacyActionType.SendGift, TargetCity.BelongForce, targetForces[0], personList[0],
+                TargetCity.GetJobCost(CityJobType.SendGift));
             diplomacyManager.DispatchDiplomat(action);
             GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", () =>
             {

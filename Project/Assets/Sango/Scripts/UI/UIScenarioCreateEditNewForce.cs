@@ -173,8 +173,18 @@ namespace Sango.UI
                 rankText.text = selectedTitle != null ? selectedTitle.Name : "无";
 
             // 国号
+            // 【修正】原先显示 `defaultNationName`，而该字段只声明、从未赋值 ——
+            // 国号一栏恒为空。改为从 `CommonData.Nations` 按 `newForceData.Nation` 取真实数据。
+            if (newForceData.Nation <= 0)
+                newForceData.Nation = PickAvailableNation();
+
             if (nationText != null)
-                nationText.text = defaultNationName;
+            {
+                Nation nation = (commonData != null && commonData.Nations != null)
+                    ? commonData.Nations.Get(newForceData.Nation)
+                    : null;
+                nationText.text = nation != null ? nation.Name : "无";
+            }
 
             // 君主头像
             RefreshAvatar();
@@ -209,6 +219,55 @@ namespace Sango.UI
                 }
             }
             avatarImage.enabled = false;
+        }
+
+        /// <summary>
+        /// 挑一个尚未被占用的国号。
+        ///
+        /// 对齐 Open311 `nation_get_available_id`：从**史实国号**（`isHistorical == 1`）里
+        /// 按 `fame` 从高到低取第一个未被本剧本任何势力使用的；
+        /// 若史实国号用尽，再退到备用国号（儐系列），最后返回 0（未定国号）。
+        /// </summary>
+        /// <returns>国号 Id；找不到返回 0</returns>
+        int PickAvailableNation()
+        {
+            if (commonData == null || commonData.Nations == null)
+                return 0;
+
+            // 已被占用的国号（含剧本原有势力与已创建的自建势力）
+            HashSet<int> used = new HashSet<int>();
+            ShortScenario cur = ShortScenario.CurSelected;
+            if (cur != null && cur.forceSet != null)
+            {
+                cur.forceSet.ForEach(x =>
+                {
+                    if (x != null && x.Nation > 0)
+                        used.Add(x.Nation);
+                });
+            }
+
+            Nation best = null;
+            Nation fallback = null;
+            commonData.Nations.ForEach(n =>
+            {
+                if (n == null || used.Contains(n.Id))
+                    return;
+
+                if (n.isHistorical == 1)
+                {
+                    if (best == null || n.fame > best.fame)
+                        best = n;
+                }
+                else if (n.Id >= 43)     // 备用国号（儐系列）
+                {
+                    if (fallback == null || n.fame > fallback.fame)
+                        fallback = n;
+                }
+            });
+
+            if (best != null) return best.Id;
+            if (fallback != null) return fallback.Id;
+            return 0;
         }
 
         /// <summary>

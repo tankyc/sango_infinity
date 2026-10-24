@@ -346,6 +346,14 @@ namespace Sango.Core
                 {
                     durability = 0;
                     Render?.UpdateRender();
+
+                    // 【关系值：设施被摧毁】压到 15 地板
+                    // 对齐 s11_sys_scen_building.cpp:372-382（与城池陷落、部队击破同构）。
+                    // 城池（City）不在这里处理 —— 它自己的 `OnFall` 已扣过一次，
+                    // 重复调用会把"压到 15"变成"再 -1"，语义错位。
+                    if (atk is Troop atkTroop && !(this is City))
+                        DiplomacyRules.ApplyHostilityPenalty(atkTroop.BelongForce, BelongForce);
+
                     OnFall(atk);
                     return true;
                 }

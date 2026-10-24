@@ -57,13 +57,15 @@ namespace Sango.Core
                 Probability = 5,
                 Effect = (sender, receiver) =>
                 {
-                    // 增加关系
-                    DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                    diplomacyManager.AddRelation(sender, receiver, 50);
+                    // 【改为 like 尺度】原先 `AddRelation(+50 raw)`，而 GetLike 是
+                    // `50 + RelationMap/100`（整数除法）—— +50 raw 只有 +0.5 like，
+                    // 除下来**实际为 0**，事件看起来毫无效果。
+                    // 现按 like 直接 +5（相当于原版"送礼级别"的一次善意）。
+                    sender.AddLike(receiver, 5);
                     // 添加日志记录
-                    string message = $"{receiver.ColorName}派遣使者访问{sender.ColorName}，带来了友好的问候，关系增加了50点！";
+                    string message = $"{receiver.ColorName}派遣使者访问{sender.ColorName}，带来了友好的问候，关系有所改善！";
                     PlayerMessage.AddTextMessage(message, sender, sender.CapitalCity.x, sender.CapitalCity.y);
-                    Sango.Log.Info($"@外交事件@{receiver.Name} 的使者访问了 {sender.Name}，关系增加了50点！");
+                    Sango.Log.Info($"@外交事件@{receiver.Name} 的使者访问了 {sender.Name}，友好度 +5");
                 }
             });
 
@@ -77,14 +79,13 @@ namespace Sango.Core
                 Probability = 8,
                 Effect = (sender, receiver) =>
                 {
-                    // 减少关系
-                    DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-                    diplomacyManager.ReduceRelation(sender, receiver, 100);
+                    // 【改为 like 尺度】原先 -100 raw（≈ -1 like），现按 like 直接 -1（语义等价但更明确）
+                    sender.AddLike(receiver, -1);
                     // 添加日志记录
-                    string message = $"{sender.ColorName}与{receiver.ColorName}在边境发生了冲突，关系减少了100点！";
+                    string message = $"{sender.ColorName}与{receiver.ColorName}在边境发生了冲突，关系有所恶化！";
                     PlayerMessage.AddTextMessage(message, sender, sender.CapitalCity.x, sender.CapitalCity.y);
 
-                    Sango.Log.Info($"@外交事件@{sender.Name} 与 {receiver.Name} 在边境发生了冲突，关系减少了100点！");
+                    Sango.Log.Info($"@外交事件@{sender.Name} 与 {receiver.Name} 在边境发生了冲突，友好度 -1");
                 }
             });
 

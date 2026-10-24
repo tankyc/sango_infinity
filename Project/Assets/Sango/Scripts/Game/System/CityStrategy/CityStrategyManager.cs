@@ -30,9 +30,10 @@ namespace Sango.Core
                     return new CityStrategyActionTwoTigers(sender, fromCity, diplomat, targetCity, targetForceA, targetForceB);
                 case CityStrategyType.Rumor:
                     return new CityStrategyActionRumor(sender, fromCity, diplomat, targetCity, targetForceA);
+                case CityStrategyType.TigerDevour:
+                    return new CityStrategyActionTigerDevour(sender, fromCity, diplomat, targetCity, targetForceA);
                 default:
-                    // 驱虎吞狼等未实现类型：不编造可执行行为，交由调用方按派遣失败处理
-                    Sango.Log.Error($"@计略@计略类型 {strategyType} 本期未实现，无法创建对应行为");
+                    Sango.Log.Error($"@计略@计略类型 {strategyType} 未实现，无法创建对应行为");
                     return null;
             }
         }
@@ -99,7 +100,10 @@ namespace Sango.Core
 
             int jobId = (int)action.JobType;
             int goldCost = JobType.GetJobCost(jobId);
-            int apCost = JobType.GetJobCostAP(jobId);
+            // 走本城口径：计略府可让计略行动力减半（原版 s11_sys_person_order_strategy.cpp 各命令 AP 处）
+            int apCost = action.FromCity != null
+                ? action.FromCity.GetJobCostAP(action.JobType)
+                : JobType.GetJobCostAP(jobId);
             Corps corps = action.FromCity.BelongCorps;
             if (action.FromCity.gold < goldCost)
                 return false;

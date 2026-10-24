@@ -194,12 +194,42 @@ namespace Sango.Core
 #endif
 
         /// <summary>
-        /// 性格
+        /// 性格 Id（存档用索引，**业务代码不要读它做判定**）。
+        ///
+        /// 【约定】性格的一切行为都通过 <see cref="mPersonality"/> 的内嵌属性判断
+        /// （倾向加成 / 执念城市 / 喜爱宝物 …），本字段只用于序列化与数据表定位。
+        /// 需要"性格类型编号"时一律走 <see cref="PersonalityKind"/>。
         /// </summary>
         [JsonProperty("personality")]
         public int PersonalityId;
 
+        /// <summary>
+        /// 性格数据对象（性格判定的唯一入口）。
+        /// </summary>
         public Personality mPersonality;
+
+        /// <summary>
+        /// 性格类型编号（1 胆小 / 2 冷静 / 3 刚胆 / 4 莽撞，新增性格顺延）。
+        ///
+        /// 用途仅限"需要把性格映射到其它子系统的枚举"这一种场景（单挑 / 舌战的 AI 性格），
+        /// 其余任何决策都应读 <see cref="mPersonality"/> 上的具名字段。
+        /// 无性格数据时返回 0。
+        /// </summary>
+        public int PersonalityKind
+        {
+            get { return mPersonality != null ? mPersonality.kind : 0; }
+        }
+
+        /// <summary>
+        /// 野心（0~4，越大越不甘居于人下）。
+        ///
+        /// 【数据来源】剧本 `Scenario.json` 里每条武将本来就带 `"ambition": N` 字段
+        /// （例如"阿会喃": 1、"毌丘俭": 4），但 Person 类此前没有对应成员，
+        /// 反序列化时被 Newtonsoft **直接丢弃**。补上之后，
+        /// 外交 AI 的 `get_aishou_first_chance`（`4 + 义理 - 野心`）才能成立。
+        /// </summary>
+        [JsonProperty("ambition")]
+        public int ambition;
 
         /// <summary>
         /// 义理
@@ -234,6 +264,72 @@ namespace Sango.Core
         /// 忠诚
         /// </summary>
         [JsonProperty] public int loyalty;
+
+        /// <summary>
+        /// 本回合是否已被褒奖过。
+        ///
+        /// 对齐出处：Open311 `PersonStatus_BonusDone`（`s11_scen_obj_person.cpp:1231-1239`
+        /// 的 `is_bonus_done` / `set_bonus_done`）。
+        /// 语义：褒赏时置 true，`can_bonus` 里据此拒绝同一人本回合再次被褒奖；
+        /// 每回合开始由 `reset_command_flags()` 统一清零（`s11_game_week.cpp:171`），
+        /// 换势力时也会清零（`s11_sys_scen_person.cpp:751`）。
+        /// </summary>
+        [JsonProperty] public bool bonusDone;
+
+        /// <summary>本回合是否已被褒奖过</summary>
+        public bool IsBonusDone => bonusDone;
+
+        /// <summary>设置"本回合已褒奖"标记</summary>
+        /// <param name="value">true = 已褒奖</param>
+        public void SetBonusDone(bool value)
+        {
+            bonusDone = value;
+        }
+
+        /// <summary>
+        /// 本武将已学会的能力 Id 集合（对应 Open311 Ability 表的"已学"标记）。
+        ///
+        /// 用途：`can_learn(person, ability)` 的第一道判据 —— 同一条能力不能对同一人重复生效。
+        /// 与 <see cref="Force.learnedAbilityIds"/>（势力已研究）是两层：
+        /// 势力研究解锁 → 武将逐个学习。
+        /// </summary>
+        [JsonProperty]
+        public HashSet<int> learnedAbilityIds = new HashSet<int>();
+
+        /// <summary>
+        /// 是否已学过某条能力。
+        /// </summary>
+        /// <param name="abilityId">能力 Id</param>
+        /// <returns>已学返回 true</returns>
+        public bool HasLearnedAbility(int abilityId)
+        {
+            return learnedAbilityIds != null && learnedAbilityIds.Contains(abilityId);
+        }
+
+        /// <summary>
+        /// 标记"已学会某条能力"。
+        /// </summary>
+        /// <param name="abilityId">能力 Id</param>
+        public void MarkAbilityLearned(int abilityId)
+        {
+            if (learnedAbilityIds == null)
+                learnedAbilityIds = new HashSet<int>();
+            learnedAbilityIds.Add(abilityId);
+        }
+
+        /// <summary>
+        /// 俘虏关押月数（0~100）。
+        ///
+        /// 对齐出处：Open311 `s11_scen.h:1786` 的 <c>prison_timer_</c> 与
+        /// `s11_game_month.cpp:140-149` 的 <c>update_person_monthly_timer</c>
+        /// （每月对所有俘虏 +1，上限取 `max_person_prison_timer_` = 100）。
+        /// 入狱时置 0，释放 / 登用后清零。
+        /// 消费者：势力 AI 的流放俘虏（原版 force_banish 用它判断"关得够久了"）。
+        /// </summary>
+        [JsonProperty] public int prisonTimer;
+
+        /// <summary>俘虏关押月数上限 —— 对齐 Open311 max_person_prison_timer_</summary>
+        public const int MaxPrisonTimer = 100;
 
         /// <summary>
         /// 武将种类（对应 Open311 的 person_type_t type_）。
@@ -1593,6 +1689,46 @@ namespace Sango.Core
                         }
                     }
                     break;
+                case (int)MissionType.PersonTransform:
+                    {
+                        // 据点间调动：走"有行程的移动"，对齐 Open311 的
+                        // exec_move_command（s11_sys_person_order_personnel.cpp:66-96）：
+                        //   time_cost = 两城距离，person_set_order_timer(time_cost)，
+                        //   计时归零后由 on_move_timer_finished 落位。
+                        City dest = scenario.citySet.Get(missionTarget);
+                        if (dest == null || !dest.IsAlive || BelongForce == null || dest.BelongForce != BelongForce)
+                        {
+                            // 目标已失效（被攻陷 / 易主）→ 取消调动，人就留在原地
+                            ClearMission();
+                            break;
+                        }
+
+                        missionCounter--;
+                        if (missionCounter > 0)
+                            break;
+
+                        City from = BelongCity ?? CurrentCity;
+                        ClearMission();
+                        PersonStateSystem.MoveToCity(this, dest, PersonChangeReason.Moved);
+                        if (from != null && from != dest)
+                            Sango.Log.Info($"*[人事]{Name} 由 {from.Name} 抵达 {dest.Name}");
+                    }
+                    break;
+                case (int)MissionType.PersonStudyAbility:
+                    {
+                        // 能力培育：闭关 StudyTurns 旬，到期结算。
+                        // 对齐 Open311 的三个 Learn* person order（person_set_order_timer(actor, 3)）。
+                        // missionParams1 = 能力 Id；missionParams2 = 发起时算好的提升点数（基础能力用）。
+                        missionCounter--;
+                        if (missionCounter > 0)
+                            break;
+
+                        int abilityId = missionParams1;
+                        int gainHint = missionParams2;
+                        ClearMission();
+                        AbilityStudySystem.FinishStudyMission(this, abilityId, gainHint);
+                    }
+                    break;
                 case (int)MissionType.PersonBuild:
                     {
                         Building target = scenario.GetObject<Building>(missionTarget);
@@ -1841,6 +1977,17 @@ namespace Sango.Core
         }
         public override bool OnForceTurnStart(Scenario scenario)
         {
+            // 【褒赏标记复位】对齐 Open311 `reset_command_flags()`（s11_game_week.cpp:166-172）
+            // 对**全武将**执行 `set_bonus_done(false)`。
+            // <para>
+            // 原先放在 `City.OnForceTurnStart` 里遍历 `city.allPersons`，
+            // 只能覆盖"当前挂在某座城"的武将 —— 被编入部队、城破后尚未落位、
+            // 或 `BelongCity` 为 null 的武将永远不会被清零，褒赏标记会一直挂着。
+            // 这里由 `Force.OnForceTurnStart` 逐武将调用（Force.cs:1441-1449 已遍历全部存活武将），
+            // 覆盖面与原版一致。
+            // </para>
+            SetBonusDone(false);
+
             // 【禁止仕官】每回合递减（对应 Open311 的 ban_timer 月度衰减）。
             // 归零时清掉君主 Id，避免残留值永久挡住重新投效。
             if (BanTimer > 0)
@@ -2276,9 +2423,11 @@ namespace Sango.Core
             }
             ScenarioVariables variables = Scenario.Cur.Variables;
             int jobId = (int)CityJobType.RecruitPerson;
-            int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
-            merit += meritGain;
+            // 功绩按成败分档 —— 对齐原版 on_employ_result 的 `success ? 200 : 10`
+            // （s11_sys_person_order_personnel.cpp:756 / 805）。
+            // 原先是数据表统一 50，成功与失败同酬，与原版差异很大。
+            merit += success ? 200 : 10;
             GainJobAttributeExp(jobId);                     // 登用 → 魅力经验
             BelongForce?.GainTechniquePoint(techniquePointGain);
             ActionOver = true;
@@ -2670,7 +2819,8 @@ namespace Sango.Core
         /// <summary>
         /// 执行内政工作时，按"工作类型 → 对应属性"给能力经验
         /// （例：训练给武力、农业给政治，见 <see cref="GetJobAttribute"/>）。
-        /// 每次的获取量是配置里的区间 <see cref="GainPlace.AttributeExpFromJob"/>（随机 min~max）。
+        /// 每次的获取量由 <see cref="GetJobAttributeExp"/> 给出的**固定值**决定
+        /// （对齐 Open311 的 person_add_stat_exp 常量，不再走 <c>GainValueConfig</c> 的随机区间）。
         /// 上限仍由 ScenarioVariables.MaxAttributeGet 统一控制（在 PersonAttributeValue.SetExp 里封顶）。
         /// </summary>
         public void GainJobAttributeExp(int jobId)
@@ -2681,10 +2831,83 @@ namespace Sango.Core
             PersonAttributeValue attr = GetJobAttribute(jobId);
             if (attr == null) return;
 
-            int exp = GainValueConfig.Roll(GainPlace.AttributeExpFromJob);
+            int exp = GetJobAttributeExp(jobId);
             if (exp <= 0) return;
 
             attr.SetExp(attr.valueExp + exp, scenario);
+        }
+
+        /// <summary>
+        /// 每项工作给出的属性经验值（**固定值**，对齐 Open311 的 person_add_stat_exp）。
+        ///
+        /// 原实现取 <c>GainValueConfig</c> 的区间随机值（该 GainPlace 项已删除），
+        /// 而原版每个命令都是写死的常量，逐条对照如下：
+        /// <list type="table">
+        /// <item><term>训练 drill</term><description>武力 +2（s11_sys_person_order_military.cpp:91）</description></item>
+        /// <item><term>巡查 patrol</term><description>魅力 +2（s11_sys_person_order_city.cpp:501）</description></item>
+        /// <item><term>商人 merchant</term><description>政治 +5（s11_sys_person_order_city.cpp:1466）</description></item>
+        /// <item><term>生产兵装 produce</term><description>智力 +4（s11_sys_person_order_city.cpp:885）</description></item>
+        /// <item><term>交易 trade</term><description>智力 +2（s11_sys_person_order_city.cpp:764）</description></item>
+        /// <item><term>开发 develop</term><description>政治 +exp（设施相关，本项目无设施，取 2 近似）</description></item>
+        /// <item><term>搜索 search</term><description>政治 +1（s11_sys_person_order_personnel.cpp:582）</description></item>
+        /// </list>
+        /// </summary>
+        /// <param name="jobId">工作类型 Id</param>
+        /// <returns>属性经验值</returns>
+        static int GetJobAttributeExp(int jobId)
+        {
+            switch ((CityJobType)jobId)
+            {
+                // 武力 +2 —— military.cpp:91
+                case CityJobType.TrainTroops:
+                    return 2;
+
+                // 魅力 +2 —— city.cpp:501
+                case CityJobType.Inspection:
+                    return 2;
+
+                // 政治 +5 —— city.cpp:1466
+                case CityJobType.TradeFood:
+                    return 5;
+
+                // 智力 +4 —— city.cpp:885
+                case CityJobType.CreateItems:
+                case CityJobType.CreateMachine:
+                case CityJobType.CreateBoat:
+                    return 4;
+
+                // 智力 +2（生产马走同一套 produce 流程的一段，取 trade 档位近似）
+                case CityJobType.CreateHorse:
+                    return 2;
+
+                // 政治 +1 —— personnel.cpp:582
+                case CityJobType.Searching:
+                    return 1;
+
+                // 政治 +2 —— develop（原文为设施产出相关的变量，本项目无设施表，取 2）
+                case CityJobType.Farming:
+                case CityJobType.Develop:
+                case CityJobType.Build:
+                case CityJobType.UpgradeBuilding:
+                    return 2;
+
+                // 统率 +2（征兵 / 编队属军事调度，原版对应段未单列常量，取训练档位）
+                case CityJobType.RecruitTroops:
+                case CityJobType.MakeTroop:
+                case CityJobType.MakeTansport:
+                    return 2;
+
+                // 魅力 +2（登用走人事，原版 employ 段未单列常量，取巡查档位）
+                case CityJobType.RecruitPerson:
+                    return 2;
+
+                // 政治 +2（派遣属人事调度）
+                case CityJobType.TransformPerson:
+                    return 2;
+
+                default:
+                    return 1;
+            }
         }
 
         /// <summary>工作类型 → 对应属性（没有对应关系时返回 null，表示这项工作不给能力经验）</summary>
@@ -2703,18 +2926,24 @@ namespace Sango.Core
                 case CityJobType.CreateHorse:
                     return command;
 
-                // 智力：搜索 / 生产兵器 / 造船 / 生产兵装 / 研究
-                case CityJobType.Searching:
+                // 智力：生产兵器 / 造船 / 生产兵装 / 研究
+                // —— 原版 produce 给智力 +4（city.cpp:885）
                 case CityJobType.CreateMachine:
                 case CityJobType.CreateBoat:
                 case CityJobType.CreateItems:
                 case CityJobType.Research:
                     return intelligence;
 
-                // 政治：农业 / 商业 / 交易 / 建造 / 升级建筑 / 派遣
+                // 政治：农业 / 商业 / 交易 / 建造 / 升级建筑 / 派遣 / **搜索**
+                // 原版：
+                //   · develop 给政治（city.cpp:232）
+                //   · merchant 给政治 +5（city.cpp:1466）
+                //   · search 给政治 +1（personnel.cpp:582）
+                // 搜索原先被错划到智力，本次修正。
                 case CityJobType.Farming:
                 case CityJobType.Develop:
                 case CityJobType.TradeFood:
+                case CityJobType.Searching:
                 case CityJobType.Build:
                 case CityJobType.UpgradeBuilding:
                 case CityJobType.TransformPerson:
@@ -3634,6 +3863,10 @@ namespace Sango.Core
             person.machineLv.Update();
             person.PersonalityId = personLib.PersonalityId;
             person.ArgumentationId = personLib.ArgumentationId;
+
+            // 野心：值字段，不会随 Id 引用自动带过来，必须显式复制。
+            // 漏了它，从武将库生成的武将野心恒为 0（外交 AI 的 aishou_first 会全部走"重情义"分支）。
+            person.ambition = personLib.ambition;
 
             person.FatherId = personLib.FatherId;
             person.MotherId = personLib.MotherId;

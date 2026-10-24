@@ -89,14 +89,12 @@ namespace Sango.Core.Event
             b.AllianceList.Add(alliance);
 
             // ③ 关系值：与原外交行为保持同一口径
-            DiplomacyManager diplomacy = GameSystem.GetSystem<DiplomacyManager>();
-            if (diplomacy != null && Scenario.Cur != null && Scenario.Cur.Variables != null)
-            {
-                int increase = type == AllianceType.Alliance
-                    ? Scenario.Cur.Variables.diplomacyAllianceRelationIncrease
-                    : 0;
-                if (increase != 0) diplomacy.AddRelation(a, b, increase);
-            }
+            // 【改为 like 尺度】原版结盟成功是 `force_add_like(actor, target, +10)`
+            //（s11_sys_person_order_diplomacy.cpp:615），本项目原先走的是
+            // `diplomacyAllianceRelationIncrease`（默认 500，raw 量级）。
+            // 关系表已改为 0~100，这里统一用 like 常量。
+            if (type == AllianceType.Alliance && a != null && b != null)
+                a.AddLike(b, DiplomacyRules.AllianceLikeGain);
 
             Log.Info($"事件：{a.Name} 与 {b.Name} 建立{TypeName(type)}（{duration} 个月）");
             return true;

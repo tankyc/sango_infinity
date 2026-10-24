@@ -63,6 +63,30 @@ namespace Sango.Core
         private static readonly int[] InjuryCoef = { 1, 2, 3, 4 };
 
         /// <summary>
+        /// 月度关押计时推进：所有俘虏的 prisonTimer +1（上限 100）。
+        ///
+        /// 对齐出处：Open311 `s11_game_month.cpp:140-149` 的 update_person_monthly_timer
+        /// （每月对所有俘虏 <c>person_add_prison_timer(+1)</c>，上限 <c>max_person_prison_timer_ = 100</c>）。
+        /// 排在 <see cref="MonthlySettlement"/> 之前 —— 原版 update_person_monthly_timer 也在 shoubyou_death 之前。
+        /// 消费者是势力 AI 的流放俘虏（原版 force_banish 按关押月数决定放不放人）。
+        /// </summary>
+        /// <param name="scenario">当前剧本</param>
+        public static void MonthlyPrisonTimerUpdate(Scenario scenario)
+        {
+            if (scenario == null || scenario.personSet == null)
+                return;
+
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || !person.IsPrisoner)
+                    continue;
+                if (person.prisonTimer < Person.MaxPrisonTimer)
+                    person.prisonTimer++;
+            }
+        }
+
+        /// <summary>
         /// 月度寿命结算：先处决上轮标记者，再抽样标记本轮。
         /// 对应 Open311 的 Game::shoubyou_death。
         /// </summary>

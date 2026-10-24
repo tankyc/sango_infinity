@@ -4,6 +4,7 @@
  *       支持通过 Data/Common/AIConfig.json 覆盖（同样支持 Mod），未配置项使用内置默认值。
  */
 
+using System.Collections.Generic;
 using System.IO;
 using Sango.Mod;
 using Newtonsoft.Json;
@@ -571,6 +572,55 @@ namespace Sango.Core
 
         #region 城池命令优先级（动态排序）
 
+        /// <summary>
+        /// 是否启用原版据点状态调度（OutpostState 四态 + 军团行动力预算）。
+        ///
+        /// 对齐出处：Open311 的 district_ai / 据点主流程 三层调度。
+        /// true（默认）：Force 先采集据点态势 → 军团按优先级切分行动力 → 每个据点按状态
+        ///               查固定命令表逐条执行（见 ForceAIOutpost.cs / CorpsAIDistrict.cs / CityAIOutpost.cs）。
+        /// false：回退到旧实现（CorpsAI.AICities 直接遍历自己的城逐个 DoAI，
+        ///        城市命令由 CityAIOrderPlanner 打分排序）。
+        /// 保留开关是为了出问题时能一行配置回滚。
+        /// </summary>
+        public bool useOutpostStateOrder = true;
+
+        /// <summary>
+        /// 是否输出据点 AI 调度日志（默认关闭）。
+        /// 打开后在 Console 里能看到每个军团的行动力分配、每个据点的状态与命令队列，
+        /// 对齐原版 s11_game_ai_kyoten_cmd.cpp:15-70 的 debug 日志（原版由 s11_log 宏控制）。
+        /// 仅在排查"某座城为什么不出兵 / 不打仗"时临时打开。
+        /// </summary>
+        public bool logOutpostAI = false;
+
+        /// <summary>
+        /// 是否允许 AI 自动拆分 / 重编军团（对齐原版 force_districts）。
+        /// 关闭后 AI 势力只保留玩家设定的军团结构；开启后 AI 会在"某个军团城数明显偏多"时
+        /// 把它的城拆一半出去，新建一个军团（新都督取新军团里功绩最高的太守）。
+        /// 默认开启以对齐原版行为，出现异常时可用一行配置关掉。
+        /// </summary>
+        public bool useAutoCorpsSplit = true;
+
+        /// <summary>
+        /// 是否让 AI 按 Open311 的据点内政权重表决定"下一个建什么"。
+        ///
+        /// 对齐出处：s11_game_ai_kyoten_cmd_dev_ai.cpp:372-653 dev_ai_select_facility_id。
+        /// true（默认）：按"城特产 + 据点四态 + 硬上限 + 金"加权随机，
+        ///               原版判"不该建"时不建（不再回退到缺口驱动）。
+        /// false：回退到 <c>BuildingPlanner.FindBestType</c> 的粮 / 金缺口驱动。
+        /// </summary>
+        public bool useOutpostBuildRule = true;
+
+        /// <summary>
+        /// 是否在<span>原版权重表</span>之上叠加"需求缺口修正"（仅作用于市场 / 农场）。
+        ///
+        /// 融合思路：原版权重表负责**硬约束**（max 上限、特产加权、后方 / 港口 / 前线禁建），
+        /// 缺口驱动负责**软偏好**（缺粮时农场加权、缺金时市场加权、富余时降权）。
+        /// 因为原版市场 / 农场无数量上限、权重恒为 10，是整张表里最粗的一处，
+        /// 用缺口去细分它不会破坏原版的结构性设计。
+        /// 关闭后回到"原版权重表原样"（市场 / 农场永远等权）。
+        /// </summary>
+        public bool useDemandCorrection = true;
+
         /// <summary>是否启用动态城池命令排序（关闭则回退到各内政系统内的硬编码顺序）</summary>
         public bool useDynamicCityOrder = true;
         /// <summary>
@@ -581,31 +631,11 @@ namespace Sango.Core
 
         #endregion
 
-        #region 人才部署（岗位编制模型）
-
-        /// <summary>
-        /// AI 人才部署的全部权重与阈值（编制规则 / 威胁分档 / 港关守备 / 运输 / 求解成本 / 岗位权重）。
-        /// 可通过 <c>Data/Common/AIConfig.json</c> 的 <c>"deployment"</c> 节点做部分覆盖。
-        /// 当前处于 Phase A **影子模式**（只计算不执行），由 <c>shadowOnly</c> 控制。
-        /// </summary>
-        public DeploymentWeights deployment = new DeploymentWeights();
-
-        #endregion
-
-        #region 资源调度（城池之间的物资运输）
-
-        /// <summary>
-        /// AI 资源调度的全部权重与阈值（圈层水位 / 起运门槛 / 配额 / 溢出安抚）。
-        /// 可通过 <c>Data/Common/AIConfig.json</c> 的 <c>"resourceDispatch"</c> 节点做部分覆盖。
-        ///
-        /// 与"人才部署"（<see cref="deployment"/>）是一对姊妹系统：
-        /// 人才调度负责**把人放到正确的城**，资源调度负责**把货放到正确的城**，
-        /// 二者的调度域一致（非玩家势力 = 势力；玩家 = 军团），且资源调度会把
-        /// "有货待发却缺运输主将"作为人员需求交给人才调度。
-        /// </summary>
-        public ResourceDispatchWeights resourceDispatch = new ResourceDispatchWeights();
-
-        #endregion
+        // 【已删除】人才部署（deployment / DeploymentWeights）与资源调度（resourceDispatch /
+        // ResourceDispatchWeights）两组配置字段随各自系统一并移除。
+        // 人员调动与物资运输回到原版命令：移动命令 / 召唤命令 / district_move /
+        // 运输命令 / 支援命令，其判定参数读原版同源的数据（据点状态、最小人数、
+        // 收支储备线），不再有独立的"部署权重"表。
 
         #region 内政建筑规划（动态目标构成）
 

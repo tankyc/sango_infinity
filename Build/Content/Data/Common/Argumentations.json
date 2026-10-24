@@ -5,35 +5,40 @@
       "Name": "容易背叛",
       "kind": 1,
       "infightingCriticalAdd": 10,
-      "loyaltyAdd": 1
+      "loyaltyAdd": 1,
+      "discardLikeThreshold": 55
     },
     "2": {
       "Id": 2,
       "Name": "无情义",
       "kind": 2,
       "infightingCriticalAdd": 5,
-      "loyaltyAdd": 2
+      "loyaltyAdd": 2,
+      "discardLikeThreshold": 52
     },
     "3": {
       "Id": 3,
       "Name": "普通",
       "kind": 3,
       "infightingCriticalAdd": 0,
-      "loyaltyAdd": 3
+      "loyaltyAdd": 3,
+      "discardLikeThreshold": 49
     },
     "4": {
       "Id": 4,
       "Name": "情理坚定",
       "kind": 4,
       "infightingCriticalAdd": -5,
-      "loyaltyAdd": 4
+      "loyaltyAdd": 4,
+      "discardLikeThreshold": 46
     },
     "5": {
       "Id": 5,
       "Name": "不会背叛",
       "kind": 5,
       "infightingCriticalAdd": -10,
-      "loyaltyAdd": 5
+      "loyaltyAdd": 5,
+      "discardLikeThreshold": 43
     }
   }
 }

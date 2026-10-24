@@ -59,10 +59,10 @@ namespace Sango.Core
         /// 框架的城市菜单注册统一走这里，避免"加了菜单却忘了登记"。
         /// </summary>
         public static void Add(IContextMenuData menuData, string title, int order, object custom,
-            Action<IContextMenuItem> action, bool valide = true)
+            Action<IContextMenuItem> action, bool valide = true, string disabledReason = null)
         {
             Record(title, order);
-            menuData.Add(title, order, custom, action, valide);
+            menuData.Add(title, order, custom, action, valide, disabledReason);
         }
 
         /// <summary>是否登记过该路径</summary>

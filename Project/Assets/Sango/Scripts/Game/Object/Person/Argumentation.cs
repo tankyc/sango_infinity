@@ -7,6 +7,18 @@ namespace Sango.Core
     {
         public int kind;
 
+        /// <summary>
+        /// 该义理档位的"背盟友好度阈值"：AI 只有在 `like ≤ 本值` 时才会考虑破弃同盟。
+        ///
+        /// 【为什么做成配置而不是公式】原版 `s11_game_ai_force_cmd_dip.cpp:161-226` 的阈值是
+        /// `58 - giri*3`，但 `giri` 的量纲与原版 `get_giri()` 不完全一致（本项目 kind 是 1~5）。
+        /// 把每档的具体阈值写进 `Argumentations.json`，策划可以直接调，
+        /// 不必再改代码里的系数。
+        ///
+        /// 0 = 未配置：调用方回退到 `58 - kind*3`（保持旧行为）。
+        /// </summary>
+        public int discardLikeThreshold;
+
         ///// <summary>
         ///// 作为目标对[伪报]成功率加成
         ///// </summary>

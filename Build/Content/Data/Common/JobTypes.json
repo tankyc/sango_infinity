@@ -7,7 +7,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 200,
-      "meritGain": 40,
+      "meritGain": 50,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -19,7 +19,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 200,
-      "meritGain": 40,
+      "meritGain": 50,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -31,7 +31,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 100,
-      "meritGain": 40,
+      "meritGain": 50,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -43,7 +43,7 @@
       "kind": 2,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 40,
+      "meritGain": 50,
       "tpGain": 20,
       "limit": 3,
       "linkBuildingKind": 0
@@ -55,10 +55,13 @@
       "kind": 3,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 40,
+      "meritGain": 10,
       "tpGain": 20,
       "limit": 0,
-      "linkBuildingKind": 0
+      "linkBuildingKind": 0,
+      "recommandFeatures": [
+        86
+      ]
     },
     "6": {
       "Id": 6,
@@ -79,10 +82,13 @@
       "kind": 3,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 40,
+      "meritGain": 50,
       "tpGain": 20,
       "limit": 1,
-      "linkBuildingKind": 0
+      "linkBuildingKind": 0,
+      "recommandFeatures": [
+        86
+      ]
     },
     "8": {
       "Id": 8,
@@ -91,10 +97,13 @@
       "kind": 1,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 40,
+      "meritGain": 100,
       "tpGain": 20,
       "limit": 3,
-      "linkBuildingKind": 35
+      "linkBuildingKind": 35,
+      "recommandFeatures": [
+        81
+      ]
     },
     "9": {
       "Id": 9,
@@ -118,7 +127,10 @@
       "meritGain": 100,
       "tpGain": 50,
       "limit": 3,
-      "linkBuildingKind": 37
+      "linkBuildingKind": 37,
+      "recommandFeatures": [
+        83
+      ]
     },
     "11": {
       "Id": 11,
@@ -130,7 +142,10 @@
       "meritGain": 100,
       "tpGain": 50,
       "limit": 3,
-      "linkBuildingKind": 38
+      "linkBuildingKind": 38,
+      "recommandFeatures": [
+        83
+      ]
     },
     "12": {
       "Id": 12,
@@ -142,7 +157,10 @@
       "meritGain": 100,
       "tpGain": 50,
       "limit": 3,
-      "linkBuildingKind": 36
+      "linkBuildingKind": 36,
+      "recommandFeatures": [
+        82
+      ]
     },
     "13": {
       "Id": 13,
@@ -151,7 +169,7 @@
       "kind": 1,
       "costAP": 20,
       "cost": 0,
-      "meritGain": 40,
+      "meritGain": 50,
       "tpGain": 20,
       "limit": 1,
       "linkBuildingKind": 0
@@ -214,7 +232,10 @@
       "meritGain": 40,
       "tpGain": 20,
       "limit": 3,
-      "linkBuildingKind": 0
+      "linkBuildingKind": 0,
+      "recommandFeatures": [
+        8
+      ]
     },
     "19": {
       "Id": 19,
@@ -283,7 +304,19 @@
       "kind": 6,
       "costAP": 30,
       "cost": 200,
-      "meritGain": 0,
+      "meritGain": 150,
+      "tpGain": 0,
+      "limit": 1,
+      "linkBuildingKind": 0
+    },
+    "26": {
+      "Id": 26,
+      "Name": "驱虎吞狼",
+      "path": "计略/驱虎吞狼",
+      "kind": 6,
+      "costAP": 40,
+      "cost": 500,
+      "meritGain": 300,
       "tpGain": 0,
       "limit": 1,
       "linkBuildingKind": 0
@@ -295,7 +328,7 @@
       "kind": 6,
       "costAP": 30,
       "cost": 200,
-      "meritGain": 0,
+      "meritGain": 150,
       "tpGain": 0,
       "limit": 1,
       "linkBuildingKind": 0

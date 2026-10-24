@@ -95,6 +95,13 @@ namespace Sango.Core
         [JsonProperty] public GainValueConfig itemDiscoverGain = new GainValueConfig();
 
         /// <summary>
+        /// 能力研究 / 培育配置（键 = GainPlace 的 AbilityStudy* 段）。
+        /// 势力级能力研究的金钱消耗、培育的金钱消耗 / 单次提升点数 / 触发概率都在本表调参，
+        /// 代码侧不硬编码（见 <see cref="Sango.Core.AbilityStudySystem"/>）。
+        /// </summary>
+        [JsonProperty] public GainValueConfig abilityStudyGain = new GainValueConfig();
+
+        /// <summary>
         /// 国库基础容量（宝物与装备合计件数）。
         /// 国库上限 = 本值 + 己方城数 × <see cref="treasuryLimitPerCity"/>，
         /// 口径见 <see cref="Sango.Core.Force.TreasuryLimit"/>。
@@ -757,7 +764,7 @@ namespace Sango.Core
         /// <summary>
         /// 宣战关系减少
         /// </summary>
-        [JsonProperty] public int diplomacyDeclareWarRelationDecrease = 1000;
+        [JsonProperty] public int diplomacyDeclareWarRelationDecrease = 10;
 
         /// <summary>
         /// 送礼金额
@@ -772,12 +779,12 @@ namespace Sango.Core
         /// <summary>
         /// 请求技术关系减少
         /// </summary>
-        [JsonProperty] public int diplomacyRequestTechniqueRelationDecrease = 200;
+        [JsonProperty] public int diplomacyRequestTechniqueRelationDecrease = 2;
 
         /// <summary>
         /// 请求兵力关系减少
         /// </summary>
-        [JsonProperty] public int diplomacyRequestTroopsRelationDecrease = 300;
+        [JsonProperty] public int diplomacyRequestTroopsRelationDecrease = 3;
 
         /// <summary>
         /// 通商关系增加
@@ -817,17 +824,17 @@ namespace Sango.Core
         /// <summary>
         /// 撕毁同盟关系减少
         /// </summary>
-        [JsonProperty] public int diplomacyBreakAllianceRelationDecrease = 500;
+        [JsonProperty] public int diplomacyBreakAllianceRelationDecrease = 5;
 
         /// <summary>
         /// 撕毁停战关系减少
         /// </summary>
-        [JsonProperty] public int diplomacyBreakTruceRelationDecrease = 300;
+        [JsonProperty] public int diplomacyBreakTruceRelationDecrease = 3;
 
         /// <summary>
         /// 撕毁通商关系减少
         /// </summary>
-        [JsonProperty] public int diplomacyBreakTradeRelationDecrease = 200;
+        [JsonProperty] public int diplomacyBreakTradeRelationDecrease = 2;
 
         /// <summary>
         /// 同盟持续时间
@@ -852,7 +859,7 @@ namespace Sango.Core
         /// <summary>
         /// 每月普通关系减少
         /// </summary>
-        [JsonProperty] public int diplomacyMonthlyNormalRelationDecrease = 100;
+        [JsonProperty] public int diplomacyMonthlyNormalRelationDecrease = 1;
 
         /// <summary>
         /// 外交成功率 - 结盟基础成功率
@@ -1082,7 +1089,8 @@ namespace Sango.Core
         /// <summary>
         /// 外交失败基础惩罚值
         /// </summary>
-        [JsonProperty] public int diplomacyFailedBasePenalty = 300;
+        /// <summary>外交失败基础惩罚值（like 尺度 0~100；旧档存的是 raw 量级，读取时会 /100 折算）</summary>
+        [JsonProperty] public int diplomacyFailedBasePenalty = 3;
 
         #endregion 外交系统参数
 
@@ -1126,15 +1134,18 @@ namespace Sango.Core
         /// <summary>
         /// 计略成功但露馅（险胜）时，对"发起方与各目标方"关系的反噬值。
         /// 比彻底失败的代价轻，用于表达"事未成但人已露头"。
+        /// 原版量级：离间 / 流言 / 教唆"被察觉"分支 -4（`s11_sys_person_order_strategy.cpp:365-369`）。
+        /// 关系值已改为 0~100 尺度，故直接取 4。
         /// </summary>
-        [JsonProperty] public int cityStrategyDetectedPenalty = 100;
+        [JsonProperty] public int cityStrategyDetectedPenalty = 4;
 
         /// <summary>
         /// 二虎竞食成功后两个目标势力的交情恶化值（固定值，不随成功率缩放）。
-        /// 原版关系区间 0..100，破盟/停战破裂的事件量级是 -30 ~ -50；本工程关系区间为 ±5000，
-        /// 换算后 3000 ≈ 原版 -30。原值 500 换算只有原版 -5（=1 个月的自然漂移），玩家无感，故上调。
+        /// 原版关系区间 0..100，破盟 / 停战破裂的事件量级是 -30 ~ -50。
+        /// 本工程关系值已改为与 Open311 同尺度的 0~100，故直接取 30
+        ///（旧值 3000 是 ±5000 时代的 raw 刻度，迁移时会由值域探测自动折算）。
         /// </summary>
-        [JsonProperty] public int cityStrategyTwoTigersRelationDecrease = 3000;
+        [JsonProperty] public int cityStrategyTwoTigersRelationDecrease = 30;
 
         /// <summary>
         /// 势力关系恶化到该值（含）以下时，AI 会放弃与对方的同盟并转向敌对。
@@ -1144,9 +1155,12 @@ namespace Sango.Core
         [JsonProperty] public int cityStrategyWarTriggerRelation = -3000;
 
         /// <summary>
-        /// 城市计略彻底失败（被识破）时对"发起方与各目标方"关系的反噬值（0 表示不反噬）
+        /// 城市计略彻底失败（被识破）时对"发起方与各目标方"关系的反噬值（0 表示不反噬）。
+        /// 原版量级：离间 / 流言 / 教唆"失败"分支 -8 ~ -10
+        ///（`s11_sys_person_order_strategy.cpp:395-396`、`:427-428`、`:1268`、`:1294`、`:1325`）。
+        /// 关系值已改为 0~100 尺度，故取 8。
         /// </summary>
-        [JsonProperty] public int cityStrategyFailedPenalty = 200;
+        [JsonProperty] public int cityStrategyFailedPenalty = 8;
 
         /// <summary>
         /// 流言成功后武将忠诚下降区间下限（整城掷同一个基准值，再按义理逐人加权）。
@@ -1200,38 +1214,12 @@ namespace Sango.Core
         [JsonProperty] public int cityStrategyRumorCaptureMin = 5;
 
         /// <summary>
-        /// AI 主动施计的智力优势门：使者智力需高出抵抗者该值以上才出手
-        /// （对应原版脚本 #军师之战2.cpp 的"智力差 &lt; 5 不应战"）
-        /// </summary>
-        [JsonProperty] public int cityStrategyAIMinIntelligenceEdge = 5;
-
-        /// <summary>
-        /// AI 每回合愿意主动发动一次城市计略的基准概率（百分比）。
-        /// 原版 255 号脚本对 AI 施计另有资金门槛（gold &gt;= 消耗 × rand(10,20)/10），
-        /// 本工程把"概率 + 资金倍数"两道门都保留，只是概率放在这里调
-        /// </summary>
-        [JsonProperty] public int cityStrategyAIAttemptChance = 25;
-
-        /// <summary>
-        /// 记仇窗口内 AI 报复性施计的概率（百分比）。
-        /// 对应原版 721 AI优化-流言.cpp 的"被流言后 bind 记仇 → 反施流言"，明显高于主动门。
-        /// 注意：报复凭据是一次性的（Force.TakeCityStrategyGrudge），同一笔账只会驱动一次报复；
-        /// 默认值由 60 下调到 35，配合一次性凭据掐断"AI 互相无限刷流言"的正反馈。
-        /// </summary>
-        [JsonProperty] public int cityStrategyAIRevengeChance = 35;
-
-        /// <summary>
-        /// 计略仇与二虎竞食挑拨凭据的有效期（回合，1 回合 = 1 旬）。
-        /// 超窗的记仇不再驱动报复，过期的挑拨凭据也不能再触发破盟，避免长局里累积出连锁反应
+        /// 二虎竞食挑拨凭据的有效期（回合，1 回合 = 1 旬）。
+        /// 过期的凭据不能再触发破盟，避免长局里累积出连锁反应。
+        /// （势力级主动施计与"计略记仇"已随 CityStrategyAI 精简一并移除，
+        ///   这里只服务于仍在使用的 <c>Force.TakeStrategyWarSeed</c>。）
         /// </summary>
         [JsonProperty] public int cityStrategyGrudgeKeepTurns = 6;
-
-        /// <summary>
-        /// AI 报复流言时的行军距离上限，单位与 City.Distance 一致（最短路径的城数，1 城 = 1 回合行程）。
-        /// 对应原版 721 AI优化-流言.cpp 的"报复范围 = 2 座城"；本工程把港/关也算一跳，故放宽到 3 作容差。
-        /// 配成 0 表示不限制距离。
-        /// </summary>
-        [JsonProperty] public int cityStrategyAIRevengeMaxDays = 3;
 
         /// <summary>
         /// 流言忠诚下限闸门：流言无论如何都不能把一名武将的忠诚压到该值以下。
@@ -1247,13 +1235,6 @@ namespace Sango.Core
         /// 防止同一座城被连续每回合反复刷忠诚。
         /// </summary>
         [JsonProperty] public int cityStrategyRumorImmunityTurns = 5;
-
-        /// <summary>
-        /// AI 势力级流言配额：同一 AI 势力两次流言派遣之间至少间隔的回合数（0 表示不限制）。
-        /// 把"每个 AI 每回合都可能喷一次"降为"偶尔为之"，是掐断 AI 互相刷流言节奏的核心闸门之一。
-        /// 只约束流言，不影响二虎竞食。
-        /// </summary>
-        [JsonProperty] public int cityStrategyAIMaxRumorPerTurns = 3;
 
         /// <summary>
         /// "被流言动摇"标记的有效期（回合）：CityAI 据此识别需要优先褒奖的武将，把被喷掉的忠诚补回来。
@@ -1276,30 +1257,49 @@ namespace Sango.Core
         /// 配 0 表示不扣。用途：让"看戏等 AI 互喷把忠诚打低再去登庸"付出真实的外交代价，而不是零成本白捡。
         /// 只对在职敌将生效：在野武将、无势力俘虏、破城/俘虏招降一律不受影响。
         /// </summary>
-        [JsonProperty] public int recruitForeignRelationPenalty = 300;
+        /// <remarks>like 尺度 0~100（关系表已改为与 Open311 同尺度）；旧档的 300 会在运行时按 /100 折算。</remarks>
+        [JsonProperty] public int recruitForeignRelationPenalty = 3;
 
         /// <summary>
         /// 挖角外交代价 - 失败被察觉：登庸"在职于其它势力"的武将失败时，对双方关系造成的下降值。
         /// 比成功轻，配 0 表示不扣。用于表达"挖角意图暴露"的分量。
         /// </summary>
-        [JsonProperty] public int recruitForeignRelationPenaltyFailed = 100;
+        /// <remarks>like 尺度；旧档的 100 会在运行时按 /100 折算。</remarks>
+        [JsonProperty] public int recruitForeignRelationPenaltyFailed = 1;
 
         /// <summary>
         /// 招募系统 - 基础相性值
         /// </summary>
         [JsonProperty] public int recruitBaseCompatibility = 25;
 
-        /// <summary>
-        /// 招募系统 - 在野武将（及无势力俘虏）忠诚度基础值。
-        /// 公式里它们用的是"合成忠诚" = 本值 + difficulty × recruitLoyaltyDifficultyFactor
-        ///（默认难度 1 → 30 + 5 = 35），而不是武将的真实忠诚。
-        /// </summary>
-        [JsonProperty] public int recruitWildLoyaltyBase = 30;
+        // ==================== 运输队 / 单队上限 ====================
+        //
+        // 对齐出处：Open311 `Database`（s11_db.h:200-206）的剧本级默认值。
+        // 这些是"单支部队"的容量上限，与据点存储上限、势力库存都不同：
+        // 运输命令据此对装载量做 clamp，兵装裁剪也据此判断目标还能收多少。
+
+        /// <summary>单支运输队最多携带的兵力 —— 原版 60000</summary>
+        [JsonProperty] public int maxUnitTransportTroops = 60000;
+
+        /// <summary>单支运输队最多携带的粮食 —— 原版 500000</summary>
+        [JsonProperty] public int maxUnitTransportFood = 500000;
+
+        /// <summary>单支运输队最多携带的资金 —— 原版 100000</summary>
+        [JsonProperty] public int maxUnitTransportGold = 100000;
+
+        /// <summary>单支部队单类兵装（枪/戟/弩/马）上限 —— 原版 100000</summary>
+        [JsonProperty] public int maxUnitEquipmentQuantity = 100000;
+
+        /// <summary>单支部队攻城器械 / 舰船上限 —— 原版 100</summary>
+        [JsonProperty] public int maxUnitCrewEquipmentQuantity = 100;
 
         /// <summary>
-        /// 招募系统 - 忠诚度难度系数
+        /// 招募系统 - 在野 / 灭国俘虏的等效忠诚基准。
+        ///
+        /// 对齐原版（s11_sys_scen_person.cpp:2209-2210）：在野或已灭势力的俘虏，
+        /// 忠诚按固定值参与计算 —— 简单难度 60，其它难度 70。
         /// </summary>
-        [JsonProperty] public int recruitLoyaltyDifficultyFactor = 5;
+        [JsonProperty] public int recruitWildLoyaltyBase = 70;
 
         /// <summary>
         /// 招募系统 - 默认义理ID
@@ -1312,14 +1312,17 @@ namespace Sango.Core
         [JsonProperty] public int recruitBaseSuccessRate = 45;
 
         /// <summary>
-        /// 招募系统 - 相性影响系数分子
+        /// 招募系统 - 相性影响系数分子。
+        ///
+        /// 对齐原版登用公式的 `(相性差) / 5`，因此取 1/5。
+        /// 原默认值是 3/2（相性影响被放大 7.5 倍），与 Open311 不符，已修正。
         /// </summary>
-        [JsonProperty] public int recruitCompatibilityFactorNumerator = 3;
+        [JsonProperty] public int recruitCompatibilityFactorNumerator = 1;
 
         /// <summary>
         /// 招募系统 - 相性影响系数分母
         /// </summary>
-        [JsonProperty] public int recruitCompatibilityFactorDenominator = 2;
+        [JsonProperty] public int recruitCompatibilityFactorDenominator = 5;
 
         /// <summary>
         /// 招募系统 - 忠诚度影响基础值
@@ -1372,7 +1375,11 @@ namespace Sango.Core
         [JsonProperty] public int recruitPrisonerInfluence = 15;
 
         /// <summary>
-        /// 招募系统 - 随机影响最大值
+        /// 招募系统 - 随机影响最大值。
+        ///
+        /// 对齐原版 `rand_int(Giri_Max - giri)`（s11_sys_scen_person.cpp:2222）：
+        /// 上限是义理最大值 5，减去目标的义理档位，所以实际范围是 0..(5−giri)。
+        /// 公式侧已写成 `Range(0, recruitRandomMax - 义理)`，因此这里取 5。
         /// </summary>
         [JsonProperty] public int recruitRandomMax = 5;
 

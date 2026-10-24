@@ -11,6 +11,7 @@
  */
 
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace Sango.Core
 {
@@ -197,7 +198,72 @@ namespace Sango.Core
         /// <summary>叛乱风险（负值表示更安定）</summary>
         public int revoltRiskAdd;
 
-        // ==================== 9. 预留（3 项） ====================
+        // ==================== 9. 战略执念（城市 / 宝物） ====================
+
+        /// <summary>
+        /// 执念城市 Id 列表：只要这些城被别的势力占着，就构成开战理由。
+        ///
+        /// 对齐出处：Open311 `s11_game_ai_force.cpp:614-698` 的 get_city_priority
+        /// —— 原版是一张写死的"君主 → 城"表（袁绍执念邺城 / 曹操执念许昌 / 孙权执念建业 …）。
+        /// 这里改成**性格内嵌属性**：同一套性格数据可以被多个武将复用，
+        /// 新增"袁绍"这种执念只需在 Json 里给对应性格填上城 Id，无需改代码。
+        ///
+        /// 取值语义（与原版 get_city_priority 的返回值一致）：
+        ///   · 城在此列 → 该城对该势力构成"必争之地"，AI 会因此把对方列为主要敌人。
+        /// </summary>
+        [JsonProperty]
+        public List<int> obsessionCityIds = new List<int>();
+
+        /// <summary>
+        /// 喜爱宝物 Id 列表：君主/武将持有时优先自己留用，不轻易赏赐或送出；
+        /// 势力级授宝（原版 force_reward）会优先把列在这里的宝物授给"该性格的持有者"。
+        ///
+        /// 对齐出处：Open311 `s11_game_ai_force_cmd.cpp:414-461` 的 force_reward / need_reward
+        /// —— 原版靠 `ItemOwnerPreset` 这张写死的"武将-宝物"表；这里同样改成性格属性，
+        /// 于是"关羽喜欢青龙偃月刀"只需给关羽的性格填一个宝物 Id。
+        /// </summary>
+        [JsonProperty]
+        public List<int> favoriteItemIds = new List<int>();
+
+        /// <summary>
+        /// 该城的执念优先级（0 = 无执念）。
+        ///
+        /// 对齐出处：s11_game_ai_force.cpp:614-698 get_city_priority 的返回值语义
+        /// （原版 0 / 1 / 2 / 4 四档，≥2 会直接触发开战）。本实现只区分"是否执念"，
+        /// 命中即返回 2（与原版"≥2 就开战"的阈值一致）。
+        /// </summary>
+        /// <param name="cityId">城市 Id</param>
+        /// <returns>0 或 2</returns>
+        public int GetCityPriority(int cityId)
+        {
+            if (obsessionCityIds == null || obsessionCityIds.Count == 0)
+                return 0;
+            for (int i = 0; i < obsessionCityIds.Count; i++)
+            {
+                if (obsessionCityIds[i] == cityId)
+                    return 2;
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// 是否为该性格"喜爱的宝物"。
+        /// </summary>
+        /// <param name="itemId">宝物 Id</param>
+        /// <returns>是否喜爱</returns>
+        public bool IsFavoriteItem(int itemId)
+        {
+            if (favoriteItemIds == null || favoriteItemIds.Count == 0)
+                return false;
+            for (int i = 0; i < favoriteItemIds.Count; i++)
+            {
+                if (favoriteItemIds[i] == itemId)
+                    return true;
+            }
+            return false;
+        }
+
+        // ==================== 10. 预留（3 项） ====================
 
         /// <summary>预留加值位</summary>
         public int reserved1;

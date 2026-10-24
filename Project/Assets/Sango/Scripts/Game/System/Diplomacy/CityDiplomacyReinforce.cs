@@ -51,7 +51,7 @@ namespace Sango.Core.Player
                 if (force.diplomacyBanTimer > 0)
                     return false;
 
-                if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.Alliance))
+                if (TargetCity.BelongCorps.ActionPoint < TargetCity.GetJobCostAP(CityJobType.Alliance))
                     return false;
 
                 // 至少存在一个同盟对象
@@ -96,6 +96,16 @@ namespace Sango.Core.Player
             if (personList.Count <= 0 || targetForces.Count <= 0)
                 return;
 
+            // 【扣资金】UI 滑条上的 `gold` 就是本次援军请求的代价，
+            // 原先只是把它当参数传给行为对象，**实际一分不扣**；
+            // 而门禁（IsValid）也只查了 AP —— 等于可以无限刷援军。
+            if (TargetCity.gold < gold)
+            {
+                Sango.Log.Info($"@外交@{TargetCity.Name} 资金不足，无法请求援军"
+                    + $"（需 {gold}，现有 {TargetCity.gold}）");
+                return;
+            }
+
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(
                 DiplomacyActionType.Reinforce, TargetCity.BelongForce, targetForces[0], personList[0], gold);
@@ -103,6 +113,7 @@ namespace Sango.Core.Player
             if (action == null)
                 return;
 
+            TargetCity.gold -= gold;
             diplomacyManager.DispatchDiplomat(action);
 
             GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, "交给我吧, 保证完成任务!!", () =>

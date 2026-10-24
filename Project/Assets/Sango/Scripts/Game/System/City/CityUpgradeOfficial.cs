@@ -67,6 +67,13 @@ namespace Sango.Core.Player
         {
             get
             {
+                // 贼（黄巾）势力不可任命官职 —— 对齐原版 can_ranks_command 的势力禁则
+                // （s11_sys_person_order_kunshu.cpp:582-591）。
+                // 【未对齐】原版还要求"官职名额未满"（get_available_rank_list 减已占用的非空），
+                // 本项目 Official 表没有"名额上限"字段，官职可无限任命，属数据模型差异。
+                if (TargetCity.BelongForce.IsBandit)
+                    return false;
+
                 targetList.Clear();
                 if (TargetCity.gold > 500)
                 {

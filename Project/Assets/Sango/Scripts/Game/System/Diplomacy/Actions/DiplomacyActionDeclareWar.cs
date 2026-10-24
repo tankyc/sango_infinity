@@ -66,9 +66,10 @@ namespace Sango.Core
                 Receiver.AllianceList.Remove(alliance);
             }
 
-            // 减少关系
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            diplomacyManager.ReduceRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyDeclareWarRelationDecrease);
+            // 【已移除"宣战一次性扣关系"】原版**没有独立宣战指令** —— 战争由进攻产生，
+            // 关系惩罚落在战斗事件上（城池陷落 / 设施破坏 / 部队击破 / 单挑战死 →
+            // 统一压到 15 地板，见 DiplomacyRules.ApplyHostilityPenalty）。
+            // 这里原先 -1000 raw（≈ -10 like），与"打一仗 -1~压到15"的原版设计不一致。
 
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 宣战!!");
 
@@ -102,9 +103,10 @@ namespace Sango.Core
                 Receiver.AllianceList.Remove(alliance);
             }
 
-            // 减少关系
-            DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
-            diplomacyManager.ReduceRelation(Sender, Receiver, Scenario.Cur.Variables.diplomacyDeclareWarRelationDecrease);
+            // 【已移除"宣战一次性扣关系"】原版**没有独立宣战指令** —— 战争由进攻产生，
+            // 关系惩罚落在战斗事件上（城池陷落 / 设施破坏 / 部队击破 / 单挑战死 →
+            // 统一压到 15 地板，见 DiplomacyRules.ApplyHostilityPenalty）。
+            // 这里原先 -1000 raw（≈ -10 like），与"打一仗 -1~压到15"的原版设计不一致。
 
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 宣战!!");
 

@@ -9,7 +9,7 @@ namespace Sango.Core
     /// 异族武将则是从 PersonId_*_Bushou 模板克隆出来的临时武将
     /// （s11_sys_scen_unit.cpp:84-153 的 create_bandit_unit + create_bandit_person）。
     ///
-    /// 本项目暂时既没有 Force.ForceType，也没有根城（nejiro）刷怪流程，
+    /// 本项目暂时既没有 Force.ForceType，也没有根城（mainCamp）刷怪流程，
     /// 所以先退一步：用「武将 Id + 名字」双重校验，把数据里那 8 个异族模板武将标出来，
     /// 让归属巡检、身份筛选先能正确排除它们，不至于把"故意没有所属城"的人清成在野。
     ///

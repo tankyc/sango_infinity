@@ -112,5 +112,13 @@ namespace Sango.Core
         /// 必须追加在枚举末尾,插在中间会整体移位并破坏旧存档里的 missionType 数值。
         /// </summary>
         PersonCityStrategy,
+
+        /// <summary>
+        /// 能力培育任务:武将闭关 3 旬研习能力,到期由 <see cref="AbilityStudySystem.FinishStudyMission"/> 结算
+        /// （missionParams1 = 能力 Id）。对齐 Open311 的 LearnBaseStat / LearnHeishuTekisei / LearnSkill
+        /// 三个 person order（person_set_order_timer(actor, 3) + action_done）。
+        /// 必须追加在枚举末尾,插在中间会整体移位并破坏旧存档里的 missionType 数值。
+        /// </summary>
+        PersonStudyAbility,
     }
 }

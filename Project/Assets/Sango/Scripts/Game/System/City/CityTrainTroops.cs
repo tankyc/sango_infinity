@@ -52,12 +52,37 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.freePersons.Count > 0 &&
+                // 没有兵就无从训练 —— 对齐原版 can_drill_command 的 `troops != 0`。
+                // 这条此前只加在 JobTrainTroops 内部（执行时返回 0），
+                // 而 IsValid / GetInvalidReason 都没有对应项，导致"无兵时按钮仍亮"。
+                return TargetCity.troops > 0 &&
+                    TargetCity.freePersons.Count > 0 &&
                     TargetCity.CheckJobCost(CityJobType.TrainTroops) &&
                     TargetCity.morale < TargetCity.MaxMorale &&
                     TargetCity.GetJobCounter((int)CityJobType.TrainTroops) == 0 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.TrainTroops);
+                    TargetCity.BelongCorps.ActionPoint >= TargetCity.GetJobCostAP(CityJobType.TrainTroops);
             }
+        }
+
+        /// <inheritdoc/>
+        public override string GetInvalidReason(City city)
+        {
+            if (city != null)
+                TargetCity = city;
+            if (TargetCity.troops <= 0)
+                return "城中无兵";
+            if (TargetCity.freePersons.Count <= 0)
+                return "无空闲武将";
+            if (!TargetCity.CheckJobCost(CityJobType.TrainTroops))
+                return "资金不足";
+            if (TargetCity.morale >= TargetCity.MaxMorale)
+                return "士气已满";
+            if (TargetCity.GetJobCounter((int)CityJobType.TrainTroops) != 0)
+                return "本回合已训练过";
+            // 与 IsValid 同源：走本城口径（军事府可减半），否则会显示"行动力不足"却其实够
+            if (TargetCity.BelongCorps.ActionPoint < TargetCity.GetJobCostAP(CityJobType.TrainTroops))
+                return "行动力不足";
+            return null;
         }
 
         public override int CalculateWonderNumber()

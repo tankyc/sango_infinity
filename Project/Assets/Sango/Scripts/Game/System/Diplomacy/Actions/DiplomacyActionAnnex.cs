@@ -14,7 +14,7 @@ namespace Sango.Core
     ///
     /// 【与原版的差异】
     ///   · 原版前置会剔除玩家势力（`force->get_player_id() != -1`），这里同样拒绝；
-    ///   · 原版`get_seikaku()`（性格枚举）本项目没有，先用 `PersonalityId` 近似，
+    ///   · 原版的性格枚举本项目没有，先用 `PersonalityId` 近似，
     ///     待性格体系对齐后再替换（见 DiplomacyRules.TryAnnex 注释）。
     /// </summary>
     public class DiplomacyActionAnnex : DiplomacyActionBase

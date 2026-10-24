@@ -35,6 +35,24 @@ namespace Sango.Core.Player
             }
         }
 
+        /// <inheritdoc/>
+        public override string GetInvalidReason(City city)
+        {
+            if (city != null)
+                TargetCity = city;
+            if (TargetCity.freePersons.Count <= 0)
+                return "无空闲武将";
+            if (TargetCity.security >= 100)
+                return "治安已满";
+            if (!TargetCity.CheckJobCost(CityJobType.Inspection))
+                return "资金不足";
+            if (TargetCity.GetJobCounter((int)CityJobType.Inspection) != 0)
+                return "本回合已巡视过";
+            if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.Inspection))
+                return "行动力不足";
+            return null;
+        }
+
         public override int CalculateWonderNumber()
         {
             return TargetCity.JobInspection(personList.ToArray(), true);

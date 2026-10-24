@@ -101,15 +101,12 @@ namespace Sango.Core
             //    放在最后一步：让各系统先按自己的生命周期正常退订，兜底只处理剩下的。
             GameEventBaseline.Restore();
 
-            // 9.5) 人才部署系统的运行期状态（影子报告计数 + 兵力观察值），跨剧本复位
-            DeploymentShadow.Clear();
-            DeploymentState.Clear();
+            // 9.5) 据点 AI 的回合级缓存（据点态势表 + 当前势力/军团指针）。
+            // 人才部署（Deployment*）与资源调度（ResourceDispatcher）两套自建系统已按"对齐原版"的要求移除，
+            // 其职责分别回到原版的 移动命令 / 召唤命令 与 运输命令 / 支援命令。
+            OutpostRuntime.Reset();
 
-            // 9.6) 资源调度的运行期状态（报告计数 + 防重入标记 + 待发存量人员需求），同样跨剧本复位
-            ResourceDispatcher.Clear();
-            ResourceDispatchState.Clear();
-
-            // 9.7) 内政建筑规划的运行期状态（势力资源水位快照 + 更换冷却），同样跨剧本复位
+            // 9.6) 内政建筑规划的运行期状态（势力资源水位快照 + 更换冷却），同样跨剧本复位
             ForceBuildState.Clear();
             BuildingPlanState.Clear();
 

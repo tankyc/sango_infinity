@@ -69,10 +69,8 @@ namespace Sango.Core.Debate
             if (Resolver != null)
                 return Resolver(person);
 
-            // 优先用性格对象上的 kind（数据里 kind 与 Id 一致，语义更准确）
-            int kind = person.mPersonality != null ? person.mPersonality.kind : 0;
-            if (kind <= 0)
-                kind = person.PersonalityId;
+            // 只读性格对象上的 kind，不再回退到 PersonalityId —— 性格判定统一走内嵌属性
+            int kind = person.PersonalityKind;
 
             if (PersonalityMap.TryGetValue(kind, out int mapped))
                 return mapped;

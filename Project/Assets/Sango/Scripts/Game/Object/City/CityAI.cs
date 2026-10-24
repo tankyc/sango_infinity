@@ -5,7 +5,14 @@ using System.Linq;
 
 namespace Sango.Core
 {
-    public class CityAI
+    /// <summary>
+    /// 据点 AI 命令集合。
+    /// <para>
+    /// partial 拆分：CityAIOutpost.cs 承载"按据点状态生成固定命令队列"
+    /// （对齐原版 s11_game_ai_outpost*.cpp 的 据点主流程 / 据点命令表生成）。
+    /// </para>
+    /// </summary>
+    public partial class CityAI
     {
         static internal PriorityQueue<City> priorityQueue = new PriorityQueue<City>();
         public static List<Cell> tempCellList = new List<Cell>();
@@ -59,6 +66,24 @@ namespace Sango.Core
             // ---------- 二、已有军事任务:持续派遣部队 ----------
             if (city.TroopMissionType != MissionType.None)
                 return ContinueMilitaryMission(city, scenario);
+
+            // ---------- 二点五、内政设施门槛：只守不攻 ----------
+            // 对齐出处：s11_game_ai_kyoten_cmd_mil_attack.cpp:77-79
+            //   if (not ai_table_meets_min_gov_facility_count(city_id)) return true;
+            // 原版这条判定在 attack 的都市分支里。本项目把攻防合并进本方法，
+            // 因此放在"选新进攻目标"之前 —— 上面已成立的防守/回援任务不受影响。
+            if (city.IsCity() && !CityFacilityRequirement.MeetsMinGovFacilityCount(city))
+                return true;
+
+            // ---------- 二点六、玩家子军团：只有"出击据点"主动开战 ----------
+            // 对齐出处：Open311 update_player_sub_district_data（s11_game_ai_district.cpp:143-159）
+            // 为玩家子军团算出的 outpost_（离攻略目标最近的城）。
+            // 原版只有该据点承担进攻任务，其余城只做内政与防守 —— 否则一个军团会多点开花。
+            if (city.BelongForce != null && city.BelongForce.IsPlayer
+                && city.BelongCorps != null && city.BelongCorps.number != 1
+                && city.BelongCorps.districtTargetCityId > 0
+                && city.Id != city.BelongCorps.districtTargetCityId)
+                return true;
 
             // ---------- 三、无任务:按优先级决定新的军事目标 ----------
 
@@ -169,6 +194,9 @@ namespace Sango.Core
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
             if (troop == null)
                 return;                             // 城池被围困,无法出城,本次出征已取消
+            // 记录"本势力刚出征" —— 对齐 s11_game_ai_kyoten_cmd_mil_attack.cpp:403
+            // 的 ai_table_update_last_attack_turn（外交 AI 用它判断是否长期无战事）。
+            city.BelongForce?.MarkAttackTurn(scenario);
             Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.BelongForce?.Name}的{targetCity.Name}!");
         }
 
@@ -196,6 +224,8 @@ namespace Sango.Core
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
             if (troop == null)
                 return;                             // 城池被围困,无法出城,本次出征已取消
+            // 防御出阵同样计入"最后出征回合" —— 对齐 s11_game_ai_kyoten_cmd_mil_defense.cpp:263
+            city.BelongForce?.MarkAttackTurn(scenario);
             Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
         }
 
@@ -221,6 +251,7 @@ namespace Sango.Core
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
             if (troop == null)
                 return true;                        // 城池被围困,无法出城,本次出征已取消
+            city.BelongForce?.MarkAttackTurn(scenario);
             Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 驱逐{threatTroop.BelongForce?.Name}的{threatTroop.Name}!");
             return true;
         }
@@ -620,8 +651,8 @@ namespace Sango.Core
             if (city.IsEnemiesRound(9))
                 return true;
 
-            AIBuilding(city, scenario);
-            return true;
+            // 透传真实结果：调度器靠它判断"是否真的做了事"来决定要不要补扣行动力
+            return AIBuilding(city, scenario);
         }
 
         static int[] recommandSearchingFeatrues = new int[] { 86 };
@@ -776,8 +807,10 @@ namespace Sango.Core
                     maxPerTurn = byWild;
             }
 
-            // 【前期优先】开局前 N 回合再放宽 1 个名额（与部署层同口径）
-            int forceTurn = DeploymentState.currentForceTurn;
+            // 【前期优先】开局前 N 回合再放宽 1 个名额
+            // （原来读 DevploymentState.currentForceTurn，该状态随人才部署系统一并移除，
+            //   改用剧本回合数 —— 与原版"开局抢人才"的时点判断同源）
+            int forceTurn = scenario != null ? scenario.TurnCount : 0;
             if (forceTurn > 0 && forceTurn <= AIConfig.Instance.cityOrder.recruitPersonEarlyTurns)
                 maxPerTurn++;
             for (int i = 0; i < city.wildPersons.Count; i++)
@@ -853,25 +886,46 @@ namespace Sango.Core
             if (city.IsEnemiesRound())
                 return true;
 
-            int count = 1;
-            if (city.freePersons.Count > 6)
-                count = count + (city.freePersons.Count - 3) / 3;
+            // 【一回合可建多座，但每座各扣一次 AP】
+            // 原版 `kyoten_develop`（s11_game_ai_kyoten_cmd.cpp:100-147）单次调用只建一座，
+            // 但**同一回合会被多次调用**：`exec_develop_command` 会给每个参与者
+            // `person_set_action_done(person, true)`（s11_sys_person_order_city.cpp:108），
+            // 用掉 1~3 名武将；只要队列里还有 Develop、还有空闲武将、AP 还够，就会继续建。
+            // 真正的限制是"武将行动力 + AP 余额"，不是"一回合一座"。
+            // <para>
+            // 本项目队列里 `Develop` 只登记一次，若命令体也硬限 1 座，
+            // 等于把"10 个空闲武将 + 满行动力"的城压成每回合 1 座，明显不合理。
+            // </para>
+            // <para>
+            // 【AP 控制】每建一座立刻扣一次 `JobType.GetJobCostAP(Build)`，
+            // 扣完后调 `MarkExecuted()` 让调度器跳过"委托型补扣"，避免重复扣减。
+            // 升级仍走独立命令 `AIOrderId.Merge → AIMerge`，
+            // 军事建筑仍走 `AIOrderId.Build → AIBuildMilitaryBuilding`，各自独立记账。
+            // </para>
+            int cost = JobType.GetJobCostAP((int)CityJobType.Build);
+            int built = 0;
+            const int MaxPerCommand = 3;      // 软上限：单条命令最多建 3 座，避免霸占整个队列
 
-            // 【优化】原先忽略子调用返回值，即使一次建设都没发生也会继续循环。
-            // 现按实际结果提前结束，避免无效调用。
-            for (int i = 0; i < count; i++)
+            while (built < MaxPerCommand)
             {
+                if (city.freePersons.Count <= 0)
+                    break;
+                if (cost > 0 && OutpostRuntime.actionPoint < cost)
+                    break;
                 if (!AIBuildIntriore(city, scenario))
                     break;
-            }
-            for (int i = 0; i < count; i++)
-            {
-                if (!AIBuildingLevelUp(city, scenario))
-                    break;
+
+                OutpostRuntime.actionPoint -= cost;
+                built++;
             }
 
-            AIBuildMilitaryBuilding(city, scenario);
-            return true;
+            if (built > 0)
+            {
+                // 已按"一座一成本"逐次扣减 → 通知调度器不要再补扣
+                OutpostRuntime.MarkExecuted();
+                return true;
+            }
+            return false;
         }
 
 
@@ -885,6 +939,13 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIBuildMilitaryBuilding(City city, Scenario scenario)
         {
+            // 【军团设置 · 建筑控制】关闭时禁止建造军事建筑（箭楼 / 阵 / 军事府等）。
+            // 该开关只管两件事：**删除内政设施** 与 **建造军事建筑**；
+            // 内政设施的新建与升级不受它约束。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Build) == 1)
+                return true;
+
             if (city.areaCellList.Count == 0)
                 return true;
 
@@ -1079,14 +1140,21 @@ namespace Sango.Core
             int maxTroopNum = 3000;
             int food = (int)(maxTroopNum * scenario.Variables.baseFoodCostInTroop * 20);
 
+            // 【军事府：领地内建军事设施 8 折】
+            // 对齐原版 get_facility_gold_cost（s11_sys_scen_unit.cpp:1607-1614）：
+            // 部队所属势力在本城领地里建军事设施时，造价 × 8/10。
+            int effectiveCost = buildingType.cost;
+            if (CityFacilityRequirement.HasGovFacility(city, InteriorFacilityKind.MilitaryOffice))
+                effectiveCost = effectiveCost * 8 / 10;
+
             // 资金：固定额度优先，否则按造价倍率推算
             int carrayGold = cfg.frontBuildBudget > 0
                 ? cfg.frontBuildBudget
-                : buildingType.cost * Math.Max(100, cfg.frontBuildGoldCostPercent) / 100;
+                : effectiveCost * Math.Max(100, cfg.frontBuildGoldCostPercent) / 100;
             if (carrayGold > city.gold)
                 carrayGold = city.gold;
             // 连一座都建不起就没必要出征
-            if (carrayGold < buildingType.cost)
+            if (carrayGold < effectiveCost)
                 return false;
 
             city.troops -= maxTroopNum;
@@ -1293,6 +1361,15 @@ namespace Sango.Core
             if (city.gold < AIConfig.Instance.buildMinGold) // 建设所需的最低金钱
                 return false;
 
+            // 【战斗状态下不新建内政设施】避免与据点拆除命令形成死循环：
+            // `AIDestroy` 在 Battle + 无空闲武将时会把"所有未完工设施"清掉
+            // （对齐原版"不给敌人留设施"），而本方法此前不看状态照建，
+            // 于是出现"建 → 没完工就被拆 → 再建 → 再拆"的无限烧钱循环。
+            // 判据与 `AIDestroy` 同源（OutpostRuntime 的据点态势），保证两侧口径一致。
+            OutpostInfo outpostInfo = OutpostRuntime.Get(city.Id);
+            if (outpostInfo != null && outpostInfo.state == OutpostState.Battle)
+                return false;
+
             // ---------- 一、还有空位：直接新建 ----------
             if (!city.IsInteriorBuildFull())
             {
@@ -1321,8 +1398,21 @@ namespace Sango.Core
                 return AIBuildingTemplate(templateId, city, scenario);
             }
 
-            // ---------- 二、内政地已建满：尝试"拆旧建新"腾位 ----------
-            return TryReplaceBuilding(city, scenario);
+            // ---------- 二、内政地已建满 ----------
+            // 【对齐原版：建满时**不在建造流程里拆任何东西**】
+            //
+            // 原版是两条**独立命令**，靠"空地"这个中间状态解耦（s11_game_ai_kyoten_cmd.cpp:891-971）：
+            //   · `kyoten_destroy`：建满时只拆"废设施" —— 铸币厂周边无市场、谷仓周边无农田，
+            //     或内政未达最低配置时按固定优先级表挑一座；**拆完立即结束，不在同一函数里建新的**。
+            //   · `dev_ai`：下一次执行时**发现有平地**才按需求权重建一座。
+            //
+            // 本项目原先走 `TryReplaceBuilding`：规划器一次算出"拆 A 建 B"、同函数内先拆后建。
+            // 这条路径是自创的（原版没有），且与 `BuildingPlan` 的需求模型耦合，
+            // 会绕开原版"只拆废设施"的判定 —— 表现为"城里建筑凭空少一座"。
+            //
+            // 现在改为直接返回 false，把拆除完全交回 `AIOrderId.Destroy`（其判定已对齐原版），
+            // 建满且无废设施时就是**什么都不做**，与原版一致。
+            return false;
         }
 
         /// <summary>
@@ -1338,6 +1428,13 @@ namespace Sango.Core
         /// <returns>是否完成了一次更换</returns>
         public static bool TryReplaceBuilding(City city, Scenario scenario)
         {
+            // 【军团设置 · 建筑控制】"拆旧建新"包含"删除内政设施"这一步，
+            // 因此与 `AIDestroy` 一样受该开关约束（开关只管"删除内政"与"建造军事建筑"，
+            // 不含内政的新建与升级 —— 那两条走的是别的分支）。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Build) == 1)
+                return false;
+
             Building outgoing;
             BuildingType incoming;
             if (!BuildingPlanner.TryPlanReplace(city, scenario, out outgoing, out incoming))
@@ -1345,6 +1442,13 @@ namespace Sango.Core
 
             // 先拆：OnFall 会移除建筑、释放工人、维护 buildingCountMap 并重算产出。
             // 注意它不退还建造花费 —— 这正是"更换的代价"。
+            // 【必须打日志】这条路径此前**静默拆除**：`OnFall` 不产生任何记录，
+            // 玩家只会看到"城里的建筑凭空少了一座"，却查不到是谁拆的、为什么拆。
+            if (AIConfig.Instance.logOutpostAI)
+            {
+                Sango.Log.Info($"*[据点AI]{city.Name} 拆除 {outgoing.Name}"
+                    + $"（为改建 {incoming.Name} 腾位）");
+            }
             outgoing.OnFall(null);
 
             // 再建：此时内政地已腾出一格。
@@ -1975,13 +2079,10 @@ namespace Sango.Core
                     ? capacityItem.TransformLimit(city.StoreLimit)
                     : city.StoreLimit;
 
-                // 【满了也继续造】容器满只说明"该往外运了"，不是停产的信号 ——
-                // 资源调度会把水位以上的富余推向前线（ResourceDispatcher）。
-                // 只有"满了、**而且这批货运不出去**"时才停产：本城没被调度覆盖，
-                // 或上一趟调度里这类资源有背压。与 AICreateBoat / AICreateMachine 同一口径。
-                if (itemCapacity > 0 && itemNum >= itemCapacity
-                    && !ResourceDispatchState.CanKeepProducing(city.Id, (int)ResourceKind.Arms,
-                        scenario != null ? scenario.TurnCount : 0))
+                // 【对齐原版】达到容量上限就不再生产 —— 见 s11_game_ai_kyoten_cmd.cpp:290-294：
+                //   if (city->get_equipment_quantity(i) >= city->get_max_equipment_quantity(i)) weight[i] = 0;
+                // 原版没有"满了继续造、靠运输消化"的概念，满了就是权重清零。
+                if (itemCapacity > 0 && itemNum >= itemCapacity)
                     continue;
 
                 if (itemNum < levelTotal[itemTypeId - 2] * city.troops / sumTotal + 5000)
@@ -2044,9 +2145,7 @@ namespace Sango.Core
             //   · 或上一趟调度里这类资源有**背压**（有富余却找不到接收方）。
             // 两者都不成立就往死里造也无所谓 —— 反正下一趟调度会把它搬空。
             int boatCapacity = targetItemType.TransformLimit(city.StoreLimit);
-            if (boatCapacity > 0 && totalNum >= boatCapacity
-                && !ResourceDispatchState.CanKeepProducing(city.Id, (int)ResourceKind.Boat,
-                    scenario != null ? scenario.TurnCount : 0))
+            if (boatCapacity > 0 && totalNum >= boatCapacity)
                 return true;
 
             Building BoatFactory = city.GetFreeBuilding((int)BuildingKindType.BoatFactory);
@@ -2121,9 +2220,7 @@ namespace Sango.Core
             // 【后方满仓后不应当停产】同 AICreateBoat：满了也继续造，只要资源调度还能把富余运走；
             // 只有"没被调度覆盖"或"上一趟有背压（运不出去）"时才按原口径停产。
             int machineCapacity = targetItemType.TransformLimit(city.StoreLimit);
-            if (machineCapacity > 0 && totalNum >= machineCapacity
-                && !ResourceDispatchState.CanKeepProducing(city.Id, (int)ResourceKind.Machine,
-                    scenario != null ? scenario.TurnCount : 0))
+            if (machineCapacity > 0 && totalNum >= machineCapacity)
                 return true;
 
             if (totalNum > (city.troops / 2) * targetItemType.p1 / 1000 + 1 && GameRandom.Chance(20))
@@ -2254,7 +2351,7 @@ namespace Sango.Core
             Person[] people = null;
             TroopTeamCandidate teamPick;
             if (TroopTeamService.TryPickForAI(city, costEnoughTroopTypes,
-                    CityEstablishment.ResolveRing(city), out teamPick))
+                    city.ResolveRing(), out teamPick))
             {
                 if (teamPick.troopType != null)
                     spType = teamPick.troopType;

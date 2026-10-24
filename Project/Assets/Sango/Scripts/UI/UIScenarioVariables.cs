@@ -399,8 +399,6 @@ namespace Sango.UI
             AddTitle("城市计略参数");
             AddNumberItem("流言忠诚下限闸门", variables.cityStrategyRumorLoyaltyFloor, 0, 100, (v) => { variables.cityStrategyRumorLoyaltyFloor = v; });
             AddNumberItem("同城流言冷却回合", variables.cityStrategyRumorImmunityTurns, 0, 36, (v) => { variables.cityStrategyRumorImmunityTurns = v; });
-            AddNumberItem("AI流言派遣间隔回合", variables.cityStrategyAIMaxRumorPerTurns, 0, 36, (v) => { variables.cityStrategyAIMaxRumorPerTurns = v; });
-            AddNumberItem("AI报复施计概率(%)", variables.cityStrategyAIRevengeChance, 0, 100, (v) => { variables.cityStrategyAIRevengeChance = v; });
             AddNumberItem("AI褒奖响应标记回合", variables.cityStrategyRumorVictimRewardTurns, 0, 36, (v) => { variables.cityStrategyRumorVictimRewardTurns = v; });
             AddNumberItem("AI褒奖响应追加人数", variables.cityStrategyRumorVictimRewardBoost, 0, 10, (v) => { variables.cityStrategyRumorVictimRewardBoost = v; });
 
@@ -423,6 +421,11 @@ namespace Sango.UI
             // 装备变更（授予 / 没收一件珍品）的成本：技巧点，默认 50，0 = 免费。
             // 2026-10 改版后不再有忠诚曲线、不占行动力、不限每回合次数（见 ItemGrantRules）。
             AddNumberItem("装备变更技巧点消耗(0=免费)", variables.itemChangeTechniqueCost, 0, 10000, (v) => { variables.itemChangeTechniqueCost = v; });
+
+            // 能力研究 / 培育：势力级能力研究的金钱消耗、培育的金钱消耗 /
+            // 单次提升点数 / 触发概率（GainValueConfig 的 AbilityStudy* 段，见 AbilityStudySystem）。
+            AddBigTitle("能力研究与培育");
+            AddGainTable("能力研究与培育", variables.abilityStudyGain, GainValueConfig.AbilityStudyPlaces);
 
             AddBigTitle("Mod相关");
             GameEvent.OnScenarioVariablesSetting?.Invoke(this, scenario);

@@ -169,12 +169,23 @@ namespace Sango.Core
             return maxValue * 2;
         }
 
-        public static int Method_SecurityAbility(int v, int buildingTotalLevel)
+        /// <summary>
+        /// 治安巡查的产出量。
+        ///
+        /// 对齐出处：Open311 `s11_sys_person_order_city.cpp:1365-1367`：
+        /// <code>
+        /// security += Σ统率 / 28 + 2
+        /// 敌军来袭时 result /= 2
+        /// 超过 max_public_order 时截断
+        /// </code>
+        /// 原实现是 `Σ v^(0.5/i) - 10`（随设施等级变化的另一套曲线），
+        /// 与原版完全不同，本次整体替换 —— 推荐与执行从此走同一公式。
+        /// </summary>
+        /// <param name="sumCommand">执行武将的统率之和</param>
+        /// <returns>治安增量（至少 1）</returns>
+        public static int Method_SecurityAbility(int sumCommand)
         {
-            int percent = 0;
-            for (int i = 1; i <= buildingTotalLevel; ++i)
-                percent += (int)(Math.Pow(v, 0.5f / i));
-            return Math.Max(1, percent - 10);
+            return Math.Max(1, sumCommand / 28 + 2);
         }
 
         public static int Method_FarmingAbility(int v)
@@ -187,22 +198,70 @@ namespace Sango.Core
             return Math.Max(1, (int)(Math.Pow(v, 0.5)) - 5);
         }
 
-        public static int Method_RecruitTroops(int v, int buildingTotalLevel)
+        /// <summary>
+        /// 征兵的产出量。
+        ///
+        /// 对齐出处：Open311 `s11_sys_scen_city.cpp:582-607`：
+        /// <code>
+        /// 基准 = 1000 + (治安 + 20) × Σ魅力 × 5 / 100
+        /// 最终 = 基准 × 名声系数 × 兵营系数
+        ///        名声系数：有特技"名声"为 1.5，否则 1
+        ///        兵营系数：Lv1 1.0 / Lv2 1.2 / Lv3 1.5
+        /// </code>
+        /// 原实现是 `(1000+6×Σ魅力) × 兵营系数`，等价于"治安恒为 100"的特例；
+        /// 本次把治安项补进来，治安下降时征兵量随之下降（原版每点 −0.5%）。
+        /// <para>
+        /// 【特技】"名声"的 ×1.5 **不在本方法里**：它由 <c>Features.json</c> 中
+        /// Id=80 的 `CityImproveJobResult`（value=150, jobIds=[6]）通过
+        /// <c>GameEvent.OnCityJobResult</c> override 结果值实现。
+        /// 所有需要特技参与的内政产出都走这条 override 链，公式本身不判特技。
+        /// </para>
+        /// </summary>
+        /// <param name="sumGlamour">执行武将的魅力之和</param>
+        /// <param name="security">本城治安（0~100）</param>
+        /// <param name="buildingTotalLevel">兵营等级（1~3）</param>
+        /// <returns>征兵数量</returns>
+        public static int Method_RecruitTroops(int sumGlamour, int security, int buildingTotalLevel)
         {
-            /*
-                以Lv.1设施为准，LV.2设施为1.2倍，Lv.3设施为1.5倍）
-                计算基准值v＝1000＋6(xa＋xb＋xc)
-                最终值V＝β{T×α(v)×[(100－Z)×0.05]}（治安每下降1点，征兵数量少0.5%）
-                其中：有特技“名声”则T为1.5，否则为1
-                例：治安为100，三个魅力为94、92、92的武将，在Lv.3兵舍征兵一次的数量为：1000＋6×(94＋92＋92)＝4002
-             */
-            return (1000 + 6 * v) * v_factor[buildingTotalLevel] / 100;
+            int baseValue = 1000 + (security + 20) * sumGlamour * 5 / 100;
+            return baseValue * v_factor[buildingTotalLevel] / 100;
         }
 
-        /// 训练值计算公式
-        public static int Method_TrainTroops(int v, int subV)
+        /// <summary>征兵公式的旧签名（无治安项）保留，等价于治安 100 的特例</summary>
+        /// <param name="v">执行武将的魅力之和</param>
+        /// <param name="buildingTotalLevel">兵营等级</param>
+        /// <returns>征兵数量</returns>
+        public static int Method_RecruitTroops(int v, int buildingTotalLevel)
         {
-            return Math.Max(1, (int)(Math.Pow(v, 0.5f) + Math.Pow(subV, 0.5f)));
+            return Method_RecruitTroops(v, 100, buildingTotalLevel);
+        }
+
+        /// <summary>
+        /// 训练的产出量（气力提升）。
+        ///
+        /// 对齐出处：Open311 `s11_sys_person_order_military.cpp:131-156`：
+        /// <code>
+        /// energy += 3 + (Σ武力 + max武力) / min(20 + troops/2000, 100)
+        /// 有训练所 → 再 ×1.5
+        /// 截断到 max_energy
+        /// </code>
+        /// 原实现是 `sqrt(Σ武力) + sqrt(max武力)`，与原版完全不同，本次整体替换。
+        /// </summary>
+        /// <param name="sumStrength">执行武将的武力之和</param>
+        /// <param name="maxStrength">其中武力最高者的武力</param>
+        /// <param name="troops">本城现有兵力（决定分母）</param>
+        /// <param name="hasTrainingGround">是否有训练所（有则 ×1.5）</param>
+        /// <returns>气力增量（至少 1）</returns>
+        public static int Method_TrainTroops(int sumStrength, int maxStrength, int troops, bool hasTrainingGround = false)
+        {
+            int denom = System.Math.Min(20 + troops / 2000, 100);
+            if (denom <= 0)
+                denom = 1;
+
+            int value = 3 + (sumStrength + maxStrength) / denom;
+            if (hasTrainingGround)
+                value = value * 3 / 2;
+            return Math.Max(1, value);
         }
 
         // 交易比列计算公式

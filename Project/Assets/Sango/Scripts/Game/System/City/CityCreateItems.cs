@@ -185,6 +185,35 @@ namespace Sango.Core.Player
             }
         }
 
+        /// <inheritdoc/>
+        public override string GetInvalidReason(City city)
+        {
+            if (city != null)
+                TargetCity = city;
+            // IsValid 已跑过一次 InitItem（OnCityContextMenuShow 先取 IsValid 再取原因），
+            // 这里不再重复调用，直接复用其结果。
+            if (TargetCity.FreePersonCount <= 0)
+                return "无空闲武将";
+            if (!TargetCity.CheckJobCost(CityJobType.CreateItems))
+                return "资金不足";
+            if (TargetCity.BelongCorps.ActionPoint < JobType.GetJobCostAP((int)CityJobType.CreateItems))
+                return "行动力不足";
+
+            // 兵装已满：所有可产项都达到存储上限
+            InitItem();
+            for (int i = 0; i < ItemTypes.Count; i++)
+            {
+                ItemTypeInfo itemType = ItemTypes[i];
+                if (itemType.targetBuilding != null
+                    && TargetCity.itemStore.GetNumber(itemType.itemType.storeKind)
+                        < itemType.itemType.TransformLimit(TargetCity.StoreLimit))
+                {
+                    return null;
+                }
+            }
+            return "所有兵装已达存储上限";
+        }
+
         public override int CalculateWonderNumber()
         {
             if (CurSelectedItemType != null && CurSelectedItemType.itemType.IsMachine())

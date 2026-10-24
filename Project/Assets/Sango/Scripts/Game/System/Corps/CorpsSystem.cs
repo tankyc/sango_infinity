@@ -42,7 +42,12 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.BelongForce.CityCount > 1;
+                // 【严格对齐原版 can_district_new_command】
+                // 原版四道门槛：有空余编号 / 第 1 军团存在 / 第 1 军团 ≥2 城 /
+                // 第 1 军团里 ≥2 座城有武将。
+                // 原先只判 `CityCount > 1`，玩家能从只有 2 座城的主军团里再拆出 1 座，
+                // 让主军团只剩 0 城（无法反击、无法征兵、AI 调度也会错乱）。
+                return TargetCity.BelongForce != null && TargetCity.BelongForce.CanCreateCorps();
             }
         }
 
@@ -111,8 +116,8 @@ namespace Sango.Core.Player
             targetCorps = new Corps();
             targetCorps.BelongForce = TargetCity.BelongForce;
             targetCorps.number = targetNumber;
-            //targetCorps.policy = 0;
             targetCorps.appoint = 0;
+            targetCorps.appoint_target = 0;
             targetCorps.ActionPoint = 255;
             Window.Instance.Open("window_corps_setting", targetCorps, "军团", (System.Action)CreateCorps);
         }
@@ -133,7 +138,6 @@ namespace Sango.Core.Player
                     targetCorps.Id = exsist.Id;
                     targetCorps.BelongForce = exsist.BelongForce;
                     targetCorps.number = exsist.number;
-                    //targetCorps.policy = exsist.policy;
                     targetCorps.appoint = exsist.appoint;
                     targetCorps.appoint_target = exsist.appoint_target;
                     targetCorps.mComander = exsist.mComander;

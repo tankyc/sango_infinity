@@ -181,8 +181,8 @@ namespace Sango.Core
             // ---------- 人力 ----------
             s.freePersons = city.freePersons != null ? city.freePersons.Count : 0;
             s.wildCount = city.wildPersons != null ? city.wildPersons.Count : 0;   // 登用命令排序依据
-            // 搜索命令排序依据：与部署层"搜索"岗同口径（本城 + 所属港关的未发现人才）
-            s.invisibleCount = CityEstablishment.CountInvisiblePersons(city);
+            // 搜索命令排序依据：本城 + 所属港关的未发现人才
+            s.invisibleCount = city.CountInvisiblePersons();
 
             // ---------- 兵装 ----------
             if (city.itemStore != null)

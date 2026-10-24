@@ -34,7 +34,7 @@ namespace Sango.UI
             if (targetForce != null)
             {
                 target.text = targetForce.Name;
-                relationship.text = Scenario.Cur.GetRelation(TargetCity.BelongForce, targetForce).ToString();
+                relationship.text = DiplomacyRules.FormatLike(TargetCity.BelongForce.GetLike(targetForce));
             }
             else
             {

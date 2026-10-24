@@ -28,6 +28,16 @@ namespace Sango.Core
         public SangoObjectSet<Feature> Features = new SangoObjectSet<Feature>();
 
         /// <summary>
+        /// 能力（研究 / 培育项目）。
+        ///
+        /// 对齐 Open311 的 Ability 表（s11_scen.h:2527-2600）；
+        /// 消费者：force_research_ability（势力级能力研究）与 force_learn（三段培育）。
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectSetConverter<Ability>))]
+        [JsonProperty]
+        public SangoObjectSet<Ability> Abilities = new SangoObjectSet<Ability>();
+
+        /// <summary>
         /// 兵种类型
         /// </summary>
         [JsonConverter(typeof(SangoObjectMapConverter<TroopType>))]
@@ -103,6 +113,13 @@ namespace Sango.Core
         [JsonConverter(typeof(SangoObjectSetConverter<Official>))]
         [JsonProperty]
         public SangoObjectSet<Official> Officials = new SangoObjectSet<Official>();
+
+        /// <summary>
+        /// 国号（对齐 Open311 `nation_t`，84 条：史实国号 / 异民族 / 贼 / 儐系列占位）
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectSetConverter<Nation>))]
+        [JsonProperty]
+        public SangoObjectSet<Nation> Nations = new SangoObjectSet<Nation>();
 
         /// <summary>
         /// 技能
@@ -207,6 +224,7 @@ namespace Sango.Core
             Regions.ForEach(x => x.OnScenarioPrepare(scenario));
             Titles.ForEach(x => x.OnScenarioPrepare(scenario));
             Officials.ForEach(x => x.OnScenarioPrepare(scenario));
+            Nations.ForEach(x => x.OnScenarioPrepare(scenario));
             Skills.ForEach(x => x.OnScenarioPrepare(scenario));
             PersonLevels.ForEach(x => x.OnScenarioPrepare(scenario));
             Personalities.ForEach(x => x.OnScenarioPrepare(scenario));

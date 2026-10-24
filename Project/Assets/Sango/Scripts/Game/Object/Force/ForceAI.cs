@@ -5,7 +5,11 @@ using Unity.VisualScripting;
 
 namespace Sango.Core
 {
-    public class ForceAI
+    /// <summary>
+    /// 势力 AI 命令集合。
+    /// <para>partial 拆分：ForceAIOutpost.cs 承载"据点态势采集 + 守将指派"（对齐原版 load_force_data）。</para>
+    /// </summary>
+    public partial class ForceAI
     {
 
 
@@ -109,13 +113,13 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 本方是否有"交战中的据点"（原版 `kyoten_count_[KyotenState_Battle] != 0`）。
+        /// 本方是否有"交战中的据点"（原版 `据点状态计数[Battle] != 0`）。
         ///
         /// 【近似口径】敌方部队正处在我方城池上 = 领地被入侵。
         /// 原版是 AI 表里逐据点维护的实时状态，这里每次现算（O(部队数)），
         /// 对外交这种低频决策完全够用。
         /// </summary>
-        static bool HasBattleKyoten(Force force, Scenario scenario)
+        static bool HasBattleOutpost(Force force, Scenario scenario)
         {
             if (scenario == null || scenario.troopsSet == null) return false;
 
@@ -144,7 +148,7 @@ namespace Sango.Core
         static bool TryAIAlliance(Force force, Scenario scenario, int turn)
         {
             // 原版：rand_bool(30)（:234），且**本方没有交战据点**（:236）才谈结盟
-            if (HasBattleKyoten(force, scenario)) return false;
+            if (HasBattleOutpost(force, scenario)) return false;
             if (!GameRandom.Chance(30)) return false;
 
             if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
@@ -158,7 +162,14 @@ namespace Sango.Core
             }
             if (!threatened) return false;
 
+            // 原版 `ai_table_alliance_target_comp` 的择优方向由 `get_aishou_first_chance` 决定：
+            //   aishou_first = true  → 挑**君主相性最近**的（重情义）
+            //   aishou_first = false → 挑**友好度最高**的（重利益）
+            // 旧实现固定按友好度排序，等于把这条分支写死了。
+            bool aishouFirst = GameRandom.Chance(GetAishouFirstChance(force));
+
             Force best = null;
+            int bestAishou = int.MaxValue;
             int bestLike = -1;
             for (int i = 0; i < force.NeighborForceList.Count; i++)
             {
@@ -168,7 +179,21 @@ namespace Sango.Core
 
                 int like = force.GetLike(n);
                 if (like < DiplomacyRules.AiAllianceLikeThreshold) continue;
-                if (like > bestLike) { bestLike = like; best = n; }
+
+                int aishou = force.mGovernor != null && n.mGovernor != null
+                    ? force.mGovernor.CompatibilityDistance(n.mGovernor)
+                    : 999;
+
+                bool better = aishouFirst
+                    ? (aishou < bestAishou || (aishou == bestAishou && like > bestLike))
+                    : (like > bestLike || (like == bestLike && aishou < bestAishou));
+
+                if (better)
+                {
+                    bestAishou = aishou;
+                    bestLike = like;
+                    best = n;
+                }
             }
 
             if (best == null) return false;
@@ -178,7 +203,7 @@ namespace Sango.Core
 
             DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
             DiplomacyActionBase action = dm.CreateDiplomacyAction(
-                DiplomacyActionType.Alliance, force, best, diplomat, 3000);
+                DiplomacyActionType.Alliance, force, best, diplomat, GetDiplomaticGoldUse(force, best));
             if (action == null || !action.CanPerform()) return false;
 
             dm.DispatchDiplomat(action);
@@ -194,18 +219,23 @@ namespace Sango.Core
         static bool TryAIDonate(Force force, Scenario scenario, int turn)
         {
             // 原版：rand_bool(30)（:340）+ 无交战据点（:342）+ turn % 5 错峰（:346）
-            if (HasBattleKyoten(force, scenario)) return false;
+            if (HasBattleOutpost(force, scenario)) return false;
             if (!GameRandom.Chance(30)) return false;
             if (turn % 5 != force.Id % 5) return false;
 
             if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
                 return false;
 
+            // 原版 `force_donate`：弱势力（power_rank < 50）金门槛 2500，其它 5000
+            int rank = GetPowerRank(force, scenario);
+            bool weak = rank < 50;
+            int minGold = weak ? 2500 : 5000;
+
             City capital = force.CapitalCity;
-            const int minGold = 5000;
             if (capital == null || capital.gold < minGold) return false;
 
-            // 目标：友好度最高的"还没到结盟门槛"的相邻势力（拉一把就能结盟的那个）
+            // 目标：友好度最高、且还没到"停止赠送"门槛的相邻势力。
+            // 原版停止门槛：已同盟 60，未同盟 70（即结盟线）—— 送礼只为铺路，够线就停。
             Force best = null;
             int bestLike = -1;
             for (int i = 0; i < force.NeighborForceList.Count; i++)
@@ -214,7 +244,8 @@ namespace Sango.Core
                 if (n == null || !n.IsAlive || n == force) continue;
 
                 int like = force.GetLike(n);
-                if (like >= DiplomacyRules.AiAllianceLikeThreshold) continue;   // 已经够结盟，不用再送
+                int stopLike = force.IsAlliance(n) ? 60 : DiplomacyRules.AiAllianceLikeThreshold;
+                if (like >= stopLike) continue;
                 if (like < 20) continue;                                        // 险恶关系送礼也无用
                 if (like > bestLike) { bestLike = like; best = n; }
             }
@@ -245,7 +276,7 @@ namespace Sango.Core
             // 原版两条路径（:530 战时 / :632 预防）：
             //   · 有交战据点 → turn % 21 错峰，且只对"打进来的那家"求和；
             //   · 无交战据点 → turn % 6 错峰（势力数 ≥3 时才错峰），属于"预防性停战"。
-            bool inBattle = HasBattleKyoten(force, scenario);
+            bool inBattle = HasBattleOutpost(force, scenario);
             if (inBattle)
             {
                 if (turn % 21 != force.Id % 21) return false;
@@ -257,6 +288,24 @@ namespace Sango.Core
 
             if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
                 return false;
+
+            // 战时：原版直接锁定"打进来的那家"（`:521-545` 扫描进入我领地的敌军），
+            // 而不是"关系最差的邻居" —— 求和对象必须是真的在打你的势力。
+            Force invader = null;
+            if (inBattle && scenario.troopsSet != null)
+            {
+                for (int i = 0; i < scenario.troopsSet.Count; i++)
+                {
+                    Troop troop = scenario.troopsSet[i];
+                    if (troop == null || !troop.IsAlive) continue;
+
+                    Force tf = troop.BelongForce;
+                    if (tf == null || tf == force || force.IsAlliance(tf)) continue;
+
+                    City c = troop.CurrentCity;
+                    if (c != null && c.BelongForce == force) { invader = tf; break; }
+                }
+            }
 
             Force worst = null;
             int worstLike = 101;
@@ -270,19 +319,199 @@ namespace Sango.Core
                 if (like < worstLike) { worstLike = like; worst = n; }
             }
 
-            if (worst == null || worstLike >= 40) return false;   // 关系不算差，没必要求和
+            // 有入侵者时以它为准（哪怕关系不算太差，也在打仗）
+            if (invader != null)
+            {
+                worst = invader;
+                worstLike = force.GetLike(invader);
+            }
+
+            if (worst == null || (!inBattle && worstLike >= 40)) return false;
 
             Person diplomat = FindSuitableDiplomat(force);
             if (diplomat == null) return false;
 
-            DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
-            DiplomacyActionBase action = dm.CreateDiplomacyAction(
-                DiplomacyActionType.Truce, force, worst, diplomat, 2000);
-            if (action == null || !action.CanPerform()) return false;
+            // 期限：原版 `time = power_rank * 72 / 100`，clamp 6..72（`:600`）
+            int rank = GetPowerRank(force, scenario);
+            int weeks = rank * 72 / 100;
+            if (weeks < 6) weeks = 6;
+            if (weeks > 72) weeks = 72;
 
-            dm.DispatchDiplomat(action);
-            Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向 {worst.Name} 提议停战（友好度 {worstLike}）");
+            DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
+            DiplomacyActionTruce truce = dm.CreateDiplomacyAction(
+                DiplomacyActionType.Truce, force, worst, diplomat, GetDiplomaticGoldUse(force, worst)) as DiplomacyActionTruce;
+            if (truce == null) return false;
+
+            truce.TruceDuration = weeks;
+            if (!truce.CanPerform()) return false;
+
+            dm.DispatchDiplomat(truce);
+            Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向 {worst.Name} 提议停战" +
+                           $"（友好度 {worstLike}，期限 {weeks} 回合，实力排名 {rank}）");
             return true;
+        }
+
+        /// <summary>
+        /// "相性优先"的概率（对应原版 `get_aishou_first_chance`，`s11_sys_scen_ai.cpp:984-998`）：
+        ///
+        /// <code>
+        /// n = 4 + 义理 - 野心        // 0..8
+        /// n &lt; 4 → 5 + n*10          // 5..35：野心大，更看重利益（挑相性近的）
+        /// 否则   → 50 + n*5          // 70..90：义理高，更看重情义（挑友好的）
+        /// </code>
+        ///
+        /// 义理取 `mArgumentation.kind - 1`（项目 kind 是 1~5，要换算成原版的 0~4），
+        /// 野心直接用 `Person.ambition`（剧本数据里本就是 0~4）。
+        /// </summary>
+        static int GetAishouFirstChance(Force force)
+        {
+            if (force == null || force.mGovernor == null) return 0;
+
+            int giri = force.mGovernor.mArgumentation != null
+                ? force.mGovernor.mArgumentation.kind - 1
+                : 1;
+            int n = 4 + giri - force.mGovernor.ambition;
+
+            if (n < 0) n = 0;
+            if (n > 8) n = 8;
+
+            return n < 4 ? 5 + n * 10 : 50 + n * 5;
+        }
+
+        /// <summary>
+        /// 外交金预算（对应原版 `ai_table_get_diplomatic_gold_use`，`s11_sys_scen_ai.cpp:861-868`）：
+        /// AI→AI 固定 1000；AI→玩家 `1000 + 1500 * rand(100-like) / 100`，clamp 1000~2500。
+        /// 关系越差，越愿意多花钱。
+        /// </summary>
+        static int GetDiplomaticGoldUse(Force src, Force dest)
+        {
+            const int baseGold = 1000;
+            if (dest == null || !dest.IsPlayer) return baseGold;
+
+            int like = src != null ? src.GetLike(dest) : 0;
+            if (like < 0) like = 0;
+            if (like > 100) like = 100;
+
+            int gold = baseGold + 1500 * GameRandom.Range(0, 101 - like) / 100;
+            if (gold < 1000) gold = 1000;
+            if (gold > 2500) gold = 2500;
+            return gold;
+        }
+
+        /// <summary>
+        /// 势力实力排名（0~100，越高越强）。对应原版 `context_->force[id].power_rank`。
+        ///
+        /// 【近似口径】原版由 AI 表定期维护，这里按"城数×10 + 兵力/1000"现算并取百分位。
+        /// 用于劝降概率、送礼 min_gold（弱势力 2500 / 常规 5000）、停战期限折算。
+        /// </summary>
+        internal static int GetPowerRank(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null || scenario.forceSet == null)
+                return 0;
+
+            int selfScore = force.CityCount * 10 + force.FightPower / 1000;
+            int lower = 0;
+            int total = 0;
+
+            for (int i = 0; i < scenario.forceSet.Count; i++)
+            {
+                Force f = scenario.forceSet[i];
+                if (f == null || !f.IsAlive) continue;
+
+                total++;
+                int score = f.CityCount * 10 + f.FightPower / 1000;
+                if (score < selfScore) lower++;
+            }
+
+            return total > 0 ? lower * 100 / total : 0;
+        }
+
+        /// <summary>
+        /// 势力的"玩家接壤排名"（0~100，越高越倾向对玩家强硬）。
+        ///
+        /// 对齐出处：Open311 `s11_game_ai.cpp:181-349` 的
+        /// `context_->force[id].player_neighbored_rank` 计算。
+        /// <code>
+        /// 若 场上势力数 &lt; 4 → 全部 100（小局不让 AI 欺负玩家）
+        /// 否则排序：与玩家接壤的玩家势力数 降序 → 国力 降序 → Id
+        ///           rank = 100，step = 100 / n，逐个赋值并递减（clamp 0~100）
+        /// </code>
+        /// 消费者：
+        ///   · IsNeedHostile —— `like &lt; n + rank/10`（越高越容易把玩家列为敌人）
+        ///   · 外交对象选择 —— `rand_bool(rank)` 命中则跳过对玩家的示好
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>0~100；不是 AI 势力或无玩家时返回 0</returns>
+        internal static int GetPlayerNeighboredRank(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null || scenario.forceSet == null)
+                return 0;
+
+            List<Force> aiList = new List<Force>();
+            int playerCount = 0;
+            for (int i = 0; i < scenario.forceSet.Count; i++)
+            {
+                Force f = scenario.forceSet[i];
+                if (f == null || !f.IsAlive)
+                    continue;
+                if (f.IsPlayer)
+                    playerCount++;
+                else
+                    aiList.Add(f);
+            }
+
+            if (playerCount == 0)
+                return 0;
+            if (aiList.Count == 0)
+                return 100;
+            // 场上势力总数 < 4 → 全部 100 —— :181-189
+            if (aiList.Count + playerCount < 4)
+                return 100;
+
+            aiList.Sort((a, b) =>
+            {
+                int an = CountNeighborPlayerForces(a);
+                int bn = CountNeighborPlayerForces(b);
+                if (an != bn)
+                    return bn - an;
+                int ap = GetPowerRank(a, scenario);
+                int bp = GetPowerRank(b, scenario);
+                if (ap != bp)
+                    return bp - ap;
+                return a.Id - b.Id;
+            });
+
+            int n = aiList.Count;
+            int step = 100 / n;
+            int rank = 100;
+            for (int i = 0; i < n; i++)
+            {
+                if (aiList[i] == force)
+                    return rank;
+                rank = System.Math.Clamp(rank - step, 0, 100);
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// 统计某势力接壤的玩家势力数量。
+        /// 对齐出处：s11_game_ai.cpp:325-335 的 `a_neighbor_player_count`。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <returns>接壤的玩家势力数</returns>
+        static int CountNeighborPlayerForces(Force force)
+        {
+            if (force == null || force.NeighborForceList == null)
+                return 0;
+            int count = 0;
+            for (int i = 0; i < force.NeighborForceList.Count; i++)
+            {
+                Force f = force.NeighborForceList[i];
+                if (f != null && f.IsAlive && f.IsPlayer)
+                    count++;
+            }
+            return count;
         }
 
         /// <summary>场上存活势力数（对应原版 `force_list.size()`）</summary>
@@ -309,17 +538,13 @@ namespace Sango.Core
             if (turn < 36) return false;
             if (CountAliveForces(scenario) <= 2) return false;
 
-            int totalCities = 0;
-            if (scenario.forceSet != null)
-            {
-                for (int i = 0; i < scenario.forceSet.Count; i++)
-                {
-                    Force f = scenario.forceSet[i];
-                    if (f != null && f.IsAlive) totalCities += f.CityCount;
-                }
-            }
+            // 原版 :86：最近 18 回合内势力数有变化就跳过 —— 局势还在洗牌时不去劝降。
+            // 对应 Scenario.GetForceCountHighDiff（惰性记录，首次调用前历史为空返回 0）。
+            if (scenario.GetForceCountHighDiff(18) != 0) return false;
 
-            int rank = totalCities > 0 ? force.CityCount * 100 / totalCities : 0;
+            // 原版：`rand_bool(power_rank)` —— 强国更可能劝降。
+            // 旧实现用"城数占全场百分比"，本轮的 GetPowerRank 把兵力也计入，更接近原版实力排名。
+            int rank = GetPowerRank(force, scenario);
             if (!GameRandom.Chance(Math.Min(rank, 100))) return false;
 
             if (force.NeighborForceList == null) return false;
@@ -365,7 +590,23 @@ namespace Sango.Core
                 {
                     Force other = a.ForceList[j];
                     if (other == null || other == force) continue;
-                    if (force.GetLike(other) > 58) continue;    // 关系还过得去，不背盟
+
+                    // 原版 `:161-226`：阈值 = `58 - 义理*3`（义理越高越念旧，越不容易背盟）。
+                    // 【改为配置驱动】每档的具体阈值写在 `Argumentations.json` 的
+                    // `discardLikeThreshold`（1→55、2→52、3→49、4→46、5→43），
+                    // 策划可以直接调，不必再改代码里的系数；
+                    // 未配置（0）时回退到 `58 - kind*3`，保持旧行为。
+                    Argumentation arg = force.mGovernor != null ? force.mGovernor.mArgumentation : null;
+                    int discardThreshold;
+                    if (arg != null && arg.discardLikeThreshold > 0)
+                        discardThreshold = arg.discardLikeThreshold;
+                    else
+                    {
+                        int kind = arg != null ? arg.kind : 3;
+                        discardThreshold = 58 - kind * 3;
+                    }
+
+                    if (force.GetLike(other) > discardThreshold) continue;
                     if (!GameRandom.Chance(30)) continue;
 
                     a.IsAlive = false;
@@ -427,7 +668,7 @@ namespace Sango.Core
         static bool TryAIReinforce(Force force, Scenario scenario, int turn)
         {
             if (force.requestForceId >= 0 || force.requestTimer > 0) return false;
-            if (HasBattleKyoten(force, scenario)) return false;
+            if (HasBattleOutpost(force, scenario)) return false;
             if (!GameRandom.Chance(30)) return false;
 
             if (force.AllianceList == null) return false;
@@ -1528,7 +1769,8 @@ namespace Sango.Core
                 if (check2 != null) buildAbility += check2.BaseSecurityAbility;
                 if (check3 != null) buildAbility += check3.BaseSecurityAbility;
 
-                buildAbility = GameUtility.Method_SecurityAbility(buildAbility, 1);
+                // 与执行侧同式（原版 `Σ统率/28 + 2`），推荐结果才与实际产出一致
+                buildAbility = GameUtility.Method_SecurityAbility(buildAbility);
 
                 if (buildAbility > maxValue[0])
                 {
@@ -1594,14 +1836,44 @@ namespace Sango.Core
         /// </summary>
         public static Person[] CounsellorRecommendTrainTroops(List<Person> personList)
         {
+            // 训练公式依赖"本城兵力"与"有无训练所"，从候选武将的所在城取
+            City city = null;
+            if (personList != null)
+            {
+                for (int i = 0; i < personList.Count; i++)
+                {
+                    if (personList[i] == null)
+                        continue;
+                    city = personList[i].BelongCity ?? personList[i].CurrentCity;
+                    break;
+                }
+            }
+            int troops = city != null ? city.troops : 0;
+            bool hasTrainingGround = city != null
+                && CityFacilityRequirement.HasGovFacility(city, InteriorFacilityKind.TrainingSchool);
+
             return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
             {
-                int buildAbility = 0;
-                if (check1 != null) buildAbility += check1.BaseTrainTroopAbility;
-                if (check2 != null) buildAbility += check2.BaseTrainTroopAbility;
-                if (check3 != null) buildAbility += check3.BaseTrainTroopAbility;
+                // 与执行侧同式：Σ武力 + max武力
+                int sumAbility = 0;
+                int maxAbility = 0;
+                if (check1 != null)
+                {
+                    sumAbility += check1.BaseTrainTroopAbility;
+                    if (check1.BaseTrainTroopAbility > maxAbility) maxAbility = check1.BaseTrainTroopAbility;
+                }
+                if (check2 != null)
+                {
+                    sumAbility += check2.BaseTrainTroopAbility;
+                    if (check2.BaseTrainTroopAbility > maxAbility) maxAbility = check2.BaseTrainTroopAbility;
+                }
+                if (check3 != null)
+                {
+                    sumAbility += check3.BaseTrainTroopAbility;
+                    if (check3.BaseTrainTroopAbility > maxAbility) maxAbility = check3.BaseTrainTroopAbility;
+                }
 
-                buildAbility = GameUtility.Method_TrainTroops(buildAbility, 1);
+                int buildAbility = GameUtility.Method_TrainTroops(sumAbility, maxAbility, troops, hasTrainingGround);
 
                 if (buildAbility > maxValue[0])
                 {
@@ -1636,16 +1908,138 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 军师招募兵装生产推荐
+        /// 判断某人是否持有推荐特技列表中的任意一个。
         /// </summary>
+        /// <param name="features">推荐特技 Id 列表</param>
+        /// <param name="person">候选武将</param>
+        /// <returns>持有任意一个返回 true</returns>
+        static bool HasAnyRecommendFeature(int[] features, Person person)
+        {
+            if (person == null || features == null)
+                return false;
+            for (int i = 0; i < features.Length; i++)
+            {
+                if (person.HasFeatrue(features[i]))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 军师招募兵装生产推荐。
+        ///
+        /// 推荐特技来自 <c>JobTypes.json</c> 的 <c>recommandFeatures</c>（生产兵装 → 能吏/发明）。
+        /// 带特技的人**优先入队**：用一个远大于能力量级的加成表达"绝对优先"，
+        /// 与运输推荐的 `transport_actor_comp` 同一套思路。
+        /// </summary>
+        /// <summary>
+        /// 从候选里挑一名"带推荐特技且能力最高"的武将（没有持有者时返回 null）。
+        /// </summary>
+        /// <param name="personList">候选武将</param>
+        /// <param name="features">推荐特技 Id 列表</param>
+        /// <param name="score">能力打分函数</param>
+        /// <returns>最优的特技持有者；没有则 null</returns>
+        static Person PickRecommendFeaturePerson(List<Person> personList, int[] features, Func<Person, int> score)
+        {
+            if (personList == null || features == null || features.Length == 0 || score == null)
+                return null;
+
+            Person best = null;
+            int bestScore = int.MinValue;
+            for (int i = 0; i < personList.Count; i++)
+            {
+                Person p = personList[i];
+                if (!HasAnyRecommendFeature(features, p))
+                    continue;
+                int s = score(p);
+                if (s > bestScore)
+                {
+                    bestScore = s;
+                    best = p;
+                }
+            }
+            return best;
+        }
+
         public static Person[] CounsellorRecommendCreateItems(List<Person> personList, int[] commandFeatures = null)
         {
+            if (personList == null || personList.Count == 0)
+                return null;
+
+            // 调用方未显式指定时，从 job 数据取
+            if (commandFeatures == null || commandFeatures.Length == 0)
+                commandFeatures = JobType.GetJobRecommendFeatures((int)CityJobType.CreateItems);
+
+            // 【快速路径特判】候选 ≥20 人时 `CounsellorRecommend3Person` 会切到
+            // `CounsellorFastRecommend3Person` —— 那是**逐名额**挑人（评估时另外两人传 null），
+            // "整队只奖励一次特技"的语义在那边表达不出来，会把 3 个名额全塞满特技持有者。
+            // 这里改为：**先单独挑一名**特技持有者（能力最高的那个）锁定 1 个名额，
+            // 剩余名额从其余人里按纯能力排序挑满 —— 既保证"队里恰有 1 名持技者"，
+            // 又不让特技把整队的能力水平拉低。
+            if (personList.Count >= 20)
+            {
+                Person featurePerson = PickRecommendFeaturePerson(
+                    personList, commandFeatures, p => p.BaseCreativeAbility);
+
+                if (featurePerson != null)
+                {
+                    List<Person> rest = new List<Person>(personList.Count);
+                    for (int i = 0; i < personList.Count; i++)
+                    {
+                        if (personList[i] != featurePerson)
+                            rest.Add(personList[i]);
+                    }
+
+                    // 剩余名额：纯能力排序（特技优先已由 featurePerson 占掉）
+                    Person[] others = CounsellorRecommend3Person(rest, null, null,
+                        (ref int[] mv, Person c1, Person c2, Person c3) =>
+                        {
+                            int v = 0;
+                            if (c1 != null) v += c1.BaseCreativeAbility;
+                            if (c2 != null) v += c2.BaseCreativeAbility;
+                            if (c3 != null) v += c3.BaseCreativeAbility;
+                            if (v > mv[0])
+                            {
+                                mv[0] = v;
+                                return true;
+                            }
+                            return false;
+                        });
+
+                    Person[] merged = new Person[3];
+                    merged[0] = featurePerson;
+                    int n = 1;
+                    if (others != null)
+                    {
+                        for (int i = 0; i < others.Length && n < 3; i++)
+                        {
+                            if (others[i] != null)
+                                merged[n++] = others[i];
+                        }
+                    }
+                    return merged;
+                }
+                // 没有任何特技持有者 → 落到下面的纯能力路径
+            }
+
             return CounsellorRecommend3Person(personList, (ref int[] maxValue, Person check1, Person check2, Person check3) =>
             {
                 int buildAbility = 0;
                 if (check1 != null) buildAbility += check1.BaseCreativeAbility;
                 if (check2 != null) buildAbility += check2.BaseCreativeAbility;
                 if (check3 != null) buildAbility += check3.BaseCreativeAbility;
+
+                // 推荐特技优先 —— **只奖励一次**。
+                // 原版 `transport_actor_comp` 是单选场景（挑一个人），不存在"队伍里带特技的人越多越好"的语义；
+                // 若按人头逐个加分，"3 个都带特技"的组合会比"1 个带特技 + 2 个高能力"得分高得多，
+                // 把两支完全不同的队伍拉成同一档，反而挤掉了更合适的组合。
+                // 这里改为：队里**有任一人**满足推荐特技就加一次分，其余名额交回能力排序。
+                if (HasAnyRecommendFeature(commandFeatures, check1)
+                    || HasAnyRecommendFeature(commandFeatures, check2)
+                    || HasAnyRecommendFeature(commandFeatures, check3))
+                {
+                    buildAbility += 100000;
+                }
 
                 if (buildAbility > maxValue[0])
                 {
@@ -1895,11 +2289,52 @@ namespace Sango.Core
         /// <summary>
         /// 军师运输队伍推荐
         /// </summary>
+        /// <summary>
+        /// 运输队主将推荐。
+        ///
+        /// 对齐出处：Open311 `transport_actor_comp`（s11_game_ai_kyoten_cmd_mil_transport.cpp:433-451）：
+        /// <list type="number">
+        /// <item>优先带「运搬」特技（<c>SkillId_Unpan</c>）的人；</item>
+        /// <item>其次按**五维之和**升序 —— 越弱的人越适合去运粮，把强将留在前线。</item>
+        /// </list>
+        /// <para>
+        /// 【两点差异】
+        /// · 本项目 `Features.json` 里没有「运搬」这条特技，第一优先级无法实现，
+        ///   因此只做第二优先级（能力最弱）。
+        /// · 原实现用 <c>MilitaryAbility</c>（统×2 + max(武,智)×3）作为打分，
+        ///   与原版的五维之和不是同一个量；现改为五维之和，与 `ai_table_get_stat_sum` 对齐。
+        /// </para>
+        /// </summary>
+        /// <param name="personList">候选武将</param>
+        /// <returns>推荐的主将（长度 1）</returns>
         public static Person[] CounsellorRecommendTransportTroop(List<Person> personList)
         {
+            // 推荐特技来自 JobTypes.json 的 `recommandFeatures`（运输 → 搬运 = Feature 8）。
+            // 对应原版运输命令传入的 `SkillId_Unpan`（本项目译作「搬运」，不是「运搬」）。
+            int[] recommendFeatures = JobType.GetJobRecommendFeatures((int)CityJobType.MakeTansport);
+
             return CounsellorRecommend1Person(personList, (ref int[] maxValue, Person check1) =>
             {
-                int buildAbility = check1.MilitaryAbility;
+                // 五维之和 —— 对齐 ai_table_get_stat_sum
+                int buildAbility = check1.Command + check1.Strength + check1.Intelligence
+                                 + check1.Politics + check1.Glamour;
+
+                // 第一优先级：带推荐特技的人 —— 对齐 `transport_actor_comp` 的
+                // `if (a_has_skill != b_has_skill) return a_has_skill;`（mil_transport.cpp:433-441）。
+                // 用一个远大于五维和（最大 500）的偏移量表达"绝对优先"，
+                // 这样仍然沿用单值比较器，不必为两段优先级另写挑选逻辑。
+                if (recommendFeatures != null)
+                {
+                    for (int i = 0; i < recommendFeatures.Length; i++)
+                    {
+                        if (check1.HasFeatrue(recommendFeatures[i]))
+                        {
+                            buildAbility -= 100000;
+                            break;
+                        }
+                    }
+                }
+
                 if (buildAbility < maxValue[1])
                 {
                     maxValue[1] = buildAbility;
@@ -1910,13 +2345,23 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 军师交易推荐
+        /// 军师交易推荐。
+        ///
+        /// 推荐特技来自 <c>JobTypes.json</c> 的 <c>recommandFeatures</c>（交易粮食 → 未配置）。
+        /// 未配置时不影响排序，仅按政治力挑人。
         /// </summary>
         public static Person[] CounsellorRecommendTrade(List<Person> personList, int[] commandFeatures = null)
         {
+            if (commandFeatures == null || commandFeatures.Length == 0)
+                commandFeatures = JobType.GetJobRecommendFeatures((int)CityJobType.TradeFood);
+
             return CounsellorRecommend1Person(personList, (ref int[] maxValue, Person check1) =>
             {
                 int buildAbility = check1.Politics;
+                // 推荐特技优先
+                if (HasAnyRecommendFeature(commandFeatures, check1))
+                    buildAbility += 100000;
+
                 if (buildAbility > maxValue[0])
                 {
                     maxValue[0] = buildAbility;
@@ -2224,6 +2669,10 @@ namespace Sango.Core
             if (target.invisiblePersons.Count == 0)
                 return null;
 
+            // 调用方未显式指定时，从 job 数据取（搜索 → 眼力）
+            if (commandFeatures == null || commandFeatures.Length == 0)
+                commandFeatures = JobType.GetJobRecommendFeatures((int)CityJobType.Searching);
+
             List<Person> result = new List<Person>();
             for (int i = 0; i < personList.Count; i++)
             {
@@ -2249,12 +2698,34 @@ namespace Sango.Core
         /// <returns></returns>
         public static Person CounsellorRecommendRecruitPerson(List<Person> personList, Person target, int[] commandFeatures = null)
         {
+            // 调用方未显式指定时，从 job 数据取（登用 → 眼力）。
+            // 原实现虽然声明了这个参数却从未使用，等于"推荐特技"在这条链路上完全没生效。
+            if (commandFeatures == null || commandFeatures.Length == 0)
+                commandFeatures = JobType.GetJobRecommendFeatures((int)CityJobType.RecruitPerson);
+
+            // 推荐特技持有者里取成功率最高的**一个**（不是"遇到就返回第一个"，
+            // 也不是"多人都算"）。原版 `transport_actor_comp` 同样是"从候选里挑一个人"。
+            Person bestFeaturePerson = null;
+            int bestFeatureProbability = -1;
+
             Person maxP = null;
             int max = 0;
             for (int i = 0; i < personList.Count; i++)
             {
                 Person person = personList[i];
                 int probability = GameFormula.Instance.RecruitPersonProbability(person, target, 0);
+
+                if (HasAnyRecommendFeature(commandFeatures, person))
+                {
+                    // 只记录、不立刻返回，保证拿到的是"持有者中最好的那个"
+                    if (probability > bestFeatureProbability)
+                    {
+                        bestFeatureProbability = probability;
+                        bestFeaturePerson = person;
+                    }
+                    continue;
+                }
+
                 if (probability >= 100)
                     return person;
                 else if (probability >= 30)
@@ -2267,7 +2738,13 @@ namespace Sango.Core
                 }
             }
 
-            return maxP;
+            // 有特技持有者就优先用他 —— 一次只取一个，但**成功率不能太差**。
+            // 加 `>= 30` 这道门槛，与下面"非特技者也要 ≥30 才纳入"的口径对齐：
+            // 否则一个 20% 的眼力持有者会挤掉 95% 的高成功率高官，推荐反而更差。
+            if (bestFeaturePerson != null && bestFeatureProbability >= 30)
+                return bestFeaturePerson;
+
+            return maxP != null ? maxP : bestFeaturePerson;
         }
 
         public static bool AISetOfficial(Force force, Scenario scenario)

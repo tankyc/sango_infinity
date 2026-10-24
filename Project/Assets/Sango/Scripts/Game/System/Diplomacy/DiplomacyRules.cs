@@ -99,6 +99,70 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 战斗类敌对惩罚：把双方友好度压到 **15 地板**。
+        ///
+        /// 对齐原版四处同构实现（逻辑完全一致，只是调用点不同）：
+        /// <list type="bullet">
+        /// <item>城池陷落 —— `s11_sys_event_kanraku.cpp:221-229`</item>
+        /// <item>据点 / 设施被破坏 —— `s11_sys_scen_building.cpp:372-382`</item>
+        /// <item>部队被击破 —— `s11_sys_scen_unit.cpp:428-443`</item>
+        /// <item>单挑致败者战死 —— `s11_sys_duel.cpp:223-230`</item>
+        /// </list>
+        /// 规则是：`if (like > 15) set_like(15); else add_like(-1);`
+        /// —— 一场战争最多把关系压到 15（"打完还能再谈"），但反复冲突仍可缓慢跌破。
+        /// </summary>
+        /// <param name="attacker">进攻方势力</param>
+        /// <param name="defender">防守方势力</param>
+        public static void ApplyHostilityPenalty(Force attacker, Force defender)
+        {
+            if (attacker == null || defender == null || attacker == defender)
+                return;
+            if (!attacker.IsAlive || !defender.IsAlive)
+                return;
+
+            int like = attacker.GetLike(defender);
+            if (like > HostilityLikeFloor)
+                attacker.SetLike(defender, HostilityLikeFloor);
+            else
+                attacker.AddLike(defender, -1);
+        }
+
+        /// <summary>战斗敌对惩罚的友好度地板（原版 15）</summary>
+        public const int HostilityLikeFloor = 15;
+
+        /// <summary>
+        /// 友好度档位名称（原版五档文本，s11_sys_string.cpp:188-197）。
+        /// 险恶 / 不和 / 中立 / 好意 / 亲密。
+        /// </summary>
+        /// <param name="like">友好度 0~100</param>
+        /// <returns>档位中文名</returns>
+        public static string GetYookouName(int like)
+        {
+            switch (GetYookouLevel(like))
+            {
+                case 0: return "险恶";
+                case 1: return "不和";
+                case 2: return "中立";
+                case 3: return "好意";
+                default: return "亲密";
+            }
+        }
+
+        /// <summary>
+        /// 友好度的标准显示文本：`50（中立）`。
+        ///
+        /// 原版 UI 既有数字也有档位（使者接待对话显示 0~100 数字、
+        /// 关系变化播报与外交结果用五档文字），这里合并成"数字（档位）"一处产出，
+        /// 避免各界面各自拼格式导致口径分叉。
+        /// </summary>
+        /// <param name="like">友好度 0~100</param>
+        /// <returns>形如「50（中立）」</returns>
+        public static string FormatLike(int like)
+        {
+            return $"{like}（{GetYookouName(like)}）";
+        }
+
+        /// <summary>
         /// 难度系数（原版 multiply_difficulty，`s11_sys_person_order_diplomacy.cpp:175-185`）。
         /// </summary>
         /// <param name="value">原始判定值</param>
@@ -317,7 +381,7 @@ namespace Sango.Core
         /// n >= g + 95  → 舌战
         /// </code>
         ///
-        /// 【未对齐项】原版 `get_seikaku()` 是独立的性格枚举（0~3），本项目没有同名字段，
+        /// 【未对齐项】原版有独立的性格枚举（0~3），本项目没有同名字段，
         /// 这里用 <paramref name="targetPersonality"/> 由调用方传入近似值（可用 PersonalityId），
         /// 待 P2 把性格体系对齐后再换成精确映射。
         /// </summary>

@@ -104,6 +104,66 @@ namespace Sango.Core
         public Person mComander;
 
         /// <summary>
+        /// 玩家指定的运输终点城 Id（三级回退，-1 = 未指定）。
+        ///
+        /// 对齐出处：Open311 `get_player_district_transport_dest`（s11_game_ai_kyoten_cmd_mil_transport.cpp:417-431）
+        /// 与 `District::transport_dest_building_` / `transport_dest_district_`。
+        /// <list type="number">
+        /// <item>玩家在本军团直接指定的据点（<see cref="transportDestBuildingId"/>）；</item>
+        /// <item>指定了目标军团时，该军团都督所在据点（<see cref="TotokuServiceId"/>）；</item>
+        /// <item>中期目标城（<see cref="mid_objective_target"/>，兼容旧存档）。</item>
+        /// </list>
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>终点城 Id；未指定返回 -1</returns>
+        public int GetTransportDestCityId(Scenario scenario)
+        {
+            if (transportDestBuildingId > 0)
+                return transportDestBuildingId;
+
+            if (transportDestDistrictNumber > 0 && scenario != null && scenario.corpsSet != null)
+            {
+                for (int i = 0; i < scenario.corpsSet.Count; i++)
+                {
+                    Corps destCorps = scenario.corpsSet[i];
+                    if (destCorps == null || !destCorps.IsAlive)
+                        continue;
+                    if (destCorps.BelongForce != BelongForce)
+                        continue;
+                    if (destCorps.number != transportDestDistrictNumber)
+                        continue;
+                    int id = destCorps.TotokuServiceId;
+                    if (id > 0)
+                        return id;
+                    break;
+                }
+            }
+
+            return mid_objective_target;
+        }
+
+        /// <summary>
+        /// 都督（军团长）所在据点 Id（-1 = 都督不在任何据点）。
+        ///
+        /// 对齐出处：Open311 `District::get_totoku_service_id()`（s11_scen_obj_district.cpp:116-122）——
+        /// 原版它是 `totoku_` 的**派生量**，不单独存字段。
+        /// 消费者：
+        ///   · 跨军团物资输送的目标据点（`district.cpp:50-55`）
+        ///   · 军团合并时成员的落位据点（`s11_sys_scen_district.cpp:120-128`）
+        /// </summary>
+        public int TotokuServiceId
+        {
+            get
+            {
+                Person comander = mComander;
+                if (comander == null || !comander.IsAlive)
+                    return -1;
+                City city = comander.BelongCity ?? comander.CurrentCity;
+                return city != null ? city.Id : -1;
+            }
+        }
+
+        /// <summary>
         /// 军团番号
         /// </summary>
         [JsonProperty]
@@ -120,17 +180,51 @@ namespace Sango.Core
         [JsonProperty] public int mid_objective_target;
 
         /// <summary>
-        /// 政策类型
+        /// 本军团"出击据点"：辖下离攻略目标最近的那座城。
+        ///
+        /// 对齐出处：Open311 `s11_game_ai_district.cpp:143-159` 的 `outpost_` ——
+        /// 玩家子军团在"都市攻略"方针下，从离目标最近的据点出兵。
+        /// -1 表示未指定。
         /// </summary>
-        [JsonProperty] public int policy;
+        [JsonProperty] public int districtTargetCityId = -1;
 
         /// <summary>
-        /// 政策目标
+        /// 本军团"运输源据点"：辖下有富余资源的那座城。
+        ///
+        /// 对齐出处：Open311 `s11_game_ai_district.cpp:160-209` 的 `transport_src_`。
+        /// -1 表示未指定。
         /// </summary>
-        [JsonProperty] public int policy_target;
+        [JsonProperty] public int districtTransportSrcId = -1;
 
         /// <summary>
-        /// 委任
+        /// 玩家指定的"运输终点据点"。
+        ///
+        /// 对齐出处：Open311 `District::transport_dest_building_`（s11_scen.h:1023）
+        /// 与 `get_transport_dest_building_id()`（:957）。
+        /// 原版这是玩家在军团设置里单独指定的一项，军团 AI 据此挑运输源；
+        /// 与 `mid_objective_target`（中期目标城）是两个独立字段，不能互相顶替。
+        /// -1 表示未指定。
+        /// </summary>
+        [JsonProperty] public int transportDestBuildingId = -1;
+
+        /// <summary>
+        /// 玩家指定的"运输终点军团编号"（跨军团定向补给）。
+        ///
+        /// 对齐出处：Open311 `District::transport_dest_district_`（s11_scen.h:1024）
+        /// 与 `get_transport_dest_district_number()`（:959）。
+        /// -1 表示未指定（只按据点走）。
+        /// </summary>
+        [JsonProperty] public int transportDestDistrictNumber = -1;
+
+        // 【已合并】原 `policy` / `policy_target` 两个字段删除。
+        // 它们与 `appoint` / `appoint_target` 是同一份数据的两套命名：
+        //   · 全工程没有任何代码读 `policy`（只有 Force.CreateCorps 做过一次复制）；
+        //   · 界面上玩家设的"攻略某势力 / 攻占某城"实际写的是 `appoint`。
+        // 因此统一以 `appoint` 为准，避免"能设不生效"的静默失效。
+
+        /// <summary>
+        /// 委任（军团方针）：对应 Open311 的 DistrictPolicy
+        /// （None=不指定 / DestroyForce=势力攻略 / OccupyCity=都市攻略 / Auto=委任）。
         /// </summary>
         [JsonProperty] public int appoint;
 
@@ -377,17 +471,11 @@ namespace Sango.Core
                 UpdateCommander();
 
 
-            // 【人才部署 · 军团级（方案 B）】玩家势力的军团不走 Force.DoAI，在这里统一补一次调度：
-            //   · 第一军团（君主所在、玩家直辖）：目标城限本军团，但可从全势力**单向**抽调富余人力；
-            //   · 分军团：各自军团内自治（严格边界，池子与目标城都限本军团）。
-            // 注意 Force.Run 在等待玩家操作时会被反复调用，RunPlayerCorps 内部以回合号防重入。
-            if (IsPlayer)
-            {
-                // 【资源调度】玩家军团同理，且**必须排在人才调度之前**：
-                // 资源调度先登记"哪座城有货待发却缺运输主将"，人才调度同一回合就会补人过去。
-                ResourceDispatcher.RunPlayerCorps(BelongForce, scenario);
-                DeploymentShadow.RunPlayerCorps(BelongForce, scenario);
-            }
+            // 【已移除】玩家势力的资源调度 / 人才部署兜底已删除（原本在此处补跑
+            // ResourceDispatcher.RunPlayerCorps 与 DeploymentShadow.RunPlayerCorps）。
+            // 玩家下属军团的调度走与 AI 势力完全相同的一条路：
+            // Corps.AIPrepare → CorpsAI.AIDistrictPrepare → AIDistrictCommand
+            //   → City.DoOutpostAI → 原版据点命令队列（move / summon / transport / support 等）。
             return true;
         }
 
@@ -464,10 +552,27 @@ namespace Sango.Core
                 而军师的智力≤60的时候，军师参数反而小于了没有军师的1，这时候，不要军师就对了，反正一个60智力的军师，说话能靠谱才怪了。
              */
 
-            int governorAdd = (int)(40 * (0.65f + 0.025f * System.Math.Max(0, (int)(System.Math.Max((float)BelongForce.mGovernor.Command, (float)BelongForce.mGovernor.Glamour) / 5.0f) - 6)));
-            int personAdd = 0;
+            // ============ 行动力回复公式：严格对齐 charge_district_action_point ============
+            // 出处：s11_game.cpp:1252-1284。
+            //
+            // 原版公式（逐项对应）：
+            //   n  = max(都督统率, 都督魅力) / 5            // 0..20
+            //   if (n < 6) n = 6;                          // 下限 6
+            //   city_ap = min(城池数, 6) * 10              // 0..60
+            //   n  = n + city_ap + 10 + min(city_ap, 武将数)
+            //   if (有军师) n = ((军师智力 - 60) / 2 + 100) * n / 100
+            //   n += 符节台数 * 5
+            //
+            // 【与本项目旧实现的差异（均已修正）】
+            //   · 都督项：旧版用 `40 * (0.65 + 0.025 * max(0, 统率魅力/5 - 6))`，
+            //     数值约为原版的 2 倍（统率 100 时原版 20、旧版 40）；
+            //   · 城池项：旧版 `10 * (城池数 - 1)`，比原版**少 10**（原版第 1 座城就计入）；
+            //   · 固定基数 +10：旧版完全没有；
+            //   · 武将项：旧版是"前 6 城各自 min(10, 人数) 之和"，
+            //     原版是 `min(城池项, 武将总数)` —— 语义不同，城池少的军团会虚高。
             List<City> cities = new List<City>();
             int cityCount = 0;
+            int totalPersonCount = 0;
             BelongForce.ForEachCityBase((c) =>
             {
                 if (c.BelongCity != null && c.BelongCity.BelongForce != BelongForce)
@@ -476,24 +581,46 @@ namespace Sango.Core
                 if (c.IsCity()) cityCount++;
 
                 if (c.BelongCorps == this)
+                {
                     cities.Add(c);
+                    totalPersonCount += c.allPersons != null ? c.allPersons.Count : 0;
+                }
             });
-            int cityAdd = System.Math.Min(50, 10 * (cityCount - 1));
 
-            cities.Sort((a, b) => -a.allPersons.Count.CompareTo(b.allPersons.Count));
-            for (int i = 0; i < 6; i++)
-            {
-                if (i < cities.Count)
-                    personAdd = personAdd + System.Math.Min(10, cities[i].allPersons.Count);
-            }
+            // ① 都督项：max(统率, 魅力) / 5，下限 6
+            int n = System.Math.Max(BelongForce.mGovernor.Command, BelongForce.mGovernor.Glamour) / 5;
+            if (n < 6)
+                n = 6;
 
-            float counsellorFactor = 1.0f;
+            // ② 城池项 + 固定基数 + 武将项
+            int cityAp = System.Math.Min(cityCount, 6) * 10;
+            n = n + cityAp + 10 + System.Math.Min(cityAp, totalPersonCount);
+
+            // ③ 军师系数：((智力 - 60) / 2 + 100) 百分比
             if (BelongForce.mCounsellor != null)
-                counsellorFactor = 1.2f - 0.01f * (50 - BelongForce.mCounsellor.Intelligence / 2);
+                n = ((BelongForce.mCounsellor.Intelligence - 60) / 2 + 100) * n / 100;
 
-            //TODO: 建筑影响， 特技影响
+            // ④ 符节台：每座 +5（不参与军师系数，与原版一致）
+            int tallyOfficeCount = 0;
+            for (int i = 0; i < cities.Count; i++)
+            {
+                City c = cities[i];
+                if (c == null || c.allBuildings == null)
+                    continue;
+                for (int j = 0; j < c.allBuildings.Count; j++)
+                {
+                    Building b = c.allBuildings[j];
+                    if (b == null || !b.IsAlive || b.BuildingType == null)
+                        continue;
+                    // kind 41 = 符节台（BuildingKindType.SpBuilding1）
+                    if (b.BuildingType.kind == (int)BuildingKindType.SpBuilding1 && b.isComplate)
+                        tallyOfficeCount++;
+                }
+            }
+            n = n + tallyOfficeCount * 5;
 
-            ActionPoint = System.Math.Min(Scenario.Cur.Variables.ActionPointLimit, ActionPoint + (int)((governorAdd + personAdd + cityAdd) * counsellorFactor * scenario.Variables.ActionPointFactor));
+            ActionPoint = System.Math.Min(Scenario.Cur.Variables.ActionPointLimit,
+                ActionPoint + (int)(n * scenario.Variables.ActionPointFactor));
             ActionPoint = System.Math.Max(0, ActionPoint);
 
 
@@ -506,6 +633,15 @@ namespace Sango.Core
 
         public void ReduceActionPoint(int v)
         {
+            // 【据点 AI 记账钩子】
+            // 据点命令队列（CityAIOutpost.OutpostCommand）需要知道"这条命令到底执行了没有"，
+            // 才能像原版那样 action_point_ -= cost（见 s11_game_ai_kyoten_cmd.cpp:143 等）。
+            // 本项目所有据点指令最终都会走 City 的 JobXxx → 本方法，
+            // 因此在这里统一标记，避免在 20 多处 JobXxx 调用点逐个埋点。
+            // 判定条件限定"正在跑据点 AI 的那个军团"，玩家手动下指令不会误触发。
+            if (OutpostRuntime.corps == this && OutpostRuntime.force == BelongForce)
+                OutpostRuntime.MarkExecuted();
+
             if (!IsPlayer)
                 return;
 
@@ -609,7 +745,21 @@ namespace Sango.Core
             // 【方案 B】人才部署由 DeploymentShadow 负责，入口在 Force 层，这里不再触发（避免重复调度）：
             //   · AI 势力：Force.AIPrepare → DeploymentShadow.Run（势力级，势力范围 == 其唯一军团）；
             //   · 玩家势力：Force.Run → DeploymentShadow.RunPlayerCorps（军团级，逐军团调度）。
-            AICommandQueue.Enqueue(CorpsAI.AICities);
+            if (AIConfig.Instance.useOutpostStateOrder)
+            {
+                // 【行动力预算】对齐 Open311 load_district_data（s11_game_ai_district.cpp:43-64）：
+                // AI 军团每回合把行动力兜底到 max(当前值, 城数*2*20)，保证不会因为"没钱"整军团停摆。
+                AICommandQueue.Enqueue(CorpsAI.AIDistrictPrepare);
+                // 【据点轮转】对齐 district_command（s11_game_ai_district_cmd.cpp:5-54）：
+                // 按据点优先级切分行动力 → 逐据点跑命令队列 → 先跑的据点可以吃掉后面的配额。
+                // 取代原来的 AICities（只是"遍历自己的城逐个 DoAI"，没有任何预算约束）。
+                AICommandQueue.Enqueue(CorpsAI.AIDistrictCommand);
+            }
+            else
+            {
+                // 旧路径（useOutpostStateOrder = false 时回退）：遍历自己的城逐个 DoAI
+                AICommandQueue.Enqueue(CorpsAI.AICities);
+            }
             AICommandQueue.Enqueue(CorpsAI.AITroops);
 
             //AISections();
@@ -771,7 +921,20 @@ namespace Sango.Core
             if (mComander != null)
             {
                 mComander.SetStateCommander();
-                mComander.BelongCity.UpdateNewLeader();
+                mComander.BelongCity?.UpdateNewLeader();
+                return;
+            }
+
+            // 【原版 district_appoint_totoku 兜底：无人可任 → 整军并入主军团】
+            // 对齐 s11_sys_scen_district.cpp:147（district_appoint_totoku）与 `:88-133`（district_dissolve）：
+            // 支军团的都督一旦空缺且军团内再也挑不出合适人选，原版会把整个军团解散、
+            // 城池并回第 1 军团，而不是留下一个"无都督军团"继续挂在势力下 ——
+            // 那种悬空军团会让 CorpsAI 每回合空转（没有都督就没有行动力预算来源）。
+            // `DeleteCorps` 内部对 number == 1 直接返回，主军团不受影响。
+            if (!IsCaptainCorps)
+            {
+                Sango.Log.Info($"*[军团]{BelongForce?.Name} 的第 {number} 军团无人可任都督，整军并入主军团");
+                BelongForce?.DeleteCorps(this);
             }
         }
     }

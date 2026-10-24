@@ -81,16 +81,6 @@ namespace Sango.Core
         DebateAttributeExpLose = 36,
         #endregion
 
-        #region 内政 / 工作（能力经验）
-        /// <summary>
-        /// 执行内政工作的能力经验（区间随机）。
-        /// 具体加哪一项属性由"工作类型 → 属性"的映射决定：
-        /// 训练→武力、征兵/组建部队/生产马→统率、搜索/生产兵器/造舰/研究→智力、
-        /// 农业/商业/交易/建造/派遣→政治、巡查/登用→魅力。
-        /// </summary>
-        AttributeExpFromJob = 40,
-        #endregion
-
         #region 兵种适性经验
         /// <summary>
         /// 部队每次攻击/战法结算的适性经验。
@@ -211,6 +201,42 @@ namespace Sango.Core
         /// 并把 ItemDiscoverMaxBase 放大。
         /// </summary>
         ItemDiscoverGlobalBonus = 90,
+        #endregion
+
+        #region 能力研究 / 培育（独立表 abilityStudyGain）
+        //
+        // 为什么单独开一张表：
+        //   势力级能力研究（force_research_ability）与武将培育（learn）是"能力直接成长"系统，
+        //   调参口径（金钱 / 行动力消耗 + 单次提升点数 + 触发概率 + 培育上限）与内政经验完全不同，
+        //   独立成表，剧本设置界面单开一个"能力研究与培育"分区（见 AbilityStudySystem）。
+        //
+        // 原版出处（s11_sys_person_order.h:1364-1372 的 PersonOrderManager 成员默认值）：
+        //   research_ability_action_point_cost_ = 20、research_ability_gold_cost_ = 300、
+        //   learn_action_point_cost_ = 20、learn_gold_cost_ = 0（原版培育不花钱）。
+        //   培育经验上限 max_person_learning_stat_exp_ = 2000（= 20 点，s11_db.h:183），
+        //   单次提升 n = min(maxStat - pure, 5)（s11_sys_person_order_kunshu.cpp:1749）。
+        //
+        // 节奏口径（回合制：一年 36 回合）：
+        //   培育一次最多 +StatGain 点（走能力经验通道：每点 = AttributeExpLevelNeed 经验），
+        //   终身受 AbilityStudyLearnExpCap（默认 20 点）闸门 —— 即"快速通道但有限额"，
+        //   与规则 30 的"内政约 1 点属性/年"曲线并行不冲突。
+
+        /// <summary>研究一条能力的金钱消耗（原版 research_ability_gold_cost_ = 300，s11_sys_person_order.h:1369）</summary>
+        AbilityStudyResearchGoldCost = 91,
+        /// <summary>培育一次的金钱消耗（原版 learn_gold_cost_ = 0，s11_sys_person_order.h:1371 —— 默认不扣钱，收费模式由 Mod/剧本开启）</summary>
+        AbilityStudyLearnGoldCost = 92,
+        /// <summary>培育一次最多提升的能力点数（原版单次 n 上限 5，s11_sys_person_order_kunshu.cpp:1749；还受 maxStat 与培育上限约束）</summary>
+        AbilityStudyStatGain = 93,
+        /// <summary>培育触发概率（百分比；原版 rand_bool(50)，s11_game_ai_force_cmd_learn.cpp:77）</summary>
+        AbilityStudyLearnChance = 94,
+        /// <summary>研究一条能力的行动力消耗（原版 research_ability_action_point_cost_ = 20，s11_sys_person_order.h:1368；AI 预检门槛为该值 ×2）</summary>
+        AbilityStudyResearchActionPointCost = 95,
+        /// <summary>培育一次的行动力消耗（原版 learn_action_point_cost_ = 20，s11_sys_person_order.h:1370）</summary>
+        AbilityStudyLearnActionPointCost = 96,
+        /// <summary>培育累计经验上限（原版 max_person_learning_stat_exp_ = 2000 = 20 点，s11_db.h:183；达到后该属性不可再培育，非培育途径仍可涨到总上限）</summary>
+        AbilityStudyLearnExpCap = 97,
+        /// <summary>培育任务的占用回合数（原版 person_set_order_timer(actor, 3)，s11_sys_person_order_kunshu.cpp:1715/1859/2001 —— 武将闭关 3 旬）</summary>
+        AbilityStudyMissionTurns = 98,
         #endregion
 
     }
@@ -346,6 +372,13 @@ namespace Sango.Core
         /// </summary>
         public static int ItemDiscover(GainPlace place) { return ValueOf(TableOf(place), place); }
 
+        /// <summary>
+        /// 读取能力研究 / 培育配置（AbilityStudy* 段的键）。
+        /// 势力级能力研究的金钱消耗、培育的消耗 / 提升点数 / 触发概率统一走这里取值，
+        /// 避免在逻辑里硬编码（见 <see cref="Sango.Core.AbilityStudySystem"/>）。
+        /// </summary>
+        public static int AbilityStudy(GainPlace place) { return ValueOf(TableOf(place), place); }
+
         /// <summary>在 [min, max] 内随机取值（Range 语义的地点用；无剧本时用默认区间）</summary>
         public static int Roll(GainPlace place)
         {
@@ -376,6 +409,7 @@ namespace Sango.Core
             if (Array.IndexOf(AbilityExpPlaces, place) >= 0) return v.abilityExpGain;
             if (Array.IndexOf(EventPlaces, place) >= 0) return v.eventGain;
             if (Array.IndexOf(ItemDiscoverPlaces, place) >= 0) return v.itemDiscoverGain;
+            if (Array.IndexOf(AbilityStudyPlaces, place) >= 0) return v.abilityStudyGain;
             return null;
         }
 
@@ -414,7 +448,8 @@ namespace Sango.Core
 
         public static readonly GainPlace[] AttributeExpPlaces =
         {
-            GainPlace.AttributeExpFromJob,
+            // 内政工作的能力经验已改为 Person.GetJobAttributeExp 的固定常量
+            // （逐条对齐 Open311 的 person_add_stat_exp），不再走 GainValueConfig 区间。
             GainPlace.DebateAttributeExp, GainPlace.DebateAttributeExpKind, GainPlace.DebateAttributeExpLose,
         };
 
@@ -444,6 +479,19 @@ namespace Sango.Core
             GainPlace.ItemDiscoverStartProtect,
             GainPlace.ItemDiscoverMaxBase, GainPlace.ItemDiscoverMaxPerCity,
             GainPlace.ItemDiscoverGlobalBonus,
+        };
+
+        /// <summary>
+        /// 能力研究 / 培育表（独立一张，键为 AbilityStudy* 段）。
+        /// 势力级能力研究与武将培育的金钱消耗、单次提升点数、触发概率都从这里取值，
+        /// 代码侧不硬编码（见 AbilityStudySystem）。
+        /// </summary>
+        public static readonly GainPlace[] AbilityStudyPlaces =
+        {
+            GainPlace.AbilityStudyResearchGoldCost, GainPlace.AbilityStudyLearnGoldCost,
+            GainPlace.AbilityStudyStatGain, GainPlace.AbilityStudyLearnChance,
+            GainPlace.AbilityStudyResearchActionPointCost, GainPlace.AbilityStudyLearnActionPointCost,
+            GainPlace.AbilityStudyLearnExpCap, GainPlace.AbilityStudyMissionTurns,
         };
 
         #endregion
@@ -482,11 +530,7 @@ namespace Sango.Core
                 case GainPlace.DebateAttributeExp: return 1;
                 case GainPlace.DebateAttributeExpKind: return 1;
                 case GainPlace.DebateAttributeExpLose: return 1;
-                // 内政工作的能力经验（区间下限）。
-                // 节奏（回合制：每人每回合最多一个行为、一年 36 回合）：
-                //   按一人一年约 20 次工作算，平均 12.5 点/次 ≈ 250 点/年 = 1 点属性/年
-                //   （与 AttributeExpLevelNeed = 250 正好对齐；30 点上限约 30 年，符合一场战役的长度）
-                case GainPlace.AttributeExpFromJob: return 10;
+                // 内政工作的能力经验已改为固定常量（见 Person.GetJobAttributeExp），不在此表。
                 // 兵种适性经验（各级门槛来自剧本通用数据 AbilityLevelTypes.json 的 exp 字段）。
                 // 节奏：一个部队一年约 15 次战斗结算（含反击），3 点/次 ≈ 45 点/年；
                 //   现数据为每级 255 点、共 8 级，从 0 级升满需 7×255 = 1785 点 ≈ 40 年
@@ -526,6 +570,15 @@ namespace Sango.Core
                 case GainPlace.ItemDiscoverMaxPerCity: return 3;
                 // 全局搜索加成：默认关闭，只有测试 / Mod 才会去动它
                 case GainPlace.ItemDiscoverGlobalBonus: return 0;
+                // 能力研究 / 培育（原版默认值见 GainPlace.AbilityStudy* 段注释）
+                case GainPlace.AbilityStudyResearchGoldCost: return 300;
+                case GainPlace.AbilityStudyLearnGoldCost: return 0;
+                case GainPlace.AbilityStudyStatGain: return 5;
+                case GainPlace.AbilityStudyLearnChance: return 50;
+                case GainPlace.AbilityStudyResearchActionPointCost: return 20;
+                case GainPlace.AbilityStudyLearnActionPointCost: return 20;
+                case GainPlace.AbilityStudyLearnExpCap: return 2000;
+                case GainPlace.AbilityStudyMissionTurns: return 3;
                 default: return 0;
             }
         }
@@ -535,7 +588,7 @@ namespace Sango.Core
         {
             switch (place)
             {
-                case GainPlace.AttributeExpFromJob: return 15;
+
                 case GainPlace.DebateAttributeExp: return 3;
                 case GainPlace.DebateAttributeExpKind: return 3;
                 case GainPlace.EventMeritCommon: return 500;
@@ -559,7 +612,6 @@ namespace Sango.Core
                 case GainPlace.ItemDiscoverFromIntelligence:
                 case GainPlace.ItemDiscoverTreasureRate:
                     return GainValueKind.Rate;
-                case GainPlace.AttributeExpFromJob:
                 case GainPlace.DebateAttributeExp:
                 case GainPlace.DebateAttributeExpKind:
                 case GainPlace.EventMeritCommon:
@@ -608,7 +660,7 @@ namespace Sango.Core
                 case GainPlace.DebateAttributeExp: return "舌战胜利能力经验";
                 case GainPlace.DebateAttributeExpKind: return "舌战胜利能力经验(仁德/强硬)";
                 case GainPlace.DebateAttributeExpLose: return "舌战失败能力经验";
-                case GainPlace.AttributeExpFromJob: return "内政工作能力经验";
+
                 case GainPlace.AbilityExpAttack: return "兵种适性 攻击结算";
                 case GainPlace.AbilityExpDestroyTroop: return "兵种适性 击破敌部队";
                 case GainPlace.AbilityExpDestroyCity: return "兵种适性 攻破城关港";
@@ -635,6 +687,15 @@ namespace Sango.Core
                 case GainPlace.ItemDiscoverMaxBase: return "势力产出上限(固定)";
                 case GainPlace.ItemDiscoverMaxPerCity: return "势力产出上限(每城)";
                 case GainPlace.ItemDiscoverGlobalBonus: return "全局搜索加成(%)";
+                // 能力研究 / 培育
+                case GainPlace.AbilityStudyResearchGoldCost: return "能力研究金钱消耗";
+                case GainPlace.AbilityStudyLearnGoldCost: return "能力培育金钱消耗(原版0)";
+                case GainPlace.AbilityStudyStatGain: return "能力培育单次提升点数(上限)";
+                case GainPlace.AbilityStudyLearnChance: return "能力培育触发概率(%)";
+                case GainPlace.AbilityStudyResearchActionPointCost: return "能力研究行动力消耗";
+                case GainPlace.AbilityStudyLearnActionPointCost: return "能力培育行动力消耗";
+                case GainPlace.AbilityStudyLearnExpCap: return "培育累计经验上限(点×经验门槛)";
+                case GainPlace.AbilityStudyMissionTurns: return "培育占用回合数";
                 default: return place.ToString();
             }
         }

@@ -274,7 +274,8 @@ namespace Sango.Core
         TwoTigers = 25,
 
         /// <summary>
-        /// 驱虎吞狼：本期暂不实现，仅占位以保持与 CityStrategyType 枚举对齐
+        /// 驱虎吞狼：策反敌方太守，使其带城独立。
+        /// 玩家侧指令见 CityStrategyTigerDevour，AI 侧见 CityAIOutpostCommand.AICollaborate。
         /// </summary>
         TigerDevour = 26,
 

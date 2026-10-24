@@ -134,28 +134,14 @@ using Sango.Core; namespace Sango.UI
                 return;
 
             Force currentForce = Scenario.Cur.CurRunForce;
-            int relation = GameSystem.GetSystem<DiplomacyManager>().GetRelation(currentForce, _selectedForce);
-            relationLabel.text = $"关系值: {relation}";
-            relationStatusLabel.text = $"关系状态: {GetRelationStatus(relation)}";
-        }
-
-        /// <summary>
-        /// 获取关系状态
-        /// </summary>
-        /// <param name="relation">关系值</param>
-        /// <returns>关系状态</returns>
-        private string GetRelationStatus(int relation)
-        {
-            if (relation < -1000)
-                return "敌对";
-            else if (relation < -500)
-                return "紧张";
-            else if (relation < 500)
-                return "中立";
-            else if (relation < 1000)
-                return "友好";
-            else
-                return "亲密";
+            // 【对齐原版】原先显示 raw 关系值（-5000~5000），并用一套自造阈值分档
+            // （-1000/-500/500/1000 → 敌对/紧张/中立/友好/亲密），
+            // 与 `DiplomacyRules.GetYookouLevel` 的 20/40/60/80 完全不一致 ——
+            // 同一势力在势力情报界面与这里会显示不同档位。
+            // 现统一走 0~100 友好度 + 原版五档。
+            int like = currentForce != null ? currentForce.GetLike(_selectedForce) : DiplomacyRules.DefaultLike;
+            relationLabel.text = $"关系值: {like}";
+            relationStatusLabel.text = $"关系状态: {DiplomacyRules.GetYookouName(like)}";
         }
 
         /// <summary>

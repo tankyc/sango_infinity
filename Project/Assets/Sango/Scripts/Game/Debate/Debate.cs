@@ -14,7 +14,7 @@
  * 命名对照（C++ 罗马音 -> 英文）：
  *   wadai/topic_t   -> Topic       话题（故事 / 道理 / 时节）
  *   wajutsu         -> Rhetoric    话术（大喝 / 诡辩 / 无视 / 镇静 / 激昂）
- *   seikaku         -> Personality 性格（胆小 / 冷静 / 刚胆 / 莽撞）
+ *   性格枚举        -> Personality 性格（胆小 / 冷静 / 刚胆 / 莽撞）
  *   shoubyou        -> Injury      伤病（健康 / 轻伤 / 中伤 / 重伤）
  *   daikatsu        -> Shout       大喝
  *   reflected           -> Sophistry   诡辩
@@ -384,7 +384,12 @@ namespace Sango.Core.Debate
         {
             if (Utils.InRange(self.PersonalityId, 0, (int)Personality.Personality_Max - 1))
                 return self.PersonalityId;
-            return self.person.GetPersonality();
+            // 回退一律读性格对象的内嵌属性（kind 1..4 → 舌战枚举 0..3），
+            // 不再借用单挑的性格解析（那是另一套枚举，语义上属于隐式耦合）。
+            int kind = self.person != null ? self.person.PersonalityKind : 0;
+            if (kind >= 1 && kind <= (int)Personality.Personality_Max)
+                return kind - 1;
+            return DebatePersonality.Fallback;
         }
 
         /// <summary>设置兴奋计时器</summary>

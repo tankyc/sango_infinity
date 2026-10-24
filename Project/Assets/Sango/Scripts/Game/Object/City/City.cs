@@ -446,9 +446,267 @@ namespace Sango.Core
         }
 
         //public int eventId;
-        //public int specialtyId;
         //public int model_wall;
         //public int model_city;
+
+        /// <summary>
+        /// 城特产（0 枪 / 1 戟 / 2 弩 / 3 马 / 4 兵器 / 5 水军 / 6 大都市）。
+        ///
+        /// 对齐出处：Open311 `s11_enum_scen.h:105-112` 的 TokusanEnum 与 `City::get_tokusan()`。
+        /// 数据来源：剧本 `Scenario.json` 里每座城的 "specialty" 字段（一直是有的，
+        /// 此前 City 类没有同名字段，Newtonsoft 反序列化时被静默丢弃）。
+        /// 用途：最低内政设施配置（兵器→工房、马→厩舍、水军→造船厂）、
+        /// 内政建设 AI 的特产加权、兵装生产的适性权重。
+        /// </summary>
+        [JsonProperty("specialty")]
+        public int specialty;
+
+        /// <summary>
+        /// 粮价指数（30~70，**越大粮越便宜**）。
+        ///
+        /// 对齐出处：Open311 `City::rate_`（s11_scen.h:483）与
+        /// `System::city_update_rate`（s11_sys_scen_city.cpp:110-179）。
+        /// 用途：商人 AI 的惜售判断（`get_rate() &gt; 50` 即粮便宜时不出售）、交易价格的分母。
+        /// <para>
+        /// 【方向】它是交易公式的分母：rate 越大，同样粮食换到的金越少（粮越便宜）。
+        /// 原版季节表 7 月 60~70（秋收前反而便宜）、疫病/蝗虫 30~40（灾年贵）都符合这个方向。
+        /// </para>
+        /// <para>
+        /// 注意与 <c>hasBusiness</c> 的区别：后者是"商人兑换比例"（剧本固定值，
+        /// 越大越划算买），本字段是逐月波动的粮价，两者不是同一个量。
+        /// </para>
+        /// </summary>
+        /// <summary>
+        /// 灾害类型。对齐 Open311 `DisasterType_Enum`（s11_enum_scen.h:129-142）。
+        /// </summary>
+        public enum DisasterType : int
+        {
+            /// <summary>疫病</summary>
+            Ekibyou = 0,
+            /// <summary>蝗虫</summary>
+            Inago = 1,
+            /// <summary>丰收</summary>
+            Housaku = 2,
+            /// <summary>类型总数</summary>
+            Max = 3,
+        }
+
+        /// <summary>
+        /// 本城当前灾害位集（bit N = <see cref="DisasterType"/> 的 N 号灾害）。
+        /// 对齐出处：Open311 `City::disaster_`（s11_scen.h:495）。
+        /// <para>
+        /// 【当前状态】位集与读写 API 已就位，粮价修正已接通；
+        /// 但**灾害触发**（月度按概率置位 `nextDisaster`、月末转正）尚未实现 ——
+        /// 那属于独立的灾害子系统（原版在 `s11_game_month.cpp` 里按民心 / 治安抽样）。
+        /// 因此目前 `disasterBits` 恒为 0，粮价走"无灾害"分支。
+        /// </para>
+        /// </summary>
+        [JsonProperty("disaster")]
+        public int disasterBits;
+
+        /// <summary>
+        /// 下月灾害位集（月末转正为 <see cref="disasterBits"/>）。
+        /// 对齐出处：Open311 `City::next_disaster_`（s11_scen.h:496）。
+        /// </summary>
+        [JsonProperty("nextDisaster")]
+        public int nextDisasterBits;
+
+        /// <summary>
+        /// 是否处于某类灾害中。
+        /// 对齐出处：s11_scen_obj_city.cpp 的 `has_disaster`。
+        /// </summary>
+        /// <param name="type">灾害类型</param>
+        /// <returns>处于该灾害返回 true</returns>
+        public bool HasDisaster(DisasterType type, bool next = false)
+        {
+            int bit = (int)type;
+            if (bit < 0 || bit >= 32)
+                return false;
+            int bits = next ? nextDisasterBits : disasterBits;
+            return (bits & (1 << bit)) != 0;
+        }
+
+        /// <summary>
+        /// 设置 / 清除某类灾害。
+        /// 对齐出处：s11_scen_obj_city.cpp 的 `set_disaster` / `set_next_disaster`。
+        /// </summary>
+        /// <param name="type">灾害类型</param>
+        /// <param name="value">true = 置位，false = 清除</param>
+        /// <param name="next">true 操作下月位集，false 操作当前位集</param>
+        public void SetDisaster(DisasterType type, bool value, bool next = false)
+        {
+            int bit = (int)type;
+            if (bit < 0 || bit >= 32)
+                return;
+            if (next)
+            {
+                if (value) nextDisasterBits |= 1 << bit;
+                else nextDisasterBits &= ~(1 << bit);
+            }
+            else
+            {
+                if (value) disasterBits |= 1 << bit;
+                else disasterBits &= ~(1 << bit);
+            }
+        }
+
+        [JsonProperty("rate")]
+        public int rate = 50;
+
+        /// <summary>
+        /// 粮价的可读文本（供玩家提示 / UI 绑定使用）。
+        ///
+        /// 【方向】`rate` 越大粮越**便宜**（原版交易公式的分母，见 <see cref="JobTradeFood"/> 注释）：
+        /// rate=1 时 100 粮要 1000 金，rate=100 时只要 10 金。
+        /// </summary>
+        /// <returns>形如「粮价 55（平稳）」</returns>
+        public string GetRateText()
+        {
+            string level;
+            if (rate >= 60) level = "充裕";      // rate 大 → 粮便宜
+            else if (rate <= 40) level = "紧缺";  // rate 小 → 粮贵
+            else level = "平稳";
+            return $"粮价 {rate}（{level}）";
+        }
+
+        /// <summary>
+        /// 当前与下月灾害的可读文本（供玩家提示 / UI 绑定使用）。
+        /// </summary>
+        /// <returns>没有任何灾害时返回 null</returns>
+        public string GetDisasterText()
+        {
+            List<string> current = new List<string>();
+            List<string> next = new List<string>();
+            for (int i = 0; i < (int)DisasterType.Max; i++)
+            {
+                DisasterType type = (DisasterType)i;
+                if (HasDisaster(type))
+                    current.Add(DisasterName(type));
+                if (HasDisaster(type, true))
+                    next.Add(DisasterName(type));
+            }
+
+            if (current.Count == 0 && next.Count == 0)
+                return null;
+
+            string text = null;
+            if (current.Count > 0)
+                text = "当前灾害：" + string.Join("、", current);
+            if (next.Count > 0)
+            {
+                string nextText = "下月预报：" + string.Join("、", next);
+                text = text != null ? text + "；" + nextText : nextText;
+            }
+            return text;
+        }
+
+        /// <summary>灾害类型的中文名</summary>
+        /// <param name="type">灾害类型</param>
+        /// <returns>中文名</returns>
+        public static string DisasterName(DisasterType type)
+        {
+            switch (type)
+            {
+                case DisasterType.Ekibyou: return "疫病";
+                case DisasterType.Inago: return "蝗灾";
+                case DisasterType.Housaku: return "丰收";
+                default: return "灾害";
+            }
+        }
+
+        /// <summary>粮价下限 —— 对齐原版 clamp(rate, 30, 70)</summary>
+        public const int MinRate = 30;
+
+        /// <summary>粮价上限 —— 对齐原版 clamp(rate, 30, 70)</summary>
+        public const int MaxRate = 70;
+
+        /// <summary>
+        /// 更新粮价。
+        ///
+        /// 对齐出处：s11_sys_scen_city.cpp:110-179 city_update_rate。
+        /// 两条路径：
+        ///   · <paramref name="usePreset"/> = true：按月份预设表取值（开局 / 剧本载入时用）；
+        ///   · false：按灾害与随机漂移（每月结算时用）。
+        /// <para>
+        /// 灾害修正已接通（疫病 / 蝗虫 → 30~40，丰收 → 60~70），
+        /// 但**灾害本身不会被触发** —— 触发属于独立的灾害子系统（原版在月度结算里抽样置位），
+        /// 本项目尚未实现，因此 `disasterBits` 目前恒为 0，该分支暂不会命中。
+        /// </para>
+        /// </summary>
+        /// <param name="month">月份（1~12）</param>
+        /// <param name="usePreset">是否用预设表</param>
+        public void UpdateRate(int month, bool usePreset)
+        {
+            if (usePreset)
+            {
+                if (month < 1 || month > 12)
+                    return;
+
+                // 表格结构 {平准, 步长, 档数}，取值 = 平准 + 步长 × rand(档数) —— :120-133
+                int[,] table =
+                {
+                    { 50, 10, 2 },  // 1 月  50..60
+                    { 40, 10, 3 },  // 2 月  40..60
+                    { 40, 10, 3 },  // 3 月  40..60
+                    { 40, 10, 2 },  // 4 月  40..50
+                    { 40, 10, 2 },  // 5 月  40..50
+                    { 30, 10, 3 },  // 6 月  30..50
+                    { 60, 10, 2 },  // 7 月  60..70
+                    { 50, 10, 3 },  // 8 月  50..70
+                    { 50, 10, 3 },  // 9 月  50..70
+                    { 50, 10, 3 },  // 10 月 50..70
+                    { 50, 10, 2 },  // 11 月 50..60
+                    { 50, 10, 2 },  // 12 月 50..60
+                };
+                int index = month - 1;
+                rate = table[index, 0] + table[index, 1] * GameRandom.Range(0, table[index, 2]);
+                return;
+            }
+
+            // 灾害修正 —— :140-147
+            // 注意：原版把「丰收」也列进灾害枚举，且丰收时粮价反而取 60~70（偏高）。
+            // 这段按原版**逐字**对齐，未按常识反向修正 —— 若实跑发现粮价走势怪，
+            // 问题在原版数据语义，不在这里。
+            if (HasDisaster(DisasterType.Ekibyou) || HasDisaster(DisasterType.Inago))
+            {
+                rate = 10 * (3 + GameRandom.Range(0, 2));           // 30..40
+                return;
+            }
+            if (HasDisaster(DisasterType.Housaku))
+            {
+                rate = 10 * (6 + GameRandom.Range(0, 2));           // 60..70
+                return;
+            }
+
+            int value = rate;
+            if (value == MinRate)
+            {
+                value = GameRandom.Chance(50) ? 30 : 40;
+            }
+            else if (value == MaxRate)
+            {
+                value = GameRandom.Chance(50) ? 60 : 70;
+            }
+            else if (value > 40)
+            {
+                if (value < 60)
+                    value += 10 * GameRandom.Range(0, 3) - 10;      // -10 / 0 / +10
+                else if (GameRandom.Chance(40))
+                    value -= 10;
+                else if (GameRandom.Chance(40))
+                    value += 10;
+            }
+            else if (GameRandom.Chance(40))
+            {
+                value += 10;
+            }
+            else if (GameRandom.Chance(40))
+            {
+                value -= 10;
+            }
+
+            rate = System.Math.Clamp(value, MinRate, MaxRate);
+        }
         /// <summary>
         /// 虚拟战斗力
         /// </summary>
@@ -796,6 +1054,9 @@ namespace Sango.Core
                 Sango.Log.Error($"*{Name}{BelongForce?.Name} -> allPersons 添加 {person.Name}{person.BelongForce?.Name} 势力不一致!!");
                 person.BelongForce = BelongForce;
                 person.BelongCorps = BelongCorps;
+                // 换势力时复位褒赏标记 —— 对齐原版 person_change_force 的 set_bonus_done(false)
+                // （s11_sys_scen_person.cpp:748-753）
+                person.SetBonusDone(false);
             }
 
             if (person.BelongCorps != BelongCorps)
@@ -804,6 +1065,7 @@ namespace Sango.Core
                 Sango.Log.Error($"*{Name}{BelongCorps?.Name} -> allPersons 添加 {person.Name}{person.BelongCorps?.Name} 军团不一致!!");
                 person.BelongForce = BelongForce;
                 person.BelongCorps = BelongCorps;
+                person.SetBonusDone(false);
             }
 
             // 【归属兜底】上面的自愈只修正了武将身上的势力 / 军团，若他的"所属城"还挂在别处，
@@ -995,6 +1257,12 @@ namespace Sango.Core
         {
             base.OnScenarioPrepare(scenario);
             isComplate = true;
+
+            // 粮价按剧本当前月份做一次预设取值（原版 city_update_rate(use_preset=true)
+            // 在剧本载入时调用一次，之后每月刷新由 Scenario.UpdateCityRate 承担）。
+            // 不初始化的话，开局第一个月之前 rate 会是字段默认值 50，商人 AI 判断会失真。
+            int startMonth = scenario.Info != null ? scenario.Info.month : 1;
+            UpdateRate(startMonth, true);
 
             if (durabilityLimit == 0)
             {
@@ -1311,11 +1579,19 @@ namespace Sango.Core
         public override bool OnYearStart(Scenario scenario)
         {
             // 每年1月清理黑市
+            // 【必须打日志】这是规则性拆除，此前完全静默 —— 玩家会看到"城里凭空少了一座建筑"，
+            // 且与 AI 拆除的日志对不上，难以排查。
+            int blackMarketRemoved = 0;
             allBuildings.ForEach(building =>
             {
                 if (building.BuildingType.kind == (int)BuildingKindType.BlackMarket)
+                {
                     building.OnFall(null);
+                    blackMarketRemoved++;
+                }
             });
+            if (blackMarketRemoved > 0)
+                Sango.Log.Info($"*[城政]{Name} 新年清理黑市 {blackMarketRemoved} 处");
 
             return base.OnYearStart(scenario);
         }
@@ -1467,6 +1743,9 @@ namespace Sango.Core
             {
                 if (person == null)
                     return;
+                // 褒赏标记的复位已移到 Person.OnForceTurnStart（Force 逐武将调用，
+                // 覆盖面是"全势力存活武将"，不限本城 allPersons）。
+                // 那里对应原版 reset_command_flags()（s11_game_week.cpp:166-172）。
                 // 事件武将 / NPC 不进入空闲名单：它们不参与出征、内政、计略等常规命令
                 // （对应 Open311 Unit::can_set_member 的白名单——事件与 NPC 不可编入部队，
                 //   而本项目的空闲名单同时是出征候选池，故在此一并排除）。
@@ -1867,6 +2146,11 @@ namespace Sango.Core
             if (BelongForce == atk.BelongForce)
                 return;
 
+            // 【关系值：城池陷落惩罚】把双方友好度压到 15 地板
+            // 对齐 s11_sys_event_kanraku.cpp:221-229：
+            //   `if (like > 15) set_like(15); else add_like(-1);`
+            // 原版这是"打完还能再谈"的设计：一场战争最多压到 15，反复冲突才继续跌。
+            DiplomacyRules.ApplyHostilityPenalty(atk.BelongForce, BelongForce);
 
             Force lastBelongForce = BelongForce;
             Corps lastBelongCorps = BelongCorps;
@@ -2016,7 +2300,7 @@ namespace Sango.Core
                 // 【原版对齐】城陷时只处理"物理在本城"的武将。
                 // 在途武将（CurrentCity 停在中途某城）的户口虽然还挂在这座陷落城，
                 // 但他的行程与任务要继续保留，等走到目的地后由 OnPersonReturnCity -> Enter 改户口。
-                // 依据：Open311 的 kyoten_kanraku 用 BuildingDistrictChangeReason_0 跳过成员迁移，
+                // 依据：Open311 的 城陷事件 用 BuildingDistrictChangeReason_0 跳过成员迁移，
                 // 而 capture 只抓 location_id 等于本城的人 —— 在途者既不被撤退也不被俘。
                 // 只有"势力灭亡"（escapeCity == null）时才需要对所有人收尾。
                 if (escapeCity != null && person.CurrentCity != this)
@@ -2243,15 +2527,9 @@ namespace Sango.Core
         /// <returns>是否有足够的资金</returns>
         public bool CheckJobCost(CityJobType cityJobType)
         {
-            Scenario scenario = Scenario.Cur;
-            ScenarioVariables variables = scenario.Variables;
-            int jobId = (int)cityJobType;
-            int goldNeed = JobType.GetJobCost(jobId);
-
-            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(goldNeed);
-            GameEvent.OnCityCheckJobCost?.Invoke(this, jobId, null, overrideData);
-            goldNeed = overrideData.ValueAndRecycle;
-            return gold >= goldNeed;
+            // 走 GetJobCost 统一口径：那里已包含 `OnCityCheckJobCost` 的 override
+            // 与「外交府 → 亲善减半」，避免门禁按原价、扣费按折后价的分叉。
+            return gold >= GetJobCost(cityJobType);
         }
 
         /// <summary>
@@ -2261,14 +2539,22 @@ namespace Sango.Core
         /// <returns>工作成本</returns>
         public int GetJobCost(CityJobType cityJobType)
         {
-            Scenario scenario = Scenario.Cur;
-            ScenarioVariables variables = scenario.Variables;
             int jobId = (int)cityJobType;
             int goldNeed = JobType.GetJobCost(jobId);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(goldNeed);
             GameEvent.OnCityCheckJobCost?.Invoke(this, jobId, null, overrideData);
             goldNeed = overrideData.ValueAndRecycle;
+
+            // 【外交府：亲善资金减半】
+            // 原版 `exec_donate_command` 里 `donate_gold_cost` 在有外交府时减半
+            // （`s11_sys_person_order_diplomacy.cpp` 的 AP / 资金减半段）。
+            // 放在 override 之后：MOD 若显式改了金额，仍按改后的值打折。
+            if (cityJobType == CityJobType.SendGift
+                && CityFacilityRequirement.HasGovFacility(this, InteriorFacilityKind.DiplomaticOffice))
+            {
+                goldNeed = goldNeed / 2;
+            }
             return goldNeed;
         }
 
@@ -2304,7 +2590,13 @@ namespace Sango.Core
             building.durability = 1;
             building.ChangeDurability(GameUtility.Method_TroopBuildAbility(builder), null);
 
-            builder.gold -= buildingType.cost;
+            // 【军事府：领地内建军事设施 8 折】
+            // 对齐 get_facility_gold_cost（s11_sys_scen_unit.cpp:1607-1614）：
+            // 部队在本城领地内建造时，造价 × 8/10。
+            int troopBuildCost = buildingType.cost;
+            if (CityFacilityRequirement.HasGovFacility(this, InteriorFacilityKind.MilitaryOffice))
+                troopBuildCost = troopBuildCost * 8 / 10;
+            builder.gold -= troopBuildCost;
 
 #if SANGO_DEBUG
             Sango.Log.Info($"[{BelongForce.Name}]在<{Name}>由{builder.Name}开始修建: {building.Name}");
@@ -2364,6 +2656,17 @@ namespace Sango.Core
         /// <returns>建造的建筑</returns>
         public Building JobBuildBuilding(Cell buildCenter, Person[] builders, BuildingType buildingType, int buildCount)
         {
+            // 【资金复核 —— 必须放在最前】
+            // 门禁只按"最便宜的可建项"放行，玩家可能先开菜单、再在列表里换成更贵的建筑。
+            // 此处若拖到中途才判，建筑已 `scenario.Add`、武将已被摘出 freePersons，
+            // 直接返回会留下悬空建筑 + 武将丢失。
+            if (gold < buildingType.cost)
+            {
+                Sango.Log.Warning($"[内政]{Name} 资金不足，取消建造 {buildingType.Name}"
+                    + $"（需 {buildingType.cost}，现有 {gold}）");
+                return null;
+            }
+
             Building building = new Building();
             building.BelongForce = BelongForce;
             building.BelongCorps = BelongCorps;
@@ -2420,6 +2723,17 @@ namespace Sango.Core
         /// <returns>升级后的建筑</returns>
         public Building JobUpgradeBuilding(Building building, Person[] builders, BuildingType upgradeBuildingType, int buildCount)
         {
+            // 【资金复核 —— 必须放在最前】
+            // 若拖到中途才判，`isUpgrading` 已置位、武将也已摘出 freePersons，
+            // 返回 null 会留下一座"永远升级中"的建筑
+            // （`AIDestroy` 与 `FindUnnecessaryBuilding` 都会跳过 isUpgrading，等于永久卡死）。
+            if (gold < upgradeBuildingType.cost)
+            {
+                Sango.Log.Warning($"[内政]{Name} 资金不足，取消升级 {building.Name}"
+                    + $"（需 {upgradeBuildingType.cost}，现有 {gold}）");
+                return null;
+            }
+
             building.isUpgrading = true;
             building.durability = 1;
 
@@ -3210,32 +3524,101 @@ namespace Sango.Core
 
         #region 褒奖忠诚（概率偏移）
 
-        /// <summary>褒奖的保底忠诚提升：任何情况下结果都大于 10</summary>
-        public const int RewardLoyaltyBase = 11;
+        /// <summary>
+        /// 某武将当前是否可被褒赏。
+        ///
+        /// 对齐出处：Open311 `can_bonus`（`s11_sys_person_order_personnel.cpp:1187-1210`）：
+        /// <list type="bullet">
+        /// <item>存活、属于本势力；</item>
+        /// <item>非事件武将 / NPC / 异族（原版 `is_event() or is_iminzoku() or is_bandit()`）；</item>
+        /// <item>身份为 都督 / 太守 / 一般，<b>不含君主</b>（原版 `test_mibun({Totoku, Taishu, Ippan})`）；</item>
+        /// <item><b>不在部队中</b>（`is_unitize()`）—— 出征 / 运输的武将必然编入部队，由本条挡住；</item>
+        /// <item>不处于"任务计时器在跑、任务却为空"的异常态。</item>
+        /// <item>本回合未被褒赏（`is_bonus_done()`）；</item>
+        /// <item>忠诚 &lt; 100。</item>
+        /// </list>
+        /// <para>
+        /// 玩家界面（<c>CityReward</c>）与执行（<c>JobRewardPerson</c> / <c>JobRewardPersons</c>）
+        /// 共用本方法，避免"界面上能点、执行时被拒"或反过来的口径分叉。
+        /// </para>
+        /// </summary>
+        /// <param name="person">待判定的武将</param>
+        /// <returns>可褒赏返回 true</returns>
+        public bool CanBeRewarded(Person person)
+        {
+            if (person == null || !person.IsAlive)
+                return false;
+            if (BelongForce == null || person.BelongForce != BelongForce)
+                return false;
+            // 事件 / NPC / 异族
+            if (person.IsSpecialPerson)
+                return false;
+            // 身份：都督 / 太守 / 一般，不含君主
+            if (person.state != (int)PersonStateType.Commander
+                && person.state != (int)PersonStateType.Leader
+                && person.state != (int)PersonStateType.Normal)
+                return false;
+            // 【出征 / 运输者由本条挡住】原版 `is_unitize()`（s11_scen_obj_person.cpp:697-705）
+            // 判定"此人是某个部队的成员"；出征与运输都必须先编入部队，所以这里一刀切掉，
+            // 不需要再按 missionType 单独判断。
+            if (person.mBelongTroop != null)
+                return false;
+            // 原版：`is_absent() and get_order_id() < 0` → 不可褒赏。
+            // is_absent() 的真义是 order_timer_ != 0（任务倒计时未归零，
+            // 见 s11_scen_obj_person.cpp:1383-1386），不是"人不在城里"。
+            // 因此这条挡的是"倒计时在跑、任务 Id 却为空"的脏数据组合。
+            // 单独移动（不带兵，order_id >= 0）的武将不受此条限制 —— 与原版一致。
+            if (person.missionCounter != 0 && person.missionType == (int)MissionType.None)
+                return false;
+            // 本回合已褒赏过
+            if (person.IsBonusDone)
+                return false;
+            // 忠诚已满
+            if (person.loyalty >= 100)
+                return false;
+            return true;
+        }
 
-        /// <summary>褒奖"概率偏移"命中时的最大额外提升（实际取 1~本值）</summary>
-        public const int RewardLoyaltyExtraMax = 5;
+        /// <summary>褒奖的忠诚提升基数 —— 对齐原版 `4 + rand(魅力系数) + (75-相性)/15`</summary>
+        public const int RewardLoyaltyBase = 4;
+
+        /// <summary>褒奖的忠诚提升上限 —— 对齐原版 `min(n, 13)`</summary>
+        public const int RewardLoyaltyMax = 13;
 
         /// <summary>
-        /// 褒奖的忠诚提升量（概率偏移版）。
+        /// 褒奖（花钱）的忠诚提升量。
         ///
-        /// 规则：
-        ///   · 保底 <see cref="RewardLoyaltyBase"/> = 11 → 褒奖结果**一定大于 10**；
-        ///   · 性格的"忠诚影响数据"（忠诚维持 + 忠诚漂移，见 <see cref="GetLoyaltyKeepAdd"/>）
-        ///     **只做加法**：取正值后当作百分比概率，命中才追加 1~<see cref="RewardLoyaltyExtraMax"/>
-        ///     的额外提升 —— 即性格值偏移的是"多涨"的概率，而不是像旧公式那样把值直接加减到结果上；
-        ///   · 负值（例如"莽撞"的 -10/-10）一律按 0 处理 → 褒奖永远不会掉忠诚。
+        /// 对齐出处：Open311 `exec_bonus_command`（`s11_sys_person_order_personnel.cpp:1145-1160`）：
+        /// <code>
+        /// charisma_coef = max(2, 君主魅力 / 17);          // 2..5
+        /// n = 4 + rand_int(charisma_coef) + (75 − 相性) / 15;
+        /// n = min(n, 13);
+        /// </code>
+        /// 其中"相性"是目标武将与**本势力君主**的相性距离。
+        /// <para>
+        /// 【注意】原版有两条容易混淆的命令：
+        ///   · `PersonOrderId_Bonus`（0xd，포상）= **花钱褒奖** ← 本方法对齐的就是它；
+        ///   · `PersonOrderId_Reward`（0xe，수여）= 授予道具，忠诚 += `item.value`，是另一套。
+        /// </para>
         /// </summary>
         /// <param name="person">被褒奖的武将</param>
-        /// <returns>本次忠诚提升量（≥ <see cref="RewardLoyaltyBase"/>）</returns>
-        public static int CalcRewardLoyaltyGain(Person person)
+        /// <param name="kunshu">本势力君主（决定随机系数与相性）</param>
+        /// <returns>本次忠诚提升量（4~13）</returns>
+        public static int CalcRewardLoyaltyGain(Person person, Person kunshu)
         {
-            int gain = RewardLoyaltyBase;
-            int offset = GetLoyaltyKeepAdd(person);         // 忠诚维持 + 忠诚漂移
-            if (offset <= 0) return gain;                   // 仅做加法：负值不参与
-            if (GameRandom.Chance(System.Math.Min(offset, 100)))
-                gain += GameRandom.Range(1, RewardLoyaltyExtraMax + 1);
-            return gain;
+            if (person == null)
+                return 0;
+
+            int charismaCoef = 2;
+            if (kunshu != null)
+                charismaCoef = System.Math.Max(2, kunshu.Glamour / 17);
+
+            int aishou = kunshu != null ? person.CompatibilityDistance(kunshu) : 25;
+            int gain = RewardLoyaltyBase
+                     + GameRandom.Range(0, charismaCoef)
+                     + (75 - aishou) / 15;
+
+            return System.Math.Min(gain, RewardLoyaltyMax);
         }
 
         #endregion
@@ -3283,8 +3666,12 @@ namespace Sango.Core
                 totalValue += person.BaseSecurityAbility;
             }
 
-            // 最终数值
-            totalValue = GameUtility.Method_SecurityAbility(totalValue, 3);
+            // 最终数值 —— 对齐原版 `Σ统率/28 + 2`（s11_sys_person_order_city.cpp:1365-1367）
+            totalValue = GameUtility.Method_SecurityAbility(totalValue);
+            // 兵临城下时巡查效果减半 —— 对齐 calc_patrol_public_order
+            // （s11_sys_person_order_city.cpp:1366-1367：`if (building_has_enemy(self)) n /= 2;`）
+            if (HasEnemyNearby())
+                totalValue /= 2;
             // 【性格】按执行武将的性格效率折算（多人取平均）
             totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.Inspection);
 
@@ -3300,7 +3687,9 @@ namespace Sango.Core
             }
 
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 技巧点 = 治安变化 × 5/7 + 5 —— 对齐原版 s11_sys_person_order_city.cpp:1323
+            // （原实现取数据表的固定值 20）
+            int techniquePointGain = totalValue * 5 / 7 + 5;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -3352,6 +3741,8 @@ namespace Sango.Core
         {
             if (!GameUtility.IsValidPersonArray(personList)) return 0;
 
+            // 没有兵就无从训练 —— 对齐原版 can_drill_command 的 `troops != 0`
+            if (troops <= 0) return 0;
             if (morale >= MaxMorale) return 0;
             Scenario scenario = Scenario.Cur;
 
@@ -3372,38 +3763,25 @@ namespace Sango.Core
                 return 0;
             }
 
-            int totalValue = 0;
-            int subValue = 0;
-            int maxValue = -99;
-            Person maxPerson = null;
+            // 原版口径：Σ武力 + max武力（s11_sys_person_order_military.cpp:131-156）
+            // 旧实现把"最高者的值"重复累加了 n-1 次，与参与者的实际武力无关，属计算错误。
+            int sumStrength = 0;
+            int maxStrength = 0;
             for (int i = 0; i < personList.Length; i++)
             {
                 Person person = personList[i];
                 if (person == null) continue;
-                if (person.BaseTrainTroopAbility > maxValue)
-                {
-                    maxPerson = person;
-                    maxValue = person.BaseTrainTroopAbility;
-                }
+                int ability = person.BaseTrainTroopAbility;
+                sumStrength += ability;
+                if (ability > maxStrength)
+                    maxStrength = ability;
             }
 
-            // 最高属性武将获得100%加成,其余两个获取50%加成
-            for (int i = 0; i < personList.Length; i++)
-            {
-                Person person = personList[i];
-                if (person == null) continue;
-                if (person != maxPerson)
-                {
-                    subValue += maxPerson.BaseTrainTroopAbility;
-                }
-                else
-                {
-                    totalValue += maxPerson.BaseTrainTroopAbility;
-                }
-            }
-
-            // 最终数值
-            totalValue = GameUtility.Method_TrainTroops(totalValue, subValue);
+            // 最终数值 —— 3 + (Σ武+max武)/min(20+troops/2000,100)，有训练所再 ×1.5
+            bool hasTrainingGround = CityFacilityRequirement.HasGovFacility(
+                this, InteriorFacilityKind.TrainingSchool);
+            int totalValue = GameUtility.Method_TrainTroops(
+                sumStrength, maxStrength, troops, hasTrainingGround);
             // 【性格】按执行武将的性格效率折算（多人取平均）
             totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.TrainTroops);
 
@@ -3418,7 +3796,9 @@ namespace Sango.Core
             }
 
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 技巧点 = 气力变化 / 2 + 5 —— 对齐原版 s11_sys_person_order_military.cpp:95
+            // （原实现取数据表的固定值 20）
+            int techniquePointGain = totalValue / 2 + 5;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -3446,7 +3826,8 @@ namespace Sango.Core
 
             gold -= goldNeed;
             morale += totalValue;
-            BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
+            // 走本城口径：军事府可让训练 AP 减半
+            BelongCorps.ReduceActionPoint(GetJobCostAP((CityJobType)jobId));
             if (morale > MaxMorale)
                 morale = MaxMorale;
 
@@ -3469,10 +3850,20 @@ namespace Sango.Core
         /// <returns>是否成功</returns>
         public bool JobRecruitPerson(Person person, Person dest)
         {
+            // 【执行前防御】对应 Open311 的 validate_recruit_command：
+            //   · 双方武将必须有效；
+            //   · 执行者必须挂在本城的空闲名册里（否则会白白从别的城盗走一个人）；
+            //   · 目标不能是本势力的人（登用只针对他势力 / 在野）。
+            if (person == null || dest == null) return false;
+            if (!person.IsAlive || !dest.IsAlive) return false;
+            if (!freePersons.Contains(person)) return false;
+            if (dest.BelongForce == BelongForce) return false;
+
             Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.RecruitPerson;
-            int apCost = JobType.GetJobCostAP(jobId);
+            // 走本城口径：人才府可让登用 AP 减半
+            int apCost = GetJobCostAP(CityJobType.RecruitPerson);
 
             freePersons.Remove(person);
             if (dest.CurrentCity == person.CurrentCity)
@@ -3510,12 +3901,28 @@ namespace Sango.Core
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
 #endif
+            // 【先算能负担几人】原实现是"循环里先加忠诚、循环后再统一扣金"，
+            // 资金不足时会把 gold 扣成负数，而忠诚已经涨上去了。
+            // 门禁（CityReward.IsValid）只能按"1 人份"判断（那时玩家还没选人），
+            // 因此这里必须兜底：只褒赏付得起的那几个人。
+            int affordable = goldCost > 0 ? gold / goldCost : int.MaxValue;
+            int rewarded = 0;
+
             int totalApCost = 0;
             int totalGoldCost = 0;
             for (int i = 0; i < persons.Length; ++i)
             {
                 Person person = persons[i];
                 if (person == null) continue;
+                // 执行前逐项校验 —— 与界面共用同一口径（对齐原版 can_bonus）
+                if (!CanBeRewarded(person)) continue;
+
+                if (rewarded >= affordable)
+                {
+                    Sango.Log.Info($"[内政]{Name} 资金不足（现有 {gold}，每人 {goldCost}），"
+                        + $"本次只褒赏 {rewarded} 人，其余跳过");
+                    break;
+                }
 
                 totalApCost += apCost;
                 totalGoldCost += goldCost;
@@ -3523,9 +3930,10 @@ namespace Sango.Core
                 stringBuilder.Append(person.Name);
                 stringBuilder.Append(",");
 #endif
-                // 褒奖忠诚：保底 11（恒 >10）+ 性格忠诚影响值的概率偏移（见 CalcRewardLoyaltyGain）。
-                // 同样必须走 AddLoyalty，把结果钳在 0~100（与 JobRewardPerson 一致）
-                person.AddLoyalty(CalcRewardLoyaltyGain(person));
+                // 褒奖忠诚：4 + rand(魅力系数) + (75-相性)/15，封顶 13（见 CalcRewardLoyaltyGain）
+                person.AddLoyalty(CalcRewardLoyaltyGain(person, BelongForce != null ? BelongForce.mGovernor : null));
+                person.SetBonusDone(true);
+                rewarded++;
             }
             gold -= totalGoldCost;
             BelongCorps.ReduceActionPoint(totalApCost);
@@ -3547,6 +3955,9 @@ namespace Sango.Core
         {
             if (person == null)
                 return true;
+            // 执行前逐项校验 —— 与界面共用同一口径（对齐原版 can_bonus）
+            if (!CanBeRewarded(person))
+                return false;
 
             Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
@@ -3562,10 +3973,11 @@ namespace Sango.Core
             stringBuilder.Append(",");
             int lastLoyalty = person.loyalty;
 #endif
-            // 褒奖忠诚：与多人褒奖同一套口径（保底 11 + 性格忠诚影响值的概率偏移）。
+            // 褒奖忠诚：与多人褒奖同一套口径（4 + rand(魅力系数) + (75-相性)/15，封顶 13）。
             // 必须走 AddLoyalty：裸 `loyalty +=` 会把 90 点直接抬到 101，越过 0~100 上限
             // （实测日志：忠诚从 90 提升到 -> 101，随后被换季结算当成"掉忠 1"修正回 100）。
-            person.AddLoyalty(CalcRewardLoyaltyGain(person));
+            person.AddLoyalty(CalcRewardLoyaltyGain(person, BelongForce != null ? BelongForce.mGovernor : null));
+            person.SetBonusDone(true);
             gold -= goldCost;
             BelongCorps.ReduceActionPoint(apCost);
 
@@ -3652,6 +4064,38 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 把"可被探索到"的人追加进目标列表。
+        ///
+        /// 对齐原版 can_be_searched（s11_sys_person_order_personnel.cpp:510-529）的排除链：
+        /// 死亡 / 事件与 NPC / 异族（原版 `is_event() or is_iminzoku() or is_bandit()`），
+        /// 以及"任务正在进行中"（原版 `is_absent() and order_id != -1`，
+        /// 其中 `is_absent()` 的真义是 order_timer_ != 0 而非"不在城"）。
+        /// 本项目 <see cref="Person.IsSpecialPerson"/> 正好覆盖前两类三选。
+        /// </summary>
+        /// <param name="source">来源列表（本据点 / 下属港关的未发现人才）</param>
+        /// <param name="dest">输出列表</param>
+        static void CollectSearchablePersons(List<Person> source, List<Person> dest)
+        {
+            if (source == null || dest == null)
+                return;
+
+            for (int i = 0; i < source.Count; i++)
+            {
+                Person p = source[i];
+                if (p == null || !p.IsAlive)
+                    continue;
+                if (p.IsSpecialPerson)
+                    continue;
+                // 原版 `is_absent() and get_order_id() != -1` —— is_absent() 是
+                // order_timer_ != 0（任务倒计时未归零，s11_scen_obj_person.cpp:1383-1386），
+                // 即"任务正在进行中"的人不可被搜索到。
+                if (p.missionCounter != 0 && p.missionType != (int)MissionType.None)
+                    continue;
+                dest.Add(p);
+            }
+        }
+
+        /// <summary>
         /// 执行搜索任务
         /// </summary>
         /// <param name="person">执行搜索的武将</param>
@@ -3668,7 +4112,8 @@ namespace Sango.Core
             int jobId = (int)CityJobType.Searching;
             int meritGain = JobType.GetJobMeritGain(jobId);
             int techniquePointGain = JobType.GetJobTPGain(jobId);
-            int apCost = JobType.GetJobCostAP(jobId);
+            // 走本城口径：人才府可让探索 AP 减半
+            int apCost = GetJobCostAP(CityJobType.Searching);
             target = null;
             foundItem = null;
             freePersons.Remove(person);
@@ -3676,12 +4121,24 @@ namespace Sango.Core
 
             BelongCorps.ReduceActionPoint(apCost);
 
-            // 支持发现港关人才
-            List<Person> invisible = new List<Person>(invisiblePersons);
-            subCities.ForEach(x => invisible.AddRange(x.invisiblePersons));
+            // 支持发现港关人才，并按"可被搜索"过滤。
+            // 对齐原版 can_be_searched（s11_sys_person_order_personnel.cpp:510-529）：
+            //   排除事件 / NPC / 异族（原版 `is_event() or is_iminzoku() or is_bandit()` 一条链），
+            //   排除已死亡、以及"出征且有任务"的人。
+            // 本项目的 invisiblePersons 本身已是"本据点未发现"的子集，所以"据点匹配 + 未发现"天然满足。
+            List<Person> invisible = new List<Person>();
+            CollectSearchablePersons(invisiblePersons, invisible);
+            for (int i = 0; i < subCities.Count; i++)
+                CollectSearchablePersons(subCities[i].invisiblePersons, invisible);
 
-            // 发现人才
-            int probality = 20 + person.Politics * 3 / 5;
+            // 发现人才 —— 对齐原版 calc_search_chance（s11_sys_person_order_personnel.cpp:491-508）：
+            //   province = 10；本城所属州与执行者出身州相同 → 11
+            //   chance = (min(候选数, 5) × 3 + 7) × 政治 × province / 300
+            //   "眼力"特技 → 100%（由 Features.json#86 的 CityChangeSearchingWild override 叠加）
+            // 原实现是 `20 + 政治×3/5`，与候选人数无关，本次替换。
+            int candidateCount = System.Math.Min(invisible.Count, 5);
+            int searchProvince = (ProvinceId > 0 && ProvinceId == person.birthplace) ? 11 : 10;
+            int probality = (candidateCount * 3 + 7) * person.Politics * searchProvince / 300;
             // 【性格】搜索效率：按执行武将性格折算发现成功率
             probality = ApplyPersonalitySearchChance(probality, person);
             if (invisible.Count > 0)
@@ -3705,6 +4162,9 @@ namespace Sango.Core
 #endif
                     target.CurrentCity.RemoveInvisiblePerson(target);
                     target.CurrentCity.AddWildPerson(target);
+
+                    // 搜索成功必得技巧点 —— 对齐原版 on_search_success 的 force_add_tech_point(force, 20)
+                    BelongForce?.GainTechniquePoint(20);
 
                     person.merit += meritGain;
                     person.GainExp(meritGain);
@@ -3748,21 +4208,25 @@ namespace Sango.Core
             probality = ApplyPersonalitySearchChance(probality, person);
             if (!person.ActionOver && GameRandom.Chance(probality))
             {
-                int findGold = GameRandom.Range(person.Politics * 2, person.Politics * 3);
-                if (IsPlayer)
+                // 金额 —— 对齐原版：`min(rand(魅力), 80)`，低于 30 视为空手（什么都不给）
+                int findGold = System.Math.Min(GameRandom.Range(0, System.Math.Max(person.Glamour, 1)), 80);
+                if (findGold >= 30)
                 {
-                    PlayerMessage.AddTextMessage($"{person.ColorName}在{ColorName}发现资金{findGold}。",
-                        BelongForce, x, y);
-                }
-                AddGold(findGold);
-                Render?.ShowInfo(findGold, (int)InfoType.Gold);
+                    if (IsPlayer)
+                    {
+                        PlayerMessage.AddTextMessage($"{person.ColorName}在{ColorName}发现资金{findGold}。",
+                            BelongForce, x, y);
+                    }
+                    AddGold(findGold);
+                    Render?.ShowInfo(findGold, (int)InfoType.Gold);
 
-                person.merit += meritGain;
-                person.GainExp(meritGain);
-                person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
-                person.ActionOver = true;
-                ClearJobFeature();
-                return findGold;
+                    person.merit += meritGain;
+                    person.GainExp(meritGain);
+                    person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
+                    person.ActionOver = true;
+                    ClearJobFeature();
+                    return findGold;
+                }
             }
 
             //TODO: 触发事件
@@ -3856,7 +4320,6 @@ namespace Sango.Core
             }
 
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
 
             int totalValue = 0;
             for (int i = 0; i < personList.Length; i++)
@@ -3867,7 +4330,18 @@ namespace Sango.Core
 
             }
 
-            totalValue = GameUtility.Method_RecruitTroops(totalValue, barracks.BuildingType.level);
+            // 对齐原版：基准含治安项 `(治安+20) × Σ魅力 × 5/100`（s11_sys_scen_city.cpp:582-607）
+            // "名声"的 ×1.5 由 Features.json#80 的 CityImproveJobResult override 后续叠加
+            totalValue = GameUtility.Method_RecruitTroops(
+                totalValue, security, barracks.BuildingType.level);
+
+            // 兵临城下时征兵量减半 —— 对齐 get_recruit_troops
+            // （s11_sys_person_order_city.cpp:602-603：`if (building_has_enemy(self)) n /= 2;`）
+            if (HasEnemyNearby())
+                totalValue /= 2;
+
+            // 技巧点 = min(1 + 征兵数/300, 10) —— 对齐原版（数据表里写死 20 的不适用）
+            int techniquePointGain = System.Math.Min(1 + totalValue / 300, 10);
             // 【性格】按执行武将的性格效率折算（多人取平均）
             totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.RecruitTroops);
 
@@ -3958,16 +4432,21 @@ namespace Sango.Core
         {
             if (!GameUtility.IsValidPersonArray(personList)) return 0;
 
-            int totalNum = itemStore.GetNumber(itemType.storeKind);
-            if (totalNum >= itemType.TransformLimit(StoreLimit)) return 0;
-
             Scenario scenario = Scenario.Cur;
 
+            // 【顺序修正】原先 `isTest` 的空值兜底写在对 itemType 的解引用之后，
+            // 一旦 itemType 为 null 会先 NRE，兜底永远走不到。
             if (isTest && itemType == null)
             {
                 building = GetFreeBuilding((int)BuildingKindType.BlacksmithShop);
                 itemType = scenario.GetObject<ItemType>((int)ItemKindType.Weapon);
             }
+            // 执行前防御：没有目标道具类型就没有生产对象
+            if (itemType == null) return 0;
+            if (building == null) return 0;
+
+            int totalNum = itemStore.GetNumber(itemType.storeKind);
+            if (totalNum >= itemType.TransformLimit(StoreLimit)) return 0;
 
             if (itemType == null) return 0;
             if (building == null) return 0;
@@ -4021,6 +4500,16 @@ namespace Sango.Core
             }
 
             totalValue = GameUtility.Method_CreateItems(totalValue, building.BuildingType.level);
+
+            // 兵器 / 船只每次固定产出 1 件 —— 对齐 Open311 `s11_sys_scen_building.cpp:1092-1093`
+            int storeKind = itemType.storeKind;
+            if (storeKind == (int)ItemStoreKindType.Helepolis
+                || storeKind == (int)ItemStoreKindType.Catapult
+                || storeKind == (int)ItemStoreKindType.Boat)
+            {
+                if (totalValue > 0)
+                    totalValue = 1;
+            }
 
             overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
@@ -4093,6 +4582,15 @@ namespace Sango.Core
             if (goldNum == 0) return false;
             if (hasBusiness == 0) return false;
 
+            // 【资金复核】门禁 `CityTrade.IsValid` 查的是 `CheckJobCost(TradeFood)`，
+            // 而 JobTypes.json 里该工作的 cost 是 0 —— 等于恒真；
+            // 实际扣的是滑条金额 `goldNum`。买粮（正数）必须在此复核，否则能把资金扣成负数。
+            if (goldNum > 0 && gold < goldNum)
+            {
+                Sango.Log.Info($"[内政]{Name} 资金不足，无法买粮（需 {goldNum}，现有 {gold}）");
+                return false;
+            }
+
             Scenario scenario = Scenario.Cur;
 
             ScenarioVariables variables = scenario.Variables;
@@ -4112,14 +4610,35 @@ namespace Sango.Core
             freePersons.Remove(person);
             person.ActionOver = true;
 
-            int totalValue = GameUtility.Method_Trade(person.Politics);
-            // 【性格】交易效率：按执行武将性格调整交易比例（多人取平均）
+            // 原版交易价格（s11_sys_person_order_city.cpp:1490-1529 的 calc_merchant）：
+            //   pol_coef = 450 - 政治
+            //   买：gold = food × pol_coef × 10 / (rate × 400)
+            //   卖：gold = food × -3200 / (pol_coef × rate)
+            // 其中 rate 是"粮价倒数"（越大粮越便宜）：
+            //   原文注释的对照表为 rate=1 时 100 粮要 1000 金、rate=100 时只要 10 金。
+            // 原版按"粮数"下单，本项目接口按"金"下单（买），卖出时 goldNum 已是粮数（负），
+            // 因此买入方向用反算。
+            int rate = System.Math.Max(this.rate, 1);
+            int polCoef = System.Math.Max(450 - person.Politics, 1);
+
+            int totalValue;
+            if (goldNum > 0)
+            {
+                // 花 goldNum 金能买到的粮
+                totalValue = goldNum * rate * 400 / (polCoef * 10);
+            }
+            else
+            {
+                // 卖出 -goldNum 粮能换到的金
+                totalValue = (-goldNum) * 3200 / (polCoef * rate);
+            }
+
+            // 【性格】交易效率：按执行武将性格调整交易量（多人取平均）
             totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.TradeFood);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.Value;
-
 
             overrideData.Value = techniquePointGain;
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
@@ -4127,14 +4646,12 @@ namespace Sango.Core
 
             overrideData.Recycle();
 
-            // TODO : 城市粮价
-            int p = hasBusiness;
-
             if (goldNum > 0)
             {
-                totalValue = totalValue * goldNum * p / 100;
                 if (totalValue + food > foodLimit)
                     totalValue = foodLimit - food;
+                if (totalValue <= 0)
+                    return false;
 
                 AddGold(-goldNum);
                 AddFood(totalValue);
@@ -4147,9 +4664,11 @@ namespace Sango.Core
             }
             else
             {
-                totalValue = totalValue * (-goldNum / p) / 100;
                 if (totalValue + gold > goldLimit)
                     totalValue = goldLimit - gold;
+                if (totalValue <= 0)
+                    return false;
+
                 AddGold(totalValue);
                 AddFood(goldNum);
 
@@ -4253,6 +4772,196 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 本据点周边是否还有**可站立部队**的空地块。
+        ///
+        /// 对齐出处：Open311 `has_empty_place`（s11_sys_person_order_military.cpp:358-363）：
+        /// 以据点为中心扫一圈，**都市半径 2 格、关隘港口半径 1 格**。
+        /// <para>
+        /// 【比原版严格一处】原版只判 `hex.is_empty()`（无部队、无建筑），
+        /// 但据点可能贴着山岭或海面 —— 那些格子在 <c>is_empty</c> 意义上也是"空"的，
+        /// 部队却站不上去。因此这里额外要求地形 `moveable`（<see cref="Cell.CanMove"/>），
+        /// 否则会出现"界面没置灰、点进去却建不出队"的情况。
+        /// </para>
+        /// </summary>
+        /// <returns>存在可站立部队的空地返回 true</returns>
+        public bool HasEmptyCellForTroop()
+        {
+            Cell center = CenterCell;
+            if (center == null)
+                return false;
+
+            int radius = IsCity() ? 2 : 1;
+            for (int i = 0; i < 6; i++)
+            {
+                Cell ring1 = center.GetNeighbor(i);
+                if (ring1 == null)
+                    continue;
+                if (CanStand(ring1))
+                    return true;
+                if (radius < 2)
+                    continue;
+
+                // 半径 2：沿 1 环格再外扩一圈（六边形 6 方向）
+                for (int j = 0; j < 6; j++)
+                {
+                    if (CanStand(ring1.GetNeighbor(j)))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 该格能否站下一支部队：自身为空（无部队、无建筑）**且**地形可通行。
+        /// </summary>
+        /// <param name="cell">待判定的格子</param>
+        /// <returns>可站立返回 true</returns>
+        static bool CanStand(Cell cell)
+        {
+            if (cell == null || !cell.IsEmpty())
+                return false;
+            // TerrainType.CanMoveBy 目前只返回 moveable 字段，与部队无关，传 null 安全。
+            return cell.CanMove(null);
+        }
+
+        /// <summary>某格上是否有敌方部队。</summary>
+        /// <param name="cell">待判定的格子</param>
+        /// <returns>有敌方部队返回 true</returns>
+        bool HasEnemyTroopOn(Cell cell)
+        {
+            return cell != null && cell.troop != null && cell.troop.IsEnemy(this);
+        }
+
+        /// <summary>
+        /// 本城执行某工作时的**实际行动力消耗**（已计入建筑减半效果）。
+        ///
+        /// PK 版新增的四座幕僚建筑都有一项"某项工作 AP 减半"的效果，原版各自写在自己的命令里：
+        /// <list type="bullet">
+        /// <item>**军事府**：训练 / 出阵 —— `s11_sys_person_order_military.cpp:114-124`、`:365-375`</item>
+        /// <item>**人才府**：探索 / 登用 —— `s11_sys_person_order_personnel.cpp:471-473`、`:899-901`</item>
+        /// <item>**计略府**：破坏 / 协作 / 流言 —— `s11_sys_person_order_strategy.cpp`（各命令 AP 计算处）</item>
+        /// <item>**外交府**：外交八项 —— `s11_sys_person_order_diplomacy.cpp:359,371,699,950,1224,1546,1899,2328`</item>
+        /// </list>
+        /// 本项目原先所有命令都直接调 `JobType.GetJobCostAP`，完全没有这层判断。
+        /// 收敛到本方法后，各命令只需把 `JobType.GetJobCostAP((int)job)` 换成
+        /// `GetJobCostAP(job)`，判定口径就统一了（也避免每处各写一遍设施名）。
+        /// </summary>
+        /// <param name="job">工作类型</param>
+        /// <returns>扣除减半效果后的实际 AP 消耗</returns>
+        public int GetJobCostAP(CityJobType job)
+        {
+            int cost = JobType.GetJobCostAP((int)job);
+            if (cost <= 0)
+                return cost;
+
+            InteriorFacilityKind office;
+            switch (job)
+            {
+                // 军事府：训练 / 出阵
+                case CityJobType.TrainTroops:
+                case CityJobType.MakeTroop:
+                    office = InteriorFacilityKind.MilitaryOffice;
+                    break;
+
+                // 人才府：探索 / 登用
+                case CityJobType.Searching:
+                case CityJobType.RecruitPerson:
+                    office = InteriorFacilityKind.PersonnelOffice;
+                    break;
+
+                // 计略府：三个计略
+                case CityJobType.TwoTigers:
+                case CityJobType.TigerDevour:
+                case CityJobType.Rumor:
+                    office = InteriorFacilityKind.StrategemOffice;
+                    break;
+
+                // 外交府：亲善 / 同盟 / 弃盟
+                // （停战 / 劝降 / 交换 / 援军在本项目复用 Alliance 的成本，一并覆盖）
+                case CityJobType.SendGift:
+                case CityJobType.Alliance:
+                case CityJobType.DiscardAlliance:
+                    office = InteriorFacilityKind.DiplomaticOffice;
+                    break;
+
+                default:
+                    return cost;
+            }
+
+            return CityFacilityRequirement.HasGovFacility(this, office) ? cost / 2 : cost;
+        }
+
+        /// <summary>
+        /// **兵临城下**：敌军是否在地图半径内。
+        ///
+        /// 对齐出处：Open311 `building_has_enemy`（s11_sys_scen_building.cpp:1259-1269）：
+        /// 以据点为中心**按地图格距**扫一圈，都市半径 3、关隘港口半径 2。
+        /// 用途：被围时禁止开发 / 交易 / 研究 / 拆除 / 移动 / 召唤，征兵与巡查减半，并触发逃兵。
+        /// <para>
+        /// 【与 <see cref="IsEnemiesRound"/> 的区别 —— 两者不是一回事】
+        /// </para>
+        /// <list type="bullet">
+        /// <item>
+        /// <b>本方法（兵临城下）</b>：纯地图距离，只看格子坐标，与"城属于谁、区域怎么划"无关。
+        /// 这是原版 `building_has_enemy` 的语义，所有命令前置都用它。
+        /// </item>
+        /// <item>
+        /// <b><see cref="IsEnemiesRound"/></b>：数据源是 <see cref="PrepareEnemiesInfo"/> 遍历
+        /// <c>areaCellList</c>（本城直辖区域格）得到的快照 —— 敌军站在半径内、但不在本城区域内时
+        /// **不会**被它计入。这个语义更接近原版的 `map_has_enemy`（AI 态势用，半径 5/4）。
+        /// </item>
+        /// </list>
+        /// <para>
+        /// 早期实现直接拿 <c>IsEnemiesRound(3)</c> 当兵临城下，会漏判"敌军贴脸但不在本城区域内"的情况，
+        /// 导致被围时命令仍可点、逃兵不触发。本次改为独立的地图半径扫描。
+        /// </para>
+        /// <para>
+        /// 【注意】原版**没有**"据点被完全围死（所有邻格被占）"这个独立概念，
+        /// `encircling` 是外交上的"包围网"事件，与据点走投无路无关。因此这里只有半径判定。
+        /// </para>
+        /// </summary>
+        /// <returns>半径内有敌方部队返回 true</returns>
+        public bool HasEnemyNearby()
+        {
+            Cell center = CenterCell;
+            if (center == null)
+                return false;
+
+            int radius = IsCity() ? 3 : 2;
+
+            // 【为什么不用 Map.GetDirectSpiral】它是 BFS，只在 `moveAble` 的格子上扩散，
+            // 得到的深度是"**路径可走到的跳数**"而不是坐标距离：
+            // 城池贴山、半岛、隔水时，几何上只差 1~2 格的敌军可能因为绕路而被算成 4~5 跳，
+            // 从而**漏判兵临城下**（城被围着却还能开发 / 交易 / 召唤）。
+            // 原版 `building_has_enemy` 用的是 `range_contains(pos, 1, 3)` —— 纯坐标距离，不看地形。
+            // 这里改为按六边形邻格逐环展开，与坐标距离严格一致。
+            for (int i = 0; i < 6; i++)
+            {
+                Cell ring1 = center.GetNeighbor(i);
+                if (HasEnemyTroopOn(ring1))
+                    return true;
+                if (radius < 2 || ring1 == null)
+                    continue;
+
+                for (int j = 0; j < 6; j++)
+                {
+                    Cell ring2 = ring1.GetNeighbor(j);
+                    if (HasEnemyTroopOn(ring2))
+                        return true;
+                    if (radius < 3 || ring2 == null)
+                        continue;
+
+                    for (int k = 0; k < 6; k++)
+                    {
+                        if (HasEnemyTroopOn(ring2.GetNeighbor(k)))
+                            return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 检查指定回合是否有敌人
         /// </summary>
         /// <param name="round">回合数</param>
@@ -4274,6 +4983,85 @@ namespace Sango.Core
                 if (enemiesRound[i]) return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// 圈层：距国境的跳数（0 = 边境）。
+        /// <para>
+        /// 港关本身不参与圈层计算（<see cref="borderLine"/> 只在都市上刷新，见 Force 的圈层扩散），
+        /// 因此港关一律按归属都市推导。
+        /// </para>
+        /// 说明：该方法原来在已删除的 CityEstablishment 里（人才部署体系），
+        /// 现收归 City 自身 —— 它读的就是 <see cref="borderLine"/>，与原版
+        /// outpost distance_from_border 是同一个概念。
+        /// </summary>
+        /// <returns>圈层</returns>
+        public int ResolveRing()
+        {
+            if (IsPort() || IsGate())
+            {
+                City parent = BelongCity;
+                if (parent != null && parent != this)
+                    return parent.ResolveRing();
+            }
+            return borderLine;
+        }
+
+        /// <summary>
+        /// 未发现武将数量（本城 + 所属港关）。
+        /// 供城池 AI 的"搜索"命令评估探索价值。
+        /// </summary>
+        /// <returns>未发现武将数</returns>
+        public int CountInvisiblePersons()
+        {
+            return CountPersonPool(true);
+        }
+
+        /// <summary>
+        /// 在野武将数量（本城 + 所属港关）。
+        /// 供城池 AI 的"登用"命令评估招募价值。
+        /// </summary>
+        /// <returns>在野武将数</returns>
+        public int CountWildPersons()
+        {
+            return CountPersonPool(false);
+        }
+
+        /// <summary>
+        /// 统计本城与所属港关的人才池数量。
+        /// </summary>
+        /// <param name="invisible">true 统计未发现武将，false 统计在野武将</param>
+        /// <returns>数量</returns>
+        int CountPersonPool(bool invisible)
+        {
+            int count = 0;
+            if (invisible)
+            {
+                if (invisiblePersons != null) count += invisiblePersons.Count;
+            }
+            else
+            {
+                if (wildPersons != null) count += wildPersons.Count;
+            }
+
+            if (subCities != null)
+            {
+                for (int i = 0; i < subCities.Count; i++)
+                {
+                    City sub = subCities[i];
+                    if (sub == null)
+                        continue;
+                    if (invisible)
+                    {
+                        if (sub.invisiblePersons != null) count += sub.invisiblePersons.Count;
+                    }
+                    else
+                    {
+                        if (sub.wildPersons != null) count += sub.wildPersons.Count;
+                    }
+                }
+            }
+            return count;
         }
 
 
@@ -4333,6 +5121,22 @@ namespace Sango.Core
             scenario.Add(troop);
             troop.Init(scenario);
             return troop;
+        }
+
+        /// <summary>
+        /// 据点级 AI：被军团调度到时，按当前据点状态跑一遍命令队列。
+        ///
+        /// 对齐出处：Open311 s11_game_ai_kyoten.cpp:5-23 的 据点主流程。
+        /// 与原 <see cref="DoAI"/> 的区别：
+        ///   · DoAI 是"本城本回合的全部命令一次跑完"（旧模型的回合制命令链）；
+        ///   · DoOutpostAI 是"军团分给我多少行动力，我就花多少"（原版的预算模型），
+        ///     同回合内可能被调用一次；命令内部的 <c>OutpostRuntime.actionPoint</c> 决定能花多久。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否处理完成</returns>
+        public bool DoOutpostAI(Scenario scenario)
+        {
+            return CityAI.DoOutpostAI(this, scenario);
         }
 
         /// <summary>
@@ -4704,6 +5508,114 @@ namespace Sango.Core
                     return false;
             }
             return true;
+        }
+
+        /// <summary>
+        /// 本城内政设施的总等级。
+        ///
+        /// 【为什么需要这个】原版判断"内政是否建满"用的是**设施数量**（
+        /// `city->get_facility_count() >= city->get_dev_count()`），
+        /// 而原版有**吸收合并**（3 座同类低级合成 1 座高级）—— 合并会让数量**下降**，
+        /// 于是"建满"之后仍能通过合并腾出空位、继续循环发展。
+        /// <para>
+        /// 本项目没有吸收合并，建筑只能单座升级（`BuildingType.nextId`），**数量永不下降**。
+        /// 若照搬数量判据，内政地一建满就彻底饱和、再也无法优化 ——
+        /// 因此改用**总等级**作为真正的饱和指标：每块内政地最高 3 级。
+        /// </para>
+        /// </summary>
+        /// <returns>所有内政设施的等级之和</returns>
+        public int InteriorBuildingLevelSum()
+        {
+            if (allBuildings == null)
+                return 0;
+
+            int sum = 0;
+            for (int i = 0; i < allBuildings.Count; i++)
+            {
+                Building b = allBuildings[i];
+                if (b == null || !b.IsAlive || b.BuildingType == null)
+                    continue;
+                if (!b.BuildingType.IsIntrior)
+                    continue;
+                sum += b.BuildingType.level;
+            }
+            return sum;
+        }
+
+        /// <summary>
+        /// 沿 `BuildingType.nextId` 链推算某类建筑的**最高等级**。
+        ///
+        /// 各类建筑的上限并不统一：农场 / 市场能升到 Lv3，铸币厂 / 谷仓这类 Lv1 就是顶级。
+        /// 因此不能用"内政地数 × 3"一刀切，必须顺着升级链走到头：
+        /// `nextId &lt;= 0` 即表示已到顶。
+        /// </summary>
+        /// <param name="type">起始建筑类型</param>
+        /// <returns>该类型可达到的最高等级；无法解析时返回自身等级</returns>
+        public static int MaxLevelOf(BuildingType type)
+        {
+            if (type == null)
+                return 0;
+
+            Scenario scenario = Scenario.Cur;
+            int level = type.level;
+            int nextId = type.nextId;
+
+            // 防御：数据里若出现环，最多走到 16 级就停
+            for (int guard = 0; nextId > 0 && guard < 16; guard++)
+            {
+                BuildingType next = scenario != null ? scenario.GetObject<BuildingType>(nextId) : null;
+                if (next == null)
+                    break;
+                level = next.level;
+                nextId = next.nextId;
+            }
+            return level;
+        }
+
+        /// <summary>
+        /// 本城内政设施的总等级上限 —— **按每座建筑各自的升级链推算**。
+        ///
+        /// 例：10 块地里有 6 座农场（能到 Lv3）+ 2 座铸币厂（Lv1 封顶）+ 2 座谷仓（Lv1 封顶），
+        /// 上限 = 6×3 + 2×1 + 2×1 = 22，而不是简单粗暴的 10×3 = 30。
+        /// <para>
+        /// 之所以以"已建建筑的最终潜力"为上限（而不是"地数 × 最高等级"）：
+        /// 那样会把 Lv1 封顶的建筑也算出 3 级余量，AI 会一直以为自己还能升级、
+        /// 在无法升级的建筑上空转。用各自的 `nextId` 链推算，才是真正可达的目标。
+        /// </para>
+        /// </summary>
+        public int InteriorBuildingLevelLimit
+        {
+            get
+            {
+                if (allBuildings == null)
+                    return 0;
+
+                int sum = 0;
+                for (int i = 0; i < allBuildings.Count; i++)
+                {
+                    Building b = allBuildings[i];
+                    if (b == null || !b.IsAlive || b.BuildingType == null)
+                        continue;
+                    if (!b.BuildingType.IsIntrior)
+                        continue;
+                    sum += MaxLevelOf(b.BuildingType);
+                }
+                return sum;
+            }
+        }
+
+        /// <summary>
+        /// 内政是否**真正**饱和（数量与总等级双双到顶）。
+        ///
+        /// 只要还有"数量空位"或"等级提升空间"，就仍有发展余地，
+        /// AI 不该把现有设施当成冗余来拆。
+        /// </summary>
+        /// <returns>数量与总等级都到上限返回 true</returns>
+        public bool IsInteriorFullyDeveloped()
+        {
+            if (!IsInteriorBuildFull())
+                return false;
+            return InteriorBuildingLevelSum() >= InteriorBuildingLevelLimit;
         }
 
         /// <summary>
