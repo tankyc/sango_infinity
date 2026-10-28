@@ -195,7 +195,7 @@ namespace Sango.Core
             if (!best.isValid || best.cell == null)
                 return false;
 
-            BuildingType next = BattleSituation.SelectFrontBuildingType(best, troop.BelongForce, scenario);
+            BuildingType next = BattleSituation.SelectFrontBuildingType(best, troop, troop.BelongForce, scenario);
             if (next == null || troop.gold < next.cost)
                 return false;
 
@@ -204,6 +204,8 @@ namespace Sango.Core
             troop.missionTargetCell = best.cell;
             troop.SetMission(MissionType.TroopBuildBuilding, next.Id);
             troop.NeedPrepareMission();
+            // 【链路日志 ③】工程队连建改派 —— 这是"工程队出城后能转造火球"的唯一入口
+            Sango.Log.Info($"*[前线建造]{troop.BelongForce?.Name}的工程队[{troop.Name}]连建第 {BuiltCount} 座：{next.Name}（余金 {troop.gold}，造价 {next.cost}）");
             return true;
         }
 

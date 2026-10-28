@@ -402,6 +402,26 @@ namespace Sango.Core
         public static EventDelegate<City, Force, Troop> OnCityFall;
 
         /// <summary>
+        /// 据点更换所属势力的时候（非战斗攻陷的易主）。
+        ///
+        /// 【为什么需要】城市的势力色是**只在节点创建时写一次**的（小地图城市节点
+        /// MapCityNodeData 的构造 / 战略地图贴图），原先只有 OnCityFall 一条刷新入口。
+        /// 于是劝降合并（DiplomacyActionAnnex → Force.SurrenderAllBuildings）、
+        /// 事件改属、编辑器改属这些"没打仗就换旗"的路径，数据层已经改完，
+        /// 小地图却仍然显示旧势力的颜色。
+        ///
+        /// 【与 OnCityFall 的区别】OnCityFall 带"被谁攻陷"的语义，
+        /// 订阅方包含剧本事件触发器（城池陷落类事件）、玩家消息、势力灭亡提示等
+        /// 一整套**战斗语义**的消费者，非战斗易主绝不能借用它 —— 会误触发剧本事件。
+        /// 本事件只表达"这个据点现在归谁了"，订阅方仅限表现层刷新。
+        ///
+        /// 【派发点】统一在 <see cref="Sango.Core.CityStateSystem.SetCorps"/> 里派发，
+        /// 那是本工程唯一的据点改旗入口（治理层约定，禁止直接写 BelongCorps/BelongForce）。
+        /// 参数：据点、换旗前的势力（可为 null）、换旗后的势力（可为 null = 无主）
+        /// </summary>
+        public static EventDelegate<City, Force, Force> OnCityChangeForce;
+
+        /// <summary>
         /// 可监听改写工作花费
         /// City, JobType, PersonList, OverrideData
         /// </summary>

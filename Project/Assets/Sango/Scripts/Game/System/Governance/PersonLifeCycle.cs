@@ -63,6 +63,36 @@ namespace Sango.Core
         private static readonly int[] InjuryCoef = { 1, 2, 3, 4 };
 
         /// <summary>
+        /// 解析当前生效的寿命模式。
+        ///
+        /// 【优先级】剧本信息 <see cref="ScenarioInfo.lifeMode"/>（≥0 时锁定）
+        ///        → 剧本参数 <see cref="ScenarioVariables.lifeMode"/>。
+        ///
+        /// 之所以要有统一入口：寿终抽样（<see cref="MonthlySettlement"/>）、
+        /// 伤病抽样（<see cref="MonthlyInjuryUpdate"/>）、单挑的年龄衰减判定
+        /// 都必须用同一个档位，各读各的会出现"寿终按史实算、单挑按虚拟算"的分裂。
+        /// </summary>
+        /// <param name="scenario">剧本，可为空（空则按史实）</param>
+        /// <returns>生效的寿命模式</returns>
+        public static LifeMode GetLifeMode(Scenario scenario)
+        {
+            if (scenario == null)
+                return LifeMode.Historical;
+
+            int v;
+            if (scenario.Info != null && scenario.Info.HasLifeMode)
+                v = scenario.Info.lifeMode;
+            else if (scenario.Variables != null)
+                v = scenario.Variables.lifeMode;
+            else
+                return LifeMode.Historical;
+
+            if (v < (int)LifeMode.Historical) v = (int)LifeMode.Historical;
+            if (v > (int)LifeMode.Virtual) v = (int)LifeMode.Virtual;
+            return (LifeMode)v;
+        }
+
+        /// <summary>
         /// 月度关押计时推进：所有俘虏的 prisonTimer +1（上限 100）。
         ///
         /// 对齐出处：Open311 `s11_game_month.cpp:140-149` 的 update_person_monthly_timer
@@ -142,7 +172,8 @@ namespace Sango.Core
             }
 
             // ---------- 第二步：本轮抽样 ----------
-            LifeMode mode = (LifeMode)scenario.Variables.lifeMode;
+            // 统一走 GetLifeMode：剧本信息若锁定了寿命模式，剧本参数不再生效
+            LifeMode mode = GetLifeMode(scenario);
             int lifeBonus;
             switch (mode)
             {
@@ -216,7 +247,8 @@ namespace Sango.Core
 
             int year = scenario.Info.year;
             int monthKey = scenario.Info.month % 2;
-            LifeMode mode = (LifeMode)scenario.Variables.lifeMode;
+            // 同上：剧本信息锁定优先
+            LifeMode mode = GetLifeMode(scenario);
 
             for (int i = 0; i < scenario.personSet.Count; i++)
             {

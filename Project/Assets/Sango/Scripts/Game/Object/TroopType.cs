@@ -4,6 +4,20 @@ using Newtonsoft.Json;
 
 namespace Sango.Core
 {
+    /// <summary>
+    /// 器械定位。对应原版攻城兵器的两组专属分支，**具体哪些兵种属于哪一组由 TroopTypes.json 的
+    /// siegeRole 配置决定，代码里不写死任何兵种 Id**。
+    /// </summary>
+    public enum SiegeRoleType
+    {
+        /// <summary>普通兵种：守军走"兵力×75% + 城/关/港倍率"，耐久走通用公式 + 建筑类型倍率</summary>
+        None = 0,
+        /// <summary>冲车型（原版 EquipmentId_Shousha / EquipmentId_Mokujuu）：耐久走冲车公式并跳过建筑类型倍率</summary>
+        Ram = 1,
+        /// <summary>井阑型（原版 EquipmentId_Seiran / EquipmentId_Touseki）：守军吃完整兵力并乘配置倍率，不乘城/关/港倍率</summary>
+        Artillery = 2,
+    }
+
     [JsonObject(MemberSerialization.OptIn)]
     public class TroopType : SangoObject
     {
@@ -58,9 +72,47 @@ namespace Sango.Core
         [JsonProperty] public int atk;
 
         /// <summary>
-        /// 耐久破坏力
+        /// 耐久伤害微调（百分比，100 = 原版数值）。
+        ///
+        /// 【用途】只调"拆建筑有多快"，不改变公式形状、不影响打士兵。
+        ///
+        /// 【重要】原版耐久公式（calc_hp_damage，D:\open311\s11\s11_sys_damage.cpp:1531-1553）
+        /// 里**没有**任何兵种系数，兵装差异只通过 Attack 体现，所以 **100 才是"对齐原版"的值**。
+        /// 填 30 / 50 这类值属于有意偏离原版的平衡调整（历史上剑兵/运输曾配 30、井阑配 50，
+        /// 已统一回 100），改动前请确认不是误改。
         /// </summary>
-        [JsonProperty] public int durabilityDmg;
+        [JsonProperty] public int durabilityDmg = 100;
+
+        /// <summary>
+        /// 士兵伤害微调（百分比，100 = 原版数值）。
+        ///
+        /// 【用途】只调"打部队 / 打据点守军有多疼"，不影响建筑耐久拆除速度。
+        /// 会对**两条兵力伤害通道**各乘一次：部队→部队、部队→据点守军。
+        ///
+        /// 【性质】纯平衡旋钮，原版没有对应项；默认 100 时与 Open311 公式逐位一致。
+        /// 与 <see cref="siegeRole"/> 的 buildingTroopDamageFactor 的区别：
+        ///   · buildingTroopDamageFactor 是**原版对齐值**（井阑 180 / 投石 120），改它 = 偏离原版；
+        ///   · roleDmg 是**调参值**，改它 = 有意调平衡。
+        /// </summary>
+        [JsonProperty] public int roleDmg = 100;
+
+        /// <summary>
+        /// 器械定位（0=普通 / 1=冲车型 / 2=井阑型），见 <see cref="SiegeRoleType"/>。
+        ///
+        /// 【原版依据】
+        ///   · 1 冲车型：耐久改走 calc_shousha_hp_damage，且**跳过**建筑类型耐久倍率
+        ///     （D:\open311\s11\s11_sys_damage.cpp:553-558、833-834，对应原版冲车/木兽）；
+        ///   · 2 井阑型：打据点守军改走"完整兵力 × 倍率"，且**不乘**城/关/港倍率
+        ///     （同文件 442-465，对应原版井阑/投石）。
+        /// 默认 0 = 普通兵种，行为与改造前完全一致；具体兵种取值由 TroopTypes.json 配置。
+        /// </summary>
+        [JsonProperty] public int siegeRole;
+
+        /// <summary>
+        /// 对据点守军的伤害倍率（百分比，100 = 原样）。
+        /// 对应原版 ×1.8（井阑）/ ×1.2（投石），仅 <see cref="siegeRole"/> == 2 时生效。
+        /// </summary>
+        [JsonProperty] public int buildingTroopDamageFactor = 100;
 
         /// <summary>
         /// 防御力

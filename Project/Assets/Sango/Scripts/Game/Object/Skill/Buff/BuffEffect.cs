@@ -34,6 +34,10 @@ namespace Sango.Core
         {
             Register("Stun", CraeteHandle<Stun>);
             Register("Escape", CraeteHandle<Escape>);
+            // 足止：行为完全由 Buff.troopMoveCoef = 0 表达，这里只是占位让状态能挂载
+            Register("MoveSeal", CraeteHandle<MoveSeal>);
+            // 暴走：回合开始强制改派为"攻击最近敌军"
+            Register("Berserk", CraeteHandle<Berserk>);
             Register("Poison", CraeteHandle<Poison>);
             Register("Burn", CraeteHandle<Burn>);
             Register("Freeze", CraeteHandle<Freeze>);

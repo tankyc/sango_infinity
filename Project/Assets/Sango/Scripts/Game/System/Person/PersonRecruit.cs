@@ -15,6 +15,39 @@ namespace Sango.Core
         public int recruitType;
         public int tryLimit;
         public int result = 0;
+
+        /// <summary>
+        /// "不限次数"标记：<see cref="tryLimit"/> 取此值时，登用失败后可以无限重试。
+        ///
+        /// 【原版依据】破城 / 击破部队的俘虏处置是 `player_judgement` 的
+        /// `while(true)` 循环（s11_sys_event_capture.cpp:521-558）：
+        /// 登用失败只把尝试次数 +1，该俘虏仍留在未决队列里回到对话框，
+        /// 玩家想试几次就试几次，直到主动改成收押 / 释放 / 处斩。
+        /// 原先统一按固定 3 次处理，与原版不一致。
+        /// </summary>
+        public const int UnlimitedTry = -1;
+
+        /// <summary>
+        /// 批量登庸（一键登庸 / 多选）在"不限次数"下的单次上限。
+        ///
+        /// 批量流程是"对同一个人连续掷 N 次"，原版没有对应逻辑；
+        /// 直接按无限循环会在登用概率为 0（例如被禁止仕官）时死循环，
+        /// 因此这里给一个有限上限，仍然远大于原来的固定次数。
+        /// </summary>
+        const int BatchUnlimitedMaxTry = 10;
+
+        /// <summary>当前是否还能发起登用（不限次数模式恒为 true）</summary>
+        public bool CanTryRecruit => tryLimit == UnlimitedTry || tryLimit > 0;
+
+        /// <summary>消耗一次登用机会（不限次数模式不扣）</summary>
+        void ConsumeTry()
+        {
+            if (tryLimit != UnlimitedTry)
+                tryLimit--;
+        }
+
+        /// <summary>登用机会是否已用完（不限次数模式恒为 false）</summary>
+        public bool IsTryExhausted => tryLimit != UnlimitedTry && tryLimit <= 0;
         public System.Action<PersonRecruit> doneAction;
         public List<Person> all_persons;
         List<Person> recruited_list = new List<Person>();
@@ -120,7 +153,7 @@ namespace Sango.Core
                 return;
             }
 
-            if (tryLimit > 0)
+            if (CanTryRecruit)
             {
                 if (fallCity != null)
                     result = recruitor.JobRecruitPerson(target, fallCity, recruitType) == true ? 1 : 0;
@@ -134,10 +167,10 @@ namespace Sango.Core
                         doneAction?.Invoke(this);
                     }, target);
                 }
-                tryLimit--;
+                ConsumeTry();
             }
 
-            if (tryLimit <= 0 && atker == null && fallCity == null)
+            if (IsTryExhausted && atker == null && fallCity == null)
             {
                 Back();
                 doneAction?.Invoke(this);
@@ -163,7 +196,7 @@ namespace Sango.Core
                 return;
             }
 
-            if (tryLimit > 0)
+            if (CanTryRecruit)
             {
                 if (fallCity != null)
                     result = recruitor.JobRecruitPerson(target, fallCity, recruitType) == true ? 1 : 0;
@@ -190,7 +223,7 @@ namespace Sango.Core
                         doneAction?.Invoke(this);
                     }, target);
                 }
-                tryLimit--;
+                ConsumeTry();
             }
         }
 
@@ -271,7 +304,10 @@ namespace Sango.Core
             {
                 Person person = persons[i];
                 recruited_list.Add(person);
-                for (int j = 0; j < tryLimit; j++)
+                // 不限次数模式在批量流程里必须有上限：这里是"对同一人连续掷 N 次"，
+                // 原版没有批量对应逻辑，按无限循环会在概率 0（被禁止仕官等）时死循环。
+                int maxTry = tryLimit == UnlimitedTry ? BatchUnlimitedMaxTry : tryLimit;
+                for (int j = 0; j < maxTry; j++)
                 {
                     if (fallCity != null)
                         result = recruitor.JobRecruitPerson(person, fallCity, recruitType) == true ? 1 : 0;

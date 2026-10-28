@@ -141,9 +141,22 @@ namespace Sango.Core.Player
 
         public void MakeTroop()
         {
-            if (TargetTroop.troops <= 0) return;
-            if (TargetTroop.food <= 0) return;
-            if (personList.Count == 0) return;
+            // 【日志】原先三个前置判定都是静默 return，玩家点"确定"后没反应时无从判断原因。
+            if (TargetTroop.troops <= 0)
+            {
+                Sango.Log.Warning($"*[运输]{TargetCity?.Name} 组建运输队取消：携带兵力为 0");
+                return;
+            }
+            if (TargetTroop.food <= 0)
+            {
+                Sango.Log.Warning($"*[运输]{TargetCity?.Name} 组建运输队取消：携带军粮为 0");
+                return;
+            }
+            if (personList.Count == 0)
+            {
+                Sango.Log.Warning($"*[运输]{TargetCity?.Name} 组建运输队取消：未选择押运武将");
+                return;
+            }
 
             ContextMenu.CloseAll();
             TargetTroop.ActionOver = false;
@@ -161,6 +174,8 @@ namespace Sango.Core.Player
             TargetCity.EnsureTroop(TargetTroop, Scenario.Cur);
             TargetTroop.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP((int)CityJobType.MakeTansport));
             Window.Instance.SetVisible(windowName, false);
+            Sango.Log.Info($"*[运输]{TargetCity.Name} 玩家组建运输队「{TargetTroop.Name}」出城" +
+                           $"（{TargetTroop.Leader?.Name} 押运，兵{TargetTroop.troops} 粮{TargetTroop.food} 金{TargetTroop.gold}）");
             GameSystem.GetSystem<TroopSystem>().Start(TargetTroop);
         }
 

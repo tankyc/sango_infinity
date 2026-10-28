@@ -942,12 +942,9 @@ namespace Sango.Core
             /*
                 治安预留1人, 训练看气力, 征兵看粮食收入, 生产看兵器缺口
              */
-            switch (city.workingAppointType)
-            {
-                // 重视内政
-                // 重视军事
-                // 均衡发展
-            }
+            // 【空 switch 移除】这里原计划按城市委任方针（重视内政 / 重视军事 / 均衡发展）
+            // 分支配置人手，但分支从未实现 —— 空的 switch 会报 CS1522。
+            // 目前行为等价于"忽略 workingAppointType"，下方按设施容量统一分配。
 
             city.allBuildings.ForEach((building) => { if (building.isComplate) building.Workers?.Clear(); });
             city.allPersons.ForEach((person) => { person.workingBuilding = null; });

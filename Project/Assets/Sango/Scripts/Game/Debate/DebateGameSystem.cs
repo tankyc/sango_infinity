@@ -241,14 +241,23 @@ namespace Sango.Core.Debate
             return s_topicNames[topic];
         }
 
-        /// <summary>性格名称表，下标与 Personality 枚举一致（胆小 / 冷静 / 刚胆 / 莽撞）</summary>
-        private static readonly string[] s_personalityNames = { "胆小", "冷静", "刚胆", "莽撞" };
-
-        /// <summary>性格名称（表现层与日志共用同一份；未设置时返回 "—"）</summary>
-        public static string PersonalityNameOf(int personalityId)
+        /// <summary>
+        /// 性格名称（表现层与日志共用同一份；未设置时返回 "—"）。
+        ///
+        /// 【为什么不再用名字数组】旧实现是一张写死的 4 项表，
+        /// 下标绑定"胆小/冷静/刚胆/莽撞"的顺序 —— 新增或重排性格时直接错位。
+        /// 现在一律读性格数据自身的 Name。
+        /// </summary>
+        /// <summary>性格名称（按 Person 取）</summary>
+        public static string PersonalityNameOf(Person person)
         {
-            if (personalityId < 0 || personalityId >= s_personalityNames.Length) return "—";
-            return s_personalityNames[personalityId];
+            if (person != null && person.mPersonality != null)
+            {
+                string name = person.mPersonality.Name;
+                if (!string.IsNullOrEmpty(name))
+                    return name;
+            }
+            return "—";
         }
 
         #endregion

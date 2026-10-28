@@ -69,18 +69,59 @@ namespace Sango.Core
 
         #region 城市出兵
 
-        /// <summary>进攻他城的基础出兵上限（支部队）</summary>
+        /// <summary>
+        /// 【已停用】进攻他城的基础出兵上限（支部队）。
+        ///
+        /// 原版没有"支数"这个概念：<c>kyoten_attack</c> 用"在外累计兵力 &gt; 所需兵力"决定停不停
+        /// （s11_game_ai_kyoten_cmd_mil_attack.cpp:266-270），
+        /// 支数上限另由 min(行动力/单次出阵成本, 可下令人数, 据点人数−最少留守人数) 与
+        /// DeployInfo::MaxUnitCount(16) 钳制。该字段仅为兼容旧配置保留，不再参与任何判定。
+        /// </summary>
         public int attackBaseTroopCount = 12;
-        /// <summary>目标城池每多少兵力追加 1 支出兵</summary>
+        /// <summary>【已停用】目标城池每多少兵力追加 1 支出兵，见 <see cref="attackBaseTroopCount"/></summary>
         public int attackTroopsPerTargetTroops = 3000;
-        /// <summary>进攻无主白城的出兵上限</summary>
+        /// <summary>【已停用】进攻无主白城的出兵上限，见 <see cref="attackBaseTroopCount"/></summary>
         public int attackWhiteCityTroopCount = 2;
+
+        /// <summary>好战个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 50）</summary>
+        public int attackSkipChanceAggressive = 30;
+        /// <summary>均衡个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 70）</summary>
+        public int attackSkipChanceBalanced = 40;
+        /// <summary>谨慎个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 80）</summary>
+        public int attackSkipChanceDefensive = 50;
+
+        /// <summary>
+        /// 是否输出据点进攻决策日志（默认 false）。
+        /// 打开后 Console 会打印 AICanAttack 各否决原因、DecideAttackTarget 选中/未选中目标，
+        /// 用于排查"某座城为什么不出兵"。仅在临时排查时打开。
+        /// </summary>
+        public bool logAttackAI = false;
 
         #endregion
 
         #region 城市内政
 
-        /// <summary>建设 / 升级建筑所需的城池最低金钱</summary>
+        /// <summary>
+        /// 【已停用】建筑**升级**的最低据点可用金下限，现仅保留字段以兼容旧配置，AI 逻辑不再读取。
+        ///
+        /// 原版 <c>kyoten_merge</c>（s11_game_ai_kyoten_cmd_dev_merge.cpp:19-21）确实有
+        /// <code>
+        /// // 금 여유 없음
+        /// if (gold_ &lt; 500)
+        ///     return true;
+        /// </code>
+        /// 但那是**合成**（多座同类设施合成一座高级设施）的费用余量，本项目没有合成这一步
+        /// （见 <c>CityAIOutpostCommand.AIMerge</c> 注释），升级的真实支出是 <c>nextBuildingType.cost</c>。
+        /// 照搬 500 金门槛的实际效果是"城池资金 0~499 时永远不升级"，
+        /// 叠加 <c>OutpostRuntime.gold</c> 的负收入折抵（s11_game_ai_kyoten.cpp:30-32）后门槛更高，
+        /// 故升级路径改为**逐座**判断买不买得起（<c>CityAI.UpgradeOneBuilding</c>），
+        /// 扣款前由 <c>City.JobUpgradeBuilding</c>（City.cs:3217）最终复核。
+        /// <para>
+        /// 新建内政建筑同样没有最低金门槛 —— 原版 <c>kyoten_develop</c>
+        /// （s11_game_ai_kyoten_cmd.cpp:96-98）只要求据点可用金非负（<c>gold_ &lt; 0</c>）。
+        /// </para>
+        /// </summary>
+        [System.Obsolete("已停用：升级改由 CityAI.UpgradeOneBuilding 逐座按造价判断，本字段不再生效")]
         public int buildMinGold = 500;
         /// <summary>治安 / 训练等内政作业所需的城池最低金钱</summary>
         public int internalMinGold = 400;
@@ -146,6 +187,23 @@ namespace Sango.Core
         public int driveOutThreatRange = 25;
         /// <summary>单城同时派出的驱逐部队上限</summary>
         public int driveOutMaxTroopPerCity = 3;
+
+        #endregion
+
+        #region 部队 AI 模式
+
+        /// <summary>
+        /// 【严格对齐原版】是否用 Open311 的 <c>unit_update_order</c> 直译
+        /// （<see cref="Troop.UpdateAIOrder"/>，对应 s11_game_ai_unit.cpp:99-315）
+        /// 替换本项目的启发式行动前准备（<see cref="Troop.AIPrepare"/>）。
+        ///
+        /// true（默认）= 严格模式：只按"出征意图 + 断粮/兵少/器械气力"决定继续 / 改派 / 撤退，
+        ///               不再有态势档位撤退、概率撤退、求援、随军增筑；
+        /// false = 旧行为：态势分档 + 概率撤退 + 求援 + 随军增筑。
+        ///
+        /// 注意：评分环节（态势/角色/性格倍率）不受本开关影响，始终生效。
+        /// </summary>
+        public bool useStrictOpen311UnitAI = true;
 
         #endregion
 
@@ -392,6 +450,175 @@ namespace Sango.Core
         /// <summary>最终分数的缩放除数（把内部大数压到可比较的量级）</summary>
         public int scoreFinalDivisor = 100;
 
+        /// <summary>
+        /// 【严格对齐原版】是否用"真实伤害预演"决定这一击值不值得打。
+        ///
+        /// 对应原版 get_attack_damage_score（D:\open311\s11\s11_sys_unit_action.cpp:1780-1834）：
+        ///   · 对部队：伤害打不掉敌兵力一半 → 分值 0（直接放弃该目标）；
+        ///   · 对据点（城/关/港）：既不能一击破守军、也不能一击破耐久，
+        ///     且兵力伤害不足守军 1/3、耐久伤害不足剩余耐久 1/3 → 0；
+        ///   · 对陷阱 / 障碍 → 0；
+        ///   · 对普通设施：一击打不掉耐久 → 0。
+        ///
+        /// 打开后 AI 不再"硬啃打不动的目标"，代价是评分阶段每个候选多一次伤害计算。
+        /// 关闭则完全回到改造前的启发式（用 Attack-Defence 近似，从不放弃）。
+        /// </summary>
+        public bool useRealDamageScore = true;
+
+        /// <summary>
+        /// 【严格对齐原版】攻击目标时，若目标周围 1~2 格内有**本方建筑**，额外加的分值。
+        ///
+        /// 对应原版 get_target_score（D:\open311\s11\s11_sys_unit_action.cpp:1742-1754）：
+        /// 原版固定 <c>score += 1375</c>，语义是"在自家设施火力/补给覆盖下作战更有利"。
+        ///
+        /// 【为什么默认是 4950 而不是 1375——原版公式逐项比对】
+        ///
+        /// 原版一次攻击动作的总分（add_attack_action，s11_sys_unit_action.cpp:404-425）：
+        ///     param.attack_score（统率+武力）        ≈ 160
+        ///   + target_score  敌对目标                + 5000
+        ///   + 攻击动作常量                          + 1000
+        ///   + get_attack_damage_score（默认档）     + 2000
+        ///   + 伤害分命中常量                        + 1000
+        ///   ─────────────────────────────────────────────
+        ///   基线合计（不含本项）                    ≈ 9160
+        ///   + 本项 1375 → 10535，相对提升 15.0%
+        ///
+        /// 本项目的单次评分（CalcSkillBasePriority，典型枪兵普攻）：
+        ///     (skill.atk 10 + bonus 0) × 150 / energy 10 × (Attack 100 - Defence 80 + 200)
+        ///   = 10 × 15 × 220 = 33000
+        ///   → 要取得同样的 15.0% 相对提升，需要 33000 × 0.150 ≈ 4950
+        ///
+        /// 所以这里取等效值 4950（**结果对齐**），而不是照抄 1375（**数值对齐但结果偏弱**）。
+        /// 若要严格照抄原版数值，把它改成 1375 即可。
+        ///
+        /// 【注意】33000 只是典型值。实际 baseScore 随兵种/技能/攻防差在 2.7 万~8 万波动，
+        /// 因此固定分值无法在所有场景都保持 15% 的权重；若要做成"恒定百分比"，
+        /// 应改为乘性系数（如 score × 115 / 100），但那已不是原版的加法语义。
+        /// </summary>
+        public int scoreNearFriendlyBuildingBonus = 4950;
+
+        // ---------- Open311 原版评分体系（严格对齐用，全部可配） ----------
+
+        /// <summary>
+        /// 是否启用 **Open311 原版评分体系**（离散加项制）替代本项目的连续分制。
+        ///
+        /// true（默认）= 完全按原版 get_target_score / get_attack_damage_score /
+        ///               add_attack_action 的分值结构算分，下表中所有 o311* 项生效；
+        /// false = 回到本项目的 (skill.atk + bonus) × 系数 连续分制。
+        ///
+        /// 两者不可混用：一旦启用，<see cref="scoreSkillBaseFactor"/> /
+        /// <see cref="scoreRangeBonus"/> / <see cref="scoreAttackDefenceBase"/> 等连续分制的常数不再参与。
+        /// </summary>
+        public bool useOpen311ScoreFormula = true;
+
+        /// <summary>敌方目标加分 —— 原版 get_target_score:1694-1695</summary>
+        public int o311TargetHostile = 5000;
+        /// <summary>友方目标加分 —— 原版 get_target_score:1696-1697</summary>
+        public int o311TargetFriendly = 1500;
+        /// <summary>攻城兵器（冲车~木兽）打建筑加分 —— 原版 :1701-1707</summary>
+        public int o311SiegeOnBuilding = 2000;
+        /// <summary>普通兵装打部队加分 —— 原版 :1719-1720</summary>
+        public int o311NormalOnUnit = 2000;
+        /// <summary>命中任务主目标加分 —— 原版 :1724-1727</summary>
+        public int o311TargetMain = 10000;
+        /// <summary>目标周围 1~2 格有本方建筑加分 —— 原版 :1742-1754</summary>
+        public int o311NearFriendlyBuilding = 1375;
+        /// <summary>异族 / 贼根城（FacilityId_Base/Den，本项目 kind=15/16）加分 —— 原版 :1770-1773</summary>
+        public int o311BaseDenBonus = 200;
+
+        /// <summary>攻击动作常量 —— 原版 add_attack_action:410</summary>
+        public int o311AttackActionBonus = 1000;
+        /// <summary>可被反击惩罚 —— 原版 add_attack_action:411-412</summary>
+        public int o311CounterPenalty = 150;
+        /// <summary>伤害分命中常量 —— 原版 add_attack_action:415</summary>
+        public int o311DamageHitBonus = 1000;
+
+        /// <summary>伤害分：打掉敌兵力一半以上（未击破）—— 原版 get_attack_damage_score:1795-1796</summary>
+        public int o311DamagePartial = 1000;
+        /// <summary>伤害分：默认档（击破 / 建筑伤害足够）—— 原版 :1833</summary>
+        public int o311DamageDefault = 2000;
+        /// <summary>伤害分：一击破据点（近战）—— 原版 :1806-1807</summary>
+        public int o311DamageKillMelee = 10000;
+        /// <summary>伤害分：一击破据点（远程）—— 原版 :1806-1807</summary>
+        public int o311DamageKillRanged = 2000;
+
+        /// <summary>战法动作常量 —— 原版 add_tactic_action（撞飞/乱射/二段突/熊手等各不同，取基准 949）</summary>
+        public int o311TacticActionBonus = 949;
+        /// <summary>计略基础常量 —— 原版 add_strategy_action:894 的 <c>base_score += ... + 500</c></summary>
+        public int o311StrategyBaseBonus = 500;
+
+        /// <summary>计略成功率门槛（%）：低于该值不评估目标相关加减（原版 `chance >= 35`）</summary>
+        public int o311StrategyChanceThreshold = 35;
+        /// <summary>消火：自己脚下（无「火神」）时的分值 —— 原版 :909-912</summary>
+        public int o311StrategyShoukaSelf = 20000;
+        /// <summary>消火：友方据点 / 已行动部队 —— 原版 :927 / :950</summary>
+        public int o311StrategyShoukaKyoten = 375;
+        /// <summary>消火：友方阵类 —— 原版 :932</summary>
+        public int o311StrategyShoukaCamp = 250;
+        /// <summary>消火：友方其它设施 —— 原版 :935</summary>
+        public int o311StrategyShoukaOther = 125;
+        /// <summary>伏兵动作常量 —— 原版 :1165</summary>
+        public int o311StrategyFukuheiBonus = 474;
+        /// <summary>同讨动作常量 —— 原版 :1181</summary>
+        public int o311StrategyDoushiuchiBonus = 250;
+        /// <summary>同讨 + 「神算」/「深谋」加成 —— 原版 :1183-1184</summary>
+        public int o311StrategyDoushiuchiSkillBonus = 750;
+        /// <summary>计略动作常量 —— 原版 add_strategy_action 各分支基准值（消火 20000 / 建筑 375·250·125 …）</summary>
+        public int o311StrategyActionBonus = 849;
+
+        /// <summary>
+        /// Open311 模式下的行动择优池大小。
+        ///
+        /// **1（默认）= 总是取评分最高的动作**，等价于原版
+        /// action_list_remove_by_chance（s11_sys_unit_action.cpp:1355-1386）的效果 ——
+        /// 该函数只从第 2 名开始按动作类型概率移除，第一名永远保留。
+        ///
+        /// **&gt;1 = 从评分最高的前 N 个里加权随机**（本项目自创的"动态择优池"，
+        /// 会让同一局面重载后决策不同）。设为 N 即"最高随机数量"。
+        ///
+        /// 仅在 <see cref="useOpen311ScoreFormula"/> 为真时生效；
+        /// 为假时走 <see cref="bestN"/> 相关的一整套 Tier/Role/性格合成逻辑。
+        /// </summary>
+        public int o311BestN = 1;
+
+        // ---------- 位置分（get_pos_score，s11_sys_unit_action.cpp:1452-1588） ----------
+
+        /// <summary>砂地位置分（原版 TerrainId_Sand）</summary>
+        public int o311PosTerrainSand = 40;
+        /// <summary>湿地位置分（原版 TerrainId_Wetland）</summary>
+        public int o311PosTerrainWetland = 30;
+        /// <summary>毒泉位置分（原版 TerrainId_Poison）</summary>
+        public int o311PosTerrainPoison = -10000;
+        /// <summary>毒泉 + 「解毒」特技的位置分（原版 SkillId_Gedoku）</summary>
+        public int o311PosTerrainPoisonWithFeat = 150;
+        /// <summary>森林位置分（原版 TerrainId_Forest）</summary>
+        public int o311PosTerrainForest = 80;
+        /// <summary>栈道位置分（原版 TerrainId_Cliffroad）</summary>
+        public int o311PosTerrainCliffroad = -250;
+        /// <summary>栈道 + 「难所行军」科技 / 「藤甲」特技的位置分</summary>
+        public int o311PosTerrainCliffroadWithFeat = 70;
+        /// <summary>每有一个相邻友军部队的惩罚（原版 -100/个）</summary>
+        public int o311PosNeighborOwnUnitPenalty = 100;
+        /// <summary>所在格着火时的惩罚（原版 -750）</summary>
+        public int o311PosFirePenalty = 750;
+
+        // ---------- 设施分（get_pos_around_facilities_score，s11_sys_unit_action.cpp:1473-1565） ----------
+
+        /// <summary>周围有己方据点的基础分（原版 +550）</summary>
+        public int o311PosOwnKyotenBase = 550;
+        /// <summary>每个己方据点的额外分（原版 +20/个）</summary>
+        public int o311PosOwnKyotenPerCount = 20;
+        /// <summary>太鼓台 / 军乐台系数（原版 100 × (太鼓台×3 + 军乐台×1)）</summary>
+        public int o311PosDrumBandFactor = 100;
+        /// <summary>阵 / 箭楼系数（原版 350 × (阵×4 + 箭楼×1)）</summary>
+        public int o311PosCampTowerFactor = 350;
+        /// <summary>投石台系数（原版 450 × 投石台数）</summary>
+        public int o311PosCatapultFactor = 450;
+        /// <summary>敌方据点的额外基础分（原版 +4 × 275）</summary>
+        public int o311PosEnemyKyotenExtraBase = 275;
+        /// <summary>敌方据点额外分随数量增长（原版 +4 × (5/个)）</summary>
+        public int o311PosEnemyKyotenExtraPerCount = 5;
+
         // ---------- 任务权重（倍率，%）：替代原先 500000 / 5 / 1000000 / 30000 / 50000 等硬编码 ----------
 
         /// <summary>任务主目标的收益倍率（%）。越高越执着于既定任务目标</summary>
@@ -556,11 +783,19 @@ namespace Sango.Core
         public int fieldBuildChance = 20;
 
         /// <summary>
-        /// 常规作战部队出征时携带的资金上限（金）。0 表示不携带（沿用旧行为）。
-        /// 用于支撑 B3"随军增筑"：没有现金就无法就地施工。
+        /// 【已停用】作战部队出征携款上限。
+        ///
+        /// 出征携款已改为严格对齐原版（s11_game_ai_kyoten_cmd_mil_attack.cpp:296-334）：
+        /// 敌势力据点且非攻城兵器时，据点可用金 &gt;= 10000 → 75% 带 1500~2000；
+        /// &gt;= 2000 → 50% 带 1000；空关隘/港口必带"随军俸禄 × 8"。
+        /// 该字段仅为兼容旧配置保留，不再参与计算。
         /// </summary>
         public int troopCarryGold = 1500;
-        /// <summary>作战部队携款占总兵力的比例上限（%）：防止小部队带走过多资金</summary>
+        /// <summary>
+        /// 【已停用】旧公式按"占总兵力比例(%)"设计，但除数误用 10000（应为 100），
+        /// 导致 8000 兵只带 4 金，随军增筑 / 前线建陷阱整条链路失效。
+        /// 现由原版概率携款取代，见 <see cref="troopCarryGold"/>。
+        /// </summary>
         public int troopCarryGoldPerTroops = 5;
 
         /// <summary>补给队可转运的资金比例（%）。0 表示不转运金钱（沿用旧行为）</summary>

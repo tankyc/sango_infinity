@@ -36,7 +36,16 @@ namespace Sango.Core.Debate
             if (s_installed) return;
             s_installed = true;
 
-            DiplomacyActionBase.OnDiplomacyFailed += OnDiplomacyFailed;
+            // 【不再订阅失败事件】原版只有一条舌战入口：`try_*` 返回 `Debate` 三态时
+            // **确定性**地进入舌战，不存在"交涉失败之后再按概率赌一次"的路径。
+            //
+            // 现在这条路由 `DiplomacyActionBase.Perform → TryHandOverToDebate`
+            // → `ForceDiplomacyDebate` 承担（`LastResult == Debate` 才会触发）。
+            // 若这里继续订阅 `OnDiplomacyFailed`，同一类交涉会多出一个概率入口 ——
+            // 那正是与"只有 Debate 三态才进舌战"冲突的地方。
+            //
+            // 方法 `OnDiplomacyFailed` 保留：将来若要恢复"失败后舌战"的可选项，
+            // 重新订阅一行即可，不必重写判定逻辑。
         }
 
         /// <summary>
@@ -123,8 +132,11 @@ namespace Sango.Core.Debate
             if (diplomat == null || rival == null) return false;
             if (DebateManager.Instance != null && DebateManager.Instance.IsDebating) return false;
 
-            // 先登记改判，再开舌战：开局被否决（Request 返回 false）时撤掉登记
-            DebateConsequence.RegisterDiplomacy(diplomat, rival, action, 0);
+            // 先登记改判，再开舌战：开局被否决（Request 返回 false）时撤掉登记。
+            // penalty 传 **-1** 作为哨兵：表示"这次外交的失败结算还没落地"，
+            // 舌战打输时 DebateConsequence 需要补一次 PerformWithoutCheck(false)。
+            // 旧的"失败后按概率进舌战"路径传的是真实惩罚值（>=0），那边不能重复结算。
+            DebateConsequence.RegisterDiplomacy(diplomat, rival, action, -1);
 
             bool started = DebateChallengeFlow.Request(
                 diplomat, rival, DebateChallengeFlow.Source.DiplomacyFail, false);

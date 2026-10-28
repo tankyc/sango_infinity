@@ -18,6 +18,16 @@ namespace Sango.Core
     /// </summary>
     public class DiplomacyActionReinforce : DiplomacyActionBase
     {
+        /// <summary>
+        /// 请求方指定的**攻击目标**（对应原版 `try_reinforce` 的 `self->dest`）。
+        ///
+        /// 【注意语义】原版谈成后走 `unit_reinforce`，下的是 `UnitOrderId_Attack`
+        /// （`s11_sys_scen_unit.cpp:1362`）—— 所以 `dest` 是**要打的敌方据点**，
+        /// 不是"要守的自己城"。早期实现把它当成受援城，会让援军去打自己的城。
+        /// null = 由 <see cref="ReinforcementDispatcher"/> 自动挑一个相邻敌城。
+        /// </summary>
+        public City ReinforceCity { get; set; }
+
         public DiplomacyActionReinforce(Force sender, Force receiver, Person diplomat = null, int resourceValue = 0)
             : base(DiplomacyActionType.Reinforce, sender, receiver, diplomat, resourceValue)
         {
@@ -51,7 +61,7 @@ namespace Sango.Core
         public override int CalculateSuccessRate()
         {
             City src = Sender.CapitalCity;
-            int srcBushou = src != null && src.allPersons != null ? src.allPersons.Count : 0;
+            int srcOfficerCount = src != null && src.allPersons != null ? src.allPersons.Count : 0;
 
             // 兵力口径：原版用的是**源据点自身的兵力**（`self->src->get_troops()`，`:2472`），
             // 不是势力汇总。本项目对应 City.troops。
@@ -66,7 +76,7 @@ namespace Sango.Core
                 Sender,
                 Receiver,
                 ResourceValue,
-                srcBushou,
+                srcOfficerCount,
                 destLike,
                 srcTroops,
                 Scenario.Cur.Variables.difficulty);
@@ -115,6 +125,17 @@ namespace Sango.Core
             Sender.GainTechniquePoint(DiplomacyRules.CeasefireTechGain);
             Sender.requestForceId = Receiver.Id;
             Sender.requestTimer = DiplomacyRules.DiplomacyBanTurns;
+
+            // 原版 `create_reinforcement_unit`（:2204-2251）：谈成即**实际派兵**。
+            // 派不出（守军不足、无空闲武将、无可用兵种）时只保留约定，不当作失败 ——
+            // 原版同样允许"答应了但一时抽不出人"。
+            // 攻击目标：提案时指定的敌方据点（原版 `self->dest`）。
+            // 若传进来的是自己的城（玩家从本城菜单发起的情况），视为未指定，交给派发器自动挑。
+            City target = ReinforceCity;
+            if (target != null && Sender != null && target.BelongForce == Sender)
+                target = null;
+
+            ReinforcementDispatcher.TryDispatch(Receiver, Sender, target);
 
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 请求援军成功，" +
                            $"约定 {Sender.requestTimer} 回合内出兵");

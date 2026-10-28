@@ -86,6 +86,8 @@ namespace Sango.Core.Event
             RegisterUnique("ForceGovernorIs", Condition.CraeteHandle<ForceGovernorIsCheck>);
             RegisterUnique("ForceCounsellorIs", Condition.CraeteHandle<ForceCounsellorIsCheck>);
             RegisterUnique("ForceRelation", Condition.CraeteHandle<ForceRelationCheck>);
+            RegisterUnique("EmperorAlive", Condition.CraeteHandle<EmperorAliveCheck>);
+            RegisterUnique("ForceProtectingEmperor", Condition.CraeteHandle<ForceProtectingEmperorCheck>);
 
             // —— 第二批：城市状态 ——
             RegisterUnique("CityProvince", Condition.CraeteHandle<CityProvinceCheck>);

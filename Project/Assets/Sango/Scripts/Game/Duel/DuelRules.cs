@@ -9,9 +9,13 @@
  *
  * 对应关系（原 DuelSettings 成员 → 现在的来源）：
  *   Difficulty        → 剧本参数 difficulty（0简单/1普通/2困难/3超级）映射到单挑 3 档
- *   LifeMode          → 剧本参数 duelLifeMode（0=普通 / 1=虚拟）
- *   BattleDeathMode   → 剧本参数 duelDeathMode（0=无 / 1=普通 / 2=高）
+ *   LifeMode          → **全局寿命模式**（剧本信息锁定优先，其次剧本参数 lifeMode）；
+ *                       史实/长寿 → Normal，虚构/无死亡 → Virtual
+ *   BattleDeathMode   → **全局战死频率**（剧本参数 battleDeathMode：0无 / 1普通 / 2高）
  *   IsFeatDisabled    → 剧本参数 duelDisableFirstTurnKill / duelDisableCapture / duelDisableAIRetreat
+ *
+ * 注意：单挑不再有独立的寿命模式 / 战死频率开关（旧字段 duelLifeMode / duelDeathMode 已空置），
+ * 否则会出现"剧本按史实算寿终、单挑按虚拟算年龄衰减"的分裂。
  */
 
 namespace Sango.Core.Duel
@@ -38,18 +42,26 @@ namespace Sango.Core.Duel
             return Difficulty.Hard;
         }
 
-        /// <summary>寿命模式：剧本参数 duelLifeMode（0=普通 / 1=虚拟）</summary>
+        /// <summary>
+        /// 寿命模式：**沿用全局寿命模式**（剧本信息锁定优先，其次剧本参数 lifeMode）。
+        ///
+        /// 映射关系：史实 / 长寿 → <see cref="LifeMode.Normal"/>（老将按年龄衰减）；
+        ///           虚构 / 无死亡 → <see cref="LifeMode.Virtual"/>（不衰减，取虚拟档加成）。
+        /// 之所以只映射两档：单挑内部只关心"是否按年龄衰减"，长寿与史实在这一点上没有区别。
+        /// </summary>
         public static LifeMode GetLifeMode()
         {
-            ScenarioVariables v = Variables;
-            return (v != null && v.duelLifeMode == 1) ? LifeMode.Virtual : LifeMode.Normal;
+            Sango.Core.LifeMode mode = PersonLifeCycle.GetLifeMode(Scenario.Cur);
+            return (mode == Sango.Core.LifeMode.Fictional || mode == Sango.Core.LifeMode.Virtual)
+                ? LifeMode.Virtual
+                : LifeMode.Normal;
         }
 
-        /// <summary>战死频率：剧本参数 duelDeathMode（0=无 / 1=普通 / 2=高）</summary>
+        /// <summary>战死频率：**沿用全局**剧本参数 battleDeathMode（0=无 / 1=普通 / 2=高）</summary>
         public static BattleDeathMode GetBattleDeathMode()
         {
             ScenarioVariables v = Variables;
-            int m = v != null ? v.duelDeathMode : 1;
+            int m = v != null ? v.battleDeathMode : 1;
             if (m <= 0) return BattleDeathMode.None;
             return m >= 2 ? BattleDeathMode.High : BattleDeathMode.Normal;
         }

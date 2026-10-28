@@ -104,23 +104,32 @@ namespace Sango.Core
         public Person mComander;
 
         /// <summary>
-        /// 玩家指定的运输终点城 Id（三级回退，-1 = 未指定）。
+        /// 玩家指定的运输终点城 Id（两级回退，-1 = 未指定）。
         ///
-        /// 对齐出处：Open311 `get_player_district_transport_dest`（s11_game_ai_kyoten_cmd_mil_transport.cpp:417-431）
-        /// 与 `District::transport_dest_building_` / `transport_dest_district_`。
-        /// <list type="number">
-        /// <item>玩家在本军团直接指定的据点（<see cref="transportDestBuildingId"/>）；</item>
-        /// <item>指定了目标军团时，该军团都督所在据点（<see cref="TotokuServiceId"/>）；</item>
-        /// <item>中期目标城（<see cref="mid_objective_target"/>，兼容旧存档）。</item>
+        /// 对齐出处：
+        /// <list type="bullet">
+        /// <item>`GameAI::get_player_district_transport_dest`（s11_game_ai_kyoten_cmd_mil_transport.cpp:417-431）：
+        ///       只读 `district->get_transport_dest_building_id()`，校验"活着 / 同势力 / 非自身"三条。</item>
+        /// <item>`District::update()`（s11_scen_obj_district.cpp:49-55）：`transport_dest_building_ < 0`
+        ///       且 `transport_dest_district_` 是合法军团编号时，解析为该军团都督所在据点。</item>
         /// </list>
+        /// 回退顺序（与原版一致）：
+        /// <list type="number">
+        /// <item>玩家直接指定的据点（<see cref="transportDestBuildingId"/> = `transport_dest_building_`）；</item>
+        /// <item>旧存档只记了军团编号时，目标军团都督所在据点（<see cref="TotokuServiceId"/>）。</item>
+        /// </list>
+        /// 原版**没有**"回退到中期目标城"的分支（`mid_objective_target` 与运输目的地是两个独立字段，
+        /// s11_scen.h:1023 与 :1022），此处不再回退。
         /// </summary>
         /// <param name="scenario">场景对象</param>
         /// <returns>终点城 Id；未指定返回 -1</returns>
         public int GetTransportDestCityId(Scenario scenario)
         {
+            // 原版 :422 —— transport_dest_building_ >= 0 直接用，不再看军团编号
             if (transportDestBuildingId > 0)
                 return transportDestBuildingId;
 
+            // 原版 s11_scen_obj_district.cpp:49-55 —— 只有 building < 0 时才解析军团编号
             if (transportDestDistrictNumber > 0 && scenario != null && scenario.corpsSet != null)
             {
                 for (int i = 0; i < scenario.corpsSet.Count; i++)
@@ -139,7 +148,50 @@ namespace Sango.Core
                 }
             }
 
-            return mid_objective_target;
+            // 原版无"回退到中期目标城"分支 —— 未指定就是未指定
+            return -1;
+        }
+
+        /// <summary>
+        /// 设置 / 取消"物资输送"目的地（据点）。
+        ///
+        /// 对齐出处：Open311 `District::set_setting(district_setting_t, bool, building_id_t)`
+        /// （s11_scen_obj_district.cpp:224-229）：
+        /// <code>
+        /// set_setting(setting, set);
+        /// if (setting == DistrictSetting_Transport)
+        ///     set_transport_dest_building_id(set ? transport_dest_building_id : -1);
+        /// </code>
+        /// 原版把"运输开关"与"运输目的地"写成**一个原子操作**：
+        /// 勾选运输 ⇒ `setting_[Transport] = true` 且目的地 = 指定据点；
+        /// 取消运输 ⇒ `setting_[Transport] = false` 且目的地 = -1。
+        /// 本项目必须同步 `appointSetting[Transport]` 与 `transportDestBuildingId`，
+        /// 否则会出现"开关开着却没目的地"（军团运输空转）或"有目的地但开关是关的"（永不发车）。
+        /// </summary>
+        /// <param name="buildingId">目标据点 Id；传 -1 表示取消运输</param>
+        public void SetTransportDest(int buildingId)
+        {
+            // 与 Init 的扩容口径保持一致：长度不足时保留已有项，不要整体清零
+            if (appointSetting == null)
+            {
+                appointSetting = new int[(int)AppointContentType.Max];
+            }
+            else if (appointSetting.Length < (int)AppointContentType.Max)
+            {
+                int[] grown = new int[(int)AppointContentType.Max];
+                for (int i = 0; i < appointSetting.Length; i++)
+                    grown[i] = appointSetting[i];
+                appointSetting = grown;
+            }
+
+            bool enable = buildingId > 0;
+
+            // 与"目标军团"互斥：原版新存档只写 transport_dest_building_
+            // （s11_scen_obj_district.cpp:359-368 —— major_version >= 1 时只读 int16 据点，
+            //   transport_dest_district_ 仅旧存档分支才会出现），故清空军团编号。
+            transportDestDistrictNumber = -1;
+            transportDestBuildingId = enable ? buildingId : -1;
+            appointSetting[(int)AppointContentType.Transport] = enable ? 1 : 0;
         }
 
         /// <summary>
@@ -254,6 +306,16 @@ namespace Sango.Core
             Store_Troops,
             Person,
             Attack,
+
+            /// <summary>
+            /// 物资输送开关：0 = 禁止，1 = 允许。
+            ///
+            /// 等价原版 `setting_[DistrictSetting_Transport]`（s11_scen.h:1025）。
+            /// **目的地不在本项**，而在 <see cref="transportDestBuildingId"/>
+            /// （原版 `transport_dest_building_`，s11_scen.h:1023）；
+            /// 两者必须由 <see cref="SetTransportDest"/> 原子写入
+            /// （原版 `District::set_setting`，s11_scen_obj_district.cpp:224-229）。
+            /// </summary>
             Transport,
             Build,
             TransportDisable,
@@ -427,7 +489,45 @@ namespace Sango.Core
                     grown[i] = appointSetting[i];
                 appointSetting = grown;
             }
+            MigrateLegacyTransportSetting();
             PrepareCityInfo();
+        }
+
+        /// <summary>
+        /// 旧存档兼容：把"运输开关位里存着城池 Id"的脏数据迁移到 <see cref="transportDestBuildingId"/>。
+        ///
+        /// 背景：此前界面把玩家选的运输目标城直接写进 `appointSetting[Transport]`
+        /// （城池 Id 覆盖了 0/1 开关），而军团侧按 `== 1` 判定开关，
+        /// 导致"选了城 = 运输被关掉"。
+        /// 原版这两者本来就是两个字段：
+        /// `setting_[DistrictSetting_Transport]`（s11_scen.h:1025）与
+        /// `transport_dest_building_`（s11_scen.h:1023），
+        /// 并由 `District::set_setting`（s11_scen_obj_district.cpp:224-229）保证同步。
+        /// 这里按原版结构归一：开关归 0/1，目的地归据点 Id。
+        /// </summary>
+        void MigrateLegacyTransportSetting()
+        {
+            int index = (int)AppointContentType.Transport;
+            if (index < 0 || index >= appointSetting.Length)
+                return;
+
+            int value = appointSetting[index];
+            // 0 = 未启用运输，是合法状态
+            if (value <= 0)
+                return;
+
+            // 已有明确目的地（新数据）：开关位归一为 1 即可
+            if (transportDestBuildingId > 0 || transportDestDistrictNumber > 0)
+            {
+                appointSetting[index] = 1;
+                return;
+            }
+
+            // 无目的地却带着值 ⇒ 旧版把城池 Id 写进了开关位。
+            // value == 1 时同样按城池 1 处理：原版 set_setting 保证
+            // "开关为真 ⇒ 目的地有效"，不存在"开关为真但目的地为 -1"的合法状态。
+            transportDestBuildingId = value;
+            appointSetting[index] = 1;
         }
 
         public int GetAppointValue(AppointContentType policyContentType)

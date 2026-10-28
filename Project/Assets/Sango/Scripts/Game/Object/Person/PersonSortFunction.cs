@@ -1303,7 +1303,16 @@ namespace Sango.Core
             valueStrGetCall = x => x.BelongForce?.Name ?? "",
             valueSortFunc = (a, b) => SangoObject.Compare(a.BelongForce, b.BelongForce),
             valueObjGet = x => x.BelongForce,
-            valueObjSet = (x, v) => x.BelongForce = (Force)v,
+            valueObjSet = (x, v) =>
+            {
+                // 势力由军团派生（Open311: Person::get_force_id = district_->force_），
+                // 编辑器改势力只能通过"改挂到目标势力主军团"实现。
+                Force force = v as Force;
+                if (force == null)
+                    x.ChangeCorps(null);
+                else if (x.BelongCorps == null || x.BelongCorps.BelongForce != force)
+                    x.ChangeCorps(force.CapitalCorps);
+            },
             editType = DataEditType.Object,
             dataSetType = DataSetType.Force,
         };

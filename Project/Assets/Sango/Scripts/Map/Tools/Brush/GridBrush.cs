@@ -1056,17 +1056,10 @@ namespace Sango.Tools
         /// <returns></returns>        
         int InvertOpacity(BrushType brushType, int opacity)
         {
-            switch (brushType)
-            {
-                //case BrushType.Interior:
-                //case BrushType.Defence:
-                //case BrushType.Thief:
-                //case BrushType.Flood:
-                //case BrushType.Ruins:
-                //    {
-                //        return Math.Abs(opacity - 1);
-                //    }
-            }
+            // 【当前所有笔刷都不反转】原先这里是一个只剩注释的 switch（会报 CS1522）。
+            // 注释里那几种地形（Interior/Defence/Thief/Flood/Ruins）本来打算做
+            // "1-opacity" 的反转，但从未启用 —— 删掉空 switch，保持行为不变。
+            // 将来真要按笔刷反转，在这里加 if / switch 即可。
             return opacity;
         }
         /// <summary>

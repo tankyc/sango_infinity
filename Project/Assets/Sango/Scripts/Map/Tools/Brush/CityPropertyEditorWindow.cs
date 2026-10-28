@@ -859,7 +859,6 @@ namespace Sango.Tools
                     {
                         if (person != null && person.BelongCity == selectedCity)
                         {
-                            person.BelongForce = newForce;
                             person.BelongForceId = newId;
                             // 【修复】同步军团：势力变更后保留旧势力军团会造成"势力与军团分家"的归属不一致
                             if (newForce == null || person.BelongCorps == null

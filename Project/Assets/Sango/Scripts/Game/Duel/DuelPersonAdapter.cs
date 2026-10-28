@@ -192,7 +192,13 @@ namespace Sango.Core.Duel
             if (Resolver != null)
                 return Resolver(person);
 
-            // 只读性格对象上的 kind，不再回退到 PersonalityId —— 性格判定统一走内嵌属性
+            // 【优先】性格数据显式声明（Personality.duelAiType）
+            // 这样新增性格时不必保证 kind 的连续顺序，也不受 Count 限制。
+            Sango.Core.Personality p = person.mPersonality;
+            if (p != null && p.duelAiType >= 0)
+                return (DuelPersonality)p.duelAiType;
+
+            // 【兼容】未声明时回落到 kind - 1 的旧映射
             int kind = person.PersonalityKind;
 
             if (PersonalityMap.TryGetValue(kind, out DuelPersonality mapped))

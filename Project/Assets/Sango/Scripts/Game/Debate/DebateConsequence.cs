@@ -164,6 +164,15 @@ namespace Sango.Core.Debate
             if (!debate.ParamIsChallengerWin(debate.DebateParam))
             {
                 Sango.Log.Info("【舌战】发起方落败，发起行为维持原结果。");
+
+                // 【哨兵 -1】由 `DebateTrigger.ForceDiplomacyDebate` 登记的舌战，
+                // 外交的失败结算是**被跳过的**（Action.Perform 在进入舌战前直接 return 了）。
+                // 这里必须补一次，否则"确定性舌战落败"会让这次外交既不成功也不失败，
+                // 既不扣友好度也不留任何记录。
+                // 旧路径（失败已结算、penalty >= 0）不能走这里，否则会重复惩罚。
+                if (kind == Kind.Diplomacy && penalty < 0 && action != null)
+                    action.PerformWithoutCheck(false);
+
                 return;
             }
 

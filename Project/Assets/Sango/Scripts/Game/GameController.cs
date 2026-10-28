@@ -805,6 +805,11 @@ namespace Sango.Core
         /// </summary>
         public void HandleBorderMoveCamera()
         {
+            // 编辑器 / 非 Windows 平台下整体禁用边界推屏 —— 这是**有意的平台分流**，
+            // 但 `return` 之后的代码在这些平台下必然不可达，编译器会报 CS0162。
+            // 这里就地屏蔽该警告，保持"一个方法、一段实现"的可读性，
+            // 而不是把整个方法体塞进 #if 里。
+#pragma warning disable 162   // 下面 return 之后整段在非 Windows 平台不可达；方法末尾 restore
 #if UNITY_EDITOR || !UNITY_STANDALONE_WIN
             return;
 #endif
@@ -855,6 +860,7 @@ namespace Sango.Core
                     controlType = ControlType.None;
             }
 
+#pragma warning restore 162
         }
 
         /// <summary>

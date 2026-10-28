@@ -13,7 +13,8 @@ namespace Sango.Core
     ///     if (troops &lt;= 0 or not building_has_enemy(building)) continue;   // 只有被围才逃
     ///     int n = (int)(sqrt(max(troops, 100) / 100) * 30.f);
     ///     n += rand_int(50);
-    ///     building_add_troops(building, -n);
+    ///     int change = building_add_troops(building, -n);
+    ///     floating_damage(change, FloatingCounterType_Troops, building, false);
     /// }
     /// </code>
     /// <para>
@@ -58,7 +59,14 @@ namespace Sango.Core
                 if (n <= 0)
                     continue;
 
+                int before = city.troops;
                 city.AddTroops(-n);
+                int change = city.troops - before;   // 实际逃兵量（负数），对齐原版 building_add_troops 返回值
+
+                // 【对齐原版 floating_damage(change, FloatingCounterType_Troops, building, false)】
+                // （s11_game_week.cpp:918）：刷新城市渲染 + 浮动飘字显示逃兵量。
+                city.Render?.UpdateRender();
+                city.Render?.ShowInfo(change, (int)InfoType.Troop);
 
                 Sango.Log.Info($"*[逃兵]{city.BelongForce.Name} 的 {city.Name} 因敌军兵临，逃兵 {n}（余 {city.troops}）");
             }

@@ -149,6 +149,23 @@ namespace Sango.Core
         [JsonProperty] public double fight_damage_magic_number = 0.000476190455;
 
         /// <summary>
+        /// 部队→部队 兵力伤害公式（逻辑库名，见 TroopDamageMethod）。
+        /// 默认 Open311 = 逐行对齐原版 calc_troops_damage；
+        /// 留空或写错都会自动回落到 Open311，不会导致战斗中断。
+        /// </summary>
+        [JsonProperty] public string troopDamageMethod = "Open311";
+
+        /// <summary>
+        /// 部队→据点守军 兵力伤害公式（逻辑库名，见 GarrisonDamageMethod）。默认 Open311。
+        /// </summary>
+        [JsonProperty] public string garrisonDamageMethod = "Open311";
+
+        /// <summary>
+        /// 部队→建筑 耐久伤害公式（逻辑库名，见 DurabilityDamageMethod）。默认 Open311。
+        /// </summary>
+        [JsonProperty] public string durabilityDamageMethod = "Open311";
+
+        /// <summary>
         /// 伤害难度系数
         /// </summary>
         [JsonProperty] public float[] fight_damage_difficulty_factor = new float[] { 1.3f, 1, 0.85f, 0.7f };
@@ -401,7 +418,13 @@ namespace Sango.Core
         [JsonProperty] public int captureChangceWhenCityFall = 10;
 
         /// <summary>
-        /// 最后一城时候的抓捕率(百分比)
+        /// 【空置】最后一城时候的抓捕率(百分比)。
+        ///
+        /// 保留字段只为兼容旧剧本/旧存档（JSON 里可能已有这个键，删字段会让反序列化报警），
+        /// **没有任何生效点**：原版势力最后一城被攻陷时是全员必俘、不掷骰
+        /// （s11_sys_event_capture.cpp:452-456 的 `not node.remaining` 分支），
+        /// 本项目城陷流程的最后一城分支同样无条件进待俘列表（见 City.OnFall）。
+        /// 界面上对应的调节项已移除，不要再接入新逻辑。
         /// </summary>
         [JsonProperty] public int captureChangceWhenLastCityFall = 40;
 
@@ -423,9 +446,17 @@ namespace Sango.Core
         [JsonProperty] public int captureChangceWhenDuelWin = 70;
 
         /// <summary>
-        /// 进攻时候留守最低的兵力
+        /// 进攻时候留守最低的兵力。
+        ///
+        /// 对齐原版 s11_game_ai_kyoten_cmd_mil_attack.cpp:68
+        ///   min_kyoten_troops = min(min_kyoten_troops, 15000 + rand_int(5000))
+        /// 原版留守兵力上限约 15000~20000，这里取固定下限 15000。
+        ///
+        /// 【注意】此值必须与 <c>CityAI.AICanAttack</c> 的兵力门槛（按个性 8000~12000）配合。
+        /// 旧值 30000 远高于 AICanAttack 门槛，会卡住"兵力够决定进攻、却组不成部队"的城市
+        /// （典型：初始 28000 兵的许昌反复"决定进攻"但从未真正出城）。
         /// </summary>
-        [JsonProperty] public int minTroopsKeepWhenAttack = 30000;
+        [JsonProperty] public int minTroopsKeepWhenAttack = 15000;
 
         /// <summary>
         /// 进攻时候留守最低的粮食
@@ -452,9 +483,19 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int defeatTroopCanGainFoodFactor = 30;
 
-        /// <summary>
-        /// 城市沦陷可以保留金钱比例(百分比)
-        /// </summary>
+        // ────────────────────────────────────────────────────────────────
+        // 【空置】cityFallCanKeep* 这一组"城市沦陷保留比例"已不再生效。
+        //
+        // 城陷掠夺已改为照搬原版公式（s11_sys_event_kanraku.cpp:264-277）：
+        //   rate = 5；攻方主将存活时 rate = max(rate, 主将魅力 / 10)；
+        //   金 / 粮 / 兵力 / 兵装 全部 × rate / 100；农业与商业开发值不参与。
+        // 这组数组当初是"按城市等级掷骰保留 10%~N%"的旧设计，没有原版出处。
+        //
+        // 字段保留只为兼容旧剧本 / 旧存档里已经写入的键（删字段会让反序列化报警），
+        // 逻辑侧已无任何读取点，界面上对应的调节项也一直是注释状态。
+        // ────────────────────────────────────────────────────────────────
+
+        /// <summary>[空置] 城市沦陷可以保留金钱比例(百分比)，见上方说明</summary>
         [JsonProperty] public int[] cityFallCanKeepGoldFactor = new int[4] { 1, 2, 4, 1 };
 
         /// <summary>
@@ -504,9 +545,13 @@ namespace Sango.Core
         [JsonProperty] public int skillCriticalRateAddByStength = 1;
 
         /// <summary>
-        /// 暴击倍率(百分比)
+        /// 暴击倍率(百分比)。
+        ///
+        /// 【原版】attack_critical_result 命中后统一 <c>damage *= 1.15f</c>
+        /// （s11_sys_damage.cpp:359-363），即 115。
+        /// 本项目旧默认值是 150（×1.5），已按原版改为 115。
         /// </summary>
-        [JsonProperty] public int skillCriticalFactor = 150;
+        [JsonProperty] public int skillCriticalFactor = 115;
 
         /// <summary>
         /// 战法(kind=2)命中后触发单挑的基础概率(百分比)，0 = 关闭该触发。
@@ -516,12 +561,19 @@ namespace Sango.Core
         [JsonProperty] public int skillDuelChance = 5;
 
         /// <summary>
-        /// 单挑寿命模式：0 = 普通，1 = 虚拟（影响老将的武力衰减判定，对应单挑内部的 LifeMode）
+        /// 【空置】单挑寿命模式。
+        ///
+        /// 已改为沿用全局寿命模式（剧本信息锁定优先，其次本类的 <see cref="lifeMode"/>），
+        /// 单挑内部 LifeMode 由 <see cref="Sango.Core.Duel.DuelRules.GetLifeMode"/> 统一解析：
+        /// 史实 / 长寿 → Normal（按年龄衰减），虚构 / 无死亡 → Virtual（不衰减）。
+        ///
+        /// 字段保留只为兼容旧剧本 / 旧存档里已写入的键，逻辑侧已无读取点，界面上对应的开关也已移除。
         /// </summary>
         [JsonProperty] public int duelLifeMode = 0;
 
         /// <summary>
-        /// 单挑战死频率：0 = 无，1 = 普通(2%)，2 = 高(5%)，对应单挑内部的 BattleDeathMode
+        /// 【空置】单挑战死频率。已并入全局 <see cref="battleDeathMode"/>，见该字段说明。
+        /// 字段保留只为兼容旧剧本 / 旧存档，逻辑侧已无读取点。
         /// </summary>
         [JsonProperty] public int duelDeathMode = 1;
 
@@ -616,8 +668,23 @@ namespace Sango.Core
         ///
         /// 默认 **虚构无死亡（3）**：本项目当前以"武将不因年龄退场"为默认体验；
         /// 需要史实寿终时，在剧本参数界面把「寿命模式」改成"史实"即可（老存档保留自己存档里的值）。
+        ///
+        /// 【会被剧本信息覆盖】剧本信息（<see cref="ScenarioInfo.lifeMode"/>）取值 ≥0 时，
+        /// 以剧本信息为准，本字段在该剧本内不生效、界面上只显示不可改 —— 寿命模式属于
+        /// 剧本作者的史实设定（"英雄集结"必须无死亡），不该由玩家在开局参数里改。
+        /// 解析入口：<see cref="PersonLifeCycle.GetLifeMode"/>。
         /// </summary>
         [JsonProperty] public int lifeMode = 3;
+
+        /// <summary>
+        /// 战死频率：0 = 无，1 = 普通(2%)，2 = 高(5%)。
+        ///
+        /// 【全局唯一口径】单挑的落败战死、俘虏处斩判定（原版 shodan2 的战死系数）
+        /// 都读这一个值，对应 Open311 的 <c>get_battle_death_mode()</c>。
+        /// 单挑不再有独立开关（原 duelDeathMode 已空置）。
+        /// 单挑侧读取入口：<see cref="Sango.Core.Duel.DuelRules.GetBattleDeathMode"/>。
+        /// </summary>
+        [JsonProperty] public int battleDeathMode = 1;
 
         /// <summary>
         /// 基础火焰伤害

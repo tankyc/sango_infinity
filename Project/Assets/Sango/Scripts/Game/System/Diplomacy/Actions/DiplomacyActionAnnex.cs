@@ -111,8 +111,12 @@ namespace Sango.Core
         {
             ScenarioVariables variables = Scenario.Cur.Variables;
 
+            // 原版 try_annex 的"目标性格"是 0~3 的连续档位，不是性格表主键。
+            // 本项目读性格上的 annexResistance 配置值（胆小 0 / 冷静 1 / 刚胆 2 / 莽撞 3），
+            // 不能传 PersonalityId（那是 1 起的表主键，会把 g 整体抬高 7）。
             int personality = Receiver != null && Receiver.mGovernor != null
-                ? Receiver.mGovernor.PersonalityId
+                            && Receiver.mGovernor.mPersonality != null
+                ? Receiver.mGovernor.mPersonality.annexResistance
                 : 0;
 
             DiplomacyRules.Result result = DiplomacyRules.TryAnnex(
@@ -214,7 +218,13 @@ namespace Sango.Core
             Sango.Log.Info($"@外交@{Sender.Name} 劝降 {Receiver.Name} 成功：" +
                            $"接收 {movedCities} 座据点、{movedPersons} 名武将");
 
-            // ③ 收尾：此时城池与武将都已转走，剩下的只是"标记灭亡 + 广播事件"
+            // ③ 投降君主交出玉玺 / 铜雀（原版 force_ruin 末尾的
+            // `person_lose_special_items(kunshu, dest_kunshu)`，s11_sys_scen_force.cpp:997-1000；
+            // 投降分支 dest_kunshu = 受降方君主，所以是"移交"而不是"销毁"）。
+            // 必须在 Ruin 之前做：Ruin 里同一句调用传的是空接收者 = 销毁。
+            ItemGrantRules.TransferSpecialItems(Receiver.mGovernor, Sender.mGovernor);
+
+            // ④ 收尾：此时城池与武将都已转走，剩下的只是"标记灭亡 + 广播事件"
             Receiver.Ruin(Sender, fallCity, Sender.mGovernor);
 
             GameEvent.OnDiplomacyAnnex?.Invoke(Sender, Receiver, true);

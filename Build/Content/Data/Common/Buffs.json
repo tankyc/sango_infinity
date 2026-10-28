@@ -6,6 +6,9 @@
       "kind": 1,
       "subKind": 1,
       "limit": 0,
+      "troopAttackCoef": 80,
+      "troopDefenceCoef": 80,
+      "troopBuildCoef": 80,
       "asset": "Assets/Effect/Prefab/ef_buff_xuanyun.prefab",
       "offset": [
         0.0,
@@ -59,6 +62,31 @@
         {
           "class": "AddAttack",
           "value": 10
+        }
+      ]
+    },
+    "5": {
+      "Id": 5,
+      "Name": "足止",
+      "kind": 1,
+      "subKind": 5,
+      "limit": 0,
+      "troopMoveCoef": 0,
+      "buffEffects": [
+        {
+          "class": "MoveSeal"
+        }
+      ]
+    },
+    "6": {
+      "Id": 6,
+      "Name": "暴走",
+      "kind": 1,
+      "subKind": 6,
+      "limit": 0,
+      "buffEffects": [
+        {
+          "class": "Berserk"
         }
       ]
     }

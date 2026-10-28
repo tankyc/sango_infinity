@@ -81,6 +81,8 @@ namespace Sango.Core
                     return new PlayerTroopTransformGoodsToCity();
                 case (int)MissionType.PlayerTroopMovetoCell:
                     return new PlayerTroopMovetoCell();
+                case (int)MissionType.TroopBanditRazeCity:
+                    return new TroopBanditRazeCity();
 
                 default:
                     return new TroopReturnCity();

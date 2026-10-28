@@ -480,6 +480,78 @@ namespace Sango.Core
         [JsonProperty] public int missionType;
 
         /// <summary>
+        /// 出征意图（见 <see cref="TroopDeployType"/>）。
+        ///
+        /// 【与原版的关系】对应原版 ScenarioAI 的 <c>context_-&gt;unit[].deploy_type</c>
+        /// （s11_scen.h:3495-3503）。原版由据点级出征命令写入，部队层的
+        /// <c>unit_update_order</c> 只读它做改派（s11_game_ai_unit.cpp:124-130）。
+        ///
+        /// 【本项目怎么填】出征入口在设置 missionType 的同时按任务性质推断一次
+        /// （见 <see cref="ToDeployType"/>），之后**不再随 missionType 变化**——
+        /// 意图是"出征时定下的目标性质"，任务只是当前执行到哪一步。
+        /// </summary>
+        [JsonProperty] public int deployType;
+
+        /// <summary>
+        /// 出征意图的目标 Id（城 / 建筑）。对应原版 <c>context_-&gt;unit[].deploy_target</c>。
+        /// -1 表示无目标。
+        /// </summary>
+        [JsonProperty] public int deployTarget = -1;
+
+        /// <summary>
+        /// 本部队是**响应谁的援军请求**而来（求援发起势力的 Id；-1 = 不是援军）。
+        /// 对应原版 <c>Unit::get_request_force_id()</c>（s11_scen.h 的 unit.request_force_）。
+        ///
+        /// 【与 <see cref="deployType"/> 的区别】deployType 是"这支部队想干什么"，
+        /// 本字段是"这支部队欠谁的人情"——援军部队的改派约束更严：
+        /// 原版 s11_game_ai_unit.cpp:114-123 对援军只做一件事，检查是否可以撤回。
+        ///
+        /// 【谁写入】同盟出兵时由派兵方设置为本方 Id；求援到期/撤回时清回 -1。
+        /// </summary>
+        [JsonProperty] public int requestForceId = -1;
+
+        /// <summary>
+        /// 按任务性质推断出征意图（出征入口写 <see cref="deployType"/> 时使用）。
+        ///
+        /// 映射依据是原版"据点 AI 派出部队时给的是哪种 deploy"：
+        ///   · Attack    ← 占领 / 破坏部队 / 破坏建筑 / 骚扰 / 驱逐（kyoten_cmd_mil_attack）
+        ///   · Defense   ← 守城 / 守建筑 / 护卫友军 / 跨城增援（kyoten_cmd_mil_defense）
+        ///   · Transport ← 补给队 / 物资运输 / 求援（kyoten_cmd_mil_support）
+        ///   · Build     ← 工程队 / 修补队（kyoten_cmd_mil_build）
+        /// 未列出的任务（返城 / 待命）归 None，原版这两个也没有对应 deploy。
+        /// </summary>
+        public static int ToDeployType(int missionTypeValue)
+        {
+            switch ((MissionType)missionTypeValue)
+            {
+                case MissionType.TroopOccupyCity:
+                case MissionType.TroopDestroyTroop:
+                case MissionType.TroopDestroyBuilding:
+                case MissionType.TroopHarassCity:
+                case MissionType.TroopBanishTroop:
+                    return (int)TroopDeployType.Attack;
+
+                case MissionType.TroopProtectCity:
+                case MissionType.TroopProtectBuilding:
+                case MissionType.TroopProtectTroop:
+                case MissionType.TroopMovetoCity:
+                    return (int)TroopDeployType.Defense;
+
+                case MissionType.TroopSupplyTroop:
+                case MissionType.TroopTransformGoodsToCity:
+                case MissionType.TroopAskSupply:
+                    return (int)TroopDeployType.Transport;
+
+                case MissionType.TroopBuildBuilding:
+                case MissionType.TroopFixBuilding:
+                    return (int)TroopDeployType.Build;
+
+                default:
+                    return (int)TroopDeployType.None;
+            }
+        }
+
+        /// <summary>
         /// 任务目标
         /// </summary>
         [JsonProperty] public int missionTarget;
@@ -541,6 +613,55 @@ namespace Sango.Core
         public bool HasControlBuff()
         {
             return buffManager.HasControlBuff();
+        }
+
+        /// <summary>
+        /// 队内**具备指定特技**的武将中，某项个人属性的最大值；无人具备则返回 -1。
+        ///
+        /// 【原版对应】MilitaryObject::get_best_member_stat(skillId, statType)
+        /// （计略成功率公式里大量使用，例如"施法方火攻特技者的智力是否高于目标智力"）。
+        /// </summary>
+        /// <param name="featureId">特技 Id（Features.json）</param>
+        /// <param name="statType">0=统率 1=武力 2=智力 3=政治 4=魅力</param>
+        public int GetBestMemberFeatureStat(int featureId, int statType)
+        {
+            int best = -1;
+            best = MaxStatWithFeature(Leader, featureId, statType, best);
+            best = MaxStatWithFeature(Member1, featureId, statType, best);
+            best = MaxStatWithFeature(Member2, featureId, statType, best);
+            return best;
+        }
+
+        static int MaxStatWithFeature(Person person, int featureId, int statType, int best)
+        {
+            if (person == null || !person.HasFeatrue(featureId))
+                return best;
+
+            int value;
+            switch (statType)
+            {
+                case 0: value = person.Command; break;
+                case 1: value = person.Strength; break;
+                case 2: value = person.Intelligence; break;
+                case 3: value = person.Politics; break;
+                default: value = person.Glamour; break;
+            }
+            return value > best ? value : best;
+        }
+
+        /// <summary>
+        /// 是否处于**伪报**状态（原版 <c>UnitState_Gihou</c>）。
+        ///
+        /// 与 <see cref="HasControlBuff"/> 的区别：混乱（Stun）不算伪报。
+        /// 用途：
+        ///   · AI 评分降权 —— 原版 get_attack_damage_score 的上层 get_target_score
+        ///     （s11_sys_unit_action.cpp:1739-1741）对伪报目标 <c>score *= 0.1</c>，
+        ///     因为伪报部队会自己撤回城，打它等于浪费一次行动；
+        ///   · 与反击判定共用同一套状态语义（原版 state != Normal 不能反击）。
+        /// </summary>
+        public bool IsEscapeState()
+        {
+            return buffManager.HasEscapeBuff();
         }
 
         /// <summary>
@@ -730,18 +851,24 @@ namespace Sango.Core
         public int MachineLv { get; private set; }
 
         /// <summary>
-        /// 攻击力
+        /// 攻击力。
+        ///
+        /// 【末乘 Buff 系数】对应原版 unit_calc_stat 的 <c>state_coef</c>（混乱 ×0.8），
+        /// 但本项目不写死状态分支：由每个 Buff 自己声明 <c>troopAttackCoef</c>，这里累乘。
+        /// 因为 Attack 是表达式属性，Buff 增删后立即生效，无需等待重算。
         /// </summary>
-        public int Attack => extraAttack + (IsInWater ? waterAttack : landAttack) + trrainBonusAtk;
+        public int Attack => (extraAttack + (IsInWater ? waterAttack : landAttack) + trrainBonusAtk)
+                             * buffManager.GetTroopAttackCoef() / 100;
 
         public int waterAttack;
         public int landAttack;
         public int extraAttack;
         public int trrainBonusAtk;
         /// <summary>
-        /// 防御力
+        /// 防御力。末乘 Buff 系数（同 Attack，对应原版 state_coef）。
         /// </summary>
-        public int Defence => extraDefence + (IsInWater ? waterDefence : landDefence) + trrainBonusDef;
+        public int Defence => (extraDefence + (IsInWater ? waterDefence : landDefence) + trrainBonusDef)
+                              * buffManager.GetTroopDefenceCoef() / 100;
 
         public int waterDefence;
         public int landDefence;
@@ -749,9 +876,30 @@ namespace Sango.Core
         public int trrainBonusDef;
 
         /// <summary>
-        /// 建设力
+        /// 建设力。末乘 Buff 系数（对应原版 state_coef，混乱时同样 ×0.8）。
         /// </summary>
-        public int BuildPower { get; set; }
+        public int BuildPower
+        {
+            get { return buildPower * buffManager.GetTroopBuildCoef() / 100; }
+            set { buildPower = value; }
+        }
+
+        /// <summary>
+        /// 建设力的**基础值**（不乘 Buff 系数）。
+        ///
+        /// 【为什么需要】`TroopImproveBuildPower` 这类 Action 是"读-改-写"
+        /// （`troop.BuildPower = troop.BuildPower * value / 100`）。
+        /// 如果读的是带 Buff 系数的 <see cref="BuildPower"/>，再写回去就会把临时系数
+        /// **固化进基础值**，下次 get 又乘一遍 —— 混乱状态下反复触发会持续缩水。
+        /// 所以读改写一律走本属性。
+        /// </summary>
+        public int BuildPowerRaw
+        {
+            get { return buildPower; }
+            set { buildPower = value; }
+        }
+
+        int buildPower;
 
         /// <summary>
         /// 统率
@@ -779,19 +927,68 @@ namespace Sango.Core
         public int Glamour { get; private set; }
 
         /// <summary>
-        /// 是否忽略陆地ZOC
+        /// 是否忽略陆地 ZOC。底层是 <see cref="pathFlags"/> 的位标记，
+        /// 保留成属性是为了让 `Map.IsZOC`、`TroopIgnoreZOC` 等既有调用点不用改。
         /// </summary>
-        public bool ignoreLandZOC = false;
+        public bool ignoreLandZOC
+        {
+            get { return (pathFlags & (int)PathFlag.IgnoreLandZoc) != 0; }
+            set
+            {
+                if (value) pathFlags |= (int)PathFlag.IgnoreLandZoc;
+                else pathFlags &= ~(int)PathFlag.IgnoreLandZoc;
+            }
+        }
+
+        /// <summary>是否忽略水上 ZOC（原版 ZOC 分水陆两套，不能合并成一个标记）</summary>
+        public bool ignoreWaterZOC
+        {
+            get { return (pathFlags & (int)PathFlag.IgnoreWaterZoc) != 0; }
+            set
+            {
+                if (value) pathFlags |= (int)PathFlag.IgnoreWaterZoc;
+                else pathFlags &= ~(int)PathFlag.IgnoreWaterZoc;
+            }
+        }
+
+        /// <summary>是否免疫火焰（着火格不再 ×4 消耗）</summary>
+        public bool ignoreFire
+        {
+            get { return (pathFlags & (int)PathFlag.IgnoreFire) != 0; }
+            set
+            {
+                if (value) pathFlags |= (int)PathFlag.IgnoreFire;
+                else pathFlags &= ~(int)PathFlag.IgnoreFire;
+            }
+        }
 
         /// <summary>
-        /// 是否忽略水上ZOC
+        /// 是否免疫毒泉（移动不再损失兵力、寻路不再付额外代价）。
+        /// 标记由「解毒」特技（或其他来源）置位；`TerrainType.moveImmunityFlag` 读的也是这一位。
         /// </summary>
-        public bool ignoreWaterZOC = false;
+        public bool ignorePoison
+        {
+            get { return (pathFlags & (int)PathFlag.IgnorePoison) != 0; }
+            set
+            {
+                if (value) pathFlags |= (int)PathFlag.IgnorePoison;
+                else pathFlags &= ~(int)PathFlag.IgnorePoison;
+            }
+        }
 
         /// <summary>
-        /// 是否免疫火焰
+        /// 是否免疫栈道（移动不再损失兵力、寻路不再付额外代价）。
+        /// 标记由「踏破」特技 / 「藤甲」特技 / 「难所行军」科技置位。
         /// </summary>
-        public bool ignoreFire = false;
+        public bool ignoreCliffroad
+        {
+            get { return (pathFlags & (int)PathFlag.IgnoreCliffroad) != 0; }
+            set
+            {
+                if (value) pathFlags |= (int)PathFlag.IgnoreCliffroad;
+                else pathFlags &= ~(int)PathFlag.IgnoreCliffroad;
+            }
+        }
 
         public bool IsJustCreated => x == BelongCity.x && y == BelongCity.y;
 
@@ -808,6 +1005,25 @@ namespace Sango.Core
 
         public List<ActionBase> actionList;
         public List<Cell> MoveRange = new List<Cell>(256);
+
+        /// <summary>
+        /// 寻路标记位（位域，取值见 <see cref="PathFlag"/>）。
+        ///
+        /// 【为什么放在 Troop 上】原版 `UnitPath` 的这批开关是**按部队**生效的
+        /// （解毒特技、难所行军科技、飞将类无视 ZOC），不是全局设置；
+        /// 放在部队上，AI 与玩家各用各的，也不会互相污染。
+        ///
+        /// 【与技能的关系】由技能/科技持有的 Effect 在「本回合生效」时置位（见 PathFlag 注释）。
+        ///
+        /// 【为什么不序列化】它是**派生状态**，来源是技能/科技/Buff，
+        /// 存进存档只会带来"读档后残留上回合的标记"这类不一致。
+        ///
+        /// 【生命周期】**不做定期清理**：置位/清位都由持有者负责 ——
+        /// 特技或 action（如 `TroopIgnoreZOC`）在效果生效时置位、失效时清位；
+        /// 属性 getter 只在计算时读取当前值。任何"按回合统一清零"都会与
+        /// "先算范围、后结算效果"的调用顺序打架。
+        /// </summary>
+        public int pathFlags;
 
         static List<Feature> temp_FeatureList = new List<Feature>();
         public void InitActionList()
@@ -891,9 +1107,21 @@ namespace Sango.Core
             InitActionList();
 
             CalculateAttribute(scenario);
-            if (LandTroopType != null && LandTroopType.isFight && LandTroopType.Id != 1)
-                BelongCity.allAttackTroops.Add(this);
-            BelongCity.allTroops.Add(this);
+
+            // 【无城部队】异族 / 贼的根据地部队（原版 `create_unit(nejiro, ...)`，
+            // s11_sys_scen_unit.cpp:13-42）没有"所属城"：主将的 service 是**建筑**（根城），
+            // 不是城；项目的 BelongCity 派生自主将 BelongCity（Troop.cs:173），因此为 null。
+            //
+            // 这两个名单只是"按城统计部队"的缓存（城面板 / 城防统计用），
+            // 没有城就没有要登记的城。Clear() 与 City.RebuildTroopLists 早已按 null 安全处理，
+            // 这里补齐同样的判空，否则创建部队第一帧就 NullReference。
+            City belongCity = BelongCity;
+            if (belongCity != null)
+            {
+                if (LandTroopType != null && LandTroopType.isFight && LandTroopType.Id != 1)
+                    belongCity.allAttackTroops.Add(this);
+                belongCity.allTroops.Add(this);
+            }
             cell.troop = this;
             Render = new TroopRender(this);
             foodCost = (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInTroop * (troops + woundedTroops) * TroopType.foodCostFactor);
@@ -962,6 +1190,20 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             foodCost = (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInTroop * (troops + woundedTroops) * TroopType.foodCostFactor);
             foodCost = (int)Math.Ceiling(foodCost * foodCostFactor);
+
+            // 着火烧粮 —— 原版 get_unit_food_use（s11_sys_scen_unit.cpp:1505-1512）：
+            //   在着火格上时，额外消耗 = 现有兵粮 × (6 - 政治 × 0.05)%
+            // 直接并入每回合粮耗（原版 int n = troops×c×0.05 + burned）。
+            if (cell != null && cell.fire != null && food > 0)
+            {
+                float burned = food * (6f - Politics * 0.05f) * 0.01f;
+                if (burned > 0)
+                    foodCost += (int)burned;
+            }
+
+            if (foodCost <= 0 && troops > 0)
+                foodCost = 1;
+
             return foodCost;
         }
         public int PrepeareFoodCost(int target)
@@ -978,6 +1220,10 @@ namespace Sango.Core
         {
             liveDays++;
             MoveRange.Clear();
+
+            // 【不做清理】pathFlags 由特技 / action（如 TroopIgnoreZOC）自己维护生命周期：
+            // 置位与清位都发生在持有者那里（效果生效时置、失效时清）。
+            // 这里若统一清零，会在"先算移动范围、后生效效果"的顺序下把刚置的位抹掉。
             ActionOver = false;
             AIFinished = false;
             AIPrepared = false;
@@ -998,16 +1244,26 @@ namespace Sango.Core
                 if (morale < 0)
                     morale = 0;
 
-                if (troops < 500)
+                // 原版 get_starving_troops（s11_game_week.cpp:823-829）：
+                //     n = 兵力 × (30 - 魅力 / 15)%
+                //     下限 400 + rand(200)
+                //   兵力归零 → unit_disband_with_message（解散）
+                //
+                // 旧实现是"固定 30% 流失 + 兵力<500 直接解散"，与魅力无关，
+                // 且小部队会被提前解散（原版还能靠 400 下限活下来）。
+                int escapeRate = 30 - Glamour / 15;
+                if (escapeRate < 0) escapeRate = 0;
+
+                int damage = troops * escapeRate / 100;
+                int minDamage = 400 + GameRandom.Range(0, 200);
+                if (damage < minDamage) damage = minDamage;
+
+                troops -= damage;
+                if (troops <= 0)
                 {
+                    troops = 0;
                     Clear();
                     return true;
-                }
-                else
-                {
-                    // 每回合死亡当前兵力的30%;
-                    int damage = (int)System.Math.Ceiling(troops * 0.3f);
-                    troops -= damage;
                 }
             }
             else
@@ -1278,6 +1534,31 @@ namespace Sango.Core
             MaxTroops = overrideData.ValueAndRecycle;
         }
 
+        /// <summary>
+        /// 部队是否带伤：队内任一武将伤病等级 &gt; 0 即为真。
+        ///
+        /// 【口径】部队不单独存"伤病快照"，直接溯源到队内武将的 <see cref="Person.injury"/>：
+        /// 五个能力 getter 已经过 Person.ApplyInjuryDecay 折算，CalculateAttribute 取的又是折算后的值，
+        /// 所以只要武将伤病一变、部队重算一次，攻击/防御/建设力就自动是带伤后的数值（见 Person.OnInjuryChanged）。
+        ///
+        /// 【与原版的关系】原版 Unit::is_injured()（s11_scen_obj_unit.cpp:1155-1168）是
+        /// "当前 ability_ 小于 max_ability_" 的判定，但**全工程没有任何调用点**（死代码）。
+        /// 本项目按"不实现死代码分支"的约定不做 max_ability 快照，只保留这个派生查询给
+        /// UI / AI / 日志使用，不参与任何战斗公式。
+        /// </summary>
+        public bool IsInjured
+        {
+            get
+            {
+                bool injured = false;
+                ForEachPerson(p =>
+                {
+                    if (!injured && p != null && p.injury > 0) injured = true;
+                });
+                return injured;
+            }
+        }
+
         public int MoveCost(Cell cell)
         {
             if (cell.IsWater)
@@ -1286,12 +1567,16 @@ namespace Sango.Core
                 return LandTroopType.MoveCost(cell);
         }
 
+        /// <summary>
+        /// 部队到达指定格可用（或需要）的移动力。
+        ///
+        /// 【末乘 Buff 系数】用于"足止"类状态：<c>troopMoveCoef = 0</c> 时行动力归零，
+        /// 部队只能原地攻击/施法，无法移动。系数由 Buff 声明、这里累乘，不写死状态判断。
+        /// </summary>
         public int GetTargetMoveAbility(Cell cell)
         {
-            if (cell.IsWater)
-                return waterMoveAbility;
-            else
-                return landMoveAbility;
+            int ability = cell.IsWater ? waterMoveAbility : landMoveAbility;
+            return ability * buffManager.GetTroopMoveCoef() / 100;
         }
 
         public bool IsAlliance(BuildingBase other)
@@ -1359,15 +1644,56 @@ namespace Sango.Core
             return Duel.DuelManager.Instance.StartDuel(this, targetTroop, withView);
         }
 
+        /// <summary>
+        /// 反击系数（百分比）。逐条对齐原版反击判定
+        /// （D:\open311\s11\s11_sys_anim_unit.cpp:750-760 与 s11_sys_damage.cpp:501-504）。
+        ///
+        ///   · 器械不反击（原版 `is_siege_equipment` 直接排除）
+        ///   · 处于异常状态不反击（原版 `state_ != Normal`）—— 本项目的"控制 Buff"等价物
+        ///   · 计略不触发反击
+        ///   · 只有近身相邻才反击；远程距离 > 1 不反击
+        ///   · **普通攻击反击 ×0.9，战法反击 ×0.4**（原版两个不同常量）
+        ///   · **被包围惩罚**：每多一支相邻敌军，反击再 ×(100 - 5×包围数)%
+        /// </summary>
         public int GetAttackBackFactor(SkillInstance skill, int distance)
         {
             if (IsMachine)
                 return 0;
-            if (skill.IsRange() && distance > 1)
+
+            // 原版 state_ != Normal 不反击；本项目以"控制类 Buff"作为等价判定
+            if (HasControlBuff())
                 return 0;
-            else if (!skill.IsRange() && distance == 1)
-                return 90;
-            return 0;
+
+            if (skill != null && skill.IsStrategy())
+                return 0;
+
+            if (distance > 1)
+                return 0;
+
+            // 战法反击 0.4，普攻反击 0.9（原版 :501-504）
+            int factor = (skill != null && !skill.IsNormal()) ? 40 : 90;
+
+            // 包围惩罚（原版 :759-760）
+            int surrounded = CountAdjacentEnemies();
+            if (surrounded > 1)
+                factor = factor * (100 - 5 * surrounded) / 100;
+
+            return factor;
+        }
+
+        /// <summary>本部队相邻格内的敌方部队数（原版 surrounded）</summary>
+        int CountAdjacentEnemies()
+        {
+            if (cell == null) return 0;
+
+            int count = 0;
+            for (int i = 0; i < 6; i++)
+            {
+                Cell neighbor = cell.GetNeighbor(i);
+                if (neighbor != null && neighbor.troop != null && neighbor.troop.IsEnemy(this))
+                    count++;
+            }
+            return count;
         }
 
         public void AttackBuilding(Cell buildingInCell)
@@ -1384,154 +1710,78 @@ namespace Sango.Core
         //@param attacker Troops
         //@param defender Troops
         //@param skill Skill
+        /// <summary>
+        /// 部队打部队的兵力伤害。
+        ///
+        /// 具体算法已抽到可插拔的 <see cref="TroopDamageMethod"/>（默认 Open311TroopDamageMethod，
+        /// 对齐原版 calc_attack_damage → calc_troops_damage），本方法只负责装配上下文：
+        ///   · 取当前剧本参数 ScenarioVariables（公式里的基准值都从它读）；
+        ///   · 预先算好难度系数（原版 s11_sys_damage.cpp:470-471 只对玩家生效）；
+        ///   · 按配置名 troopDamageMethod 取公式实例。
+        /// 配置写错或旧存档缺字段时，公式入口会自动回落到默认实现，不会返回 null。
+        /// </summary>
         public static int CalculateSkillDamage(Troop attacker, Troop target, SkillInstance skill)
         {
-            var attack_troops_type = attacker.TroopType;
-            var defender_troops_type = target.TroopType;
+            if (attacker == null || target == null) return 0;
 
-            ScenarioVariables Variables = Scenario.Cur.Variables;
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Variables == null) return 0;
+            ScenarioVariables vars = scenario.Variables;
 
-            float difficultyDamageFactor = 1;
-            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
-                difficultyDamageFactor = Variables.DifficultyDamageFactor;
+            TroopDamageContext ctx = new TroopDamageContext(
+                attacker, target, skill, vars,
+                CombatFormulaMath.GetDifficultyFactor(attacker.BelongForce, vars));
 
-            int atkBounds = skill != null ? skill.atk : 10;
-            /*
-             *公式来源参考:
-             *https://game.ali213.net/thread-5983352-1-1.html  freedomv20的[数据研究] <三国志11 战斗伤害计算公式>
-             *https://www.bilibili.com/opus/828102349572538433 ryan_knight_12吧 楚狂的 <三国志11伤害到底是怎样算的?>
-             *https://tieba.baidu.com/p/6061024246?pn=1 不懂秃驴爱的 <三国志11：部队的兵力与攻击力数据实测，究竟带多少兵才是最优解>
-             */
-
-            int damage = (int)(
-                (
-
-                (System.Math.Pow(atkBounds * Variables.fight_base_damage, 0.5) + System.Math.Max(0, (int)((System.Math.Pow(attacker.Attack, 2) - System.Math.Pow(System.Math.Max(40, target.Defence), 2)) / 300)) +
-                System.Math.Max(0, (attacker.troops - target.troops) / Variables.fight_base_troops_need) + 50)
-
-                * 10 * ((int)(
-
-                (((int)(attacker.troops * 0.01) + 300) * System.Math.Pow((attacker.Attack + 50), 2)) /
-                (((int)(attacker.troops * 0.01) + 300) * System.Math.Pow((attacker.Attack + 50), 2) * 0.01 +
-                ((int)(target.troops * 0.01) + 300) * System.Math.Pow((target.Defence + 50), 2) * 0.01)
-
-                - 50)
-
-                + 50)
-                // 原有基础上优化System.Math.Max(1, attacker.troops / 4),1兵打出15伤害同于实际测试
-                * System.Math.Min(System.Math.Pow(System.Math.Max(1, attacker.troops / 4), 0.5), 40)
-
-                * Variables.fight_damage_magic_number /* * 太鼓台系数*/
-
-                + attacker.troops / Variables.fight_base_troop_count
-
-                )
-                //兵种相克系数
-                * CalculateRestrainBoost(attacker, target)
-
-                // 额外增益 (科技系数等)
-                * System.Math.Max(0, (1 + attacker.DamageTroopExtraFactor))
-
-                // 难度系数,仅对玩家生效
-                * difficultyDamageFactor
-                );
-
-            ////士气矫正后的伤害
-            //damage = damage * (UnityEngine.Mathf.Max(attacker.morale - Variables.fight_morale_decay_below, 0) / (100 - Variables.fight_morale_decay_below) *
-            //Variables.fight_morale_add + (1 - Variables.fight_morale_decay_percent) + UnityEngine.Mathf.Min(UnityEngine.Mathf.Max(attacker.morale, 0), Variables.fight_morale_decay_below) / Variables.fight_morale_decay_below * Variables.fight_morale_decay_percent);
-
-            return damage;
+            return TroopDamageMethod.Create(vars.troopDamageMethod).Calculate(ctx);
         }
 
+        /// <summary>
+        /// 部队打建筑的**耐久**伤害。
+        ///
+        /// 算法已抽到 <see cref="DurabilityDamageMethod"/>（默认 Open311DurabilityDamageMethod，
+        /// 对齐原版 calc_hp_damage / calc_shousha_hp_damage，s11_sys_damage.cpp:542-628、1531-1553）。
+        /// 本方法只装配上下文并按配置 durabilityDamageMethod 取公式实例。
+        /// </summary>
         public static int CalculateSkillDamage(Troop attacker, BuildingBase target, SkillInstance skill)
         {
-            var attack_troops_type = attacker.TroopType;
-            var buildingType = target.BuildingType;
-            ScenarioVariables Variables = Scenario.Cur.Variables;
+            if (attacker == null || target == null) return 0;
 
-            float difficultyDamageFactor = 1;
-            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
-                difficultyDamageFactor = Variables.DifficultyDamageFactor;
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Variables == null) return 0;
+            ScenarioVariables vars = scenario.Variables;
 
-            if (attacker.IsHelepolis)
-            {
-                int damage = (int)(attacker.troops / 25 + System.Math.Pow(attacker.troops, 0.5f) + System.Math.Min(System.Math.Pow(attacker.troops, 0.5f), 40) * attacker.Attack * System.Math.Pow((1f / 1500f), 0.5f) * (1 + (float)skill.atkDurability / 25f) * buildingType.damageBounds
-               // 额外增益 (科技系数等)
-               * System.Math.Max(0, (1 + attacker.DamageBuildingExtraFactor))
-               * attack_troops_type.durabilityDmg / 100
-               // 难度系数,仅对玩家生效
-               * difficultyDamageFactor
-               );
-                return damage;
-            }
-            else
-            {
-                int damage = (int)(System.Math.Pow(attacker.troops, 0.5f) * attacker.Attack * System.Math.Pow((1f / 1500f), 0.5f) * (1 + (float)skill.atkDurability / 25f) * buildingType.damageBounds
-                // 额外增益 (科技系数等)
-                * System.Math.Max(0, (1 + attacker.DamageBuildingExtraFactor))
-                * attack_troops_type.durabilityDmg / 100
-                // 难度系数,仅对玩家生效
-                * difficultyDamageFactor
-                );
+            DurabilityDamageContext ctx = new DurabilityDamageContext(
+                attacker, target, skill, vars,
+                CombatFormulaMath.GetDifficultyFactor(attacker.BelongForce, vars));
 
-                return damage;
-            }
+            return DurabilityDamageMethod.Create(vars.durabilityDamageMethod).Calculate(ctx);
         }
 
+        /// <summary>
+        /// 部队打据点（城 / 关 / 港）的**守军兵力**伤害。
+        ///
+        /// 算法已抽到 <see cref="GarrisonDamageMethod"/>（默认 Open311GarrisonDamageMethod，
+        /// 对齐原版 calc_attack_damage 的建筑分支，s11_sys_damage.cpp:438-467）：
+        ///     井阑型  → calc_troops_damage(完整兵力) × buildingTroopDamageFactor%
+        ///     其他    → calc_troops_damage(兵力 × 75%) × 城0.55 / 关0.45 / 港0.60
+        /// 本方法只装配上下文并按配置 garrisonDamageMethod 取公式实例。
+        ///
+        /// 【未对齐】原版在算建筑防御时会把 troops_atk 覆盖成 10（get_ability，1384-1402），
+        /// 即战法对建筑不吃兵力攻击加成；本项目暂不覆盖，记为差异项。
+        /// </summary>
         public static int CalculateSkillDamageTroopOnCity(Troop attacker, City target, SkillInstance skill)
         {
-            ScenarioVariables Variables = Scenario.Cur.Variables;
+            if (attacker == null || target == null) return 0;
 
-            float difficultyDamageFactor = 1;
-            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
-                difficultyDamageFactor = Variables.DifficultyDamageFactor;
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Variables == null) return 0;
+            ScenarioVariables vars = scenario.Variables;
 
-            int atkBounds = skill != null ? skill.atk : 10;
-            /*
-             *公式来源参考:
-             *https://game.ali213.net/thread-5983352-1-1.html  freedomv20的[数据研究] <三国志11 战斗伤害计算公式>
-             *https://www.bilibili.com/opus/828102349572538433 ryan_knight_12吧 楚狂的 <三国志11伤害到底是怎样算的?>
-             *https://tieba.baidu.com/p/6061024246?pn=1 不懂秃驴爱的 <三国志11：部队的兵力与攻击力数据实测，究竟带多少兵才是最优解>
-             */
+            GarrisonDamageContext ctx = new GarrisonDamageContext(
+                attacker, target, skill, vars,
+                CombatFormulaMath.GetDifficultyFactor(attacker.BelongForce, vars));
 
-            int damage = (int)(
-                (
-
-                (System.Math.Pow(atkBounds * Variables.fight_base_damage, 0.5) + System.Math.Max(0, (int)((System.Math.Pow(attacker.Attack, 2) - System.Math.Pow(System.Math.Max(40, target.GetDefence()), 2)) / 300)) +
-                System.Math.Max(0, (attacker.troops - target.troops) / Variables.fight_base_troops_need) + 50)
-
-                * 10 * ((int)(
-
-                (((int)(attacker.troops * 0.01) + 300) * System.Math.Pow((attacker.Attack + 50), 2)) /
-                (((int)(attacker.troops * 0.01) + 300) * System.Math.Pow((attacker.Attack + 50), 2) * 0.01 +
-                ((int)(target.troops * 0.01) + 300) * System.Math.Pow((target.GetDefence() + 50), 2) * 0.01)
-
-                - 50)
-
-                + 50)
-                // 原有基础上优化System.Math.Max(1, attacker.troops / 4),1兵打出15伤害同于实际测试
-                * System.Math.Min(System.Math.Pow(System.Math.Max(1, attacker.troops / 4), 0.5), 40)
-
-                * Variables.fight_damage_magic_number /* * 太鼓台系数*/
-
-                * target.BuildingType.damageBounds
-
-                + attacker.troops / Variables.fight_base_troop_count
-
-                )
-
-                // 额外增益 (科技系数等)
-                * System.Math.Max(0, (1 + attacker.DamageTroopExtraFactor))
-
-                // 难度系数,仅对玩家生效
-                * difficultyDamageFactor
-                );
-
-            ////士气矫正后的伤害
-            //damage = damage * (UnityEngine.Mathf.Max(attacker.morale - Variables.fight_morale_decay_below, 0) / (100 - Variables.fight_morale_decay_below) *
-            //Variables.fight_morale_add + (1 - Variables.fight_morale_decay_percent) + UnityEngine.Mathf.Min(UnityEngine.Mathf.Max(attacker.morale, 0), Variables.fight_morale_decay_below) / Variables.fight_morale_decay_below * Variables.fight_morale_decay_percent);
-
-            return damage;
+            return GarrisonDamageMethod.Create(vars.garrisonDamageMethod).Calculate(ctx);
         }
 
 
@@ -1582,68 +1832,28 @@ namespace Sango.Core
             return damage;
         }
 
+        /// <summary>
+        /// 建筑打部队的兵力伤害。
+        ///
+        /// 已改为逐行对齐原版 calc_troops_damage(Building*, Unit*)
+        /// （D:\open311\s11\s11_sys_damage.cpp:1442-1482），实现见
+        /// <see cref="CombatFormulaMath.CalcBuildingTroopsDamage"/>。
+        ///
+        /// 【保留 atk 参数】旧签名把建筑攻击力传进来，但原版这条公式**不读外部 atk**：
+        /// 强度完全由设施类型决定（BuildingType.troopAtk）。参数保留只为不改调用方。
+        /// </summary>
         public static int CalculateSkillDamage(BuildingBase attacker, Troop target, int atk)
         {
-
-            ScenarioVariables Variables = Scenario.Cur.Variables;
-
-            //基础伤害
-            float base_atk = atk;
-            int base_troops = attacker.GetSkillMethodAvaliabledTroops();
-
-            float difficultyDamageFactor = 1;
-            if (attacker.BelongForce != null && attacker.BelongForce.IsPlayer)
-                difficultyDamageFactor = Variables.DifficultyDamageFactor;
-
-            int damage = (int)(
-                 (
-
-                 (System.Math.Max(0, (int)((System.Math.Pow(base_atk, 2) - System.Math.Pow(System.Math.Max(40, target.Defence), 2)) / 300)) +
-                 System.Math.Max(0, (base_troops - target.troops) / Variables.fight_base_troops_need) + 50)
-
-                 * 10 * ((int)(
-
-                 (((int)(base_troops * 0.01) + 300) * System.Math.Pow((base_atk + 50), 2)) /
-                 (((int)(base_troops * 0.01) + 300) * System.Math.Pow((base_atk + 50), 2) * 0.01 +
-                 ((int)(target.troops * 0.01) + 300) * System.Math.Pow((target.Defence + 50), 2) * 0.01)
-
-                 - 50)
-
-                 + 50)
-
-                 * System.Math.Min(System.Math.Pow(System.Math.Max(1, base_troops / 4), 0.5), 40)
-
-                 * Variables.fight_damage_magic_number /* * 太鼓台系数*/
-
-                 + base_troops / Variables.fight_base_troop_count
-
-                 )
-
-                // 难度系数,仅对玩家生效
-                * difficultyDamageFactor
-
-                 // 额外增益 (科技系数等)
-                 //* System.Math.Max(0, (1 + attacker.DamageTroopExtraFactor))
-                 /* * 难度系数*/);
-
-            return damage;
+            return CombatFormulaMath.CalcBuildingTroopsDamage(attacker, target);
         }
 
-        // 暴击判断
-        public static bool CalculateSkillCriticalBoost(Troop attacker, Troop defender, Skill skill, out float p)
-        {
-            //TODO 完善暴击逻辑
-            p = 1;
-            return false;
-        }
-
-        // 暴击判断
-        public static bool CalculateSkillCriticalBoost(Troop attacker, BuildingBase defender, Skill skill, out float p)
-        {
-            //TODO 完善暴击逻辑
-            p = 1;
-            return false;
-        }
+        // 【已删除】两个 CalculateSkillCriticalBoost 重载（恒返回 false 的死代码）。
+        //
+        // 暴击的实际链路在 SkillInstance.CalculateCriticalFactor：
+        //     skillCriticalMethod.Calculate(...) → 暴击率
+        //     GameRandom.Chance(暴击率) → criticalFactor = Variables.skillCriticalFactor
+        // 每个战法在 Skills.json 里配 criticalMethod（CommonMethod / FireCriticalMethod / ...），
+        // 与 "goal: 单一职责 + 可插拔" 的约定一致。上面这两个方法全库无调用点。
 
         // 克制系数
         public static float CalculateRestrainBoost(Troop attacker, Troop target)
@@ -1998,20 +2208,24 @@ namespace Sango.Core
                 if (IsEnemy(atkTroop))
                 {
                     List<Person> captives = new List<Person>();
-                    if (Leader.state != (int)PersonStateType.Governor)
+                    // 【原版对齐】临时武将（异族 / 贼，type = Temporary）不参与俘虏判定：
+                    // 原版 unit_disband 对 is_temporary() 直接 person_die（s11_sys_scen_unit.cpp:231-257），
+                    // 不走"被俘"路径。这里若不加排除，异族武将会被当普通武将送进俘虏事件，
+                    // 随后 ClearWithBelongCity 又把它彻底删除，出现"已删除对象仍进俘虏事件"的悬空引用。
+                    if (Leader != null && !Leader.IsTemporary && Leader.state != (int)PersonStateType.Governor)
                     {
                         int p = Math.Max(0, atkTroop.GetCaptureChangce() - Leader.escapeFactorWhenTroopDestroy);
                         if (GameRandom.Chance(p))
                             captives.Add(Leader);
                     }
-                    if (Member1 != null && Member1.state != (int)PersonStateType.Governor)
+                    if (Member1 != null && !Member1.IsTemporary && Member1.state != (int)PersonStateType.Governor)
                     {
                         int p = Math.Max(0, atkTroop.GetCaptureChangce() - Member1.escapeFactorWhenTroopDestroy);
                         if (GameRandom.Chance(p))
                             captives.Add(Member1);
                     }
 
-                    if (Member2 != null && Member2.state != (int)PersonStateType.Governor)
+                    if (Member2 != null && !Member2.IsTemporary && Member2.state != (int)PersonStateType.Governor)
                     {
                         int p = Math.Max(0, atkTroop.GetCaptureChangce() - Member2.escapeFactorWhenTroopDestroy);
                         if (GameRandom.Chance(p))
@@ -2124,13 +2338,9 @@ namespace Sango.Core
             if (troops < 0)
                 troops = 0;
 
-            // 中和士气
-            // 【防御】分母可能为 0（双方兵力同时为 0），此时保持目标原有士气
-            int m = target.morale;
-            int totalTroops = target.troops + troops;
-            if (totalTroops > 0)
-                m = (morale * troops + target.morale * target.troops) / totalTroops;
-
+            // 【对齐原版 supply_anim】补给只转移 兵力 / 资金 / 军粮（以及一兵一装兵种的装备），
+            // 原版不参与士气计算（s11_sys_anim_unit.cpp:1443-1476 只改 troops/gold/food/energy），
+            // 因此这里不再做"士气加权平均"。
             this.troops -= troops;
             this.gold -= gold;
             this.food -= food;
@@ -2139,9 +2349,6 @@ namespace Sango.Core
             target.troops += troops;
             target.gold += gold;
             target.food += food;
-
-            int dis = m - target.morale;
-            target.morale = m;
 
             if (troops > 0)
                 Render?.ShowInfo(-troops, (int)InfoType.Troop);
@@ -2156,8 +2363,6 @@ namespace Sango.Core
                 target.Render?.ShowInfo(gold, (int)InfoType.Gold);
             if (food > 0)
                 target.Render?.ShowInfo(food, (int)InfoType.Food);
-            if (dis != 0)
-                target.Render?.ShowInfo(dis, (int)InfoType.Morale);
 
             ActionOver = true;
             // 【修复】补给方自身的名字板需要刷新
@@ -2199,6 +2404,10 @@ namespace Sango.Core
         }
         public bool TryMoveToCity(City city)
         {
+            // 【空引用修复】目标城市或其中心格为空时（如城市被攻陷/数据异常的存档），
+            // 无法寻路逃回，直接返回 false，由调用方（TroopEscapeToCityEvent）结束事件。
+            if (city == null || city.CenterCell == null)
+                return false;
             return TryMoveToCell(city.CenterCell, (x) =>
             {
                 return x.building == city;
@@ -2311,6 +2520,11 @@ namespace Sango.Core
             if (destCell.fire != null)
                 destCell.fire.BurnTroop(this);
 
+            // 地形移动伤害（原版 get_movement_damage：毒泉 / 栈道 / …）
+            // 参数全部来自 TerrainType（moveDamageBase / moveDamageRandom / moveImmunityFeature），
+            // 代码不认地形 Id，也不写死数值。
+            ApplyTerrainMovementDamage(destCell);
+
             Render.UpdateModelByCell(destCell);
             UpdateTerrainBonus(destCell);
 
@@ -2331,6 +2545,49 @@ namespace Sango.Core
                 // 只有整段移动结束才结算, 途中经过的格子不触发
                 TryCheerSwornBrother();
             }
+        }
+
+        /// <summary>
+        /// 地形移动伤害 —— 原版 get_movement_damage（s11_sys_damage.cpp:5-44）的地形部分。
+        ///
+        /// 原版：
+        ///   毒泉  200 + rand(200)，有「解毒」特技免疫
+        ///   栈道  100 + rand(200)，有「踏破」特技 / 「南蛮」科技免疫
+        /// 着火格由 <c>Cell.fire.BurnTroop</c> 单独处理（不在本方法内）。
+        ///
+        /// 本方法不带任何地形 Id / 数值：全部读
+        /// <see cref="TerrainType.moveDamageBase"/> / <see cref="TerrainType.moveDamageRandom"/> /
+        /// <see cref="TerrainType.moveImmunityFeature"/>，新增地形只要配数据。
+        /// </summary>
+        void ApplyTerrainMovementDamage(Cell destCell)
+        {
+            if (destCell == null || !IsAlive) return;
+
+            TerrainType terrain = destCell.TerrainType;
+            if (terrain == null || terrain.moveDamageBase <= 0) return;
+
+            // 免疫标记位（毒泉 = PathFlag.IgnorePoison / 栈道 = PathFlag.IgnoreCliffroad）。
+            // 标记由特技、科技、事件等任一来源置位，这里只读位。
+            if (terrain.moveImmunityFlag != 0 && (pathFlags & terrain.moveImmunityFlag) != 0)
+                return;
+
+            int damage = terrain.moveDamageBase;
+            if (terrain.moveDamageRandom > 0)
+                damage += GameRandom.Range(0, terrain.moveDamageRandom);
+
+            if (damage <= 0) return;
+
+            ChangeTroops(-damage, null, 0);
+        }
+
+        /// <summary>队内任一武将是否具备指定特技（原版的 Unit 级 has_skill 聚合）</summary>
+        public bool HasFeature(int featureId)
+        {
+            if (featureId <= 0) return false;
+            if (Leader != null && Leader.HasFeatrue(featureId)) return true;
+            if (Member1 != null && Member1.HasFeatrue(featureId)) return true;
+            if (Member2 != null && Member2.HasFeatrue(featureId)) return true;
+            return false;
         }
 
         /// <summary>
@@ -3108,6 +3365,18 @@ namespace Sango.Core
             {
                 person.mBelongTroop = null;
 
+                // 【原版对齐】临时武将（异族 / 贼的克隆体，type = Temporary）部队被消灭后
+                // 直接彻底删除，不下野、也不落回据点。对应 Open311 unit_disband 对
+                // is_temporary() 的收集 + 末尾 person_die（s11_sys_scen_unit.cpp:231-233、256-257）。
+                // 本项目临时武将是每次出兵从模板深拷贝、scenario.Add 动态分配 Id 的，
+                // 彻底删除等价于原版"复用 inactive 槽"；若只标记死亡（Dead），
+                // 每次出兵克隆一个、被消灭留一个，死临时武将会无限累积。
+                if (person.IsTemporary)
+                {
+                    Scenario.Cur.Remove(person);
+                    return;
+                }
+
                 // 【原版对齐】部队消失后武将必须重新有落脚点。
                 // Open311 的 unit_disband 会：取最近据点 -> person_set_location_id，
                 // 所属城与落点不同则额外 person_leave + Return 命令；
@@ -3132,7 +3401,10 @@ namespace Sango.Core
                 }
                 else
                 {
-                    PersonStateSystem.LeaveToWild(person, person.CurrentCity, PersonChangeReason.Fixed);
+                    // 【修复】无户口武将下野时，落点优先用部队所在城（belongCity），
+                    // 避免 CurrentCity 为 null（出征时在部队）导致 LeaveToWild 生成
+                    // "在野却无城"的脏状态 —— 之后 BeRecruit 的 CurrentCity.RemoveWildPerson 会空引用崩溃。
+                    PersonStateSystem.LeaveToWild(person, person.CurrentCity ?? belongCity, PersonChangeReason.Fixed);
                 }
             });
             base.Clear();
@@ -3371,9 +3643,82 @@ namespace Sango.Core
         }
 
 
+        /// <summary>
+        /// 从 `from` 的相邻**己方**据点里，挑"从本部队当前位置出发代价最小"的一座。
+        ///
+        /// 【为什么用逆向 A* 而不是逐城比较】原版 `get_path_to_ring0/1/2` 就是
+        /// 多目标一次搜索：把整圈候选放进 open，弹出起点时自然得到"哪座最优"。
+        /// 逐城比较要跑 k 次搜索（k = 相邻据点数量），且每次都从零展开。
+        ///
+        /// 【代价口径】`Map.GetPathReverseAStar` 内部走 `PathAlignment.GetStepCost`，
+        /// 已经包含地形消耗、敌我部队/建筑附加、ZOC、毒泉栈道、着火 —— 与原版 `UnitPath` 同口径。
+        /// </summary>
+        /// <param name="troop">部队</param>
+        /// <param name="from">起点城（通常是部队当前所在区域的据点）</param>
+        /// <param name="scenario">场景</param>
+        /// <returns>最优的相邻己方据点；没有候选返回 null</returns>
+        static City PickBestNeighborCity(Troop troop, City from, Scenario scenario)
+        {
+            if (troop == null || from == null || scenario == null || scenario.Map == null)
+                return null;
+
+            List<City> cities = new List<City>();
+            List<Cell> targets = new List<Cell>();
+
+            from.ForeachNeighborCities(c =>
+            {
+                if (c == null || !c.IsAlive) return;
+                if (troop.BelongForce == null || c.BelongForce != troop.BelongForce) return;
+                if (c.CenterCell == null) return;
+
+                cities.Add(c);
+                targets.Add(c.CenterCell);
+            });
+
+            if (cities.Count == 0)
+                return null;
+            if (cities.Count == 1)
+                return cities[0];
+
+            List<Cell> path = new List<Cell>();
+            int cost = scenario.Map.GetPathReverseAStar(troop, targets, path);
+
+            if (cost == Map.PathCostImpossible || path.Count == 0)
+                return cities[0];   // 全不可达：退回原来的"就近"行为，不让部队卡死
+
+            // 路径终点落在哪座城的中心格上，那座就是最优目标
+            Cell last = path[path.Count - 1];
+            for (int i = 0; i < cities.Count; i++)
+            {
+                if (cities[i].CenterCell == last)
+                    return cities[i];
+            }
+
+            return cities[0];
+        }
+
         public void SetMission(MissionType missionType, int missionTarget)
         {
             if(BelongForce == null) return;
+
+            // 【空壳任务兜底】TroopProtectBuilding / TroopProtectTroop 目前没有行为实现
+            // （DoAI 直接 return true、IsMissionComplete 抛 NotImplementedException），
+            // 一旦被选中部队会原地不动、并在判定完成时抛异常。
+            //   原版 Escort(6) 本身就是死代码（run_order 直接 result = false）；
+            //   原版 Expel(5) 的语义已由 TroopProtectCity 承担（守城即驱逐来犯之敌）。
+            // 所以这里统一改判为守城，确保任何入口（玩家菜单 / AI 改派 / 旧存档）都不会产生死任务。
+            if (missionType == MissionType.TroopProtectBuilding
+                || missionType == MissionType.TroopProtectTroop)
+            {
+                missionType = MissionType.TroopProtectCity;
+
+                // ProtectBuilding 的目标是**建筑 Id**，而 ProtectCity 期望**城 Id**。
+                // 直接改判会把建筑 Id 当城 Id 用（找不到城 → 任务空转）。
+                // 这里先按城 Id 校验一次，不匹配就退化为"守本城"。
+                Scenario currentScenario = Scenario.Cur;
+                if (currentScenario != null && FindCityById(currentScenario, missionTarget) == null)
+                    missionTarget = BelongCity != null ? BelongCity.Id : -1;
+            }
 
             // 【委任部队】玩家第一军团不使用面向势力 AI 的任务枚举：
             // 这里统一把 TroopXXX 映射为 PlayerTroopXXX（见 TroopMissionBehaviour.ToPlayerMission）。
@@ -3567,15 +3912,14 @@ namespace Sango.Core
                 // 旧任务的行为对象，继续执行会造成"旧对象跑新任务"——本回合空转，且 TargetCity /
                 // priorityActionData 与新任务不匹配。
                 // 切换可能链式发生（进攻 → 协防 → 返城），因此循环刷新直到任务与行为对象一致。
+                bool needFallbackRetreat = false;
                 for (int guard = 0; guard < 4; guard++)
                 {
                     TroopMissionBehaviour refreshed = TroopMissionBehaviour;
                     if (refreshed == null)
                     {
-                        GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
-                        AIFinished = true;
-                        ActionOver = true;
-                        return true;
+                        needFallbackRetreat = true;
+                        break;
                     }
 
                     // 任务与行为对象已一致，无需继续刷新
@@ -3589,6 +3933,39 @@ namespace Sango.Core
                     {
                         temp.Prepare(this, scenario);
                         isMissionPrepared = true;
+                    }
+                }
+
+                // 【原版 unit_run_order】命令执行不出来时，再给一次"撤退 + 重试"的机会。
+                // 出处：s11_game_ai_unit.cpp:429-448
+                //   run_order 失败 && 未行动完成 && 有命令 && 非玩家控制 → unit_retreat → 再 run_order
+                //
+                // 【语义注意】本项目 DoAI 的返回值是"动作未完成"（移动动画等），不能直接当"命令失败"用；
+                // 这里只在"任务行为对象根本建不出来"（即命令无法执行）时才触发，语义与原版一致。
+                if (needFallbackRetreat)
+                {
+                    bool canFallback = AIConfig.Instance.useStrictOpen311UnitAI
+                        && !ActionOver
+                        && missionType != (int)MissionType.None
+                        && !IsPlayerControl;
+
+                    if (canFallback)
+                    {
+                        RetreatAIOrder();
+                        temp = TroopMissionBehaviour;
+                        if (temp != null)
+                        {
+                            temp.Prepare(this, scenario);
+                            isMissionPrepared = true;
+                        }
+                    }
+
+                    if (temp == null)
+                    {
+                        GameEvent.OnTroopAIEnd?.Invoke(this, scenario);
+                        AIFinished = true;
+                        ActionOver = true;
+                        return true;
                     }
                 }
             }
@@ -3675,6 +4052,473 @@ namespace Sango.Core
             // 委任 AI：无任何额外逻辑，直接进入任务执行层。
         }
 
+        #region 原版部队 AI 直译（GameAI::unit_update_order / unit_retreat / unit_has_invalid_target）
+
+        /// <summary>
+        /// 【原版直译】部队命令更新 —— GameAI::unit_update_order（s11_game_ai_unit.cpp:99-315）。
+        ///
+        /// 原版语义：每回合行动前，按"出征意图（deploy_type）+ 当前状态"决定：
+        ///   · 继续执行原任务；
+        ///   · 改派成别的任务；
+        ///   · 或转入撤退（unit_retreat）。
+        /// 方法最后必然落到一个结论（原版是"要么 return true，要么掉到末尾就撤退"）。
+        ///
+        /// 【本项目差异说明】原版有几处依赖 Sango 没有的数据结构，这里做了标注：
+        ///   1. `request_force`（国境求援）—— Sango 无部队级字段，整段跳过；
+        ///   2. `kyoten state == Battle / enemy_unit_count`（据点战斗态）——
+        ///      Sango 无据点级战斗态缓存，这段"被围时转防卫"的逻辑暂不实现；
+        ///   3. `district policy`（军团政策目标）—— Sango 用 Corps.appoint 表达，
+        ///      语义不同，放到 HasInvalidMissionTarget 里按"目标是否己方/是否敌对"近似。
+        /// 其余分支逐行照搬。
+        /// </summary>
+        /// <returns>true = 本回合处理完毕；false = 需要中断（原版 stop_）</returns>
+        public bool UpdateAIOrder(Scenario scenario)
+        {
+            if (scenario == null || !IsAlive)
+                return true;
+
+            // :103-104 非正规势力（贼军 / 异民族）不参与命令更新
+            Force force = BelongForce;
+            if (force == null || !force.IsNormal)
+                return true;
+
+            // :107-113 玩家部队：直属军团由玩家自己指挥，其余做"目标失效"体检
+            if (IsPlayerControl)
+            {
+                bool isPlayerMainCorps = BelongCorps != null && BelongCorps.number == 1;
+                if (!isPlayerMainCorps && HasInvalidMissionTarget(scenario))
+                    return RetreatAIOrder();
+            }
+
+            // :114-123 求援部队（request_force >= 0）
+            //
+            // 原版语义：响应援军请求而来的部队**不参与正常的意图改派**，
+            // 只做一件事 —— 判断是否可以撤回。任一条件成立就撤退：
+            //   · 断粮 / 兵力 ≤ 500
+            //   · 与求援方变成敌对（同盟破裂）
+            //   · 目标对象已消失
+            //   · 目标不再敌对
+            // 全部不成立则保持当前任务继续支援。
+            int requestForce = requestForceId;
+            if (requestForce >= 0)
+            {
+                Force requestForceObj = scenario.forceSet != null ? scenario.forceSet.Get(requestForce) : null;
+                City requestCity = GetMissionTargetCity(scenario);
+
+                bool requestInvalid =
+                    food < PrepeareFoodCost()
+                    || troops <= 500
+                    || requestForceObj == null
+                    || IsEnemy(BelongForce, requestForceObj)                       // 与求援方反目
+                    || requestCity == null
+                    || !requestCity.IsAlive
+                    || (requestCity.BelongForce != null && !IsEnemy(BelongForce, requestCity.BelongForce));
+
+                if (requestInvalid)
+                {
+                    requestForceId = -1;
+                    return RetreatAIOrder();
+                }
+
+                return true;
+            }
+
+            // :124-130 读意图层
+            TroopDeployType dType = (TroopDeployType)deployType;
+            City deployCity = GetDeployTargetCity(scenario);
+
+            // :132-163 撤退判定
+            //   原版：food_shortage 或 (非猪突 且 兵力 <= 500)
+            //   再叠加：攻城兵器若所有可用战法的气力都不够，同样撤退
+            // 【性格来源】"是否猪突"读性格上的 isChototsu 标记，不依赖性格枚举取值，
+            // 新增性格只需在 Personalities.json 里勾上该字段。
+            bool chototsu = LeaderPersonality != null && LeaderPersonality.isChototsu;
+            bool foodShortage = food < PrepeareFoodCost();
+            bool needRetreat = foodShortage || (!chototsu && troops <= 500);
+
+            if (!needRetreat && dType != TroopDeployType.None && HasSiegeEquipment() && !HasUsableTactic())
+                needRetreat = true;
+
+            switch (dType)
+            {
+                case TroopDeployType.Attack:
+                    if (!needRetreat)
+                    {
+                        // :185-198 出发据点正在被围攻 → 就地转防卫回援。
+                        // 原版条件（全部满足）：
+                        //   ① 所属据点存在且是自己的；
+                        //   ② 据点处于战斗状态（kyoten state == Battle）；
+                        //   ③ 部队当前站在自己的据点领地上（hex.area_building_id == service_id）；
+                        //   ④ 围攻敌军数 >= 城内空闲武将数（守不住）；
+                        //   ⑤ 自己不是冲车（EquipmentId_Shousha 不回援——它拆城比守城有用）。
+                        // 【近似】第 ② 条本项目没有据点战斗态缓存，用"据点影响范围内有敌军"代替。
+                        if (IsServiceUnderSiege(scenario, out City besieged))
+                        {
+                            deployType = (int)TroopDeployType.Defense;
+                            deployTarget = besieged.Id;
+                            if ((MissionType)missionType != MissionType.TroopProtectCity)
+                                SetMission(MissionType.TroopProtectCity, besieged.Id);
+                            return true;
+                        }
+
+                        if (IsValidDeploy(dType, deployCity))
+                        {
+                            // :200-214 目标仍可攻：仅在"无令/待机/撤退中"时改派攻击
+                            switch ((MissionType)missionType)
+                            {
+                                case MissionType.TroopMovetoCell:
+                                    if (missionTargetCell != null) break;   // 原版 is_valid_pos(order_target_pos)
+                                    goto case MissionType.TroopStay;
+
+                                case MissionType.TroopMovetoCity:
+                                    if (missionTarget >= 0) break;          // 移动令的目标城有效
+                                    goto case MissionType.TroopStay;
+
+                                case MissionType.TroopStay:
+                                case MissionType.TroopReturnCity:
+                                    // :210 原版 rand_bool(50) ? Attack : Subjugate
+                                    if (deployCity != null)
+                                        SetMission(GameRandom.Chance(50) ? MissionType.TroopDestroyTroop : MissionType.TroopOccupyCity, deployCity.Id);
+                                    break;
+                            }
+                            return true;
+                        }
+
+                        // :215-225 目标已经变成己方（城被打下了 / 部队归顺）：转为移动过去
+                        if (deployCity != null && deployCity.BelongForce == force)
+                        {
+                            switch ((MissionType)missionType)
+                            {
+                                case MissionType.TroopMovetoCell:
+                                case MissionType.TroopMovetoCity:
+                                case MissionType.TroopReturnCity:
+                                    return true;
+                            }
+                            SetMission(MissionType.TroopMovetoCity, deployCity.Id);
+                            return true;
+                        }
+                    }
+                    break;
+
+                case TroopDeployType.Defense:
+                    if (!needRetreat)
+                    {
+                        // :231-248 目标据点失守时，原版允许"就近改判到相邻的己方据点"：
+                        //   ① building = 部队当前所在区域的据点，必须存在且是自己的；
+                        //   ② ai_table_get_kyoten_distance(deploy_target, building, force) == 1（两据点相邻）；
+                        //   ③ building 本身也要满足 Defense 的合法性。
+                        // 本项目用 City.NeighborList（相邻城市表）承担第 ② 条。
+                        if (!IsValidDeploy(dType, deployCity))
+                        {
+                            City here = cell != null ? cell.BelongCity : null;
+                            if (here == null || !here.IsAlive || here.BelongForce != force)
+                                break;
+                            if (deployCity == null || !deployCity.IsNeighborKyoten(here))
+                                break;
+
+                            // 原版只取"部队当前所在区域的据点"（`here`）；
+                            // 这里用一次多目标逆向 A*，在**所有相邻己方据点**里挑代价最小的，
+                            // 避免"取第一个相邻城"导致部队绕远路。
+                            City best = PickBestNeighborCity(this, here, scenario);
+                            if (best == null) best = here;
+
+                            if (!IsValidDeploy(dType, best))
+                                break;
+                            deployCity = best;
+                        }
+
+                        // :249-261 原版改为 Expel（驱逐），本项目对应"守城"
+                        switch ((MissionType)missionType)
+                        {
+                            case MissionType.TroopMovetoCell:
+                                if (missionTargetCell != null) break;
+                                goto case MissionType.TroopStay;
+
+                            case MissionType.TroopMovetoCity:
+                                if (missionTarget >= 0) break;
+                                goto case MissionType.TroopStay;
+
+                            case MissionType.TroopStay:
+                            case MissionType.TroopReturnCity:
+                                if (deployCity != null)
+                                    SetMission(MissionType.TroopProtectCity, deployCity.Id);
+                                break;
+                        }
+                        return true;
+                    }
+                    break;
+
+                case TroopDeployType.Transport:
+                    if (!IsValidDeploy(dType, deployCity))
+                        break;
+
+                    // :267-276 输送队：唯一命令就是"移动到目标据点"
+                    //   原版 UnitOrderId_Move 到达己方据点后由 unit_enter 自动卸货，
+                    //   本项目与之对应的任务不是 TroopMovetoCity（那只是"走过去"，到达后不做物资结算），
+                    //   而是 TroopTransformGoodsToCity（移动到目标城 + 抵达后 EnterCity 卸货）。
+                    //   判据同样照抄原版：已在执行且目标准确 → 保持不动（:269-271 的 break）。
+                    MissionType transportMission = (MissionType)missionType;
+
+                    // :269-271 已经在移动且目标坐标有效 → 保持不动
+                    if (transportMission == MissionType.TroopMovetoCell && missionTargetCell != null)
+                        return true;
+
+                    // 补给队 / 求援：missionTarget 是**友军部队 Id**，与 deployTarget（城 Id）不同域，
+                    // 不能参与城的比对；只要任务本身还在运输类就保持，避免被改判成"运物资到城"。
+                    if (transportMission == MissionType.TroopSupplyTroop
+                        || transportMission == MissionType.TroopAskSupply)
+                        return true;
+
+                    // 运物资到城：目标城必须与 deployTarget 一致才保持。
+                    if (transportMission == MissionType.TroopTransformGoodsToCity
+                        && deployCity != null
+                        && missionTarget == deployCity.Id)
+                        return true;
+
+                    if (deployCity != null)
+                        SetMission(MissionType.TroopTransformGoodsToCity, deployCity.Id);
+                    return true;
+
+                case TroopDeployType.Build:
+                    if (needRetreat)
+                        break;
+                    // :281 原版要求携带金 >= 200，否则放弃工程
+                    if (gold < 200)
+                        break;
+                    if (!IsValidDeploy(dType, deployCity))
+                        break;
+
+                    // :285-291 工程队无令/待机 → 直接撤退
+                    switch ((MissionType)missionType)
+                    {
+                        case MissionType.TroopStay:
+                        case MissionType.TroopReturnCity:
+                            return RetreatAIOrder();
+                    }
+                    return true;
+
+                case TroopDeployType.None:
+                    if (missionType == (int)MissionType.None || missionType == 0)
+                    {
+                        // :293-301 无意图且无令：脚下若是有主/敌方据点就地征服，否则撤退
+                        City here = cell != null ? cell.BelongCity : null;
+                        if (here == null || here.BelongForce != force)
+                            return RetreatAIOrder();
+                        SetMission(MissionType.TroopOccupyCity, here.Id);
+                        return true;
+                    }
+                    goto default;
+
+                default:
+                    // :304-310 其它情况：无令 / 待机 → 撤退
+                    switch ((MissionType)missionType)
+                    {
+                        case MissionType.None:
+                        case MissionType.TroopStay:
+                            return RetreatAIOrder();
+                    }
+                    return true;
+            }
+
+            // :312-314 到了这里说明上面的分支都没结论
+            if ((MissionType)missionType == MissionType.TroopReturnCity)
+                return true;
+            return RetreatAIOrder();
+        }
+
+        /// <summary>
+        /// 【原版直译】撤退 —— GameAI::unit_retreat（s11_game_ai_unit.cpp:378-399）。
+        ///
+        /// 原版：把命令设成 Retreat，目标坐标 = 所属据点（service）的坐标。
+        /// 所属据点不存在时退化为 Subjugate（本项目无对应命令，直接放弃任务）。
+        /// </summary>
+        bool RetreatAIOrder()
+        {
+            if (!IsAlive)
+                return false;
+
+            City service = BelongCity;
+            if (service == null)
+            {
+                // 原版：unit_set_order(unit, UnitOrderId_Subjugate, NullPos, -1)
+                // 本项目没有"空目标征服"，用返城到当前所在地兜底
+                SetMission(MissionType.TroopMovetoCity, -1);
+                return true;
+            }
+
+            SetMission(MissionType.TroopMovetoCity, service.Id);
+            return true;
+        }
+
+        /// <summary>
+        /// 【原版直译】目标失效检测 —— GameAI::unit_has_invalid_target（s11_game_ai_unit.cpp:317-376）。
+        ///
+        /// 原版判定（部队型）：
+        ///   1. 当前命令是 Expel（驱逐）时豁免；
+        ///   2. 目标对象已消失；
+        ///   3. 目标是自己势力；
+        ///   4. 目标势力与自己不再是敌对；
+        ///   5. 军团政策目标（CaptureForce / CaptureCity）与当前目标不符。
+        ///
+        /// 【差异】第 5 条依赖原版 DistrictPolicy，本项目的 Corps.appoint 语义不同，
+        /// 暂只实现 2/3/4 三条；第 1 条的 Expel 对应本项目 TroopProtectCity。
+        /// </summary>
+        public bool HasInvalidMissionTarget(Scenario scenario)
+        {
+            if (scenario == null || !IsAlive)
+                return false;
+
+            // :327-328 驱逐（守城）命令豁免
+            if ((MissionType)missionType == MissionType.TroopProtectCity)
+                return false;
+
+            if (IsTransport)
+            {
+                // :367-373 输送队：目标必须存在且是自己势力
+                City target = GetMissionTargetCity(scenario);
+                if (target == null || !target.IsAlive)
+                    return true;
+                if (target.BelongForce != BelongForce)
+                    return true;
+                return false;
+            }
+
+            // :331-342 作战部队
+            City missionCity = GetMissionTargetCity(scenario);
+            if (missionCity == null || !missionCity.IsAlive)
+                return true;
+            if (missionCity.BelongForce == BelongForce)
+                return false;                                    // 目标变成自己的，交给 UpdateAIOrder 处理
+            if (missionCity.BelongForce != null && !IsEnemy(BelongForce, missionCity.BelongForce))
+                return true;                                     // 外交变化：不再敌对
+
+            return false;
+        }
+
+        /// <summary>取意图目标对应的据点（原版 get_building(deploy_target)）</summary>
+        City GetDeployTargetCity(Scenario scenario)
+        {
+            return FindCityById(scenario, deployTarget);
+        }
+
+        /// <summary>取当前任务目标对应的据点</summary>
+        City GetMissionTargetCity(Scenario scenario)
+        {
+            return FindCityById(scenario, missionTarget);
+        }
+
+        /// <summary>按 Id 在 citySet 里找据点（城 / 关 / 港统一建模）</summary>
+        static City FindCityById(Scenario scenario, int id)
+        {
+            if (scenario == null || scenario.citySet == null || id < 0)
+                return null;
+            for (int i = 0; i < scenario.citySet.Count; i++)
+            {
+                City c = scenario.citySet[i];
+                if (c != null && c.Id == id)
+                    return c;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 【原版直译】意图合法性 —— GameAI::is_valid_deploy（s11_game_ai_unit.cpp:401-427）。
+        ///   Attack：目标存在、不是自己势力、且与自己敌对（或无主）；
+        ///   Defense / Transport / Build：目标必须是自己势力。
+        /// </summary>
+        bool IsValidDeploy(TroopDeployType type, City target)
+        {
+            if (target == null || !target.IsAlive)
+                return false;
+
+            Force self = BelongForce;
+            switch (type)
+            {
+                case TroopDeployType.Attack:
+                    if (target.BelongForce == self)
+                        return false;
+                    if (target.BelongForce != null && !IsEnemy(self, target.BelongForce))
+                        return false;
+                    break;
+
+                case TroopDeployType.Defense:
+                case TroopDeployType.Transport:
+                case TroopDeployType.Build:
+                    if (target.BelongForce != self)
+                        return false;
+                    break;
+            }
+            return true;
+        }
+
+        /// <summary>本部队是否为攻城器械（按配置的 siegeRole 判定，不认兵种 Id）</summary>
+        bool HasSiegeEquipment()
+        {
+            TroopType tt = TroopType;
+            return tt != null && tt.siegeRole != 0;
+        }
+
+        /// <summary>
+        /// 原版 s11_game_ai_unit.cpp:145-161：遍历兵装可用的战法，只要有一个气力够就算"还能打"。
+        /// </summary>
+        bool HasUsableTactic()
+        {
+            List<SkillInstance> list = skills;
+            if (list == null || list.Count == 0)
+                return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                SkillInstance skill = list[i];
+                if (skill == null) continue;
+                if (energy >= skill.costEnergy)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 【原版直译】所属据点是否正被围攻且守不住 —— unit_update_order 的 Attack 分支前置判定
+        /// （D:\open311\s11\s11_game_ai_unit.cpp:185-198）。
+        ///
+        /// 原版五个条件：
+        ///   ① 所属据点存在、且是自己的；
+        ///   ② 据点处于战斗状态（<c>kyoten[service].state == KyotenState_Battle</c>）；
+        ///   ③ 部队当前站在自己据点的领地上（<c>hex.get_area_building_id(false) == service_id</c>）；
+        ///   ④ 围攻敌军数 &gt;= 城内空闲武将数（<c>enemy_unit_count &gt;= idle_person_count</c>）；
+        ///   ⑤ 自己不是冲车（<c>EquipmentId_Shousha</c> 不回援）。
+        ///
+        /// 【说明】第 ② 条用 <see cref="City.IsBattleState"/>（领地内敌军数 &gt; 0），
+        /// 与原版 KyotenState_Battle 的定义完全一致；第 ④ 条取 <see cref="City.FreePersonCount"/>。
+        /// </summary>
+        bool IsServiceUnderSiege(Scenario scenario, out City service)
+        {
+            service = BelongCity;
+            if (service == null || !service.IsAlive)
+                return false;
+
+            // ③ 必须在自家据点领地上
+            City area = cell != null ? cell.BelongCity : null;
+            if (area != service)
+                return false;
+
+            // ⑤ 冲车不回援：它拆城比守城有用
+            TroopType tt = TroopType;
+            if (tt != null && tt.siegeRole == (int)SiegeRoleType.Ram)
+                return false;
+
+            // ② 据点处于战斗状态 —— 原版定义就是"据点区域内存在敌军"（s11_enum_scen.h:63），
+            //    统计口径见 City.CountEnemyUnitsInTerritory（领地 = OccupyCellList）。
+            int enemyCount = service.CountEnemyUnitsInTerritory();
+            if (enemyCount <= 0)
+                return false;
+
+            // ④ 敌军数压过城内可应战的武将数 → 守不住，需要在外部队回援
+            //    原版 idle_person_count = "명령 가능한 무장 수"（可下令的武将数）
+            return enemyCount >= service.FreePersonCount;
+        }
+
+        #endregion
+
         /// <summary>
         /// 【势力 AI】AI 势力（及玩家势力非主军团）部队的行动前准备：完整的启发式流程
         /// （态势撤退 / 就近补给 / 求援 / 随军增筑 / 角色推导等）。
@@ -3689,6 +4533,23 @@ namespace Sango.Core
         {
             if (IsPlayerControl)
                 return;
+
+            // 【严格对齐原版】走 unit_update_order 的直译（<see cref="UpdateAIOrder"/>）。
+            // 决策只看"出征意图 + 断粮 / 兵少 / 器械气力"，与下面这套本项目启发式互斥，
+            // 由 AIConfig.useStrictOpen311UnitAI 切换（默认严格）。
+            //
+            // 注意：role 的固化（ResolveRole）在严格模式下仍然保留——它是**评分层**的输入，
+            // 不参与"打不打 / 撤不撤"的分支（原版也没有这个概念）；
+            // 运输队同样要走原版分支（DeployType_Transport），所以放在 IsTransport 之前。
+            if (AIConfig.Instance.useStrictOpen311UnitAI)
+            {
+                if (role == TroopRole.Auto)
+                    role = ResolveRole();
+
+                UpdateAIOrder(scenario);
+                return;
+            }
+
             if (IsTransport)
                 return;
 
@@ -3897,7 +4758,7 @@ namespace Sango.Core
             if (!best.isValid || best.cell == null)
                 return false;
 
-            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, BelongForce, scenario);
+            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, this, BelongForce, scenario);
             if (buildingType == null || gold < buildingType.cost)
                 return false;
 
@@ -4016,18 +4877,20 @@ namespace Sango.Core
             AIConfig cfg = AIConfig.Instance;
             if (cfg.useLeaderPersonality && cfg.useLeaderRoleOverride)
             {
-                Personality PersonalityId = LeaderPersonality;
-                if (PersonalityId != null && PersonalityId.troopAggression != 0)
+                Personality personality = LeaderPersonality;
+                // preferTroopRole = -1 表示"性格不指定角色"。
+                // 旧实现用 troopAggression 的符号猜（>0 攻坚 / <0 防守），
+                // 相当于把数值隐含成枚举，新增"中立好战"这类性格时无法表达；
+                // 现在由性格数据直接声明倾向角色，代码只负责"要不要覆盖"。
+                if (personality != null && personality.preferTroopRole >= 0)
                 {
-                    int strength = Math.Abs(PersonalityId.troopAggression);
+                    int strength = Math.Abs(personality.troopAggression);
                     // 性格允许的覆盖阈值（性格自身可再微调）
-                    int threshold = cfg.leaderRoleOverrideThreshold + PersonalityId.troopRoleOverrideAdd;
+                    int threshold = cfg.leaderRoleOverrideThreshold + personality.troopRoleOverrideAdd;
                     if (threshold < 0)
                         threshold = 0;
 
-                    TroopRole leaderRole = PersonalityId.troopAggression > 0
-                        ? TroopRole.Assault
-                        : TroopRole.Defender;
+                    TroopRole leaderRole = (TroopRole)personality.preferTroopRole;
 
                     // 倾向强烈 → 覆盖任务；否则以任务为准；任务无法映射时直接采用性格角色
                     if (missionRole == TroopRole.Auto || strength >= threshold)

@@ -51,7 +51,6 @@ namespace Sango.UI
         // ===== 数据 =====
         UIEditWorldMap uIEditWorldMap;
 
-        Title selectedTitle;
         ShortScenario scenario;
         ShortScenario src_scenario;
         ScenarioCommonData commonData;
@@ -138,7 +137,7 @@ namespace Sango.UI
             // 势力颜色按钮
             flagColorBtn.interactable = isValid;
             // 爵位按钮
-            rankBtn.interactable = false;
+            rankBtn.interactable = isValid;
             // 初始化按钮
             initBtn.interactable = isValid;
 
@@ -166,11 +165,12 @@ namespace Sango.UI
             if (flagColorImage != null)
                 flagColorImage.color = newForceData.Flag > 0 ? commonData.Flags[newForceData.Flag].color : Color.white;
 
-            // 爵位：自动分配第一个可用爵位
-            if (selectedTitle == null && commonData != null)
-                selectedTitle = GetNextAvailableTitle();
+            // 爵位：显示当前设定的爵位名（TitleId<=0 视为「无」）
             if (rankText != null)
-                rankText.text = selectedTitle != null ? selectedTitle.Name : "无";
+            {
+                Title title = (commonData != null && newForceData.TitleId > 0) ? commonData.Titles.Get(newForceData.TitleId) : null;
+                rankText.text = title != null ? title.Name : "无";
+            }
 
             // 国号
             // 【修正】原先显示 `defaultNationName`，而该字段只声明、从未赋值 ——
@@ -190,8 +190,9 @@ namespace Sango.UI
             RefreshAvatar();
             sureBtn.interactable = isValid;
 
-            SetCountText(unassignedNewPersonCountText, scenario.AppendPersonCount);
-            SetCountText(assignedNewPersonCountText, scenario.AppendPersonCount - scenario.AssignedPersonCount);
+            // 已配属 = AssignedPersonCount，未配属 = 总数 - 已配属（对齐 UIScenarioAddonMenu 的同名统计口径）
+            SetCountText(assignedNewPersonCountText, scenario.AssignedPersonCount);
+            SetCountText(unassignedNewPersonCountText, scenario.AppendPersonCount - scenario.AssignedPersonCount);
 
         }
         void SetCountText(Text text, int count)
@@ -268,34 +269,6 @@ namespace Sango.UI
             if (best != null) return best.Id;
             if (fallback != null) return fallback.Id;
             return 0;
-        }
-
-        /// <summary>
-        /// 获取下一个可用爵位（按 commonData 中 Titles 顺序取未使用的）
-        /// </summary>
-        Title GetNextAvailableTitle()
-        {
-            if (commonData == null || commonData.Titles == null)
-                return null;
-
-            //var addData = UIScenarioAddonMenu.AddData;
-            //if (addData == null || addData.NewForces == null)
-            //    return null;
-
-            //// 收集已用爵位
-            //HashSet<int> usedTitleIds = new HashSet<int>();
-            //foreach (var nf in addData.NewForces)
-            //{
-            //    if (nf.Title != null)
-            //        usedTitleIds.Add(nf.Title.Id);
-            //}
-
-            //foreach (var title in commonData.Titles.objects)
-            //{
-            //    if (title != null && !usedTitleIds.Contains(title.Id))
-            //        return title;
-            //}
-            return null;
         }
 
         #region 按钮事件
@@ -382,25 +355,28 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 爵位：循环切换到下一个可用爵位
+        /// 爵位：循环切换到下一个爵位（按 Id 升序，覆盖「无」~「皇帝」全序列）
         /// </summary>
         void OnSelectRank()
         {
+            if (commonData == null || commonData.Titles == null || commonData.Titles.objects == null)
+                return;
+
             List<Title> titles = new List<Title>();
-            if (commonData != null && commonData.Titles != null && commonData.Titles.objects != null)
+            foreach (var title in commonData.Titles.objects)
             {
-                foreach (var title in commonData.Titles.objects)
-                {
-                    if (title != null)
-                        titles.Add(title);
-                }
+                if (title != null)
+                    titles.Add(title);
             }
             if (titles.Count == 0)
                 return;
 
-            int idx = titles.IndexOf(selectedTitle);
+            // 按 Id 升序，保证循环切换顺序稳定
+            titles.Sort((a, b) => a.Id.CompareTo(b.Id));
+
+            int idx = titles.FindIndex(t => t.Id == newForceData.TitleId);
             idx = (idx + 1) % titles.Count;
-            selectedTitle = titles[idx];
+            newForceData.TitleId = titles[idx].Id;
             RefreshUI();
         }
 

@@ -333,7 +333,6 @@ namespace Sango.Core
                 {
                     return;
                 }
-                person.BelongForce = null;
                 person.BelongCorps = null;
                 person.BelongCity = null;
                 person.CurrentCity = null;
@@ -406,7 +405,6 @@ namespace Sango.Core
 
             // 君主归属势力与主军团
             governor.BelongForceId = force.Id;
-            governor.BelongForce = force;
             governor.BelongCorpsId = mainCorps.Id;
             governor.BelongCorps = mainCorps;
             governor.state = (int)PersonStateType.Governor;
@@ -477,7 +475,6 @@ namespace Sango.Core
             {
                 Person person = personList[i];
                 person.BelongForceId = 0;
-                person.BelongForce = null;
                 person.BelongCorpsId = 0;
                 person.BelongCorps = null;
                 person.state = (int)PersonStateType.Unemployed;
@@ -602,7 +599,6 @@ namespace Sango.Core
                 if (person != null && person.BelongCity == city && person.BelongForce == force)
                 {
                     person.BelongForceId = 0;
-                    person.BelongForce = null;
                     person.BelongCorpsId = 0;
                     person.BelongCorps = null;
                     person.state = (int)PersonStateType.Unemployed;
@@ -896,7 +892,6 @@ namespace Sango.Core
             });
             // 解除势力/军团/城池等从属关系
             person.BelongForceId = 0;
-            person.BelongForce = null;
             person.BelongCorpsId = 0;
             person.BelongCorps = null;
             person.BelongCityId = 0;

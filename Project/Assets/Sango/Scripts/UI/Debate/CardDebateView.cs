@@ -1655,7 +1655,12 @@ namespace Sango.Core.Debate
             if (side.personalityText != null)
                 // 注意：Character.PersonalityId 默认是 -1（只是个可选覆盖值），
                 // 真实性格要走 CharacterGetPersonality —— 它在越界时会回退到 person.GetPersonality()
-                side.personalityText.text = DebateGameSystem.PersonalityNameOf(m_Debate.CharacterGetPersonality(c));
+                // 直接读性格数据自身的 Name —— 不再依赖"档位 → 名字数组"的硬编码映射，
+                // 新增或重排性格时显示自动正确。
+                side.personalityText.text = c != null && c.person != null && c.person.mPersonality != null
+                    && !string.IsNullOrEmpty(c.person.mPersonality.Name)
+                    ? c.person.mPersonality.Name
+                    : "—";
             if (side.hpText != null)
                 side.hpText.text = c.hp + " / " + Debate.MaxHP;
             // 体力条水平填充、两侧镜像：左边那位从右往左涨，右边那位从左往右涨

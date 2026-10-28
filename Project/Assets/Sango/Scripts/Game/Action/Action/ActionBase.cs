@@ -98,6 +98,9 @@ namespace Sango.Core.Action
             Register("ForcePersonLoyaltyChange", CraeteHandle<ForcePersonLoyaltyChange>);
             // 军制改革：拥有该研究的势力，所有部队的兵力上限增加 3000。
             Register("ForceTroopMaxTroop", CraeteHandle<ForceTroopMaxTroop>);
+            // 势力能力标记：给掌握该技巧的势力打上 ForceAbilityFlags 的位
+            // （如神火计 = DivineFire，业务侧据此判断"会不会这招"，而不是反查技巧列表）。
+            Register("ForceAddAbilityFlag", CraeteHandle<ForceAddAbilityFlag>);
             // 精锐枪兵：拥有该研究的势力，枪兵部队攻击力增加 10。
             // 精锐戟兵：拥有该研究的势力，戟兵部队攻击力增加 10。
             // 精锐弩兵：拥有该研究的势力，弩兵部队攻击力增加 10。
@@ -312,6 +315,9 @@ namespace Sango.Core.Action
             Register("CityChangeFoodCost", CraeteHandle<CityChangeFoodCost>);
             // 特技 #78 筑城：军事设施建设时的耐久上升量提高至 200%。
             Register("TroopImproveBuildPower", CraeteHandle<TroopImproveBuildPower>);
+            // 通用：给部队设置寻路/地形免疫标记位（PathFlag）。
+            // 解毒 flag=1、踏破/藤甲 flag=2，均可在 Features.json 里配置。
+            Register("TroopSetPathFlag", CraeteHandle<TroopSetPathFlag>);
             // 特技 #52 猛者：以战法让敌方部队移动区格时，有几率让敌方一名武将负伤。
             Register("TroopOffsetInjurePerson", CraeteHandle<TroopOffsetInjurePerson>);
             // 特技 #53 护卫：本部队的武将不会负伤（免伤判定挂在 PersonInjury 的询问事件上，

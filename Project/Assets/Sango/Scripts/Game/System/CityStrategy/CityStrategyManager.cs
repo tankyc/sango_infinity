@@ -155,6 +155,22 @@ namespace Sango.Core
             Force targetForceA = scenario.forceSet.Get(param3);
             Force targetForceB = strategyType == CityStrategyType.TwoTigers ? scenario.forceSet.Get(param4) : null;
 
+            // 【目标势力可能在使者赶路期间灭亡】
+            // 出使耗时是"两城最短路径天数"（见 Dispatch），这段时间里被施计 / 被挑拨的势力
+            // 完全可能被灭国；Force.Ruin 之后 forceSet.Get(id) 就取不到对象。
+            // 原实现只校验 envoy / targetCity / sender，Action 会带着 null 的 TargetForceB 进
+            // CalculateSuccessRate，在读取 TargetForceB.CapitalCity 时空引用
+            // （Crash 现场：CityStrategyActionTwoTigers.cs:84）。
+            // 处理原则：失去作用对象的计略直接作废（返回 Failed），
+            // 调用方 Person.UpdateMission 会照常给使者挂返程任务，不留"既没办事也没回家"的武将。
+            if (targetForceA == null || !targetForceA.IsAlive
+                || (strategyType == CityStrategyType.TwoTigers
+                    && (targetForceB == null || !targetForceB.IsAlive || targetForceB == targetForceA)))
+            {
+                Sango.Log.Warning($"*[计略]{envoy.Name} 抵达 {targetCity.Name} 时目标势力已不存在或无效，本次计略作废");
+                return CityStrategyResult.Failed;
+            }
+
             // DoMove 只改 mCurrentCity，mBelongCity 仍是出发城，故出发城与返程目标都直接取使者字段。
             // 被捕分支例外：City.AddCaptive 会把 mBelongCity 置空，所以调用方必须在使者被收押后跳过返程任务
             City fromCity = envoy.BelongCity;

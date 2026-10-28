@@ -28,7 +28,9 @@ namespace Sango.Core.Action
         {
             if (Force != null && troop.BelongForce != Force) return;
             if (Troop != null && Troop != troop) return;
-            troop.BuildPower = troop.BuildPower * value / 100;
+            // 读改写走 BuildPowerRaw：BuildPower 的 getter 会乘 Buff 系数（如混乱 0.8），
+            // 直接读改写会把该系数固化进基础值，导致反复触发时持续缩水。
+            troop.BuildPowerRaw = troop.BuildPowerRaw * value / 100;
         }
     }
 }

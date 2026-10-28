@@ -150,9 +150,12 @@ namespace Sango.Core
             actionList = new List<ActionBase>();
             BuildingType.InitActions(actionList, this);
 
-            // 效果范围
+            // 攻击范围（attackMinRange / attackMaxRange，0 表示不攻击）
             effectCells = new System.Collections.Generic.List<Cell>();
-            scenario.Map.GetDirectSpiral(CenterCell, BuildingType.radius + 1, BuildingType.radius + BuildingType.atkRange, effectCells);
+            if (BuildingType.attackMaxRange > 0)
+                scenario.Map.GetDirectSpiral(CenterCell,
+                    BuildingType.radius + BuildingType.attackMinRange,
+                    BuildingType.radius + BuildingType.attackMaxRange, effectCells);
             isInited = true;
             //Init(scenario);
         }
@@ -189,9 +192,12 @@ namespace Sango.Core
                 actionList = new List<ActionBase>();
                 BuildingType.InitActions(actionList, this);
 
-                // 效果范围
+                // 攻击范围（attackMinRange / attackMaxRange，0 表示不攻击）
                 effectCells = new System.Collections.Generic.List<Cell>();
-                scenario.Map.GetDirectSpiral(CenterCell, BuildingType.radius + 1, BuildingType.radius + BuildingType.atkRange, effectCells);
+                if (BuildingType.attackMaxRange > 0)
+                    scenario.Map.GetDirectSpiral(CenterCell,
+                        BuildingType.radius + BuildingType.attackMinRange,
+                        BuildingType.radius + BuildingType.attackMaxRange, effectCells);
                 isInited = true;
             }
 

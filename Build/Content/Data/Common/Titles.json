@@ -4,61 +4,71 @@
       "Id": 1,
       "Name": "无",
       "troopsLimit": 10000,
-      "level": 0
+      "level": 0,
+      "maxCityCount": 2
     },
     "2": {
       "Id": 2,
       "Name": "州刺史",
       "troopsLimit": 11000,
-      "level": 1
+      "level": 1,
+      "maxCityCount": 4
     },
     "3": {
       "Id": 3,
       "Name": "州牧",
       "troopsLimit": 11000,
-      "level": 9
+      "level": 9,
+      "maxCityCount": 6
     },
     "4": {
       "Id": 4,
       "Name": "羽林中郎將",
       "troopsLimit": 12000,
-      "level": 6
+      "level": 6,
+      "maxCityCount": 8
     },
     "5": {
       "Id": 5,
       "Name": "五官中郎將",
       "troopsLimit": 12000,
-      "level": 2
+      "level": 2,
+      "maxCityCount": 12
     },
     "6": {
       "Id": 6,
       "Name": "大将军",
       "troopsLimit": 13000,
-      "level": 5
+      "level": 5,
+      "maxCityCount": 14
     },
     "7": {
       "Id": 7,
       "Name": "大司马",
       "troopsLimit": 13000,
-      "level": 7
+      "level": 7,
+      "maxCityCount": 18
     },
     "8": {
       "Id": 8,
       "Name": "公",
       "troopsLimit": 14000,
-      "level": 3
+      "level": 3,
+      "maxCityCount": 20
     },
     "9": {
       "Id": 9,
       "Name": "王",
       "troopsLimit": 14000,
-      "level": 4
+      "level": 4,
+      "maxCityCount": 24
     },
     "10": {
       "Id": 10,
       "Name": "皇帝",
       "troopsLimit": 15000,
-      "level": 8
+      "level": 8,
+      "maxCityCount": -1
     }
   }
 }

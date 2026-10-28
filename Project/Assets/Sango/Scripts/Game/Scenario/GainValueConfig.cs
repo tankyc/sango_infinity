@@ -233,10 +233,31 @@ namespace Sango.Core
         AbilityStudyResearchActionPointCost = 95,
         /// <summary>培育一次的行动力消耗（原版 learn_action_point_cost_ = 20，s11_sys_person_order.h:1370）</summary>
         AbilityStudyLearnActionPointCost = 96,
-        /// <summary>培育累计经验上限（原版 max_person_learning_stat_exp_ = 2000 = 20 点，s11_db.h:183；达到后该属性不可再培育，非培育途径仍可涨到总上限）</summary>
+        /// <summary>
+        /// 培育累计经验上限，口径 = **点数 × 每人所需经验**（默认 20 点 × 250 = 5000）。
+        /// 原版 max_person_learning_stat_exp_ = 2000（s11_db.h:183），原版 exp_per_stat = 100，
+        /// 即"培育通道最多给一条属性 20 点"；本项目 AttributeExpLevelNeed 默认 250，
+        /// 直接照抄 2000 只有 8 点，会在武将工作几年后把培育彻底堵死。
+        /// 达到该上限后该属性不可再培育（s11_sys_scen_ability.cpp:51 的 can_learn）。
+        /// </summary>
         AbilityStudyLearnExpCap = 97,
         /// <summary>培育任务的占用回合数（原版 person_set_order_timer(actor, 3)，s11_sys_person_order_kunshu.cpp:1715/1859/2001 —— 武将闭关 3 旬）</summary>
         AbilityStudyMissionTurns = 98,
+        #endregion
+
+        #region 战场补给（走 武将经验表 / 技巧点表）
+        //
+        // 原版出处：补给动作结算 `supply_anim` 里给补给队加经验与势力技巧点
+        // （s11_sys_anim_unit.cpp:1473-1474：
+        //   `unit_add_exp_with_kouseki(self, Exp_Supply, ..., 1, ...)` +
+        //   `force_add_tech_point(...)`）。
+        // 本项目没有"部队经验"这一层，最接近的等价物是主将的武将经验，因此 Exp 键归 expGain 表、
+        // 技巧点键归 techniquePointGain 表，可在剧本设置界面统一调整。
+
+        /// <summary>补给成功：主将获得的武将经验（原版 Exp_Supply）</summary>
+        SupplyExp = 100,
+        /// <summary>补给成功：势力获得的技巧点（原版 force_add_tech_point）</summary>
+        SupplyTechniquePoint = 101,
         #endregion
 
     }
@@ -431,12 +452,14 @@ namespace Sango.Core
             GainPlace.TechniquePointFromMerit,
             GainPlace.DuelWinTechniquePoint,
             GainPlace.DebateWinTechniquePoint,
+            GainPlace.SupplyTechniquePoint,
         };
 
         public static readonly GainPlace[] ExpPlaces =
         {
             GainPlace.ExpFromMerit,
             GainPlace.DuelDrawExp, GainPlace.DuelWinExp, GainPlace.DuelLoseExp,
+            GainPlace.SupplyExp,
         };
 
         public static readonly GainPlace[] AbilityExpPlaces =
@@ -522,6 +545,9 @@ namespace Sango.Core
                 case GainPlace.DuelDrawExp: return 3;
                 case GainPlace.DuelWinExp: return 10;
                 case GainPlace.DuelLoseExp: return 1;
+                // 战场补给（原版 Exp_Supply 为 1，技巧点同量）
+                case GainPlace.SupplyExp: return 1;
+                case GainPlace.SupplyTechniquePoint: return 1;
                 // 舌战（能力经验已按"低频成长"收紧到 1~3，原来是 10 / 30）
                 case GainPlace.DebateWin: return 100;
                 case GainPlace.DebateWinKind: return 200;
@@ -577,7 +603,7 @@ namespace Sango.Core
                 case GainPlace.AbilityStudyLearnChance: return 50;
                 case GainPlace.AbilityStudyResearchActionPointCost: return 20;
                 case GainPlace.AbilityStudyLearnActionPointCost: return 20;
-                case GainPlace.AbilityStudyLearnExpCap: return 2000;
+                case GainPlace.AbilityStudyLearnExpCap: return 5000;  // 20 点 × 250（AttributeExpLevelNeed 默认值）
                 case GainPlace.AbilityStudyMissionTurns: return 3;
                 default: return 0;
             }
@@ -653,6 +679,8 @@ namespace Sango.Core
                 case GainPlace.DuelDrawExp: return "单挑平局武将经验";
                 case GainPlace.DuelWinExp: return "单挑胜利武将经验";
                 case GainPlace.DuelLoseExp: return "单挑失败武将经验";
+                case GainPlace.SupplyExp: return "补给成功武将经验";
+                case GainPlace.SupplyTechniquePoint: return "补给成功势力技巧点";
                 case GainPlace.DebateWin: return "舌战胜利功绩";
                 case GainPlace.DebateWinKind: return "舌战胜利功绩(仁德/强硬)";
                 case GainPlace.DebateLose: return "舌战失败功绩";

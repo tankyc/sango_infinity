@@ -30,6 +30,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _Alpha: 1
     - _BaseColorIntensity: 0.3
     - _FlashFactor: 1
     - _OutlineWidth: 3.5

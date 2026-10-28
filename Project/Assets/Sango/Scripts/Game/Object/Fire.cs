@@ -75,7 +75,13 @@ namespace Sango.Core
 
         public override bool OnTurnEnd(Scenario scenario)
         {
-            if (!ActionOver)
+            // 回合流程现在按"对象名单快照"遍历火焰（Scenario.fireSnapshot），
+            // 同一轮里前几团火可能已经把这团清掉（Clear 只置 cell.fire = null，
+            // 但本对象的 mCell 仍非空），这里必须自己确认还活着。
+            if (!IsAlive)
+                return false;
+
+            if (!ActionOver && cell != null)
             {
                 Action();
             }
@@ -109,7 +115,8 @@ namespace Sango.Core
         /// <param name="scenario">当前剧本</param>
         public void SpreadFire(Scenario scenario)
         {
-            if (cell == null || scenario == null || scenario.Variables == null)
+            // 已被清掉的火焰不再向外点火（快照遍历 / 延迟事件里都可能出现这种对象）
+            if (!IsAlive || cell == null || scenario == null || scenario.Variables == null)
                 return;
 
             ScenarioVariables variables = scenario.Variables;

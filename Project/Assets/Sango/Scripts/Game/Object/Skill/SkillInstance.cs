@@ -59,6 +59,15 @@ namespace Sango.Core
         [JsonProperty] public int atkDurability;
 
         /// <summary>
+        /// 【AI 评分】本战法的动作常量，见 <see cref="Skill.aiActionBonus"/>。
+        /// 0 表示未配置，评分时回落到 AIConfig.o311TacticActionBonus。
+        /// </summary>
+        [JsonProperty] public int aiActionBonus;
+
+        /// <summary>计略类型，见 <see cref="Skill.strategyType"/> 与 <see cref="StrategyType"/>。</summary>
+        [JsonProperty] public int strategyType;
+
+        /// <summary>
         /// 释放所需能量
         /// </summary>
         [JsonProperty] public int costEnergy;
@@ -229,6 +238,8 @@ namespace Sango.Core
             CDCount = 0;
             atk = skill.atk;
             atkDurability = skill.atkDurability;
+            aiActionBonus = skill.aiActionBonus;
+            strategyType = skill.strategyType;
             costEnergy = skill.costEnergy;
             canDamageTroop = skill.canDamageTroop;
             canDamageMachine = skill.canDamageMachine;

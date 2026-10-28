@@ -14,7 +14,7 @@ namespace Sango.Core
     /// 地图类，管理游戏地图的加载、创建和路径查找等功能
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
-    public class Map
+    public partial class Map
     {
         /// <summary>
         /// 地图宽度
@@ -474,10 +474,19 @@ namespace Sango.Core
             came_from[troops.cell] = null;
             frontier.Enqueue(troops.cell, 0);
             troops.cell._isChecked = true;
+            troops.cell._depth = 0;
             while (frontier.Count > 0)
             {
                 Cell current = frontier.Dequeue();
                 if (current._isZOC)
+                    continue;
+
+                // 【深度上限】性能保底：移动范围是逐层展开，深度越大格子越多。
+                // 设 20 跳（原版是 10）。取 20 的理由：
+                //   · 项目的高机动部队（骑兵+加成）移动力常超过 10，硬限 10 会让它"走不远"，
+                //     而原版没有这个问题（它的移动力本身就只有几格）；
+                //   · 20 跳足以覆盖正常作战范围，同时挡住"移动力异常大"时的爆炸式展开。
+                if (current._depth >= MaxMoveRangeDepth)
                     continue;
 
                 int cost_current = current._cost;
@@ -493,9 +502,20 @@ namespace Sango.Core
                             int moveAttr = isWater? troops.waterMoveAbility : troops.landMoveAbility;
                             int new_cost;
                             if (isZoc)
+                            {
+                                // ZOC 格：一次性吃掉该地形（水/陆）的全部移动力 —— 原版行为
                                 new_cost = moveAttr;
+                            }
                             else
+                            {
+                                // 【代价口径对齐原版 get_range】原版移动范围只算地形消耗
+                                // （get_terrain_cost，s11_sys_unit_path.cpp:231），友方建筑格
+                                // 不额外 +16 —— 那个 +16 只在 get_path（寻路）里用（同文件 :146-147）。
+                                // 之前误用了 PathAlignment.GetStepCost（含友方建筑 +16 / 敌军 +32 / ZOC），
+                                // 导致部队出城经过自己的城格被 +16 吃掉移动力而卡在城头。
+                                // 敌军阻挡由展开条件里的 CanPassThrough 把关，无需在移动范围再加代价。
                                 new_cost = cost_current + troops.MoveCost(next);
+                            }
 
                             if (new_cost > moveAttr)
                                 continue;
@@ -503,6 +523,7 @@ namespace Sango.Core
                             next._cost = new_cost;
                             next._isZOC = isZoc;
                             next._isChecked = true;
+                            next._depth = current._depth + 1;
 
                             came_from[next] = current;
                             frontier.Enqueue(next, new_cost);
@@ -534,6 +555,7 @@ namespace Sango.Core
                 cell._cost = 0;
                 cell._isZOC = false;
                 cell._isChecked = false;
+                cell._depth = 0;
             }
         }
 

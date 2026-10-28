@@ -6,12 +6,12 @@ namespace Sango.Tools
 {
     public class WeightList<T>
     {
-        struct Node<T>
+        struct Node
         {
             public int wight;
             public T value;
         }
-        List<Node<T>> nodes = new List<Node<T>>();
+        List<Node> nodes = new List<Node>();
         public int TotaleWeight { get; private set; }
         public int Count { get { return nodes.Count; } }
 
@@ -20,14 +20,14 @@ namespace Sango.Tools
             TotaleWeight += wight;
             for (int i = 0; i < nodes.Count; i++)
             {
-                Node<T> node = nodes[i];
+                Node node = nodes[i];
                 if (wight > node.wight)
                 {
-                    nodes.Insert(i, new Node<T>() { value = value, wight = wight });
+                    nodes.Insert(i, new Node() { value = value, wight = wight });
                     return;
                 }
             }
-            nodes.Add(new Node<T>() { value = value, wight = wight });
+            nodes.Add(new Node() { value = value, wight = wight });
         }
 
         public T Head()
@@ -39,7 +39,7 @@ namespace Sango.Tools
         public void Pop()
         {
             if (Count == 0) return;
-            Node<T> node = nodes[0];
+            Node node = nodes[0];
             TotaleWeight -= node.wight;
             nodes.RemoveAt(0);
             RandomToHead();
@@ -51,7 +51,7 @@ namespace Sango.Tools
             int ran = GameRandom.Range(TotaleWeight);
             for (int i = 0; i < nodes.Count; i++)
             {
-                Node<T> node = nodes[i];
+                Node node = nodes[i];
                 if (ran <= node.wight)
                 {
                     nodes.RemoveAt(i);
@@ -69,7 +69,7 @@ namespace Sango.Tools
             int ran = GameRandom.Range(TotaleWeight);
             for (int i = 0; i < nodes.Count; i++)
             {
-                Node<T> node = nodes[i];
+                Node node = nodes[i];
                 if (ran <= node.wight)
                 {
                     return node.value;
@@ -104,7 +104,7 @@ namespace Sango.Tools
             int ran = GameRandom.Range(total);
             for (int i = 0; i < n; i++)
             {
-                Node<T> node = nodes[i];
+                Node node = nodes[i];
                 if (ran < node.wight)
                     return node.value;
                 ran -= node.wight;
@@ -121,14 +121,14 @@ namespace Sango.Tools
             int halfCount = nodes.Count / downSamlpe;
             for (int i = 0; i < halfCount; i++)
             {
-                Node<T> node = nodes[i];
+                Node node = nodes[i];
                 total += node.wight;
             }
             int ran = GameRandom.Range(total);
             halfCount = Math.Max(halfCount, 1);
             for (int i = 0; i < halfCount; i++)
             {
-                Node<T> node = nodes[i];
+                Node node = nodes[i];
                 if (ran <= node.wight)
                 {
                     return node.value;
@@ -162,12 +162,12 @@ namespace Sango.Tools
         {
             if (Count == 0) return;
 
-            Node<T> high = nodes[0];
+            Node high = nodes[0];
             int max = high.wight;
             result.Add(high.value);
             for (int i = 1; i < Count; ++i)
             {
-                Node<T> node = nodes[i];
+                Node node = nodes[i];
                 if (node.wight != max)
                     return;
                 else
@@ -180,12 +180,12 @@ namespace Sango.Tools
             if (Count == 0) return;
 
             int count = Count;
-            Node<T> lower = nodes[count - 1];
+            Node lower = nodes[count - 1];
             int low = lower.wight;
             result.Add(lower.value);
             for (int i = count - 2; i >= 0; --i)
             {
-                Node<T> node = nodes[i];
+                Node node = nodes[i];
                 if (node.wight != low)
                     return;
                 else

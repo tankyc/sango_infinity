@@ -14,6 +14,35 @@ using UnityEngine;
 namespace Sango.Core
 {
     /// <summary>
+    /// 计略类型 —— 对应原版 StrategyIdEnum 里参与 AI 评分的九个分支
+    /// （add_strategy_action，D:\open311\s11\s11_sys_unit_action.cpp:883-1225）。
+    ///
+    /// 由 SkillTypes.json 的 <c>strategyType</c> 配置；None 表示该技能不按计略分支评分。
+    /// </summary>
+    public enum StrategyType
+    {
+        None = 0,
+        /// <summary>消火（原版 StrategyId_Shouka）</summary>
+        Shouka = 1,
+        /// <summary>火计（原版 StrategyId_Fire）</summary>
+        Fire = 2,
+        /// <summary>伪报（原版 StrategyId_Gihou）</summary>
+        Gihou = 3,
+        /// <summary>混乱（原版 StrategyId_Kakuran）</summary>
+        Kakuran = 4,
+        /// <summary>镇静（原版 StrategyId_Chinsei）</summary>
+        Chinsei = 5,
+        /// <summary>伏兵（原版 StrategyId_Fukuhei）</summary>
+        Fukuhei = 6,
+        /// <summary>同讨（原版 StrategyId_Doushiuchi）</summary>
+        Doushiuchi = 7,
+        /// <summary>妖术（原版 StrategyId_Yojutsu）</summary>
+        Yojutsu = 8,
+        /// <summary>落雷（原版 StrategyId_Rakurai）</summary>
+        Rakurai = 9,
+    }
+
+    /// <summary>
     /// 技能类，管理游戏中的技能配置
     /// 包含技能类型、攻击力、施法范围、效果等属性
     /// </summary>
@@ -39,6 +68,34 @@ namespace Sango.Core
         /// 基础攻城值
         /// </summary>
         [JsonProperty] public int atkDurability;
+
+        /// <summary>
+        /// 计略类型（仅 <see cref="StrategyType.None"/> 以外时有意义）。
+        /// 用于 AI 评分按原版 add_strategy_action 的九个分支分别给分。
+        /// </summary>
+        [JsonProperty] public int strategyType;
+
+        /// <summary>
+        /// 性格口径的计略分类（<see cref="PersonalitySkillType"/>）。
+        ///
+        /// -1 = 不参与性格的抗性 / 专精表（火计、灭火等）。
+        /// 0 伪报 / 1 扰乱 / 2 镇静 / 3 伏兵 / 4 妖术 / 5 内讧。
+        ///
+        /// 【为什么放在数据里】旧实现是 PersonalitySkillMap 里写死 24/25/26/27/28 五个技能 Id，
+        /// 新增一个计略就必须改代码。现在由技能表自己声明归属，
+        /// 判断链路（SkillSuccessMethod / SkillCriticalMethod / TroopAIUtility）无需再改。
+        /// </summary>
+        [JsonProperty] public int personalitySkillType = -1;
+
+        /// <summary>
+        /// 【AI 评分】本战法的动作常量（原版 add_tactic_action 各分支的 949 / 1049 / 899 …）。
+        ///
+        /// 原版是按 TacticId 硬编码在 s11_sys_unit_action.cpp 的 add_tactic_action 里：
+        ///   撞飞/熊手 949、乱射 1049、二段突 899 …… 每个战法不同。
+        /// 本项目改为数据驱动：该字段为 0 时回落到 AIConfig.o311TacticActionBonus（949）。
+        /// 填了则以本字段为准，从而真正做到"每个战法一个常量"。
+        /// </summary>
+        [JsonProperty] public int aiActionBonus;
 
         /// <summary>
         /// 释放所需能量

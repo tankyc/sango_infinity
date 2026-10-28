@@ -877,6 +877,10 @@
               }
             ]
           }
+        },
+        {
+          "class": "ForceAddAbilityFlag",
+          "flag": "DivineFire"
         }
       ]
     },

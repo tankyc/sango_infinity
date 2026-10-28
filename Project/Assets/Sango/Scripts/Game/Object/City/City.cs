@@ -730,12 +730,74 @@ namespace Sango.Core
         public List<Cell> areaCellList = new List<Cell>();
 
         /// <summary>
+        /// 本城领地内的"贼格"——地图数据里标了 <see cref="MapGrid.GridState.Thief"/> 的格子，
+        /// 即原版 <c>hex.is_nejiro()</c> 的候选位（根城只会在这些格上生成）。
+        ///
+        /// 【怎么收集】城池初始化范围时，<see cref="AddAreaCell"/> 逐格判 <see cref="Cell.IsThief"/>，
+        /// 是贼格就记进来。该标记来自地图 bin（`terrainState` 的 bit3），
+        /// 与建筑加载顺序无关，因此读档 / 开局都能一次收全。
+        ///
+        /// 【怎么用】清剿判断只在这份清单里找"格上真的有敌方根城"的那一格
+        /// （<see cref="FindRaiderCampFor"/>），不再做半径搜索或全图遍历。
+        ///
+        /// 【为什么不存建筑引用】根城是运行中生成的建筑，<c>BelongCity</c> 为 null
+        /// （见 <c>BanditCampPlacer.CreateCamp</c> 的说明），无法从 <see cref="allBuildings"/> 反查；
+        /// 而候选格是静态数据，存格比存建筑稳定。
+        /// </summary>
+        public List<Cell> raiderCampCells = new List<Cell>();
+
+        /// <summary>
+        /// 登记一个"贼格"。重复登记自动忽略。
+        /// </summary>
+        /// <param name="cell">地图上标为贼格的格子</param>
+        public void RegisterRaiderCampCell(Cell cell)
+        {
+            if (cell == null || raiderCampCells.Contains(cell))
+                return;
+            raiderCampCells.Add(cell);
+        }
+
+        /// <summary>
+        /// 在本城的贼格里找"格上真的建着、且对指定部队敌对"的根城。
+        ///
+        /// 贼格是静态候选位，永远保留；格上没营地（还没生成 / 已被拆）只是这一次跳过，
+        /// 不能从清单里删 —— 否则下一波根城建在同一格就再也查不到。
+        /// </summary>
+        /// <param name="troop">用于敌我判定的部队，可为 null（null 表示只看存活，不判敌对）</param>
+        /// <returns>找到的根城；没有返回 null</returns>
+        public Building FindRaiderCampFor(Troop troop)
+        {
+            for (int i = 0; i < raiderCampCells.Count; i++)
+            {
+                Cell cell = raiderCampCells[i];
+                Building camp = cell != null ? cell.building as Building : null;
+
+                // 该贼格上暂时没有根城（未生成 / 已拆除）：跳过，保留候选位
+                if (camp == null || camp.BelongForce == null || !BanditCampPlacer.IsRaiderCamp(camp))
+                    continue;
+
+                if (troop != null && !troop.IsEnemy(camp))
+                    continue;                       // 盟友 / 自己人的营地，换下一个
+
+                return camp;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// 添加城池直辖范围的cell
         /// </summary>
         /// <param name="cell">要添加的cell</param>
         public void AddAreaCell(Cell cell)
         {
             areaCellList.Add(cell);
+
+            // 【初始化范围时收集贼格】cell.IsThief 读的是地图数据里的 GridState.Thief
+            // （原版 hex.is_nejiro() 的候选位），与建筑加载顺序无关，开局 / 读档都能一次收全。
+            // 之后清剿判断只查这份清单（见 FindRaiderCampFor），不再做空间搜索。
+            if (cell != null && cell.IsThief)
+                RegisterRaiderCampCell(cell);
+
             if (BelongCity != null)
             {
                 BelongCity.AddAreaCell(cell);
@@ -868,6 +930,36 @@ namespace Sango.Core
         /// 【归属口径】只认 <see cref="Troop.BelongCity"/>（主将的所属城，实时派生），
         /// **不看部队当前站在哪个格子** —— allTroops 是"本城派出的部队"，不是"停在城里的部队"。
         /// </summary>
+        /// <summary>
+        /// 留守负责人（对齐原版 `KyotenInfo.guard`，`s11_scen.h:3487`）。
+        ///
+        /// 【语义】原版是"据点治安/怀柔负责人"，**优先给有异民族抑制特技的武将**；
+        /// AI 抽人出征、抽人求援时一律避开此人（`s11_game_ai_kyoten_cmd_mil.cpp:214-217`），
+        /// 抽到就把它清成 -1。
+        ///
+        /// 【为什么不序列化】原版存在 AI 表里、不进存档，读档后每回合重算；
+        /// 这里同样作为运行期派生状态，由 <see cref="ForceAI.SetGuards"/> 每回合刷新。
+        /// </summary>
+        public int guardId = -1;
+
+        /// <summary>
+        /// 该城所属的**异族范围**（0 = 普通；1~4 = 羌 / 山越 / 乌丸 / 南蛮，
+        /// 取值同 <see cref="BarbarianConfig.Tribe"/>）。
+        ///
+        /// 【用途】对应原版的 `SuppressedSkillCity` 12 城表（`s11_db.cpp:243-248`）：
+        /// 范围内的城会孕育对应异族的根城，且**需要配备拥有对应"亲×"特技的守将**，
+        /// 否则该区域会持续刷异族（原版 `GameAI::set_guard` 的第一轮）。
+        ///
+        /// 【为什么放进数据而不是代码常量】原版是硬编码的 12 座城；项目的地图与城表
+        /// 可以被 Mod 改动，写死 Id 会在换地图后全部错位。做成字段后，
+        /// 剧本/编辑器可以直接改，代码只认"这座城属于哪个异族范围"。
+        ///
+        /// 【固化时机】<see cref="OnScenarioPrepare"/> 里由
+        /// <see cref="BarbarianConfig.FixupCityTribe"/> 按「城 Id + 城名」双重校验写入一次，
+        /// 已有值（剧本显式指定 / Mod 改过）不覆盖。
+        /// </summary>
+        [JsonProperty] public int barbarianTribe = 0;
+
         public void RebuildTroopLists()
         {
             allTroops.Clear();
@@ -1052,7 +1144,6 @@ namespace Sango.Core
             {
                 Sango.Log.Error($"调用栈: {new System.Diagnostics.StackTrace(true)}");
                 Sango.Log.Error($"*{Name}{BelongForce?.Name} -> allPersons 添加 {person.Name}{person.BelongForce?.Name} 势力不一致!!");
-                person.BelongForce = BelongForce;
                 person.BelongCorps = BelongCorps;
                 // 换势力时复位褒赏标记 —— 对齐原版 person_change_force 的 set_bonus_done(false)
                 // （s11_sys_scen_person.cpp:748-753）
@@ -1063,7 +1154,6 @@ namespace Sango.Core
             {
                 Sango.Log.Error($"调用栈: {new System.Diagnostics.StackTrace(true)}");
                 Sango.Log.Error($"*{Name}{BelongCorps?.Name} -> allPersons 添加 {person.Name}{person.BelongCorps?.Name} 军团不一致!!");
-                person.BelongForce = BelongForce;
                 person.BelongCorps = BelongCorps;
                 person.SetBonusDone(false);
             }
@@ -1258,6 +1348,10 @@ namespace Sango.Core
             base.OnScenarioPrepare(scenario);
             isComplate = true;
 
+            // 异族范围固化：配置表（城 Id + 城名双重校验）→ 运行时字段，只写一次。
+            // 之后守将选人、异族刷怪都读这个字段，不再查表。
+            BarbarianConfig.FixupCityTribe(this);
+
             // 粮价按剧本当前月份做一次预设取值（原版 city_update_rate(use_preset=true)
             // 在剧本载入时调用一次，之后每月刷新由 Scenario.UpdateCityRate 承担）。
             // 不初始化的话，开局第一个月之前 rate 会是字段默认值 50，商人 AI 判断会失真。
@@ -1286,9 +1380,14 @@ namespace Sango.Core
             }
             CenterCell = OccupyCellList[0];
 
-            // 效果范围
+            // 攻击范围：内圈取 radius + attackMinRange，外圈取 radius + attackMaxRange。
+            // attackMaxRange <= 0 表示该设施不攻击（内政设施等）。
+            // 注意与 minRange/maxRange（阵地评分、削弱范围）是两套值。
             effectCells = new System.Collections.Generic.List<Cell>();
-            scenario.Map.GetDirectSpiral(CenterCell, BuildingType.radius + 1, BuildingType.radius + BuildingType.atkRange, effectCells);
+            if (BuildingType.attackMaxRange > 0)
+                scenario.Map.GetDirectSpiral(CenterCell,
+                    BuildingType.radius + BuildingType.attackMinRange,
+                    BuildingType.radius + BuildingType.attackMaxRange, effectCells);
 
             for (int i = 0; i < areaCellList.Count; i++)
             {
@@ -1438,13 +1537,34 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 变为野生状态
+        /// 变为野生状态（白城化 / 中立化）。
+        ///
+        /// 【归属治理】"据点归到无主"也是改旗，必须走唯一入口
+        /// <see cref="CityStateSystem.SetCorps"/>（对应 Open311 的 building_neutralize
+        /// → building_change_district(nullptr)）。
+        ///
+        /// 原先这里直接给 BelongCorps / BelongForce 赋 null，绕开治理层，后果是：
+        ///   · 城内政设施的归属不跟着中立化（SyncBuildings 没跑），
+        ///     会出现"城已无主、城里的农田还挂在旧势力"；
+        ///   · 旧势力的据点账本（CityCount / 城市清单）不重算；
+        ///   · 小地图 / 战略地图的换旗事件要在这里手工补一次（已由 SetCorps 统一派发）。
+        /// SetCorps(this, null) 内部对 corps == null 直接写字段，不会回头调用本方法，无递归。
         /// </summary>
         public void LeaveToWild()
         {
             Leader = null;
-            BelongCorps = null;
-            BelongForce = null;
+            CityStateSystem.SetCorps(this, null);
+
+            // 兜底：据点已标记为不可用时 SetCorps 会提前返回，这里仍要保证归属是空的
+            if (BelongCorps != null)
+            {
+                Force lastForce = BelongForce;
+                BelongCorps = null;
+                BelongForce = null;
+                if (lastForce != null)
+                    GameEvent.OnCityChangeForce?.Invoke(this, lastForce, null);
+            }
+
             Render?.UpdateRender();
         }
 
@@ -1492,6 +1612,67 @@ namespace Sango.Core
                 action(c);
             }
         }
+
+        #region 据点战斗态 / 邻接（对齐原版 GameAI 的 KyotenInfo）
+
+        /// <summary>
+        /// 统计本据点**领地内**的敌方部队数。
+        ///
+        /// 【原版对应】GameAI::KyotenInfo.enemy_unit_count（D:\open311\s11\s11_game_ai.h:475），
+        /// 统计口径是"据点区域（구역）内的敌军"，本项目的等价物是 <see cref="OccupyCellList"/>
+        /// （城中心 + 半径内的领土格，见 City.cs:1278-1281）。
+        ///
+        /// 【时序差异】原版在势力 AI 开跑前由 load_force_kyoten_data 算一次快照；
+        /// 本项目按调用时刻实时统计，判定逻辑一致，只是更能反映"部队刚移动到位"的实况。
+        /// </summary>
+        public int CountEnemyUnitsInTerritory()
+        {
+            if (OccupyCellList == null || BelongForce == null)
+                return 0;
+
+            int count = 0;
+            for (int i = 0; i < OccupyCellList.Count; i++)
+            {
+                Cell cell = OccupyCellList[i];
+                if (cell == null || cell.troop == null || !cell.troop.IsAlive)
+                    continue;
+                if (IsEnemy(BelongForce, cell.troop.BelongForce))
+                    count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// 据点是否处于**战斗状态**。
+        ///
+        /// 【原版对应】KyotenState_Battle（s11_enum_scen.h:63）——"区域内有敌军"，
+        /// 而 KyotenState_Rear/Middle/Front 是按"与国境的距离"分档，与是否有敌军无关。
+        /// 因此这里的判定就是 enemy_unit_count &gt; 0。
+        /// </summary>
+        public bool IsBattleState()
+        {
+            return CountEnemyUnitsInTerritory() > 0;
+        }
+
+        /// <summary>
+        /// 两据点是否**相邻**。
+        ///
+        /// 【原版对应】ai_table_get_kyoten_distance(a, b, force) == 1（据点图上的距离 1）。
+        /// 本项目的等价物是 <see cref="NeighborList"/>（手工配置的相邻城市表）。
+        /// </summary>
+        public bool IsNeighborKyoten(City other)
+        {
+            if (other == null || NeighborList == null)
+                return false;
+            for (int i = 0; i < NeighborList.Count; i++)
+            {
+                if (NeighborList[i] == other)
+                    return true;
+            }
+            return false;
+        }
+
+        #endregion
 
         /// <summary>
         /// 季度粮食收入
@@ -1733,6 +1914,17 @@ namespace Sango.Core
             CalculateHarvest();
             UpdateFightPower();
             JobHealingTroop();
+
+            // 据点被围时的守军逃兵 —— 原版 desertion()（s11_game_week.cpp:905-925）
+            //   n = sqrt(max(守军, 100) / 100) × 30 + rand(50)
+            // 只在"有敌军围城"时触发（原版 building_has_enemy）。
+            if (troops > 0 && CheckEnemiesIfAlive())
+            {
+                int deserters = (int)(System.Math.Sqrt(System.Math.Max(troops, 100) / 100.0) * 30.0);
+                deserters += GameRandom.Range(0, 50);
+                if (deserters > 0)
+                    ChangeTroops(-deserters, null, false);
+            }
 
             // 空闲人员判断（对应 Open311 的 is_at_service + is_action_done）
             // 除了"本回合未行动、没有任务、不在部队、不是俘虏"之外，
@@ -2006,8 +2198,14 @@ namespace Sango.Core
             bool rs = base.ChangeDurability(num, atk, showDamage);
             if (rs)
             {
-                // 保留40%
-                durability = DurabilityLimit * 40 / 100;
+                // 【原版对齐】城陷后耐久补到上限的一半，且是"取较大值"而不是无条件覆盖：
+                //   s11_sys_event_kanraku.cpp:360-362
+                //     int hp = self->get_max_hp() / 2;
+                //     if (self->get_hp() < hp) building_set_hp(self, hp);
+                // 原实现固定写 40%，若 OnFall 内部已把耐久抬得更高会被压低，且比例与原版不符。
+                int halfDurability = DurabilityLimit / 2;
+                if (durability < halfDurability)
+                    durability = halfDurability;
             }
 
             if (Render != null)
@@ -2154,6 +2352,11 @@ namespace Sango.Core
 
             Force lastBelongForce = BelongForce;
             Corps lastBelongCorps = BelongCorps;
+            // 【原版对齐】异族 / 贼（非正常势力）攻破城池走"白城"分支，与普通势力占领完全不同：
+            // 对应 kyoten_kanraku 的 by_force->is_normal()（s11_sys_event_kanraku.cpp:343-358）。
+            //   normal  → building_change_district（占领）+ unit_enter（入城）
+            //   非 normal → building_neutralize（白城）+ update_bandits（继续找目标 / 逃跑）
+            bool banditFall = atk.BelongForce != null && !atk.BelongForce.IsNormal;
             freePersons.Clear();
 
             // 清理火
@@ -2170,6 +2373,10 @@ namespace Sango.Core
             // 白城
             if (BelongCorps == null)
             {
+                // 【原版对齐】异族 / 贼不攻击白城（bandit_ignores_empty_kyoten，
+                // s11_sys_unit_action.cpp:222-230）。此分支为防御性：保持白城，不占领。
+                if (banditFall)
+                    return;
                 Sango.Log.Info($"*[城陷]{Name}（无主）被 {atk.BelongForce?.Name ?? "未知"} 占领（攻方部队 {atk.Name}）");
                 BelongCorps = atk.BelongCorps;
                 BelongForce = atk.BelongForce;
@@ -2201,6 +2408,26 @@ namespace Sango.Core
             else
                 escapeCity = BelongForce.CapitalCity;
 
+            // 【修复】CapitalCity 是君主户口（mGovernor?.BelongCity）的派生值。
+            // 君主出征 / 在途时，下方城陷循环会跳过君主（CurrentCity != this）、不迁其户口，
+            // 使君主户口仍指向一座已易主的城 —— 此时 CapitalCity 会是"别的势力"的城。
+            // 这里加势力一致性兜底：目标城已不属于本势力时，改找最近己方据点。
+            // 对齐 Open311 person_get_nearest_return_point 的 get_force_id() == force_id
+            // 过滤（s11_sys_scen_person.cpp:909），而不是无条件信任"君主据点"。
+            if (escapeCity != null && escapeCity.BelongForce != BelongForce)
+            {
+                Sango.Log.Warning($"*[城陷]{Name} 撤退目标 {escapeCity.Name} 已不属于 {BelongForce.Name}，改找最近己方据点");
+                escapeCity = GetNearnestForceCity();
+            }
+
+            // 【修复】CapitalCity 为 null（君主死亡/被俘、继承尚未完成）但势力仍有都市时，
+            // 不能把 null 误判成"最后一城"走灭亡分支，应改找最近己方据点。
+            // 对齐 Open311 person_get_nearest_return_point 的"君主据点失效 → 最近同势力据点"兜底。
+            if (escapeCity == null && BelongForce.CityCount > 0)
+            {
+                escapeCity = GetNearnestForceCity();
+            }
+
             // 最后一城,港关不算城市数量,必须要有最后一城
             if (BelongForce.CityCount == 0)
             {
@@ -2222,8 +2449,16 @@ namespace Sango.Core
                 ? $"*[城陷]{Name}（{lastBelongForce.Name}）被 {atk.BelongForce.Name} 攻陷，残部撤往 {escapeCity.Name}"
                 : $"*[城陷]{Name}（{lastBelongForce.Name}）被 {atk.BelongForce.Name} 攻陷，这是该势力最后一座城");
 
-            // 基础抓捕率
-            int cacaptureChangce = escapeCity != null ? scenarioVariables.captureChangceWhenCityFall : scenarioVariables.captureChangceWhenLastCityFall;
+            // 基础抓捕率（破城）。
+            //
+            // 【原版对齐】城陷只算一次抓捕：
+            //   · 势力还有别城时 → capture() 逐人按公式掷骰（s11_sys_event_capture.cpp:445-483）；
+            //   · 最后一城（`not node.remaining`）→ **全员必俘，不掷骰**（:452-456）；
+            //   · 掠夺保留率另有 rate（:264-266），与抓捕无关。
+            // 因此这里只保留"破城抓捕率"一档。原先把 escapeCity == null 分支
+            // 也映射到 captureChangceWhenLastCityFall 是无效的 ——
+            // 唯一使用点在 escapeCity != null 分支内，那档配置永远读不到（死配置，已移除）。
+            int captureChance = scenarioVariables.captureChangceWhenCityFall;
 
             // 处理俘虏
             List<Person> temp_captive_list = new List<Person>();
@@ -2263,10 +2498,13 @@ namespace Sango.Core
                 });
 
                 // 清理港口,关卡
+                // 【修复】排除 c == this：被攻陷的城（含港关）要由后续改旗流程归属攻方，
+                // 不能在这里 LeaveToWild，否则 this.BelongCorps 被置 null，
+                // 后续 Ruin 读取 BelongForce（BelongCorps?.BelongForce）会空引用崩溃。
                 for (int i = 0; i < scenario.citySet.Count; ++i)
                 {
                     var c = scenario.citySet[i];
-                    if (c != null && c.BelongForce == BelongForce)
+                    if (c != null && c != this && c.BelongForce == BelongForce)
                     {
                         if (c.IsGate() || c.IsPort())
                         {
@@ -2297,22 +2535,42 @@ namespace Sango.Core
             allTroops.Clear();
             allPersons.ForEach(person =>
             {
-                // 【原版对齐】城陷时只处理"物理在本城"的武将。
-                // 在途武将（CurrentCity 停在中途某城）的户口虽然还挂在这座陷落城，
-                // 但他的行程与任务要继续保留，等走到目的地后由 OnPersonReturnCity -> Enter 改户口。
-                // 依据：Open311 的 城陷事件 用 BuildingDistrictChangeReason_0 跳过成员迁移，
-                // 而 capture 只抓 location_id 等于本城的人 —— 在途者既不被撤退也不被俘。
-                // 只有"势力灭亡"（escapeCity == null）时才需要对所有人收尾。
+                // 【原版对齐】物理不在本城的在途/出征武将，户口也要立即迁到同势力据点，
+                // 不能留在已易主的城。对齐 Open311：
+                //   · 出征者（在部队）→ unit_reset_service（s11_sys_scen_unit.cpp:751）改 service
+                //   · 在途者（非部队）→ person_escape（s11_sys_event_capture.cpp:487）改 service + 返程
+                // 原先这里直接 return，导致户口挂已易主城，污染 CapitalCity（mGovernor?.BelongCity），
+                // 进而让下一座城陷的 escapeCity 选到敌城。
                 if (escapeCity != null && person.CurrentCity != this)
+                {
+                    PersonStateSystem.RelocateHomeOnCityFall(person, this);
                     return;
+                }
 
                 person.workingBuilding = null;
                 if (escapeCity != null)
                 {
                     person.ClearMission();
-                    person.OnWillChangeToCity(escapeCity);
+
+                    // 【原版对齐/防御】迁城前置检查失败（跨势力 / 目标为空）时不能改户口，
+                    // 否则会把武将户口改到不属于自己势力的城。此处 escapeCity 必为原势力城，
+                    // 正常返回 true；仅做防御性兜底，失败时保留原户口、跳过撤离与俘虏判定。
+                    if (!person.OnWillChangeToCity(escapeCity))
+                    {
+                        Sango.Log.Error($"*[城陷]{person.Name} 迁往 {escapeCity.Name} 的前置检查失败，保留原户口不迁移");
+                        return;
+                    }
+
                     person.ChangeBelongCity(escapeCity);
-                    if (person.mBelongTroop == null && person.CurrentCity == this && person != person.BelongForce.mGovernor && GameRandom.Chance(cacaptureChangce))
+
+                    // 【修复】BelongForce 由 BelongCorps 派生（Person::BelongForce => BelongCorps?.BelongForce），
+                    // 在野 / 中间态武将可能为 null，直接 person.BelongForce.mGovernor 会空引用崩溃。
+                    // 先取本地引用再判空，null 时视为"非君主"，走撤离分支。
+                    Force personForce = person.BelongForce;
+                    if (person.mBelongTroop == null && person.CurrentCity == this
+                        && personForce != null && person != personForce.mGovernor
+                        && !IsCaptureImmune(person)
+                        && GameRandom.Chance(captureChance))
                     {
                         Sango.Log.Info($"*[城陷]{person.Name} 留在 {Name}，进入待俘判定");
                         temp_captive_list.Add(person);
@@ -2343,20 +2601,107 @@ namespace Sango.Core
             allPersons.Clear();
             freePersons.Clear();
 
-            //处理建筑
+            // 处理建筑
+            //
+            // 【原版对齐】内政设施的存留不是掷骰子，而是"按攻方主将魅力买名额"：
+            //   s11_sys_event_kanraku.cpp:278-341
+            //     ① 内政设施（area_city_id = 本城）：已完工 → 收进 dev 候选表；未完工 → 直接摧毁
+            //     ② 军事设施（归属守方、area_city_id = 本城）→ 直接摧毁；
+            //        攻方自己的不动，陷阱 / 障碍在 :293-294 就被跳过
+            //     ③ charisma = max(20, 攻方主将魅力)
+            //        shuffle(dev)；n = dev_count - min(dev_count, charisma / 20)
+            //        异族 / 贼（by_force 非 normal）→ n = dev_count（全毁）
+            //        摧毁 dev 的前 n 个，其余 min(dev_count, 魅力/20) 个随城改属归攻方
+            //     即：魅力 100 的主将最多保下 5 座内政设施，其余全部烧掉。
+            //
+            // 【未实现】原版对"未完工的雀台"会连带销毁铜雀道具（:308-315）；
+            // 本项目没有铜雀台这一设施类型，整段跳过。
+            // 先取快照：OnFall 会经由 City.OnBuildingDestroy 从 allBuildings 里移除自己，
+            // 直接遍历 allBuildings 会漏掉元素（原来用 ForEach + 内部 OnFall 就有这个隐患）。
+            List<Building> buildingSnapshot = new List<Building>();
             allBuildings.ForEach(building =>
             {
-                if (building.isComplate && !building.isUpgrading && GameRandom.Chance(30))
+                if (building != null)
+                    buildingSnapshot.Add(building);
+            });
+
+            List<Building> devList = new List<Building>();
+            for (int i = 0; i < buildingSnapshot.Count; i++)
+            {
+                Building building = buildingSnapshot[i];
+                BuildingType bt = building.BuildingType;
+                if (bt == null)
+                    continue;
+
+                // 原版 `if (building->is_general_type()) continue;`（:293-294）——
+                // 陷阱 / 爆炸物 / 障碍属于"通用设施"，城陷时不参与归属结算（它们本就一次性）。
+                if (bt.IsExplosive || bt.IsObstacle)
+                    continue;
+
+                if (!bt.IsIntrior)
+                {
+                    // 军事设施：只拆守方在本城辖区内的（原版 :322-330 的 force_id / area_city_id 判定）。
+                    // 原版还有个 `has_builder()` 前置，用来区分"可建造设施"与地图固有设施；
+                    // 本项目 Building.Builder 没有实际写入点（始终为空），照搬会变成死分支，
+                    // 因此这里以"归属守方"作为等价判据。
+                    if (!bt.IsMilitary)
+                        continue;
+                    if (building.BelongForce != BelongForce)
+                        continue;
+                    building.OnFall(atk);
+                    continue;
+                }
+
+                // 内政设施：已完工的进候选表，未完工的直接拆（原版 :300-317）
+                if (building.isComplate)
+                    devList.Add(building);
+                else
+                    building.OnFall(atk);
+            }
+
+            // 打乱候选表（原版 shuffle(dev.data(), dev_count, 1)）
+            for (int i = devList.Count - 1; i > 0; i--)
+            {
+                int j = GameRandom.Range(0, i + 1);
+                Building tmp = devList[i];
+                devList[i] = devList[j];
+                devList[j] = tmp;
+            }
+
+            int devCount = devList.Count;
+            int devDestroyCount;
+            if (banditFall)
+            {
+                // 异族 / 贼：内政设施全毁（原版 :337-341 的 `if (not by_force->is_normal()) n = dev_count;`）
+                devDestroyCount = devCount;
+            }
+            else
+            {
+                int charisma = 20;
+                Person byLeader = atk.Leader;
+                if (byLeader != null && !byLeader.IsDead)
+                    charisma = System.Math.Max(charisma, byLeader.Glamour);
+                devDestroyCount = devCount - System.Math.Min(devCount, charisma / 20);
+            }
+
+            for (int i = 0; i < devCount; i++)
+            {
+                Building building = devList[i];
+                if (i < devDestroyCount)
+                {
+                    building.OnFall(atk);
+                }
+                else
                 {
                     building.ChangeCorps(atk.BelongCorps);
                     building.Builder?.Clear();
                     building.Workers?.Clear();
                 }
-                else
-                {
-                    building.OnFall(atk);
-                }
-            });
+            }
+            if (devCount > 0)
+            {
+                Sango.Log.Info($"*[城陷]{Name} 内政设施 {devCount} 座：摧毁 {devDestroyCount} 座、随城改属 {devCount - devDestroyCount} 座");
+            }
 
             Force destroyedForce = null;
             if (escapeCity == null)
@@ -2373,24 +2718,83 @@ namespace Sango.Core
             }
             Leader = null;
 
-            // 【归属治理】城本体改旗走统一入口（对应 Open311 的 building_set_district_id）。
-            // 它负责：势力与军团同步、新旧势力的城市账本全量重算（幂等，不用再做增量加减）。
+            // 处理库存和钱粮,兵力
+            //
+            // 【原版对齐·掠夺保留率】s11_sys_event_kanraku.cpp:264-277
+            //   int rate = 5;
+            //   if (is_alive(by_leader))
+            //       rate = max(rate, by_leader->get_stat(PersonStatType_Charisma) / 10);
+            //   gold   = gold   * rate / 100;
+            //   food   = food   * rate / 100;
+            //   troops = troops * rate / 100;
+            //   for (i < EquipmentId_ExMax)
+            //       n = get_equipment_quantity(i) * rate / 100;  building_set_equipment_quantity(self, i, n);
+            //
+            // 要点：
+            //   · 只结算金 / 粮 / 兵力 / 兵装四项，**农业与商业开发值不参与掠夺**。
+            //     原版在被攻陷时只会摧毁内政设施（:280-341），城市开发度本身保留，
+            //     因此这里不再按随机权重缩放 agriculture / commerce。
+            //   · 保留率不是随机数，只由攻方主将的魅力决定（最高 100/10 = 10%）。
+            //     原版如此，所以守方几乎什么都留不下，这也是"打大城很赚"的来源之一。
+            //
+            // 【异族 / 贼攻破】kyoten_kanraku:346 building_neutralize → building_empty
+            // （s11_sys_scen_building.cpp:935-955）：只清 gold/food/troops/装备/energy，
+            // **不清** 农业与商业开发值，故此处同步去掉对两者的清零。
+            if (banditFall)
+            {
+                food = 0;
+                gold = 0;
+                troops = 0;
+                itemStore.Clear();
+            }
+            else
+            {
+                int keepPercent = 5;
+                Person byLeader = atk.Leader;
+                if (byLeader != null && !byLeader.IsDead)
+                    keepPercent = System.Math.Max(keepPercent, byLeader.Glamour / 10);
+
+                gold = gold * keepPercent / 100;
+                food = food * keepPercent / 100;
+                troops = troops * keepPercent / 100;
+
+                // 兵装逐项按同一保留率结算（原版对 EquipmentId 全表循环）
+                // 使用 Set 精确赋值而不是 Split 折算，避免"按拆走量取整"与
+                // 原版"按保留量取整"的 1 点误差。
+                List<int> storeKindIds = new List<int>(itemStore.Items.Keys);
+                for (int i = 0; i < storeKindIds.Count; i++)
+                {
+                    int storeKindId = storeKindIds[i];
+                    itemStore.Set(storeKindId, itemStore.GetNumber(storeKindId) * keepPercent / 100);
+                }
+
+                Sango.Log.Info($"*[掠夺]{Name} 保留 {keepPercent}%：金 {gold} 粮 {food} 兵 {troops}");
+            }
+
+            // 【归属治理】城本体改旗（军团归并 / 中立化）走统一入口，
+            // 对应 Open311 的 building_change_district(self, by_district) 与 building_neutralize(self)。
+            //
+            // 【位置】必须放在掠夺之后。原版 kyoten_kanraku 的执行顺序是
+            //   :264-277 掠夺 → :278-341 内政设施处理 → :343-346 改旗/中立化 → :347-358 部队入城/异族
+            // 先前这里把改旗提前到了掠夺之前，顺序与原版相反。
+            // 掠夺只写本据点的金/粮/兵力/兵装，改旗只写归属与军团，两者数据上互不影响，
+            // 但表现层（小地图 / 战略地图归属色、势力账本、设施跟随）会在改旗那一刻刷新，
+            // 提前刷新会让玩家在"还没看到掠夺结算"之前就看到城市变成我方颜色。
+            //
+            // 它还负责：势力与军团同步、新旧势力的城市账本全量重算（幂等，不用再做增量加减）、
+            // 城内**内政设施**跟随改旗（SyncBuildings，对应原版 building_get_force_id 的动态继承）。
             // 原先这里是"裸赋两个字段 + 手工 CityBaseCount++/CityCount++/CityList.Add"，
             // 增量维护一旦在某个 return 分支被跳过就会永久漂移，无法自愈。
-            if (atk.BelongCorps != null)
+            if (banditFall)
+                CityStateSystem.SetCorps(this, null);
+            else if (atk.BelongCorps != null)
                 CityStateSystem.SetCorps(this, atk.BelongCorps);
 
             if (escapeCity != null)
                 lastBelongCorps.UpdateWhenCityChange();
-            atk.BelongCorps.UpdateWhenCityChange();
-
-            // 处理库存和钱粮,兵力
-            food = food * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepFoodFactor) * 10 + 10) / 100;
-            gold = gold * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepGoldFactor) * 10 + 10) / 100;
-            troops = troops * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepTroopsFactor) * 10 + 10) / 100;
-            itemStore.Split((100 - (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepItemFactor) * 10 + 10)) / 100);
-            agriculture = agriculture * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepAgriculture) * 10 + 10) / 100;
-            commerce = commerce * (GameRandom.RandomWeightIndex(scenarioVariables.cityFallCanKeepCommerce) * 10 + 10) / 100;
+            // 【修复】攻方部队主将脱编 / 缓存为空时 BelongCorps 为 null，
+            // 与下方 2505、2549 已判空的口径保持一致，避免空引用崩溃。
+            atk.BelongCorps?.UpdateWhenCityChange();
 
             // 解救俘虏
             // 【归属治理】同势力俘虏直接归顺本城，统一走 PersonStateSystem.Recruit
@@ -2408,7 +2812,8 @@ namespace Sango.Core
                 }
             });
 
-            if (skillInstance != null && !skillInstance.IsRange())
+            // 【原版对齐】异族 / 贼不占领、不入城（kyoten_kanraku:347-358 走 update_bandits 而非 unit_enter）。
+            if (!banditFall && skillInstance != null && !skillInstance.IsRange())
             {
                 Leader = atk.Leader;
                 atk.EnterCity(this);
@@ -2421,8 +2826,15 @@ namespace Sango.Core
             CalculateLimit();
 
             // 再保证一次转换成功（幂等，仍走统一入口以维持"势力==军团势力"的不变式）
-            if (atk.BelongCorps != null)
+            if (banditFall)
+                CityStateSystem.SetCorps(this, null);
+            else if (atk.BelongCorps != null)
                 CityStateSystem.SetCorps(this, atk.BelongCorps);
+
+            // 【原版对齐】异族 / 贼攻破后，重定向异族部队：找同城区域下一个正常势力据点
+            // 继续攻略，找不到则逃跑解散（System::update_bandits，s11_sys_event_kanraku.cpp:99-152）。
+            if (banditFall)
+                UpdateBanditsAfterFall(this, atk);
 
             // 【归属链】都市易主后，下属港关必须跟着改旗。
             // 港关自身独立存 BelongForce/BelongCorps，若不在此处同步，
@@ -2432,7 +2844,7 @@ namespace Sango.Core
 
             GameEvent.OnCityFall?.Invoke(this, lastBelongForce, atk);
 
-            if (atk.BelongCorps.IsPlayer)
+            if (atk.BelongCorps != null && atk.BelongCorps.IsPlayer)
             {
                 RenderEvent.Instance.Add(new Render.CityFallCompleteEvent()
                 {
@@ -2454,6 +2866,143 @@ namespace Sango.Core
             }
 
 
+        }
+
+        /// <summary>
+        /// 城陷时是否免于被俘。
+        ///
+        /// 【原版对齐】Open311 的 capture() 在逐人掷骰之前先做两条豁免：
+        ///   s11_sys_event_capture.cpp:457-461
+        ///     `if (person_has_item_type(person, ItemType_EliteHorse)
+        ///          or person->has_skill(SkillId_Kyouun))
+        ///          { escaped.push_back(person); continue; }`
+        /// 命中者直接进"逃脱"列表，**不参与概率判定**。
+        ///
+        /// 本项目映射：
+        ///   · 名马  = 装备了马匹（EquippedHorse 非空）。工程内马具在单挑层一律按名马归类，
+        ///             CityStrategyActionBase.CalculateCaptureRate 的免俘判定用的也是同一口径，
+        ///             这里沿用，避免出现第二套"是不是名马"的定义；
+        ///   · 强运  = 特技 #33（DuelFeatureId.Lucky，见 Features.json）。
+        ///
+        /// 【为什么不判血路（#34）】原版只在**部队击破**路径判 `SkillId_Ketsuro`
+        /// （s11_sys_scen_unit.cpp 击破分支的捕获前提），城陷分支不判 ——
+        /// 血路是"部队溃灭时同部队武将不被俘"，与据点被攻陷无关。
+        /// 本项目血路同样只在部队层生效（TroopChangeEscapeFactor 把逃跑系数拉满）。
+        /// </summary>
+        /// <param name="person">待判定的武将</param>
+        /// <returns>免于被俘返回 true</returns>
+        static bool IsCaptureImmune(Person person)
+        {
+            if (person == null)
+                return false;
+            // 名马：骑乘状态即视为持有名马
+            if (person.EquippedHorse != null)
+                return true;
+            // 强运：特技 #33（全限定名：Sango.Core 下同时存在 Duel 类型与 Sango.Core.Duel 命名空间）
+            if (person.HasFeatrue(Sango.Core.Duel.DuelFeatureId.Lucky))
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 异族 / 贼攻破据点后，处理异族部队（对齐原版 System::update_bandits，
+        /// s11_sys_event_kanraku.cpp:99-152）。
+        ///
+        /// 原版区分两种据点（:104-129）：
+        ///   - 城被攻陷（city_id &gt;= 0）：目标在该城区域的异族部队走空分支后**解散自毁**
+        ///     （unit_disband_with_message）；
+        ///   - 港关被攻陷（city_id == -1）：异族部队 get_bandit_next_target 转攻同城区域
+        ///     下一据点，找不到则 unit_disband_with_message 逃跑解散。
+        /// </summary>
+        /// <param name="fallenCity">刚被攻陷（已白城化）的据点</param>
+        /// <param name="attacker">攻破该据点的部队</param>
+        private static void UpdateBanditsAfterFall(City fallenCity, Troop attacker)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || fallenCity == null)
+                return;
+
+            // 快照所有异族 / 贼部队（解散 / 改派会改集合，避免边遍历边改）
+            System.Collections.Generic.List<Troop> bandits = new System.Collections.Generic.List<Troop>();
+            scenario.troopsSet.ForEach(t =>
+            {
+                if (t != null && t.IsAlive && t.BelongForce != null && !t.BelongForce.IsNormal)
+                    bandits.Add(t);
+            });
+
+            bool cityFall = fallenCity.IsCity();
+            for (int i = 0; i < bandits.Count; i++)
+            {
+                Troop troop = bandits[i];
+                if (troop == null || !troop.IsAlive)
+                    continue;
+
+                // 只处理"攻略目标就是刚被攻陷据点"的部队
+                if (troop.missionTarget != fallenCity.Id)
+                    continue;
+
+                if (cityFall)
+                {
+                    // 【原版对齐】城陷 → 异族部队解散自毁（unit_disband_with_message）
+                    Sango.Log.Info($"*[异族]{troop.Name} 攻破 {fallenCity.Name} 后自毁解散");
+                    troop.Clear();
+                    continue;
+                }
+
+                // 港关陷 → 转攻同城区域下一正常势力据点（get_bandit_next_target）
+                City next = GetBanditNextTarget(scenario, fallenCity);
+                if (next != null)
+                {
+                    troop.SetMission(MissionType.TroopBanditRazeCity, next.Id);
+                    Sango.Log.Info($"*[异族]{troop.Name} 攻破 {fallenCity.Name} 后转攻 <{next.Name}>");
+                    continue;
+                }
+
+                // 无目标 → 逃跑解散（unit_disband_with_message；临时武将走 IsTemporary 彻底删除）
+                Sango.Log.Info($"*[异族]{troop.Name} 攻破 {fallenCity.Name} 后无目标，撤退解散");
+                troop.Clear();
+            }
+        }
+
+        /// <summary>
+        /// 找被攻陷据点所在城区域内、最近的可达正常势力据点（对齐原版 get_bandit_next_target，
+        /// s11_sys_event_kanraku.cpp:68-97）。
+        ///
+        /// 原版只找 building->get_area_city_id() == target_city_id 且 is_normal_force() 的据点；
+        /// 本项目"同城区域" = 都市 + 其下属港关（港关 BelongCity 指向父城）。
+        /// </summary>
+        /// <param name="scenario">剧本</param>
+        /// <param name="fallenCity">被攻陷据点（用于定位区域城）</param>
+        /// <returns>下一个攻略目标；没有返回 null</returns>
+        private static City GetBanditNextTarget(Scenario scenario, City fallenCity)
+        {
+            // 区域城：都市 → 自己，港关 → 父城
+            City areaCity = fallenCity.IsCity() ? fallenCity : fallenCity.BelongCity;
+            if (areaCity == null)
+                return null;
+
+            City best = null;
+            int bestCost = int.MaxValue;
+            scenario.citySet.ForEach(c =>
+            {
+                if (c == null || !c.IsAlive || c == fallenCity)
+                    return;
+                // 同城区域：都市自身 + 其下属港关
+                City cArea = c.IsCity() ? c : c.BelongCity;
+                if (cArea != areaCity)
+                    return;
+                // 只找正常势力据点（异族 / 贼不占地，不会成为攻略目标）
+                if (c.BelongForce == null || !c.BelongForce.IsNormal)
+                    return;
+
+                int d = fallenCity.Distance(c);
+                if (d < bestCost)
+                {
+                    bestCost = d;
+                    best = c;
+                }
+            });
+            return best;
         }
 
         /// <summary>
@@ -4718,17 +5267,24 @@ namespace Sango.Core
 
 
         /// <summary>
-        /// 获取城池的防御力
+        /// 获取城池的防御力（部队攻城时作为伤害公式的"防守方防御力"）。
+        ///
+        /// 【原版出处】get_ability（D:\open311\s11\s11_sys_damage.cpp:1384-1402）：
+        ///     有太守：def = max(太守统率 - 25, 40)
+        ///     无太守：def = 30
+        /// 取带伤后的当前统率（原版读 get_stat，同样是当前值，不是满值）。
+        ///
+        /// 【历史】旧实现是
+        ///     Math.Max(70, (Leader?.Intelligence ?? 70 * 3000 + Leader?.Command ?? 70 * 7000) / 10000)
+        /// `??` 的优先级低于 `+`，实际恒等于 70（有太守时 智力/10000 = 0；无太守时 490000/10000 = 49），
+        /// 太守是谁完全不影响攻城伤害。已按原版修正。
         /// </summary>
-        /// <returns></returns>
         public override int GetDefence()
         {
-            ScenarioVariables Variables = Scenario.Cur.Variables;
-
-            // 根据太守数值来计算基础防御
-            int def = Math.Max(70, (Leader?.Intelligence ?? 70 * 3000 + Leader?.Command ?? 70 * 7000) / 10000);
-
-            return def;
+            Person taishu = Leader;
+            if (taishu != null && taishu.IsAlive)
+                return Math.Max(taishu.Command - 25, 40);
+            return 30;
         }
 
         /// <summary>
@@ -4927,7 +5483,42 @@ namespace Sango.Core
             if (center == null)
                 return false;
 
-            int radius = IsCity() ? 3 : 2;
+            // 【半径】原版 `building_has_enemy` 写死 `MapRangeIterator(pos, 1, 3)`
+            // （城 3 / 港关 2，`s11_sys_scen_building.cpp:1263`）—— 因为原版据点体积固定。
+            // 本项目的体积由数据驱动（`BuildingType.radius`），所以改成
+            // 「占地半径 + 1 格」：城 radius=2 → 3，港/关 radius=1 → 2，与原版取值一致；
+            // 若以后有更大的据点（如 radius=3 的大城），判定会自动跟着扩大，
+            // 不会出现"城变大了、兵临判定还停在外圈"的漏判。
+            // 兜底：`BuildingType` 缺失时沿用原版的硬编码值。
+            //
+            // 【为什么是 +2 而不是 +1】实测数据：都市 `radius = 1`、港 `radius = 0`
+            // （`BuildingTypes.json`），而原版判定是距中心 **3 / 2**。
+            // 说明本项目的 `radius` 是"占地外圈半径"（都市 = 中心 + 1 圈），
+            // 要让判定落在原版的 3 / 2，必须再外扩 2 格：
+            //     都市 1 + 2 = 3 ✓   港 0 + 2 = 2 ✓
+            // 若只 +1 会得到 2 / 1，比原版各少 1 格，出现"敌军贴着城墙、命令却仍可点"的漏判。
+            int radius = BuildingType != null
+                ? BuildingType.radius + 2
+                : (IsCity() ? 3 : 2);
+
+            return HasEnemyInRange(center, radius);
+        }
+
+        /// <summary>
+        /// 以指定格为中心、按指定半径逐环扫描是否存在敌方部队。
+        ///
+        /// 对齐原版 <c>map_has_enemy</c>（s11_sys_scen_building.cpp:126-134）：
+        /// <c>MapRangeIterator(pos, 1, radius)</c> 逐环 + <c>map_has_enemy_pred</c>（unit is_enemy）。
+        /// 供 <see cref="HasEnemyNearby"/>（据点中心 3/2）与"建设位周边 3 格"（原版 kyoten_develop
+        /// 的 <c>map_has_enemy(param.pos, 3)</c>）共用。
+        /// </summary>
+        /// <param name="center">扫描中心格</param>
+        /// <param name="radius">扫描半径（1~3，当前需求为 2/3）</param>
+        /// <returns>半径内存在敌方部队返回 true</returns>
+        public bool HasEnemyInRange(Cell center, int radius)
+        {
+            if (center == null || radius < 1)
+                return false;
 
             // 【为什么不用 Map.GetDirectSpiral】它是 BFS，只在 `moveAble` 的格子上扩散，
             // 得到的深度是"**路径可走到的跳数**"而不是坐标距离：

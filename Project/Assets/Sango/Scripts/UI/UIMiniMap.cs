@@ -109,6 +109,7 @@ namespace Sango.UI
             GameEvent.OnTroopClear += OnTroopClear;
             GameEvent.OnTroopChangeForce += OnTroopChangeForce;
             GameEvent.OnCityFall += OnCityFall;
+            GameEvent.OnCityChangeForce += OnCityChangeForce;
             GameEvent.OnScenarioInit += OnScenarioInit;
             MapRender.Instance.onValueChanged = OnCameraValueChanged;
             InitCities();
@@ -156,6 +157,7 @@ namespace Sango.UI
             GameEvent.OnTroopEnterCell -= OnTroopEnterCell;
             GameEvent.OnTroopChangeForce -= OnTroopChangeForce;
             GameEvent.OnCityFall -= OnCityFall;
+            GameEvent.OnCityChangeForce -= OnCityChangeForce;
             GameEvent.OnScenarioInit -= OnScenarioInit;
 
             MapRender.Instance.onValueChanged = null;
@@ -184,6 +186,33 @@ namespace Sango.UI
 
         void OnCityFall(City city, Force lastForce, Troop troop)
         {
+            RefreshCityNodes(city);
+        }
+
+        /// <summary>
+        /// 据点换旗（非战斗易主）：劝降合并 / 事件改属 / 白城化。
+        ///
+        /// 原先只订阅了 OnCityFall，于是"没打仗就换旗"的路径（例如外交劝降
+        /// 走 Force.SurrenderAllBuildings）数据层已经改完，小地图城市圆点
+        /// 却仍旧停在旧势力色 —— 玩家会看到"这城明明投降了，地图上还是敌国色"。
+        /// 颜色本身只在节点创建时写一次（见 MapCityNodeData 构造），必须显式重刷。
+        /// </summary>
+        /// <param name="city">换旗的据点</param>
+        /// <param name="lastForce">换旗前势力，可为 null</param>
+        /// <param name="force">换旗后势力，可为 null（无主）</param>
+        void OnCityChangeForce(City city, Force lastForce, Force force)
+        {
+            RefreshCityNodes(city);
+        }
+
+        /// <summary>
+        /// 重刷指定据点（含以它为母城的港关）在的小地图圆点颜色。
+        /// </summary>
+        /// <param name="city">据点</param>
+        void RefreshCityNodes(City city)
+        {
+            if (city == null)
+                return;
             for (int i = 0; i < mapCityNodes.Count; i++)
             {
                 MapCityNodeData data = mapCityNodes[i];

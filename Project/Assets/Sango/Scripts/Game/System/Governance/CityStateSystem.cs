@@ -121,6 +121,14 @@ namespace Sango.Core
             RebuildForceLedger(city.BelongForce);
 
             Sango.Log.Info($"*[归属]{city.Name} {oldCorps?.Name ?? "无军团"} -> {corps?.Name ?? "无军团"}");
+
+            // 【表现层刷新】据点换旗属于"数据层已经是新势力、表现层还停在旧颜色"的典型场景：
+            // 小地图城市节点与战略地图贴图都只在节点/贴图重建时读一次归属。
+            // 城陷路径自带 OnCityFall，但劝降合并（Force.SurrenderAllBuildings）、
+            // 事件改属、编辑器改属这些非战斗易主不会派 OnCityFall，
+            // 因此在这里统一补一个纯表现事件（区分见 GameEvent.OnCityChangeForce 的注释）。
+            if (oldForce != city.BelongForce)
+                GameEvent.OnCityChangeForce?.Invoke(city, oldForce, city.BelongForce);
         }
 
         /// <summary>
@@ -473,7 +481,6 @@ namespace Sango.Core
             {
                 Person p = joined[i];
                 p.BelongForceId = 0;
-                p.BelongForce = null;
                 p.BelongCorpsId = 0;
                 p.BelongCorps = null;
             }
@@ -494,7 +501,6 @@ namespace Sango.Core
                 {
                     Person p = notJoined[i];
                     p.BelongForceId = 0;
-                    p.BelongForce = null;
                     p.BelongCorpsId = 0;
                     p.BelongCorps = null;
                     joined.Add(p);
@@ -517,7 +523,6 @@ namespace Sango.Core
             {
                 Person p = joined[i];
                 p.BelongForceId = newForce.Id;
-                p.BelongForce = newForce;
                 p.BelongCorpsId = mainCorps != null ? mainCorps.Id : 0;
                 p.BelongCorps = mainCorps;
                 // 换势力时复位褒赏标记 —— 对齐原版 person_change_force（s11_sys_scen_person.cpp:751）
@@ -700,7 +705,7 @@ namespace Sango.Core
         /// <param name="a">武将 A</param>
         /// <param name="b">武将 B</param>
         /// <returns>是夫妻或结义返回 true</returns>
-        static bool IsSpouseOrSworn(Person a, Person b)
+        public static bool IsSpouseOrSworn(Person a, Person b)
         {
             if (a == null || b == null || a == b)
                 return false;
@@ -763,7 +768,7 @@ namespace Sango.Core
         /// </summary>
         /// <param name="person">武将</param>
         /// <returns>0~4</returns>
-        static int GetGiri(Person person)
+        public static int GetGiri(Person person)
         {
             if (person == null || person.mArgumentation == null)
                 return 2;

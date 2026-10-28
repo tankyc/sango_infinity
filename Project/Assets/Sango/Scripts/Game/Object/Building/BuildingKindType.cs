@@ -251,5 +251,31 @@ namespace Sango.Core
         /// </summary>
         Village,
 
+        // ==================== 补齐：数据里已存在、但枚举此前缺失的 kind ====================
+        //
+        // BuildingTypes.json 里这些建筑的 kind 值早已在用（11~16、31），
+        // 但枚举没有对应成员，只能靠魔法数字比较。此处补齐，值必须与 json 保持一致。
+
+        /// <summary>投石台（原版 FacilityId_CatapultTower）</summary>
+        CatapultTower = 11,
+
+        /// <summary>太鼓台（原版 FacilityId_DrumTower）</summary>
+        DrumTower = 12,
+
+        /// <summary>军乐台（原版 FacilityId_BandTower）</summary>
+        BandTower = 13,
+
+        /// <summary>石兵八阵（原版 FacilityId_Golems）</summary>
+        Golems = 14,
+
+        /// <summary>异族根城（原版 FacilityId_Base；耐久 5000）</summary>
+        Base = 15,
+
+        /// <summary>贼根城（原版 FacilityId_Den；耐久 2000）</summary>
+        Base2 = 16,
+
+        /// <summary>太庙（内政设施）</summary>
+        AncestralTemple = 31,
+
     }
 }

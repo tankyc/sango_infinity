@@ -45,11 +45,10 @@ namespace Sango.Core.Duel
         /// <summary>接受率上限（永远不封死）</summary>
         public const int MaxChance = 95;
 
-        /// <summary>
-        /// 【临时 · 测试用】为 true 时被挑战方一律应战（概率恒 100），方便反复验证单挑流程。
-        /// 不需要时改成 false，或连同 Calc 里那一行判断一起删掉，即恢复正常的性格/能力/兵力判定。
-        /// </summary>
-        public const bool DebugAlwaysAccept = false;
+        // 【已移除】原先的 `const bool DebugAlwaysAccept = false` 测试开关：
+        // 因为它是编译期常量，`if (DebugAlwaysAccept) return 100;` 里的 return
+        // 会被判定为不可达代码（CS0162）。测试期已过，直接删掉这个开关，
+        // 需要复现时临时把 `Calc` 的第一行改成 `return 100;` 即可。
 
         #endregion
 
@@ -63,9 +62,6 @@ namespace Sango.Core.Duel
         /// <returns>0~100 的接受概率（实际被夹在 MinChance ~ MaxChance 之间）</returns>
         public static int Calc(Person target, Person challenger, int targetTroops, int challengerTroops)
         {
-            // 临时测试用：无条件应战（测完删掉这一行即可）
-            if (DebugAlwaysAccept) return 100;
-
             if (target == null) return MinChance;
             if (challenger == null) return MaxChance;
 

@@ -249,10 +249,29 @@ namespace Sango.Core
             // 4. 切换归属（势力由军团派生，与 Open311 person_change_force 一致）
             person.BelongCity = city;
             person.BelongCorps = city.BelongCorps;
-            person.BelongForce = person.BelongCorps != null ? person.BelongCorps.BelongForce : city.BelongForce;
+            // BelongForce 派生自 BelongCorps（对齐原版 get_force_id = district_->force_），无需单独赋值
 
-            // 5. 身份归位（君主不能降级）
-            if (!person.IsGovernor)
+            // 5. 身份归位
+            //
+            // 【君主必须区分两种情形】
+            //   · 他本来就是本势力主公（新势力的 mGovernor 就是他）→ 保持 Governor，
+            //     否则会出现"势力主公却是普通状态"的分裂；
+            //   · 他势力君主被收编（劝降合并、势力灭亡后君主归顺）→ 必须降级。
+            //     原先这里写的是"只要 IsGovernor 就不降级"，于是投降合并后旧的
+            //     mGovernor 带着 Governor 身份进入新势力，而新势力的 mGovernor 是别人 ——
+            //     一个势力两个君主：IsActiveGovernor 判真（不可收押）、
+            //     太守任免与君主继承全部按"他是主公"处理。
+            //
+            // 【原版对齐】Open311 force_ruin 的投降分支在转势力之前就把君主身份改掉：
+            //   s11_sys_scen_force.cpp:976-982
+            //     `if (person->is_kunshu()) person->set_mibun(Mibun_Totoku);`
+            //     `person_change_force(person, by, new_kunshu, PersonForceChangeReason_Surrendered);`
+            // 本项目没有"都督"这个身份档（都督是军团级职位，见 CityStateSystem.AppointTotoku），
+            // 因此降为普通武将（Normal），随后本方法第 7 步的 NeedUpdateLeader
+            // 会按能力重新选太守 —— 最终表现为"普通武将或太守"，与玩家可感知的结果一致。
+            Force recruitForce = city.BelongForce;
+            bool staysGovernor = person.IsGovernor && recruitForce != null && recruitForce.mGovernor == person;
+            if (!staysGovernor)
                 SetState(person, PersonStateType.Normal, reason);
 
             // 6. 所在地与在籍名册
@@ -350,6 +369,112 @@ namespace Sango.Core
             }
 
             person.SetMission(MissionType.PersonReturn, service);
+        }
+
+        /// <summary>
+        /// 城陷时把"户口仍挂在本城"的在途/出征武将迁到同势力有效据点。
+        ///
+        /// 对齐 Open311 的 unit_reset_service（s11_sys_scen_unit.cpp:751-844）：
+        ///   ① 同军团都督据点 ② 君主据点（仍有效时）③ 最近己方据点，
+        ///   并用"目标 == 陷落城 → 跳过"打破"君主据点即陷落城"的循环。
+        /// 在途者（非部队）额外对齐 person_escape（s11_sys_event_capture.cpp:487-518）：
+        ///   改户口后重设返程任务，走到新据点再入城归位。
+        ///
+        /// 【为什么需要】城陷循环只处理"物理在城"者，在途/出征者的户口会留在
+        /// 已易主的城，污染 CapitalCity（mGovernor?.BelongCity）派生值，
+        /// 进而让下一座城陷的 escapeCity 选到敌城。
+        /// </summary>
+        /// <param name="person">武将（户口必须仍挂 fallCity）</param>
+        /// <param name="fallCity">被攻陷的城</param>
+        public static void RelocateHomeOnCityFall(Person person, City fallCity)
+        {
+            if (person == null || person.IsDead || fallCity == null)
+                return;
+            if (person.BelongCity != fallCity)
+                return;  // 户口不在陷落城，无需迁移
+            if (person.BelongForce == null)
+                return;  // 无势力：走灭亡分支（LeaveToWild）
+
+            City newHome = ResolveFallReturnPoint(person, fallCity);
+            if (newHome == null || newHome == fallCity)
+                return;  // 没有其它同势力据点，维持现状（后续按最后一城处理）
+
+            // 君主迁都前记录势力与原军团（dissolve 合并方向用）
+            Force force = person.BelongForce;
+            Corps oldCorps = person.IsGovernor ? person.BelongCorps : null;
+
+            Sango.Log.Info($"*[城陷]{person.Name} 户口自 {fallCity.Name} 迁至 {newHome.Name}（{(person.mBelongTroop != null ? "随军出征" : "在途")}）");
+            person.ChangeBelongCity(newHome);
+
+            // 【原版对齐】君主跨军团迁都：对齐 unit_reset_service 的 district_dissolve
+            //（s11_sys_scen_unit.cpp:832-835 → s11_sys_scen_district.cpp:88-133）。
+            // 君主户口迁到别的军团城时，把目标城军团整体并入君主原军团（第1军团），
+            // 保证"君主 ∈ 第1军团"不变式。
+            if (person.IsGovernor && oldCorps != null && newHome.BelongCorps != null
+                && newHome.BelongCorps != oldCorps)
+            {
+                Sango.Log.Info($"*[迁都]{person.Name} 迁都 {newHome.Name}：军团 {newHome.BelongCorps.Name} 并入 {oldCorps.Name}");
+                force.MergeCorps(newHome.BelongCorps, oldCorps);
+            }
+
+            // 在途者（非部队）对齐 person_escape：改户口后重设返程任务
+            if (person.mBelongTroop == null)
+            {
+                person.ClearMission();
+                person.SetMission(MissionType.PersonReturn, person.BelongCity);
+            }
+        }
+
+        /// <summary>
+        /// 城陷后的"迁户口目标"计算，对齐 unit_reset_service 的三级优先级，
+        /// 用"目标 == 陷落城 → 跳过"避免选回被攻陷的城本身。
+        /// </summary>
+        private static City ResolveFallReturnPoint(Person person, City fallCity)
+        {
+            Force force = person.BelongForce;
+            Corps corps = person.BelongCorps;
+
+            // ① 同军团都督据点
+            if (corps != null && corps.mComander != null && corps.mComander != person
+                && corps.mComander.IsAlive && !corps.mComander.IsDead
+                && corps.mComander.BelongCity != null
+                && corps.mComander.BelongCity != fallCity
+                && corps.mComander.BelongCity.BelongForce == force)
+            {
+                return corps.mComander.BelongCity;
+            }
+
+            // ② 君主据点（仍有效且不等于陷落城）
+            City capital = force.CapitalCity;
+            if (capital != null && capital != fallCity && capital.BelongForce == force)
+            {
+                return capital;
+            }
+
+            // ③ 同军团最近据点（优先）：对齐 unit_reset_service 的
+            //    get_building_list(district == 军团) 优先于 force == 势力 的两级 fallback。
+            //    这能避免"君主在军团还有其它城时被迁到别军团"，只有军团无城才跨军团。
+            if (corps != null)
+            {
+                City sameCorpsNearest = null;
+                int bestDist = int.MaxValue;
+                corps.ForEachCity(c =>
+                {
+                    if (c == fallCity)
+                        return;
+                    int d = fallCity.Distance(c);
+                    if (d < bestDist)
+                    {
+                        bestDist = d;
+                        sameCorpsNearest = c;
+                    }
+                });
+                if (sameCorpsNearest != null)
+                    return sameCorpsNearest;
+            }
+
+            // ④ 同势力最近据点（GetNearnestForceCity 内部有 BelongForce 过滤）
+            return fallCity.GetNearnestForceCity();
         }
 
         /// <summary>
@@ -486,7 +611,7 @@ namespace Sango.Core
 
             // 4. 清归属（对应 Open311 person_set_district_id(self, -1)）
             person.BelongCorps = null;
-            person.BelongForce = null;
+            // BelongForce 派生自 BelongCorps，随军团一并清空
             person.BelongCity = stayCity;
             if (stayCity != null && person.CurrentCity != stayCity)
                 person.ChangeCurrentCity(stayCity);
@@ -622,7 +747,7 @@ namespace Sango.Core
             person.BelongForce?.BeCaptiveList.Remove(person);
 
             // 释放后不再保留原势力/军团（避免"在野却隶属某势力"的历史脏数据）
-            person.BelongForce = null;
+            // BelongForce 派生自 BelongCorps，随军团一并清空
             person.BelongCorps = null;
 
             LeaveToWild(person, city ?? person.CurrentCity, reason);
@@ -658,7 +783,7 @@ namespace Sango.Core
             Force oldForce = oldCorps != null ? oldCorps.BelongForce : person.BelongForce;
 
             person.BelongCorps = corps;
-            person.BelongForce = corps != null ? corps.BelongForce : null;
+            // BelongForce 派生自 BelongCorps
 
             // 巡检/批量修数据时只改字段，不做官职与身份的连带处理
             if (!fullTransaction)
@@ -812,19 +937,8 @@ namespace Sango.Core
                 changed = true;
             }
 
-            // 【锚点】势力由军团派生（Open311: Person::get_force_id = district_->force_）。
-            // 军团有效时用军团的势力，只有军团为空时才退回城的势力 ——
-            // 城本身可能带着与军团不一致的历史脏数据。
-            Force expectedForce = person.BelongCorps != null
-                ? person.BelongCorps.BelongForce
-                : city.BelongForce;
-
-            if (person.BelongForce != expectedForce)
-            {
-                person.BelongForce = expectedForce;
-                changed = true;
-            }
-
+            // 【锚点】势力由军团派生（Open311: Person::get_force_id = district_->force_），
+            // 故只需保证军团一致，势力自动跟随，无需再单独校验/回写 BelongForce。
             return changed;
         }
 

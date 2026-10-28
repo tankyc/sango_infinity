@@ -149,7 +149,9 @@ namespace Sango.Core.Debate
 
             if (character.angerTimer <= 0)
                 return -1;
-            if (CharacterGetPersonality(character) != (int)Personality.Personality_Bold)
+            // 原版：仅刚胆。现由性格字段判定，新性格勾选即生效
+            Sango.Core.Personality selfP = Debate.GetPersonalityData(character);
+            if (selfP == null || !selfP.debateAiPrefersLowestTopic)
                 return -1;
 
             int best = -1;
@@ -178,7 +180,9 @@ namespace Sango.Core.Debate
 
             if (character.angerTimer <= 0)
                 return -1;
-            if (CharacterGetPersonality(character) != (int)Personality.Personality_Calm)
+            // 原版：仅冷静。现由性格字段判定
+            Sango.Core.Personality selfP = Debate.GetPersonalityData(character);
+            if (selfP == null || !selfP.debateAiPrefersRethink)
                 return -1;
 
             int n = 0;
@@ -212,7 +216,9 @@ namespace Sango.Core.Debate
 
             if (opponentCharacter.angerTimer <= 0)
                 return -1;
-            if (CharacterGetPersonality(opponentCharacter) != (int)Personality.Personality_Bold)
+            // 原版：对手是刚胆。现由性格字段判定
+            Sango.Core.Personality oppP = Debate.GetPersonalityData(opponentCharacter);
+            if (oppP == null || !oppP.debateAiAggressiveVsAngered)
                 return -1;
 
             cardIndex = CharacterGetCardIndex(character, (int)DebateCard.DebateCard_Shout);
@@ -267,7 +273,9 @@ namespace Sango.Core.Debate
 
             if (opponentCharacter.angerTimer <= 0)
                 return -1;
-            if (CharacterGetPersonality(opponentCharacter) != (int)Personality.Personality_Calm)
+            // 原版：对手是冷静（愤怒但不受出牌限制）。现由性格字段判定
+            Sango.Core.Personality oppP = Debate.GetPersonalityData(opponentCharacter);
+            if (oppP == null || !oppP.debateCountsAsAngered || !oppP.debateCanActWhileAngered)
                 return -1;
 
             cardIndex = CharacterGetCardIndex(character, (int)DebateCard.DebateCard_Ignore);
@@ -285,7 +293,9 @@ namespace Sango.Core.Debate
 
             if (character.angerTimer <= 0)
                 return -1;
-            if (CharacterGetPersonality(character) != (int)Personality.Personality_Calm)
+            // 原版：仅冷静。现由性格字段判定
+            Sango.Core.Personality selfP = Debate.GetPersonalityData(character);
+            if (selfP == null || !selfP.debateAiAngerPrefersShout)
                 return -1;
 
             cardIndex = CharacterGetCardIndex(character, (int)DebateCard.DebateCard_Shout);
@@ -319,8 +329,9 @@ namespace Sango.Core.Debate
                         return -1;
                     break;
                 case 1:
-                    // 仅性格为小心时
-                    if (CharacterGetPersonality(character) != (int)Personality.Personality_Timid)
+                    // 原版：仅"小心"性格。现由性格字段判定
+                    Sango.Core.Personality timidP = Debate.GetPersonalityData(character);
+                    if (timidP == null || !timidP.debateAiIgnoreWhenOpposingCalm)
                         return -1;
                     break;
                 case 2:

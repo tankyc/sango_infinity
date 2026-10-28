@@ -638,16 +638,32 @@ namespace Sango.Core
         {
             int cost = JobType.GetJobCostAP((int)CityJobType.MakeTansport);
 
+            // 【诊断日志】运输队"没出现"时，用这条定位卡在哪个门禁。
+            // 受 AIConfig.logOutpostAI 开关控制（与其它 *[据点AI] 日志同源），默认不刷屏。
+            // 原版 kyoten_transport 同样是二十来处 `return true` 静默退出
+            // （s11_game_ai_kyoten_cmd_mil_transport.cpp:5-207），加日志不改判定。
+            bool Skip(string reason)
+            {
+                if (AIConfig.Instance.logOutpostAI)
+                    Sango.Log.Info($"*[运输AI]{city.Name} 不组建运输队：{reason}");
+                return true;
+            }
+
             // 关隘 / 港口不执行运输 —— s11_game_ai_kyoten.cpp:169-171 的注释 + 本函数 :17-19
             if (!city.IsCity())
-                return true;
+                return Skip("关隘 / 港口不执行运输命令");
             // 内政设施未达最低配置 → 不作为运输源 —— :47-50
             if (!CityFacilityRequirement.MeetsMinGovFacilityCount(city))
-                return true;
-            // 玩家第一军团不自动运输 —— :14-16
+                return Skip("内政设施未达运输源最低配置");
+            // 玩家第 1 军团（直辖军团）不自动运输 —— :14-16
+            // 原版判定是 `building->get_district_id() == force_->get_sub_district_id(1)`，
+            // 即"据点属于第 1 号军团"，与"当前正在执行哪个军团"无关。
+            // 不能用 CurRunCorps：Force.Run 会把 CurRunCorps 设成**正在跑的委任军团**
+            // （Force.cs:1411-1420），那样每个委任军团都会在派运输队时被误判成直辖军团，
+            // 结果是玩家所有军团都不发车。
             if (city.BelongForce != null && city.BelongForce.IsPlayer && city.BelongCorps != null
-                && city.BelongForce.CurRunCorps == city.BelongCorps)
-                return true;
+                && city.BelongCorps.IsCaptainCorps)
+                return Skip("玩家第 1 军团（直辖）不自动运输");
 
             // 玩家指定运输源（后续"借调守将"与"终点选择"两处复用）—— :22 / :73
             bool isPlayerTransportSrc = city.BelongForce != null && city.BelongForce.IsPlayer
@@ -671,7 +687,7 @@ namespace Sango.Core
             if (OutpostRuntime.idlePersonList.Count == 0)
             {
                 if (borrowedGuard == null)
-                    return true;
+                    return Skip("无空闲武将可押运");
                 // 借调落地：放进可派池并解除守将身份 —— :152-156
                 OutpostRuntime.idlePersonList.Add(borrowedGuard);
                 city.BelongForce.guardPersonIds.Remove(city.Id);
@@ -680,33 +696,34 @@ namespace Sango.Core
             }
             // 行动力不足 —— :31-34
             if (OutpostRuntime.actionPoint < cost)
-                return true;
+                return Skip($"行动力不足（剩余 {OutpostRuntime.actionPoint}，需要 {cost}）");
             // 粮 / 兵不足 —— :35-40
             if (city.food <= 0 || city.troops <= 0)
-                return true;
+                return Skip($"城中无粮或无兵（粮 {city.food} 兵 {city.troops}）");
 
             OutpostInfo info = OutpostRuntime.Get(city.Id);
             // 战斗中的据点不运输 —— :41-43
             if (info.state == OutpostState.Battle)
-                return true;
+                return Skip("据点处于交战状态");
             // 18 回合冷却 —— :44-46
-            if (GetTurnsSinceLastTransport(city) < 18)
-                return true;
+            int turnsSinceTransport = GetTurnsSinceLastTransport(city);
+            if (turnsSinceTransport < 18)
+                return Skip($"距上次运输仅 {turnsSinceTransport} 回合（需满 18 回合）");
             // 本据点自身粮食不够支撑（前线 20 回合 / 后方 10 回合）—— :51-55
             int turnCount = info.state == OutpostState.Front ? 20 : 10;
             int selfFood = ForceAI.CalcExpectedFoodUse(city.troops, turnCount);
             if (city.food < selfFood)
-                return true;
+                return Skip($"自身存粮不足以支撑 {turnCount} 回合（有 {city.food}，需 {selfFood}）");
 
             // 富余物资（含兵装）—— :56-69
             int extraTroops, extraFood, extraGold;
             int[] extraEquipment;
             if (!GetExtraResource(city, out extraTroops, out extraFood, out extraGold, out extraEquipment))
-                return true;
+                return Skip("没有富余资源可运");
             if (extraTroops < 100)
-                return true;
+                return Skip($"富余兵力仅 {extraTroops}（需 ≥ 100）");
             if (extraFood < ForceAI.CalcExpectedFoodUse(extraTroops, turnCount))
-                return true;
+                return Skip($"富余军粮不足（{extraFood}，运 {extraTroops} 兵需 {ForceAI.CalcExpectedFoodUse(extraTroops, turnCount)}）");
 
             // 目标据点 —— :71-83
             // 【玩家指定运输源】原版在 `player && building_id == transport_src_` 时改走
@@ -729,7 +746,7 @@ namespace Sango.Core
                 target = GetTransportDest(city, scenario);
             }
             if (target == null)
-                return true;
+                return Skip(isPlayerTransportSrc ? "玩家指定的运输终点无效（不存在 / 已易主 / 就是本城）" : "找不到可达的运输目标据点");
 
             // 按目标容量裁剪 —— :86-96
             extraTroops = System.Math.Min(extraTroops, target.TroopsLimit - target.troops);
@@ -756,7 +773,7 @@ namespace Sango.Core
             }
 
             if (extraTroops <= 0 || extraFood <= 0)
-                return true;
+                return Skip($"目标[{target.Name}]容量已满（裁剪后可运 兵{extraTroops} 粮{extraFood}）");
 
             int sendGold = 0;
             int sendFood = 0;
@@ -801,7 +818,7 @@ namespace Sango.Core
             sendGold = System.Math.Clamp(sendGold, 0, variables.maxUnitTransportGold);
 
             if (sendTroops <= 0 || sendFood <= 0)
-                return true;
+                return Skip($"单队上限裁剪后无可运量（兵{sendTroops} 粮{sendFood}，上限 兵{scenario.Variables.maxUnitTransportTroops} 粮{scenario.Variables.maxUnitTransportFood}）");
 
             // 兵装随队：按 get_extra_resource 的富余量、且不超过运输兵数装载 —— :136-141
             ItemStore cargo = BuildTransportItems(extraEquipment, sendTroops);
@@ -809,7 +826,11 @@ namespace Sango.Core
             // 组建运输队：复用既有的运输队创建入口 —— :152-190
             Troop troop = AIMakeTransportTroop(city, target, sendTroops, sendGold, sendFood, cargo, scenario);
             if (troop == null)
+            {
+                // 具体原因由 AIMakeTransportTroop 打出（*[运输AI] 前缀），此处只标记"本次取消"
+                Sango.Log.Warning($"*[运输AI]{city.Name} 本次运输已取消（失败原因见上一条日志）");
                 return true;
+            }
 
             // 记账 —— :192-205
             OutpostRuntime.actionPoint -= cost;
@@ -819,7 +840,8 @@ namespace Sango.Core
             OutpostRuntime.MarkExecuted();
 
             if (AIConfig.Instance.logOutpostAI)
-                Sango.Log.Info($"*[据点AI]{city.Name} 运输 → {target.Name} 兵{sendTroops} 粮{sendFood} 金{sendGold}");
+                Sango.Log.Info($"*[据点AI]{city.Name} 运输 → {target.Name} 兵{sendTroops} 粮{sendFood} 金{sendGold}" +
+                               $"（运输队「{troop.Name}」{troop.Leader?.Name}，剩余行动力{OutpostRuntime.actionPoint}）");
             return true;
         }
 
@@ -1400,9 +1422,11 @@ namespace Sango.Core
         {
             int cost = JobType.GetJobCostAP((int)CityJobType.MakeTansport);
 
-            // 玩家第一军团不自动支援 —— :13-15
+            // 玩家第 1 军团（直辖军团）不自动支援 —— :13-15
+            // 同 AITransport：原版是 `get_district_id() == force_->get_sub_district_id(1)`，
+            // 不能用 CurRunCorps（执行期它等于正在跑的委任军团）。
             if (city.BelongForce != null && city.BelongForce.IsPlayer && city.BelongCorps != null
-                && city.BelongForce.CurRunCorps == city.BelongCorps)
+                && city.BelongCorps.IsCaptainCorps)
                 return true;
             // 无可用武将 —— :16-18
             if (OutpostRuntime.idlePersonList.Count == 0)
@@ -1544,7 +1568,25 @@ namespace Sango.Core
             // 结果部队刚创建就被改判返城，表现为"出城后一直站在城头没动"。
             // `TroopMovetoCity` 到达目标城格后会 `EnterCity`，兵力并入城池，正是增援所需。
             troop.SetMission(MissionType.TroopMovetoCity, target.Id);
+
+            // 【意图层】覆盖 AIMakeTroop 按城市任务推断出来的意图：
+            // 本方法的语义是"跨城增援"，对应原版 DeployType_Defense
+            // （s11_game_ai_kyoten_cmd_mil_defense.cpp:264-266 派兵时写的就是 deploy_[] 里的防卫目标）。
+            // 不覆盖的话，deployType 会跟着 city.TroopMissionType 走，
+            // 后续 UpdateAIOrder 的改派表就会按错误的意图判断。
+            troop.deployType = (int)TroopDeployType.Defense;
+            troop.deployTarget = target.Id;
+
             troop.NeedPrepareMission();
+
+            // 【立即出城】不能停在城头等下一回合（对齐 s11_sys_person_order_military.cpp:331-353
+            // 的 unit_set_order → run_order）。失败则整次出兵作废，不扣行动力。
+            if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+            {
+                Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的支援部队无法出城（城头无可停留格或寻路失败），本次支援取消");
+                CityTroopFactory.RevokeEmit(city, troop);
+                return false;
+            }
 
             OutpostRuntime.actionPoint -= cost;
             OutpostRuntime.MarkExecuted();
@@ -1584,7 +1626,10 @@ namespace Sango.Core
 
             Troop troop = AIMakeTransportTroop(city, target, 3000, 0, food, null, scenario);
             if (troop == null)
+            {
+                Sango.Log.Warning($"*[运输AI]{city.Name} 派人驻守 {target.Name} 失败：运输队未能组建（原因见上一条日志）");
                 return false;
+            }
 
             int cost = JobType.GetJobCostAP((int)CityJobType.MakeTansport);
             OutpostRuntime.actionPoint -= cost;
@@ -1609,6 +1654,22 @@ namespace Sango.Core
             // 战斗中 / 前线的港关不往回运 —— :285-290
             if (info.state == OutpostState.Battle || info.state == OutpostState.Front)
                 return false;
+
+            // 【修正原版遗漏】18 回合冷却。
+            //
+            // 原版 support_collect 组建成功后确实会写冷却：
+            //   s11_game_ai_kyoten_cmd_mil_support.cpp:351
+            //       game_->ai_table_update_last_transport_turn(building_id);
+            // 但它的取目标路径（:301 get_nearest_city_building → :305 get_deploy_id）**没有读**这条记录，
+            // 只有同文件的 support_for_collect 会读（:638 ai_table_get_turns_since_last_transport(dest_id) < 18）。
+            // 于是原版里港关可以每回合反复发车，只要"上一支已抵达进城"就失去抑制 ——
+            // 表现为"港关往都市的运输频率异常高"。
+            //
+            // 本项目每个据点都有持久化的 lastTransportTurn（与 support_for_collect 同一份记录），
+            // 补上这一读即可让"港关自发"与"都市派人回收"共享同一段冷却，语义自洽。
+            int turnsSinceTransport = GetTurnsSinceLastTransport(city);
+            if (turnsSinceTransport < 18)
+                return true;
 
             // 留守兵 / 粮 —— :292-299
             int keepTroops = city.troops > 3000 ? 3000 : System.Math.Max(city.troops - 300, 0);
@@ -1639,7 +1700,10 @@ namespace Sango.Core
 
             Troop troop = AIMakeTransportTroop(city, target, troops, gold, food, cargo, scenario);
             if (troop == null)
+            {
+                Sango.Log.Warning($"*[运输AI]{city.Name} 回收资源回 {target.Name} 失败：运输队未能组建（原因见上一条日志）");
                 return true;
+            }
 
             int cost = JobType.GetJobCostAP((int)CityJobType.MakeTansport);
             OutpostRuntime.actionPoint -= cost;
@@ -1790,7 +1854,10 @@ namespace Sango.Core
 
             Troop troop = AIMakeTransportTroop(city, target, sendTroops, sendGold, sendFood, cargo, scenario);
             if (troop == null)
+            {
+                Sango.Log.Warning($"*[运输AI]{city.Name} 支援物资去 {target.Name} 失败：运输队未能组建（原因见上一条日志）");
                 return false;
+            }
 
             int apCost = JobType.GetJobCostAP((int)CityJobType.MakeTansport);
             OutpostRuntime.actionPoint -= apCost;
@@ -2528,6 +2595,30 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 该据点是否属于"玩家第 1 军团（直辖军团）"。
+        ///
+        /// 对齐出处：Open311 `MilitaryObject::is_player_controlled()`
+        /// （s11_scen_obj.cpp:167-175）：
+        /// <code>
+        /// if (not is_player()) return false;
+        /// const District* district = scenario_->get_district(get_district_id());
+        /// if (not utils::is_alive(district)) return false;
+        /// return district->get_number() == 1;
+        /// </code>
+        /// 语义是"玩家势力 + 据点所属军团编号为 1"，与"当前正在执行的军团"
+        /// （<c>Force.CurRunCorps</c>）无关 —— 后者在 Force.Run 循环里会变成正在跑的委任军团
+        /// （Force.cs:1411-1420），拿它比较会得出相反结果。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <returns>玩家第 1 军团的据点为 true；非玩家势力 / 无归属 / 委任军团均为 false</returns>
+        static bool IsPlayerControlled(City city)
+        {
+            if (city == null || city.BelongForce == null || !city.BelongForce.IsPlayer)
+                return false;
+            return city.BelongCorps != null && city.BelongCorps.IsCaptainCorps;
+        }
+
+        /// <summary>
         /// 离间：挑拨两个第三方势力的交情（本项目对应"二虎竞食"）。
         ///
         /// 对齐出处：s11_game_ai_kyoten_cmd_strategy.cpp:27-182。
@@ -2549,6 +2640,11 @@ namespace Sango.Core
                 return true;
             // 据点金不足 —— :37-39
             if (city.gold < 1000)
+                return true;
+            // 玩家第 1 军团（直辖）以外的玩家据点不自动施计 —— :40-42
+            // 原版：`if (force_->is_player() and not building->is_player_controlled()) return true;`
+            // 判定见 IsPlayerControlled（s11_scen_obj.cpp:167-175）。
+            if (city.BelongForce != null && city.BelongForce.IsPlayer && !IsPlayerControlled(city))
                 return true;
             // 无可用武将 —— :43-45
             if (OutpostRuntime.idlePersonList.Count == 0)
@@ -2685,8 +2781,11 @@ namespace Sango.Core
             // 据点金 < 1000 —— :192-194
             if (city.gold < 1000)
                 return true;
-            // 玩家第一军团但据点非直辖 —— :195-197
-            if (force.IsPlayer && force.CurRunCorps != city.BelongCorps)
+            // 玩家第 1 军团（直辖）以外的玩家据点不自动施计 —— :195-197
+            // 原版：`if (force_->is_player() and not building->is_player_controlled()) return true;`
+            // 注意方向：这里禁止的是**委任军团**，放行的是直辖军团；
+            // 不能用 CurRunCorps 比较（执行期它恒等于正在跑的军团，会永远判定为"同军团"）。
+            if (force.IsPlayer && !IsPlayerControlled(city))
                 return true;
             // 无可用武将 —— :198-200
             if (OutpostRuntime.idlePersonList.Count == 0)
@@ -2844,6 +2943,11 @@ namespace Sango.Core
                 return true;
             // 据点金不足 —— :312-314
             if (city.gold < 1000)
+                return true;
+            // 玩家第 1 军团（直辖）以外的玩家据点不自动施计 —— :315-317
+            // 原版：`if (force_->is_player() and not building->is_player_controlled()) return true;`
+            // 判定见 IsPlayerControlled（s11_scen_obj.cpp:167-175）。
+            if (city.BelongForce != null && city.BelongForce.IsPlayer && !IsPlayerControlled(city))
                 return true;
             // 无可用武将 —— :318-320
             if (OutpostRuntime.idlePersonList.Count == 0)

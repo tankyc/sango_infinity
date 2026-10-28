@@ -49,16 +49,11 @@ namespace Sango.UI
         {
             for (int i = 0; i <= showDepth; i++)
             {
-                RectTransform root = menuRoot[showDepth];
-                if (root != null)
+                // 逐层检测每一级已展开的菜单，命中任意一层即视为悬停在 UI 上
+                RectTransform root = menuRoot[i];
+                if (root != null && RectTransformUtility.RectangleContainsScreenPoint(root, point, Game.Instance.UICamera))
                 {
-                    Sango.Log.Error(point);
-                    Sango.Log.Error(RectTransformUtility.RectangleContainsScreenPoint(root, point, Game.Instance.UICamera));
-
-                    if (RectTransformUtility.RectangleContainsScreenPoint(root, point, Game.Instance.UICamera))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
             return false;

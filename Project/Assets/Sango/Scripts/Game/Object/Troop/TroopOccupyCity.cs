@@ -70,6 +70,12 @@ namespace Sango.Core
             if (score <= 0)
                 return score;
 
+            // 【严格对齐原版】Open311 评分体系下，分值完全由 get_target_score +
+            // get_attack_damage_score + 动作常量决定，不再叠加任务特有加成
+            // （打大部队加权 / 主目标倍率 / 原地或贴脸加成，原版都没有）。
+            if (AIConfig.Instance.useOpen311ScoreFormula)
+                return score;
+
             AIConfig cfg = AIConfig.Instance;
             bool isStay = movetoCell == troop.cell;
             bool isPrimary = false;

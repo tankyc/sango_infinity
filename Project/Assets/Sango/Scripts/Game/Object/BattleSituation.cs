@@ -488,10 +488,11 @@ namespace Sango.Core
         ///   5. 兜底 → frontBuildPreferredTypes 顺序中第一个可建的
         /// </summary>
         /// <param name="info">建址评估快照</param>
+        /// <param name="builder">建造者（陷阱选型对齐原版 add_build_action 的 self）；派队前无工程队时为 null，此时跳过陷阱选型</param>
         /// <param name="force">己方势力（其 canBuildMilitaryBuildingType 决定可选范围）</param>
         /// <param name="scenario">场景对象</param>
         /// <returns>选中的建筑类型；无可用类型时返回 null</returns>
-        public static BuildingType SelectFrontBuildingType(FrontSiteInfo info, Force force, Scenario scenario)
+        public static BuildingType SelectFrontBuildingType(FrontSiteInfo info, Troop builder, Force force, Scenario scenario)
         {
             if (force == null || force.canBuildMilitaryBuildingType == null
                 || force.canBuildMilitaryBuildingType.Count == 0)
@@ -499,6 +500,12 @@ namespace Sango.Core
 
             AIConfig cfg = AIConfig.Instance;
             List<BuildingType> candidates = force.canBuildMilitaryBuildingType;
+
+            // 0. 陷阱分支（对齐原版 add_build_action 的陷阱建造意图 s11_sys_unit_action.cpp:1227-1288）：
+            //    由「建造者自己」驱动，评分 > 0 才造；builder 为 null（派队前）时跳过。
+            BuildingType trap = SelectTrapBuildingType(builder, info.cell, force, scenario);
+            if (trap != null)
+                return trap;
 
             // 按 kind 查找（kind 即 BuildingType.Id 语义上的建筑种类）
             BuildingType PickByKind(params int[] kinds)
@@ -565,6 +572,86 @@ namespace Sango.Core
 
             // 最终兜底：任取一个可建类型
             return candidates[0];
+        }
+
+        /// <summary>
+        /// 对齐原版 add_build_action（s11_sys_unit_action.cpp:1227-1288）的陷阱建造意图：
+        /// 以「建造者自己（self）」为基准，先做前置过滤，再按可火计联动的友军数与陷阱位置评分决定是否造陷阱。
+        ///
+        /// 前置过滤（:1236-1246）：
+        ///   ① builder 为 null（派队前无工程队，原版陷阱由部队自主建造）→ 跳过
+        ///   ② 运输队 → 跳过
+        ///   ③ 非普通势力 / 势力已亡 → 跳过
+        ///   ④ 援军（requestForceId &gt;= 0）→ 跳过
+        ///   ⑤ 建造力 &lt; 200（calc_build_power）→ 跳过
+        ///
+        /// 协作 + 评分（:1248, :1253-1267）：
+        ///   ⑥ 半径 3 内可火计联动友军 &lt;= 1 跳过（assistable_unit_count &lt;= 1）
+        ///   ⑦ 遍历可建陷阱类型，用 get_trap_build_pos_score 评分，取最高分（&gt; 0 才造）
+        /// </summary>
+        static BuildingType SelectTrapBuildingType(Troop builder, Cell cell, Force force, Scenario scenario)
+        {
+            if (cell == null || force == null || scenario == null || scenario.Map == null)
+                return null;
+
+            // 前置过滤（对齐 add_build_action :1236-1246）
+            // 【链路日志】每一处 early-return 都留痕：这是"前线为什么没出现火球"的唯一排查入口
+            if (builder == null)
+            {
+                // :无 self（派队前），原版陷阱由部队自主建造 —— 城池派工程队时必然走这里，
+                // 因此第一趟工程队只会建辅助建筑，火球要靠"工程队连建"或"作战部队就地增筑"。
+                Sango.Log.Info($"*[陷阱选型]{force.Name} 派队前尚无建造部队(self)，跳过陷阱选型（本次只建辅助建筑）");
+                return null;
+            }
+            if (builder.IsTransport)
+                return null;                              // :1236-1238 运输队
+            Force bf = builder.BelongForce;
+            if (bf == null || !bf.IsAlive || !bf.IsNormal)
+                return null;                              // :1239-1240 非普通势力（对齐 is_alive(force) && force->is_normal()）
+            if (builder.requestForceId >= 0)
+                return null;                              // :1242-1244 援军
+
+            int buildPower = TroopAIUtility.CalcBuildPower(builder);
+            if (buildPower < 200)
+            {
+                Sango.Log.Info($"*[陷阱选型]{bf.Name}的[{builder.Name}]建造力 {buildPower}<200，不造陷阱");
+                return null;                              // :1245-1247 建造力 < 200
+            }
+
+            // ⑥ 协作：半径 3 内可火计联动的友军数（对齐 :1248 get_kakei_assistable_unit_count(self,3,node->pos)）
+            int assistableCount = TroopAIUtility.GetKakeiAssistableUnitCount(builder, 3, cell);
+            if (assistableCount <= 1)
+            {
+                Sango.Log.Info($"*[陷阱选型]{bf.Name}的[{builder.Name}]半径 3 内可火计联动友军仅 {assistableCount} 支（需 >1），无人点火，不造陷阱");
+                return null;                              // :1258-1260 assistable_unit_count <= 1 跳过
+            }
+
+            // ⑦ 逐类型评分（对齐 :1253-1267 get_trap_build_pos_score(facility_id, self, src_pos, node->pos)）
+            BuildingType best = null;
+            int bestScore = 0;
+            foreach (BuildingType t in force.canBuildMilitaryBuildingType)
+            {
+                if (t == null || !t.IsExplosive)
+                    continue;
+                int score = TroopAIUtility.GetTrapBuildPosScore(
+                    (BuildingKindType)t.kind, builder, builder.cell, cell);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = t;
+                }
+            }
+
+            // 【链路日志 ②】陷阱选型结果 —— 火球等爆炸物能否被选中，取决于这里评分是否 > 0
+            if (bestScore > 0 && best != null)
+            {
+                Sango.Log.Info($"*[陷阱选型]{bf.Name}的[{builder.Name}]判定在 {cell.x},{cell.y} 修造{best.Name}"
+                    + $"（评分 {bestScore}，半径 3 内可火计联动友军 {assistableCount} 支，携带资金 {builder.gold}）");
+                return best;
+            }
+
+            Sango.Log.Info($"*[陷阱选型]{bf.Name}的[{builder.Name}]无可建陷阱（最高分 {bestScore}，需 > 0；可联动友军 {assistableCount} 支）");
+            return null;
         }
 
         /// <summary>

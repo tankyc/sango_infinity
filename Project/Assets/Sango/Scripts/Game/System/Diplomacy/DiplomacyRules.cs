@@ -381,9 +381,10 @@ namespace Sango.Core
         /// n >= g + 95  → 舌战
         /// </code>
         ///
-        /// 【未对齐项】原版有独立的性格枚举（0~3），本项目没有同名字段，
-        /// 这里用 <paramref name="targetPersonality"/> 由调用方传入近似值（可用 PersonalityId），
-        /// 待 P2 把性格体系对齐后再换成精确映射。
+        /// 【性格来源】原版的"目标性格"是 0~3 的连续档位（SeikakuEnum），本项目不再映射枚举，
+        /// 改由性格数据上的 <c>annexResistance</c> 直接给出档位值：
+        /// 胆小 0 / 冷静 1 / 刚胆 2 / 莽撞 3，新增性格可自由填任意整数。
+        /// 调用方传 PersonalityId（1 起的表主键）会让 g 整体偏高 7，是错误用法。
         /// </summary>
         public static Result TryAnnex(Person actorGovernor, Person targetGovernor,
                                       Force actorForce, Force targetForce,
@@ -573,12 +574,12 @@ namespace Sango.Core
         /// n >= g → 成功；n >= g - 20 → 舌战
         /// </code>
         /// </summary>
-        /// <param name="srcBushou">出兵据点的武将数</param>
+        /// <param name="srcOfficerCount">出兵据点的武将数</param>
         /// <param name="destLike">目标据点所属势力对我方的友好度</param>
         /// <param name="srcTroops">出兵据点的兵力</param>
         public static Result TryReinforce(Person actor, Person actorGovernor, Person targetGovernor,
                                           Force actorForce, Force targetForce, int gold,
-                                          int srcBushou, int destLike, int srcTroops, int difficulty)
+                                          int srcOfficerCount, int destLike, int srcTroops, int difficulty)
         {
             if (actor == null || actorForce == null || targetForce == null) return Result.Failure;
 
@@ -591,8 +592,8 @@ namespace Sango.Core
                  + actorForce.GetLike(targetForce);
             n = MultiplyDifficulty(n, difficulty);
 
-            int bushous = Math.Min(srcBushou, 8);
-            int g = ((10 - bushous) * 4 + (10 - bushous) + destLike) * 2
+            int officers = Math.Min(srcOfficerCount, 8);
+            int g = ((10 - officers) * 4 + (10 - officers) + destLike) * 2
                     + (30000 - Math.Min(srcTroops, 20000)) / 120;
 
             // 原版 :2474-2481：

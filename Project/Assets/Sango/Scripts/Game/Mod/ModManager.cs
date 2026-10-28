@@ -44,6 +44,35 @@ namespace Sango.Mod
                     urlBegin = urlBegin.Substring(0, urlBegin.Length - 13);
                 return $"{urlBegin}/{netModInfo.id}@{netModInfo.version}.zip";
             }
+
+            /// <summary>
+            /// 构建候选下载地址列表(按优先级排列)
+            ///
+            /// 市场下发的 urls 第一个是 GitCode 镜像,第二个是本站直链;
+            /// 无论服务端给没给 urls,最后都会补一条按 MakeUrl 规则拼出的本站地址兜底,
+            /// 保证"市场数据缺字段 / 字段写错"时仍能下载。
+            /// </summary>
+            /// <param name="netModMarket">市场信息</param>
+            /// <param name="netModInfo">模组信息</param>
+            /// <returns>去重后的地址列表(可能为空)</returns>
+            public static List<string> MakeUrlList(NetModMarket netModMarket, NetModInfo netModInfo)
+            {
+                List<string> list = new List<string>();
+                if (netModInfo != null && netModInfo.urls != null)
+                {
+                    for (int i = 0; i < netModInfo.urls.Length; i++)
+                    {
+                        string u = netModInfo.urls[i];
+                        if (!string.IsNullOrEmpty(u) && !list.Contains(u))
+                            list.Add(u);
+                    }
+                }
+
+                string fallback = MakeUrl(netModMarket, netModInfo);
+                if (!string.IsNullOrEmpty(fallback) && !list.Contains(fallback))
+                    list.Add(fallback);
+                return list;
+            }
         }
 
         [JsonObject(MemberSerialization.OptOut)]
@@ -61,6 +90,12 @@ namespace Sango.Mod
             /// 市场列表带上依赖后,未安装的模组也能在下载时自动把依赖一起下下来
             /// </summary>
             public string depends;
+
+            /// <summary>
+            /// 下载地址列表(按优先级排列,第一个是 GitCode 镜像,第二个是本站直链)。
+            /// 老版本市场数据没有该字段时为 null,此时回落到 url + MakeUrl 规则。
+            /// </summary>
+            public string[] urls;
         }
 
         public Mod[] GetEnabledMods()
@@ -468,7 +503,9 @@ namespace Sango.Mod
                 Mod mod;
                 if (mModMap.TryGetValue(info.id, out mod))
                 {
-                    mod.Url = NetModMarket.MakeUrl(content, info);
+                    // 地址列表:第一个是 GitCode 镜像,最后是本站直链(见 MakeUrlList)
+                    mod.UrlList = NetModMarket.MakeUrlList(content, info);
+                    mod.Url = mod.UrlList.Count > 0 ? mod.UrlList[0] : NetModMarket.MakeUrl(content, info);
                     mod.UrlVersion = info.version;
                     mod.Size = info.size;
                     mod.MarketName = content.name;
@@ -488,7 +525,8 @@ namespace Sango.Mod
                     mod.Poster = info.poster;
                     // 未安装的模组只有市场列表这一个依赖来源
                     mod.Depends = info.depends;
-                    mod.Url = NetModMarket.MakeUrl(content, info);
+                    mod.UrlList = NetModMarket.MakeUrlList(content, info);
+                    mod.Url = mod.UrlList.Count > 0 ? mod.UrlList[0] : NetModMarket.MakeUrl(content, info);
                     mod.MarketName = content.name;
                     mModMap.Add(info.id, mod);
                 }

@@ -92,6 +92,10 @@ namespace Sango.Core
                     // 移动完成，进入城市
                     if (troop.cell.building == TargetCity)
                     {
+                        // 【日志】卸货前播报一次，便于确认"运输队真的到了"以及带了多少资源。
+                        // 进城后 Troop 会被 Clear，资源并入城池，之后再查就拿不到这些数值了。
+                        Sango.Log.Info($"{scenario.GetDateStr()}运输队[{troop.Name}]抵达{TargetCity.Name}并卸货" +
+                                       $"（兵{troop.troops} 粮{troop.food} 金{troop.gold}，押运 {troop.Leader?.Name}）");
                         troop.EnterCity(TargetCity);
                     }
                     return true;

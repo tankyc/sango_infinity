@@ -907,8 +907,9 @@ namespace Sango.UI
             target.compatibility = snapshot.compatibility;
 
             // 剧本编辑字段：更新 ID 与运行时引用
+            // 注意：`Person.BelongForce` 是**只读派生属性**（=> BelongCorps?.BelongForce），
+            // 不能直接赋值；它的权威来源是 BelongCorps，所以这里只写 Id 与 Corps 引用即可。
             target.BelongForceId = snapshot.BelongForceId;
-            target.BelongForce = snapshot.BelongForceId > 0 ? cur.forceSet.Get(snapshot.BelongForceId) : null;
             target.BelongCorpsId = snapshot.BelongCorpsId;
             target.BelongCorps = snapshot.BelongCorpsId > 0 ? cur.corpsSet.Get(snapshot.BelongCorpsId) : null;
             target.BelongCityId = snapshot.BelongCityId;
@@ -1195,7 +1196,10 @@ namespace Sango.UI
             }, 30, 99, OnLifeYearChanged);
 
             // 性格与相性
-            BindToggleGroup(personalityToggles, () => snapshot.PersonalityId, v => snapshot.PersonalityId = v, i => i + 1, v => v - 1);
+            // 【数据驱动】Toggle 下标不再假设"性格 Id = 下标 + 1"，
+            // 而是按性格表顺序取第 i 个的 Id —— 新增/重排性格时不会错位。
+            BindToggleGroup(personalityToggles, () => snapshot.PersonalityId, v => snapshot.PersonalityId = v,
+                PersonalityIdAt, PersonalityIndexOf);
             BindVoiceToggleGroup();
             BindToggleGroup(toneToggles, () => snapshot.tone, v => snapshot.tone = v, i => i, v => v);
             BindToggleGroup(hanLoyaltyToggles, () => snapshot.kanshitsu, v => snapshot.kanshitsu = v, i => i, v => v);
@@ -1337,7 +1341,7 @@ namespace Sango.UI
                 if (yearAvailableText != null) yearAvailableText.text = snapshot.appearance.ToString();
                 if (lifeSpanText != null) lifeSpanText.text = System.Math.Max(0, snapshot.yearDead - snapshot.yearBorn).ToString();
 
-                RefreshToggleGroup(personalityToggles, snapshot.PersonalityId, i => i - 1, 1);
+                RefreshToggleGroup(personalityToggles, snapshot.PersonalityId, PersonalityIndexOf, 0);
                 RefreshVoiceToggleGroup();
                 RefreshToggleGroup(toneToggles, snapshot.tone, i => i, 0);
                 RefreshToggleGroup(hanLoyaltyToggles, snapshot.kanshitsu, i => i, 0);
@@ -1742,6 +1746,40 @@ namespace Sango.UI
                     }
                 });
             }
+        }
+
+        /// <summary>
+        /// 第 index 个性格 Toggle 对应的性格 Id（按性格表顺序）。
+        ///
+        /// 【为什么不是 index + 1】旧实现把"性格 Id"与"Toggle 下标"绑定成 +1 关系，
+        /// 一旦新增性格或调整 Id，UI 点位就会整体错开。
+        /// </summary>
+        static int PersonalityIdAt(int index)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null && scenario.CommonData != null && scenario.CommonData.Personalities != null)
+            {
+                var list = scenario.CommonData.Personalities;
+                if (index >= 0 && index < list.Count)
+                    return list[index].Id;
+            }
+            return index + 1;
+        }
+
+        /// <summary>性格 Id 对应的 Toggle 下标（按性格表顺序）；找不到时回落到 0</summary>
+        static int PersonalityIndexOf(int personalityId)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null && scenario.CommonData != null && scenario.CommonData.Personalities != null)
+            {
+                var list = scenario.CommonData.Personalities;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (list[i].Id == personalityId)
+                        return i;
+                }
+            }
+            return personalityId > 0 ? personalityId - 1 : 0;
         }
 
         /// <summary>

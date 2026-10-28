@@ -855,6 +855,7 @@
     "22": {
       "Id": 22,
       "Name": "火计",
+      "strategyType": 2,
       "kind": 3,
       "atk": 0,
       "atkDurability": 0,
@@ -918,6 +919,7 @@
     "23": {
       "Id": 23,
       "Name": "灭火",
+      "strategyType": 1,
       "kind": 3,
       "costEnergy": 10,
       "successRate": 0,
@@ -952,6 +954,8 @@
     "24": {
       "Id": 24,
       "Name": "伪报",
+      "strategyType": 3,
+      "personalitySkillType": 0,
       "kind": 3,
       "atk": 1,
       "costEnergy": 15,
@@ -1017,6 +1021,8 @@
     "25": {
       "Id": 25,
       "Name": "扰乱",
+      "strategyType": 4,
+      "personalitySkillType": 1,
       "kind": 3,
       "atk": 1,
       "costEnergy": 15,
@@ -1082,6 +1088,8 @@
     "26": {
       "Id": 26,
       "Name": "镇静",
+      "strategyType": 5,
+      "personalitySkillType": 2,
       "kind": 3,
       "costEnergy": 10,
       "successRate": 0,
@@ -1137,6 +1145,8 @@
     "27": {
       "Id": 27,
       "Name": "伏兵",
+      "strategyType": 6,
+      "personalitySkillType": 3,
       "kind": 3,
       "atk": 35,
       "costEnergy": 10,
@@ -1165,6 +1175,8 @@
     "28": {
       "Id": 28,
       "Name": "内讧",
+      "strategyType": 7,
+      "personalitySkillType": 5,
       "kind": 3,
       "atk": 2,
       "costEnergy": 20,
@@ -1193,6 +1205,7 @@
     "29": {
       "Id": 29,
       "Name": "落雷",
+      "strategyType": 9,
       "kind": 3,
       "atk": 40,
       "atkDurability": 5,
@@ -1261,6 +1274,8 @@
     "30": {
       "Id": 30,
       "Name": "妖术",
+      "strategyType": 8,
+      "personalitySkillType": 4,
       "kind": 3,
       "atk": 25,
       "atkDurability": 5,

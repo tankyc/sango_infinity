@@ -40,37 +40,42 @@ namespace Sango.Core
     }
 
     /// <summary>
-    /// 计略技能 Id 与 <see cref="PersonalitySkillType"/> 的映射表。
+    /// 计略技能与 <see cref="PersonalitySkillType"/> 的映射。
+    ///
+    /// 【数据驱动】归属关系由 <c>Skills.json</c> 的 <c>personalitySkillType</c> 字段声明，
+    /// 代码里**不再出现任何技能 Id**。新增计略时只需在技能表里填上分类值，
+    /// 性格的抗性 / 专精自动生效。
     /// </summary>
     public static class PersonalitySkillMap
     {
-        /// <summary>伪报技能 Id</summary>
-        public const int SKILL_ID_FALSE_REPORT = 24;
-        /// <summary>扰乱技能 Id</summary>
-        public const int SKILL_ID_DISTURB = 25;
-        /// <summary>镇静技能 Id</summary>
-        public const int SKILL_ID_CALMDOWN = 26;
-        /// <summary>伏兵技能 Id</summary>
-        public const int SKILL_ID_AMBUSH = 27;
-        /// <summary>内讧技能 Id</summary>
-        public const int SKILL_ID_INFIGHTING = 28;
-
         /// <summary>
         /// 把技能 Id 转换为性格计略类型。
         /// </summary>
         /// <param name="skillId">技能 Id</param>
-        /// <returns>对应类型；不属于性格表的技能返回 <see cref="PersonalitySkillType.None"/></returns>
+        /// <returns>对应类型；未配置或不属于性格表的技能返回 <see cref="PersonalitySkillType.None"/></returns>
         public static PersonalitySkillType ToSkillType(int skillId)
         {
-            switch (skillId)
-            {
-                case SKILL_ID_FALSE_REPORT: return PersonalitySkillType.FalseReport;
-                case SKILL_ID_DISTURB: return PersonalitySkillType.Disturb;
-                case SKILL_ID_CALMDOWN: return PersonalitySkillType.Calmdown;
-                case SKILL_ID_AMBUSH: return PersonalitySkillType.Ambush;
-                case SKILL_ID_INFIGHTING: return PersonalitySkillType.Infighting;
-                default: return PersonalitySkillType.None;
-            }
+            if (skillId < 0) return PersonalitySkillType.None;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.CommonData == null || scenario.CommonData.Skills == null)
+                return PersonalitySkillType.None;
+
+            Skill skill = scenario.Id2Object(scenario.CommonData.Skills, skillId);
+            if (skill == null || skill.personalitySkillType < 0)
+                return PersonalitySkillType.None;
+
+            return (PersonalitySkillType)skill.personalitySkillType;
+        }
+
+        /// <summary>
+        /// 直接按技能对象取性格计略类型（已有 <see cref="Skill"/> 引用时优先用这个，少一次查表）。
+        /// </summary>
+        public static PersonalitySkillType ToSkillType(Skill skill)
+        {
+            if (skill == null || skill.personalitySkillType < 0)
+                return PersonalitySkillType.None;
+            return (PersonalitySkillType)skill.personalitySkillType;
         }
 
         /// <summary>

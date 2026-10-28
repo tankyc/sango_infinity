@@ -131,6 +131,9 @@ namespace Sango.Core
             // ① 三格内有敌军：无条件防御优先 —— s11_game_ai_kyoten.cpp:50-61
             if (info.existEnemy3)
             {
+                // 【诊断】这里 return 会把运输命令整条排除，命令体根本没机会执行。
+                if (AIConfig.Instance.logOutpostAI)
+                    Sango.Log.Info($"*[运输AI]{city.Name} 本回合不排运输命令：据点三格内有敌军，命令表只留防御类");
                 q.Add(AIOrderId.Defense);
                 if (city.IsCity())
                 {
@@ -144,7 +147,11 @@ namespace Sango.Core
 
             // ② 没有可下令武将 —— s11_game_ai_kyoten.cpp:62-63
             if (info.idlePersonCount <= 0)
+            {
+                if (AIConfig.Instance.logOutpostAI)
+                    Sango.Log.Info($"*[运输AI]{city.Name} 本回合不排运输命令：无可用武将下令");
                 return;
+            }
 
             if (city.IsCity())
             {
@@ -232,6 +239,10 @@ namespace Sango.Core
                         break;
 
                     case OutpostState.Battle:
+                        // 【诊断】交战状态的都市命令表里没有 Transport（对应原版 kyoten_transport
+                        // s11_game_ai_kyoten_cmd_mil_transport.cpp:41-43 的"战斗中不运输"早退）。
+                        if (AIConfig.Instance.logOutpostAI)
+                            Sango.Log.Info($"*[运输AI]{city.Name} 本回合不排运输命令：据点处于交战状态");
                         q.Add(AIOrderId.Defense);
                         q.Add(AIOrderId.Destroy);
                         q.Add(AIOrderId.Bonus);
@@ -346,7 +357,18 @@ namespace Sango.Core
                 // 见 s11_game_ai_kyoten_cmd.cpp:100-101 / 197-198 / 264-265 / 574-575 等。
                 int cost = GetOrderActionPointCost(orderId, city);
                 if (cost > 0 && OutpostRuntime.actionPoint < cost)
+                {
+                    // 【诊断】运输命令在这里被行动力门禁挡掉时，命令体根本不会被调用，
+                    // 不开这条日志会表现为"完全没有运输相关输出"。
+                    if (orderId == AIOrderId.Transport && AIConfig.Instance.logOutpostAI)
+                        Sango.Log.Info($"*[运输AI]{city.Name} 不组建运输队：据点行动力不足（剩余 {OutpostRuntime.actionPoint}，需要 {cost}）");
+                    // 【诊断】Develop 排在队列第 10 位，前面 Attack / Defense / Build / Recruit 等
+                    // 每回合都先把据点行动力吃掉，轮到内政时已无额度 —— 这是"前线城内政地长期空置"
+                    // 的第一嫌疑，命令体根本不会被调用，不加这条日志完全看不到。
+                    if (orderId == AIOrderId.Develop && AIConfig.Instance.logOutpostAI)
+                        Sango.Log.Info($"*[内政建造]{city.Name} 本回合不建造：据点行动力不足（剩余 {OutpostRuntime.actionPoint}，需要 {cost}）");
                     continue;
+                }
 
                 OutpostRuntime.commandExecuted = false;
                 OutpostRuntime.delegatedExecuted = false;
@@ -605,5 +627,244 @@ namespace Sango.Core
                 default: return 0;
             }
         }
+
+        #region AI 表：据点战斗潜力 / 周边威胁（对齐 System::ai_table_*）
+
+        /// <summary>
+        /// 据点武将的统率总和，只计统率最高的前 <paramref name="maxPersonCount"/> 名。
+        ///
+        /// 对齐出处：s11_sys_scen_ai.cpp <c>ai_table_get_max_command_sum(building, max_person_count)</c>：
+        /// 把据点武将按统率降序，取前 N 名的统率之和。
+        /// 本项目取 <see cref="City.allPersons"/>（含君主/都督/太守/一般），
+        /// 统率用带伤衰减的 <see cref="Person.Command"/>，与原版 <c>get_stat(PersonStatType_Leadership)</c> 同口径。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <param name="maxPersonCount">最多计几名武将（<c>int.MaxValue</c> 表示全部）</param>
+        /// <returns>统率总和</returns>
+        static int MaxCommandSum(City city, int maxPersonCount)
+        {
+            if (city == null || city.allPersons == null || maxPersonCount <= 0)
+                return 0;
+
+            // 先把有效武将的统率收进数组，再做"取前 N 大"
+            int[] command = new int[city.allPersons.Count];
+            int n = 0;
+            for (int i = 0; i < city.allPersons.Count; i++)
+            {
+                Person person = city.allPersons[i];
+                if (person == null || !person.IsAlive)
+                    continue;
+                command[n++] = person.Command;
+            }
+
+            int take = System.Math.Min(maxPersonCount, n);
+            int sum = 0;
+            for (int i = 0; i < take; i++)
+            {
+                // 部分选择：只把第 i 大换到 i 位，避免整表排序
+                int maxIndex = i;
+                for (int j = i + 1; j < n; j++)
+                {
+                    if (command[j] > command[maxIndex])
+                        maxIndex = j;
+                }
+                if (maxIndex != i)
+                {
+                    int tmp = command[i];
+                    command[i] = command[maxIndex];
+                    command[maxIndex] = tmp;
+                }
+                sum += command[i];
+            }
+            return sum;
+        }
+
+        /// <summary>
+        /// 据点可动员的兵力总量。
+        ///
+        /// 对齐出处：s11_sys_scen_ai.cpp:1428-1446 <c>ai_table_get_max_troops</c>：
+        /// <code>
+        /// int n = ai_table_get_max_command_sum(building, INT_MAX);  // 守将统率总和
+        /// n = std::min(n, building->get_troops());                  // 不超过城内兵力
+        /// for (每个同势力、且区域属于该据点的部队)
+        ///     n += unit->get_troops();
+        /// </code>
+        /// 本项目"区域属于该据点"用 <see cref="City.areaCellList"/> 判定，
+        /// 遍历其中的部队格累加同势力部队兵力。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>可动员兵力</returns>
+        static int MaxTroops(City city, Scenario scenario)
+        {
+            if (city == null)
+                return 0;
+
+            int n = MaxCommandSum(city, int.MaxValue);
+            n = System.Math.Min(n, city.troops);
+
+            if (city.areaCellList == null || city.BelongForce == null)
+                return n;
+
+            for (int i = 0; i < city.areaCellList.Count; i++)
+            {
+                Cell cell = city.areaCellList[i];
+                if (cell == null || cell.troop == null)
+                    continue;
+                if (cell.troop.BelongForce != city.BelongForce)
+                    continue;
+                n += cell.troop.troops;
+            }
+            return n;
+        }
+
+        /// <summary>
+        /// 周边能打过来的最大敌军兵力（同盟合并后取最大势力）。
+        ///
+        /// 对齐出处：s11_sys_scen_ai.cpp:1652-1720 <c>ai_table_get_expected_max_enemy_troops</c>：
+        /// 遍历相邻据点 → 跳过同势力、跳过"对方到不了我"、只算敌对的正常势力 →
+        /// 按势力累加对方的 <c>ai_table_get_max_troops</c> → 同盟合并 → 返回最大者。
+        /// 本项目相邻据点用 <see cref="City.NeighborList"/>，
+        /// "到不了我"用 <see cref="CityDistanceTable.GetDistance"/> 返回 -1 判定（无直连路线视为到不了）。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>周边最大可投入敌军兵力</returns>
+        static int ExpectedMaxEnemyTroops(City city, Scenario scenario)
+        {
+            if (city == null || city.BelongForce == null || city.NeighborList == null || scenario == null)
+                return 0;
+
+            Force self = city.BelongForce;
+            int maxTroops = 0;
+
+            for (int i = 0; i < city.NeighborList.Count; i++)
+            {
+                City neighbor = city.NeighborList[i];
+                if (neighbor == null || !neighbor.IsAlive)
+                    continue;
+                Force other = neighbor.BelongForce;
+                if (other == null || other == self)
+                    continue;
+                if (self.IsAlliance(other) || !self.IsEnemy(other))
+                    continue;
+                // 对方到不了我 —— 对齐 ai_table_is_reachable_neighbor
+                if (scenario.cityDistanceTable.GetDistance(neighbor, city, false) < 0)
+                    continue;
+
+                int troops = MaxTroops(neighbor, scenario);
+
+                // 同盟合并：把与 other 结盟、且同样能到我的邻接据点兵力一并计入
+                for (int k = 0; k < city.NeighborList.Count; k++)
+                {
+                    City allyCity = city.NeighborList[k];
+                    if (allyCity == null || allyCity == neighbor || !allyCity.IsAlive)
+                        continue;
+                    Force allyForce = allyCity.BelongForce;
+                    if (allyForce == null || allyForce == self || allyForce == other)
+                        continue;
+                    if (!other.IsAlliance(allyForce))
+                        continue;
+                    if (scenario.cityDistanceTable.GetDistance(allyCity, city, false) < 0)
+                        continue;
+                    troops += MaxTroops(allyCity, scenario);
+                }
+
+                if (troops > maxTroops)
+                    maxTroops = troops;
+            }
+            return maxTroops;
+        }
+
+        /// <summary>
+        /// 某势力是否已统一某州。
+        ///
+        /// 对齐出处：s11_sys_scen_ai.cpp:394-420 <c>ai_table_is_province_unified</c>：
+        /// 该州据点里只要出现"其他势力的据点"或"无主都市"就不算统一；
+        /// 无主关隘/港口不破坏统一；该州没有任何据点则返回 false。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="provinceId">州编号</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否已统一</returns>
+        static bool IsProvinceUnified(Force force, int provinceId, Scenario scenario)
+        {
+            if (force == null || scenario == null)
+                return false;
+
+            int n = 0;
+            for (int i = 0; i < scenario.citySet.Count; i++)
+            {
+                City c = scenario.citySet[i];
+                if (c == null || !c.IsAlive)
+                    continue;
+                if (c.ProvinceId != provinceId)
+                    continue;
+                n++;
+                if (c.BelongForce == force)
+                    continue;
+                // 其他势力的据点 —— :409-411
+                if (c.BelongForce != null)
+                    return false;
+                // 无主都市 —— :412-414（无主关隘/港口不算）
+                if (c.IsCity())
+                    return false;
+            }
+            return n > 0;
+        }
+
+        /// <summary>
+        /// 某势力已统一的州数。
+        ///
+        /// 对齐出处：s11_sys_scen_ai.cpp <c>ai_table_get_province_unified_count(force_id)</c> ——
+        /// 遍历所有州，累计 <c>ai_table_is_province_unified</c> 为真的个数。
+        /// 本项目没有独立的州对象集合，改为从现存据点的 <see cref="City.ProvinceId"/> 去重得到州列表。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>已统一的州数</returns>
+        static int GetProvinceUnifiedCount(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null || scenario.citySet == null)
+                return 0;
+
+            HashSet<int> provinceIds = new HashSet<int>();
+            for (int i = 0; i < scenario.citySet.Count; i++)
+            {
+                City c = scenario.citySet[i];
+                if (c == null || !c.IsAlive)
+                    continue;
+                provinceIds.Add(c.ProvinceId);
+            }
+
+            int count = 0;
+            foreach (int provinceId in provinceIds)
+            {
+                if (IsProvinceUnified(force, provinceId, scenario))
+                    count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// 据点所属都市的编号。
+        ///
+        /// 对齐出处：s11_sys_scen_ai.cpp <c>Building::get_area_city_id()</c> ——
+        /// 都市返回自身，关隘/港口返回其所属都市；找不到所属都市时退回自身。
+        /// 用于判断"跨区进攻"（原版 kyoten_attack:128-130 的 same_area）。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <returns>所属都市编号</returns>
+        static int GetAreaCityId(City city)
+        {
+            if (city == null)
+                return -1;
+            if (city.IsCity())
+                return city.Id;
+            BuildingBase parent = city.BelongCity;
+            return parent != null ? parent.Id : city.Id;
+        }
+
+        #endregion
     }
 }

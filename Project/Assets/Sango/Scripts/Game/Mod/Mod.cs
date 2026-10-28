@@ -53,9 +53,16 @@ namespace Sango.Mod
         /// </summary>
         public string EntryAssembly { internal set; get; }
         /// <summary>
-        /// 源url
+        /// 源url(主下载地址,等于 UrlList 的第一个)
         /// </summary>
         public string Url { internal set; get; }
+
+        /// <summary>
+        /// 候选下载地址列表(按优先级排列)。
+        /// 第一个地址下载失败时自动换下一个,全部失败才提示玩家;
+        /// 为空时只用 <see cref="Url"/> 单地址。
+        /// </summary>
+        public List<string> UrlList = new List<string>();
 
         public string MarketName;
 
@@ -364,6 +371,10 @@ namespace Sango.Mod
 
         /// <summary>
         /// 下载单个模组并等待其完成(协程)
+        ///
+        /// 按 <see cref="UrlList"/> 顺序尝试:第一个地址(通常是 GitCode 镜像)失败后
+        /// 自动换下一个,全部失败才向玩家抛提示;玩家主动取消则不再尝试后续地址。
+        /// 因此市场清单里配置两个下载地址时,任何一个源不可用都不会让玩家卡住。
         /// </summary>
         /// <param name="target">要下载的模组</param>
         /// <param name="onDone">完成回调,参数表示是否成功</param>
@@ -375,51 +386,113 @@ namespace Sango.Mod
             target.LastDownloadError = null;
             target.downloadStartTime = UnityEngine.Time.realtimeSinceStartup;
 
-            GitDownloader.GitDownloadResult result = null;
-            // 用"整体替换"的方式安装:先解压到临时目录,校验通过后才替换旧版本,
-            // 避免直接覆盖解压导致旧版本删掉的文件残留。
-            // target.Size 用于磁盘预检与断点续传;isCancelRequested 供玩家随时取消
-            yield return GitDownloader.DownloadAndInstall(target.Url, ModManager.MOD_ROOT_DIR, target.Id,
-                (progress) =>
-                {
-                    target.loadProgress = progress;
-                },
-                (content) =>
-                {
-                    result = content;
-                },
-                target.Size,
-                () => target.isCancelRequested
-            );
+            // 兜底:老数据没有 UrlList 时只用主地址
+            List<string> urls = target.UrlList;
+            if (urls == null || urls.Count == 0)
+                urls = new List<string> { target.Url };
 
-            target.loadProgress = 1;
-            target.isDownloading = false;
-            target.downloadStartTime = 0;
+            bool success = false;
+            bool cancelled = false;
 
-            bool success = result != null && result.IsSuccess;
-            bool cancelled = result != null && result.Error == GitDownloader.GitDownloadError.Cancelled;
-            if (success)
+            for (int i = 0; i < urls.Count; i++)
             {
-                // 下载完成后重新读取 mod.info,刷新名字/版本/依赖等信息
-                ModManager.Instance.UpdateMod($"{result.ExtractTargetPath}/{target.Id}", target);
-            }
-            else if (cancelled)
-            {
-                // 玩家主动取消:不是故障,不弹失败提示,进度归零等待下次续传
+                string url = urls[i];
+                if (string.IsNullOrEmpty(url))
+                    continue;
+
+                // 换源前清掉上一个源留下的 .zip / .part:
+                // 两个源的字节不保证完全一致,续传会把两份数据拼成坏包
+                if (i > 0)
+                    ClearDownloadCache(target.Id);
+
+                GitDownloader.GitDownloadResult result = null;
                 target.loadProgress = 0;
-                Sango.Log.Info($"模组下载已取消: {target.Id}(已下载部分已保留,下次继续)");
-            }
-            else
-            {
-                // 失败必须同时做到两件事:
-                //   1. 用 Error 记录(Info/Warning 在正式包会被编译剔除,线上将完全没有痕迹);
-                //   2. 抛事件让界面弹提示,否则玩家看到的就是"点了下载没有任何反应"
+                // 用"整体替换"的方式安装:先解压到临时目录,校验通过后才替换旧版本,
+                // 避免直接覆盖解压导致旧版本删掉的文件残留。
+                // target.Size 用于磁盘预检与断点续传;isCancelRequested 供玩家随时取消
+                yield return GitDownloader.DownloadAndInstall(url, ModManager.MOD_ROOT_DIR, target.Id,
+                    (progress) =>
+                    {
+                        target.loadProgress = progress;
+                    },
+                    (content) =>
+                    {
+                        result = content;
+                    },
+                    target.Size,
+                    () => target.isCancelRequested
+                );
+
+                success = result != null && result.IsSuccess;
+                cancelled = result != null && result.Error == GitDownloader.GitDownloadError.Cancelled;
+
+                if (success)
+                {
+                    // 下载完成后重新读取 mod.info,刷新名字/版本/依赖等信息
+                    ModManager.Instance.UpdateMod($"{result.ExtractTargetPath}/{target.Id}", target);
+                    break;
+                }
+
+                if (cancelled)
+                {
+                    // 玩家主动取消:不是故障,不弹失败提示,进度归零等待下次续传
+                    target.loadProgress = 0;
+                    Sango.Log.Info($"模组下载已取消: {target.Id}(已下载部分已保留,下次继续)");
+                    break;
+                }
+
+                // 失败但还有备用地址:静默换源重试,不打扰玩家
+                if (i < urls.Count - 1)
+                {
+                    Sango.Log.Warning($"模组下载失败,尝试备用地址: {target.Id} {url}");
+                    continue;
+                }
+
+                // 所有地址都失败:用最后一个错误提示玩家
                 target.LastDownloadError = result != null ? result.ErrorMessage : "无返回结果";
-                Sango.Log.Error($"模组下载失败: {target.Id} {target.LastDownloadError}");
+                Sango.Log.Error($"模组下载失败(已尝试 {urls.Count} 个地址): {target.Id} {target.LastDownloadError}");
                 GameEvent.OnModDownloadFailed?.Invoke(target, target.LastDownloadError);
             }
 
+            // 所有地址都是空串等极端情况:同样要给玩家一个明确原因,不能静默结束
+            if (!success && !cancelled && string.IsNullOrEmpty(target.LastDownloadError))
+            {
+                target.LastDownloadError = "该模组没有可用的下载地址(市场数据异常)";
+                Sango.Log.Error($"模组没有可用下载地址: {target.Id}");
+                GameEvent.OnModDownloadFailed?.Invoke(target, target.LastDownloadError);
+            }
+
+            if (success)
+                target.loadProgress = 1;
+            target.isDownloading = false;
+            target.downloadStartTime = 0;
+
             onDone?.Invoke(success);
+        }
+
+        /// <summary>
+        /// 清掉某个模组的下载缓存(正式 zip 与断点包)。
+        /// 换下载源重试前必须调用,否则会拿另一个源的断点继续续传,拼出损坏的压缩包。
+        /// </summary>
+        /// <param name="modId">模组Id</param>
+        private static void ClearDownloadCache(string modId)
+        {
+            if (string.IsNullOrEmpty(modId))
+                return;
+            try
+            {
+                string cacheDir = System.IO.Path.Combine(ModManager.MOD_ROOT_DIR, ".download");
+                string zipPath = System.IO.Path.Combine(cacheDir, modId + ".zip");
+                if (System.IO.File.Exists(zipPath))
+                    System.IO.File.Delete(zipPath);
+                if (System.IO.File.Exists(zipPath + ".part"))
+                    System.IO.File.Delete(zipPath + ".part");
+            }
+            catch (System.Exception e)
+            {
+                // 删不掉不影响重试:GitDownloader 会自行判断残包大小是否可用于续传
+                Sango.Log.Error($"清理下载缓存失败: {modId} {e.Message}");
+            }
         }
     }
 }

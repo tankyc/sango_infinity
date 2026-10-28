@@ -379,33 +379,45 @@ namespace Sango.Core.Debate
             return self.person.GetStat(PersonStatType.PersonStatType_Strength);
         }
 
-        /// <summary>获取性格</summary>
+        /// <summary>
+        /// 取向性格数据对象（无则 null）。
+        ///
+        /// 【为什么不再返回 0~3 的档位】旧实现把性格 kind 线性映射成舌战枚举，
+        /// 十几处行为分支都按这个枚举 switch，新增性格必然落空。
+        /// 现在所有差异都读 Personality 上的具名字段。
+        /// </summary>
+        public static Sango.Core.Personality GetPersonalityData(Character self)
+        {
+            return self != null && self.person != null ? self.person.mPersonality : null;
+        }
+
+        /// <summary>
+        /// 舌战性格档位（0~3）。
+        ///
+        /// 【仅供展示 / 兼容】业务分支一律读 <see cref="Sango.Core.Personality"/> 上的具名字段，
+        /// 不要再新增按本返回值 switch 的逻辑 —— 那会让新性格落到 Fallback 而静默失效。
+        /// </summary>
         public int CharacterGetPersonality(Character self)
         {
             if (Utils.InRange(self.PersonalityId, 0, (int)Personality.Personality_Max - 1))
                 return self.PersonalityId;
-            // 回退一律读性格对象的内嵌属性（kind 1..4 → 舌战枚举 0..3），
-            // 不再借用单挑的性格解析（那是另一套枚举，语义上属于隐式耦合）。
+
+            Sango.Core.Personality p = GetPersonalityData(self);
+            if (p != null && p.debateStyle >= 0)
+                return p.debateStyle;
+
             int kind = self.person != null ? self.person.PersonalityKind : 0;
             if (kind >= 1 && kind <= (int)Personality.Personality_Max)
                 return kind - 1;
             return DebatePersonality.Fallback;
         }
 
-        /// <summary>设置兴奋计时器</summary>
+        /// <summary>设置兴奋计时器（原版：胆小/莽撞 1 回合，冷静/刚胆 4 回合）</summary>
         public void CharacterSetAngerTimer(Character self)
         {
-            switch (CharacterGetPersonality(self))
-            {
-                case (int)Personality.Personality_Timid:
-                case (int)Personality.Personality_Reckless:
-                    self.angerTimer = 1;
-                    break;
-                case (int)Personality.Personality_Calm:
-                case (int)Personality.Personality_Bold:
-                    self.angerTimer = 4;
-                    break;
-            }
+            if (self == null) return;
+            Sango.Core.Personality p = GetPersonalityData(self);
+            self.angerTimer = p != null ? p.debateAngerTimer : 4;
         }
 
         /// <summary>递减兴奋计时器</summary>
@@ -513,8 +525,11 @@ namespace Sango.Core.Debate
             CharacterFillCards(self);
             if (self.angerTimer > 0)
             {
-                int PersonalityId = CharacterGetPersonality(self);
-                if (PersonalityId == (int)Personality.Personality_Calm && system.RandBool(40))
+                // 原版：冷静性格在兴奋时按 40% 几率额外获得一张 3 阶话题卡。
+                // 现在由性格字段 debateAngerFreeTopicCardChance 决定（0 = 不触发）。
+                Sango.Core.Personality p = GetPersonalityData(self);
+                if (p != null && p.debateAngerFreeTopicCardChance > 0
+                    && system.RandBool(p.debateAngerFreeTopicCardChance))
                 {
                     // 8b3294
                     int[] card = {
@@ -954,51 +969,40 @@ namespace Sango.Core.Debate
             int opponentTeam = GetOpponentTeam(team);
             Character character = GetCharacter(team);
             Character opponentCharacter = GetCharacter(opponentTeam);
-            int PersonalityId = CharacterGetPersonality(character);
-            int opponentPersonality = CharacterGetPersonality(opponentCharacter);
-            bool angered = false;
-            bool opponentAngered = false;
-            if (character.angerTimer > 0)
-            {
-                switch (PersonalityId)
-                {
-                    case (int)Personality.Personality_Calm:
-                    case (int)Personality.Personality_Bold:
-                        angered = true;
-                        break;
-                }
-            }
-            if (opponentCharacter.angerTimer > 0)
-            {
-                switch (opponentPersonality)
-                {
-                    case (int)Personality.Personality_Calm:
-                    case (int)Personality.Personality_Bold:
-                        opponentAngered = true;
-                        break;
-                }
-            }
+
+            Sango.Core.Personality selfP = GetPersonalityData(character);
+            Sango.Core.Personality oppP = GetPersonalityData(opponentCharacter);
+
+            // "真愤怒"= timer > 0 且性格声明会进入受限状态（原版只有冷静/刚胆）
+            bool angered = character.angerTimer > 0 && selfP != null && selfP.debateCountsAsAngered;
+            bool opponentAngered = opponentCharacter.angerTimer > 0 && oppP != null && oppP.debateCountsAsAngered;
+
+            // 愤怒时是否仍可出全牌（原版只有冷静为真）
+            bool canActWhileAngered = selfP == null || selfP.debateCanActWhileAngered;
+            // 对手愤怒且"不受限"（原版冷静）：己方部分牌被封锁
+            bool opponentBlocksCards = opponentAngered && oppP != null && oppP.debateCanActWhileAngered;
+
             if (!Utils.InRange(card, 0, (int)DebateCard.DebateCard_Max - 1))
                 return false;
             switch (card)
             {
                 case (int)DebateCard.DebateCard_Rethink:
-                    if (angered && PersonalityId != (int)Personality.Personality_Calm)
+                    if (angered && !canActWhileAngered)
                         return false;
                     return canRethink[team];
                 case (int)DebateCard.DebateCard_Shout:
                 case (int)DebateCard.DebateCard_Sophistry:
                 case (int)DebateCard.DebateCard_Ignore:
-                    if (angered && PersonalityId != (int)Personality.Personality_Calm)
+                    if (angered && !canActWhileAngered)
                         return false;
-                    if (opponentAngered && opponentPersonality == (int)Personality.Personality_Calm)
+                    if (opponentBlocksCards)
                         return false;
                     return true;
                 case (int)DebateCard.DebateCard_Compose:
                 case (int)DebateCard.DebateCard_Agitate:
                     if (angered)
                         return false;
-                    if (opponentAngered && opponentPersonality == (int)Personality.Personality_Calm)
+                    if (opponentBlocksCards)
                         return false;
                     return true;
             }
@@ -1071,15 +1075,16 @@ namespace Sango.Core.Debate
                 if (crumbled[i])
                     canRethink[i] = true;
 
-                // 愤怒（冷静）
-                if (characters[i].angerTimer > 0 && CharacterGetPersonality(characters[i]) == (int)Personality.Personality_Calm)
+                // 愤怒时可"再考"：原版仅冷静，现由性格字段控制
+                Sango.Core.Personality pRethink = GetPersonalityData(characters[i]);
+                if (characters[i].angerTimer > 0 && pRethink != null && pRethink.debateAngerAllowsRethink)
                     canRethink[i] = true;
 
                 if (!IsTutorial())
                     CharacterFillCards(characters[i]);
 
-                // 愤怒（大胆）
-                if (characters[i].angerTimer > 0 && CharacterGetPersonality(characters[i]) == (int)Personality.Personality_Bold)
+                // 愤怒时的话题卡规则：原版仅刚胆，现由性格字段控制
+                if (characters[i].angerTimer > 0 && pRethink != null && pRethink.debateAngerLowestTopicCards)
                 {
                     int topicCardCount = 0;
                     for (int j = 0; j < characters[i].maxCardCount; j++)
@@ -1148,10 +1153,13 @@ namespace Sango.Core.Debate
         {
             int aPower = GetCardPower(topic, playedCard[0]);
             int bPower = GetCardPower(topic, playedCard[1]);
-            if (characters[0].angerTimer > 0 && CharacterGetPersonality(characters[0]) == (int)Personality.Personality_Bold)
-                aPower = 100;
-            if (characters[1].angerTimer > 0 && CharacterGetPersonality(characters[1]) == (int)Personality.Personality_Bold)
-                bPower = 100;
+            // 愤怒时出牌威力覆盖：原版仅刚胆（覆盖为 100），现由性格字段给出
+            Sango.Core.Personality p0 = GetPersonalityData(characters[0]);
+            Sango.Core.Personality p1 = GetPersonalityData(characters[1]);
+            if (characters[0].angerTimer > 0 && p0 != null && p0.debateAngerPowerOverride > 0)
+                aPower = p0.debateAngerPowerOverride;
+            if (characters[1].angerTimer > 0 && p1 != null && p1.debateAngerPowerOverride > 0)
+                bPower = p1.debateAngerPowerOverride;
             attacker = -1;
             if (aPower > bPower)
                 attacker = 0;
@@ -1166,13 +1174,10 @@ namespace Sango.Core.Debate
             int topicCoef = 6;
             if (characters[team].angerTimer > 0)
             {
-                switch (CharacterGetPersonality(characters[team]))
-                {
-                    case (int)Personality.Personality_Timid:
-                    case (int)Personality.Personality_Bold:
-                        topicCoef = 10;
-                        break;
-                }
+                // 愤怒时的"话题系数"：原版胆小/刚胆为 10，其它保持 6；现由性格字段给
+                Sango.Core.Personality pAnger = GetPersonalityData(characters[team]);
+                if (pAnger != null && pAnger.debateAngerTopicCoef > 0)
+                    topicCoef = pAnger.debateAngerTopicCoef;
             }
             else
             {
@@ -1198,8 +1203,13 @@ namespace Sango.Core.Debate
             }
 
             int angerCoef = 10;
-            if (characters[team].angerTimer > 0 && CharacterGetPersonality(characters[team]) == (int)Personality.Personality_Calm)
-                angerCoef = 15;
+            if (characters[team].angerTimer > 0)
+            {
+                // 愤怒时的"愤怒系数"：原版冷静为 15，其它保持 10；现由性格字段给
+                Sango.Core.Personality pCoef = GetPersonalityData(characters[team]);
+                if (pCoef != null && pCoef.debateAngerDamageCoef > 0)
+                    angerCoef = pCoef.debateAngerDamageCoef;
+            }
 
             int n = characters[team].attack + system.RandInt(5); // 70 .. 231
             n *= angerCoef;   // 10 .. 15
@@ -1351,23 +1361,27 @@ namespace Sango.Core.Debate
             Character character = GetCharacter(angering);
             Character opponentCharacter = GetCharacter(GetOpponentTeam(angering));
             CharacterSetAngerTimer(character);
-            switch (CharacterGetPersonality(character))
+
+            // 愤怒瞬间的额外效果：由性格字段决定（原版是"胆小=连击 / 莽撞=直接伤害"）
+            Sango.Core.Personality p = GetPersonalityData(character);
+            if (p == null) return;
+
+            if (p.debateAngerCombo)
             {
-                case (int)Personality.Personality_Timid:
-                    comboAttacker = angering;
-                    comboCounter = 0;
-                    combo = true;
-                    LogDebate($"【胆怯反击】{GetTeamName(angering)} 因胆怯开始连续攻击");
-                    break;
-                case (int)Personality.Personality_Reckless:
-                    int hpDamage = 200 + CharacterGetStrength(character);
-                    int stressDamage = hpDamage / 15;
-                    CharacterAddHp(opponentCharacter, -hpDamage);
-                    CharacterAddStress(opponentCharacter, stressDamage);
-                    LogDebate($"【猪突猛进】{GetTeamName(angering)} 怒而猛攻，对 {GetTeamName(GetOpponentTeam(angering))} 造成 体力-{hpDamage}、愤怒+{stressDamage} → {TeamState(GetOpponentTeam(angering))}");
-                    if (view && engine != null)
-                        engine.DebateAngerReckless(this, angering, hpDamage, stressDamage);
-                    break;
+                comboAttacker = angering;
+                comboCounter = 0;
+                combo = true;
+                LogDebate($"【胆怯反击】{GetTeamName(angering)} 因胆怯开始连续攻击");
+            }
+            else if (p.debateAngerHpDamageBase > 0)
+            {
+                int hpDamage = p.debateAngerHpDamageBase + CharacterGetStrength(character);
+                int stressDamage = hpDamage / 15;
+                CharacterAddHp(opponentCharacter, -hpDamage);
+                CharacterAddStress(opponentCharacter, stressDamage);
+                LogDebate($"【猪突猛进】{GetTeamName(angering)} 怒而猛攻，对 {GetTeamName(GetOpponentTeam(angering))} 造成 体力-{hpDamage}、愤怒+{stressDamage} → {TeamState(GetOpponentTeam(angering))}");
+                if (view && engine != null)
+                    engine.DebateAngerReckless(this, angering, hpDamage, stressDamage);
             }
         }
 

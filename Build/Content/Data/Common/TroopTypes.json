@@ -9,7 +9,7 @@
       ],
       "atk": 60,
       "def": 60,
-      "durabilityDmg": 30,
+      "durabilityDmg": 100,
       "move": 20,
       "defType": 1,
       "atkType": 1,
@@ -393,7 +393,7 @@
       ],
       "atk": 30,
       "def": 50,
-      "durabilityDmg": 30,
+      "durabilityDmg": 100,
       "move": 25,
       "defType": 1,
       "atkType": 1,
@@ -452,7 +452,7 @@
       ],
       "atk": 30,
       "def": 50,
-      "durabilityDmg": 30,
+      "durabilityDmg": 100,
       "move": 28,
       "defType": 1,
       "atkType": 1,
@@ -718,6 +718,7 @@
     },
     "11": {
       "Id": 11,
+      "siegeRole": 1,
       "Name": "冲车",
       "kind": 8,
       "skills": [
@@ -792,6 +793,7 @@
     },
     "12": {
       "Id": 12,
+      "siegeRole": 1,
       "Name": "木兽",
       "kind": 8,
       "skills": [
@@ -866,6 +868,8 @@
     },
     "13": {
       "Id": 13,
+      "siegeRole": 2,
+      "buildingTroopDamageFactor": 180,
       "Name": "井阑",
       "kind": 9,
       "skills": [
@@ -873,7 +877,7 @@
       ],
       "atk": 80,
       "def": 85,
-      "durabilityDmg": 50,
+      "durabilityDmg": 100,
       "move": 18,
       "influenceAbility": 5,
       "matchFeatures": [
@@ -940,6 +944,8 @@
     },
     "14": {
       "Id": 14,
+      "siegeRole": 2,
+      "buildingTroopDamageFactor": 120,
       "Name": "投石",
       "kind": 9,
       "skills": [

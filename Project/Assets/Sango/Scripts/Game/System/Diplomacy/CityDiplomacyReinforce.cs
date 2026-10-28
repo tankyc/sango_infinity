@@ -113,6 +113,10 @@ namespace Sango.Core.Player
             if (action == null)
                 return;
 
+            // 攻击目标：原版 `self->dest` 是**敌方据点**（谈成后援军下 Attack 令去打它）。
+            // 本城是发起方自己的城，不能当目标 —— 这里不指定，交给派发器挑相邻敌城。
+            // 若将来要在 UI 上加"请求盟友打哪座城"的选择，把选中的敌方城写进 ReinforceCity 即可。
+
             TargetCity.gold -= gold;
             diplomacyManager.DispatchDiplomat(action);
 

@@ -16,7 +16,7 @@ namespace Sango.Core
     /// <summary>
     /// ShortForce 高性能反序列化转换器（无反射）。
     /// 字段：
-    ///   Id, Name, Governor, Counsellor, Flag, desc
+    ///   Id, Name, Governor, Counsellor, Flag, Nation, Title, desc
     /// </summary>
     public sealed class ShortForceConverter : JsonConverter<ShortForce>
     {
@@ -65,6 +65,9 @@ namespace Sango.Core
                         break;
                     case "Nation":
                         force.Nation = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
+                        break;
+                    case "Title":
+                        force.TitleId = Convert.ToInt32(reader.Value, CultureInfo.InvariantCulture);
                         break;
                     case "desc":
                         force.desc = reader.Value as string;

@@ -165,6 +165,81 @@ namespace Sango.Core
             return false;
         }
 
+        /// <summary>
+        /// 是否处于**伪报**状态（原版 UnitState_Gihou）。
+        /// 与 <see cref="HasControlBuff"/> 的区别：混乱（Stun）不算伪报。
+        /// AI 用它做"打了也没意义"的降权，见 TroopAIUtility.CalcSkillBasePriority。
+        /// </summary>
+        public bool HasEscapeBuff()
+        {
+            for (int i = 0; i < _buffs.Count; i++)
+            {
+                BuffInstance buff = _buffs[i];
+                if (buff.IsEscapeBuff())
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 所有 Buff 对部队攻击力的**累乘**系数（百分比，100 = 不变）。
+        ///
+        /// 【原版对应】unit_calc_stat 的 <c>state_coef</c>（混乱 ×0.8）。
+        /// 本项目改成"每个 Buff 自己声明系数、这里累乘"，新增状态只需配数据。
+        /// </summary>
+        public int GetTroopAttackCoef()
+        {
+            int coef = 100;
+            for (int i = 0; i < _buffs.Count; i++)
+            {
+                int c = _buffs[i].Buff != null ? _buffs[i].Buff.troopAttackCoef : 100;
+                if (c > 0) coef = coef * c / 100;
+            }
+            return coef;
+        }
+
+        /// <summary>所有 Buff 对部队防御力的累乘系数（100 = 不变）</summary>
+        public int GetTroopDefenceCoef()
+        {
+            int coef = 100;
+            for (int i = 0; i < _buffs.Count; i++)
+            {
+                int c = _buffs[i].Buff != null ? _buffs[i].Buff.troopDefenceCoef : 100;
+                if (c > 0) coef = coef * c / 100;
+            }
+            return coef;
+        }
+
+        /// <summary>所有 Buff 对部队建设力的累乘系数（100 = 不变）</summary>
+        public int GetTroopBuildCoef()
+        {
+            int coef = 100;
+            for (int i = 0; i < _buffs.Count; i++)
+            {
+                int c = _buffs[i].Buff != null ? _buffs[i].Buff.troopBuildCoef : 100;
+                if (c > 0) coef = coef * c / 100;
+            }
+            return coef;
+        }
+
+        /// <summary>
+        /// 所有 Buff 对部队移动力的**累乘**系数（百分比，100 = 不变，0 = 无法移动）。
+        ///
+        /// 【用途】足止状态。与攻击/防御系数不同，这里 `0` 是**有效值**（不是"未配置"），
+        /// 所以用 `&gt;= 0` 判定并允许乘出 0。
+        /// </summary>
+        public int GetTroopMoveCoef()
+        {
+            int coef = 100;
+            for (int i = 0; i < _buffs.Count; i++)
+            {
+                int c = _buffs[i].Buff != null ? _buffs[i].Buff.troopMoveCoef : 100;
+                if (c < 0) continue;
+                coef = coef * c / 100;
+            }
+            return coef;
+        }
+
         public void OnForceTurnStart(Scenario scenario)
         {
             for (int i = 0; i < _buffs.Count; i++)

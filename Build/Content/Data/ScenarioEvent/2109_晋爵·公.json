@@ -1,0 +1,96 @@
+[
+  {
+    "Id": 2109,
+    "Name": "晋爵·公",
+    "DebugLog": true,
+    "Category": "History",
+    "Description": "【爵位事件·公】玩家势力爵位达到晋升门槛、城池≥18，月度结算时触发晋升演出。\n\n【条件对齐 Open311 title_rises + can_receive_title】爵位=TitleId 7、城池≥18（对齐 TitleMaxCityCount，s11_db.cpp）。\n【效果】爵位变更为 公（TitleId 8），对齐原版 new_title_id = old - 1。忠诚变化（授予/自称）与城池效果由 TitlePromotionSystem 结算层统一处理。",
+    "Enabled": true,
+    "Priority": 180,
+    "Level": "Normal",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "MonthStart",
+      "Scope": "PlayerForce",
+      "Once": false,
+      "MaxFireCount": 1,
+      "CooldownTurns": 0,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionForce",
+        "Type": "Force",
+        "Source": "PlayerForce",
+        "Optional": false,
+        "Label": "玩家势力"
+      },
+      {
+        "Key": "ActionPerson",
+        "Type": "Person",
+        "Source": "ForceGovernor",
+        "ScopeSlot": "ActionForce",
+        "Optional": false,
+        "Label": "君主"
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        {
+          "Type": "ForceTitle",
+          "Params": {
+            "Slot": "ActionForce",
+            "TitleId": 7
+          }
+        },
+        {
+          "Type": "ForceCityCount",
+          "Params": {
+            "Slot": "ActionForce",
+            "Min": 18
+          }
+        }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            {
+              "Text": "今吾据地十八城，当进爵为公！"
+            }
+          ]
+        }
+      },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            {
+              "Type": "ForceChangeTitle",
+              "Params": {
+                "ForceSlot": "ActionForce",
+                "Title": 8
+              }
+            }
+          ]
+        }
+      },
+      {
+        "Op": "Message",
+        "Params": {
+          "Text": "{:ActionForce}进爵为公！"
+        }
+      },
+      {
+        "Op": "End"
+      }
+    ],
+    "Variables": {}
+  }
+]

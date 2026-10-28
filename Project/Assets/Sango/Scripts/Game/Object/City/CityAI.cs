@@ -73,7 +73,12 @@ namespace Sango.Core
             // 原版这条判定在 attack 的都市分支里。本项目把攻防合并进本方法，
             // 因此放在"选新进攻目标"之前 —— 上面已成立的防守/回援任务不受影响。
             if (city.IsCity() && !CityFacilityRequirement.MeetsMinGovFacilityCount(city))
+            {
+                // 该门槛原版就有（s11_game_ai_kyoten_cmd_mil_attack.cpp:77-79），
+                // 但原版和本项目都无日志 —— 这里补一条，避免"某城怎么都不出兵"无从排查。
+                LogAttack(city, "内政设施未达最低配置（市场/农场/兵舍/锻冶缺项），不出兵");
                 return true;
+            }
 
             // ---------- 二点六、玩家子军团：只有"出击据点"主动开战 ----------
             // 对齐出处：Open311 update_player_sub_district_data（s11_game_ai_district.cpp:143-159）
@@ -111,11 +116,21 @@ namespace Sango.Core
             {
                 city.TroopMissionType = MissionType.TroopOccupyCity;
                 city.TroopMissionTargetId = prioritySubCity.Id;
+                // 【同回合出阵】原版 kyoten_attack 在 deploy_id < 0 时选完目标就**直接**进
+                // while 出阵循环（s11_game_ai_kyoten_cmd_mil_attack.cpp:114-266），
+                // 不是把出阵推到下一回合。旧实现只设任务不出兵，白等一回合。
+                DispatchOccupyTroop(city, scenario);
                 return false;
             }
 
             // 3.4 挑选进攻目标
-            return DecideAttackTarget(city, scenario);
+            if (DecideAttackTarget(city, scenario))
+                return true;
+            // 选定目标的同一回合立即出阵 —— 同上（:114-266）。
+            // 注意这里直接调 DispatchOccupyTroop 而不是 ContinueMilitaryMission：
+            // 后者在"一支都没出成"时会清掉任务，而原版此时 deploy 仍保留、下回合继续补。
+            DispatchOccupyTroop(city, scenario);
+            return false;
         }
 
         /// <summary>
@@ -158,7 +173,35 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 进攻任务：按目标城池规模决定出兵上限并派遣。
+        /// 一个据点、一个目标的一次进攻编组，最多容纳多少支部队（槽位硬上限）。
+        ///
+        /// 【原版对应】<c>DeployInfo::MaxUnitCount</c>，出处 s11_game_ai.h:506
+        /// <c>static constexpr int MaxUnitCount = 16;</c>。
+        ///
+        /// 【本项目调整】放宽到 50。原因：原版 16 是按"一个编组打一场战役"的规模定的，
+        /// 本项目地图更大、单城在籍武将更多，单支兵力又受主将统率限制，
+        /// 16 支会在"所需兵力"达标前提前截断堆兵。其余钳制层（行动力 / 可下令人数 /
+        /// 据点留守人数）仍按原版公式生效，这个常量只是最后一道保险。
+        /// </summary>
+        const int MaxAttackingTroopPerCity = 50;
+
+        /// <summary>
+        /// 进攻任务：一次命令内**反复组建部队**，直到"在外进攻兵力"达到所需兵力。
+        ///
+        /// 对齐出处：Open311 s11_game_ai_kyoten_cmd_mil_attack.cpp:5-420 <c>kyoten_attack</c>。
+        /// <para>
+        /// 【旧实现错在哪】旧版每次只调一次 <see cref="AIMakeTroop"/>，一回合固定只出 **1 支**；
+        /// 且用"在外部队**支数**"当判据（12 + 目标兵力/3000，白城 2），
+        /// 而原版用的是"在外部队**兵力总量**"（<c>troops &gt; min_troops</c> 才停，:269）。
+        /// 打大城时旧实现的堆兵速度只有原版的 1/N。
+        /// </para>
+        /// <para>
+        /// 【最大支数钳制 — 原版三层，全部照搬】
+        ///   ① <c>max_unit_count = min(据点行动力 / 单次出阵成本, 可下令人数)</c>（:32-37）；
+        ///   ② 再取 <c>min(, 据点人数 − 最少留守人数)</c>（:86）；
+        ///   ③ 循环尾部的弱势力随机衰减 <c>rand_bool(clamp(n*20-20,0,100))</c>（:412-417）。
+        /// 另有编组槽位硬上限（<see cref="MaxAttackingTroopPerCity"/>：原版 16，本项目放宽到 50）。
+        /// </para>
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>
@@ -171,33 +214,353 @@ namespace Sango.Core
 
             City targetCity = scenario.citySet.Get(city.TroopMissionTargetId);
             if (targetCity == null)
+            {
+                LogAttack(city, "出兵取消：目标城已不存在（被灭/易主）");
+                return;
+            }
+
+            OutpostInfo info = OutpostRuntime.Get(city.Id);
+            int actionPointCost = city.GetJobCostAP(CityJobType.MakeTroop);
+
+            // 【兼容】旧命令链（City.DoAI 直调 AIAttack）没有据点预算上下文，
+            // 此时不做行动力门禁与扣减，其余门槛照常；据点调度路径下 actionPoint 一定有值。
+            bool hasActionPoint = OutpostRuntime.actionPoint > 0;
+
+            // 单次出阵成本门禁 —— :29-30
+            if (hasActionPoint && OutpostRuntime.actionPoint < actionPointCost)
+            {
+                LogAttack(city, $"行动力不足（剩余 {OutpostRuntime.actionPoint}，单次出阵需要 {actionPointCost}）");
+                return;
+            }
+
+            // 可下令人数 —— :35
+            int idleCount = OutpostRuntime.idlePersonList.Count;
+            if (idleCount <= 0)
+                idleCount = city.freePersons.Count;
+
+            // 本回合最多能出几支 —— :32-37
+            // 没有据点预算上下文（旧命令链）时退回 1 支，保持旧路径行为不变；
+            // 成本配成 0 属于配置缺失，同样按 1 支保守处理。
+            int maxUnitCount = hasActionPoint && actionPointCost > 0
+                ? OutpostRuntime.actionPoint / actionPointCost
+                : 1;
+            maxUnitCount = System.Math.Min(maxUnitCount, idleCount);
+            if (maxUnitCount <= 0)
+            {
+                LogAttack(city, "行动力或可下令武将不足，本回合不出兵");
+                return;
+            }
+
+            if (city.troops <= 0)
                 return;
 
-            // 【优化】按目标城池兵力确定出兵上限(打大城派更多部队)，
-            // 替代原先每次判定都随机抖动的出兵门槛。
-            AIConfig aiConfig = AIConfig.Instance;
-            int maxAttackTroops = targetCity.BelongForce == null
-                ? aiConfig.attackWhiteCityTroopCount
-                : aiConfig.attackBaseTroopCount + targetCity.troops / Math.Max(1, aiConfig.attackTroopsPerTargetTroops);
-            // 【修复】使用"正在进攻的部队数"而不是"所有在外部队数"，
-            // 否则去求援 / 撤离中的部队会占用进攻名额，导致城市误判"已派够"而不再补派。
-            if (city.AttackingTroopsCount >= maxAttackTroops)
+            // 首次出阵门槛 —— :118-121
+            // 原版 deploy_id < 0（还没有进攻编组）时要求：据点必须是前线、且城防 >= 80。
+            // 本项目用"本城还没有任何进攻部队在外"等价于 deploy_id < 0。
+            if (city.AttackingTroopsCount <= 0)
+            {
+                if (info.state != OutpostState.Front)
+                {
+                    LogAttack(city, $"首次出阵被拒：据点状态 {info.state}，不是前线(Front)");
+                    return;
+                }
+                if (city.energy < 80)
+                {
+                    LogAttack(city, $"首次出阵被拒：城防 {city.energy}<80");
+                    return;
+                }
+            }
+
+            // ---- 最少留守人数 / 兵力 / 粮 —— :43-72 ----
+            int seikaku = GetSeikaku(city);
+            int powerRank = ForceAI.GetPowerRank(city.BelongForce, scenario);
+            bool weak = city.BelongForce != null && !city.BelongForce.IsPlayer && powerRank < 50;
+
+            // 周边能打过来的敌军兵力 —— :43 ai_table_get_expected_max_enemy_troops
+            int maxEnemyTroops = ExpectedMaxEnemyTroops(city, scenario);
+
+            int minKeepPerson = 0;
+            int minKeepTroops = 0;
+            int minKeepFood = 0;
+            if (city.IsCity())
+            {
+                // 最少留守武将数 = max(2, 周边敌军兵力 / 1000) —— :45-47
+                minKeepPerson = 2;
+                if (maxEnemyTroops > 0)
+                    minKeepPerson = System.Math.Max(minKeepPerson, maxEnemyTroops / 1000);
+                if (weak)
+                    minKeepPerson = System.Math.Max(GameRandom.Range(0, minKeepPerson), 1);
+
+                // 最少留守兵力 —— :57-70
+                int recKeepTroops = minKeepPerson * 1000;
+                minKeepTroops = recKeepTroops * powerRank / 100;
+                minKeepTroops = System.Math.Max(minKeepTroops, 1500 * (7 - seikaku) + GameRandom.Range(0, 1001));
+                // 【本次补上】留守兵力不能低于周边敌军的可投入兵力 —— :63
+                minKeepTroops = System.Math.Max(minKeepTroops, maxEnemyTroops);
+                minKeepTroops = System.Math.Min(minKeepTroops, 15000 + GameRandom.Range(0, 5000));
+                if (weak)
+                    minKeepTroops = minKeepTroops * (50 + GameRandom.Range(0, 41)) / 100;
+
+                minKeepFood = ForceAI.CalcExpectedFoodUse(minKeepTroops, 10);
+
+                // 治安不足 —— :74-76
+                int needSecurity = weak ? 80 : 90;
+                if (city.security < needSecurity)
+                {
+                    LogAttack(city, $"治安 {city.security}<{needSecurity}，不出兵");
+                    return;
+                }
+            }
+
+            // 武将不足 —— :82-84
+            if (info.personCount <= minKeepPerson)
+            {
+                LogAttack(city, $"守将不足（据点 {info.personCount} 人 <= 留守 {minKeepPerson} 人），不出兵");
                 return;
+            }
+            // 再钳一次：不能把留守人数都抽空 —— :86
+            maxUnitCount = System.Math.Min(maxUnitCount, info.personCount - minKeepPerson);
+
+            // 兵力 / 粮不足 —— :88-93
+            if (city.troops < minKeepTroops)
+            {
+                LogAttack(city, $"留守兵力不足（{city.troops}<{minKeepTroops}），不出兵");
+                return;
+            }
+            if (hasActionPoint && OutpostRuntime.food < minKeepFood)
+            {
+                LogAttack(city, $"留守粮草不足（{OutpostRuntime.food}<{minKeepFood}），不出兵");
+                return;
+            }
+            if (maxUnitCount <= 0)
+                return;
+
+            // ---- 跨区（跨都市）进攻门槛 —— :126-211 ----
+            // 原版 same_area 比的是"据点所属都市"（get_area_city_id）：
+            // 都市返回自身，关隘/港口返回其所属都市。
+            bool sameArea = GetAreaCityId(city) == GetAreaCityId(targetCity);
+
+            if (!sameArea && (city.BelongForce == null || !city.BelongForce.IsPlayer))
+            {
+                // 跨区出征概率 —— :129-181
+                int chance = 100;
+                Person kunshu = city.BelongForce != null ? city.BelongForce.mGovernor : null;
+                if (kunshu != null)
+                {
+                    int difficulty = scenario.Variables != null ? scenario.Variables.difficulty : 1;
+                    // 难度 + 性格 —— :136
+                    chance = (100 * (difficulty + 3) / 4) * (2 + seikaku) / 5;
+
+                    // 野心（0~4，Ambition_Middle = 2）—— :137-142
+                    int ambition = kunshu.ambition;
+                    if (ambition < 2)
+                        chance = chance / (3 - ambition);
+                    else
+                        chance = chance * (3 + ambition) / 5;
+
+                    // 战略倾向 —— :143-158
+                    // 0 UnifyChina / 1 UnifyRegion / 2 UnifyProvince / 3 MaintainStatus
+                    switch (kunshu.strategic_tendency)
+                    {
+                        case 3:
+                            chance = 5;
+                            break;
+                        case 2:
+                            if (GetProvinceUnifiedCount(city.BelongForce, scenario) >= 1)
+                                chance = 5;
+                            break;
+                        case 1:
+                            if (GetProvinceUnifiedCount(city.BelongForce, scenario) >= 2)
+                                chance = 5;
+                            break;
+                    }
+
+                    // 久未用兵则更想打，超级强国反而收敛 —— :159-172
+                    if (!weak)
+                    {
+                        int turns = System.Math.Min(city.BelongForce.GetTurnsSinceLastAttack(scenario), 100);
+                        chance += turns * 3;
+                        if (powerRank >= 90)
+                            chance += (100 - powerRank) * 5;
+                    }
+                    chance = System.Math.Clamp(chance, 5, 100);
+                }
+                if (!GameRandom.Chance(chance))
+                {
+                    LogAttack(city, $"跨区进攻放弃（概率 {chance}%）：{city.Name} → {targetCity.Name}");
+                    return;
+                }
+
+                // 跨区的支数 / 兵力 / 粮草门槛 —— :203-211
+                int minUnitCount = 1 + (weak ? 0 : 2);
+                if (maxUnitCount < minUnitCount)
+                {
+                    LogAttack(city, $"跨区可出阵支数不足（{maxUnitCount}<{minUnitCount}），不出兵");
+                    return;
+                }
+                // 注意原版这里是 min()：取"支数×7500"与"前 N 名统率之和"的较小者
+                int minDeployTroops = System.Math.Min(minUnitCount * 7500, MaxCommandSum(city, minUnitCount));
+                if (city.troops - minKeepTroops < minDeployTroops
+                    || (OutpostRuntime.food - minKeepFood) / 2 < minDeployTroops)
+                {
+                    LogAttack(city, $"跨区兵力/粮草不足（需 {minDeployTroops}），不出兵");
+                    return;
+                }
+
+                // 兵装不足（仅都市）—— :204-211，按千件向下取整后累加枪/戟/弩/马
+                if (city.IsCity())
+                {
+                    int arms = 0;
+                    if (city.itemStore != null)
+                    {
+                        for (int id = (int)ItemStoreKindType.Spear; id <= (int)ItemStoreKindType.Horse; id++)
+                            arms += city.itemStore.GetNumber(id) / 1000 * 1000;
+                    }
+                    if (arms < minDeployTroops)
+                    {
+                        LogAttack(city, $"跨区兵装不足（{arms}<{minDeployTroops}），不出兵");
+                        return;
+                    }
+                }
+            }
+
+            // ---- 所需兵力：目标兵力 ×(1 + r%)，r 由君主性格与势力排名决定 —— :245-264 ----
+            // target_troops 取 ai_table_get_max_troops(target)
+            // （= min(守将统率总和, 城内兵力) + 区域内本势力部队兵力，s11_sys_scen_ai.cpp:1428-1446），
+            // 见 CityAIOutpost.MaxTroops。
+            int targetTroops = MaxTroops(targetCity, scenario);
+            int r = (3 - seikaku) * 15 + powerRank / 2;
+            int needTroops = targetTroops + targetTroops * r / 100;
+            needTroops = System.Math.Max(needTroops, 5000);
+
+            // 已在外的进攻兵力（同一目标的编组）—— :250-261
+            int attackingTroops = 0;
+            int attackingUnitCount = 0;
+            for (int i = 0; i < city.allAttackTroops.Count; i++)
+            {
+                Troop t = city.allAttackTroops[i];
+                if (t == null || !t.IsAlive)
+                    continue;
+                if (t.missionType != (int)MissionType.TroopOccupyCity)
+                    continue;
+                if (t.missionTarget != targetCity.Id)
+                    continue;
+                attackingTroops += t.troops;
+                attackingUnitCount++;
+            }
 
             List<Cell> path = scenario.GetCityDirectPathToOther(city, targetCity);
-            int turnCount = Math.Max(20, 16 + path.Count / 4);
+            int turnCount = System.Math.Max(20, 16 + path.Count / 4);
 
-            Troop troop = AIMakeTroop(city, turnCount, true, scenario);
-            if (troop == null)
-                return;
+            // ---- 出阵循环 —— :266-418 ----
+            int createdCount = 0;
+            while (createdCount < maxUnitCount)
+            {
+                // 兵力已够 —— :268-270
+                if (attackingTroops > needTroops)
+                    break;
+                // 编组槽位硬上限（原版 s11_game_ai.h:506 为 16，本项目放宽到 50）
+                if (attackingUnitCount >= MaxAttackingTroopPerCity)
+                    break;
+                // 原版在"组建下一支之前"判这三项（:375-377 / :291-294 / :406-410）。
+                // 本项目 AIMakeTroop 组建时就把兵/粮扣掉了，只能放在循环开头判，语义等价
+                // 且不会把城市掏空。
+                if (city.troops <= minKeepTroops)
+                    break;
+                if (hasActionPoint && OutpostRuntime.food <= minKeepFood)
+                    break;
+                if (hasActionPoint && OutpostRuntime.actionPoint < actionPointCost)
+                    break;
+                if (city.freePersons.Count < 2)
+                    break;
 
-            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-            if (troop == null)
-                return;                             // 城池被围困,无法出城,本次出征已取消
-            // 记录"本势力刚出征" —— 对齐 s11_game_ai_kyoten_cmd_mil_attack.cpp:403
-            // 的 ai_table_update_last_attack_turn（外交 AI 用它判断是否长期无战事）。
-            city.BelongForce?.MarkAttackTurn(scenario);
-            Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.BelongForce?.Name}的{targetCity.Name}!");
+                Troop troop = AIMakeTroop(city, turnCount, true, scenario);
+                if (troop == null)
+                    break;
+
+                troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+                if (troop == null)
+                    break;                              // 城池被围困,无法出城,本次出征已取消
+
+                // 【立即出城】不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
+                if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+                {
+                    Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的进攻部队无法出城（城头无可停留格或寻路失败），本次出征取消");
+                    CityTroopFactory.RevokeEmit(city, troop);
+                    break;
+                }
+
+                // 每支单独扣据点行动力 —— :383
+                if (hasActionPoint && actionPointCost > 0)
+                {
+                    OutpostRuntime.actionPoint -= actionPointCost;
+                    // 自扣型命令：告诉 OutpostCommand 不要再补扣一次（否则成本翻倍）
+                    OutpostRuntime.MarkExecuted();
+                }
+
+                createdCount++;
+                attackingUnitCount++;
+                attackingTroops += troop.troops;
+
+                // 记录"本势力刚出征" —— :403 ai_table_update_last_attack_turn
+                city.BelongForce?.MarkAttackTurn(scenario);
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领{troop.TroopType.Name}军队出城 进攻{targetCity.BelongForce?.Name}的{targetCity.Name}!");
+
+                // ---- 循环尾部再判一次 —— :404-417 ----
+                if (OutpostRuntime.idlePersonList.Count > 0)
+                {
+                    // 把本队成员从可下令池里摘掉（原版 :386-391），保证同一武将不被复用
+                    troop.ForEachPerson(p => OutpostRuntime.idlePersonList.Remove(p));
+                    if (OutpostRuntime.idlePersonList.Count <= 0)
+                        break;
+                }
+                if (city.freePersons.Count < 2)
+                    break;
+                if (hasActionPoint && OutpostRuntime.actionPoint < actionPointCost)
+                    break;
+                if (hasActionPoint && OutpostRuntime.food <= minKeepFood)
+                    break;
+                if (city.troops <= minKeepTroops)
+                    break;
+                // 弱势力随机衰减 —— :412-417
+                if (weak)
+                {
+                    int n = System.Math.Clamp(attackingUnitCount * 20 - 20, 0, 100);
+                    if (GameRandom.Chance(n))
+                        break;
+                }
+            }
+
+            if (createdCount <= 0)
+                LogAttack(city, $"本回合未能组建任何进攻部队（在外兵力 {attackingTroops}/{needTroops}，据点状态 {info.state}）");
+            else if (createdCount > 1)
+                LogAttack(city, $"本回合连续出阵 {createdCount} 支，在外进攻兵力 {attackingTroops}/{needTroops}");
+        }
+
+        /// <summary>
+        /// 出征用性格编号（0~3），对应原版 <c>seikaku_t</c>：
+        /// 0 胆小(Shoushin) / 1 冷静(Reisei) / 2 刚胆(Goutan) / 3 莽撞(Chototsu)
+        /// （s11_enum_scen.h:387-402）。**数值越大越冲动、越敢带少量兵出击。**
+        ///
+        /// 对齐出处：s11_game_ai_kyoten_cmd_mil_attack.cpp:38-40
+        /// <code>
+        /// seikaku_t seikaku = Seikaku_Reisei;
+        /// if (kunshu_id >= 0 and not building->is_player())
+        ///     seikaku = game_->get_person(kunshu_id)->get_seikaku();
+        /// </code>
+        /// 用途：:262 <c>r = (3 - seikaku) * 15 + power_rank / 2</c>（所需兵力膨胀率）、
+        /// :63 <c>1500 * (7 - seikaku)</c>（留守兵力下限）、:136 跨区进攻概率。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <returns>0~3</returns>
+        static int GetSeikaku(City city)
+        {
+            if (city == null || city.BelongForce == null || city.BelongForce.IsPlayer)
+                return 1;   // Seikaku_Reisei
+            Person kunshu = city.BelongForce.mGovernor;
+            if (kunshu == null)
+                return 1;
+            return System.Math.Clamp(kunshu.Seikaku, 0, 3);
         }
 
         /// <summary>
@@ -224,6 +587,13 @@ namespace Sango.Core
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
             if (troop == null)
                 return;                             // 城池被围困,无法出城,本次出征已取消
+            // 【立即出城】不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
+            if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+            {
+                Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的防守部队无法出城（城头无可停留格或寻路失败），本次出征取消");
+                CityTroopFactory.RevokeEmit(city, troop);
+                return;
+            }
             // 防御出阵同样计入"最后出征回合" —— 对齐 s11_game_ai_kyoten_cmd_mil_defense.cpp:263
             city.BelongForce?.MarkAttackTurn(scenario);
             Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
@@ -251,6 +621,13 @@ namespace Sango.Core
             troop = CityTroopFactory.EmitTroop(city, troop, scenario);
             if (troop == null)
                 return true;                        // 城池被围困,无法出城,本次出征已取消
+            // 【立即出城】不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
+            if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+            {
+                Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的驱逐部队无法出城（城头无可停留格或寻路失败），本次出征取消");
+                CityTroopFactory.RevokeEmit(city, troop);
+                return true;
+            }
             city.BelongForce?.MarkAttackTurn(scenario);
             Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 驱逐{threatTroop.BelongForce?.Name}的{threatTroop.Name}!");
             return true;
@@ -277,6 +654,7 @@ namespace Sango.Core
             {
                 city.TroopMissionType = MissionType.TroopOccupyCity;
                 city.TroopMissionTargetId = lastTargetCity.Id;
+                LogAttack(city, $"延续上次进攻目标 {lastTargetCity.Name}");
                 return false;
             }
 
@@ -306,10 +684,38 @@ namespace Sango.Core
                 if (x.BelongForce.IsPlayer)
                     weight += 1500;
 
+                // 【距离因子】原版 `ai_table_get_attack_dest_building_list` 是按
+                // `kyoten_distance` 由近及远给出的候选，近的据点优先。
+                // 这里用 `CityDistanceTable`（FW 双表，与原版同构）折算权重：
+                //   距离 1 → ×0.9，距离 6 及以上 → ×0.4（留下限，避免远方目标被完全排除）；
+                //   不可达（-1，被地形或势力隔断）→ 权重降一个量级，基本不选。
+                //
+                // 说明：这一层是**城级 AI**，此时还没有部队，
+                // 用不了 `Map.GetPathToRing`（它需要 Troop 决定消耗与 ZOC）。
+                // 部队级的"去哪一格"由 `Map.GetPathToRing` / `Map.GetPathReverseAStar` 负责。
+                CityDistanceTable distanceTable = scenario.cityDistanceTable;
+                if (distanceTable != null)
+                {
+                    int dist = distanceTable.GetDistance(city, x, false);
+                    if (dist > 0)
+                    {
+                        float factor = 1f - 0.1f * UnityEngine.Mathf.Min(dist, 6);
+                        if (factor < 0.4f) factor = 0.4f;
+                        weight = UnityEngine.Mathf.FloorToInt(weight * factor);
+                    }
+                    else if (dist < 0)
+                    {
+                        weight /= 10;
+                    }
+                }
+
                 priorityQueue.Push(x, weight);
             });
 
             int count = GameRandom.Range(0, UnityEngine.Mathf.Max(0, priorityQueue.Count) + 1);
+            if (count == 0)
+                LogAttack(city, $"随机未尝试候选(count=0，候选{priorityQueue.Count})，本回合不出兵");
+
             for (int i = 0; i < count; i++)
             {
                 int priority = 0;
@@ -322,9 +728,12 @@ namespace Sango.Core
                 {
                     city.TroopMissionType = MissionType.TroopOccupyCity;
                     city.TroopMissionTargetId = targetCity.Id;
+                    LogAttack(city, $"决定进攻 {targetCity.Name}(权重{priority})");
                     return false;
                 }
             }
+            if (count > 0)
+                LogAttack(city, $"候选未命中(count={count}，候选{priorityQueue.Count})，本回合不出兵");
             return true;
         }
 
@@ -598,6 +1007,31 @@ namespace Sango.Core
                 reinforceCandidates.Add(neighbor);
             }
 
+            // 【援军请求】追加"向我方求援的同盟"里正被围攻的城
+            //   约定：Force.requestForceId = 我向谁求援（见 Force.requestForceId 注释）。
+            //   所以"谁向我方求援"= 遍历势力表找 requestForceId == 我方 Id。
+            //   原版对应 try_reinforce 成功后同盟需在约定回合内出兵（s11_game_week.cpp:292-311）。
+            if (scenario.forceSet != null && scenario.citySet != null)
+            {
+                for (int fi = 0; fi < scenario.forceSet.Count; fi++)
+                {
+                    Force ally = scenario.forceSet[fi];
+                    if (ally == null || ally == city.BelongForce) continue;
+                    if (ally.requestForceId != city.BelongForce.Id) continue;   // 不是向我方求援
+                    if (!ally.IsAlliance(city.BelongForce)) continue;           // 关系已破裂，不派
+
+                    for (int ci = 0; ci < scenario.citySet.Count; ci++)
+                    {
+                        City allyCity = scenario.citySet[ci];
+                        if (allyCity == null || !allyCity.IsAlive) continue;
+                        if (allyCity.BelongForce != ally) continue;
+                        if (!allyCity.CheckEnemiesIfAlive()) continue;
+                        if (reinforceCandidates.Contains(allyCity)) continue;
+                        reinforceCandidates.Add(allyCity);
+                    }
+                }
+            }
+
             if (reinforceCandidates.Count == 0)
                 return true;
 
@@ -627,12 +1061,30 @@ namespace Sango.Core
             List<Cell> path = scenario.GetCityDirectPathToOther(city, target);
             int turnCount = Math.Max(20, 16 + path.Count / 4);
 
+            // 跨势力支援 = 援军：记录"响应谁的求援"，供 Troop.UpdateAIOrder 的援军分支
+            // 与 CorpsAI 的"援军优先行动"排序使用（原版 unit.set_request_force_id）。
+            int requestForce = target.BelongForce != null && target.BelongForce != city.BelongForce
+                ? target.BelongForce.Id
+                : -1;
+
             Troop troop = AIMakeTroop(city, turnCount, false, scenario);
             if (troop != null)
             {
+                troop.requestForceId = requestForce;
+
                 troop = CityTroopFactory.EmitTroop(city, troop, scenario);
                 if (troop != null)
-                    Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领援军出城 支援{target.Name}!");
+                {
+                    troop.requestForceId = requestForce;    // EmitTroop 后再次确保（登记阶段可能重建对象）
+                    // 【立即出城】援军不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
+                    if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+                    {
+                        Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的援军无法出城（城头无可停留格或寻路失败），本次出征取消");
+                        CityTroopFactory.RevokeEmit(city, troop);
+                    }
+                    else
+                        Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领援军出城 支援{target.BelongForce?.Name}的{target.Name}!");
+                }
             }
 
             // 恢复本城任务状态,避免影响后续 AIAttack 判断
@@ -647,10 +1099,6 @@ namespace Sango.Core
         /// <param name="scenario"></param>
         public static bool AIIntrior(City city, Scenario scenario)
         {
-            // 兵临城下时不进行内政建设
-            if (city.IsEnemiesRound(9))
-                return true;
-
             // 透传真实结果：调度器靠它判断"是否真的做了事"来决定要不要补扣行动力
             return AIBuilding(city, scenario);
         }
@@ -883,9 +1331,6 @@ namespace Sango.Core
                     return true;
             }
 
-            if (city.IsEnemiesRound())
-                return true;
-
             // 【一回合可建多座，但每座各扣一次 AP】
             // 原版 `kyoten_develop`（s11_game_ai_kyoten_cmd.cpp:100-147）单次调用只建一座，
             // 但**同一回合会被多次调用**：`exec_develop_command` 会给每个参与者
@@ -906,14 +1351,34 @@ namespace Sango.Core
             int built = 0;
             const int MaxPerCommand = 3;      // 软上限：单条命令最多建 3 座，避免霸占整个队列
 
+            bool logBuild = AIConfig.Instance.logOutpostAI;
             while (built < MaxPerCommand)
             {
                 if (city.freePersons.Count <= 0)
+                {
+                    if (logBuild)
+                        Sango.Log.Info($"*[内政建造]{city.Name} 跳过：无空闲武将（built={built}）");
                     break;
+                }
                 if (cost > 0 && OutpostRuntime.actionPoint < cost)
+                {
+                    // 这是"前线城/后方城有钱有人却一直空着"的最常见原因：
+                    // Attack 排在队列最前，连出多支把据点行动力吃光，轮到 Develop 时已无额度。
+                    if (logBuild)
+                        Sango.Log.Info($"*[内政建造]{city.Name} 跳过：据点行动力 {OutpostRuntime.actionPoint} < 单座成本 {cost}（built={built}）");
                     break;
+                }
                 if (!AIBuildIntriore(city, scenario))
+                {
+                    if (logBuild)
+                    {
+                        int goldNow = OutpostRuntime.gold != 0 ? OutpostRuntime.gold : city.gold;
+                        Sango.Log.Info($"*[内政建造]{city.Name} 跳过：AIBuildIntriore 判定不该建"
+                            + $"（城池金 {city.gold}，据点可用金 {goldNow}，空闲武将 {city.freePersons.Count}，"
+                            + $"内政地已满 {city.IsInteriorBuildFull()}，据点状态 {OutpostRuntime.Get(city.Id)?.state}）");
+                    }
                     break;
+                }
 
                 OutpostRuntime.actionPoint -= cost;
                 built++;
@@ -1094,7 +1559,11 @@ namespace Sango.Core
             if (!best.isValid || best.cell == null)
                 return false;
 
-            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, force, scenario);
+            // 【陷阱选型对齐原版】原版陷阱由「部队（self）」在行动时自主建造（add_build_action :1253-1267），
+            // 城池派建造部队（kyoten_build → DeployType_Build）只负责派出、不选型，选型发生在部队到达后。
+            // 故此处（派队前尚无 self）builder 传 null 跳过陷阱选型，陷阱改由
+            // 「作战部队就地增筑」（Troop.TryBuildFieldBuilding）与「工程队连建」（TroopBuildBuilding.TryFindNextSite）触发。
+            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, null, force, scenario);
             if (buildingType == null)
                 return false;
 
@@ -1179,6 +1648,10 @@ namespace Sango.Core
             troop.gold = carrayGold;
             troop.missionType = (int)MissionType.TroopBuildBuilding;
             troop.missionTargetCell = dest;
+            // 【意图层】工程队对应原版 DeployType_Build（kyoten_cmd_mil_build.cpp:112-114），
+            // deploy_target 是出发据点（原版同样传 building_id）。
+            troop.deployType = (int)TroopDeployType.Build;
+            troop.deployTarget = city.Id;
             // 【角色】显式标记为工兵：EmitTroop 只在 role == Auto 时才自动推导，
             // 因此这里设定后不会被覆盖，评分体系会按工兵权重使其极力规避接战。
             troop.role = TroopRole.Engineer;
@@ -1190,6 +1663,13 @@ namespace Sango.Core
                 return true;                        // 城池被围困,无法出城,本次出征已取消
             city.CurActiveTroop = troop;
             troop.SetMission(MissionType.TroopBuildBuilding, buildingType.Id);
+            // 【立即出城】工程队不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
+            if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+            {
+                Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的工程队无法出城（城头无可停留格或寻路失败），本次出征取消");
+                CityTroopFactory.RevokeEmit(city, troop);
+                return true;
+            }
             return true;
         }
 
@@ -1358,16 +1838,45 @@ namespace Sango.Core
             if (city.freePersons.Count < 1) // 至少需要1个武将进行建设
                 return false;
 
-            if (city.gold < AIConfig.Instance.buildMinGold) // 建设所需的最低金钱
+            // 【金门槛 · 严格对齐】原版 s11_game_ai_kyoten_cmd.cpp:96-98：
+            // <code>
+            // // 금 부족
+            // if (gold_ &lt; 0)
+            //     return true;
+            // </code>
+            // gold_ 是**据点可用金**（库存 + 负收入按储备回合折抵，可为负），原版只要求它"非负"，
+            // 并没有"够某个最低值才建"的门槛。
+            // 【旧实现】用 city.gold &lt; buildMinGold(500) 作门槛，比原版严：钱在 0~499 时原版会建、本项目不建。
+            // 买不起的具体类型由选型阶段的 check_gold_cost 剔除
+            //（本项目 = BuildingPlanner.ClearUnaffordable + BuildOne 的造价检查），无需在此一刀切。
+            int availableGold = OutpostRuntime.gold != 0 ? OutpostRuntime.gold : city.gold;
+            if (availableGold < 0)
                 return false;
 
-            // 【战斗状态下不新建内政设施】避免与据点拆除命令形成死循环：
-            // `AIDestroy` 在 Battle + 无空闲武将时会把"所有未完工设施"清掉
-            // （对齐原版"不给敌人留设施"），而本方法此前不看状态照建，
-            // 于是出现"建 → 没完工就被拆 → 再建 → 再拆"的无限烧钱循环。
-            // 判据与 `AIDestroy` 同源（OutpostRuntime 的据点态势），保证两侧口径一致。
-            OutpostInfo outpostInfo = OutpostRuntime.Get(city.Id);
-            if (outpostInfo != null && outpostInfo.state == OutpostState.Battle)
+            // 【"建址 3 格内有敌"的判定落在 BuildOne，本方法不再重复判】
+            //
+            // 原版 kyoten_develop（s11_game_ai_kyoten_cmd.cpp:83-121）的完整顺序是：
+            //   ① 无闲人 → 不建；② gold_ < 0 → 不建；③ 行动力不足 → 不建；
+            //   ④ 内政地已满 → 不建；⑤ 有防守部队出阵 → 30% 不建；
+            //   ⑥ 选类型 → 选位置 → 位置非法 → 不建；
+            //   ⑦ **map_has_enemy(pos, 3) && rand_bool(50) → 不建**（判的是建址，不是据点）。
+            //
+            // 其中 ⑦ 本项目已由唯一落地入口 <see cref="BuildOne"/> 严格实现
+            // （`city.HasEnemyInRange(bestPlace, 3) && GameRandom.Chance(50)`），
+            // 且模板路径与规划器路径共用同一份代码，不会漏判。
+            //
+            // 【此前上层那道"Battle 态禁建"已删除】它把判据从"建址"放宽成"整城"，
+            // 比原版严格得多：前线城长期 Battle，内政地会永久空置。
+            //
+            // 仅保留原版确实存在的 ⑤：有防守部队已出阵时 30% 概率不建 —— :105-107
+            int defenseTroops = 0;
+            for (int i = 0; i < city.allTroops.Count; i++)
+            {
+                Troop t = city.allTroops[i];
+                if (t != null && t.IsAlive && t.missionType == (int)MissionType.TroopProtectCity)
+                    defenseTroops++;
+            }
+            if (defenseTroops > 0 && GameRandom.Chance(30))
                 return false;
 
             // ---------- 一、还有空位：直接新建 ----------
@@ -1481,7 +1990,10 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIBuildingTemplate(int templateId, City city, Scenario scenario)
         {
-            if (city.gold < AIConfig.Instance.buildMinGold)
+            // 新建路径无最低金门槛，只要求据点可用金非负 ——
+            // 同 AIBuildIntriore，对齐原版 kyoten_develop:96-98 `if (gold_ < 0) return true;`
+            int availableGold = OutpostRuntime.gold != 0 ? OutpostRuntime.gold : city.gold;
+            if (availableGold < 0)
                 return false;
 
             if (city.freePersons.Count < 1)
@@ -1587,6 +2099,12 @@ namespace Sango.Core
             if (bestPlace == null)
                 return false;
 
+            // 【对齐原版 kyoten_develop（s11_game_ai_kyoten_cmd.cpp:119-121）】
+            // 建设位周边 3 格有敌人 → 50% 概率放弃本次建设（map_has_enemy(pos, 3) && rand_bool(50)）。
+            // 命令层 CityBuildBuilding.IsValid 还会用 HasEnemyNearby 硬拦截，两层各自独立。
+            if (city.HasEnemyInRange(bestPlace, 3) && GameRandom.Chance(50))
+                return false;
+
             Person[] people = ForceAI.CounsellorRecommendBuild(city.freePersons, buildingType);
             if (people == null || people.Length == 0)
                 return false;
@@ -1609,43 +2127,167 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIBuildingLevelUp(City city, Scenario scenario)
         {
-            if (city.gold < AIConfig.Instance.buildMinGold)
-                return false;
-
+            // 【升级不设资金闸门】
+            // 原版 `kyoten_merge`（s11_game_ai_kyoten_cmd_dev_merge.cpp:19-21）确有一道
+            // <code>
+            // // 금 여유 없음
+            // if (gold_ &lt; 500)
+            //     return true;
+            // </code>
+            // 但那是**合成**（3 座同类设施合成 1 座高级设施）的费用余量，
+            // 本项目没有合成这一步（见 <see cref="CityAIOutpostCommand.AIMerge"/> 注释），
+            // 升级的真实支出是 `nextBuildingType.cost`。
+            // 此前照搬这道 500 金闸门，效果是"城池资金 0~499 时永远不升级"，
+            // 加上 `OutpostRuntime.gold` 还会按负收入折抵（s11_game_ai_kyoten.cpp:30-32），
+            // 等于门槛实际更高 —— 故移除，改为**逐座**判断买不买得起（见 <see cref="UpgradeOneBuilding"/>）。
+            // 扣款前的最终复核仍由 `City.JobUpgradeBuilding`（City.cs:3217）兜底。
             if (city.freePersons.Count < 1)
                 return false;
 
-            // 需要全部建造完毕
-            if (!city.IsInteriorBuildFull())
+            // 【内政地占用达 4/5 即可升级 —— 对齐原版 kyoten_merge:34-50】
+            // 原版（s11_game_ai_kyoten_cmd_dev_merge.cpp）：
+            // <code>
+            // // 遍历可合并目标时，兵营 / 铁匠铺 / 马厩（含 Lv2）会置 always = true
+            // if (not always and city->get_facility_count() &lt; city->get_dev_count() * 4 / 5)
+            //     return true;
+            // </code>
+            // 即：候选里存在可升 3 级的军事内政设施时**不受**这条限制；
+            // 否则内政地占用率达到 dev 数的 4/5 即可。
+            // 【此前用 IsInteriorBuildFull()（= 100%）】比原版严：本项目没有吸收合并，
+            // 内政地只要有一格因敌人阻挡 / 地形限制建不上，升级就永久停摆 —— 属误卡。
+            if (!HasMilitaryUpgradeTarget(city))
+            {
+                int capacity = city.InteriorCellCount;
+                if (capacity > 0 && city.GetInteriorCellUsedCount() * 5 < capacity * 4)
+                    return false;
+            }
+
+            // 【一回合可升多座，但每座各扣一次 AP】—— 与建造 <see cref="AIBuilding"/> 对齐。
+            // 原版 `kyoten_merge`（s11_game_ai_kyoten_cmd_dev_merge.cpp:5-98）单次调用只合并一座，
+            // 但**同一回合会被多次调用**：每合并一座就 `action_point_ -= get_merge_action_point_cost()`
+            // 并 `std::erase(idle_person_list_, actor)`（:94-96），只要队列里还有 Merge、还有空闲武将、
+            // AP 还够，就会继续合并。真正的限制是"武将行动力 + AP 余额"，不是"一回合一座"。
+            // <para>
+            // 本项目队列里 `Merge` 只登记一次（见 <see cref="UpdateOutpostData"/>），
+            // 若命令体也硬限 1 座，等于把"多空闲武将 + 满行动力"的城压成每回合 1 座，明显不合理。
+            // </para>
+            // <para>
+            // 【AP 控制】每升一座立刻扣一次 `JobType.GetJobCostAP(UpgradeBuilding)`，
+            // 扣完后调 `MarkExecuted()` 让调度器跳过"委托型补扣"，避免重复扣减。
+            // </para>
+            int apCost = JobType.GetJobCostAP((int)CityJobType.UpgradeBuilding);
+            int upgraded = 0;
+            const int MaxPerCommand = 3;      // 软上限：单条命令最多升 3 座，避免霸占整个队列
+
+            while (upgraded < MaxPerCommand)
+            {
+                if (city.freePersons.Count < 1)
+                    break;
+                if (apCost > 0 && OutpostRuntime.actionPoint < apCost)
+                    break;
+                if (!UpgradeOneBuilding(city, scenario))
+                    break;
+
+                OutpostRuntime.actionPoint -= apCost;
+                upgraded++;
+            }
+
+            if (upgraded > 0)
+            {
+                // 已按"一座一成本"逐次扣减 → 通知调度器不要再补扣
+                OutpostRuntime.MarkExecuted();
+                return true;
+            }
+            return false; // 没有升级
+        }
+
+        /// <summary>
+        /// 判断是否存在"军事内政设施"的可升级目标（兵营 / 铁匠铺 / 马厩）。
+        ///
+        /// 对齐出处：s11_game_ai_kyoten_cmd_dev_merge.cpp:34-44 —— 原版遍历可合并目标时，
+        /// 只要命中 <c>FacilityId_Barracks / Smith / Stable</c>（以及三者 Lv2）就置
+        /// <c>always = true</c>，随后的 <c>:49-50</c>
+        /// 「内政地占用不足 4/5 就放弃」这条判据会被跳过。
+        /// <para>
+        /// 本项目把三种设施合并为单一 kind（等级靠 <c>BuildingType.level</c> 区分），
+        /// 已升到顶级的 <c>nextId == 0</c>，天然被排除，等价于原版"Lv1/Lv2 才算"。
+        /// </para>
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <returns>存在可升级的兵营 / 铁匠铺 / 马厩返回 true</returns>
+        static bool HasMilitaryUpgradeTarget(City city)
+        {
+            if (city.allBuildings == null)
                 return false;
 
+            for (int i = 0; i < city.allBuildings.Count; ++i)
+            {
+                Building b = city.allBuildings[i];
+                if (b == null || !b.isComplate || b.isUpgrading || b.BuildingType == null)
+                    continue;
+                if (b.BuildingType.nextId <= 0)
+                    continue;
+
+                int kind = b.BuildingType.kind;
+                if (kind == (int)BuildingKindType.Barracks
+                    || kind == (int)BuildingKindType.BlacksmithShop
+                    || kind == (int)BuildingKindType.Stable)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 升级一座建筑（选建筑 → 荐人 → 算工期 → 性格修正 → 扣钱扣行动点 → 挂升级任务）。
+        ///
+        /// 单次调用只升级一座；是否继续升级由 <see cref="AIBuildingLevelUp"/> 的循环控制。
+        /// 与建造的 <see cref="AIBuildIntriore"/> 一一对应：命令体负责"落地一座"，
+        /// 循环体负责"放行次数 + AP 钳制"。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否成功升级了一座建筑</returns>
+        static bool UpgradeOneBuilding(City city, Scenario scenario)
+        {
             for (int i = 0; i < city.allBuildings.Count; ++i)
             {
                 Building building = city.allBuildings[i];
                 if (building.isComplate && !building.isUpgrading && building.BuildingType.nextId > 0)
                 {
                     BuildingType nextBuildingType = scenario.GetObject<BuildingType>(building.BuildingType.nextId);
-                    int cost = nextBuildingType.cost;
-                    if (city.gold < cost)
-                        return false;
+                    if (nextBuildingType == null)
+                        continue;
+
+                    // 【买不起这一座就跳过，不整体中止】
+                    // 旧实现是 `return false` —— 只要顺序遍历到第一座买不起的建筑，
+                    // 后面所有更便宜的升级目标全被放弃，表现为"AI 明明有钱却不升级"。
+                    // 真正的扣款复核在 City.JobUpgradeBuilding（City.cs:3217，`gold < cost` 则返回 null），
+                    // 此处只是筛掉必然失败的候选，避免刷警告日志。
+                    if (city.gold < nextBuildingType.cost)
+                        continue;
 
                     Person[] people = ForceAI.CounsellorRecommendBuild(city.freePersons, nextBuildingType);
                     if (people != null && people.Length > 0)
                     {
                         int buildAbility = GameUtility.Method_PersonBuildAbility(people);
+                        if (buildAbility <= 0)
+                            continue;
                         int turnCount = nextBuildingType.durabilityLimit % buildAbility == 0 ? 0 : 1;
                         int buildCount = Math.Min(Scenario.Cur.Variables.BuildMaxTurn, nextBuildingType.durabilityLimit / buildAbility + turnCount);
                         // 【性格】建造效率：按执行武将性格缩短工期
                         buildCount = city.ApplyPersonalityBuildCounter(buildCount, people);
                         if (buildCount <= AIConfig.Instance.buildUpgradeMaxTurn)
                         {
-                            city.JobUpgradeBuilding(building, people, nextBuildingType, buildCount);
-                            return true; // 成功升级
+                            // 【必须判返回值】本次循环前面几座升级可能已经把资金吃光，
+                            // JobUpgradeBuilding 复核不过会返回 null；此时不能算"升了一座"，
+                            // 否则调用方会白扣一次据点行动力。
+                            if (city.JobUpgradeBuilding(building, people, nextBuildingType, buildCount) != null)
+                                return true; // 成功升级一座
                         }
                     }
                 }
             }
-            return false; // 没有升级
+            return false; // 没有可升级的建筑
         }
 
         /// <summary>
@@ -1824,7 +2466,10 @@ namespace Sango.Core
         {
             // 全局和平回合数：开局前若干回合内 AI 不主动进攻（统一判定入口见 Scenario.IsPeacePeriod）
             if (scenario.IsPeacePeriod)
+            {
+                LogAttack(city, "全局和平期，不出兵");
                 return false;
+            }
 
             if (IsAttackForbidden(city))
             {
@@ -1834,6 +2479,7 @@ namespace Sango.Core
                     city.TroopMissionType = MissionType.None;
                     city.TroopMissionTargetId = 0;
                 }
+                LogAttack(city, "军团委任禁攻，不出兵");
                 return false;
             }
 
@@ -1844,19 +2490,34 @@ namespace Sango.Core
             int minTroops = PersonalityId == ForceAI.AIPersonalityType.Aggressive ? 8000 :
                            PersonalityId == ForceAI.AIPersonalityType.Defensive ? 12000 : 10000;
             if (city.troops < minTroops)
+            {
+                LogAttack(city, $"兵力不足 {city.troops}<{minTroops}，不出兵");
                 return false;
+            }
 
             if (city.morale < 60 || city.security < 50)
+            {
+                LogAttack(city, $"士气/治安不足 士气{city.morale} 治安{city.security}，不出兵");
                 return false;
+            }
 
             if (city.freePersons.Count < 2)
+            {
+                LogAttack(city, $"空闲武将不足 {city.freePersons.Count}<2，不出兵");
                 return false;
+            }
 
             if (!city.IsBorderCity)
+            {
+                LogAttack(city, "非边境城，不出兵");
                 return false;
+            }
 
             if (city.IsEnemiesRound(6))
+            {
+                LogAttack(city, "6 格内有敌军→转防守，不出兵");
                 return false;
+            }
 
             List<City> enemiesCities = new List<City>();
             city.ForeachNeighborCities(x =>
@@ -1866,15 +2527,33 @@ namespace Sango.Core
             });
 
             if (enemiesCities.Count == 0)
+            {
+                LogAttack(city, "无相邻敌城，不出兵");
                 return false;
+            }
 
-            // 根据AI个性调整攻击概率
-            int attackChance = PersonalityId == ForceAI.AIPersonalityType.Aggressive ? 50 :
-                              PersonalityId == ForceAI.AIPersonalityType.Defensive ? 80 : 70;
+            // 根据AI个性调整攻击概率（可配：值越低越积极出兵）
+            int attackChance = PersonalityId == ForceAI.AIPersonalityType.Aggressive ? AIConfig.Instance.attackSkipChanceAggressive :
+                              PersonalityId == ForceAI.AIPersonalityType.Defensive ? AIConfig.Instance.attackSkipChanceDefensive :
+                              AIConfig.Instance.attackSkipChanceBalanced;
             if (GameRandom.Chance(attackChance))
+            {
+                LogAttack(city, $"攻击概率跳过({attackChance}%)，不出兵");
                 return false;
+            }
 
             return true;
+        }
+
+        /// <summary>
+        /// 出兵决策日志（受 AIConfig.logAttackAI 控制）。
+        /// </summary>
+        /// <param name="city">城市对象</param>
+        /// <param name="reason">日志内容</param>
+        static void LogAttack(City city, string reason)
+        {
+            if (AIConfig.Instance.logAttackAI)
+                Sango.Log.Info($"[出兵AI]{city.Name} {reason}");
         }
 
         /// <summary>
@@ -2252,9 +2931,22 @@ namespace Sango.Core
 
             if (isAttack)
             {
-                if (city.freePersons.Count < 2) return null;
-                if (city.troops < scenario.Variables.minTroopsKeepWhenAttack) return null;
-                if (city.food < scenario.Variables.minFoodKeepWhenAttack) return null;
+                // 组建进攻部队失败的三个前置条件，逐个打日志，避免"决定进攻却不出城"无从排查
+                if (city.freePersons.Count < 2)
+                {
+                    LogAttack(city, $"组建进攻部队失败：空闲武将不足 {city.freePersons.Count}<2");
+                    return null;
+                }
+                if (city.troops < scenario.Variables.minTroopsKeepWhenAttack)
+                {
+                    LogAttack(city, $"组建进攻部队失败：兵力 {city.troops}<留守门槛 {scenario.Variables.minTroopsKeepWhenAttack}");
+                    return null;
+                }
+                if (city.food < scenario.Variables.minFoodKeepWhenAttack)
+                {
+                    LogAttack(city, $"组建进攻部队失败：粮草 {city.food}<留守门槛 {scenario.Variables.minFoodKeepWhenAttack}");
+                    return null;
+                }
             }
             else
             {
@@ -2299,7 +2991,11 @@ namespace Sango.Core
             if (costEnoughTroopTypes.Count == 0)
             {
                 if (isAttack || swordTroopType == null)
+                {
+                    if (isAttack)
+                        LogAttack(city, "组建进攻部队失败：兵装不足，无法组建任何兵装兵种（进攻禁用剑兵）");
                     return null;
+                }
 
                 // 城里兵太少，连一支阈值以上的剑兵队伍都拉不出来 → 不如固守
                 if (city.troops <= SwordFallbackMinTroops)
@@ -2362,7 +3058,10 @@ namespace Sango.Core
             if (people == null || people.Length == 0 || people[0] == null)
                 people = ForceAI.CounsellorRecommendMakeTroop(city.freePersons, spType, maxPersonCount, city);
             if (people == null || people.Length == 0 || people[0] == null)
+            {
+                LogAttack(city, $"组建{(isAttack ? "进攻" : "防御")}部队失败：无可编入部队的武将");
                 return null;
+            }
 
             Troop troop = scenario.CreateTroop();
             troop.energy = city.energy;
@@ -2404,7 +3103,11 @@ namespace Sango.Core
             int food = turnCostFood * minTurn;
             while (city.food < food)
             {
-                if (isAttack) return null;
+                if (isAttack)
+                {
+                    LogAttack(city, $"组建进攻部队失败：出征粮草不足 {city.food}<{food}");
+                    return null;
+                }
 
                 minTurn = minTurn - 4;
                 if (minTurn < 5)
@@ -2423,30 +3126,98 @@ namespace Sango.Core
             troop.troops = maxTroopNum;
             troop.food = food;
 
-            // 【前线建筑 / B3 随军增筑】让作战部队携带少量资金。
-            // 有了现金，前线部队才可能在战场就地修建军乐台 / 砦等辅助建筑，
-            // 而不必等待专职工程队从后方赶来。
-            // 携带额同时受"占总兵力比例"与"城池余额"双重限制，避免小部队带走过多资金。
-            AIConfig aiCfg = AIConfig.Instance;
-            if (aiCfg.troopCarryGold > 0 && city.gold > aiCfg.frontBuildMinCityGold)
+            // 【出征携款 · 严格对齐原版】s11_game_ai_kyoten_cmd_mil_attack.cpp:296-334
+            //
+            // 原版三类分支：
+            //   ① 目标是**敌势力据点**且主兵种不是攻城兵器：
+            //       据点可用金 >= 10000 → 75% 概率带 100*(15+rand(6)) = 1500~2000
+            //       据点可用金 >= 2000  → 50% 概率带 1000
+            //       否则                → 不带
+            //   ② 目标是**无主关隘/港口**：必带"随军成员俸禄 × 8"（金不够时原版直接不出阵）
+            //   ③ 其余（无主都市等）→ 不带
+            //
+            // 【旧实现错在哪】旧公式 `maxTroopNum * troopCarryGoldPerTroops / 10000`，
+            // 参数 troopCarryGoldPerTroops 注释写的是"占总兵力的比例(%)"，
+            // 但除数用了 10000 而不是 100 —— 8000 兵只剩 4 金，
+            // 连最便宜的建筑都修不起，"随军增筑 / 前线建陷阱"整条链路被彻底堵死。
+            City carryTarget = scenario.citySet.Get(city.TroopMissionTargetId);
+            int carryGold = 0;
+            string carryReason = "无携款条件";
+            if (carryTarget != null)
             {
-                int carry = aiCfg.troopCarryGold;
-                if (aiCfg.troopCarryGoldPerTroops > 0)
+                if (carryTarget.BelongForce != null)
                 {
-                    int byTroops = maxTroopNum * aiCfg.troopCarryGoldPerTroops / 10000;
-                    if (byTroops < carry)
-                        carry = byTroops;
+                    // ① 敌势力据点 —— :298-313
+                    bool isSiege = troop.LandTroopType != null && troop.LandTroopType.siegeRole != 0;
+                    if (isSiege)
+                    {
+                        carryReason = "攻城兵器不带金";
+                    }
+                    else
+                    {
+                        int outpostGold = OutpostRuntime.gold > 0 ? OutpostRuntime.gold : city.gold;
+                        if (outpostGold >= 10000)
+                        {
+                            if (GameRandom.Chance(75))
+                                carryGold = 100 * (15 + GameRandom.Range(0, 6));   // 1500 ~ 2000
+                            else
+                                carryReason = "据点金>=10000，但未命中 75%";
+                        }
+                        else if (outpostGold >= 2000)
+                        {
+                            if (GameRandom.Chance(50))
+                                carryGold = 1000;
+                            else
+                                carryReason = "据点金>=2000，但未命中 50%";
+                        }
+                        else
+                        {
+                            carryReason = $"据点可用金 {outpostGold}<2000";
+                        }
+                    }
                 }
-                // 保留城池运转所需的资金
-                int usable = city.gold - aiCfg.frontBuildMinCityGold;
-                if (carry > usable)
-                    carry = usable;
-                if (carry > 0)
+                else if (!carryTarget.IsCity())
                 {
-                    troop.gold = carry;
-                    city.gold -= carry;
+                    // ② 无主关隘/港口：俸禄 × 8 —— :316-333
+                    List<Person> members = new List<Person>(3);
+                    if (troop.Leader != null) members.Add(troop.Leader);
+                    if (troop.Member1 != null) members.Add(troop.Member1);
+                    if (troop.Member2 != null) members.Add(troop.Member2);
+                    int pay = HoryoShoguu.SumPay(members);
+                    int need = pay * 8;
+                    if (need > 0 && city.gold >= need)
+                        carryGold = need;
+                    else
+                        carryReason = $"空关隘需俸禄×8={need}，城池仅 {city.gold}";
                 }
             }
+            else
+            {
+                carryReason = "无进攻目标";
+            }
+
+            // 城池余额兜底：原版由据点 gold_ 记账保证，本项目直接卡在城库上
+            if (carryGold > city.gold)
+                carryGold = city.gold;
+
+            if (carryGold > 0)
+            {
+                troop.gold = carryGold;
+                city.gold -= carryGold;
+                // 【链路日志 ①】出征带金 —— 这是"前线建陷阱"的启动资金，没有它后面全部断链
+                Sango.Log.Info($"{city.BelongForce?.Name}在{city.Name}出征的[{troop.Name}]携带资金 {carryGold}（城池余 {city.gold}）");
+            }
+            else
+            {
+                Sango.Log.Info($"{city.BelongForce?.Name}在{city.Name}出征的[{troop.Name}]未带资金：{carryReason}（城池余 {city.gold}）");
+            }
+
+            // 【意图层】对齐原版：出征时就定下 deploy_type / deploy_target
+            // （s11_game_ai_kyoten_cmd_mil_attack.cpp:396-398 等据点 AI 出征命令写入），
+            // 部队层只读它做改派（s11_game_ai_unit.cpp:124-130）。
+            // 注意必须在 SetMission 之前写：SetMission 可能触发 Prepare 级联，那里会读意图。
+            troop.deployType = Troop.ToDeployType((int)city.TroopMissionType);
+            troop.deployTarget = city.TroopMissionTargetId;
 
             // 渲染刷新统一由 CityTroopFactory.EmitTroop 负责（此时部队尚未登记进场景）
             troop.SetMission(city.TroopMissionType, city.TroopMissionTargetId);
@@ -2678,7 +3449,10 @@ namespace Sango.Core
             troop.Member1 = null;
             troop.Member2 = null;
             troop.itemStore = carryItems;
-
+            // 【不写 deployType】补给队的 missionTarget 是**友军部队 Id**（needy 是 Troop），
+            // 而 deployTarget 的语义是"城 / 建筑 Id"（见 Troop.deployTarget 注释）。
+            // 两者不同域：若写成 Transport，UpdateAIOrder 会拿部队 Id 去找城 → 找不到 → 任务被改判，
+            // 补给队会变成"运物资到城"的运输队并在本城直接解散。保持 None 走 default 分支才是对的。
             city.troops -= carryTroops;
             city.food -= carryFood;
 
@@ -2689,6 +3463,16 @@ namespace Sango.Core
             troop.NeedPrepareMission();
             city.freePersons.Remove(leader);
             city.CurActiveTroop = troop;
+
+            // 【立即出城】补给队同样不能停在城头等下一个回合。
+            // 对齐 s11_sys_person_order_military.cpp:331-353（unit_set_order 后立刻 run_order）。
+            if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+            {
+                Sango.Log.Warning($"{scenario.GetDateStr()}{city.BelongForce.Name}在{city.Name}组建的补给队无法出城（城头无可停留格或寻路失败），本次支援取消，物资已退回");
+                CityTroopFactory.RevokeEmit(city, troop);
+                return true;
+            }
+
             Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领补给队出城 支援{needy.Name}!");
             return true;
         }
@@ -2921,20 +3705,42 @@ namespace Sango.Core
         /// <returns>创建的运输部队</returns>
         public static Troop AIMakeTransportTroop(City city, City target, int troops, int gold, int food, ItemStore itemStore, Scenario scenario)
         {
-            if (city.freePersons.Count <= 0) return null;
-            if (city.troops <= 0) return null;
+            // 【日志约定】本方法原先有 5 处静默 return，"运输队没出现"时无法定位卡在哪一步。
+            // 现统一打 `*[运输AI]` 前缀：失败用 Warning/Error 并写明原因，成功用 Info 播报。
+            if (city == null || target == null || scenario == null)
+            {
+                Sango.Log.Error("*[运输AI] 组建运输队失败：出兵城 / 目标城 / 场景为空");
+                return null;
+            }
+            if (city.freePersons.Count <= 0)
+            {
+                Sango.Log.Warning($"*[运输AI]{city.Name} 组建运输队失败：无空闲武将");
+                return null;
+            }
+            if (city.troops <= 0)
+            {
+                Sango.Log.Warning($"*[运输AI]{city.Name} 组建运输队失败：城中无兵");
+                return null;
+            }
             if (troops <= 0)
             {
-                Sango.Log.Error("why 00!!");
+                Sango.Log.Warning($"*[运输AI]{city.Name} 组建运输队失败：计划运送的兵力为 {troops}");
                 return null;
             }
             TroopType troopType = TroopType.GetTransportType(scenario, city.BelongForce);
-            if (troopType == null) return null;
+            if (troopType == null)
+            {
+                Sango.Log.Error($"*[运输AI]{city.Name} 组建运输队失败：势力[{city.BelongForce?.Name}]没有可用的运输兵种配置");
+                return null;
+            }
 
             // 【修复】原先直接取 persons[0]，推荐结果为空时会抛 NullReferenceException
             Person[] persons = ForceAI.CounsellorRecommendTransportTroop(city.freePersons);
             if (persons == null || persons.Length == 0 || persons[0] == null)
+            {
+                Sango.Log.Warning($"*[运输AI]{city.Name} 组建运输队失败：主将推荐为空（空闲武将 {city.freePersons.Count} 人）");
                 return null;
+            }
             Person leader = persons[0];
             city.freePersons.Remove(leader);
 
@@ -2945,6 +3751,17 @@ namespace Sango.Core
             troop.IsAlive = true;
             troop.Leader = leader;
             troop.TroopType = troopType;
+            // 【水战兜底】运输队跨水时用的是另一套兵种（走舸），与玩家手动组建一致
+            // （CityTransport.cs:107 的 `WaterTroopType = scenario.GetObject<TroopType>(8)`）。
+            // 缺了它，`Troop.TroopType` 在水上取值为 null（IsInWater ? WaterTroopType : LandTroopType），
+            // 表现为"运输队一下水就走不动 / 寻路失败"。
+            troop.WaterTroopType = ResolveTransportWaterType(scenario, city.BelongForce);
+            // 【意图层】运输队对应原版 DeployType_Transport
+            // （s11_game_ai_kyoten_cmd_mil_transport.cpp:181-186 的 param.deploy_type / deploy_target）。
+            // 写了它，Troop.UpdateAIOrder 的输送分支才能在目标失效时把任务纠正回"运到目标城"；
+            // 必须在 SetMission 之前写，避免 Prepare 级联读到 None 意图。
+            troop.deployType = (int)TroopDeployType.Transport;
+            troop.deployTarget = target.Id;
             city.troops -= troops;
             city.gold -= gold;
             city.food -= food;
@@ -2959,8 +3776,73 @@ namespace Sango.Core
             troop.Member1 = null;
             troop.Member2 = null;
             city.Render?.UpdateRender();
-            troop.SetMission(MissionType.TroopTransformGoodsToCity, target.Id);
-            return troop;
+
+            // 【关键修复】原实现在此直接 return 一个只存在于内存的 Troop：
+            // 它没有 cell、没有 Render、不在 scenario.troopsSet 里 —— 地图上永远看不到，
+            // 但调用方已经扣了行动力 / 粮 / 金并 MarkExecuted()，表现为"物资凭空蒸发、没有运输队"。
+            // 对齐原版 s11_game_ai_kyoten_cmd_mil_transport.cpp:188 的 `commander_->com_deploy(&param)`：
+            // 原版 com_deploy 会真正 unit_create + unit_init + 放到地图上；本项目的等价入口是
+            // CityTroopFactory.EmitTroop（EnsureTroop 完成初始化 + 出城可行性校验 + 失败自动退回）。
+            Troop emitted = CityTroopFactory.EmitTroop(city, troop, scenario);
+            if (emitted == null)
+            {
+                // EmitTroop 内部已把兵 / 粮 / 金 / 兵装 / 武将退回城池（CancelEmitTroop）
+                Sango.Log.Warning($"*[运输AI]{city.Name} 组建运输队失败：部队无法出城（城池被围困或城头无可停留格），物资已退回");
+                return null;
+            }
+
+            emitted.SetMission(MissionType.TroopTransformGoodsToCity, target.Id);
+            emitted.NeedPrepareMission();
+
+            // 【立即出城】项目硬规则：部队不允许停留在城市格。组建常常发生在部队行动阶段之后，
+            // 不在这里推一次，运输队会杵在城头整整一个回合。
+            // 对齐 s11_sys_person_order_military.cpp:331-353（unit_set_order 后立刻 run_order）。
+            if (!CityTroopFactory.DriveOutOfCity(emitted, scenario))
+            {
+                Sango.Log.Warning($"*[运输AI]{city.Name} 运输队组建后无法出城（城头无可停留格或寻路失败），本次运输取消，物资已退回");
+                CityTroopFactory.RevokeEmit(city, emitted);
+                return null;
+            }
+
+            Sango.Log.Info($"*[运输AI]{scenario.GetDateStr()}{city.BelongForce?.Name}在{city.Name}组建运输队「{emitted.Name}」" +
+                           $"（{leader.Name} 押运，兵{troops} 粮{food} 金{gold}）→ {target.Name}");
+            return emitted;
+        }
+
+        /// <summary>
+        /// 运输队的水上兵种 —— 走舸兜底。
+        ///
+        /// 【原版依据】原版运输队只有一个单位类型 <c>UnitType_Transport</c>，水陆通用
+        /// （s11_game_ai_kyoten_cmd_mil_transport.cpp:181 `param.type = UnitType_Transport`）。
+        /// 本项目把"陆上运输 / 水上运输"拆成两个兵种字段，陆上取运输（kind=7），
+        /// 水上必须另配船只，否则 <see cref="Troop.TroopType"/> 在水上会取到 null。
+        ///
+        /// 【选型】与玩家手动组建运输队保持一致，固定取走舸（Id = 8，见 TroopTypes.json）；
+        /// 走舸缺失（Mod 删改数据）时退而求其次取任意可用水上兵种；
+        /// 仍找不到就返回 null，交给 <c>Troop.Init</c> 的既有兜底（Troop.cs:1380-1381）。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="force">所属势力（用于兵种可用性校验）</param>
+        /// <returns>水上兵种；数据缺失时返回 null</returns>
+        static TroopType ResolveTransportWaterType(Scenario scenario, Force force)
+        {
+            if (scenario == null || scenario.CommonData == null || scenario.CommonData.TroopTypes == null)
+                return null;
+
+            // 首选走舸（Id = 8）—— 玩家手动运输队用的就是它
+            TroopType walkBoat = scenario.GetObject<TroopType>(8);
+            if (walkBoat != null && !walkBoat.isLand)
+                return walkBoat;
+
+            // 兜底：任意可用水上兵种
+            for (int i = 1; i < scenario.CommonData.TroopTypes.Count; i++)
+            {
+                TroopType type = scenario.CommonData.TroopTypes[i];
+                if (type != null && !type.isLand && type.IsValid(force))
+                    return type;
+            }
+
+            return walkBoat;
         }
 
     }

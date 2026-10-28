@@ -9,7 +9,6 @@
       "cost": 200,
       "meritGain": 50,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 0
     },
     "2": {
@@ -21,7 +20,6 @@
       "cost": 200,
       "meritGain": 50,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 0
     },
     "3": {
@@ -33,7 +31,6 @@
       "cost": 100,
       "meritGain": 50,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 0
     },
     "4": {
@@ -45,7 +42,6 @@
       "cost": 0,
       "meritGain": 50,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 0
     },
     "5": {
@@ -57,7 +53,6 @@
       "cost": 0,
       "meritGain": 10,
       "tpGain": 20,
-      "limit": 0,
       "linkBuildingKind": 0,
       "recommandFeatures": [
         86
@@ -72,7 +67,6 @@
       "cost": 300,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 34
     },
     "7": {
@@ -84,7 +78,6 @@
       "cost": 0,
       "meritGain": 50,
       "tpGain": 20,
-      "limit": 1,
       "linkBuildingKind": 0,
       "recommandFeatures": [
         86
@@ -99,7 +92,6 @@
       "cost": 0,
       "meritGain": 100,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 35,
       "recommandFeatures": [
         81
@@ -114,7 +106,6 @@
       "cost": 0,
       "meritGain": 100,
       "tpGain": 50,
-      "limit": 3,
       "linkBuildingKind": 0
     },
     "10": {
@@ -126,7 +117,6 @@
       "cost": 0,
       "meritGain": 100,
       "tpGain": 50,
-      "limit": 3,
       "linkBuildingKind": 37,
       "recommandFeatures": [
         83
@@ -141,7 +131,6 @@
       "cost": 0,
       "meritGain": 100,
       "tpGain": 50,
-      "limit": 3,
       "linkBuildingKind": 38,
       "recommandFeatures": [
         83
@@ -156,7 +145,6 @@
       "cost": 0,
       "meritGain": 100,
       "tpGain": 50,
-      "limit": 3,
       "linkBuildingKind": 36,
       "recommandFeatures": [
         82
@@ -171,7 +159,6 @@
       "cost": 0,
       "meritGain": 50,
       "tpGain": 20,
-      "limit": 1,
       "linkBuildingKind": 0
     },
     "14": {
@@ -183,7 +170,6 @@
       "cost": 0,
       "meritGain": 20,
       "tpGain": 10,
-      "limit": 0,
       "linkBuildingKind": 0
     },
     "15": {
@@ -195,7 +181,6 @@
       "cost": 0,
       "meritGain": 20,
       "tpGain": 10,
-      "limit": 0,
       "linkBuildingKind": 0
     },
     "16": {
@@ -207,7 +192,6 @@
       "cost": 0,
       "meritGain": 80,
       "tpGain": 30,
-      "limit": 3,
       "linkBuildingKind": 0
     },
     "17": {
@@ -219,7 +203,6 @@
       "cost": 0,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 0
     },
     "18": {
@@ -231,7 +214,6 @@
       "cost": 0,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 0,
       "recommandFeatures": [
         8
@@ -246,7 +228,6 @@
       "cost": 0,
       "meritGain": 1000,
       "tpGain": 20,
-      "limit": 3,
       "linkBuildingKind": 0
     },
     "20": {
@@ -258,7 +239,6 @@
       "cost": 100,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 0,
       "linkBuildingKind": 0
     },
     "21": {
@@ -270,7 +250,6 @@
       "cost": 100,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 0,
       "linkBuildingKind": 0
     },
     "22": {
@@ -282,7 +261,6 @@
       "cost": 1000,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 1,
       "linkBuildingKind": 0
     },
     "23": {
@@ -294,7 +272,6 @@
       "cost": 0,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 1,
       "linkBuildingKind": 0
     },
     "25": {
@@ -306,7 +283,6 @@
       "cost": 200,
       "meritGain": 150,
       "tpGain": 0,
-      "limit": 1,
       "linkBuildingKind": 0
     },
     "26": {
@@ -318,7 +294,6 @@
       "cost": 500,
       "meritGain": 300,
       "tpGain": 0,
-      "limit": 1,
       "linkBuildingKind": 0
     },
     "27": {
@@ -330,7 +305,6 @@
       "cost": 200,
       "meritGain": 150,
       "tpGain": 0,
-      "limit": 1,
       "linkBuildingKind": 0
     },
     "28": {
@@ -342,7 +316,6 @@
       "cost": 0,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 1,
       "linkBuildingKind": 0
     },
     "29": {
@@ -354,7 +327,6 @@
       "cost": 0,
       "meritGain": 40,
       "tpGain": 20,
-      "limit": 1,
       "linkBuildingKind": 0
     }
   }

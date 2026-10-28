@@ -33,6 +33,11 @@ namespace Sango.Core
             // 基于势力领袖的性格决定AI个性
             if (person != null && person.mPersonality != null)
             {
+                // 【优先】性格显式声明的 AI 风格（新增性格可直接指定，不必凑齐四个倾向字段）
+                if (person.mPersonality.aiStyle >= 0)
+                    return (AIPersonalityType)person.mPersonality.aiStyle;
+
+                // 【回落】未声明时按四个倾向字段的最大值推导（保持旧行为）
                 // 基于性格特征计算AI个性
                 int warScore = person.mPersonality.warTendencyAdd;
                 int defenseScore = person.mPersonality.defenseTendencyAdd;
@@ -514,6 +519,303 @@ namespace Sango.Core
             return count;
         }
 
+        /// <summary>
+        /// 守将评分 —— 原版 `GameAI::get_guard_stat_score`（`s11_game_ai_force.cpp:797-814`）。
+        ///
+        /// **分数越高越适合留守**，而原版的打分方向与直觉相反：
+        /// <code>
+        /// n = 全局最大能力值（通常 100）
+        /// 统率 &lt; 60  → n = 统率 + 40        （分数偏低 → 会被派出去打仗）
+        /// 统率 ≤ 69   → 不再扣分            （满分 → 最该留守）
+        /// 统率 ≥ 70   → 五维每超过 69 就扣  （名将分数低 → 被抽去作战）
+        /// </code>
+        /// 效果：平庸的人看家，顶级将领都被放出去打仗。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <param name="maxStat">全局最大能力值（原版 get_max_person_stat）</param>
+        static int GetGuardStatScore(Person person, int maxStat)
+        {
+            if (person == null) return 0;
+
+            int n = maxStat;
+            int leadership = person.Command;
+
+            if (leadership < 60)
+                n = leadership + 40;
+
+            int[] stats =
+            {
+                person.Command, person.Strength, person.Intelligence,
+                person.Politics, person.Glamour,
+            };
+
+            for (int i = 0; i < stats.Length; i++)
+            {
+                if (leadership <= 69) continue;
+
+                int over = stats[i] - 69;
+                if (over > 0) n -= over;
+            }
+
+            return n;
+        }
+
+        /// <summary>
+        /// 为势力下属各据点指定留守负责人 —— 对齐原版 `GameAI::set_guard`
+        /// （`s11_game_ai_force.cpp:700-761`）。
+        ///
+        /// 【口径】从本城**未被带走的空闲武将**里按「统率+武力+智力」取最高分者；
+        /// 本城没有可下令的武将时置 -1。
+        ///
+        /// 【与原版的差异】
+        ///   · 原版第一轮会优先给"异民族抑制"特技（`SkillId_Shinu ~ Shinban`）的城配人，
+        ///     项目还没有这套特技映射，先只做常规选人；
+        ///   · 原版本城没人时会从别的据点调人（`place_guard`），那需要调令系统配合，暂不做。
+        /// </summary>
+        public static void SetGuards(Force force, Scenario scenario)
+        {
+            if (force == null) return;
+
+            force.ForEachCity(city =>
+            {
+                if (city == null || !city.IsAlive) return;
+
+                if (city.freePersons == null || city.freePersons.Count == 0)
+                {
+                    city.guardId = -1;
+                    return;
+                }
+
+                Person best = null;
+                int bestScore = -1;
+
+                for (int i = 0; i < city.freePersons.Count; i++)
+                {
+                    Person p = city.freePersons[i];
+                    if (p == null || !p.IsAlive) continue;
+                    // 原版 `can_receive_order`：带兵 / 在途任务 / 被俘 都不能接令
+                    if (!p.IsFree) continue;
+
+                    // 原版 `get_guard_stat_score`：分数最高者留守（方向见该方法注释）。
+                    //
+                    // 第一轮特技优先**只对异族范围城生效**：城的 `barbarianTribe`
+                    // 决定它需要哪个「亲×」特技（92~95）。非异族范围的城不加成，
+                    // 否则会有特技的人被锁在无关的城当守将。
+                    int feat = BarbarianConfig.GetGuardFeatureId(city.barbarianTribe);
+                    int score = GetGuardStatScore(p, 100);
+                    if (feat > 0 && p.HasFeatrue(feat))
+                        score += GuardFeatureBonus;
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        best = p;
+                    }
+                }
+
+                city.guardId = best != null ? best.Id : -1;
+            });
+
+            // 本城没人可留守的，从别的城补位
+            PlaceGuards(force, scenario);
+
+            // 补位只是"记账"，人还在原城 —— 这里把守将真正调到岗
+            SummonGuards(force, scenario);
+        }
+
+        /// <summary>
+        /// 召回守将 —— 对应原版 `GameAI::force_summon_guard`（`s11_game_ai_force_cmd.cpp:379-412`）：
+        ///
+        /// <code>
+        /// 若某城的 guard 当前不在该城：
+        ///   原城有敌（exist_enemy3）    → 不敢调走，跳过
+        ///   行动力 &lt; 20 或 金不够      → 跳过
+        ///   否则 commander_->summon()   → 实际把人调过来，扣 20 AP，并把 guard 清成 -1
+        /// </code>
+        ///
+        /// 【为什么项目里会出现"守将在外"】<see cref="PlaceGuards"/> 只写 `guardId`，
+        /// 人是被"指派"过去的，`BelongCity` 仍指向原城。本方法就是补这最后一步。
+        /// 【清零的原因】原版调过来后把 guard 置 -1，等下一轮 `set_guard` 重新评估
+        /// （此刻他已经在城里了，会作为本城空闲武将重新参选）。
+        /// </summary>
+        static void SummonGuards(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null) return;
+
+            force.ForEachCity(city =>
+            {
+                if (city == null || !city.IsAlive || city.guardId < 0) return;
+
+                Person guard = scenario.personSet != null ? scenario.personSet.Get(city.guardId) : null;
+                if (guard == null || !guard.IsAlive)
+                {
+                    city.guardId = -1;
+                    return;
+                }
+
+                if (guard.BelongCity == city) return;   // 已经在岗
+
+                // 原版 `can_receive_order(guard)`：带兵 / 在途任务 / 被俘 / 已亡 都不能接令。
+                // 项目对应 Person.IsFree（mBelongTroop == null && missionType == None
+                // && !IsPrisoner && !IsDead），与出征抽人同一把尺子。
+                if (!guard.IsFree) return;
+
+                // 原城周围有敌 → 不敢把人调走（原版 exist_enemy3）
+                City from = guard.BelongCity;
+                if (from != null && IsCityUnderEnemy(from, force)) return;
+
+                Corps corps = from != null ? from.BelongCorps : city.BelongCorps;
+                if (corps == null || corps.ActionPoint < SummonActionPointCost) return;
+
+                corps.ReduceActionPoint(SummonActionPointCost);
+
+                // 实际调任（会同步城名册、军团与当前城）
+                PersonStateSystem.Enter(guard, city, PersonChangeReason.Employed);
+
+                // 原版：调过来后清位，等下一轮 set_guard 重新评估
+                city.guardId = -1;
+
+                Sango.Log.Info($"@内政@{force.Name} 将 {guard.Name} 调往 {city.Name} 担任留守" +
+                               $"（消耗 {SummonActionPointCost} 行动力）");
+            });
+        }
+
+        /// <summary>
+        /// 跨城补位 —— 对应原版 `GameAI::place_guard`（`s11_game_ai_force.cpp:763-795`）：
+        ///   · 待补的城按**治安升序**（治安越差越先补）；
+        ///   · 候选按**距离最近**优先，距离相同则**守将分数低者**优先
+        ///     （能力差的去看家，好将领留着打仗）；
+        ///   · 一人只补一个坑。
+        ///
+        /// 【未对齐】原版调人会扣「军团行动力 + 据点金」，并在**源城周围有敌**
+        /// （`kyoten_[old].exist_enemy3`）时禁止把人调出。
+        /// 本项目没有独立调令命令，这里只做"源城被敌军踩住就不抽人"这一道保险。
+        /// </summary>
+        static void PlaceGuards(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null) return;
+
+            List<City> need = new List<City>();
+            force.ForEachCity(c =>
+            {
+                if (c != null && c.IsAlive && c.guardId < 0)
+                    need.Add(c);
+            });
+
+            if (need.Count == 0) return;
+
+            // 治安升序：治安越差，越急着派人
+            need.Sort((a, b) => a.security != b.security
+                ? a.security.CompareTo(b.security)
+                : a.Id.CompareTo(b.Id));
+
+            // 候选：势力内其他城的空闲武将（排除带兵 / 君主），源城被敌军踩住则不抽
+            List<Person> candidates = new List<Person>();
+            force.ForEachCity(c =>
+            {
+                if (c == null || !c.IsAlive) return;
+                if (c.freePersons == null || c.freePersons.Count == 0) return;
+                // 注意：原版 `place_guard` **不做**敌情过滤 —— 那里只按"治安 / 距离 / 分数"选人。
+                // 敌情检查属于 `force_summon_guard`（召回），见该方法上方的说明。
+
+                for (int i = 0; i < c.freePersons.Count; i++)
+                {
+                    Person p = c.freePersons[i];
+                    if (p == null || !p.IsAlive) continue;
+                    // 原版 `can_receive_order`：带兵 / 在途任务 / 被俘 都不能接令
+                    if (!p.IsFree) continue;
+                    if (p == force.mGovernor) continue;
+
+                    candidates.Add(p);
+                }
+            });
+
+            if (candidates.Count == 0) return;
+
+            CityDistanceTable table = scenario.cityDistanceTable;
+
+            for (int i = 0; i < need.Count && candidates.Count > 0; i++)
+            {
+                City target = need[i];
+
+                Person best = null;
+                int bestDist = int.MaxValue;
+                int bestScore = int.MaxValue;
+
+                for (int k = 0; k < candidates.Count; k++)
+                {
+                    Person p = candidates[k];
+
+                    // 距离：取候选所在城到目标城的战略距离（不可达按大值处理）
+                    int dist = 999;
+                    City from = p.BelongCity;
+                    if (table != null && from != null)
+                    {
+                        int d = table.GetDistance(from, target, false);
+                        if (d >= 0) dist = d;
+                    }
+
+                    // 跨城补位**不加**特技加成：原版 `place_guard` 是"分数低者优先"
+                    //（能力差的去看家），特技优先只发生在 `set_guard` 的第一轮 ——
+                    // 那一轮的候选池里**只有**特技持有者，所以加了反而会起反效果。
+                    int score = GetGuardStatScore(p, 100);
+
+                    if (dist < bestDist || (dist == bestDist && score < bestScore))
+                    {
+                        bestDist = dist;
+                        bestScore = score;
+                        best = p;
+                    }
+                }
+
+                if (best == null) break;
+
+                // 【不扣行动力】原版 `place_guard` 走的是 `ai_table_set_city_guard`
+                // —— 它是 **AI 表层面的直接指派**，不是玩家命令 `PersonOrderSummon`，
+                // 所以既无 AP 消耗、也没有"源城有敌则禁止"的检查。
+                // 需要扣 20 AP 的是另一个函数 `force_summon_guard`（把守将从外地**召回**本城），
+                // 本项目没有"守将在外"这个状态（补位是直接指派），故不接。
+                target.guardId = best.Id;
+                candidates.Remove(best);
+            }
+        }
+
+        /// <summary>
+        /// "异民族抑制"四类特技（`Features.json`：92 亲乌 / 93 亲羌 / 94 亲越 / 95 亲蛮）。
+        /// 对应原版 `SkillId_Shinu ~ SkillId_Shinban`（`s11_game_ai_force.cpp:704`）。
+        /// 拥有其一者优先担任据点留守负责人（原版 `set_guard` 的第一轮）。
+        /// </summary>
+        static readonly int[] BarbarianGuardFeatures = { 92, 93, 94, 95 };
+
+        /// <summary>拥有上述特技时的守将评分加成（远大于正常区间，确保优先）</summary>
+        const int GuardFeatureBonus = 1000;
+
+        /// <summary>守将评分（含"异民族抑制"特技优先）</summary>
+        static int GetGuardScoreWithFeature(Person person)
+        {
+            int score = GetGuardStatScore(person, 100);
+            if (person != null && person.HasFeatrue(BarbarianGuardFeatures))
+                score += GuardFeatureBonus;
+            return score;
+        }
+
+        /// <summary>
+        /// 调令行动力成本（原版 `summon_action_point_cost_ = 20`，`s11_sys_person_order.h:1339`）。
+        /// 对应的 `summon_gold_cost_` 是 0 —— 原版调令**不花钱**。
+        /// </summary>
+        const int SummonActionPointCost = 20;
+
+        /// <summary>
+        /// 该城是否"兵临城下" —— 直接复用 <see cref="City.HasEnemyNearby"/>。
+        ///
+        /// 它已经是原版 `building_has_enemy` 的严格实现：城半径 3 / 港关半径 2，
+        /// 按**纯坐标距离**逐环展开（不看地形、不看区域划分），
+        /// 与原版 `kyoten_.exist_enemy3` 同口径。早期版本只看中心格，会漏判"敌军贴着城墙"的情况。
+        /// </summary>
+        static bool IsCityUnderEnemy(City city, Force force)
+        {
+            return city != null && city.HasEnemyNearby();
+        }
+
         /// <summary>场上存活势力数（对应原版 `force_list.size()`）</summary>
         static int CountAliveForces(Scenario scenario)
         {
@@ -652,6 +954,43 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 挑"援军该去打哪座城"（原版 `self->dest` 的 AI 侧选法）。
+        ///
+        /// 【语义】`unit_reinforce` 下的是 `UnitOrderId_Attack`（`s11_sys_scen_unit.cpp:1362`），
+        /// 所以 `dest` 必须是**敌方据点**，不是"要守的自己城"。
+        /// 这里取请求方**相邻敌城**里守军最少的一座 —— 打得下、赔得少。
+        /// 返回 null 表示周边没有可攻击目标（此时不该请求援军）。
+        /// </summary>
+        static City PickAttackTarget(Force force)
+        {
+            if (force == null) return null;
+
+            City best = null;
+            int bestTroops = int.MaxValue;
+
+            force.ForEachCity(c =>
+            {
+                if (c == null || !c.IsAlive || c.NeighborList == null) return;
+
+                for (int i = 0; i < c.NeighborList.Count; i++)
+                {
+                    City nb = c.NeighborList[i];
+                    if (nb == null || !nb.IsAlive || nb.BelongForce == null) continue;
+                    if (nb.BelongForce == force) continue;
+                    if (force.IsAlliance(nb.BelongForce)) continue;
+
+                    if (nb.troops < bestTroops)
+                    {
+                        bestTroops = nb.troops;
+                        best = nb;
+                    }
+                }
+            });
+
+            return best;
+        }
+
+        /// <summary>
         /// AI 俘虏交换 —— 原版 `force_exchange`（`:684-775`）。
         /// 本项目的"赎回自家俘虏"已经由 <see cref="AICaptives"/> 走 Exchange 的只索要模式，
         /// 这里不再重复实现"双方换俘"，直接让位，避免同一回合两处派使者。
@@ -690,6 +1029,12 @@ namespace Sango.Core
                     DiplomacyActionBase action = dm.CreateDiplomacyAction(
                         DiplomacyActionType.Reinforce, force, ally, diplomat, 1000);
                     if (action == null || !action.CanPerform()) continue;
+
+                    // 攻击目标：原版 `self->dest` 是**敌方据点**（谈成后援军下 Attack 令去打它），
+                    // 不是"要守的自己城"。AI 侧挑相邻敌城里守军最少的。
+                    DiplomacyActionReinforce reinforce = action as DiplomacyActionReinforce;
+                    if (reinforce != null)
+                        reinforce.ReinforceCity = PickAttackTarget(force);
 
                     dm.DispatchDiplomat(action);
                     Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向盟友 {ally.Name} 请求援军");
@@ -832,19 +1177,21 @@ namespace Sango.Core
                 }
             }
 
-            // 执行撕毁条约
-            for (int i = 0; i < alliancesToBreak.Count; i++)
+            // 执行撕毁条约：**一次只撕毁一个**（原版每回合最多破弃一次同盟，
+            // 否则一个回合能把所有盟友全撕光，外交信誉直接归零）。
+            // 原来写成 for 循环 + 首轮 return，编译器会报 CS0162（后续迭代不可达），
+            // 这里改成等价但直观的写法。
+            if (alliancesToBreak.Count > 0)
             {
-                // 获取同盟关系并撕毁
-                Alliance alliance = force.CheckAlliance(targetsToBreak[i]);
+                Alliance alliance = force.CheckAlliance(targetsToBreak[0]);
                 if (alliance != null)
                 {
                     alliance.IsAlive = false;
                     // 从双方的同盟列表中移除
                     force.AllianceList.Remove(alliance);
-                    targetsToBreak[i].AllianceList.Remove(alliance);
+                    targetsToBreak[0].AllianceList.Remove(alliance);
                 }
-                return true; // 一次只撕毁一个条约
+                return true;
             }
 
             return false;

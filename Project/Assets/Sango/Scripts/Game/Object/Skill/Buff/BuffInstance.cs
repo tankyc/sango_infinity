@@ -129,5 +129,11 @@ namespace Sango.Core
         {
             return Buff.IsControlBuff();
         }
+
+        /// <summary>是否为伪报（原版 UnitState_Gihou），见 <see cref="Buff.IsEscapeBuff"/></summary>
+        public bool IsEscapeBuff()
+        {
+            return Buff.IsEscapeBuff();
+        }
     }
 }

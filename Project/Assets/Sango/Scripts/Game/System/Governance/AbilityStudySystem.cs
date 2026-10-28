@@ -17,6 +17,16 @@
  *
  * 【基础能力的三档区间】由 <see cref="Ability.maxStat"/> 反查，
  * 沿用原版 StatTable 的固定对应：70→56~65 / 80→66~75 / 95→76~90。
+ * 注意：档位区间与"非前线只培育政治"都只属**势力 AI 挑人**口径
+ * （s11_game_ai_force_cmd_learn.cpp:64-77、:68-73）；玩家侧走原版 System::can_learn
+ * （s11_sys_scen_ability.cpp:37-67），二者都不判。
+ *
+ * 【已知架构差异：单 actor vs 任务制】
+ * 原版三条培育指令（LearnBaseStat / LearnHeishuTekisei / LearnSkill）各自是"势力级指令槽"，
+ * can_learn_*_command 用 find_actor 判"本势力已有 1 人在执行该指令"，非空即整条指令不可用
+ * （s11_sys_person_order_kunshu.cpp:1643-1653 / :1787-1798 / :1929-1940）。
+ * 本项目改成 per-person 的 3 旬 Mission（见 StudyTurns），同一条指令可并发多人，
+ * 培养速度约为原版的三倍。此项**有意保留**，未做单 actor 门禁。
  */
 
 using System.Collections.Generic;
@@ -51,9 +61,35 @@ namespace Sango.Core
         /// <summary>培育触发概率百分比（原版 rand_bool(50)）</summary>
         public static int LearnChance { get { return GainValueConfig.AbilityStudy(GainPlace.AbilityStudyLearnChance); } }
 
-        /// <summary>培育累计经验上限（原版 max_person_learning_stat_exp_ = 2000 = 20 点，s11_db.h:183）。
+        /// <summary>培育累计经验上限（原版 max_person_learning_stat_exp_ = 2000，s11_db.h:183）。
+        /// 【口径】点数 × 每人所需经验：默认 20 点 × 250 = 5000。
+        /// 原版 exp_per_stat = 100 时 2000 恰为 20 点；本项目 AttributeExpLevelNeed 默认 250，
+        /// 配置值不能再照抄 2000（否则只剩 8 点，老将几年后就被彻底堵死）。
         /// 达到后该属性不可再培育（s11_sys_scen_ability.cpp:51 的 can_learn 判定），非培育途径仍可涨到总上限。</summary>
         public static int LearnExpCap { get { return GainValueConfig.AbilityStudy(GainPlace.AbilityStudyLearnExpCap); } }
+
+        /// <summary>
+        /// 培育通道还能给某条属性加多少点。
+        ///
+        /// 口径：<c>(培育经验上限 - 当前属性经验) / 每人所需经验</c>，向下取整。
+        /// 对齐出处：s11_sys_scen_ability.cpp:51 的 can_learn ——
+        /// <c>stat_exp &gt;= max_person_learning_stat_exp_</c> 即不可再培育。
+        /// 抽成方法是为了三处（AI 基础能力 / 玩家列表 / 玩家下单）用同一口径，
+        /// 避免"列表里能选、点了却失败"这类分叉。
+        /// </summary>
+        /// <param name="stat">属性对象</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>剩余可培育点数；0 表示不可再培育</returns>
+        public static int GetRemainingLearnPoints(PersonAttributeValue stat, Scenario scenario)
+        {
+            if (stat == null || scenario == null || scenario.Variables == null)
+                return 0;
+            int expPerStat = scenario.Variables.AttributeExpLevelNeed;
+            if (expPerStat <= 0)
+                return 0;
+            int remainExp = LearnExpCap - stat.valueExp;
+            return remainExp > 0 ? remainExp / expPerStat : 0;
+        }
 
         // ==================== 研究（第一层） ====================
 
@@ -527,7 +563,9 @@ namespace Sango.Core
                 Person person = scenario.personSet[i];
                 if (person == null || !person.IsAlive || person.BelongForce != force)
                     continue;
-                if (!person.IsFree)
+                // can_learn_order（s11_sys_person_order_kunshu.cpp:1602-1637）在本项目的口径
+                // = IsFree（无部队/无任务/非俘虏/存活）+ IsHealthy（无伤病），见 Person.IsFree 注释。
+                if (!person.IsFree || !person.IsHealthy)
                     continue;
 
                 City city = person.BelongCity ?? person.CurrentCity;
@@ -535,13 +573,19 @@ namespace Sango.Core
                     continue;
 
                 OutpostInfo info = OutpostRuntime.Find(city.Id);
+                // 交战据点整人跳过 —— 原版 get_learnable_person_list 公共段
+                // （s11_game_ai_force_cmd_learn.cpp:408-409）：
+                // `kyoten_[...].state == KyotenState_Battle` → continue（三段共用）。
+                if (info != null && info.state == OutpostState.Battle)
+                    continue;
                 bool isFront = info != null && info.state == OutpostState.Front;
 
                 for (int a = 0; a < abilities.Count; a++)
                 {
                     Ability ability = abilities[a];
-                    if (person.HasLearnedAbility(ability.Id))
-                        continue;
+                    // 原版 System::can_learn（s11_sys_scen_ability.cpp:48-53）对基础能力**没有**
+                    // "该武将已学过这条 ability"的判定，只判 exp 上限与 pure < maxStat，
+                    // 因此同一条能力可以对同一人反复培育，直到触及上限。
                     // 非前线只培育政治 —— :68-73
                     if (!isFront && ability.personStatType != 3)
                         continue;
@@ -550,9 +594,13 @@ namespace Sango.Core
                     if (stat == null)
                         continue;
 
-                    // can_learn：培育经验达上限或基础值达能力上限 → 不可再培育 —— s11_sys_scen_ability.cpp:51
+                    // can_learn：基础值达能力上限 → 不可再培育 —— s11_sys_scen_ability.cpp:51
                     int pure = stat.baseValue;
-                    if (pure >= ability.maxStat || stat.valueExp >= LearnExpCap)
+                    if (pure >= ability.maxStat)
+                        continue;
+                    // 培育通道的剩余点数（经验达上限即 0）
+                    int remainPoints = GetRemainingLearnPoints(stat, scenario);
+                    if (remainPoints <= 0)
                         continue;
 
                     GetTierRange(ability.maxStat, out int rangeMin, out int rangeMax);
@@ -563,7 +611,7 @@ namespace Sango.Core
 
                     // 单次提升点数：受"能力上限剩余空间""单次上限""培育经验剩余额度"三重约束 —— :1749
                     int gain = System.Math.Min(ability.maxStat - pure, StatGain);
-                    gain = System.Math.Min(gain, (LearnExpCap - stat.valueExp) / expPerStat);
+                    gain = System.Math.Min(gain, remainPoints);
                     if (gain <= 0)
                         continue;
 
@@ -584,7 +632,9 @@ namespace Sango.Core
         /// <summary>
         /// 兵种适性培育：把某兵种的适性提到表里的目标等级。
         ///
-        /// 对齐出处：force_cmd_learn.cpp:95-135（兵种适性培育段）。
+        /// 对齐出处：force_cmd_learn.cpp:95-135（兵种适性培育段）；
+        /// 挑人前置来自 get_learnable_person_list（s11_game_ai_force_cmd_learn.cpp:392-427）：
+        /// 据点在前线 + 当前武力 ≥ 70，否则该武将跳过。
         /// </summary>
         /// <param name="force">势力</param>
         /// <param name="scenario">场景对象</param>
@@ -603,18 +653,30 @@ namespace Sango.Core
                 Person person = scenario.personSet[i];
                 if (person == null || !person.IsAlive || person.BelongForce != force)
                     continue;
-                if (!person.IsFree)
+                // can_learn_order 口径 = IsFree + IsHealthy（见 Person.IsFree 注释）
+                if (!person.IsFree || !person.IsHealthy)
                     continue;
 
                 City city = person.BelongCity ?? person.CurrentCity;
                 if (city == null || city.gold < LearnGoldCost)
                     continue;
 
+                // 原版 get_learnable_person_list 的兵种适性段
+                // （s11_game_ai_force_cmd_learn.cpp:415-418）：
+                // `kyoten_[...].state != KyotenState_Front or person->get_stat(Strength) < 70` → 跳过。
+                // 注：`get_stat` 是含经验加成的当前值，对应本项目 Person.Strength（非 baseValue）。
+                OutpostInfo info = OutpostRuntime.Find(city.Id);
+                if (info == null || info.state != OutpostState.Front)
+                    continue;
+                if (person.Strength < 70)
+                    continue;
+
                 for (int a = 0; a < abilities.Count; a++)
                 {
                     Ability ability = abilities[a];
-                    if (person.HasLearnedAbility(ability.Id))
-                        continue;
+                    // 原版 System::can_learn 的适性分支（s11_sys_scen_ability.cpp:54-58）
+                    // 只判"当前适性是否仍差目标一档"，无 person 级"已学"锁 ——
+                    // 达到目标档后由下面的 baseValue 判定自然拦住。
 
                     PersonAbilityValue aptitude = GetAptitude(person, ability.troopKind);
                     if (aptitude == null)
@@ -638,75 +700,106 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 特技培育：给武将授予表里定义的特技。
+        /// 特技培育（完整移植 force_learn_skill）。
         ///
-        /// 对齐出处：force_learn_skill（force_cmd_learn.cpp:137-200）。
-        /// 原版打分按特技类型分多套公式；这里简化为"四维总和最高者"，
-        /// 因为 Feature Id 与原版 SkillId 没有映射表。
+        /// 对齐出处：s11_game_ai_force_cmd_learn.cpp:137-396。
+        /// <para>
+        /// 两个阶段照搬原版：
+        /// ① 先从"已研究且仍可学"的特技里挑**一条** target ——
+        ///    三级比较键 势力内没人有 &gt; 剩余学习名额多 &gt; 50% 掷骰
+        ///    （<see cref="FeatureLearnRule.IsPreferredAbility"/>）；
+        /// ② 再对这条特技给全势力武将打分取最高（同分 50% 掷骰）。
+        /// </para>
+        /// <para>
+        /// 【打分差异已消除】原版按特技 Id 分支的 30 多套公式，本项目已搬到 Features.json：
+        /// 分数口径 / 兵种适性 / 是否要求前线 / 驻在都市或关港 / 都市设施 / 兵力下限
+        /// 全部来自 <see cref="Feature"/> 的 learnXxx 字段，代码里**不含任何特技 Id 判断**
+        /// （见 <see cref="FeatureLearnRule.TryCalcScore"/>）。
+        /// </para>
         /// </summary>
         /// <param name="force">势力</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>是否授予了一个特技</returns>
+        /// <returns>是否有一人开始研习</returns>
         public static bool LearnSkill(Force force, Scenario scenario)
         {
             if (force == null || scenario == null)
                 return false;
 
+            // 候选 = 已研究 + 学习名额未满 + 特技数据有效
             List<Ability> abilities = GetLearnedAbilities(force, scenario, AbilityCategory.Skill);
             if (abilities.Count == 0)
                 return false;
 
+            // 阶段一：选一条待培育特技 —— :151-186
+            HashSet<int> ownedSkillIds = FeatureLearnRule.CollectOwnedSkillIds(force, scenario);
+            Ability target = null;
             for (int a = 0; a < abilities.Count; a++)
             {
-                Ability ability = abilities[a];
-                if (ability.skillId <= 0)
+                Ability candidate = abilities[a];
+                if (candidate.skillId <= 0)
                     continue;
-
-                Feature feature = scenario.GetObject<Feature>(ability.skillId);
-                if (feature == null)
-                    continue;
-
-                Person best = null;
-                City bestCity = null;
-                int bestScore = int.MinValue;
-
-                for (int i = 0; i < scenario.personSet.Count; i++)
-                {
-                    Person person = scenario.personSet[i];
-                    if (person == null || !person.IsAlive || person.BelongForce != force)
-                        continue;
-                    if (!person.IsFree || person.HasFeatrue(ability.skillId))
-                        continue;
-                    if (person.HasLearnedAbility(ability.Id))
-                        continue;
-
-                    City city = person.BelongCity ?? person.CurrentCity;
-                    if (city == null || city.gold < LearnGoldCost)
-                        continue;
-
-                    int score = person.command.baseValue + person.strength.baseValue
-                        + person.intelligence.baseValue + person.politics.baseValue;
-                    if (score > bestScore)
-                    {
-                        bestScore = score;
-                        best = person;
-                        bestCity = city;
-                    }
-                }
-                if (best == null)
-                    continue;
-
-                if (best.FeatureList == null)
-                    continue;
-                // 【任务制】发起 3 旬任务，特技在完成时由 FinishStudyMission 授予
-                bestCity.AddGold(-LearnGoldCost);
-                bestCity.BelongCorps?.ReduceActionPoint(LearnActionPointCost);
-                best.SetMission(MissionType.PersonStudyAbility, bestCity, StudyTurns, ability.Id);
-
-                Sango.Log.Info($"*[特技培育]{force.Name} 的 {best.Name} 开始研习「{ability.Name}」（{StudyTurns} 旬）");
-                return true;
+                if (FeatureLearnRule.IsPreferredAbility(candidate, target, force, ownedSkillIds))
+                    target = candidate;
             }
-            return false;
+            if (target == null)
+                return false;
+
+            Feature feature = scenario.GetObject<Feature>(target.skillId);
+            if (feature == null)
+                return false;
+
+            // 阶段二：给 target 打分选人 —— :189-386
+            Person best = null;
+            City bestCity = null;
+            int bestScore = int.MinValue;
+
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.BelongForce != force)
+                    continue;
+                // can_learn_order（本项目口径 = IsFree）+ 健康 + 已拥有该特技
+                // —— s11_sys_person_order_kunshu.cpp:1602-1637
+                if (!person.IsFree || !person.IsHealthy)
+                    continue;
+                if (person.HasFeatrue(target.skillId))
+                    continue;
+                if (person.FeatureList == null)
+                    continue;
+
+                City city = person.BelongCity ?? person.CurrentCity;
+                if (city == null || city.gold < LearnGoldCost)
+                    continue;
+
+                // 交战据点整人跳过 —— 原版 get_learnable_person_list 公共段
+                // （s11_game_ai_force_cmd_learn.cpp:408-409）：三段共用，连内政类特技也不在战斗中培育。
+                OutpostInfo info = OutpostRuntime.Find(city.Id);
+                if (info != null && info.state == OutpostState.Battle)
+                    continue;
+
+                int score;
+                if (!FeatureLearnRule.TryCalcScore(person, feature, city, out score))
+                    continue;
+
+                // 取最高分；同分 50% 掷骰替换 —— :379-385
+                if (best == null || bestScore < score
+                    || (bestScore == score && GameRandom.Chance(50)))
+                {
+                    best = person;
+                    bestScore = score;
+                    bestCity = city;
+                }
+            }
+            if (best == null)
+                return false;
+
+            // 【任务制】发起封闭研习，特技在完成时由 FinishStudyMission 授予
+            bestCity.AddGold(-LearnGoldCost);
+            bestCity.BelongCorps?.ReduceActionPoint(LearnActionPointCost);
+            best.SetMission(MissionType.PersonStudyAbility, bestCity, StudyTurns, target.Id);
+
+            Sango.Log.Info($"*[特技培育]{force.Name} 的 {best.Name} 开始研习「{target.Name}」（{StudyTurns} 旬，评分 {bestScore}）");
+            return true;
         }
 
         // ==================== 玩家侧：单人培育 ====================
@@ -714,16 +807,47 @@ namespace Sango.Core
         /// <summary>
         /// 取某武将当前可研习的能力列表（玩家界面用）。
         ///
-        /// 与 AI 的 <see cref="LearnBaseStat"/> 等三段共用同一套判定口径，
-        /// 区别只是"由玩家指定人 + 指定能力"，不掷概率、不自动挑人。
+        /// 判定口径严格按原版**玩家侧**链路，不是 AI 挑人那套：
+        /// <c>can_learn_base_stat_command</c> / <c>can_learn_skill_command</c>
+        /// （s11_sys_person_order_kunshu.cpp:1627-1688、:1913-1974）
+        /// → <c>PersonOrderManager::get_learnable_person_list</c>（同文件 :1583-1602）
+        /// → <c>PersonOrderManager::can_learn_order</c>（同文件 :1604-1625）
+        /// → <c>System::can_learn</c>（s11_sys_scen_ability.cpp:37-67）。
+        /// <para>
+        /// 【与 AI 口径的差异】原版下列判定**只存在于势力 AI 挑人段**
+        /// （s11_game_ai_force_cmd_learn.cpp），玩家侧一条都没有：
+        /// <list type="number">
+        /// <item>非前线只培育政治（:68-73）</item>
+        /// <item>基础能力档位区间 56~65 / 66~75 / 76~90（:64-77）</item>
+        /// <item>特技的驻在地 / 据点兵力 / 前线 / 都市设施 / 适性 B 档（:189-386、:392-427）</item>
+        /// </list>
+        /// 本项目原先把这套 AI 口径直接套到玩家界面，其中"前线"还依赖
+        /// <see cref="OutpostRuntime"/> 这张"单势力、AI 准备阶段"的快照表 ——
+        /// 玩家手动操作时可能为空或还停在上一个 AI 势力，于是被误判成非前线。
+        /// 现在玩家分支（<paramref name="aiPerspective"/> = false）完全不看这些。
+        /// </para>
         /// </summary>
         /// <param name="person">武将</param>
         /// <param name="scenario">场景对象</param>
+        /// <param name="aiPerspective">
+        /// true = 按**势力 AI** 的挑人口径附加上述全部 AI 专属判定。
+        /// 仅供 <see cref="CountLearnablePersons"/> 的排查日志使用，玩家界面必须传 false。
+        /// </param>
         /// <returns>可研习的能力；没有返回空列表</returns>
-        public static List<Ability> GetLearnableAbilitiesFor(Person person, Scenario scenario)
+        public static List<Ability> GetLearnableAbilitiesFor(Person person, Scenario scenario,
+            bool aiPerspective = false)
         {
             List<Ability> result = new List<Ability>();
             if (person == null || !person.IsAlive || scenario == null)
+                return result;
+            // can_learn_order 口径（s11_sys_person_order_kunshu.cpp:1604-1625）：
+            // 无部队 / 无任务 / 非俘虏（IsFree）。放在方法内部而不是交给调用方，
+            // 避免将来新增调用方漏判 → "列表能选、点了必失败"。
+            if (!person.IsFree)
+                return result;
+            // 健康判据 —— 原版 can_learn_order（同文件 :1622-1623）：
+            // 带伤的人不该出现在可选列表里，避免"列表能选、点了必失败"。
+            if (!person.IsHealthy)
                 return result;
 
             Force force = person.BelongForce;
@@ -737,9 +861,13 @@ namespace Sango.Core
             if (abilities == null)
                 return result;
 
-            OutpostInfo info = OutpostRuntime.Find(city.Id);
-            bool isFront = info != null && info.state == OutpostState.Front;
-            int expPerStat = scenario.Variables.AttributeExpLevelNeed;
+            // 玩家侧不判前线（见方法注释）；AI 口径才查态势表
+            bool isFront = true;
+            if (aiPerspective)
+            {
+                OutpostInfo info = OutpostRuntime.Find(city.Id);
+                isFront = info != null && info.state == OutpostState.Front;
+            }
 
             abilities.ForEach(ability =>
             {
@@ -747,24 +875,32 @@ namespace Sango.Core
                     return;
                 if (!force.HasAbility(ability.Id))
                     return;
-                if (person.HasLearnedAbility(ability.Id))
-                    return;
+                // 原版无 person 级"已学该 ability"锁（见 System::can_learn）：
+                // 基础能力靠 exp / pure 上限自然收敛，特技靠下面的 HasFeatrue 拦。
                 if (force.GetAbilityLearnCount(ability.Id) >= ability.LearningLimitCount)
                     return;
 
                 if (ability.IsBaseStat)
                 {
-                    // 非前线只培育政治 —— 原版 :68-73
-                    if (!isFront && ability.personStatType != 3)
-                        return;
+                    // 玩家口径 —— 原版 System::can_learn（s11_sys_scen_ability.cpp:48-53）：
+                    // 培育经验未达上限 且 基础值 < 该能力上限，两条即可学。
                     PersonAttributeValue stat = GetAttribute(person, ability.personStatType);
                     if (stat == null || stat.baseValue >= ability.maxStat)
                         return;
-                    if (expPerStat > 0 && stat.valueExp >= LearnExpCap)
+                    // 培育通道剩余点数为 0 → 已到培育上限（原版 can_learn 不通过）
+                    if (GetRemainingLearnPoints(stat, scenario) <= 0)
                         return;
-                    GetTierRange(ability.maxStat, out int rangeMin, out int rangeMax);
-                    if (stat.baseValue < rangeMin || stat.baseValue > rangeMax)
-                        return;
+                    if (aiPerspective)
+                    {
+                        // ↓ 两条均为势力 AI 挑人专属，原版 System::can_learn 没有：
+                        //   ① 非前线只培育政治 —— s11_game_ai_force_cmd_learn.cpp:68-73
+                        //   ② 档位区间 56~65 / 66~75 / 76~90 —— 同文件 :64-77
+                        if (!isFront && ability.personStatType != 3)
+                            return;
+                        GetTierRange(ability.maxStat, out int rangeMin, out int rangeMax);
+                        if (stat.baseValue < rangeMin || stat.baseValue > rangeMax)
+                            return;
+                    }
                     result.Add(ability);
                 }
                 else if (ability.IsTroopAptitude)
@@ -772,6 +908,13 @@ namespace Sango.Core
                     PersonAbilityValue aptitude = GetAptitude(person, ability.troopKind);
                     if (aptitude == null || aptitude.baseValue >= ability.targetAptitude)
                         return;
+                    if (aiPerspective)
+                    {
+                        // AI 挑人专属（s11_game_ai_force_cmd_learn.cpp:415-418）：
+                        // 据点必须处在前线，且当前武力 ≥ 70 —— 与 LearnTroopAptitude 同口径
+                        if (!isFront || person.Strength < 70)
+                            return;
+                    }
                     result.Add(ability);
                 }
                 else if (ability.IsSkill)
@@ -780,6 +923,19 @@ namespace Sango.Core
                         return;
                     if (person.FeatureList == null)
                         return;
+                    Feature skillFeature = scenario.GetObject<Feature>(ability.skillId);
+                    if (skillFeature == null)
+                        return;
+                    // 玩家口径 —— 原版 System::can_learn（s11_sys_scen_ability.cpp:60-64）
+                    // 的 case AbilityType_Skill 只判"未拥有该特技"，上面已判完即可学。
+                    // 驻在地 / 据点兵力 / 前线 / 都市设施 / 适性 B 档全是 AI 挑人专属
+                    // （s11_game_ai_force_cmd_learn.cpp:189-386、:392-427），玩家侧一律不判。
+                    if (aiPerspective)
+                    {
+                        int skillScore;
+                        if (!FeatureLearnRule.TryCalcScore(person, skillFeature, city, out skillScore))
+                            return;
+                    }
                     result.Add(ability);
                 }
             });
@@ -789,7 +945,10 @@ namespace Sango.Core
         /// <summary>
         /// 对指定武将发起研习任务（3 旬后由 <see cref="FinishStudyMission"/> 结算）。
         ///
-        /// 玩家主动操作，不掷概率；判定与 AI 三段一致。
+        /// 玩家主动操作，不掷概率。判定口径与 <see cref="GetLearnableAbilitiesFor"/>
+        /// 的玩家分支完全一致（原版 can_learn_order + System::can_learn），
+        /// **不套用 AI 挑人专属的前线 / 档位区间 / 驻在地 / 设施 / 兵力 / 适性 B 档**，
+        /// 保证"列表里能选就一定点得成功"。
         /// </summary>
         /// <param name="person">要研习的武将</param>
         /// <param name="ability">研习的能力</param>
@@ -802,8 +961,11 @@ namespace Sango.Core
                 return false;
             if (!person.IsAlive || !person.IsFree)
                 return false;
-            if (person.HasLearnedAbility(ability.Id))
+            // 健康判据 —— 原版 can_learn_order（s11_sys_person_order_kunshu.cpp:1634-1635）
+            if (!person.IsHealthy)
                 return false;
+            // 不判 person 级"已学该 ability"：原版 System::can_learn 没有这条，
+            // 同一人可以对同一条基础能力/适性反复培育，直到数值或经验触及上限。
 
             Force force = person.BelongForce;
             if (force == null || !force.HasAbility(ability.Id))
@@ -816,18 +978,19 @@ namespace Sango.Core
             int gain = 0;
             if (ability.IsBaseStat)
             {
+                // 原版玩家侧 System::can_learn（s11_sys_scen_ability.cpp:48-53）只判两条：
+                // 培育经验未达上限、基础值 < 该能力上限。
+                // AI 的"档位区间 56~65 / 66~75 / 76~90"（s11_game_ai_force_cmd_learn.cpp:64-77）不适用。
                 PersonAttributeValue stat = GetAttribute(person, ability.personStatType);
                 if (stat == null || stat.baseValue >= ability.maxStat)
                     return false;
-                int expPerStat = scenario.Variables.AttributeExpLevelNeed;
-                if (expPerStat <= 0 || stat.valueExp >= LearnExpCap)
-                    return false;
-                GetTierRange(ability.maxStat, out int rangeMin, out int rangeMax);
-                if (stat.baseValue < rangeMin || stat.baseValue > rangeMax)
+                // 培育通道剩余点数（经验达上限即 0，等同原版 can_learn 不通过）
+                int remainPoints = GetRemainingLearnPoints(stat, scenario);
+                if (remainPoints <= 0)
                     return false;
 
                 gain = System.Math.Min(ability.maxStat - stat.baseValue, StatGain);
-                gain = System.Math.Min(gain, (LearnExpCap - stat.valueExp) / expPerStat);
+                gain = System.Math.Min(gain, remainPoints);
                 if (gain <= 0)
                     return false;
             }
@@ -842,6 +1005,13 @@ namespace Sango.Core
                 if (ability.skillId <= 0 || person.HasFeatrue(ability.skillId))
                     return false;
                 if (person.FeatureList == null)
+                    return false;
+
+                // 原版玩家侧 System::can_learn（s11_sys_scen_ability.cpp:60-64）的
+                // case AbilityType_Skill 只判"未拥有该特技"，上面已判完。
+                // 驻在地 / 据点兵力 / 前线 / 都市设施 / 适性 B 档均为 AI 挑人专属
+                // （s11_game_ai_force_cmd_learn.cpp:189-386、:392-427），玩家侧一律不判。
+                if (scenario.GetObject<Feature>(ability.skillId) == null)
                     return false;
             }
             else
@@ -860,9 +1030,14 @@ namespace Sango.Core
         // ==================== 培育任务（第三层：任务结算） ====================
 
         /// <summary>
-        /// 培育闭关时长（旬）。对齐 Open311 的 <c>person_set_order_timer(actor, 3)</c>。
+        /// 培育闭关时长（旬）。对齐 Open311 的 <c>person_set_order_timer(actor, 3)</c>（默认 3 旬）。
+        /// 数值走 GainValueConfig.AbilityStudyMissionTurns，可在剧本设置界面"能力研究与培育"分区调；
+        /// 下限钳到 1 —— 配成 0 会让任务在发起当回合就结算，等于没有闭关。
         /// </summary>
-        public const int StudyTurns = 3;
+        public static int StudyTurns
+        {
+            get { return System.Math.Max(1, GainValueConfig.AbilityStudy(GainPlace.AbilityStudyMissionTurns)); }
+        }
 
         /// <summary>
         /// 完成培育任务：由 <see cref="Person.UpdateMission"/> 在
@@ -905,13 +1080,18 @@ namespace Sango.Core
         static bool ApplyBaseStat(Person person, Ability ability, City city, Force force,
             Scenario scenario, int gain)
         {
-            if (person.HasLearnedAbility(ability.Id))
-                return false;
             PersonAttributeValue stat = GetAttribute(person, ability.personStatType);
             if (stat == null)
                 return false;
             int expPerStat = scenario.Variables.AttributeExpLevelNeed;
             if (expPerStat <= 0 || gain <= 0)
+                return false;
+            // 闭关 3 旬期间数值可能已被别处推高 → 落地时按当前状态重新钳制。
+            // 原版在 exec_learn_base_stat_command（s11_sys_person_order_kunshu.cpp:1749）
+            // 里是即时算 n = min(maxStat - pure, 上限)，等价口径。
+            gain = System.Math.Min(gain, ability.maxStat - stat.baseValue);
+            gain = System.Math.Min(gain, GetRemainingLearnPoints(stat, scenario));
+            if (gain <= 0)
                 return false;
 
             stat.SetExp(stat.valueExp + gain * expPerStat, scenario);
@@ -925,8 +1105,6 @@ namespace Sango.Core
         /// <summary>结算兵种适性提升（直接设到目标档位）</summary>
         static bool ApplyTroopAptitude(Person person, Ability ability, City city, Force force)
         {
-            if (person.HasLearnedAbility(ability.Id))
-                return false;
             PersonAbilityValue aptitude = GetAptitude(person, ability.troopKind);
             if (aptitude == null)
                 return false;
@@ -945,8 +1123,7 @@ namespace Sango.Core
         /// <summary>结算特技授予</summary>
         static bool ApplySkill(Person person, Ability ability, City city, Force force, Scenario scenario)
         {
-            if (person.HasLearnedAbility(ability.Id))
-                return false;
+            // 原版 System::can_learn 的特技分支只判 has_skill，对应的就是下面的 HasFeatrue
             if (ability.skillId <= 0)
                 return false;
             if (person.HasFeatrue(ability.skillId))
@@ -992,6 +1169,61 @@ namespace Sango.Core
                 result.Add(ability);
             });
             return result;
+        }
+
+        /// <summary>
+        /// 本势力当前"能学点什么"的武将数（玩家侧与 AI 侧共用同一套判定）。
+        ///
+        /// 用途：AI 排查日志 —— 区分"没人符合条件"与"只是 50% 概率没中"。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>可研习列表非空的空闲武将数</returns>
+        public static int CountLearnablePersons(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null || scenario.personSet == null)
+                return 0;
+
+            int count = 0;
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.BelongForce != force)
+                    continue;
+                if (!person.IsFree)
+                    continue;
+                // AI 排查日志：必须按 AI 挑人口径（含"需前线"）统计，
+                // 否则会把"AI 因非前线而不能学"误报成"有人能学、只是概率没中"
+                if (GetLearnableAbilitiesFor(person, scenario, true).Count > 0)
+                    count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// AI 培育的硬卡点日志：势力**有已研究、仍可培育的能力**，却一个符合条件的武将都没有时输出。
+        /// <para>
+        /// 这是"研究完了却始终没人去学"的唯一死锁形态。其余情况（有人能学、只是本回合
+        /// 50% 概率没命中）不输出，避免每回合刷屏。调用方负责节流。
+        /// </para>
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        public static void LogLearnBlockReason(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null)
+                return;
+
+            int baseStat = GetLearnedAbilities(force, scenario, AbilityCategory.BaseStat).Count;
+            int aptitude = GetLearnedAbilities(force, scenario, AbilityCategory.TroopAptitude).Count;
+            int skill = GetLearnedAbilities(force, scenario, AbilityCategory.Skill).Count;
+            if (baseStat + aptitude + skill <= 0)
+                return;                                  // 没得学，属正常
+            if (CountLearnablePersons(force, scenario) > 0)
+                return;                                  // 有人能学，只是概率没中
+
+            Sango.Log.Info($"*[能力培育]{force.Name} 无人可培育：可培育能力 基础{baseStat}/适性{aptitude}/特技{skill}，"
+                + "但无人满足「档位 56~65 / 66~75 / 76~90 + 非前线仅政治 + 适性需前线且武力≥70 + 未达培育经验上限」");
         }
 
         /// <summary>按 Id 取能力数据</summary>

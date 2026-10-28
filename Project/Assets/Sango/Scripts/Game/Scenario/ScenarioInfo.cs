@@ -51,12 +51,47 @@ namespace Sango.Core
         public long dateTime;
 
         /// <summary>
+        /// 剧本级寿命模式（对应 Open311 的 LifeModeEnum）：
+        ///   0 史实 / 1 长寿 / 2 虚构 / 3 无死亡 / **-1 未指定**。
+        ///
+        /// 【为什么放在剧本信息里】寿命模式是剧本的**史实设定**，不是玩家的偏好：
+        /// "英雄集结"这类剧本里武将本就不该死，必须锁死"无死亡"；
+        /// 而史实剧本一旦被改成"无死亡"，整个势力兴衰的节奏就崩了。
+        /// 所以它属于剧本作者的决定，写在剧本信息（ScenarioInfo）里随剧本分发。
+        ///
+        /// 【与剧本参数的关系】取值 ≥0 时**本字段优先**，
+        /// <see cref="ScenarioVariables.lifeMode"/> 在该剧本内被锁定、界面上只显示不可改；
+        /// 取 -1（默认）时才回落到剧本参数，保持老剧本与老存档的既有行为。
+        /// 解析入口统一在 <see cref="PersonLifeCycle.GetLifeMode"/>。
+        /// </summary>
+        [JsonProperty]
+        public int lifeMode = -1;
+
+        /// <summary>
+        /// 是否由剧本信息锁定寿命模式（lifeMode ≥ 0）。
+        /// 不是存档字段（OptIn 序列化，未标 JsonProperty）。
+        /// </summary>
+        public bool HasLifeMode => lifeMode >= 0;
+
+        /// <summary>
         /// 存档时记录的已启用模组 Id 列表(按加载顺序)。
         /// 读档时用它和"当前启用的模组"做对比:不一致时只展示基础信息,并在玩家确认后才尝试加载。
         /// 老存档没有这个字段 → 为 null,表示"不知道当时用了哪些模组"。
         /// </summary>
         [JsonProperty]
         public string[] mods;
+
+        /// <summary>
+        /// 剧本参数（ScenarioVariables）预设名，空串 = 不加载预设、直接用剧本自带的 Variables。
+        ///
+        /// 取值是文件名（不含 .json），对应：
+        ///   · 模组：{模组}/Data/ScenarioVariables/{名字}.json
+        ///   · 自建：{CustomEditRootPath}/Data/ScenarioVariables/{名字}.json
+        /// 进剧本参数界面时由 <c>Scenario.LoadVariables</c> 先套用一次，
+        /// 详见 <see cref="ScenarioVariablesPresetManager"/>。
+        /// </summary>
+        [JsonProperty]
+        public string variablesPreset;
 
         /// <summary>
         /// 生成一份浅拷贝，供"存档列表快照"使用。

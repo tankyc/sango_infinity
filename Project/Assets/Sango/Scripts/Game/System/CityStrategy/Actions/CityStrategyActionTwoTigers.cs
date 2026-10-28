@@ -80,8 +80,11 @@ namespace Sango.Core
         /// <returns>成功率（0-100 百分比）</returns>
         public override int CalculateSuccessRate()
         {
-            Person resisterA = GetResistance(TargetForceA, TargetForceA.CapitalCity);
-            Person resisterB = GetResistance(TargetForceB, TargetForceB.CapitalCity);
+            // 目标势力可能已经灭亡（使者赶路期间被灭国，forceSet 里已取不到对象），
+            // 此时 `TargetForceX.CapitalCity` 会空引用 —— 与下面 resisterNameA / resisterNameB
+            // 相同的兜底写法，用 ?. 不取治所，让 GetResistance 回退到"军师 → 君主"。
+            Person resisterA = GetResistance(TargetForceA, TargetForceA?.CapitalCity);
+            Person resisterB = GetResistance(TargetForceB, TargetForceB?.CapitalCity);
             // 记下方 A 的抵抗者供日志复述；双方抵抗者都缺位时按 0 计，由 CalculateRate 的下限托住
             Resister = resisterA ?? resisterB;
             int resistance = ((resisterA?.Intelligence ?? 0) + (resisterB?.Intelligence ?? 0)) / 2;

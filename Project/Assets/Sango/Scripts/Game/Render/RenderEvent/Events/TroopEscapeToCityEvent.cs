@@ -41,6 +41,15 @@ namespace Sango.Render
                 return true;
             }
 
+            // 【空引用修复】逃回目标城市或其中心格为空时，无法寻路，直接结束本次行动，
+            // 避免 TryMoveToCity 抛 NullReferenceException 且事件每帧重试刷屏卡死。
+            if (dest == null || dest.CenterCell == null)
+            {
+                troop.ActionOver = true;
+                IsDone = true;
+                return true;
+            }
+
             if (troop.TryMoveToCity(dest))
             {
                 troop.ActionOver = true;

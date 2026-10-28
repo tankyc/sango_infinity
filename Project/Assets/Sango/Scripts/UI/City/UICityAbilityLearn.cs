@@ -112,8 +112,8 @@ namespace Sango.UI
             {
                 int count = currentSystem.learnablePersons != null ? currentSystem.learnablePersons.Count : 0;
                 personCountLabel.text = count > 1
-                    ? $"可培育 {count} 人（点击可更换）"
-                    : (count == 1 ? "可培育 1 人" : "本城暂无可培育武将");
+                    ? $"势力内可培育 {count} 人（点击可更换）"
+                    : (count == 1 ? "势力内可培育 1 人" : "势力内暂无可培育武将");
             }
         }
 

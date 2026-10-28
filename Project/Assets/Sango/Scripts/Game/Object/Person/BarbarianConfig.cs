@@ -41,13 +41,13 @@ namespace Sango.Core
             /// <summary>不是异族</summary>
             None = 0,
             /// <summary>羌族（原版 ForceId_Kyou = 0x2a）</summary>
-            Kyou = 1,
+            Qiang = 1,
             /// <summary>山越（原版 ForceId_Sanetsu = 0x2b）</summary>
-            Sanetsu = 2,
+            Shanyue = 2,
             /// <summary>乌丸（原版 ForceId_Ugan = 0x2c）</summary>
-            Ugan = 3,
+            Wuhuan = 3,
             /// <summary>南蛮（原版 ForceId_Nanban = 0x2d）</summary>
-            Nanban = 4,
+            Nanman = 4,
         }
 
         /// <summary>一条异族武将配置：Id 与名字必须**同时**匹配才算命中</summary>
@@ -67,16 +67,102 @@ namespace Sango.Core
         /// 异族武将表：乌丸 / 羌族 / 山越 / 南蛮，各一个头目 + 一个武将。
         /// 顺序与 Open311 的 ForceId 段一致（Kyou → Sanetsu → Ugan → Nanban）。
         /// </summary>
+        /// <summary>一条"异族范围城"配置：城 Id 与城名必须**同时**匹配</summary>
+        public struct CityEntry
+        {
+            /// <summary>城 Id（Scenario.json 的 citySet.Id）</summary>
+            public int Id;
+
+            /// <summary>城名</summary>
+            public string Name;
+
+            /// <summary>该城所属的异族范围</summary>
+            public Tribe Tribe;
+        }
+
+        /// <summary>
+        /// 异族范围城 —— 对应原版 `SuppressedSkillCity`（`s11_db.cpp:243-248`）：
+        ///   · 乌丸：襄平、北平、蓟
+        ///   · 羌：安定、天水、武威
+        ///   · 山越：吴、会稽、柴桑
+        ///   · 南蛮：江州、建宁、云南
+        ///
+        /// 这些城的领内会孕育对应异族的根城，并需要「亲×」特技的守将压制
+        /// （原版 `GameAI::set_guard` 的第一轮）。
+        /// </summary>
+        public static readonly CityEntry[] CityEntries =
+        {
+            // 乌丸
+            new CityEntry { Id = 1,  Name = "襄平", Tribe = Tribe.Wuhuan },
+            new CityEntry { Id = 2,  Name = "北平", Tribe = Tribe.Wuhuan },
+            new CityEntry { Id = 3,  Name = "蓟",   Tribe = Tribe.Wuhuan },
+
+            // 羌
+            new CityEntry { Id = 20, Name = "安定", Tribe = Tribe.Qiang },
+            new CityEntry { Id = 21, Name = "天水", Tribe = Tribe.Qiang },
+            new CityEntry { Id = 22, Name = "武威", Tribe = Tribe.Qiang },
+
+            // 山越
+            new CityEntry { Id = 24, Name = "吴",   Tribe = Tribe.Shanyue },
+            new CityEntry { Id = 25, Name = "会稽", Tribe = Tribe.Shanyue },
+            new CityEntry { Id = 27, Name = "柴桑", Tribe = Tribe.Shanyue },
+
+            // 南蛮
+            new CityEntry { Id = 39, Name = "江州", Tribe = Tribe.Nanman },
+            new CityEntry { Id = 41, Name = "建宁", Tribe = Tribe.Nanman },
+            new CityEntry { Id = 42, Name = "云南", Tribe = Tribe.Nanman },
+        };
+
+        /// <summary>按「城 Id + 城名」双重校验查异族范围（None = 非异族范围）</summary>
+        public static Tribe GetCityTribe(int cityId, string cityName)
+        {
+            if (cityId <= 0) return Tribe.None;
+
+            for (int i = 0; i < CityEntries.Length; i++)
+            {
+                if (CityEntries[i].Id == cityId && CityEntries[i].Name == cityName)
+                    return CityEntries[i].Tribe;
+            }
+
+            return Tribe.None;
+        }
+
+        /// <summary>
+        /// 把异族范围固化到 <see cref="City.barbarianTribe"/>（**只在为 0 时写入**）。
+        /// 调用时机：<c>City.OnScenarioPrepare</c>。
+        /// </summary>
+        public static void FixupCityTribe(City city)
+        {
+            if (city == null || city.barbarianTribe != 0) return;
+            city.barbarianTribe = (int)GetCityTribe(city.Id, city.Name);
+        }
+
+        /// <summary>
+        /// 异族范围 → 「亲×」特技 Id（`Features.json`）：92 亲乌 / 93 亲羌 / 94 亲越 / 95 亲蛮。
+        /// 返回 0 表示该异族没有对应特技（不该出现，仅作兜底）。
+        /// </summary>
+        public static int GetGuardFeatureId(int tribe)
+        {
+            switch (tribe)
+            {
+                case (int)Tribe.Wuhuan: return 92;      // 亲乌
+                case (int)Tribe.Qiang: return 93;      // 亲羌
+                case (int)Tribe.Shanyue: return 94;   // 亲越
+                case (int)Tribe.Nanman: return 95;    // 亲蛮
+                default: return 0;
+            }
+        }
+
         public static readonly Entry[] Entries =
         {
-            new Entry { Id = 722, Name = "乌丸头目", Tribe = Tribe.Ugan },
-            new Entry { Id = 723, Name = "乌丸武将", Tribe = Tribe.Ugan },
-            new Entry { Id = 724, Name = "羌族头目", Tribe = Tribe.Kyou },
-            new Entry { Id = 725, Name = "羌族武将", Tribe = Tribe.Kyou },
-            new Entry { Id = 726, Name = "山越头目", Tribe = Tribe.Sanetsu },
-            new Entry { Id = 727, Name = "山越武将", Tribe = Tribe.Sanetsu },
-            new Entry { Id = 728, Name = "南蛮头目", Tribe = Tribe.Nanban },
-            new Entry { Id = 729, Name = "南蛮武将", Tribe = Tribe.Nanban },
+            new Entry { Id = 722, Name = "乌丸头目", Tribe = Tribe.Wuhuan },
+            new Entry { Id = 723, Name = "乌丸武将", Tribe = Tribe.Wuhuan },
+            new Entry { Id = 724, Name = "羌族头目", Tribe = Tribe.Qiang },
+            new Entry { Id = 725, Name = "羌族武将", Tribe = Tribe.Qiang },
+            new Entry { Id = 726, Name = "山越头目", Tribe = Tribe.Shanyue },
+            new Entry { Id = 727, Name = "山越武将", Tribe = Tribe.Shanyue },
+            new Entry { Id = 728, Name = "南蛮头目", Tribe = Tribe.Nanman },
+            new Entry { Id = 729, Name = "南蛮武将", Tribe = Tribe.Nanman },
         };
 
         /// <summary>

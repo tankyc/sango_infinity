@@ -36,6 +36,19 @@ namespace Sango.Core
         static readonly System.Text.UTF8Encoding Utf8NoBom = new System.Text.UTF8Encoding(false);
 
         /// <summary>
+        /// 火焰回合遍历的复用快照。
+        ///
+        /// 【为什么不能用下标范围】<see cref="SangoObjectSet{T}.Add"/> 分配 Id 时是
+        /// "从 SearchingBeginIndex 起找第一个 null 槽"（SangoObjectSet.cs:64-76），
+        /// 火焰被清掉后空槽会被复用 —— 新火焰的 Id 可能**小于**当前上界，
+        /// 用 <c>for (i = 1; i &lt; set.Count; i++)</c> 挡不住它，会当回合再次蔓延。
+        /// 因此改为先把活着的火焰抄成名单，再遍历名单。
+        ///
+        /// 只被主线程的回合流程使用，复用同一个 List 避免每回合分配。
+        /// </summary>
+        static readonly List<Fire> fireSnapshot = new List<Fire>();
+
+        /// <summary>
         /// 获取对象类型
         /// </summary>
         public override SangoObjectType ObjectType { get { return SangoObjectType.Scenario; } }
@@ -102,6 +115,17 @@ namespace Sango.Core
         /// </summary>
         [JsonConverter(typeof(SangoObjectSetConverter<Person>))]
         [JsonProperty] public SangoObjectSet<Person> personSet = new SangoObjectSet<Person>();
+
+        /// <summary>
+        /// 当前皇帝武将 Id（汉室）。
+        ///
+        /// 对齐 Open311 的 `Scenario::emperor_`（s11_scen.h:4123，`person_id_t emperor_`，注释「황제 皇帝」）：
+        /// 原版直接用该字段存皇帝武将的 person_id（灵帝/少帝/献帝），`get_emperor_id() &gt;= 0` 即「汉室尚存」，
+        /// `change_emperor_id(-1)` 即皇帝退位（汉室衰微）。本项目皇帝为剧本武将「献帝」（PersonId 703，
+        /// 类型为事件武将 type=2），故默认 703；-1 表示汉室已亡。对无汉室概念的自定义剧本（如金庸），
+        /// personSet 中不存在 703 号武将，运行时自然判定为「汉室衰微」。
+        /// </summary>
+        [JsonProperty] public int emperorPersonId = 703;
 
         // ==================================================================
         // 在途武将表（对应 Open311 的 Scenario::actors_）
@@ -376,6 +400,12 @@ namespace Sango.Core
         /// 城市之间的直接路径
         /// </summary>
         public Dictionary<string, List<Cell>> cityDirectPath;
+
+        /// <summary>
+        /// 据点距离双表（对应原版 kyoten_distance / kyoten_short_distance）。
+        /// 开局算一次，运行期只读；AI 取城距请优先走它，不要每次 BFS。
+        /// </summary>
+        public CityDistanceTable cityDistanceTable;
 
         #endregion Data
 
@@ -843,6 +873,11 @@ namespace Sango.Core
 
             if (Variables == null)
                 Variables = new ScenarioVariables();
+
+            // 剧本指定了默认参数预设 → 立即套用（空串 = 不读，沿用剧本自带 Variables）。
+            // 进剧本参数界面 / 开局前都会走这里，所以界面一打开看到的就是预设值。
+            if (Info != null && !string.IsNullOrEmpty(Info.variablesPreset))
+                ScenarioVariablesPresetManager.TryApply(this, Info.variablesPreset);
         }
 
         public void LoadContent()
@@ -1021,6 +1056,15 @@ namespace Sango.Core
             if (deferOnWorldLoaded)
                 return;
 
+            // 【幂等保护】本方法有两条触发路径：MapRender.OnMapLoaded 事件 + 分帧协程显式调用。
+            // 若 LoadMap 的回调迟到（异步加载），会在 deferOnWorldLoaded 已经置回 false 之后才到达，
+            // 于是 Prepare() 被执行两次 —— Person.OnScenarioPrepare 会再次
+            // `Father.sonList.Add(this)` / `LikePersonList.Add(...)`，触发
+            // SangoObjectList 的 "不能重复添加" 并中断开局。
+            // IsAlive 在 Start() 里被置 true，可用作"世界已初始化过"的标记。
+            if (IsAlive)
+                return;
+
             GameEvent.OnWorldLoadEnd?.Invoke(this);
             this.Map.Init(this);
             GameEvent.OnScenarioPrepare?.Invoke(this);
@@ -1159,6 +1203,33 @@ namespace Sango.Core
                 s.ModName = "<color=#22ff22>自定义</color>";
                 s.Info.type = 2;
             });
+
+            // ---------------- 原版（三国志11 PK）剧本 ----------------
+            // 约定：把 ScenXXX.S11 与同版本的 Scenario.s11 一起放进 Content/Scenario 目录，
+            // 启动时自动为每个 Scen 生成一条剧本摘要，与普通剧本并列显示。
+            // 真正开局时由 StartOpen311Scenario 加载骨架 JSON 再覆盖数值。
+            string open311Dir = $"{Path.ContentRootPath}/Scenario";
+            string open311Table = null;
+
+            Directory.EnumFiles(open311Dir, "*.s11", SearchOption.TopDirectoryOnly, (file) =>
+            {
+                string fileName = System.IO.Path.GetFileName(file);
+                if (fileName.StartsWith("Scenario", System.StringComparison.OrdinalIgnoreCase))
+                    open311Table = file;
+            });
+
+            if (open311Table != null)
+            {
+                Directory.EnumFiles(open311Dir, "*.s11", SearchOption.TopDirectoryOnly, (file) =>
+                {
+                    string fileName = System.IO.Path.GetFileName(file);
+                    if (fileName.StartsWith("Scenario", System.StringComparison.OrdinalIgnoreCase))
+                        return;     // 静态表本身不是剧本
+
+                    Sango.Log.Info($"Find Open311 Scenario: {file}");
+                    ShortScenario.AddFromOpen311(file, open311Table);
+                });
+            }
         }
 
         public static void OnModInitEnd()
@@ -1255,6 +1326,70 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 原版（三国志11 PK）剧本开局。
+        ///
+        /// 流程：加载骨架 Scenario.json（地图 / 坐标 / 通用数据）→ 解析 .s11 覆盖数值 → 走标准开局。
+        /// 地图固定 DefaultMap，原版坐标按 -28 偏移居中（见 Open311ScenarioImporter.MapOffset）。
+        /// </summary>
+        public static void StartOpen311Scenario(ShortScenario shortScenario)
+        {
+            Scenario scenario = CreateFromOpen311(shortScenario);
+            if (scenario != null)
+                StartScenario(scenario);
+        }
+
+        /// <summary>
+        /// 由原版剧本生成一个已导入数值的 <see cref="Scenario"/>（不启动）。
+        ///
+        /// 用于"选择剧本 → 选势力 → 开局"流程：UIScenarioSelect 选中原版剧本时调用它，
+        /// 把 CurSelected 换成"骨架 + 原版数值"，后续界面与开局流程无需感知来源。
+        /// </summary>
+        public static Scenario CreateFromOpen311(ShortScenario shortScenario)
+        {
+            if (shortScenario == null || !shortScenario.IsOpen311)
+            {
+                Log.Error("CreateFromOpen311: 传入的不是原版剧本");
+                return null;
+            }
+
+            // 1) 骨架（地图 / 坐标 / 通用数据沿用现有剧本）
+            string basePath = Path.FindFile("Scenario/Scenario.json");
+            if (string.IsNullOrEmpty(basePath))
+            {
+                Log.Error("CreateFromOpen311: 找不到骨架剧本 Scenario/Scenario.json");
+                return null;
+            }
+            Scenario scenario = new Scenario(basePath);
+
+            // 骨架必须先 LoadContent：集合（forceSet/citySet/personSet）由 JSON 反序列化填充，
+            // 没走过这一步时 SangoObjectSet 的内部数组还是默认长度，后面按下标覆盖会越界。
+            scenario.LoadContent();
+
+            // 2) 原版数据
+            Open311ScenarioData data = new Open311ScenarioData();
+            string error;
+            if (!Open311ScenarioParser.ParseScen(shortScenario.Open311ScenPath, data, out error))
+            {
+                Log.Error($"原版剧本解析失败：{error}");
+                return null;
+            }
+            if (!string.IsNullOrEmpty(shortScenario.Open311ScenarioPath))
+            {
+                if (!Open311ScenarioParser.ParseScenario(shortScenario.Open311ScenarioPath, data, out error))
+                    Log.Warning($"原版静态表解析失败（城市名等可能缺失）：{error}");
+            }
+
+            // 3) 覆盖内存
+            if (!Open311ScenarioImporter.Apply(data, scenario, out error))
+            {
+                Log.Error($"原版数据导入失败：{error}");
+                return null;
+            }
+
+            return scenario;
+        }
+
+        /// <summary>
         /// 把 ShortScenario（自建势力/自建武将数据）合并进已加载的剧本。
         /// 从 StartScenario(scenario, ShortScenario) 中提取出来，
         /// 供同步开局流程与分帧加载协程 StartScenarioRoutine 共用。
@@ -1273,6 +1408,8 @@ namespace Sango.Core
                     targetForce.Flag = force.Flag;
                     targetForce.Governor = force.Governor;
                     targetForce.NationId = force.Nation;
+                    // 自建势力携带编辑器里设定的初始爵位；未设置(0)时由运行时按城池数自动晋升
+                    targetForce.TitleId = force.TitleId;
                     targetForce.InitTechniques.FromArray(new int[] { 1, 5, 9, 13, 17, 21, 25, 29, 33 });
 
                     scenario.forceSet.Add(targetForce);
@@ -1488,6 +1625,12 @@ namespace Sango.Core
             {
                 prepareList[i].ForEach(o => { o.Init(this); });
             }
+
+            // 据点距离双表：必须在所有对象 Init 之后（此时 City.NeighborList 才填好）。
+            // 与 cityPathMap 的区别：那个是"按需 BFS + 逐对缓存"，本表是"一次算全表"，
+            // 对应原版 ai_.kyoten_distance，供 AI 每回合大量取城距使用。
+            cityDistanceTable = new CityDistanceTable();
+            cityDistanceTable.Build(this);
 
             if (RelationMap == null)
             {
@@ -1742,16 +1885,25 @@ namespace Sango.Core
                     a.OnTurnStart(this);
             }
 
-            // 【修复】使用快照长度遍历：fireSet.Count(MaxCount) 会随 Add 增长，
-            // 若遍历中新增火焰会导致同一回合内被立即处理（同回合连锁扩散）。
-            // 取快照后，本回合新增的火焰统一留到下一回合处理，保证"每回合蔓延一次"。
-            int fireCount = fireSet.Count;
-            for (int i = 1; i < fireCount; i++)
+            // 【火焰遍历必须用**对象快照**，不能用下标范围】
+            //
+            // 曾经的写法是 `int fireCount = fireSet.Count; for (i = 1; i < fireCount; i++)`。
+            // 这样只挡住了"新火焰分配到数组尾部"这一种情况，挡不住**空槽复用**：
+            // SangoObjectSet.Add 的 Id 分配是「从 SearchingBeginIndex 起找第一个 null 槽」
+            // （SangoObjectSet.cs:64-76），只要有火焰被 Clear 掉，新火焰就会拿到一个
+            // **小于当前上界**的 Id，于是它在同一轮里被再次遍历 → 同回合连环蔓延，
+            // 且行为会随槽位回收顺序漂移（同样的局面有时蔓延一次、有时蔓延三次）。
+            //
+            // 改为先把"本轮开始时活着的火焰"整体抄进 fireSnapshot，再遍历这份名单：
+            // 无论新火焰拿到什么 Id，都不可能出现在本轮名单里，稳定地"每回合只蔓延一次"。
+            fireSnapshot.Clear();
+            fireSet.ForEach(f =>
             {
-                Fire a = fireSet[i];
-                if (a != null && a.IsAlive)
-                    a.OnTurnStart(this);
-            }
+                if (f != null && f.IsAlive)
+                    fireSnapshot.Add(f);
+            });
+            for (int i = 0; i < fireSnapshot.Count; i++)
+                fireSnapshot[i].OnTurnStart(this);
 
             // 【逃兵】兵临城下的据点按 sqrt(troops) 逃兵 —— 对齐 Game::desertion
             // （s11_game_week.cpp:905-925）。原版按周结算，本项目一回合 = 一旬 = 原版一周。
@@ -1839,14 +1991,21 @@ namespace Sango.Core
                     a.OnTurnEnd(this);
             }
 
-            // 【修复】使用快照长度遍历：SpreadFire 会在本回合向 fireSet 追加新火焰，
-            // 若直接用 fireSet.Count 作为循环上界，新增火焰会被本回合立即处理，
-            // 造成同回合连锁蔓延（火势指数式失控）且行为随槽位分配漂移。
-            // 取快照后，本回合新生的火焰留到下一回合才行动 → 稳定地"每回合蔓延一次"。
-            int fireCount = fireSet.Count;
-            for (int i = 1; i < fireCount; i++)
+            // 【火焰遍历必须用对象快照】OnTurnEnd → SpreadFire 会在本轮追加新火焰，
+            // 而 SangoObjectSet.Add 会**复用被 Clear 掉的空槽**（SangoObjectSet.cs:64-76），
+            // 新火焰的 Id 往往小于当前上界 —— 用 `for (i = 1; i < fireSet.Count; i++)`
+            // 挡不住它，本回合就会再蔓延一次，形成同回合连锁（火势指数级铺开）。
+            // 详见 TurnStart 处同一问题的完整说明。
+            fireSnapshot.Clear();
+            fireSet.ForEach(f =>
             {
-                Fire a = fireSet[i];
+                if (f != null && f.IsAlive)
+                    fireSnapshot.Add(f);
+            });
+            for (int i = 0; i < fireSnapshot.Count; i++)
+            {
+                // 快照里的火焰可能在前面几轮里被其它火焰/事件清掉，逐个确认
+                Fire a = fireSnapshot[i];
                 if (a != null && a.IsAlive)
                     a.OnTurnEnd(this);
             }

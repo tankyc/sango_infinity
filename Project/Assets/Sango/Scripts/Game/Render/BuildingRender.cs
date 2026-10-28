@@ -34,7 +34,12 @@ namespace Sango.Render
         {
             Owener = building;
             Building = building;
-            MapObject = MapObject.Create($"{Building.BelongCity.Name}-{Building.Name}");
+            // 【必须判空】异族 / 贼的根据地（建筑类型 15/16）不属于任何城，BelongCity 为 null。
+            // 原版这类建筑的单位是「势力」（s11_game_month.cpp:1663 的 create_building(facility, pos, force_id)），
+            // 而本项目 BelongCity 是"所属城"语义（用于 city.allBuildings 登记），
+            // 所以这类建筑只能用势力名兜底，不能直接解引用 BelongCity。
+            string ownerName = Building.BelongCity?.Name ?? Building.BelongForce?.Name ?? "据点";
+            MapObject = MapObject.Create($"{ownerName}-{Building.Name}");
             MapObject.objType = Building.BuildingType.kind;
             MapObject.modelId = Building.BuildingType.Id;
             isComplate = building.isComplate;

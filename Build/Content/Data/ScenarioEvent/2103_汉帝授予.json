@@ -1,0 +1,77 @@
+[
+  {
+    "Id": 2103,
+    "Name": "汉帝授予",
+    "DebugLog": true,
+    "Category": "History",
+    "Description": "【爵位事件·汉帝授予】玩家势力爵位为州刺史（TitleId 2）、城池≥4 且汉室尚存，月度结算时触发汉帝授予演出：献帝下诏册封，爵位晋升为州牧。\n\n【条件对齐 Open311 title_rises + can_receive_title】\n· 爵位=州刺史（TitleId 2，对应原版 TitleId_LtGovernor=8）；\n· 城池≥4（对齐 TitleMaxCityCount 州刺史=4，s11_db.cpp）；\n· 汉室尚存（emperorPersonId>0 且献帝存活）→ 走「授予」分支；汉室衰微则走「自称」分支（另配事件）。\n\n【效果】爵位变更为州牧（TitleId 3）。忠诚变化（授予=1/3/6）与城池效果由 TitlePromotionSystem 结算层统一处理。",
+    "Enabled": true,
+    "Priority": 200,
+    "Level": "Normal",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "MonthStart",
+      "Scope": "PlayerForce",
+      "Once": false,
+      "MaxFireCount": 1,
+      "CooldownTurns": 0,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionForce",
+        "Type": "Force",
+        "Source": "PlayerForce",
+        "Optional": false,
+        "Label": "玩家势力"
+      },
+      {
+        "Key": "ActionPerson",
+        "Type": "Person",
+        "Source": "ForceGovernor",
+        "ScopeSlot": "ActionForce",
+        "Optional": false,
+        "Label": "君主"
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        { "Type": "ForceTitle", "Params": { "Slot": "ActionForce", "TitleId": 2 } },
+        { "Type": "ForceCityCount", "Params": { "Slot": "ActionForce", "Min": 4 } },
+        { "Type": "EmperorAlive", "Params": { "Expect": true } }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "朝廷使者至，宣汉帝诏书。" }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "臣领诏。朝廷不以臣鄙陋，擢升州牧，臣必竭忠尽节！" }
+          ]
+        }
+      },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            { "Type": "ForceChangeTitle", "Params": { "ForceSlot": "ActionForce", "Title": 3 } }
+          ]
+        }
+      },
+      {
+        "Op": "Message",
+        "Params": { "Text": "{:ActionForce}受汉帝册封，爵位晋升为州牧！" }
+      },
+      { "Op": "End" }
+    ],
+    "Variables": {}
+  }
+]

@@ -41,7 +41,11 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty("BelongForce")]
         public int BelongForceId;
-        public Force BelongForce { get; set; }
+        /// <summary>
+        /// 所属势力（派生：读所属军团势力，对齐原版 Person::get_force_id() = district_->force_）。
+        /// 运行期不存储；BelongForceId 仅作存档冗余，权威在 BelongCorps。
+        /// </summary>
+        public Force BelongForce => BelongCorps?.BelongForce;
 
         public bool IsPlayer => BelongForce?.IsPlayer ?? false;
         /// <summary>
@@ -199,9 +203,35 @@ namespace Sango.Core
         /// 【约定】性格的一切行为都通过 <see cref="mPersonality"/> 的内嵌属性判断
         /// （倾向加成 / 执念城市 / 喜爱宝物 …），本字段只用于序列化与数据表定位。
         /// 需要"性格类型编号"时一律走 <see cref="PersonalityKind"/>。
+        ///
+        /// 【为什么是属性而不是字段】写入时立刻重建 <see cref="mPersonality"/>：
+        /// 编辑器改性格（UIPersonCreateDetail）、从武将库复制（Person.Clone）、剧本热重载
+        /// 这些路径都只写 Id，若不同步对象，性格效果会停留在旧值或变成 null 而静默失效。
         /// </summary>
         [JsonProperty("personality")]
-        public int PersonalityId;
+        public int PersonalityId
+        {
+            get { return mPersonalityId; }
+            set
+            {
+                mPersonalityId = value;
+                RefreshPersonality();
+            }
+        }
+
+        int mPersonalityId;
+
+        /// <summary>
+        /// 按当前 <see cref="PersonalityId"/> 重建 <see cref="mPersonality"/>。
+        /// 场景/数据表尚未就绪时直接跳过 —— <see cref="Init"/> 里还会再刷一次兜底。
+        /// </summary>
+        void RefreshPersonality()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.CommonData == null || scenario.CommonData.Personalities == null)
+                return;
+            mPersonality = scenario.Id2Object(scenario.CommonData.Personalities, mPersonalityId);
+        }
 
         /// <summary>
         /// 性格数据对象（性格判定的唯一入口）。
@@ -221,6 +251,30 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 性格编号（0 胆小 / 1 冷静 / 2 刚胆 / 3 莽撞），对应原版 <c>Person::seikaku_</c>
+        /// （s11_scen.h:1763，枚举 s11_enum_scen.h:387-402）。
+        ///
+        /// 【取值优先级】① 性格表里显式配置的 <see cref="Personality.seikaku"/>（&gt;= 0 时直接采用）；
+        /// ② 未配置(-1) 时按 <see cref="Personality.kind"/> 折算（kind 1~4 → seikaku 0~3，两者同序）；
+        /// ③ 无性格数据时取原版默认值冷静(1)（对应 kyoten_attack:38 的 <c>Seikaku_Reisei</c>）。
+        ///
+        /// 【谁在用】据点进攻 AI：留守人数/兵力下限、所需兵力系数、跨区进攻概率
+        /// （s11_game_ai_kyoten_cmd_mil_attack.cpp:38-70、:136）。
+        /// </summary>
+        public int Seikaku
+        {
+            get
+            {
+                if (mPersonality == null)
+                    return 1;
+                if (mPersonality.seikaku >= 0)
+                    return mPersonality.seikaku;
+                int kind = mPersonality.kind;
+                return kind >= 1 && kind <= 4 ? kind - 1 : 1;
+            }
+        }
+
+        /// <summary>
         /// 野心（0~4，越大越不甘居于人下）。
         ///
         /// 【数据来源】剧本 `Scenario.json` 里每条武将本来就带 `"ambition": N` 字段
@@ -230,6 +284,25 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty("ambition")]
         public int ambition;
+
+        /// <summary>
+        /// 血缘世代（原版 `generation_`）：0 = 家主/始祖，越大越晚辈。
+        /// 剧本 `Scenario.json` 里本来就带 `"generation": N`，此前无对应成员被丢弃。
+        /// </summary>
+        [JsonProperty("generation")]
+        public int generation;
+
+        /// <summary>
+        /// 战略倾向（原版 `strategic_tendency_`）：0~4，决定势力/军团的扩张取向。
+        /// </summary>
+        [JsonProperty("strategic_tendency")]
+        public int strategic_tendency;
+
+        /// <summary>
+        /// 晋升意向（原版 `promotion_`）：影响武将主动求官/升迁的意愿。
+        /// </summary>
+        [JsonProperty("promotion")]
+        public int promotion;
 
         /// <summary>
         /// 义理
@@ -287,9 +360,12 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 本武将已学会的能力 Id 集合（对应 Open311 Ability 表的"已学"标记）。
+        /// 本武将已学会的能力条目 Id 集合（**仅记账 / 展示**）。
         ///
-        /// 用途：`can_learn(person, ability)` 的第一道判据 —— 同一条能力不能对同一人重复生效。
+        /// 【不是可学判据】原版 <c>System::can_learn</c>（s11_sys_scen_ability.cpp:37-67）
+        /// 对基础能力只判"属性经验达上限 / pure &gt;= maxStat"，对特技只判 <c>has_skill</c>，
+        /// **没有** person 级"已学过这条 ability"的门槛 —— 同一人可以对同一条能力反复培育，
+        /// 直到数值或培育经验触及上限。故本项目保留本集合只作记账，判定侧不再读它。
         /// 与 <see cref="Force.learnedAbilityIds"/>（势力已研究）是两层：
         /// 势力研究解锁 → 武将逐个学习。
         /// </summary>
@@ -460,9 +536,70 @@ namespace Sango.Core
         [JsonProperty] public int consanguinity;
 
         /// <summary>
-        /// 伤病
+        /// 伤病等级（0=健康 / 1=轻伤 / 2=中伤 / 3=重伤）。写入时联动所属部队重算能力。
+        ///
+        /// 【为什么从字段改成属性】
+        /// 原版 Person::set_shoubyou（D:\open311\s11\s11_scen_obj_person.cpp:1403-1409）写完
+        /// shoubyou_ 后立刻 update_stat()，而 Person::update_stat 末尾会把"本人所在部队"一起重算：
+        ///     文件:1559-1561
+        ///     Unit* unit = scenario_->get_unit(get_unit_id());
+        ///     if (utils::is_alive(unit)) unit->update_stat();
+        ///
+        /// 本项目 Person.Command / Strength / ... 的 getter 已经过 ApplyInjuryDecay 折算伤病，
+        /// 但部队的 Attack / Defence / BuildPower 是"算一次存下来"的值（CalculateAttribute），
+        /// 武将伤病变化后不会自动刷新。把写入收口到 setter，任何路径（单挑、疾病事件、
+        /// PersonInjury.Injure / TryRecover / Heal、编辑器改值）都会触发一次部队重算，闭环成立。
         /// </summary>
-        [JsonProperty] public int injury;
+        [JsonProperty]
+        public int injury
+        {
+            get { return mInjury; }
+            set
+            {
+                // 值没变就不做任何事：读档与批量初始化会反复写同一个值，
+                // 不判等的话每写一次就重算一次部队属性（CalculateAttribute 内含事件派发，代价不低）。
+                if (mInjury == value) return;
+                mInjury = value;
+                OnInjuryChanged();
+            }
+        }
+
+        /// <summary>伤病的实际存储值，见 <see cref="injury"/></summary>
+        int mInjury;
+
+        /// <summary>
+        /// 伤病变化后的联动：重算本人所在部队的能力。
+        /// 对应原版 Person::update_stat 末尾的 unit->update_stat()（s11_scen_obj_person.cpp:1559-1561）。
+        /// 不在部队里（mBelongTroop 为空）时什么都不做——原版同样是 get_unit_id() 找不到 Unit 就跳过。
+        /// </summary>
+        void OnInjuryChanged()
+        {
+            // 防重入：CalculateAttribute 会派发 GameEvent.OnTroopCalculateAttribute，
+            // 若某个 Action 的监听里又改了武将伤病，就会绕回这里，用标志截断，避免无限递归。
+            if (s_injuryRecalcBusy) return;
+
+            Troop troop = mBelongTroop;
+            if (troop == null || !troop.IsAlive) return;
+            // 部队还没编成（主将未赋值）时跳过：CalculateAttribute 内部要用 Leader.TroopsLimit，
+            // 这种半成品状态由部队自己的 Init 负责首次计算。
+            if (troop.Leader == null) return;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null) return;
+
+            s_injuryRecalcBusy = true;
+            try
+            {
+                troop.CalculateAttribute(scenario);
+            }
+            finally
+            {
+                s_injuryRecalcBusy = false;
+            }
+        }
+
+        /// <summary>防止"改伤病 → 重算部队 → 监听器又改伤病"造成递归</summary>
+        static bool s_injuryRecalcBusy;
 
         /// <summary>
         /// 汉室态度
@@ -872,6 +1009,20 @@ namespace Sango.Core
         /// </summary>
         public int MachineLv => machineLv.value;
 
+        /// <summary>
+        /// 是否健康（无伤病）。
+        ///
+        /// 对齐出处：Open311 `Person::get_shoubyou()` 与 `ShoubyouEnum`
+        /// （s11_enum_scen.h:453-462）：`Shoubyou_Kenkou = 0` 健康 / 1 轻症 / 2 重症 / 3 濒死。
+        /// 本项目用 <see cref="injury"/> 承载同一语义（0 = 健康 / 1 轻伤 / 2 中伤 / 3 重伤）。
+        /// <para>
+        /// 消费者：能力培育的 `can_learn_order`（s11_sys_person_order_kunshu.cpp:1634-1635：
+        /// `if (person->get_shoubyou() != Shoubyou_Kenkou) return false;`）——
+        /// 轻伤及以上的人不能闭门研习。
+        /// </para>
+        /// </summary>
+        public bool IsHealthy => injury <= 0;
+
         /// <summary>伤病等级上限（0=健康 / 1=轻伤 / 2=中伤 / 3=重伤，与 InjuryLevel.NearDeath 一致）</summary>
         public const int InjuryMaxLevel = 3;
 
@@ -1046,7 +1197,13 @@ namespace Sango.Core
         public int Age { get; private set; }
 
         /// <summary>
-        /// 是否空闲
+        /// 是否空闲（无部队 / 无任务 / 非俘虏 / 未死亡）。
+        ///
+        /// 【同时是原版 `can_learn_order` 的对齐锚点】Open311 的 can_learn_order
+        /// （s11_sys_person_order_kunshu.cpp:1602-1637）判了七八条：势力归属 / 身分 /
+        /// 未行动 / 无 order timer / 在城内待命 / 未编成部队 / 健康。本项目统一收敛为
+        /// 「<see cref="IsFree"/>（= 无部队 + 无任务 + 非俘虏 + 存活）+ <see cref="IsHealthy"/>（无伤病）」
+        /// 两条，能力培育（AbilityStudySystem）全部只判这两条，不再另写 is_action_done / is_at_service 分支。
         /// </summary>
         public bool IsFree { get { return mBelongTroop == null && missionType == (int)MissionType.None && !IsPrisoner && !IsDead; } }
 
@@ -1147,8 +1304,8 @@ namespace Sango.Core
             FixupBarbarianTribe();
 
             ResolveReferenceObjects(scenario);      // 官职/等级/装备/工作建筑：只存 id，在这里解析
-            BelongForce = scenario.Id2Object(scenario.forceSet, BelongForceId);
             BelongCorps = scenario.Id2Object(scenario.corpsSet, BelongCorpsId);
+            // BelongForce 派生自 BelongCorps（对齐原版 get_force_id = district_->force_），不单独反序列化。
             BelongCity = scenario.Id2Object(scenario.citySet, BelongCityId);
             CurrentCity = scenario.Id2Object(scenario.citySet, CurrentCityId);
             if (CurrentCity == null && BelongCity != null)
@@ -1224,7 +1381,7 @@ namespace Sango.Core
                             BelongCorpsId = BelongCity.BelongCorpsId;
                             BelongCorps = scenario.Id2Object(scenario.corpsSet, BelongCorpsId);
                             BelongForceId = BelongCorps.BelongForceId;
-                            BelongForce = scenario.Id2Object(scenario.forceSet, BelongForceId);
+                            // BelongForce 派生自 BelongCorps，无需单独反序列化
                             BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
                             if (BelongForce.Governor != Id)
@@ -1238,7 +1395,7 @@ namespace Sango.Core
                         if (BelongCity != null)
                         {
                             BelongCorps = BelongCity.BelongCorps;
-                            BelongForce = BelongCity.BelongForce;
+                            // BelongForce 派生自 BelongCorps
                             BelongCity.AddPerson(this);
 
                             if (BelongCorps.Comander != Id)
@@ -1253,7 +1410,7 @@ namespace Sango.Core
                         if (BelongCity != null)
                         {
                             BelongCorps = BelongCity.BelongCorps;
-                            BelongForce = BelongCity.BelongForce;
+                            // BelongForce 派生自 BelongCorps
                             BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
                             if (BelongCity.Leader == null)
@@ -1269,7 +1426,7 @@ namespace Sango.Core
                         if (BelongCity != null)
                         {
                             BelongCorps = BelongCity.BelongCorps;
-                            BelongForce = BelongCity.BelongForce;
+                            // BelongForce 派生自 BelongCorps
                             BelongCity.AddPerson(this);
                             CheckBelongConsistency();
                         }
@@ -1277,7 +1434,7 @@ namespace Sango.Core
                     // 在野
                     case PersonStateType.Unemployed:
                         BelongCorps = null;
-                        BelongForce = null;
+                        // BelongForce 派生自 BelongCorps，随军团一并清空
                         if (BelongCity != null)
                         {
                             CurrentCity = BelongCity;
@@ -1334,12 +1491,12 @@ namespace Sango.Core
                     // 未登场
                     case PersonStateType.Invalid:
                         BelongCorps = null;
-                        BelongForce = null;
+                        // BelongForce 派生自 BelongCorps，随军团一并清空
                         break;
                     // 未发现
                     case PersonStateType.Invisible:
                         BelongCorps = null;
-                        BelongForce = null;
+                        // BelongForce 派生自 BelongCorps，随军团一并清空
                         if (CurrentCity != null)
                             CurrentCity.AddInvisiblePerson(this);
                         else if (BelongCity != null)
@@ -1357,7 +1514,7 @@ namespace Sango.Core
                     // 死亡
                     case PersonStateType.Dead:
                         BelongCorps = null;
-                        BelongForce = null;
+                        // BelongForce 派生自 BelongCorps，随军团一并清空
                         break;
                 }
             }
@@ -1413,7 +1570,7 @@ namespace Sango.Core
             Sango.Log.Error($"[{Id}]{Name}归属force:{BelongForce?.Name} corps:{BelongCorps?.Name}, 但在city[{BelongCity?.Name}] force:{BelongCity.BelongForce?.Name} corps:{BelongCity.BelongCorps?.Name}");
             // 【修复】放开自动修正：读档 / 运行期发现归属与所属城不一致时以城为准校正，
             // 避免脏数据随随机移动 / 登庸 / 内政链路继续传播（原先只报错不修）。
-            BelongForce = BelongCity.BelongForce;
+            // 势力由军团派生（Open311: Person::get_force_id = district_->force_），只改军团即可。
             BelongCorps = BelongCity.BelongCorps;
         }
 
@@ -1925,9 +2082,9 @@ namespace Sango.Core
                         {
                             if (belongP.BelongForce != null)
                             {
-                                BelongForce = belongP.BelongForce;
-                                BelongCorps = BelongForce.CapitalCorps;
-                                BelongCity = BelongForce.CapitalCity;
+                                Force belongForce = belongP.BelongForce;
+                                BelongCorps = belongForce.CapitalCorps;
+                                BelongCity = belongForce.CapitalCity;
                                 CurrentCity = BelongCity;
                                 BelongCity.AddPerson(this);
                                 BelongCity.freePersons.Add(this);
@@ -2049,6 +2206,18 @@ namespace Sango.Core
 
         public override bool OnTurnEnd(Scenario scenario)
         {
+            // 异族 / 贼 / 事件 / NPC 武将不参与"在野移动 + 无城市自动分配"的纠正：
+            // 这几类由异族系统 / 事件系统管理，所在城市（CurrentCity / BelongCity）本来就允许为空，
+            // 若照常规规则随机分配城市，会把异族武将拉到普通城、污染在野/隐身名单并刷 Error 日志。
+            // 对齐原版 `is_event() or is_iminzoku() or is_bandit()`：
+            //   · is_iminzoku / is_bandit 按**所属势力**判断（BelongForce.IsBarbarian / IsBandit），
+            //     而非 Person.barbarianTribe 字段——异族部队克隆体的 barbarianTribe 可能未固化，
+            //     但所属势力的类型（forceType）在根城系统补正后是权威的；
+            //   · IsSpecialPerson 保留为字段兜底（事件 / NPC + 已固化的异族标记）。
+            if (IsSpecialPerson
+                || (BelongForce != null && (BelongForce.IsBarbarian || BelongForce.IsBandit)))
+                return base.OnTurnEnd(scenario);
+
             // 在野武将移动逻辑
             if (IsWild || state == (int)PersonStateType.Invisible)
             {
@@ -2273,13 +2442,8 @@ namespace Sango.Core
                 last = BelongCorps;
                 BelongCorps = corps;
 
-                // 【锚点】势力由军团派生（Open311: Person::get_force_id = district_->force_）。
-                // 原先这里只改军团不同步势力，于是 City.UpdateCorps 批量改军团之后，
-                // 会出现"人在新军团、势力还是旧势力"的分裂 —— 这类数据只能靠年度巡检兜，
-                // 期间 AI 出兵判断、俸禄、外交全都在读错的势力。
-                Force newForce = corps != null ? corps.BelongForce : null;
-                if (BelongForce != newForce)
-                    BelongForce = newForce;
+                // 【锚点】势力由军团派生（Open311: Person::get_force_id = district_->force_），
+                // 运行期不存储，故只改军团即可，势力自动跟随。
             }
             return last;
         }
@@ -2331,10 +2495,7 @@ namespace Sango.Core
                     if (BelongCorps != city.BelongCorps)
                         BelongCorps = city.BelongCorps;
                     // 【锚点】势力由军团派生（Open311: Person::get_force_id = district_->force_），
-                    // 不直接读城的势力字段 —— 城若留着与军团不一致的旧势力，会把武将一起带偏。
-                    Force newForce = BelongCorps != null ? BelongCorps.BelongForce : city.BelongForce;
-                    if (BelongForce != newForce)
-                        BelongForce = newForce;
+                    // 运行期不存储，故只改军团即可，势力自动跟随。
                     city.AddPerson(this);
                 }
                 else
@@ -2345,7 +2506,6 @@ namespace Sango.Core
                     BelongCity?.RemoveWildPerson(this);
                     BelongCity = city;
                     BelongCorps = null;
-                    BelongForce = null;
                     city.AddWildPerson(this);
                 }
 
@@ -2520,10 +2680,13 @@ namespace Sango.Core
             }
             else
             {
+                // 【修复】在野/未发现武将的 CurrentCity 可能为 null（部队溃灭时无户口成员的中间态），
+                // 直接解引用 RemoveWildPerson 会空引用崩溃。判空跳过移除即可：后续 JoinToForce -> Recruit
+                // 会统一把 CurrentCity 落到目标城。
                 if (IsWild)
-                    CurrentCity.RemoveWildPerson(this);
+                    CurrentCity?.RemoveWildPerson(this);
                 else if (Invisible)
-                    CurrentCity.RemoveInvisiblePerson(this);
+                    CurrentCity?.RemoveInvisiblePerson(this);
                 else
                     BelongCity?.RemovePerson(this);
 
@@ -2685,7 +2848,6 @@ namespace Sango.Core
             }
 
             BelongCorps = null;
-            BelongForce = null;
             mBelongTroop = null;
         }
 
@@ -3476,7 +3638,6 @@ namespace Sango.Core
             // 死亡武将不再参与任何部队与建造
             mBelongTroop = null;
             workingBuilding = null;
-            BelongForce = null;
             BelongCorps = null;
 
             // 【修复】任务也要一并清掉。回合推进只对 IsAlive 的武将跑 UpdateMission

@@ -343,10 +343,13 @@ namespace Sango.Core
             }
 
             // ② 物资输送：辖下有富余资源的据点 —— :160-209
-            if (corps.GetAppointValue(Corps.AppointContentType.Transport) == 1)
+            // 原版判定：`district->has_setting(DistrictSetting_Transport)`（s11_game_ai_district.cpp:160），
+            // 开关位非 0 即启用；目的地另由 `transport_dest_building_` 提供（同文件 :162）。
+            // 用 `!= 0` 而非 `== 1`，兼容尚未迁移的旧存档（城池 Id 被写进开关位）。
+            if (corps.GetAppointValue(Corps.AppointContentType.Transport) != 0)
             {
-                // 运输终点的三级回退统一由 Corps.GetTransportDestCityId 提供
-                // （指定据点 → 目标军团都督据点 → 中期目标城），
+                // 运输终点按原版两级口径解析（指定据点 → 旧存档的目标军团都督据点），
+                // 详见 Corps.GetTransportDestCityId；
                 // 与据点级 AITransport 的玩家运输路径共用同一份口径。
                 int destId = corps.GetTransportDestCityId(scenario);
                 City dest = destId > 0 ? scenario.citySet.Get(destId) : null;
@@ -393,6 +396,10 @@ namespace Sango.Core
                             || GetEquipment(extraEquipment, ItemStoreKindType.Catapult) >= 1
                             || GetEquipment(extraEquipment, ItemStoreKindType.Boat) >= 1)
                         {
+                            // 原版 :206-207 的行为是收集所有达标据点后取
+                            // `building_list[building_list.size()]` —— 下标等于 size() 属越界读
+                            // （std::vector::operator[] 不做边界检查，是未定义行为）。
+                            // 这里取**首个**达标据点，不复制该缺陷。
                             corps.districtTransportSrcId = city.Id;
                             break;
                         }

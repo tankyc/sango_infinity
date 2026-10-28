@@ -79,6 +79,10 @@ namespace Sango.Core
             SkillSpellConditionMethod.Init();
             SkillCriticalMethod.Init();
             SkillRangeFilterMethod.Init();
+            // 战斗公式逻辑库（与上面四个同一套可插拔范式）
+            TroopDamageMethod.Init();
+            GarrisonDamageMethod.Init();
+            DurabilityDamageMethod.Init();
             ModManager.Instance.Init();
             GameLanguage.Instance.Init("cn");
             GameSystemManager.Instance.Init();

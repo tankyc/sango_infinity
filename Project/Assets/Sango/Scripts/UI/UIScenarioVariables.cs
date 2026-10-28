@@ -35,7 +35,18 @@ namespace Sango.UI
         protected List<GameObject> pool_dropdownObj = new List<GameObject>();
         protected List<GameObject> pool_toggleObj = new List<GameObject>();
         protected List<GameObject> pool_toggleGroupObj = new List<GameObject>();
+        /// <summary>按钮行池。模板复用 titleObj（排版一致），但**单独成池**，
+        /// 避免被加过 Button/Image 的对象回流到普通标题行里误响应点击。</summary>
+        protected List<GameObject> pool_buttonObj = new List<GameObject>();
+        /// <summary>输入行池。同样复用 titleObj 做排版，只多挂 Image + InputField。</summary>
+        protected List<GameObject> pool_inputObj = new List<GameObject>();
         protected List<GameObject> itemList = new List<GameObject>();
+
+        /// <summary>
+        /// 参数预设输入框里的名字。参数界面每次 <see cref="RefreshSetting"/> 都会整页重建，
+        /// 输入框对象会被回收，所以名字必须存在字段上，否则刷新一次就被清空。
+        /// </summary>
+        string presetNameInput;
 
         public Action onSure;
         public Action onCancel;
@@ -83,10 +94,20 @@ namespace Sango.UI
         float[] lvlFactor = new float[] { 1f, 1f, 1.2f, 2f };
         float[] player_lvlFactor = new float[] { 1.2f, 1f, 1f, 0.9f };
 
+        /// <summary>
+        /// 寿命模式显示名，索引 = <see cref="ScenarioInfo.lifeMode"/> / <see cref="ScenarioVariables.lifeMode"/>：
+        /// 0 史实 / 1 长寿 / 2 虚构 / 3 无死亡。
+        /// </summary>
+        static readonly string[] LifeModeNames = { "史实", "长寿", "虚构", "无死亡" };
+
         public void ShowVariables(Scenario scenario)
         {
             ScenarioVariables variables = scenario.Variables;
             AddBigTitle(scenario.Name);
+
+            // 参数预设放在最前面：玩家进来先决定"用哪套参数"，再往下微调
+            ShowPresetSection(scenario);
+
             AddTitle("难度选择");
             AddToggleGroupItem("难度", variables.difficulty, new List<string> { "简单", "普通", "困难", "超级" }, (v) =>
             {
@@ -127,9 +148,27 @@ namespace Sango.UI
             //   2 虚构    —— 不结算寿终，只有战死 / 处决 / 事件会死人
             //   3 无死亡  —— 同虚构，保留给"英雄集结"类剧本
             // 注意：与上面的「年龄生效」不是一回事 —— 那个只控制能力值是否随年龄衰减。
-            AddToggleGroupItem("寿命模式", variables.lifeMode,
-                new List<string> { "史实", "长寿", "虚构", "无死亡" },
-                (v) => { variables.lifeMode = v; });
+            //
+            // 【锁定规则】剧本信息（ScenarioInfo.lifeMode）取值 ≥0 时以剧本信息为准：
+            // 这里只显示一行只读说明，玩家改不动 —— 寿命模式是剧本作者的史实设定
+            // （"英雄集结"必须无死亡），不该在开局参数里被改成会把人老死的档位。
+            if (scenario.Info != null && scenario.Info.HasLifeMode)
+            {
+                int lockedMode = Mathf.Clamp(scenario.Info.lifeMode, 0, LifeModeNames.Length - 1);
+                AddTitle($"寿命模式：{LifeModeNames[lockedMode]}（由剧本信息锁定，不可修改）");
+            }
+            else
+            {
+                AddToggleGroupItem("寿命模式", variables.lifeMode,
+                    new List<string> { "史实", "长寿", "虚构", "无死亡" },
+                    (v) => { variables.lifeMode = v; });
+            }
+
+            // 战死频率：全局唯一口径（单挑战死、俘虏处斩的战死系数都读它），
+            // 0 无 / 1 普通(2%) / 2 高(5%)
+            AddToggleGroupItem("战死频率", variables.battleDeathMode,
+                new List<string> { "无", "普通", "高" },
+                (v) => { variables.battleDeathMode = v; });
 
             AddNumberItem("建筑间隔距离", variables.BuildingSpace, 0, 2, (v) => { variables.BuildingSpace = v; });
             AddToggleItem("是否让武将在登场年份到达后登场", variables.allowInvalidPersonValidWhenYearPass, (v) => { variables.allowInvalidPersonValidWhenYearPass = v;});
@@ -163,7 +202,10 @@ namespace Sango.UI
             AddNumberItem("每月变化的关系值", variables.relationChangePerMonth, -1000, 1000, (v) => { variables.relationChangePerMonth = v; });
             AddNumberItem("每月的关系变化率(百分比)", variables.relationChangeChance, 0, 100, (v) => { variables.relationChangeChance = v; });
             AddNumberItem("破城时候的抓捕率(百分比)", variables.captureChangceWhenCityFall, 0, 100, (v) => { variables.captureChangceWhenCityFall = v; });
-            AddNumberItem("最后一城时候的抓捕率(百分比)", variables.captureChangceWhenLastCityFall, 0, 100, (v) => { variables.captureChangceWhenLastCityFall = v; });
+            // 【已移除】"最后一城时候的抓捕率"：原版势力最后一城被攻陷时是全員必俘、不掷骰
+            // （s11_sys_event_capture.cpp:452-456 的 `not node.remaining` 分支），
+            // 本项目城陷流程的最后一城分支同样无条件入待俘列表（City.OnFall），
+            // 该配置从来没有生效点，留在界面上会误导数值调整。
             AddNumberItem("队伍溃败时候的抓捕率(百分比)", variables.captureChangceWhenTroopFall, 0, 100, (v) => { variables.captureChangceWhenTroopFall = v; });
             AddNumberItem("单挑获胜时候的基础抓捕率(百分比)", variables.captureChangceWhenDuelWin, 0, 100, (v) => { variables.captureChangceWhenDuelWin = v; });
 
@@ -201,8 +243,9 @@ namespace Sango.UI
      
             AddTitle("单挑参数");
             AddNumberItem("战法命中后触发单挑的基础概率(百分比)", variables.skillDuelChance, 0, 100, (v) => { variables.skillDuelChance = v; });
-            AddToggleGroupItem("单挑寿命模式", variables.duelLifeMode, new List<string> { "普通", "虚拟" }, (v) => { variables.duelLifeMode = v; });
-            AddToggleGroupItem("单挑战死频率", variables.duelDeathMode, new List<string> { "无", "普通", "高" }, (v) => { variables.duelDeathMode = v; });
+            // 【已移除】单挑寿命模式 / 单挑战死频率：改为沿用全局
+            //（寿命模式见上方「寿命模式」项，战死频率见上方「战死频率」项），
+            // 否则会出现"寿终按史实算、单挑按虚拟算年龄衰减"的分裂。
             AddToggleItem("单挑-禁用一击必杀(一合取胜)", variables.duelDisableFirstTurnKill, (v) => { variables.duelDisableFirstTurnKill = v; });
             AddToggleItem("单挑-禁用捕缚(不会捕获敌将)", variables.duelDisableCapture, (v) => { variables.duelDisableCapture = v; });
             AddToggleItem("单挑-禁用AI退却", variables.duelDisableAIRetreat, (v) => { variables.duelDisableAIRetreat = v; });
@@ -218,37 +261,7 @@ namespace Sango.UI
             AddNumberItem("近战击溃部队缴获的金钱比例(百分比)", variables.defeatTroopCanGainGoldFactor, 0, 100, (v) => { variables.defeatTroopCanGainGoldFactor = v; });
             AddNumberItem("近战击溃部队缴获的粮食比例(百分比)", variables.defeatTroopCanGainFoodFactor, 0, 100, (v) => { variables.defeatTroopCanGainFoodFactor = v; });
 
-            //AddTitle("城市沦陷保留参数");
-            //AddNumberItem("城市沦陷可以保留金钱比例(等级1)", variables.cityFallCanKeepGoldFactor[0], 0, 100, (v) => { variables.cityFallCanKeepGoldFactor[0] = v; });
-            //AddNumberItem("城市沦陷可以保留金钱比例(等级2)", variables.cityFallCanKeepGoldFactor[1], 0, 100, (v) => { variables.cityFallCanKeepGoldFactor[1] = v; });
-            //AddNumberItem("城市沦陷可以保留金钱比例(等级3)", variables.cityFallCanKeepGoldFactor[2], 0, 100, (v) => { variables.cityFallCanKeepGoldFactor[2] = v; });
-            //AddNumberItem("城市沦陷可以保留金钱比例(等级4)", variables.cityFallCanKeepGoldFactor[3], 0, 100, (v) => { variables.cityFallCanKeepGoldFactor[3] = v; });
-
-            //AddNumberItem("城市沦陷可以保留粮食比例(等级1)", variables.cityFallCanKeepFoodFactor[0], 0, 100, (v) => { variables.cityFallCanKeepFoodFactor[0] = v; });
-            //AddNumberItem("城市沦陷可以保留粮食比例(等级2)", variables.cityFallCanKeepFoodFactor[1], 0, 100, (v) => { variables.cityFallCanKeepFoodFactor[1] = v; });
-            //AddNumberItem("城市沦陷可以保留粮食比例(等级3)", variables.cityFallCanKeepFoodFactor[2], 0, 100, (v) => { variables.cityFallCanKeepFoodFactor[2] = v; });
-            //AddNumberItem("城市沦陷可以保留粮食比例(等级4)", variables.cityFallCanKeepFoodFactor[3], 0, 100, (v) => { variables.cityFallCanKeepFoodFactor[3] = v; });
-
-            //AddNumberItem("城市沦陷可以保留士兵比例(等级1)", variables.cityFallCanKeepTroopsFactor[0], 0, 100, (v) => { variables.cityFallCanKeepTroopsFactor[0] = v; });
-            //AddNumberItem("城市沦陷可以保留士兵比例(等级2)", variables.cityFallCanKeepTroopsFactor[1], 0, 100, (v) => { variables.cityFallCanKeepTroopsFactor[1] = v; });
-            //AddNumberItem("城市沦陷可以保留士兵比例(等级3)", variables.cityFallCanKeepTroopsFactor[2], 0, 100, (v) => { variables.cityFallCanKeepTroopsFactor[2] = v; });
-            //AddNumberItem("城市沦陷可以保留士兵比例(等级4)", variables.cityFallCanKeepTroopsFactor[3], 0, 100, (v) => { variables.cityFallCanKeepTroopsFactor[3] = v; });
-
-            //AddNumberItem("城市沦陷可以保留库存比例(等级1)", variables.cityFallCanKeepItemFactor[0], 0, 100, (v) => { variables.cityFallCanKeepItemFactor[0] = v; });
-            //AddNumberItem("城市沦陷可以保留库存比例(等级2)", variables.cityFallCanKeepItemFactor[1], 0, 100, (v) => { variables.cityFallCanKeepItemFactor[1] = v; });
-            //AddNumberItem("城市沦陷可以保留库存比例(等级3)", variables.cityFallCanKeepItemFactor[2], 0, 100, (v) => { variables.cityFallCanKeepItemFactor[2] = v; });
-            //AddNumberItem("城市沦陷可以保留库存比例(等级4)", variables.cityFallCanKeepItemFactor[3], 0, 100, (v) => { variables.cityFallCanKeepItemFactor[3] = v; });
-
-            //AddNumberItem("城市沦陷可以保留农业比例(等级1)", variables.cityFallCanKeepAgriculture[0], 0, 100, (v) => { variables.cityFallCanKeepAgriculture[0] = v; });
-            //AddNumberItem("城市沦陷可以保留农业比例(等级2)", variables.cityFallCanKeepAgriculture[1], 0, 100, (v) => { variables.cityFallCanKeepAgriculture[1] = v; });
-            //AddNumberItem("城市沦陷可以保留农业比例(等级3)", variables.cityFallCanKeepAgriculture[2], 0, 100, (v) => { variables.cityFallCanKeepAgriculture[2] = v; });
-            //AddNumberItem("城市沦陷可以保留农业比例(等级4)", variables.cityFallCanKeepAgriculture[3], 0, 100, (v) => { variables.cityFallCanKeepAgriculture[3] = v; });
-
-            //AddNumberItem("城市沦陷可以保留开发比例(等级1)", variables.cityFallCanKeepCommerce[0], 0, 100, (v) => { variables.cityFallCanKeepCommerce[0] = v; });
-            //AddNumberItem("城市沦陷可以保留开发比例(等级2)", variables.cityFallCanKeepCommerce[1], 0, 100, (v) => { variables.cityFallCanKeepCommerce[1] = v; });
-            //AddNumberItem("城市沦陷可以保留开发比例(等级3)", variables.cityFallCanKeepCommerce[2], 0, 100, (v) => { variables.cityFallCanKeepCommerce[2] = v; });
-            //AddNumberItem("城市沦陷可以保留开发比例(等级4)", variables.cityFallCanKeepCommerce[3], 0, 100, (v) => { variables.cityFallCanKeepCommerce[3] = v; });
-
+           
             AddTitle("越狱参数");
             AddNumberItem("基础越狱概率(万分比)", variables.baseEscapeProbabllity, 0, 10000, (v) => { variables.baseEscapeProbabllity = v; });
             AddNumberItem("越狱概率每回合增长(万分比)", variables.baseEscapeProbablilityAddByTurn, 0, 1000, (v) => { variables.baseEscapeProbablilityAddByTurn = v; });
@@ -262,129 +275,12 @@ namespace Sango.UI
             AddTitle("系统参数");
             AddNumberItem("寻路安全次数限制", variables.pathfindingSafeCount, 1000, 10000000, (v) => { variables.pathfindingSafeCount = v; });
 
-            //AddTitle("外交系统参数");
-            //AddNumberItem("外交关系阈值 - 结盟", variables.diplomacyAllianceRelationThreshold, -5000, 5000, (v) => { variables.diplomacyAllianceRelationThreshold = v; });
-            //AddNumberItem("外交关系阈值 - 停战", variables.diplomacyTruceRelationThreshold, -5000, 5000, (v) => { variables.diplomacyTruceRelationThreshold = v; });
-            //AddNumberItem("外交关系阈值 - 请求技术", variables.diplomacyRequestTechniqueRelationThreshold, -5000, 5000, (v) => { variables.diplomacyRequestTechniqueRelationThreshold = v; });
-            //AddNumberItem("外交关系阈值 - 请求兵力", variables.diplomacyRequestTroopsRelationThreshold, -5000, 5000, (v) => { variables.diplomacyRequestTroopsRelationThreshold = v; });
-            //AddNumberItem("外交关系阈值 - 通商", variables.diplomacyTradeRelationThreshold, -5000, 5000, (v) => { variables.diplomacyTradeRelationThreshold = v; });
-            //AddNumberItem("外交关系阈值 - 和亲", variables.diplomacyMarriageRelationThreshold, -5000, 5000, (v) => { variables.diplomacyMarriageRelationThreshold = v; });
-            //AddNumberItem("外交关系阈值 - 请求结盟", variables.diplomacyAllianceRequestRelationThreshold, -5000, 5000, (v) => { variables.diplomacyAllianceRequestRelationThreshold = v; });
-            //AddNumberItem("外交关系阈值 - 请求停战", variables.diplomacyTruceRequestRelationThreshold, -5000, 5000, (v) => { variables.diplomacyTruceRequestRelationThreshold = v; });
-            //AddNumberItem("使者能力加成上限", variables.diplomacyAbilityBonusMax, 0, 100, (v) => { variables.diplomacyAbilityBonusMax = v; });
-            //AddNumberItem("资源价值加成上限", variables.diplomacyResourceBonusMax, 0, 100, (v) => { variables.diplomacyResourceBonusMax = v; });
-            //AddNumberItem("资源价值加成系数", variables.diplomacyResourceBonusFactor, 1, 1000, (v) => { variables.diplomacyResourceBonusFactor = v; });
-            //AddNumberItem("结盟关系增加", variables.diplomacyAllianceRelationIncrease, -1000, 1000, (v) => { variables.diplomacyAllianceRelationIncrease = v; });
-            //AddNumberItem("停战关系增加", variables.diplomacyTruceRelationIncrease, -1000, 1000, (v) => { variables.diplomacyTruceRelationIncrease = v; });
-            //AddNumberItem("宣战关系减少", variables.diplomacyDeclareWarRelationDecrease, -1000, 1000, (v) => { variables.diplomacyDeclareWarRelationDecrease = v; });
-            //AddNumberItem("送礼金额", variables.diplomacySendGiftAmount, 100, 10000, (v) => { variables.diplomacySendGiftAmount = v; });
-            //AddNumberItem("送礼关系增加比例", variables.diplomacySendGiftRelationFactor, 1, 100, (v) => { variables.diplomacySendGiftRelationFactor = v; });
-            //AddNumberItem("请求技术关系减少", variables.diplomacyRequestTechniqueRelationDecrease, -1000, 1000, (v) => { variables.diplomacyRequestTechniqueRelationDecrease = v; });
-            //AddNumberItem("请求兵力关系减少", variables.diplomacyRequestTroopsRelationDecrease, -1000, 1000, (v) => { variables.diplomacyRequestTroopsRelationDecrease = v; });
-            //AddNumberItem("通商关系增加", variables.diplomacyTradeRelationIncrease, -1000, 1000, (v) => { variables.diplomacyTradeRelationIncrease = v; });
-            //AddNumberItem("通商黄金收入增加", variables.diplomacyTradeGoldIncrease, 0, 1000, (v) => { variables.diplomacyTradeGoldIncrease = v; });
-            //AddNumberItem("和亲关系增加", variables.diplomacyMarriageRelationIncrease, -1000, 1000, (v) => { variables.diplomacyMarriageRelationIncrease = v; });
-            //AddNumberItem("和亲额外关系增加", variables.diplomacyMarriageExtraRelationIncrease, -1000, 1000, (v) => { variables.diplomacyMarriageExtraRelationIncrease = v; });
-            //AddNumberItem("赎回俘虏关系增加比例", variables.diplomacyRansomRelationFactor, 1, 100, (v) => { variables.diplomacyRansomRelationFactor = v; });
-            //AddNumberItem("请求结盟关系增加", variables.diplomacyAllianceRequestRelationIncrease, -1000, 1000, (v) => { variables.diplomacyAllianceRequestRelationIncrease = v; });
-            //AddNumberItem("请求停战关系增加", variables.diplomacyTruceRequestRelationIncrease, -1000, 1000, (v) => { variables.diplomacyTruceRequestRelationIncrease = v; });
-            //AddNumberItem("撕毁同盟关系减少", variables.diplomacyBreakAllianceRelationDecrease, -1000, 1000, (v) => { variables.diplomacyBreakAllianceRelationDecrease = v; });
-            //AddNumberItem("撕毁停战关系减少", variables.diplomacyBreakTruceRelationDecrease, -1000, 1000, (v) => { variables.diplomacyBreakTruceRelationDecrease = v; });
-            //AddNumberItem("撕毁通商关系减少", variables.diplomacyBreakTradeRelationDecrease, -1000, 1000, (v) => { variables.diplomacyBreakTradeRelationDecrease = v; });
-            //AddNumberItem("同盟持续时间", variables.diplomacyAllianceDuration, 1, 100, (v) => { variables.diplomacyAllianceDuration = v; });
-            //AddNumberItem("停战持续时间", variables.diplomacyTruceDuration, 1, 100, (v) => { variables.diplomacyTruceDuration = v; });
-            //AddNumberItem("通商持续时间", variables.diplomacyTradeDuration, 1, 100, (v) => { variables.diplomacyTradeDuration = v; });
-            //AddNumberItem("每月同盟关系增加", variables.diplomacyMonthlyAllianceRelationIncrease, -1000, 1000, (v) => { variables.diplomacyMonthlyAllianceRelationIncrease = v; });
-            //AddNumberItem("每月普通关系减少", variables.diplomacyMonthlyNormalRelationDecrease, -1000, 1000, (v) => { variables.diplomacyMonthlyNormalRelationDecrease = v; });
-
-            //AddTitle("外交成功率参数");
-            //// 结盟成功率参数
-            //AddNumberItem("结盟基础成功率", variables.diplomacyAllianceBaseSuccessRate, 0, 100, (v) => { variables.diplomacyAllianceBaseSuccessRate = v; });
-            //AddNumberItem("结盟关系系数", variables.diplomacyAllianceRelationFactor, 1, 100, (v) => { variables.diplomacyAllianceRelationFactor = v; });
-            //AddNumberItem("结盟最大成功率", variables.diplomacyAllianceMaxSuccessRate, 0, 100, (v) => { variables.diplomacyAllianceMaxSuccessRate = v; });
-            //AddNumberItem("结盟最低成功率", variables.diplomacyAllianceMinSuccessRate, 0, 100, (v) => { variables.diplomacyAllianceMinSuccessRate = v; });
-
-            //// 停战成功率参数
-            //AddNumberItem("停战基础成功率", variables.diplomacyTruceBaseSuccessRate, 0, 100, (v) => { variables.diplomacyTruceBaseSuccessRate = v; });
-            //AddNumberItem("停战关系系数", variables.diplomacyTruceRelationFactor, 1, 100, (v) => { variables.diplomacyTruceRelationFactor = v; });
-            //AddNumberItem("停战最大成功率", variables.diplomacyTruceMaxSuccessRate, 0, 100, (v) => { variables.diplomacyTruceMaxSuccessRate = v; });
-            //AddNumberItem("停战最低成功率", variables.diplomacyTruceMinSuccessRate, 0, 100, (v) => { variables.diplomacyTruceMinSuccessRate = v; });
-
-            //// 请求技术成功率参数
-            //AddNumberItem("请求技术基础成功率", variables.diplomacyRequestTechniqueBaseSuccessRate, 0, 100, (v) => { variables.diplomacyRequestTechniqueBaseSuccessRate = v; });
-            //AddNumberItem("请求技术关系系数", variables.diplomacyRequestTechniqueRelationFactor, 1, 100, (v) => { variables.diplomacyRequestTechniqueRelationFactor = v; });
-            //AddNumberItem("请求技术最大成功率", variables.diplomacyRequestTechniqueMaxSuccessRate, 0, 100, (v) => { variables.diplomacyRequestTechniqueMaxSuccessRate = v; });
-            //AddNumberItem("请求技术最低成功率", variables.diplomacyRequestTechniqueMinSuccessRate, 0, 100, (v) => { variables.diplomacyRequestTechniqueMinSuccessRate = v; });
-
-            //// 请求兵力成功率参数
-            //AddNumberItem("请求兵力基础成功率", variables.diplomacyRequestTroopsBaseSuccessRate, 0, 100, (v) => { variables.diplomacyRequestTroopsBaseSuccessRate = v; });
-            //AddNumberItem("请求兵力关系系数", variables.diplomacyRequestTroopsRelationFactor, 1, 100, (v) => { variables.diplomacyRequestTroopsRelationFactor = v; });
-            //AddNumberItem("请求兵力最大成功率", variables.diplomacyRequestTroopsMaxSuccessRate, 0, 100, (v) => { variables.diplomacyRequestTroopsMaxSuccessRate = v; });
-            //AddNumberItem("请求兵力最低成功率", variables.diplomacyRequestTroopsMinSuccessRate, 0, 100, (v) => { variables.diplomacyRequestTroopsMinSuccessRate = v; });
-
-            //// 通商成功率参数
-            //AddNumberItem("通商基础成功率", variables.diplomacyTradeBaseSuccessRate, 0, 100, (v) => { variables.diplomacyTradeBaseSuccessRate = v; });
-            //AddNumberItem("通商关系系数", variables.diplomacyTradeRelationFactor, 1, 100, (v) => { variables.diplomacyTradeRelationFactor = v; });
-            //AddNumberItem("通商最大成功率", variables.diplomacyTradeMaxSuccessRate, 0, 100, (v) => { variables.diplomacyTradeMaxSuccessRate = v; });
-            //AddNumberItem("通商最低成功率", variables.diplomacyTradeMinSuccessRate, 0, 100, (v) => { variables.diplomacyTradeMinSuccessRate = v; });
-
-            //// 和亲成功率参数
-            //AddNumberItem("和亲基础成功率", variables.diplomacyMarriageBaseSuccessRate, 0, 100, (v) => { variables.diplomacyMarriageBaseSuccessRate = v; });
-            //AddNumberItem("和亲关系系数", variables.diplomacyMarriageRelationFactor, 1, 100, (v) => { variables.diplomacyMarriageRelationFactor = v; });
-            //AddNumberItem("和亲最大成功率", variables.diplomacyMarriageMaxSuccessRate, 0, 100, (v) => { variables.diplomacyMarriageMaxSuccessRate = v; });
-            //AddNumberItem("和亲最低成功率", variables.diplomacyMarriageMinSuccessRate, 0, 100, (v) => { variables.diplomacyMarriageMinSuccessRate = v; });
-
-            //// 请求结盟成功率参数
-            //AddNumberItem("请求结盟基础成功率", variables.diplomacyAllianceRequestBaseSuccessRate, 0, 100, (v) => { variables.diplomacyAllianceRequestBaseSuccessRate = v; });
-            //AddNumberItem("请求结盟关系系数", variables.diplomacyAllianceRequestRelationFactor, 1, 100, (v) => { variables.diplomacyAllianceRequestRelationFactor = v; });
-            //AddNumberItem("请求结盟最大成功率", variables.diplomacyAllianceRequestMaxSuccessRate, 0, 100, (v) => { variables.diplomacyAllianceRequestMaxSuccessRate = v; });
-            //AddNumberItem("请求结盟最低成功率", variables.diplomacyAllianceRequestMinSuccessRate, 0, 100, (v) => { variables.diplomacyAllianceRequestMinSuccessRate = v; });
-            //AddNumberItem("请求结盟关系阈值", variables.diplomacyAllianceRequestSuccessRelationThreshold, -5000, 5000, (v) => { variables.diplomacyAllianceRequestSuccessRelationThreshold = v; });
-            //AddNumberItem("请求结盟随机概率分母", variables.diplomacyAllianceRequestChanceDenominator, 1000, 5000, (v) => { variables.diplomacyAllianceRequestChanceDenominator = v; });
-
-            //// 请求停战成功率参数
-            //AddNumberItem("请求停战基础成功率", variables.diplomacyTruceRequestBaseSuccessRate, 0, 100, (v) => { variables.diplomacyTruceRequestBaseSuccessRate = v; });
-            //AddNumberItem("请求停战关系系数", variables.diplomacyTruceRequestRelationFactor, 1, 100, (v) => { variables.diplomacyTruceRequestRelationFactor = v; });
-            //AddNumberItem("请求停战最大成功率", variables.diplomacyTruceRequestMaxSuccessRate, 0, 100, (v) => { variables.diplomacyTruceRequestMaxSuccessRate = v; });
-            //AddNumberItem("请求停战最低成功率", variables.diplomacyTruceRequestMinSuccessRate, 0, 100, (v) => { variables.diplomacyTruceRequestMinSuccessRate = v; });
-            //AddNumberItem("请求停战关系阈值", variables.diplomacyTruceRequestSuccessRelationThreshold, -5000, 5000, (v) => { variables.diplomacyTruceRequestSuccessRelationThreshold = v; });
-            //AddNumberItem("请求停战随机概率分母", variables.diplomacyTruceRequestChanceDenominator, 1000, 5000, (v) => { variables.diplomacyTruceRequestChanceDenominator = v; });
-            //AddNumberItem("请求停战随机概率偏移", variables.diplomacyTruceRequestChanceOffset, 0, 2000, (v) => { variables.diplomacyTruceRequestChanceOffset = v; });
-
-            //// 赎回俘虏成功率参数
-            //AddNumberItem("赎回俘虏基础成功率", variables.diplomacyRansomBaseSuccessRate, 0, 100, (v) => { variables.diplomacyRansomBaseSuccessRate = v; });
-            //AddNumberItem("赎回俘虏关系系数", variables.diplomacyRansomSuccessRelationFactor, 1, 100, (v) => { variables.diplomacyRansomSuccessRelationFactor = v; });
-            //AddNumberItem("赎回俘虏最大成功率", variables.diplomacyRansomMaxSuccessRate, 0, 100, (v) => { variables.diplomacyRansomMaxSuccessRate = v; });
-            //AddNumberItem("赎回俘虏最低成功率", variables.diplomacyRansomMinSuccessRate, 0, 100, (v) => { variables.diplomacyRansomMinSuccessRate = v; });
-
+            
             AddTitle("招募系统参数");
             AddNumberItem("可招募的忠诚度阈值", variables.recruitableLine, 0, 100, (v) => { variables.recruitableLine = v; });
             AddNumberItem("玩家招募加成", variables.playerRecruitAdd, 0, 100, (v) => { variables.playerRecruitAdd = v; });
             AddNumberItem("挖角敌将关系惩罚(成功)", variables.recruitForeignRelationPenalty, 0, 5000, (v) => { variables.recruitForeignRelationPenalty = v; });
             AddNumberItem("挖角敌将关系惩罚(失败)", variables.recruitForeignRelationPenaltyFailed, 0, 5000, (v) => { variables.recruitForeignRelationPenaltyFailed = v; });
-            //AddNumberItem("基础相性值", variables.recruitBaseCompatibility, 0, 100, (v) => { variables.recruitBaseCompatibility = v; });
-            //AddNumberItem("在野武将忠诚度基础值", variables.recruitWildLoyaltyBase, 0, 100, (v) => { variables.recruitWildLoyaltyBase = v; });
-            //AddNumberItem("忠诚度难度系数", variables.recruitLoyaltyDifficultyFactor, 1, 20, (v) => { variables.recruitLoyaltyDifficultyFactor = v; });
-            //AddNumberItem("默认义理ID", variables.recruitDefaultArgumentationId, 1, 10, (v) => { variables.recruitDefaultArgumentationId = v; });
-            //AddNumberItem("基础成功率", variables.recruitBaseSuccessRate, 0, 100, (v) => { variables.recruitBaseSuccessRate = v; });
-            //AddNumberItem("相性影响系数分子", variables.recruitCompatibilityFactorNumerator, 1, 10, (v) => { variables.recruitCompatibilityFactorNumerator = v; });
-            //AddNumberItem("相性影响系数分母", variables.recruitCompatibilityFactorDenominator, 1, 10, (v) => { variables.recruitCompatibilityFactorDenominator = v; });
-            //AddNumberItem("忠诚度影响基础值", variables.recruitLoyaltyInfluenceBase, 0, 50, (v) => { variables.recruitLoyaltyInfluenceBase = v; });
-            //AddNumberItem("忠诚度影响系数分子", variables.recruitLoyaltyInfluenceNumerator, 1, 100, (v) => { variables.recruitLoyaltyInfluenceNumerator = v; });
-            //AddNumberItem("忠诚度影响系数分母", variables.recruitLoyaltyInfluenceDenominator, 1, 100, (v) => { variables.recruitLoyaltyInfluenceDenominator = v; });
-            //AddNumberItem("魅力最低值", variables.recruitMinGlamour, 0, 100, (v) => { variables.recruitMinGlamour = v; });
-            //AddNumberItem("魅力影响系数分子", variables.recruitGlamourFactorNumerator, 1, 10, (v) => { variables.recruitGlamourFactorNumerator = v; });
-            //AddNumberItem("魅力影响系数分母", variables.recruitGlamourFactorDenominator, 1, 10, (v) => { variables.recruitGlamourFactorDenominator = v; });
-            //AddNumberItem("亲爱武将影响值", variables.recruitLikePersonInfluence, 0, 50, (v) => { variables.recruitLikePersonInfluence = v; });
-            //AddNumberItem("亲子关系影响值", variables.recruitParentChildInfluence, 0, 50, (v) => { variables.recruitParentChildInfluence = v; });
-            //AddNumberItem("厌恶武将影响值", variables.recruitHatePersonInfluence, 0, 50, (v) => { variables.recruitHatePersonInfluence = v; });
-            //AddNumberItem("俘虏影响值", variables.recruitPrisonerInfluence, 0, 50, (v) => { variables.recruitPrisonerInfluence = v; });
-            //AddNumberItem("随机影响最大值", variables.recruitRandomMax, 0, 20, (v) => { variables.recruitRandomMax = v; });
-            //AddNumberItem("君主魅力影响系数", variables.recruitGovernorGlamourFactor, 1, 10, (v) => { variables.recruitGovernorGlamourFactor = v; });
-            //AddNumberItem("第一次发现加成", variables.recruitFirstDiscoveryBonus, 0, 50, (v) => { variables.recruitFirstDiscoveryBonus = v; });
-            //AddNumberItem("基础义理值", variables.recruitBaseGiri, 1, 20, (v) => { variables.recruitBaseGiri = v; });
-            //AddNumberItem("义理最大值", variables.recruitMaxGiri, 1, 20, (v) => { variables.recruitMaxGiri = v; });
-            //AddNumberItem("义理忠诚度影响系数", variables.recruitGiriLoyaltyFactor, 1, 5, (v) => { variables.recruitGiriLoyaltyFactor = v; });
 
             AddTitle("逃跑系统参数");
             AddNumberItem("城市中逃跑概率减少值", variables.escapeCityReduction, 0, 1000, (v) => { variables.escapeCityReduction = v; });
@@ -463,12 +359,100 @@ namespace Sango.UI
             }
         }
 
+        /// <summary>
+        /// 渲染"参数预设"区块：下拉读取 + 按钮保存。
+        ///
+        /// 预设来源见 <see cref="ScenarioVariablesPresetManager"/>：
+        ///   · 模组：{模组}/Data/ScenarioVariables/{名字}.json
+        ///   · 自建：{CustomEditRootPath}/Data/ScenarioVariables/{名字}.json（保存目标）
+        /// 剧本用 <c>Info.variablesPreset</c> 指定默认读哪个，进界面时已由
+        /// <c>Scenario.LoadVariables</c> 自动套用一次，这里只负责"换一套 / 存一套"。
+        /// </summary>
+        /// <param name="scenario">当前编辑的剧本</param>
+        void ShowPresetSection(Scenario scenario)
+        {
+            if (scenario == null)
+                return;
+
+            AddTitle("参数预设");
+
+            string current = scenario.Info != null ? scenario.Info.variablesPreset : null;
+            // 输入框里上一次写的名字优先（整页刷新后要保住玩家刚输入的内容）
+            if (string.IsNullOrEmpty(presetNameInput))
+                presetNameInput = ScenarioVariablesPresetManager.SanitizeName(current);
+
+            // 名字输入：保存 / 删除都以这里为准，回车或失焦时写回字段
+            AddInputItem("预设名字（保存 / 删除都用它）", presetNameInput, (v) =>
+            {
+                presetNameInput = ScenarioVariablesPresetManager.SanitizeName(v);
+            });
+
+            List<string> names = ScenarioVariablesPresetManager.GetNames();
+            if (names.Count == 0)
+            {
+                AddTitle("<color=#888888>（未找到预设文件，可在上面填名字后点保存）</color>");
+            }
+            else
+            {
+                int curIndex = 0;
+                if (!string.IsNullOrEmpty(current))
+                {
+                    int idx = names.IndexOf(current);
+                    if (idx >= 0)
+                        curIndex = idx;
+                }
+
+                // 选中即套用：套用后整页重建，玩家能立刻看到每一项的新值
+                AddDropdownItem("读取配置", curIndex, names, (v) =>
+                {
+                    if (v < 0 || v >= names.Count)
+                        return;
+                    if (ScenarioVariablesPresetManager.TryApply(scenario, names[v]))
+                    {
+                        if (scenario.Info != null)
+                            scenario.Info.variablesPreset = names[v];
+                        presetNameInput = names[v];
+                        RefreshSetting();
+                    }
+                });
+            }
+
+            // 保存：用输入框里的名字写成一份新预设（同名则覆盖），并把它设为剧本默认预设
+            string saveName = ScenarioVariablesPresetManager.SanitizeName(presetNameInput);
+            AddButtonItem($"保存为新预设「{saveName}」", () =>
+            {
+                if (!ScenarioVariablesPresetManager.Save(saveName, scenario.Variables))
+                    return;
+
+                if (scenario.Info != null)
+                    scenario.Info.variablesPreset = saveName;
+                presetNameInput = saveName;
+                RefreshSetting();
+            });
+
+            // 删除：只允许删自建目录里的预设；模组 / 内置预设是只读的，管理器会拒绝并说明原因
+            AddButtonItem($"删除预设「{saveName}」", () =>
+            {
+                if (!ScenarioVariablesPresetManager.Delete(saveName))
+                    return;
+
+                if (scenario.Info != null
+                    && string.Equals(scenario.Info.variablesPreset, saveName, System.StringComparison.OrdinalIgnoreCase))
+                    scenario.Info.variablesPreset = null;
+
+                presetNameInput = null;
+                RefreshSetting();
+            });
+        }
+
         public virtual void RefreshSetting()
         {
             for (int i = 0; i < itemList.Count; i++)
                 RemoveItem(itemList[i]);
             itemList.Clear();
-            ShowVariables(Scenario.CurSelected);
+            // 用 OnOpen 记录的目标剧本重建，而不是 Scenario.CurSelected：
+            // 开局前的入口传进来的是"准备开局的剧本"，两者可能不是同一个对象。
+            ShowVariables(TargetScenario != null ? TargetScenario : Scenario.CurSelected);
         }
 
         public void RemoveItem(GameObject item)
@@ -502,6 +486,12 @@ namespace Sango.UI
                     break;
                 case "toggleGroupObj":
                     pool_toggleGroupObj.Add(item);
+                    break;
+                case "buttonObj":
+                    pool_buttonObj.Add(item);
+                    break;
+                case "inputObj":
+                    pool_inputObj.Add(item);
                     break;
             }
             item.SetActive(false);
@@ -552,6 +542,129 @@ namespace Sango.UI
             return obj;
         }
 
+
+        /// <summary>
+        /// 一行可点击的按钮。
+        ///
+        /// 【为什么复用 titleObj 而不是新建一套 prefab】参数界面是纯代码动态生成的，
+        /// 每种控件都要求美术在 prefab 里摆一个模板对象；为了两个按钮去改 prefab 代价太大。
+        /// 这里直接拿标题行当模板（排版 / 高度 / 字体全部继承），只额外挂一层半透明 Image 做底
+        /// 和 Button 做热区 —— Image 是父对象，文字是子对象，渲染顺序上不会遮住文字。
+        ///
+        /// 【为什么单独一个池】按钮对象带 Button 组件，若回收到 pool_titleObj 再当普通标题行复用，
+        /// 会残留 onClick 监听，点标题就触发保存。所以 buttonObj 自己一套池，永不回流。
+        /// </summary>
+        /// <param name="title">按钮文字</param>
+        /// <param name="onClick">点击回调</param>
+        /// <returns>生成的对象</returns>
+        public GameObject AddButtonItem(string title, System.Action onClick)
+        {
+            GameObject obj;
+            if (pool_buttonObj.Count > 0)
+            {
+                obj = pool_buttonObj[0];
+                pool_buttonObj.RemoveAt(0);
+            }
+            else
+            {
+                obj = GameObject.Instantiate(titleObj, titleObj.transform.parent);
+                obj.name = "buttonObj";
+            }
+
+            itemList.Add(obj);
+
+            UITitleField field = obj.GetComponent<UITitleField>();
+            if (field != null)
+                field.Set(title);
+
+            // 底色（半透明蓝）：已有 Image 就复用，避免多次 Instantiate 叠出多层
+            UnityEngine.UI.Image image = obj.GetComponent<UnityEngine.UI.Image>();
+            if (image == null)
+            {
+                image = obj.AddComponent<UnityEngine.UI.Image>();
+                image.color = new UnityEngine.Color(0.16f, 0.42f, 0.78f, 0.55f);
+            }
+
+            UnityEngine.UI.Button button = obj.GetComponent<UnityEngine.UI.Button>();
+            if (button == null)
+            {
+                button = obj.AddComponent<UnityEngine.UI.Button>();
+                button.targetGraphic = image;
+            }
+            // 复用对象时必须先清空旧监听，否则上一次刷新挂的回调还在
+            button.onClick.RemoveAllListeners();
+            if (onClick != null)
+                button.onClick.AddListener(() => onClick.Invoke());
+
+            obj.SetActive(true);
+            obj.transform.SetAsLastSibling();
+            return obj;
+        }
+
+        /// <summary>
+        /// 一行文本输入：标题单独一行，输入框另起一行（复用 titleObj 的 Text 作为 InputField 的文本组件）。
+        ///
+        /// 【为什么先 SetActive(false) 再配置】<c>InputField</c> 在 OnEnable 里会立刻
+        /// <c>UpdateLabel()</c>，此时若 textComponent 还没赋值就会报空引用。
+        /// 因此模板实例化后先失活，属性配齐再激活。
+        /// </summary>
+        /// <param name="title">行标题</param>
+        /// <param name="value">初始文本</param>
+        /// <param name="onChange">结束编辑（回车 / 失焦）时回调</param>
+        /// <returns>输入行对象</returns>
+        public GameObject AddInputItem(string title, string value, System.Action<string> onChange)
+        {
+            AddTitle(title);
+
+            GameObject obj;
+            if (pool_inputObj.Count > 0)
+            {
+                obj = pool_inputObj[0];
+                pool_inputObj.RemoveAt(0);
+            }
+            else
+            {
+                obj = GameObject.Instantiate(titleObj, titleObj.transform.parent);
+                obj.name = "inputObj";
+            }
+
+            itemList.Add(obj);
+            obj.SetActive(false);
+
+            // 输入框底色（比按钮更深，视觉上区分"可编辑"与"可点击"）
+            UnityEngine.UI.Image image = obj.GetComponent<UnityEngine.UI.Image>();
+            if (image == null)
+            {
+                image = obj.AddComponent<UnityEngine.UI.Image>();
+                image.color = new UnityEngine.Color(0f, 0f, 0f, 0.45f);
+            }
+
+            UnityEngine.UI.InputField input = obj.GetComponent<UnityEngine.UI.InputField>();
+            if (input == null)
+            {
+                input = obj.AddComponent<UnityEngine.UI.InputField>();
+                input.lineType = UnityEngine.UI.InputField.LineType.SingleLine;
+                input.targetGraphic = image;
+            }
+
+            // titleObj 的 Text 直接拿来当输入文本组件。
+            // 优先走 UITitleField.title（prefab 里显式绑定的那个），拿不到再退回子节点搜索。
+            UITitleField titleField = obj.GetComponent<UITitleField>();
+            UnityEngine.UI.Text textComp = (titleField != null && titleField.title != null)
+                ? titleField.title
+                : obj.GetComponentInChildren<UnityEngine.UI.Text>(true);
+            input.textComponent = textComp;
+
+            // 复用对象：上一轮的监听必须清掉，否则保存 / 删除会被触发多次
+            input.onEndEdit.RemoveAllListeners();
+            input.text = value ?? string.Empty;
+            if (onChange != null)
+                input.onEndEdit.AddListener((text) => onChange(text));
+
+            obj.SetActive(true);
+            obj.transform.SetAsLastSibling();
+            return obj;
+        }
 
         public GameObject AddNumberItem(string title, int number, int min, int max, System.Action<int> onChange)
         {

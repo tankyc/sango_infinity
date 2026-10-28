@@ -53,6 +53,11 @@ namespace Sango.Core.Action
             if (!CheckIsNormalSkill(skill, isNormal))
                 return;
 
+            // 与 TroopSkillCalculateSuccess / TroopTroopActionBase 保持一致：
+            // 补齐"远程技能"过滤，供白马（骑射必暴）这类配置使用。
+            if (!CheckIsRangeSkill(skill, isRange))
+                return;
+
             if (checkLand == 1 && troop.IsInWater)
                 return;
             if (checkLand == 2 && !troop.IsInWater)

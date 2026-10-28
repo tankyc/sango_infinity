@@ -34,8 +34,7 @@ namespace Sango.Core
         /// 例如"正在移动的补给队"应当先于"原地待命的部队"行动，否则后者可能先占掉格子。
         /// <para>
         /// 【排序键】原版四级：请求势力 &gt; 指令优先级 &gt; 携带金 &gt; Id。
-        /// 本项目没有部队级的"请求加入势力"字段（`Force.requestForceId` 是势力级援军请求，
-        /// 语义不同），因此跳过第一级，其余三级逐项对齐。
+        /// 第一级已对齐：<see cref="Troop.requestForceId"/> &gt;= 0 的援军部队优先行动。
         /// </para>
         /// </summary>
         /// <param name="corps">军团</param>
@@ -55,9 +54,15 @@ namespace Sango.Core
                 }
             }
 
-            // ② 排序 —— :45-68
+            // ② 排序 —— :45-68（原版四级：请求势力 > 指令优先级 > 携金 > Id）
             unitList.Sort((a, b) =>
             {
+                // 第一级：援军部队优先（原版 `a->get_request_force_id() >= 0`）
+                bool aRequest = a.requestForceId >= 0;
+                bool bRequest = b.requestForceId >= 0;
+                if (aRequest != bRequest)
+                    return aRequest ? -1 : 1;
+
                 // 指令优先级降序
                 int ap = GetUnitOrderPriority(a.missionType);
                 int bp = GetUnitOrderPriority(b.missionType);

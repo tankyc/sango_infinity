@@ -363,8 +363,18 @@ namespace Sango.UI
             }
             else
             {
-                scenario.LoadFullPersonContent();
-                Scenario.CurSelected = new Scenario(show_scenario_list[curSelectIndex].FilePath);
+                // 原版剧本没有 Sango 的 JSON：先用骨架 Scenario.json 加载，
+                // 再把 .s11 的数值覆盖进去（CreateFromOpen311 内部完成）。
+                Scenario.CurSelected = scenario.IsOpen311
+                    ? Scenario.CreateFromOpen311(scenario)
+                    : null;
+
+                if (Scenario.CurSelected == null)
+                {
+                    scenario.LoadFullPersonContent();
+                    Scenario.CurSelected = new Scenario(scenario.FilePath);
+                }
+
                 if (GameCustomEdit.Instance.ModScenarioAddon.PersonLibrary.Count > 0 || GameCustomEdit.Instance.SelfScenarioAddon.PersonLibrary.Count > 0)
                 {
                     Window.Instance.Open("window_scenario_addon_menu", scenario);

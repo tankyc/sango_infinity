@@ -73,6 +73,9 @@
     },
     "4": {
       "Id": 4,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 4,
+      "learnAptitudeAtLeastB": true,
       "Name": "长驱",
       "desc": "增加骑兵部队的移动力",
       "only": true,
@@ -125,10 +128,13 @@
       "desc": "无栈道通行的损害；减轻所有陷阱的损伤。",
       "only": true,
       "level": 2,
-      "kind": 1
+      "kind": 1,
+      "actionEntities": [{"class": "TroopSetPathFlag", "flag": 2, "value": 1}]
     },
     "8": {
       "Id": 8,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
       "Name": "搬运",
       "desc": "增加输送部队的移动力",
       "only": true,
@@ -150,7 +156,8 @@
       "desc": "预防毒泉的伤害",
       "only": true,
       "level": 2,
-      "kind": 1
+      "kind": 1,
+      "actionEntities": [{"class": "TroopSetPathFlag", "flag": 1, "value": 1}]
     },
     "10": {
       "Id": 10,
@@ -326,6 +333,11 @@
                 "class": "TerrainCheck",
                 "checkTarget": "self",
                 "terrainType": 6
+              },
+              {
+                "class": "SkillTargetCellCheck",
+                "targetType": "troop",
+                "result": 1
               }
             ]
           }
@@ -334,6 +346,7 @@
     },
     "17": {
       "Id": 17,
+      "learnScoreKind": 1,
       "Name": "待伏",
       "desc": "伏兵成功时施展会心一击",
       "only": true,
@@ -507,6 +520,8 @@
     },
     "25": {
       "Id": 25,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 5,
       "Name": "射程",
       "desc": "使井阑、投石的射程增加１区格",
       "only": true,
@@ -537,6 +552,14 @@
           "kinds": [
             5
           ]
+        },
+        {
+          "class": "TroopSkillCalculateCritical",
+          "value": 100,
+          "kinds": [
+            5
+          ],
+          "isRange": 1
         }
       ]
     },
@@ -675,7 +698,8 @@
           "class": "TroopModifyFireDamage",
           "value": 200
         }
-      ]
+      ,
+        {"class": "TroopSetPathFlag", "flag": 2, "value": 1}]
     },
     "33": {
       "Id": 33,
@@ -951,6 +975,9 @@
     },
     "42": {
       "Id": 42,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 7,
+      "learnAptitudeAtLeastB": true,
       "Name": "斗神",
       "desc": "枪兵战法与戟兵战法施展成功时会心一击",
       "only": true,
@@ -987,6 +1014,9 @@
     },
     "43": {
       "Id": 43,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 1,
+      "learnAptitudeAtLeastB": true,
       "Name": "枪神",
       "desc": "枪兵战法成功时施展会心一击",
       "only": true,
@@ -1017,6 +1047,9 @@
     },
     "44": {
       "Id": 44,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 2,
+      "learnAptitudeAtLeastB": true,
       "Name": "戟神",
       "desc": "戟兵战法成功时施展会心一击",
       "only": true,
@@ -1047,6 +1080,9 @@
     },
     "45": {
       "Id": 45,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 3,
+      "learnAptitudeAtLeastB": true,
       "Name": "弓神",
       "desc": "弩兵战法成功时施展会心一击",
       "only": true,
@@ -1077,6 +1113,9 @@
     },
     "46": {
       "Id": 46,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 4,
+      "learnAptitudeAtLeastB": true,
       "Name": "骑神",
       "desc": "骑兵战法成功时施展会心一击",
       "only": true,
@@ -1107,6 +1146,8 @@
     },
     "47": {
       "Id": 47,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 5,
       "Name": "工神",
       "desc": "兵器战法成功时施展会心一击",
       "only": true,
@@ -1140,6 +1181,9 @@
     },
     "48": {
       "Id": 48,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 6,
+      "learnAptitudeAtLeastB": true,
       "Name": "水神",
       "desc": "水军战法成功时施展会心一击",
       "only": true,
@@ -1200,6 +1244,9 @@
     },
     "50": {
       "Id": 50,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 4,
+      "learnAptitudeAtLeastB": true,
       "Name": "疾驰",
       "desc": "对攻击力比自部队低的敌方部队施展骑兵战法成功时，必使其陷入混乱",
       "only": true,
@@ -1313,6 +1360,9 @@
     },
     "52": {
       "Id": 52,
+      "learnScoreKind": 7,
+      "learnAptitudeKind": 8,
+      "learnAptitudeAtLeastB": true,
       "Name": "猛者",
       "desc": "以战法让敌方部队移动区格时，可让敌将负伤，攻击损伤增加20%",
       "only": true,
@@ -1478,6 +1528,7 @@
     },
     "58": {
       "Id": 58,
+      "learnScoreKind": 1,
       "Name": "虚实",
       "desc": "对智力比自己低的敌方部队施展全部队计略时，必定会成功",
       "only": true,
@@ -1562,6 +1613,7 @@
     },
     "61": {
       "Id": 61,
+      "learnScoreKind": 1,
       "Name": "看破",
       "desc": "必定可识破智力比自己低的敌方部队所施展部队计略",
       "only": true,
@@ -1615,6 +1667,7 @@
     },
     "63": {
       "Id": 63,
+      "learnScoreKind": 1,
       "Name": "火神",
       "desc": "对智力比自己低的敌方部队施展火计时必会成功；于全火攻有所优势",
       "only": true,
@@ -1679,6 +1732,7 @@
     },
     "64": {
       "Id": 64,
+      "learnScoreKind": 1,
       "Name": "神算",
       "desc": "对智力比自己低的敌方部队施展计略必会成功；于全计略有所优势",
       "only": true,
@@ -1744,6 +1798,7 @@
     },
     "65": {
       "Id": 65,
+      "learnScoreKind": 1,
       "Name": "百出",
       "desc": "部队计略的消费气力减少",
       "only": true,
@@ -1762,6 +1817,7 @@
     },
     "66": {
       "Id": 66,
+      "learnScoreKind": 1,
       "Name": "鬼谋",
       "desc": "增广２区格可施展部队计略的范围",
       "only": true,
@@ -1780,6 +1836,7 @@
     },
     "67": {
       "Id": 67,
+      "learnScoreKind": 1,
       "Name": "连环",
       "desc": "部队计略成功时，与对象部队邻接的部队也会遭受计略波及",
       "only": true,
@@ -1808,6 +1865,7 @@
     },
     "68": {
       "Id": 68,
+      "learnScoreKind": 1,
       "Name": "深谋",
       "desc": "部队计略成功时施展会心一击",
       "only": true,
@@ -1826,6 +1884,7 @@
     },
     "69": {
       "Id": 69,
+      "learnScoreKind": 1,
       "Name": "反计",
       "desc": "若识破部队计略，就可对其施展同样的计略",
       "only": true,
@@ -1894,6 +1953,7 @@
     },
     "72": {
       "Id": 72,
+      "learnScoreKind": 1,
       "Name": "鬼门",
       "desc": "可施展部队计略的「妖术、落雷」",
       "only": true,
@@ -2054,6 +2114,7 @@
     },
     "78": {
       "Id": 78,
+      "learnScoreKind": 2,
       "Name": "筑城",
       "desc": "军事设施建设的耐久上升量增为２倍",
       "only": true,
@@ -2068,6 +2129,10 @@
     },
     "79": {
       "Id": 79,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
+      "learnPlaceKind": 2,
+      "learnMinTroops": 10000,
       "Name": "屯田",
       "desc": "所属于关所、港口时，士兵不会消费兵粮",
       "only": true,
@@ -2086,6 +2151,10 @@
     },
     "80": {
       "Id": 80,
+      "learnScoreKind": 3,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
+      "learnFacilityKind": 1,
       "Name": "名声",
       "desc": "增加征兵时的士兵数",
       "only": true,
@@ -2103,6 +2172,10 @@
     },
     "81": {
       "Id": 81,
+      "learnScoreKind": 1,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
+      "learnFacilityKind": 2,
       "Name": "能吏",
       "desc": "增加生产枪、戟、弩之兵装时的产量",
       "only": true,
@@ -2120,6 +2193,10 @@
     },
     "82": {
       "Id": 82,
+      "learnScoreKind": 1,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
+      "learnFacilityKind": 3,
       "Name": "繁殖",
       "desc": "增加生产军马之兵装时的产量",
       "only": true,
@@ -2137,6 +2214,10 @@
     },
     "83": {
       "Id": 83,
+      "learnScoreKind": 1,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
+      "learnFacilityKind": 4,
       "Name": "发明",
       "desc": "生产兵器之兵装时所需的生产期间减半",
       "only": true,
@@ -2154,6 +2235,10 @@
     },
     "84": {
       "Id": 84,
+      "learnScoreKind": 1,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
+      "learnFacilityKind": 5,
       "Name": "造船",
       "desc": "生产舰船之兵装时所需的生产期间减半",
       "only": true,
@@ -2171,6 +2256,8 @@
     },
     "85": {
       "Id": 85,
+      "learnScoreKind": 5,
+      "learnRequireFront": false,
       "Name": "指导",
       "desc": "研究技巧时的费用减半",
       "only": true,
@@ -2185,6 +2272,8 @@
     },
     "86": {
       "Id": 86,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
       "Name": "眼力",
       "desc": "若有未发现的在野人士时执行人材探索的话，必定会发现",
       "only": true,
@@ -2199,6 +2288,8 @@
     },
     "87": {
       "Id": 87,
+      "learnScoreKind": 4,
+      "learnRequireFront": false,
       "Name": "论客",
       "desc": "于同盟、停战协定、交换俘虏时容易进入舌战",
       "only": true,
@@ -2221,6 +2312,9 @@
     },
     "89": {
       "Id": 89,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
       "Name": "米道",
       "desc": "每季的所属都市的兵粮收入增加为1.5倍",
       "only": true,
@@ -2235,6 +2329,9 @@
     },
     "90": {
       "Id": 90,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
       "Name": "征税",
       "desc": "每回合所属都市都会有资金收入（一次收入将减半）",
       "only": true,
@@ -2249,6 +2346,9 @@
     },
     "91": {
       "Id": 91,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
       "Name": "征收",
       "desc": "每个月所属都市都会有兵粮的收入（一次的收入将减半）",
       "only": true,
@@ -2295,6 +2395,9 @@
     },
     "96": {
       "Id": 96,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
       "Name": "威压",
       "desc": "所属都市的领内不容易出现盗贼或异族的根据地",
       "only": true,
@@ -2303,6 +2406,9 @@
     },
     "97": {
       "Id": 97,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
       "Name": "仁政",
       "desc": "所属相同的武将之每个月的忠诚不会下降",
       "only": true,
@@ -2316,6 +2422,9 @@
     },
     "98": {
       "Id": 98,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
       "Name": "风水",
       "desc": "所属都市不容易出现蝗灾、瘟疫",
       "only": true,
@@ -2324,6 +2433,9 @@
     },
     "99": {
       "Id": 99,
+      "learnScoreKind": 6,
+      "learnRequireFront": false,
+      "learnPlaceKind": 1,
       "Name": "祈愿",
       "desc": "所属都市容易出现丰收",
       "only": true,

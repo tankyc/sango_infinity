@@ -1,0 +1,149 @@
+[
+  {
+    "Id": 2101,
+    "Name": "称帝",
+    "DebugLog": true,
+    "Category": "History",
+    "Description": "【爵位事件·称帝】玩家势力爵位为王、城池≥24，且汉室衰微（或虽汉室尚存但由玩家保护皇帝），月度结算时触发称帝演出：宣言即位 → 选择国号 → 生效（爵位=皇帝、汉室衰微、设定国号）。\n\n【条件对齐 Open311 title_rises + can_receive_title】\n· 爵位=王（TitleId 9，对应原版 TitleId_King=1）；\n· 城池≥24（对齐 TitleMaxCityCount 王=24，s11_db.cpp）；\n· 汉室衰微（emperorPersonId=-1 或献帝已亡）→ 自立称帝；或汉室尚存但本势力保护皇帝（献帝所在城归属本势力）→ 禅让/篡夺。\n\n【国号选择】用事件 Choice 呈现（魏/蜀/吴/汉），选中后由 ForceDeclareEmperor + ForceSetNation 生效。后续可升级为动态「未占用国号」列表 UI。",
+    "Enabled": true,
+    "Priority": 300,
+    "Level": "Critical",
+    "Mode": "Semihistorical",
+    "Interrupt": true,
+    "Trigger": {
+      "Kind": "MonthStart",
+      "Scope": "PlayerForce",
+      "Once": false,
+      "MaxFireCount": 1,
+      "CooldownTurns": 0,
+      "Chance": 100
+    },
+    "Slots": [
+      {
+        "Key": "ActionForce",
+        "Type": "Force",
+        "Source": "PlayerForce",
+        "Optional": false,
+        "Label": "玩家势力"
+      },
+      {
+        "Key": "ActionPerson",
+        "Type": "Person",
+        "Source": "ForceGovernor",
+        "ScopeSlot": "ActionForce",
+        "Optional": false,
+        "Label": "君主"
+      }
+    ],
+    "Conditions": {
+      "Type": "and",
+      "Children": [
+        { "Type": "ForceTitle", "Params": { "Slot": "ActionForce", "TitleId": 9 } },
+        { "Type": "ForceCityCount", "Params": { "Slot": "ActionForce", "Min": 24 } },
+        {
+          "Type": "or",
+          "Children": [
+            {
+              "_note": "汉室衰微 → 自立称帝",
+              "Type": "EmperorAlive",
+              "Params": { "Expect": false }
+            },
+            {
+              "_note": "汉室尚存且本势力保护皇帝 → 禅让/篡夺",
+              "Type": "ForceProtectingEmperor",
+              "Params": { "Slot": "ActionForce", "Expect": true }
+            }
+          ]
+        }
+      ]
+    },
+    "Stages": [
+      {
+        "Op": "Picture",
+        "Params": {
+          "Image": "declare_emperor",
+          "Title": "称帝",
+          "Text": "{:ActionPerson}进爵为帝！\n海内皆震。",
+          "MinSeconds": 2.0,
+          "PauseBgm": true
+        }
+      },
+      {
+        "Op": "Talk",
+        "Params": {
+          "Slot": "ActionPerson",
+          "Style": "ClickPersonSay",
+          "Lines": [
+            { "Text": "今汉室倾颓，四海无主。孤承天命，即皇帝位！" }
+          ]
+        }
+      },
+      {
+        "Op": "TalkWindow",
+        "Params": { "Text": "新朝当立何国号？" }
+      },
+      {
+        "Op": "Choice",
+        "Params": {
+          "Options": [
+            { "Text": "魏", "Next": "nation_wei" },
+            { "Text": "蜀", "Next": "nation_shu" },
+            { "Text": "吴", "Next": "nation_wu" },
+            { "Text": "汉", "Next": "nation_han" }
+          ]
+        }
+      },
+
+      { "Op": "Label", "Params": { "Name": "nation_wei" } },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            { "Type": "ForceDeclareEmperor", "Params": { "ForceSlot": "ActionForce", "Nation": 1 } }
+          ]
+        }
+      },
+      { "Op": "Jump", "Params": { "Target": "done" } },
+
+      { "Op": "Label", "Params": { "Name": "nation_shu" } },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            { "Type": "ForceDeclareEmperor", "Params": { "ForceSlot": "ActionForce", "Nation": 3 } }
+          ]
+        }
+      },
+      { "Op": "Jump", "Params": { "Target": "done" } },
+
+      { "Op": "Label", "Params": { "Name": "nation_wu" } },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            { "Type": "ForceDeclareEmperor", "Params": { "ForceSlot": "ActionForce", "Nation": 2 } }
+          ]
+        }
+      },
+      { "Op": "Jump", "Params": { "Target": "done" } },
+
+      { "Op": "Label", "Params": { "Name": "nation_han" } },
+      {
+        "Op": "Effect",
+        "Params": {
+          "Effects": [
+            { "Type": "ForceDeclareEmperor", "Params": { "ForceSlot": "ActionForce", "Nation": 7 } }
+          ]
+        }
+      },
+
+      { "Op": "Label", "Params": { "Name": "done" } },
+      {
+        "Op": "Message",
+        "Params": { "Text": "{:ActionForce}改元建国，即皇帝位！" }
+      },
+      { "Op": "End" }
+    ],
+    "Variables": {}
+  }
+]

@@ -57,6 +57,78 @@ namespace Sango.Core
 
         #endregion
 
+        #region 势力灭亡 / 投降时的特殊宝物移交
+
+        /// <summary>
+        /// "特殊宝物"在本工程 ItemTypes.json 里的 Id：
+        /// 66 = 玉玺（宝物 / 玉器），67 = 铜雀（宝物 / 珍玩）。
+        /// 对应 Open311 的 ItemType_ImperialSeal / ItemType_BronzePheasant
+        /// （判定见 s11_sys_scen_person.cpp:1716-1731 person_lose_special_items）。
+        /// </summary>
+        public static readonly int[] SpecialItemIds = { 66, 67 };
+
+        /// <summary>
+        /// 剥夺并移交"特殊宝物"（玉玺 / 铜雀），对齐 Open311 的
+        /// `person_lose_special_items(self, by)`（s11_sys_scen_person.cpp:1716-1731）。
+        ///
+        /// 【原版语义】遍历该武将随身道具，凡类型是玉玺 / 铜雀的一律转给 <paramref name="to"/>；
+        /// <paramref name="to"/> 为空时道具直接消失（原版 `item_disappear`）。
+        ///
+        /// 【调用点】
+        ///   · 势力投降合并：`force_ruin(self, true, by)` 末尾
+        ///     `person_lose_special_items(kunshu, dest_kunshu)`（s11_sys_scen_force.cpp:997-1000）——
+        ///     投降君主把玉玺 / 铜雀交给受降方君主；
+        ///   · 势力彻底灭亡：同函数 `dest_kunshu` 为空 → 道具销毁。
+        /// </summary>
+        /// <param name="from">被剥夺者（通常是灭亡 / 投降势力的君主）</param>
+        /// <param name="to">接收者（受降方君主），为空表示销毁</param>
+        /// <returns>实际移交 / 销毁的件数</returns>
+        public static int TransferSpecialItems(Person from, Person to)
+        {
+            if (from == null || from.itemStore == null)
+                return 0;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.CommonData == null)
+                return 0;
+
+            // 接收方就是自己时没有搬运的意义（原版也不会出现）
+            if (to == from)
+                to = null;
+
+            int n = 0;
+            for (int i = 0; i < SpecialItemIds.Length; i++)
+            {
+                ItemType item = scenario.CommonData.ItemTypes.Get(SpecialItemIds[i]);
+                if (item == null)
+                    continue;
+
+                int has = from.itemStore.GetNumber(item);
+                if (has <= 0)
+                    continue;
+
+                from.itemStore.Remove(item, has);
+                n += has;
+
+                if (to != null)
+                    to.itemStore.Add(item, has);
+
+                Sango.Log.Info(to != null
+                    ? $"*[宝物]{from.Name} 的{item.Name}移交给 {to.Name}（{has} 件）"
+                    : $"*[宝物]{from.Name} 的{item.Name}随势力灭亡消失（{has} 件）");
+            }
+
+            if (n > 0)
+            {
+                from.BuildEquipActions();
+                if (to != null)
+                    to.BuildEquipActions();
+            }
+            return n;
+        }
+
+        #endregion
+
         /// <summary>
         /// 是否为可授予 / 没收的对象。
         ///

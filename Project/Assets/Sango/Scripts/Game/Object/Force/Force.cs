@@ -29,6 +29,31 @@ namespace Sango.Core
     }
 
     /// <summary>
+    /// 势力能力标记位 —— 存放在 <see cref="Force.AbilityFlags"/> 的各个 bit 上，随存档序列化。
+    ///
+    /// 【用途】有些"势力已经掌握某种能力"的事实无法从技巧列表直接反查：
+    /// 技巧体系（<see cref="Force.Techniques"/>）只保证被动效果注册进了 actionList，
+    /// 而业务侧（如 AI 造陷阱选点）需要知道"这个势力究竟会不会神火计"。
+    /// 与之对应，原版把这类能力记在势力 / 科技的状态位上，判断方读状态位而不是每次重算。
+    ///
+    /// 【扩展约定】新增能力时在末尾追加 <c>1 &lt;&lt; n</c>，不要复用旧位值 ——
+    /// 老存档里没有对应位的含义，复用会让旧档凭空获得新能力。
+    /// </summary>
+    [System.Flags]
+    public enum ForceAbilityFlags : int
+    {
+        /// <summary>无任何标记</summary>
+        None = 0,
+
+        /// <summary>
+        /// 神火计（技巧 #30，Build/Content/Data/Common/Techniques.json 中 Id = 30）。
+        /// 原版神火计科技：火计可及 3 区格；造陷阱选点时直接采用首个正分，
+        /// 不要求引爆者能靠近（见 TroopAIUtility.GetTrapBuildPosScore）。
+        /// </summary>
+        DivineFire = 1 << 0,
+    }
+
+    /// <summary>
     /// 势力类，继承自SangoObject，用于管理游戏中的势力对象
     /// </summary>
     [JsonObject(MemberSerialization.OptIn)]
@@ -252,6 +277,21 @@ namespace Sango.Core
         /// 霸业点数
         /// </summary>
         [JsonProperty] public int HegemonyPoint { get; set; }
+
+        /// <summary>
+        /// 势力能力标记位，各 bit 含义见 <see cref="ForceAbilityFlags"/>；随存档序列化。
+        ///
+        /// 【为什么单独立字段】技巧列表（<see cref="Techniques"/>）只回答"研究过哪些技巧"，
+        /// 而且技巧可能来自剧本预置、事件授予、Mod 覆盖，业务侧逐个反查既慢又容易漏。
+        /// 这里在"获得能力"的时刻统一置位，判断方只读这一个字段。
+        ///
+        /// 【命名】不要叫 <c>Flag</c> / <c>Flags</c>：本类已有 <see cref="Flag"/>（势力旗帜 Id），
+        /// 一字之差极其容易看错。
+        ///
+        /// 老存档没有该字段，读档后为 0（= 没有任何标记），不会伪造能力，无需迁移；
+        /// 已掌握技巧的补位由 <see cref="Init"/> 重放 <see cref="Techniques"/> 时完成。
+        /// </summary>
+        [JsonProperty] public int AbilityFlags;
 
         /// <summary>
         /// 势力方针
@@ -955,6 +995,32 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 是否拥有指定的势力能力标记位。
+        /// </summary>
+        /// <param name="flag">标记位（见 <see cref="ForceAbilityFlags"/>）</param>
+        /// <returns>已置位返回 true</returns>
+        public bool HasAbilityFlag(ForceAbilityFlags flag)
+        {
+            return (AbilityFlags & (int)flag) != 0;
+        }
+
+        /// <summary>
+        /// 设置或清除势力能力标记位。
+        ///
+        /// 【不要直接改 <see cref="AbilityFlags"/>】位运算集中在这里，避免各处手写 <c>|=</c> / <c>&amp;=~</c>
+        /// 时算错掩码；将来若要加"标记位变更"的联动（存档脏标记、UI 刷新），也只需要改这一处。
+        /// </summary>
+        /// <param name="flag">标记位（见 <see cref="ForceAbilityFlags"/>）</param>
+        /// <param name="value">true = 置位，false = 清除</param>
+        public void SetAbilityFlag(ForceAbilityFlags flag, bool value = true)
+        {
+            if (value)
+                AbilityFlags |= (int)flag;
+            else
+                AbilityFlags &= ~(int)flag;
+        }
+
+        /// <summary>
         /// 授予一项技巧（供剧本事件、外交请求等外部流程使用）。
         ///
         /// 【为什么必须封装在这里】授予技巧不是"往 Techniques 里加一条"那么简单：
@@ -1050,7 +1116,6 @@ namespace Sango.Core
                 {
                     if (x != null && x.BelongForce == destroyedForce)
                     {
-                        x.BelongForce = null;
                         x.BelongCorps = null;
                     }
                 });
@@ -1067,7 +1132,6 @@ namespace Sango.Core
                     x.LeaveToWild();
                 x.workingBuilding = null;
                 x.mBelongTroop = null;
-                x.BelongForce = null;
                 x.BelongCorps = null;
             });
 
@@ -1479,15 +1543,35 @@ namespace Sango.Core
             if (diplomacyBanTimer > 0)
                 diplomacyBanTimer--;
 
+            // 据点留守负责人：每回合重算一次（原版 GameAI::set_guard）。
+            // 放在最前面 —— 之后的抽人（出征 / 援军求援）都会避开 guard。
+            ForceAI.SetGuards(this, scenario);
+
             if (requestTimer > 0)
             {
                 requestTimer--;
                 if (requestTimer <= 0)
                 {
-                    // 请求到期：清掉对象（原版同时会撤回为此派出的援军部队，
-                    // 本项目尚未真正派兵，因此这里只清状态）
+                    // 请求到期：清掉对象，并**撤回为此派出的援军部队**
+                    // （原版 s11_game_week.cpp:292-311：把 request_force_id 指向本势力
+                    //  的所有部队清空、命令改回 Retreat）。
+                    Scenario currentScenario = Scenario.Cur;
+                    if (currentScenario != null && currentScenario.troopsSet != null)
+                    {
+                        for (int i = 0; i < currentScenario.troopsSet.Count; i++)
+                        {
+                            Troop army = currentScenario.troopsSet[i];
+                            if (army == null || !army.IsAlive) continue;
+                            if (army.requestForceId != Id) continue;
+
+                            army.requestForceId = -1;
+                            army.SetMission(MissionType.TroopMovetoCity,
+                                army.BelongCity != null ? army.BelongCity.Id : -1);
+                        }
+                    }
+
                     requestForceId = -1;
-                    Sango.Log.Info($"*[外交]{Name} 的援军请求已到期");
+                    Sango.Log.Info($"*[外交]{Name} 的援军请求已到期，援军撤回");
                 }
             }
 
@@ -1517,6 +1601,16 @@ namespace Sango.Core
 
             // 清理已阵亡的威胁部队记录
             CleanupThreatTroops();
+
+            // 【能力研究推进】研究是"势力级计时器"，与势力是否由 AI 控制无关。
+            // 原版推进由君主命令的 order timer 驱动（s11_sys_person_order_kunshu.cpp:1417-1455
+            // on_research_ability_timer_finished），玩家势力与 AI 势力走同一条路径；
+            // 而 force_research_ability（s11_game_ai_force_cmd.cpp:754-817）只负责"发起研究"。
+            // 早期实现把推进写在 AI 命令里，导致**玩家势力的研究永远不完成**
+            // （researchingAbilityId 一直挂着 → 能力进不了 learnedAbilityIds → 谁也学不了）。
+            // 这里下沉到势力回合开始，每势力每回合推进一次。
+            AbilityStudySystem.AdvanceResearch(this, scenario);
+
             Sango.Log.Info($"==={Name} 回合===");
 
 
@@ -2768,6 +2862,10 @@ namespace Sango.Core
             // ① 标记灭亡
             IsAlive = false;
 
+            // ①' 撤回为本势力出动的援军（原版 `unit_cancel_request_ruin`，`:1329-1353`）：
+            // 援军是"欠请求方的人情"才出兵的，请求方一亡就没有继续在外作战的理由。
+            ReinforcementDispatcher.CancelByRuinedForce(Id, scenario);
+
             // ② 本势力关押的俘虏：解除归属（原版只清 force/district，不销毁对象）
             if (BeCaptiveList != null)
             {
@@ -2775,7 +2873,6 @@ namespace Sango.Core
                 {
                     if (x != null && x.BelongForce == this)
                     {
-                        x.BelongForce = null;
                         x.BelongCorps = null;
                     }
                 });
@@ -2794,7 +2891,6 @@ namespace Sango.Core
                     x.LeaveToWild();
                 x.workingBuilding = null;
                 x.mBelongTroop = null;
-                x.BelongForce = null;
                 x.BelongCorps = null;
             });
 
@@ -2806,6 +2902,16 @@ namespace Sango.Core
                 x.IsAlive = false;
                 scenario.Remove(x);
             });
+
+            // ④' 特殊宝物（玉玺 / 铜雀）销毁。
+            //
+            // 【原版对齐】force_ruin 末尾 `person_lose_special_items(kunshu, dest_kunshu)`
+            // （s11_sys_scen_force.cpp:997-1000）：投降分支把宝物交给受降方君主
+            // （dest_kunshu = by 的君主），彻底灭亡分支 dest_kunshu 为空 → item_disappear
+            // （s11_sys_scen_person.cpp:1723-1726）。
+            // 投降合并已在外交流程里完成移交，走到这里通常已经没有剩货；
+            // 城陷灭亡路径则在这里把玉玺 / 铜雀销毁，避免"势力已亡、玉玺还在在野武将身上"。
+            ItemGrantRules.TransferSpecialItems(mGovernor, null);
 
             // ⑤ 从剧本移除势力
             scenario.Remove(this);
@@ -2857,9 +2963,9 @@ namespace Sango.Core
         /// `district_dissolve(继任者原军团, 第1军团)` —— **保留第 1 军团**，
         /// 把继任者所在的军团并进去。
         ///
-        /// 与 <see cref="DeleteCorps(Corps)"/> 的区别：DeleteCorps 硬编码接收方为
-        /// `CapitalCorps`（= 君主所在军团），君主继承时会指向"即将被解散"的那个军团，
-        /// 形成自我合并；这里允许显式指定接收方。
+        /// 与 <see cref="DeleteCorps(Corps)"/> 的区别：DeleteCorps 固定收编到**第 1 军团**
+        /// （按 number == 1 查找，对齐 Open311 `get_sub_district_id(1)`），
+        /// 不能指定别的接收方；君主继承这类"目标不是 1 号军团"的场合用本方法。
         /// </summary>
         /// <param name="from">被解散的军团</param>
         /// <param name="to">接收方军团</param>
@@ -2872,14 +2978,27 @@ namespace Sango.Core
             if (scenario == null)
                 return;
 
-            // 旧军团长卸任（原版 district_dissolve 开头：能当太守则太守，否则一般）。
-            // SetStateNormal 对君主有保护，不会把君主降级。
+            // 【原版对齐】district_dissolve 开头（s11_sys_scen_district.cpp:90-104）：
+            // 都督卸任——身兼太守则保留太守，否则降为一般；君主（Governor）不降级
+            // （对应原版 `mibun <= Mibun_Totoku` 才进入降级分支）；随后立即补任太守。
             if (from.mComander != null)
             {
-                if (from.mComander.IsAlive && !from.mComander.IsDead)
-                    from.mComander.SetStateNormal();
+                Person totoku = from.mComander;
+                City service = totoku.BelongCity;
+                if (totoku.IsAlive && !totoku.IsDead && !totoku.IsGovernor)
+                {
+                    if (service != null && service.Leader == totoku)
+                        PersonStateSystem.SetState(totoku, PersonStateType.Leader, PersonChangeReason.DistrictChanged);
+                    else
+                        PersonStateSystem.SetState(totoku, PersonStateType.Normal, PersonChangeReason.DistrictChanged);
+                }
                 from.mComander = null;
                 from.Comander = 0;
+
+                // 【原版对齐】building_appoint_taishu(service, false)（s11_sys_scen_building.cpp:971）：
+                // 清都督后立即补任太守（重选最优），不等到年度巡检兜底。
+                if (service != null)
+                    CityStateSystem.AppointTaishu(service);
             }
 
             scenario.citySet.ForEach(x =>
@@ -2888,12 +3007,29 @@ namespace Sango.Core
                     CityStateSystem.SetCorps(x, to);
             });
 
+            // 【原版对齐】district_dissolve ②-a 成员改军团 + ②-c 户口兜底
+            //（s11_sys_scen_district.cpp:107-112、120-130）：
+            // 合并后若成员"军团 != 户口城军团"（户口城不在被解散军团，如出征/在途成员），
+            // 把户口改到接收方军团都督据点，恢复"军团 == 户口城军团"不变式。
+            City destService = to.mComander != null && to.mComander.IsAlive ? to.mComander.BelongCity : null;
             scenario.personSet.ForEach(x =>
             {
-                if (x != null && x.IsAlive && x.BelongCorps == from)
-                    x.ChangeCorps(to);
+                if (x == null || !x.IsAlive || x.BelongCorps != from)
+                    return;
+                x.ChangeCorps(to);
+                if (destService != null && x.BelongCity != null && x.BelongCorps != x.BelongCity.BelongCorps)
+                {
+                    Sango.Log.Info($"*[军团合并]{x.Name} 户口自 {x.BelongCity.Name} 迁至 {destService.Name}");
+                    x.ChangeBelongCity(destService);
+                }
             });
 
+            // 【原版无对应实现】内政设施同步：Open311 的 district_dissolve 只移动 is_kyoten 据点，
+            // 内政设施的 district_ 是"从所属据点派生"的（get_area_city_id），不单独存字段；
+            // 本项目把 BelongCorps/BelongForce 存成了字段（denormalized），必须在此显式同步，
+            // 否则"城属新军团、城内设施仍属旧军团"会在 SyncBuildings / 读档校验时分裂。
+            // 这里裸赋而非 Building.ChangeCorps：势力内合并 BelongForce 不变，ChangeCorps 的
+            // "未完工跨势力拆除"分支不会触发，裸赋等价且避免误拆在建设施。
             scenario.buildingSet.ForEach(x =>
             {
                 if (x != null && x.IsAlive && x.BelongCorps == from)
@@ -2934,6 +3070,13 @@ namespace Sango.Core
             {
                 return x.BelongForce == this && x.number == number;
             });
+            // 编号不存在时静默返回：调用方（菜单 / AI / 巡检）都按"删除成功"继续走，
+            // 传 null 进来会在下面的 corps.BelongForce 处空引用。
+            if (corps == null)
+            {
+                Sango.Log.Warning($"*军团解散失败：势力{Name}不存在第{number}军团");
+                return;
+            }
             DeleteCorps(corps);
         }
 
@@ -2945,19 +3088,37 @@ namespace Sango.Core
         /// <param name="cities"></param>
         public void DeleteCorps(Corps corps)
         {
+            if (corps == null)
+                return;
+
             if (corps.BelongForce == null)
             {
                 Scenario.Cur.corpsSet.Remove(corps);
                 return;
             }
 
-            if (corps == CapitalCorps)
+            // 【原版对齐】"不能解散"的判据是**军团编号 == 1**，不是"君主所在军团"。
+            // Open311 exec_district_destroy_command（s11_sys_person_order_kunshu.cpp:480）：
+            //     if (not utils::is_alive(self->district) or self->district->get_number() == 1) return false;
+            //
+            // 原先这里判 `corps == CapitalCorps`，而 CapitalCorps 派生自 mGovernor.BelongCorps。
+            // 一旦君主被挂进非 1 号军团（君主所在城被编入支军团），那个支军团恰好
+            // == CapitalCorps，解散时静默 return —— 但菜单侧已经播完确认对话框和音效，
+            // 玩家看到的就是"点了解散没反应"。存档 save5.json 正是此状态：
+            // 刘备 BelongCorps=18（刘备第六军团，number=6），第一军团是 Id 5。
+            if (corps.IsCaptainCorps)
                 return;
 
-            Corps governorCorps = CapitalCorps;
+            // 【原版对齐】接收方固定取"第 1 军团"，不是"君主当前所在军团"。
+            // Open311 同一函数（:485 / :502）收编到 force->get_sub_district_id(1)，
+            // 而 get_sub_district_id(1) 是按 `get_number() == 1` 匹配（s11_scen_obj_force.cpp:547-556）。
+            // 用 CapitalCorps 会在君主挂错军团时把整团并到错误的目标上（本存档解散第四军团
+            // 会并进第六军团而不是第一军团）。
+            Force owner = corps.BelongForce;
+            Corps governorCorps = owner.FindCorpsByNumber(1);
             if (governorCorps == null)
             {
-                Sango.Log.Error($"*军团解散失败：势力{Name}找不到可接收的第一军团");
+                Sango.Log.Error($"*军团解散失败：势力{owner.Name}找不到可接收的第一军团");
                 return;
             }
 
@@ -2987,6 +3148,8 @@ namespace Sango.Core
                 }
             });
 
+            // 【原版无对应实现】内政设施同步：见 MergeCorps 同名注释，这里是解散收编到第一军团，
+            // 同样因为本项目把归属存成了字段，必须显式双写，避免城与设施归属分裂。
             scenario.buildingSet.ForEach(x =>
             {
                 if (x != null && x.IsAlive && x.BelongCorps == corps)
@@ -2997,7 +3160,23 @@ namespace Sango.Core
             });
 
             if (corps.mComander != null && corps.mComander.state == (int)PersonStateType.Commander)
-                PersonStateSystem.SetState(corps.mComander, PersonStateType.Normal, PersonChangeReason.DistrictChanged);
+            {
+                // 【原版对齐】district_dissolve：都督卸任身兼太守则保留太守，否则降为一般。
+                Person totoku = corps.mComander;
+                City service = totoku.BelongCity;
+                if (service != null && service.Leader == totoku)
+                    PersonStateSystem.SetState(totoku, PersonStateType.Leader, PersonChangeReason.DistrictChanged);
+                else
+                    PersonStateSystem.SetState(totoku, PersonStateType.Normal, PersonChangeReason.DistrictChanged);
+
+                // 【原版对齐】building_appoint_taishu：卸任后立即补任太守（重选最优），不等到年度巡检兜底。
+                if (service != null)
+                    CityStateSystem.AppointTaishu(service);
+            }
+
+            // 解散成功必须留痕：菜单侧（CorpsSystem）不检查返回值，
+            // 一旦这里提前 return，界面只会"确认框消失 + 音效"，玩家无从判断成败。
+            Sango.Log.Info($"*[军团]{corps.Name}（编号{corps.number}）解散，所属据点/武将/建筑并入{governorCorps.Name}");
 
             Scenario.Cur.corpsSet.Remove(corps);
             GameEvent.OnCorpsDelete?.Invoke(corps, Scenario.Cur);

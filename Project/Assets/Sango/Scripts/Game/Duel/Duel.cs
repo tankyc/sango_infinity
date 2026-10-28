@@ -1533,21 +1533,19 @@ namespace Sango.Core.Duel
                 engine.DuelResetAnim(this);
         }
 
-        /// <summary>最低体力（低于此值不再参战）</summary>
+        /// <summary>
+        /// 最低体力（低于此值不再参战）。
+        ///
+        /// 原版按性格 胆小 80 / 冷静 70 / 刚胆 60 / 莽撞 50 写死 switch，
+        /// 现由性格字段 <c>duelMinHp</c> 直接给出 —— 新增性格无需改这里。
+        /// </summary>
         public static int GetDuelMinHp(Person self)
         {
-            if (!Utils.IsActive(self))
+            if (self == null || !Utils.IsActive(self))
                 return 50;
-            switch (self.GetPersonality())
-            {
-                case DuelPersonality.Timid:
-                    return 80;
-                case DuelPersonality.Calm:
-                    return 70;
-                case DuelPersonality.Bold:
-                    return 60;
-            }
-            return 50;
+
+            Sango.Core.Personality p = self.mPersonality;
+            return p != null ? p.duelMinHp : 50;
         }
 
         /// <summary>统计该队武将数（joined = true 时只数已登场的）</summary>

@@ -446,8 +446,9 @@ namespace Sango.Core
 
         public override bool OnForceTurnStart(Scenario scenario)
         {
-            // 暂时写死
-            if (isComplate && BuildingType.atk > 0 && BuildingType.atkRange > 0)
+            // 原版只有阵/砦/城塞/箭楼/连弩楼/投石台会主动攻击部队（calc_troops_damage 表），
+            // 城/关/港虽然 atk > 0 但不主动打人 —— 用 troopAtk > 0 判定。
+            if (isComplate && BuildingType.troopAtk > 0 && BuildingType.attackMaxRange > 0)
             {
                 for (int i = 1; i < effectCells.Count; i++)
                 {

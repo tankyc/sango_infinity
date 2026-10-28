@@ -10,7 +10,6 @@ namespace Sango.Core
         public int cost;
         public int meritGain;
         public int tpGain;
-        public int limit;
         public int[] recommandFeatures;
 
         public static int GetJobCost(int jobId)
@@ -61,12 +60,7 @@ namespace Sango.Core
             }
             return 0;
         }
-        public static int GetJobLimit(int jobId)
-        {
-            JobType t = Scenario.Cur.CommonData.JobTypes.Get(jobId);
-            if (t != null) return t.limit;
-            return 0;
-        }
+
 
         /// <summary>
         /// 该工作"推荐优先"的特技 Id 列表（数据来自 <c>JobTypes.json</c> 的 <c>recommandFeatures</c>）。

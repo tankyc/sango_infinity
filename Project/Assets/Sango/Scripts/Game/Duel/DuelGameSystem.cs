@@ -139,10 +139,13 @@ namespace Sango.Core.Duel
         /// <summary>获取难度（读剧本参数 difficulty 并映射到单挑 3 档）</summary>
         public virtual Difficulty GetDifficulty() { return DuelRules.GetDifficulty(); }
 
-        /// <summary>获取寿命模式（读剧本参数 duelLifeMode）</summary>
+        /// <summary>
+        /// 获取寿命模式（沿用全局：剧本信息锁定优先，其次剧本参数 lifeMode）。
+        /// 史实 / 长寿 → Normal，虚构 / 无死亡 → Virtual。
+        /// </summary>
         public virtual LifeMode GetLifeMode() { return DuelRules.GetLifeMode(); }
 
-        /// <summary>获取战死频率（读剧本参数 duelDeathMode）</summary>
+        /// <summary>获取战死频率（沿用全局剧本参数 battleDeathMode：0 无 / 1 普通 / 2 高）</summary>
         public virtual BattleDeathMode GetBattleDeathMode() { return DuelRules.GetBattleDeathMode(); }
 
         /// <summary>获取单挑获胜的基础抓捕率（读剧本参数 captureChangceWhenDuelWin）</summary>

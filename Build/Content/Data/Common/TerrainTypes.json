@@ -37,6 +37,7 @@
     "1": {
       "Id": 1,
       "Name": "草地",
+      "fireCoef": 40,
       "foodDeposit": 1000,
       "fertility": [
         20.0,
@@ -71,6 +72,7 @@
     "2": {
       "Id": 2,
       "Name": "土",
+      "fireCoef": 40,
       "foodDeposit": 1000,
       "fertility": [
         20.0,
@@ -105,6 +107,8 @@
     "3": {
       "Id": 3,
       "Name": "砂地",
+      "posKind": 1,
+      "fireCoef": 40,
       "foodDeposit": 1000,
       "fertility": [
         5.0,
@@ -139,6 +143,8 @@
     "4": {
       "Id": 4,
       "Name": "湿地",
+      "posKind": 2,
+      "fireCoef": 10,
       "foodDeposit": 1000,
       "fertility": [
         10.0,
@@ -173,6 +179,11 @@
     "5": {
       "Id": 5,
       "Name": "毒泉",
+      "posKind": 3,
+      "fireCoef": 10,
+      "moveDamageBase": 200,
+      "moveDamageRandom": 200,
+      "moveImmunityFlag": 1,
       "foodDeposit": 1000,
       "fertility": [
         5.0,
@@ -207,6 +218,8 @@
     "6": {
       "Id": 6,
       "Name": "森",
+      "posKind": 4,
+      "fireCoef": 50,
       "foodDeposit": 1000,
       "fertility": [
         10.0,
@@ -343,6 +356,7 @@
     "10": {
       "Id": 10,
       "Name": "荒地",
+      "fireCoef": 35,
       "foodDeposit": 1000,
       "fertility": [
         5.0,
@@ -377,6 +391,7 @@
     "11": {
       "Id": 11,
       "Name": "主径",
+      "fireCoef": 30,
       "foodDeposit": 1000,
       "fertility": [
         1.0,
@@ -411,6 +426,11 @@
     "12": {
       "Id": 12,
       "Name": "栈道",
+      "posKind": 5,
+      "fireCoef": 15,
+      "moveDamageBase": 100,
+      "moveDamageRandom": 200,
+      "moveImmunityFlag": 2,
       "foodDeposit": 1000,
       "fertility": [
         1.0,
@@ -445,6 +465,7 @@
     "13": {
       "Id": 13,
       "Name": "渡所",
+      "fireCoef": 20,
       "foodDeposit": 1000,
       "fertility": [
         1.0,
@@ -479,6 +500,7 @@
     "14": {
       "Id": 14,
       "Name": "浅滩",
+      "fireCoef": 10,
       "foodDeposit": 1000,
       "fertility": [
         1.0,
@@ -683,6 +705,7 @@
     "20": {
       "Id": 20,
       "Name": "小径",
+      "fireCoef": 10,
       "foodDeposit": 1000,
       "fertility": [
         1.0,

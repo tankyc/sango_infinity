@@ -35,6 +35,13 @@ namespace Sango.Core
             if (scenario == null)
                 return 0;
 
+            // 换剧本 / 读档：清空"已播报"记录，让新剧本里的军团长问题能重新提示一次
+            if (!ReferenceEquals(lastValidatedScenario, scenario))
+            {
+                lastValidatedScenario = scenario;
+                reportedEmptyCorps.Clear();
+            }
+
             int issueCount = 0;
 
             // 1. 武将
@@ -97,7 +104,9 @@ namespace Sango.Core
                         continue;
 
                     buildingIssue++;
-                    Sango.Log.Warning($"*[归属巡检] 陷阱/障碍 {building.Name} 残留归属 {Describe(building.BelongForce)}/{Describe(building.BelongCorps)}");
+                    // 逐条输出已移除：一次巡检可能几百条，而 Debug 构建下每条
+                    // `Debug.LogWarning` 都要抓堆栈并写 Console（约 0.1~1ms/条）。
+                    // 数量不丢，末尾统一汇总。
                     if (repair)
                         building.OnCompleted();
                 }
@@ -138,7 +147,7 @@ namespace Sango.Core
                         continue;
 
                     actorIssue++;
-                    Sango.Log.Warning($"*[在途巡检] {person.Name} 有任务(missionType={person.missionType}) 但不在在途武将表里");
+                    // 同上：逐条已移除，只在末尾汇总
                     if (repair)
                         scenario.RegisterActor(person);
                 }
@@ -172,12 +181,15 @@ namespace Sango.Core
                             return;
 
                         memberIssue++;
-                        Sango.Log.Warning($"*[归属巡检] 部队 {troop.Name} 的成员 {person.Name} 类型为 {(PersonType)person.type}，按原版不允许编入部队");
+                        // 逐条已移除，末尾汇总
                     });
                 }
 
                 if (memberIssue > 0)
+                {
                     issueCount += memberIssue;
+                    Sango.Log.Warning($"*[归属巡检] {memberIssue} 处部队成员类型不合法（事件/NPC 被编入部队）");
+                }
             }
 
             if (issueCount > 0)
@@ -396,6 +408,17 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 已播报过"没有直辖城市"的支军团 Id。
+        ///
+        /// 只辖关港的支军团是原版合法中间态，且每年巡检都会重新命中，
+        /// 若不去重就会在年度日志里反复刷同一条。换剧本 / 读档时由 <see cref="ValidateAll"/> 清空。
+        /// </summary>
+        static readonly System.Collections.Generic.HashSet<int> reportedEmptyCorps = new System.Collections.Generic.HashSet<int>();
+
+        /// <summary>上一次巡检所属的剧本，用于识别"换剧本/读档"并清空播报记录</summary>
+        static Scenario lastValidatedScenario;
+
+        /// <summary>
         /// 校验单个军团。
         /// </summary>
         /// <param name="corps">军团</param>
@@ -450,17 +473,53 @@ namespace Sango.Core
                 hasIssue = true;
             }
 
-            // 支军团（第 2 军团及以后）无城应由 Force 负责解散，这里只报告。
+            // 支军团（第 2 军团及以后）是否"没有直辖城市"。
+            //
+            // 【原版口径】这里的"城"指**城市**，不含关隘与港口：
+            //   - district_sep_init 遍历的是 city_pool（s11_game_ai_district_sep.cpp:8-17）
+            //   - district_create 取的是 get_district_city_list()（同文件 :80）
+            //   关港在原版是 kyoten / building，只在 district_dissolve 时随军团整体移交，
+            //   既不参与 city_count 统计，也不会被拆给新军团。
+            // 所以这里（以及 ForceAI 的拆分统计）都只能用 ForEachCity（IsCity()）。
+            //
+            // 【只报不动手】"只辖关港、没有城市"的支军团在原版是合法中间态：
+            // city_count = 0，不参与拆分，由 force_districts 的解散段
+            // （s11_game_ai_force_cmd.cpp:323-333，无条件解散 2 号以后的军团）在下次重排时
+            // 并回第 1 军团。巡检若抢先 DeleteCorps，就会和 AI 重排互相覆盖 ——
+            // 之前反复刷"第2军团解散 / 湖阳港 第二军团 -> 第一军团"正是这样形成的。
+            //
+            // 这个状态每年都会命中，故按军团去重只播报一次，避免年度刷屏。
             // 第 1 军团允许为空：势力可能只剩港关，或正处于灭亡流程的中间态。
             if (corps.number > 1)
             {
                 int cityCount = 0;
                 corps.ForEachCity(c => cityCount++);
-                if (cityCount == 0)
+                if (cityCount == 0 && reportedEmptyCorps.Add(corps.Id))
                 {
-                    Sango.Log.Error($"*[归属巡检] 军团{corps.Name}（{corps.BelongForce.Name} 第{corps.number}军团）没有任何城池");
-                    hasIssue = true;
+                    Sango.Log.Warning($"*[归属巡检] 军团 {corps.BelongForce?.Name} 第{corps.number}军团 没有直辖城市（只辖关港属正常，AI 重排会并入第 1 军团）");
                 }
+            }
+
+            // 君主必须挂在第 1 军团。
+            //
+            // 【原版不变量】Open311 用 `district->get_number() == 1` 定义第一军团
+            //（s11_scen_obj_force.cpp:542-556），并在君主换据点时把新据点所在军团整体
+            // 并入君主军团（s11_sys_scen_unit.cpp:826-841 unit_reset_service），
+            // 因此"君主所在军团 == 1 号军团"恒成立。本项目没有这条合并逻辑，
+            // 君主所在城被编入支军团后，君主会随 City.UpdateCorps 一起被挂到支军团。
+            //
+            // 危害：Force.CapitalCorps 派生自 mGovernor.BelongCorps，一旦错位，
+            // 所有"第一军团"语义（AI 调度、投降收编、军团解散目标）都会指向支军团；
+            // 解散那个支军团时旧代码还会静默失败（已按编号修正）。
+            //
+            // 这里只报告、不自动合并：修复要么把整团并回 1 号军团（打散玩家编制），
+            // 要么单独改君主字段（与所在城不一致，下次 UpdateCorps 又会被拉回），
+            // 两种自动修复的风险都高于收益，交由玩家用"解散/重编军团"自行归位。
+            Person governor = corps.BelongForce != null ? corps.BelongForce.mGovernor : null;
+            if (governor != null && governor.BelongCorps == corps && !corps.IsCaptainCorps)
+            {
+                Sango.Log.Warning($"*[归属巡检] {governor.Name}（君主）挂在{corps.Name}（编号{corps.number}）上，第一军团应为编号 1 的军团；军团解散/AI 调度会以错误的军团为目标");
+                hasIssue = true;
             }
 
             return hasIssue;
@@ -484,7 +543,6 @@ namespace Sango.Core
                 person.BelongCity?.RemoveInvisiblePerson(person);
                 person.BelongForce?.BeCaptiveList.Remove(person);
                 person.BelongCity = null;
-                person.BelongForce = null;
                 person.BelongCorps = null;
                 if (person.mBelongTroop != null)
                     person.mBelongTroop.RemovePerson(person);
@@ -506,7 +564,6 @@ namespace Sango.Core
                 hasIssue = true;
                 if (repair)
                 {
-                    person.BelongForce = null;
                     person.BelongCorps = null;
                 }
             }
@@ -560,7 +617,6 @@ namespace Sango.Core
                 hasIssue = true;
                 if (repair)
                 {
-                    person.BelongForce = null;
                     person.BelongCorps = null;
                     if (person.mBelongTroop != null)
                         person.mBelongTroop.RemovePerson(person);
@@ -725,7 +781,6 @@ namespace Sango.Core
                     if (repair)
                     {
                         person.BelongCorps = city.BelongCorps;
-                        person.BelongForce = city.BelongForce;
                     }
                 }
                 // 城也没势力：保留现状，由后续"无势力"分支处理
@@ -737,8 +792,6 @@ namespace Sango.Core
                 {
                     Sango.Log.Warning($"*[归属巡检] {person.Name} 势力:{Describe(person.BelongForce)} 与军团 {person.BelongCorps.Name} 的势力:{Describe(person.BelongCorps.BelongForce)} 不一致");
                     hasIssue = true;
-                    if (repair)
-                        person.BelongForce = person.BelongCorps.BelongForce;
                 }
 
                 // 同势力换军团：跟随所属城。

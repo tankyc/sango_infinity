@@ -66,7 +66,10 @@ using Sango.Core; namespace Sango.UI
         public void OnRecruit()
         {
             personRecruit.RecruitTarget();
-            if (personRecruit.tryLimit <= 0)
+            // 用 IsTryExhausted 而不是 tryLimit <= 0：
+            // 俘虏处置走"不限次数"（PersonRecruit.UnlimitedTry = -1），
+            // 直接比较 <= 0 会在第一次点击后就把按钮锁死。
+            if (personRecruit.IsTryExhausted)
             {
                 recruitBtn1.interactable = false;
                 recruitBtn2.interactable = false;
@@ -76,7 +79,8 @@ using Sango.Core; namespace Sango.UI
         public void OnRecruit2()
         {
             personRecruit.RecruitTarget2();
-            if (personRecruit.tryLimit <= 0)
+            // 同上：不限次数模式下不能锁按钮
+            if (personRecruit.IsTryExhausted)
             {
                 recruitBtn1.interactable = false;
                 recruitBtn2.interactable = false;

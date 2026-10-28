@@ -205,6 +205,51 @@ namespace Sango.Core
                 }
             }
 
+            // ---- 步骤 4b：敌方 / 无主根城（原版 FacilityId_Den / Base）----
+            // 原版 s11_game_ai_force.cpp:258-283 扫的是**全图建筑池**，用
+            // `building->get_area_city_id()` 反查领地城：
+            //   · 根城落在我方城域（`city->get_force_id() == src_force_id`）→ 记为该据点的 nejiro；
+            //   · 该城无主或是我方 → 还要把根城记到它下属的关 / 港上（:275-283）。
+            // 本项目根城**不进 City.allBuildings**（否则城陷落时会被 ChangeCorps 改归属，
+            // 见 BanditCampPlacer.CreateCamp 的注释），所以上面步骤 4 遍历 allBuildings
+            // 永远扫不到它们 —— 必须单独扫 buildingSet，否则 mainCamp 恒为 -1，
+            // 据点状态永远不会因为"领地里长了异族老巢"升到 Battle，AI 也就不去清剿。
+            if (scenario.buildingSet != null)
+            {
+                for (int i = 0; i < scenario.buildingSet.Count; i++)
+                {
+                    Building camp = scenario.buildingSet[i];
+                    if (!BanditCampPlacer.IsRaiderCamp(camp))
+                        continue;
+
+                    // 只关心敌方 / 无主的根城（原版 :263）
+                    Force campOwner = camp.BelongForce;
+                    if (campOwner != null && (campOwner == force || !force.IsEnemy(campOwner)))
+                        continue;
+
+                    City area = BanditCampPlacer.GetAreaCity(camp);
+                    if (area == null || !area.IsAlive)
+                        continue;
+
+                    if (area.BelongForce == force)
+                    {
+                        OutpostInfo campInfo = OutpostRuntime.Get(area.Id);
+                        campInfo.mainCamp = camp.Id;
+                        // 原版根城（FacilityId_Base / Den）的 facility_type 是 Military，
+                        // 所以紧接着的 `if (building->is_military_type())` 分支（:285-291）
+                        // 还会再给它所属据点 enemy_facility_count++ —— 这里一并补上。
+                        campInfo.enemyFacilityCount++;
+                    }
+
+                    // 下属关 / 港（原版 :275-283）
+                    if (area.BelongForce == null || area.BelongForce == force)
+                    {
+                        MarkCampOnChildren(area.portList, camp.Id, force);
+                        MarkCampOnChildren(area.gateList, camp.Id, force);
+                    }
+                }
+            }
+
             // ---- 步骤 5：距国境的距离 ----
             // 原版 s11_game_ai_force.cpp:293-308：以"有敌邻的据点"为 0，向己方据点扩散最短跳数。
             ComputeDistanceFromBorder(ownOutpost, force);
@@ -592,6 +637,31 @@ namespace Sango.Core
             // Cell.BelongCity 就是那份预计算表。注意这里**不归并到母城** ——
             // 原版传的是 effective=false，关隘 / 港口辖区的部队就归该关隘。
             return troop.cell.BelongCity;
+        }
+
+        /// <summary>
+        /// 把根城 Id 记到主城下属的关 / 港据点上，对齐原版 s11_game_ai_force.cpp:275-283：
+        /// 根城在"无主城 / 我方城"的领地里时，该城下属的关港也要跟着进入战斗状态
+        /// （否则关港的 AI 看不到自己辖区里的异族老巢，只会在原地不动）。
+        /// </summary>
+        /// <typeparam name="T">关 / 港类型（Gate / Port）</typeparam>
+        /// <param name="children">下属据点列表</param>
+        /// <param name="campId">根城建筑 Id</param>
+        /// <param name="force">我方势力</param>
+        static void MarkCampOnChildren<T>(List<T> children, int campId, Force force) where T : City
+        {
+            if (children == null)
+                return;
+
+            for (int i = 0; i < children.Count; i++)
+            {
+                City child = children[i];
+                if (child == null || !child.IsAlive)
+                    continue;
+                if (child.BelongForce != force)
+                    continue;
+                OutpostRuntime.Get(child.Id).mainCamp = campId;
+            }
         }
 
         /// <summary>

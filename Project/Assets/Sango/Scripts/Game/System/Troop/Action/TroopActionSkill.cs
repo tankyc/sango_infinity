@@ -1,6 +1,5 @@
 using Sango.Render;
 using Sango.UI;
-using Sango.Render;
 using System.Collections.Generic;
 
 namespace Sango.Core.Player

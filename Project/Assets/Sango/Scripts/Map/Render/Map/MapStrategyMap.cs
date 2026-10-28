@@ -85,6 +85,10 @@ namespace Sango.Render
             // 先退订再订阅：GameEvent 是静态总线，重复 Init 不能把同一回调挂两次
             GameEvent.OnCityFall -= OnCityFall;
             GameEvent.OnCityFall += OnCityFall;
+            // 非战斗易主（劝降合并 / 事件改属 / 白城化）不会派 OnCityFall，
+            // 必须另挂换旗事件，否则势力归属贴图会一直停在旧颜色
+            GameEvent.OnCityChangeForce -= OnCityChangeForce;
+            GameEvent.OnCityChangeForce += OnCityChangeForce;
             GameEvent.OnScenarioInit -= OnScenarioInit;
             GameEvent.OnScenarioInit += OnScenarioInit;
             Shader.SetGlobalFloat("_FactionMapAlpha", 0f);
@@ -95,6 +99,7 @@ namespace Sango.Render
         {
             base.Clear();
             GameEvent.OnCityFall -= OnCityFall;
+            GameEvent.OnCityChangeForce -= OnCityChangeForce;
             GameEvent.OnScenarioInit -= OnScenarioInit;
             ReleaseTexture();
             Shader.SetGlobalTexture("_FactionMap", null);
@@ -167,6 +172,15 @@ namespace Sango.Render
 
         /// <summary>城池易主：归属色需要刷新</summary>
         void OnCityFall(City city, Force lastForce, Troop troop)
+        {
+            MarkDirty();
+        }
+
+        /// <summary>
+        /// 据点换旗（非战斗易主）：劝降合并 / 事件改属 / 白城化。
+        /// 与 <see cref="OnCityFall"/> 同样只需要打脏标记 —— 贴图下一帧整体重建。
+        /// </summary>
+        void OnCityChangeForce(City city, Force lastForce, Force force)
         {
             MarkDirty();
         }

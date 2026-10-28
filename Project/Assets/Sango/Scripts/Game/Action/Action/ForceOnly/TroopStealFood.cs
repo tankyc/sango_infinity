@@ -37,22 +37,31 @@ namespace Sango.Core.Action
             if (trigger.ActionTroop == null) return;
 
             Troop troop = trigger.ActionTroop;
+
+            // 兵种限定：原版是"枪兵 + 兵粮术科技"才生效（s11_sys_damage.cpp:1516-1529），
+            // 本项目由 kinds 配置承担兵种限定。
+            if (kinds != null)
+            {
+                if (troop.TroopType == null || !kinds.Contains(troop.TroopType.kind))
+                    return;
+            }
+
+            Troop target = trigger.TargetTroop;
+
+            // 夺取量 = min(自身兵力 / 2, 自身攻击力 × [1.0, 2.0])
+            // 对应原版 calc_food_damage 的 b 项 max(troops/2, 1) 与 a 项 atk + rand_int(atk)。
             int stealNum = System.Math.Min(troop.troops / 2, troop.Attack * GameRandom.Range(10, 21) / 10);
-            if (kinds == null)
-            {
-                troop.ChangeFood(stealNum);
-                if (trigger.TargetTroop != null)
-                    trigger.TargetTroop.ChangeFood(-stealNum);
-            }
-            else
-            {
-                if (kinds.Contains(troop.TroopType.kind))
-                {
-                    troop.ChangeFood(stealNum);
-                    if (trigger.TargetTroop != null)
-                        trigger.TargetTroop.ChangeFood(-stealNum);
-                }
-            }
+
+            // 原版 c 项：不得超过目标现有兵粮。
+            // 不加这一条时，扣粮会被 ChangeFood 钳到 0，而自身仍按 stealNum 增加 —— 等于凭空造粮。
+            if (target != null)
+                stealNum = System.Math.Min(stealNum, target.food);
+
+            // 【未对齐】原版 d 项 max_food - food（自身装粮上限）在本项目没有对应字段，暂不限制。
+            if (stealNum <= 0) return;
+
+            troop.ChangeFood(stealNum);
+            target?.ChangeFood(-stealNum);
         }
 
     }

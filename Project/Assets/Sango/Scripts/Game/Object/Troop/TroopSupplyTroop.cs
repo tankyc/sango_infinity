@@ -13,7 +13,9 @@ namespace Sango.Core
     /// 1. **一回合只补给一支部队**：优先选择相邻部队中"最需要补给"的一支（缺粮优先，其次兵力缺口）；
     /// 2. 不与友军相邻时，向最需要补给的友军安全移动（规避敌方威胁区域）；
     /// 3. 移动 / 站位优先选择友军背向敌人一侧，借助友军作为屏障规避被攻击；
-    /// 4. 每支补给队携带战场级物资，可连续多回合**依次**补给多支部队（一回合一支，而非一次全补）；
+    /// 4. **补给完成即返城**：对齐原版 `supply_target` 末尾的 `unit_set_order(Retreat, NullPos)`
+    ///    （s11_sys_unit_order.cpp:809-810）—— 每支补给队出门只服务一支友军，补完就回所属据点，
+    ///    需要再次补给要由城池重新组建；
     /// 5. **资源维持**：兵装 / 兵力 / 粮草任一低于阈值时，返回最近己方据点补充；
     /// 6. **保持距离**：与最近敌方部队过近（不足约一个回合的行程）时，向己方据点后撤；
     /// 7. **战场态势**：我方战力占比低于阈值（大劣）时立刻撤退；
@@ -21,6 +23,18 @@ namespace Sango.Core
     /// </summary>
     public class TroopSupplyTroop : TroopMissionBehaviour
     {
+        /// <summary>
+        /// 资金补给目标额：目标低于该值时补到该值。
+        /// 原版硬编码 10000（s11_sys_unit_order.cpp:829 `if (gold < 10000)`）。
+        /// </summary>
+        const int SupplyGoldTarget = 10000;
+
+        /// <summary>
+        /// 军粮补给目标额：目标低于该值时补到该值。
+        /// 原版硬编码 50000（s11_sys_unit_order.cpp:835 `if (food < 50000)`）。
+        /// </summary>
+        const int SupplyFoodTarget = 50000;
+
         public override MissionType MissionType { get { return MissionType.TroopSupplyTroop; } }
 
         /// <summary>
@@ -103,7 +117,12 @@ namespace Sango.Core
 
             // 1) 与友军相邻 → 本回合只补给其中"最需要"的一支（一回合一支）
             if (SupplyOneAdjacentAlly(troop))
+            {
+                // 【对齐原版】supply_target 补给完成后立刻 unit_set_order(Retreat, NullPos)
+                // （s11_sys_unit_order.cpp:809-810）—— 补给队随即返城，不在前线连续补给。
+                ReturnToNearestCity(troop, scenario);
                 return true;
+            }
 
             // 2) 否则向最需要补给的友军（其背向敌人一侧）安全移动
             Troop ally = FindSupplyTarget(troop, scenario);
@@ -232,7 +251,12 @@ namespace Sango.Core
         /// <param name="scenario">场景对象</param>
         void ReturnToNearestCity(Troop troop, Scenario scenario)
         {
-            City back = troop.FindNearestFriendlyCity(scenario);
+            // 【对齐原版】unit_retreat 的撤退目标是**所属据点** service
+            // （s11_game_ai_unit.cpp:378-399），不是"地理上最近的己方据点"。
+            // 因此优先取 BelongCity，取不到（户口失效 / 城已易主）才退化为最近己方据点。
+            City back = troop.BelongCity;
+            if (back == null || back.BelongForce != troop.BelongForce)
+                back = troop.FindNearestFriendlyCity(scenario);
             if (back == null)
                 back = troop.BelongCity;
             if (back == null)
@@ -340,8 +364,13 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 向单支友军补给：粮草补齐到「兵力 × 阈值 × 2」，兵力补到满编，兵装按需移交。
-        /// 供补给队的自动行为与友军的「求援」指令共用。
+        /// 向单支友军补给。数值完全按原版 <c>get_supply_data</c> 结算
+        /// （s11_sys_unit_order.cpp:814-842）：
+        ///   · 兵力补到目标满编，补给队自身保留 1 兵；
+        ///   · 一兵一装的兵种（枪/戟/弩/马）另受补给队携带装备数限制，并按同量移交装备；
+        ///   · 资金目标低于 10000 时补到 10000；
+        ///   · 军粮目标低于 50000 时补到 50000，补给队保留 max((自身兵力-给出兵力)/2, 1) 口粮。
+        /// 与原版一致：不改变士气。供补给队的自动行为与友军的「求援」指令共用。
         /// </summary>
         /// <param name="supplier">补给队</param>
         /// <param name="ally">接收补给的友军</param>
@@ -351,73 +380,66 @@ namespace Sango.Core
             if (supplier == null || ally == null || !supplier.IsAlive || !ally.IsAlive)
                 return false;
 
-            // ---- 粮草：补齐到「兵力 × 阈值 × 2」为止 ----
-            int foodTarget = ally.troops * AIConfig.Instance.supplyFoodThresholdFactor * 2;
-            int foodGive = foodTarget - ally.food;
-            if (foodGive < 0)
-                foodGive = 0;
-            // 保留补给队自身最低行军口粮（兵力 × 2）
-            int foodKeep = supplier.troops * 2;
-            if (supplier.food - foodGive < foodKeep)
-                foodGive = supplier.food - foodKeep;
-            if (foodGive < 0)
-                foodGive = 0;
+            // ===== 以下数值逐项照抄原版 get_supply_data（s11_sys_unit_order.cpp:814-842）=====
 
-            // ---- 兵力：补到友军满编为止 ----
+            // 兵力：补到目标满编，补给队自身保留 1 兵（原版 :817）
             int troopGive = 0;
-            if (ally.MaxTroops > 0 && ally.troops < ally.MaxTroops)
-                troopGive = ally.MaxTroops - ally.troops;
-            if (troopGive > supplier.troops)
-                troopGive = supplier.troops;
-            // 【修复】补给队必须给自己保留最低 1 兵，不允许把兵力全部交出。
-            // 兵力归零的补给队不会被 ChangeTroops 正常收尾（SupplyTroop 直接改 troops），
-            // 会变成"0 兵但仍存活"的幽灵部队继续跑 AI，最终在 EnterCity 处以零为分母崩溃。
-            int supplierKeepTroops = 1;
-            if (troopGive > supplier.troops - supplierKeepTroops)
-                troopGive = supplier.troops - supplierKeepTroops;
-            if (troopGive < 0)
-                troopGive = 0;
-
-            // ---- 兵装：按需移交一部分 ----
-            ItemStore itemGive = null;
-            if (ally.MaxTroops > 0 && ally.troops < ally.MaxTroops
-                && supplier.itemStore != null && supplier.itemStore.TotalNumber > 0)
+            if (ally.MaxTroops > 0)
             {
-                itemGive = supplier.itemStore.Split(50);
+                troopGive = System.Math.Min(ally.MaxTroops - ally.troops, supplier.troops - 1);
+                if (troopGive < 0)
+                    troopGive = 0;
             }
 
-            // ---- 资金：让补给队同时输送现金 ----
-            // 【前线建筑】前线部队只有携带现金，才能在战场就地修建辅助建筑（B3 随军增筑）。
-            // 因此补给不再"只送粮不送钱"：仅当友军资金低于阈值时补足，
-            // 并保留补给队自身的最低资金，避免把后勤掏空。
-            AIConfig cfg = AIConfig.Instance;
+            // 一兵一装的兵种（枪 / 戟 / 弩 / 马）：补给量还受补给队携带该装备的数量限制（原版 :820-825）
+            int[] costItems = ally.TroopType != null ? ally.TroopType.costItems : null;
+            bool individualWeapon = costItems != null && costItems.Length > 0;
+            if (individualWeapon && troopGive > 0)
+                troopGive = supplier.itemStore.CheckCostMin(costItems, troopGive);
+
+            // 资金：目标不足 1 万时补到 1 万（原版 :828-833）
             int goldGive = 0;
-            int goldThreshold = cfg.supplyNeedGoldThreshold;
-            if (cfg.supplyTransferGoldPercent > 0
-                && goldThreshold > 0
-                && ally.gold < goldThreshold
-                && supplier.gold > 0)
+            if (ally.gold < SupplyGoldTarget)
+                goldGive = System.Math.Min(SupplyGoldTarget - ally.gold, supplier.gold);
+            if (goldGive < 0)
+                goldGive = 0;
+
+            // 军粮：目标不足 5 万时补到 5 万；补给队保底口粮 = max((自身兵力 - 给出兵力) / 2, 1)（原版 :834-840）
+            int foodGive = 0;
+            if (ally.food < SupplyFoodTarget)
             {
-                goldGive = supplier.gold * cfg.supplyTransferGoldPercent / 100;
-
-                // 只补到"够用"为止，不做超额转移
-                int need = goldThreshold - ally.gold;
-                if (goldGive > need)
-                    goldGive = need;
-
-                // 保留补给队自身的最低资金
-                int keep = goldThreshold;
-                if (supplier.gold - goldGive < keep)
-                    goldGive = supplier.gold - keep;
-                if (goldGive < 0)
-                    goldGive = 0;
+                int foodKeep = System.Math.Max((supplier.troops - troopGive) / 2, 1);
+                foodGive = System.Math.Min(SupplyFoodTarget - ally.food, supplier.food - foodKeep);
+                if (foodGive < 0)
+                    foodGive = 0;
             }
 
-            if (foodGive <= 0 && troopGive <= 0 && goldGive <= 0
-                && (itemGive == null || itemGive.TotalNumber <= 0))
+            // 一兵一装兵种：随兵移交装备（原版 add_stock(equipment, -troops_change) + sync_equipment_quantity）
+            ItemStore itemGive = null;
+            if (individualWeapon && troopGive > 0)
+            {
+                itemGive = new ItemStore();
+                itemGive.Gain(costItems, troopGive);
+                if (itemGive.TotalNumber <= 0)
+                    itemGive = null;
+            }
+
+            // 原版 get_supply_data 的返回口径：只看兵 / 金 / 粮，三者皆 0 视为"无可补给"
+            if (troopGive <= 0 && goldGive <= 0 && foodGive <= 0)
                 return false;
 
             supplier.SupplyTroop(ally, itemGive, goldGive, foodGive, troopGive);
+
+            // 【对齐原版 supply_anim】补给成功给补给队加经验 + 势力技巧点
+            // （s11_sys_anim_unit.cpp:1473-1474：unit_add_exp_with_kouseki(Exp_Supply) + force_add_tech_point）。
+            // 本项目没有"部队经验"层，等价物是主将的武将经验；数值走 GainValueConfig，可被剧本设置覆盖。
+            int exp = GainValueConfig.Exp(GainPlace.SupplyExp);
+            if (exp > 0 && supplier.Leader != null)
+                supplier.Leader.GainExp(exp);
+            int techniquePoint = GainValueConfig.TechniquePoint(GainPlace.SupplyTechniquePoint);
+            if (techniquePoint > 0)
+                supplier.BelongForce?.GainTechniquePoint(techniquePoint);
+
             Sango.Log.Info($"{supplier.BelongForce?.Name}的补给队[{supplier.Name}]为[{ally.Name}]补充 粮草{foodGive} 兵力{troopGive} 资金{goldGive}!");
             return true;
         }

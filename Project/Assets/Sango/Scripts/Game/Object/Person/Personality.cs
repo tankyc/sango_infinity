@@ -26,6 +26,22 @@ namespace Sango.Core
         public int kind;
 
         /// <summary>
+        /// 性格编号（0~3），对应原版 Open311 的 <c>seikaku_t</c>
+        /// （s11_enum_scen.h:387-402：0 胆小 Shoushin / 1 冷静 Reisei / 2 刚胆 Goutan / 3 莽撞 Chototsu）。
+        ///
+        /// 【为什么放在性格表上】原版这是**武将**字段 <c>Person::seikaku_</c>（s11_scen.h:1763），
+        /// 本项目沿"性格决定行为"的数据组织把它收到这里；武将侧通过
+        /// <c>Person.Seikaku</c> 读取，未配置时按 <see cref="kind"/> 自动折算（kind 1~4 → seikaku 0~3）。
+        ///
+        /// 【谁在用】据点进攻 AI 的出征门槛（s11_game_ai_kyoten_cmd_mil_attack.cpp:38-70：
+        /// 留守人数/兵力、所需兵力系数 <c>r = (3 - seikaku) * 15 + power_rank / 2</c>）
+        /// 与跨区进攻概率（同文件 :136）。
+        ///
+        /// -1 = 未配置，走 kind 折算。
+        /// </summary>
+        public int seikaku = -1;
+
+        /// <summary>
         /// 性格描述（UI 显示用，选填）。
         /// </summary>
         public string desc;
@@ -72,6 +88,18 @@ namespace Sango.Core
 
         // ==================== 3. 势力倾向（8 项） ====================
 
+        /// <summary>
+        /// 势力 AI 风格（<c>ForceAI.AIPersonalityType</c> 的数值）。
+        ///
+        /// -1 = 未指定 → 按 war/defense/diplomacy/economic 四个倾向字段的**最大值**自动推导（旧行为）；
+        ///  0 侵略 / 1 防御 / 2 外交 / 3 经济 / 4 平衡 = 显式指定，优先于自动推导。
+        ///
+        /// 【为什么要它】旧实现是"取 4 个倾向的最大值，并列就算平衡"——
+        /// 新增性格想表达"好战 + 重商"这种组合时无从下手（要么被最大值吃掉，要么并列变平衡）。
+        /// 显式字段让性格数据自己决定风格，倾向字段退回纯数值权重。
+        /// </summary>
+        public int aiStyle = -1;
+
         /// <summary>战争倾向加成（影响 ForceAI 的侵略性判定）</summary>
         public int warTendencyAdd;
 
@@ -80,6 +108,19 @@ namespace Sango.Core
 
         /// <summary>外交倾向加成（影响外交官评分与结盟意愿）</summary>
         public int diplomacyTendencyAdd;
+
+        /// <summary>
+        /// 劝降抗性档位（原版 try_annex 里的"目标性格"系数）。
+        ///
+        /// 【原版出处】s11_sys_scen_ai.cpp 的 try_annex 评分段：
+        ///     g = 目标性格 × 7 - like / 4
+        /// 原版性格是 0~3 的连续档位，值越大越难被劝降。
+        ///
+        /// 【本项目取值】不读性格枚举，直接在本字段填"档位值"：
+        ///     胆小 = 0、冷静 = 1、刚胆 = 2、莽撞 = 3（与原版 Seikaku 0~3 等价）。
+        /// 新增性格可自由填任意整数（甚至负数），不需要映射到四档。
+        /// </summary>
+        public int annexResistance;
 
         /// <summary>经济发展倾向加成</summary>
         public int economicTendencyAdd;
@@ -107,8 +148,70 @@ namespace Sango.Core
         /// <summary>部队撤退概率修正（%，加到态势档位的撤退概率上）</summary>
         public int troopRetreatAdd;
 
-        /// <summary>部队好战度（-100~100）：正值倾向覆盖为攻坚，负值倾向覆盖为防守</summary>
+        /// <summary>
+        /// 部队好战度（-100~100）。现在**只用于"覆盖强度"**：
+        /// 绝对值越大越容易覆盖任务角色（阈值见 AIConfig.leaderRoleOverrideThreshold）。
+        /// 具体覆盖成什么角色由 <see cref="preferTroopRole"/> 决定，不再由本字段的正负号猜测。
+        /// </summary>
         public int troopAggression;
+
+        /// <summary>
+        /// 性格倾向的部队角色（<see cref="TroopRole"/> 的数值）。
+        ///
+        /// -1 = 不指定（保持任务角色）；0 攻坚 / 1 防守 / 2 骚扰 / 3 游击 / 4 护卫 / 5 守备 / 6 工兵。
+        ///
+        /// 【为什么要它】旧实现是 `troopAggression > 0 ? 攻坚 : 防守` —— 把数值符号当成枚举，
+        /// 想表达"好战但偏游击"或"中立好战"时无能为力。改成显式字段后，
+        /// 任何新性格都能自由指定倾向角色。
+        /// </summary>
+        public int preferTroopRole = -1;
+
+        // ==================== 原版 Seikaku 语义（用扩展字段表达，不认枚举值） ====================
+        //
+        // 原版 calc_strategy_chance / get_target_action 里按 SeikakuEnum（4 档：小心/冷静/强胆/猪突）
+        // 查表。本项目**不引入这个枚举**，而是把"那一档带来的数值效果"直接变成可配字段：
+        // 新增任何性格时，按需填这几个字段即可，不需要改代码、也不需要跟原版的四档一一对应。
+
+        /// <summary>
+        /// 计略倾向里**智力**的权重（百分比，100 = 加一次）。
+        ///
+        /// 【原版对应】s11_sys_unit_action.cpp:29-31，小心性格额外再加一次智力
+        /// （即基础 100% + 额外 100% = 200%）。本项目把"基础"和"额外"合并成一个百分比：
+        ///   小心 = 200、其它 = 100。
+        /// </summary>
+        public int strategyIntelligencePercent = 100;
+
+        /// <summary>
+        /// 普攻/战法倾向里**统率**的额外权重（百分比，0 = 不加）。
+        ///
+        /// 【原版对应】s11_sys_unit_action.cpp:32-34，猪突性格额外再加一次统率+武力。
+        /// 猪突 = 100、其它 = 0。
+        /// </summary>
+        public int attackExtraCommandPercent;
+
+        /// <summary>
+        /// 普攻/战法倾向里**武力**的额外权重（百分比，0 = 不加）。
+        ///
+        /// 【原版对应】s11_sys_unit_action.cpp:36-39，强胆额外加一次武力；
+        /// 猪突在 :32-34 里也包含武力，所以猪突 = 100、强胆 = 100、其它 = 0。
+        /// </summary>
+        public int attackExtraStrengthPercent;
+
+        /// <summary>
+        /// 是否"莽撞型"（原版 Seikaku_Goutan ~ Seikaku_Chototsu 区间的语义）。
+        ///
+        /// 【用途】落雷目标位置评分里的"低智莽夫豁免"（s11_sys_anim_unit_strategy.cpp:1615）：
+        /// 莽撞型若位置分只有 1 则放弃；AI 的冒险倾向判定也读它。
+        /// </summary>
+        public bool isReckless;
+
+        /// <summary>
+        /// 是否"猪突"（原版 Seikaku_Chototsu）。
+        ///
+        /// 【用途】部队 AI 的必撤豁免：原版 s11_game_ai_unit.cpp:133-138 里
+        /// "兵力 ≤ 500 必撤"只对**非猪突**生效，猪突部队不会因为兵少就撤。
+        /// </summary>
+        public bool isChototsu;
 
         /// <summary>部队行动择优池修正（负值 = 候选更少更果断，正值 = 更摇摆）</summary>
         public int troopBestNAdd;
@@ -118,6 +221,92 @@ namespace Sango.Core
 
         /// <summary>部队角色覆盖阈值修正（加到全局阈值上，负值表示更易被性格覆盖）</summary>
         public int troopRoleOverrideAdd;
+
+        // ==================== 4.5 舌战（Debate） ====================
+        //
+        // 原版舌战按 Seikaku 的四个枚举值写死了十几处行为分支。本项目全部改成字段：
+        // 新增性格时按需填写，不需要改 Debate.cs / DebateAI.cs。
+
+        /// <summary>
+        /// 舌战风格档位（0 胆小 / 1 冷静 / 2 刚胆 / 3 莽撞），**仅供展示与兼容**。
+        ///
+        /// 业务分支请读下方的具名字段（debateAngerTimer / debateCountsAsAngered / ...），
+        /// 本字段只用于 UI 显示性格名、以及旧代码的兼容回退。
+        /// </summary>
+        public int debateStyle = -1;
+
+        /// <summary>兴奋（愤怒）持续回合数。原版：胆小/莽撞 1，冷静/刚胆 4。</summary>
+        public int debateAngerTimer = 4;
+
+        /// <summary>
+        /// 兴奋期间是否进入"真愤怒"状态（出牌受限）。
+        /// 原版只有冷静/刚胆为真；胆小/莽撞虽然 timer=1，但只用于触发瞬间效果。
+        /// </summary>
+        public bool debateCountsAsAngered;
+
+        /// <summary>
+        /// 真愤怒时是否**不受**出牌限制。
+        /// 原版仅冷静为真（愤怒时仍可出所有牌）。
+        /// </summary>
+        public bool debateCanActWhileAngered;
+
+        /// <summary>
+        /// 愤怒瞬间对对手造成的体力伤害的**基础值**（另加己方武力）。
+        /// 原版：莽撞 = 200；其它 = 0（不触发）。
+        /// </summary>
+        public int debateAngerHpDamageBase;
+
+        /// <summary>愤怒瞬间是否触发连续攻击。原版：胆小 = true。</summary>
+        public bool debateAngerCombo;
+
+        /// <summary>愤怒时是否额外获得一张 3 阶话题卡（几率 %）。原版：冷静 = 40。</summary>
+        public int debateAngerFreeTopicCardChance;
+
+        /// <summary>AI：兴奋时是否优先出最低阶话题卡。原版：刚胆。</summary>
+        public bool debateAiPrefersLowestTopic;
+
+        /// <summary>AI：兴奋时是否倾向"再考"。原版：冷静。</summary>
+        public bool debateAiPrefersRethink;
+
+        /// <summary>AI：兴奋时是否倾向"喊话"。原版：冷静。</summary>
+        public bool debateAiAngerPrefersShout;
+
+        /// <summary>AI：对手愤怒且为冷静性格时，是否倾向"无视"。原版：胆小。</summary>
+        public bool debateAiIgnoreWhenOpposingCalm;
+
+        /// <summary>AI：对手愤怒且为刚胆性格时，是否转为激进出牌。原版：刚胆对手。</summary>
+        public bool debateAiAggressiveVsAngered;
+
+        /// <summary>愤怒时是否允许"再考"。原版：冷静 = true。</summary>
+        public bool debateAngerAllowsRethink;
+
+        /// <summary>愤怒时的体力伤害"话题系数"基础值。原版：胆小/刚胆 = 10，其它 = 6。</summary>
+        public int debateAngerTopicCoef = 6;
+
+        /// <summary>愤怒时的体力伤害"愤怒系数"基础值。原版：冷静 = 15，其它 = 10。</summary>
+        public int debateAngerDamageCoef = 10;
+
+        /// <summary>愤怒时出牌威力直接覆盖为该值（0 = 不覆盖）。原版：刚胆 = 100。</summary>
+        public int debateAngerPowerOverride;
+
+        /// <summary>愤怒时是否把手中话题卡降为最低阶。原版：刚胆。</summary>
+        public bool debateAngerLowestTopicCards;
+
+        // ==================== 4.6 单挑（Duel） ====================
+
+        /// <summary>
+        /// 单挑"最低参战体力"：体力低于此值的武将不再上场（原版 GetDuelMinHp）。
+        /// 原版按性格 胆小 80 / 冷静 70 / 刚胆 60 / 莽撞 50，现由数据直接给。
+        /// </summary>
+        public int duelMinHp = 50;
+
+        /// <summary>
+        /// 单挑 AI 决策表类型（<c>DuelAIType</c> 的数值：0 胆小 / 1 冷静 / 2 刚胆 / 3 莽撞）。
+        ///
+        /// -1 = 未指定 → 回落到"性格 kind - 1"的旧映射（仅为兼容旧存档/旧数据）。
+        /// 新性格建议显式填写，这样加性格时不必保证 kind 的连续顺序。
+        /// </summary>
+        public int duelAiType = -1;
 
         // ==================== 5. 单挑（2 项） ====================
 

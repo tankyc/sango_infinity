@@ -121,6 +121,11 @@ namespace Sango.Core
             if (score <= 0)
                 return score;
 
+            // 【严格对齐原版】Open311 评分体系下不叠加任务特有加成
+            // （"越靠近城池越优先"的线性加成原版没有）。
+            if (AIConfig.Instance.useOpen311ScoreFormula)
+                return score;
+
             AIConfig cfg = AIConfig.Instance;
             bool isStay = movetoCell == troop.cell;
             bool isPrimary = false;

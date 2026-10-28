@@ -50,8 +50,13 @@ namespace Sango.Core
         /// <summary>义理"低"的上限：1=容易背叛 / 2=无情义（3=普通起算"普通或以上"）</summary>
         public const int LowArgumentationKindMax = 2;
 
-        /// <summary>野心"高"的下限：工程里用性格的叛乱风险表示野心，>0 视为高（莽撞 = +10）</summary>
-        public const int HighRevoltRiskMin = 1;
+        /// <summary>
+        /// 野心"高"的下限。
+        ///
+        /// 【原版出处】s11_game_month.cpp:1480 —— "义理普通以上 或 野心普通以下"可免掉忠，
+        /// 而 Ambition_Middle = 2（s11_enum_scen.h:368），所以"野心高" = ambition &gt; 2 = ≥ 3。
+        /// </summary>
+        public const int HighAmbitionMin = 3;
 
         /// <summary>特技「仁政」的 Id（Features.json：#97）</summary>
         public const int RenZhengFeatureId = 97;
@@ -146,12 +151,17 @@ namespace Sango.Core
                 && person.mArgumentation.kind <= LowArgumentationKindMax;
         }
 
-        /// <summary>野心是否为"高"（用性格的叛乱风险代表：莽撞为高，胆小/冷静为低）</summary>
+        /// <summary>
+        /// 野心是否为"高"（原版 get_ambition() &gt; Ambition_Middle）。
+        ///
+        /// 【历史】旧实现读性格的 <c>revoltRiskAdd &gt;= 1</c> 代替野心 —— 语义错位：
+        /// revoltRiskAdd 是"性格对叛乱风险的修正"，不是野心本身；
+        /// 而且注释里写着"莽撞 = +10"，等于把性格数值当成分类开关。
+        /// 现在直接读 <see cref="Person.ambition"/>（剧本自带 0~4），与性格解耦。
+        /// </summary>
         public static bool IsHighAmbition(Person person)
         {
-            return person != null
-                && person.mPersonality != null
-                && person.mPersonality.revoltRiskAdd >= HighRevoltRiskMin;
+            return person != null && person.ambition >= HighAmbitionMin;
         }
 
         #region 俘虏（每月掉忠）

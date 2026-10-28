@@ -1245,4 +1245,87 @@ namespace Sango.Core.Event
             return troop.IsInWater == expect;
         }
     }
+
+    // ========================================================================
+    // 五、汉室 / 皇帝类（2 个）
+    // ========================================================================
+
+    /// <summary>
+    /// 汉室是否尚存（读 Scenario.emperorPersonId 与皇帝武将存活）。
+    ///
+    /// 对齐 Open311 的 <c>get_emperor_id() &gt;= 0</c> 判定：皇帝武将存在且存活即「汉室尚存」，
+    /// 否则「汉室衰微」。用于称帝 / 称王 / 汉帝授予这类爵位事件的条件分支。
+    /// </summary>
+    public class EmperorAliveCheck : Condition
+    {
+        /// <summary>期望值（true = 汉室尚存，false = 汉室衰微）</summary>
+        bool expect = true;
+
+        /// <summary>初始化</summary>
+        /// <param name="p">条件参数</param>
+        /// <param name="sangoObjects">相关对象（未用）</param>
+        public override void Init(JObject p, params SangoObject[] sangoObjects)
+        {
+            expect = p.Value<bool?>("Expect") ?? true;
+        }
+
+        /// <summary>检查汉室状态</summary>
+        /// <param name="database">条件数据库</param>
+        /// <returns>是否与期望一致</returns>
+        public override bool Check(IConditionDatabase database)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null) return false;
+
+            bool alive = false;
+            if (scenario.emperorPersonId > 0 && scenario.personSet != null)
+            {
+                Person emperor = scenario.personSet.Get(scenario.emperorPersonId);
+                alive = emperor != null && emperor.IsAlive && !emperor.IsDead;
+            }
+            return alive == expect;
+        }
+    }
+
+    /// <summary>
+    /// 势力是否保护皇帝（皇帝所在城的归属势力）。
+    ///
+    /// 对齐 Open311 的 <c>Force::is_protecting_the_emperor</c>（派生自皇帝所在城归属）：
+    /// 皇帝武将所在城（BelongCity）的归属势力即「保护皇帝势力」。
+    /// </summary>
+    public class ForceProtectingEmperorCheck : Condition
+    {
+        /// <summary>势力槽位 Key</summary>
+        string slot;
+
+        /// <summary>期望值</summary>
+        bool expect = true;
+
+        /// <summary>初始化</summary>
+        /// <param name="p">条件参数</param>
+        /// <param name="sangoObjects">相关对象（未用）</param>
+        public override void Init(JObject p, params SangoObject[] sangoObjects)
+        {
+            slot = p.Value<string>("Slot") ?? "ActionForce";
+            expect = p.Value<bool?>("Expect") ?? true;
+        }
+
+        /// <summary>检查是否保护皇帝</summary>
+        /// <param name="database">条件数据库</param>
+        /// <returns>是否与期望一致</returns>
+        public override bool Check(IConditionDatabase database)
+        {
+            Force force = EventConditionHelper.GetSlot<Force>(database, slot);
+            if (force == null) return false;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.emperorPersonId <= 0 || scenario.personSet == null) return false;
+
+            Person emperor = scenario.personSet.Get(scenario.emperorPersonId);
+            if (emperor == null || !emperor.IsAlive || emperor.IsDead) return false;
+
+            bool protecting = emperor.BelongCity != null && emperor.BelongCity.BelongForce == force;
+            return protecting == expect;
+        }
+    }
 }

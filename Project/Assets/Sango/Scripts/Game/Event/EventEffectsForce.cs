@@ -224,6 +224,126 @@ namespace Sango.Core.Event
         }
     }
 
+    /// <summary>
+    /// 变更势力爵位（称号）。
+    ///
+    /// 对齐 Open311 的 <c>force_set_title_id</c>（title_event_change 内部）：
+    /// 把势力爵位设为指定 Id（Title 参数：1=无 … 9=王 10=皇帝）。
+    /// </summary>
+    [EventEffectMeta("变更爵位", "把指定势力的爵位设为指定 Id（Title 参数：8=公 9=王 10=皇帝）", "ForceSlot", "Title")]
+    public class ForceChangeTitleEffect : EventEffectBase
+    {
+        /// <summary>执行</summary>
+        /// <param name="context">上下文</param>
+        /// <returns>是否成功</returns>
+        public override bool Execute(EventContext context)
+        {
+            Force force = GetSlot<Force>("ForceSlot", context);
+            if (force == null)
+            {
+                WarnSlotMissing("ForceSlot", GetString("ForceSlot"));
+                return false;
+            }
+
+            int titleId = EvalInt("Title", context);
+            Scenario scenario = Scenario.Cur;
+            Title title = scenario != null && scenario.CommonData != null && scenario.CommonData.Titles != null
+                ? scenario.CommonData.Titles.Get(titleId) : null;
+            if (title == null)
+            {
+                Log.Warning($"事件效果 {DisplayName} 跳过：爵位 Id {titleId} 不存在");
+                return false;
+            }
+
+            string oldName = force.Title != null ? force.Title.Name : "无";
+            force.Title = title;
+            Log.Info($"事件：{force.Name} 爵位由【{oldName}】变更为【{title.Name}】");
+            return true;
+        }
+    }
+
+    /// <summary>设定势力国号</summary>
+    [EventEffectMeta("设定国号", "把指定势力的国号设为指定 Id（Nation 参数）", "ForceSlot", "Nation")]
+    public class ForceSetNationEffect : EventEffectBase
+    {
+        /// <summary>执行</summary>
+        /// <param name="context">上下文</param>
+        /// <returns>是否成功</returns>
+        public override bool Execute(EventContext context)
+        {
+            Force force = GetSlot<Force>("ForceSlot", context);
+            if (force == null)
+            {
+                WarnSlotMissing("ForceSlot", GetString("ForceSlot"));
+                return false;
+            }
+
+            int nationId = EvalInt("Nation", context);
+            Scenario scenario = Scenario.Cur;
+            Nation nation = scenario != null && scenario.CommonData != null && scenario.CommonData.Nations != null
+                ? scenario.CommonData.Nations.Get(nationId) : null;
+            if (nation == null)
+            {
+                Log.Warning($"事件效果 {DisplayName} 跳过：国号 Id {nationId} 不存在");
+                return false;
+            }
+
+            string oldName = force.Nation != null ? force.Nation.Name : "无";
+            force.Nation = nation;
+            Log.Info($"事件：{force.Name} 国号由【{oldName}】变更为【{nation.Name}】");
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// 势力称帝：爵位设为皇帝、宣告汉室衰微，可选同时设定国号。
+    ///
+    /// 对齐 Open311 的 <c>title_event</c> 皇帝分支（s11_sys_event_title.cpp:465-501）：
+    /// ① 爵位 = 皇帝；② <c>change_emperor_id(-1)</c>（汉室衰微）；③ 可选国号（<c>force_select_kokugou_id</c>）。
+    /// </summary>
+    [EventEffectMeta("称帝", "势力称帝：爵位设为皇帝并宣告汉室衰微（可选 Nation 参数设定国号）", "ForceSlot", "Nation")]
+    public class ForceDeclareEmperorEffect : EventEffectBase
+    {
+        /// <summary>执行</summary>
+        /// <param name="context">上下文</param>
+        /// <returns>是否成功</returns>
+        public override bool Execute(EventContext context)
+        {
+            Force force = GetSlot<Force>("ForceSlot", context);
+            if (force == null)
+            {
+                WarnSlotMissing("ForceSlot", GetString("ForceSlot"));
+                return false;
+            }
+
+            Scenario scenario = Scenario.Cur;
+
+            // ① 爵位设为皇帝（对齐原版 new_title_id = TitleId_Emperor）
+            Title emperor = scenario != null && scenario.CommonData != null && scenario.CommonData.Titles != null
+                ? scenario.CommonData.Titles.Get(10) : null;
+            if (emperor != null)
+                force.Title = emperor;
+            else
+                force.TitleId = 10;
+
+            // ② 汉室衰微（对齐原版 change_emperor_id(-1)）
+            if (scenario != null)
+                scenario.emperorPersonId = -1;
+
+            // ③ 可选：设定国号
+            int nationId = EvalInt("Nation", context);
+            if (nationId > 0 && scenario != null && scenario.CommonData != null && scenario.CommonData.Nations != null)
+            {
+                Nation nation = scenario.CommonData.Nations.Get(nationId);
+                if (nation != null)
+                    force.Nation = nation;
+            }
+
+            Log.Info($"事件：{force.Name} 称帝，汉室衰微");
+            return true;
+        }
+    }
+
     /// <summary>势力 / 军团类效果的批量注册入口</summary>
     public static class EventEffectsForce
     {
@@ -237,6 +357,9 @@ namespace Sango.Core.Event
             EventEffectBase.Register("CorpsAddGold", EventEffectBase.CreateHandle<CorpsAddGoldEffect>);
             EventEffectBase.Register("CorpsAddFood", EventEffectBase.CreateHandle<CorpsAddFoodEffect>);
             EventEffectBase.Register("ForceExtinguish", EventEffectBase.CreateHandle<ForceExtinguishEffect>);
+            EventEffectBase.Register("ForceChangeTitle", EventEffectBase.CreateHandle<ForceChangeTitleEffect>);
+            EventEffectBase.Register("ForceSetNation", EventEffectBase.CreateHandle<ForceSetNationEffect>);
+            EventEffectBase.Register("ForceDeclareEmperor", EventEffectBase.CreateHandle<ForceDeclareEmperorEffect>);
         }
     }
 }

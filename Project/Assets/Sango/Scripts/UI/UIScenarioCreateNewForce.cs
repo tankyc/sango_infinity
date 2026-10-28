@@ -95,8 +95,9 @@ namespace Sango.UI
         /// </summary>
         void RefreshInfo()
         {
-            SetCountText(unassignedNewPersonCountText, scenario.AppendPersonCount);
-            SetCountText(assignedNewPersonCountText, scenario.AppendPersonCount - scenario.AssignedPersonCount);
+            // 已配属 = AssignedPersonCount，未配属 = 总数 - 已配属（对齐 UIScenarioAddonMenu 的同名统计口径）
+            SetCountText(assignedNewPersonCountText, scenario.AssignedPersonCount);
+            SetCountText(unassignedNewPersonCountText, scenario.AppendPersonCount - scenario.AssignedPersonCount);
         }
 
         void SetCountText(Text text, int count)

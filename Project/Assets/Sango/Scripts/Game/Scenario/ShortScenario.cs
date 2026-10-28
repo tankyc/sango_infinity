@@ -16,6 +16,8 @@ namespace Sango.Core
         [JsonProperty] public int Flag;
         /// <summary>国号 Id（对齐 Open311 `nation_id`；0 表示未定国号）</summary>
         [JsonProperty] public int Nation;
+        /// <summary>爵位 Id（对齐 Open311 `title_id`；0 表示未设置，运行时解析为「无」）。JSON 键沿用运行时 Force 的 "Title"。</summary>
+        [JsonProperty("Title")] public int TitleId;
         [JsonProperty] public string desc;
         public bool IsPlayer;
         public bool IsAppend;
@@ -37,6 +39,7 @@ namespace Sango.Core
                 Counsellor = Counsellor,
                 Flag = Flag,
                 Nation = Nation,
+                TitleId = TitleId,
                 desc = desc,
                 IsPlayer = IsPlayer,
                 IsAppend = IsAppend,
@@ -335,6 +338,17 @@ namespace Sango.Core
             loadOK = false;
         }
 
+        /// <summary>
+        /// 不读任何文件的构造：**仅用于原版（.s11）剧本**。
+        ///
+        /// 原版剧本没有 Sango 的 JSON，若走 ShortScenario(string) 会触发 LoadInfo 的
+        /// JSON 解析并刷一条"存档信息读取失败"错误日志。Info 由 AddFromOpen311 填充。
+        /// </summary>
+        ShortScenario(bool skipLoad)
+        {
+            loadOK = false;
+        }
+
         public ShortScenario(string filePath, bool notask)
         {
             this.FilePath = filePath;
@@ -363,6 +377,185 @@ namespace Sango.Core
 
             all_scenario_info_list.Add(scenario);
             return scenario;
+        }
+
+        // ==================== 原版（三国志11 PK）剧本 ====================
+        //
+        // 原版剧本没有 Sango 的 JSON，只有 .s11 二进制。这里为其生成一个"摘要"
+        // 挂进 all_scenario_info_list，剧本选择界面即可与普通剧本并列显示。
+        // 真正开局时由 Scenario.StartOpen311Scenario 加载骨架 JSON 再覆盖数值。
+
+        /// <summary>原版剧本文本（ScenXXX.S11）；null = 不是原版剧本</summary>
+        public string Open311ScenPath { get; private set; }
+
+        /// <summary>原版静态表（Scenario.s11），提供城市名/设施/地形等</summary>
+        public string Open311ScenarioPath { get; private set; }
+
+        /// <summary>是否是原版剧本</summary>
+        public bool IsOpen311 { get { return !string.IsNullOrEmpty(Open311ScenPath); } }
+
+        /// <summary>
+        /// 用原版数据填 <see cref="forceSet"/> / <see cref="citySet"/> 摘要。
+        ///
+        /// 【为什么需要】选剧本界面（UIScenarioSelect.ShowScenario → UpdateMap）会遍历
+        /// citySet 画城市点位，并按 city.BelongForceId 查 forceSet 取势力配色。
+        /// 原版剧本若不填，这两个集合为空 → 地图上不显示任何城市。
+        ///
+        /// 【对应原版】ScenSummary 提供 剧本名/说明/城市颜色与坐标/势力难度与说明；
+        /// 这里的归属（district → force）与坐标来自 Scenario 段与 Building 段。
+        /// </summary>
+        void BuildOpen311Summary()
+        {
+            Open311ScenarioData data = new Open311ScenarioData();
+            string error;
+            if (!Open311ScenarioParser.ParseScen(Open311ScenPath, data, out error))
+            {
+                Log.Warning($"原版剧本摘要解析失败：{error}");
+                return;
+            }
+            if (!string.IsNullOrEmpty(Open311ScenarioPath))
+                Open311ScenarioParser.ParseScenario(Open311ScenarioPath, data, out error);
+
+            // ---------------- 势力 ----------------
+            for (int i = 0; i < data.Forces.Count; i++)
+            {
+                Open311ForceData f = data.Forces[i];
+                if (f.Kunshu < 0) continue;                  // 空势力
+
+                ShortForce sf = new ShortForce();
+                sf.Id = i + 1;
+                sf.Governor = f.Kunshu + 1;
+                sf.Counsellor = f.Gunshi >= 0 ? f.Gunshi + 1 : 0;
+                sf.Flag = f.Color + 1;                       // CommonData.Flags 从 1 开始
+                sf.Nation = f.Kokugou >= 0 ? f.Kokugou + 1 : 0;
+                sf.TitleId = f.Title >= 0 ? f.Title + 1 : 0;
+
+                // 君主名（供 ShortForce.Name 显示；personSet 在第 3 趟统一填，
+                // 因为君主的 BelongCityId 需要先有 citySet 才能定出"首都"）
+                if (f.Kunshu < data.Persons.Count)
+                {
+                    Open311PersonData k = data.Persons[f.Kunshu];
+                    sf.Name = k.FamilyName + k.GivenName;
+                }
+
+                forceSet.Add(sf);
+            }
+
+            // ---------------- 城市（只填 42 座城，关/港不在预览里画）----------------
+            for (int i = 0; i < data.Cities.Count && i < data.Buildings.Count; i++)
+            {
+                Open311CityData c = data.Cities[i];
+                Open311BuildingData b = data.Buildings[i];
+
+                ShortCity sc = new ShortCity();
+                sc.Id = i + 1;
+                sc.BuildingType = 1;                         // 1 = 城
+                sc.x = b.PosX + Open311ScenarioImporter.MapOffset;
+                sc.y = b.PosY + Open311ScenarioImporter.MapOffset;
+                sc.troops = (int)c.Troops;
+                sc.gold = (int)c.Gold;
+                sc.food = (int)c.Food;
+                if (i < data.CityInfos.Count)
+                    sc.Name = data.CityInfos[i].Name;
+
+                // 归属：city.district → district.force → Sango 势力 Id（+1）
+                if (c.District >= 0 && c.District < data.Districts.Count)
+                {
+                    int forceId = data.Districts[c.District].Force;
+                    sc.BelongForceId = forceId >= 0 ? forceId + 1 : 0;
+                }
+
+                citySet.Add(sc);
+            }
+
+            // ---------------- 君主 / 军师（第 3 趟）----------------
+            // 势力详情界面会读 personSet[Governor].BelongCityId 再查 citySet 取"都城名"，
+            // 所以这里必须把君主挂到该势力真正拥有的某座城上（取 Id 最小的城当都城）。
+            for (int i = 0; i < data.Forces.Count; i++)
+            {
+                Open311ForceData f = data.Forces[i];
+                if (f.Kunshu < 0) continue;
+
+                int capitalId = 0;
+                foreach (ShortCity c in citySet)
+                {
+                    if (c == null || c.BelongForceId != i + 1 || c.BuildingType != 1) continue;
+                    capitalId = c.Id;
+                    break;
+                }
+
+                if (f.Kunshu < data.Persons.Count)
+                {
+                    Open311PersonData k = data.Persons[f.Kunshu];
+                    AddSummaryPerson(f.Kunshu + 1, k.FamilyName + k.GivenName, capitalId);
+                }
+                if (f.Gunshi >= 0 && f.Gunshi < data.Persons.Count)
+                {
+                    Open311PersonData g = data.Persons[f.Gunshi];
+                    AddSummaryPerson(f.Gunshi + 1, g.FamilyName + g.GivenName, capitalId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 往 personSet 里放一条"只带名字"的摘要（君主 / 军师）。
+        ///
+        /// 【为什么要填】UIScenarioForceSelect.SetSelectedForceName 会读
+        /// `scenario.personSet[force.Governor]` 取君主名显示；personSet 为空时下标越界。
+        /// 这里只放势力选择界面真正会读到的少数几个人，不是完整武将表。
+        /// </summary>
+        void AddSummaryPerson(int id, string name, int belongCityId)
+        {
+            if (id <= 0 || string.IsNullOrEmpty(name)) return;
+
+            ShortPerson p = new ShortPerson();
+            p.Id = id;
+            p.Name = name;
+            p.BelongCityId = belongCityId;
+            personSet.Add(p);
+        }
+
+        /// <summary>
+        /// 从原版 .s11 生成剧本摘要（不读 JSON、不解析全部对象，只取 ScenSummary 段）。
+        /// </summary>
+        /// <param name="scenS11Path">ScenXXX.S11 完整路径</param>
+        /// <param name="scenarioS11Path">同一版本目录下的 Scenario.s11 完整路径（可为 null）</param>
+        public static ShortScenario AddFromOpen311(string scenS11Path, string scenarioS11Path)
+        {
+            if (!File.Exists(scenS11Path)) return null;
+
+            Open311ScenarioData data = new Open311ScenarioData();
+            string error;
+            if (!Open311ScenarioParser.ParseScen(scenS11Path, data, out error))
+            {
+                Log.Warning($"原版剧本解析失败：{scenS11Path} -> {error}");
+                return null;
+            }
+
+            // 不读 JSON（原版文件不是 JSON），Info 直接用 ScenSummary 重建
+            ShortScenario sc = new ShortScenario(true);
+            sc.FilePath = scenS11Path;
+            sc.Open311ScenPath = scenS11Path;
+            sc.Open311ScenarioPath = scenarioS11Path;
+            sc.Info = new ScenarioInfo();
+
+            // id 与普通剧本的 id 段错开，且保证唯一。
+            // 不能用 data.Number：PK 版部分剧本重编号，会出现两个剧本 Number 相同（如 Scen014/015）。
+            sc.Info.id = 1000 + all_scenario_info_list.Count;
+            sc.Info.name = data.ScenName;
+            sc.Info.description = data.ScenDesc;
+            sc.Info.year = data.StartYear;
+            sc.Info.startYear = data.StartYear;
+            sc.Info.month = data.StartMonth;
+            sc.Info.day = data.StartDay;
+            sc.Info.mapType = "DefaultMap";
+            sc.Info.type = 1;
+            sc.Info.priority = 0;
+            sc.Name = data.ScenName;
+            sc.ModName = "<color=#66ccff>原版</color>";
+
+            all_scenario_info_list.Add(sc);
+            return sc;
         }
 
         public void LoadInfo()
@@ -413,6 +606,31 @@ namespace Sango.Core
         public void LoadContent(string path)
         {
             if (loadOK) return;
+
+            // ---------------- 原版（.s11）剧本 ----------------
+            // 原版剧本不是 Sango 的 JSON，不能走下面的流式反序列化。
+            // 这里只准备"剧本列表预览"需要的最小内容（通用数据 + 地图信息），
+            // 真正的势力/城池/武将数值在开局时由 Scenario.CreateFromOpen311 解析 .s11 得到。
+            if (IsOpen311)
+            {
+                Cur = this;
+                if (CommonData == null)
+                    CommonData = GameData.Instance.LoadCommonData();
+
+                // 地图固定 DefaultMap。必须走 Init（而不是手工填字段）：
+                // Init 会从 Map/DefaultMap.bin 头读出 Width/Height/GridSize/WorkContent，
+                // 并创建 HexWorld —— 后者是 Coords2Position 的前提，缺了会空引用。
+                Map = new ShortMap();
+                Map.Init(this);
+
+                // 摘要：对应原版 ScenSummary（剧本名/说明/城市颜色与坐标/势力难度与说明）。
+                // 这里直接从 .s11 解析出来，供"选剧本"界面预览地图上的城市点位与势力配色。
+                BuildOpen311Summary();
+
+                loadOK = true;
+                return;
+            }
+
             Cur = this;
             if (CommonData == null)
                 CommonData = GameData.Instance.LoadCommonData();

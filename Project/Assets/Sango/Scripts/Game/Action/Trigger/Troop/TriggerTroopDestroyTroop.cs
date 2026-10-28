@@ -21,7 +21,9 @@ namespace Sango.Core
 
         public void OnTroopDestroyed(Troop troop, SangoObject atk, int atkBack,  Scenario scenario)
         {
-            if (atk.ObjectType != SangoObjectType.SkillInstance)
+            // atk 可为 null：地形伤害（毒泉/栈道，ApplyTerrainMovementDamage 传 null）、
+            // 着火、饿死等无攻击者的死亡，此时不可能命中"被战法击破"触发器。
+            if (atk == null || atk.ObjectType != SangoObjectType.SkillInstance)
                 return;
             skillInstance = (SkillInstance)atk;
             if (!CheckForceTroop(skillInstance.master))

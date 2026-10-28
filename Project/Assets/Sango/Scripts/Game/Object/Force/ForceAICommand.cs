@@ -206,7 +206,7 @@ namespace Sango.Core
         /// 流程：
         ///   ① 统计各军团的城市数与"邻接敌据点数"
         ///   ② 需要拆分（或到了定期重排的回合）→ 先解散所有 2 号以后的军团
-        ///   ③ 逐个重建：每次挑"城数最少"的军团号，把它的城拆一半出去
+        ///   ③ 逐个重建：每次挑"城数最多"的军团，把它的城拆一半出去并编为新军团
         /// </summary>
         /// <param name="force">当前势力</param>
         /// <param name="scenario">场景对象</param>
@@ -219,10 +219,13 @@ namespace Sango.Core
                 return true;
 
             Person governor = force.mGovernor;
+            // 【与原版的差异】原版 s11_game_ai_force_cmd.cpp:310-311 在君主不存活时
+            // `return false`（中断整个势力 AI）。本项目命令队列是"返回 false 就原地重试同一条"，
+            // 君主任缺失属于持久状态，照搬会让整条势力 AI 卡死在此，因此改为 return true（跳过）。
             if (governor == null)
                 return true;
             City governorCity = governor.BelongCity ?? governor.CurrentCity;
-            // 君主不在都市（出阵中）→ 不重编 —— :312-314
+            // 君主所在据点不是都市（出阵中 / 驻守港关）→ 不重编 —— :312-314
             if (governorCity == null || !governorCity.IsCity())
                 return true;
 
@@ -253,25 +256,39 @@ namespace Sango.Core
             for (int i = 0; i < corpsList.Count; i++)
                 force.DeleteCorps(corpsList[i]);
 
-            // 逐个数重建 —— :334-351
+            // 逐个重建 —— :334-351（原版 i = 1..MaxDistrictCount，共 MaxDistrictCount 次机会）
             ComputeCorpsSeparation(force, scenario, out cityCount, out enemyNear);
             for (int guard = 0; guard < MaxDistrictCount; guard++)
             {
+                // 每轮先再判一次是否需要拆 —— :337-338
                 if (!IsCorpsSeparationNeeded(cityCount))
                     break;
+                // sep.district_count >= Force::MaxDistrictCount —— :339-340
                 if (CountCorps(force, scenario) >= MaxDistrictCount)
                     break;
 
+                // 源军团 = 城数最多者（含 1 号主军团），见 PickCorpsSeparationNumber
                 int number = PickCorpsSeparationNumber(cityCount, enemyNear);
                 if (number < 0)
                     break;
+
+                // 城数 <= 2 的军团不拆，但原版是 **continue** 跳过、继续下一轮，
+                // 不是 break 终止整轮重编 —— s11_game_ai_force_cmd.cpp:343-344
                 if (cityCount[number] <= 2)
+                    continue;
+
+                // 新军团号取"最小空号"，不是源军团号 ——
+                // s11_sys_scen_district.cpp:15 get_empty_sub_district_number(force)
+                int newNumber = GetEmptyCorpsNumber(force, scenario);
+                if (newNumber < 0)
                     break;
 
-                if (!CreateCorpsBySeparation(force, scenario, number))
-                    break;
+                // 单个军团拆分失败不中断整轮（原版 district_create 的失败分支只 return，
+                // 由外层 for 继续尝试下一个编号）—— s11_game_ai_district_sep.cpp:74-79 / :121-122
+                if (!CreateCorpsBySeparation(force, scenario, number, newNumber))
+                    continue;
 
-                // 重建后重新统计，避免同一轮里重复拆同一个军团
+                // 重建后重新统计，避免同一轮里重复拆同一个军团 —— :350
                 if (!ComputeCorpsSeparation(force, scenario, out cityCount, out enemyNear))
                     break;
             }
@@ -300,6 +317,12 @@ namespace Sango.Core
             {
                 City city = scenario.citySet[i];
                 if (city == null || !city.IsAlive || city.BelongForce != force)
+                    continue;
+                // 【只数城市，不数关港】原版 district_sep_init 遍历的是 city_pool
+                // （s11_game_ai_district_sep.cpp:8-17），关港属于 kyoten/building，
+                // 不进 city_count。把港关算进来会让"最远据点"落到只有港口的孤点上，
+                // 拆出来的支军团摊不平城数 → 下回合 need 仍为真 → 反复解散重建。
+                if (!city.IsCity())
                     continue;
                 Corps corps = city.BelongCorps;
                 if (corps == null || corps.number < 0 || corps.number > MaxDistrictCount)
@@ -341,36 +364,73 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 选出本轮要拆的军团号：城数最少，城数相同取邻接敌据点多者。
-        /// 对齐 s11_game_ai_district_sep.cpp:42-57 district_sep_num。
+        /// 选出本轮要拆的源军团号：**城数最多**，城数相同取邻接敌据点多者。
+        ///
+        /// 对齐 s11_game_ai_district_sep.cpp:42-57 district_sep_num：
+        /// <code>
+        /// int i = 1;
+        /// for (int j = 2; j &lt;= Force::MaxDistrictCount; j++) {
+        ///     if (count[j] &lt;= count[i]) {
+        ///         if (count[j] != count[i]) continue;   // j 城数更少 → 不换
+        ///         if (enemy[j] &lt;= enemy[i]) continue;  // 城数相同但前线压力不更大 → 不换
+        ///     }
+        ///     i = j;
+        /// }
+        /// </code>
+        /// 两点必须照搬，否则整个重编链路是"死"的：
+        ///   ① 方向是"城数最多"，不是"城数最少" —— 要拆的本来就是过大的军团；
+        ///   ② 起始编号是 **1** —— 解散完支军团后，唯一还有城的正是 1 号主军团，
+        ///      从 2 号起找会一个都找不到，直接 return -1 让外层 break，
+        ///      表现为"AI 势力永远建不出第 2 军团"。
         /// </summary>
-        /// <param name="cityCount">各军团城数</param>
-        /// <param name="enemyNear">各军团邻接敌据点数</param>
-        /// <returns>军团号；没有可拆的返回 -1</returns>
+        /// <param name="cityCount">各军团城数（下标即军团号）</param>
+        /// <param name="enemyNear">各军团邻接敌据点数（下标即军团号）</param>
+        /// <returns>源军团号；全势力没有城时返回 -1</returns>
         static int PickCorpsSeparationNumber(int[] cityCount, int[] enemyNear)
         {
-            int result = -1;
+            // 起始 i = 1，与原版一致
+            int result = 1;
             for (int j = 2; j <= MaxDistrictCount; j++)
             {
-                if (cityCount[j] > 0)
+                if (cityCount[j] <= cityCount[result])
                 {
-                    result = j;
-                    break;
+                    if (cityCount[j] != cityCount[result])
+                        continue;
+                    if (enemyNear[j] <= enemyNear[result])
+                        continue;
                 }
+                result = j;
             }
-            if (result < 0)
-                return -1;
+            return cityCount[result] > 0 ? result : -1;
+        }
 
-            for (int j = 2; j <= MaxDistrictCount; j++)
+        /// <summary>
+        /// 取本势力"最小空闲军团号"（2 ~ MaxDistrictCount）。
+        ///
+        /// 对齐 s11_sys_scen_force.cpp:832-842 get_empty_sub_district_number：
+        /// 从 1 号依次找第一个未占用的编号。本项目 1 号恒为君主直辖军团，
+        /// 且 CreateCorps 不允许把 1 号让出去，因此从 2 号开始找。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>空闲军团号；已满返回 -1</returns>
+        static int GetEmptyCorpsNumber(Force force, Scenario scenario)
+        {
+            bool[] used = new bool[MaxDistrictCount + 1];
+            for (int i = 0; i < scenario.corpsSet.Count; i++)
             {
-                if (cityCount[j] <= 0)
+                Corps corps = scenario.corpsSet[i];
+                if (corps == null || !corps.IsAlive || corps.BelongForce != force)
                     continue;
-                if (result >= 0 && cityCount[j] < cityCount[result])
-                    result = j;
-                else if (result >= 0 && cityCount[j] == cityCount[result] && enemyNear[j] > enemyNear[result])
-                    result = j;
+                if (corps.number >= 1 && corps.number <= MaxDistrictCount)
+                    used[corps.number] = true;
             }
-            return result;
+            for (int i = 2; i <= MaxDistrictCount; i++)
+            {
+                if (!used[i])
+                    return i;
+            }
+            return -1;
         }
 
         /// <summary>
@@ -379,24 +439,37 @@ namespace Sango.Core
         /// </summary>
         /// <param name="force">势力</param>
         /// <param name="scenario">场景对象</param>
-        /// <param name="number">军团号</param>
+        /// <param name="number">源军团号（被拆的那个）</param>
+        /// <param name="newNumber">新军团号（必须为空号，不能复用源军团号）</param>
         /// <returns>是否建成</returns>
-        static bool CreateCorpsBySeparation(Force force, Scenario scenario, int number)
+        static bool CreateCorpsBySeparation(Force force, Scenario scenario, int number, int newNumber)
         {
-            Person governor = force.mGovernor;
-            if (governor == null)
-                return false;
-            City oldCenter = governor.BelongCity ?? governor.CurrentCity;
-            if (oldCenter == null)
+            // 源军团的都督必须存活 —— :73-75
+            // 本项目 1 号军团不设都督（Corps.UpdateCommander 对 IsCaptainCorps 直接 return），
+            // 因此 1 号退化为"以君主代行"，与原版 district 1 由君主直辖等价。
+            Corps sourceCorps = force.FindCorpsByNumber(number);
+            Person totoku = sourceCorps != null ? sourceCorps.mComander : null;
+            if (totoku == null && number == 1)
+                totoku = force.mGovernor;
+            if (totoku == null)
                 return false;
 
+            // 都督原所属据点的城池不存活 → 视为无需处理（原版 return true）—— :76-79
+            City oldCenter = totoku.BelongCity ?? totoku.CurrentCity;
+            if (oldCenter == null || !oldCenter.IsAlive)
+                return true;
+
             // 收集该军团的城市 —— :80-83
-            List<City> cityList = new List<City>();
             List<City> source = new List<City>();
             for (int i = 0; i < scenario.citySet.Count; i++)
             {
                 City city = scenario.citySet[i];
                 if (city == null || !city.IsAlive || city.BelongForce != force)
+                    continue;
+                // 【只取城市】原版 district_create 的源列表是 get_district_city_list(district)
+                // （s11_game_ai_district_sep.cpp:80），返回的只有城市；关港不参与拆分，
+                // 留在原军团里，随 district_dissolve 整体移交。
+                if (!city.IsCity())
                     continue;
                 if (city.BelongCorps == null || city.BelongCorps.number != number)
                     continue;
@@ -463,6 +536,17 @@ namespace Sango.Core
                 count--;
             }
 
+            // 【至少 2 座据点才值得独立成军】
+            // 最远据点常常是港 / 关，它与其它据点往往既不"离新据点更近"、也不与新据点邻接
+            // （上面的距离 / 邻接筛选会全部 continue），于是 newCityList 只剩 newCenter 一座。
+            // 这样拆出来的支军团对"摊平城数分布"毫无帮助：need 下一回合仍为真，
+            // 又要整轮解散重建 —— 日志里就会反复刷
+            // 「第2军团解散 → 湖阳港 第二军团 -> 第一军团」。
+            // 原版 district_create 走的是按距离排序后顺序取号（s11_game_ai_district_sep.cpp:123-158），
+            // 不存在"只剩一座也能成军"的分支；这里按最小可用规模兜底，宁可不拆。
+            if (newCityList.Count < 2)
+                return false;
+
             // 新都督：功绩最高的太守 —— :159-173
             Person newGovernor = null;
             City actualCenter = null;
@@ -480,8 +564,11 @@ namespace Sango.Core
             if (newGovernor == null || actualCenter == null)
                 return false;
 
-            force.CreateCorps(number, newGovernor, newCityList);
-            Sango.Log.Info($"*[势力AI]{force.Name} 新建军团{number}：都督 {newGovernor.Name}，城 {newCityList.Count} 座");
+            // 用空号建新军团 —— 原版 create_district 走 get_empty_sub_district_number，
+            // 绝不能传源军团号：Force.CreateCorps 会直接 corps.number = number，
+            // 传 1 就会再造一个"1 号军团"，IsCaptainCorps / FindCorpsByNumber / DeleteCorps(int) 全部错乱。
+            force.CreateCorps(newNumber, newGovernor, newCityList);
+            Sango.Log.Info($"*[势力AI]{force.Name} 从第{number}军团拆出第{newNumber}军团：都督 {newGovernor.Name}，城 {newCityList.Count} 座");
             return true;
         }
 
@@ -609,12 +696,17 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 能力研究（势力级）。
+        /// 能力研究（势力级）—— 只负责"发起"，不负责推进。
         ///
         /// 对齐出处：s11_game_ai_force_cmd.cpp:754-817 force_research_ability。
         /// 原版流程是"按势力四维总和排位 → 给候选 Ability 打分 → 开始研究某一条 Ability"，
         /// 研究耗时 timeCost 回合，完成后进 learnedAbilityIds，武将再逐个学会。
-        /// 候选打分与推进推进都在 <see cref="AbilityStudySystem"/>（Ability 数据来自 Abilities.json）。
+        /// <para>
+        /// 【推进不在这里】研究计时器的推进属于势力级回合更新（原版
+        /// s11_sys_person_order_kunshu.cpp:1417-1455 的 on_research_ability_timer_finished），
+        /// 已下沉到 <see cref="Force.OnForceTurnStart"/>。若在这里也推进一次，
+        /// AI 势力会一回合前进两格；若不放在势力层，玩家势力的研究永远不会完成。
+        /// </para>
         /// </summary>
         /// <param name="force">当前势力</param>
         /// <param name="scenario">场景对象</param>
@@ -624,10 +716,7 @@ namespace Sango.Core
             if (force == null || scenario == null)
                 return true;
 
-            // ① 先推进已在研究的那一条（耗时 timeCost 回合，归零进 learnedAbilityIds）
-            if (AbilityStudySystem.AdvanceResearch(force, scenario))
-                return true;
-            // ② 空闲时挑一条开始研究（未掌握 + 前置满足 + 金与行动力够）
+            // 空闲时挑一条开始研究（未掌握 + 前置满足 + 金与行动力够）
             AbilityStudySystem.StartResearch(force, scenario);
             return true;
         }
@@ -635,8 +724,15 @@ namespace Sango.Core
         /// <summary>
         /// 能力培育（势力级三段）。
         ///
-        /// 对齐出处：s11_game_ai_force_cmd_learn.cpp:5-35 force_learn，三段顺序照搬：
-        /// <c>force_learn_base_stat</c> → 兵种适性培育 → <c>force_learn_skill</c>。
+        /// 对齐出处：s11_game_ai_force_cmd_learn.cpp:5-35 force_learn：
+        /// <c>force_learn_base_stat()</c> → <c>force_learn_heishu_tekisei()</c> →
+        /// <c>force_learn_skill()</c> 三段**依次全部执行**，每段各自挑一名武将开始研习
+        /// （三段在势力内各自只有一名 actor，互不排斥）。
+        /// <para>
+        /// 【为什么不提前 return】旧实现在第一段成功后立刻 return，等于"一个势力一回合
+        /// 最多只能让一个人开始培育"，且特技段几乎永远轮不到 —— 表现就是"研究完了却
+        /// 迟迟看不到武将去学"。三段独立执行后最多可同时推进三人。
+        /// </para>
         /// <para>
         /// 第三段（特技培育）的数据来自 Abilities.json 里 category = Skill 的条目，
         /// 由 <see cref="AbilityStudySystem.LearnSkill"/> 实现。
@@ -651,14 +747,23 @@ namespace Sango.Core
             if (force == null || scenario == null)
                 return true;
 
-            // 第一段：基础能力（与原版一致，每回合最多一段成功）
+            int started = 0;
+            // 第一段：基础能力（s11_game_ai_force_cmd_learn.cpp:37-93）
             if (AbilityStudySystem.LearnBaseStat(force, scenario))
-                return true;
-            // 第二段：兵种适性
+                started++;
+            // 第二段：兵种适性（同上 :95-135）
             if (AbilityStudySystem.LearnTroopAptitude(force, scenario))
-                return true;
-            // 第三段：特技（数据来自 Abilities.json 里 category = Skill 的条目）
-            AbilityStudySystem.LearnSkill(force, scenario);
+                started++;
+            // 第三段：特技（同上 :137-200，数据来自 Abilities.json 里 category = Skill 的条目）
+            if (AbilityStudySystem.LearnSkill(force, scenario))
+                started++;
+
+            // 【排查日志】本回合一个人也没开始，且势力确实有"已研究但仍可培育"的能力时，
+            // 每 12 回合提示一次 —— 用于区分"没人符合条件（档位/前线/经验上限）"
+            // 与"只是本回合 50% 概率没命中"。默认静音，由 AbilityStudySystem 内部再过滤。
+            if (started == 0 && scenario.TurnCount % 12 == 0)
+                AbilityStudySystem.LogLearnBlockReason(force, scenario);
+
             return true;
         }
 

@@ -93,9 +93,21 @@ namespace Sango.Core
         internal bool _isChecked = false;
 
         /// <summary>
+        /// 从起点到本格的跳数（仅移动范围搜索期间有效，用完清零）。
+        /// 用于"深度上限"这个性能保底：移动范围是 BFS 展开，深度越大越慢。
+        /// </summary>
+        internal int _depth = 0;
+
+        /// <summary>
         /// 是否为内政区域
         /// </summary>
         public bool IsInterior => HasGridState(Sango.Render.MapGrid.GridState.Interior);
+
+        /// <summary>
+        /// 是否为贼格
+        /// </summary>
+        public bool IsThief => HasGridState(Sango.Render.MapGrid.GridState.Thief);
+
 
         /// <summary>
         /// 是否是水块

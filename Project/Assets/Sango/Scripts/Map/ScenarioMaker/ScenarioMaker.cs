@@ -147,7 +147,6 @@ namespace Sango.ScenarioMaker
                 {
                     continue;
                 }
-                person.BelongForce = null;
                 person.BelongCorps = null;
                 person.BelongCity = null;
                 person.CurrentCity = null;

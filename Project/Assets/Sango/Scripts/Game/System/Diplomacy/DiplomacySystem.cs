@@ -101,9 +101,22 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 退出外交系统
+        /// 退出外交系统。
+        ///
+        /// 【为什么用 `new` 而不是 `override`】基类 `GameSystem.Exit()` 的语义是
+        /// **退一层**（`GameSystemManager.Back(this)`，回到上一个命令，系统还在栈里）；
+        /// 而"关闭外交"要的是**清空整个系统栈**（`Done()`，所有命令 `OnDone` 后回到无命令状态）。
+        /// 两者语义不同 —— 若改成 `override` 并在内部调 `base.Exit()`，外交窗口会关掉，
+        /// 但系统仍滞留在栈里，后续 `Push` 时会把已关闭的窗口当成当前命令。
+        ///
+        /// 这里显式用 `new` 声明"有意遮蔽"，消除 CS0114 警告。
+        ///
+        /// 【注意】`GameSystemManager` 不调用 `Exit()`（它只调 `OnExit` / `OnBack` /
+        /// `OnDestroy` / `OnDone`），所以遮蔽不会导致"系统永不清理"。
+        /// 但如果通过 `GameSystem` 基类型引用调用 `Exit()`，会走基类的 Back 语义 ——
+        /// 因此调用方必须用 `DiplomacySystem` 静态类型（现只有 `UIDiplomacy.OnCancelButton` 一处）。
         /// </summary>
-        public void Exit()
+        public new void Exit()
         {
             Window.Instance.Close(windowName);
             Done();

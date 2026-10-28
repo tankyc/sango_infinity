@@ -452,7 +452,12 @@ namespace Sango.Core.Player
         /// <param name="troop">进攻部队</param>
         private void OnCityFall(City city, Force lastForce, Troop troop)
         {
-            Force attackForce = troop.BelongForce;
+            // 【修复】攻方部队主将脱编 / 缓存为空时 BelongForce 为 null，
+            // 直接解引用 IsCurPlayer / ColorName 会空引用崩溃，这里跳过该条消息。
+            Force attackForce = troop != null ? troop.BelongForce : null;
+            if (attackForce == null)
+                return;
+
             bool isAttackCurPlayer = attackForce.IsCurPlayer;
             bool isDefendCurPlayer = lastForce?.IsCurPlayer ?? false;
 

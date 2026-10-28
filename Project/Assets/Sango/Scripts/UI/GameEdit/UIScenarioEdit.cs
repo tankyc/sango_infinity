@@ -202,6 +202,17 @@ namespace Sango.UI
         /// 地图类型下拉框(Mod下Map目录的bin文件名)
         /// </summary>
         public UIDropdownField mapTypeDropdownField;
+
+        /// <summary>
+        /// 剧本信息 · 寿命模式下拉框。
+        ///
+        /// 选项：跟随剧本参数 / 史实 / 长寿 / 虚构 / 无死亡
+        /// （下标 0 表示 ScenarioInfo.lifeMode = -1，即不锁定、由剧本参数决定）。
+        /// 这里选了"非跟随"之后，剧本参数界面里的「寿命模式」会变为只读 —— 见 UIScenarioVariables。
+        ///
+        /// 允许为空：老版本 Prefab 上没有挂这个控件时，本项不显示（判定处已判空）。
+        /// </summary>
+        public UIDropdownField lifeModeDropdownField;
         #endregion
 
         /// <summary>
@@ -798,6 +809,21 @@ namespace Sango.UI
                     {
                         scenario.Info.mapType = mapOptions[v];
                     }
+                });
+            }
+
+            // 寿命模式下拉框：剧本信息级的史实设定。
+            // 选"跟随剧本参数"写 -1（不锁定），其他项写对应的 LifeMode 值；
+            // 一旦锁定，剧本参数界面里的「寿命模式」会变成只读（见 UIScenarioVariables.ShowVariables）。
+            if (lifeModeDropdownField != null)
+            {
+                List<string> lifeOptions = new List<string>() { "跟随剧本参数", "史实", "长寿", "虚构", "无死亡" };
+                int lifeIndex = scenario.Info.HasLifeMode
+                    ? Mathf.Clamp(scenario.Info.lifeMode, 0, lifeOptions.Count - 2) + 1
+                    : 0;
+                lifeModeDropdownField.Set("寿命模式", lifeIndex, lifeOptions, (v) =>
+                {
+                    scenario.Info.lifeMode = v <= 0 ? -1 : v - 1;
                 });
             }
             refreshing = false;
