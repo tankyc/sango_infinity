@@ -76,25 +76,19 @@ namespace Sango.Core
 
         /// <summary>默认颜色（白）的富文本颜色值</summary>
         public const string ColorHexWhite = "#FFFFFF";
-        /// <summary>天蓝：适性 1 级 / 属性 80~89</summary>
-        public const string ColorHexBlue = "#00BFFF";
-        /// <summary>亮紫：适性 2 级 / 属性 90~99</summary>
-        public const string ColorHexPurple = "#BF5FFF";
-        /// <summary>暗金：适性 3 级及以上 / 属性 100 及以上</summary>
-        public const string ColorHexDarkGold = "#B8860B";
-
-        // ↓ 以下三档供 GetGradeColorHex（按"等级 1~5"着色的旧口径）与外部扩展使用，
-        //   属性数值与兵种适性已改用"暗金 / 亮紫 / 天蓝"三档，不再走这里。
-        /// <summary>旧口径 1 级：绿</summary>
+        /// <summary>1级（仅适性使用）：绿</summary>
         public const string ColorHexGreen = "#00FF7F";
-        /// <summary>旧口径 4 级：金</summary>
+        /// <summary>2级（仅适性使用）：蓝</summary>
+        public const string ColorHexBlue = "#00BFFF";
+        /// <summary>3级 / 属性80~89：紫</summary>
+        public const string ColorHexPurple = "#BF5FFF";
+        /// <summary>4级 / 属性90~99：金</summary>
         public const string ColorHexGold = "#FFD700";
-        /// <summary>旧口径 5 级及以上：红</summary>
+        /// <summary>5级及以上 / 属性>=100：红</summary>
         public const string ColorHexRed = "#FF3333";
 
         /// <summary>
         /// 按等级取颜色：1 绿，2 蓝，3 紫，4 金，5 及以上 红，其余 白。
-        /// 仅供仍按"等级 1~5"着色的旧调用方使用。
         /// </summary>
         /// <param name="grade">等级</param>
         /// <returns>富文本颜色值（如 #61E28F）</returns>
@@ -123,40 +117,28 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 武将五维属性文本着色。
-        ///
-        /// 档位（自高到低）：>=100 暗金，>=90 亮紫，>=80 天蓝；80 以下使用默认白色。
+        /// 武将五维属性文本着色：>=100 红，>=90 金，>=80 紫；60~79 及以下使用默认颜色。
         /// </summary>
         /// <param name="value">属性数值</param>
         /// <returns>带颜色标签的文本</returns>
         public static string GetAttributeColorText(int value)
         {
-            if (value >= 100)
-                return Colorize(value.ToString(), ColorHexDarkGold);
-            if (value >= 90)
-                return Colorize(value.ToString(), ColorHexPurple);
-            if (value >= 80)
-                return Colorize(value.ToString(), ColorHexBlue);
-            return Colorize(value.ToString(), ColorHexWhite);
+            int grade = value / 10 - 5;
+            // 属性只保留紫(80~89)、金(90~99)、红(>=100)三档颜色，60~79 不再显示绿/蓝
+            if (grade <= 2)
+                return Colorize(value.ToString(), ColorHexWhite);
+            return Colorize(value.ToString(), GetGradeColorHex(grade));
         }
 
         /// <summary>
-        /// 兵种适性文本着色。
-        ///
-        /// 档位（自高到低）：>=3 暗金，2 亮紫，1 天蓝；0 及以下使用默认白色。
+        /// 兵种适性文本着色：等级 1 绿，2 蓝，3 紫，4 金，5 及以上 红，其余 白。
         /// </summary>
         /// <param name="text">适性名称文本</param>
         /// <param name="level">适性等级</param>
         /// <returns>带颜色标签的文本</returns>
         public static string GetAbilityColorText(string text, int level)
         {
-            if (level >= 3)
-                return Colorize(text, ColorHexDarkGold);
-            if (level >= 2)
-                return Colorize(text, ColorHexPurple);
-            if (level >= 1)
-                return Colorize(text, ColorHexBlue);
-            return Colorize(text, ColorHexWhite);
+            return Colorize(text, GetGradeColorHex(level));
         }
 
         public abstract string GetValueStr(SangoObject obj);

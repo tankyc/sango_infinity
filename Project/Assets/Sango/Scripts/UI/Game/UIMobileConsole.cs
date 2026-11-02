@@ -16,17 +16,17 @@ namespace Sango.UI
         bool showBg = false;
         public void OnConsole()
         {
-            //mobileConsole.Visible = true;
+            mobileConsole.Visible = true;
             backgroundMask.gameObject.SetActive(true);
-            //showBg = true;
+            showBg = true;
         }
 
         private void Start()
         {
-            if(mobileConsole != null)
-            {
-                mobileConsole.onError = OnConsole;
-            }
+            //if(mobileConsole != null)
+            //{
+            //    mobileConsole.onError = OnConsole;
+            //}
             info.gameObject.SetActive(false);
             if (UnityEngine.PlayerPrefs.GetInt("game_show_info", 0) == 0)
             {
