@@ -204,6 +204,22 @@ namespace Sango.Core
             {
                 PriorityActionData priorityActionData = pair.Value;
 
+                // 【陷阱引爆闸门 —— 候选级】对齐原版 add_attack_action:408 / add_tactic_action:669
+                // （命中对象是"已建成陷阱"且非任务主目标时，原版不生成该候选）。
+                //
+                // 为什么必须放在候选级，而不是逐格扣分：
+                // 本项目把一次技能的多个命中格聚合成**一个**候选，逐格负分还会被下面的
+                // `if (p > 0)` 过滤掉。实测分值是「单个敌人目标 ≈ +9200~10200」对
+                // 「单个陷阱罚分 ≈ -8800」，穿线上只要有 1 个敌人就能把陷阱的负分完全抵消，
+                // 于是"瞄准陷阱、穿过它打后面敌人"成了高分候选 —— 这正是
+                // 「诸葛诞 贯箭 =>(火球格)」那条日志的成因。
+                //
+                // 判定口径：陷阱自己算一次引爆收益（get_trap_score）
+                //   · 收益 > 0 → 爆炸范围内确实有敌人可炸，保留候选（正常逐格累加）；
+                //   · 收益 ≤ 0（炸不到人 / 只炸到友军 / 引爆者也在爆心）→ 整条候选作废。
+                if (HasUselessTrapInAttackCells(troop, priorityActionData))
+                    continue;
+
                 int atk_priority = 0;
                 int targetCount = 0;
                 for (int m = 0; m < priorityActionData.atkCells.Length; m++)
@@ -909,6 +925,14 @@ namespace Sango.Core
             }
             else if (target.building != null && skill.canDamageBuilding)
             {
+                // 【原版闸门 :404-409】已建成的陷阱默认不生成攻击候选，只有陷阱本身是任务主目标时才保留。
+                // 连续分制与 Open311 分制必须同口径，否则关掉 useOpen311ScoreFormula 后
+                // "部队路过顺手打陷阱 / 工程队引爆自己刚建的陷阱"会立刻复发。
+                bool isTrap = IsCompletedTrap(target.building);
+                bool trapMainTarget = isTrap && IsTrapMainTarget(troop, target.building);
+                if (isTrap && !trapMainTarget)
+                    return 0;
+
                 int rangeFactor = skill.IsRange() ? cfg.scoreBuildingRangeFactor : cfg.scoreBuildingMeleeFactor;
                 if (troop.IsEnemy(target.building))
                 {
@@ -921,7 +945,10 @@ namespace Sango.Core
                     // 【原版闸门】get_attack_damage_score 的建筑分支（s11_sys_unit_action.cpp:1800-1832）：
                     //   据点：不能一击破，且兵力伤害与耐久伤害都远不够 → 0；
                     //   陷阱 / 障碍 → 0；普通设施一击打不掉耐久 → 0。
-                    if (cfg.useRealDamageScore && !PassBuildingDamageGate(troop, target.building, skill))
+                    // 例外：陷阱是任务主目标时不套用（原版 :408 允许生成候选，只是拿不到伤害加分），
+                    // 否则"专门去拆对手陷阱"的任务会永远打不动、部队卡死。
+                    if (cfg.useRealDamageScore && !trapMainTarget
+                        && !PassBuildingDamageGate(troop, target.building, skill))
                         return 0;
 
                     if (skill.IsStrategy())
@@ -1108,6 +1135,15 @@ namespace Sango.Core
             // 普攻（add_attack_action:404-425）
             if (skill.IsNormal())
             {
+                // 【原版闸门 :404-409】`if (not is_completed_trap(target) or target == main_target)`
+                // —— 已建成的陷阱默认**不生成普攻候选**，只有陷阱本身是任务主目标时才保留。
+                // 原版不靠扣分压制，而是根本不入列，所以这里直接返回 -1（本项目 -1 = 丢弃该候选）。
+                // 少了这一句，陷阱会以 paramScore + 动作常量 1000 + 位置分的小正分混进队列。
+                if (target.building != null
+                    && IsCompletedTrap(target.building)
+                    && !IsTrapMainTarget(troop, target.building))
+                    return -1;
+
                 int score = paramScore + targetScore + cfg.o311AttackActionBonus;
                 if (CanBeCounterattacked(troop, skill, target, movetoCell))
                     score -= cfg.o311CounterPenalty;
@@ -1137,6 +1173,19 @@ namespace Sango.Core
             if (target.troop != null)
                 tacticScore -= CalcOpen311PosScore(target.troop, target);
             tacticScore += CalcOpen311PosScore(troop, spellCell ?? movetoCell);
+
+            // 【原版 :630-637 / :842-849】战法打陷阱不能靠常规伤害分判断（陷阱伤害分恒 0），
+            // 必须改走 get_trap_score：
+            //     action.score += get_trap_score(...);
+            //     if (trap_score <= 0) action.score -= 10000;
+            // 即"能炸到敌人就加分，炸不到就重罚"，避免用战法白烧一座陷阱。
+            if (target.building != null && IsCompletedTrap(target.building))
+            {
+                int trapScore = CalcOpen311TrapScore(troop, target.building, spellCell ?? movetoCell);
+                tacticScore += trapScore;
+                if (trapScore <= 0)
+                    tacticScore -= cfg.o311TrapScorePenalty;
+            }
 
             return tacticScore;
         }
@@ -1607,13 +1656,14 @@ namespace Sango.Core
                         int score = baseScore + chance;
 
                         // :1016-1025 目标本身是陷阱 → 调 get_trap_score（:1019）
-                        if (targetBuilding != null && targetBuilding.BuildingType != null
-                            && targetBuilding.BuildingType.IsExplosive)
+                        // 判定口径与战法分支保持一致：IsCompletedTrap（= 原版 is_completed_trap，
+                        // 排除堤防、要求已建成），未建成的陷阱由 CalcOpen311TrapScore 返回 0 后同样重罚。
+                        if (targetBuilding != null && IsCompletedTrap(targetBuilding))
                         {
                             int trapScore = CalcOpen311TrapScore(troop, targetBuilding, movetoCell ?? troop.cell);
                             score += trapScore;
                             // :1021-1022 陷阱评分 <= 0 时重罚（烧了不划算，甚至有害）
-                            if (trapScore <= 0) score -= 10000;
+                            if (trapScore <= 0) score -= cfg.o311TrapScorePenalty;
                             return score > 0 ? score : 0;
                         }
 
@@ -1904,6 +1954,121 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 【原版直译】是否为**陷阱类**设施 —— is_trap_type（s11_scen_obj_building.cpp:305-310）。
+        ///
+        /// 原版：<c>facility_ == FacilityId_Levee → false</c>，其余看
+        /// <c>get_facility_type() == FacilityType_Trap</c>。
+        /// 本项目 `BuildingType.IsExplosive` 对应 FacilityType_Trap，但**包含堤防**，
+        /// 所以这里补上原版对 Levee 的显式排除（与 <c>Building.OnCompleted</c> 中立化逻辑同口径）。
+        /// </summary>
+        /// <param name="type">建筑类型</param>
+        /// <returns>是否陷阱类（不含堤防）</returns>
+        public static bool IsTrapType(BuildingType type)
+        {
+            if (type == null) return false;
+            if (type.kind == (int)BuildingKindType.Levee) return false;   // :307-308
+            // 浅滩（Sandbar）在数据里也归在 majorType = Explosive，但它没有爆发效果，
+            // 与 BuildingTrapEffect.CanTrigger:67-69 的判定保持同口径，否则 AI 会误判浅滩为陷阱而不去破坏。
+            if (type.kind == (int)BuildingKindType.Sandbar) return false;
+            return type.IsExplosive;
+        }
+
+        /// <summary>
+        /// 【原版直译】是否为**已建成**的陷阱 —— is_completed_trap（s11_sys_unit_utils.cpp:73-85）。
+        ///
+        /// 原版四连判：
+        ///   · <c>utils::is_alive(object)</c>      → 耐久 &gt; 0
+        ///   · <c>object->is_instance(ScenObjType_Building)</c> → 是建筑（入参已保证）
+        ///   · <c>building->is_trap_type()</c>      → <see cref="IsTrapType"/>
+        ///   · <c>building->is_completed()</c>      → <see cref="BuildingBase.isComplate"/>
+        ///
+        /// 原版用它做"攻击动作候选"的闸门（普攻 / 包围 :389、:408）：
+        /// **已建成的陷阱默认不生成攻击候选**，除非它是任务主目标。
+        /// 缺失这道闸门时，中立陷阱会以「统率+武力 + 动作常量 1000 + 位置分」≈ 1100 的小正分
+        /// 混进候选，在附近没有更值钱目标时被选中 —— 表现为"路过陷阱顺手打一下"、
+        /// "工程队刚修好就把自己修的陷阱引爆"。
+        /// </summary>
+        /// <param name="building">建筑对象</param>
+        /// <returns>是否为已建成的陷阱</returns>
+        public static bool IsCompletedTrap(BuildingBase building)
+        {
+            if (building == null) return false;
+            if (building.durability <= 0) return false;                   // :75-76 is_alive
+            if (!IsTrapType(building.BuildingType)) return false;          // :80-81
+            return building.isComplate;                                   // :82-83
+        }
+
+        /// <summary>
+        /// 陷阱是否就是本次行动的"任务主目标" —— 原版 <c>add_attack_action:408</c> 的
+        /// <c>target == main_target</c>（主目标时允许攻击已建成陷阱）。
+        ///
+        /// 原版用对象指针比较。本项目 <c>troop.missionTarget</c> 是 int，且**语义随任务类型变化**：
+        /// 拆建筑任务是建筑对象 Id，建造任务是 <c>BuildingType.Id</c>（类型 Id），返城 / 占领是城池 Id。
+        /// 若直接比 Id，工程队（missionTarget = 陷阱类型 Id）会与某座陷阱的对象 Id 撞号，
+        /// 把"正在修的那类陷阱"误判成主目标、重新放行攻击。因此这里限定
+        /// "拆建筑任务 + 对象 Id 命中"，还原原版指针比较的语义。
+        /// </summary>
+        /// <param name="troop">行动部队</param>
+        /// <param name="building">建筑对象</param>
+        /// <returns>该陷阱是否为当前拆建筑任务的目标</returns>
+        public static bool IsTrapMainTarget(Troop troop, BuildingBase building)
+        {
+            if (troop == null || building == null) return false;
+            if (troop.missionType != (int)MissionType.TroopDestroyBuilding) return false;
+            return building.Id == troop.missionTarget;
+        }
+
+        /// <summary>
+        /// 候选的命中集合里是否含有"白烧"的陷阱（已完成陷阱 + 非主目标 + 引爆收益 ≤ 0）。
+        ///
+        /// 【为什么要独立算一次引爆收益】多目标候选聚合后，逐格负分会被
+        /// <c>PriorityAction</c> 的 <c>if (p &gt; 0)</c> 过滤掉，单靠罚分压不住：
+        /// 单个敌人目标的逐格分约 +9200~10200，而单座陷阱的罚分约 -8800，
+        /// 穿线上只要有 1 个敌人就足以抵消。所以要把"这座陷阱值不值得引爆"提到候选级判定。
+        ///
+        /// 【判定口径】直接复用原版 get_trap_score（<see cref="CalcOpen311TrapScore"/>）：
+        ///   · &gt; 0 —— 爆炸范围内确实有敌人（每个敌人 +1、每个友军 -2、引爆者自己格 -2），
+        ///     引爆有收益，候选保留；
+        ///   · ≤ 0 —— 炸不到人 / 只炸到友军 / 引爆者也在爆心 / 陷阱还没建成，整条候选作废。
+        ///
+        /// 任务主目标（<see cref="IsTrapMainTarget"/>）不受此限，对齐原版
+        /// <c>add_attack_action:408</c> 的 <c>target == main_target</c> 例外。
+        /// </summary>
+        /// <param name="troop">行动部队</param>
+        /// <param name="action">候选动作</param>
+        /// <returns>true = 该候选应被丢弃</returns>
+        static bool HasUselessTrapInAttackCells(Troop troop, PriorityActionData action)
+        {
+            if (troop == null || action == null || action.atkCells == null)
+                return false;
+
+            for (int i = 0; i < action.atkCells.Length; i++)
+            {
+                Cell cell = action.atkCells[i];
+                if (cell == null || cell.building == null)
+                    continue;
+
+                BuildingBase building = cell.building;
+
+                // 只拦"已建成的陷阱"：未建成的陷阱不会引爆（BuildingTrapEffect.Trigger:56 要求 isComplate），
+                // 打它等同于打普通在建工地，不在本规则的范畴内。
+                if (!IsCompletedTrap(building))
+                    continue;
+
+                // 任务主目标例外（原版 target == main_target）
+                if (IsTrapMainTarget(troop, building))
+                    continue;
+
+                // 引爆收益 ≤ 0 → 这座陷阱白烧，整条候选作废
+                int trapScore = CalcOpen311TrapScore(troop, building, action.movetoCell ?? troop.cell);
+                if (trapScore <= 0)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// 【原版直译】陷阱评分 —— get_trap_score（s11_sys_unit_action.cpp:2154-2191）。
         ///
         ///   火种 / 火船      × 2500（半径 1）
@@ -1913,10 +2078,13 @@ namespace Sango.Core
         ///   火焰球           × 3000（直线 5）
         ///   业火球           × 3500（直线 4，可穿建筑）
         ///   正分时再 +10000
+        ///
+        /// :2187-2188 原版入口先判 <c>is_completed_trap</c>，未建成的陷阱一律 0 分
+        /// （调用方的 "≤0 则 -10000" 因此会把半成品陷阱也重罚掉）。
         /// </summary>
         static int CalcOpen311TrapScore(Troop troop, BuildingBase trap, Cell unitCell)
         {
-            if (trap == null || trap.BuildingType == null) return 0;
+            if (!IsCompletedTrap(trap)) return 0;                          // :2187-2188
 
             Cell trapCell = trap.CenterCell;
             if (trapCell == null) return 0;

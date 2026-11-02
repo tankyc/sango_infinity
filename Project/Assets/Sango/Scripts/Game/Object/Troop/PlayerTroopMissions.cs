@@ -186,6 +186,14 @@ namespace Sango.Core
             if (TargetCity == null || TargetCity.Id != troop.missionTarget)
                 TargetCity = scenario.citySet.Get(troop.missionTarget);
 
+            // 【防御】目标城已不存在（被摧毁 / 目标 Id 无效）时直接交回玩家：
+            // 委任语义下不做"自动改派回归属城"，也不必再去问父类的完成判定。
+            if (TargetCity == null)
+            {
+                PlayerTroopMissionHelper.ClearAndRelease(troop);
+                return;
+            }
+
             // 【委任】目标城已不适用（不再是归属城 / 已非己方）→ 直接交回玩家。
             // 不做"改去打该城 / 改回归属城"这类自动改派。
             if (IsMissionComplete)

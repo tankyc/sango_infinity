@@ -448,12 +448,26 @@ using Sango.Core; namespace Sango.UI
             //GameSystem.GetSystem<DiplomacySystem>().Start(Target, allForces);
         }
 
+        /// <summary>
+        /// 打开「技巧表」：把当前正在查看的势力带给 <see cref="ForceTechniqueInformation"/>，
+        /// 那边左侧仍列出全势力，默认选中这一个。
+        /// </summary>
         public void OnTechniqueButton()
         {
+            if (Target == null)
+                return;
+            GameSystem.GetSystem<ForceTechniqueInformation>().Start(Target);
         }
 
+        /// <summary>
+        /// 打开「能力表」：把当前正在查看的势力带给 <see cref="ForceAbilityInformation"/>，
+        /// 那边左侧仍列出全势力，默认选中这一个。
+        /// </summary>
         public void OnAabilityButton()
         {
+            if (Target == null)
+                return;
+            GameSystem.GetSystem<ForceAbilityInformation>().Start(Target);
         }
     }
 }

@@ -1910,6 +1910,21 @@ namespace Sango.Core
         internal IRenderEventBase skillRenderEvent = null;
 
         /// <summary>
+        /// 【新出兵】本部队是刚由据点组建、还没走出城头的"新兵"。
+        ///
+        /// 生命周期：
+        ///   · 组建出城时由 <see cref="CityTroopFactory.DriveOutOfCity"/> 置位；
+        ///   · 第一次落到野外格（<see cref="UpdateCell"/> 的 isEndMove）时清除；
+        ///   · 部队收尾（阵亡 / 入城解散）时清除。
+        ///
+        /// 用途：<see cref="CorpsAI.AITroops"/> 排序时把新兵排到最前，让它们**先离开城头**，
+        /// 再驱动其它部队。这样同一据点本轮派出的部队不会都挤在城池中心格上
+        /// （<see cref="City.EnsureTroop"/> 会无条件覆盖 <c>CenterCell.troop</c>）。
+        /// 出城的移动动画照常播放，不走任何同步瞬移。
+        /// </summary>
+        internal bool isNewEmitted = false;
+
+        /// <summary>
         /// skillRenderEvent 是否由"援助补刀"排入。
         /// 援助不属于这支部队自己的行动, 它播完后不能拿来当部队下一次施法的"已完成"信号,
         /// 否则那次普通攻击会被 SpellSkill 开头的早退分支整个吞掉(没出手却直接结束行动)
@@ -2288,6 +2303,7 @@ namespace Sango.Core
             if (skill != null)
             {
                 skill.assistAttackFlag = false;
+                skill.ResetStrategyTechniquePointFlag();
                 skillRenderEventIsAssist = false;
             }
             skill.tempCriticalFactor = 100;
@@ -2506,6 +2522,24 @@ namespace Sango.Core
                 trrainBonusDef = 0;
         }
 
+        /// <summary>
+        /// 【新出兵】清除"新兵"标记，并解除所在城市的"出城进行中"登记。
+        ///
+        /// 三个调用点：
+        ///   · <see cref="UpdateCell"/> 的 isEndMove —— 正常出城成功；
+        ///   · <see cref="Troop.DoAI"/> 的收尾 —— 本回合结束仍未出城（被围死）的兜底；
+        ///   · <see cref="ClearWithBelongCity"/> —— 部队阵亡 / 入城解散。
+        /// </summary>
+        /// <param name="homeCity">归属城；传 null 时按 <see cref="BelongCity"/> 实时推导</param>
+        void ClearNewEmittedFlag(City homeCity)
+        {
+            isNewEmitted = false;
+
+            City home = homeCity != null ? homeCity : BelongCity;
+            if (home != null && home.pendingOutTroop == this)
+                home.pendingOutTroop = null;
+        }
+
         public void UpdateCell(Cell destCell, Cell lastCell, bool isEndMove)
         {
             //TODO: 地格更新,需要处理一些事件
@@ -2533,6 +2567,12 @@ namespace Sango.Core
                 destCell.troop = this;
                 cell.troop = null;
                 cell = destCell;
+
+                // 【新出兵】整段移动结束、且已站到野外格 = 真正走出城头了：
+                // 清掉"新兵"标记并解除城市的出城登记，本城随后就能再派下一支。
+                if (isNewEmitted && destCell.building == null)
+                    ClearNewEmittedFlag(null);
+
                 if (Render.MapObject != null)
                 {
                     Render.MapObject.position = cell.Position;
@@ -3414,6 +3454,11 @@ namespace Sango.Core
             missionType = 0;
             ActionOver = true;
             Render.Clear();
+
+            // 【新出兵】部队还没出城就被收尾（阵亡 / 入城解散）：
+            // 解除城市的"出城进行中"登记，否则该城会一直以为有部队在出城而不再派兵。
+            ClearNewEmittedFlag(belongCity);
+
             if (cell != null && cell.troop == this)
                 cell.troop = null;
 
@@ -4002,6 +4047,12 @@ namespace Sango.Core
             AIFinished = true;
             troopMissionBehaviour = null;
             leavingBuildingCell = false;
+
+            // 【新出兵兜底】本回合行动已经结束却仍没走出城头（例如被敌军彻底围死），
+            // 必须解除城市的"出城进行中"登记，否则该城会永久无法再派兵。
+            if (isNewEmitted)
+                ClearNewEmittedFlag(null);
+
             ActionOver = true;
             return true;
         }
@@ -4175,7 +4226,6 @@ namespace Sango.Core
                                     goto case MissionType.TroopStay;
 
                                 case MissionType.TroopStay:
-                                case MissionType.TroopReturnCity:
                                     // :210 原版 rand_bool(50) ? Attack : Subjugate
                                     if (deployCity != null)
                                         SetMission(GameRandom.Chance(50) ? MissionType.TroopDestroyTroop : MissionType.TroopOccupyCity, deployCity.Id);
@@ -4239,7 +4289,6 @@ namespace Sango.Core
                                 goto case MissionType.TroopStay;
 
                             case MissionType.TroopStay:
-                            case MissionType.TroopReturnCity:
                                 if (deployCity != null)
                                     SetMission(MissionType.TroopProtectCity, deployCity.Id);
                                 break;
@@ -4292,7 +4341,6 @@ namespace Sango.Core
                     switch ((MissionType)missionType)
                     {
                         case MissionType.TroopStay:
-                        case MissionType.TroopReturnCity:
                             return RetreatAIOrder();
                     }
                     return true;
@@ -5062,50 +5110,103 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 结算部队本次战斗获得的功绩、技巧点、武将与兵种适性经验。
-        /// 计算本次战斗获得的技巧点，并开放给部队特技 Action 改写。
-        /// 功绩与经验保持原有口径，不受技巧点特技影响。
-        /// 各项数值均可在剧本设置里配置（GainPlace）。
+        /// 结算部队本次战斗获得的功绩、能力经验、兵种适性经验与势力技巧点。
+        ///
+        /// 【原版对齐】四个量全部来自 Exp 表同一行（<see cref="CombatExpTable"/>），各取各的字段：
+        /// <list type="bullet">
+        /// <item>功绩 <c>kouseki</c> —— s11_sys_scen_unit.cpp:1423 <c>unit_add_kouseki(self, exp->kouseki)</c></item>
+        /// <item>能力经验 <c>stat_exp[5]</c> —— :1380-1389 <c>unit_add_exp</c></item>
+        /// <item>适性经验 <c>heishu_exp[6]</c> —— :1391-1402 <c>unit_add_equipment_exp</c></item>
+        /// <item>技巧点 <c>tech_point</c> —— :1425 <c>return exp->tech_point * mul</c></item>
+        /// </list>
+        /// 原版对全队每个存活武将给**同一份**数值，不区分主将 / 副将；
+        /// 因此这里取消了旧版的 MeritLeaderFactor / MeritMemberFactor 折扣。
         /// </summary>
-        /// <param name="gp">本次战斗获得的原始功绩。</param>
-        /// <param name="isDestroyEnemyTroop">是否由本部队击破敌方部队触发。</param>
-        /// <param name="isDestroyCity">是否由本部队攻破城池/关/港触发。</param>
-        public void GainEP(int gp, bool isDestroyEnemyTroop = false, bool isDestroyCity = false)
+        /// <param name="expEvent">本次结算对应的事件行（普攻 / 战法命中 / 计略 / 陷阱…）</param>
+        /// <param name="isDestroyEnemyTroop">
+        /// 是否由本部队击破敌方部队触发。原版击破时额外给全队每人 +300 功绩与势力 +50 技巧点：
+        /// s11_sys_scen_unit.cpp:340-350、:460-483。
+        /// </param>
+        /// <param name="techniqueMultiplier">
+        /// 技巧点倍数（计略用命中目标数）。原版 <c>unit_add_exp_with_kouseki(..., mul, ...)</c>
+        /// 返回 <c>exp-&gt;tech_point * mul</c>（s11_sys_scen_unit.cpp:1425），
+        /// 但**功绩不乘** —— 功绩在函数内部按原值加给每个 member。
+        /// </param>
+        public void GainEP(CombatExpEvent expEvent, bool isDestroyEnemyTroop = false, int techniqueMultiplier = 1)
         {
-            Tools.OverrideData<int> techniquePoint = Tools.OverrideData<int>.Create(
-                GainValueConfig.Rate(gp, GainValueConfig.TechniquePoint(GainPlace.TechniquePointFromMerit)));
-            // 由已装配的部队特技决定是否改写本次技巧点，避免按特技 ID 硬编码。
-            GameEvent.OnTroopCalculateTechniquePoint?.Invoke(this, isDestroyEnemyTroop, techniquePoint);
-            BelongForce.GainTechniquePoint(techniquePoint.ValueAndRecycle);
+            CombatExpEntry entry = CombatExpTable.Get(expEvent);
 
-            // 主将按配置比例获得功绩(默认100%), 经验按配置比例从功绩折算
-            if (Leader != null)
-            {
-                Leader?.GainMerit(GainValueConfig.Rate(gp, GainValueConfig.Merit(GainPlace.MeritLeaderFactor)));
-                Leader?.GainExp(GainValueConfig.Rate(gp, GainValueConfig.Exp(GainPlace.ExpFromMerit)));
-            }
-            int memberGp = GainValueConfig.Rate(gp, GainValueConfig.Merit(GainPlace.MeritMemberFactor));
-            ForEachMember(x =>
-            {
-                x.GainMerit(memberGp);
-                x.GainExp(GainValueConfig.Rate(memberGp, GainValueConfig.Exp(GainPlace.ExpFromMerit)));
-            });
+            // ---- 功绩：全队每人一份（原版 unit_add_kouseki 内部就是对每个 member 调 person_add_kouseki）----
+            int merit = entry.merit;
+            if (isDestroyEnemyTroop)
+                merit += GainValueConfig.Merit(GainPlace.CombatDestroyTroop);
 
-            // 兵种适性经验：用哪个兵种就练哪一项适性（TroopType.influenceAbility）
-            int influenceAbility = TroopType != null ? TroopType.influenceAbility : 0;
-            if (influenceAbility > 0)
+            if (merit > 0)
             {
-                int abilityExp = GainValueConfig.AbilityExp(GainPlace.AbilityExpAttack);
-                if (isDestroyEnemyTroop)
-                    abilityExp += GainValueConfig.AbilityExp(GainPlace.AbilityExpDestroyTroop);
-                if (isDestroyCity)
-                    abilityExp += GainValueConfig.AbilityExp(GainPlace.AbilityExpDestroyCity);
-
-                if (abilityExp > 0)
+                // 武将等级经验是项目自有系统（原版 Person 只有功绩没有等级），
+                // 这里保留"按功绩折算"的口径，不影响上面三项的原版对齐。
+                int exp = GainValueConfig.Rate(merit, GainValueConfig.Exp(GainPlace.ExpFromMerit));
+                ForEachPerson(x =>
                 {
-                    Leader?.GainAbilityExp(influenceAbility, abilityExp);
-                    ForEachMember(x => x.GainAbilityExp(influenceAbility, abilityExp));
-                }
+                    x.GainMerit(merit);
+                    if (exp > 0) x.GainExp(exp);
+                });
+            }
+
+            // ---- 能力经验：stat_exp[5]，按原版 PersonStatType 顺序（0 统率 / 1 武力 / 2 智力 / 3 政治 / 4 魅力）----
+            if (entry.leadership > 0 || entry.strength > 0 || entry.intelligence > 0
+                || entry.politics > 0 || entry.charisma > 0)
+            {
+                ForEachPerson(x =>
+                {
+                    x.GainStatExp(0, entry.leadership);
+                    x.GainStatExp(1, entry.strength);
+                    x.GainStatExp(2, entry.intelligence);
+                    x.GainStatExp(3, entry.politics);
+                    x.GainStatExp(4, entry.charisma);
+                });
+            }
+
+            // ---- 适性经验：只取"当前兵种"那一格（原版 get_equipment(id)->get_heishu() 取一项）----
+            int influenceAbility = TroopType != null ? TroopType.influenceAbility : 0;
+            int abilityExp = GetHeishuExp(entry, influenceAbility);
+            if (abilityExp > 0)
+            {
+                ForEachPerson(x => x.GainAbilityExp(influenceAbility, abilityExp));
+            }
+
+            // ---- 势力技巧点：tech_point × 命中数 + 击破固定值；「名声」翻倍交给特技 Action 改写 ----
+            int rawTechniquePoint = entry.techniquePoint;
+            if (techniqueMultiplier > 1)
+                rawTechniquePoint *= techniqueMultiplier;
+            if (isDestroyEnemyTroop)
+                rawTechniquePoint += GainValueConfig.TechniquePoint(GainPlace.TechniquePointDestroyTroop);
+
+            if (rawTechniquePoint > 0 && BelongForce != null)
+            {
+                Tools.OverrideData<int> techniquePoint = Tools.OverrideData<int>.Create(rawTechniquePoint);
+                // 由已装配的部队特技决定是否改写本次技巧点，避免按特技 ID 硬编码。
+                GameEvent.OnTroopCalculateTechniquePoint?.Invoke(this, isDestroyEnemyTroop, techniquePoint);
+                BelongForce.GainTechniquePoint(techniquePoint.ValueAndRecycle);
+            }
+        }
+
+        /// <summary>
+        /// 按部队当前兵种取 Exp 表的 heishu_exp 对应格。
+        /// 原版 Heishu 顺序（s11_enum_scen.h:116-125）：枪 / 戟 / 弩 / 骑 / 兵器 / 水军；
+        /// 项目 <see cref="AbilityType"/> 顺序：枪 / 戟 / 弩 / 骑 / 器械 / 水军，一一对应。
+        /// </summary>
+        static int GetHeishuExp(CombatExpEntry entry, int influenceAbility)
+        {
+            switch ((AbilityType)influenceAbility)
+            {
+                case AbilityType.Spear: return entry.spear;
+                case AbilityType.Halberd: return entry.halberd;
+                case AbilityType.Crossbow: return entry.bow;
+                case AbilityType.Ride: return entry.cavalry;
+                case AbilityType.Machine: return entry.siege;
+                case AbilityType.Water: return entry.navy;
+                default: return 0;
             }
         }
 

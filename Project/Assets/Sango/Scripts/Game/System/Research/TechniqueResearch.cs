@@ -180,6 +180,7 @@ namespace Sango.Core
 
             city.BelongForce.ResearchTechnique = technique.Id;
             city.BelongForce.ResearchLeftCounter = turnCount;
+            city.BelongForce.ResearchMaxCounter = turnCount;
 
             city.BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
 

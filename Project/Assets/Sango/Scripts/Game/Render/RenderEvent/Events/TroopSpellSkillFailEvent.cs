@@ -115,8 +115,32 @@ namespace Sango.Render
         public void Action()
         {
             if (isAction) return;
+
             if (replaceSkill != null)
-                replaceSkill.Action(spellCell, 100);
+            {
+                // 【原版对齐】战法命中率失败：伤害由普攻照打，但功绩 / 能力经验 / 适性经验取该战法的
+                // **未命中行**（s11_sys_anim_unit.cpp:1090
+                //   `get_exp(tactic->get_exp() + 1 - tactic_hit - critical)`，tactic_hit=0 ⇒ 组首+2）。
+                // 例：突刺失败仍给 10 功绩、武力 +1、枪 +1，而普攻行是 20 功绩。
+                replaceSkill.forcedExpEvent = (int)skill.GetCombatExpEvent(false, false);
+                try
+                {
+                    replaceSkill.Action(spellCell, 100);
+                }
+                finally
+                {
+                    // 普攻实例是部队共享的，必须在同一次调用内复位，否则后续普攻会全部套用 miss 行。
+                    replaceSkill.forcedExpEvent = -1;
+                }
+            }
+            else if (skill != null && skill.IsStrategy() && troop != null && troop.IsAlive)
+            {
+                // 计略失败没有普攻替代（replaceSkill 为 null），但原版 add_strategy_exp 依然按 miss 行结算：
+                // s11_sys_anim_unit_strategy.cpp:1326 `get_exp(Exp_KakeiMiss + 3 * strategy_id - hit - critical)`，
+                // hit=0 ⇒ miss 行（功绩 10~20、智力 +1、技巧点 0）。
+                troop.GainEP(skill.GetCombatExpEvent(false, false));
+            }
+
             isAction = true;
         }
 

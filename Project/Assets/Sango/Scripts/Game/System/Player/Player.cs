@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Sango.Core.Player
@@ -229,15 +230,40 @@ namespace Sango.Core.Player
             try
             {
                 Window.Instance.CloseAll();
-                Window.Instance.Open("window_loading");
+
+                // 【顺序】必须先让旧剧本收尾，再显示 loading。
+                // 反过来的话，Quit() → ScenarioLifecycle.BeginShutdown() 里的系统出栈 / 对话复位
+                // 会碰到刚打开的 loading 实例：CloseAll 已经让它走了
+                // OnCloseAction → PoolManager.Recycle，紧接着 Open 又从池里取回同一个对象，
+                // 之后 Scenario.Start 里的 Close("window_loading") 就可能因为实例失效而落空 ——
+                // 表现就是"loading 遮罩关不掉，剧本却在跑"。
                 Quit();
+                //Window.Instance.Open("window_loading");
+
                 Scenario.CurSelected = new Scenario(fileName);
-                Scenario.StartScenario(Scenario.CurSelected);
+                //Scenario.StartScenario(Scenario.CurSelected);
+                App.Instance.StartCoroutine(StartGameRoutine());
             }
             catch (System.Exception e)
             {
                 OnLoadFailed(fileName, e);
             }
+        }
+
+        IEnumerator StartGameRoutine()
+        {
+            // 1.先显示 loading 界面
+            Window.Instance.Open("window_loading");
+
+            // 2.等待一帧,确保 loading 界面已经显示成功(渲染到屏幕上)之后,再执行后续逻辑
+            yield return null;
+
+            // 3.关闭剧本参数界面
+            Window.Instance.Close("window_scenario_variables");
+
+            // 4.分帧加载剧本:解析通用数据 → 解析剧本数据 → 构建开局势力 → 读取地图数据 → 初始化世界,
+            // 加载成功后由 Scenario.Start() 移除 loading 界面并进入游戏
+            yield return Scenario.StartScenarioRoutine(Scenario.CurSelected, null);
         }
 
         /// <summary>

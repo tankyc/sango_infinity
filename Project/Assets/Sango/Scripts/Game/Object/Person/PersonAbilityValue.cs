@@ -11,7 +11,8 @@ namespace Sango.Core
     /// <item><c>baseValue</c>：<b>原始适应力</b>，即武将初始的适应等级下标（0 = 最差）。
     /// 剧本编辑、武将库、事件效果都只写这个字段，它是所有折算的起点，任何时候都不要把它当成"当前等级"；</item>
     /// <item><c>valueExp</c>：累计获得的适应经验（总经验，只增不清零），
-    /// 单次获取量见 <c>GainValueConfig</c> 的 AbilityExpAttack / AbilityExpDestroyTroop / AbilityExpDestroyCity；</item>
+    /// 单次获取量取自 <see cref="CombatExpTable"/> 的 <c>heishu_exp</c> 字段
+    /// （按本次战斗事件行 + 部队当前兵种取一格，对齐原版 Exp 表）；</item>
     /// <item><c>value</c>：只读派生量 = 从 baseValue 起、用累计经验逐级升上去之后的<b>当前等级</b>。
     /// 战斗与界面读的是它（见 <see cref="Person.SpearLv"/> 等），存档里只是冗余快照，读档后由 <see cref="Update"/> 重算。</item>
     /// </list>

@@ -22,8 +22,12 @@ namespace Sango.Core
         /// <param name="action">点击回调</param>
         /// <param name="valide">是否可用；false 时按钮置灰不可点</param>
         /// <param name="disabledReason">
-        /// 置灰原因（可选）。非空时会在按钮标题后追加「（原因）」，
-        /// 对应 Open311 的 `set_command_error_text` —— 让玩家知道为什么点不了。
+        /// 置灰原因（可选），对应 Open311 的 `set_command_error_text`。
+        /// <para>
+        /// **只存数据，不显示**：早前会追加到按钮标题后（「出征（出阵位已满）」），
+        /// 因按钮宽度固定会把文本撑出框外，已取消该显示。保留参数是为了 MOD 与
+        /// 将来的悬浮提示仍可携带原因。
+        /// </para>
         /// </param>
         public void Add(string title, int order, object custom, Action<IContextMenuItem> action,
             bool valide = true, string disabledReason = null);

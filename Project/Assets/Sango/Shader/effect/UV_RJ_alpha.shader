@@ -52,25 +52,29 @@ Shader "URP/Effect/UV_RJ_alpha" {
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+			// 【SRP Batcher / GLES 兼容】
+			//   · sampler 不能出现在 UnityPerMaterial 里（uniform block 不支持 sampler 类型），必须移到外面；
+			//   · CBUFFER 成员一律用 float，不用 half（mediump 在 UBO 里部分驱动读成 0）。
+			sampler2D _Tex;
+			sampler2D _rongjietu;
+			sampler2D _mask;
+			sampler2D _noise_01;
+
             CBUFFER_START(UnityPerMaterial)				
-				sampler2D _Tex;
                 float4 _Tex_ST;
-                sampler2D _rongjietu;
                 float4 _rongjietu_ST;
-                sampler2D _mask;
                 float4 _mask_ST;
-                sampler2D _noise_01;
                 float4 _noise_01_ST;
                 float4 _Tex_color;
                 float _diffuseUspeed;
                 float _diffuseVspeed;
-                half _yici_UV_ONOFF;
-                half _useFog;
-                half _Tex_RA;
-                half _rongjieON;
+                float _yici_UV_ONOFF;
+                float _useFog;
+                float _Tex_RA;
+                float _rongjieON;
                 float4 _noise_speed;
                 float _raodongqiangdu;
-                half _raodong_ONOFF;
+                float _raodong_ONOFF;
                 float _Alpha;
 			CBUFFER_END
 
@@ -108,7 +112,8 @@ Shader "URP/Effect/UV_RJ_alpha" {
                 float4 pos : SV_POSITION;
                 float2 uv0 : TEXCOORD0;
                 float4 uv1 : TEXCOORD1;
-                float4 vertexColor : COLOR;
+                // 【跨平台】插值器必须用 TEXCOORDn；COLOR/NORMAL 只适用于顶点输入
+                float4 vertexColor : TEXCOORD3;
                 //UNITY_FOG_COORDS(2)                
                 float fogCoord : TEXCOORD2;
             };
@@ -122,7 +127,7 @@ Shader "URP/Effect/UV_RJ_alpha" {
                 o.fogCoord = ComputeFogFactor(o.pos.z);
                 return o;
             }
-            float4 frag(VertexOutput i, float facing : VFACE) : COLOR {
+            float4 frag(VertexOutput i, float facing : VFACE) : SV_TARGET {
                 float isFrontFace = ( facing >= 0 ? 1 : 0 );
                 float faceSign = ( facing >= 0 ? 1 : -1 );
 ////// Lighting:
@@ -186,7 +191,7 @@ Shader "URP/Effect/UV_RJ_alpha" {
                 o.vert = TransformObjectToHClip(v.vertex.xyz);
                 return o;
             }
-            float4 frag(VertexOutput i/*, float facing : VFACE*/) : COLOR {
+            float4 frag(VertexOutput i/*, float facing : VFACE*/) : SV_TARGET {
                 //float isFrontFace = ( facing >= 0 ? 1 : 0 );
                 //float faceSign = ( facing >= 0 ? 1 : -1 );
                 //SHADOW_CASTER_FRAGMENT(i)

@@ -31,7 +31,13 @@ namespace Sango.Core
                 for (int i = 0; i < Troop.tempCellList.Count; ++i)
                 {
                     Cell road = Troop.tempCellList[i];
-                    if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(Troop))
+                    // 【对齐原版 hostile_target（s11_scen_obj_unit.cpp:329-354）+ 寻路代价（s11_sys_unit_path.cpp:138-147）】
+                    // 原版对路径上的建筑只按"敌对 → 提高通行代价"处理，中立建筑（陷阱 / 障碍 / 无主设施）
+                    // hostile_target = false，部队**不会因此停下攻击**。
+                    // 原写法 !IsSameForce 把中立陷阱也算成路障 → 触发一次全量 PriorityAction →
+                    // 顺手把陷阱引爆（"部队经过陷阱也会攻击陷阱"）。这里改成只对敌对方建筑触发。
+                    if (road.building != null && !road.building.IsCity()
+                        && road.building.BelongForce != null && Troop.IsEnemy(road.building))
                     {
                         priorityActionData = TroopAIUtility.PriorityAction(Troop, (Cell)null, scenario, SkillStatusPriority);
                         return;

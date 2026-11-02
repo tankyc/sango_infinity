@@ -386,6 +386,43 @@ namespace Sango
                     //    info.instance.fgui_instance.Hide();
                 }
             }
+
+            // 【兜底】windowMap 里的条目可能指向已被池回收 / 已销毁的实例 —— 典型场景是读档：
+            //   CloseAll() 让所有窗口走 OnCloseAction → PoolManager.Recycle，
+            //   紧接着 Open("window_loading") 又从池里取回同一个对象，
+            //   之后 Scenario.Start 里的 Close("window_loading") 就会因为 instance 失效而变成空操作，
+            //   表现为"loading 遮罩关不掉、剧本却已经在跑"。
+            // 这里按名字把 UIRoot 下残留的同名节点直接隐藏，保证关闭动作一定能落地。
+            HideResidualWindow(windowName);
+        }
+
+        /// <summary>
+        /// 按名字直接隐藏场景里残留的窗口节点（<see cref="Close(string)"/> 的兜底）。
+        ///
+        /// 实例名由 <see cref="CreateNewWindow(string)"/> 显式设为 windowName，
+        /// 但也兼容 Instantiate 产生的 "name(Clone)" 后缀。
+        /// </summary>
+        /// <param name="windowName">窗口名</param>
+        static void HideResidualWindow(string windowName)
+        {
+            if (string.IsNullOrEmpty(windowName))
+                return;
+
+            Sango.Core.Game game = Sango.Core.Game.Instance;
+            Transform root = game != null ? game.UIRoot : null;
+            if (root == null)
+                return;
+
+            string clonePrefix = windowName + "(";
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform child = root.GetChild(i);
+                if (child == null || !child.gameObject.activeSelf)
+                    continue;
+                string childName = child.name;
+                if (childName == windowName || childName.StartsWith(clonePrefix))
+                    child.gameObject.SetActive(false);
+            }
         }
 
         public void CloseAll()

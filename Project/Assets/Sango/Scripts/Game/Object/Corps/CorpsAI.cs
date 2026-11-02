@@ -57,6 +57,12 @@ namespace Sango.Core
             // ② 排序 —— :45-68（原版四级：请求势力 > 指令优先级 > 携金 > Id）
             unitList.Sort((a, b) =>
             {
+                // 【新出兵优先】刚组建、还停在城头的部队排最前，先把它送出城再驱动别的部队。
+                // 原因：本项目出兵是异步渲染，同一据点本轮派出的部队在落地前都占着城池中心格，
+                // 不先清空就会互相覆盖 cell.troop（重叠）。原版对应 unit_deploy 后的立即 run_order。
+                if (a.isNewEmitted != b.isNewEmitted)
+                    return a.isNewEmitted ? -1 : 1;
+
                 // 第一级：援军部队优先（原版 `a->get_request_force_id() >= 0`）
                 bool aRequest = a.requestForceId >= 0;
                 bool bRequest = b.requestForceId >= 0;

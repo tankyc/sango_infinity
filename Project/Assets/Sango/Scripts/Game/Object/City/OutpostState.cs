@@ -210,6 +210,33 @@ namespace Sango.Core
         /// <summary>当前据点的命令队列（对齐 GameAI::order_queue_ / order_count_）</summary>
         public static readonly List<AIOrderId> orderQueue = new List<AIOrderId>(MaxOrderQueueSize);
 
+        // ------------------------------------------------------------------
+        // 【出城串行 · 续跑状态】
+        //
+        // 背景：据点派出一支部队后，它要先走出城头（移动动画跨若干帧）才能再派下一支，
+        // 否则两支部队会同时占着城池中心格而互相覆盖。而据点命令队列原本是"一次跑完 + Clear"，
+        // 中途等待就只能靠"下次从头重跑"，那样会把已经执行过的命令再执行一遍（重复花钱 / 出兵）。
+        //
+        // 因此这里保存两处游标：
+        //   · orderCursor / orderResume / orderCityId —— 单座据点的命令队列游标；
+        //   · resumeCorps / resumeOutpostList / resumeIndex —— 军团级据点轮转游标。
+        // 两者配合，就能做到"派一支 → 等它落地 → 接着跑后面的命令"，且不重复执行。
+        // ------------------------------------------------------------------
+
+        /// <summary>当前据点的命令队列是否还有未执行的命令（true = 需要续跑）</summary>
+        public static bool orderResume;
+        /// <summary>续跑对应的据点 Id（-1 表示没有续跑）</summary>
+        public static int orderCityId = -1;
+        /// <summary>据点命令队列的下一条命令下标</summary>
+        public static int orderCursor;
+
+        /// <summary>军团据点轮转的续跑军团（null = 没有续跑）</summary>
+        public static Corps resumeCorps;
+        /// <summary>军团据点轮转的续跑据点列表（顺序与首次分配配额时一致）</summary>
+        public static readonly List<City> resumeOutpostList = new List<City>();
+        /// <summary>军团据点轮转的下一个据点下标</summary>
+        public static int resumeIndex;
+
         /// <summary>本回合已施放的"离间"次数（对齐原版 AI 上下文的计数上限 2）</summary>
         public static int disruptCount;
         /// <summary>本回合已施放的"协助"次数（上限 1）</summary>
@@ -250,6 +277,13 @@ namespace Sango.Core
             food = 0;
             idlePersonList.Clear();
             orderQueue.Clear();
+            // 【游标与队列同步复位】这里清空了命令队列，若不同时清掉续跑标记，
+            // 下个回合第一座被调度到的据点会走 DoOutpostAI 的 resume 分支：
+            // 跳过数据装载与建队列，直接跑一个空队列并返回 true ——
+            // 表现为该城整整一个回合什么都不做。
+            orderResume = false;
+            orderCityId = -1;
+            orderCursor = 0;
             commandExecuted = false;
             delegatedExecuted = false;
             disruptCount = 0;

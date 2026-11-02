@@ -32,25 +32,54 @@ namespace Sango.Core
             if (city == null || scenario == null || city.BelongForce == null)
                 return true;
 
-            // 兜底：没有经过军团调度（CorpsAIDistrict.AIDistrictCommand 会把预算算好放进来）时，
-            // 给一个最小额度，避免所有命令都被行动力门禁挡掉而"整城不作为"。
-            // 原版对应的是 outpost[i].action_point 在 update_district_data 里至少给都市 20 点
-            // （s11_game_ai_district.cpp:122-124）。
-            if (OutpostRuntime.corps == null && OutpostRuntime.actionPoint <= 0)
-                OutpostRuntime.actionPoint = 20;
+            // 【续跑】本城上一批命令是不是没跑完（orderResume 为真且是本城）。
+            // 续跑时**不能**重新装载数据 / 重建命令队列，否则已经执行过的命令会被再执行一遍；
+            // 必须由 OutpostCommand 按 orderCursor 接着跑。
+            // 当前 OutpostCommand 恒把队列跑完再返回（原因见其方法内注释），
+            // 所以这条分支属于防御性状态：一旦将来出现中途暂停，也不会重复执行。
+            bool resume = OutpostRuntime.orderResume && OutpostRuntime.orderCityId == city.Id;
 
-            LoadOutpostData(city, scenario);
-            UpdateOutpostData(city, scenario);
-
-            if (AIConfig.Instance.logOutpostAI)
+            if (!resume)
             {
-                OutpostInfo logInfo = OutpostRuntime.Get(city.Id);
-                Sango.Log.Info($"*[据点AI]{city.Name} 状态{logInfo.state} 可用行动力{OutpostRuntime.actionPoint} " +
-                    $"金{OutpostRuntime.gold} 粮{OutpostRuntime.food} 可下令人{OutpostRuntime.idlePersonList.Count} " +
-                    $"命令[{string.Join(",", OutpostRuntime.orderQueue)}]");
+                // 【出城串行】上一支派出的部队还没走出城头 → 本城暂不下新命令。
+                // 返回 false 让上层（CorpsAIDistrict）保留轮转游标、下一帧接着进来；
+                // 那支部队由 CorpsAI.AITroops 按"新兵优先"驱动出城。
+                if (city.pendingOutTroop != null && city.pendingOutTroop.IsAlive)
+                    return false;
+
+                // 兜底：没有经过军团调度（CorpsAIDistrict.AIDistrictCommand 会把预算算好放进来）时，
+                // 给一个最小额度，避免所有命令都被行动力门禁挡掉而"整城不作为"。
+                // 原版对应的是 outpost[i].action_point 在 update_district_data 里至少给都市 20 点
+                // （s11_game_ai_district.cpp:122-124）。
+                if (OutpostRuntime.corps == null && OutpostRuntime.actionPoint <= 0)
+                    OutpostRuntime.actionPoint = 20;
+
+                LoadOutpostData(city, scenario);
+                UpdateOutpostData(city, scenario);
+
+                if (AIConfig.Instance.logOutpostAI)
+                {
+                    OutpostInfo logInfo = OutpostRuntime.Get(city.Id);
+                    Sango.Log.Info($"*[据点AI]{city.Name} 状态{logInfo.state} 可用行动力{OutpostRuntime.actionPoint} " +
+                        $"金{OutpostRuntime.gold} 粮{OutpostRuntime.food} 可下令人{OutpostRuntime.idlePersonList.Count} " +
+                        $"命令[{string.Join(",", OutpostRuntime.orderQueue)}]");
+                }
+
+                OutpostRuntime.orderResume = true;
+                OutpostRuntime.orderCityId = city.Id;
+                OutpostRuntime.orderCursor = 0;
             }
 
-            return OutpostCommand(city, scenario);
+            bool done = OutpostCommand(city, scenario);
+            if (done)
+            {
+                // 本城命令队列跑完 → 清续跑状态
+                OutpostRuntime.orderResume = false;
+                OutpostRuntime.orderCityId = -1;
+                OutpostRuntime.orderCursor = 0;
+            }
+
+            return done;
         }
 
         /// <summary>
@@ -345,8 +374,24 @@ namespace Sango.Core
         public static bool OutpostCommand(City city, Scenario scenario)
         {
             List<AIOrderId> q = OutpostRuntime.orderQueue;
-            for (int i = 0; i < q.Count; i++)
+
+            // 【断点续跑】从上次中断的位置继续（首次进入时游标为 0）。
+            // 队列与数据装载在 DoOutpostAI 里只做一次，本方法可能被多次调用，
+            // 因此必须靠 orderCursor 记住"已经处理到哪一条"，不能每次都从头来。
+            //
+            // 【为什么循环内不 return false】本方法的返回 false 会让 Corps.DoAI 立刻跳出
+            // AICommandQueue（Corps.cs:826-833），排在后面的 CorpsAI.AITroops 本轮就不会执行；
+            // 而"出城进行中"的部队正是靠 AITroops 驱动落地的（Corps.cs:863）。
+            // 一旦在命令队列中间因为 pendingOutTroop 返回 false，就会形成
+            // "队列等部队出城 → 部队等 AITroops → AITroops 等队列跑完"的死锁。
+            // 所以队列中间一律不暂停，只在 DoOutpostAI 入口（重建队列之前）做一次出城串行拦截。
+            for (int i = OutpostRuntime.orderCursor; i < q.Count; i++)
             {
+                // 先推进游标再执行：命令一旦被交给执行体，无论它内部走向哪个分支
+                // （continue / 正常返回），这条命令都算"已处理"，下一帧不会再从它重来，
+                // 避免同一据点重复花钱 / 重复出兵。
+                OutpostRuntime.orderCursor = i + 1;
+
                 AIOrderId orderId = q[i];
                 Func<City, Scenario, bool> action = GetOrderAction(orderId);
                 if (action == null)
@@ -400,6 +445,12 @@ namespace Sango.Core
             }
 
             q.Clear();
+            // 【游标必须与队列成对清理】队列清空后如果不复位游标，下一批命令
+            // （新的 List 实例内容从 0 开始装填）就会从旧下标起跑，
+            // 把队列开头的那几条命令整段跳过，表现为"某类命令长期不执行"。
+            // DoOutpostAI 在 done 分支也会复位一次，这里再复位是让不变量留在本方法内，
+            // 不依赖调用方记得同步。
+            OutpostRuntime.orderCursor = 0;
             OutpostRuntime.idlePersonList.Clear();
             return true;
         }

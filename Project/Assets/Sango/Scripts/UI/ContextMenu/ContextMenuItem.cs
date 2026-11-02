@@ -17,9 +17,12 @@ using Sango.Core; namespace Sango.UI
         /// 置灰原因（仅 `valid == false` 时有意义）。
         ///
         /// 对齐 Open311 `set_command_error_text`：原版每条 `can_*_command` 在返回 false 前
-        /// 都会把"为什么不能执行"写进错误文案，玩家点灰按钮能看到原因。
-        /// 本项目此前只有 bool，置灰后玩家看不到任何提示。
-        /// 现由 <see cref="UIMenuItem.SetValid"/> 把它拼进标题显示。
+        /// 都会把"为什么不能执行"写进错误文案。
+        /// <para>
+        /// **本字段不参与按钮文本**：菜单按钮宽度固定，早前由 <c>UIMenuItem.SetValid</c>
+        /// 拼成「出征（出阵位已满）」会把标题撑出按钮外，已去掉该拼接。
+        /// 这里只保留数据，供将来的悬浮提示 / 调试面板读取。
+        /// </para>
         /// </summary>
         public string disabledReason;
         public UIMenuItem targetItem;

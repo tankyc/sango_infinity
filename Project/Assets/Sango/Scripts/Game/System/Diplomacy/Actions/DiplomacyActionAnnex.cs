@@ -180,7 +180,24 @@ namespace Sango.Core
             // 本项目对应三步：SurrenderAllBuildings → PersonStateSystem.Recruit → Ruin 收尾。
             //
             // 功绩暂不结算：本项目的功绩入口与使者绑定的口径待 P3 统一后再补。
+            //
+            // 【技巧点口径】这里对应的是原版「外交命令·劝降」成功：
+            //   s11_sys_person_order_diplomacy.cpp:1474 `force_add_tech_point(actor_force, 200, self->actor)`
+            //   入口减半 ⇒ 实际 +100。
+            // 原版另有一条 s11_game_week.cpp:1150 的 +1000，属于周事件 Game::annexation()
+            //（AI 势力互相吞并，受益方是吞并方 AI，与使者无关），不是本命令的第二段奖励。
+            // 两条路径不能叠加到同一次劝降里，否则玩家一次劝降会拿到 +300（原版只有 +100）。
             Sender.GainTechniquePoint(DiplomacyRules.AnnexTechGain);
+
+            // 【原版对齐】出使武将本人功绩：
+            //   s11_sys_person_order_diplomacy.cpp:1476 `person_add_kouseki(self->actor, 4000)`
+            // 给的是**使者**，不是全势力；数值走 GainPlace.AnnexSuccessMerit（剧本设置可调）。
+            if (Diplomat != null)
+            {
+                int merit = GainValueConfig.Merit(GainPlace.AnnexSuccessMerit);
+                Diplomat.GainMerit(merit);
+                Sango.Log.Info($"@外交@劝降成功，使者 {Diplomat.Name} 功绩 +{merit}");
+            }
 
             City fallCity = Receiver.CapitalCity;
 

@@ -100,10 +100,11 @@ namespace Sango.UI
                     if (!string.IsNullOrEmpty(contextMenuData.title))
                     {
                         UIMenuItem obj = CreteNode(showDepth);
-                        // 先 SetTitle 再 SetValid：置灰原因要拼在原标题后面
+                        // 标题只用注册时的原文案：不可用只做置灰，
+                        // 不再把 disabledReason 拼到标题后面（会把固定宽度的按钮撑破）
                         obj.SetParent(root.transform)
                            .SetTitle(contextMenuData.title)
-                           .SetValid(contextMenuData.valid, contextMenuData.disabledReason)
+                           .SetValid(contextMenuData.valid)
                            .SetListener(() =>
                            {
                                contextMenuData.OnClick(obj);

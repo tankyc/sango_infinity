@@ -131,6 +131,22 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int statKind;
 
+        /// <summary>
+        /// 界面显示种类（决定能力 Item 上 <c>type</c> 底图的颜色）。
+        ///
+        /// <para>
+        /// 编码与 <see cref="AbilityStatKind"/> 一致：0 武力（红 <c>4846-34_8</c>）/ 1 统率（紫 <c>_6</c>）/
+        /// 2 政治（绿 <c>_7</c>）/ 3 智力（黄 <c>_9</c>）；<c>-1</c> = 未配置（回退按 statKind 推导）。
+        /// </para>
+        /// <para>
+        /// 与 <see cref="statKind"/> 拆开的原因：statKind 是原版"关联属性"（参与
+        /// <c>force_research_ability</c> 的维排名打分，改它会牵连 AI 选择），
+        /// 而 displayKind 只是配色，允许两者不同（隐藏槽位按槽位种类配色）。
+        /// 1~98 的取值按原版研究界面的节点底色逐条录入。
+        /// </para>
+        /// </summary>
+        [JsonProperty] public int displayKind = -1;
+
         /// <summary>效果值 —— 对齐 Open311 `Ability::get_value()`</summary>
         [JsonProperty] public int value;
 
@@ -169,6 +185,44 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int targetAptitude = -1;
 
+        // ==================== 六边形网格布局（纯 UI 字段，不参与任何数值计算） ====================
+        //
+        // 原版 Ability 表里没有位置数据（Open311 s11_scen.h:2527-2605 只有名称/描述/前置/耗时），
+        // 研究界面的排布原本由游戏内硬编码的固定坐标决定。本项目把它显式放进数据：
+        // 设计师改 Json 即可调版面，UI 代码不再做任何自动布局推算。
+
+        /// <summary>
+        /// 六边形网格轴向坐标 q（横轴，向右为正）。
+        /// <para>
+        /// 原点 (q, r) = (0, 0) 是研究界面中心格（原版「研究开始」所在的位置），
+        /// 三轴坐标满足 q + r + s = 0，第三轴见 <see cref="hexS"/>。
+        /// </para>
+        /// </summary>
+        [JsonProperty] public int q;
+
+        /// <summary>
+        /// 六边形网格轴向坐标 r（纵轴，向下为正）。
+        /// <para>
+        /// 相邻两排横向错开半个格宽，因此像素横坐标 = (q + r * 0.5) * 格宽，纵坐标只由 r 决定。
+        /// </para>
+        /// </summary>
+        [JsonProperty] public int r;
+
+        /// <summary>
+        /// 方向显示数组：元素是方向编号 1~6，数组里有哪个方向就在节点边缘显示哪个箭头。
+        /// <para>
+        /// 语义是"本条能力的前置（<see cref="requiredAbilityIds"/>）位于哪些方向"。
+        /// 方向编号与节点模板 <c>dir/1</c> ~ <c>dir/6</c> 的子物体名一一对应：
+        /// 1 右上 / 2 右 / 3 右下 / 4 左下 / 5 左 / 6 左上。
+        /// </para>
+        /// <para>
+        /// 取值完全由数据配置，UI 只按数组显示，不做推导 —— 节点挪到别的格子，箭头也不会跟着乱变。
+        /// 写成数组而不是位掩码，是为了 Json 里一眼能看懂：<c>"dir": [1, 6]</c> = 左上与右上各一个箭头；
+        /// <c>"dir": []</c> = 不显示箭头（没有前置 / 不想显示）。
+        /// </para>
+        /// </summary>
+        [JsonProperty] public int[] dir;
+
         /// <summary>
         /// 学习次数上限的实际数值。
         /// 对齐 Open311 `Ability::get_learning_limit_count()`（s11_scen_obj_ability.cpp:90-104）：
@@ -187,6 +241,21 @@ namespace Sango.Core
                     default: return 0;
                 }
             }
+        }
+
+        /// <summary>
+        /// 六边形三轴坐标的第三轴 s = -q - r（只用于算距离，不落库）。
+        /// </summary>
+        public int hexS => -q - r;
+
+        /// <summary>
+        /// 是否在指定方向（1~6）上配置了箭头。
+        /// </summary>
+        /// <param name="direction">方向编号，见 <see cref="AbilityHex"/></param>
+        /// <returns>该方向置位返回 true</returns>
+        public bool HasDirection(int direction)
+        {
+            return AbilityHex.HasDirection(dir, direction);
         }
 
         /// <summary>是否为"基础能力"类</summary>
@@ -217,6 +286,134 @@ namespace Sango.Core
                     return false;
             }
             return true;
+        }
+    }
+
+    /// <summary>
+    /// 能力节点的六边形网格工具：方向编号、邻格偏移、方向数组判定。
+    ///
+    /// <para>
+    /// 方向编号与节点模板 <c>node_template/dir/1~6</c> 的子物体名**严格一一对应**，
+    /// 该对应关系由 prefab 里六个子节点的锚点位置确定（均已核对）：
+    /// </para>
+    /// <code>
+    /// 编号  子物体位置(x, y)   方位   轴向增量(dq, dr)
+    /// ──────────────────────────────────────────────
+    ///  1    ( 22.5,  27.1)    右上       (+1, -1)
+    ///  2    ( 42.3,   0.0)    右         (+1,  0)
+    ///  3    ( 22.5, -27.2)    右下       ( 0, +1)
+    ///  4    (-21.4, -27.2)    左下       (-1, +1)
+    ///  5    (-41.2,   0.0)    左         (-1,  0)
+    ///  6    (-22.6,  25.7)    左上       ( 0, -1)
+    /// </code>
+    /// <para>
+    /// 数据字段 <see cref="Ability.dir"/> 直接用方向编号数组存这六个方向（如 <c>[1, 6]</c>）。
+    /// </para>
+    /// </summary>
+    public static class AbilityHex
+    {
+        /// <summary>方向总数（六边形相邻格数）</summary>
+        public const int MaxDirection = 6;
+
+        /// <summary>方向 1~6 的 q 增量（下标 0 = 方向 1）</summary>
+        static readonly int[] DirectionQ = { 1, 1, 0, -1, -1, 0 };
+
+        /// <summary>方向 1~6 的 r 增量（下标 0 = 方向 1）</summary>
+        static readonly int[] DirectionR = { -1, 0, 1, 1, 0, -1 };
+
+        /// <summary>
+        /// 方向数组里是否包含某个方向。
+        /// </summary>
+        /// <param name="directions">方向编号数组（<see cref="Ability.dir"/>，可为 null / 空）</param>
+        /// <param name="direction">方向编号（1~6）</param>
+        /// <returns>数组里含有该方向返回 true</returns>
+        public static bool HasDirection(int[] directions, int direction)
+        {
+            if (directions == null || direction < 1 || direction > MaxDirection)
+                return false;
+            for (int i = 0; i < directions.Length; i++)
+            {
+                if (directions[i] == direction)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 取某方向的邻格轴向增量。
+        /// </summary>
+        /// <param name="direction">方向编号（1~6）</param>
+        /// <param name="deltaQ">输出的 q 增量</param>
+        /// <param name="deltaR">输出的 r 增量</param>
+        public static void GetNeighborOffset(int direction, out int deltaQ, out int deltaR)
+        {
+            if (direction < 1 || direction > MaxDirection)
+            {
+                deltaQ = 0;
+                deltaR = 0;
+                return;
+            }
+            deltaQ = DirectionQ[direction - 1];
+            deltaR = DirectionR[direction - 1];
+        }
+
+        /// <summary>
+        /// 取从 (fromQ, fromR) 指向 (toQ, toR) 的方向编号。
+        ///
+        /// <para>
+        /// 相邻格返回精确方向；跨格时（两个节点不在紧邻的六格上）按"屏幕方位角最接近"的六方向之一返回。
+        /// 中心「研究开始」节点指向各个入口能力时用的就是这条路径。
+        /// </para>
+        /// </summary>
+        /// <param name="fromQ">起点 q</param>
+        /// <param name="fromR">起点 r</param>
+        /// <param name="toQ">终点 q</param>
+        /// <param name="toR">终点 r</param>
+        /// <returns>方向编号 1~6；两点重合返回 0</returns>
+        public static int GetDirection(int fromQ, int fromR, int toQ, int toR)
+        {
+            int deltaQ = toQ - fromQ;
+            int deltaR = toR - fromR;
+            if (deltaQ == 0 && deltaR == 0)
+                return 0;
+
+            // 轴向差换成屏幕方向：x 与 (q + r/2) 同向，y 与 -r 同向（r 越大越靠下）
+            double dx = deltaQ + deltaR * 0.5;
+            double dy = -deltaR;
+            double length = System.Math.Sqrt(dx * dx + dy * dy);
+
+            int best = 0;
+            double bestCos = -2.0;
+            for (int i = 0; i < MaxDirection; i++)
+            {
+                double vx = DirectionQ[i] + DirectionR[i] * 0.5;
+                double vy = -DirectionR[i];
+                double cos = length > 0.0
+                    ? (dx * vx + dy * vy) / (length * System.Math.Sqrt(vx * vx + vy * vy))
+                    : -1.0;
+                if (cos > bestCos)
+                {
+                    bestCos = cos;
+                    best = i + 1;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// 两个轴向坐标之间的六边形距离（走格数）。
+        /// </summary>
+        /// <param name="q0">起点 q</param>
+        /// <param name="r0">起点 r</param>
+        /// <param name="q1">终点 q</param>
+        /// <param name="r1">终点 r</param>
+        /// <returns>最少走几格</returns>
+        public static int Distance(int q0, int r0, int q1, int r1)
+        {
+            int dq = q1 - q0;
+            int dr = r1 - r0;
+            int ds = (-q1 - r1) - (-q0 - r0);
+            return (System.Math.Abs(dq) + System.Math.Abs(dr) + System.Math.Abs(ds)) / 2;
         }
     }
 }

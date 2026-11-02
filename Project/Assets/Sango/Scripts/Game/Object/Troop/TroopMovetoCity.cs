@@ -37,7 +37,10 @@ namespace Sango.Core
             for (int i = 0; i < Troop.tempCellList.Count; ++i)
             {
                 Cell road = Troop.tempCellList[i];
-                if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(Troop))
+                // 【对齐原版 hostile_target + 寻路代价】路径上的中立建筑（陷阱 / 障碍 / 无主设施）
+                // 原版不会引发攻击，只有敌对方建筑才值得停下评估。详见 TroopMovetoCell 同处说明。
+                if (road.building != null && !road.building.IsCity()
+                    && road.building.BelongForce != null && Troop.IsEnemy(road.building))
                 {
                     priorityActionData = TroopAIUtility.PriorityAction(Troop, (Cell)null, scenario, SkillStatusPriority);
                     return;

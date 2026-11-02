@@ -43,10 +43,39 @@ namespace Sango.UI
         protected List<GameObject> itemList = new List<GameObject>();
 
         /// <summary>
-        /// 参数预设输入框里的名字。参数界面每次 <see cref="RefreshSetting"/> 都会整页重建，
-        /// 输入框对象会被回收，所以名字必须存在字段上，否则刷新一次就被清空。
+        /// 参数预设输入框里的名字。
+        ///
+        /// 【为什么要单独存一份】参数列表每次 <see cref="RefreshSetting"/> 都会整页重建，
+        /// 预设名不能只依赖输入框的显示文本（重建瞬间可能还没回填），
+        /// 因此以字段为唯一状态源，刷新时再由它回写输入框。
         /// </summary>
         string presetNameInput;
+
+        // ------------------------------------------------------------------
+        // 参数预设区（由 Prefab 静态提供，不再在参数列表里动态生成行）
+        // 节点路径见 window_scenario_variables(_ingame).prefab 的 root 下同名子对象
+        // ------------------------------------------------------------------
+
+        /// <summary>预设名输入框，对应 Prefab 节点 <c>root/saveName</c></summary>
+        public InputField saveNameInput;
+
+        /// <summary>预设下拉框，对应 Prefab 节点 <c>root/select</c>（标题"当前预设"由 Prefab 给出）</summary>
+        public UIDropdownField presetDropdown;
+
+        /// <summary>另存为按钮，对应 Prefab 节点 <c>root/saveTo</c></summary>
+        public Button savePresetButton;
+
+        /// <summary>删除按钮，对应 Prefab 节点 <c>root/delete</c></summary>
+        public Button deletePresetButton;
+
+        /// <summary>
+        /// 预设区控件回调所用的剧本。
+        ///
+        /// 【为什么不用闭包捕获】这四个控件是 Prefab 上的常驻对象，按钮监听会反复重挂，
+        /// 若每次都新建闭包，旧闭包连同其捕获的旧 Scenario 会一直挂在 onClick 上（易漏删）；
+        /// 统一走字段 + 无参方法，重挂时 RemoveAllListeners 就能彻底切断。
+        /// </summary>
+        Scenario presetTargetScenario;
 
         public Action onSure;
         public Action onCancel;
@@ -67,6 +96,9 @@ namespace Sango.UI
                 for (int i = 0; i < itemList.Count; i++)
                     RemoveItem(itemList[i]);
                 itemList.Clear();
+                // 换剧本 / 重新打开界面时，预设名按新剧本的 Info.variablesPreset 重新回填，
+                // 不能沿用上一次操作残留的名字（否则会把上一套预设名错当成当前剧本的）
+                presetNameInput = null;
                 TargetScenario = Scenario.CurSelected;
                 TargetShortScenario = objects[0] as ShortScenario; 
                 if (TargetScenario.Variables == null)
@@ -79,6 +111,7 @@ namespace Sango.UI
                 for (int i = 0; i < itemList.Count; i++)
                     RemoveItem(itemList[i]);
                 itemList.Clear();
+                presetNameInput = null;
                 TargetScenario = objects[0] as Scenario;
                 if (objects.Length > 1)
                     onSure = objects[1] as System.Action;
@@ -302,8 +335,11 @@ namespace Sango.UI
             AddGainTable("功绩", variables.meritGain, GainValueConfig.MeritPlaces);
             AddGainTable("技巧点", variables.techniquePointGain, GainValueConfig.TechniquePointPlaces);
             AddGainTable("武将经验", variables.expGain, GainValueConfig.ExpPlaces);
-            AddGainTable("兵种适性经验", variables.abilityExpGain, GainValueConfig.AbilityExpPlaces);
             AddGainTable("能力经验", variables.attributeExpGain, GainValueConfig.AttributeExpPlaces);
+            // 战斗中的功绩 / 能力经验 / 兵种适性经验 / 技巧点已统一由 CombatExpTable 按原版 Exp 表给出，
+            // 那是 97 行的二维表（一行同时含 5 项属性经验 + 6 项适性经验 + 功绩 + 技巧点），
+            // 不适合拆成这里的一维滑块。要调节奏请改 CombatExpTable.BuildTable 的对应行。
+            AddTitle("战斗功绩/经验/技巧点：见 CombatExpTable（原版 Exp 表逐行对齐）");
 
             // 宝物与装备：搜索人才的产出概率 / 限流（GainValueConfig 的 ItemDiscover* 段）
             // 与国库容量。节奏口径见 ForceItemDiscover 的类注释。
@@ -317,6 +353,10 @@ namespace Sango.UI
             // 装备变更（授予 / 没收一件珍品）的成本：技巧点，默认 50，0 = 免费。
             // 2026-10 改版后不再有忠诚曲线、不占行动力、不限每回合次数（见 ItemGrantRules）。
             AddNumberItem("装备变更技巧点消耗(0=免费)", variables.itemChangeTechniqueCost, 0, 10000, (v) => { variables.itemChangeTechniqueCost = v; });
+
+            // 技巧点上限：对齐原版 max_force_tech_point_（s11_db.h:173，默认 10000）。
+            // 所有增减（含研究/外交消耗）都会被 Force.GainTechniquePoint 夹在 [0, 该值]；0 = 不限。
+            AddNumberItem("势力技巧点上限(0=不限)", variables.maxForceTechniquePoint, 0, 999999, (v) => { variables.maxForceTechniquePoint = v; });
 
             // 能力研究 / 培育：势力级能力研究的金钱消耗、培育的金钱消耗 /
             // 单次提升点数 / 触发概率（GainValueConfig 的 AbilityStudy* 段，见 AbilityStudySystem）。
@@ -360,13 +400,21 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 渲染"参数预设"区块：下拉读取 + 按钮保存。
+        /// 刷新"参数预设"区块的四个常驻控件：名字输入框 / 预设下拉 / 另存为按钮 / 删除按钮。
+        ///
+        /// 【为什么不在这里动态建行】预设属于"整页生效"的全局操作，跟着参数列表一起滚动很不方便；
+        /// 现改由 Prefab 上固定的四个节点承担（<c>root/saveName</c>、<c>root/select</c>、
+        /// <c>root/saveTo</c>、<c>root/delete</c>），本方法只做三件事：
+        /// 同步输入框文本、重填下拉选项、重挂按钮监听。
         ///
         /// 预设来源见 <see cref="ScenarioVariablesPresetManager"/>：
         ///   · 模组：{模组}/Data/ScenarioVariables/{名字}.json
         ///   · 自建：{CustomEditRootPath}/Data/ScenarioVariables/{名字}.json（保存目标）
         /// 剧本用 <c>Info.variablesPreset</c> 指定默认读哪个，进界面时已由
-        /// <c>Scenario.LoadVariables</c> 自动套用一次，这里只负责"换一套 / 存一套"。
+        /// <c>Scenario.LoadVariables</c> 自动套用一次，这里只负责"换一套 / 存一套 / 删一套"。
+        ///
+        /// 【Prefab 未绑定字段时的行为】<see cref="UIGameSetting"/> 等子界面没有这几个节点，
+        /// 对应字段为 null，各步都判空跳过，界面不会报错。
         /// </summary>
         /// <param name="scenario">当前编辑的剧本</param>
         void ShowPresetSection(Scenario scenario)
@@ -374,75 +422,157 @@ namespace Sango.UI
             if (scenario == null)
                 return;
 
-            AddTitle("参数预设");
+            // 下拉 / 按钮回调统一从字段取剧本，见 presetTargetScenario 的注释
+            presetTargetScenario = scenario;
 
             string current = scenario.Info != null ? scenario.Info.variablesPreset : null;
             // 输入框里上一次写的名字优先（整页刷新后要保住玩家刚输入的内容）
             if (string.IsNullOrEmpty(presetNameInput))
                 presetNameInput = ScenarioVariablesPresetManager.SanitizeName(current);
 
-            // 名字输入：保存 / 删除都以这里为准，回车或失焦时写回字段
-            AddInputItem("预设名字（保存 / 删除都用它）", presetNameInput, (v) =>
-            {
-                presetNameInput = ScenarioVariablesPresetManager.SanitizeName(v);
-            });
+            RefreshPresetNameInput();
+            RefreshPresetDropdown(current);
+            RefreshPresetButtons();
+        }
+
+        /// <summary>
+        /// 把内存里的预设名回写到输入框，并重挂"结束编辑"回调。
+        ///
+        /// 保存 / 删除都以输入框里的名字为准；玩家回车或失焦时写回 <see cref="presetNameInput"/>，
+        /// 顺带把清洗后的结果（非法字符被替换成下划线）显示回输入框，避免存下来的名字和看到的不一致。
+        /// </summary>
+        void RefreshPresetNameInput()
+        {
+            if (saveNameInput == null)
+                return;
+
+            // 正在输入时不覆盖，否则玩家一边打字一边被刷新（如调难度）会把内容顶掉
+            if (!saveNameInput.isFocused && saveNameInput.text != presetNameInput)
+                saveNameInput.text = presetNameInput;
+
+            saveNameInput.onEndEdit.RemoveAllListeners();
+            saveNameInput.onEndEdit.AddListener(OnPresetNameEndEdit);
+        }
+
+        /// <summary>
+        /// 刷新预设下拉：选项来自磁盘扫描，选中项默认落在剧本指定的预设上。
+        /// </summary>
+        /// <param name="current">剧本当前指定的预设名（可为空）</param>
+        void RefreshPresetDropdown(string current)
+        {
+            if (presetDropdown == null || presetDropdown.dropdown == null)
+                return;
 
             List<string> names = ScenarioVariablesPresetManager.GetNames();
-            if (names.Count == 0)
-            {
-                AddTitle("<color=#888888>（未找到预设文件，可在上面填名字后点保存）</color>");
-            }
-            else
-            {
-                int curIndex = 0;
-                if (!string.IsNullOrEmpty(current))
-                {
-                    int idx = names.IndexOf(current);
-                    if (idx >= 0)
-                        curIndex = idx;
-                }
+            bool hasPreset = names.Count > 0;
 
-                // 选中即套用：套用后整页重建，玩家能立刻看到每一项的新值
-                AddDropdownItem("读取配置", curIndex, names, (v) =>
-                {
-                    if (v < 0 || v >= names.Count)
-                        return;
-                    if (ScenarioVariablesPresetManager.TryApply(scenario, names[v]))
-                    {
-                        if (scenario.Info != null)
-                            scenario.Info.variablesPreset = names[v];
-                        presetNameInput = names[v];
-                        RefreshSetting();
-                    }
-                });
+            // 一个预设都没有时给一条占位项并禁用交互，避免空下拉在某些分辨率下显示成空白块
+            List<string> options = hasPreset ? names : new List<string> { "（无预设）" };
+
+            int curIndex = 0;
+            if (hasPreset && !string.IsNullOrEmpty(current))
+            {
+                int idx = names.IndexOf(current);
+                if (idx >= 0)
+                    curIndex = idx;
             }
 
-            // 保存：用输入框里的名字写成一份新预设（同名则覆盖），并把它设为剧本默认预设
-            string saveName = ScenarioVariablesPresetManager.SanitizeName(presetNameInput);
-            AddButtonItem($"保存为新预设「{saveName}」", () =>
-            {
-                if (!ScenarioVariablesPresetManager.Save(saveName, scenario.Variables))
-                    return;
+            // 选中即套用：套用后整页重建，玩家能立刻看到每一项的新值
+            presetDropdown.SetValue(curIndex, options, OnPresetDropdownChanged);
+            presetDropdown.dropdown.interactable = hasPreset;
+        }
 
+        /// <summary>重挂"另存为 / 删除"两个按钮的点击回调（常驻对象，每次刷新先清旧监听）。</summary>
+        void RefreshPresetButtons()
+        {
+            if (savePresetButton != null)
+            {
+                savePresetButton.onClick.RemoveAllListeners();
+                savePresetButton.onClick.AddListener(OnClickSavePreset);
+            }
+
+            if (deletePresetButton != null)
+            {
+                deletePresetButton.onClick.RemoveAllListeners();
+                deletePresetButton.onClick.AddListener(OnClickDeletePreset);
+            }
+        }
+
+        /// <summary>输入框结束编辑（回车 / 失焦）：清洗名字并写回字段与输入框。</summary>
+        /// <param name="text">输入框当前文本</param>
+        void OnPresetNameEndEdit(string text)
+        {
+            presetNameInput = ScenarioVariablesPresetManager.SanitizeName(text);
+            if (saveNameInput != null && saveNameInput.text != presetNameInput)
+                saveNameInput.text = presetNameInput;
+        }
+
+        /// <summary>取当前要操作的预设名：优先读输入框，输入框缺失时退回字段缓存。</summary>
+        /// <returns>已清洗的预设名</returns>
+        string GetPresetNameInput()
+        {
+            string text = saveNameInput != null ? saveNameInput.text : presetNameInput;
+            return ScenarioVariablesPresetManager.SanitizeName(text);
+        }
+
+        /// <summary>下拉选中项变化：套用对应预设并整页刷新。</summary>
+        /// <param name="index">选项下标</param>
+        void OnPresetDropdownChanged(int index)
+        {
+            Scenario scenario = presetTargetScenario;
+            if (scenario == null)
+                return;
+
+            // 选项每次都从磁盘现取，与填进下拉时的列表保持同序
+            List<string> names = ScenarioVariablesPresetManager.GetNames();
+            if (index < 0 || index >= names.Count)
+                return;
+
+            if (ScenarioVariablesPresetManager.TryApply(scenario, names[index]))
+            {
                 if (scenario.Info != null)
-                    scenario.Info.variablesPreset = saveName;
-                presetNameInput = saveName;
+                    scenario.Info.variablesPreset = names[index];
+                presetNameInput = names[index];
                 RefreshSetting();
-            });
+            }
+        }
 
-            // 删除：只允许删自建目录里的预设；模组 / 内置预设是只读的，管理器会拒绝并说明原因
-            AddButtonItem($"删除预设「{saveName}」", () =>
-            {
-                if (!ScenarioVariablesPresetManager.Delete(saveName))
-                    return;
+        /// <summary>
+        /// "另存为"点击：用输入框里的名字写成一份新预设（同名则覆盖），并把它设为剧本默认预设。
+        /// </summary>
+        void OnClickSavePreset()
+        {
+            Scenario scenario = presetTargetScenario;
+            if (scenario == null || scenario.Variables == null)
+                return;
 
-                if (scenario.Info != null
-                    && string.Equals(scenario.Info.variablesPreset, saveName, System.StringComparison.OrdinalIgnoreCase))
-                    scenario.Info.variablesPreset = null;
+            string saveName = GetPresetNameInput();
+            if (!ScenarioVariablesPresetManager.Save(saveName, scenario.Variables))
+                return;
 
-                presetNameInput = null;
-                RefreshSetting();
-            });
+            if (scenario.Info != null)
+                scenario.Info.variablesPreset = saveName;
+            presetNameInput = saveName;
+            RefreshSetting();
+        }
+
+        /// <summary>
+        /// "删除"点击：只允许删自建目录里的预设；模组 / 内置预设是只读的，管理器会拒绝并说明原因。
+        /// </summary>
+        void OnClickDeletePreset()
+        {
+            string saveName = GetPresetNameInput();
+            if (!ScenarioVariablesPresetManager.Delete(saveName))
+                return;
+
+            Scenario scenario = presetTargetScenario;
+            if (scenario != null && scenario.Info != null
+                && string.Equals(scenario.Info.variablesPreset, saveName, System.StringComparison.OrdinalIgnoreCase))
+                scenario.Info.variablesPreset = null;
+
+            // 置空后由 ShowPresetSection 重新按剧本预设名回填（无预设时为 default）
+            presetNameInput = null;
+            RefreshSetting();
         }
 
         public virtual void RefreshSetting()

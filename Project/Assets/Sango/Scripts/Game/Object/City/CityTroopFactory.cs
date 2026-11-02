@@ -74,19 +74,20 @@ namespace Sango.Core
         /// </code>
         /// 本方法与 <see cref="RevokeEmit"/> 合起来等价于上面这段。
         ///
-        /// 【一次 DoAI 就是整条命令】本项目 <see cref="Troop.DoAI"/> 不是"走一步"：
-        /// 它进到任务行为后由 <see cref="Troop.MoveTo"/> 在首次调用时一次性把
-        /// **整条路径**的 <c>TroopMoveEvent</c> 全部排进渲染队列（Troop.cs:1941-1968），
-        /// 部队随后会一路走到终点。所以这里调一次就等于原版跑完整条命令，
-        /// 不需要（也不能）循环调用 —— 循环会重复执行同一个动作。
-        ///
-        /// 【判据】移动是异步渲染，<c>troop.cell</c> 要等动画播完才更新。
-        /// 因此"已经出发"的判据是 **isMoving 为真** 或 **已不在建筑格**，两者满足其一即可，
-        /// 不能只看 <see cref="Troop.DoAI"/> 的返回值 —— 寻路失败时它同样返回 true。
+        /// 【为什么这里不推 DoAI】部队出城这一步交给军团的部队调度器
+        /// <see cref="CorpsAI.AITroops"/> 统一驱动（它排在据点命令
+        /// <see cref="CorpsAI.AIDistrictCommand"/> 之后、同一帧内执行）：
+        ///   · 本方法只负责"登记 + 打新兵标记"，把部队交给军团；
+        ///   · <see cref="CorpsAI.AITroops"/> 会把新兵排到第一位优先驱动它出城
+        ///     （排序里 <see cref="Troop.isNewEmitted"/> 是最高优先级）；
+        ///   · 那边 `DoAI` 返回 false 就整帧等待、下一帧续跑，已完成的部队靠
+        ///     <see cref="Troop.ActionOver"/> 自动跳过，重跑是安全的。
+        /// 若在据点命令里自己推 DoAI，会与军团调度重复，且同一据点本轮连派多支时
+        /// 全挤在城池中心格上（<see cref="City.EnsureTroop"/> 无条件覆盖 cell.troop）。
         /// </summary>
         /// <param name="troop">刚组建、仍停在城市格上的部队</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>已出发（移动中或已在野外）返回 true；仍留在城头、或当刻就被任务链路收尾，返回 false</returns>
+        /// <returns>已交给军团驱动返回 true；本城已有部队在出城、无法再派时返回 false</returns>
         public static bool DriveOutOfCity(Troop troop, Scenario scenario)
         {
             if (troop == null || scenario == null)
@@ -98,21 +99,28 @@ namespace Sango.Core
             if (troop.cell.building == null)
                 return true;
 
-            // 只推一次：这一次已把整条路径排进渲染队列（见方法注释），重复调用会重复执行同一个动作
-            troop.DoAI(scenario);
+            City city = troop.BelongCity;
+            if (city == null)
+                city = troop.cell.building as City;
 
-            // 任务链路可能当刻就把部队收尾（例如目标城已失效 → UpdateAIOrder 改判返城 →
-            // TroopMovetoCity 抵达本城 → EnterCity 解散）。这是"没出发就结束了"，
-            // 必须回报 false 让调用方走撤销分支（不扣行动力）；
-            // 物资已由 EnterCity 退回城池，RevokeEmit 会识别 !IsAlive 并跳过重复结算。
-            if (!troop.IsAlive || troop.cell == null)
+            // 【出城串行】同一座城同时只能有一支部队在出城：
+            // 两支部队都停在城池中心格时会互相覆盖 cell.troop，之后必然重叠。
+            if (city != null && city.pendingOutTroop != null && city.pendingOutTroop != troop
+                && city.pendingOutTroop.IsAlive)
+            {
                 return false;
-            if (troop.isMoving)
-                return true;
-            if (troop.cell.building == null)
-                return true;
+            }
 
-            return false;
+            if (city != null)
+                city.pendingOutTroop = troop;
+
+            // 【交给军团】打上"新兵"标记 + 保证本回合还没行动，
+            // 军团调度器 AITroops 会优先驱动它出城；落地后由
+            // Troop.UpdateCell / ClearWithBelongCity 清标记并解除本城登记。
+            troop.isNewEmitted = true;
+            troop.ActionOver = false;
+
+            return true;
         }
 
         /// <summary>

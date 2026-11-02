@@ -48,9 +48,9 @@ namespace Sango.Core
         #region 城市防守
 
         /// <summary>判定"兵临城下"的距离（格）。此范围内存在存活敌人时，城市优先出城防守</summary>
-        public int cityDefenseAlertRange = 15;
+        public int cityDefenseAlertRange = 8;
         /// <summary>实时扫描城池周边以兜底检测敌人的范围（格）。用于预计算敌人信息未覆盖的场景（如敌军刚抵达、正在攻击本城建筑）</summary>
-        public int cityDefenseScanRange = 10;
+        public int cityDefenseScanRange = 6;
 
         #endregion
 
@@ -565,6 +565,16 @@ namespace Sango.Core
         public int o311StrategyDoushiuchiSkillBonus = 750;
         /// <summary>计略动作常量 —— 原版 add_strategy_action 各分支基准值（消火 20000 / 建筑 375·250·125 …）</summary>
         public int o311StrategyActionBonus = 849;
+
+        /// <summary>
+        /// 陷阱"炸不到人"时的罚分 —— 原版 add_tactic_action / add_strategy_action 里的硬编码 10000
+        /// （s11_sys_unit_action.cpp:636 / :848 / :868 / :1022）。
+        ///
+        /// 用于战法与火计：<c>get_trap_score</c> ≤ 0（爆炸范围内没有敌人 / 只炸到友军 /
+        /// 自伤，或陷阱尚未建成）时从候选分数里扣掉这么多，使其基本不可能被选中。
+        /// 普攻 / 包围不用这个罚分 —— 原版对已建成陷阱是**直接不生成候选**（:389 / :408）。
+        /// </summary>
+        public int o311TrapScorePenalty = 10000;
 
         /// <summary>
         /// Open311 模式下的行动择优池大小。

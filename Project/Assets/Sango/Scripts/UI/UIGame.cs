@@ -24,6 +24,7 @@ namespace Sango.UI
         public Text seasonLabel;
         public Text actionNumberLabel;
         public Text techPointLabel;
+        public Image techProgress;
 
         public Text frameBtnText;
         public Text speedBtnText;
@@ -78,7 +79,7 @@ namespace Sango.UI
 #endif
             Window.Instance.Close("window_loading");
             BindEvent();
-          
+
             Window.Instance.Open("window_object_pop_info");
 
 #if UNITY_ANDROID || UNITY_IPHONE
@@ -254,7 +255,7 @@ namespace Sango.UI
 
         public void OnPlayerEndTurn(Force force, Scenario scenario)
         {
-            if(force == null)
+            if (force == null)
             {
                 endTurnButton.interactable = true;
                 uIPlayerInfoPanel.gameObject.SetActive(true);
@@ -286,11 +287,20 @@ namespace Sango.UI
                 GameMedia.Instance.PlayNewTurnSfx();
                 uIPlayerInfoPanel.UpdateShowType();
                 GameSystem.GetSystem<PlayerTurnStartGreeting>().Push();
-            }
-            if (force.IsPlayer)
-            {
+
                 int sIndex = (int)scenario.CurSeason;
                 GameMedia.Instance.PlayBgm(CheckBGM(seasonBGMPath[sIndex], force, scenario));
+
+                // 显示研究进度条
+                if (force.ResearchLeftCounter > 0 && force.ResearchMaxCounter > 0)
+                {
+                    techProgress.transform.parent.gameObject.SetActive(true);
+                    techProgress.fillAmount = (force.ResearchMaxCounter - force.ResearchLeftCounter) / force.ResearchMaxCounter;
+                }
+                else
+                {
+                    techProgress.transform.parent.gameObject.SetActive(false);
+                }
             }
         }
 
@@ -739,6 +749,14 @@ namespace Sango.UI
         public void OpenStrategyMap()
         {
             Window.Instance.Open("window_strategy_map");
+        }
+
+        public void OpenTechniqueInfo()
+        {
+            if (Scenario.Cur.CurRunForce != null)
+            {
+                GameSystem.GetSystem<ForceTechniqueInformation>().Start(Scenario.Cur.CurRunForce);
+            }
         }
     }
 }

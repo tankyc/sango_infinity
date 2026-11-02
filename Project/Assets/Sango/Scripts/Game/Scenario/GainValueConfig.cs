@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using Newtonsoft.Json.Linq;
+using Sango.Mod;
 
 namespace Sango.Core
 {
@@ -35,11 +38,29 @@ namespace Sango.Core
         /// <summary>破坏建筑（固定加成）</summary>
         CombatDestroyBuilding = 6,
 
+        /// <summary>
+        /// 击破敌方部队：势力技巧点（原版 s11_sys_scen_unit.cpp:481
+        /// `force_add_tech_point(by_force, 50 * (seimyou ? 2 : 1), nullptr)`）。
+        /// 填 50 是"未减半值"，入口 <see cref="Sango.Core.Force.GainTechniquePoint"/> 再统一除 2 ⇒ 实际 +25；
+        /// 持有「名声」特技时由 OnTroopCalculateTechniquePoint 事件翻倍 ⇒ 实际 +50。
+        ///
+        /// 【注意】普攻 / 战法 / 计略 / 援助 / 陷阱的技巧点**不在**这里，
+        /// 它们由 <see cref="CombatExpTable"/> 的 tech_point 字段按事件行给出（原版同一张 Exp 表）。
+        /// 只有"击破部队"这条是 unit_destroy 里的独立硬编码，Exp 表里没有对应行。
+        /// </summary>
+        TechniquePointDestroyTroop = 18,
+
         /// <summary>主将功绩比例（百分比）</summary>
         MeritLeaderFactor = 10,
         /// <summary>副将功绩比例（百分比）</summary>
         MeritMemberFactor = 11,
-        /// <summary>技巧点按功绩的比例（百分比）</summary>
+        /// <summary>
+        /// 【已废弃】技巧点按功绩的比例（百分比）。
+        ///
+        /// 编号保留：老存档 / 老剧本的 techniquePointGain 表里可能存着这个键，
+        /// 改编号会让 <see cref="GainValueConfig.Get"/> 读串项。
+        /// 计算路径已改为按事件取固定值（见本区 TechniquePointAttack 等），本键不再被任何逻辑读取。
+        /// </summary>
         TechniquePointFromMerit = 12,
         /// <summary>武将等级经验按功绩的比例（百分比）</summary>
         ExpFromMerit = 13,
@@ -260,6 +281,15 @@ namespace Sango.Core
         SupplyTechniquePoint = 101,
         #endregion
 
+        #region 外交劝降（走功绩表）
+        /// <summary>
+        /// 外交命令「劝降」成功：出使武将获得的功绩
+        /// （s11_sys_person_order_diplomacy.cpp:1476 `person_add_kouseki(self->actor, 4000)`）。
+        /// 注意是给**使者本人**，不是全势力。
+        /// </summary>
+        AnnexSuccessMerit = 105,
+        #endregion
+
     }
 
     /// <summary>配置值的语义</summary>
@@ -440,33 +470,44 @@ namespace Sango.Core
 
         public static readonly GainPlace[] MeritPlaces =
         {
-            GainPlace.CombatTroopDamage, GainPlace.CombatDestroyTroop, GainPlace.CombatDestroyCity,
-            GainPlace.CombatDestroyGate, GainPlace.CombatDestroyPort, GainPlace.CombatDestroyBuilding,
-            GainPlace.MeritLeaderFactor, GainPlace.MeritMemberFactor,
+            // 战斗功绩已整体迁移到 CombatExpTable（原版 Exp 表的 kouseki 字段），
+            // 只剩"击破部队"这一条独立硬编码还在这里（s11_sys_scen_unit.cpp:340-350 的 300）。
+            GainPlace.CombatDestroyTroop,
             GainPlace.DuelDraw, GainPlace.DuelWin, GainPlace.DuelCapture, GainPlace.DuelLose,
             GainPlace.DebateWin, GainPlace.DebateWinKind, GainPlace.DebateLose,
+            GainPlace.AnnexSuccessMerit,
+            // 已废弃但保留编号：CombatTroopDamage / CombatDestroyCity / CombatDestroyGate /
+            // CombatDestroyPort / CombatDestroyBuilding / MeritLeaderFactor / MeritMemberFactor。
+            // 原版没有"按伤害折算功绩""攻破城额外功绩""主副将折扣"这些概念。
         };
 
         public static readonly GainPlace[] TechniquePointPlaces =
         {
-            GainPlace.TechniquePointFromMerit,
+            // 击破敌方部队是 unit_destroy 里的独立硬编码，Exp 表无对应行，所以单独留一个键。
+            GainPlace.TechniquePointDestroyTroop,
+            // 单挑 / 舌战
             GainPlace.DuelWinTechniquePoint,
             GainPlace.DebateWinTechniquePoint,
-            GainPlace.SupplyTechniquePoint,
+            // 补给已改走 CombatExpTable 的 Supply 行（原版 tech_point = 0，补给本就不给技巧点），
+            // SupplyTechniquePoint 保留编号但不再参与计算。
+            // 普攻 / 战法 / 计略 / 援助 / 陷阱的技巧点由 CombatExpTable 的 tech_point 字段给出，
+            // 不在这里开键 —— 那张表是二维的（属性经验 + 适性经验 + 功绩 + 技巧点同行），
+            // 拆成扁平键会看不出结构。
+            // 注意：GainPlace.TechniquePointFromMerit 已废弃（编号保留供老存档识别），不列在本表里。
         };
 
         public static readonly GainPlace[] ExpPlaces =
         {
             GainPlace.ExpFromMerit,
             GainPlace.DuelDrawExp, GainPlace.DuelWinExp, GainPlace.DuelLoseExp,
-            GainPlace.SupplyExp,
+            // 补给已改走 CombatExpTable 的 Supply 行（功绩 100 / 统率经验 2），
+            // SupplyExp 保留编号但不再参与计算。
         };
 
         public static readonly GainPlace[] AbilityExpPlaces =
         {
-            GainPlace.AbilityExpAttack,
-            GainPlace.AbilityExpDestroyTroop,
-            GainPlace.AbilityExpDestroyCity,
+            // 兵种适性经验已整体迁移到 CombatExpTable（原版 Exp 表的 heishu_exp 字段，按兵种取一格）。
+            // AbilityExpAttack / AbilityExpDestroyTroop / AbilityExpDestroyCity 保留编号，不再参与计算。
         };
 
         public static readonly GainPlace[] AttributeExpPlaces =
@@ -519,22 +560,134 @@ namespace Sango.Core
 
         #endregion
 
-        /// <summary>内置默认值（固定值类的数值 / 百分比类的百分比 / 区间类的下限）</summary>
+        #region JSON 默认值装载
+
+        /// <summary>数据文件（相对内容根目录），与 AIConfig.json 同一套 Mod 覆盖机制。</summary>
+        public const string ConfigPath = "Data/Common/GainValueConfig.json";
+
+        /// <summary>JSON 提供的默认值（固定值 / 区间下限）；未出现的键回落到 <see cref="BuiltinDefaultOf"/></summary>
+        static Dictionary<GainPlace, int> jsonDefaults;
+        /// <summary>JSON 提供的区间上限；未出现的键回落到 <see cref="BuiltinDefaultMaxOf"/></summary>
+        static Dictionary<GainPlace, int> jsonDefaultMax;
+        /// <summary>是否已尝试装载过</summary>
+        static bool jsonDefaultsLoaded;
+
+        /// <summary>
+        /// 首次读取默认值时装载 JSON。
+        ///
+        /// 【稀疏覆盖】JSON 里没写的键一律沿用代码内置默认值，所以：
+        ///   · 缺文件 / 老版本包 / Mod 只改了三个键，都不会让别的键变成 0；
+        ///   · 新增 GainPlace 时忘了配 JSON，也不会静默失效（内置值兜底）。
+        /// 这与 <c>AIConfig.json</c> 的口径一致。
+        /// </summary>
+        static void EnsureJsonDefaultsLoaded()
+        {
+            if (jsonDefaultsLoaded)
+                return;
+
+            // Path 还没 Init（编辑器里直接调、或游戏启动早期）时不置位，等就绪后再读一次。
+            if (string.IsNullOrEmpty(Sango.Path.ContentRootPath))
+                return;
+
+            jsonDefaultsLoaded = true;
+
+            jsonDefaults = new Dictionary<GainPlace, int>();
+            jsonDefaultMax = new Dictionary<GainPlace, int>();
+
+            try
+            {
+                bool hit = false;
+                ModManager.Instance.LoadFile(ConfigPath, file =>
+                {
+                    hit = true;
+                    JObject root = JObject.Parse(File.ReadAllText(file));
+                    LoadJsonTable(root, "meritGain");
+                    LoadJsonTable(root, "techniquePointGain");
+                    LoadJsonTable(root, "expGain");
+                    LoadJsonTable(root, "attributeExpGain");
+                    LoadJsonTable(root, "eventGain");
+                    LoadJsonTable(root, "itemDiscoverGain");
+                    LoadJsonTable(root, "abilityStudyGain");
+                    LoadJsonTable(root, "abilityExpGain");
+                });
+
+                Sango.Log.Info(hit
+                    ? $"GainValueConfig 默认值已从 {ConfigPath} 载入（{jsonDefaults.Count} 项）"
+                    : $"未找到 {ConfigPath}，使用内置默认值");
+            }
+            catch (Exception e)
+            {
+                Sango.Log.Warning($"GainValueConfig 默认值加载失败，沿用内置默认值：{e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 读一个表节点。键名 = GainPlace 枚举名；值可以是数字，也可以是 <c>{ "min": x, "max": y }</c>。
+        /// 以 <c>_</c> 开头的键视为注释跳过。
+        /// </summary>
+        static void LoadJsonTable(JObject root, string tableName)
+        {
+            JObject table = root[tableName] as JObject;
+            if (table == null)
+                return;
+
+            foreach (KeyValuePair<string, JToken> pair in table)
+            {
+                if (string.IsNullOrEmpty(pair.Key) || pair.Key[0] == '_')
+                    continue;
+
+                GainPlace place;
+                if (!Enum.TryParse(pair.Key, out place) || place == GainPlace.None)
+                {
+                    Sango.Log.Warning($"{ConfigPath} 的 {tableName} 出现未知键 {pair.Key}，已忽略");
+                    continue;
+                }
+
+                if (pair.Value is JObject range)
+                {
+                    int min = range["min"] != null ? (int)range["min"] : 0;
+                    int max = range["max"] != null ? (int)range["max"] : min;
+                    jsonDefaults[place] = min;
+                    jsonDefaultMax[place] = max;
+                }
+                else
+                {
+                    jsonDefaults[place] = (int)pair.Value;
+                }
+            }
+        }
+
+        #endregion
+
+        /// <summary>默认值（JSON 优先，缺失回落到内置）。固定值类的数值 / 百分比类的百分比 / 区间类的下限。</summary>
         public static int DefaultOf(GainPlace place)
+        {
+            EnsureJsonDefaultsLoaded();
+            int value;
+            if (jsonDefaults != null && jsonDefaults.TryGetValue(place, out value))
+                return value;
+            return BuiltinDefaultOf(place);
+        }
+
+        /// <summary>内置默认值（JSON 缺失时的兜底，数值即 Open311 对齐结果）。</summary>
+        static int BuiltinDefaultOf(GainPlace place)
         {
             switch (place)
             {
-                // 战斗（功绩）
-                case GainPlace.CombatTroopDamage: return 10;      // damage / 10
-                case GainPlace.CombatDestroyTroop: return 200;
+                // 击破敌方部队的功绩：原版 s11_sys_scen_unit.cpp:340-350 对每个存活武将各加 300
+                case GainPlace.CombatDestroyTroop: return 300;
+                // 以下已废弃（保留默认值仅供老存档读取，不参与任何计算）
+                case GainPlace.CombatTroopDamage: return 10;
                 case GainPlace.CombatDestroyCity: return 1200;
                 case GainPlace.CombatDestroyGate: return 600;
                 case GainPlace.CombatDestroyPort: return 300;
                 case GainPlace.CombatDestroyBuilding: return 200;
+                // 击破敌方部队的技巧点（未减半值，入口再除 2）
+                case GainPlace.TechniquePointDestroyTroop: return 50;   // s11_sys_scen_unit.cpp:481
                 // 战斗后的分配比例
                 case GainPlace.MeritLeaderFactor: return 100;
                 case GainPlace.MeritMemberFactor: return 60;
-                case GainPlace.TechniquePointFromMerit: return 20;  // gp / 5
+                case GainPlace.TechniquePointFromMerit: return 20;  // 已废弃，仅老存档兼容
                 case GainPlace.ExpFromMerit: return 20;             // gp / 5
                 // 单挑
                 case GainPlace.DuelDraw: return 50;
@@ -542,6 +695,8 @@ namespace Sango.Core
                 case GainPlace.DuelCapture: return 200;
                 case GainPlace.DuelLose: return 10;
                 case GainPlace.DuelWinTechniquePoint: return 50;
+                // 外交劝降成功：使者本人功绩（原版 s11_sys_person_order_diplomacy.cpp:1476 的 4000）
+                case GainPlace.AnnexSuccessMerit: return 4000;
                 case GainPlace.DuelDrawExp: return 3;
                 case GainPlace.DuelWinExp: return 10;
                 case GainPlace.DuelLoseExp: return 1;
@@ -612,6 +767,16 @@ namespace Sango.Core
         /// <summary>区间类地点的默认上限（非区间地点返回与 <see cref="DefaultOf"/> 相同）</summary>
         public static int DefaultMaxOf(GainPlace place)
         {
+            EnsureJsonDefaultsLoaded();
+            int max;
+            if (jsonDefaultMax != null && jsonDefaultMax.TryGetValue(place, out max))
+                return max;
+            return BuiltinDefaultMaxOf(place);
+        }
+
+        /// <summary>内置区间上限（JSON 缺失时的兜底）</summary>
+        static int BuiltinDefaultMaxOf(GainPlace place)
+        {
             switch (place)
             {
 
@@ -621,7 +786,7 @@ namespace Sango.Core
                 case GainPlace.EventMeritMajor: return 1500;
                 case GainPlace.EventAttributeExpCommon: return 25;
                 case GainPlace.EventRecruitAttributeExp: return 40;
-                default: return DefaultOf(place);
+                default: return BuiltinDefaultOf(place);
             }
         }
 
@@ -669,13 +834,15 @@ namespace Sango.Core
                 case GainPlace.CombatDestroyBuilding: return "破坏建筑";
                 case GainPlace.MeritLeaderFactor: return "主将功绩比例(百分比)";
                 case GainPlace.MeritMemberFactor: return "副将功绩比例(百分比)";
-                case GainPlace.TechniquePointFromMerit: return "技巧点按功绩比例(百分比)";
+                case GainPlace.TechniquePointFromMerit: return "技巧点按功绩比例(已废弃)";
                 case GainPlace.ExpFromMerit: return "武将经验按功绩比例(百分比)";
+                case GainPlace.TechniquePointDestroyTroop: return "技巧点·击破敌方部队";
                 case GainPlace.DuelDraw: return "单挑平局功绩";
                 case GainPlace.DuelWin: return "单挑胜利功绩";
                 case GainPlace.DuelCapture: return "单挑俘获功绩";
                 case GainPlace.DuelLose: return "单挑失败功绩";
                 case GainPlace.DuelWinTechniquePoint: return "单挑胜利技巧点";
+                case GainPlace.AnnexSuccessMerit: return "外交劝降成功·使者功绩";
                 case GainPlace.DuelDrawExp: return "单挑平局武将经验";
                 case GainPlace.DuelWinExp: return "单挑胜利武将经验";
                 case GainPlace.DuelLoseExp: return "单挑失败武将经验";

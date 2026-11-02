@@ -72,7 +72,9 @@ namespace Sango.UI
             // 金额条按命令需要显示：劝降不花钱（NeedGold = false），直接隐藏滑块与数值
             bool needGold = currentSystem.NeedGold;
             if (goldSlider != null)
-                goldSlider.gameObject.SetActive(needGold);
+            {
+                goldSlider.transform.parent.parent.gameObject.SetActive(needGold);
+            }
 
             if (needGold && TargetCity.gold > 0)
             {

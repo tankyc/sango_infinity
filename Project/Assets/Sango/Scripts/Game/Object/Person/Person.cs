@@ -1441,11 +1441,19 @@ namespace Sango.Core
                             BelongCity = null;
                         }
                         if (CurrentCity != null)
+                        {
                             CurrentCity.AddWildPerson(this);
+                        }
                         else
                         {
-                            state = (int)PersonStateType.Invalid;
-                            CurrentCity = scenario.citySet.RandomGet();
+                            // 存档缺少所在城（旧版本数据 / 城被删）：补一座**都市**并保持在野状态。
+                            // 旧实现会先改成 Invalid（未登场）再随机补城，等于把在野武将永久藏起来，
+                            // 玩家之后再也登庸不到；补的城还可能是没有主城的关港，把人卡死在原地。
+                            CurrentCity = RandomCity(scenario);
+                            if (CurrentCity != null)
+                                CurrentCity.AddWildPerson(this);
+                            else
+                                state = (int)PersonStateType.Invalid;
                         }
                         break;
                     // 囚犯
@@ -1507,8 +1515,12 @@ namespace Sango.Core
                         }
                         else
                         {
-                            CurrentCity = scenario.citySet.RandomGet();
-                            CurrentCity.AddInvisiblePerson(this);
+                            // 同上：只补都市，避免落到没有主城的关港里走不出来
+                            CurrentCity = RandomCity(scenario);
+                            if (CurrentCity != null)
+                                CurrentCity.AddInvisiblePerson(this);
+                            else
+                                state = (int)PersonStateType.Invalid;
                         }
                         break;
                     // 死亡
@@ -2204,6 +2216,46 @@ namespace Sango.Core
             return base.OnForceTurnEnd(scenario);
         }
 
+        /// <summary>
+        /// 在**都市**集合中随机取一座（排除关 / 港）。
+        ///
+        /// 【为什么不能用 <c>citySet.RandomGet()</c>】
+        /// <c>RandomGet()</c> 会把关、港一起纳入池子。关港的 <see cref="BuildingBase.BelongCity"/>
+        /// 可能为空（地图数据缺主城），在野 / 未发现武将一旦落进去就再也走不出来：
+        /// 回合结束的"从港关移动到所属主城"分支只会报错并原地停留，之后每 5 回合刷一条错误。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>都市；没有任何都市时回退到 <c>RandomGet()</c></returns>
+        static City RandomCity(Scenario scenario)
+        {
+            if (scenario == null || scenario.citySet == null)
+                return null;
+
+            System.Collections.Generic.List<City> cities = scenario.citySet.FindAll(IsUrbanCity);
+            if (cities == null || cities.Count == 0)
+                return scenario.citySet.RandomGet();
+            return cities[GameRandom.Range(cities.Count)];
+        }
+
+        /// <summary>
+        /// 是否都市（排除关 / 港）。
+        ///
+        /// <see cref="BuildingBase.IsCity"/> 内部直接读 <c>BuildingType.kind</c> 且不判空，
+        /// 而 <c>BuildingType</c> 是懒加载属性 —— 在剧本加载早期可能尚未解析。
+        /// 这里优先用它，取不到时退回 <c>BuildingTypeId</c> 的数值判据
+        /// （与 <c>SangoObjectSetCityConverter</c> 的 2=关 / 3=港 口径一致）。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <returns>是都市返回 true</returns>
+        static bool IsUrbanCity(City city)
+        {
+            if (city == null)
+                return false;
+            if (city.BuildingType != null)
+                return city.IsCity();
+            return city.BuildingTypeId > 0 && city.BuildingTypeId != 2 && city.BuildingTypeId != 3;
+        }
+
         public override bool OnTurnEnd(Scenario scenario)
         {
             // 异族 / 贼 / 事件 / NPC 武将不参与"在野移动 + 无城市自动分配"的纠正：
@@ -2229,12 +2281,23 @@ namespace Sango.Core
                     // 这里自愈：补分配一座随机城并登记到对应名单，避免每回合空引用刷屏。
                     if (CurrentCity == null)
                     {
-                        CurrentCity = scenario.citySet.RandomGet();
+                        // 只选都市：关港可能没有隶属主城，落进去就再也走不出来（见 RandomCity 注释）
+                        City fallbackCity = RandomCity(scenario);
+                        if (fallbackCity == null)
+                        {
+                            Sango.Log.Error($"@人才@隐身/在野武将{Name}(Id:{Id})没有所在城市,且找不到任何可用都市(state={state})");
+                            return base.OnTurnEnd(scenario);
+                        }
+
+                        CurrentCity = fallbackCity;
                         if (IsWild)
                             CurrentCity.AddWildPerson(this);
                         else
                             CurrentCity.AddInvisiblePerson(this);
-                        Sango.Log.Error($"@人才@隐身/在野武将{Name}(Id:{Id})没有所在城市,已自动分配到{CurrentCity.Name}");
+                        // 自愈成功属于"数据异常已修复"，降为 Warning，并把现场字段带出来便于定位来源
+                        Sango.Log.Warning($"@人才@隐身/在野武将{Name}(Id:{Id})没有所在城市,已自动分配到{CurrentCity.Name}"
+                            + $"（state={state}, CurrentCityId={CurrentCityId}, BelongCityId={BelongCityId},"
+                            + $" 年={scenario.Info?.year}）");
                     }
 
                     if (IsWild)
@@ -2256,8 +2319,21 @@ namespace Sango.Core
                         City targetCity = CurrentCity.BelongCity;
                         if (targetCity == null)
                         {
-                            // 港关没有隶属主城(异常数据):留在原地,只重置停留计数避免反复触发
-                            Sango.Log.Error($"@人才@在野武将{Name}所在的港关{lastCity.Name}没有隶属主城,无法移动");
+                            // 港关没有隶属主城（地图数据缺失）：不能原地打转，改派到随机都市。
+                            // 否则每 5 回合都会再走一次本分支，玩家看到的就是同一条错误刷屏。
+                            City fallbackCity = RandomCity(scenario);
+                            if (fallbackCity != null && fallbackCity != lastCity)
+                            {
+                                // ChangeCurrentCity 内部负责旧城名单摘除 + 新城登记，这里不要再 Add 一次
+                                ChangeCurrentCity(fallbackCity);
+                                BelongCity = fallbackCity;
+                                stayTurnCount = 0;
+                                Sango.Log.Warning($"@人才@在野武将{Name}所在的港关{lastCity.Name}没有隶属主城,已改派到{fallbackCity.Name}");
+                                return base.OnTurnEnd(scenario);
+                            }
+
+                            // 连都市都取不到（极端数据）：留在原地，只重置停留计数避免反复触发
+                            Sango.Log.Error($"@人才@在野武将{Name}所在的港关{lastCity.Name}没有隶属主城,且找不到可用都市,无法移动");
                             stayTurnCount = 0;
                             if (IsWild)
                                 CurrentCity.AddWildPerson(this);
@@ -2583,7 +2659,11 @@ namespace Sango.Core
             }
             ScenarioVariables variables = Scenario.Cur.Variables;
             int jobId = (int)CityJobType.RecruitPerson;
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 【原版对齐】登用只有成功才给技巧点，值为**被登用者**的魅力/3 + 20
+            //（s11_sys_person_order_personnel.cpp:1052-1055 on_employ_result：
+            //  `if (success) force_add_tech_point(actor_force, target->get_stat(PersonStatType_Charisma) / 3 + 20, actor)`）。
+            // 原实现取数据表固定 tpGain，成败同酬且与目标魅力无关。
+            int techniquePointGain = success ? (person.Glamour / 3 + 20) : 0;
             // 功绩按成败分档 —— 对齐原版 on_employ_result 的 `success ? 200 : 10`
             // （s11_sys_person_order_personnel.cpp:756 / 805）。
             // 原先是数据表统一 50，成功与失败同酬，与原版差异很大。
@@ -3122,10 +3202,56 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 给某一项能力加经验（武力 / 智力 / 统率 / 政治 / 魅力）。
+        ///
+        /// 【原版对齐】s11_sys_scen_unit.cpp:1380-1389 <c>unit_add_exp</c>：
+        /// <code>
+        /// for (int i = 0; i &lt; PersonStatType_Max; i++)
+        /// {
+        ///     int value = exp->stat_exp[i];
+        ///     if (value &gt; 0) person_add_stat_exp(person, i, value, false);
+        /// }
+        /// </code>
+        /// 数值直接取 Exp 表（<see cref="CombatExpTable"/>）对应事件行的 stat_exp 字段。
+        /// </summary>
+        /// <param name="statType">
+        /// 原版 PersonStatType 顺序：0 统率 / 1 武力 / 2 智力 / 3 政治 / 4 魅力。
+        /// **不要**用 Duel / Debate 命名空间下的同名枚举，它们顺序不同（0 武力 / 1 智力 / 2 统率 / 3 政治）。
+        /// </param>
+        /// <param name="exp">本次增加的能力经验，&lt;= 0 直接返回</param>
+        public void GainStatExp(int statType, int exp)
+        {
+            if (exp <= 0) return;
+            if (Scenario.Cur == null) return;
+
+            PersonAttributeValue attribute = GetStatAttributeValue(statType);
+            if (attribute == null) return;
+
+            long next = (long)attribute.valueExp + exp;
+            if (next > ushort.MaxValue) next = ushort.MaxValue;
+
+            attribute.SetExp((ushort)next, Scenario.Cur);
+        }
+
+        /// <summary>原版 PersonStatType 索引 → 能力数据（越界返回 null）</summary>
+        PersonAttributeValue GetStatAttributeValue(int statType)
+        {
+            switch (statType)
+            {
+                case 0: return command;
+                case 1: return strength;
+                case 2: return intelligence;
+                case 3: return politics;
+                case 4: return glamour;
+                default: return null;
+            }
+        }
+
+        /// <summary>
         /// 给某一项兵种适性加经验。
         /// <paramref name="influenceAbility"/> 直接用 TroopType.influenceAbility（= AbilityType），
         /// 所以"部队用的什么兵种就练哪一项适性"，不需要另写映射。
-        /// 成长量是配置项（GainPlace.AbilityExpAttack / AbilityExpDestroyTroop / AbilityExpDestroyCity）。
+        /// 成长量取自 Exp 表的 heishu_exp 字段（<see cref="CombatExpTable"/>）。
         /// </summary>
         public void GainAbilityExp(int influenceAbility, int exp)
         {

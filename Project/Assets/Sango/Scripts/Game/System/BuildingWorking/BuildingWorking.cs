@@ -674,7 +674,8 @@ namespace Sango.Core
             }
 
             int productCost = buildingType.productCost;
-            int techniquePointGain = jobType.tpGain;
+            // 走 JobType 的统一入口，让 OnGetJobTPGain 也能改写"设施内工作"的技巧点
+            int techniquePointGain = JobType.GetJobTPGain(jobId);
             int meritGain = jobType.meritGain;
             if (hasWorker)
             {

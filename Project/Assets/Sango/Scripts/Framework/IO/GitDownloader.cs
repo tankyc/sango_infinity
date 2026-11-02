@@ -335,6 +335,8 @@ namespace Sango
             bool serverRejected = false;
             long responseCode = 0;
 
+            Log.Info("下载: " + url, Log.LogType.Download);
+
             // 直接构造请求(而不是 UnityWebRequest.Get),这样只创建下载到文件的 handler,
             // 不会额外产生一个用不上的内存 buffer
             using (UnityWebRequest request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbGET))
@@ -617,30 +619,30 @@ namespace Sango
             if (expectedBytes <= 0)
                 return true;
 
-            try
-            {
-                string full = System.IO.Path.GetFullPath(folder);
-                string rootPath = System.IO.Path.GetPathRoot(full);
-                if (string.IsNullOrEmpty(rootPath))
-                    return true;
+            //try
+            //{
+            //    string full = System.IO.Path.GetFullPath(folder);
+            //    string rootPath = System.IO.Path.GetPathRoot(full);
+            //    if (string.IsNullOrEmpty(rootPath))
+            //        return true;
 
-                DriveInfo drive = new DriveInfo(rootPath);
-                if (!drive.IsReady)
-                    return true;
+            //    DriveInfo drive = new DriveInfo(rootPath);
+            //    if (!drive.IsReady)
+            //        return true;
 
-                long need = (long)(expectedBytes * 2.5d) + 100L * 1024 * 1024;
-                if (drive.AvailableFreeSpace < need)
-                {
-                    error = "磁盘空间不足: 安装该模组约需 " + FormatSize(need) +
-                            " 可用空间,当前仅剩 " + FormatSize(drive.AvailableFreeSpace) + ",请清理磁盘后重试";
-                    return false;
-                }
-            }
-            catch (System.Exception e)
-            {
-                // 预检失败不应该阻断下载,记录日志后放行
-                Log.Error("磁盘空间预检失败: " + e.Message, Log.LogType.Download);
-            }
+            //    long need = (long)(expectedBytes * 2.5d) + 100L * 1024 * 1024;
+            //    if (drive.AvailableFreeSpace < need)
+            //    {
+            //        error = "磁盘空间不足: 安装该模组约需 " + FormatSize(need) +
+            //                " 可用空间,当前仅剩 " + FormatSize(drive.AvailableFreeSpace) + ",请清理磁盘后重试";
+            //        return false;
+            //    }
+            //}
+            //catch (System.Exception e)
+            //{
+            //    // 预检失败不应该阻断下载,记录日志后放行
+            //    Log.Error("磁盘空间预检失败: " + e.Message, Log.LogType.Download);
+            //}
             return true;
         }
 

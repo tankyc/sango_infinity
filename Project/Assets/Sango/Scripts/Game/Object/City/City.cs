@@ -1419,6 +1419,69 @@ namespace Sango.Core
             // 【int[] → 对象】本城序列化列表的解析（追加进已有方法）
             if (NeighborList_list != null && NeighborList_list.Length > 0 && NeighborList.Count == 0)
                 NeighborList.FromArray(NeighborList_list);
+
+            // 【关港必须有隶属都市】读档 / 旧剧本数据里可能出现 BelongCityId = 0 的关港。
+            // 后果是所有"从关港回主城"的逻辑（在野武将移动、部队回城、内政统计、SubCity 归属）全部失效，
+            // 玩家侧表现为 "@人才@...所在的港关 XXX 没有隶属主城,无法移动" 每回合刷屏。
+            //
+            // 【必须放在方法末尾】IsCity() 内部直接读 BuildingType.kind 且**不判空**，
+            // 而 BuildingType 是懒加载属性：放在方法开头会在 IdRef 尚未就绪时抛 NRE，
+            // 直接把读档流程打断（外部表现就是 loading 界面不关、主循环却已经开始跑）。
+            // 此处 BuildingType 已在前面被使用过，必然可解析。
+            if (BuildingType != null && !IsCity() && BelongCity == null)
+            {
+                City nearestCity = FindNearestCity(scenario);
+                if (nearestCity != null)
+                {
+                    BelongCity = nearestCity;
+                    BelongCityId = nearestCity.Id;
+                    // 上面那次 subCities 登记发生在 BelongCity 还是 null 的时候，这里补登记
+                    if (nearestCity.subCities != null && !nearestCity.subCities.Contains(this))
+                        nearestCity.subCities.Add(this);
+                    Sango.Log.Warning($"港关{Name}(Id:{Id})缺少隶属主城,已按最近都市补为{nearestCity.Name}");
+                }
+                else
+                {
+                    Sango.Log.Error($"港关{Name}(Id:{Id})缺少隶属主城,且找不到任何都市可挂靠");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 找距离本据点最近的**都市**（按格坐标平方距离比较，不跑寻路）。
+        /// 只用于"关港缺隶属主城"的兜底修复。
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>最近的都市；没有任何都市返回 null</returns>
+        City FindNearestCity(Scenario scenario)
+        {
+            if (scenario == null || scenario.citySet == null)
+                return null;
+
+            City nearest = null;
+            float minSqr = float.MaxValue;
+            int selfX = x;
+            int selfY = y;
+
+            scenario.citySet.ForEach(candidate =>
+            {
+                // IsCity() 不判 BuildingType 空值，这里必须先挡一道：
+                // 剧本加载早期 BuildingType 还是懒加载态，直接调用会 NRE 并打断读档
+                if (candidate == null || candidate == this || candidate.BuildingType == null)
+                    return;
+                if (!candidate.IsCity())
+                    return;
+                float dx = candidate.x - selfX;
+                float dy = candidate.y - selfY;
+                float sqr = dx * dx + dy * dy;
+                if (sqr < minSqr)
+                {
+                    minSqr = sqr;
+                    nearest = candidate;
+                }
+            });
+
+            return nearest;
         }
 
         public override void OnScenarioSave(Scenario scenario)
@@ -3478,7 +3541,8 @@ namespace Sango.Core
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.CreateBoat;
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 技巧点在产出算完后按原版公式赋值（min(产出/300+1, 10)，见下方技巧点事件前）
+            int techniquePointGain = 0;
 
 
 #if SANGO_DEBUG
@@ -3510,6 +3574,11 @@ namespace Sango.Core
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.Value;
 
+
+            // 【原版对齐】即时生产兵装：min(产出/300 + 1, 10)
+            //（s11_sys_person_order_city.cpp:774，exec_instant_produce_command：
+            //  `force_add_tech_point(force, std::min(n / 300 + 1, 10), city)`）
+            techniquePointGain = System.Math.Min(totalValue / 300 + 1, 10);
 
             overrideData.Value = techniquePointGain;
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
@@ -3702,7 +3771,8 @@ namespace Sango.Core
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.CreateMachine;
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 技巧点在产出算完后按原版公式赋值（min(产出/300+1, 10)，见下方技巧点事件前）
+            int techniquePointGain = 0;
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
 #endif
@@ -3731,6 +3801,10 @@ namespace Sango.Core
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.Value;
+
+            // 【原版对齐】即时生产兵装：min(产出/300 + 1, 10)
+            //（s11_sys_person_order_city.cpp:774，exec_instant_produce_command）
+            techniquePointGain = System.Math.Min(totalValue / 300 + 1, 10);
 
             overrideData.Value = techniquePointGain;
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
@@ -3805,7 +3879,12 @@ namespace Sango.Core
             }
 
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 【原版对齐】开垦不给技巧点。
+            // 出处：s11_sys_person_order_city.cpp 全文的 force_add_tech_point 只有 5 处
+            //   —— 征兵(:518)、即时生产兵装(:774)、工期生产完成(:893)、巡查(:1323)、建筑完成(:228)，
+            //   exec_farm_command 内没有任何技巧点调用。
+            // 保留 OnCityJobGainTechniquePoint 事件，mod 想加值仍可覆盖。
+            int techniquePointGain = 0;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -3899,7 +3978,9 @@ namespace Sango.Core
             }
 
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 【原版对齐】开发不给技巧点：exec_develop_command 内无 force_add_tech_point
+            //（s11_sys_person_order_city.cpp 全文仅 5 处技巧点产出，见 JobFarming 的注释）。
+            int techniquePointGain = 0;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -4238,7 +4319,14 @@ namespace Sango.Core
             int meritGain = JobType.GetJobMeritGain(jobId);
             // 技巧点 = 治安变化 × 5/7 + 5 —— 对齐原版 s11_sys_person_order_city.cpp:1323
             // （原实现取数据表的固定值 20）
-            int techniquePointGain = totalValue * 5 / 7 + 5;
+            //
+            // 注意原版用的是 city_add_public_order 的**返回值**（受 100 上限夹取后的实际变化量，
+            // 见 :1306 `int change = system_->city_add_public_order(city, public_order_change);`），
+            // 不是计算值。治安快满时两者差很多，这里按同一口径先算实际增量。
+            int securityBefore = security;
+            int securityAfter = System.Math.Min(securityBefore + totalValue, 100);
+            int securityChange = securityAfter - securityBefore;
+            int techniquePointGain = securityChange * 5 / 7 + 5;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -4347,7 +4435,13 @@ namespace Sango.Core
             int meritGain = JobType.GetJobMeritGain(jobId);
             // 技巧点 = 气力变化 / 2 + 5 —— 对齐原版 s11_sys_person_order_military.cpp:95
             // （原实现取数据表的固定值 20）
-            int techniquePointGain = totalValue / 2 + 5;
+            //
+            // 原版 energy_change 是 calc_energy_change 的返回值（受上限夹取后的实际变化量，
+            // 见 :88-95），所以这里也按实际增量算，士气将满时不会虚高。
+            int moraleBefore = morale;
+            int moraleAfter = System.Math.Min(moraleBefore + totalValue, MaxMorale);
+            int energyChange = moraleAfter - moraleBefore;
+            int techniquePointGain = energyChange / 2 + 5;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -4660,7 +4754,12 @@ namespace Sango.Core
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Searching;
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 【原版对齐】搜索只有"有结果"才给技巧点，普通失败不给：
+            //   发现人才 +20（s11_sys_person_order_personnel.cpp:553 on_search_success）
+            //   搜到宝物 / 装备 +2（同文件 :609 on_search_failure_get_item）
+            //   搜到金钱 +2（同文件 :634 on_search_failure_get_money）
+            //   什么都没找到 0（on_search_failure :567-585 无技巧点调用）
+            int techniquePointGain = 0;
             // 走本城口径：人才府可让探索 AP 减半
             int apCost = GetJobCostAP(CityJobType.Searching);
             target = null;
@@ -4742,6 +4841,10 @@ namespace Sango.Core
                     Sango.Log.Info($"@内政@[{BelongForce.Name}]<{Name}>的{person.Name}发现了{foundItem.Name}");
 #endif
 
+                    // 【原版对齐】搜到宝物 / 装备 → +2
+                    //（s11_sys_person_order_personnel.cpp:609 on_search_failure_get_item）
+                    BelongForce?.GainTechniquePoint(2);
+
                     person.merit += meritGain;
                     person.GainExp(meritGain);
                     person.GainJobAttributeExp(jobId);      // 搜索(找到宝物/装备) → 智力经验
@@ -4769,6 +4872,10 @@ namespace Sango.Core
                     AddGold(findGold);
                     Render?.ShowInfo(findGold, (int)InfoType.Gold);
 
+                    // 【原版对齐】搜到金钱 → +2
+                    //（s11_sys_person_order_personnel.cpp:634 on_search_failure_get_money）
+                    BelongForce?.GainTechniquePoint(2);
+
                     person.merit += meritGain;
                     person.GainExp(meritGain);
                     person.GainJobAttributeExp(jobId);      // 内政工作 → 对应属性经验
@@ -4795,6 +4902,9 @@ namespace Sango.Core
                 person.ActionOver = true;
             }
 
+            // 【原版对齐】什么都没找到 → 0 技巧点（on_search_failure 内无 force_add_tech_point）。
+            // 保留事件以便 mod 覆盖。
+            techniquePointGain = 0;
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(techniquePointGain);
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, new Person[] { person }, overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
@@ -5072,7 +5182,8 @@ namespace Sango.Core
             }
 
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 技巧点在产出算完后按原版公式赋值（min(产出/300+1, 10)，见下方技巧点事件前）
+            int techniquePointGain = 0;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -5095,6 +5206,10 @@ namespace Sango.Core
             }
 
             int exsistNumber = itemStore.Add(itemType.Id, totalValue);
+
+            // 【原版对齐】即时生产兵装：min(产出/300 + 1, 10)
+            //（s11_sys_person_order_city.cpp:774，exec_instant_produce_command）
+            techniquePointGain = System.Math.Min(totalValue / 300 + 1, 10);
 
             overrideData = Tools.OverrideData<int>.Create(techniquePointGain);
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
@@ -5146,7 +5261,9 @@ namespace Sango.Core
             int jobId = (int)CityJobType.TradeFood;
 
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 【原版对齐】交易粮食不给技巧点：exec_trade_command 内无 force_add_tech_point
+            //（s11_sys_person_order_city.cpp 全文仅 5 处技巧点产出，见 JobFarming 的注释）。
+            int techniquePointGain = 0;
 
             Person person = personList[0];
             if (person == null) return false;
@@ -5697,6 +5814,24 @@ namespace Sango.Core
         internal Troop CurActiveTroop = null;
         internal MissionType TroopMissionType = MissionType.None;
         internal int TroopMissionTargetId;
+
+        /// <summary>
+        /// 【出城串行】刚刚组建、正在执行"离开城池格"的部队。
+        ///
+        /// 背景：部队移动原本是异步渲染，<see cref="CityTroopFactory.DriveOutOfCity"/> 把整条路径
+        /// 排进渲染队列后就返回了，此时 <c>troop.cell</c> 还停在城池格、<c>cell.troop</c> 也没更新。
+        /// 据点 AI 在同一条命令链里继续派第二支时，第二支算落脚点看不到第一支的去向，
+        /// 两队就会算到同一格上，动画播完后叠在一起。
+        ///
+        /// 做法：把"刚派出、尚未落地"的部队挂在这里，由
+        /// <see cref="CityAI.DoOutpostAI"/> 在每帧入口检查：
+        ///   · 非空 → 先把这支部队推完（同步落地），再清空；
+        ///   · 清空之前，本据点不再派新的部队。
+        ///
+        /// 配合 <see cref="Troop"/> 的同步出城开关（出城不走移动动画、直接落地），
+        /// 这个字段在正常流程里存活时间极短，仅作"出城进行中"的显式状态与兜底。
+        /// </summary>
+        internal Troop pendingOutTroop;
 
         /// <summary>
         /// 确保部队初始化并加入场景

@@ -73,7 +73,17 @@ namespace Sango.Core
         /// <summary>劝降失败友好度 -30（:1485）</summary>
         public const int AnnexFailLikePenalty = -30;
 
-        /// <summary>劝降成功技术点 +200（:1469-1482）</summary>
+        /// <summary>
+        /// 外交命令「劝降」成功：出使者所在势力技巧点 +200
+        /// （s11_sys_person_order_diplomacy.cpp:1474 `force_add_tech_point(actor_force, 200, self->actor)`）。
+        /// 入口减半后实际 +100。
+        ///
+        /// 【注意不要和下面这条混淆】原版另有 <c>Game::annexation()</c>（s11_game_week.cpp:1016-1152），
+        /// 那是**周事件**：满 12 个月后每季度首日，让一个 AI 势力吞并另一个相邻 AI 势力，
+        /// 成功时给**吞并方** <c>force_add_tech_point(dest, 1000, nullptr)</c>（:1150，实际 +500）。
+        /// 它与「劝降命令」是两条互不相干的路径（触发源不同、受益方不同、也没有使者），
+        /// 本项目尚未实现该周事件，见 <see cref="AnnexTechGain"/> 的说明。
+        /// </summary>
         public const int AnnexTechGain = 200;
 
         /// <summary>同盟成功技术点 +50（:611-632）</summary>

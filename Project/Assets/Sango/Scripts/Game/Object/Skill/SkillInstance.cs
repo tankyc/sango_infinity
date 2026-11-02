@@ -357,6 +357,15 @@ namespace Sango.Core
             return skill.IsStrategy();
         }
 
+        /// <summary>
+        /// 转发到 <see cref="Skill.GetCombatExpEvent"/>：取本次施法对应的原版 Exp 表事件行。
+        /// 失败流程（<c>TroopSpellSkillFailEvent</c>）也要用它拿 miss 行，所以公开出来。
+        /// </summary>
+        public CombatExpEvent GetCombatExpEvent(bool hit, bool critical)
+        {
+            return skill.GetCombatExpEvent(hit, critical);
+        }
+
         public bool IsCritical()
         {
             return tempCriticalFactor > 100;
@@ -370,6 +379,8 @@ namespace Sango.Core
         {
             return skill.IsNormalSkill;
         }
+
+
 
 
         /// <summary>
@@ -670,6 +681,36 @@ namespace Sango.Core
         /// </summary>
         internal bool assistAttackFlag;
 
+        /// <summary>
+        /// 强制指定本次结算使用的 Exp 事件行（-1 = 不强制）。
+        ///
+        /// 【用途】战法命中率判定失败时，原版仍按普攻打一次，但功绩 / 经验取的是该战法的
+        /// **未命中行**：<c>get_exp(tactic-&gt;get_exp() + 1 - tactic_hit - critical)</c>，
+        /// <c>tactic_hit = 0</c> ⇒ 组首 + 2（s11_sys_anim_unit.cpp:1090）。
+        /// 项目失败流程用 <c>replaceSkill</c>（普攻实例）代为出手，若不覆盖就会拿到 Exp_Attack 的 20 功绩，
+        /// 而原版只给 Exp_*Miss 的 10。
+        ///
+        /// 只在 <c>TroopSpellSkillFailEvent.Action()</c> 里成对设置 / 复位，切勿跨帧保留 ——
+        /// 普攻实例是部队共享的，残留会让之后的普攻全部套用战法 miss 行。
+        /// </summary>
+        internal int forcedExpEvent = -1;
+
+        /// <summary>
+        /// 本次施法的计略技巧点是否已经结算过。
+        ///
+        /// 【为什么需要】同一份技能实例可能被两处调用 <see cref="Action"/>：
+        /// 渲染事件（TroopSpellSkillEvent.Action）与时间轴（SkillTimelineEvent_ExecuteDamage）。
+        /// 原版 <c>add_strategy_exp</c> 只在结算流程里走一次，这里用一次性标记对齐，
+        /// 由 <see cref="Troop"/> 在下一次施法前通过 <see cref="ResetStrategyTechniquePointFlag"/> 复位。
+        /// </summary>
+        bool strategyTechniquePointGiven;
+
+        /// <summary>施法开始前复位计略技巧点标记（由 Troop 在确认要排新的施法事件后调用）。</summary>
+        public void ResetStrategyTechniquePointFlag()
+        {
+            strategyTechniquePointGiven = false;
+        }
+
         public void Action(Cell spellCell, int criticalFactor)
         {
             Troop troop = master;
@@ -688,10 +729,23 @@ namespace Sango.Core
             Tools.OverrideData<int> overrideData;
 
             List<SangoObject> activedTargetList = new List<SangoObject>();
+            // 本次结算对应的原版 Exp 表事件行：功绩 / 能力经验 / 适性经验 / 技巧点全部由它决定。
+            // 正常情况下走到这里说明命中判定已通过（Action 由 CheckSuccess 之后的事件触发），hit = true；
+            // 战法命中率失败、由 TroopSpellSkillFailEvent 用普攻代为出手时，forcedExpEvent 会指向 miss 行。
+            CombatExpEvent expEvent = forcedExpEvent >= 0
+                ? (CombatExpEvent)forcedExpEvent
+                : skill.GetCombatExpEvent(true, criticalFactor > 100);
+            // 援助攻击在原版走独立的一格 Exp_Assist，见 s11_sys_anim_unit.cpp:818-822。
+            if (isAssistAttack)
+                expEvent = CombatExpEvent.Assist;
             //TODO: 释放技能
             tempCellList.Clear();
             GetAttackCells(troop, spellCell, tempCellList);
             int targetDamage = 0;
+            // 本次施法实际造成伤害的目标数（部队 + 建筑）。
+            // 计略技巧点要按命中数放大（原版 add_strategy_exp 的 mul），
+            // 但像落雷这种纯伤害计略没有 SkillEffect，不能只靠 DoEffect 的返回计数。
+            int damagedTargetCount = 0;
             for (int i = 0; i < tempCellList.Count; i++)
             {
                 Cell atkCell = tempCellList[i];
@@ -724,16 +778,26 @@ namespace Sango.Core
 
                     Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 使用<{this.Name}> 攻击 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}], 造成伤害:{damage}, 目标剩余兵力: {beAtkTroop.GetTroopsNum()}");
                     beAtkTroop.ChangeTroops(-damage, this, 0);
-                    int ep = Math.Max(1, GainValueConfig.Rate(damage, GainValueConfig.Merit(GainPlace.CombatTroopDamage)));
+                    damagedTargetCount++;
+
+                    // 【原版对齐】受击方经验（功绩 0 / 技巧点 0，只给能力与适性经验）：
+                    //   普攻命中 → Exp_Attacked（s11_sys_anim_unit.cpp:1140）
+                    //   战法命中 → Exp_TacticAttacked（:1112）
+                    //   计略不走这两行（计略的结算在 add_strategy_exp，受方无经验）。
+                    // 原版写的是 `if (utils::is_alive(target_unit))`，所以阵亡的部队不给。
+                    if (beAtkTroop.IsAlive && !IsStrategy())
+                    {
+                        beAtkTroop.GainEP(IsNormal() ? CombatExpEvent.Attacked : CombatExpEvent.TacticAttacked);
+                    }
+
                     if (!beAtkTroop.IsAlive)
                     {
-                        ep += GainValueConfig.Merit(GainPlace.CombatDestroyTroop);
-
                         troop.GainTargetResource(beAtkTroop);
                     }
 
-                    // 传入击破结果，使精妙仅在击破敌方部队的本次结算中生效。
-                    troop.GainEP(ep, !beAtkTroop.IsAlive);
+                    // 传入击破结果，使名声仅在击破敌方部队的本次结算中生效。
+                    // 功绩 / 能力经验 / 适性经验 / 技巧点全部由 expEvent 行给出（原版 Exp 表）。
+                    GainBattleExp(troop, expEvent, !beAtkTroop.IsAlive);
                     // 反击
                     if (beAtkTroop.IsAlive && targetTroop == beAtkTroop && !beAtkTroop.HasControlBuff())
                     {
@@ -750,25 +814,28 @@ namespace Sango.Core
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalRangeSkill) / 100;
                                 Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 受到 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
                                 troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalRangeSkill, hitBack);
-                                ep = Math.Max(1, GainValueConfig.Rate(damage, GainValueConfig.Merit(GainPlace.CombatTroopDamage)));
-                                if (!troop.IsAlive) ep += GainValueConfig.Merit(GainPlace.CombatDestroyTroop);
-                                // 反击方仅在实际击破进攻部队时触发精妙。
-                                beAtkTroop.GainEP(ep, !troop.IsAlive);
+                                // 反击在原版走普攻的 Exp 行（Exp_Attack），不带本战法的 tech_point。
+                                // 反击方仅在实际击破进攻部队时触发名声。
+                                beAtkTroop.GainEP(CombatExpEvent.Attack, !troop.IsAlive);
+                                // 被反击的进攻方拿 Exp_Attacked（原版受击方经验，:1140）。
+                                if (troop.IsAlive)
+                                    troop.GainEP(CombatExpEvent.Attacked);
                             }
                             else
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalSkill) / 100;
                                 Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 受到 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
                                 troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalSkill, hitBack);
-                                ep = Math.Max(1, GainValueConfig.Rate(damage, GainValueConfig.Merit(GainPlace.CombatTroopDamage)));
                                 if (!troop.IsAlive)
                                 {
-                                    ep += GainValueConfig.Merit(GainPlace.CombatDestroyTroop);
                                     beAtkTroop.GainTargetResource(troop);
                                 }
-                                // 反击方仅在实际击破进攻部队时触发精妙。
-                                beAtkTroop.GainEP(ep, !troop.IsAlive);
-
+                                // 反击在原版走普攻的 Exp 行（Exp_Attack），不带本战法的 tech_point。
+                                // 反击方仅在实际击破进攻部队时触发名声。
+                                beAtkTroop.GainEP(CombatExpEvent.Attack, !troop.IsAlive);
+                                // 被反击的进攻方拿 Exp_Attacked（原版受击方经验，:1140）。
+                                if (troop.IsAlive)
+                                    troop.GainEP(CombatExpEvent.Attacked);
                             }
                         }
                     }
@@ -798,6 +865,7 @@ namespace Sango.Core
                     if (activedTargetList.Contains(beAtkBuildingBase))
                         continue;
                     activedTargetList.Add(beAtkBuildingBase);
+                    damagedTargetCount++;
                     if (beAtkBuildingBase is City)
                     {
                         City city = (City)beAtkBuildingBase;
@@ -806,23 +874,20 @@ namespace Sango.Core
                         overrideData = Tools.OverrideData<int>.Create(damage_troops);
                         GameEvent.OnSkillDamageBuildingTroops?.Invoke(this, beAtkBuildingBase, overrideData);
                         damage_troops = overrideData.ValueAndRecycle;
-                        int ep = Math.Max(1, damage_troops / 10);
                         if (!city.IsSameForce(troop) && !city.ChangeTroops(-damage_troops, troop, city.BelongForce != null))
                         {
-                            if (city.IsCity())
-                                ep += GainValueConfig.Merit(GainPlace.CombatDestroyCity);
-                            else if (city.IsGate())
-                                ep += GainValueConfig.Merit(GainPlace.CombatDestroyGate);
-                            else if (city.IsPort())
-                                ep += GainValueConfig.Merit(GainPlace.CombatDestroyPort);
-                            troop.GainEP(ep, false, true);      // 攻破城池 → 额外适性经验
+                            // 原版攻破城池不给额外功绩：功绩只来自本次战法 / 普攻的 Exp 行
+                            // （s11_sys_anim_unit.cpp:1136 的 attack_exp），城内部队溃散才另算击破。
+                            GainBattleExp(troop, expEvent);
                             Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 攻破城池: <{beAtkBuildingBase.Name}>");
+                            // 城破会提前 return，计略结算必须在这里补一次，否则"计略烧城"这条路径永远拿不到。
+                            ApplyStrategyExp(troop, 0, damagedTargetCount, criticalFactor > 100);
                             city.OnFall(this);
                             return;
                         }
                         else
                         {
-                            troop.GainEP(ep);
+                            GainBattleExp(troop, expEvent);
                         }
                     }
 
@@ -831,17 +896,27 @@ namespace Sango.Core
                     overrideData = Tools.OverrideData<int>.Create(damage);
                     GameEvent.OnSkillDamageBuildingDurability?.Invoke(this, beAtkBuildingBase, overrideData);
                     damage = overrideData.ValueAndRecycle;
-                    if (beAtkBuildingBase.ChangeDurability(-damage, this))
+
+                    // 【陷阱引爆要传部队，不能传技能对象】
+                    // BuildingTrapEffect.TrapChain:145 用 `atk as Troop` 取引爆者，再用它的 cell
+                    // 当 srcCell 决定火球 / 落石的滚动方向（对齐原版 trap_anim 的 src_pos）。
+                    // 传 this（技能对象）时 attacker 恒为 null → 火球不滚、落石退化成半径 1，
+                    // 与 AI 打分（CalcOpen311TrapScore 按方向预测）的判定不一致，
+                    // 会出现"AI 以为能炸到人、实际一座陷阱白烧"。
+                    // 普通建筑仍传 this，保持既有外交关系值结算口径不变。
+                    SangoObject atkSource = this;
+                    if (troop != null && beAtkBuildingBase is Building atkTrap && BuildingTrapEffect.CanTrigger(atkTrap))
+                        atkSource = troop;
+
+                    if (beAtkBuildingBase.ChangeDurability(-damage, atkSource))
                     {
-                        int ep = damage + GainValueConfig.Merit(GainPlace.CombatDestroyBuilding);
-                        troop.GainEP(ep);
+                        GainBattleExp(troop, expEvent);
 
                         Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 破坏建筑: <{beAtkBuildingBase.Name}>");
                     }
                     else
                     {
-                        int ep = damage;
-                        troop.GainEP(ep);
+                        GainBattleExp(troop, expEvent);
 
                         // 城池反击
                         if (targetBuilding == beAtkBuildingBase)
@@ -867,7 +942,17 @@ namespace Sango.Core
 
             DoOffset(troop, targetTroop, targetDamage);
 
-            DoEffect(troop, spellCell, tempCellList);
+            int effectTargetCount = DoEffect(troop, spellCell, tempCellList);
+
+            // 【原版对齐】计略施放成功给施法方势力技巧点：
+            //   s11_sys_anim_unit_strategy.cpp:1323-1329 `add_strategy_exp`：
+            //     `int tech_point = unit_add_exp_with_kouseki(unit,
+            //          get_exp(Exp_KakeiMiss + 3 * strategy_id - hit - critical), -1, mul, off_screen);`
+            //     `if (tech_point > 0) force_add_tech_point(force, pos, tech_point, off_screen);`
+            //   其中 mul = 命中目标数，tech_point 取 Exp 表该计略格的 tech_point（0 / 20 / 30）。
+            //   miss 的格恒为 0，所以失败不给 —— 本项目 Action 只在 CheckSuccess 通过后才执行，天然一致。
+            // `strategyTechniquePointGiven` 防重：同一次施法可能同时经渲染事件与时间轴两处调到 Action。
+            ApplyStrategyExp(troop, effectTargetCount, damagedTargetCount, criticalFactor > 100);
 
             if (troop.IsAlive)
             {
@@ -877,9 +962,64 @@ namespace Sango.Core
             GameEvent.OnSkillActionOver?.Invoke(this);
         }
 
+        /// <summary>
+        /// 结算计略施放成功的功绩 / 能力经验 / 势力技巧点。
+        ///
+        /// 【原版对齐】s11_sys_anim_unit_strategy.cpp:1323-1329 <c>add_strategy_exp</c>：
+        /// <code>
+        /// int tech_point = unit_add_exp_with_kouseki(unit,
+        ///     get_exp(Exp_KakeiMiss + 3 * strategy_id - hit - critical), -1, mul, off_screen);
+        /// if (tech_point &gt; 0) force_add_tech_point(force, pos, tech_point, off_screen);
+        /// </code>
+        /// 即：功绩 / 能力经验按 Exp 行原值给全队每人一份；技巧点乘 <c>mul</c>（命中目标数）。
+        /// 本项目 Action 只在 CheckSuccess 通过后才执行，因此这里等价于"命中才给"（miss 行全 0）。
+        ///
+        /// 用 <c>strategyTechniquePointGiven</c> 防重：同一次施法可能同时经渲染事件与时间轴两处调到 Action；
+        /// 攻破城池的分支还会提前 return，所以结算点必须可重入。
+        /// </summary>
+        /// <param name="troop">施法方部队</param>
+        /// <param name="effectTargetCount">SkillEffect 实际命中的目标格数</param>
+        /// <param name="damagedTargetCount">实际受到伤害的目标数（部队 + 建筑）</param>
+        void ApplyStrategyExp(Troop troop, int effectTargetCount, int damagedTargetCount, bool critical)
+        {
+            if (!IsStrategy() || strategyTechniquePointGiven)
+                return;
+            strategyTechniquePointGiven = true;
+
+            if (troop == null)
+                return;
+
+            // 命中数：伤害目标与效果目标取较大值 —— 落雷这类纯伤害计略没有 SkillEffect，
+            // 而点火 / 上 buff 这类可能伤害为 0，只在 DoEffect 里命中。
+            int hitCount = System.Math.Max(effectTargetCount, damagedTargetCount);
+            if (hitCount <= 0) hitCount = 1;
+
+            // 计略的功绩差异在暴击行（伪报 / 扰乱 / 伏兵等 200）与命中行（100）；
+            // 技巧点两行相同，因此这里只影响功绩。
+            CombatExpEvent expEvent = skill.GetCombatExpEvent(true, critical);
+            troop.GainEP(expEvent, false, hitCount);
+        }
+
+        /// <summary>
+        /// 战斗（普攻 / 战法 / 反击）的 Exp 结算入口。
+        ///
+        /// 计略**不**从这里走：计略的功绩、能力经验、技巧点统一在 Action 末尾由
+        /// <see cref="ApplyStrategyExp"/> 按命中目标数结算一次（原版 add_strategy_exp 的 mul）。
+        /// 若这里也放行，火计这种"既有伤害又有 buff"的计略会走伤害分支再算一次，变成双倍。
+        /// </summary>
+        void GainBattleExp(Troop troop, CombatExpEvent expEvent, bool isDestroyEnemyTroop = false)
+        {
+            if (IsStrategy())
+                return;
+            troop.GainEP(expEvent, isDestroyEnemyTroop);
+        }
+
         public void DoOffset(Troop troop, Troop targetTroop, int targetDamage)
         {
             if (targetTroop == null || offsetAction == null || offsetAction.Length <= 0) return;
+
+            // 位移撞击的连带伤害按本技能的命中行结算（拿不到 Action 的 criticalFactor，用实例上记录的暴击倍率）。
+            CombatExpEvent expEvent = skill.GetCombatExpEvent(true, tempCriticalFactor > 100);
 
             // 位移结算前先记下目标所在格：结算后要判断"目标有没有真的被推走"，
             // 靠它给「猛者」这类特技（让被位移的敌方武将负伤）发信号。
@@ -947,14 +1087,13 @@ namespace Sango.Core
                                         {
                                             int blockDmg = targetDamage * this.blockFactor / 100;
                                             blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
-                                            int ep = blockDmg / 10;
                                             if (!blockTroop.IsAlive)
                                             {
-                                                ep += GainValueConfig.Merit(GainPlace.CombatDestroyTroop);
                                                 troop.GainTargetResource(blockTroop);
                                             }
                                             // 范围战法逐个结算，必须按当前目标是否被击破传递事实。
-                                            troop.GainEP(ep, !blockTroop.IsAlive);
+                                            // 位移撞击的连带伤害拿不到暴击倍率，按本技能的命中行取。
+                                            GainBattleExp(troop, expEvent, !blockTroop.IsAlive);
                                         }
                                         break;
                                     }
@@ -979,14 +1118,13 @@ namespace Sango.Core
                                         {
                                             int blockDmg = targetDamage * this.blockFactor / 100;
                                             blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
-                                            int ep = blockDmg / 10;
                                             if (!blockTroop.IsAlive)
                                             {
-                                                ep += GainValueConfig.Merit(GainPlace.CombatDestroyTroop);
                                                 troop.GainTargetResource(blockTroop);
                                             }
                                             // 范围战法逐个结算，必须按当前目标是否被击破传递事实。
-                                            troop.GainEP(ep, !blockTroop.IsAlive);
+                                            // 位移撞击的连带伤害拿不到暴击倍率，按本技能的命中行取。
+                                            GainBattleExp(troop, expEvent, !blockTroop.IsAlive);
 
                                         }
                                         break;
@@ -1100,11 +1238,19 @@ namespace Sango.Core
             }
         }
 
-        public void DoEffect(Troop troop, Cell spellCell, List<Cell> atkCellList)
+        /// <summary>
+        /// 施放技能效果（点火 / 上 buff / 治疗等）。
+        /// </summary>
+        /// <returns>
+        /// 实际施放了效果的目标格数量。计略技巧点要按命中数放大
+        /// （原版 s11_sys_anim_unit_strategy.cpp:1326 的 <c>mul</c> 参数），所以这里回传计数。
+        /// </returns>
+        public int DoEffect(Troop troop, Cell spellCell, List<Cell> atkCellList)
         {
             InitSkillEffects();
-            if (effects == null || effects.Count == 0) return;
+            if (effects == null || effects.Count == 0) return 0;
 
+            int castCount = 0;
             foreach (Cell target in atkCellList)
             {
                 Cell atkCell = target;
@@ -1114,6 +1260,7 @@ namespace Sango.Core
                     if (atkCell == spellCell || atkCell.troop != null || atkCell.building != null)
                     {
                         effects.ForEach(s => s.Action(target));
+                        castCount++;
                     }
                 }
                 else
@@ -1122,6 +1269,7 @@ namespace Sango.Core
                     if (beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
                     {
                         effects.ForEach(s => s.Action(target));
+                        castCount++;
                     }
                     else
                     {
@@ -1129,10 +1277,12 @@ namespace Sango.Core
                         if (beAtkBuildingBase != null && this.canDamageBuilding && (troop.IsEnemy(beAtkBuildingBase) || this.canDamageTeam))
                         {
                             effects.ForEach(s => s.Action(target));
+                            castCount++;
                         }
                     }
                 }
             }
+            return castCount;
         }
 
         public void PlaySkillVisual(Troop troop, Cell spellCell, List<Cell> atkCellList)
@@ -1145,6 +1295,11 @@ namespace Sango.Core
 
         public override void Clear()
         {
+            // 实例会被对象池复用，计略技巧点的一次性标记必须随清理复位，
+            // 否则复用后的第一次计略会因为标记残留而拿不到技巧点。
+            strategyTechniquePointGiven = false;
+            assistAttackFlag = false;
+            forcedExpEvent = -1;
             if (effects != null)
             {
                 effects.ForEach(s => s.Clear());

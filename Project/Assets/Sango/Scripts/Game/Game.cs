@@ -255,7 +255,11 @@ namespace Sango.Core
                 // 刻意只在 Scenario.Run 这一层拦，而不像上面单挑 / 舌战那样整帧 return：
                 // 那两个是独占演出，这里只要求"世界别在我选势力的时候继续跑"，
                 // 地图输入与对话框必须照常响应，否则玩家取消不掉界面会被自己锁死。
-                if (!Scenario.Cur.useThreadRun && !ForceControlService.IsTurnBlocked)
+                // 【必须等世界初始化完成】IsAlive 只在 Scenario.Start() 末尾置 true。
+                // 读档 / 开局若在 OnWorldLoaded 中途中断（异常、回调丢失），Cur 已经被赋值，
+                // 这里就会开始推进回合 —— 玩家看到的是"loading 没关、地图没铺完，回合却在走"。
+                // Scenario.Start() 内部那次 Run() 是直接调用，不受此守卫影响。
+                if (Scenario.Cur.IsAlive && !Scenario.Cur.useThreadRun && !ForceControlService.IsTurnBlocked)
                     Scenario.Cur.Run();
             }
         }

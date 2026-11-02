@@ -3,24 +3,35 @@ using System.Collections.Generic;
 namespace Sango.Core.Player
 {
     /// <summary>
-    /// 玩家侧"能力研究"指令。
+    /// 玩家侧"能力研究"指令：选一条可研究的能力 → 扣金与行动力 → 开始若干旬研究。
     ///
     /// 对齐出处：Open311 `force_research_ability`（s11_game_ai_force_cmd.cpp:754-817）的**玩家分支** ——
     /// 原版玩家通过独立的"能力研究"指令选一条 Ability 开始研究，AI 走同一套接口自动挑。
     ///
-    /// 【交互】本指令**不需要自己的窗口**：点菜单后直接弹通用对象选择器
-    /// （<see cref="AbilitySelectSystem"/>），选一条可研究的能力即开始研究。
-    /// 因此 <c>windowName</c> 留空，并重写 <see cref="OnDestroy"/> 避免关闭不存在的窗口。
+    /// 【窗口】<c>window_city_ability_research</c>（<see cref="UICityAbilityResearch"/>）：
+    /// 以能力路径图展示全部条目，区分"已研究 / 可研究 / 前置未满足"三态。
+    /// 早期版本调通用列表选择器（<see cref="AbilitySelectSystem"/>），
+    /// 但能力表 94/98 条带前置、61 条前置跨分类，列表看不出路径，已替换为图。
+    ///
+    /// 【与"能力培育"的关系】研究是势力级解锁（本类）→ 培育让具体武将学会
+    /// （<see cref="CityAbilityLearn"/>）。
     /// </summary>
     [GameSystem]
     public class CityAbilityResearch : CityBaseSystem
     {
+        /// <summary>当前选中的能力（窗口读）</summary>
+        public Ability selectedAbility;
+
+        /// <summary>当前可研究的能力列表（窗口读，来自 <see cref="AbilityStudySystem.GetResearchableAbilities"/>）</summary>
+        public List<Ability> optionList = new List<Ability>();
+
         public CityAbilityResearch()
         {
             customTitleName = "能力研究";
             customMenuName = "势力/能力研究";
             // 排在"计略"组（3950~3970）之后、"君主"组（4000+）之前
             customMenuOrder = 3980;
+            windowName = "window_city_ability_research";
         }
 
         /// <summary>
@@ -59,51 +70,72 @@ namespace Sango.Core.Player
         }
 
         /// <summary>
-        /// 进入指令：不打开自己的窗口，直接弹通用能力选择器。
+        /// 进入指令：收集可研究项（由 <see cref="CityBaseSystem.OnEnter"/> 调用，
+        /// 随后 <c>base.OnEnter</c> 会打开 <see cref="CityBaseSystem.windowName"/>）。
         /// </summary>
-        public override void OnEnter()
+        public override void RecommandPersonList()
         {
-            // 注意：不调 base.OnEnter() —— 那会 Window.Open(windowName)，而本指令没有独立窗口
+            personList.Clear();
+            optionList.Clear();
+            selectedAbility = null;
+
             Force force = TargetCity != null ? TargetCity.BelongForce : null;
-            if (force == null || Scenario.Cur == null)
-            {
-                Done();
+            Scenario scenario = Scenario.Cur;
+            if (force == null || scenario == null)
                 return;
-            }
 
-            List<Ability> candidates = AbilityStudySystem.GetResearchableAbilities(force, Scenario.Cur);
-            if (candidates.Count == 0)
-            {
-                Done();
-                return;
-            }
-
-            AbilitySelectSystem selector = GameSystem.GetSystem<AbilitySelectSystem>();
-            if (selector == null)
-            {
-                Done();
-                return;
-            }
-
-            selector.Start(candidates, null, 1, OnAbilitySelected, null, "选择研究项目", -1);
+            optionList = AbilityStudySystem.GetResearchableAbilities(force, scenario);
         }
 
         /// <summary>
-        /// 选择器回调：在君主所在城出资开始研究。
+        /// 选中一条能力（窗口在节点点击时调用）。
         /// </summary>
-        /// <param name="abilities">选中的能力，单选时长度为 1</param>
-        void OnAbilitySelected(List<Ability> abilities)
+        /// <param name="ability">能力；传 null 表示清空选中</param>
+        public void SelectAbility(Ability ability)
         {
-            if (abilities == null || abilities.Count <= 0)
+            selectedAbility = ability;
+        }
+
+        /// <summary>
+        /// 是否可以确认（窗口用来控制按钮置灰）。
+        /// </summary>
+        /// <returns>已选中一条可研究能力返回 true</returns>
+        public bool CanSure()
+        {
+            return selectedAbility != null;
+        }
+
+        /// <summary>
+        /// 研究消耗与耗时（窗口展示用）。
+        /// 耗时 = <c>ability.timeCost * 3</c>（timeCost 单位是"月"，按旬计需 ×3，
+        /// 见 <see cref="AbilityStudySystem.StartResearchAt"/>）。
+        /// </summary>
+        /// <returns>形如「消耗 300 金 · 行动力 20 · 耗时 6 旬」；未选项目时不显示耗时</returns>
+        public string GetResearchCostText()
+        {
+            int gold = AbilityStudySystem.ResearchGoldCost;
+            int actionPoint = AbilityStudySystem.ResearchActionPointCost;
+            string text = $"消耗 {gold} 金 · 行动力 {actionPoint}";
+            if (selectedAbility != null)
+                text += $" · 耗时 {System.Math.Max(selectedAbility.timeCost * 3, 1)} 旬";
+            return text;
+        }
+
+        /// <summary>
+        /// 确认执行：开始研究并结束指令；失败时提示原因且不关窗，便于玩家改选。
+        /// </summary>
+        public override void DoJob()
+        {
+            Force force = TargetCity != null ? TargetCity.BelongForce : null;
+            if (selectedAbility == null || force == null || Scenario.Cur == null)
             {
                 Done();
                 return;
             }
 
-            Force force = TargetCity != null ? TargetCity.BelongForce : null;
             City payCity = ResolvePayCity(force, TargetCity);
-
-            if (payCity == null || !AbilityStudySystem.StartResearchAt(force, Scenario.Cur, payCity, abilities[0]))
+            if (payCity == null
+                || !AbilityStudySystem.StartResearchAt(force, Scenario.Cur, payCity, selectedAbility))
             {
                 int x = TargetCity != null ? TargetCity.x : 0;
                 int y = TargetCity != null ? TargetCity.y : 0;
@@ -111,20 +143,9 @@ namespace Sango.Core.Player
                 PlayerMessage.AddTextMessage(payCity == null
                     ? "能力研究无法开始：找不到可出资的城池（君主不在城中）。"
                     : "能力研究无法开始：资金或行动力不足，或研究条件不满足。", force, x, y);
+                return;
             }
 
-            // 不在这里 Done()：Done 会清空系统栈但**不关选择器窗口**
-            // （只有 Back() 才会触发 ObjectSelectSystem.OnDestroy → Close）。
-            // 因此让选择器自己 Back() 退栈关窗，随后触发本类的 OnBack。
-        }
-
-        /// <summary>
-        /// 选择器退栈后结束本指令。
-        /// </summary>
-        /// <param name="whoGone">刚退栈的系统</param>
-        public override void OnBack(ICommandEvent whoGone)
-        {
-            base.OnBack(whoGone);
             Done();
         }
 
@@ -149,13 +170,6 @@ namespace Sango.Core.Player
             if (fallback != null && fallback.BelongForce == force)
                 return fallback;
             return null;
-        }
-
-        /// <summary>
-        /// 本指令不打开自己的窗口，因此不调 base（那会 Close 一个从未打开的 windowName）。
-        /// </summary>
-        public override void OnDestroy()
-        {
         }
     }
 }

@@ -116,15 +116,7 @@ namespace Sango.Core
             int abilityId = force.researchingAbilityId;
             Ability ability = GetAbility(scenario, abilityId);
 
-            // ① 记录"研究完成前"哪些隐藏槽位已是可研究状态 —— :1417-1423
-            bool[] researchableBefore = new bool[Force.MaxHiddenAbilityCount];
-            for (int i = 0; i < Force.MaxHiddenAbilityCount; i++)
-            {
-                researchableBefore[i] = IsAbilityResearchable(force,
-                    GetAbility(scenario, force.GetHiddenAbilityId(i)));
-            }
-
-            // ② 标记研究完成 —— :1424-1426
+            // ① 标记研究完成 —— :1424-1426
             force.researchingAbilityId = -1;
             force.researchingTurnsLeft = 0;
             if (force.learnedAbilityIds == null)
@@ -137,22 +129,52 @@ namespace Sango.Core
 
             Sango.Log.Info($"*[能力研究]{force.Name} 完成研究「{ability?.Name ?? abilityId.ToString()}」");
 
-            // ③ "隐藏能力发现"：研究前不可研究、研究后变为可研究的槽位 —— :1442-1455
-            //    本质不是"随机抽一条"，而是"刚研究出来的前置能力让某条隐藏能力变得可研究"。
-            //    原版只播一次演出，这里同样只报第一条。
-            for (int i = 0; i < Force.MaxHiddenAbilityCount; i++)
-            {
-                if (researchableBefore[i])
-                    continue;
-                Ability hidden = GetAbility(scenario, force.GetHiddenAbilityId(i));
-                if (hidden == null)
-                    continue;
-                if (!IsAbilityResearchable(force, hidden))
-                    continue;
-                Sango.Log.Info($"*[能力研究]{force.Name} 发现隐藏能力「{hidden.Name}」");
-                break;
-            }
+            // ② 隐藏能力激活：刚研究出来的前置可能让某条隐藏能力达标 —— :1442-1455
+            //    与原版"开局随机填槽"不同，这里是达成制：激活只写槽位 + 打"待播动画"标记，
+            //    玩家下一次打开研究界面才看到"从格子里出现"的演出。
+            TryActivateHiddenAbilities(force, scenario);
+
+            // ③ 玩家势力强提示 —— 原版研究完成发生在君主命令计时结束时
+            //    （s11_sys_person_order_kunshu.cpp:1417-1455），这里补一次演出 + 消息栏播报
+            if (force.IsPlayer)
+                NotifyResearchComplete(force, ability, abilityId);
+
             return true;
+        }
+
+        /// <summary>
+        /// 研究完成的玩家提示：RenderEvent 动画窗口（强提示）+ 消息栏播报。
+        ///
+        /// 强提示走 <see cref="Sango.Render.WindowEvent"/>，与技法研究完成
+        /// （<c>TechniqueResearch</c> 里的 <c>window_technique_complete</c>）完全同一套机制：
+        /// 窗口播完动画自动关闭，RenderEvent 队列据此继续往下走。
+        /// </summary>
+        /// <param name="force">完成研究的势力</param>
+        /// <param name="ability">完成的能力（数据缺失时为 null）</param>
+        /// <param name="abilityId">能力 Id（数据缺失时用于文案兜底）</param>
+        static void NotifyResearchComplete(Force force, Ability ability, int abilityId)
+        {
+            if (force == null)
+                return;
+
+            string abilityName = ability != null ? ability.Name : abilityId.ToString();
+
+            // 强提示窗口：能力数据缺失时不播（窗口没有可显示的内容）
+            if (ability != null && Sango.Render.RenderEvent.Instance != null)
+            {
+                Sango.Render.WindowEvent windowEvent =
+                    Sango.Render.RenderEvent.Instance.Create<Sango.Render.WindowEvent>();
+                windowEvent.Init("window_ability_complete", new object[] { ability });
+                Sango.Render.RenderEvent.Instance.Add(windowEvent);
+            }
+
+            // 消息栏：坐标取君主所在城，玩家点这条消息可以定位过去
+            City city = force.mGovernor != null
+                ? (force.mGovernor.BelongCity ?? force.mGovernor.CurrentCity)
+                : null;
+            Sango.Core.Player.PlayerMessage.AddTextMessage(
+                $"【能力研究】{force.Name} 完成研究「{abilityName}」，武将们可以开始培育了。",
+                force, city != null ? city.x : 0, city != null ? city.y : 0);
         }
 
         /// <summary>
@@ -393,135 +415,150 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 开局初始化势力的隐藏能力槽。
+        /// 10 个隐藏槽位各自的种类（<see cref="AbilityStatKind"/>），下标 = 槽位号。
         ///
-        /// 对齐出处：s11_sys_scen_force.cpp:701-802 force_init_hidden_ability。
-        /// 流程：
-        ///   ① 统计势力四维总和，找最弱的一维；
-        ///   ② 从 {0,1,2,3} 随机取 2 个槽位；
-        ///   ③ 按最弱维覆盖候选表，再随机取 2 个；
-        ///   ④ 从剩余槽位补足到 5 个；
-        ///   ⑤ 对每个启用槽位，从"Skill 类且 hiddenSlot == 该槽"的能力里随机填一条。
         /// <para>
-        /// 数据前提：`Abilities.json` 里需要有 `category = Skill` 且 `hiddenSlot` 在 0~9 的条目。
-        /// 当前数据表只有基础能力与兵种适性（都不是 Skill 类），因此本方法实际不会填任何槽 ——
-        /// 这与"原版剧本没有对应能力数据"的等价结果一致，不会产生错误状态。
+        /// 对齐出处：<c>force_init_hidden_ability</c>（s11_sys_scen_force.cpp:739-765）按势力最弱维挑选可用槽位 ——
+        /// 统率 → {1, 6}、武力 → {0, 4, 5}、智力 → {3, 9}、政治 → {2, 7, 8, 3, 9}。
+        /// 槽位 3 / 9 同时出现在政治与智力两组里，但落到具体能力上，每个槽的候选维度仍唯一。
+        /// 本项目 <c>Abilities.json</c> 里每个槽的 4~5 条候选 statKind 完全一致，与上表逐项吻合：
+        /// 0 武(0) / 1 统(1) / 2 政(2) / 3 智(3) / 4 武(0) / 5 武(0) / 6 统(1) / 7 政(2) / 8 政(2) / 9 智(3)。
+        /// </para>
+        /// <para>
+        /// 用途：隐藏能力**只能落在同种类的位置上**（界面上即同一种底色的格子），
+        /// 激活时用它做一次校验，防止 Json 里有人把异类能力塞进某个槽。
+        /// 槽位坐标与原版研究界面 10 个隐藏位一一对应（水神/血路/指导/反计/疾驰/神将/飞将/微收/仁政/神算）。
+        /// </para>
+        /// </summary>
+        static readonly int[] HiddenSlotStatKinds = { 0, 1, 2, 3, 0, 0, 1, 2, 2, 3 };
+
+        /// <summary>
+        /// 取隐藏槽位的种类（<see cref="AbilityStatKind"/>）。
+        /// 界面按它选种类底图，激活按它判"同种类才能进槽"。
+        /// </summary>
+        /// <param name="slot">槽位下标 0~9</param>
+        /// <returns>种类（0 武力 / 1 统率 / 2 政治 / 3 智力）；越界返回 -1</returns>
+        public static int GetHiddenSlotStatKind(int slot)
+        {
+            if (slot < 0 || slot >= HiddenSlotStatKinds.Length)
+                return -1;
+            return HiddenSlotStatKinds[slot];
+        }
+
+        /// <summary>
+        /// 清理"不符合达成制"的隐藏槽内容 —— 只用于旧存档迁移。
+        ///
+        /// <para>
+        /// 【为什么需要】激活制改造之前，槽位沿用原版 <c>force_init_hidden_ability</c>
+        /// （s11_sys_scen_force.cpp:701-802）的"开局随机预填 5 个槽"，槽里可能躺着一条
+        /// **前置根本没研究**的能力。旧存档读进来后槽内容原样保留，
+        /// 界面（<see cref="Sango.UI.UIAbilityStudyArea"/> → <c>FilterHiddenSlots</c>）
+        /// 按"槽内容"把它画出来 —— 玩家就会看到一条自己既没研究前置、也点不动的隐藏能力。
+        /// </para>
+        /// <para>
+        /// 【判据】与 <see cref="TryActivateHiddenAbilities"/> 完全对齐：
+        /// 能力存在、且（已研究 或（前置全部满足 且 与槽位种类匹配））。不满足的一律清空，
+        /// 随后由 <see cref="TryActivateHiddenAbilities"/> 按达成制重新填 —— 干净、无残留。
         /// </para>
         /// </summary>
         /// <param name="force">势力</param>
         /// <param name="scenario">场景对象</param>
-        public static void InitForceHiddenAbilities(Force force, Scenario scenario)
+        /// <returns>被清空的槽位数量</returns>
+        public static int PruneHiddenAbilitySlots(Force force, Scenario scenario)
         {
-            if (force == null || scenario == null)
-                return;
+            if (force == null || scenario == null || force.hiddenAbilityIds == null)
+                return 0;
 
-            // 先确保表里有 Skill 类条目，否则下面按槽位挑能力永远是空集
-            EnsureSkillAbilities(scenario);
-
-            // ① 四维总和（0 统率 / 1 武力 / 2 智力 / 3 政治）
-            int[] sum = new int[4];
-            for (int i = 0; i < scenario.personSet.Count; i++)
-            {
-                Person person = scenario.personSet[i];
-                if (person == null || !person.IsAlive || person.BelongForce != force)
-                    continue;
-                if (person.state != (int)PersonStateType.Governor
-                    && person.state != (int)PersonStateType.Commander
-                    && person.state != (int)PersonStateType.Leader
-                    && person.state != (int)PersonStateType.Normal)
-                    continue;
-                if (person.command != null) sum[0] += person.command.baseValue;
-                if (person.strength != null) sum[1] += person.strength.baseValue;
-                if (person.intelligence != null) sum[2] += person.intelligence.baseValue;
-                if (person.politics != null) sum[3] += person.politics.baseValue;
-            }
-
-            // ② 最弱维：从武力起，依次与统率 / 政治 / 智力比较 —— :714-720
-            int minStat = 1;
-            if (sum[minStat] > sum[0]) minStat = 0;
-            if (sum[minStat] > sum[3]) minStat = 3;
-            if (sum[minStat] > sum[2]) minStat = 2;
-
-            bool[] enabled = new bool[Force.MaxHiddenAbilityCount];
-            int[] table = new int[Force.MaxHiddenAbilityCount];
-            int size;
-
-            // ③ 初值 {0,1,2,3} 随机取 2 —— :726-737
-            table[0] = 0;
-            table[1] = 1;
-            table[2] = 2;
-            table[3] = 3;
-            size = 4;
-            for (int i = 2; i > 0; i--, size--)
-            {
-                int index = GameRandom.Range(0, size);
-                enabled[table[index]] = true;
-                table[index] = table[size - 1];
-            }
-
-            // ④ 按最弱维覆盖候选 —— :739-772
-            switch (minStat)
-            {
-                case 0:     // 统率
-                    table[0] = 1; table[1] = 6; size = 2;
-                    break;
-                case 1:     // 武力
-                    table[0] = 0; table[1] = 4; table[2] = 5; size = 3;
-                    break;
-                case 2:     // 智力
-                    table[0] = 3; table[1] = 9; size = 2;
-                    break;
-                default:    // 政治
-                    table[0] = 2; table[1] = 7; table[2] = 8; table[3] = 3; table[4] = 9; size = 5;
-                    break;
-            }
-            for (int i = 2; i > 0; i--, size--)
-            {
-                int index = GameRandom.Range(0, size);
-                enabled[table[index]] = true;
-                table[index] = table[size - 1];
-            }
-
-            // ⑤ 收集未启用槽位 —— :774-779
-            size = 0;
-            for (int i = 0; i < Force.MaxHiddenAbilityCount; i++)
-            {
-                if (!enabled[i])
-                    table[size++] = i;
-            }
-
-            // ⑥ 从剩余补足到 5 个 —— :781-786
-            for (int i = size - 5; i > 0; i--, size--)
-            {
-                int index = GameRandom.Range(0, size);
-                enabled[table[index]] = true;
-                table[index] = table[size - 1];
-            }
-
-            // ⑦ 每个启用槽位填一条 Skill 类能力 —— :788-801
             SangoObjectSet<Ability> abilities = scenario.CommonData != null ? scenario.CommonData.Abilities : null;
             if (abilities == null)
-                return;
+                return 0;
 
-            for (int slot = 0; slot < Force.MaxHiddenAbilityCount; slot++)
+            int pruned = 0;
+            for (int slot = 0; slot < force.hiddenAbilityIds.Length; slot++)
             {
-                if (!enabled[slot])
+                int abilityId = force.hiddenAbilityIds[slot];
+                if (abilityId < 0)
                     continue;
-                List<Ability> candidates = new List<Ability>();
-                int currentSlot = slot;
-                abilities.ForEach(ability =>
-                {
-                    if (ability == null || !ability.IsSkill)
-                        return;
-                    if (ability.hiddenSlot != currentSlot)
-                        return;
-                    candidates.Add(ability);
-                });
-                if (candidates.Count == 0)
+
+                Ability ability = GetAbility(scenario, abilityId);
+                int slotKind = GetHiddenSlotStatKind(slot);
+                bool keep = ability != null
+                    && (force.HasAbility(abilityId)
+                        || (ability.IsPrerequisiteMet(force.learnedAbilityIds)
+                            && slotKind >= 0 && ability.statKind == slotKind));
+
+                if (keep)
                     continue;
-                Ability pick = candidates[GameRandom.Range(0, candidates.Count)];
-                force.SetHiddenAbilityId(slot, pick.Id);
+
+                force.SetHiddenAbilityId(slot, -1);
+                force.ClearHiddenAbilityNew(slot);
+                pruned++;
             }
+
+            // 旧档一次性会清掉几十上百个槽，逐条打日志会刷屏 —— 只汇总一条
+            if (pruned > 0)
+                Sango.Log.Info($"*[能力研究]{force.Name} 清理 {pruned} 个不符合达成制的隐藏槽（旧存档随机预填迁移）");
+            return pruned;
+        }
+
+        /// <summary>
+        /// 尝试激活隐藏能力：把"前置已全部研究完成"的隐藏能力写进它所属的空槽位。
+        ///
+        /// <para>
+        /// 【与原版的差异】原版在开局用 <c>force_init_hidden_ability</c>
+        /// （s11_sys_scen_force.cpp:701-802）按"最弱维偏好"随机预填 5 个槽，玩家一开局就能看到这些
+        /// 隐藏能力（只是不可研究）。本项目改为**达成制**：槽位初始全空，只有当某条隐藏能力的
+        /// 前置被全部研究出来时才激活；激活只写槽位 + 打"待播动画"标记，
+        /// 真正的"出现"演出等玩家下一次打开研究界面才播（见 UIAbilityStudyArea）。
+        /// </para>
+        /// <para>
+        /// 一个槽位只装一条：同槽的多条候选里，先满足前置的那条占位，其余保持未激活。
+        /// </para>
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>本次新激活的槽位数量</returns>
+        public static int TryActivateHiddenAbilities(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null)
+                return 0;
+
+            SangoObjectSet<Ability> abilities = scenario.CommonData != null ? scenario.CommonData.Abilities : null;
+            if (abilities == null)
+                return 0;
+
+            int activated = 0;
+            abilities.ForEach(ability =>
+            {
+                if (ability == null || !ability.IsAlive)
+                    return;
+
+                int slot = ability.hiddenSlot;
+                if (slot < 0 || slot >= Force.MaxHiddenAbilityCount)
+                    return;
+                // 该槽已激活别的能力 —— 一槽一条
+                if (force.GetHiddenAbilityId(slot) >= 0)
+                    return;
+                // 已经研究出来的不再激活
+                if (force.HasAbility(ability.Id))
+                    return;
+                // 前置没研究完 —— 不激活
+                if (!ability.IsPrerequisiteMet(force.learnedAbilityIds))
+                    return;
+                // 种类不符 —— 隐藏能力只能落在同种类（同色）的位置上
+                int slotKind = HiddenSlotStatKinds[slot];
+                if (ability.statKind != slotKind)
+                {
+                    Sango.Log.Warning($"*[能力研究] 能力「{ability.Name}」种类 {ability.statKind} 与隐藏槽 {slot} 的种类 {slotKind} 不符，已跳过");
+                    return;
+                }
+
+                force.SetHiddenAbilityId(slot, ability.Id);
+                force.MarkHiddenAbilityNew(slot);
+                activated++;
+                Sango.Log.Info($"*[能力研究]{force.Name} 激活隐藏能力「{ability.Name}」（槽位 {slot}）");
+            });
+            return activated;
         }
 
         // ==================== 培育（第二层） ====================
@@ -943,12 +980,164 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 对指定武将发起研习任务（3 旬后由 <see cref="FinishStudyMission"/> 结算）。
+        /// 只做"这个武将能不能现在学这条能力"的判定，**不扣费、不派任务**。
         ///
-        /// 玩家主动操作，不掷概率。判定口径与 <see cref="GetLearnableAbilitiesFor"/>
-        /// 的玩家分支完全一致（原版 can_learn_order + System::can_learn），
-        /// **不套用 AI 挑人专属的前线 / 档位区间 / 驻在地 / 设施 / 兵力 / 适性 B 档**，
-        /// 保证"列表里能选就一定点得成功"。
+        /// 与 <see cref="BeginStudy"/> 共用同一套条件（二者必须永远一致）：
+        /// <see cref="BeginStudy"/> 内部就是先调本方法，通过后才执行。
+        /// 界面用它来决定"节点是否可点 / 确定键是否高亮"，因此这里必须能给出**具体原因**。
+        ///
+        /// 判定口径与 <see cref="GetLearnableAbilitiesFor"/> 的玩家分支一致
+        /// （原版 can_learn_order + System::can_learn），
+        /// **不套用 AI 挑人专属的前线 / 档位区间 / 驻在地 / 设施 / 兵力 / 适性 B 档**。
+        /// </summary>
+        /// <param name="person">要研习的武将</param>
+        /// <param name="ability">研习的能力</param>
+        /// <param name="city">出资城</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="gain">基础能力类的预计提升点数（适性 / 特技为 0）</param>
+        /// <param name="reason">不可执行的原因（可执行时为 null）</param>
+        /// <returns>可执行返回 true</returns>
+        public static bool CanStudy(Person person, Ability ability, City city, Scenario scenario,
+            out int gain, out string reason)
+        {
+            gain = 0;
+            reason = null;
+
+            if (person == null || ability == null || city == null || scenario == null)
+            {
+                reason = "数据无效";
+                return false;
+            }
+            // can_learn_order 口径（s11_sys_person_order_kunshu.cpp:1604-1625、:1634-1635）
+            if (!person.IsAlive)
+            {
+                reason = "武将已阵亡";
+                return false;
+            }
+            if (!person.IsFree)
+            {
+                reason = "武将当前不空闲（在部队中或已有任务）";
+                return false;
+            }
+            if (!person.IsHealthy)
+            {
+                reason = "武将有伤病在身";
+                return false;
+            }
+
+            // 不判 person 级"已学该 ability"：原版 System::can_learn 没有这条，
+            // 同一人可以对同一条基础能力/适性反复培育，直到数值或经验触及上限。
+            Force force = person.BelongForce;
+            if (force == null)
+            {
+                reason = "武将无所属势力";
+                return false;
+            }
+            if (!force.HasAbility(ability.Id))
+            {
+                reason = "该能力尚未研究完成";
+                return false;
+            }
+            if (force.GetAbilityLearnCount(ability.Id) >= ability.LearningLimitCount)
+            {
+                reason = "该能力的学习次数已用完";
+                return false;
+            }
+            if (city.gold < LearnGoldCost)
+            {
+                reason = $"资金不足（需 {LearnGoldCost} 金）";
+                return false;
+            }
+            var corps = city.BelongCorps;
+            if (corps != null && corps.ActionPoint < LearnActionPointCost)
+            {
+                reason = $"行动力不足（需 {LearnActionPointCost}）";
+                return false;
+            }
+
+            if (ability.IsBaseStat)
+            {
+                // 原版玩家侧 System::can_learn（s11_sys_scen_ability.cpp:48-53）只判两条：
+                // 培育经验未达上限、基础值 < 该能力上限。
+                // AI 的"档位区间 56~65 / 66~75 / 76~90"（s11_game_ai_force_cmd_learn.cpp:64-77）不适用。
+                PersonAttributeValue stat = GetAttribute(person, ability.personStatType);
+                if (stat == null)
+                {
+                    reason = "能力数据与武将属性不匹配";
+                    return false;
+                }
+                if (stat.baseValue >= ability.maxStat)
+                {
+                    reason = "该属性已达到本条能力的上限";
+                    return false;
+                }
+                // 培育通道剩余点数（经验达上限即 0，等同原版 can_learn 不通过）
+                int remainPoints = GetRemainingLearnPoints(stat, scenario);
+                if (remainPoints <= 0)
+                {
+                    reason = "该属性的培育经验已达上限";
+                    return false;
+                }
+
+                gain = System.Math.Min(ability.maxStat - stat.baseValue, StatGain);
+                gain = System.Math.Min(gain, remainPoints);
+                if (gain <= 0)
+                {
+                    reason = "该属性已无可提升空间";
+                    return false;
+                }
+            }
+            else if (ability.IsTroopAptitude)
+            {
+                PersonAbilityValue aptitude = GetAptitude(person, ability.troopKind);
+                if (aptitude == null)
+                {
+                    reason = "能力数据与兵种不匹配";
+                    return false;
+                }
+                if (aptitude.baseValue >= ability.targetAptitude)
+                {
+                    reason = "该兵种适性已达目标档位";
+                    return false;
+                }
+            }
+            else if (ability.IsSkill)
+            {
+                if (ability.skillId <= 0 || person.FeatureList == null)
+                {
+                    reason = "特技数据无效";
+                    return false;
+                }
+                if (person.HasFeatrue(ability.skillId))
+                {
+                    reason = "该武将已拥有此特技";
+                    return false;
+                }
+
+                // 原版玩家侧 System::can_learn（s11_sys_scen_ability.cpp:60-64）的
+                // case AbilityType_Skill 只判"未拥有该特技"，上面已判完。
+                // 驻在地 / 据点兵力 / 前线 / 都市设施 / 适性 B 档均为 AI 挑人专属
+                // （s11_game_ai_force_cmd_learn.cpp:189-386、:392-427），玩家侧一律不判。
+                if (scenario.GetObject<Feature>(ability.skillId) == null)
+                {
+                    reason = "特技数据无效";
+                    return false;
+                }
+            }
+            else
+            {
+                reason = "该能力类型不支持培育";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 对指定武将发起研习任务（<see cref="StudyTurns"/> 旬后由 <see cref="FinishStudyMission"/> 结算）。
+        ///
+        /// 玩家主动操作，不掷概率。所有条件都在 <see cref="CanStudy"/> 里，
+        /// 本方法只负责"扣费 + 派任务 + 记账"，保证界面上的可执行判定与真正执行永远同源。
         /// </summary>
         /// <param name="person">要研习的武将</param>
         /// <param name="ability">研习的能力</param>
@@ -957,74 +1146,62 @@ namespace Sango.Core
         /// <returns>是否成功发起</returns>
         public static bool BeginStudy(Person person, Ability ability, City city, Scenario scenario)
         {
-            if (person == null || ability == null || city == null || scenario == null)
+            if (!CanStudy(person, ability, city, scenario, out int gain, out string reason))
+            {
+                Sango.Log.Warning($"[能力培育] 无法开始研习：{reason}");
                 return false;
-            if (!person.IsAlive || !person.IsFree)
-                return false;
-            // 健康判据 —— 原版 can_learn_order（s11_sys_person_order_kunshu.cpp:1634-1635）
-            if (!person.IsHealthy)
-                return false;
-            // 不判 person 级"已学该 ability"：原版 System::can_learn 没有这条，
-            // 同一人可以对同一条基础能力/适性反复培育，直到数值或经验触及上限。
+            }
 
             Force force = person.BelongForce;
-            if (force == null || !force.HasAbility(ability.Id))
-                return false;
-            if (force.GetAbilityLearnCount(ability.Id) >= ability.LearningLimitCount)
-                return false;
-            if (city.gold < LearnGoldCost)
-                return false;
-
-            int gain = 0;
-            if (ability.IsBaseStat)
-            {
-                // 原版玩家侧 System::can_learn（s11_sys_scen_ability.cpp:48-53）只判两条：
-                // 培育经验未达上限、基础值 < 该能力上限。
-                // AI 的"档位区间 56~65 / 66~75 / 76~90"（s11_game_ai_force_cmd_learn.cpp:64-77）不适用。
-                PersonAttributeValue stat = GetAttribute(person, ability.personStatType);
-                if (stat == null || stat.baseValue >= ability.maxStat)
-                    return false;
-                // 培育通道剩余点数（经验达上限即 0，等同原版 can_learn 不通过）
-                int remainPoints = GetRemainingLearnPoints(stat, scenario);
-                if (remainPoints <= 0)
-                    return false;
-
-                gain = System.Math.Min(ability.maxStat - stat.baseValue, StatGain);
-                gain = System.Math.Min(gain, remainPoints);
-                if (gain <= 0)
-                    return false;
-            }
-            else if (ability.IsTroopAptitude)
-            {
-                PersonAbilityValue aptitude = GetAptitude(person, ability.troopKind);
-                if (aptitude == null || aptitude.baseValue >= ability.targetAptitude)
-                    return false;
-            }
-            else if (ability.IsSkill)
-            {
-                if (ability.skillId <= 0 || person.HasFeatrue(ability.skillId))
-                    return false;
-                if (person.FeatureList == null)
-                    return false;
-
-                // 原版玩家侧 System::can_learn（s11_sys_scen_ability.cpp:60-64）的
-                // case AbilityType_Skill 只判"未拥有该特技"，上面已判完。
-                // 驻在地 / 据点兵力 / 前线 / 都市设施 / 适性 B 档均为 AI 挑人专属
-                // （s11_game_ai_force_cmd_learn.cpp:189-386、:392-427），玩家侧一律不判。
-                if (scenario.GetObject<Feature>(ability.skillId) == null)
-                    return false;
-            }
-            else
-            {
-                return false;
-            }
-
             city.AddGold(-LearnGoldCost);
             city.BelongCorps?.ReduceActionPoint(LearnActionPointCost);
             person.SetMission(MissionType.PersonStudyAbility, city, StudyTurns, ability.Id, gain);
 
             Sango.Log.Info($"*[能力培育]{force.Name} 的 {person.Name} 开始研习「{ability.Name}」（{StudyTurns} 旬，{city.Name}）");
             return true;
+        }
+
+        /// <summary>
+        /// 剩余可学习次数 = 学习次数上限 - 本势力已学次数。
+        /// 对齐出处：Open311 `Ability::get_learning_limit_count()` 与 `Force::get_learning_counter()` 的差值。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="ability">能力</param>
+        /// <returns>剩余次数（下限 0）</returns>
+        public static int GetRemainLearnCount(Force force, Ability ability)
+        {
+            if (ability == null)
+                return 0;
+            int learned = force != null ? force.GetAbilityLearnCount(ability.Id) : 0;
+            return System.Math.Max(0, ability.LearningLimitCount - learned);
+        }
+
+        /// <summary>
+        /// 取"本势力已研究完毕"的指定大类能力。
+        ///
+        /// 与 <see cref="GetLearnedAbilities"/> 的区别：本方法**不排除学习次数已满的能力** ——
+        /// 培育界面要把它们也摆出来（显示"剩 0"并压暗），否则玩家会以为这条能力消失了。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="category">能力大类</param>
+        /// <returns>已研究的能力列表（按能力表顺序）</returns>
+        public static List<Ability> GetResearchedAbilities(Force force, Scenario scenario, AbilityCategory category)
+        {
+            List<Ability> result = new List<Ability>();
+            SangoObjectSet<Ability> abilities = scenario?.CommonData?.Abilities;
+            if (abilities == null || force == null)
+                return result;
+
+            abilities.ForEach(ability =>
+            {
+                if (ability == null || ability.category != (int)category)
+                    return;
+                if (!force.HasAbility(ability.Id))
+                    return;
+                result.Add(ability);
+            });
+            return result;
         }
 
         // ==================== 培育任务（第三层：任务结算） ====================
@@ -1067,13 +1244,69 @@ namespace Sango.Core
             if (city == null)
                 return false;
 
+            bool finished;
             if (ability.IsBaseStat)
-                return ApplyBaseStat(person, ability, city, force, scenario, gainHint);
+                finished = ApplyBaseStat(person, ability, city, force, scenario, gainHint);
+            else if (ability.IsTroopAptitude)
+                finished = ApplyTroopAptitude(person, ability, city, force);
+            else if (ability.IsSkill)
+                finished = ApplySkill(person, ability, city, force, scenario);
+            else
+                return false;
+
+            // 结算成功 → 玩家侧反馈（武将对话框 + 消息栏）。失败（人已换势力 / 数据失效）不打扰玩家。
+            if (finished)
+                NotifyStudyComplete(person, ability, force, city);
+
+            return finished;
+        }
+
+        /// <summary>
+        /// 培育完成的玩家反馈：武将对话框（走 RenderEvent 队列）+ 消息栏播报。
+        ///
+        /// <para>
+        /// 【为什么对话框要进 RenderEvent】培育任务是在回合结算时到期
+        /// （<see cref="Person.UpdateMission"/> → 本方法），那一刻可能还排着部队移动 / 城池结算的演出；
+        /// 直接 <c>GameDialog.Open</c> 会跟它们抢窗口，所以排进队列，轮到本事件时再弹。
+        /// </para>
+        /// <para>AI 势力静默结算，否则回合推进会被一堆对话框拖住。</para>
+        /// </summary>
+        /// <param name="person">完成研习的武将</param>
+        /// <param name="ability">研习的能力</param>
+        /// <param name="force">所属势力</param>
+        /// <param name="city">所在城（可为空）</param>
+        static void NotifyStudyComplete(Person person, Ability ability, Force force, City city)
+        {
+            if (person == null || ability == null || force == null || !force.IsPlayer)
+                return;
+
+            // 消息栏：与"研究完成"同一入口，玩家在消息列表里能看到谁学成了什么
+            Sango.Core.Player.PlayerMessage.AddTextMessage(
+                $"【能力培育】{person.Name} 研习「{ability.Name}」完成（{city?.Name}）",
+                force, city != null ? city.x : 0, city != null ? city.y : 0);
+
+            // 武将对话框：按能力大类换台词，第一人称更能体现"武将反馈"
+            if (Sango.Render.RenderEvent.Instance == null)
+                return;
+
+            Sango.Render.PersonStudyCompleteEvent studyEvent =
+                Sango.Render.RenderEvent.Instance.Create<Sango.Render.PersonStudyCompleteEvent>();
+            studyEvent.Init(person, BuildStudyCompleteLine(ability));
+            Sango.Render.RenderEvent.Instance.Add(studyEvent);
+        }
+
+        /// <summary>按能力大类生成武将在对话框里说的话</summary>
+        /// <param name="ability">研习的能力</param>
+        /// <returns>台词</returns>
+        static string BuildStudyCompleteLine(Ability ability)
+        {
+            if (ability == null)
+                return "主公，属下闭关研习已有所成！";
             if (ability.IsTroopAptitude)
-                return ApplyTroopAptitude(person, ability, city, force);
+                return $"主公，属下已通晓「{ability.Name}」之要领，率此军征战再无滞碍！";
             if (ability.IsSkill)
-                return ApplySkill(person, ability, city, force, scenario);
-            return false;
+                return $"主公，属下已习得特技「{ability.Name}」，必不负主公厚望！";
+            return $"主公，属下闭关研习「{ability.Name}」已有所成，日后定当更加尽力！";
         }
 
         /// <summary>结算基础能力提升（走经验通道，SetExp 内部按上限封顶并重算当前值）</summary>

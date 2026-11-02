@@ -141,6 +141,9 @@ namespace Sango.Core
             Queue<TrapNode> queue = new Queue<TrapNode>();
             HashSet<Cell> visited = new HashSet<Cell>();
 
+            // 命中目标数：原版 trap_anim 用 len(damage_list) 累计，既用于放大技巧点，也用于功绩日志。
+            int hitCount = 0;
+
             // 火球 / 落石需要"来源方向"：攻击者所在格 → 陷阱格
             Cell srcCell = (attacker != null && attacker.cell != null) ? attacker.cell : null;
 
@@ -170,7 +173,8 @@ namespace Sango.Core
                 if (troop != null && troop.IsAlive)
                 {
                     // 扩散格上的部队：陷阱爆炸 + 火焰 即时伤害
-                    ApplyTroopDamage(node.kind, attacker, troop, atk);
+                    if (ApplyTroopDamage(node.kind, attacker, troop, atk))
+                        hitCount++;
                 }
                 else if (building != null && CanTrigger(building))
                 {
@@ -185,9 +189,13 @@ namespace Sango.Core
                 else if (building != null)
                 {
                     // 扩散格上是非陷阱建筑 → 陷阱爆炸 + 火焰 即时扣耐久
-                    ApplyBuildingDamage(node.kind, attacker, building, atk);
+                    if (ApplyBuildingDamage(node.kind, attacker, building, atk))
+                        hitCount++;
                 }
             }
+
+            // 引爆者的战果结算（原版 trap_anim:325-350 的 unit_add_exp_with_kouseki + force_add_tech_point）
+            GainTrapperExp(attacker, CombatExpEvent.TrapAttack, hitCount);
         }
 
         /// <summary>
@@ -379,7 +387,7 @@ namespace Sango.Core
                 {
                     if (HasTroopFeature(targetTroop, FeatureId_Toukou))
                         n *= 2;
-                    else if (HasTroopFeature(targetTroop, FeatureId_Kashin))
+                    else if (IsFireImmune(targetTroop))
                         n = 0;
                 }
             }
@@ -421,7 +429,7 @@ namespace Sango.Core
             {
                 if (HasTroopFeature(targetTroop, FeatureId_Toukou))
                     dmg *= 2;
-                else if (HasTroopFeature(targetTroop, FeatureId_Kashin))
+                else if (IsFireImmune(targetTroop))
                     dmg = 0;
             }
 
@@ -432,16 +440,23 @@ namespace Sango.Core
         /// 对扩散格上的部队结算「陷阱爆炸 + 火焰」即时伤害，对齐 trapped_damage_anim
         /// （s11_sys_anim_building.cpp:529-584）的 unit_add_troops 部分。
         /// </summary>
-        static void ApplyTroopDamage(BuildingKindType kind, Troop attacker, Troop target, SangoObject atk)
+        /// <returns>是否真的结算了伤害（原版 trap_anim 用它累计 hit_count）</returns>
+        static bool ApplyTroopDamage(BuildingKindType kind, Troop attacker, Troop target, SangoObject atk)
         {
             if (target == null || !target.IsAlive)
-                return;
+                return false;
 
             int trapDmg = CalcTrapDamage(kind, attacker, target);
             int fireDmg = CalcFireDamage(attacker, target);
             int total = trapDmg + fireDmg;
             if (total <= 0)
-                return;
+            {
+                // 伤害为 0（火神免疫火焰 / 守城方设施减伤到 0）也要打一行日志，
+                // 否则现场只看到"陷阱炸了但没人掉血"，无法判断是免疫还是配置为 0。
+                if (IsFireImmune(target))
+                    Sango.Log.Info($"*陷阱引爆命中 {target.Name}，但该部队免疫火焰伤害（伤害 0）");
+                return false;
+            }
 
             target.ChangeTroops(-total, atk, 0);
             Sango.Log.Info($"*陷阱引爆命中 {target.Name}，伤害 {total}（陷阱 {trapDmg} + 火焰 {fireDmg}）");
@@ -458,24 +473,27 @@ namespace Sango.Core
                         target.AddBuff(1, GameRandom.Range(1, 4), attacker);
                     break;
             }
+            return true;
         }
 
         /// <summary>
         /// 对扩散格上的非陷阱建筑结算「陷阱爆炸 + 火焰」即时耐久伤害，对齐 trap_next 里
         /// 的 building_add_hp（s11_sys_anim_building.cpp:439）。
         /// </summary>
-        static void ApplyBuildingDamage(BuildingKindType kind, Troop attacker, BuildingBase building, SangoObject atk)
+        /// <returns>是否真的结算了耐久伤害</returns>
+        static bool ApplyBuildingDamage(BuildingKindType kind, Troop attacker, BuildingBase building, SangoObject atk)
         {
             if (building == null)
-                return;
+                return false;
 
             int trapDmg = CalcTrapDamage(kind, attacker, null);
             int fireDmg = CalcFireDamage(attacker, null);
             int total = trapDmg + fireDmg;
             if (total <= 0)
-                return;
+                return false;
 
             building.ChangeDurability(-total, atk);
+            return true;
         }
 
         #endregion
@@ -490,6 +508,7 @@ namespace Sango.Core
         static void TriggerRockfall(Building building, SangoObject atk, Cell center, BuildingType type)
         {
             Troop attacker = atk as Troop;
+            int hitCount = 0;
             int dir = -1;
             if (attacker != null && attacker.cell != null && attacker.cell != center)
                 dir = attacker.cell.DirectionTo(center);
@@ -497,23 +516,33 @@ namespace Sango.Core
             if (dir < 0)
             {
                 // 没有方向信息：退回圆形范围（含中心格，Spiral 本身不含中心）
-                ApplyRockfallDamage(center, attacker, atk);
-                center.Spiral(1, cell => ApplyRockfallDamage(cell, attacker, atk));
+                if (ApplyRockfallDamage(center, attacker, atk)) hitCount++;
+                center.Spiral(1, cell =>
+                {
+                    if (ApplyRockfallDamage(cell, attacker, atk)) hitCount++;
+                });
+                GainTrapperExp(attacker, CombatExpEvent.TrapAttack, hitCount);
                 return;
             }
 
             // 起点：陷阱所在格
-            ApplyRockfallDamage(center, attacker, atk);
+            if (ApplyRockfallDamage(center, attacker, atk)) hitCount++;
 
             // 沿途滚动：长度取 attackMaxRange，未配置时滚 2 格
             int length = type.attackMaxRange > 0 ? type.attackMaxRange : 2;
-            center.DirectionLine(dir, length, cell => ApplyRockfallDamage(cell, attacker, atk));
+            center.DirectionLine(dir, length, cell =>
+            {
+                if (ApplyRockfallDamage(cell, attacker, atk)) hitCount++;
+            });
+
+            GainTrapperExp(attacker, CombatExpEvent.TrapAttack, hitCount);
         }
 
-        static void ApplyRockfallDamage(Cell cell, Troop attacker, SangoObject atk)
+        /// <returns>是否真的造成了伤害</returns>
+        static bool ApplyRockfallDamage(Cell cell, Troop attacker, SangoObject atk)
         {
             if (cell == null)
-                return;
+                return false;
 
             Troop troop = cell.troop;
             if (troop != null && troop.IsAlive)
@@ -521,17 +550,73 @@ namespace Sango.Core
                 int dmg = CalcTrapDamage(BuildingKindType.Rockfall, attacker, troop);
                 troop.ChangeTroops(-dmg, atk, 0);
                 Sango.Log.Info($"*落石命中 {troop.Name}，伤害 {dmg}");
+                return dmg > 0;
             }
             else if (cell.building != null)
             {
                 int dmg = CalcTrapDamage(BuildingKindType.Rockfall, attacker, null);
                 cell.building.ChangeDurability(-dmg, atk);
+                return dmg > 0;
             }
+            return false;
+        }
+
+        /// <summary>
+        /// 陷阱引爆者的战果结算（功绩 / 能力经验 / 适性经验 / 势力技巧点）。
+        ///
+        /// 【原版对齐】s11_sys_anim_building.cpp:325-350 <c>trap_anim</c>：
+        /// <code>
+        /// exp_t exp = Exp_TrapAttack;                       // 按 reason 切换 TrapStrategy / TrapCollision
+        /// int tech_point = unit_add_exp_with_kouseki(by, get_exp(exp), by-&gt;get_equipment_id(), hit_count, off_screen);
+        /// if (hit_count &gt; 0)
+        /// {
+        ///     tech_point /= hit_count;
+        ///     hit_count = std::min(hit_count, 20);
+        ///     tech_point *= (int)(std::sqrt(hit_count) * hit_count);
+        /// }
+        /// force_add_tech_point(force, by-&gt;get_pos(), tech_point, off_screen);
+        /// </code>
+        /// 拆开看：功绩 / 属性经验 / 适性经验按行原值给**一次**（不受 hit_count 影响），
+        /// 技巧点则是 <c>base * sqrt(min(hit,20)) * min(hit,20)</c>。
+        /// 项目 <see cref="Troop.GainEP"/> 的 techniqueMultiplier 只放大技巧点，正好对应。
+        /// </summary>
+        /// <param name="attacker">引爆者（火焰引爆时为 null，原版 <c>is_alive(by)</c> 同样跳过）</param>
+        /// <param name="expEvent">TrapAttack / TrapStrategy / TrapCollision</param>
+        /// <param name="hitCount">本次引爆实际受伤的目标数</param>
+        static void GainTrapperExp(Troop attacker, CombatExpEvent expEvent, int hitCount)
+        {
+            if (attacker == null || !attacker.IsAlive || hitCount <= 0)
+                return;
+
+            int clamped = System.Math.Min(hitCount, 20);
+            int multiplier = (int)(System.Math.Sqrt(clamped) * clamped);
+            if (multiplier < 1) multiplier = 1;
+
+            attacker.GainEP(expEvent, false, multiplier);
+            Sango.Log.Info($"*[战果]陷阱引爆者 {attacker.Name} 命中 {hitCount} 个目标，技巧点倍数 x{multiplier}");
         }
 
         #endregion
 
         #region 工具
+
+        /// <summary>
+        /// 目标部队是否免疫火焰伤害。
+        ///
+        /// 【为什么不能只看特技 Id】「火神」只是免疫来源之一：项目里真正的开关是
+        /// <see cref="Troop.ignoreFire"/>（PathFlag.IgnoreFire），由 <c>TroopIgnoreFire</c>
+        /// 这类 Action 在 <c>OnTroopCalculateAttribute</c> 里写入。以后任何新特技 / 科技 /
+        /// buff 只要置这一位就该免疫，不必再回到本文件加特技 Id。
+        ///
+        /// 【为什么还兜底判特技】属性重算有节拍，刚出场的部队在首次重算之前
+        /// <c>ignoreFire</c> 仍是 false；此时按特技 Id 兜底可避免「火神部队被第一发陷阱打伤」。
+        /// </summary>
+        static bool IsFireImmune(Troop troop)
+        {
+            if (troop == null)
+                return false;
+            return troop.ignoreFire || HasTroopFeature(troop, FeatureId_Kashin);
+        }
 
         /// <summary>队内任一武将是否具备指定特技（等价 Open311 的 Unit::has_skill）。</summary>
         static bool HasTroopFeature(Troop troop, int featureId)

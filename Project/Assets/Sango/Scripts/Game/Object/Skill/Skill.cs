@@ -531,7 +531,73 @@ namespace Sango.Core
 
         public bool IsStrategy()
         {
-            return kind == 3;
+            return kind == (int)SkillKindType.Stratagem;
+        }
+
+        /// <summary>
+        /// 本次施法对应的原版 Exp 表事件行。
+        ///
+        /// 【映射依据】项目 Skills.json 里的技能 Id 与 Open311 的 Tactic / Strategy 一一对应
+        /// （1/2 普攻、3~21 战法、22~30 计略），名称也逐条对得上；
+        /// 战法的行布局是 [暴击, 命中, 未命中] 三连（原版索引
+        /// <c>get_exp(tactic-&gt;get_exp() + 1 - tactic_hit - critical)</c>，s11_sys_anim_unit.cpp:1090），
+        /// 计略同理（<c>get_exp(Exp_KakeiMiss + 3 * strategy_id - hit - critical)</c>）。
+        /// 因此登记每组的"未命中行"，再用 <see cref="CombatExpTable.ResolveRow"/> 反推命中 / 暴击。
+        ///
+        /// 新增战法 / 计略时必须在这里补一行，否则会落到 <see cref="CombatExpEvent.Attack"/> 兜底。
+        /// </summary>
+        /// <param name="hit">本次是否命中（普攻恒为 true）</param>
+        /// <param name="critical">本次是否暴击</param>
+        public CombatExpEvent GetCombatExpEvent(bool hit, bool critical)
+        {
+            // 计略：优先按 strategyType 判定（Skills.json 已为九条计略全部配置），不依赖 Id。
+            if (IsStrategy())
+            {
+                switch ((StrategyType)strategyType)
+                {
+                    case StrategyType.Fire: return CombatExpTable.ResolveRow(CombatExpEvent.KakeiMiss, hit, critical);
+                    case StrategyType.Shouka: return CombatExpTable.ResolveRow(CombatExpEvent.ShoukaMiss, hit, critical);
+                    case StrategyType.Gihou: return CombatExpTable.ResolveRow(CombatExpEvent.GihouMiss, hit, critical);
+                    case StrategyType.Kakuran: return CombatExpTable.ResolveRow(CombatExpEvent.KakuranMiss, hit, critical);
+                    case StrategyType.Chinsei: return CombatExpTable.ResolveRow(CombatExpEvent.ChinseiMiss, hit, critical);
+                    case StrategyType.Fukuhei: return CombatExpTable.ResolveRow(CombatExpEvent.FukuheiMiss, hit, critical);
+                    case StrategyType.Doushiuchi: return CombatExpTable.ResolveRow(CombatExpEvent.DoushiuchiMiss, hit, critical);
+                    case StrategyType.Yojutsu: return CombatExpTable.ResolveRow(CombatExpEvent.YojutsuMiss, hit, critical);
+                    case StrategyType.Rakurai: return CombatExpTable.ResolveRow(CombatExpEvent.RakuraiMiss, hit, critical);
+                }
+            }
+
+            // 普攻：原版 s11_sys_anim_unit.cpp:1136 `get_exp(critical ? Exp_AttackCritical : Exp_Attack)`
+            if (IsNormalSkill)
+                return critical ? CombatExpEvent.AttackCritical : CombatExpEvent.Attack;
+
+            // 战法：按技能 Id 找所属的"未命中行"
+            CombatExpEvent missEvent;
+            switch (Id)
+            {
+                case 3: missEvent = CombatExpEvent.TsukidashiMiss; break;        // 突刺
+                case 4: missEvent = CombatExpEvent.RasenMiss; break;             // 螺旋突刺
+                case 5: missEvent = CombatExpEvent.NidandukiMiss; break;         // 二段突刺
+                case 6: missEvent = CombatExpEvent.KumadeMiss; break;            // 熊手
+                case 7: missEvent = CombatExpEvent.YokonagiMiss; break;          // 横扫
+                case 8: missEvent = CombatExpEvent.SenpuuMiss; break;            // 旋风
+                case 9:                                                          // 火矢（弩）
+                case 15:                                                         // 火矢（兵器）
+                case 19: missEvent = CombatExpEvent.HiyaMiss; break;             // 火矢（水军）
+                case 10: missEvent = CombatExpEvent.TsuranukiyaMiss; break;      // 贯箭
+                case 11: missEvent = CombatExpEvent.RanshaMiss; break;           // 乱射
+                case 12: missEvent = CombatExpEvent.TotsugekiMiss; break;        // 突击
+                case 13: missEvent = CombatExpEvent.ToppaMiss; break;            // 突破
+                case 14: missEvent = CombatExpEvent.TosshinMiss; break;          // 突进
+                case 16: missEvent = CombatExpEvent.HasaiMiss; break;            // 破碎
+                case 17: missEvent = CombatExpEvent.HoushaMiss; break;           // 放射
+                case 18:                                                         // 投石（兵器）
+                case 21: missEvent = CombatExpEvent.TousekiMiss; break;          // 投石（水军）
+                case 20: missEvent = CombatExpEvent.GekitotsuMiss; break;        // 猛撞
+                default: missEvent = CombatExpEvent.TsukidashiMiss; break;       // 未登记战法按突刺档兜底
+            }
+
+            return CombatExpTable.ResolveRow(missEvent, hit, critical);
         }
 
     }

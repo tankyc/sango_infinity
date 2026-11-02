@@ -44,14 +44,16 @@ Shader "Sango/troops_urp" {
 				#pragma multi_compile_fog
 				#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
 
+				// 【SRP Batcher】CBUFFER 内一律用 float：half 在 GLES 上是 mediump，
+				// 部分 Mali 驱动会把 uniform block 里的 half 按 16 位解释 → 属性变 0 → 全黑
 				CBUFFER_START(UnityPerMaterial)
-				half _Alpha;
+				float _Alpha;
 				float _HorizontalAmount;
 				float _HorizontalMax;
 				float _VerticalIndex;
 				float _VerticalAmount;
 				float _FlashFactor;
-				half4 _MaskColor;
+				float4 _MaskColor;
 				float4 _BaseMap_ST;
 				float _Speed;
 				CBUFFER_END
@@ -141,7 +143,8 @@ Shader "Sango/troops_urp" {
 					return o;
 				}
 
-				float4 frag(VertexOutput i) : COLOR{
+				// 【跨平台】输出语义必须是 SV_TARGET（旧式 COLOR 在 GLES3/Vulkan 上可能不映射到 RT0 → 全黑）
+				float4 frag(VertexOutput i) : SV_TARGET{
 
 					UNITY_SETUP_INSTANCE_ID(i);
 					float iStartTime = UNITY_ACCESS_INSTANCED_PROP(troops, _StartTime);
@@ -256,14 +259,16 @@ Shader "Sango/troops_urp" {
 			#include "Packages/com.unity.shadergraph/ShaderGraphLibrary/ShaderVariablesFunctions.hlsl"
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
+				// 【SRP Batcher】CBUFFER 内一律用 float：half 在 GLES 上是 mediump，
+				// 部分 Mali 驱动会把 uniform block 里的 half 按 16 位解释 → 属性变 0 → 全黑
 				CBUFFER_START(UnityPerMaterial)
-				half _Alpha;
+				float _Alpha;
 				float _HorizontalAmount;
 				float _HorizontalMax;
 				float _VerticalIndex;
 				float _VerticalAmount;
 				float _FlashFactor;
-				half4 _MaskColor;
+				float4 _MaskColor;
 				float4 _BaseMap_ST;
 				float _Speed;
 				CBUFFER_END

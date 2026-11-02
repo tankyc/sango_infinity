@@ -2923,6 +2923,16 @@ namespace Sango.Core
         {
             if (city.troops == 0) return null;
 
+            // 【出城串行】上一支派出的部队还没走出城头 → 本城本轮不再组建新部队。
+            // 两支部队同时停在城池中心格时会互相覆盖 cell.troop，之后必然重叠；
+            // 出城由军团调度器 CorpsAI.AITroops 优先驱动，落地后这里会自动放行。
+            if (city.pendingOutTroop != null && city.pendingOutTroop.IsAlive)
+            {
+                if (AIConfig.Instance.logOutpostAI)
+                    Sango.Log.Info($"*[据点AI]{city.Name} 暂缓出兵：上一支部队（{city.pendingOutTroop.Name}）还没走出城头");
+                return null;
+            }
+
             int minEquipNeed = 5000;
 
             // 兵装不足改用剑兵兜底时，剑兵队伍至少要能编成这么多人才值得出征；

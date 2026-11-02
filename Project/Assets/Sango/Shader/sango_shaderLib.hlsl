@@ -31,73 +31,72 @@ half Alpha(half albedoAlpha, half4 color, half cutoff)
 #include "Packages/com.unity.shadergraph/ShaderGraphLibrary/ShaderVariablesFunctions.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
+// ============================================================================
+// UnityPerMaterial —— SRP Batcher 的 per-material 常量缓冲。
+//
+// 【三条硬性约束，违反任意一条都会在"启用 SRP Batcher 的设备"上出问题：
+//  属性读不到 → 几何整体变黑；而 GLES3.0 设备会自动回退普通路径，看起来正常，
+//  于是表现为"只有小部分机型黑"。】
+//
+//   ① 成员**不能包在 #if 里**：同一 shader 的不同 Pass / 不同变体若 CBUFFER 大小不同，
+//      SRP Batcher 的 per-material 布局就会错位，属性按错误偏移读取；
+//   ② 成员**一律用 float，不用 half**：half 在 GLES 上是 mediump，
+//      写进 uniform block 后部分 Mali 驱动会按 16 位对齐解释，值直接变 0；
+//   ③ 凡是 C# 里用 material.SetFloat/SetColor 设置过的属性，都必须在这里。
+//
+// 不用这些属性的 shader 多声明几个成员没有实际开销（未使用会被裁掉）。
+// ============================================================================
 CBUFFER_START(UnityPerMaterial)
 float4 _BaseMap_ST;
 float _OutlineWidth;
-
-//#if SANGO_WATER | SANGO_TERRAIN
-half _Alpha;
-//#endif
-
-#if defined(FOG_LINEAR) || defined(FOG_EXP) || defined(FOG_EXP2)
-#define APPLY_FOG 1            
-#endif
+float _Alpha;
 
 // 地形法线贴图参数（仅 SANGO_TERRAIN_LIT 使用）。
 // 本项目是 Gamma 颜色空间（ProjectSettings 的 m_ActiveColorSpace = 0），
 // 运行时纹理不会被 sRGB 解码，采样值就是法线原始编码值，可直接 *2-1；
 // 只有 Linear 空间下才需要还原，见 SangoSampledNormalValue。
 float4 _BumpMap_ST;
-half _NormalScale;
-half _NormalFlipY;
+float _NormalScale;
+float _NormalFlipY;
 
-#if SANGO_WATER
+// 水面 / 高度混合 / 着色（原先是 #if 分支，现统一无条件声明）
 float _HorizontalAmount;
 float _VerticalAmount;
 float _Speed;
-#endif
-
-#if SANGO_BLEND_HEIGHT
 float _BlendHeight;
 float _BlendPower;
-#endif
 
-half4 _BaseColor;
-half _Cutoff;
-
-#if SANGO_COLOR
-half4 _Color;
-#endif
-
-#if SANGO_FLASH
+float4 _BaseColor;
+float _Cutoff;
+float4 _Color;
 float _FlashFactor;
-#endif
-
-#if SANGO_BASE_COLOR || SANGO_BASE_COLOR_ADD
 float _BaseColorIntensity;
-#endif
-
 CBUFFER_END
 
+// 雾效开关（纯预处理宏，与 CBUFFER 无关，必须放在 CBUFFER 之外）
+#if defined(FOG_LINEAR) || defined(FOG_EXP) || defined(FOG_EXP2)
+#define APPLY_FOG 1            
+#endif
 
-// 阴影颜色
-half4 _ShadowColor;
+
+// 阴影颜色（全局 uniform，用 float4 而非 half4：mediump 在部分 Mali 驱动上会被当成 16 位读取）
+float4 _ShadowColor;
 TEXTURE2D(_BaseMap);
 float _MapWidth;
 float _MapHeight;
 
-half _GridSize;
+float _GridSize;
 
-// 地格显示
+// 地格显示（全局 uniform，统一用 float）
 #if SANGO_GRID_COLOR
-half _GridFlag;
+float _GridFlag;
 float _DarkFlag;
 #endif
 
 // fog
 #if SANGO_FOG
 float _FogFlag;
-half4 _FogColor = half4(0,0,0,0);
+float4 _FogColor = float4(0,0,0,0);
 float _MixBegin;
 float _MixPower = 0;
 float _MixEnd;
@@ -111,9 +110,9 @@ float _MixEnd;
 // 笔刷
 float _BrushType;
 float4 _Brush;
-half4 _BrushUV;
+float4 _BrushUV;
 float _BrushSize;
-half4 _BrushColor;
+float4 _BrushColor;
 TEXTURE2D(_BrushTex);
 #endif
 
@@ -188,19 +187,24 @@ struct SangoVertexOutput
 {
 	UNITY_VERTEX_INPUT_INSTANCE_ID
 	float4 pos : SV_POSITION;
-	float4 vertColor : COLOR;
-	float3 normal : NORMAL;
-	float2 uv : TEXCOORD0;
-	float3 posWorld		: TEXCOORD1;
-	float4 screenPos : TEXCOORD2;
-	float4 shadowCoord : TEXCOORD3;
+	// 【跨平台】COLOR / NORMAL 只能当**顶点输入**语义用；
+	// 作为顶点输出→像素输入的插值器时，D3D11 会自动分配寄存器，
+	// 但 GLES3 / Vulkan 的交叉编译要求插值器一律是 TEXCOORDn，
+	// 否则 varying 绑定失败、像素端拿到的插值数据（含 uv）全为 0 ——
+	// 表现就是"除 UI 外所有 3D 物体全黑，换 URP/Lit 就正常"。
+	float4 vertColor : TEXCOORD0;
+	float3 normal : TEXCOORD1;
+	float2 uv : TEXCOORD2;
+	float3 posWorld		: TEXCOORD3;
+	float fogCoord : TEXCOORD4;
+	float4 screenPos : TEXCOORD5;
+	float4 shadowCoord : TEXCOORD6;
 #if SANGO_BLEND_HEIGHT
-	float3 posObject	: TEXCOORD4;
+	float3 posObject	: TEXCOORD7;
 #endif
 #if SANGO_TEXT
-	float2 ouv : TEXCOORD5;
+	float2 ouv : TEXCOORD8;
 #endif
-	half fogCoord: TEXCOORD6;
 };
 
 float2 SangoWaterTransofromUV(SangoVertexOutput i)
@@ -304,7 +308,9 @@ float3 SangoTerrainNormalWS(SangoVertexOutput i)
 }
 #endif
 
-float4 sango_frag(SangoVertexOutput i) : COLOR
+// 【跨平台】fragment 输出统一用 SV_TARGET：SM4+ 管线（URP / GLES3 / Vulkan）下
+// 旧式的 `: COLOR` 语义在部分后端不会映射到 SV_Target0，结果是像素被丢弃（全黑）。
+float4 sango_frag(SangoVertexOutput i) : SV_TARGET
 {
 	UNITY_SETUP_INSTANCE_ID(i);
 
@@ -340,7 +346,13 @@ float4 sango_frag(SangoVertexOutput i) : COLOR
 	half shadow = mainLight.shadowAttenuation;
 	// 计算漫反射颜色
 	half NdotL = saturate(dot(normalWS, lightDirection));
-	half3 directDiffuse = lerp(_ShadowColor.rgb, ((mainLight.color.rgb)), NdotL * shadow)  + ambient * saturate(shadow+0.5);
+	// 【兜底】_ShadowColor 没有在 Properties 里声明、也没有任何材质设置它，默认就是 (0,0,0,0)。
+	// 部分驱动（Mali 老驱动在 _MAIN_LIGHT_SHADOWS 变体上）会让 shadowAttenuation 返回 0，
+	// 此时 lerp 的第一项是纯黑，整片几何会直接变黑 —— 表现就是"只有小部分机型全黑，
+	// 换 URP/Lit 就正常"（Lit 不使用 _ShadowColor）。
+	// 这里给一个可见的暗色下限，保证阴影再黑也不会落到 0。
+	half3 shadowColor = max(_ShadowColor.rgb, half3(0.20h, 0.22h, 0.26h));
+	half3 directDiffuse = lerp(shadowColor, ((mainLight.color.rgb)), NdotL * shadow)  + ambient * saturate(shadow+0.5);
 	half3 diffuse = directDiffuse * _BaseMap_var.rgb;
 	#endif
 
@@ -434,7 +446,7 @@ float4 sango_frag(SangoVertexOutput i) : COLOR
 	float2 factionBaseUV = float2(i.posWorld.z / (_MapWidth), 1 - i.posWorld.x / (_MapHeight));
 	float2 factionUV = float2(factionBaseUV.x, factionBaseUV.y + factionRow * 0.5 / (_MapHeight / _GridSize));
 	half4 factionMapColor = SAMPLE_TEXTURE2D(_FactionMap, smpPoint, factionUV);
-	half factionAlpha = saturate(factionMapColor.a * _FactionMapAlpha);
+	half factionAlpha = saturate(factionMapColor.a * _FactionMapAlpha * 0.4);
 	// 颜色（势力色 / 白色兜底 / 黑色地域边界）全部由 CPU 逐格写入贴图，
 	// 这里不再做任何加工，只按 alpha 原样混合，保证边界就是纯黑
 	diffuse = lerp(diffuse, factionMapColor.rgb, factionAlpha);

@@ -30,13 +30,13 @@ namespace Sango.Core
             // 于是敌人改为攻击建筑时，部队刚出城就被误判为"任务完成"→ 切返城 →
             // 表现为城池反复派兵、部队却始终不出城（或卡在城池格上）。
             // 现增加实时扫描兜底，使"出兵判定"与"任务完成判定"口径一致。
-            if (isNoEnemyAlive)
-            {
-                BattleSituation.ThreatSnapshot live = BattleSituation.EvaluateThreat(
-                    TargetCity.CenterCell, AIConfig.Instance.cityDefenseScanRange, TargetCity, scenario);
-                if (live.HasEnemy)
-                    isNoEnemyAlive = false;
-            }
+            //if (isNoEnemyAlive)
+            //{
+            //    BattleSituation.ThreatSnapshot live = BattleSituation.EvaluateThreat(
+            //        TargetCity.CenterCell, AIConfig.Instance.cityDefenseScanRange, TargetCity, scenario);
+            //    if (live.HasEnemy)
+            //        isNoEnemyAlive = false;
+            //}
 
             // 【优化】移除"断粮时 30% 概率撤退"的随机判断，统一由 Troop.AIPrepare 处理
             if (IsMissionComplete || (TargetCity.troops < 2000 && TargetCity == Troop.BelongCity))

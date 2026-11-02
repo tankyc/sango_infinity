@@ -1056,24 +1056,31 @@ namespace Sango.Core
             if (deferOnWorldLoaded)
                 return;
 
-            // 【幂等保护】本方法有两条触发路径：MapRender.OnMapLoaded 事件 + 分帧协程显式调用。
-            // 若 LoadMap 的回调迟到（异步加载），会在 deferOnWorldLoaded 已经置回 false 之后才到达，
-            // 于是 Prepare() 被执行两次 —— Person.OnScenarioPrepare 会再次
-            // `Father.sonList.Add(this)` / `LikePersonList.Add(...)`，触发
-            // SangoObjectList 的 "不能重复添加" 并中断开局。
-            // IsAlive 在 Start() 里被置 true，可用作"世界已初始化过"的标记。
-            if (IsAlive)
-                return;
+            //// 【幂等保护】本方法有两条触发路径：MapRender.OnMapLoaded 事件 + 分帧协程显式调用。
+            //// 若 LoadMap 的回调迟到（异步加载），会在 deferOnWorldLoaded 已经置回 false 之后才到达，
+            //// 于是 Prepare() 被执行两次 —— Person.OnScenarioPrepare 会再次
+            //// `Father.sonList.Add(this)` / `LikePersonList.Add(...)`，触发
+            //// SangoObjectList 的 "不能重复添加" 并中断开局。
+            //// IsAlive 在 Start() 里被置 true，可用作"世界已初始化过"的标记。
+            //if (IsAlive)
+            //    return;
 
+            // 【分段打点】读档出现"地图已读完、界面没出来"时，这五条日志能直接指出中断在哪一段
+            Sango.Log.Info("世界初始化[1/5] 逻辑地图 Map.Init", Sango.Log.LogType.World);
             GameEvent.OnWorldLoadEnd?.Invoke(this);
             this.Map.Init(this);
+            Sango.Log.Info("世界初始化[2/5] 剧本准备 Prepare", Sango.Log.LogType.World);
             GameEvent.OnScenarioPrepare?.Invoke(this);
             this.LoadModModify();
             this.Prepare();
+            Sango.Log.Info("世界初始化[3/5] 剧本 Init", Sango.Log.LogType.World);
             this.Init(this);
+            Sango.Log.Info("世界初始化[4/5] 控制器 Reset", Sango.Log.LogType.World);
             GameController.Instance.Reset();
+            Sango.Log.Info("世界初始化[5/5] 进入游戏 Start", Sango.Log.LogType.World);
             this.Start();
             MapRender.Instance.OnMapLoaded -= OnWorldLoaded;
+            Sango.Log.Info("世界初始化完成", Sango.Log.LogType.World);
         }
 
         /// <summary>
@@ -1271,7 +1278,7 @@ namespace Sango.Core
             // 收尾时 ScenarioLifecycle 会按它把 GameEvent 的静态订阅整体还原回"开局前"，
             // 所以各系统不必再靠"每个类都写对称退订"来防泄漏。
             GameEventBaseline.CaptureIfNeeded();
-
+            scenario.deferOnWorldLoaded = false;
             GameRandom.Init();
             Cur = scenario;
             scenario.IsAlive = false;
@@ -1322,6 +1329,7 @@ namespace Sango.Core
             Cur.CheckPlayer();
             GameEvent.OnScenarioLoadEnd?.Invoke(Cur);
             GameEvent.OnWorldLoadStart?.Invoke(Cur);
+            scenario.deferOnWorldLoaded = false;
             Cur.LoadWorld();
         }
 
@@ -1398,6 +1406,8 @@ namespace Sango.Core
         /// <param name="addData">自建数据</param>
         static void ApplyShortScenario(Scenario scenario, ShortScenario addData)
         {
+            if (addData == null) return;
+
             //准备军团
             addData.forceSet.ForEach(force =>
             {
@@ -1763,10 +1773,13 @@ namespace Sango.Core
 
             GameEvent.OnScenarioStart?.Invoke(this);
 
+            // 界面切换前后各打一条：若只有前一条没有后一条，说明 Open("window_game") 卡住或抛异常
+            Sango.Log.Info("进入游戏: 切换界面（关 start/loading、开 window_game）", Sango.Log.LogType.World);
             Window.Instance.Close("window_start");
             Window.Instance.Close("window_loading");
             Window.Instance.Close("window_game");
             Window.Instance.Open("window_game");
+            Sango.Log.Info("进入游戏: 界面切换完成", Sango.Log.LogType.World);
 #if SANGO_DEBUG_AI
             GameAIDebug.Instance.Init();
 #endif

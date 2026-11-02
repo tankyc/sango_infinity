@@ -6,45 +6,29 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl"
 #include "Packages/com.unity.shadergraph/ShaderGraphLibrary/ShaderVariablesFunctions.hlsl"
+// 【SRP Batcher】与 sango_shaderLib.hlsl 同一套约束：
+//   ① 成员不能包在 #if 里（否则不同 Pass/变体的 CBUFFER 大小不同，偏移会错位）；
+//   ② 成员一律用 float，不用 half（mediump 在 uniform block 里部分 Mali 驱动读成 0）。
 CBUFFER_START(UnityPerMaterial)
 float4 _BaseMap_ST;
 float _OutlineWidth;
-
-#if SANGO_WATER | SANGO_TERRAIN
-half _Alpha;
-#endif
-
-#if defined(FOG_LINEAR) || defined(FOG_EXP) || defined(FOG_EXP2)
-#define APPLY_FOG 1            
-#endif
-
-#if SANGO_WATER
+float _Alpha;
 float _HorizontalAmount;
 float _VerticalAmount;
 float _Speed;
-#endif
-
-#if SANGO_BLEND_HEIGHT
 float _BlendHeight;
 float _BlendPower;
-#endif
-
-half4 _BaseColor;
-half _Cutoff;
-
-#if SANGO_COLOR
-half4 _Color;
-#endif
-
-#if SANGO_FLASH
+float4 _BaseColor;
+float _Cutoff;
+float4 _Color;
 float _FlashFactor;
-#endif
-
-#if SANGO_BASE_COLOR || SANGO_BASE_COLOR_ADD
 float _BaseColorIntensity;
-#endif
-
 CBUFFER_END
+
+// 纯预处理宏，必须放在 CBUFFER 之外
+#if defined(FOG_LINEAR) || defined(FOG_EXP) || defined(FOG_EXP2)
+#define APPLY_FOG 1            
+#endif
 
 float _Power;
 float _MixBegin;

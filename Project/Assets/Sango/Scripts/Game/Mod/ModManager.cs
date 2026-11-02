@@ -696,6 +696,12 @@ namespace Sango.Mod
                 mergeAction(baseFile);
                 return;
             }
+
+            // Init() 之前 mEnabledModList 为 null（编辑器预览、纯逻辑单测都会走到这里）。
+            // 早期调用方只想"有就加载"，此时没有模组列表属于正常情况，直接返回即可。
+            if (mEnabledModList == null)
+                return;
+
             for (int i = 0; i < mEnabledModList.Count; i++)
             {
                 Mod mod = mEnabledModList[i];

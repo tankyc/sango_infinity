@@ -40,11 +40,13 @@ namespace Sango.Core.Player
         /// 本命令不可用时的原因文案（可用时返回 null）。
         ///
         /// 对齐 Open311 各 `can_*_command` 里的 `set_command_error_text(...)` ——
-        /// 原版在返回 false 前都会写明"为什么不能执行"，玩家在菜单上能看到。
-        /// 本项目此前只有 <see cref="IsValid"/> 的 bool，置灰后没有任何提示。
+        /// 原版在返回 false 前都会写明"为什么不能执行"。
         /// <para>
-        /// 覆写约定：只在 `IsValid == false` 时被调用；
-        /// 返回的文案会拼在菜单项标题后面（「出征（出阵位已满）」）。
+        /// 覆写约定：只在 `IsValid == false` 时被调用。
+        /// **文案不再拼进菜单按钮标题**（按钮宽度固定，追加会把文本撑出框外，
+        /// 见 <see cref="Sango.UI.UIMenuItem.SetValid"/>），只随
+        /// <c>ContextMenuItem.disabledReason</c> 一起保留在数据层，
+        /// 供将来的悬浮提示 / 调试面板使用。
         /// </para>
         /// </summary>
         /// <param name="city">目标据点</param>

@@ -691,8 +691,8 @@
       "desc": "对邻接区格放火，可设置于水上",
       "icon": "21",
       "model": "Assets/Model/Prefab/4578.prefab",
-      "modelCreate": "Assets/Model/Prefab/4578.prefab",
-      "modelBroken": "Assets/Model/Prefab/4578.prefab"
+      "modelCreate": "Assets/Model/Prefab/4558.prefab",
+      "modelBroken": "Assets/Model/Prefab/4558.prefab"
     },
     "22": {
       "Id": 22,

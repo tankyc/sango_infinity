@@ -340,7 +340,9 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty]
         public int ResearchLeftCounter { get; set; }
-
+        [JsonProperty]
+        public int ResearchMaxCounter { get; set; }
+        
         /// <summary>
         /// 据点守将表：key = 据点（City）Id，value = 守将（Person）Id。
         ///
@@ -420,14 +422,33 @@ namespace Sango.Core
 
         /// <summary>
         /// 隐藏能力槽位（对齐 Open311 <c>Force::hidden_ability_[10]</c>，s11_scen.h:905；-1 = 空）。
-        /// <para>开局由 <see cref="Sango.Core.AbilityStudySystem.InitForceHiddenAbilities"/> 按势力
-        /// "最弱维偏好"随机填 5 个槽（对齐 s11_sys_scen_force.cpp:701-802 force_init_hidden_ability）。
+        /// <para>
+        /// 【激活制的差异】原版开局按"最弱维偏好"随机填 5 个槽
+        /// （<c>force_init_hidden_ability</c>，s11_sys_scen_force.cpp:701-802），
+        /// 本项目**不再随机预填**：槽位初始全 -1，只有在势力把某条隐藏能力的**前置全部研究完成**
+        /// 之后，由 <see cref="Sango.Core.AbilityStudySystem.TryActivateHiddenAbilities"/> 激活写入。
+        /// 这样隐藏能力在图上"初始不显示、达成条件才出现"，与原版演出观感一致，但不依赖开局随机。
+        /// </para>
+        /// <para>
         /// 只有 <c>Ability.hiddenSlot &gt;= 0</c> 且已进槽的能力才能被研究
-        /// （对齐 s11_sys_scen_ability.cpp:12-13 的 is_ability_researchable 门）。</para>
+        /// （对齐 s11_sys_scen_ability.cpp:12-13 的 is_ability_researchable 门）。
+        /// </para>
         /// <para>老存档无此字段 → 反序列化后保持初始值（全 -1 = 无隐藏能力），行为与历史存档一致。</para>
         /// </summary>
         [JsonProperty]
         public int[] hiddenAbilityIds = NewHiddenAbilityArray();
+
+        /// <summary>
+        /// 新激活的隐藏槽标记（与 <see cref="hiddenAbilityIds"/> 同下标）。
+        ///
+        /// <para>
+        /// 激活的那一刻只置位，不立刻播动画 —— 玩家要**下一次打开研究界面**才看到
+        /// "隐藏能力从格子里冒出来"的演出（<see cref="Sango.UI.UIAbilityStudyArea"/> 播完后清位）。
+        /// 因此它是存档字段：没播过动画的标记必须跟着存档走，读档进来还能补播。
+        /// </para>
+        /// </summary>
+        [JsonProperty]
+        public bool[] hiddenAbilityNewFlags = new bool[MaxHiddenAbilityCount];
 
         /// <summary>构造全 -1 的隐藏槽位数组（0 是合法能力 Id，不能用默认零数组）</summary>
         static int[] NewHiddenAbilityArray()
@@ -436,6 +457,34 @@ namespace Sango.Core
             for (int i = 0; i < array.Length; i++)
                 array[i] = -1;
             return array;
+        }
+
+        /// <summary>该槽是否有"刚激活、还没播过出现动画"的标记</summary>
+        /// <param name="index">槽位下标</param>
+        /// <returns>需要播动画返回 true</returns>
+        public bool IsHiddenAbilityNew(int index)
+        {
+            if (hiddenAbilityNewFlags == null || index < 0 || index >= hiddenAbilityNewFlags.Length)
+                return false;
+            return hiddenAbilityNewFlags[index];
+        }
+
+        /// <summary>给某槽打上"新激活"标记（等待 UI 播出现动画）</summary>
+        /// <param name="index">槽位下标</param>
+        public void MarkHiddenAbilityNew(int index)
+        {
+            if (hiddenAbilityNewFlags == null || index < 0 || index >= hiddenAbilityNewFlags.Length)
+                return;
+            hiddenAbilityNewFlags[index] = true;
+        }
+
+        /// <summary>清掉某槽的"新激活"标记（UI 播完动画后调用）</summary>
+        /// <param name="index">槽位下标</param>
+        public void ClearHiddenAbilityNew(int index)
+        {
+            if (hiddenAbilityNewFlags == null || index < 0 || index >= hiddenAbilityNewFlags.Length)
+                return;
+            hiddenAbilityNewFlags[index] = false;
         }
 
         /// <summary>取指定下标的隐藏能力 Id（越界返回 -1，对齐 s11_scen_obj_force.cpp:490-495）</summary>
@@ -900,14 +949,20 @@ namespace Sango.Core
             if (Techniques_list != null && Techniques_list.Length > 0 && Techniques.Count == 0)
                 Techniques.FromArray(Techniques_list);
 
-            // 隐藏能力槽：只在"槽位全空"时初始化（新开局），读档时保留存档内容。
-            // 对齐 Open311 force_init_hidden_ability（s11_sys_scen_force.cpp:701-802）。
-            if (IsAllHiddenAbilityEmpty())
-                AbilityStudySystem.InitForceHiddenAbilities(this, scenario);
+            // 隐藏能力槽：**不再开局随机填槽**（原版 force_init_hidden_ability 的行为已按需求移除）。
+            // 改为按前置激活：开局时前置必然不满足 → 一个都不填。
+            //
+            // ① 先清理：旧存档带着"随机预填制"时期的槽内容（前置可能根本没研究），
+            //    不清的话界面上会冒出玩家点不动的隐藏能力（例如猛者 hiddenSlot=6 却出现在图上）。
+            // ② 再补激活：把"前置早就研究完、但槽位还空着"的情况补上（新激活的会带"待播动画"标记）。
+            AbilityStudySystem.PruneHiddenAbilitySlots(this, scenario);
+            AbilityStudySystem.TryActivateHiddenAbilities(this, scenario);
         }
 
         /// <summary>
-        /// 隐藏能力槽是否全空（新开局为 true，读档后一般为 false）。
+        /// 隐藏能力槽是否全空。
+        /// <para>注意：激活制改造后这个方法**不再用于初始化判断**（原版"槽全空则随机填 5 个"的入口已移除），
+        /// 仅作为调试/工具用的状态查询保留。</para>
         /// </summary>
         /// <returns>全空返回 true</returns>
         public bool IsAllHiddenAbilityEmpty()
@@ -2296,22 +2351,59 @@ namespace Sango.Core
 
 
         /// <summary>
-        /// 获得技巧点数
+        /// 增减技巧点数。**所有**技巧点变化都必须走这里，不要直接写 <see cref="TechniquePoint"/>。
+        ///
+        /// <para>
+        /// 【原版对齐】s11_sys_scen_force.cpp:667-683 <c>System::force_add_tech_point</c>：
+        /// <code>
+        /// if (value > 0)
+        ///     value = std::max(value / 2, 1);          // 正数一律先减半，最少 1
+        /// ...
+        /// int diff = std::clamp(n + value, 0, max) - n; // 夹在 [0, max_force_tech_point_]
+        /// self->set_tech_point(n + diff);
+        /// return diff;
+        /// </code>
+        /// 这里的两条规则必须收在统一入口：
+        /// 1) **减半**：原版各获取点（内政 / 战斗 / 外交 / 事件）填的都是"未减半的原始值"，
+        ///    例如征兵 <c>min(1 + troops/300, 10)</c>、巡查 <c>change*5/7+5</c>、
+        ///    舌战单挑 <c>+50</c>、搜索到人才 <c>+20</c>。如果在各调用点自己除 2，
+        ///    一旦有新的调用点忘了除，就会变成双倍收益。
+        /// 2) **上限**：原版 <c>max_force_tech_point_ = 10000</c>（s11_db.h:173），
+        ///    本项目映射为 <c>ScenarioVariables.maxForceTechniquePoint</c>。
+        /// </para>
         /// </summary>
-        /// <param name="value">获得的技巧点数</param>
-        public void GainTechniquePoint(int value)
+        /// <param name="value">原始增减值（正数会被入口减半）</param>
+        /// <returns>实际变化量（可能因减半 / 上下限夹取而与入参不同，0 表示没有变化）</returns>
+        public int GainTechniquePoint(int value)
         {
-            if (value == 0) return;
+            // 正数减半，最少 1 —— 负数（消耗）原样保留
+            if (value > 0)
+                value = System.Math.Max(value / 2, 1);
+            if (value == 0)
+                return 0;
 
-            TechniquePoint += value;
+            Scenario scenario = Scenario.Cur;
+            int max = scenario != null && scenario.Variables != null
+                ? scenario.Variables.maxForceTechniquePoint
+                : 10000;
+            if (max <= 0)
+                max = int.MaxValue;
 
-            if (IsPlayer && value > 0)
+            int oldValue = TechniquePoint;
+            TechniquePoint = System.Math.Clamp(oldValue + value, 0, max);
+            int diff = TechniquePoint - oldValue;
+            if (diff == 0)
+                return 0;
+
+            if (IsPlayer && diff > 0)
             {
                 GameMedia.Instance.PlaySfx(61);
                 GameMedia.Instance.PlayDelayedSfx(60, 1);
             }
 
-            GameEvent.OnForceGainTechniquePoint?.Invoke(this, value);
+            // 事件传"实际变化量"，监听方（左上角数值刷新等）才能和真实值对上
+            GameEvent.OnForceGainTechniquePoint?.Invoke(this, diff);
+            return diff;
         }
 
         /// <summary>
@@ -2858,6 +2950,18 @@ namespace Sango.Core
             Sango.Log.Info($"*[灭亡]{Name} 势力灭亡（最后据点 {fallCity?.Name ?? "无"}" +
                            $"，被 {(by?.Name ?? byObject?.Name ?? "无")} 攻灭）");
 #endif
+
+            // ⓪ 灭亡方获得技巧点奖励（原始值 500，入口减半 → 250）。
+            // 【原版对齐】s11_sys_scen_force.cpp:952-953 <c>force_ruin</c>：
+            //   <code>
+            //   if (utils::is_alive(by) and by->is_normal() and self->is_normal())
+            //       force_add_tech_point(by, 500, self);
+            //   </code>
+            // 两个 <c>is_normal()</c> 都必须判：异族 / 贼势力之间的吞并不给，
+            // 投降合并（by 为空，见 DiplomacyActionAnnex）也不给 —— 那条路径的奖励是 +200。
+            // 必须在"标记灭亡"之前判 self.IsNormal，否则读到的是已灭亡状态。
+            if (by != null && by.IsAlive && by.IsNormal && IsNormal)
+                by.GainTechniquePoint(500);
 
             // ① 标记灭亡
             IsAlive = false;

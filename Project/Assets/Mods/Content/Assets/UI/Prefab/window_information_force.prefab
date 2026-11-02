@@ -1215,6 +1215,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   scaleable: 0
+  scaleable_new: 0
 --- !u!1001 &130581700438592930
 PrefabInstance:
   m_ObjectHideFlags: 0

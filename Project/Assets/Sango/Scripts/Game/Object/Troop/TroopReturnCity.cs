@@ -9,6 +9,14 @@ namespace Sango.Core
         {
             get
             {
+                // 【防御】TargetCity 尚未解析到（目标 Id 无效 / 城池已被摧毁）或行为对象还没绑定部队时，
+                // 原写法 `TargetCity != Troop.BelongCity` 在两者都为 null 的情况下为 false，
+                // 会继续走到 `!TargetCity.IsSameForce(...)` 抛 NullReferenceException
+                //（Troop.BelongCity 派生自主将，见 Troop.cs:173，异族等无城部队可能为 null）。
+                // 返回 true 表示"本任务已失效"，由 Prepare 负责改派或清空。
+                if (Troop == null || TargetCity == null)
+                    return true;
+
                 return TargetCity != Troop.BelongCity || !TargetCity.IsSameForce(Troop);
             }
         }
@@ -23,6 +31,16 @@ namespace Sango.Core
             if (TargetCity == null)
             {
                 TargetCity = troop.BelongCity;
+
+                // 【防御】连归属城都推导不出来（主将的 service 是建筑 / 主将缺失）时无处可回，
+                // 直接清空任务收尾，避免下面 `TargetCity.Id` 空引用，
+                // 也避免 missionType 一直是"返城"却永远准备失败而空转。
+                if (TargetCity == null)
+                {
+                    troop.ClearMission();
+                    return;
+                }
+
                 troop.SetMission(MissionType.TroopReturnCity, TargetCity.Id);
             }
 
@@ -61,7 +79,13 @@ namespace Sango.Core
             for (int i = 0; i < Troop.tempCellList.Count; ++i)
             {
                 Cell road = Troop.tempCellList[i];
-                if (road.building != null && !road.building.IsCity() && !road.building.IsSameForce(Troop))
+                // 【对齐原版 hostile_target + 寻路代价】路径上的中立建筑（陷阱 / 障碍 / 无主设施）
+                // 原版不会引发攻击，只有敌对方建筑才值得停下评估。详见 TroopMovetoCell 同处说明。
+                // 这条正是"工程队刚把陷阱修好、返城时顺手把它引爆"的触发点：
+                // 陷阱建成即中立（Building.cs:484 OnCompleted 清 BelongForce），
+                // 旧写法 !IsSameForce 恒成立 → 触发全量 PriorityAction → 选中身边这座陷阱。
+                if (road.building != null && !road.building.IsCity()
+                    && road.building.BelongForce != null && Troop.IsEnemy(road.building))
                 {
                     priorityActionData = TroopAIUtility.PriorityAction(Troop, (Cell)null, scenario, SkillStatusPriority);
                     return;

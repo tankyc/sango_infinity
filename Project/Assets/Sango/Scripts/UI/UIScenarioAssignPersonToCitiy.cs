@@ -125,5 +125,41 @@ namespace Sango.UI
             src_scenario.forceSet = scenario.forceSet;
             Close();
         }
+
+        /// <summary>
+        /// 一键全选：把当前列表里的所有武将一次性加入待指派队列。
+        ///
+        /// 选中状态由 <see cref="UIObjectDisplayPlane"/> 统一维护 —— 列表会按表头排序按钮重排，
+        /// 但它的索引与 <see cref="sangoObjects"/> 指向同一个 List，所以索引不会错位。
+        /// 全选后 <see cref="UIObjectDisplayPlane"/> 会回调 <see cref="OnMultiSelectCall"/>，
+        /// 由它清空并重建 <see cref="LastSel"/>、点亮确定键、把世界地图切到"选 1 座城"的模式。
+        /// </summary>
+        public void SelectAll()
+        {
+            if (uiForceView == null)
+                return;
+
+            // 列表为空时全选没有意义，直接返回避免点亮确定键后无处指派
+            if (sangoObjects == null || sangoObjects.Count == 0)
+                return;
+
+            uiForceView.SelectAll();
+        }
+
+        /// <summary>
+        /// 一键取消：清空当前全部选中（对应 prefab 上"一并取消"按钮 button_unsel_all）。
+        ///
+        /// 选中状态由 <see cref="UIObjectDisplayPlane"/> 统一维护，清空后会回调
+        /// <see cref="OnMultiSelectCall"/> 并传入**空列表**；该方法的空列表分支负责：
+        /// 清空 <see cref="LastSel"/>、把确定键置灰、刷新世界地图、解除城市选择回调，
+        /// 因此这里不需要重复处理这些状态。
+        /// </summary>
+        public void UnSelectAll()
+        {
+            if (uiForceView == null)
+                return;
+
+            uiForceView.UnSelectAll();
+        }
     }
 }

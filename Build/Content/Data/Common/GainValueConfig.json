@@ -1,0 +1,79 @@
+{
+  "_comment": "成长资源获取点的默认值。键名 = GainPlace 枚举名（改名会让老剧本对不上，只允许追加）。这里是「默认值」，实际生效值仍以剧本 / 存档里的 GainValueConfig 实例为准，本文件只在该键未被剧本显式设置时提供兜底；稀疏覆盖语义 —— 没写的键沿用代码内置默认值。区间型键写 { min, max }，其余写整数。战斗中的功绩 / 能力经验 / 适性经验 / 技巧点不在这里，见 CombatExpTable.json。",
+
+  "meritGain": {
+    "_comment": "功绩",
+    "CombatDestroyTroop": 300,
+    "DuelDraw": 50,
+    "DuelWin": 100,
+    "DuelCapture": 200,
+    "DuelLose": 10,
+    "DebateWin": 100,
+    "DebateWinKind": 200,
+    "DebateLose": 10,
+    "AnnexSuccessMerit": 4000
+  },
+
+  "techniquePointGain": {
+    "_comment": "势力技巧点（填未减半值，Force.GainTechniquePoint 入口统一除 2）",
+    "TechniquePointDestroyTroop": 50,
+    "DuelWinTechniquePoint": 50,
+    "DebateWinTechniquePoint": 50
+  },
+
+  "expGain": {
+    "_comment": "武将等级经验（项目自有系统，原版无对应字段）",
+    "ExpFromMerit": 20,
+    "DuelDrawExp": 3,
+    "DuelWinExp": 10,
+    "DuelLoseExp": 1
+  },
+
+  "attributeExpGain": {
+    "_comment": "能力经验（区间型写 {min,max}）",
+    "DebateAttributeExp": { "min": 1, "max": 3 },
+    "DebateAttributeExpKind": { "min": 1, "max": 3 },
+    "DebateAttributeExpLose": 1
+  },
+
+  "eventGain": {
+    "_comment": "剧本事件奖励",
+    "EventMeritCommon": { "min": 200, "max": 500 },
+    "EventMeritMajor": { "min": 800, "max": 1500 },
+    "EventTechniquePointCommon": 100,
+    "EventTechniquePointMajor": 400,
+    "EventAttributeExpCommon": { "min": 10, "max": 25 },
+    "EventExecuteTechniquePoint": 150,
+    "EventRecruitAttributeExp": { "min": 20, "max": 40 },
+    "EventLoyaltyGain": 10,
+    "EventHegemonyPointCommon": 50,
+    "EventHegemonyPointMajor": 300
+  },
+
+  "itemDiscoverGain": {
+    "_comment": "宝物 / 装备产出",
+    "ItemDiscoverBaseChance": 2,
+    "ItemDiscoverFromPolitics": 10,
+    "ItemDiscoverFromIntelligence": 5,
+    "ItemDiscoverChanceCap": 20,
+    "ItemDiscoverTreasureRate": 60,
+    "ItemDiscoverForceCooldown": 12,
+    "ItemDiscoverCityCooldown": 18,
+    "ItemDiscoverStartProtect": 12,
+    "ItemDiscoverMaxBase": 10,
+    "ItemDiscoverMaxPerCity": 3,
+    "ItemDiscoverGlobalBonus": 0
+  },
+
+  "abilityStudyGain": {
+    "_comment": "能力研究 / 培育",
+    "AbilityStudyResearchGoldCost": 300,
+    "AbilityStudyLearnGoldCost": 0,
+    "AbilityStudyStatGain": 5,
+    "AbilityStudyLearnChance": 50,
+    "AbilityStudyResearchActionPointCost": 20,
+    "AbilityStudyLearnActionPointCost": 20,
+    "AbilityStudyLearnExpCap": 5000,
+    "AbilityStudyMissionTurns": 3
+  }
+}

@@ -742,10 +742,8 @@ namespace Sango.Core
             if (OutpostRuntime.corps == this && OutpostRuntime.force == BelongForce)
                 OutpostRuntime.MarkExecuted();
 
-            if (!IsPlayer)
-                return;
-
             ActionPoint -= v;
+            ActionPoint = System.Math.Max(0, ActionPoint);
             if (IsPlayer && BelongForce == Scenario.Cur.CurRunForce)
             {
                 GameEvent.OnCorpsActionPointChange?.Invoke(this);

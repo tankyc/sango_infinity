@@ -430,15 +430,13 @@ namespace Sango.Core
 
             supplier.SupplyTroop(ally, itemGive, goldGive, foodGive, troopGive);
 
-            // 【对齐原版 supply_anim】补给成功给补给队加经验 + 势力技巧点
-            // （s11_sys_anim_unit.cpp:1473-1474：unit_add_exp_with_kouseki(Exp_Supply) + force_add_tech_point）。
-            // 本项目没有"部队经验"层，等价物是主将的武将经验；数值走 GainValueConfig，可被剧本设置覆盖。
-            int exp = GainValueConfig.Exp(GainPlace.SupplyExp);
-            if (exp > 0 && supplier.Leader != null)
-                supplier.Leader.GainExp(exp);
-            int techniquePoint = GainValueConfig.TechniquePoint(GainPlace.SupplyTechniquePoint);
-            if (techniquePoint > 0)
-                supplier.BelongForce?.GainTechniquePoint(techniquePoint);
+            // 【原版对齐】补给成功给补给队结算 Exp_Supply 行：
+            //   s11_sys_anim_unit.cpp:1473-1474
+            //     `int tech_point = unit_add_exp_with_kouseki(self, Exp_Supply, self->get_equipment_id(), 1, off_screen);`
+            //     `force_add_tech_point(get_force(self->get_force_id()), self->get_pos(), tech_point, off_screen);`
+            // Exp_Supply（CombatExpEvent.Supply，表 0x60）的实际数值：功绩 100、统率经验 2、
+            // 兵种适性 0、技巧点 0 —— 原版补给**不给技巧点**，旧的 SupplyTechniquePoint=1 是错的。
+            supplier.GainEP(CombatExpEvent.Supply);
 
             Sango.Log.Info($"{supplier.BelongForce?.Name}的补给队[{supplier.Name}]为[{ally.Name}]补充 粮草{foodGive} 兵力{troopGive} 资金{goldGive}!");
             return true;

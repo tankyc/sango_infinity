@@ -17,17 +17,17 @@ using Sango.Core; namespace Sango.UI
 
         /// <summary>
         /// 设置可用状态；不可用时置灰、禁用点击。
+        /// <para>
+        /// 只改颜色与可点性，**不往标题里追加任何说明文案**：
+        /// 菜单按钮宽度是固定的，追加"（原因）"会把标题撑出按钮外；
+        /// 而且置灰本身已经表达了"当前不可用"。
+        /// 不可用原因仍由 <see cref="ContextMenuItem.disabledReason"/> 保存，
+        /// 需要时（如悬浮提示）再单独读取，不占用按钮文本。
+        /// </para>
         /// </summary>
         /// <param name="b">是否可用</param>
-        /// <param name="reason">
-        /// 置灰原因（可选）。非空时追加到标题末尾，形如「出征（出阵位已满）」，
-        /// 对应 Open311 的 `set_command_error_text` —— 让玩家知道为什么点不了。
-        /// <para>**必须在 <see cref="SetTitle"/> 之后调用**，否则拼不到原标题上。</para>
-        /// </param>
-        public UIMenuItem SetValid(bool b, string reason = null)
+        public UIMenuItem SetValid(bool b)
         {
-            if (!b && !string.IsNullOrEmpty(reason))
-                title.text = $"{title.text}（{reason}）";
             title.color = b ? Color.white : Color.gray;
             button.interactable = b;
             return this;

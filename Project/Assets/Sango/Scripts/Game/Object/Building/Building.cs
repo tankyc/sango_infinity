@@ -333,7 +333,10 @@ namespace Sango.Core
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Build;
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 【原版对齐】建筑完成 → 设施表 tech_point
+            //（s11_sys_person_order_city.cpp:228 `force_add_tech_point(force, facility->get_tech_point(), building)`）。
+            // 本项目对应 BuildingType.techGain；走统一入口后会被减半 + 上限夹取。
+            int techniquePointGain = BuildingType != null ? BuildingType.techGain : 0;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -370,7 +373,8 @@ namespace Sango.Core
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Build;
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
+            // 【原版对齐】建筑完成 → 设施表 tech_point（s11_sys_person_order_city.cpp:228）
+            int techniquePointGain = BuildingType != null ? BuildingType.techGain : 0;
 
 #if SANGO_DEBUG
             StringBuilder stringBuilder = new StringBuilder();
@@ -411,9 +415,12 @@ namespace Sango.Core
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Build;
             int meritGain = JobType.GetJobMeritGain(jobId);
-            int techniquePointGain = JobType.GetJobTPGain(jobId);
 
             BuildingType nextBuildingType = scenario.GetObject<BuildingType>(BuildingType.nextId);
+
+            // 【原版对齐】升级按**新设施**的 tech_point 给（原版 on_build_completed 用的就是完成后的 facility，
+            // s11_sys_person_order_city.cpp:215-228）。所以这里必须取 nextBuildingType，不能取旧 BuildingType。
+            int techniquePointGain = nextBuildingType != null ? nextBuildingType.techGain : 0;
             BuildingType = nextBuildingType;
 
             durability = DurabilityLimit;

@@ -4,7 +4,7 @@
       "Id": 1,
       "Name": "统+5低",
       "desc": "将统率未满70的武将之统率提升5，但最大值为70",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         0,
@@ -13,19 +13,23 @@
       ],
       "skillId": 0,
       "statKind": 1,
+      "displayKind": 1,
       "value": 0,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": 0,
       "maxStat": 70,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 1,
+      "r": -1,
+      "dir": [1, 2, 6]
     },
     "2": {
       "Id": 2,
       "Name": "统+5中",
       "desc": "将统率未满80的武将之统率提升5，但最大值为80",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         38,
@@ -34,19 +38,23 @@
       ],
       "skillId": 0,
       "statKind": 1,
+      "displayKind": 1,
       "value": 3,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": 0,
       "maxStat": 80,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 4,
+      "r": -2,
+      "dir": [1, 2, 4, 6]
     },
     "3": {
       "Id": 3,
       "Name": "统+5高",
       "desc": "将统率未满95的武将之统率提升5，但最大值为95",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         2,
@@ -55,19 +63,23 @@
       ],
       "skillId": 0,
       "statKind": 1,
+      "displayKind": 1,
       "value": 4,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": 0,
       "maxStat": 95,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 5,
+      "r": -2,
+      "dir": [6]
     },
     "4": {
       "Id": 4,
       "Name": "武+5低",
       "desc": "将武力未满70的武将之武力提升5，但最大值为70",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         0,
@@ -76,19 +88,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 0,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": 1,
       "maxStat": 70,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 0,
+      "r": -1,
+      "dir": [1, 4, 5]
     },
     "5": {
       "Id": 5,
       "Name": "武+5中",
       "desc": "将武力未满80的武将之武力提升5，但最大值为80",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         16,
@@ -97,19 +113,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 6,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": 1,
       "maxStat": 80,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 0,
+      "r": -3,
+      "dir": [5]
     },
     "6": {
       "Id": 6,
       "Name": "武+5高",
       "desc": "将武力未满95的武将之武力提升5，但最大值为95",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         23,
@@ -118,19 +138,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 14,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": 1,
       "maxStat": 95,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": -1,
+      "dir": [6]
     },
     "7": {
       "Id": 7,
       "Name": "智+5低",
       "desc": "将智力未满70的武将之智力提升5，但最大值为70",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         0,
@@ -139,19 +163,23 @@
       ],
       "skillId": 0,
       "statKind": 3,
+      "displayKind": 3,
       "value": 0,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": 2,
       "maxStat": 70,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -1,
+      "r": 1,
+      "dir": [3, 4, 5]
     },
     "8": {
       "Id": 8,
       "Name": "智+5中",
       "desc": "将智力未满80的武将之智力提升5，但最大值为80",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         29,
@@ -160,19 +188,23 @@
       ],
       "skillId": 0,
       "statKind": 3,
+      "displayKind": 3,
       "value": 3,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": 2,
       "maxStat": 80,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": 2,
+      "dir": [2, 3]
     },
     "9": {
       "Id": 9,
       "Name": "智+5高",
       "desc": "将智力未满95的武将之智力提升5，但最大值为95",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         35,
@@ -181,19 +213,23 @@
       ],
       "skillId": 0,
       "statKind": 3,
+      "displayKind": 3,
       "value": 9,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": 2,
       "maxStat": 95,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -4,
+      "r": 2,
+      "dir": [4, 5]
     },
     "10": {
       "Id": 10,
       "Name": "政+5低",
       "desc": "将政治未满70的武将之政治提升5，但最大值为70",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         0,
@@ -202,19 +238,23 @@
       ],
       "skillId": 0,
       "statKind": 2,
+      "displayKind": 2,
       "value": 0,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": 3,
       "maxStat": 70,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 0,
+      "r": 1,
+      "dir": [2, 4]
     },
     "11": {
       "Id": 11,
       "Name": "政+5中",
       "desc": "将政治未满80的武将之政治提升5，但最大值为80",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         43,
@@ -223,19 +263,23 @@
       ],
       "skillId": 0,
       "statKind": 2,
+      "displayKind": 2,
       "value": 3,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": 3,
       "maxStat": 80,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 0,
+      "r": 3,
+      "dir": [2]
     },
     "12": {
       "Id": 12,
       "Name": "政+5高",
       "desc": "将政治未满95的武将之政治提升5，但最大值为95",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         45,
@@ -244,19 +288,23 @@
       ],
       "skillId": 0,
       "statKind": 2,
+      "displayKind": 2,
       "value": 6,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": 3,
       "maxStat": 95,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": 1,
+      "dir": [3, 5]
     },
     "13": {
       "Id": 13,
       "Name": "魅+5低",
       "desc": "将魅力未满70的武将之魅力提升5，但最大值为70",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         7,
@@ -265,19 +313,23 @@
       ],
       "skillId": 0,
       "statKind": 2,
+      "displayKind": 2,
       "value": 2,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": 4,
       "maxStat": 70,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -1,
+      "r": 2,
+      "dir": [4, 5]
     },
     "14": {
       "Id": 14,
       "Name": "魅+5中",
       "desc": "将魅力未满80的武将之魅力提升5，但最大值为80",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         42,
@@ -286,19 +338,23 @@
       ],
       "skillId": 0,
       "statKind": 2,
+      "displayKind": 2,
       "value": 4,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": 4,
       "maxStat": 80,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -1,
+      "r": 3,
+      "dir": [1]
     },
     "15": {
       "Id": 15,
       "Name": "魅+5高",
       "desc": "将魅力未满95的武将之魅力提升5，但最大值为95",
-      "learningLimit": 1,
+      "learningLimit": 5,
       "category": 0,
       "requiredAbilityIds": [
         14,
@@ -307,19 +363,23 @@
       ],
       "skillId": 0,
       "statKind": 2,
+      "displayKind": 2,
       "value": 5,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": 4,
       "maxStat": 95,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 0,
+      "r": 2,
+      "dir": []
     },
     "16": {
       "Id": 16,
       "Name": "枪兵B",
       "desc": "将枪兵适性C的武将提升为Ｂ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         20,
@@ -328,19 +388,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 2,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 1,
-      "targetAptitude": 1
+      "targetAptitude": 1,
+      "q": -1,
+      "r": -2,
+      "dir": [1, 4]
     },
     "17": {
       "Id": 17,
       "Name": "枪兵A",
       "desc": "将枪兵适性Ｂ的武将提升为Ａ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         21,
@@ -349,19 +413,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 8,
       "timeCost": 5,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 1,
-      "targetAptitude": 2
+      "targetAptitude": 2,
+      "q": -2,
+      "r": -3,
+      "dir": [3, 4]
     },
     "18": {
       "Id": 18,
       "Name": "戟兵B",
       "desc": "将戟兵适性C的武将提升为Ｂ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         1,
@@ -370,19 +438,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 2,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 2,
-      "targetAptitude": 1
+      "targetAptitude": 1,
+      "q": 1,
+      "r": -2,
+      "dir": [5]
     },
     "19": {
       "Id": 19,
       "Name": "戟兵A",
       "desc": "将戟兵适性Ｂ的武将提升为Ａ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         26,
@@ -391,19 +463,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 4,
       "timeCost": 5,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 2,
-      "targetAptitude": 2
+      "targetAptitude": 2,
+      "q": 1,
+      "r": -3,
+      "dir": [2]
     },
     "20": {
       "Id": 20,
       "Name": "弩兵B",
       "desc": "将弩兵适性C的武将提升为Ｂ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         4,
@@ -412,19 +488,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 1,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 3,
-      "targetAptitude": 1
+      "targetAptitude": 1,
+      "q": -1,
+      "r": -1,
+      "dir": [5, 6]
     },
     "21": {
       "Id": 21,
       "Name": "弩兵A",
       "desc": "将弩兵适性Ｂ的武将提升为Ａ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         5,
@@ -433,19 +513,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 7,
       "timeCost": 5,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 3,
-      "targetAptitude": 2
+      "targetAptitude": 2,
+      "q": -1,
+      "r": -3,
+      "dir": [5]
     },
     "22": {
       "Id": 22,
       "Name": "骑兵B",
       "desc": "将骑兵适性C的武将提升为Ｂ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         24,
@@ -454,19 +538,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 2,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 4,
-      "targetAptitude": 1
+      "targetAptitude": 1,
+      "q": -2,
+      "r": 0,
+      "dir": [5]
     },
     "23": {
       "Id": 23,
       "Name": "骑兵A",
       "desc": "将骑兵适性Ｂ的武将提升为Ａ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         25,
@@ -475,19 +563,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 5,
       "timeCost": 5,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 4,
-      "targetAptitude": 2
+      "targetAptitude": 2,
+      "q": -4,
+      "r": 0,
+      "dir": [1]
     },
     "24": {
       "Id": 24,
       "Name": "兵器B",
       "desc": "将兵器适性C的武将提升为Ｂ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         4,
@@ -496,19 +588,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 1,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 5,
-      "targetAptitude": 1
+      "targetAptitude": 1,
+      "q": -1,
+      "r": 0,
+      "dir": [5]
     },
     "25": {
       "Id": 25,
       "Name": "兵器A",
       "desc": "将兵器适性Ｂ的武将提升为Ａ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         28,
@@ -517,19 +613,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 4,
       "timeCost": 5,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 5,
-      "targetAptitude": 2
+      "targetAptitude": 2,
+      "q": -4,
+      "r": 1,
+      "dir": [4, 6]
     },
     "26": {
       "Id": 26,
       "Name": "水军B",
       "desc": "将水军适性C的武将提升为Ｂ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         18,
@@ -538,19 +638,23 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 3,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 6,
-      "targetAptitude": 1
+      "targetAptitude": 1,
+      "q": 0,
+      "r": -2,
+      "dir": [1, 6]
     },
     "27": {
       "Id": 27,
       "Name": "水军A",
       "desc": "将水军适性Ｂ的武将提升为Ａ",
-      "learningLimit": 2,
+      "learningLimit": 3,
       "category": 1,
       "requiredAbilityIds": [
         19,
@@ -559,13 +663,17 @@
       ],
       "skillId": 0,
       "statKind": 0,
+      "displayKind": 0,
       "value": 5,
       "timeCost": 5,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": 6,
-      "targetAptitude": 2
+      "targetAptitude": 2,
+      "q": 2,
+      "r": -3,
+      "dir": [2]
     },
     "28": {
       "Id": 28,
@@ -580,13 +688,17 @@
       ],
       "skillId": 25,
       "statKind": 0,
+      "displayKind": 0,
       "value": 3,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": 0,
+      "dir": [4]
     },
     "29": {
       "Id": 29,
@@ -601,13 +713,17 @@
       ],
       "skillId": 74,
       "statKind": 3,
+      "displayKind": 3,
       "value": 2,
       "timeCost": 3,
-      "hiddenSlot": -1,
+      "hiddenSlot": 3,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": 2,
+      "dir": [5]
     },
     "30": {
       "Id": 30,
@@ -622,13 +738,17 @@
       ],
       "skillId": 13,
       "statKind": 0,
+      "displayKind": 0,
       "value": 9,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": -2,
+      "dir": [3, 4, 5]
     },
     "31": {
       "Id": 31,
@@ -643,18 +763,22 @@
       ],
       "skillId": 27,
       "statKind": 0,
+      "displayKind": 0,
       "value": 6,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": -3,
+      "dir": [2, 4]
     },
     "32": {
       "Id": 32,
-      "Name": "威风",
-      "desc": "让无特技「威风」的武将习得",
+      "Name": "霸王",
+      "desc": "让无特技「霸王」的武将习得",
       "learningLimit": 1,
       "category": 2,
       "requiredAbilityIds": [
@@ -662,15 +786,19 @@
         31,
         0
       ],
-      "skillId": 11,
+      "skillId": 49,
       "statKind": 0,
+      "displayKind": 0,
       "value": 10,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 4,
+      "r": -3,
+      "dir": [2]
     },
     "33": {
       "Id": 33,
@@ -685,13 +813,17 @@
       ],
       "skillId": 73,
       "statKind": 3,
+      "displayKind": 3,
       "value": 1,
       "timeCost": 3,
-      "hiddenSlot": -1,
+      "hiddenSlot": 9,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 3,
+      "dir": [2]
     },
     "34": {
       "Id": 34,
@@ -706,13 +838,17 @@
       ],
       "skillId": 75,
       "statKind": 3,
+      "displayKind": 3,
       "value": 7,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": 3,
+      "dir": [1, 5]
     },
     "35": {
       "Id": 35,
@@ -727,13 +863,17 @@
       ],
       "skillId": 68,
       "statKind": 3,
+      "displayKind": 3,
       "value": 8,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -4,
+      "r": 3,
+      "dir": [5, 6]
     },
     "36": {
       "Id": 36,
@@ -748,13 +888,17 @@
       ],
       "skillId": 28,
       "statKind": 1,
+      "displayKind": 1,
       "value": 1,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": -1,
+      "dir": [1, 3, 4, 6]
     },
     "37": {
       "Id": 37,
@@ -769,13 +913,17 @@
       ],
       "skillId": 78,
       "statKind": 2,
+      "displayKind": 2,
       "value": 1,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 1,
+      "r": 1,
+      "dir": [1, 3, 6]
     },
     "38": {
       "Id": 38,
@@ -790,13 +938,17 @@
       ],
       "skillId": 29,
       "statKind": 1,
+      "displayKind": 1,
       "value": 2,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": -2,
+      "dir": [2, 5]
     },
     "39": {
       "Id": 39,
@@ -811,13 +963,17 @@
       ],
       "skillId": 30,
       "statKind": 1,
+      "displayKind": 1,
       "value": 4,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 1,
+      "r": 0,
+      "dir": []
     },
     "40": {
       "Id": 40,
@@ -832,13 +988,17 @@
       ],
       "skillId": 23,
       "statKind": 1,
+      "displayKind": 1,
       "value": 13,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 4,
+      "r": -1,
+      "dir": [3]
     },
     "41": {
       "Id": 41,
@@ -853,13 +1013,17 @@
       ],
       "skillId": 80,
       "statKind": 1,
+      "displayKind": 1,
       "value": 14,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": -1,
+      "dir": [2]
     },
     "42": {
       "Id": 42,
@@ -874,13 +1038,17 @@
       ],
       "skillId": 96,
       "statKind": 2,
+      "displayKind": 2,
       "value": 3,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": 3,
+      "dir": [2, 5]
     },
     "43": {
       "Id": 43,
@@ -895,13 +1063,17 @@
       ],
       "skillId": 8,
       "statKind": 2,
+      "displayKind": 2,
       "value": 2,
       "timeCost": 3,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 1,
+      "r": 2,
+      "dir": [4]
     },
     "44": {
       "Id": 44,
@@ -916,13 +1088,17 @@
       ],
       "skillId": 84,
       "statKind": 2,
+      "displayKind": 2,
       "value": 4,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 1,
+      "r": 3,
+      "dir": [1, 2]
     },
     "45": {
       "Id": 45,
@@ -937,13 +1113,17 @@
       ],
       "skillId": 83,
       "statKind": 2,
+      "displayKind": 2,
       "value": 5,
       "timeCost": 4,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 2,
+      "dir": [1]
     },
     "46": {
       "Id": 46,
@@ -958,13 +1138,17 @@
       ],
       "skillId": 87,
       "statKind": 2,
+      "displayKind": 2,
       "value": 7,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 4,
+      "r": 0,
+      "dir": []
     },
     "47": {
       "Id": 47,
@@ -979,13 +1163,17 @@
       ],
       "skillId": 82,
       "statKind": 2,
+      "displayKind": 2,
       "value": 8,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 1,
+      "dir": [1]
     },
     "48": {
       "Id": 48,
@@ -1000,13 +1188,17 @@
       ],
       "skillId": 81,
       "statKind": 2,
+      "displayKind": 2,
       "value": 15,
       "timeCost": 6,
       "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": 0,
+      "dir": [2,6]
     },
     "49": {
       "Id": 49,
@@ -1021,13 +1213,17 @@
       ],
       "skillId": 10,
       "statKind": 0,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
-      "hiddenSlot": 0,
+      "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": 1,
+      "dir": [3]
     },
     "50": {
       "Id": 50,
@@ -1042,13 +1238,17 @@
       ],
       "skillId": 12,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 0,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": -1,
+      "dir": []
     },
     "51": {
       "Id": 51,
@@ -1063,13 +1263,17 @@
       ],
       "skillId": 51,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 0,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": -1,
+      "dir": []
     },
     "52": {
       "Id": 52,
@@ -1084,13 +1288,17 @@
       ],
       "skillId": 26,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 0,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": -1,
+      "dir": []
     },
     "53": {
       "Id": 53,
@@ -1105,13 +1313,17 @@
       ],
       "skillId": 39,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 0,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": -1,
+      "dir": []
     },
     "54": {
       "Id": 54,
@@ -1126,13 +1338,17 @@
       ],
       "skillId": 4,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": -2,
+      "dir": []
     },
     "55": {
       "Id": 55,
@@ -1147,13 +1363,17 @@
       ],
       "skillId": 7,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": -2,
+      "dir": []
     },
     "56": {
       "Id": 56,
@@ -1168,13 +1388,17 @@
       ],
       "skillId": 34,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": -2,
+      "dir": []
     },
     "57": {
       "Id": 57,
@@ -1189,13 +1413,17 @@
       ],
       "skillId": 53,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": -2,
+      "dir": []
     },
     "58": {
       "Id": 58,
@@ -1210,13 +1438,17 @@
       ],
       "skillId": 21,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": -2,
+      "dir": []
     },
     "59": {
       "Id": 59,
@@ -1231,13 +1463,17 @@
       ],
       "skillId": 85,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 2,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 0,
+      "dir": []
     },
     "60": {
       "Id": 60,
@@ -1252,13 +1488,17 @@
       ],
       "skillId": 86,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 2,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 0,
+      "dir": []
     },
     "61": {
       "Id": 61,
@@ -1273,13 +1513,17 @@
       ],
       "skillId": 76,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 2,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 0,
+      "dir": []
     },
     "62": {
       "Id": 62,
@@ -1294,13 +1538,17 @@
       ],
       "skillId": 77,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 2,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 0,
+      "dir": []
     },
     "63": {
       "Id": 63,
@@ -1315,13 +1563,17 @@
       ],
       "skillId": 99,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 2,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 0,
+      "dir": []
     },
     "64": {
       "Id": 64,
@@ -1336,13 +1588,17 @@
       ],
       "skillId": 61,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 3,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": 2,
+      "dir": []
     },
     "65": {
       "Id": 65,
@@ -1357,13 +1613,17 @@
       ],
       "skillId": 54,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 3,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": 2,
+      "dir": []
     },
     "66": {
       "Id": 66,
@@ -1378,13 +1638,17 @@
       ],
       "skillId": 66,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 3,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": 2,
+      "dir": []
     },
     "67": {
       "Id": 67,
@@ -1399,13 +1663,17 @@
       ],
       "skillId": 31,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 3,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": 2,
+      "dir": []
     },
     "68": {
       "Id": 68,
@@ -1420,13 +1688,17 @@
       ],
       "skillId": 69,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 3,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": 2,
+      "dir": []
     },
     "69": {
       "Id": 69,
@@ -1441,13 +1713,17 @@
       ],
       "skillId": 16,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 4,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": -2,
+      "dir": []
     },
     "70": {
       "Id": 70,
@@ -1462,13 +1738,17 @@
       ],
       "skillId": 19,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 4,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": -2,
+      "dir": []
     },
     "71": {
       "Id": 71,
@@ -1483,13 +1763,17 @@
       ],
       "skillId": 15,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 4,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": -2,
+      "dir": []
     },
     "72": {
       "Id": 72,
@@ -1504,13 +1788,17 @@
       ],
       "skillId": 14,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 4,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": -2,
+      "dir": []
     },
     "73": {
       "Id": 73,
@@ -1525,13 +1813,17 @@
       ],
       "skillId": 24,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 4,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -3,
+      "r": -2,
+      "dir": []
     },
     "74": {
       "Id": 74,
@@ -1546,13 +1838,17 @@
       ],
       "skillId": 18,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 5,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 2,
+      "dir": []
     },
     "75": {
       "Id": 75,
@@ -1567,13 +1863,17 @@
       ],
       "skillId": 35,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 5,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 2,
+      "dir": []
     },
     "76": {
       "Id": 76,
@@ -1588,13 +1888,17 @@
       ],
       "skillId": 38,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 5,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 2,
+      "dir": []
     },
     "77": {
       "Id": 77,
@@ -1609,13 +1913,17 @@
       ],
       "skillId": 37,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 5,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 2,
+      "dir": []
     },
     "78": {
       "Id": 78,
@@ -1630,13 +1938,17 @@
       ],
       "skillId": 36,
       "statKind": 0,
+      "displayKind": 0,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 5,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 2,
+      "dir": []
     },
     "79": {
       "Id": 79,
@@ -1651,13 +1963,17 @@
       ],
       "skillId": 52,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 6,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 5,
+      "r": -3,
+      "dir": []
     },
     "80": {
       "Id": 80,
@@ -1672,13 +1988,17 @@
       ],
       "skillId": 2,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 6,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 5,
+      "r": -3,
+      "dir": []
     },
     "81": {
       "Id": 81,
@@ -1693,13 +2013,17 @@
       ],
       "skillId": 3,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 6,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 5,
+      "r": -3,
+      "dir": []
     },
     "82": {
       "Id": 82,
@@ -1714,13 +2038,17 @@
       ],
       "skillId": 32,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 6,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 5,
+      "r": -3,
+      "dir": []
     },
     "83": {
       "Id": 83,
@@ -1735,13 +2063,17 @@
       ],
       "skillId": 22,
       "statKind": 1,
+      "displayKind": 1,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 6,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 5,
+      "r": -3,
+      "dir": []
     },
     "84": {
       "Id": 84,
@@ -1756,13 +2088,17 @@
       ],
       "skillId": 89,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 7,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": 2,
+      "dir": []
     },
     "85": {
       "Id": 85,
@@ -1777,13 +2113,17 @@
       ],
       "skillId": 88,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 7,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": 2,
+      "dir": []
     },
     "86": {
       "Id": 86,
@@ -1798,13 +2138,17 @@
       ],
       "skillId": 91,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 7,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": 2,
+      "dir": []
     },
     "87": {
       "Id": 87,
@@ -1819,13 +2163,17 @@
       ],
       "skillId": 90,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 7,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": 2,
+      "dir": []
     },
     "88": {
       "Id": 88,
@@ -1840,13 +2188,17 @@
       ],
       "skillId": 98,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 7,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 3,
+      "r": 2,
+      "dir": []
     },
     "89": {
       "Id": 89,
@@ -1861,13 +2213,17 @@
       ],
       "skillId": 17,
       "statKind": 2,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
-      "hiddenSlot": 8,
+      "hiddenSlot": -1,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -2,
+      "r": 1,
+      "dir": [5]
     },
     "90": {
       "Id": 90,
@@ -1882,13 +2238,17 @@
       ],
       "skillId": 57,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 8,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 3,
+      "dir": []
     },
     "91": {
       "Id": 91,
@@ -1903,13 +2263,17 @@
       ],
       "skillId": 59,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 8,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 3,
+      "dir": []
     },
     "92": {
       "Id": 92,
@@ -1924,13 +2288,17 @@
       ],
       "skillId": 79,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 8,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 3,
+      "dir": []
     },
     "93": {
       "Id": 93,
@@ -1945,13 +2313,17 @@
       ],
       "skillId": 97,
       "statKind": 2,
+      "displayKind": 2,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 8,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": 2,
+      "r": 3,
+      "dir": []
     },
     "94": {
       "Id": 94,
@@ -1966,13 +2338,17 @@
       ],
       "skillId": 60,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 9,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 3,
+      "dir": []
     },
     "95": {
       "Id": 95,
@@ -1987,13 +2363,17 @@
       ],
       "skillId": 62,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 9,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 3,
+      "dir": []
     },
     "96": {
       "Id": 96,
@@ -2008,13 +2388,17 @@
       ],
       "skillId": 56,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 9,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 3,
+      "dir": []
     },
     "97": {
       "Id": 97,
@@ -2029,13 +2413,17 @@
       ],
       "skillId": 55,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 9,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 3,
+      "dir": []
     },
     "98": {
       "Id": 98,
@@ -2050,13 +2438,42 @@
       ],
       "skillId": 67,
       "statKind": 3,
+      "displayKind": 3,
       "value": 20,
       "timeCost": 6,
       "hiddenSlot": 9,
       "personStatType": -1,
       "maxStat": 0,
       "troopKind": -1,
-      "targetAptitude": -1
+      "targetAptitude": -1,
+      "q": -5,
+      "r": 3,
+      "dir": []
+    },
+    "99": {
+      "Id": 99,
+      "Name": "威风",
+      "desc": "让无特技「威风」的武将习得",
+      "learningLimit": 1,
+      "category": 2,
+      "requiredAbilityIds": [
+        2,
+        31,
+        0
+      ],
+      "skillId": 11,
+      "statKind": 0,
+      "displayKind": 0,
+      "value": 10,
+      "timeCost": 6,
+      "hiddenSlot": 0,
+      "personStatType": -1,
+      "maxStat": 0,
+      "troopKind": -1,
+      "targetAptitude": -1,
+      "q": -2,
+      "r": -1,
+      "dir": []
     }
   }
 }
