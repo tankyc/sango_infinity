@@ -370,6 +370,7 @@ namespace Sango.Core
         /// 势力研究解锁 → 武将逐个学习。
         /// </summary>
         [JsonProperty]
+        [JsonConverter(typeof(HashSetIntJsonConverter))]
         public HashSet<int> learnedAbilityIds = new HashSet<int>();
 
         /// <summary>
@@ -917,8 +918,12 @@ namespace Sango.Core
         /// 对应原版各处 `not is_event() and not is_temporary()` 的组合条件；
         /// 异族与事件同类，同样不参与——它们由异族系统按需生成/回收，
         /// 不该被自然死亡淘汰（原版异族武将是 PersonType_Temporary）。
+        ///
+        /// 【为什么带 <see cref="HasValidState"/>】寿终 / 患病 / 关系维护都从这里过滤，
+        /// 而 state = 0 的占位武将（原版 mibun_ = -1）在原版连 is_active() 都不是，
+        /// 不该被寿终骰子挑中、更不该在死亡后往关系表里写一条"某某卒"的记录。
         /// </summary>
-        public bool HasLifeCycle => !IsSpecialPerson && !IsTemporary;
+        public bool HasLifeCycle => HasValidState && !IsSpecialPerson && !IsTemporary;
 
         /// <summary>
         /// 推算寿命终止年（对应 Open311 的 Person::get_estimated_death）。
@@ -945,8 +950,11 @@ namespace Sango.Core
         /// 原版 Unit::can_set_member 是白名单（历史/古代/自建/临时），
         /// 这里改成"排除事件与 NPC"的黑名单：老存档与剧本内嵌武将的 type 是 -1（None），
         /// 用白名单会把整批未分类武将挡在编队之外，属于功能性倒退。
+        ///
+        /// 身份未初始化（state = 0）的占位武将同样排除 —— 它们连归属都没有，
+        /// 编进部队会让部队的属性结算读到空势力 / 空城。
         /// </summary>
-        public bool CanBeTroopMember => !IsEventPerson;
+        public bool CanBeTroopMember => HasValidState && !IsEventPerson;
 
         public void SetStateNormal() { state = (int)PersonStateType.Normal; }
         public void SetStateLeader()
@@ -1205,7 +1213,7 @@ namespace Sango.Core
         /// 「<see cref="IsFree"/>（= 无部队 + 无任务 + 非俘虏 + 存活）+ <see cref="IsHealthy"/>（无伤病）」
         /// 两条，能力培育（AbilityStudySystem）全部只判这两条，不再另写 is_action_done / is_at_service 分支。
         /// </summary>
-        public bool IsFree { get { return mBelongTroop == null && missionType == (int)MissionType.None && !IsPrisoner && !IsDead; } }
+        public bool IsFree { get { return HasValidState && mBelongTroop == null && missionType == (int)MissionType.None && !IsPrisoner && !IsDead; } }
 
         /// <summary>
         /// 是否在野
@@ -1226,6 +1234,41 @@ namespace Sango.Core
         /// 是否死亡
         /// </summary>
         public bool IsDead { get { return state == (int)PersonStateType.Dead; } }
+
+        /// <summary>
+        /// 身份是否合法（<see cref="PersonStateType.Error"/> = 0 表示未初始化 / 数据非法）。
+        ///
+        /// 【原版出处】Open311 的 <c>mibun_</c> 值域是 0~8（Mibun_Kunshu~Mibun_Shibou，
+        /// s11_enum_scen.h:466-478），用 -1 表示"未初始化"，并在所有活性判定里**先行拦截**：
+        /// <code>
+        /// bool Person::is_active() const { return _17c or (mibun_ >= 0); }   // s11_scen_obj_person.cpp:24-29
+        /// bool Person::is_alive()  const {
+        ///     if (not is_active()) return false;                             // 同文件 :31-36
+        ///     return _17c or (mibun_ >= 0 and mibun_ != Mibun_Mitoujou and mibun_ != Mibun_Shibou);
+        /// }
+        /// </code>
+        /// 本项目把 0 用作 Error、把原版的 0~8 整体偏移成 1~9，
+        /// 所以**原版的 `mibun_ >= 0` 等价于本项目的 `state > 0`**。
+        ///
+        /// 【为什么必须有这条】此前这条前置校验完全缺失：state = 0 的武将 IsAlive 仍为 true，
+        /// 会被回合结算 / AI / 登用 / 编成 / 成长 按常规武将处理。
+        /// 剧本里 state = 0 的是"史实０１"这一类占位武将（850 条里有 167 条），
+        /// 一旦被当成正常武将参与运算，就会凭空出现在在野名单、被登用、甚至被时势事件选中。
+        /// </summary>
+        public bool HasValidState
+        {
+            get { return state > (int)PersonStateType.Error && state < (int)PersonStateType.Max; }
+        }
+
+        /// <summary>
+        /// 是否为非法武将（身份未初始化，<see cref="HasValidState"/> 的否定）。
+        ///
+        /// 任何「登场 / 回合结算 / 编成 / 成长 / 登用 / AI 选取」流程都应先行排除这类对象。
+        /// 它们仍留在 <c>scenario.personSet</c> 里是**有意为之**：关系表、事件按 Id 引用、
+        /// 存档里的父兄子侄链都靠 Id 定位，直接删掉会让这些引用悬空。
+        /// 正确做法是"留而不理"，而不是"从表里消失"。
+        /// </summary>
+        public bool IsInvalidPerson { get { return !HasValidState; } }
 
         public bool IsAlliance(BuildingBase other)
         {
@@ -1368,7 +1411,14 @@ namespace Sango.Core
                     BelongCity = CurrentCity;
             }
 
-            if (IsAlive)
+            // 【身份未初始化的占位武将（state = 0）不重建任何归属】
+            // 原版 is_alive 的首行就是 `if (not is_active()) return false;`
+            // （s11_scen_obj_person.cpp:31-36，is_active 读 mibun_ >= 0），
+            // 本项目 state = 0 对应原版的 mibun_ = -1，应视为"不存在"。
+            // 这里若不拦，state = 0 会落到 switch 的 default 分支（不匹配任何 case），
+            // 行为上碰巧也没事，但后面的 Actor 注册与"修正所属城市"仍会执行 ——
+            // 那是把非法武将当正常武将处理的入口，必须显式挡住。
+            if (IsAlive && HasValidState)
             {
                 switch ((PersonStateType)state)
                 {
@@ -1558,7 +1608,9 @@ namespace Sango.Core
             // 【在途武将表】读档后按任务重建（对应 Open311 actors_ 的派生重建）。
             // 这张表不参与序列化 —— 它是"从每个人的 missionType 派生"的运行期索引，
             // 存盘再读回来只需重扫一遍即可，避免存档里多一份需要维护的冗余数据。
-            if (missionType != 0 && IsAlive && !IsDead)
+            // 非法武将（state = 0）不进在途表：它有 missionType 也只是脏数据，
+            // 进去了会被回合结束的遍历当成"有任务待推进"反复处理。
+            if (missionType != 0 && IsAlive && !IsDead && HasValidState)
                 scenario.RegisterActor(this);
         }
 
@@ -2258,6 +2310,15 @@ namespace Sango.Core
 
         public override bool OnTurnEnd(Scenario scenario)
         {
+            // 【身份未初始化的占位武将（state = 0）不参与任何回合结算】
+            // 对齐原版 is_active / is_alive 的首行前置拦截（s11_scen_obj_person.cpp:24-36）：
+            // 原版 mibun_ = -1 的对象连 is_active() 都是 false，不会进入任何 update 流程。
+            // 本项目此前缺少这条，state = 0 的占位武将会照常走"在野移动 + 无城自动分配"，
+            // 被随机丢进某座城并写进在野名单 —— 这就是"史实０１"这类占位武将
+            // 莫名出现在人才列表里的来源。
+            if (IsInvalidPerson)
+                return base.OnTurnEnd(scenario);
+
             // 异族 / 贼 / 事件 / NPC 武将不参与"在野移动 + 无城市自动分配"的纠正：
             // 这几类由异族系统 / 事件系统管理，所在城市（CurrentCity / BelongCity）本来就允许为空，
             // 若照常规规则随机分配城市，会把异族武将拉到普通城、污染在野/隐身名单并刷 Error 日志。

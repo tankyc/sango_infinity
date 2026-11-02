@@ -371,6 +371,7 @@ namespace Sango.Core
         /// **不改变** IsEnemy 的同盟/敌对判定 —— 这里保持同样语义。
         /// </summary>
         [JsonProperty]
+        [JsonConverter(typeof(HashSetIntJsonConverter))]
         public HashSet<int> hostileForceIds = new HashSet<int>();
 
         /// <summary>
@@ -378,6 +379,7 @@ namespace Sango.Core
         /// 对齐出处：同上，set_friendly_force（`s11_game_ai_force.cpp:464-522`）。
         /// </summary>
         [JsonProperty]
+        [JsonConverter(typeof(HashSetIntJsonConverter))]
         public HashSet<int> friendlyForceIds = new HashSet<int>();
 
         /// <summary>
@@ -523,6 +525,7 @@ namespace Sango.Core
         /// `has_ability()` / `get_researchable_ability_list()` 的前置判断。
         /// </summary>
         [JsonProperty]
+        [JsonConverter(typeof(HashSetIntJsonConverter))]
         public HashSet<int> learnedAbilityIds = new HashSet<int>();
 
         /// <summary>

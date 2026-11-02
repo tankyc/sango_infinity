@@ -21,6 +21,11 @@ namespace Sango.Core
     ///      才用 Error（Error 不受宏控制、正式包也会输出，不能拿它刷屏）。
     ///      早期版本全部写成 Error，年度巡检一跑就是满屏红字 + 完整堆栈，
     ///      真正的崩溃反而被淹没 —— 这就是把级别拆开的原因。
+    ///   5. **异族 / 贼势力豁免**：这两类势力在原版里被 <c>Force::is_normal()</c> 挡在
+    ///      "常规势力运营"之外（任命都督/太守、势力灭亡、军团拆分、君主归位全不适用），
+    ///      本项目用"根城"（Building）而非 City 作为立足点，人员编制也由根城系统按需生成。
+    ///      对它们套用常规不变式会年年刷一批永远修不掉的告警。
+    ///      豁免口径统一走 <see cref="IsOutlander"/>，判定本身（如"势力为空"）保留。
     /// </summary>
     public static class GovernanceValidator
     {
@@ -219,12 +224,34 @@ namespace Sango.Core
             if (person == null || person.Id <= 0)
                 return false;
 
+            // 【非法武将不参与归属巡检】state = 0（PersonStateType.Error）表示身份未初始化，
+            // 原版对应 mibun_ = -1，is_alive 的首行 `if (not is_active()) return false;`
+            // 就把它挡在门外（s11_scen_obj_person.cpp:24-36）。
+            // 这类占位武将（剧本里 850 条中有 167 条）没有归属可言，巡检若按常规规则去"修"，
+            // 会给他们凭空补上势力/城池，等于把非法数据洗成玩法数据。
+            // 这里只静默跳过、不报告：数量大，逐条告警会把年度巡检日志刷满。
+            if (person.IsInvalidPerson)
+                return false;
+
+            PersonStateType state = (PersonStateType)person.state;
+
             // 剧情 / NPC / 异族武将不参与归属巡检（见上方说明）
             if (person.IsSpecialPerson)
                 return false;
 
+            // 【势力口径补漏】IsSpecialPerson 只认"字段已固化"的异族（barbarianTribe != 0），
+            // 但原版 is_iminzoku() / is_bandit() 是**按所属势力派生**的：
+            //     bool Person::is_iminzoku() const { return is_iminzoku_force(); }   // s11_scen_obj_person.cpp:582-585
+            //     bool Person::is_bandit()   const { return is_bandit_force();   }   // 同文件 :587-590
+            // 异族部队克隆体的 barbarianTribe 经常没固化，只靠字段判定会漏掉这一批人，
+            // 让他们被常规规则"修"出城、清掉势力，直接打断异族系统。
+            // 这里补上势力口径，与 Person.OnTurnEnd 的排除链保持一致。
+            //
+            // 死亡武将不受此限：死人的归属残留与势力类型无关，CheckDead 照旧清理。
+            if (state != PersonStateType.Dead && IsOutlander(person.BelongForce))
+                return false;
+
             bool hasIssue = false;
-            PersonStateType state = (PersonStateType)person.state;
 
             // 【与原版对齐】Open311 的 is_alive 是"读 mibun 现算"的派生判定；
             // 本项目 IsAlive 是独立的存储标记，Person.Dead() 只改 state 不改它，
@@ -286,6 +313,14 @@ namespace Sango.Core
 
             bool hasIssue = false;
 
+            // 异族 / 贼势力的据点不参与"太守任命"这条支线：
+            // 原版 building_appoint_taishu 的候选筛选里有一条
+            //     if (not person->is_normal_force() or ...) continue;   // s11_sys_scen_building.cpp:984
+            // 异族/贼的人根本进不了候选表，因此"给异族城补选一个太守"在原版语义下永远是空转；
+            // 巡检若强行任命，反而会把非异族武将塞进异族据点、写坏它的身份状态。
+            // 注意：无效太守（已死亡 / 户口已迁走）仍然要清掉，只跳过"重选"这一步。
+            bool outlander = IsOutlander(city.BelongForce);
+
             // 1. 势力必须与军团势力一致（归属链核心不变式）
             if (city.BelongCorps != null && city.BelongForce != city.BelongCorps.BelongForce)
             {
@@ -336,19 +371,23 @@ namespace Sango.Core
                         if (city.Leader.IsLeader)
                             city.Leader.SetStateNormal();
                         city.Leader = null;
-                        CityStateSystem.AppointTaishu(city);
+                        // 异族 / 贼据点只清不选（见方法开头 outlander 的说明）
+                        if (!outlander)
+                            CityStateSystem.AppointTaishu(city);
                     }
                 }
             }
 
             // 4. 有在籍武将却没有太守：补一次任命。
             //    空城（无势力）不参与，否则会给无主城凭空造出一个太守。
+            //    异族 / 贼据点同样不参与：它们的太守不由常规任命产生（见方法开头的原版出处），
+            //    强行补选会得到一个原版永远不会出现的状态。
             //
             //    补任命后仍为空 → 说明在籍武将全都不在城里（出征 / 在途 / 死亡），
             //    这是**合法状态**（原版 can_be_taishu 要求 is_at_service，
             //    人不在城就不该被任命）。早期版本会对这种城反复报错 + 反复尝试任命，
             //    日志刷屏但永远补不上。
-            if (city.Leader == null && city.allPersons.Count > 0 && city.BelongForce != null)
+            if (!outlander && city.Leader == null && city.allPersons.Count > 0 && city.BelongForce != null)
             {
                 if (repair)
                 {
@@ -438,6 +477,28 @@ namespace Sango.Core
                 hasIssue = true;
                 return hasIssue;
             }
+
+            // 异族 / 贼势力到此为止：下面四条（军团长任命、势力灭亡判定、支军团编制、君主归位）
+            // 全部以"普通势力的常规运营"为前提，对这两类势力不成立。
+            //
+            // 【原版依据】district_appoint_totoku 首行就把非普通势力挡在门外：
+            //     void System::district_appoint_totoku(District* self, Force* by)
+            //     {
+            //         if (not utils::is_alive(self) or not self->is_normal_force())
+            //             return;                                   // s11_sys_scen_district.cpp:147-150
+            //         if (not force_is_not_empty(force)) force_ruin(force, false, by);
+            //         ...
+            // 即"任命都督 + 势力无人则灭亡"这一整条链只对 is_normal_force() 成立；
+            // 配套的 force_is_ruin_target 也显式放过非普通势力：
+            //     if (not force->is_normal()) return true;          // s11_sys_scen_force.cpp:813-814
+            //
+            // 【本项目现状】异族/贼用"根城"（Building，见 BanditCampSystem）而不是 City 作为立足点，
+            // 触发月度增援时也可能短暂没有在籍武将 —— 若照常规规则报 Error 要求灭亡，
+            // 年度巡检会年年刷一条永远修不掉的错。
+            //
+            // 保留上面"势力为空"的判定：军团挂着空势力是真脏数据，与势力类型无关。
+            if (IsOutlander(corps.BelongForce))
+                return hasIssue;
 
             // 军团长有效性
             if (corps.mComander != null)
@@ -935,6 +996,28 @@ namespace Sango.Core
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 是否异族 / 贼势力。
+        ///
+        /// 【为什么要单独判定】原版把这两类势力排除在"常规势力运营"之外的判定散落在各处，
+        /// 但都是同一个派生：<c>Force::is_normal()</c>（s11_scen_obj_force.cpp:74-82）：
+        ///     bool Force::is_iminzoku() const { return type_ == ForceType_Iminzoku; }
+        ///     bool Force::is_bandit()   const { return type_ == ForceType_Bandit;   }
+        /// 本项目对应 <see cref="Force.IsBarbarian"/> / <see cref="Force.IsBandit"/>。
+        ///
+        /// 【典型受影响的原版函数】
+        ///   · <c>district_appoint_totoku</c>：非普通势力直接 return（不任命都督、不判灭亡）
+        ///   · <c>building_appoint_taishu</c>：候选过滤 <c>not person->is_normal_force()</c>
+        ///   · <c>force_is_ruin_target</c>：非普通势力直接视为"不该灭亡"
+        ///   · <c>is_force_neighbored</c> 等外交/攻略类：异族与贼不参与
+        /// </summary>
+        /// <param name="force">势力，可为 null</param>
+        /// <returns>是异族或贼返回 true</returns>
+        private static bool IsOutlander(Force force)
+        {
+            return force != null && (force.IsBarbarian || force.IsBandit);
         }
 
         /// <summary>

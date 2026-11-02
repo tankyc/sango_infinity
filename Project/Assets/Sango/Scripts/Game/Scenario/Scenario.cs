@@ -1466,6 +1466,7 @@ namespace Sango.Core
                 }
             });
 
+            int invalidStateCount = 0;
             addData.personSet.ForEach(x =>
             {
                 if (x.PersonLib != null)
@@ -1478,11 +1479,15 @@ namespace Sango.Core
                     person.CurrentCityId = x.BelongCityId;
                     person.BelongForceId = x.BelongForceId;
                     person.state = x.state;
+                    // 【state = 0 不再"猜"成未发现武将】0 = PersonStateType.Error，表示身份未初始化，
+                    // 属于非法武将（见 Person.HasValidState / IsInvalidPerson）。
+                    // 早期版本把它当成"未发现"并随机丢进一座城，等于把数据错误兜底成玩法数据，
+                    // 这批占位武将会凭空出现在人才列表里、能被探索和登用。
+                    // 现在保持 state = 0 原样：对象仍留在 personSet（关系表 / 事件按 Id 引用靠它），
+                    // 但 IsInvalidPerson 为 true，登场 / 回合结算 / 编成 / 成长全部跳过。
                     if (x.state == 0)
                     {
-                        person.state = (int)PersonStateType.Invisible;
-                        person.BelongCityId = scenario.citySet.RandomGet().Id;
-                        person.CurrentCityId = person.BelongCityId;
+                        invalidStateCount++;
                     }
                     else if (!person.IsWild)
                     {
@@ -1498,6 +1503,11 @@ namespace Sango.Core
                     FixReletionship(ref person.HatePersonListId, addData.personSet);
                 }
             });
+
+            if (invalidStateCount > 0)
+            {
+                Sango.Log.Warning($"*[剧本] 追加武将里有 {invalidStateCount} 条身份未初始化（state=0），已按非法武将保留、不参与登场与结算");
+            }
 
             List<Person> list = new List<Person>();
             addData.personSet.ForEach(x =>

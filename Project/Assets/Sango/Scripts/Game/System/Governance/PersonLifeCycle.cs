@@ -369,7 +369,12 @@ namespace Sango.Core
         /// 对应 Open311 Game::init_person 里的 person_dispatch 段：
         /// 遍历 is_ancient() / is_custom() 的武将尝试配属，配不上的 `set_mibun(-1)` 退场。
         /// 本项目没有"配属失败"的概念（城池总是存在的），所以规则简化为：
-        /// 只要归属为空且状态为 Invalid/Error，就随机落到一座现存都市当在野武将。
+        /// 只要归属为空且状态为 Invalid（未登场），就随机落到一座现存都市当在野武将。
+        ///
+        /// 【不处理 Error（state = 0）】那是"身份未初始化"的非法武将
+        /// （见 <see cref="Person.HasValidState"/> / <see cref="Person.IsInvalidPerson"/>），
+        /// 原版对应 mibun_ = -1，连 is_active() 都是 false。
+        /// 早期版本把 Error 也当成"待登场"随机落地，等于给占位武将凭空造出在野身份。
         ///
         /// 只处理自建 / 古代：历史武将的归属由剧本决定，缺了属于剧本数据错误，
         /// 应交给归属巡检报出来，不该在这里悄悄补上。
@@ -404,8 +409,8 @@ namespace Sango.Core
                 if (person.BelongCity != null || person.CurrentCity != null)
                     continue;
 
-                // 只处理"尚未安排"的状态
-                if (person.state != (int)PersonStateType.Invalid && person.state != (int)PersonStateType.Error)
+                // 只处理"未登场"（Invalid）。Error（state = 0）是非法武将，不参与登场。
+                if (person.state != (int)PersonStateType.Invalid)
                     continue;
 
                 City target = cities[GameRandom.Range(0, cities.Count)];
