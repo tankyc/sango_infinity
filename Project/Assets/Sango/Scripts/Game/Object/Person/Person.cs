@@ -905,13 +905,29 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 是否"特殊武将"（事件 / NPC / 异族）。
+        /// 是否贼将（黄巾 / 山贼势力成员）。
+        ///
+        /// 贼将没有独立的 person 级标记，只能按**所属势力类型**判断
+        /// （<see cref="Force.IsBandit"/> = forceType == ForceType.Bandit）。
+        /// 与 <see cref="IsBarbarian"/> 的区别：异族可以靠 person 上的 barbarianTribe 兜底，
+        /// 贼将则完全由势力类型决定 —— 同一个模板武将投到贼势力就是贼将，投到普通势力就是普通武将。
+        /// </summary>
+        public bool IsBandit => BelongForce != null && BelongForce.IsBandit;
+
+        /// <summary>
+        /// 是否"特殊武将"（事件 / NPC / 异族 / 贼将）。
         ///
         /// 原版对应 `is_event() or is_iminzoku() or is_bandit()` 这条三连表达式：
         /// 凡是"只该由常规武将参与"的流程（归属巡检、寿命结算、登用、军团编成、流言…）
         /// 都要先排除这批人。本项目没有 Force.ForceType，异族用 Id+名字配置兜底。
+        ///
+        /// 【为什么必须带 IsBandit】早前只判了 Event / Barbarian，漏掉贼将：
+        /// 贼势力（黄巾 / 山贼）的武将会被当成常规武将进入登用候选、归属巡检、
+        /// 官职晋升与军团编成 —— 玩家能在招募列表里看到"贼将"、甚至把他登庸进正规军，
+        /// 归属巡检那边则会反复报贼将"户口异常"。
+        /// 原版这类流程统一以 `is_bandit()` 先行排除，这里补齐。
         /// </summary>
-        public bool IsSpecialPerson => IsEventPerson || IsBarbarian;
+        public bool IsSpecialPerson => IsEventPerson || IsBarbarian || IsBandit;
 
         /// <summary>
         /// 是否可参与常规人生周期（寿命/死亡/婚姻/血缘维护）。
@@ -1432,6 +1448,41 @@ namespace Sango.Core
                             BelongCorps = scenario.Id2Object(scenario.corpsSet, BelongCorpsId);
                             BelongForceId = BelongCorps.BelongForceId;
                             // BelongForce 派生自 BelongCorps，无需单独反序列化
+
+                            // 【身份纠错：以 forceSet 的 Governor 字段为权威锚点】
+                            //
+                            // 【原版依据】Open311 的 mibun_ 是存档字段，读档时原样恢复，
+                            // **不会**用"户口所属district"反推身份（Person::get_force_id 反向派生）。
+                            // 本项目把 BelongCorps/BelongForce 按 BelongCity 重算后再据此降级，
+                            // 一旦户口被污染成别的势力的城，读档就会把真君主静默降级成一般武将 ——
+                            // 这正是"君主出去登庸回来身份变成一般、但忠诚度还是君主的"的成因
+                            // （ResetLoyalty 对君主直接 return，忠诚度不会被重算）。
+                            //
+                            // 处理：先在 forceSet 里按 Governor == Id 反查他到底是谁的君主。
+                            //   · 查到（他确实是君主）→ 保持 Governor；若户口所属势力与之不符，
+                            //     **不要** AddPerson（那会进一步把军团/势力改成敌城的），
+                            //     只报错，把户口修正交给运行期的归属自愈
+                            //     （Person.EnsureOnDutyPersonReturns）。
+                            //   · 查不到 → 沿用旧口径（势力主公不是他 → 降为一般）。
+                            Force ownerForce = FindForceByGovernorId(scenario, Id);
+                            if (ownerForce != null)
+                            {
+                                if (BelongForce != ownerForce)
+                                {
+                                    Sango.Log.Error($"*[身份]{Name} 存档户口 {BelongCity.Name}"
+                                        + $"（{BelongForce?.Name ?? "无主"}）与势力主公记录 {ownerForce.Name} 不一致，"
+                                        + "已保持君主身份，户口交由归属自愈修正");
+                                    BelongCity.NeedUpdateLeader();
+                                    CheckBelongConsistency();
+                                    break;
+                                }
+
+                                BelongCity.AddPerson(this);
+                                BelongCity.NeedUpdateLeader();
+                                CheckBelongConsistency();
+                                break;
+                            }
+
                             BelongCity.AddPerson(this);
                             BelongCity.NeedUpdateLeader();
                             if (BelongForce.Governor != Id)
@@ -1477,6 +1528,53 @@ namespace Sango.Core
                         {
                             BelongCorps = BelongCity.BelongCorps;
                             // BelongForce 派生自 BelongCorps
+
+                            // 【身份自愈：存量存档修复】
+                            // 身份曾被误降成一般武将的君主，forceSet 里 Governor 仍指向他。
+                            // 原版 mibun_ 是存档字段、不会凭户口反推身份，所以这里以
+                            // forceSet.Governor 为权威锚点把他恢复成君主；
+                            // 户口若也已被污染（BelongForce 不是本势力），不要 AddPerson
+                            // （那会把他的军团改成敌城的），交给运行期归属自愈修正。
+                            Force governorForce = FindForceByGovernorId(scenario, Id);
+
+                            // 【灭亡势力的主公残留：不能恢复成君主】
+                            // 势力名下已没有任何据点，说明它已经灭亡，Governor 只是灭亡流程
+                            // 没清掉的残留。此时本人已归顺户口所在势力（state 才是一般武将），
+                            // 若仍按" Governor 指向他"恢复成君主，就会造出
+                            // "户口在别家、身份却是君主"的分裂态，且该势力已无城可安置他。
+                            // 原版 mibun_ 会随势力灭亡一起改，不会留下这种组合，这里按残留清掉。
+                            if (governorForce != null && !HasAnyCityOfForce(scenario, governorForce))
+                            {
+                                Sango.Log.Warning($"*[身份]{Name} 存档身份为一般武将，"
+                                    + $"势力 {governorForce.Name ?? $"#{governorForce.Id}"} 的主公记录仍指向他，"
+                                    + "但该势力已无任何据点，判定为灭亡残留：清除主公记录，保持一般武将"
+                                    + $"（户口:{BelongCity.Name} 势力:{BelongForce?.Name ?? "无主"}）");
+                                governorForce.Governor = 0;
+                                governorForce.mGovernor = null;
+                                governorForce = null;
+                            }
+
+                            if (governorForce != null)
+                            {
+                                Sango.Log.Error($"*[身份]{Name} 存档身份为一般武将，"
+                                    + $"但 {governorForce.Name} 的主公记录指向他，已恢复为君主"
+                                    + $"（户口:{BelongCity.Name} 势力:{BelongForce?.Name ?? "无主"}）");
+
+                                if (governorForce == BelongForce)
+                                {
+                                    state = (int)PersonStateType.Governor;
+                                    BelongCity.AddPerson(this);
+                                    BelongCity.NeedUpdateLeader();
+                                    CheckBelongConsistency();
+                                }
+                                else
+                                {
+                                    // 户口也已污染：先只恢复身份，户口由 EnsureOnDutyPersonReturns 修正
+                                    state = (int)PersonStateType.Governor;
+                                }
+                                break;
+                            }
+
                             BelongCity.AddPerson(this);
                             CheckBelongConsistency();
                         }
@@ -1806,11 +1904,37 @@ namespace Sango.Core
             }
 
             City next = path[1];
+
+            // 【防止"原地踏步"死循环】
+            //
+            // 上面把起点归一化到了主城：人若停在关隘/港口 G（G.BelongCity = A），
+            // currentCity 就变成了 A，路径从 A 起算。若 A→B 的最短路恰好要经过 G，
+            // path[1] 就是 G —— 而人**本来就在 G**，ChangeCurrentCity(G) 等于没动，
+            // 下一回合起点又归一化成 A、又算出 path[1] = G …… 永远停在原地。
+            // 玩家反馈的"出使回来走到隔壁城就再也回不去"即此。
+            //
+            // 处理：跳过这一站；实在没法推进就当作抵达，交给调用方迁户口兜底，
+            // 宁可少走一站也不能让任务永久悬挂。
+            if (next == CurrentCity)
+            {
+                if (path.Count > 2)
+                    next = path[2];
+                else
+                {
+                    Sango.Log.Warning($"*{Name} 移动路径在 {CurrentCity.Name} 原地打转，已强制结束移动");
+                    return true;
+                }
+            }
+
             ChangeCurrentCity(next);
 
+            // 抵达判定：
+            //   · next 就是目标都市；
+            //   · 或 next 是目标的子城（港口/关隘挂在目标都市名下）—— 同样视为抵达，
+            //     否则 dest（子城）与 target（都市）永不相等，人会停在子城出不来。
             // 注意比较的是 target 而不是 dest：
-            // 目的地若是港口/关隘，dest 与都市永不相等，会导致永远无法抵达
-            if (next == target)
+            // 目的地若是港口/关隘，dest 与都市永不相等，会导致永远无法抵达。
+            if (next == target || (next.BelongCity != null && next.BelongCity == target))
                 return true;
 
             return false;
@@ -1860,10 +1984,56 @@ namespace Sango.Core
                     {
                         Person dest_person = scenario.personSet.Get(missionTarget);
                         City dest = scenario.citySet.Get(missionParams1);
+
+                        // 目标已消失（被登走 / 数据异常）时直接归家。
+                        // 旧写法会继续走 this.IsSameForce(dest_person) 与 DoMove(dest)：
+                        // 前者在 dest_person 为 null 时解引用空对象，后者面对 null 目的地
+                        // 会"视为抵达"，两者都会让任务异常收场。
+                        //
+                        // 归家统一走 SetReturnHomeMission：它在 BelongCity 为空时只清任务，
+                        // 不会 SetMission(PersonReturn, null) 把 missionTarget 写成 0，
+                        // 免得下一回合在 PersonReturn 分支里靠 citySet.Get(0) 兜底。
+                        if (dest_person == null || dest == null)
+                        {
+                            Sango.Log.Warning($"*[登用]{Name} 的目标{(dest_person == null ? "武将" : "所在城")}已不存在，起程返回{BelongCity?.Name ?? "无"}");
+                            ReturnFromRecruitMission(missionParams2);
+                            return;
+                        }
+
+                        // 【旧存档兼容】旧实现在派发时把 missionCounter 写死 100 且从不递减，
+                        // 已经卡住的出使如果按 100 慢慢数，等于还要再等 100 回合。
+                        // 命中这个量级就按当前距离重算一次预算，让存量卡死任务尽快收敛。
+                        //
+                        // 【必须打日志】这条分支只在旧存档命中，静默执行的话实测时无从分辨
+                        // "重算生效"与"压根没进这个分支"，出问题只能靠猜。日志给出距离和
+                        // 新预算，实测时直接数回合即可核对。
+                        if (missionCounter >= 100)
+                        {
+                            int oldCounter = missionCounter;
+                            int d = CurrentCity != null && CurrentCity != dest ? CurrentCity.Distance(dest) : 1;
+                            if (d < 1) d = 1;
+                            missionCounter = d * 2 + 6;
+                            Sango.Log.Info($"*[登用]{Name} 旧存档任务计数器 {oldCounter} → {missionCounter}（离目标 {d} 站，最多 {missionCounter} 回合归家）");
+                        }
+
+                        // 【出使超时兜底】missionCounter 由 City.JobRecruitPerson 按
+                        // "单程站数 × 2（来回）+ 6 回合余量"写入，这里每回合递减，归零强制起程归家。
+                        //
+                        // 为什么必须有：旧实现派发时写死 100 且此分支从不递减，一旦
+                        // DoMove 因为路网改动 / 目标城消失 / 路径缓存等原因永远走不到终点，
+                        // 执行武将就会永久停在"登用中"—— 既不回来、也不报成功失败，
+                        // 从武将列表 / 空闲名单里彻底消失（阎柔派出去 7~8 回合不归即此）。
+                        if (--missionCounter <= 0)
+                        {
+                            Sango.Log.Warning($"*[登用]{Name} 出使超时未抵达，强制起程返回{BelongCity?.Name ?? "无"}");
+                            ReturnFromRecruitMission(missionParams2);
+                            return;
+                        }
+
                         if (BelongCorps != null && this.IsSameForce(dest_person))
                         {
                             // 已经有人招募成功
-                            SetMission(MissionType.PersonReturn, BelongCity);
+                            ReturnFromRecruitMission(missionParams2);
                             return;
                         }
 
@@ -1873,7 +2043,9 @@ namespace Sango.Core
                             CityRecruitPersonEvent te = RenderEvent.Instance.Create<CityRecruitPersonEvent>();
                             te.Init(this, dest_person);
                             RenderEvent.Instance.Add(te);
-                            SetMission(MissionType.PersonReturn, BelongCity);
+                            // 【返程以出发城为准】不要用 SetReturnHomeMission（它读 BelongCity，
+                            // 出使途中户口可能已被城陷迁移 / 其它流程改写，读到目标城的概率不为零）
+                            ReturnFromRecruitMission(missionParams2);
                         }
                     }
                     break;
@@ -2117,11 +2289,262 @@ namespace Sango.Core
             City homeCity = BelongCity;
             if (homeCity == null)
             {
-                ClearMission();
+                // 【这里绝不能只 ClearMission】
+                // 无户口的人多半还在半路上（城陷 / 被俘过 / 势力解散都会把 BelongCity 置空）。
+                // missionType 一旦归零，UpdateActors 就不再推进他，
+                // 归属巡检也只查"在籍名册"，不会给零任务的人补返程 ——
+                // 结果就是"任务显示 0、人停在半路、再也没人管"，正是玩家说的"出去回不来"。
+                //
+                // PersonStateSystem.ReturnHome 会做完整事务：
+                //   · 无势力 → LeaveToWild（就地落野，落到 CurrentCity，后续由搜索/登用接管）
+                //   · 有势力 → 改返本势力都城（户口失效时的原版口径）
+                //   · 已在所属城 → 才允许只清任务
+                // 它内部不会回调本方法，无递归风险。
+                PersonStateSystem.ReturnHome(this);
                 return;
             }
 
             SetMission(MissionType.PersonReturn, homeCity);
+        }
+
+        /// <summary>
+        /// 出使任务收尾：优先返回**出发城**，而不是当前户口城。
+        ///
+        /// 【为什么要单独记出发城】<see cref="City.JobRecruitPerson"/> 派发任务时，
+        /// 户口（BelongCity）就是出发城；但出使途中可能发生城陷迁移 / 户口被其它流程改写，
+        /// 收尾时再读 BelongCity 就可能把人送回目标城（甚至敌城）——
+        /// 这正是"出去登庸回不来、反而卡在目标城"的成因之一。
+        /// 因此派发时把出发城 Id 写进 missionParams2，返程一律以它为准；
+        /// 只有出发城已失效（易主 / 不存在）时才回退到 <see cref="SetReturnHomeMission"/>。
+        /// </summary>
+        /// <param name="departCityId">出发城 Id（missionParams2，旧存档为 0）</param>
+        void ReturnFromRecruitMission(int departCityId)
+        {
+            if (departCityId > 0)
+            {
+                Scenario scenario = Scenario.Cur;
+                City depart = scenario != null && scenario.citySet != null
+                    ? scenario.citySet.Get(departCityId) : null;
+
+                // 出发城仍属于本势力才回得去；否则（城已失守）退回"回家"口径
+                if (depart != null && depart.BelongForce != null && depart.BelongForce == BelongForce)
+                {
+                    SetMission(MissionType.PersonReturn, depart);
+                    return;
+                }
+            }
+
+            SetReturnHomeMission();
+        }
+
+        /// <summary>
+        /// 在职武将归属自愈：在籍武将不允许"零任务地停在别的城"。
+        ///
+        /// 【不变式】
+        /// 在职（有势力、身份合法、非在野 / 未发现 / 俘虏、不在部队）
+        /// 且 <c>CurrentCity != BelongCity</c> 时，必须持有任务；
+        /// 没有任务就补一条 <see cref="MissionType.PersonReturn"/>。
+        /// 没有归属城（BelongCity 为空）时回主公城 <see cref="Force.CapitalCity"/>。
+        ///
+        /// 【为什么必须有】
+        /// <see cref="ClearMission"/> 是所有任务的唯一出口，但多条路径"清完就不再补"：
+        ///   · City.OnFall 的迁城前置检查失败（City.cs:2645-2648）清完直接 return；
+        ///   · 旧版 PersonStateSystem.ReturnHome 只清任务（历史存档里已有一批被冻结的人）；
+        ///   · SetReturnHomeMission 早先的无户口分支（现已改为 ReturnHome）。
+        /// 而 missionType 归零后：actor 表不再推进他（Scenario.UpdateActors 只删不补），
+        /// 归属巡检只核对"在籍名册"，也不会替他补返程 ——
+        /// 于是这个人就永久停在半路，玩家看到的就是"任务 0、人不回城"。
+        ///
+        /// 【为什么不放在 UpdateMission 里】
+        /// UpdateMission 只会被 actor 表驱动，而 actor 本身可能漏登记；
+        /// OnTurnEnd 由 Scenario.TurnEnd 全量遍历（Scenario.cs:1987-1992），天然兜得住漏登记。
+        ///
+        /// 【为什么不用 PersonStateSystem.ReturnHome 代替】
+        /// ReturnHome 在"无户口"时会直接下野（LeaveToWild），而这里的口径是
+        /// "没城就回主公城"，不能把在职武将平白转为在野。
+        /// </summary>
+        private void EnsureOnDutyPersonReturns()
+        {
+            // 非在职：无势力 / 身份非法 / 在野 / 未发现 / 俘虏 / 已亡。
+            // 在野与未发现交给下面的游荡逻辑；俘虏由关押城管理；亡者不处理。
+            if (BelongForce == null || !HasValidState || IsWild || Invisible || IsPrisoner || IsDead)
+                return;
+
+            // 在部队里：位置由部队负责，随军出征不算"掉队"
+            if (mBelongTroop != null)
+                return;
+
+            // 【君主的户口锚点修正】
+            // state 是 Governor、但"当前所属势力的主公"不是他 —— 只有一种可能：
+            // 户口（BelongCity→BelongCorps→BelongForce）被污染到了别的势力。
+            // 此时若不做修正，下面所有以 BelongForce 为准的判断全都在错误的势力上做：
+            //   · Force.CapitalCity 取回污染城 → 归属自愈自锁；
+            //   · 读档时 Person.OnScenarioPrepare 按户口的势力去核对 Governor，
+            //     核对不上就把身份降成一般武将（就是玩家看到的"身份变成一般"）。
+            // 这里用 forceSet.Governor 这个不受户口影响的锚点把人拉回本势力据点。
+            if (state == (int)PersonStateType.Governor
+                && BelongForce != null
+                && BelongForce.mGovernor != this)
+            {
+                Force ownerForce = FindForceByGovernorId(Scenario.Cur, Id);
+                if (ownerForce != null && ownerForce != BelongForce)
+                {
+                    City home = FindHomeCityOfForce(ownerForce, BelongCorps);
+                    if (home != null)
+                    {
+                        Sango.Log.Error($"*[归属自愈]{Name} 记录为 {ownerForce.Name} 的君主，"
+                            + $"户口却挂在 {BelongCity?.Name ?? "无"}（{BelongForce.Name}），已迁往 {home.Name}");
+                        ChangeBelongCity(home);
+                    }
+                }
+            }
+
+            // 已有任务：仍在本流程内，由各自的超时 / 失效兜底负责，这里不抢
+            if (missionType != (int)MissionType.None)
+                return;
+
+            City dest = BelongCity;
+
+            // 归属城已失效（无主 / 已易主）时不能往那儿送：
+            //   · 回敌城 → 到达时 Enter 会把户口迁进敌方城池；
+            //   · 回无主城 → Enter 的 "city.BelongForce == null 即下野" 分支
+            //     （PersonStateSystem.cs:137-142）会把他平白转成在野。
+            // 两种情况都改去主公城。
+            if (dest == null || dest.BelongForce != BelongForce)
+                dest = BelongForce.CapitalCity;
+
+            // 【君主自锁：不能用他自己的户口当"主公城"锚点】
+            // Force.CapitalCity 派生自 mGovernor.BelongCity（Force.cs:174）。
+            // 君主本人的户口一旦被污染成敌方城，上面那行会取回同一个敌城，
+            // 于是 dest == BelongCity == CurrentCity → 下面直接 return，
+            // 归属自愈永远不触发 —— 玩家看到的就是"回来卡在别的城市，怎么都不会回家"。
+            // 这里改用"遍历 citySet 找本势力据点"这个不依赖 mGovernor 的锚点。
+            if (dest != null && dest.BelongForce != BelongForce && BelongForce.mGovernor == this)
+                dest = FindHomeCityOfForce(BelongForce, BelongCorps);
+
+            // 连主公城都没有：势力正在灭亡，交给灭亡 / 下野流程，不在这里造任务
+            if (dest == null)
+                return;
+
+            // 【户口污染修正】户口挂在非本势力城时，光挂返程任务是不够的：
+            // 到达 dest 后 Enter 才会迁移户口，而这一路上他随时可能被别的流程处置。
+            // 这里先本势力据点迁一次户口（原版 person_change_district 的口径），
+            // 再由下面的返程任务把人走回来。
+            if (BelongCity == null || BelongCity.BelongForce != BelongForce)
+            {
+                Sango.Log.Error($"*[归属自愈]{Name} 户口挂在 {BelongCity?.Name ?? "无"}"
+                    + $"（{BelongCity?.BelongForce?.Name ?? "无主"}），不属于本势力 {BelongForce.Name}，已迁往 {dest.Name}");
+                ChangeBelongCity(dest);
+            }
+
+            // 人已经在归属城：正常在岗
+            if (CurrentCity == dest && BelongCity == dest)
+                return;
+
+            Sango.Log.Warning($"*[归属自愈]{Name} 无任务却停在 {CurrentCity?.Name ?? "无"}（归属 {BelongCity?.Name ?? "无"}），已重新挂返程 -> {dest.Name}");
+            SetMission(MissionType.PersonReturn, dest);
+        }
+
+        /// <summary>
+        /// 按势力主公 Id 反查 Force —— 读档身份纠错用的**权威锚点**。
+        ///
+        /// 【为什么不用 Person.BelongForce】身份降级的根因就是"BelongForce 派生自 BelongCity"，
+        /// 户口一旦被污染，BelongForce 也跟着错。Force.Governor 是存档里的原始 int 字段
+        /// （对应 Open311 的 force.governor_id_），不受户口影响，因此可以作为纠错基准。
+        /// </summary>
+        /// <param name="scenario">当前剧本</param>
+        /// <param name="governorId">待查的君主 Id</param>
+        /// <returns>把该武将记为君主的势力；没有则 null</returns>
+        static Force FindForceByGovernorId(Scenario scenario, int governorId)
+        {
+            if (scenario == null || scenario.forceSet == null || governorId <= 0)
+                return null;
+
+            Force found = null;
+            scenario.forceSet.ForEach(f =>
+            {
+                if (found != null || f == null)
+                    return;
+                // 这里**不能**用 Force.IsAlive 过滤：IsAlive 依赖 mGovernor（Force.cs:138），
+                // 而读档时 Force 的 mGovernor 未必已经解析完，会把存活势力全判成已灭亡，
+                // 导致本方法恒返回 null、纠错失效。Governor 是 [JsonProperty] 的 int，
+                // 反序列化阶段就已就绪，用它做锚点才是可靠的。
+                if (f.Governor == governorId)
+                    found = f;
+            });
+            return found;
+        }
+
+        /// <summary>
+        /// 判断势力名下是否还有任何据点（实时遍历 citySet）。
+        ///
+        /// 【为什么不用 Force.HasCity】它读的是 CityCount / CityBaseCount 缓存字段，
+        /// 这两个值在 <see cref="OnScenarioPrepare"/> 阶段还没重算，不可信。
+        /// 【为什么不用 Force.IsAlive】isAlive 是私有字段、不参与序列化，读档后恒为 false，
+        /// 会把活着的势力全判成已灭亡。
+        /// </summary>
+        /// <param name="scenario">当前剧本</param>
+        /// <param name="force">待查势力</param>
+        /// <returns>该势力名下至少还有一座据点时为 true</returns>
+        static bool HasAnyCityOfForce(Scenario scenario, Force force)
+        {
+            if (scenario == null || force == null || scenario.citySet == null)
+                return false;
+
+            for (int i = 0; i < scenario.citySet.Count; i++)
+            {
+                City city = scenario.citySet[i];
+                if (city != null && city.BelongForce == force)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 找本势力的一座可用据点，作为"户口被污染 / 主公城失效"时的落点。
+        ///
+        /// 【为什么不用 Force.CapitalCity】<c>CapitalCity => mGovernor?.BelongCity</c>
+        /// （Force.cs:174）—— 君主自己的户口被污染时，这个属性会把污染城原样返回，
+        /// 于是"归属自愈"算出的目标还是那座敌城，形成自锁。
+        /// 这里改为遍历 citySet、按<b>城的势力归属</b>筛，不依赖 mGovernor。
+        ///
+        /// 优先级：指定军团下的都市 → 本势力任意都市 → 本势力任意关港（原版 service 允许关港）。
+        /// </summary>
+        /// <param name="force">目标势力</param>
+        /// <param name="preferCorps">优先取该军团下的城（君主迁都时用它保住"君主 ∈ 第1军团"）</param>
+        /// <returns>可用据点；没有则 null</returns>
+        static City FindHomeCityOfForce(Force force, Corps preferCorps)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (force == null || scenario == null || scenario.citySet == null || scenario.citySet.Count == 0)
+                return null;
+
+            City prefer = null;       // 指定军团下的都市
+            City sameForce = null;    // 本势力任意都市
+            City subCity = null;      // 本势力关隘 / 港口（兜底）
+
+            for (int i = 0; i < scenario.citySet.Count; i++)
+            {
+                City city = scenario.citySet[i];
+                if (city == null || !city.IsAlive)
+                    continue;
+                if (city.BelongForce != force)
+                    continue;
+
+                if (!city.IsCity())
+                {
+                    if (subCity == null)
+                        subCity = city;
+                    continue;
+                }
+
+                if (prefer == null && preferCorps != null && city.BelongCorps == preferCorps)
+                    prefer = city;
+                if (sameForce == null)
+                    sameForce = city;
+            }
+
+            return prefer != null ? prefer : (sameForce != null ? sameForce : subCity);
         }
 
         public override bool OnTurnStart(Scenario scenario)
@@ -2330,6 +2753,11 @@ namespace Sango.Core
             if (IsSpecialPerson
                 || (BelongForce != null && (BelongForce.IsBarbarian || BelongForce.IsBandit)))
                 return base.OnTurnEnd(scenario);
+
+            // 【在职武将归属自愈】见 EnsureOnDutyPersonReturns 的说明。
+            // 放在在野逻辑之前：在野 / 未发现 / 俘虏 / 部队成员都在方法内部先行排除，
+            // 不会与下面的游荡、港关纠偏互相干扰。
+            EnsureOnDutyPersonReturns();
 
             // 在野武将移动逻辑
             if (IsWild || state == (int)PersonStateType.Invisible)
@@ -2555,10 +2983,28 @@ namespace Sango.Core
         {
             if (dest == null || dest == BelongCity) return;
 
+            // 【防重入】已经在执行任务的人不能再接受新的迁城指令。
+            //
+            // 否则 SetMission 会把原来的任务（出使登用 / 外交 / 建造 …）直接覆盖成
+            // PersonReturn，原任务的 missionTarget / missionParams 全部丢失：
+            // 出使的人半路改道回家、登用目标凭空作废。
+            // 玩家点"召唤"后看到的就是"没反应、人也不来"。
+            if (missionType != 0)
+            {
+                Sango.Log.Warning($"*{Name} 正在执行任务({missionType})，忽略迁城至 {dest.Name} 的指令");
+                return;
+            }
+
             // 跨势力迁城不是"移动"，是"归顺"，由调用方改走 PersonStateSystem.Recruit
             if (!OnWillChangeToCity(dest)) return;
 
             City lastCity = BelongCity;
+
+            // 【从原城空闲名单摘除】
+            // 本方法只挂任务、并不立刻迁城，而 freePersons 要等下回合
+            // City.OnForceTurnStart 才重建。不摘的话本回合内 FreePersonCount 仍把他算进去，
+            // 召唤候选池不变 —— 同一个人可以被无限次召唤，反复扣行动力、反复弹窗。
+            lastCity?.freePersons.Remove(this);
 
             // 【原版对齐】出发只记"离城"，不改所属城（对应 Open311 的 person_leave）。
             // 户口（BelongCity）与在籍名册要等真正走到目的地后，
@@ -2680,6 +3126,15 @@ namespace Sango.Core
 
         public bool JobRecruitPerson(Person person, City targetCity, int type)
         {
+            // 【君主不可登用】原版候选身份不含 Mibun_Kunshu
+            // （get_employable_person_list，s11_sys_person_order_personnel.cpp:904-954）。
+            // 候选列表 / 事件入口都可能漏筛，这里在结算前再拦一次，避免白扣行动力与概率。
+            if (person != null && person.IsActiveGovernor)
+            {
+                Sango.Log.Warning($"*[登用]{Name} 无法登用 {person.Name}：对方是{person.BelongForce?.Name}的君主");
+                return false;
+            }
+
             int probability = GameFormula.Instance.RecruitPersonProbability(this, person, type);
 
             // 【性格】招募武将效率：按执行武将的性格折算成功率
@@ -2737,7 +3192,23 @@ namespace Sango.Core
 
         public bool JobRecruitPerson(Person person, int type)
         {
-            return JobRecruitPerson(person, BelongCity, type);
+            // 【户口城缺失兜底】出使归来的武将，他的 BelongCity 可能已经因为
+            // 出发城失守 / 势力灭亡 / 下野被清空。
+            //
+            // 旧实现把 null 原样往下传：JobRecruitPerson(person, null, type)
+            //   → person.BeRecruit(this, null)
+            //   → JoinToForce(null) → PersonStateSystem.Recruit(this, null, ...) 空引用。
+            // 这个异常发生在 RenderEvent.Update 的 while 循环里，
+            // CurEvent 不会被推进，整个演出队列（含回合推进）就此卡死 —— 截图中的堆栈即此。
+            //
+            // 这里直接放弃结算：登用结果丢失可以接受，武将归家由 PersonReturn 任务负责。
+            City targetCity = BelongCity;
+            if (targetCity == null)
+            {
+                Sango.Log.Warning($"*[登用]{Name} 无法结算登用结果：所属城已失效（城陷 / 势力灭亡 / 下野）");
+                return false;
+            }
+            return JobRecruitPerson(person, targetCity, type);
         }
 
         /// <summary>
@@ -2796,20 +3267,73 @@ namespace Sango.Core
 
         public void BeRecruit(Person person, City targetCity)
         {
-            // 【禁止仕官】最后一道闸：候选列表已经过滤过，这里防的是
-            // 剧本事件 / AI 直调 / 旧存档残留等在途绕过 UI 的接入点。
-            if (IsBannedFrom(targetCity?.BelongForce))
+            // 【必须判空】person 是出使归来的执行武将，targetCity 是他的户口城（BelongCity）。
+            //
+            // 出使的这十几个回合里，执行者可能已经：势力被灭（BelongForce 变 null）、
+            // 出发城失守 / 被俘（BelongCity 变 null）、乃至下野。
+            // 旧代码在这里直接 `person.BelongForce.Name` 打日志、随后 `JoinToForce(null)`，
+            // 两处都是空引用；异常从 RenderEvent.Update 的 while 循环冒出去，
+            // CurEvent 不再推进，整个演出队列（含回合推进）就此卡死 —— 正是截图里的堆栈。
+            if (person == null || targetCity == null)
             {
-                Sango.Log.Warning($"*[登用]{Name} 半年内被 {targetCity.BelongForce.Name} 禁止仕官，本次登用无效");
+                Sango.Log.Warning($"*[登用]{Name} 加入失败：{(person == null ? "执行武将" : "执行武将的所属城")}已不存在（势力灭亡 / 城陷 / 下野）");
                 return;
             }
 
-            Sango.Log.Info($"[{person.BelongForce.Name}]<{person.Name}>登庸成功, {Name}加入了势力{person.BelongForce.Name}");
+            // 【异常隔离】归顺是个多步骤事务（摘名册 → 换势力 → 换户口 → 重算太守/都督），
+            // 任一环依赖的数据缺失都可能抛异常。而本方法的调用点在
+            // CityRecruitPersonEvent.Enter 里，异常会一路冒到 RenderEvent.Update 的
+            // while 循环，让 CurEvent 停在原地、整局卡死。
+            // 这里兜住并只放弃"本次归顺"：宁可武将留在原处，也不能让演出队列停摆。
+            try
+            {
+                BeRecruitInternal(person, targetCity);
+            }
+            catch (System.Exception e)
+            {
+                Sango.Log.Error($"*[登用]{Name} 归顺过程异常，已放弃本次归顺：{e}");
+            }
+        }
+
+        /// <summary>
+        /// <see cref="BeRecruit"/> 的实际实现（异常由外层统一兜底）。
+        /// </summary>
+        /// <param name="person">执行登用的武将（归顺后加入的目标势力）</param>
+        /// <param name="targetCity">归顺后所属城</param>
+        void BeRecruitInternal(Person person, City targetCity)
+        {
+            // 【君主不可被登用】势力尚存的君主一旦被挖走，原势力会失去 mGovernor
+            // （Force.Name / CapitalCity / IsAlive 全部派生自它），紧接着触发势力灭亡、
+            // 君主继承、军团归属重算等一串连锁流程 —— 必然错乱。
+            //
+            // 【原版依据】Open311 `get_employable_person_list`（s11_sys_person_order_personnel.cpp:904-954）
+            // 只把 Mibun_Zaiya / Mibun_Horyo / Mibun_Totoku / Mibun_Taishu / Mibun_Ippan
+            // 放进候选，`Mibun_Kunshu` 落到末尾的 `else continue`，**压根不是登用对象**；
+            // `horyo_shoguu` 也把 is_kunshu 排在 hobaku 之前直接释放（s11_sys_event_capture.cpp）。
+            //
+            // 这里是最后一道闸：候选列表已经过滤过，防的是剧本事件 / AI 直调 /
+            // 旧存档残留等在途绕过 UI 的接入点。
+            if (IsActiveGovernor)
+            {
+                Sango.Log.Warning($"*[登用]{Name} 是{BelongForce?.Name}的君主，拒绝归顺（君主只能被释放或处斩）");
+                return;
+            }
+
+            // 【禁止仕官】最后一道闸：候选列表已经过滤过，这里防的是
+            // 剧本事件 / AI 直调 / 旧存档残留等在途绕过 UI 的接入点。
+            if (IsBannedFrom(targetCity.BelongForce))
+            {
+                Sango.Log.Warning($"*[登用]{Name} 半年内被 {targetCity.BelongForce?.Name} 禁止仕官，本次登用无效");
+                return;
+            }
+
+            Sango.Log.Info($"[{person.BelongForce?.Name}]<{person.Name}>登庸成功, {Name}加入了势力{person.BelongForce?.Name}");
             loyalty = 80;
 
             if (IsPrisoner)
             {
-                BelongForce?.BeCaptiveList.Remove(this);
+                if (BelongForce != null)
+                    BelongForce.BeCaptiveList?.Remove(this);
                 // 囚犯从监牢中移除。身份转换与名册迁移交给 JoinToForce -> Recruit 统一处理，
                 // 这里手改 state 会绕过名册重建，留下"身份是一般武将却仍在 captiveList 里"的脏数据
                 if (mBelongTroop != null)
@@ -2876,7 +3400,12 @@ namespace Sango.Core
             // "人在新城的名单里、旧城也还挂着一份"的双份脏数据。
             PersonStateSystem.Recruit(this, city, PersonChangeReason.Employed);
 
-            UpgradeOfficial(Scenario.Cur.CommonData.Officials.Get(0));
+            // 无官职表（剧本数据缺失 / 尚未加载 CommonData）时直接跳过，
+            // 不能让一次登用把整条演出链带崩
+            Official firstOfficial = Scenario.Cur != null && Scenario.Cur.CommonData != null
+                ? Scenario.Cur.CommonData.Officials.Get(0) : null;
+            if (firstOfficial != null)
+                UpgradeOfficial(firstOfficial);
             merit = 0;
 
             // 主公不能被降级为一般武将,否则会出现"势力主公却是普通状态"的不一致

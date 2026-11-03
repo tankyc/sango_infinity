@@ -49,8 +49,15 @@ namespace Sango.Core.Telemetry
         /// <summary>调用堆栈</summary>
         public string stackTrace;
 
-        /// <summary>合并窗口内重复出现的次数</summary>
+        /// <summary>
+        /// 出现次数。客户端只做短窗口折叠（同一个错误连着刷屏时合并），
+        /// 长期去重由服务端按"内容+堆栈"指纹合并，所以这个值传到后台会被累加。
+        /// </summary>
         public int count = 1;
+
+        /// <summary>错误指纹（内容+堆栈），仅本地去重用，不参与序列化上报</summary>
+        [NonSerialized]
+        public int fingerprint;
 
         public string appVersion;
 
@@ -259,6 +266,7 @@ namespace Sango.Core.Telemetry
                 }
 
                 // 新错误入队
+                entry.fingerprint = fingerprint;
                 Queue.Add(entry);
                 Recent[fingerprint] = entry;
 
@@ -282,7 +290,16 @@ namespace Sango.Core.Telemetry
                 int take = Mathf.Min(max, Queue.Count);
                 for (int i = 0; i < take; i++)
                 {
-                    batch.Add(Queue[i]);
+                    BugEntry entry = Queue[i];
+                    batch.Add(entry);
+
+                    // 出队必须同时摘掉指纹：否则之后同样的错误会继续在这条"已发送"的
+                    // 记录上累加 count，而它不会再发第二次，次数就丢了。
+                    // 交给服务端按指纹合并，才能保证后台的次数是准的。
+                    if (Recent.TryGetValue(entry.fingerprint, out BugEntry cached) && cached == entry)
+                    {
+                        Recent.Remove(entry.fingerprint);
+                    }
                 }
 
                 if (take > 0) Queue.RemoveRange(0, take);
@@ -304,6 +321,17 @@ namespace Sango.Core.Telemetry
 
             lock (Gate)
             {
+                // 回到队列意味着"还没发出去"，指纹要重新登记，
+                // 否则窗口内同样的错误会再入队一条，后台就会重复计数
+                for (int i = 0; i < batch.Count; i++)
+                {
+                    BugEntry entry = batch[i];
+                    if (entry != null && entry.fingerprint != 0)
+                    {
+                        Recent[entry.fingerprint] = entry;
+                    }
+                }
+
                 Queue.InsertRange(0, batch);
 
                 while (Queue.Count > TelemetryConfig.MaxQueue)

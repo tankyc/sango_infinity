@@ -796,8 +796,19 @@ namespace Sango.Core
             if (ActionOver)
                 return true;
 
-            // 主军团永远不是委任军团,除此之外全是委任军团
-            if (IsPlayer && mComander == BelongForce.mGovernor)
+            // 主军团永远不是委任军团,除此之外全是委任军团。
+            //
+            // 【为什么用 IsPlayerControl 而不是 mComander == BelongForce.mGovernor】
+            // 旧判定的本意是"认出玩家亲控的主军团"，但主军团的 mComander **经常就是 null**
+            // （UpdateCommander 对 IsCaptainCorps 直接 return，见 Corps.cs:979；
+            // Force 收编军团时也会把主军团的 mComander 清空）。
+            // 一旦为 null，`null == BelongForce.mGovernor`（君主对象）恒为 false，
+            // 拦截失效 → 玩家第 1 军团照样跑 DoAI → AIDistrictCommand → DoOutpostAI
+            // → AIMove / AISummon，把玩家城里的武将调去别的城。
+            //
+            // IsPlayerControl = IsPlayer && IsCaptainCorps(number == 1)，语义正是
+            // "玩家亲控的主军团"，与 mComander 是否为空无关。
+            if (IsPlayerControl)
             {
                 GameEvent.OnPlayerControl?.Invoke(this, scenario);
                 return false;

@@ -348,17 +348,15 @@ using Sango.Core; namespace Sango.UI
         }
 
         /// <summary>学习次数限制的显示文本</summary>
-        /// <param name="learningLimit"><see cref="AbilityLearningLimit"/> 的值</param>
-        /// <returns>「1次 / 3次 / 5次 / 不限」</returns>
+        /// <param name="learningLimit">实际可学习次数（见 <see cref="Ability.LearningLimitCount"/>）</param>
+        /// <returns>「N次 / 不限」</returns>
         static string GetLearningLimitText(int learningLimit)
         {
-            switch ((AbilityLearningLimit)learningLimit)
-            {
-                case AbilityLearningLimit.Once: return "1次";
-                case AbilityLearningLimit.Three: return "3次";
-                case AbilityLearningLimit.Five: return "5次";
-                default: return "不限";
-            }
+            // learningLimit 存的是**实际次数**，不能再按原版档位枚举解释：
+            // 档位枚举里没有 5，2 又代表 Three，直接 cast 会把「5次」显示成「不限」。
+            if (learningLimit <= 0)
+                return "不限";
+            return $"{learningLimit}次";
         }
 
         /// <summary>返回：退栈到上一层系统</summary>

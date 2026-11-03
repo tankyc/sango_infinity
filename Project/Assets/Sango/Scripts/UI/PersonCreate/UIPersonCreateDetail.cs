@@ -1749,34 +1749,56 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 第 index 个性格 Toggle 对应的性格 Id（按性格表顺序）。
+        /// 第 index 个性格 Toggle 对应的性格 Id（按性格表里**有效项**的顺序）。
         ///
         /// 【为什么不是 index + 1】旧实现把"性格 Id"与"Toggle 下标"绑定成 +1 关系，
         /// 一旦新增性格或调整 Id，UI 点位就会整体错开。
+        ///
+        /// 【为什么不能直接用 list[index]】<see cref="SangoObjectSet{T}"/> 是"以 Id 为下标"的
+        /// 稀疏数组：**0 号位是默认无效值**（在没人访问过 <c>Default</c> 之前就是 null），
+        /// 真实数据从 1 开始。直接按下标取会有两个后果：
+        ///   · index = 0 取到 null → <c>list[0].Id</c> 空引用（线上 NRE 就在这一行）；
+        ///   · 下标与 Toggle 数组（长度 = 性格个数）整体错一位，最后一个性格（Id 4）
+        ///     落到 Toggle[4]，而数组只有 0~3 → 永远点不亮。
+        /// 所以这里遍历时**跳过 null，并用"有效项序号"当 Toggle 下标**。
         /// </summary>
         static int PersonalityIdAt(int index)
         {
+            if (index < 0) return 1;
+
             Scenario scenario = Scenario.Cur;
             if (scenario != null && scenario.CommonData != null && scenario.CommonData.Personalities != null)
             {
                 var list = scenario.CommonData.Personalities;
-                if (index >= 0 && index < list.Count)
-                    return list[index].Id;
+                int seq = 0;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    Personality personality = list[i];
+                    if (personality == null) continue;      // 0 号默认位 / 稀疏空位
+                    if (seq == index) return personality.Id;
+                    seq++;
+                }
             }
             return index + 1;
         }
 
-        /// <summary>性格 Id 对应的 Toggle 下标（按性格表顺序）；找不到时回落到 0</summary>
+        /// <summary>
+        /// 性格 Id 对应的 Toggle 下标（按性格表里**有效项**的顺序）；找不到时回落到 0。
+        /// 与 <see cref="PersonalityIdAt"/> 必须同口径，否则 Toggle 会点错位置。
+        /// </summary>
         static int PersonalityIndexOf(int personalityId)
         {
             Scenario scenario = Scenario.Cur;
             if (scenario != null && scenario.CommonData != null && scenario.CommonData.Personalities != null)
             {
                 var list = scenario.CommonData.Personalities;
+                int seq = 0;
                 for (int i = 0; i < list.Count; i++)
                 {
-                    if (list[i].Id == personalityId)
-                        return i;
+                    Personality personality = list[i];
+                    if (personality == null) continue;      // 0 号默认位 / 稀疏空位
+                    if (personality.Id == personalityId) return seq;
+                    seq++;
                 }
             }
             return personalityId > 0 ? personalityId - 1 : 0;

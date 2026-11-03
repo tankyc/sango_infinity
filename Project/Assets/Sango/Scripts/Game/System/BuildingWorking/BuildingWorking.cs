@@ -1374,7 +1374,21 @@ namespace Sango.Core
                 }
             });
 
-            if (city.BelongCorps.IsPlayer && !city.GetExtensionData<bool>("AppointWorking"))
+            // 【必须用 IsPlayerControl，不能用 IsPlayer】
+            //
+            // IsPlayer 是**势力级**（Corps.cs:30 = BelongForce.IsPlayer），玩家势力的每个军团都为 true；
+            // 而"委任军团"（number != 1）的城是由 AI 代管的 —— Corps.Run 只在 IsPlayerControl
+            // 时才把控制权交回玩家（Corps.cs:811），玩家根本不会去点「自动委任工作」这个开关，
+            // 于是 GetExtensionData<bool>("AppointWorking") 恒为 false。
+            //
+            // 用 IsPlayer 判定 => 委任军团的城每回合都从这里 return => 建筑 Workers 永远为空
+            // => OnBuildingTurnEnd 的 hasWorker 恒为 false => 整段
+            //    「功绩 / 经验 / 势力技巧点」结算被跳过（:680-709，技巧点在 :708）=> 技巧值不涨。
+            // 这与玩家观察到的"委任军团干活了但势力技巧值没加"完全对应。
+            //
+            // 改用 IsPlayerControl（IsPlayer && number == 1）后：玩家亲控的主军团仍等玩家手动开启，
+            // 委任军团与真正的 AI 势力一样自动派工，口径与 Corps.Run 一致。
+            if (city.BelongCorps.IsPlayerControl && !city.GetExtensionData<bool>("AppointWorking"))
                 return;
 
             AppointWorking(city, scenario);

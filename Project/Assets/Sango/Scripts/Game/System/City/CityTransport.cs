@@ -164,7 +164,16 @@ namespace Sango.Core.Player
 
             TargetCity.troops -= TargetTroop.troops;
             TargetCity.food -= TargetTroop.food;
-            TargetCity.gold -= TargetTroop.gold;
+
+            // 【经济守恒】同 CityExpedition.DoJob：资金走 AddGold（内含下限夹取），
+            // 且"部队携带额 = 实际扣款额"。裸减法会把城内金扣成负数，
+            // 负数在下次 AddGold 时被夹成 0（凭空抹账），回城再 AddGold(gold) 即净增。
+            int payGold = TargetTroop.gold;
+            if (payGold < 0) payGold = 0;
+            if (payGold > TargetCity.gold) payGold = TargetCity.gold;
+            TargetTroop.gold = payGold;
+            TargetCity.AddGold(-payGold);
+
             TargetCity.itemStore.Remove(TargetTroop.itemStore);
             TargetTroop.ForEachPerson(person =>
             {

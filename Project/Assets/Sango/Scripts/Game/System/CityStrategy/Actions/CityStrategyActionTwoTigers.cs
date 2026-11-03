@@ -116,7 +116,7 @@ namespace Sango.Core
             string headline = result == CityStrategyResult.SucceededDetected
                 ? "奏效，但使者露了行迹"
                 : "奏效";
-            // 播报带"前值→现值 + 实扣"：关系刻度 ±5000 且会被钳制，只报配置值会虚报（逼近下限时实扣更小）
+            // 播报带"前值→现值 + 实扣"：关系刻度 0~100 且会被钳制在 [0,100]，只报配置值会虚报（逼近边界时实扣更小）
             BroadcastMessage($"{Sender?.ColorName}派{Diplomat?.ColorName ?? "使者"}施放的{GetActionName()}{headline}，"
                 + $"{TargetForceA?.ColorName}与{TargetForceB.ColorName}的关系由 {relationBefore} 降至 {relationNow}（实扣 {relationBefore - relationNow}）。");
 

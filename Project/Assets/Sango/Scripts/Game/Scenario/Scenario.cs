@@ -1479,22 +1479,28 @@ namespace Sango.Core
                     person.CurrentCityId = x.BelongCityId;
                     person.BelongForceId = x.BelongForceId;
                     person.state = x.state;
+                    person.type = (int)PersonType.Custom;
                     // 【state = 0 不再"猜"成未发现武将】0 = PersonStateType.Error，表示身份未初始化，
                     // 属于非法武将（见 Person.HasValidState / IsInvalidPerson）。
                     // 早期版本把它当成"未发现"并随机丢进一座城，等于把数据错误兜底成玩法数据，
                     // 这批占位武将会凭空出现在人才列表里、能被探索和登用。
                     // 现在保持 state = 0 原样：对象仍留在 personSet（关系表 / 事件按 Id 引用靠它），
                     // 但 IsInvalidPerson 为 true，登场 / 回合结算 / 编成 / 成长全部跳过。
-                    if (x.state == 0)
-                    {
-                        invalidStateCount++;
-                    }
-                    else if (!person.IsWild)
+                    if (person.state == (int)PersonStateType.Normal)
                     {
                         person.loyalty = 100;
                         City city = scenario.citySet[x.BelongCityId];
                         ShortCity shortCity = addData.citySet[x.BelongCityId];
                         person.BelongCorpsId = System.Math.Max(city.BelongCorpsId, shortCity.BelongCorpsId);
+                    }
+                    else if(person.state == (int)PersonStateType.Unemployed)
+                    {
+
+                    }
+                    else
+                    {
+                        person.state = (int)PersonStateType.Invisible;
+                        person.CurrentCityId = scenario.citySet.RandomGet().Id;
                     }
 
                     FixReletionship(ref person.MotherId, addData.personSet);
@@ -1678,17 +1684,26 @@ namespace Sango.Core
                 // 现在改为与 Open311 `Force::like_` 同尺度的 0~100
                 //（原版剧本文件里的 like 也是 0~100，直接加载无需转换）。
                 //
-                // 探测规则：只要发现任一值落在 0~100 之外，就判定整张表是旧格式，
-                // 整体换算并钳制。反过来，加载原版剧本时其值天然在 0~100 内，
-                // 不会误触发迁移 —— 这正是选择"值域探测"而非"版本号"的原因。
+                // 探测规则：
+                //   a) 任一值落在 0~100 之外 → 旧格式（raw 会有几千的绝对值）；
+                //   b) 非对角值**全为 0** → 旧格式的"新开局"存档。
+                //      旧格式 raw=0 表示 like 50（中立），全表 0 时值域探测发现不了，
+                //      若直接当新格式读会变成"全员险恶 0"，外交全线崩坏；
+                //      而新格式下中立是 50，合法数据不可能出现全零表。
+                // 加载原版剧本时其值天然在 0~100 内且非全零，不会误触发迁移
+                // —— 这正是选择"值域探测"而非"版本号"的原因。
                 int rows = RelationMap.Length;
                 bool legacy = false;
+                bool allZero = true;
                 for (int i = 0; i < rows && !legacy; ++i)
                 {
                     int[] row = RelationMap[i];
                     if (row == null) continue;
                     for (int j = 0; j < row.Length; ++j)
                     {
+                        if (i != j && row[j] != 0)
+                            allZero = false;
+
                         if (row[j] < 0 || row[j] > DiplomacyRules.MaxLike)
                         {
                             legacy = true;
@@ -1696,6 +1711,9 @@ namespace Sango.Core
                         }
                     }
                 }
+
+                if (!legacy && allZero && rows > 1)
+                    legacy = true;
 
                 if (legacy)
                 {
@@ -1712,7 +1730,7 @@ namespace Sango.Core
                             row[j] = like;
                         }
                     }
-                    Sango.Log.Info("[关系值]检测到旧格式关系表（-5000~5000），已迁移为 0~100");
+                    Sango.Log.Info("[关系值]检测到旧格式关系表（raw 尺度），已迁移为 0~100");
                 }
             }
 
@@ -2593,16 +2611,30 @@ namespace Sango.Core
             return cur - min >= max - cur ? cur - min : cur - max;
         }
 
+        /// <summary>
+        /// 读取两势力之间的友好度（0~100，双向对称）。对应 Open311 的 `Force::get_like`。
+        ///
+        /// 越界 / 未建表时返回中立值 50，而不是 0：
+        /// 0 在 like 尺度里等于"险恶"，会让新势力一登场就被所有势力敌视。
+        /// </summary>
         public int GetRelation(Force forceA, Force forceB)
         {
             if (forceA == null || forceB == null || forceA == forceB)
                 return 0;
 
-            // 确保索引有效
-            if (forceA.Id < 0 || forceA.Id >= RelationMap.Length || forceB.Id < 0 || forceB.Id >= RelationMap[0].Length)
-                return 0;
+            if (RelationMap == null)
+                return DiplomacyRules.DefaultLike;
 
-            return RelationMap[forceA.Id][forceB.Id];
+            int idA = forceA.Id;
+            int idB = forceB.Id;
+            if (idA < 0 || idB < 0 || idA >= RelationMap.Length)
+                return DiplomacyRules.DefaultLike;
+
+            int[] row = RelationMap[idA];
+            if (row == null || idB >= row.Length)
+                return DiplomacyRules.DefaultLike;
+
+            return row[idB];
         }
 
         public void AddRelation(Force forceA, Force forceB, int v)
@@ -2610,19 +2642,73 @@ namespace Sango.Core
             if (forceA == null || forceB == null || forceA == forceB)
                 return;
 
-            // 确保索引有效
-            if (forceA.Id < 0 || forceA.Id >= RelationMap.Length || forceB.Id < 0 || forceB.Id >= RelationMap[0].Length)
+            int idA = forceA.Id;
+            int idB = forceB.Id;
+            if (idA < 0 || idB < 0)
                 return;
 
-            int r = RelationMap[forceA.Id][forceB.Id] + v;
+            // 势力数可能多于建表时的数量（读档后模组追加势力 / 自建势力）：
+            // 先扩容再写，否则写入会被静默丢弃，表现为"对新增势力外交无效"。
+            EnsureRelationMap(System.Math.Max(idA, idB));
+
+            int r = RelationMap[idA][idB] + v;
 
             // 【尺度已改为 0~100】与 Open311 的 Force::like_ 一致（原版剧本文件同样是 0~100），
             // 不再是 -5000~5000 的 raw 值。
             if (r < 0) r = 0;
             else if (r > DiplomacyRules.MaxLike) r = DiplomacyRules.MaxLike;
 
-            RelationMap[forceA.Id][forceB.Id] = r;
-            RelationMap[forceB.Id][forceA.Id] = r;
+            RelationMap[idA][idB] = r;
+            RelationMap[idB][idA] = r;
+        }
+
+        /// <summary>
+        /// 确保关系矩阵能容纳到 <paramref name="maxId"/> 为止的势力下标（必要时按正方形重建）。
+        ///
+        /// 【为什么需要】RelationMap 只在 <see cref="Init"/> 里按当时的 forceSet.Count 建一次。
+        /// 读档时若势力数比存档时多（模组追加 / 自建势力），旧表行列都不够：
+        /// GetRelation 越界、AddRelation 静默失败。
+        /// 新增区域按原版新势力登场 `force_set_like(50)`（s11_sys_scen_force.cpp:358）填中立值。
+        /// </summary>
+        /// <param name="maxId">需要容纳的最大势力下标</param>
+        void EnsureRelationMap(int maxId)
+        {
+            if (maxId < 0)
+                return;
+
+            int oldSize = RelationMap == null ? 0 : RelationMap.Length;
+            int size = System.Math.Max(oldSize, maxId + 1);
+            for (int i = 0; i < oldSize; ++i)
+            {
+                int len = RelationMap[i] == null ? 0 : RelationMap[i].Length;
+                if (len > size) size = len;
+            }
+
+            // 判断现有矩阵是否已经足够（行数与行长都要够）
+            bool enough = RelationMap != null && RelationMap.Length >= size;
+            for (int i = 0; enough && i <= maxId; ++i)
+            {
+                if (RelationMap[i] == null || RelationMap[i].Length < size)
+                    enough = false;
+            }
+            if (enough)
+                return;
+
+            int[][] map = new int[size][];
+            for (int i = 0; i < size; ++i)
+            {
+                map[i] = new int[size];
+                int[] oldRow = RelationMap != null && i < RelationMap.Length ? RelationMap[i] : null;
+                for (int j = 0; j < size; ++j)
+                {
+                    // 旧值原样保留；新增区域取中立值
+                    map[i][j] = oldRow != null && j < oldRow.Length
+                        ? oldRow[j]
+                        : DiplomacyRules.DefaultLike;
+                }
+            }
+
+            RelationMap = map;
         }
 
         public string GetDateStr()
@@ -2664,6 +2750,7 @@ namespace Sango.Core
             // 【性能】存档不再缩进输出：缩进会让文件体积与写出耗时扩大 2~3 倍。
             // 读取端全部基于 JsonTextReader 流式解析、对空白不敏感，因此新旧格式与新旧存档都可互相读入。
             JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
+            jsonSerializerSettings.Formatting = Formatting.Indented;
             jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
             jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用
             JsonSerializer serializer = JsonSerializer.CreateDefault(jsonSerializerSettings);

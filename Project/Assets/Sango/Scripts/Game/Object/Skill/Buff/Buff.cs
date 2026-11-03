@@ -87,6 +87,25 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int troopMoveCoef = 100;
 
+        /// <summary>
+        /// 持有该 Buff 的部队**不向周围施加 ZOC**（对应原版 <c>UnitState_Konran</c> 的副作用）。
+        ///
+        /// 【原版依据】<c>System::is_zoc_pos</c> 的部队分支：
+        /// <code>
+        /// else if (hex.get_unit_id() != -1) {
+        ///     const Unit* unit = get_unit(hex.get_unit_id());
+        ///     if (unit->get_state() != UnitState_Konran and self->is_enemy(unit))
+        ///         return true;
+        /// }
+        /// </code>
+        /// （s11_sys_unit_path.cpp:359-364）—— 混乱部队不产生控制区域。
+        ///
+        /// 【为什么放在数据里】与 <see cref="troopAttackCoef"/> 同一套思路：状态差异由
+        /// Buff 数据声明，代码只把它折叠成 <see cref="TroopStateFlag"/> 位标记。
+        /// 混乱 Buff（Buffs.json Id=1）配 <c>"noZoc": true</c> 即生效。
+        /// </summary>
+        [JsonProperty] public bool noZoc;
+
         /// <summary>buffEffects 里是否挂了指定类名集合中的任意一个效果</summary>
         bool HasEffectClass(string[] classes)
         {

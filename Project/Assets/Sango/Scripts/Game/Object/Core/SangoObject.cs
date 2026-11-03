@@ -275,6 +275,28 @@ namespace Sango.Core
 
         /// <summary>
         /// 判断两个势力是否为敌对关系
+        ///
+        /// 【停战也算"非敌对"——对齐原版】
+        /// 原版 s11_scen_obj_force.cpp:571-581：
+        /// <code>
+        /// bool Force::is_enemy(force_id_t force_id) const
+        /// {
+        ///     if (force_id >= 0 and id_ != force_id)
+        ///     {
+        ///         if (not is_normal() or not scenario_->get_force(force_id)->is_normal())
+        ///             return true;
+        ///         if (not is_ally(force_id) and not get_ceasefire_timer(force_id))
+        ///             return true;
+        ///     }
+        ///     return false;
+        /// }
+        /// </code>
+        /// 即：**同盟或停战都不算敌人**。
+        ///
+        /// 本项早前只判了 IsAlliance（仅 AllianceType.Alliance），漏掉 AllianceType.Truce，
+        /// 造成"签了停战、AI 照常开打"——所有通过 IsEnemy 的判定（攻击目标、
+        /// 战法可打范围、AI 攻城、敌对 UI 标记）都还对停战势力生效。
+        /// 停战期在双方 AllianceList 里都有同一份 Alliance(Truce)，双向生效。
         /// </summary>
         /// <param name="forceA">势力A</param>
         /// <param name="forceB">势力B</param>
@@ -283,7 +305,7 @@ namespace Sango.Core
         {
             if (forceA == null) return true;
             if (forceB == null) return true;
-            return forceA != forceB && !forceA.IsAlliance(forceB);
+            return forceA != forceB && !forceA.IsAlliance(forceB) && !forceA.IsTruce(forceB);
         }
 
         /// <summary>

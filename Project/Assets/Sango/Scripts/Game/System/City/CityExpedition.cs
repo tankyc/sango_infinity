@@ -190,7 +190,16 @@ namespace Sango.Core.Player
             TargetTroop.WaterTroopType.Cost(TargetCity, TargetTroop.troops);
             TargetCity.troops -= TargetTroop.troops;
             TargetCity.food -= TargetTroop.food;
-            TargetCity.gold -= TargetTroop.gold;
+
+            // 【经济守恒】资金必须走 AddGold（内含 [0, GoldLimit] 夹取），且
+            // "部队携带额 = 实际扣款额"，否则回城 EnterCity → AddGold(gold) 会多退。
+            // 旧实现 `TargetCity.gold -= TargetTroop.gold` 是裸字段减法：
+            // 城内金不足时直接扣成负数，负数额度之后会在 AddGold 里被夹成 0（凭空抹账）。
+            int payGold = TargetTroop.gold;
+            if (payGold < 0) payGold = 0;
+            if (payGold > TargetCity.gold) payGold = TargetCity.gold;
+            TargetTroop.gold = payGold;
+            TargetCity.AddGold(-payGold);
 
             TargetTroop.ForEachPerson(person =>
             {
@@ -604,7 +613,15 @@ namespace Sango.Core.Player
             TargetTroop.CalculateAttribute(scenario);
 
             SetTroops(3000);
-            TargetTroop.gold = 1000;
+
+            // 【经济守恒 · 修复"编制建设部队可无中生有金钱"】
+            // 旧实现无条件写 1000，与城内实际资金脱钩：
+            //   · 城内不足 1000 时，DoJob 的裸减法会把 city.gold 扣成负数；
+            //   · City.AddGold（City.cs:1030-1039）在下次结算（月度支出 / 回城结算）时
+            //     会把负数夹成 0 —— 欠账被凭空抹掉；
+            //   · 部队回城时 EnterCity → AddGold(gold) 再把 1000 加回来，差额就成了净增。
+            // 这里先按城内资金夹取，保证"编成即扣、扣多少带多少"。
+            TargetTroop.gold = Math.Max(0, Math.Min(1000, TargetCity.gold));
         }
 
 

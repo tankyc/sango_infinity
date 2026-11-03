@@ -6,13 +6,44 @@ namespace Sango.Core
     {
         static Random random;
 
+        /// <summary>
+        /// 取随机源，未初始化时就地创建。
+        ///
+        /// 【为什么需要懒初始化】
+        /// 原先 <see cref="random"/> 只在 <see cref="Init"/> 里创建，而 Init 的调用点
+        /// 晚于 <c>Scenario.OnScenarioPrepare</c>：新开剧本时
+        /// <c>City.OnScenarioPrepare → UpdateLife → GameRandom.Range</c> 就会掷骰，
+        /// 此时 random 仍是 null，解引用直接抛 NullReferenceException，
+        /// 整个剧本加载被打断（表现为"选择剧本后卡死"）。
+        /// 这里做兜底，任何掷骰入口都不会再因为"忘了先 Init"而崩。
+        /// </summary>
+        static Random R
+        {
+            get
+            {
+                if (random == null)
+                    random = new Random(Guid.NewGuid().GetHashCode());
+                return random;
+            }
+        }
+
         public static void Init()
         {
             random = new Random(Guid.NewGuid().GetHashCode());
         }
+
+        /// <summary>
+        /// 用固定种子重置随机源（用于可复现的测试 / 战报回放）
+        /// </summary>
+        /// <param name="seed">种子</param>
+        public static void Init(int seed)
+        {
+            random = new Random(seed);
+        }
+
         public static double Random()
         {
-            return random.NextDouble();
+            return R.NextDouble();
         }
 
         /// <summary>
@@ -43,10 +74,10 @@ namespace Sango.Core
         public static bool Chance(int chance, int root)
         {
             if (chance >= root) return true;
-            else if (chance <= 0) return false; 
+            else if (chance <= 0) return false;
             else
             {
-                int rs = random.Next(root);
+                int rs = R.Next(root);
                 return rs < chance;
             }
         }
@@ -60,25 +91,25 @@ namespace Sango.Core
         public static int Range(int min, int max)
         {
             if (min > max)
-                return random.Next(max, min);
+                return R.Next(max, min);
             else
-                return random.Next(min, max);
+                return R.Next(min, max);
         }
         public static int Range(int maxValue)
         {
-            return random.Next(maxValue);
+            return R.Next(maxValue);
         }
 
         public static float Range(float min, float max)
         {
             if (min > max)
-                return (float)random.Next((int)max * 10000, (int)min * 10000) / 10000f;
+                return (float)R.Next((int)max * 10000, (int)min * 10000) / 10000f;
             else
-                return (float)random.Next((int)min * 10000, (int)max * 10000) / 10000f;
+                return (float)R.Next((int)min * 10000, (int)max * 10000) / 10000f;
         }
         public static float Range(float maxValue)
         {
-            return (float)random.Next((int)maxValue * 10000) / 10000f;
+            return (float)R.Next((int)maxValue * 10000) / 10000f;
         }
 
         public static int RandomGaussian(double mean, double var)
@@ -94,28 +125,25 @@ namespace Sango.Core
             return RandomGaussian((hi + lo) / 2.0, Math.Abs(hi - lo) / 2.0);
         }
 
-        public static int RandomWeightIndex(int[] weightValue, int maxValue)
-        {
-            int v = Range(maxValue);
-            for (int i = 0; i < weightValue.Length; i++)
-            {
-                if (v > weightValue[i])
-                {
-                    v -= weightValue[i];
-                    continue;
-                }
-                else
-                    return i;
-            }
-            return weightValue.Length - 1;
-        }
-
+        /// <summary>
+        /// 按权重随机取下标（自动以权重总和为上界）
+        /// </summary>
+        /// <param name="weightValue">权重数组</param>
+        /// <returns>随机到的下标</returns>
         public static int RandomWeightIndex(int[] weightValue)
         {
-            int maxValue = weightValue[0];
-            for(int i = 1; i < weightValue.Length; i++)
-                maxValue = maxValue + weightValue[i];
+            if (weightValue == null || weightValue.Length == 0)
+                return 0;
 
+            int total = 0;
+            for (int i = 0; i < weightValue.Length; i++)
+                total += weightValue[i];
+
+            return RandomWeightIndex(weightValue, total);
+        }
+
+        public static int RandomWeightIndex(int[] weightValue, int maxValue)
+        {
             int v = Range(maxValue);
             for (int i = 0; i < weightValue.Length; i++)
             {

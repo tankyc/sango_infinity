@@ -47,7 +47,7 @@ namespace Sango.Core.Player
                 // 第 1 军团里 ≥2 座城有武将。
                 // 原先只判 `CityCount > 1`，玩家能从只有 2 座城的主军团里再拆出 1 座，
                 // 让主军团只剩 0 城（无法反击、无法征兵、AI 调度也会错乱）。
-                return TargetCity.BelongForce != null && TargetCity.BelongForce.CanCreateCorps();
+                return TargetCity.BelongForce != null && TargetCity.BelongForce.CityCount > 1;
             }
         }
 
@@ -80,7 +80,7 @@ namespace Sango.Core.Player
             }
 
             // 新建军团菜单
-            menuData.Add("新建军团", 10, this, OnClickMenuItem_CreateCorps, targetNumber > 1 && targetNumber < Corps.numberTxt.Length);
+            menuData.Add("新建军团", 10, this, OnClickMenuItem_CreateCorps, TargetCity.BelongForce.CanCreateCorps());
 
             // 重编军团菜单
             menuData.Add("重编军团", 11, this, OnClickMenuItem_RearrangeCorps, corps_list.Count > 0);
@@ -196,11 +196,13 @@ namespace Sango.Core.Player
         public void CreateCorps()
         {
             TargetCity.BelongForce.CreateCorps(targetCorps);
-            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{targetCorps.ColorName}就交给我了。", () =>
-            {
-                GameMedia.Instance.PlayDoAcitonSfx();
-                Done();
-            },targetCorps.mComander);
+            GameMedia.Instance.PlayDoAcitonSfx();
+
+            // 【先退出命令，再播台词】Done() 挂 GameDialog 回调会被静默丢弃
+            // （窗口创建失败 continue / Reset / seq 不匹配），命令不退出就会卡住整个回合。
+            // 军团上一步已经建好，台词纯演出。
+            Done();
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{targetCorps.ColorName}就交给我了。", null, targetCorps.mComander);
         }
 
         public void ResetCorps()
@@ -209,11 +211,11 @@ namespace Sango.Core.Player
             if (dest == null)
                 return;
             TargetCity.BelongForce.ResetCorps(dest, targetCorps);
-            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{dest.ColorName}就交给我了。", () =>
-            {
-                Done();
-            },dest.mComander);
             GameMedia.Instance.PlayDoAcitonSfx();
+
+            // 【先退出命令，再播台词】理由同 CreateCorps：Done() 挂回调有静默丢失风险
+            Done();
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{dest.ColorName}就交给我了。", null, dest.mComander);
         }
 
         public void CreateCorps(int number, Person commander, List<City> cities)

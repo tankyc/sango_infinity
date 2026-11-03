@@ -446,14 +446,24 @@ namespace Sango.Core
 
         public override bool OnForceTurnStart(Scenario scenario)
         {
-            // 原版只有阵/砦/城塞/箭楼/连弩楼/投石台会主动攻击部队（calc_troops_damage 表），
-            // 城/关/港虽然 atk > 0 但不主动打人 —— 用 troopAtk > 0 判定。
-            if (isComplate && BuildingType.troopAtk > 0 && BuildingType.attackMaxRange > 0)
+            // 原版只有阵/砦/城塞/箭楼/连弩楼/投石台会主动攻击部队（calc_troops_damage 表）。
+            //
+            // 【本项目扩展：据点也自主攻击】城池 / 关所 / 港口按 attackMaxRange 射击范围内的敌军，
+            // 这是 0.0.75「城池,港,关,阵增加攻击效果」引入的玩法（原版没有，属自建设计）。
+            // 对齐原版时判定被收窄成 troopAtk > 0，而据点的 troopAtk 数据里恒为 0，
+            // 于是这条行为被整体关掉 —— 这里把据点重新纳入，伤害见
+            // CombatFormula.CalcBuildingTroopsDamage 的据点分支。
+            bool isKyoten = this is City;
+            bool canAutoAttack = BuildingType.troopAtk > 0 || isKyoten;
+
+            if (isComplate && canAutoAttack && BuildingType.attackMaxRange > 0)
             {
                 for (int i = 1; i < effectCells.Count; i++)
                 {
                     Cell cell = effectCells[i];
-                    if (cell.troop != null && IsEnemy(cell.troop))
+                    // 【必须有势力】无主据点（城陷后中立化 / 势力灭亡清场）不攻击任何人：
+                    // SangoObject.IsEnemy 对 null 势力返回 true，不拦的话无主城会朝周围所有部队开火。
+                    if (cell.troop != null && BelongForce != null && IsEnemy(cell.troop))
                     {
                         BuildingAttackEvent @event = RenderEvent.Instance.Create<BuildingAttackEvent>();
                         @event.Init(this, cell);

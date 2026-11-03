@@ -606,8 +606,14 @@ namespace Sango.Core
                 case 3: return 4;    // 一般
                 case 4: return 5;    // 在野
                 case 5: return 6;    // 俘虏
-                case 6:              // 未登场
-                case 7: return 8;    // 未发现
+                // 【原版 6 = 未登场，必须落 Invalid(7)，不能并到 Invisible】
+                // Person.OnTurnStart 的登场入口是 `state == PersonStateType.Invalid`
+                // （见 Person.cs 登场分支），靠 appearance 年份分批把人放出来。
+                // 早先这里和 case 7 共用 `return 8`，等于把"未登场"直接标成"未发现"：
+                // 他们永远进不了登场流程，只能等玩家探索碰运气，
+                // 表现为"剧本里明明有的武将，到年份了也不出现"。
+                case 6: return 7;    // 未登场 → Invalid
+                case 7: return 8;    // 未发现 → Invisible
                 case 8: return 9;    // 死亡
                 default: return 4;   // 未知按「一般」处理，避免落进任何特权分支
             }

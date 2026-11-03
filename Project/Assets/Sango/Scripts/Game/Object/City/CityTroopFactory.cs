@@ -24,23 +24,24 @@ namespace Sango.Core
         /// <returns>登记后的部队（troop 为 null 时返回 null）</returns>
         public static Troop EmitTroop(City city, Troop troop, Scenario scenario)
         {
-            if (troop == null || city == null)
+            if (troop == null || city == null || scenario == null)
                 return null;
 
-            troop = city.EnsureTroop(troop, scenario);
-
-            // 【前置判断】出征前先确认部队能否走出城头：城池被完全围困
-            // （移动范围内没有可停留的空地）时，部队一出征就会卡在城头无法行动。
-            // 此时取消本次出征，退回组建成本并返回 null，让调用方跳过后续日志 / 任务。
-            if (!TroopAIUtility.CanLeaveBuildingCell(troop, scenario))
-            {
-                Sango.Log.Warning($"势力[{city.BelongForce?.Name}]在{city.Name}出兵失败:城池被完全围困,部队无法出城,已取消本次出征");
-                CancelEmitTroop(city, troop);
-                return null;
-            }
+            // 【出城队列】先入队打"新兵"标记，再登记进场景。
+            //
+            // 为什么必须在这里登记（不能推迟到 ActivatePendingOutTroops）：
+            // 所有调用方在 EmitTroop 之后立刻就要用这支部队 —— troop.SetMission(...)、
+            // troop.NeedPrepareMission()、读 troop.Leader / troop.BelongForce 打日志。
+            // 这些成员由 Init 建立（BelongForce、Leader、Render、战法、属性），
+            // 未登记的部队 BelongForce 为 null，SetMission 会直接 return（s11 任务根本设不上）。
+            //
+            // 因此"同一城池中心格只能站一支"不能靠"不登记"来解决，而是：
+            //   · EnsureTroop 不抢占已被别的部队占用的 CenterCell.troop（见该方法）；
+            //   · 多支部队同时停在城内属于允许的过渡态，由队列逐支送出城。
+            EnqueueOutTroop(city, troop);
+            city.EnsureTroop(troop, scenario);
 
             city.CurActiveTroop = troop;
-            city.Render?.UpdateRender();
 
             // 【分级策略】出征时固化部队角色：Auto 时依据任务与属性自动推导一次，
             // 避免每回合重算导致角色漂移、行为抖动。
@@ -48,6 +49,111 @@ namespace Sango.Core
                 troop.role = troop.ResolveRole();
 
             return troop;
+        }
+
+        /// <summary>
+        /// 把"已组建、尚未出城"的部队加入出城队列（去重）。
+        ///
+        /// 只打标记，不做任何地图操作：出城统一由 <see cref="ActivatePendingOutTroops"/>
+        /// 按队列顺序推进（队首走完才轮到下一支）。登记仍由调用方负责 ——
+        /// <see cref="EmitTroop"/> 在入队后立即 <see cref="City.EnsureTroop"/>，
+        /// 保证调用方能继续设置任务。
+        /// </summary>
+        /// <param name="city">出兵城市</param>
+        /// <param name="troop">刚组建的部队</param>
+        public static void EnqueueOutTroop(City city, Troop troop)
+        {
+            if (city == null || troop == null)
+                return;
+
+            if (!city.pendingOutTroops.Contains(troop))
+                city.pendingOutTroops.Add(troop);
+
+            troop.isNewEmitted = true;
+            troop.ActionOver = false;
+        }
+
+        /// <summary>
+        /// 依次激活出城队列：出一支、走一支，直到队列空或队首被卡住。
+        ///
+        /// 【流程】对队首部队：
+        /// <list type="number">
+        /// <item>未登记 → <see cref="City.EnsureTroop"/> 放到城池中心格（分配 Id / Init）；</item>
+        /// <item>被完全围困（<see cref="TroopAIUtility.CanLeaveBuildingCell"/> 为假）
+        ///       → <see cref="RevokeEmit"/> 回退进城，继续下一支；</item>
+        /// <item>推一次 <see cref="Troop.DoAI"/>：离开城池格即视为出城成功，出队继续；
+        ///       仍停在城格 → 保留队首，返回 false（下一轮再推）。</item>
+        /// </list>
+        /// 这样同一回合内可以连续派多支，而不是被"一支部队占着城头"卡住。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>队列已清空返回 true；队首尚未走出城返回 false</returns>
+        public static bool ActivatePendingOutTroops(City city, Scenario scenario)
+        {
+            if (city == null || scenario == null)
+                return true;
+
+            while (city.pendingOutTroops.Count > 0)
+            {
+                Troop troop = city.pendingOutTroops[0];
+
+                if (troop == null || !troop.IsAlive)
+                {
+                    city.pendingOutTroops.RemoveAt(0);
+                    continue;
+                }
+
+                // ① 未登记 → 放到城池中心格并入场景
+                if (troop.cell == null)
+                {
+                    city.EnsureTroop(troop, scenario);
+                }
+                else if (troop.cell.building == null)
+                {
+                    // 已在野外（事件直接摆放）→ 无需出城
+                    city.pendingOutTroops.RemoveAt(0);
+                    troop.isNewEmitted = false;
+                    continue;
+                }
+
+                // ② 被完全围死 → 回退进城（EnterCity 会经 ClearNewEmittedFlag 自动出队）
+                if (!TroopAIUtility.CanLeaveBuildingCell(troop, scenario))
+                {
+                    Sango.Log.Warning($"势力[{city.BelongForce?.Name}]在{city.Name}出兵失败:城池被完全围困,部队无法出城,已回退进城");
+                    RevokeEmit(city, troop);
+                    continue;
+                }
+
+                // ③ 推一次出城
+                troop.DoAI(scenario);
+
+                // 已站到野外格 → 出城成功，让位给下一支
+                if (troop.cell != null && troop.cell.building == null)
+                {
+                    city.pendingOutTroops.Remove(troop);
+                    troop.isNewEmitted = false;
+                    continue;
+                }
+
+                // 行动已结束却仍停在城格：DoAI 正常收尾（不是命令失败），
+                // 说明本回合没能挪出去（寻路为空 / 移动力耗尽）。
+                // 此时**不能**回退进城解散 —— 那是 run_order 失败才做的处理
+                // （s11_sys_person_order_military.cpp:337-352）；这里只需让它出队，
+                // 部队留到下一回合由任务行为自己继续出城。
+                if (troop.ActionOver)
+                {
+                    Sango.Log.Warning($"势力[{city.BelongForce?.Name}]在{city.Name}组建的部队本回合未能走出城头,下一回合继续出城");
+                    city.pendingOutTroops.Remove(troop);
+                    troop.isNewEmitted = false;
+                    continue;
+                }
+
+                // 移动动画还没播完 → 保留队首，下一轮继续推（后面的部队继续排队）
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -74,53 +180,50 @@ namespace Sango.Core
         /// </code>
         /// 本方法与 <see cref="RevokeEmit"/> 合起来等价于上面这段。
         ///
-        /// 【为什么这里不推 DoAI】部队出城这一步交给军团的部队调度器
-        /// <see cref="CorpsAI.AITroops"/> 统一驱动（它排在据点命令
-        /// <see cref="CorpsAI.AIDistrictCommand"/> 之后、同一帧内执行）：
-        ///   · 本方法只负责"登记 + 打新兵标记"，把部队交给军团；
-        ///   · <see cref="CorpsAI.AITroops"/> 会把新兵排到第一位优先驱动它出城
-        ///     （排序里 <see cref="Troop.isNewEmitted"/> 是最高优先级）；
-        ///   · 那边 `DoAI` 返回 false 就整帧等待、下一帧续跑，已完成的部队靠
-        ///     <see cref="Troop.ActionOver"/> 自动跳过，重跑是安全的。
-        /// 若在据点命令里自己推 DoAI，会与军团调度重复，且同一据点本轮连派多支时
-        /// 全挤在城池中心格上（<see cref="City.EnsureTroop"/> 无条件覆盖 cell.troop）。
+        /// 【谁推 DoAI】本方法入队后立刻就地推进一次队列
+        /// （<see cref="ActivatePendingOutTroops"/>），由队列负责"按顺序逐支送出城"：
+        ///   · 队首已登记 → 直接推一次 <see cref="Troop.DoAI"/> 开始移动；
+        ///   · 队首还在播移动动画 → 队列保留它，返回值不影响本次组建；
+        ///   · 队首被围死 → <see cref="RevokeEmit"/> 回退进城后继续下一支。
+        /// 之后军团调度器 <see cref="CorpsAI.AITroops"/> 仍会把新兵排第一继续续跑，
+        /// 两条路径都幂等（靠 <see cref="Troop.ActionOver"/> / <see cref="Troop.isNewEmitted"/>
+        /// 跳过已处理项），不会重复结算。
         /// </summary>
         /// <param name="troop">刚组建、仍停在城市格上的部队</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>已交给军团驱动返回 true；本城已有部队在出城、无法再派时返回 false</returns>
+        /// <returns>
+        /// 部队仍在队列中或已出城返回 true；
+        /// 本次组建被队列判定"无法出城"并回退进城（<see cref="RevokeEmit"/> 已把 IsAlive 置 false）
+        /// 返回 false，调用方据此退回行动力 / 取消本次出兵。
+        /// </returns>
         public static bool DriveOutOfCity(Troop troop, Scenario scenario)
         {
             if (troop == null || scenario == null)
                 return false;
-            // 已经不在场上（被任务链路收尾 / 事件直接放到野外无格）→ 无需处理
-            if (!troop.IsAlive || troop.cell == null)
+            if (!troop.IsAlive)
                 return true;
-            // 不在建筑格上（例如事件直接把部队放到野外）→ 无需处理
-            if (troop.cell.building == null)
+            // 已在野外（例如事件直接把部队放到无建筑格）→ 无需处理
+            if (troop.cell != null && troop.cell.building == null)
                 return true;
 
             City city = troop.BelongCity;
-            if (city == null)
+            if (city == null && troop.cell != null)
                 city = troop.cell.building as City;
+            if (city == null)
+                return true;
 
-            // 【出城串行】同一座城同时只能有一支部队在出城：
-            // 两支部队都停在城池中心格时会互相覆盖 cell.troop，之后必然重叠。
-            if (city != null && city.pendingOutTroop != null && city.pendingOutTroop != troop
-                && city.pendingOutTroop.IsAlive)
-            {
-                return false;
-            }
+            // 【出城队列】入队 + 打"新兵"标记，**不拒绝后续部队**：
+            // 前面已有部队在出城时，本部队排在队尾，等前一支落地后自动接上，
+            // 从而支持同一回合连续派多支。
+            EnqueueOutTroop(city, troop);
 
-            if (city != null)
-                city.pendingOutTroop = troop;
+            // 就地推进一次，让队首立刻开始出城（不必等下一帧的军团调度）
+            ActivatePendingOutTroops(city, scenario);
 
-            // 【交给军团】打上"新兵"标记 + 保证本回合还没行动，
-            // 军团调度器 AITroops 会优先驱动它出城；落地后由
-            // Troop.UpdateCell / ClearWithBelongCity 清标记并解除本城登记。
-            troop.isNewEmitted = true;
-            troop.ActionOver = false;
-
-            return true;
+            // 被队列回退（围死 / 走不出城头）时 IsAlive 已被 EnterCity 置 false。
+            // 注意：本部队不是队首时既没出城也没被撤销，IsAlive 仍为 true —— 它只是排队，
+            // 调用方照常扣行动力，后续由队列负责把它送出城。
+            return troop.IsAlive;
         }
 
         /// <summary>

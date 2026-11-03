@@ -121,7 +121,7 @@ namespace Sango.Core
 
             Receiver.CapitalCity.gold += ResourceValue;
 
-            // 写入友好度：走 Force.AddLike（内部换算回 RelationMap 的 -5000~5000）
+            // 写入友好度：走 Force.AddLike（RelationMap 直存 0~100，无需换算）
             Sender.AddLike(Receiver, likeGain);
 
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 赠送了 {ResourceValue} 金，" +
@@ -152,7 +152,7 @@ namespace Sango.Core
             // 计算友好度增量（like 单位，2~20）
             int likeGain = CalculateDonateLikeGain();
 
-            // 写入友好度：走 Force.AddLike（内部换算回 RelationMap）
+            // 写入友好度：走 Force.AddLike（RelationMap 直存 0~100，无需换算）
             Sender.AddLike(Receiver, likeGain);
 
             Sango.Log.Info($"@外交@{Sender.Name} 向 {Receiver.Name} 赠送了 {ResourceValue} 金，" +

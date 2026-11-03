@@ -188,8 +188,10 @@ namespace Sango.UI
                 return;
 
             int current = targetTroop.gold;
+            // 【不能超过城内资金】同 UICityExpedition：资金按城内实有封顶，
+            // 避免"城被扣成负数、部队却带足额"的刷钱入口。
             int max = targetCity.gold;
-            if (max < current) max = current;
+            if (max < 0) max = 0;
 
             Window.Instance.Open(CalculatorWindowName, "资金", current, 0, max,
                 (Action<int>)((val) => SetGold(val)),

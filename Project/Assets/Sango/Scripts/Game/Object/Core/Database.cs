@@ -124,9 +124,18 @@ namespace Sango.Core
         public virtual IAarryDataObject FromArray(int[] values)
         {
             if (values == null) return this;
+
+            // 【跳过解析失败的对象】GetObject 对"已解散 / 不存在"的 Id 返回 null。
+            // 早期实现直接 Add(null)，把空槽塞进列表 —— 之后任何遍历都会 NRE。
+            // 玩家反馈的崩溃就是这条链路：
+            //   Force.AllianceList 里混进 null
+            //   → Force.IsAlliance 的 `alliance.Contains(other)`（Force.cs:1277）
+            //   → SangoObject.IsEnemy → Troop.IsEnemy → City.HasEnemyTroopOn …
             for (int i = 0; i < values.Length; ++i)
             {
-                Add(Scenario.Cur.GetObject<T>(values[i]));
+                T obj = Scenario.Cur.GetObject<T>(values[i]);
+                if (obj != null)
+                    Add(obj);
             }
             return this;
         }
@@ -134,9 +143,14 @@ namespace Sango.Core
         public virtual IAarryDataObject FromArray(int[] values, Database<T> database)
         {
             if (values == null) return this;
+            if (database == null) return this;
+
+            // 同上：源库里查不到的 Id 直接跳过，不留空槽
             for (int i = 0; i < values.Length; ++i)
             {
-                Add(database.Get(values[i]));
+                T obj = database.Get(values[i]);
+                if (obj != null)
+                    Add(obj);
             }
             return this;
         }

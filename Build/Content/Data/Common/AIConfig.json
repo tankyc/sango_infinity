@@ -4,6 +4,24 @@
   //  加载路径：Content/Data/Common/AIConfig.json（同样支持 Mod 覆盖）
   // =========================================================================
 
+  // ------------------------- 外交热度 -------------------------
+  // AI 的 7 项外交命令各自判概率、成功即止（原版 force_diplomacy 没有全局频率）。
+  // 下列默认值已比原版整体降温约 6 成，想让 AI 更爱外交就调大概率 / 调小错峰周期。
+  //   diplomacyActionChance          结盟 / 送礼 / 求援 的每回合触发概率（%）
+  //   diplomacyDiscardChance         破弃同盟的触发概率（%）
+  //   diplomacyDonateStagger         送礼错峰周期：turn % N == forceId % N 才轮到
+  //   diplomacyCeasefireWarStagger   战时求和的错峰周期
+  //   diplomacyCeasefirePeaceStagger 无战事时"预防性停战"的错峰周期
+  //   diplomacyStartTurn             从第几回合开始外交
+  //   diplomacyAnnexStartTurn        从第几回合开始劝降 / 吞并
+  "diplomacyStartTurn": 12,
+  "diplomacyAnnexStartTurn": 48,
+  "diplomacyActionChance": 18,
+  "diplomacyDiscardChance": 20,
+  "diplomacyDonateStagger": 8,
+  "diplomacyCeasefireWarStagger": 24,
+  "diplomacyCeasefirePeaceStagger": 9,
+
   // ------------------------- 城池命令优先级 -------------------------
   // 最终得分 = 基础分 + 态势动态分 + 个性修正 + 紧急覆盖，按得分降序执行
   "cityOrder": {
@@ -184,13 +202,38 @@
   "protectCityThreatRange": 5,
   "protectCityNearEnemyBonusPerCell": 40,
 
+  // ------------------------- 进攻欲望（出兵门槛与概率） -------------------------
+  // 三档 AI 个性各有两个杠杆：城内兵力下限 + 每回合跳过进攻的概率。
+  // 两者必须一起看：
+  //   · AICanAttack 先用 attackMinTroops* 判"打不打得起"，再用 attackSkipChance* 掷骰；
+  //   · DecideAttackTarget 挑目标时还有一道 attackTargetMinTroops，
+  //     兵力落在 [attackMinTroops*, attackTargetMinTroops) 区间时会被判成
+  //     "能打但候选为空"，最终依然不出兵 —— 只调前者会表现为"改了没效果"。
+  "attackMinTroopsAggressive": 6000,   // 好战：低于此兵力不出兵（原硬编码 8000）
+  "attackMinTroopsBalanced": 7000,     // 均衡（原硬编码 10000）
+  "attackMinTroopsDefensive": 9000,    // 谨慎（原硬编码 12000）
+  "attackTargetMinTroops": 12000,      // 进入目标打分的最低兵力（原硬编码 20000）
+  "attackTargetPlayerBonus": 1500,     // 目标势力是玩家时额外加的权重（加法项，原硬编码 1500；负数=回避玩家）
+
+  // 每回合"跳过进攻"的掷骰概率（%），越低越积极（原硬编码 50 / 70 / 80）
+  "attackSkipChanceAggressive": 18,
+  "attackSkipChanceBalanced": 25,
+  "attackSkipChanceDefensive": 35,
+
+  // ------------------------- AI 出阵行动力 -------------------------
+  // 单次出阵（Attack 命令）消耗的据点行动力，默认 5。
+  // 实际扣减在 CityAI.AIAttack，调度器预估在 CityAIOutpost.GetOrderActionPointCost，
+  // 两处统一走 AIConfig.GetAttackActionPointCost，改这里即可整体生效。
+  // 配成 0 或负数时退回命令表成本（City.GetJobCostAP(MakeTroop)，含军事府减半）。
+  "aiAttackActionPointCost": 5,
+
   // ------------------------- 据点 AI 调度日志（排查"某城为什么不出兵"时打开） -------------------------
-  "logOutpostAI": true,
+  "logOutpostAI": false,
 
   // ------------------------- 据点进攻决策日志（排查"某城为什么不出兵"时打开） -------------------------
   // 打开后 Console 打印 AICanAttack 各否决原因（兵力不足 / 士气治安 / 空闲武将 / 非边境 / 6格敌军 /
   // 无相邻敌城 / 攻击概率跳过）与 DecideAttackTarget 选/未选中目标；排查完记得改回 false。
-  "logAttackAI": true,
+  "logAttackAI": false,
 
   // ------------------------- 人才部署（武将调度：岗位编制 / 调动节奏） -------------------------
   // 本节点是 DeploymentWeights 的**完整镜像**：只写要覆盖的字段即可，未出现的字段沿用代码内置默认值。

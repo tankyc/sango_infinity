@@ -1255,11 +1255,35 @@ namespace Sango.Core
         /// <param name="person"></param>
         public void AddWildPerson(Person person)
         {
+            if (person == null)
+                return;
+
 #if SANGO_DEBUG
             Sango.Log.Info($"*{Name} -> wildPersons 添加 {person.Name} ");
 #endif
-            // 去重：登用/登场/下野/读档重登记等路径可能对同一个人重复调用，
-            // 名单里出现两份会让"在野人数"统计与人才搜索凭空翻倍
+            // 【同一人只能挂在一座城的在野名册】
+            //
+            // 为什么需要跨城唯一：在野武将会"游荡"（Person.OnTurnEnd 里 ChangeCurrentCity
+            // 换所在城），而 ChangeCurrentCity 只改 CurrentCity、不动任何名册；
+            // 之后任何一次 AddWildPerson 都会把人在**新城**再登记一份，旧城那份永远没人摘。
+            // 后果：登庸候选（CityRecruit.CollectTargets / CityAllRecruit.OnEnter）遍历
+            // **所有城**的 wildPersons，同一个人就会出现两次 —— 正是玩家在登庸界面
+            // 看到的"两个重复的人"。
+            //
+            // 这里把"名册随人走"这条不变量收在入口：新增到本城前，先从其它城摘掉。
+            // 城数只有几十座、AddWildPerson 调用频率很低（下野 / 登场 / 游荡 / 读档），
+            // 这次扫描的开销可以忽略。
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null && scenario.citySet != null)
+            {
+                scenario.citySet.ForEach(x =>
+                {
+                    if (x != null && x != this && x.wildPersons != null)
+                        x.wildPersons.Remove(person);
+                });
+            }
+
+            // 同城去重：登记/下野/读档重登记等路径可能对同一个人重复调用
             if (!wildPersons.Contains(person))
                 wildPersons.Add(person);
         }
@@ -4502,14 +4526,36 @@ namespace Sango.Core
             if (!freePersons.Contains(person)) return false;
             if (dest.BelongForce == BelongForce) return false;
 
+            // 【君主不可登用】原版 get_employable_person_list 的候选身份里没有 Mibun_Kunshu
+            // （s11_sys_person_order_personnel.cpp:904-954），执行前也必须拦一次：
+            // 候选列表只是 UI 过滤，剧本事件 / AI 直调 / 旧存档仍可能直接点名君主。
+            if (dest.IsActiveGovernor)
+            {
+                Sango.Log.Warning($"*[登用]{person.Name} 无法登用 {dest.Name}：对方是{dest.BelongForce?.Name}的君主");
+                return false;
+            }
+
             Scenario scenario = Scenario.Cur;
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.RecruitPerson;
             // 走本城口径：人才府可让登用 AP 减半
             int apCost = GetJobCostAP(CityJobType.RecruitPerson);
 
+            // 【原子性】所有"可能失败"的取值都在改动状态之前做完。
+            //
+            // 旧写法先 `freePersons.Remove(person)` 再去读 `dest.CurrentCity.Id` 派任务：
+            // 一旦目标武将没有所在城（在部队里 / 数据异常），`dest.CurrentCity.Id` 直接空引用，
+            // 结果是"执行武将已从空闲名单摘掉、任务却没挂上" —— 人既不在 freePersons、
+            // 也没有 missionType，从所有列表里凭空消失（玩家口中的"武将失踪"）。
+            City destCity = dest.CurrentCity;
+            if (destCity == null && person.CurrentCity != null)
+            {
+                Sango.Log.Warning($"*[登用]{person.Name} 无法出使：目标 {dest.Name} 没有所在城（可能已在部队或数据异常）");
+                return false;
+            }
+
             freePersons.Remove(person);
-            if (dest.CurrentCity == person.CurrentCity)
+            if (destCity == person.CurrentCity)
             {
                 CityRecruitPersonEvent te = RenderEvent.Instance.Create<CityRecruitPersonEvent>();
                 te.Init(person, dest);
@@ -4519,7 +4565,21 @@ namespace Sango.Core
             }
             else
             {
-                person.SetMission(MissionType.PersonRecruitPerson, dest, 100, dest.CurrentCity.Id);
+                // 【出使超时】missionCounter 在这里写入"单程站数 × 2（来回）+ 6 回合余量"，
+                // 由 Person.UpdateMission 每回合递减，归零就强制起程归家。
+                // 旧实现写死 100 且从不递减 —— 一旦路网 / 目标城出问题，任务会永久悬挂，
+                // 武将从所有界面消失（阎柔案：7~8 个回合不归、也没有任何结果提示）。
+                int distance = person.CurrentCity != null ? person.CurrentCity.Distance(destCity) : 1;
+                if (distance < 1)
+                    distance = 1;
+
+                // 【记录出发城】missionParams2 = 派发时的户口城 Id，收尾时由
+                // Person.ReturnFromRecruitMission 用它决定返程目的地。
+                // 不能等到收尾再读 BelongCity：出使途中可能发生城陷迁移 / 户口被别的流程改写，
+                // 那时读到的可能已经是目标城 —— 正是"出去登庸回不来、卡在目标城"的成因之一。
+                int departCityId = person.BelongCity != null ? person.BelongCity.Id : 0;
+
+                person.SetMission(MissionType.PersonRecruitPerson, dest, distance * 2 + 6, destCity.Id, departCityId);
                 person.ActionOver = true;
                 BelongCorps.ReduceActionPoint(apCost);
                 return false;
@@ -5357,16 +5417,30 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 获取城池的攻击力
+        /// 获取城池的攻击力（据点自主攻击的火力基数）。
+        ///
+        /// 【修复】原写法：
+        ///     Math.Max(BuildingType.atk, (Leader?.Strength ?? 50 * 5000 + Leader?.Command ?? 50 * 5000) / 10000)
+        /// 由于 <c>??</c> 与 <c>/10000</c> 的结合方式，实际结果是
+        /// "有太守 → Strength/10000 = 0（取 atk=10），无太守 → 50"：
+        /// 既完全没用上太守数值，还让没有太守的城火力比有太守的城更强，与设计意图相反。
+        ///
+        /// 现改为：基础火力 = BuildingType.atk（默认 10），再按太守武力 + 统率加成
+        /// （普通太守约 +2~3，顶级太守约 +4~5）；无太守按 50 的默认能力算。
+        /// 该值用于「城池 / 关所 / 港口自主攻击」的等效攻击力
+        /// （见 CombatFormula.CalcBuildingTroopsDamage 的据点分支）。
         /// </summary>
-        /// <returns></returns>
+        /// <returns>据点攻击力</returns>
         public override int GetAttack()
         {
-            ScenarioVariables Variables = Scenario.Cur.Variables;
-            // 根据太守数值来计算基础伤害
-            int atk = Math.Max(BuildingType.atk, (Leader?.Strength ?? 50 * 5000 + Leader?.Command ?? 50 * 5000) / 10000);
+            int baseAtk = BuildingType.atk;
+            if (baseAtk <= 0)
+                baseAtk = 10;
 
-            return atk;
+            int strength = Leader != null ? Leader.Strength : 50;
+            int command = Leader != null ? Leader.Command : 50;
+
+            return baseAtk + (strength + command) / 40;
         }
 
         /// <summary>
@@ -5816,22 +5890,30 @@ namespace Sango.Core
         internal int TroopMissionTargetId;
 
         /// <summary>
-        /// 【出城串行】刚刚组建、正在执行"离开城池格"的部队。
+        /// 【出城队列】刚组建、尚未走出城头的部队（先进先出）。
         ///
-        /// 背景：部队移动原本是异步渲染，<see cref="CityTroopFactory.DriveOutOfCity"/> 把整条路径
-        /// 排进渲染队列后就返回了，此时 <c>troop.cell</c> 还停在城池格、<c>cell.troop</c> 也没更新。
-        /// 据点 AI 在同一条命令链里继续派第二支时，第二支算落脚点看不到第一支的去向，
-        /// 两队就会算到同一格上，动画播完后叠在一起。
+        /// 背景：部队移动是异步渲染，部队从城格挪到野外要等移动动画播完，
+        /// 这期间它仍占着 <see cref="CenterCell"/>。旧实现用"单支锁"处理，
+        /// 结果同一回合只能派出一支部队。
         ///
-        /// 做法：把"刚派出、尚未落地"的部队挂在这里，由
-        /// <see cref="CityAI.DoOutpostAI"/> 在每帧入口检查：
-        ///   · 非空 → 先把这支部队推完（同步落地），再清空；
-        ///   · 清空之前，本据点不再派新的部队。
-        ///
-        /// 配合 <see cref="Troop"/> 的同步出城开关（出城不走移动动画、直接落地），
-        /// 这个字段在正常流程里存活时间极短，仅作"出城进行中"的显式状态与兜底。
+        /// 做法：组建即登记（<see cref="EnsureTroop"/>，调用方要立刻用它设任务），
+        /// 同时入队打"新兵"标记；由 <see cref="CityAI.DoOutpostAI"/> 每轮入口调用
+        /// <see cref="CityTroopFactory.ActivatePendingOutTroops"/> 依次推进：
+        ///   · 队首推一次出城，落地（<c>cell.building == null</c>）→ 出队，继续下一支；
+        ///   · 移动动画未播完 → 保留队首，后面的部队继续排队；
+        ///   · 被完全围死走不出去 → <see cref="CityTroopFactory.RevokeEmit"/> 回退进城，继续下一支。
+        /// 于是同一回合可以连续派多支部队：多支在城内共存是允许的过渡态，
+        /// 城格引用由 <see cref="EnsureTroop"/> 的"不抢占已有引用"保护。
         /// </summary>
-        internal Troop pendingOutTroop;
+        internal readonly List<Troop> pendingOutTroops = new List<Troop>();
+
+        /// <summary>
+        /// 队首的待出城部队（没有则为 null）。
+        ///
+        /// 供部队调度器 <see cref="CorpsAI.AITroops"/> 判断"本城是否还有前一支在出城"：
+        /// 非队首的新兵必须继续排队，否则多支会从同一个城格并行出发、抢同一个落脚格。
+        /// </summary>
+        internal Troop pendingOutTroop => pendingOutTroops.Count > 0 ? pendingOutTroops[0] : null;
 
         /// <summary>
         /// 确保部队初始化并加入场景
@@ -5843,7 +5925,14 @@ namespace Sango.Core
         {
             // 先加入剧本才能分配ID
             troop.cell = this.CenterCell;
-            this.CenterCell.troop = troop;
+
+            // 【出城队列】同一城池的中心格可能同时登记多支部队（同回合连派）。
+            // 此时**不能**无条件覆盖 cell.troop：先登记的那支正准备出城，
+            // 它的 UpdateCell 会执行 `cell.troop = null`，把后登记者的引用一起清掉，
+            // 导致城格归属错乱。只在格子上没有别的部队时才占位。
+            if (this.CenterCell.troop == null || this.CenterCell.troop == troop)
+                this.CenterCell.troop = troop;
+
             scenario.Add(troop);
             troop.Init(scenario);
             return troop;

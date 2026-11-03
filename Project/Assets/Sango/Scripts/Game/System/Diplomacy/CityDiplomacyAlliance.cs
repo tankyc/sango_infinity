@@ -60,15 +60,20 @@ namespace Sango.Core.Player
             if (personList.Count <= 0)
                 return;
 
+            if (targetForces.Count <= 0)
+                return;
+
             DiplomacyManager diplomacyManager = GameSystem.GetSystem<DiplomacyManager>();
             DiplomacyActionBase action = diplomacyManager.CreateDiplomacyAction(DiplomacyActionType.Alliance, TargetCity.BelongForce, targetForces[0], personList[0], gold);
             diplomacyManager.DispatchDiplomat(action);
-            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", () =>
-            {
-                // 暂时直接招募
-                Done();
 
-            }, null, personList[0], 5);
+            // 【先退出命令，再播台词】
+            // Done() 原先挂在 GameDialog 的点击回调里，而该回调会被静默丢弃
+            // （GameDialog 窗口创建失败 continue / Reset / seq 不匹配），
+            // 一旦丢失 CurrentCommand 永远不为 null，整个回合流程就卡死。
+            // 派遣本身在上一步已经完成，关窗不必等这句台词。
+            Done();
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", null, null, personList[0], 5);
         }
     }
 }

@@ -72,7 +72,7 @@ namespace Sango.Core
             // 【原版对齐】原版 can_ceasefire_command（s11_sys_person_order_diplomacy.cpp:987-1020）
             // 只要求"存在未同盟的势力"，**没有友好度死门槛** —— 友好度在公式里体现为
             // `time*4/3 - like/4 + 80` 这条线：关系越差，越难谈成，但永远不是绝对不可能。
-            // 旧实现额外加了 relation >= diplomacyTruceRelationThreshold，等于把
+            // 旧实现额外加了 relation >= 某 raw 关系阈值（该配置已删除），等于把
             // "关系极差时也可能求和成功"这条原版设计直接掐掉了，故删除。
 
             // 检查是否已经有停战协议

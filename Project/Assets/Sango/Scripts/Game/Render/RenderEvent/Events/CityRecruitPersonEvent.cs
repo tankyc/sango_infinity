@@ -55,13 +55,27 @@ namespace Sango.Render
 
         public override void Enter(Scenario scenario)
         {
+            // 【必须判空】出使途中执行武将可能已经变节 / 下野 / 阵亡，BelongCorps 被清空。
+            // 旧写法第一行就解引用 person.BelongCorps，一旦为空就抛 NullReferenceException；
+            // 异常从 RenderEvent.Update 的 while 循环里冒出去，CurEvent 不会被推进，
+            // **整个演出队列就此卡死** —— 之后的移动、战斗、对话框全部不再播放，
+            // 玩家看到的正是"既没有成功提示、也没有失败提示"。
+            if (person == null || target == null)
+            {
+                IsDone = true;
+                return;
+            }
+
             InitJobFeature(person);
+
             // 判据用 IsPlayerControl（玩家势力 && 第一军团）而不是 IsPlayer：
             // 玩家势力委任军团的 IsPlayer 同样为真，但它由 AI 代管，
             // 走玩家分支会弹出"成功/失败"对话框并让回合卡在等待点击上。
-            if (!person.BelongCorps.IsPlayerControl)
+            if (person.BelongCorps == null || !person.BelongCorps.IsPlayerControl)
             {
-                person.JobRecruitPerson(target, (int)PersonRecruitType.Normal);
+                // 已无势力（下野 / 灭亡）的人不再结算登用，直接结束本事件
+                if (person.BelongForce != null)
+                    person.JobRecruitPerson(target, (int)PersonRecruitType.Normal);
                 IsDone = true;
                 ClearJobFeature();
                 return;
@@ -99,6 +113,9 @@ namespace Sango.Render
         public override bool IsVisible()
         {
             // 与 Enter 的判据保持一致：委任军团不参与玩家侧演出
+            // 判空同 Enter：BelongCorps 可能因变节 / 下野被清空
+            if (person == null || person.BelongCorps == null)
+                return false;
             return person.BelongCorps.IsPlayerControl;
         }
 

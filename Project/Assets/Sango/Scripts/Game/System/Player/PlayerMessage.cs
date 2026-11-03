@@ -331,6 +331,11 @@ namespace Sango.Core.Player
         /// <param name="y">消息关联的Y坐标</param>
         public static void AddTextMessage(string text, Force force, int x, int y)
         {
+            // 消息系统尚未初始化（开局前 / 读档收场阶段）时静默丢弃，
+            // 避免 _AddTextMessage 是实例方法而在 Instance 为空时抛空引用。
+            if (Instance == null)
+                return;
+
             Instance._AddTextMessage(text, force, x, y);
         }
 

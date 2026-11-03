@@ -69,6 +69,10 @@ namespace Sango.Core
             Master = master;
             foreach (BuffInstance ins in _buffs)
                 ins.Init(this, ins.Buff, ins.Master);
+
+            // 读档 / 绑定后立刻按已加载的 Buff 重建状态位：
+            // stateFlags 不序列化（派生状态），不在这里补算就会出现"存档里有混乱、标记却是 0"。
+            RefreshMasterStateFlags();
         }
 
         public void OnModelLoaded(GameObject model)
@@ -114,6 +118,9 @@ namespace Sango.Core
             }
             assetRef.Clear();
 
+            // Buff 已全清 → 状态位归零（必须在 Master 置空之前，否则算不到宿主身上）
+            RefreshMasterStateFlags();
+
             Master = null;
         }
 
@@ -126,6 +133,7 @@ namespace Sango.Core
             };
             buffInstance.Init(this, buff, srcTroop);
             _buffs.Add(buffInstance);
+            RefreshMasterStateFlags();
         }
 
         public void RemoveBuff(int id)
@@ -139,6 +147,7 @@ namespace Sango.Core
                     _buffs.RemoveAt(i);
                 }
             }
+            RefreshMasterStateFlags();
         }
 
         public void RemoveBuffByKind(int kind)
@@ -152,6 +161,38 @@ namespace Sango.Core
                     _buffs.RemoveAt(i);
                 }
             }
+            RefreshMasterStateFlags();
+        }
+
+        /// <summary>
+        /// 把所有 Buff 声明的状态折叠成 <see cref="TroopStateFlag"/> 位域。
+        ///
+        /// 【为什么折叠】ZOC 判定（<see cref="Map.IsZOC"/>）在移动范围展开时对每格 6 邻格
+        /// 各判一次，是整条寻路里最热的循环；若每次都遍历 Buff 列表 + 解析 JSON 类名，
+        /// 代价不可接受。这里只在 Buff 增删时算一次，热路径读一个 bit。
+        /// </summary>
+        /// <returns>状态位域（0 = 无状态）</returns>
+        public int GetStateFlags()
+        {
+            int flags = 0;
+            for (int i = 0; i < _buffs.Count; i++)
+            {
+                BuffInstance ins = _buffs[i];
+                Buff buff = ins != null ? ins.Buff : null;
+                if (buff == null) continue;
+
+                // 混乱（UnitState_Konran）：不向周围施加 ZOC
+                if (buff.noZoc)
+                    flags |= (int)TroopStateFlag.Chaos;
+            }
+            return flags;
+        }
+
+        /// <summary>把状态位重算推给宿主部队（Master 未绑定或部队已收尾时静默跳过）</summary>
+        void RefreshMasterStateFlags()
+        {
+            if (Master != null)
+                Master.RefreshStateFlags();
         }
 
         public bool HasControlBuff()
@@ -249,6 +290,10 @@ namespace Sango.Core
             }
 
             _buffs.RemoveAll(x => x.leftCounter < 0);
+
+            // 到期移除走的是 RemoveAll，不经过 RemoveBuff —— 必须在这里补一次状态位重算，
+            // 否则"混乱到期消失、ZOC 抑制却还在"。
+            RefreshMasterStateFlags();
         }
 
         public bool HasControlState()

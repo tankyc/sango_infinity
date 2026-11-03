@@ -635,13 +635,18 @@ namespace Sango.Core.Duel
             return self != null && self.IsPlayer;
         }
 
-        /// <summary>获取对某势力的友好度。对应 C++ Force::get_like</summary>
+        /// <summary>
+        /// 获取对某势力的友好度（0~100，50 中立）。对应原版 Force::get_like。
+        ///
+        /// 【统一入口】委托给 <see cref="Force.GetLike(Force)"/>：RelationMap 直存 0~100，
+        /// 不在此重复实现读取与兜底，避免两个重载给出不同的默认值。
+        /// </summary>
         public static int GetLike(this Force self, int forceId)
         {
-            if (self == null || Scenario.Cur == null) return 0;
+            if (self == null || Scenario.Cur == null) return DiplomacyRules.DefaultLike;
             Force other = Scenario.Cur.forceSet.Get(forceId);
-            if (other == null) return 0;
-            return Scenario.Cur.GetRelation(self, other);
+            if (other == null) return DiplomacyRules.DefaultLike;
+            return self.GetLike(other);
         }
     }
 

@@ -102,8 +102,10 @@ namespace Sango.Core
         [JsonProperty] public string desc;
 
         /// <summary>
-        /// 学习次数上限档位（<see cref="AbilityLearningLimit"/>）。
+        /// 学习次数上限（**实际次数**，不是档位索引）。
         /// 按"势力"计数：同一势力内最多几人学会本条能力。
+        /// <c>Abilities.json</c> 里：基础能力 5 / 兵种适性 3 / 特技 1~2；0 表示不限。
+        /// 口径说明见 <see cref="LearningLimitCount"/>。
         /// </summary>
         [JsonProperty] public int learningLimit;
 
@@ -224,22 +226,29 @@ namespace Sango.Core
         [JsonProperty] public int[] dir;
 
         /// <summary>
-        /// 学习次数上限的实际数值。
-        /// 对齐 Open311 `Ability::get_learning_limit_count()`（s11_scen_obj_ability.cpp:90-104）：
-        /// 0 → 255（实质无限）/ 1 → 1 / 2 → 3 / 3 → 5。
+        /// 学习次数上限的实际数值（按"势力"计数：同一势力内最多几人学会本条能力）。
+        ///
+        /// 【口径：<see cref="learningLimit"/> 直接写"次数"，不是 Open311 的档位索引】
+        /// 原版 `Ability::get_learning_limit_count()`（s11_scen_obj_ability.cpp:90-104）
+        /// 是"档位 → 次数"的展开表（0→255 / 1→1 / 2→3 / 3→5）。
+        /// 本项目的 <c>Data/Common/Abilities.json</c> 已经**按次数写好了**：
+        /// 基础能力 5、兵种适性 3、特技 1~2。
+        /// 早前这里又套了一次档位映射，导致双重换算、全线错位：
+        /// <list type="bullet">
+        /// <item>5（基础能力）落到 default 返回 0 —— 一次都学不了，
+        /// 研究完成后"培育"入口恒灰、节点全部标成"学习次数已用完"（玩家反馈的现象）；</item>
+        /// <item>3（兵种适性）被当成档位 Five，放开到 5 次；</item>
+        /// <item>2（特技）被当成档位 Three，放开到 3 次。</item>
+        /// </list>
+        /// 现在直接返回次数本身；0 / 未配置表示不限（对齐原版档位 0 → 255）。
         /// </summary>
         public int LearningLimitCount
         {
             get
             {
-                switch (learningLimit)
-                {
-                    case (int)AbilityLearningLimit.Unlimited: return 255;
-                    case (int)AbilityLearningLimit.Once: return 1;
-                    case (int)AbilityLearningLimit.Three: return 3;
-                    case (int)AbilityLearningLimit.Five: return 5;
-                    default: return 0;
-                }
+                if (learningLimit <= 0)
+                    return 255;
+                return learningLimit;
             }
         }
 

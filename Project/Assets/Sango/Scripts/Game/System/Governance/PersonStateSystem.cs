@@ -93,6 +93,54 @@ namespace Sango.Core
             if (oldState == newState)
                 return;
 
+            // 【君主保护】在职君主不能被静默降级为一般 / 太守 / 都督。
+            //
+            // 【原版依据】Open311 里君主的 mibun_ 只有两种合法变更：
+            //   · 继任：force_succeed 先改 force.governor_，再改旧君主的 mibun_
+            //     （此时 mGovernor 已不是他，本判定自然放行）；
+            //   · 灭亡 / 下野：势力 is_alive 已为 false，本判定同样放行。
+            // 除此之外任何"人还在，势力还活着，却把 mibun_ 从 Kunshu 改成一般"的路径，
+            // 都是把派生数据（BelongCity/Corps）反向污染身份的结果。
+            //
+            // 【要解决的现网问题】君主出使别城登庸后，户口（BelongCity）在途中的某条
+            // 路径被改到目标城，再经 Recruit 降级为 Normal；此后 loyalty 仍是 100
+            // （ResetLoyalty 对君主直接 return），于是出现"身份是一般、忠诚度是君主"的分裂。
+            // 这里直接把非法降级挡在治理层入口，并打印调用栈方便定位真正的污染源。
+            if (oldState == (int)PersonStateType.Governor
+                && state != PersonStateType.Governor
+                && state != PersonStateType.Dead
+                && state != PersonStateType.Unemployed
+                // ForceChanged = 继任 / 劝降投降这类**显式**的君主身份变更，
+                // 原版也是先改 force.governor_id_ / 先 set_mibun 再换势力，必须放行。
+                && reason != PersonChangeReason.ForceChanged
+                && person.BelongForce != null
+                && person.BelongForce.IsAlive
+                && person.BelongForce.mGovernor == person)
+            {
+                Sango.Log.Error($"*[身份]{person.Name} 拒绝把在职君主降级为 {state}（原因:{reason}）"
+                    + $" 势力:{person.BelongForce.Name} 户口:{person.BelongCity?.Name ?? "无"}"
+                    + $" 所在:{person.CurrentCity?.Name ?? "无"}"
+                    + $" 调用栈:{new System.Diagnostics.StackTrace(true)}");
+                return;
+            }
+
+            // 【不变式】在野 / 未发现 的武将不得保留军团归属。
+            //
+            // `Person.BelongForce` 是派生属性（读 BelongCorps?.BelongForce，Person.cs:48），
+            // 军团不清就会留下"在野却仍隶属某势力"的脏数据：
+            //   · 返程入城时 City.AddPerson 校验 BelongForce 与本城不一致，刷出
+            //     "势力不一致!!" 错误（本次线上日志就是这条）；
+            //   · 登用 / 人才搜索 / 势力统计会把在野武将算进原势力。
+            //
+            // 存量代码里仍有直写 state 的路径（绕过本类，如剧本初始化与旧档恢复），
+            // 所以在治理层入口统一兜底：只清军团，不动 BelongCity（在野仍需要所在城）。
+            if ((state == PersonStateType.Unemployed || state == PersonStateType.Invisible)
+                && person.BelongCorps != null)
+            {
+                Sango.Log.Warning($"*[身份]{person.Name} 转为{state}但残留军团 {person.BelongCorps.Name}，已清空归属");
+                person.BelongCorps = null;
+            }
+
             person.state = newState;
 
             // 【与原版对齐】Open311 的 is_alive 是读身份现算的；
@@ -141,6 +189,27 @@ namespace Sango.Core
                 return;
             }
 
+            // 【外势力在职武将不得入城】原版 person_enter 只处理"自己势力的据点"
+            // （service_->get_force_id() == 入城据点所属势力），敌人进城要么是俘虏
+            // （上面已单独处理），要么是换势力的显式事务（person_change_force → 本类 Recruit）。
+            //
+            // 【要解决的问题】返程任务的 missionTarget 一旦被写成敌城，
+            // 到达时 City.OnPersonReturnCity → 本方法会把户口直接迁进敌城；
+            // 下一回合读档走 Person.OnScenarioPrepare 的 Governor 分支时，
+            // BelongForce 会按 BelongCity 重算成敌势力，于是 mibun_ 被降成一般武将 ——
+            // 表现就是"君主回来卡在别的城市、身份变成一般，但忠诚度还是君主的"。
+            // 这里拒绝迁户口，并让他就地改挂返程回本势力据点。
+            if (person.BelongForce != null
+                && person.BelongForce != city.BelongForce
+                && IsInServiceState((PersonStateType)person.state))
+            {
+                Sango.Log.Error($"*[入城]{person.Name}（{person.BelongForce.Name}）不能进入"
+                    + $"{city.Name}（{city.BelongForce.Name}），已改为返回本势力据点"
+                    + $" 调用栈:{new System.Diagnostics.StackTrace(true)}");
+                ReturnHome(person);
+                return;
+            }
+
             // 【原版对齐】君主进入己方势力的据点 → 该据点改挂君主所在军团。
             // 这是 Open311 person_enter 的第一句（is_kunshu && 同势力 → building_change_district）。
             // 语义是"君主在哪，哪就是第一军团"：若不改挂，君主带兵打下的城会留在原军团，
@@ -160,6 +229,22 @@ namespace Sango.Core
             {
                 city.RemoveWildPerson(person);
                 city.RemoveInvisiblePerson(person);
+
+                // 【顺序：必须先迁户口、再改身份】
+                // RebuildRoster 以 BelongCity 为登记口径，而 City.AddPerson 会校验
+                // BelongForce 与本城一致（City.cs:1143-1151）。旧顺序是"先 SetState(Normal)、
+                // 后 ChangeBelongCity"，于是名册登记用的是**旧户口**：
+                // 武将若因城陷/灭国残留了旧军团，就会在 AddPerson 里撞上
+                // "<城><势力> -> allPersons 添加 <武将><旧势力> 势力不一致!!"。
+                //
+                // 在野分支的 ChangeBelongCity 会主动清空军团（Person.cs:3041-3050），
+                // 所以这里再显式归到本城军团 —— "在野入城 = 归顺本城势力"，
+                // 与原先 SetState 之后由 SyncFromCity 同步的结果一致，只是顺序正确。
+                if (person.BelongCity != city)
+                    person.ChangeBelongCity(city);
+                if (person.BelongCorps != city.BelongCorps)
+                    person.BelongCorps = city.BelongCorps;
+
                 SetState(person, PersonStateType.Normal, reason);
             }
 
@@ -218,6 +303,26 @@ namespace Sango.Core
 
             City oldCity = person.BelongCity;
             City oldCurrent = person.CurrentCity;
+
+            // 【君主不可被收编】在职君主只能通过"继任"或"势力灭亡（force_ruin 的投降分支）"
+            // 改变归属；原版 person_change_force 的调用方在收编君主之前都已先把 mibun_ 改掉
+            // （s11_sys_scen_force.cpp:976-982），因此走到这里仍是 Kunshu 的只有非法路径。
+            //
+            // 【为什么必须在改归属之前拦】下面第 4 步会先写 person.BelongCorps，
+            // 一旦写完，person.BelongForce 就变成"目标城势力"，
+            // 第 5 步的 staysGovernor 判定必然为 false，于是君主被降级成一般武将；
+            // 同时户口也落到目标城 —— 就是"君主出去登庸，回来卡在别的城、身份变一般"。
+            Force originForce = person.BelongForce;
+            if (person.IsGovernor
+                && originForce != null && originForce.IsAlive
+                && originForce.mGovernor == person
+                && originForce != city.BelongForce)
+            {
+                Sango.Log.Error($"*[登用]{person.Name} 是 {originForce.Name} 的君主，不能作为武将收编进"
+                    + $" {city.Name}（{city.BelongForce?.Name ?? "无主"}），本操作已取消"
+                    + $" 调用栈:{new System.Diagnostics.StackTrace(true)}");
+                return;
+            }
 
             // 1. 摘部队（经部队接口，保证双向一致）
             if (person.mBelongTroop != null)
@@ -326,10 +431,20 @@ namespace Sango.Core
             if (person == null || person.IsDead)
                 return;
 
-            // 已经无势力：无家可回，直接结束任务，由归属巡检安置
+            // 已经无势力：无家可回 —— **就地落野**，不能只清任务。
+            //
+            // 【为什么"只 ClearMission"是错的】
+            // ClearMission 只是把 missionType 归零，人还停在半路：
+            //   · 户口（BelongCity）可能还指着一个已经不存在的势力下的城；
+            //   · 既不在任何城的在籍名册、也不在野，玩家在任何列表里都找不到他；
+            //   · 更要命的是 Scenario.UpdateActors 会把"missionType == 0"的条目
+            //     从 actor 表里清掉 —— 之后再也不会执行任何一次 UpdateMission，
+            //     等于这个人被永久冻结在路上（就是玩家说的"出去的人回不来"）。
+            // LeaveToWild 会一次性做全：清任务 + 摘部队 + 清归属 + 改身份 + 登记在野名册，
+            // 落到他的 CurrentCity，之后由搜索 / 登用 / 归属巡检正常接管。
             if (person.BelongForce == null)
             {
-                person.ClearMission();
+                LeaveToWild(person);
                 return;
             }
 
@@ -348,16 +463,18 @@ namespace Sango.Core
                 }
                 else
                 {
-                    person.ClearMission();
+                    // 连都城都没有 —— 就地落野，否则清完任务人就被 actor 表丢掉、永久冻结在半路
+                    LeaveToWild(person);
                     return;
                 }
             }
 
             if (service == null)
             {
-                // 没有所属城（势力已灭/城已失）：任务无处可回，直接结束，
-                // 后续由归属巡检安置到可用城池
-                person.ClearMission();
+                // 没有所属城（势力已灭/城已失）：同样不能只清任务 ——
+                // missionType 归零后 UpdateActors 会把条目从 actor 表清掉，
+                // 这个人就再也不会被推进。就地落野，交给搜索 / 登用 / 巡检接管。
+                LeaveToWild(person);
                 return;
             }
 

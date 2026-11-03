@@ -202,6 +202,36 @@ namespace Sango.UI
         }
 
         /// <summary>
+        /// 取本势力第 1 军团当前所辖的城数（用于"主军团必须保留 ≥2 城"的判定）。
+        /// 找不到第 1 军团时返回 -1，调用方需按"数据不可信"处理，不要据此禁用按钮。
+        /// </summary>
+        /// <returns>第 1 军团的城数；无法确定时返回 -1</returns>
+        int GetFirstCorpsCityCount()
+        {
+            if (Scenario.Cur == null || targetCorps == null || targetCorps.BelongForce == null)
+                return -1;
+
+            Corps firstCorps = null;
+            Scenario.Cur.corpsSet.ForEach(x =>
+            {
+                if (x != null && x.IsAlive
+                    && x.BelongForce == targetCorps.BelongForce && x.number == 1)
+                    firstCorps = x;
+            });
+            if (firstCorps == null)
+                return -1;
+
+            int count = 0;
+            Scenario.Cur.citySet.ForEach(x =>
+            {
+                if (x != null && x.IsAlive
+                    && x.BelongForce == targetCorps.BelongForce && x.BelongCorps == firstCorps)
+                    count++;
+            });
+            return count;
+        }
+
+        /// <summary>
         /// 编制都市按钮点击事件
         /// </summary>
         public void OnOrganizeCityButtonClick()
@@ -211,6 +241,24 @@ namespace Sango.UI
             if (!targetForce.CapitalCity.IsCity())
             {
                 count--;
+            }
+
+            // 【新建军团：从源头限制可选城数】
+            // 主军团至少要留 1 城（不能把第 1 军团拆成 0 城）。
+            // 旧实现只在 CheckSure 里做"事后否决"：玩家可以一直选到超量，
+            // 确定按钮却是灰的、界面上又没有任何提示，看起来就是"设置好了点不了确定"。
+            // 这里把选择上限直接压到 firstCityCount - 1，玩家选不出会失败的组合。
+            if (targetCorps.number != 1)
+            {
+                int firstCityCount = GetFirstCorpsCityCount();
+                if (firstCityCount > 0)
+                {
+                    int maxTake = firstCityCount - 1;
+                    if (maxTake < 1)
+                        maxTake = 1;
+                    if (count > maxTake)
+                        count = maxTake;
+                }
             }
 
             GameSystem.GetSystem<CitySelectSystem>().Start(validCityList,
@@ -314,29 +362,24 @@ namespace Sango.UI
             // 对齐 can_district_new_command（s11_sys_person_order_kunshu.cpp:204-205）。
             // 若不拦，玩家能把主军团的城市全划走，留下一个 0 城军团
             //（无法征兵 / 无法反击 / AI 调度与都督任命都会失效）。
-            if (val && targetCorps.number != 1 && Scenario.Cur != null)
+            if (val && targetCorps.number != 1)
             {
-                Corps firstCorps = null;
-                Scenario.Cur.corpsSet.ForEach(x =>
-                {
-                    if (x != null && x.IsAlive
-                        && x.BelongForce == targetCorps.BelongForce && x.number == 1)
-                        firstCorps = x;
-                });
+                int firstCityCount = GetFirstCorpsCityCount();
 
-                if (firstCorps != null)
+                // firstCityCount <= 0 表示"统计不到"（第 1 军团不存在，或城的 BelongCorps
+                // 没挂上引用）。这种数据不可信的情况下不能据此禁用按钮 ——
+                // 否则整个"新建军团"会被永久锁死成一个灰按钮，
+                // 这正是玩家反馈的"设置好了也点不了确定"。
+                // 【只防"0 城军团"，不要求保留 2 城】
+                // 原版 can_district_new_command（s11_sys_person_order_kunshu.cpp:204-205）
+                // 校验的是**进入命令那一刻**第 1 军团有 ≥2 城，并未要求"拆完之后仍 ≥2"。
+                // 本项早前按"拆后仍 ≥2"实现，导致 2 城势力永远无法新建军团
+                //（拆 1 城就剩 1 城，确定键永久变灰），与实际可玩性冲突。
+                if (firstCityCount > 0 && firstCityCount - targetCityList.Count < 1)
                 {
-                    int firstCityCount = 0;
-                    Scenario.Cur.citySet.ForEach(x =>
-                    {
-                        if (x != null && x.IsAlive
-                            && x.BelongForce == targetCorps.BelongForce && x.BelongCorps == firstCorps)
-                            firstCityCount++;
-                    });
-
-                    // 选中要划走的城即为从主军团拆走的数量
-                    if (firstCityCount - targetCityList.Count < 2)
-                        val = false;
+                    Sango.Log.Warning($"*[军团]新建第 {targetCorps.number} 军团被拦截："
+                        + $"主军团把 {firstCityCount} 城全部划走后将没有城池");
+                    val = false;
                 }
             }
 

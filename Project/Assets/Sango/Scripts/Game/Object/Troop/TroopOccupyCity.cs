@@ -10,8 +10,35 @@ namespace Sango.Core
         {
             get
             {
-                return (TargetCity == null || !TargetCity.IsEnemy(Troop));
+                if (TargetCity == null)
+                    return true;
+
+                // 【只有贼 / 异族在目标变白城时算完成】
+                //
+                // 普通势力能占领城池：白城对它们是合法的占领目标，任务要照常推进
+                // （抵达后由进城流程接管）。在这里一味判完成，会把"去占空城"的部队
+                // 半路打回去，属于功能性倒退。
+                //
+                // 贼 / 异族占不了城（原版 bandit_ignores_empty_kyoten，s11_sys_unit_action.cpp:222-230），
+                // 对着白城继续攻击没有任何意义：本项目 City.ChangeTroops 对无主城是直接
+                // return false（City.cs:2365-2367「白城直接占领」），兵力扣不掉、
+                // 也永远不会触发 OnFall —— 这正是玩家反馈的"对着空港口反复鞭尸"。
+                if (TargetCity.BelongForce == null && IsOutlander(Troop))
+                    return true;
+
+                return !TargetCity.IsEnemy(Troop);
             }
+        }
+
+        /// <summary>
+        /// 是否为贼 / 异族势力（<see cref="Force.IsNormal"/> 的否定，对齐原版 <c>Force::is_normal()</c>）。
+        /// 这两类势力无法占领城池，遇白城只能撤离。
+        /// </summary>
+        /// <param name="troop">待判定的部队</param>
+        /// <returns>是贼或异族返回 true</returns>
+        static bool IsOutlander(Troop troop)
+        {
+            return troop != null && troop.BelongForce != null && !troop.BelongForce.IsNormal;
         }
 
         public override void Prepare(Troop troop, Scenario scenario)
@@ -26,6 +53,15 @@ namespace Sango.Core
                 if (TargetCity == null)
                 {
                     Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
+                }
+                else if (TargetCity.BelongForce == null && IsOutlander(Troop))
+                {
+                    // 贼 / 异族占不了城：目标变白城就地撤离，与 TroopBanditRazeCity
+                    // 的自毁口径一致（那边是 Clear，这里不保留驻留，避免它们停在别人的空城上）。
+                    // 普通势力不会走到这里 —— 上面 IsMissionComplete 对它们是 false。
+                    Sango.Log.Info($"*[异族]{Troop.Name} 目标 {TargetCity.Name} 已无主，无法占领，撤离");
+                    Troop.Clear();
+                    return;
                 }
                 else if (!TargetCity.IsSameForce(Troop))
                 {

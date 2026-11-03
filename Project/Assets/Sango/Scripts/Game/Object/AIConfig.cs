@@ -45,6 +45,41 @@ namespace Sango.Core
             instance = null;
         }
 
+        #region 外交
+
+        // 【为什么单独抽出来】Open311 的 AI 外交（force_diplomacy）没有"全局频率"，
+        // 而是七项命令各自判概率与错峰（s11_game_ai_force_cmd_dip.cpp:5-74）。
+        // 本项目原先把这些数字写死在 ForceAI.cs 里，改一次热度要动 9 处代码，
+        // 现统一收到这里 —— 只写要覆盖的字段即可（Data/Common/AIConfig.json）。
+        //
+        // 【默认值已整体降温】相对原版（30% / %5 / %21 / %6 / 第 9 回合起手 / 第 36 回合劝降）：
+        //   结盟、送礼、求援 30%→18%；破盟 30%→20%；送礼错峰 %5→%8；
+        //   战争求和 %21→%24；预防性停战 %6→%9；起手回合 9→12；劝降起手 36→48。
+        //   实测口径：同等局势下 AI 发起外交的次数约为原来的 4 成。
+
+        /// <summary>AI 开始外交的回合数（原版 force_diplomacy 的 get_turn() &lt; 9 不外交）</summary>
+        public int diplomacyStartTurn = 12;
+
+        /// <summary>AI 开始执行"劝降/吞并"的回合数（原版 force_annex 的 turn &lt; 36）</summary>
+        public int diplomacyAnnexStartTurn = 48;
+
+        /// <summary>结盟 / 送礼 / 请求援军 的每回合触发概率（%，原版 rand_bool(30)）</summary>
+        public int diplomacyActionChance = 18;
+
+        /// <summary>破弃同盟的触发概率（%，原版 force_discard 的 rand_bool(30)）</summary>
+        public int diplomacyDiscardChance = 20;
+
+        /// <summary>送礼的错峰周期：turn % N == force.Id % N 才轮到（原版 %5）</summary>
+        public int diplomacyDonateStagger = 8;
+
+        /// <summary>战时求和的错峰周期（原版 turn % 21，只对"打进来的那家"求和）</summary>
+        public int diplomacyCeasefireWarStagger = 24;
+
+        /// <summary>无战事时"预防性停战"的错峰周期（原版 turn % 6，势力数 ≥ 3 时才错峰）</summary>
+        public int diplomacyCeasefirePeaceStagger = 9;
+
+        #endregion
+
         #region 城市防守
 
         /// <summary>判定"兵临城下"的距离（格）。此范围内存在存活敌人时，城市优先出城防守</summary>
@@ -84,11 +119,71 @@ namespace Sango.Core
         public int attackWhiteCityTroopCount = 2;
 
         /// <summary>好战个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 50）</summary>
-        public int attackSkipChanceAggressive = 30;
+        public int attackSkipChanceAggressive = 18;
         /// <summary>均衡个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 70）</summary>
-        public int attackSkipChanceBalanced = 40;
+        public int attackSkipChanceBalanced = 25;
         /// <summary>谨慎个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 80）</summary>
-        public int attackSkipChanceDefensive = 50;
+        public int attackSkipChanceDefensive = 35;
+
+        /// <summary>
+        /// 好战个性出兵所需的最低城内兵力（原硬编码 8000，见 CityAI.AICanAttack）。
+        /// 与外置的跳过概率配合调整，单改一项容易被另一项卡住。
+        /// </summary>
+        public int attackMinTroopsAggressive = 6000;
+        /// <summary>均衡个性出兵所需的最低城内兵力（原硬编码 10000）</summary>
+        public int attackMinTroopsBalanced = 7000;
+        /// <summary>谨慎个性出兵所需的最低城内兵力（原硬编码 12000）</summary>
+        public int attackMinTroopsDefensive = 9000;
+
+        /// <summary>
+        /// 进入"目标打分"所需的最低城内兵力（原硬编码 20000，见 CityAI.DecideAttackTarget）。
+        ///
+        /// 【为什么必须一起调】AICanAttack 只决定"这回合出不出兵"，
+        /// 真正挑选目标的是 DecideAttackTarget，它开头还有一道 20000 的硬门槛；
+        /// 只放宽 AICanAttack 的话，城内兵力在 [minTroops, 20000) 区间时
+        /// 候选队列恒为空（count = 0），AI 依然不会出兵 —— 表现为"概率调了没效果"。
+        /// </summary>
+        public int attackTargetMinTroops = 12000;
+
+        /// <summary>
+        /// 进攻目标打分时，若目标势力是玩家势力，额外增加的权重（默认 1500）。
+        ///
+        /// 【语义】加法项，叠加在"兵力比 × 城池耐久 × 外交关系 × 距离"之后，不是百分比：
+        /// 正值让 AI 更倾向进攻玩家，负值则回避玩家（可用于做"AI 不打玩家"的休战档）。
+        /// 只影响城级 AI 的选目标（<c>CityAI.DecideAttackTarget</c>），不影响部队级评分。
+        ///
+        /// 【原版无对应实现】Open311 的据点进攻目标排序（<c>ai_table_get_attack_dest_building_list</c>）
+        /// 只按距离与战力给候选，不区分玩家 / AI。此项是本项目自创的"针对玩家施压"调节项。
+        /// </summary>
+        public int attackTargetPlayerBonus = 1500;
+
+        /// <summary>
+        /// AI 单次出阵（Attack 命令）消耗的据点行动力，默认 5。
+        ///
+        /// 【为什么需要单独配】实际扣减在 <c>CityAI.AIAttack</c>，
+        /// 调度器预估在 <c>CityAIOutpost.GetOrderActionPointCost(AIOrderId.Attack)</c>，
+        /// 两处必须同源：只改一处会让"排队预算"和"真实扣减"错位 ——
+        /// 轻则 Attack 排不上队，重则预算没花完却判定执行完毕。
+        /// 统一走 <see cref="GetAttackActionPointCost"/>，不要各自取值。
+        ///
+        /// 配成 &lt;= 0 时退回命令表成本（<c>City.GetJobCostAP(MakeTroop)</c>，含军事府减半），
+        /// 可用于对照原版手感。
+        /// </summary>
+        public int aiAttackActionPointCost = 5;
+
+        /// <summary>
+        /// 取 AI 出阵的行动力成本。实际扣减与调度预估都必须调这里，保证同源。
+        /// </summary>
+        /// <param name="city">据点（可为 null，此时不含军事府减半）</param>
+        /// <returns>单次出阵消耗的行动力</returns>
+        public int GetAttackActionPointCost(City city)
+        {
+            if (aiAttackActionPointCost > 0)
+                return aiAttackActionPointCost;
+
+            return city != null ? city.GetJobCostAP(CityJobType.MakeTroop)
+                                : JobType.GetJobCostAP((int)CityJobType.MakeTroop);
+        }
 
         /// <summary>
         /// 是否输出据点进攻决策日志（默认 false）。
@@ -515,6 +610,42 @@ namespace Sango.Core
         public int o311TargetHostile = 5000;
         /// <summary>友方目标加分 —— 原版 get_target_score:1696-1697</summary>
         public int o311TargetFriendly = 1500;
+
+        /// <summary>
+        /// 误伤己方目标的扣分（以正值配置，代码里取负）。
+        ///
+        /// 【为什么需要这一项】canDamageTeam = true 的技能（妖术、落雷这类真 AOE）在执行层是
+        /// **故意**放行误伤的：
+        /// <code>
+        /// SkillInstance.cs:760  troop.IsEnemy(beAtkTroop) || canDamageTeam
+        /// SkillInstance.cs:862  troop.IsEnemy(beAtkBuildingBase) || canDamageTeam
+        /// </code>
+        /// 这是给**玩家手动施法**准备的取舍（范围技的代价），但 AI 也会照打 ——
+        /// 挑"以自家市场 / 农田为中心"的落点放妖术，一次扣 5 点耐久。
+        /// 原版 can_attack 对友军建筑 / 部队一律 false（s11_scen_obj_unit.cpp:329-354），
+        /// AI 根本拿不到这种落点，所以本项目必须用分值把它压下去。
+        ///
+        /// 【取值依据】原版的收益结构里，一个普通敌人目标约
+        /// o311TargetHostile(5000) + o311NormalOnUnit(2000) = 7000；
+        /// 若目标还是任务主目标再 +o311TargetMain(10000)。要让"打敌人顺带砸自家"不划算，
+        /// 扣分必须大于单敌人收益，默认取 12000。
+        ///
+        /// 【区别于 -1】原版 get_target_score 用 -1 表示"该目标无效"，
+        /// 聚合时会被直接跳过（不参与累加）。本项是**真实惩罚**，
+        /// 在 TroopAIUtility.PriorityAction 的聚合里按
+        /// <c>p &lt;= o311InvalidTargetMark</c> 与 -1 区分开、照常累加。
+        /// </summary>
+        public int o311SelfDamagePenalty = 12000;
+
+        /// <summary>
+        /// "该目标无效"的标记值（原版 get_target_score 的 -1）。
+        ///
+        /// 聚合多个命中格时，<c>p</c> 落在这个区间内的按"无效目标"处理、直接跳过，
+        /// 不做负分累加 —— 否则几十个无效目标会把整条候选拖到负分，
+        /// 让"顺便命中一片空地"变成劣势。真正该扣分的误伤走
+        /// <see cref="o311SelfDamagePenalty"/>（它的绝对值远大于本阈值）。
+        /// </summary>
+        public int o311InvalidTargetMark = -100;
         /// <summary>攻城兵器（冲车~木兽）打建筑加分 —— 原版 :1701-1707</summary>
         public int o311SiegeOnBuilding = 2000;
         /// <summary>普通兵装打部队加分 —— 原版 :1719-1720</summary>

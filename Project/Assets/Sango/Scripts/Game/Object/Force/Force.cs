@@ -795,11 +795,10 @@ namespace Sango.Core
         /// <summary>
         /// 对指定势力的友好度（0~100，50 = 中立）。对齐 Open311 的 Force::get_like。
         ///
-        /// 【为什么做换算而不是新增字段】本项目的关系值存在 Scenario.RelationMap
-        /// （-5000~5000，且 Scenario.AddRelation 是**双向写入**，本身已经对称），
-        /// 与 Open311 的 like（0~100、同样对称）只差一个尺度：
-        ///     relation = (like - 50) * 100
-        /// 保留原存储可以兼容老存档与现有 UI，同时让原版判定公式可以逐行照抄。
+        /// 【存储口径】Scenario.RelationMap **直存 like**（0~100、双向对称写入），
+        /// 与 Open311 的 Force::like_ 完全同尺度，读取不做任何换算。
+        /// 旧版本（raw -5000~5000）的存档在 Scenario.Init 里由值域探测自动迁移，
+        /// 见 Scenario.Init 的「关系值尺度迁移」段。
         /// </summary>
         /// <param name="other">目标势力</param>
         /// <returns>0~100 的友好度，取不到场景时返回中立值 50</returns>
@@ -810,13 +809,12 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             if (scenario == null) return DiplomacyRules.DefaultLike;
 
-            // 【已改为 0~100 直存】RelationMap 现在与 Open311 的 Force::like_ 同尺度，
-            // 不再做 `50 + raw/100` 的换算。
+            // RelationMap 与 Open311 的 Force::like_ 同尺度，直接返回，不做换算。
             return scenario.GetRelation(this, other);
         }
 
         /// <summary>
-        /// 设置友好度（0~100），内部换算回 RelationMap。对应 Open311 的 Force::set_like。
+        /// 设置友好度（0~100），直接写入 Scenario.RelationMap。对应 Open311 的 Force::set_like。
         /// </summary>
         /// <param name="other">目标势力</param>
         /// <param name="like">目标友好度，超出 0~100 会被截断</param>
@@ -1193,6 +1191,12 @@ namespace Sango.Core
                 x.BelongCorps = null;
             });
 
+            // ③' 城外设施（地图建筑）随势力处置。
+            // 事件侧灭亡没有"受降方"，按彻底灭亡处理（设施拆除）。
+            // 不处理的话，建筑的 BelongForce 会一直指向一个已移出 forceSet 的势力：
+            // 地图上仍按旧势力色渲染，且 SangoObject.IsEnemy 会把它判成敌军目标。
+            ReleaseBuildingsOnRuin(null);
+
             // ④ 本势力失效并移出场景
             IsAlive = false;
             scenario.Remove(this);
@@ -1203,6 +1207,82 @@ namespace Sango.Core
 
             Sango.Log.Info($"事件：{Name} 势力灭亡");
             return true;
+        }
+
+        /// <summary>
+        /// 势力灭亡时处置名下**城外设施**（地图建筑 Building）。
+        ///
+        /// 【原版对齐】`force_ruin` 在武将 / 军团结算之前先分派建筑
+        /// （s11_sys_scen_force.cpp:958-961）：
+        /// <code>
+        /// if (surrendered and by) force_surrender_all_buildings(self, by);
+        /// else                    force_empty_all_kyotens(self);
+        /// </code>
+        /// 投降合并 → 设施随势力整体移交受降方；彻底灭亡 → 设施清空。
+        ///
+        /// 【本项目为什么必须显式做】
+        /// 地图建筑（Building）的归属是**独立字段**（<c>BuildingBase.BelongForceId</c>），
+        /// 不像内政设施那样从所属都市派生（见 BuildingBase.cs 的 OnScenarioPrepare 注释）。
+        /// 灭亡时不同步，建筑的 BelongForce 会继续指向一个已从 forceSet 移除的势力，导致：
+        ///   · 地图上仍按旧势力颜色渲染（看起来"还是他的"）；
+        ///   · <c>SangoObject.IsEnemy</c> 把它判成敌军目标，玩家可以继续攻击一个已灭亡的势力。
+        ///
+        /// 【为什么不改成"清空归属变中立"】
+        /// <c>SangoObject.IsEnemy</c> 在任一方为 null 时返回 **true**（视为敌人），
+        /// 清空归属后建筑照样会被判成敌方目标 —— 彻底灭亡只能拆除。
+        /// </summary>
+        /// <param name="by">受降方；为 null 表示彻底灭亡，设施直接拆除</param>
+        void ReleaseBuildingsOnRuin(Force by)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.buildingSet == null)
+                return;
+
+            // 受降方接收设施时挂到其君主所在军团，保证 BelongCorps / BelongForce 成对
+            Corps surrenderCorps = null;
+            if (by != null && by.mGovernor != null)
+                surrenderCorps = by.mGovernor.BelongCorps;
+
+            // 【不能边遍历边 Remove】buildingSet 的遍历与移除共用同一容器，
+            // 拆除分支先收集再统一处理。
+            List<Building> razeList = null;
+            int surrenderCount = 0;
+
+            scenario.buildingSet.ForEach(x =>
+            {
+                if (x == null || !x.IsAlive || x.BelongForce != this)
+                    return;
+
+                if (by != null)
+                {
+                    x.BelongForce = by;
+                    x.BelongCorps = surrenderCorps;
+                    x.BelongForceId = by.Id;
+                    x.BelongCorpsId = surrenderCorps != null ? surrenderCorps.Id : 0;
+                    surrenderCount++;
+                }
+                else
+                {
+                    if (razeList == null)
+                        razeList = new List<Building>();
+                    razeList.Add(x);
+                }
+            });
+
+            if (surrenderCount > 0)
+                Sango.Log.Info($"*[灭亡]{Name} 名下 {surrenderCount} 座城外设施移交给 {by.Name}");
+
+            if (razeList != null && razeList.Count > 0)
+            {
+                for (int i = 0; i < razeList.Count; i++)
+                {
+                    Building building = razeList[i];
+                    if (building == null) continue;
+                    building.IsAlive = false;
+                    scenario.Remove(building);
+                }
+                Sango.Log.Info($"*[灭亡]{Name} 名下 {razeList.Count} 座城外设施随势力拆除");
+            }
         }
 
         void InitTechniquesTree(Scenario scenario)
@@ -1271,9 +1351,20 @@ namespace Sango.Core
         /// <returns>是否为同盟关系</returns>
         public bool IsAlliance(Force other)
         {
+            if (other == null || AllianceList == null)
+                return false;
+
             for (int i = 0; i < AllianceList.Count; ++i)
             {
                 Alliance alliance = AllianceList[i];
+
+                // 【空槽防御】旧存档 / 早期 FromArray 会把解析失败的 Id 存成 null
+                // （Database.FromArray 已修，但老档里的空槽不会自己消失）。
+                // 这里少判一次就是整局崩溃：IsAlliance 在最热的路径上
+                // （SangoObject.IsEnemy → 每一次敌对判定），一帧能调上千次。
+                if (alliance == null)
+                    continue;
+
                 if (alliance.Contains(other) && alliance.allianceType == AllianceType.Alliance)
                     return true;
             }
@@ -1289,9 +1380,15 @@ namespace Sango.Core
         /// <returns>是否有任何协议</returns>
         public bool HasActiveAgreement(Force other)
         {
+            if (other == null || AllianceList == null)
+                return false;
+
             for (int i = 0; i < AllianceList.Count; ++i)
             {
                 Alliance alliance = AllianceList[i];
+                if (alliance == null)       // 空槽防御，同 IsAlliance
+                    continue;
+
                 if (alliance.IsAlive && alliance.leftCount > 0 && alliance.Contains(other))
                     return true;
             }
@@ -1305,9 +1402,15 @@ namespace Sango.Core
         /// <returns>联盟对象</returns>
         public Alliance CheckAlliance(Force other)
         {
+            if (other == null || AllianceList == null)
+                return null;
+
             for (int i = 0; i < AllianceList.Count; ++i)
             {
                 Alliance alliance = AllianceList[i];
+                if (alliance == null)       // 空槽防御，同 IsAlliance
+                    continue;
+
                 if (alliance.Contains(other))
                     return alliance;
             }
@@ -1322,9 +1425,15 @@ namespace Sango.Core
         /// <returns>联盟对象</returns>
         public Alliance CheckAlliance(Force other, AllianceType allianceType)
         {
+            if (other == null || AllianceList == null)
+                return null;
+
             for (int i = 0; i < AllianceList.Count; ++i)
             {
                 Alliance alliance = AllianceList[i];
+                if (alliance == null)       // 空槽防御，同 IsAlliance
+                    continue;
+
                 if (alliance.IsAlive && alliance.leftCount > 0 && alliance.Contains(other) && alliance.allianceType == allianceType)
                     return alliance;
             }
@@ -1647,6 +1756,18 @@ namespace Sango.Core
                 }
             }
 
+            // 【难度补强：AI 每回合资源加成】必须放在 pendingPlayerControl 之后 ——
+            // 控制权可能就在上面那一行刚翻过来，这里看到 IsPlayer 才是本回合的真实归属。
+            //
+            // 【只给"完全由 AI 控制"的势力，玩家侧一律不加】
+            //   · IsPlayer == true：整个玩家势力（含其下的每一支委任军团）都不加 ——
+            //     加成按城发放，而城只按 BelongForce 归属，所以势力级判定就等于
+            //     "玩家 + 玩家委任军团全部排除"；
+            //   · CurRunForce 兜底：把势力"委托给 AI"时 IsPlayer 会被 pendingPlayerControl
+            //     翻成 false，但那些城仍然是玩家在经营的，不该拿 AI 的难度补贴。
+            if (!IsPlayer)
+                ApplyDifficultyResourceBonus(scenario);
+
             buildingBaseList.Clear();
             // 复位 AI 命令队列：上一回合若被中断（未跑完整队）会残留条目，这里统一清空并复位游标，
             // 保证本回合 AIPrepare 从空队列重新装填。
@@ -1782,6 +1903,113 @@ namespace Sango.Core
             // 均随人才部署系统移除。人员调动的判定回到原版据点级命令。
 
             return base.OnForceTurnStart(scenario);
+        }
+
+        /// <summary>
+        /// 按 <see cref="ScenarioVariables"/> 的「AI 每回合加成」给本势力补资源。
+        ///
+        /// 【为什么需要这个方法】aiTurnAddGold / aiTurnAddFood / aiTurnAddTroops / aiTurnAddArms
+        /// 这四个字段在剧本参数界面里可调（UIScenarioVariables 的「AI每回合加成」分区），
+        /// 难度选「困难 / 超级」时 ApplyAIDifficultyBonus 还会自动预置一组值，
+        /// 但 <see cref="ScenarioVariables.GetAIAddValues"/> 此前**全项目没有任何调用者** ——
+        /// 参数只存不用，玩家反馈的「高难度 AI 不加资源」就是这一条。
+        ///
+        /// 【原版】Open311 没有对应实现，这是本项目为难度平衡自建的补强项，
+        /// 按规则第 5 条自主设计：
+        ///   · 金 / 粮：按城补，受 <see cref="City.GoldLimit"/> / <see cref="City.FoodLimit"/> 钳制；
+        ///   · 兵：按城补，受 <see cref="City.TroopsLimit"/> 钳制；
+        ///   · 兵装：按 枪 / 戟 / 弩 / 马 四种均分，
+        ///     不给兵器与船 —— 那两项在本项目里由据点生产命令产出
+        ///     （见 City.CreateMachine / 船只生产），直接白送会破坏攻城节奏。
+        /// 每座城都补（而不是只补首都）：AI 城一多时总量才跟得上难度曲线，
+        /// 也不会出现「首都被围 → 加成归零」的悬崖。
+        ///
+        /// 调用点固定在 <see cref="OnForceTurnStart"/> 的 pendingPlayerControl 之后，
+        /// 保证读的是本回合真实归属，玩家接管的势力当回合就不再吃这份加成。
+        /// </summary>
+        /// <param name="scenario">当前剧本</param>
+        void ApplyDifficultyResourceBonus(Scenario scenario)
+        {
+            if (scenario == null || scenario.Variables == null)
+                return;
+
+            // 【双保险：玩家侧一律不加】
+            // 本方法是"AI 难度补贴"，玩家势力（含其下所有委任军团）与当前操盘势力
+            // 都不该拿。调用点已经判过一次，这里再挡一次，避免以后新增调用点漏判。
+            if (IsPlayer)
+                return;
+
+            scenario.Variables.GetAIAddValues(out int addGold, out int addFood,
+                out int addTroops, out int addArms);
+            if (addGold <= 0 && addFood <= 0 && addTroops <= 0 && addArms <= 0)
+                return;
+
+            int armsEach = addArms / 4;
+
+            for (int i = 0; i < scenario.citySet.Count; ++i)
+            {
+                City city = scenario.citySet[i];
+                if (city == null || !city.IsAlive || city.BelongForce != this)
+                    continue;
+
+                // 按"实际到账"取增量：金 / 粮 / 兵都会被 City.*Limit 截断，
+                // 直接拿配置值飘字会在贴顶时虚报（高难度 AI 城多时经常贴顶）。
+                int gainGold = 0, gainFood = 0, gainTroops = 0;
+
+                if (addGold > 0)
+                {
+                    int before = city.gold;
+                    city.gold = System.Math.Min(before + addGold, city.GoldLimit);
+                    gainGold = city.gold - before;
+                }
+
+                if (addFood > 0)
+                {
+                    int before = city.food;
+                    city.food = System.Math.Min(before + addFood, city.FoodLimit);
+                    gainFood = city.food - before;
+                }
+
+                if (addTroops > 0)
+                {
+                    int before = city.troops;
+                    city.troops = System.Math.Min(before + addTroops, city.TroopsLimit);
+                    gainTroops = city.troops - before;
+                }
+
+                bool gainArms = armsEach > 0 && city.itemStore != null;
+                if (gainArms)
+                {
+                    city.itemStore.Add((int)ItemStoreKindType.Spear, armsEach);
+                    city.itemStore.Add((int)ItemStoreKindType.Halberd, armsEach);
+                    city.itemStore.Add((int)ItemStoreKindType.Crossbow, armsEach);
+                    city.itemStore.Add((int)ItemStoreKindType.Horse, armsEach);
+                }
+
+                // 【资源获取展示】城头飘字，与 CityFoodHarvestEveryMonth / CityDesertion 等
+                // 完全同一套 Render.ShowInfo 通道（InfoType 见 GameDefine.InfoType）。
+                if (gainGold <= 0 && gainFood <= 0 && gainTroops <= 0 && !gainArms)
+                    continue;
+
+                city.Render?.UpdateRender();
+
+                if (gainGold > 0)
+                    city.Render?.ShowInfo(gainGold, (int)InfoType.Gold);
+                if (gainFood > 0)
+                    city.Render?.ShowInfo(gainFood, (int)InfoType.Food);
+                if (gainTroops > 0)
+                    city.Render?.ShowInfo(gainTroops, (int)InfoType.Troop);
+
+                // 兵装枪 / 戟 / 弩 / 马各加 armsEach，四种图标各飘一次。
+                // 注意 InfoType.Sword 承担"戟"的图标（枚举名为 Sword，与 ItemStoreKindType.Halberd 对应）。
+                if (gainArms)
+                {
+                    city.Render?.ShowInfo(armsEach, (int)InfoType.Spear);
+                    city.Render?.ShowInfo(armsEach, (int)InfoType.Sword);
+                    city.Render?.ShowInfo(armsEach, (int)InfoType.CrossBow);
+                    city.Render?.ShowInfo(armsEach, (int)InfoType.Horse);
+                }
+            }
         }
 
         public void UpdateCityCount(Scenario scenario)
@@ -3019,6 +3247,15 @@ namespace Sango.Core
             // 投降合并已在外交流程里完成移交，走到这里通常已经没有剩货；
             // 城陷灭亡路径则在这里把玉玺 / 铜雀销毁，避免"势力已亡、玉玺还在在野武将身上"。
             ItemGrantRules.TransferSpecialItems(mGovernor, null);
+
+            // ④'' 城外设施（地图建筑）随势力一并处置
+            // 【原版对齐】force_ruin 在武将结算之前就做了一次建筑分派
+            // （s11_sys_scen_force.cpp:958-961）：
+            //   if (surrendered and by) force_surrender_all_buildings(self, by);
+            //   else                    force_empty_all_kyotens(self);
+            // 即"投降 → 全部建筑移交受降方；彻底灭亡 → 清空"。
+            // 详见 ReleaseBuildingsOnRuin 的说明。
+            ReleaseBuildingsOnRuin(by);
 
             // ⑤ 从剧本移除势力
             scenario.Remove(this);

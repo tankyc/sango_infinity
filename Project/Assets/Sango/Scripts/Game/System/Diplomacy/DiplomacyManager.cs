@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Sango.Core.Player;
 using UnityEngine;
 
 namespace Sango.Core
@@ -85,6 +86,10 @@ namespace Sango.Core
                 _forceRelations[key] = forceRelation;
             }
 
+            // 备用路径同样钳到 0~100：与 Scenario.AddRelation 保持同一尺度，
+            // 避免编辑器 / 测试态（Scenario.Cur == null）写出越界关系值。
+            if (relation < 0) relation = 0;
+            else if (relation > DiplomacyRules.MaxLike) relation = DiplomacyRules.MaxLike;
             forceRelation.relation = relation;
         }
 
@@ -272,16 +277,24 @@ namespace Sango.Core
             for (int i = 0; i < forceCount; ++i)
             {
                 Force forceA = scenario.forceSet[i];
-                if (forceA == null || !forceA.IsAlive || forceA.mGovernor == null)
+                // 【对齐 s11_game_month.cpp:1329】原版用 is_alive + is_normal 双过滤：
+                // 异民族 / 贼势力（is_normal = type_ < 0 为假）不参与关系漂移。
+                if (forceA == null || !forceA.IsAlive || !forceA.IsNormal || forceA.mGovernor == null)
                     continue;
                 Person kunshuA = forceA.mGovernor;
+                // 【对齐 s11_game_month.cpp:1331-1333】原版还要求君主本人存活；
+                // 只判 mGovernor != null 会让"君主已死但引用未清"的势力继续漂移。
+                if (!kunshuA.IsAlive || kunshuA.IsDead)
+                    continue;
 
                 for (int j = i + 1; j < forceCount; ++j)
                 {
                     Force forceB = scenario.forceSet[j];
-                    if (forceB == null || !forceB.IsAlive || forceB.mGovernor == null)
+                    if (forceB == null || !forceB.IsAlive || !forceB.IsNormal || forceB.mGovernor == null)
                         continue;
                     Person kunshuB = forceB.mGovernor;
+                    if (!kunshuB.IsAlive || kunshuB.IsDead)
+                        continue;
 
                     int aishou = kunshuA.CompatibilityDistance(kunshuB);
 
@@ -324,8 +337,34 @@ namespace Sango.Core
                     if (n == 0)
                         continue;
 
+                    int oldLike = like;
+
                     // AddLike 内部双向写 + 0~100 钳制，与原版 force_set_like 一致
                     forceA.AddLike(forceB, n);
+
+                    // 【档位变化播报】对齐 s11_game_month.cpp:1414-1448：
+                    // 友好度跨过 yookou 档位、且任一方是玩家时，给玩家一条消息 + 一条历史日志。
+                    // 文案按 is_force_neighbored 分"近邻 / 远方"两套（原版 :1427、1432-1443）。
+                    int newLike = forceA.GetLike(forceB);
+                    if (DiplomacyRules.GetYookouLevel(oldLike) != DiplomacyRules.GetYookouLevel(newLike)
+                        && (forceA.IsPlayer || forceB.IsPlayer))
+                    {
+                        Force playerForce = forceA.IsPlayer ? forceA : forceB;
+                        Force otherForce = forceA.IsPlayer ? forceB : forceA;
+                        City capital = playerForce.CapitalCity;
+                        string oldName = DiplomacyRules.GetYookouName(oldLike);
+                        string newName = DiplomacyRules.GetYookouName(newLike);
+                        string trend = newLike > oldLike ? "有所改善" : "有所恶化";
+                        string who = DiplomacyRules.IsNeighbored(playerForce, otherForce) ? "相邻的" : "远方的";
+
+                        PlayerMessage.AddTextMessage(
+                            $"{playerForce.ColorName}与{who}{otherForce.ColorName}的关系由「{oldName}」转为「{newName}」，{trend}。",
+                            playerForce,
+                            capital != null ? capital.x : 0,
+                            capital != null ? capital.y : 0);
+
+                        Sango.Log.Info($"@关系@{playerForce.Name} 与 {otherForce.Name} 的友好度由 {oldLike}（{oldName}）变为 {newLike}（{newName}）");
+                    }
                 }
             }
         }
@@ -397,6 +436,16 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 关系值在"外交目标打分"里的放大系数。
+        ///
+        /// 【为什么需要】Scenario.RelationMap 已从 raw(±5000) 改为 like(0~100)，
+        /// 而同一公式里的 <c>target.FightPower / 100</c> 仍是几千量级。
+        /// 不放大关系项，AI 选外交目标时几乎只看谁强，关系好坏被完全淹没。
+        /// ×100 可把 like 还原到 raw 时代的相对权重（0~100 → 0~10000）。
+        /// </summary>
+        const int RelationScoreScale = 100;
+
+        /// <summary>
         /// 计算目标势力的得分
         /// </summary>
         /// <param name="force">势力</param>
@@ -407,19 +456,21 @@ namespace Sango.Core
         {
             int score = 0;
             int relation = GetRelation(force, target);
+            // 关系项统一放大后再参与比较（见 RelationScoreScale 的说明）
+            int relationScore = relation * RelationScoreScale;
 
             switch (actionType)
             {
                 case DiplomacyActionType.Alliance:
                     // 寻找关系较好的势力
-                    score = relation;
+                    score = relationScore;
                     // 如果对方势力强大，结盟更有价值
                     score += target.FightPower / 100;
                     break;
                     
                 case DiplomacyActionType.SendGift:
                     // 寻找关系较差的势力，送礼效果更好
-                    score = -relation;
+                    score = -relationScore;
                     // 如果对方势力贫穷，送礼效果更好
                     int targetTotalGold = 0;
                     target.ForEachCity(city => targetTotalGold += city.gold);
@@ -428,16 +479,16 @@ namespace Sango.Core
                     
                 case DiplomacyActionType.DeclareWar:
                     // 寻找关系较差且实力较弱的势力
-                    score = -relation - target.FightPower / 100;
+                    score = -relationScore - target.FightPower / 100;
                     break;
                     
                 case DiplomacyActionType.Truce:
                     // 寻找关系较差但有停战可能的势力
-                    score = Mathf.Abs(relation);
+                    score = System.Math.Abs(relationScore);
                     break;
                     
                 default:
-                    score = relation;
+                    score = relationScore;
                     break;
             }
 

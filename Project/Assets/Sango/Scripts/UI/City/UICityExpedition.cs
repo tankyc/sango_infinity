@@ -330,8 +330,11 @@ namespace Sango.UI
             }
 
             int current = targetTroop.gold;
+            // 【不能超过城内资金】资金是"扣城 + 随军带出"的资源，允许携带额超过城内金
+            // （旧实现 `if (max < current) max = current`）就会出现"城被扣成负数、部队却带足额"，
+            // 是刷钱的入口之一。这里按城内实有资金封顶。
             int max = targetCity.gold;
-            if (max < current) max = current;
+            if (max < 0) max = 0;
 
             Window.Instance.Open("window_calculator", "资金", current, 0, max,
                 (Action<int>)((val) =>

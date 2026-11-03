@@ -65,12 +65,12 @@ namespace Sango.Core.Player
                 DiplomacyActionType.SendGift, TargetCity.BelongForce, targetForces[0], personList[0],
                 TargetCity.GetJobCost(CityJobType.SendGift));
             diplomacyManager.DispatchDiplomat(action);
-            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", () =>
-            {
-                // 暂时直接招募
-                Done();
 
-            }, null, personList[0], 5);
+            // 【先退出命令，再播台词】Done() 不能挂在 GameDialog 回调上：
+            // 该回调会被静默丢弃（窗口创建失败 continue / Reset / seq 不匹配），
+            // 一旦丢失 CurrentCommand 永远不为 null，整个回合流程卡死。
+            Done();
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"交给我吧, 保证完成任务!!", null, null, personList[0], 5);
         }
     }
 }

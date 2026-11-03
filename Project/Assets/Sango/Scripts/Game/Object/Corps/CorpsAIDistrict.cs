@@ -22,6 +22,8 @@ namespace Sango.Core
 {
     public partial class CorpsAI
     {
+        public static City CurActiveCity;
+
         /// <summary>
         /// 军团 AI 第一段：装载军团数据并分配本回合的行动力预算。
         ///
@@ -184,6 +186,18 @@ namespace Sango.Core
         {
             if (corps == null || scenario == null || corps.BelongForce == null)
                 return true;
+
+            if (CurActiveCity != null)
+            {
+                if (!CurActiveCity.DoAI(scenario))
+                {
+                    return false;
+                }
+                else
+                {
+                    CurActiveCity = null;
+                }
+            }
 
             // 兜底采集：玩家势力的 Force.DoAI 不会执行（Force.Run 里 `if (!IsPlayer)`），
             // 但玩家的下属军团仍要走原版调度，因此这里补一次据点态势采集。

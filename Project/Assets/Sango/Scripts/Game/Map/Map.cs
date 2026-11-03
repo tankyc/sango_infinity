@@ -244,7 +244,25 @@ namespace Sango.Core
             return HexWorld.PositionToCoords(position);
         }
         /// <summary>
-        /// 检查是否在势力范围
+        /// 检查目标格是否处于 ZOC（敌方控制区域）内。
+        ///
+        /// 【对齐原版】Open311 `System::is_zoc_pos`（s11_sys_unit_path.cpp:345-367）：
+        ///   只看目标格的 6 个邻格，**先判建筑、没有再判部队**；
+        ///   建筑条件为 `building->is_completed() and self->is_enemy(building)`，
+        ///   部队条件为 `self->is_enemy(unit)`。
+        ///   而 `is_enemy` 对**无主对象**恒为 false：
+        ///     · `System::is_enemy(a, b)`（s11_sys_scen_force.cpp:881-892）：任一 force 不存在 → false；
+        ///     · `Force::is_enemy(force_id)`（s11_scen_obj_force.cpp:571-581）：`force_id < 0`（中立）→ false。
+        ///   所以**中立建筑、中立部队都不产生 ZOC**。
+        ///
+        /// 【本项目曾经的偏差】此前用 `troops.BelongForce != next.building.BelongForce` 判"势力不同"，
+        ///   而中立建筑的 BelongForce 为 null（见 Building.OnCompleted / GovernanceValidator 的
+        ///   "建成即中立"），null 与任何势力都"不等"，于是陷阱 / 土垒 / 箭楼这类中立设施
+        ///   也会造成 ZOC —— 表现为移动范围一进到它旁边就被一次吃光移动力。
+        ///   注意不能改用 `SangoObject.IsEnemy`：它在任一方为 null 时返回 **true**
+        ///   （SangoObject.cs:304-309，为"中立建筑可被攻击"而设），同样会把中立当敌人。
+        ///
+        /// 【未对齐】原版还要求建筑 `is_completed()`（建造中不产生 ZOC），本项目未加该判断。
         /// </summary>
         /// <param name="troops">部队</param>
         /// <param name="cell">单元格</param>
@@ -261,14 +279,51 @@ namespace Sango.Core
             for (int i = 0; i < 6; i++)
             {
                 Cell next = GetNeighbor(cell, i);
-                if (next != null)
+                if (next == null)
+                    continue;
+
+                // 与原版同序：建筑优先，其次部队
+                if (next.building != null)
                 {
-                    if ((next.troop != null && troops.BelongForce != next.troop.BelongForce) ||
-                        (next.building != null && troops.BelongForce != next.building.BelongForce))
+                    if (IsHostileForce(troops.BelongForce, next.building.BelongForce))
+                        return true;
+                }
+                else if (next.troop != null)
+                {
+                    // 混乱部队不产生 ZOC —— 原版 `is_zoc_pos`：
+                    //   `if (unit->get_state() != UnitState_Konran and self->is_enemy(unit))`
+                    //   （s11_sys_unit_path.cpp:359-364）。
+                    // 状态位由 BuffManager 在 Buff 增删时重算（Buff.noZoc → TroopStateFlag.Chaos），
+                    // 这里只读一个 bit，避免在最热的寻路循环里遍历 Buff 列表。
+                    if (!next.troop.isChaos && IsHostileForce(troops.BelongForce, next.troop.BelongForce))
                         return true;
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// ZOC 专用的敌对判定 —— **中立（无主）不算敌人**。
+        ///
+        /// 【为什么不能直接用 SangoObject.IsEnemy】
+        ///   `IsEnemy(Force, Force)`（SangoObject.cs:304-309）在任一势力为 null 时返回 true，
+        ///   这是为"中立建筑可被攻击"（原版 `Unit::can_attack`：`force_id &lt; 0 or is_enemy`，
+        ///   s11_scen_obj_unit.cpp:342-354）而设的语义；直接拿来做 ZOC 会把中立建筑算成敌人。
+        ///
+        /// 【这里对齐的是】`Force::is_enemy(force_id)`（s11_scen_obj_force.cpp:571-581）：
+        ///   `force_id >= 0`（有主）且不是自己、非同盟、非停战，才算敌对。
+        ///   同盟 / 停战不产生 ZOC 也来自同一处（原版 `is_enemy` 内含 `is_ally` 与 `ceasefire` 检查）。
+        /// </summary>
+        /// <param name="self">部队所属势力</param>
+        /// <param name="other">邻格上的部队 / 建筑所属势力</param>
+        /// <returns>是否敌对（会构成 ZOC）</returns>
+        static bool IsHostileForce(Force self, Force other)
+        {
+            if (self == null || other == null) return false;    // 中立 / 无主：不产生 ZOC
+            if (self == other) return false;                    // 同势力
+            if (self.IsAlliance(other)) return false;           // 同盟
+            if (self.IsTruce(other)) return false;              // 停战期
+            return true;
         }
         /// <summary>
         /// 计算两个立方体坐标之间的距离

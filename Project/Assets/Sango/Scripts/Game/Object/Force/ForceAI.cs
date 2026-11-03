@@ -87,9 +87,14 @@ namespace Sango.Core
         ///   · exchange 已并入 <see cref="AICaptives"/>（赎买己方俘虏走 Exchange 的只索要模式）；
         ///   · reinforce 需要部队部署系统配合（约定出兵后得真的派兵）。
         ///
-        /// 【开门条件】前 9 回合不外交（原版 `get_turn() < 9`）、和平期不外交、
+        /// 【开门条件】起手回合（原版 `get_turn() < 9`，现由
+        /// <see cref="AIConfig.diplomacyStartTurn"/> 配置）、和平期不外交、
         /// 禁谈期内不外交（`diplomacyBanTimer`）、首都必须有空闲武将可当使者。
-        /// 之后每回合整体只掷一次 30%（原版 `rand_bool(30)`），不是每个势力每回合都外交。
+        ///
+        /// 【频率】没有"每回合整体掷一次"的全局概率：七项命令各自判概率与错峰，
+        /// 成功即止。所有数值已抽到 <see cref="AIConfig"/> 的"外交"分区
+        /// （`diplomacyActionChance` / `diplomacyDiscardChance` / 各 Stagger），
+        /// 通过 `Data/Common/AIConfig.json` 即可调热度，不必改代码。
         /// </summary>
         public static bool AIDiplomacy(Force force, Scenario scenario)
         {
@@ -101,7 +106,7 @@ namespace Sango.Core
             if (force.CapitalCity.freePersons == null || force.CapitalCity.freePersons.Count == 0) return true;
 
             int turn = scenario.TurnCount;
-            if (turn < 9) return true;                  // 原版：前 9 回合完全不外交
+            if (turn < AIConfig.Instance.diplomacyStartTurn) return true;   // 原版：前 9 回合完全不外交
             if (force.diplomacyBanTimer > 0) return true;
 
             // 【原版结构】没有全局概率，七项各自判频率，成功即止（:7-74）。
@@ -154,7 +159,7 @@ namespace Sango.Core
         {
             // 原版：rand_bool(30)（:234），且**本方没有交战据点**（:236）才谈结盟
             if (HasBattleOutpost(force, scenario)) return false;
-            if (!GameRandom.Chance(30)) return false;
+            if (!GameRandom.Chance(AIConfig.Instance.diplomacyActionChance)) return false;
 
             if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
                 return false;
@@ -225,8 +230,10 @@ namespace Sango.Core
         {
             // 原版：rand_bool(30)（:340）+ 无交战据点（:342）+ turn % 5 错峰（:346）
             if (HasBattleOutpost(force, scenario)) return false;
-            if (!GameRandom.Chance(30)) return false;
-            if (turn % 5 != force.Id % 5) return false;
+            if (!GameRandom.Chance(AIConfig.Instance.diplomacyActionChance)) return false;
+
+            int donateStagger = System.Math.Max(1, AIConfig.Instance.diplomacyDonateStagger);
+            if (turn % donateStagger != force.Id % donateStagger) return false;
 
             if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
                 return false;
@@ -284,11 +291,13 @@ namespace Sango.Core
             bool inBattle = HasBattleOutpost(force, scenario);
             if (inBattle)
             {
-                if (turn % 21 != force.Id % 21) return false;
+                int warStagger = System.Math.Max(1, AIConfig.Instance.diplomacyCeasefireWarStagger);
+                if (turn % warStagger != force.Id % warStagger) return false;
             }
             else
             {
-                if (CountAliveForces(scenario) >= 3 && turn % 6 != force.Id % 6) return false;
+                int peaceStagger = System.Math.Max(1, AIConfig.Instance.diplomacyCeasefirePeaceStagger);
+                if (CountAliveForces(scenario) >= 3 && turn % peaceStagger != force.Id % peaceStagger) return false;
             }
 
             if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
@@ -572,6 +581,26 @@ namespace Sango.Core
         ///     项目还没有这套特技映射，先只做常规选人；
         ///   · 原版本城没人时会从别的据点调人（`place_guard`），那需要调令系统配合，暂不做。
         /// </summary>
+        /// <summary>
+        /// 该城是否属于「玩家亲控的主军团」。
+        ///
+        /// 【为什么需要这条判定】<see cref="SetGuards"/> 的跨城补位
+        /// （<see cref="PlaceGuards"/> + <see cref="SummonGuards"/>）是原版 GameAI 的行为，
+        /// 对 AI 势力天经地义；但玩家势力的**第 1 军团由玩家指挥**，
+        /// AI 擅自把玩家城里的武将调去别的城，玩家看到的就是"人莫名其妙没了"。
+        ///
+        /// 判定用 <see cref="Corps.IsPlayerControl"/>（= IsPlayer &amp;&amp; number == 1），
+        /// 只豁免主军团；玩家下属的**委任军团**（number &gt; 1）仍然正常接受 AI 补位。
+        /// </summary>
+        /// <param name="city">待判定的据点</param>
+        /// <returns>属于玩家主军团返回 true</returns>
+        static bool IsPlayerCaptainCity(City city)
+        {
+            if (city == null) return false;
+            Corps corps = city.BelongCorps;
+            return corps != null && corps.IsPlayerControl;
+        }
+
         public static void SetGuards(Force force, Scenario scenario)
         {
             if (force == null) return;
@@ -645,6 +674,10 @@ namespace Sango.Core
             {
                 if (city == null || !city.IsAlive || city.guardId < 0) return;
 
+                // 【玩家主军团的城不接受自动调人】第 1 军团由玩家指挥，
+                // 守将空缺该由玩家自己补，AI 不能往玩家城里塞人。
+                if (IsPlayerCaptainCity(city)) return;
+
                 Person guard = scenario.personSet != null ? scenario.personSet.Get(city.guardId) : null;
                 if (guard == null || !guard.IsAlive)
                 {
@@ -661,6 +694,13 @@ namespace Sango.Core
 
                 // 原城周围有敌 → 不敢把人调走（原版 exist_enemy3）
                 City from = guard.BelongCity;
+
+                // 【不从玩家主军团抽人】这是玩家反馈"第一军团城里的武将被乱调动到其他城市"
+                // 的直接来源：守将指派只是记账（PlaceGuards 只写 guardId），
+                // 真正的调任发生在本方法 —— PersonStateSystem.Enter 会改 BelongCity /
+                // BelongCorps，人就从玩家城里消失了。
+                if (IsPlayerCaptainCity(from)) return;
+
                 if (from != null && IsCityUnderEnemy(from, force)) return;
 
                 Corps corps = from != null ? from.BelongCorps : city.BelongCorps;
@@ -697,7 +737,8 @@ namespace Sango.Core
             List<City> need = new List<City>();
             force.ForEachCity(c =>
             {
-                if (c != null && c.IsAlive && c.guardId < 0)
+                // 玩家主军团的城不参与自动补位：守将由玩家自己安排
+                if (c != null && c.IsAlive && c.guardId < 0 && !IsPlayerCaptainCity(c))
                     need.Add(c);
             });
 
@@ -716,6 +757,9 @@ namespace Sango.Core
                 if (c.freePersons == null || c.freePersons.Count == 0) return;
                 // 注意：原版 `place_guard` **不做**敌情过滤 —— 那里只按"治安 / 距离 / 分数"选人。
                 // 敌情检查属于 `force_summon_guard`（召回），见该方法上方的说明。
+
+                // 玩家主军团的城里的人不许被抽走（候选池直接排除该城）
+                if (IsPlayerCaptainCity(c)) return;
 
                 for (int i = 0; i < c.freePersons.Count; i++)
                 {
@@ -837,7 +881,7 @@ namespace Sango.Core
         /// </summary>
         static bool TryAIAnnex(Force force, Scenario scenario, int turn)
         {
-            if (turn < 36) return false;
+            if (turn < AIConfig.Instance.diplomacyAnnexStartTurn) return false;
             if (CountAliveForces(scenario) <= 2) return false;
 
             // 原版 :86：最近 18 回合内势力数有变化就跳过 —— 局势还在洗牌时不去劝降。
@@ -909,7 +953,7 @@ namespace Sango.Core
                     }
 
                     if (force.GetLike(other) > discardThreshold) continue;
-                    if (!GameRandom.Chance(30)) continue;
+                    if (!GameRandom.Chance(AIConfig.Instance.diplomacyDiscardChance)) continue;
 
                     a.IsAlive = false;
                     a.leftCount = 0;
@@ -1008,7 +1052,7 @@ namespace Sango.Core
         {
             if (force.requestForceId >= 0 || force.requestTimer > 0) return false;
             if (HasBattleOutpost(force, scenario)) return false;
-            if (!GameRandom.Chance(30)) return false;
+            if (!GameRandom.Chance(AIConfig.Instance.diplomacyActionChance)) return false;
 
             if (force.AllianceList == null) return false;
 
@@ -1210,8 +1254,10 @@ namespace Sango.Core
         {
             int relation = scenario.GetRelation(force, otherForce);
 
-            // 关系恶化到一定程度
-            if (relation < -500)
+            // 关系恶化到"不和"以下（0~100 尺度，< 40 = 不和 / 险恶）时考虑撕约。
+            // 【尺度】原实现是 raw 时代的 -500（≈ like 45），关系表改为 0~100 后
+            // 对齐 DiplomacyRules.GetYookouLevel 的"不和"分界 40。
+            if (relation < 40)
             {
                 // 侵略型AI更倾向于撕毁条约
                 int chance = PersonalityId == AIPersonalityType.Aggressive ? 40 : 20;
@@ -1235,8 +1281,9 @@ namespace Sango.Core
                 }
             }
 
-            // 停战协议下，关系恢复到一定程度
-            if (alliance.allianceType == AllianceType.Truce && relation > 500)
+            // 停战协议下，关系恢复到"好意"以上（0~100 尺度，> 60 = 好意 / 亲密）时考虑撕毁停战。
+            // 【尺度】原实现是 raw 时代的 500（≈ like 55），这里对齐五档的"好意"分界 60。
+            if (alliance.allianceType == AllianceType.Truce && relation > 60)
             {
                 // 侵略型AI更倾向于撕毁停战协议
                 int chance = PersonalityId == AIPersonalityType.Aggressive ? 30 : 15;
@@ -1458,9 +1505,11 @@ namespace Sango.Core
             if (captive.loyalty > 70)
                 return false;
 
-            // 检查势力关系
+            // 检查势力关系：关系险恶（0~100 尺度，< 20）时不做招降。
+            // 【尺度】原实现是 raw 时代的 -5000（即 like 下限 0），实际上几乎不触发；
+            // 这里对齐 DiplomacyRules.GetYookouLevel 的"险恶"分界 20，让限制真正生效。
             int relation = scenario.GetRelation(force, captive.BelongForce);
-            if (relation < -5000)
+            if (relation < 20)
                 return false;
 
             // 检查是否有足够的资金
@@ -1525,9 +1574,11 @@ namespace Sango.Core
             //if (captive.loyalty > 100)
             //    return true;
 
-            // 检查势力关系
+            // 检查势力关系：关系亲密（0~100 尺度，>= 80）时直接释放。
+            // 【尺度】原实现是 raw 时代的 5000（即 like 上限 100），实际上几乎不触发；
+            // 这里对齐 DiplomacyRules.GetYookouLevel 的"亲密"分界 80，让该分支真正生效。
             int relation = scenario.GetRelation(force, captive.BelongForce);
-            if (relation > 5000)
+            if (relation >= 80)
                 return true;
 
             // 检查是否有足够的粮食
@@ -1739,8 +1790,11 @@ namespace Sango.Core
             {
                 if (otherForce != null && otherForce != force)
                 {
+                    // 关系险恶（0~100 尺度，< 20）即视为处于战争状态。
+                    // 【尺度】原实现是 raw 时代的 -3000（≈ like 20），换算后正好等于
+                    // DiplomacyRules.GetYookouLevel 的"险恶"分界 20，故直接取 20。
                     int relation = scenario.GetRelation(force, otherForce);
-                    if (relation < -3000)
+                    if (relation < 20)
                         return true;
                 }
             }

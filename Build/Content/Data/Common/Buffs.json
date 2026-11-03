@@ -9,6 +9,7 @@
       "troopAttackCoef": 80,
       "troopDefenceCoef": 80,
       "troopBuildCoef": 80,
+      "noZoc": true,
       "asset": "Assets/Effect/Prefab/ef_buff_xuanyun.prefab",
       "offset": [
         0.0,

@@ -84,7 +84,22 @@ namespace Sango.Core
             // ③ 逐支执行 —— :69-78
             for (int i = 0; i < unitList.Count; ++i)
             {
-                if (!unitList[i].DoAI(scenario))
+                Troop troop = unitList[i];
+
+                // 【出城串行】同一据点的多支新兵不能并行出城：
+                // 它们都还站在同一个城格上，而 FindLeaveBuildingCell 选落脚点时
+                // 移动中的部队尚未写入目标格的 troop 引用（CanStay 拦不住），
+                // 两支部队会选中同一格 → 落地后互相覆盖，表现为部队重叠。
+                // 这里只放行队首，其余继续排队；前一支落地时 Troop.UpdateCell
+                // 会把它移出 pendingOutTroops，队首自然顺延到下一条。
+                if (troop.isNewEmitted)
+                {
+                    City home = troop.BelongCity;
+                    if (home != null && home.pendingOutTroop != null && home.pendingOutTroop != troop)
+                        continue;
+                }
+
+                if (!troop.DoAI(scenario))
                     return false;
             }
             return true;

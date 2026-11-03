@@ -2690,7 +2690,7 @@ namespace Sango.Core
             // 挑一对"交情还没坏到没法挑"的组合 —— :87-165
             // 原版用 try_disrupt 预估结果分级，本项目该预估在计略结算内部完成，
             // 这里保留原版的关系门槛（必须仍高于基准友好度才值得挑拨）。
-            const int yookouThreshold = 50;     // 原版 Yookou_MiddleLow
+            const int yookouThreshold = 50;     // 0~100 尺度上的"中立"中线（原版 Yookou_Middle 区间 40~60）
             Force bestSrc = null;
             Force bestDest = null;
             int bestRelation = int.MaxValue;

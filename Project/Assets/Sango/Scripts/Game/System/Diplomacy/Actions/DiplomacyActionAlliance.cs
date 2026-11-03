@@ -196,7 +196,7 @@ namespace Sango.Core
 
             // 【原版成功奖励】`s11_sys_person_order_diplomacy.cpp:611-632`：
             //   force_add_like(actor, target, +10) + 技术点 +50
-            // 旧实现走的是 0~10000 关系尺度的 diplomacyAllianceRelationIncrease，
+            // 旧实现走的是 raw 尺度（±5000）的关系增量配置（该配置已删除），
             // 与 like 口径（0~100）不是一回事，已换掉。
             Sender.AddLike(Receiver, DiplomacyRules.AllianceLikeGain);
             Sender.GainTechniquePoint(DiplomacyRules.AllianceTechGain);
@@ -251,7 +251,7 @@ namespace Sango.Core
 
             // 【原版成功奖励】`s11_sys_person_order_diplomacy.cpp:611-632`：
             //   force_add_like(actor, target, +10) + 技术点 +50
-            // 旧实现走的是 0~10000 关系尺度的 diplomacyAllianceRelationIncrease，
+            // 旧实现走的是 raw 尺度（±5000）的关系增量配置（该配置已删除），
             // 与 like 口径（0~100）不是一回事，已换掉。
             Sender.AddLike(Receiver, DiplomacyRules.AllianceLikeGain);
             Sender.GainTechniquePoint(DiplomacyRules.AllianceTechGain);

@@ -232,8 +232,6 @@ namespace Sango.UI
 
             //AddNumberItem("每一点农业带来的粮食收入", variables.agriculture_add_food, 0, 100, (v) => { variables.agriculture_add_food = v; });
             //AddNumberItem("每一点商业点带来的金币收入", variables.commerce_add_gold, 0, 100, (v) => { variables.commerce_add_gold = v; });
-            AddNumberItem("每月变化的关系值", variables.relationChangePerMonth, -1000, 1000, (v) => { variables.relationChangePerMonth = v; });
-            AddNumberItem("每月的关系变化率(百分比)", variables.relationChangeChance, 0, 100, (v) => { variables.relationChangeChance = v; });
             AddNumberItem("破城时候的抓捕率(百分比)", variables.captureChangceWhenCityFall, 0, 100, (v) => { variables.captureChangceWhenCityFall = v; });
             // 【已移除】"最后一城时候的抓捕率"：原版势力最后一城被攻陷时是全員必俘、不掷骰
             // （s11_sys_event_capture.cpp:452-456 的 `not node.remaining` 分支），
@@ -312,8 +310,8 @@ namespace Sango.UI
             AddTitle("招募系统参数");
             AddNumberItem("可招募的忠诚度阈值", variables.recruitableLine, 0, 100, (v) => { variables.recruitableLine = v; });
             AddNumberItem("玩家招募加成", variables.playerRecruitAdd, 0, 100, (v) => { variables.playerRecruitAdd = v; });
-            AddNumberItem("挖角敌将关系惩罚(成功)", variables.recruitForeignRelationPenalty, 0, 5000, (v) => { variables.recruitForeignRelationPenalty = v; });
-            AddNumberItem("挖角敌将关系惩罚(失败)", variables.recruitForeignRelationPenaltyFailed, 0, 5000, (v) => { variables.recruitForeignRelationPenaltyFailed = v; });
+            AddNumberItem("挖角敌将关系惩罚(成功)", variables.recruitForeignRelationPenalty, 0, 100, (v) => { variables.recruitForeignRelationPenalty = v; });
+            AddNumberItem("挖角敌将关系惩罚(失败)", variables.recruitForeignRelationPenaltyFailed, 0, 100, (v) => { variables.recruitForeignRelationPenaltyFailed = v; });
 
             AddTitle("逃跑系统参数");
             AddNumberItem("城市中逃跑概率减少值", variables.escapeCityReduction, 0, 1000, (v) => { variables.escapeCityReduction = v; });

@@ -308,26 +308,45 @@ namespace Sango.Core
         ///     n += rand(0, troopAtkBonus)
         ///
         /// 【与原版一致】只有阵 400 / 砦 600 / 城塞 800 / 箭楼 300 / 连弩楼 500 / 投石台 900
-        /// 在攻击表里；**城 / 关 / 港 不主动攻击部队**（troopAtk = 0 → 本方法返回 0）。
+        /// 在攻击表里。**城 / 关 / 港 原版不在表里**，但本项目 0.0.75 起把据点也做成会
+        /// 自主攻击（自建玩法，见 BuildingBase.OnForceTurnStart）—— 据点走下面的等效攻击力
+        /// 分支，公式结构不变，避免另造一套伤害口径。
         /// </summary>
         public static int CalcBuildingTroopsDamage(BuildingBase self, Troop target)
         {
             if (self == null || target == null) return 0;
 
             BuildingType type = self.BuildingType;
-            if (type == null || type.troopAtk <= 0) return 0;
+            if (type == null) return 0;
+
+            // 【城 / 关 / 港的等效攻击力】
+            // 据点数据里 troopAtk 恒为 0（原版没有这张表项），若直接返回 0，
+            // 触发条件恢复后也只会打出 0 伤害。这里给一个与阵(400)/城塞(800)同档的等效值：
+            //   300 + 太守攻击力 × 6（City.GetAttack 由太守武力/统率派生，通常 10~25）
+            // 若策划在 BuildingTypes.json 里显式配了 troopAtk / troopAtkBonus，则优先用配置值。
+            int atkValue = type.troopAtk;
+            int bonusValue = type.troopAtkBonus;
+            if (atkValue <= 0)
+            {
+                // 只有据点（城/关/港）走这个分支；内政设施 / 障碍物仍然返回 0（不攻击）
+                if (!(self is City))
+                    return 0;
+
+                atkValue = 300 + System.Math.Max(self.GetAttack(), 1) * 6;
+                bonusValue = 200;
+            }
 
             int maxHp = System.Math.Max(self.DurabilityLimit, 1);
             int curHp = System.Math.Max(self.durability, maxHp / 2);
 
             double n = (double)curHp / maxHp;
             n *= 152 - target.Defence;
-            n *= type.troopAtk;
+            n *= atkValue;
             n /= 132.0;
 
             int damage = (int)n;
-            if (type.troopAtkBonus > 0)
-                damage += GameRandom.Range(0, type.troopAtkBonus);
+            if (bonusValue > 0)
+                damage += GameRandom.Range(0, bonusValue);
 
             return System.Math.Max(damage, 0);
         }

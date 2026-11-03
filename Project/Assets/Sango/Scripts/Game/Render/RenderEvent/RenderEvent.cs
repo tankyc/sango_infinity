@@ -108,16 +108,27 @@ namespace Sango.Render
                 {
                     IRenderEventBase renderEventBase = dependsEventQueue[i];
 
-                    if (!renderEventBase.IsInited)
+                    // 同主队列：单个 depends 事件抛异常不能让整帧中断
+                    //（本循环结束后要靠 IsDone 压缩队列，异常冒出去会把队列留在半截状态）
+                    try
                     {
-                        renderEventBase.IsInited = true;
-                        renderEventBase.Enter(scenario);
-                    }
+                        if (!renderEventBase.IsInited)
+                        {
+                            renderEventBase.IsInited = true;
+                            renderEventBase.Enter(scenario);
+                        }
 
-                    if (renderEventBase.Update(scenario, deltaTime))
+                        if (renderEventBase.Update(scenario, deltaTime))
+                        {
+                            renderEventBase.IsDone = true;
+                            renderEventBase.Exit(scenario);
+                        }
+                    }
+                    catch (System.Exception e)
                     {
+                        Sango.Log.Error($"*[演出]{renderEventBase?.GetType().Name} 执行异常，已丢弃并继续：{e}");
                         renderEventBase.IsDone = true;
-                        renderEventBase.Exit(scenario);
+                        try { renderEventBase.Exit(scenario); } catch { }
                     }
                 }
                 // 原地压缩移除已完成事件，避免 RemoveAll 闭包每帧产生 GC 分配
@@ -137,16 +148,33 @@ namespace Sango.Render
             while (queueHead < eventQueue.Count)
             {
                 CurEvent = eventQueue[queueHead];
-                if (!CurEvent.IsInited)
+
+                // 【单个事件异常不能卡死整局】
+                // 本方法是串行队列：CurEvent 一旦 Enter / Update 抛异常且没人接住，
+                // 异常会一路冒到 Scenario.Run，而 CurEvent 停在原地、IsInited 又是 true，
+                // 下一帧只会重复执行 Update —— 演出、回合推进、玩家操作全部停摆。
+                // 玩家看到的"卡死"多数出自这里（例如出使归来的武将 BelongCity 已失效，
+                // CityRecruitPersonEvent.Enter 里空引用）。
+                // 兜底策略：记错误日志 + 强制 Exit 该事件 + 游标前移，让流程继续跑。
+                try
                 {
-                    CurEvent.IsInited = true;
-                    CurEvent.Enter(scenario);
+                    if (!CurEvent.IsInited)
+                    {
+                        CurEvent.IsInited = true;
+                        CurEvent.Enter(scenario);
+                    }
+
+                    if (!CurEvent.Update(scenario, deltaTime))
+                        return false;       // 未完成：游标留在原地，下一帧继续处理它
+
+                    CurEvent.Exit(scenario);
+                }
+                catch (System.Exception e)
+                {
+                    Sango.Log.Error($"*[演出]{CurEvent?.GetType().Name} 执行异常，已丢弃并继续：{e}");
+                    try { CurEvent?.Exit(scenario); } catch { }
                 }
 
-                if (!CurEvent.Update(scenario, deltaTime))
-                    return false;       // 未完成：游标留在原地，下一帧继续处理它
-
-                CurEvent.Exit(scenario);
                 // 这里没考虑到同一帧复用导致其他类判断失败的问题
                 //ReturnToPool(CurEvent);
                 CurEvent = null;

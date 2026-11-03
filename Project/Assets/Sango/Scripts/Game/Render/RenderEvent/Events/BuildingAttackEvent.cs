@@ -69,7 +69,9 @@ namespace Sango.Render
             if (isAction) return;
 
             Troop troop = targetCell.troop;
-            if (troop != null && building.IsEnemy(troop))
+            // 无主据点不攻击（IsEnemy 对 null 势力返回 true，这里必须显式拦），
+            // 同时避免下面日志解引用 null 的 BelongForce。
+            if (troop != null && building.BelongForce != null && building.IsEnemy(troop))
             {
                 int dmg = Troop.CalculateSkillDamage(building, troop, building.GetAttack());
                 troop.ChangeTroops(-dmg, building, 0);

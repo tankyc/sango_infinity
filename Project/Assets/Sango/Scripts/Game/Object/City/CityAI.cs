@@ -220,7 +220,9 @@ namespace Sango.Core
             }
 
             OutpostInfo info = OutpostRuntime.Get(city.Id);
-            int actionPointCost = city.GetJobCostAP(CityJobType.MakeTroop);
+            // 单次出阵的行动力成本：走 AIConfig（默认 5），与调度器的预估同源，
+            // 细节见 AIConfig.aiAttackActionPointCost 的说明。
+            int actionPointCost = AIConfig.Instance.GetAttackActionPointCost(city);
 
             // 【兼容】旧命令链（City.DoAI 直调 AIAttack）没有据点预算上下文，
             // 此时不做行动力门禁与扣减，其余门槛照常；据点调度路径下 actionPoint 一定有值。
@@ -304,7 +306,7 @@ namespace Sango.Core
                 minKeepFood = ForceAI.CalcExpectedFoodUse(minKeepTroops, 10);
 
                 // 治安不足 —— :74-76
-                int needSecurity = weak ? 80 : 90;
+                int needSecurity = weak ? 70 : 80;
                 if (city.security < needSecurity)
                 {
                     LogAttack(city, $"治安 {city.security}<{needSecurity}，不出兵");
@@ -376,13 +378,13 @@ namespace Sango.Core
                     }
 
                     // 久未用兵则更想打，超级强国反而收敛 —— :159-172
-                    if (!weak)
-                    {
-                        int turns = System.Math.Min(city.BelongForce.GetTurnsSinceLastAttack(scenario), 100);
-                        chance += turns * 3;
-                        if (powerRank >= 90)
-                            chance += (100 - powerRank) * 5;
-                    }
+                    //if (!weak)
+                    //{
+                    //    int turns = System.Math.Min(city.BelongForce.GetTurnsSinceLastAttack(scenario), 100);
+                    //    chance += turns * 3;
+                    //    if (powerRank >= 90)
+                    //        chance += (100 - powerRank) * 5;
+                    //}
                     chance = System.Math.Clamp(chance, 5, 100);
                 }
                 if (!GameRandom.Chance(chance))
@@ -431,7 +433,8 @@ namespace Sango.Core
             int targetTroops = MaxTroops(targetCity, scenario);
             int r = (3 - seikaku) * 15 + powerRank / 2;
             int needTroops = targetTroops + targetTroops * r / 100;
-            needTroops = System.Math.Max(needTroops, 5000);
+            // 放宽到需要对面1/2的兵力
+            needTroops = System.Math.Max(needTroops, targetCity.troops / 2);
 
             // 已在外的进攻兵力（同一目标的编组）—— :250-261
             int attackingTroops = 0;
@@ -671,18 +674,19 @@ namespace Sango.Core
                     return;
                 }
 
-                // 需要兵力充足
-                if (city.troops < 20000)
+                // 需要兵力充足（外置门槛：AICanAttack 通过但这里卡住时，候选队列恒空、AICanAttack 会显示"不出兵"）
+                if (city.troops < AIConfig.Instance.attackTargetMinTroops)
                     return;
 
                 int weight = (int)(2500 * (float)city.virtualFightPower / x.virtualFightPower);
                 weight = weight * x.DurabilityLimit / x.durability;
                 int relation = scenario.GetRelation(city.BelongForce, x.BelongForce);
-                // 8000亲密 6000友好 4000普通 2000中立 0冷漠 -2000敌对 -4000厌恶 -6000仇视 -8000不死不休
-                // 关系越好权重越低(越不愿进攻)，越敌对权重越高
-                weight = UnityEngine.Mathf.FloorToInt((float)weight * (1f - (float)relation / 10000f));
+                // 【0~100 尺度】50 = 中立；关系越好权重越低（越不愿进攻），越敌对权重越高。
+                // 系数 = 1 + (0.5 - relation/100)：险恶 0 → ×1.5，中立 50 → ×1.0，亲密 100 → ×0.5。
+                // （旧注释列出的 8000/6000/… 是 raw ±5000 时代的档位，已随关系表改造失效。）
+                weight = UnityEngine.Mathf.FloorToInt((float)weight * (1f + (0.5f - (float)relation / 100f)));
                 if (x.BelongForce.IsPlayer)
-                    weight += 1500;
+                    weight += AIConfig.Instance.attackTargetPlayerBonus;
 
                 // 【距离因子】原版 `ai_table_get_attack_dest_building_list` 是按
                 // `kyoten_distance` 由近及远给出的候选，近的据点优先。
@@ -2486,9 +2490,11 @@ namespace Sango.Core
             // 获取AI个性
             ForceAI.AIPersonalityType PersonalityId = GetAIPersonality(city);
 
-            // 根据AI个性调整兵力要求
-            int minTroops = PersonalityId == ForceAI.AIPersonalityType.Aggressive ? 8000 :
-                           PersonalityId == ForceAI.AIPersonalityType.Defensive ? 12000 : 10000;
+            // 根据AI个性调整兵力要求（外置到 AIConfig，便于整体调节进攻欲望）
+            AIConfig aiCfg = AIConfig.Instance;
+            int minTroops = PersonalityId == ForceAI.AIPersonalityType.Aggressive ? aiCfg.attackMinTroopsAggressive :
+                           PersonalityId == ForceAI.AIPersonalityType.Defensive ? aiCfg.attackMinTroopsDefensive :
+                           aiCfg.attackMinTroopsBalanced;
             if (city.troops < minTroops)
             {
                 LogAttack(city, $"兵力不足 {city.troops}<{minTroops}，不出兵");
@@ -2923,15 +2929,10 @@ namespace Sango.Core
         {
             if (city.troops == 0) return null;
 
-            // 【出城串行】上一支派出的部队还没走出城头 → 本城本轮不再组建新部队。
-            // 两支部队同时停在城池中心格时会互相覆盖 cell.troop，之后必然重叠；
-            // 出城由军团调度器 CorpsAI.AITroops 优先驱动，落地后这里会自动放行。
-            if (city.pendingOutTroop != null && city.pendingOutTroop.IsAlive)
-            {
-                if (AIConfig.Instance.logOutpostAI)
-                    Sango.Log.Info($"*[据点AI]{city.Name} 暂缓出兵：上一支部队（{city.pendingOutTroop.Name}）还没走出城头");
-                return null;
-            }
+            // 【出城队列】这里**不再**因为"上一支部队还没走出城头"就拒绝组建。
+            // 同回合连续派多支是允许的：新部队由 CityTroopFactory.EnqueueOutTroop 排队，
+            // 队列保证一支出完再出下一支（见 CityTroopFactory.ActivatePendingOutTroops），
+            // 城池中心格的占位由 City.EnsureTroop 做"不抢占已有引用"保护。
 
             int minEquipNeed = 5000;
 

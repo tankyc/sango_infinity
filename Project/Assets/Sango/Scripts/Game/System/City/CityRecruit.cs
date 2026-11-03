@@ -94,6 +94,14 @@ namespace Sango.Core.Player
                 return;
 
             Force force = TargetCity.BelongForce;
+
+            // 【按人去重】候选同时来自"在籍名册（allPersons）"与"在野名册（wildPersons）"，
+            // 这两份名册历史上出现过重叠（同一人因迁城 / 下野 / 读档重登记同时挂在两处，
+            // 甚至同时挂在两座城），曾导致登庸候选列表里同一个人出现两行。
+            // 名册的写入侧已在 City.AddWildPerson 收口，这里再按 Person 去重兜底，
+            // 保证"界面所见即一个目标一行"。
+            HashSet<Person> seen = new HashSet<Person>();
+
             Scenario.Cur.citySet.ForEach(x =>
             {
                 if (x == null || !x.IsAlive)
@@ -113,26 +121,44 @@ namespace Sango.Core.Player
                             return;
                         if (y.mBelongTroop != null)
                             return;
-                        dest.Add(y);
+                        if (seen.Add(y))
+                            dest.Add(y);
                     });
                     x.wildPersons.ForEach(y =>
                     {
+                        // 【君主不可登用】原版候选身份里没有 Mibun_Kunshu
+                        // （get_employable_person_list 的 else 分支直接 continue，
+                        //   s11_sys_person_order_personnel.cpp:904-954）。
+                        // 这里按"界面显示的身份"拦：玩家看到是君主就不该出现在登庸列表；
+                        // 势力灭亡后君主会下野（state → Unemployed），届时才重新进入候选。
+                        if (y.state == (int)PersonStateType.Governor)
+                            return;
                         if (y.IsBannedFrom(force) || y.IsSpecialPerson)
                             return;
-                        dest.Add(y);
+                        if (seen.Add(y))
+                            dest.Add(y);
                     });
                 }
                 else
                 {
                     x.wildPersons.ForEach(y =>
                     {
+                        // 【君主不可登用】同上；在野名册里出现君主属于脏数据，同样不进候选
+                        if (y.state == (int)PersonStateType.Governor)
+                            return;
                         if (y.IsBannedFrom(force) || y.IsSpecialPerson)
                             return;
-                        dest.Add(y);
+                        if (seen.Add(y))
+                            dest.Add(y);
                     });
                     x.captiveList.ForEach(y =>
                     {
-                        if (y != null && !y.IsSpecialPerson)
+                        // 【君主不可登用】旧实现漏了这条：allPersons 分支排除了君主，
+                        // 但俘虏名单没有 —— 势力灭亡后成为俘虏的君主（state 仍可能是 Governor）
+                        // 会从这里进入登庸候选，界面显示"君主"却可选可登用，即用户反馈的错乱。
+                        if (y == null || y.state == (int)PersonStateType.Governor)
+                            return;
+                        if (!y.IsSpecialPerson && seen.Add(y))
                             dest.Add(y);
                     });
                 }

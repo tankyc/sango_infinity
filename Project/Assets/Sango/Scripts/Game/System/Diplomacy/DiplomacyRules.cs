@@ -10,7 +10,8 @@ namespace Sango.Core
     /// 这样每条公式都能单独验证，也能被 AI 直接调用探底（原版 AI 就是调 try_* 系列）。
     ///
     /// 【友好度口径】本项目用 <see cref="Force.GetLike"/>（0~100，50 中立）读取，
-    /// 底层仍存 `Scenario.RelationMap`（-5000~5000，对称）—— 见 `Force.GetLike` 注释。
+    /// 底层 `Scenario.RelationMap` 已与 Open311 的 `Force::like_` 同尺度（0~100、双向对称），
+    /// 不存在换算层 —— 见 `Force.GetLike` 注释。
     ///
     /// 【难度】原版 `multiply_difficulty`：Easy = 原值，Normal ×0.8，Hard ×0.7。
     /// 本项目 difficulty 0/1/2/3 = 简单/普通/困难/超级，超级沿用 Hard。
@@ -139,6 +140,41 @@ namespace Sango.Core
 
         /// <summary>战斗敌对惩罚的友好度地板（原版 15）</summary>
         public const int HostilityLikeFloor = 15;
+
+        /// <summary>
+        /// 两个势力是否相邻（读 `Force.NeighborForceList`）。
+        ///
+        /// 【对应原版】Open311 `System::is_force_neighbored`（s11_sys_scen_force.cpp:863-879）：
+        /// 遍历 a 的全部据点，逐个数其邻接据点是否属于 b。
+        ///
+        /// 【本项目落点】直接用 `Force.NeighborForceList`（`Force.cs:674-677`）：
+        /// 由 `Force.UpdateTurnInfo` 在**该势力回合开始**时重建
+        /// （`Force.cs:2154` 起，遍历自己每座都市的 `City.NeighborList`，把非本势力的归属方收进去）。
+        ///
+        /// 【与原版的已知差异】
+        /// <list type="number">
+        /// <item>缓存滞后：列表是回合初快照，回合中据点易主后最多差一回合；
+        ///       原版是调用即实时遍历。</item>
+        /// <item>收集源只取本势力的**都市**（`c.IsCity()` 才有邻接遍历），
+        ///       所以"A 只有关隘/港口与 B 接壤"这种边角情况不会进表；对方的关港则会被正常收集。</item>
+        /// </list>
+        /// 两处差异只影响"相邻 / 远方"的措辞，不影响关系值本身。
+        ///
+        /// 【不要混用】`Force.hostileForceIds / friendlyForceIds` 是 AI 决策优先级表
+        /// （`s11_game_ai_force.cpp:432-522`），与地理相邻无关。
+        /// </summary>
+        /// <param name="a">势力 A</param>
+        /// <param name="b">势力 B</param>
+        /// <returns>a 的相邻势力表里含 b 时返回 true</returns>
+        public static bool IsNeighbored(Force a, Force b)
+        {
+            if (a == null || b == null || a == b)
+                return false;
+            if (a.NeighborForceList == null)
+                return false;
+
+            return a.NeighborForceList.Contains(b);
+        }
 
         /// <summary>
         /// 友好度档位名称（原版五档文本，s11_sys_string.cpp:188-197）。
@@ -380,43 +416,75 @@ namespace Sango.Core
         };
 
         /// <summary>
-        /// 劝降判定 —— 原版 `try_annex` 的评分段（`:1600-1616`）。
+        /// 劝降判定 —— 原版 `try_annex` 的评分段（s11_sys_person_order_diplomacy.cpp:1600-1616）。
         ///
         /// <code>
-        /// n = (actCity/tgtCity)/2 + (actCity-tgtCity)/5 - 相性/7
-        ///     + (保护皇帝 ? 10 : 0) + rel_coef(10, 0, 20) + 发起方君主魅力
-        /// n = multiply_difficulty(n) / 2 + rand(0~n/??)
-        /// g = 目标性格*7 - like/4
-        /// n >= g + 100 → 成功
-        /// n >= g + 95  → 舌战
+        /// n += (act_city / tgt_city) / 2;
+        /// n += (act_city - tgt_city) / 5;
+        /// n -= tgt_kunshu->get_aishou_distance(self->actor->get_id()) / 7;   // 使者相性
+        /// n += act_force->is_protecting_the_emperor() ? 10 : 0;
+        /// n += get_relation_coef_int(self, 10, 0, 20);                       // 目标君主 ↔ 使者
+        /// n += self->actor->get_stat(PersonStatType_Charisma);               // 使者魅力
+        /// n  = multiply_difficulty(n, 0.8f, 0.7f) / 2;
+        /// n += rand_int(n, ...);                                             // 0 ~ n-1
+        /// g  = tgt_kunshu->get_seikaku() * 7 - tgt->get_like(act_force) / 4;
+        /// perfect = (n * 2 &lt; g + 100);
+        /// n >= g + 100 → Success / SuccessNarrow
+        /// n >= g + 95  → Debate
+        /// else         → Failure
         /// </code>
+        ///
+        /// 【关键：三项个人项用的是**使者**，不是发起方君主】
+        /// 原版这三处全部读 `self->actor`（被派去劝降的那个人）。旧实现传的是
+        /// `Sender.mGovernor`，等于"派谁去都一样"，这既是"随便派人成功率也高"的根源，
+        /// 也让政治/魅力高的使者毫无价值。
         ///
         /// 【性格来源】原版的"目标性格"是 0~3 的连续档位（SeikakuEnum），本项目不再映射枚举，
         /// 改由性格数据上的 <c>annexResistance</c> 直接给出档位值：
         /// 胆小 0 / 冷静 1 / 刚胆 2 / 莽撞 3，新增性格可自由填任意整数。
         /// 调用方传 PersonalityId（1 起的表主键）会让 g 整体偏高 7，是错误用法。
         /// </summary>
-        public static Result TryAnnex(Person actorGovernor, Person targetGovernor,
+        /// <param name="actor">执行劝降的**使者**（原版 self-&gt;actor）</param>
+        /// <param name="targetGovernor">目标势力君主</param>
+        /// <param name="actorForce">发起方势力</param>
+        /// <param name="targetForce">目标势力</param>
+        /// <param name="actorCityCount">发起方城池数</param>
+        /// <param name="targetCityCount">目标城池数</param>
+        /// <param name="targetPersonality">目标君主性格档位（annexResistance，0~3）</param>
+        /// <param name="difficulty">难度（0 简单 / 1 普通 / 2 困难）</param>
+        /// <param name="protectingEmperor">发起方是否保护皇帝（原版 is_protecting_the_emperor）</param>
+        public static Result TryAnnex(Person actor, Person targetGovernor,
                                       Force actorForce, Force targetForce,
                                       int actorCityCount, int targetCityCount,
-                                      int targetPersonality, int difficulty)
+                                      int targetPersonality, int difficulty,
+                                      bool protectingEmperor = false)
         {
-            if (actorGovernor == null || targetGovernor == null || actorForce == null || targetForce == null)
+            if (actor == null || targetGovernor == null || actorForce == null || targetForce == null)
                 return Result.Failure;
 
-            int aishou = actorGovernor.CompatibilityDistance(targetGovernor);
+            // 目标君主 ↔ 使者的相性距离（原版 get_aishou_distance(self->actor->get_id())）
+            int aishou = targetGovernor.CompatibilityDistance(actor);
 
-            int n = (actorCityCount / Math.Max(targetCityCount, 1)) / 2 + (actorCityCount - targetCityCount) / 5
+            int n = (actorCityCount / Math.Max(targetCityCount, 1)) / 2
+                    + (actorCityCount - targetCityCount) / 5
                     - aishou / 7
-                    + GetRelationCoef(targetGovernor, actorGovernor, 10, 0, 20)
-                    + actorGovernor.Glamour;
+                    + (protectingEmperor ? 10 : 0)
+                    + GetRelationCoef(targetGovernor, actor, 10, 0, 20)
+                    + actor.Glamour;
 
             n = MultiplyDifficulty(n, difficulty) / 2;
-            n += GameRandom.Range(0, Math.Max(1, n / 2 + 1));
+
+            // 原版 :1610 `n += system_->rand_int(n, ...)`：rand_int(max) 取 0 ~ max-1，
+            // 即 0 ~ n-1。旧实现写 0 ~ n/2，随机段只有原版一半，判定整体偏低。
+            n += GameRandom.Range(0, Math.Max(1, n));
 
             int g = targetPersonality * 7 - actorForce.GetLike(targetForce) / 4;
 
-            if (n >= g + 100) return Result.Success;
+            if (n >= g + 100)
+            {
+                // 原版 :1612-1616：`perfect` 默认 true，`n*2 >= g+100` 时置 false（勉强成功）
+                return n * 2 < g + 100 ? Result.Success : Result.SuccessNarrow;
+            }
             if (n >= g + 95) return Result.Debate;
             return Result.Failure;
         }

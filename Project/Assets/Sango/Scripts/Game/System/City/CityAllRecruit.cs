@@ -101,6 +101,13 @@ namespace Sango.Core.Player
             };
 
             targetList.Clear();
+
+            // 【按人去重】候选来自 allPersons + wildPersons 两份名册，二者历史上可能重叠
+            // （同一人因迁城 / 下野 / 读档重登记同时挂在两处或两座城），
+            // 会让登庸目标列表里同一个人出现两行。名册写入侧已在 City.AddWildPerson 收口，
+            // 这里按 Person 再去一次，保证界面一行一个目标。
+            HashSet<Person> seen = new HashSet<Person>();
+
             Scenario.Cur.citySet.ForEach(x =>
             {
                 if (!x.IsSameForce(TargetCity))
@@ -108,14 +115,30 @@ namespace Sango.Core.Player
                     x.allPersons.ForEach(y =>
                     {
                         // 【禁止仕官】半年内被本势力拒绝过的人不进候选（对应 Open311 banned_kunshu）
-                        if (y.state != (int)PersonStateType.Governor
-                            && y.state != (int)PersonStateType.Prisoner
-                            && !y.IsBannedFrom(TargetCity.BelongForce))
+                        if (y.state == (int)PersonStateType.Governor
+                            || y.state == (int)PersonStateType.Prisoner)
+                            return;
+                        // 【与 CityRecruit.CollectTargets 同口径】排除事件 / NPC / 异族，
+                        // 以及已在部队中的敌将：后者的 CurrentCity 可能为空，
+                        // 派出去会落到 City.JobRecruitPerson 的"目标没有所在城"分支，
+                        // 白扣行动力还让执行武将白跑一趟。
+                        if (y.IsBannedFrom(TargetCity.BelongForce) || y.IsSpecialPerson)
+                            return;
+                        if (y.mBelongTroop != null)
+                            return;
+                        if (seen.Add(y))
                             targetList.Add(y);
                     });
                     x.wildPersons.ForEach(y =>
                     {
-                        if (!y.IsBannedFrom(TargetCity.BelongForce))
+                        // 【君主不可登用】与原版 get_employable_person_list 一致
+                        // （s11_sys_person_order_personnel.cpp:904-954：Mibun_Kunshu 不在候选身份内）。
+                        // 势力灭亡后君主会下野（state → Unemployed），届时才重新进入候选。
+                        if (y.state == (int)PersonStateType.Governor)
+                            return;
+                        if (y.IsBannedFrom(TargetCity.BelongForce) || y.IsSpecialPerson)
+                            return;
+                        if (seen.Add(y))
                             targetList.Add(y);
                     });
                 }
@@ -123,10 +146,23 @@ namespace Sango.Core.Player
                 {
                     x.wildPersons.ForEach(y =>
                     {
-                        if (!y.IsBannedFrom(TargetCity.BelongForce))
+                        // 【君主不可登用】同上
+                        if (y.state == (int)PersonStateType.Governor)
+                            return;
+                        if (y.IsBannedFrom(TargetCity.BelongForce) || y.IsSpecialPerson)
+                            return;
+                        if (seen.Add(y))
                             targetList.Add(y);
                     });
-                    x.captiveList.ForEach(y => { targetList.Add(y); });
+                    x.captiveList.ForEach(y =>
+                    {
+                        // 【君主不可登用】旧实现只在 allPersons 分支排除了君主，俘虏名单漏了，
+                        // 导致成为俘虏的君主（state 仍可能是 Governor）出现在一键登庸列表里。
+                        if (y == null || y.state == (int)PersonStateType.Governor)
+                            return;
+                        if (!y.IsSpecialPerson && seen.Add(y))
+                            targetList.Add(y);
+                    });
                 }
             });
             targetList.Sort((a, b) =>

@@ -32,6 +32,12 @@ namespace Sango.Core
             if (city == null || scenario == null || city.BelongForce == null)
                 return true;
 
+            // 【出城队列】先把排队中的部队推一次：队首开始出城、围死的回退进城。
+            // 这里**不能**因为"队首还没走出城头"就 return false —— 那会退化成
+            // "同一回合只能派一支部队"。后续命令照常组建新部队，多出来的排队，
+            // 由队列按先来后到逐支送出城（一支出完自动接下一支）。
+            CityTroopFactory.ActivatePendingOutTroops(city, scenario);
+
             // 【续跑】本城上一批命令是不是没跑完（orderResume 为真且是本城）。
             // 续跑时**不能**重新装载数据 / 重建命令队列，否则已经执行过的命令会被再执行一遍；
             // 必须由 OutpostCommand 按 orderCursor 接着跑。
@@ -41,12 +47,6 @@ namespace Sango.Core
 
             if (!resume)
             {
-                // 【出城串行】上一支派出的部队还没走出城头 → 本城暂不下新命令。
-                // 返回 false 让上层（CorpsAIDistrict）保留轮转游标、下一帧接着进来；
-                // 那支部队由 CorpsAI.AITroops 按"新兵优先"驱动出城。
-                if (city.pendingOutTroop != null && city.pendingOutTroop.IsAlive)
-                    return false;
-
                 // 兜底：没有经过军团调度（CorpsAIDistrict.AIDistrictCommand 会把预算算好放进来）时，
                 // 给一个最小额度，避免所有命令都被行动力门禁挡掉而"整城不作为"。
                 // 原版对应的是 outpost[i].action_point 在 update_district_data 里至少给都市 20 点
@@ -382,9 +382,10 @@ namespace Sango.Core
             // 【为什么循环内不 return false】本方法的返回 false 会让 Corps.DoAI 立刻跳出
             // AICommandQueue（Corps.cs:826-833），排在后面的 CorpsAI.AITroops 本轮就不会执行；
             // 而"出城进行中"的部队正是靠 AITroops 驱动落地的（Corps.cs:863）。
-            // 一旦在命令队列中间因为 pendingOutTroop 返回 false，就会形成
+            // 一旦在命令队列中间因为"等某支部队出城"返回 false，就会形成
             // "队列等部队出城 → 部队等 AITroops → AITroops 等队列跑完"的死锁。
-            // 所以队列中间一律不暂停，只在 DoOutpostAI 入口（重建队列之前）做一次出城串行拦截。
+            // 所以队列中间一律不暂停；出城推进只在 DoOutpostAI 入口做一次
+            // （CityTroopFactory.ActivatePendingOutTroops），且它的返回值不参与流程控制。
             for (int i = OutpostRuntime.orderCursor; i < q.Count; i++)
             {
                 // 先推进游标再执行：命令一旦被交给执行体，无论它内部走向哪个分支
@@ -656,8 +657,10 @@ namespace Sango.Core
                 case AIOrderId.Merchant:
                 case AIOrderId.MerchantExtra: return JobType.GetJobCostAP((int)CityJobType.TradeFood);
                 case AIOrderId.Drill: return JobType.GetJobCostAP((int)CityJobType.TrainTroops);
-                case AIOrderId.Defense:
-                case AIOrderId.Attack: return JobType.GetJobCostAP((int)CityJobType.MakeTroop);
+                case AIOrderId.Defense: return JobType.GetJobCostAP((int)CityJobType.MakeTroop);
+                // 出阵的实际扣减在 CityAI.AIAttack，走 AIConfig.aiAttackActionPointCost；
+                // 这里的预估必须同源，否则调度器按旧成本排队，会出现"预算够却排不上/扣多扣少"。
+                case AIOrderId.Attack: return AIConfig.Instance.GetAttackActionPointCost(city);
                 case AIOrderId.Build: return JobType.GetJobCostAP((int)CityJobType.Build);
                 case AIOrderId.Support: return JobType.GetJobCostAP((int)CityJobType.MakeTansport);
                 case AIOrderId.Transport: return JobType.GetJobCostAP((int)CityJobType.MakeTansport);

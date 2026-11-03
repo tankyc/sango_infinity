@@ -14,8 +14,8 @@ namespace Sango.Core
     ///
     /// 【与原版的差异】
     ///   · 原版前置会剔除玩家势力（`force->get_player_id() != -1`），这里同样拒绝；
-    ///   · 原版的性格枚举本项目没有，先用 `PersonalityId` 近似，
-    ///     待性格体系对齐后再替换（见 DiplomacyRules.TryAnnex 注释）。
+    ///   · 原版的性格枚举本项目没有，改由性格数据的 `annexResistance` 给出 0~3 档位
+    ///     （见 DiplomacyRules.TryAnnex 注释）。
     /// </summary>
     public class DiplomacyActionAnnex : DiplomacyActionBase
     {
@@ -105,7 +105,16 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 劝降成功率（原版评分段）。
+        /// 劝降判定（原版 `try_annex` 评分段）。
+        ///
+        /// 【三项个人项必须用使者】原版 `:1600-1606`：
+        /// <code>
+        /// n -= tgt_kunshu->get_aishou_distance(self->actor->get_id()) / 7;
+        /// n += get_relation_coef_int(self, 10, 0, 20);
+        /// n += self->actor->get_stat(PersonStatType_Charisma);
+        /// </code>
+        /// 旧实现传的是 <c>Sender.mGovernor</c>，等于"派谁去结果都一样"，
+        /// 玩家自然觉得"随便派个人成功率也很高"。
         /// </summary>
         public override int CalculateSuccessRate()
         {
@@ -119,23 +128,42 @@ namespace Sango.Core
                 ? Receiver.mGovernor.mPersonality.annexResistance
                 : 0;
 
+            // 没有使者就没有"人"可派：势力层面可谈（CanPerform）不代表能出发。
+            Person actor = Diplomat;
+            if (actor == null)
+            {
+                LastResult = DiplomacyRules.Result.Failure;
+                SuccessRate = 0;
+                return 0;
+            }
+
             DiplomacyRules.Result result = DiplomacyRules.TryAnnex(
-                Sender != null ? Sender.mGovernor : null,
+                actor,
                 Receiver != null ? Receiver.mGovernor : null,
                 Sender,
                 Receiver,
                 Sender != null ? Sender.CityCount : 0,
                 Receiver != null ? Receiver.CityCount : 0,
                 personality,
-                variables.difficulty);
+                variables.difficulty,
+                IsProtectingEmperor(Sender));
 
             LastResult = result;
-            SuccessRate = DiplomacyRules.ToSuccessRate(result);
+
+            // 【显示口径必须等于落地口径】Perform 不再二次掷骰，所以：
+            //   Success / SuccessNarrow → 必成（100）
+            //   Debate                  → 进舌战（50，胜负另算）
+            //   Failure                 → 必败（0）
+            // 旧实现走 ToSuccessRate（10 / 50 / 75 / 100），而 Perform 又按这个百分比掷一次骰，
+            // 结果是"判失败也有 10% 直接吞并、判舌战有 50% 直接吞并"，成功率被系统性地抬高。
+            SuccessRate = (result == DiplomacyRules.Result.Success
+                        || result == DiplomacyRules.Result.SuccessNarrow) ? 100
+                        : result == DiplomacyRules.Result.Debate ? 50 : 0;
             return SuccessRate;
         }
 
         /// <summary>
-        /// 执行劝降（先过条件，再按成功率掷骰）。
+        /// 执行劝降（判定只做一次，结果直接落地）。
         /// </summary>
         public override bool Perform()
         {
@@ -145,14 +173,48 @@ namespace Sango.Core
                 return false;
             }
 
-            int rate = CalculateSuccessRate();
+            // 没有使者就不出发：CanPerform 只校验"势力层面能否谈"，不代表有人可派。
+            // 若继续往下走，CalculateSuccessRate 会判 Failure 并走失败结算（友好度 -30），
+            // 等于玩家什么都没做却被扣关系。
+            if (Diplomat == null)
+            {
+                FailReason = "没有可派遣的使者";
+                GameEvent.OnDiplomacyAnnex?.Invoke(Sender, Receiver, false);
+                return false;
+            }
+
+            // 【只判定一次】TryAnnex 内部已含随机段（rand 0~n-1），把三态映射成百分比
+            // 再掷一次骰属于双重随机：Failure 会白拿 10% 成功率，Debate 会白拿 50%。
+            CalculateSuccessRate();
+            DiplomacyRules.Result result = LastResult;
 
             // 原版 try_annex 返回 Debate → 确定性进入舌战（不掷骰、不落地失败）
-            if (TryHandOverToDebate()) return false;
+            if (result == DiplomacyRules.Result.Debate && TryHandOverToDebate())
+                return false;
 
-            bool success = rate >= 100 || GameRandom.Chance(rate);
+            bool success = result == DiplomacyRules.Result.Success
+                        || result == DiplomacyRules.Result.SuccessNarrow;
+
             PerformWithoutCheck(success);
             return success;
+        }
+
+        /// <summary>
+        /// 势力是否保护皇帝。原版 `Force::is_protecting_the_emperor` 的派生口径：
+        /// 皇帝武将所在城的归属势力（本项目沿用 <see cref="Scenario.emperorPersonId"/>，
+        /// ≤ 0 表示皇帝已退位/不存在）。对应 `try_annex` 的 `n += 10`。
+        /// </summary>
+        static bool IsProtectingEmperor(Force force)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || force == null || scenario.emperorPersonId <= 0 || scenario.personSet == null)
+                return false;
+
+            Person emperor = scenario.personSet.Get(scenario.emperorPersonId);
+            if (emperor == null || !emperor.IsAlive || emperor.IsDead)
+                return false;
+
+            return emperor.BelongCity != null && emperor.BelongCity.BelongForce == force;
         }
 
         /// <summary>
@@ -227,6 +289,15 @@ namespace Sango.Core
 
                 if (dest == null || dest.BelongForce != Sender)
                     continue;
+
+                // 【投降君主先降级】对齐原版 force_ruin 的投降分支（s11_sys_scen_force.cpp:976-982）：
+                //     if (person->is_kunshu()) person->set_mibun(Mibun_Totoku);
+                //     person_change_force(person, by, new_kunshu, PersonForceChangeReason_Surrendered);
+                // Recruit 内部有"在职君主不可被收编"的护栏（防止君主被登庸流程误收编），
+                // 所以这里必须先显式降级；reason 用 ForceChanged 表示这是合法的君主身份变更
+                // （与继任 Force.Succeed 同一口径），SetState 的君主保护会放行。
+                if (p.IsGovernor)
+                    PersonStateSystem.SetState(p, PersonStateType.Normal, PersonChangeReason.ForceChanged);
 
                 PersonStateSystem.Recruit(p, dest, PersonChangeReason.Employed);
                 movedPersons++;

@@ -198,7 +198,8 @@ namespace Sango.Core
                 }
             }
 
-            bool open311 = AIConfig.Instance.useOpen311ScoreFormula;
+            AIConfig cfgAgg = AIConfig.Instance;
+            bool open311 = cfgAgg.useOpen311ScoreFormula;
 
             foreach (KeyValuePair<long, PriorityActionData> pair in checkMap)
             {
@@ -233,9 +234,17 @@ namespace Sango.Core
                     {
                         // 【本项目保留】多目标累加：一次技能命中的多个目标合成为**一个**候选，
                         // 分值为各目标之和（原版是逐目标独立候选，这里按项目需要保留聚合）。
-                        // 只累加有效目标：负分（原版 -1 = 无效，或误伤友军）直接跳过，
-                        // 避免一个坏目标把整体分拖低。
+                        // 【累加规则】正分照常累加；负分分两种，必须区别对待：
+                        //   · 「无效目标」标记（原版 get_target_score 的 -1 一档，
+                        //     p 落在 o311InvalidTargetMark 附近）→ 跳过。
+                        //     一行空地就能扫出十几个无效目标，全累加会把整条候选拖垮；
+                        //   · 真正的误伤扣分（AIConfig.o311SelfDamagePenalty，默认 -12000）
+                        //     → **必须照常累加**。这是"AI 放妖术砸自家内政设施"的唯一拦阻：
+                        //     canDamageTeam 技能在执行层对友军照打（SkillInstance.cs:862），
+                        //     AI 侧只能靠分值把这种落点压到负分、进而被 s_p > 0 淘汰。
                         if (p > 0)
+                            atk_priority += p;
+                        else if (p <= cfgAgg.o311InvalidTargetMark)
                             atk_priority += p;
                     }
                     else
@@ -1181,10 +1190,17 @@ namespace Sango.Core
             // 即"能炸到敌人就加分，炸不到就重罚"，避免用战法白烧一座陷阱。
             if (target.building != null && IsCompletedTrap(target.building))
             {
-                int trapScore = CalcOpen311TrapScore(troop, target.building, spellCell ?? movetoCell);
-                tacticScore += trapScore;
-                if (trapScore <= 0)
-                    tacticScore -= cfg.o311TrapScorePenalty;
+                // 【引爆者站位必须用落点，不能用 spellCell】
+                // 原版 :632 传的是 `src_pos`（= action.src_pos，发起位置 = 移动后站位），
+                // 因为 get_trap_score 用 `map_.calc_dir(unit_pos, trap_pos)` 决定火球滚动方向。
+                // 本项目对"打陷阱"这类单格战法，spellCell 就等于陷阱格本身 →
+                // DirectionTo 退化成固定方向，与执行层（BuildingTrapEffect.Trigger 用引爆者
+                // 的 cell 算方向）不一致，会出现"AI 以为能炸到人、实际一座陷阱白烧"。
+                int trapScore = CalcOpen311TrapScore(troop, target.building, movetoCell ?? troop.cell);
+                if (trapScore > 0)
+                    tacticScore += trapScore;
+                else
+                    tacticScore -= cfg.o311TrapScorePenalty;   // 原版 :633-636（>0 才加，否则只罚）
             }
 
             return tacticScore;
@@ -1270,6 +1286,19 @@ namespace Sango.Core
             City mainCity = targetBuilding as City;
             if (isMainTarget && mainCity != null && mainCity.IsCity()
                 && troop.BelongForce != null && !troop.BelongForce.IsNormal)
+            {
+                isMainTarget = false;
+            }
+
+            // 【无主据点不给主目标加成】
+            // 原版的 main_target 是"作战目标"，白城（force_id < 0）已经不属于任何人的作战范畴；
+            // 而本项目 CityAI 会把无主据点当高优先级目标下发（CityAI.cs:668 权重 9999），
+            // 一旦部队的 missionTarget 指向某座白城 / 空港，+o311TargetMain 会让它**永远**
+            // 被评为最优攻击格。但 City.ChangeTroops 对无主城是直接 return false
+            // （City.cs:2365-2367「白城直接占领」），既不扣兵力也不触发 OnFall ——
+            // 部队就会原地反复攻击同一格，玩家看到的就是"对着空港口鞭尸"。
+            // 去掉这份加成后，白城回落成"基础分 + 0"，AI 会自然转向还有主的目标。
+            if (isMainTarget && targetBuilding != null && targetBuilding.BelongForce == null)
             {
                 isMainTarget = false;
             }
@@ -1776,8 +1805,29 @@ namespace Sango.Core
 
                 // ---------- 妖术（:1190-1203） ----------
                 case StrategyType.Yojutsu:
-                    if (!chancePass) return 0;
-                    return baseScore + chance;
+                    {
+                        if (!chancePass) return 0;
+
+                        // 【命中己方 → 大负分】
+                        // 妖术是 Spiral 半径 1 的 AOE（Skills.json Id=30 atkOffsetPoint[0]=5），
+                        // 执行层对 canDamageTeam 的友军目标是照打的：
+                        //     SkillInstance.cs:760  `troop.IsEnemy(beAtkTroop) || canDamageTeam`
+                        //     SkillInstance.cs:862  `troop.IsEnemy(beAtkBuildingBase) || canDamageTeam`
+                        //     SkillInstance.cs:1269/:1277 计略效果落地同款判断
+                        // 原版 can_attack 对友军建筑 / 部队一律 false（s11_scen_obj_unit.cpp:329-354），
+                        // AI 根本拿不到这种落点；本项目把"误伤"做成了玩法，就必须在评分里把代价算清楚 ——
+                        // 否则 AI 会挑"以自家市场 / 农田为中心"的落点，一次扣 5 点耐久。
+                        //
+                        // 每个命中的己方格各扣一次（上层按格聚合累加），
+                        // 所以"AOE 扫到一片自家设施"会得到数倍惩罚，足以压过 +o311TargetMain(10000)。
+                        // 注意 IsEnemy 对无主返回 true（SangoObject.IsEnemy），中立目标不算误伤。
+                        if (targetTroop != null && !troop.IsEnemy(targetTroop))
+                            return -cfg.o311SelfDamagePenalty;
+                        if (targetBuilding != null && !troop.IsEnemy(targetBuilding))
+                            return -cfg.o311SelfDamagePenalty;
+
+                        return baseScore + chance;
+                    }
 
                 // ---------- 落雷（:1206-1224） ----------
                 case StrategyType.Rakurai:
@@ -1810,15 +1860,18 @@ namespace Sango.Core
             int score = 0;
 
             // 目标格自身：敌对 +1 / 友方 -2（原版 :1596-1599，比周围格更重）
+            // 【必须用 hostile_target / friendly_target】原版这两个判定对无主对象
+            // （force_id < 0）一律 false，而本项目 IsEnemy 对 null 势力返回 true ——
+            // 直接套用会让 AI 把"砸中立陷阱 / 中立设施"算成 +1 收益，白放一次落雷。
             if (pos.troop != null)
             {
-                if (troop.IsEnemy(pos.troop)) score += 1;
-                else if (pos.troop.BelongForce == troop.BelongForce) score -= 2;
+                if (IsHostileTarget(troop, pos.troop)) score += 1;
+                else if (IsFriendlyTarget(troop, pos.troop)) score -= 2;
             }
             else if (pos.building != null)
             {
-                if (troop.IsEnemy(pos.building)) score += 1;
-                else if (pos.building.BelongForce == troop.BelongForce) score -= 2;
+                if (IsHostileTarget(troop, pos.building)) score += 1;
+                else if (IsFriendlyTarget(troop, pos.building)) score -= 2;
             }
 
             for (int i = 0; i < 6; i++)
@@ -1827,13 +1880,13 @@ namespace Sango.Core
                 if (n == null) continue;
                 if (n.troop != null)
                 {
-                    if (troop.IsEnemy(n.troop)) score += 1;
-                    else if (n.troop.BelongForce == troop.BelongForce) score -= 1;
+                    if (IsHostileTarget(troop, n.troop)) score += 1;
+                    else if (IsFriendlyTarget(troop, n.troop)) score -= 1;
                 }
                 else if (n.building != null)
                 {
-                    if (troop.IsEnemy(n.building)) score += 1;
-                    else if (n.building.BelongForce == troop.BelongForce) score -= 1;
+                    if (IsHostileTarget(troop, n.building)) score += 1;
+                    else if (IsFriendlyTarget(troop, n.building)) score -= 1;
                 }
             }
 
@@ -1996,6 +2049,64 @@ namespace Sango.Core
             if (building.durability <= 0) return false;                   // :75-76 is_alive
             if (!IsTrapType(building.BuildingType)) return false;          // :80-81
             return building.isComplate;                                   // :82-83
+        }
+
+        /// <summary>
+        /// 【原版直译】是否为**敌对**目标 —— Unit::hostile_target（s11_scen_obj_unit.cpp:329-340）。
+        ///
+        /// 原版只认三件事：对象存活、是建筑/部队、<c>is_enemy()</c>。
+        /// 而 <c>is_enemy(a, b)</c> 在任一势力不存在时直接 false
+        /// （s11_sys_scen_force.cpp:881-892 的 885-888 两行），即**无主对象（force_id &lt; 0）永远不是敌人**。
+        ///
+        /// 【为什么不能直接调 IsEnemy】本项目 <see cref="SangoObject.IsEnemy(Force, Force)"/>
+        /// 在 forceB == null 时返回 **true**（SangoObject.cs:306-307）。陷阱建成后是中立建筑
+        /// （BelongForce == null，见 Building.OnCompleted 与 GovernanceValidator:85-108），
+        /// 直接套用会把中立陷阱 / 土垒 / 箭楼算成"敌人"，于是 get_trap_score 认为
+        /// "炸得到敌人"、返回正分 —— AI 就会去引爆一座实际上炸不到任何敌军的陷阱。
+        /// </summary>
+        static bool IsHostileTarget(Troop troop, Troop target)
+        {
+            if (troop == null || target == null) return false;
+            if (!target.IsAlive) return false;
+            if (troop.BelongForce == null || target.BelongForce == null) return false;
+            return troop.IsEnemy(target);
+        }
+
+        /// <summary>
+        /// 【原版直译】是否为**敌对**建筑 —— Unit::hostile_target（s11_scen_obj_unit.cpp:329-340）。
+        /// 见 <see cref="IsHostileTarget(Troop, Troop)"/> 的说明：无主建筑不算敌人。
+        /// </summary>
+        static bool IsHostileTarget(Troop troop, BuildingBase target)
+        {
+            if (troop == null || target == null) return false;
+            if (!target.IsAlive) return false;
+            if (troop.BelongForce == null || target.BelongForce == null) return false;
+            return troop.IsEnemy(target);
+        }
+
+        /// <summary>
+        /// 【原版直译】是否为**同势力**目标 —— Unit::friendly_target（s11_scen_obj_unit.cpp:316-327）。
+        /// 原版 <c>is_same_force</c> 比较的是 force_id（s11_scen_obj_unit.cpp:304-307）；
+        /// 本项目两边的 BelongForce 都为 null（无主）时按"不是友军"处理，与原版
+        /// "-1 == -1" 的字面差异只影响"无主部队 vs 中立建筑"，AI 部队（必有势力）不受影响。
+        /// </summary>
+        static bool IsFriendlyTarget(Troop troop, Troop target)
+        {
+            if (troop == null || target == null) return false;
+            if (!target.IsAlive) return false;
+            if (troop.BelongForce == null || target.BelongForce == null) return false;
+            return target.BelongForce == troop.BelongForce;
+        }
+
+        /// <summary>
+        /// 【原版直译】是否为**同势力**建筑 —— Unit::friendly_target（s11_scen_obj_unit.cpp:316-327）。
+        /// </summary>
+        static bool IsFriendlyTarget(Troop troop, BuildingBase target)
+        {
+            if (troop == null || target == null) return false;
+            if (!target.IsAlive) return false;
+            if (troop.BelongForce == null || target.BelongForce == null) return false;
+            return target.BelongForce == troop.BelongForce;
         }
 
         /// <summary>
@@ -2354,14 +2465,15 @@ namespace Sango.Core
 
                 if (c.troop != null)
                 {
-                    if (troop.IsEnemy(c.troop)) weight += 1;
-                    else if (c.troop.BelongForce == troop.BelongForce) weight -= 2;
+                    // 敌 +1 / 友 -2 / 其它（含无主）计入 allies_count（原版 :2247-2252）
+                    if (IsHostileTarget(troop, c.troop)) weight += 1;
+                    else if (IsFriendlyTarget(troop, c.troop)) weight -= 2;
                     else alliesCount += 1;
                 }
                 else if (c.building != null)
                 {
-                    if (troop.IsEnemy(c.building)) weight += 1;
-                    else if (c.building.BelongForce == troop.BelongForce) weight -= 2;
+                    if (IsHostileTarget(troop, c.building)) weight += 1;
+                    else if (IsFriendlyTarget(troop, c.building)) weight -= 2;
                     else alliesCount += 1;
                 }
             });
@@ -2412,14 +2524,15 @@ namespace Sango.Core
 
                 if (cur.troop != null)
                 {
-                    if (troop.IsEnemy(cur.troop)) weight += 1;
-                    else if (cur.troop.BelongForce == troop.BelongForce) weight -= 1;
+                    // 敌 +1 / 友 -1 / 其它（含无主）计入 allies_count（原版 :2276-2281）
+                    if (IsHostileTarget(troop, cur.troop)) weight += 1;
+                    else if (IsFriendlyTarget(troop, cur.troop)) weight -= 1;
                     else alliesCount += 1;
                 }
                 else if (cur.building != null)
                 {
-                    if (troop.IsEnemy(cur.building)) weight += 1;
-                    else if (cur.building.BelongForce == troop.BelongForce) weight -= 1;
+                    if (IsHostileTarget(troop, cur.building)) weight += 1;
+                    else if (IsFriendlyTarget(troop, cur.building)) weight -= 1;
                     else alliesCount += 1;
 
                     // 原版 :2282-2283：撞到建筑且不穿透 → 停止

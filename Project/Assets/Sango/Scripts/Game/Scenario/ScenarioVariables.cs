@@ -410,16 +410,6 @@ namespace Sango.Core
         [JsonProperty] public float playerGoldFactor = 1f;
 
         /// <summary>
-        /// 每月变化的关系值
-        /// </summary>
-        [JsonProperty] public int relationChangePerMonth = -200;
-
-        /// <summary>
-        /// 每月的关系变化率
-        /// </summary>
-        [JsonProperty] public int relationChangeChance = 50;
-
-        /// <summary>
         /// 破城时候的抓捕率(百分比)
         /// </summary>
         [JsonProperty] public int captureChangceWhenCityFall = 10;
@@ -770,75 +760,13 @@ namespace Sango.Core
 
         #region 外交系统参数
 
-        /// <summary>
-        /// 外交关系阈值 - 结盟
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRelationThreshold = 2000;
-
-        /// <summary>
-        /// 外交关系阈值 - 停战
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRelationThreshold = -1000;
-
-        /// <summary>
-        /// 外交关系阈值 - 请求技术
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTechniqueRelationThreshold = 1000;
-
-        /// <summary>
-        /// 外交关系阈值 - 请求兵力
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTroopsRelationThreshold = 1500;
-
-        /// <summary>
-        /// 外交关系阈值 - 通商
-        /// </summary>
-        [JsonProperty] public int diplomacyTradeRelationThreshold = -500;
-
-        /// <summary>
-        /// 外交关系阈值 - 和亲
-        /// </summary>
-        [JsonProperty] public int diplomacyMarriageRelationThreshold = 1500;
-
-        /// <summary>
-        /// 外交关系阈值 - 请求结盟
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRequestRelationThreshold = 1500;
-
-        /// <summary>
-        /// 外交关系阈值 - 请求停战
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRequestRelationThreshold = -1500;
-
-        /// <summary>
-        /// 使者能力加成上限
-        /// </summary>
-        [JsonProperty] public int diplomacyAbilityBonusMax = 20;
-
-        /// <summary>
-        /// 资源价值加成上限
-        /// </summary>
-        [JsonProperty] public int diplomacyResourceBonusMax = 30;
-
-        /// <summary>
-        /// 资源价值加成系数
-        /// </summary>
-        [JsonProperty] public int diplomacyResourceBonusFactor = 100;
-
-        /// <summary>
-        /// 结盟关系增加
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRelationIncrease = 500;
-
-        /// <summary>
-        /// 停战关系增加
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRelationIncrease = 300;
-
-        /// <summary>
-        /// 宣战关系减少
-        /// </summary>
-        [JsonProperty] public int diplomacyDeclareWarRelationDecrease = 10;
+        // 【已删除】历史遗留的、在 C# 侧没有任何读取点的一批外交参数已清理，包括：
+        //   · raw 尺度的关系阈值 / 关系增减（diplomacy*RelationThreshold / Increase / Decrease）
+        //   · 旧版外交成功率模型（diplomacy*BaseSuccessRate / *RelationFactor / *Max|MinSuccessRate
+        //     以及 diplomacy*ChanceDenominator / ChanceOffset）
+        //   · 使者能力加成、资源价值加成、赎回费用因子（diplomacyAbilityBonusMax、diplomacyRansom*CostFactor）
+        //   · 月度关系漂移参数（relationChangePerMonth / relationChangeChance）
+        // 外交判定统一走 DiplomacyRules 的 like(0~100) 公式；需要新的可调参数时请加在那里。
 
         /// <summary>
         /// 送礼金额
@@ -846,69 +774,9 @@ namespace Sango.Core
         [JsonProperty] public int diplomacySendGiftAmount = 1000;
 
         /// <summary>
-        /// 送礼关系增加比例
-        /// </summary>
-        [JsonProperty] public int diplomacySendGiftRelationFactor = 10;
-
-        /// <summary>
-        /// 请求技术关系减少
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTechniqueRelationDecrease = 2;
-
-        /// <summary>
-        /// 请求兵力关系减少
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTroopsRelationDecrease = 3;
-
-        /// <summary>
-        /// 通商关系增加
-        /// </summary>
-        [JsonProperty] public int diplomacyTradeRelationIncrease = 100;
-
-        /// <summary>
         /// 通商黄金收入增加
         /// </summary>
         [JsonProperty] public int diplomacyTradeGoldIncrease = 50;
-
-        /// <summary>
-        /// 和亲关系增加
-        /// </summary>
-        [JsonProperty] public int diplomacyMarriageRelationIncrease = 500;
-
-        /// <summary>
-        /// 和亲额外关系增加
-        /// </summary>
-        [JsonProperty] public int diplomacyMarriageExtraRelationIncrease = 200;
-
-        /// <summary>
-        /// 赎回俘虏关系增加比例
-        /// </summary>
-        [JsonProperty] public int diplomacyRansomRelationFactor = 20;
-
-        /// <summary>
-        /// 请求结盟关系增加
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRequestRelationIncrease = 50;
-
-        /// <summary>
-        /// 请求停战关系增加
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRequestRelationIncrease = 30;
-
-        /// <summary>
-        /// 撕毁同盟关系减少
-        /// </summary>
-        [JsonProperty] public int diplomacyBreakAllianceRelationDecrease = 5;
-
-        /// <summary>
-        /// 撕毁停战关系减少
-        /// </summary>
-        [JsonProperty] public int diplomacyBreakTruceRelationDecrease = 3;
-
-        /// <summary>
-        /// 撕毁通商关系减少
-        /// </summary>
-        [JsonProperty] public int diplomacyBreakTradeRelationDecrease = 2;
 
         /// <summary>
         /// 同盟持续时间
@@ -925,244 +793,6 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int diplomacyTradeDuration = 24;
 
-        /// <summary>
-        /// 每月同盟关系增加
-        /// </summary>
-        [JsonProperty] public int diplomacyMonthlyAllianceRelationIncrease = 50;
-
-        /// <summary>
-        /// 每月普通关系减少
-        /// </summary>
-        [JsonProperty] public int diplomacyMonthlyNormalRelationDecrease = 1;
-
-        /// <summary>
-        /// 外交成功率 - 结盟基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceBaseSuccessRate = 50;
-
-        /// <summary>
-        /// 外交成功率 - 结盟关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyAllianceRelationFactor = 50;
-
-        /// <summary>
-        /// 外交成功率 - 结盟最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceMaxSuccessRate = 90;
-
-        /// <summary>
-        /// 外交成功率 - 结盟最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceMinSuccessRate = 10;
-
-        /// <summary>
-        /// 外交成功率 - 停战基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceBaseSuccessRate = 40;
-
-        /// <summary>
-        /// 外交成功率 - 停战关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyTruceRelationFactor = 37.5f;
-
-        /// <summary>
-        /// 外交成功率 - 停战最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceMaxSuccessRate = 80;
-
-        /// <summary>
-        /// 外交成功率 - 停战最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceMinSuccessRate = 10;
-
-        /// <summary>
-        /// 外交成功率 - 请求技术基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTechniqueBaseSuccessRate = 30;
-
-        /// <summary>
-        /// 外交成功率 - 请求技术关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyRequestTechniqueRelationFactor = 47.06f;
-
-        /// <summary>
-        /// 外交成功率 - 请求技术最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTechniqueMaxSuccessRate = 85;
-
-        /// <summary>
-        /// 外交成功率 - 请求技术最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTechniqueMinSuccessRate = 10;
-
-        /// <summary>
-        /// 外交成功率 - 请求兵力基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTroopsBaseSuccessRate = 20;
-
-        /// <summary>
-        /// 外交成功率 - 请求兵力关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyRequestTroopsRelationFactor = 43.75f;
-
-        /// <summary>
-        /// 外交成功率 - 请求兵力最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTroopsMaxSuccessRate = 80;
-
-        /// <summary>
-        /// 外交成功率 - 请求兵力最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRequestTroopsMinSuccessRate = 5;
-
-        /// <summary>
-        /// 外交成功率 - 通商基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTradeBaseSuccessRate = 50;
-
-        /// <summary>
-        /// 外交成功率 - 通商关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyTradeRelationFactor = 55.56f;
-
-        /// <summary>
-        /// 外交成功率 - 通商最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTradeMaxSuccessRate = 95;
-
-        /// <summary>
-        /// 外交成功率 - 通商最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTradeMinSuccessRate = 10;
-
-        /// <summary>
-        /// 外交成功率 - 和亲基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyMarriageBaseSuccessRate = 40;
-
-        /// <summary>
-        /// 外交成功率 - 和亲关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyMarriageRelationFactor = 36.84f;
-
-        /// <summary>
-        /// 外交成功率 - 和亲最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyMarriageMaxSuccessRate = 95;
-
-        /// <summary>
-        /// 外交成功率 - 和亲最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyMarriageMinSuccessRate = 10;
-
-        /// <summary>
-        /// 外交成功率 - 请求结盟基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRequestBaseSuccessRate = 30;
-
-        /// <summary>
-        /// 外交成功率 - 请求结盟关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyAllianceRequestRelationFactor = 41.18f;
-
-        /// <summary>
-        /// 外交成功率 - 请求结盟最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRequestMaxSuccessRate = 85;
-
-        /// <summary>
-        /// 外交成功率 - 请求结盟最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRequestMinSuccessRate = 10;
-
-        /// <summary>
-        /// 外交成功率 - 请求停战基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRequestBaseSuccessRate = 20;
-
-        /// <summary>
-        /// 外交成功率 - 请求停战关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyTruceRequestRelationFactor = 40f;
-
-        /// <summary>
-        /// 外交成功率 - 请求停战最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRequestMaxSuccessRate = 75;
-
-        /// <summary>
-        /// 外交成功率 - 请求停战最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRequestMinSuccessRate = 5;
-
-        /// <summary>
-        /// 外交成功率 - 赎回俘虏基础成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRansomBaseSuccessRate = 30;
-
-        /// <summary>
-        /// 外交成功率 - 赎回俘虏关系系数
-        /// </summary>
-        [JsonProperty] public float diplomacyRansomSuccessRelationFactor = 40f;
-
-        /// <summary>
-        /// 外交成功率 - 赎回俘虏最大成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRansomMaxSuccessRate = 90;
-
-        /// <summary>
-        /// 外交成功率 - 赎回俘虏最低成功率
-        /// </summary>
-        [JsonProperty] public int diplomacyRansomMinSuccessRate = 10;
-
-        /// <summary>
-        /// 赎回俘虏费用 - 等级费用因子
-        /// </summary>
-        [JsonProperty] public int diplomacyRansomLevelCostFactor = 100;
-
-        /// <summary>
-        /// 赎回俘虏费用 - 功绩费用因子
-        /// </summary>
-        [JsonProperty] public int diplomacyRansomMeritCostFactor = 10;
-
-        /// <summary>
-        /// 赎回俘虏费用 - 官职费用因子
-        /// </summary>
-        [JsonProperty] public int diplomacyRansomOfficialCostFactor = 500;
-
-        /// <summary>
-        /// 赎回俘虏费用 - 属性费用因子
-        /// </summary>
-        [JsonProperty] public int diplomacyRansomAttributeCostFactor = 20;
-
-        /// <summary>
-        /// 外交成功率 - 请求结盟关系阈值
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRequestSuccessRelationThreshold = 800;
-
-        /// <summary>
-        /// 外交成功率 - 请求停战关系阈值
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRequestSuccessRelationThreshold = -800;
-
-        /// <summary>
-        /// 外交成功率 - 请求结盟随机概率分母
-        /// </summary>
-        [JsonProperty] public int diplomacyAllianceRequestChanceDenominator = 2000;
-
-        /// <summary>
-        /// 外交成功率 - 请求停战随机概率分母
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRequestChanceDenominator = 1500;
-
-        /// <summary>
-        /// 外交成功率 - 请求停战随机概率偏移
-        /// </summary>
-        [JsonProperty] public int diplomacyTruceRequestChanceOffset = 1000;
-
-        /// <summary>
-        /// 外交失败基础惩罚值
-        /// </summary>
         /// <summary>外交失败基础惩罚值（like 尺度 0~100；旧档存的是 raw 量级，读取时会 /100 折算）</summary>
         [JsonProperty] public int diplomacyFailedBasePenalty = 3;
 
@@ -1223,10 +853,14 @@ namespace Sango.Core
 
         /// <summary>
         /// 势力关系恶化到该值（含）以下时，AI 会放弃与对方的同盟并转向敌对。
-        /// 对应原版脚本 808 新外交战争.cpp 的"relations &lt;= 0 即破盟"，按本工程刻度换算为 -3000；
-        /// 原版关系下限映射在本工程刻度上恰好是钳制边界 -5000，永远达不到，故必须显式设线。
+        /// 对应原版脚本 808 新外交战争.cpp 的"relations &lt;= 0 即破盟"。
+        ///
+        /// 【尺度】关系表现已与 Open311 同为 0~100（50 中立、钳制下限 0）。
+        /// 原版脚本的 0 在 raw(±5000) 时代被写成 -3000，换算回 like 恰为 20
+        ///（`DiplomacyRules.GetYookouLevel` 的"险恶"分界），故取 20。
+        /// 若配成负数，判定会永不成立，二虎竞食后的破盟宣战将彻底失效。
         /// </summary>
-        [JsonProperty] public int cityStrategyWarTriggerRelation = -3000;
+        [JsonProperty] public int cityStrategyWarTriggerRelation = 20;
 
         /// <summary>
         /// 城市计略彻底失败（被识破）时对"发起方与各目标方"关系的反噬值（0 表示不反噬）。

@@ -592,6 +592,38 @@ namespace Sango.Core
         [JsonProperty]
         public BuffManager buffManager = new BuffManager();
 
+        /// <summary>
+        /// 部队**状态标记位**（位域，取值见 <see cref="TroopStateFlag"/>）。
+        ///
+        /// 【为什么是派生状态、不序列化】内容完全由 <see cref="buffManager"/> 里的 Buff 决定。
+        /// 存进存档只会在"读档后 Buff 已过期但标记还在"这类情况下产生不一致，
+        /// 因此每次增删 Buff 都调用 <see cref="RefreshStateFlags"/> 重算，热路径只读 bit。
+        ///
+        /// 【与 <see cref="pathFlags"/> 的区别】那个是"特技 / 科技给的寻路免疫开关"，
+        /// 由持有者自己置位 / 清位；本字段是**部队当前状态**，只由 BuffManager 统一重算。
+        /// </summary>
+        int stateFlags;
+
+        /// <summary>
+        /// 是否处于**混乱**状态（原版 <c>UnitState_Konran</c>）。
+        /// 混乱部队不向周围施加 ZOC（见 <see cref="TroopStateFlag.Chaos"/>）。
+        /// </summary>
+        public bool isChaos
+        {
+            get { return (stateFlags & (int)TroopStateFlag.Chaos) != 0; }
+        }
+
+        /// <summary>
+        /// 按当前 Buff 列表重算 <see cref="stateFlags"/>。
+        ///
+        /// 【调用点】只由 <see cref="BuffManager"/> 在 Buff 增 / 删 / 到期 / 清空后调用，
+        /// 业务代码不要手动置位 —— 手动置位一旦漏掉清位，就会留下"永久混乱"。
+        /// </summary>
+        public void RefreshStateFlags()
+        {
+            stateFlags = buffManager != null ? buffManager.GetStateFlags() : 0;
+        }
+
         public void AddBuff(int id, int turnCount, Troop srcTroop)
         {
             // 【根因修复】buffManager 是 [JsonProperty] 字段：读档 / 新建时会被反序列化
@@ -2536,8 +2568,9 @@ namespace Sango.Core
             isNewEmitted = false;
 
             City home = homeCity != null ? homeCity : BelongCity;
-            if (home != null && home.pendingOutTroop == this)
-                home.pendingOutTroop = null;
+            // 出城队列可能同时挂多支，按引用摘掉自己（不是清空整表）
+            if (home != null)
+                home.pendingOutTroops.Remove(this);
         }
 
         public void UpdateCell(Cell destCell, Cell lastCell, bool isEndMove)

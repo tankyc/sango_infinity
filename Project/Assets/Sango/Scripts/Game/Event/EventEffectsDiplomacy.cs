@@ -91,7 +91,7 @@ namespace Sango.Core.Event
             // ③ 关系值：与原外交行为保持同一口径
             // 【改为 like 尺度】原版结盟成功是 `force_add_like(actor, target, +10)`
             //（s11_sys_person_order_diplomacy.cpp:615），本项目原先走的是
-            // `diplomacyAllianceRelationIncrease`（默认 500，raw 量级）。
+            // raw 尺度的 `diplomacy*RelationIncrease` 配置（默认 500 那批，已删除）。
             // 关系表已改为 0~100，这里统一用 like 常量。
             if (type == AllianceType.Alliance && a != null && b != null)
                 a.AddLike(b, DiplomacyRules.AllianceLikeGain);

@@ -120,10 +120,9 @@ namespace Sango.Core.Player
             TargetCity.gold -= gold;
             diplomacyManager.DispatchDiplomat(action);
 
-            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, "交给我吧, 保证完成任务!!", () =>
-            {
-                Done();
-            }, null, personList[0], 5);
+            // 【先退出命令，再播台词】Done() 挂回调会被 GameDialog 静默丢弃，导致命令不退出、回合卡死
+            Done();
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, "交给我吧, 保证完成任务!!", null, null, personList[0], 5);
         }
     }
 }
