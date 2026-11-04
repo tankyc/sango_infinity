@@ -73,10 +73,18 @@ namespace Sango.Core
         public int diplomacyDonateStagger = 8;
 
         /// <summary>战时求和的错峰周期（原版 turn % 21，只对"打进来的那家"求和）</summary>
-        public int diplomacyCeasefireWarStagger = 24;
+        public int diplomacyCeasefireWarStagger = 21;
 
-        /// <summary>无战事时"预防性停战"的错峰周期（原版 turn % 6，势力数 ≥ 3 时才错峰）</summary>
-        public int diplomacyCeasefirePeaceStagger = 9;
+        /// <summary>
+        /// 预防性停战的外层错峰周期（原版 `s11_game_ai_force_cmd_dip.cpp:596` 的
+        /// `turn % 21 == force_id % 21`，仅在"没有在进攻任何人"时生效）。
+        /// </summary>
+        public int diplomacyCeasefirePeaceStagger = 21;
+
+        /// <summary>
+        /// 被 ≥3 家相邻敌势力围住时，预防性停战再加一道错峰（原版 `:632` 的 `turn % 6`）。
+        /// </summary>
+        public int diplomacyCeasefireManyEnemyStagger = 6;
 
         #endregion
 
@@ -155,7 +163,7 @@ namespace Sango.Core
         /// 【原版无对应实现】Open311 的据点进攻目标排序（<c>ai_table_get_attack_dest_building_list</c>）
         /// 只按距离与战力给候选，不区分玩家 / AI。此项是本项目自创的"针对玩家施压"调节项。
         /// </summary>
-        public int attackTargetPlayerBonus = 1500;
+        public int attackTargetPlayerBonus = 3500;
 
         /// <summary>
         /// AI 单次出阵（Attack 命令）消耗的据点行动力，默认 5。
@@ -190,7 +198,8 @@ namespace Sango.Core
         /// 打开后 Console 会打印 AICanAttack 各否决原因、DecideAttackTarget 选中/未选中目标，
         /// 用于排查"某座城为什么不出兵"。仅在临时排查时打开。
         /// </summary>
-        public bool logAttackAI = false;
+        [JsonIgnore]
+        public bool logAttackAI = true;
 
         #endregion
 
@@ -966,6 +975,7 @@ namespace Sango.Core
         /// 对齐原版 s11_game_ai_kyoten_cmd.cpp:15-70 的 debug 日志（原版由 s11_log 宏控制）。
         /// 仅在排查"某座城为什么不出兵 / 不打仗"时临时打开。
         /// </summary>
+        [JsonIgnore]
         public bool logOutpostAI = false;
 
         /// <summary>

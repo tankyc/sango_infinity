@@ -256,8 +256,28 @@ namespace Sango.Core
             return moveCost[cell.TerrainType.Id];
         }
 
+        /// <summary>
+        /// 该兵种在当前势力（科技）条件下是否可组建。
+        ///
+        /// 【空势力保护】<paramref name="force"/> 可能为 null：
+        /// 调用方通常拿"空闲武将列表第一个人的 BelongForce"当判定基准，
+        /// 而 <c>Person.BelongForce</c> 是派生值（读 BelongCorps），
+        /// 武将未分配军团 / 已下野时它就是 null，直接解引用会抛 NullReferenceException
+        /// （实战崩在出征界面 OnEnter → CheckActivTroopTypeList）。
+        /// 此时按"科技条件一律不满足"处理，只保留不需要科技的兵种，避免把科技兵种误发给无势力武将。
+        /// </summary>
+        /// <param name="force">判定用势力，可为 null</param>
+        /// <returns>可组建返回 true</returns>
         public bool IsValid(Force force)
         {
+            // 不需要任何科技条件的兵种（剑兵 / 运输 / 走舸等）与势力无关
+            if (validTechId == 0)
+                return true;
+
+            // 无势力上下文：科技条件无法判定，保守视为不满足
+            if (force == null)
+                return false;
+
             // 检查科技
             if (validTechId > 0 && !force.HasTechnique(validTechId))
                 return false;
@@ -271,20 +291,38 @@ namespace Sango.Core
         {
             if (checkPersonList == null || checkPersonList.Count == 0) return;
 
-            Force force = checkPersonList[0].BelongForce;
+            // 【判定基准】取第一个**有势力归属**的武将，而不是固定取 [0]：
+            // 空闲武将列表里可能混着 BelongCorps 为空的武将（刚登用未编入军团 / 下野残留），
+            // 直接取 [0].BelongForce 会得到 null，进 IsValid 后解引用崩溃。
+            // 全部武将都没有势力时保持 null，由 IsValid 退化为"只允许无需科技的兵种"。
+            Force force = null;
+            for (int i = 0; i < checkPersonList.Count; i++)
+            {
+                Person person = checkPersonList[i];
+                Force personForce = person?.BelongForce;
+                if (personForce != null)
+                {
+                    force = personForce;
+                    break;
+                }
+            }
 
             // 确定可组建特殊兵种
-            Scenario.Cur.CommonData.TroopTypes.ForEach(t =>
+            // 【性能】原 TroopTypes.ForEach(lambda) 捕获 force / checkPersonList / activeTroopTypes，
+            // 改成按下标遍历底层数组，内层 return 一律改 continue。
+            foreach (KeyValuePair<int, TroopType> kv in Scenario.Cur.CommonData.TroopTypes.objects)
             {
-                if (!t.isFight) return;
+                TroopType t = kv.Value;
+                if (t == null || !t.isFight)
+                    continue;
 
                 if (!t.IsValid(force))
-                    return;
+                    continue;
 
                 if (t.validItemId == 0)
                 {
                     activeTroopTypes.Add(t);
-                    return;
+                    continue;
                 }
 
                 // 检查武将限定道具
@@ -294,10 +332,10 @@ namespace Sango.Core
                     if (person != null && person.HasItem(t.validItemId))
                     {
                         activeTroopTypes.Add(t);
-                        return;
+                        break;
                     }
                 }
-            });
+            }
         }
 
         //// 获取满足消耗的可组建兵种
@@ -348,6 +386,13 @@ namespace Sango.Core
 
         public bool CheckCost(City city, int troops)
         {
+            // 【空势力保护】city.BelongForce 是派生值（City.cs:21：BelongCorps?.BelongForce ?? null），
+            // 无主据点、军团尚未建立或已解散时会返回 null，
+            // 下面读 TechniquePoint 的那一行就会抛 NullReferenceException
+            // （AI 组队路径 GetCostEnoughTroopTypeList → CheckCost 会踩到）。
+            // 没有势力的据点不可能组建部队，直接按"消耗不满足"处理。
+            if (city.BelongForce == null) return false;
+
             if (city.food < costFood * troops) return false;
             if (city.gold < costGold * troops) return false;
             if (city.troopPopulation < costPopulation * troops) return false;

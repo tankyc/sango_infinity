@@ -194,8 +194,10 @@ using Sango.Core; namespace Sango.UI
             /// <returns>消息项游戏对象</returns>
             public GameObject GetObject(int index)
             {
-                if (index < 0 || index >= uIPlayerMessage.playerMessage.personMessages.Count)
-                    return null;
+                // 【不能返回 null】插件侧 LoopScrollRectMulti.GetFromTempPool 会对返回值直接取 .transform
+                // （LoopScrollRectMulti.cs:24），返回 null 必然抛 NullReferenceException。
+                // 越界索引由 ProvideData 内部拦截（不填数据，项留空显示），
+                // 但对象本身必须给出来 —— 与 TextMessageScroll.GetObject 保持同一约定。
                 UIPersonMessageItem uITextMessageItem = pool.Create();
                 return uITextMessageItem.gameObject;
             }
@@ -352,14 +354,19 @@ using Sango.Core; namespace Sango.UI
         void UpdatePersonView()
         {
             personMessageScrollRect.totalCount = playerMessage.personMessages.Count;
-            textMessageScrollRect.RefillCellsFromEnd();
+            // 【必须刷自己】原先这里误写成了 textMessageScrollRect：
+            // 人物列表的 totalCount 变大了、内部索引区间却没重建，
+            // 拖动时 LoopScrollRectMulti.NewItemAtStart 就会用越界的 itemIdx 取对象，
+            // PersonMessageScroll.GetObject 判越界返回 null，插件取 .transform 直接空引用。
+            personMessageScrollRect.RefillCellsFromEnd();
             needUpdatePersonView = false;
             //Invoke("ToEndPersonView", 0.01f);
         }
 
         void ToEndPersonView()
         {
-            personMessageScrollRect.ScrollToCell(textMessageScrollRect.totalCount - 1, 99999);
+            // 同理：人物列表滚到末尾，取的是人物列表的 totalCount，不是文本列表的
+            personMessageScrollRect.ScrollToCell(personMessageScrollRect.totalCount - 1, 99999);
         }
 
         /// <summary>

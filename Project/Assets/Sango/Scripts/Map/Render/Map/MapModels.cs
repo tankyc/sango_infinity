@@ -279,16 +279,43 @@ namespace Sango.Render
 
         public ModelInstanceData[] modelInstanceDatas;
 
+        /// <summary>
+        /// 已经报过"模型 Id 越界"的 modelId。
+        /// Update 会随着视野变化反复触发 AddInstance，不去重会每帧刷一条日志。
+        /// </summary>
+        static readonly System.Collections.Generic.HashSet<int> reportedBadModelId
+            = new System.Collections.Generic.HashSet<int>();
+
         public void AddInstance(IMapManageObject obj)
         {
-            ModelInstanceData modelInstanceData = modelInstanceDatas[obj.modelId - 1];
-            modelInstanceData.Add(obj);
+            // 【下标边界】modelId 的合法范围是 1..14，对应 modelInstanceDatas 的下标 modelId - 1
+            // （见 Init 里的 new ModelInstanceData[14]）。
+            // 但地图数据里可能残留 0 或越界的 modelId（编辑器手改 / 旧版本地图 / Mod 地图），
+            // CreateModel 只挡了 modelId == 0，没挡上限，这类对象照样会进 staticObjects。
+            // 直接当下标用会抛 IndexOutOfRangeException。
+            // AddPlant（本文件 484-486）与植被绘制（768-769）早就是同样的边界写法，
+            // 这里补齐，保持一致。
+            if (modelInstanceDatas == null) return;
+            int index = obj.modelId - 1;
+            if (index < 0 || index >= modelInstanceDatas.Length)
+            {
+                // 报一次，方便顺着 objId / modelId 回查是哪张地图、哪条记录写错了
+                if (reportedBadModelId.Add(obj.modelId))
+                    Sango.Log.Warning($"*[地图模型]物件 objId={obj.objId} 的 modelId={obj.modelId} 不在 1..{modelInstanceDatas.Length} 范围内，已跳过实例化渲染");
+                return;
+            }
+            modelInstanceDatas[index].Add(obj);
         }
 
         public void RemoveInstance(IMapManageObject obj)
         {
-            ModelInstanceData modelInstanceData = modelInstanceDatas[obj.modelId - 1];
-            modelInstanceData.Remove(obj);
+            // 同 AddInstance：退出到主菜单时会走
+            // MapRender.Clear → MapModels.ClearAllModels → obj.visible = false
+            // → MapObject.ClearModels → 本方法，模型 Id 非法的静态物件在这里越界崩溃。
+            if (modelInstanceDatas == null) return;
+            int index = obj.modelId - 1;
+            if (index < 0 || index >= modelInstanceDatas.Length) return;
+            modelInstanceDatas[index].Remove(obj);
         }
 
         public MapModels(MapRender map) : base(map)

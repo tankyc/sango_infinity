@@ -1462,7 +1462,8 @@ namespace Sango.Core
         /// 【动作层】原版在这一步反复调 <c>com_deploy</c>，按"目标还缺多少兵"逐支编成部队
         /// （带兵 + 带粮 + 带金 + 一件攻城器械），最多 <c>max_unit_count</c> 支。
         /// 本项目由资材侧统一招标（<see cref="AIMakeTroop"/> 按城池现有兵装/粮草决定兵种与兵力），
-        /// 一次支援派一支，目标直接取上面选定的据点；后续回合若目标仍缺兵会继续派。
+        /// 同一条命令内循环组建到 <c>max_unit_count</c>，每支单独扣一次行动力，
+        /// 留守兵力 / 粮草 / 行动力不足时自动收尾（与原版逐支扣成本一致）。
         /// </para>
         /// </summary>
         /// <param name="city">据点</param>
@@ -1553,46 +1554,79 @@ namespace Sango.Core
             if (OutpostRuntime.gold < maxUnitCount * 400)
                 return false;
 
-            // 动作层：组建一支部队、出城、挂"驰援目标据点"任务
-            Troop troop = AIMakeTroop(city, 20, false, scenario);
-            if (troop == null)
-                return false;
-            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-            if (troop == null)
-                return false;               // 城池被围困，无法出城
-
-            // 【任务类型必须是"移动"，不能是"保护城池"】
-            // `SupportMilitary` 的语义是**补充兵力**：把兵送到、并入目标城。
-            // 而 `TroopProtectCity` 是**解围**任务，它的 `Prepare` 一上来就判
-            // `isNoEnemyAlive`（目标城当前是否有敌人），无敌人时立刻 `TroopReturnCity` ——
-            // 结果部队刚创建就被改判返城，表现为"出城后一直站在城头没动"。
-            // `TroopMovetoCity` 到达目标城格后会 `EnterCity`，兵力并入城池，正是增援所需。
-            troop.SetMission(MissionType.TroopMovetoCity, target.Id);
-
-            // 【意图层】覆盖 AIMakeTroop 按城市任务推断出来的意图：
-            // 本方法的语义是"跨城增援"，对应原版 DeployType_Defense
-            // （s11_game_ai_kyoten_cmd_mil_defense.cpp:264-266 派兵时写的就是 deploy_[] 里的防卫目标）。
-            // 不覆盖的话，deployType 会跟着 city.TroopMissionType 走，
-            // 后续 UpdateAIOrder 的改派表就会按错误的意图判断。
-            troop.deployType = (int)TroopDeployType.Defense;
-            troop.deployTarget = target.Id;
-
-            troop.NeedPrepareMission();
-
-            // 【立即出城】不能停在城头等下一回合（对齐 s11_sys_person_order_military.cpp:331-353
-            // 的 unit_set_order → run_order）。失败则整次出兵作废，不扣行动力。
-            if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+            // 动作层：按 maxUnitCount 循环组建、出城、挂"驰援目标据点"任务。
+            // 【一次出多支】maxUnitCount 已受"行动力 / 可下令人数 / 留守人数"三者限制，
+            // 以前只用了它做上限判断却只组建 1 支，兵力不足的友城等不到第二波。
+            // 每支单独扣一次行动力；留守兵力、粮草、行动力不足时自动收尾。
+            int createdCount = 0;
+            while (createdCount < maxUnitCount)
             {
-                Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的支援部队无法出城（城头无可停留格或寻路失败），本次支援取消");
-                CityTroopFactory.RevokeEmit(city, troop);
-                return false;
+                // 硬上限保护（防止异常数据导致同一帧无限出兵）
+                if (createdCount >= MaxEmitTroopPerDispatch)
+                    break;
+                if (cost > 0 && OutpostRuntime.actionPoint < cost)
+                    break;
+                if (city.freePersons.Count <= 0)
+                    break;
+                if (city.troops < keepTroops + 3000)
+                    break;
+                if (OutpostRuntime.food < ForceAI.CalcExpectedFoodUse(keepTroops, 10))
+                    break;
+                // 每支按 400 金估算，逐支累加检查
+                if (OutpostRuntime.gold < (createdCount + 1) * 400)
+                    break;
+
+                Troop troop = AIMakeTroop(city, 20, false, scenario);
+                if (troop == null)
+                    break;
+                troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+                if (troop == null)
+                    break;                  // 城池被围困，无法出城
+
+                // 【任务类型必须是"移动"，不能是"保护城池"】
+                // `SupportMilitary` 的语义是**补充兵力**：把兵送到、并入目标城。
+                // 而 `TroopProtectCity` 是**解围**任务，它的 `Prepare` 一上来就判
+                // `isNoEnemyAlive`（目标城当前是否有敌人），无敌人时立刻 `TroopReturnCity` ——
+                // 结果部队刚创建就被改判返城，表现为"出城后一直站在城头没动"。
+                // `TroopMovetoCity` 到达目标城格后会 `EnterCity`，兵力并入城池，正是增援所需。
+                troop.SetMission(MissionType.TroopMovetoCity, target.Id);
+
+                // 【意图层】覆盖 AIMakeTroop 按城市任务推断出来的意图：
+                // 本方法的语义是"跨城增援"，对应原版 DeployType_Defense
+                // （s11_game_ai_kyoten_cmd_mil_defense.cpp:264-266 派兵时写的就是 deploy_[] 里的防卫目标）。
+                // 不覆盖的话，deployType 会跟着 city.TroopMissionType 走，
+                // 后续 UpdateAIOrder 的改派表就会按错误的意图判断。
+                troop.deployType = (int)TroopDeployType.Defense;
+                troop.deployTarget = target.Id;
+
+                troop.NeedPrepareMission();
+
+                // 【立即出城】不能停在城头等下一回合（对齐 s11_sys_person_order_military.cpp:331-353
+                // 的 unit_set_order → run_order）。失败则本次出兵作废，不扣行动力。
+                if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+                {
+                    Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的支援部队无法出城（城头无可停留格或寻路失败），本次支援取消");
+                    CityTroopFactory.RevokeEmit(city, troop);
+                    break;
+                }
+
+                // 每支单独扣据点行动力（自扣型命令，告诉调度器不要再补扣一次）
+                OutpostRuntime.actionPoint -= cost;
+                OutpostRuntime.MarkExecuted();
+                createdCount++;
+
+                if (AIConfig.Instance.logOutpostAI)
+                    Sango.Log.Info($"*[据点AI]{city.Name} 派兵支援 → {target.Name}（{troop.Leader?.Name}）");
+
+                // 该队成员从可下令池里摘掉，保证同一武将不被复用
+                if (OutpostRuntime.idlePersonList.Count > 0)
+                    troop.ForEachPerson(p => OutpostRuntime.idlePersonList.Remove(p));
             }
 
-            OutpostRuntime.actionPoint -= cost;
-            OutpostRuntime.MarkExecuted();
-            if (AIConfig.Instance.logOutpostAI)
-                Sango.Log.Info($"*[据点AI]{city.Name} 派兵支援 → {target.Name}（{troop.Leader?.Name}）");
-            return true;
+            if (createdCount > 1 && AIConfig.Instance.logOutpostAI)
+                Sango.Log.Info($"*[据点AI]{city.Name} 本回合连续派兵支援 {createdCount} 支 → {target.Name}");
+
+            return createdCount > 0;
         }
 
         /// <summary>

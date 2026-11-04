@@ -171,6 +171,11 @@ namespace Sango.Core
         /// <returns>单元格对象</returns>
         public Cell GetCell(int x, int y)
         {
+            // CellSet 可能为 null：地图文件缺失（Load 走 EnsureHexWorld 兜底，不建 CellSet）、
+            // 被 Clear 之后、或剧本编辑器加载早期地图尚未就绪。
+            // 与 GetCell(Vector3) 保持同一约定：拿不到就返回 null，调用方自行判空。
+            if (CellSet == null)
+                return null;
             return CellSet.GetCell(x, y);
         }
         /// <summary>
@@ -180,6 +185,8 @@ namespace Sango.Core
         /// <returns>单元格对象</returns>
         public Cell GetCell(Hexagon.Hex cub)
         {
+            if (CellSet == null)
+                return null;
             Coord coords = Coord.OffsetFromCube(cub);
             return CellSet.GetCell(coords.col, coords.row);
         }
@@ -389,16 +396,41 @@ namespace Sango.Core
         /// <param name="checkMoveAble">是否检查可移动性</param>
         public void GetRing(Hexagon.Hex cub, int radius, List<Cell> cellList, bool checkMoveAble = false)
         {
-            cub.Ring(radius, (c =>
+            // 【性能】原实现是 cub.Ring(radius, (c => { … }))：lambda 捕获了 this / radius / checkMoveAble / cellList，
+            // 每调用一次就现分配一个闭包对象 + 一个 Action<Hex> 委托（Profiler: Map.GetRing 168 B/次）。
+            // 而 GetRing 在部队 AI 的目标扫描里被反复调用 —— SkillInstance.GetSpellRange 一次就要 2 个环（336 B），
+            // TroopAIUtility.PriorityAction 单帧 132.6 KB GC 里绝大部分来自这里。
+            //
+            // 改法：先把环上坐标收进复用的 Hex 列表，再逐个映射成 Cell，全程零分配。
+            // 注意两点等价性：
+            //   ① Hex.Ring 的 Action 重载默认 startDir = 3，List 重载默认是 4，这里必须显式传 3，否则起点不同；
+            //   ② radius == 0 时 Action 重载会把自身作为唯一元素回调，List 重载则什么都不加，这里单独补上。
+            if (radius == 0)
             {
-                Cell find = GetCell(c);
-                if (find != null)
-                {
-                    if(!checkMoveAble || (checkMoveAble && find.moveAble))
-                        cellList.Add(find);
-                }
-            }));
+                Cell self = GetCell(cub);
+                if (self != null && (!checkMoveAble || self.moveAble))
+                    cellList.Add(self);
+                return;
+            }
+
+            ringHexBuffer.Clear();
+            cub.Ring(radius, ringHexBuffer, 3);
+            for (int i = 0; i < ringHexBuffer.Count; i++)
+            {
+                Cell find = GetCell(ringHexBuffer[i]);
+                if (find != null && (!checkMoveAble || find.moveAble))
+                    cellList.Add(find);
+            }
         }
+
+        /// <summary>
+        /// <see cref="GetRing(Hexagon.Hex, int, List{Cell}, bool)"/> 的环形坐标中转缓冲。
+        ///
+        /// 提成静态字段是为了复用内部数组容量 —— 该方法在部队 AI 的每回合目标扫描里
+        /// 会被调用上百次，若每次都新建 List 会产生与闭包同量级的 GC。
+        /// 单线程回合制下不存在并发访问，且每次使用前都会 Clear()。
+        /// </summary>
+        static readonly List<Hexagon.Hex> ringHexBuffer = new List<Hexagon.Hex>();
 
         /// <summary>
         /// 对环形区域的单元格执行操作
@@ -472,6 +504,8 @@ namespace Sango.Core
         /// <param name="cellList">单元格列表</param>
         public void GetSpiral(Cell start, int radius, List<Cell> cellList)
         {
+            if (start == null || cellList == null)
+                return;
             GetSpiral(start.Cub, radius, cellList);
         }
         /// <summary>
@@ -633,10 +667,36 @@ namespace Sango.Core
             //    else
             //        c = null;
             //}
-            GetDirectPath(troop.cell, dest, cellList, (next) =>
-            {
-                return next.CanMove(troop) && next.CanPassThrough(troop) && troop.MoveRange.Contains(next);
-            });
+            // 【性能】原实现每次调用都现建一个捕获 troop 的闭包 + 一个 CellCheck 委托
+            // （Profiler: Map.GetMovePath 152 B/次）。GetMovePath 在部队移动与 AI 试走里是高频调用，
+            // 这里把 troop 放进字段、过滤器缓存成实例委托，全程只在首次调用时分配一次。
+            if (movePathFilter == null)
+                movePathFilter = MovePathCellCheck;
+
+            movePathFilterTroop = troop;
+            GetDirectPath(troop.cell, dest, cellList, movePathFilter);
+            movePathFilterTroop = null;
+        }
+
+        /// <summary>
+        /// <see cref="GetMovePath"/> 复用的过滤委托（绑定到本 Map 实例，只分配一次）。
+        /// </summary>
+        CellCheck movePathFilter;
+
+        /// <summary>
+        /// <see cref="GetMovePath"/> 当前正在过滤的部队 —— 用来把 troop 传给缓存的委托，
+        /// 避免每次寻路都新建闭包。
+        /// </summary>
+        Troop movePathFilterTroop;
+
+        /// <summary>
+        /// <see cref="GetMovePath"/> 的通行判定：目标格可进入、可穿过、且在部队移动范围内。
+        /// 与原内联 lambda 的条件、求值顺序完全一致。
+        /// </summary>
+        bool MovePathCellCheck(Cell next)
+        {
+            Troop troop = movePathFilterTroop;
+            return next.CanMove(troop) && next.CanPassThrough(troop) && troop.MoveRange.Contains(next);
         }
 
         //PriorityQueue<Cell> priorityClosest = new PriorityQueue<Cell>();
@@ -690,23 +750,36 @@ namespace Sango.Core
         /// </summary>
         System.Collections.Generic.PriorityQueue<Cell, int> frontier = new PriorityQueue<Cell, int>(new LowPriorit());
         /// <summary>
+        /// 寻路容器的预设容量。
+        ///
+        /// 【为什么需要】下面四个容器是"每次寻路 Clear() 后重填"的复用字段，Clear 会保留容量，
+        /// 所以扩容只在"本次搜索触及的格子数创了新高"时才发生 —— 但那一刻是**连续翻倍**：
+        /// 3→7→17→…，每翻一次都要新分配一个桶/条目数组。单次远距离寻路（上千格）就能翻出
+        /// 上百 KB（Profiler: Map.GetMinCostDirectPath 单次 182.6 KB，全部来自
+        /// Dictionary.set_Item ×3 与 HashSet.Add ×2）。
+        /// 一次性给足容量后，整局都在同一个容量上跑，不再产生扩容分配。
+        /// 1024 覆盖绝大多数寻路（部队移动范围通常只有几十到几百格）。
+        /// </summary>
+        const int PathfindCapacity = 1024;
+
+        /// <summary>
         /// 路径来源字典
         /// </summary>
-        Dictionary<Cell, Cell> came_from = new Dictionary<Cell, Cell>();
+        Dictionary<Cell, Cell> came_from = new Dictionary<Cell, Cell>(PathfindCapacity);
         /// <summary>
         /// 成本字典
         /// </summary>
-        Dictionary<Cell, Cell> cost_so_far = new Dictionary<Cell, Cell>();
+        Dictionary<Cell, Cell> cost_so_far = new Dictionary<Cell, Cell>(PathfindCapacity);
 
         /// <summary>
         /// 【最小消耗寻路】已知最优代价（cell → 累计消耗）。未出现的格子 = 尚未触及。
         /// </summary>
-        Dictionary<Cell, int> minCostSoFar = new Dictionary<Cell, int>();
+        Dictionary<Cell, int> minCostSoFar = new Dictionary<Cell, int>(PathfindCapacity);
         /// <summary>
         /// 【最小消耗寻路】已确定（settled）的格子。
         /// 用于"Dijkstra + 懒删除"：出队时若已确定，说明这条是更贵的历史副本，直接丢弃。
         /// </summary>
-        HashSet<Cell> settledCells = new HashSet<Cell>();
+        HashSet<Cell> settledCells = new HashSet<Cell>(PathfindCapacity);
 
         /// <summary>
         /// 低优先级比较器

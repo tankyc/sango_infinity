@@ -155,6 +155,19 @@ namespace Sango.Core.Player
             ActivedWaterTroopTypes.Clear();
             ActivedWaterTroopTypes.AddRange(activeTroopTypes.FindAll(x => !x.isLand));
 
+            // 【防空列表】下面要按下标取陆上 / 水上兵种，任一列表为空就会 ArgumentOutOfRangeException。
+            // 正常情况下不会发生：剑兵 / 枪兵 / 戟兵 / 弩兵 / 骑兵 均无科技前置（validTechId = 0），
+            // 走舸同样无前置，所以两个列表至少有基础兵种。
+            // 一旦为空说明兵种表缺失或科技判定异常，直接结束本系统并留日志，别把崩栈丢给玩家。
+            if (ActivedLandTroopTypes.Count == 0 || ActivedWaterTroopTypes.Count == 0)
+            {
+                Sango.Log.Error($"{TargetCity?.Name} 出征界面无法打开：可用兵种不足"
+                    + $"（陆上 {ActivedLandTroopTypes.Count} 种，水上 {ActivedWaterTroopTypes.Count} 种，"
+                    + $"空闲武将 {TargetCity?.freePersons.Count} 人），请检查兵种表与势力科技配置");
+                Done();
+                return;
+            }
+
             CurSelectLandTrropTypeIndex = 0;
             CurSelectWaterTrropTypeIndex = 0;
 

@@ -351,9 +351,9 @@ namespace Sango.Core
                         city.AddSecurity(cityPublicOrder);
                     if (cityEnergy != 0 && city.troops > 0)
                     {
-                        city.energy += cityEnergy;
-                        if (city.energy < 0)
-                            city.energy = 0;
+                        city.morale += cityEnergy;
+                        if (city.morale < 0)
+                            city.morale = 0;
                     }
                 });
             }

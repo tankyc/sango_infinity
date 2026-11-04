@@ -26,6 +26,29 @@ namespace Sango.Core
         /// <summary>出城空位检查用的格子缓存(对齐原版 has_empty_place 的固定圈检查)</summary>
         static List<Cell> leaveBuildingCheckCells = new List<Cell>(64);
 
+        /// <summary>
+        /// 「技能 + 施法格」的命中信息缓存。
+        ///
+        /// 【为什么可以缓存】<see cref="SkillInstance.CanSpellToHere"/> 与
+        /// <see cref="SkillInstance.GetAttackCells"/> 的输入只有 (技能实例, 施法格)，
+        /// 与"施放者从哪个落点走过来"无关。而原实现是「每个落点 × 每个施法格」各算一遍，
+        /// 相邻落点的施法格高度重叠，等于把同一份结果重复算了 N 遍。
+        /// </summary>
+        class SpellAttackCache
+        {
+            /// <summary>该施法格是否满足技能释放条件</summary>
+            public bool canSpell;
+            /// <summary>命中目标集合的无序哈希（用于候选去重）</summary>
+            public int targetHash;
+            /// <summary>命中格快照</summary>
+            public Cell[] atkCells;
+            /// <summary>命中目标快照</summary>
+            public SangoObject[] targets;
+        }
+
+        /// <summary>按技能复用的施法格缓存（每个技能开始时 Clear，避免跨技能串味）</summary>
+        static Dictionary<Cell, SpellAttackCache> spellAttackCache = new Dictionary<Cell, SpellAttackCache>(128);
+
         public class PriorityActionData
         {
             public int prioriry;
@@ -112,15 +135,21 @@ namespace Sango.Core
 
             Cell baseCheckCell = targetCell ?? troop.cell;
 
+            bool moveRangeReady = false;
             for (int i = 0, count = skill_list.Count; i < count; i++)
             {
                 SkillInstance skill = skill_list[i];
                 if (!skill.CanBeSpell(troop))
                     continue;
 
-                if (troop.MoveRange.Count == 0)
+                // 【性能】移动范围整次评估只算一次。
+                // 原先的写法是"MoveRange.Count == 0 就再算一遍"，一旦本回合确实无处可走
+                // （被围死 / 城头全是敌军 / 地形不通），每个技能都会重跑一次全量 BFS
+                // （实测单次 GetMoveRange ≈ 2.4ms，5 个技能就白烧 12ms）。
+                if (!moveRangeReady)
                 {
                     scenario.Map.GetMoveRange(troop, troop.MoveRange);
+                    moveRangeReady = true;
 #if SANGO_DEBUG_AI
                     GameAIDebug.Instance.ShowMoveRange(troop.MoveRange, troop);
 #endif
@@ -129,6 +158,11 @@ namespace Sango.Core
                 int moveRangeCount = troop.MoveRange.Count;
                 if (moveRangeCount == 0)
                     continue;
+
+                // 【性能】同一个施法格会被多个落点重复命中，而 CanSpellToHere / GetAttackCells
+                // 都只取决于 (技能, 施法格)，与"从哪个落点放"无关。按技能缓存一次，
+                // 把原来的「落点数 × 施法格数」次重算压成「施法格数」次。
+                spellAttackCache.Clear();
 
                 for (int j = 0; j < moveRangeCount; j++)
                 {
@@ -142,34 +176,46 @@ namespace Sango.Core
                     for (int k = 0, spellCount = spellRangeCells.Count; k < spellCount; k++)
                     {
                         Cell spellCell = spellRangeCells[k];
-                        if (!skill.CanSpellToHere(troop, spellCell))
-                            continue;
 
-                        attackCells.Clear();
-                        tempTargets.Clear();
-                        int targetHash = 0;
-                        skill.GetAttackCells(troop, spellCell, attackCells);
-                        for (int m = 0, atkCount = attackCells.Count; m < atkCount; m++)
+                        // 【性能】同一施法格在相邻落点上会反复命中，这里按 (技能, 施法格) 只算一次：
+                        // 可施放判定 + 命中格 + 命中目标 + 目标哈希，全部与落点无关。
+                        if (!spellAttackCache.TryGetValue(spellCell, out SpellAttackCache cache))
                         {
-                            Cell atkCell = attackCells[m];
-                            if (atkCell.troop != null)
+                            cache = new SpellAttackCache();
+                            cache.canSpell = skill.CanSpellToHere(troop, spellCell);
+                            if (cache.canSpell)
                             {
-                                tempTargets.Add(atkCell.troop);
-                                targetHash ^= (int)(atkCell.troop.Id * 2654435761u);
+                                attackCells.Clear();
+                                tempTargets.Clear();
+                                int hash = 0;
+                                skill.GetAttackCells(troop, spellCell, attackCells);
+                                for (int m = 0, atkCount = attackCells.Count; m < atkCount; m++)
+                                {
+                                    Cell atkCell = attackCells[m];
+                                    if (atkCell.troop != null)
+                                    {
+                                        tempTargets.Add(atkCell.troop);
+                                        hash ^= (int)(atkCell.troop.Id * 2654435761u);
+                                    }
+                                    if (atkCell.building != null)
+                                    {
+                                        tempTargets.Add(atkCell.building);
+                                        hash ^= atkCell.building.Id * 40503;
+                                    }
+                                }
+                                cache.targetHash = hash;
+                                cache.atkCells = attackCells.Count > 0 ? attackCells.ToArray() : System.Array.Empty<Cell>();
+                                cache.targets = tempTargets.Count > 0 ? tempTargets.ToArray() : System.Array.Empty<SangoObject>();
                             }
-                            if (atkCell.building != null)
-                            {
-                                tempTargets.Add(atkCell.building);
-                                targetHash ^= atkCell.building.Id * 40503;
-                            }
+                            spellAttackCache[spellCell] = cache;
                         }
 
-                        if (tempTargets.Count == 0)
+                        if (!cache.canSpell || cache.targets.Length == 0)
                             continue;
 
                         // 【性能优化】用「技能Id + 目标集合无序哈希」作为唯一键做 O(1) 去重,
                         // 替代原先 checkList.Find 的 O(n²) 线性查找(O(n²) → O(n))
-                        long key = ((long)skill.Id << 32) | (uint)targetHash;
+                        long key = ((long)skill.Id << 32) | (uint)cache.targetHash;
                         int dis = baseCheckCell.Distance(cell);
 
                         if (checkMap.TryGetValue(key, out PriorityActionData exist))
@@ -178,8 +224,8 @@ namespace Sango.Core
                             {
                                 exist.movetoCell = cell;
                                 exist.spellCell = spellCell;
-                                exist.atkCells = attackCells.ToArray();
-                                exist.targets = tempTargets.ToArray();
+                                exist.atkCells = cache.atkCells;
+                                exist.targets = cache.targets;
                             }
                         }
                         else
@@ -190,8 +236,8 @@ namespace Sango.Core
                                 skill = skill,
                                 movetoCell = cell,
                                 spellCell = spellCell,
-                                atkCells = attackCells.ToArray(),
-                                targets = tempTargets.ToArray(),
+                                atkCells = cache.atkCells,
+                                targets = cache.targets,
                             };
                         }
                     }
@@ -2577,6 +2623,24 @@ namespace Sango.Core
         const int FeatureId_Shinbou = 68;
 
         /// <summary>
+        /// <see cref="CalcOpen311AroundFacilitiesScore"/> 的计数缓冲（下标 = BuildingType.posScoreKind）。
+        ///
+        /// 提成字段是为了避免每个候选落点都 new int[8]：该函数在
+        /// TroopAIUtility.PriorityAction 的目标扫描里每次评分都会调用一次。
+        /// 单线程回合制，不存在并发访问；每次使用前 Array.Clear 归零。
+        /// </summary>
+        static readonly int[] OwnScoreBuf = new int[8];
+
+        /// <inheritdoc cref="OwnScoreBuf"/>
+        static readonly int[] EnemyScoreBuf = new int[8];
+
+        /// <summary>
+        /// <see cref="CalcOpen311AroundFacilitiesScore"/> 的螺旋取格缓冲。
+        /// 复用内部数组容量（Clear 不释放），避免每落点都新建 List&lt;Cell&gt;。
+        /// </summary>
+        static readonly List<Cell> SpiralCellBuf = new List<Cell>(64);
+
+        /// <summary>
         /// 【原版直译】周围设施分 —— get_pos_around_facilities_score
         /// （s11_sys_unit_action.cpp:1473-1565）。
         ///
@@ -2602,19 +2666,35 @@ namespace Sango.Core
             AIConfig cfg = AIConfig.Instance;
 
             // 下标 = BuildingType.posScoreKind（1~7），0 不计分
-            int[] own = new int[8];
-            int[] enemy = new int[8];
+            //
+            // 【性能】原写法每次调用要分配四样东西：own / enemy 两个 int[8]（各 56 B）、
+            // SpiralAction 的闭包对象（128 B）、Action<Cell> 委托（64 B），合计 312 B。
+            // 本函数由 CalcOpen311PosScore 对每个候选落点调用一次，
+            // TroopAIUtility.PriorityAction 单帧 283.2 KB GC 里绝大部分出自这里。
+            // 改法：计数数组改静态复用（每次 Array.Clear），
+            // 遍历改用「起点 + Ring(1..3)」展开 —— 与 Map.SpiralAction 的调用顺序
+            // （先 action(start)，再 RingAction(1)(2)(3)）完全一致，结果不变。
+            int[] own = OwnScoreBuf;
+            int[] enemy = EnemyScoreBuf;
+            System.Array.Clear(own, 0, own.Length);
+            System.Array.Clear(enemy, 0, enemy.Length);
 
-            scenario.Map.SpiralAction(pos, 3, cell =>
+            SpiralCellBuf.Clear();
+            SpiralCellBuf.Add(pos);
+            for (int r = 1; r <= 3; r++)
+                scenario.Map.GetRing(pos, r, SpiralCellBuf);
+
+            for (int ci = 0; ci < SpiralCellBuf.Count; ci++)
             {
-                if (cell == null || cell.building == null) return;
+                Cell cell = SpiralCellBuf[ci];
+                if (cell == null || cell.building == null) continue;
                 BuildingBase building = cell.building;
-                if (building.BelongForce == null) return;              // 中立设施不计分
+                if (building.BelongForce == null) continue;              // 中立设施不计分
                 BuildingType type = building.BuildingType;
-                if (type == null) return;
+                if (type == null) continue;
 
                 int kind = type.posScoreKind;
-                if (kind <= 0 || kind >= own.Length) return;
+                if (kind <= 0 || kind >= own.Length) continue;
 
                 // 原版 :1485 按设施自身的生效范围过滤。原版迭代从距离 1 开始（不含自身格），
                 // 这里用 minRange 的默认值 1 表达同一语义。
@@ -2622,11 +2702,11 @@ namespace Sango.Core
                 int minRange = type.minRange;
                 int maxRange = type.maxRange;
                 if (maxRange < minRange) maxRange = minRange;
-                if (distance < minRange || distance > maxRange) return;
+                if (distance < minRange || distance > maxRange) continue;
 
                 if (building.BelongForce == troop.BelongForce) own[kind]++;
                 else enemy[kind]++;
-            });
+            }
 
             int score = 0;
 

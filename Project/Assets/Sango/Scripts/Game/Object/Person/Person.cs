@@ -1446,6 +1446,22 @@ namespace Sango.Core
                         {
                             BelongCorpsId = BelongCity.BelongCorpsId;
                             BelongCorps = scenario.Id2Object(scenario.corpsSet, BelongCorpsId);
+
+                            // 【空军团保护】城上的 BelongCorpsId 可能指向已不存在的军团：
+                            // 势力灭亡清理残留、旧档缺军团数据、剧本编辑器里城配了 0 号军团。
+                            // 原写法紧接着就是 BelongCorps.BelongForceId，会直接抛 NullReferenceException
+                            //（实战崩栈：Person.OnScenarioPrepare:1449 ← Scenario.Prepare 协程），
+                            // 整个剧本初始化中断，玩家卡在载入界面。
+                            // 这里保留原有 BelongForceId（冗余存档值可能仍然有效），只报错并交给
+                            // 运行期归属巡检（PersonStateSystem / GovernanceValidator）修正。
+                            if (BelongCorps == null)
+                            {
+                                Sango.Log.Error($"*[身份]{Name} 的所属城 {BelongCity.Name} 没有有效军团"
+                                    + $"（BelongCorpsId={BelongCorpsId}），保留原势力归属，交由归属巡检修正");
+                                CheckBelongConsistency();
+                                break;
+                            }
+
                             BelongForceId = BelongCorps.BelongForceId;
                             // BelongForce 派生自 BelongCorps，无需单独反序列化
 
@@ -1497,6 +1513,18 @@ namespace Sango.Core
                         {
                             BelongCorps = BelongCity.BelongCorps;
                             // BelongForce 派生自 BelongCorps
+
+                            // 与 Governor 分支同源：城没有有效军团时不能解引用，
+                            // 否则 BelongCorps.Comander 会抛 NullReferenceException。
+                            // 军团长身份失去依托，降级为一般武将，交由归属巡检继续修正。
+                            if (BelongCorps == null)
+                            {
+                                Sango.Log.Error($"*[身份]{Name} 的所属城 {BelongCity.Name} 没有有效军团，"
+                                    + "军团长身份降级为一般武将");
+                                state = (int)PersonStateType.Normal;
+                                break;
+                            }
+
                             BelongCity.AddPerson(this);
 
                             if (BelongCorps.Comander != Id)
@@ -1841,8 +1869,12 @@ namespace Sango.Core
             {
                 if (IsWild && sonList != null)
                 {
-                    sonList.ForEach(x =>
+                    // 【性能】原 ForEach(lambda) 捕获 this / scenario，改为按下标遍历。
+                    for (int si = 0; si < sonList.Count; si++)
                     {
+                        Person x = sonList[si];
+                        if (x == null)
+                            continue;
                         if (x.state == (int)PersonStateType.Invalid)
                         {
                             if (x.Age >= 16)
@@ -1863,7 +1895,7 @@ namespace Sango.Core
                                 sonCity.AddInvisiblePerson(x);
                             }
                         }
-                    });
+                    }
                 }
             }
 
@@ -2461,17 +2493,23 @@ namespace Sango.Core
                 return null;
 
             Force found = null;
-            scenario.forceSet.ForEach(f =>
+            // 【性能】原 ForEach(lambda) 捕获 governorId / found，改为按下标遍历；命中即 break。
+            Force[] forceArray = scenario.forceSet.objects;
+            for (int i = 1; i < forceArray.Length; i++)
             {
-                if (found != null || f == null)
-                    return;
+                Force f = forceArray[i];
+                if (f == null)
+                    continue;
                 // 这里**不能**用 Force.IsAlive 过滤：IsAlive 依赖 mGovernor（Force.cs:138），
                 // 而读档时 Force 的 mGovernor 未必已经解析完，会把存活势力全判成已灭亡，
                 // 导致本方法恒返回 null、纠错失效。Governor 是 [JsonProperty] 的 int，
                 // 反序列化阶段就已就绪，用它做锚点才是可靠的。
                 if (f.Governor == governorId)
+                {
                     found = f;
-            });
+                    break;
+                }
+            }
             return found;
         }
 
@@ -2649,37 +2687,39 @@ namespace Sango.Core
             // 这里肯定有势力
             if (sonList != null)
             {
-                sonList.ForEach(x =>
+                // 【性能】原 ForEach(lambda) 捕获 this，改为按下标遍历；内层 return 改为 continue。
+                for (int si = 0; si < sonList.Count; si++)
                 {
-                    if (x.state == (int)PersonStateType.Invalid)
+                    Person x = sonList[si];
+                    if (x == null)
+                        continue;
+                    if (x.state != (int)PersonStateType.Invalid)
+                        continue;
+                    if (x.Age < 16)
+                        continue;
+                    // 【归属治理】成年出仕 = 入城（对应 Open311 的 person_debut -> person_enter）。
+                    // 原先这里手写"赋三字段 + 裸 AddPerson + 裸 freePersons.Add + 手改 state"，
+                    // 漏掉了在野/未发现名册的摘除，且把刚登场的人直接塞进空闲名单
+                    // （他本回合还没行动过，本该等回合刷新后再入名单）。
+                    City becameCity = IsPrisoner ? BelongForce?.CapitalCity : BelongCity;
+                    if (becameCity == null)
                     {
-                        if (x.Age >= 16)
-                        {
-                            // 【归属治理】成年出仕 = 入城（对应 Open311 的 person_debut -> person_enter）。
-                            // 原先这里手写"赋三字段 + 裸 AddPerson + 裸 freePersons.Add + 手改 state"，
-                            // 漏掉了在野/未发现名册的摘除，且把刚登场的人直接塞进空闲名单
-                            // （他本回合还没行动过，本该等回合刷新后再入名单）。
-                            City becameCity = IsPrisoner ? BelongForce?.CapitalCity : BelongCity;
-                            if (becameCity == null)
-                            {
-                                Sango.Log.Error($"*{Name} 的儿子 {x.Name} 成年，但找不到可出仕的城池");
-                                return;
-                            }
-
-                            PersonStateSystem.Enter(x, becameCity, PersonChangeReason.Appeared);
-                            x.loyalty = 100;
-
-                            if (IsPlayer)
-                            {
-                                RenderEvent.Instance.Add(new PersonGrowupEvent()
-                                {
-                                    father = this,
-                                    person = x
-                                });
-                            }
-                        }
+                        Sango.Log.Error($"*{Name} 的儿子 {x.Name} 成年，但找不到可出仕的城池");
+                        continue;
                     }
-                });
+
+                    PersonStateSystem.Enter(x, becameCity, PersonChangeReason.Appeared);
+                    x.loyalty = 100;
+
+                    if (IsPlayer)
+                    {
+                        RenderEvent.Instance.Add(new PersonGrowupEvent()
+                        {
+                            father = this,
+                            person = x
+                        });
+                    }
+                }
             }
 
             ActionOver = !IsFree;

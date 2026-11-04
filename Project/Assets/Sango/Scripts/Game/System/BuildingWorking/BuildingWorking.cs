@@ -313,7 +313,13 @@ namespace Sango.Core
         void OnClickMenuItem_AutoSetWorking(IContextMenuItem contextMenuItem)
         {
             AppointWorking(TargetCity, Scenario.Cur);
-            TargetCity.allBuildings.ForEach((building) => { if (building.isComplate) building.Render?.UpdateRender(); });
+            // 【性能】原 ForEach(lambda) 捕获 TargetCity，改为按下标遍历。
+            for (int i = 0; i < TargetCity.allBuildings.Count; i++)
+            {
+                Building building = TargetCity.allBuildings[i];
+                if (building != null && building.isComplate)
+                    building.Render?.UpdateRender();
+            }
         }
 
         void OnClickMenuItem_CityAutoWorking(IContextMenuItem contextMenuItem)
@@ -365,10 +371,14 @@ namespace Sango.Core
 
             if (TargetBuilding.Workers != null)
             {
-                TargetBuilding.Workers.ForEach((person) =>
+                // 【性能】原 ForEach(lambda) 改为按下标遍历。
+                // SangoObjectList.ForEach 本身是倒序，这里保持倒序以免后续维护时误判顺序。
+                for (int i = TargetBuilding.Workers.Count - 1; i >= 0; i--)
                 {
-                    person.workingBuilding = null;
-                });
+                    Person person = TargetBuilding.Workers[i];
+                    if (person != null)
+                        person.workingBuilding = null;
+                }
                 TargetBuilding.Workers.Clear();
             }
 
@@ -385,10 +395,14 @@ namespace Sango.Core
 
             if (TargetBuilding.Workers != null)
             {
-                TargetBuilding.Workers.ForEach((person) =>
+                // 【性能】原 ForEach(lambda) 改为按下标遍历。
+                // SangoObjectList.ForEach 本身是倒序，这里保持倒序以免后续维护时误判顺序。
+                for (int i = TargetBuilding.Workers.Count - 1; i >= 0; i--)
                 {
-                    person.workingBuilding = null;
-                });
+                    Person person = TargetBuilding.Workers[i];
+                    if (person != null)
+                        person.workingBuilding = null;
+                }
                 TargetBuilding.Workers.Clear();
             }
 
@@ -433,10 +447,13 @@ namespace Sango.Core
 
             if (target.Workers != null)
             {
-                target.Workers.ForEach((person) =>
+                // 【性能】原 ForEach(lambda) 改为按下标遍历（保持 SangoObjectList 的倒序语义）。
+                for (int wi = target.Workers.Count - 1; wi >= 0; wi--)
                 {
-                    person.workingBuilding = null;
-                });
+                    Person person = target.Workers[wi];
+                    if (person != null)
+                        person.workingBuilding = null;
+                }
                 target.Workers.Clear();
             }
 
@@ -480,10 +497,13 @@ namespace Sango.Core
                 Building target = pBuildings[i].building;
                 if (target.Workers != null)
                 {
-                    target.Workers.ForEach((person) =>
+                    // 【性能】原 ForEach(lambda) 改为按下标遍历（保持 SangoObjectList 的倒序语义）。
+                    for (int wi = target.Workers.Count - 1; wi >= 0; wi--)
                     {
-                        person.workingBuilding = null;
-                    });
+                        Person person = target.Workers[wi];
+                        if (person != null)
+                            person.workingBuilding = null;
+                    }
                     target.Workers.Clear();
                 }
             }
@@ -791,8 +811,14 @@ namespace Sango.Core
             float totalGoldFactor = (city.IsPlayer ? variables.playerGoldFactor : variables.goldFactor);
 
             // 计算建筑收入
-            city.allBuildings.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 city / worker_list / leader_factor / overrideData /
+            // totalFoodValue / totalGoldValue，改为按下标遍历。
+            // 外层用 bi 而不是 i：内层已有 for (int i = 0; i < buildingType.workerLimit; i++)。
+            for (int bi = 0; bi < city.allBuildings.Count; bi++)
             {
+                Building x = city.allBuildings[bi];
+                if (x == null)
+                    continue;
                 if (x.isComplate && x.IsIntorBuilding())
                 {
                     BuildingType buildingType = x.BuildingType;
@@ -836,7 +862,7 @@ namespace Sango.Core
                         GameUtility.ClearJobFeature();
                     }
                 }
-            });
+            }
 
             city.totalGainFood = totalFoodValue * 9 + city.BaseGainFood * leader_factor / 100;
             overrideData.Value = city.totalGainFood;
@@ -864,11 +890,15 @@ namespace Sango.Core
             // 计算太守对于收入的影响
             int leader_factor = GetCityLeaderInfuse(city, (int)AttributeType.Politics);
             int totalValue = city.BaseGainFood * leader_factor / 100;
-            city.allBuildings.ForEach(building =>
+            // 【性能】原 ForEach(lambda) 捕获 totalValue，改为按下标遍历（每城每月结算路径）。
+            for (int i = 0; i < city.allBuildings.Count; i++)
             {
+                Building building = city.allBuildings[i];
+                if (building == null)
+                    continue;
                 totalValue += building.AccumulatedFood;
                 building.AccumulatedFood = 0;
-            });
+            }
 
             // 人口对粮食收入的影响
             if (scenario.Variables.populationEnable)
@@ -898,16 +928,19 @@ namespace Sango.Core
             int leader_factor = GetCityLeaderInfuse(city, (int)AttributeType.Politics);
             int totalValue = city.BaseGainGold * leader_factor / 100;
             //Sango.Log.Error($"太守P:{leader_factor}, city.BaseGainGold{city.BaseGainGold}, t:{totalValue}");
-            city.allBuildings.ForEach(building =>
+            // 【性能】原 ForEach(lambda) 捕获 totalValue，改为按下标遍历（每城每月结算路径）。
+            for (int i = 0; i < city.allBuildings.Count; i++)
             {
-
+                Building building = city.allBuildings[i];
+                if (building == null)
+                    continue;
                 if (building.AccumulatedGold > 0)
                 {
                     totalValue += building.AccumulatedGold;
                     //Sango.Log.Error($"建筑:{building.Name}, AccumulatedGold{building.AccumulatedGold}, t:{totalValue}");
                     building.AccumulatedGold = 0;
                 }
-            });
+            }
 
             // 人口对金钱收入的影响
             if (scenario.Variables.populationEnable)
@@ -947,8 +980,19 @@ namespace Sango.Core
             // 分支配置人手，但分支从未实现 —— 空的 switch 会报 CS1522。
             // 目前行为等价于"忽略 workingAppointType"，下方按设施容量统一分配。
 
-            city.allBuildings.ForEach((building) => { if (building.isComplate) building.Workers?.Clear(); });
-            city.allPersons.ForEach((person) => { person.workingBuilding = null; });
+            // 【性能】两条 ForEach(lambda) 改为按下标遍历。
+                            for (int bi = 0; bi < city.allBuildings.Count; bi++)
+                            {
+                                Building building = city.allBuildings[bi];
+                                if (building != null && building.isComplate)
+                                    building.Workers?.Clear();
+                            }
+                            for (int pi = 0; pi < city.allPersons.Count; pi++)
+                            {
+                                Person person = city.allPersons[pi];
+                                if (person != null)
+                                    person.workingBuilding = null;
+                            }
 
             float targetGold = 3000f;
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
@@ -989,9 +1033,13 @@ namespace Sango.Core
             float moraleP = city.morale / targetMorale;
             float recruitP = (city.invisiblePersons.Count > 0 || city.wildPersons.Count > 0 || city.captiveList.Count > 0) ? 0 : 1;
             List<PBuilding> pBuildings = new List<PBuilding>();
-            city.allBuildings.ForEach((building) =>
+            // 【性能】原 ForEach(lambda) 捕获十余个局部变量，改为按下标遍历
+            //（外层用 bi，避开内部的 for (int itemTypeId…) 与 itemTypeId 循环）。
+            for (int bi = 0; bi < city.allBuildings.Count; bi++)
             {
-                if (!building.isComplate) return;
+                Building building = city.allBuildings[bi];
+                if (building == null || !building.isComplate)
+                    continue;
 
                 BuildingType buildingType = building.BuildingType;
                 switch (buildingType.kind)
@@ -1020,12 +1068,15 @@ namespace Sango.Core
                                 // 设置产出
                                 // 统计适应偏向
                                 int[] levelTotal = new int[3] { 1, 1, 1 };
-                                city.allPersons.ForEach(x =>
+                                // 【性能】原 ForEach(lambda) 捕获 levelTotal，改为按下标遍历（2 处同模式）。
+                                for (int pi = 0; pi < city.allPersons.Count; pi++)
                                 {
+                                    Person x = city.allPersons[pi];
+                                    if (x == null) continue;
                                     levelTotal[0] += x.SpearLv;
                                     levelTotal[1] += x.HalberdLv;
                                     levelTotal[2] += x.CrossbowLv;
-                                });
+                                }
 
                                 int sumTotal = levelTotal[0] + levelTotal[1] + levelTotal[2];
 
@@ -1105,7 +1156,7 @@ namespace Sango.Core
                         pBuildings.Add(new PBuilding() { p = recruitP, building = building });
                         break; ;
                 }
-            });
+            }
 
             pBuildings.Sort((a, b) => a.p.CompareTo(b.p));
 
@@ -1121,10 +1172,12 @@ namespace Sango.Core
         {
             if (city.BelongCorps == null)
                 return;
-            city.allBuildings.ForEach((building) =>
+            // 【性能】原 ForEach(lambda) 捕获 city，改为按下标遍历。
+            for (int bi = 0; bi < city.allBuildings.Count; bi++)
             {
-                if (!building.isComplate)
-                    return;
+                Building building = city.allBuildings[bi];
+                if (building == null || !building.isComplate)
+                    continue;
 
                 BuildingType buildingType = building.BuildingType;
                 switch (buildingType.kind)
@@ -1147,17 +1200,21 @@ namespace Sango.Core
                                 }
                             }
 
-                            building.Workers.ForEach((worker) =>
+                            // 【性能】原 ForEach(lambda) 捕获 city，改为按下标遍历
+                            //（SangoObjectList 原为倒序，这里保持一致）。
+                            for (int wi = building.Workers.Count - 1; wi >= 0; wi--)
                             {
+                                Person worker = building.Workers[wi];
+                                if (worker == null) continue;
                                 CityPersonSearchingEvent te = RenderEvent.Instance.Create<CityPersonSearchingEvent>();
                                 te.Init(city, worker);
                                 te.searchingType = 1;
                                 RenderEvent.Instance.Add(te);
-                            });
+                            }
                         }
                         break;
                 }
-            });
+            }
 
         }
 
@@ -1172,10 +1229,12 @@ namespace Sango.Core
                 return;
 
             // 获取收入
-            city.allBuildings.ForEach((building) =>
+            // 【性能】原 ForEach(lambda) 捕获 city，改为按下标遍历。
+            for (int bi = 0; bi < city.allBuildings.Count; bi++)
             {
-                if (!building.isComplate)
-                    return;
+                Building building = city.allBuildings[bi];
+                if (building == null || !building.isComplate)
+                    continue;
 
                 BuildingType buildingType = building.BuildingType;
                 switch (buildingType.kind)
@@ -1198,12 +1257,15 @@ namespace Sango.Core
                                 // 设置产出
                                 // 统计适应偏向
                                 int[] levelTotal = new int[3] { 1, 1, 1 };
-                                city.allPersons.ForEach(x =>
+                                // 【性能】原 ForEach(lambda) 捕获 levelTotal，改为按下标遍历（2 处同模式）。
+                                for (int pi = 0; pi < city.allPersons.Count; pi++)
                                 {
+                                    Person x = city.allPersons[pi];
+                                    if (x == null) continue;
                                     levelTotal[0] += x.SpearLv;
                                     levelTotal[1] += x.HalberdLv;
                                     levelTotal[2] += x.CrossbowLv;
-                                });
+                                }
                                 int totalWeaponNum = city.itemStore.GetNumber(new int[] { 2, 3, 4 });
 
                                 int sumTotal = levelTotal[0] + levelTotal[1] + levelTotal[2];
@@ -1350,29 +1412,34 @@ namespace Sango.Core
                                 building.Render?.ShowInfo(building.AccumulatedProduct, (int)InfoType.Security);
                             }
 
+                            // 【性能】两条 ForEach(lambda) 都捕获 building，改为按下标遍历。
                             if (city.portList != null)
                             {
-                                city.portList.ForEach(x =>
+                                for (int pi = 0; pi < city.portList.Count; pi++)
                                 {
+                                    City x = city.portList[pi];
+                                    if (x == null) continue;
                                     x.AddMorale(GameRandom.Range(building.AccumulatedProduct / 2, building.AccumulatedProduct));
                                     x.Render?.UpdateRender();
                                     building.Render?.ShowInfo(building.AccumulatedProduct, (int)InfoType.Morale);
-                                });
+                                }
                             }
                             if (city.gateList != null)
                             {
-                                city.gateList.ForEach(x =>
+                                for (int gi = 0; gi < city.gateList.Count; gi++)
                                 {
+                                    City x = city.gateList[gi];
+                                    if (x == null) continue;
                                     x.AddMorale(GameRandom.Range(building.AccumulatedProduct / 2, building.AccumulatedProduct));
                                     x.Render?.UpdateRender();
                                     building.Render?.ShowInfo(building.AccumulatedProduct, (int)InfoType.Morale);
-                                });
+                                }
                             }
                             building.AccumulatedProduct = 0;
                         }
                         break;
                 }
-            });
+            }
 
             // 【必须用 IsPlayerControl，不能用 IsPlayer】
             //

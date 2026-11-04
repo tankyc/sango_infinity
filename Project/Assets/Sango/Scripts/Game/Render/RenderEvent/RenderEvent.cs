@@ -115,11 +115,42 @@ namespace Sango.Render
                         if (!renderEventBase.IsInited)
                         {
                             renderEventBase.IsInited = true;
+                            renderEventBase.Elapsed = 0f;       // 事件池化复用，进入时清零计时
                             renderEventBase.Enter(scenario);
                         }
 
-                        if (renderEventBase.Update(scenario, deltaTime))
+                        // 【watchdog】MaxDuration > 0 的事件超时强制完成。
+                        // 动机：DiplomacyEvent 的 IsDone 只在对话收尾回调里复位，回调一旦被
+                        // GameDialog 丢弃，事件永远滞留队列 → Scenario.Run 每帧提前 return →
+                        // 回合推进停摆（表现为"无法跳过回合、左下进行按钮灰死"）。
+                        // 原版演出是同步阻塞式（scene.open → message → close，
+                        // s11_sys_person_order_diplomacy.cpp:1057-1130），不存在这条坑；
+                        // 异步化后必须自备超时兜底。
+                        bool forceComplete = false;
+                        if (renderEventBase.MaxDuration > 0f)
                         {
+                            renderEventBase.Elapsed += deltaTime;
+                            if (renderEventBase.Elapsed >= renderEventBase.MaxDuration)
+                            {
+                                Sango.Log.Error(
+                                    $"*[演出]{renderEventBase.GetType().Name} 播放 {renderEventBase.Elapsed:0.0}s 超过上限 {renderEventBase.MaxDuration:0.0}s，" +
+                                    "疑似对话收尾回调丢失，强制完成（OnForceComplete 负责数据兜底）");
+                                forceComplete = true;
+                            }
+                        }
+
+                        bool finished = forceComplete || renderEventBase.Update(scenario, deltaTime);
+                        if (finished)
+                        {
+                            if (forceComplete)
+                            {
+                                try { renderEventBase.OnForceComplete(scenario); }
+                                catch (System.Exception ce)
+                                {
+                                    Sango.Log.Error($"*[演出]{renderEventBase.GetType().Name} 强制完成兜底异常：{ce}");
+                                }
+                            }
+
                             renderEventBase.IsDone = true;
                             renderEventBase.Exit(scenario);
                         }
@@ -161,11 +192,37 @@ namespace Sango.Render
                     if (!CurEvent.IsInited)
                     {
                         CurEvent.IsInited = true;
+                        CurEvent.Elapsed = 0f;      // 事件池化复用，进入时清零计时
                         CurEvent.Enter(scenario);
                     }
 
-                    if (!CurEvent.Update(scenario, deltaTime))
+                    // 【watchdog】与 depends 队列同规则，见上方注释
+                    bool forceComplete = false;
+                    if (CurEvent.MaxDuration > 0f)
+                    {
+                        CurEvent.Elapsed += deltaTime;
+                        if (CurEvent.Elapsed >= CurEvent.MaxDuration)
+                        {
+                            Sango.Log.Error(
+                                $"*[演出]{CurEvent.GetType().Name} 播放 {CurEvent.Elapsed:0.0}s 超过上限 {CurEvent.MaxDuration:0.0}s，" +
+                                "疑似对话收尾回调丢失，强制完成（OnForceComplete 负责数据兜底）");
+                            forceComplete = true;
+                        }
+                    }
+
+                    bool finished = forceComplete || CurEvent.Update(scenario, deltaTime);
+                    if (!finished)
                         return false;       // 未完成：游标留在原地，下一帧继续处理它
+
+                    if (forceComplete)
+                    {
+                        try { CurEvent.OnForceComplete(scenario); }
+                        catch (System.Exception ce)
+                        {
+                            Sango.Log.Error($"*[演出]{CurEvent.GetType().Name} 强制完成兜底异常：{ce}");
+                        }
+                        CurEvent.IsDone = true;
+                    }
 
                     CurEvent.Exit(scenario);
                 }

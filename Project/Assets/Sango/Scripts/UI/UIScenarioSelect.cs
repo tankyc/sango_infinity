@@ -164,6 +164,19 @@ namespace Sango.UI
 
         public void OnMapScale(float scale)
         {
+            // 【下标保护】curSelectIndex 并不保证有效：
+            //   · PC 平台上 ShowScenarioByType 会把它置成 -1（UIScenarioSelect.cs:289），
+            //     表示"玩家还没点选剧本"，此时界面已经可见；
+            //   · 过滤后列表可能为空（某个类型一个剧本都没有）；
+            //   · 极端情况下索引可能大于列表长度。
+            // 缩放滑条在没选中剧本时依然可以拖动，直接按下标取就会抛
+            // ArgumentOutOfRangeException（实战崩在拖动地图缩放条）。
+            // 没有可绘制的剧本时直接忽略本次缩放，等玩家选中剧本后再生效。
+            if (show_scenario_list == null || show_scenario_list.Count == 0)
+                return;
+            if (curSelectIndex < 0 || curSelectIndex >= show_scenario_list.Count)
+                return;
+
             UpdateMap(show_scenario_list[curSelectIndex], scale);
         }
 

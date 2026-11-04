@@ -1162,14 +1162,18 @@ namespace Sango.Core
             if (captiveList.Count > 0)
             {
                 captiveList.RemoveAll(x => x.mBelongTroop != this);
-                captiveList.ForEach(person =>
+                // 【性能】原 ForEach(lambda) 捕获无外部局部，但仍会分配委托；改为按下标遍历。
+                for (int i = 0; i < captiveList.Count; i++)
                 {
+                    Person person = captiveList[i];
+                    if (person == null)
+                        continue;
                     // 去重：BeCaptiveList 是普通 List，重复添加不会报错但会让
                     // ForceCaptiveLoyaltyChange 对同一俘虏掷两次掉忠骰。
                     // 读档 + 重新初始化可能多次走到这里。
                     if (person.BelongForce != null && !person.BelongForce.BeCaptiveList.Contains(person))
                         person.BelongForce.BeCaptiveList.Add(person);
-                });
+                }
             }
 
             buffManager.Init(this);
@@ -3282,13 +3286,17 @@ namespace Sango.Core
             //   · 本城就是他原来的关押城，部队只是出门转了一圈又回来；
             //   · 同一回合内先 AddCaptive 后又触发入城；
             //   · 历史存档里残留的重复登记。
-            captiveList.ForEach(p =>
+            // 【性能】原 ForEach(lambda) 捕获 city，改为按下标遍历。
+            for (int i = 0; i < captiveList.Count; i++)
             {
+                Person p = captiveList[i];
+                if (p == null)
+                    continue;
                 p.mBelongTroop = null;
                 if (!city.captiveList.Contains(p))
                     city.captiveList.Add(p);
                 p.ChangeCurrentCity(city);
-            });
+            }
             captiveList.Clear();
 
             // 返还兵装
@@ -3315,10 +3323,20 @@ namespace Sango.Core
                 return;
             }
 
-            //missionParams1 == 1 是AI运输的
-            // TroopType 是 IsInWater ? WaterTroopType : LandTroopType（都可能为 null，见上面的说明），
-            // 数据异常时按"非战斗部队"处理，别让一支脏部队卡住进城流程。
-            if ((TroopType == null || !TroopType.isFight) && missionParams1 <= 0)
+            // 【运输队入城询问】要不要弹"返回原地 / 留在本城"，只取决于"这支部队是不是运输（非战斗）部队"。
+            //
+            // 判据必须用 LandTroopType，不能用 TroopType：
+            //   TroopType = IsInWater ? WaterTroopType : LandTroopType，
+            //   而运输队的水上兵种固定是走舸（isFight = true，见 CityTransport.MakeTroop），
+            //   于是从水路（港口 / 沿海城）抵达时会被误判成战斗部队，选择框直接消失。
+            //
+            // 原先还叠了一个 `missionParams1 <= 0` 的门控（注释写着"== 1 是AI运输的"），
+            // 但该字段实际被"移动"命令写成目标格坐标（TroopInteractiveMoveToCell.cs:42）、
+            // 求援前存旧任务枚举、连建计数也在用，而全库没有任何地方写 1；
+            // 只要这支部队本回合先"移动"过一次，该门控就恒为 false，弹窗同样不会出现。
+            // AI / 非第一军团部队的静默处理由下面的 IsPlayerControl 分支负责，不需要这个字段。
+            bool isTransportTroop = LandTroopType != null && !LandTroopType.isFight;
+            if (isTransportTroop)
             {
                 if (BelongCorps.IsPlayerControl)
                 {
@@ -3699,7 +3717,17 @@ namespace Sango.Core
             //    必须立刻摘掉,否则当回合内 AI 仍会出兵打自己人。
             Scenario scenario = Scenario.Cur;
             if (scenario != null)
-                scenario.forceSet.ForEach(force => force?.RemoveThreatTroop(this));
+            {
+                // 【性能】原 ForEach(force => force?.RemoveThreatTroop(this)) 的 lambda 捕获 this，
+                // 每次易主都要分配闭包 + 委托；改为按下标遍历底层数组。
+                Force[] forceArray = scenario.forceSet.objects;
+                for (int i = 1; i < forceArray.Length; i++)
+                {
+                    Force force = forceArray[i];
+                    if (force != null)
+                        force.RemoveThreatTroop(this);
+                }
+            }
 
             // 3. 表现层:旗帜 / 头顶血条底色在登庸后立刻按新势力色重刷
             Render?.UpdateRender();
@@ -3879,9 +3907,18 @@ namespace Sango.Core
                 if (this.troopMissionBehaviour == null || (int)troopMissionBehaviour.MissionType != missionType)
                 {
                     troopMissionBehaviour = TroopMissionBehaviour.Create(missionType);
-                    isMissionPrepared = false;
-                    troopMissionBehaviour.Prepare(this, Scenario.Cur);
-                    isMissionPrepared = true;
+
+                    // 【为什么不在这里 Prepare】
+                    // 行为对象的 Prepare 是一次完整的目标扫描（Profiler 里
+                    // TroopOccupoyCity.Prepare 单帧就有 11 ms / 283 KB GC），
+                    // 把它塞进属性 getter 意味着"任何一次读取属性都可能触发一次全量重算"，
+                    // 调用方完全无从感知 —— 这是典型的隐藏副作用。
+                    //
+                    // 现在 getter 只负责「按当前 missionType 拿到或创建行为对象」，
+                    // 真正准备由 DoAI 流程里显式的 `if (!isMissionPrepared)` 分支完成（见 DoAI）。
+                    // 这里用 NeedPrepareMission() 把 isMissionPrepared 置 false，
+                    // 保证新建出来的行为对象一定会被那一段补上 Prepare —— 不会漏准备。
+                    NeedPrepareMission();
                 }
                 return troopMissionBehaviour;
             }

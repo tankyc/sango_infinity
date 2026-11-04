@@ -86,8 +86,10 @@ namespace Sango.UI
             forceNameLabel.text = TroopSortFunction.SortByBelongForce.GetValueStr(troop);
             corpsNameLabel.text = TroopSortFunction.SortByBelongCorps.GetValueStr(troop);
             belongLabel.text = TroopSortFunction.SortByBelongCity.GetValueStr(troop);
-            missionLabel.text = TroopSortFunction.SortByCaptiveCount.GetValueStr(troop);
-            missionTargetLabel.text = TroopSortFunction.SortByCaptiveCount.GetValueStr(troop);
+            // 【修正】这两栏此前都错用了"俘虏数量"列，导致部队信息面板里的任务 / 目标
+            // 显示成同一个数字。改用本文件新增的任务列与任务目标列（均为可读文本 + 显示转义）。
+            missionLabel.text = TroopSortFunction.SortByMissionType.GetValueStr(troop);
+            missionTargetLabel.text = TroopSortFunction.SortByMissionTarget.GetValueStr(troop);
             actionoverLabel.text = TroopSortFunction.SortByActionOver.GetValueStr(troop);
 
             captive_btn.interactable = troop.captiveList.Count > 0;

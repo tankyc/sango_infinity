@@ -136,6 +136,26 @@ namespace Sango.Core
             if (Builder_list != null && Builder_list.Length > 0 && Builder.Count == 0)
                 Builder.FromArray(Builder_list);
 
+            // 【设施类型缺失】BuildingType 是按 id 懒解析的可空引用（BuildingBase.cs:44-52）：
+            // BuildingTypeId <= 0，或设施表里查不到这个 id（Mod 覆盖精简了 BuildingTypes.json、
+            // 存档来自缺该设施的版本、剧本编辑器直接摆放）时，它就是 null。
+            // 下面的 OnBuildingCreate / GetSpiral / InitActions / attackMaxRange 全都要解引用它，
+            // 直接往下走会抛 NullReferenceException，而且发生在世界初始化的 Prepare 阶段，
+            // 会把整个开局或读档一起带崩（实战崩在 Scenario.Prepare → Building.OnScenarioPrepare）。
+            // 处理策略：只补"中心格"—— 后续逻辑（渲染、选中、失效判断）最常访问的就是它；
+            // 其余依赖设施类型的初始化整段跳过；isInited 置 true，
+            // 免得到时候 Building.Init 再走一遍同样必崩的分支。
+            if (BuildingType == null)
+            {
+                Sango.Log.Error($"*[设施]{Id} 找不到设施类型（BuildingTypeId={BuildingTypeId}），已跳过初始化，请检查数据或 Mod 是否缺少该设施");
+                OccupyCellList = new List<Cell>();
+                CenterCell = scenario.Map.GetCell(x, y);
+                if (CenterCell != null)
+                    CenterCell.building = this;
+                isInited = true;
+                return;
+            }
+
             BelongCity?.OnBuildingCreate(this);
             // 地格占用
             OccupyCellList = new List<Cell>();
@@ -178,6 +198,17 @@ namespace Sango.Core
         {
             if (!isInited)
             {
+                // 与 OnScenarioPrepare 同一原因：设施类型缺失时不能占地、不能建动作表，
+                // 否则 GetSpiral / InitActions / attackMaxRange 全都会空引用。
+                // 正常情况下 OnScenarioPrepare 已经把 isInited 置 true，这里主要是防
+                // "建筑在运行期才创建、没走过 Prepare"的路径。
+                if (BuildingType == null)
+                {
+                    isInited = true;
+                    OnPrepareRender();
+                    return;
+                }
+
                 BelongCity?.OnBuildingCreate(this);
                 // 地格占用
                 OccupyCellList = new List<Cell>();
@@ -216,8 +247,14 @@ namespace Sango.Core
             // 检查人员,自动修复建造和工作关系
             if (Workers != null && Workers.Count > 0)
             {
-                Workers.ForEach(x =>
+                // 【性能】原 ForEach(lambda) 捕获 this，改为按下标遍历。
+                // 必须**倒序**：SangoObjectList.ForEach 本身就是倒序（Count-1 → 0），
+                // 这里在循环体内 Remove，正序会跳过元素。
+                for (int i = Workers.Count - 1; i >= 0; i--)
                 {
+                    Person x = Workers[i];
+                    if (x == null)
+                        continue;
                     if (x.BelongCity != BelongCity || x.BelongForce != BelongForce || x.mBelongTroop != null)
                     {
                         Workers.Remove(x);
@@ -226,19 +263,24 @@ namespace Sango.Core
                             x.workingBuilding = null;
                         }
                     }
-                });
+                }
             }
 
             if (Builder != null && Builder.Count > 0)
             {
-                Builder.ForEach(x =>
+                // 【性能】同上方 Workers：SangoObjectList.ForEach 为倒序遍历，且循环体内 Remove，
+                // 改成 for 时必须保持倒序，否则会跳过元素。
+                for (int i = Builder.Count - 1; i >= 0; i--)
                 {
+                    Person x = Builder[i];
+                    if (x == null)
+                        continue;
                     if (x.BelongCity != BelongCity || x.BelongForce != BelongForce || x.BelongCorps != BelongCorps ||
                         x.missionType != (int)MissionType.PersonBuild || x.missionTarget != this.Id || x.mBelongTroop != null)
                     {
                         Builder.Remove(x);
                     }
-                });
+                }
             }
 
             if (!isComplate && Builder != null && Builder.Count > 0)
@@ -684,10 +726,13 @@ namespace Sango.Core
         public void RemoveAllWorkers()
         {
             if (Workers == null) return;
-            Workers.ForEach(worker =>
+            // 【性能】原 ForEach(lambda) 改为按下标遍历（顺序无关，保持倒序与原实现一致）。
+            for (int i = Workers.Count - 1; i >= 0; i--)
             {
-                worker.workingBuilding = null;
-            });
+                Person worker = Workers[i];
+                if (worker != null)
+                    worker.workingBuilding = null;
+            }
             Workers.Clear();
         }
 

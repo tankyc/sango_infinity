@@ -126,9 +126,10 @@ namespace Sango.Mod
         /// <summary>
         /// 对比"存档记录的模组列表"与"当前启用的模组列表"
         ///
-        /// 判定口径:
-        ///   · 集合不同(缺少 / 新增)→ 不一致;
-        ///   · 集合相同但顺序不同 → 也不一致(模组加载顺序会影响同名资源的覆盖优先级);
+        /// 判定口径(只关心"存档需要的模组是否都还在"):
+        ///   · 存档记录的每一个模组都已启用 → 一致。当前多启用了别的模组、或启用顺序与存档不同,
+        ///     都不再拦截读档(多出来的模组不会破坏存档里已有的数据,顺序差异也不影响读取);
+        ///   · 存档记录的模组有任意一个没启用 → 不一致(存档可能缺表缺资源,需要提醒玩家);
         ///   · 存档没有记录(老存档,mods 为 null)→ 当前一个模组都没启用才算一致,否则按不一致处理,
         ///     因为无法保证存档内容与当前数据对得上。
         /// </summary>
@@ -154,30 +155,6 @@ namespace Sango.Mod
                 return false;
             }
 
-            // 先看顺序是否完全一致(最常见的情况,直接返回)
-            bool sameOrder = curCount == savedCount;
-            if (sameOrder)
-            {
-                for (int i = 0; i < curCount; i++)
-                {
-                    if (!string.Equals(curMods[i], savedMods[i], System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        sameOrder = false;
-                        break;
-                    }
-                }
-                if (sameOrder)
-                    return true;
-            }
-
-            // 顺序不同时再算集合差异,给玩家更准确的提示
-            HashSet<string> savedSet = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < savedCount; i++)
-            {
-                if (!string.IsNullOrEmpty(savedMods[i]))
-                    savedSet.Add(savedMods[i]);
-            }
-
             HashSet<string> curSet = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < curCount; i++)
             {
@@ -185,48 +162,40 @@ namespace Sango.Mod
                     curSet.Add(curMods[i]);
             }
 
-            List<string> missing = new List<string>();   // 存档有、当前没有
-            foreach (string id in savedSet)
+            // 只统计"存档有、当前没有"的模组:当前多启用的模组不算不一致
+            List<string> missing = new List<string>();
+            HashSet<string> visited = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < savedCount; i++)
             {
+                string id = savedMods[i];
+                if (string.IsNullOrEmpty(id) || !visited.Add(id))
+                    continue;
                 if (!curSet.Contains(id))
                     missing.Add(id);
             }
 
-            List<string> added = new List<string>();     // 当前有、存档没有
-            foreach (string id in curSet)
-            {
-                if (!savedSet.Contains(id))
-                    added.Add(id);
-            }
+            // 存档记录的模组全都在启用列表中:直接视为一致,不弹任何提示
+            if (missing.Count == 0)
+                return true;
 
-            if (missing.Count == 0 && added.Count == 0)
-            {
-                message = "存档使用的模组与当前一致,但加载顺序不同。\r\n"
-                        + "模组顺序会影响同名资源的覆盖结果,继续读取仍可能出现异常。";
-                return false;
-            }
-
-            message = "存档使用的模组与当前不一致。\r\n";
-            if (missing.Count > 0)
-                message += $"缺少模组: {string.Join("、", missing)}\r\n";
-            if (added.Count > 0)
-                message += $"新增模组: {string.Join("、", added)}\r\n";
-            message += "继续读取很可能导致数据错乱或加载失败。";
+            message = "存档使用的模组与当前不一致。\r\n"
+                    + $"缺少模组: {string.Join("、", missing)}\r\n"
+                    + "继续读取很可能导致数据错乱或加载失败。";
             return false;
         }
 
         /// <summary>
         /// 检查"存档记录的模组"在当前环境的满足情况。
         ///
-        /// 用途:读档发现模组不一致时,先看缺的模组是不是"已经下载、只是没激活"。
-        /// 如果全部满足,就可以提示玩家按存档记录启用模组并重启,把模组环境还原成存档时的样子,
-        /// 而不是让玩家硬读一个大概率崩掉的存档。
+        /// 用途:读档发现模组不一致时,把缺失原因分类展示给玩家 ——
+        /// "本机根本没下载"和"下载了但没启用"对应完全不同的处理方式,
+        /// 玩家需要据此判断值不值得冒险直接读档。
         /// </summary>
         /// <param name="savedMods">存档记录的模组 Id 列表(可为 null = 老存档没有记录)</param>
         /// <param name="notDownloaded">输出:本机没有下载的模组 Id</param>
         /// <param name="inactive">输出:已下载但当前未激活的模组 Id</param>
         /// <returns>
-        /// true = 存档需要的模组在本机都能找到(此时可以走"激活并重启"的流程);
+        /// true = 存档需要的模组在本机都能找到(只是没启用);
         /// false = 有模组没下载,或者存档没有记录模组信息
         /// </returns>
         public bool CheckSavedModsAvailable(string[] savedMods, out List<string> notDownloaded, out List<string> inactive)
@@ -257,39 +226,6 @@ namespace Sango.Mod
             }
 
             return notDownloaded.Count == 0;
-        }
-
-        /// <summary>
-        /// 按 Id 列表重建"启用模组列表"并写入 modList.txt(重启后生效)。
-        /// 顺序严格按传入的 Id 顺序 —— 模组顺序会影响同名资源的覆盖结果,
-        /// 只有顺序也和存档一致,读档才真正安全。
-        /// 传入列表里没有的模组会被停用(不写进 modList.txt)。
-        /// </summary>
-        /// <param name="modIds">目标启用列表(通常是存档记录的模组 Id)</param>
-        /// <returns>true=已成功写入</returns>
-        public bool ApplyModListByIds(string[] modIds)
-        {
-            if (modIds == null)
-                return false;
-
-            List<Mod> mods = new List<Mod>();
-            HashSet<string> visited = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < modIds.Length; i++)
-            {
-                string id = modIds[i];
-                if (string.IsNullOrEmpty(id) || !visited.Add(id))
-                    continue;
-
-                Mod mod;
-                if (mModMap != null && mModMap.TryGetValue(id, out mod) && mod != null)
-                    mods.Add(mod);
-                else
-                    Sango.Log.Warning($"按存档启用模组时找不到该模组,已跳过: {id}");
-            }
-
-            SaveModList(mods.ToArray());
-            Sango.Log.Info("已按存档记录写入模组启用列表,重启后生效: " + string.Join(",", mods.ConvertAll(m => m.Id)));
-            return true;
         }
 
         string marketSaveFile;

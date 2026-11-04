@@ -20,14 +20,26 @@ namespace Sango.Core
 
         public bool Contains(int id)
         {
-            return values.Find(x => x.Id == id) != null;
+            // 【性能】原实现 values.Find(x => x.Id == id) 每次调用都要为捕获的 id
+            // 分配一个闭包对象和一个委托，而这类 id 判重会出现在逐帧/逐回合的循环里。
+            for (int i = 0; i < values.Count; i++)
+            {
+                T t = values[i];
+                if (t != null && t.Id == id)
+                    return true;
+            }
+            return false;
         }
 
         public T1 Get(int id)
         {
-            T t = values.Find(x => x.Id == id);
-            if (t != null)
-                return t.Object;
+            // 同上：改用直接循环，避免每次查表都分配闭包 + 委托。
+            for (int i = 0; i < values.Count; i++)
+            {
+                T t = values[i];
+                if (t != null && t.Id == id)
+                    return t.Object;
+            }
             return null;
         }
         public void Add(T1 o)

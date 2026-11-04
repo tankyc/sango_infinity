@@ -377,6 +377,12 @@ namespace Sango.Core
                 return c != 0 ? c : a.Id.CompareTo(b.Id);
             });
 
+            // 已经担任别处守将的武将不动。原写法对每个候选人都遍历一遍 guardPersonIds
+            // （O(候选人数 × 据点数)），这里先摊平成 HashSet，降为 O(候选人数)。
+            HashSet<int> guardIds = new HashSet<int>();
+            foreach (KeyValuePair<int, int> kv in force.guardPersonIds)
+                guardIds.Add(kv.Value);
+
             List<Person> candidates = new List<Person>();
             for (int i = 0; i < scenario.personSet.Count; i++)
             {
@@ -385,20 +391,17 @@ namespace Sango.Core
                     continue;
                 if (p.state == (int)PersonStateType.Prisoner || !p.IsFree)
                     continue;
-                // 已经担任别的据点守将的不动
-                bool isGuard = false;
-                foreach (KeyValuePair<int, int> kv in force.guardPersonIds)
-                {
-                    if (kv.Value == p.Id)
-                    {
-                        isGuard = true;
-                        break;
-                    }
-                }
-                if (isGuard)
+                if (guardIds.Contains(p.Id))
                     continue;
                 candidates.Add(p);
             }
+
+            // 守将评分只取决于武将五维，与目标据点无关 —— 先算一次缓存下来。
+            // 原写法在"空据点 × 候选人"的双层循环里把同一批人的五维重复读了 emptyList.Count 遍，
+            // Profiler 中 GetGuardStatScore 是 SetGuard 里调用次数最多的一项。
+            List<int> candidateScores = new List<int>(candidates.Count);
+            for (int i = 0; i < candidates.Count; i++)
+                candidateScores.Add(GetGuardStatScore(candidates[i]));
 
             for (int i = 0; i < emptyList.Count; i++)
             {
@@ -406,6 +409,7 @@ namespace Sango.Core
                     break;
                 City city = emptyList[i];
                 Person pick = null;
+                int pickIndex = -1;
                 int pickDistance = int.MaxValue;
                 int pickScore = int.MinValue;
                 for (int j = 0; j < candidates.Count; j++)
@@ -413,11 +417,12 @@ namespace Sango.Core
                     Person p = candidates[j];
                     City from = p.BelongCity ?? p.CurrentCity;
                     int distance = from == null ? int.MaxValue : GetCityDistance(city, from);
-                    int score = GetGuardStatScore(p);
+                    int score = candidateScores[j];
                     // 距离相同取 score 最大者（能力最低）——对齐原版 place_guard :786-788
                     if (distance < pickDistance || (distance == pickDistance && score > pickScore))
                     {
                         pick = p;
+                        pickIndex = j;
                         pickDistance = distance;
                         pickScore = score;
                     }
@@ -425,7 +430,9 @@ namespace Sango.Core
                 if (pick == null)
                     break;
                 force.guardPersonIds[city.Id] = pick.Id;
-                candidates.Remove(pick);
+                // 两个列表同索引同顺序，必须一起移除，否则后面的评分会串位
+                candidates.RemoveAt(pickIndex);
+                candidateScores.RemoveAt(pickIndex);
             }
         }
 
@@ -448,19 +455,24 @@ namespace Sango.Core
             if (person == null)
                 return int.MaxValue;
 
+            // 【性能】原版循环体里判断的是 leadership 而不是当前 stat（见方法注释），
+            // 因此"统率 ≤ 69 就整段跳过"与逐项 continue 完全等价，这里提到循环外。
+            // 五维直接逐项读取，不再用 int[] 中转：那个临时数组每次调用分配 52 字节，
+            // 而本方法在 set_guard / place_guard 的双层循环里是单帧数百次量级的调用，
+            // Profiler 中占到 SetGuard 全部 22.9 KB GC 分配。
             int maxStat = 100;
             int leadership = person.Command;
             int n = maxStat;
             if (leadership < 60)
                 n = leadership + 40;
+            if (leadership <= 69)
+                return n;
 
-            int[] stats = { person.Command, person.Strength, person.Intelligence, person.Politics, person.Glamour };
-            for (int i = 0; i < stats.Length; i++)
-            {
-                if (leadership <= 69)
-                    continue;
-                n -= System.Math.Max(stats[i] - 69, 0);
-            }
+            n -= System.Math.Max(leadership - 69, 0);
+            n -= System.Math.Max(person.Strength - 69, 0);
+            n -= System.Math.Max(person.Intelligence - 69, 0);
+            n -= System.Math.Max(person.Politics - 69, 0);
+            n -= System.Math.Max(person.Glamour - 69, 0);
             return n;
         }
 

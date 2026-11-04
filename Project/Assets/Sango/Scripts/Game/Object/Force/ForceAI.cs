@@ -125,9 +125,24 @@ namespace Sango.Core
         /// <summary>
         /// 本方是否有"交战中的据点"（原版 `据点状态计数[Battle] != 0`）。
         ///
-        /// 【近似口径】敌方部队正处在我方城池上 = 领地被入侵。
-        /// 原版是 AI 表里逐据点维护的实时状态，这里每次现算（O(部队数)），
-        /// 对外交这种低频决策完全够用。
+        /// 【对应原版】`s11_enum_scen.h:63`：`KyotenState_Battle` = **区域内有敌军**；
+        /// 判定见 `s11_game_ai_force.cpp:317-318`：
+        /// <code>
+        /// if (kyoten_[i].exist_enemy3 or kyoten_[i].exist_enemy5 or kyoten_[i].enemy_facility_count
+        ///     or kyoten_[i].nejiro >= 0 or kyoten_[i].enemy_unit_count)
+        ///     state = KyotenState_Battle;
+        /// </code>
+        /// 即"敌军部队/设施进了我的据点区域"，不只是站在城中心。
+        ///
+        /// 【本项目落点】`Troop.CurrentCity` 取的是**所在格子的领地归属城**
+        /// （`Cell.BelongCity`，港关折算到母城，见 `Troop.cs:178-190`），
+        /// 所以 `c.BelongForce == force` 已经等价于"敌军在我方领地内"，与原版口径一致。
+        ///
+        /// 【本次修正】此前用的是 `IsAlliance` 过滤，漏了**停战**：
+        /// 原版这里判的是 `exist_enemy*`，而这些标记来自 `is_enemy`，
+        /// 而 `is_enemy` 里"同盟或停战都不算敌人"。漏判会造成
+        /// "签了停战的势力，部队还站在我领地里"被当成交战据点，
+        /// 既挡住了结盟/送礼，又骗 AI 走战时停战分支。改用 `IsEnemy` 与之一致。
         /// </summary>
         static bool HasBattleOutpost(Force force, Scenario scenario)
         {
@@ -140,7 +155,7 @@ namespace Sango.Core
 
                 Force tf = troop.BelongForce;
                 if (tf == null || tf == force) continue;
-                if (force.IsAlliance(tf)) continue;
+                if (!force.IsEnemy(tf)) continue;      // 同盟 / 停战都不算敌人 —— is_enemy 口径
 
                 City c = troop.CurrentCity;
                 if (c != null && c.BelongForce == force)
@@ -279,34 +294,45 @@ namespace Sango.Core
 
         /// <summary>
         /// AI 主动停战 —— 原版 `force_ceasefire` / `force_preventive_ceasefire`
-        /// （`s11_game_ai_force_cmd_dip.cpp:442-682`）：
-        /// 与关系恶劣的相邻势力求和，期限按实力排名折算（`power_rank * 72 / 100`，夹在 6~72 周）。
-        /// 本项目用"相邻势力里友好度最低者"近似"打不过的那一家"。
+        /// （`s11_game_ai_force_cmd_dip.cpp:442-682`）。
+        ///
+        /// 【两条路径，与原版一一对应】
+        /// <list type="number">
+        /// <item>有交战据点（`据点状态计数[Battle] != 0`）→ 战时停战（`:442-564`）：
+        ///       只向"真的打进我领地的那一家"求和。</item>
+        /// <item>没有交战据点 → 预防性停战（`:566-682`）：只在**多面受敌**
+        ///       （相邻敌势力 ≥ 2）时，向"不是我正在打、也不是 AI 锁定要打、且不比我强"的
+        ///       友好势力求和，好腾出手来。</item>
+        /// </list>
+        ///
+        /// 【本次修正】旧实现把两条路径揉成一条：不分战时/平时都取"友好度最低的相邻势力"，
+        /// 唯一门槛是 `like &lt; 40` —— 于是**双方根本没打仗**的势力也会派使者递停战协议，
+        /// 正是玩家反馈的"不在交战期也收到停战协议"。原版预防性停战的六道前置
+        /// （实力排名、使者占用、多面受敌、错峰、AI 敌对/友好表、实力对比）一道都没落，这里逐条补齐。
         /// </summary>
         static bool TryAICeasefire(Force force, Scenario scenario, int turn)
         {
-            // 原版两条路径（:530 战时 / :632 预防）：
-            //   · 有交战据点 → turn % 21 错峰，且只对"打进来的那家"求和；
-            //   · 无交战据点 → turn % 6 错峰（势力数 ≥3 时才错峰），属于"预防性停战"。
-            bool inBattle = HasBattleOutpost(force, scenario);
-            if (inBattle)
-            {
-                int warStagger = System.Math.Max(1, AIConfig.Instance.diplomacyCeasefireWarStagger);
-                if (turn % warStagger != force.Id % warStagger) return false;
-            }
-            else
-            {
-                int peaceStagger = System.Math.Max(1, AIConfig.Instance.diplomacyCeasefirePeaceStagger);
-                if (CountAliveForces(scenario) >= 3 && turn % peaceStagger != force.Id % peaceStagger) return false;
-            }
+            // 原版 `:449-453`：没有交战据点 → 直接转预防性停战，不再做战时扫描
+            if (!HasBattleOutpost(force, scenario))
+                return TryAICeasefirePreventive(force, scenario, turn);
 
-            if (force.NeighborForceList == null || force.NeighborForceList.Count == 0)
-                return false;
+            // 原版 `:454-455`：已有停战使者在外 → 本回合不再派
+            if (HasCeasefireInProgress(force, scenario)) return false;
 
-            // 战时：原版直接锁定"打进来的那家"（`:521-545` 扫描进入我领地的敌军），
-            // 而不是"关系最差的邻居" —— 求和对象必须是真的在打你的势力。
-            Force invader = null;
-            if (inBattle && scenario.troopsSet != null)
+            int rank = GetPowerRank(force, scenario);
+
+            // 原版 `:480-556`：扫描"进入我领地的敌军"，锁定求和对象
+            Force target = null;
+            int targetLike = 0;
+            HashSet<int> attacking = GetAttackingForceIds(force, scenario);
+
+            // 原版 `:530-534`：turn % 21 错峰。
+            // 原版对"玩家控制军团"还有 75% 放宽，本项目 AIDiplomacy 只对非玩家势力调用，
+            // 该分支恒为假（死代码），故不实现。
+            int warStagger = System.Math.Max(1, AIConfig.Instance.diplomacyCeasefireWarStagger);
+            bool warTurn = turn % warStagger == force.Id % warStagger;
+
+            if (scenario.troopsSet != null)
             {
                 for (int i = 0; i < scenario.troopsSet.Count; i++)
                 {
@@ -314,54 +340,222 @@ namespace Sango.Core
                     if (troop == null || !troop.IsAlive) continue;
 
                     Force tf = troop.BelongForce;
-                    if (tf == null || tf == force || force.IsAlliance(tf)) continue;
+                    if (tf == null || tf == force) continue;
+                    if (!tf.IsNormal) continue;                  // `:489-490` 只和正规势力谈
+                    if (!force.IsEnemy(tf)) continue;            // `:504` 必须是敌对（同盟/停战不算）
 
+                    // `:491-499` 必须处在我方据点区域内
                     City c = troop.CurrentCity;
-                    if (c != null && c.BelongForce == force) { invader = tf; break; }
+                    if (c == null || c.BelongForce != force) continue;
+
+                    // `:506-520` 我方正主动进攻它 → 不向它求和（原版 defense 标记）
+                    if (attacking.Contains(tf.Id)) continue;
+
+                    if (tf.IsPlayer)
+                    {
+                        // `:521-527` 目标为玩家：禁谈期内不谈；按"玩家接壤排名"概率回避
+                        if (force.diplomacyBanTimer > 0) continue;
+                        if (GameRandom.Chance(GetPlayerNeighboredRank(force, scenario))) continue;
+                    }
+                    else
+                    {
+                        // `:530-538` 错峰 + 不向 AI 已锁定要打的势力求和 + 不向强于自己的求和
+                        if (!warTurn) continue;
+                        if (force.hostileForceIds != null && force.hostileForceIds.Contains(tf.Id)) continue;
+                        if (rank < GetPowerRank(tf, scenario)) continue;
+                    }
+
+                    // `:549-553` 多家入侵时按 enemy_priority_comp 选一家
+                    if (target == null || EnemyPriorityCompare(tf, target, force, rank))
+                    {
+                        target = tf;
+                        targetLike = force.GetLike(tf);
+                    }
                 }
             }
 
-            Force worst = null;
-            int worstLike = 101;
-            for (int i = 0; i < force.NeighborForceList.Count; i++)
-            {
-                Force n = force.NeighborForceList[i];
-                if (n == null || !n.IsAlive || n == force) continue;
-                if (force.IsAlliance(n) || force.IsTruce(n)) continue;
+            // 【差异说明】原版在 `:474-475` 先找使者、再扫目标；这里把目标放在前面，
+            // 避免"根本没有求和对象也先扫一遍武将"。语义等价，只影响开销。
+            if (target == null) return false;
 
-                int like = force.GetLike(n);
-                if (like < worstLike) { worstLike = like; worst = n; }
-            }
-
-            // 有入侵者时以它为准（哪怕关系不算太差，也在打仗）
-            if (invader != null)
-            {
-                worst = invader;
-                worstLike = force.GetLike(invader);
-            }
-
-            if (worst == null || (!inBattle && worstLike >= 40)) return false;
-
-            Person diplomat = FindSuitableDiplomat(force);
-            if (diplomat == null) return false;
-
-            // 期限：原版 `time = power_rank * 72 / 100`，clamp 6..72（`:600`）
-            int rank = GetPowerRank(force, scenario);
+            // `:457-459` 期限 = power_rank * 72 / 100，clamp 6..72
             int weeks = rank * 72 / 100;
             if (weeks < 6) weeks = 6;
             if (weeks > 72) weeks = 72;
 
+            return DispatchTruce(force, target, weeks, targetLike, rank);
+        }
+
+        /// <summary>
+        /// 预防性停战 —— 原版 `force_preventive_ceasefire`（`s11_game_ai_force_cmd_dip.cpp:566-682`）。
+        ///
+        /// 【语义】"多面受敌时先稳住一家"：敌军还没打进我的据点（无交战据点），
+        /// 但相邻有 **≥2 家**敌对势力，于是向 AI 认定为**友好**、且**不比我强**的那一家提议停战。
+        ///
+        /// 【重要】原版这条分支**没有友好度下限**，它靠"AI 友好势力表"筛选（`ai_table_is_friendly`）。
+        /// 旧实现用 `like &lt; 40`（越差越发）代替这张表，方向正好反了，是误发的直接原因。
+        /// </summary>
+        static bool TryAICeasefirePreventive(Force force, Scenario scenario, int turn)
+        {
+            int rank = GetPowerRank(force, scenario);
+
+            // `:571-572` 正规势力且实力排名 < 50 → 不做预防性停战（弱国不主动示好）
+            if (force.IsNormal && rank < 50) return false;
+
+            // `:577-578` 已有停战使者在外
+            if (HasCeasefireInProgress(force, scenario)) return false;
+
+            // `:580-594` targeted = 我方正在进攻的势力
+            HashSet<int> attacking = GetAttackingForceIds(force, scenario);
+
+            // `:625-627` 相邻敌势力 ≤ 1 → 谈不上"多面受敌"，直接放弃。
+            // 注意原版取的是 `ai_table_get_neighbor_enemy_force_list`，是"相邻**敌**势力"，
+            // 不是全部邻居 —— 这条正是旧实现完全缺失的那道闸门。
+            List<Force> neighborEnemies = GetNeighborEnemyForceList(force, scenario);
+            if (neighborEnemies.Count <= 1) return false;
+
+            // `:596` 外层总闸：`targeted_count or turn % 21 == force_id % 21`
+            // （原版的 `player and rand_bool(75)` 分支对非玩家势力恒为假，不实现）
+            int peaceStagger = System.Math.Max(1, AIConfig.Instance.diplomacyCeasefirePeaceStagger);
+            if (attacking.Count == 0 && turn % peaceStagger != force.Id % peaceStagger) return false;
+
+            // `:628-634` 相邻敌势力 ≥ 3（被围殴）时再做 turn % 6 错峰
+            int manyStagger = System.Math.Max(1, AIConfig.Instance.diplomacyCeasefireManyEnemyStagger);
+            if (neighborEnemies.Count >= 3 && turn % manyStagger != force.Id % manyStagger) return false;
+
+            Force target = null;
+            int targetLike = 0;
+            for (int i = 0; i < neighborEnemies.Count; i++)
+            {
+                Force n = neighborEnemies[i];
+                if (n == null || !n.IsAlive) continue;
+
+                // `:637-639` 正在进攻的对象跳过
+                if (attacking.Contains(n.Id)) continue;
+
+                if (n.IsPlayer)
+                {
+                    // `:640-646` 目标为玩家：禁谈期 + 接壤排名回避
+                    if (force.diplomacyBanTimer > 0) continue;
+                    if (GameRandom.Chance(GetPlayerNeighboredRank(force, scenario))) continue;
+                }
+                else
+                {
+                    // `:647-650` 不向 AI 已锁定要打的势力求和
+                    if (force.hostileForceIds != null && force.hostileForceIds.Contains(n.Id)) continue;
+
+                    // `:651-655` 没有在进攻任何人时：只向"AI 认定为友好"且"不比我强"的求和
+                    if (attacking.Count == 0)
+                    {
+                        if (force.friendlyForceIds == null || !force.friendlyForceIds.Contains(n.Id)) continue;
+                        if (rank < GetPowerRank(n, scenario)) continue;
+                    }
+                }
+
+                if (target == null || EnemyPriorityCompare(n, target, force, rank))
+                {
+                    target = n;
+                    targetLike = force.GetLike(n);
+                }
+            }
+
+            if (target == null) return false;
+
+            // `:599-605` 期限：正在进攻 N 家 → 6 + N*3；否则按实力排名折算
+            int weeks = attacking.Count > 0 ? 6 + attacking.Count * 3 : 72 * rank / 100;
+            if (weeks < 6) weeks = 6;
+            if (weeks > 72) weeks = 72;
+
+            return DispatchTruce(force, target, weeks, targetLike, rank);
+        }
+
+        /// <summary>
+        /// 我方正在进攻的势力 Id 集合。
+        ///
+        /// 【对应原版】`deploy_[i].type == DeployType_Attack` 的目标据点归属势力
+        /// （`s11_game_ai_force_cmd_dip.cpp:506-517` 的 defense 判定、`:582-594` 的 targeted 表）。
+        /// 【本项目近似】没有势力级的"攻击部署表"，改用"我方部队当前正处在对方领地内"判定 ——
+        /// 部队站在谁的地界上，谁就是我正在打的对象。语义一致，代价是一次 O(部队数) 扫描。
+        /// </summary>
+        /// <param name="force">我方势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>正在进攻的势力 Id 集合</returns>
+        static HashSet<int> GetAttackingForceIds(Force force, Scenario scenario)
+        {
+            HashSet<int> ids = new HashSet<int>();
+            if (force == null || scenario == null || scenario.troopsSet == null)
+                return ids;
+
+            for (int i = 0; i < scenario.troopsSet.Count; i++)
+            {
+                Troop troop = scenario.troopsSet[i];
+                if (troop == null || !troop.IsAlive) continue;
+                if (troop.BelongForce != force) continue;
+
+                City c = troop.CurrentCity;
+                if (c == null || c.BelongForce == null || c.BelongForce == force) continue;
+                ids.Add(c.BelongForce.Id);
+            }
+            return ids;
+        }
+
+        /// <summary>
+        /// 本势力是否已有停战使者在外。
+        ///
+        /// 【对应原版】`ai_table_already_in_progress(force_id, PersonOrderId_Ceasefire)`
+        /// （`s11_game_ai_force_cmd_dip.cpp:454-455`、`:577-578`），它扫的是 `get_actors()`。
+        /// 【本项目落点】<see cref="Scenario.Actors"/> 就是在途武将表；
+        /// 外交任务的 `missionParams2` 存的是 <see cref="DiplomacyActionType"/>
+        /// （见 <see cref="DiplomacyManager.DispatchDiplomat"/> 里的 SetMission 调用）。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>已有停战使者在外返回 true</returns>
+        static bool HasCeasefireInProgress(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null || scenario.Actors == null)
+                return false;
+
+            IReadOnlyList<Person> actors = scenario.Actors;
+            for (int i = 0; i < actors.Count; i++)
+            {
+                Person p = actors[i];
+                if (p == null || !p.IsAlive) continue;
+                if (p.BelongForce != force) continue;
+                if (p.missionType != (int)MissionType.PersonDiplomacy) continue;
+                if (p.missionParams2 == (int)DiplomacyActionType.Truce) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 派使者递交停战协议 —— 两条路径共用的收尾段。
+        ///
+        /// 【对应原版】`commander_->ceasefire(&param)`（`:557-562` / `:674-679`）：
+        /// 真正落地只做一次，目标与期限由前面的筛选给出。
+        /// </summary>
+        /// <param name="force">发起方势力</param>
+        /// <param name="target">目标势力</param>
+        /// <param name="weeks">停战期限（回合）</param>
+        /// <param name="like">当前友好度（仅用于日志）</param>
+        /// <param name="rank">发起方实力排名（仅用于日志）</param>
+        /// <returns>是否成功派出使者</returns>
+        static bool DispatchTruce(Force force, Force target, int weeks, int like, int rank)
+        {
+            Person diplomat = FindSuitableDiplomat(force);
+            if (diplomat == null) return false;
+
             DiplomacyManager dm = GameSystem.GetSystem<DiplomacyManager>();
             DiplomacyActionTruce truce = dm.CreateDiplomacyAction(
-                DiplomacyActionType.Truce, force, worst, diplomat, GetDiplomaticGoldUse(force, worst)) as DiplomacyActionTruce;
+                DiplomacyActionType.Truce, force, target, diplomat, GetDiplomaticGoldUse(force, target)) as DiplomacyActionTruce;
             if (truce == null) return false;
 
             truce.TruceDuration = weeks;
             if (!truce.CanPerform()) return false;
 
             dm.DispatchDiplomat(truce);
-            Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向 {worst.Name} 提议停战" +
-                           $"（友好度 {worstLike}，期限 {weeks} 回合，实力排名 {rank}）");
+            Sango.Log.Info($"@外交AI@{force.Name} 派遣 {diplomat.Name} 向 {target.Name} 提议停战" +
+                           $"（友好度 {like}，期限 {weeks} 回合，实力排名 {rank}）");
             return true;
         }
 
@@ -552,19 +746,26 @@ namespace Sango.Core
             if (leadership < 60)
                 n = leadership + 40;
 
-            int[] stats =
-            {
-                person.Command, person.Strength, person.Intelligence,
-                person.Politics, person.Glamour,
-            };
+            // 【性能】原版循环体里判断的是 leadership 而不是当前 stat，
+            // 所以"统率 ≤ 69 整段跳过"与逐项 continue 等价，提到循环外。
+            // 五维直接逐项读取，不再用 int[] 中转 —— 临时数组每次调用分配 52 字节，
+            // 本方法在 set_guard / place_guard / summon_guard 的嵌套循环里被高频调用。
+            if (leadership <= 69) return n;
 
-            for (int i = 0; i < stats.Length; i++)
-            {
-                if (leadership <= 69) continue;
+            int over = leadership - 69;
+            if (over > 0) n -= over;
 
-                int over = stats[i] - 69;
-                if (over > 0) n -= over;
-            }
+            over = person.Strength - 69;
+            if (over > 0) n -= over;
+
+            over = person.Intelligence - 69;
+            if (over > 0) n -= over;
+
+            over = person.Politics - 69;
+            if (over > 0) n -= over;
+
+            over = person.Glamour - 69;
+            if (over > 0) n -= over;
 
             return n;
         }

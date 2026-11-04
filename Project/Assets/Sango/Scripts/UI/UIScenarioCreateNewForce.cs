@@ -44,10 +44,6 @@ namespace Sango.UI
         // 可用旗帜列表
         List<Flag> availableFlags = new List<Flag>();
 
-        // 原本存在的势力列表
-        List<ShortForce> exsisitForceList = new List<ShortForce>();
-        List<ShortCity> exsisitCityList = new List<ShortCity>();
-
         protected override void Awake()
         {
             BindButtonEvents();
@@ -95,6 +91,10 @@ namespace Sango.UI
         /// </summary>
         void RefreshInfo()
         {
+            // scenario 为空说明界面正在随剧本一起销毁（返回主菜单），不再刷新
+            if (scenario == null)
+                return;
+
             // 已配属 = AssignedPersonCount，未配属 = 总数 - 已配属（对齐 UIScenarioAddonMenu 的同名统计口径）
             SetCountText(assignedNewPersonCountText, scenario.AssignedPersonCount);
             SetCountText(unassignedNewPersonCountText, scenario.AppendPersonCount - scenario.AssignedPersonCount);
@@ -121,8 +121,7 @@ namespace Sango.UI
                 foreach (ShortCity city in scenario.citySet)
                 {
                     if (city == null) continue;
-                    exsisitCityList.Add(city.Copy());
-                    if (city != null && city.Id != 0 && city.IsCity() && city.BelongForceId == 0)
+                    if (city.Id != 0 && city.IsCity() && city.BelongForceId == 0)
                     {
                         emptyCities.Add(city);
                     }
@@ -139,14 +138,19 @@ namespace Sango.UI
                 });
             }
 
+            // 已建势力占用的旗帜不再可选
             foreach (ShortForce shortForce in scenario.forceSet)
             {
-                if (shortForce != null)
-                {
-                    exsisitForceList.Add(shortForce.Copy());
-                    Flag flag = commonData.Flags.Get(shortForce.Flag);
+                if (shortForce == null)
+                    continue;
+
+                // 势力数据不完整(编辑器里可能有半成品势力)时跳过,不能让颜色表解析失败中断整个流程
+                if (commonData == null || commonData.Flags == null)
+                    continue;
+
+                Flag flag = commonData.Flags.Get(shortForce.Flag);
+                if (flag != null)
                     availableFlags.Remove(flag);
-                }
             }
         }
 
@@ -156,7 +160,8 @@ namespace Sango.UI
 
         void RefreshMap()
         {
-            if (uIEditWorldMap != null)
+            // scenario 为空说明界面正在随剧本一起销毁（返回主菜单），不再刷新地图
+            if (uIEditWorldMap != null && scenario != null)
             {
                 uIEditWorldMap.SetScenario(scenario);
                 uIEditWorldMap.RefreshCity();
@@ -169,13 +174,26 @@ namespace Sango.UI
 
         void RefreshForceItems()
         {
-            if (itemPool != null)
-                itemPool.Reset();
+            // 模板/父节点没在 prefab 里指派时对象池建不起来,此时不显示列表,避免空引用
+            if (itemPool == null)
+                return;
+
+            // 【关闭期保护】本方法会被编辑窗口的 OnCloseAction 回调（见 OnClickNewForceSlot）。
+            // 返回主菜单时 Window.CloseAll 会逐个触发 OnCloseAction，此刻剧本可能已被释放
+            //（实战崩栈：Player.QuitToMainMenu → Window.CloseAll → UGUIWindow.OnClose → 本方法）。
+            // scenario / forceSet 任一为空都直接跳过，不要试图刷新一个正在销毁的界面。
+            if (scenario == null || scenario.forceSet == null
+                || scenario.personSet == null || scenario.citySet == null)
+                return;
+
+            itemPool.Reset();
+            // 池已经回收了全部列表项,这里同步清掉引用,避免反复刷新时越积越多
+            activeItems.Clear();
 
             List<ShortForce> shortForces = new List<ShortForce>();
             scenario.forceSet.ForEach(x =>
             {
-                if (x.IsAppend)
+                if (x != null && x.IsAppend)
                 {
                     shortForces.Add(x);
                 }
@@ -185,18 +203,27 @@ namespace Sango.UI
             for (int i = 0; i < shortForces.Count; i++)
             {
                 ShortForce force = shortForces[i];
-                ShortPerson gov = scenario.personSet[force.Governor];
-                Flag flag = scenario.CommonData.Flags.Get(force.Flag);
-                ShortCity captain = scenario.citySet.Get(gov.BelongCityId);
+
+                // 本城以势力自身的 CapitalCity 为准:新建势力流程只保证这个字段有值,
+                // 君主(武将)的 BelongCityId 可能被"取消配属城市"等操作清成 0 或指向已删除的城市。
+                // 以前直接拿 gov.BelongCityId 去查城市,取到 null 后 captain.Name 就会空引用崩溃。
+                ShortCity captain = force.CapitalCity > 0 ? scenario.citySet.Get(force.CapitalCity) : null;
+                ShortPerson gov = force.Governor > 0 ? scenario.personSet.Get(force.Governor) : null;
+                if (captain == null && gov != null && gov.BelongCityId > 0)
+                    captain = scenario.citySet.Get(gov.BelongCityId);
+
+                Flag flag = (commonData != null && commonData.Flags != null) ? commonData.Flags.Get(force.Flag) : null;
+
                 UICreateForceItem item = itemPool.Create();
                 if (item == null) continue;
 
+                // 数据缺项时用占位符显示,保证列表能正常打开(不能用 null 去取 Name/color)
                 if (item.forceName != null)
-                    item.forceName.text = gov.Name;
+                    item.forceName.text = gov != null ? gov.Name : "-";
                 if (item.cityName != null)
-                    item.cityName.text = captain.Name;
+                    item.cityName.text = captain != null ? captain.Name : "-";
                 if (item.flagColor != null)
-                    item.flagColor.color = flag.color;
+                    item.flagColor.color = flag != null ? flag.color : Color.white;
                 //if (item.btnName != null)
                 //    item.btnName.text = "已建立";
                 // 已建势力可删除
@@ -216,6 +243,8 @@ namespace Sango.UI
             if (remaining > 0)
             {
                 UICreateForceItem item = itemPool.Create();
+                if (item == null)
+                    return;
 
                 // 无指定势力：君主/本城文本置空,势力颜色为白色,删除按钮禁止点击
                 if (item.forceName != null)
@@ -257,6 +286,11 @@ namespace Sango.UI
             SetHideNodeActive(false);
             Window.Instance.Open("window_scenario_edit_new_force", uIEditWorldMap, targetForce != null ? targetForce.Id : -1 , scenario, commonData).ugui_instance.OnCloseAction = () =>
             {
+                // 【退出到主菜单】该回调会在 Window.CloseAll 时触发（不只是玩家点返回），
+                // 那一刻剧本与界面都处于销毁流程中，继续刷新只会空引用。
+                if (scenario == null || confirmBtn == null || !isActiveAndEnabled)
+                    return;
+
                 SetHideNodeActive(true);
 
                 // 表明未真正使用
@@ -289,10 +323,22 @@ namespace Sango.UI
         /// </summary>
         void OnDeleteForce(ShortForce targetForce)
         {
+            if (targetForce == null)
+                return;
+
             scenario.forceSet.Remove(targetForce);
-            scenario.citySet[targetForce.CapitalCity].BelongForceId = 0;
-            scenario.personSet[targetForce.Governor].BelongForceId = 0;
-            scenario.personSet[targetForce.Governor].BelongCityId = 0;
+
+            // 势力数据可能不完整(君主/本城未填或已失效),逐个判空,不能直接下标取值
+            ShortCity capital = targetForce.CapitalCity > 0 ? scenario.citySet.Get(targetForce.CapitalCity) : null;
+            if (capital != null)
+                capital.BelongForceId = 0;
+
+            ShortPerson governor = targetForce.Governor > 0 ? scenario.personSet.Get(targetForce.Governor) : null;
+            if (governor != null)
+            {
+                governor.BelongForceId = 0;
+                governor.BelongCityId = 0;
+            }
             hasChanged = true;
 
             RefreshMap();

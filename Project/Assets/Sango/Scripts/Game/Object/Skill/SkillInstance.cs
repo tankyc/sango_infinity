@@ -310,6 +310,28 @@ namespace Sango.Core
         /// <param name="cells"></param>
         public void GetSpellRange(Troop atker, Cell where, List<Cell> cells)
         {
+            // 【性能】没有范围过滤器的技能占绝大多数（过滤器只有少数技能配）。
+            // 这种情况直接把环形结果追加进调用方的列表，省掉每次调用 new List<Cell>() 的一次分配
+            // —— AI 做一次全量技能评估会调用几百次，实测单次评估光这里就产生约 260KB GC。
+            // 语义与原来完全一致：GetRing 只做 Add，不读列表原有内容。
+            if (skillRangeFilterMethod == null)
+            {
+                if (spellRanges == null || spellRanges.Length == 0)
+                {
+                    cells.Add(where);
+                }
+                else
+                {
+                    for (int i = 0; i < spellRanges.Length; i++)
+                    {
+                        Scenario.Cur.Map.GetRing(where, spellRanges[i], cells, true);
+                    }
+                }
+                return;
+            }
+
+            // 有过滤器时必须让过滤器只看到"本次算出的范围"，
+            // 不能看到 cells 里已有的历史内容（部分调用方会跨技能累积同一个列表）。
             List<Cell> ranges = new List<Cell>();
             if (spellRanges == null || spellRanges.Length == 0)
             {
@@ -1259,7 +1281,7 @@ namespace Sango.Core
                     // 主目标格必定施放效果(如点火);周围邻格只有存在部队/建筑(含城池)才施放,空地不施放
                     if (atkCell == spellCell || atkCell.troop != null || atkCell.building != null)
                     {
-                        effects.ForEach(s => s.Action(target));
+                        for (int ei = 0; ei < effects.Count; ei++) effects[ei].Action(target);
                         castCount++;
                     }
                 }
@@ -1268,7 +1290,7 @@ namespace Sango.Core
                     Troop beAtkTroop = atkCell.troop;
                     if (beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
                     {
-                        effects.ForEach(s => s.Action(target));
+                        for (int ei = 0; ei < effects.Count; ei++) effects[ei].Action(target);
                         castCount++;
                     }
                     else
@@ -1276,7 +1298,7 @@ namespace Sango.Core
                         BuildingBase beAtkBuildingBase = atkCell.building;
                         if (beAtkBuildingBase != null && this.canDamageBuilding && (troop.IsEnemy(beAtkBuildingBase) || this.canDamageTeam))
                         {
-                            effects.ForEach(s => s.Action(target));
+                            for (int ei = 0; ei < effects.Count; ei++) effects[ei].Action(target);
                             castCount++;
                         }
                     }
@@ -1302,7 +1324,7 @@ namespace Sango.Core
             forcedExpEvent = -1;
             if (effects != null)
             {
-                effects.ForEach(s => s.Clear());
+                for (int ei = 0; ei < effects.Count; ei++) effects[ei].Clear();
                 effects.Clear();
             }
             if (skillVisualizer != null)

@@ -65,15 +65,17 @@ namespace Sango.Core.Player
         {
             get
             {
+                // 走本城口径：人才府会让登用 AP 减半，门禁必须与结算(City.JobRecruitPerson)一致，
+                // 否则会出现"行动力 10 时按钮亮着、显示要 20"的错位
                 return TargetCity.freePersons.Count > 0 &&
-                    TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
+                    TargetCity.BelongCorps.ActionPoint >= TargetCity.GetJobCostAP(CityJobType.RecruitPerson);
             }
         }
 
-        /// <summary>单次登庸行动力消耗（沿用原有 JobType 配置）</summary>
+        /// <summary>单次登庸行动力消耗（走本城口径：人才府减半，与结算一致）</summary>
         public int GetJobAP()
         {
-            return JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
+            return TargetCity.GetJobCostAP(CityJobType.RecruitPerson);
         }
 
         public override void OnEnter()
@@ -108,63 +110,79 @@ namespace Sango.Core.Player
             // 这里按 Person 再去一次，保证界面一行一个目标。
             HashSet<Person> seen = new HashSet<Person>();
 
-            Scenario.Cur.citySet.ForEach(x =>
+            // 【性能】原为 citySet + 各城三个名册的嵌套 ForEach(lambda)，
+            // 每座城每次候选刷新都分配 1 个闭包 + 1 个委托，这里全部改为按下标遍历。
+            City[] allCityArray = Scenario.Cur.citySet.objects;
+            for (int ci = 1; ci < allCityArray.Length; ci++)
             {
+                City x = allCityArray[ci];
+                if (x == null)
+                    continue;
                 if (!x.IsSameForce(TargetCity))
                 {
-                    x.allPersons.ForEach(y =>
+                    for (int yi = 0; yi < x.allPersons.Count; yi++)
                     {
+                        Person y = x.allPersons[yi];
+                        if (y == null)
+                            continue;
                         // 【禁止仕官】半年内被本势力拒绝过的人不进候选（对应 Open311 banned_kunshu）
                         if (y.state == (int)PersonStateType.Governor
                             || y.state == (int)PersonStateType.Prisoner)
-                            return;
+                            continue;
                         // 【与 CityRecruit.CollectTargets 同口径】排除事件 / NPC / 异族，
                         // 以及已在部队中的敌将：后者的 CurrentCity 可能为空，
                         // 派出去会落到 City.JobRecruitPerson 的"目标没有所在城"分支，
                         // 白扣行动力还让执行武将白跑一趟。
                         if (y.IsBannedFrom(TargetCity.BelongForce) || y.IsSpecialPerson)
-                            return;
+                            continue;
                         if (y.mBelongTroop != null)
-                            return;
+                            continue;
                         if (seen.Add(y))
                             targetList.Add(y);
-                    });
-                    x.wildPersons.ForEach(y =>
+                    }
+                    for (int yi = 0; yi < x.wildPersons.Count; yi++)
                     {
+                        Person y = x.wildPersons[yi];
+                        if (y == null)
+                            continue;
                         // 【君主不可登用】与原版 get_employable_person_list 一致
                         // （s11_sys_person_order_personnel.cpp:904-954：Mibun_Kunshu 不在候选身份内）。
                         // 势力灭亡后君主会下野（state → Unemployed），届时才重新进入候选。
                         if (y.state == (int)PersonStateType.Governor)
-                            return;
+                            continue;
                         if (y.IsBannedFrom(TargetCity.BelongForce) || y.IsSpecialPerson)
-                            return;
+                            continue;
                         if (seen.Add(y))
                             targetList.Add(y);
-                    });
+                    }
                 }
                 else
                 {
-                    x.wildPersons.ForEach(y =>
+                    for (int yi = 0; yi < x.wildPersons.Count; yi++)
                     {
+                        Person y = x.wildPersons[yi];
+                        if (y == null)
+                            continue;
                         // 【君主不可登用】同上
                         if (y.state == (int)PersonStateType.Governor)
-                            return;
+                            continue;
                         if (y.IsBannedFrom(TargetCity.BelongForce) || y.IsSpecialPerson)
-                            return;
+                            continue;
                         if (seen.Add(y))
                             targetList.Add(y);
-                    });
-                    x.captiveList.ForEach(y =>
+                    }
+                    for (int yi = 0; yi < x.captiveList.Count; yi++)
                     {
+                        Person y = x.captiveList[yi];
                         // 【君主不可登用】旧实现只在 allPersons 分支排除了君主，俘虏名单漏了，
                         // 导致成为俘虏的君主（state 仍可能是 Governor）出现在一键登庸列表里。
                         if (y == null || y.state == (int)PersonStateType.Governor)
-                            return;
+                            continue;
                         if (!y.IsSpecialPerson && seen.Add(y))
                             targetList.Add(y);
-                    });
+                    }
                 }
-            });
+            }
             targetList.Sort((a, b) =>
             {
                 if (a.state == b.state)
@@ -411,16 +429,20 @@ namespace Sango.Core.Player
             List<Person> result = new List<Person>();
             if (TargetCity == null || TargetCity.BelongForce == null)
                 return result;
-            Scenario.Cur.citySet.ForEach(x =>
+            // 【性能】原 citySet × allPersons 双层 ForEach(lambda)，改为按下标遍历。
+            City[] missionCityArray = Scenario.Cur.citySet.objects;
+            for (int ci = 1; ci < missionCityArray.Length; ci++)
             {
-                if (x.BelongForce != TargetCity.BelongForce)
-                    return;
-                x.allPersons.ForEach(p =>
+                City x = missionCityArray[ci];
+                if (x == null || !x.IsAlive || x.BelongForce != TargetCity.BelongForce)
+                    continue;
+                for (int pi = 0; pi < x.allPersons.Count; pi++)
                 {
+                    Person p = x.allPersons[pi];
                     if (p != null && p.missionType == (int)MissionType.PersonRecruitPerson)
                         result.Add(p);
-                });
-            });
+                }
+            }
             return result;
         }
 
@@ -433,17 +455,25 @@ namespace Sango.Core.Player
             if (dest == null || TargetCity == null || TargetCity.BelongForce == null)
                 return false;
             bool found = false;
-            Scenario.Cur.citySet.ForEach(x =>
+            // 【性能】同上：双层 ForEach(lambda) 改为按下标遍历。
+            City[] destCityArray = Scenario.Cur.citySet.objects;
+            for (int ci = 1; ci < destCityArray.Length; ci++)
             {
-                if (x.BelongForce != TargetCity.BelongForce)
-                    return;
-                x.allPersons.ForEach(p =>
+                City x = destCityArray[ci];
+                if (x == null || !x.IsAlive || x.BelongForce != TargetCity.BelongForce)
+                    continue;
+                for (int pi = 0; pi < x.allPersons.Count; pi++)
                 {
+                    Person p = x.allPersons[pi];
                     if (!found && p != null && p.missionType == (int)MissionType.PersonRecruitPerson
                         && p.missionTarget == dest.Id)
+                    {
                         found = true;
-                });
-            });
+                        break;
+                    }
+                }
+                if (found) break;
+            }
             return found;
         }
 

@@ -45,7 +45,9 @@ namespace Sango.UI
         public void UpdateContent()
         {
             int count = currentSystem.personList.Count;
-            action_value.text = $"{count * JobType.GetJobCostAP((int)CityJobType.Searching)}/{TargetCity.BelongCorps.ActionPoint}";
+            // 走本城口径：人才府会让探索 AP 减半，显示必须与门禁(CitySearching)、结算(City.JobSearching)同源，
+            // 否则会出现"面板写 20、点下去只扣 10"
+            action_value.text = $"{count * TargetCity.GetJobCostAP(CityJobType.Searching)}/{TargetCity.BelongCorps.ActionPoint}";
             sureButton.interactable = count > 0;
             Person actionPerson = count > 0 ? currentSystem.personList[0] : null;
             personItems.SetPerson(actionPerson);
@@ -66,7 +68,8 @@ namespace Sango.UI
         int GetMaxCount()
         {
             int pCount = TargetCity.freePersons.Count;
-            int apCost = JobType.GetJobCostAP((int)CityJobType.Searching);
+            // 可选人数上限也要按减半后的实际扣费算，否则一次选多人会超出军团行动力
+            int apCost = TargetCity.GetJobCostAP(CityJobType.Searching);
             if (apCost > 0)
             {
                 return Math.Min(pCount, TargetCity.BelongCorps.ActionPoint / apCost);

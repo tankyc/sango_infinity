@@ -224,37 +224,21 @@ namespace Sango.UI
 
             if (scenario.ModsDiffer)
             {
-                // 第一步:看存档需要的模组是不是"都已经下载好了,只是没激活"。
-                // 满足时优先劝玩家把模组环境还原成存档时的样子再重启,
-                // 而不是硬读一个大概率崩掉的存档。
+                // 存档需要的模组有缺失(本机没下载 / 下载了但没启用)时,只把差异和风险讲清楚,
+                // 由玩家决定是否直接尝试读取。
+                // 注意:确认后不再替玩家改动模组启用列表,也不再重启游戏,
+                // 而是直接尝试进入存档(读档过程有失败兜底,见 Player.LoadFromFile / OnLoadFailed)。
                 List<string> notDownloaded;
                 List<string> inactive;
-                bool allDownloaded = Sango.Mod.ModManager.Instance.CheckSavedModsAvailable(
+                Sango.Mod.ModManager.Instance.CheckSavedModsAvailable(
                     scenario.Info.mods, out notDownloaded, out inactive);
 
-                if (allDownloaded)
-                {
-                    string adoptContent = BuildAdoptModsContent(inactive);
-                    GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, adoptContent,
-                        () =>
-                        {
-                            // 确认:按存档记录的模组与顺序重建启用列表(存档里没有的模组会被停用),
-                            // 重启后模组环境与存档一致,可以正常读档
-                            Sango.Mod.ModManager.Instance.ApplyModListByIds(scenario.Info.mods);
-                            Sango.Platform.RestartGame();
-                        },
-                        () => ShowModsDifferDetail(index, scenario));
-                    return;
-                }
-
-                // 第二步:有模组本机没下载,只能把风险讲清楚,由玩家决定是否硬读。
-                // window_dialog(UIDialog)本身就有"确认(OnSure)/取消(OnCancel)"两个按钮:
-                //   · 确认 → 承担风险,真正读档(读档过程有失败兜底,见 Player.LoadFromFile / OnLoadFailed);
-                //   · 取消 → 什么都不做,留在读档界面。
                 string warnContent = (scenario.ModsDiffMessage ?? "存档使用的模组与当前不一致。");
+                if (inactive != null && inactive.Count > 0)
+                    warnContent += "\r\n已下载但未启用的模组: " + string.Join("、", inactive);
                 if (notDownloaded != null && notDownloaded.Count > 0)
                     warnContent += "\r\n本机未下载的模组: " + string.Join("、", notDownloaded);
-                warnContent += "\r\n\r\n继续读取很可能导致加载失败,是否仍要尝试?";
+                warnContent += "\r\n\r\n是否仍要尝试读取该存档?";
 
                 GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, warnContent,
                     () => DoLoad(index),
@@ -270,27 +254,6 @@ namespace Sango.UI
                 () => DoLoad(index),
                 () => { });
 #endif
-        }
-
-        /// <summary>
-        /// 拼"按存档记录还原模组并重启"的提示文案。
-        ///
-        /// 两种情况都会走到这里:
-        ///   · 存档需要的模组已下载但未激活(inactive 非空);
-        ///   · 需要的模组都已激活,但还多启用了别的模组 / 顺序不同(inactive 为空)。
-        /// </summary>
-        /// <param name="inactive">已下载但未激活的模组 Id</param>
-        string BuildAdoptModsContent(List<string> inactive)
-        {
-            string content = "存档使用的模组与当前不一致。\r\n";
-            if (inactive != null && inactive.Count > 0)
-                content += $"以下模组已下载但未激活: {string.Join("、", inactive)}\r\n";
-            else
-                content += "存档需要的模组都已启用,但启用项或顺序与存档不同。\r\n";
-
-            content += "是否按存档记录启用模组并重启游戏?\r\n"
-                     + "说明:存档里没有启用的模组会被停用;重启后模组环境与存档一致,即可正常读取该存档。";
-            return content;
         }
 
         /// <summary>

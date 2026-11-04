@@ -671,20 +671,27 @@ namespace Sango.Core
             }
         }
 
-        /// <summary>
-        /// 相邻势力
-        /// </summary>
-        public List<Force> NeighborForceList = new List<Force>();
+        // 【性能·容量预设】
+        // 下面三个列表在 Force.UpdateTurnInfo / UpdateCityCount 里是"Clear() 后按势力规模重新装填"的模式。
+        // List.Clear() 只清元素、保留内部数组，因此扩容只会在**首次装填**时发生 —— 但首次装填是
+        // 4→8→16→… 的连续翻倍，每翻一次都要新分配数组并 Array.Copy。
+        // Profiler 里 Force.UpdateTurnInfo 单帧 6.5 KB GC 中，有 2.0 KB 就是 CityList 这样翻倍翻出来的。
+        // 按常见规模一次性给足容量，把"多次翻倍"压成"构造时一次分配"，之后整个对局都不再扩容。
 
         /// <summary>
-        /// 相邻非本势力的城市
+        /// 相邻势力（一个势力周边的敌对势力通常不超过 10 个）
         /// </summary>
-        public List<City> NeighborCityList = new List<City>();
+        public List<Force> NeighborForceList = new List<Force>(16);
 
         /// <summary>
-        /// 本势力的城市
+        /// 相邻非本势力的城市（接壤据点，含港关，按 64 预置）
         /// </summary>
-        public List<City> CityList = new List<City>();
+        public List<City> NeighborCityList = new List<City>(64);
+
+        /// <summary>
+        /// 本势力的城市（含港关，按 128 预置 —— 最大势力全盛期也在百位量级）
+        /// </summary>
+        public List<City> CityList = new List<City>(128);
 
         /// <summary>
         /// 国力值
@@ -1002,10 +1009,15 @@ namespace Sango.Core
             }
 
             actionList = new List<ActionBase>();
-            Techniques.ForEach(x =>
+            // 【性能】原 Techniques.ForEach(x => …) 的 lambda 捕获 this，每次调用分配闭包 + 委托。
+            // SangoObjectList.ForEach 是**倒序**遍历（Count-1 → 0），这里保持倒序，
+            // 避免改变 InitActions 往 actionList 里的注册顺序（会影响被动效果的结算次序）。
+            for (int i = Techniques.Count - 1; i >= 0; i--)
             {
-                x.InitActions(actionList, this);
-            });
+                Technique equipped = Techniques[i];
+                if (equipped != null)
+                    equipped.InitActions(actionList, this);
+            }
             InitTechniquesTree(scenario);
             UpdateTurnInfo(scenario, false);
 
@@ -1031,23 +1043,52 @@ namespace Sango.Core
         public void UpdateCanBuildBuildingTypes()
         {
             canBuildMilitaryBuildingType.Clear();
-            Scenario.Cur.CommonData.BuildingTypes.ForEach(x =>
+            // 【性能】原实现是 ForEach(x => …) 里再套 RemoveAll(b => …) / Exists(b => …)，
+            // 后两个 lambda 都捕获了循环变量 x，每命中一个可建造类型就现分配一个闭包 + 一个委托。
+            // 本方法由 UpdateTurnInfo 在每个势力回合开始时调用，Profiler 中这条路径的
+            // 单帧 GC 是 4.5 KB（Force.UpdateCanBuildBuildingTypes，26 个建筑类型各 ~172 B）。
+            // 这里改成三条就地循环，筛选与替换规则逐条照搬原写法。
+            BuildingType[] types = Scenario.Cur.CommonData.BuildingTypes.objects;
+            for (int i = 1; i < types.Length; i++)
             {
-                if (!x.IsIntrior && x.IsValid(this) && x.canBuild)
+                BuildingType x = types[i];
+                if (x == null)
+                    continue;
+                // 判定顺序与原写法保持一致（IsIntrior → IsValid → canBuild）
+                if (x.IsIntrior || !x.IsValid(this) || !x.canBuild)
+                    continue;
+
+                if (x.level > 1)
                 {
-                    if (x.level > 1)
+                    // 高等级顶掉同类低等级：等价于原 RemoveAll(b => b.kind == x.kind && b.level < x.level)
+                    for (int k = canBuildMilitaryBuildingType.Count - 1; k >= 0; k--)
                     {
-                        canBuildMilitaryBuildingType.RemoveAll(b => b.kind == x.kind && b.level < x.level);
-                        canBuildMilitaryBuildingType.Add(x);
+                        BuildingType b = canBuildMilitaryBuildingType[k];
+                        if (b.kind == x.kind && b.level < x.level)
+                            canBuildMilitaryBuildingType.RemoveAt(k);
                     }
-                    else
-                    {
-                        // 如果有level比这个大的 则不添加
-                        if (!canBuildMilitaryBuildingType.Exists(b => b.kind == x.kind && x.level > 1))
-                            canBuildMilitaryBuildingType.Add(x);
-                    }
+                    canBuildMilitaryBuildingType.Add(x);
                 }
-            });
+                else
+                {
+                    // 原 Exists(b => b.kind == x.kind && x.level > 1)：
+                    // 注意条件判断的是 x.level，而能进到本分支说明 x.level <= 1，该条件恒为 false。
+                    // 【保持原行为】这里不擅自改成 b.level 相关的语义，只把委托换成循环以消除分配；
+                    // 若确认本意是"已有更高等级同类则跳过"，需要单独确认后再改。
+                    bool exists = false;
+                    for (int k = 0; k < canBuildMilitaryBuildingType.Count; k++)
+                    {
+                        BuildingType b = canBuildMilitaryBuildingType[k];
+                        if (b.kind == x.kind && x.level > 1)
+                        {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists)
+                        canBuildMilitaryBuildingType.Add(x);
+                }
+            }
         }
 
         /// <summary>
@@ -1142,11 +1183,22 @@ namespace Sango.Core
             }
 
             // 前置：必须已经无城
+            // 【性能】以下四处原来都是 ForEach(lambda)：lambda 捕获了 this / 局部变量，
+            // 每执行一次就分配一个闭包对象和一个委托。势力灭亡虽不是每帧路径，
+            // 但它是"一次扫描全地图对象"的地方，闭包本身不贵、遍历量很大，
+            // 统一改为按底层容器直接循环（SangoObjectSet 的元素固定在下标位，
+            // Remove 只是把该位置置 null，不移动元素，因此按下标遍历与 ForEach 等价）。
             bool hasCity = false;
-            scenario.citySet.ForEach(x =>
+            City[] cityArray = scenario.citySet.objects;
+            for (int i = 1; i < cityArray.Length; i++)
             {
-                if (x != null && x.BelongForce == this) hasCity = true;
-            });
+                City city = cityArray[i];
+                if (city != null && city.BelongForce == this)
+                {
+                    hasCity = true;
+                    break;
+                }
+            }
             if (hasCity)
             {
                 Sango.Log.Warning($"事件：{Name} 名下仍有城池，拒绝灭亡。请先用城池易主效果逐城移交");
@@ -1156,40 +1208,43 @@ namespace Sango.Core
             Force destroyedForce = this;
 
             // ① 军团失效并移出场景
-            scenario.corpsSet.ForEach(x =>
+            Corps[] corpsArray = scenario.corpsSet.objects;
+            for (int i = 1; i < corpsArray.Length; i++)
             {
-                if (x != null && x.BelongForce == destroyedForce)
-                {
-                    x.IsAlive = false;
-                    scenario.Remove(x);
-                }
-            });
+                Corps corps = corpsArray[i];
+                if (corps == null || corps.BelongForce != destroyedForce)
+                    continue;
+                corps.IsAlive = false;
+                scenario.Remove(corps);
+            }
 
             // ② 本势力关押的俘虏解除归属，避免指向一个已不存在的势力
             if (BeCaptiveList != null)
             {
-                BeCaptiveList.ForEach(x =>
+                for (int i = 0; i < BeCaptiveList.Count; i++)
                 {
-                    if (x != null && x.BelongForce == destroyedForce)
-                    {
-                        x.BelongCorps = null;
-                    }
-                });
+                    Person captive = BeCaptiveList[i];
+                    if (captive != null && captive.BelongForce == destroyedForce)
+                        captive.BelongCorps = null;
+                }
                 BeCaptiveList.Clear();
             }
 
             // ③ 全势力武将下野（与城池陷落时的"最后一城"分支同一口径）
-            scenario.personSet.ForEach(x =>
+            Person[] personArray = scenario.personSet.objects;
+            for (int i = 1; i < personArray.Length; i++)
             {
-                if (x == null || x.BelongForce != destroyedForce) return;
+                Person person = personArray[i];
+                if (person == null || person.BelongForce != destroyedForce)
+                    continue;
 
-                x.ClearMission();
-                if (x.IsValid && !x.IsPrisoner)
-                    x.LeaveToWild();
-                x.workingBuilding = null;
-                x.mBelongTroop = null;
-                x.BelongCorps = null;
-            });
+                person.ClearMission();
+                if (person.IsValid && !person.IsPrisoner)
+                    person.LeaveToWild();
+                person.workingBuilding = null;
+                person.mBelongTroop = null;
+                person.BelongCorps = null;
+            }
 
             // ③' 城外设施（地图建筑）随势力处置。
             // 事件侧灭亡没有"受降方"，按彻底灭亡处理（设施拆除）。
@@ -1248,10 +1303,14 @@ namespace Sango.Core
             List<Building> razeList = null;
             int surrenderCount = 0;
 
-            scenario.buildingSet.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 this / by / surrenderCorps / razeList，
+            // 改为按 buildingSet 的底层数组直接遍历（同 ForEach 的 1..Length 正序）。
+            Building[] buildingArray = scenario.buildingSet.objects;
+            for (int i = 1; i < buildingArray.Length; i++)
             {
+                Building x = buildingArray[i];
                 if (x == null || !x.IsAlive || x.BelongForce != this)
-                    return;
+                    continue;
 
                 if (by != null)
                 {
@@ -1267,7 +1326,7 @@ namespace Sango.Core
                         razeList = new List<Building>();
                     razeList.Add(x);
                 }
-            });
+            }
 
             if (surrenderCount > 0)
                 Sango.Log.Info($"*[灭亡]{Name} 名下 {surrenderCount} 座城外设施移交给 {by.Name}");
@@ -1291,16 +1350,21 @@ namespace Sango.Core
 
             // 在这里初始化科技树
             techniqueTree.Clear();
-            InitTechniques.ForEach(x =>
+            // 【性能】原 ForEach 闭包捕获 this/scenario；SangoObjectList.ForEach 为倒序遍历，
+            // 这里保持倒序（下方对 techniqueTree 有 Sort，顺序本不敏感，但保持一致更安全）。
+            for (int i = InitTechniques.Count - 1; i >= 0; i--)
             {
+                Technique init = InitTechniques[i];
+                if (init == null)
+                    continue;
                 ForceTechnique forceTechnique = new ForceTechnique()
                 {
-                    technique = x,
+                    technique = init,
                     y = 0,
                 };
                 techniqueMaxLevel = Mathf.Max(techniqueMaxLevel, forceTechnique.FillChildren(scenario.CommonData.Techniques));
                 techniqueTree.Add(forceTechnique);
-            });
+            }
             techniqueTree.Sort((a, b) => a.technique.Id.CompareTo(b.technique.Id));
             techniqueMaxLevel++;
 
@@ -1332,16 +1396,23 @@ namespace Sango.Core
         {
             // 初始化可研究的科技
             canResearchTechniqueList.Clear();
-            scenario.CommonData.Techniques.ForEach(x =>
+            // 【性能】原写法 Techniques.ForEach(x => ...) 的 lambda 捕获了 this，
+            // 每次调用都要分配一个闭包对象 + 一个 Action 委托。
+            // 本方法由 UpdateTurnInfo 在每个势力回合开始时调用，是"每回合必跑"的路径，
+            // 加上内层 CanResearch → HasTechnique 原本也会在 Contains(int) 里再分配，
+            // Profiler 中这条链路单独贡献了 27.9 KB 的 GC（Force.UpdateTurnInfo 共 30.6 KB）。
+            // 这里直接遍历底层字典的值集合（struct 枚举器，零分配），筛选条件与原逻辑一致。
+            Dictionary<int, Technique> techniques = scenario.CommonData.Techniques.objects;
+            foreach (KeyValuePair<int, Technique> kv in techniques)
             {
-                if (x.Id != ResearchTechnique)
-                {
-                    if (x.CanResearch(this))
-                    {
-                        canResearchTechniqueList.Add(x);
-                    }
-                }
-            });
+                Technique x = kv.Value;
+                if (x == null)
+                    continue;
+                if (x.Id == ResearchTechnique)
+                    continue;
+                if (x.CanResearch(this))
+                    canResearchTechniqueList.Add(x);
+            }
         }
 
         /// <summary>
@@ -2017,8 +2088,14 @@ namespace Sango.Core
             CityCount = 0;
             CityBaseCount = 0;
             CityList.Clear();
-            scenario.citySet.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 this，每次调用分配闭包 + 委托；
+            // 这里改按下标遍历底层数组（同 ForEach 的 1..Length 正序，且跳过 null）。
+            City[] cityArray = scenario.citySet.objects;
+            for (int i = 1; i < cityArray.Length; i++)
             {
+                City x = cityArray[i];
+                if (x == null)
+                    continue;
                 if (x.BelongForce == this)
                 {
                     CityBaseCount++;
@@ -2028,7 +2105,7 @@ namespace Sango.Core
                         CityList.Add(x);
                     }
                 }
-            });
+            }
 
             // 记录历史峰值：产出累计上限按峰值城数计算（掉城不回收额度）
             if (CityCount > peakCityCount)
@@ -2372,7 +2449,8 @@ namespace Sango.Core
             // TODO: 武将换季掉忠（掉忠量本身仍是占位公式）
             ForEachPerson(person =>
             {
-                // 原版免掉忠条件：命中则本季不进入掉忠结算
+                // 原版免掉忠条件：命中则本季不进入掉忠结算。
+                // 「仁政」走城市标记位（City.hasRenZheng），O(1)，不再遍历武将列表。
                 if (!PersonLoyaltyRules.CanLoseLoyalty(this, person)) return;
 
                 // 每人各掷一次：本次该掉多少
@@ -2807,33 +2885,37 @@ namespace Sango.Core
             if (governor != null && governor.BelongCity != null)
                 governorServiceId = governor.BelongCity.Id;
 
-            Scenario.Cur.citySet.ForEach(x =>
+            // 【性能】原 ForEach(lambda)：lambda 捕获 corps / cities / governorServiceId，
+            // 改为按下标遍历（同 ForEach 的 1..Length 正序）。
+            City[] portCityArray = Scenario.Cur.citySet.objects;
+            for (int i = 1; i < portCityArray.Length; i++)
             {
+                City x = portCityArray[i];
                 if (x == null || !x.IsAlive)
-                    return;
+                    continue;
                 // 都市已在上面处理过，这里只看港关
                 if (x.IsCity())
-                    return;
+                    continue;
                 if (x.BelongForce != corps.BelongForce)
-                    return;
+                    continue;
                 if (x.BelongCity == null || !cities.Contains(x.BelongCity))
-                    return;
+                    continue;
 
                 // ① 君主驻守的据点不参与改编（原版 kunshu->get_service_id() == i）
                 if (governorServiceId > 0 && x.Id == governorServiceId)
                 {
                     Sango.Log.Info($"*[军团]{x.Name} 由君主驻守，不参与本次军团改编");
-                    return;
+                    continue;
                 }
 
                 // ② 新建时只带走当前属第一军团的港关
                 //    （原版 district->get_number() != 1 则跳过；重编入口自行放开这个限制）
                 if (x.BelongCorps != null && !x.BelongCorps.IsCaptainCorps)
-                    return;
+                    continue;
 
                 x.ChangeCorps(corps);
                 x.UpdateCorps();
-            });
+            }
 
             // 【原版第二条：邻接他势力城的港关】
             // 对齐 s11_game_ai_district_sep.cpp:181-198：
@@ -2861,32 +2943,37 @@ namespace Sango.Core
                     if (neighbor.BelongForce == corps.BelongForce)
                         continue;
 
-                    Scenario.Cur.citySet.ForEach(child =>
+                    // 【性能】原嵌套 ForEach(lambda) 捕获 neighbor / corps / governorServiceId，
+                    // 且它处在"城 × 邻城"的双层循环里，是这段代码分配最密集的地方；
+                    // 改为按下标遍历底层数组。
+                    City[] childCityArray = Scenario.Cur.citySet.objects;
+                    for (int k = 1; k < childCityArray.Length; k++)
                     {
+                        City child = childCityArray[k];
                         if (child == null || !child.IsAlive)
-                            return;
+                            continue;
                         // 只处理港关（都市在上面的主循环里已处理）
                         if (child.IsCity())
-                            return;
+                            continue;
                         // 必须是这座邻城的下属港关
                         if (child.BelongCity != neighbor)
-                            return;
+                            continue;
                         if (child.BelongForce != corps.BelongForce)
-                            return;
+                            continue;
                         // 已在目标军团（或被第一条带走）
                         if (child.BelongCorps == corps)
-                            return;
+                            continue;
 
                         if (governorServiceId > 0 && child.Id == governorServiceId)
                         {
                             Sango.Log.Info($"*[军团]{child.Name} 由君主驻守，不参与本次军团改编");
-                            return;
+                            continue;
                         }
 
                         child.ChangeCorps(corps);
                         child.UpdateCorps();
                         Sango.Log.Info($"*[军团]{child.Name} 因邻接他势力据点 {neighbor.Name}，随前线城划入新军团");
-                    });
+                    }
                 }
             }
         }
@@ -3130,13 +3217,16 @@ namespace Sango.Core
             }
 
             int moved = 0;
-            scenario.citySet.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 this / winnerCorps / moved，改为按下标遍历。
+            City[] surrenderCityArray = scenario.citySet.objects;
+            for (int i = 1; i < surrenderCityArray.Length; i++)
             {
+                City x = surrenderCityArray[i];
                 if (x == null || !x.IsAlive || x.BelongForce != this)
-                    return;
+                    continue;
                 CityStateSystem.SetCorps(x, winnerCorps);
                 moved++;
-            });
+            }
 
             Sango.Log.Info($"*[投降]{Name} 的 {moved} 座据点移交给 {winner.Name}（{winnerCorps.Name}）");
             return moved;
@@ -3204,39 +3294,44 @@ namespace Sango.Core
             // ② 本势力关押的俘虏：解除归属（原版只清 force/district，不销毁对象）
             if (BeCaptiveList != null)
             {
-                BeCaptiveList.ForEach(x =>
+                // 【性能】原 ForEach(lambda) 捕获 this，改为按下标遍历 List。
+                for (int i = 0; i < BeCaptiveList.Count; i++)
                 {
-                    if (x != null && x.BelongForce == this)
-                    {
-                        x.BelongCorps = null;
-                    }
-                });
+                    Person captive = BeCaptiveList[i];
+                    if (captive != null && captive.BelongForce == this)
+                        captive.BelongCorps = null;
+                }
                 BeCaptiveList.Clear();
             }
 
             // ③ 全势力武将下野
-            scenario.personSet.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 this / scenario，改为按下标遍历底层数组。
+            Person[] ruinPersonArray = scenario.personSet.objects;
+            for (int i = 1; i < ruinPersonArray.Length; i++)
             {
-                if (x == null || x.BelongForce != this)
-                    return;
+                Person ruinPerson = ruinPersonArray[i];
+                if (ruinPerson == null || ruinPerson.BelongForce != this)
+                    continue;
 
-                x.ClearMission();
+                ruinPerson.ClearMission();
                 // 俘虏不重复走 LeaveToWild（他们本来就没有户口）
-                if (x.IsValid && !x.IsPrisoner)
-                    x.LeaveToWild();
-                x.workingBuilding = null;
-                x.mBelongTroop = null;
-                x.BelongCorps = null;
-            });
+                if (ruinPerson.IsValid && !ruinPerson.IsPrisoner)
+                    ruinPerson.LeaveToWild();
+                ruinPerson.workingBuilding = null;
+                ruinPerson.mBelongTroop = null;
+                ruinPerson.BelongCorps = null;
+            }
 
             // ④ 解散全部军团
-            scenario.corpsSet.ForEach(x =>
+            Corps[] ruinCorpsArray = scenario.corpsSet.objects;
+            for (int i = 1; i < ruinCorpsArray.Length; i++)
             {
-                if (x == null || x.BelongForce != this)
-                    return;
-                x.IsAlive = false;
-                scenario.Remove(x);
-            });
+                Corps ruinCorps = ruinCorpsArray[i];
+                if (ruinCorps == null || ruinCorps.BelongForce != this)
+                    continue;
+                ruinCorps.IsAlive = false;
+                scenario.Remove(ruinCorps);
+            }
 
             // ④' 特殊宝物（玉玺 / 铜雀）销毁。
             //
@@ -3269,11 +3364,17 @@ namespace Sango.Core
                 return false;
 
             bool allInOne = true;
-            scenario.citySet.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 by / allInOne，改为按下标遍历。
+            City[] allCityArray = scenario.citySet.objects;
+            for (int i = 1; i < allCityArray.Length; i++)
             {
+                City x = allCityArray[i];
                 if (x != null && x.IsCity() && x.BelongForce != null && x.BelongForce != by)
+                {
                     allInOne = false;
-            });
+                    break;
+                }
+            }
 
             if (!allInOne)
                 return false;
@@ -3345,28 +3446,34 @@ namespace Sango.Core
                     CityStateSystem.AppointTaishu(service);
             }
 
-            scenario.citySet.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 from / to，改为按下标遍历。
+            City[] mergeCityArray = scenario.citySet.objects;
+            for (int i = 1; i < mergeCityArray.Length; i++)
             {
+                City x = mergeCityArray[i];
                 if (x != null && x.IsAlive && x.BelongCorps == from)
                     CityStateSystem.SetCorps(x, to);
-            });
+            }
 
             // 【原版对齐】district_dissolve ②-a 成员改军团 + ②-c 户口兜底
             //（s11_sys_scen_district.cpp:107-112、120-130）：
             // 合并后若成员"军团 != 户口城军团"（户口城不在被解散军团，如出征/在途成员），
             // 把户口改到接收方军团都督据点，恢复"军团 == 户口城军团"不变式。
             City destService = to.mComander != null && to.mComander.IsAlive ? to.mComander.BelongCity : null;
-            scenario.personSet.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 from / to / destService，改为按下标遍历。
+            Person[] mergePersonArray = scenario.personSet.objects;
+            for (int i = 1; i < mergePersonArray.Length; i++)
             {
+                Person x = mergePersonArray[i];
                 if (x == null || !x.IsAlive || x.BelongCorps != from)
-                    return;
+                    continue;
                 x.ChangeCorps(to);
                 if (destService != null && x.BelongCity != null && x.BelongCorps != x.BelongCity.BelongCorps)
                 {
                     Sango.Log.Info($"*[军团合并]{x.Name} 户口自 {x.BelongCity.Name} 迁至 {destService.Name}");
                     x.ChangeBelongCity(destService);
                 }
-            });
+            }
 
             // 【原版无对应实现】内政设施同步：Open311 的 district_dissolve 只移动 is_kyoten 据点，
             // 内政设施的 district_ 是"从所属据点派生"的（get_area_city_id），不单独存字段；
@@ -3374,14 +3481,17 @@ namespace Sango.Core
             // 否则"城属新军团、城内设施仍属旧军团"会在 SyncBuildings / 读档校验时分裂。
             // 这里裸赋而非 Building.ChangeCorps：势力内合并 BelongForce 不变，ChangeCorps 的
             // "未完工跨势力拆除"分支不会触发，裸赋等价且避免误拆在建设施。
-            scenario.buildingSet.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 from / to，改为按下标遍历。
+            Building[] mergeBuildingArray = scenario.buildingSet.objects;
+            for (int i = 1; i < mergeBuildingArray.Length; i++)
             {
+                Building x = mergeBuildingArray[i];
                 if (x != null && x.IsAlive && x.BelongCorps == from)
                 {
                     x.BelongCorps = to;
                     x.BelongForce = to.BelongForce;
                 }
-            });
+            }
 
             from.IsAlive = false;
             scenario.Remove(from);
@@ -3398,12 +3508,19 @@ namespace Sango.Core
             if (scenario == null || scenario.corpsSet == null)
                 return null;
 
+            // 【性能】原 ForEach(lambda) 捕获 this / number / result，改为按下标遍历。
+            // 命中即 break：原写法虽然不 break，但 result 一旦赋值就不会再被改写，等价。
             Corps result = null;
-            scenario.corpsSet.ForEach(x =>
+            Corps[] findCorpsArray = scenario.corpsSet.objects;
+            for (int i = 1; i < findCorpsArray.Length; i++)
             {
-                if (result == null && x != null && x.IsAlive && x.BelongForce == this && x.number == number)
+                Corps x = findCorpsArray[i];
+                if (x != null && x.IsAlive && x.BelongForce == this && x.number == number)
+                {
                     result = x;
-            });
+                    break;
+                }
+            }
             return result;
         }
 
@@ -3472,36 +3589,41 @@ namespace Sango.Core
             // 原先三处都是裸赋 BelongCorps，不同步 BelongForce，也不清城内的
             // 名册与太守状态；一旦目标军团势力与当前记录不一致，
             // 就会留下"城属A团、人属B团"的分裂（正是本项目最常报的归属错误）。
-            scenario.citySet.ForEach(x =>
+            // 【性能】以下两处原为 ForEach(lambda)，lambda 捕获 corps / governorCorps，
+            // 军团解散虽不是高频路径，但同样一次扫全地图对象，统一改为按下标遍历。
+            City[] dissolveCityArray = scenario.citySet.objects;
+            for (int i = 1; i < dissolveCityArray.Length; i++)
             {
+                City x = dissolveCityArray[i];
                 if (x != null && x.IsAlive && x.BelongCorps == corps)
-                {
                     CityStateSystem.SetCorps(x, governorCorps);
-                }
-            });
+            }
 
-            scenario.personSet.ForEach(x =>
+            Person[] dissolvePersonArray = scenario.personSet.objects;
+            for (int i = 1; i < dissolvePersonArray.Length; i++)
             {
-                if (x != null && x.IsAlive && x.BelongCorps == corps)
-                {
-                    // 【原版对齐】军团解散只做"成员改挂"，不清官职、不解军师、不降级。
-                    // Open311 district_dissolve 对成员只调 person_set_district_id 一步；
-                    // 清官职（person_set_rank_id(RankId_None)）属于 person_change_district
-                    // 的换势力语义，用在这里会让整团武将无端丢掉官职。
-                    x.ChangeCorps(governorCorps);
-                }
-            });
+                Person x = dissolvePersonArray[i];
+                if (x == null || !x.IsAlive || x.BelongCorps != corps)
+                    continue;
+                // 【原版对齐】军团解散只做"成员改挂"，不清官职、不解军师、不降级。
+                // Open311 district_dissolve 对成员只调 person_set_district_id 一步；
+                // 清官职（person_set_rank_id(RankId_None)）属于 person_change_district
+                // 的换势力语义，用在这里会让整团武将无端丢掉官职。
+                x.ChangeCorps(governorCorps);
+            }
 
             // 【原版无对应实现】内政设施同步：见 MergeCorps 同名注释，这里是解散收编到第一军团，
             // 同样因为本项目把归属存成了字段，必须显式双写，避免城与设施归属分裂。
-            scenario.buildingSet.ForEach(x =>
+            Building[] dissolveBuildingArray = scenario.buildingSet.objects;
+            for (int i = 1; i < dissolveBuildingArray.Length; i++)
             {
+                Building x = dissolveBuildingArray[i];
                 if (x != null && x.IsAlive && x.BelongCorps == corps)
                 {
                     x.BelongCorps = governorCorps;
                     x.BelongForce = governorCorps.BelongForce;
                 }
-            });
+            }
 
             if (corps.mComander != null && corps.mComander.state == (int)PersonStateType.Commander)
             {
@@ -3600,29 +3722,52 @@ namespace Sango.Core
         {
             createdItemTypes.Clear();
             Scenario scenario = Scenario.Cur;
-            Dictionary<int, ItemType> itemMap = new Dictionary<int, ItemType>();
-            scenario.CommonData.ItemTypes.ForEach(it =>
-            {
-                if (it.cost > 0 && it.IsValid(this))
-                {
-                    ItemType itemType;
-                    if (itemMap.TryGetValue(it.storeKind, out itemType))
-                    {
-                        if (it.Id > itemType.Id)
-                        {
-                            itemMap[it.storeKind] = it;
-                        }
-                    }
-                    else
-                    {
-                        itemMap[it.storeKind] = it;
-                    }
-                }
-            });
 
-            createdItemTypes.AddRange(itemMap.Values.ToArray());
+            // 【性能】原实现每次调用都 new 一个 Dictionary，再配 ForEach 闭包 + Values.ToArray()。
+            // 本方法由 UpdateTurnInfo 在每个势力回合开始时调用，Profiler 里
+            // Force.UpdateValidCreatedItemTypes 单帧 1.9 KB GC，全部来自
+            // 字典构造/扩容（Dictionary.Resize → GC.Alloc 440/100/20 B）、闭包对象和那个临时数组。
+            // 这里改为：复用同一个字典（Clear 保留容量，不再扩容）、直接遍历底层字典、
+            // 逐个 Add 到目标列表。分组取 Id 最大者的规则与原实现完全一致。
+            if (scenario == null || scenario.CommonData == null)
+                return;
+
+            Dictionary<int, ItemType> itemMap = itemTypeMapCache;
+            itemMap.Clear();
+
+            foreach (KeyValuePair<int, ItemType> kv in scenario.CommonData.ItemTypes.objects)
+            {
+                ItemType it = kv.Value;
+                if (it == null || it.cost <= 0 || !it.IsValid(this))
+                    continue;
+
+                ItemType itemType;
+                if (itemMap.TryGetValue(it.storeKind, out itemType))
+                {
+                    if (it.Id > itemType.Id)
+                        itemMap[it.storeKind] = it;
+                }
+                else
+                {
+                    itemMap[it.storeKind] = it;
+                }
+            }
+
+            // 等价于原来的 createdItemTypes.AddRange(itemMap.Values.ToArray())，省掉中间数组
+            foreach (KeyValuePair<int, ItemType> kv in itemMap)
+                createdItemTypes.Add(kv.Value);
+
             createdItemTypes.Sort(SangoObject.Compare);
         }
+
+        /// <summary>
+        /// <see cref="UpdateValidCreatedItemTypes"/> 的临时分组容器。
+        ///
+        /// 提成字段是为了复用容量：该方法每个势力回合都要跑一次，
+        /// 若每次 new Dictionary，第一次写入就会触发 Resize 并分配数组
+        /// （Profiler 中该函数的 GC 全部出在这里）。
+        /// </summary>
+        readonly Dictionary<int, ItemType> itemTypeMapCache = new Dictionary<int, ItemType>();
 
 
     }

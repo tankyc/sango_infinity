@@ -16,6 +16,18 @@ namespace Sango.Core.Player
         /// <param name="startPoint">菜单显示的起始屏幕坐标</param>
         public void Start(Vector3 startPoint)
         {
+            // 剧本已卸载时不弹情报菜单。
+            // 退出到主菜单、读档失败兜底都会走 Scenario 的收尾流程把 Cur 置空
+            // （Scenario.cs:1613-1621 的 finally 里 Cur = null），但 UIGame 界面可能还没销毁，
+            // 玩家仍点得到"情报"按钮。此事件的订阅者（TroopInformation / PersonInformation 等）
+            // 都要访问 Scenario.Cur 的数据集，放进去会连环空引用，
+            // 所以在入口一次性挡住，以后新增的订阅者也能被覆盖。
+            if (Scenario.Cur == null)
+            {
+                Sango.Log.Warning("情报菜单：当前没有运行中的剧本，已忽略本次打开请求");
+                return;
+            }
+
             ContextMenuData.MenuData.Clear();
             GameEvent.OnGameInformationContextMenuShow?.Invoke(ContextMenuData.MenuData);
 

@@ -394,12 +394,21 @@ namespace Sango.Core
         /// 原先是 <c>"{a}_{b}"</c> 字符串插值：取城距在人才部署里是"每岗位 × 每候选"级别的调用量，
         /// 每次插值都会产生一个短命字符串并重新计算哈希，是明确的 GC 与耗时热点。
         /// </summary>
-        public Dictionary<long, List<City>> cityPathMap;
+        /// <remarks>
+        /// 【就地初始化】本字段不参与存档：Scenario 标了 [JsonObject(MemberSerialization.OptIn)]，
+        /// 而它没有 [JsonProperty]，读档后就是一个默认值的字段。
+        /// 原先只在 Scenario.Init 里 new（见 Init 中的"初始化路径缓存"），
+        /// 一旦世界初始化没走到那一步（读档中途异常、工具/调试路径直接构造 Scenario），
+        /// FindShortestPath 里的 cityPathMap.TryGetValue 就会抛 NullReferenceException
+        /// （实战崩在回合结束 Person.UpdateMission → Person.DoMove）。
+        /// 就地初始化后最坏情况只是"缓存为空"，会重新做一次 BFS，不影响正确性。
+        /// </remarks>
+        public Dictionary<long, List<City>> cityPathMap = new Dictionary<long, List<City>>();
 
         /// <summary>
         /// 城市之间的直接路径
         /// </summary>
-        public Dictionary<string, List<Cell>> cityDirectPath;
+        public Dictionary<string, List<Cell>> cityDirectPath = new Dictionary<string, List<Cell>>();
 
         /// <summary>
         /// 据点距离双表（对应原版 kyoten_distance / kyoten_short_distance）。
@@ -986,6 +995,15 @@ namespace Sango.Core
             // 因此必须再用文件数据恢复一次，否则会出现通用数据丢失
             // （技能、特性、兵种、州郡等集合为空，直接影响开局与UI显示）。
             GameData.Instance.LoadCommonData(CommonData);
+
+            // 【关键·读档跳月份】Populate 会把存档里的 IsAlive(true) 一并回填，
+            // 覆盖掉加载流程开头（LoadBaseContent / StartScenarioRoutine）设的 IsAlive = false。
+            // 读档是分帧协程（阶段2 之后还有多个 yield），这几帧里 Game.Update() 只要看到
+            // Scenario.Cur.IsAlive 为 true 就会调 Scenario.Run()：此时 runForces 队列还是空的，
+            // RunForces() 直接判定"所有势力行动完毕"，于是 TurnEnd(turnCount++) + IncreaseDate(day += 10)
+            // 白跑一个旬 —— 每多加载一帧就多一个旬，三帧就是一个月，表现为"读档后日期跳月份"。
+            // 因此这里必须把守卫压回 false，由 OnWorldLoaded → Start() 末尾再统一置 true。
+            IsAlive = false;
         }
 
         /// <summary>
@@ -1486,7 +1504,7 @@ namespace Sango.Core
                     // 这批占位武将会凭空出现在人才列表里、能被探索和登用。
                     // 现在保持 state = 0 原样：对象仍留在 personSet（关系表 / 事件按 Id 引用靠它），
                     // 但 IsInvalidPerson 为 true，登场 / 回合结算 / 编成 / 成长全部跳过。
-                    if (person.state == (int)PersonStateType.Normal)
+                    if (person.state == (int)PersonStateType.Normal || person.state == (int)PersonStateType.Governor)
                     {
                         person.loyalty = 100;
                         City city = scenario.citySet[x.BelongCityId];
@@ -1786,16 +1804,24 @@ namespace Sango.Core
             // 恢复游戏
             if (Info.curForceId > 0)
             {
-                Force force = runForces.Dequeue();
-                while (force != null)
+                // 【空队列保护】MakeForceQuene() 可能排出空队列：没有存活势力、
+                // playerForceList 为空、或存档里的势力已全部灭亡。
+                // 此时 Dequeue() 会抛 InvalidOperationException: Queue empty。
+                // 另外原写法用 while (force != null) 作循环条件也起不到保护作用：
+                // Queue<Force>.Dequeue() 只会返回入队过的对象（不会是 null），
+                // 一旦队列里找不到 curForceId，循环末尾那次 Dequeue 照样会抛。
+                // 改为按 Count 判断：找到就恢复该势力，找不到就让 CurRunForce 保持 null，
+                // 由后续 RunForces() 重新从队列里取，不在这里崩掉整个开局 / 读档。
+                while (runForces.Count > 0)
                 {
+                    Force force = runForces.Dequeue();
+                    if (force == null) continue;
                     if (force.Id == Info.curForceId)
                     {
                         CurRunForce = force;
                         HasTurnStarted = true;
                         break;
                     }
-                    force = runForces.Dequeue();
                 }
             }
 
@@ -2233,12 +2259,19 @@ namespace Sango.Core
             if (month < 1 || month > 12)
                 return;
 
-            scenario.citySet.ForEach(city =>
+            // 【性能】原 ForEach(lambda) 捕获 month，每次调用分配一个闭包 + 一个委托。
+            // 本方法由 Scenario.OnMonthStart 每月调用一次，Profiler 中这一条
+            // （SangoObjectSet.ForEach → <>c__DisplayClass158_0.<UpdateCityRate>b__0）
+            // 单帧占 124.5 KB GC，是月度刷新里最大的一处。
+            // 改为按下标遍历底层数组（同 ForEach 的 1..Length 正序）。
+            City[] cityArray = scenario.citySet.objects;
+            for (int i = 1; i < cityArray.Length; i++)
             {
+                City city = cityArray[i];
                 if (city == null || !city.IsAlive)
-                    return;
+                    continue;
                 city.UpdateRate(month, true);
-            });
+            }
         }
         public override bool OnMonthEnd(Scenario scenario)
         {
@@ -2338,6 +2371,10 @@ namespace Sango.Core
                 return new List<Cell>() { startCity.CenterCell };
             }
 
+            // 兜底：同 cityPathMap，字段本身已就地初始化，这里只防被外部置空
+            if (cityDirectPath == null)
+                cityDirectPath = new Dictionary<string, List<Cell>>();
+
             // 检查缓存中是否已有路径
             string key = $"{startCity.Id}_{endCity.Id}";
             if (cityDirectPath.ContainsKey(key))
@@ -2377,6 +2414,10 @@ namespace Sango.Core
             {
                 return new List<City> { startCity };
             }
+
+            // 兜底：缓存字典若被外部置空则重新建表（字段本身已就地初始化，正常不会走到这里）
+            if (cityPathMap == null)
+                cityPathMap = new Dictionary<long, List<City>>();
 
             // 检查缓存中是否已有路径（long 键，无字符串分配）
             long key = CityPairKey(startCity.Id, endCity.Id);

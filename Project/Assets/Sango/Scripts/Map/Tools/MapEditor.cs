@@ -332,6 +332,13 @@ namespace Sango.Tools
             });
             menuData.Add("视图/重置相机", () =>
             {
+                // 【空引用保护】与 SetCameraControlType 同源：地图成员在编辑器早期可能尚未初始化齐全
+                if (map == null || map.mapCamera == null || Camera.main == null)
+                {
+                    Sango.Log.Error("[地图编辑器] 重置相机失败：地图或相机尚未初始化");
+                    return;
+                }
+
                 map.mapCamera.position = new Vector3(500, 250, 500);
                 map.mapCamera.lookRotate = new Vector3(90, -90, 0);
                 ViewIs311Camera = false;
@@ -722,28 +729,55 @@ namespace Sango.Tools
         /// <param name="t"></param>
         public void SetCameraControlType(int t)
         {
+            // 【空引用保护】地图 / 天空盒 / 相机都可能是 null：
+            //   · map 由 MapRender.Instance 提供，编辑器启动早期或地图被 Clear 重建时会短暂为空；
+            //   · mapSkyBox / mapCamera 在 MapRender.Init 里逐个 new + Init，
+            //     任一步抛异常，后面的成员就会一直是 null（Init 顺序见 MapRender.cs:234-258）。
+            // 切相机模式只是表现层开关，失败记日志即可，不能让菜单点击直接抛异常中断编辑器。
+            if (map == null)
+            {
+                Sango.Log.Error($"[地图编辑器] 切换相机模式失败：地图尚未加载（模式 {t}）");
+                return;
+            }
+
+            // 主相机可能不存在（场景未初始化 / 相机被销毁），取一次复用
+            Camera mainCamera = Camera.main;
+
             if (t == 0)
             {
                 SetGizmoCameraEnable(true);
-                EditorFreeCamera editorfree = Camera.main.gameObject.GetComponent<Sango.Tools.EditorFreeCamera>();
-                if (editorfree != null)
+
+                if (mainCamera != null)
                 {
-                    editorfree.enabled = false;
+                    EditorFreeCamera editorfree = mainCamera.gameObject.GetComponent<Sango.Tools.EditorFreeCamera>();
+                    if (editorfree != null)
+                    {
+                        editorfree.enabled = false;
+                    }
                 }
-                map.mapSkyBox.SetVisible(false);
-                map.mapCamera.enabled = false;
+
+                if (map.mapSkyBox != null)
+                    map.mapSkyBox.SetVisible(false);
+                if (map.mapCamera != null)
+                    map.mapCamera.enabled = false;
             }
             else if (t == 1)
             {
                 SetGizmoCameraEnable(false);
 
-                EditorFreeCamera editorfree = Camera.main.gameObject.GetComponent<Sango.Tools.EditorFreeCamera>();
-                if (editorfree != null)
+                if (mainCamera != null)
                 {
-                    editorfree.enabled = false;
+                    EditorFreeCamera editorfree = mainCamera.gameObject.GetComponent<Sango.Tools.EditorFreeCamera>();
+                    if (editorfree != null)
+                    {
+                        editorfree.enabled = false;
+                    }
                 }
-                map.mapSkyBox.SetVisible(true);
-                map.mapCamera.enabled = true;
+
+                if (map.mapSkyBox != null)
+                    map.mapSkyBox.SetVisible(true);
+                if (map.mapCamera != null)
+                    map.mapCamera.enabled = true;
             }
         }
 

@@ -110,7 +110,13 @@ namespace Sango.Core.Player
                 TargetTroop.troops = 1;
                 TargetTroop.food = Math.Min(20, TargetCity.food);
             }
-            TargetTroop.missionType = (int)MissionType.TroopTransformGoodsToCity;
+            // 【不要在这里派任务】玩家组建的运输队是纯手动部队：由玩家自己开到目标城，
+            // 抵达后由 Troop.EnterCity 弹"返回原地 / 留在本城"。
+            //
+            // 以前这里写死 missionType = TroopTransformGoodsToCity，却没有（也无法）写 missionTarget ——
+            // 于是 Troop.AIType 判成 Appoint，委任 AI 一进场就以 "TargetCity == null → 任务已完成" 收尾并
+            // ClearMission，部队退化成无任务的散兵，入城询问也就再没触发过。
+            // 势力 AI 的运输队走 CityAI / Troop 的 AI 部署分支派任务，与本入口无关。
             TargetTroop.CalculateAttribute(Scenario.Cur);
             Window.Instance.Open(windowName);
         }

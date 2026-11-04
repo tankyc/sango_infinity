@@ -658,7 +658,13 @@ namespace Sango.Render
 
         public void OffsetCamera(Vector3 offset)
         {
-            mapCamera.OffsetCamera(offset);
+            // 【空引用】mapCamera 只在 MapRender.Init 里创建（MapRender.cs:239），
+            // 地图尚未加载完成 / 正在切换 / 刚 Clear 过的窗口期里它还是 null。
+            // 而拖动镜头属于逐帧处理的输入（GameController.HandleMobileEvent → 本方法），
+            // 世界没就绪时手指一拖就会抛 NullReferenceException。
+            // 本类其余相机操作都已经是空安全写法（ZoomCamera:757、RotateCamera:762、
+            // MoveCameraTo:772、SetKeyBoardMoveSpeed:843），这里补齐保持一致。
+            mapCamera?.OffsetCamera(offset);
         }
 
         public static bool Raycast(Ray ray, out Vector3 hitPoint)

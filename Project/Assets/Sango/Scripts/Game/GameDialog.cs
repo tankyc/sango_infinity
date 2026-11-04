@@ -216,11 +216,26 @@ namespace Sango.Core
                         // 丢弃这一条继续下一条；队列空时上面的分支会把 Enabled 放开，
                         // 不会再把输入永久留在关闭状态。
                         Sango.Log.Error($"对话框窗口创建失败,跳过该条对话: {curWindowName}");
+
+                        // 【兜底】这条对话从未显示，但等待方（RenderEvent 里的演出事件）
+                        // 在等它的收尾回调——DiplomacyEvent.IsDone 就是在 talkEndAction 里复位的，
+                        // 不执行的话事件永远滞留队列，Scenario.Run 每帧提前 return，回合推进停摆。
+                        // 原版演出是同步阻塞式（s11_sys_person_order_diplomacy.cpp:1057-1130），
+                        // 没有"回调"可丢；异步化后丢弃对话必须把收尾也补上。
+                        // （读档 / 回主菜单不走这里：那条路是 Reset() / OnWindowClosed(invokeAction:false)，
+                        //   随后 RenderEvent.Reset 会把整条演出队列清掉。）
+                        System.Action droppedEndAction = curData.talkEndAction;
                         hasCurrent = false;
                         curData = default;
                         curSeq = 0;
                         curWindowName = null;
                         windowInterface = null;
+
+                        try { droppedEndAction?.Invoke(); }
+                        catch (System.Exception e)
+                        {
+                            Sango.Log.Error($"对话框丢弃后的收尾回调异常：{e}");
+                        }
                         continue;
                     }
 

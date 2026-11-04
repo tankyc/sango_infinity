@@ -180,26 +180,29 @@ namespace Sango.Core
             List<ItemType> pool = new List<ItemType>();
             int totalWeight = 0;
 
-            scenario.CommonData.ItemTypes.ForEach(item =>
+            // 【性能】原 ItemTypes.ForEach(lambda) 捕获 kind / force / city / pool / totalWeight，
+            // 改为遍历底层字典（SangoObjectMap 用 Dictionary 存储）。
+            foreach (KeyValuePair<int, ItemType> kv in scenario.CommonData.ItemTypes.objects)
             {
+                ItemType item = kv.Value;
                 if (item == null || item.kind != kind)
-                    return;
+                    continue;
 
                 // 权重 0 = 不可通过搜索获得
                 if (item.discoverProbability <= 0)
-                    return;
+                    continue;
 
                 // ⑤ 单件唯一
                 if (force.discoveredItemIds != null && force.discoveredItemIds.Contains(item.Id))
-                    return;
+                    continue;
 
                 // 产出限定城市 / 州：两个列表都没配就是不限（见 ItemType.CanDiscoverAt）
                 if (!item.CanDiscoverAt(city))
-                    return;
+                    continue;
 
                 pool.Add(item);
                 totalWeight += item.discoverProbability;
-            });
+            }
 
             if (pool.Count == 0 || totalWeight <= 0)
                 return null;

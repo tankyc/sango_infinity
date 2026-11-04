@@ -74,11 +74,14 @@ namespace Sango.Core
         public City RandomBelongCity(Scenario scenario)
         {
             List<City> cities = new List<City>();
-            scenario.citySet.ForEach((city) =>
+            // 【性能】原 ForEach(lambda) 捕获 this / cities，改为按下标遍历底层数组。
+            City[] provinceCityArray = scenario.citySet.objects;
+            for (int i = 1; i < provinceCityArray.Length; i++)
             {
-                if (city.province == this)
+                City city = provinceCityArray[i];
+                if (city != null && city.province == this)
                     cities.Add(city);
-            });
+            }
 
             if (cities.Count == 0)
                 return null;

@@ -572,9 +572,28 @@ namespace Sango.Render
             DarkMaskTexture.Apply(false);
         }
 
+        /// <summary>
+        /// 取地格数据。
+        ///
+        /// 【为什么判空】<c>gridDatas</c> 只在 <see cref="Create"/> 里分配，<see cref="Clear"/> 会把它置 null；
+        /// 而 <c>bounds</c> 可能来自存档 / 上一次 Create 的残留尺寸，与实际行数不一致。
+        /// 地图生成窗口（MapEditor → MapGen）在"地图尚未 Create 完成"的中间态就会遍历全图取格，
+        /// 旧写法 `gridDatas[x][y]` 会抛 NullReferenceException（gridDatas[x] 为 null）并中断 OnGUI。
+        /// 这里统一返回 null，调用方按"该格无数据"处理（MapGenContext.BuildMaterialTable 已判空）。
+        /// </summary>
+        /// <param name="x">列坐标</param>
+        /// <param name="y">行坐标</param>
+        /// <returns>地格数据；数据未就绪或坐标越界时返回 null</returns>
         public GridData GetGridData(int x, int y)
         {
-            return gridDatas[x][y];
+            if (gridDatas == null || x < 0 || x >= gridDatas.Length)
+                return null;
+
+            GridData[] yTable = gridDatas[x];
+            if (yTable == null || y < 0 || y >= yTable.Length)
+                return null;
+
+            return yTable[y];
         }
         public float GetGridHeight(int x, int y)
         {

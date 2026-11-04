@@ -9,7 +9,30 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptIn)]
     public class SangoObjectList<T> : Database<T> where T : SangoObject, new()
     {
-        List<T> mObjects = new List<T>();
+        List<T> mObjects;
+
+        /// <summary>
+        /// 默认构造（反序列化路径必须有无参构造）。
+        /// </summary>
+        public SangoObjectList()
+        {
+            mObjects = new List<T>();
+        }
+
+        /// <summary>
+        /// 按预估容量构造。
+        ///
+        /// 【为什么需要】<c>List&lt;T&gt;</c> 的容量是 4→8→16→… 的翻倍增长，
+        /// 首次装填（例如 City.OnForceTurnStart 里重建 allPersons）时每翻一次
+        /// 都要新分配一个内部数组并 Array.Copy，Profiler 里表现为连续的 GC.Alloc。
+        /// 对确定会装到几十上百个元素的容器（城池武将这些）一次性给足容量，
+        /// 之后整个对局都不再扩容。
+        /// </summary>
+        /// <param name="capacity">预估最大元素数</param>
+        public SangoObjectList(int capacity)
+        {
+            mObjects = new List<T>(capacity > 0 ? capacity : 0);
+        }
 
         /// <summary>
         /// 运行期对象列表。
@@ -155,7 +178,20 @@ namespace Sango.Core
 
         public override bool Contains(int id)
         {
-            return mObjects.Find(x => x != null && x.Id == id) != null;
+            // 【性能】原实现是 mObjects.Find(x => x != null && x.Id == id)。
+            // List<T>.Find 吃 Predicate<T>，而这个 lambda 捕获了参数 id，
+            // 每次调用都要现分配一个闭包对象 + 一个委托（≈56 字节）。
+            // Contains(int) 是 HasTechnique / HasFeatrue 一类「高频判重」的底层依赖，
+            // 例如 Force.prepareTechniqueList 每势力回合都会对每个技法调两次，
+            // 单帧能堆出 20 KB 以上的 GC（见 Profiler: Force.UpdateTurnInfo）。
+            // 手写循环零分配，且省掉一次委托调用，语义与原实现完全一致。
+            for (int i = 0; i < mObjects.Count; i++)
+            {
+                T obj = mObjects[i];
+                if (obj != null && obj.Id == id)
+                    return true;
+            }
+            return false;
         }
 
         public override bool Contains(T t)

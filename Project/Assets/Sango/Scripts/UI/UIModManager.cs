@@ -186,6 +186,10 @@ namespace Sango.UI
         /// 勾选/取消勾选某个模组
         /// 勾选时:自动把该模组的所有前置依赖一并勾选;
         /// 取消时:自动把依赖该模组的已启用模组一并取消,保证依赖关系始终完整
+        ///
+        /// 只有"连带勾选/取消了别的模组"时才需要重排列表(前置依赖必须排在前面);
+        /// 单纯勾选/取消一个没有依赖牵连的模组不重排列表,只刷新当前可见行的勾选状态,
+        /// 这样玩家正在浏览的窗口位置不会被刷新到别处
         /// </summary>
         public void OnToggleMod(int index, bool isEnabled)
         {
@@ -193,12 +197,20 @@ namespace Sango.UI
                 return;
 
             Mod.Mod mod = allMods[index];
+            bool dependChanged;
             if (isEnabled)
-                EnableModWithDepends(mod);
+                dependChanged = EnableModWithDepends(mod);
             else
-                DisableModWithDependents(mod);
+                dependChanged = DisableModWithDependents(mod);
 
-            // 依赖关系变化后重新排序(依赖在前),并让选中项跟随
+            if (!dependChanged)
+            {
+                // 没有牵连其他模组:列表顺序不变,只按当前窗口位置重刷可见行
+                UpdateItemStartIndex(startIndex);
+                return;
+            }
+
+            // 依赖关系变化后重新排序(依赖在前),重排时保持当前窗口位置
             RefreshModListOrder();
         }
 
@@ -206,10 +218,12 @@ namespace Sango.UI
         /// 勾选模组时,连同它的前置依赖一起勾选(递归)
         /// 尚未下载的依赖会单独提示玩家,不会写进启用列表
         /// </summary>
-        void EnableModWithDepends(Mod.Mod mod)
+        /// <returns>true=连带启用了其他未启用的前置依赖(此时列表需要重排,保证依赖在前)</returns>
+        bool EnableModWithDepends(Mod.Mod mod)
         {
             List<Mod.Mod> chain = ModManager.Instance.CollectDepends(mod);
             List<string> notDownloaded = new List<string>();
+            bool dependEnabled = false;
             for (int i = 0; i < chain.Count; i++)
             {
                 Mod.Mod dep = chain[i];
@@ -224,7 +238,10 @@ namespace Sango.UI
                 }
 
                 if (!enabledMods.Contains(dep))
+                {
                     enabledMods.Add(dep);
+                    dependEnabled = true;
+                }
             }
 
             if (!enabledMods.Contains(mod))
@@ -236,12 +253,15 @@ namespace Sango.UI
                     $"以下前置模组尚未下载,下载后依赖会自动勾选:\n{string.Join("\n", notDownloaded)}",
                     () => { });
             }
+
+            return dependEnabled;
         }
 
         /// <summary>
         /// 取消勾选模组时,把所有(直接或间接)依赖它的已启用模组一并取消
         /// </summary>
-        void DisableModWithDependents(Mod.Mod mod)
+        /// <returns>true=连带取消了其他模组(此时列表需要重排)</returns>
+        bool DisableModWithDependents(Mod.Mod mod)
         {
             // 先收集被牵连的模组(含自身)
             List<Mod.Mod> affected = new List<Mod.Mod>();
@@ -274,6 +294,9 @@ namespace Sango.UI
             // 统一取消勾选
             for (int i = 0; i < affected.Count; i++)
                 enabledMods.Remove(affected[i]);
+
+            // 只有自身被取消时不需要重排列表;牵连到其他模组才需要重排
+            return affected.Count > 1;
         }
 
         /// <summary>
@@ -304,11 +327,16 @@ namespace Sango.UI
         /// 重新排列模组列表:
         /// 1. 已启用的模组排到前面,并按依赖做拓扑排序(被依赖者在前);
         /// 2. 未启用的模组保持原有相对顺序排在后面;
-        /// 3. 重排后让当前选中项继续保持选中,并滚动到可见区域
+        /// 3. 重排后让当前选中项继续保持选中;
+        /// 4. 保持重排前的窗口(滚动)位置,只做越界钳制,不滚动到选中项,
+        ///    避免玩家勾选模组时列表突然跳到别的位置
         /// </summary>
         void RefreshModListOrder()
         {
             Mod.Mod selectedMod = (selectedIndex >= 0 && selectedIndex < allMods.Count) ? allMods[selectedIndex] : null;
+
+            // 记录重排前的窗口位置:重排只改变行内容,不应该改变玩家看到的列表起点
+            int keepStartIndex = startIndex;
 
             SortMod();
             totalCount = allMods.Count;
@@ -322,7 +350,10 @@ namespace Sango.UI
             if (selectedIndex < 0 || selectedIndex >= allMods.Count)
                 selectedIndex = 0;
 
-            ScrollToSelected();
+            // 条目数量可能因重排而有界,起点越界时钳制回有效范围
+            int maxStart = totalCount > itemCount ? totalCount - itemCount : 0;
+            startIndex = UnityEngine.Mathf.Clamp(keepStartIndex, 0, maxStart);
+            SyncScrollbar();
             UpdateItemStartIndex(startIndex);
         }
 

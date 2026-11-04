@@ -345,7 +345,7 @@ namespace Sango.Core
             dst.gold = (int)gold;
             dst.food = (int)food;
             if (durabilityLimit > 0) dst.durabilityLimit = durabilityLimit;
-            if (energy > 0) dst.energy = energy;
+            if (energy > 0) dst.morale = energy;
             if (publicOrder > 0) dst.security = publicOrder;
             if (troopsLimit > 0) dst.troopsLimit = (int)troopsLimit;
             if (rate > 0) dst.rate = rate;                       // 原版 City.rate_（规模/等级系数）

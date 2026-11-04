@@ -318,19 +318,22 @@ namespace Sango.Core
             if (abilities == null || force == null)
                 return result;
 
-            abilities.ForEach(ability =>
+            // 【性能】原 ForEach(lambda) 捕获 force / result，改为按下标遍历。
+            Ability[] researchableArray = abilities.objects;
+            for (int i = 1; i < researchableArray.Length; i++)
             {
+                Ability ability = researchableArray[i];
                 if (ability == null)
-                    return;
+                    continue;
                 if (force.HasAbility(ability.Id))
-                    return;
+                    continue;
                 // 隐藏能力：未发现则不可研究 —— 对齐 is_ability_researchable（s11_sys_scen_ability.cpp:12-13）
                 if (ability.hiddenSlot >= 0 && !force.HasHiddenAbility(ability.Id))
-                    return;
+                    continue;
                 if (!ability.IsPrerequisiteMet(force.learnedAbilityIds))
-                    return;
+                    continue;
                 result.Add(ability);
-            });
+            }
             return result;
         }
 
@@ -360,11 +363,17 @@ namespace Sango.Core
                 return;
 
             bool hasSkill = false;
-            abilities.ForEach(ability =>
+            // 【性能】原 ForEach(lambda) 捕获 hasSkill，改为按下标遍历；命中即 break。
+            Ability[] skillCheckArray = abilities.objects;
+            for (int i = 1; i < skillCheckArray.Length; i++)
             {
+                Ability ability = skillCheckArray[i];
                 if (ability != null && ability.IsSkill)
+                {
                     hasSkill = true;
-            });
+                    break;
+                }
+            }
             if (hasSkill)
                 return;
 
@@ -1193,14 +1202,17 @@ namespace Sango.Core
             if (abilities == null || force == null)
                 return result;
 
-            abilities.ForEach(ability =>
+            // 【性能】原 ForEach(lambda) 捕获 category / force / result，改为按下标遍历。
+            Ability[] abilityArray = abilities.objects;
+            for (int i = 1; i < abilityArray.Length; i++)
             {
+                Ability ability = abilityArray[i];
                 if (ability == null || ability.category != (int)category)
-                    return;
+                    continue;
                 if (!force.HasAbility(ability.Id))
-                    return;
+                    continue;
                 result.Add(ability);
-            });
+            }
             return result;
         }
 
@@ -1390,17 +1402,20 @@ namespace Sango.Core
             if (abilities == null || force == null)
                 return result;
 
-            abilities.ForEach(ability =>
+            // 【性能】原 ForEach(lambda) 捕获 category / force / result，改为按下标遍历。
+            Ability[] studyAbilityArray = abilities.objects;
+            for (int i = 1; i < studyAbilityArray.Length; i++)
             {
+                Ability ability = studyAbilityArray[i];
                 if (ability == null || ability.category != (int)category)
-                    return;
+                    continue;
                 if (!force.HasAbility(ability.Id))
-                    return;
+                    continue;
                 // 学习次数已达上限 —— 对齐 get_learning_limit_count 比较
                 if (force.GetAbilityLearnCount(ability.Id) >= ability.LearningLimitCount)
-                    return;
+                    continue;
                 result.Add(ability);
-            });
+            }
             return result;
         }
 

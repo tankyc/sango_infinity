@@ -58,15 +58,31 @@ namespace Sango.Core
         protected virtual void OnGameSettingContextMenuShow(IContextMenuData menuData)
         {
             default_objects.Clear();
-            Scenario.Cur.troopsSet.ForEach(troop =>
+
+            // 剧本可能已经被卸载：退出到主菜单、读档失败兜底等路径都会把 Scenario.Cur 置空
+            // （Scenario.cs:1613-1621 的 finally 里 Cur = null），而 UIGame 界面此时还没销毁，
+            // 玩家仍然点得到"情报"按钮。
+            // 直接写 Scenario.Cur.troopsSet 就会抛 NullReferenceException，
+            // 报错行正是本方法里发起遍历的那一行（Unity 栈显示为 TroopInformation.cs:61）。
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null && scenario.troopsSet != null)
             {
-                default_objects.Add(troop);
-            });
-            if(default_objects.Count > 0)
+                scenario.troopsSet.ForEach(troop =>
+                {
+                    default_objects.Add(troop);
+                });
+            }
+
+            if (default_objects.Count > 0)
             {
                 Target = default_objects[0] as Troop;
             }
-            menuData.Add("全部队", 300, null, OnClickMenuItem, default_objects.Count > 0);
+
+            // 没有部队时菜单项仍然给出，但置灰并写明原因，
+            // 避免玩家点了没反应、又不知道是当前真的没有部队
+            menuData.Add("全部队", 300, null, OnClickMenuItem,
+                default_objects.Count > 0,
+                default_objects.Count > 0 ? null : "当前没有部队");
         }
 
         protected virtual void OnTroopRightMouseButtonContextMenuShow(IContextMenuData menuData, Troop troop)

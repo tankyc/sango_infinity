@@ -204,15 +204,18 @@ namespace Sango.Core
 
             // ---- ① 建节点 ----
             Dictionary<int, AbilityTreeNode> map = new Dictionary<int, AbilityTreeNode>();
-            abilities.ForEach(ability =>
+            // 【性能】原 ForEach(lambda) 捕获 all / map，改为按下标遍历底层数组。
+            Ability[] abilityArray = abilities.objects;
+            for (int i = 1; i < abilityArray.Length; i++)
             {
+                Ability ability = abilityArray[i];
                 if (ability == null)
-                    return;
+                    continue;
                 AbilityTreeNode node = new AbilityTreeNode();
                 node.ability = ability;
                 all.Add(node);
                 map[ability.Id] = node;      // Id 重复时以最后一条为准（数据异常兜底）
-            });
+            }
             if (all.Count == 0)
                 return all;
 

@@ -22,7 +22,17 @@ namespace Sango.Core.Player
             {
                 BuildingBase building = clickCell.building;
                 if (building.IsCityBase()) return;
-                if (building.BelongForce == Scenario.Cur.CurRunForce && building.BelongForce.IsPlayer)
+
+                // 【空引用】BelongForce 对无主建筑 / 陷阱 / 障碍恒为 null：
+                // 它在 OnScenarioPrepare 里只在 BelongForceId > 0 时才解析（BuildingBase.cs:152-157），
+                // 陷阱与障碍读档时还会被强制纠正成"建成即中立"（BuildingBase.cs:181-183）。
+                // 而 Scenario.CurRunForce 在一个势力的回合结束后会被置空（Scenario.cs:1972），
+                // 轮到下一家之前它一直是 null。
+                // 两者同时为 null 时 `==` 返回 true，接着解引用 null.IsPlayer 就抛 NullReferenceException
+                // （实战：AI 轮次间隙点地图上的无主设施）。
+                // 用 BuildingBase.IsPlayer（BuildingBase.cs:113，内部 BelongForce?.IsPlayer ?? false）先挡一道，
+                // 既短路掉比较，也不会再对 null 解引用。
+                if (building.IsPlayer && building.BelongForce == Scenario.Cur.CurRunForce)
                 {
                     ContextMenuData.MenuData.Clear();
                     GameEvent.OnBuildingContextMenuShow?.Invoke(ContextMenuData.MenuData, building);

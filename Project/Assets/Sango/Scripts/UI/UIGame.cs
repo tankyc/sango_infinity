@@ -712,7 +712,14 @@ namespace Sango.UI
                     Troop troop = city.areaCellList[j].troop;
                     if (troop != null)
                     {
-                        if (troop.BelongForce == force || troop.BelongForce.IsAlliance(force))
+                        // 【空势力】Troop.BelongForce 是派生值，可能为 null
+                        // （部队已收尾 / 势力灭亡清场 / 尚未编入军团）。
+                        // 原写法在它为 null 时：第一个比较为 false，于是去求值第二个条件
+                        // troop.BelongForce.IsAlliance(force)，直接抛 NullReferenceException
+                        // （实战崩在 Force.Run → GameEvent.OnForceTurnStart → UIGame.OnForceStart）。
+                        // 语义保持原样：没有势力的部队算作敌方。
+                        Force troopForce = troop.BelongForce;
+                        if (troopForce != null && (troopForce == force || troopForce.IsAlliance(force)))
                         {
                             selfTroopNum += troop.troops;
                         }

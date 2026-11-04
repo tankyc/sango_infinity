@@ -20,9 +20,12 @@ namespace Sango.Core
         public int FillChildren(SangoObjectMap<Technique> techniqueMap)
         {
             int level = technique.level;
-            techniqueMap.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 this / technique / level / upY / downY / children，
+            // 这是递归构建科技树的最内层循环，改为遍历 map 的底层字典。
+            foreach (KeyValuePair<int, Technique> kv in techniqueMap.objects)
             {
-                if (x != technique)
+                Technique x = kv.Value;
+                if (x != null && x != technique)
                 {
                     if (x.needTech == technique.Id)
                     {
@@ -55,7 +58,7 @@ namespace Sango.Core
 
                     }
                 }
-            });
+            }
 
             // 计算size
             if (children.Count > 0)
@@ -146,7 +149,10 @@ namespace Sango.Core
         public void ForEach(Action<ForceTechnique> action)
         {
             action(this);
-            children.ForEach(x => x.ForEach(action));
+            // 【性能】原 children.ForEach(x => x.ForEach(action)) 的 lambda 捕获 action，
+            // 每递归一层就分配一个闭包 + 委托；改为按下标遍历。
+            for (int i = 0; i < children.Count; i++)
+                children[i].ForEach(action);
         }
     }
 }

@@ -36,7 +36,8 @@ using Sango.Core; namespace Sango.UI
         {
             Person target = currentSystem.target.Count > 0 ? currentSystem.target[0] : null;
             Person action = currentSystem.personList.Count > 0 ? currentSystem.personList[0] : null;
-            action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.RecruitPerson)}/{TargetCity.BelongCorps.ActionPoint}";
+            // 走本城口径：人才府会让登用 AP 减半，显示必须与门禁(CityRecruit)、结算(City.JobRecruitPerson)同源
+            action_value.text = $"{TargetCity.GetJobCostAP(CityJobType.RecruitPerson)}/{TargetCity.BelongCorps.ActionPoint}";
             sureButton.interactable = target != null && action != null;
 
             targetPersonItems.SetPerson(target);

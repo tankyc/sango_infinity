@@ -342,6 +342,19 @@ namespace Sango.Core
         public static EventDelegate<City, Scenario> OnCityMonthStart;
         public static EventDelegate<City, Scenario> OnCitySeasonStart;
 
+        /// <summary>
+        /// 城市状态标记位发生变化。
+        /// 参数：城市、变化前的位域、变化后的位域（取值见 <see cref="Sango.Core.CityStateFlag"/>）。
+        ///
+        /// 【派发点】唯一入口是 <see cref="Sango.Core.City.SetStateFlag"/> 与
+        /// <see cref="Sango.Core.City.RefreshStateFlags"/>，且只在值**真正变化**时派发
+        /// （重复置位 / 重复清位不会刷屏）。
+        ///
+        /// 【用途】订阅方据此刷新界面或联动其它系统；不要在这里反向修改标记位，
+        /// 否则会与"Action 持有位、城市重算位"的单一来源打架。
+        /// </summary>
+        public static EventDelegate<City, int, int> OnCityStateFlagsChanged;
+
 
         /// <summary>
         /// 部队AI

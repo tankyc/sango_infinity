@@ -1,6 +1,7 @@
 using Sango.Tools;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Sango.Core
@@ -186,6 +187,15 @@ namespace Sango.Core
         const int MaxAttackingTroopPerCity = 50;
 
         /// <summary>
+        /// 单次「防守 / 支援」调度最多组建几支的硬上限（最后一道保险）。
+        ///
+        /// 正常的停止条件由"在外守军支数 / 支援上限 / 留守兵力 / 粮草 / 行动力"决定，
+        /// 这里只防异常情况（例如剑兵兜底时不进 <c>allAttackTroops</c>，导致
+        /// <see cref="City.AttackTroopsCount"/> 不增长）把同一次调度变成无限出兵。
+        /// </summary>
+        const int MaxEmitTroopPerDispatch = 10;
+
+        /// <summary>
         /// 进攻任务：一次命令内**反复组建部队**，直到"在外进攻兵力"达到所需兵力。
         ///
         /// 对齐出处：Open311 s11_game_ai_kyoten_cmd_mil_attack.cpp:5-420 <c>kyoten_attack</c>。
@@ -266,11 +276,11 @@ namespace Sango.Core
                     LogAttack(city, $"首次出阵被拒：据点状态 {info.state}，不是前线(Front)");
                     return;
                 }
-                if (city.energy < 80)
-                {
-                    LogAttack(city, $"首次出阵被拒：城防 {city.energy}<80");
-                    return;
-                }
+                //if (city.energy < 80)
+                //{
+                //    LogAttack(city, $"首次出阵被拒：城防 {city.energy}<80");
+                //    return;
+                //}
             }
 
             // ---- 最少留守人数 / 兵力 / 粮 —— :43-72 ----
@@ -434,7 +444,7 @@ namespace Sango.Core
             int r = (3 - seikaku) * 15 + powerRank / 2;
             int needTroops = targetTroops + targetTroops * r / 100;
             // 放宽到需要对面1/2的兵力
-            needTroops = System.Math.Max(needTroops, targetCity.troops / 2);
+            needTroops = System.Math.Max(needTroops, targetCity.troops);
 
             // 已在外的进攻兵力（同一目标的编组）—— :250-261
             int attackingTroops = 0;
@@ -568,6 +578,10 @@ namespace Sango.Core
 
         /// <summary>
         /// 防守任务：本城周边有敌情时派遣守军出城。
+        ///
+        /// 【一次出多支】与 <see cref="DispatchOccupyTroop"/> 完全对称：同一条命令内循环组建，
+        /// 每支都经出城队列（<see cref="CityTroopFactory.EmitTroop"/> + <see cref="CityTroopFactory.DriveOutOfCity"/>）
+        /// 立即出城，直到"在外守军支数"达到上限，或兵 / 粮 / 武将耗尽、城头停不下为止。
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>
@@ -580,26 +594,44 @@ namespace Sango.Core
                 return;
 
             int defenseEnemyCount = Math.Max(city.EnemyCount, defenseThreat.enemyCount);
-            if (city.AttackTroopsCount >= Math.Max(3, defenseEnemyCount + 2))
-                return;
+            // 在外守军上限（原判据）：敌军越多，允许出城的守军越多
+            int maxDefenseTroopCount = Math.Max(3, defenseEnemyCount + 4);
 
-            Troop troop = AIMakeTroop(city, 20, false, scenario);
-            if (troop == null)
-                return;
-
-            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-            if (troop == null)
-                return;                             // 城池被围困,无法出城,本次出征已取消
-            // 【立即出城】不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
-            if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+            int createdCount = 0;
+            while (city.AttackTroopsCount < maxDefenseTroopCount)
             {
-                Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的防守部队无法出城（城头无可停留格或寻路失败），本次出征取消");
-                CityTroopFactory.RevokeEmit(city, troop);
-                return;
+                // 硬上限：防剑兵兜底（不进 allAttackTroops）时计数值不增长导致同一帧无限出兵
+                if (createdCount >= MaxEmitTroopPerDispatch)
+                    break;
+                // 至少留有可组队的武将（AIMakeTroop 内部还会判留守武将/兵力/粮草）
+                if (city.freePersons.Count < 2)
+                    break;
+                if (city.troops <= 0)
+                    break;
+
+                Troop troop = AIMakeTroop(city, 20, false, scenario);
+                if (troop == null)
+                    break;
+
+                troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+                if (troop == null)
+                    break;                          // 城池被围困,无法出城,本次出征已取消
+                // 【立即出城】不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
+                if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+                {
+                    Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的防守部队无法出城（城头无可停留格或寻路失败），本次出征取消");
+                    CityTroopFactory.RevokeEmit(city, troop);
+                    break;
+                }
+
+                createdCount++;
+                // 防御出阵同样计入"最后出征回合" —— 对齐 s11_game_ai_kyoten_cmd_mil_defense.cpp:263
+                city.BelongForce?.MarkAttackTurn(scenario);
+                Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
             }
-            // 防御出阵同样计入"最后出征回合" —— 对齐 s11_game_ai_kyoten_cmd_mil_defense.cpp:263
-            city.BelongForce?.MarkAttackTurn(scenario);
-            Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城防守!");
+
+            if (createdCount > 1)
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce?.Name}在{city.Name}连续出城防守 {createdCount} 支（在外守军 {city.AttackTroopsCount}/{maxDefenseTroopCount}）");
         }
 
         /// <summary>
@@ -1071,25 +1103,45 @@ namespace Sango.Core
                 ? target.BelongForce.Id
                 : -1;
 
-            Troop troop = AIMakeTroop(city, turnCount, false, scenario);
-            if (troop != null)
+            // 【一次出多支】本城还能派几支援军 = 单城上限 − 已在外的援军数。
+            // 原实现只组建 1 支，被围友城经常等不到第二波就被打掉。
+            int canEmitCount = aiConfig.reinforceMaxTroopPerCity - reinforcing;
+            int createdCount = 0;
+            while (createdCount < canEmitCount)
             {
+                // 硬上限 + 资源兜底（AIMakeTroop 内部还有一层留守判定，这里先挡，避免无谓组建）
+                if (createdCount >= MaxEmitTroopPerDispatch)
+                    break;
+                if (city.freePersons.Count < aiConfig.reinforceMinFreePersons)
+                    break;
+                if (city.troops < aiConfig.reinforceMinTroops || city.food < aiConfig.reinforceMinFood)
+                    break;
+
+                Troop troop = AIMakeTroop(city, turnCount, false, scenario);
+                if (troop == null)
+                    break;
+
                 troop.requestForceId = requestForce;
 
                 troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-                if (troop != null)
+                if (troop == null)
+                    break;                              // 城池被围困,无法出城,本次出征已取消
+
+                troop.requestForceId = requestForce;    // EmitTroop 后再次确保（登记阶段可能重建对象）
+                // 【立即出城】援军不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
+                if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
                 {
-                    troop.requestForceId = requestForce;    // EmitTroop 后再次确保（登记阶段可能重建对象）
-                    // 【立即出城】援军不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
-                    if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
-                    {
-                        Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的援军无法出城（城头无可停留格或寻路失败），本次出征取消");
-                        CityTroopFactory.RevokeEmit(city, troop);
-                    }
-                    else
-                        Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领援军出城 支援{target.BelongForce?.Name}的{target.Name}!");
+                    Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的援军无法出城（城头无可停留格或寻路失败），本次出征取消");
+                    CityTroopFactory.RevokeEmit(city, troop);
+                    break;
                 }
+
+                createdCount++;
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领援军出城 支援{target.BelongForce?.Name}的{target.Name}!");
             }
+
+            if (createdCount > 1)
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce?.Name}在{city.Name}连续派出援军 {createdCount} 支 → {target.Name}");
 
             // 恢复本城任务状态,避免影响后续 AIAttack 判断
             city.TroopMissionType = MissionType.None;
@@ -2455,7 +2507,7 @@ namespace Sango.Core
         /// <returns>该城的军团是否禁止对外用兵</returns>
         public static bool IsAttackForbidden(City city)
         {
-            if (city == null || city.BelongCorps == null)
+            if (city == null || city.BelongCorps == null || city.BelongCorps.IsCaptainCorps)
                 return false;
             return city.BelongCorps.GetAppointValue(Corps.AppointContentType.Attack) == 1;
         }
@@ -2556,6 +2608,7 @@ namespace Sango.Core
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="reason">日志内容</param>
+        [Conditional("SANGO_DEBUG")]
         static void LogAttack(City city, string reason)
         {
             if (AIConfig.Instance.logAttackAI)
@@ -2715,13 +2768,17 @@ namespace Sango.Core
 
             if (city.allPersons.Count > 8)
             {
-                city.allPersons.ForEach(x =>
+                // 【性能】原 ForEach(lambda) 捕获 levelTotal，改为按下标遍历。
+                for (int i = 0; i < city.allPersons.Count; i++)
                 {
+                    Person x = city.allPersons[i];
+                    if (x == null)
+                        continue;
                     levelTotal[0] += x.SpearLv;
                     levelTotal[1] += x.HalberdLv;
                     levelTotal[2] += x.CrossbowLv;
                     levelTotal[3] += x.RideLv;
-                });
+                }
             }
             else
             {

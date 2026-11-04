@@ -22,7 +22,9 @@
  *   相性          → Person.CompatibilityDistance
  *   义理          → Person.mArgumentation.kind（1 容易背叛 2 无情义 3 普通 4 情理坚定 5 不会背叛）
  *   野心          → 工程用性格的"叛乱风险" Personality.revoltRiskAdd 代表（莽撞 +10 = 高）
- *   仁政          → 特技 Id 97（Features.json），判定为"同一所属城里有人持有它"
+ *   仁政          → 特技 Id 97（Features.json），判定为"同一所属城里有人持有它"，
+*                    现由城市标记位 CityStateFlag.RenZheng 承载（City.hasRenZheng），
+*                    由仁政的 Action 置位 / 清位、City.RefreshStateFlags 兜底重算
  *
  * 原版【俘虏】规则（与被俘的原势力君主比较，**每月**都可能掉忠）：
  *   · 必不掉忠：1. 亲爱君主  2. 与君主是夫妻或义兄弟  3. 是君主的子女或父母（原版存疑，这里一并免掉）；
@@ -58,8 +60,12 @@ namespace Sango.Core
         /// </summary>
         public const int HighAmbitionMin = 3;
 
-        /// <summary>特技「仁政」的 Id（Features.json：#97）</summary>
-        public const int RenZhengFeatureId = 97;
+        /// <summary>
+        /// 特技「仁政」的 Id。
+        /// 【保留别名】数值已统一收敛到 <see cref="CityStateFeatureId.RenZheng"/>，
+        /// 这里保留旧名字是为了不打断既有引用；新代码请直接用后者。
+        /// </summary>
+        public const int RenZhengFeatureId = CityStateFeatureId.RenZheng;
 
         #region 俘虏（每月掉忠）常量
 
@@ -93,7 +99,8 @@ namespace Sango.Core
         {
             if (force == null || person == null) return false;
 
-            // 1. 所在城里有「仁政」→ 该城武将（含出征者）本季不掉忠
+            // 1. 所在城里有「仁政」→ 该城武将（含出征者）本季不掉忠。
+            //    判定走城市的标记位（O(1)），不再遍历武将列表。
             if (HasRenZhengInBelongCity(person)) return false;
 
             Person governor = force.mGovernor;
@@ -123,24 +130,25 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 与 person 同属一个城市的武将里，是否有人持有特技「仁政」。
-        /// 原版口径：持有者本人带兵出征也有效，所以不能只看城市的人员名单，要全量遍历。
+        /// 该武将所属的城里，是否有持有特技「仁政」的武将。
+        ///
+        /// 【实现】直接读城市的 <see cref="CityStateFlag.RenZheng"/> 标记位（O(1)）。
+        /// 标记由 <see cref="City.RefreshStateFlags"/> 在武将增删 / 回合收尾 / 读档时重算，
+        /// 并由仁政的 Action（<c>CityPreventPersonLoyaltyLoss</c>）在装配 / 销毁时置位 / 清位。
+        ///
+        /// 【历史】旧实现每个武将都全量遍历一次 personSet 找特技，逐武将 × 全量扫描 = O(N²)，
+        /// 约 1500 名武将时单次换季结算要 2.4 秒
+        /// （Profiler: Scenario.OnSeasonStart → Force.ForcePersonLoyaltyChange）。
+        /// 改成位域后热路径只剩一次位与运算。
+        ///
+        /// 【口径】看的是"所属城"（<see cref="Person.BelongCity"/>），
+        /// 所以持有者带兵出征时依然保护本城，与原版一致。
         /// </summary>
         public static bool HasRenZhengInBelongCity(Person person)
         {
-            if (person == null || person.BelongCity == null) return false;
-
-            Scenario scenario = Scenario.Cur;
-            if (scenario == null) return false;
-
-            for (int i = 0; i < scenario.personSet.Count; ++i)
-            {
-                Person other = scenario.personSet[i];
-                if (other == null || !other.IsAlive) continue;
-                if (other.BelongCity != person.BelongCity) continue;
-                if (other.HasFeatrue(RenZhengFeatureId)) return true;
-            }
-            return false;
+            if (person == null) return false;
+            City city = person.BelongCity;
+            return city != null && city.hasRenZheng;
         }
 
         /// <summary>义理是否为"低"（容易背叛 / 无情义）</summary>

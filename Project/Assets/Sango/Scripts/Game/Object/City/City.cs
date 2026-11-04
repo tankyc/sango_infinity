@@ -399,15 +399,20 @@ namespace Sango.Core
         /// </summary>
         public int BorderLine => borderLine;
 
-        /// <summary>
-        /// 空闲人员列表
-        /// </summary>
-        public List<Person> freePersons = new List<Person>();
+        // 【性能·容量预设】下面几个容器都是"每回合 Clear() 后按城规模重新装填"的模式，
+        // List 的容量是 4→8→16→… 的翻倍增长，首次装填时每翻一次都要新分配数组并 Array.Copy。
+        // Profiler 里 City.OnForceTurnStart × N 的 232 B ~ 1 KB 就是这些翻倍造成的。
+        // 按常见规模一次性给足容量，之后整个对局不再扩容。
 
         /// <summary>
-        /// 在野人员列表
+        /// 空闲人员列表（一城空闲武将通常十几人，按 64 预置）
         /// </summary>
-        public List<Person> wildPersons = new List<Person>();
+        public List<Person> freePersons = new List<Person>(64);
+
+        /// <summary>
+        /// 在野人员列表（在野武将按 32 预置）
+        /// </summary>
+        public List<Person> wildPersons = new List<Person>(32);
 
         /// <summary>
         /// 不可见人员列表
@@ -420,14 +425,14 @@ namespace Sango.Core
         public List<Person> otherPersons = new List<Person>();
 
         /// <summary>
-        /// 所有武将
+        /// 所有武将（含在野/俘虏/在途，一城可达上百人，按 128 预置）
         /// </summary>
-        public SangoObjectList<Person> allPersons = new SangoObjectList<Person>();
+        public SangoObjectList<Person> allPersons = new SangoObjectList<Person>(128);
 
         /// <summary>
-        /// 俘虏（运行期容器，不参与序列化）
+        /// 俘虏（运行期容器，不参与序列化；按 16 预置）
         /// </summary>
-        public SangoObjectList<Person> captiveList = new SangoObjectList<Person>();
+        public SangoObjectList<Person> captiveList = new SangoObjectList<Person>(16);
 
         /// <summary>
         /// 空闲人员数量
@@ -621,6 +626,30 @@ namespace Sango.Core
         public const int MaxRate = 70;
 
         /// <summary>
+        /// 粮价月度预设表：{ 平准, 步长, 档数 }，取值 = 平准 + 步长 × rand(档数)。
+        ///
+        /// 对齐出处：s11_sys_scen_city.cpp:120-133（原版是函数内静态表，无分配）。
+        /// 【为什么提成字段】原实现把它写在 <see cref="UpdateRate"/> 里，每次调用都要
+        /// new 一个 12×3 的 int[,]（约 192 字节）；该方法每月对每座城调用一次，
+        /// 是月度刷新里最大的 GC 来源。
+        /// </summary>
+        static readonly int[,] RatePresetTable =
+        {
+            { 50, 10, 2 },  // 1 月  50..60
+            { 40, 10, 3 },  // 2 月  40..60
+            { 40, 10, 3 },  // 3 月  40..60
+            { 40, 10, 2 },  // 4 月  40..50
+            { 40, 10, 2 },  // 5 月  40..50
+            { 30, 10, 3 },  // 6 月  30..50
+            { 60, 10, 2 },  // 7 月  60..70
+            { 50, 10, 3 },  // 8 月  50..70
+            { 50, 10, 3 },  // 9 月  50..70
+            { 50, 10, 3 },  // 10 月 50..70
+            { 50, 10, 2 },  // 11 月 50..60
+            { 50, 10, 2 },  // 12 月 50..60
+        };
+
+        /// <summary>
         /// 更新粮价。
         ///
         /// 对齐出处：s11_sys_scen_city.cpp:110-179 city_update_rate。
@@ -643,23 +672,14 @@ namespace Sango.Core
                     return;
 
                 // 表格结构 {平准, 步长, 档数}，取值 = 平准 + 步长 × rand(档数) —— :120-133
-                int[,] table =
-                {
-                    { 50, 10, 2 },  // 1 月  50..60
-                    { 40, 10, 3 },  // 2 月  40..60
-                    { 40, 10, 3 },  // 3 月  40..60
-                    { 40, 10, 2 },  // 4 月  40..50
-                    { 40, 10, 2 },  // 5 月  40..50
-                    { 30, 10, 3 },  // 6 月  30..50
-                    { 60, 10, 2 },  // 7 月  60..70
-                    { 50, 10, 3 },  // 8 月  50..70
-                    { 50, 10, 3 },  // 9 月  50..70
-                    { 50, 10, 3 },  // 10 月 50..70
-                    { 50, 10, 2 },  // 11 月 50..60
-                    { 50, 10, 2 },  // 12 月 50..60
-                };
+                //
+                // 【性能】原写法把这张表当场 new 出来：12×3 的 int[,] 每次调用都要分配
+                // 约 192 字节（数组头 + 36 个 int）。本方法由 Scenario.UpdateCityRate
+                // 每月对每座城调用一次，Profiler 中 Scenario.UpdateCityRate 单帧 124.5 KB GC
+                // 就是它（样本记在调用方 <>c__DisplayClass158_0.<UpdateCityRate>b__0 下面）。
+                // 预设值是常量，提成静态只读字段，只分配一次。
                 int index = month - 1;
-                rate = table[index, 0] + table[index, 1] * GameRandom.Range(0, table[index, 2]);
+                rate = RatePresetTable[index, 0] + RatePresetTable[index, 1] * GameRandom.Range(0, RatePresetTable[index, 2]);
                 return;
             }
 
@@ -824,9 +844,9 @@ namespace Sango.Core
         public Dictionary<City, List<Cell>> raodToNeighborCache = new Dictionary<City, List<Cell>>();
 
         /// <summary>
-        /// 所有设施
+        /// 所有设施（一城建筑位通常十几到几十，按 64 预置）
         /// </summary>
-        public SangoObjectList<Building> allBuildings = new SangoObjectList<Building>();
+        public SangoObjectList<Building> allBuildings = new SangoObjectList<Building>(64);
         /// <summary>
         /// 建筑数量映射
         /// </summary>
@@ -870,6 +890,91 @@ namespace Sango.Core
         /// 只有武将特性类型为 7(收入), 8(灾害)才会在都市中生效
         /// </summary>
         public List<ActionBase> actionList = new List<ActionBase>();
+
+        /// <summary>
+        /// 城市**状态标记位**（位域，取值见 <see cref="CityStateFlag"/>）。
+        ///
+        /// 【为什么是派生状态、不序列化】内容由在册武将的特技 / 建筑 / 科技决定，
+        /// 存进存档只会在"读档后武将已变但标记还在"时产生不一致。
+        /// 读档 / 换回合 / 武将增删后统一由 <see cref="RefreshStateFlags"/> 重算，
+        /// 热路径（换季掉忠）只读一个 bit。
+        ///
+        /// 【谁置位】特技对应的 Action（如仁政的 <c>CityPreventPersonLoyaltyLoss</c>）
+        /// 在装配 / 销毁时调用 <see cref="SetStateFlag"/>；
+        /// <see cref="RefreshStateFlags"/> 负责"按当前数据全量重算"的兜底。
+        /// </summary>
+        int stateFlags;
+
+        /// <summary>当前状态标记位原始值（调试 / 存档校验用）</summary>
+        public int StateFlags => stateFlags;
+
+        /// <summary>本城所属武将里是否有人持「仁政」—— 命中则换季不掉忠</summary>
+        public bool hasRenZheng => (stateFlags & (int)CityStateFlag.RenZheng) != 0;
+
+        /// <summary>
+        /// 是否置位了指定标记。
+        /// </summary>
+        /// <param name="flag">标记位</param>
+        /// <returns>已置位返回 true</returns>
+        public bool HasStateFlag(CityStateFlag flag)
+        {
+            return (stateFlags & (int)flag) != 0;
+        }
+
+        /// <summary>
+        /// 置位 / 清位单个标记，并在**真正发生变化**时广播
+        /// <see cref="GameEvent.OnCityStateFlagsChanged"/>。
+        ///
+        /// 【幂等】重复置位 / 重复清位不会重复派发事件，订阅方可以放心在每个
+        /// Action 的 Init / Clear 里调用。
+        /// </summary>
+        /// <param name="flag">要改的标记位</param>
+        /// <param name="on">true = 置位，false = 清位</param>
+        public void SetStateFlag(CityStateFlag flag, bool on)
+        {
+            int old = stateFlags;
+            int next = on ? (stateFlags | (int)flag) : (stateFlags & ~(int)flag);
+            if (next == old)
+                return;
+
+            stateFlags = next;
+            GameEvent.OnCityStateFlagsChanged?.Invoke(this, old, next);
+        }
+
+        /// <summary>
+        /// 按当前城内在册武将重算全部状态标记位。
+        ///
+        /// 【调用点】读档初始化（<see cref="Init"/>）、每回合收尾（<see cref="OnForceTurnEnd"/>）、
+        /// 武将增删（<see cref="AddPerson"/> / <see cref="RemovePerson"/>）。
+        /// 也可以由外部在数据变更后主动调用（例如事件直接改武将特技）。
+        ///
+        /// 【口径】看的是 <see cref="allPersons"/>（所属关系），不是 <see cref="freePersons"/>：
+        /// 仁政的持有者带兵出征时依然保护本城，与原版一致。
+        /// </summary>
+        public void RefreshStateFlags()
+        {
+            int old = stateFlags;
+            int next = 0;
+
+            for (int i = 0; i < allPersons.Count; i++)
+            {
+                Person person = allPersons[i];
+                if (person == null || person.IsDead)
+                    continue;
+
+                if (person.HasFeatrue(CityStateFeatureId.RenZheng))
+                {
+                    next |= (int)CityStateFlag.RenZheng;
+                    break;
+                }
+            }
+
+            if (next == old)
+                return;
+
+            stateFlags = next;
+            GameEvent.OnCityStateFlagsChanged?.Invoke(this, old, next);
+        }
 
         public List<City> subCities = new List<City>();// = new List<Cell>();
 
@@ -1175,6 +1280,9 @@ namespace Sango.Core
             // 名单里出现两份会让城市人数统计与遍历逻辑凭空翻倍。
             if (!allPersons.Contains(person))
                 allPersons.Add(person);
+
+            // 新成员可能带来 / 加强城市状态标记位（如仁政）。
+            RefreshStateFlags();
         }
 
         /// <summary>
@@ -1195,6 +1303,9 @@ namespace Sango.Core
 
             allPersons.Remove(person);
             freePersons.Remove(person);
+
+            // 离开的可能是「仁政」持有者，标记位要跟着掉。
+            RefreshStateFlags();
         }
 
         /// <summary>
@@ -1276,11 +1387,14 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             if (scenario != null && scenario.citySet != null)
             {
-                scenario.citySet.ForEach(x =>
+                // 【性能】原 ForEach(lambda) 捕获 this / person，改为按下标遍历底层数组。
+                City[] otherCityArray = scenario.citySet.objects;
+                for (int i = 1; i < otherCityArray.Length; i++)
                 {
+                    City x = otherCityArray[i];
                     if (x != null && x != this && x.wildPersons != null)
                         x.wildPersons.Remove(person);
-                });
+                }
             }
 
             // 同城去重：登记/下野/读档重登记等路径可能对同一个人重复调用
@@ -1356,11 +1470,11 @@ namespace Sango.Core
         public void UpdateActiveTroopTypes()
         {
             activedTroopType.Clear();
-            Scenario.Cur.CommonData.TroopTypes.ForEach(x =>
-            {
-                //if (x.activeCondition == null || (x.activeCondition != null && x.activeCondition.Check(null)))
-                //    activedTroopType.Add(x);
-            });
+            // 【性能】原 TroopTypes.ForEach(x => { … }) 的 lambda 体**全部被注释掉**（空实现），
+            // 但每执行一次仍要分配一个闭包对象 + 一个委托。这里直接去掉这条空遍历，
+            // 原注释逻辑留档备查：
+            //   if (x.activeCondition == null || (x.activeCondition != null && x.activeCondition.Check(null)))
+            //       activedTroopType.Add(x);
         }
 
         /// <summary>
@@ -1394,13 +1508,20 @@ namespace Sango.Core
 
             // 地格占用
             OccupyCellList = new List<Cell>();
-            scenario.Map.GetSpiral(x, y, BuildingType.radius, OccupyCellList);
+            scenario.Map?.GetSpiral(x, y, BuildingType.radius, OccupyCellList);
             foreach (Cell cell in OccupyCellList)
                 cell.building = this;
 
             if (OccupyCellList.Count == 0)
             {
-                Sango.Log.Error(Name);
+                // 【地图未就绪】一个地格都没拿到，说明地图 CellSet 尚未建立
+                //（剧本编辑器加载早期 / 地图文件缺失 / 城池坐标越界）。
+                // 必须在这里直接退出：继续往下会走 GetDirectSpiral(CenterCell, ...)，
+                // 而 CenterCell 此时还是 null，会在 GetNeighbor 处抛 NullReferenceException，
+                // 把整个剧本加载流程打断（实战崩栈：Map.GetCell → City.OnScenarioPrepare）。
+                // 地图就绪后需要重新调用一次 OnScenarioPrepare 才能补齐占地 / 中心格 / 攻击范围。
+                Sango.Log.Error($"[城池] {Name}({x},{y}) 占地格为空：地图尚未加载或坐标越界，已跳过地格初始化");
+                return;
             }
             CenterCell = OccupyCellList[0];
 
@@ -1487,14 +1608,18 @@ namespace Sango.Core
             int selfX = x;
             int selfY = y;
 
-            scenario.citySet.ForEach(candidate =>
+            // 【性能】原 ForEach(lambda) 捕获 this / selfX / selfY / minSqr / nearest，
+            // 改为按下标遍历底层数组。
+            City[] candidateArray = scenario.citySet.objects;
+            for (int i = 1; i < candidateArray.Length; i++)
             {
+                City candidate = candidateArray[i];
                 // IsCity() 不判 BuildingType 空值，这里必须先挡一道：
                 // 剧本加载早期 BuildingType 还是懒加载态，直接调用会 NRE 并打断读档
                 if (candidate == null || candidate == this || candidate.BuildingType == null)
-                    return;
+                    continue;
                 if (!candidate.IsCity())
-                    return;
+                    continue;
                 float dx = candidate.x - selfX;
                 float dy = candidate.y - selfY;
                 float sqr = dx * dx + dy * dy;
@@ -1503,7 +1628,7 @@ namespace Sango.Core
                     minSqr = sqr;
                     nearest = candidate;
                 }
-            });
+            }
 
             return nearest;
         }
@@ -1569,15 +1694,22 @@ namespace Sango.Core
 
             InitPersonAction();
 
+            // 读档 / 开局后按在册武将重算状态标记位（仁政等）。
+            // 放在 InitPersonAction 之后：Action 的 Init 已经置过一次位，这里做统一兜底，
+            // 保证"没有装配 Action 但数据里确实有人持有特技"的旧存档也能拿到正确标记。
+            RefreshStateFlags();
+
             // 空闲人员判断（对应 Open311 的 is_at_service + is_action_done）
             // 除了"本回合未行动、没有任务、不在部队、不是俘虏"之外，
             // 还必须真的站在本城：出征途中 / 往别城移动中的武将不能派活，
             // 否则会出现"派了人却不在城里干活"，且同一人可能被两座城同时派出。
             freePersons.Clear();
-            allPersons.ForEach(person =>
+            // 【性能】原 ForEach(lambda) 捕获 this / freePersons，改为按下标遍历。
+            for (int i = 0; i < allPersons.Count; i++)
             {
+                Person person = allPersons[i];
                 if (person == null)
-                    return;
+                    continue;
                 // 事件武将 / NPC 不进入空闲名单：它们不参与出征、内政、计略等常规命令
                 // （对应 Open311 Unit::can_set_member 的白名单——事件与 NPC 不可编入部队，
                 //   而本项目的空闲名单同时是出征候选池，故在此一并排除）。
@@ -1585,7 +1717,7 @@ namespace Sango.Core
                 if (!person.ActionOver && person.IsFree && !person.IsDead
                     && person.CurrentCity == this && person.CanBeTroopMember)
                     freePersons.Add(person);
-            });
+            }
 
             if (IsPort())
                 BelongCity.portList.Add((Port)this);
@@ -1850,14 +1982,19 @@ namespace Sango.Core
             // 【必须打日志】这是规则性拆除，此前完全静默 —— 玩家会看到"城里凭空少了一座建筑"，
             // 且与 AI 拆除的日志对不上，难以排查。
             int blackMarketRemoved = 0;
-            allBuildings.ForEach(building =>
+            // 【性能】原 ForEach(lambda) 捕获 this / blackMarketRemoved，改为按下标遍历。
+            // 【必须倒序】building.OnFall(null) 会经 City.OnBuildingDestroy 把自己从 allBuildings 移除，
+            // 正序遍历会因元素前移而跳过下一座建筑（SangoObjectList.ForEach 原本就是倒序）。
+            for (int i = allBuildings.Count - 1; i >= 0; i--)
             {
-                if (building.BuildingType.kind == (int)BuildingKindType.BlackMarket)
+                Building building = allBuildings[i];
+                if (building != null && building.BuildingType != null
+                    && building.BuildingType.kind == (int)BuildingKindType.BlackMarket)
                 {
                     building.OnFall(null);
                     blackMarketRemoved++;
                 }
-            });
+            }
             if (blackMarketRemoved > 0)
                 Sango.Log.Info($"*[城政]{Name} 新年清理黑市 {blackMarketRemoved} 处");
 
@@ -1900,8 +2037,19 @@ namespace Sango.Core
         /// <param name="building">创建的建筑</param>
         public void OnBuildingCreate(Building building)
         {
+            if (building == null) return;
             allBuildings.Add(building);
-            int buildingKind = building.BuildingType.kind;
+
+            // BuildingType 是按 id 懒解析的可空引用（BuildingBase.cs:44-52）：
+            // BuildingTypeId <= 0，或设施表里查不到这个 id（Mod 精简了设施表 / 旧存档）时就是 null。
+            // 直接取 .kind 会抛 NullReferenceException（实战崩在
+            // Scenario.Prepare → Building.OnScenarioPrepare → 本方法）。
+            // 建筑本身仍要登记进 allBuildings（地格占用、渲染、拆除都要用它），
+            // 只是没法计入"某类设施有几座"的统计。
+            BuildingType type = building.BuildingType;
+            if (type == null) return;
+
+            int buildingKind = type.kind;
             int count;
             if (buildingCountMap.TryGetValue(buildingKind, out count))
                 buildingCountMap[buildingKind] = count + 1;
@@ -1915,9 +2063,15 @@ namespace Sango.Core
         /// <param name="building">销毁的建筑</param>
         public void OnBuildingDestroy(Building building)
         {
+            if (building == null) return;
             allBuildings.Remove(building);
             this.CalculateHarvest();
-            int buildingKind = building.BuildingType.kind;
+
+            // 同 OnBuildingCreate：设施类型缺失时只能做登记移除，无法回滚数量统计
+            BuildingType type = building.BuildingType;
+            if (type == null) return;
+
+            int buildingKind = type.kind;
             int count;
             if (buildingCountMap.TryGetValue(buildingKind, out count))
                 buildingCountMap[buildingKind] = count - 1;
@@ -1954,33 +2108,34 @@ namespace Sango.Core
                 actionList[i].Clear();
             actionList.Clear();
             temp_FeatureList.Clear();
-            allPersons.ForEach(x =>
+            // 【性能】原 ForEach(lambda) 捕获 this / actionList / temp_FeatureList，改为按下标遍历。
+            for (int n = 0; n < allPersons.Count; n++)
             {
-                if (x.FeatureList != null)
+                Person x = allPersons[n];
+                if (x == null || x.FeatureList == null)
+                    continue;
+                for (int i = 0; i < x.FeatureList.Count; i++)
                 {
-                    for (int i = 0; i < x.FeatureList.Count; i++)
+                    Feature feature = x.FeatureList[i];
+                    // 仅城市收入、灾害类特技可在城市装配；括号确保空特技不会继续访问 kind。
+                    if (feature != null && (feature.kind == (int)FeatureKindType.CityHarvest || feature.kind == (int)FeatureKindType.CityDisaster))
                     {
-                        Feature feature = x.FeatureList[i];
-                        // 仅城市收入、灾害类特技可在城市装配；括号确保空特技不会继续访问 kind。
-                        if (feature != null && (feature.kind == (int)FeatureKindType.CityHarvest || feature.kind == (int)FeatureKindType.CityDisaster))
+                        if (!feature.only)
                         {
-                            if (!feature.only)
+                            temp_FeatureList.Add(feature);
+                            feature.InitActions(actionList, this, x);
+                        }
+                        else
+                        {
+                            if (!temp_FeatureList.Contains(feature))
                             {
                                 temp_FeatureList.Add(feature);
                                 feature.InitActions(actionList, this, x);
                             }
-                            else
-                            {
-                                if (!temp_FeatureList.Contains(feature))
-                                {
-                                    temp_FeatureList.Add(feature);
-                                    feature.InitActions(actionList, this, x);
-                                }
-                            }
                         }
                     }
                 }
-            });
+            }
         }
 
         /// <summary>
@@ -2018,10 +2173,12 @@ namespace Sango.Core
             // 还必须真的站在本城：出征途中 / 往别城移动中的武将不能派活，
             // 否则会出现"派了人却不在城里干活"，且同一人可能被两座城同时派出。
             freePersons.Clear();
-            allPersons.ForEach(person =>
+            // 【性能】原 ForEach(lambda) 捕获 this / freePersons，改为按下标遍历。
+            for (int i = 0; i < allPersons.Count; i++)
             {
+                Person person = allPersons[i];
                 if (person == null)
-                    return;
+                    continue;
                 // 褒赏标记的复位已移到 Person.OnForceTurnStart（Force 逐武将调用，
                 // 覆盖面是"全势力存活武将"，不限本城 allPersons）。
                 // 那里对应原版 reset_command_flags()（s11_game_week.cpp:166-172）。
@@ -2032,7 +2189,7 @@ namespace Sango.Core
                 if (!person.ActionOver && person.IsFree && !person.IsDead
                     && person.CurrentCity == this && person.CanBeTroopMember)
                     freePersons.Add(person);
-            });
+            }
 
             // 粮食消耗
             CostFood(scenario);
@@ -2109,6 +2266,9 @@ namespace Sango.Core
                 UpdateNewLeader();
 
             InitPersonAction();
+
+            // 每回合收尾按在册武将重算标记位：本回合可能有人加入 / 离开 / 学到或失去特技。
+            RefreshStateFlags();
 
             return base.OnForceTurnEnd(scenario);
         }
@@ -2187,13 +2347,14 @@ namespace Sango.Core
         public int GoldCost(Scenario scenario)
         {
             int goldCost = 0;
-            allPersons.ForEach(person =>
+            // 【性能】原 ForEach(lambda) 捕获 goldCost，改为按下标遍历。
+            // 原写法不判 person 为 null，这里保持一致（allPersons 不应存 null）。
+            for (int i = 0; i < allPersons.Count; i++)
             {
+                Person person = allPersons[i];
                 if (person.Official != null)
-                {
                     goldCost += person.Official.cost;
-                }
-            });
+            }
 
             // 计算俘虏的消耗
             for (int i = 0; i < captiveList.Count; i++)
@@ -2357,24 +2518,31 @@ namespace Sango.Core
         /// </summary>
         public void UpdateCorps()
         {
-            allPersons.ForEach(person =>
+            // 【性能】原三处 ForEach(lambda) 都捕获 this（读 BelongCorps），
+            // 改为按下标遍历。UpdateCorps 在城陷 / 军团改编 / 读档重登记时都会被调用。
+            for (int i = 0; i < allPersons.Count; i++)
             {
-                person.ChangeCorps(BelongCorps);
-            });
-            allBuildings.ForEach(person =>
+                Person person = allPersons[i];
+                if (person != null)
+                    person.ChangeCorps(BelongCorps);
+            }
+            for (int i = 0; i < allBuildings.Count; i++)
             {
-                person.ChangeCorps(BelongCorps);
-            });
+                Building person = allBuildings[i];
+                if (person != null)
+                    person.ChangeCorps(BelongCorps);
+            }
 
             // 俘虏名单也要跟：同势力的"自家俘虏"（城陷 / 读档中途态）若军团停在旧值，
             // 之后释放 / 归返时同样会撞上 AddPerson 的校验。
             // 但敌方俘虏的势力与军团代表其原属国，登庸 / 释放 / 逃走的判定要读它，
             // 绝不能一并改，所以这里只同步"势力已经与自己相同"的那部分。
-            captiveList.ForEach(person =>
+            for (int i = 0; i < captiveList.Count; i++)
             {
+                Person person = captiveList[i];
                 if (person != null && person.BelongForce == BelongForce)
                     person.ChangeCorps(BelongCorps);
-            });
+            }
         }
 
         /// <summary>
@@ -2562,16 +2730,19 @@ namespace Sango.Core
                 // 部队仍残留在地图上且永远拿不到任务（冻结原地）。
                 // 因此增加兜底口径：主将缺失时按副将归属判定（此刻武将尚未全量脱籍，
                 // 副将的 BelongForce 仍指向被灭势力）。
-                scenario.troopsSet.ForEach((troop) =>
+                // 【性能】原 ForEach(lambda) 捕获 this，改为按下标遍历底层数组。
+                Troop[] ruinTroopArray = scenario.troopsSet.objects;
+                for (int t = 1; t < ruinTroopArray.Length; t++)
                 {
-                    if (!troop.IsAlive)
-                        return;
+                    Troop troop = ruinTroopArray[t];
+                    if (troop == null || !troop.IsAlive)
+                        continue;
 
                     // 常规口径：主将推导的所属势力即被灭势力
                     if (troop.BelongForce == this.BelongForce)
                     {
                         troop.Clear();
-                        return;
+                        continue;
                     }
 
                     // 兜底口径：无主部队按副将归属判定
@@ -2582,7 +2753,7 @@ namespace Sango.Core
                         Sango.Log.Warning($"势力[{BelongForce.Name}]灭亡时清理了无主部队[{troop.Name}]（主将已脱离，按副将归属判定）");
                         troop.Clear();
                     }
-                });
+                }
 
                 // 清理港口,关卡
                 // 【修复】排除 c == this：被攻陷的城（含港关）要由后续改旗流程归属攻方，
@@ -2598,19 +2769,31 @@ namespace Sango.Core
                             c.allAttackTroops.Clear();
                             c.allTroops.Clear();
                             c.freePersons.Clear();
-                            c.allPersons.ForEach(p =>
+                            // 【性能】以下三处原为 ForEach(lambda)，捕获 c / atk，改为按下标遍历。
+                            // 【必须倒序】三个循环体内都会**从各自列表里移除元素**：
+                            //   · LeaveToWild → 从 allPersons 摘除；
+                            //   · building.OnFall → 从 allBuildings 摘除；
+                            //   · Escape → 从 captiveList 摘除。
+                            // 正序遍历会因元素前移而跳过下一个（SangoObjectList.ForEach 原本就是倒序）。
+                            for (int p = c.allPersons.Count - 1; p >= 0; p--)
                             {
-                                p.LeaveToWild();
-                            });
+                                Person person = c.allPersons[p];
+                                if (person != null)
+                                    person.LeaveToWild();
+                            }
                             c.allPersons.Clear();
-                            c.allBuildings.ForEach(building =>
+                            for (int b = c.allBuildings.Count - 1; b >= 0; b--)
                             {
-                                building.OnFall(atk);
-                            });
-                            c.captiveList.ForEach(person =>
+                                Building building = c.allBuildings[b];
+                                if (building != null)
+                                    building.OnFall(atk);
+                            }
+                            for (int p = c.captiveList.Count - 1; p >= 0; p--)
                             {
-                                person.Escape(EscapeType.Escape);
-                            });
+                                Person captive = c.captiveList[p];
+                                if (captive != null)
+                                    captive.Escape(EscapeType.Escape);
+                            }
                             c.LeaveToWild();
                         }
                     }
@@ -2620,8 +2803,22 @@ namespace Sango.Core
             // 处理缓存队伍信息
             allAttackTroops.Clear();
             allTroops.Clear();
-            allPersons.ForEach(person =>
+            // 【性能】原 ForEach(lambda) 捕获 this / escapeCity / temp_captive_list / lastBelongForce，
+            // 改为按下标遍历；lambda 里的 return 一律改为 continue（语义相同）。
+            //
+            // 【必须倒序 —— 血泪教训】
+            // 循环体内的 person.ChangeBelongCity(escapeCity) 会走到 City.RemovePerson，
+            // 把当前武将**从 allPersons 里移除**，后面的元素整体前移一位。
+            // 正序遍历时 i++ 会直接跳过被前移上来的下一个人 ——
+            // 表现就是"同城多名武将只有第一个被处理，其余留在已易主的城里无人管"
+            // （实测：夏口港陷落时只处理了诸葛亮，关羽被跳过，直到回合结束才被归属自愈捞回来）。
+            // SangoObjectList.ForEach 本身是**倒序**（Count-1 → 0）遍历，正好躲开这个问题；
+            // 改写成 for 时必须显式保持倒序，否则就是行为回归。
+            for (int i = allPersons.Count - 1; i >= 0; i--)
             {
+                Person person = allPersons[i];
+                if (person == null)
+                    continue;
                 // 【原版对齐】物理不在本城的在途/出征武将，户口也要立即迁到同势力据点，
                 // 不能留在已易主的城。对齐 Open311：
                 //   · 出征者（在部队）→ unit_reset_service（s11_sys_scen_unit.cpp:751）改 service
@@ -2631,7 +2828,7 @@ namespace Sango.Core
                 if (escapeCity != null && person.CurrentCity != this)
                 {
                     PersonStateSystem.RelocateHomeOnCityFall(person, this);
-                    return;
+                    continue;
                 }
 
                 person.workingBuilding = null;
@@ -2645,7 +2842,7 @@ namespace Sango.Core
                     if (!person.OnWillChangeToCity(escapeCity))
                     {
                         Sango.Log.Error($"*[城陷]{person.Name} 迁往 {escapeCity.Name} 的前置检查失败，保留原户口不迁移");
-                        return;
+                        continue;
                     }
 
                     person.ChangeBelongCity(escapeCity);
@@ -2684,7 +2881,7 @@ namespace Sango.Core
                     person.LeaveToWild();
                     temp_captive_list.Add(person);
                 }
-            });
+            }
             allPersons.Clear();
             freePersons.Clear();
 
@@ -2706,11 +2903,13 @@ namespace Sango.Core
             // 先取快照：OnFall 会经由 City.OnBuildingDestroy 从 allBuildings 里移除自己，
             // 直接遍历 allBuildings 会漏掉元素（原来用 ForEach + 内部 OnFall 就有这个隐患）。
             List<Building> buildingSnapshot = new List<Building>();
-            allBuildings.ForEach(building =>
+            // 【性能】原 ForEach(lambda) 捕获 buildingSnapshot，改为按下标遍历。
+            for (int i = 0; i < allBuildings.Count; i++)
             {
+                Building building = allBuildings[i];
                 if (building != null)
                     buildingSnapshot.Add(building);
-            });
+            }
 
             List<Building> devList = new List<Building>();
             for (int i = 0; i < buildingSnapshot.Count; i++)
@@ -2889,15 +3088,19 @@ namespace Sango.Core
             // 原先这里手写"改 state -> 赋三字段 -> AddPerson"，顺序颠倒时
             // AddPerson 的"军团不一致"校验会刷错误日志，且漏掉部队字段与在途命令的清理。
             // 倒序遍历 + 逐个移除是安全的（ForEach 内部从后往前扫）。
-            captiveList.ForEach(person =>
+            // 【性能】原 ForEach(lambda) 捕获 this / atk，改为按下标遍历。
+            // 【必须倒序】PersonStateSystem.Recruit 会把人从 captiveList 里摘掉，
+            // 正序遍历会因元素前移而跳过下一个俘虏（同 allPersons 那段的问题）。
+            for (int i = captiveList.Count - 1; i >= 0; i--)
             {
+                Person person = captiveList[i];
                 if (person != null && person.IsSameForce(atk))
                 {
                     PersonStateSystem.Recruit(person, this, PersonChangeReason.Released);
                     if (!freePersons.Contains(person))
                         freePersons.Add(person);
                 }
-            });
+            }
 
             // 【原版对齐】异族 / 贼不占领、不入城（kyoten_kanraku:347-358 走 update_bandits 而非 unit_enter）。
             if (!banditFall && skillInstance != null && !skillInstance.IsRange())
@@ -3011,11 +3214,14 @@ namespace Sango.Core
 
             // 快照所有异族 / 贼部队（解散 / 改派会改集合，避免边遍历边改）
             System.Collections.Generic.List<Troop> bandits = new System.Collections.Generic.List<Troop>();
-            scenario.troopsSet.ForEach(t =>
+            // 【性能】原 ForEach(lambda) 捕获 bandits，改为按下标遍历底层数组。
+            Troop[] allTroopArray = scenario.troopsSet.objects;
+            for (int i = 1; i < allTroopArray.Length; i++)
             {
+                Troop t = allTroopArray[i];
                 if (t != null && t.IsAlive && t.BelongForce != null && !t.BelongForce.IsNormal)
                     bandits.Add(t);
-            });
+            }
 
             bool cityFall = fallenCity.IsCity();
             for (int i = 0; i < bandits.Count; i++)
@@ -3070,17 +3276,21 @@ namespace Sango.Core
 
             City best = null;
             int bestCost = int.MaxValue;
-            scenario.citySet.ForEach(c =>
+            // 【性能】原 ForEach(lambda) 捕获 fallenCity / areaCity / bestCost / best，
+            // 改为按下标遍历底层数组。
+            City[] escapeCandidateArray = scenario.citySet.objects;
+            for (int i = 1; i < escapeCandidateArray.Length; i++)
             {
+                City c = escapeCandidateArray[i];
                 if (c == null || !c.IsAlive || c == fallenCity)
-                    return;
+                    continue;
                 // 同城区域：都市自身 + 其下属港关
                 City cArea = c.IsCity() ? c : c.BelongCity;
                 if (cArea != areaCity)
-                    return;
+                    continue;
                 // 只找正常势力据点（异族 / 贼不占地，不会成为攻略目标）
                 if (c.BelongForce == null || !c.BelongForce.IsNormal)
-                    return;
+                    continue;
 
                 int d = fallenCity.Distance(c);
                 if (d < bestCost)
@@ -3088,7 +3298,7 @@ namespace Sango.Core
                     bestCost = d;
                     best = c;
                 }
-            });
+            }
             return best;
         }
 
@@ -3538,13 +3748,13 @@ namespace Sango.Core
         public bool DoJobCreateBoat(ItemType itemType, int buildingId, int totalValue)
         {
             List<Person> people = new List<Person>();
-            allPersons.ForEach(person =>
+            // 【性能】原 ForEach(lambda) 捕获 people，改为按下标遍历。
+            for (int i = 0; i < allPersons.Count; i++)
             {
-                if (person.missionType == (int)MissionType.PersonCreateBoat)
-                {
+                Person person = allPersons[i];
+                if (person != null && person.missionType == (int)MissionType.PersonCreateBoat)
                     people.Add(person);
-                }
-            });
+            }
             if (people.Count == 0) return false;
 
             Scenario scenario = Scenario.Cur;
@@ -3768,13 +3978,13 @@ namespace Sango.Core
         public bool DoJobCreateMachine(ItemType itemType, int buildingId, int totalValue)
         {
             List<Person> people = new List<Person>();
-            allPersons.ForEach(person =>
+            // 【性能】原 ForEach(lambda) 捕获 people，改为按下标遍历。
+            for (int i = 0; i < allPersons.Count; i++)
             {
-                if (person.missionType == (int)MissionType.PersonCreateMachine)
-                {
+                Person person = allPersons[i];
+                if (person != null && person.missionType == (int)MissionType.PersonCreateMachine)
                     people.Add(person);
-                }
-            });
+            }
             if (people.Count == 0) return false;
             Scenario scenario = Scenario.Cur;
             Building building = scenario.GetObject<Building>(buildingId);
@@ -5295,6 +5505,121 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 【交易粮食·汇率】买入方向：花费 <paramref name="goldNum"/> 金能买到的粮数。
+        ///
+        /// 对齐原版 s11_sys_person_order_city.cpp:1490-1529 的 calc_merchant：
+        ///   pol_coef = 450 - 政治；粮 = 金 × rate × 400 / (pol_coef × 10)
+        /// 其中 rate 是"粮价倒数"（越大粮越便宜）。
+        ///
+        /// 【为什么单独成方法】交易界面必须用与结算完全相同的公式显示"能换到多少粮"。
+        /// 界面以前自己按 hasBusiness（商人系数，剧本固定值）估算，结算却按 rate（逐月波动的粮价）算，
+        /// 两套公式互不相干，于是出现"界面显示 16 万、实际到手 12 万"。
+        /// </summary>
+        /// <param name="goldNum">花费的金（&lt;=0 返回 0）</param>
+        /// <param name="rate">粮价（越大粮越便宜）</param>
+        /// <param name="politics">执行武将政治力</param>
+        /// <returns>能买到的粮数</returns>
+        public static int CalcTradeFoodByGold(int goldNum, int rate, int politics)
+        {
+            if (goldNum <= 0)
+                return 0;
+
+            int safeRate = System.Math.Max(rate, 1);
+            int polCoef = System.Math.Max(450 - politics, 1);
+            // 用 long 计算：城池金币上限 10 万、rate 可到 100，int 乘法（10万×100×400=40亿）会溢出
+            long value = (long)goldNum * safeRate * 400 / ((long)polCoef * 10);
+            return (int)value;
+        }
+
+        /// <summary>
+        /// 【交易粮食·汇率】卖出方向：卖出 <paramref name="foodNum"/> 粮能换到的金数。
+        /// 原版 calc_merchant 卖出分支：金 = 粮 × 3200 / (pol_coef × rate)。
+        /// </summary>
+        /// <param name="foodNum">卖出的粮数（&lt;=0 返回 0）</param>
+        /// <param name="rate">粮价</param>
+        /// <param name="politics">执行武将政治力</param>
+        /// <returns>能换到的金</returns>
+        public static int CalcTradeGoldByFood(int foodNum, int rate, int politics)
+        {
+            if (foodNum <= 0)
+                return 0;
+
+            int safeRate = System.Math.Max(rate, 1);
+            int polCoef = System.Math.Max(450 - politics, 1);
+            long value = (long)foodNum * 3200 / ((long)polCoef * safeRate);
+            return (int)value;
+        }
+
+        /// <summary>
+        /// 【交易粮食·汇率】买入方向的反算：想买到 <paramref name="foodNum"/> 粮至少需要多少金。
+        /// 向上取整，保证按这个金额下单能买到不少于目标数量的粮（交易界面用它把滑条的粮食目标换算成下单金额）。
+        /// </summary>
+        /// <param name="foodNum">目标粮食数量</param>
+        /// <param name="rate">粮价</param>
+        /// <param name="politics">执行武将政治力</param>
+        /// <returns>所需金币</returns>
+        public static int CalcTradeGoldNeedForFood(int foodNum, int rate, int politics)
+        {
+            if (foodNum <= 0)
+                return 0;
+
+            int safeRate = System.Math.Max(rate, 1);
+            int polCoef = System.Math.Max(450 - politics, 1);
+            long unit = (long)safeRate * 400;
+            long value = ((long)foodNum * polCoef * 10 + unit - 1) / unit;
+            return (int)value;
+        }
+
+        /// <summary>
+        /// 【交易粮食·界面预览】花 <paramref name="goldNum"/> 金<strong>实际</strong>能买到多少粮。
+        ///
+        /// 与 <see cref="JobTradeFood"/> 买入分支走同一条计算链：汇率 → 性格效率 → 粮仓上限，
+        /// 因此界面显示的数字就是点确认后真正到手的数字。
+        /// （剧情脚本通过 GameEvent.OnCityJobResult 改写结果的部分无法预知，未计入。）
+        /// </summary>
+        /// <param name="personList">执行武将</param>
+        /// <param name="goldNum">准备花费的金</param>
+        /// <returns>实际能得到的粮数</returns>
+        public int PreviewTradeFood(Person[] personList, int goldNum)
+        {
+            if (goldNum <= 0 || !GameUtility.IsValidPersonArray(personList))
+                return 0;
+
+            int politics = personList[0] != null ? personList[0].Politics : 50;
+            int foodValue = CalcTradeFoodByGold(goldNum, rate, politics);
+            // 【性格】交易效率：与结算侧完全同一处理（多人取平均）
+            foodValue = ApplyPersonalityDomesticScale(foodValue, personList, CityJobType.TradeFood);
+
+            int room = foodLimit - food;
+            if (room < 0) room = 0;
+            if (foodValue > room) foodValue = room;
+            return foodValue < 0 ? 0 : foodValue;
+        }
+
+        /// <summary>
+        /// 【交易粮食·界面预览】卖出 <paramref name="foodNum"/> 粮<strong>实际</strong>能换到多少金
+        /// （含性格效率与金库上限，与 <see cref="JobTradeFood"/> 卖出分支一致）。
+        /// </summary>
+        /// <param name="personList">执行武将</param>
+        /// <param name="foodNum">准备卖出的粮</param>
+        /// <returns>实际能得到的金</returns>
+        public int PreviewTradeGold(Person[] personList, int foodNum)
+        {
+            if (foodNum <= 0 || !GameUtility.IsValidPersonArray(personList))
+                return 0;
+
+            int politics = personList[0] != null ? personList[0].Politics : 50;
+            int goldValue = CalcTradeGoldByFood(foodNum, rate, politics);
+            // 【性格】交易效率：与结算侧完全同一处理（多人取平均）
+            goldValue = ApplyPersonalityDomesticScale(goldValue, personList, CityJobType.TradeFood);
+
+            int room = goldLimit - gold;
+            if (room < 0) room = 0;
+            if (goldValue > room) goldValue = room;
+            return goldValue < 0 ? 0 : goldValue;
+        }
+
+        /// <summary>
         /// 交易粮食
         /// </summary>
         /// <param name="personList">交易人员</param>
@@ -5344,19 +5669,20 @@ namespace Sango.Core
             //   原文注释的对照表为 rate=1 时 100 粮要 1000 金、rate=100 时只要 10 金。
             // 原版按"粮数"下单，本项目接口按"金"下单（买），卖出时 goldNum 已是粮数（负），
             // 因此买入方向用反算。
-            int rate = System.Math.Max(this.rate, 1);
-            int polCoef = System.Math.Max(450 - person.Politics, 1);
-
+            //
+            // 【统一公式】换算收敛到 CalcTradeFoodByGold / CalcTradeGoldByFood，
+            // 交易界面的预览（PreviewTradeFood / PreviewTradeGold）用的是同一份实现，
+            // 避免界面上再出现"另算一套汇率"导致显示与实际不符。
             int totalValue;
             if (goldNum > 0)
             {
                 // 花 goldNum 金能买到的粮
-                totalValue = goldNum * rate * 400 / (polCoef * 10);
+                totalValue = CalcTradeFoodByGold(goldNum, rate, person.Politics);
             }
             else
             {
                 // 卖出 -goldNum 粮能换到的金
-                totalValue = (-goldNum) * 3200 / (polCoef * rate);
+                totalValue = CalcTradeGoldByFood(-goldNum, rate, person.Politics);
             }
 
             // 【性格】交易效率：按执行武将性格调整交易量（多人取平均）

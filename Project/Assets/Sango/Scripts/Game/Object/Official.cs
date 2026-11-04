@@ -104,13 +104,14 @@ namespace Sango.Core
                 {
                     // 第一次访问, 缓存
                     List<Official> lvevl_officials = new List<Official>();
-                    Scenario.Cur.CommonData.Officials.ForEach(o =>
+                    // 【性能】原 ForEach(lambda) 捕获 this / lvevl_officials，改为按下标遍历底层数组。
+                    Official[] officialArray = Scenario.Cur.CommonData.Officials.objects;
+                    for (int i = 1; i < officialArray.Length; i++)
                     {
-                        if (o.level == level - 1)
-                        {
+                        Official o = officialArray[i];
+                        if (o != null && o.level == level - 1)
                             lvevl_officials.Add(o);
-                        }
-                    });
+                    }
                     _next_lvevl_officials = lvevl_officials.ToArray();
                 }
                 return _next_lvevl_officials;

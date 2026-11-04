@@ -49,13 +49,29 @@ namespace Sango.Core
         protected virtual void OnGameSettingContextMenuShow(IContextMenuData menuData)
         {
             default_objects.Clear();
-            Scenario.Cur.personSet.ForEach(person =>
+
+            // 与 TroopInformation.OnGameSettingContextMenuShow 同一处崩溃链：
+            // 两者都订阅了 GameEvent.OnGameInformationContextMenuShow，剧本被卸载后
+            // Scenario.Cur 为 null（Scenario.cs:1613-1621），遍历它的数据集就会空引用。
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null && scenario.personSet != null)
             {
-                if(person.IsValid) 
-                    default_objects.Add(person);
-            });
-            Target = default_objects[0] as Person;
-            menuData.Add("全武将", 300, null, OnClickMenuItem);
+                scenario.personSet.ForEach(person =>
+                {
+                    if (person.IsValid)
+                        default_objects.Add(person);
+                });
+            }
+
+            // 原来无条件取 [0]：全军没有有效武将时会抛 ArgumentOutOfRangeException
+            if (default_objects.Count > 0)
+            {
+                Target = default_objects[0] as Person;
+            }
+
+            menuData.Add("全武将", 300, null, OnClickMenuItem,
+                default_objects.Count > 0,
+                default_objects.Count > 0 ? null : "当前没有武将");
         }
 
         protected virtual void OnCityRightMouseButtonContextMenuShow(IContextMenuData menuData, City city)
