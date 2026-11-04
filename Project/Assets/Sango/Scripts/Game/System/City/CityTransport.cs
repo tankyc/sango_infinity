@@ -200,7 +200,8 @@ namespace Sango.Core.Player
             if (whoGone is ObjectSelectSystem) return;
             Window.Instance.SetVisible(windowName, true);
             TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTansport));
-            TargetTroop.EnterCity(TargetCity);
+            // 取消组建的回滚：部队尚未出发，不做改道
+            TargetTroop.EnterCity(TargetCity, false);
             TargetTroop.ForEachPerson(person =>
             {
                 TargetCity.freePersons.Add(person);

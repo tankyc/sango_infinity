@@ -250,7 +250,8 @@ namespace Sango.Core.Player
             dispatched = false;
             // 回滚金额必须与 :199 的扣减同源，否则回滚会多退/少退
             TargetTroop.BelongCorps.ReduceActionPoint(-TargetCity.GetJobCostAP(CityJobType.MakeTroop));
-            TargetTroop.EnterCity(TargetCity);
+            // 取消组建的回滚：部队尚未出发，不做改道
+            TargetTroop.EnterCity(TargetCity, false);
             TargetTroop.ForEachPerson(person =>
             {
                 TargetCity.freePersons.Add(person);

@@ -927,7 +927,9 @@
       "successMethod": "PutOutFireSuccessMethod",
       "criticalMethod": "PutOutFireCriticalMethod",
       "spellRanges": [
-        1
+        0,
+        1,
+        2
       ],
       "needAblilityLevel": 0,
       "isRange": true,

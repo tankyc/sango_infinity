@@ -438,6 +438,22 @@ namespace Sango.Core
             return true;
         }
 
+        /// <summary>
+        /// 能否对该格施放。
+        ///
+        /// 【归属闸门】格子上有活体对象时**先判归属**，再决定能否"对地"施放：
+        ///   · <see cref="onlySpellToTeam"/>（消火 / 镇静这类对己方计略）→ 敌对目标不可施放；
+        ///   · 攻击型且不能误伤己方（火计等）→ 友军目标不可施放，无主建筑放行；
+        ///   · <see cref="canDamageTeam"/> 的攻击型（妖术 / 落雷）保留本项目的"误伤"玩法，不拦友军。
+        ///
+        /// 【原版对应】get_enabled_strategies（s11_sys_unit_target.cpp:364-389）：
+        ///   火计看 <c>can_attack</c>（部队 = is_enemy；建筑 = force_id &lt; 0 || is_enemy）；
+        ///   消火看 <c>not hostile_target</c>，敌对目标根本不开启该命令。
+        ///
+        /// 【修复】原先 <see cref="canSpellToCell"/> 在最前面直接 return true，把下面这层归属
+        /// 判定整个短路掉 —— 而「灭火」同时配了 canSpellToCell = true 与 onlySpellToTeam = true
+        /// （Skills.json:947-948），后者于是成了死配置，AI 与玩家都能对敌方城池/部队放灭火。
+        /// </summary>
         public bool CanSpellToHere(Troop who, Cell where)
         {
             if (skillSpellConditionMethod != null)
@@ -446,38 +462,40 @@ namespace Sango.Core
                     return false;
             }
 
-            if (canSpellToCell)
-            {
-                return true;
-            }
-
             if (canDamageTroop && where.troop != null)
             {
                 bool isEnemy = where.troop.IsEnemy(who);
                 if (onlySpellToTeam)
                 {
-                    return !isEnemy;
+                    if (isEnemy) return false;
                 }
-                else
+                else if (!canDamageTeam && !isEnemy)
                 {
-                    return isEnemy;
+                    return false;
                 }
+                return true;
             }
 
             if (canDamageBuilding && where.building != null)
             {
-                bool isEnemy = where.building.IsEnemy(who);
+                // 无主建筑（BelongForce == null）在原版 can_attack 里是"可攻击"、在 hostile_target
+                // 里是"非敌对"：两种口径都不算友军，因此这里只对**有主且非敌**的建筑拦截。
+                bool hasOwner = where.building.BelongForce != null;
+                bool isEnemy = hasOwner && where.building.IsEnemy(who);
                 if (onlySpellToTeam)
                 {
-                    return !isEnemy;
+                    if (isEnemy) return false;
                 }
-                else
+                else if (!canDamageTeam && hasOwner && !isEnemy)
                 {
-                    return isEnemy;
+                    return false;
                 }
+                return true;
             }
 
-            return false;
+            // 格子上没有可作用的活体对象：只有 canSpellToCell 的技能才能"对空格"施放
+            // （火计对可燃地形 / 灭火对空着的着火格）。
+            return canSpellToCell;
         }
 
         /// <summary>

@@ -2402,6 +2402,28 @@ namespace Sango.Core
             if (BelongForce == null || !HasValidState || IsWild || Invisible || IsPrisoner || IsDead)
                 return;
 
+            // 【俘虏兜底 · 只在户口为空时核对，正常武将零开销】
+            //
+            // state 可能被直写路径改坏（SetStateNormal / 招降 / 旧档恢复），此时上面的
+            // IsPrisoner 失效；而俘虏的特征恰好是 "BelongCity == null + BelongCorps 仍残留"，
+            // 会被下面的"户口污染修正"当成在职武将迁回主公城 —— 等于被俘一回合后自动回营
+            // （实测日志：冯胜被钟会俘虏后立刻自愈回许昌）。
+            //
+            // 【为什么不放在方法开头无条件判定】
+            // 本方法由 Scenario.TurnEnd 对**全体武将**逐个调用，captiveList / BeCaptiveList
+            // 都是 List，Contains 是 O(俘虏数)。正常在职武将（BelongCity != null）占了 99%，
+            // 无条件判定等于每回合凭空多出几十万次比较。
+            // 这里先用一次 null 判断把范围收窄到"户口为空的极少数人"，再核对关押名单，
+            // 正常武将的额外开销只有一个引用比较。
+            if (BelongCity == null)
+            {
+                if (CurrentCity != null && CurrentCity.captiveList != null
+                    && CurrentCity.captiveList.Contains(this))
+                    return;
+                if (BelongForce.BeCaptiveList != null && BelongForce.BeCaptiveList.Contains(this))
+                    return;
+            }
+
             // 在部队里：位置由部队负责，随军出征不算"掉队"
             if (mBelongTroop != null)
                 return;

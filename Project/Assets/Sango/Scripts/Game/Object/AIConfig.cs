@@ -791,6 +791,16 @@ namespace Sango.Core
         /// <summary>保护城池时，敌人每靠近城池 1 格的攻击收益加成（%）</summary>
         public int protectCityNearEnemyBonusPerCell = 40;
 
+        /// <summary>
+        /// 盟友城协防的最远距离（格）：超过该距离直接召回最近的自有城，不再往盟友城下跑。
+        /// 口径来源：玩家反馈"结盟后 AI 队伍扛着同字标堵到家门口"，见 TroopAIFallback。
+        /// </summary>
+        public int allySupportMaxDistance = 12;
+        /// <summary>
+        /// 盟友城协防的最低兵力比（%）：(部队兵力 + 城内兵力) / 围城敌军兵力 低于该值就不去送死，直接召回。
+        /// </summary>
+        public int allySupportMinTroopRatio = 70;
+
         #endregion
 
         #region 部队求援与撤退

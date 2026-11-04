@@ -3229,7 +3229,16 @@ namespace Sango.Core
             return true;
         }
 
-        public void EnterCity(City city)
+        /// <summary>
+        /// 部队入城（解散 / 卸货 / 占领）。
+        /// </summary>
+        /// <param name="city">目标据点</param>
+        /// <param name="checkTroopOverflow">
+        /// 是否执行"AI 溢出改道"检查。默认 true。
+        /// 城陷占领、败退入城、编成回滚这几条路径必须传 false ——
+        /// 那些场景下改道会让刚打下的城没人守、或让残部在地图上被追杀。
+        /// </param>
+        public void EnterCity(City city, bool checkTroopOverflow = true)
         {
             if (city == null)
             {
@@ -3261,6 +3270,21 @@ namespace Sango.Core
             if (city.BelongForce != BelongForce)
             {
                 Sango.Log.Error($"{BelongForce?.ColorName}的{Name}试图进入非自身势力{city.BelongForce?.ColorName}{city.ColorName}的城市,已拒绝入城!");
+                return;
+            }
+
+            // 【防吞兵 · 仅 AI】目标据点装不下这支部队时，先改道最近的有余量据点。
+            //
+            // 原版做法是"clamp 后丢弃"：unit_enter 直接调 building_add_troops
+            // （Open311 s11_sys_scen_unit.cpp:573），而它把结果 clamp 到 max 并返回实际变化量
+            // （s11_sys_scen_building.cpp:1145-1154），调用方不接返回值 —— 溢出兵力就此蒸发。
+            // 玩家侧保持该行为（提示放在下令交互阶段，不在这里弹窗）；AI 侧不能自己把兵送没，故在此改任务。
+            if (checkTroopOverflow
+                && troops > 0
+                && !IsPlayerControl
+                && TroopAIFallback.GetRoom(city) < troops
+                && TroopAIFallback.TryRerouteForOverflow(this, city, Scenario.Cur))
+            {
                 return;
             }
             // 所属城取主将的实时值（不缓存），下面几处统一用它：

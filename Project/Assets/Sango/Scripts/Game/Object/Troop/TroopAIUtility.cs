@@ -188,6 +188,7 @@ namespace Sango.Core
                                 attackCells.Clear();
                                 tempTargets.Clear();
                                 int hash = 0;
+                                bool hasObject = false;
                                 skill.GetAttackCells(troop, spellCell, attackCells);
                                 for (int m = 0, atkCount = attackCells.Count; m < atkCount; m++)
                                 {
@@ -196,21 +197,41 @@ namespace Sango.Core
                                     {
                                         tempTargets.Add(atkCell.troop);
                                         hash ^= (int)(atkCell.troop.Id * 2654435761u);
+                                        hasObject = true;
                                     }
                                     if (atkCell.building != null)
                                     {
                                         tempTargets.Add(atkCell.building);
                                         hash ^= atkCell.building.Id * 40503;
+                                        hasObject = true;
                                     }
                                 }
-                                cache.targetHash = hash;
+                                // 【空目标】空火格消火时命中格内没有任何对象，按原样会得到 hash = 0，
+                                // 所有空火格就会撞同一个去重键（checkMap 只留最近的一格）。
+                                // 改用命中格坐标参与哈希，保证每个空格是独立候选。
+                                cache.targetHash = hasObject
+                                    ? hash
+                                    : (attackCells.Count > 0
+                                        ? (attackCells[0].x * 73856093) ^ (attackCells[0].y * 19349663)
+                                        : 0);
                                 cache.atkCells = attackCells.Count > 0 ? attackCells.ToArray() : System.Array.Empty<Cell>();
                                 cache.targets = tempTargets.Count > 0 ? tempTargets.ToArray() : System.Array.Empty<SangoObject>();
                             }
                             spellAttackCache[spellCell] = cache;
                         }
 
-                        if (!cache.canSpell || cache.targets.Length == 0)
+                        if (!cache.canSpell)
+                            continue;
+
+                        // 【对齐原版】空格子也有合法动作，但条件各不相同：
+                        //   · 消火 —— get_after_move_action:340-344
+                        //       `add_strategy_action(..., self_shouka = hex.get_fire_timer() > 1)`
+                        //   · 火计 —— get_enabled_strategies 空对象分支（s11_sys_unit_target.cpp:374-378）
+                        //       `if (is_firable_terrain(get_terrain_id())) flags[StrategyId_Fire] = true`
+                        // 本项目原先用 `targets.Length == 0` 一刀切，两类空格动作都进不了候选。
+                        if (cache.targets.Length == 0
+                            && !IsEmptyFireCellShoukaCandidate(troop, skill, spellCell)
+                            && !IsEmptyCellFireCandidate(troop, skill, spellCell))
                             continue;
 
                         // 【性能优化】用「技能Id + 目标集合无序哈希」作为唯一键做 O(1) 去重,
@@ -1674,6 +1695,130 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 【原版直译】可燃的**空格**能否作为火计目标 —— get_enabled_strategies 火计分支
+        /// （s11_sys_unit_target.cpp:364-380）。
+        ///
+        /// 原版：
+        ///   · 格子上有对象 → 需 <c>can_attack</c> 且不是未完工的堤防；
+        ///   · 格子上没有对象 → 只看地形 <c>is_firable_terrain(get_terrain_id())</c>。
+        ///
+        /// 【为什么需要这个函数】技能配的 <c>canSpellToCell = true</c> 只回答"能不能对该格施法"
+        /// （<see cref="SkillInstance.CanSpellToHere"/> 的判定层），**不代表 AI 会把它生成候选**：
+        /// 候选生成另有 `cache.targets.Length == 0 → continue` 这道门槛（命中格内必须有部队或建筑），
+        /// 所以火计对空地此前在 AI 侧永远不成立，只有玩家手动能点。本函数把这道门槛按原版补开。
+        ///
+        /// 【地形等价】<see cref="TerrainType.fireRate"/> &gt; 0 且非水域，与 <see cref="Fire.CanIgnite"/>
+        /// （火焰能否蔓延到该格）同口径，保证"AI 认为能烧的地"与"火真的能烧起来的地"一致。
+        /// 与 <see cref="Fire.CanIgnite"/> 不同的是**不排除已着火的格子**：原版对已着火空地照样开启
+        /// 火计（:1028-1030 只做 -250 降权），本项目 SetFire 对已有火焰会重置 counter（续火），有意义。
+        /// </summary>
+        /// <param name="troop">行动部队</param>
+        /// <param name="skill">待评估技能</param>
+        /// <param name="spellCell">施法格（单格计略里即目标格）</param>
+        /// <returns>true = 允许作为候选</returns>
+        static bool IsEmptyCellFireCandidate(Troop troop, SkillInstance skill, Cell spellCell)
+        {
+            if (troop == null || skill == null || spellCell == null)
+                return false;
+
+            if ((StrategyType)skill.strategyType != StrategyType.Fire)
+                return false;
+
+            // 有部队 / 建筑时走正常的目标分支（那里有归属与陷阱判定）
+            if (!spellCell.IsEmpty())
+                return false;
+
+            TerrainType terrain = spellCell.TerrainType;
+            if (terrain == null || terrain.isWater)
+                return false;
+
+            return terrain.fireRate > 0;
+        }
+
+        /// <summary>
+        /// 【原版直译】空着的着火格能否作为消火候选 —— get_after_move_action（s11_sys_unit_action.cpp:340-344）
+        /// 与 add_strategy_action 的空坐标分支（:956-990）。
+        ///
+        /// 原版条件（全部满足才入列）：
+        ///   ① 该格是空格（无部队 / 建筑）—— 否则走正常的目标分支；
+        ///   ② 有一团**还会继续烧**的火：<c>hex.get_fire_timer() &gt; 1</c>（本项目 <see cref="Fire.counter"/> 同义）；
+        ///   ③ 能量够双倍消耗：<c>get_energy() &gt;= cost * 2</c>，
+        ///      运输队 / 撤退 / 建设 / 修理 / 移动到建筑的部队豁免（:961-971）；
+        ///   ④ 目标格周围 1 环内至少有一个非空对象（:977-988），避免 AI 在荒野凭空灭火。
+        /// </summary>
+        /// <param name="troop">行动部队</param>
+        /// <param name="skill">待评估技能</param>
+        /// <param name="spellCell">施法格（单格计略里即目标格）</param>
+        /// <returns>true = 允许作为候选</returns>
+        static bool IsEmptyFireCellShoukaCandidate(Troop troop, SkillInstance skill, Cell spellCell)
+        {
+            if (troop == null || skill == null || spellCell == null)
+                return false;
+
+            // 原版的 self_shouka 只喂给 add_strategy_action 的消火分支，其它计略不适用
+            if ((StrategyType)skill.strategyType != StrategyType.Shouka)
+                return false;
+
+            // ① 空格：有部队 / 建筑时由正常的目标分支处理
+            if (!spellCell.IsEmpty())
+                return false;
+
+            // ② 火还在烧（原版 fire_timer > 1）
+            Fire fire = spellCell.fire;
+            if (fire == null || fire.counter <= 1)
+                return false;
+
+            // ④ 周围 1 环内至少有一个非空对象
+            bool hasNeighborObject = false;
+            for (int i = 0; i < 6; i++)
+            {
+                Cell neighbor = spellCell.GetNeighbor(i);
+                if (neighbor != null && !neighbor.IsEmpty())
+                {
+                    hasNeighborObject = true;
+                    break;
+                }
+            }
+            if (!hasNeighborObject)
+                return false;
+
+            // ③ 双倍气力门槛（豁免见 IsShoukaCostFree）。
+            // 【变量映射】原版 get_energy() 是"气力"，本项目对应 **morale**：
+            // 施法消耗同样走 morale（SkillInstance.cs:999 `troop.ChangeMorale(-costEnergy)`），
+            // 而 Troop.energy 是"行动力"，不是计略资源。
+            if (!IsShoukaCostFree(troop) && troop.morale < skill.costEnergy * 2)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// 【原版直译】消火的"免气力门槛"命令集合 —— add_strategy_action（s11_sys_unit_action.cpp:961-971）。
+        ///
+        /// 原版把以下状态的 cost 归零，即不受"气力 &gt;= 双倍消耗"限制：
+        /// <c>UnitType_Transport</c> / <c>UnitOrderId_Retreat</c> / <c>UnitOrderId_Build</c> /
+        /// <c>UnitOrderId_Repair</c> / <c>UnitOrderId_Move + order_target_type == Building</c>。
+        /// </summary>
+        /// <param name="troop">行动部队</param>
+        /// <returns>true = 不受双倍能量门槛限制</returns>
+        static bool IsShoukaCostFree(Troop troop)
+        {
+            if (troop == null) return false;
+            if (troop.IsTransport) return true;                 // UnitType_Transport
+
+            switch ((MissionType)troop.missionType)
+            {
+                case MissionType.TroopReturnCity:                   // UnitOrderId_Retreat
+                case MissionType.TroopBuildBuilding:                // UnitOrderId_Build
+                case MissionType.TroopFixBuilding:                  // UnitOrderId_Repair
+                case MissionType.TroopMovetoCity:                   // UnitOrderId_Move（目标为建筑）
+                case MissionType.TroopMovetoBuild:                  // 同上（本项目拆出的专用任务）
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 【原版直译】计略效果分 —— add_strategy_action（s11_sys_unit_action.cpp:883-1225）。
         ///
         /// 原版按 StrategyId 逐块判断，每块结构一致：
@@ -1699,8 +1844,49 @@ namespace Sango.Core
                 // ---------- 消火（:902-991） ----------
                 case StrategyType.Shouka:
                     {
-                        // 自己脚下且没有「火神」→ 直接给最高分
-                        if (target == spellCell && !HasTroopFeature(troop, FeatureId_Kashin))
+                        // 【对齐原版 get_enabled_strategies 消火命令（s11_sys_unit_target.cpp:382-389）】
+                        //   `if (not is_alive(target_object) or not self->hostile_target(target_object))
+                        //        flags[StrategyId_Shouka] = true;`
+                        // 原版对**敌对目标**根本不开启消火命令，所以绝不会替敌人灭火。
+                        //
+                        // 本项目这条闸门缺在施法判定层：技能「灭火」配置为 canSpellToCell = true
+                        // （Skills.json:946），而 SkillInstance.CanSpellToHere 在 canSpellToCell 为真时
+                        // 直接 return true（SkillInstance.cs:449-452），把 onlySpellToTeam 一起短路掉；
+                        // 唯一的前置 CheckFire 又只判 `where.fire != null`（SkillSpellConditionMethod.cs:62-70），
+                        // 不看归属。于是"敌方着火建筑 / 敌方着火部队"全都成了合法候选格。
+                        // 故必须在评分阶段补上归属闸门。
+                        if (targetTroop != null && troop.IsEnemy(targetTroop))
+                            return 0;
+                        // 无主建筑 BelongForce == null，原版 hostile_target 为假 → 允许（不拦）
+                        if (targetBuilding != null
+                            && targetBuilding.BelongForce != null
+                            && troop.IsEnemy(targetBuilding))
+                            return 0;
+
+                        // 【对齐原版 s11_sys_unit_action.cpp:909-913】
+                        //   `if (src_pos == node->pos and not self->has_skill(SkillId_Kashin))
+                        //        action.score = 20000;`
+                        // 语义是"**施法者自己站在着火格上**"，先灭自己脚底的火。
+                        //
+                        // 【变量映射】本项目 src_pos ↔ movetoCell（移动落点 = 施法者站位），
+                        // node->pos ↔ target（单格计略里命中格就是施法格）。
+                        // 原写法 `target == spellCell` 是错的：灭火没有 atkOffsetPoint，
+                        // GetAttackCells 直接把 spellCell 当命中格返回（Skill.cs:237-242），
+                        // 所以 `target == spellCell` **恒成立** → 任何着火格一律 20000 分，
+                        // 稳压普攻 / 攻城（数千~一万），AI 才会丢下城池跑去灭火。
+                        //
+                        // 【候选来源】灭火的 spellRanges 已配为 [ 0, 1, 2 ]（Skills.json:929-933）：
+                        // GetRing(0) 补上落点自身格（Map.cs:408-414 只有 radius == 0 才加自身），
+                        // GetRing(1)/GetRing(2) 给出相邻两环 —— 基础射程 2 格对齐原版
+                        // `distance <= 2 + kibou`（s11_sys_unit_target.cpp:384；kibou 特技加成由
+                        // TroopChangeSkillSpellRange 追加，见 Features.json 鬼谋 #66）。
+                        // 而 GetMoveRange 首行即把当前格加入移动范围（Map.cs:561），
+                        // 所以 `movetoCell == troop.cell` 的原地分支是可达的。
+                        // 注意 0 必须排在数组最前：TroopAddSkillSpellRange 等都取
+                        // spellRanges[Length - 1] 作为最大值往后追加（TroopAddSkillSpellRange.cs:34）。
+                        if (target != null && target.fire != null
+                            && movetoCell != null && movetoCell == target
+                            && !HasTroopFeature(troop, FeatureId_Kashin))
                             return cfg.o311StrategyShoukaSelf;
 
                         // 友方建筑
@@ -1883,8 +2069,14 @@ namespace Sango.Core
                         if (!chancePass) return 0;
 
                         int score = baseScore + chance + posScore;
+                        // 【原版 :1218-1219】`int cost = get_strategy_energy_cost(Rakurai) * 2;
+                        // if (self->get_energy() > cost) ...`
+                        // 原版 get_energy() 是"气力"，本项目对应 **morale**（施法扣的是
+                        // troop.ChangeMorale(-costEnergy)，见 SkillInstance.cs:999）；
+                        // Troop.energy 是"行动力"，不是计略资源。
+                        // 比较符保持原版的严格大于（>），不是 >=。
                         int cost = skill.costEnergy * 2;
-                        if (troop.energy > cost) score += posScore * 2;
+                        if (troop.morale > cost) score += posScore * 2;
                         return score;
                     }
             }

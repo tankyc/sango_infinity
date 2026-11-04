@@ -65,6 +65,19 @@ namespace Sango.Core
                 }
                 else if (!TargetCity.IsSameForce(Troop))
                 {
+                    // 【同盟协防口径】被友军 / 盟友拿取时不是无脑驻防：
+                    // 结盟后攻城任务会走到这个分支，若协防不划算必须立刻召回，
+                    // 否则就是玩家反馈的"同盟队伍扛着同字标堵到家门口"。
+                    if (TargetCity.BelongForce != null
+                        && TargetCity.BelongForce != Troop.BelongForce
+                        && TroopAIFallback.IsAiTroop(Troop)
+                        && !TroopAIFallback.CanSupportDefense(Troop, TargetCity, scenario)
+                        && TroopAIFallback.RecallToNearestOwnCity(Troop, scenario,
+                            $"盟友城{TargetCity.Name}协防不划算（距离过远或兵力不足）"))
+                    {
+                        return;
+                    }
+
                     // 被友军拿取,保护友军城池,直到消灭敌人
                     Troop.SetMission(MissionType.TroopProtectCity, TargetCity.Id);
                 }

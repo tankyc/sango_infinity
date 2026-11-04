@@ -104,7 +104,10 @@ namespace Sango.Render
         public Vector3 forward
         {
             get { return transCache.forward; }
-            set { transCache.forward = value; }
+            set
+            {
+                transCache.forward = value;
+            }
         }
 
         public Vector3 scale

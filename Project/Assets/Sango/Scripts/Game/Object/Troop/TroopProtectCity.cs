@@ -56,6 +56,19 @@ namespace Sango.Core
             }
             else
             {
+                // 【同盟协防口径】结盟不等于"无条件帮盟友守城"：
+                // 能投入协防才留下（够得着 + 打得过），否则立即召回最近的自有城。
+                // 否则就会出现玩家反馈的"同字标部队长期堵在盟友城下"。
+                if (TargetCity.BelongForce != null
+                    && TargetCity.BelongForce != troop.BelongForce
+                    && TroopAIFallback.IsAiTroop(troop)
+                    && !TroopAIFallback.CanSupportDefense(troop, TargetCity, scenario)
+                    && TroopAIFallback.RecallToNearestOwnCity(troop, scenario,
+                        $"盟友城{TargetCity.Name}协防不划算（距离过远或兵力不足）"))
+                {
+                    return;
+                }
+
                 // 获取目标城市周围的敌人
                 priorityActionData = TroopAIUtility.PriorityAction(Troop, TargetCity.CenterCell, scenario, SkillAttackPriority);
                 if (priorityActionData == null)

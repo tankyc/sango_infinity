@@ -2641,7 +2641,8 @@ namespace Sango.Core
                     // 反序会出现"Leader 的 BelongCity 还不是本城、也不在 allPersons 里"，
                     // 年度巡检会判太守失效并清空，玩家看到"刚打下的城太守凭空消失"。
                     Person newLeader = atk.Leader;
-                    atk.EnterCity(this);
+                    // 占领入城：必须真进城，不能因容量不足改道（否则打下的城没人守）
+                    atk.EnterCity(this, false);
                     if (newLeader != null && newLeader.IsAlive && newLeader.BelongCity == this && allPersons.Contains(newLeader))
                         Leader = newLeader;
                 }
@@ -3106,7 +3107,8 @@ namespace Sango.Core
             if (!banditFall && skillInstance != null && !skillInstance.IsRange())
             {
                 Leader = atk.Leader;
-                atk.EnterCity(this);
+                // 城陷入城：攻方必须真进城接管，禁止因容量不足改道
+                atk.EnterCity(this, false);
             }
 
             Render?.UpdateRender();
