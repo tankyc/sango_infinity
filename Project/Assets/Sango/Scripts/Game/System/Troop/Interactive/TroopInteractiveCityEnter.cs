@@ -23,13 +23,14 @@ namespace Sango.Core.Player
 
             if (!troop.MoveRange.Contains(actionCell)) return false;
 
-            // 【吞兵提示 · 交互阶段】与 TroopInteractiveMoveToCity 同一口径：
-            // 目标据点装不下时，在移动前的确认框里写清损失，而不是等抵达后静默截断。
+            // 【吞兵提示 · 交互阶段 · 仅港关】与 TroopInteractiveMoveToCity 同一口径：
+            // 目标港关装不下时，在移动前的确认框里写清损失，而不是等抵达后静默截断。
             // 截断规则出处：City.AddTroops（对齐 Open311 building_add_troops，
             // s11_sys_scen_building.cpp:1145-1154）。
+            // 城池不提示：城兵满时部队照样要能回城（对齐 Troop.EnterCity 的港关限定）。
             City targetCity = actionCell.building as City;
             int room = TroopAIFallback.GetRoom(targetCity);
-            if (targetCity != null && room < troop.troops)
+            if (targetCity != null && targetCity.IsPortOrGate() && room < troop.troops)
             {
                 content = string.Format(
                     "即将进入{0}。\n该据点最多只能再容纳 {1} 兵，本部队共 {2} 兵，\n进入后超出部分约 {3} 兵会损失。\n确定吗？",

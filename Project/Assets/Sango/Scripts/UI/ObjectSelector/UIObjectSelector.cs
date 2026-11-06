@@ -88,12 +88,24 @@ namespace Sango.UI
 
         public override void UpdateItemStartIndex(int startIndex)
         {
+            if (objectSelectSystem == null || objectSelectSystem.Objects == null)
+                return;
+
+            // 【下标防护】startIndex 可能为负：滚动条拖动时由
+            // UIObjectDisplay.OnScrollBarValueChange 的 Lerp(0, Objects.Count - itemCount, value) 算出，
+            // 当候选数少于可视行数时该区间是负数，结果就是负下标；
+            // UpShow / DownShow 再原样转发过来。原实现只挡了上界
+            // （destIndex < Count），负下标会直接抛 ArgumentOutOfRangeException
+            // （实测栈：UIObjectDisplay.UpShow → 本方法第 98 行）。
+            if (startIndex < 0) startIndex = 0;
+            int dataCount = objectSelectSystem.Objects.Count;
+
             for (int i = 0; i < itemCount; i++)
             {
                 UIObjectListItem listItem = uIObjectListItems[i];
                 int destIndex = i + startIndex;
                 listItem.index = destIndex;
-                if (destIndex < objectSelectSystem.Objects.Count)
+                if (destIndex >= 0 && destIndex < dataCount)
                 {
                     SangoObject sango = objectSelectSystem.Objects[destIndex];
                     bool isSelected = objectSelectSystem.selected.Contains(sango);

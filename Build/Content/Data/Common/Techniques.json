@@ -588,7 +588,14 @@
       ],
       "techPointCost": 3000,
       "counter": 4,
-      "needTech": 17
+      "needTech": 17,
+      "effects": [
+        {
+          "class": "TroopSetPathFlag",
+          "flag": 2,
+          "value": 1
+        }
+      ]
     },
     "19": {
       "Id": 19,

@@ -13,7 +13,8 @@ namespace Sango.Core
     ///
     /// 本项目按玩家反馈改成：
     /// <list type="bullet">
-    /// <item>入城会溢出 → AI 不进城，改道最近的有余量据点（玩家侧保持原版行为，不做处理）；</item>
+    /// <item>入城会溢出 → AI 不进城，改道最近的有余量据点（玩家侧保持原版行为，不做处理）；
+    ///       <b>该检查只对港关生效</b>，城池一律不检查 —— 城兵满时再拦，部队就永远回不了城；</item>
     /// <item>盟友城协防不划算（打不过 / 够不着） → 立即召回最近的自有城。</item>
     /// </list>
     /// 所有阈值走 <see cref="AIConfig"/>，不硬编码。
@@ -46,14 +47,21 @@ namespace Sango.Core
         /// 入城溢出拦截：装不下就改道别处，返回 true 表示已改道（调用方不要再执行入城）。
         ///
         /// 玩家侧不调用本方法 —— 保持原版"超出上限即丢弃"的行为。
+        ///
+        /// 【只处理港关】城池不做容量拦截：城兵满时若把部队改道，部队就永远回不了城。
+        /// 非港关直接返回 false，由调用方按正常入城流程处理。
         /// </summary>
         /// <param name="troop">准备入城的部队</param>
         /// <param name="city">目标据点（已被校验为本势力）</param>
         /// <param name="scenario">场景</param>
-        /// <returns>已改道返回 true；没有可去之处返回 false（由调用方按原逻辑处理）</returns>
+        /// <returns>已改道返回 true；城池 / 没有可去之处返回 false（由调用方按原逻辑处理）</returns>
         public static bool TryRerouteForOverflow(Troop troop, City city, Scenario scenario)
         {
             if (troop == null || city == null)
+                return false;
+
+            // 城池不做容量拦截（双保险：调用方即使漏判也不会把部队从满兵城赶走）
+            if (!city.IsPortOrGate())
                 return false;
 
             City reroute = FindNearestCityWithRoom(troop, city, scenario);

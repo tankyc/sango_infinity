@@ -3595,46 +3595,13 @@ namespace Sango.Core
                 return this;
             }
 
-            // 在部队中
-            if (mBelongTroop != null)
-            {
-                City currentCity = mBelongTroop.CurrentCity;
-                mBelongTroop.RemoveCaptive(this);
-                ChangeCurrentCity(currentCity);
-                mBelongTroop = null;
-            }
-            else
-            {
-                CurrentCity.RemoveCaptive(this);
-            }
-
-            if (BelongForce != null && BelongForce.IsAlive)
-            {
-                // 原势力尚存:脱逃后回归原势力都城,状态复位为一般武将。
-                // 【归属治理】顺序必须是"先改身份、再迁城"：
-                // 此时 BelongCity 还是 null，名册重建不会误登记到关押城；
-                // 随后 Enter 走正常的入城流程，把户口落到都城并在籍名单登记。
-                City capital = BelongForce.CapitalCity;
-                BelongForce.BeCaptiveList.Remove(this);
-
-                if (capital != null)
-                {
-                    PersonStateSystem.SetState(this, PersonStateType.Normal, PersonChangeReason.Released);
-                    PersonStateSystem.Enter(this, capital, PersonChangeReason.Released);
-                    SetMission(MissionType.PersonReturn, BelongCity ?? capital);
-                }
-                else
-                {
-                    PersonStateSystem.SetState(this, PersonStateType.Normal, PersonChangeReason.Released);
-                }
-            }
-            else
-            {
-                // 原势力已灭亡或本就无势力:转为在野。
-                // 【归属治理】统一下野入口负责清势力/军团/部队并登记 wildPersons，
-                // 避免"state 是在野,却仍隶属某个已灭亡势力与其军团"的不一致
-                PersonStateSystem.LeaveToWild(this, CurrentCity, PersonChangeReason.Released);
-            }
+            // 【与原版对齐】逃脱 / 释放 / 部队溃灭统一走 System::person_release
+            //（s11_sys_scen_person.cpp:2162-2191）：
+            //   原势力存活 → 送回原势力君主据点、身份转一般武将；
+            //   原势力已亡 → person_set_zaiya 就地落野。
+            // 关押位置（随军 / 城内俘虏名册）、势力俘虏名录的摘除也在 Release 内完成，
+            // 不再在这里各写一套，避免"Escape 与 流放 / 外交交换 / 城陷释放"三处口径漂移。
+            PersonStateSystem.Release(this, CurrentCity, PersonChangeReason.Released);
 
             // 根据逃出方式触发对应的事件
             if (escapeType == EscapeType.Escape)

@@ -1,4 +1,5 @@
 using Sango.Core;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Sango.Render
@@ -21,6 +22,9 @@ namespace Sango.Render
         int lastTroopId = -1;
         int lastForceId = -1;
 
+        /// <summary>已提示过"势力名 / 旗号缺失"的势力 Id，避免地图上每面旗各刷一条日志。</summary>
+        static readonly HashSet<int> warnedForceIds = new HashSet<int>();
+
         /// <summary>
         /// 刷新旗帜的所属势力(部队换旗时纠正颜色)。
         ///
@@ -41,78 +45,89 @@ namespace Sango.Render
             Init(troop);
         }
 
+        /// <summary>
+        /// 三个 Init 重载的统一实现：写旗面文字贴图 + 旗帜图集偏移 + 势力色。
+        ///
+        /// 【为什么统一】原来三个重载各自裸解引用 <c>force.Name.Substring(0, 1)</c>、
+        /// <c>force.mFlag.Id</c>、<c>troop.BelongForce.mFlag</c>、<c>building.BelongForce.mFlag</c>，
+        /// 任意一项缺失就抛 NullReferenceException：
+        ///   · 势力名为 null（自定义势力 / 异民族 / 数据缺失）→ 实测栈
+        ///     BuildingBaseModel.Init → FlagRender.Init:50，表现为开图时地图刷新崩溃；
+        ///   · 旗号 mFlag 为 null（旗号表缺失）→ 取 Id/color 同样崩；
+        ///   · 旗帜模型自身没有 Renderer（预制体残缺）。
+        /// 这里统一降级：文字缺失写黑图、旗号缺失用 0 号偏移与白色，绝不抛异常。
+        /// </summary>
+        /// <param name="force">旗帜颜色/图集来源势力（可为 null）</param>
+        /// <param name="textName">旗面文字来源名称（null 表示不写字，写黑图）</param>
+        void ApplyFlag(Force force, string textName)
+        {
+            Renderer renderer = GetComponentInChildren<Renderer>(true);
+            if (renderer == null)
+                return;
+            Material baseMat = renderer.material;
+
+            if (needText && !string.IsNullOrEmpty(textName) && TextFactory.Instance != null)
+            {
+                baseMat.SetTexture("_TextTex", TextFactory.Instance.GetTexture(textName.Substring(0, 1), 40));
+            }
+            else
+            {
+                baseMat.SetTexture("_TextTex", Texture2D.blackTexture);
+            }
+
+            Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
+            baseMat.SetTextureScale("_BaseMap", textScale);
+
+            int flagOffsetIndex = 0;
+            Color flagColor = Color.white;
+            if (force != null && force.mFlag != null)
+            {
+                flagOffsetIndex = force.mFlag.Id % 6;
+                flagColor = force.mFlag.color;
+            }
+
+            // 定位用：势力名/旗号缺失属于数据问题，每个势力只提示一次，不刷屏
+            if (force != null && warnedForceIds.Add(force.Id))
+            {
+                if (string.IsNullOrEmpty(force.Name))
+                    Sango.Log.Warning($"*[旗帜]势力{force.Id} 没有名称(Force.Name 为空)，旗面文字已退化为黑图");
+                if (force.mFlag == null)
+                    Sango.Log.Warning($"*[旗帜]势力{force.Id} 没有旗号(mFlag 为空)，旗帜颜色已退化为白色");
+            }
+
+            int final_flag_id = flagId + flagOffsetIndex;
+            int x = final_flag_id % xCount;
+            int y = final_flag_id / xCount;
+            Vector2 textOffset = new Vector2(x * (flagW / flagTexWidth) - 0.003f, -y * (flagH / flagTexHeight));
+            baseMat.SetTextureOffset("_BaseMap", textOffset);
+            baseMat.SetColor("_Color", flagColor);
+        }
+
+        /// <summary>
+        /// 按势力刷新旗帜（旗面写字用势力名）。
+        /// </summary>
+        /// <param name="force">势力（可为 null）</param>
         public void Init(Force force)
         {
-            Renderer renderer = GetComponentInChildren<Renderer>(true);
-            Material baseMat = renderer.material;
-            if (needText)
-            {
-                baseMat.SetTexture("_TextTex", TextFactory.Instance.GetTexture(force.Name.Substring(0, 1), 40));
-            }
-            else
-            {
-                baseMat.SetTexture("_TextTex", Texture2D.blackTexture);
-            }
-
-            Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
-            baseMat.SetTextureScale("_BaseMap", textScale);
-
-            int final_flag_id = flagId + force.mFlag.Id % 6;
-
-            int x = final_flag_id % xCount;
-            int y = final_flag_id / xCount;
-            Vector2 textOffset = new Vector2(x * (flagW / flagTexWidth) - 0.003f, -y * (flagH / flagTexHeight));
-            baseMat.SetTextureOffset("_BaseMap", textOffset);
-            baseMat.SetColor("_Color", force.mFlag.color);
+            ApplyFlag(force, force != null ? force.Name : null);
         }
 
+        /// <summary>
+        /// 按部队刷新旗帜（旗面写字用部队名，颜色/图集取所属势力）。
+        /// </summary>
+        /// <param name="troop">部队（可为 null）</param>
         public void Init(Troop troop)
         {
-            Renderer renderer = GetComponentInChildren<Renderer>(true);
-            Material baseMat = renderer.material;
-
-            if (needText)
-            {
-                baseMat.SetTexture("_TextTex", TextFactory.Instance.GetTexture(troop.Name.Substring(0, 1), 40));
-            }
-            else
-            {
-                baseMat.SetTexture("_TextTex", Texture2D.blackTexture);
-            }
-
-            Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
-            baseMat.SetTextureScale("_BaseMap", textScale);
-            int final_flag_id = flagId + troop.BelongForce.mFlag.Id % 6;
-
-            int x = final_flag_id % xCount;
-            int y = final_flag_id / xCount;
-
-            baseMat.SetColor("_Color", troop.BelongForce.mFlag.color);
-
-            Vector2 textOffset = new Vector2(x * (flagW / flagTexWidth) - 0.003f, -y * (flagH / flagTexHeight));
-            baseMat.SetTextureOffset("_BaseMap", textOffset);
-
+            ApplyFlag(troop != null ? troop.BelongForce : null, troop != null ? troop.Name : null);
         }
 
+        /// <summary>
+        /// 按建筑刷新旗帜（只上色，不写字）。
+        /// </summary>
+        /// <param name="building">建筑（可为 null）</param>
         public void Init(Building building)
         {
-            Renderer renderer = GetComponentInChildren<Renderer>(true);
-            Material baseMat = renderer.material;
-
-
-            baseMat.SetTexture("_TextTex", Texture2D.blackTexture);
-
-            Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
-            baseMat.SetTextureScale("_BaseMap", textScale);
-            int final_flag_id = flagId + building.BelongForce.mFlag.Id % 6;
-
-            int x = final_flag_id % xCount;
-            int y = final_flag_id / xCount;
-
-            baseMat.SetColor("_Color", building.BelongForce.mFlag.color);
-
-            Vector2 textOffset = new Vector2(x * (flagW / flagTexWidth) - 0.003f, -y * (flagH / flagTexHeight));
-            baseMat.SetTextureOffset("_BaseMap", textOffset);
+            ApplyFlag(building != null ? building.BelongForce : null, null);
         }
 
         [ContextMenu("test")]

@@ -178,6 +178,38 @@ namespace Sango.Core
         public SangoObjectSet<AbilityLevelType> AbilityLevelTypes = new SangoObjectSet<AbilityLevelType>();
 
         /// <summary>
+        /// 按等级下标取兵种适应等级配置。
+        ///
+        /// 【边界规则】与原 <c>ScenarioVariables.troops_adaptation_level_boost</c> 的钳制口径一致：
+        /// <list type="bullet">
+        /// <item>下标 &lt; 0：按 0 处理（最低等级）；</item>
+        /// <item>下标 &gt;= 配置条数：<b>回退到最后一个等级</b>，而不是返回 null 或 0；</item>
+        /// <item>配置存在空洞（该下标为空）时向前回退到最近一条有效配置，最多回退到 0 号位。</item>
+        /// </list>
+        /// 数据集为空（未进剧本 / 未加载通用数据）时返回 null，调用方需判空并给出默认加成。
+        /// </summary>
+        /// <param name="level">适应等级下标</param>
+        /// <returns>等级配置对象；数据集为空时返回 null</returns>
+        public AbilityLevelType GetAbilityLevelType(int level)
+        {
+            if (AbilityLevelTypes == null)
+                return null;
+
+            int count = AbilityLevelTypes.Count;
+            if (count <= 0)
+                return null;
+
+            if (level < 0) level = 0;
+            if (level >= count) level = count - 1;
+
+            AbilityLevelType type = AbilityLevelTypes.Get(level);
+            // 配置有洞时向前回退，避免加成意外退化成 0
+            for (int i = level - 1; i >= 0 && type == null; i--)
+                type = AbilityLevelTypes.Get(i);
+            return type;
+        }
+
+        /// <summary>
         /// 武将库
         /// </summary>
         [JsonConverter(typeof(SangoObjectSetConverter<PersonLib>))]

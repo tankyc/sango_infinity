@@ -267,7 +267,8 @@ namespace Sango.Core
                 }
             }
 
-            // 2. 俘虏释放回在野
+            // 2. 俘虏释放：走 System::person_release —— 原势力存活则送回原势力，
+            //    原势力已灭亡才就地落野（不能一律当在野处理）
             if (city.captiveList != null && city.captiveList.Count > 0)
             {
                 System.Collections.Generic.List<Person> captives = new System.Collections.Generic.List<Person>();
@@ -467,51 +468,55 @@ namespace Sango.Core
             }
 
             // 原势力军师若正是独立者本人 → 解任 —— :181-182
-            if (oldForce != null && oldForce.mCounsellor == person)
+            bool wasOldCounsellor = oldForce != null && oldForce.mCounsellor == person;
+            if (wasOldCounsellor)
                 oldForce.mCounsellor = null;
 
-            // 城与"跟随者"去势力化（不跟随者稍后单独迁走）
+            // 【建势力前置】CreateForce 要求"君主无势力 + 都城无势力"。
+            // 原版 create_force 内部会把这两者从旧势力摘出来（s11_sys_event_independence.cpp:173），
+            // 本项目由调用方负责，所以这里先快照再临时清空；失败时必须原样还原。
+            //
+            // 【为什么必须清 person】独立者本人的 BelongForce 仍指向旧势力，
+            // 不清就会撞上 CreateForce 的"君主武将已有势力"校验 —— 之前正是这样，
+            // 加上 ScenarioEdit.Scenario 恒为 null，独立 100% 失败，且城已经被去势力化。
+            int cityOldForceId = city.BelongForceId;
+            Force cityOldForce = city.BelongForce;
+            int cityOldCorpsId = city.BelongCorpsId;
+            Corps cityOldCorps = city.BelongCorps;
+            int personOldForceId = person.BelongForceId;
+            int personOldCorpsId = person.BelongCorpsId;
+            Corps personOldCorps = person.BelongCorps;
+
             city.BelongForceId = 0;
             city.BelongForce = null;
             city.BelongCorpsId = 0;
             city.BelongCorps = null;
             SyncBuildings(city);
 
-            for (int i = 0; i < joined.Count; i++)
-            {
-                Person p = joined[i];
-                p.BelongForceId = 0;
-                p.BelongCorpsId = 0;
-                p.BelongCorps = null;
-            }
+            person.BelongForceId = 0;
+            person.BelongCorpsId = 0;
+            person.BelongCorps = null;
 
-            // 不跟随者迁往最近的己方据点；一处都没有则强制跟随 —— :160-172
-            City retreatCity = oldForce != null ? FindRetreatCity(oldForce, city) : null;
-            if (retreatCity != null)
-            {
-                for (int i = 0; i < notJoined.Count; i++)
-                {
-                    Person p = notJoined[i];
-                    PersonStateSystem.MoveToCity(p, retreatCity, PersonChangeReason.ForceChanged);
-                }
-            }
-            else
-            {
-                for (int i = 0; i < notJoined.Count; i++)
-                {
-                    Person p = notJoined[i];
-                    p.BelongForceId = 0;
-                    p.BelongCorpsId = 0;
-                    p.BelongCorps = null;
-                    joined.Add(p);
-                }
-            }
-
-            // 建新势力：编辑器的 CreateForce 本身就要求"君主无势力、都城无势力"
+            // 运行期必须显式传当前剧本：编辑器系统（ScenarioEdit）在正常游戏里从未加载剧本，
+            // 它自己的 Scenario 属性恒为 null（日志："请先新建或加载剧本"）。
             ScenarioEdit edit = GameSystem.GetSystem<ScenarioEdit>();
-            Force newForce = edit != null ? edit.CreateForce(person, city) : null;
+            Force newForce = edit != null ? edit.CreateForce(person, city, scenario) : null;
             if (newForce == null)
             {
+                // 回滚：否则城变无主、独立者丢归属，比"独立没发生"更糟
+                city.BelongForceId = cityOldForceId;
+                city.BelongForce = cityOldForce;
+                city.BelongCorpsId = cityOldCorpsId;
+                city.BelongCorps = cityOldCorps;
+                SyncBuildings(city);
+
+                person.BelongForceId = personOldForceId;
+                person.BelongCorpsId = personOldCorpsId;
+                person.BelongCorps = personOldCorps;
+
+                if (wasOldCounsellor)
+                    oldForce.mCounsellor = person;
+
                 Sango.Log.Error($"*[独立]{person.Name} 在 {city.Name} 独立失败：新势力创建返回空");
                 RebuildForceLedger(oldForce);
                 return null;
@@ -531,6 +536,127 @@ namespace Sango.Core
                     && p.state != (int)PersonStateType.Commander
                     && p.state != (int)PersonStateType.Governor)
                     PersonStateSystem.SetState(p, PersonStateType.Normal, PersonChangeReason.ForceChanged);
+            }
+
+            // 不跟随者迁往最近的己方据点；一处都没有则强制跟随 —— :160-172
+            // 放在建势力成功之后：失败时这些人还没被迁走，不需要回滚。
+            City retreatCity = oldForce != null ? FindRetreatCity(oldForce, city) : null;
+            if (retreatCity != null)
+            {
+                for (int i = 0; i < notJoined.Count; i++)
+                {
+                    Person p = notJoined[i];
+                    PersonStateSystem.MoveToCity(p, retreatCity, PersonChangeReason.ForceChanged);
+                }
+            }
+            else
+            {
+                // 一处己方据点都没有 → 强制跟随（原版 :169-170），直接挂到新势力
+                for (int i = 0; i < notJoined.Count; i++)
+                {
+                    Person p = notJoined[i];
+                    if (p == null)
+                        continue;
+                    p.BelongForceId = newForce.Id;
+                    p.BelongCorpsId = mainCorps != null ? mainCorps.Id : 0;
+                    p.BelongCorps = mainCorps;
+                    p.SetBonusDone(false);
+                    if (p.state != (int)PersonStateType.Leader
+                        && p.state != (int)PersonStateType.Commander
+                        && p.state != (int)PersonStateType.Governor)
+                        PersonStateSystem.SetState(p, PersonStateType.Normal, PersonChangeReason.ForceChanged);
+                    joined.Add(p);
+                }
+            }
+
+            // 【运行期初始化】编辑器新建势力不跑游戏，CreateForce 只搭骨架；
+            // 运行期必须补 Prepare / Init，否则新势力的 actionList、主军团名单、科技树全是空的，
+            // 回合流程一走到它就会空引用（或表现为"新势力什么都不做"）。
+            newForce.OnScenarioPrepare(scenario);
+            if (mainCorps != null)
+                mainCorps.OnScenarioPrepare(scenario);
+            newForce.Init(scenario);
+            if (mainCorps != null)
+                mainCorps.Init(scenario);
+
+            // 【科技树入口继承 · 原版无对应实现】
+            //
+            // 原版科技树是**全局**的（Technique 表自带前置关系，Force 只有 tech 位图），
+            // 所以 s11_sys_event_independence.cpp:251-255 只搬"已研究"位；本项目的
+            // Force.InitTechniques 是自建的"势力科技树入口"（见该字段注释），
+            // InitTechniquesTree 只按它建树（Force.Init 与 GainTechnique 都会重建）。
+            // 不搬的话新势力会出现"已研究了一堆、树是空的"——纯界面/数据一致性问题。
+            // 因此这里沿用旧势力的科技树，让已研究进度在新势力界面上可见。
+            if (oldForce != null && oldForce.InitTechniques != null)
+            {
+                if (newForce.InitTechniques == null)
+                    newForce.InitTechniques = new SangoObjectList<Technique>();
+                newForce.InitTechniques.Clear();
+                for (int i = 0; i < oldForce.InitTechniques.Count; i++)
+                {
+                    Technique init = oldForce.InitTechniques[i];
+                    if (init != null)
+                        newForce.InitTechniques.Add(init);
+                }
+                // 同步存档字段，避免中途存档把空数组写回去
+                newForce.InitTechniques_list = newForce.InitTechniques.ToArray();
+            }
+
+            // 【原版对齐】新势力继承旧势力的全部已研究科技 —— s11_sys_event_independence.cpp:247-256：
+            //     if (utils::is_alive(old_force))
+            //         for (int i = 0; i < TechId_ExMax; i++)
+            //             if (old_force->has_tech(i))
+            //                 force_set_tech(new_force, i, true);
+            //
+            // 必须放在 Init 之后：GainTechnique 会把技巧的被动效果注册进 actionList，
+            // 漏了就会出现"科技树里点亮了、实际效果全没有"（见 Force.GainTechnique 的注释）。
+            // 也必须放在 InitTechniques 复制之后：GainTechnique 内部会按新的 InitTechniques 重建科技树。
+            if (oldForce != null && oldForce.IsAlive && oldForce.Techniques != null)
+            {
+                int inheritCount = 0;
+                for (int i = 0; i < oldForce.Techniques.Count; i++)
+                {
+                    Technique technique = oldForce.Techniques[i];
+                    if (technique != null && newForce.GainTechnique(technique))
+                        inheritCount++;
+                }
+
+                if (inheritCount > 0)
+                {
+                    Sango.Log.Info($"*[独立]{newForce.Name} 继承 {oldForce.Name} 的 {inheritCount} 项已研究科技");
+                }
+            }
+
+            // 【原版对齐 · 关系重置】s11_sys_event_independence.cpp:249-250：
+            //     force_set_like(old_force_id, new_force_id, 0);      // 友好度归 0（敌对）
+            //     force_set_ally(old_force_id, new_force_id, false);  // 解除同盟
+            //
+            // 不设的话，新势力 Id 超出 RelationMap 时 GetRelation 返回 50（中立），
+            // 表现为"刚独立就和老东家相安无事"，AI 也不会主动进攻。
+            if (oldForce != null)
+            {
+                newForce.SetLike(oldForce, 0);
+
+                // 解除两者间的同盟。新建势力通常没有盟约，这里做防御性清理（两侧都查，
+                // 因为 CheckAlliance 只看自己列表，而盟约理论上可能只登记在旧势力侧）；
+                // 清理顺序与 Alliance 自然到期一致（失效 → 摘出双方列表 → 移出场景）。
+                Alliance alliance = newForce.CheckAlliance(oldForce, AllianceType.Alliance);
+                if (alliance == null)
+                    alliance = oldForce.CheckAlliance(newForce, AllianceType.Alliance);
+                if (alliance != null)
+                {
+                    alliance.IsAlive = false;
+                    if (alliance.ForceList != null)
+                    {
+                        for (int i = 0; i < alliance.ForceList.Count; i++)
+                        {
+                            Force f = alliance.ForceList.Get(i);
+                            if (f != null && f.AllianceList != null)
+                                f.AllianceList.Remove(alliance);
+                        }
+                    }
+                    scenario.Remove(alliance);
+                }
             }
 
             RebuildForceLedger(oldForce);

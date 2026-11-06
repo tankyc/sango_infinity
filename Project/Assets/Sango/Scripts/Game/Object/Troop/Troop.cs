@@ -1925,16 +1925,21 @@ namespace Sango.Core
 
 
         // 适应力加成
+        // 加成值来自兵种适应等级配置(AbilityLevelTypes.json 的 troopsAdaptationLevelBoost 字段)，
+        // 等级下标越界时由 ScenarioCommonData.GetAbilityLevelType 回退到最后一个等级。
+        // 原版出处: s11_scen_obj_unit.cpp:995 `tekisei_coef = (tekisei + 7) * 0.1f`(线性硬编码, 仅 C/B/A/S 四级)；
+        // 本项目扩展到 8 级且以 A=100 为基准，故改为可配置表，数值口径与原 troops_adaptation_level_boost 一致。
         //@param attacker Troops
         public int TroopsLevelBoost(int value, int troopTypeLv)
         {
-            ScenarioVariables Variables = Scenario.Cur.Variables;
-            if (troopTypeLv < 0)
-                troopTypeLv = 0;
-            if (troopTypeLv >= Variables.troops_adaptation_level_boost.Length)
-                troopTypeLv = Variables.troops_adaptation_level_boost.Length - 1;
+            Scenario scenario = Scenario.Cur;
+            AbilityLevelType levelType = scenario != null && scenario.CommonData != null
+                ? scenario.CommonData.GetAbilityLevelType(troopTypeLv)
+                : null;
 
-            return value * Variables.troops_adaptation_level_boost[troopTypeLv] / 100;
+            // 配置缺失(未进剧本或通用数据未加载)时按 100% 处理，避免把部队攻防算成 0
+            int boost = levelType != null ? levelType.troopsAdaptationLevelBoost : 100;
+            return value * boost / 100;
         }
 
         internal static List<Cell> tempCellList = new List<Cell>(256);
@@ -2596,6 +2601,13 @@ namespace Sango.Core
             // 代码不认地形 Id，也不写死数值。
             ApplyTerrainMovementDamage(destCell);
 
+            // 【修复 · 阵亡贴图残留 / 幽灵格】火与地形移动伤害可能直接把部队打光：
+            // Clear() 已经跑完（Render 已销毁、cell.troop 已置空），
+            // 此时若继续执行下面的 destCell.troop = this，格子会指着一支已死部队，
+            // 渲染层也会在已销毁的对象上继续刷新。
+            if (!IsAlive)
+                return;
+
             Render.UpdateModelByCell(destCell);
             UpdateTerrainBonus(destCell);
 
@@ -3235,6 +3247,8 @@ namespace Sango.Core
         /// <param name="city">目标据点</param>
         /// <param name="checkTroopOverflow">
         /// 是否执行"AI 溢出改道"检查。默认 true。
+        /// 该检查**只对港关（港口 / 关隘）生效**，城池一律不检查 ——
+        /// 城兵满时还把部队改道，部队就永远回不了城。
         /// 城陷占领、败退入城、编成回滚这几条路径必须传 false ——
         /// 那些场景下改道会让刚打下的城没人守、或让残部在地图上被追杀。
         /// </param>
@@ -3273,13 +3287,17 @@ namespace Sango.Core
                 return;
             }
 
-            // 【防吞兵 · 仅 AI】目标据点装不下这支部队时，先改道最近的有余量据点。
+            // 【防吞兵 · 仅 AI · 仅港关】目标港关装不下这支部队时，先改道最近的有余量据点。
             //
             // 原版做法是"clamp 后丢弃"：unit_enter 直接调 building_add_troops
             // （Open311 s11_sys_scen_unit.cpp:573），而它把结果 clamp 到 max 并返回实际变化量
             // （s11_sys_scen_building.cpp:1145-1154），调用方不接返回值 —— 溢出兵力就此蒸发。
             // 玩家侧保持该行为（提示放在下令交互阶段，不在这里弹窗）；AI 侧不能自己把兵送没，故在此改任务。
+            //
+            // 【城池不检查】城池容量大，且满兵是常态：若城兵满也拦着改道，部队就永远回不了城。
+            // 城池入城仍按原版 clamp 并入（溢出部分丢弃），保证部队能解散回城。
             if (checkTroopOverflow
+                && city.IsPortOrGate()
                 && troops > 0
                 && !IsPlayerControl
                 && TroopAIFallback.GetRoom(city) < troops
@@ -3302,6 +3320,17 @@ namespace Sango.Core
 
             city.AddGold(gold);
             city.AddFood(food);
+            // 【城池吞兵留痕】城池不做容量拦截（见上面的港关限定），但 AddTroops 仍按原版 clamp 截断，
+            // 溢出部分确实会消失 —— 必须留痕，否则又变成"兵凭空消失"。
+            if (city.IsCity())
+            {
+                int cityRoom = TroopAIFallback.GetRoom(city);
+                if (cityRoom < troops)
+                {
+                    Sango.Log.Warning($"{BelongForce?.ColorName}的[{Name}]进入{city.ColorName}时兵力溢出，"
+                                      + $"丢弃 {troops - cityRoom} 兵（城 {city.troops}/{city.TroopsLimit}，部队 {troops}）");
+                }
+            }
             city.AddTroops(troops);
 
             // 处理俘虏：随军俘虏就地转押入城。
@@ -3455,6 +3484,13 @@ namespace Sango.Core
                 return;
             isCleared = true;
 
+            // 【修复 · 阵亡贴图残留】渲染销毁提前到收尾最前面。
+            // 原先排在方法末尾（原 3553 行）：中间任何一步抛异常，isCleared 已经锁死，
+            // 之后所有 Clear() 都会从上面的早退返回，MapObject 永远留在 MapRender.dynamicObjects
+            // 里逐帧绘制 —— 玩家看到的就是"敌军阵亡后原地残留贴图"。
+            // 判空用 ?. ：未 Init 的部队 Render 可能为 null，原写法会直接抛 NRE（同样会跳过后续收尾）。
+            Render?.Clear();
+
             belongCity?.allTroops.Remove(this);
             Scenario.Cur.Remove(this);
 
@@ -3528,7 +3564,7 @@ namespace Sango.Core
             missionTargetCell = null;
             missionType = 0;
             ActionOver = true;
-            Render.Clear();
+            // Render 已在本方法开头统一销毁（见 isCleared 处的注释），这里不要再清一次。
 
             // 【新出兵】部队还没出城就被收尾（阵亡 / 入城解散）：
             // 解除城市的"出城进行中"登记，否则该城会一直以为有部队在出城而不再派兵。

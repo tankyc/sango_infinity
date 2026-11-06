@@ -185,6 +185,13 @@ namespace Sango.Core
         /// </summary>
         public override void OnPrepareRender()
         {
+            // 【必须判空】BuildingRender 的构造函数第一件事就是读 BuildingType.kind / Id / model，
+            // 设施类型缺失（BuildingTypeId <= 0 或设施表查不到）时创建渲染必抛
+            // NullReferenceException（实测栈：Building.Init → OnPrepareRender → BuildingRender..ctor:43）。
+            // 这类建筑本就无法显示模型，保持 Render 为 null 即可 —— 全工程的渲染调用点
+            // 都按 `if (Render != null)` 约定使用。
+            if (BuildingType == null)
+                return;
 
             if (Render == null)
                 Render = new BuildingRender(this);
@@ -204,8 +211,10 @@ namespace Sango.Core
                 // "建筑在运行期才创建、没走过 Prepare"的路径。
                 if (BuildingType == null)
                 {
+                    // 原实现在这里还调了 OnPrepareRender()，等于"明知设施类型缺失还去创建渲染"，
+                    // 而 BuildingRender 构造函数立刻解引用 BuildingType → 必崩。
+                    // 设施类型缺失的建筑无法显示，直接结束初始化即可（Render 保持 null）。
                     isInited = true;
-                    OnPrepareRender();
                     return;
                 }
 
@@ -402,7 +411,8 @@ namespace Sango.Core
             techniquePointGain = overrideData.ValueAndRecycle;
 
             BelongForce.GainTechniquePoint(techniquePointGain);
-            Render.UpdateRender();
+            // 设施类型缺失的建筑不创建 Render（见 OnPrepareRender），这里必须用 ?. 访问
+            Render?.UpdateRender();
 
         }
 

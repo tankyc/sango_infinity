@@ -265,14 +265,6 @@ namespace Sango.Core
         [JsonProperty] public int fight_troop_defence_glamour_factor = 0;
 
         /// <summary>
-        /// 适应能力加成(百分比)
-        /// </summary>
-        [JsonProperty]
-        public int[] troops_adaptation_level_boost = new int[]
-         // C    B        A       S        SS
-           {80,   90,    100,   110,    120, };
-
-        /// <summary>
         /// 兵种克制(小数)
         /// </summary>
         [JsonProperty]

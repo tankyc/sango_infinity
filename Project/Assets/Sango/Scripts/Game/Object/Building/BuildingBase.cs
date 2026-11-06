@@ -144,6 +144,19 @@ namespace Sango.Core
         {
             return BuildingType.kind == (int)BuildingKindType.Gate;
         }
+
+        /// <summary>
+        /// 是否为"港关"（港口 / 关隘）。
+        ///
+        /// 用途：入城时的"容量溢出（吞兵）"检查只对港关生效。
+        /// 城池不检查容量 —— 城兵满时若还拦着，部队就永远回不了城。
+        /// 见 <see cref="Troop.EnterCity"/> 与 <see cref="TroopAIFallback.TryRerouteForOverflow"/>。
+        /// </summary>
+        /// <returns>港口或关隘返回 true</returns>
+        public bool IsPortOrGate()
+        {
+            return IsPort() || IsGate();
+        }
         public bool IsIntorBuilding()
         {
             return BuildingType.IsIntrior;

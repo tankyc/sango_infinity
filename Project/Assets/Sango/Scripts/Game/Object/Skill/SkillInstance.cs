@@ -226,6 +226,17 @@ namespace Sango.Core
         /// <returns></returns>
         public static SkillInstance Create(Troop master, Skill skill)
         {
+            // 【防御】skill 为 null 时不能构造实例：Init 里第一件事就是读 skill.atk，
+            // 直接抛 NullReferenceException（实测栈：TroopReplaceSkill.OnTroopCalculateAttribute
+            // → SkillInstance.Create → Init:236，AI 出阵时整个回合被打断）。
+            // 返回 null，由调用方判空 —— 与本工程既有约定一致（TroopAttackBack.cs:32-33
+            // 就是 `if (skillInstance != null)` 这样写的）。
+            if (skill == null)
+            {
+                Sango.Log.Error("SkillInstance.Create 收到 null 战法（技能 Id 在本局技能表中不存在），已返回 null");
+                return null;
+            }
+
             SkillInstance ins = new SkillInstance();
             ins.Init(master, skill);
             return ins;
@@ -233,6 +244,12 @@ namespace Sango.Core
 
         public void Init(Troop master, Skill skill)
         {
+            if (skill == null)
+            {
+                Sango.Log.Error("SkillInstance.Init 收到 null 战法，实例未初始化");
+                return;
+            }
+
             this.skill = skill;
             this.master = master;
             CDCount = 0;
@@ -358,6 +375,26 @@ namespace Sango.Core
         /// <param name="cells"></param>
         public void GetAttackCells(Troop atker, Cell spell, List<Cell> cells)
         {
+            // 【防御】Customize 的格式必须是 [type, x1, y1, x2, y2, ...]，长度 1 + 2n（奇数）。
+            // 本字段带 [JsonProperty]（第 136 行），会被存档读写；若存档里残留了偶数长度的
+            // [0, range]（旧版本 TroopChangeSkillAttackRange 的产物），Skill.GetAttackCells
+            // 的 Customize 分支会在 atkOffsetPoint[i + 1] 抛 IndexOutOfRangeException，
+            // 直接把整回合 AI 打断（实测栈：TroopOccupyCity.Prepare → PriorityAction）。
+            // 这里提前拦下：打印技能与内容，并把脏数组清空自愈（退化为仅命中目标格），
+            // 避免每回合反复报同一条错误。
+            if (atkOffsetPoint != null && atkOffsetPoint.Length > 0
+                && atkOffsetPoint[0] == (int)SkillAttackOffsetType.Customize
+                && atkOffsetPoint.Length % 2 == 0)
+            {
+                Sango.Log.Error(
+                    $"技能[{(skill != null ? skill.Id : -1)}]{(skill != null ? skill.Name : "?")} 的命中偏移" +
+                    $" atkOffsetPoint 非法：长度 {atkOffsetPoint.Length}，内容 [{string.Join(",", atkOffsetPoint)}]；" +
+                    " Customize 需要 [type,x1,y1,...] 的奇数长度，已清空并退化为仅命中目标格");
+                atkOffsetPoint = null;
+                cells.Add(spell);
+                return;
+            }
+
             skill.GetAttackCells(atkOffsetPoint, atker, spell, cells);
         }
 

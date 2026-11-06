@@ -93,7 +93,7 @@ namespace Sango.Render
                     }, target);
                 }, person);
             }
-            else
+            else if (!Sango.Core.Debate.DebateConsequence.HasPending)
             {
                 GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到{target.ColorName}", () =>
                 {
@@ -102,6 +102,8 @@ namespace Sango.Render
                     IsDone = true;
                 }, person);
             }
+            // 登用失败被舌战接管时不播"很遗憾"：这时候舌战还没打（甚至还没确认是否观战），
+            // 先播失败会误导玩家；真正的成败由 DebateConsequence 在舌战结束时统一播报。
             ClearJobFeature();
         }
 

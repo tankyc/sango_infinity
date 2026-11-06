@@ -248,7 +248,13 @@ namespace Sango.Core
                     // 0
                     case SkillAttackOffsetType.Customize:
                         {
-                            for (int i = 1; i < atkOffsetPoint.Length; i += 2)
+                            // 【越界防护】Customize 的格式必须是 [type, x1, y1, x2, y2, ...]
+                            // ——长度 1 + 2n（奇数）。运行时若被改写成偶数长度（例如存档里残留的
+                            // [0, range]，或配置错误的 TroopChangeSkillAttackRange 生成的
+                            // new int[]{ atkType, atkRange }），原写法 `atkOffsetPoint[i + 1]`
+                            // 会在最后一次循环抛 IndexOutOfRangeException，打断整回合 AI
+                            // （栈：TroopAIUtility.PriorityAction → SkillInstance.GetAttackCells）。
+                            for (int i = 1; i + 1 < atkOffsetPoint.Length; i += 2)
                             {
                                 int offsetX = atkOffsetPoint[i];
                                 int offsetY = atkOffsetPoint[i + 1];

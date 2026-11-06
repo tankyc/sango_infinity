@@ -78,25 +78,52 @@ namespace Sango.UI
             playerList.Clear();
         }
 
+        /// <summary>
+        /// 安全取剧本对象：集合为 null / 内部数组为 null / Id 越界 / 对象缺失，一律返回 null。
+        ///
+        /// 【为什么必须这样取】剧本三家集合（forceSet / personSet / citySet）在数据不完整时
+        /// 会缺项 —— 原版剧本摘要只登记君主与军师（见 ShortScenario.AddSummaryPerson），
+        /// 势力若没有君主就查不到人；普通剧本也可能缺项。直接写 <c>personSet[force.Governor]</c>
+        /// 会拿到 null（或抛越界），紧接着 <c>governor.Name</c> 就是 NullReferenceException
+        /// （实测栈：UIScenarioForceSelect.SetSelectedForceName 第 91 行）。
+        /// </summary>
+        /// <typeparam name="T">对象类型</typeparam>
+        /// <param name="set">对象集合（可为 null）</param>
+        /// <param name="id">对象 Id（0 表示无效值）</param>
+        /// <returns>找到的对象；找不到返回 null</returns>
+        static T GetSafe<T>(SangoObjectSet<T> set, int id) where T : SangoObject, new()
+        {
+            if (set == null || set.objects == null || id <= 0)
+                return null;
+            return set.Get(id);
+        }
+
         void SetSelectedForceName()
         {
             ShortScenario scenario = targetScenario;
             for (int i = 0; i < selectedForceNameLabel.Length; i++)
             {
-                if (i < playerList.Count)
+                if (scenario != null && i < playerList.Count)
                 {
                     ShortForce force_sel = playerList[i];
-                    ShortPerson governor = scenario.personSet[force_sel.Governor];
-                    Flag flag = scenario.CommonData.Flags[force_sel.Flag];
-                    selectedForceNameLabel[i].text = governor.Name;
-                    selectedForceColorImg[i].enabled = true;
-                    selectedForceColorImg[i].color = flag.color;
-
+                    // 君主 / 旗帜数据缺失时退化为占位文本与隐藏色块，选势力界面不能因此崩掉
+                    ShortPerson governor = GetSafe(scenario.personSet, force_sel.Governor);
+                    Flag flag = scenario.CommonData != null ? GetSafe(scenario.CommonData.Flags, force_sel.Flag) : null;
+                    if (selectedForceNameLabel[i] != null)
+                        selectedForceNameLabel[i].text = governor != null ? governor.Name : $"势力{force_sel.Id}";
+                    if (selectedForceColorImg[i] != null)
+                    {
+                        selectedForceColorImg[i].enabled = flag != null;
+                        if (flag != null)
+                            selectedForceColorImg[i].color = flag.color;
+                    }
                 }
                 else
                 {
-                    selectedForceNameLabel[i].text = "";
-                    selectedForceColorImg[i].enabled = false;
+                    if (selectedForceNameLabel[i] != null)
+                        selectedForceNameLabel[i].text = "";
+                    if (selectedForceColorImg[i] != null)
+                        selectedForceColorImg[i].enabled = false;
                 }
             }
         }
@@ -106,6 +133,12 @@ namespace Sango.UI
             targetScenario = (ShortScenario)objects[0];
             cityToggleList.Clear();
             ShortScenario scenario = targetScenario;
+            // 地图数据缺失时直接退出：Map 为 null 时下面每一行都会空引用
+            if (scenario == null || scenario.Map == null)
+            {
+                Sango.Log.Error("剧本数据缺失(地图 Map 为空)，势力选择界面无法初始化");
+                return;
+            }
             mapBounds_img.texture = MapRender.LoadBoundTex(scenario.Map.WorkContent);
             selectedForceCountLabel.text = $"{playerList.Count}/{selectedForceNameLabel.Length}";
             scenarioNameLabel.text = scenario.GetDateName();
@@ -127,6 +160,11 @@ namespace Sango.UI
 
         public void UpdateMap(ShortScenario scenario, float scale)
         {
+            if (scenario == null || scenario.Map == null)
+            {
+                Sango.Log.Error("剧本数据缺失(地图 Map 为空)，跳过城池点位刷新");
+                return;
+            }
             int mapW = scenario.Map.Width;
             int mapH = scenario.Map.Height;
 
@@ -185,15 +223,20 @@ namespace Sango.UI
                 if (toggle != null)
                 {
                     toggle.shortCity = city;
-                    if (city.BelongForceId == 0 || scenario.forceSet[city.BelongForceId] == null)
+                    // 用 GetSafe：无主城池（BelongForceId == 0）与"势力数据缺失"统一按不可选处理，
+                    // 避免 forceSet[Id] 越界或拿到 null 后再解引用
+                    ShortForce shortForce = GetSafe(scenario.forceSet, city.BelongForceId);
+                    if (shortForce == null)
                     {
                         toggle.SetSelected(false).SetInavtive(true);
                     }
                     else
                     {
-                        ShortForce shortForce = scenario.forceSet[city.BelongForceId];
-                        Flag flag = scenario.CommonData.Flags[shortForce.Flag];
-                        toggle.SetSelected(playerList.Contains(shortForce)).SetInavtive(false).SetColor(flag.color).onSelectShortAction = SetPlayer;
+                        Flag flag = scenario.CommonData != null ? GetSafe(scenario.CommonData.Flags, shortForce.Flag) : null;
+                        toggle.SetSelected(playerList.Contains(shortForce)).SetInavtive(false);
+                        if (flag != null)
+                            toggle.SetColor(flag.color);
+                        toggle.onSelectShortAction = SetPlayer;
                     }
                     toggle.ShowName(city.Name);
                     cityToggleList.Add(toggle);
@@ -217,7 +260,7 @@ namespace Sango.UI
             }
 
             ShortScenario scenario = targetScenario;
-            ShortForce force = scenario.forceSet[city.BelongForceId];
+            ShortForce force = GetSafe(scenario.forceSet, city.BelongForceId);
             ShowForce(force);
         }
 
@@ -245,11 +288,15 @@ namespace Sango.UI
             else
             {
                 ShortScenario scenario = targetScenario;
+                if (scenario == null) return;
                 int personCount = 0;
-                foreach (ShortPerson x in scenario.personSet)
+                if (scenario.personSet != null)
                 {
-                    if (x != null && x.BelongForceId == force.Id)
-                        personCount++;
+                    foreach (ShortPerson x in scenario.personSet)
+                    {
+                        if (x != null && x.BelongForceId == force.Id)
+                            personCount++;
+                    }
                 }
 
                 int cityCount = 0;
@@ -257,26 +304,37 @@ namespace Sango.UI
                 int troopsCount = 0;
                 int goldCount = 0;
 
-                ShortPerson governor = scenario.personSet[force.Governor];
+                // 君主 / 军师 / 都城一律安全取值：数据缺失时显示占位，不让详情面板崩掉
+                ShortPerson governor = GetSafe(scenario.personSet, force.Governor);
                 ShortPerson counsellor = null;
                 if (force.Counsellor > 0)
-                    counsellor = scenario.personSet[force.Counsellor];
-                ShortCity centerCity = scenario.citySet[governor.BelongCityId];
-                foreach (ShortCity x in scenario.citySet)
+                    counsellor = GetSafe(scenario.personSet, force.Counsellor);
+                ShortCity centerCity = governor != null ? GetSafe(scenario.citySet, governor.BelongCityId) : null;
+                if (scenario.citySet != null)
                 {
-                    if (x == null) continue;
-                    if (x.BelongForceId == force.Id && x.BuildingType == 1)
+                    foreach (ShortCity x in scenario.citySet)
                     {
-                        cityCount++;
-                        foodCount += x.food;
-                        troopsCount += x.troops;
-                        goldCount += x.gold;
+                        if (x == null) continue;
+                        if (x.BelongForceId == force.Id && x.BuildingType == 1)
+                        {
+                            cityCount++;
+                            foodCount += x.food;
+                            troopsCount += x.troops;
+                            goldCount += x.gold;
+                        }
                     }
                 }
-                forceNameLabel.text = governor.Name;
-                forceHead.enabled = true;
-                forceHead.texture = GameRenderHelper.LoadHeadIcon(targetScenario.personSet[force.Governor].headIconID, 2);
-                forceCityLabel.text = centerCity.Name;
+                forceNameLabel.text = governor != null ? governor.Name : $"势力{force.Id}";
+                if (governor != null)
+                {
+                    forceHead.enabled = true;
+                    forceHead.texture = GameRenderHelper.LoadHeadIcon(governor.headIconID, 2);
+                }
+                else
+                {
+                    forceHead.enabled = false;
+                }
+                forceCityLabel.text = centerCity != null ? centerCity.Name : "";
                 forceCityCountLabel.text = cityCount.ToString();
                 forcePersonCountLabel.text = personCount.ToString();
                 forceDifficultyLabel.text = "";
@@ -299,7 +357,7 @@ namespace Sango.UI
             }
 
             ShortScenario scenario = targetScenario;
-            ShortForce force = scenario.forceSet[city.BelongForceId];
+            ShortForce force = GetSafe(scenario.forceSet, city.BelongForceId);
 
             if (force == null) return;
 
@@ -404,6 +462,64 @@ namespace Sango.UI
             Window.Instance.Close("window_scenario_force_select");
         }
 
+        /// <summary>
+        /// 取势力的"君主所在城池"世界坐标，作为进入游戏时的初始镜头。
+        ///
+        /// 任何一环数据缺失都返回 false 并记录日志，调用方跳过即可 —— 不再抛
+        /// <see cref="System.NullReferenceException"/> 打断"开始游戏"。
+        ///
+        /// 【为什么需要】<see cref="ShortScenario.personSet"/> / <see cref="ShortScenario.citySet"/>
+        /// 字段没有挂 [JsonConverter]，走的是 Newtonsoft 默认反序列化；剧本文件里一旦缺少
+        /// objects 数组（写成 null 或整个字段缺失），索引器 <c>personSet[id]</c> 会直接取
+        /// <c>objects[id]</c> 而抛 NullReferenceException（实测栈：
+        /// UIScenarioForceSelect.StartGame → 第 421 行）。改用 <see cref="SangoObjectSet{T}.Get"/>，
+        /// 它在 <c>Check()</c> 里先判越界，越界/缺失统一返回 null。
+        /// </summary>
+        /// <param name="force">要定位的势力</param>
+        /// <param name="position">输出：君主所在城池的世界坐标</param>
+        /// <returns>true = 定位成功</returns>
+        bool TryGetForceViewPosition(ShortForce force, out Vector3 position)
+        {
+            position = Vector3.zero;
+            if (force == null || targetScenario == null)
+                return false;
+
+            if (targetScenario.personSet == null || targetScenario.personSet.objects == null)
+            {
+                Sango.Log.Error($"剧本[{targetScenario.Name}] 缺少武将数据(personSet)，无法定位势力[{force.Id}]的君主");
+                return false;
+            }
+
+            ShortPerson person = targetScenario.personSet.Get(force.Governor);
+            if (person == null)
+            {
+                Sango.Log.Error($"剧本[{targetScenario.Name}] 势力[{force.Id}] 的君主 Id={force.Governor} 在武将表中不存在");
+                return false;
+            }
+
+            if (targetScenario.citySet == null || targetScenario.citySet.objects == null)
+            {
+                Sango.Log.Error($"剧本[{targetScenario.Name}] 缺少城池数据(citySet)，无法定位君主[{person.Id}]所在城池");
+                return false;
+            }
+
+            ShortCity city = targetScenario.citySet.Get(person.BelongCityId);
+            if (city == null)
+            {
+                Sango.Log.Error($"剧本[{targetScenario.Name}] 君主[{person.Id}] 的所属城池 Id={person.BelongCityId} 在城池表中不存在");
+                return false;
+            }
+
+            if (targetScenario.Map == null)
+            {
+                Sango.Log.Error($"剧本[{targetScenario.Name}] 缺少地图数据(Map)，无法换算镜头坐标");
+                return false;
+            }
+
+            position = targetScenario.Map.Coords2Position(city.x, city.y);
+            return true;
+        }
+
         public void StartGame()
         {
             List<int> forceIds = new List<int>();
@@ -413,21 +529,27 @@ namespace Sango.UI
             for (int j = 0; j < playerList.Count; j++)
             {
                 // 确定第一个视角
+                if (targetScenario == null || targetScenario.forceSet == null)
+                {
+                    Sango.Log.Error("剧本数据缺失(forceSet)，跳过初始镜头定位");
+                    break;
+                }
                 foreach (ShortForce x in targetScenario.forceSet)
                 {
                     if (x == null) continue;
                     if (playerList[j].Id == x.Id)
                     {
-                        ShortPerson person = targetScenario.personSet[playerList[j].Governor];
-                        ShortCity city = targetScenario.citySet[person.BelongCityId];
-                        Vector3 position = targetScenario.Map.Coords2Position(city.x, city.y);
-                        Scenario.CurSelected.View = new ScenarioView()
+                        // 用安全取值：剧本数据缺失时只丢镜头，不再抛异常打断开始游戏
+                        if (TryGetForceViewPosition(x, out Vector3 position))
                         {
-                            cameraPosition = position,
-                            cameraRotation = new Vector3(40f, -50f, 0f),
-                            cameraDistance = 400f
-                        };
-                        isFind = true;
+                            Scenario.CurSelected.View = new ScenarioView()
+                            {
+                                cameraPosition = position,
+                                cameraRotation = new Vector3(40f, -50f, 0f),
+                                cameraDistance = 400f
+                            };
+                            isFind = true;
+                        }
                         break;
                     }
                 }
@@ -462,14 +584,15 @@ namespace Sango.UI
 
             if (playerList.Count == 0)
             {
-                foreach (ShortForce x in targetScenario.forceSet)
+                // 一个势力都没选（上帝模式）：随便挑第一个能定位的势力当镜头，
+                // 同样走安全取值，数据缺失时只是没有初始镜头，不影响进入游戏。
+                if (targetScenario != null && targetScenario.forceSet != null)
                 {
-                    ShortForce force = x;
-                    if (force != null)
+                    foreach (ShortForce x in targetScenario.forceSet)
                     {
-                        ShortPerson person = targetScenario.personSet[force.Governor];
-                        ShortCity city = targetScenario.citySet[person.BelongCityId];
-                        Vector3 position = targetScenario.Map.Coords2Position(city.x, city.y);
+                        ShortForce force = x;
+                        if (force == null) continue;
+                        if (!TryGetForceViewPosition(force, out Vector3 position)) continue;
                         Scenario.CurSelected.View = new ScenarioView()
                         {
                             cameraPosition = position,

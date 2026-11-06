@@ -352,10 +352,21 @@ namespace Sango.Core
         /// </summary>
         /// <param name="governor">君主武将(必须无势力)</param>
         /// <param name="capitalCity">都城(必须无势力)</param>
+        /// <param name="targetScenario">
+        /// 目标剧本。编辑器内部调用可不传（自动取 <see cref="Scenario"/> 属性指向的"正在编辑的剧本"）；
+        /// 运行期调用（如武将独立事件）**必须**显式传 <c>Scenario.Cur</c> ——
+        /// 编辑器系统在正常游戏里从未加载剧本，该属性恒为 null。
+        /// </param>
         /// <returns>创建成功的势力,失败返回null</returns>
-        public Force CreateForce(Person governor, City capitalCity)
+        public Force CreateForce(Person governor, City capitalCity, Scenario targetScenario = null)
         {
-            if (Scenario == null)
+            // 编辑器内优先用"正在编辑的剧本"；运行期回退到当前运行中的剧本。
+            // 缺这层回退时，所有运行期建势力都会返回 null（日志会打"请先新建或加载剧本"），
+            // 曾导致"独立"事件 100% 失败且城池已被去势力化。
+            Scenario scenario = targetScenario != null
+                ? targetScenario
+                : (Scenario != null ? Scenario : global::Sango.Core.Scenario.Cur);
+            if (scenario == null)
             {
                 Log.Error("请先新建或加载剧本");
                 return null;
@@ -388,10 +399,10 @@ namespace Sango.Core
             force.mGovernor = governor;
             force.Counsellor = 0;
             force.mCounsellor = null;
-            Flag flag = GetEmptyFlag();
+            Flag flag = GetEmptyFlag(scenario);
             force.Flag = flag != null ? flag.Id : 0;
             force.mFlag = flag;
-            Scenario.forceSet.Add(force);
+            scenario.forceSet.Add(force);
 
             // 自动创建主军团 - 编号为1,军团长为势力主公
             Corps mainCorps = new Corps();
@@ -401,7 +412,7 @@ namespace Sango.Core
             mainCorps.Comander = governor.Id;
             mainCorps.mComander = governor;
             mainCorps.number = 1;
-            Scenario.corpsSet.Add(mainCorps);
+            scenario.corpsSet.Add(mainCorps);
 
             // 君主归属势力与主军团
             governor.BelongForceId = force.Id;
@@ -518,15 +529,21 @@ namespace Sango.Core
         /// <summary>
         /// 获取一个未被任何势力使用的旗帜
         /// </summary>
+        /// <param name="targetScenario">
+        /// 目标剧本；不传时与 <see cref="CreateForce"/> 同口径（编辑中的剧本优先，其次当前剧本）
+        /// </param>
         /// <returns>未使用的旗帜,无可用返回null</returns>
-        public Flag GetEmptyFlag()
+        public Flag GetEmptyFlag(Scenario targetScenario = null)
         {
-            if (Scenario == null || Scenario.CommonData == null || Scenario.CommonData.Flags == null)
+            Scenario scenario = targetScenario != null
+                ? targetScenario
+                : (Scenario != null ? Scenario : global::Sango.Core.Scenario.Cur);
+            if (scenario == null || scenario.CommonData == null || scenario.CommonData.Flags == null)
             {
                 return null;
             }
             List<Flag> usedFlags = new List<Flag>();
-            Scenario.forceSet.ForEach(force =>
+            scenario.forceSet.ForEach(force =>
             {
                 if (force != null && force.mFlag != null)
                 {
@@ -534,7 +551,7 @@ namespace Sango.Core
                 }
             });
             Flag result = null;
-            Scenario.CommonData.Flags.ForEach(flag =>
+            scenario.CommonData.Flags.ForEach(flag =>
             {
                 if (flag != null && !usedFlags.Contains(flag) && result == null)
                 {

@@ -179,7 +179,9 @@ namespace Sango.Core.Player
 
         public void SortList()
         {
-            targetList.Sort((a, b) => -PersonSortFunction.SortByOfficial.valueSortFunc.Invoke(a, b));
+            // 官职从高到低；同官职者按 Id 兜底，保证每次排完的顺序一致
+            // （原先用 List.Sort + 取反，同官职的武将每次排列都不同）
+            ObjectSortTitle.SortList(targetList, PersonSortFunction.SortByOfficial.Sort, false);
         }
 
         public void AutoClearUpgrade()

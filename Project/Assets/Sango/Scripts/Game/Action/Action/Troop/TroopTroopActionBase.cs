@@ -35,8 +35,16 @@ namespace Sango.Core.Action
             JObject conObj = p.Value<JObject>("condition");
             if (conObj != null)
             {
+                // 【防御】class 名写错 / 未注册时 Create 返回 null，原写法会在下一行
+                // null.Init 抛 NullReferenceException 并中断整个 Init ——
+                // 后果是子类（如 TroopChangeSkillAttackRange）的 atkType / atkRange 读不到，
+                // 保持默认 0，SetRange 就会生成非法的 [0, x] 命中偏移，
+                // 最终在 Skill.GetAttackCells 的 Customize 分支越界崩溃。
                 condition = Condition.Create(conObj.Value<string>("class"));
-                condition.Init(conObj, sangoObjects);
+                if (condition != null)
+                    condition.Init(conObj, sangoObjects);
+                else
+                    Sango.Log.Error($"部队 Action 的条件类未注册：{conObj.Value<string>("class")}，已忽略该条件");
             }
         }
 

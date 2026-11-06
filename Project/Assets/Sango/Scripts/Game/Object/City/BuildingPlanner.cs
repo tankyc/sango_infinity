@@ -264,9 +264,21 @@ namespace Sango.Core
             if (isRear && city.specialty != 4)
                 max[(int)InteriorFacilityKind.Workshop] = 0;
 
-            // 无港口 → 不建造船厂 —— :588-601
+            // 无港口 → 不建造船厂 / 鱼市 —— :588-601
+            //
+            // 【为什么鱼市也要压】原版权重表里鱼市 weight = 10、max = 1（:483 / :503），
+            // 看着像"任何城都能建"，实际落地时还要过 `can_build_facility`：
+            //   s11_sys_scen_city.cpp:276-280
+            //     case FacilityId_FishMarket:
+            //       if (not city->has_port() or has_facility(...)) return false;
+            // 本项目这条权重表路径**没有**那道落地校验（直接把类型交给 BuildOne），
+            // 之前只补了造船厂的 max=0，鱼市漏掉 —— 内陆城会按权重 10 抽中鱼市，
+            // 表现为"没有港口的城市在建鱼市"。
             if (city.portList == null || city.portList.Count == 0)
+            {
                 max[(int)InteriorFacilityKind.Shipyard] = 0;
+                max[(int)InteriorFacilityKind.FishMarket] = 0;
+            }
 
             // 非前线 → 不建军事府 / 炼兵所 —— :603-608
             if (!isFront)

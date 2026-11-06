@@ -145,6 +145,51 @@ namespace Sango.Core
         public abstract int Sort(SangoObject a, SangoObject b);
 
         /// <summary>
+        /// 按表头比较器对列表排序，并保证"同值项"的先后顺序稳定、可复现。
+        ///
+        /// 【为什么需要】<c>List&lt;T&gt;.Sort</c> 是内省排序（不稳定），而表头比较器
+        /// 只比一个字段：大量武将的五维属性相同（例如一堆 70 统率），同值组的先后
+        /// 完全由排序算法的内部划分决定。玩家连点同一个表头时，每次的输入排列都不一样，
+        /// 输出也就跟着变 —— 表现就是"每次排序结果都不一样"。
+        ///
+        /// 【做法】把 <see cref="SangoObject.Id"/> 作为最后一级比较键。
+        /// Id 唯一，比较器因此构成全序，即使排序算法不稳定，输出也唯一。
+        /// 降序**不再用 <c>Reverse()</c>**（那会把整个同值组一起倒过来，且与下一次
+        /// 排序的输入排列耦合），而是把比较结果取反，同值组仍按 Id 降序，结果依旧确定。
+        /// </summary>
+        /// <typeparam name="T">对象类型</typeparam>
+        /// <param name="list">待排序列表</param>
+        /// <param name="comparison">表头比较器（<see cref="Sort"/>）</param>
+        /// <param name="ascending">true 升序，false 降序</param>
+        public static void SortList<T>(List<T> list, Comparison<T> comparison, bool ascending = true) where T : SangoObject
+        {
+            if (list == null || comparison == null || list.Count <= 1)
+                return;
+
+            list.Sort((a, b) =>
+            {
+                // 空元素固定排在最前（升序）/ 最后（降序），不影响非空元素之间的关系
+                if (ReferenceEquals(a, null) || ReferenceEquals(b, null))
+                {
+                    int nullResult = ReferenceEquals(a, null)
+                        ? (ReferenceEquals(b, null) ? 0 : -1)
+                        : 1;
+                    return ascending ? nullResult : -nullResult;
+                }
+
+                int result = comparison(a, b);
+                if (!ascending)
+                    result = result > 0 ? -1 : (result < 0 ? 1 : 0);
+                if (result != 0)
+                    return result;
+
+                // 同值兜底：按唯一 Id 排，保证结果与输入排列、点击次数无关
+                result = a.Id.CompareTo(b.Id);
+                return ascending ? result : -result;
+            });
+        }
+
+        /// <summary>
         /// 获取属性值（通用object返回类型）
         /// 子类通过代理闭包实现具体逻辑
         /// </summary>

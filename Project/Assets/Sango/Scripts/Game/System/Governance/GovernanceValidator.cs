@@ -767,12 +767,27 @@ namespace Sango.Core
                 }
             }
 
-            // 3. 军团不能挂：俘虏不属于任何军团
-            if (person.BelongCorps != null)
+            // 3. 军团（＝原势力参照）**必须保留**，不能当脏数据清掉。
+            //
+            // 【原版依据】System::capture 收押时不摘 district，只清官职/军师/太守：
+            //     person_set_district_id(self, force->get_sub_district_id(1));  // s11_sys_scen_person.cpp:2062 / 2123
+            //     self->set_former_force_id(force_id);                          // 同文件 :2129
+            // 释放时 System::person_release 正是靠 former_force 决定"回家还是落野"
+            //（:2168-2180：former_force 存活 → 回原势力君主据点；否则 person_set_zaiya）。
+            //
+            // 【为什么本项目绝对不能清】本项目没有独立的 former_force_id 字段，
+            // Person.BelongForce 由 BelongCorps 派生（Person.cs:48）。
+            // 这里把 BelongCorps 置空，等于把"原势力"永久抹掉，连带三处失效：
+            //   · 流放 / 释放 / 逃脱：Person.Escape 读不到原势力，直接走"势力已亡"分支就地落野
+            //     —— 玩家实测的"抓捕的武将带回城再流放就变成在野武将"就是这条；
+            //   · Force.BeCaptiveList（本国被俘名录）与赎回 / 俘虏交换的归属判定；
+            //   · Force.Ruin 里 `captive.BelongForce == this` 的俘虏解绑分支。
+            // 只有军团指向一个已销毁的对象（BelongCorps == null 但存档还留着 Id）才算脏，
+            // 这种情形由读档时的 Id2Object 解析成 null 后自然为空，无需在这里强清。
+            if (person.BelongCorps == null && person.BelongCorpsId != 0)
             {
-                hasIssue = true;
-                if (repair)
-                    person.BelongCorps = null;
+                // 存档冗余 Id 指向不存在的军团：只清冗余 Id，保留"无军团"这个合法状态
+                person.BelongCorpsId = 0;
             }
 
             // 4. 势力可以为空。

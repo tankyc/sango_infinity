@@ -1353,11 +1353,27 @@ namespace Sango.Core
             return person;
         }
 
+        /// <summary>
+        /// 随机取一座相邻城池。
+        ///
+        /// 【越界防护】原来直接 <c>NeighborList[GameRandom.Range(0, NeighborList.Count)]</c>：
+        /// NeighborList 为空时 Range(0, 0) 仍然返回 0，紧接着取 [0] 就抛
+        /// ArgumentOutOfRangeException（实测栈：City.RandomNerghbor →
+        /// CityExilePerson.OnPersonSelected 的流放分支）。地图数据缺邻接关系
+        /// （自制地图、孤立据点、关港未挂主城）时会触发。
+        /// 这里退化为返回自身，语义是"就地处理"，流放/游荡流程不会中断。
+        /// </summary>
+        /// <returns>随机相邻城池；没有相邻城池时返回自身</returns>
         public City RandomNerghbor()
         {
-            if (BelongCity != null)
-                return BelongCity.RandomNerghbor();
-            return NeighborList[GameRandom.Range(0, NeighborList.Count)];
+            // 关隘 / 港口挂在主城下，用主城的邻接表；主城自身 BelongCity 为 null，就用自己
+            City city = BelongCity ?? this;
+            if (city.NeighborList == null || city.NeighborList.Count == 0)
+            {
+                Sango.Log.Warning($"*{Name} 没有相邻城池（NeighborList 为空），随机邻城就地返回自身");
+                return this;
+            }
+            return city.NeighborList[GameRandom.Range(0, city.NeighborList.Count)];
         }
 
         /// <summary>
@@ -2883,6 +2899,27 @@ namespace Sango.Core
                     temp_captive_list.Add(person);
                 }
             }
+
+            // 【户口巡检】全量补扫：上面的循环只遍历本城 allPersons 名册，
+            // 名册与"BelongCity == 本城"正常一一对应，但读档 / 编辑器 / 历史版本留下的
+            // 归属分裂会让"户口挂本城、却不在名册里"的在途 / 出征武将漏网；
+            // OnWillChangeToCity 前置检查失败者也会保留原户口。
+            // 漏网者的户口一直指向已易主的城，会污染 Force.GovernorCity / CapitalCity
+            // 派生值，让下一座城陷的 escapeCity 选到敌城 —— 与上面逐人调用是同一根因，
+            // 这里按势力全量兜一次底（对齐 s11_sys_scen_building.cpp:603-608 的
+            // "按 service_id 全地图扫部队"口径）。
+            //
+            // 【位置】必须放在改旗（下方 CityStateSystem.SetCorps）之前：
+            // ResolveFallReturnPoint 的"最近己方据点"读 fallCity.BelongForce，
+            // 改旗后这里已是攻方势力，会把武将迁进敌城。
+            // 最后一城（escapeCity == null）不走这里：灭亡结算由 Force.Ruin 全量处理。
+            if (escapeCity != null)
+            {
+                int relocatedCount = PersonStateSystem.RelocateHomesOnCityFall(lastBelongForce, this);
+                if (relocatedCount > 0)
+                    Sango.Log.Info($"*[城陷]{Name} 户口巡检补迁 {relocatedCount} 人（不在本城名册内的在途 / 出征武将）");
+            }
+
             allPersons.Clear();
             freePersons.Clear();
 
@@ -3771,6 +3808,27 @@ namespace Sango.Core
                 }
                 return false;
             }
+            // 【空引用】itemType 是 Person.UpdateMission 用
+            // scenario.GetObject<ItemType>(missionTarget) 取出来再传进来的：
+            // 剧本/Mod 换过兵装表、或存档里残留了已删除的兵装 Id 时会是 null，
+            // 后面的 itemType.p1 / storeKind / TransformLimit 全部空引用
+            //（同型实测栈：Person.UpdateMission:2104 → City.DoJobCreateMachine:4055）。
+            // 原版无对应判空（s11_sys_person_order_city.cpp 在该处直接解引用兵装类型），
+            // 这里属于本项目的健壮性补充：先清空执行武将的任务，避免他们永远停在"生产船只"状态。
+            if (itemType == null)
+            {
+                for (int i = 0; i < people.Count; i++)
+                {
+                    Person person = people[i];
+                    if (person == null) continue;
+                    person.ClearMission();
+                }
+                Sango.Log.Error(
+                    $"<{Name}> 船只生产失败：建筑[{building.Name}](Id={buildingId}) 对应的兵装类型在 ItemType 表中不存在，" +
+                    "已清空执行武将的任务");
+                return false;
+            }
+
             building.isWorking = false;
 
             InitJobFeature(people.ToArray());
@@ -4000,6 +4058,27 @@ namespace Sango.Core
                 }
                 return false;
             }
+            // 【空引用】itemType 是 Person.UpdateMission 用
+            // scenario.GetObject<ItemType>(missionTarget) 取出来再传进来的：
+            // 剧本/Mod 换过兵装表、或存档里残留了已删除的兵装 Id 时会是 null，
+            // 后面的 itemType.p1 / storeKind / TransformLimit 全部空引用
+            //（实测栈：Person.UpdateMission:2104 → City.DoJobCreateMachine:4055）。
+            // 原版无对应判空（s11_sys_person_order_city.cpp 在该处直接解引用兵装类型），
+            // 这里属于本项目的健壮性补充：先清空执行武将的任务，避免他们永远停在"生产器械"状态。
+            if (itemType == null)
+            {
+                for (int i = 0; i < people.Count; i++)
+                {
+                    Person person = people[i];
+                    if (person == null) continue;
+                    person.ClearMission();
+                }
+                Sango.Log.Error(
+                    $"<{Name}> 器械生产失败：建筑[{building.Name}](Id={buildingId}) 对应的兵装类型在 ItemType 表中不存在，" +
+                    "已清空执行武将的任务");
+                return false;
+            }
+
             building.isWorking = false;
 
 
@@ -5887,13 +5966,28 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 该格能否站下一支部队：自身为空（无部队、无建筑）**且**地形可通行。
+        /// 该格能否作为"出阵位"。
+        ///
+        /// 【玩家反馈】己方部队堵住城门口时，军事 / 出征按钮会被判成"出阵位已满（被围）"，
+        /// 导致无法组建出征部队；把己方部队挪开又恢复正常。
+        /// 根因是这里原先用 <see cref="Cell.IsEmpty"/>，它只判 `troop == null` —— 不分敌我，
+        /// 己方部队也算占位。实际出城时友军格是**可以穿过**的（见 <see cref="Cell.CanPassThrough"/>），
+        /// 出城兜底会另找落脚点，所以己方部队不该把出征按钮锁死。
+        ///
+        /// 现在只把**敌方部队**与**任何建筑**当作阻挡；己方部队不算围城。
+        /// 真正的落脚点仍由 <see cref="Cell.CanStay"/> 把关，出兵时若确实无处可站会走失败流程。
         /// </summary>
         /// <param name="cell">待判定的格子</param>
-        /// <returns>可站立返回 true</returns>
-        static bool CanStand(Cell cell)
+        /// <returns>可出阵返回 true</returns>
+        bool CanStand(Cell cell)
         {
-            if (cell == null || !cell.IsEmpty())
+            if (cell == null)
+                return false;
+            // 建筑格永远不能停留（城/港关中心格）
+            if (cell.building != null)
+                return false;
+            // 敌方部队占格 = 被围；己方 / 友军部队不算
+            if (cell.troop != null && cell.troop.IsEnemy(this))
                 return false;
             // TerrainType.CanMoveBy 目前只返回 moveable 字段，与部队无关，传 null 安全。
             return cell.CanMove(null);

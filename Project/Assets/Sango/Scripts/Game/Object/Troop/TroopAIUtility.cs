@@ -585,7 +585,14 @@ namespace Sango.Core
             scenario.Map.GetSpiral(troop.cell, checkRadius, leaveBuildingCheckCells);
             for (int i = 0; i < leaveBuildingCheckCells.Count; i++)
             {
-                if (leaveBuildingCheckCells[i].IsEmpty())
+                Cell c = leaveBuildingCheckCells[i];
+                if (c.IsEmpty())
+                    return true;
+
+                // 【玩家反馈】己方部队占格不算"被围死"：友军格可以穿过，
+                // 出城兜底（FindLeaveBuildingCell）会沿移动范围另找落脚点。
+                // 只把敌方部队当阻挡，与 Cell.CanPassThrough 的口径一致。
+                if (c.building == null && c.troop != null && !c.troop.IsEnemy(troop))
                     return true;
             }
             return false;

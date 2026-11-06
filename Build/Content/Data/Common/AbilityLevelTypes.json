@@ -3,42 +3,50 @@
     "0": {
       "Id": 0,
       "Name": "Ｃ",
-      "exp": 255
+      "exp": 255,
+      "troopsAdaptationLevelBoost": 80
     },
     "1": {
       "Id": 1,
       "Name": "Ｂ",
-      "exp": 255
+      "exp": 255,
+      "troopsAdaptationLevelBoost": 90
     },
     "2": {
       "Id": 2,
       "Name": "Ａ",
-      "exp": 255
+      "exp": 255,
+      "troopsAdaptationLevelBoost": 100
     },
     "3": {
       "Id": 3,
       "Name": "Ｓ",
-      "exp": 255
+      "exp": 255,
+      "troopsAdaptationLevelBoost": 110
     },
     "4": {
       "Id": 4,
       "Name": "Ｓ１",
-      "exp": 255
+      "exp": 255,
+      "troopsAdaptationLevelBoost": 120
     },
     "5": {
       "Id": 5,
       "Name": "Ｓ２",
-      "exp": 255
+      "exp": 255,
+      "troopsAdaptationLevelBoost": 130
     },
     "6": {
       "Id": 6,
       "Name": "Ｓ３",
-      "exp": 255
+      "exp": 255,
+      "troopsAdaptationLevelBoost": 140
     },
     "7": {
       "Id": 7,
       "Name": "Ｓ４",
-      "exp": 255
+      "exp": 255,
+      "troopsAdaptationLevelBoost": 150
     }
   }
 }

@@ -163,23 +163,19 @@ namespace Sango.Core.Player
         /// <summary>
         /// 按表头点击排序：完整候选集与当前显示列表一起排序。
         /// 目的是让"清空搜索后"的顺序与刚才看到的一致，不会跳回旧顺序。
+        ///
+        /// 【确定性】统一走 <see cref="ObjectSortTitle.SortList"/>：
+        /// 属性相同的武将按 Id 兜底，避免 List.Sort 不稳定 + Reverse 叠加导致
+        /// "每次点同一个表头，同值武将的排列都不一样"。
         /// </summary>
         /// <param name="comparison">排序比较器（表头 ObjectSortTitle.Sort）</param>
-        /// <param name="ascending">是否升序，false 表示反转</param>
+        /// <param name="ascending">是否升序，false 表示降序</param>
         public void SortObjects(System.Comparison<SangoObject> comparison, bool ascending)
         {
             if (comparison == null)
                 return;
-            if (allObjects != null)
-            {
-                allObjects.Sort(comparison);
-                if (!ascending) allObjects.Reverse();
-            }
-            if (Objects != null)
-            {
-                Objects.Sort(comparison);
-                if (!ascending) Objects.Reverse();
-            }
+            ObjectSortTitle.SortList(allObjects, comparison, ascending);
+            ObjectSortTitle.SortList(Objects, comparison, ascending);
         }
 
         /// <summary>

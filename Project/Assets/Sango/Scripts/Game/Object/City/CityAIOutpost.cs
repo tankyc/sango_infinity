@@ -32,6 +32,16 @@ namespace Sango.Core
             if (city == null || scenario == null || city.BelongForce == null)
                 return true;
 
+            // 【玩家直辖军团硬豁免】原版对"玩家 1 军团"是逐条命令豁免的
+            // （如 s11_game_ai_kyoten_cmd_mil_support.cpp:13-15、mil_transport.cpp:14-16）。
+            // 本项目在据点 AI 入口再兜一层：只要据点属于玩家亲控军团
+            // （Corps.IsPlayerControl = 玩家势力 && 第 1 军团），任何据点命令都不许执行。
+            // 理由：运输 / 支援 / 回收命令都会改动据点的兵、粮、金与武将，
+            // 一旦军团编号或委任状态异常导致 Corps.Run 的拦截失效，玩家会看到
+            // "我的都城里自己开出一支运输队、我留守的兵被搬走"。
+            if (city.BelongCorps != null && city.BelongCorps.IsPlayerControl)
+                return true;
+
             // 【出城队列】先把排队中的部队推一次：队首开始出城、围死的回退进城。
             // 这里**不能**因为"队首还没走出城头"就 return false —— 那会退化成
             // "同一回合只能派一支部队"。后续命令照常组建新部队，多出来的排队，

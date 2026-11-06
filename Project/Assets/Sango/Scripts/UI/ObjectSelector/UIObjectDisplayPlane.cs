@@ -242,8 +242,8 @@ namespace Sango.UI
 
                     uIPersonSortButton.onClick = (up) =>
                     {
-                        Objects.Sort(sortTitle.Sort);
-                        if (!up) Objects.Reverse();
+                        // 走统一的确定性排序：同值项按 Id 兜底，方向由比较器承担
+                        ObjectSortTitle.SortList(Objects, sortTitle.Sort, up);
                         scrollbar.SetValueWithoutNotify(0);
                         OnScrollBarValueChange(0);
                     };
@@ -293,8 +293,8 @@ namespace Sango.UI
 
                     uIPersonSortButton.onClick = (up) =>
                     {
-                        Objects.Sort(sortTitle.Sort);
-                        if (!up) Objects.Reverse();
+                        // 走统一的确定性排序：同值项按 Id 兜底，方向由比较器承担
+                        ObjectSortTitle.SortList(Objects, sortTitle.Sort, up);
                         scrollbar.SetValueWithoutNotify(0);
                         OnScrollBarValueChange(0);
                     };

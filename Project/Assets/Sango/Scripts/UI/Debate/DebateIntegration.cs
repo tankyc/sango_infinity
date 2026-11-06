@@ -46,6 +46,41 @@ namespace Sango.Core.Debate
 
             // 舌战结束后的改判：发起方辩胜则把发起行为改判为成功
             DebateConsequence.Install();
+
+            // 【玩家反馈】舌战结果播报：登用 / 外交的成败必须让玩家看见，
+            // 不能只写开发日志（玩家看不到）或只在舌战界面里亮一下"胜/负"。
+            DebateConsequence.OnSettled += OnDebateSettled;
+        }
+
+        /// <summary>
+        /// 把舌战的最终结论告诉玩家。
+        ///
+        /// 为什么需要：舌战界面只在内部亮一下"胜/负"大字，玩家看不到"这次登用 / 交涉算不算数"；
+        /// 选择"不观战"时更是全程没有任何界面，打完什么都不知道。
+        ///
+        /// AI 对 AI 的舌战不弹窗（玩家不在场，弹窗只会打断回合推进）。
+        /// </summary>
+        /// <param name="text">面向玩家的结果文本</param>
+        /// <param name="anchor">发起方武将（弹窗头像）</param>
+        private static void OnDebateSettled(string text, Person anchor)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+
+            // 玩家不参与这场舌战：只留开发日志，不打断回合
+            if (!DebateTrigger.IsPlayerControl(anchor))
+            {
+                Sango.Log.Info(text);
+                return;
+            }
+
+            if (GameDialog.Instance == null)
+            {
+                Sango.Log.Warning($"舌战结果对话框不可用，结果仅记录日志：{text}");
+                return;
+            }
+
+            // ClickPersonSay：点一下人物说话后关闭，不阻塞剧本推进（没有后续回调）
+            GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, text, () => { }, anchor);
         }
 
         /// <summary>创建卡牌式 2D 表现层</summary>

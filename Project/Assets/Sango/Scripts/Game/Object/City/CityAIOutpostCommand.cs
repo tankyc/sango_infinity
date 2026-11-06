@@ -1745,7 +1745,12 @@ namespace Sango.Core
             OutpostRuntime.food -= food;
             SetLastTransportTurn(city, scenario);
             OutpostRuntime.MarkExecuted();
-            if (AIConfig.Instance.logOutpostAI)
+            // 【玩家可见】委任军团的港关被 AI 搬兵时，玩家必须看得见去向，
+            // 否则就是"我留的守备兵莫名其妙消失了"。原版对玩家第 1 军团整体豁免
+            // 据点支援（s11_game_ai_kyoten_cmd_mil_support.cpp:13-15），本项目由
+            // Corps.Run 的 IsPlayerControl 拦截等效；这里只对"玩家势力的委任军团"发声。
+            bool playerOwned = city.BelongForce != null && city.BelongForce.IsPlayer;
+            if (AIConfig.Instance.logOutpostAI || playerOwned)
                 Sango.Log.Info($"*[据点AI]{city.Name} 回收资源 → {target.Name} 兵{troops} 粮{food} 金{gold}");
             return true;
         }

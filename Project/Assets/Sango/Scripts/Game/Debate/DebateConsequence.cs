@@ -60,11 +60,14 @@ namespace Sango.Core.Debate
         public static bool HasPending { get { return s_kind != Kind.None; } }
 
         /// <summary>
-        /// 改判判定成立、即将执行时的回调（text = 结果文本，anchor = 发起方武将）。
-        /// 纯观察点：置空则什么都不做（本类不会自己写战报）；需要向玩家播报的接入方挂它即可，
-        /// 单元测试也用它断言"这一场到底改判了没有"。
+        /// 舌战对发起行为的**最终结论**播报点（text = 面向玩家的结果文本，anchor = 发起方武将）。
+        ///
+        /// 登用 / 外交无论是"辩胜改判成功"还是"辩败维持失败"，都必须经这里播报 ——
+        /// 舌战界面只在内部亮一下"胜/负"大字，玩家看不到"这次登用到底算不算数"
+        /// （尤其是选择"不观战"时，全程没有任何界面）。
+        /// 置空时本类只写开发日志（不直接碰 UI），UI 接入见 DebateIntegration.OnDebateSettled。
         /// </summary>
-        public static System.Action<string, Person> OnRewritten;
+        public static System.Action<string, Person> OnSettled;
 
         /// <summary>订阅舌战结束事件（由 DebateIntegration.Install 调用一次）</summary>
         public static void Install()
@@ -165,6 +168,13 @@ namespace Sango.Core.Debate
             {
                 Sango.Log.Info("【舌战】发起方落败，发起行为维持原结果。");
 
+                // 【玩家反馈】辩败同样要给明确结论：否则玩家打完舌战只看到"负"，
+                // 不知道这次登用 / 交涉到底作不作数。文本按发起行为区分。
+                string failText = kind == Kind.Recruit
+                    ? $"【舌战】{challenger.Name} 辩败，{target?.Name} 拒绝了登用。"
+                    : $"【舌战】{challenger.Name} 辩败，{action?.GetActionName()}交涉未能达成。";
+                OnSettled?.Invoke(failText, challenger);
+
                 // 【哨兵 -1】由 `DebateTrigger.ForceDiplomacyDebate` 登记的舌战，
                 // 外交的失败结算是**被跳过的**（Action.Perform 在进入舌战前直接 return 了）。
                 // 这里必须补一次，否则"确定性舌战落败"会让这次外交既不成功也不失败，
@@ -195,6 +205,17 @@ namespace Sango.Core.Debate
             return param.characters[0].person == challenger && param.characters[1].person == challenged;
         }
 
+        /// <summary>
+        /// 辩胜、但改判落不了地时的播报（武将已死 / 招募者已无势力 / 目标已投他处 / 找不到城）。
+        /// 这些分支原来只写开发日志，玩家侧同样是"打完舌战不知道结果"。
+        /// </summary>
+        private static void NotifyRecruitAborted(Person recruiter, Person target, string reason)
+        {
+            string text = $"【舌战】{recruiter?.Name} 辩胜，但登用 {target?.Name} 未能生效：{reason}。";
+            Sango.Log.Warning(text);
+            OnSettled?.Invoke(text, recruiter);
+        }
+
         /// <summary>登用改判：目标武将加入招募者所在势力（与 JobRecruitPerson 成功分支同一动作）</summary>
         private static void ApplyRecruit(Person recruiter, Person target, City city)
         {
@@ -202,18 +223,18 @@ namespace Sango.Core.Debate
 
             if (recruiter.IsDead || target.IsDead)
             {
-                Sango.Log.Info("【舌战】登用改判：当事武将已死亡，跳过。");
+                NotifyRecruitAborted(recruiter, target, "当事武将已死亡");
                 return;
             }
             if (recruiter.BelongForce == null)
             {
-                Sango.Log.Info("【舌战】登用改判：招募者已无势力，跳过。");
+                NotifyRecruitAborted(recruiter, target, "招募者已无势力");
                 return;
             }
             // 目标必须仍处于"可被登用"的身份：舌战期间可能已被别的势力登走、或身份发生变化
             if (!DebateTrigger.CanRecruitFailTriggerDebate(target))
             {
-                Sango.Log.Info($"【舌战】登用改判：{target.Name} 已不是在野或无势力俘虏，跳过。");
+                NotifyRecruitAborted(recruiter, target, "对方已不是在野或无势力俘虏");
                 return;
             }
 
@@ -221,12 +242,12 @@ namespace Sango.Core.Debate
             City joinCity = city ?? recruiter.BelongCity;
             if (joinCity == null)
             {
-                Sango.Log.Warning("【舌战】登用改判：找不到目标城市，跳过。");
+                NotifyRecruitAborted(recruiter, target, "找不到目标城市");
                 return;
             }
 
-            string text = $"【舌战】{recruiter.Name} 辩胜 {target.Name}，登用改判为成功（{joinCity.Name}）。";
-            OnRewritten?.Invoke(text, recruiter);
+            string text = $"【舌战】{recruiter.Name} 辩胜 {target.Name}，登用成功（{joinCity.Name}）。";
+            OnSettled?.Invoke(text, recruiter);
 
             try
             {
@@ -246,8 +267,8 @@ namespace Sango.Core.Debate
         {
             if (action == null || action.Sender == null || action.Receiver == null) return;
 
-            string text = $"【舌战】{action.Diplomat?.Name} 辩胜，{action.GetActionName()}改判为成功。";
-            OnRewritten?.Invoke(text, action.Diplomat);
+            string text = $"【舌战】{action.Diplomat?.Name} 辩胜，{action.GetActionName()}交涉成功。";
+            OnSettled?.Invoke(text, action.Diplomat);
 
             // 返还 + 重新落地。两者都可能依赖运行期数据（剧本 / 各 Action 自己的资源），
             // 任一步失败都只记错误、不把异常抛回舌战收尾流程。

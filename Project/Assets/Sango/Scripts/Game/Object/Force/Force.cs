@@ -169,9 +169,77 @@ namespace Sango.Core
         public virtual string ColorName => mGovernor?.ColorName;
 
         /// <summary>
-        /// 首都, 必须是君主所在城市,无论港关
+        /// 君主户口所在城（**原样返回，不做归属兜底**）。
+        ///
+        /// 城陷迁移（PersonStateSystem.ResolveFallReturnPoint）这类需要判断
+        /// "君主据点是否仍有效"的逻辑必须用它，不能被 <see cref="CapitalCity"/> 的兜底影响。
         /// </summary>
-        public City CapitalCity => mGovernor?.BelongCity;
+        public City GovernorCity => mGovernor?.BelongCity;
+
+        /// <summary>
+        /// 首都, 必须是君主所在城市,无论港关。
+        ///
+        /// 【兜底 · 归属校验】君主户口可能残留在**已易主**的城上（城陷时君主在途 / 出征 / 被俘，
+        /// 户口没被 RelocateHomeOnCityFall 迁走），此时直接返回 mGovernor.BelongCity 会把
+        /// "回都城"类逻辑（Person.Escape 的释放分支、PersonStateSystem.ReturnHome）送到敌方城里，
+        /// 撞上 Enter 的"外势力在职武将不得入城"拦截并反复刷错误日志。
+        ///
+        /// 君主据点无效时，按原版 `unit_reset_service`（s11_sys_scen_unit.cpp:751-844）
+        /// 的三级优先选城：① 同军团都督据点 → ② 君主据点（仍有效时）→ ③ 最近据点。
+        /// </summary>
+        public City CapitalCity
+        {
+            get
+            {
+                City governorCity = GovernorCity;
+                if (governorCity != null && governorCity.BelongForce == this)
+                    return governorCity;
+
+                Scenario scenario = Scenario.Cur;
+                if (scenario == null || scenario.citySet == null)
+                    return governorCity;
+
+                Corps corps = mGovernor?.BelongCorps;
+
+                // ① 同军团都督据点（都督本人还在、且据点属于本势力）
+                if (corps != null
+                    && corps.mComander != null
+                    && corps.mComander != mGovernor
+                    && corps.mComander.IsAlive
+                    && !corps.mComander.IsDead)
+                {
+                    City commanderCity = corps.mComander.BelongCity;
+                    if (commanderCity != null
+                        && commanderCity != governorCity
+                        && commanderCity.BelongForce == this)
+                        return commanderCity;
+                }
+
+                // ② 君主据点（仍有效时）。走到这里通常说明君主户口已易主，
+                //    此条只兜住"君主户口存在但被上面的都督据点分支跳过"的边界。
+                if (governorCity != null && governorCity.BelongForce == this)
+                    return governorCity;
+
+                // ③ 最近据点：以君主原户口城为参照（它虽已易主，地理位置仍是"最近"的判断基准）
+                City nearest = null;
+                int bestDistance = int.MaxValue;
+                Cell reference = governorCity?.CenterCell;
+                for (int i = 0; i < scenario.citySet.Count; i++)
+                {
+                    City c = scenario.citySet[i];
+                    if (c == null || !c.IsAlive || c.BelongForce != this || c == governorCity)
+                        continue;
+
+                    int distance = reference != null ? reference.Distance(c.CenterCell) : 0;
+                    if (nearest == null || distance < bestDistance)
+                    {
+                        bestDistance = distance;
+                        nearest = c;
+                    }
+                }
+                return nearest;
+            }
+        }
 
         /// <summary>
         /// 第一军团

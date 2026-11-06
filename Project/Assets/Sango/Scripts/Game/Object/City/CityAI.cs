@@ -60,8 +60,20 @@ namespace Sango.Core
             {
                 city.TroopMissionType = MissionType.TroopProtectCity;
                 city.TroopMissionTargetId = city.Id;
-                // 召回在外进攻的本城部队回援
-                RecallAttackingTroops(city, scenario);
+
+                // 【玩家反馈 · 先城内派兵，守军够用就不动前线】
+                // 原版只有"部队站在自家领地上时就地转防卫"（s11_game_ai_unit.cpp:185-198），
+                // 没有"把在外攻城的部队拉回老家"这条。此前只要城附近（6~8 格）扫到任何敌军，
+                // 就把本城所有 TroopOccupyCity 部队改派回防 —— 玩家看到的就是
+                // "明明身边有敌军、粮草也够，一群人却集体往回跑"。
+                //
+                // 现在的口径：
+                //   ① 先让城内组队出城迎敌（不等下一回合的 ContinueMilitaryMission）；
+                //   ② 只有敌人逼近到 cityRecallScanRange(4) 格内、且守军仍不满足防守需求时，
+                //      才召回前线部队 —— 正在交战的部队拉回来的代价很大。
+                DispatchDefenseTroop(city, scenario);
+                if (NeedRecallForDefense(city, scenario))
+                    RecallAttackingTroops(city, scenario);
             }
 
             // ---------- 二、已有军事任务:持续派遣部队 ----------
@@ -598,16 +610,30 @@ namespace Sango.Core
             int maxDefenseTroopCount = Math.Max(3, defenseEnemyCount + 4);
 
             int createdCount = 0;
-            while (city.AttackTroopsCount < maxDefenseTroopCount)
+            // 【口径修正】名额只看"守本城的部队"，不含远在前线攻城的部队。
+            // 原来用 city.AttackTroopsCount（所有在外战斗部队）：前线部队越多 → 越"看起来守军已够"
+            // → 城内不派守军，只能靠召回前线部队，玩家看到的就是"一群人在外往回跑"。
+            // 新组建的部队在 AIMakeTroop 里就按 city.TroopMissionType 设好了守城任务，
+            // 会立即计入 GetDefenseTroopInfo，所以这里每次重新统计即可。
+            while (GetDefenseTroopInfo(city, out _) < maxDefenseTroopCount)
             {
                 // 硬上限：防剑兵兜底（不进 allAttackTroops）时计数值不增长导致同一帧无限出兵
                 if (createdCount >= MaxEmitTroopPerDispatch)
                     break;
-                // 至少留有可组队的武将（AIMakeTroop 内部还会判留守武将/兵力/粮草）
-                if (city.freePersons.Count < 2)
+                // 【门槛对齐】原版 kyoten_defense（s11_game_ai_kyoten_cmd_mil_defense.cpp:26-28）
+                // 只要求"有可下令人或守将"（≥1 人）就允许出城，留守人数由 com_deploy /
+                // AIMakeTroop 内部再判。原先这里要求 freePersons ≥ 2 —— 都督带兵出城后
+                // 城里只剩 1 人时直接放弃出兵，玩家看到的就是"都督不在城里就没人抵抗"。
+                if (city.freePersons.Count <= 0)
+                {
+                    Sango.Log.Info($"{city.BelongForce?.Name}在{city.Name}无可用武将（城内空闲 0 人），无法出城防守");
                     break;
+                }
                 if (city.troops <= 0)
+                {
+                    Sango.Log.Info($"{city.BelongForce?.Name}在{city.Name}无兵可出（城内兵力 0），无法出城防守");
                     break;
+                }
 
                 Troop troop = AIMakeTroop(city, 20, false, scenario);
                 if (troop == null)
@@ -631,7 +657,7 @@ namespace Sango.Core
             }
 
             if (createdCount > 1)
-                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce?.Name}在{city.Name}连续出城防守 {createdCount} 支（在外守军 {city.AttackTroopsCount}/{maxDefenseTroopCount}）");
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce?.Name}在{city.Name}连续出城防守 {createdCount} 支（守军 {GetDefenseTroopInfo(city, out _)}/{maxDefenseTroopCount}）");
         }
 
         /// <summary>
@@ -774,8 +800,78 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 统计本城当前的**守军**：任务为本城守城（<see cref="MissionType.TroopProtectCity"/>
+        /// 且目标就是本城）的存活部队。
+        ///
+        /// 不能用 <see cref="City.AttackTroopsCount"/>：那是"所有在外战斗部队"，
+        /// 含远在前线攻城的部队。前线部队越多，反而越会"看起来守军已经够了"而不派兵 ——
+        /// 这正是"一群人在外往回跑、城里却不出兵"的成因之一。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="troops">守军兵力合计（输出）</param>
+        /// <returns>守军支数</returns>
+        static int GetDefenseTroopInfo(City city, out int troops)
+        {
+            troops = 0;
+            if (city == null || city.allAttackTroops == null)
+                return 0;
+
+            int count = 0;
+            for (int i = 0; i < city.allAttackTroops.Count; i++)
+            {
+                Troop t = city.allAttackTroops[i];
+                if (t == null || !t.IsAlive)
+                    continue;
+                if (t.missionType != (int)MissionType.TroopProtectCity)
+                    continue;
+                if (t.missionTarget != city.Id)
+                    continue;
+                count++;
+                troops += t.troops;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// 是否需要召回前线部队回援本城。
+        ///
+        /// 两条规则（玩家反馈）：
+        ///   ① 距离口子收紧：只有敌人在城池 <see cref="AIConfig.cityRecallScanRange"/>（默认 4）格内，
+        ///      才算"兵临城下"，才考虑动前线部队；
+        ///   ② 先由城内派守军（调用方已先执行 <see cref="DispatchDefenseTroop"/>）：
+        ///      守军支数不少于敌军支数、或守军兵力不少于敌军兵力，任一满足就不再召回 ——
+        ///      前线部队正在交战，白跑一趟的代价远大于再派几支守军。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>需要召回返回 true</returns>
+        static bool NeedRecallForDefense(City city, Scenario scenario)
+        {
+            AIConfig cfg = AIConfig.Instance;
+            BattleSituation.ThreatSnapshot threat = BattleSituation.EvaluateThreat(
+                city.CenterCell, cfg.cityRecallScanRange, city, scenario);
+
+            // ① 4 格内没有敌人 → 敌人还没逼到城下，前线部队继续作战
+            if (!threat.HasEnemy)
+                return false;
+
+            // ② 守军已经能满足防守需求 → 不动前线
+            int defenderTroops;
+            int defenderCount = GetDefenseTroopInfo(city, out defenderTroops);
+            if (defenderCount >= threat.enemyCount)
+                return false;
+            if (threat.enemyTroops > 0 && defenderTroops >= threat.enemyTroops)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
         /// 【修复】召回本城在外进攻的部队回援本城。
         /// 当本城受到攻击时,正在执行 TroopOccupyCity 的本城部队应转为协防本城。
+        ///
+        /// 【调用收窄】只有 <see cref="NeedRecallForDefense"/> 判定"敌人已进入 4 格且守军不足"时才调用，
+        /// 不再"见敌就召回"（见 Update 里防守分支的注释）。
         /// </summary>
         /// <param name="city">本城</param>
         /// <param name="scenario">场景对象</param>
@@ -2146,6 +2242,15 @@ namespace Sango.Core
         public static bool BuildOne(City city, Scenario scenario, BuildingType buildingType)
         {
             if (city == null || scenario == null || buildingType == null)
+                return false;
+
+            // 【建造合法性兜底】这是 AI 建造的唯一下沉点，规划器（BuildingPlanner）、
+            // 原版权重表（PickNextBuildingByOutpostRule）与旧固定模板三条路都汇到这里，
+            // 但只有规划器的候选扫描调过 CanBuildInteriorAt —— 权重表与旧模板都可能
+            // 交进"本城不该建"的类型（典型：内陆城的鱼市）。
+            // 原版每次落地都要过 can_build_facility（s11_sys_scen_city.cpp:276-280，
+            // 鱼市要求 `city->has_port()`），这里补上同一道闸。
+            if (!buildingType.CanBuildInteriorAt(city))
                 return false;
 
             if (city.gold < buildingType.cost)

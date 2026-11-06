@@ -421,8 +421,18 @@ namespace Sango.Core
                 }
             }
 
-            if (AIConfig.Instance.logOutpostAI && corps.districtTargetCityId > 0)
-                Sango.Log.Info($"*[军团AI]{corps.BelongForce.Name} 军团{corps.Index} 出击据点 → {scenario.citySet.Get(corps.districtTargetCityId)?.Name}");
+            if (AIConfig.Instance.logOutpostAI)
+            {
+                if (corps.districtTargetCityId > 0)
+                    Sango.Log.Info($"*[军团AI]{corps.BelongForce.Name} 军团{corps.Index} 出击据点 → {scenario.citySet.Get(corps.districtTargetCityId)?.Name}");
+                // 运输源必须是**本军团辖下**的城（上面的 cities 已按 BelongCorps 过滤），
+                // 这里把选中的源城打出来，便于确认"运输队到底从谁的城出发"。
+                if (corps.districtTransportSrcId > 0)
+                {
+                    City src = scenario.citySet.Get(corps.districtTransportSrcId);
+                    Sango.Log.Info($"*[军团AI]{corps.BelongForce.Name} 军团{corps.Index} 运输源 → {src?.Name}（军团{src?.BelongCorps?.Index}）");
+                }
+            }
             return true;
         }
 

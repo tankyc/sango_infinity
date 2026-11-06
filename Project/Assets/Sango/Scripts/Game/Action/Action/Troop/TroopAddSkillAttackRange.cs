@@ -31,6 +31,15 @@ namespace Sango.Core.Action
         {
             if (skillInstance.atkOffsetPoint == null || skillInstance.atkOffsetPoint.Length == 0)
             {
+                // 【防护】原本没有命中偏移的技能（如计略）被追加范围时，[type, value] 只有
+                // "半径型"分支才有意义；若 atkType 是 Customize，生成的 [0, range] 会让
+                // Skill.GetAttackCells 的 Customize 分支在 atkOffsetPoint[i+1] 越界崩溃。
+                if (atkType == (int)SkillAttackOffsetType.Customize)
+                {
+                    Sango.Log.Error("TroopAddSkillAttackRange 配置非法：atkType=Customize 无法用 " +
+                                    "[type,value] 表达，已忽略该次追加");
+                    return;
+                }
                 skillInstance.atkOffsetPoint = new int[] { atkType, addRange };
             }
             else
@@ -166,6 +175,14 @@ namespace Sango.Core.Action
                         }
                         break;
                     default:
+                        // 原数组的类型越界（不在 0~10）时整体换成配置的 atkType；
+                        // 同样不能是 Customize，否则生成 [0, value] 会导致后续越界
+                        if (atkType == (int)SkillAttackOffsetType.Customize)
+                        {
+                            Sango.Log.Error("TroopAddSkillAttackRange 配置非法：atkType=Customize 无法用 " +
+                                            "[type,value] 表达，已忽略该次追加");
+                            break;
+                        }
                         skillInstance.atkOffsetPoint = new int[] { atkType, addRange };
                         break;
                 }

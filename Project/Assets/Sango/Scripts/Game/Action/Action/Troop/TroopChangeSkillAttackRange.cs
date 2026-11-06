@@ -29,6 +29,15 @@ namespace Sango.Core.Action
 
         void SetRange(SkillInstance skillInstance)
         {
+            // 【防护】Customize 的语义是"成对偏移"(x1,y1,x2,y2...)，无法用 [type, value]
+            // 两个元素表达。若配置把 atkType 写成 0（Customize），这里生成的 [0, range]
+            // 会让 Skill.GetAttackCells 的 Customize 分支在 atkOffsetPoint[i+1] 越界崩溃。
+            if (atkType == (int)SkillAttackOffsetType.Customize)
+            {
+                Sango.Log.Error("TroopChangeSkillAttackRange 配置非法：atkType=Customize 需要成对偏移，" +
+                                "不能用 [type,value] 覆盖，已忽略该次覆盖");
+                return;
+            }
             skillInstance.atkOffsetPoint = new int[] { atkType, atkRange };
         }
 

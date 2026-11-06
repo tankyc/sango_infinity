@@ -308,11 +308,23 @@ namespace Sango.Core
 
             base.Prepare(troop, scenario);
 
+            // 【修复 · 港口/关隘占领卡住】父类在"目标已不是敌方"时会把任务改派为
+            // TroopMovetoCity（进城接管，TroopOccupyCity.cs:84-89）。
+            // 这是**有效任务**，不能按"任务完成"清空 —— 清空后玩家部队 missionType=0，
+            // 而"无任务自动返城"的兜底只对 AI（Troop.cs:3942 带 !IsPlayerControl），
+            // 部队就会停在港口边上永久静止（玩家反馈的现象）。
+            if (troop.missionType == (int)MissionType.PlayerTroopMovetoCity)
+                return;
+
             PlayerTroopMissionHelper.FinishIfMissionChanged(troop, missionBefore);
         }
 
         public override bool DoAI(Troop troop, Scenario scenario)
         {
+            // 同上：已改派"进城"时继续走父类的移动逻辑，不要把任务清掉
+            if (troop.missionType == (int)MissionType.PlayerTroopMovetoCity)
+                return base.DoAI(troop, scenario);
+
             if (PlayerTroopMissionHelper.FinishIfComplete(this, troop))
                 return true;
 

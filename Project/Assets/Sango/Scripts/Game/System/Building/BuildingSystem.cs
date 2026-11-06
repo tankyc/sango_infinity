@@ -17,6 +17,8 @@ namespace Sango.Core.Player
 
         void OnClick(Cell clickCell, Vector3 clickPosition, bool isOverUI)
         {
+            if (clickCell == null)
+                return;
 
             if (clickCell.building != null)
             {
@@ -47,7 +49,15 @@ namespace Sango.Core.Player
             // 点击内政地块-弹出开发按钮-点击开发按钮弹出开发界面
             else if (clickCell.IsInterior && clickCell.IsEmpty())
             {
-                Force cellBelongForce = clickCell.BelongCity.BelongCity != null ? clickCell.BelongCity.BelongCity.BelongForce : clickCell.BelongCity.BelongForce;
+                // 【空引用】内政地块的 BelongCity 可能为 null：地图/剧本数据里该格的
+                // 内政归属还没建立（自制地图、剧本编辑器直接摆放、或读档来自缺该归属的版本）。
+                // 原来直接 clickCell.BelongCity.BelongCity 会抛 NullReferenceException
+                //（实测栈：本方法第 50 行，点地图空地就崩）。
+                City cellCity = clickCell.BelongCity;
+                if (cellCity == null)
+                    return;
+
+                Force cellBelongForce = cellCity.BelongCity != null ? cellCity.BelongCity.BelongForce : cellCity.BelongForce;
                 if (cellBelongForce != null && cellBelongForce == Scenario.Cur.CurRunForce && cellBelongForce.IsPlayer)
                 {
                     ContextMenuData.MenuData.Clear();

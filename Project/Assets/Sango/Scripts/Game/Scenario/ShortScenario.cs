@@ -206,6 +206,40 @@ namespace Sango.Core
         [JsonProperty] public SangoObjectSet<ShortForce> forceSet = new SangoObjectSet<ShortForce>();
         [JsonProperty] public SangoObjectSet<ShortPerson> personSet = new SangoObjectSet<ShortPerson>();
         [JsonProperty] public SangoObjectSet<ShortCity> citySet = new SangoObjectSet<ShortCity>();
+
+        /// <summary>
+        /// 反序列化后的兜底：这三个集合字段没有挂 [JsonConverter]，走的是 Newtonsoft
+        /// 默认反序列化 —— 剧本文件里一旦把字段写成 null、或把内部的 objects 数组写成 null，
+        /// 反序列化会**覆盖掉字段初始化器**，之后任何 <c>personSet[id]</c> / <c>citySet[id]</c>
+        /// 都会因为 objects 为 null 而抛 NullReferenceException。
+        ///
+        /// 实测事故：UIScenarioForceSelect.StartGame 取君主时崩溃（第 421 行）。
+        /// 这里统一补成空集合，把"数据缺失"降级为"查不到对象"，由调用方判空处理。
+        /// </summary>
+        /// <param name="context">序列化上下文</param>
+        [System.Runtime.Serialization.OnDeserialized]
+        void OnDeserializedFixSets(System.Runtime.Serialization.StreamingContext context)
+        {
+            forceSet = EnsureObjectSet(forceSet, "势力(forceSet)");
+            personSet = EnsureObjectSet(personSet, "武将(personSet)");
+            citySet = EnsureObjectSet(citySet, "城池(citySet)");
+        }
+
+        /// <summary>
+        /// 集合字段的兜底：字段本身或其内部数组为 null 时重建为空集合。
+        /// </summary>
+        /// <typeparam name="T">集合元素类型</typeparam>
+        /// <param name="set">待检查的集合</param>
+        /// <param name="fieldName">字段中文名（用于日志）</param>
+        /// <returns>可安全使用的集合</returns>
+        static SangoObjectSet<T> EnsureObjectSet<T>(SangoObjectSet<T> set, string fieldName) where T : SangoObject, new()
+        {
+            if (set != null && set.objects != null)
+                return set;
+
+            Sango.Log.Warning($"剧本[{ShortScenario.Cur?.Id}] 数据不完整：{fieldName} 缺失或为 null，已按空集合处理");
+            return new SangoObjectSet<T>();
+        }
         #endregion Data
         public static ShortScenario Cur { get; private set; }
         public static List<ShortScenario> all_scenario_info_list = new List<ShortScenario>();

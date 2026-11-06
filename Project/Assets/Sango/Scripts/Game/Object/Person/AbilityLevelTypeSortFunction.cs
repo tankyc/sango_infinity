@@ -131,6 +131,21 @@ namespace Sango.Core
         };
 
         /// <summary>
+        /// 按适应力加成排序（百分比，Ａ 级 = 100）
+        /// </summary>
+        public static SortTitle SortByTroopsAdaptationLevelBoost = new SortTitle()
+        {
+            name = "适应加成",
+            width = 2.40f,
+            valueStrGetCall = x => x.troopsAdaptationLevelBoost.ToString(),
+            valueSortFunc = (a, b) => a.troopsAdaptationLevelBoost.CompareTo(b.troopsAdaptationLevelBoost),
+            valueObjGet = x => x.troopsAdaptationLevelBoost,
+            valueObjSet = (x, v) => x.troopsAdaptationLevelBoost = (int)v,
+            editType = DataEditType.IntCalculator,
+            minValue = 0,
+        };
+
+        /// <summary>
         /// 默认排序标题列表
         /// </summary>
         public static List<ObjectSortTitle> DefaultSortList = new List<ObjectSortTitle>
@@ -138,6 +153,7 @@ namespace Sango.Core
             SortById,
             SortByName,
             SortByExp,
+            SortByTroopsAdaptationLevelBoost,
         };
     }
 }

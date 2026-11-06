@@ -90,6 +90,11 @@ namespace Sango.UI
             if (index == curSelectIndex)
                 return;
 
+            // 列表可能被 ShowScenarioByType 换短（切换剧本类型标签），越界时降级为"未选中"，
+            // 否则下面的 show_scenario_list[curSelectIndex] 会抛 ArgumentOutOfRangeException
+            if (show_scenario_list == null || index >= show_scenario_list.Count)
+                index = -1;
+
             curSelectIndex = index;
             if (index < 0)
             {
@@ -240,15 +245,19 @@ namespace Sango.UI
                 if (toggle != null)
                 {
                     toggle.shortCity = city;
-                    if (city.BelongForceId == 0 || scenario.forceSet[city.BelongForceId] == null)
+                    // 同 UpdateMap 的下标风险：势力 Id / 旗号 Id 可能越界或对象缺失，
+                    // 统一走 Get() 判空，缺失时按"无主城池"置灰处理
+                    ShortForce shortForce = (scenario.forceSet != null && scenario.forceSet.objects != null && city.BelongForceId > 0)
+                        ? scenario.forceSet.Get(city.BelongForceId) : null;
+                    if (shortForce == null)
                     {
                         toggle.SetSelected(false).SetInavtive(true).SetColor(Color.white);
                     }
                     else
                     {
-                        ShortForce shortForce = scenario.forceSet[city.BelongForceId];
-                        Flag flag = scenario.CommonData.Flags[shortForce.Flag];
-                        toggle.SetSelected(false).SetInavtive(true).SetColor(flag.color);
+                        Flag flag = (scenario.CommonData != null && scenario.CommonData.Flags != null && shortForce.Flag > 0)
+                            ? scenario.CommonData.Flags.Get(shortForce.Flag) : null;
+                        toggle.SetSelected(false).SetInavtive(true).SetColor(flag != null ? flag.color : Color.white);
                     }
                     toggle.ShowName(city.Name);
                 }
@@ -324,7 +333,10 @@ namespace Sango.UI
                     item.SetModName("");
 
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN
-                item.BindCall(() => { OnNext(); });
+                // PC 上点条目 = 选中并进入。必须先把自己这一项写进 curSelectIndex：
+                // 否则 OnNext 读到的要么是 ShowScenarioByType 刚置的 -1（点了没反应），
+                // 要么是切换标签前遗留的旧下标（列表换短后直接越界崩溃）。
+                item.BindCall(() => { OnSelectScenario(selIndex); OnNext(); });
 #else
                 item.BindCall(() => { OnSelectScenario(selIndex); });
 #endif
@@ -363,7 +375,17 @@ namespace Sango.UI
 
         public void OnNext()
         {
-            if (curSelectIndex == -1) return;
+            // 【下标保护】curSelectIndex 只判 -1 不够：
+            //   · 切到"玩家剧本 / 自定义剧本"标签后过滤列表可能变短甚至为空，
+            //     而点击回调仍用旧下标；
+            //   · 预制体上的 curSelectIndex 可能带着 Inspector 里的序列化值进来。
+            // 直接 show_scenario_list[curSelectIndex] 会抛 ArgumentOutOfRangeException
+            // （实测栈：UIScenarioSelect.OnNext，点剧本条目时崩）。
+            if (show_scenario_list == null || curSelectIndex < 0 || curSelectIndex >= show_scenario_list.Count)
+            {
+                Sango.Log.Warning($"剧本选择索引无效(curSelectIndex={curSelectIndex}, 列表长度={show_scenario_list?.Count ?? 0})，忽略本次进入");
+                return;
+            }
             GameMedia.Instance.PlayButtonSfx();
 
             Clear();

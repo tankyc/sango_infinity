@@ -220,8 +220,8 @@ namespace Sango.UI
                     }
                     else
                     {
-                        objectSelectSystem.Objects.Sort(sortTitle.Sort);
-                        if (!up) objectSelectSystem.Objects.Reverse();
+                        // 非 ObjectSelectSystem 的视图只有显示列表，走统一的确定性排序
+                        ObjectSortTitle.SortList(objectSelectSystem.Objects, sortTitle.Sort, up);
                     }
                     scrollbar.SetValueWithoutNotify(0);
                     OnScrollBarValueChange(0);
@@ -243,6 +243,22 @@ namespace Sango.UI
                         listItem.textItem.SetWidth(sortTitle.ContentMaxWidth);
                     }
                 }
+            }
+
+            // 【负下标防护】sortItems 为空是完全合法的调用：人物创建界面的"官职选择"
+            // 就是用 new List<ObjectSortTitle>() 打开选择窗
+            // （UIPersonCreateDetail.OpenOfficialSelect，不需要任何排序表头）。
+            // 原写法从 sortItems.Count - 1 = -1 起遍历，第一轮就取 sortButtonPool[-1]，
+            // 抛 ArgumentOutOfRangeException（实测栈：OpenOfficialSelect → ObjectSelectSystem.Start
+            // → UIObjectSelector.Init → UpdateSortContent:249），选官职窗口直接打不开。
+            // 空表时从 0 开始、把整排按钮（含首列的 sortTitleItem）全部关掉即可。
+            if (sortItems.Count == 0)
+            {
+                if (sortTitleItem != null)
+                    sortTitleItem.gameObject.SetActive(false);
+                for (int i = 0; i < sortButtonPool.Count; i++)
+                    sortButtonPool[i].gameObject.SetActive(false);
+                return;
             }
 
             for (int i = sortItems.Count - 1; i < sortButtonPool.Count; i++)
@@ -300,23 +316,61 @@ namespace Sango.UI
         {
             if (startIndex > 0)
                 startIndex--;
+            else
+                startIndex = 0;
+
             UpdateItemStartIndex(startIndex);
-            scrollbar.SetValueWithoutNotify((float)startIndex / (objectSelectSystem.Objects.Count - itemCount));
+            ApplyScrollbarValue();
         }
 
         public void DownShow()
         {
-            if (startIndex < objectSelectSystem.Objects.Count - itemCount)
+            int maxStart = GetMaxStartIndex();
+            if (startIndex < maxStart)
                 startIndex++;
 
             UpdateItemStartIndex(startIndex);
-            scrollbar.SetValueWithoutNotify((float)startIndex / (objectSelectSystem.Objects.Count - itemCount));
+            ApplyScrollbarValue();
         }
 
         public void OnScrollBarValueChange(float value)
         {
-            startIndex = (int)UnityEngine.Mathf.Lerp(0, objectSelectSystem.Objects.Count - itemCount, value);
+            // 【下标防护】候选数少于可视行数时 (Objects.Count - itemCount) 是负数，
+            // Mathf.Lerp(0, 负数, value) 会得到负下标，随后 UpdateItemStartIndex 取
+            // Objects[负下标] 直接抛 ArgumentOutOfRangeException
+            //（实测栈：UIObjectDisplay.UpShow → UIObjectSelector.UpdateItemStartIndex:98）。
+            // 统一按 [0, maxStart] 夹取，maxStart 不足时固定为 0。
+            int maxStart = GetMaxStartIndex();
+            startIndex = (int)UnityEngine.Mathf.Lerp(0, maxStart, value);
+            if (startIndex < 0) startIndex = 0;
+            if (startIndex > maxStart) startIndex = maxStart;
             UpdateItemStartIndex(startIndex);
+        }
+
+        /// <summary>
+        /// 可滚动的最大起始下标（候选不足一屏时为 0，不会是负数）。
+        /// </summary>
+        /// <returns>最大起始下标</returns>
+        int GetMaxStartIndex()
+        {
+            if (objectSelectSystem == null || objectSelectSystem.Objects == null)
+                return 0;
+            int maxStart = objectSelectSystem.Objects.Count - itemCount;
+            return maxStart > 0 ? maxStart : 0;
+        }
+
+        /// <summary>
+        /// 把当前 startIndex 同步到滚动条；maxStart 为 0 时直接归零，避免除零得到 NaN。
+        /// </summary>
+        void ApplyScrollbarValue()
+        {
+            int maxStart = GetMaxStartIndex();
+            if (maxStart <= 0)
+            {
+                scrollbar.SetValueWithoutNotify(0);
+                return;
+            }
+            scrollbar.SetValueWithoutNotify((float)startIndex / (float)maxStart);
         }
 
         public void OnScrollBar_H_ValueChange(float value)
@@ -342,16 +396,28 @@ namespace Sango.UI
 
         public virtual void UpdateItemStartIndex(int startIndex)
         {
+            if (objectSelectSystem == null || objectSelectSystem.Objects == null)
+                return;
+
+            // 【下标防护】与 UIObjectSelector.UpdateItemStartIndex 同因：
+            // 负下标 / 超出数据范围时退化为空行，不能让 Objects[i + startIndex] 抛越界。
+            if (startIndex < 0) startIndex = 0;
+            int dataCount = objectSelectSystem.Objects.Count;
+
             for (int i = 0; i < itemCount; i++)
             {
                 UIObjectListItem listItem = uIObjectListItems[i];
-                SangoObject sango = objectSelectSystem.Objects[i + startIndex];
+                int destIndex = i + startIndex;
+                listItem.index = destIndex;
+                if (destIndex < 0 || destIndex >= dataCount)
+                    continue;
+
+                SangoObject sango = objectSelectSystem.Objects[destIndex];
                 for (int j = 0; j < sortItems.Count; j++)
                 {
                     ObjectSortTitle sortTitle = sortItems[j];
                     listItem.Set(j, sortTitle.GetValueStr(sango));
                 }
-                listItem.index = i + startIndex;
             }
         }
 

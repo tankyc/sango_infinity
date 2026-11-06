@@ -44,7 +44,14 @@ namespace Sango.Core
             SearchingBeginIndex = 1;
             MaxCount = 0;
             objects = new T[length];
+            warnedOffsetMismatch = false;
         }
+
+        /// <summary>
+        /// 是否已提示过"条目 Id 小于容器 offset"。
+        /// 整库加载时可能几百条都命中，只在第一条打一次，避免刷屏。
+        /// </summary>
+        bool warnedOffsetMismatch;
 
         int MaxCount { get; set; }
         int SearchingBeginIndex { get; set; }
@@ -92,6 +99,30 @@ namespace Sango.Core
         {
             if (obj.Id < 0)
                 return;
+
+            // 【负下标防护】offset 是"数据里的 Id"与"容器下标"的差值。
+            // 附加武将库（Data/CustomPerson.json）由 SangoObjectOffSetConverter 反序列化时，
+            // 文件头可能带着 "offset": 10000 / "offset": 20000，而条目 Id 仍是 1 起编的相对下标
+            // （手工编辑、或从别的编辑器导出的文件都是这种形态）。
+            // 此时 obj.Id - offset 为负数，CheckLength(负数 + 1) 会因 "len > max" 恒成立而直接
+            // return（不扩容），紧接着 objects[负数] 抛 IndexOutOfRangeException，
+            // 一路打断 GameData.Init → GameCustomEdit.Init → ScenarioAddon.Load
+            //（实测栈：SangoObjectOffSetConverter.ReadJson:77 → Set:96）。
+            // 这里与 Add() 的口径保持一致：Id 小于 offset 时视为相对下标，补上 offset。
+            if (obj.Id < offset)
+            {
+                int fixedId = obj.Id + offset;
+                if (!warnedOffsetMismatch)
+                {
+                    warnedOffsetMismatch = true;
+                    Sango.Log.Error(
+                        $"附加数据条目 Id={obj.Id} 小于容器 offset={offset}（数据里用的是相对下标），" +
+                        $"已按 offset 修正为 Id={fixedId}；同一次加载中的同类条目不再重复提示",
+                        Sango.Log.LogType.Object);
+                }
+                obj.Id = fixedId;
+            }
+
             CheckLength(obj.Id - offset + 1);
             objects[obj.Id - offset] = obj;
         }

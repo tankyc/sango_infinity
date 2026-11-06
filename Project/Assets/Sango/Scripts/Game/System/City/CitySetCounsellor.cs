@@ -35,7 +35,24 @@ namespace Sango.Core.Player
         {
             get
             {
-                return TargetCity.BelongForce.PersonCount > 1;
+                // 【修复】不能用 Force.PersonCount：它是"势力回合开始时重算"的运行期缓存
+                // （`Force.PersonCount` 是自动属性，OptIn 序列化不存档），读档后为 0，
+                // 会让军师菜单被置灰；要等该势力下一次 OnForceTurnStart 重算才恢复 ——
+                // 正是玩家反馈的"读档后一开始不让任命军师，过几回合又正常"。
+                // 这里改为实时统计本势力存活武将，与 OnEnter 里 targetList 的遍历口径一致。
+                Force force = TargetCity != null ? TargetCity.BelongForce : null;
+                Scenario scenario = Scenario.Cur;
+                if (force == null || scenario == null || scenario.personSet == null)
+                    return false;
+
+                int count = 0;
+                for (int i = 0; i < scenario.personSet.Count; i++)
+                {
+                    Person p = scenario.personSet[i];
+                    if (p != null && p.IsAlive && p.BelongForce == force)
+                        count++;
+                }
+                return count > 1;
             }
         }
 

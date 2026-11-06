@@ -95,6 +95,16 @@ namespace Sango.Core
         /// <summary>实时扫描城池周边以兜底检测敌人的范围（格）。用于预计算敌人信息未覆盖的场景（如敌军刚抵达、正在攻击本城建筑）</summary>
         public int cityDefenseScanRange = 6;
 
+        /// <summary>
+        /// 判定"是否需要召回前线部队回援本城"的扫描范围（格）。
+        ///
+        /// 与 <see cref="cityDefenseAlertRange"/> / <see cref="cityDefenseScanRange"/> 区分：
+        /// 后两者决定"要不要出城防守"（守城是城内的事，发现得越早越好）；
+        /// 本项决定"要不要把正在前线交战的部队拉回来"，口子必须更紧 ——
+        /// 敌人还在远处就召回，前线部队会白跑一趟，玩家看到的就是"身边有敌军却往回跑"。
+        /// </summary>
+        public int cityRecallScanRange = 4;
+
         #endregion
 
         #region 城市支援

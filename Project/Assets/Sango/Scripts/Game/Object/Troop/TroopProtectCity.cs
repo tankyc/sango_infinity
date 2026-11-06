@@ -23,20 +23,21 @@ namespace Sango.Core
             EnemyInfo enemyInfo;
             isNoEnemyAlive = !TargetCity.CheckEnemiesIfAlive(out enemyInfo);
 
-            // 【修复】口径统一：城市是因为"周边存在敌人"才出兵
-            //（CityAI.DispatchDefenseTroop 使用 BattleSituation.EvaluateThreat 实时扫描，
+            // 【口径统一 · 实时兜底】城市是因为"周边存在敌人"才出兵
+            //（CityAI.AICanDefense / DispatchDefenseTroop 都用实时扫描，
             //  该扫描会把"正在攻击城池周边建筑"的敌人也算进去），
             // 但这里原先只依据城池预计算的**围城**敌人判定任务是否完成。
-            // 于是敌人改为攻击建筑时，部队刚出城就被误判为"任务完成"→ 切返城 →
-            // 表现为城池反复派兵、部队却始终不出城（或卡在城池格上）。
-            // 现增加实时扫描兜底，使"出兵判定"与"任务完成判定"口径一致。
-            //if (isNoEnemyAlive)
-            //{
-            //    BattleSituation.ThreatSnapshot live = BattleSituation.EvaluateThreat(
-            //        TargetCity.CenterCell, AIConfig.Instance.cityDefenseScanRange, TargetCity, scenario);
-            //    if (live.HasEnemy)
-            //        isNoEnemyAlive = false;
-            //}
+            //
+            // 快照只在城池自己跑 AIPrepare 时刷新，可能过期：城 A 因"周边有敌人"把在外部队
+            // 改派守城，部队 Prepare 读到旧快照（没有敌人）就立刻判"任务完成"→ 返城，
+            // 玩家看到的就是"明明身边有敌军、粮草也够，却一群人往回跑"。
+            // 因此快照说"没敌人"时再实时扫一次，让"改派判定"与"完成判定"同口径。
+            if (isNoEnemyAlive)
+            {
+                Troop liveEnemy = FindNearestEnemyAround(TargetCity, troop, scenario);
+                if (liveEnemy != null)
+                    isNoEnemyAlive = false;
+            }
 
             // 【优化】移除"断粮时 30% 概率撤退"的随机判断，统一由 Troop.AIPrepare 处理
             if (IsMissionComplete || (TargetCity.troops < 2000 && TargetCity == Troop.BelongCity))

@@ -456,14 +456,18 @@ namespace Sango.Core
             if (service != null && service.BelongForce != null && service.BelongForce != person.BelongForce)
             {
                 City capital = person.BelongForce.CapitalCity;
-                if (capital != null)
+                // 【修复】都城必须真的属于本势力：CapitalCity 是派生值（君主所在城），
+                // 君主户口残留在已易主的城时会返回敌城。若不校验，这里会把返程任务设成"回敌城"，
+                // 到达后 Enter 拒绝、再调 ReturnHome 又设回敌城 —— 每回合刷错误日志的死循环。
+                if (capital != null && capital.BelongForce == person.BelongForce)
                 {
                     Sango.Log.Info($"*[在途]{person.Name} 的所属城 {service.Name} 已属 {service.BelongForce.Name}，改返本势力都城 {capital.Name}");
                     service = capital;
                 }
                 else
                 {
-                    // 连都城都没有 —— 就地落野，否则清完任务人就被 actor 表丢掉、永久冻结在半路
+                    // 连有效都城都没有 —— 就地落野，否则清完任务人就被 actor 表丢掉、永久冻结在半路
+                    Sango.Log.Warning($"*[在途]{person.Name} 的所属城 {service.Name} 已属 {service.BelongForce.Name}，且本势力无可回据点，转为在野");
                     LeaveToWild(person);
                     return;
                 }
@@ -543,6 +547,77 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 城陷后对"户口仍挂在陷落城"的本势力武将做一次全量巡检并迁走户口。
+        ///
+        /// 【为什么需要】<see cref="RelocateHomeOnCityFall"/> 是逐人入口，而
+        /// <c>City.OnFall</c> 的城陷主循环只遍历本城的 <c>allPersons</c> 名册。
+        /// 这份名册正常与"BelongCity == 本城"一一对应，但读档 / 编辑器 /
+        /// 历史版本留下的归属分裂会让"户口挂本城、却不在名册里"的武将漏网；
+        /// 另外 <c>OnWillChangeToCity</c> 前置检查失败的武将会保留原户口。
+        /// 漏网者的户口会一直指向已易主的城，污染 <c>Force.GovernorCity</c> /
+        /// <c>Force.CapitalCity</c> 派生值，让下一座城陷的 escapeCity 选到敌城。
+        ///
+        /// 【原版对齐】Open311 改旗时是按"户口指向"全量扫，而不是按"人在不在本城"：
+        ///   s11_sys_scen_building.cpp:603-608
+        ///     <code>
+        ///     for (unit_id_t i : get_active_units())
+        ///     {
+        ///         Unit* unit = get_unit(i);
+        ///         if (utils::is_alive(unit) and unit->get_service_id() == id)
+        ///             unit_reset_service(unit);
+        ///     }
+        ///     </code>
+        ///   即所有 service_id（户口）指向本据点的部队都要重设据点，与部队当前站位无关。
+        ///
+        /// 【调用时机】必须在城池改旗之前执行：<see cref="ResolveFallReturnPoint"/> 的
+        /// "最近己方据点"读的是 <c>fallCity.BelongForce</c>，改旗后那里已经是攻方势力，
+        /// 会把人迁进敌城。
+        ///
+        /// 【幂等】只处理"BelongForce == force 且 BelongCity == fallCity"的武将，
+        /// 已由城陷主循环迁走的人自然被跳过，因此可以安全重复调用。
+        /// </summary>
+        /// <param name="force">陷落前的守方势力（本势力武将的归属锚点）</param>
+        /// <param name="fallCity">被攻陷的城</param>
+        /// <returns>实际迁走户口的武将数</returns>
+        public static int RelocateHomesOnCityFall(Force force, City fallCity)
+        {
+            if (force == null || fallCity == null)
+                return 0;
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.personSet == null)
+                return 0;
+
+            int relocated = 0;
+            // SangoObjectSet 的下标从 1 开始，0 号位是默认无效值（同 Force.Ruin 的扫描口径）
+            Person[] persons = scenario.personSet.objects;
+            for (int i = 1; i < persons.Length; i++)
+            {
+                Person person = persons[i];
+                if (person == null || person.IsDead)
+                    continue;
+                // 只处理本势力、且户口仍挂陷落城的武将
+                if (person.BelongForce != force || person.BelongCity != fallCity)
+                    continue;
+
+                RelocateHomeOnCityFall(person, fallCity);
+                if (person.BelongCity != fallCity)
+                {
+                    relocated++;
+                }
+                else
+                {
+                    // 仍挂陷落城：ResolveFallReturnPoint 找不到任何有效的同势力据点
+                    //（通常是该势力只剩这一座城，或据点已全部易主）。
+                    // 后续由势力灭亡流程 / 归属自愈接管，这里只留一条可回溯的日志。
+                    Sango.Log.Warning($"*[城陷]{person.Name} 户口仍挂在 {fallCity.Name}，暂无可迁的同势力据点");
+                }
+            }
+
+            return relocated;
+        }
+
+        /// <summary>
         /// 城陷后的"迁户口目标"计算，对齐 unit_reset_service 的三级优先级，
         /// 用"目标 == 陷落城 → 跳过"避免选回被攻陷的城本身。
         /// </summary>
@@ -562,7 +637,10 @@ namespace Sango.Core
             }
 
             // ② 君主据点（仍有效且不等于陷落城）
-            City capital = force.CapitalCity;
+            //    用 GovernorCity（无兜底）而不是 CapitalCity：后者在君主户口已易主时会
+            //    自行按"都督 → 君主 → 最近"兜底选城，会把 ③ 的同军团最近据点抢掉，
+            //    破坏原版"同军团优先"的顺序。
+            City capital = force.GovernorCity;
             if (capital != null && capital != fallCity && capital.BelongForce == force)
             {
                 return capital;
@@ -841,32 +919,63 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 释放俘虏（对应 Open311 的 person_release）：转为在野并迁到指定据点。
+        /// 释放俘虏（对应 Open311 的 System::person_release，s11_sys_scen_person.cpp:2162-2191）。
+        ///
+        /// 【原版行为，两个分支】
+        ///   · 原势力（former_force）仍存活 → 送回原势力的君主据点，身份转一般武将（Mibun_Ippan）；
+        ///   · 原势力已灭亡 → person_set_zaiya：就地落野（在野）。
+        /// 流放俘虏、逃脱、部队溃灭、城陷释放、外交交换俘虏全部走这一个入口，
+        /// 所以这里**不能一律转在野** —— 那会让被放走的敌将凭空掉进在野池，
+        /// 玩家看到的就是"抓捕的武将带回城再流放，人没回家却就地变在野，还能马上被登用"。
         /// </summary>
         /// <param name="person">武将</param>
-        /// <param name="city">释放后所在据点</param>
+        /// <param name="city">原势力已亡时的落野据点（null 表示就地）</param>
         /// <param name="reason">变更原因</param>
         public static void Release(Person person, City city, PersonChangeReason reason = PersonChangeReason.Released)
         {
             if (person == null || person.IsDead || !person.IsPrisoner)
                 return;
 
-            // 随军俘虏：先从部队的俘虏名册摘除，再清部队引用。
-            // 不处理会留下"人已在野、部队 captiveList 里还挂着他"的脏数据，
-            // 部队解散时又会把这个已释放的人当俘虏再处理一遍。
-            if (person.mBelongTroop != null)
+            // 1. 摘关押位置：随军俘虏先从部队名册摘除，并把所在地对齐到部队当前位置
+            //    （原版 person_leave 同样是"从当前 location 出发"，不是把关押城当出发地）
+            Troop troop = person.mBelongTroop;
+            if (troop != null)
             {
-                person.mBelongTroop.captiveList.Remove(person);
+                City at = troop.CurrentCity;
+                troop.captiveList.Remove(person);
                 person.mBelongTroop = null;
+                if (at != null && person.CurrentCity != at)
+                    person.ChangeCurrentCity(at);
             }
 
             person.CurrentCity?.RemoveCaptive(person);
             person.BelongForce?.BeCaptiveList.Remove(person);
 
-            // 释放后不再保留原势力/军团（避免"在野却隶属某势力"的历史脏数据）
+            // 2. 原势力仍存活 → 送回原势力（对应 person_release 的第一个分支 :2169-2181）
+            Force formerForce = person.BelongForce;
+            if (formerForce != null && formerForce.IsAlive)
+            {
+                City capital = formerForce.CapitalCity;
+                // 【必须校验据点归属】CapitalCity 是派生值（君主所在城，带都督/最近据点兜底），
+                // 君主户口残留在已易主的城时会返回敌城，Enter 会以
+                // "外势力在职武将不得入城"拒绝，人被卡在关押城。
+                if (capital != null && capital.BelongForce == formerForce)
+                {
+                    // 顺序与原版一致：先改身份（此时 BelongCity 仍为 null，名册重建不会误登记到关押城），
+                    // 再由 Enter 把户口/所在地落到原势力据点
+                    SetState(person, PersonStateType.Normal, reason);
+                    Enter(person, capital, reason);
+                    person.SetMission(MissionType.PersonReturn, person.BelongCity ?? capital);
+                    Sango.Log.Info($"*[{reason}]{person.Name} 被释放，回到 {formerForce.Name} 的 {capital.Name}");
+                    return;
+                }
+
+                Sango.Log.Warning($"*[{reason}]{person.Name} 的原势力 {formerForce.Name} 没有可回的有效据点，转为在野");
+            }
+
+            // 3. 原势力已灭亡 / 无有效据点 → 原版 person_set_zaiya：就地落野
             // BelongForce 派生自 BelongCorps，随军团一并清空
             person.BelongCorps = null;
-
             LeaveToWild(person, city ?? person.CurrentCity, reason);
         }
 
