@@ -203,12 +203,21 @@ namespace Sango.Core
         public static event Action<DiplomacyActionBase, int> OnDiplomacyFailed;
 
         /// <summary>
-        /// 获取外交行为名称
+        /// 外交行动类型 → 中文名（全工程唯一口径）。
+        ///
+        /// 【为什么抽成静态方法】
+        /// 外交名原本有两份实现：本类的实例方法，和 DiplomacyManager.GetActionName。
+        /// 后者只覆盖了结盟 / 停战 / 宣战 / 送礼 4 个老命令，劝降、俘虏交换、请求援军
+        /// 全部落进 default 返回"未知行动"；而 AI 对玩家发起这三类外交时，
+        /// window_city_diplomacy_player_check_dialog 的标题与"目标"栏取的正是
+        /// DiplomacyManager.GetActionName，于是玩家看到的就是"未知行动"。
+        /// 收敛到这里之后，新增命令只改一处，UI 与日志不会再各自漂移。
         /// </summary>
-        /// <returns>行为名称</returns>
-        public virtual string GetActionName()
+        /// <param name="actionType">外交行动类型</param>
+        /// <returns>行动中文名</returns>
+        public static string GetActionName(DiplomacyActionType actionType)
         {
-            switch (ActionType)
+            switch (actionType)
             {
                 case DiplomacyActionType.Alliance:
                     return "结盟";
@@ -227,6 +236,15 @@ namespace Sango.Core
                 default:
                     return "未知行动";
             }
+        }
+
+        /// <summary>
+        /// 获取外交行为名称（实例入口，转发到统一口径）
+        /// </summary>
+        /// <returns>行为名称</returns>
+        public virtual string GetActionName()
+        {
+            return GetActionName(ActionType);
         }
     }
 

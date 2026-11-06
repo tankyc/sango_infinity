@@ -212,27 +212,19 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 获取外交行动的名称
+        /// 获取外交行动的名称。
+        ///
+        /// 口径统一由 <see cref="DiplomacyActionBase.GetActionName(DiplomacyActionType)"/> 提供。
+        /// 早期这里自带一份 switch，只覆盖 4 个老命令，劝降(Annex) / 俘虏交换(Exchange) /
+        /// 请求援军(Reinforce) 落到 default 返回"未知行动"；
+        /// 而 AI 向玩家发起这三类外交时，window_city_diplomacy_player_check_dialog
+        /// 的标题与目标栏都取本方法，于是玩家看到"未知行动"。
         /// </summary>
         /// <param name="actionType">外交行动类型</param>
         /// <returns>行动名称</returns>
         public string GetActionName(DiplomacyActionType actionType)
         {
-            switch (actionType)
-            {
-                case DiplomacyActionType.Alliance:
-                    return "结盟";
-                case DiplomacyActionType.Truce:
-                    return "停战";
-                case DiplomacyActionType.DeclareWar:
-                    return "宣战";
-                case DiplomacyActionType.SendGift:
-                    return "送礼";
-                // 请求技术 / 请求兵力 / 通商 / 和亲 / 请求结盟 / 请求停战 / 赎回俘虏
-                // 对应的枚举项已删除（原版没有这些命令），这里不再保留分支。
-                default:
-                    return "未知行动";
-            }
+            return DiplomacyActionBase.GetActionName(actionType);
         }
 
         /// <summary>
