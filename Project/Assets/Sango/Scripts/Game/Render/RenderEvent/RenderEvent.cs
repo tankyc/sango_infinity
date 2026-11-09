@@ -6,48 +6,29 @@ namespace Sango.Render
 {
     public class RenderEvent : Singleton<RenderEvent>
     {
-        List<IRenderEventBase> eventQueue = new List<IRenderEventBase>();
-        List<IRenderEventBase> dependsEventQueue = new List<IRenderEventBase>();
-        IRenderEventBase CurEvent { get; set; }
-        Dictionary<string, Stack<IRenderEventBase>> eventPool = new Dictionary<string, Stack<IRenderEventBase>>();
+        Queue<IRenderEventBase> eventQueue = new Queue<IRenderEventBase>();
+        Stack<IRenderEventBase> listenerStack = new Stack<IRenderEventBase>();
+        public void PushDepends(IRenderEventBase renderEventBase)
+        {
+            listenerStack.Push(renderEventBase);
+        }
+        public void PopDepends(IRenderEventBase renderEventBase)
+        {
+            if (renderEventBase != listenerStack.Peek())
+            {
+                Sango.Log.Error("栈不一致!!!");
+            }
+            listenerStack.Pop();
+        }
 
-        /// <summary>
-        /// eventQueue 的读取游标。
-        ///
-        /// 原来每处理完一个事件就 <c>RemoveAt(0)</c>，整队处理完是 O(n²) 次数组搬移；
-        /// 而移动演出是"路径每格排一个事件"（见各 <c>TroopAction*</c>），
-        /// 队列很容易上百，长距离移动时这段搬移是实打实的开销。
-        /// 改成游标前进、末尾一次性 <c>RemoveRange</c>，摊还成 O(n)。
-        ///
-        /// 语义与原来一致：
-        ///   · Update 期间新增的事件只追加到队尾，游标自然能处理到；
-        ///   · 事件未完成时 return false，游标停在原地，下一帧从同一个事件继续；
-        ///   · <see cref="Reset"/> 必须把游标归零，否则读档后残留游标会跳过新事件。
-        /// </summary>
-        int queueHead;
+        IRenderEventBase CurEvent { get; set; }
 
         /// <summary>待处理事件数（不含已处理但尚未清理的）</summary>
-        int EventCount => eventQueue.Count - queueHead;
+        public int EventCount => eventQueue.Count;
 
         public T Create<T>() where T : IRenderEventBase, new()
         {
-            string key = typeof(T).FullName;
-
-            Stack<IRenderEventBase> stack;
-            if (!eventPool.TryGetValue(key, out stack))
-            {
-                stack = new Stack<IRenderEventBase>();
-                eventPool[key] = stack;
-            }
-
-            if (stack.Count > 0)
-            {
-                return (T)stack.Pop();
-            }
-            else
-            {
-                return new T();
-            }
+            return new T();
         }
 
         /// <summary>
@@ -60,170 +41,45 @@ namespace Sango.Render
         public void Reset()
         {
             eventQueue.Clear();
-            dependsEventQueue.Clear();
-            eventPool.Clear();
+            listenerStack.Clear();
             CurEvent = null;
-            queueHead = 0;          // 游标必须一起归零
-        }
-
-        /// <summary>是否已经没有待播事件（复位验证用）</summary>
-        public bool IsIdle
-        {
-            get { return EventCount == 0 && dependsEventQueue.Count == 0 && CurEvent == null; }
         }
 
         /// <summary>
-        /// 当前项**之后**是否还有待播事件（不含当前正在播的那项）。
-        ///
-        /// 用途：某个事件在自己的 Exit 里回过头来启动另一套演出（例如剧本事件系统监听
-        /// "探索结算完成"）时，需要判断"我演完了，但这套旧体系接下来还会不会继续演"。
-        /// 只看 IsIdle 是不行的 —— Exit 期间 CurEvent 尚未置空，IsIdle 恒为 false，
-        /// 那样会导致外部事件永远让路；反过来完全不让路，又会在旧体系后面还有戏时抢窗口。
-        ///
-        /// 注意：移动演出是"路径每格排一个事件"，队列很长，所以这里只关心"有没有下一项"，
-        /// 而不是"有没有在播" —— 当前项正在播并不构成冲突，真正会撞的是同时开对话框。
+        /// 添加到当前队列或者添加进依赖父节点
         /// </summary>
-        public bool HasPendingAfterCurrent
-        {
-            get { return CurEvent != null ? EventCount > 1 : EventCount > 0; }
-        }
-
+        /// <param name="renderEvent"></param>
         public void Add(IRenderEventBase renderEvent)
         {
-            if (renderEvent.MarkDepends)
+            IRenderEventBase dest;
+            if (listenerStack.TryPeek(out dest))
             {
-                dependsEventQueue.Add(renderEvent);
+                dest.AddChild(renderEvent);
             }
             else
-                eventQueue.Add(renderEvent);
+            {
+                eventQueue.Enqueue(renderEvent);
+            }
         }
 
         public bool Update(Scenario scenario, float deltaTime)
         {
-            int count = dependsEventQueue.Count;
-            int evCount = EventCount;       // 待处理数量（与原来的 eventQueue.Count 同义）
-            if (count > 0)
+            while (eventQueue.Count > 0)
             {
-                for (int i = 0; i < count; ++i)
-                {
-                    IRenderEventBase renderEventBase = dependsEventQueue[i];
-
-                    // 同主队列：单个 depends 事件抛异常不能让整帧中断
-                    //（本循环结束后要靠 IsDone 压缩队列，异常冒出去会把队列留在半截状态）
-                    try
-                    {
-                        if (!renderEventBase.IsInited)
-                        {
-                            renderEventBase.IsInited = true;
-                            renderEventBase.Elapsed = 0f;       // 事件池化复用，进入时清零计时
-                            renderEventBase.Enter(scenario);
-                        }
-
-                        // 【watchdog】MaxDuration > 0 的事件超时强制完成。
-                        // 动机：DiplomacyEvent 的 IsDone 只在对话收尾回调里复位，回调一旦被
-                        // GameDialog 丢弃，事件永远滞留队列 → Scenario.Run 每帧提前 return →
-                        // 回合推进停摆（表现为"无法跳过回合、左下进行按钮灰死"）。
-                        // 原版演出是同步阻塞式（scene.open → message → close，
-                        // s11_sys_person_order_diplomacy.cpp:1057-1130），不存在这条坑；
-                        // 异步化后必须自备超时兜底。
-                        bool forceComplete = false;
-                        if (renderEventBase.MaxDuration > 0f)
-                        {
-                            renderEventBase.Elapsed += deltaTime;
-                            if (renderEventBase.Elapsed >= renderEventBase.MaxDuration)
-                            {
-                                Sango.Log.Error(
-                                    $"*[演出]{renderEventBase.GetType().Name} 播放 {renderEventBase.Elapsed:0.0}s 超过上限 {renderEventBase.MaxDuration:0.0}s，" +
-                                    "疑似对话收尾回调丢失，强制完成（OnForceComplete 负责数据兜底）");
-                                forceComplete = true;
-                            }
-                        }
-
-                        bool finished = forceComplete || renderEventBase.Update(scenario, deltaTime);
-                        if (finished)
-                        {
-                            if (forceComplete)
-                            {
-                                try { renderEventBase.OnForceComplete(scenario); }
-                                catch (System.Exception ce)
-                                {
-                                    Sango.Log.Error($"*[演出]{renderEventBase.GetType().Name} 强制完成兜底异常：{ce}");
-                                }
-                            }
-
-                            renderEventBase.IsDone = true;
-                            renderEventBase.Exit(scenario);
-                        }
-                    }
-                    catch (System.Exception e)
-                    {
-                        Sango.Log.Error($"*[演出]{renderEventBase?.GetType().Name} 执行异常，已丢弃并继续：{e}");
-                        renderEventBase.IsDone = true;
-                        try { renderEventBase.Exit(scenario); } catch { }
-                    }
-                }
-                // 原地压缩移除已完成事件，避免 RemoveAll 闭包每帧产生 GC 分配
-                int writeIndex = 0;
-                for (int i = 0; i < count; ++i)
-                {
-                    if (!dependsEventQueue[i].IsDone)
-                        dependsEventQueue[writeIndex++] = dependsEventQueue[i];
-                }
-                if (writeIndex < count)
-                    dependsEventQueue.RemoveRange(writeIndex, count - writeIndex);
-            }
-
-            if (evCount == 0 && count > 0)
-                return false;
-
-            while (queueHead < eventQueue.Count)
-            {
-                CurEvent = eventQueue[queueHead];
-
-                // 【单个事件异常不能卡死整局】
-                // 本方法是串行队列：CurEvent 一旦 Enter / Update 抛异常且没人接住，
-                // 异常会一路冒到 Scenario.Run，而 CurEvent 停在原地、IsInited 又是 true，
-                // 下一帧只会重复执行 Update —— 演出、回合推进、玩家操作全部停摆。
-                // 玩家看到的"卡死"多数出自这里（例如出使归来的武将 BelongCity 已失效，
-                // CityRecruitPersonEvent.Enter 里空引用）。
-                // 兜底策略：记错误日志 + 强制 Exit 该事件 + 游标前移，让流程继续跑。
+                CurEvent = eventQueue.Peek();
                 try
                 {
                     if (!CurEvent.IsInited)
                     {
                         CurEvent.IsInited = true;
                         CurEvent.Elapsed = 0f;      // 事件池化复用，进入时清零计时
+                        CurEvent.LockDepends();
                         CurEvent.Enter(scenario);
+                        CurEvent.ReleaseDepends();
                     }
-
-                    // 【watchdog】与 depends 队列同规则，见上方注释
-                    bool forceComplete = false;
-                    if (CurEvent.MaxDuration > 0f)
-                    {
-                        CurEvent.Elapsed += deltaTime;
-                        if (CurEvent.Elapsed >= CurEvent.MaxDuration)
-                        {
-                            Sango.Log.Error(
-                                $"*[演出]{CurEvent.GetType().Name} 播放 {CurEvent.Elapsed:0.0}s 超过上限 {CurEvent.MaxDuration:0.0}s，" +
-                                "疑似对话收尾回调丢失，强制完成（OnForceComplete 负责数据兜底）");
-                            forceComplete = true;
-                        }
-                    }
-
-                    bool finished = forceComplete || CurEvent.Update(scenario, deltaTime);
+                    bool finished = CurEvent.UpdateInternal(scenario, deltaTime);
                     if (!finished)
                         return false;       // 未完成：游标留在原地，下一帧继续处理它
-
-                    if (forceComplete)
-                    {
-                        try { CurEvent.OnForceComplete(scenario); }
-                        catch (System.Exception ce)
-                        {
-                            Sango.Log.Error($"*[演出]{CurEvent.GetType().Name} 强制完成兜底异常：{ce}");
-                        }
-                        CurEvent.IsDone = true;
-                    }
-
                     CurEvent.Exit(scenario);
                 }
                 catch (System.Exception e)
@@ -231,35 +87,10 @@ namespace Sango.Render
                     Sango.Log.Error($"*[演出]{CurEvent?.GetType().Name} 执行异常，已丢弃并继续：{e}");
                     try { CurEvent?.Exit(scenario); } catch { }
                 }
-
-                // 这里没考虑到同一帧复用导致其他类判断失败的问题
-                //ReturnToPool(CurEvent);
+                eventQueue.Dequeue();
                 CurEvent = null;
-                queueHead++;
             }
-
-            if (queueHead > 0)
-            {
-                // 一次性搬移：把原来每个事件一次的 O(n) 移位，摊还成整队一次 O(n)
-                eventQueue.RemoveRange(0, queueHead);
-                queueHead = 0;
-            }
-
             return true;
-        }
-
-        public void ReturnToPool(IRenderEventBase renderEvent)
-        {
-            renderEvent.IsInited = false;
-
-            string key = renderEvent.GetType().FullName;
-            Stack<IRenderEventBase> stack;
-            if (!eventPool.TryGetValue(key, out stack))
-            {
-                stack = new Stack<IRenderEventBase>();
-                eventPool[key] = stack;
-            }
-            stack.Push(renderEvent);
         }
 
         public string Dump()
@@ -267,27 +98,28 @@ namespace Sango.Render
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.AppendLine($"GameController.Enabled ={GameController.Instance.Enabled}");
             stringBuilder.AppendLine(GameSystemManager.Instance.Dump());
-            //stringBuilder.AppendLine($"CurrentCommand  ={GameSystemManager.Instance.CurrentCommand?.GetType()}");
+            stringBuilder.AppendLine($"CurrentCommand  ={GameSystemManager.Instance.CurrentCommand?.GetType()}");
             if (CurEvent != null)
             {
                 stringBuilder.AppendLine($"Cur:{CurEvent.GetType()}->{CurEvent.IsDone}");
                 stringBuilder.AppendLine(", Count:" + EventCount);
-                for (int i = queueHead; i < eventQueue.Count; i++)
+                IRenderEventBase [] renderEventBase_all = eventQueue.ToArray();
+                for (int i = 0; i < renderEventBase_all.Length; i++)
                 {
-                    IRenderEventBase renderEventBase = eventQueue[i];
-                    stringBuilder.Append($", ({i - queueHead}):{renderEventBase.GetType()} ->{renderEventBase.IsDone}");
+                    IRenderEventBase renderEventBase = renderEventBase_all[i];
+                    stringBuilder.Append($", ({i}):{renderEventBase.GetType()} ->{renderEventBase.IsDone}");
                 }
             }
             else
             {
                 stringBuilder.Append("无!!");
             }
-            stringBuilder.AppendLine("dependsEvent:");
-            for (int i = 0; i < dependsEventQueue.Count; ++i)
-            {
-                IRenderEventBase renderEventBase = dependsEventQueue[i];
-                stringBuilder.Append($", ({i}):{renderEventBase.GetType()} ->{renderEventBase.IsDone}");
-            }
+            //stringBuilder.AppendLine("dependsEvent:");
+            //for (int i = 0; i < listenerStack.Count; ++i)
+            //{
+            //    IRenderEventBase renderEventBase = listenerStack[i];
+            //    stringBuilder.Append($", ({i}):{renderEventBase.GetType()} ->{renderEventBase.IsDone}");
+            //}
 
             stringBuilder.AppendLine($"GameController.KeyboardMoveEnabled ={GameController.Instance.KeyboardMoveEnabled}");
             stringBuilder.AppendLine($"GameController.RotateViewEnabled ={GameController.Instance.RotateViewEnabled}");

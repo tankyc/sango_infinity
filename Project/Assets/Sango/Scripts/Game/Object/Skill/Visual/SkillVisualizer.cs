@@ -48,7 +48,7 @@ namespace Sango.Core
         {
             // 默认技能视觉效果
             troop.Render.SetAniShow(1);
-            troop.Render.FaceTo(spellCell.Position);
+            troop.FaceTo(spellCell);
         }
     }
 
@@ -58,7 +58,8 @@ namespace Sango.Core
         {
             // 远程技能视觉效果
             troop.Render.SetAniShow(1, true);
-            troop.Render.FaceTo(spellCell.Position);
+            troop.FaceTo(spellCell);
+
             // 发射箭头特效
             troop.Render.CastArrow(spellCell.Position);
         }
@@ -70,7 +71,8 @@ namespace Sango.Core
         {
             // 近战技能视觉效果
             troop.Render.SetAniShow(1);
-            troop.Render.FaceTo(spellCell.Position);
+            troop.FaceTo(spellCell);
+
         }
     }
 
@@ -81,7 +83,7 @@ namespace Sango.Core
         public override void PlaySkillVisual(Troop troop, Cell spellCell, List<Cell> atkCellList)
         {
             troop.Render.SetAniShow(3);
-            troop.Render.FaceTo(spellCell.Position);
+            troop.FaceTo(spellCell);
             foreach (var cell in atkCellList)
             {
                 troop.Render.PlayEffect(StrategyEffectAsset);
@@ -108,7 +110,7 @@ namespace Sango.Core
         {
             // 默认技能视觉效果
             troop.Render.SetAniShow(1);
-            troop.Render.FaceTo(spellCell.Position);
+            troop.FaceTo(spellCell);
 
             if (skillInstance != null && skillInstance.Id == CycloneSkillId)
             {
@@ -168,7 +170,7 @@ namespace Sango.Core
         public override void PlaySkillVisual(Troop troop, Cell spellCell, List<Cell> atkCellList)
         {
             troop.Render.SetAniShow(3);
-            troop.Render.FaceTo(spellCell.Position);
+            troop.FaceTo(spellCell);
             UIFullScreenFx.PlayFx(FullScreenFxAsset);
 
             float grid = Scenario.Cur != null && Scenario.Cur.Map != null && Scenario.Cur.Map.GridSize > 0f
@@ -231,7 +233,7 @@ namespace Sango.Core
         public override void PlaySkillVisual(Troop troop, Cell spellCell, List<Cell> atkCellList)
         {
             troop.Render.SetAniShow(3);
-            troop.Render.FaceTo(spellCell.Position);
+            troop.FaceTo(spellCell);
             UIFullScreenFx.PlayFx(FullScreenFxAsset);
 
             float grid = Scenario.Cur != null && Scenario.Cur.Map != null && Scenario.Cur.Map.GridSize > 0f

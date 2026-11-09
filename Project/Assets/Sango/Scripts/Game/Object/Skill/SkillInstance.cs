@@ -679,8 +679,7 @@ namespace Sango.Core
         {
             if (time <= 0f)
             {
-
-                master.Render.FaceTo(spellCell.Position);
+                master.FaceTo(spellCell);
                 tempTimelineCellList.Clear();
                 GetAttackCells(master, spellCell, tempTimelineCellList);
 

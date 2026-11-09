@@ -114,6 +114,13 @@ namespace Sango.Core.Telemetry
 
         /// <summary>副将（最多两人）</summary>
         public List<TeamPerson> members = new List<TeamPerson>();
+
+        /// <summary>
+        /// 玩家启用的模组列表（按加载顺序）。
+        /// 模组可能改了武将属性 / 兵种 / 特技表，同一条组队记录在不同模组环境下
+        /// 强度完全不同 —— 排障时必须能一眼看出这份数据来自什么环境。
+        /// </summary>
+        public List<ModEntry> mods = new List<ModEntry>();
     }
 
     /// <summary>
@@ -234,6 +241,7 @@ namespace Sango.Core.Telemetry
                 troopName = Clean(string.IsNullOrEmpty(troop.Name) && leader != null ? leader.Name : troop.Name),
                 leader = MapPerson(leader),
                 members = new List<TeamPerson>(),
+                mods = BugReporter.EnabledMods(),
             };
 
             record.playerId = record.deviceId;

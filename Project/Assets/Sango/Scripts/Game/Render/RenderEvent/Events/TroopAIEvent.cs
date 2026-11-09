@@ -17,7 +17,7 @@ namespace Sango.Render
 
         public override void Enter(Scenario scenario)
         {
-
+            Update(scenario, 0);
         }
 
         public override void Exit(Scenario scenario)

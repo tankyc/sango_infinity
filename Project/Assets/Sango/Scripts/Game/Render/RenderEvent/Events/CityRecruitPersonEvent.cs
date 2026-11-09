@@ -10,6 +10,17 @@ namespace Sango.Render
         public Person target;
         static List<ActionBase> sJobActions = new List<ActionBase>();
 
+        /// <summary>
+        /// 演出上限。两层"点击推进"的对话正常几秒内看完；给 60s 是防
+        /// "收尾回调被丢 → IsDone 永久 false → 串行演出队列停摆"的兜底线，
+        /// 与 DiplomacyEvent.MaxDuration 同一套防卡死机制。已知会丢回调的路径：
+        ///   · 玩家点取消 → GameDialog.OnWindowClosed(sure:false) → cancelAction，本事件过去没挂它；
+        ///   · 窗口创建失败 → GameDialog.TryAdvance 只补 talkEndAction，sureAction 被丢弃。
+        /// 登用数据在 Enter 里已一次性结算完（JobRecruitPerson 调用即出结果），
+        /// 超时只需跳过剩余对话，OnForceComplete 用基类默认（空）即可。
+        /// </summary>
+        public override float MaxDuration => 10f;
+
         public void Init(Person person, Person target)
         {
             this.person = person;
@@ -73,6 +84,7 @@ namespace Sango.Render
             // 走玩家分支会弹出"成功/失败"对话框并让回合卡在等待点击上。
             if (person.BelongCorps == null || !person.BelongCorps.IsPlayerControl)
             {
+                IsDone = true;
                 // 已无势力（下野 / 灭亡）的人不再结算登用，直接结束本事件
                 if (person.BelongForce != null)
                     person.JobRecruitPerson(target, (int)PersonRecruitType.Normal);
@@ -83,24 +95,25 @@ namespace Sango.Render
 
             if (person.JobRecruitPerson(target, (int)PersonRecruitType.Normal))
             {
+                // 两层对话都要同时挂 sure / cancel：玩家点取消、或窗口被外部关闭时走的是 cancelAction，
+                // 过去只挂 sureAction，取消一次 IsDone 就永远停在 false，串行演出队列从此卡死。
+                // 登用结果在 JobRecruitPerson 里已经落库，这里回调只负责"演出收尾"，两条路等价。
+                System.Action finish = () => IsDone = true;
                 GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"成功招募了{target.ColorName}", () =>
                 {
-                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳", () =>
-                    {
-                        // TODO:展示武将
-                        // 暂时直接招募
-                        IsDone = true;
-                    }, target);
-                }, person);
+                    GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"{target.ColorName}愿为主公献犬马之劳",
+                        finish, finish, target);
+                }, finish, person);
+
             }
             else if (!Sango.Core.Debate.DebateConsequence.HasPending)
             {
-                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到{target.ColorName}", () =>
-                {
-                    // TODO:展示武将
-                    // 暂时直接招募
-                    IsDone = true;
-                }, person);
+                GameDialog.Instance.Open(GameDialog.DialogStyle.ClickPersonSay, $"很遗憾，\n未能招募到{target.ColorName}",
+                    () => IsDone = true, () => IsDone = true, person);
+            }
+            else
+            {
+                IsDone = true;
             }
             // 登用失败被舌战接管时不播"很遗憾"：这时候舌战还没打（甚至还没确认是否观战），
             // 先播失败会误导玩家；真正的成败由 DebateConsequence 在舌战结束时统一播报。

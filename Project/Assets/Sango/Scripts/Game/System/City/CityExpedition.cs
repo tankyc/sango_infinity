@@ -126,7 +126,7 @@ namespace Sango.Core.Player
             TargetTroop.LandTroopType = ActivedLandTroopTypes[CurSelectLandTrropTypeIndex];
             TargetTroop.WaterTroopType = ActivedWaterTroopTypes[CurSelectWaterTrropTypeIndex];
 
-            TargetTroop.CalculateMaxTroops();
+            TargetTroop.CalculateMaxTroops(Scenario.Cur);
 
             if (TargetTroop.troops > TargetTroop.MaxTroops)
                 TargetTroop.troops = TargetTroop.MaxTroops;
@@ -288,7 +288,7 @@ namespace Sango.Core.Player
             if (personList.Count > 1) TargetTroop.Member1 = personList[1];
             if (personList.Count > 2) TargetTroop.Member2 = personList[2];
 
-            TargetTroop.CalculateMaxTroops();
+            TargetTroop.CalculateMaxTroops(Scenario.Cur);
             TargetTroop.CalculateAttribute(Scenario.Cur);
 
             SetTroops(TargetTroop.MaxTroops);
@@ -623,7 +623,7 @@ namespace Sango.Core.Player
             if (personList.Count > 1) TargetTroop.Member1 = personList[1];
             if (personList.Count > 2) TargetTroop.Member2 = personList[2];
 
-            TargetTroop.CalculateMaxTroops();
+            TargetTroop.CalculateMaxTroops(scenario);
             TargetTroop.CalculateAttribute(scenario);
 
             SetTroops(3000);

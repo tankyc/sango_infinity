@@ -30,6 +30,21 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public float ActionPointFactor = 1;
 
+        /// <summary>AI 行动力基础值的缺省值（原版写死 40）</summary>
+        public const int DefaultAIActionPointBase = 40;
+
+        /// <summary>
+        /// AI 行动力基础值 —— AI 军团每回合行动力兜底的**每城基准量**。
+        ///
+        /// 语义：AI 军团每回合起始行动力 = max(当前行动力, 本军团城数 × 本值)，
+        /// 见 <see cref="CorpsAI.AIDistrictPrepare"/>。
+        /// 对齐 Open311 s11_game_ai_district.cpp:52-62 的 `city_count * 2 * 20`（原版写死 40 / 城）；
+        /// 本项目提到剧本配置（剧本参数 → AI参数 → AI行动力基础值），便于按剧本规模调 AI 节奏：
+        /// 值越小，AI 每回合能做的事越少。
+        /// 配 0 或负数时回落到 <see cref="DefaultAIActionPointBase"/>。
+        /// </summary>
+        [JsonProperty] public int aiActionPointBase = DefaultAIActionPointBase;
+
         /// <summary>
         /// 真实年龄开关
         /// </summary>
@@ -977,21 +992,69 @@ namespace Sango.Core
         // 对齐出处：Open311 `Database`（s11_db.h:200-206）的剧本级默认值。
         // 这些是"单支部队"的容量上限，与据点存储上限、势力库存都不同：
         // 运输命令据此对装载量做 clamp，兵装裁剪也据此判断目标还能收多少。
+        //
+        // 【调参入口】剧本配置界面 →"运输部队携带上限"分区（UIScenarioVariables）。
+        // 【0 的语义】配 0（或负数）表示**不设上限**，由下面的 Transport*Limit 属性折算成 int.MaxValue，
+        // 调用方直接 Math.Min 即可，不要用原始字段做上限判断。
+
+        /// <summary>单支运输队携带兵力上限的缺省值（原版 60000，剧本配置里的"最大带兵数量"）</summary>
+        public const int DefaultMaxUnitTransportTroops = 60000;
+
+        /// <summary>单支运输队携带粮食上限的缺省值（原版 500000，剧本配置里的"最大粮食数量"）</summary>
+        public const int DefaultMaxUnitTransportFood = 500000;
+
+        /// <summary>单支运输队携带资金上限的缺省值（原版 100000，剧本配置里的"最大金钱数量"）</summary>
+        public const int DefaultMaxUnitTransportGold = 100000;
+
+        /// <summary>单支运输队每种兵装上限的缺省值（原版 100000，剧本配置里的"最大兵装数量"）</summary>
+        public const int DefaultMaxUnitEquipmentQuantity = 100000;
 
         /// <summary>单支运输队最多携带的兵力 —— 原版 60000</summary>
-        [JsonProperty] public int maxUnitTransportTroops = 60000;
+        [JsonProperty] public int maxUnitTransportTroops = DefaultMaxUnitTransportTroops;
 
         /// <summary>单支运输队最多携带的粮食 —— 原版 500000</summary>
-        [JsonProperty] public int maxUnitTransportFood = 500000;
+        [JsonProperty] public int maxUnitTransportFood = DefaultMaxUnitTransportFood;
 
         /// <summary>单支运输队最多携带的资金 —— 原版 100000</summary>
-        [JsonProperty] public int maxUnitTransportGold = 100000;
+        [JsonProperty] public int maxUnitTransportGold = DefaultMaxUnitTransportGold;
 
-        /// <summary>单支部队单类兵装（枪/戟/弩/马）上限 —— 原版 100000</summary>
-        [JsonProperty] public int maxUnitEquipmentQuantity = 100000;
+        /// <summary>
+        /// 单支运输队单类"兵装"上限 —— 原版 100000。
+        /// 注意：这是**转换前的基准值**，实际可携带量必须再走
+        /// <see cref="GetTransportItemLimit"/>（内部调用 <see cref="ItemType.TransformLimit"/>）。
+        /// </summary>
+        [JsonProperty] public int maxUnitEquipmentQuantity = DefaultMaxUnitEquipmentQuantity;
 
         /// <summary>单支部队攻城器械 / 舰船上限 —— 原版 100</summary>
         [JsonProperty] public int maxUnitCrewEquipmentQuantity = 100;
+
+        /// <summary>运输携带上限：兵力（配置 &lt;= 0 视为不限，返回 int.MaxValue）</summary>
+        public int TransportTroopLimit => maxUnitTransportTroops > 0 ? maxUnitTransportTroops : int.MaxValue;
+
+        /// <summary>运输携带上限：粮食（配置 &lt;= 0 视为不限，返回 int.MaxValue）</summary>
+        public int TransportFoodLimit => maxUnitTransportFood > 0 ? maxUnitTransportFood : int.MaxValue;
+
+        /// <summary>运输携带上限：资金（配置 &lt;= 0 视为不限，返回 int.MaxValue）</summary>
+        public int TransportGoldLimit => maxUnitTransportGold > 0 ? maxUnitTransportGold : int.MaxValue;
+
+        /// <summary>
+        /// 运输队某类物品（兵装 / 攻城器械 / 舰船）的携带上限 —— **必须走转换上限**。
+        ///
+        /// 本项目的兵装类库存上限一律由 <see cref="ItemType.TransformLimit"/> 换算得出
+        ///（与城内仓库上限同口径，见 City.cs:3694 / BuildingPlanner.cs:882）：
+        ///   · p1 == 0（枪 / 戟 / 弩 / 军马）→ 原值，即剧本配置的"最大兵装数量"；
+        ///   · p1 &gt; 0（冲车 / 井阑 / 楼船等，数据里为 10）→ 配置值 × p1 / 1000。
+        /// 直接把 maxUnitEquipmentQuantity 当上限是错的：器械 / 舰船这类 p1=10 的物品
+        /// 会因此放大 100 倍。任何"运输能带多少兵装"的计算都必须经过这里。
+        /// 配置 &lt;= 0 视为不限，返回 int.MaxValue。
+        /// </summary>
+        /// <param name="itemType">物品类型（null 返回 0）</param>
+        public int GetTransportItemLimit(ItemType itemType)
+        {
+            if (itemType == null) return 0;
+            if (maxUnitEquipmentQuantity <= 0) return int.MaxValue;
+            return itemType.TransformLimit(maxUnitEquipmentQuantity);
+        }
 
         /// <summary>
         /// 招募系统 - 在野 / 灭国俘虏的等效忠诚基准。

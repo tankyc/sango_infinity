@@ -3246,7 +3246,7 @@ namespace Sango.Core
             if (people.Length > 2) troop.Member2 = people[2];
 
             // 计算最大兵力
-            troop.CalculateMaxTroops();
+            troop.CalculateMaxTroops(scenario);
 
             // 确定兵数
             int maxTroopNum = troop.MaxTroops;
@@ -3900,6 +3900,45 @@ namespace Sango.Core
                 Sango.Log.Warning($"*[运输AI]{city.Name} 组建运输队失败：计划运送的兵力为 {troops}");
                 return null;
             }
+
+            // 【运输携带上限】剧本配置 →"运输部队携带上限"（对齐原版 max_unit_transport_*，
+            // s11_db.h:200-206）。资源调度 / 港关回收 / 占位部队等多个调用方各自算运量，
+            // 部分支线并没有自行夹取，统一在这里夹到剧本配置上限 + 城内库存，避免漏夹超载。
+            ScenarioVariables limits = scenario.Variables;
+            if (limits != null)
+            {
+                troops = System.Math.Min(troops, System.Math.Min(city.troops, limits.TransportTroopLimit));
+                if (gold < 0) gold = 0;
+                gold = System.Math.Min(gold, System.Math.Min(System.Math.Max(0, city.gold), limits.TransportGoldLimit));
+                if (food < 0) food = 0;
+                food = System.Math.Min(food, System.Math.Min(city.food, limits.TransportFoodLimit));
+
+                // 兵装按种类逐个夹取：min(城内库存, 该类物品的**转换上限**)。
+                // 与玩家运输同一口径：TransformLimit 对 p1=0(枪/戟/弩/马) 取原值，
+                // 对 p1=10(器械/舰船) 取 1/100，不能直接拿配置值比较。
+                if (itemStore != null && itemStore.Items.Count > 0)
+                {
+                    List<int> kinds = new List<int>(itemStore.Items.Keys);
+                    for (int i = 0; i < kinds.Count; i++)
+                    {
+                        int kind = kinds[i];
+                        ItemType itemType = scenario.GetObject<ItemType>(kind);
+                        // 物品表缺项时不做夹取，避免把 AI 计划运量清成 0
+                        if (itemType == null) continue;
+                        int num = itemStore.GetNumber(kind);
+                        int cap = System.Math.Min(city.itemStore != null ? city.itemStore.GetNumber(kind) : 0,
+                                                  limits.GetTransportItemLimit(itemType));
+                        if (num > cap) itemStore.Set(kind, cap);
+                    }
+                }
+            }
+
+            if (troops <= 0 || food <= 0)
+            {
+                Sango.Log.Warning($"*[运输AI]{city.Name} 组建运输队失败：运量被运输上限裁剪为 0（兵 {troops} 粮 {food}）");
+                return null;
+            }
+
             TroopType troopType = TroopType.GetTransportType(scenario, city.BelongForce);
             if (troopType == null)
             {

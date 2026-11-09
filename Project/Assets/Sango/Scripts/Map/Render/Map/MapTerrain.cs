@@ -21,8 +21,43 @@ namespace Sango.Render
         public override void Init()
         {
             base.Init();
+
+            // 【运行时不再创建旧地形块】
+            // 地形渲染已由 TerrainSango 接管（高度纹理 + 顶点着色器位移），地图点击也改走
+            // TerrainSangoBootstrap.TryGetMapHit 的高度场求交，旧地形块在运行时已无任何消费者：
+            //   · 它唯一的剩余价值是 meshCollider 充当点击靶子，而点击已不依赖它；
+            //   · 全图数千块的 GameObject/Mesh 构建反而会白烧内存与首帧时间。
+            // 编辑器（MapEditor.IsEditOn）必须保留：地形笔刷要靠 Map 层 Physics.Raycast 命中
+            // MapCell 的 meshCollider 定位格子（MapEditor.QueryHeight、ModelBrush、MapLabelBrush
+            // 都是这么取点的），改动后的可视化刷新也依赖 terrainCells（TerrainBrush、TerrainEditCommand）。
+            // 另外把 TerrainSangoBootstrap.Enabled 关掉（回退）时也要建，否则回退后没有地形可看可直接点。
+            if (!MapEditor.IsEditOn && TerrainSango.TerrainSangoBootstrap.Enabled)
+            {
+                terrainCells = Array.Empty<MapCell>();
+                return;
+            }
+
+            CreateLegacyCells();
+        }
+
+        /// <summary>
+        /// 创建旧地形块。三个调用场景：
+        ///   ① 编辑器态（MapEditor.IsEditOn）—— 地形笔刷要用 collider 定位格子；
+        ///   ② 回退态（TerrainSangoBootstrap.Enabled 关闭）—— 回到旧管线；
+        ///   ③ **运行时兜底** —— 新地形接管失败（着色器被剥离、设备不支持纹理数组等）时，
+        ///      由 TerrainSangoBootstrap 调回来补建，保证玩家至少能看到地形。
+        ///
+        /// 重复调用安全：已经有块时直接返回。
+        /// </summary>
+        public void CreateLegacyCells()
+        {
+            if (map == null || map.mapData == null) return;
+            if (terrainCells != null && terrainCells.Length > 0) return;
+
             int wCount = map.mapData.vertex_width / cellSize;
             int hCount = map.mapData.vertex_height / cellSize;
+            if (wCount <= 0 || hCount <= 0) return;
+
             terrainCells = new MapCell[wCount * hCount];
 
             for (int y = 0; y < hCount; y++)
@@ -34,13 +69,6 @@ namespace Sango.Render
                     map.AddStatic(cell);
                 }
             }
-
-            //GameObject terrainObject = new GameObject("Terrain");
-
-            //terrainCells = new MapCell[1];
-            //MapCell cell = new MapCell(map, 0, 0, map.mapData.vertex_width, map.mapData.vertex_height);
-            //terrainCells[0] = cell;
-            //map.AddStatic(cell);
         }
 
         internal override void OnSave(BinaryWriter writer)
@@ -76,6 +104,9 @@ namespace Sango.Render
 
         public void Rebuild()
         {
+            // 运行时 terrainCells 为空数组（旧地形不创建），Clear 之后还可能为 null，两种都要挡住
+            if (terrainCells == null) return;
+
             for (int i = 0; i < terrainCells.Length; i++)
             {
                 MapCell cell = terrainCells[i];
@@ -291,6 +322,9 @@ namespace Sango.Render
 
         public override void UpdateImmediate()
         {
+            // 运行时没有旧地形块，这里直接返回（编辑器态才有块需要强制可见并构建）
+            if (terrainCells == null) return;
+
             for (int i = 0; i < terrainCells.Length; i++)
             {
                 MapCell cell = terrainCells[i];

@@ -53,10 +53,18 @@ namespace Sango.Core
             }
 
             // AI 军团行动力兜底：对齐 s11_game_ai_district.cpp:52-62
-            if (!corps.IsPlayer)
+            // 原版这里写死 `city_count * 2 * 20`（每城 40 点）；本项目把 40 提到剧本配置
+            // （剧本参数 → AI参数 → AI行动力基础值，默认 40），便于按剧本规模调 AI 节奏。
+            if (!corps.IsPlayerControl)
             {
+                int basePoint = scenario.Variables != null
+                    ? scenario.Variables.aiActionPointBase
+                    : ScenarioVariables.DefaultAIActionPointBase;
+                if (basePoint <= 0)
+                    basePoint = ScenarioVariables.DefaultAIActionPointBase;
+
                 int n = corps.ActionPoint;
-                corps.ActionPoint = System.Math.Max(n, cityCount * 2 * 20);
+                corps.ActionPoint = System.Math.Max(n, cityCount * basePoint);
             }
             return true;
         }

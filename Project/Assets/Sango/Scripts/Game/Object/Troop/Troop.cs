@@ -1530,7 +1530,7 @@ namespace Sango.Core
             waterMoveAbility = WaterTroopType.move;
             landMoveAbility = LandTroopType.move;
 
-            CalculateMaxTroops();
+            CalculateMaxTroops(scenario);
 
             // 事件可二次修改属性
             GameEvent.OnTroopBeforeCalculateAttribute?.Invoke(this, scenario);
@@ -1562,8 +1562,14 @@ namespace Sango.Core
             }
         }
 
-        public void CalculateMaxTroops()
+        public void CalculateMaxTroops(Scenario scenario)
         {
+            if (LandTroopType.IsTransport())
+            {
+                MaxTroops = scenario.Variables.TransportTroopLimit;
+                return;
+            }
+
             int max = Leader.TroopsLimit;
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(max);
             GameEvent.OnTroopCalculateMaxTroops?.Invoke(Leader.BelongCity, this, overrideData);
@@ -3461,6 +3467,11 @@ namespace Sango.Core
                 });
             }
 
+            // 【渲染兜底】部队若此前已经走过一次收尾（isCleared == true），
+            // 下面的 Clear() 会在 ClearWithBelongCity 开头直接 return，
+            // 连 Render.Clear() 都不执行 —— 结果是"人已经进城了，地图上还残留一支部队"。
+            // 入城是武将归属已经迁走的确定状态，这里无条件再清一次渲染。
+            Render?.Clear();
             Clear();
 
             Sango.Log.Info($"{BelongForce?.Name}的[{Name}]部队进入{city.BelongForce?.Name}的城池:<{city.Name}>");
@@ -4012,7 +4023,7 @@ namespace Sango.Core
                 {
                     // 接任者带兵上限可能不同，重算一次（该计算会用到归属城，故加保护）
                     if (Leader != null && Leader.BelongCity != null)
-                        CalculateMaxTroops();
+                        CalculateMaxTroops(scenario);
                 }
                 else if (liveDays <= 1)
                 {
@@ -5353,6 +5364,12 @@ namespace Sango.Core
             {
                 ChangeGold(getGold);
             }
+        }
+
+        public void FaceTo(Cell target)
+        {
+            if(cell == target || target == null) return;
+            Render?.FaceTo(target.Position);
         }
     }
 }

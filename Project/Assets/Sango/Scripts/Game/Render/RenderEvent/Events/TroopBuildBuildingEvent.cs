@@ -60,7 +60,7 @@ namespace Sango.Render
 
             if (time <= 0f)
             {
-                troop.Render.FaceTo(targetCell.Position);
+                troop.FaceTo(targetCell);
                 troop.Render.SetAniShow(1);
             }
             if (time > 1f)

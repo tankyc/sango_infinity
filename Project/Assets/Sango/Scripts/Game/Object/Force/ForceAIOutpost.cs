@@ -148,14 +148,21 @@ namespace Sango.Core
                 city.UpdateActiveTroopTypes();
                 city.UpdateFightPower();
 
-                // 3~5 格内的敌军：原版 building_has_enemy / map_has_enemy(5 或 4)
-                // 都市判 3/5 格，关隘港口判 2/4 格 —— s11_game_ai_force.cpp:220-221
-                int nearRound = city.IsCity() ? 3 : 2;
-                int farRound = city.IsCity() ? 5 : 4;
-                // PrepareEnemiesInfo 已按距离填好 enemiesRound，直接查表即可，
-                // 不必再对全地图部队池做一遍距离计算。
-                info.existEnemy3 = city.IsEnemiesRound(nearRound);
-                info.existEnemy5 = city.IsEnemiesRound(farRound);
+                // 3~5 格内的敌军 —— s11_game_ai_force.cpp:220-221：
+                //     exist_enemy3 = building_has_enemy(building)                // 城 3 / 港关 2
+                //     exist_enemy5 = map_has_enemy(pos, 都市 ? 5 : 4, building)  // **纯地图半径**
+                // 两者共同点：以**据点坐标为中心的地图格距离**，不要求敌军站在本城区域内。
+                //
+                // 【原实现 Bug】用 city.IsEnemiesRound(n) 查表，而那张表由
+                // PrepareEnemiesInfo 遍历 areaCellList（本城直辖格）填充 ——
+                // 敌军必须**站在城域内**才被计入。城域只是城周一圈的领地，
+                // 敌军压在城边但没踏进城域时（最常见的前线态势）查表恒为 false，
+                // 该判 Battle 的城判不出来 → 前线城被当成可运输的后方，
+                // 出现"一边往小城送兵、一边把兵运回主城"的对冲。
+                // HasEnemyNearby（城 3/港 2）与 HasEnemyInRange（城 5/港 4）
+                // 都是纯坐标距离扫描，语义与原版一致。
+                info.existEnemy3 = city.HasEnemyNearby();
+                info.existEnemy5 = city.HasEnemyInRange(city.CenterCell, city.IsCity() ? 5 : 4);
 
                 // 邻接敌方据点数量：原版 s11_game_ai_force.cpp:222-248 的 attack_dest_building_list
                 CountNeighborEnemyOutpost(city, force, info);
@@ -197,9 +204,21 @@ namespace Sango.Core
                         continue;
                     if (building.BuildingType == null)
                         continue;
+
+                    // 【原版对齐】s11_game_ai_force.cpp:266-283：阵 / 砦（根城）记 nejiro。
                     if (building.BuildingType.kind == (int)BuildingKindType.Camp)
                     {
                         info.mainCamp = building.Id;
+                    }
+                    // 【原版对齐】s11_game_ai_force.cpp:285-290 的 `is_military_type()`：
+                    // **所有**军事类型设施（majorType == Military：阵 / 砦 / 城塞 / 箭楼 /
+                    // 连弩楼 / 投石台等）都给归属据点 enemy_facility_count++。
+                    // 旧实现只认 Camp 一种，敌方箭楼 / 投石台压境时判不出 Battle，
+                    // 该城被当成"和平后方"继续运输，又是一条对冲来源。
+                    // Camp 若数据上就是 Military，这里与上面各记一次，与原版一致
+                    // （原版根城同样既设 nejiro 又因 is_military_type 计一次）。
+                    if (building.BuildingType.IsMilitary)
+                    {
                         info.enemyFacilityCount++;
                     }
                 }
@@ -558,23 +577,55 @@ namespace Sango.Core
         {
             if (city.NeighborList == null)
                 return;
+
+            // 原版范围：s11_game_ai_force.cpp:222
+            //   ai_table_get_attack_dest_building_list(id, 1 + (都市 ? 2 : 0), false)
+            //   —— **都市 3 跳 / 港关 1 跳**，且列表不限阵营（敌方 / 无主都在内）。
+            // 【旧实现 Bug】只扫 1 跳 NeighborList，都市的前线判定比原版窄两圈：
+            // 敌人隔着中间据点时，该城判不出 Front，distanceFromBorder 的 BFS 起点也变少，
+            // 前线城被误判成"后方"就会往外运兵，与主城的支援形成对冲。
+            int maxDepth = city.IsCity() ? 3 : 1;
+
+            Dictionary<int, int> dist = new Dictionary<int, int>();
+            Queue<City> queue = new Queue<City>();
+            dist[city.Id] = 0;
+            queue.Enqueue(city);
+
             bool empty = false;
-            for (int i = 0; i < city.NeighborList.Count; i++)
+            while (queue.Count > 0)
             {
-                City nb = city.NeighborList[i];
-                if (nb == null || !nb.IsAlive)
+                City cur = queue.Dequeue();
+                int d = dist[cur.Id];
+                if (d >= maxDepth)
                     continue;
-                Force nbForce = nb.BelongForce;
-                if (nbForce == null)
+                if (cur.NeighborList == null)
+                    continue;
+                for (int i = 0; i < cur.NeighborList.Count; i++)
                 {
-                    // 无主据点：原版算作"可以打"，累加 1
-                    empty = true;
-                    continue;
+                    City nb = cur.NeighborList[i];
+                    if (nb == null || !nb.IsAlive)
+                        continue;
+                    if (dist.ContainsKey(nb.Id))
+                        continue;
+                    dist[nb.Id] = d + 1;
+                    queue.Enqueue(nb);
+
+                    // 对齐 :229-246：敌方据点逐个累加，无主据点记布尔最后统一 +1
+                    Force nbForce = nb.BelongForce;
+                    if (nbForce == null)
+                    {
+                        // 无主据点：原版算作"可以打"
+                        empty = true;
+                    }
+                    else if (nbForce != force && force.IsEnemy(nbForce))
+                    {
+                        // 【架构差异】原版在 is_enemy 命中后还要过
+                        // ai_table_is_reachable_neighbor（考虑部队阻挡的可达表），
+                        // 不可达的记 unreachable_enemy、同样只 +1。本项目没有该表，
+                        // NeighborList 邻接即视为可达，unreachable 分支恒不触发。
+                        info.neighborEnemyOutpostCount++;
+                    }
                 }
-                if (nbForce == force)
-                    continue;
-                if (force.IsEnemy(nbForce))
-                    info.neighborEnemyOutpostCount++;
             }
             if (empty)
                 info.neighborEnemyOutpostCount++;

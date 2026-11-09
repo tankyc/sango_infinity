@@ -1919,8 +1919,18 @@ namespace Sango.Core
             Dictionary<Technique, float> techniqueWeights = new Dictionary<Technique, float>();
 
             // 收集所有可研发的科技
-            foreach (Technique technique in force.InitTechniques)
+            //
+            // 【修复】原实现遍历的是 force.InitTechniques —— 那是"势力科技树**入口**"
+            // （见 Force.cs 该字段注释：势力独有的初始化科技信息，以此为入口，
+            //   且可以为势力设置独特的科技树），每个系列只有根节点（初级技巧）在里面，
+            // 子节点永远不会被 AI 选中，表现就是"电脑只研究初级技巧"。
+            // 改为遍历技巧全表，用 IsTechniqueAvailable（未掌握 + 前置已掌握）筛选，
+            // 与玩家侧 Force.prepareTechniqueList 构建 canResearchTechniqueList 的口径一致。
+            Dictionary<int, Technique> allTechniques = scenario.CommonData.Techniques.objects;
+            foreach (KeyValuePair<int, Technique> kv in allTechniques)
             {
+                Technique technique = kv.Value;
+                if (technique == null) continue;
                 if (IsTechniqueAvailable(force, technique, scenario))
                 {
                     availableTechniques.Add(technique);

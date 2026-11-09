@@ -13,6 +13,12 @@ namespace Sango.Render
     {
         static readonly string DefaultPackage = "Content";
 
+        /// <summary>
+        /// 序列帧特效播放总开关，与 <see cref="Sango.Core.GameParticales.EffectEnabled"/> 同源。
+        /// 顶视图（全局俯瞰）期间由 MapTopView 置 false：那一帧只保留地形，不希望再有新特效冒出来。
+        /// </summary>
+        public static bool EffectEnabled = true;
+
         // 按路径加载过的贴图缓存:同一路径只从磁盘读一次,避免每次播放特效都同步读盘+GPU回读卡顿
         static readonly Dictionary<string, Texture2D> sTexCache = new Dictionary<string, Texture2D>();
 
@@ -134,8 +140,11 @@ namespace Sango.Render
         /// <param name="fps">播放帧率</param>
         /// <param name="worldSize">最终世界单位宽度(>0时自动计算缩放)</param>
         public static SpriteSequenceEffect Play(string sheetPath, int cols, int rows, int frameCount,
-                                                  Vector3 worldPos, float fps = 20f, float worldSize = 0f)
+                                                 Vector3 worldPos, float fps = 20f, float worldSize = 0f)
         {
+            // 顶视图（全局俯瞰）期间不产生新特效：那一帧只保留地形
+            if (!EffectEnabled) return null;
+
             GameObject go = new GameObject("SpriteSequenceEffect");
             go.transform.position = worldPos;
             go.transform.localScale = Vector3.one;

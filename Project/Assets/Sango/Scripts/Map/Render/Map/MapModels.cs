@@ -688,8 +688,21 @@ namespace Sango.Render
         private int manageLastIndex = 0;
 
 
+        /// <summary>
+        /// 模型渲染总开关（顶视图用）。
+        ///
+        /// false 时整帧跳过可见性计算与绘制：顶视图下 modelRoot 已被
+        /// <see cref="MapTopView"/> 整体失活，这里再算一遍纯属浪费 —— 而且顶视图的视野
+        /// 覆盖全图，四叉树查询与植被遍历都会退化到"全量"，是实打实的卡顿来源。
+        /// 恢复为 true 后，下一帧 <see cref="Update"/> 会重新按视野计算可见性，不需要额外补偿。
+        /// </summary>
+        public bool renderEnabled = true;
+
         public void Update(Tools.Rect rect)
         {
+            if (!renderEnabled)
+                return;
+
             curViewRect = rect;
 
             int lastCount = mapManageObjectsCount[manageLastIndex];

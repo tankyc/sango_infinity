@@ -3632,6 +3632,14 @@ namespace Sango.Core
         /// <param name="add"></param>
         public void GainExp(int add)
         {
+            // 【原版对齐】s11_sys_scen_person.cpp:1566-1569 person_add_exp 入口第一句：
+            //     if (not utils::is_alive(self)) return;
+            // 即原版任何"加武将经验"的路径都先拦死死亡武将，不会走到升级分支、
+            // 更不会触发 person level up 提示。
+            // 本项目 utils::is_alive 对武将读 state（DuelExternal.cs:76），故等价于 IsDead。
+            if (IsDead)
+                return;
+
             // 【性格】学习速度 × 成长速度共同影响经验获取量
             //（冷静型学得更快，莽撞型偏慢）
             if (mPersonality != null)
@@ -3659,7 +3667,11 @@ namespace Sango.Core
                 {
                     if (Level.Next != null)
                     {
-                        Exp = Level.exp - Exp;
+                        // 【符号修复】原写法 `Exp = Level.exp - Exp` 把"剩余经验"算成了负数
+                        // （Exp 必然大于 Level.exp 才进这个分支），升级后经验被清零成负值，
+                        // 下次获得经验要先补回欠账，表现是"等级越高越升不动"。
+                        // 正确语义：扣掉本级所需，保留溢出部分。
+                        Exp -= Level.exp;
                         Level = Level.Next;
                     }
                     else
@@ -3686,6 +3698,13 @@ namespace Sango.Core
         /// </summary>
         public void GainJobAttributeExp(int jobId)
         {
+            // 【原版对齐】s11_sys_scen_person.cpp:1566-1569 person_add_exp 入口：
+            //     if (not utils::is_alive(self)) return;
+            // 能力经验（person_add_stat_exp）在原版同样被这个总守卫拦住，
+            // 死亡武将不会因为"工作结算晚一拍"再涨属性。
+            if (IsDead)
+                return;
+
             Scenario scenario = Scenario.Cur;
             if (scenario == null) return;
 

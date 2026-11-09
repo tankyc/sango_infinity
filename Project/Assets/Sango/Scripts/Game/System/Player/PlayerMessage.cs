@@ -581,13 +581,17 @@ namespace Sango.Core.Player
             if (person.IsCurPlayer)
             {
                 message = $"{person.ColorName}升级到{person.Level.Id}级！";
-                int x, y = 0;
+                // 【空引用修复】升级提示要落在地图坐标上，但"既不在部队、也没有所在城"
+                // 的武将是合法状态：在野（LeaveToWild 只清军团不清 BelongCity）、
+                // 刚死亡、读档时尚未解析出所在地。原写法直接读 CurrentCity.x → NRE，
+                // 而升级又是在内政结算里批量触发的，一旦命中就刷满整屏。
+                int x = 0, y = 0;
                 if (person.mBelongTroop != null)
                 {
                     x = person.mBelongTroop.x;
                     y = person.mBelongTroop.y;
                 }
-                else
+                else if (person.CurrentCity != null)
                 {
                     x = person.CurrentCity.x;
                     y = person.CurrentCity.y;

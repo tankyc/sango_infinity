@@ -50,7 +50,18 @@ namespace Sango.Render
         public MapLabelSet mapLabelSet;
         // 战略地图图层：按地格烘焙势力色与势力/州边界，默认不显示
         public MapStrategyMap mapStrategyMap;
+        // 顶视图（全局俯瞰）：缓动到地图正上方垂直俯视，并暂时只保留地形
+        public MapTopView mapTopView;
         public OnSeasonChange onSeasonChange;
+
+        /// <summary>顶视图开关回调。</summary>
+        public delegate void OnTopViewChangeCall(bool isTopView);
+
+        /// <summary>
+        /// 顶视图开关事件：true = 已切到顶视图（模型已隐藏），false = 已开始恢复 / 已取消。
+        /// UI（按钮高亮、提示条）、小地图等表现层可以订阅它，不需要自己轮询 isActive。
+        /// </summary>
+        public OnTopViewChangeCall onTopViewChange;
 
         // camera move
         Vector3 moveDest;
@@ -68,7 +79,6 @@ namespace Sango.Render
         public OnInitGridCall initGridFunc;
         public OnBindGridDataCall bindGridFunc;
 
-        public static Transform terrainRoot;
         public static Transform modelRoot;
         public static GameObject mapRoot;
         public static int ScaleNX = 1;
@@ -106,10 +116,12 @@ namespace Sango.Render
                 mapRoot = new GameObject("Map");
                 mapRoot.AddComponent<MapLooper>();
 
-                GameObject tempGo = new GameObject("Terrain");
-                tempGo.transform.SetParent(mapRoot.transform);
-                terrainRoot = tempGo.transform;
-                tempGo = new GameObject("Model");
+                // 【不再创建旧地形节点】地形渲染已由 TerrainSango 接管（高度纹理 + 顶点着色器位移），
+                // 旧的 "Terrain" 空节点以及挂在它下面的地形块 GameObject 已无消费者：
+                //   · 渲染：TerrainSangoRenderer 独立出图，旧地形块的 MeshRenderer 本就全程关闭；
+                //   · 点击：GameController → TerrainSangoBootstrap.TryGetMapHit，按同一份高度场求交。
+                // 因此这里只保留 Model 节点（建筑/部队模型、地图标注仍挂在它下面）。
+                GameObject tempGo = new GameObject("Model");
                 tempGo.transform.SetParent(mapRoot.transform);
                 modelRoot = tempGo.transform;
             }
@@ -120,8 +132,13 @@ namespace Sango.Render
             //if (Instance == this)
             //    Instance = null;
 
-            if (terrainRoot != null && terrainRoot.parent != null)
-                GameObject.Destroy(terrainRoot.parent.gameObject);
+            // 旧实现靠 terrainRoot.parent 间接拿到 Map 根节点，现在没有 Terrain 中间层，直接销毁 mapRoot
+            if (mapRoot != null)
+            {
+                GameObject.Destroy(mapRoot);
+                mapRoot = null;
+                modelRoot = null;
+            }
         }
 
         protected void OnInitFunctions()
@@ -243,6 +260,8 @@ namespace Sango.Render
             mapStrategyMap = new MapStrategyMap(this);
             mapModels = new MapModels(this);
             mapLabelSet = new MapLabelSet(this);
+            // 顶视图必须在 mapCamera 之后创建：它的 Init 会把输入拦截器注册到 mapCamera
+            mapTopView = new MapTopView(this);
 
             mapLayer.Init();
             // 必须在terrain之前
@@ -256,6 +275,7 @@ namespace Sango.Render
             mapGrid.Init();
             mapStrategyMap.Init();
             mapLabelSet.Init();
+            mapTopView.Init();
         }
 
         public void AddDynamic(IMapManageObject obj)
@@ -339,6 +359,9 @@ namespace Sango.Render
                 mapFog.Clear();
             if (mapBaseColor != null)
                 mapBaseColor.Clear();
+            // 顶视图要在相机之前清理：它持有 mapCamera.interceptInput 的委托
+            if (mapTopView != null)
+                mapTopView.Clear();
             if (mapCamera != null)
                 mapCamera.Clear();
             if (mapSkyBox != null)
@@ -355,7 +378,6 @@ namespace Sango.Render
                 GameObject.Destroy(mapRoot);
                 mapRoot = null;
                 modelRoot = null;
-                terrainRoot = null;
             }
         }
 
@@ -517,6 +539,11 @@ namespace Sango.Render
                     if (factor >= 1)
                         smoothMove = false;
                 }
+
+                // 顶视图缓动必须在 mapCamera.Update 之前推进：两者写的是同一组相机参数
+                // （look_position / cur_distance / look_rotate），晚一帧会让镜头停在中间值上抖一下
+                if (mapTopView != null)
+                    mapTopView.Update();
 
                 mapCamera.Update();
                 float x, y, w, h;
@@ -785,6 +812,9 @@ namespace Sango.Render
 
         public void MoveCameraTo(Vector3 pos, float time)
         {
+            // 顶视图下要求"平滑移动到某处"，先立即结束顶视图，否则缓动和平滑移动会抢同一组参数
+            CancelTopView();
+
             moveDest = pos;
             if (mapCamera != null)
                 moveStart = mapCamera.position;
@@ -796,9 +826,49 @@ namespace Sango.Render
 
         public void SetCamera(Vector3 pos, Vector3 rot, float dis)
         {
+            // 直接设定视角同样要退出顶视图，否则顶视图缓动会在下一帧把参数改回去
+            CancelTopView();
+
             mapCamera.position = pos;
             mapCamera.lookRotate = rot;
             mapCamera.distance = dis;
+        }
+
+        // ---------------- 顶视图（全局俯瞰） ----------------
+
+        /// <summary>切换顶视图 / 普通视角。</summary>
+        public void ToggleTopView()
+        {
+            mapTopView?.Toggle();
+        }
+
+        /// <summary>进入顶视图：相机缓动到地图正上方垂直俯视，并隐藏地形之外的所有渲染。</summary>
+        public void EnterTopView()
+        {
+            mapTopView?.Enter();
+        }
+
+        /// <summary>退出顶视图：相机缓动回进入前的姿态，缓动结束后恢复地形之外的渲染。</summary>
+        public void ExitTopView()
+        {
+            mapTopView?.Exit();
+        }
+
+        /// <summary>立即结束顶视图（不缓动）。用于"定位到某处""直接设定视角"这类需要当前帧接管相机的操作。</summary>
+        public void CancelTopView()
+        {
+            if (mapTopView != null && mapTopView.isActive)
+                mapTopView.Cancel();
+        }
+
+        /// <summary>是否处于顶视图（含进出缓动）。</summary>
+        public bool IsTopView => mapTopView != null && mapTopView.isActive;
+
+        /// <summary>立刻停止"镜头平滑移动到目标点"。</summary>
+        public void StopSmoothMove()
+        {
+            smoothMove = false;
+            currentMoveTime = 0f;
         }
 
         public void MoveCameraKeyBoard(bool[] keyFlags)

@@ -724,7 +724,7 @@ namespace Sango.Core
             ActionPoint = System.Math.Max(0, ActionPoint);
 
 
-            if (IsPlayer && BelongForce == Scenario.Cur.CurRunForce)
+            if (IsPlayerControl && BelongForce == Scenario.Cur.CurRunForce)
             {
                 GameEvent.OnCorpsActionPointChange?.Invoke(this);
             }

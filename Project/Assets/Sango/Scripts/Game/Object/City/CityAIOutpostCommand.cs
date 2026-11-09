@@ -813,12 +813,14 @@ namespace Sango.Core
 
             // 单队上限 clamp —— :142-144
             // 原版：troops/food/gold 各自 clamp 到 max_unit_transport_*。
-            sendTroops = System.Math.Clamp(sendTroops, 0, variables.maxUnitTransportTroops);
-            sendFood = System.Math.Clamp(sendFood, 0, variables.maxUnitTransportFood);
-            sendGold = System.Math.Clamp(sendGold, 0, variables.maxUnitTransportGold);
+            // 走 Transport*Limit 而不是原始字段：剧本配置里把上限配成 0 表示"不限"，
+            // 直接用 0 做 Clamp 上限会把所有运量裁成 0。
+            sendTroops = System.Math.Clamp(sendTroops, 0, variables.TransportTroopLimit);
+            sendFood = System.Math.Clamp(sendFood, 0, variables.TransportFoodLimit);
+            sendGold = System.Math.Clamp(sendGold, 0, variables.TransportGoldLimit);
 
             if (sendTroops <= 0 || sendFood <= 0)
-                return Skip($"单队上限裁剪后无可运量（兵{sendTroops} 粮{sendFood}，上限 兵{scenario.Variables.maxUnitTransportTroops} 粮{scenario.Variables.maxUnitTransportFood}）");
+                return Skip($"单队上限裁剪后无可运量（兵{sendTroops} 粮{sendFood}，上限 兵{variables.TransportTroopLimit} 粮{variables.TransportFoodLimit}）");
 
             // 兵装随队：按 get_extra_resource 的富余量、且不超过运输兵数装载 —— :136-141
             ItemStore cargo = BuildTransportItems(extraEquipment, sendTroops);
@@ -840,8 +842,13 @@ namespace Sango.Core
             OutpostRuntime.MarkExecuted();
 
             if (AIConfig.Instance.logOutpostAI)
+                // 【方向诊断】把源 / 目标的据点态势一并打进日志：
+                // 正常运输的方向必须是"距国境更近"（数字不变大），
+                // 若出现"源 0 → 目标 3"这类反向记录，说明 distanceFromBorder / state 算错，
+                // 而不是运输命令本身判错。这是"一边送兵进来、一边把兵运回去"最直接的证据。
                 Sango.Log.Info($"*[据点AI]{city.Name} 运输 → {target.Name} 兵{sendTroops} 粮{sendFood} 金{sendGold}" +
-                               $"（运输队「{troop.Name}」{troop.Leader?.Name}，剩余行动力{OutpostRuntime.actionPoint}）");
+                               $"（运输队「{troop.Name}」{troop.Leader?.Name}，剩余行动力{OutpostRuntime.actionPoint}）" +
+                               $" [源 {info.state}/距国境{info.distanceFromBorder} → 目标 {targetInfo.state}/距国境{targetInfo.distanceFromBorder}]");
             return true;
         }
 
@@ -1121,9 +1128,22 @@ namespace Sango.Core
                     continue;
                 if (troop.BelongForce != city.BelongForce)
                     continue;
-                if (troop.missionType != (int)MissionType.TroopTransformGoodsToCity)
-                    continue;
-                if (troop.missionTarget == city.Id)
+
+                // 【原版对齐】get_deploy_id(dest_id, DeployType_Transport)
+                // （s11_game_ai_kyoten_cmd_mil_transport.cpp:247）判的是**部署意图 + 目标**，
+                // 不是任务类型。原版把"支援部队"（mil_support.cpp:190）和"运输队"
+                // （mil_transport.cpp:181-186）都登记成 DeployType_Transport，
+                // 两条命令因此互相可见 —— 同一座目标城不会被"一边送进去、一边运出来"。
+                // 旧实现只认 missionType == TroopTransformGoodsToCity，
+                // 支援部队（TroopMovetoCity）完全隐身，互斥彻底失效。
+                if ((TroopDeployType)troop.deployType == TroopDeployType.Transport
+                    && troop.deployTarget == city.Id)
+                    return true;
+
+                // 【旧存档兜底】意图层是后加的序列化字段，老存档里可能是 0。
+                // 任务类型判定保留，避免老档里的运输队被漏判。
+                if (troop.missionType == (int)MissionType.TroopTransformGoodsToCity
+                    && troop.missionTarget == city.Id)
                     return true;
             }
             return false;
@@ -1591,12 +1611,19 @@ namespace Sango.Core
                 // `TroopMovetoCity` 到达目标城格后会 `EnterCity`，兵力并入城池，正是增援所需。
                 troop.SetMission(MissionType.TroopMovetoCity, target.Id);
 
-                // 【意图层】覆盖 AIMakeTroop 按城市任务推断出来的意图：
-                // 本方法的语义是"跨城增援"，对应原版 DeployType_Defense
-                // （s11_game_ai_kyoten_cmd_mil_defense.cpp:264-266 派兵时写的就是 deploy_[] 里的防卫目标）。
-                // 不覆盖的话，deployType 会跟着 city.TroopMissionType 走，
-                // 后续 UpdateAIOrder 的改派表就会按错误的意图判断。
-                troop.deployType = (int)TroopDeployType.Defense;
+                // 【意图层 · 原版对齐】支援部队在原版登记为 **DeployType_Transport**，不是 Defense：
+                // s11_game_ai_kyoten_cmd_mil_support.cpp:189-191
+                //     context_->unit[unit_id].deploy_type  = DeployType_Transport;
+                //     context_->unit[unit_id].deploy_target = target_id;
+                // 这不是笔误 —— 支援的本质就是"把兵 / 粮运进友方据点"，与运输队同类。
+                // 原版正是靠这个统一标签实现"支援 / 运输"互斥：两条命令都用
+                // `get_deploy_id(dest_id, DeployType_Transport) >= 0 → 跳过该目标`
+                // （支援 :82-85、运输 mil_transport.cpp:246-249），
+                // 因此同一个目标城不可能既"在被送兵"又"在被运出"。
+                //
+                // 【本项目此前的问题】这里写成 Defense，于是 IsTransporting 认不出支援部队，
+                // 表现为：一边十几支支援队往小城送兵，一边小城派运输队把兵运回主城，来回对冲。
+                troop.deployType = (int)TroopDeployType.Transport;
                 troop.deployTarget = target.Id;
 
                 troop.NeedPrepareMission();

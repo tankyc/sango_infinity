@@ -2651,7 +2651,17 @@ namespace Sango.Core
                 Sango.Log.Info($"*[城陷]{Name}（无主）被 {atk.BelongForce?.Name ?? "未知"} 占领（攻方部队 {atk.Name}）");
                 BelongCorps = atk.BelongCorps;
                 BelongForce = atk.BelongForce;
-                if (skillInstance != null && !skillInstance.IsRange())
+                // 【原版对齐】入城判据是**距离**，不是"技能是否远程"：
+                //   s11_sys_event_kanraku.cpp:347-357
+                //     if (map_.range_contains(self->get_pos(),
+                //             self->get_facility_id() == FacilityId_City ? 2 : 1,
+                //             by_unit->get_pos()))
+                //         unit_enter(by_unit, self);
+                // 原先写成 `skillInstance != null && !skillInstance.IsRange()`：
+                // 远程部队贴着城墙破城也不会入城，城被占领却无人接管（太守为空、
+                // 守备兵 0），部队孤零零停在外面；技能为 null 时不入城同样没有依据。
+                if (atk != null && atk.cell != null && CenterCell != null
+                    && Scenario.Cur.Map.Distance(CenterCell, atk.cell) <= (IsCity() ? 2 : 1))
                 {
                     // 【顺序】必须先让攻方入城（改户口），再指定太守。
                     // 反序会出现"Leader 的 BelongCity 还不是本城、也不在 allPersons 里"，
@@ -3141,7 +3151,18 @@ namespace Sango.Core
             }
 
             // 【原版对齐】异族 / 贼不占领、不入城（kyoten_kanraku:347-358 走 update_bandits 而非 unit_enter）。
-            if (!banditFall && skillInstance != null && !skillInstance.IsRange())
+            //
+            // 入城判据是**距离**，不是"技能是否远程"：
+            //   s11_sys_event_kanraku.cpp:347-357
+            //     if (map_.range_contains(self->get_pos(),
+            //             self->get_facility_id() == FacilityId_City ? 2 : 1,
+            //             by_unit->get_pos()))
+            //         unit_enter(by_unit, self);
+            // 原先写成 `!skillInstance.IsRange()`：远程部队明明贴着城墙破城也不会入城，
+            // 城被攻下却无人接管（太守为空、守备兵 0），部队孤零零停在外面；
+            // 而技能为 null（耐久被事件/建筑打掉）同样不该影响接管判定。
+            if (!banditFall && atk != null && atk.cell != null && CenterCell != null
+                && Scenario.Cur.Map.Distance(CenterCell, atk.cell) <= (IsCity() ? 2 : 1))
             {
                 Leader = atk.Leader;
                 // 城陷入城：攻方必须真进城接管，禁止因容量不足改道
@@ -6126,7 +6147,7 @@ namespace Sango.Core
         /// 的 <c>map_has_enemy(param.pos, 3)</c>）共用。
         /// </summary>
         /// <param name="center">扫描中心格</param>
-        /// <param name="radius">扫描半径（1~3，当前需求为 2/3）</param>
+        /// <param name="radius">扫描半径（原版需求：3/2 与 5/4 两档）</param>
         /// <returns>半径内存在敌方部队返回 true</returns>
         public bool HasEnemyInRange(Cell center, int radius)
         {
@@ -6139,31 +6160,48 @@ namespace Sango.Core
             // 从而**漏判兵临城下**（城被围着却还能开发 / 交易 / 召唤）。
             // 原版 `building_has_enemy` 用的是 `range_contains(pos, 1, 3)` —— 纯坐标距离，不看地形。
             // 这里改为按六边形邻格逐环展开，与坐标距离严格一致。
-            for (int i = 0; i < 6; i++)
+            //
+            // 【半径 5 的修复】原实现是手写三层嵌套（radius >= 2 / >= 3 各一层），
+            // 半径 > 3 会被**静默截断成 3**。而据点态势装载（ForceAIOutpost.cs）的
+            // exist_enemy5 需要都市 5 / 港关 4 的半径 —— 传入 5/4 实际只扫到 3，
+            // 表现为"远处敌军看不见"，该判 Battle 的城判不出来。
+            // 改成通用逐环展开（frontier / next 队列 + visited 去重），任意半径都正确；
+            // 缓冲用静态容器复用，本方法在回合装载时对每座城调用两次，避免每城每回合新分配。
+            ringFrontier.Clear();
+            ringVisited.Clear();
+            ringFrontier.Add(center);
+            ringVisited.Add(center);
+
+            for (int r = 0; r < radius; r++)
             {
-                Cell ring1 = center.GetNeighbor(i);
-                if (HasEnemyTroopOn(ring1))
-                    return true;
-                if (radius < 2 || ring1 == null)
-                    continue;
-
-                for (int j = 0; j < 6; j++)
+                ringNext.Clear();
+                for (int i = 0; i < ringFrontier.Count; i++)
                 {
-                    Cell ring2 = ring1.GetNeighbor(j);
-                    if (HasEnemyTroopOn(ring2))
-                        return true;
-                    if (radius < 3 || ring2 == null)
-                        continue;
-
-                    for (int k = 0; k < 6; k++)
+                    Cell cur = ringFrontier[i];
+                    for (int d = 0; d < 6; d++)
                     {
-                        if (HasEnemyTroopOn(ring2.GetNeighbor(k)))
+                        Cell nb = cur.GetNeighbor(d);
+                        if (nb == null || !ringVisited.Add(nb))
+                            continue;
+                        if (HasEnemyTroopOn(nb))
                             return true;
+                        ringNext.Add(nb);
                     }
                 }
+                if (ringNext.Count == 0)
+                    break;
+                // 交换 frontier / next，避免每环重新分配列表
+                List<Cell> tmp = ringFrontier;
+                ringFrontier = ringNext;
+                ringNext = tmp;
             }
             return false;
         }
+
+        /// <summary><see cref="HasEnemyInRange"/> 的逐环扫描缓冲（静态复用，避免每次调用分配）。</summary>
+        static List<Cell> ringFrontier = new List<Cell>(128);
+        static List<Cell> ringNext = new List<Cell>(128);
+        static readonly HashSet<Cell> ringVisited = new HashSet<Cell>(256);
 
         /// <summary>
         /// 检查指定回合是否有敌人

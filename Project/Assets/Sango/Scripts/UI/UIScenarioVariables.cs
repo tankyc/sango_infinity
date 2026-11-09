@@ -265,6 +265,17 @@ namespace Sango.UI
             AddNumberItem("防御-政治影响(万分比)", variables.fight_troop_defence_politics_factor, 0, 100000, (v) => { variables.fight_troop_defence_politics_factor = v; });
             AddNumberItem("防御-魅力影响(万分比)", variables.fight_troop_defence_glamour_factor, 0, 100000, (v) => { variables.fight_troop_defence_glamour_factor = v; });
 
+            // 运输部队携带上限：对齐原版 Database 的 max_unit_transport_*
+            //（s11_db.h:200-206，原版默认 兵 60000 / 金 100000 / 粮 500000 / 兵装 100000）。
+            // 运输命令据此对装载量做 clamp；配 0 表示不限（取值走 ScenarioVariables.Transport*Limit）。
+            // 注意"最大兵装数量"是**转换前的基准值**：实际每类物品上限 = ItemType.TransformLimit(该值)，
+            // 兵装(p1=0)取原值，器械/舰船(p1=10)取 1/100，见 ScenarioVariables.GetTransportItemLimit。
+            AddTitle("运输部队携带上限");
+            AddNumberItem("最大带兵数量(0=不限)", variables.maxUnitTransportTroops, 0, 999999, (v) => { variables.maxUnitTransportTroops = v; });
+            AddNumberItem("最大兵装数量(基准值,0=不限)", variables.maxUnitEquipmentQuantity, 0, 999999, (v) => { variables.maxUnitEquipmentQuantity = v; });
+            AddNumberItem("最大金钱数量(0=不限)", variables.maxUnitTransportGold, 0, 9999999, (v) => { variables.maxUnitTransportGold = v; });
+            AddNumberItem("最大粮食数量(0=不限)", variables.maxUnitTransportFood, 0, 99999999, (v) => { variables.maxUnitTransportFood = v; });
+
             AddTitle("技能参数");
             AddNumberItem("每级兵种适应力对技能释放成功率的加成(百分比)", variables.skillSuccessRateAddByAbility, 0, 100, (v) => { variables.skillSuccessRateAddByAbility = v; });
             AddNumberItem("每级兵种适应力对技能暴击率的加成(百分比)", variables.skillCriticalRateAddByAbility, 0, 100, (v) => { variables.skillCriticalRateAddByAbility = v; });
@@ -298,6 +309,8 @@ namespace Sango.UI
             AddNumberItem("越狱概率每回合增长(万分比)", variables.baseEscapeProbablilityAddByTurn, 0, 1000, (v) => { variables.baseEscapeProbablilityAddByTurn = v; });
 
             AddTitle("AI参数");
+            // AI 军团每回合行动力兜底的每城基准量（原版 s11_game_ai_district.cpp:52-62 写死 40）
+            AddNumberItem("AI行动力基础值(每城每回合)", variables.aiActionPointBase, 1, 1000, (v) => { variables.aiActionPointBase = v; });
             AddNumberItem("进攻时候留守最低的兵力", variables.minTroopsKeepWhenAttack, 0, 100000, (v) => { variables.minTroopsKeepWhenAttack = v; });
             AddNumberItem("进攻时候留守最低的粮食", variables.minFoodKeepWhenAttack, 0, 100000, (v) => { variables.minFoodKeepWhenAttack = v; });
             AddNumberItem("防御时候留守最低的兵力", variables.minTroopsKeepWhenDefence, 0, 100000, (v) => { variables.minTroopsKeepWhenDefence = v; });

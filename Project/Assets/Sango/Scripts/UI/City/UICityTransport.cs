@@ -64,6 +64,49 @@ namespace Sango.UI
         /// </summary>
         const string CalculatorWindowName = "window_calculator";
 
+        /// <summary>
+        /// 当前剧本参数（剧本配置 →"运输部队携带上限"四项）。
+        /// 读不到剧本/参数时由各 Max* 属性回落到 <see cref="ScenarioVariables"/> 的缺省常量。
+        /// </summary>
+        ScenarioVariables TransportLimits => Scenario.Cur != null ? Scenario.Cur.Variables : null;
+
+        /// <summary>单队携带兵力上限（剧本配置"最大带兵数量"；0=不限已在 Transport*Limit 里折算成 int.MaxValue）</summary>
+        int MaxTransportTroops
+        {
+            get { return TransportLimits != null ? TransportLimits.TransportTroopLimit : ScenarioVariables.DefaultMaxUnitTransportTroops; }
+        }
+
+        /// <summary>单队携带资金上限（剧本配置"最大金钱数量"）</summary>
+        int MaxTransportGold
+        {
+            get { return TransportLimits != null ? TransportLimits.TransportGoldLimit : ScenarioVariables.DefaultMaxUnitTransportGold; }
+        }
+
+        /// <summary>单队携带粮食上限（剧本配置"最大粮食数量"）</summary>
+        int MaxTransportFood
+        {
+            get { return TransportLimits != null ? TransportLimits.TransportFoodLimit : ScenarioVariables.DefaultMaxUnitTransportFood; }
+        }
+
+        /// <summary>
+        /// 单队某类物品的可携带上限 —— **转换上限**。
+        ///
+        /// 剧本配置里的"最大兵装数量"只是换算前的基准值，必须交给
+        /// <see cref="ItemType.TransformLimit"/> 换算成该类物品的实际上限：
+        ///   · 枪 / 戟 / 弩 / 军马（p1 = 0）→ 原值；
+        ///   · 冲车 / 井阑 / 楼船等（p1 = 10）→ 基准值 × 10 / 1000。
+        /// 直接拿基准值比较会把器械 / 舰船的容量放大 100 倍。
+        /// </summary>
+        /// <param name="itemType">物品类型</param>
+        /// <returns>该类物品的可携带上限</returns>
+        int GetItemCapacity(ItemType itemType)
+        {
+            ScenarioVariables limits = TransportLimits;
+            if (limits != null)
+                return limits.GetTransportItemLimit(itemType);
+            return itemType != null ? itemType.TransformLimit(ScenarioVariables.DefaultMaxUnitEquipmentQuantity) : 0;
+        }
+
         public override void OnOpen()
         {
             showLand = true; 
@@ -137,13 +180,16 @@ namespace Sango.UI
 
         /// <summary>
         /// 计算本次运输可携带的士兵上限。
-        /// 运输部队只负责押运物资,不与主将带兵上限挂钩,因此口径与滑条保持一致,
-        /// 即以城内现有兵力为上限,保证可以通过输入器把城中兵力全部带走。
+        /// 运输部队只负责押运物资,不与主将带兵上限挂钩,因此口径与滑条保持一致。
+        ///
+        /// 【剧本配置上限】取 min(城内兵力, "最大带兵数量")：
+        /// 后者对齐原版 max_unit_transport_troops（s11_db.h:200-206），默认 60000，
+        /// 配置成 0 表示不限（此时等价于"以城内兵力为上限"的旧行为）。
         /// </summary>
         /// <returns>可携带士兵上限</returns>
         int GetMaxTroops()
         {
-            return System.Math.Max(0, targetCity.troops);
+            return System.Math.Min(System.Math.Max(0, targetCity.troops), MaxTransportTroops);
         }
 
         /// <summary>
@@ -173,7 +219,8 @@ namespace Sango.UI
         void SetTroops(int troops)
         {
             troops = System.Math.Max(0, troops);
-            if (troops > targetCity.troops) troops = targetCity.troops;
+            int max = GetMaxTroops();
+            if (troops > max) troops = max;
             targetTroop.troops = troops;
             UpdateTroopsInfo();
         }
@@ -190,8 +237,11 @@ namespace Sango.UI
             int current = targetTroop.gold;
             // 【不能超过城内资金】同 UICityExpedition：资金按城内实有封顶，
             // 避免"城被扣成负数、部队却带足额"的刷钱入口。
-            int max = targetCity.gold;
+            // 【剧本配置上限】再叠加"最大金钱数量"（默认 20000，0=不限）。
+            int max = System.Math.Min(targetCity.gold, MaxTransportGold);
             if (max < 0) max = 0;
+            // 当前值可能超过上限(换将/换城或剧本参数调整后的残留数据),抬高上限保证不被削掉
+            if (max < current) max = current;
 
             Window.Instance.Open(CalculatorWindowName, "资金", current, 0, max,
                 (Action<int>)((val) => SetGold(val)),
@@ -204,7 +254,10 @@ namespace Sango.UI
         /// <param name="gold">期望携带的资金</param>
         void SetGold(int gold)
         {
-            targetTroop.gold = System.Math.Max(0, gold);
+            gold = System.Math.Max(0, gold);
+            int max = System.Math.Min(System.Math.Max(0, targetCity.gold), MaxTransportGold);
+            if (gold > max) gold = max;
+            targetTroop.gold = gold;
             UpdateTroopsInfo();
         }
 
@@ -218,7 +271,9 @@ namespace Sango.UI
                 return;
 
             int current = targetTroop.food;
-            int max = targetCity.food;
+            // 【剧本配置上限】min(城内兵粮, "最大粮食数量"，默认 2000000，0=不限)
+            int max = System.Math.Min(targetCity.food, MaxTransportFood);
+            if (max < 0) max = 0;
             if (max < current) max = current;
 
             Window.Instance.Open(CalculatorWindowName, "兵粮", current, 0, max,
@@ -232,7 +287,10 @@ namespace Sango.UI
         /// <param name="food">期望携带的兵粮</param>
         void SetFood(int food)
         {
-            targetTroop.food = System.Math.Max(0, food);
+            food = System.Math.Max(0, food);
+            int max = System.Math.Min(System.Math.Max(0, targetCity.food), MaxTransportFood);
+            if (food > max) food = max;
+            targetTroop.food = food;
             UpdateTroopsInfo();
         }
 
@@ -257,7 +315,9 @@ namespace Sango.UI
         /// <param name="uIItemTypeSlider">该行的界面对象</param>
         void OnItemTypeSliderShow(ItemType itemType, UIItemTypeSlider uIItemTypeSlider)
         {
-            int itemNumber = targetCity.itemStore.GetNumber(itemType);
+            // 【剧本配置上限·转换】可携带量 = min(城内该物品库存, TransformLimit(最大兵装数量))。
+            // 转换这一步不能省：器械 / 舰船(p1=10) 与兵装(p1=0) 的口径不同，见 GetItemCapacity。
+            int itemNumber = System.Math.Min(targetCity.itemStore.GetNumber(itemType), GetItemCapacity(itemType));
 
             // item 按钮(兵装名称按钮) → 数值输入器
             // 每次刷新都会重入这里,先清空脚本监听再绑定,避免监听器重复堆积
@@ -291,7 +351,7 @@ namespace Sango.UI
 
         /// <summary>
         /// 兵装数量按钮(item 按钮) - 打开数值输入器精确输入随军携带的兵装数量
-        /// 取值范围: 0 ~ 城内该兵装库存
+        /// 取值范围: 0 ~ min(城内该兵装库存, 剧本配置的"最大兵装数量")
         /// </summary>
         /// <param name="itemType">兵装类型</param>
         /// <param name="uIItemTypeSlider">对应的滑条行(可能为空)</param>
@@ -303,13 +363,16 @@ namespace Sango.UI
             if (!CanOpenNumberPanel())
                 return;
 
-            int max = targetCity.itemStore.GetNumber(itemType);
-            if (max <= 0)
+            int stock = targetCity.itemStore.GetNumber(itemType);
+            if (stock <= 0)
             {
                 Log.Warning($"运输: 城内没有[{itemType.Name}],无法携带");
                 return;
             }
 
+            // 【剧本配置上限·转换】min(城内库存, TransformLimit(最大兵装数量))，
+            // 兵装与器械/舰船口径不同，必须走转换
+            int max = System.Math.Min(stock, GetItemCapacity(itemType));
             int current = targetTroop.itemStore.GetNumber(itemType);
             if (max < current) max = current;
 
@@ -326,16 +389,17 @@ namespace Sango.UI
         /// <param name="num">期望携带的数量</param>
         void ApplyItemNumber(ItemType itemType, UIItemTypeSlider uIItemTypeSlider, int num)
         {
-            int itemNumber = targetCity.itemStore.GetNumber(itemType);
-            num = System.Math.Max(0, System.Math.Min(num, itemNumber));
+            // 可携带量 = min(城内库存, TransformLimit(剧本配置的"最大兵装数量"))
+            int capacity = System.Math.Min(targetCity.itemStore.GetNumber(itemType), GetItemCapacity(itemType));
+            num = System.Math.Max(0, System.Math.Min(num, capacity));
 
             targetTroop.itemStore.Set(itemType, num);
 
             if (uIItemTypeSlider != null)
             {
-                if (itemNumber > 0)
-                    uIItemTypeSlider.numberSlider.SetValueWithoutNotify((float)num / itemNumber);
-                uIItemTypeSlider.numberLabel.text = $"{num}/{itemNumber}";
+                if (capacity > 0)
+                    uIItemTypeSlider.numberSlider.SetValueWithoutNotify((float)num / capacity);
+                uIItemTypeSlider.numberLabel.text = $"{num}/{capacity}";
             }
 
             if (id2UIItemType.TryGetValue(itemType.Id, out UIItemType uIItemType))
@@ -362,7 +426,8 @@ namespace Sango.UI
             if (cityTransportSys.personList.Count == 0)
                 return;
 
-            int troop = (int)System.Math.Ceiling(targetCity.troops * p);
+            // 滑条按"实际可携带上限"（min(城内兵力, 剧本配置上限)）取比例，与数值输入器同口径
+            int troop = (int)System.Math.Ceiling(GetMaxTroops() * p);
             targetTroop.troops = troop;
             UpdateTroopsInfo();
         }
@@ -372,7 +437,8 @@ namespace Sango.UI
             if (cityTransportSys.personList.Count == 0)
                 return;
 
-            int gold = (int)System.Math.Ceiling(targetCity.gold * p);
+            int max = System.Math.Min(System.Math.Max(0, targetCity.gold), MaxTransportGold);
+            int gold = (int)System.Math.Ceiling(max * p);
             targetTroop.gold = gold;
             UpdateTroopsInfo();
         }
@@ -382,7 +448,8 @@ namespace Sango.UI
             if (cityTransportSys.personList.Count == 0)
                 return;
 
-            int food = (int)System.Math.Ceiling(targetCity.food * p);
+            int max = System.Math.Min(System.Math.Max(0, targetCity.food), MaxTransportFood);
+            int food = (int)System.Math.Ceiling(max * p);
             targetTroop.food = food;
             UpdateTroopsInfo();
         }

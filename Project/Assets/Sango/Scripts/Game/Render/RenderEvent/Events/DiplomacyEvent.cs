@@ -43,7 +43,6 @@ namespace Sango.Render
             IsDone = false;
             success = false;
             settled = false;
-            MarkDepends = true;
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

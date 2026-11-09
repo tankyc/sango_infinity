@@ -674,8 +674,31 @@ namespace Sango.Core
             return GetObject(id, typeof(T)) as T;
         }
 
+        /// <summary>CommonData 缺失的告警是否已输出过（避免每帧刷屏）</summary>
+        bool warnedCommonDataMissing;
+
         public object GetObject(int id, Type tType)
         {
+            // 【全局兜底】CommonData 是所有"通用数据表"的唯一入口
+            //（BuildingTypes / ItemTypes / JobTypes / CityLevelTypes / Titles / Skills …）。
+            // 它一旦为 null，下面每个分支都会在 `CommonData.Xxx.Get(id)` 上抛空引用，
+            // 表现是 AI、渲染、UI、存档同时炸，且堆栈分散在十几个毫不相干的位置
+            //（实测：一次存档序列化失败把 CommonData 置空后，一局刷出 20+ 种空引用）。
+            // 这里集中拦截：只报一次错并返回 null，让调用方按"对象不存在"降级，
+            // 而不是把整局游戏打断。真正的修复点在 Save/Load 的异常安全（见 Save 与 LoadScenarioDataStage）。
+            if (CommonData == null)
+            {
+                if (!warnedCommonDataMissing)
+                {
+                    warnedCommonDataMissing = true;
+                    Sango.Log.Error(
+                        "通用数据 CommonData 为 null，所有 IdRef 解析已降级返回 null：" +
+                        "请检查最近一次存档/读档是否失败（残缺的 CommonData 会让建筑类型、城市规模、官职、工作等全部解析不到）",
+                        Sango.Log.LogType.Object);
+                }
+                return null;
+            }
+
             if (tType == typeof(Person))
             {
                 return personSet.Get(id);
@@ -981,29 +1004,64 @@ namespace Sango.Core
         /// </summary>
         public void LoadScenarioDataStage()
         {
-            // 【性能】用流式 JsonTextReader 就地填充，避免把整份存档读成一个 string 常驻内存
-            // （大地图 / 后期存档可达数十 MB，ReadAllText 会制造同量级的 LOH 分配）。
-            using (StreamReader sr = System.IO.File.OpenText(FilePath))
-            using (JsonTextReader jr = new JsonTextReader(sr))
+            try
             {
-                JsonSerializer.CreateDefault().Populate(jr, this);
+                // 【性能】用流式 JsonTextReader 就地填充，避免把整份存档读成一个 string 常驻内存
+                // （大地图 / 后期存档可达数十 MB，ReadAllText 会制造同量级的 LOH 分配）。
+                using (StreamReader sr = System.IO.File.OpenText(FilePath))
+                using (JsonTextReader jr = new JsonTextReader(sr))
+                {
+                    JsonSerializer.CreateDefault().Populate(jr, this);
+                }
             }
+            catch (JsonSerializationException e)
+            {
+                // 典型原因：上一次写档中途抛异常，文件被截断在半条记录上
+                //（实测：Unexpected end when deserializing object. Path 'buildingSet.93.Id'）
+                Sango.Log.Error(
+                    $"[读档失败] 存档/剧本 JSON 结构损坏，已中止解析：{FilePath}\n{e.Message}",
+                    Sango.Log.LogType.World);
+                throw;
+            }
+            catch (System.Exception e)
+            {
+                Sango.Log.Error(
+                    $"[读档失败] 解析存档/剧本时发生异常，已中止解析：{FilePath}\n{e.GetType().Name}: {e.Message}",
+                    Sango.Log.LogType.World);
+                throw;
+            }
+            finally
+            {
+                // 【重要】此处不能删除：Scenario.CommonData 带 [JsonProperty]（见本类 CommonData 定义），
+                // 剧本 JSON 里内嵌了一份（往往残缺/陈旧的）CommonData 段，
+                // 上面的 Populate 会用这份内嵌数据覆盖/清空阶段1从 Data/Common 文件解析出的完整通用数据。
+                // 因此必须再用文件数据恢复一次，否则会出现通用数据丢失
+                // （技能、特性、兵种、州郡等集合为空，直接影响开局与UI显示）。
+                //
+                // 【必须放进 finally】原来这段写在 Populate 之后：Populate 一抛异常就被整体跳过，
+                // CommonData 停留在存档里那份（可能为 null 或残缺），之后每一次 IdRef 解析
+                //（建筑类型、城市规模、官职、工作…）都会空引用，表现为 AI/渲染/UI/存档全线报错，
+                // 实测一份半截存档能刷出 20 多种互不相干的堆栈。
+                if (CommonData == null)
+                {
+                    // 截断发生在 commonData 段之前时连这份都没有：回退到 Data/Common 解析出的新实例
+                    CommonData = GameData.Instance.LoadNewCommonData();
+                }
+                else
+                {
+                    GameData.Instance.LoadCommonData(CommonData);
+                }
 
-            // 【重要】此处不能删除：Scenario.CommonData 带 [JsonProperty]（见本类 CommonData 定义），
-            // 剧本 JSON 里内嵌了一份（往往残缺/陈旧的）CommonData 段，
-            // 上面的 Populate 会用这份内嵌数据覆盖/清空阶段1从 Data/Common 文件解析出的完整通用数据。
-            // 因此必须再用文件数据恢复一次，否则会出现通用数据丢失
-            // （技能、特性、兵种、州郡等集合为空，直接影响开局与UI显示）。
-            GameData.Instance.LoadCommonData(CommonData);
-
-            // 【关键·读档跳月份】Populate 会把存档里的 IsAlive(true) 一并回填，
-            // 覆盖掉加载流程开头（LoadBaseContent / StartScenarioRoutine）设的 IsAlive = false。
-            // 读档是分帧协程（阶段2 之后还有多个 yield），这几帧里 Game.Update() 只要看到
-            // Scenario.Cur.IsAlive 为 true 就会调 Scenario.Run()：此时 runForces 队列还是空的，
-            // RunForces() 直接判定"所有势力行动完毕"，于是 TurnEnd(turnCount++) + IncreaseDate(day += 10)
-            // 白跑一个旬 —— 每多加载一帧就多一个旬，三帧就是一个月，表现为"读档后日期跳月份"。
-            // 因此这里必须把守卫压回 false，由 OnWorldLoaded → Start() 末尾再统一置 true。
-            IsAlive = false;
+                // 【关键·读档跳月份】Populate 会把存档里的 IsAlive(true) 一并回填，
+                // 覆盖掉加载流程开头（LoadBaseContent / StartScenarioRoutine）设的 IsAlive = false。
+                // 读档是分帧协程（阶段2 之后还有多个 yield），这几帧里 Game.Update() 只要看到
+                // Scenario.Cur.IsAlive 为 true 就会调 Scenario.Run()：此时 runForces 队列还是空的，
+                // RunForces() 直接判定"所有势力行动完毕"，于是 TurnEnd(turnCount++) + IncreaseDate(day += 10)
+                // 白跑一个旬 —— 每多加载一帧就多一个旬，三帧就是一个月，表现为"读档后日期跳月份"。
+                // 因此这里必须把守卫压回 false，由 OnWorldLoaded → Start() 末尾再统一置 true。
+                // 解析失败时同样要压回 false：否则半截场景会被 Scenario.Run() 继续驱动。
+                IsAlive = false;
+            }
         }
 
         /// <summary>
@@ -1062,6 +1120,10 @@ namespace Sango.Core
         public void LoadWorld()
         {
             MapRender.Instance.Init();
+            // 新地形管线接入：订阅 OnMapLoaded，在 LoadMap 触发时装配 TerrainSango 并停掉旧地形绘制。
+            // 必须放在 OnWorldLoaded 订阅之前：让地形先就绪，世界初始化（相机定位、镜头限制）再执行。
+            // 想回退旧地形：把 TerrainSangoBootstrap.Enabled 置 false 即可，旧管线原样工作。
+            Sango.Render.TerrainSango.TerrainSangoBootstrap.Install();
             MapRender.Instance.OnMapLoaded += OnWorldLoaded;
             MapRender.Instance.LoadMap(Map.FileName);
         }
@@ -1102,6 +1164,68 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 加载数据阶段失败时的兜底：中止加载、回到开始页面并提示玩家。
+        ///
+        /// 与 <c>Player.OnLoadFailed</c> 同一条思路，区别是这里服务于协程：
+        /// 协程里抛出的异常不会回传到 <c>Player.LoadFromFile</c> 的 try/catch，
+        /// 若不在此收尾，游戏会带着"只加载了一半"的剧本继续跑。
+        /// 每一步都单独兜一层 —— 失败时场景本身就是半成品，收尾动作自己也可能再抛。
+        /// </summary>
+        /// <param name="scenario">加载失败的剧本</param>
+        /// <param name="e">原始异常</param>
+        static void AbortLoadOnError(Scenario scenario, System.Exception e)
+        {
+            Sango.Log.Error(
+                $"[读档失败] 数据加载中断，已中止并返回开始页面：{e.GetType().Name}: {e.Message}\n{e.StackTrace}",
+                Sango.Log.LogType.World);
+            LoadingProgress.Report("加载失败：存档数据损坏", 1f);
+
+            try
+            {
+                if (scenario != null)
+                    scenario.IsAlive = false;
+            }
+            catch (System.Exception inner)
+            {
+                Sango.Log.Error("读档失败收尾：停止剧本运行出错 " + inner.Message);
+            }
+
+            try
+            {
+                CurSelected = null;
+                ScenarioLifecycle.BeginShutdown();
+            }
+            catch (System.Exception inner)
+            {
+                Sango.Log.Error("读档失败收尾：剧本收尾出错 " + inner.Message);
+            }
+
+            try
+            {
+                Window.Instance.CloseAll();
+                Window.Instance.DestroyAll();
+                Window.Instance.Open("window_start");
+            }
+            catch (System.Exception inner)
+            {
+                Sango.Log.Error("读档失败收尾：返回开始页面出错 " + inner.Message);
+            }
+
+            try
+            {
+                GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
+                    "存档加载失败：存档数据已损坏（多为上次保存/自动保存过程中断导致）。\n"
+                    + "该存档无法继续使用，请读取更早的存档。", null);
+            }
+            catch (System.Exception inner)
+            {
+                Sango.Log.Error("读档失败提示弹窗打开失败: " + inner.Message);
+            }
+
+            LoadingProgress.Reset();
+        }
+
+        /// <summary>
         /// 分帧开局协程：与同步版 StartScenario(scenario, ShortScenario) 行为一致，
         /// 但把加载拆成"解析通用数据 → 解析剧本数据 → 构建开局势力 → 读取地图数据 → 初始化世界"
         /// 五个阶段，每个重阶段之间让出一帧，使 loading 界面上的进度文本能够真正渲染出来，
@@ -1132,16 +1256,34 @@ namespace Sango.Core
 
             if (needParseContent)
             {
+                // 【协程内的异常传不回 Player.LoadFromFile 的 try/catch】
+                // 所以这里必须自己接住并走失败兜底，否则玩家会留在"只加载了一半"的剧本里，
+                // 之后 AI / 渲染 / UI 会持续空引用（实测一份半截存档能刷出 20+ 种互不相干的堆栈）。
+                System.Exception stageError = null;
+
                 // 阶段1：解析通用数据（Data/Common 全部 JSON + 武将库实例化）
                 LoadingProgress.Report("解析通用数据", 0.05f);
-                scenario.LoadCommonDataStage();
+                try { scenario.LoadCommonDataStage(); }
+                catch (System.Exception e) { stageError = e; }
+                if (stageError != null)
+                {
+                    AbortLoadOnError(scenario, stageError);
+                    yield break;
+                }
                 Sango.Log.Info(string.Format("加载阶段[解析通用数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
                 lastElapsed = stopwatch.ElapsedMilliseconds;
                 yield return null;
 
                 // 阶段2：解析剧本本体 JSON
                 LoadingProgress.Report("解析剧本数据", 0.25f);
-                scenario.LoadScenarioDataStage();
+                stageError = null;
+                try { scenario.LoadScenarioDataStage(); }
+                catch (System.Exception e) { stageError = e; }
+                if (stageError != null)
+                {
+                    AbortLoadOnError(scenario, stageError);
+                    yield break;
+                }
                 Sango.Log.Info(string.Format("加载阶段[解析剧本数据]耗时:{0}毫秒", stopwatch.ElapsedMilliseconds - lastElapsed));
                 lastElapsed = stopwatch.ElapsedMilliseconds;
                 yield return null;
@@ -2776,7 +2918,6 @@ namespace Sango.Core
 
             Info.isSave = true;
             ScenarioCommonData saveData = CommonData;
-            CommonData = null;
             View.cameraPosition = MapRender.Instance.mapCamera.position;
             View.cameraRotation = MapRender.Instance.mapCamera.lookRotate;
             View.cameraDistance = MapRender.Instance.mapCamera.distance;
@@ -2795,12 +2936,73 @@ namespace Sango.Core
             jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
             jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用
             JsonSerializer serializer = JsonSerializer.CreateDefault(jsonSerializerSettings);
-            // 用带大缓冲的流式写出，避免逐字符落盘
-            using (StreamWriter writer = new StreamWriter(path, false, Utf8NoBom, 1 << 16))
+
+            // 【原子写 + 异常安全】原来的写法有两个致命点：
+            //   1) 直接 new StreamWriter(path, false) 覆盖目标存档：序列化中途抛异常
+            //      （实测：某个建筑 BuildingType 解析不到 → Building.get_Name 抛 NRE
+            //        → 被 Newtonsoft 包成 JsonSerializationException），
+            //      目标档就被写成半截，下次读档报 Unexpected end
+            //      （实测 Path 'buildingSet.93.Id'），存档彻底报废。
+            //   2) CommonData 在序列化前被置 null、正常结束后才还原；一旦抛出就永远回不来，
+            //      之后所有 IdRef 解析（建筑类型 / 城市规模 / 官职 / 工作 …）全部空引用，
+            //      整局游戏连同存档功能一起失效。
+            // 现在：先写 <存档>.saving，成功后再替换；CommonData 的还原放进 finally。
+            string tempPath = path + ".saving";
+            try
             {
-                serializer.Serialize(writer, this);
+                // CommonData 不写进存档（读档时由 Data/Common 重新解析，见 LoadCommonData）
+                CommonData = null;
+                // 用带大缓冲的流式写出，避免逐字符落盘
+                using (StreamWriter writer = new StreamWriter(tempPath, false, Utf8NoBom, 1 << 16))
+                {
+                    serializer.Serialize(writer, this);
+                }
             }
-            CommonData = saveData;
+            catch (System.Exception e)
+            {
+                Sango.Log.Error($"存档写出失败，原存档保持不变：{path}\n{e.GetType().Name}: {e.Message}");
+                // 清掉半截临时文件，避免占用空间与误导排查
+                TryDeleteFile(tempPath);
+                throw;
+            }
+            finally
+            {
+                // 无论成功还是抛异常都必须还原：CommonData 为 null 会让整局游戏的所有查表失效
+                CommonData = saveData;
+            }
+
+            // 替换目标档：同目录 File.Replace 在 NTFS 上是原子操作，失败再退化为 删除 + 改名
+            try
+            {
+                if (System.IO.File.Exists(path))
+                    System.IO.File.Replace(tempPath, path, null);
+                else
+                    System.IO.File.Move(tempPath, path);
+            }
+            catch (System.Exception)
+            {
+                if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                System.IO.File.Move(tempPath, path);
+            }
+
+            Sango.Log.Info($"存档已写出：{path}", Sango.Log.LogType.Game);
+        }
+
+        /// <summary>
+        /// 删除文件，失败不抛异常（用于清理存档临时文件）。
+        /// </summary>
+        /// <param name="path">文件完整路径</param>
+        static void TryDeleteFile(string path)
+        {
+            try
+            {
+                if (System.IO.File.Exists(path))
+                    System.IO.File.Delete(path);
+            }
+            catch (System.Exception e)
+            {
+                Sango.Log.Warning($"清理临时文件失败：{path} {e.Message}");
+            }
         }
 
         public void Export(string path)

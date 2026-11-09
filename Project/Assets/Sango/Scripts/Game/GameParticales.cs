@@ -16,13 +16,23 @@ namespace Sango.Core
     /// </summary>
     public class GameParticales : Singleton<GameParticales>
     {
+        /// <summary>
+        /// 特效播放总开关。顶视图（全局俯瞰）期间由 MapTopView 置 false：
+        /// 那一帧画面只保留地形，新冒出来的特效会直接破坏观感。
+        /// 关闭时 <see cref="PlayEfect(string, Vector3, float)"/> 返回 null，调用方都已做空判断。
+        /// </summary>
+        public static bool EffectEnabled = true;
+
         public GameObject PlayEfect(string assets, Vector3 where, float life)
         {
+            if (!EffectEnabled) return null;
             return PlayEfect(assets, where, Vector3.one, Quaternion.identity, life);
         }
 
         public GameObject PlayEfect(string assets, Vector3 where, Vector3 scale, Quaternion rot, float life)
         {
+            if (!EffectEnabled) return null;
+
             GameObject @object = PoolManager.Create(assets);
             if (@object != null)
             {

@@ -151,19 +151,15 @@ namespace Sango.Render
             Person target = captiveList[0];
             // 【原版对齐】登用次数不限：原版 player_judgement 里登用失败只把计数 +1，
             // 该俘虏仍留在未决队列，玩家可以反复尝试，直到主动改成收押/释放/处斩。
-            GameSystem.GetSystem<PersonRecruit>().Start(targetCity, atk, target, recruitType, PersonRecruit.UnlimitedTry, x =>
+            GameSystem.GetSystem<PersonRecruit>().Start(targetCity, atk, target, captiveList, recruitType, PersonRecruit.UnlimitedTry, x =>
             {
-                // 玩家取消（result < 0）时绝不能把人卡在原处：
-                // 他既不是俘虏、也不属于新势力，会以"旧势力人质"身份滞留在城里。
-                // 原版在未决状态下必须给出处置（对话框不给退出），这里按释放兜底。
-                if (x == null || x.result < 0)
+                IsDone = true;
+                if(captiveList.Count > 0)
                 {
-                    Sango.Log.Info($"*[俘虏]{target.Name} 未作处置，按释放处理");
+                    Person tp = captiveList[0];
                     ReleaseCaptive(target);
                 }
-
-                captiveList.Remove(target);
-                Next();
+                captiveList.Clear();
             });
         }
 

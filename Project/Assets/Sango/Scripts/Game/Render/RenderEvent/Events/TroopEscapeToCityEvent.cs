@@ -14,13 +14,16 @@ namespace Sango.Render
             this.troop = troop;
             this.dest = dest;
             this.doneAction = doneAction;
-            MarkDepends = true;
         }
 
         public override void Enter(Scenario scenario)
         {
             if (troop.ActionOver)
+            {
                 IsDone = true;
+                return;
+            }
+            troop.TryMoveToCity(dest);
         }
 
         public override void Exit(Scenario scenario)

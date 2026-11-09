@@ -122,7 +122,10 @@ namespace Sango.Render
             gameObject = new GameObject(string.Format("Map区域_{0}_{1}", startCoords.x, startCoords.y));
             gameObject.layer = layer;
 
-            gameObject.transform.SetParent(MapRender.terrainRoot);
+            // 旧地形的 "Terrain" 容器节点已取消（地形渲染由 TerrainSango 接管），
+            // 地形块直接挂在 Map 根节点下。运行时不会走到这里（见 MapTerrain.Init 的编辑态判断）。
+            if (MapRender.mapRoot != null)
+                gameObject.transform.SetParent(MapRender.mapRoot.transform);
 
             mesh = new Mesh[maxLayer];
             meshRenderer = new MeshRenderer[maxLayer];
@@ -415,6 +418,19 @@ namespace Sango.Render
         public bool selectable { get; set; }
         public bool isStatic { get; set; }
 
+        /// <summary>
+        /// 地形块渲染开关（默认 true，旧管线原有行为）。
+        ///
+        /// 【为什么需要】新地形管线（TerrainSango）接管后，旧地形的 mesh 必须停止绘制，
+        /// 否则两套地形重叠。但**不能失活 GameObject**：游戏的地图点击是
+        /// <c>GameController.CheckMouseIsOnMapCell</c> → <c>Physics.Raycast(..., Map 层)</c>，
+        /// 命中的正是 MapCell 的 meshCollider；一旦失活，鼠标就点不到地图了。
+        /// 因此这里只切"渲染"这一层，collider 与 MapCell.Update 的可见性管理都照旧。
+        ///
+        /// 由 TerrainSangoBootstrap 在接管时置 false、回退时置回 true。
+        /// </summary>
+        public static bool TerrainRenderEnabled = true;
+
         bool _visibleChanged = false;
         public bool visible
         {
@@ -543,12 +559,16 @@ namespace Sango.Render
 
         void OnLoadDone()
         {
+            // 与 Update 的可见性同步保持一致：TerrainSango 接管后 TerrainRenderEnabled = false，
+            // 这里绝不能按 visible 把 renderer 重新打开 —— 异步建网格完成晚于接管时机，
+            // 少这一处判断就会出现"接管了但旧地形还在画"
+            bool shouldRender = visible && TerrainRenderEnabled;
             for (int i = 0; i < mesh.Length; ++i)
             {
                 MeshRenderer r = meshRenderer[i];
-                if (r != null && r.enabled != visible)
+                if (r != null && r.enabled != shouldRender)
                 {
-                    r.enabled = visible;
+                    r.enabled = shouldRender;
                 }
             }
 
@@ -770,12 +790,16 @@ namespace Sango.Render
 
                 if (meshRenderer != null)
                 {
+                    // 渲染开关由 TerrainSango 接管时置 false：只关 MeshRenderer，
+                    // 保留 meshCollider（GameController.CheckMouseIsOnMapCell 靠 Map 层的
+                    // Physics.Raycast 命中地形 collider，失活 GameObject 会让点击直接失效）
+                    bool shouldRender = _visible && TerrainRenderEnabled;
                     for (int i = 0; i < meshRenderer.Length; ++i)
                     {
                         MeshRenderer r = meshRenderer[i];
-                        if (r != null && r.enabled != _visible)
+                        if (r != null && r.enabled != shouldRender)
                         {
-                            r.enabled = _visible;
+                            r.enabled = shouldRender;
                         }
                     }
                 }

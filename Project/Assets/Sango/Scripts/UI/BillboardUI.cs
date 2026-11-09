@@ -36,8 +36,19 @@ namespace Sango.UI
         public void Update()
         {
             CatchMainCamera();
+            // 【空引用防御】切场景 / 域重载的瞬间，或相机尚未创建时，
+            // cacheTrans 或 MapRender.mapCamera 都可能为 null。
+            // 原写法每帧直接解引用 → 满屏 NullReferenceException（每帧一条）。
+            if (cacheTrans == null)
+                return;
+
             transform.LookAt(transform.position + cacheTrans.rotation * Vector3.back, cacheTrans.rotation * Vector3.up);
-            float factor = MapRender.Instance.mapCamera.cameraDistanceFactor;
+
+            MapRender mapRender = MapRender.Instance;
+            if (mapRender == null || mapRender.mapCamera == null)
+                return;
+
+            float factor = mapRender.mapCamera.cameraDistanceFactor;
             if (factor != tempFactor)
             {
                 tempFactor = factor;

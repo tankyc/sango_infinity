@@ -214,6 +214,11 @@ namespace Sango.Core
                     // 原实现在这里还调了 OnPrepareRender()，等于"明知设施类型缺失还去创建渲染"，
                     // 而 BuildingRender 构造函数立刻解引用 BuildingType → 必崩。
                     // 设施类型缺失的建筑无法显示，直接结束初始化即可（Render 保持 null）。
+                    //
+                    // 【诊断日志】运行期新建的建筑（陷阱 / 箭楼 / 投石台等）不走 OnScenarioPrepare，
+                    // 只有这里能暴露"类型缺失"。打到 Error 级别，方便从 Console 直接定位是哪一栋、
+                    // 什么 BuildingTypeId 造成的孤儿建筑（这类建筑会挂在地格上，四处引发空引用）。
+                    Sango.Log.Error($"*[设施]{Id} 运行期初始化时找不到设施类型（BuildingTypeId={BuildingTypeId}），已跳过初始化");
                     isInited = true;
                     return;
                 }
@@ -494,6 +499,11 @@ namespace Sango.Core
                 {
                     person.ClearMission();
                 }
+                // 【与 OnBuildComplate 同一口径】下令升级时武将被置了 ActionOver = true
+                //（City.JobUpgradeBuilding），完工后必须复位，否则回合初重建
+                // freePersons 名册的条件 `!person.ActionOver` 不满足，
+                // 升级完工的武将会从空闲名单里"消失"（与拆除在建建筑的善后同源）。
+                person.ActionOver = false;
             }
 #if SANGO_DEBUG
             Sango.Log.Info($"[{BelongCity.Name}]{stringBuilder}完成{Name}升级!!");
@@ -633,13 +643,28 @@ namespace Sango.Core
 
             if (Builder != null)
             {
+                // 【善后 · 必须】拆除（含 AIDestroy 的 Battle 分支拆"全部未完工设施"、
+                // 城陷拆在建、编辑器删除）会把建造武将的 PersonBuild 任务一并终止 ——
+                // 这是任务被"清空"的正常出口，但只清任务还不够：
+                //
+                // 下令建造时武将被置了 ActionOver = true（City.JobBuildBuilding:3603），
+                // 而回合初重建 freePersons 名册的条件是 `!person.ActionOver && person.IsFree`
+                // （City.cs:1725-1735）。这里若不把 ActionOver 复位，
+                // 武将就会出现"任务没了、人也从空闲名单里消失"的悬空状态 ——
+                // 玩家看到的正是"正在修建内政建筑的武将任务被清空了"。
+                // 对齐 OnBuildComplate / OnUpgradeComplate 的收尾口径（ClearMission + ActionOver = false）。
                 for (int i = 0; i < Builder.Count; i++)
                 {
                     Person person = Builder[i];
+                    if (person == null)
+                        continue;
                     if (person.missionType == (int)MissionType.PersonBuild && person.missionTarget == this.Id)
                     {
                         person.ClearMission();
+                        if (AIConfig.Instance.logOutpostAI)
+                            Sango.Log.Info($"*[建筑]{Name} 被拆除，建造武将 {person.Name} 的建造任务终止");
                     }
+                    person.ActionOver = false;
                 }
                 Builder = null;
             }

@@ -164,6 +164,49 @@ namespace Sango.Core.Player
                 return;
             }
 
+            // 【运输携带上限】剧本配置 →"运输部队携带上限"
+            //（对齐原版 max_unit_transport_*，见 Open311 Database s11_db.h:200-206）。
+            // 界面滑条与输入器已按上限取值，这里再夹一次作为权威兜底：
+            // 老存档的残留数据、Mod 直接调用本入口、以及将来新增的调用方都不会超载。
+            ScenarioVariables limits = Scenario.Cur != null ? Scenario.Cur.Variables : null;
+            if (limits != null)
+            {
+                int maxTroops = System.Math.Min(TargetCity.troops, limits.TransportTroopLimit);
+                if (TargetTroop.troops > maxTroops) TargetTroop.troops = maxTroops;
+
+                int maxGold = System.Math.Min(System.Math.Max(0, TargetCity.gold), limits.TransportGoldLimit);
+                if (TargetTroop.gold > maxGold) TargetTroop.gold = maxGold;
+
+                int maxFood = System.Math.Min(TargetCity.food, limits.TransportFoodLimit);
+                if (TargetTroop.food > maxFood) TargetTroop.food = maxFood;
+
+                // 兵装按种类逐个夹取：min(城内库存, 该类物品的**转换上限**)。
+                // 转换不能省：枪/戟/弩/马(p1=0)取配置原值，冲车/井阑/楼船(p1=10)取 1/100，
+                // 直接拿配置值比较会把器械/舰船放大 100 倍。
+                if (TargetTroop.itemStore != null)
+                {
+                    List<int> kinds = new List<int>(TargetTroop.itemStore.Items.Keys);
+                    for (int i = 0; i < kinds.Count; i++)
+                    {
+                        int kind = kinds[i];
+                        ItemType itemType = Scenario.Cur != null ? Scenario.Cur.GetObject<ItemType>(kind) : null;
+                        // 物品表缺项时不做夹取，避免把残值清成 0
+                        if (itemType == null) continue;
+                        int num = TargetTroop.itemStore.GetNumber(kind);
+                        int cap = System.Math.Min(TargetCity.itemStore != null ? TargetCity.itemStore.GetNumber(kind) : 0,
+                                                  limits.GetTransportItemLimit(itemType));
+                        if (num > cap) TargetTroop.itemStore.Set(kind, cap);
+                    }
+                }
+            }
+
+            // 夹取后可能归零（配置被改小 + 老存档残留），再守一道，避免带着 0 兵出发
+            if (TargetTroop.troops <= 0 || TargetTroop.food <= 0)
+            {
+                Sango.Log.Warning($"*[运输]{TargetCity?.Name} 组建运输队取消：携带量被运输上限裁剪为 0");
+                return;
+            }
+
             ContextMenu.CloseAll();
             TargetTroop.ActionOver = false;
             TargetTroop.IsAlive = true;

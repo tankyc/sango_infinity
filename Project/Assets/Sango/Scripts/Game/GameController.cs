@@ -249,11 +249,20 @@ namespace Sango.Core
         /// <returns>单元格</returns>
         public Cell CheckMouseIsOnMapCell(Ray ray, out Vector3 hitPoint)
         {
+            // ① 先打模型：建筑/部队的 collider 仍在 Map 层，模型点选要优先于地形
+            //    运行期旧地形块已不再创建（MapTerrain.Init 判断编辑态 / 回退开关），
+            //    Map 层上只有模型 collider，命中即模型，不需要再区分"是不是旧地形"。
             if (Physics.Raycast(ray, out hit, 2000, rayCastLayer))
             {
                 hitPoint = hit.point;
                 return Scenario.Cur.Map.GetCell(hitPoint);
             }
+
+            // ② 地形：用新管线的高度场求交（TerrainSango 的顶点高度在 GPU 位移，
+            //    CPU 没有网格、做不出精确 collider，只能按同一份高度场做射线步进）
+            if (Sango.Render.TerrainSango.TerrainSangoBootstrap.TryGetMapHit(ray, out hitPoint))
+                return Scenario.Cur.Map.GetCell(hitPoint);
+
             hitPoint = Vector3.zero;
             return null;
         }

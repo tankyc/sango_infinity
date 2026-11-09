@@ -102,7 +102,53 @@ namespace Sango.Render
 
         public void MoveCameraTo(Vector3 pos)
         {
+            // 顶视图下"定位到某处"说明玩家想离开顶视图：立即结束（不缓动）再移动，
+            // 否则顶视图的缓动会在同一帧把位置改回去，表现为"点了没反应"
+            if (map != null && map.mapTopView != null && map.mapTopView.isActive)
+                map.mapTopView.Cancel();
             position = pos;
+        }
+
+        /// <summary>
+        /// 输入拦截器：返回 true 表示本次镜头输入已被接管（顶视图用），各输入入口应立即 return。
+        ///
+        /// 【为什么用回调而不是 bool 字段】顶视图需要"一有输入就开始恢复，同时吞掉这次输入"，
+        /// 判断与副作用必须在同一处完成；散在 MapCamera 里会变成两套状态容易不同步。
+        /// </summary>
+        public Func<bool> interceptInput;
+
+        /// <summary>是否由外部（顶视图）接管本次输入。</summary>
+        private bool InterceptInput()
+        {
+            return interceptInput != null && interceptInput();
+        }
+
+        /// <summary>
+        /// 直接写入相机姿态，跳过 <see cref="position"/> 的 safeBoder 边界钳制。
+        ///
+        /// 【为什么需要】顶视图要把观察点放到地图正中心，而 position 的 setter 会把观察点钳在
+        /// [safeBoder, world - safeBoder]；小地图（边长 &lt; 2×safeBoder）时中心会被推偏，顶视图就装不满屏幕。
+        /// 缓动每帧也走这里，避免插值中途被钳制打断。
+        /// </summary>
+        /// <param name="lookPos">观察点世界坐标</param>
+        /// <param name="dist">相机到观察点的距离</param>
+        /// <param name="rot">欧拉角（x = 俯仰，y = 朝向）</param>
+        public void SetPoseRaw(Vector3 lookPos, float dist, Vector3 rot)
+        {
+            look_position = lookPos;
+            if (lookAt != null)
+                lookAt.position = lookPos;
+            cur_distance = dist;
+            look_rotate = rot;
+            NeedUpdateCamera();
+        }
+
+        /// <summary>读取当前姿态快照（顶视图用来记录 / 恢复）。</summary>
+        public void GetPose(out Vector3 lookPos, out float dist, out Vector3 rot)
+        {
+            lookPos = look_position;
+            dist = cur_distance;
+            rot = look_rotate;
         }
 
         public override void Clear()
@@ -230,6 +276,8 @@ namespace Sango.Render
 
         public void MoveCamera(int dir, float speed)
         {
+            if (InterceptInput()) return;
+
             if (dir == 0)
             {
                 position += -transform.right * speed * Time.deltaTime; ;
@@ -256,6 +304,8 @@ namespace Sango.Render
 
         public void ZoomCamera(float delta)
         {
+            if (InterceptInput()) return;
+
             float near = limitDistance.x;
             float far = limitDistance.y;
             if (MapEditor.IsEditOn)
@@ -297,11 +347,14 @@ namespace Sango.Render
 
         public void OffsetCamera(Vector3 offset)
         {
+            if (InterceptInput()) return;
             position += offset;
         }
 
         public void RotateCamera(Vector2 offset)
         {
+            if (InterceptInput()) return;
+
             float angleX = offset.x * rotSpeed;
             float angleY = offset.y * rotSpeed;
             //Debug.Log(string.Format("angleX:{0} angleY:{1} Time.deltaTime{2}", angleX, angleY, Time.deltaTime));
@@ -316,6 +369,8 @@ namespace Sango.Render
 
         public void MoveCameraKeyBoard(bool[] keyFlags)
         {
+            if (InterceptInput()) return;
+
             // 编辑模式下鼠标位于UI(含GUI窗口)上时不响应镜头操作
             if (MapEditor.IsEditOn && IsOverUI())
             {
@@ -347,6 +402,8 @@ namespace Sango.Render
 
         private void MoveCameraKeyBoard()
         {
+            if (InterceptInput()) return;
+
             // 编辑模式下鼠标位于UI(含GUI窗口)上时不响应镜头移动操作
             if (MapEditor.IsEditOn && IsOverUI())
             {
@@ -501,7 +558,13 @@ namespace Sango.Render
                     }
                 }
 
-                transform.LookAt(lookAt);
+                // 俯仰接近 90°（顶视图）时 forward 与 LookAt 的默认 up 反平行，叉积趋近 0，
+                // LookAt 的结果会抖动甚至翻转。留 2° 余量：88° 以上一律保留上面由
+                // Euler(look_rotate) 算出的朝向，不再让 LookAt 覆盖。
+                // 正常视角的俯仰上限是 limitAngle.y = 70，不受影响。
+                if (look_rotate.x < 88f)
+                    transform.LookAt(lookAt);
+
                 map.onValueChanged?.Invoke(this);
             }
 

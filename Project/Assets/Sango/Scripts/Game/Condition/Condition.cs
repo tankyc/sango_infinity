@@ -82,6 +82,14 @@ namespace Sango.Core
             
             // Troop
             Register("TroopAttributeCompare", CraeteHandle<TroopAttributeCompare>);
+            // 【补注册】部队自身属性与常量比较（attributeType / compareTarget / operator / value）。
+            // 该类早已实现（Game/Condition/Troop/TroopAttributeCheck.cs），但一直没进注册表，
+            // 于是 Condition.Create("TroopAttributeCheck") 恒返回 null：
+            //   · TroopTroopActionBase 会打 Error（外层条件是 andList，注册成功，所以看不到）；
+            //   · ConditionAndList 会**静默丢弃**为 null 的子条件。
+            // 后果：Features.json 28「不屈」的"守方兵力≤3000"这一条被整条丢掉，
+            // 特技退化成"任何普攻 50% 概率把伤害改成 1"，表现为"攻击不掉血"。
+            Register("TroopAttributeCheck", CraeteHandle<TroopAttributeCheck>);
             Register("TroopStatusCheck", CraeteHandle<TroopStatusCheck>);
            // Register("TroopStrengthCheck", CraeteHandle<TroopStrengthCheck>);
             Register("TroopMoraleCheck", CraeteHandle<TroopMoraleCheck>);

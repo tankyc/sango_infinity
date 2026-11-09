@@ -28,6 +28,27 @@ using UnityEngine;
 namespace Sango.Core.Telemetry
 {
     /// <summary>
+    /// 启用的模组快照。字段名与 PlayerInsight/server/store.js 的 normalizeMods 一一对应。
+    ///
+    /// 【为什么只留这三个字段】模组描述（Description）动辄上千字，每条错误都带一份
+    /// 会把上报体顶爆。排障真正需要的是"装了哪些模组的哪个版本"：
+    ///   · id 是唯一可用于筛选的键（name 可以重名）；
+    ///   · version 用于排除"某个模组某版本才有的问题"。
+    /// </summary>
+    [Serializable]
+    public class ModEntry
+    {
+        /// <summary>模组 Id（英文唯一标识）</summary>
+        public string id;
+
+        /// <summary>模组名（可为中文）</summary>
+        public string name;
+
+        /// <summary>模组版本</summary>
+        public string version;
+    }
+
+    /// <summary>
     /// 一条待上报的错误。字段名与 PlayerInsight 服务端的 normalize() 一一对应，
     /// 改字段时两边必须同步，否则后台会落到默认值。
     /// </summary>
@@ -95,6 +116,12 @@ namespace Sango.Core.Telemetry
         public string playerName;
         public string scenario;
         public string scene;
+
+        /// <summary>
+        /// 玩家启用的模组列表（按加载顺序）。
+        /// 老客户端没有这个字段，后台按"未采集"展示 —— 不能用空数组推断"没装模组"。
+        /// </summary>
+        public List<ModEntry> mods = new List<ModEntry>();
     }
 
     /// <summary>批量上报外壳（服务端支持 items 数组）</summary>
@@ -239,6 +266,7 @@ namespace Sango.Core.Telemetry
                 playerId = SafeDeviceId(),
                 scenario = scenario != null && scenario.Name != null ? scenario.Name : string.Empty,
                 scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
+                mods = EnabledMods(),
             };
 
             return entry;
@@ -351,6 +379,51 @@ namespace Sango.Core.Telemetry
                 hash = hash * 31 + (stack != null ? stack.GetHashCode() : 0);
                 return hash;
             }
+        }
+
+        /// <summary>
+        /// 当前启用的模组列表（按加载顺序）。组队上报复用。
+        ///
+        /// 【为什么要 try 包住】ModManager 是懒加载单例：编辑器预览、主菜单早期、
+        /// Init 之前的任何一次调用，mEnabledModList 都可能是 null
+        /// （ModManager.cs:636-639 对同样的场景做过判空）。采集代码绝不能因为
+        /// 取模组列表失败把游戏搞崩，取不到就按空列表上报。
+        ///
+        /// 【为什么写全名】Mod 既是命名空间（Sango.Mod）又是类型（Sango.Mod.Mod），
+        /// 直接 using Sango.Mod 会让 `Mod[]` 被当成命名空间引用而编译报错。
+        /// </summary>
+        /// <returns>启用的模组快照；取不到时返回空列表</returns>
+        internal static List<ModEntry> EnabledMods()
+        {
+            List<ModEntry> list = new List<ModEntry>();
+
+            try
+            {
+                Sango.Mod.ModManager manager = Sango.Mod.ModManager.Instance;
+                if (manager == null) return list;
+
+                Sango.Mod.Mod[] mods = manager.GetEnabledMods();
+                if (mods == null) return list;
+
+                for (int i = 0; i < mods.Length; i++)
+                {
+                    Sango.Mod.Mod mod = mods[i];
+                    if (mod == null) continue;
+
+                    list.Add(new ModEntry
+                    {
+                        id = mod.Id ?? string.Empty,
+                        name = mod.Name ?? string.Empty,
+                        version = mod.Version ?? string.Empty,
+                    });
+                }
+            }
+            catch (Exception)
+            {
+                // 模组信息缺失不能影响错误上报本身（采样本就是为了排障）
+            }
+
+            return list;
         }
 
         /// <summary>设备唯一标识（部分平台可能为空，兜底用机型 + 系统）。组队上报复用</summary>

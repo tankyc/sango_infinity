@@ -1027,7 +1027,7 @@ namespace Sango.Core.Event
             if (dialog != null && dialog.HasCurrent) return true;
 
             Sango.Render.RenderEvent renderEvent = Sango.Render.RenderEvent.Instance;
-            if (renderEvent != null && renderEvent.HasPendingAfterCurrent) return true;
+            if (renderEvent != null && renderEvent.EventCount > 0) return true;
 
             return false;
         }

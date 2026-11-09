@@ -91,7 +91,21 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public bool isWorking;
 
-        public virtual int DurabilityLimit => BuildingType.durabilityLimit;
+        /// <summary>
+        /// 耐久上限。
+        ///
+        /// 【必须判空】BuildingType 是按 id 懒解析的可空引用（见本文件 44-52 行）：
+        /// 设施表里查不到该 id（Mod 精简了 BuildingTypes.json、存档来自缺该设施的版本、
+        /// 剧本编辑器直接摆放）时它就是 null。
+        /// 实测崩溃栈：BuildingRender.OnModelLoaded → UIBuildingHeadbar.UpdateState
+        /// → BuildingBase.get_DurabilityLimit（地图建筑血条一显示就空引用）。
+        ///
+        /// 【缺省值取 1 而不是 0】耐久 0 会被 UI 与战斗公式当成"已损毁"，
+        /// 血条还要按 0 做除法；1 是"类型未知"的安全下限，既画得出血条也不会被判成废墟。
+        /// 原版不存在这种状态：建筑类型由 building_id 取值区间决定
+        ///（utils::is_city_building_id 等，s11_db.cpp:1432/1451/1470），没有"查表失败"。
+        /// </summary>
+        public virtual int DurabilityLimit => BuildingType?.durabilityLimit ?? 1;
 
         /// <summary>
         /// 中心Cell
@@ -132,17 +146,40 @@ namespace Sango.Core
             return IsCity() || IsPort() || IsGate();
         }
 
+        /// <summary>
+        /// 是否为城市（都市 / 小城）
+        /// </summary>
+        /// <remarks>
+        /// 【必须判空 BuildingType】见本文件 44-52 行，BuildingType 是按 id 懒解析的可空引用：
+        /// BuildingTypeId &lt;= 0，或设施表里查不到该 id（Mod 精简了 BuildingTypes.json、
+        /// 存档来自缺该设施的版本、剧本编辑器直接摆放）时它就是 null。
+        /// 这类"孤儿建筑"仍会被 <see cref="Building.OnScenarioPrepare"/> 挂到
+        /// <c>CenterCell.building</c> 上（Building.cs:148-157），于是地图上任何遍历地格的地方都会撞上它。
+        /// 实测崩溃栈：TroopReturnCity.Prepare (TroopReturnCity.cs:87) → BuildingBase.IsCity()。
+        /// 原版的城市 / 港口 / 关隘判定基于 building_id 的取值区间，不查表、不存在"类型解析失败"这一态：
+        /// utils::is_city_building_id（s11_db.cpp:1432）、is_port_building_id（s11_db.cpp:1470）、
+        /// is_gate_building_id（s11_db.cpp:1451）都是 <c>in_range(...)</c>。
+        /// 故此处把"类型缺失"归为非据点，与原版语义等价，且不会误判任何正常建筑。
+        /// </remarks>
         public bool IsCity()
         {
-            return BuildingType.kind == (int)BuildingKindType.City || BuildingType.kind == (int)BuildingKindType.LittleCity;
+            BuildingType type = BuildingType;
+            return type != null
+                && (type.kind == (int)BuildingKindType.City || type.kind == (int)BuildingKindType.LittleCity);
         }
+
+        /// <summary>是否为港口（类型缺失时返回 false，见 <see cref="IsCity"/> 的说明）</summary>
         public bool IsPort()
         {
-            return BuildingType.kind == (int)BuildingKindType.Port;
+            BuildingType type = BuildingType;
+            return type != null && type.kind == (int)BuildingKindType.Port;
         }
+
+        /// <summary>是否为关隘（类型缺失时返回 false，见 <see cref="IsCity"/> 的说明）</summary>
         public bool IsGate()
         {
-            return BuildingType.kind == (int)BuildingKindType.Gate;
+            BuildingType type = BuildingType;
+            return type != null && type.kind == (int)BuildingKindType.Gate;
         }
 
         /// <summary>
@@ -157,9 +194,15 @@ namespace Sango.Core
         {
             return IsPort() || IsGate();
         }
+        /// <summary>
+        /// 是否为"内政设施"（内政地建筑）。
+        /// 【必须判空】BuildingType 可为 null（孤儿建筑），详见 <see cref="IsCity"/> 的说明：
+        /// 调用点遍布 UI 头bar 刷新（UIBuildingBaseHeadbar.UpdateState），不拦会每帧抛。
+        /// </summary>
         public bool IsIntorBuilding()
         {
-            return BuildingType.IsIntrior;
+            BuildingType type = BuildingType;
+            return type != null && type.IsIntrior;
         }
 
         public override void OnScenarioPrepare(Scenario scenario)
