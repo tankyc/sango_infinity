@@ -289,6 +289,16 @@ namespace Sango.Core
 
         public void Cancel()
         {
+            if (all_persons != null)
+            {
+                for (int i = 0; i < all_persons.Count; i++)
+                {
+                    Person person = all_persons[i];
+                    PersonStateSystem.ReturnHome(person);
+                    GameEvent.OnPersonRelease?.Invoke(person, recruitor != null ? recruitor.BelongForce : null);
+                }
+                all_persons.Clear();
+            }
             result = -1;
             Back();
             doneAction?.Invoke(this);

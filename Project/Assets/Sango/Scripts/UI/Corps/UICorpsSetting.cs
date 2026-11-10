@@ -287,8 +287,14 @@ namespace Sango.UI
                     lab = $"攻略势力",
                     call = () =>
                     {
-                        targetCorps.appoint = 1;
-                        targetCorps.appoint_target = 0;
+                        // 【只在方针真的变了时才清目标】
+                        // 原版命令参数（s11_sys_person_order_kunshu.cpp:283-303）里
+                        // policy_target 是由玩家在界面上单独选的一项，切换方针本身不会把它抹掉。
+                        // 之前无条件清 0，导致"点开方针菜单又选了同一项"也会丢掉已选目标，
+                        // 随后 CheckSure 判定"方针需要目标但没有目标"，确定键直接变灰。
+                        if (targetCorps.appoint != (int)Corps.AppointType.DestroyForce)
+                            targetCorps.appoint_target = 0;
+                        targetCorps.appoint = (int)Corps.AppointType.DestroyForce;
                         UpdateContent();
                     }
                 },
@@ -297,8 +303,9 @@ namespace Sango.UI
                     lab = $"攻略都市",
                     call = () =>
                     {
-                        targetCorps.appoint = 2;
-                        targetCorps.appoint_target = 0;
+                        if (targetCorps.appoint != (int)Corps.AppointType.OccupyCity)
+                            targetCorps.appoint_target = 0;
+                        targetCorps.appoint = (int)Corps.AppointType.OccupyCity;
                         UpdateContent();
                     }
                 },
@@ -307,7 +314,8 @@ namespace Sango.UI
                     lab = $"委任",
                     call = () =>
                     {
-                        targetCorps.appoint = 3;
+                        // 委任不需要目标，这里必须清掉，否则会留下一个"委任但挂着攻略目标"的脏状态
+                        targetCorps.appoint = (int)Corps.AppointType.Auto;
                         targetCorps.appoint_target = 0;
                         UpdateContent();
                     }
@@ -396,6 +404,28 @@ namespace Sango.UI
                 }
             }
             sureButton.interactable = val;
+
+            // 【诊断】确定键变灰时必须把原因打出来。
+            // 之前这里静默置灰，玩家只看到"设置完了点不了确定"，日志里什么都没有。
+            if (!val)
+            {
+                string reason;
+                if (targetCorps == null)
+                    reason = "军团对象为空";
+                else if (targetCorps.mComander == null)
+                    reason = "未选择军团长";
+                else if (targetCityList.Count == 0)
+                    reason = "未选择任何都市";
+                else if (targetPersonList.Count == 0)
+                    reason = "军团内没有可用武将";
+                else if (targetCorps.appoint == (int)Corps.AppointType.DestroyForce
+                      || targetCorps.appoint == (int)Corps.AppointType.OccupyCity)
+                    reason = $"方针「{GetPolicyText(targetCorps.appoint)}」需要攻略目标，当前未选择目标";
+                else
+                    reason = $"会把第 1 军团的城全部划走（主军团现有 {GetFirstCorpsCityCount()} 城，本次划走 {targetCityList.Count} 城）";
+
+                Sango.Log.Warning($"*[军团]确定不可用：{reason}");
+            }
         }
 
         /// <summary>
@@ -412,7 +442,23 @@ namespace Sango.UI
                     if (force != null)
                         selectForces.Add(force);
                 }
-                GameSystem.GetSystem<ForceSelectSystem>().Start(targetForce.NeighborForceList,
+                // 【候选兜底】没有接壤势力（开局第一回合、势力被完全孤立）时，
+                // NeighborForceList 是空的，选择器里一个可选项都没有 → 永远选不到目标
+                // → CheckSure 判定"方针需要目标"把确定键锁死。
+                // 原版命令参数的候选由 UI 层决定，这里退回"全部其他势力"保证可用。
+                List<Force> forceCandidates = targetForce.NeighborForceList;
+                if (forceCandidates == null || forceCandidates.Count == 0)
+                {
+                    Sango.Log.Warning("*[军团]本势力没有接壤势力，攻略势力候选回退为全部其他势力");
+                    forceCandidates = new List<Force>();
+                    Scenario.Cur.forceSet.ForEach(f =>
+                    {
+                        if (f != null && f.IsAlive && f != targetForce)
+                            forceCandidates.Add(f);
+                    });
+                }
+
+                GameSystem.GetSystem<ForceSelectSystem>().Start(forceCandidates,
                         selectForces, 1, (forceList) =>
                         {
                             if (forceList.Count > 0)
@@ -432,7 +478,22 @@ namespace Sango.UI
                     if (city != null)
                         selectCity.Add(city);
                 }
-                GameSystem.GetSystem<CitySelectSystem>().Start(targetForce.NeighborCityList,
+                // 【候选兜底】理由同"攻略势力"分支：NeighborCityList 只在
+                // Force.UpdateTurnInfo 里按"接壤都市"装填，为空时选择器无法选目标，
+                // 确定键会被 CheckSure 永久锁死。这里退回"全部敌方都市"。
+                List<City> cityCandidates = targetForce.NeighborCityList;
+                if (cityCandidates == null || cityCandidates.Count == 0)
+                {
+                    Sango.Log.Warning("*[军团]本势力没有接壤都市，攻略都市候选回退为全部敌方都市");
+                    cityCandidates = new List<City>();
+                    Scenario.Cur.citySet.ForEach(c =>
+                    {
+                        if (c != null && c.IsAlive && c.IsCity() && c.BelongForce != targetForce)
+                            cityCandidates.Add(c);
+                    });
+                }
+
+                GameSystem.GetSystem<CitySelectSystem>().Start(cityCandidates,
                         selectCity, 1, (cList) =>
                         {
                             if (cList.Count > 0)

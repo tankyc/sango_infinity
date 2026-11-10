@@ -969,6 +969,10 @@ namespace Sango.Core
                         return;
                     if (person.FeatureList == null)
                         return;
+                    // 【剧本上限】特技已满的武将不再出现在候选里 ——
+                    // 否则玩家看到的按钮点了必失败，AI 选到他也必然空耗一次培育机会。
+                    if (person.IsFeatureFull)
+                        return;
                     Feature skillFeature = scenario.GetObject<Feature>(ability.skillId);
                     if (skillFeature == null)
                         return;
@@ -1120,6 +1124,13 @@ namespace Sango.Core
                 if (person.HasFeatrue(ability.skillId))
                 {
                     reason = "该武将已拥有此特技";
+                    return false;
+                }
+                // 【剧本上限】与 ApplySkill 同口径：已达上限就不能再学。
+                // 放在 ui 校验里是为了让按钮直接置灰并给出中文原因，而不是点完才失败。
+                if (person.IsFeatureFull)
+                {
+                    reason = $"特技已达上限 {Person.GetMaxActiveFeatureCount()} 个";
                     return false;
                 }
 
@@ -1373,6 +1384,15 @@ namespace Sango.Core
                 return false;
             if (person.HasFeatrue(ability.skillId))
                 return false;
+            // 【剧本上限】特技数已达 maxActiveFeatureCount → 不能再学。
+            // 注意判据用 FeatureList.Count 而不是 ActiveFeatureCount：
+            // 超上限的武将（例如剧本原有 5 个、上限调成 3）同样算"已满"，不应继续塞。
+            if (person.IsFeatureFull)
+            {
+                int max = Person.GetMaxActiveFeatureCount();
+                Sango.Log.Info($"*[特技培育]{force.Name} 的 {person.Name} 特技已达上限 {max} 个，无法习得「{ability.Name}」");
+                return false;
+            }
             Feature feature = scenario.GetObject<Feature>(ability.skillId);
             if (feature == null || person.FeatureList == null)
                 return false;

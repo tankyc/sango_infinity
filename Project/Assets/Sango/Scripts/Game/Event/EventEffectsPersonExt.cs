@@ -194,6 +194,14 @@ namespace Sango.Core.Event
                 return true;
             }
 
+            // 【剧本上限】特技数已达 maxActiveFeatureCount → 拒绝授予。
+            // 事件若不受上限约束，剧本参数就形同虚设（一次剧情就能把武将塞满特技）。
+            if (person.IsFeatureFull)
+            {
+                Log.Info($"事件：{person.Name} 特技已达上限 {Person.GetMaxActiveFeatureCount()} 个，本次授予 {feature.Name} 被拒绝");
+                return false;
+            }
+
             person.FeatureList.Add(feature);
             // 存档字段是 Id 数组（Person.FeatureListId），这里立即同步，避免"运行期有、读档后没了"
             person.FeatureListId = person.FeatureList.ToArray();

@@ -2748,7 +2748,7 @@ namespace Sango.Core
                     {
                         for (int j = 0; j < troopType.matchFeatures.Length; j++)
                         {
-                            if (exsistP.FeatureList.Contains(troopType.matchFeatures[j]))
+                            if (exsistP.HasFeatrue(troopType.matchFeatures[j]))
                             {
                                 alreadtHasFeature = true;
                                 break;
@@ -2770,7 +2770,7 @@ namespace Sango.Core
                         {
                             for (int j = 0; j < troopType.matchFeatures.Length; j++)
                             {
-                                if (person.FeatureList.Contains(troopType.matchFeatures[j]))
+                                if (person.HasFeatrue(troopType.matchFeatures[j]))
                                 {
                                     checkPersons[destSlot] = person;
                                     person1 = person;
@@ -3037,7 +3037,8 @@ namespace Sango.Core
             if (recommandFeatures == null || recommandFeatures.Length == 0)
                 recommandFeatures = defaultResearchRecommandFeatures;
 
-            List<Person> featurePersonList = personList.FindAll(x => x.FeatureList != null && x.FeatureList.Contains(recommandFeatures));
+            // 用 HasFeatrue 而不是 FeatureList.Contains：只认生效范围内的特技
+            List<Person> featurePersonList = personList.FindAll(x => x != null && x.HasFeatrue(recommandFeatures));
             // 持有者足够填满队伍时直接成队（与原逻辑一致）
             if (featurePersonList.Count >= ResearchPersonLimit)
                 return featurePersonList.GetRange(0, ResearchPersonLimit).ToArray();

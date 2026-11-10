@@ -15,15 +15,45 @@ namespace Sango.Render
         public bool needText = true;
 
         /// <summary>
-        /// 上一次写入材质时的部队ID / 势力ID。
-        /// 【刷新治理】SetColor、SetTexture 每次都会把材质标脏,而表现层刷新调用很频繁,
-        /// 所以这里做"值没变就不写"的守卫,让刷新函数可以被高频调用而几乎零开销。
+        /// 旗面文字是否使用"全场共享文字图集"。
+        ///
+        /// 【为什么这样可以合批】
+        /// 原先每面旗调用 TextFactory.GetTexture(字, 40)，而 TextFactory 对每个字符串
+        /// 都新建一张 64×64 的 RenderTexture —— 几百面旗就有几百张不同的贴图，
+        /// 于是每面旗必然是一次独立的 SetPass，无论材质怎么优化都不可能合批。
+        ///
+        /// 改成共享图集后，所有旗帜的 _TextTex 指向同一张纹理；每面旗仍是自己的材质实例
+        /// （_Color / _BaseMap_ST / _TextTex_ST 各不相同），但 SRP Batcher 是**按 shader**
+        /// 合并批次的，材质实例不同并不妨碍它们进入同一个 "SRP Batch"。
+        ///
+        /// 【注意】这里刻意不去改旗帜网格的 uv / 顶点色：模型网格是导入资源，
+        /// 默认 isReadable = false，任何 Mesh.uv / SetUVs / colors 的读写都会直接报错。
+        /// 所有 per-flag 差异都通过材质属性表达，零网格操作。
+        ///
+        /// false 时回到旧路径（每个字一张 RT），用于快速回滚。
+        /// </summary>
+        public static bool UseSharedTextAtlas = true;
+
+        /// <summary>
+        /// 上一次写入时的部队ID / 势力ID。
+        /// 【刷新治理】SetColor、SetTexture 每次都会把材质标脏，而表现层刷新调用很频繁，
+        /// 所以这里做"值没变就不写"的守卫。
         /// </summary>
         int lastTroopId = -1;
         int lastForceId = -1;
 
         /// <summary>已提示过"势力名 / 旗号缺失"的势力 Id，避免地图上每面旗各刷一条日志。</summary>
         static readonly HashSet<int> warnedForceIds = new HashSet<int>();
+
+        /// <summary>缓存的渲染器（可能是 SkinnedMeshRenderer，也可能是普通 MeshRenderer）</summary>
+        Renderer cachedRenderer;
+
+        Renderer GetRenderer()
+        {
+            if (cachedRenderer == null)
+                cachedRenderer = GetComponentInChildren<Renderer>(true);
+            return cachedRenderer;
+        }
 
         /// <summary>
         /// 刷新旗帜的所属势力(部队换旗时纠正颜色)。
@@ -55,28 +85,15 @@ namespace Sango.Render
         ///     BuildingBaseModel.Init → FlagRender.Init:50，表现为开图时地图刷新崩溃；
         ///   · 旗号 mFlag 为 null（旗号表缺失）→ 取 Id/color 同样崩；
         ///   · 旗帜模型自身没有 Renderer（预制体残缺）。
-        /// 这里统一降级：文字缺失写黑图、旗号缺失用 0 号偏移与白色，绝不抛异常。
+        /// 这里统一降级：文字缺失写黑格、旗号缺失用 0 号偏移与白色，绝不抛异常。
         /// </summary>
         /// <param name="force">旗帜颜色/图集来源势力（可为 null）</param>
-        /// <param name="textName">旗面文字来源名称（null 表示不写字，写黑图）</param>
+        /// <param name="textName">旗面文字来源名称（null 表示不写字，写黑格）</param>
         void ApplyFlag(Force force, string textName)
         {
-            Renderer renderer = GetComponentInChildren<Renderer>(true);
+            Renderer renderer = GetRenderer();
             if (renderer == null)
                 return;
-            Material baseMat = renderer.material;
-
-            if (needText && !string.IsNullOrEmpty(textName) && TextFactory.Instance != null)
-            {
-                baseMat.SetTexture("_TextTex", TextFactory.Instance.GetTexture(textName.Substring(0, 1), 40));
-            }
-            else
-            {
-                baseMat.SetTexture("_TextTex", Texture2D.blackTexture);
-            }
-
-            Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
-            baseMat.SetTextureScale("_BaseMap", textScale);
 
             int flagOffsetIndex = 0;
             Color flagColor = Color.white;
@@ -96,11 +113,67 @@ namespace Sango.Render
             }
 
             int final_flag_id = flagId + flagOffsetIndex;
+            bool hasText = needText && !string.IsNullOrEmpty(textName);
+
+            Material baseMat = renderer.material;
+
+            ApplyTextTexture(baseMat, hasText ? textName : null);
+
+            // 旗号图集（与原实现逐字一致）
+            Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
+            baseMat.SetTextureScale("_BaseMap", textScale);
+
             int x = final_flag_id % xCount;
             int y = final_flag_id / xCount;
             Vector2 textOffset = new Vector2(x * (flagW / flagTexWidth) - 0.003f, -y * (flagH / flagTexHeight));
             baseMat.SetTextureOffset("_BaseMap", textOffset);
             baseMat.SetColor("_Color", flagColor);
+        }
+
+        /// <summary>
+        /// 设置旗面文字层。
+        ///
+        /// 共享图集路径：_TextTex 指向 1024×1024 的文字图集，用 _TextTex_ST 把 0~1 的
+        /// 旗面 uv 映射到该字符所占的那一格（shader 侧是 TRANSFORM_TEX(v.uv, _TextTex)）。
+        /// 未写字时指向图集末尾预清好的纯黑格，保持与旧实现（blackTexture）一致的观感。
+        ///
+        /// 旧路径：每个字一张 64×64 RenderTexture，_TextTex_ST 复位成 (1,1,0,0)。
+        /// </summary>
+        void ApplyTextTexture(Material baseMat, string textChar)
+        {
+            // 【无文字】与原始实现完全一致：整面用 1×1 纯黑贴图。
+            // 刻意不让它去图集里找"黑格"—— 图集里根本没有黑格，
+            // 任何一次格子内容/UV 出错都会变成"满地图黑板"，这条路径必须与图集彻底隔离。
+            if (string.IsNullOrEmpty(textChar))
+            {
+                baseMat.SetTexture("_TextTex", Texture2D.blackTexture);
+                baseMat.SetTextureScale("_TextTex", Vector2.one);
+                baseMat.SetTextureOffset("_TextTex", Vector2.zero);
+                return;
+            }
+
+            if (UseSharedTextAtlas)
+            {
+                Texture atlas = FlagTextAtlas.Atlas;
+                if (atlas != null)
+                {
+                    Vector4 rect = FlagTextAtlas.GetRect(textChar);
+                    baseMat.SetTexture("_TextTex", atlas);
+                    baseMat.SetTextureScale("_TextTex", new Vector2(rect.z, rect.w));
+                    baseMat.SetTextureOffset("_TextTex", new Vector2(rect.x, rect.y));
+                    return;
+                }
+            }
+
+            // 回退路径：每个字一张 64×64 RenderTexture
+            if (TextFactory.Instance != null)
+                baseMat.SetTexture("_TextTex", TextFactory.Instance.GetTexture(textChar.Substring(0, 1), 40));
+            else
+                baseMat.SetTexture("_TextTex", Texture2D.blackTexture);
+
+            // 旧路径是"整张字图铺满旗面"，必须把可能残留的图集偏移清掉
+            baseMat.SetTextureScale("_TextTex", Vector2.one);
+            baseMat.SetTextureOffset("_TextTex", Vector2.zero);
         }
 
         /// <summary>
@@ -133,20 +206,22 @@ namespace Sango.Render
         [ContextMenu("test")]
         public void Test()
         {
-            Renderer renderer = GetComponentInChildren<Renderer>(true);
-            Material outlineMat = renderer.sharedMaterials[0];
-            Material baseMat = renderer.sharedMaterials[1];
+            Renderer renderer = GetRenderer();
+            if (renderer == null) return;
+
+            Material[] mats = renderer.sharedMaterials;
+            if (mats == null || mats.Length == 0) return;
+            Material baseMat = mats[0];
 
             Vector2 textScale = new Vector2(flagW / flagTexWidth, flagH / flagTexHeight);
-            outlineMat.SetTextureScale("_BaseMap", textScale);
             baseMat.SetTextureScale("_BaseMap", textScale);
             int x = flagId % xCount;
             int y = flagId / xCount;
 
-            Vector2 textOffset = new Vector2(x * (flagW / flagTexWidth) - 0.003f, -y * (flagH / flagTexHeight) - 0.075f);
-            outlineMat.SetTextureOffset("_BaseMap", textOffset);
+            Vector2 textOffset = new Vector2(
+                x * (flagW / flagTexWidth) - 0.003f,
+                -y * (flagH / flagTexHeight) - 0.075f);
             baseMat.SetTextureOffset("_BaseMap", textOffset);
-
         }
     }
 }

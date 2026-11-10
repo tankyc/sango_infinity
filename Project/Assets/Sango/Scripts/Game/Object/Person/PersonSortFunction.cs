@@ -905,10 +905,12 @@ namespace Sango.Core
                 StringBuilder sb = new StringBuilder();
                 if (x.FeatureList != null)
                 {
-                    for (int i = 0; i < x.FeatureList.Count; i++)
+                    // 只列**生效**的特技（超出剧本 maxActiveFeatureCount 的部分不展示）
+                    int activeCount = x.ActiveFeatureCount;
+                    for (int i = 0; i < activeCount; i++)
                     {
                         sb.Append(x.FeatureList[i].Name);
-                        if (i < x.FeatureList.Count - 1)
+                        if (i < activeCount - 1)
                             sb.Append(", ");
                     }
                 }
@@ -922,7 +924,7 @@ namespace Sango.Core
                     return -1;
                 if (a.FeatureList == null && b.FeatureList != null)
                     return 1;
-                return a.FeatureList.Count.CompareTo(b.FeatureList.Count);
+                return a.ActiveFeatureCount.CompareTo(b.ActiveFeatureCount);
             },
             valueObjGet = x => x.FeatureList,
             valueObjSet = (x, v) => SetPersonFeatureList(x, v),
@@ -936,15 +938,17 @@ namespace Sango.Core
             width = 30.00f,
             valueStrGetCall = x =>
             {
-                if (x.FeatureList == null || x.FeatureList.Count == 0)
+                // 只列**生效**的特技说明，与"特技"列保持同一口径
+                int activeCount = x.ActiveFeatureCount;
+                if (activeCount <= 0)
                     return string.Empty;
 
                 StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < x.FeatureList.Count; i++)
+                for (int i = 0; i < activeCount; i++)
                 {
                     var feat = x.FeatureList[i];
                     sb.Append(feat.desc ?? string.Empty);
-                    if (i < x.FeatureList.Count - 1)
+                    if (i < activeCount - 1)
                         sb.Append("\n");
                 }
                 return sb.ToString();

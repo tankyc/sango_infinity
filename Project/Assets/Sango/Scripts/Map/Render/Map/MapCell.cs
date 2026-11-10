@@ -26,6 +26,27 @@ namespace Sango.Render
         public int lod = 0;
 #endif
 
+        /// <summary>
+        /// 是否已切到"不带描边"的层（远距离 LOD 用）。
+        ///
+        /// MapCell 的 GameObject 与每个子层节点都必须跟着切：
+        /// MeshCollider 是挂在子层节点上的，只切根节点会出现"渲染在 A 层、碰撞在 B 层"，
+        /// 射线拾取与 RenderObjects Feature 的 LayerMask 过滤都会对不上。
+        /// </summary>
+        bool noOutLineLayer;
+
+        /// <summary>
+        /// 因 LOD 变化而重建网格的标记。
+        ///
+        /// 降档（顶点抽稀）后某些图层可能暂时没有任何顶点，此时**不能**像首次构建那样
+        /// 直接销毁 Renderer 与 Mesh —— 否则升档回来时 <see cref="CreateLayers"/> 会因为
+        /// <c>mesh[layer] == null</c> 直接 return，这一层就永久消失了。
+        /// </summary>
+        bool lodRebuild;
+
+        /// <summary>当前生效的层（Map / MapNoOutLine）</summary>
+        int CurrentLayer { get { return noOutLineLayer ? MapLayers.MapNoOutLine : MapLayers.Map; } }
+
         int[] xIndexCache;
         int[] yIndexCache;
         bool[] diffyIndexCache;
@@ -104,6 +125,11 @@ namespace Sango.Render
 
         public override void Init()
         {
+            // 远处才进入视野的块直接按当前目标精度构建。
+            // 少了这一步，远景下"新出现的块"仍是全精度，顶点削减会随时间慢慢失效。
+            if (map != null && map.mapTerrain != null)
+                lod = map.mapTerrain.TargetLod;
+
             int maxLayer = map.mapLayer.layerDatas.Length;
             if (gameObject != null)
             {
@@ -112,15 +138,18 @@ namespace Sango.Render
                     // 已经建过：可能被 ReleaseMesh 释放了 Mesh 实体，这里只补齐缺的部分
                     EnsureMeshes(maxLayer);
                     threadBeginLayer = 0;
+
+                    // 复用旧节点时，层档位要跟随当前 LOD 状态
+                    ApplyLayer(CurrentLayer);
                     return;
                 }
                 GameObject.Destroy(gameObject);
                 gameObject = null;
             }
 
-            int layer = LayerMask.NameToLayer("Map");
+            // 层索引走 MapLayers 缓存：地形块会在 Map / MapNoOutLine 之间切换（远距离 LOD）
             gameObject = new GameObject(string.Format("Map区域_{0}_{1}", startCoords.x, startCoords.y));
-            gameObject.layer = layer;
+            gameObject.layer = noOutLineLayer ? MapLayers.MapNoOutLine : MapLayers.Map;
 
             // 旧地形的 "Terrain" 容器节点已取消（地形渲染由 TerrainSango 接管），
             // 地形块直接挂在 Map 根节点下。运行时不会走到这里（见 MapTerrain.Init 的编辑态判断）。
@@ -154,7 +183,7 @@ namespace Sango.Render
 
                 GameObject go = new GameObject("Layer - " + i);
                 go.transform.SetParent(gameObject.transform, false);
-                go.layer = layer;
+                go.layer = noOutLineLayer ? MapLayers.MapNoOutLine : MapLayers.Map;
 
                 MeshFilter mf = go.AddComponent<MeshFilter>();
                 mf.sharedMesh = mesh[i];
@@ -341,6 +370,10 @@ namespace Sango.Render
 
             // 解登记：本块已整体清理，逐帧循环里彻底移除
             inFrameUpdateList = false;
+
+            // LOD 重建标记不能跨生命周期残留：否则下一次 Init 的首轮构建会把"本来就没用到的层"
+            // 也当成"降档临时清空的层"保留下来，白留一堆空 Renderer
+            lodRebuild = false;
         }
 
         public void PrepareDatas(bool needInit = true)
@@ -461,36 +494,52 @@ namespace Sango.Render
         public bool remainInView { get; set; }
 
         public void EditorShow(bool b) { }
+        /// <summary>
+        /// 切换地形描边材质（<paramref name="material"/> 为 null 表示恢复单材质、关闭描边）。
+        ///
+        /// 【为什么必须在这里判空】<see cref="MapTerrain.CreateLegacyCells"/> 创建块时只 new 出
+        /// MapCell 并登记进 MapModels.staticObjects，**不会调用 <see cref="Init"/>**；
+        /// mesh / meshRenderer 是 Init 里才创建的。而 Init 由 <see cref="Update"/> 在
+        /// "_visibleChanged 且 !IsValid() 且可见" 时惰性触发，所以**视口外的块永远不会 Init**，
+        /// meshRenderer 始终为 null。
+        /// 偏偏 <see cref="MapModels.SetOutLineShow"/> 是"全部 staticObjects 过一遍"，
+        /// 于是相机拉远 / 拉近触发 MapRenderLod 翻转描边时，必抛
+        /// NullReferenceException（MapCell.cs 旧实现对 meshRenderer.Length 未判空）。
+        /// 没建过渲染器的块本来就没有材质要换，直接跳过即可。
+        /// </summary>
+        /// <param name="material">描边材质；null 表示还原为单材质</param>
         public void SetOutlineShow(Material material)
         {
-            if (material == null)
-            {
-                for (int i = 0; i < meshRenderer.Length; ++i)
-                {
-                    MeshRenderer r = (MeshRenderer)meshRenderer[i];
-                    if (i < meshRenderer.Length - 1)
-                    {
-                        MapLayer.LayerData layerData = map.mapLayer.layerDatas[i];
-                        r.sharedMaterial = layerData.material;
-                    }
-                }
-            }
-            else
-            {
-                for (int i = 0; i < meshRenderer.Length; ++i)
-                {
-                    MeshRenderer r = (MeshRenderer)meshRenderer[i];
-                    if (i < meshRenderer.Length - 1)
-                    {
-                        MapLayer.LayerData layerData = map.mapLayer.layerDatas[i];
-                        r.sharedMaterials = new Material[2]{
-                            layerData.material,
-                            material
-                          };
-                    }
-                }
-            }
+            if (meshRenderer == null || map == null || map.mapLayer == null)
+                return;
 
+            // 语义保持与原实现一致：最后一个图层（顶层，通常是水面）不参与描边，
+            // 只处理 [0, length - 1)。原写法是循环里判 i &lt; meshRenderer.Length - 1，等价。
+            int lastIndex = meshRenderer.Length - 1;
+            for (int i = 0; i < lastIndex; ++i)
+            {
+                // ComputeUsedLayers 会裁掉"本块没有顶点"的图层，对应槽位是 null，跳过
+                MeshRenderer r = meshRenderer[i];
+                if (r == null)
+                    continue;
+
+                MapLayer.LayerData layerData = map.mapLayer.layerDatas[i];
+                if (layerData == null)
+                    continue;
+
+                if (material == null)
+                {
+                    r.sharedMaterial = layerData.material;
+                }
+                else
+                {
+                    r.sharedMaterials = new Material[2]
+                    {
+                        layerData.material,
+                        material
+                    };
+                }
+            }
         }
 
         public void AsyncPrepareDatas()
@@ -513,16 +562,65 @@ namespace Sango.Render
             ThreadPool.QueueUserWorkItem(new WaitCallback(_PrepareDatas));
         }
 
+        /// <summary>
+        /// 切换网格精度档位（0 = 原始，1 = 隔点，2 = 隔三点）并异步重建。
+        ///
+        /// 【什么时候真的重建】只在"已经建好网格（IsValid）且当前可见"时重建：
+        ///   · 还没建过网格的块，下次 Init 自然按新 lod 构建，不需要在这里做任何事；
+        ///   · 不可见的块重建纯属浪费（它本来就不画），等它再次进入视野时按新 lod 走 Init 即可；
+        ///   · 正在后台构建的块不打断，避免两轮构建结果互相覆盖。
+        ///
+        /// 【为什么要标记 lodRebuild】见字段注释：降档后某层可能暂时没有顶点，
+        /// 重建路径不能把它销毁掉，否则升档回不来。
+        /// </summary>
+        /// <param name="l">精度档位，0~2</param>
         public void SetLod(int l)
         {
+            if (lod == l)
+                return;
+
             lod = l;
 
-            //if (newThrd != null) {
-            //    newThrd.Abort();
-            //    newThrd = null;
-            //}
-            //threadBeginLayer = 0;
-            //AsyncPrepareDatas();
+            if (map == null || mesh == null || !IsValid() || threadLoadStart || !visible)
+                return;
+
+            lodRebuild = true;
+            threadBeginLayer = 0;
+            AsyncPrepareDatas();
+        }
+
+        /// <summary>
+        /// 切换"是否描边"的层档位（远距离 LOD 用）。由 <see cref="MapRenderLod"/> 在相机距离翻转时调用。
+        ///
+        /// 切层的目的不是改变渲染内容，而是让 URP Renderer 上按 LayerMask 过滤的
+        /// RenderObjects / OutlineOpaque Feature 匹配不到本块，从而整块跳过描边 pass。
+        /// 还没创建 GameObject 的块只记状态，等 Init 时按新档位建层。
+        /// </summary>
+        /// <param name="noOutline">true 切到 NoOutLine 层</param>
+        public void SetNoOutLineLayer(bool noOutline)
+        {
+            if (noOutLineLayer == noOutline)
+                return;
+
+            noOutLineLayer = noOutline;
+            ApplyLayer(CurrentLayer);
+        }
+
+        /// <summary>把当前层档位写到根节点与所有子层节点（Collider 在子层节点上）</summary>
+        void ApplyLayer(int layer)
+        {
+            if (gameObject != null && gameObject.layer != layer)
+                gameObject.layer = layer;
+
+            if (meshRenderer == null)
+                return;
+
+            for (int i = 0; i < meshRenderer.Length; ++i)
+            {
+                MeshRenderer r = meshRenderer[i];
+                if (r != null && r.gameObject.layer != layer)
+                    r.gameObject.layer = layer;
+            }
         }
 
         //public void SetVisible(bool b)
@@ -575,6 +673,9 @@ namespace Sango.Render
             lmdCache.Clear();
             if (!MapEditor.IsEditOn)
                 lmdCache = null;
+
+            // 本轮重建（可能是 LOD 切换引起的）结束，后续再出现空层就按首次构建处理
+            lodRebuild = false;
         }
 
         void OnAsyncPrepareDatasDone(int layer, LayerMeshData lmd)
@@ -595,6 +696,9 @@ namespace Sango.Render
                 else
                 {
                     meshCollider[layer].sharedMesh = mesh[layer];
+                    // LOD 降档时本层可能被临时清空并关过碰撞体，升档后这里恢复
+                    if (!meshCollider[layer].enabled)
+                        meshCollider[layer].enabled = true;
                 }
 
 
@@ -606,16 +710,34 @@ namespace Sango.Render
             {
                 if (!MapEditor.IsEditOn)
                 {
-                    // 运行时不能 DestroyImmediate（会打断同帧内的渲染与批次），改为延迟销毁并回收网格
-                    RecycleMesh(mesh[layer]);
-                    GameObject.Destroy(r.gameObject);
-                    mesh[layer] = null;
-                    meshRenderer[layer] = null;
-                    meshCollider[layer] = null;
+                    if (lodRebuild)
+                    {
+                        // LOD 重建（降档）时本层只是暂时没有顶点：
+                        // 保留 Mesh 与 Renderer，清空几何并关掉渲染 / 碰撞，升档时再填回来。
+                        // 若在这里像首次构建那样销毁，CreateLayers 会因为 mesh[layer] == null
+                        // 直接 return，这一层就永久消失了（升档也回不来）。
+                        if (mesh[layer] != null)
+                            mesh[layer].Clear();
 
-                    //if (r.enabled)
-                    //    r.enabled = false;
-                    //meshRenderer[layer].gameObject.SetActive(false);
+                        if (meshCollider[layer] != null)
+                            meshCollider[layer].enabled = false;
+
+                        if (r.enabled)
+                            r.enabled = false;
+                    }
+                    else
+                    {
+                        // 运行时不能 DestroyImmediate（会打断同帧内的渲染与批次），改为延迟销毁并回收网格
+                        RecycleMesh(mesh[layer]);
+                        GameObject.Destroy(r.gameObject);
+                        mesh[layer] = null;
+                        meshRenderer[layer] = null;
+                        meshCollider[layer] = null;
+
+                        //if (r.enabled)
+                        //    r.enabled = false;
+                        //meshRenderer[layer].gameObject.SetActive(false);
+                    }
                 }
             }
 

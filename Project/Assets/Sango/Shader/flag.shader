@@ -43,14 +43,18 @@ Shader "Sango/flag_urp" {
 			}
 
 			Pass
-				{
-					Name "ShadowCaster"
-					Tags{"LightMode" = "ShadowCaster"}
+			{
+				Name "ShadowCaster"
+				Tags{"LightMode" = "ShadowCaster"}
 
-					ZWrite On
-					ZTest LEqual
-					ColorMask 0
-					Cull[_Cull]
+				ZWrite On
+				ZTest LEqual
+				ColorMask 0
+				// 【SRP Batcher】原为 Cull[_Cull]：_Cull 既没有在 Properties 声明，
+				// 也不在 UnityPerMaterial CBUFFER 里，会让整个 shader 被判定为
+				// "SRP Batcher 不兼容"，旗帜因此永远无法合批。
+				// mat_flag 的 _Cull 本来就是 2(Back)，这里直接写成常量，语义不变。
+				Cull Back
 
 					HLSLPROGRAM
 					#pragma exclude_renderers xbox360 ps3 

@@ -1089,7 +1089,7 @@ namespace Sango.Core
             {
                 if (x.FeatureList != null)
                 {
-                    for (int i = 0; i < x.FeatureList.Count; i++)
+                    for (int i = 0; i < x.ActiveFeatureCount; i++)
                     {
                         Feature feature = x.FeatureList[i];
                         if (feature != null && feature.kind <= (int)FeatureKindType.TroopSupport)

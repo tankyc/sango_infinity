@@ -124,6 +124,60 @@ namespace Sango.Mod
         }
 
         /// <summary>
+        /// 取"已启用模组"的物理目录列表（按加载顺序）。
+        ///
+        /// 【为什么不能直接用 <see cref="GetEnabledMods"/>】
+        /// 事件库 / 剧本参数预设这类"应用级静态数据"需要的是**目录路径**而不是 Mod 对象；
+        /// 更关键的是加载时机：
+        /// <code>
+        /// Game.Init()
+        ///   ├─ ModManager.Init()             // 先建空表：mEnabledModList = new List&lt;Mod&gt;()
+        ///   ├─ GameSystemManager.Init()      // → ScenarioEventManager.Init() → EventDatabase.Load()
+        ///   └─ GameInit() 协程 → InitMods()  // 这里才真正把启用模组填进 mEnabledModList
+        /// </code>
+        /// 也就是说事件库加载时 mEnabledModList **还是空表**，直接读它会把所有模组事件过滤成 0 个。
+        /// 因此这里在启用表为空时回落到 <see cref="LoadModList"/>（Mods/modList.txt）——
+        /// 它与 InitMods 读的是同一份数据，是"玩家勾选结果"的唯一持久化真源。
+        /// </summary>
+        /// <returns>
+        /// 已启用模组的目录列表；模组系统尚未初始化（<c>mModMap</c> 为 null，
+        /// 例如编辑器预览 / 纯逻辑单测）时返回 <c>null</c>，
+        /// 调用方应据此退回"扫描整个模组根目录"的旧行为，避免把模组数据整体丢掉。
+        /// </returns>
+        public List<string> GetEnabledModDirs()
+        {
+            // 未初始化：由调用方决定是否退回全目录扫描
+            if (mModMap == null)
+                return null;
+
+            List<string> dirs = new List<string>();
+
+            // 运行期启用表非空就优先用它（顺序与加载顺序一致）；
+            // 为空说明还没走到 InitMods，回落到 modList.txt。
+            string[] ids = (mEnabledModList != null && mEnabledModList.Count > 0)
+                ? GetEnabledModIds()
+                : LoadModList();
+            if (ids == null || ids.Length == 0)
+                return dirs;
+
+            for (int i = 0; i < ids.Length; i++)
+            {
+                string id = ids[i];
+                if (string.IsNullOrEmpty(id))
+                    continue;
+
+                Mod mod;
+                if (!mModMap.TryGetValue(id, out mod) || mod == null || string.IsNullOrEmpty(mod.ModDir))
+                    continue;
+
+                // 依赖列表里可能有重复 Id，目录去重后再交给调用方
+                if (!dirs.Contains(mod.ModDir))
+                    dirs.Add(mod.ModDir);
+            }
+            return dirs;
+        }
+
+        /// <summary>
         /// 对比"存档记录的模组列表"与"当前启用的模组列表"
         ///
         /// 判定口径(只关心"存档需要的模组是否都还在"):

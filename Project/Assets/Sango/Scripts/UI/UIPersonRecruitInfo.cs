@@ -108,7 +108,8 @@ using Sango.Core; namespace Sango.UI
             statusItem.SetPerson(person);
             ageText.text = person.Age.ToString();
             sexText.text = PersonSortFunction.SortBySex.GetValueStr(person);
-            if (person.FeatureList != null && person.FeatureList.Count > 0)
+            // 只显示**生效**的第一个特技（超出剧本上限的特技不展示）
+            if (person.ActiveFeatureCount > 0)
             {
                 featureText.text = person.FeatureList[0].Name;
                 featureDescriptionText.text = person.FeatureList[0].desc;

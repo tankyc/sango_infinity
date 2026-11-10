@@ -65,6 +65,8 @@ namespace Sango.Render
                 for (int x = 0; x < wCount; x++)
                 {
                     MapCell cell = new MapCell(map, x * cellSize, y * cellSize, cellSize, cellSize);
+                    // 重载地图 / 回退重建时，LOD 层档位可能仍是远处的设置，新块要直接沿用
+                    cell.SetNoOutLineLayer(noOutLineState);
                     terrainCells[y * wCount + x] = cell;
                     map.AddStatic(cell);
                 }
@@ -85,6 +87,11 @@ namespace Sango.Render
         public override void Clear()
         {
             base.Clear();
+
+            // 队列里可能还持有即将销毁的块，先清掉；目标档位复位为平台默认值
+            lodRebuildQueue.Clear();
+            targetLod = PlatformDefaultLod;
+
             if (terrainCells == null) return;
             for (int i = 0; i < terrainCells.Length; i++)
             {
@@ -265,9 +272,128 @@ namespace Sango.Render
             cell.inFrameUpdateList = false;
         }
 
+        // ───────────────────────────── 远距离 LOD ─────────────────────────────
+
+        /// <summary>
+        /// 平台默认精度档位，必须与 <see cref="MapCell.lod"/> 的初始值一致。
+        /// 移动端本来就是隔点采样（1），近景回档时要回到 1 而不是 0，否则等于凭空提高精度、掉帧。
+        /// </summary>
+        public static int PlatformDefaultLod
+        {
+            get
+            {
+#if UNITY_ANDROID || UNITY_IPHONE
+                return 1;
+#else
+                return 0;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// 当前目标精度档位（0 = 原始，1 = 隔点，2 = 隔三点）。
+        /// 由 <see cref="MapRenderLod"/> 在相机距离翻转时设置，块级精度按此重建。
+        /// </summary>
+        int targetLod = PlatformDefaultLod;
+
+        /// <summary>
+        /// 等待按新精度重建的块队列。
+        /// 重建一块要重跑该块所有图层的顶点构建（实测单块数十毫秒级），
+        /// 相机拉远时可见块可能有上百个，一次性全重建会直接卡住主线程，所以排队分摊到多帧。
+        /// </summary>
+        readonly System.Collections.Generic.Queue<MapCell> lodRebuildQueue
+            = new System.Collections.Generic.Queue<MapCell>();
+
+        /// <summary>每帧最多重建多少块。取小值换平滑，取大值换降级完成速度。</summary>
+        public int lodRebuildPerFrame = 4;
+
+        /// <summary>
+        /// 当前目标精度档位（只读）。
+        /// <see cref="MapCell.Init"/> 建块时直接采用它，否则"降级之后才进入视野的块"仍会是全精度，
+        /// 远景下的顶点削减会随时间慢慢失效。
+        /// </summary>
+        public int TargetLod { get { return targetLod; } }
+
+        /// <summary>
+        /// 设置地形精度档位（远处降精度）。只影响"已经建过网格的块"的重建节奏；
+        /// 还没建过网格的块会在下次 Init 时直接按新档位构建，不额外花代价。
+        /// </summary>
+        /// <param name="lod">0 = 原始，1 = 隔点，2 = 隔三点</param>
+        public void SetCellLod(int lod)
+        {
+            if (targetLod == lod)
+                return;
+
+            targetLod = lod;
+
+            if (terrainCells == null)
+                return;
+
+            for (int i = 0; i < terrainCells.Length; i++)
+            {
+                MapCell cell = terrainCells[i];
+                if (cell == null)
+                    continue;
+
+                // 没网格的块 SetLod 只会记一个字段，入队也无妨；但全图数千块入队纯属浪费，直接跳过
+                if (!cell.HasMesh())
+                    continue;
+
+                lodRebuildQueue.Enqueue(cell);
+            }
+        }
+
+        /// <summary>当前描边层档位。重载地图 / 回退重建时用它初始化新建的块。</summary>
+        bool noOutLineState;
+
+        /// <summary>
+        /// 统一切换地形块的描边层档位（远距离时让 URP 的描边 Feature 直接跳过地形）。
+        /// 只在 LOD 翻转时调用一次，全图遍历的开销可以接受。
+        /// </summary>
+        /// <param name="noOutline">true 切到 MapNoOutLine 层</param>
+        public void SetNoOutLineLayer(bool noOutline)
+        {
+            noOutLineState = noOutline;
+
+            if (terrainCells == null)
+                return;
+
+            for (int i = 0; i < terrainCells.Length; i++)
+            {
+                MapCell cell = terrainCells[i];
+                if (cell == null)
+                    continue;
+
+                cell.SetNoOutLineLayer(noOutline);
+            }
+        }
+
+        /// <summary>消费 LOD 重建队列（每帧限量）</summary>
+        void ProcessLodRebuild()
+        {
+            if (lodRebuildQueue.Count == 0)
+                return;
+
+            int budget = lodRebuildPerFrame > 0 ? lodRebuildPerFrame : 1;
+            while (budget > 0 && lodRebuildQueue.Count > 0)
+            {
+                budget--;
+
+                MapCell cell = lodRebuildQueue.Dequeue();
+                if (cell == null)
+                    continue;
+
+                // 不可见的块在 SetLod 里只会更新字段（不重建），等它再次进入视野时按新档位构建
+                cell.SetLod(targetLod);
+            }
+        }
+
         public override void Update()
         {
             if (terrainCells == null) return;
+
+            // 远距离降精度：按帧预算把已建好网格的块重建为低精度
+            ProcessLodRebuild();
 
             float dt = Time.deltaTime;
             bool allowUnload = meshUnloadDelay > 0f;

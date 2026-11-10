@@ -15,6 +15,37 @@ namespace Sango.Render
 
         private Light light;
 
+        /// <summary>关闭阴影前的原始阴影模式，恢复时用它还原，避免把 Soft 硬写成 Hard</summary>
+        LightShadows cachedShadows = LightShadows.Soft;
+
+        /// <summary>是否已经记下原始阴影模式</summary>
+        bool shadowCached;
+
+        /// <summary>
+        /// 开关主光的实时阴影。
+        ///
+        /// 【为什么在这里关】远景降级时，阴影贴图等于把整个场景的 ShadowCaster 再渲一遍，
+        /// 是拉远之后最贵的一项开销，而且远景下几乎看不出阴影细节。
+        /// 直接改 <c>light.shadows</c> 比改 URP 资产的 shadowDistance 更彻底：
+        /// 后者只是缩短投射距离，近处物体照样进 ShadowCaster pass。
+        /// </summary>
+        /// <param name="enable">true 恢复原始阴影模式；false 关闭阴影</param>
+        public void SetShadowEnable(bool enable)
+        {
+            if (light == null)
+                return;
+
+            if (!shadowCached)
+            {
+                cachedShadows = light.shadows;
+                shadowCached = true;
+            }
+
+            LightShadows target = enable ? cachedShadows : LightShadows.None;
+            if (light.shadows != target)
+                light.shadows = target;
+        }
+
         public MapLight(MapRender map) : base(map)
         {
         }

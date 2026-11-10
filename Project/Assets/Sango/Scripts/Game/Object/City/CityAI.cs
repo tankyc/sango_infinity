@@ -76,6 +76,37 @@ namespace Sango.Core
                     RecallAttackingTroops(city, scenario);
             }
 
+            // ---------- 一点五、驱逐侵入领地的敌军（不受当前军事任务限制） ----------
+            // 【为什么提到这里】原实现把驱逐放在"三、无任务"里，只要城有 TroopOccupyCity
+            // 任务，就会在下面的「二、已有军事任务」直接 return —— 表现为：
+            // 攻城部队在外，内政地 / 建筑在家被拆，城也不回援（"有敌人打内政建筑不出城"）。
+            //
+            // 【优先级】防守 > 驱逐 > 进攻：
+            //   · needDefense 为真时，上面的防守分支已经接管并出城，这里不再抢；
+            //   · 已在驱逐（目标仍在）交给 ContinueMilitaryMission 继续追，不每回合重选目标；
+            //   · 其余（攻城 / 滞留的守城任务 / 无任务）一律允许改派为驱逐。
+            //
+            // 【为什么用 needDefense 而不是任务类型判优先级】DispatchDefenseTroop 在
+            // 扫描不到敌人时只 return、不清任务，所以"任务仍是 TroopProtectCity 但本城
+            // 已安全"是常态；用任务类型判会把这类城永久挡在驱逐之外。
+            //
+            // 【为什么绕过二点五 / 二点六】那两条都是"向外用兵"的门槛（内政设施最低配置、
+            // 玩家子军团只有出击据点开战）。驱逐属防御性用兵，与 IsAttackForbidden 注释里
+            // "驱逐侵入本势力领地的敌军（TroopDestroyTroop）照常执行"的口径一致。
+            if (!needDefense && city.TroopMissionType != MissionType.TroopDestroyTroop)
+            {
+                Troop threat = FindThreatTroopInRange(city, scenario);
+                if (threat != null)
+                {
+                    city.TroopMissionType = MissionType.TroopDestroyTroop;
+                    city.TroopMissionTargetId = threat.Id;
+                    // 【同回合出阵】不等下一回合的 ContinueMilitaryMission：
+                    // 内政建筑每多挨一回合就多掉一段耐久，能当回合出城就当回合出。
+                    DispatchDriveOutTroop(city, scenario);
+                    return false;
+                }
+            }
+
             // ---------- 二、已有军事任务:持续派遣部队 ----------
             if (city.TroopMissionType != MissionType.None)
                 return ContinueMilitaryMission(city, scenario);
@@ -113,16 +144,10 @@ namespace Sango.Core
                 return false;
             }
 
-            // 3.2 驱逐对本势力实施过威胁行为、且仍位于本势力领地内的敌方部队
-            Troop threat = FindThreatTroopInRange(city, scenario);
-            if (threat != null)
-            {
-                city.TroopMissionType = MissionType.TroopDestroyTroop;
-                city.TroopMissionTargetId = threat.Id;
-                return false;
-            }
+            // 【3.2 驱逐已前移】原"无任务时才驱逐"的分支合并到上面的「一点五」，
+            // 避免"城一有军事任务就永不回援内政地"。这里不再重复判定。
 
-            // 3.3 优先夺回被敌方占领的本城下属港关(不受"仅边境城市进攻"的限制)
+            // 3.2 优先夺回被敌方占领的本城下属港关(不受"仅边境城市进攻"的限制)
             // 禁止攻击 / 全局和平期时跳过：它同样是"派兵去攻打一座被敌方占据的据点"，属向外用兵。
             City prioritySubCity = attackForbidden ? null : FindPrioritySubCity(city);
             if (prioritySubCity != null)
@@ -136,7 +161,7 @@ namespace Sango.Core
                 return false;
             }
 
-            // 3.4 挑选进攻目标
+            // 3.3 挑选进攻目标
             if (DecideAttackTarget(city, scenario))
                 return true;
             // 选定目标的同一回合立即出阵 —— 同上（:114-266）。
@@ -1275,7 +1300,9 @@ namespace Sango.Core
             // 实际概率约 84% 且难以预期。现改为单一明确概率：
             // 未发现武将越多，搜索意愿越强（每人 +searchInvisibleChancePerPerson，整体封顶 100）。
             AIConfig cfg = AIConfig.Instance;
-            int invisible = city.invisiblePersons.Count;
+            // 【人才池含港关】与 DoJobSearching 的实际搜索范围对齐（那里会收集各 subCities 的
+            // 未发现名单）。原实现只看本城，港关藏人时概率不加成，与保底阈值口径不一致。
+            int invisible = city.CountInvisiblePersons();
             int chance = cfg.searchBaseChance + invisible * cfg.searchInvisibleChancePerPerson;
             if (chance <= 0)
                 return true;
@@ -1381,28 +1408,45 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 登用候选快照（本城 + 下属港关的在野武将）。
+        /// 复用同一实例，避免城池 AI 每回合每城都 new List。
+        /// </summary>
+        static List<Person> sRecruitWildCandidates = new List<Person>();
+
+        /// <summary>
         /// AI招募武将逻辑。
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>
         /// <returns>是否完成</returns>
+
         public static bool AIRecruitPerson(City city, Scenario scenario)
         {
-            if (city.wildPersons.Count == 0 || city.freePersons.Count == 0)
+            // 【人才池含港关】搜索能发现港关的未发现武将，发现后落到**港关**的 wildPersons
+            // （City.DoJobSearching → target.CurrentCity.AddWildPerson）。若这里只看
+            // city.wildPersons，港关搜出来的人就永远没人登用 —— 用 City.CollectWildPersons
+            // 统一口径，和玩家侧 CityRecruit.CollectTargets（全地图扫）保持可达性一致。
+            city.CollectWildPersons(sRecruitWildCandidates);
+            if (sRecruitWildCandidates.Count == 0 || city.freePersons.Count == 0)
                 return true;
 
             // 【优化】原先对每个在野武将都尝试招募，会一次性占用全部空闲武将；
             // 现限制单回合招募人数，把机会留给后续回合。
             int recruited = 0;
-            int maxPerTurn = Math.Max(1, AIConfig.Instance.recruitPersonMaxPerTurn);
+            // 单回合上限：剧本参数 aiEmployMaxPerTurnOverride > 0 时覆盖全局 AIConfig 配置
+            int maxPerTurn = AIConfig.Instance.recruitPersonMaxPerTurn;
+            ScenarioVariables sv = scenario != null ? scenario.Variables : null;
+            if (sv != null && sv.aiEmployMaxPerTurnOverride > 0)
+                maxPerTurn = sv.aiEmployMaxPerTurnOverride;
+            maxPerTurn = System.Math.Max(1, maxPerTurn);
 
             // 【在野驱动】在野越多，单回合登用越多 —— 直接按"在野人数"调整调用登用命令的密度
             // （上限仍受 maxPerTurn 的基数与 scoreRecruitPersonWildBonusMax 之类的封顶约束，
             //   避免一回合把空闲武将全占满）。
-            int wildCount = city.wildPersons.Count;
+            int wildCount = sRecruitWildCandidates.Count;
             if (wildCount >= 4)
             {
-                int byWild = (int)Math.Ceiling(wildCount * 0.5);      // 在野的一半，向上取整
+                int byWild = (int)System.Math.Ceiling(wildCount * 0.5);      // 在野的一半，向上取整
                 if (byWild > maxPerTurn)
                     maxPerTurn = byWild;
             }
@@ -1413,9 +1457,11 @@ namespace Sango.Core
             int forceTurn = scenario != null ? scenario.TurnCount : 0;
             if (forceTurn > 0 && forceTurn <= AIConfig.Instance.cityOrder.recruitPersonEarlyTurns)
                 maxPerTurn++;
-            for (int i = 0; i < city.wildPersons.Count; i++)
+            // 遍历快照而不是原列表：JobRecruitPerson 成功后会从 wildPersons 移除目标，
+            // 直接按原列表索引遍历会跳项。
+            for (int i = 0; i < sRecruitWildCandidates.Count; i++)
             {
-                Person target = city.wildPersons[i];
+                Person target = sRecruitWildCandidates[i];
                 if (target == null)
                     continue;
 

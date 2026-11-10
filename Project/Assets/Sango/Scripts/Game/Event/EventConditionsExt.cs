@@ -633,7 +633,9 @@ namespace Sango.Core.Event
             Person person = EventConditionHelper.GetSlot<Person>(database, slot);
             if (person == null || person.FeatureList == null) return false;
 
-            bool has = featureId > 0 && person.FeatureList.Contains(featureId);
+            // 用 HasFeatrue 而不是 FeatureList.Contains：只认生效范围内的特技
+            // （超出剧本 maxActiveFeatureCount 的特技视为未拥有，事件条件不应命中）
+            bool has = featureId > 0 && person.HasFeatrue(featureId);
             return has == expect;
         }
     }

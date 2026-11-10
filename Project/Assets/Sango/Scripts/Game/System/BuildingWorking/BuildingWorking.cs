@@ -1164,6 +1164,12 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 人才府自动登用的候选快照（本城 + 下属港关的在野武将）。
+        /// 复用同一实例，避免每回合每城都 new List。
+        /// </summary>
+        static List<Person> sAutoRecruitCandidates = new List<Person>();
+
+        /// <summary>
         /// 回合结束搜索
         /// </summary>
         /// <param name="scenario"></param>
@@ -1186,12 +1192,19 @@ namespace Sango.Core
                     case (int)BuildingKindType.RecruitBuilding:
                         if (building.Workers != null)
                         {
-                            // 人才府自动走军师推荐去登庸在野武将
-                            if (city.wildPersons.Count > 0)
+                            // 人才府自动走军师推荐去登庸在野武将。
+                            // 【人才池含港关】与 CityAI.AIRecruitPerson 同口径（City.CollectWildPersons）：
+                            // 搜索在港关发现的人才落到的是**港关**的 wildPersons，只看本城会永远登用不到。
+                            city.CollectWildPersons(sAutoRecruitCandidates);
+                            if (sAutoRecruitCandidates.Count > 0)
                             {
-                                for (int i = city.wildPersons.Count - 1; i >= 0; i--)
+                                // 用快照正序遍历：JobRecruitPerson 成功后会从原 wildPersons 移除目标，
+                                // 原先「按原列表下标倒序」在跨两个列表后容易跳项/漏人。
+                                for (int i = 0; i < sAutoRecruitCandidates.Count; i++)
                                 {
-                                    Person target = city.wildPersons[i];
+                                    Person target = sAutoRecruitCandidates[i];
+                                    if (target == null || !target.IsAlive)
+                                        continue;
                                     Person recommandPerson = ForceAI.CounsellorRecommendRecruitPerson(city.freePersons, target, null);
                                     if (recommandPerson != null)
                                     {

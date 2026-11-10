@@ -17,7 +17,7 @@ namespace Sango.Core.Event
     /// 【三源加载】后加载的按 Id 覆盖先加载的：
     ///   1. 内置   &lt;ContentRootPath&gt;/Data/ScenarioEvent/**/*.json
     ///   2. 自建   &lt;CustomEditRootPath&gt;/Data/ScenarioEvent/**/*.json
-    ///   3. Mod    &lt;ModRootPath&gt;/**/Data/ScenarioEvent/**/*.json
+    ///   3. Mod    &lt;已启用模组目录&gt;/Data/ScenarioEvent/**/*.json（未勾选的模组不加载）
     ///
     /// 【为什么要有索引】项目最终会有数百个历史事件。
     /// 若每次 hook 都全量求值条件树，一回合几十次 hook × 数百事件 = 上万次求值，
@@ -106,8 +106,13 @@ namespace Sango.Core.Event
         }
 
         /// <summary>
-        /// 扫描 Mod 根目录下的所有事件目录。
+        /// 扫描**已启用模组**的事件目录。
         /// 只认路径里带 "/Data/ScenarioEvent/" 的文件，避免把 Mod 的其它 JSON 当成事件读。
+        ///
+        /// 【为什么必须按启用列表过滤】原实现直接递归扫整个模组根目录，
+        /// 结果是"只要模组装在 Mods/ 下，无论勾不勾选，它的事件都会生效"——
+        /// 模组管理器的勾选框只对主数据合并（<c>ModManager.LoadFile</c>）生效，对事件这条链路无效。
+        /// 现在改为逐个已启用模组目录扫描，做到"取消勾选 = 不加载该模组的事件"。
         /// </summary>
         /// <param name="modRoot">Mod 根目录</param>
         /// <param name="errorCount">累计解析失败数</param>
@@ -117,7 +122,31 @@ namespace Sango.Core.Event
             if (string.IsNullOrEmpty(modRoot) || !System.IO.Directory.Exists(modRoot))
                 return 0;
 
-            string[] files = System.IO.Directory.GetFiles(modRoot, "*.json", SearchOption.AllDirectories);
+            // 已启用模组的目录列表。返回 null 表示模组系统尚未初始化
+            // （编辑器预览 / 纯逻辑单测没走 ModManager.Init），
+            // 此时退回"扫描整个模组根目录"的旧行为，避免把模组事件全丢掉。
+            List<string> enabledDirs = Sango.Mod.ModManager.Instance.GetEnabledModDirs();
+            if (enabledDirs == null)
+                return LoadModEventFiles(modRoot, ref errorCount);
+
+            int fileCount = 0;
+            for (int i = 0; i < enabledDirs.Count; i++)
+                fileCount += LoadModEventFiles(enabledDirs[i], ref errorCount);
+            return fileCount;
+        }
+
+        /// <summary>
+        /// 递归读取指定目录下的模组事件 JSON（事件库内部使用）。
+        /// </summary>
+        /// <param name="root">模组目录（或模组根目录）</param>
+        /// <param name="errorCount">累计解析失败数</param>
+        /// <returns>读到的文件数</returns>
+        int LoadModEventFiles(string root, ref int errorCount)
+        {
+            if (string.IsNullOrEmpty(root) || !System.IO.Directory.Exists(root))
+                return 0;
+
+            string[] files = System.IO.Directory.GetFiles(root, "*.json", SearchOption.AllDirectories);
             int fileCount = 0;
             for (int i = 0; i < files.Length; i++)
             {

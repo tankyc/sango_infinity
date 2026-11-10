@@ -70,6 +70,121 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public byte MaxAttributeGet = 30;
 
+        /// <summary>最大生效特技数的缺省值</summary>
+        public const int DefaultMaxActiveFeatureCount = 3;
+
+        /// <summary>
+        /// 最大生效特技数量（默认 3，剧本可在"剧本基础参数"里覆盖）。
+        ///
+        /// 【语义】每名武将的 <see cref="Person.FeatureList"/> **只有前 N 个生效**。
+        /// 超出部分不装配动作、不参与条件判定、不在界面展示、也不能再通过培育学习；
+        /// 但**数据不删除**（存档仍完整保留全部特技 Id），把上限调大后立即恢复生效，
+        /// 不需要重新录入。配 0 或负数表示不限制，退回"全部生效"的旧行为。
+        ///
+        /// 【影响的三条链路】
+        ///   1. 生效：<see cref="Person.ActiveFeatureCount"/> 控制所有装配点
+        ///      （城市 / 部队 / 内政）与 <see cref="Person.HasFeatrue(int)"/> 的判定范围；
+        ///   2. 展示：武将详情、招募信息与列表的"特技"列只显示前 N 个；
+        ///   3. 学习：<see cref="AbilityStudySystem"/> 的特技培育在已满 N 个时直接失败。
+        ///
+        /// 【为什么要做成剧本参数而不是常量】不同剧本的武将特技密度差异很大，
+        /// 历史剧本动辄四五个特技，演义剧本两三个就够；统一写死会让某一类剧本失衡。
+        /// </summary>
+        [JsonProperty] public int maxActiveFeatureCount = DefaultMaxActiveFeatureCount;
+
+        // ==================== AI 据点登用阈值 ====================
+        //
+        // 【为什么要配置化】原版把"人少才登用"的阈值写死成 `3 + 难度 * 2`（3..7），
+        // 本项目沿用同一公式（CityAIOutpostCommand.AIEmployMax，对齐出处
+        // s11_game_ai_kyoten_cmd_personnel.cpp:529-536）。但不同剧本的武将密度差别很大：
+        // 大势力剧本一座城动辄七八人，永远触发不了登用；小势力剧本三人才刚够守城。
+        // 因此把公式里的每个常量都提到剧本参数，**默认值等于原版公式**，不改默认行为。
+        //
+        // 判定链（改动只会调节"要不要去登用"，不改变登用本身的成功率判定）：
+        //   AIEmployMax     → 据点人数 < 基数 + 难度×增量
+        //   AIEmployEnemy   → 据点人数 < minPerson + max(minPerson, 上限基数)
+        //   AIEmployEnemy   → 目标忠诚 < 忠诚上限基数 + 难度×增量
+        //   AIEmployEnemyMax→ 据点人数 < 登用敌方保底触发人数
+
+        /// <summary>
+        /// AI 据点触发登用的人数基数（原版公式 <c>3 + 难度×2</c> 里的 3，缺省 3）。
+        /// 玩家势力固定用本值，AI 势力再按难度叠加 <see cref="aiEmployTriggerPerDifficulty"/>。
+        /// </summary>
+        [JsonProperty] public int aiEmployTriggerBase = 3;
+
+        /// <summary>
+        /// AI 据点触发登用的人数随难度递增（原版公式里的 2，缺省 2）。
+        /// 配 0 = 阈值不随难度变化。
+        /// </summary>
+        [JsonProperty] public int aiEmployTriggerPerDifficulty = 2;
+
+        /// <summary>
+        /// 登用敌方保底（AIEmployEnemyMax）的触发人数（原版写死 3，缺省 3）。
+        /// 注意原版这一条**不吃难度加成**，与 <see cref="aiEmployTriggerBase"/> 是两条独立阈值。
+        /// </summary>
+        [JsonProperty] public int aiEmployEnemyMaxTrigger = 3;
+
+        /// <summary>
+        /// 挖玩家武将时的忠诚上限基数（原版 <c>92 + 难度×2</c> 里的 92，缺省 92）。
+        /// 目标忠诚 ≥ 本值（+ 难度增量）时 AI 直接放弃，不去试探。
+        /// </summary>
+        [JsonProperty] public int aiEmployMinLoyalty = 92;
+
+        /// <summary>
+        /// 挖玩家武将的忠诚上限随难度递增（原版公式里的 2，缺省 2）。
+        /// </summary>
+        [JsonProperty] public int aiEmployLoyaltyPerDifficulty = 2;
+
+        /// <summary>
+        /// "人已够多就不再登用"的上限基数（原版 <c>minPerson + max(minPerson, 10)</c> 里的 10，缺省 10）。
+        /// 据点人数 ≥ <c>minPerson + max(minPerson, 本值)</c> 时直接放弃登用。
+        /// 调大 = 允许人多的据点继续登用；调成 0 = 退回 <c>minPerson * 2</c> 的更严口径。
+        /// </summary>
+        [JsonProperty] public int aiEmployPersonLimitBase = 10;
+
+        /// <summary>
+        /// AI 据点单回合登用人数的覆盖值（缺省 0 = 沿用 <c>AIConfig.recruitPersonMaxPerTurn</c> 的全局值）。
+        ///
+        /// 配大于 0 时覆盖全局值，供剧本按自己的武将密度调节"一回合最多挖几个人"。
+        /// 注意这只是**基数**：在野人数 ≥ 4 时仍会按"在野人数的一半"上调，
+        /// 开局前 N 回合还会再 +1（见 CityAI.AIRecruitPerson），这两条原版节奏不变。
+        /// </summary>
+        [JsonProperty] public int aiEmployMaxPerTurnOverride = 0;
+
+        // ==================== AI 据点探索阈值 ====================
+
+        /// <summary>
+        /// AI 据点触发探索的人数基数（原版公式 <c>3 + 难度×2</c> 里的 3，缺省 3）。
+        /// 判定见 <c>CityAIOutpostCommand.AISearchMax</c>，对齐出处
+        /// s11_game_ai_kyoten_cmd_personnel.cpp:425-432。
+        /// </summary>
+        [JsonProperty] public int aiSearchTriggerBase = 3;
+
+        /// <summary>
+        /// AI 据点触发探索的人数随难度递增（原版公式里的 2，缺省 2）。
+        /// 配 0 = 阈值不随难度变化。
+        /// </summary>
+        [JsonProperty] public int aiSearchTriggerPerDifficulty = 2;
+
+        /// <summary>
+        /// 每名**未发现武将**给探索阈值增加的权重（缺省 1）。
+        ///
+        /// 【为什么需要这一项】原版只看"据点人数 &lt; 3 + 难度×2"，不看城里还藏着几个人。
+        /// 结果是人多但没人发现的据点永远不会去搜 —— 那些未发现武将等于永久沉底。
+        /// 本项让阈值随未发现武将数上浮：藏的人越多，越允许多几个已有人手时仍去探索。
+        ///
+        /// 与 <c>AIConfig.searchInvisibleChancePerPerson</c> 是同一思路的两个面：
+        /// 那个管"搜的时候成功率/概率"，这个管"要不要派人去搜"。
+        /// 配 0 = 关闭加成，退回原版"只看人数"的口径。
+        /// </summary>
+        [JsonProperty] public int aiSearchInvisibleBonusPerPerson = 1;
+
+        /// <summary>
+        /// 未发现武将对探索阈值的加成封顶（缺省 3，配 0 = 不封顶）。
+        /// 防止大城里几十个未发现武将把阈值抬到永远触发、把行动力全砸在搜索上。
+        /// </summary>
+        [JsonProperty] public int aiSearchInvisibleBonusMax = 3;
+
         /// <summary>
         /// 功绩获取配置（键 = GainPlace，缺省回落到内置默认值）
         /// </summary>

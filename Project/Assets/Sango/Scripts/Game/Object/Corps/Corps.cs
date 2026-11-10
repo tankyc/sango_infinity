@@ -961,76 +961,59 @@ namespace Sango.Core
             }
         }
 
-        public void RemoveCity(City target)
-        {
-            cityCount--;
-            if (cityCount <= 0)
-            {
-                BelongForce.DeleteCorps(this);
-            }
-            else
-            {
-                if (mComander.BelongCity == target)
-                {
-                    mComander?.SetStateNormal();
-                    mComander = null;
-                    NeedUpdateCommander();
-                }
-            }
-        }
-
         public void NeedUpdateCommander()
         {
             needUpdateCommander = true;
         }
 
+        /// <summary>
+        /// 重新推举都督（对应 Open311 的 <c>district_appoint_totoku</c>）。
+        ///
+        /// 【注意：每次调用都会重新择优】本方法不是"只在缺都督时补一个"，
+        /// 而是无条件重算并把旧都督降级 —— 原版同样是每次重新取 candidates.front()
+        /// （s11_sys_scen_district.cpp:161-170），玩家手动任命的都督会被覆盖，属预期行为。
+        ///
+        /// 【比较规则】照搬 <c>person_totoku_comp</c>（s11_sys_scen_person.cpp:2699-2720），
+        /// 逐级比较、先命中先返回：
+        ///   1. 君主优先     —— <c>if (a_is_kunshu != b_is_kunshu) return a_is_kunshu;</c>
+        ///   2. 官阶高者优先 —— 原版先比 <c>get_command()</c>（Rank/Title 给该武将的指挥值）
+        ///                      再比 <c>rank_id</c>；本项目两个概念都落在
+        ///                      <see cref="Official"/> 上，统一用 level 表达（level 大 = 官大）
+        ///   3. 统率高者优先 —— <c>get_stat(PersonStatType_Leadership)</c>
+        ///   4. 编号小者优先 —— <c>return a-&gt;get_id() &lt; b-&gt;get_id();</c>，
+        ///                      保证武将池遍历顺序变化时结果不变
+        /// </summary>
         public void UpdateCommander()
         {
             needUpdateCommander = false;
             if (IsCaptainCorps) return;
 
             Person dest = null;
-            Official higher = null;
-            int commandHigher = 0;
-            mComander?.SetStateNormal();
+
+            // 【护栏：君主不能降级】Person.SetStateNormal 没有 Governor 保护（直接 state = Normal），
+            // 而本方法第 1 级比较是"君主优先"—— 一旦君主被编进支军团并成为 mComander，
+            // 下一次重算若无条件降级，就会把 Governor 改写成 Normal，君主身份当场丢失，
+            // 连带 BelongForce.Governor 指向一个"普通武将"。
+            // 注意：君主优先保证"旧都督是君主"时新都督必定还是他，所以跳过降级不会漏降别人。
+            if (mComander != null && !mComander.IsGovernor)
+                mComander.SetStateNormal();
             ForEachPerson((checker) =>
             {
                 if (checker.IsPrisoner) { return; }
-
-                if (checker != null && checker.IsAlive)
-                {
-                    if (dest == null)
-                    {
-                        dest = checker;
-                        higher = dest.Official;
-                        commandHigher = dest.Command;
-                    }
-                    else
-                    {
-                        if (checker.Official.level > higher.level)
-                        {
-                            dest = checker;
-                            higher = dest.Official;
-                            commandHigher = dest.Command;
-                        }
-                        else if (checker.Official.level == higher.level)
-                        {
-                            if (checker.Command > commandHigher)
-                            {
-                                dest = checker;
-                                higher = dest.Official;
-                                commandHigher = dest.Command;
-                            }
-                        }
-                    }
-                }
+                if (checker != null && checker.IsAlive && IsBetterCommander(checker, dest))
+                    dest = checker;
             });
 
             mComander = dest;
             if (mComander != null)
             {
                 mComander.SetStateCommander();
-                mComander.BelongCity?.UpdateNewLeader();
+
+                // 【原版对齐】s11_sys_scen_district.cpp:204-209：
+                //   都督身份一变，"谁能当太守"的最优解就变了（原版 building_appoint_taishu
+                //   会优先挑 mibun <= Mibun_Totoku 的人当太守），所以它对本军团**所有据点**
+                //   重跑一次太守任命，而不是只重算都督所在那一座城。
+                AppointAllTaishu();
                 return;
             }
 
@@ -1044,6 +1027,72 @@ namespace Sango.Core
             {
                 Sango.Log.Info($"*[军团]{BelongForce?.Name} 的第 {number} 军团无人可任都督，整军并入主军团");
                 BelongForce?.DeleteCorps(this);
+            }
+        }
+
+        /// <summary>
+        /// 判断候选 A 是否比候选 B 更适合担任都督。
+        ///
+        /// 【原版出处】Open311 `System::person_totoku_comp`（s11_sys_scen_person.cpp:2699-2720），
+        /// 逐级比较、先命中先返回；本项目把原版的 `get_command()` + `rank_id` 两级
+        /// 合并成 `Official.level` 一级（两者在原版里单调同向，都是"官越大值越大"）。
+        /// </summary>
+        /// <param name="a">候选武将 A</param>
+        /// <param name="b">当前最优武将 B（null 表示还没选出人）</param>
+        /// <returns>A 更适合返回 true</returns>
+        static bool IsBetterCommander(Person a, Person b)
+        {
+            if (a == null)
+                return false;
+            if (b == null)
+                return true;
+
+            // 1. 君主优先 —— person.cpp:2703-2706
+            //    原版不特判"第 1 军团不设都督"，君主在自己军团里就靠这一级胜出；
+            //    本项目第 1 军团直接 return（见方法开头），这里只兜住"君主被编进支军团"的情形。
+            if (a.IsGovernor != b.IsGovernor)
+                return a.IsGovernor;
+
+            // 2. 官阶高者优先 —— person.cpp:2707-2714
+            //    Person.Official 允许为空（未授官 / 读档尚未解析），统一按 0 处理。
+            int aLevel = a.Official != null ? a.Official.level : 0;
+            int bLevel = b.Official != null ? b.Official.level : 0;
+            if (aLevel != bLevel)
+                return aLevel > bLevel;
+
+            // 3. 统率高者优先 —— person.cpp:2715-2718（原版比 PersonStatType_Leadership）
+            if (a.Command != b.Command)
+                return a.Command > b.Command;
+
+            // 4. 编号小者优先 —— person.cpp:2719
+            return a.Id < b.Id;
+        }
+
+        /// <summary>
+        /// 对本军团所有据点重跑太守任命。
+        ///
+        /// 【原版出处】Open311 `district_appoint_totoku`（s11_sys_scen_district.cpp:204-209）：
+        /// <code>
+        /// for (int i = 0; i &lt; KyotenId_ExMax; i++)
+        ///     if (building->is_kyoten() and building->get_district_id() == self->get_id())
+        ///         building_appoint_taishu(building, false);
+        /// </code>
+        /// 原版的 kyoten 涵盖都市 / 关 / 港，因此这里一次遍历全量筛，
+        /// 不拆成 ForEachCity / ForEachGate / ForEachPort 三趟（三次全表扫描）。
+        /// </summary>
+        void AppointAllTaishu()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null)
+                return;
+
+            // 按下标遍历，避免 ForEach + lambda 的闭包分配（都督变更虽低频，但会被批量调城触发）
+            City[] cityArray = scenario.citySet.objects;
+            for (int i = 0; i < cityArray.Length; i++)
+            {
+                City c = cityArray[i];
+                if (c != null && c.IsAlive && c.BelongCorps == this)
+                    CityStateSystem.AppointTaishu(c);
             }
         }
     }

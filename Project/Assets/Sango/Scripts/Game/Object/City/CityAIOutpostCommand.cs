@@ -1980,7 +1980,8 @@ namespace Sango.Core
         /// 探索（保底版）：只在本据点人数低于阈值时执行。
         ///
         /// 对齐出处：s11_game_ai_kyoten_cmd_personnel.cpp:425-432。
-        /// 阈值 <c>n = 玩家 ? 3 : 3 + 难度 * 2</c>（3..7）。
+        /// 原版阈值写死为 <c>玩家 ? 3 : 3 + 难度 * 2</c>；本项目把它提到剧本参数，
+        /// 并额外叠加"未发现武将"加成，默认值等于原版公式。
         /// </summary>
         /// <param name="city">据点</param>
         /// <param name="scenario">场景对象</param>
@@ -1988,17 +1989,68 @@ namespace Sango.Core
         public static bool AISearchMax(City city, Scenario scenario)
         {
             OutpostInfo info = OutpostRuntime.Get(city.Id);
-            int difficulty = scenario != null ? scenario.Variables.difficulty : 0;
-            int n = (city.BelongForce != null && city.BelongForce.IsPlayer) ? 3 : 3 + difficulty * 2;
-            if (info.personCount < n)
+            if (info.personCount < GetSearchTriggerCount(city, scenario))
                 return AISearching(city, scenario);
             return true;
+        }
+
+        /// <summary>
+        /// AI 探索的触发人数阈值（剧本参数可配）。
+        ///
+        /// 口径：<c>基数 + 难度×每级增量 + min(未发现武将数 × 每人加成, 封顶)</c>
+        /// <list type="bullet">
+        /// <item>前两项 = 原版 <c>玩家 ? 3 : 3 + 难度×2</c>（s11_game_ai_kyoten_cmd_personnel.cpp:425-432）；</item>
+        /// <item>第三项是本项目新增的"未发现武将驱动"：城里还藏着人时，即使据点人数已够，
+        ///       也放宽阈值继续搜 —— 否则"人多但没人发现"的城会永远不搜，未发现武将永久沉底。</item>
+        /// </list>
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>据点人数低于该值才执行探索</returns>
+        public static int GetSearchTriggerCount(City city, Scenario scenario)
+        {
+            ScenarioVariables v = scenario != null ? scenario.Variables : null;
+            // 拿不到剧本参数（编辑器预览 / 单测）时回落到原版默认公式
+            if (v == null)
+                return 3;
+
+            int difficulty = v.difficulty;
+            if (difficulty < 0)
+                difficulty = 0;
+
+            int n;
+            // 玩家势力不吃难度加成 —— 原版 `is_player ? 3 : ...` 的语义
+            if (city != null && city.BelongForce != null && city.BelongForce.IsPlayer)
+                n = v.aiSearchTriggerBase;
+            else
+                n = v.aiSearchTriggerBase + difficulty * v.aiSearchTriggerPerDifficulty;
+
+            // ---------- 未发现武将加成 ----------
+            if (v.aiSearchInvisibleBonusPerPerson > 0)
+            {
+                // 含所属港关，与登用命令的 CountWildPersons / 排序用的 invisibleCount 同口径
+                int invisible = city != null ? city.CountInvisiblePersons() : 0;
+                if (invisible > 0)
+                {
+                    int bonus = invisible * v.aiSearchInvisibleBonusPerPerson;
+                    // 封顶：0 = 不封顶
+                    if (v.aiSearchInvisibleBonusMax > 0 && bonus > v.aiSearchInvisibleBonusMax)
+                        bonus = v.aiSearchInvisibleBonusMax;
+                    n += bonus;
+                }
+            }
+
+            return n;
         }
 
         /// <summary>
         /// 登用（保底版）：只在本据点人数低于阈值时执行。
         ///
         /// 对齐出处：s11_game_ai_kyoten_cmd_personnel.cpp:529-536。
+        /// 原版阈值写死为 <c>玩家 ? 3 : 3 + 难度 * 2</c>；本项目把它提到剧本参数
+        /// （<see cref="ScenarioVariables.aiEmployTriggerBase"/> +
+        /// <see cref="ScenarioVariables.aiEmployTriggerPerDifficulty"/>），
+        /// 默认值等于原版公式，不配置时行为完全一致。
         /// </summary>
         /// <param name="city">据点</param>
         /// <param name="scenario">场景对象</param>
@@ -2006,11 +2058,36 @@ namespace Sango.Core
         public static bool AIEmployMax(City city, Scenario scenario)
         {
             OutpostInfo info = OutpostRuntime.Get(city.Id);
-            int difficulty = scenario != null ? scenario.Variables.difficulty : 0;
-            int n = (city.BelongForce != null && city.BelongForce.IsPlayer) ? 3 : 3 + difficulty * 2;
-            if (info.personCount < n)
+            if (info.personCount < GetEmployTriggerCount(city, scenario))
                 return AIRecruitPerson(city, scenario);
             return true;
+        }
+
+        /// <summary>
+        /// AI 登用的触发人数阈值（剧本参数可配）。
+        ///
+        /// 口径与原版一致：玩家势力固定用基数（原版写死 3），
+        /// AI 势力用 <c>基数 + 难度 × 每级增量</c>（原版 3 + 难度×2，即 3..7）。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>据点人数低于该值才执行登用</returns>
+        public static int GetEmployTriggerCount(City city, Scenario scenario)
+        {
+            ScenarioVariables v = scenario != null ? scenario.Variables : null;
+            // 拿不到剧本参数（编辑器预览 / 单测）时回落到原版默认公式
+            if (v == null)
+                return 3;
+
+            // 玩家势力不吃难度加成 —— 原版 `is_player ? 3 : ...` 的语义
+            if (city.BelongForce != null && city.BelongForce.IsPlayer)
+                return v.aiEmployTriggerBase;
+
+            int difficulty = v.difficulty;
+            if (difficulty < 0)
+                difficulty = 0;
+
+            return v.aiEmployTriggerBase + difficulty * v.aiEmployTriggerPerDifficulty;
         }
 
         // ==================================================================================
@@ -2046,9 +2123,13 @@ namespace Sango.Core
                 return true;
 
             OutpostInfo info = OutpostRuntime.Get(city.Id);
+            ScenarioVariables sv = scenario != null ? scenario.Variables : null;
             int minPerson = info.minPersonCount;
-            // 人已够多 —— :553-556
-            if (minPerson + System.Math.Max(minPerson, 10) <= info.personCount)
+            // 人已够多 —— :553-556（上限基数 10 由剧本参数控制，缺省 10 = 原版）
+            int personLimitBase = sv != null ? sv.aiEmployPersonLimitBase : 10;
+            if (personLimitBase < 0)
+                personLimitBase = 0;
+            if (minPerson + System.Math.Max(minPerson, personLimitBase) <= info.personCount)
                 return true;
 
             City areaCity = city.BelongCity ?? city;
@@ -2109,8 +2190,11 @@ namespace Sango.Core
             // 原版这里靠 get_persuasion_chance 预估成功率，本项目该函数在
             // Person.JobRecruitPerson 内部（无公开预估接口），因此保留原版的
             // 距离 / 忠诚 / 难度门槛作为"值不值得试"的判据，成功率交给实际执行判定。
-            int difficultyCoef = (5 + difficulty * 5) * 2;   // 10 .. 30
-            int minLoyalty = 92 + difficulty * 2;            // 92 .. 96
+            int difficultyCoef = (5 + difficulty * 5) * 2;   // 10 .. 30（试探概率，非阈值，保持原版）
+            // 忠诚上限：原版 92 + 难度×2（92..96），现由剧本参数控制，缺省等于原版
+            int loyaltyBase = sv != null ? sv.aiEmployMinLoyalty : 92;
+            int loyaltyPerDifficulty = sv != null ? sv.aiEmployLoyaltyPerDifficulty : 2;
+            int minLoyalty = loyaltyBase + difficulty * loyaltyPerDifficulty;
             bool isPlayer = force.IsPlayer;
 
             Person bestActor = null;
@@ -2191,7 +2275,10 @@ namespace Sango.Core
         public static bool AIEmployEnemyMax(City city, Scenario scenario)
         {
             OutpostInfo info = OutpostRuntime.Get(city.Id);
-            if (info.personCount < 3)
+            // 原版写死 3，现由剧本参数 aiEmployEnemyMaxTrigger 控制（缺省 3）
+            ScenarioVariables v = scenario != null ? scenario.Variables : null;
+            int trigger = v != null ? v.aiEmployEnemyMaxTrigger : 3;
+            if (info.personCount < trigger)
                 return AIEmployEnemy(city, scenario);
             return true;
         }

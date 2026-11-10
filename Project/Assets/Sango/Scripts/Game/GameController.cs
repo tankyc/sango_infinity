@@ -239,7 +239,9 @@ namespace Sango.Core
         /// <summary>
         /// 射线投射层
         /// </summary>
-        private int rayCastLayer = LayerMask.GetMask("Map");
+        // 地形块会在 Map / MapNoOutLine 之间随 LOD 切换，拾取必须同时接受两层，
+        // 否则相机拉远后（块已切到 NoOutLine 层）鼠标点不到地图。
+        private int rayCastLayer = Sango.Render.MapLayers.TerrainHitMask;
 
         /// <summary>
         /// 检查鼠标是否在地图单元格上

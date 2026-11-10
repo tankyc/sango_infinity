@@ -905,10 +905,17 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 委任都督（对应 Open311 的 district_appoint_totoku）。
+        /// 委任都督（对应 Open311 的 <c>district_appoint_totoku</c>）。
         ///
-        /// 只处理"军团无军团长/军团长已失效"的情形，不主动换人，
-        /// 避免破坏玩家手动任命的配置。
+        /// 【会重新择优，不是"只补空缺"】本方法每次调用都让军团重算一遍都督人选，
+        /// 现任都督若不是最优解会被降级 —— 原版同样是每次重新取 `candidates.front()`
+        /// （s11_sys_scen_district.cpp:161-170），**玩家手动任命的配置会被覆盖**，属预期行为。
+        ///
+        /// 【与原版的已知差异：缺 is_normal_force 守卫】
+        /// 原版开头是 `if (not is_alive(self) or not self->is_normal_force()) return;`（:149-150），
+        /// 异民族 / 贼势力不任命都督。本项目**不复制这一条**：本项目的异民族与贼势力同样
+        /// 挂 Corps 并复用 CorpsAI（行动力预算来自 mComander），一旦 return 会让它们每回合
+        /// 空转。原版之所以能直接 return，是因为它的异民族走"侵略军"独立链路，不依赖 district。
         /// </summary>
         /// <param name="corps">军团</param>
         public static void AppointTotoku(Corps corps)
@@ -931,8 +938,10 @@ namespace Sango.Core
                 return;
             }
 
-            // 【原版对齐】军团已经没有任何城 → 先解散再谈都督任命。
-            // 对应 Open311 district_appoint_totoku 的 D 分支（非 1 号军团空 → district_dissolve）。
+            // 【原版近似】军团已经没有任何城 → 先解散再谈都督任命。
+            // 原版 D 分支的判据是"军团没**武将**"（district_is_not_empty 要求
+            // 有城 且 有武将，:328-343），没城只是它的一个子集；这里补的是
+            // "空壳军团"这一种原版也会走 district_dissolve 的情形（:242-246）。
             // 用实时遍历而不是 cityCount 缓存：缓存在刚被批量搬城的瞬间可能还没刷新。
             if (corps.number > 1)
             {
@@ -948,7 +957,8 @@ namespace Sango.Core
 
             // 复用军团自身的任命实现（对应 Open311 的 district_appoint_totoku）：
             // 第 1 军团（君主本军团）不设都督，UpdateCommander 内部会直接返回；
-            // 其余军团按"官职等级 -> 统率"择优，并把旧都督降为一般武将。
+            // 其余军团按"君主 -> 官阶 -> 统率 -> 编号"择优（person_totoku_comp），
+            // 并把旧都督降为一般武将，最后对本军团所有据点重跑太守任命。
             corps.NeedUpdateCommander();
             corps.UpdateCommander();
         }

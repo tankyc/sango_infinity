@@ -212,7 +212,8 @@ namespace Sango.Core.Debate
                 {
                     for (int i = 0; i < s_featureRules.Count; i++)
                     {
-                        if (features.Contains(s_featureRules[i].featureId))
+                        // 用 HasFeatrue 而不是 Contains：只认生效范围内的特技
+                        if (person.HasFeatrue(s_featureRules[i].featureId))
                             return s_featureRules[i].behaviour;
                     }
                 }

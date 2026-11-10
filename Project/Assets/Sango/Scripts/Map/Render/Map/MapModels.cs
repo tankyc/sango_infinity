@@ -108,6 +108,16 @@ namespace Sango.Render
             public Matrix4x4[] _matrixes = new Matrix4x4[1];
             public Mesh mesh;
             public Material material;
+
+            /// <summary>
+            /// 本模型实例提交到的 Layer。
+            /// 0 = Default（植被等），建筑类由 <see cref="MapModels.buildingInstanceLayer"/> 决定，
+            /// 远距离切到 BuildingNoOutLine 即可让 URP 的描边 Feature 整批跳过。
+            /// </summary>
+            public int layer;
+
+            /// <summary>本模型下是否挂了建筑类实例（objType != 植被）</summary>
+            public bool hasBuilding;
             public Material[] seasonMaterials = new Material[4];
             public int showCount;
             public MaterialPropertyBlock _mpb = new MaterialPropertyBlock();
@@ -264,14 +274,14 @@ namespace Sango.Render
                             System.Array.Copy(_matrixes, start, drawBatchBuffer, 0, n);
                             batch = drawBatchBuffer;
                         }
-                        Graphics.DrawMeshInstanced(mesh, 0, material, batch, n, _mpb, ShadowCastingMode.On, true, 0);
+                        Graphics.DrawMeshInstanced(mesh, 0, material, batch, n, _mpb, ShadowCastingMode.On, true, layer);
                     }
                 }
                 else
                 {
                     for (int i = 0; i < showCount; i++)
                     {
-                        Graphics.DrawMesh(mesh, _matrixes[i], material, 0);
+                        Graphics.DrawMesh(mesh, _matrixes[i], material, layer);
                     }
                 }
             }
@@ -304,7 +314,50 @@ namespace Sango.Render
                     Sango.Log.Warning($"*[地图模型]物件 objId={obj.objId} 的 modelId={obj.modelId} 不在 1..{modelInstanceDatas.Length} 范围内，已跳过实例化渲染");
                 return;
             }
-            modelInstanceDatas[index].Add(obj);
+            ModelInstanceData data = modelInstanceDatas[index];
+            data.Add(obj);
+
+            // 建筑类（非植被）走 Building / BuildingNoOutLine 层：
+            // URP 的 RenderObjects Feature 按 LayerMask 过滤描边，切层就能整批跳过描边 pass。
+            // 植被保持 Default 层（它们由 Tree 层的另一个 Feature 处理）。
+            if (obj.objType != ObjTypePlant)
+            {
+                data.hasBuilding = true;
+                data.layer = buildingInstanceLayer;
+            }
+        }
+
+        /// <summary>
+        /// 建筑实例当前提交到的层（<see cref="MapLayers.Building"/> 或 <see cref="MapLayers.BuildingNoOutLine"/>）。
+        /// 建筑/城池在运行时由 <see cref="Graphics.DrawMeshInstanced"/> 批量提交，
+        /// 它们没有 per-object 的 Renderer，层只能在提交时通过参数指定。
+        /// </summary>
+        int buildingInstanceLayer = MapLayers.Building;
+
+        /// <summary>
+        /// 统一切换建筑实例的描边层档位（远距离 LOD 用）。
+        /// 只影响建筑类模型，植被不受影响。
+        /// </summary>
+        /// <param name="noOutline">true 切到 BuildingNoOutLine 层</param>
+        public void SetNoOutLineLayer(bool noOutline)
+        {
+            int layer = noOutline ? MapLayers.BuildingNoOutLine : MapLayers.Building;
+            if (buildingInstanceLayer == layer)
+                return;
+
+            buildingInstanceLayer = layer;
+
+            if (modelInstanceDatas == null)
+                return;
+
+            for (int i = 0; i < modelInstanceDatas.Length; i++)
+            {
+                ModelInstanceData data = modelInstanceDatas[i];
+                if (data == null || !data.hasBuilding)
+                    continue;
+
+                data.layer = layer;
+            }
         }
 
         public void RemoveInstance(IMapManageObject obj)
@@ -346,6 +399,9 @@ namespace Sango.Render
             for (int i = 0; i < modelInstanceDatas.Length; i++)
             {
                 ModelInstanceData instanceData = new ModelInstanceData();
+                // 重新加载地图时可能仍处于远景降级状态（MapRenderLod 不会再次翻转），
+                // 新房建实例要直接沿用当前层档位，否则建筑会退回 Default 层、描边又回来了
+                instanceData.layer = buildingInstanceLayer;
                 modelInstanceDatas[i] = instanceData;
 
                 ModelConfig config = GameData.Instance.ModelConfigs.Get(i + 1);
@@ -380,14 +436,29 @@ namespace Sango.Render
             dynamicObjects.Clear();
         }
 
+        /// <summary>
+        /// 统一切换所有地图对象的描边材质（相机拉远降级时传 null 关描边）。
+        ///
+        /// 注意：这里遍历的是**全部**静态对象，包含视口外、从未 Init 过的 MapCell。
+        /// 每个实现类必须自己兜住"尚未创建渲染资源"的状态（MapCell 已按此处理），
+        /// 否则 LOD 翻转时会在整条链路上抛空引用。
+        /// </summary>
+        /// <param name="terrainOutlineMat">描边材质；null 表示关闭描边</param>
         public void SetOutLineShow(Material terrainOutlineMat)
         {
             foreach (IMapManageObject obj in staticObjects)
             {
+                // 对象可能已被销毁 / 从地图移除但还留在列表里，跳过
+                if (obj == null)
+                    continue;
+
                 obj.SetOutlineShow(terrainOutlineMat);
             }
             foreach (IMapManageObject obj in dynamicObjects)
             {
+                if (obj == null)
+                    continue;
+
                 obj.SetOutlineShow(terrainOutlineMat);
             }
         }

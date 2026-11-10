@@ -67,7 +67,7 @@ namespace Sango.Core
         // ==================== 人力 ====================
         /// <summary>空闲武将数量</summary>
         public int freePersons;
-        /// <summary>在野武将数量（`city.wildPersons.Count`）—— 用于"登用"命令的排序加分</summary>
+        /// <summary>在野武将数量（本城 + 所属港关，见 City.CountWildPersons）—— 用于"登用"命令的排序加分</summary>
         public int wildCount;
         /// <summary>未发现武将数量（本城 + 所属港关的 `invisiblePersons`）—— 用于"搜索"命令的排序加分</summary>
         public int invisibleCount;
@@ -180,7 +180,9 @@ namespace Sango.Core
 
             // ---------- 人力 ----------
             s.freePersons = city.freePersons != null ? city.freePersons.Count : 0;
-            s.wildCount = city.wildPersons != null ? city.wildPersons.Count : 0;   // 登用命令排序依据
+            // 登用命令排序依据：本城 + 所属港关的在野人才，
+            // 与 CityAI.AIRecruitPerson 的实际候选范围（City.CollectWildPersons）同口径。
+            s.wildCount = city.CountWildPersons();
             // 搜索命令排序依据：本城 + 所属港关的未发现人才
             s.invisibleCount = city.CountInvisiblePersons();
 

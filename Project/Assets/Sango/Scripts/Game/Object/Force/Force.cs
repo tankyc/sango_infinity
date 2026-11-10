@@ -2851,6 +2851,21 @@ namespace Sango.Core
             corps.mComander = commander;
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
+
+            // 【原版对齐】非玩家命令路径（AI / 脚本建军团）没有"玩家设置"可覆盖，
+            // 这里按 Open311 create_district（s11_sys_scen_district.cpp:76-84）的语义：
+            // number != 1 的支军团继承主军团的方针与中期目标。
+            // 玩家通过 UI 建军团/重编军团走的是 CreateCorps(Corps)，那条路径由玩家的设置决定，
+            // 不能在这里改（否则又会出现"设置被主军团覆盖"）。
+            Corps mainCorps = CapitalCorps;
+            if (mainCorps != null && mainCorps != corps)
+            {
+                corps.appoint = mainCorps.appoint;
+                corps.appoint_target = mainCorps.appoint_target;
+                corps.mid_objective = mainCorps.mid_objective;
+                corps.mid_objective_target = mainCorps.mid_objective_target;
+            }
+
             ChangeCitiesCorps(corps, cities, this);
             GameEvent.OnCorpsCreate?.Invoke(corps, Scenario.Cur);
         }
@@ -2861,19 +2876,21 @@ namespace Sango.Core
             Scenario.Cur.Add(corps);
             corps.Init(Scenario.Cur);
 
-            // 【原版对齐】支军团继承主军团的方针与委任目标。
-            // Open311 create_district 在 number != 1 时会复制主军团的 policy / policy_target
-            // 与 mid_objective（本项目把 policy 合并进 appoint / appoint_target）。
-            // 不继承的话新军团是"无方针"，AI 第一回合会按默认发展处理，
-            // 玩家刚设好的"攻略某势力"意图当场丢失。
-            Corps mainCorps = CapitalCorps;
-            if (mainCorps != null && mainCorps != corps)
-            {
-                corps.appoint = mainCorps.appoint;
-                corps.appoint_target = mainCorps.appoint_target;
-                corps.mid_objective = mainCorps.mid_objective;
-                corps.mid_objective_target = mainCorps.mid_objective_target;
-            }
+            // 【原版对齐 · 为什么这里**不能**继承主军团方针】
+            //
+            // Open311 的调用顺序是两段：
+            //   ① System::create_district（s11_sys_scen_district.cpp:68-84）
+            //      number != 1 时把主军团的 policy / policy_target / mid_objective 填进新军团；
+            //   ② PersonOrderManager::exec_district_new_command / exec_district_reform_command
+            //      （s11_sys_person_order_kunshu.cpp:283-308 / 411-436）
+            //      **随后用玩家在命令参数里设的 policy / policy_target / setting[] / transport_target
+            //      整段覆盖回去**。
+            // 也就是说：玩家设置永远是最后生效的那一份，①的继承只是"玩家没动过时的初值"。
+            //
+            // 本项目早期的写法把①搬到了这里，却发生在玩家设置（本方法入参 corps 承载）之后，
+            // 于是每次都把玩家刚设好的"攻略都市 / 攻略势力"覆盖回主军团的方针 ——
+            // 表现为"军团方针过一回合变回默认委任"。
+            // 玩家的选择由 corps 自带，这里原样保留，不再覆盖。
 
             // 【原版对齐】都督所在城必须属于本军团。
             // Open311 create_district 里有一段：

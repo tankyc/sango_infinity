@@ -159,11 +159,33 @@ namespace Sango.UI
             AddNumberItem("AI每回合加士兵", variables.aiTurnAddTroops, 0, 100000, (v) => { variables.aiTurnAddTroops = v; });
             AddNumberItem("AI每回合加兵装", variables.aiTurnAddArms, 0, 100000, (v) => { variables.aiTurnAddArms = v; });
 
+            // AI 据点登用阈值：默认值全部等于原版公式（3 + 难度×2 / 92 + 难度×2 / 10），
+            // 只影响"要不要派人去登用"，不改变登用本身的成功率判定。
+            AddTitle("AI登用阈值");
+            AddNumberItem("登用触发人数基数", variables.aiEmployTriggerBase, 0, 20, (v) => { variables.aiEmployTriggerBase = v; });
+            AddNumberItem("触发人数每级难度递增", variables.aiEmployTriggerPerDifficulty, 0, 20, (v) => { variables.aiEmployTriggerPerDifficulty = v; });
+            AddNumberItem("登用敌方保底触发人数", variables.aiEmployEnemyMaxTrigger, 0, 20, (v) => { variables.aiEmployEnemyMaxTrigger = v; });
+            AddNumberItem("挖人忠诚上限基数", variables.aiEmployMinLoyalty, 0, 100, (v) => { variables.aiEmployMinLoyalty = v; });
+            AddNumberItem("忠诚上限每级难度递增", variables.aiEmployLoyaltyPerDifficulty, 0, 20, (v) => { variables.aiEmployLoyaltyPerDifficulty = v; });
+            AddNumberItem("人数上限基数(够多就不登用)", variables.aiEmployPersonLimitBase, 0, 50, (v) => { variables.aiEmployPersonLimitBase = v; });
+            AddNumberItem("单回合登用人数(0=用全局值)", variables.aiEmployMaxPerTurnOverride, 0, 10, (v) => { variables.aiEmployMaxPerTurnOverride = v; });
+
+            // AI 据点探索阈值：默认值等于原版公式（3 + 难度×2）；
+            // "每名未发现武将加成"是本项目新增项，默认 1/封顶 3，配 0 退回原版口径。
+            AddTitle("AI探索阈值");
+            AddNumberItem("探索触发人数基数", variables.aiSearchTriggerBase, 0, 20, (v) => { variables.aiSearchTriggerBase = v; });
+            AddNumberItem("探索触发每级难度递增", variables.aiSearchTriggerPerDifficulty, 0, 20, (v) => { variables.aiSearchTriggerPerDifficulty = v; });
+            AddNumberItem("每名未发现武将加成", variables.aiSearchInvisibleBonusPerPerson, 0, 10, (v) => { variables.aiSearchInvisibleBonusPerPerson = v; });
+            AddNumberItem("未发现武将加成封顶(0=不封顶)", variables.aiSearchInvisibleBonusMax, 0, 50, (v) => { variables.aiSearchInvisibleBonusMax = v; });
+
             AddTitle("剧本基础参数");
             AddToggleItem("<color=#ee2222>编辑生效</color>", variables.ApplyEdit, (v) => { variables.ApplyEdit = v; });
 
             // 名字最大支持字数：所有名字列(SortByName)的显示宽度按 1.05 × 本值 计算
             AddNumberItem("名字最大支持字数", variables.maxNameLength, 1, 20, (v) => { variables.maxNameLength = v; });
+
+            // 最大生效特技数量：武将只前 N 个特技生效 / 展示 / 可学习；0 = 不限制
+            AddNumberItem("最大生效特技数量(0=不限)", variables.maxActiveFeatureCount, 0, 20, (v) => { variables.maxActiveFeatureCount = v; });
 
             AddNumberItem("电脑粮食倍率", variables.foodFactor, 0, 100, (v) => { variables.foodFactor = v; });
             AddNumberItem("电脑资金倍率", variables.goldFactor, 0, 100, (v) => { variables.goldFactor = v; });

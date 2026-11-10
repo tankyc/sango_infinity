@@ -3920,10 +3920,76 @@ namespace Sango.Core
             }
         }
 
+        /// <summary>
+        /// 取本剧本允许的最大生效特技数。
+        /// 拿不到剧本（编辑器预览 / 单测）时回落到缺省值 3；配 &lt;= 0 表示不限制。
+        /// </summary>
+        /// <returns>最大生效数量；&lt;= 0 表示不限制</returns>
+        public static int GetMaxActiveFeatureCount()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Variables == null)
+                return ScenarioVariables.DefaultMaxActiveFeatureCount;
+            return scenario.Variables.maxActiveFeatureCount;
+        }
+
+        /// <summary>
+        /// 实际生效的特技数量。
+        ///
+        /// 【为什么不是 FeatureList.Count】剧本参数 <see cref="ScenarioVariables.maxActiveFeatureCount"/>
+        /// 会把**只有前 N 个特技生效**这条规则套在每名武将身上。所有"装配动作 / 条件判定"
+        /// 的遍历都必须用本属性代替 <c>FeatureList.Count</c>，否则超出上限的特技依然会起作用。
+        ///
+        /// 【数据不删除】超出的特技仍留在 <see cref="FeatureList"/> 里（存档完整保留），
+        /// 只是处于休眠状态；把上限调大后会立刻恢复。
+        /// </summary>
+        public int ActiveFeatureCount
+        {
+            get
+            {
+                if (FeatureList == null || FeatureList.Count == 0)
+                    return 0;
+
+                int max = GetMaxActiveFeatureCount();
+                if (max <= 0 || max >= FeatureList.Count)
+                    return FeatureList.Count;
+
+                return max;
+            }
+        }
+
+        /// <summary>
+        /// 特技是否已达本剧本上限（不能再通过培育学习新特技）。
+        /// 上限配 &lt;= 0（不限制）时恒为 false。
+        /// </summary>
+        public bool IsFeatureFull
+        {
+            get
+            {
+                int max = GetMaxActiveFeatureCount();
+                if (max <= 0)
+                    return false;
+                return FeatureList != null && FeatureList.Count >= max;
+            }
+        }
+
+        /// <summary>
+        /// 是否拥有指定特技（只在前 <see cref="ActiveFeatureCount"/> 个里查）。
+        /// </summary>
+        /// <param name="id">特技 Id</param>
+        /// <returns>生效范围内存在该特技返回 true</returns>
         public bool HasFeatrue(int id)
         {
-            if (FeatureList == null || FeatureList.Count == 0) return false;
-            return FeatureList.Contains(id);
+            int count = ActiveFeatureCount;
+            if (count <= 0) return false;
+
+            for (int i = 0; i < count; i++)
+            {
+                Feature feature = FeatureList[i];
+                if (feature != null && feature.Id == id)
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -4059,7 +4125,9 @@ namespace Sango.Core
                 return;
             }
 
-            for (int i = 0; i < FeatureList.Count; i++)
+            // 只装配**生效**的特技（超出剧本 maxActiveFeatureCount 的不订阅事件）
+            int activeCount = ActiveFeatureCount;
+            for (int i = 0; i < activeCount; i++)
             {
                 Feature feature = FeatureList[i];
                 if (feature != null && feature.kind == (int)FeatureKindType.PersonRelationship)
@@ -4101,11 +4169,14 @@ namespace Sango.Core
 
         public bool HasFeatrue(int[] ids)
         {
-            if (FeatureList == null || FeatureList.Count == 0) return false;
             if (ids == null) return false;
+            // 只在前 ActiveFeatureCount 个特技里查：超出剧本上限的特技视为未拥有
+            int count = ActiveFeatureCount;
+            if (count <= 0) return false;
+
             for (int i = 0; i < ids.Length; i++)
             {
-                if (FeatureList.Contains(ids[i])) return true;
+                if (HasFeatrue(ids[i])) return true;
             }
             return false;
         }

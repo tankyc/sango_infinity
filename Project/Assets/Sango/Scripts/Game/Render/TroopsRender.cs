@@ -230,13 +230,20 @@ namespace Sango
             _mpb.SetFloatArray("_StartTime", _ani_start_time);
         }
 
+        /// <summary>
+        /// 兵模是否投射实时阴影。由 <see cref="Sango.Render.MapRenderLod"/> 在镜头拉远时置 false。
+        /// 兵模是 instanced 一次性提交的，数量最多的就是它，阴影 pass 的成本也主要落在这里。
+        /// </summary>
+        public static bool castShadow = true;
+
         void DrawMesh()
         {
             if (mesh == null) return;
 
             if (SystemInfo.supportsInstancing)
             {
-                Graphics.DrawMeshInstanced(mesh, 0, material, _matrixes, showCount, _mpb, ShadowCastingMode.On, true, 0);
+                ShadowCastingMode cast = castShadow ? ShadowCastingMode.On : ShadowCastingMode.Off;
+                Graphics.DrawMeshInstanced(mesh, 0, material, _matrixes, showCount, _mpb, cast, true, 0);
             }
             else
             {

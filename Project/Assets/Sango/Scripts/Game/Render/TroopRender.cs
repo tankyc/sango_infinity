@@ -92,6 +92,7 @@ namespace Sango.Render
 
             if (HeadBar != null)
             {
+                MapHeadbarManager.Detach(HeadBar.gameObject);
                 PoolManager.Recycle(HeadBar.gameObject);
                 HeadBar = null;
             }
@@ -128,6 +129,9 @@ namespace Sango.Render
                         uITroopHeadbar.Init(Troop);
                     }
                 }
+                // 交给集中管理器驱动：关掉 BillboardUI 的每帧 Update，
+                // 由 MapHeadbarManager 在相机/锚点变化时统一批量更新。
+                MapHeadbarManager.Attach(headBar);
                 HeadBar = uGUIWindow;
             }
 
@@ -144,6 +148,7 @@ namespace Sango.Render
                 TroopModel = null;
                 if (HeadBar != null)
                 {
+                    MapHeadbarManager.Detach(HeadBar.gameObject);
                     PoolManager.Recycle(HeadBar.gameObject);
                     HeadBar = null;
                 }
@@ -185,6 +190,7 @@ namespace Sango.Render
             TroopModel = null;
             if (HeadBar != null)
             {
+                MapHeadbarManager.Detach(HeadBar.gameObject);
                 HeadBar.OnClose();
                 PoolManager.Recycle(HeadBar.gameObject);
                 HeadBar = null;

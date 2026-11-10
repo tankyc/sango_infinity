@@ -280,7 +280,8 @@ namespace Sango.Core.Telemetry
             // Feature.Name 在特技未激活时会带 <color=#6D6D6D> 标签，必须剥掉
             if (person.FeatureList != null)
             {
-                for (int i = 0; i < person.FeatureList.Count; i++)
+                // 只记录生效的特技，与游戏内判定口径一致
+                for (int i = 0; i < person.ActiveFeatureCount; i++)
                 {
                     Feature feature = person.FeatureList[i];
                     if (feature == null) continue;

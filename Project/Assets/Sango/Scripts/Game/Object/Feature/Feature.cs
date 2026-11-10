@@ -311,7 +311,8 @@ namespace Sango.Core
         /// 收集"本势力已有武将拥有的特技 Id"（对齐原版 `skill_set`，:151-160）。
         ///
         /// 原版每名武将只有一个 `skill_id_`；本项目 `FeatureList` 可以有多个，
-        /// 因此这里把整张列表都收进来（语义上仍是"势力内出现过该特技"）。
+        /// 因此这里按 **生效范围**（前 <see cref="Person.ActiveFeatureCount"/> 个）收取：
+        /// 超出剧本 maxActiveFeatureCount 的特技处于休眠状态，不算"本势力已拥有"。
         /// </summary>
         /// <param name="force">势力</param>
         /// <param name="scenario">场景对象</param>
@@ -329,7 +330,8 @@ namespace Sango.Core
                     continue;
                 if (person.FeatureList == null)
                     continue;
-                for (int f = 0; f < person.FeatureList.Count; f++)
+                // 只统计**生效**的特技（超出剧本 maxActiveFeatureCount 的不算本势力已拥有）
+                for (int f = 0; f < person.ActiveFeatureCount; f++)
                 {
                     Feature feature = person.FeatureList[f];
                     if (feature != null)
@@ -357,6 +359,11 @@ namespace Sango.Core
         {
             score = 0;
             if (person == null || feature == null || city == null)
+                return false;
+
+            // ⓪ 剧本特技上限 —— 已满的武将不再作为学习候选。
+            // 与 AbilityStudySystem.ApplySkill 同口径，避免 AI 选中他之后才失败、白耗一次培育。
+            if (person.IsFeatureFull)
                 return false;
 
             bool atCity = city.IsCity();

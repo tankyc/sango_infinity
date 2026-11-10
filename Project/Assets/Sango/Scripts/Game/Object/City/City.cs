@@ -2130,7 +2130,7 @@ namespace Sango.Core
                 Person x = allPersons[n];
                 if (x == null || x.FeatureList == null)
                     continue;
-                for (int i = 0; i < x.FeatureList.Count; i++)
+                for (int i = 0; i < x.ActiveFeatureCount; i++)
                 {
                     Feature feature = x.FeatureList[i];
                     // 仅城市收入、灾害类特技可在城市装配；括号确保空特技不会继续访问 kind。
@@ -4822,6 +4822,30 @@ namespace Sango.Core
 
 
         /// <summary>
+        /// 两个据点是否属于同一个"据点群"（都市 + 其下属港关）。
+        ///
+        /// 等价于原版 <c>building->get_area_city_id()</c> 相等判据
+        /// （s11_sys_person_order_personnel.cpp:752）。原版正是用它决定登用是
+        /// "就地结算" 还是 "派人出使"，本项目此前用 City 对象相等（`destCity == CurrentCity`），
+        /// 把主城与其下属港关误判成两个不同的城。
+        /// </summary>
+        /// <param name="a">据点 A</param>
+        /// <param name="b">据点 B</param>
+        /// <returns>同据点群返回 true；任一为空或港关缺父城时返回 false</returns>
+        public static bool IsSameAreaCity(City a, City b)
+        {
+            if (a == null || b == null)
+                return false;
+            if (a == b)
+                return true;
+
+            // 区域城口径与 GetBanditNextTarget 一致：都市取自己，港关取父城
+            City areaA = a.IsCity() ? a : a.BelongCity;
+            City areaB = b.IsCity() ? b : b.BelongCity;
+            return areaA != null && areaA == areaB;
+        }
+
+        /// <summary>
         /// 登庸武将
         /// </summary>
         /// <param name="person">执行登庸的武将</param>
@@ -4867,7 +4891,11 @@ namespace Sango.Core
             }
 
             freePersons.Remove(person);
-            if (destCity == person.CurrentCity)
+            // 【同城判据】对齐原版 area_city_id（s11_sys_person_order_personnel.cpp:752）：
+            // 都市与其下属港关是同一个据点群、人才池共享，登用就地结算，不派出使任务。
+            // 原实现用 `destCity == person.CurrentCity`（City 对象相等），
+            // 会让"主城登用港关在野武将"被误判为异城，白走 distance*2+6 回合的出使。
+            if (IsSameAreaCity(destCity, person.CurrentCity))
             {
                 CityRecruitPersonEvent te = RenderEvent.Instance.Create<CityRecruitPersonEvent>();
                 te.Init(person, dest);
@@ -6270,6 +6298,45 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 收集本城 + 下属港关的在野武将（**人才池口径**）。
+        ///
+        /// 【为什么必须收口到这里】搜索的实际执行（<see cref="DoJobSearching"/>）会收集
+        /// `invisiblePersons` + 各 `subCities[i].invisiblePersons`，发现人才后落到**其所在城**
+        /// 的 `wildPersons`（`target.CurrentCity.AddWildPerson`）。如果登用侧只看本城
+        /// `wildPersons`，就会出现"在港关搜出来的人永远没人登用"的死路 ——
+        /// 这也是 <see cref="CountWildPersons"/> 存在的意义，但此前没有任何调用点。
+        ///
+        /// 调用方：城池 AI 的登用（CityAI.AIRecruitPerson）、人才府的自动登用
+        /// （BuildingWorking）。两处必须同口径，否则一边能登用、一边看不到。
+        /// </summary>
+        /// <param name="dest">输出列表（本方法会先清空，调用方可复用同一实例）</param>
+        public void CollectWildPersons(List<Person> dest)
+        {
+            if (dest == null)
+                return;
+
+            dest.Clear();
+
+            if (wildPersons != null)
+            {
+                for (int i = 0; i < wildPersons.Count; i++)
+                    dest.Add(wildPersons[i]);
+            }
+
+            if (subCities == null)
+                return;
+
+            for (int i = 0; i < subCities.Count; i++)
+            {
+                City sub = subCities[i];
+                if (sub == null || sub.wildPersons == null)
+                    continue;
+                for (int j = 0; j < sub.wildPersons.Count; j++)
+                    dest.Add(sub.wildPersons[j]);
+            }
+        }
+
+        /// <summary>
         /// 统计本城与所属港关的人才池数量。
         /// </summary>
         /// <param name="invisible">true 统计未发现武将，false 统计在野武将</param>
@@ -6562,65 +6629,34 @@ namespace Sango.Core
             GameEvent.OnCityAIPrepare?.Invoke(this, scenario);
         }
 
-        /// <summary>
-        /// 检查是否太守需要重新设置
-        /// </summary>
-        /// <param name="person">原太守</param>
-        public void CheckIfLoseLeader(Person person)
-        {
-            if (Leader != person) return;
-
-            Person dest = null;
-            Official higher = null;
-            int commandHigher = 0;
-            for (int i = 0; i < allPersons.Count; i++)
-            {
-                Person checker = allPersons[i];
-                if (checker != null && checker != Leader && checker.IsAlive)
-                {
-                    if (dest == null)
-                    {
-                        dest = checker;
-                        higher = dest.Official;
-                        commandHigher = dest.Command;
-                    }
-                    else
-                    {
-                        if (checker.Official.level > higher.level)
-                        {
-                            dest = checker;
-                            higher = dest.Official;
-                            commandHigher = dest.Command;
-                        }
-                        else if (checker.Official.level == higher.level)
-                        {
-                            if (checker.Command > commandHigher)
-                            {
-                                dest = checker;
-                                higher = dest.Official;
-                                commandHigher = dest.Command;
-                            }
-                        }
-                    }
-                }
-            }
-            Leader = dest;
-        }
-
         public void NeedUpdateLeader()
         {
             needUpdateLeader = true;
         }
 
         /// <summary>
-        /// 更新太守
+        /// 更新太守。
+        ///
+        /// 【选人优先级】对齐 Open311 的 <c>building_appoint_taishu</c>
+        /// （s11_sys_scen_building.cpp:1000-1008）：
+        ///   1. 君主（Mibun_Kunshu）
+        ///   2. 都督（Mibun_Totoku）—— 原版允许都督兼太守，`Building::taishu_id_` 与
+        ///      `Person::mibun_` 是两个独立字段，所以这里会让 mComander 当 Leader，
+        ///      但其 state 保持 Commander（<see cref="Person.SetStateLeader"/> 对 Commander 直接 return）
+        ///   3. 其余在籍武将：官阶高 → 统率高
+        ///
+        /// 【第 3 档的已知近似】原版第 3 档走 `select_leader` → `person_leader_comp`
+        /// （s11_sys_scen_person.cpp:2722-2747），末级还有 武力 → 功绩 → 编号 三级兜底；
+        /// 本项目只比到统率，完全同分时保留本城名册里靠前的那个。
+        ///
+        /// 【与原版的小差异】原版第 1、2 档是同一个 `mibun &lt;= Mibun_Totoku` 循环、
+        /// 取遍历到的**最后**一个（顺序依赖 person_pool）；本项目拆成两轮并明确
+        /// "君主优先于都督"，结果确定。同一座城里同时有君主和都督属罕见情形。
         /// </summary>
         public void UpdateNewLeader()
         {
             needUpdateLeader = false;
             Person dest = null;
-            Official higher = null;
-            int commandHigher = 0;
             for (int i = 0; i < allPersons.Count; i++)
             {
                 Person checker = allPersons[i];
@@ -6652,32 +6688,37 @@ namespace Sango.Core
 
             if (dest == null)
             {
+                int levelHigher = 0;
+                int commandHigher = 0;
                 for (int i = 0; i < allPersons.Count; i++)
                 {
                     Person checker = allPersons[i];
                     if (CanBeLeader(checker))
                     {
+                        // Person.Official 允许为空（未授官 / 读档尚未解析），按 0 处理，
+                        // 否则 dest.Official 为 null 时下一轮比较会空引用。
+                        int checkerLevel = checker.Official != null ? checker.Official.level : 0;
                         if (dest == null)
                         {
                             dest = checker;
-                            higher = dest.Official;
-                            commandHigher = dest.Command;
+                            levelHigher = checkerLevel;
+                            commandHigher = checker.Command;
                         }
                         else
                         {
-                            if (checker.Official.level > higher.level)
+                            if (checkerLevel > levelHigher)
                             {
                                 dest = checker;
-                                higher = dest.Official;
-                                commandHigher = dest.Command;
+                                levelHigher = checkerLevel;
+                                commandHigher = checker.Command;
                             }
-                            else if (checker.Official.level == higher.level)
+                            else if (checkerLevel == levelHigher)
                             {
                                 if (checker.Command > commandHigher)
                                 {
                                     dest = checker;
-                                    higher = dest.Official;
-                                    commandHigher = dest.Command;
+                                    levelHigher = checkerLevel;
+                                    commandHigher = checker.Command;
                                 }
                             }
                         }

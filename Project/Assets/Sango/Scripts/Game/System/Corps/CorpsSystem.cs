@@ -116,7 +116,10 @@ namespace Sango.Core.Player
             targetCorps = new Corps();
             targetCorps.BelongForce = TargetCity.BelongForce;
             targetCorps.number = targetNumber;
-            targetCorps.appoint = 0;
+            // 默认方针取"委任"（Auto）。对齐 Open311 exec_district_new_command
+            //（s11_sys_person_order_kunshu.cpp:287-303）：新建命令的参数默认落在 Auto 分支，
+            // 即"委任 AI 自行发展"，而不是 None（无方针）。
+            targetCorps.appoint = (int)Corps.AppointType.Auto;
             targetCorps.appoint_target = 0;
             targetCorps.ActionPoint = 255;
             Window.Instance.Open("window_corps_setting", targetCorps, "军团", (System.Action)CreateCorps);
@@ -142,6 +145,18 @@ namespace Sango.Core.Player
                     targetCorps.appoint_target = exsist.appoint_target;
                     targetCorps.mComander = exsist.mComander;
                     targetCorps.ActionPoint = exsist.ActionPoint;
+
+                    // 【必须整份复制委任相关字段】重编走的是
+                    // ResetCorps → DeleteCorps(旧) + CreateCorps(副本)，副本没带上的字段
+                    // 会在重建后变成默认值 —— 玩家设好的运输目的地就是这么丢的。
+                    // 对齐 Open311 exec_district_reform_command
+                    //（s11_sys_person_order_kunshu.cpp:432-436）：命令会把 policy /
+                    // mid_objective / setting[] / transport_target 全部写回新军团。
+                    targetCorps.mid_objective = exsist.mid_objective;
+                    targetCorps.mid_objective_target = exsist.mid_objective_target;
+                    targetCorps.transportDestBuildingId = exsist.transportDestBuildingId;
+                    targetCorps.transportDestDistrictNumber = exsist.transportDestDistrictNumber;
+
                     for (int i = 0; i < exsist.appointSetting.Length; i++)
                         targetCorps.appointSetting[i] = exsist.appointSetting[i];
 

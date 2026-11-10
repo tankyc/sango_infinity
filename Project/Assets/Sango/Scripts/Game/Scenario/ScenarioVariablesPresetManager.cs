@@ -13,7 +13,7 @@ namespace Sango.Core
     /// 【存放位置（三个来源，后加载覆盖先加载）】
     ///   1. 内置：<c>{ContentRootPath}/Data/ScenarioVariables/{名字}.json</c>
     ///   2. 自建：<c>{CustomEditRootPath}/Data/ScenarioVariables/{名字}.json</c>   ← 保存目标
-    ///   3. 模组：<c>{ModRootPath}/**/Data/ScenarioVariables/{名字}.json</c>
+    ///   3. 模组：<c>{已启用模组目录}/Data/ScenarioVariables/{名字}.json</c>（未勾选的模组不加载）
     /// 覆盖规则与事件库（<c>EventDatabase</c>）保持一致：同名时后加载的生效。
     ///
     /// 【预设名】文件名去掉 <c>.json</c> 即预设名。
@@ -279,8 +279,13 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 扫描模组根目录下所有 <c>Data/ScenarioVariables</c> 目录。
+        /// 扫描**已启用模组**下的 <c>Data/ScenarioVariables</c> 目录。
         /// 只认路径里带该片段的文件，避免把模组里其它 JSON 当预设读。
+        ///
+        /// 【必须按启用列表过滤】原实现递归扫整个模组根目录，
+        /// 导致"取消勾选的模组仍会把它的剧本参数预设塞进下拉框"——
+        /// 与事件库（<c>EventDatabase.LoadModDirectory</c>）是同一个遗漏，
+        /// 两处必须保持同一口径：勾选框决定该模组的数据是否参与加载。
         /// </summary>
         /// <param name="modRoot">模组根目录</param>
         static void LoadModDirectory(string modRoot)
@@ -288,10 +293,30 @@ namespace Sango.Core
             if (string.IsNullOrEmpty(modRoot) || !System.IO.Directory.Exists(modRoot))
                 return;
 
+            // 已启用模组目录；null 表示模组系统尚未初始化（编辑器预览 / 单测），
+            // 此时退回"扫描整个模组根目录"的旧行为。
+            List<string> enabledDirs = Sango.Mod.ModManager.Instance.GetEnabledModDirs();
+            if (enabledDirs == null)
+            {
+                LoadPresetFiles(modRoot);
+                return;
+            }
+
+            for (int i = 0; i < enabledDirs.Count; i++)
+                LoadPresetFiles(enabledDirs[i]);
+        }
+
+        /// <summary>递归读取指定目录下的剧本参数预设 JSON。</summary>
+        /// <param name="root">模组目录（或模组根目录）</param>
+        static void LoadPresetFiles(string root)
+        {
+            if (string.IsNullOrEmpty(root) || !System.IO.Directory.Exists(root))
+                return;
+
             string[] files;
             try
             {
-                files = System.IO.Directory.GetFiles(modRoot, "*.json", System.IO.SearchOption.AllDirectories);
+                files = System.IO.Directory.GetFiles(root, "*.json", System.IO.SearchOption.AllDirectories);
             }
             catch (System.Exception e)
             {

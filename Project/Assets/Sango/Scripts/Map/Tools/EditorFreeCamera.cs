@@ -106,7 +106,8 @@ namespace Sango.Tools
 
         private void Awake()
         {
-            rayCastLayer = LayerMask.GetMask(new string[] { "Map", "Troops", "Building" });
+            // 含 NoOutLine 两层：地图 LOD 拉远后地形块 / 建筑会被切到这两个层，拾取不能漏
+            rayCastLayer = LayerMask.GetMask(new string[] { "Map", "MapNoOutLine", "Troops", "Building", "BuildingNoOutLine" });
             viewPlane = new Plane(Vector3.up, Vector3.zero);
             
         }

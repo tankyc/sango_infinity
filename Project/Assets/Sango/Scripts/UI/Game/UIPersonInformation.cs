@@ -231,7 +231,10 @@ namespace Sango.UI
             featureObjectPool.Reset();
             if (Target.FeatureList != null)
             {
-                for (int i = 0; i < Target.FeatureList.Count; i++)
+                // 只展示**生效**的特技：超出剧本 maxActiveFeatureCount 的部分处于休眠状态，
+                // 既不计入战斗/内政，也不应该在详情里显示成"已拥有"。
+                int activeCount = Target.ActiveFeatureCount;
+                for (int i = 0; i < activeCount; i++)
                 {
                     Feature feature = Target.FeatureList[i];
                     if (feature != null)

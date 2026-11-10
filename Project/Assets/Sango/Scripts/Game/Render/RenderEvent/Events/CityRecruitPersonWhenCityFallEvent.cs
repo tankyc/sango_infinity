@@ -154,12 +154,6 @@ namespace Sango.Render
             GameSystem.GetSystem<PersonRecruit>().Start(targetCity, atk, target, captiveList, recruitType, PersonRecruit.UnlimitedTry, x =>
             {
                 IsDone = true;
-                if(captiveList.Count > 0)
-                {
-                    Person tp = captiveList[0];
-                    ReleaseCaptive(target);
-                }
-                captiveList.Clear();
             });
         }
 

@@ -575,6 +575,9 @@ namespace Sango.Render
             // 战略地图只在打脏标记后重建一次，这里必须每帧驱动
             if (mapStrategyMap != null)
                 mapStrategyMap.Update();
+
+            // 远景降级：镜头拉远后关掉实时阴影 / 地形描边 / 头顶条文字（内部判脏，只在翻转时切换）
+            MapRenderLod.Tick();
         }
 
         public void UpdateImmediate()
@@ -935,6 +938,63 @@ namespace Sango.Render
         public bool IsValid()
         {
             return mapRoot != null;
+        }
+    }
+
+    /// <summary>
+    /// 地图渲染相关的 Layer 索引缓存。
+    ///
+    /// 【为什么要这一层封装】
+    /// Layer 名字在运行时只能用 <see cref="LayerMask.NameToLayer(string)"/> 查，每次查都是字符串哈希；
+    /// 而地图 LOD 切换、射线拾取这类路径会频繁用到，缓存成静态只读字段最省事。
+    ///
+    /// 【NoOutLine 层是干什么的】
+    /// URP Renderer（<c>Assets/GameAssets/URP/URP Asset_Renderer.asset</c>）里配了两个 RenderObjects
+    /// Feature 用来画描边，它们都按 <b>LayerMask</b> 过滤：
+    ///   · OutlineOpaque：LayerMask = Map(7) + Building(9)，对不透明对象画描边（当前 m_Active = 0）；
+    ///   · RenderObjects：LayerMask = Building(9) + Tree(11)，对透明队列对象画描边。
+    /// 相机拉远后描边在屏幕上根本看不出来，却仍要付一整趟 pass 的代价，
+    /// 所以把地形块 / 建筑实例切到 <see cref="MapNoOutLine"/> / <see cref="BuildingNoOutLine"/> 层，
+    /// 让上面两个 Feature 的 LayerMask 匹配不上，直接跳过描边 pass。拉近时再切回去。
+    ///
+    /// 【注意】切层会改变 <c>Physics.Raycast</c> 的命中结果，
+    /// 所有按 "Map" 层拾取地形的代码必须改用 <see cref="TerrainHitMask"/>，否则相机拉远后点不到地图。
+    /// </summary>
+    public static class MapLayers
+    {
+        /// <summary>地形块所在层（带描边）</summary>
+        public static readonly int Map = Resolve("Map", 7);
+
+        /// <summary>地形块所在层（不带描边，远距离 LOD 用）</summary>
+        public static readonly int MapNoOutLine = Resolve("MapNoOutLine", 21);
+
+        /// <summary>建筑实例所在层（带描边）</summary>
+        public static readonly int Building = Resolve("Building", 9);
+
+        /// <summary>建筑实例所在层（不带描边，远距离 LOD 用）</summary>
+        public static readonly int BuildingNoOutLine = Resolve("BuildingNoOutLine", 20);
+
+        /// <summary>
+        /// 地形拾取用的 LayerMask：Map + MapNoOutLine。
+        /// 地形块随时可能在两层之间切换，射线拾取必须同时接受两者。
+        /// </summary>
+        public static readonly int TerrainHitMask = (1 << Map) | (1 << MapNoOutLine);
+
+        /// <summary>
+        /// 取 Layer 索引；项目里没有配置该层时回退到 <paramref name="fallback"/>。
+        /// 回退值取自 TagManager 里的固定顺序，保证即使 Layer 被改名也不会整片失效。
+        /// </summary>
+        /// <param name="name">Layer 名</param>
+        /// <param name="fallback">回退索引</param>
+        /// <returns>Layer 索引</returns>
+        static int Resolve(string name, int fallback)
+        {
+            int index = LayerMask.NameToLayer(name);
+            if (index >= 0)
+                return index;
+
+            Sango.Log.Warning($"*[地图渲染] 未找到 Layer「{name}」，回退为 {fallback}，请检查 ProjectSettings/TagManager.asset");
+            return fallback;
         }
     }
 }

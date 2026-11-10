@@ -13,6 +13,15 @@ namespace Sango
         public Font font;
         public Dictionary<string, Dictionary<int, RenderTexture>> textMap = new Dictionary<string, Dictionary<int, RenderTexture>>();
 
+        /// <summary>
+        /// 某张文字贴图渲染完成的通知（参数为该字对应的 RenderTexture）。
+        ///
+        /// 【用途】旗帜的文字图集（FlagTextAtlas）需要把 <see cref="GetTexture"/> 产出的
+        /// 单字 RT 复制进自己的大图集。GetTexture 是"先返回空 RT、稍后由协程渲染"的异步语义，
+        /// 所以图集必须等这个回调到了再拷，否则拷到的是一张空白图。
+        /// </summary>
+        public static event System.Action<RenderTexture> onTextureRendered;
+
         public static TextFactory _instance;
         public static TextFactory Instance
         {
@@ -60,6 +69,10 @@ namespace Sango
                     yield return new WaitForEndOfFrame();
                     textCamera.enabled = false;
                     textCamera.targetTexture = null;
+
+                    // 此刻 RT 内容已经就绪，通知等待方（旗帜文字图集）
+                    if (onTextureRendered != null)
+                        onTextureRendered(data.tex);
                 }
                 else
                 {

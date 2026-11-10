@@ -382,7 +382,7 @@ namespace Sango.Core
                 Person person = people[i];
                 if (person != null && person.FeatureList != null)
                 {
-                    for (int j = 0; j < person.FeatureList.Count; j++)
+                    for (int j = 0; j < person.ActiveFeatureCount; j++)
                     {
                         Feature feature = person.FeatureList[j];
                         if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
@@ -414,7 +414,7 @@ namespace Sango.Core
                 Person person = people[i];
                 if (person != null && person.FeatureList != null)
                 {
-                    for (int j = 0; j < person.FeatureList.Count; j++)
+                    for (int j = 0; j < person.ActiveFeatureCount; j++)
                     {
                         Feature feature = person.FeatureList[j];
                         if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
@@ -444,7 +444,7 @@ namespace Sango.Core
             ClearJobFeature();
             if (person != null && person.FeatureList != null)
             {
-                for (int j = 0; j < person.FeatureList.Count; j++)
+                for (int j = 0; j < person.ActiveFeatureCount; j++)
                 {
                     Feature feature = person.FeatureList[j];
                     if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)

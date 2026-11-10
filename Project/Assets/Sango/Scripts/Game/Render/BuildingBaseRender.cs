@@ -59,6 +59,7 @@ namespace Sango.Render
 
             if (HeadBar != null)
             {
+                MapHeadbarManager.Detach(HeadBar.gameObject);
                 PoolManager.Recycle(HeadBar.gameObject);
                 HeadBar = null;
             }
@@ -87,6 +88,8 @@ namespace Sango.Render
                         uITroopHeadbar.Init(Building);
                     }
                 }
+                // 集中驱动：见 MapHeadbarManager 的类注释
+                MapHeadbarManager.Attach(headBar);
                 HeadBar = uGUIWindow;
             }
 
@@ -100,6 +103,7 @@ namespace Sango.Render
                 BuildingModel = null;
                 if (HeadBar != null)
                 {
+                    MapHeadbarManager.Detach(HeadBar.gameObject);
                     PoolManager.Recycle(HeadBar.gameObject);
                     HeadBar = null;
                 }
@@ -141,6 +145,7 @@ namespace Sango.Render
             BuildingModel = null;
             if (HeadBar != null)
             {
+                MapHeadbarManager.Detach(HeadBar.gameObject);
                 PoolManager.Recycle(HeadBar.gameObject);
                 HeadBar = null;
             }

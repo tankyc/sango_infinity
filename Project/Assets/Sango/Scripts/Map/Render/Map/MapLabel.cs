@@ -110,7 +110,9 @@ namespace Sango.Render
         public bool remainInView { get; set; } = true;
 
         /// <summary>
-        /// 位置
+        /// 位置（世界坐标）。
+        /// 标注本身是一个空节点，<see cref="MapLabelRenderer"/> 每帧读这里的世界坐标去同步视图，
+        /// 所以不需要在这里额外通知刷新。
         /// </summary>
         public Vector3 position
         {
@@ -119,7 +121,7 @@ namespace Sango.Render
         }
 
         /// <summary>
-        /// 旋转
+        /// 旋转（对标注显示无影响：视图朝向由 BillboardUI 每帧面向相机决定）
         /// </summary>
         public Vector3 rotation
         {
@@ -137,7 +139,7 @@ namespace Sango.Render
         }
 
         /// <summary>
-        /// 缩放
+        /// 缩放（对标注显示无影响：视图缩放由 BillboardUI 随镜头距离决定）
         /// </summary>
         public Vector3 scale
         {
@@ -166,19 +168,16 @@ namespace Sango.Render
         public int fontSize { get; set; }
 
         /// <summary>
-        /// 文本Mesh组件
+        /// 是否应该显示。
+        ///
+        /// 【数据与视图分离】本类只描述"标注是什么"（文字 / 颜色 / 字号 / 坐标），
+        /// 真正的 Text 由 <see cref="MapLabelRenderer"/> 创建并统一挂在同一个 World Space Canvas 下。
+        /// 因此这里不再持有 <c>TextMesh</c> / <c>labelResource</c> / <c>textComponent</c> 之类视图对象。
         /// </summary>
-        private TextMesh textMesh;
-
-        /// <summary>
-        /// 标注资源对象
-        /// </summary>
-        private GameObject labelResource;
-
-        /// <summary>
-        /// Text组件
-        /// </summary>
-        private UnityEngine.UI.Text textComponent;
+        public bool CanRenderLabel
+        {
+            get { return _visible && !string.IsNullOrEmpty(labelText); }
+        }
 
         /// <summary>
         /// 初始化
@@ -197,18 +196,7 @@ namespace Sango.Render
             fontSize = size;
             bounds = new Sango.Tools.Rect(0, 0, 20, 20);
 
-            // 创建文本Mesh
-            //textMesh = gameObject.AddComponent<TextMesh>();
-            //textMesh.text = labelText;
-            //textMesh.color = textColor;
-            //textMesh.fontSize = fontSize;
-            //textMesh.anchor = TextAnchor.MiddleCenter;
-            //textMesh.alignment = TextAlignment.Center;
-
-            //// 确保文本面向相机
-            //transform.rotation = Quaternion.LookRotation(Camera.main.transform.forward);
-
-            // 如果可见，创建资源
+            // 如果可见，注册到自绘合批（不再实例化 prefab）
             if (visible)
             {
                 CreateLabelResource();
@@ -356,81 +344,28 @@ namespace Sango.Render
             textColor = color;
             fontSize = size;
 
-            if (textMesh != null)
-            {
-                textMesh.text = labelText;
-                textMesh.color = textColor;
-                textMesh.fontSize = fontSize;
-            }
-
-            if (textComponent != null)
-            {
-                textComponent.text = labelText;
-                textComponent.color = textColor;
-                textComponent.fontSize = fontSize;
-            }
+            // 内容（文字 / 颜色 / 字号）变了，让渲染器下一帧重写一次视图
+            MapLabelRenderer.MarkDirty();
         }
 
         /// <summary>
-        /// 创建标注资源
+        /// 注册到渲染器（可见时调用）。
+        ///
+        /// 渲染器会给本标注分配一个视图节点，挂在**所有标注共享**的那个 World Space Canvas 下，
+        /// 于是同屏 N 个标注只需要 1 个 DrawCall（同字体同材质，uGUI 自动合批）。
+        /// 视图的创建是延迟的（在渲染器的 LateUpdate 里），此时 prefab / Canvas 未必就绪。
         /// </summary>
         private void CreateLabelResource()
         {
-            if (labelResource == null)
-            {
-                const string poolKey = "MapLabel";
-
-                // 尝试从对象池获取
-                labelResource = Sango.PoolManager.Get(poolKey);
-
-                if (labelResource == null)
-                {
-                    // 加载Resources:MapLabel资源
-                    UnityEngine.Object prefab = Resources.Load("MapLabel");
-                    if (prefab != null)
-                    {
-                        // 添加到对象池
-                        Sango.PoolManager.Add(poolKey, prefab);
-
-                        // 从对象池获取
-                        labelResource = Sango.PoolManager.Get(poolKey);
-                    }
-                }
-
-                if (labelResource != null)
-                {
-                    // 设置父对象
-                    labelResource.transform.SetParent(transform, false);
-                    labelResource.transform.localPosition = Vector3.zero;
-                    labelResource.transform.localRotation = Quaternion.identity;
-                    labelResource.transform.localScale = Vector3.one;
-                    labelResource.SetActive(true);
-
-                    // 获取Text组件
-                    textComponent = labelResource.GetComponentInChildren<UnityEngine.UI.Text>(true);
-                    if (textComponent != null)
-                    {
-                        // 赋值
-                        textComponent.text = labelText;
-                        textComponent.color = textColor;
-                        textComponent.fontSize = fontSize;
-                    }
-                }
-            }
+            MapLabelRenderer.Register(this);
         }
 
         /// <summary>
-        /// 销毁标注资源
+        /// 从渲染器注销（不可见 / 销毁时调用），视图节点退回对象池复用。
         /// </summary>
         private void DestroyLabelResource()
         {
-            if (labelResource != null)
-            {
-                // 还回对象池
-                Sango.PoolManager.Recycle(labelResource);
-                labelResource = null;
-                textComponent = null;
-            }
+            MapLabelRenderer.Unregister(this);
         }
     }
 }

@@ -625,8 +625,9 @@ namespace Sango.Tools
             l = GameObject.Find("post");
             if (l != null) l.SetActive(false);
 
-            rayCastLayer = LayerMask.GetMask(new string[] { "Map" });
-            rayCastObjectLayer = LayerMask.GetMask(new string[] { "Building" });
+            // TerrainHitMask = Map + MapNoOutLine：地形块会随 LOD 切层，笔刷拾取不能只认 Map
+            rayCastLayer = Sango.Render.MapLayers.TerrainHitMask;
+            rayCastObjectLayer = LayerMask.GetMask(new string[] { "Building", "BuildingNoOutLine" });
 
             // 创建空地图
             if (map == null)
@@ -787,7 +788,7 @@ namespace Sango.Tools
             begin.y = 500;
             Ray ray = new Ray(begin, Vector3.down);
             RaycastHit raycastHit;
-            if (Physics.Raycast(ray, out raycastHit, 1000, LayerMask.GetMask("Map"), QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(ray, out raycastHit, 1000, Sango.Render.MapLayers.TerrainHitMask, QueryTriggerInteraction.Ignore))
                 return raycastHit.point.y;
             else return 0;
         }
@@ -798,7 +799,7 @@ namespace Sango.Tools
             begin.y = 500;
             Ray ray = new Ray(begin, Vector3.down);
             RaycastHit raycastHit;
-            if (Physics.Raycast(ray, out raycastHit, 1000, LayerMask.GetMask("Map"), QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(ray, out raycastHit, 1000, Sango.Render.MapLayers.TerrainHitMask, QueryTriggerInteraction.Ignore))
             {
                 height = raycastHit.point.y;
                 return true;

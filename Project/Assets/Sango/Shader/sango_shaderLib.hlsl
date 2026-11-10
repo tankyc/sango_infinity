@@ -71,6 +71,15 @@ float _Cutoff;
 float4 _Color;
 float _FlashFactor;
 float _BaseColorIntensity;
+
+// 旗面文字强度。原先声明在 CBUFFER 之外（见下方 SANGO_TEXT 分支），
+// 导致 flag_urp 被判定为 "SRP Batcher 不兼容"——即使材质完全相同也无法合批，
+// 全场每面旗各一次 SetPass。挪进 UnityPerMaterial 后，同材质的旗帜才能进同一批。
+float _TextFactor;
+
+// 文字图集的 scale/offset（Unity 会随材质的 SetTextureScale/Offset("_TextTex") 自动维护）。
+// 同样必须在 CBUFFER 内，否则又会把 flag_urp 踢出 SRP Batcher。
+float4 _TextTex_ST;
 CBUFFER_END
 
 // 雾效开关（纯预处理宏，与 CBUFFER 无关，必须放在 CBUFFER 之外）
@@ -160,8 +169,8 @@ float _FactionMapAlpha;
 #endif
 
 #if SANGO_TEXT
+// 纹理不参与 CBUFFER；_TextFactor 已上移到 UnityPerMaterial（见 49~80 行）
 TEXTURE2D(_TextTex);
-float _TextFactor;
 #endif
 
 TEXTURE2D_X_FLOAT(_CameraDepthTexture);
@@ -234,7 +243,10 @@ SangoVertexOutput sango_vert(SangoVertexInput v)
 	SangoVertexOutput o = (SangoVertexOutput)0;
 	o.uv = TRANSFORM_TEX(v.uv,_BaseMap);
 #if SANGO_TEXT
-	o.ouv = v.uv;
+	// 【旗帜合批】文字贴图改为"全场共享文字图集"，每面旗只需用 _TextTex_ST
+	// 指明自己那个字占据图集的哪一格（scale = 1/格数，offset = 格偏移）。
+	// 未设置 _TextTex_ST 时它默认是 (1,1,0,0)，与旧行为（整张字图铺满旗面）完全一致。
+	o.ouv = TRANSFORM_TEX(v.uv, _TextTex);
 #endif
 	VertexNormalInputs vertexNormalInput = GetVertexNormalInputs(v.normal);
 	o.normal = vertexNormalInput.normalWS;

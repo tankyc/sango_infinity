@@ -34,7 +34,7 @@ namespace Sango.Render
             temp_FeatureList.Clear();
             if (person != null && person.FeatureList != null)
             {
-                for (int j = 0; j < person.FeatureList.Count; j++)
+                for (int j = 0; j < person.ActiveFeatureCount; j++)
                 {
                     Feature feature = person.FeatureList[j];
                     if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
