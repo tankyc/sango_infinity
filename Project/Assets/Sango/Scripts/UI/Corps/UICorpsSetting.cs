@@ -53,8 +53,16 @@ namespace Sango.UI
         /// </summary>
         Corps targetCorps;
         Force targetForce;
+        /// <summary>
+        /// 编制的目标城池组
+        /// </summary>
         public List<City> targetCityList = new List<City>();
         List<Person> targetPersonList = new List<Person>();
+
+        /// <summary>
+        /// 当前编制可使用的城池组
+        /// 包含所有非主军团的城池和当前军团的城池
+        /// </summary>
         List<City> validCityList = new List<City>();
         List<Person> validPersonList = new List<Person>();
 
@@ -91,6 +99,7 @@ namespace Sango.UI
             validCityList.Clear();
             targetPersonList.Clear();
             validPersonList.Clear();
+
             targetForce.ForEachCity(x =>
             {
                 if (x.BelongCorps.IsCaptainCorps && x != targetForce.CapitalCity)
@@ -118,6 +127,11 @@ namespace Sango.UI
             }
 
             UpdateContent();
+        }
+
+        public bool IsCreateMode()
+        {
+            return targetCorps.Id <= 0;
         }
 
         /// <summary>
@@ -152,7 +166,6 @@ namespace Sango.UI
                 cityCountText.text = stringBuilder.ToString();
             }
             policyText.text = GetPolicyText(targetCorps.appoint);
-            
 
             targetButton.interactable = targetCorps.appoint == (int)Corps.AppointType.OccupyCity || targetCorps.appoint == (int)Corps.AppointType.DestroyForce;
             switch (targetCorps.appoint)
@@ -243,24 +256,6 @@ namespace Sango.UI
                 count--;
             }
 
-            // 【新建军团：从源头限制可选城数】
-            // 主军团至少要留 1 城（不能把第 1 军团拆成 0 城）。
-            // 旧实现只在 CheckSure 里做"事后否决"：玩家可以一直选到超量，
-            // 确定按钮却是灰的、界面上又没有任何提示，看起来就是"设置好了点不了确定"。
-            // 这里把选择上限直接压到 firstCityCount - 1，玩家选不出会失败的组合。
-            if (targetCorps.number != 1)
-            {
-                int firstCityCount = GetFirstCorpsCityCount();
-                if (firstCityCount > 0)
-                {
-                    int maxTake = firstCityCount - 1;
-                    if (maxTake < 1)
-                        maxTake = 1;
-                    if (count > maxTake)
-                        count = maxTake;
-                }
-            }
-
             GameSystem.GetSystem<CitySelectSystem>().Start(validCityList,
              targetCityList, count, OnCityChange, CitySortFunction.DefaultSortList, "军团城池选择");
         }
@@ -325,6 +320,7 @@ namespace Sango.UI
         }
         public void OnCityChange(List<City> cities)
         {
+            if(cities == null || cities.Count == 0) return;
             targetCityList = cities;
             validPersonList.Clear();
             if (targetCityList.Count > 0)
@@ -365,36 +361,30 @@ namespace Sango.UI
             Window.Instance.Open("window_corps_appoint", targetCorps, this);
         }
 
+        bool CheckCaptainCorpsIsValid()
+        {
+            int firstCityCount = GetFirstCorpsCityCount();
+            ///主公在港关,必须留一城
+            if (firstCityCount <= 0)
+            {
+                int tagetCityCount = targetCityList.Count;
+                int validCityCount = validCityList.Count;
+                return (validCityCount - tagetCityCount >= 1);
+            }
+            return true;
+        }
+
         void CheckSure()
         {
             bool val = (targetCorps.mComander != null && targetCityList.Count > 0 && targetPersonList.Count > 0);
 
-            // 【新建军团：主军团必须留 ≥2 城】
-            // 对齐 can_district_new_command（s11_sys_person_order_kunshu.cpp:204-205）。
-            // 若不拦，玩家能把主军团的城市全划走，留下一个 0 城军团
-            //（无法征兵 / 无法反击 / AI 调度与都督任命都会失效）。
+            // 【新建军团：主军团必须留 ≥1 城】
             if (val && targetCorps.number != 1)
             {
-                int firstCityCount = GetFirstCorpsCityCount();
-
-                // firstCityCount <= 0 表示"统计不到"（第 1 军团不存在，或城的 BelongCorps
-                // 没挂上引用）。这种数据不可信的情况下不能据此禁用按钮 ——
-                // 否则整个"新建军团"会被永久锁死成一个灰按钮，
-                // 这正是玩家反馈的"设置好了也点不了确定"。
-                // 【只防"0 城军团"，不要求保留 2 城】
-                // 原版 can_district_new_command（s11_sys_person_order_kunshu.cpp:204-205）
-                // 校验的是**进入命令那一刻**第 1 军团有 ≥2 城，并未要求"拆完之后仍 ≥2"。
-                // 本项早前按"拆后仍 ≥2"实现，导致 2 城势力永远无法新建军团
-                //（拆 1 城就剩 1 城，确定键永久变灰），与实际可玩性冲突。
-                if (firstCityCount > 0 && firstCityCount - targetCityList.Count < 1)
-                {
-                    Sango.Log.Warning($"*[军团]新建第 {targetCorps.number} 军团被拦截："
-                        + $"主军团把 {firstCityCount} 城全部划走后将没有城池");
-                    val = false;
-                }
+                val = CheckCaptainCorpsIsValid();
             }
 
-            if(val)
+            if (val)
             {
                 switch (targetCorps.appoint)
                 {

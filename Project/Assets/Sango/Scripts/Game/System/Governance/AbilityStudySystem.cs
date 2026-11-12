@@ -810,8 +810,8 @@ namespace Sango.Core
                     continue;
                 if (person.HasFeatrue(target.skillId))
                     continue;
-                if (person.FeatureList == null)
-                    continue;
+                // 不判 FeatureList == null：无特技武将正是"最该学第一个特技"的对象，
+                // 原版 can_learn 对空列表返回可学（s11_sys_scen_ability.cpp:60-64）。
 
                 City city = person.BelongCity ?? person.CurrentCity;
                 if (city == null || city.gold < LearnGoldCost)
@@ -967,8 +967,10 @@ namespace Sango.Core
                 {
                     if (ability.skillId <= 0 || person.HasFeatrue(ability.skillId))
                         return;
-                    if (person.FeatureList == null)
-                        return;
+                    // 【无特技不等于数据无效】原版 person->has_skill() 对空列表返回 false
+                    // （s11_sys_scen_ability.cpp:60-64），空表正是"可学新特技"的起点。
+                    // 旧实现在这里判 FeatureList == null 直接跳过，导致无特技武将
+                    // 在培育界面里一条特技都选不到（"培育特技"对他是死路）。
                     // 【剧本上限】特技已满的武将不再出现在候选里 ——
                     // 否则玩家看到的按钮点了必失败，AI 选到他也必然空耗一次培育机会。
                     if (person.IsFeatureFull)
@@ -1116,7 +1118,11 @@ namespace Sango.Core
             }
             else if (ability.IsSkill)
             {
-                if (ability.skillId <= 0 || person.FeatureList == null)
+                // 【只判 skillId】不能判 FeatureList == null —— "没有特技"是合法状态，
+                // 原版 can_learn 的特技分支（s11_sys_scen_ability.cpp:60-64）只判 has_skill，
+                // 空列表时 has_skill 返回 false，即"可学"。
+                // HasFeatrue / IsFeatureFull 自身都已兼容 null，无需在这里提前拦截。
+                if (ability.skillId <= 0)
                 {
                     reason = "特技数据无效";
                     return false;
@@ -1394,10 +1400,18 @@ namespace Sango.Core
                 return false;
             }
             Feature feature = scenario.GetObject<Feature>(ability.skillId);
-            if (feature == null || person.FeatureList == null)
+            if (feature == null)
                 return false;
 
+            // 【无特技武将】列表可能仍是 null（旧存档 / 运行期新建武将），先兜底再 Add，
+            // 否则"第一个特技"永远加不进去。
+            person.EnsureFeatureList();
             person.FeatureList.Add(feature);
+            // 新学的特技要立刻装配事件 Action：装配时机原本只有剧本解析，
+            // 运行期学的"个人关系类"特技会只有数据、没有效果。
+            person.RefreshFeatureActions();
+            // 存档字段是 Id 数组，立刻回写一份，与事件授予路径（EventEffectsPersonExt）保持一致
+            person.FeatureListId = person.FeatureList.ToArray();
             person.MarkAbilityLearned(ability.Id);
             force.MarkAbilityLearned(ability.Id);
 

@@ -1004,7 +1004,13 @@ namespace Sango.UI
             target.FeatureListId = CloneArray(snapshot.FeatureListId);
 
             // 同步运行时的对象引用列表
-            target.FeatureList = RefreshPersonObjectList(target.FeatureList, snapshot.FeatureListId, id => cur != null ? cur.CommonData.Features.Get(id) : null);
+            // 【特技：空就回落到 null】无特技武将不持有 FeatureList 对象（内存口径，
+            // 见 Person.OnScenarioPrepare 注释）。下面两个社交列表保持原有的"空表"行为不变，
+            // 避免为了省内存去动它们的 null 语义。
+            if (snapshot.FeatureListId != null && snapshot.FeatureListId.Length > 0)
+                target.FeatureList = RefreshPersonObjectList(target.FeatureList, snapshot.FeatureListId, id => cur != null ? cur.CommonData.Features.Get(id) : null);
+            else
+                target.FeatureList = null;
             target.LikePersonList = RefreshPersonObjectList(target.LikePersonList, snapshot.LikePersonListId, id => GetPersonById(id));
             target.HatePersonList = RefreshPersonObjectList(target.HatePersonList, snapshot.HatePersonListId, id => GetPersonById(id));
 

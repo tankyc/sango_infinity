@@ -218,24 +218,36 @@ namespace Sango.Core
             // 传入数据集以支持从Id数组还原特技
             Scenario scenario = Scenario.Cur;
             List<Feature> newList = CollectObjectList<Feature>(value, scenario != null ? scenario.CommonData.Features : null);
-            if (person.FeatureList == null)
-            {
-                person.FeatureList = new SangoObjectList<Feature>();
-            }
             // 防御：传入值非空却收集不到任何特技，说明传入值类型不匹配，保留原数据避免误清空
+            // （注意：这个 return 必须放在创建列表之前 —— 旧实现在这之前就 new 了空表，
+            //   类型不匹配时会白白给原本无特技的武将挂上一个空 SangoObjectList）
             if (newList.Count == 0 && value != null && !IsEmptyEnumerable(value))
             {
                 Sango.Log.Error("设置武将:" + person.Name + " 的特技失败:传入值类型 " + value.GetType().Name + " 无法转换为特技列表,已保留原数据");
                 return;
             }
-            person.FeatureList.Clear();
-            for (int i = 0; i < newList.Count; i++)
+
+            // 【整体替换为空 → 回落到 null】无特技武将不持有 FeatureList（见 Person.OnScenarioPrepare 注释）
+            if (newList.Count == 0)
             {
-                if (newList[i] != null)
-                {
-                    person.FeatureList.Add(newList[i]);
-                }
+                person.FeatureList = null;
+                person.FeatureListId = null;
             }
+            else
+            {
+                // 确实要写入时才惰性建表
+                person.EnsureFeatureList();
+                person.FeatureList.Clear();
+                for (int i = 0; i < newList.Count; i++)
+                {
+                    if (newList[i] != null)
+                    {
+                        person.FeatureList.Add(newList[i]);
+                    }
+                }
+                person.FeatureListId = person.FeatureList.ToArray();
+            }
+            person.RefreshFeatureActions();
         }
 
         /// <summary>

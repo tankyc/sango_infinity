@@ -5,6 +5,11 @@ QQ群: 526620498, 934836298
 下载地址:
 夸克网盘: https://pan.quark.cn/s/caee627a27f6?pwd=bXbJ 提取码:bXbJ
 百度网盘: https://pan.baidu.com/s/1ZfS9KJfLem8cM-TKQUh5WQ?pwd=y1b8 提取码:y1b8
+0.4.14
+1.修复军团满编后无法修改的问题
+2.修复无特技的武将无法学习特技的问题
+
+
 0.4.12-0.4.13
 1.优化驱逐逻辑
 2.优化部队移动,修复部队来回移动的Bug

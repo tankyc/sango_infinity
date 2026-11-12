@@ -1390,6 +1390,17 @@ namespace Sango.Core
             SpouseList = scenario.Array2ObjectList(scenario.personSet, SpouseListId);
             LikePersonList = scenario.Array2ObjectList(scenario.personSet, LikePersonListId);
             HatePersonList = scenario.Array2ObjectList(scenario.personSet, HatePersonListId);
+            // 【null 就是"无特技"的合法表示，不要归一化成空表】
+            // 存档里没有特技的武将 FeatureListId 为 null，Array2ObjectList 对 null 输入返回 null，
+            // 运行期 FeatureList 因此为 null。这是**刻意的**：千人规模里绝大多数武将没有特技，
+            // 每人都塞一个空 SangoObjectList（对象头 + 内部 List）纯属白占内存。
+            //
+            // 代价是**所有消费点都必须容忍 null**：
+            //   · HasFeatrue / ActiveFeatureCount / IsFeatureFull / 特技排序 / 详情展示 —— 均已判 null；
+            //   · 培育与事件授予（AbilityStudySystem.ApplySkill / EventEffectsPersonExt）——
+            //     在真正要加第一个特技时才调 EnsureFeatureList() 惰性建表，之后不再是 null。
+            // 任何新代码都不要把 null 当成"数据无效"（原版 person->has_skill() 对空列表就是返回 false，
+            // 见 s11_sys_scen_ability.cpp:60-64）。
             FeatureList = scenario.Array2ObjectList(scenario.CommonData.Features, FeatureListId);
             // 特技对象已完成解析后再装配个人关系 Action，确保事件订阅只依赖有效配置。
             InitPersonActions();
@@ -4100,6 +4111,35 @@ namespace Sango.Core
             return BannedKunshuId > 0 && BannedKunshuId == force.Governor;
         }
 
+
+        /// <summary>
+        /// 惰性创建特技列表 —— **只在真的要写入第一个特技时**调用。
+        ///
+        /// 【为什么不是构造时就建】无特技武将在剧本解析后 <see cref="FeatureList"/> 为 null
+        /// （见 <see cref="OnScenarioPrepare"/> 的注释）。千人规模里绝大多数武将没有特技，
+        /// 若统一 new 一个空 <see cref="SangoObjectList{T}"/>（对象头 + 内部 List 数组），
+        /// 就是一份纯浪费的内存。因此保持 null，等到第一次授予特技时再分配。
+        ///
+        /// 【谁该调用】任何要往列表里 Add 的路径（培育授予、事件授予）。
+        /// 只读路径不需要 —— <see cref="HasFeatrue(int)"/> / <see cref="ActiveFeatureCount"/> /
+        /// <see cref="IsFeatureFull"/> 都已把 null 当"没有特技"处理。
+        /// </summary>
+        public void EnsureFeatureList()
+        {
+            if (FeatureList == null)
+                FeatureList = new SangoObjectList<Feature>();
+        }
+
+        /// <summary>
+        /// 重新装配个人关系类特技的 Action（培育授予新特技后调用）。
+        ///
+        /// 装配时机原本只有剧本解析（<see cref="OnScenarioPrepare"/> → <see cref="InitPersonActions"/>），
+        /// 运行期新学的特技不会自动订阅事件 —— 表现为"特技显示已拥有但毫无效果"。
+        /// </summary>
+        public void RefreshFeatureActions()
+        {
+            InitPersonActions();
+        }
 
         /// <summary>
         /// 初始化武将个人关系类特技的 Action。

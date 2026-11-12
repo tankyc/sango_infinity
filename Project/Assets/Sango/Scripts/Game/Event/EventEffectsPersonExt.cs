@@ -182,11 +182,10 @@ namespace Sango.Core.Event
                 return false;
             }
 
-            if (person.FeatureList == null)
-            {
-                Log.Warning($"事件：{person.Name} 的特技列表为空，无法授予特技（可能是尚未完成初始化的对象）");
-                return false;
-            }
+            // 【无特技武将的列表可能为 null】那是"没有特技"的合法状态，不是未初始化对象。
+            // 旧实现在这里直接判失败，导致剧情第一次给某武将授予特技时必定无效 ——
+            // 与培育路径（AbilityStudySystem.ApplySkill）修掉的是同一个坑。
+            person.EnsureFeatureList();
 
             if (person.FeatureList.Contains(featureId))
             {
@@ -203,6 +202,8 @@ namespace Sango.Core.Event
             }
 
             person.FeatureList.Add(feature);
+            // 新特技要立刻装配事件 Action（个人关系类特技否则只有数据没有效果）
+            person.RefreshFeatureActions();
             // 存档字段是 Id 数组（Person.FeatureListId），这里立即同步，避免"运行期有、读档后没了"
             person.FeatureListId = person.FeatureList.ToArray();
 
@@ -253,7 +254,20 @@ namespace Sango.Core.Event
             }
 
             person.FeatureList.Remove(feature);
-            person.FeatureListId = person.FeatureList.ToArray();
+            // 最后一个特技被移除后回落到 null 引用 —— 与"无特技武将不持有特技列表"的内存口径一致，
+            // 否则这名武将会一直留着一个空 SangoObjectList。
+            if (person.FeatureList.Count == 0)
+            {
+                person.FeatureList = null;
+                person.FeatureListId = null;
+            }
+            else
+            {
+                person.FeatureListId = person.FeatureList.ToArray();
+            }
+
+            // 重新装配 Action：旧特技的事件订阅必须解除
+            person.RefreshFeatureActions();
 
             Log.Info($"事件：{person.Name} 失去特技 {feature.Name}");
             return true;

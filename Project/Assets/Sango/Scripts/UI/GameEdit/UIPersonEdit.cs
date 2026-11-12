@@ -190,19 +190,31 @@ namespace Sango.UI
             p.merit = merit;
 
             // 特技
-            if (EditingFeatures != null && EditingFeatures.Count > 0)
+            // 【空 = null，不是空表】无特技武将不持有 FeatureList（见 Person.OnScenarioPrepare 注释）。
+            // 旧实现在 Count == 0 时什么都不做，导致编辑器里"把武将特技全删掉"保存后不生效。
+            if (EditingFeatures != null)
             {
-                if (p.FeatureList != null)
-                    p.FeatureList.Clear();
-                else
-                    p.FeatureList = new SangoObjectList<Feature>();
-
-                for (int i = 0; i < EditingFeatures.Count; i++)
+                if (EditingFeatures.Count == 0)
                 {
-                    if (EditingFeatures[i] != null)
+                    p.FeatureList = null;
+                    p.FeatureListId = null;
+                }
+                else
+                {
+                    if (p.FeatureList != null)
+                        p.FeatureList.Clear();
+                    else
+                        p.FeatureList = new SangoObjectList<Feature>();
+
+                    for (int i = 0; i < EditingFeatures.Count; i++)
                     {
-                        p.FeatureList.Add(EditingFeatures[i]);
+                        if (EditingFeatures[i] != null)
+                        {
+                            p.FeatureList.Add(EditingFeatures[i]);
+                        }
                     }
+                    p.FeatureListId = p.FeatureList.ToArray();
+                    p.RefreshFeatureActions();
                 }
             }
 
