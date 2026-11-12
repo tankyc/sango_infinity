@@ -102,14 +102,34 @@ namespace Sango.Core
                     city.TroopMissionTargetId = threat.Id;
                     // 【同回合出阵】不等下一回合的 ContinueMilitaryMission：
                     // 内政建筑每多挨一回合就多掉一段耐久，能当回合出城就当回合出。
-                    DispatchDriveOutTroop(city, scenario);
-                    return false;
+                    DispatchDriveOutTroop(city, scenario, out bool dispatched);
+                    if (dispatched)
+                        return false;
+
+                    // 【打不动不能卡住整条命令链】没派出兵（兵力比不足暂缓 / 兵装粮草不够 /
+                    // 目标已死）时撤销任务，让本城继续执行后面的内政等命令。
+                    // 否则一座"领地内有敌群但打不过"的城会每回合卡在这条军事命令上，
+                    // 内政 / 建设全线停摆 —— 那比丢几块内政地更伤。
+                    // 暂缓期间威胁仍在势力求援表里，兵力恢复后本城或邻城会重新接单。
+                    LogAttack(city, $"驱逐[{threat.Name}]本回合未出兵，撤销任务并继续其它命令");
+                    city.TroopMissionType = MissionType.None;
+                    city.TroopMissionTargetId = 0;
                 }
             }
 
             // ---------- 二、已有军事任务:持续派遣部队 ----------
             if (city.TroopMissionType != MissionType.None)
                 return ContinueMilitaryMission(city, scenario);
+
+            // ---------- 二点四、响应同势力的驱逐求援 ----------
+            // 有些城兵力不足，明明看着敌人拆内政地却打不动（见 DispatchDriveOutTroop 的兵力比门槛），
+            // 它们会向势力层登记求援。本城此刻无军事任务，距离够近、兵力够宽裕就接单出兵。
+            //
+            // 【为什么放在二点五 / 二点六之前】那两条是"向外用兵"的门槛（内政设施最低配置、
+            // 玩家子军团只有出击据点能开战），而援助驱逐属防御性用兵 —— 与
+            // IsAttackForbidden 注释里"驱逐侵入本势力领地的敌军照常执行"的口径一致。
+            if (TryAidDriveOut(city, scenario))
+                return false;
 
             // ---------- 二点五、内政设施门槛：只守不攻 ----------
             // 对齐出处：s11_game_ai_kyoten_cmd_mil_attack.cpp:77-79
@@ -191,7 +211,7 @@ namespace Sango.Core
 
                 case MissionType.TroopDestroyTroop:
                     // 目标已被歼灭,任务结束
-                    if (!DispatchDriveOutTroop(city, scenario))
+                    if (!DispatchDriveOutTroop(city, scenario, out _))
                     {
                         city.TroopMissionType = MissionType.None;
                         city.TroopMissionTargetId = 0;
@@ -687,35 +707,232 @@ namespace Sango.Core
 
         /// <summary>
         /// 驱逐任务：目标仍存活则持续派兵追击。
+        ///
+        /// 【一次出多支】与 <see cref="DispatchDefenseTroop"/> 对称：同一条命令内循环组建，
+        /// 直到"针对本目标的驱逐部队支数"达到**动态上限**，或兵 / 粮 / 武将耗尽、
+        /// 城头停不下为止。
+        /// <para>
+        /// 【旧实现错在哪】旧版每次调用只调一次 <see cref="AIMakeTroop"/>，一次派 1 支，
+        /// 上限又写死 3 支 —— 十万敌军压境时，要花 3 个回合才凑出 3 支小队，
+        /// 面对敌群就是排队送菜。现在改为"当回合一次派够 + 按敌群规模放大上限"。
+        /// </para>
+        /// <para>
+        /// 【兵力评估】出兵前先比对"我方可用兵力 / 敌群兵力"，低于
+        /// <see cref="AIConfig.driveOutMinForceRatio"/> 则本回合不出兵（任务保留，
+        /// 城内兵力恢复后自然会再进来），避免以卵击石。
+        /// </para>
+        /// <para>
+        /// 【原版无对应实现】原版没有"据点派兵驱逐侵入领地敌军"这条命令，
+        /// 由部队级 AI 自行迎击（s11_game_ai_unit.cpp:185-198），
+        /// 因此"动态支数 + 兵力比门槛"为本项目自定的设计，不是对齐项。
+        /// </para>
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>
+        /// <param name="dispatched">本次调用是否**真的派出了**驱逐部队（暂缓 / 目标已死均为 false）</param>
         /// <returns>任务是否仍然有效（false 表示目标已被歼灭）</returns>
-        static bool DispatchDriveOutTroop(City city, Scenario scenario)
+        static bool DispatchDriveOutTroop(City city, Scenario scenario, out bool dispatched)
         {
+            dispatched = false;
+
             Troop threatTroop = scenario.troopsSet.Get(city.TroopMissionTargetId);
             if (threatTroop == null || !threatTroop.IsAlive)
-                return false;
-
-            if (city.AttackTroopsCount >= AIConfig.Instance.driveOutMaxTroopPerCity)
-                return true;
-
-            Troop troop = AIMakeTroop(city, 20, false, scenario);
-            if (troop == null)
-                return true;
-
-            troop = CityTroopFactory.EmitTroop(city, troop, scenario);
-            if (troop == null)
-                return true;                        // 城池被围困,无法出城,本次出征已取消
-            // 【立即出城】不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
-            if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
             {
-                Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的驱逐部队无法出城（城头无可停留格或寻路失败），本次出征取消");
-                CityTroopFactory.RevokeEmit(city, troop);
+                // 目标没了，本城这条求援也就没有意义了
+                city.BelongForce?.ClearDriveOutAid(city.Id);
+                return false;
+            }
+
+            AIConfig cfg = AIConfig.Instance;
+
+            // 【名额口径】只数"针对本目标的驱逐部队"，不含前线攻城 / 支援 / 守城部队。
+            // 旧写法用 city.AttackTroopsCount（所有在外战斗部队）：前线部队一多就把
+            // 名额占满，本城有敌人拆内政地也一支驱逐兵都不派；
+            // 而 ContinueMilitaryMission 的 TroopDestroyTroop 分支只在"目标已死"时清任务，
+            // 于是任务会一直挂着、每回合空转重试。与 GetDefenseTroopInfo 修掉的是同一个坑。
+            int sentCount;
+            int sentTroops;
+            GetDriveOutTroopInfo(city, threatTroop.Id, out sentCount, out sentTroops);
+
+            // 敌群兵力：以威胁目标为中心的聚集半径内所有敌军兵力之和
+            int enemyTroops = CalcDriveOutEnemyTroops(city, threatTroop, scenario);
+
+            // 动态支数上限：基准 + 敌群兵力/每支追加兵力，再封顶
+            int maxTroopCount = CalcDriveOutMaxTroopCount(cfg, enemyTroops);
+
+            // 兵力比门槛：打不过就不打（任务保留，等城内兵力恢复）。
+            // 【口径】城内可动用 + 本势力所有正在打这个目标的队伍（含本城已派的）——
+            // 只看本城会漏掉"邻城已经在打"的情况：几座城合起来够打，却各自判"打不过"，
+            // 互相谦让还把求援单越堆越多。
+            int ownTroops = CalcDriveOutIdleTroops(city, scenario)
+                          + CalcAlliedDriveOutTroops(city.BelongForce, threatTroop.Id, scenario);
+            if (!CanDriveOutByForce(ownTroops, enemyTroops, cfg, out string weakReason))
+            {
+                LogAttack(city, $"驱逐[{threatTroop.Name}]暂缓：{weakReason}");
+                // 【求援】本城打不动 ≠ 全势力打不动：登记一条，让兵力充裕的邻城来接单
+                // （见 TryAidDriveOut）。未开启求援时这里保持旧行为：只挂着任务等兵。
+                if (cfg.useDriveOutAid)
+                    city.BelongForce?.RequestDriveOutAid(city.Id, threatTroop.Id);
                 return true;
             }
-            city.BelongForce?.MarkAttackTurn(scenario);
-            Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 驱逐{threatTroop.BelongForce?.Name}的{threatTroop.Name}!");
+
+            int createdCount = 0;
+            while (sentCount < maxTroopCount)
+            {
+                // 硬上限：防剑兵兜底（不进 allAttackTroops）时计数值不增长导致同帧无限出兵
+                if (createdCount >= MaxEmitTroopPerDispatch)
+                    break;
+                if (city.freePersons.Count <= 0)
+                {
+                    LogAttack(city, "驱逐部队组建中止：城内已无空闲武将");
+                    break;
+                }
+                if (city.troops <= 0)
+                {
+                    LogAttack(city, "驱逐部队组建中止：城内已无兵");
+                    break;
+                }
+
+                Troop troop = AIMakeTroop(city, 20, false, scenario);
+                if (troop == null)
+                    break;
+
+                troop = CityTroopFactory.EmitTroop(city, troop, scenario);
+                if (troop == null)
+                    break;                          // 城池被围困,无法出城,本次出征已取消
+                // 【立即出城】不能停在城头等下一回合（对齐 com_deploy 里的 run_order）
+                if (!CityTroopFactory.DriveOutOfCity(troop, scenario))
+                {
+                    Sango.Log.Warning($"{city.BelongForce?.Name}在{city.Name}组建的驱逐部队无法出城（城头无可停留格或寻路失败），本次出征取消");
+                    CityTroopFactory.RevokeEmit(city, troop);
+                    break;
+                }
+
+                createdCount++;
+                sentCount++;
+                sentTroops += troop.troops;
+                city.BelongForce?.MarkAttackTurn(scenario);
+                Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}由{troop.Leader.Name}率领军队出城 驱逐{threatTroop.BelongForce?.Name}的{threatTroop.Name}!");
+
+                // 【派一支就复核一次】每支出城都会抽走城内一半兵力，
+                // 后续队伍可能已经弱到打不动敌群，没必要继续添油。
+                ownTroops = CalcDriveOutIdleTroops(city, scenario)
+                          + CalcAlliedDriveOutTroops(city.BelongForce, threatTroop.Id, scenario);
+                if (!CanDriveOutByForce(ownTroops, enemyTroops, cfg, out weakReason))
+                {
+                    LogAttack(city, $"驱逐[{threatTroop.Name}]停止增派：{weakReason}");
+                    break;
+                }
+            }
+
+            if (createdCount > 1)
+                Sango.Log.Info($"{scenario.GetDateStr()}{city.BelongForce?.Name}在{city.Name}连续出城驱逐 {createdCount} 支（累计 {sentCount}/{maxTroopCount} 支、{sentTroops} 兵，敌群兵力 {enemyTroops}）");
+
+            // 本城已经派得出兵，不再占着"求援"名额（否则邻城会继续往同一处堆人）
+            if (createdCount > 0)
+                city.BelongForce?.ClearDriveOutAid(city.Id);
+
+            dispatched = createdCount > 0;
+            return true;
+        }
+
+        /// <summary>
+        /// 响应同势力的"驱逐求援"：本城无军事任务时，挑一个距离合适、本城打得动的威胁，
+        /// 派兵过去协助歼灭。
+        ///
+        /// 【为什么要这一步】兵力不足的城只能干看着敌人拆内政地（见
+        /// <see cref="DispatchDriveOutTroop"/> 的兵力比门槛）。有了求援登记，
+        /// 同势力里兵力充裕的城会主动接单，而不是各城"各扫门前雪"。
+        ///
+        /// 【与 FindThreatTroopInRange 的区别】后者要求威胁站在**本城**
+        /// <see cref="AIConfig.driveOutThreatRange"/> 格内，属"自家领地自家管"；
+        /// 本方法允许跨到 <see cref="AIConfig.driveOutAidRange"/> 格，但**只响应别人主动登记的求援**，
+        /// 不会出现"所有城都往一个方向扑"的连锁反应。
+        ///
+        /// 【原版无对应实现】原版没有据点级驱逐命令，更没有这套求援登记（见
+        /// s11_game_ai_unit.cpp:185-198，原版由部队级 AI 自行迎击）。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>是否已接下一条求援并出兵</returns>
+        static bool TryAidDriveOut(City city, Scenario scenario)
+        {
+            AIConfig cfg = AIConfig.Instance;
+            if (!cfg.useDriveOutAid)
+                return false;
+
+            Force force = city.BelongForce;
+            if (force == null || force.driveOutAidRequests == null || force.driveOutAidRequests.Count == 0)
+                return false;
+
+            // 只在无军事任务时接单；已有任务交给 ContinueMilitaryMission
+            if (city.TroopMissionType != MissionType.None)
+                return false;
+
+            int range = cfg.driveOutAidRange;
+
+            // 先挑"距离本城最近"的一条，避免为远处目标长途奔袭
+            Troop bestThreat = null;
+            int bestDistance = int.MaxValue;
+            foreach (KeyValuePair<int, int> kv in force.driveOutAidRequests)
+            {
+                if (kv.Key == city.Id)
+                    continue;                       // 自己登记的，由 AIAttack 的常规驱逐分支处理
+
+                Troop threat = scenario.troopsSet.Get(kv.Value);
+                if (threat == null || !threat.IsAlive)
+                    continue;                       // 失效条目由 Force.CleanupThreatTroops 统一清
+                if (!threat.IsEnemy(city))
+                    continue;                       // 已换旗 / 已停战，不能打
+                if (threat.cell == null)
+                    continue;
+
+                int distance = scenario.Map.Distance(city.CenterCell, threat.cell);
+                if (distance > range)
+                    continue;
+
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestThreat = threat;
+                }
+            }
+
+            if (bestThreat == null)
+                return false;
+
+            // 【门槛比自城驱逐更严】帮别人打架不能把老家掏空，
+            // 兵力只是"勉强够"的城不接单（driveOutAidMinForceRatio 默认 100%）。
+            int enemyTroops = CalcDriveOutEnemyTroops(city, bestThreat, scenario);
+            int ownTroops = CalcDriveOutOwnTroops(city, 0, scenario);
+            if ((long)ownTroops * 100 < (long)enemyTroops * cfg.driveOutAidMinForceRatio)
+            {
+                LogAttack(city, $"接到驱逐求援[{bestThreat.Name}]（距 {bestDistance} 格）但兵力不足，不接单：{ownTroops}/{enemyTroops}");
+                return false;
+            }
+
+            LogAttack(city, $"接单驱逐求援[{bestThreat.Name}]：距离 {bestDistance} 格，我方 {ownTroops} / 敌群 {enemyTroops}");
+
+            city.TroopMissionType = MissionType.TroopDestroyTroop;
+            city.TroopMissionTargetId = bestThreat.Id;
+            DispatchDriveOutTroop(city, scenario, out bool dispatched);
+
+            // 一支都没出成（兵装不足 / 粮草不够 / 城头停不下）→ 立即退回无任务，
+            // 否则本城会挂着一个空任务，把后面"选进攻目标"的流程也一并挡住。
+            if (!dispatched)
+            {
+                city.TroopMissionType = MissionType.None;
+                city.TroopMissionTargetId = 0;
+                return false;
+            }
+
+            // 【撤单】本城投入之后，全势力打这个目标的兵力已经达标 → 撤掉原城的求援单。
+            // 否则同势力里每一座达标的城都会再响应一遍，全势力扑向一处、其它方向空虚。
+            int alliedTroops = CalcAlliedDriveOutTroops(force, bestThreat.Id, scenario);
+            if (alliedTroops > 0 && (long)alliedTroops * 100 >= (long)enemyTroops * cfg.driveOutMinForceRatio)
+                force.ClearDriveOutAidByThreat(bestThreat.Id);
+
+            city.Render?.UpdateRender();
             return true;
         }
 
@@ -855,6 +1072,192 @@ namespace Sango.Core
                 troops += t.troops;
             }
             return count;
+        }
+
+        /// <summary>
+        /// 统计本城针对指定威胁目标的**驱逐部队**支数与兵力。
+        ///
+        /// 【为什么不能用 City.AttackTroopsCount】那统计的是"所有在外战斗部队"
+        /// （攻城 / 支援 / 守城 / 撤离全都算）。前线部队一多就会把
+        /// <see cref="AIConfig.driveOutMaxTroopPerCity"/> 的名额占满，本城明明有敌人拆内政地
+        /// 也一支驱逐兵都不派 —— 与 <see cref="GetDefenseTroopInfo"/> 修掉的是同一个口径错误。
+        ///
+        /// 【原版无对应实现】原版没有"据点派兵驱逐侵入领地敌军"这条命令，
+        /// 由部队级 AI 自行迎击（s11_game_ai_unit.cpp:185-198），
+        /// 因此名额口径（只数同一目标的驱逐部队）为本项目自定。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="targetTroopId">威胁部队 Id</param>
+        /// <param name="count">在外的驱逐部队支数</param>
+        /// <param name="troops">在外的驱逐部队兵力合计</param>
+        static void GetDriveOutTroopInfo(City city, int targetTroopId, out int count, out int troops)
+        {
+            count = 0;
+            troops = 0;
+            if (city == null || city.allAttackTroops == null)
+                return;
+
+            for (int i = 0; i < city.allAttackTroops.Count; i++)
+            {
+                Troop t = city.allAttackTroops[i];
+                if (t == null || !t.IsAlive)
+                    continue;
+                if (t.missionType != (int)MissionType.TroopDestroyTroop)
+                    continue;
+                if (t.missionTarget != targetTroopId)
+                    continue;
+                count++;
+                troops += t.troops;
+            }
+        }
+
+        /// <summary>
+        /// 统计"敌群兵力"：以威胁目标所在格为中心、按
+        /// <see cref="AIConfig.driveOutThreatClusterRange"/> 半径扫描，把所有敌军兵力合并。
+        ///
+        /// 【为什么不能只看单个目标】十支敌军压境时，单支可能只有五千兵，
+        /// 只看它就会误判"我方三队足矣" —— 这正是"驱逐队伍上去送菜"的直接成因。
+        /// 扫描半径配 0 或目标不在格上时，退化为只算目标本身。
+        /// </summary>
+        /// <param name="city">本城（敌我判定基准）</param>
+        /// <param name="threatTroop">威胁目标</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>敌群兵力合计（至少为目标本身兵力）</returns>
+        static int CalcDriveOutEnemyTroops(City city, Troop threatTroop, Scenario scenario)
+        {
+            if (threatTroop == null)
+                return 0;
+
+            int range = AIConfig.Instance.driveOutThreatClusterRange;
+            if (range <= 0 || threatTroop.cell == null || scenario == null)
+                return threatTroop.troops;
+
+            BattleSituation.ThreatSnapshot snapshot =
+                BattleSituation.EvaluateThreat(threatTroop.cell, range, city, scenario);
+            // 快照统计的是该格周围所有敌军，正常情况下必然包含目标本身；
+            // 目标恰好不在格上（正在出城 / 换位）时用自身兵力兜底，避免算成 0 而放行。
+            return snapshot.enemyTroops > 0 ? snapshot.enemyTroops : threatTroop.troops;
+        }
+
+        /// <summary>
+        /// 计算本次驱逐的**动态支数上限**。
+        ///
+        /// 公式：<c>基准 + 敌群兵力 / 每支追加兵力</c>，再由
+        /// <see cref="AIConfig.driveOutMaxTroopPerCityCap"/> 封顶。
+        /// 敌群越厚，派出的队伍越多 —— 不再"无论来多少人都只派三支"。
+        /// </summary>
+        /// <param name="cfg">AI 配置</param>
+        /// <param name="enemyTroops">敌群兵力</param>
+        /// <returns>允许同时派出的驱逐部队支数（≥1）</returns>
+        static int CalcDriveOutMaxTroopCount(AIConfig cfg, int enemyTroops)
+        {
+            int max = cfg.driveOutMaxTroopPerCity;
+            if (max < 1)
+                max = 1;
+
+            if (cfg.driveOutTroopsPerExtraTroop > 0 && enemyTroops > 0)
+                max += enemyTroops / cfg.driveOutTroopsPerExtraTroop;
+
+            int cap = cfg.driveOutMaxTroopPerCityCap;
+            if (cap > 0 && max > cap)
+                max = cap;
+            return max;
+        }
+
+        /// <summary>
+        /// 计算"我方可用兵力"：已在场的驱逐部队 + 城内可动用的兵力。
+        ///
+        /// 城内可动用部分要扣掉防御留守门槛
+        /// （<see cref="ScenarioVariables.minTroopsKeepWhenDefence"/>）——
+        /// 那是 <see cref="AIMakeTroop"/> 实际会卡住不出的那部分兵，
+        /// 算进来会高估战力，导致"评估能打、实际组不出队伍"。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="sentTroops">已在场的驱逐部队兵力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>我方可用兵力</returns>
+        static int CalcDriveOutOwnTroops(City city, int sentTroops, Scenario scenario)
+        {
+            return sentTroops + CalcDriveOutIdleTroops(city, scenario);
+        }
+
+        /// <summary>
+        /// 计算本城"城内可动用"的兵力（已扣除防御留守门槛）。
+        ///
+        /// 与 <see cref="CalcDriveOutOwnTroops"/> 的区别：后者还要加上"已经派出去的"，
+        /// 本方法是纯城内视角 —— 兵力比评估里与
+        /// <see cref="CalcAlliedDriveOutTroops"/> 相加，避免把已派出的兵重复计入。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>城内可动用兵力（不小于 0）</returns>
+        static int CalcDriveOutIdleTroops(City city, Scenario scenario)
+        {
+            int keep = scenario != null ? scenario.Variables.minTroopsKeepWhenDefence : 0;
+            int idle = city != null ? city.troops - keep : 0;
+            return idle > 0 ? idle : 0;
+        }
+
+        /// <summary>
+        /// 统计本势力**所有**正在以指定部队为驱逐目标的队伍兵力（含本城已派出的）。
+        ///
+        /// 【为什么要跨城统计】同一股敌群常被邻近几座城同时盯上。若每座城只按
+        /// "自己城内的兵"评估，会出现"三座城各派两千、合起来六千够打，却各自判定打不过"
+        /// 的互相谦让 —— 求援单越堆越多，却谁都不出兵。
+        /// 按势力口径合并后，判断与实际投入的兵力一致。
+        ///
+        /// 开销：O(部队总数)，仅在驱逐派兵评估时调用（每城每回合至多十几次）。
+        /// </summary>
+        /// <param name="force">本势力</param>
+        /// <param name="threatTroopId">威胁部队 Id</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>正在打该目标的己方部队兵力合计</returns>
+        static int CalcAlliedDriveOutTroops(Force force, int threatTroopId, Scenario scenario)
+        {
+            if (force == null || scenario == null || scenario.troopsSet == null)
+                return 0;
+
+            int troops = 0;
+            for (int i = 0; i < scenario.troopsSet.Count; i++)
+            {
+                Troop t = scenario.troopsSet[i];
+                if (t == null || !t.IsAlive)
+                    continue;
+                if (t.BelongForce != force)
+                    continue;
+                if (t.missionType != (int)MissionType.TroopDestroyTroop)
+                    continue;
+                if (t.missionTarget != threatTroopId)
+                    continue;
+                troops += t.troops;
+            }
+            return troops;
+        }
+
+        /// <summary>
+        /// 兵力比校验：我方可用兵力 / 敌群兵力 是否达到出击门槛。
+        ///
+        /// <see cref="AIConfig.driveOutMinForceRatio"/> 配 0 或负数时**永远返回 true**，
+        /// 即恢复"看见就派"的旧行为（一键回退用）。
+        /// </summary>
+        /// <param name="ownTroops">我方可用兵力</param>
+        /// <param name="enemyTroops">敌群兵力</param>
+        /// <param name="cfg">AI 配置</param>
+        /// <param name="reason">不满足时给出中文原因</param>
+        /// <returns>是否允许出兵</returns>
+        static bool CanDriveOutByForce(int ownTroops, int enemyTroops, AIConfig cfg, out string reason)
+        {
+            reason = null;
+            int ratio = cfg.driveOutMinForceRatio;
+            if (ratio <= 0 || enemyTroops <= 0)
+                return true;
+
+            if ((long)ownTroops * 100 >= (long)enemyTroops * ratio)
+                return true;
+
+            int percent = ownTroops * 100 / enemyTroops;
+            reason = $"我方可用兵力 {ownTroops} / 敌群兵力 {enemyTroops} = {percent}%，低于出击门槛 {ratio}%";
+            return false;
         }
 
         /// <summary>
@@ -1422,6 +1825,15 @@ namespace Sango.Core
 
         public static bool AIRecruitPerson(City city, Scenario scenario)
         {
+            // 【委任钳制】"人才"被禁止时不去招募/登用在野武将 —— 对齐 Open311 kyoten_employ 开头的
+            // `if (force_->is_player() and ai_table_not_player_district_settings(building, DistrictSetting_Personnel)) return true;`
+            // （s11_game_ai_kyoten_cmd_personnel.cpp:439-441）。
+            // 此前这一项只在 AISearching 检查过，登用链路的 4 个入口（AIRecruitPerson /
+            // AIEmployMax / AIEmployEnemy / AIEmployEnemyMax）全部漏掉了。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
+                return true;
+
             // 【人才池含港关】搜索能发现港关的未发现武将，发现后落到**港关**的 wildPersons
             // （City.DoJobSearching → target.CurrentCity.AddWildPerson）。若这里只看
             // city.wildPersons，港关搜出来的人就永远没人登用 —— 用 City.CollectWildPersons

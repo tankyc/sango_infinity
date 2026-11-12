@@ -104,7 +104,22 @@ namespace Sango.Core
         public Person mComander;
 
         /// <summary>
-        /// 玩家指定的运输终点城 Id（两级回退，-1 = 未指定）。
+        /// 玩家手动指定的军团长 Id（0 = 未指定）。
+        ///
+        /// 【为什么需要它】<see cref="UpdateCommander"/> 是"每次调用都重新择优"：
+        /// 只要玩家选的人不是「官阶最高 + 同官阶统率最高」，下一次任命被触发
+        /// （跨军团入城 / 城换军团 / 年度巡检补缺）就会把他换掉 ——
+        /// 玩家看到的就是"我改过都督，过一会儿又变回别人"。
+        ///
+        /// 【与原版的关系】原版 `district_appoint_totoku` 每次都取 `candidates.front()`
+        /// （s11_sys_scen_district.cpp:161-170），并没有"锁定玩家任命"的概念，
+        /// 因此本字段属于**原版无对应实现**的自主设计：只用来让玩家势力的任命能持久，
+        /// AI 势力从不写入（恒为 0），行为与原版一致。
+        /// 指定的武将一旦失效（阵亡 / 被俘 / 调离本军团），该标记会被自动清空并回落到自动推举。
+        /// </summary>
+        [JsonProperty]
+        public int playerCommanderId;
+
         ///
         /// 对齐出处：
         /// <list type="bullet">
@@ -987,6 +1002,29 @@ namespace Sango.Core
         {
             needUpdateCommander = false;
             if (IsCaptainCorps) return;
+
+            // 【优先保留玩家手动任命的军团长】
+            // 这是玩家"改了都督又变回别人"的根因修复：本方法原本无条件按能力重新择优，
+            // 玩家只要没选到「官阶最高 + 统率最高」的那个人，下一次任命被触发就会被换掉。
+            // 只要玩家指定的人仍然合法（活着 / 未成俘虏 / 仍在本军团），就直接沿用他。
+            // 加 Scenario.Cur 判空：编辑器预览等没有剧本的场景下不要走这段，
+            // 否则 Get 返回 null 会被误判成"指定的人已失效"，把标记白清掉。
+            if (playerCommanderId > 0 && Scenario.Cur != null)
+            {
+                Person assigned = Scenario.Cur.personSet.Get(playerCommanderId);
+                if (assigned != null && assigned.IsAlive && !assigned.IsPrisoner && assigned.BelongCorps == this)
+                {
+                    if (mComander != null && mComander != assigned && !mComander.IsGovernor)
+                        mComander.SetStateNormal();
+                    mComander = assigned;
+                    mComander.SetStateCommander();
+                    AppointAllTaishu();
+                    return;
+                }
+
+                Sango.Log.Info($"*[军团]{Name} 玩家指定的军团长已失效，改为自动推举");
+                playerCommanderId = 0;
+            }
 
             Person dest = null;
 

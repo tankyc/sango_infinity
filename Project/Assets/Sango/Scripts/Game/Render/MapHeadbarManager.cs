@@ -21,8 +21,11 @@ namespace Sango.Render
     ///
     /// 【与 BillboardUI 的关系】
     /// 仍复用 BillboardUI 上已经配好的 <c>initScale / scaleFactor / offsetFactor / cacheOffset</c>
-    /// 四个参数（美术在 prefab 上调好的值），只是把它的 <c>Update</c> 关掉，改为读取参数后统一计算，
-    /// 保证视觉结果与原先完全一致。
+    /// 四个参数（美术在 prefab 上调好的值），只是把它的 <c>Update</c> 关掉，改为读取参数后统一计算。
+    ///
+    /// 【远景屏幕保底】在上面这套插值之外，再乘一个按**每个 headbar 自己的视深**算出的放大系数，
+    /// 保证镜头拉远时不会小到读不出字（比例见 <see cref="minScreenHeightRatio"/>）。
+    /// 近景算出的系数恒为 1，因此除"远景不再无限缩小"外，观感与原先一致。
     ///
     /// 【不合并 Canvas 的原因】
     /// headbar 每帧要跟随 3D 锚点移动，一旦合并进同一个 Canvas，任何一次位置写入都会让
@@ -58,16 +61,11 @@ namespace Sango.Render
             public Quaternion lastAnchorRot;
 
             /// <summary>
-            /// headbar 下的全部文字组件（Attach 时缓存一次）。
-            /// 远景降级要把名字 / 兵力 / info 一起停掉，每帧去 GetComponentsInChildren 太贵。
+            /// headbar 自身的高度（<see cref="RectTransform.rect"/> 的高度，单位 = 施加缩放前的世界单位）。
+            /// 远景"屏幕保底"要用它反推当前在屏幕上占多少像素，Attach 时取一次即可
+            /// （对象池复用会换 prefab 尺寸，所以重复注册时也要重取）。
             /// </summary>
-            public UnityEngine.UI.Text[] texts;
-
-            /// <summary>降级前的 enabled 状态快照，恢复时按原样还回去</summary>
-            public bool[] textSaved;
-
-            /// <summary>快照是否有效（false 表示当前没有处于"文字被降级隐藏"的状态）</summary>
-            public bool textSavedValid;
+            public float localHeight;
         }
 
         static MapHeadbarManager instance;
@@ -98,8 +96,58 @@ namespace Sango.Render
         Quaternion lastCamRot;
         float lastFactor = float.NaN;
 
+        /// <summary>上一帧屏幕高度（像素）。分辨率 / 窗口尺寸变了，屏幕保底必须重算</summary>
+        int lastPixelHeight = -1;
+
+        /// <summary>上一帧相机 FOV。透视换算常量依赖它，改了也要重算</summary>
+        float lastFieldOfView = float.NaN;
+
         /// <summary>强制下一帧全量刷新（注册新对象 / 换相机时置位）</summary>
         bool forceRefresh = true;
+
+        /// <summary>
+        /// 远景保底：headbar 在屏幕上至少占**屏幕高度**的这个比例（0 = 关闭保底）。
+        ///
+        /// <para>
+        /// 【为什么需要】headbar 是 World Space Canvas，屏幕尺寸与相机视深成反比：
+        /// 拉到最远（<see cref="MapCamera.cur_distance"/> 630）时只剩近景的 1/3 左右，
+        /// 名字基本读不出来。仅靠 <see cref="BillboardUI.scaleFactor"/> 的两端插值补不回来，
+        /// 因为同屏 headbar 的视深并不一致（地图边缘比中心远得多）。
+        /// </para>
+        /// <para>
+        /// 这里对**每个 headbar 各自的视深**算一次投影后的像素高度，低于阈值就等比放大到阈值。
+        /// 因此保底是按"屏幕像素比"而不是"世界距离"给的，换分辨率、改 FOV 都不会失真；
+        /// 只放大不缩小 —— 近景像素本来就够，算出来的系数恒为 1。
+        /// </para>
+        /// <para>
+        /// 【取值依据】按现有 prefab 标定（fov 30、1080p）：
+        /// 城池条 rect 高 43、scaleFactor 0.2→0.4；部队条 rect 高 55.5、scaleFactor 0.15→0.35。
+        /// 锚点恰好落在镜头观察距离上时，最远处约剩 5.1% / 5.7% 屏高（≈55~62 px），
+        /// 但画面上方那些 headbar 的视深更大，会掉到 3% 以下 —— 那才是真正看不清的一批。
+        /// 取 5%（1080p ≈ 54 px）等于"最远处保持现有观感，只把更远的抬回来"；
+        /// 想更醒目调到 0.06~0.08，只想救最边缘的调到 0.03。
+        /// </para>
+        /// </summary>
+        public static float minScreenHeightRatio = 0.05f;
+
+        /// <summary>
+        /// 一帧的相机投影参数，供远景保底换算"世界高度 → 屏幕像素"用。
+        /// 整帧只算一次，避免每个 headbar 各算一次 <c>Tan(fov/2)</c>。
+        /// </summary>
+        struct ScreenScale
+        {
+            /// <summary>屏幕高度 × <see cref="minScreenHeightRatio"/>，即保底像素高度；&lt;= 0 表示关闭</summary>
+            public float minPixelHeight;
+
+            /// <summary>
+            /// 透视：<c>pixelHeight / (2·tan(fovY/2))</c>，实际换算时还要除以视深；
+            /// 正交：<c>pixelHeight / (2·orthographicSize)</c>，与视深无关。
+            /// </summary>
+            public float pixelsPerUnitK;
+
+            /// <summary>true = 透视投影（换算要除以视深）</summary>
+            public bool depthAware;
+        }
 
         /// <summary>
         /// 注册一个 headbar。锚点取 headbar 当前的父节点（调用方已把 headbar 挂到模型下）。
@@ -123,8 +171,8 @@ namespace Sango.Render
                 {
                     mgr.entries[i].anchor = anchor;
                     mgr.entries[i].billboard = headbar.GetComponent<BillboardUI>();
-                    // 对象池复用会换一批子节点，文字缓存必须重新取，否则会握着已销毁的引用
-                    mgr.CacheTexts(mgr.entries[i]);
+                    // 对象池复用可能换成别的 headbar 尺寸，保底用的高度必须重取
+                    mgr.entries[i].localHeight = GetLocalHeight(headbar);
                     mgr.forceRefresh = true;
                     return;
                 }
@@ -135,7 +183,7 @@ namespace Sango.Render
             e.anchor = anchor;
             e.billboard = headbar.GetComponent<BillboardUI>();
             e.baseOffset = headbar.transform.localPosition;
-            mgr.CacheTexts(e);
+            e.localHeight = GetLocalHeight(headbar);
 
             // 关掉各自的 Update：朝向与缩放改由本管理器统一计算
             if (e.billboard != null)
@@ -163,94 +211,7 @@ namespace Sango.Render
             for (int i = list.Count - 1; i >= 0; i--)
             {
                 if (list[i].headbar == t)
-                {
-                    // 回收前把被降级隐藏的文字还回去：对象进池后还会被复用，
-                    // 若一直保持 disabled，下次复用时会被误判成"业务层本来就隐藏"。
-                    instance.ApplyTextVisible(list[i], true);
                     list.RemoveAt(i);
-                }
-            }
-        }
-
-        /// <summary>
-        /// 远景降级：显示 / 隐藏全部 headbar 的文字（名字、兵力、info）。
-        ///
-        /// 【为什么只切 Text.enabled】不改 GameObject 激活状态，避免影响布局与业务层的显隐逻辑；
-        /// 而且 uGUI 的 Graphic 在 disabled 之后不会再进重建队列，
-        /// 业务层继续每帧给 text 赋值也不会产生 Canvas 重建开销。
-        /// </summary>
-        public static void SetTextVisible(bool visible)
-        {
-            if (instance == null)
-                return;
-
-            instance.ApplyTextVisibleAll(visible);
-        }
-
-        void ApplyTextVisibleAll(bool visible)
-        {
-            for (int i = 0; i < entries.Count; i++)
-                ApplyTextVisible(entries[i], visible);
-        }
-
-        /// <summary>缓存 headbar 下的全部文字组件，并按当前远景状态决定是否立即隐藏</summary>
-        void CacheTexts(Entry e)
-        {
-            e.texts = e.headbar != null
-                ? e.headbar.GetComponentsInChildren<UnityEngine.UI.Text>(true)
-                : null;
-            e.textSaved = null;
-            e.textSavedValid = false;
-
-            // 远景期间新刷出来的 headbar（部队进场、建筑建成）也要遵守降级状态
-            if (MapRenderLod.IsFar)
-                ApplyTextVisible(e, false);
-        }
-
-        /// <summary>
-        /// 切换单个 headbar 的文字显隐。隐藏时记录原有 enabled，恢复时原样还回去，
-        /// 这样业务层自己关掉的部件（如城市的 info 面板）不会被误开。
-        /// </summary>
-        void ApplyTextVisible(Entry e, bool visible)
-        {
-            if (e.texts == null || e.texts.Length == 0)
-                return;
-
-            if (!visible)
-            {
-                if (e.textSavedValid)
-                    return;
-
-                if (e.textSaved == null || e.textSaved.Length != e.texts.Length)
-                    e.textSaved = new bool[e.texts.Length];
-
-                for (int i = 0; i < e.texts.Length; i++)
-                {
-                    UnityEngine.UI.Text t = e.texts[i];
-                    if (t == null)
-                        continue;
-
-                    e.textSaved[i] = t.enabled;
-                    t.enabled = false;
-                }
-
-                e.textSavedValid = true;
-            }
-            else
-            {
-                if (!e.textSavedValid)
-                    return;
-
-                for (int i = 0; i < e.texts.Length; i++)
-                {
-                    UnityEngine.UI.Text t = e.texts[i];
-                    if (t == null)
-                        continue;
-
-                    t.enabled = e.textSaved[i];
-                }
-
-                e.textSavedValid = false;
             }
         }
 
@@ -287,7 +248,12 @@ namespace Sango.Render
             Transform camTrans = current.transform;
             float factor = mapCamera.cameraDistanceFactor;
 
-            bool camMoved = forceRefresh
+            // 屏幕保底依赖"屏幕像素高度 / FOV"，这两者变了即使相机没动也要重算一遍缩放
+            bool projectionChanged = forceRefresh
+                                     || current.pixelHeight != lastPixelHeight
+                                     || Mathf.Abs(current.fieldOfView - lastFieldOfView) > 0.0001f;
+
+            bool camMoved = projectionChanged
                             || camTrans.position != lastCamPos
                             || camTrans.rotation != lastCamRot;
             bool factorChanged = forceRefresh || Mathf.Abs(factor - lastFactor) > 0.0001f;
@@ -295,9 +261,27 @@ namespace Sango.Render
             lastCamPos = camTrans.position;
             lastCamRot = camTrans.rotation;
             lastFactor = factor;
+            lastPixelHeight = current.pixelHeight;
+            lastFieldOfView = current.fieldOfView;
             forceRefresh = false;
 
             Quaternion camRot = camTrans.rotation;
+
+            // 远景"屏幕保底"的投影常量：整帧算一次，循环里只做一次除法
+            ScreenScale screen;
+            screen.minPixelHeight = minScreenHeightRatio > 0f
+                ? current.pixelHeight * minScreenHeightRatio
+                : 0f;
+            screen.depthAware = !current.orthographic;
+            if (screen.depthAware)
+            {
+                float halfTan = Mathf.Tan(current.fieldOfView * 0.5f * Mathf.Deg2Rad);
+                screen.pixelsPerUnitK = current.pixelHeight / (2f * Mathf.Max(0.0001f, halfTan));
+            }
+            else
+            {
+                screen.pixelsPerUnitK = current.pixelHeight / (2f * Mathf.Max(0.0001f, current.orthographicSize));
+            }
 
             for (int i = count - 1; i >= 0; i--)
             {
@@ -324,7 +308,7 @@ namespace Sango.Render
                 e.lastAnchorPos = anchorPos;
                 e.lastAnchorRot = anchorRot;
 
-                Apply(e, camRot, factor);
+                Apply(e, camTrans, camRot, factor, screen);
             }
         }
 
@@ -334,8 +318,9 @@ namespace Sango.Render
         ///   · 朝向 = 相机朝向（原 LookAt(cam.rotation * back, cam.rotation * up) 的等价写法）
         ///   · 偏移 = cacheOffset + Lerp(offsetFactor, zero, factor)，在锚点局部空间内
         ///   · 缩放 = Lerp(initScale * scaleFactor.x, initScale * scaleFactor.y, factor)
+        ///           再乘一个按视深算出的屏幕保底系数（见 <see cref="CalcMinScreenScale"/>）
         /// </summary>
-        void Apply(Entry e, Quaternion camRot, float factor)
+        void Apply(Entry e, Transform camTrans, Quaternion camRot, float factor, ScreenScale screen)
         {
             BillboardUI b = e.billboard;
             Vector3 localOffset;
@@ -356,10 +341,81 @@ namespace Sango.Render
                 localScale = Vector3.one;
             }
 
+            // 远景保底：拉远到像素高度不足阈值时等比放大（近景系数恒为 1，不改变原有观感）
+            localScale *= CalcMinScreenScale(e, camTrans, localScale.y, screen);
+
             Transform hb = e.headbar;
             hb.position = e.anchor.TransformPoint(localOffset);
             hb.rotation = camRot;
             hb.localScale = localScale;
+        }
+
+        /// <summary>
+        /// 计算"屏幕保底"的等比放大系数（恒 &gt;= 1）。
+        ///
+        /// <para>
+        /// 透视投影下，世界高度 h 在视深 d 处的像素高度 = <c>h · pixelHeight / (2·d·tan(fovY/2))</c>；
+        /// 低于保底像素高度时按比值放大，正好把屏幕占比抬到 <see cref="minScreenHeightRatio"/>。
+        /// 正交相机不随距离缩小，按 <c>h · pixelHeight / (2·orthographicSize)</c> 换算即可。
+        /// </para>
+        /// <para>
+        /// 视深取"锚点到相机的向量在相机前向上的投影"，而不是两点直线距离 ——
+        /// 俯视镜头下同一屏幕高度上的格子直线距离差别很大，投影深度才是投影变换真正使用的量。
+        /// </para>
+        /// <para>
+        /// 只放大不缩小：近景算出的像素高度本来就高于阈值，直接返回 1，
+        /// 保证这段逻辑不会改变近景既有的美术观感。
+        /// </para>
+        /// </summary>
+        /// <param name="e">headbar 记录</param>
+        /// <param name="camTrans">相机 Transform</param>
+        /// <param name="scaleY">插值算出的基准缩放的 Y 分量</param>
+        /// <param name="screen">本帧的投影常量</param>
+        /// <returns>放大系数；不需要放大时返回 1</returns>
+        static float CalcMinScreenScale(Entry e, Transform camTrans, float scaleY, ScreenScale screen)
+        {
+            if (screen.minPixelHeight <= 0f || screen.pixelsPerUnitK <= 0f)
+                return 1f;
+            if (e.localHeight <= 0f || scaleY <= 0f)
+                return 1f;
+            if (camTrans == null || e.anchor == null)
+                return 1f;
+
+            float pixelsPerUnit = screen.pixelsPerUnitK;
+            if (screen.depthAware)
+            {
+                float depth = Vector3.Dot(e.anchor.position - camTrans.position, camTrans.forward);
+                if (depth < 0.01f)
+                    depth = 0.01f;
+                pixelsPerUnit /= depth;
+            }
+
+            // 锚点（模型根）本身可能被整体缩放，headbar 的世界高度要把它一并算进来
+            float anchorScaleY = Mathf.Abs(e.anchor.lossyScale.y);
+            if (anchorScaleY <= 0f)
+                anchorScaleY = 1f;
+
+            float pixelHeight = e.localHeight * scaleY * anchorScaleY * pixelsPerUnit;
+            if (pixelHeight <= 0f || pixelHeight >= screen.minPixelHeight)
+                return 1f;
+
+            return screen.minPixelHeight / pixelHeight;
+        }
+
+        /// <summary>
+        /// 取 headbar 的本地高度（World Space Canvas 根 RectTransform 的 rect 高度）。
+        /// 取不到（没有 RectTransform）时返回 0，表示该 headbar 不参与屏幕保底。
+        /// </summary>
+        /// <param name="headbar">headbar 根对象</param>
+        /// <returns>rect 高度；无法取得返回 0</returns>
+        static float GetLocalHeight(GameObject headbar)
+        {
+            if (headbar == null)
+                return 0f;
+            RectTransform rt = headbar.transform as RectTransform;
+            if (rt == null)
+                rt = headbar.GetComponent<RectTransform>();
+            return rt != null ? rt.rect.height : 0f;
         }
     }
 }

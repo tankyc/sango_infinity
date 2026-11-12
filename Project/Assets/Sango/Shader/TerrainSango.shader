@@ -34,6 +34,7 @@ Shader "Sango/TerrainSango"
         _SkirtDepth ("Skirt Depth Ratio", Range(0, 0.05)) = 0
         _DebugView ("Debug View (0=none 1=lod 2=morph)", Float) = 0
         _EyePos ("Observer Position (world, must equal LOD eye)", Vector) = (0, 0, 0, 0)
+        _EdgeFine ("Edge Fine Mask (x=E y=W z=N w=S, 1=neighbor is finer)", Vector) = (0, 0, 0, 0)
         _UseLayers ("Use Terrain Layers", Float) = 0
         _LayerCount ("Layer Count", Float) = 1
         _WorldSize ("Map World Size (X=Z extent, Y=X extent)", Vector) = (1, 1, 0, 0)
@@ -109,9 +110,14 @@ Shader "Sango/TerrainSango"
                 float _SkirtDepth;
                 float _DebugView;
                 float4 _EyePos;
-                // CDLOD 边界缝合：x=东 y=西 z=北 w=南，1 = 该边贴着更粗层（或地图外）。
-                // 命中的边把最外圈顶点的 morph 强制收敛到 1，与粗邻居的格点密度/高度完全重合，消除 T 型接缝。
+                // CDLOD 边界缝合（细侧锁）：x=东 y=西 z=北 w=南，1 = 该边贴着更粗层（或地图外）。
+                // 命中的边把最外圈顶点的 morph 强制收敛到 1（吸附到父层格点 = 粗邻居的原始格点位置）。
                 float4 _EdgeCoarse;
+                // CDLOD 边界缝合（粗侧锁）：位序同 _EdgeCoarse，1 = 该边贴着更细层。
+                // 命中的边把最外圈顶点的 morph 强制压到 0 —— 粗侧此时正处于自己的 morph 带内
+                // （d ∈ [T粗, 2T粗]），边界顶点会在父层格点与自身格点之间滑动；细侧锁死、
+                // 粗侧在动，共享边界照样撕裂。粗侧锁 0 后两侧都停在粗侧原始格点，逐点重合。
+                float4 _EdgeFine;
                 // 相机到地形中值平面的高度（× HeightLodWeight）：与 C# 侧共享同一视距口径
                 float _ViewHeight;
                 float _UseLayers;
@@ -189,21 +195,36 @@ Shader "Sango/TerrainSango"
                 float levelRatio = patchSize / max(_LeafSize, 1e-3);
                 morph *= step(1.5, levelRatio);
 
-                // ---- 边界缝合（T 型接缝根治）----
+                // ---- 边界缝合（T 型接缝根治，双向锁）----
                 // 细层 patch 贴着更粗层时，两侧边界顶点密度差 2 倍，山脊处粗侧直线边与
-                // 细侧折线之间会撕出穿透性破洞（露背景）。把细层该边的最外圈顶点 morph
-                // 强制收敛到 1 后，顶点吸附到父层格点：两侧密度一致、worldXZ 相同、
-                // 经 SampleHeight 的 texel 吸附后高度也相同 → 边界完全重合，缝消失。
+                // 细侧折线之间会撕出穿透性破洞（露背景）。两个方向的锁配合：
+                //   · 细侧锁 1（_EdgeCoarse）：该边最外圈顶点吸到父层格点 = 粗邻居的原始格点位置，
+                //     worldXZ 相同、经 SampleHeight 的 texel 吸附后高度也相同；
+                //   · 粗侧锁 0（_EdgeFine）：贴着更细层的粗块，其该边顶点原本处于自己的 morph
+                //     带内会连续滑动，细侧锁死、粗侧在动，边界照样撕裂 —— 必须压回 0，
+                //     让它停在原始 64 格格点上，与细侧吸到的位置逐点重合。
                 // 只锁最外一圈：patch 内部顶点全部共享、拓扑连续，密度差不会产生洞，
                 // 只是靠边一圈三角形被拉伸，视觉代价远小于破洞。
-                // C# 侧（TerrainSangoLod.MarkEdgeCoarse）按"同层邻居是否存在"算出四个标记。
+                // C# 侧（TerrainSangoLod.MarkEdges）按邻居层级算出两组标记。
                 float edgeX = min(local.x, 1.0 - local.x);
                 float edgeZ = min(local.y, 1.0 - local.y);
                 float coarseMask = 0.0;
+                float fineMask = 0.0;
                 if (edgeX < 1.0 / 64.0)
-                    coarseMask = max(coarseMask, local.x < 0.5 ? _EdgeCoarse.y : _EdgeCoarse.x);
+                {
+                    bool edgeIsWest = local.x < 0.5;
+                    coarseMask = max(coarseMask, edgeIsWest ? _EdgeCoarse.y : _EdgeCoarse.x);
+                    fineMask = max(fineMask, edgeIsWest ? _EdgeFine.y : _EdgeFine.x);
+                }
                 if (edgeZ < 1.0 / 64.0)
-                    coarseMask = max(coarseMask, local.y < 0.5 ? _EdgeCoarse.w : _EdgeCoarse.z);
+                {
+                    bool edgeIsSouth = local.y < 0.5;
+                    coarseMask = max(coarseMask, edgeIsSouth ? _EdgeCoarse.w : _EdgeCoarse.z);
+                    fineMask = max(fineMask, edgeIsSouth ? _EdgeFine.w : _EdgeFine.z);
+                }
+                // 同一条边不会同时命中两种状态（邻居要么更粗要么更细），两个 mask 互斥。
+                // 顺序：先压（锁 0）再抬（锁 1），保证锁 1 的语义不被覆盖。
+                morph = min(morph, 1.0 - fineMask);
                 morph = max(morph, coarseMask);
 
                 // 64 格合并成 32 段：把顶点吸到偶数格点上

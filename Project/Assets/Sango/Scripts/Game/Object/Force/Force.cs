@@ -673,6 +673,74 @@ namespace Sango.Core
         public List<int> threatTroopIds = new List<int>();
 
         /// <summary>
+        /// 驱逐求援登记表：求援城 Id → 让它打不动的威胁部队 Id。
+        ///
+        /// 【用途】某座城判定"兵力不足以驱逐"（我方可用兵力 / 敌群兵力 低于
+        /// <c>AIConfig.driveOutMinForceRatio</c>）时在这里挂一条，
+        /// 同势力里兵力充裕、距离合适的城会接单出兵（<c>CityAI.TryAidDriveOut</c>）。
+        /// 这是"三支小队上去送菜"的第二道补救：自己打不动，不等于全势力都打不动。
+        ///
+        /// 【为什么不入档】纯运行时状态，每次势力回合开始都会重算；
+        /// 序列化它只会把过期请求带进存档。故标 JsonIgnore，读档后按需重建。
+        /// </summary>
+        [JsonIgnore]
+        public Dictionary<int, int> driveOutAidRequests;
+
+        /// <summary>
+        /// 清理过期求援用的临时键表（复用，避免每势力每回合新建 List）。
+        /// 单线程主循环访问，不存在并发问题。
+        /// </summary>
+        [JsonIgnore] static readonly List<int> tempStaleAidCityIds = new List<int>();
+
+        /// <summary>
+        /// 登记一条驱逐求援（同一座城只保留最新一条，后登记者覆盖）。
+        /// </summary>
+        /// <param name="cityId">发起求援的城 Id</param>
+        /// <param name="threatTroopId">该城打不动的威胁部队 Id</param>
+        public void RequestDriveOutAid(int cityId, int threatTroopId)
+        {
+            if (driveOutAidRequests == null)
+                driveOutAidRequests = new Dictionary<int, int>();
+            driveOutAidRequests[cityId] = threatTroopId;
+        }
+
+        /// <summary>
+        /// 清除某座城的驱逐求援（本城已能自行处理、目标已消失或已放弃时调用）。
+        /// </summary>
+        /// <param name="cityId">求援城 Id</param>
+        public void ClearDriveOutAid(int cityId)
+        {
+            if (driveOutAidRequests == null || driveOutAidRequests.Count == 0)
+                return;
+            driveOutAidRequests.Remove(cityId);
+        }
+
+        /// <summary>
+        /// 按威胁部队撤销求援登记（不分是哪座城提的）。
+        ///
+        /// 【为什么需要】某一座城接单并投入足够兵力后，这条求援就该消失 ——
+        /// 否则同势力里每一座兵力达标的城都会再来响应一遍，
+        /// 结果全势力扑向同一个敌群，别的方向反倒空虚。
+        /// </summary>
+        /// <param name="threatTroopId">威胁部队 Id</param>
+        public void ClearDriveOutAidByThreat(int threatTroopId)
+        {
+            if (driveOutAidRequests == null || driveOutAidRequests.Count == 0)
+                return;
+
+            tempStaleAidCityIds.Clear();
+            foreach (KeyValuePair<int, int> kv in driveOutAidRequests)
+            {
+                if (kv.Value == threatTroopId)
+                    tempStaleAidCityIds.Add(kv.Key);
+            }
+
+            for (int i = 0; i < tempStaleAidCityIds.Count; i++)
+                driveOutAidRequests.Remove(tempStaleAidCityIds[i]);
+            tempStaleAidCityIds.Clear();
+        }
+
+        /// <summary>
         /// 记录一个对本势力实施过攻击的敌方部队。
         /// </summary>
         /// <param name="troop">实施攻击的敌方部队</param>
@@ -725,18 +793,54 @@ namespace Sango.Core
         /// </summary>
         public void CleanupThreatTroops()
         {
-            if (threatTroopIds == null || threatTroopIds.Count == 0)
-                return;
             Scenario scenario = Scenario.Cur;
             if (scenario == null)
                 return;
 
-            for (int i = threatTroopIds.Count - 1; i >= 0; i--)
+            // 【提前返回已去掉】原先"威胁名单为空就直接 return"会连带跳过求援登记表的清理，
+            // 于是威胁已死 / 已换旗时求援会一直挂着，别的城反复跑来打一个不存在的目标。
+            if (threatTroopIds != null && threatTroopIds.Count > 0)
             {
-                Troop troop = scenario.troopsSet.Get(threatTroopIds[i]);
-                if (troop == null || !IsHostile(troop))
-                    threatTroopIds.RemoveAt(i);
+                for (int i = threatTroopIds.Count - 1; i >= 0; i--)
+                {
+                    Troop troop = scenario.troopsSet.Get(threatTroopIds[i]);
+                    if (troop == null || !IsHostile(troop))
+                        threatTroopIds.RemoveAt(i);
+                }
             }
+
+            CleanupDriveOutAidRequests(scenario);
+        }
+
+        /// <summary>
+        /// 清理失效的驱逐求援登记：威胁部队已消失 / 已不再敌对 / 求援城已不存在。
+        /// </summary>
+        /// <param name="scenario">当前场景</param>
+        void CleanupDriveOutAidRequests(Scenario scenario)
+        {
+            if (driveOutAidRequests == null || driveOutAidRequests.Count == 0)
+                return;
+
+            tempStaleAidCityIds.Clear();
+            foreach (KeyValuePair<int, int> kv in driveOutAidRequests)
+            {
+                Troop troop = scenario.troopsSet.Get(kv.Value);
+                if (troop == null || !IsHostile(troop))
+                {
+                    tempStaleAidCityIds.Add(kv.Key);
+                    continue;
+                }
+
+                // 发起求援的城也要校验：城被攻陷 / 易主后，这条求援已经没有任何意义，
+                // 留着只会让别的城跑去一块不属于自己的领地"帮忙"。
+                City askCity = scenario.citySet.Get(kv.Key);
+                if (askCity == null || !askCity.IsAlive || askCity.BelongForce != this)
+                    tempStaleAidCityIds.Add(kv.Key);
+            }
+
+            for (int i = 0; i < tempStaleAidCityIds.Count; i++)
+                driveOutAidRequests.Remove(tempStaleAidCityIds[i]);
+            tempStaleAidCityIds.Clear();
         }
 
         // 【性能·容量预设】
@@ -3442,7 +3546,8 @@ namespace Sango.Core
 
             // ⑥ 灭亡事件。委托签名是 (Force, City, Troop)，
             //    而 byObject 可能不是部队（火焰 / 事件 / 归属巡检），必须安全转换。
-            GameEvent.OnForceFall?.Invoke(this, fallCity, byObject as Troop);
+            //    战法破城时传进来的可能是 SkillInstance，统一走 AsTroop 归一（取施法部队）。
+            GameEvent.OnForceFall?.Invoke(this, fallCity, byObject?.AsTroop());
 
             // ⑦ 天下一统判定：除灭亡方外，所有城都归同一个势力
             if (by == null)

@@ -89,6 +89,34 @@ namespace Sango.Core
         public virtual SangoObjectType ObjectType { get { return SangoObjectType.Unknown; } }
 
         /// <summary>
+        /// 把本对象解析成"发起攻击的部队"。
+        ///
+        /// <para>
+        /// 【为什么需要】战斗链路上大量方法的形参是 <see cref="SangoObject"/>，同一个位置
+        /// 既可能收到 <see cref="Troop"/>（建筑反击、陷阱直伤），也可能收到
+        /// <see cref="SkillInstance"/>（普攻与战法都走 Skill 结算，施法部队挂在 master 上）。
+        /// 直接用 <c>obj is Troop</c> 判断会静默漏掉整条战法分支 ——
+        /// 表现为"战法破城不扣敌意值、不记威胁部队、不播命中音效"。
+        /// 统一走这里解析，调用方不必再自己写两套类型判断。
+        /// </para>
+        /// <para>
+        /// 【口径】Troop → 自身；SkillInstance → master（施法部队）；
+        /// 其余（Fire、BuildingBase 等无归属对象）→ null，调用方必须能接受 null。
+        /// </para>
+        /// </summary>
+        /// <returns>发起攻击的部队；无法解析时返回 null</returns>
+        public Troop AsTroop()
+        {
+            if (this is Troop troop)
+                return troop;
+
+            if (this is SkillInstance skill)
+                return skill.master;
+
+            return null;
+        }
+
+        /// <summary>
         /// 对象ID
         /// </summary>
         private int _Id = -1;

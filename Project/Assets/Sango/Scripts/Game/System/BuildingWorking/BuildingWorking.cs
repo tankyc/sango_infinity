@@ -548,6 +548,11 @@ namespace Sango.Core
                                 break;
                             case (int)BuildingKindType.BlacksmithShop:
                                 {
+                                    // 枪 / 戟 / 弩三种兵装**全部**轻视才不给锻冶厂派工 —— 这里是"要不要派人上工"的
+                                    // 提前退出，与 :1490 附近按种类分别把生产等级置 0 的做法并不冲突。
+                                    // 注意不要和 BuildingPlanner.CheckPlayerCorpsSetting 的 `||` 搞混：
+                                    // 那边判的是"要不要建锻冶厂"，原版 dev_ai.cpp:719-721 用的就是 `or`
+                                    // （任一未勾选 → 锻冶厂上限置 0），两者口径不同是**有意**的。
                                     if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1
                                          && city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1
                                           && city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1

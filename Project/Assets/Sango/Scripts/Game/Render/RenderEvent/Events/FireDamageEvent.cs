@@ -34,10 +34,13 @@ namespace Sango.Render
             {
                 targetBuilding.ChangeDurability(-damage, fire);
 
-                if (targetBuilding.IsCityBase())
+                // 【类型严检】IsCityBase() 是按 BuildingType 的 kind 数据判的，
+                // 普通 Building 完全可能挂着"城 / 关 / 港"的 kind —— 此时硬转会抛
+                // InvalidCastException。这里必须用 as 翻译一次再判空。
+                City city = targetBuilding as City;
+                if (city != null)
                 {
                     int dmg = GameRandom.Random(fire.damage + fire.intelligence * 2, 0.2f);
-                    City city = (City)(targetBuilding);
                     city.ChangeTroops(-dmg, fire);
                 }
             }

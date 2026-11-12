@@ -470,10 +470,12 @@ namespace Sango.Render.TerrainSango
         /// patch 的世界尺寸在着色器里由矩阵的 X 轴长度反推，用于算 morph 与调试色。
         /// 地表与水面共用同一套矩阵编码，只是水面传自己的粗网格（33×33）。
         ///
-        /// 【按 EdgeCoarse 分桶】CDLOD 边界缝合要求"挨着更粗邻居的边"把边界顶点 morph 锁 1，
-        /// 这个标记是 per-patch 的；而 DrawMeshInstanced 的材质参数只能 per-draw（MaterialPropertyBlock），
-        /// 所以按 16 种边界形态分桶，同桶共享一份 _EdgeCoarse。桶数上限 16，
-        /// 每桶内部仍按 MaxInstancesPerDraw 切批，draw call 最多多十几次，可忽略。
+        /// 【按边界形态分桶】CDLOD 边界缝合是双向锁：细侧锁 1（吸到父层格点）+ 粗侧锁 0
+        /// （不许随自身 morph 滑动），单向只锁细侧时粗侧边界仍在 morph 带内滑动，接缝撕裂。
+        /// 两个标记都是 per-patch 的；而 DrawMeshInstanced 的材质参数只能 per-draw（MaterialPropertyBlock），
+        /// 所以按 81 种边界形态（每边三态：0=不锁 / 1=邻居更粗 / 2=邻居更细，3^4=81）分桶，
+        /// 同桶共享一份 _EdgeCoarse + _EdgeFine。每桶内部仍按 MaxInstancesPerDraw 切批，
+        /// draw call 最多多几十次，相比 16 态单向锁的接缝质量提升可接受。
         /// </summary>
         /// <param name="mesh">要提交的 patch 网格（地表 65×65 / 水面 33×33）</param>
         private void DrawPatches(Camera camera, IReadOnlyList<TerrainSangoPatch> patches, Material drawMaterial,
@@ -490,7 +492,7 @@ namespace Sango.Render.TerrainSango
                 TerrainSangoPatch patch = patches[i];
                 if (patch.Culled) continue;
 
-                int bucket = patch.EdgeCoarse & 15;
+                int bucket = GetStitchBucket(patch.EdgeCoarse, patch.EdgeFine);
                 int slot = stitchBucketCounts[bucket];
                 if (slot >= stride) continue;   // 容量护栏：单桶上限 = Capacity，正常到不了
                 stitchBucketCounts[bucket] = slot + 1;
@@ -501,12 +503,13 @@ namespace Sango.Render.TerrainSango
             }
 
             int maxPerBatch = instanceMatrices.Length;
-            for (int b = 0; b < 16; b++)
+            for (int b = 0; b < StitchBucketCount; b++)
             {
                 int count = stitchBucketCounts[b];
                 if (count == 0) continue;
 
-                stitchProps.SetVector("_EdgeCoarse", EdgeCoarseVectors[b]);
+                stitchProps.SetVector("_EdgeCoarse", BucketCoarseVectors[b]);
+                stitchProps.SetVector("_EdgeFine", BucketFineVectors[b]);
                 for (int offset = 0; offset < count; offset += maxPerBatch)
                 {
                     int n = System.Math.Min(maxPerBatch, count - offset);
@@ -526,9 +529,16 @@ namespace Sango.Render.TerrainSango
                 props, ShadowCastingMode.Off, false, gameObject.layer, camera);
         }
 
-        /// <summary>按 EdgeCoarse 分桶的实例矩阵缓存（16 种边界形态，懒分配、Capacity 变大时重建）。</summary>
+        /// <summary>
+        /// 缝合分桶数：每条边 3 态（同层不锁 / 邻居更粗锁 1 / 邻居更细锁 0），四边组合 3^4 = 81。
+        /// 原先只有 16 态（EdgeCoarse 单向锁）——粗侧没有锁 0，贴着细层的粗块边界顶点
+        /// 会随自身 morph 滑动，与锁死的细侧撕裂，这正是接缝修不干净的根因之一。
+        /// </summary>
+        private const int StitchBucketCount = 81;
+
+        /// <summary>按边界形态分桶的实例矩阵缓存（81 种形态，懒分配、Capacity 变大时重建）。</summary>
         private Matrix4x4[] stitchBuckets;
-        private int[] stitchBucketCounts = new int[16];
+        private int[] stitchBucketCounts = new int[StitchBucketCount];
         private int stitchBucketStride;
         /// <summary>
         /// per-draw 材质参数。UnityEngine.Object 派生类**不能**在 MonoBehaviour 的字段初始化器里 new
@@ -536,19 +546,54 @@ namespace Sango.Render.TerrainSango
         /// </summary>
         private MaterialPropertyBlock stitchProps;
 
-        /// <summary>16 种边界形态对应的 _EdgeCoarse 向量（x=东 y=西 z=北 w=南，1 = 该边邻居更粗）。</summary>
-        private static readonly Vector4[] EdgeCoarseVectors = BuildEdgeCoarseVectors();
+        /// <summary>81 种边界形态对应的 _EdgeCoarse 向量（x=东 y=西 z=北 w=南，1 = 该边邻居更粗）。</summary>
+        private static readonly Vector4[] BucketCoarseVectors = BuildBucketVectors(true);
 
-        private static Vector4[] BuildEdgeCoarseVectors()
+        /// <summary>81 种边界形态对应的 _EdgeFine 向量（位序同上，1 = 该边邻居更细）。</summary>
+        private static readonly Vector4[] BucketFineVectors = BuildBucketVectors(false);
+
+        /// <summary>
+        /// 生成 81 桶的 coarse / fine 向量表。
+        /// 桶号按三进制展开：每边 1 位三进制（0=不锁 1=coarse 2=fine），边序东/西/北/南。
+        /// </summary>
+        private static Vector4[] BuildBucketVectors(bool coarse)
         {
-            var vectors = new Vector4[16];
-            for (int i = 0; i < 16; i++)
-                vectors[i] = new Vector4(
-                    (i & 1) != 0 ? 1f : 0f,
-                    (i & 2) != 0 ? 1f : 0f,
-                    (i & 4) != 0 ? 1f : 0f,
-                    (i & 8) != 0 ? 1f : 0f);
+            var vectors = new Vector4[StitchBucketCount];
+            for (int b = 0; b < StitchBucketCount; b++)
+            {
+                int code = b;
+                int bits = 0;
+                for (int e = 0; e < 4; e++)
+                {
+                    int state = code % 3;
+                    code /= 3;
+                    if (coarse ? state == 1 : state == 2)
+                        bits |= 1 << e;
+                }
+                vectors[b] = new Vector4(
+                    (bits & 1) != 0 ? 1f : 0f,
+                    (bits & 2) != 0 ? 1f : 0f,
+                    (bits & 4) != 0 ? 1f : 0f,
+                    (bits & 8) != 0 ? 1f : 0f);
+            }
             return vectors;
+        }
+
+        /// <summary>
+        /// 把 patch 的四边标记编码成分桶号。
+        /// 同一条边不会同时 coarse 与 fine（邻居要么更粗要么更细），所以每边只需 3 态。
+        /// </summary>
+        private static int GetStitchBucket(int edgeCoarse, int edgeFine)
+        {
+            int code = 0, mul = 1;
+            for (int e = 0; e < 4; e++)
+            {
+                int bit = 1 << e;
+                int state = (edgeCoarse & bit) != 0 ? 1 : ((edgeFine & bit) != 0 ? 2 : 0);
+                code += state * mul;
+                mul *= 3;
+            }
+            return code;
         }
 
         /// <summary>分桶缓冲懒分配：stride 取 Capacity（单桶最多装全部 patch），Capacity 调大时重建。</summary>
@@ -559,7 +604,7 @@ namespace Sango.Render.TerrainSango
             if (stitchBuckets != null && stitchBucketStride >= Capacity)
                 return;
             stitchBucketStride = System.Math.Max(Capacity, instanceMatrices.Length);
-            stitchBuckets = new Matrix4x4[16 * stitchBucketStride];
+            stitchBuckets = new Matrix4x4[StitchBucketCount * stitchBucketStride];
         }
 
         /// <summary>

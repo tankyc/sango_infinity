@@ -1,31 +1,574 @@
 {
   // =========================================================================
-  //  AI 参数配置（支持部分覆盖：只写想改的字段，其余自动沿用代码内置默认值）
+  //  AI 参数配置（本文件已**全量覆盖** AIConfig 的全部字段）
   //  加载路径：Content/Data/Common/AIConfig.json（同样支持 Mod 覆盖）
+  //
+  //  【改默认值必看】AIConfig.cs 里的字段默认值只在该键**不在本文件**时才生效。
+  //  现在所有字段都写在这里，改 AIConfig.cs 的默认值不会影响本文件已写出的值 ——
+  //  要改行为必须同步改本文件（或删掉对应行让它回落到代码默认值）。
   // =========================================================================
 
-  // ------------------------- 外交热度 -------------------------
-  // AI 的 7 项外交命令各自判概率、成功即止（原版 force_diplomacy 没有全局频率）。
-  // 下列默认值已比原版整体降温约 6 成，想让 AI 更爱外交就调大概率 / 调小错峰周期。
-  //   diplomacyActionChance          结盟 / 送礼 / 求援 的每回合触发概率（%）
-  //   diplomacyDiscardChance         破弃同盟的触发概率（%）
-  //   diplomacyDonateStagger         送礼错峰周期：turn % N == forceId % N 才轮到
-  //   diplomacyCeasefireWarStagger   战时求和的错峰周期
-  //   diplomacyCeasefirePeaceStagger 无战事时"预防性停战"的错峰周期
-  //   diplomacyStartTurn             从第几回合开始外交
-  //   diplomacyAnnexStartTurn        从第几回合开始劝降 / 吞并
+  // ------------------------- 外交 -------------------------
+  // AI 开始外交的回合数（原版 force_diplomacy 的 get_turn() < 9 不外交）
   "diplomacyStartTurn": 12,
+  // AI 开始执行"劝降/吞并"的回合数（原版 force_annex 的 turn < 36）
   "diplomacyAnnexStartTurn": 48,
+  // 结盟 / 送礼 / 请求援军 的每回合触发概率（%，原版 rand_bool(30)）
   "diplomacyActionChance": 18,
+  // 破弃同盟的触发概率（%，原版 force_discard 的 rand_bool(30)）
   "diplomacyDiscardChance": 20,
+  // 送礼的错峰周期：turn % N == force.Id % N 才轮到（原版 %5）
   "diplomacyDonateStagger": 8,
+  // 战时求和的错峰周期（原版 turn % 21，只对"打进来的那家"求和）
   "diplomacyCeasefireWarStagger": 24,
+  // 预防性停战的外层错峰周期（原版 `s11_game_ai_force_cmd_dip.cpp:596` 的 `turn % 21 == force_id % 21`，仅在"没有在进攻任何人"时生效）。
   "diplomacyCeasefirePeaceStagger": 9,
+  // 被 ≥3 家相邻敌势力围住时，预防性停战再加一道错峰（原版 `:632` 的 `turn % 6`）。
+  "diplomacyCeasefireManyEnemyStagger": 6,
 
-  // ------------------------- 城池命令优先级 -------------------------
-  // 最终得分 = 基础分 + 态势动态分 + 个性修正 + 紧急覆盖，按得分降序执行
+  // ------------------------- 城市防守 -------------------------
+  // 判定"兵临城下"的距离（格）。此范围内存在存活敌人时，城市优先出城防守
+  "cityDefenseAlertRange": 8,
+  // 实时扫描城池周边以兜底检测敌人的范围（格）。用于预计算敌人信息未覆盖的场景（如敌军刚抵达、正在攻击本城建筑）
+  "cityDefenseScanRange": 6,
+  // 判定"是否需要召回前线部队回援本城"的扫描范围（格）。 与 cityDefenseAlertRange / cityDefenseScanRange 区分：
+  "cityRecallScanRange": 4,
+
+  // ------------------------- 城市支援 -------------------------
+  // 派兵支援所需的本城最低兵力
+  "reinforceMinTroops": 10000,
+  // 派兵支援所需的本城最低粮草
+  "reinforceMinFood": 8000,
+  // 派兵支援所需的本城最低空闲武将数
+  "reinforceMinFreePersons": 2,
+  // 单个城市最多同时派出的支援部队数量
+  "reinforceMaxTroopPerCity": 2,
+
+  // ------------------------- 城市出兵 -------------------------
+  // 【已停用】进攻他城的基础出兵上限（支部队）。 原版没有"支数"这个概念：kyoten_attack 用"在外累计兵力 > 所需兵力"决定停不停
+  "attackBaseTroopCount": 12,
+  // 【已停用】目标城池每多少兵力追加 1 支出兵，见 attackBaseTroopCount
+  "attackTroopsPerTargetTroops": 3000,
+  // 【已停用】进攻无主白城的出兵上限，见 attackBaseTroopCount
+  "attackWhiteCityTroopCount": 2,
+  // 好战个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 50）
+  "attackSkipChanceAggressive": 18,
+  // 均衡个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 70）
+  "attackSkipChanceBalanced": 25,
+  // 谨慎个性每回合跳过进攻的概率（%）。越低越积极出兵（原硬编码 80）
+  "attackSkipChanceDefensive": 35,
+  // 好战个性出兵所需的最低城内兵力（原硬编码 8000，见 CityAI.AICanAttack）。 与外置的跳过概率配合调整，单改一项容易被另一项卡住。
+  "attackMinTroopsAggressive": 6000,
+  // 均衡个性出兵所需的最低城内兵力（原硬编码 10000）
+  "attackMinTroopsBalanced": 7000,
+  // 谨慎个性出兵所需的最低城内兵力（原硬编码 12000）
+  "attackMinTroopsDefensive": 9000,
+  // 进入"目标打分"所需的最低城内兵力（原硬编码 20000，见 CityAI.DecideAttackTarget）。 【为什么必须一起调】AICanAttack 只决定"这回合出不出兵"，
+  "attackTargetMinTroops": 12000,
+  // 进攻目标打分时，若目标势力是玩家势力，额外增加的权重（默认 1500）。 【语义】加法项，叠加在"兵力比 × 城池耐久 × 外交关系 × 距离"之后，不是百分比：
+  "attackTargetPlayerBonus": 1500,
+  // AI 单次出阵（Attack 命令）消耗的据点行动力，默认 5。 【为什么需要单独配】实际扣减在 CityAI.AIAttack，
+  "aiAttackActionPointCost": 5,
+  "logAttackAI": false,
+
+  // ------------------------- 城市内政 -------------------------
+  "buildMinGold": 500,
+  // 治安 / 训练等内政作业所需的城池最低金钱
+  "internalMinGold": 400,
+  // 造兵装所需的最低金钱
+  "createItemsMinGold": 1000,
+  // 造船 / 造器械所需的最低金钱
+  "createMachineMinGold": 1500,
+  // 买粮所需保留的最低金钱（低于此值不买粮）
+  "tradeFoodKeepGold": 2000,
+  // 褒奖武将所需保留的最低金钱
+  "rewardGoldKeep": 500,
+  // 褒奖武将的忠诚上限（低于该值才褒奖）
+  "rewardLoyaltyThreshold": 90,
+  // 褒奖武将的单回合人数上限（避免一击耗尽金钱）
+  "rewardMaxPersonPerTurn": 1,
+  // 升级建筑允许的最大工期（回合），超过则暂缓升级
+  "buildUpgradeMaxTurn": 6,
+  // 搜索行动的基础概率（%）
+  "searchBaseChance": 60,
+  // 每名未发现武将额外增加的搜索概率（%），体现"未发现越多越勤于搜索"
+  "searchInvisibleChancePerPerson": 15,
+  // 招募在野武将的单回合人数上限
+  "recruitPersonMaxPerTurn": 1,
+  // 士气低于该值时必定训练
+  "cityMoraleLow": 70,
+  // 训练概率的基准士气值（与当前士气之差线性折算概率）
+  "trainMoraleBase": 100,
+
+  // ------------------------- 补给部队 -------------------------
+  // 组建补给队所需的城池最低兵力
+  "supplyMinCityTroops": 20000,
+  // 组建补给队所需的城池最低粮草
+  "supplyMinCityFood": 60000,
+  // 单个城市同时派出的补给队上限（战场级，通常一支即可覆盖整条战线）
+  "supplyMaxPerCity": 1,
+  // 配比门槛：附近至少这么多支待补给友军时，才值得派出一支补给队（避免一对一）
+  "supplyMinNeedyTroops": 3,
+  // 每支补给队携带的兵力上限（需能支撑一个战场）
+  "supplyTroopAmount": 30000,
+  // 补给队粮草可支撑的回合数（按携带兵力 × 每兵粮耗估算携带量）
+  "supplyFoodTurnCount": 30,
+  // 每支补给队携带粮草的硬上限
+  "supplyFoodAmount": 400000,
+  // 友军粮草低于「兵力 × 该系数」时视为需要补给
+  "supplyFoodThresholdFactor": 3,
+  // 补给队搜索待补给友军的最大距离（格）
+  "supplySearchRange": 20,
+  // 补给队威胁扫描范围（格）。该范围内没有敌人则视为安全，可直接贴近友军
+  "supplyThreatScanRange": 6,
+  // 前线部队的兵装覆盖率低于该百分比时视为"兵装不足"，值得派出补给队（%）
+  "supplyNeedyItemPercent": 50,
+  // 补给队出征的最低随队兵力；可装备兵力（兵装数）低于该值时取消出征
+  "supplyMinCarryTroops": 3000,
+
+  // ------------------------- 威胁部队驱逐 -------------------------
+  // 驱逐威胁部队的距离（格）。敌方部队进入本城该范围且位于本势力领地内时，派兵歼灭
+  "driveOutThreatRange": 25,
+  // 单城同时派出的驱逐部队「基准」支数（实际上限 = 基准 + 敌群兵力/每支追加兵力，再按下面的硬顶封顶）
+  "driveOutMaxTroopPerCity": 3,
+  // 驱逐部队支数的动态硬上限（防止一回合把城池抽空）
+  "driveOutMaxTroopPerCityCap": 12,
+  // 敌群兵力每多出这么多，追加 1 支驱逐部队（0 或负数 = 不追加，退化为固定支数）
+  "driveOutTroopsPerExtraTroop": 6000,
+  // 统计「敌群兵力」的聚集半径（格）；0 = 只算威胁目标本身
+  "driveOutThreatClusterRange": 3,
+  // 出兵前的兵力比门槛（%）：我方可用兵力/敌群兵力 低于该值则暂缓出兵；0 或负数 = 关闭评估（恢复旧行为）
+  "driveOutMinForceRatio": 70,
+  // 是否启用「驱逐求援」：打不动的城把威胁登记到势力层，由兵力充裕的邻城接单
+  "useDriveOutAid": true,
+  // 响应驱逐求援的最大距离（格）
+  "driveOutAidRange": 20,
+  // 响应求援所需的兵力比门槛（%），比自城驱逐的 driveOutMinForceRatio 更严；取 120 会出现「强城明明能打却拒接」，建议 100~110
+  "driveOutAidMinForceRatio": 100,
+
+  // ------------------------- 部队 AI 模式 -------------------------
+  // 【严格对齐原版】是否用 Open311 的 unit_update_order 直译 （，对应 s11_game_ai_unit.cpp:99-315）
+  "useStrictOpen311UnitAI": true,
+
+  // ------------------------- 部队撤退（保存实力） -------------------------
+  // 兵力低于该值时有概率撤退（就近入驻己方据点补给）
+  "retreatMinTroops": 300,
+  // 兵力低于满编该百分比时，同样视为"兵力过低"并就近入驻补给（0 表示仅使用绝对阈值 retreatMinTroops）
+  "retreatTroopPercent": 25,
+  // 士气低于该值时有概率撤退
+  "retreatMinMorale": 10,
+  // 断粮时的撤退概率（%）
+  "retreatOutOfFoodChance": 80,
+  // 兵力过低时的撤退概率（%）
+  "retreatFewTroopsChance": 60,
+  // 士气过低时的撤退概率（%）
+  "retreatLowMoraleChance": 50,
+  // 出征回合数门槛：部队在野外待满该回合数之后，才允许做出撤退 / 回避决定。 用于抑制"刚出城就掉头回城"：刚出城的部队常被判定为劣势 / 危局（态势看的是局部战力比），
+  "retreatMinLiveDays": 3,
+
+  // ------------------------- 部队态势分档 -------------------------
+  // 是否启用战场态势分级策略（关闭则所有部队按"均势"档处理）
+  "useTierStrategy": true,
+  // 态势评估的搜索范围（格）。反映所考虑的"局部战场"大小
+  "tierScanRange": 12,
+  // 我方兵力占比 ≥ 该值时判定为"碾压"（%）
+  "tierDecisivePercent": 65,
+  // 我方兵力占比 ≥ 该值时判定为"优势"（%）
+  "tierAdvantagedPercent": 45,
+  // 我方兵力占比 ≥ 该值时判定为"均势"（%）
+  "tierEvenPercent": 35,
+  // 我方兵力占比 ≥ 该值时判定为"劣势"，低于该值则判定为"危局"（%）
+  "tierDisadvantagedPercent": 25,
+  // 危局档权重：保存实力、脱离接触
+  "tierCritical": {
+    "attackScale": 50,
+    "counterPenaltyScale": 200,
+    "retreatChance": 80,
+    "bestN": 1
+  },
+  // 劣势档权重：收缩防守
+  "tierDisadvantaged": {
+    "attackScale": 80,
+    "counterPenaltyScale": 150,
+    "retreatChance": 40,
+    "bestN": 1
+  },
+  // 均势档权重：谨慎试探
+  "tierEven": {
+    "attackScale": 100,
+    "counterPenaltyScale": 100,
+    "retreatChance": 10,
+    "bestN": 5
+  },
+  // 优势档权重：主动进攻
+  "tierAdvantaged": {
+    "attackScale": 120,
+    "counterPenaltyScale": 80,
+    "retreatChance": 0,
+    "bestN": 3
+  },
+  // 碾压档权重：强攻追击
+  "tierDecisive": {
+    "attackScale": 140,
+    "counterPenaltyScale": 50,
+    "retreatChance": 0,
+    "bestN": 1
+  },
+  // 是否允许部队因"态势不利"主动撤退（关闭则仅保留原有的断粮 / 兵少 / 士气撤退）
+  "useTierRetreat": true,
+
+  // ------------------------- 部队领队性格（框架参数） -------------------------
+  // 是否启用领队性格对部队策略的影响（性格数值定义在 Personality 数据中）
+  "useLeaderPersonality": true,
+  // 是否允许性格覆盖任务推导出的部队角色
+  "useLeaderRoleOverride": true,
+  // 是否允许性格影响计略技能的释放偏好
+  "useLeaderSkillPreference": true,
+  // 性格层倍率的下限（%）
+  "leaderScaleMin": 50,
+  // 性格层倍率的上限（%）
+  "leaderScaleMax": 150,
+  // 合成后攻击倍率的下限（%），防止 tier × role × 性格 三层连乘失控
+  "finalAttackScaleMin": 40,
+  // 合成后攻击倍率的上限（%）
+  "finalAttackScaleMax": 180,
+  // 合成后反击倍率的下限（%）
+  "finalCounterScaleMin": 40,
+  // 合成后反击倍率的上限（%）
+  "finalCounterScaleMax": 180,
+  // 性格好战指数（|troopAggression|）达到该值时，性格角色覆盖任务角色
+  "leaderRoleOverrideThreshold": 20,
+  // 行动择优池的全局上限（防止性格修正后池过大）
+  "bestNMax": 8,
+  // 行动择优池的全局下限
+  "bestNMin": 1,
+  // 计略专精每点折算的收益倍率（%）
+  "leaderSkillTendencyScalePerPoint": 5,
+  // 计略偏好倍率的下限（%）
+  "leaderSkillScaleMin": 75,
+  // 计略偏好倍率的上限（%）
+  "leaderSkillScaleMax": 150,
+  // 危局档的撤退不受性格影响（防止"莽将送死"）
+  "leaderIgnoreRetreatInCritical": true,
+
+  // ------------------------- 部队角色 -------------------------
+  // 是否启用部队角色分级（关闭则所有部队按"通用"处理，不做角色修正）
+  "useTroopRole": true,
+  // 攻坚：敢吃反击、强打目标
+  "roleAssault": {
+    "attackScale": 120,
+    "counterPenaltyScale": 60,
+    "missionFocusScale": 130
+  },
+  // 防守：重视规避反击与地形
+  "roleDefender": {
+    "attackScale": 90,
+    "counterPenaltyScale": 150,
+    "missionFocusScale": 110
+  },
+  // 骚扰：专注任务、打完就跑
+  "roleHarasser": {
+    "attackScale": 110,
+    "counterPenaltyScale": 80,
+    "missionFocusScale": 140
+  },
+  // 游击：任务专注度低，容易被眼前目标吸引
+  "roleSkirmisher": {
+    "attackScale": 100,
+    "counterPenaltyScale": 120,
+    "missionFocusScale": 80
+  },
+  // 护卫：尽量避免接战
+  "roleEscort": {
+    "attackScale": 70,
+    "counterPenaltyScale": 180,
+    "missionFocusScale": 100
+  },
+  // 守备：驻守据点，不主动出击
+  "roleGuard": {
+    "attackScale": 80,
+    "counterPenaltyScale": 150,
+    "missionFocusScale": 70
+  },
+  // 工兵：携带资金修建前线辅助建筑，极度规避接战
+  "roleEngineer": {
+    "attackScale": 40,
+    "counterPenaltyScale": 250,
+    "missionFocusScale": 150
+  },
+
+  // ------------------------- 部队技能评分 -------------------------
+  // 被反击惩罚系数（越大越规避"贴脸打高反击单位"）
+  "counterAttackPenaltyFactor": 10,
+  // 被反击惩罚对攻击收益的最大削弱比例（%），防止 AI 过度保守而完全不行动
+  "counterAttackPenaltyFloorPercent": 50,
+  // 技能基础收益的总系数
+  "scoreSkillBaseFactor": 150,
+  // 远程技能加成
+  "scoreRangeBonus": 15,
+  // 单体技能加成
+  "scoreSingleBonus": 5,
+  // 带额外效果技能加成
+  "scoreEffectBonus": 5,
+  // 目标处于被控制状态（混乱 / 眩晕）时的加成
+  "scoreControlBonus": 30,
+  // 策略技能成功率的最低门槛，低于该值直接放弃施放
+  "scoreStrategySuccessThreshold": 75,
+  // 策略技能成功率超出门槛时，每点折算的施法距离加成
+  "scoreStrategySuccessBonus": 2,
+  // 是否启用"剑兵倾向计略"。关闭则剑兵与其它兵种一视同仁
+  "useSwordStrategyPreference": true,
+  // 剑兵的计略收益倍率（%）。>100 表示比其它兵种更愿意释放计略；设为 100 等于关闭倾向
+  "swordStrategyScoreScale": 200,
+  // 剑兵的计略成功率门槛（%）。低于全局门槛，让智力平平的剑兵队也敢赌计略
+  "swordStrategySuccessThreshold": 50,
+  // 攻防差值的基数（避免攻防差为负时整体收益归零）
+  "scoreAttackDefenceBase": 200,
+  // 技能能耗的最小值（防止除零并限制低耗技能的过高收益）
+  "scoreMinCostEnergy": 10,
+  // 攻打建筑时的伤害倍数
+  "scoreBuildingDamageFactor": 4,
+  // 攻打建筑：单体技能的收益倍数
+  "scoreBuildingSingleFactor": 15,
+  // 攻打建筑：多体技能的收益倍数
+  "scoreBuildingMultiFactor": 10,
+  // 攻打建筑：远程技能的施法距离系数
+  "scoreBuildingRangeFactor": 150,
+  // 攻打建筑：近战技能的施法距离系数
+  "scoreBuildingMeleeFactor": 100,
+  // 误伤友方建筑的收益倍数（负数表示惩罚）
+  "scoreFriendlyBuildingFactor": -8,
+  // 最终分数的缩放除数（把内部大数压到可比较的量级）
+  "scoreFinalDivisor": 100,
+  // 【严格对齐原版】是否用"真实伤害预演"决定这一击值不值得打。 对应原版 get_attack_damage_score（D:\open311\s11\s11_sys_unit_action.cpp:1780-1834）：
+  "useRealDamageScore": true,
+  // 【严格对齐原版】攻击目标时，若目标周围 1~2 格内有**本方建筑**，额外加的分值。 对应原版 get_target_score（D:\open311\s11\s11_sys_unit_action.cpp:1742-1754）：
+  "scoreNearFriendlyBuildingBonus": 4950,
+  // 是否启用 **Open311 原版评分体系**（离散加项制）替代本项目的连续分制。 true（默认）= 完全按原版 get_target_score / get_attack_damage_score /
+  "useOpen311ScoreFormula": true,
+  // 敌方目标加分 —— 原版 get_target_score:1694-1695
+  "o311TargetHostile": 5000,
+  // 友方目标加分 —— 原版 get_target_score:1696-1697
+  "o311TargetFriendly": 1500,
+  // 误伤己方目标的扣分（以正值配置，代码里取负）。 【为什么需要这一项】canDamageTeam = true 的技能（妖术、落雷这类真 AOE）在执行层是
+  "o311SelfDamagePenalty": 12000,
+  // "该目标无效"的标记值（原版 get_target_score 的 -1）。 聚合多个命中格时，p 落在这个区间内的按"无效目标"处理、直接跳过，
+  "o311InvalidTargetMark": -100,
+  // 攻城兵器（冲车~木兽）打建筑加分 —— 原版 :1701-1707
+  "o311SiegeOnBuilding": 2000,
+  // 普通兵装打部队加分 —— 原版 :1719-1720
+  "o311NormalOnUnit": 2000,
+  // 命中任务主目标加分 —— 原版 :1724-1727
+  "o311TargetMain": 10000,
+  // 目标周围 1~2 格有本方建筑加分 —— 原版 :1742-1754
+  "o311NearFriendlyBuilding": 1375,
+  // 异族 / 贼根城（FacilityId_Base/Den，本项目 kind=15/16）加分 —— 原版 :1770-1773
+  "o311BaseDenBonus": 200,
+  // 攻击动作常量 —— 原版 add_attack_action:410
+  "o311AttackActionBonus": 1000,
+  // 可被反击惩罚 —— 原版 add_attack_action:411-412
+  "o311CounterPenalty": 150,
+  // 伤害分命中常量 —— 原版 add_attack_action:415
+  "o311DamageHitBonus": 1000,
+  // 伤害分：打掉敌兵力一半以上（未击破）—— 原版 get_attack_damage_score:1795-1796
+  "o311DamagePartial": 1000,
+  // 伤害分：默认档（击破 / 建筑伤害足够）—— 原版 :1833
+  "o311DamageDefault": 2000,
+  // 伤害分：一击破据点（近战）—— 原版 :1806-1807
+  "o311DamageKillMelee": 10000,
+  // 伤害分：一击破据点（远程）—— 原版 :1806-1807
+  "o311DamageKillRanged": 2000,
+  // 战法动作常量 —— 原版 add_tactic_action（撞飞/乱射/二段突/熊手等各不同，取基准 949）
+  "o311TacticActionBonus": 949,
+  // 计略基础常量 —— 原版 add_strategy_action:894 的 base_score += ... + 500
+  "o311StrategyBaseBonus": 500,
+  // 计略成功率门槛（%）：低于该值不评估目标相关加减（原版 `chance >= 35`）
+  "o311StrategyChanceThreshold": 35,
+  // 消火：自己脚下（无「火神」）时的分值 —— 原版 :909-912
+  "o311StrategyShoukaSelf": 20000,
+  // 消火：友方据点 / 已行动部队 —— 原版 :927 / :950
+  "o311StrategyShoukaKyoten": 375,
+  // 消火：友方阵类 —— 原版 :932
+  "o311StrategyShoukaCamp": 250,
+  // 消火：友方其它设施 —— 原版 :935
+  "o311StrategyShoukaOther": 125,
+  // 伏兵动作常量 —— 原版 :1165
+  "o311StrategyFukuheiBonus": 474,
+  // 同讨动作常量 —— 原版 :1181
+  "o311StrategyDoushiuchiBonus": 250,
+  // 同讨 + 「神算」/「深谋」加成 —— 原版 :1183-1184
+  "o311StrategyDoushiuchiSkillBonus": 750,
+  // 计略动作常量 —— 原版 add_strategy_action 各分支基准值（消火 20000 / 建筑 375·250·125 …）
+  "o311StrategyActionBonus": 849,
+  // 陷阱"炸不到人"时的罚分 —— 原版 add_tactic_action / add_strategy_action 里的硬编码 10000 （s11_sys_unit_action.cpp:636 / :848 / :868 / :1022）。
+  "o311TrapScorePenalty": 10000,
+  // Open311 模式下的行动择优池大小。 **1（默认）= 总是取评分最高的动作**，等价于原版
+  "o311BestN": 1,
+  // 砂地位置分（原版 TerrainId_Sand）
+  "o311PosTerrainSand": 40,
+  // 湿地位置分（原版 TerrainId_Wetland）
+  "o311PosTerrainWetland": 30,
+  // 毒泉位置分（原版 TerrainId_Poison）
+  "o311PosTerrainPoison": -10000,
+  // 毒泉 + 「解毒」特技的位置分（原版 SkillId_Gedoku）
+  "o311PosTerrainPoisonWithFeat": 150,
+  // 森林位置分（原版 TerrainId_Forest）
+  "o311PosTerrainForest": 80,
+  // 栈道位置分（原版 TerrainId_Cliffroad）
+  "o311PosTerrainCliffroad": -250,
+  // 栈道 + 「难所行军」科技 / 「藤甲」特技的位置分
+  "o311PosTerrainCliffroadWithFeat": 70,
+  // 每有一个相邻友军部队的惩罚（原版 -100/个）
+  "o311PosNeighborOwnUnitPenalty": 100,
+  // 所在格着火时的惩罚（原版 -750）
+  "o311PosFirePenalty": 750,
+  // 周围有己方据点的基础分（原版 +550）
+  "o311PosOwnKyotenBase": 550,
+  // 每个己方据点的额外分（原版 +20/个）
+  "o311PosOwnKyotenPerCount": 20,
+  // 太鼓台 / 军乐台系数（原版 100 × (太鼓台×3 + 军乐台×1)）
+  "o311PosDrumBandFactor": 100,
+  // 阵 / 箭楼系数（原版 350 × (阵×4 + 箭楼×1)）
+  "o311PosCampTowerFactor": 350,
+  // 投石台系数（原版 450 × 投石台数）
+  "o311PosCatapultFactor": 450,
+  // 敌方据点的额外基础分（原版 +4 × 275）
+  "o311PosEnemyKyotenExtraBase": 275,
+  // 敌方据点额外分随数量增长（原版 +4 × (5/个)）
+  "o311PosEnemyKyotenExtraPerCount": 5,
+  // 任务主目标的收益倍率（%）。越高越执着于既定任务目标
+  "taskPrimaryTargetWeight": 5000,
+  // 任务非目标的收益倍率（%）。远低于主目标，使部队不会偏离任务
+  "taskOtherTargetWeight": 5,
+  // 原地施法加成（%）：无需移动即可攻击时的额外收益
+  "taskStayBonus": 200,
+  // 近战贴脸加成（%）：非远程部队移动到敌前时的额外收益
+  "taskMeleeCloseBonus": 50,
+  // 攻打任务目标城池 / 建筑的额外倍率（%）
+  "taskBuildingWeight": 100,
+  // 攻打"兵力远大于我方"敌人的额外加成（%）
+  "taskBigTroopBonus": 30,
+  // "大部队"的判定倍率（%）：目标兵力超过我方该比例时视为大部队
+  "taskBigTroopPercent": 150,
+  // 保护城池时，"威胁城池"的判定距离（格）
+  "protectCityThreatRange": 5,
+  // 保护城池时，敌人每靠近城池 1 格的攻击收益加成（%）
+  "protectCityNearEnemyBonusPerCell": 40,
+  // 盟友城协防的最远距离（格）：超过该距离直接召回最近的自有城，不再往盟友城下跑。 口径来源：玩家反馈"结盟后 AI 队伍扛着同字标堵到家门口"，见 TroopAIFallback。
+  "allySupportMaxDistance": 12,
+  // 盟友城协防的最低兵力比（%）：(部队兵力 + 城内兵力) / 围城敌军兵力 低于该值就不去送死，直接召回。
+  "allySupportMinTroopRatio": 70,
+
+  // ------------------------- 部队求援与撤退 -------------------------
+  // 部队状态（兵力 / 满编）低于该百分比时视为"状态不佳"，可能发起求援（%）
+  "askSupplyHealthPercent": 30,
+  // 搜索可求援补给队的最远距离（格）
+  "askSupplySearchRange": 12,
+  // 补给队兵力低于该值时返回据点补充（0 表示不限制）
+  "supplyReturnTroops": 3000,
+  // 补给队粮草低于该值时返回据点补充（0 表示不限制）
+  "supplyReturnFood": 6000,
+  // 补给队兵装低于该值时返回据点补充（0 表示不限制）
+  "supplyReturnItems": 100,
+  // 补给队与主力部队保持的最小距离（按"回合"计，乘以其移动力）
+  "supplyKeepDistanceTurns": 1,
+  // 我方战力占比低于该百分比时视为"大劣"，补给队立刻撤退（%）
+  "supplyRetreatForcePercent": 35,
+  // 补给队与最近敌方部队保持的安全距离（格，约等于一个回合的移动行程）。低于该距离则向己方据点后撤
+  "supplySafeDistance": 3,
+  // 求援结束后是否恢复原任务（如继续进攻 / 继续防守）
+  "askSupplyRestoreMission": true,
+
+  // ------------------------- 前线战略建筑 -------------------------
+  // 是否启用"前线修建战略辅助建筑"（军乐台 / 太鼓台 / 砦 / 箭楼等）。 关闭时将回退到旧逻辑：只在城池辖区（areaCellList）内随机选点建造。
+  "useFrontBuilding": true,
+  // 前线候选建址的搜索半径（格）。以城池为中心向外扩展，突破"本城辖区"的限制
+  "frontBuildSearchRange": 15,
+  // 每个城池同时派出的工程队上限
+  "frontBuildMaxPerCity": 1,
+  // 派出工程队所需的本城最低兵力
+  "frontBuildMinTroops": 10000,
+  // 派出工程队所需的本城最低粮草
+  "frontBuildMinFood": 10000,
+  // 派出工程队所需的本城最低金钱
+  "frontBuildMinCityGold": 2000,
+  // 每回合尝试派遣工程队的概率（%）。避免每座城每回合都出兵
+  "frontBuildChance": 40,
+  // 工程队携带的资金（金）。0 表示按"目标建筑造价 × frontBuildGoldCostPercent%"自动计算。 给足余量以便一次出行连续建造多座建筑。
+  "frontBuildBudget": 0,
+  // 自动计算携带资金时的造价倍率（%）：如 300 表示按三倍造价携带，可连建约 3 座
+  "frontBuildGoldCostPercent": 300,
+  // 候选建址的最低评分门槛，低于该分不值得派遣工程队
+  "frontBuildSiteMinScore": 100,
+  // 覆盖范围内己方兵力低于该值时，该建址视为"无人受益"而放弃
+  "frontBuildMinCoverTroops": 3000,
+  // 建址与最近敌人的最小允许距离（格）。过近会被敌人迅速拆除，直接排除
+  "frontBuildSafeMinDist": 2,
+  // 建址与敌人的理想距离带下限（格）
+  "frontBuildIdealMinDist": 3,
+  // 建址与敌人的理想距离带上限（格）。超出该距离视为"太靠后、用不上"
+  "frontBuildIdealMaxDist": 12,
+  // 建址威胁扫描半径（格）：用于评估该点会被敌人多快攻击
+  "frontBuildThreatRange": 6,
+  // 前线建址"战略要道"判定半径（格）：该范围内的城池 / 港口 / 关隘视为扼守要冲， 会导向箭楼 / 连弩楼 / 投石台这类自动输出建筑。
+  "frontChokeScanRange": 6,
+  // 前线价值评分中"己方覆盖收益"的权重（%）
+  "frontCoverWeight": 100,
+  // 前线价值评分中"战略要道（邻近关 / 港 / 城池）"的权重（%）
+  "frontChokeWeight": 80,
+  // 前线价值评分中"敌方威胁惩罚"的权重（%）
+  "frontThreatWeight": 120,
+  // 前线价值评分中"距理想距离带偏离"的惩罚权重（%）
+  "frontDistanceWeight": 60,
+  // 覆盖范围内己方部队平均气力低于该百分比时，优先修建军乐台（%）
+  "frontBuildLowMoralePercent": 60,
+  // 军乐台"去重"半径（格）：建址该半径内若已有己方军乐台， 说明这片区域的回气力需求已被覆盖，不再重复修建（军乐台效果是范围性的），
+  "frontMoraleDedupeRange": 4,
+  // 覆盖范围内粮草紧张的己方部队占比超过该百分比时，优先修建省粮建筑（%）
+  "frontBuildLowFoodPercent": 40,
+  // 工程队完成一座建筑后是否继续寻找下一个建址（关闭则建完即回城）
+  "frontBuildContinueAfterDone": true,
+  // 工程队连续建造的最大次数（防止其长期在外）
+  "frontBuildMaxContinuous": 3,
+  // 兜底选型权重表（按建筑 kind 计权，与 frontFallbackWeights 一一对应）。 【为什么要按权重随机】军乐台 needTech=0 恒可建，若兜底仍按"优先序列取第一个可建"，
+  "frontFallbackKinds": [13, 12, 4, 7],
+  // 兜底选型权重（与 frontFallbackKinds 一一对应）
+  "frontFallbackWeights": [30, 25, 25, 20],
+  // 未列在 frontFallbackKinds 中的 kind，在兜底选型时的权重
+  "frontFallbackDefaultWeight": 10,
+  // 前线建址优先建筑类型（按 kind），仅作为"权重表里没有任何可建项"时的次级兜底顺序。 默认：军乐台(13) → 太鼓台(12) → 阵(4) → 箭楼(7)。
+  "frontBuildPreferredTypes": [13, 12, 4, 7],
+  // 是否让前线作战部队就地增筑辅助建筑（B3：随军增筑）
+  "useFieldBuilding": true,
+  // 作战部队就地增筑所需的兵力占满编的最低比例（%），低于此值优先保命而非施工
+  "fieldBuildMinHealthPercent": 60,
+  // 作战部队就地增筑时的资金门槛（金），需不低于目标建筑造价
+  "fieldBuildMinGold": 0,
+  // 作战部队就地增筑的触发概率（%）
+  "fieldBuildChance": 20,
+  // 【已停用】作战部队出征携款上限。 出征携款已改为严格对齐原版（s11_game_ai_kyoten_cmd_mil_attack.cpp:296-334）：
+  "troopCarryGold": 1500,
+  // 【已停用】旧公式按"占总兵力比例(%)"设计，但除数误用 10000（应为 100）， 导致 8000 兵只带 4 金，随军增筑 / 前线建陷阱整条链路失效。
+  "troopCarryGoldPerTroops": 5,
+  // 补给队可转运的资金比例（%）。0 表示不转运金钱（沿用旧行为）
+  "supplyTransferGoldPercent": 30,
+  // 补给时友军金钱低于该值才视为"缺钱"（金）
+  "supplyNeedGoldThreshold": 800,
+
+  // ------------------------- 城池命令优先级（动态排序） -------------------------
+  // 是否启用原版据点状态调度（OutpostState 四态 + 军团行动力预算）。 对齐出处：Open311 的 district_ai / 据点主流程 三层调度。
+  "useOutpostStateOrder": true,
+  "logOutpostAI": false,
+  // 是否允许 AI 自动拆分 / 重编军团（对齐原版 force_districts）。 关闭后 AI 势力只保留玩家设定的军团结构；开启后 AI 会在"某个军团城数明显偏多"时
+  "useAutoCorpsSplit": true,
+  // 是否让 AI 按 Open311 的据点内政权重表决定"下一个建什么"。 对齐出处：s11_game_ai_kyoten_cmd_dev_ai.cpp:372-653 dev_ai_select_facility_id。
+  "useOutpostBuildRule": true,
+  // 是否在原版权重表之上叠加"需求缺口修正"（仅作用于市场 / 农场）。 融合思路：原版权重表负责**硬约束**（max 上限、特产加权、后方 / 港口 / 前线禁建），
+  "useDemandCorrection": true,
+  // 是否启用动态城池命令排序（关闭则回退到各内政系统内的硬编码顺序）
+  "useDynamicCityOrder": true,
+  // 城池命令优先级的全部权重与阈值（基础分 / 态势阈值 / 评分分值 / 个性修正 / 紧急覆盖）。 可通过 Data/Common/AIConfig.json 的 "cityOrder" 节点做部分覆盖。
   "cityOrder": {
-    // ---------------- 一、基础权重（每条命令的起始分） ----------------
     "baseAIAttack": 60,
     "baseAIReinforce": 40,
     "baseAITradeFood": 30,
@@ -39,33 +582,31 @@
     "baseAICreateBoat": 20,
     "baseAISearching": 25,
     "baseAIRecruitPerson": 35,
+    "scoreRecruitPersonPerWild": 6,
+    "scoreRecruitPersonWildBonusMax": 60,
+    "scoreRecruitPersonEarlyBonus": 25,
+    "recruitPersonEarlyTurns": 10,
     "baseAIResearch": 25,
     "baseAIMakeSupplyTroop": 30,
-
-    // ---------------- 二、态势阈值 ----------------
     "fillCritical": 0.2,
     "fillLow": 0.5,
     "fillHigh": 0.7,
     "fillFull": 0.9,
-    "troopLowFill": 0.3,
-    "troopMidFill": 0.6,
-    "troopHighFill": 0.7,
-    // 兵装目标覆盖率（兵装 / 兵力）：守军兵装 < 兵力 × 该值时视为兵装不足，造兵装命令按缺口抬升优先级
-    "weaponCoverRatio": 1.3,
-    // 兵装危机线覆盖率：兵装 < 兵力 × 该值时视为严重枯竭，额外获得 critical 加成
-    "weaponCriticalCoverRatio": 0.5,
-    "rewardGoldThreshold": 1000,
-    "researchGoldThreshold": 5000,
-    "machineEnough": 60,
     "securityCritical": 30,
     "securityLow": 50,
     "securityOk": 70,
     "moraleLow": 40,
     "moraleOk": 60,
+    "troopLowFill": 0.3,
+    "troopMidFill": 0.6,
+    "troopHighFill": 0.7,
+    "weaponCoverRatio": 1.3,
+    "weaponCriticalCoverRatio": 0.5,
+    "rewardGoldThreshold": 1000,
+    "researchGoldThreshold": 5000,
+    "machineEnough": 60,
     "weaponCrisisTroops": 1000,
     "crisisFoodFill": 0.15,
-
-    // ---------------- 三、评分分值 ----------------
     "scoreAttackBorderBonus": 40,
     "scoreAttackTroopHighBonus": 30,
     "scoreAttackTroopLowPenalty": 40,
@@ -108,8 +649,6 @@
     "scoreResearchDefaultBonus": 10,
     "scoreSupplyBonus": 60,
     "scoreSupplyPenalty": 50,
-
-    // ---------------- 四、个性修正 ----------------
     "personalityAggressiveMilitaryBonus": 20,
     "personalityAggressiveInternalPenalty": 20,
     "personalityDefensiveMilitaryBonus": 15,
@@ -117,8 +656,6 @@
     "personalityEconomicInternalBonus": 25,
     "personalityEconomicMilitaryPenalty": 25,
     "personalityDiplomaticPersonBonus": 20,
-
-    // ---------------- 五、紧急覆盖 ----------------
     "siegeDefenseBias": 200,
     "siegeInternalPenalty": 80,
     "reinforceBias": 80,
@@ -127,325 +664,91 @@
     "crisisFoodBias": 150,
     "crisisSecurityBias": 100,
     "crisisWeaponBias": 80,
+    "armsDemandTopBias": 560,
     "peaceInternalBias": 30,
     "peaceMilitaryPenalty": 40,
-
-    // ---------------- 六、人才优先顶部抬升 ----------------
-    // 未发现武将 >= 该值 → 搜索命令抬到最高优先级（幅度略低于登用）
+    "interiorBuildTopBias": 700,
+    "interiorUpgradeBias": 150,
     "searchingInvisibleTopThreshold": 2,
     "searchingInvisibleTopBias": 600,
-    // 在野武将 >= 该值 → 登用命令抬到最高优先级
     "recruitPersonWildTopThreshold": 2,
     "recruitPersonWildTopBias": 700
   },
 
-  // ------------------------- AI 行动概率 -------------------------
-  // 搜索行动基础概率（%）与"每名未发现武将"的额外概率（%）
-  "searchBaseChance": 60,
-  "searchInvisibleChancePerPerson": 15,
-
-  // ------------------------- 部队态势分档 -------------------------
-  // 部队每回合按"局部敌我兵力占比"分档，档位决定进攻倾向 / 反击容忍 / 撤退概率 / 择优池
-  "useTierStrategy": true,
-  "useTierRetreat": true,
-  "tierScanRange": 12,
-  "tierDecisivePercent": 65,        // 我方占比 ≥ 此值 → 碾压
-  "tierAdvantagedPercent": 45,      // ≥ 此值 → 优势
-  "tierEvenPercent": 35,            // ≥ 此值 → 均势
-  "tierDisadvantagedPercent": 25,   // ≥ 此值 → 劣势；低于 → 危局
-
-  // 倍率均为百分数，100 = 不修正；bestN = 1 表示直接取最优行动，0 = 不择优
-  "tierCritical":      { "attackScale":  50, "counterPenaltyScale": 200, "retreatChance": 80, "bestN": 1 },
-  "tierDisadvantaged": { "attackScale":  80, "counterPenaltyScale": 150, "retreatChance": 40, "bestN": 1 },
-  "tierEven":          { "attackScale": 100, "counterPenaltyScale": 100, "retreatChance": 10, "bestN": 5 },
-  "tierAdvantaged":    { "attackScale": 120, "counterPenaltyScale":  80, "retreatChance":  0, "bestN": 3 },
-  "tierDecisive":      { "attackScale": 140, "counterPenaltyScale":  50, "retreatChance":  0, "bestN": 1 },
-
-  // ------------------------- 部队角色 -------------------------
-  // 角色决定"怎么打"，与任务（去哪）正交
-  "useTroopRole": true,
-  "roleAssault":    { "attackScale": 120, "counterPenaltyScale":  60, "missionFocusScale": 130 },  // 攻坚
-  "roleDefender":   { "attackScale":  90, "counterPenaltyScale": 150, "missionFocusScale": 110 },  // 防守
-  "roleHarasser":   { "attackScale": 110, "counterPenaltyScale":  80, "missionFocusScale": 140 },  // 骚扰
-  "roleSkirmisher": { "attackScale": 100, "counterPenaltyScale": 120, "missionFocusScale":  80 },  // 游击
-  "roleEscort":     { "attackScale":  70, "counterPenaltyScale": 180, "missionFocusScale": 100 },  // 护卫
-  "roleGuard":      { "attackScale":  80, "counterPenaltyScale": 150, "missionFocusScale":  70 },  // 守备
-
-  // ------------------------- 部队技能评分公式 -------------------------
-  // 原为代码内硬编码字面量，外置后可直接调参
-  "scoreSkillBaseFactor": 150,
-  "scoreRangeBonus": 15,
-  "scoreSingleBonus": 5,
-  "scoreEffectBonus": 5,
-  "scoreControlBonus": 30,
-  "scoreStrategySuccessThreshold": 75,
-  "scoreStrategySuccessBonus": 2,
-  "scoreAttackDefenceBase": 200,
-  "scoreMinCostEnergy": 10,
-  "scoreBuildingDamageFactor": 4,
-  "scoreBuildingSingleFactor": 15,
-  "scoreBuildingMultiFactor": 10,
-  "scoreBuildingRangeFactor": 150,
-  "scoreBuildingMeleeFactor": 100,
-  "scoreFriendlyBuildingFactor": -8,
-  "scoreFinalDivisor": 100,
-
-  // ------------------------- 任务权重（倍率 %） -------------------------
-  // 替代原先 500000 / 5 / 1000000 / 30000 / 50000 等魔法数字
-  "taskPrimaryTargetWeight": 5000,
-  "taskOtherTargetWeight": 5,
-  "taskStayBonus": 200,
-  "taskMeleeCloseBonus": 50,
-  "taskBuildingWeight": 100,
-  "taskBigTroopBonus": 30,
-  "taskBigTroopPercent": 150,
-  "protectCityThreatRange": 5,
-  "protectCityNearEnemyBonusPerCell": 40,
-
-  // ------------------------- 进攻欲望（出兵门槛与概率） -------------------------
-  // 三档 AI 个性各有两个杠杆：城内兵力下限 + 每回合跳过进攻的概率。
-  // 两者必须一起看：
-  //   · AICanAttack 先用 attackMinTroops* 判"打不打得起"，再用 attackSkipChance* 掷骰；
-  //   · DecideAttackTarget 挑目标时还有一道 attackTargetMinTroops，
-  //     兵力落在 [attackMinTroops*, attackTargetMinTroops) 区间时会被判成
-  //     "能打但候选为空"，最终依然不出兵 —— 只调前者会表现为"改了没效果"。
-  "attackMinTroopsAggressive": 6000,   // 好战：低于此兵力不出兵（原硬编码 8000）
-  "attackMinTroopsBalanced": 7000,     // 均衡（原硬编码 10000）
-  "attackMinTroopsDefensive": 9000,    // 谨慎（原硬编码 12000）
-  "attackTargetMinTroops": 12000,      // 进入目标打分的最低兵力（原硬编码 20000）
-  "attackTargetPlayerBonus": 1500,     // 目标势力是玩家时额外加的权重（加法项，原硬编码 1500；负数=回避玩家）
-
-  // 每回合"跳过进攻"的掷骰概率（%），越低越积极（原硬编码 50 / 70 / 80）
-  "attackSkipChanceAggressive": 18,
-  "attackSkipChanceBalanced": 25,
-  "attackSkipChanceDefensive": 35,
-
-  // ------------------------- AI 出阵行动力 -------------------------
-  // 单次出阵（Attack 命令）消耗的据点行动力，默认 5。
-  // 实际扣减在 CityAI.AIAttack，调度器预估在 CityAIOutpost.GetOrderActionPointCost，
-  // 两处统一走 AIConfig.GetAttackActionPointCost，改这里即可整体生效。
-  // 配成 0 或负数时退回命令表成本（City.GetJobCostAP(MakeTroop)，含军事府减半）。
-  "aiAttackActionPointCost": 5,
-
-  // ------------------------- 据点 AI 调度日志（排查"某城为什么不出兵"时打开） -------------------------
-  "logOutpostAI": false,
-
-  // ------------------------- 据点进攻决策日志（排查"某城为什么不出兵"时打开） -------------------------
-  // 打开后 Console 打印 AICanAttack 各否决原因（兵力不足 / 士气治安 / 空闲武将 / 非边境 / 6格敌军 /
-  // 无相邻敌城 / 攻击概率跳过）与 DecideAttackTarget 选/未选中目标；排查完记得改回 false。
-  "logAttackAI": false,
-
-  // ------------------------- 人才部署（武将调度：岗位编制 / 调动节奏） -------------------------
-  // 本节点是 DeploymentWeights 的**完整镜像**：只写要覆盖的字段即可，未出现的字段沿用代码内置默认值。
-  // 下面这些值当前与代码默认一致，放在这里只是方便直接调参、不必改代码。
-  // 注意：shadowLogIntervalTurns 现在**只控制日志输出频率**，不再影响调人节奏（每回合都会执行）。
-  // 说明：各岗型的能力权重（PositionWeights：military / recruitTroops / ... 的六个分量）仍留在代码里 ——
-  //       它是不完整覆盖有风险的对象（只写一个分量会把其余分量清 0），需要调时再单独外置。
-  "deployment": {
-    // ---- 总开关与报告 ----
+  // ------------------------- 内政建筑规划（动态目标构成） -------------------------
+  // AI 内政建筑规划的全部权重与阈值（份额权重 / 港口修正 / 排除名单）。 可通过 Data/Common/AIConfig.json 的 "buildingPlan" 节点做部分覆盖。
+  "buildingPlan": {
     "enabled": true,
-    "shadowOnly": false,                // true = 只计算不调人（调试用）
-    "shadowLogEnabled": true,           // 是否输出部署报告（仅编辑器 / 开发包）
-    "shadowLogForceId": -1,             // -1 = 报告所有势力；0 = 只报告玩家；>0 = 指定势力 id
-    "shadowLogIntervalTurns": 3,        // 每 N 个势力回合输出一次报告（只影响日志）
-    "shadowLogCorpsId": 0,              // >0 = 只报告该军团（军团级调度才有意义）
-
-    // ---- 军团边界与人才开关（**只约束玩家势力**，AI 势力以势力为边界） ----
-    // 玩家侧：
-    //   · 军团边界：源城与目标城必须同军团，跨团一律否决；
-    //   · "人才"开关（军团委任界面可改，代码里是 Corps.AppointContentType.Person：
-    //     0 = 允许 AI 代管，1 = 玩家自己管）：只有开启的军团才跑调度，未开启整块跳过；
-    //   · 第一军团（君主所在军团）由玩家直辖，只出"仅参考"影子报告、不调人。
-    // AI 势力侧：目标城与抽调池都是全势力，势力内可跨军团调人，上述三条都不适用。
-    "enforceCorpsBoundary": true,       // 玩家军团边界开关（对 AI 势力无效）
-
-    // ---- 编制：通用席位 ----
-    "levelSeat": [3, 4, 5, 6],          // 基础席位，下标 = 城池等级-1（小/中/大/巨）
-    "borderRingBonus": 2,               // 前线(圈层0)额外军事岗
-    "subFrontRingBonus": 1,             // 次前线(圈层1)额外军事岗
-    "threatHighAt": 2000,               // 高威胁阈值（对 threatLevel）
-    "threatMidAt": 800,                 // 中威胁阈值（也是"需要按兵力编队"的判据）
-    "threatHighBonus": 2,               // 高威胁额外军事岗
-    "threatMidBonus": 1,                // 中威胁额外军事岗
-    "portGateMaxSeat": 5,               // 港关守备最大常驻人数
-
-    // ---- 特技组合搭配 ----
-    "featureNoveltyBonus": 0.35,        // 候选能带来本城驻军没有的特技时的加分（军事/守备岗）
-    "recommendedTeamBonus": 0.25,       // 推荐队伍队员/特技持有者被调往前线的加分（军事/守备岗；0 = 关闭）
-    "enablePortGateDistribute": true,   // 是否把港关纳入编制（false = 港关不接收人）
-
-    // ---- 预想兵力（抗抖动的编制基数） ----
-    "troopExpectFill": 0.8,             // 预想兵力容量部分 = 兵力上限 × 此比例
-    "troopObserveAlpha": 0.25,          // 兵力观察值的慢速均值系数（每回合）
-    "useCurrentTroopsWhenHigher": true, // 当前兵力高于预想值时采用当前值（只上不下）
-    "troopEcoAdjust": true,             // 预想兵力是否按经济（粮草/金钱）修正
-    "troopEcoBase": 0.5,                // 经济系数基数
-    "troopEcoFoodWeight": 0.3,          // 粮草填充率的权重
-    "troopEcoGoldWeight": 0.2,          // 金钱填充率的权重
-    "troopEcoFloor": 0.4,               // 经济系数下限
-    "troopEcoAlpha": 0.25,              // 经济系数的慢速均值系数
-
-    // ---- 预想资源值（资金 / 粮草） ----
-    "goldExpectFill": 0.7,              // 预想资金 = 金库上限 × 此比例（与长期观察值取大）
-    "foodExpectFill": 0.7,              // 预想粮草 = 粮仓上限 × 此比例
-    "resourceObserveAlpha": 0.25,       // 资源观察值的慢速均值系数
-
-    // ---- 开发修正（离边境距离 + 资源富裕度） ----
-    "devRingFactor": [0.5, 0.8, 1.0, 1.15], // 圈层系数表，下标 = borderLine（0 = 边境），超出取末项
-    "devResourceBase": 0.7,             // 资源富裕度对开发修正的贡献下限
-    "devModMin": 0.3,                   // 开发修正下限
-    "devModMax": 1.5,                   // 开发修正上限
-
-    // ---- 军事岗：队数折算与保底 ----
-    "defaultTroopsPerGeneral": 10000,   // 无太守时每名军事将分摊的兵力
-    "troopsPerUnit": 5000,              // 每队编制兵力（军事岗 = 预想兵力 ÷ 此值 = 队数）
-    "deputyPerUnit": 0.5,               // 每队平均副将数（军事岗 = 队数 × (1 + 此值)）
-    "troopSeatOnlyWhenThreatened": true,// 军事岗只在"前线(圈层0) / 次前线(圈层1) / 威胁达标城"按预想兵力折算
-    "rearMilitarySeat": 0,              // 纯后方(圈层≥2)且威胁未达标的城：军事岗数（0 = 不设）
-    "militarySeatHardMax": 60,          // 单城军事岗硬顶
-    "minMilitarySeatAtBorder": 3,       // 前线城即使没兵也保留的军事岗
-    "militaryMinAbility": 80,           // 军事/守备岗能力下限：统率+武力 < 此值不派去带兵（硬性岗不受限）
-
-    // ---- 军事岗：按"兵力充实度"收缩（治"预想兵力虚高 → 编出一堆没兵可带的将军岗"） ----
-    // 公式：军事岗 = min(原值, C) + max(0, 原值 − C) × 当前兵力/预想兵力
-    //       C（免缩放额度）= militarySeatFillShare × 势力人均人数（人均 = 总人数 ÷ 都市数，不含港关）
-    // 例（人均 29）：0.3 → C ≈ 9；某城原值 33、当前/预想 = 0.22 → 9 + 24×0.22 ≈ 14
-    "militarySeatFillShare": 0.3,            // α：额度系数（0 = 关闭收缩，回到旧行为）
-    "militarySeatFillUseLocalFactor": true,  // 再乘 min(1, 本城在册/人均)：空城 → C=0，整段按兵力折算
-    "militarySeatFillRatioFloor": 0.0,       // 充实度下限（0 = 用原始比例；设 0.5 可抑制战损抖动）
-
-    // ---- 最低运转保底（后方保留"运输 + 战略储备"） ----
-    "minSeatAtRearByLevel": [2, 2, 3, 3], // 后方保底席位，下标 = 城池等级-1
-    "rearFloorMinRing": 1,              // 保底生效的圈层下限（≥ 此圈层才算"后方"）
-    "enableDynamicRearFloor": true,     // 用"人均城数"动态推算保底
-    "rearShareRatio": 0.3,              // 动态保底 = 人均城数 × 此值
-    "maxSeatAtRearByLevel": [3, 4, 6, 8], // 后方保底等级上限（防止后方囤人）
-
-    // ---- 开发岗（战略资源积累） ----
-    "interiorPointsPerDevSeat": 3.0,    // 每多少点内政设施等级配 1 名开发将
-    "devSeatNeedsInterior": true,       // 是否要求城内有内政设施才给"缺口加成"
-    "devGapBonusLow": 1,                // 开发缺口低档追加岗
-    "devGapBonusHigh": 2,               // 开发缺口高档追加岗
-    "devGapLow": 0.35,                  // 开发缺口低档阈值
-    "devGapHigh": 0.60,                 // 开发缺口高档阈值
-    "devSeatMax": 3,                    // 开发岗上限（基准；人力丰裕时按 abundance 放宽）
-
-    // ---- 人力丰裕度（弹性岗位随人力放开） ----
-    "staffAbundanceScaling": true,      // 弹性岗上限是否随"人力丰裕度"放宽
-    "staffPerCityBaseline": 8.0,        // 丰裕度基准：人均城数达到此值按 1.0 倍计
-    "staffAbundanceMax": 2.5,           // 丰裕度上限（最多放大的倍数）
-
-    // ---- 各类弹性岗位的独立上限 ----
-    "trainSeatMax": 3,                  // 训练岗上限（游戏内训练最多 3 人）
-    "searchSeatMax": 5,                 // 搜索岗上限
-    "hiddenPerSearchSeat": 25.0,        // 每多少名未发现/在野人才配 1 名搜索将
-    "logisticsSeatMax": 2,              // 后勤岗上限（治安 1 + 粮草 1）
-    "recruitPersonSlotEnabled": true,   // 是否生成"登用"岗
-    "wildPerRecruitSeat": 8.0,          // 每多少名在野武将配 1 名登用将
-    "recruitPersonSeatMax": 5,          // 登用岗上限
-
-    // ---- 前期加成（开局 N 回合内优先登用） ----
-    "earlyGameTurns": 10,               // 前期窗口：开局前 N 个势力回合
-    "earlyRecruitWildThreshold": 4,     // 城内"在野武将"达此数才触发前期登用加成
-    "earlyRecruitPriority": 3,          // 前期登用岗优先级（平时 9）
-    "earlyWildPerRecruitSeat": 4.0,     // 前期"每多少名在野配 1 名登用将"（平时 8）
-
-    // ---- 运输岗 ----
-    "transportSeatMax": 1,              // 运输岗上限（每城最多一位：一支运输队一名押车武将）
-    "transportSlotEnabled": true,       // 是否生成运输岗
-    // 运输源城"有货可运"判定：兵 / 粮 / 金 **任一**达标即留运输岗（或关系，不是"且"），
-    // 口径与 resourceDispatch.minShip* 对齐（10000 / 30000 / 3000）
-    "transportMinTroops": 10000,        // 运输源城所需最低兵力
-    "transportMinFood": 30000,          // 运输源城所需最低粮草
-    "transportMinGold": 3000,           // 运输源城所需最低金钱
-
-    // ---- 跨圈层调动成本（前线有权与内陆交换武将） ----
-    "frontwardCostFactor": 0.25,        // 调向更前线（ring 变小）的成本系数（便宜 = 鼓励前送）
-    "backwardCostFactor": 1.5,          // 调向更后方（ring 变大）的成本系数（贵 = 抑制回撤）
-
-    // ---- 征兵 ----
-    "recruitSlotEnabled": true,         // 是否生成征兵岗
-    "recruitFillTarget": 0.8,           // 兵力低于上限的此比例时需要征兵
-    "recruitSevereFill": 0.5,           // 兵力低于上限的此比例时视为严重缺兵（+1 岗）
-
-    // ---- 军备（兵装 / 器械 / 船） ----
-    "armamentSlotEnabled": true,        // 是否生成军备岗
-    "armamentCoverTarget": 1.0,         // 兵装总量 ÷ 兵力 达到此比例即视为充足
-    "machineCountTarget": 2,            // 器械目标数量（有工坊时才要求）
-    "boatSlotEnabled": true,            // 是否生成船岗（有船厂且是港口时才要求）
-    "armamentNeedsFacility": true,      // 兵装岗是否要求城内有锻冶/马厩
-
-    // ---- 训练（士气） ----
-    "trainSlotEnabled": true,           // 是否生成训练岗
-    "moraleFillTarget": 0.9,            // 士气低于上限的此比例时需要训练
-
-    // ---- 搜索 ----
-    "searchSlotEnabled": true,          // 是否生成搜索岗
-
-    // ---- 后勤 ----
-    "logisticsSecurityTarget": 0.7,     // 治安低于此比例时生成后勤岗（后方城）
-    "logisticsFoodFillTarget": 0.3,     // 粮草低于此比例时生成后勤岗（后方城）
-
-    // ---- 调动节奏与门槛 ----
-    "debounceTurns": 2,                 // 同一武将 N 个势力回合内不再被调走
-    "maxTransferPerCityPerTurn": 2,     // 每城每回合接收基准额度
-    "frontlineExtraReceiveSeat": 2,     // 前线 / 高威胁城额外接收额度
-    "maxTransferFromCityPerTurn": 1,    // 源城每回合调出基准额度（净富余算出的额度下限）
-    "sendSurplusPerSeat": 5,            // 净富余 = 本城空闲 − 本城未填岗位；每 N 个净富余多允许调出 1 人
-    "maxSendPerCityPerTurn": 5,         // 源城每回合调出额度硬顶（净富余越多越接近它）
-    "maxTransferPerTurn": 32,           // 势力级每回合调动总人数上限（0 = 不限）
-    "minTransferScore": 0.1,            // 外调最低匹配分（硬性岗不受限）
-    "stealLocalCost": 0.4,              // 抢占"本城在岗"人选的额外成本（优先用真正的机动人力）
-    "minPortGateGuard": 1,              // 港关至少保留的守备人数
-
-    // ---- 编制总量与增量 ----
-    "enableIncrementalPlan": true,      // 城况未变的城复用上回合岗位表
-    "maxPostsPerPerson": 1.1,           // 岗位总数上限 = 势力总人数 × 此值；超出时按城轮转裁撤
-                                        // 参考：0.8 = 偏紧（会明显裁撤）；1.0~1.1 = 编制与人力大致相等；1.4 = 宽松
-
-    // ---- 求解 ----
-    "maxSeatSharePerCity": 0.4,         // 单城岗位数占势力总人数比例上限
-    "crossRingCost": 1.5,               // 跨圈层调动额外成本
-    "costPerTurn": 1.0,                 // 行程成本系数（每回合位移折算）
-    "turnDays": 10                      // 一回合多少天（用于把 DistanceDays 折成回合）
-  },
-
-  // =========================================================================
-  //  资源调度（城池之间的物资运输）—— 对应 ResourceDispatchWeights
-  //  只写要覆盖的字段即可，未出现的字段沿用代码内置默认值
-  // =========================================================================
-  "resourceDispatch": {
-    "enabled": true,                    // 总开关
-
-    // ---- 起运门槛：金 / 粮 / 兵 三类**任一**达标即发车（或关系，不是"且"）----
-    // 参与比较的量是 min(目标城缺口, 源城富余) —— 即"看目标城市缺多少"；目标城不缺就不发车
-    "minShipGold": 3000,                // 单次最少起运金钱
-    "minShipFood": 30000,               // 单次最少起运粮草
-    "minShipTroops": 10000,             // 单次最少起运兵力
-    "minShipArms": 50,                  // 单次最少起运兵装
-    "minShipMachine": 1,                // 单次最少起运器械
-    "minShipBoat": 1,                   // 单次最少起运船
-
-    // ---- 搭车与远程加价 ----
-    "riderMinRatio": 0.1,               // 搭车下限 = 自身门槛 × 此值（车已发，顺路带货；0 = 有货就捎）
-    "minShipHopsFactor": 0.15,          // 起运门槛随跳数上浮（每多一跳 +该比例；0 = 关闭）
-
-    // ---- 派车配额 ----
-    "maxShipmentsPerDomain": 4,         // 每作用域每回合派车数下限（再按城数放大）
-    "shipmentsPerCityDivisor": 5,       // 每多少座城追加 1 车额度
-    "maxShipmentsPerSourceCity": 1,     // 每源城每回合最多发几车（一城多队太嘈杂，多类资源靠搭车合并成一单）
-    "maxConvoysInTransitPerCity": 1,    // 同一城同时在途的运输车上限（送货中/返程都算在途；0 = 不限）
-    "maxShipmentsPerTargetCity": 2,     // 每目标城每回合最多收几车（防配额被少数城吃光）
-
-    // ---- 前线紧急度 ----
-    // 单点告急不该把整个后方抽空：合成方式 = max × (1−本值) + avg × 本值（0 = 只看最告急的一座）
-    "frontUrgencyAvgWeight": 0.4,
-    // 远端前线提前告警（把"补给在路上的回合数"算进危险线），否则等断粮才发车就来不及
-    "frontUrgencyCountSupplyTurns": true,
-
-    // ---- 港关 ----
-    // 归属主城已收不下（到水位 / 不在本域）时，允许无军情港关直送其它缺口城，
-    // 免得货卡在渡口变成背压、连带产物端停产
-    "portGateDirectShipWhenParentFull": true
+    "shadowOnly": false,
+    "logEnabled": true,
+    "logForceId": -1,
+    "logIntervalTurns": 30,
+    "defaultRatio": 0,
+    "excludedKinds": [
+      49
+    ],
+    "portBiasKinds": [
+      38,
+      48
+    ],
+    "portBias": 2.0,
+    "nonPortBias": 0.15,
+    "personalityEnabled": true,
+    "leaderPersonalityWeight": 0.6,
+    "governorPersonalityWeight": 0.4,
+    "personalitySensitivity": 2.0,
+    "personalityFactorMin": 0.5,
+    "personalityFactorMax": 2.0,
+    "supplyEnabled": true,
+    "supplyLowFill": 30,
+    "supplyHighFill": 70,
+    "supplyLowBias": 1.8,
+    "supplyHighBias": 0.6,
+    "produceBuildingMaxCount": 3,
+    "produceKinds": [
+      35,
+      36,
+      37,
+      38
+    ],
+    "defaultMaxPerCity": 1,
+    "armsCoverRatio": 1.0,
+    "armsNeedMinGap": 1000,
+    "machineHoldRatioRear": 0.1,
+    "machineHoldRatioBorder": 0.3,
+    "machineNeedMinGap": 1,
+    "boatHoldRatioPort": 0.7,
+    "boatHoldRatioInland": 0,
+    "boatNeedMinGap": 1,
+    "baseFarmCount": 2,
+    "baseMarketCount": 2,
+    "baseDemandPriority": 10,
+    "multiplierMinBase": 2,
+    "minorScoreScale": 0.1,
+    "expandEnabled": true,
+    "expandGoldKeep": 0,
+    "expandScore": 0.3,
+    "useWeightedRandom": true,
+    "capacityAlternateFactor": 0.5,
+    "buildCostEstimate": 300,
+    "buildReserveYears": 2,
+    "armsEmergencyEnabled": true,
+    "armsEmergencyArmsFill": 30,
+    "armsEmergencyMaxExtra": 3,
+    "armsEmergencyGoldFactor": 3,
+    "replaceEnabled": true,
+    "replaceCooldownTurns": 12,
+    "replaceGainRatio": 1.5,
+    "replaceGoldFactor": 3,
+    "replaceableKinds": [
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38
+    ],
+    "replaceMinKeep": 1
   }
 }

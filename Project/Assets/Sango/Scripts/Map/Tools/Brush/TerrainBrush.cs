@@ -409,7 +409,7 @@ namespace Sango.Tools
 
             for (int i = 0; i < editor.map.mapTerrain.terrainCells.Length; i++)
             {
-                MapCell cell = editor.map.mapTerrain.terrainCells[i];
+                IMapCell cell = editor.map.mapTerrain.terrainCells[i];
                 if (cell != null)
                 {
                     if (cell.Overlaps(currentBounds))
@@ -817,7 +817,7 @@ namespace Sango.Tools
 
                         for (int i = 0; i < editor.map.mapTerrain.terrainCells.Length; i++)
                         {
-                            MapCell cell = editor.map.mapTerrain.terrainCells[i];
+                            IMapCell cell = editor.map.mapTerrain.terrainCells[i];
                             if (cell != null)
                             {
                                 if (cell.Overlaps(rect))
@@ -1301,7 +1301,7 @@ namespace Sango.Tools
 
                             for (int i = 0; i < editor.map.mapTerrain.terrainCells.Length; i++)
                             {
-                                MapCell cell = editor.map.mapTerrain.terrainCells[i];
+                                IMapCell cell = editor.map.mapTerrain.terrainCells[i];
                                 if (cell != null)
                                 {
                                     cell.PrepareDatas(false);

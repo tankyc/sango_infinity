@@ -120,7 +120,7 @@ namespace Sango.Tools.UndoRedo
             // 重新构建地形
             for (int i = 0; i < editor.map.mapTerrain.terrainCells.Length; i++)
             {
-                MapCell cell = editor.map.mapTerrain.terrainCells[i];
+                IMapCell cell = editor.map.mapTerrain.terrainCells[i];
                 if (cell != null)
                 {
                     if (cell.Overlaps(rect))

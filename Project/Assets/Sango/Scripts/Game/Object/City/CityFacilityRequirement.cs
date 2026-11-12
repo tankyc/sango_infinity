@@ -202,15 +202,21 @@ namespace Sango.Core
                     return false;
                 if (count[(int)InteriorFacilityKind.Farm] < min[(int)InteriorFacilityKind.Farm])
                     return false;
-                // 兵充实（军团委任 Store_Troops = 1）→ 查兵舍 —— :746-750
-                if (corps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1
+                // 兵充实（军团委任 Store_Troops = 0 重视）→ 查兵舍
+                // 【方向修正】原先写成 `== 1`，与本项目 UI 的语义相反：
+                // UICorpsAppoint.appointShowType[8] = 1 → GetAppointTypeShow(1) 输出"轻视"，
+                // 即 0 = 重视、1 = 轻视。原版 dev_ai.cpp 的 ai_table_not_player_district_settings
+                // 是"未勾选该项"，对应本项目的 `== 1`；而"未勾选 → 也要查兵舍"显然不合语义，
+                // 这里要表达的是"玩家重视兵舍 → 该设施必须达标"，故改为 `== 0`。
+                if (corps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 0
                     && count[(int)InteriorFacilityKind.Barracks] < min[(int)InteriorFacilityKind.Barracks])
                     return false;
-                // 枪 / 戟 / 弩 生产（任一被勾选）→ 查锻冶 —— :751-755
+                // 枪 / 戟 / 弩 生产（任一被"重视"= 0）→ 查锻冶。
+                // 同样修正方向：重视某种兵装，才要求锻冶厂达标。
                 bool needSmith =
-                    corps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 1
-                    || corps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 1
-                    || corps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 1;
+                    corps.GetAppointValue(Corps.AppointContentType.MakeItem_Spear) == 0
+                    || corps.GetAppointValue(Corps.AppointContentType.MakeItem_Halberd) == 0
+                    || corps.GetAppointValue(Corps.AppointContentType.MakeItem_Crossbow) == 0;
                 if (needSmith && count[(int)InteriorFacilityKind.Smith] < min[(int)InteriorFacilityKind.Smith])
                     return false;
             }

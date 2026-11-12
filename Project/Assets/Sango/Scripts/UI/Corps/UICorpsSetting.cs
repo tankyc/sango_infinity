@@ -349,6 +349,9 @@ namespace Sango.UI
             if (targetPersonList.Count > 0)
             {
                 targetCorps.mComander = targetPersonList[0];
+                // 记录"玩家手动指定"：Corps.UpdateCommander 每次触发都会重新择优，
+                // 不记这一笔的话，玩家选的人只要不是官阶/统率最优，过一会儿就会被换掉。
+                targetCorps.playerCommanderId = targetPersonList[0].Id;
             }
             UpdateContent();
         }

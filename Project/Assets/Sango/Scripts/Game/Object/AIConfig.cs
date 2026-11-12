@@ -16,10 +16,20 @@ namespace Sango.Core
     ///
     /// 使用方式：
     /// 1. 代码中通过 <c>AIConfig.Instance.xxx</c> 读取参数；
-    /// 2. 如需调整，在 <c>Data/Common/AIConfig.json</c> 中**只写要覆盖的字段**即可，
-    ///    未出现的字段自动沿用内置默认值（反序列化会先执行字段初始化器）；
-    /// 3. 该文件同样受 Mod 覆盖机制管理，便于制作 AI 调优 Mod。
+    /// 2. 运行时取值以 <c>Data/Common/AIConfig.json</c> 为准（同样受 Mod 覆盖机制管理）。
     /// </summary>
+    /// <remarks>
+    /// 【重要：本类的全部字段都已写入 AIConfig.json，改默认值必须同步改 JSON】
+    /// <para>
+    /// 该文件现在**全量列出**了本类的每一个字段（含 <c>cityOrder</c> / <c>buildingPlan</c> /
+    /// <c>tierCritical…tierDecisive</c> / <c>roleAssault…roleEngineer</c> 等嵌套节点），
+    /// 加载顺序是"字段初始化器先赋默认值 → 再用 JSON 里出现的键覆盖"。
+    /// 因此 JSON 里的值会压过这里写的默认值：只改本文件的初始化器而不同步 JSON，运行时**不会生效**。
+    /// </para>
+    /// <para>
+    /// 反过来，若想让某个字段回落到代码默认值，把 JSON 里对应的那一行删掉即可（缺省键不参与覆盖）。
+    /// </para>
+    /// </remarks>
     public class AIConfig
     {
         static AIConfig instance;
@@ -297,10 +307,84 @@ namespace Sango.Core
 
         #region 威胁部队驱逐
 
-        /// <summary>驱逐威胁部队的距离（格）。敌方部队进入本城该范围且位于本势力领地内时，派兵歼灭</summary>
+        /// <summary>
+        /// 驱逐威胁部队的距离（格）。敌方部队进入本城该范围且位于本势力领地内时，派兵歼灭。
+        /// </summary>
         public int driveOutThreatRange = 25;
-        /// <summary>单城同时派出的驱逐部队上限</summary>
+
+        /// <summary>
+        /// 单城同时派出的驱逐部队**基准**支数。
+        ///
+        /// 【语义变更】旧版是"固定上限 3 支"，无论来敌是一个小队还是十万大军，一律只派 3 支，
+        /// 表现为"敌人压境、我方三队上去送菜"。
+        /// 现改为**基准值**：实际上限 = 基准 + 敌群兵力 / <see cref="driveOutTroopsPerExtraTroop"/>，
+        /// 再由 <see cref="driveOutMaxTroopPerCityCap"/> 封顶。
+        /// </summary>
         public int driveOutMaxTroopPerCity = 3;
+
+        /// <summary>
+        /// 驱逐部队支数的动态硬上限（默认 12）。
+        ///
+        /// 防止"敌群兵力 / 每支追加兵力"把上限算得过大，一回合把城池抽空。
+        /// 配成小于 <see cref="driveOutMaxTroopPerCity"/> 时以本值为准。
+        /// </summary>
+        public int driveOutMaxTroopPerCityCap = 12;
+
+        /// <summary>
+        /// 敌群兵力每多出这么多，追加 1 支驱逐部队（默认 6000）。
+        ///
+        /// 口径是"敌群"而不是"单个目标"：统计半径见 <see cref="driveOutThreatClusterRange"/>。
+        /// 配 0 或负数则关闭追加，退化为固定 <see cref="driveOutMaxTroopPerCity"/> 支。
+        /// </summary>
+        public int driveOutTroopsPerExtraTroop = 6000;
+
+        /// <summary>
+        /// 统计"敌群兵力"的聚集半径（格，默认 3）。
+        ///
+        /// 以威胁目标所在格为中心扫描，把周围所有敌军兵力合并计算 ——
+        /// 只看单一目标会严重低估局面（十支敌军压境时，单支可能只有五千兵）。
+        /// 配 0 则只算目标本身。
+        /// </summary>
+        public int driveOutThreatClusterRange = 3;
+
+        /// <summary>
+        /// 出兵前的兵力比门槛（%，默认 70）：我方可用兵力 / 敌群兵力 低于该值则**不出兵**，
+        /// 任务保留、等城内兵力恢复后再打（不再"看见就派、上去就送"）。
+        ///
+        /// 我方可用兵力 = 已在场的驱逐部队兵力 + (城内兵力 − 防御留守门槛)。
+        /// 配 0 或负数则关闭评估，恢复"永远出兵"的旧行为（一键回退用）。
+        /// </summary>
+        public int driveOutMinForceRatio = 70;
+
+        /// <summary>
+        /// 是否启用"驱逐求援"（默认 true）：某城判定打不动时把威胁登记到势力层，
+        /// 由同势力里兵力充裕、距离合适的城接单出兵（实现见 <c>CityAI.TryAidDriveOut</c>）。
+        ///
+        /// 关闭后各城只处理自己 25 格内（<see cref="driveOutThreatRange"/>）的威胁，
+        /// 打不动就干等 —— 即"阶段 1+2"的行为。
+        /// </summary>
+        public bool useDriveOutAid = true;
+
+        /// <summary>
+        /// 响应驱逐求援的最大距离（格，默认 20）。
+        ///
+        /// 比 <see cref="driveOutThreatRange"/>(25) 略小：求援是"跨城帮忙"，
+        /// 太远的城赶过去时威胁多半已转移或已经被别人解决，白跑一趟还抽空后方。
+        /// </summary>
+        public int driveOutAidRange = 20;
+
+        /// <summary>
+        /// 响应求援所需的兵力比门槛（%，默认 100）。
+        ///
+        /// 比自城驱逐的 <see cref="driveOutMinForceRatio"/>(70) 更严：帮别人打架
+        /// 不能把老家掏空，兵力只是"勉强够"的城不接单。
+        ///
+        /// 【为什么是 100 而不是更高】取 120 会出现死局：弱城 30000 兵对 45000 敌群
+        /// （67%，低于 70% → 求援），强城 50000 兵对同一敌群（111%）却因不足 120% 拒接，
+        /// 结果谁都看着不打 —— 明明能打。100 表示"对等兵力即可接单"，
+        /// 长途行军的损耗由 <see cref="driveOutAidRange"/> 限制距离来兜底。
+        /// </summary>
+        public int driveOutAidMinForceRatio = 100;
 
         #endregion
 

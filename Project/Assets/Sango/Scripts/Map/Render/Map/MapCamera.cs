@@ -42,6 +42,30 @@ namespace Sango.Render
         /// </summary>
         float lastShadowDistance = -1f;
 
+        /// <summary>
+        /// 上一次应用视距参数时的镜头距离（&lt;0 表示尚未应用过），用于判脏。
+        ///
+        /// 【为什么需要判脏】雾效 / 远裁剪面必须永远跟着 <see cref="cur_distance"/> 走，
+        /// 但改距离的路径不止滚轮：顶视图缓动走 <see cref="SetPoseRaw"/>，
+        /// 读档 / 剧本定位会直接赋 <c>cur_distance</c>，都不经过 <see cref="ZoomCamera"/>。
+        /// 只在 ZoomCamera 里调 <see cref="ApplyViewDistance"/> 会漏掉这些路径 ——
+        /// 表现就是"读档后镜头在远景，雾还是近景的浓度、远裁剪面还是近景的值"。
+        /// </summary>
+        float lastViewDistance = -1f;
+
+        /// <summary>强制下一帧重算视距参数（地图重建 / 雾参数被整份覆盖后置位）</summary>
+        bool viewDistanceDirty = true;
+
+        /// <summary>
+        /// 视距参数的基准镜头距离，等于 <see cref="cur_distance"/> 的默认值。
+        ///
+        /// 【口径】距离不超过它时 factor 恒为 1 —— 近景完全保持美术调好的雾效与裁剪面；
+        /// 超过后按 <c>distance / 基准</c> 线性放大。
+        /// 旧写法是 <c>Math.Max(630, distance) / 630</c>，在 200~630 的常规缩放区间里恒等于 1，
+        /// 等于"永远不放大"：拉到 630 时远处地形会被 fogEnd(1068) 糊成纯白、被 farClip(950) 切掉。
+        /// </summary>
+        public float viewDistanceBase = 300f;
+
         public MapCamera(MapRender map) : base(map)
         {
             viewPlane = new Plane(Vector3.up, Vector3.zero);
@@ -332,17 +356,44 @@ namespace Sango.Render
         /// </summary>
         public void ApplyViewDistance()
         {
-            float factor = Math.Max(630, distance) / 630;
+            // 先记状态再算：即使下面因为对象缺失提前返回，也不要在下一帧反复重试同一个距离
+            viewDistanceDirty = false;
+            lastViewDistance = cur_distance;
+
+            if (map == null)
+                return;
+
+            float baseDistance = viewDistanceBase > 0.01f ? viewDistanceBase : 300f;
+            float factor = Mathf.Max(1f, distance / baseDistance);
 
             map.showLimitLength = factor * 1100;
-            UnityEngine.RenderSettings.fogStartDistance = factor * map.mapFog.fogStart + 300 * (factor - 1);
-            UnityEngine.RenderSettings.fogEndDistance = factor * map.mapFog.fogEnd + 500 * (factor - 1);
-            if (Camera.main != null)
-                Camera.main.farClipPlane = factor * far_clip + 300 * (factor - 1);
-            if (map.mapSkyBox.skyTrans != null)
+
+            // 雾效：按"基准值 × factor + 额外视距"放大，保证远景不再被 fogEnd 糊白
+            if (map.mapFog != null)
             {
-                map.mapSkyBox.skyTrans.localScale = Vector3.one * factor;
+                UnityEngine.RenderSettings.fogStartDistance = factor * map.mapFog.fogStart + 300 * (factor - 1);
+                UnityEngine.RenderSettings.fogEndDistance = factor * map.mapFog.fogEnd + 500 * (factor - 1);
             }
+
+            // 【必须写 camera 字段，不能写 Camera.main】
+            // Init 里有"Camera.main 为空就自己 new 一个相机"的兜底，而 new 出来的相机没有
+            // MainCamera 标签，此时 Camera.main 依然是 null —— 旧写法会把远裁剪面写到
+            // 一个不存在 / 不相干的相机上，表现就是"远景时地形被远裁剪面切掉"。
+            Camera cam = camera != null ? camera : Camera.main;
+            if (cam != null)
+                cam.farClipPlane = factor * far_clip + 300 * (factor - 1);
+
+            if (map.mapSkyBox != null && map.mapSkyBox.skyTrans != null)
+                map.mapSkyBox.skyTrans.localScale = Vector3.one * factor;
+        }
+
+        /// <summary>
+        /// 标记视距参数需要重算（下一帧 <see cref="Update"/> 生效）。
+        /// 用于地图重建 / 雾参数被整份覆盖之后 —— 此时距离可能没变，靠距离判脏抓不到。
+        /// </summary>
+        public void NeedUpdateViewDistance()
+        {
+            viewDistanceDirty = true;
         }
 
         public void OffsetCamera(Vector3 offset)
@@ -535,6 +586,12 @@ namespace Sango.Render
             MouseDragWorldMobile();
 #endif
             }
+            // 视距同步：距离变了 / 被强制置脏就重算雾效与远裁剪面。
+            // 刻意放在 changed 判断之外 —— 顶视图缓动与读档定位可能只改 cur_distance、
+            // 不改朝向，old 逻辑（只在 ZoomCamera 里调）会把这类路径全漏掉。
+            if (viewDistanceDirty || Mathf.Abs(cur_distance - lastViewDistance) > 0.01f)
+                ApplyViewDistance();
+
             if (changed)
             {
                 changed = false;

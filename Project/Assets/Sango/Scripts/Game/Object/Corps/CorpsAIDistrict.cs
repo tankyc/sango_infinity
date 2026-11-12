@@ -368,7 +368,11 @@ namespace Sango.Core
             // 原版判定：`district->has_setting(DistrictSetting_Transport)`（s11_game_ai_district.cpp:160），
             // 开关位非 0 即启用；目的地另由 `transport_dest_building_` 提供（同文件 :162）。
             // 用 `!= 0` 而非 `== 1`，兼容尚未迁移的旧存档（城池 Id 被写进开关位）。
-            if (corps.GetAppointValue(Corps.AppointContentType.Transport) != 0)
+            // 【本项目补充】"禁止运输"（TransportDisable，本项目新增的委任项，原版无此项）
+            // 优先于"已指定目的地"：玩家勾了禁止后，即使 transport_dest 还存着旧目的地，
+            // 也不应再派军团级运输队。此前该项只钳制了战场补给队，据点级 / 军团级运输全部漏掉。
+            if (corps.GetAppointValue(Corps.AppointContentType.TransportDisable) != 1
+                && corps.GetAppointValue(Corps.AppointContentType.Transport) != 0)
             {
                 // 运输终点按原版两级口径解析（指定据点 → 旧存档的目标军团都督据点），
                 // 详见 Corps.GetTransportDestCityId；

@@ -59,6 +59,17 @@ namespace Sango.Render
         /// </summary>
         public bool instanceFlag { get; set; }
 
+        /// <summary>
+        /// 当前是否处于"远景无描边层"档位（也就是整棵子树被换到 <see cref="MapLayers.BuildingNoOutLine"/>）。
+        ///
+        /// 真实层写在 GameObject 上，这里只记档位：模型是异步加载、还会从对象池复用，
+        /// 加载/复用时必须按这个档位重新套一遍，否则池里的旧层（20）会被带到近景里来。
+        /// </summary>
+        bool noOutLineLayer;
+
+        /// <summary>当前是否处于远景无描边层档位（只读，调试用）</summary>
+        public bool isNoOutLineLayer { get { return noOutLineLayer; } }
+
 
         public GameObject loadedModel;
         private bool isLoading = false;
@@ -286,6 +297,60 @@ namespace Sango.Render
         {
 
         }
+
+        /// <summary>
+        /// 切换本物件（含整个模型子树）的描边层档位：Building(9) ↔ BuildingNoOutLine(20)。
+        ///
+        /// 【为什么 GameObject 建筑必须走这条路径】
+        ///   城池 / 关 / 港 / 普通设施 / 内政地都是真实 GameObject（子树里带 MeshRenderer），
+        ///   模型预制体本身就放在 Building 层，而 URP Renderer 上的 OutlineOpaque / RenderObjects
+        ///   Feature 是按 LayerMask(Building + Tree) 过滤来画描边的。
+        ///   只把 MapModels 里那批 DrawMeshInstanced 的提交层换掉，是盖不到这些 GameObject 的：
+        ///   它们没有 per-object 的提交参数，只能在 GameObject.layer 上切，否则相机拉远后
+        ///   建筑依旧会被描边 Feature 匹配到，白付一整趟描边 pass（表现为"拉远了 layer 没变"）。
+        ///
+        /// 【为什么只换指定层，不整棵子树统一 SetLayer】
+        ///   子树里还有旗帜（BuildingBaseModel.Awake 把旗子设成 Flag 层）和挂在模型下的
+        ///   UI / 特效节点，统一改层会把它们一起带走，恢复时也会被错写成 Building。
+        ///   这里只替换"恰好处于 from 层"的节点，其余层的节点原样保留。
+        /// </summary>
+        /// <param name="noOutline">true 切到 BuildingNoOutLine 层，false 切回 Building 层</param>
+        public void SetNoOutLineLayer(bool noOutline)
+        {
+            if (noOutLineLayer == noOutline)
+                return;
+
+            noOutLineLayer = noOutline;
+            ApplyNoOutLineLayer();
+        }
+
+        /// <summary>
+        /// 把当前档位写到根节点与整个模型子树。
+        /// 模型加载完成 / 换模 / 从对象池取出时都要调用一次（见 <see cref="OnModelInit"/>）。
+        /// </summary>
+        void ApplyNoOutLineLayer()
+        {
+            Transform root = transCache != null ? transCache : transform;
+            if (root == null)
+                return;
+
+            int from = noOutLineLayer ? MapLayers.Building : MapLayers.BuildingNoOutLine;
+            int to = noOutLineLayer ? MapLayers.BuildingNoOutLine : MapLayers.Building;
+            ReplaceLayer(root, from, to);
+        }
+
+        /// <summary>
+        /// 递归把子树上"恰好处于 <paramref name="from"/> 层"的节点改成 <paramref name="to"/> 层。
+        /// 只做这一层替换，Flag / UI / Troops 等其它层的节点不受影响。
+        /// </summary>
+        static void ReplaceLayer(Transform node, int from, int to)
+        {
+            if (node.gameObject.layer == from)
+                node.gameObject.layer = to;
+
+            for (int i = 0, imax = node.childCount; i < imax; ++i)
+                ReplaceLayer(node.GetChild(i), from, to);
+        }
         protected virtual void OnModelLoaded(UnityEngine.Object obj, object customData)
         {
             OnModelLoaded(obj, customData, true);
@@ -338,6 +403,10 @@ namespace Sango.Render
                         box_model.enabled = false;
                     }
                 }
+                // 远景无描边层：模型是异步加载、还会从对象池复用，池里的旧层不一定对，
+                // 这里按当前档位重新套一遍（近景档位下是把残留的 20 层换回 Building，不是空操作）。
+                ApplyNoOutLineLayer();
+
                 // model.transform.localScale = Vector3.one;
                 //UnityTools.SetLayer(model, gameObject.layer);
 

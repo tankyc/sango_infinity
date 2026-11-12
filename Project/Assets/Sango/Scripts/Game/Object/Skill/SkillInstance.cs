@@ -973,18 +973,14 @@ namespace Sango.Core
                     GameEvent.OnSkillDamageBuildingDurability?.Invoke(this, beAtkBuildingBase, overrideData);
                     damage = overrideData.ValueAndRecycle;
 
-                    // 【陷阱引爆要传部队，不能传技能对象】
-                    // BuildingTrapEffect.TrapChain:145 用 `atk as Troop` 取引爆者，再用它的 cell
-                    // 当 srcCell 决定火球 / 落石的滚动方向（对齐原版 trap_anim 的 src_pos）。
-                    // 传 this（技能对象）时 attacker 恒为 null → 火球不滚、落石退化成半径 1，
-                    // 与 AI 打分（CalcOpen311TrapScore 按方向预测）的判定不一致，
-                    // 会出现"AI 以为能炸到人、实际一座陷阱白烧"。
-                    // 普通建筑仍传 this，保持既有外交关系值结算口径不变。
-                    SangoObject atkSource = this;
-                    if (troop != null && beAtkBuildingBase is Building atkTrap && BuildingTrapEffect.CanTrigger(atkTrap))
-                        atkSource = troop;
-
-                    if (beAtkBuildingBase.ChangeDurability(-damage, atkSource))
+                    // 【攻击来源统一传 this（SkillInstance）】
+                    // 早先为了照顾 BuildingTrapEffect 的 `atk as Troop`，陷阱分支特判成传 troop，
+                    // 普通建筑却传 this —— 同一形参两种语义，导致外交关系值 / 威胁标记 / 命中音效
+                    // 在"战法打建筑"时全部失效。
+                    // 现在 BuildingBase.ChangeDurability 与 BuildingTrapEffect 都走 SangoObject.AsTroop()
+                    // 归一（SkillInstance → master），这里统一传 this 即可，
+                    // 陷阱仍能拿到施法部队的 cell 决定滚动方向。
+                    if (beAtkBuildingBase.ChangeDurability(-damage, this))
                     {
                         GainBattleExp(troop, expEvent);
 

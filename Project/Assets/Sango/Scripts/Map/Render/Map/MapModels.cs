@@ -337,6 +337,15 @@ namespace Sango.Render
         /// <summary>
         /// 统一切换建筑实例的描边层档位（远距离 LOD 用）。
         /// 只影响建筑类模型，植被不受影响。
+        ///
+        /// 【两条渲染路径都要切，缺一条就漏】
+        ///   ① 地图里批量提交的静态模型：没有 per-object Renderer，层只能写在
+        ///      <see cref="ModelInstanceData.layer"/> 上，由 DrawMeshInstanced 提交时带上；
+        ///   ② 城池 / 关 / 港 / 普通设施这类真实 GameObject 建筑：子树里的 MeshRenderer
+        ///      在预制体里就是 Building 层，只能在 GameObject.layer 上切（见
+        ///      <see cref="MapObject.SetNoOutLineLayer"/>）。
+        ///   旧实现只做了 ①，所以相机拉远后地形和静态建筑都不描边了，GameObject 建筑
+        ///   却还留在 Building 层，继续被 URP 的描边 Feature 画一遍。
         /// </summary>
         /// <param name="noOutline">true 切到 BuildingNoOutLine 层</param>
         public void SetNoOutLineLayer(bool noOutline)
@@ -347,17 +356,41 @@ namespace Sango.Render
 
             buildingInstanceLayer = layer;
 
-            if (modelInstanceDatas == null)
+            // ① 批量提交的模型实例
+            if (modelInstanceDatas != null)
+            {
+                for (int i = 0; i < modelInstanceDatas.Length; i++)
+                {
+                    ModelInstanceData data = modelInstanceDatas[i];
+                    if (data == null || !data.hasBuilding)
+                        continue;
+
+                    data.layer = layer;
+                }
+            }
+
+            // ② 真实 GameObject 建筑（城池 / 关 / 港 / 设施 / 内政地）
+            for (int i = 0; i < staticObjects.Count; i++)
+                ApplyNoOutLineLayer(staticObjects[i]);
+
+            for (int i = 0; i < dynamicObjects.Count; i++)
+                ApplyNoOutLineLayer(dynamicObjects[i]);
+        }
+
+        /// <summary>
+        /// 把当前描边层档位套到单个物件上（只对 GameObject 路径的 <see cref="MapObject"/> 生效）。
+        ///
+        /// 相机已经拉远时新建的建筑（新建设施、升级换模、重载地图）走这里补一次：
+        /// <see cref="SetNoOutLineLayer"/> 只在 LOD 翻转时被调用，不会为后出生的对象再触发一遍。
+        /// </summary>
+        /// <param name="obj">地图物件，null 或非 MapObject（地形块等）直接跳过</param>
+        void ApplyNoOutLineLayer(IMapManageObject obj)
+        {
+            MapObject mapObject = obj as MapObject;
+            if (mapObject == null)
                 return;
 
-            for (int i = 0; i < modelInstanceDatas.Length; i++)
-            {
-                ModelInstanceData data = modelInstanceDatas[i];
-                if (data == null || !data.hasBuilding)
-                    continue;
-
-                data.layer = layer;
-            }
+            mapObject.SetNoOutLineLayer(buildingInstanceLayer == MapLayers.BuildingNoOutLine);
         }
 
         public void RemoveInstance(IMapManageObject obj)
@@ -469,6 +502,8 @@ namespace Sango.Render
             obj.isStatic = false;
             obj.isAdded = true;
             dynamicObjects.Add(obj);
+            // 相机已拉远时新入册的建筑要直接沿用当前层档位（MapRenderLod 只在翻转时切一次）
+            ApplyNoOutLineLayer(obj);
             obj.visible = obj.Overlaps(curViewRect);
         }
 
@@ -486,6 +521,8 @@ namespace Sango.Render
             obj.isAdded = true;
             obj.manager = map;
             staticObjectsQuadTree.Add(obj, obj.worldBounds);
+            // 同上：远景下新入册的建筑不能带着 Building 层出生
+            ApplyNoOutLineLayer(obj);
             obj.visible = obj.Overlaps(curViewRect);
             //}
         }

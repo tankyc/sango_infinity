@@ -96,7 +96,8 @@ namespace Sango.Core
             // 这是「出征带金 → 前线建陷阱 → 高智部队火计点火」链路的终点。
             if (kind != BuildingKindType.Rockfall)
             {
-                Troop fireTroop = atk as Troop;
+                // 【统一解析】引爆者可能是 Troop，也可能是 SkillInstance（战法点爆陷阱）
+                Troop fireTroop = atk?.AsTroop();
                 string who = fireTroop != null
                     ? $"{fireTroop.BelongForce?.Name}的[{fireTroop.Name}]"
                     : (atk != null ? atk.Name : "火焰");
@@ -135,7 +136,9 @@ namespace Sango.Core
         /// </summary>
         static void TrapChain(Building firstTrap, SangoObject atk, Cell firstCell, BuildingKindType firstKind)
         {
-            Troop attacker = atk as Troop;
+            // 【统一解析】战法点爆时 atk 是 SkillInstance，必须经 master 拿到施法部队，
+            // 否则 srcCell 为 null，火球不滚、落石退化成圆形范围。
+            Troop attacker = atk?.AsTroop();
             Scenario scenario = Scenario.Cur;
 
             Queue<TrapNode> queue = new Queue<TrapNode>();
@@ -507,7 +510,8 @@ namespace Sango.Core
         /// </summary>
         static void TriggerRockfall(Building building, SangoObject atk, Cell center, BuildingType type)
         {
-            Troop attacker = atk as Troop;
+            // 【统一解析】同上：战法引爆时靠 AsTroop 拿施法部队，才能算出滚动方向
+            Troop attacker = atk?.AsTroop();
             int hitCount = 0;
             int dir = -1;
             if (attacker != null && attacker.cell != null && attacker.cell != center)

@@ -339,6 +339,11 @@ namespace Sango.Core
 
         public virtual bool ChangeDurability(int num, SangoObject atk, bool showDamage = true)
         {
+            // 【统一解析】把攻击来源归一成部队：普攻 / 建筑反击 / 陷阱传的是 Troop，
+            // 战法（含普攻经 Skill 结算）传的是 SkillInstance，施法部队在其 master 上。
+            // 早先各处写 `atk is Troop`，导致战法破城 / 破设施时整条判定链被跳过。
+            Troop atkTroop = atk?.AsTroop();
+
             if (showDamage)
             {
                 if (Render != null)
@@ -348,9 +353,9 @@ namespace Sango.Core
             if (num < 0)
             {
                 // 【新增】记录攻击本势力城池 / 建筑的敌方部队,供 AI 主动驱逐
-                if (atk is Troop attacker && attacker.IsAlive && !attacker.IsSameForce(this))
+                if (atkTroop != null && atkTroop.IsAlive && !atkTroop.IsSameForce(this))
                 {
-                    BelongForce?.MarkThreatTroop(attacker);
+                    BelongForce?.MarkThreatTroop(atkTroop);
                 }
 
                 // 【命中即爆】陷阱类设施被攻击命中的瞬间就引爆，并由下面的通用流程销毁。
@@ -367,7 +372,8 @@ namespace Sango.Core
                 {
                     if (Render != null && Render.IsVisible())
                     {
-                        if (atk != null && atk.ObjectType == SangoObjectType.Troops)
+                        // 部队打出来的命中音效；战法同样算"部队打的"，用解析后的 atkTroop 判断
+                        if (atkTroop != null)
                         {
                             GameMedia.Instance.PlaySfx(93);
                         }
@@ -407,7 +413,8 @@ namespace Sango.Core
                     // 对齐 s11_sys_scen_building.cpp:372-382（与城池陷落、部队击破同构）。
                     // 城池（City）不在这里处理 —— 它自己的 `OnFall` 已扣过一次，
                     // 重复调用会把"压到 15"变成"再 -1"，语义错位。
-                    if (atk is Troop atkTroop && !(this is City))
+                    // 战法摧毁设施同样要扣敌意值，所以这里用解析后的 atkTroop 而不是原始 atk
+                    if (atkTroop != null && !(this is City))
                         DiplomacyRules.ApplyHostilityPenalty(atkTroop.BelongForce, BelongForce);
 
                     OnFall(atk);

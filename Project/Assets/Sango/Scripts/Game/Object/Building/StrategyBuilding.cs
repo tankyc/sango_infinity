@@ -15,9 +15,13 @@ namespace Sango.Core
         /// <param name="atk">攻击者</param>
         public override void OnFall(SangoObject atk)
         {
-            if (atk.ObjectType != SangoObjectType.Troops)
+            // 【统一解析】战法破设施传进来的是 SkillInstance（施法部队在 master 上），
+            // 原先只认 `ObjectType == Troops` 会直接 return，战略建筑因此永远不换归属；
+            // 同时 atk 可能为 null（BanditCampPlacer 直接传 null，测试也会），先兜住空引用。
+            Troop troop = atk?.AsTroop();
+            if (troop == null || troop.BelongCity == null)
                 return;
-            Troop troop = (Troop)atk;
+
             BelongCity?.OnBuildingDestroy(this);
             BelongCity = troop.BelongCity;
             BelongCorps = troop.BelongCorps;

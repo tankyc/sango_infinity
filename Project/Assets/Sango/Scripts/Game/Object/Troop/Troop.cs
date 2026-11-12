@@ -2128,9 +2128,12 @@ namespace Sango.Core
                 return false;
 
             // 【新增】记录攻击本势力部队的敌方部队,供 AI 主动驱逐
-            if (num < 0 && atk is Troop attacker && attacker.IsAlive && !attacker.IsSameForce(this))
+            // 【统一解析】普攻 / 战法都经 Skill 结算，atk 大多是 SkillInstance，
+            // 只判 `atk is Troop` 会让绝大多数攻击漏记威胁部队（AI 因此不派人驱逐）。
+            Troop atkTroop = atk?.AsTroop();
+            if (num < 0 && atkTroop != null && atkTroop.IsAlive && !atkTroop.IsSameForce(this))
             {
-                BelongForce?.MarkThreatTroop(attacker);
+                BelongForce?.MarkThreatTroop(atkTroop);
             }
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(num);
@@ -2188,20 +2191,11 @@ namespace Sango.Core
                 // 对齐 s11_sys_scen_unit.cpp:428-443（与城池陷落、设施摧毁同构）。
                 // 这里与 `Clear()` 的区别：`Clear()` 也用于"进城解散 / 正常返城"，
                 // 不能在那里判断；而 `ChangeTroops` 的兵力归零分支只由战斗触发。
-                if (atk != null)
-                {
-                    // `SangoObject` 基类没有 BelongForce，必须按实际类型取：
-                    //   · 部队攻击 → atk as Troop
-                    //   · 战法伤害 → SkillInstance.master（施法部队）
-                    Force atkForce = null;
-                    if (atk is Troop atkTroop)
-                        atkForce = atkTroop.BelongForce;
-                    else if (atk is SkillInstance skillInstance && skillInstance.master != null)
-                        atkForce = skillInstance.master.BelongForce;
-
-                    if (atkForce != null)
-                        DiplomacyRules.ApplyHostilityPenalty(atkForce, BelongForce);
-                }
+                // `SangoObject` 基类没有 BelongForce，统一按 atk.AsTroop() 归一：
+                //   · 部队攻击 → 自身；战法伤害 → SkillInstance.master（施法部队）
+                Force atkForce = atkTroop != null ? atkTroop.BelongForce : null;
+                if (atkForce != null)
+                    DiplomacyRules.ApplyHostilityPenalty(atkForce, BelongForce);
 
                 Sango.Log.Info($"{BelongForce.Name}的[{Name} 部队 溃灭!!");
 
@@ -2512,19 +2506,14 @@ namespace Sango.Core
                 if (tryToDest == null)
                 {
                     //TODO: 移动
-                    Cell thisCell = this.cell;
                     map.GetMinCostDirectPath(this, targetCell, tempCellList);
-                    for (int i = 1; i < tempCellList.Count; i++)
+                    for (int i = tempCellList.Count - 1; i >= 0; i--)
                     {
                         Cell dest = tempCellList[i];
-                        if (!MoveRange.Contains(dest) || (check != null && check(dest)))
+                        if (MoveRange.Contains(dest) )
                         {
-                            tryToDest = thisCell;
+                            tryToDest = dest;
                             break;
-                        }
-                        else
-                        {
-                            thisCell = dest;
                         }
                     }
                 }

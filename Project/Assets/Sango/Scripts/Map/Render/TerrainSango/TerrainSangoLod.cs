@@ -51,7 +51,7 @@ namespace Sango.Render.TerrainSango
         /// 强制使用的 LOD 级别（-1 = 按距离自动选择）。
         ///
         /// 【为什么需要它】
-        ///   自动 LOD 的观察点取"视线与地形中值平面的交点"（见 ResolveEye），只要视线落在地图内，
+        ///   自动 LOD 的观察点取"相机 XZ 投影到地图内"（见 ResolveEye），只要观察点落在根节点矩形内，
         ///   根节点到该交点的平面距离就是 0，永远满足 <c>distance &lt; SplitFactor * size</c>，
         ///   因此根层（全局最粗）在自动模式下永远不会被单独选中 —— 想观察/验收最粗级别，
         ///   只能靠这个开关把整幅地图锁死在指定层。
@@ -97,9 +97,8 @@ namespace Sango.Render.TerrainSango
         /// <summary>
         /// 最近一次选择使用的观察点（世界坐标，Y 落在地形中值平面上）。
         ///
-        /// 必须原样传给着色器作为 morph 的距离原点：着色器若改用 _WorldSpaceCameraPos，
-        /// 在 Scene 视图里（相机被推远以避免框满全图）两者会相差一整个图幅，
-        /// 于是"何时分裂"由 A 点决定、"顶点何时收敛"由 B 点决定，LOD 与几何不再同步。
+        /// 必须原样传给着色器作为 morph 的距离原点：LOD 分裂与顶点收敛必须共用同一个点，
+        /// 否则"何时分裂"由 A 点决定、"顶点何时收敛"由 B 点决定，LOD 与几何不再同步。
         /// </summary>
         public Vector3 Eye { get; private set; }
 
@@ -137,7 +136,7 @@ namespace Sango.Render.TerrainSango
             if (ForceLevel >= 0)
             {
                 BuildForced(source, Mathf.Clamp(ForceLevel, 0, source.LevelCount - 1));
-                MarkEdgeCoarse(patches);
+                MarkEdges(patches);
                 CullPatches(source);
                 return patches;
             }
@@ -196,7 +195,7 @@ namespace Sango.Render.TerrainSango
             // 边界标记必须在剔除之后、返回之前算：用完整选中集（含被剔除的），
             // 保证视锥边界的 patch 拿到的邻居关系稳定，不会逐帧翻转
             CullPatches(source);
-            MarkEdgeCoarse(patches);
+            MarkEdges(patches);
 
             // 状态表长期只增不减会漂，超过阈值直接清空（丢掉迟滞一次，无正确性影响）
             if (splitState.Count > 200000) splitState.Clear();
@@ -293,31 +292,31 @@ namespace Sango.Render.TerrainSango
         /// <summary>四邻标记位：东（X+）/ 西（X-）/ 北（Z+）/ 南（Z-），对应 EdgeCoarse 的 bit0~3。</summary>
         private const int EdgeEast = 1, EdgeWest = 2, EdgeNorth = 4, EdgeSouth = 8;
 
-        /// <summary>本帧全部选中节点的键集合（含被剔除的）。MarkEdgeCoarse 用它判同层邻居。</summary>
+        /// <summary>本帧全部选中节点的键集合（含被剔除的）。MarkEdges 用它判同层邻居。</summary>
         private readonly HashSet<long> selectedKeys = new HashSet<long>();
 
         /// <summary>
-        /// 为每个选中 patch 计算四边"邻居更粗"标记（<see cref="TerrainSangoPatch.EdgeCoarse"/>）。
+        /// 为每个选中 patch 计算四边缝合标记：
+        /// 邻居更粗 → <see cref="TerrainSangoPatch.EdgeCoarse"/>（细侧锁 1），
+        /// 邻居更细 → <see cref="TerrainSangoPatch.EdgeFine"/>（粗侧锁 0）。
         ///
-        /// 【为什么需要】T 型接缝是共享网格实例化方案的固有问题：细层 patch 挨着更粗层时，
-        /// 细侧边界顶点密度是粗侧的 2 倍，粗侧的直线边切过细侧的山脊折线，
-        /// 两者之间的空隙从侧面看就是穿透性破洞（露背景色）。裙边只能从下方遮挡、
-        /// 高度差大时挡不住；根治办法是让细层在贴粗层的那条边上把顶点 morph 强制收敛到 1
-        /// （吸附到父层格点），两侧密度与高度完全重合 —— 着色器只认"哪条边要锁"，
-        /// 这里负责把每条边的邻接状况算出来。
+        /// 【为什么必须双向】T 型接缝是共享网格实例化方案的固有问题：细层 patch 挨着更粗层时，
+        /// 两侧边界顶点密度差 2 倍。单靠细侧锁 1（吸到父层格点 = 粗侧的原始格点位置）还不够 ——
+        /// 粗层这一边此时正处于自己的 morph 带内（d ∈ [T粗, 2T粗]），它的边界顶点在
+        /// "父层格点"与"自身格点"之间连续滑动；细侧锁死、粗侧在动，共享边界照样撕裂。
+        /// 粗侧锁 0（保持原始 64 格位置）后，两侧边界顶点逐点重合（间距都是 S/32），缝才真正消失。
         ///
-        /// 【判定规则】对 patch 的每条边，看同层邻居格位：
-        ///   · 有同层 patch → 不锁。同层两侧的 morph 公式相同（threshold 同、共享边界上
-        ///     顶点到观察点的距离相同），顶点位置天然一致，不需要干预；
-        ///   · 没有，但该格位被更粗层覆盖 → 锁。本 patch 是细侧，锁 1 后密度与粗侧对齐；
-        ///   · 没有，且被更细层覆盖（本格位已被子节点瓜分）→ 不锁。粗侧保持全精度，
-        ///     细侧会查到"同层邻居不在、被更粗的我覆盖"而主动锁，两侧同样对齐；
-        ///   · 格位在地图外 → 锁。边缘没有对接对象，锁了无害。
+        /// 【判定规则】对 patch 的每条边，看邻居格位的层级：
+        ///   · 同层 patch → 不锁。两侧 morph 公式相同（threshold 同、共享边界上
+        ///     顶点到观察点的距离相同），顶点位置天然一致；
+        ///   · 被更粗层覆盖 → 本块是细侧，EdgeCoarse 置位（锁 1）；
+        ///   · 被更细层瓜分 → 本块是粗侧，EdgeFine 置位（锁 0，不许随自身 morph 滑动）；
+        ///   · 地图外 → 沿用旧口径，EdgeCoarse 置位（那一侧没有对接对象，锁了无害）。
         ///
         /// 【为什么用选中集而不是可见集】视锥剔除逐帧抖动，按可见集算会让剔除边界上的
         /// 锁定位反复翻转、几何闪烁；选中集（剔除标记之前）是稳定的拓扑关系。
         /// </summary>
-        private void MarkEdgeCoarse(List<TerrainSangoPatch> patches)
+        private void MarkEdges(List<TerrainSangoPatch> patches)
         {
             selectedKeys.Clear();
             for (int i = 0; i < patches.Count; i++)
@@ -326,34 +325,64 @@ namespace Sango.Render.TerrainSango
             for (int i = 0; i < patches.Count; i++)
             {
                 TerrainSangoPatch p = patches[i];
-                p.EdgeCoarse =
-                    (IsEdgeCoarse(p.Level, p.GridX + 1, p.GridZ) ? EdgeEast : 0) |
-                    (IsEdgeCoarse(p.Level, p.GridX - 1, p.GridZ) ? EdgeWest : 0) |
-                    (IsEdgeCoarse(p.Level, p.GridX, p.GridZ + 1) ? EdgeNorth : 0) |
-                    (IsEdgeCoarse(p.Level, p.GridX, p.GridZ - 1) ? EdgeSouth : 0);
+                int coarse = 0, fine = 0;
+                AccumulateEdgeMark(p.Level, p.GridX + 1, p.GridZ, EdgeEast, ref coarse, ref fine);
+                AccumulateEdgeMark(p.Level, p.GridX - 1, p.GridZ, EdgeWest, ref coarse, ref fine);
+                AccumulateEdgeMark(p.Level, p.GridX, p.GridZ + 1, EdgeNorth, ref coarse, ref fine);
+                AccumulateEdgeMark(p.Level, p.GridX, p.GridZ - 1, EdgeSouth, ref coarse, ref fine);
+                p.EdgeCoarse = coarse;
+                p.EdgeFine = fine;
                 patches[i] = p;
             }
         }
 
         /// <summary>
-        /// 判断 (level, gridX, gridZ) 格位外侧是否需要锁 morph（贴着更粗层或地图外）。
-        /// 同层有 patch → false；被更粗层覆盖 → true；被更细层覆盖 → false（细侧会主动锁）。
+        /// 归类某条边外侧的邻居层级关系并累计到对应标记。
         /// </summary>
-        private bool IsEdgeCoarse(int level, int gridX, int gridZ)
+        private void AccumulateEdgeMark(int level, int gridX, int gridZ, int flag, ref int coarse, ref int fine)
         {
-            // 同层邻居就在：不锁（两侧 morph 公式相同、共享边界距离相同，天然重合）
-            if (selectedKeys.Contains(MakeKey(level, gridX, gridZ)))
-                return false;
+            EdgeNeighbor neighbor = ClassifyEdgeNeighbor(level, gridX, gridZ);
+            if (neighbor == EdgeNeighbor.Coarser)
+                coarse |= flag;         // 我是细侧：锁 1，吸到父层格点（= 粗侧原始格点位置）
+            else if (neighbor == EdgeNeighbor.Finer)
+                fine |= flag;           // 我是粗侧：锁 0，不许随自身 morph 滑动
+            else if (neighbor == EdgeNeighbor.Outside)
+                coarse |= flag;         // 地图外：保持旧口径（锁 1），那一侧没有对接对象
+            // Same：两侧 morph 公式相同，天然重合，不锁
+        }
 
-            // 向上查：该格位被某个更粗层的 patch 覆盖 → 我是细侧，要锁
+        /// <summary>某条边外侧的邻居层级关系。</summary>
+        private enum EdgeNeighbor
+        {
+            /// <summary>同层 patch 就在：两侧 morph 公式相同，天然重合。</summary>
+            Same,
+            /// <summary>被更粗层覆盖：本块是细侧，边界顶点要吸到父层格点。</summary>
+            Coarser,
+            /// <summary>被更细层瓜分：本块是粗侧，边界顶点必须保持原始格点。</summary>
+            Finer,
+            /// <summary>地图外：没有对接对象。</summary>
+            Outside,
+        }
+
+        /// <summary>
+        /// 判断 (level, gridX, gridZ) 格位外侧被哪个层级的 patch 覆盖。
+        /// 查找顺序：同层 → 更粗层 → 更细层 → 地图外。
+        /// </summary>
+        private EdgeNeighbor ClassifyEdgeNeighbor(int level, int gridX, int gridZ)
+        {
+            // 同层邻居就在：两侧 morph 公式相同、共享边界距离相同，天然重合
+            if (selectedKeys.Contains(MakeKey(level, gridX, gridZ)))
+                return EdgeNeighbor.Same;
+
+            // 向上查：该格位被某个更粗层的 patch 覆盖 → 我是细侧，要锁 1
             // （level L 的格坐标右移 1 位就是 level L+1 的格坐标，见 MakeKey 的打包口径）
             for (int l = level + 1; l <= maxLevel; l++)
             {
                 if (selectedKeys.Contains(MakeKey(l, gridX >> (l - level), gridZ >> (l - level))))
-                    return true;
+                    return EdgeNeighbor.Coarser;
             }
 
-            // 向下查：该格位被更细层的 patch 瓜分 → 我是粗侧，不锁
+            // 向下查：该格位被更细层的 patch 瓜分 → 我是粗侧，要锁 0
             // （细侧查它的同层邻居时找不到、向上查会命中我，由它锁）
             if (level > 0)
             {
@@ -363,11 +392,11 @@ namespace Sango.Render.TerrainSango
                     selectedKeys.Contains(MakeKey(level - 1, childX + 1, childZ)) ||
                     selectedKeys.Contains(MakeKey(level - 1, childX, childZ + 1)) ||
                     selectedKeys.Contains(MakeKey(level - 1, childX + 1, childZ + 1)))
-                    return false;
+                    return EdgeNeighbor.Finer;
             }
 
-            // 剩下的只有地图外：锁了无害（那一侧没有对接对象）
-            return true;
+            // 剩下的只有地图外：没有对接对象
+            return EdgeNeighbor.Outside;
         }
 
 
@@ -389,9 +418,17 @@ namespace Sango.Render.TerrainSango
         /// <summary>
         /// 取用于距离判定的观察点。
         ///
-        /// 不能直接用相机位置：Scene 视图为了框住整张图会把相机推到很远，
-        /// 那样所有节点都超过分裂阈值，整图只会选中一个最粗的 patch（表现为一片糊）。
-        /// 这里改用"视线与地形中值平面的交点"，相机看哪儿就细分哪儿。
+        /// 【为什么不再取"视线与地面的交点"】
+        ///   旧实现用视线与地形中值平面的交点，相机看哪儿就细分哪儿；但它有一个致命副作用：
+        ///   morph 的距离原点也是同一个 Eye（shader 里的 _EyePos），而交点随**相机姿态**
+        ///   （俯仰角在 22.5°~70° 内）非线性滑动 —— 俯仰变 1°，交点在地面上可能跳几百单位；
+        ///   视线落出地图时又切到 fallback，再突跳一次。Eye 一跳，全图每个顶点的 morph
+        ///   同时重排，地形整体跟着变形 —— 表现为"相机一移动高度剧烈抖动"。
+        ///
+        ///   现改为恒定返回"相机 XZ 投影到地图内"：相机平移 / 旋转时 Eye 连续平滑，
+        ///   morph 只随相机位置连续变化。Scene 视图（相机被推远框住整图）由 clamp 兜底，
+        ///   细分会集中在观察点附近而不是视野中心 —— 运行时主相机不受影响，
+        ///   Scene 视图验收时知道这一点即可。
         /// </summary>
         private Vector3 ResolveEye(Camera camera, TerrainSangoSource source)
         {
@@ -402,21 +439,10 @@ namespace Sango.Render.TerrainSango
             // 纯平面距离与相机高度无关（俯视时中心恒为 0），必须在这里把高度记下来。
             ViewHeight = Mathf.Max(0f, eye.y - planeY) * Mathf.Max(HeightWeight, 0f);
 
-            Vector3 fallback = new(
+            return new Vector3(
                 Mathf.Clamp(eye.x, 0f, Mathf.Max(source.WorldHeight, 0f)),
                 planeY,
                 Mathf.Clamp(eye.z, 0f, Mathf.Max(source.WorldWidth, 0f)));
-
-            Vector3 forward = camera.transform.forward;
-            if (Mathf.Abs(forward.y) < 1e-4f) return fallback;
-
-            float t = (planeY - eye.y) / forward.y;
-            if (t <= 0f) return fallback;
-
-            Vector3 hit = eye + forward * t;
-            if (hit.x < 0f || hit.z < 0f || hit.x > source.WorldHeight || hit.z > source.WorldWidth)
-                return fallback;
-            return hit;
         }
     }
 }

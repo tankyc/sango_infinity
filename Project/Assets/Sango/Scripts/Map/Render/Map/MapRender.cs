@@ -457,7 +457,25 @@ namespace Sango.Render
             binr.Close();
             fs.Close();
 
+            // 图层贴图名已随 mapLayer.OnLoad 就绪，重建 MapCell 共享地形资产
+            // （控制贴图 / TexArray / 共享材质）。首次 Init 时数据未加载，那一次是跳过的。
+            if (mapTerrain != null)
+                mapTerrain.RebuildTerrainAsset();
+
             Sango.Log.Info(string.Format("地图数据加载耗时:{0}毫秒", loadStopwatch.ElapsedMilliseconds), Sango.Log.LogType.World);
+
+            // 【远景降级重新判定】降级状态是进程级静态缓存，地图却是每局重建的：
+            // 读档 / 新开局时镜头可能仍停在上一个场景的远景距离，若不失效就会沿用旧的
+            // IsFar 直接 return，新地图永远不被降级（表现为"远景镜头 + 近景画质"）。
+            // 放在 OnMapLoaded 之前：让订阅方（相机定位 / TerrainSango 装配）先跑完，
+            // 下一帧 Tick 再按最终镜头距离一次性施加。
+            MapRenderLod.Invalidate();
+
+            // 【视距参数重算】雾效 / 远裁剪面是按 MapFog 的基准值 + 当前镜头距离算出来的，
+            // 而 MapFog.OnLoad 刚把基准值整份覆盖成新地图的值。若此时镜头距离与读档前相同，
+            // "距离变化"判脏抓不到，必须显式置脏一次，否则远景会沿用上一份雾效参数。
+            if (mapCamera != null)
+                mapCamera.NeedUpdateViewDistance();
 
             OnMapLoaded?.Invoke();
         }

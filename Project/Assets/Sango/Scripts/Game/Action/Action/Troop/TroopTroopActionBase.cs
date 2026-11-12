@@ -50,19 +50,23 @@ namespace Sango.Core.Action
 
         protected virtual bool CheckTroop(Troop defencer, SangoObject atker)
         {
+            // 【类型严检】atker 可能是 Troop / SkillInstance（战法，部队挂在 master 上）/ Fire / null。
+            // 这里只需要"是不是战法"这一个信息，用 as 取，取不到就当普通攻击处理。
+            if (defencer == null)
+                return false;
+
             Troop troop = defencer;
-            SkillInstance skill = null;
-            if(atker != null && atker.ObjectType == SangoObjectType.SkillInstance)
-            {
-                skill = (SkillInstance)atker;
-            }
+            SkillInstance skill = atker as SkillInstance;
 
             if (isDefender == 0)
             {
                 if (skill == null) 
                     return false;
 
+                // 施法部队可能已溃灭 / 已离场，master 为 null 时下面取 BelongForce 会空引用
                 troop = skill.master;
+                if (troop == null)
+                    return false;
             }
             if (Force != null && troop.BelongForce != Force) return false;
             if (Troop != null && Troop != troop) return false;

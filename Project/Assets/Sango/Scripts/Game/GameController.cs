@@ -265,6 +265,17 @@ namespace Sango.Core
             if (Sango.Render.TerrainSango.TerrainSangoBootstrap.TryGetMapHit(ray, out hitPoint))
                 return Scenario.Cur.Map.GetCell(hitPoint);
 
+            // ③ 地形：共享资产管线（MapCellBatch）同样补一条高度场求交。
+            //    远景 Instanced 接管后块 MeshRenderer 全关，且不可见块的网格会被空闲卸载、
+            //    远景期间新可见的块不建 CPU 网格 —— 这几种状态下块的 MeshCollider 里没有三角形，
+            //    ① 的 Physics.Raycast 会直接穿透（表现为"拉远后点不到地图"）。
+            //    这里按与渲染同源的 vertexDatas 高度求交，命中点仍然是世界坐标，
+            //    后续 GetCell 的逻辑完全不变。
+            Sango.Render.MapRender mapRender = Sango.Render.MapRender.Instance;
+            if (mapRender != null && mapRender.mapTerrain != null
+                && mapRender.mapTerrain.TryGetMapHit(ray, out hitPoint))
+                return Scenario.Cur.Map.GetCell(hitPoint);
+
             hitPoint = Vector3.zero;
             return null;
         }

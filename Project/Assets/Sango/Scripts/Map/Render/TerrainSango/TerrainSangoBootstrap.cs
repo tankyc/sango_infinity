@@ -213,7 +213,7 @@ namespace Sango.Render.TerrainSango
 
             MapRender render = MapRender.Instance;
             if (render != null && render.mapTerrain != null)
-                render.mapTerrain.CreateLegacyCells();
+                render.mapTerrain.CreateCells();
         }
 
         /// <summary>季节切换：转发给新地形，只换地表贴图集合（不重建高度与 LOD）。</summary>

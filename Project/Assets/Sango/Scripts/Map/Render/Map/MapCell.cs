@@ -6,7 +6,16 @@ using UnityEngine;
 
 namespace Sango.Render
 {
-    public class MapCell : MapProperty, IMapManageObject
+    /// <summary>
+    /// 地形块（老实现，逐图层拆分网格）。
+    ///
+    /// 【为什么还在】新实现 <see cref="MapCellBatch"/> 依赖 Texture2DArray，设备不支持
+    /// （<see cref="SystemInfo.supports2DArrayTextures"/> = false）时必须回退到本类，
+    /// 因此两条实现长期并存。两者共同实现 <see cref="IMapCell"/>，
+    /// 由 <see cref="MapTerrain"/> 在建块时二选一，<see cref="MapTerrain.terrainCells"/>
+    /// 里装的可能是任意一种。
+    /// </summary>
+    public class MapCell : MapProperty, IMapManageObject, IMapCell
     {
         //public static bool cellAlwaysVisible = false;
         public Vector2Int startCoords;
@@ -485,6 +494,15 @@ namespace Sango.Render
                 }
             }
         }
+        // ───────────── IMapCell 显式实现 ─────────────
+        // lod / idleTime / inFrameUpdateList 在本类是公共字段（历史原因，外部直接读写），
+        // 字段无法实现接口属性，这里用显式实现做一次桥接，公共 API 保持原样、
+        // 已有调用点一行都不用改。
+
+        int IMapCell.lod { get { return lod; } set { lod = value; } }
+        float IMapCell.idleTime { get { return idleTime; } set { idleTime = value; } }
+        bool IMapCell.inFrameUpdateList { get { return inFrameUpdateList; } set { inFrameUpdateList = value; } }
+
         public Vector3 position { get; set; }
         public Vector3 rotation { get; set; }
         public Vector3 forward { get; set; }
@@ -497,7 +515,7 @@ namespace Sango.Render
         /// <summary>
         /// 切换地形描边材质（<paramref name="material"/> 为 null 表示恢复单材质、关闭描边）。
         ///
-        /// 【为什么必须在这里判空】<see cref="MapTerrain.CreateLegacyCells"/> 创建块时只 new 出
+        /// 【为什么必须在这里判空】<see cref="MapTerrain.CreateCells"/> 创建块时只 new 出
         /// MapCell 并登记进 MapModels.staticObjects，**不会调用 <see cref="Init"/>**；
         /// mesh / meshRenderer 是 Init 里才创建的。而 Init 由 <see cref="Update"/> 在
         /// "_visibleChanged 且 !IsValid() 且可见" 时惰性触发，所以**视口外的块永远不会 Init**，

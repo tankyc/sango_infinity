@@ -105,6 +105,9 @@ namespace Sango.Core
             }
             Target.Comander = comander != null ? comander.Id : 0;
             Target.mComander = comander;
+            // 编辑器里手动指派同样算"玩家指定"，否则 Corps.UpdateCommander
+            // 下次触发就会按能力择优把人换掉。
+            Target.playerCommanderId = comander != null ? comander.Id : 0;
             Log.Info("军团 " + Target.Name + " 的军团长已设置为 " + (comander != null ? comander.Name : "无"));
         }
 

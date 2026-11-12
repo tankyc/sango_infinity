@@ -2598,17 +2598,10 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             ScenarioVariables scenarioVariables = Scenario.Cur.Variables;
 
-            Troop atk = atker as Troop;
-            SkillInstance skillInstance = null;
-            if (atker.ObjectType == SangoObjectType.SkillInstance)
-            {
-                skillInstance = (atker as SkillInstance);
-                atk = skillInstance.master;
-            }
-            else
-            {
-                atk = atker as Troop;
-            }
+            // 【统一解析】atker 可能是 Troop（普攻 / 反击 / 陷阱），也可能是
+            // SkillInstance（战法，施法部队在 master 上）；atker 为 null（如测试直接调用）时
+            // 原先的 `atker.ObjectType` 会直接空引用，这里一并兜住。
+            Troop atk = atker?.AsTroop();
 
             if (atk == null) return;
 

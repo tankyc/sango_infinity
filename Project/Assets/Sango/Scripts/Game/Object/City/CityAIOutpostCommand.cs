@@ -155,7 +155,11 @@ namespace Sango.Core
             if (src.IsCity())
             {
                 // 人数已达最小编制 → 优先派人去回收港关资源 —— :108-121
-                if (srcInfo.personCount >= (srcInfo.state == OutpostState.Front ? 3 : 2))
+                // 【委任钳制】"港关驻军"被禁止时不再往港 / 关派人（本项目自行新增的委任项，原版无此项）。
+                // 只挡"都市 → 港关"这一支；下面的"都市 → 都市补人"和"港关 → 都市撤人"不受影响。
+                bool allowSendToGate = src.BelongCorps == null
+                    || src.BelongCorps.GetAppointValue(Corps.AppointContentType.PortGateGarrison) == 0;
+                if (allowSendToGate && srcInfo.personCount >= (srcInfo.state == OutpostState.Front ? 3 : 2))
                 {
                     City gate = FindCollectibleGate(src, true);
                     if (gate != null)
@@ -501,6 +505,11 @@ namespace Sango.Core
             List<Person> candidates = new List<Person>();
 
             // 候选：同军团、非战斗、人数已达标、且内政地已建满的后方据点 —— :275-301
+            //
+            // 【有意不检查"港关驻军"（PortGateGarrison）】原版 kyoten_summon 允许从港 / 关抽人，
+            // 且候选本身受 `person_count >= min_person_count`（:290-291）兜底，不会把港关抽空；
+            // 该委任项只负责"要不要往港 / 关派人"（见 FindMoveDest / SupportForCollect），
+            // 不应反过来限制召唤。此处保持与原版一致，勿再加判断。
             for (int i = 0; i < scenario.citySet.Count; i++)
             {
                 City src = scenario.citySet[i];
@@ -664,6 +673,12 @@ namespace Sango.Core
             if (city.BelongForce != null && city.BelongForce.IsPlayer && city.BelongCorps != null
                 && city.BelongCorps.IsCaptainCorps)
                 return Skip("玩家第 1 军团（直辖）不自动运输");
+            // 军团委任 · 禁止运输（本项目自行新增的委任项，原版无此项）。
+            // CityAI.AIMakeSupplyTroop 的注释已写明这一项"禁的是城内资源运输"，
+            // 但此前只钳制了战场补给队，据点级运输队没有检查，导致玩家勾"禁止"后运输队照样发车。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
+                return Skip("军团委任禁止运输");
 
             // 玩家指定运输源（后续"借调守将"与"终点选择"两处复用）—— :22 / :73
             bool isPlayerTransportSrc = city.BelongForce != null && city.BelongForce.IsPlayer
@@ -1465,6 +1480,14 @@ namespace Sango.Core
 
             if (SupportMilitary(city, scenario))
                 return true;
+
+            // 军团委任 · 禁止运输（本项目自行新增的委任项，原版无此项）。
+            // 只钳制"资源搬运"这三段（港关收集 / 支援收集 / 支援物资），
+            // 上面的 SupportMilitary 是"派兵支援"，属军事行动，由 Attack 开关负责，不受此项约束。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.TransportDisable) == 1)
+                return true;
+
             if (!city.IsCity())
                 return SupportCollect(city, scenario);
             if (SupportForCollect(city, scenario))
@@ -1666,6 +1689,12 @@ namespace Sango.Core
         /// <returns>是否已执行</returns>
         static bool SupportForCollect(City city, Scenario scenario)
         {
+            // 【委任钳制】"港关驻军"被禁止时，都市不再主动派人驻守港 / 关
+            // （本项目自行新增的委任项，原版无此项；港关把资源运回都市仍由 SupportCollect 负责，不受此项影响）。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.PortGateGarrison) == 1)
+                return false;
+
             OutpostInfo info = OutpostRuntime.Get(city.Id);
             // 人数不足 —— :220-221
             if (info.personCount < info.minPersonCount)
@@ -2113,6 +2142,14 @@ namespace Sango.Core
             int cost = JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
             Force force = city.BelongForce;
             if (force == null)
+                return true;
+
+            // 【委任钳制】"人才"被禁止时不挖敌方武将 —— 对齐 Open311 kyoten_employ_enemy 的
+            // `if (force_->is_player() and ai_table_not_player_district_settings(building, DistrictSetting_Personnel)) return true;`
+            // （s11_game_ai_kyoten_cmd_personnel.cpp:550-552）。
+            // 与 AIRecruitPerson 中的同一判断成对，覆盖 Employ / EmployMax / EmployEnemy / EmployEnemyMax 四个入口。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
                 return true;
 
             // 无可用武将 —— :543-545
