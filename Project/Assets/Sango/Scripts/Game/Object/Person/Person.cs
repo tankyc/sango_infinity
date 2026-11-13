@@ -318,10 +318,28 @@ namespace Sango.Core
         [JsonProperty("Official")]
         public int OfficialId;
 
+        Official mOfficial;
+
         /// <summary>
-        /// 官职对象（不参与序列化，见 OfficialId）
+        /// 官职对象（不参与序列化，见 OfficialId）。
+        ///
+        /// 【为什么 setter 要重建动作】官职可以附带特技（<see cref="Official.addFeatures"/>），
+        /// 任免后必须重新执行 <see cref="InitPersonActions"/> 把附加特技 / 属性动作同步到新官职上，
+        /// 否则会出现"升官了但特技没生效""罢官了效果还在"。
+        /// 官职变动频率很低（一次任免一个人），重建成本可以接受。
         /// </summary>
-        public Official Official { get; set; }
+        public Official Official
+        {
+            get { return mOfficial; }
+            set
+            {
+                if (mOfficial == value)
+                    return;
+
+                mOfficial = value;
+                InitPersonActions();
+            }
+        }
 
         public bool CanUpgradeOfficial
         {
@@ -723,12 +741,38 @@ namespace Sango.Core
         [JsonProperty] public BitCheck32 actionFlag = new BitCheck32();
 
         /// <summary>
+        /// 标记位（能力开关容器，位定义见 <see cref="PersonMarkType"/>）。
+        ///
+        /// 与 <see cref="actionFlag"/> 的分工：actionFlag 记"本回合做过什么"，本字段记"武将**是不是**
+        /// 某种状态"，并且**不参与存档** —— 它是纯运行期缓存，只由 <see cref="InitPersonActions"/>
+        /// 初始化（先 <see cref="RefreshMarks"/> 算系统来源，再由特技 / 装备的 PersonSetMark Action 叠加），
+        /// 读档后按读回来的装备 / 特技重新装配即可。
+        /// 不存档的直接好处：旧存档里残留的位不会被读回来，天然不会出现"卸了装备位还在"。
+        /// </summary>
+        [JsonIgnore] public BitCheck32 markFlag = new BitCheck32();
+
+        /// <summary>
         /// 武将特性
         /// </summary>
         [JsonProperty("FeatureList")]
         public int[] FeatureListId;
 
         public SangoObjectList<Feature> FeatureList;
+
+        /// <summary>
+        /// 额外附加的特技（装备 / 官职 / 事件等外部来源），**不参与存档**。
+        ///
+        /// 【与 FeatureList 的分工】
+        ///   · <see cref="FeatureList"/> 是武将自身拥有的特技（培育 / 剧本初始），占用剧本特技名额
+        ///     （maxActiveFeatureCount），存档只写它；
+        ///   · 本字段是运行期附加的能力，不占名额、总是生效，读档后由
+        ///     <see cref="InitPersonActions"/> → <see cref="SyncExtraFeatures"/> 按当前装备 / 官职重建。
+        ///
+        /// 【判定入口】所有"是否拥有某特技"的判断统一走 <see cref="HasFeature(int)"/>，
+        /// "按场景取生效特技"统一走 <see cref="CollectEffectiveFeatures"/> —— 两者都会合并本字段，
+        /// 不要再单独遍历 FeatureList，否则装备特技会漏判。
+        /// </summary>
+        [JsonIgnore] public SangoObjectList<Feature> extra_feature_list;
 
         /// <summary>
         /// 武将个人关系类特技装配的动作列表。
@@ -738,9 +782,10 @@ namespace Sango.Core
         /// <summary>
         /// 装备与宝物提供的特效动作列表。
         ///
-        /// 与 <see cref="actionList"/>（武将特技）**分开两张表**：换装备 / 授予 / 没收时只重建本表，
-        /// 不会把武将自身的特技订阅一起清掉（两边都订阅同一批 GameEvent，混在一张表里必然互相清除）。
-        /// 重建时机见 <see cref="BuildEquipActions"/>。
+        /// 与 <see cref="actionList"/>（武将特技）**分开两张表**：两张表的清理与装配都由
+        /// <see cref="InitPersonActions"/> 统一驱动，但各用各的表 —— 升级特技时只重建特技表、
+        /// 换装备时只重建装备表，不会把另一边的订阅误清掉（两边订阅同一批 GameEvent，
+        /// 混在一张表里必然互相清除）。
         /// </summary>
         public List<ActionBase> equipActionList;
 
@@ -819,6 +864,81 @@ namespace Sango.Core
 
         // 个人逃跑概率
         public int escapeFactorWhenTroopDestroy = 0;
+
+        #region 标记位
+
+        /// <summary>
+        /// 是否带有指定标记位。
+        /// </summary>
+        /// <param name="mark">标记位（枚举值是位序号）</param>
+        /// <returns>该位已置位返回 true</returns>
+        public bool HasMark(PersonMarkType mark)
+        {
+            return markFlag != null && markFlag.Has((int)mark);
+        }
+
+        /// <summary>
+        /// 按开关设置标记位（true 置位 / false 清位）。
+        /// </summary>
+        /// <param name="mark">标记位（枚举值是位序号）</param>
+        /// <param name="value">true 置位，false 清位</param>
+        public void SetMark(PersonMarkType mark, bool value)
+        {
+            if (markFlag == null)
+                markFlag = new BitCheck32();
+
+            if (value) markFlag.Set((int)mark);
+            else markFlag.Remove((int)mark);
+        }
+
+        /// <summary>
+        /// 清除指定标记位。
+        /// </summary>
+        /// <param name="mark">标记位（枚举值是位序号）</param>
+        public void ClearMark(PersonMarkType mark)
+        {
+            markFlag?.Remove((int)mark);
+        }
+
+        /// <summary>
+        /// 重算标记位（幂等，全量覆盖）。
+        ///
+        /// 【为什么是"全量重算"而不是"就地增删"】标记位的来源会变（换马、学特技、授予宝物），
+        /// 每种变化各写一次增删，只要漏一处就会出现"卸了马还免俘"；统一在这里从当前状态重算，
+        /// 任何调用点都能自愈。
+        ///
+        /// 【当前来源】免疫俘虏（<see cref="PersonMarkType.IgnoreCapture"/>）：
+        ///   · 名马     —— <see cref="EquippedHorse"/> 非空（工程内"骑乘任意马匹即视为名马"，
+        ///                 与 City.IsCaptureImmune、Duel.CalcCaptureChance 同一口径）；
+        ///   · 特技强运 —— #33，语义是"不会战死、被俘、负伤"，按特技 Id 判定，保证只有本人免疫。
+        ///
+        /// 【扩展约定】系统来源（不依赖 Action 的）在本方法里追加；装备 / 特技提供的能力
+        /// 不要写在这里 —— 交给 PersonSetMark Action 在装配阶段 SetMark（本方法先跑，不会被覆盖）。
+        ///
+        /// 【调用点】只有 <see cref="InitPersonActions"/> 一处：标记位不存档，每次初始化都整张重建，
+        /// 且必须在装配特技 / 装备 Action 之前执行。
+        /// </summary>
+        public void RefreshMarks()
+        {
+            // 免疫俘虏：名马 或 特技「强运」
+            bool ignoreCapture = EquippedHorse != null
+                || HasFeature(Sango.Core.Duel.DuelFeatureId.Lucky);
+            SetMark(PersonMarkType.IgnoreCapture, ignoreCapture);
+        }
+
+        /// <summary>
+        /// 是否免疫俘虏 —— 由标记位 <see cref="PersonMarkType.IgnoreCapture"/> 决定。
+        ///
+        /// 【原版出处】部队溃灭的武将收押判定只看"逃跑系数 vs 抓捕系数"，
+        /// 名马在城池陷落路径（s11_sys_event_capture.cpp:457-461）被单独判为免俘；
+        /// 本属性把同一口径收敛到一处，供城池陷落（City）、部队溃灭（Troop.OnDestroy）、
+        /// 单挑（Duel.CalcCaptureChance）三条路径共用。
+        /// 【为什么读标记位而不是实时推导】装备 / 宝物将来要能"启用"这类能力，
+        /// 判定口必须只有一个开关；来源的变化由 <see cref="RefreshMarks"/> 负责折算成位。
+        /// </summary>
+        public bool IsCaptureImmune => HasMark(PersonMarkType.IgnoreCapture);
+
+        #endregion
 
         public bool HasItem(int itemTypeId)
         {
@@ -1341,12 +1461,12 @@ namespace Sango.Core
             workingBuilding = IdToObject<Building>(scenario, workingBuildingId);
 
             // 装备存放在道具库(ItemTypes)里，运行期一律是 ItemType 实例（见 EquippedWeapon 字段注释）。
-            // 解析完之后立刻重建装备特效，保证读档后效果与存档前一致（见 BuildEquipActions）。
+            // 这里只解析引用，动作装配统一交给 OnScenarioPrepare 末尾的 InitPersonActions
+            // （那时 FeatureList 也已解析，特技与装备一次装配完，不必分两次）。
             EquippedWeapon = IdToObject<ItemType>(scenario, EquippedWeaponId);
             EquippedHorse = IdToObject<ItemType>(scenario, EquippedHorseId);
             EquippedArmor = IdToObject<ItemType>(scenario, EquippedArmorId);
             EquippedTreasure = IdToObject<ItemType>(scenario, EquippedTreasureId);
-            BuildEquipActions();
         }
 
         /// <summary>id → 对象；id &lt;= 0 表示没有，返回 null（与 Id2ObjConverter.Id2Object 的口径一致）</summary>
@@ -1396,11 +1516,13 @@ namespace Sango.Core
             // 每人都塞一个空 SangoObjectList（对象头 + 内部 List）纯属白占内存。
             //
             // 代价是**所有消费点都必须容忍 null**：
-            //   · HasFeatrue / ActiveFeatureCount / IsFeatureFull / 特技排序 / 详情展示 —— 均已判 null；
+            //   · HasFeature / ActiveFeatureCount / IsFeatureFull / 特技排序 / 详情展示 —— 均已判 null；
             //   · 培育与事件授予（AbilityStudySystem.ApplySkill / EventEffectsPersonExt）——
             //     在真正要加第一个特技时才调 EnsureFeatureList() 惰性建表，之后不再是 null。
             // 任何新代码都不要把 null 当成"数据无效"（原版 person->has_skill() 对空列表就是返回 false，
             // 见 s11_sys_scen_ability.cpp:60-64）。
+            // 读档只解析出**自带**特技（FeatureListId 只含 FeatureList）；
+            // 装备 / 官职附加的特技在紧接着的 InitPersonActions → SyncExtraFeatures 里按当前状态重建。
             FeatureList = scenario.Array2ObjectList(scenario.CommonData.Features, FeatureListId);
             // 特技对象已完成解析后再装配个人关系 Action，确保事件订阅只依赖有效配置。
             InitPersonActions();
@@ -1734,8 +1856,10 @@ namespace Sango.Core
             waterLv.Update();
             machineLv.Update();
 
-            if (Official == null)
-                Official = scenario.CommonData.Officials[0];
+            // 直接写字段而不是走 setter：剧本准备阶段末尾已经调过 InitPersonActions，
+            // 这里再触发一次只会让几千名武将各多跑一遍装配（见 Official 属性的重建说明）
+            if (mOfficial == null)
+                mOfficial = scenario.CommonData.Officials[0];
 
             Official.OnPersonAdd(this);
 
@@ -1801,6 +1925,8 @@ namespace Sango.Core
             SpouseListId = SpouseList?.ToArray() ?? null;
             LikePersonListId = LikePersonList?.ToArray() ?? null;
             HatePersonListId = HatePersonList?.ToArray() ?? null;
+            // FeatureList 只装自带特技（装备附加的在 extra_feature_list 里且标了 JsonIgnore），
+            // 所以这里直接导出即可，不需要再按来源过滤
             FeatureListId = FeatureList?.ToArray() ?? null;
         }
 
@@ -3953,6 +4079,10 @@ namespace Sango.Core
         ///
         /// 【数据不删除】超出的特技仍留在 <see cref="FeatureList"/> 里（存档完整保留），
         /// 只是处于休眠状态；把上限调大后会立刻恢复。
+        ///
+        /// 【外部来源不受限】装备 / 官职附加的特技**不占名额**，排在名单之外也一样生效：
+        /// 装配走 <see cref="CollectEffectiveFeatures"/>，存在性判定走 <see cref="HasFeature(int)"/>，
+        /// 两者都对本属性之外的外部来源补了一遍。
         /// </summary>
         public int ActiveFeatureCount
         {
@@ -3972,6 +4102,9 @@ namespace Sango.Core
         /// <summary>
         /// 特技是否已达本剧本上限（不能再通过培育学习新特技）。
         /// 上限配 &lt;= 0（不限制）时恒为 false。
+        ///
+        /// 【只算 FeatureList】<see cref="extra_feature_list"/>（装备 / 官职附加）不计入 ——
+        /// 否则穿上带特技的装备后武将就学不了新特技了，而这件装备随时可能被换掉。
         /// </summary>
         public bool IsFeatureFull
         {
@@ -3985,20 +4118,39 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 是否拥有指定特技（只在前 <see cref="ActiveFeatureCount"/> 个里查）。
+        /// 是否拥有指定特技（自带 + 额外附加）。
+        ///
+        /// 【查找顺序】
+        ///   ① <see cref="FeatureList"/> 的前 <see cref="ActiveFeatureCount"/> 个（受剧本特技名额截断，
+        ///      超出名额的自带特技处于休眠状态，查不到）；
+        ///   ② <see cref="extra_feature_list"/> 全量（装备 / 官职附加，不占名额、总是生效）。
+        /// 两份列表都按 <see cref="Feature.ContainsId"/> 展开混合组 —— "强运"这类效果写在代码里的
+        /// 特技没有 actionEntities，若被包在混合组里，只查顶层 Id 会永远查不到。
         /// </summary>
         /// <param name="id">特技 Id</param>
-        /// <returns>生效范围内存在该特技返回 true</returns>
-        public bool HasFeatrue(int id)
+        /// <returns>存在该特技返回 true</returns>
+        public bool HasFeature(int id)
         {
-            int count = ActiveFeatureCount;
-            if (count <= 0) return false;
-
-            for (int i = 0; i < count; i++)
+            // ① 自带（生效名额内）
+            if (FeatureList != null)
             {
-                Feature feature = FeatureList[i];
-                if (feature != null && feature.Id == id)
-                    return true;
+                int count = ActiveFeatureCount;
+                int total = FeatureList.Count;
+                for (int i = 0; i < count && i < total; i++)
+                {
+                    if (Feature.ContainsId(FeatureList[i], id, 0))
+                        return true;
+                }
+            }
+
+            // ② 额外附加（全量）
+            if (extra_feature_list != null)
+            {
+                for (int i = 0; i < extra_feature_list.Count; i++)
+                {
+                    if (Feature.ContainsId(extra_feature_list[i], id, 0))
+                        return true;
+                }
             }
             return false;
         }
@@ -4121,7 +4273,7 @@ namespace Sango.Core
         /// 就是一份纯浪费的内存。因此保持 null，等到第一次授予特技时再分配。
         ///
         /// 【谁该调用】任何要往列表里 Add 的路径（培育授予、事件授予）。
-        /// 只读路径不需要 —— <see cref="HasFeatrue(int)"/> / <see cref="ActiveFeatureCount"/> /
+        /// 只读路径不需要 —— <see cref="HasFeature(int)"/> / <see cref="ActiveFeatureCount"/> /
         /// <see cref="IsFeatureFull"/> 都已把 null 当"没有特技"处理。
         /// </summary>
         public void EnsureFeatureList()
@@ -4131,22 +4283,173 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 重新装配个人关系类特技的 Action（培育授予新特技后调用）。
-        ///
-        /// 装配时机原本只有剧本解析（<see cref="OnScenarioPrepare"/> → <see cref="InitPersonActions"/>），
-        /// 运行期新学的特技不会自动订阅事件 —— 表现为"特技显示已拥有但毫无效果"。
+        /// 个人特技装配的复用缓冲（避免每次 InitPersonActions 都 new List）。
+        /// 只在 <see cref="InitPersonActions"/> 内使用，不重入。
         /// </summary>
-        public void RefreshFeatureActions()
+        [JsonIgnore] List<Feature> tempPersonFeatures;
+
+        /// <summary>
+        /// 是否已经拥有指定 Id 的特技（自带 + 额外附加，不受生效名额截断）。
+        ///
+        /// 与 <see cref="HasFeature(int)"/> 的区别：本方法**不看生效名额**，
+        /// 用于"并入去重"这类需要看全表的场合。
+        /// </summary>
+        /// <param name="featureId">特技 Id</param>
+        /// <returns>已拥有返回 true</returns>
+        public bool HasFeatureById(int featureId)
         {
-            InitPersonActions();
+            if (FeatureList != null)
+            {
+                for (int i = 0; i < FeatureList.Count; i++)
+                {
+                    Feature feature = FeatureList[i];
+                    if (feature != null && feature.Id == featureId)
+                        return true;
+                }
+            }
+
+            if (extra_feature_list != null)
+            {
+                for (int i = 0; i < extra_feature_list.Count; i++)
+                {
+                    Feature feature = extra_feature_list[i];
+                    if (feature != null && feature.Id == featureId)
+                        return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
-        /// 初始化武将个人关系类特技的 Action。
-        /// 同一武将重复准备剧本时先解除旧订阅，避免事件处理器重复注册。
+        /// 收集"当前环境生效"的特技（自带 + 额外附加合并后按 kind 展开）。
+        ///
+        /// 这是所有生效点（部队 / 城池 / 城市生产 / 个人）的**唯一取数接口**：
+        ///   · <see cref="FeatureList"/> 只取前 <see cref="ActiveFeatureCount"/> 个（剧本特技名额）；
+        ///   · <see cref="extra_feature_list"/>（装备 / 官职附加）全量生效、不占名额；
+        ///   · 两份列表都按 <see cref="Feature.CollectEffective"/> 展开混合组，
+        ///     只输出 kind 命中 <paramref name="kindMask"/> 的特技。
         /// </summary>
-        private void InitPersonActions()
+        /// <param name="kindMask">本环境接收的 kind 位掩码（<see cref="Feature.KindMask"/>）</param>
+        /// <param name="result">输出列表（调用方负责清空与复用）</param>
+        public void CollectEffectiveFeatures(int kindMask, List<Feature> result)
         {
+            if (result == null)
+                return;
+
+            // ① 自带（受名额截断）
+            if (FeatureList != null)
+            {
+                int count = ActiveFeatureCount;
+                int total = FeatureList.Count;
+                for (int i = 0; i < count && i < total; i++)
+                {
+                    Feature.CollectEffective(FeatureList[i], kindMask, result, 0);
+                }
+            }
+
+            // ② 额外附加（全量、不占名额）
+            if (extra_feature_list != null)
+            {
+                for (int i = 0; i < extra_feature_list.Count; i++)
+                {
+                    Feature.CollectEffective(extra_feature_list[i], kindMask, result, 0);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 同步"外部来源特技"到 <see cref="extra_feature_list"/>。
+        ///
+        /// 【来源】装备（武器 / 铠甲 / 马匹 / 宝物）与官职（<see cref="Official.addFeatures"/>），
+        /// 新增外部来源时在本方法里追加一行收集即可。
+        /// 【流程】整表清空后按当前来源全量重算 —— 换装 / 任免 / 读档都走同一条路径，不会残留。
+        /// 【去重】目标特技已在 FeatureList 或 extra_feature_list 里就跳过 ——
+        /// 所以卸下装备 / 罢官时不会误删自带的那个，也不会出现"同一特技两份"。
+        /// 【不保存】extra_feature_list 标了 [JsonIgnore]，读档后由本方法按读回来的装备 / 官职重建。
+        /// 【引用而非副本】Feature 是剧本公共数据，这里只读不写，直接共享引用即可。
+        /// </summary>
+        void SyncExtraFeatures()
+        {
+            // ① 清空上一次收集的附加特技（清完没人用就把容器丢掉，保持"没有就为 null"）
+            if (extra_feature_list != null)
+            {
+                extra_feature_list.Clear();
+                extra_feature_list = null;
+            }
+
+            // ② 装备
+            AppendFeatures(EquippedWeapon?.features);
+            AppendFeatures(EquippedArmor?.features);
+            AppendFeatures(EquippedHorse?.features);
+            AppendFeatures(EquippedTreasure?.features);
+
+            // ③ 官职
+            AppendFeatures(Official?.addFeatures);
+        }
+
+        /// <summary>
+        /// 把一组外部来源特技并入 extra_feature_list（按 Id 去重）。
+        /// </summary>
+        /// <param name="source">来源列表（装备 features / 官职 addFeatures），可为 null</param>
+        void AppendFeatures(SangoObjectList<Feature> source)
+        {
+            if (source == null)
+                return;
+
+            for (int i = 0; i < source.Count; i++)
+            {
+                Feature feature = source[i];
+                if (feature == null)
+                    continue;
+
+                // 去重：武将本身已有同一特技（或已被其它来源并入）就不重复添加
+                if (HasFeatureById(feature.Id))
+                    continue;
+
+                if (extra_feature_list == null)
+                    extra_feature_list = new SangoObjectList<Feature>();
+
+                extra_feature_list.Add(feature);
+            }
+        }
+
+        /// <summary>
+        /// 是否拥有任何特技（自带 + 额外附加）。
+        ///
+        /// 【为什么需要】装配 / 展示逻辑常见的写法是 <c>if (FeatureList == null) return;</c>，
+        /// 但"自带为空、只有装备附加"是完全合法的状态（装备给了唯一一个特技），
+        /// 那种写法会把整条链路直接跳过。所有"有没有特技"的判断统一用本属性。
+        /// </summary>
+        public bool HasAnyFeature
+        {
+            get
+            {
+                if (FeatureList != null && FeatureList.Count > 0)
+                    return true;
+                return extra_feature_list != null && extra_feature_list.Count > 0;
+            }
+        }
+
+        /// <summary>
+        /// 武将动作的**唯一初始化入口**：重算标记位 + 装配特技动作 + 装配装备动作。
+        ///
+        /// 【必须调用的时机】（漏一处就会出现"装了装备没效果""卸了效果还在""新学特技不生效"）
+        ///   ① 剧本解析（<see cref="OnScenarioPrepare"/>，FeatureList 解析之后）
+        ///   ② 装备 / 卸下武器、铠甲、马匹、宝物
+        ///   ③ 授予 / 没收 执行完成
+        ///   ④ 获得 / 失去特技
+        ///
+        /// 【顺序】先清旧订阅（两张表一起清）→ 重算标记位 → 装配特技动作 → 装配装备动作。
+        /// 标记位必须早于装配：Action 在 Init 里可能要读标记位；而 Action 自己也可以
+        /// 通过 PersonSetMark 往标记位上写 —— 写在 <see cref="RefreshMarks"/> 之后才不会被覆盖。
+        /// 装备放在最后，保证装备提供的标记位不被特技侧的装配流程影响。
+        ///
+        /// 【两张表分开清】<see cref="actionList"/>（特技）与 <see cref="equipActionList"/>（装备）
+        /// 订阅的是同一批 GameEvent，混在一张表里互相 Clear 必然误删，因此始终分表维护。
+        /// </summary>
+        public void InitPersonActions()
+        {
+            // ① 清旧订阅：特技表
             if (actionList != null)
             {
                 for (int i = 0; i < actionList.Count; i++)
@@ -4160,21 +4463,44 @@ namespace Sango.Core
                 actionList = new List<ActionBase>();
             }
 
-            if (FeatureList == null)
+            // ① 清旧订阅：装备表
+            if (equipActionList != null)
             {
-                return;
+                for (int i = 0; i < equipActionList.Count; i++)
+                {
+                    equipActionList[i].Clear();
+                }
+                equipActionList.Clear();
+            }
+            else
+            {
+                equipActionList = new List<ActionBase>();
             }
 
-            // 只装配**生效**的特技（超出剧本 maxActiveFeatureCount 的不订阅事件）
-            int activeCount = ActiveFeatureCount;
-            for (int i = 0; i < activeCount; i++)
+            // ② 同步外部来源特技（装备 + 官职）：整表清空后按当前状态重算
+            //    （必须在 RefreshMarks / 装配动作之前，附加特技也要参与后面的装配）
+            SyncExtraFeatures();
+
+            // ③ 标记位先算好（不存档，每次初始化都从当前状态重建）
+            RefreshMarks();
+
+            // ④ 特技动作：自带 + 额外附加合并后按 kind 展开（个人关系类）
+            if (tempPersonFeatures == null)
+                tempPersonFeatures = new List<Feature>(8);
+
+            tempPersonFeatures.Clear();
+            CollectEffectiveFeatures(Feature.KindMask(FeatureKindType.PersonRelationship), tempPersonFeatures);
+
+            for (int i = 0; i < tempPersonFeatures.Count; i++)
             {
-                Feature feature = FeatureList[i];
-                if (feature != null && feature.kind == (int)FeatureKindType.PersonRelationship)
-                {
-                    feature.InitActions(actionList, this);
-                }
+                tempPersonFeatures[i].InitActions(actionList, this);
             }
+
+            // ⑤ 装备动作：读取当前四件装备的 actionEntities（含 PersonSetMark 这类标记位 Action）
+            EquippedWeapon?.InitActions(equipActionList, this);
+            EquippedArmor?.InitActions(equipActionList, this);
+            EquippedHorse?.InitActions(equipActionList, this);
+            EquippedTreasure?.InitActions(equipActionList, this);
         }
 
         /// <summary>
@@ -4183,17 +4509,16 @@ namespace Sango.Core
         public override void Clear()
         {
             base.Clear();
-            if (actionList == null)
-            {
-                return;
-            }
 
-            for (int i = 0; i < actionList.Count; i++)
+            if (actionList != null)
             {
-                actionList[i].Clear();
+                for (int i = 0; i < actionList.Count; i++)
+                {
+                    actionList[i].Clear();
+                }
+                actionList.Clear();
+                actionList = null;
             }
-            actionList.Clear();
-            actionList = null;
 
             // 装备 / 宝物的特效订阅同样要清掉，否则剧本卸载后会保留失效引用
             if (equipActionList != null)
@@ -4205,18 +4530,23 @@ namespace Sango.Core
                 equipActionList.Clear();
                 equipActionList = null;
             }
+
+            // 额外附加的特技是运行期缓存（不存档），卸载后一并丢掉，避免下一个剧本误用旧引用
+            extra_feature_list = null;
         }
 
-        public bool HasFeatrue(int[] ids)
+        /// <summary>
+        /// 是否拥有给定 Id 集合里的任意一个特技（自带 + 额外附加）。
+        /// </summary>
+        /// <param name="ids">特技 Id 数组</param>
+        /// <returns>命中任意一个返回 true</returns>
+        public bool HasFeature(int[] ids)
         {
             if (ids == null) return false;
-            // 只在前 ActiveFeatureCount 个特技里查：超出剧本上限的特技视为未拥有
-            int count = ActiveFeatureCount;
-            if (count <= 0) return false;
 
             for (int i = 0; i < ids.Length; i++)
             {
-                if (HasFeatrue(ids[i])) return true;
+                if (HasFeature(ids[i])) return true;
             }
             return false;
         }
@@ -4563,6 +4893,10 @@ namespace Sango.Core
             // IsAlive 这个序列化标记不会被改写（Utils.IsAlive 对武将同样是读 state）。
             if (state == (int)PersonStateType.Dead) return false;
 
+            // 【特技 33 强运】本人不会战死（原版 SkillId_Unsei：不会战死 / 被俘 / 负伤）。
+            // 按"人"判定而不是按部队 Action：强运只管自己，同部队其他武将不受影响。
+            if (HasFeature(33)) return false;
+
             if (GameEvent.OnPersonCheckBattleDeath != null)
             {
                 Tools.OverrideData<bool> canDie = Tools.OverrideData<bool>.Create(true);
@@ -4652,7 +4986,7 @@ namespace Sango.Core
                 return false;
 
             EquippedWeapon = weapon;
-            BuildEquipActions();
+            InitPersonActions();
             return true;
         }
 
@@ -4667,7 +5001,7 @@ namespace Sango.Core
                 return false;
 
             EquippedArmor = armor;
-            BuildEquipActions();
+            InitPersonActions();
             return true;
         }
 
@@ -4682,7 +5016,7 @@ namespace Sango.Core
                 return false;
 
             EquippedHorse = horse;
-            BuildEquipActions();
+            InitPersonActions();
             return true;
         }
 
@@ -4700,41 +5034,8 @@ namespace Sango.Core
                 return false;
 
             EquippedTreasure = treasure;
-            BuildEquipActions();
+            InitPersonActions();
             return true;
-        }
-
-        /// <summary>
-        /// 按当前装备栏与宝物重建特效动作表。
-        ///
-        /// 与武将特技（<see cref="actionList"/>）**分开维护**：本方法只清 <see cref="equipActionList"/>，
-        /// 不会误伤武将自身的特技订阅。
-        ///
-        /// 必须调用的时机（漏一处就会出现"装了装备没效果"或"卸了效果还在"）：
-        ///   ① 读档完成（ResolveReferenceObjects）
-        ///   ② 装备 / 卸下武器、铠甲、马匹、宝物
-        ///   ③ 授予 / 没收 执行完成
-        ///   ④ 该道具的初始化时机与武将特技一致（见 OnScenarioPrepare）
-        /// </summary>
-        public void BuildEquipActions()
-        {
-            if (equipActionList == null)
-            {
-                equipActionList = new List<ActionBase>();
-            }
-            else
-            {
-                for (int i = 0; i < equipActionList.Count; i++)
-                {
-                    equipActionList[i].Clear();
-                }
-                equipActionList.Clear();
-            }
-
-            EquippedWeapon?.InitActions(equipActionList, this);
-            EquippedArmor?.InitActions(equipActionList, this);
-            EquippedHorse?.InitActions(equipActionList, this);
-            EquippedTreasure?.InitActions(equipActionList, this);
         }
 
         /// <summary>
@@ -4748,7 +5049,7 @@ namespace Sango.Core
                 return null;
 
             EquippedWeapon = null;
-            BuildEquipActions();
+            InitPersonActions();
             return last;
         }
 
@@ -4763,7 +5064,7 @@ namespace Sango.Core
                 return null;
 
             EquippedArmor = null;
-            BuildEquipActions();
+            InitPersonActions();
             return last;
         }
 
@@ -4778,7 +5079,7 @@ namespace Sango.Core
                 return null;
 
             EquippedHorse = null;
-            BuildEquipActions();
+            InitPersonActions();
             return last;
         }
 
@@ -4793,7 +5094,7 @@ namespace Sango.Core
                 return null;
 
             EquippedTreasure = null;
-            BuildEquipActions();
+            InitPersonActions();
             return last;
         }
 

@@ -629,13 +629,13 @@ namespace Sango.Core
                 return false;
 
             Person leader = troop.Leader;
-            if (leader != null && leader.HasFeatrue(featureId))
+            if (leader != null && leader.HasFeature(featureId))
                 return true;
             Person member1 = troop.Member1;
-            if (member1 != null && member1.HasFeatrue(featureId))
+            if (member1 != null && member1.HasFeature(featureId))
                 return true;
             Person member2 = troop.Member2;
-            if (member2 != null && member2.HasFeatrue(featureId))
+            if (member2 != null && member2.HasFeature(featureId))
                 return true;
             return false;
         }

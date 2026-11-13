@@ -46,6 +46,16 @@ namespace Sango.Core
 
         /// <summary>免疫着火格的 ×4 消耗（对应原版 `ignore_fire_`）</summary>
         IgnoreFire = 1 << 4,
+
+        /// <summary>
+        /// 部队免疫俘虏（部队级位码）。
+        ///
+        /// 与上面几位的区别：那些是"地形/移动"免疫，本位置位后部队溃灭时整队武将不再进入收押判定
+        /// （Troop.OnDestroy 与单挑收押都会读）。可由 `TroopSetPathFlag { flag: 32 }` 数据驱动置位；
+        /// 单体免疫（名马 / 特技「强运」）走 <see cref="Person.IsCaptureImmune"/>，不占用本位，
+        /// 避免"一匹马保护整支部队三名武将"。
+        /// </summary>
+        IgnoreCapture = 1 << 5,
     }
 
     public static class PathAlignment

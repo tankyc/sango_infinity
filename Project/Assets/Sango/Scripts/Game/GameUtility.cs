@@ -373,98 +373,68 @@ namespace Sango.Core
 
         static List<ActionBase> sJobActions = new List<ActionBase>();
 
+        /// <summary>城市生产环境接收的特技 kind 位掩码</summary>
+        static readonly int CityProduceFeatureKindMask = Feature.KindMask(FeatureKindType.CityProduce);
+
+        /// <summary>特技展开的复用缓冲（InitJobFeature 内使用，不重入）</summary>
+        static List<Feature> tempCollectFeature = new List<Feature>(8);
+
+        /// <summary>
+        /// 把单个武将"在当前环境下生效的城市生产类特技"装配到 sJobActions。
+        ///
+        /// 三处口径统一在这里：
+        ///   · 混合组按子特技各自的 kind 展开（<see cref="Person.CollectEffectiveFeatures"/>）；
+        ///   · 装备附加的特技不占剧本特技名额，总是生效；
+        ///   · only（唯一特技）按 **Id** 判重 —— 装备并入的是副本，引用比较会漏判。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <param name="sangoObjects">透传给 Action.Init 的对象</param>
+        static void AppendPersonJobFeature(Person person, SangoObject[] sangoObjects)
+        {
+            // 用 HasAnyFeature 而不是判 FeatureList：装备 / 官职附加的特技也算有特技
+            if (person == null || !person.HasAnyFeature)
+                return;
+
+            tempCollectFeature.Clear();
+            person.CollectEffectiveFeatures(CityProduceFeatureKindMask, tempCollectFeature);
+
+            for (int i = 0; i < tempCollectFeature.Count; i++)
+            {
+                Feature feature = tempCollectFeature[i];
+                if (!feature.only)
+                {
+                    temp_FeatureList.Add(feature);
+                    feature.InitActions(sJobActions, sangoObjects);
+                }
+                else if (!Feature.ContainsById(temp_FeatureList, feature.Id))
+                {
+                    temp_FeatureList.Add(feature);
+                    feature.InitActions(sJobActions, sangoObjects);
+                }
+            }
+        }
+
         public static void InitJobFeature(SangoObjectList<Person> people, params SangoObject[] sangoObjects)
         {
             ClearJobFeature();
             if (people == null) return;
             for (int i = 0; i < people.Count; ++i)
-            {
-                Person person = people[i];
-                if (person != null && person.FeatureList != null)
-                {
-                    for (int j = 0; j < person.ActiveFeatureCount; j++)
-                    {
-                        Feature feature = person.FeatureList[j];
-                        if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
-                        {
-                            if (!feature.only)
-                            {
-                                temp_FeatureList.Add(feature);
-                                feature.InitActions(sJobActions, sangoObjects);
-                            }
-                            else
-                            {
-                                if (!temp_FeatureList.Contains(feature))
-                                {
-                                    temp_FeatureList.Add(feature);
-                                    feature.InitActions(sJobActions, sangoObjects);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                AppendPersonJobFeature(people[i], sangoObjects);
         }
 
         public static void InitJobFeature(Person[] people, params SangoObject[] sangoObjects)
         {
             ClearJobFeature();
+            if (people == null) return;
             for (int i = 0; i < people.Length; ++i)
-            {
-                Person person = people[i];
-                if (person != null && person.FeatureList != null)
-                {
-                    for (int j = 0; j < person.ActiveFeatureCount; j++)
-                    {
-                        Feature feature = person.FeatureList[j];
-                        if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
-                        {
-                            if (!feature.only)
-                            {
-                                temp_FeatureList.Add(feature);
-                                feature.InitActions(sJobActions, sangoObjects);
-                            }
-                            else
-                            {
-                                if (!temp_FeatureList.Contains(feature))
-                                {
-                                    temp_FeatureList.Add(feature);
-                                    feature.InitActions(sJobActions, sangoObjects);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+                AppendPersonJobFeature(people[i], sangoObjects);
         }
         static List<Feature> temp_FeatureList = new List<Feature>();
 
         public static void InitJobFeature(Person person, params SangoObject[] sangoObjects)
         {
             ClearJobFeature();
-            if (person != null && person.FeatureList != null)
-            {
-                for (int j = 0; j < person.ActiveFeatureCount; j++)
-                {
-                    Feature feature = person.FeatureList[j];
-                    if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
-                    {
-                        if (!feature.only)
-                        {
-                            temp_FeatureList.Add(feature);
-                            feature.InitActions(sJobActions, sangoObjects);
-                        }
-                        else
-                        {
-                            if (!temp_FeatureList.Contains(feature))
-                            {
-                                temp_FeatureList.Add(feature);
-                                feature.InitActions(sJobActions, sangoObjects);
-                            }
-                        }
-                    }
-                }
-            }
+            AppendPersonJobFeature(person, sangoObjects);
         }
 
         public static void ClearJobFeature()

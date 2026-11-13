@@ -167,6 +167,11 @@ namespace Sango.Core
         public static bool CanInjure(Person person, SangoObject source = null)
         {
             if (person == null) return false;
+
+            // 【特技 33 强运】本人不会负伤（原版 SkillId_Unsei：不会战死 / 被俘 / 负伤）。
+            // 按"人"判定：同部队的其他武将仍可被猛者等效果打伤。
+            if (person.HasFeature(33)) return false;
+
             if (GameEvent.OnPersonCheckInjury == null) return true;
 
             Tools.OverrideData<bool> canInjure = Tools.OverrideData<bool>.Create(true);

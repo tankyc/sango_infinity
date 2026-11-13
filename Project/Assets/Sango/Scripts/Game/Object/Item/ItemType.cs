@@ -132,6 +132,15 @@ namespace Sango.Core
 
         /// <summary>
         /// 附加特技（序列化形态保持 int[]、键名不变，老存档可读）；运行期列表由 OnScenarioPrepare 解析。
+        ///
+        /// 【生效方式】装备 / 卸下 / 读档时由 <c>Person.InitPersonActions</c> →
+        /// <c>Person.SyncExtraFeatures</c> 收集到武将的 <c>extra_feature_list</c>（不存档）：
+        ///   · 判定入口：<c>Person.HasFeature</c>（是否存在）/ <c>Person.CollectEffectiveFeatures</c>（按场景取生效项），
+        ///     两者都会把 FeatureList 与 extra_feature_list 合并后再按 kind 展开混合组；
+        ///   · 武将本身已有同一特技时按 Id 去重，不会重复添加，卸下时也不会误删自带的那个；
+        ///   · 装备特技不占剧本特技名额（maxActiveFeatureCount），总是生效；
+        ///   · 不写进存档：extra_feature_list 标了 [JsonIgnore]，读档后按当前装备重建。
+        /// features 里可以放混合组（kind = Mixed），其子特技按各自 kind 在对应层生效。
         /// </summary>
         [JsonProperty("features")]
         public int[] features_list;
@@ -345,8 +354,9 @@ namespace Sango.Core
         /// <summary>
         /// 解析道具特效实体并装配到动作列表（与 <see cref="Feature.InitActions"/> 同一模式）。
         ///
-        /// 调用时机：装备到手 / 卸下 / 授予 / 没收 时由 Person 侧统一重建，
-        /// 见 <c>Person.BuildEquipActions</c>（动作表与武将特技的 actionList 分开管理，避免互相清除）。
+        /// 调用时机：剧本解析 / 装备到手 / 卸下 / 授予 / 没收 / 学得或失去特技时，
+        /// 由 Person 侧的唯一初始化入口 <c>Person.InitPersonActions</c> 统一重建
+        /// （动作表与武将特技的 actionList 分开管理，避免互相清除）。
         /// </summary>
         /// <param name="list">目标动作列表</param>
         /// <param name="sangoObjects">动作初始化所需的关联对象（一般是武将本人）</param>

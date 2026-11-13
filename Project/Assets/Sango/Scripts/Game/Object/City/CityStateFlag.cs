@@ -29,6 +29,13 @@ namespace Sango.Core
         /// 不是"当前站在城里"），因此不能只看 <see cref="City.freePersons"/>。
         /// </summary>
         RenZheng = 1 << 0,
+
+        /// <summary>
+        /// 风水（特技 Id 98）：本城爆发 / 被传染蝗灾、瘟疫的概率降低。
+        /// 【原版出处】原版灾害判定里对持有 SkillId_Fuusui 的君主所在都市概率减半；
+        /// 本项目按"城内在册武将持有 98"判定，与仁政同一套口径（带兵出征者也保护本城）。
+        /// </summary>
+        FengShui = 1 << 1,
     }
 
     /// <summary>
@@ -41,5 +48,8 @@ namespace Sango.Core
     {
         /// <summary>特技「仁政」</summary>
         public const int RenZheng = 97;
+
+        /// <summary>特技「风水」</summary>
+        public const int FengShui = 98;
     }
 }

@@ -42,6 +42,10 @@ namespace Sango.Core.Action
             if (Force != null && troop.BelongForce != Force) return;
             if (Troop != null && Troop != troop) return;
 
+            // 【kinds 语义】这里一律按"兵种种类 kind"匹配（1剑 2枪 3戟 4弩 5骑 6水军 7运输 8冲车木兽 9井阑投石），
+            // 不是 TroopType.Id。历史上射程（13/14）、工神（11~14）、水将/水神（8~10）都误填成兵种 Id，
+            // 与 kind 永远对不上，导致整段遍历被跳过、特技静默失效。
+
 
             if (kinds == null)
             {
@@ -116,7 +120,7 @@ namespace Sango.Core.Action
             }
             else
             {
-                if (kinds.Contains(troop.LandTroopType.kind))
+                if (troop.LandTroopType != null && kinds.Contains(troop.LandTroopType.kind))
                 {
                     if (condition != null)
                     {
@@ -148,7 +152,7 @@ namespace Sango.Core.Action
                         });
                     }
                 }
-                if (kinds.Contains(troop.WaterTroopType.kind))
+                if (troop.WaterTroopType != null && kinds.Contains(troop.WaterTroopType.kind))
                 {
                     if (condition != null)
                     {

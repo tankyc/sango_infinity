@@ -28,31 +28,37 @@ namespace Sango.Render
             IsDone = false;
         }
         List<Feature> temp_FeatureList = new List<Feature>();
+
+        /// <summary>城市生产环境接收的特技 kind 位掩码</summary>
+        static readonly int CityProduceFeatureKindMask = Feature.KindMask(FeatureKindType.CityProduce);
+
+        /// <summary>特技展开的复用缓冲</summary>
+        List<Feature> tempCollectFeature = new List<Feature>(8);
+
         void InitJobFeature(Person person)
         {
             sJobActions.Clear();
             temp_FeatureList.Clear();
-            if (person != null && person.FeatureList != null)
+            // 用 HasAnyFeature 而不是判 FeatureList：装备 / 官职附加的特技也算有特技
+            if (person == null || !person.HasAnyFeature)
+                return;
+
+            // 混合组按子特技 kind 展开；装备附加特技不占生效名额（与 GameUtility 同口径）
+            tempCollectFeature.Clear();
+            person.CollectEffectiveFeatures(CityProduceFeatureKindMask, tempCollectFeature);
+
+            for (int j = 0; j < tempCollectFeature.Count; j++)
             {
-                for (int j = 0; j < person.ActiveFeatureCount; j++)
+                Feature feature = tempCollectFeature[j];
+                if (!feature.only)
                 {
-                    Feature feature = person.FeatureList[j];
-                    if (feature != null && feature.kind == (int)FeatureKindType.CityProduce)
-                    {
-                        if (!feature.only)
-                        {
-                            temp_FeatureList.Add(feature);
-                            feature.InitActions(sJobActions, person.BelongCity, person);
-                        }
-                        else
-                        {
-                            if (!temp_FeatureList.Contains(feature))
-                            {
-                                temp_FeatureList.Add(feature);
-                                feature.InitActions(sJobActions, person.BelongCity, person);
-                            }
-                        }
-                    }
+                    temp_FeatureList.Add(feature);
+                    feature.InitActions(sJobActions, person.BelongCity, person);
+                }
+                else if (!Feature.ContainsById(temp_FeatureList, feature.Id))
+                {
+                    temp_FeatureList.Add(feature);
+                    feature.InitActions(sJobActions, person.BelongCity, person);
                 }
             }
         }

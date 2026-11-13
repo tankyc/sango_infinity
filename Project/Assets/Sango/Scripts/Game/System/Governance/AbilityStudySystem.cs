@@ -808,7 +808,7 @@ namespace Sango.Core
                 // —— s11_sys_person_order_kunshu.cpp:1602-1637
                 if (!person.IsFree || !person.IsHealthy)
                     continue;
-                if (person.HasFeatrue(target.skillId))
+                if (person.HasFeature(target.skillId))
                     continue;
                 // 不判 FeatureList == null：无特技武将正是"最该学第一个特技"的对象，
                 // 原版 can_learn 对空列表返回可学（s11_sys_scen_ability.cpp:60-64）。
@@ -922,7 +922,7 @@ namespace Sango.Core
                 if (!force.HasAbility(ability.Id))
                     return;
                 // 原版无 person 级"已学该 ability"锁（见 System::can_learn）：
-                // 基础能力靠 exp / pure 上限自然收敛，特技靠下面的 HasFeatrue 拦。
+                // 基础能力靠 exp / pure 上限自然收敛，特技靠下面的 HasFeature 拦。
                 if (force.GetAbilityLearnCount(ability.Id) >= ability.LearningLimitCount)
                     return;
 
@@ -965,7 +965,7 @@ namespace Sango.Core
                 }
                 else if (ability.IsSkill)
                 {
-                    if (ability.skillId <= 0 || person.HasFeatrue(ability.skillId))
+                    if (ability.skillId <= 0 || person.HasFeature(ability.skillId))
                         return;
                     // 【无特技不等于数据无效】原版 person->has_skill() 对空列表返回 false
                     // （s11_sys_scen_ability.cpp:60-64），空表正是"可学新特技"的起点。
@@ -1121,13 +1121,13 @@ namespace Sango.Core
                 // 【只判 skillId】不能判 FeatureList == null —— "没有特技"是合法状态，
                 // 原版 can_learn 的特技分支（s11_sys_scen_ability.cpp:60-64）只判 has_skill，
                 // 空列表时 has_skill 返回 false，即"可学"。
-                // HasFeatrue / IsFeatureFull 自身都已兼容 null，无需在这里提前拦截。
+                // HasFeature / IsFeatureFull 自身都已兼容 null，无需在这里提前拦截。
                 if (ability.skillId <= 0)
                 {
                     reason = "特技数据无效";
                     return false;
                 }
-                if (person.HasFeatrue(ability.skillId))
+                if (person.HasFeature(ability.skillId))
                 {
                     reason = "该武将已拥有此特技";
                     return false;
@@ -1385,10 +1385,10 @@ namespace Sango.Core
         /// <summary>结算特技授予</summary>
         static bool ApplySkill(Person person, Ability ability, City city, Force force, Scenario scenario)
         {
-            // 原版 System::can_learn 的特技分支只判 has_skill，对应的就是下面的 HasFeatrue
+            // 原版 System::can_learn 的特技分支只判 has_skill，对应的就是下面的 HasFeature
             if (ability.skillId <= 0)
                 return false;
-            if (person.HasFeatrue(ability.skillId))
+            if (person.HasFeature(ability.skillId))
                 return false;
             // 【剧本上限】特技数已达 maxActiveFeatureCount → 不能再学。
             // 注意判据用 FeatureList.Count 而不是 ActiveFeatureCount：
@@ -1409,9 +1409,9 @@ namespace Sango.Core
             person.FeatureList.Add(feature);
             // 新学的特技要立刻装配事件 Action：装配时机原本只有剧本解析，
             // 运行期学的"个人关系类"特技会只有数据、没有效果。
-            person.RefreshFeatureActions();
+            person.InitPersonActions();
             // 存档字段是 Id 数组，立刻回写一份，与事件授予路径（EventEffectsPersonExt）保持一致
-            person.FeatureListId = person.FeatureList.ToArray();
+            person.FeatureListId = person.FeatureList?.ToArray() ?? null;
             person.MarkAbilityLearned(ability.Id);
             force.MarkAbilityLearned(ability.Id);
 

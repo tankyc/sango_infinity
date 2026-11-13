@@ -80,6 +80,9 @@ namespace Sango.Core.Action
             Register("BuildingBaseAttackBack", CraeteHandle<BuildingBaseAttackBack>);
             // 强化城墙：拥有该研究的势力，城池、关卡和港口的耐久上限各增加 3000。
             Register("CityDurabilityLimit", CraeteHandle<CityDurabilityLimit>);
+            // 培训工兵：拥有该研究的势力，城池/关/港每回合的耐久自然回复量按配置百分比提高
+            // （原版 s11_game_week.cpp:943-953，回复量 ×2.5）。
+            Register("CityDurabilityRecover", CraeteHandle<CityDurabilityRecover>);
             // 据点即时修复：研究或效果刚生效时，立即为所属城池、关卡和港口补充配置数值的耐久。
             Register("CityAddDurability", CraeteHandle<CityAddDurability>);
             // 粮仓扩建：计算粮食上限时，为符合类型的己方据点额外增加配置数值的储粮空间。
@@ -106,8 +109,11 @@ namespace Sango.Core.Action
             // 精锐弩兵：拥有该研究的势力，弩兵部队攻击力增加 10。
             // 精锐骑兵：拥有该研究的势力，骑兵部队攻击力增加 10。
             Register("TroopAddAttack", CraeteHandle<TroopAddAttack>);
-            // 攻城强化：计算部队战法对据点、设施和建筑的伤害时，按配置百分比提高符合兵种的破坏力。
+            // 攻城强化：计算部队战法对据点、设施和建筑的**耐久**伤害时，按配置百分比提高符合兵种的破坏力。
             Register("TroopAddDamageBuildingExtraFactor", CraeteHandle<TroopAddDamageBuildingExtraFactor>);
+            // 攻城强化（守军）：计算部队对据点（城/关/港）**守军兵力**的伤害时，按配置百分比提高。
+            // 云梯 = 耐久与守军两段同时 ×1.4（原版 calc_attack_damage 的 target_building 分支）。
+            Register("TroopAddDamageBuildingTroopExtraFactor", CraeteHandle<TroopAddDamageBuildingTroopExtraFactor>);
             // 对军强化：计算部队战法对敌军的伤害时，按配置百分比提高符合兵种的战法威力。
             Register("TroopAddDamageTroopExtraFactor", CraeteHandle<TroopAddDamageTroopExtraFactor>);
             // 精锐枪兵：拥有该研究的势力，枪兵部队防御力增加 10。
@@ -316,8 +322,11 @@ namespace Sango.Core.Action
             // 特技 #78 筑城：军事设施建设时的耐久上升量提高至 200%。
             Register("TroopImproveBuildPower", CraeteHandle<TroopImproveBuildPower>);
             // 通用：给部队设置寻路/地形免疫标记位（PathFlag）。
-            // 解毒 flag=1、踏破/藤甲 flag=2，均可在 Features.json 里配置。
+            // 解毒 flag=1、踏破/难所行军 flag=2，均可在 Features.json / Techniques.json 里配置。
             Register("TroopSetPathFlag", CraeteHandle<TroopSetPathFlag>);
+            // 通用：给武将设置标记位（PersonMarkType），特技 / 装备的 actionEntities 用。
+            // 例：启用"免疫俘虏" → { "class": "PersonSetMark", "mark": "IgnoreCapture", "value": 1 }
+            Register("PersonSetMark", CraeteHandle<PersonSetMark>);
             // 特技 #52 猛者：以战法让敌方部队移动区格时，有几率让敌方一名武将负伤。
             Register("TroopOffsetInjurePerson", CraeteHandle<TroopOffsetInjurePerson>);
             // 特技 #53 护卫：本部队的武将不会负伤（免伤判定挂在 PersonInjury 的询问事件上，

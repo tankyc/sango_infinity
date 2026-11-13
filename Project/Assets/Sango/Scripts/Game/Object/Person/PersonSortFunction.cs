@@ -245,9 +245,9 @@ namespace Sango.Core
                         person.FeatureList.Add(newList[i]);
                     }
                 }
-                person.FeatureListId = person.FeatureList.ToArray();
+                person.FeatureListId = person.FeatureList?.ToArray() ?? null;
             }
-            person.RefreshFeatureActions();
+            person.InitPersonActions();
         }
 
         /// <summary>
@@ -907,6 +907,20 @@ namespace Sango.Core
         };
 
 
+        /// <summary>
+        /// 特技总数（生效的自带 + 全部额外附加），用于"特技"列排序。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <returns>数量</returns>
+        static int GetTotalFeatureCount(Person person)
+        {
+            if (person == null) return 0;
+            int count = person.ActiveFeatureCount;
+            if (person.extra_feature_list != null)
+                count += person.extra_feature_list.Count;
+            return count;
+        }
+
         public static SortTitle SortByFeatureList = new SortTitle()
         {
             name = "特技",
@@ -915,28 +929,39 @@ namespace Sango.Core
             valueStrGetCall = x =>
             {
                 StringBuilder sb = new StringBuilder();
+                bool first = true;
+
+                // ① 自带：只列**生效**的（超出剧本 maxActiveFeatureCount 的部分不展示）
                 if (x.FeatureList != null)
                 {
-                    // 只列**生效**的特技（超出剧本 maxActiveFeatureCount 的部分不展示）
                     int activeCount = x.ActiveFeatureCount;
                     for (int i = 0; i < activeCount; i++)
                     {
-                        sb.Append(x.FeatureList[i].Name);
-                        if (i < activeCount - 1)
-                            sb.Append(", ");
+                        Feature f = x.FeatureList[i];
+                        if (f == null) continue;
+                        if (!first) sb.Append(", ");
+                        sb.Append(f.Name);
+                        first = false;
+                    }
+                }
+
+                // ② 额外附加（装备 / 官职）：不占名额，全量展示
+                if (x.extra_feature_list != null)
+                {
+                    for (int i = 0; i < x.extra_feature_list.Count; i++)
+                    {
+                        Feature f = x.extra_feature_list[i];
+                        if (f == null) continue;
+                        if (!first) sb.Append(", ");
+                        sb.Append(f.Name);
+                        first = false;
                     }
                 }
                 return sb.ToString();
             },
             valueSortFunc = (a, b) =>
             {
-                if (a.FeatureList == null && b.FeatureList == null)
-                    return 0;
-                if (a.FeatureList != null && b.FeatureList == null)
-                    return -1;
-                if (a.FeatureList == null && b.FeatureList != null)
-                    return 1;
-                return a.ActiveFeatureCount.CompareTo(b.ActiveFeatureCount);
+                return GetTotalFeatureCount(a).CompareTo(GetTotalFeatureCount(b));
             },
             valueObjGet = x => x.FeatureList,
             valueObjSet = (x, v) => SetPersonFeatureList(x, v),
@@ -1039,9 +1064,9 @@ namespace Sango.Core
             {
                 name = feature.Name,
                 width = 2.00f,
-                valueStrGetCall = x => x.HasFeatrue(id) ? "○" : "✕",
-                valueSortFunc = (a, b) => a.HasFeatrue(id).CompareTo(b.HasFeatrue(id)),
-                valueObjGet = x => x.HasFeatrue(id),
+                valueStrGetCall = x => x.HasFeature(id) ? "○" : "✕",
+                valueSortFunc = (a, b) => a.HasFeature(id).CompareTo(b.HasFeature(id)),
+                valueObjGet = x => x.HasFeature(id),
                 valueObjSet = null,
             };
         }
@@ -1089,8 +1114,8 @@ namespace Sango.Core
                 {
                     bool aRecommend = recommendList.Contains(a);
                     bool bRecommend = recommendList.Contains(b);
-                    bool aFeature = a.HasFeatrue(featureId);
-                    bool bFeature = b.HasFeatrue(featureId);
+                    bool aFeature = a.HasFeature(featureId);
+                    bool bFeature = b.HasFeature(featureId);
 
                     int aScore = (aRecommend ? 2 : 0) + (aFeature ? 1 : 0);
                     int bScore = (bRecommend ? 2 : 0) + (bFeature ? 1 : 0);

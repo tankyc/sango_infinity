@@ -304,7 +304,7 @@ namespace Sango.Core
 
             int like = actorForce.GetLike(targetForce);
             int successLine = (110 - like) * 2;
-            int debateLine = (100 - like) * 2;
+            int debateLine = (100 - like) * 2 - GetDebateLineBonus(actor);
 
             if (n > successLine) return Result.Success;
             if (n > debateLine) return Result.Debate;
@@ -313,6 +313,22 @@ namespace Sango.Core
             if (n * 2 > successLine) return Result.SuccessNarrow;
 
             return Result.Failure;
+        }
+
+        /// <summary>
+        /// 特技「论客」（#87）的舌战线放宽值。
+        ///
+        /// 【原版口径】原版在"目标君主厌恶发起方君主"的前置否决里，只有使者持有
+        /// SkillId_Ronkyaku 才允许继续谈判（s11_sys_person_order_diplomacy.cpp try_alliance 前置链）；
+        /// 本项目把该特技折算为"舌战线放宽 30 点"，让同盟 / 停战 / 交换俘虏更容易进入舌战，
+        /// 与描述"于同盟、停战协定、交换俘虏时容易进入舌战"一致。
+        /// 说明：原版没有给出统一数值，30 点为本次补全取的默认值（相当于政治 +30）。
+        /// </summary>
+        /// <param name="actor">我方使者</param>
+        /// <returns>需要放宽的判定点数，无特技时为 0</returns>
+        static int GetDebateLineBonus(Person actor)
+        {
+            return actor != null && actor.HasFeature(87) ? 30 : 0;
         }
 
         /// <summary>
@@ -344,7 +360,7 @@ namespace Sango.Core
 
             int like = actorForce.GetLike(targetForce);
             int successLine = time * 4 / 3 - like / 4 + 80;
-            int debateLine = time * 4 / 3 - like / 4 + 70;
+            int debateLine = time * 4 / 3 - like / 4 + 70 - GetDebateLineBonus(actor);
 
             if (n > successLine) return Result.Success;
             if (n > debateLine) return Result.Debate;
@@ -635,7 +651,7 @@ namespace Sango.Core
             //   n >= g+100   → 成功；n >= g+90 → 舌战；否则失败。
             if (n >= g + 100)
                 return n * 2 >= g + 100 ? Result.SuccessNarrow : Result.Success;
-            if (n >= g + 90) return Result.Debate;
+            if (n >= g + 90 - GetDebateLineBonus(actor)) return Result.Debate;
             return Result.Failure;
         }
 

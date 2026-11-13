@@ -45,8 +45,8 @@ namespace Sango.Core.Player
             counsellorRecommendList.Sort(
                 (a, b) =>
                         {
-                            bool ahas = a.HasFeatrue(recommandFeatrues);
-                            bool bhas = b.HasFeatrue(recommandFeatrues);
+                            bool ahas = a.HasFeature(recommandFeatrues);
+                            bool bhas = b.HasFeature(recommandFeatrues);
                             if (ahas == bhas)
                             {
                                 return -a.Politics.CompareTo(b.Politics);

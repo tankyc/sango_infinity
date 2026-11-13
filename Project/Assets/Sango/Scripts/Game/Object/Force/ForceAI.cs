@@ -833,7 +833,7 @@ namespace Sango.Core
                     // 否则会有特技的人被锁在无关的城当守将。
                     int feat = BarbarianConfig.GetGuardFeatureId(city.barbarianTribe);
                     int score = GetGuardStatScore(p, 100);
-                    if (feat > 0 && p.HasFeatrue(feat))
+                    if (feat > 0 && p.HasFeature(feat))
                         score += GuardFeatureBonus;
                     if (score > bestScore)
                     {
@@ -1038,7 +1038,7 @@ namespace Sango.Core
         static int GetGuardScoreWithFeature(Person person)
         {
             int score = GetGuardStatScore(person, 100);
-            if (person != null && person.HasFeatrue(BarbarianGuardFeatures))
+            if (person != null && person.HasFeature(BarbarianGuardFeatures))
                 score += GuardFeatureBonus;
             return score;
         }
@@ -2531,7 +2531,7 @@ namespace Sango.Core
                 return false;
             for (int i = 0; i < features.Length; i++)
             {
-                if (person.HasFeatrue(features[i]))
+                if (person.HasFeature(features[i]))
                     return true;
             }
             return false;
@@ -2748,7 +2748,7 @@ namespace Sango.Core
                     {
                         for (int j = 0; j < troopType.matchFeatures.Length; j++)
                         {
-                            if (exsistP.HasFeatrue(troopType.matchFeatures[j]))
+                            if (exsistP.HasFeature(troopType.matchFeatures[j]))
                             {
                                 alreadtHasFeature = true;
                                 break;
@@ -2770,7 +2770,7 @@ namespace Sango.Core
                         {
                             for (int j = 0; j < troopType.matchFeatures.Length; j++)
                             {
-                                if (person.HasFeatrue(troopType.matchFeatures[j]))
+                                if (person.HasFeature(troopType.matchFeatures[j]))
                                 {
                                     checkPersons[destSlot] = person;
                                     person1 = person;
@@ -2939,7 +2939,7 @@ namespace Sango.Core
                 {
                     for (int i = 0; i < recommendFeatures.Length; i++)
                     {
-                        if (check1.HasFeatrue(recommendFeatures[i]))
+                        if (check1.HasFeature(recommendFeatures[i]))
                         {
                             buildAbility -= 100000;
                             break;
@@ -3037,8 +3037,8 @@ namespace Sango.Core
             if (recommandFeatures == null || recommandFeatures.Length == 0)
                 recommandFeatures = defaultResearchRecommandFeatures;
 
-            // 用 HasFeatrue 而不是 FeatureList.Contains：只认生效范围内的特技
-            List<Person> featurePersonList = personList.FindAll(x => x != null && x.HasFeatrue(recommandFeatures));
+            // 用 HasFeature 而不是 FeatureList.Contains：只认生效范围内的特技
+            List<Person> featurePersonList = personList.FindAll(x => x != null && x.HasFeature(recommandFeatures));
             // 持有者足够填满队伍时直接成队（与原逻辑一致）
             if (featurePersonList.Count >= ResearchPersonLimit)
                 return featurePersonList.GetRange(0, ResearchPersonLimit).ToArray();
@@ -3290,7 +3290,7 @@ namespace Sango.Core
             for (int i = 0; i < personList.Count; i++)
             {
                 Person person = personList[i];
-                if (commandFeatures != null && person.HasFeatrue(commandFeatures))
+                if (commandFeatures != null && person.HasFeature(commandFeatures))
                     result.Add(person);
                 else if (person.Politics >= 90)
                     result.Add(person);

@@ -631,11 +631,11 @@ namespace Sango.Core.Event
         public override bool Check(IConditionDatabase database)
         {
             Person person = EventConditionHelper.GetSlot<Person>(database, slot);
-            if (person == null || person.FeatureList == null) return false;
+            if (person == null || !person.HasAnyFeature) return false;
 
-            // 用 HasFeatrue 而不是 FeatureList.Contains：只认生效范围内的特技
+            // 用 HasFeature 而不是 FeatureList.Contains：只认生效范围内的特技
             // （超出剧本 maxActiveFeatureCount 的特技视为未拥有，事件条件不应命中）
-            bool has = featureId > 0 && person.HasFeatrue(featureId);
+            bool has = featureId > 0 && person.HasFeature(featureId);
             return has == expect;
         }
     }

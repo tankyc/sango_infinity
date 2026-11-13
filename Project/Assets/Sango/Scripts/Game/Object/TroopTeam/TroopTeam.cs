@@ -333,7 +333,7 @@ namespace Sango.Core
             {
                 for (int i = 0; i < troopType.matchFeatures.Length; i++)
                 {
-                    if (p.HasFeatrue(troopType.matchFeatures[i]))
+                    if (p.HasFeature(troopType.matchFeatures[i]))
                     {
                         score += FeatureBonus;
                         featureHits++;
@@ -399,7 +399,7 @@ namespace Sango.Core
                     {
                         Person p = usable[j];
                         if (ContainsPerson(picked, p.Id)) continue;
-                        if (!p.HasFeatrue(feats[i])) continue;       // 该槽要求"持有此特技"
+                        if (!p.HasFeature(feats[i])) continue;       // 该槽要求"持有此特技"
                         int hits;
                         float score = ScorePerson(p, troopType, out hits);
                         if (score > bestScore)
@@ -557,7 +557,7 @@ namespace Sango.Core
                 return false;
             for (int i = 0; i < featureIds.Length; i++)
             {
-                if (featureIds[i] > 0 && p.HasFeatrue(featureIds[i]))
+                if (featureIds[i] > 0 && p.HasFeature(featureIds[i]))
                     return true;
             }
             return false;

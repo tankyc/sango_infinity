@@ -956,17 +956,30 @@ namespace Sango.Core
             int old = stateFlags;
             int next = 0;
 
+            // 【多标记】不再"命中一个就 break"：仁政（97）与风水（98）可能分别由不同武将持有，
+            // 收到两个位都齐了才提前跳出。
+            bool hasRenZheng = false;
+            bool hasFengShui = false;
             for (int i = 0; i < allPersons.Count; i++)
             {
                 Person person = allPersons[i];
                 if (person == null || person.IsDead)
                     continue;
 
-                if (person.HasFeatrue(CityStateFeatureId.RenZheng))
+                if (!hasRenZheng && person.HasFeature(CityStateFeatureId.RenZheng))
                 {
                     next |= (int)CityStateFlag.RenZheng;
-                    break;
+                    hasRenZheng = true;
                 }
+
+                if (!hasFengShui && person.HasFeature(CityStateFeatureId.FengShui))
+                {
+                    next |= (int)CityStateFlag.FengShui;
+                    hasFengShui = true;
+                }
+
+                if (hasRenZheng && hasFengShui)
+                    break;
             }
 
             if (next == old)
@@ -2117,6 +2130,18 @@ namespace Sango.Core
             return rs;
         }
         List<Feature> temp_FeatureList = new List<Feature>();
+
+        /// <summary>
+        /// 城池环境接收的特技 kind 位掩码（收入 / 灾害两类）。
+        /// 混合组按子特技的 kind 与本掩码比对，决定哪几个子特技在城池层生效。
+        /// </summary>
+        static readonly int CityFeatureKindMask =
+            Feature.KindMask(FeatureKindType.CityHarvest)
+            | Feature.KindMask(FeatureKindType.CityDisaster);
+
+        /// <summary>特技展开的复用缓冲（InitPersonAction 内使用，不重入）</summary>
+        List<Feature> tempCollectFeature = new List<Feature>(8);
+
         public void InitPersonAction()
         {
             // 重置
@@ -2128,27 +2153,27 @@ namespace Sango.Core
             for (int n = 0; n < allPersons.Count; n++)
             {
                 Person x = allPersons[n];
-                if (x == null || x.FeatureList == null)
+                // 用 HasAnyFeature 而不是判 FeatureList：装备 / 官职附加的特技也算有特技
+                if (x == null || !x.HasAnyFeature)
                     continue;
-                for (int i = 0; i < x.ActiveFeatureCount; i++)
+
+                // 按"城池环境"收集生效特技：混合组展开 + 装备附加特技不占生效名额
+                tempCollectFeature.Clear();
+                x.CollectEffectiveFeatures(CityFeatureKindMask, tempCollectFeature);
+
+                for (int i = 0; i < tempCollectFeature.Count; i++)
                 {
-                    Feature feature = x.FeatureList[i];
-                    // 仅城市收入、灾害类特技可在城市装配；括号确保空特技不会继续访问 kind。
-                    if (feature != null && (feature.kind == (int)FeatureKindType.CityHarvest || feature.kind == (int)FeatureKindType.CityDisaster))
+                    Feature feature = tempCollectFeature[i];
+                    if (!feature.only)
                     {
-                        if (!feature.only)
-                        {
-                            temp_FeatureList.Add(feature);
-                            feature.InitActions(actionList, this, x);
-                        }
-                        else
-                        {
-                            if (!temp_FeatureList.Contains(feature))
-                            {
-                                temp_FeatureList.Add(feature);
-                                feature.InitActions(actionList, this, x);
-                            }
-                        }
+                        temp_FeatureList.Add(feature);
+                        feature.InitActions(actionList, this, x);
+                    }
+                    else if (!Feature.ContainsById(temp_FeatureList, feature.Id))
+                    {
+                        // only = 唯一特技：按 Id 判重（装备并入的是副本，引用比较会漏判）
+                        temp_FeatureList.Add(feature);
+                        feature.InitActions(actionList, this, x);
                     }
                 }
             }
@@ -2211,9 +2236,16 @@ namespace Sango.Core
             CostFood(scenario);
 
             // 耐久自修复
+            // 【原版出处】s11_game_week.cpp:933-953：每回合（原版为每周）对未满耐久的己方据点恢复耐久，
+            // 基础量由太守政治换算；持有技巧「培训工兵」时回复量 ×2.5（由 CityDurabilityRecover 挂载，
+            // 数据见 Techniques.json #25），因此这里把固定算式抽成可修正的 OverrideData。
             if (durability < DurabilityLimit)
             {
-                ChangeDurability(Leader?.BaseBuildAbility * 2 + 50 ?? 50, null);
+                Tools.OverrideData<int> recoverData = Tools.OverrideData<int>.Create(Leader?.BaseBuildAbility * 2 + 50 ?? 50);
+                GameEvent.OnCityCalculateDurabilityRecover?.Invoke(this, recoverData);
+                int recover = recoverData.ValueAndRecycle;
+                if (recover > 0)
+                    ChangeDurability(recover, null);
             }
 
             if (Render != null)
@@ -3221,11 +3253,10 @@ namespace Sango.Core
         ///          { escaped.push_back(person); continue; }`
         /// 命中者直接进"逃脱"列表，**不参与概率判定**。
         ///
-        /// 本项目映射：
-        ///   · 名马  = 装备了马匹（EquippedHorse 非空）。工程内马具在单挑层一律按名马归类，
-        ///             CityStrategyActionBase.CalculateCaptureRate 的免俘判定用的也是同一口径，
-        ///             这里沿用，避免出现第二套"是不是名马"的定义；
-        ///   · 强运  = 特技 #33（DuelFeatureId.Lucky，见 Features.json）。
+        /// 本项目映射：统一走 <see cref="Person.IsCaptureImmune"/>，即标记位
+        /// <see cref="PersonMarkType.IgnoreCapture"/>（当前由"名马 / 特技 #33 强运"折算而来，
+        /// 见 <see cref="Person.RefreshMarks"/>），不再在本方法里各判一遍 —— 否则装备效果启用标记位后，
+        /// 城陷路径会漏判，出现"单挑免俘、城陷被俘"的分裂。
         ///
         /// 【为什么不判血路（#34）】原版只在**部队击破**路径判 `SkillId_Ketsuro`
         /// （s11_sys_scen_unit.cpp 击破分支的捕获前提），城陷分支不判 ——
@@ -3236,15 +3267,7 @@ namespace Sango.Core
         /// <returns>免于被俘返回 true</returns>
         static bool IsCaptureImmune(Person person)
         {
-            if (person == null)
-                return false;
-            // 名马：骑乘状态即视为持有名马
-            if (person.EquippedHorse != null)
-                return true;
-            // 强运：特技 #33（全限定名：Sango.Core 下同时存在 Duel 类型与 Sango.Core.Duel 命名空间）
-            if (person.HasFeatrue(Sango.Core.Duel.DuelFeatureId.Lucky))
-                return true;
-            return false;
+            return person != null && person.IsCaptureImmune;
         }
 
         /// <summary>

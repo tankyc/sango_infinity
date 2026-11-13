@@ -14,8 +14,12 @@ namespace Sango.Core.Action
     /// 【用途】原版的"有某特技/科技就无视某惩罚"都是打标记，不是写死分支：
     ///   · 解毒（特技 9）      → flag 1，免毒泉移动伤害与寻路代价
     ///   · 踏破（特技 7）      → flag 2，免栈道移动伤害与寻路代价
-    ///   · 藤甲（特技 32）     → flag 2（藤甲同样不怕栈道），受火伤害加倍由别的 Action 处理
+    ///   · 难所行军（技巧 18） → flag 2，同样免栈道伤害
     /// 新增"沼泽免疫"之类的机制只需在 PathFlag 加一位，代码不用改。
+    ///
+    /// 【已修正】藤甲（特技 32）原先也挂了 flag 2，但原版栈道免疫只来自踏破 / 难所行军
+    /// （s11_sys_damage.cpp:34-41、s11_sys_unit_path.cpp:25-26），藤甲仅"非火伤害减半 + 火伤加倍"，
+    /// 故已从 Features.json #32 移除该标记。
     /// </summary>
     public class TroopSetPathFlag : TroopActionBase
     {

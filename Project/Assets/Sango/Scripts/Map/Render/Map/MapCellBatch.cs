@@ -161,6 +161,17 @@ namespace Sango.Render
         /// </summary>
         internal bool inFrameUpdateList = false;
 
+        /// <summary>
+        /// 是否已登记进 <see cref="MapTerrain"/> 的**节点构建队列**（防重复入队）。
+        ///
+        /// 【为什么要排队】<see cref="Init"/> 要为每个非空图层建 GameObject + Mesh + Collider，
+        /// 还要扫一遍块内全部顶点（<see cref="ComputeUsedLayers"/>），单块就是百微秒级。
+        /// 从远景切回近景时，整片视野的块会在同一帧同时走到"可见但没节点"的分支，
+        /// 同步 Init 几十上百块就是几十上百毫秒的尖峰（玩家看到的"黑屏一跳"）。
+        /// 入队后由 <see cref="MapTerrain"/> 按帧预算消费，期间地形由远景批渲染占位。
+        /// </summary>
+        internal bool meshBuildQueued = false;
+
         private bool _visible = false;
         private bool _visibleChanged = false;
 
@@ -391,6 +402,8 @@ namespace Sango.Render
 
             // 解登记：本块已整体清理，逐帧循环里彻底移除
             inFrameUpdateList = false;
+            // 队列标记同样复位：残留的 true 会让该块重建后再也进不了构建队列
+            meshBuildQueued = false;
             lodPending = false;
         }
 
@@ -878,18 +891,50 @@ namespace Sango.Render
             //   · 节点在、但网格被空闲卸载回收了（ReleaseMesh 把 Mesh 归还进池）→ 只补网格。
             // 旧实现只判 !IsValid()（= 节点不存在），第二种情况会永远停在"可见但画不出来"，
             // 表现为：拉远一会儿、移动镜头、再拉近，那些被回收过的地块整片空白且不再恢复。
-            if (_visible && TerrainRenderEnabled && !IsInThreadLoad())
+            // 【分帧建节点】不再要求 TerrainRenderEnabled 才进来：
+            // 切近景的过渡期里块渲染是**故意保持关闭**的（避免和批渲染重叠），
+            // 但节点构建必须照常推进，否则队列永远填不满、过渡永远结束不了。
+            // 远景（批渲染接管）下仍然不建 —— 见下面的 MeshBuildActive 判断。
+            if (_visible && !IsInThreadLoad())
             {
                 if (!IsValid())
                 {
-                    Init();
-                    AsyncPrepareDatas();
+                    // 过渡期走构建队列：Init 要为每个非空图层建 GameObject + Mesh + Collider，
+                    // 还要扫一遍块内全部顶点（ComputeUsedLayers），单块就是百微秒级；
+                    // 整片视野同帧同步 Init 会顶出几十上百毫秒的尖峰（"黑屏一跳"）。
+                    // 排队后按帧预算消费，期间地形由远景 Instanced 批渲染继续占位。
+                    if (IsMeshBuildActive())
+                    {
+                        if (!meshBuildQueued)
+                        {
+                            meshBuildQueued = true;
+                            map.mapTerrain.QueueMeshBuild(this);
+                        }
+                    }
+                    else if (TerrainRenderEnabled)
+                    {
+                        // 非过渡期（正常近景平移）：保持原有同步构建，块立即出现
+                        Init();
+                        AsyncPrepareDatas();
+                    }
                 }
-                else if (!HasMesh())
+                else if (!HasMesh() && (TerrainRenderEnabled || IsMeshBuildActive()))
                 {
+                    // 节点在、网格被空闲卸载回收了：只补网格。
+                    // 过渡期也要补 —— 否则这些块永远停在"可见但画不出来"，
+                    // HasUnreadyCellInView 会一直为真，过渡只能等超时兜底。
                     AsyncPrepareDatas();
                 }
             }
+        }
+
+        /// <summary>
+        /// 当前是否处于"近景过渡期"（由 <see cref="MapTerrain.MeshBuildActive"/> 决定）。
+        /// 块自己不去猜"现在是远景还是近景"，只问地形管理器 —— 判定口径只有一处。
+        /// </summary>
+        bool IsMeshBuildActive()
+        {
+            return map != null && map.mapTerrain != null && map.mapTerrain.MeshBuildActive;
         }
 
         public bool Overlaps(Sango.Tools.Rect rect)

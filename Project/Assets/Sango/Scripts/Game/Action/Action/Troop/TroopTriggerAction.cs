@@ -14,6 +14,16 @@ namespace Sango.Core.Action
         readonly ActionContainer container = new ActionContainer();
 
         /// <summary>
+        /// 容器级条件（可选）。
+        ///
+        /// 【为什么放在容器上】容器内的子效果（TroopChangeMorale / TroopRecure 等）不订阅事件、
+        /// 也不解析 condition，过去只能靠"给每个子效果加一份过滤"。把条件提到容器后，
+        /// 扫荡 / 威风 / 掎角 / 攻心 / 怒发 这类"触发器 + 效果"的特技都能用一条
+        /// condition 统一限定"只在一般攻击 / 只在战法"（对应 SkillIsNormalSkill / SkillIsStrategySkill）。
+        /// </summary>
+        protected Condition condition;
+
+        /// <summary>
         /// 初始化容器
         /// </summary>
         /// <param name="p">JSON参数对象</param>
@@ -22,6 +32,16 @@ namespace Sango.Core.Action
         {
             base.Init(p, sangoObjects);
             container.Init(p, sangoObjects);
+
+            JObject conObj = p.Value<JObject>("condition");
+            if (conObj != null)
+            {
+                condition = Condition.Create(conObj.Value<string>("class"));
+                if (condition != null)
+                    condition.Init(conObj, sangoObjects);
+                else
+                    Sango.Log.Error($"部队触发器容器的条件类未注册：{conObj.Value<string>("class")}，已忽略该条件");
+            }
         }
 
         /// <summary>
@@ -38,6 +58,11 @@ namespace Sango.Core.Action
         /// <param name="trigger">触发事件</param>
         public virtual void OnTrigger(Trigger trigger)
         {
+            // 容器级条件先过：Trigger 本身实现了 IConditionDatabase，
+            // 因此 ActionSkill / ActionTroop / TargetTroop 等字段都能被条件类直接读取。
+            if (condition != null && !condition.Check(trigger))
+                return;
+
             container.Dispatch(trigger);
         }
     }

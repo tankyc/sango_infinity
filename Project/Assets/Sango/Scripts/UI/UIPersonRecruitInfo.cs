@@ -55,7 +55,14 @@ using Sango.Core; namespace Sango.UI
                 btnGroup_2.gameObject.SetActive(true);
                 recruitBtn2.interactable = true;
             }
+
             SetPerson(personRecruit.target);
+
+            if (personRecruit.IsTryExhausted)
+            {
+                recruitBtn1.interactable = false;
+                recruitBtn2.interactable = false;
+            }
         }
 
         public void OnCancel()

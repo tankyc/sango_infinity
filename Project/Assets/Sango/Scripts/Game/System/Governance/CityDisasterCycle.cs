@@ -138,6 +138,11 @@ namespace Sango.Core
                     continue;
                 // 政治 / 治安越高越不易被传染 —— :19-22
                 int chance = System.Math.Min((105 - city.security) / 2, 20);
+
+                // 【特技 98 风水】本城有武将会风水时，被传染概率减半（描述："不容易出现蝗灾、瘟疫"）。
+                if (city.HasStateFlag(CityStateFlag.FengShui))
+                    chance /= 2;
+
                 if (!GameRandom.Chance(chance))
                     continue;
 
@@ -201,6 +206,11 @@ namespace Sango.Core
                 int index = GameRandom.Range(0, candidates.Count);
                 City city = candidates[index];
                 candidates.RemoveAt(index);
+
+                // 【特技 98 风水】被抽中的城建城若有人会风水，50% 概率本次不爆发（等效爆发率减半）。
+                if (city.HasStateFlag(CityStateFlag.FengShui) && GameRandom.Chance(50))
+                    continue;
+
                 city.SetDisaster(type, true, true);
             }
         }

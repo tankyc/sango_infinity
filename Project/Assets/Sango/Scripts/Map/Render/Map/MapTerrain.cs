@@ -61,6 +61,82 @@ namespace Sango.Render
         readonly TerrainCellBatchRenderer batchRenderer = new TerrainCellBatchRenderer();
         bool batchRenderActive;
 
+        /// <summary>
+        /// 节点构建队列：分帧建地形节点（GameObject + Mesh + Collider）。
+        ///
+        /// 【解决什么问题】从远景切回近景时，整片视野的块会同时进入"可见但没节点"的状态。
+        /// 旧实现在 <see cref="MapCellBatch.Update"/> 里同步 Init，几十上百块就是几十上百毫秒的
+        /// 单帧尖峰（玩家看到的"黑屏一跳"）。改成本队列按帧预算消费后，尖峰被摊平。
+        /// </summary>
+        readonly System.Collections.Generic.Queue<IMapCell> meshBuildQueue =
+            new System.Collections.Generic.Queue<IMapCell>();
+
+        /// <summary>
+        /// 是否处于"近景过渡期"：远景批渲染仍在绘制（作低精度占位），块节点正在分帧构建。
+        ///
+        /// 生命周期：<see cref="SetBatchRender"/> 收到 far=false 时置位 →
+        /// <see cref="TryFinishBatchShutdown"/> 在队列清空且视野内块全部就绪后清除。
+        /// </summary>
+        bool batchShutdownPending;
+
+        /// <summary>过渡期已等待时长（秒），用于 <see cref="batchShutdownTimeout"/> 的兜底判断</summary>
+        float batchShutdownWait;
+
+        /// <summary>
+        /// 每帧最多构建多少个地形节点。0 或负数按 1 处理（保证总能推进）。
+        ///
+        /// 取 10：单块 Init 约百微秒级，10 块 ≈ 1ms，对 60fps 的 16.6ms 预算很宽裕；
+        /// 视野内 300 块约半秒完成过渡。调小 = 过渡更久但更平滑，调大 = 更快但有尖峰风险。
+        /// </summary>
+        public int meshBuildPerFrame = 10;
+
+        /// <summary>
+        /// 每帧最多扫描多少个队列条目。排队后又被移出视野的块直接丢弃、不占构建预算，
+        /// 用独立的扫描预算防止一帧扫太久（远景视野大时队列可能积压上千条）。
+        /// </summary>
+        public int meshBuildScanPerFrame = 512;
+
+        /// <summary>
+        /// 过渡期最长等待（秒）。超时后强制关闭批渲染，避免某块的异步构建卡死，
+        /// 导致画面永远停在低精度（比"低精度常驻"更糟的是玩家以为地形坏了）。
+        /// </summary>
+        public float batchShutdownTimeout = 5f;
+
+        /// <summary>
+        /// 当前是否应把"建节点"改成排队分帧（仅近景过渡期）。
+        ///
+        /// 【为什么不在正常近景也排队】正常平移时没有批渲染占位，排队的块会空出来一片，
+        /// 看起来比卡顿更糟；同步 Init 保证"移到位就有地形"。
+        /// </summary>
+        public bool MeshBuildActive => batchShutdownPending;
+
+        /// <summary>
+        /// 登记一个待建节点的块（幂等：入队标记由 <see cref="MapCellBatch.meshBuildQueued"/> 维护）。
+        /// </summary>
+        /// <param name="cell">待构建的地形块</param>
+        internal void QueueMeshBuild(IMapCell cell)
+        {
+            if (cell == null)
+                return;
+            meshBuildQueue.Enqueue(cell);
+        }
+
+        /// <summary>
+        /// 清空构建队列，并**逐个复位入队标记**。
+        ///
+        /// 【为什么不能直接 Queue.Clear()】直接清空会把块的 <see cref="MapCellBatch.meshBuildQueued"/>
+        /// 留在 true，那些块之后再也不会被入队 —— 表现为切一次远景再切回来，某些块永远缺地形。
+        /// </summary>
+        void ClearMeshBuildQueue()
+        {
+            while (meshBuildQueue.Count > 0)
+            {
+                IMapCell cell = meshBuildQueue.Dequeue();
+                if (cell is MapCellBatch batch)
+                    batch.meshBuildQueued = false;
+            }
+        }
+
         public MapTerrain(MapRender map) : base(map)
         {
 
@@ -163,7 +239,28 @@ namespace Sango.Render
             if (!usingSharedAssetCells || terrainAsset == null)
                 return;
 
-            batchRenderer.SetEnabled(far);
+            if (far)
+            {
+                // 进入远景：批渲染接管，块渲染关闭（过渡状态一并复位）
+                batchShutdownPending = false;
+                batchShutdownWait = 0f;
+                ClearMeshBuildQueue();
+                batchRenderer.SetEnabled(true);
+            }
+            else
+            {
+                // 【延迟关闭批渲染】此刻视野里还有大量"远景期间没建节点"的块。
+                // 立即关批渲染 = "批渲染停了、块渲染还没起"的空洞（地形整体消失）。
+                // 所以先让批渲染继续画（低精度占位），块分帧建好后再一次性切换，
+                // 由 TryFinishBatchShutdown 收尾。
+                batchShutdownPending = true;
+                batchShutdownWait = 0f;
+
+                // 【兜底登记】过渡期只靠逐帧工作集里的块来入队。工作集理论上覆盖全部可见块
+                // （可见块不会被解登记），但相机帧序 / 地图刚加载等边界下可能漏。
+                // 这里在过渡起点补登记一次，保证"视野里的块一个都不会被漏建"。
+                RequeueVisibleCells();
+            }
 
             // 【安全闸】只有"远景 且 批渲染真的就绪（模板网格与材质可用）"才允许关闭块渲染；
             // 批渲染任何原因不可用时回退用块渲染，避免"块被关 + 批渲染不出图 = 地形整体消失"。
@@ -173,7 +270,123 @@ namespace Sango.Render
             // 接管运行时（非编辑态）Bootstrap 已把 TerrainRenderEnabled 置 false，
             // 这里若无条件写 true 会让旧块开始渲染，出现"两套地形重叠"
             bool sangoTakesOver = !MapEditor.IsEditOn && TerrainSango.TerrainSangoBootstrap.Enabled;
-            MapCell.TerrainRenderEnabled = useLegacyCellRender && !sangoTakesOver;
+
+            // 过渡期块渲染保持关闭：① 不与批渲染重叠（两套精度不同的地形会 z-fighting）；
+            // ② 让"切换"这一步只是翻一个开关，几乎没有成本。
+            MapCell.TerrainRenderEnabled = useLegacyCellRender && !sangoTakesOver && !batchShutdownPending;
+        }
+
+        /// <summary>
+        /// 消费节点构建队列（每帧限量）。只在近景过渡期内工作。
+        ///
+        /// 【两段预算】
+        ///   · 构建预算 <see cref="meshBuildPerFrame"/>：真正调 Init（建 GameObject/Mesh/Collider）。
+        ///   · 扫描预算 <see cref="meshBuildScanPerFrame"/>：队列里可能有大量"排队后又移出视野"的块，
+        ///     它们直接丢弃、不占构建预算；没有扫描预算兜底的话，远景大视野留下的上千条会
+        ///     让过渡期拖到几十秒。
+        /// </summary>
+        void ProcessMeshBuild()
+        {
+            if (!batchShutdownPending || meshBuildQueue.Count == 0)
+                return;
+
+            int buildBudget = meshBuildPerFrame > 0 ? meshBuildPerFrame : 1;
+            int scanBudget = meshBuildScanPerFrame > 0 ? meshBuildScanPerFrame : 64;
+
+            while (buildBudget > 0 && scanBudget > 0 && meshBuildQueue.Count > 0)
+            {
+                scanBudget--;
+
+                IMapCell cell = meshBuildQueue.Dequeue();
+                if (cell is MapCellBatch queued)
+                    queued.meshBuildQueued = false;
+                if (cell == null)
+                    continue;
+
+                // 排队期间又移出视野 / 已被别的路径建好 / 正在异步构建 —— 直接丢弃
+                if (!cell.visible || cell.IsValid() || cell.IsInThreadLoad())
+                    continue;
+
+                buildBudget--;
+                cell.Init();
+
+                // 异步准备顶点/三角形数据（主线程只做节点与 Mesh 实体创建，重活在线程里）
+                if (cell is MapCellBatch batch)
+                    batch.AsyncPrepareDatas();
+            }
+        }
+
+        /// <summary>
+        /// 尝试结束近景过渡期：队列清空、视野内块全部有网格后，
+        /// 一次性关掉远景批渲染 + 打开块渲染，完成"低精度占位 → 真实地形"的切换。
+        ///
+        /// 【该帧的成本】只是翻两个开关：块 renderer 的开关由 <see cref="MapCellBatch.Update"/>
+        /// 在逐帧工作集里对齐（这些块因为"可见且没网格"一直留在工作集里，不会被解登记）。
+        /// </summary>
+        void TryFinishBatchShutdown()
+        {
+            if (!batchShutdownPending)
+                return;
+
+            bool timeout = batchShutdownTimeout > 0f && batchShutdownWait >= batchShutdownTimeout;
+
+            if (!timeout)
+            {
+                if (meshBuildQueue.Count > 0)
+                    return;
+                if (HasUnreadyCellInView())
+                    return;
+            }
+            else
+            {
+                Sango.Log.Warning("地形近景过渡超时，强制关闭远景批渲染（可能有块长期建不出网格）", Sango.Log.LogType.World);
+                ClearMeshBuildQueue();
+            }
+
+            batchShutdownPending = false;
+            batchShutdownWait = 0f;
+            batchRenderer.SetEnabled(false);
+
+            // 与 SetBatchRender 的恢复分支同一套口径：新地形接管时不打开旧块渲染
+            bool sangoTakesOver = !MapEditor.IsEditOn && TerrainSango.TerrainSangoBootstrap.Enabled;
+            MapCell.TerrainRenderEnabled = !sangoTakesOver;
+        }
+
+        /// <summary>
+        /// 把当前所有可见块补登记进逐帧工作集（过渡期起点调用一次）。
+        /// 全图遍历只发生在这一个时刻，几千块的判断约 0.5ms，可接受。
+        /// </summary>
+        void RequeueVisibleCells()
+        {
+            if (terrainCells == null)
+                return;
+
+            for (int i = 0; i < terrainCells.Length; i++)
+            {
+                IMapCell cell = terrainCells[i];
+                if (cell == null || !cell.visible)
+                    continue;
+                AddFrameUpdateCell(cell);
+            }
+        }
+
+        /// <summary>
+        /// 视野内是否还有"没建好网格"的可见块（过渡期结束条件）。
+        /// 只看逐帧工作集：可见块变可见时一定会登记进来，不会漏。
+        /// </summary>
+        bool HasUnreadyCellInView()
+        {
+            for (int i = 0; i < frameUpdateCells.Count; i++)
+            {
+                IMapCell cell = frameUpdateCells[i];
+                if (cell == null || !cell.visible)
+                    continue;
+                if (cell.IsInThreadLoad())
+                    return true;
+                if (!cell.IsValid() || !cell.HasMesh())
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -271,6 +484,10 @@ namespace Sango.Render
             terrainCells = null;
             usingSharedAssetCells = false;
             frameUpdateCells.Clear();
+            // 地图重建：过渡状态与构建队列全部作废（块对象已经不存在了）
+            ClearMeshBuildQueue();
+            batchShutdownPending = false;
+            batchShutdownWait = 0f;
         }
 
         public override void UpdateRender()
@@ -588,8 +805,10 @@ namespace Sango.Render
         {
             if (terrainCells == null) return;
 
-            // 远景 Instanced 批渲染：激活时每帧提交全图可见块（块 MeshRenderer 已关闭）
-            if (batchRenderActive && terrainAsset != null && map != null &&
+            // 远景 Instanced 批渲染：激活时每帧提交全图可见块（块 MeshRenderer 已关闭）。
+            // 【过渡期也要提交】batchShutdownPending 期间批渲染是唯一的"地形占位"，
+            // 停了就会出现几帧空洞 —— 那正是要消除的黑屏跳跃。
+            if ((batchRenderActive || batchShutdownPending) && terrainAsset != null && map != null &&
                 map.mapCamera != null && map.mapCamera.camera != null)
             {
                 batchRenderer.Render(map.mapCamera.camera, map.mapCamera.cur_distance,
@@ -598,6 +817,14 @@ namespace Sango.Render
 
             // 远距离降精度：按帧预算把已建好网格的块重建为低精度
             ProcessLodRebuild();
+
+            // 近景过渡：分帧建节点 → 全部就绪后一次性切回块渲染（见 ProcessMeshBuild / TryFinishBatchShutdown）
+            if (batchShutdownPending)
+            {
+                batchShutdownWait += Time.deltaTime;
+                ProcessMeshBuild();
+                TryFinishBatchShutdown();
+            }
 
             float dt = Time.deltaTime;
             bool allowUnload = meshUnloadDelay > 0f;

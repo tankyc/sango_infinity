@@ -213,8 +213,9 @@ namespace Sango.UI
                             p.FeatureList.Add(EditingFeatures[i]);
                         }
                     }
-                    p.FeatureListId = p.FeatureList.ToArray();
-                    p.RefreshFeatureActions();
+                    // FeatureList 只装自带特技（装备附加在 extra_feature_list 且不存档），直接导出
+                    p.FeatureListId = p.FeatureList?.ToArray() ?? null;
+                    p.InitPersonActions();
                 }
             }
 

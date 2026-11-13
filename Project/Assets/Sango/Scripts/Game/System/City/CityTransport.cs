@@ -129,7 +129,7 @@ namespace Sango.Core.Player
             sortTitle.valueSortFunc = (a, b) =>
             {
                 // 搬运特性提高输送部队移动力，应优先于基础运输能力。
-                int featureCompare = b.HasFeatrue(8).CompareTo(a.HasFeatrue(8));
+                int featureCompare = b.HasFeature(8).CompareTo(a.HasFeature(8));
                 return featureCompare != 0 ? featureCompare : b.MilitaryAbility.CompareTo(a.MilitaryAbility);
             };
             return sortTitle;

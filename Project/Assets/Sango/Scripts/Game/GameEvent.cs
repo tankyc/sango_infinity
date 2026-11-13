@@ -527,6 +527,14 @@ namespace Sango.Core
         public static EventDelegate<City, OverrideData<int>> OnCityCalculateMaxDurability;
 
         /// <summary>
+        /// 每回合城池耐久自然回复量修正（技巧「培训工兵」用）
+        /// City, OverrideData
+        /// 【原版出处】s11_game_week.cpp:943-953：持有 TechId_Kouheiikusei 时，
+        /// 据点周回复量由 60~180 提升为 150~450（同一公式 ×2.5），受攻击中不回复。
+        /// </summary>
+        public static EventDelegate<City, OverrideData<int>> OnCityCalculateDurabilityRecover;
+
+        /// <summary>
         /// 计算城池收入
         /// City, Troop, OverrideData
         /// </summary>

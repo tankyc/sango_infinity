@@ -157,6 +157,11 @@ namespace Sango.Core
                 else if (target.IsPort()) damage *= 0.60;
             }
 
+            // 对据点守军的额外伤害（技巧「云梯」等）。
+            // 与耐久伤害的 DamageBuildingExtraFactor 分开两条：原版 calc_attack_damage 的
+            // target_building 分支对 troops_damage 与 hp_damage 各自乘一次，互不干扰。
+            damage *= System.Math.Max(0, (1 + attacker.DamageBuildingTroopExtraFactor));
+
             // 额外增益 (科技系数等)
             damage *= System.Math.Max(0, (1 + attacker.DamageTroopExtraFactor));
 

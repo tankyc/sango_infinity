@@ -120,9 +120,9 @@ namespace Sango.Core
 
             if (n > 0)
             {
-                from.BuildEquipActions();
+                from.InitPersonActions();
                 if (to != null)
-                    to.BuildEquipActions();
+                    to.InitPersonActions();
             }
             return n;
         }
@@ -400,7 +400,7 @@ namespace Sango.Core
                 }
             }
 
-            person.BuildEquipActions();
+            person.InitPersonActions();
 
             Sango.Log.Info($"@内政@[{force.Name}]<{city.Name}>授予{person.Name}{item.Name}，" +
                            $"消耗技巧点 {cost}（余 {force.TechniquePoint}）" +
@@ -443,7 +443,7 @@ namespace Sango.Core
             // ③ 进国库（CanConfiscate 已确认有位）
             force.AddTreasury(item, 1);
 
-            person.BuildEquipActions();
+            person.InitPersonActions();
 
             Sango.Log.Info($"@内政@[{force.Name}]<{city.Name}>没收{person.Name}的{item.Name}，" +
                            $"消耗技巧点 {cost}（余 {force.TechniquePoint}）");

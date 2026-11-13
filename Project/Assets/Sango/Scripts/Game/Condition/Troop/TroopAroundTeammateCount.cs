@@ -60,6 +60,12 @@ namespace Sango.Core
                 return false;
 
             int num = 0;
+            // 【势力基准保持施法方】compareTarget 只决定"统计谁的邻格"（self 扩自己 / target 扩目标），
+            // 友军基准始终是 database.ActionTroop（施法方）：
+            //   · compareTarget=self  → 自己周围有几支自己人；
+            //   · compareTarget=target → 目标周围有几支"我方"部队（掎角的包围判定）。
+            // 两者都用同一个基准才符合"我方部队数量"的语义，换成 troop 自身势力会让
+            // 掎角变成"目标周围有几支敌方友军"。
             troop.cell.GetNeighbors(x =>
             {
                 if (x.troop != null && x.troop.IsSameForce(database.ActionTroop))

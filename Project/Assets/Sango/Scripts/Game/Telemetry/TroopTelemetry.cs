@@ -278,23 +278,37 @@ namespace Sango.Core.Telemetry
             };
 
             // Feature.Name 在特技未激活时会带 <color=#6D6D6D> 标签，必须剥掉
+            // ① 自带：只记录生效的特技，与游戏内判定口径一致
             if (person.FeatureList != null)
             {
-                // 只记录生效的特技，与游戏内判定口径一致
                 for (int i = 0; i < person.ActiveFeatureCount; i++)
-                {
-                    Feature feature = person.FeatureList[i];
-                    if (feature == null) continue;
+                    AddFeatureSnapshot(snapshot, person.FeatureList[i]);
+            }
 
-                    snapshot.features.Add(new TeamFeature
-                    {
-                        id = feature.Id,
-                        name = Clean(feature.Name),
-                    });
-                }
+            // ② 额外附加（装备 / 官职）：不占名额，全量记录
+            if (person.extra_feature_list != null)
+            {
+                for (int i = 0; i < person.extra_feature_list.Count; i++)
+                    AddFeatureSnapshot(snapshot, person.extra_feature_list[i]);
             }
 
             return snapshot;
+        }
+
+        /// <summary>
+        /// 往快照里追加一条特技（自带 / 额外附加共用）。
+        /// </summary>
+        /// <param name="snapshot">目标快照</param>
+        /// <param name="feature">特技，可为 null</param>
+        static void AddFeatureSnapshot(TeamPerson snapshot, Feature feature)
+        {
+            if (snapshot == null || feature == null) return;
+
+            snapshot.features.Add(new TeamFeature
+            {
+                id = feature.Id,
+                name = Clean(feature.Name),
+            });
         }
 
         /// <summary>去掉富文本标签（军团名、特技名都带颜色）</summary>

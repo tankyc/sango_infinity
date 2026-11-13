@@ -229,25 +229,40 @@ namespace Sango.UI
             feature_inited = true;
 
             featureObjectPool.Reset();
+            if (!Target.HasAnyFeature)
+                return;
+
+            // ① 自带：只展示**生效**的特技（超出剧本 maxActiveFeatureCount 的部分处于休眠状态，
+            //    既不计入战斗/内政，也不应该在详情里显示成"已拥有"）
             if (Target.FeatureList != null)
             {
-                // 只展示**生效**的特技：超出剧本 maxActiveFeatureCount 的部分处于休眠状态，
-                // 既不计入战斗/内政，也不应该在详情里显示成"已拥有"。
                 int activeCount = Target.ActiveFeatureCount;
                 for (int i = 0; i < activeCount; i++)
-                {
-                    Feature feature = Target.FeatureList[i];
-                    if (feature != null)
-                    {
-                        UITextField uITextField = featureObjectPool.Create();
-                        if(uITextField != null)
-                        {
-                            uITextField.text = feature.Name;
-                            uITextField.SetTitle(feature.desc);
-                            uITextField.transform.SetAsLastSibling();
-                        }
-                    }
-                }
+                    AddFeatureItem(Target.FeatureList[i]);
+            }
+
+            // ② 额外附加（装备 / 官职）：不占名额，全量展示
+            if (Target.extra_feature_list != null)
+            {
+                for (int i = 0; i < Target.extra_feature_list.Count; i++)
+                    AddFeatureItem(Target.extra_feature_list[i]);
+            }
+        }
+
+        /// <summary>
+        /// 在特技栏追加一条特技显示。
+        /// </summary>
+        /// <param name="feature">特技，可为 null</param>
+        void AddFeatureItem(Feature feature)
+        {
+            if (feature == null) return;
+
+            UITextField uITextField = featureObjectPool.Create();
+            if (uITextField != null)
+            {
+                uITextField.text = feature.Name;
+                uITextField.SetTitle(feature.desc);
+                uITextField.transform.SetAsLastSibling();
             }
         }
 

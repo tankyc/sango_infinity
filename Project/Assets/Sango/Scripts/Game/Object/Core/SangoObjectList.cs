@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -181,7 +181,7 @@ namespace Sango.Core
             // 【性能】原实现是 mObjects.Find(x => x != null && x.Id == id)。
             // List<T>.Find 吃 Predicate<T>，而这个 lambda 捕获了参数 id，
             // 每次调用都要现分配一个闭包对象 + 一个委托（≈56 字节）。
-            // Contains(int) 是 HasTechnique / HasFeatrue 一类「高频判重」的底层依赖，
+            // Contains(int) 是 HasTechnique / HasFeature 一类「高频判重」的底层依赖，
             // 例如 Force.prepareTechniqueList 每势力回合都会对每个技法调两次，
             // 单帧能堆出 20 KB 以上的 GC（见 Profiler: Force.UpdateTurnInfo）。
             // 手写循环零分配，且省掉一次委托调用，语义与原实现完全一致。

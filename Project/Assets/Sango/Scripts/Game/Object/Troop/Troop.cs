@@ -666,7 +666,7 @@ namespace Sango.Core
 
         static int MaxStatWithFeature(Person person, int featureId, int statType, int best)
         {
-            if (person == null || !person.HasFeatrue(featureId))
+            if (person == null || !person.HasFeature(featureId))
                 return best;
 
             int value;
@@ -871,6 +871,19 @@ namespace Sango.Core
         public float waterDamageBuildingExtraFactor;
         public float landDamageBuildingExtraFactor;
 
+        /// <summary>
+        /// 对**据点守军**的额外伤害增益（与 <see cref="DamageBuildingExtraFactor"/> 分开两条）。
+        ///
+        /// 【为什么要分】原版攻城伤害分两段（s11_sys_damage.cpp calc_attack_damage）：
+        ///   · `hp_damage`（耐久）—— 本项目 <see cref="DamageBuildingExtraFactor"/>；
+        ///   · `troops_damage`（守军兵力）—— 本项目本字段。
+        /// 云梯这类"据点攻击力"科技两段都要加成，但两者的数值后来可能被分别调整，
+        /// 因此不共用一个系数。
+        /// </summary>
+        public float DamageBuildingTroopExtraFactor => IsInWater ? waterDamageBuildingTroopExtraFactor : landDamageBuildingTroopExtraFactor;
+        public float waterDamageBuildingTroopExtraFactor;
+        public float landDamageBuildingTroopExtraFactor;
+
 
         public int defeatTroopCanGainFoodFactor;
         public int defeatTroopCanGainGoldFactor;
@@ -983,6 +996,20 @@ namespace Sango.Core
             }
         }
 
+        /// <summary>
+        /// 部队级"免疫俘虏"位码（<see cref="PathFlag.IgnoreCapture"/>）。
+        /// 置位后部队溃灭时整队武将不再进入收押判定；单体免疫（名马 / 强运）看 <see cref="Person.IsCaptureImmune"/>。
+        /// </summary>
+        public bool ignoreCapture
+        {
+            get { return (pathFlags & (int)PathFlag.IgnoreCapture) != 0; }
+            set
+            {
+                if (value) pathFlags |= (int)PathFlag.IgnoreCapture;
+                else pathFlags &= ~(int)PathFlag.IgnoreCapture;
+            }
+        }
+
         /// <summary>是否免疫火焰（着火格不再 ×4 消耗）</summary>
         public bool ignoreFire
         {
@@ -1058,6 +1085,21 @@ namespace Sango.Core
         public int pathFlags;
 
         static List<Feature> temp_FeatureList = new List<Feature>();
+
+        /// <summary>
+        /// 部队环境接收的特技 kind 位掩码（移动 / 攻击 / 防御 / 计略 / 支援五类）。
+        /// 混合组按子特技的 kind 与本掩码比对，决定哪几个子特技在部队层生效。
+        /// </summary>
+        static readonly int TroopFeatureKindMask =
+            Feature.KindMask(FeatureKindType.TroopMove)
+            | Feature.KindMask(FeatureKindType.TroopAttack)
+            | Feature.KindMask(FeatureKindType.TroopDefence)
+            | Feature.KindMask(FeatureKindType.TroopStrategy)
+            | Feature.KindMask(FeatureKindType.TroopSupport);
+
+        /// <summary>特技展开的复用缓冲（InitActionList 内使用，不重入）</summary>
+        static List<Feature> tempCollectFeature = new List<Feature>(16);
+
         public void InitActionList()
         {
             // 【泄漏修复】已收尾的部队不再装配 Action。
@@ -1087,27 +1129,29 @@ namespace Sango.Core
 
             ForEachPerson(x =>
             {
-                if (x.FeatureList != null)
+                // 用 HasAnyFeature 而不是判 FeatureList：装备 / 官职附加的特技也算有特技
+                if (!x.HasAnyFeature)
+                    return;
+
+                // 按"部队环境"收集生效特技：
+                //   · 混合组（kind = Mixed）按子特技各自的 kind 展开；
+                //   · 装备附加的特技不占剧本特技名额，总是生效（见 Person.CollectEffectiveFeatures）。
+                tempCollectFeature.Clear();
+                x.CollectEffectiveFeatures(TroopFeatureKindMask, tempCollectFeature);
+
+                for (int i = 0; i < tempCollectFeature.Count; i++)
                 {
-                    for (int i = 0; i < x.ActiveFeatureCount; i++)
+                    Feature feature = tempCollectFeature[i];
+                    if (!feature.only)
                     {
-                        Feature feature = x.FeatureList[i];
-                        if (feature != null && feature.kind <= (int)FeatureKindType.TroopSupport)
-                        {
-                            if (!feature.only)
-                            {
-                                temp_FeatureList.Add(feature);
-                                feature.InitActions(actionList, this, x);
-                            }
-                            else
-                            {
-                                if (!temp_FeatureList.Contains(feature))
-                                {
-                                    temp_FeatureList.Add(feature);
-                                    feature.InitActions(actionList, this, x);
-                                }
-                            }
-                        }
+                        temp_FeatureList.Add(feature);
+                        feature.InitActions(actionList, this, x);
+                    }
+                    else if (!Feature.ContainsById(temp_FeatureList, feature.Id))
+                    {
+                        // only = 唯一特技：按 Id 判重（装备并入的是副本，引用比较会漏判）
+                        temp_FeatureList.Add(feature);
+                        feature.InitActions(actionList, this, x);
                     }
                 }
             });
@@ -1418,6 +1462,17 @@ namespace Sango.Core
 
             defeatTroopCanGainFoodFactor = Variables.defeatTroopCanGainFoodFactor;
             defeatTroopCanGainGoldFactor = Variables.defeatTroopCanGainGoldFactor;
+
+            // 【必须每轮清零】对部队 / 对建筑的额外伤害系数由 Action 在
+            // OnTroopCalculateAttribute 里"累加"写入（TroopAddDamageTroopExtraFactor /
+            // TroopAddDamageBuildingExtraFactor）。CalculateAttribute 会被反复调用
+            // （回合开始、属性变化、AI 预演），不在这里清零会无限堆叠。
+            landDamageTroopExtraFactor = 0;
+            waterDamageTroopExtraFactor = 0;
+            landDamageBuildingExtraFactor = 0;
+            waterDamageBuildingExtraFactor = 0;
+            landDamageBuildingTroopExtraFactor = 0;
+            waterDamageBuildingTroopExtraFactor = 0;
 
             LandTroopTypeLv = -1;
             WaterTroopTypeLv = -1;
@@ -1808,8 +1863,9 @@ namespace Sango.Core
         ///     其他    → calc_troops_damage(兵力 × 75%) × 城0.55 / 关0.45 / 港0.60
         /// 本方法只装配上下文并按配置 garrisonDamageMethod 取公式实例。
         ///
-        /// 【未对齐】原版在算建筑防御时会把 troops_atk 覆盖成 10（get_ability，1384-1402），
-        /// 即战法对建筑不吃兵力攻击加成；本项目暂不覆盖，记为差异项。
+        /// 【已对齐】原版在算建筑防御时会把 troops_atk 无条件覆盖成 10（get_ability，
+        /// s11_sys_damage.cpp:1384-1402），即战法对建筑不吃兵力攻击加成；该覆盖由公式实现内部
+        /// 的 BuildingTroopsAtk 常量落地，本方法无需关心。
         /// </summary>
         public static int CalculateSkillDamageTroopOnCity(Troop attacker, City target, SkillInstance skill)
         {
@@ -2268,20 +2324,25 @@ namespace Sango.Core
                     // 原版 unit_disband 对 is_temporary() 直接 person_die（s11_sys_scen_unit.cpp:231-257），
                     // 不走"被俘"路径。这里若不加排除，异族武将会被当普通武将送进俘虏事件，
                     // 随后 ClearWithBelongCity 又把它彻底删除，出现"已删除对象仍进俘虏事件"的悬空引用。
-                    if (Leader != null && !Leader.IsTemporary && Leader.state != (int)PersonStateType.Governor)
+                    // 【免疫俘虏】部队级位码（PathFlag.IgnoreCapture）或本人免疫（名马 / 特技 33 强运）直接跳过收押判定。
+                    // 原版名马在城池陷落路径（City.cs:3241）已是免俘口径，这里把它补到部队溃灭路径，语义一致。
+                    if (Leader != null && !Leader.IsTemporary && Leader.state != (int)PersonStateType.Governor
+                        && !ignoreCapture && !Leader.IsCaptureImmune)
                     {
                         int p = Math.Max(0, atkTroop.GetCaptureChangce() - Leader.escapeFactorWhenTroopDestroy);
                         if (GameRandom.Chance(p))
                             captives.Add(Leader);
                     }
-                    if (Member1 != null && !Member1.IsTemporary && Member1.state != (int)PersonStateType.Governor)
+                    if (Member1 != null && !Member1.IsTemporary && Member1.state != (int)PersonStateType.Governor
+                        && !ignoreCapture && !Member1.IsCaptureImmune)
                     {
                         int p = Math.Max(0, atkTroop.GetCaptureChangce() - Member1.escapeFactorWhenTroopDestroy);
                         if (GameRandom.Chance(p))
                             captives.Add(Member1);
                     }
 
-                    if (Member2 != null && !Member2.IsTemporary && Member2.state != (int)PersonStateType.Governor)
+                    if (Member2 != null && !Member2.IsTemporary && Member2.state != (int)PersonStateType.Governor
+                        && !ignoreCapture && !Member2.IsCaptureImmune)
                     {
                         int p = Math.Max(0, atkTroop.GetCaptureChangce() - Member2.escapeFactorWhenTroopDestroy);
                         if (GameRandom.Chance(p))
@@ -2668,9 +2729,9 @@ namespace Sango.Core
         public bool HasFeature(int featureId)
         {
             if (featureId <= 0) return false;
-            if (Leader != null && Leader.HasFeatrue(featureId)) return true;
-            if (Member1 != null && Member1.HasFeatrue(featureId)) return true;
-            if (Member2 != null && Member2.HasFeatrue(featureId)) return true;
+            if (Leader != null && Leader.HasFeature(featureId)) return true;
+            if (Member1 != null && Member1.HasFeature(featureId)) return true;
+            if (Member2 != null && Member2.HasFeature(featureId)) return true;
             return false;
         }
 
@@ -5353,6 +5414,58 @@ namespace Sango.Core
             {
                 ChangeGold(getGold);
             }
+
+            // 【特技 22 掠夺】描述里的"缴获所有的物资"除金粮外还包括兵装：
+            // 金/粮系数被 TroopAddGoldGain/TroopAddFoodGain 配满 100 时才视为"掠夺全部"，
+            // 普通击破（系数 0）不会凭空吞掉对方的兵装。
+            if (defeatTroopCanGainGoldFactor >= 100 && target.itemStore != null && target.itemStore.TotalNumber > 0)
+            {
+                itemStore.Add(target.itemStore);
+                target.itemStore.Clear();
+            }
+
+            // 【特技 22 掠夺】"并有机会夺取敌将的道具"
+            if (defeatTroopCanGainGoldFactor >= 100)
+                GainTargetPersonItems(target);
+        }
+
+        /// <summary>
+        /// 夺取敌将道具（特技 22「掠夺」）。
+        ///
+        /// 口径：逐名敌将、逐个装备栏按 30% 判定；夺到的道具优先装进我方主将的空栏，
+        /// 装不下（栏位冲突或已满）就放进部队库存，保证道具不会凭空消失。
+        /// 说明：原版只写"有机会"，未给具体概率，30% 是本次补全取的默认值。
+        /// </summary>
+        /// <param name="target">被击破的敌方部队</param>
+        void GainTargetPersonItems(Troop target)
+        {
+            Person receiver = Leader;
+            if (receiver == null) return;
+
+            target.ForEachPerson(person =>
+            {
+                if (person == null) return;
+
+                if (person.EquippedWeapon != null && GameRandom.Chance(30))
+                    SeizeItem(receiver, person.UnequipWeapon());
+                if (person.EquippedHorse != null && GameRandom.Chance(30))
+                    SeizeItem(receiver, person.UnequipHorse());
+                if (person.EquippedArmor != null && GameRandom.Chance(30))
+                    SeizeItem(receiver, person.UnequipArmor());
+                if (person.EquippedTreasure != null && GameRandom.Chance(30))
+                    SeizeItem(receiver, person.UnequipTreasure());
+            });
+        }
+
+        /// <summary>把夺来的道具交给指定武将：优先装空栏，装不下进部队库存。</summary>
+        void SeizeItem(Person receiver, ItemType item)
+        {
+            if (item == null) return;
+            if (receiver.EquippedWeapon == null && receiver.EquipWeapon(item)) return;
+            if (receiver.EquippedHorse == null && receiver.EquipHorse(item)) return;
+            if (receiver.EquippedArmor == null && receiver.EquipArmor(item)) return;
+            if (receiver.EquippedTreasure == null && receiver.EquipTreasure(item)) return;
+            itemStore.Add(item.storeKind, 1);
         }
 
         public void FaceTo(Cell target)

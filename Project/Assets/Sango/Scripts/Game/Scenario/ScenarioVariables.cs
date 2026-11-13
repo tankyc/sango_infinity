@@ -83,7 +83,7 @@ namespace Sango.Core
         ///
         /// 【影响的三条链路】
         ///   1. 生效：<see cref="Person.ActiveFeatureCount"/> 控制所有装配点
-        ///      （城市 / 部队 / 内政）与 <see cref="Person.HasFeatrue(int)"/> 的判定范围；
+        ///      （城市 / 部队 / 内政）与 <see cref="Person.HasFeature(int)"/> 的判定范围；
         ///   2. 展示：武将详情、招募信息与列表的"特技"列只显示前 N 个；
         ///   3. 学习：<see cref="AbilityStudySystem"/> 的特技培育在已满 N 个时直接失败。
         ///

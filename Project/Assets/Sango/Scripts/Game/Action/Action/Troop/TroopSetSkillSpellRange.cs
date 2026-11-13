@@ -116,7 +116,7 @@ namespace Sango.Core.Action
             }
             else
             {
-                if (kinds.Contains(troop.LandTroopType.kind))
+                if (troop.LandTroopType != null && kinds.Contains(troop.LandTroopType.kind))
                 {
                     if (condition != null)
                     {
@@ -148,7 +148,7 @@ namespace Sango.Core.Action
                         });
                     }
                 }
-                if (kinds.Contains(troop.WaterTroopType.kind))
+                if (troop.WaterTroopType != null && kinds.Contains(troop.WaterTroopType.kind))
                 {
                     if (condition != null)
                     {

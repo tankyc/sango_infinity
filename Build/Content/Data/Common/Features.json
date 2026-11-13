@@ -60,7 +60,7 @@
       "actionEntities": [
         {
           "class": "TroopAddMoveAbility",
-          "value": 8,
+          "value": 5,
           "kinds": [
             1,
             2,
@@ -84,7 +84,7 @@
       "actionEntities": [
         {
           "class": "TroopAddMoveAbility",
-          "value": 8,
+          "value": 3,
           "kinds": [
             5
           ]
@@ -115,7 +115,7 @@
       "actionEntities": [
         {
           "class": "TroopAddMoveAbility",
-          "value": 8,
+          "value": 4,
           "kinds": [
             6
           ]
@@ -143,7 +143,7 @@
       "actionEntities": [
         {
           "class": "TroopAddMoveAbility",
-          "value": 8,
+          "value": 5,
           "kinds": [
             7
           ]
@@ -180,7 +180,11 @@
               "targetType": 1,
               "value": -5
             }
-          ]
+          ],
+          "condition": {
+            "class": "SkillIsStrategySkill",
+            "result": 0
+          }
         }
       ]
     },
@@ -205,7 +209,11 @@
               "targetType": 1,
               "value": -20
             }
-          ]
+          ],
+          "condition": {
+            "class": "SkillIsStrategySkill",
+            "result": 0
+          }
         }
       ]
     },
@@ -338,6 +346,10 @@
                 "class": "SkillTargetCellCheck",
                 "targetType": "troop",
                 "result": 1
+              },
+              {
+                "class": "SkillIsStrategySkill",
+                "result": 0
               }
             ]
           }
@@ -420,7 +432,8 @@
                   {
                     "class": "TroopAroundTeammateCount",
                     "count": 3,
-                    "operator": "gte"
+                    "operator": "gte",
+                    "compareTarget": "target"
                   },
                   {
                     "class": "ProbabilityCheck",
@@ -429,7 +442,11 @@
                 ]
               }
             }
-          ]
+          ],
+          "condition": {
+            "class": "SkillIsStrategySkill",
+            "result": 0
+          }
         }
       ]
     },
@@ -499,14 +516,18 @@
               "class": "TroopRecure",
               "percent": 10
             }
-          ]
+          ],
+          "condition": {
+            "class": "SkillIsStrategySkill",
+            "result": 0
+          }
         }
       ]
     },
     "24": {
       "Id": 24,
       "Name": "驱逐",
-      "desc": "施展一般攻击时会心一击",
+      "desc": "对武力比自己低的敌方部队施展一般攻击时会心一击",
       "only": true,
       "level": 3,
       "kind": 2,
@@ -514,7 +535,12 @@
         {
           "class": "TroopSkillCalculateCritical",
           "value": 100,
-          "isNormal": 1
+          "isNormal": 1,
+          "condition": {
+            "class": "TroopAttributeCompare",
+            "attType": "strength",
+            "result": 1
+          }
         }
       ]
     },
@@ -532,8 +558,7 @@
           "class": "TroopChangeSkillSpellRange",
           "value": 1,
           "kinds": [
-            13,
-            14
+            9
           ]
         }
       ]
@@ -678,7 +703,20 @@
               "isDefender": true,
               "value": 5
             }
-          ]
+          ],
+          "condition": {
+            "class": "andList",
+            "list": [
+              {
+                "class": "SkillIsNormalSkill",
+                "result": 0
+              },
+              {
+                "class": "SkillIsStrategySkill",
+                "result": 0
+              }
+            ]
+          }
         }
       ]
     },
@@ -699,8 +737,7 @@
           "class": "TroopModifyFireDamage",
           "value": 200
         }
-      ,
-        {"class": "TroopSetPathFlag", "flag": 2, "value": 1}]
+      ]
     },
     "33": {
       "Id": 33,
@@ -882,9 +919,7 @@
           "class": "TroopSkillCalculateCritical",
           "value": 100,
           "kinds": [
-            8,
-            9,
-            10
+            6
           ],
           "checkLand": 2,
           "isNormal": 2,
@@ -995,11 +1030,6 @@
           "condition": {
             "class": "andList",
             "list": [
-              {
-                "class": "TroopAttributeCompare",
-                "attType": "strength",
-                "result": 1
-              },
               {
                 "class": "SkillIsNormalSkill",
                 "result": 0
@@ -1159,10 +1189,8 @@
           "class": "TroopSkillCalculateCritical",
           "value": 100,
           "kinds": [
-            11,
-            12,
-            13,
-            14
+            8,
+            9
           ],
           "condition": {
             "class": "andList",
@@ -1195,9 +1223,7 @@
           "class": "TroopSkillCalculateCritical",
           "value": 100,
           "kinds": [
-            8,
-            9,
-            10
+            6
           ],
           "checkLand": 2,
           "condition": {
@@ -1352,8 +1378,13 @@
           "class": "TroopChangeDamage",
           "value": 50,
           "isDefender": 0,
+          "kinds": [
+            4
+          ],
+          "isNormal": 2,
           "condition": {
             "class": "TerrainCheck",
+            "checkTarget": "self",
             "terrainType": 6
           }
         }
@@ -1676,18 +1707,6 @@
       "kind": 4,
       "actionEntities": [
         {
-          "class": "TroopAddSkillAttackRange",
-          "atkType": 5,
-          "addRange": 1,
-          "condition": {
-            "class": "SkillIdInList",
-            "ids": [
-              22
-            ],
-            "result": 1
-          }
-        },
-        {
           "class": "TroopSkillCalculateCritical",
           "value": 100,
           "condition": {
@@ -1702,11 +1721,21 @@
           "class": "TroopSkillCalculateSuccess",
           "value": 100,
           "condition": {
-            "class": "SkillIdInList",
-            "ids": [
-              22
-            ],
-            "result": 1
+            "class": "andList",
+            "list": [
+              {
+                "class": "TroopAttributeCompare",
+                "attType": "intelligence",
+                "result": 1
+              },
+              {
+                "class": "SkillIdInList",
+                "ids": [
+                  22
+                ],
+                "result": 1
+              }
+            ]
           }
         },
         {
@@ -1852,10 +1881,8 @@
             "class": "SkillIdInList",
             "ids": [
               22,
-              23,
               24,
               25,
-              26,
               27,
               28
             ],

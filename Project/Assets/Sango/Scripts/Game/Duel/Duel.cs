@@ -2150,6 +2150,16 @@ namespace Sango.Core.Duel
             int baseChance = system.GetDuelWinCaptureChance();
             int capture = (winnerUnit != null && winnerUnit.IsAlive) ? winnerUnit.GetCaptureChangce() : 0;
             int flee = Utils.IsActive(loserPerson) ? loserPerson.escapeFactorWhenTroopDestroy : 0;
+
+            // 【免疫俘虏】名马 / 特技「强运」/ 部队级位码（PathFlag.IgnoreCapture）：
+            // 单挑落败也不会被俘，与部队溃灭路径（Troop.OnDestroy）保持同一口径。
+            if (Utils.IsActive(loserPerson))
+            {
+                Troop loserUnit = ParamGetUnit(param, team, chara);
+                if (loserPerson.IsCaptureImmune || (loserUnit != null && loserUnit.ignoreCapture))
+                    return false;
+            }
+
             int chance = Math.Min(100, Math.Max(0, baseChance + capture - flee));
             return system.RandBool(chance);
         }

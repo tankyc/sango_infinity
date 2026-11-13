@@ -7,7 +7,7 @@
  *   · 真实类型没有提供单挑所需的全部访问器，这里用【扩展方法】补齐，
  *     单挑本体（Duel.cs / DuelAI.cs / DuelPhase.cs）无需大改即可直接使用真实对象。
  *   · 已有实例成员（Person.IsSpouse / Person.IsBrother / Person.IsParentchild /
- *     Person.CompatibilityDistance / Person.HasFeatrue 等）优先级高于扩展方法，
+ *     Person.CompatibilityDistance / Person.HasFeature 等）优先级高于扩展方法，
  *     单挑里调用它们时自动走游戏自带实现，此处不再重复定义。
  *   · 需要按项目数据调整的项集中在下面几个静态类，业务代码无需改动：
  *       DuelFeatureId  —— 强运 / 捕缚 特技在本项目中的 ID（已按 Features.json 填写）
@@ -471,7 +471,7 @@ namespace Sango.Core.Duel
             switch (skill)
             {
                 case SkillId.Lucky:
-                    return DuelFeatureId.Lucky >= 0 && self.HasFeatrue(DuelFeatureId.Lucky);
+                    return DuelFeatureId.Lucky >= 0 && self.HasFeature(DuelFeatureId.Lucky);
             }
             return false;
         }
@@ -479,7 +479,7 @@ namespace Sango.Core.Duel
         /// <summary>是否拥有指定特技 Id</summary>
         public static bool HasFeatureId(this Person self, int featureId)
         {
-            return self != null && featureId >= 0 && self.HasFeatrue(featureId);
+            return self != null && featureId >= 0 && self.HasFeature(featureId);
         }
 
         /// <summary>

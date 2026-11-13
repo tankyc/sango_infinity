@@ -203,9 +203,9 @@ namespace Sango.Core.Event
 
             person.FeatureList.Add(feature);
             // 新特技要立刻装配事件 Action（个人关系类特技否则只有数据没有效果）
-            person.RefreshFeatureActions();
+            person.InitPersonActions();
             // 存档字段是 Id 数组（Person.FeatureListId），这里立即同步，避免"运行期有、读档后没了"
-            person.FeatureListId = person.FeatureList.ToArray();
+            person.FeatureListId = person.FeatureList?.ToArray() ?? null;
 
             Log.Info($"事件：{person.Name} 获得特技 {feature.Name}");
             return true;
@@ -263,11 +263,11 @@ namespace Sango.Core.Event
             }
             else
             {
-                person.FeatureListId = person.FeatureList.ToArray();
+                person.FeatureListId = person.FeatureList?.ToArray() ?? null;
             }
 
             // 重新装配 Action：旧特技的事件订阅必须解除
-            person.RefreshFeatureActions();
+            person.InitPersonActions();
 
             Log.Info($"事件：{person.Name} 失去特技 {feature.Name}");
             return true;

@@ -47,7 +47,7 @@ namespace Sango.Core
         }
 
         /// <summary>登用机会是否已用完（不限次数模式恒为 false）</summary>
-        public bool IsTryExhausted => tryLimit != UnlimitedTry && tryLimit <= 0;
+        public bool IsTryExhausted => (tryLimit != UnlimitedTry && tryLimit <= 0) || AlreadyRecurited();
         public System.Action<PersonRecruit> doneAction;
         public List<Person> all_persons;
         List<Person> recruited_list = new List<Person>();
@@ -59,6 +59,19 @@ namespace Sango.Core
         /// 他只是一介在野武将，可以被收押、可以被招募。
         /// </summary>
         public bool IsTargetGovernor => target != null && target.IsActiveGovernor;
+
+        bool AlreadyRecurited()
+        {
+            if (all_persons == null) return false;
+            if (recruited_list.Count == 0) return false;
+            if (recruited_list.Count == all_persons.Count) return true;
+
+            for (int i = 0; i < all_persons.Count; i++)
+            {
+                if (!recruited_list.Contains(all_persons[i])) return false;
+            }
+            return true;
+        }
 
         public void Start(Person recruitor, Person target, int recruitType, int tryLimit, System.Action<PersonRecruit> doneAction)
         {

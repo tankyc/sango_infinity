@@ -1,4 +1,4 @@
-﻿/*
+/*
  * 文件名：Feature.cs
  * 描述：特技数据（Features.json）与**特技培育规则**（对齐 Open311 force_learn_skill）。
  *
@@ -170,6 +170,17 @@ namespace Sango.Core
         [JsonProperty] public bool only;
 
         /// <summary>
+        /// 子特技 Id 列表（仅 <see cref="FeatureKindType.Mixed"/> 混合组使用）。
+        /// 混合组自身不产生效果，各检测点按子特技各自的 kind 判定是否生效。
+        /// </summary>
+        [JsonProperty] public int[] childListId;
+
+        /// <summary>
+        /// 子特技（运行期解析结果，仅混合组；指向剧本公共数据的引用，不复制）。
+        /// </summary>
+        [JsonIgnore] public SangoObjectList<Feature> childList;
+
+        /// <summary>
         /// 效果实体集合
         /// </summary>
         [JsonProperty]
@@ -236,6 +247,129 @@ namespace Sango.Core
                     list.Add(action);
                 }
             }
+        }
+
+        /// <summary>
+        /// 剧本准备：把 childListId 解析成子特技对象列表（混合组专用）。
+        /// 子特技是剧本公共数据的引用，直接共享，不复制。
+        /// </summary>
+        /// <param name="scenario">当前剧本</param>
+        public override void OnScenarioPrepare(Scenario scenario)
+        {
+            base.OnScenarioPrepare(scenario);
+
+            if (childListId != null && childListId.Length > 0
+                && scenario != null && scenario.CommonData != null)
+            {
+                childList = scenario.Array2ObjectList(scenario.CommonData.Features, childListId);
+            }
+        }
+
+        // ==================== 生效判定工具 ====================
+
+        /// <summary>混合组最大嵌套深度（防止配置成环导致递归爆栈）</summary>
+        public const int MaxMixedDepth = 8;
+
+        /// <summary>把 kind 转成位掩码（各检测点用它描述"本环境收哪些 kind"）。</summary>
+        /// <param name="kind">生效场景</param>
+        /// <returns>位掩码</returns>
+        public static int KindMask(FeatureKindType kind)
+        {
+            return 1 << (int)kind;
+        }
+
+        /// <summary>
+        /// 把"一个特技"按 kindMask 展开成实际生效的特技集合。
+        /// 混合组递归展开子特技；非混合组按 kind 是否命中掩码过滤。
+        /// </summary>
+        /// <param name="feature">待展开的特技</param>
+        /// <param name="kindMask">本环境接收的 kind 位掩码</param>
+        /// <param name="result">输出列表（调用方负责清空与复用）</param>
+        /// <param name="depth">当前递归深度</param>
+        public static void CollectEffective(Feature feature, int kindMask, List<Feature> result, int depth)
+        {
+            if (feature == null || result == null)
+                return;
+
+            if (depth > MaxMixedDepth)
+            {
+                Sango.Log.Warning($"*[特技] 混合组嵌套超过 {MaxMixedDepth} 层，可能存在循环配置：{feature.Name}");
+                return;
+            }
+
+            // 混合组：自身不产生效果，按子特技各自 kind 递归判定
+            if (feature.kind == (int)FeatureKindType.Mixed)
+            {
+                if (feature.childList == null) return;
+                for (int i = 0; i < feature.childList.Count; i++)
+                {
+                    CollectEffective(feature.childList[i], kindMask, result, depth + 1);
+                }
+                return;
+            }
+
+            if (feature.kind >= 0 && feature.kind < 32 && (kindMask & (1 << feature.kind)) != 0)
+                result.Add(feature);
+        }
+
+        /// <summary>
+        /// <see cref="CollectEffective(Feature, int, List{Feature}, int)"/> 的便捷重载（深度从 0 起）。
+        /// </summary>
+        /// <param name="feature">待展开的特技</param>
+        /// <param name="kindMask">本环境接收的 kind 位掩码</param>
+        /// <param name="result">输出列表</param>
+        public static void CollectEffective(Feature feature, int kindMask, List<Feature> result)
+        {
+            CollectEffective(feature, kindMask, result, 0);
+        }
+
+        /// <summary>
+        /// 特技（含混合组的子特技）里是否存在指定 Id。
+        ///
+        /// 【为什么要展开混合组】"强运"这类特技的效果写在代码里（<c>HasFeature(33)</c> 判定免俘 / 免死），
+        /// 没有 actionEntities。若它被包在混合组里，只按顶层 Id 查会永远查不到，
+        /// 表现为"混合组装配了、效果却不生效"。
+        /// </summary>
+        /// <param name="feature">待查特技（可为混合组）</param>
+        /// <param name="id">目标特技 Id</param>
+        /// <param name="depth">当前递归深度</param>
+        /// <returns>存在返回 true</returns>
+        public static bool ContainsId(Feature feature, int id, int depth)
+        {
+            if (feature == null || depth > MaxMixedDepth)
+                return false;
+
+            if (feature.Id == id)
+                return true;
+
+            if (feature.kind == (int)FeatureKindType.Mixed && feature.childList != null)
+            {
+                for (int i = 0; i < feature.childList.Count; i++)
+                {
+                    if (ContainsId(feature.childList[i], id, depth + 1))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 列表里是否已有指定 Id 的特技。
+        /// **按 Id 判重，不按引用** —— 装备附加并入的是副本，引用比较会判成两个不同的特技。
+        /// </summary>
+        /// <param name="list">待查列表</param>
+        /// <param name="id">特技 Id</param>
+        /// <returns>已存在返回 true</returns>
+        public static bool ContainsById(List<Feature> list, int id)
+        {
+            if (list == null) return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Feature feature = list[i];
+                if (feature != null && feature.Id == id)
+                    return true;
+            }
+            return false;
         }
 
     }
@@ -330,7 +464,10 @@ namespace Sango.Core
                     continue;
                 if (person.FeatureList == null)
                     continue;
-                // 只统计**生效**的特技（超出剧本 maxActiveFeatureCount 的不算本势力已拥有）
+                // 只统计**生效的自带**特技：
+                //   · 超出剧本 maxActiveFeatureCount 的不算本势力已拥有；
+                //   · 装备 / 官职附加的特技在 Person.extra_feature_list 里，不参与本循环 ——
+                //     它们随装备变动，统计进来会让 AI 误判"这个特技已经有了"
                 for (int f = 0; f < person.ActiveFeatureCount; f++)
                 {
                     Feature feature = person.FeatureList[f];

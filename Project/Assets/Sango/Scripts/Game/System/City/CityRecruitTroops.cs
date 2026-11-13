@@ -79,7 +79,7 @@ namespace Sango.Core.Player
             sortTitle.valueSortFunc = (a, b) =>
             {
                 // 先比较名声特性，确保具有征兵加成的武将始终位于列表前部。
-                int featureCompare = b.HasFeatrue(80).CompareTo(a.HasFeatrue(80));
+                int featureCompare = b.HasFeature(80).CompareTo(a.HasFeature(80));
                 return featureCompare != 0 ? featureCompare : b.Glamour.CompareTo(a.Glamour);
             };
             return sortTitle;

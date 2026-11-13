@@ -610,7 +610,7 @@ namespace Sango.Core
                 Person person = city.allPersons[i];
                 if (person == null || !person.IsAlive)
                     continue;
-                if (person.HasFeatrue(featureId))
+                if (person.HasFeature(featureId))
                     return true;
             }
             return false;

@@ -233,13 +233,12 @@ namespace Sango.Core
                 return 0;
 
             // 原版三条豁免（721:47）：君主亲往不会被俘、持强运、骑名马。
-            // 工程内马具在单挑层一律按名马归类（DuelItemMap.GetCategory 对任何马都返回 EliteHorse），
-            // 因此这里直接用"是否坐骑"作名马豁免，不再新造第二套名马判定；君主本身也不可被收押（City.AddCaptive 会拒绝）
+            // 后两条统一走标记位（Person.IsCaptureImmune ← PersonMarkType.IgnoreCapture），
+            // 与城陷 / 部队溃灭 / 单挑同源：以后装备效果启用该标记位时，这里自动跟随，
+            // 不会出现"流言漏判、单挑免俘"的分裂；君主本身也不可被收押（City.AddCaptive 会拒绝）
             if (Sender != null && Diplomat == Sender.mGovernor)
                 return 0;
-            if (Diplomat.HasFeatrue(DuelFeatureId.Lucky))
-                return 0;
-            if (Diplomat.EquippedHorse != null)
+            if (Diplomat.IsCaptureImmune)
                 return 0;
 
             ScenarioVariables variables = Scenario.Cur.Variables;

@@ -166,7 +166,43 @@ namespace Sango.Core.Player
             man.AddSpouse(woman);
             woman.AddSpouse(man);
 
+            // 【特技 100 内助】持有该特技的武将结婚时，双方五维永久 +2（原版 SkillId_Naijo）。
+            // 写进 baseValue 而不是 PersonAttributeValue.extra_value：后者不在序列化字段里（
+            // PersonAttributeValue 是 OptIn 序列化，ToArray 只存 5 个字段），读档会丢。
+            if (man.HasFeature(FeatureIdNeijo) || woman.HasFeature(FeatureIdNeijo))
+            {
+                AddAllAttributes(man, 2);
+                AddAllAttributes(woman, 2);
+                Sango.Log.Info($"@内助@{man.Name}与{woman.Name}的能力各提升 2 点");
+            }
+
             Sango.Log.Info($"@仲介@{man.Name}与{woman.Name}结为夫妻");
+        }
+
+        /// <summary>特技「内助」的 Id（Features.json #100）</summary>
+        const int FeatureIdNeijo = 100;
+
+        /// <summary>
+        /// 五维基础值各 +value。
+        /// 口径与 PersonSortFunction / UIPersonEdit / PersonAddAttributeEffect 一致：
+        /// 改 baseValue 后调用 UpdateNoAge 重算派生值；上限按 100 封顶（原版五维上限）。
+        /// </summary>
+        static void AddAllAttributes(Person person, int value)
+        {
+            if (person == null || value == 0) return;
+            AddOne(person.command, value);
+            AddOne(person.strength, value);
+            AddOne(person.intelligence, value);
+            AddOne(person.politics, value);
+            AddOne(person.glamour, value);
+        }
+
+        static void AddOne(PersonAttributeValue attr, int value)
+        {
+            if (attr == null) return;
+            attr.baseValue = System.Math.Min(100, attr.baseValue + value);
+            if (attr.baseValue < 0) attr.baseValue = 0;
+            attr.UpdateNoAge();
         }
     }
 }
