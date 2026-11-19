@@ -7,6 +7,9 @@ namespace Sango.Core
     [JsonObject(MemberSerialization.OptIn)]
     public class Fire : SangoObject
     {
+        /// <summary>「藤甲」（Features.json Id 32，原版 SkillId_Toukou）</summary>
+        const int FeatureId_Toukou = 32;
+
         /// <summary>
         /// 获取对象类型
         /// </summary>
@@ -155,7 +158,7 @@ namespace Sango.Core
 
                 Cell neighbor = cell.GetNeighbor(i);
                 if (!CanIgnite(neighbor))
-                    continue;                       // 已有火 / 水域 / 不可燃地形 / 地图边界
+                    continue;                       // 已有火 / 城港关 / 水域 / 不可燃地形 / 地图边界
 
                 // 概率只取决于目标格的地形可燃性
                 int chance = GetTerrainFireRate(neighbor) * maxChance / rateMax;
@@ -182,6 +185,7 @@ namespace Sango.Core
         ///
         /// 以下情况**不可蔓延**：
         ///   · 格子为空或已有火焰（不重复点燃）
+        ///   · 城 / 港 / 关的占位格（据点格不参与火势扩散）
         ///   · 地形数据缺失
         ///   · 水面地形（河流 / 湖泊 / 海）
         ///   · 地形可燃性 fireRate ≤ 0（水域 / 山地 / 城池等）
@@ -191,6 +195,13 @@ namespace Sango.Core
         static bool CanIgnite(Cell target)
         {
             if (target == null || target.fire != null)
+                return false;
+
+            // 城 / 港 / 关格上不允许火势蔓延：
+            // 据点格的地形未必是不可燃地形（部分城池格落在平地/荒地），
+            // 只靠 fireRate 挡不住，必须按建筑类型显式排除。
+            // 据点本身由 BurnBuildiong 单独结算耐久，不依赖格子上的火焰。
+            if (target.building is City)
                 return false;
 
             TerrainType terrain = target.TerrainType;
@@ -309,6 +320,16 @@ namespace Sango.Core
             if (troop.ignoreFire) return;
 
             int dmg = GameRandom.Random(damage + Math.Max(0, intelligence * 2 - troop.Intelligence - troop.Defence), 0.1f);
+
+            // 【原版对齐】目标持「藤甲」时火焰伤害翻倍：
+            //   calc_fire_damage（s11_sys_damage.cpp:991）的 :1031-1034
+            //   `if (target->has_skill(SkillId_Toukou)) damage.troops_damage *= 2;`
+            // 这条 ×2 与战斗伤害的 `/ 2`（:1025-1029）在原版是两条独立路径，不能互相抵消。
+            // 本项目的战斗侧 /2 由 TroopChangeDamage(-50) 负责；火焰侧必须在这里补，
+            // 否则藤甲站在火里只按普通部队结算（ChangeTroops 已被 Fire 前置拦截，不会再 /2）。
+            if (troop.HasFeature(FeatureId_Toukou))
+                dmg *= 2;
+
             // if (troop.ChangeTroops(-dmg, this, false))
             {
                 FireDamageEvent @event = RenderEvent.Instance.Create<FireDamageEvent>();

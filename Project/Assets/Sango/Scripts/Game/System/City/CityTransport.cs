@@ -77,8 +77,18 @@ namespace Sango.Core.Player
 
             TargetTroop.Leader = personList[0];
 
-            if (personList.Count > 1) TargetTroop.Member1 = personList[1];
-            if (personList.Count > 2) TargetTroop.Member2 = personList[2];
+            // 【必须清掉多余位置】只判 Count > 1 就赋值、不写 else 清空，
+            // 会出现"幽灵副将"：玩家先选 3 人再减到 1 人，Member1 / Member2 仍指着旧武将，
+            // 于是运输队的统率 / 武力等属性继续按已离队的人计算。
+            // CityExpedition.UpdateJobValue 早已按同样写法处理，这里补齐。
+            if (personList.Count > 1)
+                TargetTroop.Member1 = personList[1];
+            else
+                TargetTroop.Member1 = null;
+            if (personList.Count > 2)
+                TargetTroop.Member2 = personList[2];
+            else
+                TargetTroop.Member2 = null;
 
             TargetTroop.CalculateAttribute(Scenario.Cur);
         }
@@ -243,8 +253,8 @@ namespace Sango.Core.Player
             if (whoGone is ObjectSelectSystem) return;
             Window.Instance.SetVisible(windowName, true);
             TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTansport));
-            // 取消组建的回滚：部队尚未出发，不做改道
-            TargetTroop.EnterCity(TargetCity, false);
+            // 取消组建的回滚：部队尚未出发，直接收回
+            TargetTroop.EnterCity(TargetCity);
             TargetTroop.ForEachPerson(person =>
             {
                 TargetCity.freePersons.Add(person);

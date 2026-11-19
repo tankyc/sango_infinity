@@ -60,6 +60,61 @@ namespace Sango.Core
         /// <param name="value">新的属性值</param>
         public delegate void PersonValueObjSet(Person person, object value);
 
+        /// <summary>
+        /// 【动态特技组标记】
+        ///
+        /// 放在列定义里代表"这里是一组特技列"，本身不显示任何内容；
+        /// 真正的列由 <see cref="ExpandFeatureGroups"/> 在构建表格时展开成
+        /// "特技1 … 特技N"，列数 N 取剧本参数 maxActiveFeatureCount
+        /// （见 <see cref="GetFeatureColumnCount"/>）。
+        ///
+        /// 【为什么用标记而不是直接给 N 列】
+        /// 列清单在十几处静态初始化器里（出征 / 运输 / 移动 / 褒赏 / 赐物 / 召唤 / 建筑工作…）
+        /// 以 `PersonSortFunction.SortByFeatureList` 单个元素的形式出现。用标记可以让这些
+        /// 调用点零改动，同时把"到底几列"这件随剧本变化的事收敛到一处展开逻辑，
+        /// 避免每处各写一段循环、日后漏改。
+        ///
+        /// 【编辑能力】标记上保留"整体替换特技列表"的编辑信息（editType / dataSetType /
+        /// valueObjGet / valueObjSet），展开时赋给第 1 列 —— 编辑器里点第一个特技格
+        /// 仍然能编辑整份特技列表。
+        /// </summary>
+        public class FeatureGroupTitle : ObjectSortTitle
+        {
+            public PersonValueObjGet valueObjGet;
+            public PersonValueObjSet valueObjSet;
+
+            public FeatureGroupTitle()
+            {
+                name = "特技";
+                width = 3.60f;
+                alignment = (int)TextAnchor.MiddleLeft;
+                editType = DataEditType.FeatureListId;
+                dataSetType = DataSetType.Feature;
+            }
+
+            public override object GetValue(SangoObject obj)
+            {
+                return valueObjGet?.Invoke((Person)obj);
+            }
+
+            public override void SetValue(SangoObject obj, object value)
+            {
+                valueObjSet?.Invoke((Person)obj, value);
+            }
+
+            /// <summary>标记本身不显示内容（展开后才有真实列）</summary>
+            public override string GetValueStr(SangoObject obj)
+            {
+                return string.Empty;
+            }
+
+            /// <summary>标记本身不参与排序（展开后才有真实列）</summary>
+            public override int Sort(SangoObject a, SangoObject b)
+            {
+                return 0;
+            }
+        }
+
         public class SortTitle : ObjectSortTitle
         {
             public PersonValueStrGet valueStrGetCall;
@@ -360,8 +415,12 @@ namespace Sango.Core
                 case PersonSortGroupType.Feature:
                     {
                         titleList.Add(SortByName);
+                        // 【动态特技组】这里只放组标记，真正的 N 列由本方法末尾统一展开
+                        // （见 ExpandFeatureGroups），与出征/运输/褒赏等界面走同一条逻辑。
                         titleList.Add(SortByFeatureList);
-                        titleList.Add(SortByFeatureDesc);
+                        // 说明列不在这里单独添加：展开特技组时会统一补齐"说明1 … 说明N"
+                        // （见 ExpandFeatureGroups → CreateFeatureDescColumn），
+                        // 这里再放一列 SortByFeatureDesc 会变成重复的整段说明。
                         break;
                     }
                 case PersonSortGroupType.Ability:
@@ -407,6 +466,15 @@ namespace Sango.Core
                         titleList.Add(SortBySpouse);
                         break;
                     }
+            }
+
+            // 【动态特技组展开】分组里放的是组标记（SortByFeatureList），
+            // 这里统一替换成实际的 N 列，保证"特技"分组与直接传列清单的界面列数一致。
+            List<ObjectSortTitle> expanded = ExpandFeatureGroups(titleList);
+            if (!ReferenceEquals(expanded, titleList))
+            {
+                titleList.Clear();
+                titleList.AddRange(expanded);
             }
         }
 
@@ -921,54 +989,276 @@ namespace Sango.Core
             return count;
         }
 
-        public static SortTitle SortByFeatureList = new SortTitle()
+        /// <summary>
+        /// 动态特技列的兜底上限。
+        ///
+        /// 剧本参数 <see cref="ScenarioVariables.maxActiveFeatureCount"/> 为 0 表示"不限制"，
+        /// 此时没有确定的列数，取场上实际拥有的最大特技数；再夹在本值以内，
+        /// 避免有人把参数设成 0 之后表格被撑成几十列。
+        /// </summary>
+        const int FeatureColumnFallbackCount = 8;
+
+        /// <summary>
+        /// 计算"特技"分组要生成几列。
+        ///
+        /// 【规则】
+        ///   · 剧本参数 maxActiveFeatureCount &gt; 0 → 直接用它（即"最大生效特技数量"），
+        ///     这也是 <see cref="Person.ActiveFeatureCount"/> 的上限口径，两者必须一致，
+        ///     否则会出现"列比能生效的特技多"或"生效的特技没列可放"；
+        ///   · 参数 &lt;= 0（不限制）→ 取当前场景里所有武将的最大生效特技数，至少 1 列。
+        ///
+        /// 【为什么是动态的】原实现只有一列 <see cref="SortByFeatureList"/>，把全部特技名
+        /// 逗号拼在一个格子里：剧本把上限调到 4~5 时，那格宽度仍固定 6 字，
+        /// 名字被截断、也看不出"第几个特技"。改为每列一格、列数随剧本参数变化。
+        /// </summary>
+        /// <returns>特技列数（&gt;= 1）</returns>
+        public static int GetFeatureColumnCount()
         {
-            name = "特技",
-            width = 6.00f,
-            alignment = (int)TextAnchor.MiddleLeft,
-            valueStrGetCall = x =>
+            int max = Person.GetMaxActiveFeatureCount();
+            if (max > 0)
+                return System.Math.Min(max, FeatureColumnFallbackCount);
+
+            int count = 1;
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null && scenario.personSet != null)
             {
-                StringBuilder sb = new StringBuilder();
-                bool first = true;
-
-                // ① 自带：只列**生效**的（超出剧本 maxActiveFeatureCount 的部分不展示）
-                if (x.FeatureList != null)
+                scenario.personSet.ForEach(p =>
                 {
-                    int activeCount = x.ActiveFeatureCount;
-                    for (int i = 0; i < activeCount; i++)
-                    {
-                        Feature f = x.FeatureList[i];
-                        if (f == null) continue;
-                        if (!first) sb.Append(", ");
-                        sb.Append(f.Name);
-                        first = false;
-                    }
+                    if (p == null) return;
+                    int active = p.ActiveFeatureCount;
+                    if (active > count)
+                        count = System.Math.Min(active, FeatureColumnFallbackCount);
+                });
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// 生成第 <paramref name="index"/> 列（0 基）的特技列：一格只显示一个特技。
+        /// </summary>
+        /// <param name="index">特技在 FeatureList 里的下标</param>
+        /// <returns>该列的排序标题</returns>
+        public static SortTitle CreateFeatureColumn(int index)
+        {
+            return new SortTitle()
+            {
+                name = $"特技{index + 1}",
+                width = 3.60f,
+                alignment = (int)TextAnchor.MiddleLeft,
+                valueStrGetCall = x =>
+                {
+                    // 只展示**生效**范围内的（超出剧本上限的特技处于休眠，不占列）
+                    if (x == null || x.FeatureList == null || index >= x.ActiveFeatureCount)
+                        return string.Empty;
+                    Feature f = x.FeatureList[index];
+                    return f != null ? f.Name : string.Empty;
+                },
+                // 按"该位置的特技 Id"排序：没有该位特技的排到最后
+                valueSortFunc = (a, b) => GetFeatureIdAt(a, index).CompareTo(GetFeatureIdAt(b, index)),
+                valueObjGet = null,
+                valueObjSet = null,
+            };
+        }
+
+        /// <summary>
+        /// 生成第 <paramref name="index"/> 个特技的"说明"列，与同下标的"特技N"列一一对应。
+        ///
+        /// 【为什么要拆】原 <see cref="SortByFeatureDesc"/> 是一列，把全部特技的说明用换行拼在
+        /// 同一个单元格里：特技上限调到 4~5 时，第几个特技对应哪段说明要靠数行数，
+        /// 而且单元格撑得极高。拆成"特技N / 说明N"一一对应后，横向一眼能对上。
+        ///
+        /// 【列位置】不再紧跟特技列，而是排在"特技1 … 特技N → 附加"之后，
+        /// 连续排成"说明1 … 说明N"，见 <see cref="ExpandFeatureGroups"/>。
+        ///
+        /// 说明列不参与排序（与原 SortByFeatureDesc 的 valueSortFunc 一致）。
+        /// </summary>
+        /// <param name="index">特技在 FeatureList 里的下标</param>
+        /// <returns>该位置的说明列</returns>
+        public static SortTitle CreateFeatureDescColumn(int index)
+        {
+            return new SortTitle()
+            {
+                name = $"说明{index + 1}",
+                width = 30.00f,
+                alignment = (int)TextAnchor.MiddleLeft,
+                valueStrGetCall = x =>
+                {
+                    // 与特技列同一口径：只取生效范围内的
+                    if (x == null || x.FeatureList == null || index >= x.ActiveFeatureCount)
+                        return string.Empty;
+                    Feature f = x.FeatureList[index];
+                    return f != null ? (f.desc ?? string.Empty) : string.Empty;
+                },
+                valueSortFunc = (a, b) => 0,
+                valueObjGet = null,
+                valueObjSet = null,
+            };
+        }
+
+        /// <summary>
+        /// 取某武将第 index 个生效特技的 Id（用于列排序）。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <param name="index">特技下标</param>
+        /// <returns>特技 Id；该位置没有生效特技时返回 <see cref="int.MaxValue"/></returns>
+        static int GetFeatureIdAt(Person person, int index)
+        {
+            if (person == null || person.FeatureList == null || index >= person.ActiveFeatureCount)
+                return int.MaxValue;
+            Feature f = person.FeatureList[index];
+            return f != null ? f.Id : int.MaxValue;
+        }
+
+        /// <summary>
+        /// 把列清单里的"动态特技组"标记（<see cref="FeatureGroupTitle"/>）展开成 N 个真实特技列。
+        ///
+        /// 幂等：列表里没有标记时**原样返回同一个对象**（不重建，避免每次刷新都产生 GC 垃圾）；
+        /// 已经展开过的列表也没有标记，所以重复调用安全。
+        ///
+        /// 展开后的列顺序（分段排列，不交替）：
+        ///   特技1 … 特技N → 附加 → 说明1 … 说明N → 附加说明。
+        ///
+        /// 展开规则：
+        ///   · 列数取 <see cref="GetFeatureColumnCount"/>；
+        ///   · 第 1 列继承组标记的编辑信息（点它 = 编辑整份特技列表），其余列只读；
+        ///   · 其余列的位置、顺序与传入顺序保持一致，不改变任何现有列。
+        /// </summary>
+        /// <param name="source">原始列清单（可含标记）</param>
+        /// <returns>展开后的列清单；无标记时返回入参本身</returns>
+        public static List<ObjectSortTitle> ExpandFeatureGroups(List<ObjectSortTitle> source)
+        {
+            if (source == null || source.Count == 0)
+                return source;
+
+            int groupIndex = -1;
+            for (int i = 0; i < source.Count; i++)
+            {
+                if (source[i] is FeatureGroupTitle)
+                {
+                    groupIndex = i;
+                    break;
                 }
+            }
+            if (groupIndex < 0)
+                return source;
 
-                // ② 额外附加（装备 / 官职）：不占名额，全量展示
-                if (x.extra_feature_list != null)
+            FeatureGroupTitle group = (FeatureGroupTitle)source[groupIndex];
+            int columnCount = GetFeatureColumnCount();
+
+            // 容量一次算够：组标记换成 N 个特技列 + 1 个"附加"，再补 N 个说明列 + 1 个"附加说明"，
+            // 避免 List 扩容造成额外 GC（组标记本身占 1 个位置，所以是 source.Count - 1 + 2N + 2）。
+            List<ObjectSortTitle> result = new List<ObjectSortTitle>(source.Count + columnCount * 2 + 1);
+            for (int i = 0; i < groupIndex; i++)
+                result.Add(source[i]);
+
+            // 【第一段：全部特技列】先连续排满 "特技1 … 特技N"，
+            // 不再与说明列交替，方便横向对照多个武将的特技名。
+            for (int i = 0; i < columnCount; i++)
+            {
+                SortTitle column = CreateFeatureColumn(i);
+                if (i == 0)
                 {
+                    // 第 1 列同时承担"整份特技列表"的编辑入口，保持编辑器可编辑
+                    column.valueObjGet = group.valueObjGet;
+                    column.valueObjSet = group.valueObjSet;
+                    column.editType = group.editType;
+                    column.dataSetType = group.dataSetType;
+                }
+                result.Add(column);
+            }
+
+            // 【附加特技列】装备 / 官职附加的特技不占剧本名额（见 Person.ActiveFeatureCount 注释），
+            // 但旧版单列拼串是"自带 + 附加"一起显示的。展开成"一格一个"后，
+            // 若不单独补一列，装备（如太平要术）带来的特技会在表格里彻底消失。
+            // 所以固定追加 1 列"附加"，只显示 extra_feature_list，不影响前 N 列的口径。
+            result.Add(new SortTitle()
+            {
+                name = "附加",
+                width = 3.60f,
+                alignment = (int)TextAnchor.MiddleLeft,
+                valueStrGetCall = x =>
+                {
+                    if (x.extra_feature_list == null || x.extra_feature_list.Count == 0)
+                        return string.Empty;
+                    StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < x.extra_feature_list.Count; i++)
                     {
                         Feature f = x.extra_feature_list[i];
                         if (f == null) continue;
-                        if (!first) sb.Append(", ");
+                        if (sb.Length > 0) sb.Append(", ");
                         sb.Append(f.Name);
-                        first = false;
                     }
-                }
-                return sb.ToString();
-            },
-            valueSortFunc = (a, b) =>
+                    return sb.ToString();
+                },
+                valueSortFunc = (a, b) => 0,
+                valueObjGet = null,
+                valueObjSet = null,
+            });
+
+            // 【第二段：全部说明列】特技名与附加列排完之后，再连续排 "说明1 … 说明N"，
+            // 与前面的 "特技N" 一一对应（同一行里，说明N 对应 特技N）。
+            for (int i = 0; i < columnCount; i++)
+                result.Add(CreateFeatureDescColumn(i));
+
+            // 附加特技的说明：与"特技N/说明N"同样的分段结构，只是附加数量不固定，
+            // 这里把它们的说明换行拼在这一列（附加通常是 0~2 个，不会撑高）。
+            result.Add(new SortTitle()
             {
-                return GetTotalFeatureCount(a).CompareTo(GetTotalFeatureCount(b));
-            },
+                name = "附加说明",
+                width = 30.00f,
+                alignment = (int)TextAnchor.MiddleLeft,
+                valueStrGetCall = x =>
+                {
+                    if (x.extra_feature_list == null || x.extra_feature_list.Count == 0)
+                        return string.Empty;
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < x.extra_feature_list.Count; i++)
+                    {
+                        Feature f = x.extra_feature_list[i];
+                        if (f == null) continue;
+                        if (sb.Length > 0) sb.Append("\n");
+                        sb.Append(f.desc ?? string.Empty);
+                    }
+                    return sb.ToString();
+                },
+                valueSortFunc = (a, b) => 0,
+                valueObjGet = null,
+                valueObjSet = null,
+            });
+
+            for (int i = groupIndex + 1; i < source.Count; i++)
+                result.Add(source[i]);
+
+            return result;
+        }
+
+        /// <summary>
+        /// 【特技列 · 动态组】列定义里的"特技"位置统一用这个标记。
+        ///
+        /// 展开后是 N 个"特技1 … 特技N"列（N = 剧本参数 maxActiveFeatureCount，
+        /// 未配置时取场上最大特技数），每格一个特技，替代原来的"单列逗号拼串"。
+        ///
+        /// 展开点：
+        ///   · <see cref="GetSortTitleGroup"/> 返回前（覆盖选择器分组切换）；
+        ///   · <c>UIObjectDisplay.ApplySortItems</c>（覆盖所有直接传入列清单的界面）。
+        /// 两处都调用 <see cref="ExpandFeatureGroups"/>，对已展开的列表是幂等的。
+        /// </summary>
+        public static FeatureGroupTitle SortByFeatureList = new FeatureGroupTitle()
+        {
             valueObjGet = x => x.FeatureList,
             valueObjSet = (x, v) => SetPersonFeatureList(x, v),
-            editType = DataEditType.FeatureListId,
-            dataSetType = DataSetType.Feature,
         };
 
+        /// <summary>
+        /// 【已拆分，勿再直接加进列清单】
+        ///
+        /// 这是"把全部特技说明换行拼成一列"的旧实现。现在说明列由
+        /// <see cref="ExpandFeatureGroups"/> 统一生成"说明1 … 说明N"
+        /// （<see cref="CreateFeatureDescColumn"/>），排在"特技N → 附加"之后。
+        ///
+        /// 保留该字段只为不破坏潜在的外部引用（例如编辑器列的序列化/自定义列清单）；
+        /// **任何列清单都不应再添加它**，否则会出现一整段重复说明。
+        /// </summary>
         public static SortTitle SortByFeatureDesc = new SortTitle()
         {
             name = "说明",
@@ -1014,14 +1304,18 @@ namespace Sango.Core
             valueStrGetCall = (x) =>
             {
                 if (x.BelongForce == null || x == x.BelongForce.mGovernor) return "---";
+                // 显示层截断到 100：内部值域是 0..Person.MaxLoyalty(255)，
+                // 配偶/义兄弟(>=150)、亲爱(>=120)、君主(>=250) 这些"死忠"超额的部分
+                // 不对玩家展示（对齐原版：UI 只显示 0~100）。
                 return System.Math.Min(100, x.loyalty).ToString();
             },
+            // 排序仍按内部真实值：同为显示 100 的两个人，死忠应当排在刚好 100 的前面
             valueSortFunc = (a, b) => a.loyalty.CompareTo(b.loyalty),
             valueObjGet = x => x.loyalty,
             valueObjSet = (x, v) => x.loyalty = (int)v,
             editType = DataEditType.IntCalculator,
             minValue = 0,
-            maxValue = 250,
+            maxValue = Person.MaxLoyalty,
         };
 
         public static SortTitle SortByMerit = new SortTitle()

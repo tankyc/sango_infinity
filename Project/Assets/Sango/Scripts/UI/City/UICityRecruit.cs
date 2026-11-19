@@ -48,7 +48,8 @@ using Sango.Core; namespace Sango.UI
             if (target != null)
             {
                 targetForce.text = target.BelongForce != null ? target.BelongForce.Name : "--";
-                targetLoyalty.text = target.loyalty.ToString();
+                // 忠诚显示截断到 100：内部值域 0..255（Person.MaxLoyalty），超额部分不对玩家展示
+                targetLoyalty.text = System.Math.Min(100, target.loyalty).ToString();
                 City where = target.BelongCity ?? target.CurrentCity;
                 targetDays.text = $"{10 * where.Distance(TargetCity)}日";
                 targetCityName.text = where.Name;

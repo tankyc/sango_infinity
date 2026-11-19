@@ -83,14 +83,23 @@ namespace Sango.Core
                 }
                 return true;
             }
-            else if (troop.TryMoveToCity(TargetCity))
+            else
             {
-                // 移动完成，进入城市
-                if (troop.cell.building == TargetCity)
+                // 【移动受阻兜底】目标城在对岸、中间隔着敌方 / 无主港关时，移动范围会在港关格处
+                // 停止扩展，部队每回合只能走到它前一格。这里改派攻占挡路据点。
+                // 详见 TroopAIUtility.TryAttackBlockingCityOnPath 的说明。
+                if (TroopAIUtility.TryAttackBlockingCityOnPath(troop, TargetCity.CenterCell, scenario))
+                    return true;
+
+                if (troop.TryMoveToCity(TargetCity))
                 {
-                    troop.EnterCity(TargetCity);
+                    // 移动完成，进入城市
+                    if (troop.cell.building == TargetCity)
+                    {
+                        troop.EnterCity(TargetCity);
+                    }
+                    return true;
                 }
-                return true;
             }
             if (GameSystemManager.debug)
                 GameSystemManager.debug_StringBuilder.Append("10,");

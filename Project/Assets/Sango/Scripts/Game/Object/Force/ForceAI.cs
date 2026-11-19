@@ -802,6 +802,27 @@ namespace Sango.Core
             return corps != null && corps.IsPlayerControl;
         }
 
+        /// <summary>
+        /// 该据点所属军团是否被玩家关了"人材"（<see cref="Corps.AppointContentType.Person"/> == 1）。
+        ///
+        /// 【用途】人才开关除搜索 / 登用外，还要管住**人才调动**：
+        /// 跨城补位（<see cref="PlaceGuards"/>）与守将调任（<see cref="SummonGuards"/>）都属调动，
+        /// 关闭后一律不从该军团抽人、也不往该军团塞人。
+        ///
+        /// 【适用范围】只对玩家势力有效 —— 委任项是玩家给委任军团的指令，
+        /// 非玩家 AI 势力没有 UI 入口写这些位，按"不受限"处理（与原版
+        /// `ai_table_not_player_district_settings` 对非玩家恒返回 false 同口径）。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <returns>玩家势力且该军团关闭了人材时返回 true</returns>
+        static bool IsPersonForbidden(City city)
+        {
+            if (city == null || city.BelongForce == null || !city.BelongForce.IsPlayer)
+                return false;
+            Corps corps = city.BelongCorps;
+            return corps != null && corps.GetAppointValue(Corps.AppointContentType.Person) == 1;
+        }
+
         public static void SetGuards(Force force, Scenario scenario)
         {
             if (force == null) return;
@@ -907,6 +928,10 @@ namespace Sango.Core
                 Corps corps = from != null ? from.BelongCorps : city.BelongCorps;
                 if (corps == null || corps.ActionPoint < SummonActionPointCost) return;
 
+                // 【委任钳制 · 人材】这一步才是真正改 BelongCity 的调任：
+                // 目标城或源城的军团只要关了人材，就不许调（任一侧都算"人才调动"）。
+                if (IsPersonForbidden(city) || IsPersonForbidden(from)) return;
+
                 corps.ReduceActionPoint(SummonActionPointCost);
 
                 // 实际调任（会同步城名册、军团与当前城）
@@ -939,7 +964,9 @@ namespace Sango.Core
             force.ForEachCity(c =>
             {
                 // 玩家主军团的城不参与自动补位：守将由玩家自己安排
-                if (c != null && c.IsAlive && c.guardId < 0 && !IsPlayerCaptainCity(c))
+                // 【委任钳制 · 人材】关了人材的军团也不接受补位（否则人会从别处被塞进来）
+                if (c != null && c.IsAlive && c.guardId < 0
+                    && !IsPlayerCaptainCity(c) && !IsPersonForbidden(c))
                     need.Add(c);
             });
 
@@ -961,6 +988,9 @@ namespace Sango.Core
 
                 // 玩家主军团的城里的人不许被抽走（候选池直接排除该城）
                 if (IsPlayerCaptainCity(c)) return;
+
+                // 【委任钳制 · 人材】关了人材的军团不许被抽人（跨城补位属于人才调动）
+                if (IsPersonForbidden(c)) return;
 
                 for (int i = 0; i < c.freePersons.Count; i++)
                 {
@@ -3303,12 +3333,52 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 军师推荐招募人才的人选
+        /// 无军师时的推荐门槛（沿用旧实现的固定阈值 30）。
+        /// 有军师时门槛取军师智力，见 <see cref="GetCounsellorConfidenceThreshold"/>。
         /// </summary>
-        /// <param name="personList"></param>
-        /// <param name="target"></param>
-        /// <param name="commandFeatures"></param>
-        /// <returns></returns>
+        public const int DefaultCounsellorConfidenceThreshold = 30;
+
+        /// <summary>
+        /// 军师"承诺门槛"：军师只敢推荐"预估成功率 ≥ 自身智力"的人选。
+        ///
+        /// 【口径】与城略 / 计略的军师举荐完全一致
+        /// （<c>CityStrategySystemBase.RefreshCounsellorRecommend</c> 的 `if (rate &gt;= counsellor.Intelligence)`）：
+        /// 智力 100 的军师只推荐必成的人选（成功率 100%），智力 70 的军师连七成把握的也敢推。
+        /// 军师不在位时退回 <see cref="DefaultCounsellorConfidenceThreshold"/>，
+        /// 让"没有军师"的小势力仍能按一般人的判断拿到推荐，不至于把功能整块关掉。
+        ///
+        /// 【原版无对应实现】Open311（D:\open311\s11）里没有"军师进言 / 推荐"这一层的实现
+        /// （全仓检索不到 counsellor / recommend 相关的推荐裁决，只有 person_debut 的仕官介绍人），
+        /// 因此本条为本项目自主设计：门槛取军师智力，是既有城略举荐口径的推广，不是原版搬运。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <returns>成功率门槛（百分比）</returns>
+        public static int GetCounsellorConfidenceThreshold(Force force)
+        {
+            if (force == null || force.mCounsellor == null)
+                return DefaultCounsellorConfidenceThreshold;
+
+            // 【上限必须夹到 100】Person.Intelligence 含装备加成（RawIntelligence = 基础 + 装备加成）
+            // 且不设 100 上限，而成功率的最大值就是 100。若不夹取，装备堆到 105 的军师
+            // 会要求"成功率 ≥ 105" —— 任何推荐都成立不了，表现为"军师从此不再推荐任何人"。
+            int intelligence = force.mCounsellor.Intelligence;
+            return intelligence > 100 ? 100 : intelligence;
+        }
+
+        /// <summary>
+        /// 军师推荐招募人才的人选。
+        ///
+        /// 【与玩家侧门槛的分工，别改错】本方法是 **AI / 人才府自动登庸** 用的"挑最优执行者"，
+        /// 因此门槛固定为 <see cref="DefaultCounsellorConfidenceThreshold"/>（30），
+        /// **不套** <see cref="GetCounsellorConfidenceThreshold"/> 的军师承诺门槛 ——
+        /// AI 没有"进言"这一层，若也要求"成功率 ≥ 军师智力"，
+        /// 智力 100 的 AI 势力将几乎登用不到任何敌将（登用成功率极少到 100）。
+        /// 玩家侧的军师推荐门槛在 CityRecruit.SetTarget / CityAllRecruit.RecommendActionPerson。
+        /// </summary>
+        /// <param name="personList">候选执行武将</param>
+        /// <param name="target">登庸目标</param>
+        /// <param name="commandFeatures">推荐特技 Id（null 时按 JobTypes 配置取）</param>
+        /// <returns>推荐人选；无合适者返回 null</returns>
         public static Person CounsellorRecommendRecruitPerson(List<Person> personList, Person target, int[] commandFeatures = null)
         {
             // 调用方未显式指定时，从 job 数据取（登用 → 眼力）。
@@ -3360,38 +3430,306 @@ namespace Sango.Core
             return maxP != null ? maxP : bestFeaturePerson;
         }
 
+        /// <summary>
+        /// AI 封官：按"官职槽"全量重排，复刻 Open311 的封官链路。
+        ///
+        /// 【原版链路】
+        /// <list type="number">
+        /// <item><c>GameAI::force_ranks</c>：s11_game_ai_force_cmd.cpp:258-274 —— 黄巾禁则 + 每 3 回合错峰。</item>
+        /// <item><c>PersonOrderManager::auto_ranks</c>：s11_sys_person_order_kunshu.cpp:711-722 —— 转调 RankDialog。</item>
+        /// <item><c>RankDialog::auto_fill(Force*)</c>：s11_sys_ui_rank_dialog.cpp:345-366 —— 选候选、排功绩、判槽位可用。</item>
+        /// <item><c>RankDialog::auto_fill()</c>：s11_sys_ui_rank_dialog.cpp:264-343 —— 清槽回填 + 四轮分配。</item>
+        /// <item><c>PersonOrderManager::exec_ranks_command</c>：s11_sys_person_order_kunshu.cpp:642-695 —— 先全清后全设地提交。</item>
+        /// </list>
+        ///
+        /// 【为什么要重写】旧实现是"逐人找他够得上的最高官职"，与槽位模型揉在一起，产出三个原版不可能出现的结果：
+        /// <list type="number">
+        /// <item>只从 <c>Official.NextOfficials</c>（高一级）里挑，而"无官职"（Id 0）的 <c>NextOfficials</c> 为 null
+        ///   —— 所以**新招募 / 被免职的武将永远拿不到第一个官职**，AI 势力会长期只有剧本初始那批人当官。</item>
+        /// <item>按"人"扫而不是按"官职"扫：功绩第 1 的人随手挑走一个中档官职，功绩第 2 的人再去挑次一档，
+        ///   结果高官空着、低官满员，与原版"先给丞相挑最好的人"的顺序相反。</item>
+        /// <item>从不降级 / 免职：被顶替者仍挂着旧官职，同一官职会出现两人任职。</item>
+        /// </list>
+        /// 现按原版改成"清空槽 → 按官职从高到低四轮挑人 → 先全清后全设地提交"。
+        ///
+        /// 【未对齐项】
+        /// <list type="bullet">
+        /// <item><c>force_ranks</c> 264-265 行要求"君主所在据点存活"（<c>get_building(kunshu_service_id)</c>），
+        ///   本项目没有"君主任职据点"这一概念，无法对齐。</item>
+        /// <item>原版槽位可用性含势力官爵门槛（<c>rank->required_title_id >= force->title_id</c>，125 行），
+        ///   本项目官职表没有该字段，改由 <see cref="Official.meritNeeds"/> 承担门槛 —— 数据模型差异，
+        ///   详见 <see cref="Official.RequiredMerit"/> 的说明。</item>
+        /// <item>原版 FirstRanks 硬编码 4 个官职（丞相/司空/太尉/司徒，8-13 行），SecondRanks 硬编码其余 76 个（16-94 行）；
+        ///   本项目按 <c>level == 0</c> 取整档作为"顶级"，与官职界面"自动设定"（<c>CityUpgradeOfficial.AutoSet</c>）同一口径。</item>
+        /// </list>
+        /// </summary>
+        /// <param name="force">要封官的势力</param>
+        /// <param name="scenario">当前剧本</param>
+        /// <returns>是否处理完成</returns>
         public static bool AISetOfficial(Force force, Scenario scenario)
         {
-            List<Official> match_officials = new List<Official>();
-            force.ForEachPerson(person =>
-            {
-                if (person.CanUpgradeOfficial)
-                {
-                    Official[] officials = person.Official.NextOfficials;
-                    match_officials.Clear();
-                    foreach (Official official in officials)
-                    {
-                        if (official.CheckPerson(person))
-                        {
-                            match_officials.Add(official);
-                        }
-                    }
+            // 注意：AI 命令队列（Force.DoAI）在返回 false 时会**停在原地重试**，
+            // 封官是同步操作，任何异常路径都必须返回 true 表示"本条处理完毕"，否则该势力会卡死在这条命令上。
+            if (force == null || scenario == null)
+                return true;
+            if (scenario.CommonData == null || scenario.CommonData.Officials == null)
+                return true;
 
-                    // 【优化】选择可授予中等级最高的官职,避免随机任命浪费高能力武将
-                    if (match_officials.Count > 0)
-                    {
-                        Official dst = match_officials[0];
-                        for (int i = 1; i < match_officials.Count; i++)
-                        {
-                            if (match_officials[i].level > dst.level)
-                                dst = match_officials[i];
-                        }
-                        person.UpgradeOfficial(dst);
-                    }
-                }
+            // 黄巾 / 山贼势力不封官（原版 force_ranks 260-261 行的 KokugouId_YellowTurban 禁则）
+            if (force.IsBandit)
+                return true;
+
+            // Id 0 是"无官职"占位对象，免职时用它顶替（同 CityUpgradeOfficial.DoJob 的提交口径）
+            Official none = scenario.CommonData.Officials.Get(0);
+            if (none == null)
+                return true;
+
+            // ── ① 建槽：一个官职一个槽，对齐 RankDialog::slot_（s11_sys_ui.h:75-85）
+            Official[] allOfficials = scenario.CommonData.Officials.objects;
+            List<Official> officials = new List<Official>(allOfficials.Length);
+            for (int i = 0; i < allOfficials.Length; i++)
+            {
+                Official official = allOfficials[i];
+                if (official == null || official.Id == 0)
+                    continue;
+                officials.Add(official);
+            }
+            if (officials.Count == 0)
+                return true;
+
+            // 官职从高到低：level 升序（数字小 = 官大），同 level 按 Id 降序（原版 8-94 行的硬编码表序）
+            officials.Sort((a, b) =>
+            {
+                if (a.level != b.level)
+                    return a.level.CompareTo(b.level);
+                return b.Id.CompareTo(a.Id);
             });
 
+            int slotCount = officials.Count;
+            // slotPerson[i] = 该官职的"锁定任职者"（出征 / 被俘 / 君主）；null = 空缺、可分配。
+            // 没有单独的"锁定标记"：锁定的槽必然已填人，分配时只看"是否已有人"就够了。
+            Person[] slotPerson = new Person[slotCount];
+            Dictionary<int, int> indexOfOfficial = new Dictionary<int, int>(slotCount);
+            for (int i = 0; i < slotCount; i++)
+                indexOfOfficial[officials[i].Id] = i;
+
+            Person governor = force.mGovernor;
+
+            // ── ② 回填"不能动"的现任者（s11_sys_ui_rank_dialog.cpp:275-285）
+            // 原版只把 is_horyo / is_unitize 的人放回原槽（280-281 行），其余人的官职一律先收走、统一重排。
+            //
+            // 【防御性差异】君主不进候选（原版 351 行把君主从 person_list_ 里 erase），
+            // 但原版并未把君主的官职回填到槽位 —— 若数据里君主挂了官职，原版会再给别人发同一个官职。
+            // 这里把君主的槽位锁住，杜绝"同一官职两人任职"。
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.BelongForce != force)
+                    continue;
+
+                Official official = person.Official;
+                if (official == null || official.Id == 0)
+                    continue;
+
+                int index;
+                if (!indexOfOfficial.TryGetValue(official.Id, out index))
+                    continue;
+                if (slotPerson[index] != null)
+                    continue;   // 脏数据：同一官职多人任职，只认第一个
+
+                bool frozen = person.mBelongTroop != null || person.IsPrisoner;
+                if (person != governor && !frozen)
+                    continue;   // 可任免者的官职先收走，交给下面的四轮重新分配
+
+                slotPerson[index] = person;
+            }
+
+            // ── ③ 候选人（s11_sys_ui_rank_dialog.cpp:350-353）
+            List<Person> candidates = new List<Person>();
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.BelongForce != force)
+                    continue;
+                // 原版 351 行：君主不进候选
+                if (person == governor)
+                    continue;
+                // 身份只认 都督 / 太守 / 一般，且必须未出征
+                // （s11_sys_person_order_kunshu.cpp:598-601 的 test_mibun + not is_unitize）
+                if (!Sango.Core.Player.CityUpgradeOfficial.CanBeOfficialPerson(person))
+                    continue;
+                candidates.Add(person);
+            }
+
+            // 候选为空 = 全势力没有可任免武将（只剩君主 / 全员出征 / 全员被俘）。
+            // 原版 auto_fill(Force*) 在这种情况下返回 false（s11_sys_ui_rank_dialog.cpp:352-353），
+            // auto_ranks 随之不提交 —— 也就是说**不会把现有官职清空**。这里必须同样提前退出，
+            // 否则下面的"先全清"会把所有人的官职都免掉。
+            if (candidates.Count == 0)
+                return true;
+
+            // 功绩降序、同功绩按 Id 升序（原版 355-361 行同口径；有序全序保证结果可复现）
+            candidates.Sort((a, b) =>
+            {
+                if (a.merit != b.merit)
+                    return b.merit.CompareTo(a.merit);
+                return a.Id.CompareTo(b.Id);
+            });
+
+            // ── ④ 四轮分配（s11_sys_ui_rank_dialog.cpp:292-339）
+            // 顶级官职先 strict 后非 strict，再轮到其余官职同样两轮 —— 顺序不能变：
+            // 先让高官挑走能力达标的人，剩下的人才会落到低官，反向排会把能当丞相的人塞进末位。
+            AssignOfficialSlot(slotPerson, officials, candidates, true, true);
+            AssignOfficialSlot(slotPerson, officials, candidates, true, false);
+            AssignOfficialSlot(slotPerson, officials, candidates, false, true);
+            AssignOfficialSlot(slotPerson, officials, candidates, false, false);
+
+            // ── ⑤ 与现状比对，完全一致就不提交
+            // 原版是玩家手动点一次"决定"才提交，AI 每 3 回合跑一次；
+            // 若无脑"先全清后全设"，每次都会把全势力武将的官职动作重建一遍（SetOfficial → InitPersonActions）。
+            // 比对口径 = "每个人算出来的期望官职" vs "他实际挂着的官职"，一次覆盖三类差异：
+            //   · 该有官却没官 / 该没官却挂着官；
+            //   · 同一官职两人任职（只有一人在期望表里，另一人必然是"期望无官"）；
+            //   · 官职 Id 已不在当前官职表里（旧存档残留）。
+            Dictionary<Person, Official> expected = new Dictionary<Person, Official>(slotCount);
+            for (int i = 0; i < slotCount; i++)
+            {
+                if (slotPerson[i] != null)
+                    expected[slotPerson[i]] = officials[i];
+            }
+
+            bool changed = false;
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.BelongForce != force)
+                    continue;
+                // 君主的官职由势力自身机制管理，不参与比对（否则会每回合触发一次全量提交）
+                if (person == governor)
+                    continue;
+                // 出征 / 俘虏的官职由 ② 的槽位锁定管理，⑥ 也不会清他们。
+                // 若不在这里跳过，"同一官职两名出征者"的后者会因为"期望无官、实际有官"永远判为 changed，
+                // 导致该势力每 3 回合都白跑一次全量提交。
+                if (person.mBelongTroop != null || person.IsPrisoner)
+                    continue;
+
+                Official actual = person.Official;
+                if (actual != null && actual.Id == 0)
+                    actual = null;
+
+                Official expect;
+                expected.TryGetValue(person, out expect);
+
+                if (actual != expect)
+                {
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed)
+                return true;
+
+            // ── ⑥ 提交：先全清、再按槽设置（s11_sys_person_order_kunshu.cpp:663-672）
+            //
+            // 清空范围 = 本势力所有携带官职的武将，排除君主、出征中、被俘。
+            //
+            // 【为什么比原版 652-662 行的 mibun 过滤宽一点】原版提交用的 <c>person_set_rank_id</c> 是
+            // "直接赋值"，被清的人迟早会被 actors 覆盖，清不清都不影响最终结果；本项目 <c>SetOfficial</c>
+            // 是"替换 old → new"，若只清 {都督 / 太守 / 一般}，那些身份不在三类里却仍挂着旧官职的武将
+            // （在野残留、未发现、旧存档脏数据）就不会被清，而槽位又把同一官职发给了别人，
+            // 提交后就成了"同一官职两人任职"。所以这里放宽到"除君主 / 出征 / 被俘之外的全部持有者"。
+            //
+            // 【为什么不清出征 / 俘虏】他们的官职已在 ② 里被锁进槽位，没人会再抢；
+            // 若清掉再设回，会让 SetOfficial 中间的 <c>InitPersonActions</c> 重建一次动作，
+            // 对正在生效的部队加成是多余的风险。原版同样不清这两类（659-660 行）。
+            //
+            // 【遗留脏数据】同一官职挂着两名出征者时，② 只认第一个，第二个的官职保持原样 ——
+            // 原版也保留这条脏数据，本项目不为它付出"清空出征者官职"的代价。
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive)
+                    continue;
+                if (person.BelongForce != force)
+                    continue;
+                if (person == governor)
+                    continue;   // 君主的官职由势力自身机制管理，不受封官指令影响
+                if (person.mBelongTroop != null || person.IsPrisoner)
+                    continue;   // 出征 / 俘虏：官职由 ② 的槽位锁定保留
+                if (person.Official == null || person.Official.Id == 0)
+                    continue;   // 本来就没官职，不必重复写
+                person.SetOfficial(none, true);
+            }
+
+            for (int i = 0; i < slotCount; i++)
+            {
+                Person person = slotPerson[i];
+                if (person == null)
+                    continue;
+                // 被槽位锁定的出征 / 被俘 / 君主没被上一步清空，官职本来就对得上
+                if (person.Official == officials[i])
+                    continue;
+                person.SetOfficial(officials[i], true);
+            }
+
             return true;
+        }
+
+        /// <summary>
+        /// 给一批官职挑人（对齐 <c>RankDialog::auto_fill</c> 的单轮循环 + <c>find_best_ranker</c>，
+        /// s11_sys_ui_rank_dialog.cpp:292-339、193-262）。
+        ///
+        /// 规则：
+        /// <list type="bullet">
+        /// <item>只处理"本轮对应档位、槽位空闲且未被锁定"的官职；</item>
+        /// <item>逐人在候选里按 <see cref="Official.GetAutoSetScore"/> 打分，取最高分；</item>
+        /// <item>原版 255 行是 <c>if (best_score &lt; score)</c>，即**同分保留先出现者**
+        ///   —— 候选已按功绩降序排好，等价于"同分取功绩高 / Id 小"；</item>
+        /// <item>选中后立刻从候选里移除，保证一人只占一个官职（原版 302/314/326/338 行的 <c>std::erase</c>）。</item>
+        /// </list>
+        /// </summary>
+        /// <param name="slotPerson">
+        /// 槽位任职者（null = 空缺）。已填人 = 该官职不可再分配，
+        /// 其中被出征 / 被俘 / 君主占用的槽在 ② 里回填，语义上等同"锁定"。
+        /// </param>
+        /// <param name="officials">官职表（已按官大→官小排序）</param>
+        /// <param name="candidates">候选武将（已按功绩降序）</param>
+        /// <param name="firstRank">true = 顶级档（原版 FirstRanks），false = 其余档（SecondRanks）</param>
+        /// <param name="strict">true = 第一轮（要求能力下限），false = 第二轮（只按文武互补性挑选）</param>
+        static void AssignOfficialSlot(Person[] slotPerson, List<Official> officials,
+            List<Person> candidates, bool firstRank, bool strict)
+        {
+            if (candidates.Count == 0)
+                return;
+
+            for (int i = 0; i < officials.Count; i++)
+            {
+                if (slotPerson[i] != null)
+                    continue;
+
+                bool isFirstRank = officials[i].level == 0;
+                if (isFirstRank != firstRank)
+                    continue;
+
+                Person best = null;
+                int bestScore = int.MinValue;
+                for (int j = 0; j < candidates.Count; j++)
+                {
+                    int score = Official.GetAutoSetScore(candidates[j], officials[i], strict);
+                    if (bestScore < score)
+                    {
+                        bestScore = score;
+                        best = candidates[j];
+                    }
+                }
+
+                // 全员都是 MinValue 时 best 仍为 null（原版 score 停在 INT_MIN，比较永不成立）
+                if (best == null)
+                    continue;
+
+                slotPerson[i] = best;
+                candidates.Remove(best);
+            }
         }
 
     }

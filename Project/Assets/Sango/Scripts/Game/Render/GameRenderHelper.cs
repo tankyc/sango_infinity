@@ -73,6 +73,19 @@ namespace Sango.Core
         public static string EmptyIconPath = "Assets/empty.png";
 
         /// <summary>
+        /// 取图标占位 Sprite（与 <see cref="LoadItemIcon"/> / <see cref="LoadBuildingIcon"/> 的 Texture 口径同构）。
+        ///
+        /// <see cref="EmptyIconPath"/> 已按 Sprite 导入（textureType = 8、spriteMode = 1），
+        /// 这里直接按资源取即可，不再现场生成兜底图。
+        /// 取不到时返回 null，由调用方决定是留空还是继续兜底。
+        /// </summary>
+        /// <returns>占位 Sprite；资源缺失时返回 null</returns>
+        static UnityEngine.Sprite LoadEmptySprite()
+        {
+            return ObjectLoader.LoadObject<UnityEngine.Sprite>(EmptyIconPath);
+        }
+
+        /// <summary>
         /// 按"模组私有资源引用"加载图标。
         ///
         /// 数据里的 icon 字段可以写 <c>mod://模组Id/相对路径</c>（推荐）或 <c>模组Id:相对路径</c>，
@@ -176,9 +189,22 @@ namespace Sango.Core
             return texture;
         }
 
+        /// <summary>
+        /// 加载部队头顶的状态图标（图集相对路径，如 "4846-9/4846-9_20"，不带扩展名）。
+        ///
+        /// 取不到时回落 <see cref="EmptyIconPath"/> 占位图（与道具 / 建筑图标的 empty 保底同一口径）。
+        /// 占位图本身也取不到时返回 null：调用方需要判空，
+        /// 部队头顶状态图标的调用方会在 sprite 为空时重试，不会把"未加载"误当成"没有标记"。
+        /// </summary>
+        /// <param name="name">图集相对路径，如 "4846-9/4846-9_20"</param>
+        /// <returns>状态图标；资源缺失时返回占位 Sprite，占位图也缺失时返回 null</returns>
         public static UnityEngine.Sprite LoadTroopStateIcon(string name)
         {
-            return ObjectLoader.LoadObject<UnityEngine.Sprite>($"{TroopStatePath}/{name}.png");
+            UnityEngine.Sprite sprite = ObjectLoader.LoadObject<UnityEngine.Sprite>($"{TroopStatePath}/{name}.png");
+            if (sprite == null)
+                sprite = LoadEmptySprite();
+
+            return sprite;
         }
 
         /// <summary>

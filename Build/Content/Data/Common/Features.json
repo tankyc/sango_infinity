@@ -1701,7 +1701,7 @@
       "Id": 63,
       "learnScoreKind": 1,
       "Name": "火神",
-      "desc": "对智力比自己低的敌方部队施展火计时必会成功；于全火攻有所优势",
+      "desc": "火计必会心一击并波及周围,智力低于己方者必成;免疫火伤,火伤２倍",
       "only": true,
       "level": 4,
       "kind": 4,
@@ -1739,9 +1739,14 @@
           }
         },
         {
-          "class": "TroopSkillCalculateSuccess",
-          "value": -100,
-          "selfIsTarget": "true",
+          "class": "TroopChangeSkillAttackRange",
+          "atkOffsetPoint": [
+            11,
+            1,
+            100,
+            1,
+            60
+          ],
           "condition": {
             "class": "SkillIdInList",
             "ids": [
@@ -1868,23 +1873,28 @@
       "Id": 67,
       "learnScoreKind": 1,
       "Name": "连环",
-      "desc": "部队计略成功时，与对象部队邻接的部队也会遭受计略波及",
+      "desc": "火计/灭火/伪报/扰乱/镇静成功时波及邻接部队,波及越多概率越低",
       "only": true,
       "level": 3,
       "kind": 4,
       "actionEntities": [
         {
           "class": "TroopChangeSkillAttackRange",
-          "atkType": 5,
-          "atkRange": 1,
+          "atkOffsetPoint": [
+            11,
+            1,
+            100,
+            1,
+            50
+          ],
           "condition": {
             "class": "SkillIdInList",
             "ids": [
               22,
+              23,
               24,
               25,
-              27,
-              28
+              26
             ],
             "result": 1
           }

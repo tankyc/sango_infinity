@@ -461,7 +461,20 @@ namespace Sango.Core
                 return false;
             }
 
-            target.ChangeTroops(-total, atk, 0);
+            // 【抑制伤害修正 Action】CalcTrapDamage / CalcFireDamage 已经按原版
+            // calc_trap_damage（s11_sys_damage.cpp:1096）与 calc_fire_damage（:991）
+            // 把藤甲 / 火神 / 踏破 / 爆药全部算完，这里再让 TroopChangeDamage / TroopSetDamage
+            // 插一手就是二次修正：「藤甲」的火系 ×2 会被 -50% 抵回 ×1，落石 /2 会被再 /2。
+            // 原版这两条伤害函数与 calc_attack_damage 互不叠加，所以此处必须屏蔽 Action 修正。
+            Sango.Core.Action.TroopActionBase.BeginSuppressDamageModifier();
+            try
+            {
+                target.ChangeTroops(-total, atk, 0);
+            }
+            finally
+            {
+                Sango.Core.Action.TroopActionBase.EndSuppressDamageModifier();
+            }
             Sango.Log.Info($"*陷阱引爆命中 {target.Name}，伤害 {total}（陷阱 {trapDmg} + 火焰 {fireDmg}）");
 
             // 原版 trapped_damage_anim 的混乱（:566-576）：业火种 50% 混乱 1~4 回合、火船 25% 混乱 1~3 回合
@@ -552,7 +565,18 @@ namespace Sango.Core
             if (troop != null && troop.IsAlive)
             {
                 int dmg = CalcTrapDamage(BuildingKindType.Rockfall, attacker, troop);
-                troop.ChangeTroops(-dmg, atk, 0);
+                // 【抑制伤害修正 Action】理由同 ApplyTroopDamage：
+                // 落石的「藤甲 /2」已经在 CalcTrapDamage（对齐 calc_trap_damage:1165-1172）里算过，
+                // 不能再被 TroopChangeDamage(-50%) 二次减半。
+                Sango.Core.Action.TroopActionBase.BeginSuppressDamageModifier();
+                try
+                {
+                    troop.ChangeTroops(-dmg, atk, 0);
+                }
+                finally
+                {
+                    Sango.Core.Action.TroopActionBase.EndSuppressDamageModifier();
+                }
                 Sango.Log.Info($"*落石命中 {troop.Name}，伤害 {dmg}");
                 return dmg > 0;
             }
@@ -625,19 +649,8 @@ namespace Sango.Core
         /// <summary>队内任一武将是否具备指定特技（等价 Open311 的 Unit::has_skill）。</summary>
         static bool HasTroopFeature(Troop troop, int featureId)
         {
-            if (troop == null)
-                return false;
-
-            Person leader = troop.Leader;
-            if (leader != null && leader.HasFeature(featureId))
-                return true;
-            Person member1 = troop.Member1;
-            if (member1 != null && member1.HasFeature(featureId))
-                return true;
-            Person member2 = troop.Member2;
-            if (member2 != null && member2.HasFeature(featureId))
-                return true;
-            return false;
+            // 【统一口径】三将判定收敛到 Troop.HasFeature，避免本文件与火焰结算各抄一份、漏判副将。
+            return troop != null && troop.HasFeature(featureId);
         }
 
         /// <summary>势力是否已掌握指定技巧（等价 Open311 的 Force::has_tech）。</summary>

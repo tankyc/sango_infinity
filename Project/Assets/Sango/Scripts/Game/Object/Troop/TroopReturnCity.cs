@@ -50,9 +50,12 @@ namespace Sango.Core
                 // 【说明】原先此处有 `if (troop.IsPlayerControl) ClearMission()` 的补丁。
                 // 玩家第一军团现已改走 PlayerTroopReturnCity（见 PlayerTroopMissions.cs），
                 // 由该类型负责"清空任务交回玩家"，故此处只保留势力 AI 的处理。
-                // 全局和平期：不把返城任务改写成"攻打该城"，避免 AI 部队自主发起进攻，
-                // 走下面的返城分支回归属城。
-                if (TargetCity.IsEnemy(troop) && !scenario.IsPeacePeriod)
+                // 全局和平期 / 军团被设为禁止攻击：不把返城任务改写成"攻打该城"，
+                // 避免 AI 部队自主发起进攻，走下面的返城分支回归属城。
+                // 【禁止攻击】此前只判和平期，委任军团被禁止攻击后仍会在此处转成攻城
+                //（港关失守时最典型：返港任务当场变成"夺回港湾"）。
+                if (TargetCity.IsEnemy(troop) && !scenario.IsPeacePeriod
+                    && !TroopAIUtility.IsAttackForbidden(troop))
                 {
                     Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
                 }
@@ -120,15 +123,25 @@ namespace Sango.Core
                     return false;
                 return true;
             }
-            else if (troop.TryMoveToCity(TargetCity))
+            else
             {
-                // 移动完成，进入城市
-                if (troop.cell.building == TargetCity)
-                {
-                    troop.EnterCity(TargetCity);
-                }
+                // 【移动受阻兜底】回城路线上有敌方 / 无主港关时，移动范围会在港关格处停止扩展
+                // （Cell.CanPassThrough 要求建筑属于本势力），而寻路只看地形仍会给出穿过它的路径 ——
+                // 两者取交集后部队永远停在前一格。这里改派攻占，先把挡路的据点拔掉。
+                // 详见 TroopAIUtility.TryAttackBlockingCityOnPath 的说明。
+                if (TroopAIUtility.TryAttackBlockingCityOnPath(troop, TargetCity.CenterCell, scenario))
+                    return true;
 
-                return true;
+                if (troop.TryMoveToCity(TargetCity))
+                {
+                    // 移动完成，进入城市
+                    if (troop.cell.building == TargetCity)
+                    {
+                        troop.EnterCity(TargetCity);
+                    }
+
+                    return true;
+                }
             }
 
             return false;

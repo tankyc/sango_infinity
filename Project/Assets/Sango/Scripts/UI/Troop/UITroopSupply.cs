@@ -288,7 +288,15 @@ namespace Sango.UI
             if (targetTroop != null)
             {
                 // 目标部队：基础值 + 已分配（兵装 = 应装备数 + 已转移兵装）
-                int dstMorale = (srcTroop.morale * troops + targetTroop.morale * targetTroop.troops) / (targetTroop.troops + troops);
+                // 【与 Troop.SupplyTroop 同式同口径】兵力加权平均，且同样做 MaxMorale 夹取，
+                // 否则"补给队士气高于目标上限"时预览会显示 110 而实际只到 100。
+                // 分母保护：目标 0 兵且未分配兵力时不能除零（打开界面的初始状态就会撞上）。
+                int totalTroops = targetTroop.troops + troops;
+                int dstMorale = totalTroops > 0
+                    ? (srcTroop.morale * troops + targetTroop.morale * targetTroop.troops) / totalTroops
+                    : targetTroop.morale;
+                if (dstMorale > targetTroop.MaxMorale)
+                    dstMorale = targetTroop.MaxMorale;
                 SetText(targetMoraleText,  $"{targetTroop.morale}→{dstMorale}" );
                 SetText(targetSoldiersText, targetTroop.troops + troops);
                 SetText(targetGoldText, targetTroop.gold + gold);

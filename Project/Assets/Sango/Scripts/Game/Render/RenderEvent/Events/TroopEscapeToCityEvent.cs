@@ -59,8 +59,8 @@ namespace Sango.Render
                 // 移动完成，进入城市
                 if (troop.cell.building == dest)
                 {
-                    // 败退入城：残部唯一活路，禁止因容量不足改道
-                    troop.EnterCity(dest, false);
+                    // 败退入城：残部唯一活路
+                    troop.EnterCity(dest);
                 }
                 IsDone = true;
                 return true;

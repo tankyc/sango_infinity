@@ -3559,14 +3559,32 @@ namespace Sango.Core
                 {
                     Troop troop = mBelongTroop;
                     // 部队主将
-                    if (this == mBelongTroop.Leader)
+                    if (this == troop.Leader)
                     {
-                        mBelongTroop.JoinToForce(targetCity);
-                        mBelongTroop.ActionOver = true;
+                        // 【不能再用 mBelongTroop 属性取第二次 —— 线上 NRE 根因】
+                        // troop.JoinToForce -> Leader.JoinToForce -> PersonStateSystem.Recruit
+                        // 的"摘部队"分支（PersonStateSystem.cs:328-329）会调 Troop.RemovePerson(this)，
+                        // 而 RemovePerson 在武将全部离队时把 Leader 置空并走 ClearWithBelongCity
+                        // 完整收尾（Troop.cs:3752-3772），顺手把 this.mBelongTroop 置为 null。
+                        // 所以返回后 `mBelongTroop.ActionOver` 必然空引用。
+                        //
+                        // 异常栈（Player 日志 / IL2CPP）：
+                        //   NullReferenceException at Person.BeRecruitInternal ... Person.cs:3565
+                        //   at Person.BeRecruit ... Person.cs:3490
+                        //   at Person.JobRecruitPerson ... at CityRecruitPersonEvent.Enter
+                        // 它被 BeRecruit 的 catch 吞掉后，整次归顺变成"静默失败"：
+                        // 武将没换势力，但外层仍按成功结果播报，且每尝试一次刷一屏带栈错误日志。
+                        //
+                        // 原版对应位置（s11_sys_scen_person.cpp:432-462）在 join_force 之后
+                        // 只用 unit 的局部引用做收尾（unit_set_order(Retreat)），不会回头取
+                        // person->get_unit_id() —— 这里改为全程持有局部 troop 变量，同一口径。
+                        troop.JoinToForce(targetCity);
+                        // 部队此时已在换旗过程中被收尾（Clear），这里只落一个状态位，不解引用任何属性
+                        troop.ActionOver = true;
                     }
                     else
                     {
-                        mBelongTroop.RemovePerson(this);
+                        troop.RemovePerson(this);
                         ChangeCurrentCity(troop.CurrentCity);
                         JoinToForce(targetCity);
                         SetMission(MissionType.PersonReturn, targetCity);
@@ -3750,7 +3768,20 @@ namespace Sango.Core
             {
                 Sango.Log.Info($"@人才@[{Name}]被释放!");
                 // 被释放的逻辑已经在PersonRecruit.ReleaseTarget中处理
-                GameEvent.OnPersonRelease?.Invoke(this, sangoObject as Force);
+                //
+                // 【参数语义】第二个参数只有本分支会用到，且**必须是"释放方势力"**。
+                // 曾经有调用方（City.SettleCaptiveFood）漏传，`as Force` 静默得到 null，
+                // 下游 PlayerMessage.OnPersonRelease 直接解引用就崩；
+                // 更麻烦的是它发生在 City.OnMonthStart → Scenario.OnMonthStart 链路上，
+                // 一崩就把当月的俸禄 / 兵粮结算整体中断，而堆栈里看不到"谁没传参数"。
+                // 这里显式记一条，新增调用点漏传时能直接定位。
+                Force releaseForce = sangoObject as Force;
+                if (releaseForce == null)
+                {
+                    Sango.Log.Warning($"*[俘虏]{Name} 被释放，但未提供释放方势力"
+                        + $"（传入 {sangoObject?.GetType().Name ?? "null"}），释放播报已跳过");
+                }
+                GameEvent.OnPersonRelease?.Invoke(this, releaseForce);
             }
             else if (escapeType == EscapeType.TroopDestroyed)
             {
@@ -4156,11 +4187,22 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 增减忠诚并把结果钳制在 0..100，返回钳制后的新值。
-        /// 工程内既有写入点多为裸加减（如 Force.cs 的 person.loyalty -= v 会掉成负数），
-        /// 而显示层只用 Math.Min(100, loyalty) 兜底上限、不兜底下限，脏数据会静默留存并影响
-        /// 褒赏候选与登庸判定；因此计略类需要批量改忠诚时必须走本接口。
-        /// 本期只新增该接口，不回头替换既有裸写入点，避免把技术债修复混进本需求。
+        /// 忠诚的内部上限（原版 max_person_loyalty_ = 255，s11_db.h:178）。
+        /// 注意这是**内部值**上限，不是玩家看到的上限：显示层统一用
+        /// <see cref="PersonSortFunction.SortByLoyalty"/> 的 Math.Min(100, …) 截断。
+        /// </summary>
+        public const int MaxLoyalty = 255;
+
+        /// <summary>
+        /// 增减忠诚并把结果钳制在 0..<see cref="MaxLoyalty"/>，返回钳制后的新值。
+        ///
+        /// 【对齐原版 System::person_add_loyalty（s11_sys_scen_person.cpp:1182-1190）】
+        /// 原版是 <c>clamp(n + value, 0, max_person_loyalty_)</c>，上限 255 而不是 100 ——
+        /// 配偶 / 义兄弟（person_reset_loyalty 设 >=150）、亲爱（>=120）、君主（>=250）
+        /// 这些"死忠"在内部本来就是**超过 100** 的，玩家看到的 100 只是显示层截断。
+        /// 旧实现钳在 0..100，会让上述三档无法表达，也让"死忠被打到 100 以下再拉回"
+        /// 这类判定失去缓冲（忠臣与刚好 100 的人在被离间后没有区别）。
+        /// 下限仍为 0，与原版一致。
         /// </summary>
         /// <param name="v">忠诚变化量，可为负</param>
         /// <returns>钳制后的最新忠诚值</returns>
@@ -4169,8 +4211,8 @@ namespace Sango.Core
             loyalty += v;
             if (loyalty < 0)
                 loyalty = 0;
-            else if (loyalty > 100)
-                loyalty = 100;
+            else if (loyalty > MaxLoyalty)
+                loyalty = MaxLoyalty;
             return loyalty;
         }
 
@@ -5098,16 +5140,52 @@ namespace Sango.Core
             return last;
         }
 
+        /// <summary>
+        /// 任免官职（外部入口，带日志与事件）。
+        /// </summary>
         public void UpgradeOfficial(Official official)
+        {
+            SetOfficial(official, false);
+        }
+
+        /// <summary>
+        /// 设置官职：卸下旧官职的属性/特技加成 → 挂上新官职的加成 → 触发事件。
+        ///
+        /// 【对齐】Open311 <c>System::person_set_rank_id</c>（s11_sys_scen_person.cpp:1120-1124）
+        /// → <c>Person::set_rank_id</c>（s11_scen_obj_person.cpp:831-837）：
+        /// 只做 <c>rank_ = rank_id; update_stat();</c>，**不消耗功绩**。
+        /// 原版的功绩（kouseki）是任职门槛而不是货币
+        /// （门槛见 <c>Database::get_rank_required_kouseki</c>，s11_db.cpp:787-793）。
+        ///
+        /// 【为什么删掉原来的 `merit -= need`】
+        /// 官职界面上"任命 / 免职 / 改任"是自由操作，原版反复操作不会掉功绩；
+        /// 若按旧实现每次都扣，一名武将改任两次就会把功绩扣成 0，之后连保底官职都当不了。
+        /// </summary>
+        /// <param name="official">目标官职</param>
+        /// <param name="silent">true = 不写日志（批量重排官职时用，避免一次刷新几十条）</param>
+        public void SetOfficial(Official official, bool silent)
         {
             if (official == null) return;
 
             Official last = Official;
-            last.OnPersonRemove(this);
-            int need = Official.meritNeeds;
+            // 官职没变就不重算属性：OnPersonRemove / OnPersonAdd 是成对的加减，
+            // 对同一官职重复调用虽然结果正确，但会平白重建一次人物动作（见 Official 属性的说明）。
+            if (last == official)
+                return;
+
+            if (last != null)
+                last.OnPersonRemove(this);
             Official = official;
             Official.OnPersonAdd(this);
-            merit -= need;
+
+            if (silent)
+            {
+                // 批量重排（官职界面提交、AI 封官）时既不打日志也不抛事件：
+                // 原版 person_set_rank_id 只做赋值 + update_stat，没有任何事件/消息；
+                // 若这里逐人抛 PersonUpgradeOfficial，一次提交会把剧本事件系统触发几十遍。
+                return;
+            }
+
             Sango.Log.Info($"@个人@{Name}官职升到[{Official.Name}]!!");
             GameEvent.OnPersonUpgradeOfficial?.Invoke(this, last);
         }

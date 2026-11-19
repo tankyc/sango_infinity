@@ -92,98 +92,27 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int maxActiveFeatureCount = DefaultMaxActiveFeatureCount;
 
-        // ==================== AI 据点登用阈值 ====================
-        //
-        // 【为什么要配置化】原版把"人少才登用"的阈值写死成 `3 + 难度 * 2`（3..7），
-        // 本项目沿用同一公式（CityAIOutpostCommand.AIEmployMax，对齐出处
-        // s11_game_ai_kyoten_cmd_personnel.cpp:529-536）。但不同剧本的武将密度差别很大：
-        // 大势力剧本一座城动辄七八人，永远触发不了登用；小势力剧本三人才刚够守城。
-        // 因此把公式里的每个常量都提到剧本参数，**默认值等于原版公式**，不改默认行为。
-        //
-        // 判定链（改动只会调节"要不要去登用"，不改变登用本身的成功率判定）：
-        //   AIEmployMax     → 据点人数 < 基数 + 难度×增量
-        //   AIEmployEnemy   → 据点人数 < minPerson + max(minPerson, 上限基数)
-        //   AIEmployEnemy   → 目标忠诚 < 忠诚上限基数 + 难度×增量
-        //   AIEmployEnemyMax→ 据点人数 < 登用敌方保底触发人数
+        // ==================== AI 行动力 ====================
 
         /// <summary>
-        /// AI 据点触发登用的人数基数（原版公式 <c>3 + 难度×2</c> 里的 3，缺省 3）。
-        /// 玩家势力固定用本值，AI 势力再按难度叠加 <see cref="aiEmployTriggerPerDifficulty"/>。
-        /// </summary>
-        [JsonProperty] public int aiEmployTriggerBase = 3;
-
-        /// <summary>
-        /// AI 据点触发登用的人数随难度递增（原版公式里的 2，缺省 2）。
-        /// 配 0 = 阈值不随难度变化。
-        /// </summary>
-        [JsonProperty] public int aiEmployTriggerPerDifficulty = 2;
-
-        /// <summary>
-        /// 登用敌方保底（AIEmployEnemyMax）的触发人数（原版写死 3，缺省 3）。
-        /// 注意原版这一条**不吃难度加成**，与 <see cref="aiEmployTriggerBase"/> 是两条独立阈值。
-        /// </summary>
-        [JsonProperty] public int aiEmployEnemyMaxTrigger = 3;
-
-        /// <summary>
-        /// 挖玩家武将时的忠诚上限基数（原版 <c>92 + 难度×2</c> 里的 92，缺省 92）。
-        /// 目标忠诚 ≥ 本值（+ 难度增量）时 AI 直接放弃，不去试探。
-        /// </summary>
-        [JsonProperty] public int aiEmployMinLoyalty = 92;
-
-        /// <summary>
-        /// 挖玩家武将的忠诚上限随难度递增（原版公式里的 2，缺省 2）。
-        /// </summary>
-        [JsonProperty] public int aiEmployLoyaltyPerDifficulty = 2;
-
-        /// <summary>
-        /// "人已够多就不再登用"的上限基数（原版 <c>minPerson + max(minPerson, 10)</c> 里的 10，缺省 10）。
-        /// 据点人数 ≥ <c>minPerson + max(minPerson, 本值)</c> 时直接放弃登用。
-        /// 调大 = 允许人多的据点继续登用；调成 0 = 退回 <c>minPerson * 2</c> 的更严口径。
-        /// </summary>
-        [JsonProperty] public int aiEmployPersonLimitBase = 10;
-
-        /// <summary>
-        /// AI 据点单回合登用人数的覆盖值（缺省 0 = 沿用 <c>AIConfig.recruitPersonMaxPerTurn</c> 的全局值）。
+        /// AI 无限行动力：勾选后 **AI 控制的军团**不再消耗行动力，所有行动力门槛全部放行。
         ///
-        /// 配大于 0 时覆盖全局值，供剧本按自己的武将密度调节"一回合最多挖几个人"。
-        /// 注意这只是**基数**：在野人数 ≥ 4 时仍会按"在野人数的一半"上调，
-        /// 开局前 N 回合还会再 +1（见 CityAI.AIRecruitPerson），这两条原版节奏不变。
-        /// </summary>
-        [JsonProperty] public int aiEmployMaxPerTurnOverride = 0;
-
-        // ==================== AI 据点探索阈值 ====================
-
-        /// <summary>
-        /// AI 据点触发探索的人数基数（原版公式 <c>3 + 难度×2</c> 里的 3，缺省 3）。
-        /// 判定见 <c>CityAIOutpostCommand.AISearchMax</c>，对齐出处
-        /// s11_game_ai_kyoten_cmd_personnel.cpp:425-432。
-        /// </summary>
-        [JsonProperty] public int aiSearchTriggerBase = 3;
-
-        /// <summary>
-        /// AI 据点触发探索的人数随难度递增（原版公式里的 2，缺省 2）。
-        /// 配 0 = 阈值不随难度变化。
-        /// </summary>
-        [JsonProperty] public int aiSearchTriggerPerDifficulty = 2;
-
-        /// <summary>
-        /// 每名**未发现武将**给探索阈值增加的权重（缺省 1）。
+        /// 【生效范围】
+        ///   · 生效：AI 势力的所有军团 + 玩家势力下交给 AI 执行的委任军团（number &gt; 1）；
+        ///   · 不生效：玩家直辖军团（<see cref="Corps.IsPlayerControl"/>），行动力照常计算。
         ///
-        /// 【为什么需要这一项】原版只看"据点人数 &lt; 3 + 难度×2"，不看城里还藏着几个人。
-        /// 结果是人多但没人发现的据点永远不会去搜 —— 那些未发现武将等于永久沉底。
-        /// 本项让阈值随未发现武将数上浮：藏的人越多，越允许多几个已有人手时仍去探索。
+        /// 【实现】<see cref="Corps.ActionPoint"/> 的读取值直接给足（不扣、不用补），
+        /// 据点级额度 <c>OutpostRuntime.actionPoint</c> 由军团预算派生，两级门禁同时放行。
         ///
-        /// 与 <c>AIConfig.searchInvisibleChancePerPerson</c> 是同一思路的两个面：
-        /// 那个管"搜的时候成功率/概率"，这个管"要不要派人去搜"。
-        /// 配 0 = 关闭加成，退回原版"只看人数"的口径。
+        /// 【不包含】武将"每人每回合一次行动"（<c>Person.ActionOver</c>）——
+        /// 那是行动**次数**不是行动力点数，放开会让 AI 同一回合对同一武将反复下令。
         /// </summary>
-        [JsonProperty] public int aiSearchInvisibleBonusPerPerson = 1;
+        [JsonProperty] public bool aiInfiniteActionPoint = false;
 
-        /// <summary>
-        /// 未发现武将对探索阈值的加成封顶（缺省 3，配 0 = 不封顶）。
-        /// 防止大城里几十个未发现武将把阈值抬到永远触发、把行动力全砸在搜索上。
-        /// </summary>
-        [JsonProperty] public int aiSearchInvisibleBonusMax = 3;
+        // 【已移除】AI 登用阈值 / AI 探索阈值两组参数（aiEmploy* / aiSearch* 共 11 项）：
+        // 这些值在原版里都是写死的特殊分子（3 + 难度×2、92 + 难度×2、10、3），
+        // 做成剧本参数后容易被当成"可调平衡杠杆"，实际只会把 AI 的触发节奏调歪。
+        // 现在全部回到 CityAIOutpostCommand 里的常量 + 原版出处注释。
 
         /// <summary>
         /// 功绩获取配置（键 = GainPlace，缺省回落到内置默认值）
@@ -264,6 +193,25 @@ namespace Sango.Core
         /// 所有技巧点增减都会 clamp 到 [0, 该值]；配 0 表示不设上限。
         /// </summary>
         [JsonProperty] public int maxForceTechniquePoint = 10000;
+
+        /// <summary>
+        /// 技巧点获取倍率。
+        ///
+        /// 作用点只有一个：<see cref="Sango.Core.Force.GainTechniquePoint"/> 的正数分支 ——
+        /// 即原版减半（value / 2，最少 1）之后、写入势力技巧点之前，再乘本倍率。
+        /// 这样内政（征兵 / 巡查 / 训练…）、战斗（<see cref="CombatExpTable"/> 的 tech_point、
+        /// 击破部队）、单挑 / 舌战、外交、剧本事件等**所有**获取点统一生效，
+        /// 不需要逐个调用点去改，也不会漏掉将来新加的获取点。
+        ///
+        /// 三个边界口径：
+        ///   · 消耗（研究 / 外交 / 装备变更的负值）走负值分支，**不受本倍率影响**；
+        ///   · 与特技倍率（「名声」、击破加成类 Action）是相乘关系 ——
+        ///     那些改的是进 <see cref="Sango.Core.Force.GainTechniquePoint"/> 之前的原始值；
+        ///   · 配 0 = 完全不获得技巧点；负数按 0 处理。
+        ///
+        /// 默认 1（保持原版节奏）。界面入口：剧本参数 → 成长资源获取 → 技巧点获取倍率。
+        /// </summary>
+        [JsonProperty] public float techniquePointGainFactor = 1f;
 
         /// <summary>
         /// 基础伤害
@@ -393,6 +341,28 @@ namespace Sango.Core
         /// 部队防御魅力影响比例(万分比)
         /// </summary>
         [JsonProperty] public int fight_troop_defence_glamour_factor = 0;
+
+        /// <summary>
+        /// 部队移动力统一倍率（百分比，100 = 不变）
+        ///
+        /// 【生效时机】<see cref="Troop.CalculateAttribute"/> 里，兵种基础移动力与全部特技 / 科技 /
+        /// 装备加成（OnTroopCalculateAttribute、OnTroopAfterCalculateAttribute）都算完之后，
+        /// 对陆地 / 水上移动力各乘一次。因此它是"移动力计算完成后的统一加成"，
+        /// 不受特技加成的先后顺序影响，也不会与特技的加减值互相抢位置。
+        ///
+        /// 【影响范围】移动范围（<c>Map.GetMoveRange</c>）、实际移动消耗
+        /// （<see cref="Troop.GetTargetMoveAbility"/>）、出征 / 运输界面的移动力显示，
+        /// 读的都是 landMoveAbility / waterMoveAbility 这两个字段，改这一处即全部同步。
+        ///
+        /// 【取值】100 = 原样；150 = 移动力 +50%；50 = 减半；0 = 完全无法移动（等价全局足止）。
+        ///
+        /// 【原版无对应实现】Open311 的移动力直接取装备（兵种）的 move 值再叠特技，
+        /// 移动范围 <c>get_range</c>（s11_sys_unit_path.cpp:198）的 points 由调用方传入，
+        /// 全局没有"移动力倍率"这一档参数。本项是本项目新增的剧本级调参项，
+        /// 目的是让不同尺度的地图（大地图 / 小地图）能统一调节整体机动节奏，
+        /// 而不必逐个改兵种表里的 move 值（那会连带影响 AI 评估与平衡表）。
+        /// </summary>
+        [JsonProperty] public int moveAbilityFactor = 100;
 
         /// <summary>
         /// 兵种克制(小数)

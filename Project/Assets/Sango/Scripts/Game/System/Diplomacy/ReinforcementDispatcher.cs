@@ -52,6 +52,15 @@ namespace Sango.Core
             if (src == null || src.freePersons == null || src.freePersons.Count == 0)
                 return false;
 
+            // 【禁止攻击】该城所属军团被设为禁止对外用兵：不从它的城抽兵替盟友打仗。
+            // 外交援军是"以同盟名义远征"，属纯进攻行为，据点层的委任限制管不到这条链路；
+            // 判定复用 CityAI.IsAttackForbidden，口径与据点层 / 部队层保持一致。
+            if (CityAI.IsAttackForbidden(src))
+            {
+                Sango.Log.Info($"@外交@{ally.Name} 无力派出援军：{src.Name} 所属军团已禁止攻击");
+                return false;
+            }
+
             // 攻击目标：原版由请求方在提案时指定（`self->dest`）；未指定则挑一个相邻敌城
             City dest = attackTarget != null ? attackTarget : FindAttackTarget(requester, ally);
             if (dest == null)

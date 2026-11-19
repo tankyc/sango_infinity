@@ -728,7 +728,8 @@ using Sango.Core; namespace Sango.UI
                     if (label.Contains("势力"))
                         SetFieldValue(f, dest.BelongForce != null ? dest.BelongForce.Name : "--");
                     else if (label.Contains("忠诚"))
-                        SetFieldValue(f, dest.loyalty.ToString());
+                        // 忠诚显示截断到 100：内部值域 0..255（Person.MaxLoyalty），超额部分不对玩家展示
+                        SetFieldValue(f, System.Math.Min(100, dest.loyalty).ToString());
                     else if (label.Contains("抵达") || label.Contains("日数"))
                         SetFieldValue(f, days + "日");
                     else if (label.Contains("据点"))

@@ -7,7 +7,7 @@
  *
  *       两类 AI 共用同一个任务执行层（TroopMissionBehaviour），
  *       区别只在"行动前准备"阶段：
- *         · Faction —— 势力 AI，执行完整启发式；
+ *         · Faction —— 势力 AI，走原版 unit_update_order 的直译（UpdateAIOrder）；
  *         · Appoint —— 委任 AI，不做任何判断，单纯执行被指派的任务。
  */
 
@@ -38,8 +38,9 @@ namespace Sango.Core
         /// <summary>
         /// 势力 AI：AI 势力的部队，以及玩家势力中非主军团（被委任军团）的部队。
         ///
-        /// 走完整的启发式流程：态势分档、主动撤退、就近补给、求援、
-        /// 随军增筑、角色推导等。
+        /// 走 Open311 <c>unit_update_order</c> 的直译（<see cref="Troop.UpdateAIOrder"/>）：
+        /// 按"出征意图 + 断粮 / 兵少 / 器械气力"决定继续 / 改派 / 撤退；
+        /// 另有部队角色推导（评分层输入）。
         /// </summary>
         Faction = 2,
     }

@@ -98,18 +98,22 @@ using Sango.Core; namespace Sango.UI
         }
         
         /// <summary>
-        /// 获取军团方针文本
+        /// 获取军团方针文本。
+        ///
+        /// 【口径】必须与 <see cref="Corps.AppointType"/> 一一对应：
+        ///   None = 0 无方针 / DestroyForce = 1 攻略势力 / OccupyCity = 2 攻略都市 / Auto = 3 委任。
+        /// 旧实现映射成"攻击 / 防御 / 发展 / 平衡"（与本项目枚举毫无关系），
+        /// 会导致玩家在军团菜单里看到的方针与实际存档值不符，已按枚举纠正。
         /// </summary>
         /// <param name="policyType">方针类型</param>
         /// <returns>方针文本</returns>
         private string GetPolicyText(int policyType)
         {
-            switch (policyType)
+            switch ((Corps.AppointType)policyType)
             {
-                case 0: return "军团方针: 攻击";
-                case 1: return "军团方针: 防御";
-                case 2: return "军团方针: 发展";
-                case 3: return "军团方针: 平衡";
+                case Corps.AppointType.DestroyForce: return "军团方针: 攻略势力";
+                case Corps.AppointType.OccupyCity: return "军团方针: 攻略都市";
+                case Corps.AppointType.Auto: return "军团方针: 委任";
                 default: return "军团方针: 无";
             }
         }

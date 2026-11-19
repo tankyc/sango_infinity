@@ -153,30 +153,20 @@ namespace Sango.UI
                 RefreshSetting();
             });
 
-            AddTitle("AI每回合加成");
+            // 注意：这四项只补给**都市**，港口 / 关隘不参与（见 Force.ApplyDifficultyResourceBonus）。
+            // 港关容量极小、一补就贴顶，其资源靠 ResourceDispatcher 从归属都市调运。
+            AddTitle("AI每回合加成（仅都市）");
             AddNumberItem("AI每回合加钱", variables.aiTurnAddGold, 0, 10000, (v) => { variables.aiTurnAddGold = v; });
             AddNumberItem("AI每回合加粮", variables.aiTurnAddFood, 0, 100000, (v) => { variables.aiTurnAddFood = v; });
             AddNumberItem("AI每回合加士兵", variables.aiTurnAddTroops, 0, 100000, (v) => { variables.aiTurnAddTroops = v; });
             AddNumberItem("AI每回合加兵装", variables.aiTurnAddArms, 0, 100000, (v) => { variables.aiTurnAddArms = v; });
 
-            // AI 据点登用阈值：默认值全部等于原版公式（3 + 难度×2 / 92 + 难度×2 / 10），
-            // 只影响"要不要派人去登用"，不改变登用本身的成功率判定。
-            AddTitle("AI登用阈值");
-            AddNumberItem("登用触发人数基数", variables.aiEmployTriggerBase, 0, 20, (v) => { variables.aiEmployTriggerBase = v; });
-            AddNumberItem("触发人数每级难度递增", variables.aiEmployTriggerPerDifficulty, 0, 20, (v) => { variables.aiEmployTriggerPerDifficulty = v; });
-            AddNumberItem("登用敌方保底触发人数", variables.aiEmployEnemyMaxTrigger, 0, 20, (v) => { variables.aiEmployEnemyMaxTrigger = v; });
-            AddNumberItem("挖人忠诚上限基数", variables.aiEmployMinLoyalty, 0, 100, (v) => { variables.aiEmployMinLoyalty = v; });
-            AddNumberItem("忠诚上限每级难度递增", variables.aiEmployLoyaltyPerDifficulty, 0, 20, (v) => { variables.aiEmployLoyaltyPerDifficulty = v; });
-            AddNumberItem("人数上限基数(够多就不登用)", variables.aiEmployPersonLimitBase, 0, 50, (v) => { variables.aiEmployPersonLimitBase = v; });
-            AddNumberItem("单回合登用人数(0=用全局值)", variables.aiEmployMaxPerTurnOverride, 0, 10, (v) => { variables.aiEmployMaxPerTurnOverride = v; });
-
-            // AI 据点探索阈值：默认值等于原版公式（3 + 难度×2）；
-            // "每名未发现武将加成"是本项目新增项，默认 1/封顶 3，配 0 退回原版口径。
-            AddTitle("AI探索阈值");
-            AddNumberItem("探索触发人数基数", variables.aiSearchTriggerBase, 0, 20, (v) => { variables.aiSearchTriggerBase = v; });
-            AddNumberItem("探索触发每级难度递增", variables.aiSearchTriggerPerDifficulty, 0, 20, (v) => { variables.aiSearchTriggerPerDifficulty = v; });
-            AddNumberItem("每名未发现武将加成", variables.aiSearchInvisibleBonusPerPerson, 0, 10, (v) => { variables.aiSearchInvisibleBonusPerPerson = v; });
-            AddNumberItem("未发现武将加成封顶(0=不封顶)", variables.aiSearchInvisibleBonusMax, 0, 50, (v) => { variables.aiSearchInvisibleBonusMax = v; });
+            // 【已移除】"AI登用阈值""AI探索阈值"两组：
+            // 那几个值是原版写死的特殊分子，暴露成参数只会被误当成平衡杠杆，已回到代码常量。
+            // 这里只留一个真正影响全局节奏的开关。
+            AddTitle("AI行动力");
+            AddToggleItem("AI无限行动力(不含玩家直辖军团)", variables.aiInfiniteActionPoint,
+                (v) => { variables.aiInfiniteActionPoint = v; });
 
             AddTitle("剧本基础参数");
             AddToggleItem("<color=#ee2222>编辑生效</color>", variables.ApplyEdit, (v) => { variables.ApplyEdit = v; });
@@ -287,6 +277,11 @@ namespace Sango.UI
             AddNumberItem("防御-政治影响(万分比)", variables.fight_troop_defence_politics_factor, 0, 100000, (v) => { variables.fight_troop_defence_politics_factor = v; });
             AddNumberItem("防御-魅力影响(万分比)", variables.fight_troop_defence_glamour_factor, 0, 100000, (v) => { variables.fight_troop_defence_glamour_factor = v; });
 
+            // 移动力统一倍率：在 Troop.CalculateAttribute 末尾、全部特技 / 科技加成之后对
+            // 水陆移动力各乘一次，作用于移动范围 / 实际移动消耗 / 界面显示的移动力。
+            // 100 = 原样；0 = 全部部队无法移动。改动后需等部队下次属性重算（回合开始 / 换将）才生效。
+            AddNumberItem("移动力倍率(百分比,100=不变)", variables.moveAbilityFactor, 0, 500, (v) => { variables.moveAbilityFactor = v; });
+
             // 运输部队携带上限：对齐原版 Database 的 max_unit_transport_*
             //（s11_db.h:200-206，原版默认 兵 60000 / 金 100000 / 粮 500000 / 兵装 100000）。
             // 运输命令据此对装载量做 clamp；配 0 表示不限（取值走 ScenarioVariables.Transport*Limit）。
@@ -367,6 +362,11 @@ namespace Sango.UI
             AddBigTitle("成长资源获取");
             AddGainTable("功绩", variables.meritGain, GainValueConfig.MeritPlaces);
             AddGainTable("技巧点", variables.techniquePointGain, GainValueConfig.TechniquePointPlaces);
+            // 技巧点获取倍率：在 Force.GainTechniquePoint 的"减半"之后统一乘，
+            // 内政 / 战斗 / 外交 / 事件的所有获取点一次调完；消耗（研究 / 外交 / 装备变更）不受影响。
+            // 0 = 完全不获得技巧点；允许小数（0.5 = 半速）。
+            AddNumberItem("技巧点获取倍率(0=不获得)", variables.techniquePointGainFactor, 0f, 100f,
+                (v) => { variables.techniquePointGainFactor = v; });
             AddGainTable("武将经验", variables.expGain, GainValueConfig.ExpPlaces);
             AddGainTable("能力经验", variables.attributeExpGain, GainValueConfig.AttributeExpPlaces);
             // 战斗中的功绩 / 能力经验 / 兵种适性经验 / 技巧点已统一由 CombatExpTable 按原版 Exp 表给出，

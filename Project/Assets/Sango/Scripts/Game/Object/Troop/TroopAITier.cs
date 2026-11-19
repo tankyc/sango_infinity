@@ -169,9 +169,6 @@ namespace Sango.Core
         /// <summary>反击惩罚倍率（%）：越高越规避"贴脸打高反击单位"</summary>
         public int counterPenaltyScale = 100;
 
-        /// <summary>每回合的撤退触发概率（%）；0 表示不因态势撤退</summary>
-        public int retreatChance = 0;
-
         /// <summary>
         /// 行动择优池大小：
         /// 1 = 直接取评分最高的行动（最聪明）；

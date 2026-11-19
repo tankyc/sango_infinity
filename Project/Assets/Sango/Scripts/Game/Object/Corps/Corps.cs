@@ -290,8 +290,13 @@ namespace Sango.Core
         // 因此统一以 `appoint` 为准，避免"能设不生效"的静默失效。
 
         /// <summary>
-        /// 委任（军团方针）：对应 Open311 的 DistrictPolicy
-        /// （None=不指定 / DestroyForce=势力攻略 / OccupyCity=都市攻略 / Auto=委任）。
+        /// 委任（军团方针），取值见 <see cref="AppointType"/>。
+        ///
+        /// 【与原版的关系】语义上对应 Open311 的 `DistrictPolicyEnum`（s11_enum_scen.h:197-206），
+        /// 但**编号不对应**，不能把原版数值直接写进来：
+        ///   原版 0 = 势力攻略 / 1 = 地方攻略 / 2 = 州攻略 / 3 = 都市攻略 / 4 = 守备 / 5 = 护帝；
+        ///   本项目 0 = 无方针 / 1 = 攻略势力 / 2 = 攻略都市 / 3 = 委任。
+        /// 原版的地方攻略 / 州攻略 / 守备 / 护帝四种方针本项目暂未实现。
         /// </summary>
         [JsonProperty] public int appoint;
 
@@ -300,39 +305,127 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int appoint_target;
 
+        /// <summary>
+        /// 军团方针（单选），存于 <see cref="appoint"/>。
+        ///
+        /// 【实际生效范围】目前只有两个分支会影响 AI 行为：
+        ///   · <see cref="OccupyCity"/>：CropsAIDistrict 用它选"出击据点"，
+        ///     且 CityAI 攻城时只考虑该目标城；
+        ///   · <see cref="DestroyForce"/>：CityAI 攻城时只考虑目标势力的城。
+        /// <see cref="Auto"/> 与 <see cref="None"/> 当前没有行为差异，都按"不设限"处理
+        /// （新建军团默认 Auto，对齐 Open311 exec_district_new_command 的默认分支）。
+        /// </summary>
         public enum AppointType : int
         {
+            /// <summary>无方针：不指定攻略目标。</summary>
             None = 0,
+
+            /// <summary>攻略势力：<see cref="appoint_target"/> 存势力 Id。</summary>
             DestroyForce,
+
+            /// <summary>攻略都市：<see cref="appoint_target"/> 存城池 Id。</summary>
             OccupyCity,
+
+            /// <summary>委任：交给 AI 自行决定，不需要目标（新建军团默认值）。</summary>
             Auto,
         }
 
+        /// <summary>
+        /// 军团"委任内容"开关的下标枚举。
+        ///
+        /// 【存储形态】<see cref="appointSetting"/> 是 int 数组，**一项一个 int**（不是位掩码），
+        /// 取值只有 0 / 1；因此本枚举的值是数组下标，必须与 <see cref="Max"/> 同步增删。
+        /// 原版 `District::setting_` 是 `bitset4&lt;DistrictSetting_Max&gt;`（一个 bit 一位），
+        /// 本项目刻意不用位掩码，避免"加一项就撞位号"的隐性错乱。
+        ///
+        /// 【取值方向 · 逐项不同，务必看每项注释】
+        ///   多数项（生产 / 储蓄兵粮 / 充实士兵 / 人材 / 攻击 / 建造 / 运输 / 港关驻军）：
+        ///     0 = 重视或允许（默认），1 = 轻视或禁止（关闭）。
+        ///     与原版 `has_setting()` 的 true = 开启**方向相反**（原版存 1 才是开启）。
+        ///   例外两项：
+        ///     · <see cref="ConserveGold"/>：0 = 轻视储金，1 = 重视储金（与原版同向）。
+        ///     · <see cref="Transport"/>：0 = 不输送，1 = 启用输送（与原版同向）。
+        /// 默认全 0 = 全部"重视 / 允许 / 不输送"，语义等价原版默认前 11 位为 true。
+        /// </summary>
         public enum AppointContentType : int
         {
+            /// <summary>枪生产：0 = 重视（允许），1 = 轻视。原版 DistrictSetting_ProduceSpears（位 5）。</summary>
             MakeItem_Spear = 0,
+
+            /// <summary>戟生产：0 = 重视，1 = 轻视。原版 DistrictSetting_ProducePikes（位 6）。</summary>
             MakeItem_Halberd,
+
+            /// <summary>弩生产：0 = 重视，1 = 轻视。原版 DistrictSetting_ProduceBows（位 4）。</summary>
             MakeItem_Crossbow,
+
+            /// <summary>军马生产：0 = 重视，1 = 轻视。原版 DistrictSetting_ProduceHorses（位 3）。</summary>
             MakeItem_Horse,
+
+            /// <summary>兵器生产：0 = 重视，1 = 轻视。原版 DistrictSetting_ProduceWeaponry（位 8）。</summary>
             MakeItem_Machine,
+
+            /// <summary>舰船生产：0 = 重视，1 = 轻视。原版 DistrictSetting_ProduceVessels（位 7）。</summary>
             MakeItem_Boat,
-            Donot_Store_Gold,
-            Store_Foood,
+
+            /// <summary>
+            /// 储蓄资金：0 = 轻视储金，1 = 重视储金（目标金 ×2）。
+            ///
+            /// 原版 DistrictSetting_ConserveGold（s11_enum_scen.h:225，位 0）—— 方向与原版一致（1 = 重视）。
+            /// 【历史命名】旧名 `Donot_Store_Gold`（字面"不储金"）与实际语义相反，已改名纠正。
+            /// </summary>
+            ConserveGold,
+
+            /// <summary>
+            /// 储蓄兵粮：0 = 重视，1 = 轻视（粮食目标封顶）。
+            ///
+            /// 原版 DistrictSetting_ConserveFood（s11_enum_scen.h:226，位 1）—— **方向与原版相反**（原版 1 = 重视）。
+            /// 【历史命名】旧名 `Store_Foood`（多打一个 o 的拼写错误），已纠正。
+            /// </summary>
+            Store_Food,
+
+            /// <summary>
+            /// 充实士兵：0 = 重视，1 = 轻视（兵力目标封顶、不建兵舍）。
+            ///
+            /// 原版 DistrictSetting_GatherTroops（s11_enum_scen.h:227，位 2）—— 方向与原版相反。
+            /// </summary>
             Store_Troops,
+
+            /// <summary>
+            /// 人材：0 = 允许（搜索 / 登用），1 = 禁止。
+            ///
+            /// 原版 DistrictSetting_Personnel（s11_enum_scen.h:234，位 9）—— 方向与原版相反。
+            /// </summary>
             Person,
+
+            /// <summary>
+            /// 攻击：0 = 允许（主动出击），1 = 禁止。
+            ///
+            /// 原版 DistrictSetting_Attack（s11_enum_scen.h:235，位 10）—— 方向与原版相反。
+            /// </summary>
             Attack,
 
             /// <summary>
             /// 物资输送开关：0 = 禁止，1 = 允许。
             ///
-            /// 等价原版 `setting_[DistrictSetting_Transport]`（s11_scen.h:1025）。
+            /// 等价原版 `setting_[DistrictSetting_Transport]`（s11_scen.h:1025，位 11）—— 方向与原版一致。
             /// **目的地不在本项**，而在 <see cref="transportDestBuildingId"/>
             /// （原版 `transport_dest_building_`，s11_scen.h:1023）；
             /// 两者必须由 <see cref="SetTransportDest"/> 原子写入
             /// （原版 `District::set_setting`，s11_scen_obj_district.cpp:224-229）。
             /// </summary>
             Transport,
+
+            /// <summary>
+            /// 建造控制：0 = 允许建造 / 拆除，1 = 禁止（既不建也不拆）。
+            /// 原版无对应位（本项目新增），约束范围见 CityAI.AIBuilding / AIDestroy。
+            /// </summary>
             Build,
+
+            /// <summary>
+            /// 禁止运输：0 = 允许，1 = 禁止据点级 / 军团级运输队发车。
+            /// 原版无对应位（本项目新增），与 <see cref="Transport"/> 是两个独立开关：
+            /// 本项是"总闸"，勾选后即使 Transport 仍存着目的地也不再发车。
+            /// </summary>
             TransportDisable,
 
             /// <summary>
@@ -342,8 +435,13 @@ namespace Sango.Core
             /// </summary>
             PortGateGarrison,
 
-            /// <summary>枚举项总数（同时作为 appointSetting 数组长度）</summary>
-            Max = 15
+            /// <summary>
+            /// 枚举项总数（同时作为 appointSetting 数组长度）。
+            ///
+            /// 用"最后一项 + 1"推导，新增委任项时只要把新项插到 <see cref="PortGateGarrison"/> 之前，
+            /// Max 会自动跟随，避免手改漏改导致数组短一截（旧实现硬编码 15）。
+            /// </summary>
+            Max = PortGateGarrison + 1
         }
 
         /// <summary>
@@ -352,9 +450,43 @@ namespace Sango.Core
         [JsonProperty] public int[] appointSetting;
 
         /// <summary>
-        /// 行动力点数
+        /// 行动力点数。
+        ///
+        /// 【AI 无限行动力】剧本参数 <see cref="ScenarioVariables.aiInfiniteActionPoint"/> 开启时，
+        /// AI 控制的军团读取值直接给足（<see cref="InfiniteActionPointValue"/>），
+        /// 所有 <c>ActionPoint &lt; cost</c> 的门禁自动放行，且 <see cref="ReduceActionPoint"/> 不扣。
+        /// 真实值仍保存在 <c>actionPoint</c> 里，玩家取消勾选后立即恢复（JSON 键名仍是 ActionPoint）。
         /// </summary>
-        [JsonProperty] public int ActionPoint { get; set; }
+        [JsonProperty]
+        public int ActionPoint
+        {
+            get => IsInfiniteActionPoint ? InfiniteActionPointValue : actionPoint;
+            set => actionPoint = value;
+        }
+
+        /// <summary>行动力的真实存储值（存档键名仍是 <c>ActionPoint</c>，不受本次改动影响）</summary>
+        private int actionPoint;
+
+        /// <summary>"无限行动力"档位下对外给出的行动力读数（足够覆盖任意单回合命令消耗）</summary>
+        public const int InfiniteActionPointValue = 999999;
+
+        /// <summary>
+        /// 是否享受"AI 无限行动力"：剧本参数开启，且该军团不是玩家直辖军团。
+        ///
+        /// 【为什么排除玩家直辖】玩家自己操作的军团要照常算账；
+        /// 玩家势力下交给 AI 执行的委任军团（number &gt; 1）与 AI 势力军团都享受该开关。
+        /// 【不包含】武将"每人每回合一次行动"（Person.ActionOver）—— 那是行动次数，放开会死循环。
+        /// </summary>
+        public bool IsInfiniteActionPoint
+        {
+            get
+            {
+                if (IsPlayerControl)
+                    return false;
+                Scenario scenario = Scenario.Cur;
+                return scenario != null && scenario.Variables != null && scenario.Variables.aiInfiniteActionPoint;
+            }
+        }
 
         /// <summary>
         /// 工作计数
@@ -504,7 +636,7 @@ namespace Sango.Core
                     grown[i] = appointSetting[i];
                 appointSetting = grown;
             }
-            MigrateLegacyTransportSetting();
+            MigrateLegacyTransportSetting(scenario);
             PrepareCityInfo();
         }
 
@@ -520,7 +652,7 @@ namespace Sango.Core
         /// 并由 `District::set_setting`（s11_scen_obj_district.cpp:224-229）保证同步。
         /// 这里按原版结构归一：开关归 0/1，目的地归据点 Id。
         /// </summary>
-        void MigrateLegacyTransportSetting()
+        void MigrateLegacyTransportSetting(Scenario scenario)
         {
             int index = (int)AppointContentType.Transport;
             if (index < 0 || index >= appointSetting.Length)
@@ -538,17 +670,43 @@ namespace Sango.Core
                 return;
             }
 
-            // 无目的地却带着值 ⇒ 旧版把城池 Id 写进了开关位。
-            // value == 1 时同样按城池 1 处理：原版 set_setting 保证
-            // "开关为真 ⇒ 目的地有效"，不存在"开关为真但目的地为 -1"的合法状态。
-            transportDestBuildingId = value;
-            appointSetting[index] = 1;
+            // 无目的地却带着值 ⇒ 旧版把城池 Id 写进了开关位（含 1 号城，见下）。
+            //
+            // 【value >= 1 一律按城池 Id 迁移】依据：CorpsAIDistrict 的运输段注释记录了
+            // "军团侧按 == 1 判定开关，导致选了城反而关掉"，反推旧 UI 写进这个位的就是城池 Id；
+            // 而旧界面只有选完城才会写值，不存在"只开开关不选城"的旧数据。
+            // 因此 value == 1 同样表示"选了 1 号城"，不能当成空开关丢掉（会丢目的地）。
+            //
+            // 【必须校验城池是否存在】旧存档可能来自别的剧本或已损坏，
+            // 指向不存在的城的运输开关只会让 CorpsAIDistrict 每回合空解析一次；
+            // 这里查不到就归 0（关掉），而不是留一个开着却没目的地的开关。
+            City dest = scenario != null && scenario.citySet != null
+                ? scenario.citySet.Get(value) : null;
+            if (dest != null)
+            {
+                transportDestBuildingId = value;
+                appointSetting[index] = 1;
+            }
+            else
+            {
+                transportDestBuildingId = -1;
+                appointSetting[index] = 0;
+            }
         }
 
+        /// <summary>
+        /// 读取某个委任项的开关值。
+        /// </summary>
+        /// <param name="policyContentType">委任项</param>
+        /// <returns>0 / 1；数组尚未建立、或索引超出当前数组长度时返回 0（按"重视 / 允许"处理）</returns>
         public int GetAppointValue(AppointContentType policyContentType)
         {
-            if (appointSetting == null) return 0;
-            return appointSetting[(int)policyContentType];
+            int index = (int)policyContentType;
+            // 【边界保护】枚举新增项后若 Max 未同步、或旧存档数组尚未扩容，
+            // 直接下标访问会抛 IndexOutOfRange；这里统一按默认值 0 处理。
+            if (appointSetting == null || index < 0 || index >= appointSetting.Length)
+                return 0;
+            return appointSetting[index];
         }
 
         public bool CheckTargetIsAppointTarget(Force force)
@@ -698,12 +856,40 @@ namespace Sango.Core
                 if (c.BelongCorps == this)
                 {
                     cities.Add(c);
+                    // 【口径】allPersons 是"本据点在职武将名册"：出任务、随部队出征、城内待命都计入，
+                    // 在野（wildPersons）与俘虏（captiveList）不在其中 —— 与原版
+                    // get_building_member_list(building, { Mibun_Kunshu, Mibun_Totoku, Mibun_Taishu, Mibun_Ippan })
+                    // （s11_scen_obj_district.cpp:299）只统计在职四类身份的语义一致。
                     totalPersonCount += c.allPersons != null ? c.allPersons.Count : 0;
                 }
             });
 
             // ① 都督项：max(统率, 魅力) / 5，下限 6
-            int n = System.Math.Max(BelongForce.mGovernor.Command, BelongForce.mGovernor.Glamour) / 5;
+            //
+            // 【取的是军团都督，不是势力君主】原版 s11_game.cpp:1255 `Person* totoku = get_person(self->get_totoku_id())`，
+            // 每个军团（district）按**自己的都督**算，只有第 1 军团由君主亲领时才等于君主。
+            // 本项目对应 Corps.mComander（CityStateSystem.AppointTotoku 对齐 district_appoint_totoku）。
+            //
+            // 【第 1 军团的代行】本项目 UpdateCommander 对 IsCaptainCorps 直接 return（Corps.cs:1175），
+            // 主军团的 mComander 常态为 null —— 而原版 district 1 的 totoku 就是君主本人
+            // （ForceAICommand.cs:449-450 已按"1 号退化为君主代行"处理）。
+            // 因此这里在主军团、都督字段为空时回落到势力君主，语义等价于原版 district 1 由君主直辖。
+            Person totoku = mComander;
+            if (totoku == null && IsCaptainCorps)
+                totoku = BelongForce != null ? BelongForce.mGovernor : null;
+
+            if (totoku == null || !totoku.IsAlive || totoku.IsDead)
+            {
+                // 原版 s11_game.cpp:1256-1260：都督无效时行动力归零并**直接返回**，
+                // 不再进入城市 / 武将 / 军师 / 符节台任何一项的计算。
+                // 同时这也是原实现 `BelongForce.mGovernor.Command` 的空引用防护。
+                actionPoint = 0;
+                if (IsPlayerControl && BelongForce == Scenario.Cur.CurRunForce)
+                    GameEvent.OnCorpsActionPointChange?.Invoke(this);
+                return;
+            }
+
+            int n = System.Math.Max(totoku.Command, totoku.Glamour) / 5;
             if (n < 6)
                 n = 6;
 
@@ -734,9 +920,18 @@ namespace Sango.Core
             }
             n = n + tallyOfficeCount * 5;
 
-            ActionPoint = System.Math.Min(Scenario.Cur.Variables.ActionPointLimit,
-                ActionPoint + (int)(n * scenario.Variables.ActionPointFactor));
-            ActionPoint = System.Math.Max(0, ActionPoint);
+            if (IsInfiniteActionPoint)
+            {
+                // 【AI 无限行动力】外部读数由 getter 给足，这里把真实值维持在正常满值，
+                // 玩家取消勾选后不会残留下 999999，也不会变成 0。
+                actionPoint = Scenario.Cur.Variables.ActionPointLimit;
+            }
+            else
+            {
+                ActionPoint = System.Math.Min(Scenario.Cur.Variables.ActionPointLimit,
+                    ActionPoint + (int)(n * scenario.Variables.ActionPointFactor));
+                ActionPoint = System.Math.Max(0, ActionPoint);
+            }
 
 
             if (IsPlayerControl && BelongForce == Scenario.Cur.CurRunForce)
@@ -756,6 +951,10 @@ namespace Sango.Core
             // 判定条件限定"正在跑据点 AI 的那个军团"，玩家手动下指令不会误触发。
             if (OutpostRuntime.corps == this && OutpostRuntime.force == BelongForce)
                 OutpostRuntime.MarkExecuted();
+
+            // 【AI 无限行动力】不扣减；上面的记账钩子必须保留（它决定据点 AP 的补扣与队列推进）
+            if (IsInfiniteActionPoint)
+                return;
 
             ActionPoint -= v;
             ActionPoint = System.Math.Max(0, ActionPoint);

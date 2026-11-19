@@ -38,6 +38,15 @@ namespace Sango.Core
         /// <returns>恒为 true（原版忽略返回值）</returns>
         public static bool AIMove(City city, Scenario scenario)
         {
+            // 【委任钳制 · 人材】关了"人材"就不做任何据点间调动。
+            // 【原版差异】原版 `kyoten_move`（s11_game_ai_kyoten_cmd_personnel.cpp:5-40）
+            // **不检查** DistrictSetting_Personnel —— 原版只有 search / employ 三处检查
+            // （同文件 :377 / :440 / :551）。本条按玩家要求扩展：人材开关同时管住"人才调动"，
+            // 避免出现"关了人材，武将还被 AI 自动调来调去"。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
+                return true;
+
             int cost = JobType.GetJobCostAP((int)CityJobType.TransformPerson);
             // 行动力不足 —— s11_game_ai_kyoten_cmd_personnel.cpp:10-11
             if (OutpostRuntime.actionPoint < cost)
@@ -487,6 +496,13 @@ namespace Sango.Core
         /// <returns>恒为 true（原版忽略返回值）</returns>
         public static bool AISummon(City city, Scenario scenario)
         {
+            // 【委任钳制 · 人材】"人材"关闭时不从别的据点抽人（人才调动的一种）。
+            // 【原版差异】原版 `kyoten_summon`（s11_game_ai_kyoten_cmd_personnel.cpp:256-369）
+            // 同样不检查 DistrictSetting_Personnel；本条为玩家要求新增。
+            if (city.BelongCorps != null
+                && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
+                return true;
+
             int cost = JobType.GetJobCostAP((int)CityJobType.CallPerson);
             int goldCost = JobType.GetJobCost((int)CityJobType.CallPerson);
 
@@ -1144,6 +1160,15 @@ namespace Sango.Core
                 if (troop.BelongForce != city.BelongForce)
                     continue;
 
+                // 【驻防型支援】跨军团支援不并兵，改用 TroopProtectCity 驻守目标城
+                // （见 SupportMilitary 与 Troop.garrisonLastBattleTurn）。
+                // 它的 deployType 是 Defense 而不是 Transport，但同样属于"已有外部兵力在往这座城去"，
+                // 不认它就会出现"一边派驻防队过去、一边把这城的守军运回后方"的对冲。
+                if (troop.garrisonLastBattleTurn > 0
+                    && troop.missionType == (int)MissionType.TroopProtectCity
+                    && troop.missionTarget == city.Id)
+                    return true;
+
                 // 【原版对齐】get_deploy_id(dest_id, DeployType_Transport)
                 // （s11_game_ai_kyoten_cmd_mil_transport.cpp:247）判的是**部署意图 + 目标**，
                 // 不是任务类型。原版把"支援部队"（mil_support.cpp:190）和"运输队"
@@ -1369,6 +1394,16 @@ namespace Sango.Core
         /// <returns>是否已买</returns>
         static bool TryBuyExtraFood(City city)
         {
+            // 【委任钳制 · 金 / 粮】买粮要花金，与 "重视储金" / "轻视储粮" 直接冲突，这里一并拦住。
+            // 对齐 CityAI.AITradeFood 的同一口径（那边早已判这两项），避免据点级商人命令绕开委任设置。
+            // 原版 `kyoten_merchant_buy_extra_food`（s11_game_ai_kyoten_cmd.cpp:780-845）没有这两项判断，
+            // 属本项目按既有委任语义补齐。
+            Corps corps = city.BelongCorps;
+            if (corps != null
+                && (corps.GetAppointValue(Corps.AppointContentType.ConserveGold) == 1
+                    || corps.GetAppointValue(Corps.AppointContentType.Store_Food) == 1))
+                return false;
+
             OutpostInfo info = OutpostRuntime.Get(city.Id);
 
             // 6 回合后的金；不足 12000 → 不买 —— :796-801
@@ -1524,6 +1559,13 @@ namespace Sango.Core
                 && ForceAI.GetPowerRank(force, scenario) < 50 && GameRandom.Chance(85))
                 return false;
 
+            // 【委任钳制 · 攻击】禁止向外用兵时不派兵支援 —— 原版
+            // `kyoten_support_military`（s11_game_ai_kyoten_cmd_mil_support.cpp:54）：
+            //   if (force_->is_player() and not_player_district_settings(Attack)) return false;
+            // 此前只在 AISupport 上方注释里声称"由 Attack 开关负责"，实际没判，属漏钳制。
+            if (CityAI.IsAttackForbidden(city))
+                return false;
+
             OutpostInfo info = OutpostRuntime.Get(city.Id);
             // 只在后 / 中 / 前三态 —— :56-58
             if (info.state == OutpostState.Battle)
@@ -1626,28 +1668,54 @@ namespace Sango.Core
                 if (troop == null)
                     break;                  // 城池被围困，无法出城
 
-                // 【任务类型必须是"移动"，不能是"保护城池"】
-                // `SupportMilitary` 的语义是**补充兵力**：把兵送到、并入目标城。
-                // 而 `TroopProtectCity` 是**解围**任务，它的 `Prepare` 一上来就判
-                // `isNoEnemyAlive`（目标城当前是否有敌人），无敌人时立刻 `TroopReturnCity` ——
-                // 结果部队刚创建就被改判返城，表现为"出城后一直站在城头没动"。
-                // `TroopMovetoCity` 到达目标城格后会 `EnterCity`，兵力并入城池，正是增援所需。
-                troop.SetMission(MissionType.TroopMovetoCity, target.Id);
-
-                // 【意图层 · 原版对齐】支援部队在原版登记为 **DeployType_Transport**，不是 Defense：
-                // s11_game_ai_kyoten_cmd_mil_support.cpp:189-191
-                //     context_->unit[unit_id].deploy_type  = DeployType_Transport;
-                //     context_->unit[unit_id].deploy_target = target_id;
-                // 这不是笔误 —— 支援的本质就是"把兵 / 粮运进友方据点"，与运输队同类。
-                // 原版正是靠这个统一标签实现"支援 / 运输"互斥：两条命令都用
-                // `get_deploy_id(dest_id, DeployType_Transport) >= 0 → 跳过该目标`
-                // （支援 :82-85、运输 mil_transport.cpp:246-249），
-                // 因此同一个目标城不可能既"在被送兵"又"在被运出"。
+                // 【任务类型按"是否跨军团"分流】—— 本项目的自有口径：
+                //   · 同军团：沿用原版"送兵并入" —— TroopMovetoCity 抵达后 EnterCity，
+                //     兵力进入本军团自己的城，属军团内部调度；
+                //   · 跨军团：改用 TroopProtectCity **驻防** —— 不并兵、不进城，
+                //     目标城连续 N 回合无战事后回所属城（Troop.garrisonLastBattleTurn）。
                 //
-                // 【本项目此前的问题】这里写成 Defense，于是 IsTransporting 认不出支援部队，
-                // 表现为：一边十几支支援队往小城送兵，一边小城派运输队把兵运回主城，来回对冲。
-                troop.deployType = (int)TroopDeployType.Transport;
-                troop.deployTarget = target.Id;
+                // 【为什么跨军团不能用"送兵并入"】原版支援登记为 DeployType_Transport + Move
+                // （s11_game_ai_kyoten_cmd_mil_support.cpp:189-191），抵达后由 unit_enter
+                // 直接把兵并入目标城 —— 兵权永久转给目标城。同军团无所谓，跨军团就等于
+                // "抽本军团的兵去养别人"，玩家看到的"部队开进君主城后再也回不来"就是这条。
+                //
+                // 【原版无对应实现】原版没有"跨军团支援"这一层（district 即出兵据点所属军团），
+                // 更没有"驻防到期返程"，故驻防分支属本项目自主设计，开关见
+                // AIConfig.supportCrossCorpsAsGarrison。
+                bool crossCorps = target.BelongCorps != city.BelongCorps;
+                bool asGarrison = crossCorps && AIConfig.Instance.supportCrossCorpsAsGarrison;
+
+                if (asGarrison)
+                {
+                    // 驻防起点回合：保证至少驻满 garrisonIdleTurns 个回合才可能返程。
+                    // 必须在 SetMission 之前写 —— TroopProtectCity.Prepare 会读它。
+                    troop.garrisonLastBattleTurn = System.Math.Max(scenario.TurnCount, 1);
+                    troop.SetMission(MissionType.TroopProtectCity, target.Id);
+                    // 意图层记 Defense（防卫己方据点）：部队层的 Defense 分支对
+                    // TroopProtectCity 任务就是"保持不动"，不会被改判成运输。
+                    troop.deployType = (int)TroopDeployType.Defense;
+                    troop.deployTarget = target.Id;
+                }
+                else
+                {
+                    // 同军团走"支援据点"专用任务（TroopSupportCity）：
+                    // 抵达后同样 EnterCity 并兵，但**途中每回合评估出手机会**，
+                    // 被敌军断路时不会像 TroopMovetoCity 那样原地逛街
+                    // （Move 的 Prepare 只在路径上有敌方建筑时才评估，完全不管敌军部队）。
+                    troop.SetMission(MissionType.TroopSupportCity, target.Id);
+
+                    // 【意图层 · 原版对齐】支援部队在原版登记为 **DeployType_Transport**，不是 Defense：
+                    // s11_game_ai_kyoten_cmd_mil_support.cpp:189-191
+                    //     context_->unit[unit_id].deploy_type  = DeployType_Transport;
+                    //     context_->unit[unit_id].deploy_target = target_id;
+                    // 这不是笔误 —— 支援的本质就是"把兵 / 粮运进友方据点"，与运输队同类。
+                    // 原版正是靠这个统一标签实现"支援 / 运输"互斥：两条命令都用
+                    // `get_deploy_id(dest_id, DeployType_Transport) >= 0 → 跳过该目标`
+                    // （支援 :82-85、运输 mil_transport.cpp:246-249），
+                    // 因此同一个目标城不可能既"在被送兵"又"在被运出"。
+                    troop.deployType = (int)TroopDeployType.Transport;
+                    troop.deployTarget = target.Id;
+                }
 
                 troop.NeedPrepareMission();
 
@@ -1666,7 +1734,12 @@ namespace Sango.Core
                 createdCount++;
 
                 if (AIConfig.Instance.logOutpostAI)
-                    Sango.Log.Info($"*[据点AI]{city.Name} 派兵支援 → {target.Name}（{troop.Leader?.Name}）");
+                {
+                    // 两种支援口径分开打日志：驻防队"不并兵、到期返程"，并兵队"抵达即入城"，
+                    // 实测时一眼能分清这条日志属于哪种（见 AIConfig.supportCrossCorpsAsGarrison）。
+                    string mode = asGarrison ? "驻防支援（不并兵，无战事满额后返程）" : "支援（抵达并兵）";
+                    Sango.Log.Info($"*[据点AI]{city.Name} 派兵{mode} → {target.Name}（{troop.Leader?.Name}）");
+                }
 
                 // 该队成员从可下令池里摘掉，保证同一武将不被复用
                 if (OutpostRuntime.idlePersonList.Count > 0)
@@ -1821,6 +1894,15 @@ namespace Sango.Core
         /// <returns>是否已执行</returns>
         static bool SupportResource(City city, Scenario scenario)
         {
+            // 【委任钳制 · 攻击】禁止向外用兵时不向前线送物资 —— 原版
+            // `kyoten_support_resource`（s11_game_ai_kyoten_cmd_mil_support.cpp:381）：
+            //   if (force_->is_player() and not_player_district_settings(Attack)) return true;
+            // 与原版的差异：原版用同一把 Attack 闸门管"派兵 + 送物资"，
+            // 本项目另有更细的"禁止运输"（TransportDisable）管资源搬运；两者取并集，
+            // 任一命中即不送，语义上 Attack 是军事总闸、TransportDisable 是运输总闸。
+            if (CityAI.IsAttackForbidden(city))
+                return false;
+
             // 都市的内政设施未达最低配置 → 不对外支援 —— :383-387
             if (city.IsCity() && !CityFacilityRequirement.MeetsMinGovFacilityCount(city))
                 return false;
@@ -2024,13 +2106,15 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// AI 探索的触发人数阈值（剧本参数可配）。
+        /// AI 探索的触发人数阈值。
         ///
-        /// 口径：<c>基数 + 难度×每级增量 + min(未发现武将数 × 每人加成, 封顶)</c>
+        /// 口径：<c>3(玩家) 或 3 + 难度×2(AI) + min(未发现武将数 × 1, 3)</c>
         /// <list type="bullet">
-        /// <item>前两项 = 原版 <c>玩家 ? 3 : 3 + 难度×2</c>（s11_game_ai_kyoten_cmd_personnel.cpp:425-432）；</item>
+        /// <item>前两项是原版写死的特殊分子（s11_game_ai_kyoten_cmd_personnel.cpp:425-432），
+        ///       不做成剧本参数 —— 它只是"够不够人"的开关，不是平衡杠杆；</item>
         /// <item>第三项是本项目新增的"未发现武将驱动"：城里还藏着人时，即使据点人数已够，
-        ///       也放宽阈值继续搜 —— 否则"人多但没人发现"的城会永远不搜，未发现武将永久沉底。</item>
+        ///       也放宽阈值继续搜 —— 否则"人多但没人发现"的城会永远不搜，未发现武将永久沉底。
+        ///       每人 +1、封顶 +3，防止大城把行动力全砸在搜索上。</item>
         /// </list>
         /// </summary>
         /// <param name="city">据点</param>
@@ -2038,35 +2122,34 @@ namespace Sango.Core
         /// <returns>据点人数低于该值才执行探索</returns>
         public static int GetSearchTriggerCount(City city, Scenario scenario)
         {
-            ScenarioVariables v = scenario != null ? scenario.Variables : null;
-            // 拿不到剧本参数（编辑器预览 / 单测）时回落到原版默认公式
-            if (v == null)
-                return 3;
+            // 原版硬编码：基数 3、每级难度 +2（玩家势力不叠加难度）
+            const int TriggerBase = 3;
+            const int TriggerPerDifficulty = 2;
+            // 本项目新增：每名未发现武将 +1，封顶 +3
+            const int InvisibleBonusPerPerson = 1;
+            const int InvisibleBonusMax = 3;
 
-            int difficulty = v.difficulty;
-            if (difficulty < 0)
-                difficulty = 0;
-
-            int n;
+            int n = TriggerBase;
             // 玩家势力不吃难度加成 —— 原版 `is_player ? 3 : ...` 的语义
-            if (city != null && city.BelongForce != null && city.BelongForce.IsPlayer)
-                n = v.aiSearchTriggerBase;
-            else
-                n = v.aiSearchTriggerBase + difficulty * v.aiSearchTriggerPerDifficulty;
+            bool isPlayer = city != null && city.BelongForce != null && city.BelongForce.IsPlayer;
+            if (!isPlayer)
+            {
+                int difficulty = scenario != null && scenario.Variables != null
+                    ? scenario.Variables.difficulty : 0;
+                if (difficulty < 0)
+                    difficulty = 0;
+                n = TriggerBase + difficulty * TriggerPerDifficulty;
+            }
 
             // ---------- 未发现武将加成 ----------
-            if (v.aiSearchInvisibleBonusPerPerson > 0)
+            // 含所属港关，与登用命令的 CountWildPersons / 排序用的 invisibleCount 同口径
+            int invisible = city != null ? city.CountInvisiblePersons() : 0;
+            if (invisible > 0)
             {
-                // 含所属港关，与登用命令的 CountWildPersons / 排序用的 invisibleCount 同口径
-                int invisible = city != null ? city.CountInvisiblePersons() : 0;
-                if (invisible > 0)
-                {
-                    int bonus = invisible * v.aiSearchInvisibleBonusPerPerson;
-                    // 封顶：0 = 不封顶
-                    if (v.aiSearchInvisibleBonusMax > 0 && bonus > v.aiSearchInvisibleBonusMax)
-                        bonus = v.aiSearchInvisibleBonusMax;
-                    n += bonus;
-                }
+                int bonus = invisible * InvisibleBonusPerPerson;
+                if (bonus > InvisibleBonusMax)
+                    bonus = InvisibleBonusMax;
+                n += bonus;
             }
 
             return n;
@@ -2076,47 +2159,45 @@ namespace Sango.Core
         /// 登用（保底版）：只在本据点人数低于阈值时执行。
         ///
         /// 对齐出处：s11_game_ai_kyoten_cmd_personnel.cpp:529-536。
-        /// 原版阈值写死为 <c>玩家 ? 3 : 3 + 难度 * 2</c>；本项目把它提到剧本参数
-        /// （<see cref="ScenarioVariables.aiEmployTriggerBase"/> +
-        /// <see cref="ScenarioVariables.aiEmployTriggerPerDifficulty"/>），
-        /// 默认值等于原版公式，不配置时行为完全一致。
+        /// 原版阈值写死为 <c>玩家 ? 3 : 3 + 难度 * 2</c>，本项目同样用常量，不做剧本参数。
         /// </summary>
         /// <param name="city">据点</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>恒为 true</returns>
+        /// <returns>是否真的派人去登用（false = 人够多 / 没派成，外层不扣行动力）</returns>
         public static bool AIEmployMax(City city, Scenario scenario)
         {
             OutpostInfo info = OutpostRuntime.Get(city.Id);
             if (info.personCount < GetEmployTriggerCount(city, scenario))
                 return AIRecruitPerson(city, scenario);
-            return true;
+            // 人够多 → 什么也没做，返回 false 让外层不补扣据点行动力
+            return false;
         }
 
         /// <summary>
-        /// AI 登用的触发人数阈值（剧本参数可配）。
+        /// 保底登用（<see cref="AIEmployMax"/>）的触发人数阈值 —— **只有这条命令读它**。
         ///
-        /// 口径与原版一致：玩家势力固定用基数（原版写死 3），
-        /// AI 势力用 <c>基数 + 难度 × 每级增量</c>（原版 3 + 难度×2，即 3..7）。
+        /// 口径与原版一致：玩家势力 = 3；AI 势力 = <c>3 + 难度 × 2</c>（3..7）。
+        /// 据点武将数 &lt; 返回值才补人。这两个数字是原版写死的特殊分子，不做成剧本参数。
         /// </summary>
         /// <param name="city">据点</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>据点人数低于该值才执行登用</returns>
+        /// <returns>据点人数低于该值才执行保底登用</returns>
         public static int GetEmployTriggerCount(City city, Scenario scenario)
         {
-            ScenarioVariables v = scenario != null ? scenario.Variables : null;
-            // 拿不到剧本参数（编辑器预览 / 单测）时回落到原版默认公式
-            if (v == null)
-                return 3;
+            // 原版硬编码：基数 3、每级难度 +2
+            const int TriggerBase = 3;
+            const int TriggerPerDifficulty = 2;
 
             // 玩家势力不吃难度加成 —— 原版 `is_player ? 3 : ...` 的语义
-            if (city.BelongForce != null && city.BelongForce.IsPlayer)
-                return v.aiEmployTriggerBase;
+            if (city != null && city.BelongForce != null && city.BelongForce.IsPlayer)
+                return TriggerBase;
 
-            int difficulty = v.difficulty;
+            int difficulty = scenario != null && scenario.Variables != null
+                ? scenario.Variables.difficulty : 0;
             if (difficulty < 0)
                 difficulty = 0;
 
-            return v.aiEmployTriggerBase + difficulty * v.aiEmployTriggerPerDifficulty;
+            return TriggerBase + difficulty * TriggerPerDifficulty;
         }
 
         // ==================================================================================
@@ -2136,13 +2217,13 @@ namespace Sango.Core
         /// </summary>
         /// <param name="city">据点</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>恒为 true</returns>
+        /// <returns>是否真的派人去挖（false = 没做任何事，命令体内已自扣 AP 的路径不受影响）</returns>
         public static bool AIEmployEnemy(City city, Scenario scenario)
         {
             int cost = JobType.GetJobCostAP((int)CityJobType.RecruitPerson);
             Force force = city.BelongForce;
             if (force == null)
-                return true;
+                return false;
 
             // 【委任钳制】"人才"被禁止时不挖敌方武将 —— 对齐 Open311 kyoten_employ_enemy 的
             // `if (force_->is_player() and ai_table_not_player_district_settings(building, DistrictSetting_Personnel)) return true;`
@@ -2150,24 +2231,24 @@ namespace Sango.Core
             // 与 AIRecruitPerson 中的同一判断成对，覆盖 Employ / EmployMax / EmployEnemy / EmployEnemyMax 四个入口。
             if (city.BelongCorps != null
                 && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
-                return true;
+                return false;
 
+            // 以下每一条早退都表示"什么都没做"，一律返回 false：
+            // 外层 IgnoreResult 只在 true 时标记 delegatedExecuted，调度器才补扣据点行动力，
+            // 恒返回 true 会让"没人可挖 / AP 不够"也照扣一次登用成本。
             // 无可用武将 —— :543-545
             if (OutpostRuntime.idlePersonList.Count == 0)
-                return true;
+                return false;
             // 行动力不足 —— :546-549
             if (OutpostRuntime.actionPoint < cost)
-                return true;
+                return false;
 
             OutpostInfo info = OutpostRuntime.Get(city.Id);
-            ScenarioVariables sv = scenario != null ? scenario.Variables : null;
             int minPerson = info.minPersonCount;
-            // 人已够多 —— :553-556（上限基数 10 由剧本参数控制，缺省 10 = 原版）
-            int personLimitBase = sv != null ? sv.aiEmployPersonLimitBase : 10;
-            if (personLimitBase < 0)
-                personLimitBase = 0;
-            if (minPerson + System.Math.Max(minPerson, personLimitBase) <= info.personCount)
-                return true;
+            // 人已够多 —— :553-556（上限基数 10 是原版硬编码，不做剧本参数）
+            const int PersonLimitBase = 10;
+            if (minPerson + System.Math.Max(minPerson, PersonLimitBase) <= info.personCount)
+                return false;
 
             City areaCity = city.BelongCity ?? city;
             int difficulty = scenario != null ? scenario.Variables.difficulty : 0;
@@ -2221,17 +2302,17 @@ namespace Sango.Core
                 }
             }
             if (candidates.Count == 0)
-                return true;
+                return false;
 
             // 打分选目标 —— :606-689
             // 原版这里靠 get_persuasion_chance 预估成功率，本项目该函数在
             // Person.JobRecruitPerson 内部（无公开预估接口），因此保留原版的
             // 距离 / 忠诚 / 难度门槛作为"值不值得试"的判据，成功率交给实际执行判定。
             int difficultyCoef = (5 + difficulty * 5) * 2;   // 10 .. 30（试探概率，非阈值，保持原版）
-            // 忠诚上限：原版 92 + 难度×2（92..96），现由剧本参数控制，缺省等于原版
-            int loyaltyBase = sv != null ? sv.aiEmployMinLoyalty : 92;
-            int loyaltyPerDifficulty = sv != null ? sv.aiEmployLoyaltyPerDifficulty : 2;
-            int minLoyalty = loyaltyBase + difficulty * loyaltyPerDifficulty;
+            // 忠诚上限：原版硬编码 92 + 难度×2（92..96），不做剧本参数
+            const int LoyaltyBase = 92;
+            const int LoyaltyPerDifficulty = 2;
+            int minLoyalty = LoyaltyBase + difficulty * LoyaltyPerDifficulty;
             bool isPlayer = force.IsPlayer;
 
             Person bestActor = null;
@@ -2287,10 +2368,14 @@ namespace Sango.Core
             }
 
             if (bestTarget == null || bestActor == null)
-                return true;
+                return false;
 
             // 执行登用并记账 —— :694-703
-            city.JobRecruitPerson(bestActor, bestTarget);
+            // 先确认真的派出（目标是君主 / 无所在城时 JobRecruitPerson 会直接拦下），
+            // 没派出就不扣 AP、不占用人。
+            city.JobRecruitPerson(bestActor, bestTarget, out bool dispatched);
+            if (!dispatched)
+                return false;
             OutpostRuntime.actionPoint -= cost;
             OutpostRuntime.idlePersonList.Remove(bestActor);
             OutpostRuntime.MarkExecuted();
@@ -2308,16 +2393,16 @@ namespace Sango.Core
         /// </summary>
         /// <param name="city">据点</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>恒为 true</returns>
+        /// <returns>是否真的派人去挖（false = 人够多 / 没派成）</returns>
         public static bool AIEmployEnemyMax(City city, Scenario scenario)
         {
             OutpostInfo info = OutpostRuntime.Get(city.Id);
-            // 原版写死 3，现由剧本参数 aiEmployEnemyMaxTrigger 控制（缺省 3）
-            ScenarioVariables v = scenario != null ? scenario.Variables : null;
-            int trigger = v != null ? v.aiEmployEnemyMaxTrigger : 3;
-            if (info.personCount < trigger)
+            // 原版写死 3，不做剧本参数
+            const int Trigger = 3;
+            if (info.personCount < Trigger)
                 return AIEmployEnemy(city, scenario);
-            return true;
+            // 人够多 → 没做事，返回 false 避免外层补扣行动力
+            return false;
         }
 
         /// <summary>

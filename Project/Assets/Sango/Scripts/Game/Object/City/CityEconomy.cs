@@ -62,7 +62,8 @@ namespace Sango.Core
 
         /// <summary>
         /// 城市一年资金支出 = 每月支出 × 12。
-        /// 每月支出 = Σ(在职武将俸禄) + 100 × 俘虏数（见 <c>City.GoldCost</c>）。
+        /// 每月支出 = Σ(在职武将俸禄，跳过君主) + 50 × 俘虏数（见 <c>City.GoldCost</c>，
+        /// 对齐原版 <c>System::get_pay</c>：俘虏按 <c>horyo_pay_</c> 计）。
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>

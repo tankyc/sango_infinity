@@ -221,7 +221,8 @@ using Sango.Core; namespace Sango.UI
                 targetPersonItem.SetPerson(person);
 
             if (targetPersonLoyalty != null)
-                targetPersonLoyalty.text = person != null ? $"忠诚 {person.loyalty}" : "";
+                // 忠诚显示截断到 100：内部值域 0..255（Person.MaxLoyalty），超额部分不对玩家展示
+                targetPersonLoyalty.text = person != null ? $"忠诚 {System.Math.Min(100, person.loyalty)}" : "";
 
             if (targetPersonEquip != null)
                 targetPersonEquip.text = person != null ? BuildEquipText(person) : "";

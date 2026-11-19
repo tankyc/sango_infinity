@@ -18,13 +18,13 @@ namespace Sango.Core.Player
             {
                 new ButtonData()
                 {
-                    title = "һ��",
+                    title = "一并",
                     action = SelectAll
                 }
                 ,
                 new ButtonData()
                 {
-                    title = "һ�����",
+                    title = "一并解除",
                     action = UnSelectAll
                 }
             };
@@ -68,7 +68,9 @@ namespace Sango.Core.Player
             {
                 customSortTitles = new List<ObjectSortTitle>();
             }
-            customSortItems = customSortTitles;
+            // 【动态特技组】与 PersonSelectSystem 同口径：展开标记后再排序，
+            // 保证编辑器里的列索引与显示一致（第 1 个特技列保留整体编辑能力）。
+            customSortItems = PersonSortFunction.ExpandFeatureGroups(customSortTitles);
             this.customSortTitleName = cutomSortTitleName;
 
             ClickMode = limit == -1;
@@ -100,7 +102,9 @@ namespace Sango.Core.Player
             {
                 customSortTitles = new List<ObjectSortTitle>();
             }
-            customSortItems = customSortTitles;
+            // 【动态特技组】与 PersonSelectSystem 同口径：展开标记后再排序，
+            // 保证编辑器里的列索引与显示一致（第 1 个特技列保留整体编辑能力）。
+            customSortItems = PersonSortFunction.ExpandFeatureGroups(customSortTitles);
             this.customSortTitleName = cutomSortTitleName;
 
             ClickMode = limit == -1;

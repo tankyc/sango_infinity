@@ -534,7 +534,7 @@ namespace Sango.Core
                                 // 轻视士兵,70%概率不考虑此行动
                                 if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
                                 {
-                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+                                    if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.ConserveGold) == 1)
                                     {
                                         if (GameRandom.Chance(80))
                                             continue;
@@ -1000,11 +1000,11 @@ namespace Sango.Core
                             }
 
             float targetGold = 3000f;
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.ConserveGold) == 1)
                 targetGold *= 2;
 
             float targetFood = city.troops * 2.5f;
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Food) == 1)
                 targetFood = Math.Min(targetFood, 50000);
 
             float targetTroop = city.food / 2f;

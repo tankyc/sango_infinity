@@ -398,7 +398,7 @@ namespace Sango.Core
             if (corps == null)
                 return;
 
-            if (corps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
+            if (corps.GetAppointValue(Corps.AppointContentType.Store_Food) == 1)
             {
                 max[(int)InteriorFacilityKind.Farm] = 0;
                 max[(int)InteriorFacilityKind.Garner] = 0;

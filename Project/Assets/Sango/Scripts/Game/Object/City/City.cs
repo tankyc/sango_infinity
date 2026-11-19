@@ -425,7 +425,14 @@ namespace Sango.Core
         public List<Person> otherPersons = new List<Person>();
 
         /// <summary>
-        /// 所有武将（含在野/俘虏/在途，一城可达上百人，按 128 预置）
+        /// 本据点在职武将名册（一城可达上百人，按 128 预置）。
+        ///
+        /// 【口径】只登记**在职**武将，即户口挂在本城（<see cref="Person.BelongCity"/>）的所属人员。
+        /// 出任务中、随部队出征、城内待命**都在这份名单里** —— 判据是"归属"，不是"本回合是否空闲"。
+        /// 与之互斥的其它容器：
+        ///   · 在野武将 → <see cref="wildPersons"/>
+        ///   · 俘虏     → <see cref="captiveList"/>
+        ///   · 本回合可指派的空闲子集 → <see cref="freePersons"/>
         /// </summary>
         public SangoObjectList<Person> allPersons = new SangoObjectList<Person>(128);
 
@@ -1986,16 +1993,9 @@ namespace Sango.Core
 
             GameEvent.OnCityMonthStart?.Invoke(this, scenario);
 
-            int cost = -GoldCost(scenario);
-            if (cost < 0)
-            {
-                AddGold(cost);
-                Render?.ShowInfo(cost, (int)InfoType.Gold);
-
-#if SANGO_DEBUG
-                Sango.Log.Info($"城市：{Name},  支出：{cost}, 现有资金: {gold}");
-#endif
-            }
+            // 月度俸禄 / 俘虏伙食结算 —— 原版 Game::on_month（s11_game_month.cpp:486-537）。
+            // 顺序必须是"先俘虏伙食、后俸禄"：两段共用同一份金，俘虏先付掉的钱不能再拿去付俸禄。
+            SettleMonthlyPay(scenario);
 
             return base.OnMonthStart(scenario);
         }
@@ -2387,31 +2387,302 @@ namespace Sango.Core
             }
         }
 
+        /// <summary>俘虏每人每月的伙食费（原版 horyo_pay_，s11_db.h:188）</summary>
+        public const int CaptivePay = 50;
+
         /// <summary>
-        /// 计算金钱消耗
+        /// 在职武将的月度俸禄合计，**跳过君主**。
+        ///
+        /// 对齐出处：Open311 <c>System::get_pay_sum</c>（s11_sys_scen_building.cpp:1062-1072）
+        /// 里的 <c>if (not is_alive(person) or person-&gt;is_kunshu() or person-&gt;is_horyo()) continue;</c>
+        /// —— 君主不领俸禄；俘虏也不走俸禄口径（按人头伙食费另计，见 <see cref="CaptivePay"/>）。
+        /// </summary>
+        public int SalaryCost
+        {
+            get
+            {
+                Person kunshu = BelongForce != null ? BelongForce.mGovernor : null;
+                int sum = 0;
+                for (int i = 0; i < allPersons.Count; i++)
+                {
+                    Person person = allPersons[i];
+                    if (person == null || person.Official == null)
+                        continue;
+                    if (person == kunshu)
+                        continue;
+                    sum += person.Official.cost;
+                }
+                return sum;
+            }
+        }
+
+        /// <summary>
+        /// 计算金钱支出（UI 显示 / AI 收支估算用）：在职俸禄 + 俘虏伙食。
+        ///
+        /// 对齐原版 <c>System::get_pay</c>（s11_sys_scen_building.cpp:1050-1060）：
+        /// 俘虏按 <c>horyo_pay_</c>（50）计，成员俸禄走 <see cref="SalaryCost"/>（跳过君主）。
         /// </summary>
         /// <param name="scenario">场景对象</param>
-        /// <returns>金钱消耗数量</returns>
+        /// <returns>每月金钱支出</returns>
         public int GoldCost(Scenario scenario)
         {
-            int goldCost = 0;
-            // 【性能】原 ForEach(lambda) 捕获 goldCost，改为按下标遍历。
-            // 原写法不判 person 为 null，这里保持一致（allPersons 不应存 null）。
-            for (int i = 0; i < allPersons.Count; i++)
+            return SalaryCost + captiveList.Count * CaptivePay;
+        }
+
+        /// <summary>
+        /// 月度俸禄与俘虏伙食结算。
+        ///
+        /// 对齐出处：Open311 <c>Game::on_month</c>（s11_game_month.cpp:486-537）。
+        /// <para>原版顺序（不要调换）：</para>
+        /// <list type="number">
+        /// <item>俘虏伙食：每人 <c>horyo_pay_ = 50</c>。只付得起
+        ///   <c>min(gold / 50, 俘虏数)</c> 人，其余按「最高属性降序 → 属性总和降序 → Id 升序」
+        ///   排序后保留强者，剩下的 <c>person_release</c> 释放
+        ///   （s11_game_month.cpp:497-524 / 595-633）。</item>
+        /// <item>俸禄：<c>get_pay_sum</c>（跳过君主）。<c>gold &lt; pay_sum</c> 时**不扣钱**，
+        ///   改走 <c>houroku_mibarai</c>（欠薪）：除君主与君主配偶 / 义兄弟 / 父子 / 亲爱者外，
+        ///   忠诚变化 <c>giri - 7</c>（giri ∈ 0..4，即 -7..-3）；付得起才扣款
+        ///   （s11_game_month.cpp:525-533 / 667-688）。</item>
+        /// </list>
+        /// <para>两段共用同一份金：俘虏先付掉的钱不会再拿去付俸禄，这正是原版顺序的用意。</para>
+        /// </summary>
+        /// <param name="scenario">场景对象</param>
+        public void SettleMonthlyPay(Scenario scenario)
+        {
+            if (BelongForce == null || !BelongForce.IsAlive)
+                return;
+
+            int remain = gold;
+
+            if (captiveList.Count > 0)
+                remain -= SettleCaptiveFood(remain);
+
+            int paySum = SalaryCost;
+            if (paySum > 0)
             {
-                Person person = allPersons[i];
-                if (person.Official != null)
-                    goldCost += person.Official.cost;
+                if (remain < paySum)
+                    PayArrears(paySum, remain);
+                else
+                    remain -= paySum;
             }
 
-            // 计算俘虏的消耗
+            int paid = gold - remain;
+            if (paid > 0)
+            {
+                AddGold(-paid);
+                Render?.ShowInfo(-paid, (int)InfoType.Gold);
+            }
+        }
+
+        /// <summary>
+        /// 结算俘虏伙食：能付几个付几个，付不起的释放，并按原势力给出释放报告。
+        ///
+        /// 对齐出处：Open311 s11_game_month.cpp:497-524（人数与释放）与 595-633（horyo_kaihou 报告）。
+        /// </summary>
+        /// <param name="remain">可动用资金</param>
+        /// <returns>实际支付的伙食费</returns>
+        int SettleCaptiveFood(int remain)
+        {
+            int maxHoryo = System.Math.Min(remain / CaptivePay, captiveList.Count);
+            int paid = maxHoryo * CaptivePay;
+            if (maxHoryo >= captiveList.Count)
+                return paid;
+
+            List<Person> sorted = new List<Person>(captiveList.Count);
             for (int i = 0; i < captiveList.Count; i++)
             {
                 if (captiveList[i] != null)
-                    goldCost += 100;
+                    sorted.Add(captiveList[i]);
+            }
+            sorted.Sort(CompareCaptiveForKeep);
+
+            // 原版 horyo_kaihou（:597-629）：按"原势力"聚合释放人数，并挑出该势力被释放者里
+            // 官阶最高的一人（原版比 rank_id，越小越高；本项目比 Official.level，0 为最高）。
+            Dictionary<Force, Person> highestOfForce = null;
+            Dictionary<Force, int> countOfForce = null;
+
+            // 付得起的留下，后面的释放（原版 person_release → 原势力尚存则送回，否则就地落野）
+            for (int i = maxHoryo; i < sorted.Count; i++)
+            {
+                Person person = sorted[i];
+                if (person == null || !person.IsPrisoner)
+                    continue;
+
+                Force formerForce = person.BelongForce;
+                if (formerForce != null)
+                {
+                    if (highestOfForce == null)
+                    {
+                        highestOfForce = new Dictionary<Force, Person>();
+                        countOfForce = new Dictionary<Force, int>();
+                    }
+
+                    countOfForce.TryGetValue(formerForce, out int count);
+                    countOfForce[formerForce] = count + 1;
+
+                    highestOfForce.TryGetValue(formerForce, out Person highest);
+                    if (highest == null || OfficialLevelOf(person) < OfficialLevelOf(highest))
+                        highestOfForce[formerForce] = person;
+                }
+
+                // 【必须传释放方势力】Escape 的 Released 分支会把第二个参数转成 Force 派发给
+                // GameEvent.OnPersonRelease（<see cref="Person.Escape"/>: Person.cs:3771
+                // `sangoObject as Force`）。原先这里不传参 → as Force 得到 null →
+                // PlayerMessage.OnPersonRelease 里 `releaseForce.IsCurPlayer` 空引用
+                //（线上月度结算崩溃点：PlayerMessage.cs:537）。
+                // 释放方就是本城的所属势力 —— 原版 horyo_kaihou（s11_game_month.cpp:595-633）
+                // 也是按"关押方 force"上报的。
+                person.Escape(EscapeType.Released, BelongForce);
             }
 
-            return goldCost;
+            // 原版只对玩家势力播报（force->is_player()），且是"军师报告"。
+            // 本项目没有小地图 ping / 势力级军师弹窗，报告统一走消息列表（带音效 38）。
+            if (highestOfForce != null)
+            {
+                foreach (KeyValuePair<Force, Person> kv in highestOfForce)
+                {
+                    Force force = kv.Key;
+                    if (force == null || !force.IsPlayer)
+                        continue;
+
+                    countOfForce.TryGetValue(force, out int count);
+                    Person highest = kv.Value;
+                    string highestDesc = highest.Official != null
+                        ? $"{highest.Name}（{highest.Official.Name}）"
+                        : highest.Name;
+
+                    // 原版 horyo_kaihou 是"军师开口"（S_PRO_HORYO_KAIHOU_P）：
+                    // 有军师就补一条人物消息做演出，文本消息照旧进历史列表（原版 history_log）。
+                    if (force.mCounsellor != null)
+                    {
+                        PlayerMessage.AddPersonMessage(
+                            $"主公，{Name}养不起俘虏了，已释放{count}名我方被俘将士，其中{highestDesc}官阶最高。",
+                            force.mCounsellor);
+                    }
+
+                    PlayerMessage.AddTextMessage(
+                        $"{Name}资金不足、养不起俘虏，释放了{force.ColorName}的{count}名俘虏，其中{highestDesc}官阶最高。",
+                        force, x, y);
+
+                    Sango.Log.Info($"@俘虏@{Name} 释放{force.Name}俘虏{count}人，最高官阶：{highest.Name}");
+                }
+            }
+
+            return paid;
+        }
+
+        /// <summary>
+        /// 官阶等级，用于"最高官阶俘虏"比较：
+        /// 本项目 <see cref="Official.level"/> 0 = 三公/大将军，10 = 无官职（越大越低）；
+        /// 原版 rank_id 越小官阶越高，方向一致。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <returns>官阶等级（无官职按 10 处理）</returns>
+        static int OfficialLevelOf(Person person)
+        {
+            return person.Official != null ? person.Official.level : 10;
+        }
+
+        /// <summary>
+        /// 俘虏保留优先级：最高属性降序 → 属性总和降序 → Id 升序
+        /// （原版 s11_game_month.cpp:503-521）。
+        /// </summary>
+        static int CompareCaptiveForKeep(Person a, Person b)
+        {
+            int aMax = MaxStatOf(a);
+            int bMax = MaxStatOf(b);
+            if (aMax != bMax) return bMax.CompareTo(aMax);
+
+            int aSum = SumStatOf(a);
+            int bSum = SumStatOf(b);
+            if (aSum != bSum) return bSum.CompareTo(aSum);
+
+            return a.Id.CompareTo(b.Id);
+        }
+
+        /// <summary>五维最高值（统率 / 武力 / 智力 / 政治 / 魅力）</summary>
+        static int MaxStatOf(Person person)
+        {
+            int max = person.Command;
+            if (person.Strength > max) max = person.Strength;
+            if (person.Intelligence > max) max = person.Intelligence;
+            if (person.Politics > max) max = person.Politics;
+            if (person.Glamour > max) max = person.Glamour;
+            return max;
+        }
+
+        /// <summary>五维总和</summary>
+        static int SumStatOf(Person person)
+        {
+            return person.Command + person.Strength + person.Intelligence
+                 + person.Politics + person.Glamour;
+        }
+
+        /// <summary>
+        /// 欠薪处理：**不扣钱**，只有忠诚惩罚。
+        ///
+        /// 对齐出处：Open311 <c>Game::houroku_mibarai</c>（s11_game_month.cpp:667-688）：
+        /// 君主本人、君主配偶（is_fuufu）、义兄弟（is_gikyoudai）、父子（is_oyako）、
+        /// 亲爱（is_like）五类 continue 跳过，其余 <c>person_add_loyalty(person, giri - 7)</c>。
+        /// giri ∈ 0..4（Giri_Worst..Giri_Best，s11_enum_scen.h:352-360），
+        /// 本项目 <c>Argumentation.kind</c> ∈ 1..5，换算 giri = kind - 1，
+        /// 因此忠诚变化 = kind - 8 ∈ -7..-3（义理越高扣得越少）。
+        /// </summary>
+        /// <param name="paySum">应发俸禄</param>
+        /// <param name="remain">现有资金</param>
+        void PayArrears(int paySum, int remain)
+        {
+            Person kunshu = BelongForce != null ? BelongForce.mGovernor : null;
+            int affected = 0;
+            for (int i = 0; i < allPersons.Count; i++)
+            {
+                Person person = allPersons[i];
+                if (person == null || person.Official == null)
+                    continue;
+                if (person == kunshu)
+                    continue;
+                if (IsExemptFromArrears(person, kunshu))
+                    continue;
+
+                int giri = person.mArgumentation != null ? person.mArgumentation.kind - 1 : 2;
+                person.AddLoyalty(giri - 7);
+                affected++;
+            }
+
+            Sango.Log.Info($"@经济@{Name} 俸禄不足（现有{remain}/应发{paySum}），本月欠薪，{affected}名武将忠诚下降");
+
+            // 原版 houroku_mibarai_report（s11_game_month.cpp:690-718）：
+            // 给据点所属的玩家势力播报欠薪。本项目以小地图 ping 缺失，
+            // 报告统一走消息列表（AddTextMessage 内部会播音效 38）。
+            if (BelongForce != null && BelongForce.IsPlayer)
+            {
+                PlayerMessage.AddTextMessage(
+                    $"{Name}资金不足，本月俸禄未发（现有{remain}，应发{paySum}），{affected}名武将忠诚下降。",
+                    BelongForce, x, y);
+
+                // 原版 houroku_mibarai_report 也是军师开口（S_PRO_BUSHOU_HOUROKU_MIBARAI）
+                if (BelongForce.mCounsellor != null)
+                {
+                    PlayerMessage.AddPersonMessage(
+                        $"主公，{Name}资金不足，本月俸禄发不出来，{affected}名将士颇有怨言……",
+                        BelongForce.mCounsellor);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 欠薪的忠诚豁免（对齐原版 houroku_mibarai 的四个 continue）：
+        /// 君主配偶 / 义兄弟 / 父子 / 亲爱。
+        /// </summary>
+        static bool IsExemptFromArrears(Person person, Person kunshu)
+        {
+            if (kunshu == null)
+                return false;
+            if (person.IsSpouse(kunshu)) return true;
+            if (person.IsBrotherGroupmate(kunshu)) return true;
+            if (person.IsParentchild(kunshu)) return true;
+            if (person.LikePersonList != null && person.LikePersonList.Contains(kunshu)) return true;
+            return false;
         }
 
         //public void CreateTroop(Troop troop)
@@ -2692,8 +2963,8 @@ namespace Sango.Core
                     // 反序会出现"Leader 的 BelongCity 还不是本城、也不在 allPersons 里"，
                     // 年度巡检会判太守失效并清空，玩家看到"刚打下的城太守凭空消失"。
                     Person newLeader = atk.Leader;
-                    // 占领入城：必须真进城，不能因容量不足改道（否则打下的城没人守）
-                    atk.EnterCity(this, false);
+                    // 占领入城：攻方进城接管
+                    atk.EnterCity(this);
                     if (newLeader != null && newLeader.IsAlive && newLeader.BelongCity == this && allPersons.Contains(newLeader))
                         Leader = newLeader;
                 }
@@ -3190,8 +3461,8 @@ namespace Sango.Core
                 && Scenario.Cur.Map.Distance(CenterCell, atk.cell) <= (IsCity() ? 2 : 1))
             {
                 Leader = atk.Leader;
-                // 城陷入城：攻方必须真进城接管，禁止因容量不足改道
-                atk.EnterCity(this, false);
+                // 城陷入城：攻方进城接管
+                atk.EnterCity(this);
             }
 
             Render?.UpdateRender();
@@ -4869,6 +5140,24 @@ namespace Sango.Core
         /// <returns>是否成功</returns>
         public bool JobRecruitPerson(Person person, Person dest)
         {
+            return JobRecruitPerson(person, dest, out _);
+        }
+
+        /// <summary>
+        /// 登庸武将（带"是否真的派出"的输出参数）。
+        ///
+        /// 【为什么要 out dispatched】返回值历史上表示"是否**当场**结算成功"，
+        /// 异地出使同样返回 false，调用方无法区分"已派出使"与"被前置校验拦下"。
+        /// AI 侧靠返回值决定要不要扣据点行动力，混用会表现为"没派人也扣一次 AP"。
+        /// dispatched = 任务或结算真的发生了（含异地出使）；false = 纯校验失败，什么都没做。
+        /// </summary>
+        /// <param name="person">执行登庸的武将</param>
+        /// <param name="dest">目标武将</param>
+        /// <param name="dispatched">是否真的派出（含异地出使）</param>
+        /// <returns>是否当场结算成功（异地出使为 false，与旧返回值一致）</returns>
+        public bool JobRecruitPerson(Person person, Person dest, out bool dispatched)
+        {
+            dispatched = false;
             // 【执行前防御】对应 Open311 的 validate_recruit_command：
             //   · 双方武将必须有效；
             //   · 执行者必须挂在本城的空闲名册里（否则会白白从别的城盗走一个人）；
@@ -4917,6 +5206,7 @@ namespace Sango.Core
                 te.Init(person, dest);
                 RenderEvent.Instance.Add(te);
                 BelongCorps.ReduceActionPoint(apCost);
+                dispatched = true;
                 return true;
             }
             else
@@ -4938,6 +5228,7 @@ namespace Sango.Core
                 person.SetMission(MissionType.PersonRecruitPerson, dest, distance * 2 + 6, destCity.Id, departCityId);
                 person.ActionOver = true;
                 BelongCorps.ReduceActionPoint(apCost);
+                dispatched = true;
                 return false;
             }
         }
@@ -5033,8 +5324,8 @@ namespace Sango.Core
             int lastLoyalty = person.loyalty;
 #endif
             // 褒奖忠诚：与多人褒奖同一套口径（4 + rand(魅力系数) + (75-相性)/15，封顶 13）。
-            // 必须走 AddLoyalty：裸 `loyalty +=` 会把 90 点直接抬到 101，越过 0~100 上限
-            // （实测日志：忠诚从 90 提升到 -> 101，随后被换季结算当成"掉忠 1"修正回 100）。
+            // 必须走 AddLoyalty：裸 `loyalty +=` 会跳过 0..255（Person.MaxLoyalty）的钳制
+            // （旧版 100 制时实测出现过"忠诚 90 → 101，随后被换季结算当成掉忠修正"的脏数据）。
             person.AddLoyalty(CalcRewardLoyaltyGain(person, BelongForce != null ? BelongForce.mGovernor : null));
             person.SetBonusDone(true);
             gold -= goldCost;

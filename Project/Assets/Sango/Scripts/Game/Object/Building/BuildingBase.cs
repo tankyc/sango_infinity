@@ -185,9 +185,10 @@ namespace Sango.Core
         /// <summary>
         /// 是否为"港关"（港口 / 关隘）。
         ///
-        /// 用途：入城时的"容量溢出（吞兵）"检查只对港关生效。
-        /// 城池不检查容量 —— 城兵满时若还拦着，部队就永远回不了城。
-        /// 见 <see cref="Troop.EnterCity"/> 与 <see cref="TroopAIFallback.TryRerouteForOverflow"/>。
+        /// 用途：玩家在移动 / 入城确认框里，只对港关提示"装不下会损失多少兵"
+        /// （城池容量大、满兵是常态，不额外吓唬玩家）。
+        /// 注意：**入城本身不做容量拦截**，城池与港关一律按原版 clamp 丢弃溢出，
+        /// 见 <see cref="Troop.EnterCity"/>。
         /// </summary>
         /// <returns>港口或关隘返回 true</returns>
         public bool IsPortOrGate()

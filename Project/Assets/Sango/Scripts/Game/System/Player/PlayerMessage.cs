@@ -379,6 +379,11 @@ namespace Sango.Core.Player
         /// <param name="person">关联的人物</param>
         public static void AddPersonMessage(string text, Person person)
         {
+            // 与 AddTextMessage 保持同一口径：消息系统未初始化（开局前 / 读档收场）时静默丢弃，
+            // 避免月结算等自动流程在 Instance 为空时抛空引用。
+            if (Instance == null || person == null)
+                return;
+
             Instance._AddPersonMessage(text, person);
         }
 
@@ -526,6 +531,16 @@ namespace Sango.Core.Player
         /// <param name="releaseForce">释放方势力</param>
         private void OnPersonRelease(Person person, Force releaseForce)
         {
+            // 【必须判空 —— 线上月度结算崩溃点】
+            // Person.Escape 的第二个参数是宽类型 SangoObject，内部用 `sangoObject as Force`
+            // 转成释放方再派发（Person.cs:3771）。调用方漏传、或传进来的不是 Force 时，
+            // 这里拿到的就是 null，直接解引用会在 City.SettleCaptiveFood → City.OnMonthStart
+            // → Scenario.OnMonthStart 这条链上抛 NullReferenceException，导致当月俸禄 / 兵粮
+            // 结算整体中断（本方法行号 537 即截图的报错位置）。
+            // 拿不到释放方就无法判断"是不是我方释放的"，这条播报只能跳过。
+            if (person == null || releaseForce == null)
+                return;
+
             // 检查俘虏是否为当前玩家势力
             bool isCaptiveCurPlayer = person.IsCurPlayer;
             // 检查释放方是否为当前玩家势力
@@ -551,6 +566,11 @@ namespace Sango.Core.Player
         /// <param name="executeForce">斩杀方势力</param>
         private void OnPersonExecute(Person person, Force executeForce)
         {
+            // 同 OnPersonRelease：斩杀方可能为空（调用方未传或传的不是 Force），
+            // 直接解引用会在结算链路上抛 NRE 并中断整段流程。
+            if (person == null || executeForce == null)
+                return;
+
             // 检查俘虏是否为当前玩家势力
             bool isCaptiveCurPlayer = person.IsCurPlayer;
             // 检查斩杀方是否为当前玩家势力

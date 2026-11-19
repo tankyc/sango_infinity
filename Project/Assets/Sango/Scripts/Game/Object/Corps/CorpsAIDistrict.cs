@@ -63,8 +63,13 @@ namespace Sango.Core
                 if (basePoint <= 0)
                     basePoint = ScenarioVariables.DefaultAIActionPointBase;
 
-                int n = corps.ActionPoint;
-                corps.ActionPoint = System.Math.Max(n, cityCount * basePoint);
+                // 【AI 无限行动力】读取值已由 getter 给足，这里不必（也不能）写回真实值：
+                // 否则会把 999999 落进存档，玩家取消勾选后残留一个超大行动力。
+                if (!corps.IsInfiniteActionPoint)
+                {
+                    int n = corps.ActionPoint;
+                    corps.ActionPoint = System.Math.Max(n, cityCount * basePoint);
+                }
             }
             return true;
         }
@@ -490,6 +495,13 @@ namespace Sango.Core
         /// <returns>是否处理完成</returns>
         static bool DistrictMove(Corps corps, Scenario scenario)
         {
+            // 【委任钳制 · 人材】"人材"关闭时不派人（军团级调动也是人才调动）。
+            // 【原版差异】原版 district_move（s11_game_ai_district_cmd.cpp:56-112）不检查
+            // DistrictSetting_Personnel；本条为本项目按玩家要求补充，
+            // 与据点级 AIMove / AISummon 保持同一把闸门。
+            if (corps.GetAppointValue(Corps.AppointContentType.Person) == 1)
+                return true;
+
             int cost = JobType.GetJobCostAP((int)CityJobType.TransformPerson);
             // 行动力不足 —— :60-61
             if (OutpostRuntime.actionPoint < cost)

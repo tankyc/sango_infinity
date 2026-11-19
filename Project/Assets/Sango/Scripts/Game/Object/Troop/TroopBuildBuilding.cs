@@ -65,25 +65,12 @@ namespace Sango.Core
                 if (TryFindNextSite(scenario))
                     return;
 
-                // 【随军增筑】若本次施工源自作战部队的"就地增筑"（见 Troop.TryBuildFieldBuilding），
-                // 完工后恢复原任务让其重返战线，而不是像专职工程队那样回城待命。
-                if (Troop.fieldBuildReturnMission != 0)
-                {
-                    MissionType backMission = (MissionType)Troop.fieldBuildReturnMission;
-                    int backTarget = Troop.fieldBuildReturnTarget;
-                    Troop.fieldBuildReturnMission = 0;
-                    Troop.fieldBuildReturnTarget = 0;
-                    Troop.missionParams1 = 0;       // 连建计数归零，不影响原任务的后续逻辑
-                    Troop.SetMission(backMission, backTarget);
-                    Troop.NeedPrepareMission();
-                    return;
-                }
-
                 if (Troop.BelongCity != null && Troop.BelongCity.IsSameForce(Troop))
                 {
                     Troop.SetMission(MissionType.TroopReturnCity, Troop.BelongCity.Id);
                 }
-                else if (TargetCity != null)
+                // 【禁止攻击】军团被禁止对外用兵时，工程队不回身去攻城，直接返城待命
+                else if (TargetCity != null && !TroopAIUtility.IsAttackForbidden(Troop))
                 {
                     Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
                 }
@@ -94,7 +81,6 @@ namespace Sango.Core
                 Troop.NeedPrepareMission();
                 return;
             }
-
 
             if (troop.MoveRange.Count == 0)
             {

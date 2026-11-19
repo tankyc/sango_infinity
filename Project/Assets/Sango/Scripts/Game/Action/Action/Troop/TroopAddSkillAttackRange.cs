@@ -40,6 +40,16 @@ namespace Sango.Core.Action
                                     "[type,value] 表达，已忽略该次追加");
                     return;
                 }
+                // 【防护】DecaySpread 需要 [11,atkRange,概率初始值,概率递减类型,概率递减数值]
+                // 五个参数，[11, addRange] 只有圈数、没有任何概率规则，
+                // 生成出来会被 Skill.GetAttackCells 判为配置错误并退化成单格，
+                // 与其静默劣化，不如明确报错让配置方补全。
+                if (atkType == (int)SkillAttackOffsetType.DecaySpread)
+                {
+                    Sango.Log.Error("TroopAddSkillAttackRange 配置非法：atkType=DecaySpread 无法用 " +
+                                    "[type,value] 表达，请改用 TroopChangeSkillAttackRange 的 atkOffsetPoint 完整配置");
+                    return;
+                }
                 skillInstance.atkOffsetPoint = new int[] { atkType, addRange };
             }
             else
@@ -174,12 +184,35 @@ namespace Sango.Core.Action
                                 Sango.Log.Error("技能命中配置不正确!!");
                         }
                         break;
+                    // 11
+                    case SkillAttackOffsetType.DecaySpread:
+                        {
+                            if (skillInstance.atkOffsetPoint.Length > 4)
+                            {
+                                // 只追加圈数：概率初始值 / 递减规则是整条链的，不按圈区分，
+                                // 新增的外圈会自动沿用当前概率继续往下判。
+                                int ringCount = skillInstance.atkOffsetPoint[1];
+                                ringCount = ringCount + addRange;
+                                skillInstance.atkOffsetPoint[1] = ringCount;
+                            }
+                            else
+                                Sango.Log.Error("技能命中配置不正确!!");
+                        }
+                        break;
                     default:
-                        // 原数组的类型越界（不在 0~10）时整体换成配置的 atkType；
+                        // 原数组的类型越界（不在 0~11）时整体换成配置的 atkType；
                         // 同样不能是 Customize，否则生成 [0, value] 会导致后续越界
                         if (atkType == (int)SkillAttackOffsetType.Customize)
                         {
                             Sango.Log.Error("TroopAddSkillAttackRange 配置非法：atkType=Customize 无法用 " +
+                                            "[type,value] 表达，已忽略该次追加");
+                            break;
+                        }
+                        // 同上：DecaySpread 需要 5 个参数，[type,value] 表达不了，
+                        // 生成出来会被判为配置错误并退化成单格，这里直接拦下
+                        if (atkType == (int)SkillAttackOffsetType.DecaySpread)
+                        {
+                            Sango.Log.Error("TroopAddSkillAttackRange 配置非法：atkType=DecaySpread 无法用 " +
                                             "[type,value] 表达，已忽略该次追加");
                             break;
                         }

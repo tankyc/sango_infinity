@@ -45,6 +45,26 @@ namespace Sango.Core
         {
             if (Troop != troop) Troop = troop;
             if (TargetCity == null || TargetCity.Id != troop.missionTarget) TargetCity = scenario.citySet.Get(Troop.missionTarget);
+
+            // 【禁止攻击 · 兜底】军团被设为禁止对外用兵：攻城任务立即作废，收拢回所属据点。
+            //
+            // 这是据点层 <see cref="CityAI.RecallOffensiveTroops"/> 的兜底：召回只在城池 AI
+            // 跑到 AIAttack 时才执行，若该城本回合被前序命令占住没跑到，在外的攻城部队
+            // 会继续打下去 —— 港关兵力少、攻城回合短，最容易在这个窗口里被拿下，
+            // 也就是玩家看到的"禁止攻击的委任军团打下了港湾"。
+            //
+            // 【原版无对应实现】原版没有军团委任这一层，属本项目护栏。
+            if (TroopAIUtility.IsAttackForbidden(troop))
+            {
+                Sango.Log.Info($"{troop.Name} 所属军团已禁止攻击，放弃攻打{TargetCity?.Name}，返回所属城");
+                if (troop.BelongCity != null)
+                    troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                else
+                    troop.ClearMission();
+                troop.NeedPrepareMission();
+                return;
+            }
+
             // 任务完成后,如果城池被友军拿取则回到创建城池,否则将进入己方目标城池
             // 【优化】原先此处还有"断粮时 30% 概率撤退"的随机判断,与 Troop.AIPrepare 的
             // 统一撤退逻辑重复且互相干扰,现统一由 AIPrepare 处理。
@@ -154,6 +174,16 @@ namespace Sango.Core
                 return true;
             }
 
+            // 【修复·抵达即占领】已站在无主据点格上：直接入城。
+            // Troop.EnterCity 对 BelongForce == null 的据点是先 CityStateSystem.SetCorps 换旗、
+            // 再走正常入城流程（Troop.cs:3394-3409，对齐原版 unit_enter 的 force_id == -1 分支）。
+            // 本类此前完全没有这一步，导致"攻占"任务永远不会真正把白城拿下来。
+            if (troop.cell != null && troop.cell.building == TargetCity && TargetCity.BelongForce == null)
+            {
+                troop.EnterCity(TargetCity);
+                return true;
+            }
+
             if (priorityActionData != null)
             {
                 if (!priorityActionData.moveFinish && !troop.MoveTo(priorityActionData.movetoCell))
@@ -166,6 +196,27 @@ namespace Sango.Core
             }
             else
             {
+                // 【移动受阻兜底】目标城在对岸、中间隔着另一座敌方 / 无主港关时，
+                // 移动范围会在那个港关格处停止扩展，部队永远停在前一格。
+                // 挡路据点若正是本任务目标，TryAttackBlockingCityOnPath 会自行放弃（避免自我改派）。
+                if (TroopAIUtility.TryAttackBlockingCityOnPath(troop, TargetCity.CenterCell, scenario))
+                    return true;
+
+                // 无主据点：直接走进据点格再入城（TryCloseTo 会在建筑格处退到相邻空格，
+                // 永远迈不进去，也就永远触发不了上面的 EnterCity）。
+                if (TargetCity.BelongForce == null)
+                {
+                    if (!troop.TryMoveToCity(TargetCity))
+                        return false;   // 移动动画未播完，下帧继续
+                    if (troop.cell != null && troop.cell.building == TargetCity)
+                    {
+                        troop.EnterCity(TargetCity);
+                        return true;
+                    }
+                    return true;
+                }
+
+                // 有主敌城：只能靠近到攻击位置，不能踏入（EnterCity 会拒绝外势力入城）
                 return troop.TryCloseTo(TargetCity.CenterCell);
                 // 向目标前进，优先选择安全路径
                 //return TroopAIUtility.MoveToTargetSafely(troop, TargetCity.CenterCell, scenario);

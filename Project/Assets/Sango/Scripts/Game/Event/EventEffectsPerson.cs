@@ -10,7 +10,11 @@ using System.Collections.Generic;
 
 namespace Sango.Core.Event
 {
-    /// <summary>把武将忠诚设为指定值（0~100 之间夹取）</summary>
+    /// <summary>
+    /// 把武将忠诚设为指定值（夹在 0..<see cref="Person.MaxLoyalty"/>）。
+    /// 注意内部值域是 0~255，玩家界面只显示 0~100（超额部分由显示层截断），
+    /// 所以剧情里要表达"死忠"可以直接给 120 / 150 / 250。
+    /// </summary>
     [EventEffectMeta("设置武将忠诚", "把忠诚直接设为指定值（建议用 GrowthPlace 键而非写死数字）", "Slot", "Value")]
     public class PersonSetLoyaltyEffect : EventEffectBase
     {
@@ -27,7 +31,7 @@ namespace Sango.Core.Event
             }
 
             int value = EvalInt("Value", context);
-            person.loyalty = Clamp(value, 0, 100);
+            person.loyalty = Clamp(value, 0, Person.MaxLoyalty);
             Log.Info($"事件：{person.Name} 忠诚设为 {person.loyalty}");
             return true;
         }
@@ -45,8 +49,8 @@ namespace Sango.Core.Event
         }
     }
 
-    /// <summary>增减武将忠诚（结果夹在 0~100）</summary>
-    [EventEffectMeta("增减武将忠诚", "在当前忠诚基础上增减，结果夹在 0~100", "Slot", "Value")]
+    /// <summary>增减武将忠诚（结果夹在 0..<see cref="Person.MaxLoyalty"/>）</summary>
+    [EventEffectMeta("增减武将忠诚", "在当前忠诚基础上增减，结果夹在 0~255", "Slot", "Value")]
     public class PersonAddLoyaltyEffect : EventEffectBase
     {
         /// <summary>执行</summary>
@@ -62,7 +66,7 @@ namespace Sango.Core.Event
             }
 
             int delta = EvalInt("Value", context);
-            person.loyalty = PersonSetLoyaltyEffect.Clamp(person.loyalty + delta, 0, 100);
+            person.loyalty = PersonSetLoyaltyEffect.Clamp(person.loyalty + delta, 0, Person.MaxLoyalty);
             Log.Info($"事件：{person.Name} 忠诚 {delta:+#;-#;0} → {person.loyalty}");
             return true;
         }
@@ -192,7 +196,7 @@ namespace Sango.Core.Event
             // 忠诚：BeRecruit 固定置 80；剧情需要更高/更低时在这里覆盖
             if (!string.IsNullOrEmpty(GetString("Loyalty")))
             {
-                person.loyalty = PersonSetLoyaltyEffect.Clamp(EvalInt("Loyalty", context, person.loyalty), 0, 100);
+                person.loyalty = PersonSetLoyaltyEffect.Clamp(EvalInt("Loyalty", context, person.loyalty), 0, Person.MaxLoyalty);
             }
 
             Log.Info($"事件：{person.Name} 加入了 {force.Name}（{city.Name}），忠诚 {person.loyalty}");

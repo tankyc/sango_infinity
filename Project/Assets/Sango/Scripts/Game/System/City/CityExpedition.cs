@@ -195,6 +195,17 @@ namespace Sango.Core.Player
             if (TargetTroop.food <= 0) return;
             if (personList.Count == 0) return;
 
+            // 【出征前最后一道夹取】兵力超编在这里收口，两种越界都要拦：
+            //   ① 超过主将带兵上限 MaxTroops（换将 / 摘副将后的残留值）；
+            //   ② 超过城内现有兵力 —— 否则下面 `TargetCity.troops -= troops` 会把城池打成负数。
+            // 前面的 UpdateJobValue / SetTroops 已经夹过一遍，这里防的是"界面打开之后被外部改动"
+            // （城池被攻、武将调离、读档残留等）的窗口期。
+            if (TargetTroop.MaxTroops > 0 && TargetTroop.troops > TargetTroop.MaxTroops)
+                TargetTroop.troops = TargetTroop.MaxTroops;
+            if (TargetTroop.troops > TargetCity.troops)
+                TargetTroop.troops = TargetCity.troops;
+            if (TargetTroop.troops <= 0) return;
+
             ContextMenu.CloseAll();
             TargetTroop.ActionOver = false;
             TargetTroop.IsAlive = true;
@@ -250,8 +261,8 @@ namespace Sango.Core.Player
             dispatched = false;
             // 回滚金额必须与 :199 的扣减同源，否则回滚会多退/少退
             TargetTroop.BelongCorps.ReduceActionPoint(-TargetCity.GetJobCostAP(CityJobType.MakeTroop));
-            // 取消组建的回滚：部队尚未出发，不做改道
-            TargetTroop.EnterCity(TargetCity, false);
+            // 取消组建的回滚：部队尚未出发，直接收回
+            TargetTroop.EnterCity(TargetCity);
             TargetTroop.ForEachPerson(person =>
             {
                 TargetCity.freePersons.Add(person);
@@ -641,7 +652,14 @@ namespace Sango.Core.Player
 
         public void SetTroops(int num)
         {
-            int maxTroopNum = Math.Min(num, TargetCity.troops);
+            // 【上限收口】num 的调用方有两类：传 TargetTroop.MaxTroops 的（自动编队 / 换兵种），
+            // 以及传固定值的（AutoMakeBuildTroop 传 3000）。后者在主将带兵上限低于该固定值时
+            // 会直接把部队写成超编，所以这里统一再与 MaxTroops 取一次 min。
+            // MaxTroops 尚未计算（<=0）时不夹，保持旧行为。
+            int maxTroopNum = num;
+            if (TargetTroop.MaxTroops > 0)
+                maxTroopNum = Math.Min(maxTroopNum, TargetTroop.MaxTroops);
+            maxTroopNum = Math.Min(maxTroopNum, TargetCity.troops);
             maxTroopNum = TargetCity.itemStore.CheckCostMin(TargetTroop.LandTroopType.costItems, maxTroopNum);
             maxTroopNum = TargetCity.itemStore.CheckCostMin(TargetTroop.WaterTroopType.costItems, maxTroopNum);
             int wonderFood = (int)(maxTroopNum * Scenario.Cur.Variables.baseFoodCostInTroop * 20);

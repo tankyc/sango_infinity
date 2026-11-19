@@ -174,6 +174,12 @@ namespace Sango.Core
             }
             else
             {
+                // 【移动受阻兜底】追击路线被敌方 / 无主港关挡住时改派攻占：
+                // 移动范围会在港关格处停止扩展，部队会永远停在它前一格。
+                // 详见 TroopAIUtility.TryAttackBlockingCityOnPath 的说明。
+                if (TroopAIUtility.TryAttackBlockingCityOnPath(troop, TargetTroop.cell, scenario))
+                    return true;
+
                 // 向目标前进
                 return troop.TryCloseTo(TargetTroop.cell);
             }

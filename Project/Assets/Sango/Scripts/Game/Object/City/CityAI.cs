@@ -283,6 +283,29 @@ namespace Sango.Core
             if (targetCity == null)
             {
                 LogAttack(city, "出兵取消：目标城已不存在（被灭/易主）");
+                city.TroopMissionType = MissionType.None;
+                city.TroopMissionTargetId = 0;
+                return;
+            }
+
+            // 【目标失效即停派】目标城已不敌对（被本方/同势力其它军团/盟友拿下，或已灭亡），
+            // 这条攻城任务就该结束 —— 继续派兵只会让部队一出城就被
+            // TroopOccupyCity.IsMissionComplete（= !IsEnemy）判成"已完成"，
+            // 转成 TroopMovetoCity 钻进那座城解散，满兵城还会把溢出兵力 clamp 丢掉。
+            //
+            // 旧实现只判 null，于是"目标城易主"后城池会源源不断地派兵送进友军城，
+            // 而且在外兵力统计（下面按 missionType == TroopOccupyCity 计数）永远为 0，
+            // 缺口永远填不满 —— 这就是玩家看到的"委任军团派出大军钻进友军城市"。
+            //
+            // 白城（BelongForce == null）仍是合法目标：它在 DecideAttackTarget 里权重 99999，
+            // 是"占领空城"的正常路径，不能一起掐掉。
+            if (!targetCity.IsAlive
+                || (targetCity.BelongForce != null && !targetCity.IsEnemy(city)))
+            {
+                LogAttack(city, $"出兵取消：{targetCity.Name} 已不敌对"
+                                + $"（当前归属 {targetCity.BelongForce?.Name ?? "无主"}）");
+                city.TroopMissionType = MissionType.None;
+                city.TroopMissionTargetId = 0;
                 return;
             }
 
@@ -948,10 +971,33 @@ namespace Sango.Core
                 return true;
 
             // 延续上次的进攻目标，避免每回合重新评估导致部队反复改道
+            //
+            // 【必须校验敌我】目标城可能在行军途中被同势力（含本势力的**另一个军团**）
+            // 或盟友拿下。此时"延续目标"已经失去意义：派出去的部队一出城就会被
+            // TroopOccupyCity.IsMissionComplete（= !IsEnemy）判成"已完成"，
+            // 随即转成 TroopMovetoCity 直接钻进那座城解散（满兵城还会 clamp 掉溢出兵力）。
+            // 旧实现不校验，城池就会按旧目标每回合继续派兵 —— 玩家看到的就是
+            // "委任军团派出大军，结果全部钻进了友军城市"。
+            //
+            // 判定口径与 DecideAttackTarget 下面的候选筛选保持一致：
+            //   · 白城（BelongForce == null）仍是合法目标 —— 它在下面有权重 99999；
+            //   · 有主城必须是敌对方。
             City lastTargetCity = null;
             Troop activedTroop = scenario.troopsSet.Find(x => x.IsAlive && x.BelongCity == city);
             if (activedTroop != null && activedTroop.missionType == (int)MissionType.TroopOccupyCity)
-                lastTargetCity = scenario.citySet.Get(activedTroop.missionTarget);
+            {
+                City candidate = scenario.citySet.Get(activedTroop.missionTarget);
+                if (candidate != null && candidate.IsAlive
+                    && (candidate.BelongForce == null || candidate.IsEnemy(city)))
+                {
+                    lastTargetCity = candidate;
+                }
+                else if (candidate != null)
+                {
+                    LogAttack(city, $"放弃延续目标 {candidate.Name}"
+                                    + $"（已不敌对：{candidate.BelongForce?.Name ?? "无主"}）");
+                }
+            }
 
             if (lastTargetCity != null)
             {
@@ -970,7 +1016,14 @@ namespace Sango.Core
 
                 if (x.BelongForce == null)
                 {
-                    priorityQueue.Push(x, 9999);
+                    // 【白城（无归属）权重 99999】远高于普通城的任何组合：
+                    // 普通城上限 ≈ 2500 × 战力比 × 耐久比 × 关系系数1.5 × 距离0.9，
+                    // 战力比 10、耐久只剩一半也就 33750 左右，因此白城永远排在最前。
+                    //
+                    // 【为什么不再需要担心门槛】这段是提前 return，普通城下面的
+                    // 兵力下限 / 兵力对比 / 耐久 / 外交 / 距离因子全部不适用于白城。
+                    // GameRandom.Chance(99999, 10000) 内部是「chance >= root 直接 true」，不会溢出。
+                    priorityQueue.Push(x, 99999);
                     return;
                 }
 
@@ -1016,28 +1069,72 @@ namespace Sango.Core
                 priorityQueue.Push(x, weight);
             });
 
+            // 【闸门一：本回合出不出兵】候选越多，抽到非 0 的概率越大（n/(n+1)）。
+            // GameRandom.Range(min, max) 是 [min, max)，所以这里有 Count+1 才能取到 Count。
             int count = GameRandom.Range(0, UnityEngine.Mathf.Max(0, priorityQueue.Count) + 1);
             if (count == 0)
-                LogAttack(city, $"随机未尝试候选(count=0，候选{priorityQueue.Count})，本回合不出兵");
-
-            for (int i = 0; i < count; i++)
             {
-                int priority = 0;
-                City targetCity = priorityQueue.Higher(out priority);
-                if (targetCity == null)
-                    continue;
+                LogAttack(city, $"随机未尝试候选(count=0，候选{priorityQueue.Count})，本回合不出兵");
+                return true;
+            }
 
-                // 权重越高越可能被选中
-                if (GameRandom.Chance(priority, 10000))
+            // 【闸门二：打哪个】按总权重做一次区间随机。
+            //
+            // 【为什么不再逐个 Chance(priority, 10000)】那种写法有两个毛病：
+            //   ① 命中率随候选数变化 —— 多一个弱候选就会稀释强候选的命中机会；
+            //   ② 白城权重 99999 早已超过 root(10000)，而 Chance 内部是
+            //      `chance >= root` 直接返回 true，等于"轮到它必选"，
+            //      权重之间本该有的相对大小完全失效。
+            // 改成"先求总权重 total，取 roll ∈ [0, total)，从高到低累减到负数"，
+            // 每个候选被选中的概率正好是 priority / total。
+            int total = priorityQueue.GetTotalPriority();
+
+            // 【total 必须 > 0】GameRandom.Range(0, 0) 会抛 ArgumentOutOfRangeException
+            // （Random.Next(min, max) 要求 min < max）。权重可能因为战力/耐久算出 0，
+            // 这时没有区间可抽，退化为"取权重最高者"，而不是判定为不出兵。
+            if (total <= 0)
+            {
+                City fallback = priorityQueue.Higher(out int fallbackPriority);
+                if (fallback == null)
+                {
+                    LogAttack(city, "候选权重合计为 0，本回合不出兵");
+                    return true;
+                }
+
+                city.TroopMissionType = MissionType.TroopOccupyCity;
+                city.TroopMissionTargetId = fallback.Id;
+                LogAttack(city, $"决定进攻 {fallback.Name}(权重{fallbackPriority}，总权重<=0走退化路径)");
+                return false;
+            }
+
+            // 【count 不能拿来当扫描预算】区间累减必须走完**全部**候选：
+            // roll 是在 [0, total) 里取的，只有把每个候选的权重依次减掉、直到变负，
+            // 才能保证"roll 落在谁的区间就选中谁"。
+            // 一旦用 count（范围 [1, 候选数]）截断循环，排在后面的候选权重会被整段丢弃：
+            // 例如 白城 99999 + 普通城 3000（total=102999），count=1 时 roll≥99999 的那
+            // 2.9% 本该命中普通城，却因为循环提前退出而落到"未命中"→ 白打一回合。
+            // 截断还会让"最低权重的候选"永远选不到（扫描顺序恒为从高到低）。
+            // 因此 count 只承担上面那道"本回合出不出兵"的闸门作用。
+            int roll = GameRandom.Range(0, total);
+            while (priorityQueue.Count > 0)
+            {
+                City targetCity = priorityQueue.Higher(out int priority);
+                if (targetCity == null)
+                    break;
+
+                roll -= priority;
+                if (roll < 0)
                 {
                     city.TroopMissionType = MissionType.TroopOccupyCity;
                     city.TroopMissionTargetId = targetCity.Id;
-                    LogAttack(city, $"决定进攻 {targetCity.Name}(权重{priority})");
+                    LogAttack(city, $"决定进攻 {targetCity.Name}(权重{priority}/总{total})");
                     return false;
                 }
             }
-            if (count > 0)
-                LogAttack(city, $"候选未命中(count={count}，候选{priorityQueue.Count})，本回合不出兵");
+
+            // roll ∈ [0, total) 且总和恰为 total，理论上必然在上面命中；
+            // 走到这里说明权重被负数拉偏了，保底不出兵。
+            LogAttack(city, $"权重区间未命中(总权重{total})，本回合不出兵");
             return true;
         }
 
@@ -1817,12 +1914,15 @@ namespace Sango.Core
         static List<Person> sRecruitWildCandidates = new List<Person>();
 
         /// <summary>
-        /// AI招募武将逻辑。
+        /// AI 招募武将在野武将（Employ / EmployMax 共用）。
+        ///
+        /// 【返回值 = 是否真的派人】true 才表示至少把一名空闲武将派去登用（含异地出使）。
+        /// 被"人材禁止 / 无在野 / 无空闲武将 / 全部候选人成功率不足 30 / 目标校验失败"拦下时返回 false，
+        /// 外层 <c>IgnoreResult</c> 据此不标记 delegatedExecuted，调度器也就不补扣据点行动力。
         /// </summary>
         /// <param name="city">城市对象</param>
         /// <param name="scenario">场景对象</param>
-        /// <returns>是否完成</returns>
-
+        /// <returns>是否真的派人去登用</returns>
         public static bool AIRecruitPerson(City city, Scenario scenario)
         {
             // 【委任钳制】"人才"被禁止时不去招募/登用在野武将 —— 对齐 Open311 kyoten_employ 开头的
@@ -1832,25 +1932,24 @@ namespace Sango.Core
             // AIEmployMax / AIEmployEnemy / AIEmployEnemyMax）全部漏掉了。
             if (city.BelongCorps != null
                 && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
-                return true;
+                return false;
 
             // 【人才池含港关】搜索能发现港关的未发现武将，发现后落到**港关**的 wildPersons
             // （City.DoJobSearching → target.CurrentCity.AddWildPerson）。若这里只看
             // city.wildPersons，港关搜出来的人就永远没人登用 —— 用 City.CollectWildPersons
             // 统一口径，和玩家侧 CityRecruit.CollectTargets（全地图扫）保持可达性一致。
             city.CollectWildPersons(sRecruitWildCandidates);
+            // 【返回值 = 是否真的派出】被上面任何一道门拦下时返回 false，
+            // 外层的 IgnoreResult 就不会 MarkDelegated，调度器也就不会补扣据点行动力
+            // （此前恒返回 true 导致"没在野 / 没人可派"也照扣一次登用 AP）。
             if (sRecruitWildCandidates.Count == 0 || city.freePersons.Count == 0)
-                return true;
+                return false;
 
             // 【优化】原先对每个在野武将都尝试招募，会一次性占用全部空闲武将；
             // 现限制单回合招募人数，把机会留给后续回合。
             int recruited = 0;
-            // 单回合上限：剧本参数 aiEmployMaxPerTurnOverride > 0 时覆盖全局 AIConfig 配置
-            int maxPerTurn = AIConfig.Instance.recruitPersonMaxPerTurn;
-            ScenarioVariables sv = scenario != null ? scenario.Variables : null;
-            if (sv != null && sv.aiEmployMaxPerTurnOverride > 0)
-                maxPerTurn = sv.aiEmployMaxPerTurnOverride;
-            maxPerTurn = System.Math.Max(1, maxPerTurn);
+            // 单回合上限：统一读 AIConfig 全局值（默认 1），不再支持剧本覆盖
+            int maxPerTurn = System.Math.Max(1, AIConfig.Instance.recruitPersonMaxPerTurn);
 
             // 【在野驱动】在野越多，单回合登用越多 —— 直接按"在野人数"调整调用登用命令的密度
             // （上限仍受 maxPerTurn 的基数与 scoreRecruitPersonWildBonusMax 之类的封顶约束，
@@ -1881,12 +1980,17 @@ namespace Sango.Core
                 if (recommandPerson == null)
                     continue;
 
-                city.JobRecruitPerson(recommandPerson, target);
+                // 用 out dispatched 区分"真的派出"与"被校验拦下（目标无城 / 对方是君主等）"：
+                // 只有真派出才占名额、才算本条命令做了事。
+                city.JobRecruitPerson(recommandPerson, target, out bool dispatched);
+                if (!dispatched)
+                    continue;
+
                 recruited++;
                 if (recruited >= maxPerTurn)
                     break;
             }
-            return true;
+            return recruited > 0;
         }
 
         // ==================== 城池运输已移交资源调度 ====================
@@ -1935,7 +2039,7 @@ namespace Sango.Core
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Build) == 1)
                 return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.ConserveGold) == 1)
             {
                 if (GameRandom.Chance(50))
                     return true;
@@ -2019,6 +2123,14 @@ namespace Sango.Core
             // 内政设施的新建与升级不受它约束。
             if (city.BelongCorps != null
                 && city.BelongCorps.GetAppointValue(Corps.AppointContentType.Build) == 1)
+                return true;
+
+            // 【委任钳制 · 攻击】禁止向外用兵时，前线军事建筑（箭楼 / 阵 / 军事府等）也不建。
+            // 原版 `kyoten_build`（s11_game_ai_kyoten_cmd_mil_build.cpp:14-18）：
+            //   if (force_->is_player() and not_player_district_settings(Attack)) return true;
+            // 此前该入口只判了"建筑控制"（Build），漏了"攻击"这一层 ——
+            // 玩家勾了禁止攻击，AI 仍会往前线堆箭楼。
+            if (IsAttackForbidden(city))
                 return true;
 
             if (city.areaCellList.Count == 0)
@@ -2172,7 +2284,7 @@ namespace Sango.Core
             // 【陷阱选型对齐原版】原版陷阱由「部队（self）」在行动时自主建造（add_build_action :1253-1267），
             // 城池派建造部队（kyoten_build → DeployType_Build）只负责派出、不选型，选型发生在部队到达后。
             // 故此处（派队前尚无 self）builder 传 null 跳过陷阱选型，陷阱改由
-            // 「作战部队就地增筑」（Troop.TryBuildFieldBuilding）与「工程队连建」（TroopBuildBuilding.TryFindNextSite）触发。
+            // 「工程队连建」（TroopBuildBuilding.TryFindNextSite）在部队到达后触发。
             BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, null, force, scenario);
             if (buildingType == null)
                 return false;
@@ -2923,7 +3035,7 @@ namespace Sango.Core
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
             {
                 // 重视资金
-                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+                if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.ConserveGold) == 1)
                 {
                     // 80%概率不行为
                     if (GameRandom.Chance(80))
@@ -2979,10 +3091,10 @@ namespace Sango.Core
             if (city.freePersons.Count <= 0) return true;
             if (city.gold <= cfg.tradeFoodKeepGold) return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.ConserveGold) == 1)
                 return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Foood) == 1)
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Food) == 1)
                 return true;
 
             // 【P2】个性影响:经济型更积极囤粮,其余个性保持默认节奏
@@ -3364,7 +3476,13 @@ namespace Sango.Core
                 if (itemTypeId < 5 && freeBlacksmithShop == null)
                     continue;
 
-                if (city.BelongCorps.GetAppointValue((Corps.AppointContentType)(itemTypeId - 2)) == 1)
+                // 【委任钳制 · 生产】轻视该兵种 → 不生产。
+                // 改用显式映射，不再依赖 `itemTypeId - 2` 与枚举顺序的巧合
+                // （映射见 CityAIOutpost.GetProduceAppoint）。
+                Corps.AppointContentType? produceAppoint =
+                    GetProduceAppoint((ItemStoreKindType)itemTypeId);
+                if (produceAppoint.HasValue && city.BelongCorps != null
+                    && city.BelongCorps.GetAppointValue(produceAppoint.Value) == 1)
                     continue;
 
                 // 【容器上限 · 与船 / 器械同口径】上限 = 仓库上限 × 该道具的 p1 千分比
@@ -3429,7 +3547,7 @@ namespace Sango.Core
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Boat) == 1)
                 return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.ConserveGold) == 1)
             {
                 if (GameRandom.Chance(50))
                     return true;
@@ -3485,7 +3603,7 @@ namespace Sango.Core
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.MakeItem_Machine) == 1)
                 return true;
 
-            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Donot_Store_Gold) == 1)
+            if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.ConserveGold) == 1)
             {
                 if (GameRandom.Chance(50))
                     return true;
@@ -3848,7 +3966,10 @@ namespace Sango.Core
             // 部队层只读它做改派（s11_game_ai_unit.cpp:124-130）。
             // 注意必须在 SetMission 之前写：SetMission 可能触发 Prepare 级联，那里会读意图。
             troop.deployType = Troop.ToDeployType((int)city.TroopMissionType);
-            troop.deployTarget = city.TroopMissionTargetId;
+            // 【意图目标换算】deployTarget 只接受**据点** Id。驱逐 / 破坏建筑这类
+            // 任务的目标 Id 与 citySet 不同域，直接写入会让部队层把它当城 Id 解析，
+            // 撞 Id 时改派成"移动进城"（详见 Troop.GetDeployTargetCityId 的说明）。
+            troop.deployTarget = Troop.GetDeployTargetCityId((int)city.TroopMissionType, city.TroopMissionTargetId);
 
             // 渲染刷新统一由 CityTroopFactory.EmitTroop 负责（此时部队尚未登记进场景）
             troop.SetMission(city.TroopMissionType, city.TroopMissionTargetId);

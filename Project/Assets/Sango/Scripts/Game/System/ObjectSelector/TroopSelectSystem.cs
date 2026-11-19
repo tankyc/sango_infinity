@@ -23,6 +23,10 @@ namespace Sango.Core.Player
                 TroopSortFunction.SortByBelongForce,
                 TroopSortFunction.SortByBelongCorps,
                 TroopSortFunction.SortByBelongCity,
+                // 【任务列】选择器此前只罗列属性，看不到"这支部队正在干什么"，
+                // 玩家从城市 / 势力的部队按钮进来时无法区分待命部队与出征部队。
+                // 详情面板（UITroopInformation）早已用同一列，这里补齐，两处口径同源。
+                TroopSortFunction.SortByMissionType,
                 TroopSortFunction.SortByTroops,
                 TroopSortFunction.SortByTroopType,
                 TroopSortFunction.SortByAbility,

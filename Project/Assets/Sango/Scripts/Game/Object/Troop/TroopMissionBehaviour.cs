@@ -41,6 +41,8 @@ namespace Sango.Core
                     return new TroopProtectCity();
                 case (int)MissionType.TroopMovetoCity:
                     return new TroopMovetoCity();
+                case (int)MissionType.TroopSupportCity:
+                    return new TroopSupportCity();
                 case (int)MissionType.TroopReturnCity:
                     return new TroopReturnCity();
                 case (int)MissionType.TroopBuildBuilding:

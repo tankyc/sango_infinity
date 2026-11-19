@@ -1588,30 +1588,156 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 判断是否与另一势力为同盟关系
+        /// 【运行期缓存 · 不序列化】同盟位掩码：按对方的 Id 取位，1 表示存在同盟协议。
+        /// 由 <see cref="RebuildAllianceBits"/> 从 <see cref="AllianceList"/> 派生。
+        /// </summary>
+        ulong[] allianceBits;
+        /// <summary>【运行期缓存 · 不序列化】停战位掩码，语义同 <see cref="allianceBits"/></summary>
+        ulong[] truceBits;
+        /// <summary>【运行期缓存】构建掩码时 AllianceList 的条数；与实际条数不一致即视为过期</summary>
+        int allianceBitsCount = -1;
+
+        /// <summary>
+        /// 从 <see cref="AllianceList"/> 重建同盟 / 停战位掩码。
+        ///
+        /// 【为什么用位掩码】<see cref="IsAlliance"/> / <see cref="IsTruce"/> 位于
+        /// <c>SangoObject.IsEnemy</c> 的最内层 —— AI 评分、ZOC 判定、技能可选目标、通行判定
+        /// 全都经过它，一帧能调上万次。原实现每次都要遍历 AllianceList、再对每条协议
+        /// 线性 <c>Contains</c> 双方的 ForceList，复杂度 O(协议数 × 参与方数)。
+        /// 位掩码把单次查询压成"一次数组下标 + 一次位与"（O(1)），
+        /// 且没有协议时走 <c>allianceBits == null</c> 的空快路径（绝大多数势力常年如此）。
+        ///
+        /// 【过期判定：为什么用条数当缓存键，而不是通知写入方】
+        /// AllianceList 的写入点分散在外交结盟 / 停战 / 宣战 / 到期 / 劝降 / 挑拨等十余处，
+        /// 逐个挂失效回调漏一个就会长期误判。本项目协议只会被 Add / Remove
+        /// （从不原地替换元素），条数必然随之改变，因此 <c>AllianceList.Count</c>
+        /// 就是充分的内容版本号。重建成本 O(协议数 × 参与方数)，只在关系变动后发生一次。
+        ///
+        /// 【与原实现等价性】原实现只判 <c>Contains(other)</c> 与 <c>allianceType</c>，
+        /// 不看 IsAlive / leftCount（到期协议由 <see cref="Alliance.OnTurnStart"/> 主动摘除）。
+        /// 这里同样只按"出现在协议里的势力"落位，语义一致。
+        /// </summary>
+        void RebuildAllianceBits()
+        {
+            SangoObjectList<Alliance> list = AllianceList;
+            if (list == null || list.Count == 0)
+            {
+                allianceBitsCount = 0;
+                allianceBits = null;
+                truceBits = null;
+                return;
+            }
+            allianceBitsCount = list.Count;
+
+            // ① 先扫出最大参与方 Id，一次分配到位，避免边填边扩容
+            int maxId = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Alliance alliance = list[i];
+                if (alliance == null || alliance.ForceList == null)
+                    continue;
+                for (int j = 0; j < alliance.ForceList.Count; j++)
+                {
+                    Force f = alliance.ForceList.Get(j);
+                    if (f != null && f.Id > maxId)
+                        maxId = f.Id;
+                }
+            }
+
+            int words = (maxId >> 6) + 1;
+            if (allianceBits == null || allianceBits.Length < words)
+            {
+                allianceBits = new ulong[words];
+                truceBits = new ulong[words];
+            }
+            else
+            {
+                // 【必须清全量】只清前 words 段会留下尾部旧位：
+                // 上一版协议的参与方 Id 可能更大（例如曾经与 Id=200 的异族结盟），
+                // 这次最大 Id 只有 10，words 缩到 1，但 bits[1..] 的旧位仍在 ——
+                // 之后查询那个旧 Id 会命中残留位，被误判成仍在同盟。
+                System.Array.Clear(allianceBits, 0, allianceBits.Length);
+                System.Array.Clear(truceBits, 0, truceBits.Length);
+            }
+
+            // ② 按协议类型落位
+            for (int i = 0; i < list.Count; i++)
+            {
+                Alliance alliance = list[i];
+                if (alliance == null || alliance.ForceList == null)
+                    continue;
+
+                ulong[] target = alliance.allianceType == AllianceType.Alliance ? allianceBits : truceBits;
+                // 【与原实现等价】IsTruce 走的是 CheckAlliance(..., Truce)，判了 IsAlive + leftCount；
+                // 而 IsAlliance 没判这两项（到期协议由 Alliance.OnTurnStart 主动从各方列表摘除）。
+                // 所以只有停战位需要这道有效性过滤，同盟位保持"只要在列表里就算"。
+                if (target == truceBits && (!alliance.IsAlive || alliance.leftCount <= 0))
+                    continue;
+
+                for (int j = 0; j < alliance.ForceList.Count; j++)
+                {
+                    Force f = alliance.ForceList.Get(j);
+                    if (f == null || f.Id < 0)
+                        continue;
+                    int word = f.Id >> 6;
+                    if (word >= target.Length)
+                        continue;
+                    target[word] |= 1UL << (f.Id & 63);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 确保位掩码与 <see cref="AllianceList"/> 同步。
+        ///
+        /// 【为什么必须由 IsAlliance / IsTruce 共用】两者读同一份掩码、共用
+        /// <c>allianceBitsCount</c> 这个版本号。若各自维护一套，
+        /// 会出现"一方看到条数为 0 却没把版本号归零、另一方随后看到条数恢复成旧值
+        /// 于是跳过重建"的错配 —— 条件很窄（期间只调过其中一个），但确实会读到陈旧掩码。
+        /// </summary>
+        /// <returns>false = 当前一条协议都没有</returns>
+        bool EnsureAllianceBits()
+        {
+            SangoObjectList<Alliance> list = AllianceList;
+            // 【空快路径】没有协议：绝大多数势力、绝大多数回合都走这里
+            if (list == null || list.Count == 0)
+            {
+                if (allianceBitsCount != 0)
+                {
+                    allianceBitsCount = 0;
+                    allianceBits = null;
+                    truceBits = null;
+                }
+                return false;
+            }
+
+            if (allianceBitsCount != list.Count)
+                RebuildAllianceBits();
+            return true;
+        }
+
+        /// <summary>
+        /// 判断是否与另一势力为同盟关系。
+        ///
+        /// 【复杂度】O(1)：一次空列表判断 + 一次数组下标 + 一次位与。
+        /// 原实现是 O(协议数 × 参与方数) 的线性查找，见 <see cref="RebuildAllianceBits"/> 的说明。
         /// </summary>
         /// <param name="other">另一势力</param>
         /// <returns>是否为同盟关系</returns>
         public bool IsAlliance(Force other)
         {
-            if (other == null || AllianceList == null)
+            if (other == null || other.Id < 0)
+                return false;
+            if (!EnsureAllianceBits())
                 return false;
 
-            for (int i = 0; i < AllianceList.Count; ++i)
-            {
-                Alliance alliance = AllianceList[i];
-
-                // 【空槽防御】旧存档 / 早期 FromArray 会把解析失败的 Id 存成 null
-                // （Database.FromArray 已修，但老档里的空槽不会自己消失）。
-                // 这里少判一次就是整局崩溃：IsAlliance 在最热的路径上
-                // （SangoObject.IsEnemy → 每一次敌对判定），一帧能调上千次。
-                if (alliance == null)
-                    continue;
-
-                if (alliance.Contains(other) && alliance.allianceType == AllianceType.Alliance)
-                    return true;
-            }
-            return false;
+            ulong[] bits = allianceBits;
+            if (bits == null)
+                return false;
+            int word = other.Id >> 6;
+            if (word >= bits.Length)
+                return false;
+            return (bits[word] & (1UL << (other.Id & 63))) != 0;
         }
 
         // HasActiveTradeAgreement 已删除：原版没有通商命令，AllianceType.Trade 随之移除。
@@ -1683,9 +1809,32 @@ namespace Sango.Core
             return null;
         }
 
+        /// <summary>
+        /// 判断是否与另一势力处于停战期。
+        ///
+        /// 【复杂度】O(1)：与 <see cref="IsAlliance"/> 共用同一套位掩码（停战位），
+        /// 见 <see cref="RebuildAllianceBits"/>。原实现是
+        /// <c>CheckAlliance(other, Truce) != null</c>，即 O(协议数 × 参与方数) 的线性查找。
+        ///
+        /// 【与原实现等价】停战位在重建时过滤了 <c>IsAlive &amp;&amp; leftCount &gt; 0</c>，
+        /// 与 <see cref="CheckAlliance(Force, AllianceType)"/> 的判定一致。
+        /// </summary>
+        /// <param name="other">另一势力</param>
+        /// <returns>是否处于停战期</returns>
         public bool IsTruce(Force other)
         {
-            return CheckAlliance(other, AllianceType.Truce) != null;
+            if (other == null || other.Id < 0)
+                return false;
+            if (!EnsureAllianceBits())
+                return false;
+
+            ulong[] bits = truceBits;
+            if (bits == null)
+                return false;
+            int word = other.Id >> 6;
+            if (word >= bits.Length)
+                return false;
+            return (bits[word] & (1UL << (other.Id & 63))) != 0;
         }
 
         //public Corps Add(Corps corps)
@@ -2164,8 +2313,13 @@ namespace Sango.Core
         ///   · 兵装：按 枪 / 戟 / 弩 / 马 四种均分，
         ///     不给兵器与船 —— 那两项在本项目里由据点生产命令产出
         ///     （见 City.CreateMachine / 船只生产），直接白送会破坏攻城节奏。
-        /// 每座城都补（而不是只补首都）：AI 城一多时总量才跟得上难度曲线，
+        /// 每座**都市**都补（而不是只补首都）：AI 城一多时总量才跟得上难度曲线，
         /// 也不会出现「首都被围 → 加成归零」的悬崖。
+        ///
+        /// 【港关不补】港口 / 关隘的容量与产出模型和都市不同：
+        /// GoldLimit / FoodLimit / TroopsLimit 都极小，补进去几乎立刻贴顶 = 白送；
+        /// 兵装直接塞进 itemStore 也会绕过"港关本就不产兵装"的设定。
+        /// 港关的补给按 ResourceDispatcher 从归属都市调运，不走这份难度补贴。
         ///
         /// 调用点固定在 <see cref="OnForceTurnStart"/> 的 pendingPlayerControl 之后，
         /// 保证读的是本回合真实归属，玩家接管的势力当回合就不再吃这份加成。
@@ -2193,6 +2347,13 @@ namespace Sango.Core
             {
                 City city = scenario.citySet[i];
                 if (city == null || !city.IsAlive || city.BelongForce != this)
+                    continue;
+
+                // 【港关不补】只给都市发难度补贴。
+                // 港关的金 / 粮 / 兵上限都极小，一补就贴顶（等于白加，
+                // 还会让 AI 误判"这个港兵力充足"），兵装更是港关本就不产的东西。
+                // 港关的资源需求由 ResourceDispatcher 从归属都市调运解决。
+                if (!city.IsCity())
                     continue;
 
                 // 按"实际到账"取增量：金 / 粮 / 兵都会被 City.*Limit 截断，
@@ -2844,26 +3005,51 @@ namespace Sango.Core
         /// self->set_tech_point(n + diff);
         /// return diff;
         /// </code>
-        /// 这里的两条规则必须收在统一入口：
+        /// 这里的三条规则必须收在统一入口：
         /// 1) **减半**：原版各获取点（内政 / 战斗 / 外交 / 事件）填的都是"未减半的原始值"，
         ///    例如征兵 <c>min(1 + troops/300, 10)</c>、巡查 <c>change*5/7+5</c>、
         ///    舌战单挑 <c>+50</c>、搜索到人才 <c>+20</c>。如果在各调用点自己除 2，
         ///    一旦有新的调用点忘了除，就会变成双倍收益。
-        /// 2) **上限**：原版 <c>max_force_tech_point_ = 10000</c>（s11_db.h:173），
+        /// 2) **倍率**：剧本参数 <c>ScenarioVariables.techniquePointGainFactor</c>，
+        ///    在减半之后、写值之前乘上去。放在入口是为了让内政 / 战斗 / 外交 / 事件
+        ///    同一口径生效；消耗（负值）不经过这一步，不会被缩放。
+        /// 3) **上限**：原版 <c>max_force_tech_point_ = 10000</c>（s11_db.h:173），
         ///    本项目映射为 <c>ScenarioVariables.maxForceTechniquePoint</c>。
         /// </para>
         /// </summary>
-        /// <param name="value">原始增减值（正数会被入口减半）</param>
-        /// <returns>实际变化量（可能因减半 / 上下限夹取而与入参不同，0 表示没有变化）</returns>
+        /// <param name="value">原始增减值（正数会被入口减半，再乘剧本倍率）</param>
+        /// <returns>实际变化量（可能因减半 / 倍率 / 上下限夹取而与入参不同，0 表示没有变化）</returns>
         public int GainTechniquePoint(int value)
         {
+            Scenario scenario = Scenario.Cur;
+
             // 正数减半，最少 1 —— 负数（消耗）原样保留
             if (value > 0)
+            {
                 value = System.Math.Max(value / 2, 1);
+
+                // 剧本参数：技巧点获取倍率（默认 1）。放在减半之后 —— 它调的是"最终到手多少"；
+                // 消耗走负值分支、不经过这里，所以研究 / 外交 / 装备变更的花费不会被放大。
+                // 与「名声」这类特技倍率是相乘关系：那些改的是本方法的入参（原始值）。
+                float factor = scenario != null && scenario.Variables != null
+                    ? scenario.Variables.techniquePointGainFactor
+                    : 1f;
+                if (factor < 0f)
+                    factor = 0f;
+                if (factor != 1f)
+                {
+                    // 用 double 计算并夹到 int 范围：倍率可能被剧本 JSON 手改成极大值，
+                    // 直接把超界的 float 结果转 int 是未定义行为。
+                    double scaled = value * (double)factor;
+                    if (scaled >= int.MaxValue)
+                        value = int.MaxValue;
+                    else
+                        value = (int)System.Math.Round(scaled, System.MidpointRounding.AwayFromZero);
+                }
+            }
             if (value == 0)
                 return 0;
 
-            Scenario scenario = Scenario.Cur;
             int max = scenario != null && scenario.Variables != null
                 ? scenario.Variables.maxForceTechniquePoint
                 : 10000;

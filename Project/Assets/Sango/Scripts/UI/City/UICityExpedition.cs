@@ -310,8 +310,17 @@ namespace Sango.UI
 
             int current = targetTroop.troops;
             int max = GetMaxTroops();
-            // 当前值可能超过上限(更换兵种/武将后的残留数据),保证不会被输入器压回去
-            if (max < current) max = current;
+            // 【不允许把上限抬到 current】原写法是 `if (max < current) max = current;`，
+            // 注释说是"保住换将/换兵种后的残留数据"，实际效果是把超编脏数据**合法化**：
+            // 只要部队兵力超过上限，输入器的上限就被顶到该值，玩家点确认就能继续按超编值出征。
+            // 上限只由「主将带兵上限 + 城内兵力 + 兵装」三者决定（GetMaxTroops），
+            // current 超了就是错的，应当当场夹回去（与 Troop.ClampTroopsToMax 同向）。
+            if (max < 1) max = 1;
+            if (current > max)
+            {
+                current = max;
+                targetTroop.troops = max;
+            }
 
             Window.Instance.Open("window_calculator", "士兵", current, 1, max,
                 (Action<int>)((val) => ApplyTroops(val)),

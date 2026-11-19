@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Sango.Core
 {
     /// <summary>
-    /// AI 部队的"改道兜底"规则：入城装不下、盟友城协防不划算时，把部队改派到别处。
+    /// AI 部队的"改道兜底"规则：盟友城协防不划算时，把部队召回最近的自有城。
     ///
     /// 【原版无对应实现 —— 规则第 5 条自主设计】
     /// Open311 的 <c>unit_enter</c> 直接调用 <c>building_add_troops</c>
@@ -11,12 +11,14 @@ namespace Sango.Core
     /// 用 <c>clamp</c> 截断、返回实际变化量（s11_sys_scen_building.cpp:1145-1154），
     /// 调用方不接返回值 —— 也就是说**原版确实会把溢出兵力丢掉**。
     ///
-    /// 本项目按玩家反馈改成：
+    /// 本项目按玩家反馈补的规则：
     /// <list type="bullet">
-    /// <item>入城会溢出 → AI 不进城，改道最近的有余量据点（玩家侧保持原版行为，不做处理）；
-    ///       <b>该检查只对港关生效</b>，城池一律不检查 —— 城兵满时再拦，部队就永远回不了城；</item>
     /// <item>盟友城协防不划算（打不过 / 够不着） → 立即召回最近的自有城。</item>
     /// </list>
+    ///
+    /// 【已取消】早前还实现过"入城会溢出 → AI 不进港关、改道别处"，现已按需求移除：
+    /// 满兵港关必须照常接收自己的部队，否则部队会永远悬在地图上；
+    /// 装不下的部分按原版 clamp 丢弃，并由 <see cref="Troop.EnterCity"/> 打 warning 留痕。
     /// 所有阈值走 <see cref="AIConfig"/>，不硬编码。
     /// </summary>
     public static class TroopAIFallback
@@ -44,84 +46,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 入城溢出拦截：装不下就改道别处，返回 true 表示已改道（调用方不要再执行入城）。
-        ///
-        /// 玩家侧不调用本方法 —— 保持原版"超出上限即丢弃"的行为。
-        ///
-        /// 【只处理港关】城池不做容量拦截：城兵满时若把部队改道，部队就永远回不了城。
-        /// 非港关直接返回 false，由调用方按正常入城流程处理。
-        /// </summary>
-        /// <param name="troop">准备入城的部队</param>
-        /// <param name="city">目标据点（已被校验为本势力）</param>
-        /// <param name="scenario">场景</param>
-        /// <returns>已改道返回 true；城池 / 没有可去之处返回 false（由调用方按原逻辑处理）</returns>
-        public static bool TryRerouteForOverflow(Troop troop, City city, Scenario scenario)
-        {
-            if (troop == null || city == null)
-                return false;
-
-            // 城池不做容量拦截（双保险：调用方即使漏判也不会把部队从满兵城赶走）
-            if (!city.IsPortOrGate())
-                return false;
-
-            City reroute = FindNearestCityWithRoom(troop, city, scenario);
-            if (reroute != null)
-            {
-                Sango.Log.Info($"[AI防吞兵]{troop.BelongForce?.Name}的[{troop.Name}]无法进入{city.Name}"
-                               + $"（兵力 {city.troops}/{city.TroopsLimit}，部队 {troop.troops}），改道{reroute.Name}"
-                               + $"（兵力 {reroute.troops}/{reroute.TroopsLimit}）");
-                troop.SetMission(MissionType.TroopMovetoCity, reroute.Id);
-                troop.NeedPrepareMission();
-                return true;
-            }
-
-            // 全部据点都装不下：按原版行为丢弃溢出部分，但必须留痕，否则又变成"兵凭空消失"
-            int lost = troop.troops - GetRoom(city);
-            Sango.Log.Warning($"[AI防吞兵]{troop.BelongForce?.Name}的[{troop.Name}]进入{city.Name}时"
-                              + $"溢出 {lost} 兵且没有其他可容纳据点，按原版规则丢弃");
-            return false;
-        }
-
-        /// <summary>
-        /// 找最近的、还装得下这支部队的本势力都市。
-        ///
-        /// 只考虑都市（<see cref="City.IsCity"/>）：关隘 / 港口容量小，作为改道目标容易再次溢出。
-        /// </summary>
-        /// <param name="troop">部队</param>
-        /// <param name="exclude">排除的据点（刚被判定装不下的那座）</param>
-        /// <param name="scenario">场景</param>
-        /// <returns>可改道的据点；没有返回 null</returns>
-        public static City FindNearestCityWithRoom(Troop troop, City exclude, Scenario scenario)
-        {
-            if (troop == null || scenario == null || scenario.citySet == null)
-                return null;
-
-            City best = null;
-            int bestDistance = int.MaxValue;
-
-            for (int i = 0; i < scenario.citySet.Count; i++)
-            {
-                City city = scenario.citySet[i];
-                if (city == null || !city.IsAlive || !city.IsCity())
-                    continue;
-                if (city == exclude || city.BelongForce != troop.BelongForce)
-                    continue;
-                // 至少要装得下这支部队，否则改道过去还是会溢出
-                if (GetRoom(city) < troop.troops)
-                    continue;
-
-                int distance = GetDistance(troop, city, scenario);
-                if (distance < 0 || distance >= bestDistance)
-                    continue;
-                bestDistance = distance;
-                best = city;
-            }
-
-            return best;
-        }
-
-        /// <summary>
-        /// 召回最近的自有城（不要求容量：返城可以就解散，容量问题由入城拦截再兜一次底）。
+        /// 召回最近的自有城（不要求容量：返城解散，容量问题由入城时按原版 clamp 处理）。
         /// </summary>
         /// <param name="troop">部队</param>
         /// <param name="scenario">场景</param>

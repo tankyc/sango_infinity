@@ -50,6 +50,11 @@ namespace Sango.Core.Action
 
         protected virtual bool CheckTroop(Troop defencer, SangoObject atker)
         {
+            // 【陷阱】调用方已按原版 calc_trap_damage 自行完成特技修正（藤甲 / 火神 / 踏破 / 爆药），
+            // 这里不能再套一层 TroopChangeDamage / TroopSetDamage，否则藤甲的火系 ×2 会被 -50% 抵回 ×1。
+            if (IsDamageModifierSuppressed)
+                return false;
+
             // 【类型严检】atker 可能是 Troop / SkillInstance（战法，部队挂在 master 上）/ Fire / null。
             // 这里只需要"是不是战法"这一个信息，用 as 取，取不到就当普通攻击处理。
             if (defencer == null)
@@ -67,6 +72,36 @@ namespace Sango.Core.Action
                 troop = skill.master;
                 if (troop == null)
                     return false;
+            }
+            else if (atker is Fire)
+            {
+                // 【空引用修复】火焰灼烧不参与"部队伤害修正"类动作。
+                //
+                // 调用链：FireDamageEvent.Enter → Troop.ChangeTroops(-damage, fire, 0)
+                //        → GameEvent.OnTroopChangeTroops → TroopSetDamage / TroopChangeDamage.CheckTroop
+                // atker 是 Fire（不是 SkillInstance），isDefender != 0 的分支又不校验 skill，
+                // 于是直接走到 CheckIsNormalSkill(skill = null, isNormal) 抛 NullReferenceException，
+                // 整个 FireDamageEvent 被 RenderEventQueue 丢弃 —— 表现为"火焰伤害打不出来"，
+                // 控制台刷屏 "[演出]FireDamageEvent 执行异常，已丢弃并继续"。
+                //
+                // 语义上也应当拒绝 —— 原版把"战斗伤害"和"火焰伤害"拆成了两个互不叠加的函数：
+                //   · 战斗伤害 calc_attack_damage（s11_sys_damage.cpp:278），藤甲在 :527-531 做
+                //     `damage.troops_damage /= 2`；
+                //   · 火焰伤害 calc_fire_damage（s11_sys_damage.cpp:991），藤甲在 :1019-1034 做
+                //     `damage.troops_damage *= 2`；
+                //   · 火格移动伤害 get_movement_damage（:5），藤甲在 :15-16 做 `*= 2`。
+                // 火焰伤害根本不进 calc_attack_damage，所以不会吃到那个 `/ 2`。
+                // 本项目若让火焰也走 TroopChangeDamage（挂在 OnTroopChangeTroops 上，普攻/战法/火焰共用），
+                // 「藤甲」（Features.json Id 32：TroopChangeDamage -50 + TroopModifyFireDamage 200）
+                // 会算成 ×0.5×2 = ×1，火攻翻倍的效果正好被抵消。
+                // 火焰伤害的倍率由 TroopModifyFireDamage（OnFireAdd，直接改 fire.damage）单独负责。
+                //
+                // 注意本分支只拦 Fire（火焰灼烧的 atker 就是 Fire 对象）。
+                // 陷阱引爆 / 落石同样不该走 TroopChangeDamage，但它们在
+                // BuildingTrapEffect.ApplyTroopDamage / ApplyRockfallDamage 里已经用
+                // TroopActionBase.BeginSuppressDamageModifier 显式声明过，不在这里重复拦。
+                // 建筑反击（BuildingAttackEvent.cs:77）属于战斗伤害，仍应受 isDefender = 1 的减伤影响。
+                return false;
             }
             if (Force != null && troop.BelongForce != Force) return false;
             if (Troop != null && Troop != troop) return false;

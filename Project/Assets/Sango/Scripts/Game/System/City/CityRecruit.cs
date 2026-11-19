@@ -236,25 +236,34 @@ namespace Sango.Core.Player
             if (target.Count > 0)
             {
                 counsellorRecommendList.Clear();
+
+                // 【军师承诺门槛】军师只举荐"预估登庸成功率 ≥ 自身智力"的执行武将
+                // （口径与城略 / 计略的军师举荐一致，见 ForceAI.GetCounsellorConfidenceThreshold）：
+                // 智力 100 的军师只推荐必成的人选，智力 70 的军师连七成把握的也敢推；
+                // 军师不在位时退回 30（旧实现的固定阈值）。
+                // 旧实现把阈值写死成 30，与军师智力完全无关，智力 100 的军师也会推荐三成把握的人。
+                int threshold = ForceAI.GetCounsellorConfidenceThreshold(TargetCity.BelongForce);
+
                 Person recruter = null;
                 int lastPro = 0;
                 for (int i = 0; i < TargetCity.freePersons.Count; i++)
                 {
                     Person person = TargetCity.freePersons[i];
                     int probability = GameFormula.Instance.RecruitPersonProbability(person, target[0], 0);
-                    if (probability >= 30 && probability > lastPro)
+                    if (probability < threshold)
+                        continue;
+
+                    // 达标者全部进"军师推荐"列（界面据此显示 ○），默认执行武将取概率最高者
+                    counsellorRecommendList.Add(person);
+                    if (probability > lastPro)
                     {
                         lastPro = probability;
                         recruter = person;
-                        //counsellorRecommendList.Add(person);
                     }
                 }
 
                 if (recruter != null)
-                {
-                    counsellorRecommendList.Add(recruter);
-                    personList.Add(counsellorRecommendList[0]);
-                }
+                    personList.Add(recruter);
             }
         }
 

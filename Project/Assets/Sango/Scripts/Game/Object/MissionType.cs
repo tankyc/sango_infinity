@@ -168,8 +168,10 @@ namespace Sango.Core
         /// 目标必须是运输队(补给队)。
         /// 【原版无对应】原版只有**势力级**宏观求援（<c>request_force</c>，
         /// s11_game_ai_unit.cpp:114-123），没有"部队主动找补给队"这一层。
-        /// 这是本项目自创任务，严格对齐模式下不会被 UpdateAIOrder 生成，
-        /// 只能由旧 AI 路径（AIConfig.useStrictOpen311UnitAI = false）或玩家指令触发。
+        /// 【当前无派发入口】生成它的旧 AI 路径（AIPrepare 里那套启发式）已整体删除，
+        /// UpdateAIOrder 也不会生成它。任务定义与行为类暂时保留（枚举值不能删 ——
+        /// 删掉会让后面的枚举整体移位，破坏旧存档的 missionType 兼容），
+        /// 但目前只能由外部事件 / 编辑器直接 SetMission 触发。
         /// </summary>
         TroopAskSupply,
 
@@ -242,5 +244,23 @@ namespace Sango.Core
         /// 必须追加在枚举末尾（missionType 以 int 落盘，插中间会破坏旧存档数值）。
         /// </summary>
         TroopBanditRazeCity,
+
+        /// <summary>
+        /// 支援己方据点：把兵力送进目标城（抵达后 <c>EnterCity</c> 并兵），
+        /// **途中主动迎击拦路的敌军**。
+        ///
+        /// 【为什么需要它】原实现让 <see cref="TroopMovetoCity"/> 兼任"支援"，
+        /// 而 Move 的 Prepare 只在**路径上有敌方建筑**时才评估出手
+        /// （TroopMovetoCity.cs:34-48），完全不管敌军部队。支援队在途中被敌军堵住时
+        /// <c>TryMoveToCity</c> 每回合都推不动，部队原地"逛街"——既不打人也不进城。
+        /// 本任务每回合用 <c>PriorityAction</c> 评估一次出手机会：能打就打，打不到就继续推进，
+        /// 推不动再改为歼灭就近敌军（见 TroopSupportCity.DoAI 的断路兜底）。
+        ///
+        /// 【原版对应】原版支援是 DeployType_Transport + UnitOrderId_Move
+        /// （s11_game_ai_kyoten_cmd_mil_support.cpp:189-191），而原版 Move 的 run_order
+        /// 自带战斗流程；本项目 Move 的直译没有这一层，故拆出本任务补齐。
+        /// 必须追加在枚举末尾（missionType 以 int 落盘，插中间会破坏旧存档数值）。
+        /// </summary>
+        TroopSupportCity,
     }
 }

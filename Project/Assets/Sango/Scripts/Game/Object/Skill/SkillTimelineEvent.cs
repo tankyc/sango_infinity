@@ -190,8 +190,9 @@ namespace Sango.Core
         public override void Execute(SkillInstance skillInstance, Troop troop, Cell spellCell)
         {
             // 播放特效逻辑
+            // 传 true：与 Action 结算共用同一份"概率波及"掷骰快照，避免特效格多于掉血格
             List<Cell> atkCellList = new List<Cell>();
-            skillInstance.GetAttackCells(troop, spellCell, atkCellList);
+            skillInstance.GetAttackCells(troop, spellCell, atkCellList, true);
             skillInstance.PlaySkillVisual(troop, spellCell, atkCellList);
         }
     }
@@ -257,8 +258,9 @@ namespace Sango.Core
         public override void Execute(SkillInstance skillInstance, Troop troop, Cell spellCell)
         {
             // 执行效果逻辑
+            // 传 true：这是真正的效果结算，必须与特效事件共用同一份概率波及快照
             List<Cell> atkCellList = new List<Cell>();
-            skillInstance.GetAttackCells(troop, spellCell, atkCellList);
+            skillInstance.GetAttackCells(troop, spellCell, atkCellList, true);
             skillInstance.DoEffect(troop, spellCell, atkCellList);
         }
     }

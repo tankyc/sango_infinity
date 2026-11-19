@@ -85,7 +85,9 @@ namespace Sango.Core.Player
                 customSortTitles = new List<ObjectSortTitle>();
                 PersonSortFunction.Instance.GetSortTitleGroup(PersonSortGroupType.Belong, customSortTitles);
             }
-            customSortItems = customSortTitles;
+            // 【动态特技组】把 SortByFeatureList 标记展开成 N 列（N 随剧本参数变化），
+            // 保证下面按 sortIndex 排序用的列表与界面显示的列是同一份（否则索引错位）。
+            customSortItems = PersonSortFunction.ExpandFeatureGroups(customSortTitles);
             this.customSortTitleName = cutomSortTitleName;
 
             ClickMode = limit == 1;

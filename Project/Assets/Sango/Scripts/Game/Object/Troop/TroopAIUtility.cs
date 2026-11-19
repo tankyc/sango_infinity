@@ -1800,6 +1800,38 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 【部队层 · 禁止对外用兵】该部队所属军团的委任是否禁止攻击。
+        ///
+        /// 判定与 <see cref="CityAI.IsAttackForbidden"/> **同口径**（军团 + 委任开关，
+        /// 直辖军团 <see cref="Corps.IsCaptainCorps"/> 永不受限），只是入参从"据点"换成"部队"：
+        /// 部队用 <see cref="Troop.BelongCorps"/> 复用同一条规则，不另立标准。
+        ///
+        /// 【为什么部队层必须也判】原实现的"禁止攻击"只在据点层拦"派不派兵"，
+        /// 但**任务行为自己会改写成攻城**：
+        /// <list type="bullet">
+        /// <item><see cref="TroopReturnCity"/>.Prepare：目标城是敌方时 → TroopOccupyCity；</item>
+        /// <item><see cref="TroopProtectCity"/>.Prepare：守城目标失守时 → TroopOccupyCity 死战；</item>
+        /// <item><see cref="TroopMovetoBuild"/> / <see cref="TroopBuildBuilding"/>.Prepare：同样会转攻城；</item>
+        /// <item><see cref="Troop.UpdateAIOrder"/> 的 Attack 分支：任务退化成 TroopStay 时自主占领 deployCity。</item>
+        /// </list>
+        /// 这四处此前只判"全局和平期"，没有判委任开关。港关兵力少、最容易被选为目标，
+        /// 于是玩家看到的就是"禁止攻击的委任军团仍然打下了港湾" ——
+        /// 港关一旦失守，在外的守港 / 返港部队当场把任务改成"夺回"，完全绕过据点层的限制。
+        ///
+        /// 【原版无对应实现】原版没有"军团委任禁止攻击"这一层（那是委任系统的产物），
+        /// 故本判定属本项目自有的护栏，规则来源即 <see cref="CityAI.IsAttackForbidden"/>。
+        /// </summary>
+        /// <param name="troop">部队</param>
+        /// <returns>该部队所属军团禁止对外用兵时返回 true</returns>
+        public static bool IsAttackForbidden(Troop troop)
+        {
+            if (troop == null) return false;
+            Corps corps = troop.BelongCorps;
+            if (corps == null || corps.IsCaptainCorps) return false;
+            return corps.GetAppointValue(Corps.AppointContentType.Attack) == 1;
+        }
+
+        /// <summary>
         /// 【原版直译】消火的"免气力门槛"命令集合 —— add_strategy_action（s11_sys_unit_action.cpp:961-971）。
         ///
         /// 原版把以下状态的 cost 归零，即不受"气力 &gt;= 双倍消耗"限制：
@@ -1820,6 +1852,7 @@ namespace Sango.Core
                 case MissionType.TroopFixBuilding:                  // UnitOrderId_Repair
                 case MissionType.TroopMovetoCity:                   // UnitOrderId_Move（目标为建筑）
                 case MissionType.TroopMovetoBuild:                  // 同上（本项目拆出的专用任务）
+                case MissionType.TroopSupportCity:                  // 同为 Move 语义（支援 = Move + 抵达后并兵）
                     return true;
             }
             return false;
@@ -2327,6 +2360,101 @@ namespace Sango.Core
             if (!target.IsAlive) return false;
             if (troop.BelongForce == null || target.BelongForce == null) return false;
             return troop.IsEnemy(target);
+        }
+
+        /// <summary>受阻寻路缓存（AI 单线程复用，避免每帧分配 List）</summary>
+        static readonly List<Cell> blockingPathCache = new List<Cell>();
+
+        /// <summary>
+        /// 【移动受阻兜底】前往目标的路径被**敌方 / 无主**的城·港·关挡住时，
+        /// 把任务改派为 <see cref="MissionType.TroopOccupyCity"/>，先把挡路的据点打下来。
+        ///
+        /// 【为什么必须做】
+        ///   · <see cref="Map.GetMoveRange"/> 向外展开的条件是 <c>CanMove &amp;&amp; CanPassThrough</c>，
+        ///     而 <see cref="Cell.CanPassThrough"/> 要求建筑格属于本势力 ——
+        ///     无主据点（BelongForce == null）和敌方据点一样被判为"不可穿过"，
+        ///     并且移动范围的 BFS 到它这里就**停止向外扩展**；
+        ///   · 但 <see cref="Map.GetMinCostDirectPath"/> 只看地形（<c>CanMove</c>），
+        ///     照样会给出"穿过据点格"的路径。
+        ///   两者取交集后，部队每回合只能走到据点**前一格**，下回合重算仍是那里 ——
+        ///   任务永不推进。玩家看到的就是"一堆委任军团部队被无主港口卡住、原地打转"。
+        ///
+        /// 【调用时机】各任务在 <c>priorityActionData == null</c>（本回合打不到任务目标）
+        /// 的移动兜底分支里调用。有可执行动作时不应该被路过的据点打断。
+        ///
+        /// 【不改派的四种情形】
+        ///   <list type="bullet">
+        ///   <item>玩家亲控部队：手动指令不能被路过的东西覆盖；</item>
+        ///   <item>运输队：没有攻城能力，改派过去等于把货物一起赔掉；</item>
+        ///   <item>挡路据点正是当前任务目标：否则 Preparation 会反复自我改派；</item>
+        ///   <item>路径为空（地形上完全不通）：不是据点挡路，改派也解决不了。</item>
+        ///   </list>
+        /// </summary>
+        /// <param name="troop">行动部队</param>
+        /// <param name="target">本任务的最终目标格</param>
+        /// <param name="scenario">剧本</param>
+        /// <returns>true = 已改派为攻占挡路据点，调用方应立即 return true 结束本帧</returns>
+        public static bool TryAttackBlockingCityOnPath(Troop troop, Cell target, Scenario scenario)
+        {
+            if (troop == null || target == null || scenario == null || scenario.Map == null)
+                return false;
+            if (!troop.IsAlive)
+                return false;
+            // 玩家亲控（AIType != Faction）：手动指令不能被他路过的据点改掉
+            if (troop.IsPlayerControl)
+                return false;
+            // 运输队没有攻城手段，改派过去只会连货物一起赔掉
+            if (troop.IsTransport)
+                return false;
+            if (troop.cell == null || troop.cell == target)
+                return false;
+            // 移动动画播放期间 DoAI 会被逐帧反复调用：此时不重算路径，
+            // 否则每次都是一个完整 A*（Map.GetMinCostDirectPath），几十支部队同时移动会明显掉帧。
+            if (troop.isMoving)
+                return false;
+
+            blockingPathCache.Clear();
+            scenario.Map.GetMinCostDirectPath(troop, target, blockingPathCache);
+            if (blockingPathCache.Count == 0)
+                return false;   // 地形上根本不通，不是据点挡路
+
+            for (int i = 1; i < blockingPathCache.Count; i++)
+            {
+                Cell cell = blockingPathCache[i];
+                if (cell == null || cell.building == null)
+                    continue;
+                if (cell.CanPassThrough(troop))
+                    continue;   // 己方 / 盟友据点：本来就能穿过去
+
+                City blocking = cell.building as City;
+                if (blocking == null || !blocking.IsCityBase())
+                {
+                    // 【遇到第一个过不去的建筑就收手】路径是线性的：部队连这一格都过不去，
+                    // 更到不了它后面。此处若是陷阱 / 箭楼 / 土垒等非据点障碍，直接放弃改派，
+                    // 交给原任务处理；继续往后找港关只会把任务改派到一个根本走不到的目标上。
+                    return false;
+                }
+
+                // 兜底再过一道 IsEnemy：CanPassThrough 已放行盟友，这里是为了防止
+                // 将来通行口径调整时把"借道盟友关隘"变成"攻打盟友"。
+                // （IsEnemy 对 BelongForce == null 的无主据点返回 true，正是我们要的。）
+                if (!troop.IsEnemy(blocking))
+                {
+                    // 同样挡路、但打不得（停战方据点）：不能跳过它去改派打后面的据点。
+                    return false;
+                }
+
+                if (troop.missionTarget == blocking.Id)
+                    return false;   // 正在打的就是它 → 不改派，避免自我改派死循环
+
+                Sango.Log.Info($"*[受阻]{troop.Name} 前往目标的路径被 {blocking.ColorName} 挡住，"
+                    + $"改派攻占（原任务 {(MissionType)troop.missionType}）");
+                troop.SetMission(MissionType.TroopOccupyCity, blocking.Id);
+                troop.NeedPrepareMission();
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

@@ -1057,15 +1057,20 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 按君主重算忠诚（对应 Open311 的 person_reset_loyalty）。
+        /// 按君主重算忠诚（对应 Open311 的 person_reset_loyalty，s11_sys_scen_person.cpp:1192-1239）。
         ///
-        /// 原版公式（loyalty 上限 255）：
-        ///   君主本人 / 婚姻 / 义兄弟 / 亲爱 → 直接拉高到 120~250
-        ///   其余：100 + 君主魅力/14 - 相性距离*10/义理，再按厌恶(-20)/血缘(+5)调整，最后 min(n,100)
+        /// 原版分支（loyalty 内部上限 255，显示层才截断到 100）：
+        ///   君主本人                → max(当前值, 250)
+        ///   配偶 / 义兄弟           → max(当前值, 150)
+        ///   亲爱                    → max(当前值, 120)
+        ///   其余：100 + 君主魅力/14 - 相性距离*10/义理，厌恶 -20，血缘/同乡 +5，最后 min(n, 100)
         ///
-        /// 本项目的 loyalty 是 0~100 制，且没有"相性距离 / 义理 / 出身地"这些细分字段，
-        /// 因此保留结构、去掉无法映射的项：君主魅力决定基础值，厌恶关系扣 20，
-        /// 亲爱关系直接给满。这样"魅力高的君主部下更忠"这一核心手感与原版一致。
+        /// 关键点：**普通武将的上限仍然是 100**（原版 :1238 就是 min(n, 100)），
+        /// 超过 100 的只有上述三类"死忠"。所以这三档必须按 250/150/120 写，
+        /// 不能像旧实现那样统一按 100 制取满 —— 否则死忠与刚好 100 的普通武将在被离间后没有区别。
+        ///
+        /// 本项目没有"汉室观 / 出身地"字段，其余项保留：君主魅力决定基础值，
+        /// 厌恶关系扣 20，亲爱关系走 120 档。
         /// </summary>
         /// <param name="person">武将</param>
         /// <param name="force">所属势力</param>
@@ -1078,27 +1083,35 @@ namespace Sango.Core
             if (governor == null || governor == person || governor.IsDead)
                 return;
 
-            // 君主本人恒满
+            // 君主本人：原版 max(loyalty, 250)
             if (person.IsGovernor)
             {
-                person.loyalty = 100;
+                person.loyalty = System.Math.Max(person.loyalty, 250);
                 return;
             }
 
-            // 亲爱关系直接满（原版是 max(loyalty, 120)，本项目 100 制取满）
+            // 配偶 / 义兄弟：原版 max(loyalty, 150)（:1205-1209）
+            if (person.IsSpouse(governor) || person.IsBrotherGroupmate(governor))
+            {
+                person.loyalty = System.Math.Max(person.loyalty, 150);
+                return;
+            }
+
+            // 亲爱：原版 max(loyalty, 120)（:1210-1214），旧实现按 100 制取满，现对齐
             if (IsLikedBy(person, governor.Id))
             {
-                person.loyalty = 100;
+                person.loyalty = System.Math.Max(person.loyalty, 120);
                 return;
             }
 
-            // 基础值：君主魅力 / 14 + 100（魅力 99 → 107，钳到 100）
+            // 基础值：君主魅力 / 14 + 100（魅力 99 → 107）
             int baseValue = 100 + governor.Glamour / 14;
 
             // 厌恶关系大幅扣减
             if (IsHatedBy(person, governor.Id))
                 baseValue -= 20;
 
+            // 普通武将上限就是 100（原版 :1238 set_loyalty(min(n, 100))），下限 10
             if (baseValue < 10)
                 baseValue = 10;
             else if (baseValue > 100)

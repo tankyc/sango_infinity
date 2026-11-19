@@ -585,8 +585,8 @@ namespace Sango.UI
             BindSnapshotInputEndEdit(glamourInput, PersonSortFunction.SortByGlamour, () => snapshot.glamour, (v) => snapshot.glamour = v, 1, 150);
             // 相性范围: 0-255
             BindSnapshotInputEndEdit(phaseInput, null, () => snapshot.compatibility, (v) => snapshot.compatibility = v, 0, 255);
-            // 忠诚范围: 0-250
-            BindSnapshotInputEndEdit(loyaltyInput, PersonSortFunction.SortByLoyalty, () => snapshot.loyalty, (v) => snapshot.loyalty = v, 0, 250);
+            // 忠诚范围: 0-255（对齐原版 max_person_loyalty_ = 255；玩家界面的 100 是显示层截断）
+            BindSnapshotInputEndEdit(loyaltyInput, PersonSortFunction.SortByLoyalty, () => snapshot.loyalty, (v) => snapshot.loyalty = v, 0, Person.MaxLoyalty);
             // 功绩范围: 0-100000
             BindSnapshotInputEndEdit(meritInput, PersonSortFunction.SortByMerit, () => snapshot.merit, (v) => snapshot.merit = v, 0, 100000);
 
@@ -714,7 +714,7 @@ namespace Sango.UI
             BindCalculatorButton(politicsButton, "政治", politicsInput, () => snapshot.politics, (v) => snapshot.politics = v, 1, 150);
             BindCalculatorButton(glamourButton, "魅力", glamourInput, () => snapshot.glamour, (v) => snapshot.glamour = v, 1, 150);
             BindCalculatorButton(phaseButton, "相性", phaseInput, () => snapshot.compatibility, (v) => snapshot.compatibility = v, 0, 255);
-            BindCalculatorButton(loyaltyButton, "忠诚", loyaltyInput, () => snapshot.loyalty, (v) => snapshot.loyalty = v, 0, 250);
+            BindCalculatorButton(loyaltyButton, "忠诚", loyaltyInput, () => snapshot.loyalty, (v) => snapshot.loyalty = v, 0, Person.MaxLoyalty);
             BindCalculatorButton(meritButton, "功绩", meritInput, () => snapshot.merit, (v) => snapshot.merit = v, 0, 100000);
         }
 

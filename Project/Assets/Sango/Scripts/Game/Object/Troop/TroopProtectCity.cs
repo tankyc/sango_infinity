@@ -7,6 +7,12 @@ namespace Sango.Core
         public override MissionType MissionType { get { return MissionType.TroopProtectCity; } }
         Troop nearestEnemy;
         bool isNoEnemyAlive = false;
+
+        /// <summary>
+        /// 驻防待命标记（运行期，不入档）：本回合"目标城暂时安全、驻防未到期"。
+        /// 仅用于 <see cref="DoAI"/> 选择"向城郊靠拢待命"而不是返城。
+        /// </summary>
+        bool isGarrisonWaiting;
         public override bool IsMissionComplete
         {
             get
@@ -39,11 +45,68 @@ namespace Sango.Core
                     isNoEnemyAlive = false;
             }
 
+            // ---------- 驻防协防（跨军团支援）----------
+            // 【原版无对应实现】原版支援部队走 DeployType_Transport + UnitOrderId_Move，
+            // 抵达后由 unit_enter 直接并兵（s11_game_ai_kyoten_cmd_mil_support.cpp:189-191），
+            // 兵权永久转给目标城，没有"驻守 / 到期返程"。本项目按玩家反馈改为：
+            // 不并兵、驻守目标城，连续 N 回合无战事后回所属城
+            //（见 Troop.garrisonLastBattleTurn 与 AIConfig.garrisonIdleTurns）。
+            isGarrisonWaiting = false;
+
+            // 目标已经换成自己的归属城（被召回 / 改派守本城）：驻防标记失效，
+            // 交回下面的"守城 → 无敌情返城"原逻辑，不再带"3 回合后自动返程"的心智。
+            if (troop.garrisonLastBattleTurn > 0 && TargetCity == troop.BelongCity)
+                troop.garrisonLastBattleTurn = 0;
+
+            if (troop.garrisonLastBattleTurn > 0)
+            {
+                // 目标城已易主 / 失守：驻防失去意义，直接回所属城，不替别人反攻
+                if (TargetCity.BelongForce != troop.BelongForce)
+                {
+                    Sango.Log.Info($"*[驻防]{troop.Name} 驻防目标{TargetCity.Name}已易主，返回所属城");
+                    troop.garrisonLastBattleTurn = 0;
+                    if (troop.BelongCity != null)
+                        troop.SetMission(MissionType.TroopReturnCity, troop.BelongCity.Id);
+                    troop.NeedPrepareMission();
+                    return;
+                }
+
+                int nowTurn = scenario != null ? scenario.TurnCount : 0;
+                if (!isNoEnemyAlive)
+                {
+                    // 目标城有敌情：刷新"最后交战回合"，驻防计时从头算。
+                    // 【边界】TurnCount 在剧本首回合可能为 0，而 0 是本字段的"非驻防"哨兵值，
+                    // 直接写入会让驻防语义丢失（退化成普通守城、永不返程），故钳到 1。
+                    troop.garrisonLastBattleTurn = nowTurn > 0 ? nowTurn : 1;
+                }
+                else
+                {
+                    int idleTurns = nowTurn - troop.garrisonLastBattleTurn;
+                    int needTurns = AIConfig.Instance.garrisonIdleTurns;
+                    if (needTurns > 0 && idleTurns < needTurns)
+                    {
+                        // 未到期：留在目标城近郊待命，且**不判任务完成**（否则 DoAI 立刻返城）
+                        isNoEnemyAlive = false;
+                        isGarrisonWaiting = true;
+                        priorityActionData = null;
+                        nearestEnemy = null;
+                        return;
+                    }
+
+                    Sango.Log.Info($"*[驻防]{troop.Name} 驻防{TargetCity.Name}已连续 {idleTurns} 回合无战事，返回所属城");
+                    troop.garrisonLastBattleTurn = 0;
+                }
+            }
+
             // 【优化】移除"断粮时 30% 概率撤退"的随机判断，统一由 Troop.AIPrepare 处理
             if (IsMissionComplete || (TargetCity.troops < 2000 && TargetCity == Troop.BelongCity))
             {
-                // 全局和平期：城池虽失守也不反攻，改为返城待命，避免 AI 部队在和平期内自主发起进攻。
-                if (TargetCity.IsEnemy(troop) && !scenario.IsPeacePeriod)
+                // 全局和平期 / 军团被设为禁止攻击：城池虽失守也不反攻，改为返城待命，
+                // 避免 AI 部队在和平期或禁攻期内自主发起进攻。
+                // 【禁止攻击】此前只判和平期，禁攻军团的守港部队会在港湾失守时
+                // 当场把任务改成"夺回港湾"，绕过据点层的委任限制。
+                if (TargetCity.IsEnemy(troop) && !scenario.IsPeacePeriod
+                    && !TroopAIUtility.IsAttackForbidden(troop))
                 {
                     // 如果城池失守,不返回,直接死战,避免过长的寻路导致性能问题
                     Troop.SetMission(MissionType.TroopOccupyCity, TargetCity.Id);
@@ -164,6 +227,20 @@ namespace Sango.Core
         public override bool DoAI(Troop troop, Scenario scenario)
         {
 
+            // 【驻防待命】目标城暂时安全、驻防未到期：向城郊靠拢后待命。
+            // 不进城、不并兵 —— 部队不允许停留在城池格上，靠到 1 格外即可。
+            if (isGarrisonWaiting)
+            {
+                // 移动动画未播完：等它跑完，别重复发起移动（TryMoveToCell 在 isMoving 时
+                // 会沿用上一次的 tryToDest 再调 MoveTo，等于重复起动画）
+                if (troop.isMoving)
+                    return false;
+                if (troop.cell != null && TargetCity != null && TargetCity.CenterCell != null
+                    && Scenario.Cur.Map.Distance(troop.cell, TargetCity.CenterCell) > 1)
+                    return troop.TryCloseTo(TargetCity.CenterCell);
+                return true;
+            }
+
             // 任务完成后,回到创建城池
             if (IsMissionComplete)
             {
@@ -185,7 +262,15 @@ namespace Sango.Core
             else
             {
                 if (nearestEnemy != null)
+                {
+                    // 【移动受阻兜底】出击路线被敌方 / 无主港关挡住时改派攻占：
+                    // 移动范围会在港关格处停止扩展，部队会永远停在它前一格。
+                    // 详见 TroopAIUtility.TryAttackBlockingCityOnPath 的说明。
+                    if (TroopAIUtility.TryAttackBlockingCityOnPath(troop, nearestEnemy.cell, scenario))
+                        return true;
+
                     return troop.TryCloseTo(nearestEnemy.cell);
+                }
             }
 
             return true;

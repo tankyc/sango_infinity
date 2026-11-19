@@ -27,7 +27,8 @@ namespace Sango.Core.Player
             // 目标港关装不下时，在移动前的确认框里写清损失，而不是等抵达后静默截断。
             // 截断规则出处：City.AddTroops（对齐 Open311 building_add_troops，
             // s11_sys_scen_building.cpp:1145-1154）。
-            // 城池不提示：城兵满时部队照样要能回城（对齐 Troop.EnterCity 的港关限定）。
+            // 城池不提示：城兵满时部队照样要能回城，不拦也不吓唬玩家。
+            // 注意：提示归提示，**入城不会被拒绝** —— Troop.EnterCity 已不做容量拦截。
             City targetCity = actionCell.building as City;
             int room = TroopAIFallback.GetRoom(targetCity);
             if (targetCity != null && targetCity.IsPortOrGate() && room < troop.troops)

@@ -146,6 +146,9 @@ namespace Sango.UI
                     int buildSpace = Scenario.Cur.Variables.BuildingSpace;
                     cell.SpiralHasBuilding(buildSpace, (b) =>
                      {
+                         if (b == null || b.BuildingType == null)
+                             return true;
+
                          if (b.BuildingType.majorType == 0)
                          {
                              can_place_obstacle = false;

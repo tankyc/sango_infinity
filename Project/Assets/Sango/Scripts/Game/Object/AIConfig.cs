@@ -115,6 +115,18 @@ namespace Sango.Core
         /// </summary>
         public int cityRecallScanRange = 4;
 
+        /// <summary>
+        /// 进攻部队"顺手歼灭城下守军"的扫描范围（格）。
+        ///
+        /// 【用途】<c>Troop.UpdateAIOrder</c> 的 Attack 分支在改派攻击时，需要按原版语义
+        /// 找一支目标城周边的敌军；找不到就退化为占领。
+        ///
+        /// 【为什么不能放大】<see cref="MissionType.TroopDestroyTroop"/> 会让部队
+        /// <c>TryCloseTo(目标.cell)</c> 主动追过去。范围一大，进攻部队会被远处的敌军拽走，
+        /// 离开目标城 —— 玩家看到的就是"大军不攻城、跑去追人"。所以只覆盖贴在城下的守军。
+        /// </summary>
+        public int cityAttackTroopScanRange = 3;
+
         #endregion
 
         #region 城市支援
@@ -127,6 +139,25 @@ namespace Sango.Core
         public int reinforceMinFreePersons = 2;
         /// <summary>单个城市最多同时派出的支援部队数量</summary>
         public int reinforceMaxTroopPerCity = 2;
+
+        /// <summary>
+        /// 跨军团支援是否改用"驻防"方式（默认开）。
+        ///
+        /// 开：跨军团支援部队用 <see cref="MissionType.TroopProtectCity"/> 驻守目标城 ——
+        /// 不进城、不并兵，目标城连续 <see cref="garrisonIdleTurns"/> 回合无战事后回所属城。
+        /// 关：恢复旧行为（TroopMovetoCity → 抵达后 EnterCity 把兵力并入目标城）。
+        ///
+        /// 【原版无对应实现】原版支援抵达即并兵（s11_game_ai_kyoten_cmd_mil_support.cpp:189-191），
+        /// 兵权永久转给目标城；本项目按玩家反馈新增驻防口径 —— 跨军团的兵不该被抽走。
+        /// 同军团支援不受本开关影响，仍沿用原版并兵口径（属军团内部调度）。
+        /// </summary>
+        public bool supportCrossCorpsAsGarrison = true;
+
+        /// <summary>
+        /// 驻防型协防部队在目标城"连续无战事"多少回合后返回所属城（默认 3）。
+        /// 0 或负数表示不自动返回（一直驻守到目标城失守 / 部队断粮等）。
+        /// </summary>
+        public int garrisonIdleTurns = 3;
 
         #endregion
 
@@ -388,51 +419,6 @@ namespace Sango.Core
 
         #endregion
 
-        #region 部队 AI 模式
-
-        /// <summary>
-        /// 【严格对齐原版】是否用 Open311 的 <c>unit_update_order</c> 直译
-        /// （<see cref="Troop.UpdateAIOrder"/>，对应 s11_game_ai_unit.cpp:99-315）
-        /// 替换本项目的启发式行动前准备（<see cref="Troop.AIPrepare"/>）。
-        ///
-        /// true（默认）= 严格模式：只按"出征意图 + 断粮/兵少/器械气力"决定继续 / 改派 / 撤退，
-        ///               不再有态势档位撤退、概率撤退、求援、随军增筑；
-        /// false = 旧行为：态势分档 + 概率撤退 + 求援 + 随军增筑。
-        ///
-        /// 注意：评分环节（态势/角色/性格倍率）不受本开关影响，始终生效。
-        /// </summary>
-        public bool useStrictOpen311UnitAI = true;
-
-        #endregion
-
-        #region 部队撤退（保存实力）
-
-        /// <summary>兵力低于该值时有概率撤退（就近入驻己方据点补给）</summary>
-        public int retreatMinTroops = 300;
-        /// <summary>兵力低于满编该百分比时，同样视为"兵力过低"并就近入驻补给（0 表示仅使用绝对阈值 retreatMinTroops）</summary>
-        public int retreatTroopPercent = 25;
-        /// <summary>士气低于该值时有概率撤退</summary>
-        public int retreatMinMorale = 10;
-        /// <summary>断粮时的撤退概率（%）</summary>
-        public int retreatOutOfFoodChance = 80;
-        /// <summary>兵力过低时的撤退概率（%）</summary>
-        public int retreatFewTroopsChance = 60;
-        /// <summary>士气过低时的撤退概率（%）</summary>
-        public int retreatLowMoraleChance = 50;
-
-        /// <summary>
-        /// 出征回合数门槛：部队在野外待满该回合数之后，才允许做出撤退 / 回避决定。
-        ///
-        /// 用于抑制"刚出城就掉头回城"：刚出城的部队常被判定为劣势 / 危局（态势看的是局部战力比），
-        /// 而"最近的己方据点"往往就是它刚出的那座城，于是被判撤退后立刻折返，
-        /// 表现为部队在城池格上反复进出（观感：部队停在城池上不动）。
-        ///
-        /// 判定为 <c>liveDays &gt; retreatMinLiveDays</c>。0 或负数表示不限制（保持旧行为）。
-        /// </summary>
-        public int retreatMinLiveDays = 3;
-
-        #endregion
-
         #region 部队态势分档
 
         /// <summary>是否启用战场态势分级策略（关闭则所有部队按"均势"档处理）</summary>
@@ -454,7 +440,6 @@ namespace Sango.Core
         {
             attackScale = 50,
             counterPenaltyScale = 200,
-            retreatChance = 80,
             bestN = 1,
         };
         /// <summary>劣势档权重：收缩防守</summary>
@@ -462,7 +447,6 @@ namespace Sango.Core
         {
             attackScale = 80,
             counterPenaltyScale = 150,
-            retreatChance = 40,
             bestN = 1,
         };
         /// <summary>均势档权重：谨慎试探</summary>
@@ -470,7 +454,6 @@ namespace Sango.Core
         {
             attackScale = 100,
             counterPenaltyScale = 100,
-            retreatChance = 10,
             bestN = 5,
         };
         /// <summary>优势档权重：主动进攻</summary>
@@ -478,7 +461,6 @@ namespace Sango.Core
         {
             attackScale = 120,
             counterPenaltyScale = 80,
-            retreatChance = 0,
             bestN = 3,
         };
         /// <summary>碾压档权重：强攻追击</summary>
@@ -486,12 +468,8 @@ namespace Sango.Core
         {
             attackScale = 140,
             counterPenaltyScale = 50,
-            retreatChance = 0,
             bestN = 1,
         };
-
-        /// <summary>是否允许部队因"态势不利"主动撤退（关闭则仅保留原有的断粮 / 兵少 / 士气撤退）</summary>
-        public bool useTierRetreat = true;
 
         #endregion
 
@@ -532,9 +510,6 @@ namespace Sango.Core
         public int leaderSkillScaleMin = 75;
         /// <summary>计略偏好倍率的上限（%）</summary>
         public int leaderSkillScaleMax = 150;
-
-        /// <summary>危局档的撤退不受性格影响（防止"莽将送死"）</summary>
-        public bool leaderIgnoreRetreatInCritical = true;
 
         #endregion
 
@@ -1026,15 +1001,6 @@ namespace Sango.Core
         /// 默认：军乐台(13) → 太鼓台(12) → 阵(4) → 箭楼(7)。
         /// </summary>
         public int[] frontBuildPreferredTypes = new int[] { 13, 12, 4, 7 };
-
-        /// <summary>是否让前线作战部队就地增筑辅助建筑（B3：随军增筑）</summary>
-        public bool useFieldBuilding = true;
-        /// <summary>作战部队就地增筑所需的兵力占满编的最低比例（%），低于此值优先保命而非施工</summary>
-        public int fieldBuildMinHealthPercent = 60;
-        /// <summary>作战部队就地增筑时的资金门槛（金），需不低于目标建筑造价</summary>
-        public int fieldBuildMinGold = 0;
-        /// <summary>作战部队就地增筑的触发概率（%）</summary>
-        public int fieldBuildChance = 20;
 
         /// <summary>
         /// 【已停用】作战部队出征携款上限。

@@ -21,12 +21,17 @@
  * （s11_game_ai_force_cmd_learn.cpp:64-77、:68-73）；玩家侧走原版 System::can_learn
  * （s11_sys_scen_ability.cpp:37-67），二者都不判。
  *
- * 【已知架构差异：单 actor vs 任务制】
+ * 【单 actor 门禁：已对齐】
  * 原版三条培育指令（LearnBaseStat / LearnHeishuTekisei / LearnSkill）各自是"势力级指令槽"，
  * can_learn_*_command 用 find_actor 判"本势力已有 1 人在执行该指令"，非空即整条指令不可用
  * （s11_sys_person_order_kunshu.cpp:1643-1653 / :1787-1798 / :1929-1940）。
- * 本项目改成 per-person 的 3 旬 Mission（见 StudyTurns），同一条指令可并发多人，
- * 培养速度约为原版的三倍。此项**有意保留**，未做单 actor 门禁。
+ * find_actor 按 person->get_order_id() 精确匹配（s11_sys_person_order_utils.cpp:598-607），
+ * 所以三条槽互不影响 —— 每条指令同期 1 人，全局同期最多 3 人。
+ *
+ * 本项目把三条指令合并进 MissionType.PersonStudyAbility 的 3 旬 Mission（见 StudyTurns），
+ * 用 <see cref="AbilityStudySystem.HasStudyingActor"/> 按 ability.category 还原三条槽：
+ * 三段入口（LearnBaseStat / LearnTroopAptitude / LearnSkill）与玩家侧 CanStudy 都先过这道门禁，
+ * 因此每条槽同期只有 1 人，与原版一致。此前"同一条指令可并发多人、约三倍速"的差异已消除。
  */
 
 using System.Collections.Generic;
@@ -573,6 +578,88 @@ namespace Sango.Core
         // ==================== 培育（第二层） ====================
 
         /// <summary>
+        /// 本势力当前是否已有武将正在研习指定大类的能力。
+        ///
+        /// 【原版对齐：一条培育指令同时只能有 1 名执行者】
+        /// Open311 的三条培育指令各自是"势力级指令槽"：
+        /// <c>can_learn_base_stat_command</c> / <c>can_learn_heishu_tekisei_command</c> /
+        /// <c>can_learn_skill_command</c> 都用 <c>find_actor(force_id, order_id)</c> 判
+        /// "本势力已有 1 人在执行该指令"，非空即整条指令不可用
+        /// （s11_sys_person_order_kunshu.cpp:1643-1653 / :1787-1797 / :1929-1940）。
+        /// <c>find_actor</c> 按 <c>person->get_order_id() == order_id</c> 精确匹配
+        /// （s11_sys_person_order_utils.cpp:598-607），三条槽互不影响 ——
+        /// 所以是"**每条指令**同一时刻 1 人、三槽合计同期最多 3 人"，不是全势力只能 1 人。
+        ///
+        /// 本项目把三类合并进同一个 <see cref="MissionType.PersonStudyAbility"/>，
+        /// 这里靠 <c>missionParams1</c>（ability.Id，注意不是 missionTarget —— 那是出资城 Id）
+        /// 取回 ability 的 category，还原"该武将属于哪条指令"。
+        /// 不加这层门禁时，AI 每回合每段都能再派 1 人，3 旬窗口内会滚到 9 人同时在研习，
+        /// 是原版的 3 倍速；玩家侧则可以一次性把半个城的人塞进去。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="category">能力大类（对应原版的三条指令之一）</param>
+        /// <returns>该大类已有执行者返回 true</returns>
+        public static bool HasStudyingActor(Force force, Scenario scenario, AbilityCategory category)
+        {
+            if (force == null || scenario == null || scenario.personSet == null)
+                return false;
+
+            SangoObjectSet<Ability> abilities = scenario.CommonData?.Abilities;
+            if (abilities == null || abilities.objects == null)
+                return false;
+
+            Ability[] abilityArray = abilities.objects;
+            int wantCategory = (int)category;
+
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.BelongForce != force)
+                    continue;
+                if (person.missionType != (int)MissionType.PersonStudyAbility)
+                    continue;
+
+                // 【参数约定】PersonStudyAbility 的 missionTarget 是**出资城 Id**，
+                // ability.Id 存在 missionParams1（见 Person.UpdateMission 的
+                // PersonStudyAbility 分支：`int abilityId = missionParams1;`，Person.cs:2288）。
+                // SangoObjectSet 的索引即 Id；越界一律当作"数据已失效"跳过，
+                // 存档里残留的旧 Id 不应让这里抛异常。
+                int abilityId = person.missionParams1;
+                if (abilityId <= 0 || abilityId >= abilityArray.Length)
+                    continue;
+
+                Ability ability = abilityArray[abilityId];
+                if (ability != null && ability.category == wantCategory)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 本势力当前是否有任意大类的培育执行者。
+        /// 仅用于 AI 排查日志：槽位被占用时"本回合没人开始"是正常现象，不该报成"没人符合条件"。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>有人正在研习返回 true</returns>
+        public static bool HasAnyStudyingActor(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null || scenario.personSet == null)
+                return false;
+
+            for (int i = 0; i < scenario.personSet.Count; i++)
+            {
+                Person person = scenario.personSet[i];
+                if (person == null || !person.IsAlive || person.BelongForce != force)
+                    continue;
+                if (person.missionType == (int)MissionType.PersonStudyAbility)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 基础能力培育：给"属性基础值落在某档区间"的武将培育提升。
         ///
         /// 对齐出处：force_learn_base_stat（force_cmd_learn.cpp:37-93）+ 培育执行段
@@ -593,6 +680,11 @@ namespace Sango.Core
         public static bool LearnBaseStat(Force force, Scenario scenario)
         {
             if (force == null || scenario == null)
+                return false;
+
+            // 【原版对齐】can_learn_base_stat_command 的 find_actor 门禁
+            // （s11_sys_person_order_kunshu.cpp:1643-1653）：该指令槽已有人 → 整条指令不可用。
+            if (HasStudyingActor(force, scenario, AbilityCategory.BaseStat))
                 return false;
 
             List<Ability> abilities = GetLearnedAbilities(force, scenario, AbilityCategory.BaseStat);
@@ -617,6 +709,16 @@ namespace Sango.Core
                 City city = person.BelongCity ?? person.CurrentCity;
                 if (city == null || city.gold < LearnGoldCost)
                     continue;
+
+                // 【原版对齐】can_learn_base_stat_command 的第一道门禁：
+                // district->get_action_point() < get_learn_action_point_cost() → 整条指令不可用
+                // （s11_sys_person_order_kunshu.cpp:1633-1642）。
+                // AI 侧的"发起建筑"就是 actor 的所属城（force_learn_base_stat 传
+                // actor->get_service_id()，s11_game_ai_force_cmd_learn.cpp:87），故判该城军团行动力。
+                // 不足时与原版 exec 失败同口径：本段直接放弃，不另找他人。
+                Corps corps = city.BelongCorps;
+                if (corps != null && corps.ActionPoint < LearnActionPointCost)
+                    return false;
 
                 OutpostInfo info = OutpostRuntime.Find(city.Id);
                 // 交战据点整人跳过 —— 原版 get_learnable_person_list 公共段
@@ -690,6 +792,11 @@ namespace Sango.Core
             if (force == null || scenario == null)
                 return false;
 
+            // 【原版对齐】can_learn_heishu_tekisei_command 的 find_actor 门禁
+            // （s11_sys_person_order_kunshu.cpp:1787-1797）：该指令槽已有人 → 整条指令不可用。
+            if (HasStudyingActor(force, scenario, AbilityCategory.TroopAptitude))
+                return false;
+
             List<Ability> abilities = GetLearnedAbilities(force, scenario, AbilityCategory.TroopAptitude);
             if (abilities.Count == 0)
                 return false;
@@ -706,6 +813,13 @@ namespace Sango.Core
                 City city = person.BelongCity ?? person.CurrentCity;
                 if (city == null || city.gold < LearnGoldCost)
                     continue;
+
+                // 【原版对齐】can_learn_heishu_tekisei_command 的第一道门禁：
+                // district->get_action_point() < get_learn_action_point_cost() → 整条指令不可用
+                // （s11_sys_person_order_kunshu.cpp:1777-1786）。
+                Corps corps = city.BelongCorps;
+                if (corps != null && corps.ActionPoint < LearnActionPointCost)
+                    return false;
 
                 // 原版 get_learnable_person_list 的兵种适性段
                 // （s11_game_ai_force_cmd_learn.cpp:415-418）：
@@ -769,6 +883,11 @@ namespace Sango.Core
         public static bool LearnSkill(Force force, Scenario scenario)
         {
             if (force == null || scenario == null)
+                return false;
+
+            // 【原版对齐】can_learn_skill_command 的 find_actor 门禁
+            // （s11_sys_person_order_kunshu.cpp:1929-1940）：该指令槽已有人 → 整条指令不可用。
+            if (HasStudyingActor(force, scenario, AbilityCategory.Skill))
                 return false;
 
             // 候选 = 已研究 + 学习名额未满 + 特技数据有效
@@ -837,6 +956,14 @@ namespace Sango.Core
                 }
             }
             if (best == null)
+                return false;
+
+            // 【原版对齐】can_learn_skill_command 的第一道门禁：
+            // district->get_action_point() < get_learn_action_point_cost() → 整条指令不可用
+            // （s11_sys_person_order_kunshu.cpp:1919-1928）。
+            // 判的是选定 actor 的服务城军团（原版 exec 的 param.building = actor->get_service_id()）。
+            Corps corps = bestCity.BelongCorps;
+            if (corps != null && corps.ActionPoint < LearnActionPointCost)
                 return false;
 
             // 【任务制】发起封闭研习，特技在完成时由 FinishStudyMission 授予
@@ -1048,6 +1175,17 @@ namespace Sango.Core
                 reason = "武将无所属势力";
                 return false;
             }
+
+            // 【原版对齐】每条培育指令同一时刻只允许 1 名执行者：
+            // can_learn_base_stat_command / can_learn_heishu_tekisei_command / can_learn_skill_command
+            // 里的 find_actor 门禁（s11_sys_person_order_kunshu.cpp:1643-1653 / :1787-1797 / :1929-1940）。
+            // 玩家侧与 AI 侧走同一判定，保证"按钮能点"与"点了能成"同源。
+            if (HasStudyingActor(force, scenario, (AbilityCategory)ability.category))
+            {
+                reason = "本势力已有武将正在研习此类能力（同一时间只能一人）";
+                return false;
+            }
+
             if (!force.HasAbility(ability.Id))
             {
                 reason = "该能力尚未研究完成";

@@ -373,7 +373,12 @@ namespace Sango.Core
         /// <param name="atker"></param>
         /// <param name="spell"></param>
         /// <param name="cells"></param>
-        public void GetAttackCells(Troop atker, Cell spell, List<Cell> cells)
+        /// <param name="applySpellChance">
+        /// 是否对 <see cref="SkillAttackOffsetType.DecaySpread"/> 做随机判定。
+        /// 只有真正结算（<see cref="Action"/>）才传 true；AI 评分走默认 false，
+        /// 否则同一份候选每次评分都会因为随机而落在不同命中集合上，评分失去可比性。
+        /// </param>
+        public void GetAttackCells(Troop atker, Cell spell, List<Cell> cells, bool applySpellChance = false)
         {
             // 【防御】Customize 的格式必须是 [type, x1, y1, x2, y2, ...]，长度 1 + 2n（奇数）。
             // 本字段带 [JsonProperty]（第 136 行），会被存档读写；若存档里残留了偶数长度的
@@ -395,8 +400,224 @@ namespace Sango.Core
                 return;
             }
 
-            skill.GetAttackCells(atkOffsetPoint, atker, spell, cells);
+            // 【概率递减波及】只有这一种偏移需要判定「有效目标」：
+            // 其余偏移是纯几何范围（打到空地也无所谓，DoEffect 自己会跳过），
+            // 而概率链是按目标逐个消耗机会的，空格混进来会白吃掉判定次数。
+            // 有效目标依赖 CanSpellToHere（含 spellConditionMethod 的格条件），
+            // 那是实例层才拿得到的信息，所以整条概率链放在这里而不是 Skill 层。
+            bool isDecaySpread = atkOffsetPoint != null && atkOffsetPoint.Length > 4
+                                 && atkOffsetPoint[0] == (int)SkillAttackOffsetType.DecaySpread;
+
+            if (!isDecaySpread)
+            {
+                skill.GetAttackCells(atkOffsetPoint, atker, spell, cells, false);
+                return;
+            }
+
+            // 【掷骰复用】同一次施法有两条独立路径算命中格：
+            //   渲染侧的 UpdateRender（给特效定位）与结算侧的 Action（给点火/上 buff）。
+            // 若两处各自掷骰，会出现"特效播了 N 格、只掉 M 格血"的错位。
+            // 这里让先到的那次掷骰并快照，后到的直接复用。
+            if (!applySpellChance)
+            {
+                AppendDecaySpreadCells(atker, spell, cells, false);
+                return;
+            }
+
+            if (!spellRollDone || spellRollCell != spell)
+            {
+                spelledAttackCells.Clear();
+                AppendDecaySpreadCells(atker, spell, spelledAttackCells, true);
+                spellRollCell = spell;
+                spellRollDone = true;
+            }
+
+            cells.AddRange(spelledAttackCells);
         }
+
+        /// <summary>
+        /// 计算「概率递减波及」（<see cref="SkillAttackOffsetType.DecaySpread"/>）的命中格。
+        ///
+        /// 【流程】（对应原版连环 s11_sys_anim_unit.cpp:1221-1283）
+        /// <list type="number">
+        /// <item>中心格（主目标）恒命中 —— 它已过 CheckSuccess 的 CanSpellToHere 校验。</item>
+        /// <item>按圈层由内向外，收集该圈的**有效目标**（见 <see cref="IsValidSpellTarget"/>）。</item>
+        /// <item>空圈直接跳过，不消耗概率。</item>
+        /// <item>把该圈目标打乱顺序，从下标 0 起逐个判定：通过则收集并按规则降概率判下一个，
+        ///       任意一次不通过即整体停止（本圈剩余目标与外圈全部作废）。</item>
+        /// </list>
+        ///
+        /// 【概率数据】atkOffsetPoint = <c>[11, atkRange, 概率初始值, 概率递减类型, 概率递减数值]</c>。
+        /// </summary>
+        /// <param name="atker">施法部队（判敌我的基准）</param>
+        /// <param name="spell">施法目标格</param>
+        /// <param name="cells">输出列表</param>
+        /// <param name="applyChance">是否掷骰；false 表示 AI 评分，按"整圈有效目标全中"的上限估算</param>
+        void AppendDecaySpreadCells(Troop atker, Cell spell, List<Cell> cells, bool applyChance)
+        {
+            // 主目标格恒命中，不参与概率判定
+            cells.Add(spell);
+
+            // 【上限钳制】圈数来自配置（下标 1），一旦把概率值错填到这个位置就会变成
+            // 数百上千圈的空遍历 —— 每圈都要跑一次 Cell.Ring + CanSpellToHere。
+            // 原版连环只波及 1 圈，10 圈已远超合理范围，超出部分直接截断。
+            const int MaxDecayRing = 10;
+            int ringCount = atkOffsetPoint[1];
+            if (ringCount > MaxDecayRing)
+            {
+                Sango.Log.Error($"技能[{skill?.Id}]{skill?.Name} 的 DecaySpread 圈数 {ringCount} " +
+                                $"超出上限 {MaxDecayRing}，已截断");
+                ringCount = MaxDecayRing;
+            }
+            if (ringCount <= 0)
+                return;
+
+            int chance = System.Math.Clamp(atkOffsetPoint[2], 0, 100);
+            int decayType = atkOffsetPoint[3];
+            int decayValue = atkOffsetPoint[4];
+
+            for (int ring = 1; ring <= ringCount; ring++)
+            {
+                decayRingBuffer.Clear();
+
+                // 【局部变量】Ring 的闭包会延后执行，for 的 ring 是同一个变量，
+                // 直接捕获会拿到循环结束后的值，必须拷一份。
+                int ringIndex = ring;
+                spell.Ring(ringIndex, (cell) =>
+                {
+                    if (cell == null || !cell.moveAble)
+                        return;
+                    if (!IsValidSpellTarget(atker, cell))
+                        return;
+                    decayRingBuffer.Add(cell);
+                });
+
+                // 空圈：该圈没有可判定的有效目标，概率保持不变，继续下一圈
+                if (decayRingBuffer.Count == 0)
+                    continue;
+
+                if (!applyChance)
+                {
+                    // AI 评分阶段不掷骰，按上限估算，保证同一份候选每次评出的分值一致
+                    cells.AddRange(decayRingBuffer);
+                    continue;
+                }
+
+                // 本圈目标顺序打乱后再逐个判定
+                // （与原版 shuffle(ring, ring_count, 1) 后取 ring[0] 同源）
+                for (int i = decayRingBuffer.Count - 1; i > 0; i--)
+                {
+                    int j = GameRandom.Range(0, i + 1);
+                    Cell tmp = decayRingBuffer[i];
+                    decayRingBuffer[i] = decayRingBuffer[j];
+                    decayRingBuffer[j] = tmp;
+                }
+
+                for (int i = 0; i < decayRingBuffer.Count; i++)
+                {
+                    // 概率已耗尽：链条断在这里，本圈剩余目标与外圈全部作废
+                    if (chance <= 0)
+                        return;
+
+                    // 判定不通过 → 整体停止，不再继续
+                    if (GameRandom.Range(0, 100) >= chance)
+                        return;
+
+                    cells.Add(decayRingBuffer[i]);
+                    chance = DecayChance(chance, decayType, decayValue);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 判断某个格子是不是「概率递减波及」的**有效目标**。
+        ///
+        /// 【判定口径】两条同时成立：
+        /// <list type="number">
+        /// <item>格子上存在可作用的活体对象（部队或建筑）。
+        ///   原版连环的四个分支都从 <c>hex.get_hex_object()</c> 取对象并判 <c>utils::is_alive</c>
+        ///   （s11_sys_anim_unit.cpp:1232 / :1243 / :1253 / :1264），空格不参与波及。</item>
+        /// <item>该格通过 <see cref="CanSpellToHere"/>。它已经把原版各分支的过滤条件
+        ///   表达成了技能数据，不需要在这里再写一遍：
+        ///   <code>
+        ///   火计      hostile_target  → onlySpellToTeam=false + canDamageTeam=false
+        ///   灭火      fire_timer      → spellConditionMethod = CheckFire
+        ///             friendly_target → onlySpellToTeam=true
+        ///   伪报/扰乱 is_enemy        → onlySpellToTeam=false
+        ///   镇静      is_same_force   → onlySpellToTeam=true
+        ///             get_state()     → spellConditionMethod = CheckDebuffTroop
+        ///   </code></item>
+        /// </list>
+        ///
+        /// 【为什么不能只看 CanSpellToHere】火计 / 灭火配了 <c>canSpellToCell = true</c>，
+        /// 而 <see cref="CanSpellToHere"/> 在"格子上没有活体对象"时直接返回该值（方法末尾），
+        /// 于是空格也会判为可施放。必须叠加第 ① 条。
+        /// </summary>
+        /// <param name="atker">施法部队（判敌我的基准）</param>
+        /// <param name="cell">待判定的格子</param>
+        /// <returns>true = 可作为波及目标</returns>
+        bool IsValidSpellTarget(Troop atker, Cell cell)
+        {
+            if (cell == null)
+                return false;
+
+            Troop cellTroop = cell.troop;
+            if (cellTroop != null)
+                return cellTroop.IsAlive && CanSpellToHere(atker, cell);
+
+            // 无主建筑在原版 hostile_target 里属"非敌对"，由 CanSpellToHere 自己放行
+            if (cell.building != null)
+                return CanSpellToHere(atker, cell);
+
+            return false;
+        }
+
+        /// <summary>
+        /// 按配置的规则降低一次「概率递减波及」的通过概率，规则见 <see cref="SkillDecayType"/>。
+        /// </summary>
+        /// <param name="chance">当前概率（0~100）</param>
+        /// <param name="decayType">递减类型</param>
+        /// <param name="decayValue">递减数值（减法 = 百分点；乘法 = 百分比系数）</param>
+        /// <returns>递减后的概率（0~100）</returns>
+        static int DecayChance(int chance, int decayType, int decayValue)
+        {
+            // 递减数值 ≤ 0 一律视为"不衰减"（减法系数 0 与乘法系数 0 都按此处理）。
+            // 这样配置漏填时表现为"每次都是初始概率"，是最不容易误伤的行为；
+            // 若真要一次性把概率清零，请把概率初始值本身配小。
+            if (decayValue <= 0)
+                return chance;
+
+            if (decayType == (int)SkillDecayType.Multiply)
+            {
+                // 乘法：decayValue 是百分比系数（60 = 每次乘 0.6），整数向下取整
+                int factor = System.Math.Clamp(decayValue, 0, 100);
+                return System.Math.Clamp(chance * factor / 100, 0, 100);
+            }
+
+            // 减法（默认）：每次扣掉 decayValue 个百分点
+            return System.Math.Clamp(chance - decayValue, 0, 100);
+        }
+
+        /// <summary>
+        /// 「概率递减波及」逐圈收集有效目标用的复用缓冲。
+        ///
+        /// 【为什么用静态字段】GetAttackCells 在部队 AI 的目标评估里一次行动会被调用上百次，
+        /// 每次都 new List 会产生与闭包同量级的 GC。单线程回合制下不存在并发访问，
+        /// 且每次使用前都会 Clear()，用完即弃。
+        /// </summary>
+        static readonly List<Cell> decayRingBuffer = new List<Cell>(16);
+
+        /// <summary>
+        /// 本次施法已经掷过骰的命中格快照（仅概率递减波及使用）。
+        /// 生命周期由 <see cref="ResetStrategyTechniquePointFlag"/> 与 <see cref="Clear"/> 复位。
+        /// </summary>
+        readonly List<Cell> spelledAttackCells = new List<Cell>();
+
+        /// <summary>本次施法是否已经为概率递减波及掷过骰子</summary>
+        bool spellRollDone;
+
+        /// <summary>掷骰时的施法目标格；目标变了说明是新一次施法，必须重掷</summary>
+        Cell spellRollCell;
 
         /// <summary>
         /// 是否是远程技能
@@ -681,7 +902,9 @@ namespace Sango.Core
             {
                 master.FaceTo(spellCell);
                 tempTimelineCellList.Clear();
-                GetAttackCells(master, spellCell, tempTimelineCellList);
+                // 传 true：概率波及（连环）要在这里先掷骰，Action 结算时复用同一份快照，
+                // 保证特效格与掉血格一致。
+                GetAttackCells(master, spellCell, tempTimelineCellList, true);
 
                 // 重置时间轴实例
                 if (timelineInstance != null)
@@ -785,6 +1008,10 @@ namespace Sango.Core
         public void ResetStrategyTechniquePointFlag()
         {
             strategyTechniquePointGiven = false;
+            // 同一实例会被反复用于同一支部队的后续施法：概率递减波及的掷骰快照必须一并作废，
+            // 否则下一次施法会沿用上一次的命中格（即便目标格相同）。
+            spellRollDone = false;
+            spellRollCell = null;
         }
 
         public void Action(Cell spellCell, int criticalFactor)
@@ -816,7 +1043,9 @@ namespace Sango.Core
                 expEvent = CombatExpEvent.Assist;
             //TODO: 释放技能
             tempCellList.Clear();
-            GetAttackCells(troop, spellCell, tempCellList);
+            // 这里是真正结算，带概率的波及（连环）要落地判定；
+            // AI 评分走默认值 false，按满概率估算。
+            GetAttackCells(troop, spellCell, tempCellList, true);
             int targetDamage = 0;
             // 本次施法实际造成伤害的目标数（部队 + 建筑）。
             // 计略技巧点要按命中数放大（原版 add_strategy_exp 的 mul），
@@ -1331,14 +1560,30 @@ namespace Sango.Core
                     // 主目标格必定施放效果(如点火);周围邻格只有存在部队/建筑(含城池)才施放,空地不施放
                     if (atkCell == spellCell || atkCell.troop != null || atkCell.building != null)
                     {
+                        // 【波及 · 有效目标兜底】主目标格由 CanSpellToHere 把关，不必再判；
+                        // 被概率递减波及扩出来的邻格必须再过一次同一套判定 —— 否则
+                        // 火计会烧到友军、灭火会去灭敌方的火。
+                        //   原版连环·火计分支：`self->hostile_target(target)`（s11_sys_anim_unit.cpp:1233）
+                        //   原版连环·灭火分支：`self->friendly_target(target)`（s11_sys_anim_unit.cpp:1244）
+                        if (atkCell != spellCell && !IsValidSpellTarget(troop, atkCell))
+                            continue;
+
                         for (int ei = 0; ei < effects.Count; ei++) effects[ei].Action(target);
                         castCount++;
                     }
                 }
                 else
                 {
+                    // 【波及 · 有效目标兜底】主目标由 CanSpellToHere 保证合法，扩出来的邻格
+                    // 必须再过一次同一套判定 —— 否则镇静会把敌军的伤兵也补回去。
+                    // 用 continue 而不是只收窄下面那个 if：否则会掉进建筑分支，
+                    // 对敌军所在的城池继续施放"治疗"效果。
+                    if (atkCell != spellCell && !IsValidSpellTarget(troop, atkCell))
+                        continue;
+
                     Troop beAtkTroop = atkCell.troop;
-                    if (beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
+                    if (beAtkTroop != null && canDamageTroop
+                        && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
                     {
                         for (int ei = 0; ei < effects.Count; ei++) effects[ei].Action(target);
                         castCount++;
@@ -1372,6 +1617,10 @@ namespace Sango.Core
             strategyTechniquePointGiven = false;
             assistAttackFlag = false;
             forcedExpEvent = -1;
+            // 概率递减波及的掷骰快照同样不能跨实例复用（对象池回收后可能带着旧格子）
+            spellRollDone = false;
+            spellRollCell = null;
+            spelledAttackCells.Clear();
             if (effects != null)
             {
                 for (int ei = 0; ei < effects.Count; ei++) effects[ei].Clear();

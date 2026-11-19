@@ -312,6 +312,7 @@ namespace Sango.Core
                 // ---- 势力 AI 部队任务 ----
                 case MissionType.TroopReturnCity: name = "返城"; break;
                 case MissionType.TroopMovetoCity: name = "移动"; break;
+                case MissionType.TroopSupportCity: name = "支援"; break;
                 case MissionType.TroopDestroyTroop: name = "攻击部队"; break;
                 case MissionType.TroopDestroyBuilding: name = "攻击建筑"; break;
                 case MissionType.TroopOccupyCity: name = "占领"; break;
@@ -382,6 +383,7 @@ namespace Sango.Core
                 case MissionType.PlayerTroopReturnCity:
                 case MissionType.TroopMovetoCity:
                 case MissionType.PlayerTroopMovetoCity:
+                case MissionType.TroopSupportCity:
                 case MissionType.TroopProtectCity:
                 case MissionType.TroopOccupyCity:
                 case MissionType.PlayerTroopOccupyCity:

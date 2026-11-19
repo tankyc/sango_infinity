@@ -259,8 +259,8 @@ namespace Sango.Core
             System.Collections.Generic.List<Person> members = new System.Collections.Generic.List<Person>();
             troop.ForEachPerson(person => members.Add(person));
 
-            // 编成/解散调用方：部队已按目标城编制，不做改道
-            troop.EnterCity(city, false);
+            // 编成/解散调用方：部队已按目标城编制，直接收回
+            troop.EnterCity(city);
 
             foreach (Person person in members)
             {

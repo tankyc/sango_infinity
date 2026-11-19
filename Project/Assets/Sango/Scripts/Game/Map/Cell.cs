@@ -181,8 +181,31 @@ namespace Sango.Core
         /// <returns>是否可以通过</returns>
         public bool CanPassThrough(Troop troops)
         {
-            return (this.troop == null || this.troop.BelongForce == troops.BelongForce) &&
-                         (this.building == null || this.building.BelongForce == troops.BelongForce);
+            // 无势力参照：不做拦截，与旧实现的宽松语义保持一致
+            if (troops == null || troops.BelongForce == null)
+                return true;
+
+            Force self = troops.BelongForce;
+
+            // 【盟友可借道】同盟势力不产生 ZOC（见 Map.IsHostileForce），
+            // 若这里仍按"非本势力即不可过"处理，盟友的关隘 / 港口 / 城池会变成一堵
+            // 既不能停（CanStay 要求无建筑）、又不能过、还会**截断移动范围向外扩展**
+            // （Map.GetMoveRange 用它做展开条件）的墙 —— 部队会永远停在它前一格。
+            // 实测反馈：委任军团回城路线被盟友关隘挡住，整支部队原地打转。
+            if (this.troop != null
+                && this.troop.BelongForce != self
+                && !self.IsAlliance(this.troop.BelongForce))
+                return false;
+
+            // 无主据点（BelongForce == null）仍不可穿过：它由 TroopAIUtility.TryAttackBlockingCityOnPath
+            // 派兵打下来，归本方所有后本条自然放行。
+            // 敌方 / 停战方同样不可穿过 —— 停战只保证不主动攻击，不等于开放领土。
+            if (this.building != null
+                && this.building.BelongForce != self
+                && !self.IsAlliance(this.building.BelongForce))
+                return false;
+
+            return true;
         }
         /// <summary>
         /// 检查部队是否可以移动到该单元格

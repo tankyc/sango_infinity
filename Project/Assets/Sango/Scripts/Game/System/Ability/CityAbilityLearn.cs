@@ -346,6 +346,16 @@ namespace Sango.Core.Player
         /// <returns>至少一条可学返回 true</returns>
         bool CanStudyAny(Person person, List<Ability> abilities)
         {
+            if (abilities == null || abilities.Count == 0)
+                return false;
+
+            // 【性能】"该大类槽位已被占用"对同一类的所有能力是同一个结果（原版 find_actor 门禁），
+            // 先判一次直接短路，避免在逐条 CanStudy 里重复做全势力扫描。
+            Ability probe = abilities[0];
+            if (probe != null && TargetCity != null
+                && AbilityStudySystem.HasStudyingActor(TargetCity.BelongForce, Scenario.Cur, (AbilityCategory)probe.category))
+                return false;
+
             for (int i = 0; i < abilities.Count; i++)
             {
                 if (AbilityStudySystem.CanStudy(person, abilities[i], TargetCity, Scenario.Cur,

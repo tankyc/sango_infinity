@@ -269,7 +269,6 @@ namespace Sango.Core
             set { mMember2 = value; Member2Id = value != null ? value.Id : 0; }
         }
 
-
         /// <summary>
         /// 俘虏列表（运行期容器，不参与序列化）
         /// </summary>
@@ -511,6 +510,21 @@ namespace Sango.Core
         [JsonProperty] public int requestForceId = -1;
 
         /// <summary>
+        /// 【驻防协防】最近一次"协防目标城有敌情"的回合号（0 = 本部队不是驻防型协防部队）。
+        ///
+        /// 【用途】跨军团支援部队**不并入目标城**（不进城、不带兵），只在目标城驻守；
+        /// 目标城连续 <see cref="AIConfig.garrisonIdleTurns"/> 回合无战事（或其它返程条件成立）
+        /// 后回所属城。这里记"最后一次有敌情的回合"，用回合号比较做**幂等**判定 ——
+        /// 部队 Prepare 每回合可能被调用多次，用递减计数会被重复扣减。
+        ///
+        /// 【原版无对应实现】原版支援是 DeployType_Transport + UnitOrderId_Move，
+        /// 抵达后由 unit_enter 直接并兵（s11_game_ai_kyoten_cmd_mil_support.cpp:189-191），
+        /// 没有"驻守 / 到期返程"的概念；本项目按玩家反馈新增，
+        /// 理由是跨军团的兵不该被永久并入别人的城。
+        /// </summary>
+        [JsonProperty] public int garrisonLastBattleTurn;
+
+        /// <summary>
         /// 按任务性质推断出征意图（出征入口写 <see cref="deployType"/> 时使用）。
         ///
         /// 映射依据是原版"据点 AI 派出部队时给的是哪种 deploy"：
@@ -535,6 +549,7 @@ namespace Sango.Core
                 case MissionType.TroopProtectBuilding:
                 case MissionType.TroopProtectTroop:
                 case MissionType.TroopMovetoCity:
+                case MissionType.TroopSupportCity:
                     return (int)TroopDeployType.Defense;
 
                 case MissionType.TroopSupplyTroop:
@@ -552,6 +567,67 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 出征意图目标（<see cref="deployTarget"/>）的**据点 Id** 换算。
+        ///
+        /// 【为什么必须换算】deployTarget 的语义是"目标**据点** Id"——原版
+        /// <c>context_->unit[].deploy_target</c> 写的就是 building_id
+        /// （s11_game_ai_kyoten_cmd_mil_attack.cpp:396-398）。但本项目的
+        /// <c>missionTarget</c> 在不同任务下是**不同域**的 Id：
+        ///   · 占领 / 守城 / 移动 / 运输 → 据点 Id（可直接写入）；
+        ///   · 歼灭部队 / 破坏建筑 / 驱逐 → 部队 Id / 建筑 Id。
+        ///
+        /// 早期实现无脑写 <c>missionTarget</c>，于是"驱逐"部队的 deployTarget 存的是
+        /// 一个**部队 Id**。部队层 <see cref="UpdateAIOrder"/> 会把它当据点 Id 去
+        /// <c>citySet</c> 里查，撞上同 Id 的无关城池；若那座城恰好属于本势力，就命中
+        /// ":215-225 目标已变成己方 → 改派移动过去"，部队当场抛弃追击目标开进那座城
+        /// 并进城解散 —— 这正是玩家反馈的"禁止攻击的委任军团把部队开进了君主城"。
+        ///
+        /// 因此非据点型目标统一写 -1，部队层据此认定"出征意图没有据点级目标"，
+        /// 不做据点改派（见 <see cref="UpdateAIOrder"/> 的 Attack 分支）。
+        ///
+        /// 【原版无对应实现】原版据点级命令的目标永远是据点，不存在跨域问题；
+        /// "驱逐 / 破坏建筑"是本项目自主新增的据点级命令，故在此自行约定口径。
+        /// </summary>
+        /// <param name="missionTypeValue">部队任务类型</param>
+        /// <param name="missionTargetId">部队任务目标 Id</param>
+        /// <returns>可写入 deployTarget 的据点 Id；目标不是据点时返回 -1</returns>
+        public static int GetDeployTargetCityId(int missionTypeValue, int missionTargetId)
+        {
+            switch ((MissionType)missionTypeValue)
+            {
+                case MissionType.TroopOccupyCity:
+                case MissionType.TroopProtectCity:
+                case MissionType.TroopMovetoCity:
+                case MissionType.TroopSupportCity:
+                case MissionType.TroopTransformGoodsToCity:
+                    return missionTargetId;
+
+                default:
+                    return -1;
+            }
+        }
+
+        /// <summary>
+        /// 该任务的 <c>missionTarget</c> 是否为"非据点"目标（部队 Id / 建筑 Id）。
+        /// 部队层改派前用它挡一道：这类目标不能按据点解析。
+        /// </summary>
+        /// <param name="missionType">部队任务类型</param>
+        /// <returns>目标不是据点返回 true</returns>
+        static bool IsNonCityTargetMission(MissionType missionType)
+        {
+            switch (missionType)
+            {
+                case MissionType.TroopDestroyTroop:
+                case MissionType.TroopDestroyBuilding:
+                case MissionType.TroopBanishTroop:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
         /// 任务目标
         /// </summary>
         [JsonProperty] public int missionTarget;
@@ -565,19 +641,6 @@ namespace Sango.Core
         /// 任务参数1
         /// </summary>
         [JsonProperty] public int missionParams2;
-
-        /// <summary>
-        /// 【随军增筑】就地修建辅助建筑前记录的原任务类型（0 表示当前不是"随军增筑"流程）。
-        /// 建筑完工后据此恢复原任务，使作战部队不会因顺手修一座军乐台而永久脱离战线。
-        /// 与专职工程队（不需要恢复任务）区分开。
-        /// </summary>
-        [JsonProperty] public int fieldBuildReturnMission;
-
-        /// <summary>
-        /// 【随军增筑】就地修建辅助建筑前记录的原任务目标 Id。
-        /// 与 <see cref="fieldBuildReturnMission"/> 配对，用于恢复原任务的完整上下文。
-        /// </summary>
-        [JsonProperty] public int fieldBuildReturnTarget;
 
         /// <summary>
         /// 部队角色：决定"怎么打"（攻坚 / 防守 / 骚扰 / 游击 / 护卫 / 守备），
@@ -715,57 +778,6 @@ namespace Sango.Core
                 return mMissionTargetCell;
             }
             set { mMissionTargetCell = value; missionTargetCellPos = CellXY.From(value); }
-        }
-
-        /// <summary>
-        /// 【需求4】判断是否需要向附近的补给队求援：
-        /// 1. 自身状态低于阈值（兵力 / 满编 小于 askSupplyHealthPercent）；
-        /// 2. 范围内存在己方补给队（运输队），且该补给队尚有物资可移交。
-        /// </summary>
-        /// <param name="scenario">场景对象</param>
-        /// <param name="supplier">找到的补给队（未找到时为 null）</param>
-        /// <returns>是否需要求援</returns>
-        public bool IsNeedAskSupply(Scenario scenario, out Troop supplier)
-        {
-            supplier = null;
-
-            AIConfig cfg = AIConfig.Instance;
-            if (cfg.askSupplyHealthPercent <= 0 || scenario == null || cell == null)
-                return false;
-
-            // 1) 状态检查：兵力低于满编阈值，或粮草即将告罄
-            bool lowTroops = MaxTroops > 0 && troops * 100 < MaxTroops * cfg.askSupplyHealthPercent;
-            bool lowFood = IsWithOutFood() == 1;
-            if (!lowTroops && !lowFood)
-                return false;
-
-            // 2) 范围内是否有能补给的己方补给队
-            int range = cfg.askSupplySearchRange;
-            int bestDistance = int.MaxValue;
-            for (int i = 0; i < scenario.troopsSet.Count; i++)
-            {
-                Troop t = scenario.troopsSet[i];
-                if (t == null || !t.IsAlive || t == this)
-                    continue;
-                if (!t.IsTransport || !t.IsSameForce(this) || t.cell == null)
-                    continue;
-                // 补给队自身必须还有物资可给
-                if (t.food <= 0 && t.troops <= 0
-                    && (t.itemStore == null || t.itemStore.TotalNumber <= 0))
-                    continue;
-
-                int distance = scenario.Map.Distance(cell, t.cell);
-                if (distance > range)
-                    continue;
-
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    supplier = t;
-                }
-            }
-
-            return supplier != null;
         }
 
         public TroopType TroopType
@@ -1592,6 +1604,28 @@ namespace Sango.Core
             GameEvent.OnTroopCalculateAttribute?.Invoke(this, scenario);
             GameEvent.OnTroopAfterCalculateAttribute?.Invoke(this, scenario);
 
+            // 【剧本参数】移动力统一倍率。
+            //
+            // 放在三个属性事件之后，是为了拿到"计算完成后的最终移动力"：
+            // 上面的 waterMoveAbility / landMoveAbility 先被重置为兵种基础值（:1520-1521），
+            // 再由特技「强行 / 搬运」、科技、装备等 Action 在 OnTroopCalculateAttribute /
+            // OnTroopAfterCalculateAttribute 里累加 / 累乘。若在事件之前乘倍率，
+            // 特技的"固定 +N 格"会被倍率放大成"按比例"，语义就乱了。
+            //
+            // 每次 CalculateAttribute 都会先重置再累加，所以这里乘一次是幂等的，
+            // 不会因为部队属性重算（升官、换将、Buff 变化）而累积膨胀。
+            //
+            // 【原版无对应实现】原版没有全局移动力倍率，这里只是本项目的剧本级调参口，
+            // 见 ScenarioVariables.moveAbilityFactor 的注释。
+            int moveAbilityFactor = Variables.moveAbilityFactor;
+            if (moveAbilityFactor < 0)
+                moveAbilityFactor = 0;
+            if (moveAbilityFactor != 100)
+            {
+                waterMoveAbility = waterMoveAbility * moveAbilityFactor / 100;
+                landMoveAbility = landMoveAbility * moveAbilityFactor / 100;
+            }
+
             for (int i = 0; i < landSkills.Count; i++)
             {
                 SkillInstance ins = landSkills[i];
@@ -1622,6 +1656,7 @@ namespace Sango.Core
             if (LandTroopType.IsTransport())
             {
                 MaxTroops = scenario.Variables.TransportTroopLimit;
+                ClampTroopsToMax();
                 return;
             }
 
@@ -1629,6 +1664,43 @@ namespace Sango.Core
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(max);
             GameEvent.OnTroopCalculateMaxTroops?.Invoke(Leader.BelongCity, this, overrideData);
             MaxTroops = overrideData.ValueAndRecycle;
+
+            // 【必须夹住当前兵力】上限一旦因换主将变小，troops 不会自己跟着降
+            ClampTroopsToMax();
+        }
+
+        /// <summary>
+        /// 把当前兵力夹进 <see cref="MaxTroops"/> 之内。
+        ///
+        /// 【原版依据】Open311 `Unit::set_troops`（s11_scen_obj_unit.cpp:371-378）：
+        /// <code>
+        /// if (scenario_->get_database()->is_range_check())
+        ///     troops = std::clamp(troops, 0, get_max_troops());
+        /// </code>
+        /// 而 `Unit::get_max_troops`（:356-364）**只取主将**：`return leader->get_command();`，
+        /// 副将不参与 —— 与本项目 <see cref="CalculateMaxTroops"/> 的口径一致。
+        ///
+        /// 【为什么必须显式夹】
+        /// MaxTroops 只由「主将的 <see cref="Person.TroopsLimit"/> + 势力科技」决定，副将不贡献。
+        /// 而 troops 是独立存的字段。于是存在这条可复现的刷兵路径：
+        ///   ① 主将带兵少（如 5000），先拉一个带兵多的当队长 → MaxTroops=15000，troops 被设成 15000；
+        ///   ② 把带兵多的那位摘掉（<see cref="RemovePerson"/> 会让 Member1 顶上当 Leader）；
+        ///   ③ MaxTroops 掉回 5000，但 troops 仍是 15000 —— 部队带着超编兵力出城。
+        /// 把夹取收口在本方法，是因为「上限变化」的所有路径最终都会走到这里（换将 / 摘人 / 换兵种 /
+        /// 读档重算），比在每个 setter 和每条 UI 回调里逐个补更不容易漏。
+        ///
+        /// 【为什么不会误伤】<see cref="GameEvent.OnTroopCalculateMaxTroops"/> 目前唯一的订阅者是
+        /// 势力科技 <c>ForceTroopMaxTroop</c>（长期加成），不存在"战斗中 debuff 临时压低上限"的场景，
+        /// 因此不会出现兵力凭空蒸发。
+        /// </summary>
+        void ClampTroopsToMax()
+        {
+            if (MaxTroops < 0)
+                MaxTroops = 0;
+            if (troops > MaxTroops)
+                troops = MaxTroops;
+            if (troops < 0)
+                troops = 0;
         }
 
         /// <summary>
@@ -2456,9 +2528,34 @@ namespace Sango.Core
             if (troops < 0)
                 troops = 0;
 
-            // 【对齐原版 supply_anim】补给只转移 兵力 / 资金 / 军粮（以及一兵一装兵种的装备），
-            // 原版不参与士气计算（s11_sys_anim_unit.cpp:1443-1476 只改 troops/gold/food/energy），
-            // 因此这里不再做"士气加权平均"。
+            // 【对齐原版 supply_anim】补给转移 兵力 / 资金 / 军粮（以及一兵一装兵种的装备），
+            // 同时按"兵力加权平均"重算目标部队的士气。
+            //
+            // 【原版出处】s11_sys_anim_unit.cpp:1449-1450、1466
+            //   int energy = (target->get_troops() * target->get_energy()
+            //                 + troops * self->get_energy()) / (target->get_troops() + troops);
+            //   energy = std::min(energy, target->get_max_energy());
+            //   target->set_energy(energy);
+            // 反编译文本写作 `/ target->get_troops() + troops`（分母括号被丢掉），
+            // 若照抄会得到几千的数值再被上限截断 —— 与本项目补给界面预览
+            // （UITroopSupply.RefreshPanels:291 的加权平均式）也对不上，
+            // 故按加权平均实现：兵力越多的部队士气权重越大，补给队士气一并计入。
+            int totalTroops = target.troops + troops;
+            if (totalTroops > 0)
+            {
+                int newMorale = (target.troops * target.morale + troops * morale) / totalTroops;
+                int maxMorale = target.MaxMorale;
+                if (newMorale > maxMorale)
+                    newMorale = maxMorale;
+
+                // 走统一入口而不是直接写字段：ChangeMorale 会
+                // ① 触发 GameEvent.OnTroopChangeMorale（TriggerTroopOnMoralChange 等
+                //    士气类特技 / 事件靠它介入）、② 做 0~MaxMorale 夹取、③ 变化时飘字并刷新。
+                int moraleDelta = newMorale - target.morale;
+                if (moraleDelta != 0)
+                    target.ChangeMorale(moraleDelta);
+            }
+
             this.troops -= troops;
             this.gold -= gold;
             this.food -= food;
@@ -2526,6 +2623,19 @@ namespace Sango.Core
             // 无法寻路逃回，直接返回 false，由调用方（TroopEscapeToCityEvent）结束事件。
             if (city == null || city.CenterCell == null)
                 return false;
+
+            // 【盟友 / 敌方据点只能靠到城下，不能踏进据点格】
+            //
+            // Cell.CanPassThrough 对同盟据点放行之后，下面的 `x.building == city` 落脚判定
+            // 会让部队真的站到盟友城格上；而 EnterCity 会以"非自身势力"拒绝入城
+            // （Troop.cs 的硬守卫），部队就违规停在建筑格上（Cell.CanStay 明确禁止）。
+            //
+            // 只有两种情况允许把据点格当落脚点：
+            //   · 本势力据点：进城并兵 / 解散；
+            //   · 无主据点：EnterCity 里有"白城直接占领"分支（对齐原版 unit_enter）。
+            if (city.BelongForce != null && city.BelongForce != BelongForce)
+                return TryCloseTo(city.CenterCell);
+
             return TryMoveToCell(city.CenterCell, (x) =>
             {
                 return x.building == city;
@@ -2722,7 +2832,23 @@ namespace Sango.Core
 
             if (damage <= 0) return;
 
-            ChangeTroops(-damage, null, 0);
+            // 【抑制伤害修正 Action】地形移动伤害是环境伤害，原版走独立函数
+            // get_movement_damage（s11_sys_damage.cpp:5-44），不进 calc_attack_damage，
+            // 因此不参与「藤甲」等 isDefender = 1 的 TroopChangeDamage 减伤
+            // （原版只有着火格分支在 :15-16 对藤甲 ×2，毒泉 / 栈道分支没有藤甲处理）。
+            //
+            // 【空引用】atker 传 null，若放行到 Action 层就是
+            // CheckIsNormalSkill(skill = null, ...) 的老路径；虽然那里已加 null 保护，
+            // 但语义上环境伤害本就不该走战斗 Action，这里直接抑制，与陷阱结算同一口径。
+            Sango.Core.Action.TroopActionBase.BeginSuppressDamageModifier();
+            try
+            {
+                ChangeTroops(-damage, null, 0);
+            }
+            finally
+            {
+                Sango.Core.Action.TroopActionBase.EndSuppressDamageModifier();
+            }
         }
 
         /// <summary>队内任一武将是否具备指定特技（原版的 Unit 级 has_skill 聚合）</summary>
@@ -3299,16 +3425,16 @@ namespace Sango.Core
 
         /// <summary>
         /// 部队入城（解散 / 卸货 / 占领）。
+        ///
+        /// 【不做容量拦截】城池与港关一视同仁：装不下的部分按原版 clamp 截断丢弃
+        /// （City.AddTroops 对齐 Open311 building_add_troops，s11_sys_scen_building.cpp:1145-1154）。
+        /// 早前对港关实现过"装不下就改道别处、本次不入城"的拦截，现已按需求取消 ——
+        /// 那条规则会让满兵港关永远拒绝自己的部队，与"部队必须能回城"直接冲突，
+        /// 而且玩家侧从来没有同样的行为，两侧口径不一致。
+        /// 溢出仍有 warning 留痕，不会静默蒸发。
         /// </summary>
         /// <param name="city">目标据点</param>
-        /// <param name="checkTroopOverflow">
-        /// 是否执行"AI 溢出改道"检查。默认 true。
-        /// 该检查**只对港关（港口 / 关隘）生效**，城池一律不检查 ——
-        /// 城兵满时还把部队改道，部队就永远回不了城。
-        /// 城陷占领、败退入城、编成回滚这几条路径必须传 false ——
-        /// 那些场景下改道会让刚打下的城没人守、或让残部在地图上被追杀。
-        /// </param>
-        public void EnterCity(City city, bool checkTroopOverflow = true)
+        public void EnterCity(City city)
         {
             if (city == null)
             {
@@ -3343,24 +3469,10 @@ namespace Sango.Core
                 return;
             }
 
-            // 【防吞兵 · 仅 AI · 仅港关】目标港关装不下这支部队时，先改道最近的有余量据点。
+            // 【不做容量拦截】这里早前对港关执行过"装不下就改道别处、直接 return 不入城"，
+            // 现已按需求取消：满兵港关必须照常接收自己的部队，否则部队会永远悬在地图上。
+            // 装不下的部分由下面的 city.AddTroops 按原版 clamp 截断（见留痕）。
             //
-            // 原版做法是"clamp 后丢弃"：unit_enter 直接调 building_add_troops
-            // （Open311 s11_sys_scen_unit.cpp:573），而它把结果 clamp 到 max 并返回实际变化量
-            // （s11_sys_scen_building.cpp:1145-1154），调用方不接返回值 —— 溢出兵力就此蒸发。
-            // 玩家侧保持该行为（提示放在下令交互阶段，不在这里弹窗）；AI 侧不能自己把兵送没，故在此改任务。
-            //
-            // 【城池不检查】城池容量大，且满兵是常态：若城兵满也拦着改道，部队就永远回不了城。
-            // 城池入城仍按原版 clamp 并入（溢出部分丢弃），保证部队能解散回城。
-            if (checkTroopOverflow
-                && city.IsPortOrGate()
-                && troops > 0
-                && !IsPlayerControl
-                && TroopAIFallback.GetRoom(city) < troops
-                && TroopAIFallback.TryRerouteForOverflow(this, city, Scenario.Cur))
-            {
-                return;
-            }
             // 所属城取主将的实时值（不缓存），下面几处统一用它：
             // 主将已被俘/阵亡时它是 null，这几处都要能安全跳过（?.），否则会在这里空引用崩溃
             City lastBelongCity = BelongCity;
@@ -3376,16 +3488,13 @@ namespace Sango.Core
 
             city.AddGold(gold);
             city.AddFood(food);
-            // 【城池吞兵留痕】城池不做容量拦截（见上面的港关限定），但 AddTroops 仍按原版 clamp 截断，
-            // 溢出部分确实会消失 —— 必须留痕，否则又变成"兵凭空消失"。
-            if (city.IsCity())
+            // 【吞兵留痕】不做容量拦截，但 AddTroops 仍按原版 clamp 截断，溢出部分确实会消失 ——
+            // 必须留痕，否则又变成"兵凭空消失"。城池与港关都要记。
+            int cityRoom = TroopAIFallback.GetRoom(city);
+            if (cityRoom < troops)
             {
-                int cityRoom = TroopAIFallback.GetRoom(city);
-                if (cityRoom < troops)
-                {
-                    Sango.Log.Warning($"{BelongForce?.ColorName}的[{Name}]进入{city.ColorName}时兵力溢出，"
-                                      + $"丢弃 {troops - cityRoom} 兵（城 {city.troops}/{city.TroopsLimit}，部队 {troops}）");
-                }
+                Sango.Log.Warning($"{BelongForce?.ColorName}的[{Name}]进入{city.ColorName}时兵力溢出，"
+                                  + $"丢弃 {troops - cityRoom} 兵（城 {city.troops}/{city.TroopsLimit}，部队 {troops}）");
             }
             city.AddTroops(troops);
 
@@ -3973,6 +4082,8 @@ namespace Sango.Core
             this.missionTargetCell = null;
             this.missionParams1 = 0;
             this.missionParams2 = 0;
+            // 驻防标记随任务一起清：任务没了就不存在"驻防到期返程"
+            this.garrisonLastBattleTurn = 0;
         }
 
         /// <summary>
@@ -4111,7 +4222,7 @@ namespace Sango.Core
                 NormalizeAppointMission();
 
                 // 【AI 分流】按部队的 AI 类型选择"行动前准备"策略（见 TroopAIType）：
-                //   · Faction → 完整启发式 AI
+                //   · Faction → 原版 unit_update_order 直译（UpdateAIOrder）
                 //   · Appoint → 委任 AI，不做任何判断，单纯执行被指派的任务
                 //   · None    → 无任务，不准备
                 PrepareByAIType(scenario);
@@ -4180,8 +4291,7 @@ namespace Sango.Core
                 // 这里只在"任务行为对象根本建不出来"（即命令无法执行）时才触发，语义与原版一致。
                 if (needFallbackRetreat)
                 {
-                    bool canFallback = AIConfig.Instance.useStrictOpen311UnitAI
-                        && !ActionOver
+                    bool canFallback = !ActionOver
                         && missionType != (int)MissionType.None
                         && !IsPlayerControl;
 
@@ -4253,7 +4363,7 @@ namespace Sango.Core
         ///
         /// 两类 AI 共用同一个任务执行层（<see cref="TroopMissionBehaviour"/>），
         /// 差别只在准备阶段：
-        ///   · <see cref="TroopAIType.Faction"/> → <see cref="AIPrepare"/>（完整启发式）
+        ///   · <see cref="TroopAIType.Faction"/> → <see cref="AIPrepare"/>（原版 unit_update_order 直译）
         ///   · <see cref="TroopAIType.Appoint"/> → <see cref="AppointPrepare"/>（纯净，无任何判断）
         ///   · <see cref="TroopAIType.None"/>    → 不做任何准备
         /// </summary>
@@ -4279,10 +4389,8 @@ namespace Sango.Core
         /// 因此这里不做任何战场态势判断，也不改派 / 追加任务。
         ///
         /// 以下都是势力 AI 才有的额外逻辑，委任部队一律不参与：
-        ///   · 态势分档与主动撤退（<see cref="TroopBattleTier"/>）
-        ///   · 断粮 / 兵少 / 低士气的就近补给撤退
-        ///   · 向补给队求援（<see cref="MissionType.TroopAskSupply"/>）
-        ///   · 随军增筑辅助建筑（<see cref="TryBuildFieldBuilding"/>）
+        ///   · 原版 unit_update_order 的意图改派与撤退（<see cref="UpdateAIOrder"/>）
+        ///   · 断粮 / 兵少 / 器械无战法时的撤退（<see cref="RetreatAIOrder"/>）
         ///   · 部队角色自动推导（<see cref="ResolveRole"/>）
         ///
         /// 保留此方法（而不是干脆不调用）是为了给"委任 AI"一个明确的落点：
@@ -4403,6 +4511,17 @@ namespace Sango.Core
                             return true;
                         }
 
+                        // 【意图目标不是据点】歼灭部队 / 破坏建筑 / 驱逐这类任务的
+                        // missionTarget 是部队 Id / 建筑 Id，与 citySet 不同域，不能按据点解析。
+                        // 早期实现把 missionTarget 直接写进 deployTarget，撞 Id 时会命中一座
+                        // 无关城池（多半是本方城）→ 下面":215-225 目标已变成己方 → 改派移动过去"
+                        // 会把正在追击的部队拐进那座城并进城解散
+                        //（玩家看到的"禁止攻击的委任军团把部队开进了君主城"就是这条）。
+                        // 这里直接保持当前任务：追击 / 拆建筑由任务层自己收尾。
+                        // 【原版无对应实现】原版据点级 Attack 的目标永远是据点。
+                        if (IsNonCityTargetMission((MissionType)missionType))
+                            return true;
+
                         if (IsValidDeploy(dType, deployCity))
                         {
                             // :200-214 目标仍可攻：仅在"无令/待机/撤退中"时改派攻击
@@ -4418,8 +4537,29 @@ namespace Sango.Core
 
                                 case MissionType.TroopStay:
                                     // :210 原版 rand_bool(50) ? Attack : Subjugate
+                                    //
+                                    // 【必须换算出部队 Id】原版 unit_set_order 的第三个参数是**坐标**
+                                    // （target->get_pos()，即据点所在格），Attack 运行时按位置自己找敌军；
+                                    // 本项目的 TroopDestroyTroop 第二参数是**部队 Id**。若照抄成 deployCity.Id，
+                                    // TroopDestroyTroop.Prepare 里的 troopsSet.Get(城市Id) 只会：
+                                    //   · 返回 null  → 目标视为不存在 → 立刻改派 TroopReturnCity（大军掉头返城）；
+                                    //   · 命中 Id 撞车的无关部队 → 跑去追一支与本战场无关的部队。
+                                    // 所以这里先在目标城周边找一支敌军，找到才歼灭，否则退化为占领。
                                     if (deployCity != null)
-                                        SetMission(GameRandom.Chance(50) ? MissionType.TroopDestroyTroop : MissionType.TroopOccupyCity, deployCity.Id);
+                                    {
+                                        // 【禁止攻击】军团被设为禁止对外用兵：这里既不能占领 deployCity，
+                                        // 也不该主动追歼敌军（都是对外用兵）。原版没有委任限制，
+                                        // 属本项目护栏；直接收拢回所属据点，与据点层的
+                                        // CityAI.RecallOffensiveTroops 同一口径。
+                                        if (TroopAIUtility.IsAttackForbidden(this))
+                                            return RetreatAIOrder();
+
+                                        Troop victim = GameRandom.Chance(50) ? FindEnemyTroopNearCity(deployCity, scenario) : null;
+                                        if (victim != null)
+                                            SetMission(MissionType.TroopDestroyTroop, victim.Id);
+                                        else
+                                            SetMission(MissionType.TroopOccupyCity, deployCity.Id);
+                                    }
                                     break;
                             }
                             return true;
@@ -4507,6 +4647,13 @@ namespace Sango.Core
                     // 不能参与城的比对；只要任务本身还在运输类就保持，避免被改判成"运物资到城"。
                     if (transportMission == MissionType.TroopSupplyTroop
                         || transportMission == MissionType.TroopAskSupply)
+                        return true;
+
+                    // 支援据点：目标是己方城，任务是"送兵并兵"而不是"运物资"。
+                    // 不能落到下面的兜底被改判成 TroopTransformGoodsToCity（那会变成运资源，
+                    // 兵力留在部队里、城池拿不到兵）。支援/运输的互斥由 deployType=Transport
+                    // 与 deployTarget 共同表达，与运输队一致。
+                    if (transportMission == MissionType.TroopSupportCity)
                         return true;
 
                     // 运物资到城：目标城必须与 deployTarget 一致才保持。
@@ -4646,6 +4793,47 @@ namespace Sango.Core
             return FindCityById(scenario, missionTarget);
         }
 
+        /// <summary>
+        /// 查找目标城池周边的敌军（最近优先）。
+        ///
+        /// 【存在意义】原版 <c>GameAI::unit_update_order</c> 的 Attack 命令传的是**坐标**
+        /// （s11_game_ai_unit.cpp:210 <c>target->get_pos()</c>），运行时按位置在附近找敌军；
+        /// 本项目的 <see cref="MissionType.TroopDestroyTroop"/> 第二参数是**部队 Id**，
+        /// 直接塞城市 Id 会让 <c>TroopDestroyTroop.Prepare</c> 的 <c>troopsSet.Get(城市Id)</c>
+        /// 命中 Id 撞车的无关部队或返回 null（后者会立刻判定"任务完成"并改派返城）。
+        /// 因此改派歼灭前先用本方法把"位置"换算成真实的部队 Id。
+        ///
+        /// 扫描范围取 <see cref="AIConfig.cityAttackTroopScanRange"/>：只覆盖贴在城下的守军，
+        /// 范围放大会让进攻部队被远处敌军拽离目标城。
+        /// </summary>
+        /// <param name="city">目标城池</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>最近的敌方部队；范围内没有敌人时返回 null（调用方应退化为占领）</returns>
+        Troop FindEnemyTroopNearCity(City city, Scenario scenario)
+        {
+            if (city == null || city.CenterCell == null || scenario == null || scenario.Map == null)
+                return null;
+
+            Troop nearest = null;
+            int bestDistance = int.MaxValue;
+
+            scenario.Map.SpiralAction(city.CenterCell, AIConfig.Instance.cityAttackTroopScanRange, (cell) =>
+            {
+                Troop enemy = cell.troop;
+                if (enemy == null || !enemy.IsAlive || !IsEnemy(enemy))
+                    return;
+
+                int distance = city.CenterCell.Distance(cell);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = enemy;
+                }
+            });
+
+            return nearest;
+        }
+
         /// <summary>按 Id 在 citySet 里找据点（城 / 关 / 港统一建模）</summary>
         static City FindCityById(Scenario scenario, int id)
         {
@@ -4759,8 +4947,17 @@ namespace Sango.Core
         #endregion
 
         /// <summary>
-        /// 【势力 AI】AI 势力（及玩家势力非主军团）部队的行动前准备：完整的启发式流程
-        /// （态势撤退 / 就近补给 / 求援 / 随军增筑 / 角色推导等）。
+        /// 【势力 AI】AI 势力（及玩家势力非主军团）部队的行动前准备。
+        ///
+        /// 只走 Open311 的 <c>unit_update_order</c> 直译（<see cref="UpdateAIOrder"/>）：
+        /// 按"出征意图 + 断粮 / 兵少 / 器械气力"决定继续执行 / 改派 / 撤退。
+        ///
+        /// 【已删除，不要加回来】本方法原先在 <c>AIConfig.useStrictOpen311UnitAI == false</c>
+        /// 时还走一套本项目自创的启发式：态势档位概率撤退、向补给队求援、
+        /// "断粮 / 兵少 / 士气低 → 就近改道去最近据点"、随军就地增筑。
+        /// 该分支与原版直译互斥，且开关恒为 true（全项目没有赋值点），长期是死路径，
+        /// 已整体移除（开关本身也删了）。
+        /// 现行语义：撤退目标固定为**所属据点**，见 <see cref="RetreatAIOrder"/>。
         ///
         /// 注意：本方法只应由 <see cref="PrepareByAIType"/> 在
         /// <see cref="TroopAIType.Faction"/> 分支下调用。方法开头的
@@ -4773,248 +4970,21 @@ namespace Sango.Core
             if (IsPlayerControl)
                 return;
 
-            // 【严格对齐原版】走 unit_update_order 的直译（<see cref="UpdateAIOrder"/>）。
-            // 决策只看"出征意图 + 断粮 / 兵少 / 器械气力"，与下面这套本项目启发式互斥，
-            // 由 AIConfig.useStrictOpen311UnitAI 切换（默认严格）。
-            //
-            // 注意：role 的固化（ResolveRole）在严格模式下仍然保留——它是**评分层**的输入，
-            // 不参与"打不打 / 撤不撤"的分支（原版也没有这个概念）；
-            // 运输队同样要走原版分支（DeployType_Transport），所以放在 IsTransport 之前。
-            if (AIConfig.Instance.useStrictOpen311UnitAI)
-            {
-                if (role == TroopRole.Auto)
-                    role = ResolveRole();
-
-                UpdateAIOrder(scenario);
-                return;
-            }
-
-            if (IsTransport)
-                return;
-
-            AIConfig aiConfig = AIConfig.Instance;
-
             // 【分级策略】首次行动时固化部队角色（Auto → 按当前任务与自身属性推导一次）。
             // 角色决定评分权重与作战风格，固化后不再随回合变化，避免行为抖动。
+            // 它只喂给**评分层**，不参与"打不打 / 撤不撤"（原版没有这个概念）。
             if (role == TroopRole.Auto)
                 role = ResolveRole();
 
-            // 【需求4】状态不佳且附近有可补给的补给队 → 切换为"求援"
-            // 【前线建筑】工兵（TroopBuildBuilding / TroopFixBuilding）不参与求援：
-            //   一是施工任务优先级更高，二是施工行为类用 missionParams1 记录"连建次数"，
-            //   若被求援逻辑改写会导致连建计数错乱。
-            bool isEngineerMission = missionType == (int)MissionType.TroopBuildBuilding
-                                  || missionType == (int)MissionType.TroopFixBuilding;
-            if (!isEngineerMission
-                && missionType != (int)MissionType.TroopAskSupply
-                && missionType != (int)MissionType.TroopReturnCity
-                && missionType != (int)MissionType.TroopMovetoCity
-                && IsNeedAskSupply(scenario, out Troop supplier))
-            {
-                // 【修复】先把原任务记录到 missionParams,求援结束后恢复,
-                // 避免"求援→补满→任务被清空→自动返城"导致原进攻 / 防守任务永久丢失。
-                missionParams1 = (int)missionType;
-                missionParams2 = missionTarget;
-
-                SetMission(MissionType.TroopAskSupply, supplier.Id);
-                NeedPrepareMission();
-                Sango.Log.Info($"{BelongForce?.Name}的[{Name}]状态不佳,向补给队[{supplier.Name}]求援!");
-                return;
-            }
-
-            // 已处于返城 / 进城任务,无需重复撤退
-            if (missionType == (int)MissionType.TroopReturnCity || missionType == (int)MissionType.TroopMovetoCity)
-                return;
-
-            // 【出征回合门槛】刚出城的部队不允许立刻掉头回城 / 撤离。
-            //
-            // 成因：态势评级看的是"局部战力比"，刚出城的部队经常一出门就被评成劣势 / 危局；
-            // 而"最近的己方据点"往往就是它刚出的那座城，于是判定撤退后立刻折返，
-            // 在城池格上反复进出，玩家观感就是"部队停在城池上不动"。
-            // 现在要求部队在野外至少待满 retreatMinLiveDays 个回合，才允许做出撤退 / 回避决定。
-            // （只影响非玩家控制的部队——本方法对 IsPlayerControl 已在开头 return）
-            bool canDecideRetreat = aiConfig.retreatMinLiveDays <= 0 || liveDays > aiConfig.retreatMinLiveDays;
-
-            // 【分级策略】战场态势不利时主动脱离接触：
-            // 撤退概率完全由当前态势档位决定
-            // （默认：危局 80% / 劣势 40% / 均势 10% / 优势与碾压 0%，均可在 AIConfig 中调整）
-            if (canDecideRetreat && aiConfig.useTierStrategy && aiConfig.useTierRetreat)
-            {
-                TroopTierWeights tierWeights = GetTierWeights(scenario);
-                if (tierWeights != null)
-                {
-                    TroopBattleTier tier = EvaluateTier(scenario);
-                    int retreatChance = tierWeights.retreatChance;
-
-                    // 【领队性格】叠加性格的撤退倾向（莽撞 −20% / 胆小 +20%）。
-                    // 安全阀：危局档忽略性格修正，防止"莽将送死"。
-                    if (!(aiConfig.leaderIgnoreRetreatInCritical && tier == TroopBattleTier.Critical))
-                        retreatChance += GetLeaderRetreatBonus();
-
-                    if (retreatChance > 0 && GameRandom.Chance(Math.Min(100, retreatChance)))
-                    {
-                        City refuge = FindNearestFriendlyCity(scenario);
-
-                        // 【修复】撤退目标就是部队当前所在的城池时（刚出城），撤退无意义：
-                        // 若此时切任务，部队会被"召回本城"而在城池格上反复切换，表现为卡住。
-                        // 此时直接跳过撤退判定，让它继续执行原任务。
-                        if (refuge != null && (cell == null || cell.building != refuge))
-                        {
-                            SetMission(MissionType.TroopMovetoCity, refuge.Id);
-                            NeedPrepareMission();
-                            Sango.Log.Info($"{BelongForce?.Name}的[{Name}]战场态势不利({tier}),主动脱离接触前往{refuge.Name}!");
-                            return;
-                        }
-                    }
-                }
-            }
-
-            // 【P2】保存实力:非玩家控制的部队在断粮 / 兵力过低 / 士气崩溃时,主动放弃进攻任务。
-            // 【优化】改成"就近赶赴己方城市 / 港口 / 关卡入驻补给",不再固定返回归属城,
-            // 避免老家太远时部队在半路因断粮 / 兵力耗尽而覆灭。
-            bool outOfFood = IsWithOutFood() == 1;
-            bool tooFewTroops = troops < aiConfig.retreatMinTroops;
-            // 兵力低于满编一定比例时同样视为"兵力过低"(需要 MaxTroops 有效)
-            if (!tooFewTroops && MaxTroops > 0 && aiConfig.retreatTroopPercent > 0
-                && troops * 100 < MaxTroops * aiConfig.retreatTroopPercent)
-            {
-                tooFewTroops = true;
-            }
-            bool lowMorale = morale <= aiConfig.retreatMinMorale;
-
-            if (canDecideRetreat &&
-                ((outOfFood && GameRandom.Chance(aiConfig.retreatOutOfFoodChance)) ||
-                 (tooFewTroops && GameRandom.Chance(aiConfig.retreatFewTroopsChance)) ||
-                 (lowMorale && GameRandom.Chance(aiConfig.retreatLowMoraleChance))))
-            {
-                // 就近选择己方据点(城市 / 港口 / 关卡)入驻补给
-                City nearestCity = FindNearestFriendlyCity(scenario);
-                if (nearestCity == null)
-                    return;
-
-                // 【修复】与态势撤退同理：若"最近的己方据点"就是部队脚下的城池
-                // （刚出城 / 已站在本城格上），切任务只会让它原地回城，
-                // 在城池格上反复进出。这里跳过撤退，让它继续执行原任务。
-                if (cell != null && cell.building == nearestCity)
-                    return;
-
-                // 使用 TroopMovetoCity(允许任意己方据点)而不是 TroopReturnCity(其完成判定限定归属城),
-                // 这样不会改动通用返城任务的语义,玩家部队不受影响。
-                SetMission(MissionType.TroopMovetoCity, nearestCity.Id);
-                NeedPrepareMission();
-                Sango.Log.Info($"{BelongForce?.Name}的[{Name}]兵力不足或断粮,就近赶赴{nearestCity.Name}补给!");
-                return;
-            }
-
-            // 【前线建筑 / B3 随军增筑】以上撤退判定全部未触发（说明这支部队确实要继续作战），
-            // 此时再看是否该在战场就地修一座辅助建筑。
-            // 放在最后是有意为之：态势不利 / 断粮 / 兵少的部队应当先撤，而不是留下来花钱施工。
-            if (aiConfig.useFieldBuilding)
-                TryBuildFieldBuilding(scenario);
-        }
-
-        /// <summary>
-        /// 【前线建筑 / B3 随军增筑】前线作战部队在战场就地修建战略辅助建筑（军乐台 / 砦 / 箭楼等）。
-        ///
-        /// 与专职工程队（由 <c>CityAI.DispatchBuildingTroop</c> 派遣）互补：
-        ///   · 工程队：由城池成批派遣，负责成片、有计划的建设；
-        ///   · 随军增筑：作战部队在战场态势刚变化时（如鏖战后气力枯竭、粮草将尽）
-        ///     快速就地补建，无需等待后方工程队长途赶来。
-        ///
-        /// 触发条件（需全部满足）：
-        ///   1. 开启了 <c>useFieldBuilding</c>
-        ///   2. 当前为"作战类"任务（返城 / 施工 / 补给 / 求援等任务一律跳过，避免打断既定流程）
-        ///   3. 兵力不低于满编的 <c>fieldBuildMinHealthPercent</c>%（濒临溃败先保命）
-        ///   4. 携带资金足以修建至少一座候选建筑（没钱无法施工）
-        ///   5. 本回合随机命中 <c>fieldBuildChance</c>%（避免频繁打断主线任务）
-        ///   6. 附近存在评分达标的建址（<see cref="BattleSituation.EvaluateFrontSite"/>）
-        ///
-        /// 切换施工任务前会把原任务记录在 <see cref="fieldBuildReturnMission"/> /
-        /// <see cref="fieldBuildReturnTarget"/>，建筑完工后由 <c>TroopBuildBuilding</c> 恢复，
-        /// 因此作战部队不会因顺手修一座建筑而永久脱离战线。
-        /// </summary>
-        /// <param name="scenario">场景对象</param>
-        /// <returns>是否已切换到就地施工任务</returns>
-        public bool TryBuildFieldBuilding(Scenario scenario)
-        {
-            AIConfig cfg = AIConfig.Instance;
-            if (!cfg.useFieldBuilding || scenario == null || scenario.Map == null
-                || cell == null || BelongForce == null)
-                return false;
-
-            // 只在"作战类"任务下触发，避免打断返城 / 施工 / 补给 / 求援等既定流程
-            switch ((MissionType)missionType)
-            {
-                case MissionType.TroopOccupyCity:
-                case MissionType.TroopDestroyTroop:
-                case MissionType.TroopDestroyBuilding:
-                case MissionType.TroopProtectCity:
-                case MissionType.TroopBanishTroop:
-                case MissionType.TroopStay:
-                    break;
-                default:
-                    return false;
-            }
-
-            // 濒临溃败的部队优先保命，不施工
-            if (MaxTroops > 0 && cfg.fieldBuildMinHealthPercent > 0
-                && troops * 100 < MaxTroops * cfg.fieldBuildMinHealthPercent)
-                return false;
-
-            List<BuildingType> candidates = BelongForce.canBuildMilitaryBuildingType;
-            if (candidates == null || candidates.Count == 0)
-                return false;
-
-            // 资金不足最便宜的一座建筑 → 无从施工
-            int minCost = int.MaxValue;
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                BuildingType t = candidates[i];
-                if (t != null && t.cost < minCost)
-                    minCost = t.cost;
-            }
-            if (minCost == int.MaxValue || gold < minCost || gold < cfg.fieldBuildMinGold)
-                return false;
-
-            // 概率触发：避免作战部队每回合都跑去盖房子
-            if (cfg.fieldBuildChance <= 0 || !GameRandom.Chance(cfg.fieldBuildChance))
-                return false;
-
-            // 以自身所在格为中心评选建址
-            BattleSituation.FrontSiteInfo best = new BattleSituation.FrontSiteInfo();
-            best.Clear();
-            int range = Math.Max(1, cfg.frontBuildSearchRange);
-            scenario.Map.SpiralAction(cell, range, (c) =>
-            {
-                BattleSituation.FrontSiteInfo info =
-                    BattleSituation.EvaluateFrontSite(c, BelongForce, scenario);
-                if (!info.isValid || info.cell == null)
-                    return;
-                if (best.cell == null || info.score > best.score)
-                    best = info;
-            });
-
-            if (!best.isValid || best.cell == null)
-                return false;
-
-            BuildingType buildingType = BattleSituation.SelectFrontBuildingType(best, this, BelongForce, scenario);
-            if (buildingType == null || gold < buildingType.cost)
-                return false;
-
-            // 记录原任务，建筑完工后恢复（由 TroopBuildBuilding 的回城分支处理）
-            fieldBuildReturnMission = (int)missionType;
-            fieldBuildReturnTarget = missionTarget;
-
-            missionTargetCell = best.cell;
-            SetMission(MissionType.TroopBuildBuilding, buildingType.Id);
-            NeedPrepareMission();
-            Sango.Log.Info($"{BelongForce?.Name}的[{Name}]就地增筑{buildingType.Name}!");
-            return true;
+            // 运输队同样走原版分支（DeployType_Transport），这里不再做任何额外分流。
+            UpdateAIOrder(scenario);
         }
 
         /// <summary>
         /// 查找距离本部队最近的己方据点(城市 / 港口 / 关卡)。
-        /// 用于缺粮、兵力过低或士气崩溃时就近入驻补给。
+        /// 用途：补给队资源不足时返回最近己方据点补充（见 <see cref="TroopSupplyTroop"/>）。
+        /// 注意：**不再**用于"断粮 / 兵少时就近入驻"——旧 AI 路径已删除，
+        /// 势力 AI 的撤退目标固定为所属据点（<see cref="RetreatAIOrder"/>）。
         /// </summary>
         /// <param name="scenario">场景对象</param>
         /// <returns>最近的可入驻据点,没有则返回 null</returns>
@@ -5105,6 +5075,7 @@ namespace Sango.Core
                 // 移动 / 待命 → 守备
                 case MissionType.TroopReturnCity:
                 case MissionType.TroopMovetoCity:
+                case MissionType.TroopSupportCity:
                 case MissionType.TroopMovetoCell:
                 case MissionType.TroopMovetoBuild:
                 case MissionType.TroopStay:
@@ -5210,18 +5181,6 @@ namespace Sango.Core
                 return null;
 
             return AIConfig.Instance.GetTierWeights(EvaluateTier(scenario));
-        }
-
-        /// <summary>
-        /// 领队性格给出的撤退概率修正（%，正值更倾向撤退）。
-        /// </summary>
-        /// <returns>撤退概率修正；未启用或性格缺失时返回 0</returns>
-        public int GetLeaderRetreatBonus()
-        {
-            if (!AIConfig.Instance.useLeaderPersonality)
-                return 0;
-            Personality PersonalityId = LeaderPersonality;
-            return PersonalityId != null ? PersonalityId.troopRetreatAdd : 0;
         }
 
         public void Burn(Cell dest)

@@ -25,6 +25,12 @@ namespace Sango.Core.Player
 
             if (actionCell.building.BelongForce == troop.BelongForce) return false;
 
+            // 【军团委任 · 禁止攻击】该部队所属军团被设为禁止对外用兵时，攻城指令直接不可用。
+            // 判定与 AI 侧同口径（CityAI.IsAttackForbidden），否则玩家手动下令后
+            // TroopOccupyCity.Prepare 会立刻把任务撤销，表现为"点了没反应"。
+            // 要打，请先在军团委任界面把"攻击"改回允许。
+            if (CityAI.IsAttackForbidden(troop.BelongCity)) return false;
+
             if (troop.MoveRange.Contains(actionCell)) return false;
 
             TargetCity = actionCell.building as City;

@@ -303,6 +303,18 @@ namespace Sango.Core.Player
             probability = 0;
             Person best = null;
             int bestProbability = 0;
+
+            // 【一键登庸刻意不套军师承诺门槛】用固定阈值 30，与军师智力无关。
+            //
+            // 原因：本方法的返回值同时决定"哪些目标会被保留"——
+            // SetTargets 对拿不到执行武将的目标直接 RemoveAt 删掉。
+            // 若按军师智力（最高可到 100）过滤，玩家手动勾选的目标会被大批删除，
+            // 智力 100 的军师会让整张列表直接清空。一键登庸是批量便利功能，
+            // 不该被军师的保守程度绑架。
+            // 军师进言只作用于【单体登用】（CityRecruit.SetTarget）——那里玩家看到的是
+            // "军师敢不敢打包票"，且随时可以在选择器里自己挑人，不会卡死。
+            int threshold = ForceAI.DefaultCounsellorConfidenceThreshold;
+
             for (int i = 0; i < TargetCity.freePersons.Count; i++)
             {
                 Person candidate = TargetCity.freePersons[i];
@@ -314,9 +326,7 @@ namespace Sango.Core.Player
                     continue;
 
                 int prob = GameFormula.Instance.RecruitPersonProbability(candidate, dest, 0);
-                // 与原版 CityRecruit 的军师推荐口径一致：概率 >= 30 才认为有推荐人选
-                // （原版 SetTarget 的阈值；概率低于 30 时原版军师"不推荐"，一键登庸同样不推荐）
-                if (prob >= 30 && prob > bestProbability)
+                if (prob >= threshold && prob > bestProbability)
                 {
                     bestProbability = prob;
                     best = candidate;
@@ -328,8 +338,8 @@ namespace Sango.Core.Player
 
         /// <summary>
         /// 打开界面时自动推荐（不再要求玩家先点“选择目标武将”）：
-        /// 遍历全部候选目标，排除已派去登庸的目标，按原军师推荐公式为每个目标
-        /// 分配一个不重复的执行武将（概率 &gt; 0 才算有推荐），
+        /// 遍历全部候选目标，排除已派去登庸的目标，按军师推荐公式为每个目标
+        /// 分配一个不重复的执行武将（概率 ≥ 固定阈值 30 才算有推荐，不受军师智力影响），
         /// 按登庸概率从高到低排序，最多取到行动力上限（行动力/单次消耗 与
         /// 可用执行武将数 的较小值）。
         /// 没有任何可推荐目标时 target 保持为空，UI 显示“暂无推荐登庸武将”。

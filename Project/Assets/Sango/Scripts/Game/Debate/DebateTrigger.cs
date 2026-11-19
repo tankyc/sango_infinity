@@ -23,6 +23,8 @@
  * 开局前还会用 DebateConsequence 登记一条"待改判"：发起方（挑战方）辩胜时把发起行为改判为成功（A 方案）。
  */
 
+using System.Collections.Generic;
+
 namespace Sango.Core.Debate
 {
     /// <summary>舌战玩法触发</summary>
@@ -101,8 +103,8 @@ namespace Sango.Core.Debate
             if (!IsDiplomacyTypeAllowed(action.ActionType))
                 return;
 
-            Person diplomat = action.Diplomat;                                        // 使者
-            Person rival = action.Receiver != null ? action.Receiver.mGovernor : null; // 对方代表（接收方君主）
+            Person diplomat = action.Diplomat;             // 使者
+            Person rival = GetDebateOpponent(action);      // 对方代表（原版按智力挑，通常就是军师）
             TryTrigger(diplomat, rival, DebateRules.GetDiplomacyFailChance(),
                 DebateChallengeFlow.Source.DiplomacyFail, "外交失败",
                 () => DebateConsequence.RegisterDiplomacy(diplomat, rival, action, penalty));
@@ -128,7 +130,7 @@ namespace Sango.Core.Debate
             if (!IsDiplomacyTypeAllowed(action.ActionType)) return false;
 
             Person diplomat = action.Diplomat;
-            Person rival = action.Receiver != null ? action.Receiver.mGovernor : null;
+            Person rival = GetDebateOpponent(action);
             if (diplomat == null || rival == null) return false;
             if (DebateManager.Instance != null && DebateManager.Instance.IsDebating) return false;
 
@@ -154,6 +156,92 @@ namespace Sango.Core.Debate
         public static bool IsDiplomacyTypeAllowed(DiplomacyActionType type)
         {
             return type != DiplomacyActionType.DeclareWar && type != DiplomacyActionType.SendGift;
+        }
+
+        /// <summary>
+        /// 选外交舌战的对方代表 —— 对齐原版 <c>get_debate_opponent</c>
+        /// （s11_sys_person_order_diplomacy.cpp:85-143）。
+        ///
+        /// 【原版口径】
+        ///   · 候选身份：君主 / 都督 / 太守 / 一般（<c>Mibun_Kunshu..Mibun_Ippan</c>）；
+        ///   · 候选地点：与目标君主同处一地，或虽在别处任职、但任职据点的 area_city 与君主所在地相同
+        ///     （本项目以"所属都市"近似 area_city —— 港关与其归属都市视为同一个圈）；
+        ///   · 君主一定在候选内（原版不在就插到列表最前）；
+        ///   · 排序：智力降序 → 魅力降序 → 君主优先 → Id 升序，取第一个。
+        ///
+        /// 【为什么不再固定取君主】旧实现直接写 <c>Receiver.mGovernor</c>，
+        /// 等于"派谁去、对方都只有君主应战"，智力最高的军师永远不出场，
+        /// 与原版"对方派最善辩的人接战"的设计正好相反。
+        ///
+        /// 【与原版的差异（有意为之）】原版在"目标方是玩家"时会弹出武将选择框让玩家自己挑
+        /// （取消则回落到君主）。本方法的调用点位于 <c>Perform</c> 的同步结算链路里，
+        /// 中途弹框会打断外交结算与演出，因此两侧统一按 AI 分支的排序结果自动取人。
+        /// </summary>
+        /// <param name="action">外交行为</param>
+        /// <returns>应战代表；无接收方势力时返回 null</returns>
+        static Person GetDebateOpponent(DiplomacyActionBase action)
+        {
+            Force receiver = action != null ? action.Receiver : null;
+            if (receiver == null)
+                return null;
+
+            Person kunshu = receiver.mGovernor;
+            if (kunshu == null)
+                return null;
+
+            City kunshuCity = kunshu.CurrentCity ?? kunshu.BelongCity;
+            City kunshuArea = kunshu.BelongCity;
+
+            List<Person> candidates = new List<Person>();
+            receiver.ForEachPerson(person =>
+            {
+                if (person == null || person.IsDead)
+                    return;
+                if (person.BelongForce != receiver)
+                    return;
+                // 出征中的武将不在城内，不能替君主接战
+                if (person.mBelongTroop != null)
+                    return;
+                if (person.IsPrisoner)
+                    return;
+                // 身份：君主 / 都督 / 太守 / 一般
+                if (person.state != (int)PersonStateType.Governor
+                    && person.state != (int)PersonStateType.Commander
+                    && person.state != (int)PersonStateType.Leader
+                    && person.state != (int)PersonStateType.Normal)
+                    return;
+
+                City where = person.CurrentCity ?? person.BelongCity;
+                bool sameCity = where != null && where == kunshuCity;
+                bool sameArea = !sameCity && kunshuArea != null && person.BelongCity == kunshuArea;
+                if (!sameCity && !sameArea)
+                    return;
+
+                candidates.Add(person);
+            });
+
+            if (candidates.Count == 0)
+                return kunshu;
+
+            // 君主一定在候选内（原版同款兜底）
+            if (!candidates.Contains(kunshu))
+                candidates.Add(kunshu);
+
+            // 智力降序 → 魅力降序 → 君主优先 → Id 升序
+            candidates.Sort((a, b) =>
+            {
+                int c = b.Intelligence.CompareTo(a.Intelligence);
+                if (c != 0) return c;
+                c = b.Glamour.CompareTo(a.Glamour);
+                if (c != 0) return c;
+                bool aKunshu = a == kunshu;
+                bool bKunshu = b == kunshu;
+                if (aKunshu != bKunshu)
+                    return aKunshu ? -1 : 1;
+                return a.Id.CompareTo(b.Id);
+            });
+
+            return candidates[0];
         }
 
         /// <summary>

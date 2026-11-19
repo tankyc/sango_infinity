@@ -153,6 +153,7 @@ namespace Sango.Core
                 if (CenterCell != null)
                     CenterCell.building = this;
                 isInited = true;
+                Clear();
                 return;
             }
 

@@ -33,7 +33,8 @@ namespace Sango.Core.Player
             // 溢出规则出处：City.AddTroops 把超出 TroopsLimit 的部分直接截断
             // （对齐 Open311 building_add_troops，s11_sys_scen_building.cpp:1145-1154）。
             // 城池不提示：城兵满时部队照样要能回城，溢出沿用原版 clamp，
-            // 不该用"会损失"把玩家吓退（对齐 Troop.EnterCity 的港关限定）。
+            // 不该用"会损失"把玩家吓退。
+            // 注意：提示归提示，**入城不会被拒绝** —— Troop.EnterCity 已不做容量拦截。
             int room = TroopAIFallback.GetRoom(TargetCity);
             if (TargetCity != null && TargetCity.IsPortOrGate() && room < troop.troops)
             {

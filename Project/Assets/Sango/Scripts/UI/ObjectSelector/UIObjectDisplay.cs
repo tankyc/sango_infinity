@@ -62,7 +62,7 @@ namespace Sango.UI
             if (objectSelectSystem != null)
                 objectSelectSystem.BindDisplay(this);
             title.text = objectSelectSystem.customSortTitleName;
-            sortItems = objectSelectSystem.customSortItems;
+            ApplySortItems(objectSelectSystem.customSortItems);
 
             // 点选模式
             clickMode = objectSelectSystem.ClickMode;
@@ -152,6 +152,23 @@ namespace Sango.UI
                 }
             }
 
+        }
+
+        /// <summary>
+        /// 应用列定义：把"动态特技组"标记展开成 N 个真实特技列，并回写系统。
+        ///
+        /// 【为什么必须回写】界面渲染与列宽读 sortItems，而点击表头排序、切换分组读
+        /// objectSelectSystem.customSortItems。两边必须是同一份列表 —— 否则展开后会比系统侧
+        /// 多出 N-1 列，点表头时按旧索引排序，列与数据错位。
+        ///
+        /// 【幂等】对已展开的列表调用无副作用（ExpandFeatureGroups 原样返回）。
+        /// </summary>
+        /// <param name="titles">系统给出的列定义（可能含 FeatureGroupTitle 标记）</param>
+        void ApplySortItems(List<ObjectSortTitle> titles)
+        {
+            sortItems = PersonSortFunction.ExpandFeatureGroups(titles);
+            if (objectSelectSystem != null)
+                objectSelectSystem.customSortItems = sortItems;
         }
 
         public float GetContentWidth()
@@ -438,7 +455,7 @@ namespace Sango.UI
         {
             if (b)
             {
-                sortItems = objectSelectSystem.GetSortTitleGroup(index);
+                ApplySortItems(objectSelectSystem.GetSortTitleGroup(index));
                 UpdateSortContent();
                 OnScrollBarValueChange(0);
             }

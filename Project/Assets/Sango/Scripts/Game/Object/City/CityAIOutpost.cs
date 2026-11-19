@@ -588,8 +588,12 @@ namespace Sango.Core
             int[] weight = new int[kindCount];
 
             // 基础兵装（枪 / 戟 / 弩 / 马）
+            // 【委任钳制 · 生产】玩家"轻视"某兵种 → 该兵种直接不参与本轮的加权随机。
+            // 此前只在执行体 AICreateItems 里判，导致权重表仍会挑中它、白跑一次命令。
             for (int kind = (int)ItemStoreKindType.Spear; kind <= (int)ItemStoreKindType.Horse; kind++)
             {
+                if (IsProduceForbidden(city, (ItemStoreKindType)kind))
+                    continue;
                 int n = city.itemStore.GetNumber(kind);
                 ItemType itemType = scenario != null ? scenario.GetObject<ItemType>(kind) : null;
                 int cap = itemType != null ? itemType.TransformLimit(city.StoreLimit) : city.StoreLimit;
@@ -603,15 +607,22 @@ namespace Sango.Core
             {
                 for (int kind = (int)ItemStoreKindType.Helepolis; kind <= (int)ItemStoreKindType.Catapult; kind++)
                 {
+                    // 【委任钳制 · 生产】轻视兵器 → 器械不参与加权随机
+                    if (IsProduceForbidden(city, (ItemStoreKindType)kind))
+                        continue;
                     int n = city.itemStore.GetNumber(kind);
                     if (n > minSiege)
                         continue;
                     weight[kind] = n < 1 ? 2 : 1;
                 }
 
-                int boat = city.itemStore.GetNumber((int)ItemStoreKindType.Boat);
-                if (boat <= minVessel)
-                    weight[(int)ItemStoreKindType.Boat] = 1;
+                // 【委任钳制 · 生产】轻视舰船 → 船只不参与加权随机
+                if (!IsProduceForbidden(city, ItemStoreKindType.Boat))
+                {
+                    int boat = city.itemStore.GetNumber((int)ItemStoreKindType.Boat);
+                    if (boat <= minVessel)
+                        weight[(int)ItemStoreKindType.Boat] = 1;
+                }
             }
 
             int total = 0;
@@ -645,6 +656,47 @@ namespace Sango.Core
             else
                 AICreateBoat(city, scenario);
             return true;
+        }
+
+        /// <summary>
+        /// 兵装种类 → 对应的"生产"委任项（<see cref="Corps.AppointContentType"/>）。
+        ///
+        /// 【为什么要显式映射】旧代码在 <c>CityAI.AICreateItems</c> 里用
+        /// <c>(AppointContentType)(itemTypeId - 2)</c> 硬算下标，依赖"枚举顺序恰好一致"，
+        /// 一旦调整枚举顺序就会静默错位。这里改成显式对照，新增兵种时只需补一条 case。
+        /// </summary>
+        /// <param name="kind">兵装种类</param>
+        /// <returns>对应委任项；无对应关系时返回 null</returns>
+        static Corps.AppointContentType? GetProduceAppoint(ItemStoreKindType kind)
+        {
+            switch (kind)
+            {
+                case ItemStoreKindType.Spear: return Corps.AppointContentType.MakeItem_Spear;
+                case ItemStoreKindType.Halberd: return Corps.AppointContentType.MakeItem_Halberd;
+                case ItemStoreKindType.Crossbow: return Corps.AppointContentType.MakeItem_Crossbow;
+                case ItemStoreKindType.Horse: return Corps.AppointContentType.MakeItem_Horse;
+                // 冲车 / 投石同属"兵器生产"一项
+                case ItemStoreKindType.Helepolis:
+                case ItemStoreKindType.Catapult: return Corps.AppointContentType.MakeItem_Machine;
+                case ItemStoreKindType.Boat: return Corps.AppointContentType.MakeItem_Boat;
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// 该据点的军团是否"轻视"某类兵装的生产（委任值为 1）。
+        /// 军团为空、或无对应委任项时返回 false（不受限）。
+        /// </summary>
+        /// <param name="city">据点</param>
+        /// <param name="kind">兵装种类</param>
+        /// <returns>禁止生产时返回 true</returns>
+        static bool IsProduceForbidden(City city, ItemStoreKindType kind)
+        {
+            Corps corps = city != null ? city.BelongCorps : null;
+            if (corps == null)
+                return false;
+            Corps.AppointContentType? appoint = GetProduceAppoint(kind);
+            return appoint.HasValue && corps.GetAppointValue(appoint.Value) == 1;
         }
 
         /// <summary>

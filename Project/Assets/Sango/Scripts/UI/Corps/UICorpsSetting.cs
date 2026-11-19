@@ -168,9 +168,10 @@ namespace Sango.UI
             policyText.text = GetPolicyText(targetCorps.appoint);
 
             targetButton.interactable = targetCorps.appoint == (int)Corps.AppointType.OccupyCity || targetCorps.appoint == (int)Corps.AppointType.DestroyForce;
-            switch (targetCorps.appoint)
+            // 目标文本按方针类型分支（用枚举常量，避免 0/1/2 魔数在枚举调整后错位）
+            switch ((Corps.AppointType)targetCorps.appoint)
             {
-                case 1:
+                case Corps.AppointType.DestroyForce:
 
                     targetText.text = "";
                     if (targetCorps.appoint_target > 0)
@@ -181,7 +182,7 @@ namespace Sango.UI
                     }
 
                     break;
-                case 2:
+                case Corps.AppointType.OccupyCity:
                     targetText.text = "";
                     if (targetCorps.appoint_target > 0)
                     {
@@ -199,18 +200,23 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 获取军团方针文本
+        /// 获取军团方针文本。
+        ///
+        /// 【口径】必须与 <see cref="Corps.AppointType"/> 一一对应：
+        ///   None = 0 无方针 / DestroyForce = 1 攻略势力 / OccupyCity = 2 攻略都市 / Auto = 3 委任。
+        /// 这里用枚举分支而非魔数，且 0 显示"无方针"（旧实现把 0 写成"委任"，
+        /// 与存档里 0 的实际含义不符，属于显示层错误）。
         /// </summary>
         /// <param name="policyType">方针类型</param>
         /// <returns>方针文本</returns>
         private string GetPolicyText(int policyType)
         {
-            switch (policyType)
+            switch ((Corps.AppointType)policyType)
             {
-                case 0: return "委任";
-                case 1: return "攻略势力";
-                case 2: return "攻略都市";
-                default: return "委任";
+                case Corps.AppointType.DestroyForce: return "攻略势力";
+                case Corps.AppointType.OccupyCity: return "攻略都市";
+                case Corps.AppointType.Auto: return "委任";
+                default: return "无方针";
             }
         }
 

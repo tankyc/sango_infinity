@@ -120,6 +120,7 @@ namespace Sango.Core
         /// </code>
         /// 本项目实际的官职分配在 <see cref="AISetOfficial"/>，这里只补"错峰"这一层节奏，
         /// 避免每回合重排官职导致同一名武将的官职反复抖动。
+        /// 黄巾 / 山贼势力的封官禁则在 <see cref="AISetOfficial"/> 开头（原版 260-261 行）。
         /// </summary>
         /// <param name="force">当前势力</param>
         /// <param name="scenario">场景对象</param>
@@ -734,6 +735,13 @@ namespace Sango.Core
         /// 迟迟看不到武将去学"。三段独立执行后最多可同时推进三人。
         /// </para>
         /// <para>
+        /// 【单 actor 门禁】每段内部先过 <see cref="AbilityStudySystem.HasStudyingActor"/>：
+        /// 该指令槽已有武将在研习时整段跳过（对齐原版 find_actor，
+        /// s11_sys_person_order_kunshu.cpp:1643-1653 / :1787-1797 / :1929-1940）。
+        /// 因此"每回合 3 人"只在三槽都空的首回合成立，之后要等有人出关才补位，
+        /// 同期上限是每槽 1 人。
+        /// </para>
+        /// <para>
         /// 第三段（特技培育）的数据来自 Abilities.json 里 category = Skill 的条目，
         /// 由 <see cref="AbilityStudySystem.LearnSkill"/> 实现。
         /// 差异状态：✅ 三段均已对齐。
@@ -761,7 +769,12 @@ namespace Sango.Core
             // 【排查日志】本回合一个人也没开始，且势力确实有"已研究但仍可培育"的能力时，
             // 每 12 回合提示一次 —— 用于区分"没人符合条件（档位/前线/经验上限）"
             // 与"只是本回合 50% 概率没命中"。默认静音，由 AbilityStudySystem 内部再过滤。
-            if (started == 0 && scenario.TurnCount % 12 == 0)
+            //
+            // 【不算异常的情况】三条指令槽各自同期只放 1 人（原版 find_actor 门禁，
+            // 见 AbilityStudySystem.HasStudyingActor）。槽被占用时"本回合没人开始"是正常节奏，
+            // 不能当成"没人符合条件"去报警，否则日志会一直刷。
+            if (started == 0 && scenario.TurnCount % 12 == 0
+                && !AbilityStudySystem.HasAnyStudyingActor(force, scenario))
                 AbilityStudySystem.LogLearnBlockReason(force, scenario);
 
             return true;

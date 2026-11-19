@@ -2852,7 +2852,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1352407637925630692, guid: acb2c6c69a515de44b62d4d9a7dc0591, type: 3}
       propertyPath: m_Text
-      value: "\u751F\u6210\u67AA"
+      value: "\u751F\u4EA7\u67AA"
       objectReference: {fileID: 0}
     - target: {fileID: 1352407637925630692, guid: acb2c6c69a515de44b62d4d9a7dc0591, type: 3}
       propertyPath: m_FontData.m_FontSize

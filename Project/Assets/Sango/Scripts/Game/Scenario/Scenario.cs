@@ -2353,7 +2353,28 @@ namespace Sango.Core
         {
             for (int i = 0; i < eventReciveList.Count; ++i)
             {
-                eventReciveList[i].ForEach(o => { if (o.IsAlive) o.OnMonthStart(this); });
+                eventReciveList[i].ForEach(o =>
+                {
+                    if (!o.IsAlive)
+                        return;
+
+                    // 【逐项异常隔离】原版是 C++，不存在"一次空引用打断整月"的问题；
+                    // 本项目一旦某个城在 OnMonthStart 里抛出（线上实例：俘虏养不起 →
+                    // SettleCaptiveFood → Person.Escape → PlayerMessage.OnPersonRelease 空引用），
+                    // 整个 eventReciveList 循环就此中断，后果是：
+                    //   · 后面所有城的俸禄 / 俘虏伙食 / 兵粮都不结算（玩家只看到"这个月没扣钱"）；
+                    //   · 紧随其后的 PersonLifeCycle 月度寿终与伤病、灾害循环、粮价刷新
+                    //     也全部被跳过 —— 一崩就是整月哑火，且没有任何提示。
+                    // 这里按对象隔离：坏的跳过、其余照常，Error 里带对象名便于定位。
+                    try
+                    {
+                        o.OnMonthStart(this);
+                    }
+                    catch (System.Exception e)
+                    {
+                        Sango.Log.Error($"*[月度]{o.Name} 月度结算异常，已跳过该项并继续：{e}");
+                    }
+                });
             }
 
             // 【关押计时】月度俘虏关押月数 +1（对应 Open311 Game::update_person_monthly_timer），

@@ -234,7 +234,21 @@ namespace Sango.Core
         //}
         public bool IsNormalSkill => kind == 1;
 
-        public void GetAttackCells(int[] atkOffsetPoint, Troop atker, Cell spell, List<Cell> cells)
+        /// <summary>
+        /// 计算本次施法的命中格集合。
+        /// </summary>
+        /// <param name="atkOffsetPoint">命中偏移配置，首元素为 <see cref="SkillAttackOffsetType"/></param>
+        /// <param name="atker">施法部队</param>
+        /// <param name="spell">施法目标格</param>
+        /// <param name="cells">输出用的格子列表（调用方负责清空）</param>
+        /// <param name="applyChance">
+        /// 预留开关，**当前分支均未使用**。
+        /// 概率递减波及（<see cref="SkillAttackOffsetType.DecaySpread"/>）的概率链在
+        /// <see cref="SkillInstance"/> 层执行：那里才拿得到 <c>CanSpellToHere</c>
+        /// （含 spellConditionMethod 的格条件）去做「有效目标」过滤，
+        /// 而本方法是共享静态数据对象上的纯几何计算。
+        /// </param>
+        public void GetAttackCells(int[] atkOffsetPoint, Troop atker, Cell spell, List<Cell> cells, bool applyChance = false)
         {
             if (atkOffsetPoint == null || atkOffsetPoint.Length == 0)
             {
@@ -491,6 +505,51 @@ namespace Sango.Core
                             }
                             else
                                 Sango.Log.Error("技能命中配置不正确!!");
+                        }
+                        break;
+                    // 11
+                    case SkillAttackOffsetType.DecaySpread:
+                        {
+                            // [11, atkRange, 概率初始值, 概率递减类型, 概率递减数值]
+                            //
+                            // 【本分支只算"几何候选"】中心格 + 各圈可走格，与 Spiral 等价。
+                            // 有效目标过滤（CanSpellToHere）、打乱、概率链全部在
+                            // SkillInstance.AppendDecaySpreadCells 里做 ——
+                            // 只有实例层才拿得到 spellConditionMethod 这类格条件（灭火要判有没有火、
+                            // 镇静要判目标有没有异常状态），Skill 是共享的静态数据对象，没有这些上下文。
+                            if (atkOffsetPoint.Length > 4)
+                            {
+                                int ringCount = atkOffsetPoint[1];
+                                if (ringCount <= 0)
+                                {
+                                    cells.Add(spell);
+                                    return;
+                                }
+
+                                cells.Add(spell);
+
+                                for (int ring = 1; ring <= ringCount; ring++)
+                                {
+                                    // 【局部变量】Ring 的闭包会延后执行，for 的 ring 是同一个变量，
+                                    // 直接捕获会拿到循环结束后的值，必须拷一份。
+                                    int ringIndex = ring;
+                                    spell.Ring(ringIndex, (cell) =>
+                                    {
+                                        if (cell != null && cell.moveAble)
+                                            cells.Add(cell);
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                // 【兜底】概率递减波及的参数不足 5 个时无法判定任何波及目标，
+                                // 但主目标必须仍然命中 —— 否则一个配置笔误会让整个计略完全失效，
+                                // 且界面上表现为"点了没反应"，比直接报错更难排查。
+                                Sango.Log.Error("技能命中配置不正确!! DecaySpread 需要 " +
+                                                "[11,atkRange,概率初始值,概率递减类型,概率递减数值]，" +
+                                                "已退化为仅命中目标格");
+                                cells.Add(spell);
+                            }
                         }
                         break;
                     default:
