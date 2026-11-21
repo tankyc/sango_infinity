@@ -519,6 +519,41 @@ namespace Sango.UI
             //buildLaebl.text = build.ToString();
             //moveLaebl.text = move.ToString();
             energyLaebl.text = targetTroop.morale.ToString();
+
+            // 【战法栏】按当前陆/水页签显示可用战法（原版 311：适性 B/A/S 逐级解锁）。
+            // 可用性已在 CityExpedition.UpdateJobValue → Troop.CalculateAttribute 里筛完：
+            // CanAddToTroop 按 LandTroopTypeLv/WaterTroopTypeLv >= needAblilityLevel 只把
+            // 适性达标的战法放进 landSkills / waterSkills，本方法只做"读结果 + 画格子"。
+            // 顺带顺序：TroopType.skills 数组按 need 升序排列（普攻在前），无需再排序。
+            //
+            // 【不能读 targetTroop.skills / TroopType】两者内部走 IsInWater（依赖 cell），
+            // 出征的临时 Troop 没有 cell，"水上"页签会被误判成陆上、把陆上战法画进水上栏
+            // （水上兵种如走舸没有战法，应显示空），故按界面自己的 showLand 标志显式取表
+            // —— 与 TroopActionSkill 按施放地形分表的思路一致。
+            // 普攻不进战法栏（IsNormal 过滤），与 TroopActionSkill 菜单的过滤一致。
+            if (skillLabel != null)
+            {
+                List<SkillInstance> skillList = showLand ? targetTroop.landSkills : targetTroop.waterSkills;
+                int index = 0;
+                if (skillList != null)
+                {
+                    for (int i = 0; i < skillList.Count && index < skillLabel.Length; i++)
+                    {
+                        SkillInstance skill = skillList[i];
+                        if (!skill.IsNormal())
+                        {
+                            skillLabel[index].text = skill.Name;
+                            index++;
+                        }
+                    }
+                }
+                // 剩余格子清空：换兵种/换将后战法数可能变少（S→C 从 3 个变 0 个），
+                // 不清会残留上一轮的文案
+                for (; index < skillLabel.Length; index++)
+                {
+                    skillLabel[index].text = "";
+                }
+            }
         }
 
         void SetItemLabel(UITextField label, int all, int ues)
