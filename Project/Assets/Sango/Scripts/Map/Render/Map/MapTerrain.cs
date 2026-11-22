@@ -210,7 +210,19 @@ namespace Sango.Render
 
             EnsureTerrainAsset();
             if (terrainAsset == null)
+            {
+                // 烘焙失败（设备不支持纹理数组 / 图层数据未就绪）：批渲染没有可用资产，
+                // 必须让块恢复渲染，否则又是"块被关 + 批渲染不出图"。
+                SyncCellRenderFlag();
                 return;
+            }
+
+            // 【远景状态恢复】batchRenderer.Release + Setup 会把批渲染器 enabled 置回 false，
+            // 而 batchRenderActive 仍是 true（重建发生在远景期）。不重新启用就会变成
+            // "块渲染已关 + 批渲染不出图"，因此这里按当前状态补开一次。
+            if (batchRenderActive)
+                batchRenderer.SetEnabled(true);
+            SyncCellRenderFlag();
 
             for (int i = 0; i < terrainCells.Length; i++)
             {
@@ -228,8 +240,21 @@ namespace Sango.Render
         /// </summary>
         public void SetBatchRender(bool far)
         {
+            // 【幂等校正】状态没变也要重算一次块渲染开关。
+            //
+            // 该开关是静态字段（<see cref="MapCell.TerrainRenderEnabled"/>），跨地图存活：
+            // 上一张地图在**远景状态**下被 Clear 时（Clear → SetBatchRender(false) →
+            // batchShutdownPending=true 那一刻算出的值是 false），开关会停在 false；
+            // 而新地图实例的 batchRenderActive 默认是 false，于是读档后的第一次
+            // Apply(false) 会从这里直接早退，没人再把开关置回 true。
+            // 结果就是"块渲染关闭 + 批渲染未启用 = 整片地形一个像素都不画"，
+            // 玩家看到的是天空盒（暗色天空就是"地形全黑"）。
+            // 校正只重算一个 bool、不重建队列，成本可以忽略。
             if (batchRenderActive == far)
+            {
+                SyncCellRenderFlag();
                 return;
+            }
 
             batchRenderActive = far;
 
@@ -237,7 +262,10 @@ namespace Sango.Render
             // 强行切到 Instanced 远景只会画出与块无关的一套地形（"拉远凭空出现远景"）。
             // 也不改 TerrainRenderEnabled —— 老块必须一直靠自己的 MeshRenderer 显示。
             if (!usingSharedAssetCells || terrainAsset == null)
+            {
+                SyncCellRenderFlag();
                 return;
+            }
 
             if (far)
             {
@@ -262,17 +290,26 @@ namespace Sango.Render
                 RequeueVisibleCells();
             }
 
-            // 【安全闸】只有"远景 且 批渲染真的就绪（模板网格与材质可用）"才允许关闭块渲染；
-            // 批渲染任何原因不可用时回退用块渲染，避免"块被关 + 批渲染不出图 = 地形整体消失"。
-            bool useLegacyCellRender = !far || !batchRenderer.Enabled;
+            SyncCellRenderFlag();
+        }
 
-            // 恢复块渲染时要尊重 TerrainSango 的接管状态：
-            // 接管运行时（非编辑态）Bootstrap 已把 TerrainRenderEnabled 置 false，
-            // 这里若无条件写 true 会让旧块开始渲染，出现"两套地形重叠"
+        /// <summary>
+        /// 重算地形块渲染开关 <see cref="MapCell.TerrainRenderEnabled"/>（静态字段）。
+        ///
+        /// 【口径】与 <see cref="SetBatchRender"/> 的安全闸完全一致：
+        ///   · 只有"远景 且 批渲染真的就绪（模板网格与材质可用）"才关闭块渲染；
+        ///   · 批渲染任何原因不可用 → 回退用块渲染，避免"块被关 + 批渲染不出图 = 地形整体消失"；
+        ///   · 近景过渡期保持关闭：不与批渲染重叠（两套精度不同的地形会 z-fighting）；
+        ///   · TerrainSango 接管运行时一律关闭块渲染（两套地形不能重叠）。
+        ///
+        /// 【为什么必须独立成方法】该字段是静态的、比 <see cref="MapTerrain"/> 实例活得久，
+        /// 卸载 / 重建地形、读档换图之后必须有一个"无条件重算"的入口，
+        /// 否则残留的 false 没有任何路径能纠正回来。
+        /// </summary>
+        void SyncCellRenderFlag()
+        {
+            bool useLegacyCellRender = !batchRenderActive || !batchRenderer.Enabled;
             bool sangoTakesOver = !MapEditor.IsEditOn && TerrainSango.TerrainSangoBootstrap.Enabled;
-
-            // 过渡期块渲染保持关闭：① 不与批渲染重叠（两套精度不同的地形会 z-fighting）；
-            // ② 让"切换"这一步只是翻一个开关，几乎没有成本。
             MapCell.TerrainRenderEnabled = useLegacyCellRender && !sangoTakesOver && !batchShutdownPending;
         }
 
@@ -347,9 +384,9 @@ namespace Sango.Render
             batchShutdownWait = 0f;
             batchRenderer.SetEnabled(false);
 
-            // 与 SetBatchRender 的恢复分支同一套口径：新地形接管时不打开旧块渲染
-            bool sangoTakesOver = !MapEditor.IsEditOn && TerrainSango.TerrainSangoBootstrap.Enabled;
-            MapCell.TerrainRenderEnabled = !sangoTakesOver;
+            // 与 SetBatchRender 的恢复分支同一套口径：新地形接管时不打开旧块渲染。
+            // 统一走 SyncCellRenderFlag，避免这里再多一份"手写条件"导致日后口径漂移。
+            SyncCellRenderFlag();
         }
 
         /// <summary>
@@ -473,7 +510,11 @@ namespace Sango.Render
                 terrainAsset = null;
             }
 
-            if (terrainCells == null) return;
+            if (terrainCells == null)
+            {
+                SyncCellRenderFlag();
+                return;
+            }
             for (int i = 0; i < terrainCells.Length; i++)
             {
                 IMapCell cell = terrainCells[i];
@@ -488,6 +529,13 @@ namespace Sango.Render
             ClearMeshBuildQueue();
             batchShutdownPending = false;
             batchShutdownWait = 0f;
+
+            // 【必须复位】上面的 SetBatchRender(false) 在"上一局处于远景"时会把
+            // batchShutdownPending 置 true 并据此把 MapCell.TerrainRenderEnabled 算成 false；
+            // 该字段是静态的，不清回来的话下一张地图的块从第一帧起就不渲染，
+            // 而新实例的 batchRenderActive 又是 false，SetBatchRender(false) 只会早退 ——
+            // 地形会整片消失（背景暗时看起来就是"全黑"）。
+            SyncCellRenderFlag();
         }
 
         public override void UpdateRender()

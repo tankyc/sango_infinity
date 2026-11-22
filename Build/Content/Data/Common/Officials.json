@@ -7,7 +7,14 @@
       "cost": 5,
       "level": 10,
       "meritNeeds": 2000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "无",
+      "effect_desc": "未授予官职，不提供任何属性加成。"
     },
     "1": {
       "Id": 1,
@@ -16,7 +23,14 @@
       "cost": 10,
       "level": 9,
       "meritNeeds": 4000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 1,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+1",
+      "effect_desc": "统率+1。统领兵马，出征时提升部队战力。"
     },
     "2": {
       "Id": 2,
@@ -25,7 +39,14 @@
       "cost": 10,
       "level": 9,
       "meritNeeds": 4000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 1,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+1",
+      "effect_desc": "统率+1。统领兵马，出征时提升部队战力。"
     },
     "3": {
       "Id": 3,
@@ -34,7 +55,14 @@
       "cost": 10,
       "level": 9,
       "meritNeeds": 4000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 1,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+1",
+      "effect_desc": "统率+1。统领兵马，出征时提升部队战力。"
     },
     "4": {
       "Id": 4,
@@ -43,7 +71,14 @@
       "cost": 10,
       "level": 9,
       "meritNeeds": 4000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 1,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+1",
+      "effect_desc": "统率+1。统领兵马，出征时提升部队战力。"
     },
     "5": {
       "Id": 5,
@@ -52,7 +87,14 @@
       "cost": 10,
       "level": 9,
       "meritNeeds": 4000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 1,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "智+1",
+      "effect_desc": "智力+1。参赞政务，提升内政与谋划之能。"
     },
     "6": {
       "Id": 6,
@@ -61,7 +103,14 @@
       "cost": 10,
       "level": 9,
       "meritNeeds": 4000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 1,
+      "politicsAdd": 1,
+      "glamourAdd": 0,
+      "effect_short": "智+1",
+      "effect_desc": "智力+1、政治+1。参赞政务，提升内政与谋划之能。"
     },
     "7": {
       "Id": 7,
@@ -70,7 +119,14 @@
       "cost": 10,
       "level": 9,
       "meritNeeds": 4000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 1,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "智+1",
+      "effect_desc": "智力+1。参赞政务，提升内政与谋划之能。"
     },
     "8": {
       "Id": 8,
@@ -79,7 +135,14 @@
       "cost": 10,
       "level": 9,
       "meritNeeds": 4000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 1,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "智+1",
+      "effect_desc": "智力+1。参赞政务，提升内政与谋划之能。"
     },
     "9": {
       "Id": 9,
@@ -88,7 +151,14 @@
       "cost": 15,
       "level": 8,
       "meritNeeds": 8000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 1,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+1",
+      "effect_desc": "统率+1、武力+1。统领兵马，出征时提升部队战力。"
     },
     "10": {
       "Id": 10,
@@ -97,7 +167,14 @@
       "cost": 15,
       "level": 8,
       "meritNeeds": 8000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 1,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+1",
+      "effect_desc": "统率+1、武力+1。统领兵马，出征时提升部队战力。"
     },
     "11": {
       "Id": 11,
@@ -106,7 +183,14 @@
       "cost": 15,
       "level": 8,
       "meritNeeds": 8000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 1,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+1",
+      "effect_desc": "统率+1、武力+1。统领兵马，出征时提升部队战力。"
     },
     "12": {
       "Id": 12,
@@ -115,7 +199,14 @@
       "cost": 15,
       "level": 8,
       "meritNeeds": 8000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 1,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+1",
+      "effect_desc": "统率+1、武力+1。统领兵马，出征时提升部队战力。"
     },
     "13": {
       "Id": 13,
@@ -124,7 +215,14 @@
       "cost": 15,
       "level": 8,
       "meritNeeds": 8000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 1,
+      "politicsAdd": 1,
+      "glamourAdd": 0,
+      "effect_short": "智+1",
+      "effect_desc": "智力+1、政治+1。参赞政务，提升内政与谋划之能。"
     },
     "14": {
       "Id": 14,
@@ -133,7 +231,14 @@
       "cost": 15,
       "level": 8,
       "meritNeeds": 8000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 1,
+      "politicsAdd": 1,
+      "glamourAdd": 0,
+      "effect_short": "智+1",
+      "effect_desc": "智力+1、政治+1。参赞政务，提升内政与谋划之能。"
     },
     "15": {
       "Id": 15,
@@ -142,7 +247,14 @@
       "cost": 15,
       "level": 8,
       "meritNeeds": 8000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 1,
+      "politicsAdd": 1,
+      "glamourAdd": 0,
+      "effect_short": "智+1",
+      "effect_desc": "智力+1、政治+1。参赞政务，提升内政与谋划之能。"
     },
     "16": {
       "Id": 16,
@@ -151,7 +263,14 @@
       "cost": 15,
       "level": 8,
       "meritNeeds": 8000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 1,
+      "politicsAdd": 1,
+      "glamourAdd": 0,
+      "effect_short": "智+1",
+      "effect_desc": "智力+1、政治+1。参赞政务，提升内政与谋划之能。"
     },
     "17": {
       "Id": 17,
@@ -160,7 +279,14 @@
       "cost": 20,
       "level": 7,
       "meritNeeds": 12000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1。统领兵马，出征时提升部队战力。"
     },
     "18": {
       "Id": 18,
@@ -169,7 +295,14 @@
       "cost": 20,
       "level": 7,
       "meritNeeds": 12000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1。统领兵马，出征时提升部队战力。"
     },
     "19": {
       "Id": 19,
@@ -178,7 +311,14 @@
       "cost": 20,
       "level": 7,
       "meritNeeds": 12000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1。统领兵马，出征时提升部队战力。"
     },
     "20": {
       "Id": 20,
@@ -187,7 +327,14 @@
       "cost": 20,
       "level": 7,
       "meritNeeds": 12000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1。统领兵马，出征时提升部队战力。"
     },
     "21": {
       "Id": 21,
@@ -196,7 +343,14 @@
       "cost": 20,
       "level": 7,
       "meritNeeds": 12000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 2,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2。参赞政务，提升内政与谋划之能。"
     },
     "22": {
       "Id": 22,
@@ -205,7 +359,14 @@
       "cost": 20,
       "level": 7,
       "meritNeeds": 12000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1。参赞政务，提升内政与谋划之能。"
     },
     "23": {
       "Id": 23,
@@ -214,7 +375,14 @@
       "cost": 20,
       "level": 7,
       "meritNeeds": 12000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "政+2",
+      "effect_desc": "政治+2。参赞政务，提升内政与谋划之能。"
     },
     "24": {
       "Id": 24,
@@ -223,7 +391,14 @@
       "cost": 20,
       "level": 7,
       "meritNeeds": 12000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 2,
+      "effect_short": "魅+2",
+      "effect_desc": "魅力+2。参赞政务，提升内政与谋划之能。"
     },
     "25": {
       "Id": 25,
@@ -232,7 +407,14 @@
       "cost": 25,
       "level": 6,
       "meritNeeds": 16000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "26": {
       "Id": 26,
@@ -241,7 +423,14 @@
       "cost": 25,
       "level": 6,
       "meritNeeds": 16000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "27": {
       "Id": 27,
@@ -250,7 +439,14 @@
       "cost": 25,
       "level": 6,
       "meritNeeds": 16000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "28": {
       "Id": 28,
@@ -259,7 +455,14 @@
       "cost": 25,
       "level": 6,
       "meritNeeds": 16000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "29": {
       "Id": 29,
@@ -268,7 +471,14 @@
       "cost": 25,
       "level": 6,
       "meritNeeds": 16000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 2,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+1。参赞军务，佐理兵事。"
     },
     "30": {
       "Id": 30,
@@ -277,7 +487,14 @@
       "cost": 25,
       "level": 6,
       "meritNeeds": 16000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 2,
+      "politicsAdd": 1,
+      "glamourAdd": 1,
+      "effect_short": "智+2",
+      "effect_desc": "智力+2、政治+1、魅力+1。参赞政务，提升内政与谋划之能。"
     },
     "31": {
       "Id": 31,
@@ -286,7 +503,14 @@
       "cost": 25,
       "level": 6,
       "meritNeeds": 16000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 2,
+      "politicsAdd": 1,
+      "glamourAdd": 1,
+      "effect_short": "智+2",
+      "effect_desc": "智力+2、政治+1、魅力+1。参赞政务，提升内政与谋划之能。"
     },
     "32": {
       "Id": 32,
@@ -295,7 +519,14 @@
       "cost": 25,
       "level": 6,
       "meritNeeds": 16000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 2,
+      "politicsAdd": 1,
+      "glamourAdd": 1,
+      "effect_short": "智+2",
+      "effect_desc": "智力+2、政治+1、魅力+1。参赞政务，提升内政与谋划之能。"
     },
     "33": {
       "Id": 33,
@@ -304,7 +535,14 @@
       "cost": 30,
       "level": 5,
       "meritNeeds": 20000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+2。统领兵马，出征时提升部队战力。"
     },
     "34": {
       "Id": 34,
@@ -313,7 +551,14 @@
       "cost": 30,
       "level": 5,
       "meritNeeds": 20000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+2。统领兵马，出征时提升部队战力。"
     },
     "35": {
       "Id": 35,
@@ -322,7 +567,14 @@
       "cost": 30,
       "level": 5,
       "meritNeeds": 20000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+2",
+      "effect_desc": "统率+2、武力+2。统领兵马，出征时提升部队战力。"
     },
     "36": {
       "Id": 36,
@@ -331,7 +583,14 @@
       "cost": 30,
       "level": 5,
       "meritNeeds": 20000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 2,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "统率+2、智力+3。统领兵马，出征时提升部队战力。"
     },
     "37": {
       "Id": 37,
@@ -340,7 +599,14 @@
       "cost": 30,
       "level": 5,
       "meritNeeds": 20000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 1,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+1。参赞政务，提升内政与谋划之能。"
     },
     "38": {
       "Id": 38,
@@ -349,7 +615,14 @@
       "cost": 30,
       "level": 5,
       "meritNeeds": 20000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 2,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "智+2",
+      "effect_desc": "智力+2、政治+2。参赞政务，提升内政与谋划之能。"
     },
     "39": {
       "Id": 39,
@@ -358,7 +631,14 @@
       "cost": 30,
       "level": 5,
       "meritNeeds": 20000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 3,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+1。统领郡兵，掌一方武备。"
     },
     "40": {
       "Id": 40,
@@ -367,7 +647,14 @@
       "cost": 30,
       "level": 5,
       "meritNeeds": 20000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 2,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "智+2",
+      "effect_desc": "智力+2、政治+2。参赞政务，提升内政与谋划之能。"
     },
     "41": {
       "Id": 41,
@@ -376,7 +663,14 @@
       "cost": 40,
       "level": 4,
       "meritNeeds": 24000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+2。统领兵马，出征时提升部队战力。"
     },
     "42": {
       "Id": 42,
@@ -385,7 +679,14 @@
       "cost": 40,
       "level": 4,
       "meritNeeds": 24000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+2。统领兵马，出征时提升部队战力。"
     },
     "43": {
       "Id": 43,
@@ -394,7 +695,14 @@
       "cost": 40,
       "level": 4,
       "meritNeeds": 24000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+2。统领兵马，出征时提升部队战力。"
     },
     "44": {
       "Id": 44,
@@ -403,7 +711,14 @@
       "cost": 40,
       "level": 4,
       "meritNeeds": 24000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+2。统领兵马，出征时提升部队战力。"
     },
     "45": {
       "Id": 45,
@@ -412,7 +727,14 @@
       "cost": 40,
       "level": 4,
       "meritNeeds": 24000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+2。参赞政务，提升内政与谋划之能。"
     },
     "46": {
       "Id": 46,
@@ -421,7 +743,14 @@
       "cost": 40,
       "level": 4,
       "meritNeeds": 24000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+2。参赞政务，提升内政与谋划之能。"
     },
     "47": {
       "Id": 47,
@@ -430,7 +759,14 @@
       "cost": 40,
       "level": 4,
       "meritNeeds": 24000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+2。参赞政务，提升内政与谋划之能。"
     },
     "48": {
       "Id": 48,
@@ -439,7 +775,14 @@
       "cost": 40,
       "level": 4,
       "meritNeeds": 24000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+2。参赞政务，提升内政与谋划之能。"
     },
     "49": {
       "Id": 49,
@@ -448,7 +791,14 @@
       "cost": 50,
       "level": 3,
       "meritNeeds": 28000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+2、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "50": {
       "Id": 50,
@@ -457,7 +807,14 @@
       "cost": 50,
       "level": 3,
       "meritNeeds": 28000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+2、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "51": {
       "Id": 51,
@@ -466,7 +823,14 @@
       "cost": 50,
       "level": 3,
       "meritNeeds": 28000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+2、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "52": {
       "Id": 52,
@@ -475,7 +839,14 @@
       "cost": 50,
       "level": 3,
       "meritNeeds": 28000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+2、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "53": {
       "Id": 53,
@@ -484,7 +855,14 @@
       "cost": 50,
       "level": 3,
       "meritNeeds": 28000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 3,
+      "glamourAdd": 1,
+      "effect_short": "政+3",
+      "effect_desc": "政治+3、魅力+1。参赞政务，提升内政与谋划之能。"
     },
     "54": {
       "Id": 54,
@@ -493,7 +871,14 @@
       "cost": 50,
       "level": 3,
       "meritNeeds": 28000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 3,
+      "strengthAdd": 1,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+1。掌京师禁兵，巡徼宫外。"
     },
     "55": {
       "Id": 55,
@@ -502,7 +887,14 @@
       "cost": 50,
       "level": 3,
       "meritNeeds": 28000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 1,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+1。参赞政务，提升内政与谋划之能。"
     },
     "56": {
       "Id": 56,
@@ -511,7 +903,14 @@
       "cost": 50,
       "level": 3,
       "meritNeeds": 28000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 1,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+1。参赞政务，提升内政与谋划之能。"
     },
     "57": {
       "Id": 57,
@@ -520,7 +919,14 @@
       "cost": 60,
       "level": 2,
       "meritNeeds": 32000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 3,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+3。统领兵马，出征时提升部队战力。"
     },
     "58": {
       "Id": 58,
@@ -529,7 +935,14 @@
       "cost": 60,
       "level": 2,
       "meritNeeds": 32000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 3,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+3。统领兵马，出征时提升部队战力。"
     },
     "59": {
       "Id": 59,
@@ -538,7 +951,14 @@
       "cost": 60,
       "level": 2,
       "meritNeeds": 32000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 3,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+3。统领兵马，出征时提升部队战力。"
     },
     "60": {
       "Id": 60,
@@ -547,7 +967,14 @@
       "cost": 60,
       "level": 2,
       "meritNeeds": 32000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 3,
+      "strengthAdd": 3,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、武力+3。统领兵马，出征时提升部队战力。"
     },
     "61": {
       "Id": 61,
@@ -556,7 +983,14 @@
       "cost": 60,
       "level": 2,
       "meritNeeds": 32000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 1,
+      "glamourAdd": 3,
+      "effect_short": "魅+3",
+      "effect_desc": "政治+1、魅力+3。参赞政务，提升内政与谋划之能。"
     },
     "62": {
       "Id": 62,
@@ -565,7 +999,14 @@
       "cost": 60,
       "level": 2,
       "meritNeeds": 32000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 2,
+      "politicsAdd": 0,
+      "glamourAdd": 2,
+      "effect_short": "智+2",
+      "effect_desc": "智力+2、魅力+2。参赞政务，提升内政与谋划之能。"
     },
     "63": {
       "Id": 63,
@@ -574,7 +1015,14 @@
       "cost": 60,
       "level": 2,
       "meritNeeds": 32000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 1,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "政+2",
+      "effect_desc": "统率+1、政治+2。掌舆马厩牧，兼理驿传。"
     },
     "64": {
       "Id": 64,
@@ -583,7 +1031,14 @@
       "cost": 60,
       "level": 2,
       "meritNeeds": 32000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 3,
+      "glamourAdd": 0,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+3。参赞政务，提升内政与谋划之能。"
     },
     "65": {
       "Id": 65,
@@ -592,7 +1047,14 @@
       "cost": 80,
       "level": 1,
       "meritNeeds": 36000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 4,
+      "strengthAdd": 3,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+3。统领兵马，出征时提升部队战力。"
     },
     "66": {
       "Id": 66,
@@ -601,7 +1063,14 @@
       "cost": 80,
       "level": 1,
       "meritNeeds": 36000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 4,
+      "strengthAdd": 3,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+3。统领兵马，出征时提升部队战力。"
     },
     "67": {
       "Id": 67,
@@ -610,7 +1079,14 @@
       "cost": 80,
       "level": 1,
       "meritNeeds": 36000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 4,
+      "strengthAdd": 3,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+3。统领兵马，出征时提升部队战力。"
     },
     "68": {
       "Id": 68,
@@ -619,7 +1095,14 @@
       "cost": 80,
       "level": 1,
       "meritNeeds": 36000,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 4,
+      "strengthAdd": 3,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+3。统领兵马，出征时提升部队战力。"
     },
     "69": {
       "Id": 69,
@@ -628,7 +1111,14 @@
       "cost": 80,
       "level": 1,
       "meritNeeds": 36000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 4,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 0,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4。掌宫门屯兵，宿卫京师。"
     },
     "70": {
       "Id": 70,
@@ -637,7 +1127,14 @@
       "cost": 80,
       "level": 1,
       "meritNeeds": 36000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 4,
+      "glamourAdd": 0,
+      "effect_short": "政+4",
+      "effect_desc": "政治+4。参赞政务，提升内政与谋划之能。"
     },
     "71": {
       "Id": 71,
@@ -646,7 +1143,14 @@
       "cost": 80,
       "level": 1,
       "meritNeeds": 36000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 4,
+      "glamourAdd": 0,
+      "effect_short": "政+4",
+      "effect_desc": "政治+4。参赞政务，提升内政与谋划之能。"
     },
     "72": {
       "Id": 72,
@@ -655,7 +1159,14 @@
       "cost": 80,
       "level": 1,
       "meritNeeds": 36000,
-      "rankType": 2
+      "rankType": 2,
+      "commandAdd": 3,
+      "strengthAdd": 0,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 2,
+      "effect_short": "统+3",
+      "effect_desc": "统率+3、魅力+2。掌宫殿掖门宿卫，统领诸郎。"
     },
     "73": {
       "Id": 73,
@@ -664,7 +1175,14 @@
       "cost": 100,
       "level": 0,
       "meritNeeds": 0,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 4,
+      "strengthAdd": 4,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+4、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "74": {
       "Id": 74,
@@ -673,7 +1191,14 @@
       "cost": 100,
       "level": 0,
       "meritNeeds": 0,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 4,
+      "strengthAdd": 4,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+4、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "75": {
       "Id": 75,
@@ -682,7 +1207,14 @@
       "cost": 100,
       "level": 0,
       "meritNeeds": 0,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 4,
+      "strengthAdd": 4,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+4、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "76": {
       "Id": 76,
@@ -691,7 +1223,14 @@
       "cost": 100,
       "level": 0,
       "meritNeeds": 0,
-      "rankType": 1
+      "rankType": 1,
+      "commandAdd": 4,
+      "strengthAdd": 4,
+      "intelligenceAdd": 0,
+      "politicsAdd": 0,
+      "glamourAdd": 1,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+4、魅力+1。统领兵马，出征时提升部队战力。"
     },
     "77": {
       "Id": 77,
@@ -700,7 +1239,14 @@
       "cost": 120,
       "level": 0,
       "meritNeeds": 0,
-      "rankType": 0
+      "rankType": 0,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 4,
+      "glamourAdd": 3,
+      "effect_short": "政+4",
+      "effect_desc": "智力+3、政治+4、魅力+3。位列三公，总揽朝政，全面提升治国与统军之能。"
     },
     "78": {
       "Id": 78,
@@ -709,7 +1255,14 @@
       "cost": 120,
       "level": 0,
       "meritNeeds": 0,
-      "rankType": 0
+      "rankType": 0,
+      "commandAdd": 4,
+      "strengthAdd": 2,
+      "intelligenceAdd": 0,
+      "politicsAdd": 2,
+      "glamourAdd": 0,
+      "effect_short": "统+4",
+      "effect_desc": "统率+4、武力+2、政治+2。位列三公，总揽朝政，全面提升治国与统军之能。"
     },
     "79": {
       "Id": 79,
@@ -718,7 +1271,14 @@
       "cost": 120,
       "level": 0,
       "meritNeeds": 0,
-      "rankType": 0
+      "rankType": 0,
+      "commandAdd": 0,
+      "strengthAdd": 0,
+      "intelligenceAdd": 3,
+      "politicsAdd": 3,
+      "glamourAdd": 3,
+      "effect_short": "智+3",
+      "effect_desc": "智力+3、政治+3、魅力+3。位列三公，总揽朝政，全面提升治国与统军之能。"
     },
     "80": {
       "Id": 80,
@@ -727,7 +1287,14 @@
       "cost": 120,
       "level": 0,
       "meritNeeds": 0,
-      "rankType": 0
+      "rankType": 0,
+      "commandAdd": 5,
+      "strengthAdd": 0,
+      "intelligenceAdd": 5,
+      "politicsAdd": 5,
+      "glamourAdd": 4,
+      "effect_short": "统+5",
+      "effect_desc": "统率+5、智力+5、政治+5、魅力+4。百官之首，总揽朝纲，全属性最高加成。"
     }
   }
 }

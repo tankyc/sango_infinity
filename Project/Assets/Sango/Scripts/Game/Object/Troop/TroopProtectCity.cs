@@ -231,13 +231,25 @@ namespace Sango.Core
             // 不进城、不并兵 —— 部队不允许停留在城池格上，靠到 1 格外即可。
             if (isGarrisonWaiting)
             {
-                // 移动动画未播完：等它跑完，别重复发起移动（TryMoveToCell 在 isMoving 时
-                // 会沿用上一次的 tryToDest 再调 MoveTo，等于重复起动画）
-                if (troop.isMoving)
-                    return false;
+                // 【禁止在这里判 isMoving 就 return false】
+                // isMoving 的清零点只有 Troop.MoveTo / TryMoveToCell 内部（移动事件完成时顺手清，
+                // 见 Troop.cs:2123-2128 / 2651-2655），**没有任何后台计时器会改它**。
+                // 一旦这里直接返回 false，就再也没有调用能把它改回 false；
+                // 而 DoAI 返回 false 会让 AI 原地重试同一支部队 → 整条 AI 命令链卡死。
+                // 原实现正是靠 TryCloseTo 每回合被反复调用，才把移动状态推进并收尾的。
+                //
+                // 也不会重复起动画：TryMoveToCell 在 isMoving 为 true 时跳过寻路，
+                // 只调 MoveTo(tryToDest)，而 MoveTo 在事件未完成时直接 return false（等待）。
                 if (troop.cell != null && TargetCity != null && TargetCity.CenterCell != null
                     && Scenario.Cur.Map.Distance(troop.cell, TargetCity.CenterCell) > 1)
                     return troop.TryCloseTo(TargetCity.CenterCell);
+
+                // 【状态收尾】已到城郊：借 TryMoveToCell(当前格) 命中"目标 == 所在格"的早退分支，
+                // 只清 moveRenderEvent / isMoving，不寻路、不起动画。
+                // 不清的话本回合内 isMoving 会一直为 true（要等 OnForceTurnStart 才重置），
+                // 期间援助 / 补给 / 再次寻路等所有"是否正在移动"判定都会误判。
+                if (troop.isMoving)
+                    troop.TryMoveToCell(troop.cell);
                 return true;
             }
 

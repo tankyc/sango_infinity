@@ -1494,7 +1494,14 @@ namespace Sango.Core
             if (gain <= 0)
                 return false;
 
-            stat.SetExp(stat.valueExp + gain * expPerStat, scenario);
+            // 剧本参数：能力经验获取倍率。培育先把"点数"换算成经验（n × 每点经验），
+            // 再与战斗 / 内政 / 舌战走同一个 ScaleExpGain 缩放口径；
+            // 上限仍由 PersonAttributeValue.SetExp 的 MaxAttributeGet 夹取。
+            int scaledExp = Person.ScaleExpGain(gain * expPerStat, Person.GetAttributeExpGainFactor());
+            // 倍率配 0 / 属性已达上限时经验为 0：不涨属性，但闭关任务本身已经完成。
+            // 这里**不能**返回 false —— 调用方把 false 当成"任务失败"，玩家会以为白闭关三旬。
+            if (scaledExp > 0)
+                stat.SetExp(stat.valueExp + scaledExp, scenario);
             person.MarkAbilityLearned(ability.Id);
             force.MarkAbilityLearned(ability.Id);
 

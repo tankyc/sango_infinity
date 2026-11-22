@@ -540,9 +540,20 @@ namespace Sango.Render
 
         public void SetTerrainType(int x, int y, int t)
         {
-            GridData data = gridDatas[x][y];
+            // 与 GetGridData 同口径判空：地图生成窗口在"网格尚未 Create 完成"的中间态
+            // 就会写回地形（MapGenContext.ApplyCellTerrain）。旧写法 `gridDatas[x][y]`
+            // 在 gridDatas 或 gridDatas[x] 为 null 时抛 NullReferenceException，
+            // 直接中断整个地形写回流程（实战崩栈：MapGrid.SetTerrainType ← MapGenContext.ApplyCellTerrain）。
+            if (gridDatas == null || x < 0 || x >= gridDatas.Length)
+                return;
+
+            GridData[] yTable = gridDatas[x];
+            if (yTable == null || y < 0 || y >= yTable.Length)
+                return;
+
+            GridData data = yTable[y];
             data.terrainType = (byte)t;
-            gridDatas[x][y] = data;
+            yTable[y] = data;
         }
         public void SetGridMaskColor(int x, int y, Color c)
         {

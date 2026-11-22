@@ -244,8 +244,8 @@ namespace Sango.UI
                     {
                         // 走统一的确定性排序：同值项按 Id 兜底，方向由比较器承担
                         ObjectSortTitle.SortList(Objects, sortTitle.Sort, up);
-                        scrollbar.SetValueWithoutNotify(0);
-                        OnScrollBarValueChange(0);
+                        // 【保持浏览位置】点表头只改排序规则，不应把玩家翻到的行顶回顶部
+                        RefreshKeepScrollPosition();
                     };
 
 
@@ -295,8 +295,8 @@ namespace Sango.UI
                     {
                         // 走统一的确定性排序：同值项按 Id 兜底，方向由比较器承担
                         ObjectSortTitle.SortList(Objects, sortTitle.Sort, up);
-                        scrollbar.SetValueWithoutNotify(0);
-                        OnScrollBarValueChange(0);
+                        // 【保持浏览位置】点表头只改排序规则，不应把玩家翻到的行顶回顶部
+                        RefreshKeepScrollPosition();
                     };
 
                     if (i > 0)
@@ -362,6 +362,21 @@ namespace Sango.UI
         {
             startIndex = (int)UnityEngine.Mathf.Lerp(0, Objects.Count - itemCount, value);
             UpdateItemStartIndex(startIndex);
+        }
+
+        /// <summary>
+        /// 按当前 startIndex 重绘并同步滚动条，保持玩家正在浏览的视觉位置。
+        /// 与 UIObjectDisplay.RefreshKeepScrollPosition 同口径：点表头只改排序规则，
+        /// 不应把玩家翻到的行顶回顶部（候选不足一屏时 maxStart 为 0，直接归零，避免除零）。
+        /// </summary>
+        void RefreshKeepScrollPosition()
+        {
+            int maxStart = Objects != null ? Objects.Count - itemCount : 0;
+            if (maxStart < 0) maxStart = 0;
+            if (startIndex > maxStart) startIndex = maxStart;
+            if (startIndex < 0) startIndex = 0;
+            UpdateItemStartIndex(startIndex);
+            scrollbar.SetValueWithoutNotify(maxStart <= 0 ? 0 : (float)startIndex / (float)maxStart);
         }
 
         public void OnScrollBar_H_ValueChange(float value)

@@ -289,7 +289,13 @@ namespace Sango.Core.Debate
 
             PersonAttributeValue attr = GetAttribute(person, type);
             if (attr == null) return;
-            attr.SetExp(attr.valueExp + value, Scenario.Cur);
+
+            // 剧本参数：能力经验获取倍率。只缩放正数 —— 舌战失败扣经验属于惩罚，
+            // 不能被"获取倍率"放大或抹平，所以 ScaleExpGain 对负值原样返回。
+            int gain = Person.ScaleExpGain(value, Person.GetAttributeExpGainFactor());
+            if (gain == 0) return;
+
+            attr.SetExp(attr.valueExp + gain, Scenario.Cur);
         }
 
         /// <summary>增减武将功绩。对应 C++ System::person_add_kouseki</summary>

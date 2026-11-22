@@ -53,8 +53,42 @@ namespace Sango.Render
         public override void Init()
         {
             base.Init();
+
+            // 【空引用防护】GameObject.Find 只返回**激活**的物体：MainLight 被禁用 / 改名 /
+            // 尚未加载时这里原本会直接 NRE，而本方法在 MapRender.CreateDatas 的初始化链中间
+            // （MapRender.cs:270），一抛异常后面 mapFog / mapBaseColor / mapCamera / mapSkyBox
+            // 全都不初始化 —— 表现就是"整张地图没有光照、雾和底图，地形发黑"。
             GameObject lightGameObject = GameObject.Find("MainLight");
-            light = lightGameObject.GetComponent<UnityEngine.Light>();
+            if (lightGameObject != null)
+                light = lightGameObject.GetComponent<UnityEngine.Light>();
+
+            // 回退①：环境光设置里指定的太阳
+            if (light == null)
+                light = RenderSettings.sun;
+
+            // 回退②：场景里任意一盏启用的平行光
+            if (light == null)
+            {
+                UnityEngine.Light[] lights = UnityEngine.Object.FindObjectsOfType<UnityEngine.Light>();
+                for (int i = 0; i < lights.Length; i++)
+                {
+                    UnityEngine.Light candidate = lights[i];
+                    if (candidate != null && candidate.type == LightType.Directional && candidate.isActiveAndEnabled)
+                    {
+                        light = candidate;
+                        break;
+                    }
+                }
+            }
+
+            // 回退③：一盏都没有 —— 只报警不抛异常，让地图其余子系统照常初始化。
+            // UpdateRender 内部对 light == null 已有守卫，不会继续崩。
+            if (light == null)
+            {
+                Log.Error("未找到主光（MainLight / RenderSettings.sun / 任意启用的平行光），"
+                    + "地图光照将保持场景默认值，请检查场景光源是否被禁用或改名", Log.LogType.World);
+            }
+
             //
             //light.type = LightType.Directional;
             //light.shadows = LightShadows.Soft;

@@ -508,19 +508,40 @@ namespace Sango.Core
                 return Scenario.Cur.GetObject<BuildingType>(BuildingType.kind);
         }
 
+        /// <summary>
+        /// 是否会自主攻击范围内的敌方部队。
+        ///
+        /// 【唯一口径】<see cref="OnForceTurnStart"/> 的自动攻击判定与
+        /// 建筑范围显示（<c>BuildingRangeSelector</c> 的攻击圈）共用本属性，
+        /// 避免出现"画了攻击范围却不开火"或"实际开火却没画"两套口径。
+        ///
+        /// 【为什么不能只看 attackMaxRange】数据表里太鼓台(3) / 军乐台(2) /
+        /// 石兵八阵(1) / 根据地(2) 都配了攻击半径，但 troopAtk = 0 —— 它们是效果建筑，
+        /// 只看 attackMaxRange 会把它们画成攻击圈，与自己的效果圈叠在一起。
+        /// </summary>
+        public bool CanAutoAttack
+        {
+            get
+            {
+                if (BuildingType == null)
+                    return false;
+                // 原版只有阵/砦/城塞/箭楼/连弩楼/投石台会主动攻击部队（calc_troops_damage 表），
+                // 这几类的 troopAtk 数据里 > 0。
+                //
+                // 【本项目扩展：据点也自主攻击】城池 / 关所 / 港口按 attackMaxRange 射击范围内的敌军，
+                // 这是 0.0.75「城池,港,关,阵增加攻击效果」引入的玩法（原版没有，属自建设计）。
+                // 对齐原版时判定被收窄成 troopAtk > 0，而据点的 troopAtk 数据里恒为 0，
+                // 于是这条行为被整体关掉 —— 这里把据点重新纳入，伤害见
+                // CombatFormula.CalcBuildingTroopsDamage 的据点分支。
+                return BuildingType.attackMaxRange > 0 && (BuildingType.troopAtk > 0 || this is City);
+            }
+        }
+
         public override bool OnForceTurnStart(Scenario scenario)
         {
-            // 原版只有阵/砦/城塞/箭楼/连弩楼/投石台会主动攻击部队（calc_troops_damage 表）。
-            //
-            // 【本项目扩展：据点也自主攻击】城池 / 关所 / 港口按 attackMaxRange 射击范围内的敌军，
-            // 这是 0.0.75「城池,港,关,阵增加攻击效果」引入的玩法（原版没有，属自建设计）。
-            // 对齐原版时判定被收窄成 troopAtk > 0，而据点的 troopAtk 数据里恒为 0，
-            // 于是这条行为被整体关掉 —— 这里把据点重新纳入，伤害见
-            // CombatFormula.CalcBuildingTroopsDamage 的据点分支。
-            bool isKyoten = this is City;
-            bool canAutoAttack = BuildingType.troopAtk > 0 || isKyoten;
-
-            if (isComplate && canAutoAttack && BuildingType.attackMaxRange > 0)
+            // effectCells 在 Init 里按 attackMaxRange 生成；读档早期的半初始化状态下可能为 null，
+            // 这里显式判空，避免"能攻击但还没生成范围"时抛 NullReferenceException。
+            if (isComplate && CanAutoAttack && effectCells != null)
             {
                 for (int i = 1; i < effectCells.Count; i++)
                 {

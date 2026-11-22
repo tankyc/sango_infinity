@@ -508,8 +508,12 @@ namespace Sango.Core
             isNameColumn = true,        // 名字列：宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "武将",
             width = 4.20f,
-            valueStrGetCall = x => x.Name,
-            valueSortFunc = (a, b) => a.Name.CompareTo(b.Name),
+            // Name 是 SangoObject 的可空属性：剧本里存在未命名/占位武将（Name 为 null）时，
+            // 旧写法 a.Name.CompareTo(b.Name) 会在排序比较器里抛 NullReferenceException，
+            // 而 List.Sort 会把它包装成 InvalidOperationException 中断整个 UI
+            //（实战崩栈：PersonSortFunction.SortByName ← UIPersonCreateDetail.OpenCompatibilityPersonSelect）。
+            valueStrGetCall = x => x.Name ?? string.Empty,
+            valueSortFunc = (a, b) => string.CompareOrdinal(a?.Name, b?.Name),
             valueObjGet = x => x.Name,
             valueObjSet = null// (x, v) => x.Name = (string)v,
             //editType = DataEditType.Text,

@@ -329,7 +329,32 @@ namespace Sango.Render
             set
             {
                 _curSeason = Math.Abs(value % 4);
-                onSeasonChange?.Invoke(_curSeason);
+
+                // 【单点异常隔离】onSeasonChange 是普通多播委托：任一订阅者抛异常，
+                // 它后面的订阅者就全部不执行。订阅顺序是
+                // mapLayer → mapModels → mapTerrain → mapLight → mapFog → mapBaseColor
+                // → mapCamera → mapSkyBox → mapGrid → mapStrategyMap → mapLabelSet → mapTopView，
+                // 也就是说地图层 / 地形一抛异常，光照、雾、底图这些直接影响亮度的系统
+                // 会停在旧季节（地表已换季、其它没换），观感就是"切季后整个地形发暗甚至全黑"。
+                // 这里逐个回调、各自兜异常，保证单点故障不会拖垮整条季节链。
+                OnSeasonChange handler = onSeasonChange;
+                if (handler == null)
+                    return;
+
+                Delegate[] listeners = handler.GetInvocationList();
+                for (int i = 0; i < listeners.Length; i++)
+                {
+                    try
+                    {
+                        ((OnSeasonChange)listeners[i])(_curSeason);
+                    }
+                    catch (Exception exception)
+                    {
+                        Sango.Log.Error(
+                            $"地图季节切换回调异常（{listeners[i].Method.DeclaringType?.Name}.{listeners[i].Method.Name}）：{exception.Message}",
+                            Sango.Log.LogType.World);
+                    }
+                }
             }
         }
 
@@ -345,6 +370,12 @@ namespace Sango.Render
 
         public void Clear()
         {
+            // 【远景降级状态复位】MapRenderLod 的 IsFar / initialized 是进程级静态缓存，
+            // 比 MapRender 的子系统活得久。地图卸载 / 重开一局后若不复位，Tick 会因
+            // far == IsFar 直接 return，新地图永远不打降级（远景镜头 + 近景画质）。
+            // 必须放在子系统 Clear 之前：此刻 mapTerrain 还是旧实例，Apply(false) 能安全收尾。
+            MapRenderLod.Restore();
+
             if (mapData != null)
                 mapData.Clear();
             if (mapModels != null)

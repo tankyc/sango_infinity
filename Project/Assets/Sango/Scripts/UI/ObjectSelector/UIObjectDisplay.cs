@@ -184,6 +184,11 @@ namespace Sango.UI
 
         public void UpdateSortContent()
         {
+            // 【重置可视行数】itemCount 是"当前可视行数"，基准永远是列表项总数。
+            // 原实现在横向滚动条出现时做 itemCount--，却不重置基准，
+            // 于是每次切换排序组都会在上一轮结果上再减 1：切几次之后列表可视行数
+            // 越来越少，表现就是"切换 title 后数据显示位置/条数变了"。
+            itemCount = uIObjectListItems.Length;
             itemWidth = GetContentWidth();
             bool show_scrollbar_h = maskRect.rect.width < itemWidth;
             scrollbar_h.gameObject.SetActive(show_scrollbar_h);
@@ -240,8 +245,10 @@ namespace Sango.UI
                         // 非 ObjectSelectSystem 的视图只有显示列表，走统一的确定性排序
                         ObjectSortTitle.SortList(objectSelectSystem.Objects, sortTitle.Sort, up);
                     }
-                    scrollbar.SetValueWithoutNotify(0);
-                    OnScrollBarValueChange(0);
+                    // 【保持浏览位置】点表头只改排序规则，不应把玩家翻到的行顶掉。
+                    // 原实现是 SetValueWithoutNotify(0) + OnScrollBarValueChange(0)，
+                    // 等于强制回到第一行。
+                    RefreshKeepScrollPosition();
                 };
 
                 if (i > 0)
@@ -457,9 +464,26 @@ namespace Sango.UI
             {
                 ApplySortItems(objectSelectSystem.GetSortTitleGroup(index));
                 UpdateSortContent();
-                OnScrollBarValueChange(0);
+                // 【保持浏览位置】切换排序组只是换"看哪几列/按什么排"，
+                // 不应把玩家正在浏览的位置顶掉。原实现调用 OnScrollBarValueChange(0)
+                // 会把 startIndex 归零、列表跳回第一行。
+                RefreshKeepScrollPosition();
             }
 
+        }
+
+        /// <summary>
+        /// 按当前 startIndex 重绘列表并同步滚动条，保持玩家正在浏览的视觉位置。
+        /// 用于“切换排序组”和“点表头改排序”：这两类操作只改变排序规则与列定义，
+        /// 数据行在屏幕上的位置应当保持不变（否则翻到第 N 行点一下排序就被顶回顶部）。
+        /// </summary>
+        void RefreshKeepScrollPosition()
+        {
+            int maxStart = GetMaxStartIndex();
+            if (startIndex > maxStart) startIndex = maxStart;
+            if (startIndex < 0) startIndex = 0;
+            UpdateItemStartIndex(startIndex);
+            ApplyScrollbarValue();
         }
 
         public virtual void Update()

@@ -165,7 +165,7 @@ namespace Sango.UI
             // 那几个值是原版写死的特殊分子，暴露成参数只会被误当成平衡杠杆，已回到代码常量。
             // 这里只留一个真正影响全局节奏的开关。
             AddTitle("AI行动力");
-            AddToggleItem("AI无限行动力(不含玩家直辖军团)", variables.aiInfiniteActionPoint,
+            AddToggleItem("AI无限行动力(不含玩家军团)", variables.aiInfiniteActionPoint,
                 (v) => { variables.aiInfiniteActionPoint = v; });
 
             AddTitle("剧本基础参数");
@@ -369,6 +369,13 @@ namespace Sango.UI
                 (v) => { variables.techniquePointGainFactor = v; });
             AddGainTable("武将经验", variables.expGain, GainValueConfig.ExpPlaces);
             AddGainTable("能力经验", variables.attributeExpGain, GainValueConfig.AttributeExpPlaces);
+            // 能力经验 / 适性经验获取倍率：分别乘在两套经验的**写入口**上，
+            // 覆盖战斗 / 内政 / 舌战 / 培育 / 事件的全部来源；0 = 完全不获得，允许小数。
+            // 与上面两张 GainValueConfig 表的区别：那些是"某场景给多少"，这里是"到手的再乘几倍"。
+            AddNumberItem("能力经验获取倍率(0=不获得)", variables.attributeExpGainFactor, 0f, 100f,
+                (v) => { variables.attributeExpGainFactor = v; });
+            AddNumberItem("适性经验获取倍率(0=不获得)", variables.abilityExpGainFactor, 0f, 100f,
+                (v) => { variables.abilityExpGainFactor = v; });
             // 战斗中的功绩 / 能力经验 / 兵种适性经验 / 技巧点已统一由 CombatExpTable 按原版 Exp 表给出，
             // 那是 97 行的二维表（一行同时含 5 项属性经验 + 6 项适性经验 + 功绩 + 技巧点），
             // 不适合拆成这里的一维滑块。要调节奏请改 CombatExpTable.BuildTable 的对应行。

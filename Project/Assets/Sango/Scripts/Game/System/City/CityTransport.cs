@@ -249,17 +249,20 @@ namespace Sango.Core.Player
 
         public override void OnBack(ICommandEvent whoGone)
         {
-            base.OnBack(whoGone);
-            if (whoGone is ObjectSelectSystem) return;
-            Window.Instance.SetVisible(windowName, true);
-            TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTansport));
-            // 取消组建的回滚：部队尚未出发，直接收回
-            TargetTroop.EnterCity(TargetCity);
-            TargetTroop.ForEachPerson(person =>
+            if (whoGone is TroopSystem)
             {
-                TargetCity.freePersons.Add(person);
-                person.ActionOver = false;
-            });
+                base.OnBack(whoGone);
+                if (whoGone is ObjectSelectSystem) return;  
+                Window.Instance.SetVisible(windowName, true);
+                TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTansport));
+                // 取消组建的回滚：部队尚未出发，直接收回
+                TargetTroop.EnterCity(TargetCity);
+                TargetTroop.ForEachPerson(person =>
+                {
+                    TargetCity.freePersons.Add(person);
+                    person.ActionOver = false;
+                });
+            }
         }
     }
 }

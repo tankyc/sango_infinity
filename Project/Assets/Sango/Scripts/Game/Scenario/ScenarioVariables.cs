@@ -95,11 +95,13 @@ namespace Sango.Core
         // ==================== AI 行动力 ====================
 
         /// <summary>
-        /// AI 无限行动力：勾选后 **AI 控制的军团**不再消耗行动力，所有行动力门槛全部放行。
+        /// AI 无限行动力：勾选后 **电脑势力的军团**不再消耗行动力，所有行动力门槛全部放行。
         ///
         /// 【生效范围】
-        ///   · 生效：AI 势力的所有军团 + 玩家势力下交给 AI 执行的委任军团（number &gt; 1）；
-        ///   · 不生效：玩家直辖军团（<see cref="Corps.IsPlayerControl"/>），行动力照常计算。
+        ///   · 生效：AI 势力的所有军团；
+        ///   · 不生效：玩家势力的**所有**军团 —— 含玩家直辖军团（<see cref="Corps.IsPlayerControl"/>）
+        ///     与交给 AI 执行的委任军团（number &gt; 1），行动力一律照常计算并扣减。
+        ///     委任军团的产出与指令目标都归玩家，放开无限行动力等于给玩家留了绕过上限的后门。
         ///
         /// 【实现】<see cref="Corps.ActionPoint"/> 的读取值直接给足（不扣、不用补），
         /// 据点级额度 <c>OutpostRuntime.actionPoint</c> 由军团预算派生，两级门禁同时放行。
@@ -212,6 +214,43 @@ namespace Sango.Core
         /// 默认 1（保持原版节奏）。界面入口：剧本参数 → 成长资源获取 → 技巧点获取倍率。
         /// </summary>
         [JsonProperty] public float techniquePointGainFactor = 1f;
+
+        /// <summary>
+        /// 能力经验（五维成长）获取倍率。
+        ///
+        /// 作用点是**能力经验的全部 4 个写入口**，都在"加进 valueExp 之前"乘本倍率：
+        ///   · <see cref="Sango.Core.Person.GainStatExp"/> —— 战斗（<see cref="CombatExpTable"/> 的
+        ///     stat_exp）、事件效果、单挑桥接等一切走"属性经验"通道的来源；
+        ///   · <see cref="Sango.Core.Person.GainJobAttributeExp"/> —— 内政工作（训练 / 巡查 / 商人…）；
+        ///   · <see cref="Sango.Core.DebateGameSystem.PersonAddStatExp"/> —— 舌战结算；
+        ///   · <c>AbilityStudySystem</c> 的培育落地（提升 n 点 × AttributeExpLevelNeed 经验）。
+        ///
+        /// 【为什么不能像技巧点那样只改一处】能力经验没有唯一入口：上面 4 条路径各自直接写
+        /// <c>PersonAttributeValue.valueExp</c>，所以必须逐个接；以后新增入口请复用
+        /// <see cref="Sango.Core.Person.ScaleExpGain"/>，避免漏接。
+        ///
+        /// 三个边界口径（与技巧点倍率一致）：
+        ///   · 只缩放**正数**；负值（惩罚类扣经验）原样保留，不受本倍率影响；
+        ///   · 配 0 = 完全不获得能力经验；负数按 0 处理；
+        ///   · 与武将等级经验（<see cref="Sango.Core.Person.GainExp"/>）无关，后者另有通道。
+        ///
+        /// 默认 1（保持原版节奏）。界面入口：剧本参数 → 成长资源获取 → 能力经验获取倍率。
+        /// </summary>
+        [JsonProperty] public float attributeExpGainFactor = 1f;
+
+        /// <summary>
+        /// 兵种适性经验获取倍率。
+        ///
+        /// 作用点只有一个：<see cref="Sango.Core.Person.GainAbilityExp"/> 的正数分支 ——
+        /// 战斗（<see cref="CombatExpTable"/> 的 heishu_exp）、事件效果、培育等所有来源都经过它，
+        /// 所以改这一处即可全覆盖。
+        ///
+        /// 边界口径：配 0 = 完全不获得适性经验；负数按 0；
+        /// 等级上限仍由 <see cref="MaxAbilityLevel"/> 与 <c>PersonAbilityValue.SetExp</c> 夹取。
+        ///
+        /// 默认 1。界面入口：剧本参数 → 成长资源获取 → 适性经验获取倍率。
+        /// </summary>
+        [JsonProperty] public float abilityExpGainFactor = 1f;
 
         /// <summary>
         /// 基础伤害

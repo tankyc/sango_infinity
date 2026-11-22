@@ -668,12 +668,30 @@ namespace Sango.Core
         static void DispatchDefenseTroop(City city, Scenario scenario)
         {
             // 【修复】不依赖预计算的敌人列表，实时扫描兜底，避免"城池在挨打却不出兵"
-            BattleSituation.ThreatSnapshot defenseThreat = BattleSituation.EvaluateThreat(
-                city.CenterCell, AIConfig.Instance.cityDefenseScanRange, city, scenario);
-            if (!defenseThreat.HasEnemy)
+            // 【军团边界】扫描时按 IsThreatToOwnCorps 过滤：禁攻军团只把"踩在本军团领地上的"
+            // 敌军算作威胁，邻接的玩家第一军团被围不再算本城受威胁（详见该方法注释）。
+            int scannedEnemyCount = 0;
+            int scanRange = AIConfig.Instance.cityDefenseScanRange;
+            scenario.Map.SpiralAction(city.CenterCell, scanRange, (cell) =>
+            {
+                Troop enemy = cell.troop;
+                if (enemy == null || !enemy.IsAlive)
+                    return;
+                if (!enemy.IsEnemy(city))
+                    return;
+                if (!IsThreatToOwnCorps(city, enemy))
+                    return;
+                scannedEnemyCount++;
+            });
+
+            // 禁攻军团只用过滤后的扫描结果：city.EnemyCount 来自预计算敌人列表，
+            // 里面可能混入"站在别的军团领地上"的敌军，用它兜底会绕过军团边界。
+            int defenseEnemyCount = IsAttackForbidden(city)
+                ? scannedEnemyCount
+                : Math.Max(city.EnemyCount, scannedEnemyCount);
+            if (defenseEnemyCount <= 0)
                 return;
 
-            int defenseEnemyCount = Math.Max(city.EnemyCount, defenseThreat.enemyCount);
             // 在外守军上限（原判据）：敌军越多，允许出城的守军越多
             int maxDefenseTroopCount = Math.Max(3, defenseEnemyCount + 4);
 
@@ -1548,6 +1566,12 @@ namespace Sango.Core
                     force.threatTroopIds.RemoveAt(i);
                     continue;
                 }
+
+                // 【军团边界】禁攻军团不替别的军团驱赶敌军：只有敌军踩在本军团领地上才算数。
+                // 玩家第一军团被围时，围城敌军同样满足"本势力领地 + 靠近本城"两个条件，
+                // 不筛的话三个委任军团都会派兵过去（见 IsThreatToOwnCorps 注释）。
+                if (!IsThreatToOwnCorps(city, troop))
+                    continue;
 
                 // 只处理靠近本城的敌军,避免一城跨越整个势力追击
                 int distance = scenario.Map.Distance(city.CenterCell, troopCell);
@@ -3137,17 +3161,86 @@ namespace Sango.Core
             // 己方建筑误判为"道路封锁",导致大城(周边建筑密集)几乎永远不出兵防守。
             // 现在不再以 IsRoadBlocked 否决,只要城池周边存在敌方部队就允许出城防守。
 
-            int alertRange = AIConfig.Instance.cityDefenseAlertRange;
-
-            // 1) 复用城市已预计算的敌人信息(零遍历开销)
-            BattleSituation.ThreatSnapshot threat = BattleSituation.EvaluateCityThreat(city);
-            if (threat.HasEnemy && threat.nearestDistance <= alertRange)
+            // 0) 本城正在被围攻 —— 这一条不需要军团过滤：敌人打的就是本城
+            if (city.EnemyCount > 0)
                 return true;
 
-            // 2) 预计算信息未覆盖时(如敌军刚抵达、正在攻击本城建筑),实时扫描城池周边兜底
-            BattleSituation.ThreatSnapshot live = BattleSituation.EvaluateThreat(
-                city.CenterCell, AIConfig.Instance.cityDefenseScanRange, city, scenario);
-            return live.HasEnemy;
+            // 1) / 2) 合并为一次实时扫描。
+            // 原逻辑先用预计算敌人(alertRange)判、再实时扫 6 格兜底；两段都是按**势力**算敌我，
+            // 现在都要过 IsThreatToOwnCorps 的军团过滤，而预计算只能拿到聚合值，
+            // 故统一成一次带过滤的扫描，范围取两者较大值，口径一致且不会漏判。
+            int range = Math.Max(AIConfig.Instance.cityDefenseAlertRange,
+                                 AIConfig.Instance.cityDefenseScanRange);
+            return HasThreatInRange(city, scenario, range);
+        }
+
+        /// <summary>
+        /// 扫描指定范围内是否存在"对本军团构成威胁"的敌军（与防守分支同口径）。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="range">扫描半径（格）</param>
+        /// <returns>存在威胁返回 true</returns>
+        static bool HasThreatInRange(City city, Scenario scenario, int range)
+        {
+            if (city == null || scenario == null || scenario.Map == null)
+                return false;
+
+            bool found = false;
+            scenario.Map.SpiralAction(city.CenterCell, range, (cell) =>
+            {
+                if (found)
+                    return;
+                Troop enemy = cell.troop;
+                if (enemy == null || !enemy.IsAlive)
+                    return;
+                if (!enemy.IsEnemy(city))
+                    return;
+                if (!IsThreatToOwnCorps(city, enemy))
+                    return;
+                found = true;
+            });
+            return found;
+        }
+
+        /// <summary>
+        /// 判定某支敌军是否构成"本军团"的威胁。
+        ///
+        /// 【为什么需要这道筛】
+        /// 防守（<see cref="AICanDefense"/> / <see cref="DispatchDefenseTroop"/>）与
+        /// 驱逐（<see cref="FindThreatTroopInRange"/>）原先是按**势力**判敌我的：
+        /// 只要扫描圈内出现敌方部队就出兵，不管那支敌军正在打谁的城。
+        /// 于是玩家第一军团的城被围时，邻接的三个委任军团会同时判定"兵临城下"集体出城 ——
+        /// 而据点层的派兵支援对玩家势力又明令禁止跨军团
+        /// （CityAIOutpostCommand.cs:1598 / 1927 / 2079），两条口径互相矛盾；
+        /// 玩家看到的正是"我明明把委任攻击设成了禁止，三个委任军团全冲过来了"。
+        ///
+        /// 【口径】对"玩家势力 + 已禁止攻击"的军团，只承认**本军团据点领地内**的敌军是威胁：
+        ///   · 敌军踩在本军团（含本城）的领地格上 → 是威胁，照常出城；
+        ///   · 敌军踩在别的军团 / 别的势力的领地格上 → 与本城无关，不出兵。
+        /// 非玩家势力、以及未开启禁攻的军团一律返回 true，行为完全不变。
+        ///
+        /// 【原版对照】Open311 没有跨军团支援这一层（district 即出兵据点所属军团），
+        /// 也就不存在"替别的 district 出兵防守"的场景，本方法是补充该边界。
+        /// </summary>
+        /// <param name="city">本城</param>
+        /// <param name="troop">待判定的敌军部队</param>
+        /// <returns>视为本军团的威胁返回 true</returns>
+        static bool IsThreatToOwnCorps(City city, Troop troop)
+        {
+            if (city == null || troop == null)
+                return false;
+
+            Force force = city.BelongForce;
+            if (force == null || !force.IsPlayer || !IsAttackForbidden(city))
+                return true;
+
+            Cell cell = troop.cell;
+            City ownerCity = cell != null ? cell.BelongCity : null;
+            if (ownerCity == null)
+                return false;   // 落点不在任何据点的领地上 -> 不替它出兵
+
+            return ownerCity.BelongCorps == city.BelongCorps;
         }
 
         /// <summary>

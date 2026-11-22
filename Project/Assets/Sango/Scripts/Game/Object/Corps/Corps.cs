@@ -453,7 +453,7 @@ namespace Sango.Core
         /// 行动力点数。
         ///
         /// 【AI 无限行动力】剧本参数 <see cref="ScenarioVariables.aiInfiniteActionPoint"/> 开启时，
-        /// AI 控制的军团读取值直接给足（<see cref="InfiniteActionPointValue"/>），
+        /// 电脑势力的军团读取值直接给足（<see cref="InfiniteActionPointValue"/>），
         /// 所有 <c>ActionPoint &lt; cost</c> 的门禁自动放行，且 <see cref="ReduceActionPoint"/> 不扣。
         /// 真实值仍保存在 <c>actionPoint</c> 里，玩家取消勾选后立即恢复（JSON 键名仍是 ActionPoint）。
         /// </summary>
@@ -471,17 +471,22 @@ namespace Sango.Core
         public const int InfiniteActionPointValue = 999999;
 
         /// <summary>
-        /// 是否享受"AI 无限行动力"：剧本参数开启，且该军团不是玩家直辖军团。
+        /// 是否享受"AI 无限行动力"：剧本参数开启，且该军团**不属于玩家势力**。
         ///
-        /// 【为什么排除玩家直辖】玩家自己操作的军团要照常算账；
-        /// 玩家势力下交给 AI 执行的委任军团（number &gt; 1）与 AI 势力军团都享受该开关。
+        /// 【为什么排除整个玩家势力】该开关的定位是"只补贴电脑"：
+        ///   · 玩家直辖军团（<see cref="IsPlayerControl"/>，即第一军团）本来就是玩家自己算账；
+        ///   · 玩家势力下的委任军团（number &gt; 1）虽然交给 AI 执行，但产出归玩家、
+        ///     指令目标由玩家设定，若也享受无限行动力，玩家只需多切几个委任军团
+        ///     即可绕过行动力限制，等于让作弊开关反向作用到玩家身上。
+        /// 因此判定改为 <see cref="IsPlayer"/>：玩家势力下的所有军团一律走真实行动力。
         /// 【不包含】武将"每人每回合一次行动"（Person.ActionOver）—— 那是行动次数，放开会死循环。
         /// </summary>
         public bool IsInfiniteActionPoint
         {
             get
             {
-                if (IsPlayerControl)
+                // 玩家势力：第一军团与委任军团都不享受，行动力照常计算与扣减
+                if (IsPlayer)
                     return false;
                 Scenario scenario = Scenario.Cur;
                 return scenario != null && scenario.Variables != null && scenario.Variables.aiInfiniteActionPoint;

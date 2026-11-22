@@ -2867,6 +2867,19 @@ namespace Sango.Core
                         continue;
                     }
 
+                    // 【原版对齐】成人出仕是"先改身份、再入城"两步，顺序不能颠倒：
+                    //   s11_sys_scen_person.cpp:1796  self->set_mibun(Mibun_Ippan);
+                    //   s11_sys_scen_person.cpp:1809  person_enter(self, service, false, 1);
+                    // 原版 person_enter（同文件 :998-1028）全程只改 service / location / district，
+                    // **不碰 mibun**，所以"未登场 → 一般武将"必须在这里显式转。
+                    //
+                    // 【漏掉的后果】Enter 内部只在 IsWild / Invisible 时转正
+                    // （PersonStateSystem.cs:228 的 `person.IsWild || person.Invisible`），
+                    // Invalid（未登场）两边都不匹配 → 人已被 Enter 迁进城里、可编入部队出征，
+                    // 身份却仍显示"未登场"；又因为 state 一直是 Invalid，本段每回合都会对他
+                    // 重复执行一次 Enter（条件 `x.state != Invalid` 永远拦不住）。
+                    // 补上这一步后，首次成年的当回合即转正，历史脏档也会被本段自动修正一次。
+                    PersonStateSystem.SetState(x, PersonStateType.Normal, PersonChangeReason.Appeared);
                     PersonStateSystem.Enter(x, becameCity, PersonChangeReason.Appeared);
                     x.loyalty = 100;
 
@@ -3882,6 +3895,10 @@ namespace Sango.Core
             int exp = GetJobAttributeExp(jobId);
             if (exp <= 0) return;
 
+            // 剧本参数：能力经验获取倍率（与战斗 / 舌战 / 培育同一口径）
+            exp = ScaleExpGain(exp, GetAttributeExpGainFactor());
+            if (exp <= 0) return;
+
             attr.SetExp(attr.valueExp + exp, scenario);
         }
 
@@ -4030,6 +4047,10 @@ namespace Sango.Core
             if (exp <= 0) return;
             if (Scenario.Cur == null) return;
 
+            // 剧本参数：能力经验获取倍率（0 = 完全不获得）。只缩放正数，负值（惩罚）不受影响。
+            exp = ScaleExpGain(exp, GetAttributeExpGainFactor());
+            if (exp <= 0) return;
+
             PersonAttributeValue attribute = GetStatAttributeValue(statType);
             if (attribute == null) return;
 
@@ -4064,6 +4085,12 @@ namespace Sango.Core
             if (exp <= 0) return;
             if (Scenario.Cur == null) return;
 
+            // 剧本参数：兵种适性经验获取倍率（0 = 完全不获得）。
+            // 本方法是适性经验的唯一入口（战斗 heishu_exp / 事件 / 培育都走它），
+            // 所以倍率只需在这里乘一次即可覆盖全部来源。
+            exp = ScaleExpGain(exp, GetAbilityExpGainFactor());
+            if (exp <= 0) return;
+
             PersonAbilityValue ability = GetAbilityValue(influenceAbility);
             if (ability == null) return;
 
@@ -4071,6 +4098,65 @@ namespace Sango.Core
             if (next > ushort.MaxValue) next = ushort.MaxValue;
 
             ability.SetExp((ushort)next);
+        }
+
+        // ==================== 经验倍率（剧本参数） ====================
+
+        /// <summary>
+        /// 读剧本参数里的「能力经验获取倍率」。
+        /// 无剧本上下文（编辑器预览 / 纯逻辑推演）时按 1 处理；负数按 0。
+        /// </summary>
+        public static float GetAttributeExpGainFactor()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Variables == null)
+                return 1f;
+            float factor = scenario.Variables.attributeExpGainFactor;
+            return factor < 0f ? 0f : factor;
+        }
+
+        /// <summary>
+        /// 读剧本参数里的「兵种适性经验获取倍率」。
+        /// 无剧本上下文时按 1 处理；负数按 0。
+        /// </summary>
+        public static float GetAbilityExpGainFactor()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Variables == null)
+                return 1f;
+            float factor = scenario.Variables.abilityExpGainFactor;
+            return factor < 0f ? 0f : factor;
+        }
+
+        /// <summary>
+        /// 按倍率缩放一次经验增量。
+        ///
+        /// 【为什么统一收在这里】能力经验有 4 个写入口（战斗 GainStatExp / 内政 GainJobAttributeExp /
+        /// 舌战 DebateGameSystem.PersonAddStatExp / 培育 AbilityStudySystem.ApplyBaseStat），
+        /// 逐个手写缩放迟早漏掉一处；所有入口都调本方法，口径就只剩一份。
+        ///
+        /// 三个边界：
+        ///   · 只缩放**正数**；0 与负值（惩罚）原样返回，不受"获取倍率"影响；
+        ///   · 倍率配 0 → 返回 0（完全不获得）；
+        ///   · 用 double 计算再夹到 int：倍率可能被剧本 JSON 手改成极大值，
+        ///     直接 float → int 是未定义行为。
+        /// </summary>
+        /// <param name="exp">原始经验增量</param>
+        /// <param name="factor">倍率（0 表示不获得）</param>
+        /// <returns>缩放后的增量</returns>
+        public static int ScaleExpGain(int exp, float factor)
+        {
+            if (exp <= 0)
+                return exp;
+            if (factor == 1f)
+                return exp;
+            if (factor <= 0f)
+                return 0;
+
+            double scaled = exp * (double)factor;
+            if (scaled >= int.MaxValue)
+                return int.MaxValue;
+            return (int)System.Math.Round(scaled, System.MidpointRounding.AwayFromZero);
         }
 
         /// <summary>兵种适性类型（AbilityType）→ 对应的适性数据（无对应返回 null）</summary>

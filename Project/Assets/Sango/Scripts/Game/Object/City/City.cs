@@ -284,6 +284,10 @@ namespace Sango.Core
 
         CityLevelType mCityLevelType;
         /// <summary>
+        /// 城市等级完全缺失时的空对象（各项加成为 0），仅用于兜底，不写回缓存
+        /// </summary>
+        static CityLevelType s_emptyCityLevelType;
+        /// <summary>
         /// 城市等级数据；写入时自动同步 CityLevelTypeId
         /// </summary>
         public CityLevelType CityLevelType
@@ -291,7 +295,24 @@ namespace Sango.Core
             get
             {
                 if (mCityLevelType == null && CityLevelTypeId > 0) mCityLevelType = IdRef.Resolve<CityLevelType>(CityLevelTypeId);
-                return mCityLevelType;
+                if (mCityLevelType != null) return mCityLevelType;
+
+                // 【兜底】不能返回 null：TroopsLimit / StoreLimit / GoldLimit / FoodLimit /
+                // DurabilityLimit / BaseGainGold / CommerceLimit 等十几个派生属性都直接解引用
+                // CityLevelType.xxx。CityLevelTypeId <= 0（地图编辑器新造城市、旧档缺等级）
+                // 或剧本数据未就绪时，原来返回 null 会让对象选择器按"士兵上限"排序整片 NRE
+                //（实战崩栈：City.get_TroopsLimit ← CitySortFunction.SortByTroopsLimit ← UIObjectSelector）。
+                // 这里优先取 1 级城市数据，取不到再退到空对象；两者都不写回 mCityLevelType，
+                // 避免在剧本数据就绪前把兜底值固化成真实等级。
+                Scenario scenario = Scenario.Cur;
+                if (scenario != null && scenario.CommonData != null && scenario.CommonData.CityLevelTypes != null)
+                {
+                    CityLevelType firstLevel = scenario.CommonData.CityLevelTypes.Get(1);
+                    if (firstLevel != null) return firstLevel;
+                }
+
+                if (s_emptyCityLevelType == null) s_emptyCityLevelType = new CityLevelType();
+                return s_emptyCityLevelType;
             }
             set { mCityLevelType = value; CityLevelTypeId = value != null ? value.Id : 0; }
         }

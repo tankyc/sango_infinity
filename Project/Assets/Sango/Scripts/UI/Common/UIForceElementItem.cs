@@ -79,7 +79,7 @@ namespace Sango.UI
                 else if (obj is Troop)
                 {
                     Troop troop = (Troop)obj;
-                    name.text = obj.Name + "��";
+                    name.text = obj.Name + "队";
                     name.color = obj.ActionOver ? Color.gray : GameDefine.whiteText;
                     string spName;
                     if (troop.missionType > 0)
@@ -117,8 +117,16 @@ namespace Sango.UI
                 }
                 else
                 {
-                    Vector3 position = person.BelongCity.CenterCell.Position;
-                    MapRender.Instance.MoveCameraTo(position);
+                    // 无归属城市的武将（在野、刚被释放、未收容）BelongCity 为 null，
+                    // 旧写法直接解引用会抛 NullReferenceException
+                    //（实战崩栈：UIForceElementItem.OnClick）。
+                    // 退到所在城市，两者都没有就不移动镜头。
+                    City city = person.BelongCity != null ? person.BelongCity : person.CurrentCity;
+                    if (city != null && city.CenterCell != null)
+                    {
+                        Vector3 position = city.CenterCell.Position;
+                        MapRender.Instance.MoveCameraTo(position);
+                    }
                 }
             }
             else if (targetObject is Troop)
