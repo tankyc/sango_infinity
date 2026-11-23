@@ -3773,11 +3773,19 @@ namespace Sango.Core
         /// <returns>工作成本</returns>
         public int GetJobCost(CityJobType cityJobType)
         {
+            return GetJobCost(cityJobType, null);
+        }
+
+        int GetJobCost(CityJobType cityJobType, Person[] persons)
+        {
             int jobId = (int)cityJobType;
-            int goldNeed = JobType.GetJobCost(jobId);
+            bool populationPatrol = cityJobType == CityJobType.Inspection && HantuPopulation.Enabled;
+            int goldNeed = populationPatrol
+                ? HantuPopulationEconomy.PatrolFee(population, ruralPopulation.GetValueOrDefault())
+                : JobType.GetJobCost(jobId);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(goldNeed);
-            GameEvent.OnCityCheckJobCost?.Invoke(this, jobId, null, overrideData);
+            GameEvent.OnCityCheckJobCost?.Invoke(this, jobId, persons, overrideData);
             goldNeed = overrideData.ValueAndRecycle;
 
             // 【外交府：亲善资金减半】
@@ -3789,9 +3797,26 @@ namespace Sango.Core
             {
                 goldNeed = goldNeed / 2;
             }
-            return goldNeed;
+            return populationPatrol ? Math.Max(0, goldNeed) : goldNeed;
         }
 
+        public int PreviewInspectionCost(Person[] persons)
+        {
+            if (!HantuPopulation.Enabled || !GameUtility.IsValidPersonArray(persons))
+                return GetJobCost(CityJobType.Inspection);
+
+            InitJobFeature(persons);
+            try
+            {
+                return GetJobCost(CityJobType.Inspection, persons);
+            }
+            finally
+            {
+                ClearJobFeature();
+            }
+        }
+
+        public int InspectionSecurityLimit => HantuPopulation.Enabled ? CitySecurity.GetPopulationSecurityBaseline(this) : 100;
 
         /// <summary>
         /// 建造建筑
@@ -4927,7 +4952,8 @@ namespace Sango.Core
         {
             if (!GameUtility.IsValidPersonArray(personList)) return 0;
 
-            if (security >= 100) return 0;
+            int securityLimit = InspectionSecurityLimit;
+            if (security >= securityLimit) return 0;
 
             Scenario scenario = Scenario.Cur;
 
@@ -4938,12 +4964,7 @@ namespace Sango.Core
             ScenarioVariables variables = scenario.Variables;
             int jobId = (int)CityJobType.Inspection;
 
-            int goldNeed = JobType.GetJobCost(jobId);
-
-            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(goldNeed);
-            GameEvent.OnCityCheckJobCost?.Invoke(this, jobId, personList, overrideData);
-            goldNeed = overrideData.ValueAndRecycle;
-
+            int goldNeed = GetJobCost(CityJobType.Inspection, personList);
 
             if (gold < goldNeed)
             {
@@ -4969,10 +4990,19 @@ namespace Sango.Core
             // 【性格】按执行武将的性格效率折算（多人取平均）
             totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.Inspection);
 
-            // 
-            overrideData = Tools.OverrideData<int>.Create(totalValue);
+            Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.ValueAndRecycle;
+
+            if (HantuPopulation.Enabled)
+            {
+                totalValue = HantuPopulationEconomy.LimitPatrolGain(security, securityLimit, totalValue);
+                if (totalValue == 0)
+                {
+                    ClearJobFeature();
+                    return 0;
+                }
+            }
 
             if (isTest)
             {
@@ -4988,7 +5018,7 @@ namespace Sango.Core
             // 见 :1306 `int change = system_->city_add_public_order(city, public_order_change);`），
             // 不是计算值。治安快满时两者差很多，这里按同一口径先算实际增量。
             int securityBefore = security;
-            int securityAfter = System.Math.Min(securityBefore + totalValue, 100);
+            int securityAfter = System.Math.Min(securityBefore + totalValue, securityLimit);
             int securityChange = securityAfter - securityBefore;
             int techniquePointGain = securityChange * 5 / 7 + 5;
 
@@ -5020,8 +5050,8 @@ namespace Sango.Core
             gold -= goldNeed;
             BelongCorps.ReduceActionPoint(JobType.GetJobCostAP(jobId));
             security += totalValue;
-            if (security > 100)
-                security = 100;
+            if (security > securityLimit)
+                security = securityLimit;
             AddJobCounter(jobId);
             Render?.ShowInfo(totalValue, (int)InfoType.Security);
 

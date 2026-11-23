@@ -3427,7 +3427,7 @@ namespace Sango.Core
 
             // 【修复】原先概率为 (100 - security) * 4，治安为 0 时高达 400%，越界且行为异常。
             // 现做上限钳制，保证概率落在 0~100 之间。
-            int chance = Math.Min(100, (100 - city.security) * 4);
+            int chance = Math.Min(100, (city.InspectionSecurityLimit - city.security) * 4);
             if (chance <= 0)
                 return true;
 

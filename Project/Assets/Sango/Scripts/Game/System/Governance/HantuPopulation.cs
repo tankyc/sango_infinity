@@ -68,9 +68,9 @@ namespace Sango.Core
 
         public static void SettleSeason(Scenario scenario)
         {
-            if (scenario.Variables?.hantuPopulationEnabled != true
-                || scenario.hantuPopulationSeason == scenario.SeasonStamp)
-                return;
+            if (scenario.Variables?.hantuPopulationEnabled != true) return;
+            int season = scenario.SeasonStamp;
+            if (scenario.hantuPopulationSeason == season) return;
             Prepare(scenario);
             var cities = new List<City>(scenario.citySet.Count);
             for (int i = 0; i < scenario.citySet.Count; ++i)
@@ -81,40 +81,49 @@ namespace Sango.Core
             }
             cities.Sort((a, b) => a.Id.CompareTo(b.Id));
             foreach (City city in cities)
-                GrowAndConvert(city);
+                GrowAndConvert(city, season);
             foreach (City city in cities)
-                MigrateToParent(city);
-            scenario.hantuPopulationSeason = scenario.SeasonStamp;
+                MigrateToParent(city, season);
+            foreach (City city in cities)
+                HantuPopulationIncidents.SettleRefugees(scenario, city);
+            scenario.hantuPopulationSeason = season;
             foreach (City city in cities)
                 if (city.BelongCorps != null)
                     city.CalculateHarvest();
         }
 
-        static void GrowAndConvert(City city)
+        static void GrowAndConvert(City city, int season)
         {
-            int safety = city is Gate ? Math.Max(0, (city.BelongCity?.security ?? city.security) - 10) : city.security;
+            City parent = city is Gate ? city.BelongCity : city;
+            int safety = EffectiveSecurity(city, parent);
             int politics = Math.Max(0, Math.Min(100, city.Leader?.Politics ?? 0));
             int urbanCap = UrbanCapacity(city), ruralCap = RuralCapacity(city);
+            int ruralGrowthCap = city is Gate || IsSmallCity(city) ? ruralCap : 7500000;
             int urban = Math.Max(0, city.population), rural = Math.Max(0, city.ruralPopulation.GetValueOrDefault());
-            int commerce = city is Gate ? (city is Port ? (city.BelongCity?.commerce ?? 0) / 5 : 0) : city.commerce;
-            int agriculture = city is Gate ? (city is Port ? (city.BelongCity?.agriculture ?? 0) / 5 : 0) : city.agriculture;
+            int commerce = Math.Max(0, Math.Min(100, parent?.commerce ?? 0));
+            int agriculture = Math.Max(0, Math.Min(100, parent?.agriculture ?? 0));
+            int developmentPercent = city is Port ? 20 : city is Gate ? 0 : 100;
+            bool bigCity = city.IsCity() && city.specialty == 6;
             bool harvest = city.HasDisaster(City.DisasterType.Housaku);
-            urban += HantuPopulationRules.Growth(urban, urbanCap, politics, Math.Max(0, Math.Min(100, commerce)),
-                safety, 80, 0.005, harvest ? 1.05 : 1);
-            rural += HantuPopulationRules.Growth(rural, ruralCap, politics, Math.Max(0, Math.Min(100, agriculture)),
-                safety, 60, 0.005, harvest ? 1.25 : 1);
+            urban += HantuPopulationRules.Growth(urban, urbanCap, urbanCap, politics,
+                HantuPopulationRules.Percent(commerce, developmentPercent), safety, 80, harvest ? 5 : 0, bigCity);
+            rural += HantuPopulationRules.Growth(rural, ruralCap, ruralGrowthCap, politics,
+                HantuPopulationRules.Percent(agriculture, developmentPercent), safety, 60, harvest ? 25 : 0, bigCity);
 
-            // 汉土的转移比例随治安差增大，每季度最多转出来源人口的 1%。
-            int difference = Math.Min(20, Math.Abs(safety - 90));
-            if (safety < 90)
+            int rollCount = HantuPopulationRules.ConversionRollCount(safety);
+            if (HantuPopulationRules.CanConvertUrban(safety))
             {
-                int moved = HantuPopulationRules.Transfer(urban, rural, ruralCap, (int)((long)urban * difference / 2000));
+                int roll = HantuPopulationRules.QuarterRoll(season, city.Id, 1, rollCount);
+                int moved = HantuPopulationRules.Transfer(urban, rural, ruralCap, HantuPopulationRules.Percent(urban, roll));
                 urban -= moved;
                 rural += moved;
             }
-            else
+            // 治安等于门限时两条分支均成立，按先出城再入城的模板顺序执行。
+            if (HantuPopulationRules.CanConvertRural(safety))
             {
-                int moved = HantuPopulationRules.Transfer(rural, urban, urbanCap, (int)((long)rural * difference / 2000));
+                int roll = HantuPopulationRules.QuarterRoll(season, city.Id, 2, rollCount);
+                int requested = HantuPopulationRules.RuralConversion(rural, roll, parent?.rate ?? city.rate);
+                int moved = HantuPopulationRules.Transfer(rural, urban, urbanCap, requested);
                 rural -= moved;
                 urban += moved;
             }
@@ -122,21 +131,36 @@ namespace Sango.Core
             city.ruralPopulation = rural;
         }
 
-        static void MigrateToParent(City city)
+        static int EffectiveSecurity(City city, City parent)
+        {
+            // 原作的练兵设施按满治安参与人口结算。港关查询其所属城。
+            if (parent != null)
+            {
+                foreach (Cell cell in parent.interiorCellList)
+                {
+                    if (cell?.building is Building facility && facility.IsAlive && facility.isComplate
+                        && facility.BuildingType?.kind == (int)InteriorFacilityKind.TrainingSchool)
+                        return 100;
+                }
+            }
+            int localSecurity = (parent?.security ?? city.security) - (city is Gate ? 10 : 0);
+            return Math.Max(0, Math.Min(100, localSecurity));
+        }
+
+        static void MigrateToParent(City city, int season)
         {
             City parent = city.BelongCity;
-            if (!(city is Gate) || parent == null || !parent.IsAlive
+            if (!(city is Gate) || parent == null || parent is Gate || !parent.IsAlive
                 || city.BelongForce == null || city.BelongForce != parent.BelongForce)
                 return;
 
             int urban = city.population;
             int rural = city.ruralPopulation.GetValueOrDefault();
             int parentRural = parent.ruralPopulation.GetValueOrDefault();
-            // 港关人口达到所属城同类人口的一半时，转移本处人口的 1%。
-            int urbanMove = (long)urban * 2 >= parent.population
-                ? HantuPopulationRules.Transfer(urban, parent.population, UrbanCapacity(parent), urban / 100) : 0;
-            int ruralMove = (long)rural * 2 >= parentRural
-                ? HantuPopulationRules.Transfer(rural, parentRural, RuralCapacity(parent), rural / 100) : 0;
+            int urbanRoll = HantuPopulationRules.QuarterRoll(season, city.Id, 3, HantuPopulationRules.MigrationRollCount);
+            int ruralRoll = HantuPopulationRules.QuarterRoll(season, city.Id, 4, HantuPopulationRules.MigrationRollCount);
+            int urbanMove = HantuPopulationRules.Migration(urban, parent.population, UrbanCapacity(parent), urbanRoll);
+            int ruralMove = HantuPopulationRules.Migration(rural, parentRural, RuralCapacity(parent), ruralRoll);
             city.population -= urbanMove;
             city.ruralPopulation = rural - ruralMove;
             parent.population += urbanMove;
@@ -151,10 +175,14 @@ namespace Sango.Core
         public static void ChargeRecruitment(City city, int troops)
         {
             int amount = HantuPopulationRules.RecruitCost(troops, city.IsPlayer);
+            if (amount == 0) return;
             int rural = Math.Max(0, city.ruralPopulation.GetValueOrDefault());
-            int ruralCharge = Math.Min(rural, amount);
-            city.ruralPopulation = rural - ruralCharge;
-            city.population = Math.Max(0, city.population - (amount - ruralCharge));
+            int urban = Math.Max(0, city.population);
+            int ruralCharge = Math.Min(rural, HantuPopulationRules.RuralRecruitCost(amount, city.rate));
+            int urbanCharge = Math.Min(urban, amount - ruralCharge);
+            // 城市不足时由剩余农村人口补差，保证成功征兵按实际兵数足额扣除。
+            city.population = urban - urbanCharge;
+            city.ruralPopulation = rural - Math.Min(rural, amount - urbanCharge);
         }
 
         public static int GoldTax(City city)

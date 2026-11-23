@@ -29,9 +29,12 @@ using Sango.Core; namespace Sango.UI
 
         public void UpdateContent()
         {
-            int count = currentSystem.personList.Count;
+            int cost = HantuPopulation.Enabled
+                ? TargetCity.PreviewInspectionCost(currentSystem.personList.ToArray())
+                : TargetCity.GetJobCost(CityJobType.Inspection);
             action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.Inspection)}/{TargetCity.BelongCorps.ActionPoint}";
-            sureButton.interactable = currentSystem.personList.Count > 0;
+            sureButton.interactable = currentSystem.personList.Count > 0
+                && (!HantuPopulation.Enabled || (TargetCity.gold >= cost && currentSystem.wonderNumber > 0));
             for(int i = 0; i < 3; i++)
             {
                 if(i < currentSystem.personList.Count)
@@ -41,11 +44,11 @@ using Sango.Core; namespace Sango.UI
             }
 
             int destValue = TargetCity.security + currentSystem.wonderNumber;
-            if (destValue > 100)
-                destValue = 100;
+            int securityLimit = TargetCity.InspectionSecurityLimit;
+            destValue = Math.Min(destValue, HantuPopulation.Enabled ? Math.Max(TargetCity.security, securityLimit) : securityLimit);
 
             targetValue.text = $"{TargetCity.security}→{destValue}";
-            targetGold.text = $"{TargetCity.GetJobCost(CityJobType.Inspection)}/{TargetCity.gold}";
+            targetGold.text = $"{cost}/{TargetCity.gold}";
         }
 
         public void OnSure()

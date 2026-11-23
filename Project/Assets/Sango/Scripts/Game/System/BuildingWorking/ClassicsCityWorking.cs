@@ -267,6 +267,9 @@ namespace Sango.Core
             if (city.BelongCorps == null)
                 return;
 
+            if (scenario.Variables.hantuPopulationEnabled)
+                city.CalculateHarvest();
+
             int inComingGold = GameRandom.Random(city.totalGainGold, 0.05f);
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(inComingGold);
             GameEvent.OnCityGainGoldHarvest?.Invoke(city, overrideData);
