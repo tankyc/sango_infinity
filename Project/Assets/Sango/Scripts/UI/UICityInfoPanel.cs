@@ -60,6 +60,32 @@ using Sango.Core; namespace Sango.UI
                 CitySortFunction.SortByWildCount.Copy().SetAlignment((int)TextAnchor.MiddleRight),
             };
 
+            if (HantuPopulation.Enabled)
+            {
+                objectSortTitles.InsertRange(6, new ObjectSortTitle[]
+                {
+                    new CitySortFunction.SortTitle
+                    {
+                        name = "城市人口",
+                        alignment = (int)TextAnchor.MiddleRight,
+                        valueStrGetCall = x => x.population.ToString("N0"),
+                    },
+                    new CitySortFunction.SortTitle
+                    {
+                        name = "农村人口",
+                        alignment = (int)TextAnchor.MiddleRight,
+                        valueStrGetCall = x => x.ruralPopulation.GetValueOrDefault().ToString("N0"),
+                    },
+                    new CitySortFunction.SortTitle
+                    {
+                        name = "人口合计",
+                        alignment = (int)TextAnchor.MiddleRight,
+                        valueStrGetCall = x => ((long)x.population + x.ruralPopulation.GetValueOrDefault()).ToString("N0"),
+                        customData = 0,
+                    }
+                });
+            }
+
             float dep = (float)Screen.width / Screen.height;
             Vector2 pos = Camera.main.WorldToScreenPoint(city.CenterCell.Position);
             bool showLeft = pos.x > (Screen.width / 2 - 100);

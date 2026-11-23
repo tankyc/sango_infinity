@@ -3090,7 +3090,10 @@ namespace Sango.Core
             if (city.troops >= city.TroopsLimit)
                 return true;
 
-            if (scenario.Variables.populationEnable && city.troopPopulation <= 500) return true;
+            if (scenario.Variables.hantuPopulationEnabled && HantuPopulation.RecruitLimit(city) <= 0)
+                return true;
+            if (scenario.Variables.UseLegacyPopulation && city.troopPopulation <= 500)
+                return true;
             if (city.security < 70) return true;
             if (city.troops > city.food) return true;
 

@@ -519,6 +519,10 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public bool populationEnable = false;
 
+        [JsonProperty] public bool hantuPopulationEnabled;
+
+        public bool UseLegacyPopulation => populationEnable && !hantuPopulationEnabled;
+
         /// <summary>
         /// 基础人口增长率
         /// </summary>

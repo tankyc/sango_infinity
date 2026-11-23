@@ -74,6 +74,9 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty(Order = -95)] public ScenarioVariables Variables { internal set; get; }
 
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? hantuPopulationSeason;
+
         /// <summary>
         /// 地图数据
         /// </summary>
@@ -1025,6 +1028,7 @@ namespace Sango.Core
         /// </summary>
         public void LoadScenarioDataStage()
         {
+            bool? selectedPopulation = Variables?.hantuPopulationEnabled;
             try
             {
                 // 【性能】用流式 JsonTextReader 就地填充，避免把整份存档读成一个 string 常驻内存
@@ -1034,6 +1038,8 @@ namespace Sango.Core
                 {
                     JsonSerializer.CreateDefault().Populate(jr, this);
                 }
+                if (Info?.isSave == false && Variables != null && selectedPopulation.HasValue)
+                    Variables.hantuPopulationEnabled = selectedPopulation.Value;
             }
             catch (JsonSerializationException e)
             {
@@ -1929,6 +1935,7 @@ namespace Sango.Core
             {
                 prepareList[i].ForEach(o => { o.OnScenarioPrepare(this); });
             }
+            HantuPopulation.Prepare(this);
 
             // 【配属】自建 / 古代武将没有剧本指定归属时随机落地
             // （对应 Open311 Game::init_person 的 person_dispatch 兜底）。
@@ -2496,6 +2503,7 @@ namespace Sango.Core
         }
         public override bool OnSeasonStart(Scenario scenario)
         {
+            HantuPopulation.SettleSeason(this);
             for (int i = 0; i < eventReciveList.Count; ++i)
             {
                 eventReciveList[i].ForEach(o => { if (o.IsAlive) o.OnSeasonStart(this); });

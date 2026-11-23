@@ -56,7 +56,20 @@ namespace Sango.Core
         /// <summary>
         /// 人口
         /// </summary>
-        [JsonProperty] public int population;
+        int? recordedPopulation;
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Include)]
+        public int population
+        {
+            get => recordedPopulation.GetValueOrDefault();
+            set => recordedPopulation = value;
+        }
+
+        public bool ShouldSerializepopulation() => recordedPopulation.HasValue;
+
+        public bool HasRecordedPopulation => recordedPopulation.HasValue;
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public int? ruralPopulation;
 
         /// <summary>
         /// 兵役人口
@@ -396,7 +409,8 @@ namespace Sango.Core
         /// <summary>
         /// 人口上限
         /// </summary>
-        public int PopulationLimit => Scenario.Cur.Variables.populationLimitBase + CityLevelType.Id * Scenario.Cur.Variables.populationLimitPerLevel;
+        public int PopulationLimit => HantuPopulation.Enabled ? HantuPopulation.UrbanCapacity(this)
+            : Scenario.Cur.Variables.populationLimitBase + CityLevelType.Id * Scenario.Cur.Variables.populationLimitPerLevel;
 
         /// <summary>
         /// 最大兵役人口
@@ -1982,7 +1996,7 @@ namespace Sango.Core
         {
             int pop = 0;
             int troopPop = 0;
-            if (scenario.Variables.populationEnable)
+            if (scenario.Variables.UseLegacyPopulation)
             {
                 // 计算人口增长
                 pop = GameRandom.Random((int)(population * population_increase_factor * extraPopulationFactor), 0.1f);
@@ -2353,7 +2367,7 @@ namespace Sango.Core
             // 军队粮食消耗
             foodCost += (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInCity * (troops + woundedTroops));
             // 人口粮食消耗
-            if (scenario.Variables.populationEnable)
+            if (scenario.Variables.UseLegacyPopulation)
             {
                 foodCost += (int)System.Math.Ceiling(population * scenario.Variables.populationFoodCostFactor);
             }
@@ -2376,6 +2390,8 @@ namespace Sango.Core
                 int needFood = foodCost - food;
                 if (needFood > 0)
                 {
+                    if (HantuPopulation.Enabled && HasEnemyNearby())
+                        HantuPopulation.LosePopulation(this, 5, 0);
                     float runawayTroops = ((float)needFood / (float)foodCost) * scenario.Variables.runawayWhenCityFoodNotEnough;
                     troops = (int)System.Math.Ceiling(troops * (1.0f - runawayTroops));
                     if (woundedTroops > 100)
@@ -2394,6 +2410,8 @@ namespace Sango.Core
             }
             else
             {
+                if (HantuPopulation.Enabled && FoodCost(scenario) > 0 && HasEnemyNearby())
+                    HantuPopulation.LosePopulation(this, 5, 0);
                 food = 0;
                 float runawayTroops = scenario.Variables.runawayWhenCityFoodNotEnough;
                 troops = (int)System.Math.Ceiling(troops * (1.0f - runawayTroops));
@@ -3488,6 +3506,8 @@ namespace Sango.Core
 
             Render?.UpdateRender();
 
+            if (lastBelongForce != null && atk.BelongForce != lastBelongForce)
+                HantuPopulation.LosePopulation(this, 50 - Math.Max(0, Math.Min(100, atk.Leader?.Glamour ?? 0)) * 30 / 100, 0);
             CalculateHarvest();
             CalculateMaxMorale();
             CalculateLimit();
@@ -5743,13 +5763,21 @@ namespace Sango.Core
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
-            if (Scenario.Cur.Variables.populationEnable)
+            if (variables.hantuPopulationEnabled)
+            {
+                totalValue = Math.Min(totalValue, HantuPopulation.RecruitLimit(this));
+            }
+            else if (variables.UseLegacyPopulation)
             {
                 totalValue = Math.Min(totalValue, troopPopulation);
             }
 
-            if (totalValue + troops > TroopsLimit)
-                totalValue = TroopsLimit - troops;
+            totalValue = Math.Min(totalValue, TroopsLimit - troops);
+            if (totalValue <= 0)
+            {
+                ClearJobFeature();
+                return 0;
+            }
 
             if (isTest)
             {
@@ -5778,7 +5806,11 @@ namespace Sango.Core
                 person.ActionOver = true;
             }
 
-            if (Scenario.Cur.Variables.populationEnable)
+            if (variables.hantuPopulationEnabled)
+            {
+                HantuPopulation.ChargeRecruitment(this, totalValue);
+            }
+            else if (variables.UseLegacyPopulation)
             {
                 troopPopulation -= totalValue;
                 population -= totalValue;
