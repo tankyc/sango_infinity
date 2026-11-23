@@ -26,6 +26,7 @@ namespace Sango.Core
             int lost = (int)((long)rural * percent / 100);
             if (lost == 0) return;
             city.ruralPopulation = rural - lost;
+            HantuPopulation.RecordChange(Scenario.Cur, city, HantuPopulationChangeSource.FacilityDestroyed, 0, -lost);
             Sango.Log.Info($"[人口] {city.Name} 的内政设施遭敌军摧毁，农村人口减少 {lost}");
         }
 
@@ -58,6 +59,8 @@ namespace Sango.Core
             target.ruralPopulation = source - moved;
             home.ruralPopulation = destination + moved;
             troop.hantuPopulationRaidTurn = scenario.TurnCount;
+            HantuPopulation.RecordChange(scenario, target, HantuPopulationChangeSource.Raid, 0, -moved);
+            HantuPopulation.RecordChange(scenario, home, HantuPopulationChangeSource.Raid, 0, moved);
             Sango.Log.Info($"[人口] {troop.Name} 从{target.Name}劫掠 {moved} 农村人口至{home.Name}");
         }
 
@@ -113,6 +116,7 @@ namespace Sango.Core
             int joined = Math.Max(0, Math.Min(requested, HantuPopulation.RuralCapacity(city) - rural));
             if (joined == 0) return;
             city.ruralPopulation = rural + joined;
+            HantuPopulation.RecordChange(scenario, city, HantuPopulationChangeSource.Refugees, 0, joined);
             Sango.Log.Info($"[人口] {city.Name} {(tribal ? "异族内附" : "流民归附")}，农村人口增加 {joined}");
         }
 

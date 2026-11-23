@@ -26,14 +26,24 @@ namespace Sango.Core
             return city.BuildingType?.kind == (int)BuildingKindType.LittleCity;
         }
 
-        public static void Prepare(Scenario scenario)
+        public static void Prepare(Scenario scenario, bool initializeScenario = false)
         {
             if (scenario.Variables?.hantuPopulationEnabled != true) return;
+            HantuPopulationProfiles profiles = initializeScenario
+                ? HantuPopulationProfiles.LoadFor(scenario.Info) : null;
             for (int i = 0; i < scenario.citySet.Count; ++i)
             {
                 City city = scenario.citySet[i];
-                if (city != null) Initialize(city);
+                if (city == null) continue;
+
+                int urban = city.population;
+                int rural = city.ruralPopulation.GetValueOrDefault();
+                Initialize(city, profiles?.FindSettlement(city));
+                RecordChange(scenario, city, HantuPopulationChangeSource.Initialization,
+                    city.population - urban, city.ruralPopulation.GetValueOrDefault() - rural);
             }
+            if (initializeScenario)
+                (scenario.hantuPopulationHistory ??= new HantuPopulationHistory()).CaptureQuarter(scenario);
         }
 
         internal static void Refresh(Scenario scenario)
@@ -47,10 +57,21 @@ namespace Sango.Core
             }
         }
 
-        static void Initialize(City city)
+        static void Initialize(City city, HantuPopulationProfiles.Settlement imported)
         {
             bool hasUrban = city.HasRecordedPopulation;
             bool hasRural = city.ruralPopulation.HasValue;
+            if (imported != null)
+            {
+                if (!hasUrban) city.population = Math.Min(imported.urban.Value, UrbanCapacity(city));
+                if (!hasRural) city.ruralPopulation = Math.Min(imported.rural.Value, RuralCapacity(city));
+                if (city.IsCity())
+                {
+                    if (!city.HasRecordedCommerce && imported.commerce >= 0) city.commerce = imported.commerce.Value;
+                    if (!city.HasRecordedAgriculture && imported.agriculture >= 0) city.agriculture = imported.agriculture.Value;
+                }
+                return;
+            }
             if (!hasUrban && !hasRural)
             {
                 if (city is Port) { city.population = 16000; city.ruralPopulation = 148000; }
@@ -80,19 +101,21 @@ namespace Sango.Core
                     cities.Add(city);
             }
             cities.Sort((a, b) => a.Id.CompareTo(b.Id));
+            int growthRate = HantuPopulationRules.GrowthRateForPreset(scenario.Variables.hantuPopulationGrowthPreset);
             foreach (City city in cities)
-                GrowAndConvert(city, season);
+                GrowAndConvert(scenario, city, season, growthRate);
             foreach (City city in cities)
-                MigrateToParent(city, season);
+                MigrateToParent(scenario, city, season);
             foreach (City city in cities)
                 HantuPopulationIncidents.SettleRefugees(scenario, city);
             scenario.hantuPopulationSeason = season;
+            (scenario.hantuPopulationHistory ??= new HantuPopulationHistory()).CaptureQuarter(scenario);
             foreach (City city in cities)
                 if (city.BelongCorps != null)
                     city.CalculateHarvest();
         }
 
-        static void GrowAndConvert(City city, int season)
+        static void GrowAndConvert(Scenario scenario, City city, int season, int growthRate)
         {
             City parent = city is Gate ? city.BelongCity : city;
             int safety = EffectiveSecurity(city, parent);
@@ -105,11 +128,15 @@ namespace Sango.Core
             int developmentPercent = city is Port ? 20 : city is Gate ? 0 : 100;
             bool bigCity = city.IsCity() && city.specialty == 6;
             bool harvest = city.HasDisaster(City.DisasterType.Housaku);
-            urban += HantuPopulationRules.Growth(urban, urbanCap, urbanCap, politics,
-                HantuPopulationRules.Percent(commerce, developmentPercent), safety, 80, harvest ? 5 : 0, bigCity);
-            rural += HantuPopulationRules.Growth(rural, ruralCap, ruralGrowthCap, politics,
-                HantuPopulationRules.Percent(agriculture, developmentPercent), safety, 60, harvest ? 25 : 0, bigCity);
+            int urbanGrowth = HantuPopulationRules.Growth(urban, urbanCap, urbanCap, politics,
+                HantuPopulationRules.Percent(commerce, developmentPercent), safety, 80, harvest ? 5 : 0, bigCity, growthRate);
+            int ruralGrowth = HantuPopulationRules.Growth(rural, ruralCap, ruralGrowthCap, politics,
+                HantuPopulationRules.Percent(agriculture, developmentPercent), safety, 60, harvest ? 25 : 0, bigCity, growthRate);
+            urban += urbanGrowth;
+            rural += ruralGrowth;
+            RecordChange(scenario, city, HantuPopulationChangeSource.NaturalGrowth, urbanGrowth, ruralGrowth);
 
+            int urbanBeforeConversion = urban;
             int rollCount = HantuPopulationRules.ConversionRollCount(safety);
             if (HantuPopulationRules.CanConvertUrban(safety))
             {
@@ -129,6 +156,8 @@ namespace Sango.Core
             }
             city.population = urban;
             city.ruralPopulation = rural;
+            int conversion = urban - urbanBeforeConversion;
+            RecordChange(scenario, city, HantuPopulationChangeSource.UrbanRuralConversion, conversion, -conversion);
         }
 
         static int EffectiveSecurity(City city, City parent)
@@ -147,7 +176,7 @@ namespace Sango.Core
             return Math.Max(0, Math.Min(100, localSecurity));
         }
 
-        static void MigrateToParent(City city, int season)
+        static void MigrateToParent(Scenario scenario, City city, int season)
         {
             City parent = city.BelongCity;
             if (!(city is Gate) || parent == null || parent is Gate || !parent.IsAlive
@@ -165,6 +194,8 @@ namespace Sango.Core
             city.ruralPopulation = rural - ruralMove;
             parent.population += urbanMove;
             parent.ruralPopulation = parentRural + ruralMove;
+            RecordChange(scenario, city, HantuPopulationChangeSource.GateMigration, -urbanMove, -ruralMove);
+            RecordChange(scenario, parent, HantuPopulationChangeSource.GateMigration, urbanMove, ruralMove);
         }
 
         public static int RecruitLimit(City city)
@@ -172,17 +203,24 @@ namespace Sango.Core
             return HantuPopulationRules.RecruitLimit(city.population, city.ruralPopulation.GetValueOrDefault(), city.IsPlayer);
         }
 
-        public static void ChargeRecruitment(City city, int troops)
+        public static void GetRecruitmentCost(City city, int troops, out int urbanCost, out int ruralCost)
         {
             int amount = HantuPopulationRules.RecruitCost(troops, city.IsPlayer);
-            if (amount == 0) return;
             int rural = Math.Max(0, city.ruralPopulation.GetValueOrDefault());
             int urban = Math.Max(0, city.population);
             int ruralCharge = Math.Min(rural, HantuPopulationRules.RuralRecruitCost(amount, city.rate));
-            int urbanCharge = Math.Min(urban, amount - ruralCharge);
+            urbanCost = Math.Min(urban, amount - ruralCharge);
             // 城市不足时由剩余农村人口补差，保证成功征兵按实际兵数足额扣除。
-            city.population = urban - urbanCharge;
-            city.ruralPopulation = rural - Math.Min(rural, amount - urbanCharge);
+            ruralCost = Math.Min(rural, amount - urbanCost);
+        }
+
+        public static void ChargeRecruitment(City city, int troops)
+        {
+            GetRecruitmentCost(city, troops, out int urbanCost, out int ruralCost);
+            if (urbanCost == 0 && ruralCost == 0) return;
+            city.population = Math.Max(0, city.population) - urbanCost;
+            city.ruralPopulation = Math.Max(0, city.ruralPopulation.GetValueOrDefault()) - ruralCost;
+            RecordChange(Scenario.Cur, city, HantuPopulationChangeSource.Recruitment, -urbanCost, -ruralCost);
         }
 
         public static int GoldTax(City city)
@@ -207,13 +245,17 @@ namespace Sango.Core
                 ? (int)((long)value * HantuPopulationRules.FacilityPercent(building.BelongCity.ruralPopulation.GetValueOrDefault(), 4000) / 100) : value;
         }
 
-        public static void LosePopulation(City city, int urbanPercent, int ruralPercent)
+        public static void LosePopulation(City city, int urbanPercent, int ruralPercent,
+            HantuPopulationChangeSource source = HantuPopulationChangeSource.Unknown)
         {
             if (!Enabled) return;
             int urban = Math.Max(0, city.population);
             int rural = Math.Max(0, city.ruralPopulation.GetValueOrDefault());
-            city.population = urban - (int)((long)urban * urbanPercent / 100);
-            city.ruralPopulation = rural - (int)((long)rural * ruralPercent / 100);
+            int urbanLost = HantuPopulationRules.Percent(urban, urbanPercent);
+            int ruralLost = HantuPopulationRules.Percent(rural, ruralPercent);
+            city.population = urban - urbanLost;
+            city.ruralPopulation = rural - ruralLost;
+            RecordChange(Scenario.Cur, city, source, -urbanLost, -ruralLost);
         }
 
         public static void OnDisaster(City city, City.DisasterType type, Scenario scenario)
@@ -222,9 +264,17 @@ namespace Sango.Core
             // 使用日期与据点的稳定取值，避免额外消耗游戏随机序列。
             uint seed = unchecked((uint)(city.Id * 73856093 ^ scenario.SeasonStamp * 19349663 ^ scenario.Info.month * 83492791));
             if (type == City.DisasterType.Inago)
-                LosePopulation(city, (int)(seed % 3), (int)((seed >> 6) % 5));
+                LosePopulation(city, (int)(seed % 3), (int)((seed >> 6) % 5), HantuPopulationChangeSource.Disaster);
             else if (type == City.DisasterType.Ekibyou)
-                LosePopulation(city, 2 + (int)(seed % 3), 4 + (int)((seed >> 6) % 5));
+                LosePopulation(city, 2 + (int)(seed % 3), 4 + (int)((seed >> 6) % 5), HantuPopulationChangeSource.Disaster);
+        }
+
+        internal static void RecordChange(Scenario scenario, City city, HantuPopulationChangeSource source,
+            int urbanDelta, int ruralDelta)
+        {
+            if (scenario?.Variables?.hantuPopulationEnabled != true || (urbanDelta == 0 && ruralDelta == 0)) return;
+            (scenario.hantuPopulationHistory ??= new HantuPopulationHistory()).Record(scenario, city, source,
+                urbanDelta, ruralDelta);
         }
     }
 }

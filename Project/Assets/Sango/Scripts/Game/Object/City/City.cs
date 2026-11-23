@@ -97,12 +97,32 @@ namespace Sango.Core
         /// <summary>
         /// 商业值
         /// </summary>
-        [JsonProperty] public int commerce;
+        int? recordedCommerce;
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Include)]
+        public int commerce
+        {
+            get => recordedCommerce.GetValueOrDefault();
+            set => recordedCommerce = value;
+        }
+
+        public bool ShouldSerializecommerce() => recordedCommerce.HasValue;
+        internal bool HasRecordedCommerce => recordedCommerce.HasValue;
 
         /// <summary>
         /// 农业值
         /// </summary>
-        [JsonProperty] public int agriculture;
+        int? recordedAgriculture;
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Include)]
+        public int agriculture
+        {
+            get => recordedAgriculture.GetValueOrDefault();
+            set => recordedAgriculture = value;
+        }
+
+        public bool ShouldSerializeagriculture() => recordedAgriculture.HasValue;
+        internal bool HasRecordedAgriculture => recordedAgriculture.HasValue;
 
         /// <summary>
         /// 民心
@@ -2391,7 +2411,7 @@ namespace Sango.Core
                 if (needFood > 0)
                 {
                     if (HantuPopulation.Enabled && HasEnemyNearby())
-                        HantuPopulation.LosePopulation(this, 5, 0);
+                        HantuPopulation.LosePopulation(this, 5, 0, HantuPopulationChangeSource.Siege);
                     float runawayTroops = ((float)needFood / (float)foodCost) * scenario.Variables.runawayWhenCityFoodNotEnough;
                     troops = (int)System.Math.Ceiling(troops * (1.0f - runawayTroops));
                     if (woundedTroops > 100)
@@ -2411,7 +2431,7 @@ namespace Sango.Core
             else
             {
                 if (HantuPopulation.Enabled && FoodCost(scenario) > 0 && HasEnemyNearby())
-                    HantuPopulation.LosePopulation(this, 5, 0);
+                    HantuPopulation.LosePopulation(this, 5, 0, HantuPopulationChangeSource.Siege);
                 food = 0;
                 float runawayTroops = scenario.Variables.runawayWhenCityFoodNotEnough;
                 troops = (int)System.Math.Ceiling(troops * (1.0f - runawayTroops));
@@ -3507,7 +3527,8 @@ namespace Sango.Core
             Render?.UpdateRender();
 
             if (lastBelongForce != null && atk.BelongForce != lastBelongForce)
-                HantuPopulation.LosePopulation(this, 50 - Math.Max(0, Math.Min(100, atk.Leader?.Glamour ?? 0)) * 30 / 100, 0);
+                HantuPopulation.LosePopulation(this, 50 - Math.Max(0, Math.Min(100, atk.Leader?.Glamour ?? 0)) * 30 / 100, 0,
+                    HantuPopulationChangeSource.CityCaptured);
             CalculateHarvest();
             CalculateMaxMorale();
             CalculateLimit();

@@ -27,7 +27,8 @@ namespace Sango.UI
         /// <summary>治安</summary>
         public int security;
         /// <summary>人口</summary>
-        public int population;
+        public int? population;
+        public int? ruralPopulation;
         /// <summary>兵装库存(独立拷贝,避免直接改到Target)</summary>
         public ItemStore itemStore;
         #endregion
@@ -47,7 +48,8 @@ namespace Sango.UI
             snapshot.morale = city.morale;
             snapshot.durability = city.durability;
             snapshot.security = city.security;
-            snapshot.population = city.population;
+            snapshot.population = city.HasRecordedPopulation ? city.population : (int?)null;
+            snapshot.ruralPopulation = city.ruralPopulation;
             // 库存必须拷贝一份,否则界面上的增删会立刻作用到原始城市
             snapshot.itemStore = city.itemStore != null ? city.itemStore.Copy() : new ItemStore();
 
@@ -71,7 +73,8 @@ namespace Sango.UI
             city.morale = morale;
             city.durability = durability;
             city.security = security;
-            city.population = population;
+            if (population.HasValue) city.population = population.Value;
+            city.ruralPopulation = ruralPopulation;
             if (itemStore != null)
             {
                 city.itemStore = itemStore;
@@ -261,6 +264,11 @@ namespace Sango.UI
         /// 人口显示
         /// </summary>
         public UITextField populationField;
+        Button ruralPopulationButton;
+        UITextField ruralPopulationField;
+        bool populationRowDefaultActive;
+        bool showPopulationEditor;
+        bool isScenarioAuthoring;
         #endregion
 
         #region 地图
@@ -335,6 +343,7 @@ namespace Sango.UI
         protected override void Awake()
         {
             base.Awake();
+            populationRowDefaultActive = populationButton != null && populationButton.gameObject.activeSelf;
             InitItemPool();
             BindFixedEvents();
         }
@@ -345,14 +354,19 @@ namespace Sango.UI
         /// <param name="objects">参数列表 - objects[0] 为 City</param>
         public override void OnOpen(params object[] objects)
         {
-            // 候选: 所有都市(与系统菜单的显示条件保持一致)
+            City requestedCity = objects != null && objects.Length > 0 ? objects[0] as City : null;
+            Scenario authorScenario = GameSystem.GetSystem<ScenarioEdit>()?.Scenario;
+            isScenarioAuthoring = requestedCity != null && authorScenario?.citySet?.Get(requestedCity.Id) == requestedCity;
+            Scenario cur = isScenarioAuthoring ? authorScenario : Scenario.Cur;
+            showPopulationEditor = isScenarioAuthoring || cur?.Variables?.hantuPopulationEnabled == true;
+
+            // 人口编辑也适用于同剧本中的关隘与港口。
             allCityDatas = new List<SangoObject>();
-            Scenario cur = Scenario.Cur;
             if (cur != null && cur.citySet != null)
             {
                 cur.citySet.ForEach(city =>
                 {
-                    if (city != null && city.IsCity())
+                    if (city != null && (city.IsCity() || (showPopulationEditor && city.IsPortOrGate())))
                     {
                         allCityDatas.Add(city);
                     }
@@ -365,7 +379,7 @@ namespace Sango.UI
             }
             else
             {
-                Target = objects[0] as City;
+                Target = requestedCity;
                 if (Target == null)
                 {
                     Log.Error("UICityEdit.OnOpen 传入的对象不是 City 类型");
@@ -472,8 +486,26 @@ namespace Sango.UI
                 () => Target != null ? Target.DurabilityLimit : MaxEditValue);
             BindCalculator(securityButton, "治安", () => snapshot.security, v => snapshot.security = v,
                 () => MaxSecurityLimit);
-            BindCalculator(populationButton, "人口", () => snapshot.population, v => snapshot.population = v,
+            BindCalculator(populationButton, "人口", () => snapshot.population.GetValueOrDefault(), v => snapshot.population = v,
                 () => MaxEditValue);
+        }
+
+        private void CreateRuralPopulationRow()
+        {
+            RectTransform template = (RectTransform)populationButton.transform;
+            ruralPopulationButton = Instantiate(populationButton, template.parent, false);
+            ruralPopulationButton.name = "rural_population";
+            RectTransform row = (RectTransform)ruralPopulationButton.transform;
+            row.anchoredPosition = template.anchoredPosition - new Vector2(0f, template.rect.height + 4f);
+            ruralPopulationField = ruralPopulationButton.GetComponentInChildren<UITextField>(true);
+
+            Text label = FindChildText(row, "lab");
+            if (label != null) label.text = "农村人口";
+
+            BindCalculator(ruralPopulationButton, "农村人口（-1 为未设置）",
+                () => snapshot.ruralPopulation.GetValueOrDefault(-1),
+                value => snapshot.ruralPopulation = value < 0 ? (int?)null : value,
+                () => HantuPopulation.RuralCapacity(Target), -1);
         }
 
         /// <summary>
@@ -523,7 +555,7 @@ namespace Sango.UI
         /// <param name="getter">从快照读取当前值</param>
         /// <param name="setter">向快照写入新值</param>
         /// <param name="maxGetter">取值范围上限的提供者</param>
-        private void BindCalculator(Button button, string title, Func<int> getter, Action<int> setter, Func<int> maxGetter)
+        private void BindCalculator(Button button, string title, Func<int> getter, Action<int> setter, Func<int> maxGetter, int min = 0)
         {
             if (button == null) return;
             button.onClick.AddListener(() =>
@@ -535,7 +567,7 @@ namespace Sango.UI
                 // 当前值可能超过上限(编辑器改出来的数据),保证不会被输入器压回去
                 if (max < current) max = current;
 
-                Window.Instance.Open("window_calculator", title, current, 0, max,
+                Window.Instance.Open("window_calculator", title, current, min, max,
                     (Action<int>)((val) =>
                     {
                         setter(val);
@@ -645,13 +677,19 @@ namespace Sango.UI
             if (moraleField != null) moraleField.text = $"{snapshot.morale}/{city.MaxMorale}";
             if (durabilityField != null) durabilityField.text = $"{snapshot.durability}/{city.DurabilityLimit}";
             if (securityField != null) securityField.text = snapshot.security.ToString();
-            if (populationField != null) populationField.text = snapshot.population.ToString();
-
-            // 备用的人口节点标题在预制体里是"资金",绑定后统一改写标题,方便直接启用
+            if (populationField != null)
+                populationField.text = snapshot.population?.ToString() ?? (showPopulationEditor ? "未设置" : "0");
             if (populationButton != null)
             {
+                if (showPopulationEditor && ruralPopulationButton == null) CreateRuralPopulationRow();
+                populationButton.gameObject.SetActive(showPopulationEditor || populationRowDefaultActive);
                 Text lab = FindChildText(populationButton.transform, "lab");
-                if (lab != null && lab.text != "人口") lab.text = "人口";
+                if (lab != null) lab.text = showPopulationEditor ? "城市人口" : "人口";
+            }
+            if (ruralPopulationButton != null)
+            {
+                ruralPopulationButton.gameObject.SetActive(showPopulationEditor);
+                if (ruralPopulationField != null) ruralPopulationField.text = snapshot.ruralPopulation?.ToString() ?? "未设置";
             }
         }
 
@@ -823,8 +861,17 @@ namespace Sango.UI
         public void OnConfirmClick()
         {
             if (Target == null) return;
+            int oldUrban = Target.population;
+            int oldRural = Target.ruralPopulation.GetValueOrDefault();
             // 将快照所有修改同步回原始City对象
             snapshot.ApplyTo(Target);
+            Scenario scenario = Scenario.Cur;
+            if (!isScenarioAuthoring && scenario?.IsAlive == true && scenario.citySet.Get(Target.Id) == Target
+                && scenario.Variables?.hantuPopulationEnabled == true)
+            {
+                HantuPopulation.RecordChange(scenario, Target, HantuPopulationChangeSource.PopulationEdit,
+                    Target.population - oldUrban, Target.ruralPopulation.GetValueOrDefault() - oldRural);
+            }
             Log.Info("保存城市编辑: " + Target.Name);
             GameSystem.GetSystem<CityEdit>()?.Back();
         }

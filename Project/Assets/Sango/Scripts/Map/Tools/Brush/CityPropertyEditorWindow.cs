@@ -103,7 +103,8 @@ namespace Sango.Tools
             // 城市属性(City)
             { "food", "粮食" },
             { "gold", "金钱" },
-            { "population", "人口" },
+            { "population", "城市人口" },
+            { nameof(City.ruralPopulation), "农村人口" },
             { "troopPopulation", "兵役人口" },
             { "workingAppointType", "工作委任类型" },
             { "itemStore", "库存" },
@@ -142,7 +143,7 @@ namespace Sango.Tools
             "BelongForceId", "BelongCorpsId", "BelongCityId", "BuildingType",
             // 耐久与最大耐久紧邻显示
             "durability", "durabilityLimit", "model",
-            "food", "gold", "population", "troopPopulation",
+            "food", "gold", "population", nameof(City.ruralPopulation), "troopPopulation",
             "itemStore",
             "security", "morale", "troops",
             "troopsLimit", "storeLimit", "goldLimit", "foodLimit",
@@ -517,6 +518,10 @@ namespace Sango.Tools
                     DrawIntField(member, (int)value);
                 }
             }
+            else if (member.Name == nameof(City.ruralPopulation))
+            {
+                DrawRuralPopulation((int?)value);
+            }
             else if (type == typeof(float))
             {
                 DrawFloatField(member, (float)value);
@@ -572,6 +577,27 @@ namespace Sango.Tools
                     SetValue(member, selectedCity, newValue);
                 }
             }
+        }
+
+        private void DrawRuralPopulation(int? value)
+        {
+            string previous = value?.ToString() ?? "";
+            string text = GUILayout.TextField(previous, GUILayout.Width(VALUE_WIDTH));
+            GUILayout.Label("留空为未设置");
+            if (text == previous) return;
+
+            int? next = null;
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                if (!int.TryParse(text, out int parsed)) return;
+                next = Mathf.Clamp(parsed, 0, HantuPopulation.RuralCapacity(selectedCity));
+            }
+            if (next == value) return;
+
+            if (undoRedoManager == null)
+                selectedCity.ruralPopulation = next;
+            else
+                CreateEditCommand(nameof(City.ruralPopulation), value, next, "修改农村人口");
         }
 
         /// <summary>

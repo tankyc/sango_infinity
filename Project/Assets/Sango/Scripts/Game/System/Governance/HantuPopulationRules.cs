@@ -4,7 +4,7 @@ namespace Sango.Core
 {
     public static class HantuPopulationRules
     {
-        const float GrowthCoefficient = 50f / 10000;
+        const int DefaultGrowthRate = 50;
         const int ConversionSecurity = 90;
         const int ConversionRatio = 5;
         internal const int MigrationRollCount = 5;
@@ -31,14 +31,25 @@ namespace Sango.Core
             return 1;
         }
 
+        public static int GrowthRateForPreset(int preset)
+        {
+            switch (preset)
+            {
+                case 3: return 60;
+                case 5: return 40;
+                default: return DefaultGrowthRate;
+            }
+        }
+
         public static int Growth(int population, int capacity, int growthCapacity, int politics,
-            int development, int security, int threshold, int harvestBonus, bool bigCity = false)
+            int development, int security, int threshold, int harvestBonus, bool bigCity = false,
+            int growthRate = DefaultGrowthRate)
         {
             if (population <= 0 || population >= capacity || security <= threshold)
                 return 0;
 
             int safety = Math.Min(100, security) - threshold;
-            double increase = Math.Sqrt(population) * GrowthCoefficient * CapacityModifier(population, growthCapacity)
+            double increase = Math.Sqrt(population) * (growthRate / 10000f) * CapacityModifier(population, growthCapacity)
                 * (politics / 2 + development) * safety;
             // 先按 FISTP 的默认舍入取整，再应用整数百分比。
             int baseIncrease = (int)Math.Round(increase, MidpointRounding.ToEven);

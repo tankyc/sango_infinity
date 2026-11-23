@@ -521,6 +521,8 @@ namespace Sango.Core
 
         [JsonProperty] public bool hantuPopulationEnabled;
 
+        [JsonProperty] public int hantuPopulationGrowthPreset = 4;
+
         public bool UseLegacyPopulation => populationEnable && !hantuPopulationEnabled;
 
         /// <summary>
