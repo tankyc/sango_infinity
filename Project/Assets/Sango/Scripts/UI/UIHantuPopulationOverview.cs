@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using Sango.Core;
+using Sango.Loader;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,31 +12,35 @@ namespace Sango.UI
     /// <summary>原生 UGUI 人口总表；按可见行复用对象，城关港数量不影响节点数量。</summary>
     public sealed class UIHantuPopulationOverview : MonoBehaviour
     {
-        const float RowHeight = 44f;
-        static readonly Color Ink = new Color(.90f, .88f, .77f);
-        static readonly Color Gold = new Color(.78f, .68f, .42f);
-        static readonly Color Surface = new Color(.11f, .13f, .12f, .99f);
+        const float RowHeight = 22.5f;
+        const string CityWindowAsset = "Assets/UI/Prefab/window_information_city.prefab";
+        static readonly Color Ink = new Color(.93f, .93f, .93f);
+        static readonly Color Heading = new Color(.74f, .89f, .93f);
+        static readonly Color Surface = new Color(.06f, .17f, .22f, .95f);
         static readonly string[] Filters = { "全图", "城池", "关隘", "港口" };
-        static readonly float[] Columns = { 0, .34f, .56f, .78f, 1 };
+        static readonly string[] SortLabels = { "总人口 ↓", "城市人口 ↓", "农村人口 ↓" };
 
         sealed class Row
         {
             public RectTransform rect;
             public Image background;
-            public Text[] labels;
-            public int index;
+            public Text label;
+            public City city;
         }
 
         Scenario scenario;
         Action onClose;
         Font font;
+        Transform nativeRoot;
         int filter;
-        bool sortByPopulation = true;
+        int sort;
         City selected;
         readonly List<City> cities = new List<City>();
         readonly List<Row> rows = new List<Row>();
         readonly List<Button> filterButtons = new List<Button>();
-        Text summary, detailTitle, detailText, chartCaption;
+        Text summary, detailTitle, detailText, chartCaption, development;
+        readonly Text[] populationValues = new Text[3];
+        long worldUrban, worldRural;
         Button sortButton;
         RectTransform listViewport, listContent, detailContent;
         ScrollRect listScroll, detailScroll;
@@ -49,7 +54,9 @@ namespace Sango.UI
             try
             {
                 go.transform.SetParent(parent, false);
-                go.layer = parent.gameObject.layer;
+                // Game's UI camera renders the UI layer, even though UIRoot is on Default.
+                int uiLayer = LayerMask.NameToLayer("UI");
+                go.layer = uiLayer >= 0 ? uiLayer : parent.gameObject.layer;
                 var window = go.AddComponent<UIHantuPopulationOverview>();
                 window.scenario = scenario;
                 window.onClose = onClose;
@@ -69,90 +76,109 @@ namespace Sango.UI
         {
             RectTransform root = (RectTransform)transform;
             Stretch(root);
+            GameObject nativeWindow = ObjectLoader.LoadObject<GameObject>(CityWindowAsset);
+            nativeRoot = nativeWindow?.transform.Find("root");
             Canvas canvas = gameObject.AddComponent<Canvas>();
             canvas.overrideSorting = true;
-            canvas.sortingOrder = 360;
+            canvas.sortingLayerName = "Normal";
+            canvas.sortingOrder = 1000;
             gameObject.AddComponent<GraphicRaycaster>();
-            font = Resources.Load<Font>("siyuancn");
-            if (font == null)
-            {
-                Text existing = Game.Instance.UIRoot.GetComponentInChildren<Text>(true);
-                if (existing != null) font = existing.font;
-            }
+            font = GameSetting.Instance.Font;
+            if (font == null) font = nativeRoot?.Find("win_frame/title")?.GetComponent<Text>()?.font;
+            if (font == null) font = Resources.Load<Font>("siyuancn");
             if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            gameObject.AddComponent<Image>().color = new Color(0, 0, 0, .48f);
 
-            RectTransform panel = Box(root, "Panel", Surface, new Vector2(.025f, .04f), new Vector2(.975f, .96f));
-            Label(panel, "Title", "人口总览", 24, Gold, new Vector2(0, 1), new Vector2(1, 1),
-                new Vector2(18, -48), new Vector2(-150, -10));
-            Button close = ButtonAt(panel, "Close", "返回", new Vector2(1, 1), new Vector2(1, 1),
-                new Vector2(-128, -46), new Vector2(-14, -10), Close);
-            close.GetComponent<Image>().color = new Color(.30f, .27f, .18f);
-            summary = Label(panel, "Summary", "", 17, Ink, new Vector2(0, 1), new Vector2(1, 1),
-                new Vector2(18, -107), new Vector2(-18, -52));
+            if (nativeWindow != null) CopyVisual(nativeWindow.transform.Find("mask"), root);
+            else gameObject.AddComponent<Image>().color = new Color(0, 0, 0, .5f);
+
+            RectTransform panel = Rect(root, "Panel");
+            panel.anchorMin = panel.anchorMax = new Vector2(.5f, .5f);
+            panel.sizeDelta = new Vector2(990.5474f, 750.035f);
+            panel.anchoredPosition = new Vector2(-18.953491f, 2.1676025f);
+            if (nativeRoot != null) CopyRect((RectTransform)nativeRoot, panel);
+            Transform frame = CopyVisual(nativeRoot?.Find("win_frame"), panel);
+            if (frame != null)
+            {
+                Text title = frame.Find("title").GetComponent<Text>();
+                title.font = font;
+                title.text = "人口总览";
+                Button close = frame.Find("button_cancel").GetComponent<Button>();
+                close.GetComponentInChildren<Text>().font = font;
+                Bind(close, Close);
+            }
+            else
+            {
+                panel.gameObject.AddComponent<Image>().color = Surface;
+                Label(panel, "Title", "人口总览", 32, Ink, new Vector2(0, 1), Vector2.one, new Vector2(16, -54), new Vector2(-16, -12));
+                ButtonAt(panel, "Close", "返回", 20, 44, 96, Close, new Vector2(0, 0));
+            }
+
+            RectTransform listPanel = Section(panel, "ListPanel", "area_2", 16, 106, 64, 567);
+            RectTransform summaryPanel = Section(panel, "SummaryPanel", "area_city_info", 133, 837, 64, 187);
+            RectTransform detailPanel = Section(panel, "DetailPanel", "area_all", 133, 837, 263, 380);
+            summary = Label(summaryPanel, "Summary", "", 18, Ink, new Vector2(0, 1), Vector2.one,
+                new Vector2(12, -36), new Vector2(-12, -6));
             for (int i = 0; i < Filters.Length; i++)
             {
                 int index = i;
-                filterButtons.Add(ButtonAt(panel, "Filter" + i, Filters[i], new Vector2(0, 1), new Vector2(0, 1),
-                    new Vector2(18 + i * 78, -146), new Vector2(90 + i * 78, -112), () => SetFilter(index)));
+                filterButtons.Add(ButtonAt(summaryPanel, "Filter" + i, Filters[i], 12 + i * 76, 40, 68, () => SetFilter(index)));
             }
-            sortButton = ButtonAt(panel, "Sort", "按人口 ↓", new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(338, -146), new Vector2(456, -112), () =>
-                {
-                    sortByPopulation = !sortByPopulation;
-                    Refresh();
-                });
-            ButtonAt(panel, "Refresh", "刷新", new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(464, -146), new Vector2(534, -112), Refresh);
-
-            RectTransform listPanel = Box(panel, "ListPanel", new Color(.07f, .09f, .08f),
-                new Vector2(0, 0), new Vector2(.56f, 1));
-            listPanel.offsetMin = new Vector2(16, 42);
-            listPanel.offsetMax = new Vector2(-7, -156);
-            RectTransform heading = Rect(listPanel, "Heading");
-            heading.anchorMin = new Vector2(0, 1); heading.anchorMax = Vector2.one;
-            heading.offsetMin = new Vector2(0, -34); heading.offsetMax = new Vector2(-12, 0);
-            string[] titles = { "据点 / 势力", "城市人口", "农村人口", "合计" };
+            sortButton = ButtonAt(summaryPanel, "Sort", SortLabels[0], 331, 40, 126, () =>
+            {
+                sort = (sort + 1) % SortLabels.Length;
+                Refresh();
+            });
+            ButtonAt(summaryPanel, "Refresh", "刷新", 470, 40, 68, Refresh);
+            ButtonAt(summaryPanel, "WorldTrend", "全图趋势", 550, 40, 96, () => Select(null));
+            detailTitle = Label(summaryPanel, "DetailTitle", "", 21, Heading,
+                new Vector2(0, 1), Vector2.one, new Vector2(12, -103), new Vector2(-12, -77));
+            string[] titles = { "人口合计", "城市人口", "农村人口" };
             for (int i = 0; i < titles.Length; i++)
             {
-                Text title = Label(heading, "Column" + i, titles[i], 14, Gold,
-                    new Vector2(Columns[i], 0), new Vector2(Columns[i + 1], 1), new Vector2(5, 2), new Vector2(-3, -2));
-                title.alignment = i == 0 ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
+                RectTransform stat = Box(summaryPanel, titles[i], new Color(.08f, .18f, .24f, .82f),
+                    new Vector2(i / 3f, 1), new Vector2((i + 1) / 3f, 1));
+                stat.offsetMin = new Vector2(12, -140);
+                stat.offsetMax = new Vector2(-12, -106);
+                Label(stat, "Label", titles[i], 18, Heading, Vector2.zero, new Vector2(.52f, 1),
+                    new Vector2(5, 0), Vector2.zero);
+                populationValues[i] = Label(stat, "Value", "", 20, Ink, new Vector2(.52f, 0), Vector2.one,
+                    Vector2.zero, new Vector2(-6, 0));
+                populationValues[i].alignment = TextAnchor.MiddleRight;
             }
+            development = Label(summaryPanel, "Development", "", 17, Ink, new Vector2(0, 1), Vector2.one,
+                new Vector2(12, -176), new Vector2(-12, -145));
+
             listScroll = MakeScroll(listPanel, "List", out listViewport, out listContent);
-            ((RectTransform)listScroll.transform).offsetMin = new Vector2(0, 0);
-            ((RectTransform)listScroll.transform).offsetMax = new Vector2(0, -36);
+            ((RectTransform)listScroll.transform).offsetMin = new Vector2(3, 4);
+            ((RectTransform)listScroll.transform).offsetMax = new Vector2(-3, -4);
             listScroll.onValueChanged.AddListener(_ => RenderRows());
 
-            RectTransform detailPanel = Box(panel, "DetailPanel", new Color(.08f, .10f, .09f),
-                new Vector2(.56f, 0), new Vector2(1, 1));
-            detailPanel.offsetMin = new Vector2(5, 42);
-            detailPanel.offsetMax = new Vector2(-16, -156);
-            detailTitle = Label(detailPanel, "DetailTitle", "全图季度趋势", 18, Gold,
-                new Vector2(0, 1), new Vector2(1, 1), new Vector2(12, -48), new Vector2(-12, -6));
-            RectTransform chartArea = Box(detailPanel, "Trend", new Color(.05f, .075f, .065f),
-                new Vector2(0, 1), new Vector2(1, 1));
-            chartArea.offsetMin = new Vector2(12, -158);
-            chartArea.offsetMax = new Vector2(-12, -54);
+            Label(detailPanel, "TrendTitle", "季度趋势", 21, Heading, new Vector2(0, 1), new Vector2(.52f, 1),
+                new Vector2(12, -40), new Vector2(-12, -6));
+            Label(detailPanel, "HistoryTitle", "人口变动记录", 21, Heading, new Vector2(.52f, 1), Vector2.one,
+                new Vector2(12, -40), new Vector2(-12, -6));
+            RectTransform chartArea = Box(detailPanel, "Trend", new Color(.04f, .10f, .14f, .82f),
+                Vector2.zero, new Vector2(.52f, 1));
+            chartArea.offsetMin = new Vector2(12, 61);
+            chartArea.offsetMax = new Vector2(-8, -45);
             RectTransform trendLine = Rect(chartArea, "Line");
             Stretch(trendLine);
             chart = trendLine.gameObject.AddComponent<HantuPopulationTrendGraphic>();
-            chart.color = new Color(.65f, .82f, .53f);
+            chart.color = new Color(.45f, .83f, .95f);
             chart.raycastTarget = false;
-            chartCaption = Label(detailPanel, "TrendCaption", "", 12, Ink, new Vector2(0, 1), new Vector2(1, 1),
-                new Vector2(12, -192), new Vector2(-12, -159));
-            RectTransform unused;
-            detailScroll = MakeScroll(detailPanel, "History", out unused, out detailContent);
-            ((RectTransform)detailScroll.transform).offsetMin = new Vector2(8, 6);
-            ((RectTransform)detailScroll.transform).offsetMax = new Vector2(-6, -196);
-            detailText = Label(detailContent, "Text", "", 15, Ink,
+            chartCaption = Label(detailPanel, "TrendCaption", "", 16, Ink, Vector2.zero, new Vector2(.52f, 0),
+                new Vector2(12, 10), new Vector2(-8, 57));
+            detailScroll = MakeScroll(detailPanel, "History", out _, out detailContent);
+            RectTransform historyRect = (RectTransform)detailScroll.transform;
+            historyRect.anchorMin = new Vector2(.52f, 0);
+            historyRect.offsetMin = new Vector2(12, 12);
+            historyRect.offsetMax = new Vector2(-12, -45);
+            detailText = Label(detailContent, "Text", "", 17, Ink,
                 new Vector2(0, 1), new Vector2(1, 1), Vector2.zero, Vector2.zero);
             detailText.rectTransform.pivot = new Vector2(.5f, 1);
             detailText.alignment = TextAnchor.UpperLeft;
             detailText.horizontalOverflow = HorizontalWrapMode.Wrap;
             detailText.verticalOverflow = VerticalWrapMode.Overflow;
-            Label(panel, "Hint", "拖动或滚轮浏览  ·  点击据点查看变化来源  ·  返回 / Esc / 右键关闭", 14, Ink,
-                Vector2.zero, new Vector2(1, 0), new Vector2(18, 8), new Vector2(-18, 36));
         }
 
         void Update()
@@ -188,25 +214,22 @@ namespace Sango.UI
         public void Refresh()
         {
             cities.Clear();
-            long urban = 0, rural = 0;
+            worldUrban = worldRural = 0;
             for (int i = 0; i < scenario.citySet.Count; i++)
             {
                 City city = scenario.citySet[i];
                 if (city == null || city.Id <= 0 || !city.IsAlive) continue;
-                urban += Math.Max(0, city.population);
-                rural += Math.Max(0, city.ruralPopulation.GetValueOrDefault());
+                worldUrban += Urban(city);
+                worldRural += Rural(city);
                 if (filter == 0 || (filter == 1 && !(city is Port) && !(city is Gate))
                     || (filter == 2 && city is Gate && !(city is Port)) || (filter == 3 && city is Port)) cities.Add(city);
             }
             cities.Sort((a, b) =>
             {
-                if (sortByPopulation)
-                {
-                    int comparison = Total(b).CompareTo(Total(a));
-                    if (comparison != 0) return comparison;
-                }
-                return a.Id.CompareTo(b.Id);
+                int comparison = RankedPopulation(b).CompareTo(RankedPopulation(a));
+                return comparison != 0 ? comparison : a.Id.CompareTo(b.Id);
             });
+            if (!cities.Contains(selected)) selected = null;
             string delta = "季度记录不足两条";
             HantuPopulationHistory history = scenario.hantuPopulationHistory;
             if (history?.quarters != null && history.quarters.Count >= 2)
@@ -217,12 +240,12 @@ namespace Sango.UI
                     && HantuPopulationHistory.TryGetPopulation(history.quarters[last - 1], 0, out u0, out r0))
                     delta = "最近季度净变 " + Signed(u1 + r1 - u0 - r0);
             }
-            summary.text = "全图总人口 " + Number(urban + rural) + "   城市 " + Number(urban) + "   农村 " + Number(rural)
-                + "\n" + scenario.GetDateStr() + "   " + delta + "   当前筛选 " + cities.Count + " 处";
+            summary.text = "全图总人口 " + Number(worldUrban + worldRural) + "    " + scenario.GetDateStr()
+                + "    " + delta + "    当前筛选 " + cities.Count + " 处";
             for (int i = 0; i < filterButtons.Count; i++)
-                filterButtons[i].GetComponent<Image>().color = i == filter
-                    ? new Color(.35f, .31f, .19f) : new Color(.20f, .23f, .19f);
-            sortButton.GetComponentInChildren<Text>().text = sortByPopulation ? "按人口 ↓" : "按据点序号";
+                filterButtons[i].targetGraphic.color = i == filter ? new Color(.59f, .91f, .99f) : Color.white;
+            sortButton.GetComponentInChildren<Text>().text = SortLabels[sort];
+            listScroll.StopMovement();
             listContent.sizeDelta = new Vector2(0, cities.Count * RowHeight);
             listContent.anchoredPosition = Vector2.zero;
             Canvas.ForceUpdateCanvases();
@@ -234,6 +257,7 @@ namespace Sango.UI
         void EnsureRows()
         {
             int count = Mathf.CeilToInt(Mathf.Max(1, listViewport.rect.height) / RowHeight) + 2;
+            Image rowSkin = nativeRoot?.Find("object_list/content/listItem/bg")?.GetComponent<Image>();
             while (rows.Count < count)
             {
                 Row row = new Row();
@@ -241,18 +265,20 @@ namespace Sango.UI
                 row.rect.anchorMin = new Vector2(0, 1);
                 row.rect.anchorMax = new Vector2(1, 1);
                 row.rect.pivot = new Vector2(.5f, 1);
-                row.rect.sizeDelta = new Vector2(-14, RowHeight - 2);
+                row.rect.sizeDelta = new Vector2(-2, RowHeight);
                 row.background = row.rect.gameObject.AddComponent<Image>();
+                CopyImageStyle(rowSkin, row.background);
                 Button button = row.rect.gameObject.AddComponent<Button>();
                 button.targetGraphic = row.background;
-                button.onClick.AddListener(() => Select(row.index));
-                row.labels = new Text[4];
-                for (int i = 0; i < 4; i++)
+                button.onClick.AddListener(() =>
                 {
-                    row.labels[i] = Label(row.rect, "Column" + i, "", i == 0 ? 14 : 15, Ink,
-                        new Vector2(Columns[i], 0), new Vector2(Columns[i + 1], 1), new Vector2(5, 2), new Vector2(-3, -2));
-                    row.labels[i].alignment = i == 0 ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
-                }
+                    if (row.city != null) Select(row.city);
+                });
+                row.label = Label(row.rect, "Column0", "", 18, Ink,
+                    Vector2.zero, Vector2.one, new Vector2(3, 0), new Vector2(-2, 0));
+                row.label.resizeTextForBestFit = true;
+                row.label.resizeTextMinSize = 10;
+                row.label.resizeTextMaxSize = 18;
                 rows.Add(row);
             }
         }
@@ -263,25 +289,20 @@ namespace Sango.UI
             for (int i = 0; i < rows.Count; i++)
             {
                 Row row = rows[i];
-                row.index = first + i;
-                bool visible = row.index < cities.Count;
-                row.rect.gameObject.SetActive(visible);
-                if (!visible) continue;
-                City city = cities[row.index];
-                row.rect.anchoredPosition = new Vector2(-4, -row.index * RowHeight);
-                row.background.color = city == selected ? new Color(.31f, .29f, .18f)
-                    : row.index % 2 == 0 ? new Color(.16f, .19f, .15f) : new Color(.12f, .15f, .12f);
-                row.labels[0].text = city.Name + " · " + Kind(city) + "\n" + (city.BelongForce?.Name ?? "无所属");
-                row.labels[1].text = Number(city.population);
-                row.labels[2].text = Number(city.ruralPopulation.GetValueOrDefault());
-                row.labels[3].text = Number(Total(city));
+                int index = first + i;
+                row.city = index < cities.Count ? cities[index] : null;
+                row.rect.gameObject.SetActive(row.city != null);
+                if (row.city == null) continue;
+                row.rect.anchoredPosition = new Vector2(0, -index * RowHeight);
+                row.background.color = row.city == selected ? new Color(.55f, .84f, 1) : Color.white;
+                row.label.text = (index + 1) + ". " + row.city.Name;
             }
         }
 
-        void Select(int index)
+        void Select(City city)
         {
-            if (index < 0 || index >= cities.Count) return;
-            selected = cities[index];
+            listScroll.StopMovement();
+            selected = city;
             RenderRows();
             RefreshDetails();
         }
@@ -289,16 +310,23 @@ namespace Sango.UI
         void RefreshDetails()
         {
             int cityId = selected?.Id ?? 0;
-            detailTitle.text = selected == null ? "全图季度趋势" : selected.Name + " · " + Kind(selected)
-                + "\n当前 " + Number(Total(selected)) + " 人";
+            detailTitle.text = selected == null ? "全图人口" : selected.Name + " · " + Kind(selected)
+                + "     " + (selected.BelongForce?.Name ?? "无所属");
+            long urbanPopulation = selected == null ? worldUrban : Urban(selected);
+            long ruralPopulation = selected == null ? worldRural : Rural(selected);
+            populationValues[0].text = Number(urbanPopulation + ruralPopulation);
+            populationValues[1].text = Number(urbanPopulation);
+            populationValues[2].text = Number(ruralPopulation);
+            development.text = selected != null && selected.IsCity()
+                ? "商业发展度 " + Number(selected.commerce) + " / " + Number(selected.CommerceLimit)
+                + "      农业发展度 " + Number(selected.agriculture) + " / " + Number(selected.AgricultureLimit)
+                : "";
             var text = new StringBuilder();
             var values = new List<long>();
             HantuPopulationHistory history = scenario.hantuPopulationHistory;
             long previous = 0;
             bool hasPrevious = false;
             string firstDate = null, lastDate = null;
-            if (selected != null && !(selected is Gate) && !(selected is Port))
-                text.Append("商业 ").Append(selected.commerce).Append(" / 农业 ").Append(selected.agriculture).AppendLine().AppendLine();
             text.AppendLine("季度记录  ·  合计 / 较上条净变");
             if (history?.quarters != null)
             {
@@ -388,7 +416,18 @@ namespace Sango.UI
             detailText.rectTransform.sizeDelta = new Vector2(0, height);
         }
 
-        static long Total(City city) { return (long)Math.Max(0, city.population) + Math.Max(0, city.ruralPopulation.GetValueOrDefault()); }
+        long RankedPopulation(City city)
+        {
+            switch (sort)
+            {
+                case 1: return Urban(city);
+                case 2: return Rural(city);
+                default: return (long)Urban(city) + Rural(city);
+            }
+        }
+
+        static int Urban(City city) { return Math.Max(0, city.population); }
+        static int Rural(City city) { return Math.Max(0, city.ruralPopulation.GetValueOrDefault()); }
         static string Kind(City city) { return city is Port ? "港口" : city is Gate ? "关隘" : "城池"; }
         static string Number(long value) { return value.ToString("N0", CultureInfo.InvariantCulture); }
         static string Signed(long value) { return (value > 0 ? "+" : "") + Number(value); }
@@ -399,6 +438,47 @@ namespace Sango.UI
             go.layer = gameObject.layer;
             go.transform.SetParent(parent, false);
             return (RectTransform)go.transform;
+        }
+
+        Transform CopyVisual(Transform template, Transform parent)
+        {
+            if (template == null) return null;
+            Transform copy = Instantiate(template, parent, false);
+            copy.name = template.name;
+            UnityTools.SetLayer(copy.gameObject, gameObject.layer);
+            return copy;
+        }
+
+        static void CopyRect(RectTransform source, RectTransform target)
+        {
+            target.anchorMin = source.anchorMin;
+            target.anchorMax = source.anchorMax;
+            target.pivot = source.pivot;
+            target.sizeDelta = source.sizeDelta;
+            target.anchoredPosition = source.anchoredPosition;
+        }
+
+        RectTransform Section(Transform parent, string name, string nativeName, float left, float width, float top, float height)
+        {
+            RectTransform rect = Rect(parent, name);
+            rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
+            rect.pivot = new Vector2(0, 1);
+            rect.anchoredPosition = new Vector2(left, -top);
+            rect.sizeDelta = new Vector2(width, height);
+            RectTransform native = nativeRoot?.Find(nativeName) as RectTransform;
+            if (native != null) CopyRect(native, rect);
+            if (CopyVisual(native?.Find("bg"), rect) == null)
+                rect.gameObject.AddComponent<Image>().color = Surface;
+            return rect;
+        }
+
+        static void CopyImageStyle(Image source, Image target)
+        {
+            if (source == null) return;
+            target.sprite = source.sprite;
+            target.type = source.type;
+            target.color = source.color;
+            target.pixelsPerUnitMultiplier = source.pixelsPerUnitMultiplier;
         }
 
         static void Stretch(RectTransform rect)
@@ -429,17 +509,41 @@ namespace Sango.UI
             return label;
         }
 
-        Button ButtonAt(Transform parent, string name, string title, Vector2 min, Vector2 max,
-            Vector2 offsetMin, Vector2 offsetMax, Action action)
+        Button ButtonAt(Transform parent, string name, string title, float x, float y, float width, Action action,
+            Vector2? anchor = null)
         {
-            RectTransform rect = Box(parent, name, new Color(.20f, .23f, .19f), min, max);
-            rect.offsetMin = offsetMin; rect.offsetMax = offsetMax;
-            Button button = rect.gameObject.AddComponent<Button>();
-            button.targetGraphic = rect.GetComponent<Image>();
-            button.onClick.AddListener(() => action());
-            Text label = Label(rect, "Label", title, 16, Ink, Vector2.zero, Vector2.one, new Vector2(4, 0), new Vector2(-4, 0));
-            label.alignment = TextAnchor.MiddleCenter;
+            RectTransform rect = CopyVisual(nativeRoot?.Find("port_gate_btn"), parent) as RectTransform;
+            Button button;
+            Text label;
+            if (rect == null)
+            {
+                rect = Box(parent, name, new Color(.20f, .34f, .41f), Vector2.zero, Vector2.one);
+                button = rect.gameObject.AddComponent<Button>();
+                button.targetGraphic = rect.GetComponent<Image>();
+                label = Label(rect, "Label", title, 18, Ink, Vector2.zero, Vector2.one, new Vector2(4, 0), new Vector2(-4, 0));
+                label.alignment = TextAnchor.MiddleCenter;
+            }
+            else
+            {
+                rect.name = name;
+                button = rect.GetComponent<Button>();
+                label = rect.GetComponentInChildren<Text>();
+                label.font = font;
+                label.text = title;
+                label.fontSize = 18;
+            }
+            rect.anchorMin = rect.anchorMax = anchor ?? new Vector2(0, 1);
+            rect.pivot = new Vector2(0, 1);
+            rect.anchoredPosition = new Vector2(x, anchor.HasValue ? y : -y);
+            rect.sizeDelta = new Vector2(width, 32);
+            Bind(button, action);
             return button;
+        }
+
+        static void Bind(Button button, Action action)
+        {
+            button.onClick = new Button.ButtonClickedEvent();
+            button.onClick.AddListener(() => action());
         }
 
         ScrollRect MakeScroll(Transform parent, string name, out RectTransform viewport, out RectTransform content)
@@ -448,7 +552,7 @@ namespace Sango.UI
             Stretch(root);
             ScrollRect scroll = root.gameObject.AddComponent<ScrollRect>();
             viewport = Box(root, "Viewport", new Color(0, 0, 0, .01f), Vector2.zero, Vector2.one);
-            viewport.offsetMax = new Vector2(-12, 0);
+            viewport.offsetMax = new Vector2(-16, 0);
             viewport.gameObject.AddComponent<RectMask2D>();
             content = Rect(viewport, "Content");
             content.anchorMin = new Vector2(0, 1); content.anchorMax = new Vector2(1, 1);
@@ -457,12 +561,24 @@ namespace Sango.UI
             scroll.horizontal = false; scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 36f; scroll.inertia = true;
-            RectTransform track = Box(root, "Scrollbar", new Color(.14f, .17f, .14f), new Vector2(1, 0), Vector2.one);
-            track.offsetMin = new Vector2(-10, 2); track.offsetMax = new Vector2(0, -2);
-            RectTransform handle = Box(track, "Handle", new Color(.44f, .46f, .32f), Vector2.zero, Vector2.one);
-            Scrollbar scrollbar = track.gameObject.AddComponent<Scrollbar>();
+            RectTransform track = CopyVisual(nativeRoot?.Find("object_list/slider_v/Scrollbar"), root) as RectTransform;
+            Scrollbar scrollbar;
+            if (track != null) scrollbar = track.GetComponent<Scrollbar>();
+            else
+            {
+                track = Box(root, "Scrollbar", new Color(.14f, .18f, .21f), new Vector2(1, 0), Vector2.one);
+                RectTransform handle = Box(track, "Handle", new Color(.50f, .54f, .45f), Vector2.zero, Vector2.one);
+                scrollbar = track.gameObject.AddComponent<Scrollbar>();
+                scrollbar.handleRect = handle;
+                scrollbar.targetGraphic = handle.GetComponent<Image>();
+            }
+            track.anchorMin = new Vector2(1, 0);
+            track.anchorMax = Vector2.one;
+            track.offsetMin = new Vector2(-16, 0);
+            track.offsetMax = Vector2.zero;
+            // ScrollRect uses 1 at the top, opposite to the native object-list scrollbar.
             scrollbar.direction = Scrollbar.Direction.BottomToTop;
-            scrollbar.handleRect = handle; scrollbar.targetGraphic = handle.GetComponent<Image>();
+            scrollbar.onValueChanged = new Scrollbar.ScrollEvent();
             scroll.verticalScrollbar = scrollbar;
             return scroll;
         }
