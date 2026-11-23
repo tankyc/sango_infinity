@@ -162,20 +162,7 @@ namespace Sango.UI
             AddNumberItem("AI每回合加兵装", variables.aiTurnAddArms, 0, 100000, (v) => { variables.aiTurnAddArms = v; });
 
             AddTitle("剧本人口开关");
-            AddToggleItem("剧本人口是否开启", variables.hantuPopulationEnabled, enabled =>
-            {
-                variables.hantuPopulationEnabled = enabled;
-                if (scenario == Scenario.Cur && scenario.IsAlive)
-                {
-                    HantuPopulation.Prepare(scenario);
-                    for (int i = 0; i < scenario.citySet.Count; ++i)
-                    {
-                        City city = scenario.citySet[i];
-                        if (city != null && city.IsAlive && city.BelongCorps != null)
-                            city.CalculateHarvest();
-                    }
-                }
-            });
+            AddToggleItem("剧本人口是否开启", variables.hantuPopulationEnabled, scenario.SetHantuPopulationMode);
 
             // 【已移除】"AI登用阈值""AI探索阈值"两组：
             // 那几个值是原版写死的特殊分子，暴露成参数只会被误当成平衡杠杆，已回到代码常量。

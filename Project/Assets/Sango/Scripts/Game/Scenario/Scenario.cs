@@ -77,6 +77,28 @@ namespace Sango.Core
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public int? hantuPopulationSeason;
 
+        // 开局参数页作出的选择只用于新局。读档使用档内状态。
+        bool? selectedHantuPopulationMode;
+
+        public void SetHantuPopulationMode(bool enabled)
+        {
+            bool wasEnabled = Variables.hantuPopulationEnabled;
+            Variables.hantuPopulationEnabled = enabled;
+            OnHantuPopulationModeChanged(wasEnabled);
+        }
+
+        internal void OnHantuPopulationModeChanged(bool wasEnabled)
+        {
+            if (this != Cur || !IsAlive)
+            {
+                selectedHantuPopulationMode = Variables.hantuPopulationEnabled;
+                return;
+            }
+
+            if (wasEnabled != Variables.hantuPopulationEnabled)
+                HantuPopulation.Refresh(this);
+        }
+
         /// <summary>
         /// 地图数据
         /// </summary>
@@ -873,6 +895,7 @@ namespace Sango.Core
 
         public void LoadVariables()
         {
+            selectedHantuPopulationMode = null;
             // 【性能】Info（Order -97）与 Variables（Order -95）在文件里相邻且都在最前面，
             // 因此一趟流式扫描就能同时取回两者 —— 不再"先 LoadInfo 再 LoadVariables"各开一次文件、各扫一遍。
             // 两个目标都拿到（或扫到文件末尾）即结束。
@@ -902,7 +925,7 @@ namespace Sango.Core
                     }
 
                     if (gotInfo && gotVariables)
-                        return;
+                        break;
                 }
             }
 
@@ -911,7 +934,7 @@ namespace Sango.Core
 
             // 剧本指定了默认参数预设 → 立即套用（空串 = 不读，沿用剧本自带 Variables）。
             // 进剧本参数界面 / 开局前都会走这里，所以界面一打开看到的就是预设值。
-            if (Info != null && !string.IsNullOrEmpty(Info.variablesPreset))
+            if (Info != null && !Info.isSave && !string.IsNullOrEmpty(Info.variablesPreset))
                 ScenarioVariablesPresetManager.TryApply(this, Info.variablesPreset);
         }
 
@@ -1028,7 +1051,6 @@ namespace Sango.Core
         /// </summary>
         public void LoadScenarioDataStage()
         {
-            bool? selectedPopulation = Variables?.hantuPopulationEnabled;
             try
             {
                 // 【性能】用流式 JsonTextReader 就地填充，避免把整份存档读成一个 string 常驻内存
@@ -1038,8 +1060,8 @@ namespace Sango.Core
                 {
                     JsonSerializer.CreateDefault().Populate(jr, this);
                 }
-                if (Info?.isSave == false && Variables != null && selectedPopulation.HasValue)
-                    Variables.hantuPopulationEnabled = selectedPopulation.Value;
+                if (Info?.isSave == false && Variables != null && selectedHantuPopulationMode.HasValue)
+                    Variables.hantuPopulationEnabled = selectedHantuPopulationMode.Value;
             }
             catch (JsonSerializationException e)
             {

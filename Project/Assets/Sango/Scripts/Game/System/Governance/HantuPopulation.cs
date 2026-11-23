@@ -36,6 +36,17 @@ namespace Sango.Core
             }
         }
 
+        internal static void Refresh(Scenario scenario)
+        {
+            Prepare(scenario);
+            for (int i = 1; i < scenario.citySet.Count; ++i)
+            {
+                City city = scenario.citySet[i];
+                if (city != null && city.IsAlive && city.BelongCorps != null)
+                    city.CalculateHarvest();
+            }
+        }
+
         static void Initialize(City city)
         {
             bool hasUrban = city.HasRecordedPopulation;
