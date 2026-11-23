@@ -38,17 +38,68 @@ namespace Sango
         static readonly string[] ImageExtensions = { ".png", ".jpg", ".jpeg" };
 
         /// <summary>
+        /// 判断一个私有资源标识是否合法。
+        ///
+        /// 规则与 mod.info 的 id 保持一致(字母/数字/下划线/短横线,且只允许 ASCII),
+        /// 目的是让标识可以直接写进 <c>mod://标识/路径</c> 与短写 <c>标识:路径</c>,
+        /// 不会因为空格、中文、斜杠等字符导致拆分歧义。
+        ///
+        /// 【为什么需要与 mod id 分开】创意工坊发布会把包内 id 换成服务端分配的 8 位短 id,
+        /// 作者本地写的 <c>mod://本地id/...</c> 在玩家机器上必然解析失败,
+        /// 因此私有资源引用改用"作者自定义、随包携带、永不变更"的命名空间
+        /// (见 <see cref="Sango.Mod.PRIVATE_NAMESPACE_FILE"/> 与 mod.info 的 privateid)。
+        /// </summary>
+        /// <param name="key">待判断的标识</param>
+        /// <returns>true=合法</returns>
+        public static bool IsValidPrivateKey(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return false;
+
+            for (int i = 0; i < key.Length; i++)
+            {
+                char c = key[i];
+                bool asciiLetter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+                bool asciiDigit = c >= '0' && c <= '9';
+                if (!asciiLetter && !asciiDigit && c != '_' && c != '-')
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// 登记某个模组的私有资源根目录
+        ///
+        /// 同一个模组可以登记多个标识(命名空间 / mod.info 的 privateid / 真实 id),
+        /// 这样"作者本地 id"与"创意工坊分配的 id"都能命中同一份私有目录。
         /// </summary>
         /// <param name="modId">模组唯一标识(mod.info 的 id)</param>
         /// <param name="privateDir">私有资源根目录,例如 .../Mods/ajbknx/Private</param>
-        /// <returns>true=本次新登记;false=参数为空</returns>
+        /// <returns>true=本次新登记;false=参数为空或标识不合法</returns>
         public static bool RegisterModRoot(string modId, string privateDir)
         {
             if (string.IsNullOrEmpty(modId) || string.IsNullOrEmpty(privateDir))
                 return false;
 
+            if (!IsValidPrivateKey(modId))
+            {
+                Log.Warning($"模组私有资源标识不合法(只允许字母/数字/下划线/短横线),已忽略: {modId}", Log.LogType.Game);
+                return false;
+            }
+
             string normalized = privateDir.Replace('\\', '/').TrimEnd('/');
+
+            // 两个模组用了同一个命名空间:后登记的会覆盖前者,先登记的那个从此只能靠自己的真实 id 访问,
+            // 这属于作者侧的约定冲突,必须打印出来,否则排查时完全看不出资源为什么被"别人"顶掉
+            string existed;
+            if (modPrivateRoots.TryGetValue(modId, out existed)
+                && !string.Equals(existed, normalized, System.StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Warning(
+                    $"模组私有资源标识冲突: {modId} 已被 {existed} 占用,现由 {normalized} 覆盖(请让作者改用不重复的 mod.namespace)",
+                    Log.LogType.Game);
+            }
+
             modPrivateRoots[modId] = normalized;
             Log.Info($"登记模组私有资源目录: {modId} -> {normalized}", Log.LogType.Game);
             return true;

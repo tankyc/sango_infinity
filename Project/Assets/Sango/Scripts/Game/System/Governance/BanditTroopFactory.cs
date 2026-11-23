@@ -238,7 +238,14 @@ namespace Sango.Core
         static Person CreateLeader(Force force, Corps corps, Scenario scenario)
         {
             int templateId = PickTemplateId(force);
-            PersonLib lib = scenario.CommonData.PersonLibrary.Get(templateId);
+            // 武将库统一取 GameCustomEdit.CoreScenarioAddon（源文件 Data/PersonLibrary.json），
+            // 与 Scenario.LoadCommonDataStage 的建人骨架同源；此处走 FormLib2 深拷贝，
+            // 会真正读到模板的 type / kanshitsu / ambition（乌丸/南蛮/贼模板 type = 2）。
+            GameCustomEdit customEdit = GameCustomEdit.Instance;
+            ScenarioAddon coreAddon = customEdit != null ? customEdit.CoreScenarioAddon : null;
+            PersonLib lib = coreAddon != null && coreAddon.PersonLibrary != null
+                ? coreAddon.PersonLibrary.Get(templateId)
+                : null;
             if (lib == null)
             {
                 Sango.Log.Error($"*[根城]{force.Name} 出兵失败：武将模板 {templateId} 不存在");

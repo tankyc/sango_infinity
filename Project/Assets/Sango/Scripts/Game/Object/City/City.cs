@@ -1587,7 +1587,7 @@ namespace Sango.Core
             // 注意与 minRange/maxRange（阵地评分、削弱范围）是两套值。
             effectCells = new System.Collections.Generic.List<Cell>();
             if (BuildingType.attackMaxRange > 0)
-                scenario.Map.GetDirectSpiral(CenterCell,
+                scenario.Map.GetSpiralRing(CenterCell,
                     BuildingType.radius + BuildingType.attackMinRange,
                     BuildingType.radius + BuildingType.attackMaxRange, effectCells);
 

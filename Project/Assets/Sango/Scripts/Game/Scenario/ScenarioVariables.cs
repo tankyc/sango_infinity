@@ -92,6 +92,99 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int maxActiveFeatureCount = DefaultMaxActiveFeatureCount;
 
+        /// <summary>
+        /// 特技槽位解锁等级（按下标对应 <see cref="Person.FeatureList"/> 的槽位，从 0 开始）。
+        ///
+        /// 【语义】第 i 个特技槽需要武将等级 >= 本数组第 i 项才解锁。
+        /// 未解锁的槽位，其特技**不装配动作、不参与条件判定**（<see cref="Person.CollectEffectiveFeatures"/>、
+        /// <see cref="Person.HasFeature(int)"/> 跳过），界面显示为灰色并给出解锁条件。
+        ///
+        /// 【超范围取末位】槽位下标 &gt;= 数组长度时，一律按**数组最后一项**计算，
+        /// 所以只配 {0, 5} 就表示"第 1 槽不限、第 2 槽起全部要 5 级"。
+        ///
+        /// 【默认】{0} —— 全部槽位立即解锁，与引入本参数之前的行为完全一致。
+        ///
+        /// 【与 maxActiveFeatureCount 的关系】那个是"最多几个特技生效（名额）"，
+        /// 本参数是"第 i 个名额什么时候可用（解锁）"，两者是**相乘**关系：
+        /// 只有 <c>i &lt; ActiveFeatureCount</c> 且第 i 槽已解锁的特技才真正生效。
+        ///
+        /// 【编辑格动态扩展】剧本设置界面的编辑格数量跟随 <see cref="Person.GetMaxActiveFeatureCount"/>
+        /// 变化（见 UIScenarioVariables），因此数组长度可以配得比当前上限短，多出的槽位共用末位值。
+        ///
+        /// 【原版无对应实现】Open311 的特技学习只判"这个人有没有这个特技"
+        /// （<c>person->has_skill(skill_id)</c>，s11_sys_scen_ability.cpp:60-64），
+        /// 既没有数量上限、也没有"槽位解锁等级"的概念，学到就是永久生效。
+        /// 本项目把"名额（maxActiveFeatureCount）"与"解锁（本参数）"拆成两层，
+        /// 是为了在不改写原版能力表的前提下，让特技成长有可调的节奏。
+        /// </summary>
+        /// 【为什么用 new int[] { 0 } 而不是共享静态常量】数组是引用类型，
+        /// 若默认值指向同一个静态实例，任何一次 SetSkillSlotUnlockLevel 都会改到"缺省值"本身，
+        /// 进而污染所有新建剧本的默认配置（表现：新剧本一开就带着上次编辑过的解锁等级）。
+        [JsonProperty] public int[] skillSlotUnlockLevels = new int[] { 0 };
+
+        /// <summary>
+        /// 取指定特技槽位的等级门槛（按当前剧本参数）。
+        /// 拿不到剧本时返回 0（全部解锁）；下标越界时取数组末位。
+        /// </summary>
+        /// <param name="slot">槽位下标（0 起）</param>
+        /// <returns>解锁所需等级，0 = 无门槛</returns>
+        public static int GetSkillSlotUnlockLevel(int slot)
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.Variables == null)
+                return 0;
+            return GetSkillSlotUnlockLevel(scenario.Variables.skillSlotUnlockLevels, slot);
+        }
+
+        /// <summary>
+        /// 从指定数组取槽位解锁等级：null / 空数组视为 0（不限），下标越界取末位。
+        /// 界面编辑时也走这一条，保证"显示值"与"判定值"同源。
+        /// </summary>
+        /// <param name="levels">等级表，可为 null</param>
+        /// <param name="slot">槽位下标（0 起）</param>
+        /// <returns>解锁所需等级，0 = 无门槛</returns>
+        public static int GetSkillSlotUnlockLevel(int[] levels, int slot)
+        {
+            if (levels == null || levels.Length == 0)
+                return 0;
+            if (slot < 0)
+                slot = 0;
+            // 【超范围以最末尾数据计算】多出的槽位共用最后一个配置值
+            if (slot >= levels.Length)
+                slot = levels.Length - 1;
+            return levels[slot];
+        }
+
+        /// <summary>
+        /// 写入指定槽位的解锁等级，并保证数组至少覆盖到该下标。
+        /// 扩容时新元素用**原末位值**填充，避免"加一槽就变成 0 级解锁"的跳变。
+        /// </summary>
+        /// <param name="slot">槽位下标（0 起）</param>
+        /// <param name="level">解锁所需等级</param>
+        public void SetSkillSlotUnlockLevel(int slot, int level)
+        {
+            if (slot < 0)
+                return;
+            if (level < 0)
+                level = 0;
+
+            if (skillSlotUnlockLevels == null || skillSlotUnlockLevels.Length == 0)
+                skillSlotUnlockLevels = new int[] { 0 };
+
+            if (slot < skillSlotUnlockLevels.Length)
+            {
+                skillSlotUnlockLevels[slot] = level;
+                return;
+            }
+
+            int last = skillSlotUnlockLevels[skillSlotUnlockLevels.Length - 1];
+            int[] grown = new int[slot + 1];
+            for (int i = 0; i < grown.Length; i++)
+                grown[i] = i < skillSlotUnlockLevels.Length ? skillSlotUnlockLevels[i] : last;
+            grown[slot] = level;
+            skillSlotUnlockLevels = grown;
+        }
+
         // ==================== AI 行动力 ====================
 
         /// <summary>

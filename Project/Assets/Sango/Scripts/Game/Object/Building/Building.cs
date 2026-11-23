@@ -172,9 +172,14 @@ namespace Sango.Core
             BuildingType.InitActions(actionList, this);
 
             // 攻击范围（attackMinRange / attackMaxRange，0 表示不攻击）
+            // 【必须用几何环】GetDirectSpiral 是 BFS（只走 moveAble 格），旁边有水域 /
+            // 山地 / 建筑就会截断，攻击范围显示不全、形状也不是圆。
+            // 原版按 MapRangeIterator(center, min, max) 取纯 hex 距离的环
+            //（s11_scen_map.cpp:212-231 range_contains 内部即 MapRangeIterator），
+            // 因此这里改用 GetSpiralRing。
             effectCells = new System.Collections.Generic.List<Cell>();
             if (BuildingType.attackMaxRange > 0)
-                scenario.Map.GetDirectSpiral(CenterCell,
+                scenario.Map.GetSpiralRing(CenterCell,
                     BuildingType.radius + BuildingType.attackMinRange,
                     BuildingType.radius + BuildingType.attackMaxRange, effectCells);
             isInited = true;
@@ -239,9 +244,11 @@ namespace Sango.Core
                 BuildingType.InitActions(actionList, this);
 
                 // 攻击范围（attackMinRange / attackMaxRange，0 表示不攻击）
+                // 【必须用几何环】同 Init 分支：GetDirectSpiral 是 BFS，
+                // 会被水域 / 山地 / 建筑截断，改用纯 hex 距离的环（对齐原版 MapRangeIterator）。
                 effectCells = new System.Collections.Generic.List<Cell>();
                 if (BuildingType.attackMaxRange > 0)
-                    scenario.Map.GetDirectSpiral(CenterCell,
+                    scenario.Map.GetSpiralRing(CenterCell,
                         BuildingType.radius + BuildingType.attackMinRange,
                         BuildingType.radius + BuildingType.attackMaxRange, effectCells);
                 isInited = true;

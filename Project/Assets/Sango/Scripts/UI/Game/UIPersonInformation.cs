@@ -238,7 +238,11 @@ namespace Sango.UI
             {
                 int activeCount = Target.ActiveFeatureCount;
                 for (int i = 0; i < activeCount; i++)
-                    AddFeatureItem(Target.FeatureList[i]);
+                {
+                    // 名额内的槽位一律展示：未解锁的置灰并显示解锁条件，
+                    // 让玩家知道"这个特技现在存在但还没生效"，而不是干脆看不到。
+                    AddFeatureItem(Target.FeatureList[i], Target.IsFeatureSlotUnlocked(i), Target.GetFeatureUnlockDesc(i));
+                }
             }
 
             // ② 额外附加（装备 / 官职）：不占名额，全量展示
@@ -253,15 +257,36 @@ namespace Sango.UI
         /// 在特技栏追加一条特技显示。
         /// </summary>
         /// <param name="feature">特技，可为 null</param>
-        void AddFeatureItem(Feature feature)
+        /// <param name="feature">特技，可为 null</param>
+        /// <param name="unlocked">该特技所在槽位是否已解锁；未解锁时置灰并显示解锁条件</param>
+        /// <param name="unlockDesc">解锁条件说明，可为空</param>
+        void AddFeatureItem(Feature feature, bool unlocked = true, string unlockDesc = null)
         {
             if (feature == null) return;
 
             UITextField uITextField = featureObjectPool.Create();
             if (uITextField != null)
             {
-                uITextField.text = feature.Name;
-                uITextField.SetTitle(feature.desc);
+                string featureName = feature.Name;
+                if (unlocked)
+                {
+                    uITextField.text = featureName;
+                    uITextField.SetTitle(feature.desc);
+                }
+                else
+                {
+                    // 【置灰方式】只用富文本，不动 label.color ——
+                    // 条目来自对象池，改颜色会在复用时残留给已解锁的特技。
+                    // Feature.Name 对"无 actionEntities 的特技"本来就带 <color=#6D6D6D>，
+                    // 这里先判断避免嵌套标签（嵌套 <color> 在 Unity 富文本里显示异常）。
+                    uITextField.text = !string.IsNullOrEmpty(featureName) && featureName.Contains("<color=")
+                        ? featureName
+                        : $"<color=#6D6D6D>{featureName}</color>";
+
+                    string tip = string.IsNullOrEmpty(unlockDesc) ? "未解锁" : unlockDesc;
+                    uITextField.SetTitle($"<color=#6D6D6D>{tip}（未解锁）</color>");
+                }
+
                 uITextField.transform.SetAsLastSibling();
             }
         }

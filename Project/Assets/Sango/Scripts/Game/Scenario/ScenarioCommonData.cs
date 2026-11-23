@@ -209,14 +209,20 @@ namespace Sango.Core
             return type;
         }
 
-        /// <summary>
-        /// 武将库
-        /// </summary>
-        [JsonConverter(typeof(SangoObjectSetConverter<PersonLib>))]
-        [JsonProperty] 
-        public SangoObjectSet<PersonLib> PersonLibrary = new SangoObjectSet<PersonLib>();
+        // 【武将库已迁出本类】原字段：
+        //   [JsonConverter(typeof(SangoObjectSetConverter<PersonLib>))][JsonProperty]
+        //   public SangoObjectSet<PersonLib> PersonLibrary = new SangoObjectSet<PersonLib>();
+        //
+        // 【为什么移除】本类挂在 Scenario.CommonData 上且带 [JsonProperty]，会把整份
+        // 832 条武将库写进每一份存档；同时它又是"Data/Common 全目录 PopulateObject"的产物，
+        // 与 GameCustomEdit.CoreScenarioAddon（读 Data/PersonLibrary.json）构成两套互不同步的
+        // 数据源（实测两文件字段数 45 vs 42、description 逐条不同）。
+        //
+        // 【现在从哪取】统一走 <see cref="GameCustomEdit.CoreScenarioAddon"/>：
+        //   GameCustomEdit.Instance.CoreScenarioAddon.PersonLibrary
+        // 该对象在 GameData.Init() 里一次性加载，生命周期长于任一剧本，offset = 0，
+        // 因此 Get(id) / ForEach 的口径与原来的 SangoObjectSet 完全一致。
 
-        
         public List<ItemType> ItemTypeList { get; set; }
 
         public void Init(Scenario scenario)
@@ -262,7 +268,9 @@ namespace Sango.Core
             Personalities.ForEach(x => x.OnScenarioPrepare(scenario));
             Argumentations.ForEach(x => x.OnScenarioPrepare(scenario));
             AbilityLevelTypes.ForEach(x => x.OnScenarioPrepare(scenario));
-            PersonLibrary.ForEach(x => x.OnScenarioPrepare(scenario));
+            // PersonLibrary 已迁出本类（见字段处的说明）。PersonLib.OnScenarioPrepare 本身是
+            // 空实现（PersonLib.cs:191-193，库条目只是数据模板，不做运行期解析），
+            // 所以这里去掉该行不改变任何行为。
         }
 
         public void Load(string file)

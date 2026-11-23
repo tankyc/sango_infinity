@@ -988,12 +988,33 @@ namespace Sango.Core
                     Map = new Map();
             }
 
-            if (CommonData.PersonLibrary != null)
+            // 武将库统一取 GameCustomEdit.CoreScenarioAddon（源文件 Data/PersonLibrary.json），
+            // 不再读 ScenarioCommonData.PersonLibrary（该字段已移除，见其定义处的说明）。
+            //
+            // 【语义不变】Person.FormLib（Person.cs:5292-5299）只拷 Id / image / image_old，
+            // 是"按 Id 预建骨架"，武将的实际数值（type / kanshitsu / ambition / 五维…）
+            // 由阶段2 Populate 剧本 JSON 的 personSet 段填进来。因此换源不影响生成结果，
+            // 只要求两份库的 Id 集合一致 —— 现场核对均为 1~832 连续。
+            //
+            // 【加载时序】CoreScenarioAddon 在 GameData.Init() → GameCustomEdit.Instance.Init()
+            // 里一次性加载（GameData.cs:26），而本方法最早也在剧本加载时才调用，时序安全。
+            GameCustomEdit customEdit = GameCustomEdit.Instance;
+            ScenarioAddon coreAddon = customEdit != null ? customEdit.CoreScenarioAddon : null;
+            if (coreAddon != null && coreAddon.PersonLibrary != null)
             {
-                CommonData.PersonLibrary.ForEach(personLib =>
+                coreAddon.PersonLibrary.ForEach(personLib =>
                 {
                     personSet.Add(Person.FormLib(personLib));
                 });
+            }
+            else
+            {
+                // 走到这里说明 GameData.Init() 没跑或武将库文件缺失：
+                // 继续下去会得到一个空 personSet（开局无任何武将），必须显式报出来。
+                Sango.Log.Error(
+                    "武将库加载失败：GameCustomEdit.CoreScenarioAddon 为空，"
+                    + "请检查 Data/PersonLibrary.json 是否存在以及 GameData.Init() 是否执行",
+                    Sango.Log.LogType.World);
             }
         }
 

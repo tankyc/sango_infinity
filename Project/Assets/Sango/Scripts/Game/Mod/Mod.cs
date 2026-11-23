@@ -157,12 +157,17 @@ namespace Sango.Mod
                 Window.Instance.AddPackage(file, packageName);
             });
         }
+        /// <summary>
+        /// 登记本模组 Package 目录下的资源包。
+        /// 注意：这里只做登记，不读取文件；真正的 AssetBundle 加载推迟到
+        /// 第一次使用该包内资源时（详见 PackageManager 的懒加载说明）。
+        /// </summary>
         public void LoadPackage()
         {
             string path = GetFullPath($"Package/{PlatformUtility.GetPlatformName()}");
             Directory.EnumFiles(path, "*.pkg", SearchOption.TopDirectoryOnly, (file) =>
             {
-                Sango.Log.Info($"LoadPackage: {file}");
+                Sango.Log.Info($"登记资源包: {file}");
                 string packageName = System.IO.Path.GetFileNameWithoutExtension(file).Split('_')[0];
                 PackageManager.Instance.AddPackage(packageName, file, true);
             });
@@ -201,11 +206,129 @@ namespace Sango.Mod
         /// 模组私有资源目录名
         /// 该目录内的结构与模组根目录完全一致(Data/Language/Scenario/Assets...),
         /// 但它<B>不参与</B>全局搜索,也不会被自动加载或参与模组间覆盖:
-        /// 只有显式引用时才会被访问,例如 <c>mod://模组Id/Assets/ItemIcon/1.png</c>
-        /// 或短写 <c>模组Id:Assets/ItemIcon/1</c>(详见 <see cref="ModAssetPath"/>)。
+        /// 只有显式引用时才会被访问,例如 <c>mod://私有命名空间/Assets/ItemIcon/1.png</c>
+        /// 或短写 <c>私有命名空间:Assets/ItemIcon/1</c>(详见 <see cref="ModAssetPath"/>)。
         /// 适合存放本模组必须固定生效、不希望被其他模组改写的配置与资源。
         /// </summary>
         public const string PRIVATE_DIR_NAME = "Private";
+
+        /// <summary>
+        /// 私有资源命名空间声明文件(放在 Private 目录下)。
+        ///
+        /// 【为什么需要它】上传创意工坊时,服务端会把包内 mod.info 的 id 换成自己分配的
+        /// 8 位短 id(见 ModHub 的 zipRepacker)。若私有资源引用写死 <c>mod://模组Id/...</c>,
+        /// 作者本地调试正常、玩家装到机器上必然解析失败 —— 因为 id 变了。
+        ///
+        /// 约定:作者在 <c>Private/mod.namespace</c> 里写一行自定义标识(例如 <c>hantu</c>),
+        /// 引用统一写 <c>mod://hantu/...</c>。该文件随包上传、内容永不被服务端改写,
+        /// 因此本地与线上完全一致;没有该文件时按 mod.info 的 privateid、再按真实 id 兜底,
+        /// 保证改造前发布的老模组仍能正常访问自己的私有目录。
+        /// </summary>
+        public const string PRIVATE_NAMESPACE_FILE = "mod.namespace";
+
+        /// <summary>
+        /// mod.info 里的 privateid(创意工坊在重写 mod.info 时写入的"作者本地 id")。
+        /// 老包没有该字段时为空;它只是命名空间的第二来源,不参与其他任何判断。
+        /// </summary>
+        public string PrivateId { internal set; get; }
+
+        /// <summary>命名空间读取缓存(null = 尚未读取,"" = 确认没有)</summary>
+        string privateNamespaceCache;
+        bool privateNamespaceLoaded;
+
+        /// <summary>
+        /// 私有资源命名空间:私有资源引用的稳定前缀。
+        /// 取值顺序:<c>Private/mod.namespace</c> -> mod.info 的 privateid -> 空串。
+        /// 只允许字母/数字/下划线/短横线(见 <see cref="ModAssetPath.IsValidPrivateKey"/>),
+        /// 非法内容打印中文告警并视为未设置,避免脏标识污染解析表。
+        /// </summary>
+        public string PrivateNamespace
+        {
+            get
+            {
+                if (privateNamespaceLoaded)
+                    return privateNamespaceCache;
+
+                privateNamespaceLoaded = true;
+                privateNamespaceCache = "";
+
+                // 1.优先读 Private/mod.namespace(作者显式声明,最稳定)
+                string file = GetPrivateFullPath(PRIVATE_NAMESPACE_FILE);
+                if (file != null && System.IO.File.Exists(file))
+                {
+                    try
+                    {
+                        string content = System.IO.File.ReadAllText(file).Trim();
+                        // 只取第一行:作者常在后面追加说明文字,不能让它把整个命名空间判成非法
+                        int lineEnd = content.IndexOfAny(new char[] { '\r', '\n' });
+                        if (lineEnd >= 0)
+                            content = content.Substring(0, lineEnd).Trim();
+
+                        if (ModAssetPath.IsValidPrivateKey(content))
+                            privateNamespaceCache = content;
+                        else if (content.Length > 0)
+                            Sango.Log.Warning($"模组私有命名空间不合法(只允许字母/数字/下划线/短横线),已忽略: {Id} -> {content}");
+                    }
+                    catch (System.Exception e)
+                    {
+                        Sango.Log.Warning($"读取模组私有命名空间失败: {Id} {e.Message}");
+                    }
+                }
+
+                // 2.没有声明文件时回落到 mod.info 的 privateid(创意工坊重写 mod.info 时写入的作者本地 id)
+                if (privateNamespaceCache.Length == 0 && ModAssetPath.IsValidPrivateKey(PrivateId))
+                    privateNamespaceCache = PrivateId;
+
+                return privateNamespaceCache;
+            }
+        }
+
+        /// <summary>
+        /// 清空私有命名空间的读取缓存。
+        /// 模组目录被替换/重新下载/重新读取 mod.info 后必须调用,
+        /// 否则会继续用旧目录下读到的命名空间,表现为"更新了模组但私有资源还是旧的/找不到"。
+        /// </summary>
+        internal void ResetPrivateCache()
+        {
+            privateNamespaceLoaded = false;
+            privateNamespaceCache = null;
+        }
+
+        /// <summary>
+        /// 本模组私有资源的全部有效标识(去重、忽略空值)。
+        /// 顺序:命名空间 -> privateid -> 真实 id,三者指向同一份 Private 目录。
+        ///
+        /// 登记与注销都必须遍历这个列表:
+        /// 只认命名空间会让"没写声明文件的老包"失效,
+        /// 只认真实 id 会让"上传后被重新分配 id"的包失效。
+        /// </summary>
+        /// <returns>私有资源标识列表(至少包含真实 id)</returns>
+        public List<string> GetPrivateKeys()
+        {
+            List<string> keys = new List<string>();
+            AddPrivateKey(keys, PrivateNamespace);
+            AddPrivateKey(keys, PrivateId);
+            AddPrivateKey(keys, Id);
+            return keys;
+        }
+
+        /// <summary>
+        /// 追加一个私有资源标识(去重,忽略空值)
+        /// </summary>
+        /// <param name="keys">标识列表</param>
+        /// <param name="key">待追加的标识</param>
+        static void AddPrivateKey(List<string> keys, string key)
+        {
+            if (string.IsNullOrEmpty(key))
+                return;
+
+            for (int i = 0; i < keys.Count; i++)
+            {
+                if (string.Equals(keys[i], key, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+            keys.Add(key);
+        }
 
         /// <summary>
         /// 私有资源目录的完整路径: {ModDir}/Private
@@ -238,7 +361,8 @@ namespace Sango.Mod
 
         /// <summary>
         /// 按私有资源协议解析本模组私有目录下的文件(文件不存在时返回 null 并打印中文日志)
-        /// 等价于 <c>mod://{模组Id}/{path}</c>,供模组自己的代码显式加载私有配置/资源
+        /// 等价于 <c>mod://{私有命名空间}/{path}</c>,供模组自己的代码显式加载私有配置/资源。
+        /// 未声明命名空间时回落到真实 id,因此改造前的老模组行为完全不变。
         /// </summary>
         /// <param name="path">相对私有目录的路径,例如 Data/Common/AIConfig.json</param>
         /// <returns>私有目录下的完整文件路径;不存在返回 null</returns>
@@ -246,7 +370,12 @@ namespace Sango.Mod
         {
             if (string.IsNullOrEmpty(Id) || string.IsNullOrEmpty(path))
                 return null;
-            return ModAssetPath.Resolve($"{ModAssetPath.Scheme}{Id}/{path}");
+
+            // 命名空间不会随创意工坊重新分配 id 而变化,优先使用;没有声明时回落真实 id
+            string key = PrivateNamespace;
+            if (string.IsNullOrEmpty(key))
+                key = Id;
+            return ModAssetPath.Resolve($"{ModAssetPath.Scheme}{key}/{path}");
         }
 
         public bool HasNewVersion()

@@ -80,6 +80,25 @@ namespace Sango.Core.Event
         /// </summary>
         const int MaxEventFirePerTurn = 3;
 
+        /// <summary>
+        /// 【临时硬开关】是否整体停用剧本事件（剧情）。
+        ///
+        /// 【为什么写死】事件系统在回合开始时会同步求值全部候选并同步播放，
+        /// Profiler 实测 <c>Scenario.OnTurnStart</c> 单帧 4123ms / GC 57.1MB，
+        /// 其中 <c>EvaluateKind</c> 占 3632ms / 50.4MB —— 已严重到阻塞正常回合流程。
+        /// 在根治（条件预编译 + 指令流时间预算）完成并验证前，先整体关掉。
+        ///
+        /// 【关掉的范围】所有触发时机的自动求值、定时事件队列、强制触发，
+        /// **一场都不播**，包括 <see cref="EventDefinition.AlwaysEnabled"/> 的固定事件
+        /// （结局 / 统一天下等），因为它们同样经过 <see cref="PlayEvent"/>。
+        ///
+        /// 【不影响的东西】事件库照常加载、<c>runningEventId</c> 保持 0、
+        /// <c>IsPlaying</c> 恒为 false —— 因此不会卡住回合推进与存档。
+        ///
+        /// 【怎么恢复】把下面这行改成 false 即可，不需要改动任何其他代码。
+        /// </summary>
+        const bool DisableScenarioEvents = true;
+
         /// <summary>候选排序用的临时缓冲（避免每次求值都分配）</summary>
         readonly List<EventDefinition> sortedBuffer = new List<EventDefinition>();
 
@@ -475,7 +494,11 @@ namespace Sango.Core.Event
             // 但**不能在这里早返回** —— 第三步的 EvaluateKind 会按事件自身的
             // AlwaysEnabled 过滤，让"固定游戏事件"（统一天下等结局事件）在开关关闭后照常触发。
             // 早返回会把这些事件一起静默掉，恰好抹掉了这条分类存在的意义。
-            if (Enabled)
+            // 【临时硬关】DisableScenarioEvents = true 时不再推进定时队列、不重试暂缓项。
+            // 队列内容保留（不丢），开关恢复后按回合逐条补播。
+            // 注意：**不能在本方法开头直接 return**，否则 ResetTurnCounters 不执行，
+            // runningEventId 可能停留在非 0 值上，导致 IsPlaying 恒为 true 卡死回合推进。
+            if (Enabled && !DisableScenarioEvents)
             {
                 // 第一步：推进定时队列（跨回合事件链在此接上）
                 ProcessScheduledQueue(scenario);
@@ -953,6 +976,11 @@ namespace Sango.Core.Event
         /// <returns>是否成功播放了一个事件</returns>
         bool EvaluateKindInternal(EventTriggerKind kind, SangoObject[] entities, Cell cell, bool urgent)
         {
+            // 【临时硬关】剧情整体停用期间，所有触发时机在入口直接短路。
+            // 这一句是关键：Profiler 里 EvaluateKind 的 3632ms / 50.4MB 全部花在
+            // "遍历 200 个候选 + 逐条求值条件树"上，短路后连一次条件树都不会编译。
+            if (DisableScenarioEvents) return false;
+
             // 作用域过滤 / 工作类型过滤仍按"第一个实体"判定，与旧行为一致
             SangoObject entity = (entities != null && entities.Length > 0) ? entities[0] : null;
 
@@ -1557,6 +1585,12 @@ namespace Sango.Core.Event
         /// <returns>是否成功开始播放</returns>
         bool PlayEvent(EventDefinition def, EventContext context, EventRunState state)
         {
+            // 【临时硬关】兜底：拦住所有未经过 EvaluateKind 的播放路径 ——
+            // 定时事件队列（ProcessScheduledQueue）、强制触发（FireEventNow / TriggerEventById）、
+            // 以及将来新增的任何直接调用点。
+            // 返回 false 时各调用方都有自己的清理分支，runningEventId / firedThisTurn 会复位。
+            if (DisableScenarioEvents) return false;
+
             EventRunner runner = EventRunner.Instance;
             if (runner == null)
             {

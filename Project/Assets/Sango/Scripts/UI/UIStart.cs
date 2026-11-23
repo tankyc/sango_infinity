@@ -160,5 +160,21 @@ zd同学,
         {
             Window.Instance.Open("window_login");
         }
+
+        /// <summary>
+        /// 打开更新说明窗口（window_update）。
+        ///
+        /// 【为什么不做「有没有新版本」的判断】这是玩家主动点开"看看更新了什么"的入口，
+        /// 既没有新版本也要能看到当前版本的说明；是否提示新版本由 GameVersion 在启动检查时
+        /// 自行弹窗决定，与本按钮无关。
+        ///
+        /// 【数据没拿到怎么办】窗口内会显示"正在获取更新说明……"并自行补发一次版本检查，
+        /// 拿到后由 GameEvent.OnVersionInfoUpdate 原地刷新（见 UIUpdate.OnOpen）。
+        /// </summary>
+        public void OpenUpdate()
+        {
+            GameMedia.Instance.PlayButtonSfx();
+            Window.Instance.Open("window_update");
+        }
     }
 }

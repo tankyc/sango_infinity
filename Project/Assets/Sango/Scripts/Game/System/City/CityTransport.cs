@@ -249,10 +249,10 @@ namespace Sango.Core.Player
 
         public override void OnBack(ICommandEvent whoGone)
         {
+            if (whoGone is ObjectSelectSystem) return;
             if (whoGone is TroopSystem)
             {
                 base.OnBack(whoGone);
-                if (whoGone is ObjectSelectSystem) return;  
                 Window.Instance.SetVisible(windowName, true);
                 TargetTroop.BelongCorps.ReduceActionPoint(-JobType.GetJobCostAP((int)CityJobType.MakeTansport));
                 // 取消组建的回滚：部队尚未出发，直接收回

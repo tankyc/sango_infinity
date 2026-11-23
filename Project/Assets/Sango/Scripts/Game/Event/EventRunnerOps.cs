@@ -23,6 +23,7 @@ using Sango.Core.Duel;
 using Sango.UI;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 // 别名：Sango.Core.Event 是 Sango.Core 的子命名空间，直接写 Player 会被名字查找
 // 解析成子命名空间 Sango.Core.Player（CS0118，与 Duel 那次是同一类坑）。
@@ -364,6 +365,43 @@ namespace Sango.Core.Event
 
         #region 效果与变量
 
+        /// <summary>
+        /// 事件效果节点的解析缓存（<see cref="JObject"/> → <see cref="EventEffectNode"/>）。
+        ///
+        /// 【为什么需要】事件定义里的 JObject 是事件库长期持有的**同一个引用**，内容整局不变。
+        /// 原先 <see cref="OpEffect"/> 每执行一次都要 <c>obj.ToObject&lt;EventEffectNode&gt;()</c>，
+        /// 走完整反射 + 反序列化。Profiler 实测（AI 回合 / 招募触发的等级提升事件）：
+        /// <c>EventRunner.OpEffect</c> 占总耗时 20.9%（84ms）、GC 1.3MB，
+        /// 其中几乎全部落在 <c>JToken.ToObject</c> 上。
+        ///
+        /// 【为什么用 ConditionalWeakTable 而不是 Dictionary】事件库重载（切剧本 / 重读 mod）
+        /// 会换一批 JObject，弱表让旧条目随 JObject 一起被回收，不会把废弃事件的定义长期留在内存。
+        ///
+        /// 【安全前提】缓存的 <see cref="EventEffectNode"/> 只作只读模板使用
+        /// （仅读取 Condition / Type 等字段，再交给 <see cref="EventEffectBase.Create"/>），
+        /// 运行期状态一律存在 <see cref="EventContext"/> 里，因此多实例共享无副作用。
+        /// </summary>
+        static readonly ConditionalWeakTable<JObject, EventEffectNode> effectNodeCache =
+            new ConditionalWeakTable<JObject, EventEffectNode>();
+
+        /// <summary>
+        /// 取效果节点的解析结果：命中缓存直接返回，否则解析后写入缓存。
+        /// 解析异常由调用方捕获（保持原有的"单个效果失败不中断整组"语义）。
+        /// </summary>
+        /// <param name="obj">效果节点 JSON</param>
+        /// <returns>解析结果；解析失败时为 null</returns>
+        static EventEffectNode ParseEffectNode(JObject obj)
+        {
+            EventEffectNode node;
+            if (effectNodeCache.TryGetValue(obj, out node))
+                return node;
+
+            node = obj.ToObject<EventEffectNode>();
+            if (node != null)
+                effectNodeCache.Add(obj, node);
+            return node;
+        }
+
         /// <summary>效果组</summary>
         /// <param name="stage">指令</param>
         void OpEffect(EventStage stage)
@@ -379,7 +417,8 @@ namespace Sango.Core.Event
                 EventEffectNode node;
                 try
                 {
-                    node = obj.ToObject<EventEffectNode>();
+                    // 走缓存：同一个效果节点在整局里只会被反射反序列化一次
+                    node = ParseEffectNode(obj);
                 }
                 catch (Exception e)
                 {

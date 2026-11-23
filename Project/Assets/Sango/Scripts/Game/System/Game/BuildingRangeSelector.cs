@@ -470,7 +470,14 @@ namespace Sango.Core
                         int vy = yStart + j;
                         float localX = (vx - (centerXStart + 2)) * quadSize;
                         float localZ = (vy - (centerYStart + 2)) * quadSize;
-                        float height = mapData.GetVertexData(vx, vy).height * 0.5f;
+                        // 【高度取"地面 / 水面"里更高的那个】
+                        // 水格的 height 是水底地形高度、water 才是水面高度（0 = 无水，
+                        // 与 MapData.GetWaterHeight 同一口径，世界高度都 ×0.5f）。
+                        // 只取 height 会让面片沉到水面以下，斜视角看就是"范围缺了一块"。
+                        MapData.VertexData vd = mapData.GetVertexData(vx, vy);
+                        float groundY = vd.height * 0.5f;
+                        float waterY = vd.water * 0.5f;
+                        float height = waterY > groundY ? waterY : groundY;
                         layer.verts.Add(new Vector3(localX, height, localZ));
                     }
                 }

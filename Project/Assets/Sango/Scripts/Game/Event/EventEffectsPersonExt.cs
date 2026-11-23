@@ -548,6 +548,11 @@ namespace Sango.Core.Event
             person.LevelId = levelId;
             person.Level = level;
 
+            // 【等级变化 = 可能解锁特技槽位】必须立刻重建个人 / 部队 / 城池三层的事件订阅，
+            // 否则界面会显示"已解锁"，实际效果却要等部队下次 ResetActionAndStatus
+            // 或城池下回合结算才生效（解锁判定是即时的，订阅表不是）。
+            person.RefreshFeatureUnlockState();
+
             Log.Info($"事件：{person.Name} 的等级设为 {level.Name}");
             return true;
         }

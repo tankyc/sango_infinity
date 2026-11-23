@@ -243,31 +243,37 @@ namespace Sango.Core.Player
 
         public override void OnBack(ICommandEvent whoGone)
         {
-            base.OnBack(whoGone);
             if (whoGone is ObjectSelectSystem) return;
-
-            Window.Instance.SetVisible(windowName, true);
-
-            // 只有"确实派发过部队"才需要回滚：钱粮/行动点是 DoJob 扣的，武将是 DoJob 从
-            // freePersons 摘掉的，没派发过就什么都没发生。这里不能用"主将是否为空"来判断，
-            // 因为玩家已经选好将但还没点出征时主将同样非空——那种情况下若照常回滚，
-            // 会把武将重复加回自由列表（此时他们并未被摘掉）；
-            // 而主将为空时 TargetTroop.BelongCorps 为空又会抛空引用异常，
-            // 把上层流程的回调（例如登用 PersonRecruit 在 Back() 之后才调用的 doneAction）打断，
-            // 对应渲染事件永不完成、Scenario.Run 每帧提前返回，表现为整个回合卡死。
-            if (!dispatched)
-                return;
-
-            dispatched = false;
-            // 回滚金额必须与 :199 的扣减同源，否则回滚会多退/少退
-            TargetTroop.BelongCorps.ReduceActionPoint(-TargetCity.GetJobCostAP(CityJobType.MakeTroop));
-            // 取消组建的回滚：部队尚未出发，直接收回
-            TargetTroop.EnterCity(TargetCity);
-            TargetTroop.ForEachPerson(person =>
+            if (whoGone is TroopSystem)
             {
-                TargetCity.freePersons.Add(person);
-                person.ActionOver = false;
-            });
+                base.OnBack(whoGone);
+                
+                Window.Instance.SetVisible(windowName, true);
+
+                // 只有"确实派发过部队"才需要回滚：钱粮/行动点是 DoJob 扣的，武将是 DoJob 从
+                // freePersons 摘掉的，没派发过就什么都没发生。这里不能用"主将是否为空"来判断，
+                // 因为玩家已经选好将但还没点出征时主将同样非空——那种情况下若照常回滚，
+                // 会把武将重复加回自由列表（此时他们并未被摘掉）；
+                // 而主将为空时 TargetTroop.BelongCorps 为空又会抛空引用异常，
+                // 把上层流程的回调（例如登用 PersonRecruit 在 Back() 之后才调用的 doneAction）打断，
+                // 对应渲染事件永不完成、Scenario.Run 每帧提前返回，表现为整个回合卡死。
+                if (!dispatched)
+                    return;
+
+                dispatched = false;
+
+
+
+                // 回滚金额必须与 :199 的扣减同源，否则回滚会多退/少退
+                TargetTroop.BelongCorps.ReduceActionPoint(-TargetCity.GetJobCostAP(CityJobType.MakeTroop));
+                // 取消组建的回滚：部队尚未出发，直接收回
+                TargetTroop.EnterCity(TargetCity);
+                TargetTroop.ForEachPerson(person =>
+                {
+                    TargetCity.freePersons.Add(person);
+                    person.ActionOver = false;
+                });
+            }
         }
 
         public void AutoMakeTroop(int troopTypeKind)

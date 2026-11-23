@@ -927,7 +927,9 @@ namespace Sango.Core
                 // —— s11_sys_person_order_kunshu.cpp:1602-1637
                 if (!person.IsFree || !person.IsHealthy)
                     continue;
-                if (person.HasFeature(target.skillId))
+                // 【查重用数据口径】AI 批量挑人这一步同样必须把"已有但未解锁"算作已拥有，
+                // 否则同一条特技会被 AI 再塞一次，解锁后两份效果叠加。
+                if (person.HasFeature(target.skillId, true))
                     continue;
                 // 不判 FeatureList == null：无特技武将正是"最该学第一个特技"的对象，
                 // 原版 can_learn 对空列表返回可学（s11_sys_scen_ability.cpp:60-64）。
@@ -1092,7 +1094,10 @@ namespace Sango.Core
                 }
                 else if (ability.IsSkill)
                 {
-                    if (ability.skillId <= 0 || person.HasFeature(ability.skillId))
+                    // 【查重用数据口径】这里问的是"这条特技数据是不是已经在他身上了"，
+                    // 未解锁只是暂时不生效，数据本身存在 —— 用效果口径会判成"没有"，
+                    // 于是同一条特技被学第二次，解锁后两份效果叠加。
+                    if (ability.skillId <= 0 || person.HasFeature(ability.skillId, true))
                         return;
                     // 【无特技不等于数据无效】原版 person->has_skill() 对空列表返回 false
                     // （s11_sys_scen_ability.cpp:60-64），空表正是"可学新特技"的起点。
@@ -1265,7 +1270,9 @@ namespace Sango.Core
                     reason = "特技数据无效";
                     return false;
                 }
-                if (person.HasFeature(ability.skillId))
+                // 【查重用数据口径】未解锁的特技仍然算"已拥有"，否则玩家能把同一条特技
+                // 重复学一遍（学完列表里两条同名特技，解锁后效果叠加）。
+                if (person.HasFeature(ability.skillId, true))
                 {
                     reason = "该武将已拥有此特技";
                     return false;
@@ -1530,10 +1537,13 @@ namespace Sango.Core
         /// <summary>结算特技授予</summary>
         static bool ApplySkill(Person person, Ability ability, City city, Force force, Scenario scenario)
         {
-            // 原版 System::can_learn 的特技分支只判 has_skill，对应的就是下面的 HasFeature
+            // 原版 System::can_learn 的特技分支只判 has_skill，对应的就是下面的 HasFeature。
+            // 【查重必须用数据口径】原版没有"解锁"概念，has_skill 一查就是全量；本项目有了
+            // 槽位解锁后，若用效果口径（跳过未解锁）就会把"已经有但还没解锁"判成"没有"，
+            // 于是同一条特技被 Add 第二次，解锁后两份效果同时生效。
             if (ability.skillId <= 0)
                 return false;
-            if (person.HasFeature(ability.skillId))
+            if (person.HasFeature(ability.skillId, true))
                 return false;
             // 【剧本上限】特技数已达 maxActiveFeatureCount → 不能再学。
             // 注意判据用 FeatureList.Count 而不是 ActiveFeatureCount：

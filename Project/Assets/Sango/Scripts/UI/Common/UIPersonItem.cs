@@ -27,9 +27,10 @@ using Sango.Core; namespace Sango.UI
                 headIcon.texture = GameRenderHelper.LoadHeadIcon(person.headIconID, headIconType);
                 headIcon.enabled = true;
                 name.text = person.Name;
-                // 只显示**生效**的第一个特技（超出剧本上限的特技不展示）
+                // 只显示**生效**的第一个特技（超出剧本上限的特技不展示）。
+                // 第 1 槽尚未解锁时由 GetFeatureDisplayName 套灰色富文本，与详情界面口径一致。
                 if (person.ActiveFeatureCount > 0)
-                    feature.text = person.FeatureList[0].Name;
+                    feature.text = Person.GetFeatureDisplayName(person, 0);
                 else
                     feature.text = "";
             }

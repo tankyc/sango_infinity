@@ -431,10 +431,12 @@ namespace Sango.Mod
 
         public void Init()
         {
+            // 只登记官方内置资源包，真正的 AssetBundle 加载推迟到首次使用
+            // （详见 PackageManager 的懒加载说明），避免启动阶段把全部 .pkg 读进内存
             string path = $"{Path.ContentRootPath}/Package/{PlatformUtility.GetPlatformName()}";
             Directory.EnumFiles(path, "*.pkg", SearchOption.AllDirectories, (file) =>
             {
-                Sango.Log.Info($"LoadPackage: {file}");
+                Sango.Log.Info($"登记资源包: {file}");
                 string packageName = System.IO.Path.GetFileNameWithoutExtension(file).Split('_')[0];
                 PackageManager.Instance.AddPackage(packageName, file, true);
             });
@@ -565,6 +567,11 @@ namespace Sango.Mod
                             case "auther":
                                 mod.Author = c_v[1].Trim();
                                 break;
+                            // 创意工坊在重写 mod.info 时写入的"作者本地 id":
+                            // 私有资源引用靠它做命名空间的第二来源,避免被服务端重新分配的 id 顶掉
+                            case "privateid":
+                                mod.PrivateId = c_v[1].Trim();
+                                break;
                             case "size":
                                 long.TryParse(c_v[1].Trim(), out mod.Size);
                                 break;
@@ -588,6 +595,8 @@ namespace Sango.Mod
             {
                 mod.ModDir = path;
                 mod.ModDirName = System.IO.Path.GetFileName(path);
+                // 目录已变:之前缓存的私有命名空间(读自旧目录)必须作废,否则会指向已删除的旧路径
+                mod.ResetPrivateCache();
                 string[] lines = File.ReadAllLines(info_file);
                 foreach (string s in lines)
                 {
@@ -619,6 +628,13 @@ namespace Sango.Mod
                                 break;
                             case "author":
                                 mod.Author = c_v[1].Trim();
+                                break;
+                            case "auther":
+                                mod.Author = c_v[1].Trim();
+                                break;
+                            // 与 LoadMod 保持一致:创意工坊重写 mod.info 时写入的作者本地 id
+                            case "privateid":
+                                mod.PrivateId = c_v[1].Trim();
                                 break;
                         }
                     }
@@ -775,10 +791,16 @@ namespace Sango.Mod
             {
                 Mod mod = mEnabledModList[i];
 
-                // 私有资源目录:只登记"模组Id -> 私有目录"的映射,供 mod://模组Id/路径 显式引用
+                // 私有资源目录:登记"标识 -> 私有目录"的映射,供 mod://标识/路径 显式引用。
+                // 一个模组可能同时登记多个标识(命名空间 / privateid / 真实 id),原因见 Mod.GetPrivateKeys:
+                // 创意工坊会把包内 id 换成服务端分配的短 id,只认 id 会让老引用全部失效。
                 // 它不会进入搜索路径,因此不会覆盖任何模组的普通资源,也不会被其他模组覆盖
                 if (mod.HasPrivateDir)
-                    ModAssetPath.RegisterModRoot(mod.Id, mod.PrivateDir);
+                {
+                    List<string> privateKeys = mod.GetPrivateKeys();
+                    for (int k = 0; k < privateKeys.Count; k++)
+                        ModAssetPath.RegisterModRoot(privateKeys[k], mod.PrivateDir);
+                }
 
                 Path.AddSearchPath($"{mod.ModDir}", true);
                 mod.LoadLanguage();
@@ -793,15 +815,54 @@ namespace Sango.Mod
         }
 
         /// <summary>
+        /// 取"当前应参与数据合并的模组列表"（按加载顺序）。
+        ///
+        /// 【为什么需要回落】正常启动是 <c>GameInit</c> 协程里先 <see cref="InitMods()"/> 填表、
+        /// 再 <c>GameData.Init()</c> 读数据，此时 <see cref="mEnabledModList"/> 已就绪。
+        /// 但地图编辑器（<c>EditorMap.Awake</c>）与剧本编辑器
+        /// （<c>ScenarioMaker.Init</c> / <c>ScenarioEdit.EnsureContentInit</c>）会**直接**
+        /// 调 <c>GameData.Instance.Init()</c>，绕过 InitMods —— 此刻 mEnabledModList 还是
+        /// <c>ModManager.Init()</c> 建的空表，遍历它等于"一个模组都不加载"：
+        /// 编辑器里的特技表 / 兵种表 / 等级表缺少模组覆盖，与游戏内数值不一致。
+        ///
+        /// 回落来源是 <c>Mods/modList.txt</c> —— 与 InitMods 读的是同一份持久化真源，
+        /// 与 <see cref="GetEnabledModDirs"/> 的处理保持一致。
+        /// </summary>
+        /// <returns>参与合并的模组列表；模组系统尚未初始化时返回空表</returns>
+        List<Mod> GetMergeMods()
+        {
+            if (mEnabledModList != null && mEnabledModList.Count > 0)
+                return mEnabledModList;
+
+            List<Mod> fallback = new List<Mod>();
+            // mModMap 为 null = ModManager.Init() 还没跑（纯逻辑单测 / 编辑器预览），没有可解析的模组
+            if (mModMap == null)
+                return fallback;
+
+            string[] names = LoadModList();
+            if (names == null)
+                return fallback;
+
+            for (int i = 0; i < names.Length; i++)
+            {
+                Mod mod;
+                if (mModMap.TryGetValue(names[i], out mod) && mod != null)
+                    fallback.Add(mod);
+            }
+            return fallback;
+        }
+
+        /// <summary>
         /// 遍历文件,找到Mod下所有这个路径的文件,一般用来合并json文件
         /// </summary>
         /// <param name="path">Assets/AA/BB/cc.dd</param>
         /// <param name="action"></param>
         public void EnumFiles(string path, System.Action<string> action)
         {
-            for (int i = 0; i < mEnabledModList.Count; i++)
+            List<Mod> mergeMods = GetMergeMods();
+            for (int i = 0; i < mergeMods.Count; i++)
             {
-                Mod mod = mEnabledModList[i];
+                Mod mod = mergeMods[i];
                 string targetFile = mod.GetFullPath(path);
                 if (File.Exists(targetFile))
                 {
@@ -825,9 +886,10 @@ namespace Sango.Mod
         /// <param name="action"></param>
         public void EnumFiles(string path, System.Action<Mod, string> action)
         {
-            for (int i = 0; i < mEnabledModList.Count; i++)
+            List<Mod> mergeMods = GetMergeMods();
+            for (int i = 0; i < mergeMods.Count; i++)
             {
-                Mod mod = mEnabledModList[i];
+                Mod mod = mergeMods[i];
                 string targetFile = mod.GetFullPath(path);
                 if (File.Exists(targetFile))
                 {
@@ -851,9 +913,10 @@ namespace Sango.Mod
         /// <param name="action"></param>
         public void EnumFiles(string path, string searchPattern, SearchOption searchOption, System.Action<string> action)
         {
-            for (int i = 0; i < mEnabledModList.Count; i++)
+            List<Mod> mergeMods = GetMergeMods();
+            for (int i = 0; i < mergeMods.Count; i++)
             {
-                Mod mod = mEnabledModList[i];
+                Mod mod = mergeMods[i];
                 string targetDir = mod.GetFullPath(path);
                 Directory.EnumFiles(targetDir, searchPattern, searchOption, action);
             }
@@ -866,9 +929,10 @@ namespace Sango.Mod
         /// <param name="action"></param>
         public void EnumDirectory(string path, System.Action<string> action)
         {
-            for (int i = 0; i < mEnabledModList.Count; i++)
+            List<Mod> mergeMods = GetMergeMods();
+            for (int i = 0; i < mergeMods.Count; i++)
             {
-                Mod mod = mEnabledModList[i];
+                Mod mod = mergeMods[i];
                 string targetFile = mod.GetFullPath(path);
                 if (Directory.Exists(targetFile))
                 {
@@ -890,8 +954,12 @@ namespace Sango.Mod
             if (mEnabledModList.Contains(mod))
                 mEnabledModList.Remove(mod);
             mModMap.Remove(mod.Id);
-            // 注销私有资源目录,避免卸载后仍能通过 mod://模组Id/路径 访问到已删除的模组
-            ModAssetPath.UnregisterModRoot(mod.Id);
+            // 注销私有资源目录,避免卸载后仍能通过 mod://标识/路径 访问到已删除的模组。
+            // 必须按登记时的全部标识逐个注销:只注销真实 id 会让命名空间键残留在解析表里,
+            // 表现为"模组已删除,但旧模组路径还能被访问"
+            List<string> privateKeys = mod.GetPrivateKeys();
+            for (int k = 0; k < privateKeys.Count; k++)
+                ModAssetPath.UnregisterModRoot(privateKeys[k]);
             Sango.Directory.Delete(mod.ModDir);
             GameEvent.OnModUpdate?.Invoke(mod);
         }

@@ -39,16 +39,45 @@ namespace Sango.Core
         /// </summary>
         public void LoadCommonData(ScenarioCommonData scenarioCommonData)
         {
+            LoadCommonDataInto(scenarioCommonData);
+        }
+
+        /// <summary>
+        /// 把 Data/Common 下全部 JSON（Content + CustomEdit + 启用模组）解析进指定对象。
+        ///
+        /// 【三层顺序与覆盖语义】后加载的同 Id 条目覆盖先加载的：
+        ///   ① Content    —— 基础内容，永远全部加载
+        ///   ② CustomEdit —— 玩家自建覆盖
+        ///   ③ 启用模组    —— 按 Mods/modList.txt 的顺序逐个覆盖；未启用的模组一条都不读
+        ///
+        /// 【为什么必须抽成一个方法】原先三个入口各写一份，口径已经漂移过一次：
+        /// <see cref="LoadCommonData()"/>（GameData 单例，剧本编辑器 / 地图编辑器用的那份）
+        /// 少了第 ② 层，导致自建目录的 Common 覆盖表在编辑器里读不到、
+        /// 同一份数据在游戏内却生效 —— 典型"改了不生效"。共用一个实现后不会再漂移。
+        ///
+        /// 【模组列表为空时的回落】由 <c>ModManager.GetMergeMods()</c> 负责：
+        /// 编辑器路径绕过 InitMods 时 mEnabledModList 是空表，它会回落到 modList.txt，
+        /// 避免编辑器里丢失模组覆盖的特技 / 兵种 / 等级表。
+        /// </summary>
+        /// <param name="scenarioCommonData">目标容器；为 null 时直接返回</param>
+        void LoadCommonDataInto(ScenarioCommonData scenarioCommonData)
+        {
+            if (scenarioCommonData == null)
+                return;
+
+            // ① 基础内容
             Sango.Directory.EnumFiles(Path.ContentRootPath + "/Data/Common", file =>
             {
                 scenarioCommonData.Load(file);
             });
 
+            // ② 玩家自建（覆盖基础内容）
             Sango.Directory.EnumFiles(Path.CustomEditRootPath + "/Data/Common", file =>
             {
                 scenarioCommonData.Load(file);
             });
 
+            // ③ 启用模组（按 modList.txt 顺序覆盖前两层）
             ModManager.Instance.EnumFiles("Data/Common", "*.json", System.IO.SearchOption.AllDirectories, file =>
             {
                 scenarioCommonData.Load(file);
@@ -58,18 +87,7 @@ namespace Sango.Core
         public ScenarioCommonData LoadNewCommonData()
         {
             ScenarioCommonData scenarioCommonData = new ScenarioCommonData();
-            Sango.Directory.EnumFiles(Path.ContentRootPath + "/Data/Common", file =>
-            {
-                scenarioCommonData.Load(file);
-            });
-            Sango.Directory.EnumFiles(Path.CustomEditRootPath + "/Data/Common", file =>
-            {
-                scenarioCommonData.Load(file);
-            });
-            ModManager.Instance.EnumFiles("Data/Common", "*.json", System.IO.SearchOption.AllDirectories, file =>
-            {
-                scenarioCommonData.Load(file);
-            });
+            LoadCommonDataInto(scenarioCommonData);
             return scenarioCommonData;
         }
 
@@ -79,14 +97,10 @@ namespace Sango.Core
                 return ScenarioCommonData;
 
             ScenarioCommonData = new ScenarioCommonData();
-            Sango.Directory.EnumFiles(Path.ContentRootPath + "/Data/Common", file =>
-            {
-                ScenarioCommonData.Load(file);
-            });
-            ModManager.Instance.EnumFiles("Data/Common", "*.json", System.IO.SearchOption.AllDirectories, file =>
-            {
-                ScenarioCommonData.Load(file);
-            });
+            // 【历史缺陷已修】这里原先少了 CustomEdit 那一层，与另外两个入口口径不一致：
+            // 自建目录的 Common 覆盖表在编辑器（剧本 / 地图编辑器）里读不到，游戏内却生效。
+            // 现在统一走 LoadCommonDataInto，三层顺序与覆盖语义完全一致。
+            LoadCommonDataInto(ScenarioCommonData);
             return ScenarioCommonData;
         }
 

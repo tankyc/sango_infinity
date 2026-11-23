@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Sango.Render;
 using Sango.Core.Action;
 using System;
@@ -775,6 +776,27 @@ namespace Sango.Core
         [JsonIgnore] public SangoObjectList<Feature> extra_feature_list;
 
         /// <summary>
+        /// 特技槽位解锁条件（JSON 配置，可选）。
+        ///
+        /// 【为什么存 JArray 而不是强类型 List】条件类的构造必须走
+        /// <see cref="Condition.Create(string)"/> 工厂，Newtonsoft 无法直接反序列化抽象基类
+        /// （参见 TroopType / CityLevelType 里被注释掉的同名字段）。所以这里先原样收下 JSON，
+        /// 再在 <see cref="OnScenarioPrepare"/> 里用 <see cref="FeatureUnlockCondition.Init"/> 解析。
+        ///
+        /// 【格式】每项 <c>{ "slot": 0, "desc": "...", "conditions": { "class": "...", ... } }</c>，
+        /// 详细语义见 <see cref="FeatureUnlockCondition"/>。
+        /// </summary>
+        [JsonProperty("FeatureUnlockConditions")]
+        public JArray FeatureUnlockConditionsJson;
+
+        /// <summary>
+        /// 解析后的特技槽位解锁条件（运行期视图，不存档 —— 由
+        /// <see cref="FeatureUnlockConditionsJson"/> 每次加载时重建）。
+        /// null 表示"该武将没有任何个性化配置"，此时全部槽位回落剧本参数。
+        /// </summary>
+        [JsonIgnore] public List<FeatureUnlockCondition> featureUnlockConditions;
+
+        /// <summary>
         /// 武将个人关系类特技装配的动作列表。
         /// </summary>
         public List<ActionBase> actionList;
@@ -1524,6 +1546,9 @@ namespace Sango.Core
             // 读档只解析出**自带**特技（FeatureListId 只含 FeatureList）；
             // 装备 / 官职附加的特技在紧接着的 InitPersonActions → SyncExtraFeatures 里按当前状态重建。
             FeatureList = scenario.Array2ObjectList(scenario.CommonData.Features, FeatureListId);
+            // 【解锁条件必须早于装配】InitPersonActions 会经 CollectEffectiveFeatures 按"已解锁"
+            // 过滤后装配特技动作，解析晚了会让未解锁特技先挂上一次事件订阅。
+            ParseFeatureUnlockConditions();
             // 特技对象已完成解析后再装配个人关系 Action，确保事件订阅只依赖有效配置。
             InitPersonActions();
 
@@ -4217,6 +4242,217 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 武将当前等级。
+        ///
+        /// 【为什么要有这个包装】<see cref="LevelId"/> 是存档值，<see cref="Level"/> 是解析出来的
+        /// <see cref="PersonLevel"/> 对象，两者在正常流程里一致；但剧本编辑器 / 单测里可能出现
+        /// "只赋了 Id 没解析对象"或反之的状态，这里统一以对象为准、对象缺失才退回 Id，
+        /// 避免解锁判定在两套数据源之间摇摆。
+        /// </summary>
+        /// <returns>等级数值，未设置时为 0</returns>
+        public int GetLevel()
+        {
+            if (Level != null)
+                return Level.Id;
+            return LevelId;
+        }
+
+        /// <summary>
+        /// 解析 <see cref="FeatureUnlockConditionsJson"/> 到 <see cref="featureUnlockConditions"/>。
+        ///
+        /// 【调用时机】<see cref="OnScenarioPrepare"/>，必须排在
+        /// <see cref="FeatureList"/> 解析之后、<see cref="InitPersonActions"/> 之前 ——
+        /// 装配动作时就要按解锁状态过滤，晚了会让未解锁特技先挂上一次事件订阅。
+        ///
+        /// 【重复槽位】同一个 slot 配多条时后写的覆盖先写的（方便剧本 JSON 对基础武将库做增量覆盖）。
+        /// 【配置错误】<see cref="FeatureUnlockCondition.Init"/> 返回 false 的条目静默跳过，
+        /// 该槽位回落剧本参数；条件类名写错的条目自行打错误日志。
+        /// </summary>
+        void ParseFeatureUnlockConditions()
+        {
+            featureUnlockConditions = null;
+            if (FeatureUnlockConditionsJson == null || FeatureUnlockConditionsJson.Count == 0)
+                return;
+
+            List<FeatureUnlockCondition> list = new List<FeatureUnlockCondition>(FeatureUnlockConditionsJson.Count);
+            for (int i = 0; i < FeatureUnlockConditionsJson.Count; i++)
+            {
+                JObject obj = FeatureUnlockConditionsJson[i] as JObject;
+                if (obj == null)
+                    continue;
+
+                FeatureUnlockCondition conf = new FeatureUnlockCondition();
+                if (!conf.Init(obj, this))
+                    continue;
+
+                // 同槽位覆盖：后写者生效
+                int exist = -1;
+                for (int j = 0; j < list.Count; j++)
+                {
+                    if (list[j].slot == conf.slot)
+                    {
+                        exist = j;
+                        break;
+                    }
+                }
+
+                if (exist >= 0)
+                    list[exist] = conf;
+                else
+                    list.Add(conf);
+            }
+
+            if (list.Count > 0)
+                featureUnlockConditions = list;
+        }
+
+        /// <summary>
+        /// 取指定特技槽位的个性化解锁配置。
+        /// </summary>
+        /// <param name="slot">槽位下标（0 起）</param>
+        /// <returns>配置项；该槽没有个性化配置时返回 null</returns>
+        public FeatureUnlockCondition GetFeatureUnlockCondition(int slot)
+        {
+            if (featureUnlockConditions == null)
+                return null;
+
+            for (int i = 0; i < featureUnlockConditions.Count; i++)
+            {
+                if (featureUnlockConditions[i].slot == slot)
+                    return featureUnlockConditions[i];
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 第 <paramref name="slot"/> 个特技槽是否已解锁。
+        ///
+        /// 【判定优先级】武将个性配置（<see cref="FeatureUnlockConditionsJson"/>）优先；
+        /// 该槽没配时才回落剧本参数 <see cref="ScenarioVariables.skillSlotUnlockLevels"/>
+        /// 的等级门槛（超范围取末位）。
+        ///
+        /// 【与名额的关系】本方法只回答"这个槽位能不能用"，不回答"这个槽位还算不算在名额内"——
+        /// 名额仍由 <see cref="ActiveFeatureCount"/> 单独把关，两者是相乘关系。
+        ///
+        /// 【额外附加不受影响】<see cref="extra_feature_list"/>（装备 / 官职）不占槽位、不参与解锁判定。
+        ///
+        /// 【原版无对应实现】Open311 判定能否学特技只看 <c>!person->has_skill(skill_id)</c>
+        /// （s11_sys_scen_ability.cpp:60-64），没有槽位与解锁等级；本项目的"名额 + 解锁"两层
+        /// 限制属于自创，因此这里不引用原版出处，只保证与原版的"学到即永久拥有"不冲突 ——
+        /// 解锁后特技数据一直都在（FeatureList 不删），升级即恢复生效，无需重新学习。
+        /// </summary>
+        /// <param name="slot">槽位下标（0 起）</param>
+        /// <returns>已解锁返回 true</returns>
+        public bool IsFeatureSlotUnlocked(int slot)
+        {
+            if (slot < 0)
+                return false;
+
+            FeatureUnlockCondition conf = GetFeatureUnlockCondition(slot);
+            if (conf != null)
+                return conf.Check(this);
+
+            int needLevel = ScenarioVariables.GetSkillSlotUnlockLevel(slot);
+            if (needLevel <= 0)
+                return true;
+
+            return GetLevel() >= needLevel;
+        }
+
+        /// <summary>
+        /// 特技解锁状态可能翻转后的统一刷新入口。
+        ///
+        /// 【什么时候必须调】任何可能让 <see cref="IsFeatureSlotUnlocked"/> 结果变化的操作：
+        /// 等级变化（当前只有事件的"设置等级"效果）、属性变化（解锁条件里配了属性比较时）、
+        /// 势力 / 性别等条件依赖项变化。
+        ///
+        /// 【为什么必须显式刷】特技效果不是"用时再查"的，而是在
+        /// <see cref="InitPersonActions"/> / <c>Troop.InitActionList</c> /
+        /// <c>City.InitPersonAction</c> 里**一次性订阅事件**完成的。
+        /// 解锁瞬间数据已经变了，订阅表却还是旧的 —— 不重建就表现为
+        /// "界面显示已解锁、实际没有任何效果"，要等到部队下次 ResetActionAndStatus
+        /// 或城池下回合结算才会补上。
+        ///
+        /// 【三层重建的代价】
+        ///   · 个人关系类：<see cref="InitPersonActions"/> 只清自己那张表，代价很小；
+        ///   · 部队类：<c>Troop.ResetActionAndStatus</c> 会连 <c>CalculateAttribute</c>
+        ///     一起重算，量级是 O(队员数)，但一回合只会在"设置等级"这种低频事件里发生；
+        ///   · 城池类：<c>City.InitPersonAction</c> 是 O(在城武将数)。城池本身在
+        ///     <c>City.OnForceTurnEnd</c> 每回合都会重建一次，这里多调一次只是为了
+        ///     让"事件发生在回合中间"时也能当场生效，不必等到下回合。
+        /// </summary>
+        public void RefreshFeatureUnlockState()
+        {
+            InitPersonActions();
+
+            Troop troop = mBelongTroop;
+            if (troop != null)
+                troop.ResetActionAndStatus();   // 内部自带 isCleared 守卫，已收尾的部队是空转
+
+            City city = BelongCity ?? CurrentCity;
+            if (city != null)
+                city.InitPersonAction();
+        }
+
+        /// <summary>
+        /// 第 <paramref name="slot"/> 个特技槽的解锁条件说明（界面展示用）。
+        ///
+        /// 【文案优先级】武将配置里的 <c>desc</c> → 剧本参数的等级门槛文案 → 空串（已解锁，无需提示）。
+        /// </summary>
+        /// <param name="slot">槽位下标（0 起）</param>
+        /// <returns>中文说明；该槽无需提示时返回空串</returns>
+        public string GetFeatureUnlockDesc(int slot)
+        {
+            if (slot < 0)
+                return string.Empty;
+
+            FeatureUnlockCondition conf = GetFeatureUnlockCondition(slot);
+            if (conf != null)
+            {
+                if (!string.IsNullOrEmpty(conf.desc))
+                    return conf.desc;
+                return "未满足该特技的解锁条件";
+            }
+
+            int needLevel = ScenarioVariables.GetSkillSlotUnlockLevel(slot);
+            if (needLevel <= 0)
+                return string.Empty;
+
+            return $"武将达到 {needLevel} 级解锁";
+        }
+
+        /// <summary>
+        /// 取特技的显示名（未解锁时套灰色富文本），供列表 / 详情 / 招募等只显示名字的界面复用。
+        ///
+        /// 【为什么要判断 Contains("&lt;color=")】<see cref="Feature.Name"/> 对"没有 actionEntities 的
+        /// 特技"本来就返回 &lt;color=#6D6D6D&gt; 包起来的字符串，再包一层会形成嵌套 &lt;color&gt; 标签，
+        /// Unity 富文本对嵌套同标签的显示不稳定（会出现颜色不生效或整段变透明）。
+        /// </summary>
+        /// <param name="person">武将</param>
+        /// <param name="slot">特技槽位下标（0 起）</param>
+        /// <returns>可直接赋给 Text 的字符串；无该槽时返回空串</returns>
+        public static string GetFeatureDisplayName(Person person, int slot)
+        {
+            if (person == null || person.FeatureList == null)
+                return string.Empty;
+            if (slot < 0 || slot >= person.FeatureList.Count)
+                return string.Empty;
+
+            Feature feature = person.FeatureList[slot];
+            if (feature == null)
+                return string.Empty;
+
+            string name = feature.Name;
+            if (string.IsNullOrEmpty(name))
+                return string.Empty;
+
+            if (person.IsFeatureSlotUnlocked(slot) || name.Contains("<color="))
+                return name;
+
+            return $"<color=#6D6D6D>{name}</color>";
+        }
+
+        /// <summary>
         /// 特技是否已达本剧本上限（不能再通过培育学习新特技）。
         /// 上限配 &lt;= 0（不限制）时恒为 false。
         ///
@@ -4248,13 +4484,39 @@ namespace Sango.Core
         /// <returns>存在该特技返回 true</returns>
         public bool HasFeature(int id)
         {
-            // ① 自带（生效名额内）
+            return HasFeature(id, false);
+        }
+
+        /// <summary>
+        /// 是否拥有指定特技（可选是否把"未解锁槽位"也算进来）。
+        ///
+        /// 【两种口径必须分开，否则会重复授予】
+        ///   · <paramref name="includeLocked"/> = false（默认）：**效果口径** ——
+        ///     未解锁 / 超出名额的特技不生效，按"没有"处理。装备条件、事件条件、
+        ///     AI 决策、战法条件都走这一档；
+        ///   · <paramref name="includeLocked"/> = true：**数据口径** ——
+        ///     <see cref="FeatureList"/> 里凡是存在就算"拥有"，不管名额与解锁。
+        ///     **培育 / 事件授予的查重必须用这一档**：特技对象已经在列表里了，
+        ///     只是暂时没解锁，再 Add 一次就会变成两条同名特技（解锁后两份效果叠加）。
+        /// </summary>
+        /// <param name="id">特技 Id</param>
+        /// <param name="includeLocked">是否把未解锁 / 超出名额的自带特技也算作拥有</param>
+        /// <returns>存在该特技返回 true</returns>
+        public bool HasFeature(int id, bool includeLocked)
+        {
+            // ① 自带
             if (FeatureList != null)
             {
-                int count = ActiveFeatureCount;
+                // 数据口径查全表（名额外的数据同样不能再加一条）
+                int count = includeLocked ? FeatureList.Count : ActiveFeatureCount;
                 int total = FeatureList.Count;
                 for (int i = 0; i < count && i < total; i++)
                 {
+                    // 【效果口径】槽位未解锁 = 效果不存在，不参与"拥有"判定，
+                    // 否则装备条件 / 事件条件 / AI 决策会按"已拥有"放行，效果却不装配。
+                    if (!includeLocked && !IsFeatureSlotUnlocked(i))
+                        continue;
+
                     if (Feature.ContainsId(FeatureList[i], id, 0))
                         return true;
                 }
@@ -4471,6 +4733,12 @@ namespace Sango.Core
                 int total = FeatureList.Count;
                 for (int i = 0; i < count && i < total; i++)
                 {
+                    // 【槽位未解锁 = 不生效】这是"只有已解锁的特技才展示效果"的唯一落点：
+                    // 部队 / 城池 / 内政 / 个人关系四层的装配都从这里取数，
+                    // 跳过即等于该特技的效果完全不存在（升到等级后自动恢复，无需重新学习）。
+                    if (!IsFeatureSlotUnlocked(i))
+                        continue;
+
                     Feature.CollectEffective(FeatureList[i], kindMask, result, 0);
                 }
             }

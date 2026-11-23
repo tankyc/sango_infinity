@@ -1,5 +1,7 @@
 using System;
+using System.Buffers;
 using System.IO;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -177,35 +179,52 @@ namespace Sango.Render
             // ---- ① 控制贴图 / 高度 / 水面高度（一次遍历三张 R8）----
             int texW = asset.VertexWidth;
             int texH = asset.VertexHeight;
-            byte[] control = new byte[texW * texH];
-            byte[] height = new byte[texW * texH];
-            byte[] water = new byte[texW * texH];
+            int texelCount = texW * texH;
 
-            MapData.VertexData[][] vm = mapData.vertexDatas;
-            if (vm == null || vm.Length == 0)
-                return null;
+            // 【池化】三张 R8 各占 texW*texH 字节（1024² 时各 1MB）。
+            // CreateR8 内部走 SetPixelData（把数据拷进纹理），因此 CreateR8 返回后数组即可归还。
+            // 【必须清零】Rent 拿到的数组内容不确定，地图边缘等未写入的 texel 会残留上一轮的脏数据。
+            byte[] control = ArrayPool<byte>.Shared.Rent(texelCount);
+            byte[] height = ArrayPool<byte>.Shared.Rent(texelCount);
+            byte[] water = ArrayPool<byte>.Shared.Rent(texelCount);
+            Array.Clear(control, 0, texelCount);
+            Array.Clear(height, 0, texelCount);
+            Array.Clear(water, 0, texelCount);
 
-            // 轴序：texel.x = vx（世界 Z 方向）、texel.y = vy（世界 X 方向），与 vertexDatas[x][y] 一致。
-            // 【内存布局】Unity 纹理是行主序：texel(vx, vy) 位于 index = vy * texW + vx（vy 是行）。
-            for (int x = 0; x < texW && x < vm.Length; x++)
+            try
             {
-                MapData.VertexData[] col = vm[x];
-                int copy = Mathf.Min(texH, col.Length);
-                for (int y = 0; y < copy; y++)
-                {
-                    MapData.VertexData v = col[y];
-                    int index = y * texW + x;
-                    control[index] = v.textureIndex;
-                    height[index] = v.height;
-                    // water 字段本身就是"有没有水"的唯一真值：0 = 无水，非 0 = 水面高度（×0.5 得世界高度）。
-                    // 远景水面的 clip 与岸线 alpha 全部从这一张图推出来，不再额外烘掩码。
-                    water[index] = v.water;
-                }
-            }
+                MapData.VertexData[][] vm = mapData.vertexDatas;
+                if (vm == null || vm.Length == 0)
+                    return null;
 
-            asset.ControlTex = CreateR8("MapCellTerrain_Control", texW, texH, control);
-            asset.HeightTex = CreateR8("MapCellTerrain_Height", texW, texH, height);
-            asset.WaterHeightTex = CreateR8("MapCellTerrain_Water", texW, texH, water);
+                // 轴序：texel.x = vx（世界 Z 方向）、texel.y = vy（世界 X 方向），与 vertexDatas[x][y] 一致。
+                // 【内存布局】Unity 纹理是行主序：texel(vx, vy) 位于 index = vy * texW + vx（vy 是行）。
+                for (int x = 0; x < texW && x < vm.Length; x++)
+                {
+                    MapData.VertexData[] col = vm[x];
+                    int copy = Mathf.Min(texH, col.Length);
+                    for (int y = 0; y < copy; y++)
+                    {
+                        MapData.VertexData v = col[y];
+                        int index = y * texW + x;
+                        control[index] = v.textureIndex;
+                        height[index] = v.height;
+                        // water 字段本身就是"有没有水"的唯一真值：0 = 无水，非 0 = 水面高度（×0.5 得世界高度）。
+                        // 远景水面的 clip 与岸线 alpha 全部从这一张图推出来，不再额外烘掩码。
+                        water[index] = v.water;
+                    }
+                }
+
+                asset.ControlTex = CreateR8("MapCellTerrain_Control", texW, texH, control);
+                asset.HeightTex = CreateR8("MapCellTerrain_Height", texW, texH, height);
+                asset.WaterHeightTex = CreateR8("MapCellTerrain_Water", texW, texH, water);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(control);
+                ArrayPool<byte>.Shared.Return(height);
+                ArrayPool<byte>.Shared.Return(water);
+            }
 
             // ---- ② 图层贴图数组 + 每层参数 ----
             asset.BuildLayerArray(season);
@@ -258,6 +277,29 @@ namespace Sango.Render
         }
 
         /// <summary>
+        /// 缺图层用的白色兜底像素（按 TextureSize 惰性分配并复用）。
+        /// 详见 <see cref="FillLayerArray"/> 内的说明。
+        /// </summary>
+        static Color32[] sharedWhitePixels;
+
+        /// <summary>
+        /// 取指定长度的共享白色像素数组；长度变化（换地图尺寸）时重新分配。
+        /// </summary>
+        /// <param name="length">像素数量</param>
+        /// <returns>内容全白的数组；**只读使用**，调用方不得修改其中元素</returns>
+        static Color32[] GetSharedWhitePixels(int length)
+        {
+            if (sharedWhitePixels == null || sharedWhitePixels.Length != length)
+            {
+                sharedWhitePixels = new Color32[length];
+                Color32 white = new Color32(255, 255, 255, 255);
+                for (int i = 0; i < length; i++)
+                    sharedWhitePixels[i] = white;
+            }
+            return sharedWhitePixels;
+        }
+
+        /// <summary>
         /// 把指定季节的全部图层贴图灌进纹理数组，并同步每层 tiling 参数。
         ///
         /// 【首次烘焙与季节切换共用本方法】四季贴图各一套，切换季节时只有贴图内容与
@@ -266,10 +308,14 @@ namespace Sango.Render
         /// <param name="season">季节索引 0~3（Autumn / Spring / Summer / Winter）</param>
         private void FillLayerArray(int season)
         {
-            // 白色兜底（缺图的层）：一次分配，全部缺图层共用
-            Color32[] white = new Color32[TextureSize * TextureSize];
-            for (int i = 0; i < white.Length; i++)
-                white[i] = new Color32(255, 255, 255, 255);
+            // 白色兜底（缺图的层）：静态复用，全部缺图层共用同一份。
+            //
+            // 【为什么不再每次 new】TextureSize = 256，`new Color32[256*256]` 单次 256KB；
+            // 切季节（RefreshSeason → FillLayerArray）会把本方法再走一遍，四季各多一次白分配。
+            // 注意量级：这一步只省 256KB/次，RebuildTerrainAsset 那 20.2MB 的大头在
+            // ResizeToTextureSize 的"每层重采样"（见该方法的说明），这里只是顺手消掉。
+            // SetPixels32 只读不写该数组，静态共享安全。
+            Color32[] white = GetSharedWhitePixels(TextureSize * TextureSize);
 
             MissingCount = 0;
             Vector4[] parameters = new Vector4[layers.Length];
@@ -366,25 +412,65 @@ namespace Sango.Render
             }
         }
 
-        /// <summary>把任意尺寸贴图重采样到 TextureSize²（RenderTexture blit 路径，失败返回 null）。</summary>
+        /// <summary>
+        /// 重采样用的中间纹理与像素缓冲（静态复用，随进程存活固定一份）。
+        ///
+        /// 【为什么必须复用】本方法在 <see cref="FillLayerArray"/> 里对**每一层**贴图调用一次，
+        /// 一张地图 36~49 层就是 36~49 次。原先每次 `new Texture2D(256×256, RGBA32)` 再
+        /// `GetPixels32()` 取一个新数组，单次约 2 × 256KB，全程合计 18~25MB GC ——
+        /// 这才是 Profiler 里 <c>MapTerrain.RebuildTerrainAsset</c> 那 20.2MB 的主因
+        /// （白色兜底数组只有 256KB，不是主要来源）。
+        /// 现在纹理与数组都只分配一次，之后每层只做 Blit + ReadPixels + 原地填充。
+        /// </summary>
+        static Texture2D resampleTexture;
+
+        /// <summary>重采样结果缓冲（与 <see cref="resampleTexture"/> 配套，避免每层 new Color32[]）</summary>
+        static Color32[] resamplePixels;
+
+        /// <summary>
+        /// 把任意尺寸贴图重采样到 TextureSize²，结果写入**共享缓冲**。
+        /// </summary>
+        /// <param name="source">源贴图</param>
+        /// <returns>
+        /// 共享像素缓冲：**下一次调用会被覆盖**，调用方必须立即消费（SetPixels32），不得保存引用；
+        /// 重采样失败时返回 null。
+        /// </returns>
         private static Color32[] ResizeToTextureSize(Texture source)
         {
             RenderTexture target = null;
-            Texture2D resized = null;
+            // 提前记下当前激活的 RT：ReadPixels 抛异常时也要确保恢复，
+            // 否则后续所有渲染都会画到这张临时 RT 上。
+            RenderTexture previous = RenderTexture.active;
             try
             {
                 target = RenderTexture.GetTemporary(TextureSize, TextureSize, 0,
                     RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default);
                 Graphics.Blit(source, target);
 
-                RenderTexture previous = RenderTexture.active;
-                RenderTexture.active = target;
-                resized = new Texture2D(TextureSize, TextureSize, TextureFormat.RGBA32, false);
-                resized.ReadPixels(new Rect(0, 0, TextureSize, TextureSize), 0, 0);
-                resized.Apply(false, false);
-                RenderTexture.active = previous;
+                if (resampleTexture == null)
+                {
+                    resampleTexture = new Texture2D(TextureSize, TextureSize, TextureFormat.RGBA32, false)
+                    {
+                        name = "MapCellTerrain_Resample",
+                        hideFlags = HideFlags.HideAndDontSave,
+                    };
+                }
 
-                return resized.GetPixels32();
+                int pixelCount = TextureSize * TextureSize;
+                if (resamplePixels == null || resamplePixels.Length != pixelCount)
+                    resamplePixels = new Color32[pixelCount];
+
+                RenderTexture.active = target;
+                resampleTexture.ReadPixels(new Rect(0, 0, TextureSize, TextureSize), 0, 0);
+                resampleTexture.Apply(false, false);
+
+                // 【零分配取值】GetPixelData 返回纹理内部内存的 NativeArray 视图（不需要也不允许 Dispose），
+                // CopyTo 直接填充复用的 resamplePixels。
+                // 注意：Texture2D.GetPixels32() 在 2021.3 只有无参 / miplevel 两个重载，
+                // 无参重载每次都会 new 一个 TextureSize² 的数组 —— 那正是原先的分配来源。
+                NativeArray<Color32> nativePixels = resampleTexture.GetPixelData<Color32>(0);
+                nativePixels.CopyTo(resamplePixels);
+                return resamplePixels;
             }
             catch (Exception exception)
             {
@@ -393,12 +479,8 @@ namespace Sango.Render
             }
             finally
             {
+                RenderTexture.active = previous;
                 if (target != null) RenderTexture.ReleaseTemporary(target);
-                if (resized != null)
-                {
-                    if (Application.isPlaying) UnityEngine.Object.Destroy(resized);
-                    else UnityEngine.Object.DestroyImmediate(resized);
-                }
             }
         }
 

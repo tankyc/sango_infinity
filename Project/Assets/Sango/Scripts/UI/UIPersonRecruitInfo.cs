@@ -118,8 +118,20 @@ using Sango.Core; namespace Sango.UI
             // 只显示**生效**的第一个特技（超出剧本上限的特技不展示）
             if (person.ActiveFeatureCount > 0)
             {
-                featureText.text = person.FeatureList[0].Name;
-                featureDescriptionText.text = person.FeatureList[0].desc;
+                // 第 1 槽未解锁：名字置灰，说明行改成"怎么解锁"
+                bool unlocked = person.IsFeatureSlotUnlocked(0);
+                featureText.text = Person.GetFeatureDisplayName(person, 0);
+                if (unlocked)
+                {
+                    featureDescriptionText.text = person.FeatureList[0].desc;
+                }
+                else
+                {
+                    string tip = person.GetFeatureUnlockDesc(0);
+                    if (string.IsNullOrEmpty(tip))
+                        tip = "未解锁";
+                    featureDescriptionText.text = $"<color=#6D6D6D>{tip}（未解锁）</color>";
+                }
             }
             else
             {

@@ -175,7 +175,27 @@ namespace Sango.UI
             AddNumberItem("名字最大支持字数", variables.maxNameLength, 1, 20, (v) => { variables.maxNameLength = v; });
 
             // 最大生效特技数量：武将只前 N 个特技生效 / 展示 / 可学习；0 = 不限制
-            AddNumberItem("最大生效特技数量(0=不限)", variables.maxActiveFeatureCount, 0, 20, (v) => { variables.maxActiveFeatureCount = v; });
+            // 改完立刻 RefreshSetting，让下面的"槽位解锁等级"编辑格数量跟着扩展
+            AddNumberItem("最大生效特技数量(0=不限)", variables.maxActiveFeatureCount, 0, 20,
+                (v) => { variables.maxActiveFeatureCount = v; RefreshSetting(); });
+
+            // 特技槽位解锁等级：编辑格数量跟随"最大生效特技数量"动态扩展。
+            // 上限配 0（不限）时按场上最大特技数铺格子，与列表界面的列数口径保持一致。
+            // 每格写入走 SetSkillSlotUnlockLevel，数组不够长时自动扩容（新元素沿用原末位值），
+            // 读回走 GetSkillSlotUnlockLevel（越界取末位），保证显示值与判定值同源。
+            int featureSlotCount = variables.maxActiveFeatureCount > 0
+                ? Mathf.Min(variables.maxActiveFeatureCount, 20)
+                : PersonSortFunction.GetFeatureColumnCount();
+            if (featureSlotCount < 1)
+                featureSlotCount = 1;
+
+            for (int i = 0; i < featureSlotCount; i++)
+            {
+                int slotIndex = i;
+                AddNumberItem($"第{i + 1}槽解锁等级",
+                    ScenarioVariables.GetSkillSlotUnlockLevel(variables.skillSlotUnlockLevels, slotIndex), 0, 30,
+                    (v) => { variables.SetSkillSlotUnlockLevel(slotIndex, v); });
+            }
 
             AddNumberItem("电脑粮食倍率", variables.foodFactor, 0, 100, (v) => { variables.foodFactor = v; });
             AddNumberItem("电脑资金倍率", variables.goldFactor, 0, 100, (v) => { variables.goldFactor = v; });

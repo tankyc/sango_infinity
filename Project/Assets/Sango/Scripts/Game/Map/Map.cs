@@ -537,6 +537,58 @@ namespace Sango.Core
             GetSpiral(cub, radius, cellList);
         }
 
+        /// <summary>环状取格的临时容器（GetSpiralRing 用，避免每次分配 List）</summary>
+        static readonly List<Hexagon.Hex> spiralRingBuffer = new List<Hexagon.Hex>(64);
+
+        /// <summary>
+        /// 获取"环状"范围：距离起始格 <paramref name="startLen"/> ~ <paramref name="endLen"/> 的格子。
+        ///
+        /// 【为什么不能用 GetDirectSpiral】
+        /// 那个方法是 BFS：只有 <c>next.moveAble</c> 的格子才入队，遇到水域 / 山地 /
+        /// 已有建筑就中断扩散。拿它取建筑攻击范围会有两个后果：
+        ///   1. 显示不全 —— 旁边一条河或一片山就能把圈切成几段；
+        ///   2. 形状不对 —— 得到的是"可通行区域的波前"，不是射程圈。
+        /// 原版建筑范围判定走 MapRangeIterator(center, min_radius, max_radius)，
+        /// 是纯 hex 距离的环，与地形可通行性无关
+        /// （s11_scen_map.cpp:212-231 range_contains 内部即 MapRangeIterator(this, center, 1, radius)；
+        ///   s11_scen_map_iter.cpp:64-106 MapRingIterator 只按方向走环、只过滤地形类型位）。
+        /// 因此这里按 Hex.Ring 逐环取，只按地图边界过滤。
+        /// </summary>
+        /// <param name="start">起始单元格</param>
+        /// <param name="startLen">起始半径（含）</param>
+        /// <param name="endLen">结束半径（含）</param>
+        /// <param name="cellList">输出：范围内的格子</param>
+        public void GetSpiralRing(Cell start, int startLen, int endLen, List<Cell> cellList)
+        {
+            if (start == null || cellList == null)
+                return;
+
+            int from = startLen < 0 ? 0 : startLen;
+            int to = endLen < from ? from : endLen;
+            Hexagon.Hex cub = start.Cub;
+
+            // 半径 0：只有中心格
+            if (from == 0)
+            {
+                Cell center = GetCell(cub);
+                if (center != null && !cellList.Contains(center))
+                    cellList.Add(center);
+                from = 1;
+            }
+
+            for (int r = from; r <= to; r++)
+            {
+                spiralRingBuffer.Clear();
+                cub.Ring(r, spiralRingBuffer, 4);
+                for (int i = 0; i < spiralRingBuffer.Count; i++)
+                {
+                    Cell cell = GetCell(spiralRingBuffer[i]);
+                    if (cell != null && !cellList.Contains(cell))
+                        cellList.Add(cell);
+                }
+            }
+        }
+
         struct MoveCostData
         {
             public Cell dest;

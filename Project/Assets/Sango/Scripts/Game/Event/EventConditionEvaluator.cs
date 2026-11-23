@@ -8,6 +8,7 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace Sango.Core.Event
 {
@@ -59,7 +60,10 @@ namespace Sango.Core.Event
         /// <returns>条件是否成立</returns>
         public static bool Evaluate(JObject node, EventConditionDatabase database, out string failReason)
         {
-            return Evaluate(node, database, out failReason, null, 0);
+            // 【热路径】走预编译缓存：条件树在整局里不变，只解析一次。
+            // 原实现每次求值都要 FlattenParams(new JObject) + Condition.Create(反射)
+            // + Init(重新解析参数) + JToken.Value(装箱)，200 个候选事件 × 多节点就是几十 MB GC。
+            return EvaluateCompiled(node, database, out failReason);
         }
 
         /// <summary>
@@ -77,11 +81,270 @@ namespace Sango.Core.Event
         /// <returns>条件是否成立</returns>
         public static bool Evaluate(JObject node, EventConditionDatabase database, out string failReason, List<string> trace)
         {
-            return Evaluate(node, database, out failReason, trace, 0);
+            // 只有开了 DebugLog 的事件才走 trace 分支（慢路径：逐节点解析 + 收集判定过程）。
+            // trace 为空是正常游戏流程，必须走预编译缓存。
+            if (trace == null)
+                return EvaluateCompiled(node, database, out failReason);
+
+            return EvaluateTraced(node, database, out failReason, trace, 0);
+        }
+
+        #region 预编译条件树（热路径）
+
+        /// <summary>预编译节点类型：叶子条件</summary>
+        const int NodeLeaf = 0;
+        /// <summary>预编译节点类型：且</summary>
+        const int NodeAnd = 1;
+        /// <summary>预编译节点类型：或</summary>
+        const int NodeOr = 2;
+        /// <summary>预编译节点类型：取反（全部不成立才成立）</summary>
+        const int NodeNot = 3;
+
+        /// <summary>
+        /// 预编译后的条件树节点。
+        ///
+        /// 【为什么需要】原实现在每次求值时都要：<c>FlattenParams(new JObject)</c> 复制参数、
+        /// <c>Condition.Create</c> 反射新建条件、<c>Init</c> 重新解析参数、<c>JToken.Value</c> 装箱。
+        /// 而条件树在整局里是不变的 —— 200 个候选事件 × 多节点重复解析，就是 Profiler 里
+        /// <c>EventConditionEvaluator.Evaluate</c> 的 50MB 量级 GC 与 3.6 秒耗时。
+        /// </summary>
+        sealed class CompiledNode
+        {
+            /// <summary>节点类型（NodeLeaf / NodeAnd / NodeOr / NodeNot）</summary>
+            public int kind;
+            /// <summary>逻辑节点的子节点</summary>
+            public CompiledNode[] children;
+            /// <summary>叶子：已完成 Init 的条件实例（可跨求值复用）</summary>
+            public Condition condition;
+            /// <summary>叶子：条件类型名（异常日志用）</summary>
+            public string type;
+            /// <summary>预生成的中文原因：叶子为"未满足"描述，逻辑节点为结构错误描述</summary>
+            public string failText;
+            /// <summary>编译失败 / 类型未注册 / 空组 → 恒不成立</summary>
+            public bool invalid;
         }
 
         /// <summary>
-        /// 求值实现（带追踪与缩进深度）。
+        /// 条件树编译缓存（JObject → CompiledNode）。
+        /// 【为什么用弱表】事件库重载（切剧本 / 重读 mod）会换一批 JObject，
+        /// 旧编译结果随源对象一起被回收，不会长期驻留。
+        /// </summary>
+        static readonly ConditionalWeakTable<JObject, CompiledNode> compiledCache =
+            new ConditionalWeakTable<JObject, CompiledNode>();
+
+        /// <summary>
+        /// 条件 <c>Init</c> 用的空对象数组。
+        ///
+        /// 【为什么可以传空】Game/Condition 下所有 Condition 实现的 <c>Init</c> 都只读 JSON 参数 p，
+        /// 没有任何一处引用 <c>sangoObjects</c>（现场检索 0 命中）。
+        /// **若将来有条件依赖槽位对象，必须把该类排除出缓存**，或改回每次重新 Init，
+        /// 否则会一直用第一次编译时绑定的对象。
+        /// </summary>
+        static readonly SangoObject[] noSlotObjects = new SangoObject[0];
+
+        /// <summary>取条件树的编译结果（未编译过则当场编译并写入缓存）</summary>
+        /// <param name="node">条件树 JSON 节点</param>
+        /// <returns>编译结果；node 为 null 时返回 null（按"条件为空"恒成立处理）</returns>
+        static CompiledNode GetCompiled(JObject node)
+        {
+            if (node == null)
+                return null;
+
+            CompiledNode compiled;
+            if (compiledCache.TryGetValue(node, out compiled))
+                return compiled;
+
+            compiled = Compile(node);
+            compiledCache.Add(node, compiled);
+            return compiled;
+        }
+
+        /// <summary>把条件树 JSON 编译成 <see cref="CompiledNode"/>（只在首次求值时执行一次）</summary>
+        /// <param name="node">条件树节点</param>
+        /// <returns>编译结果</returns>
+        static CompiledNode Compile(JObject node)
+        {
+            CompiledNode result = new CompiledNode();
+            result.kind = NodeLeaf;
+
+            if (node == null)
+            {
+                // condition 为 null 且非 invalid → 按"条件为空恒成立"处理，与原实现一致
+                result.failText = "条件为空";
+                return result;
+            }
+
+            string type = node.Value<string>("Type");
+            if (string.IsNullOrEmpty(type))
+            {
+                result.invalid = true;
+                result.failText = "条件缺少 Type 字段";
+                return result;
+            }
+
+            // 逻辑组合由本类自己编译，叶子交给 Condition 工厂
+            if (type == TypeAnd || type == TypeAndList)
+                return CompileGroup(node, NodeAnd, type);
+
+            if (type == TypeOr || type == TypeOrList)
+                return CompileGroup(node, NodeOr, type);
+
+            if (type == TypeNot)
+                return CompileGroup(node, NodeNot, type);
+
+            Condition condition = Condition.Create(type);
+            if (condition == null)
+            {
+                result.invalid = true;
+                result.type = type;
+                result.failText = $"条件类型未注册：{type}";
+                Log.Warning($"事件条件编译失败：{result.failText}");
+                return result;
+            }
+
+            JObject flattened = FlattenParams(node);
+            try
+            {
+                condition.Init(flattened, noSlotObjects);
+            }
+            catch (Exception e)
+            {
+                result.invalid = true;
+                result.type = type;
+                result.failText = $"条件初始化异常：{type} → {e.Message}";
+                Log.Error($"事件条件编译异常：{result.failText}");
+                return result;
+            }
+
+            result.type = type;
+            result.condition = condition;
+            // 预生成"未满足"的中文原因，避免每次求值都走 DescribeLeaf 的字符串拼接
+            result.failText = DescribeLeaf(type, flattened);
+            return result;
+        }
+
+        /// <summary>编译逻辑组合节点（and / or / not）</summary>
+        /// <param name="node">节点 JSON</param>
+        /// <param name="kind">节点类型</param>
+        /// <param name="type">原始 Type 文本（日志用）</param>
+        /// <returns>编译结果</returns>
+        static CompiledNode CompileGroup(JObject node, int kind, string type)
+        {
+            CompiledNode result = new CompiledNode();
+            result.kind = kind;
+            result.type = type;
+
+            JArray childrenJson = node["Children"] as JArray;
+            if (childrenJson == null || childrenJson.Count == 0)
+            {
+                // 空逻辑组：与语义不明，按"不成立"处理（与原实现一致，编辑器会对空组告警）
+                result.invalid = true;
+                result.failText = kind == NodeAnd ? "and 条件没有子条件"
+                    : kind == NodeOr ? "or 条件没有子条件"
+                    : "not 条件没有子条件";
+                return result;
+            }
+
+            CompiledNode[] children = new CompiledNode[childrenJson.Count];
+            for (int i = 0; i < childrenJson.Count; i++)
+                children[i] = Compile(childrenJson[i] as JObject);
+
+            result.children = children;
+            return result;
+        }
+
+        /// <summary>
+        /// 求值预编译后的条件树（零 JSON 解析、零条件对象分配）。
+        /// 短路语义与原实现严格一致：and 遇 false 即停，or 遇 true 即停。
+        /// </summary>
+        /// <param name="compiled">编译后的节点</param>
+        /// <param name="database">条件数据库</param>
+        /// <param name="failReason">输出：未满足的中文原因</param>
+        /// <returns>条件是否成立</returns>
+        static bool EvaluateCompiled(CompiledNode compiled, EventConditionDatabase database, out string failReason)
+        {
+            failReason = null;
+            if (compiled == null)
+                return true;   // 条件为空 = 恒成立
+
+            if (compiled.invalid)
+            {
+                failReason = compiled.failText;
+                return false;
+            }
+
+            switch (compiled.kind)
+            {
+                case NodeAnd:
+                    for (int i = 0; i < compiled.children.Length; i++)
+                    {
+                        if (!EvaluateCompiled(compiled.children[i], database, out failReason))
+                            return false;
+                    }
+                    return true;
+
+                case NodeOr:
+                    for (int i = 0; i < compiled.children.Length; i++)
+                    {
+                        if (EvaluateCompiled(compiled.children[i], database, out string _))
+                        {
+                            failReason = null;
+                            return true;
+                        }
+                    }
+                    failReason = "or 条件的所有分支都不成立";
+                    return false;
+
+                case NodeNot:
+                    for (int i = 0; i < compiled.children.Length; i++)
+                    {
+                        if (EvaluateCompiled(compiled.children[i], database, out string _))
+                        {
+                            failReason = $"not 条件被满足：第 {i + 1} 个子条件成立了";
+                            return false;
+                        }
+                    }
+                    failReason = null;
+                    return true;
+
+                default:
+                    // 叶子：condition == null 且非 invalid → 条件为空，恒成立
+                    if (compiled.condition == null)
+                        return true;
+
+                    try
+                    {
+                        bool ok = compiled.condition.Check(database);
+                        if (!ok)
+                            failReason = compiled.failText;
+                        return ok;
+                    }
+                    catch (Exception e)
+                    {
+                        failReason = $"条件求值异常：{compiled.type} → {e.Message}";
+                        Log.Error($"事件条件求值异常：{failReason}");
+                        return false;
+                    }
+            }
+        }
+
+        /// <summary>
+        /// 求值入口（编译缓存版）。
+        /// </summary>
+        /// <param name="node">条件树 JSON</param>
+        /// <param name="database">条件数据库</param>
+        /// <param name="failReason">输出：未满足的中文原因</param>
+        /// <returns>条件是否成立</returns>
+        static bool EvaluateCompiled(JObject node, EventConditionDatabase database, out string failReason)
+        {
+            return EvaluateCompiled(GetCompiled(node), database, out failReason);
+        }
+
+        #endregion
+
+        /// <summary>
+        /// 求值实现（带追踪与缩进深度）。**仅用于 DebugLog 的慢路径**，
+        /// 正常流程请走 <see cref="EvaluateCompiled(JObject, EventConditionDatabase, out string)"/>。
         /// </summary>
         /// <param name="node">条件树节点</param>
         /// <param name="database">条件数据库</param>
@@ -89,7 +352,7 @@ namespace Sango.Core.Event
         /// <param name="trace">输出：逐条判定过程；null 表示不收集（此时保持原有的短路行为）</param>
         /// <param name="depth">缩进层级（0 = 根）</param>
         /// <returns>条件是否成立</returns>
-        static bool Evaluate(JObject node, EventConditionDatabase database, out string failReason,
+        static bool EvaluateTraced(JObject node, EventConditionDatabase database, out string failReason,
             List<string> trace, int depth)
         {
             failReason = null;
@@ -212,7 +475,7 @@ namespace Sango.Core.Event
             for (int i = 0; i < children.Count; i++)
             {
                 JObject child = children[i] as JObject;
-                bool ok = Evaluate(child, database, out string childReason, trace, depth + 1);
+                bool ok = EvaluateTraced(child, database, out string childReason, trace, depth + 1);
 
                 if (ok) okCount++;
 
@@ -295,7 +558,7 @@ namespace Sango.Core.Event
             for (int i = 0; i < children.Count; i++)
             {
                 JObject child = children[i] as JObject;
-                bool ok = Evaluate(child, database, out string _, trace, depth + 1);
+                bool ok = EvaluateTraced(child, database, out string _, trace, depth + 1);
 
                 // 只要有一个子条件成立，取反就不成立（短路）
                 if (ok)
