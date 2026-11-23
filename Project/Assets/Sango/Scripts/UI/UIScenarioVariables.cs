@@ -163,9 +163,8 @@ namespace Sango.UI
 
             AddTitle("剧本人口开关");
             AddToggleItem("剧本人口是否开启", variables.hantuPopulationEnabled, scenario.SetHantuPopulationMode);
-            int populationPreset = variables.hantuPopulationGrowthPreset;
-            AddDropdownItem("人口增长预设", populationPreset >= 3 && populationPreset <= 6 ? populationPreset - 3 : 1,
-                new List<string> { "原作配置 3（60）", "原作配置 4（50）", "原作配置 5（40）", "原作配置 6（50）" },
+            AddDropdownItem("人口增长预设", variables.hantuPopulationGrowthPreset - 3,
+                new List<string> { "初新", "常规", "挑战" },
                 index => scenario.SetHantuPopulationGrowthPreset(index + 3));
 
             // 【已移除】"AI登用阈值""AI探索阈值"两组：

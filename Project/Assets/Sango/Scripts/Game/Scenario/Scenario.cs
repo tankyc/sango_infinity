@@ -93,7 +93,7 @@ namespace Sango.Core
 
         public void SetHantuPopulationGrowthPreset(int preset)
         {
-            Variables.hantuPopulationGrowthPreset = preset >= 3 && preset <= 6 ? preset : 4;
+            Variables.hantuPopulationGrowthPreset = preset;
             OnHantuPopulationModeChanged(Variables.hantuPopulationEnabled);
         }
 
