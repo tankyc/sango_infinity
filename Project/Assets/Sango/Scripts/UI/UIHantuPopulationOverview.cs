@@ -17,6 +17,7 @@ namespace Sango.UI
         static readonly Color Ink = new Color(.93f, .93f, .93f);
         static readonly Color Heading = new Color(.74f, .89f, .93f);
         static readonly Color Surface = new Color(.06f, .17f, .22f, .95f);
+        static readonly Color SelectedRow = new Color(.55f, .84f, 1);
         static readonly string[] Filters = { "全图", "城池", "关隘", "港口" };
         static readonly string[] SortLabels = { "总人口 ↓", "城市人口 ↓", "农村人口 ↓" };
 
@@ -26,6 +27,15 @@ namespace Sango.UI
             public Image background;
             public Text label;
             public City city;
+        }
+
+        sealed class TrendDetails
+        {
+            public readonly List<long> values = new List<long>();
+            public bool hasCurrentPoint;
+            public string dates, change, historyText;
+            public int direction;
+            public float measuredWidth, preferredHeight;
         }
 
         Scenario scenario;
@@ -38,14 +48,19 @@ namespace Sango.UI
         readonly List<City> cities = new List<City>();
         readonly List<Row> rows = new List<Row>();
         readonly List<Button> filterButtons = new List<Button>();
-        Text summary, detailTitle, detailText, chartCaption, development;
+        Text summary, detailTitle, detailText, chartCaption, chartChange, development;
+        Text scaleMaximum, scaleMiddle, scaleMinimum;
         readonly Text[] populationValues = new Text[3];
         long worldUrban, worldRural;
         Button sortButton;
         RectTransform listViewport, listContent, detailContent;
         ScrollRect listScroll, detailScroll;
         HantuPopulationTrendGraphic chart;
-        Vector2 previousViewportSize;
+        TrendDetails worldTrend, displayedTrend;
+        HantuPopulationHistory cachedWorldHistory;
+        int cachedWorldRevision, cachedWorldTurn;
+        long cachedWorldPopulation;
+        Vector2 previousViewportSize, previousDetailSize;
         bool closing;
 
         public static UIHantuPopulationOverview Create(RectTransform parent, Scenario scenario, Action onClose)
@@ -126,7 +141,7 @@ namespace Sango.UI
             sortButton = ButtonAt(summaryPanel, "Sort", SortLabels[0], 331, 40, 126, () =>
             {
                 sort = (sort + 1) % SortLabels.Length;
-                Refresh();
+                RefreshRanking();
             });
             ButtonAt(summaryPanel, "Refresh", "刷新", 470, 40, 68, Refresh);
             ButtonAt(summaryPanel, "WorldTrend", "全图趋势", 550, 40, 96, () => Select(null));
@@ -153,8 +168,14 @@ namespace Sango.UI
             ((RectTransform)listScroll.transform).offsetMax = new Vector2(-3, -4);
             listScroll.onValueChanged.AddListener(_ => RenderRows());
 
-            Label(detailPanel, "TrendTitle", "季度趋势", 21, Heading, new Vector2(0, 1), new Vector2(.52f, 1),
+            Label(detailPanel, "TrendTitle", "人口趋势", 21, Heading, new Vector2(0, 1), new Vector2(.52f, 1),
                 new Vector2(12, -40), new Vector2(-12, -6));
+            Label(detailPanel, "TrendUp", "↑ 上升", 15, HantuPopulationTrendGraphic.Rising, new Vector2(.22f, 1), new Vector2(.32f, 1),
+                new Vector2(0, -39), new Vector2(0, -6));
+            Label(detailPanel, "TrendDown", "↓ 下降", 15, HantuPopulationTrendGraphic.Falling, new Vector2(.32f, 1), new Vector2(.42f, 1),
+                new Vector2(0, -39), new Vector2(0, -6));
+            Label(detailPanel, "TrendFlat", "— 持平", 15, HantuPopulationTrendGraphic.Steady, new Vector2(.42f, 1), new Vector2(.52f, 1),
+                new Vector2(0, -39), new Vector2(0, -6));
             Label(detailPanel, "HistoryTitle", "人口变动记录", 21, Heading, new Vector2(.52f, 1), Vector2.one,
                 new Vector2(12, -40), new Vector2(-12, -6));
             RectTransform chartArea = Box(detailPanel, "Trend", new Color(.04f, .10f, .14f, .82f),
@@ -164,10 +185,14 @@ namespace Sango.UI
             RectTransform trendLine = Rect(chartArea, "Line");
             Stretch(trendLine);
             chart = trendLine.gameObject.AddComponent<HantuPopulationTrendGraphic>();
-            chart.color = new Color(.45f, .83f, .95f);
             chart.raycastTarget = false;
-            chartCaption = Label(detailPanel, "TrendCaption", "", 16, Ink, Vector2.zero, new Vector2(.52f, 0),
-                new Vector2(12, 10), new Vector2(-8, 57));
+            scaleMaximum = MakeScaleLabel(chartArea, "ScaleMaximum", 1, -16);
+            scaleMiddle = MakeScaleLabel(chartArea, "ScaleMiddle", .5f, 0);
+            scaleMinimum = MakeScaleLabel(chartArea, "ScaleMinimum", 0, 16);
+            chartCaption = Label(detailPanel, "TrendCaption", "", 15, Ink, Vector2.zero, new Vector2(.52f, 0),
+                new Vector2(12, 32), new Vector2(-8, 58));
+            chartChange = Label(detailPanel, "TrendChange", "", 16, Ink, Vector2.zero, new Vector2(.52f, 0),
+                new Vector2(12, 8), new Vector2(-8, 33));
             detailScroll = MakeScroll(detailPanel, "History", out _, out detailContent);
             RectTransform historyRect = (RectTransform)detailScroll.transform;
             historyRect.anchorMin = new Vector2(.52f, 0);
@@ -193,6 +218,10 @@ namespace Sango.UI
                 previousViewportSize = listViewport.rect.size;
                 EnsureRows();
                 RenderRows();
+            }
+            if (detailScroll.viewport.rect.size != previousDetailSize)
+            {
+                previousDetailSize = detailScroll.viewport.rect.size;
                 FitDetail();
             }
         }
@@ -208,10 +237,16 @@ namespace Sango.UI
         {
             filter = value;
             selected = null;
-            Refresh();
+            RefreshRanking();
         }
 
         public void Refresh()
+        {
+            worldTrend = null;
+            RefreshRanking();
+        }
+
+        void RefreshRanking()
         {
             cities.Clear();
             worldUrban = worldRural = 0;
@@ -230,6 +265,20 @@ namespace Sango.UI
                 return comparison != 0 ? comparison : a.Id.CompareTo(b.Id);
             });
             if (!cities.Contains(selected)) selected = null;
+            UpdateSummary();
+            for (int i = 0; i < filterButtons.Count; i++)
+                filterButtons[i].targetGraphic.color = i == filter ? new Color(.59f, .91f, .99f) : Color.white;
+            sortButton.GetComponentInChildren<Text>().text = SortLabels[sort];
+            listScroll.StopMovement();
+            listContent.sizeDelta = new Vector2(0, cities.Count * RowHeight);
+            listContent.anchoredPosition = Vector2.zero;
+            EnsureRows();
+            RenderRows();
+            RefreshDetails();
+        }
+
+        void UpdateSummary()
+        {
             string delta = "季度记录不足两条";
             HantuPopulationHistory history = scenario.hantuPopulationHistory;
             if (history?.quarters != null && history.quarters.Count >= 2)
@@ -242,16 +291,6 @@ namespace Sango.UI
             }
             summary.text = "全图总人口 " + Number(worldUrban + worldRural) + "    " + scenario.GetDateStr()
                 + "    " + delta + "    当前筛选 " + cities.Count + " 处";
-            for (int i = 0; i < filterButtons.Count; i++)
-                filterButtons[i].targetGraphic.color = i == filter ? new Color(.59f, .91f, .99f) : Color.white;
-            sortButton.GetComponentInChildren<Text>().text = SortLabels[sort];
-            listScroll.StopMovement();
-            listContent.sizeDelta = new Vector2(0, cities.Count * RowHeight);
-            listContent.anchoredPosition = Vector2.zero;
-            Canvas.ForceUpdateCanvases();
-            EnsureRows();
-            RenderRows();
-            RefreshDetails();
         }
 
         void EnsureRows()
@@ -294,16 +333,31 @@ namespace Sango.UI
                 row.rect.gameObject.SetActive(row.city != null);
                 if (row.city == null) continue;
                 row.rect.anchoredPosition = new Vector2(0, -index * RowHeight);
-                row.background.color = row.city == selected ? new Color(.55f, .84f, 1) : Color.white;
+                row.background.color = row.city == selected ? SelectedRow : Color.white;
                 row.label.text = (index + 1) + ". " + row.city.Name;
             }
         }
 
         void Select(City city)
         {
-            listScroll.StopMovement();
+            if (city == null && !IsWorldTrendCurrent(scenario.hantuPopulationHistory))
+            {
+                worldUrban = worldRural = 0;
+                for (int i = 0; i < scenario.citySet.Count; i++)
+                {
+                    City settlement = scenario.citySet[i];
+                    if (settlement == null || settlement.Id <= 0 || !settlement.IsAlive) continue;
+                    worldUrban += Urban(settlement);
+                    worldRural += Rural(settlement);
+                }
+                UpdateSummary();
+            }
+            else if (city == selected) return;
+            City previous = selected;
             selected = city;
-            RenderRows();
+            foreach (Row row in rows)
+                if (row.city != null && (row.city == previous || row.city == selected))
+                    row.background.color = row.city == selected ? SelectedRow : Color.white;
             RefreshDetails();
         }
 
@@ -321,11 +375,50 @@ namespace Sango.UI
                 ? "商业发展度 " + Number(selected.commerce) + " / " + Number(selected.CommerceLimit)
                 + "      农业发展度 " + Number(selected.agriculture) + " / " + Number(selected.AgricultureLimit)
                 : "";
-            var text = new StringBuilder();
-            var values = new List<long>();
+            TrendDetails trend = GetTrendDetails(cityId, urbanPopulation + ruralPopulation);
+            if (ReferenceEquals(displayedTrend, trend)) return;
+            displayedTrend = trend;
+            chart.SetValues(trend.values, trend.hasCurrentPoint);
+            bool range = chart.Maximum != chart.Minimum;
+            scaleMaximum.text = range ? Number(chart.Maximum) : "";
+            scaleMiddle.text = range ? "" : Number(chart.Maximum);
+            scaleMinimum.text = range ? Number(chart.Minimum) : "";
+            chartCaption.text = trend.dates;
+            chartChange.text = trend.change;
+            chartChange.color = HantuPopulationTrendGraphic.DirectionColor(trend.direction);
+            detailScroll.StopMovement();
+            detailText.text = trend.historyText;
+            detailContent.anchoredPosition = Vector2.zero;
+            FitDetail();
+        }
+
+        bool IsWorldTrendCurrent(HantuPopulationHistory history)
+        {
+            return worldTrend != null && cachedWorldHistory == history && cachedWorldRevision == (history?.Revision ?? 0)
+                && cachedWorldTurn == scenario.TurnCount && cachedWorldPopulation == worldUrban + worldRural;
+        }
+
+        TrendDetails GetTrendDetails(int cityId, long currentPopulation)
+        {
             HantuPopulationHistory history = scenario.hantuPopulationHistory;
+            if (cityId != 0) return BuildTrendDetails(cityId, currentPopulation, history);
+            if (!IsWorldTrendCurrent(history))
+            {
+                worldTrend = BuildTrendDetails(0, currentPopulation, history);
+                cachedWorldHistory = history;
+                cachedWorldRevision = history?.Revision ?? 0;
+                cachedWorldTurn = scenario.TurnCount;
+                cachedWorldPopulation = currentPopulation;
+            }
+            return worldTrend;
+        }
+
+        TrendDetails BuildTrendDetails(int cityId, long currentPopulation, HantuPopulationHistory history)
+        {
+            var text = new StringBuilder();
+            var trend = new TrendDetails();
+            List<long> values = trend.values;
             long previous = 0;
-            bool hasPrevious = false;
             string firstDate = null, lastDate = null;
             text.AppendLine("季度记录  ·  合计 / 较上条净变");
             if (history?.quarters != null)
@@ -336,21 +429,33 @@ namespace Sango.UI
                     long urban, rural;
                     if (!HantuPopulationHistory.TryGetPopulation(quarter, cityId, out urban, out rural)) continue;
                     long total = urban + rural;
-                    values.Add(total);
-                    if (firstDate == null) firstDate = quarter.date;
+                    if (values.Count == 0) firstDate = quarter.date;
                     lastDate = quarter.date;
                     text.Append(quarter.date).Append("  ").Append(Number(total));
-                    text.Append(hasPrevious ? "  " + Signed(total - previous) : "  首条记录").AppendLine();
+                    text.Append(values.Count != 0 ? "  " + Signed(total - previous) : "  首条记录").AppendLine();
                     text.Append("城市 ").Append(Number(urban)).Append(" / 农村 ").Append(Number(rural)).AppendLine();
+                    values.Add(total);
                     previous = total;
-                    hasPrevious = true;
                 }
             }
             if (values.Count == 0) text.AppendLine("尚无季度记录。旧档启用后的实际记录会从本局开始积累。");
-            chart.SetValues(values);
-            chartCaption.text = values.Count < 2 ? "至少两条季度记录后显示趋势线"
-                : firstDate + " → " + lastDate + "\n纵轴 " + Number(chart.Minimum) + " ～ " + Number(chart.Maximum);
-            if (selected == null)
+            string currentDate = scenario.GetDateStr();
+            trend.hasCurrentPoint = values.Count == 0 || lastDate != currentDate || previous != currentPopulation;
+            if (trend.hasCurrentPoint) values.Add(currentPopulation);
+            if (values.Count == 1)
+            {
+                trend.dates = (trend.hasCurrentPoint ? currentDate + "  当前值" : firstDate + "  季度基线");
+                trend.change = "人口 " + Number(values[0]) + " · 暂无可比较记录";
+            }
+            else
+            {
+                trend.dates = firstDate + " → " + (trend.hasCurrentPoint ? "当前 " + currentDate : lastDate);
+                long delta = values[values.Count - 1] - values[values.Count - 2];
+                trend.direction = delta.CompareTo(0L);
+                trend.change = delta > 0 ? "↑ 上升 " + Signed(delta) : delta < 0 ? "↓ 下降 " + Signed(delta) : "— 持平 0";
+                trend.change += trend.hasCurrentPoint ? "  较上条季度记录" : "  较上一季度记录";
+            }
+            if (cityId == 0)
                 AppendWorldChanges(text, history);
             else
             {
@@ -369,9 +474,8 @@ namespace Sango.UI
             }
             text.AppendLine().Append("保留最近 ").Append(HantuPopulationHistory.QuarterLimit).Append(" 季、每据点最近 ")
                 .Append(HantuPopulationHistory.ChangesPerCityLimit).Append(" 项变化。");
-            detailText.text = text.ToString();
-            detailContent.anchoredPosition = Vector2.zero;
-            FitDetail();
+            trend.historyText = text.ToString();
+            return trend;
         }
 
         void AppendWorldChanges(StringBuilder text, HantuPopulationHistory history)
@@ -410,10 +514,29 @@ namespace Sango.UI
 
         void FitDetail()
         {
-            Canvas.ForceUpdateCanvases();
-            float height = Mathf.Max(detailScroll.viewport.rect.height, detailText.preferredHeight + 12);
+            if (displayedTrend == null) return;
+            float width = detailText.rectTransform.rect.width;
+            if (width <= 0) return;
+            if (!Mathf.Approximately(width, displayedTrend.measuredWidth))
+            {
+                displayedTrend.preferredHeight = detailText.preferredHeight + 12;
+                displayedTrend.measuredWidth = width;
+            }
+            float height = Mathf.Max(detailScroll.viewport.rect.height, displayedTrend.preferredHeight);
             detailContent.sizeDelta = new Vector2(0, height);
             detailText.rectTransform.sizeDelta = new Vector2(0, height);
+        }
+
+        Text MakeScaleLabel(Transform parent, string name, float anchor, float offset)
+        {
+            Vector2 position = new Vector2(0, anchor);
+            Text label = Label(parent, name, "", 14, Ink, position, position,
+                new Vector2(3, offset - 11), new Vector2(HantuPopulationTrendGraphic.LabelWidth - 5, offset + 11));
+            label.alignment = TextAnchor.MiddleRight;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 10;
+            label.resizeTextMaxSize = 14;
+            return label;
         }
 
         long RankedPopulation(City city)
@@ -584,47 +707,105 @@ namespace Sango.UI
         }
     }
 
-    /// <summary>无额外贴图的原生 UGUI 折线；纵轴范围始终随说明文本显示。</summary>
+    /// <summary>按实际记录绘制折线，虚线连接至本回合人口。</summary>
     public sealed class HantuPopulationTrendGraphic : MaskableGraphic
     {
+        internal const float LabelWidth = 96;
+        internal static readonly Color Rising = new Color(.51f, .90f, .67f);
+        internal static readonly Color Falling = new Color(1f, .52f, .48f);
+        internal static readonly Color Steady = new Color(.54f, .81f, .94f);
+        static readonly Color Grid = new Color(.43f, .65f, .73f, .23f);
+        static readonly Color Axis = new Color(.55f, .73f, .81f, .55f);
+        static readonly Color Point = new Color(.84f, .95f, .98f);
         readonly List<long> values = new List<long>();
+        bool hasCurrentPoint;
         public long Minimum { get; private set; }
         public long Maximum { get; private set; }
 
-        public void SetValues(IReadOnlyList<long> source)
+        public void SetValues(IReadOnlyList<long> source, bool hasCurrentPoint = false)
         {
             values.Clear();
-            if (source != null) for (int i = 0; i < source.Count; i++) values.Add(source[i]);
+            this.hasCurrentPoint = hasCurrentPoint;
             Minimum = long.MaxValue; Maximum = long.MinValue;
-            for (int i = 0; i < values.Count; i++) { Minimum = Math.Min(Minimum, values[i]); Maximum = Math.Max(Maximum, values[i]); }
+            if (source != null)
+                for (int i = 0; i < source.Count; i++)
+                {
+                    long value = source[i];
+                    values.Add(value);
+                    Minimum = Math.Min(Minimum, value);
+                    Maximum = Math.Max(Maximum, value);
+                }
             if (values.Count == 0) Minimum = Maximum = 0;
             SetVerticesDirty();
+        }
+
+        internal static Color DirectionColor(int direction)
+        {
+            return direction > 0 ? Rising : direction < 0 ? Falling : Steady;
         }
 
         protected override void OnPopulateMesh(VertexHelper helper)
         {
             helper.Clear();
-            if (values.Count < 2) return;
+            if (values.Count == 0) return;
             Rect rect = rectTransform.rect;
+            Rect plot = Rect.MinMaxRect(rect.xMin + LabelWidth, rect.yMin + 16, rect.xMax - 16, rect.yMax - 16);
+            if (plot.width <= 0 || plot.height <= 0) return;
             double range = (double)Maximum - Minimum;
-            Vector2 previous = Vector2.zero;
+            for (int i = 0; i <= 4; i++)
+            {
+                float y = plot.yMin + plot.height * i / 4;
+                Line(helper, new Vector2(plot.xMin, y), new Vector2(plot.xMax, y), 1, i == 0 ? Axis : Grid);
+            }
+            Line(helper, new Vector2(plot.xMin, plot.yMin), new Vector2(plot.xMin, plot.yMax), 1, Axis);
+
+            Vector2 previous = default;
             for (int i = 0; i < values.Count; i++)
             {
                 float fraction = range > 0 ? (float)((values[i] - (double)Minimum) / range) : .5f;
-                Vector2 point = new Vector2(rect.xMin + 10 + i * (rect.width - 20) / (values.Count - 1),
-                    rect.yMin + 10 + fraction * (rect.height - 20));
+                float progress = values.Count == 1 ? .5f : (float)i / (values.Count - 1);
+                Vector2 point = new Vector2(plot.xMin + plot.width * progress, plot.yMin + plot.height * fraction);
+                bool current = hasCurrentPoint && i == values.Count - 1;
+                Color pointColor = Point;
                 if (i > 0)
                 {
-                    Vector2 normal = new Vector2(-(point - previous).y, (point - previous).x).normalized * 1.5f;
-                    int start = helper.currentVertCount;
-                    helper.AddVert(previous - normal, color, Vector2.zero);
-                    helper.AddVert(previous + normal, color, Vector2.zero);
-                    helper.AddVert(point + normal, color, Vector2.zero);
-                    helper.AddVert(point - normal, color, Vector2.zero);
-                    helper.AddTriangle(start, start + 1, start + 2); helper.AddTriangle(start, start + 2, start + 3);
+                    pointColor = DirectionColor(values[i].CompareTo(values[i - 1]));
+                    if (current) DashedLine(helper, previous, point, pointColor);
+                    else Line(helper, previous, point, 2.5f, pointColor);
                 }
+                int radius = current || values.Count == 1 ? 5 : 3;
+                Quad(helper, point + Vector2.up * radius, point + Vector2.right * radius,
+                    point + Vector2.down * radius, point + Vector2.left * radius, pointColor);
                 previous = point;
             }
+        }
+
+        static void DashedLine(VertexHelper helper, Vector2 from, Vector2 to, Color color)
+        {
+            Vector2 offset = to - from;
+            float length = offset.magnitude;
+            if (length <= 0) return;
+            Vector2 direction = offset / length;
+            for (float position = 0; position < length; position += 12)
+                Line(helper, from + direction * position, from + direction * Mathf.Min(position + 7, length), 2.5f, color);
+        }
+
+        static void Line(VertexHelper helper, Vector2 from, Vector2 to, float width, Color color)
+        {
+            Vector2 delta = to - from;
+            Vector2 normal = new Vector2(-delta.y, delta.x).normalized * (width * .5f);
+            Quad(helper, from - normal, from + normal, to + normal, to - normal, color);
+        }
+
+        static void Quad(VertexHelper helper, Vector2 a, Vector2 b, Vector2 c, Vector2 d, Color color)
+        {
+            int start = helper.currentVertCount;
+            helper.AddVert(a, color, Vector2.zero);
+            helper.AddVert(b, color, Vector2.zero);
+            helper.AddVert(c, color, Vector2.zero);
+            helper.AddVert(d, color, Vector2.zero);
+            helper.AddTriangle(start, start + 1, start + 2);
+            helper.AddTriangle(start, start + 2, start + 3);
         }
     }
 }

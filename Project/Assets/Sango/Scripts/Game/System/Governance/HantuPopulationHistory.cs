@@ -65,11 +65,13 @@ namespace Sango.Core
 
         [JsonProperty] public List<HantuPopulationQuarter> quarters = new List<HantuPopulationQuarter>();
         [JsonProperty] public List<HantuPopulationCityChanges> cities = new List<HantuPopulationCityChanges>();
+        internal int Revision { get; private set; }
 
         public void Record(Scenario scenario, City city, HantuPopulationChangeSource source, int urbanDelta, int ruralDelta)
         {
             if (scenario == null || city == null || city.Id <= 0 || (urbanDelta == 0 && ruralDelta == 0))
                 return;
+            Revision++;
             if (cities == null) cities = new List<HantuPopulationCityChanges>();
             HantuPopulationCityChanges bucket = null;
             for (int i = 0; i < cities.Count; i++)
@@ -108,6 +110,7 @@ namespace Sango.Core
         public void CaptureQuarter(Scenario scenario)
         {
             if (scenario == null || scenario.citySet == null) return;
+            Revision++;
             var quarter = new HantuPopulationQuarter { season = scenario.SeasonStamp, date = scenario.GetDateStr() };
             for (int i = 0; i < scenario.citySet.Count; i++)
             {
