@@ -14,6 +14,10 @@ namespace Sango.Core
     public class Technique : SangoObject
     {
         [JsonProperty] public string desc;
+
+        /// <summary>开启人口规则时，允许本势力的战斗陆军劫掠人口。</summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool hantuPopulationRaid;
         [JsonProperty] public string kind;
         [JsonProperty] public int level;
         [JsonProperty] public int needAttr;

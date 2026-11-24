@@ -74,6 +74,42 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty(Order = -95)] public ScenarioVariables Variables { internal set; get; }
 
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? hantuPopulationSeason;
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public HantuPopulationHistory hantuPopulationHistory;
+
+        // 开局参数页作出的选择只用于新局。读档使用档内状态。
+        bool? selectedHantuPopulationMode;
+        int? selectedHantuPopulationGrowthPreset;
+
+        public void SetHantuPopulationMode(bool enabled)
+        {
+            bool wasEnabled = Variables.hantuPopulationEnabled;
+            Variables.hantuPopulationEnabled = enabled;
+            OnHantuPopulationModeChanged(wasEnabled);
+        }
+
+        public void SetHantuPopulationGrowthPreset(int preset)
+        {
+            Variables.hantuPopulationGrowthPreset = preset;
+            OnHantuPopulationModeChanged(Variables.hantuPopulationEnabled);
+        }
+
+        internal void OnHantuPopulationModeChanged(bool wasEnabled)
+        {
+            if (this != Cur || !IsAlive)
+            {
+                selectedHantuPopulationMode = Variables.hantuPopulationEnabled;
+                selectedHantuPopulationGrowthPreset = Variables.hantuPopulationGrowthPreset;
+                return;
+            }
+
+            if (wasEnabled != Variables.hantuPopulationEnabled)
+                HantuPopulation.Refresh(this);
+        }
+
         /// <summary>
         /// 地图数据
         /// </summary>
@@ -870,6 +906,8 @@ namespace Sango.Core
 
         public void LoadVariables()
         {
+            selectedHantuPopulationMode = null;
+            selectedHantuPopulationGrowthPreset = null;
             // 【性能】Info（Order -97）与 Variables（Order -95）在文件里相邻且都在最前面，
             // 因此一趟流式扫描就能同时取回两者 —— 不再"先 LoadInfo 再 LoadVariables"各开一次文件、各扫一遍。
             // 两个目标都拿到（或扫到文件末尾）即结束。
@@ -899,7 +937,7 @@ namespace Sango.Core
                     }
 
                     if (gotInfo && gotVariables)
-                        return;
+                        break;
                 }
             }
 
@@ -908,7 +946,7 @@ namespace Sango.Core
 
             // 剧本指定了默认参数预设 → 立即套用（空串 = 不读，沿用剧本自带 Variables）。
             // 进剧本参数界面 / 开局前都会走这里，所以界面一打开看到的就是预设值。
-            if (Info != null && !string.IsNullOrEmpty(Info.variablesPreset))
+            if (Info != null && !Info.isSave && !string.IsNullOrEmpty(Info.variablesPreset))
                 ScenarioVariablesPresetManager.TryApply(this, Info.variablesPreset);
         }
 
@@ -1025,6 +1063,8 @@ namespace Sango.Core
         /// </summary>
         public void LoadScenarioDataStage()
         {
+            hantuPopulationSeason = null;
+            hantuPopulationHistory = null;
             try
             {
                 // 【性能】用流式 JsonTextReader 就地填充，避免把整份存档读成一个 string 常驻内存
@@ -1033,6 +1073,13 @@ namespace Sango.Core
                 using (JsonTextReader jr = new JsonTextReader(sr))
                 {
                     JsonSerializer.CreateDefault().Populate(jr, this);
+                }
+                if (Info?.isSave == false && Variables != null)
+                {
+                    if (selectedHantuPopulationMode.HasValue)
+                        Variables.hantuPopulationEnabled = selectedHantuPopulationMode.Value;
+                    if (selectedHantuPopulationGrowthPreset.HasValue)
+                        Variables.hantuPopulationGrowthPreset = selectedHantuPopulationGrowthPreset.Value;
                 }
             }
             catch (JsonSerializationException e)
@@ -1174,6 +1221,7 @@ namespace Sango.Core
             GameEvent.OnScenarioPrepare?.Invoke(this);
             this.LoadModModify();
             this.Prepare();
+            HantuPopulation.Prepare(this, initializeScenario: Info?.isSave == false);
             Sango.Log.Info("世界初始化[3/5] 剧本 Init", Sango.Log.LogType.World);
             this.Init(this);
             Sango.Log.Info("世界初始化[4/5] 控制器 Reset", Sango.Log.LogType.World);
@@ -2030,7 +2078,6 @@ namespace Sango.Core
             {
                 prepareList[i].ForEach(o => { o.OnScenarioPrepare(this); });
             }
-
             // 【配属】自建 / 古代武将没有剧本指定归属时随机落地
             // （对应 Open311 Game::init_person 的 person_dispatch 兜底）。
             // 必须在 OnScenarioPrepare 之后：那时对象引用才解析完成，能判断归属是否为空。
@@ -2597,6 +2644,7 @@ namespace Sango.Core
         }
         public override bool OnSeasonStart(Scenario scenario)
         {
+            HantuPopulation.SettleSeason(this);
             for (int i = 0; i < eventReciveList.Count; ++i)
             {
                 eventReciveList[i].ForEach(o => { if (o.IsAlive) o.OnSeasonStart(this); });

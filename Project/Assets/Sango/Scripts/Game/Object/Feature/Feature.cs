@@ -154,6 +154,10 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public string desc;
 
+        /// <summary>开启人口规则时，防止所在据点被劫掠人口或在内政设施被摧毁时损失人口。</summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool hantuPopulationProtection;
+
         /// <summary>
         /// 类型
         /// </summary>

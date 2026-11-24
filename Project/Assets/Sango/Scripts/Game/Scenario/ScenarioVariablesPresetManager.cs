@@ -89,12 +89,7 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 把预设套用到剧本上（直接替换 <see cref="Scenario.Variables"/> 引用）。
-        ///
-        /// 【为什么是替换引用而不是逐字段拷贝】<see cref="ScenarioVariables"/> 有上百个字段，
-        /// 逐字段拷贝必然漏项；而全项目读取参数都是 <c>Scenario.Cur.Variables.xxx</c> 现取，
-        /// 替换引用后下一次读取自然拿到新对象。参数界面在套用后会 <c>RefreshSetting()</c> 重建，
-        /// 旧的局部引用不会残留。
+        /// 把一份独立的预设参数套用到剧本上。游戏内修改参数时不改动缓存预设。
         /// </summary>
         /// <param name="scenario">目标剧本</param>
         /// <param name="name">预设名</param>
@@ -112,7 +107,10 @@ namespace Sango.Core
                 return false;
             }
 
-            scenario.Variables = preset.Variables;
+            bool wasPopulationEnabled = scenario.Variables?.hantuPopulationEnabled == true;
+            scenario.Variables = JsonConvert.DeserializeObject<ScenarioVariables>(
+                JsonConvert.SerializeObject(preset.Variables));
+            scenario.OnHantuPopulationModeChanged(wasPopulationEnabled);
             Sango.Log.Info($"已套用剧本参数预设「{preset.Name}」（来源：{preset.Source}）");
             return true;
         }

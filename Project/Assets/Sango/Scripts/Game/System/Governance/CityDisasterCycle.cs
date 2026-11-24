@@ -147,6 +147,7 @@ namespace Sango.Core
                     continue;
 
                 city.SetDisaster(type, true);
+                HantuPopulation.OnDisaster(city, type, scenario);
                 Sango.Log.Info($"*[灾害]{city.Name} 从邻城传染到{GetDisasterName(type)}");
             }
 
@@ -165,6 +166,7 @@ namespace Sango.Core
                     if (city.HasDisaster(type))
                         continue;
                     city.SetDisaster(type, true);
+                    HantuPopulation.OnDisaster(city, type, scenario);
                     ApplyDisasterEffect(city, type);
                 }
             }

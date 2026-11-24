@@ -537,6 +537,20 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public bool populationEnable = false;
 
+        [JsonProperty] public bool hantuPopulationEnabled;
+
+        int populationGrowthPreset = 4;
+
+        [JsonProperty]
+        public int hantuPopulationGrowthPreset
+        {
+            get => populationGrowthPreset;
+            // 旧配置 6 的增长系数与常规相同。
+            set => populationGrowthPreset = value >= 3 && value <= 5 ? value : 4;
+        }
+
+        public bool UseLegacyPopulation => populationEnable && !hantuPopulationEnabled;
+
         /// <summary>
         /// 基础人口增长率
         /// </summary>

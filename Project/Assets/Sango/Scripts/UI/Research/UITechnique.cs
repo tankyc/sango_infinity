@@ -105,6 +105,9 @@ using Sango.Core; namespace Sango.UI
             selectTech = techniqueItem.technique;
 
             techDesc.text = selectTech.desc;
+            string raidDescription = HantuPopulationIncidents.RaidDescription(Scenario.Cur, selectTech);
+            if (!string.IsNullOrEmpty(raidDescription))
+                techDesc.text += "\n" + raidDescription;
 
             if (techniqueItem.CanResearch())
                 techniqueResearchSys.SelectTechnique(selectTech);

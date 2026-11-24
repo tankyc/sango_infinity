@@ -161,6 +161,12 @@ namespace Sango.UI
             AddNumberItem("AI每回合加士兵", variables.aiTurnAddTroops, 0, 100000, (v) => { variables.aiTurnAddTroops = v; });
             AddNumberItem("AI每回合加兵装", variables.aiTurnAddArms, 0, 100000, (v) => { variables.aiTurnAddArms = v; });
 
+            AddTitle("剧本人口开关");
+            AddToggleItem("剧本人口是否开启", variables.hantuPopulationEnabled, scenario.SetHantuPopulationMode);
+            AddDropdownItem("人口增长预设", variables.hantuPopulationGrowthPreset - 3,
+                new List<string> { "初新", "常规", "挑战" },
+                index => scenario.SetHantuPopulationGrowthPreset(index + 3));
+
             // 【已移除】"AI登用阈值""AI探索阈值"两组：
             // 那几个值是原版写死的特殊分子，暴露成参数只会被误当成平衡杠杆，已回到代码常量。
             // 这里只留一个真正影响全局节奏的开关。
