@@ -17,7 +17,24 @@ namespace Sango.Render
 
         public float fov = 30f;
         public float near_clip = 0.3f;
-        public float far_clip = 950;
+
+        /// <summary>
+        /// 最近镜头距离（<see cref="limitDistance"/>.x = 200）对应的远裁剪面。
+        /// 与 <see cref="far_clip_far"/> 一起构成"远裁剪面随视距线性变化"的两个端点。
+        ///
+        /// 【为什么要两端点插值】旧实现只有一个基准值 950 加放大系数，端点值靠公式间接得到，
+        /// 近景/远景的裁剪范围无法直接配置。改成两端点后：
+        /// 最近距离 = 400（近景裁剪范围小，深度精度更高），最远距离 = 1800（远景刚好覆盖可视范围）。
+        /// </summary>
+        public float far_clip_near = 400f;
+
+        /// <summary>
+        /// 最远镜头距离（<see cref="limitDistance"/>.y = 630）对应的远裁剪面。
+        /// 距离超出常规缩放上限（顶视图整图俯瞰 / 地图编辑器拉远）时，
+        /// 由 <see cref="CalcFarClipPlane"/> 按超出比例继续放大，避免地形被裁掉。
+        /// </summary>
+        public float far_clip_far = 1600f;
+
         public float cameraDistanceFactor = 1;
 
         public Vector3 look_position = new Vector3(1407, 0, 796);
@@ -59,10 +76,11 @@ namespace Sango.Render
         /// <summary>
         /// 视距参数的基准镜头距离，等于 <see cref="cur_distance"/> 的默认值。
         ///
-        /// 【口径】距离不超过它时 factor 恒为 1 —— 近景完全保持美术调好的雾效与裁剪面；
+        /// 【口径】距离不超过它时 factor 恒为 1 —— 近景完全保持美术调好的雾效；
         /// 超过后按 <c>distance / 基准</c> 线性放大。
+        /// 远裁剪面不参与 factor，改由 <see cref="CalcFarClipPlane"/> 按距离两端点独立计算。
         /// 旧写法是 <c>Math.Max(630, distance) / 630</c>，在 200~630 的常规缩放区间里恒等于 1，
-        /// 等于"永远不放大"：拉到 630 时远处地形会被 fogEnd(1068) 糊成纯白、被 farClip(950) 切掉。
+        /// 等于"永远不放大"：拉到 630 时远处地形会被 fogEnd(1068) 糊成纯白、被远裁剪面切掉。
         /// </summary>
         public float viewDistanceBase = 300f;
 
@@ -96,6 +114,7 @@ namespace Sango.Render
             x = 0; y = 0; w = 0; h = 0;
             return false;
         }
+
         public override void Init()
         {
             base.Init();
@@ -110,7 +129,7 @@ namespace Sango.Render
             camera.fieldOfView = fov;
             camera.nearClipPlane = near_clip;
             if (!MapEditor.IsEditOn)
-                camera.farClipPlane = far_clip;
+                camera.farClipPlane = far_clip_near;
             camera.depthTextureMode = DepthTextureMode.Depth;
             camera.clearFlags = CameraClearFlags.Skybox;
 
@@ -366,7 +385,11 @@ namespace Sango.Render
             float baseDistance = viewDistanceBase > 0.01f ? viewDistanceBase : 300f;
             float factor = Mathf.Max(1f, distance / baseDistance);
 
-            map.showLimitLength = factor * 1100;
+            // 远裁剪面：数值口径完全不变（端点 400 / 1800 + 超限放大），这里只提前算出来给下面用
+            float farClip = CalcFarClipPlane(distance);
+
+            // 视野矩形半径：基准半径、平面交点半径、远裁剪面 + 20 三者取最小
+            ApplyShowLimitLength(farClip);
 
             // 雾效：按"基准值 × factor + 额外视距"放大，保证远景不再被 fogEnd 糊白
             if (map.mapFog != null)
@@ -381,10 +404,123 @@ namespace Sango.Render
             // 一个不存在 / 不相干的相机上，表现就是"远景时地形被远裁剪面切掉"。
             Camera cam = camera != null ? camera : Camera.main;
             if (cam != null)
-                cam.farClipPlane = factor * far_clip + 300 * (factor - 1);
+                cam.farClipPlane = farClip;
 
-            if (map.mapSkyBox != null && map.mapSkyBox.skyTrans != null)
-                map.mapSkyBox.skyTrans.localScale = Vector3.one * factor;
+            //if (map.mapSkyBox != null && map.mapSkyBox.skyTrans != null)
+            //    map.mapSkyBox.skyTrans.localScale = Vector3.one * factor;
+        }
+
+        /// <summary>
+        /// 按镜头距离计算远裁剪面。
+        ///
+        /// 【常规区间】距离在 [<see cref="limitDistance"/>.x, <see cref="limitDistance"/>.y]
+        /// （默认 200 ~ 630）内，线性映射到 [<see cref="far_clip_near"/>, <see cref="far_clip_far"/>]：
+        /// 拉到最近 = 400，拉到最远 = 1800，两个端点就是缩放极限处的裁剪范围。
+        ///
+        /// 【超出上限】顶视图整图俯瞰、地图编辑器拉远时距离会远超 630，
+        /// 此时若仍按端点值封顶，整张地图会栽在远裁剪面上（"拉远后地形被切掉"）。
+        /// 因此按"相机到地面最远点的距离"继续放大：俯仰 45° 时屏幕最上方的视线与地面
+        /// 夹角约 15°，相机到该点的距离 ≈ dist / sin15° ≈ 3.9 × dist，这里取 4 倍，
+        /// 保证最远可视点始终在裁剪面之内。
+        /// </summary>
+        /// <param name="dist">当前镜头距离（<see cref="cur_distance"/>）</param>
+        /// <returns>远裁剪面距离（米）</returns>
+        public float CalcFarClipPlane(float dist)
+        {
+            float nearDist = limitDistance.x;
+            float farDist = limitDistance.y;
+
+            float clipFar;
+            if (farDist > nearDist + 0.01f)
+            {
+                // 常规缩放区间：两端点线性插值（区间外自动钳到端点）
+                float t = Mathf.Clamp01((dist - nearDist) / (farDist - nearDist));
+                clipFar = Mathf.Lerp(far_clip_near, far_clip_far, t);
+            }
+            else
+            {
+                // 缩放区间配置异常（near >= far）时退回最远端值，避免除零
+                clipFar = far_clip_far;
+            }
+
+            // 超出常规缩放上限：按相机到最远可视地面点的距离继续放大
+            if (dist > farDist)
+                clipFar = Mathf.Max(clipFar, dist * 4f);
+
+            // 防止配置出 near_clip 比 far 还大的非法区间
+            return Mathf.Max(clipFar, near_clip + 1f);
+        }
+
+        /// <summary>
+        /// 按当前镜头距离重算视野矩形半径（写入 <see cref="MapRender.showLimitLength"/>）。
+        ///
+        /// 【为什么单独抽出来】半径里的"平面交点"依赖相机的世界位置与朝向。
+        /// <see cref="Update"/> 在写入 transform（位置 / 朝向）之后会再调一次，
+        /// 避免缩放瞬间用上一帧的相机位置算出一个偏小 / 偏大的半径。
+        /// </summary>
+        /// <param name="farClip">当前远裁剪面（用于 +20 的上限比较）</param>
+        private void ApplyShowLimitLength(float farClip)
+        {
+            if (map == null)
+                return;
+
+            float baseDistance = viewDistanceBase > 0.01f ? viewDistanceBase : 300f;
+            float factor = Mathf.Max(1f, distance / baseDistance);
+            map.showLimitLength = CalcShowLimitLength(factor * 1100f, farClip);
+        }
+
+        /// <summary>
+        /// 计算视野矩形水平半径（写入 <see cref="MapRender.showLimitLength"/>）。
+        ///
+        /// 【口径】三项取最小：
+        ///   ① 基准半径（factor × 1100，旧口径）；
+        ///   ② 平面交点半径：视锥四条角射线与地面（y = 0）的真实交点，
+        ///      取离相机地面投影点最远的那个，保证矩形包住整个视野；
+        ///      某条角射线与地面不相交（如俯仰过小、射线朝上）时忽略该项；
+        ///   ③ 相机远裁剪面 + 20：不让提交范围越过裁剪面太远。
+        ///
+        /// 【不影响远裁剪面】farClip 只作为比较上限参与，相机 farClipPlane 仍完全由
+        /// <see cref="CalcFarClipPlane"/> 决定，数值口径不变。
+        /// </summary>
+        /// <param name="baseRadius">旧口径半径（factor × 1100）</param>
+        /// <param name="farClip">已经算好的远裁剪面（相机空间斜距，米）</param>
+        private float CalcShowLimitLength(float baseRadius, float farClip)
+        {
+            float radius = baseRadius;
+
+            Camera cam = camera != null ? camera : Camera.main;
+            if (cam != null)
+            {
+                Vector3 origin = cam.transform.position;
+                float maxPlaneRadius = 0f;
+                bool hasPlaneHit = false;
+
+                for (int i = 0; i < 4; ++i)
+                {
+                    // 四个角：左下、右下、右上、左上（顺序不影响取最大值）
+                    Vector3 viewport = new Vector3(
+                        (i == 1 || i == 2) ? 1f : 0f,
+                        (i >= 2) ? 1f : 0f,
+                        1f);
+
+                    Ray ray = cam.ViewportPointToRay(viewport);
+                    if (!CameraPlaneView.GetRayPlaneIntersection(ref viewPlane, ray, out Vector3 hit))
+                        continue;
+
+                    float dx = hit.x - origin.x;
+                    float dz = hit.z - origin.z;
+                    float r = Mathf.Sqrt(dx * dx + dz * dz);
+                    if (r > maxPlaneRadius)
+                        maxPlaneRadius = r;
+                    hasPlaneHit = true;
+                }
+
+                if (hasPlaneHit)
+                    radius = Mathf.Min(radius, maxPlaneRadius);
+            }
+
+            radius = Mathf.Min(radius, farClip + 20f);
+            return Mathf.Max(radius, 1f);
         }
 
         /// <summary>
@@ -621,6 +757,10 @@ namespace Sango.Render
                 // 正常视角的俯仰上限是 limitAngle.y = 70，不受影响。
                 if (look_rotate.x < 88f)
                     transform.LookAt(lookAt);
+
+                // transform 已更新：用最新的相机位置 / 朝向重算视野矩形半径，
+                // 修正缩放瞬间"用上一帧相机位置算平面交点"的一帧误差
+                ApplyShowLimitLength(CalcFarClipPlane(distance));
 
                 map.onValueChanged?.Invoke(this);
             }

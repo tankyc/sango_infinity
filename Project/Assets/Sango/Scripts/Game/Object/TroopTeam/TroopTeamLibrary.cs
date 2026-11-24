@@ -39,8 +39,34 @@ namespace Sango.Core
     /// </summary>
     public static class CustomTroopTeams
     {
-        /// <summary>单城队伍数量上限（防止列表无限膨胀）</summary>
-        public const int MaxTeams = 30;
+        /// <summary>
+        /// "我的队伍"数量上限的缺省值（剧本参数缺失 / 编辑器预览 / 单测时使用）。
+        /// 实际生效的上限请读 <see cref="MaxTeams"/>。
+        /// </summary>
+        public const int DefaultMaxTeams = 200;
+
+        /// <summary>
+        /// 当前生效的"我的队伍"数量上限。
+        ///
+        /// 【取值】当前剧本的 <see cref="ScenarioVariables.maxCustomTroopTeamCount"/>
+        /// （默认 200，可在"剧本基础参数"里调）；拿不到剧本时回落到
+        /// <see cref="DefaultMaxTeams"/>；参数配 0 或负数表示**不限**（返回 <see cref="int.MaxValue"/>）。
+        ///
+        /// 【为什么按剧本参数】原来这里是写死的 30，注释还写成"单城上限"，
+        /// 但 <see cref="teams"/> 实际是一个跨存档的全局列表，与城池无关。
+        /// 现在按剧本给上限，既修掉注释口径，也让重度玩家可以调大。
+        /// </summary>
+        public static int MaxTeams
+        {
+            get
+            {
+                Scenario scenario = Scenario.Cur;
+                if (scenario == null || scenario.Variables == null)
+                    return DefaultMaxTeams;
+                int max = scenario.Variables.maxCustomTroopTeamCount;
+                return max > 0 ? max : int.MaxValue;
+            }
+        }
 
         /// <summary>玩家自建队伍（按保存顺序）</summary>
         public static List<TroopTeam> teams = new List<TroopTeam>();
@@ -221,13 +247,17 @@ namespace Sango.Core
         /// </summary>
         public static string SuggestName()
         {
-            for (int n = 1; n <= MaxTeams + 1; n++)
+            // 上限可能是 int.MaxValue（剧本参数配 0 = 不限），直接 +1 会溢出成负数，
+            // 因此"不限"时改用"现有数量 + 2"作为搜索上界（足够找到第一个空号）
+            int max = MaxTeams;
+            int upper = max == int.MaxValue ? teams.Count + 2 : max + 1;
+            for (int n = 1; n <= upper; n++)
             {
                 string name = "我的队伍" + n;
                 if (IndexOf(name) < 0)
                     return name;
             }
-            return "我的队伍";
+            return "我的队伍" + (teams.Count + 1);
         }
     }
 

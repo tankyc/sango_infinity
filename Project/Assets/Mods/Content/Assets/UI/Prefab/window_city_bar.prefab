@@ -211,7 +211,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: -90.9, y: 11.519}
+  m_AnchoredPosition: {x: -94.3, y: 10.8}
   m_SizeDelta: {x: 16, y: 16}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8543117874249038116
@@ -483,7 +483,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.3160377, b: 0.3160377, a: 1}
+  m_Color: {r: 0, g: 0.89932394, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -796,8 +796,8 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 0
-  m_SortingLayerID: 0
+  m_AdditionalShaderChannelsFlag: 31
+  m_SortingLayerID: -903361245
   m_SortingOrder: 0
   m_TargetDisplay: 0
 --- !u!114 &-2764854377414352855
@@ -839,7 +839,7 @@ MonoBehaviour:
   corpsNode: {fileID: 8018826653690310593}
   corpsText: {fileID: 755307501374934698}
   corpsImg: {fileID: 1951035948327403519}
-  boder: {fileID: 6402715110138809974}
+  boder: {fileID: 9058464617266164187}
 --- !u!1001 &1569246493242447674
 PrefabInstance:
   m_ObjectHideFlags: 0

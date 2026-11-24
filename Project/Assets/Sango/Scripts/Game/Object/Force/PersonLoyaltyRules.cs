@@ -99,6 +99,14 @@ namespace Sango.Core
         {
             if (force == null || person == null) return false;
 
+            // 0. 没有所属城的武将不参与换季掉忠。
+            //    掉忠表达的是"城内人员对君主的态度"，无户口说明他不在任何城的编制里
+            //    （剧本初始化中间态、城陷撤离途中、异族 / 事件武将），
+            //    既吃不到仁政保护，也没有承接忠诚变化的城，参与结算只是无意义的数据扰动。
+            //    这条同时挡住了 CityPreventPersonLoyaltyLoss 事件监听里的一个历史空引用条件
+            //    （City 与 BelongCity 同时为空）。
+            if (person.BelongCity == null) return false;
+
             // 1. 所在城里有「仁政」→ 该城武将（含出征者）本季不掉忠。
             //    判定走城市的标记位（O(1)），不再遍历武将列表。
             if (HasRenZhengInBelongCity(person)) return false;

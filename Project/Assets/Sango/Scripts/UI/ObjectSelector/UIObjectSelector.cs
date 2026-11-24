@@ -177,6 +177,10 @@ namespace Sango.UI
 
         public void OnPersonListSelected(UIObjectListItem item)
         {
+            // 纯浏览（如外交情报）：点行不做任何事，既不勾选也不退出
+            if (objectSelectSystem.BrowseMode)
+                return;
+
             if (item.index >= objectSelectSystem.Objects.Count)
                 return;
 
@@ -214,6 +218,10 @@ namespace Sango.UI
 
         public void OnDragPersonListSelected(UIObjectListItem item)
         {
+            // 纯浏览：拖动划过行不批量勾选
+            if (objectSelectSystem.BrowseMode)
+                return;
+
             if (dragFlag && objectSelectSystem.IsPersonLimit())
                 return;
 

@@ -1,9 +1,9 @@
 ---
-description: 实现业务逻辑前必须先检索 Open311 原版源码，有相同实现则强制对齐
+description: 
 alwaysApply: true
-enabled: true
-updatedAt: 2026-10-22T00:00:00.000Z
-provider:
+enabled: false
+updatedAt: 2026-11-23T12:45:53.553Z
+provider: 
 ---
 
 # 原版优先规则

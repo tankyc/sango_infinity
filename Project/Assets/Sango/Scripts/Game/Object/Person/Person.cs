@@ -3027,16 +3027,19 @@ namespace Sango.Core
                     }
 
                     if (IsWild)
-                        CurrentCity.wildPersons.Remove(this);
+                        CurrentCity.RemoveWildPerson(this);
                     else
-                        CurrentCity.invisiblePersons.Remove(this);
+                        CurrentCity.RemoveInvisiblePerson(this);
 
-                    // 【修复】改归属前先从旧所属城的在野名单摘除。
+                    // 【修复】改归属前先从旧所属城的名单摘除。
                     // 旧所属城可能不同于所在城（例如城池陷落后人员未迁移），
-                    // 直接 BelongCity = 新城 会给旧城 wildPersons 留下脏引用（双城挂名），
+                    // 直接 BelongCity = 新城 会给旧城名册留下脏引用（双城挂名），
                     // 之后旧城的搜索 / 登庸仍可能挑到此人。
-                    // （不可见武将不在 wildPersons 名单里，RemoveWildPerson 对其是无害的空移除。）
+                    // 在野与未发现两套名册都要摘：他的状态可能在两次游荡之间变化过，
+                    // 旧城残留的可能是任意一套。对不在名单里的对象 Remove 是空操作，
+                    // 因此两条都调不会误删他人。
                     BelongCity?.RemoveWildPerson(this);
+                    BelongCity?.RemoveInvisiblePerson(this);
 
                     //如果在港关,移动到所属城市
                     if (!CurrentCity.IsCity())
@@ -3050,9 +3053,18 @@ namespace Sango.Core
                             City fallbackCity = RandomCity(scenario);
                             if (fallbackCity != null && fallbackCity != lastCity)
                             {
-                                // ChangeCurrentCity 内部负责旧城名单摘除 + 新城登记，这里不要再 Add 一次
                                 ChangeCurrentCity(fallbackCity);
                                 BelongCity = fallbackCity;
+                                // 【必须补登记】ChangeCurrentCity 只改 CurrentCity 字段并发
+                                // OnPersonChangCurrentCity 事件，**不动任何名册**
+                                // （见 Person.ChangeCurrentCity 的实现）。
+                                // 而上面已经把人从 lastCity 的名册摘掉了，这里若不登记，
+                                // 此人会同时不在旧城和新城的名册里 —— 登庸 / 搜索都找不到他，
+                                // 一直要等到下一次"5 回合 + 10% 概率"触发游荡才被补回。
+                                if (IsWild)
+                                    CurrentCity.AddWildPerson(this);
+                                else
+                                    CurrentCity.AddInvisiblePerson(this);
                                 stayTurnCount = 0;
                                 Sango.Log.Warning($"@人才@在野武将{Name}所在的港关{lastCity.Name}没有隶属主城,已改派到{fallbackCity.Name}");
                                 return base.OnTurnEnd(scenario);
@@ -3097,8 +3109,12 @@ namespace Sango.Core
                         }
                     }
 
+                    // 统一走 City.AddWildPerson：它内部保证"同一人只挂在一座城的在野名册"
+                    // （先跨城摘除、再同城去重）。直接 wildPersons.Add 会绕过这条不变量，
+                    // 一旦摘除点（旧 CurrentCity / BelongCity）与登记点不一致，
+                    // 同一人就会在两张城的在野名册里各留一份，登庸界面出现重复项。
                     if (IsWild)
-                        CurrentCity.wildPersons.Add(this);
+                        CurrentCity.AddWildPerson(this);
                     else
                         CurrentCity.AddInvisiblePerson(this);
                 }

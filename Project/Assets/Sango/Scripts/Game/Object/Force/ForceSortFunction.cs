@@ -235,6 +235,130 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 「关系」列：以 <paramref name="target"/> 为视角，显示对每一行势力的友好度。
+        ///
+        /// 【为什么是工厂而不是静态字段】友好度是"两个势力之间"的值，静态字段拿不到视角势力；
+        /// 外交情报每次打开都可能换一个视角势力，所以列定义必须用闭包把 target 固定下来
+        /// （与 <see cref="GetSortByDistanceDay"/> 同一思路）。
+        /// 文本走 <see cref="DiplomacyRules.FormatLike"/>，与势力情报、外交窗口的口径一致
+        /// （数字 + 五档文字，避免各界面各自拼格式）。
+        /// </summary>
+        /// <param name="target">视角势力（外交情报的目标势力）</param>
+        /// <returns>列定义</returns>
+        public static SortTitle GetSortByLike(Force target)
+        {
+            return new SortTitle()
+            {
+                name = "关系",
+                width = 6.50f,
+                alignment = (int)UnityEngine.TextAnchor.MiddleLeft,
+                valueStrGetCall = x => DiplomacyRules.FormatLike(GetLikeOf(target, x)),
+                valueSortFunc = (a, b) => GetLikeOf(target, a).CompareTo(GetLikeOf(target, b)),
+                valueObjGet = x => GetLikeOf(target, x),
+                valueObjSet = null,
+            };
+        }
+
+        /// <summary>
+        /// 「盟约」列：显示 target 与每一行势力之间生效中的盟约类型（同盟 / 停战 / —）。
+        ///
+        /// 【取值口】统一走 <see cref="Force.GetActiveAgreement"/>：它判了 IsAlive 与 leftCount，
+        /// 且同盟优先于停战，因此不会再出现"同盟那一列说停战、停战那一列说同盟"的分叉。
+        /// </summary>
+        /// <param name="target">视角势力（外交情报的目标势力）</param>
+        /// <returns>列定义</returns>
+        public static SortTitle GetSortByAgreement(Force target)
+        {
+            return new SortTitle()
+            {
+                name = "盟约",
+                width = 3.50f,
+                valueStrGetCall = x => GetAgreementName(target, x),
+                valueSortFunc = (a, b) => GetAgreementWeight(target, a).CompareTo(GetAgreementWeight(target, b)),
+                valueObjGet = x => GetAgreementWeight(target, x),
+                valueObjSet = null,
+            };
+        }
+
+        /// <summary>
+        /// 「剩余回合」列：显示 target 与每一行势力之间盟约的剩余回合数（无盟约显示 —）。
+        ///
+        /// 【单位】<see cref="Alliance.leftCount"/> 每回合 -1（<see cref="Alliance.OnTurnStart"/>），
+        /// 一回合 = 一旬（10 天），一月三回合、一年 36 回合，所以这里直接按"回合"展示，
+        /// 不再换算成月（换算会丢失不足一月的尾巴）。
+        /// </summary>
+        /// <param name="target">视角势力（外交情报的目标势力）</param>
+        /// <returns>列定义</returns>
+        public static SortTitle GetSortByAgreementLeftCount(Force target)
+        {
+            return new SortTitle()
+            {
+                name = "剩余回合",
+                width = 4.00f,
+                valueStrGetCall = x =>
+                {
+                    Alliance alliance = target == null ? null : target.GetActiveAgreement(x);
+                    return alliance == null ? "—" : alliance.leftCount.ToString();
+                },
+                valueSortFunc = (a, b) =>
+                    GetAgreementLeftCount(target, a).CompareTo(GetAgreementLeftCount(target, b)),
+                valueObjGet = x => GetAgreementLeftCount(target, x),
+                valueObjSet = null,
+            };
+        }
+
+        /// <summary>
+        /// 取 target 视角下对指定势力的友好度（任一为空时按中立值兜底，避免列表渲染空引用）。
+        /// </summary>
+        /// <param name="target">视角势力</param>
+        /// <param name="other">被查看的势力</param>
+        /// <returns>0~100 的友好度</returns>
+        static int GetLikeOf(Force target, Force other)
+        {
+            if (target == null || other == null)
+                return DiplomacyRules.DefaultLike;
+            return target.GetLike(other);
+        }
+
+        /// <summary>
+        /// 盟约状态文本：同盟 / 停战 / —（无任何生效协议）。
+        /// </summary>
+        /// <param name="target">视角势力</param>
+        /// <param name="other">被查看的势力</param>
+        /// <returns>状态文本</returns>
+        static string GetAgreementName(Force target, Force other)
+        {
+            Alliance alliance = target == null ? null : target.GetActiveAgreement(other);
+            if (alliance == null) return "—";
+            return alliance.allianceType == AllianceType.Truce ? "停战" : "同盟";
+        }
+
+        /// <summary>
+        /// 盟约权重，仅用于表头排序：同盟 2 &gt; 停战 1 &gt; 无盟约 0。
+        /// </summary>
+        /// <param name="target">视角势力</param>
+        /// <param name="other">被查看的势力</param>
+        /// <returns>权重值</returns>
+        static int GetAgreementWeight(Force target, Force other)
+        {
+            Alliance alliance = target == null ? null : target.GetActiveAgreement(other);
+            if (alliance == null) return 0;
+            return alliance.allianceType == AllianceType.Truce ? 1 : 2;
+        }
+
+        /// <summary>
+        /// 盟约剩余回合，无盟约返回 -1（升序时无盟约的自然排在最前，降序时排在最后）。
+        /// </summary>
+        /// <param name="target">视角势力</param>
+        /// <param name="other">被查看的势力</param>
+        /// <returns>剩余回合数；无盟约为 -1</returns>
+        static int GetAgreementLeftCount(Force target, Force other)
+        {
+            Alliance alliance = target == null ? null : target.GetActiveAgreement(other);
+            return alliance == null ? -1 : alliance.leftCount;
+        }
+
+        /// <summary>
         /// 首都排序标题（首都由君主所在城市决定，为只读派生值，不支持直接编辑）
         /// </summary>
         public static SortTitle SortByCapitalCity = new SortTitle()

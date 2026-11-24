@@ -294,10 +294,11 @@ namespace Sango.Render
         /// 块包围盒的视锥剔除：<b>只测 4 个侧面平面</b>（Left/Right/Bottom/Top），
         /// 跳过 [4] Near 与 [5] Far。
         ///
-        /// 【为什么跳过 Far】MapCamera.far_clip 只有 950（MapCamera.cs:20/89），
-        /// 相机拉到远景 630 时地形与相机的距离普遍超过 950 —— 用 Far 平面剔除会把远景
-        /// 地形整体剔掉（表现为"拉远后地形消失"）。地形是覆盖型大几何，超出 far_clip
-        /// 的部分本来就交给 GPU 裁剪，CPU 只需保证"视野左右上下之内"的块都提交。
+        /// 【为什么跳过 Far】MapCamera 的远裁剪面随视距在 400 ~ 1800 之间变化
+        /// （见 <see cref="MapCamera.CalcFarClipPlane"/>），相机拉到远景时地形与相机的距离
+        /// 会超过远裁剪面 —— 用 Far 平面剔除会把远景地形整体剔掉（表现为"拉远后地形消失"）。
+        /// 地形是覆盖型大几何，超出远裁剪面的部分本来就交给 GPU 裁剪，
+        /// CPU 只需保证"视野左右上下之内"的块都提交。
         /// </summary>
         private bool TestBoundsSidePlanes(Bounds bounds)
         {

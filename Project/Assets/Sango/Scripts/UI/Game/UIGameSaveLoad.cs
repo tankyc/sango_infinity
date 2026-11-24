@@ -225,9 +225,10 @@ namespace Sango.UI
             if (scenario.ModsDiffer)
             {
                 // 存档需要的模组有缺失(本机没下载 / 下载了但没启用)时,只把差异和风险讲清楚,
-                // 由玩家决定是否直接尝试读取。
-                // 注意:确认后不再替玩家改动模组启用列表,也不再重启游戏,
-                // 而是直接尝试进入存档(读档过程有失败兜底,见 Player.LoadFromFile / OnLoadFailed)。
+                // 由玩家决定怎么处理。两层确认:
+                //   第一层"是否仍要尝试读取" —— 确认 = 强制进入,取消 = 留在界面看存档头部信息;
+                //   第二层"要不要先同步模组环境" —— 确认 = 写 modList.txt 后重启,取消 = 直接读档
+                //   （见 AskSyncModsThenLoad）。读档过程本身有失败兜底，见 Player.LoadFromFile / OnLoadFailed。
                 List<string> notDownloaded;
                 List<string> inactive;
                 Sango.Mod.ModManager.Instance.CheckSavedModsAvailable(
@@ -238,10 +239,14 @@ namespace Sango.UI
                     warnContent += "\r\n已下载但未启用的模组: " + string.Join("、", inactive);
                 if (notDownloaded != null && notDownloaded.Count > 0)
                     warnContent += "\r\n本机未下载的模组: " + string.Join("、", notDownloaded);
-                warnContent += "\r\n\r\n是否仍要尝试读取该存档?";
+                // 确认后还会再问一次"要不要先同步模组环境"（见 AskSyncModsThenLoad），
+                // 文案里先把这个后续选择告诉玩家，避免以为点完就直接读档
+                warnContent += "\r\n\r\n是否仍要尝试读取该存档?（确认后可选择先同步模组环境）";
 
+                // 第一层：是否强制进入（不改动模组，风险自担）
+                // 第二层：强制进入后再问一次要不要把模组环境同步成存档那一套并重启（见 AskSyncModsThenLoad）
                 GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, warnContent,
-                    () => DoLoad(index),
+                    () => AskSyncModsThenLoad(index, scenario, notDownloaded),
                     () => ShowModsDifferDetail(index, scenario));
                 return;
             }
@@ -267,6 +272,87 @@ namespace Sango.UI
                 player.LoadAutoFile(index);
             else
                 player.Load(index);
+        }
+
+        /// <summary>
+        /// 玩家在第一层选择"强制进入"后的第二层询问：要不要先把模组环境同步成存档记录的那一套。
+        ///
+        /// 【为什么要问第二次】"强制进入"只是带着不匹配的模组硬读存档，存档里由缺失模组提供的事件、
+        /// 资源、数据都不会存在，随时可能缺内容或中途报错；真正要让存档回到作者设计的环境，
+        /// 必须把启用模组换成存档当时那一套并重启 —— 启用列表只在启动阶段（ModManager.InitMods）
+        /// 读一次，进程内改了也不生效。两条路让玩家自己选：
+        ///   · 确认 → 同步模组后重启游戏（重启后重新读该存档即是原环境）；
+        ///   · 取消 → 不改动模组设置，按当前环境直接进入存档。
+        /// </summary>
+        /// <param name="index">存档槽位下标</param>
+        /// <param name="scenario">目标存档（取 Info.mods 作为同步目标）</param>
+        /// <param name="notDownloaded">本机未下载的模组 Id（仅用于提示，可为 null）</param>
+        void AskSyncModsThenLoad(int index, ShortScenario scenario, List<string> notDownloaded)
+        {
+            string content = "是否先把模组环境同步为该存档使用的模组？\r\n"
+                           + "同步后需要重启游戏才能生效。";
+
+            if (notDownloaded != null && notDownloaded.Count > 0)
+            {
+                content += "\r\n\r\n以下模组本机未下载，同步时会被跳过（请先在模组管理器下载）: "
+                         + string.Join("、", notDownloaded);
+            }
+
+            content += "\r\n\r\n确认 = 同步模组并重启游戏\r\n取消 = 不改动模组，直接进入存档";
+
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, content,
+                () => SyncModsAndRestart(scenario),
+                () => DoLoad(index));
+        }
+
+        /// <summary>
+        /// 把启用模组列表写成存档记录的那一套，然后重启游戏。
+        ///
+        /// 只改 Mods/modList.txt：模组加载发生在启动阶段，进程内改列表不会生效，
+        /// 必须走 Platform.RestartGame（各平台分别处理，见 Platform.RestartGame）。
+        /// 有模组没下载时也照样重启：能同步的部分先落地，缺的那几个玩家需自行在模组管理器补下。
+        /// </summary>
+        /// <param name="scenario">目标存档</param>
+        void SyncModsAndRestart(ShortScenario scenario)
+        {
+            string[] savedMods = (scenario != null && scenario.Info != null) ? scenario.Info.mods : null;
+
+            // 老存档没有模组记录：无从还原当时的环境，不能拿当前列表去凑数
+            if (savedMods == null)
+            {
+                Sango.Log.Warning("读档：该存档没有记录模组信息，无法自动同步", Sango.Log.LogType.Download);
+                GameDialog.Instance.Open(GameDialog.DialogStyle.Normal,
+                    "该存档是旧版本保存的，没有记录使用的模组，无法自动同步。\r\n"
+                    + "请在模组管理器中手动调整启用列表，然后重启游戏。",
+                    () => { });
+                return;
+            }
+
+            List<string> skipped;
+            bool complete = Sango.Mod.ModManager.Instance.SyncModsFromSave(savedMods, out skipped);
+
+            if (complete)
+            {
+                Sango.Log.Info("读档：模组环境已同步，准备重启游戏", Sango.Log.LogType.Download);
+                Sango.Platform.RestartGame();
+                return;
+            }
+
+            Sango.Log.Warning($"读档：模组同步未完成，缺少 {skipped.Count} 个未下载模组，仍需重启后才能加载已同步的部分",
+                Sango.Log.LogType.Download);
+
+            // 【必须把失败原因摊开】同步只写 modList.txt，没写进去的模组重启后依然不会启用，
+            // 玩家会再次看到"已下载但未启用的模组"，误以为是同步功能失效。
+            // 绝大多数情况是：模组只在市场列表里、本地目录没落地（下载失败 / 被清理 / mod.info 缺失），
+            // CheckSavedModsAvailable 已经按同一口径把它归到"本机未下载"，这里负责把 ID 明确列出来。
+            string content = "以下模组本机未下载或安装不完整，无法随存档同步：\r\n"
+                           + string.Join("、", skipped)
+                           + "\r\n\r\n请先在模组管理器中下载 / 重新安装这些模组，再来同步。\r\n"
+                           + "确认 = 仍然重启（只生效已同步的部分）\r\n取消 = 留在界面";
+
+            GameDialog.Instance.Open(GameDialog.DialogStyle.Normal, content,
+                () => Sango.Platform.RestartGame(),
+                () => { });
         }
 
         public void ShowScenario(int index)

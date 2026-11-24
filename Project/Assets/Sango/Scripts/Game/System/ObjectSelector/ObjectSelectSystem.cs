@@ -28,13 +28,15 @@ namespace Sango.Core.Player
         /// </summary>
         protected bool filterDirty;
 
-        public void Start(List<SangoObject> sangoObjects, List<SangoObject> resultList, int limit, Action<List<SangoObject>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
+        public void Start(List<SangoObject> sangoObjects, List<SangoObject> resultList, int limit, Action<List<SangoObject>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName, bool browseOnly = false)
         {
             selectLimit = limit;
             Objects = new List<SangoObject>(sangoObjects);
             sureAction = action;
             selected = resultList;
             resultList.RemoveAll(x => x == null);
+            // 浏览态必须在 Push（→ OnEnter → 窗口 Init）之前定下来，界面初始化时才读得到
+            BrowseMode = browseOnly;
             displayFilter = null;
             filterDirty = false;
             allObjects = new List<SangoObject>(Objects);
@@ -54,6 +56,10 @@ namespace Sango.Core.Player
 
         public void OnSure()
         {
+            // 纯浏览没有"确认"语义：按钮已被界面隐藏，这里兜底一切残留调用点
+            if (BrowseMode)
+                return;
+
             sureAction?.Invoke(selected);
             if (!donotFinishThisSystem)
                 Back();
@@ -71,6 +77,10 @@ namespace Sango.Core.Player
 
         public void Add(int index)
         {
+            // 纯浏览模式不产生选择结果（界面已隐藏勾选列，这里兜底键盘 / 拖拽等旁路入口）
+            if (BrowseMode)
+                return;
+
             if (index < 0 || index >= Objects.Count)
             {
                 return;
@@ -91,6 +101,8 @@ namespace Sango.Core.Player
 
         public void Remove(int index)
         {
+            if (BrowseMode)
+                return;
             if (index < 0 || index >= Objects.Count) { return; }
             if (selected.Remove(Objects[index]))
             {

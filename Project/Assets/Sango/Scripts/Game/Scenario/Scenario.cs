@@ -1601,7 +1601,10 @@ namespace Sango.Core
                     targetForce.NationId = force.Nation;
                     // 自建势力携带编辑器里设定的初始爵位；未设置(0)时由运行时按城池数自动晋升
                     targetForce.TitleId = force.TitleId;
-                    targetForce.InitTechniques.FromArray(new int[] { 1, 5, 9, 13, 17, 21, 25, 29, 33 });
+                    // 初始科技树入口：随机同步当前剧本里某个势力的（排除异族），见 PickRandomInitTechniques。
+                    // 原先这里固定给一套 {1,5,9,13,17,21,25,29,33}（全系 1 级根节点），
+                    // 等于自建势力开局科技树和剧本势力完全脱节（剧本里各势力根节点并不相同）。
+                    targetForce.InitTechniques.FromArray(PickRandomInitTechniques(scenario));
 
                     scenario.forceSet.Add(targetForce);
 
@@ -1726,6 +1729,98 @@ namespace Sango.Core
             });
         }
 
+        /// <summary>
+        /// 自建势力找不到可同步对象时的兜底科技树入口（全系 1 级根节点）。
+        ///
+        /// 与原 <c>Open311ScenarioImporter.DefaultInitTechniques</c> 同一套 Id：
+        /// 每行科技树的第一个节点，保证科技树面板非空、能正常研发。
+        /// </summary>
+        static readonly int[] FallbackInitTechniques = { 1, 5, 9, 13, 17, 21, 25, 29, 33 };
+
+        /// <summary>
+        /// 为玩家自建势力随机挑一份"初始科技"：从当前剧本里取一个**非异族**势力的科技树入口。
+        ///
+        /// 【读哪个字段】<see cref="Force.InitTechniques_list"/>（JSON 里序列化的 int[]），
+        /// 不是 <see cref="Force.InitTechniques"/>（对象列表）。原因：
+        /// 本方法跑在 <c>LoadContent()</c> 之后、<c>Prepare()</c> 之前，
+        /// 此时 <c>Force.OnScenarioPrepare</c> 还没执行，对象列表一律是空的，
+        /// 只有反序列化出来的 int[] 可用。
+        ///
+        /// 【为什么自己判异族】同上，<c>mGovernor</c> 尚未解析，
+        /// <see cref="Force.IsBarbarian"/> 只能看到剧本里的 <c>forceType</c>（多数剧本没写这个键），
+        /// 因此这里按 <c>Governor</c> Id 从人物池取出君主，再查异族配置表兜底判定。
+        ///
+        /// 【候选筛选】除异族外，还要求该势力的科技树入口**非空**：
+        /// 剧本里的空位势力 / 未配置科技的势力没有可同步内容，选中它们等于给玩家一棵空树。
+        ///
+        /// 【返回值】返回数组副本，不与剧本里其它势力共享同一个数组实例。
+        /// </summary>
+        /// <param name="scenario">当前剧本（已完成 LoadContent）</param>
+        /// <returns>科技树入口 Id 数组，至少包含兜底那一套</returns>
+        static int[] PickRandomInitTechniques(Scenario scenario)
+        {
+            if (scenario == null || scenario.forceSet == null || scenario.forceSet.Count == 0)
+                return FallbackInitTechniques;
+
+            List<Force> candidates = new List<Force>();
+            // SangoObjectSet 的下标就是 Id，0 号位是"默认空对象"槽位，从 1 开始扫
+            for (int i = 1; i < scenario.forceSet.Count; i++)
+            {
+                Force force = scenario.forceSet[i];
+                if (force == null) continue;
+                if (IsBarbarianForce(scenario, force)) continue;
+
+                int[] techniques = force.InitTechniques_list;
+                if (techniques == null || techniques.Length == 0) continue;
+                candidates.Add(force);
+            }
+
+            if (candidates.Count == 0)
+            {
+                Sango.Log.Warning("[剧本] 自建势力没有可同步科技的势力（剧本里找不到非异族的科技树配置），改用兜底科技树");
+                return FallbackInitTechniques;
+            }
+
+            Force source = candidates[GameRandom.Range(candidates.Count)];
+            int[] picked = source.InitTechniques_list;
+            int[] copy = new int[picked.Length];
+            Array.Copy(picked, copy, picked.Length);
+
+            Person governor = source.Governor > 0 ? scenario.personSet.Get(source.Governor) : null;
+            string sourceName = governor != null ? governor.Name : $"势力{source.Id}";
+            Sango.Log.Info($"[剧本] 自建势力初始科技：随机同步自{sourceName}（{copy.Length} 个科技树入口）");
+
+            return copy;
+        }
+
+        /// <summary>
+        /// 判断剧本中的某个势力是否为异民族势力（自建势力同步科技时排除用）。
+        ///
+        /// 【双判据】优先看剧本数据里的 <c>forceType</c>；剧本没写这个键时（本项目多数剧本如此），
+        /// 按君主是否属于异民族部落兜底 —— 与 <see cref="Force.IsBarbarian"/> 的口径一致，
+        /// 只是这里君主对象还没解析好，改成按 Id 现取 + 查 <see cref="BarbarianConfig"/>。
+        /// </summary>
+        /// <param name="scenario">当前剧本</param>
+        /// <param name="force">待判定的势力</param>
+        /// <returns>是异民族返回 true</returns>
+        static bool IsBarbarianForce(Scenario scenario, Force force)
+        {
+            if (force.forceType == (int)ForceType.Barbarian)
+                return true;
+
+            if (scenario == null || scenario.personSet == null || force.Governor <= 0)
+                return false;
+
+            Person governor = scenario.personSet.Get(force.Governor);
+            if (governor == null)
+                return false;
+
+            if (governor.barbarianTribe > 0)
+                return true;
+
+            return BarbarianConfig.IsBarbarian(governor.Id, governor.Name);
+        }
+
         static void FixReletionship(ref int r, SangoObjectSet<ShortPerson> objectSet)
         {
             if (r == 0) return;
@@ -1832,6 +1927,12 @@ namespace Sango.Core
             {
                 prepareList[i].ForEach(o => { o.Init(this); });
             }
+
+            // 【武将属性光环】必须放在所有对象 Init 之后：
+            //   此时部队的 Leader / Member 与 cell 已经就位，全量补算才能一次性
+            //   建立"谁覆盖谁"的关系。部队后续新建 / 移动 / 属性重算会由
+            //   AuraSystem 自己订阅的事件增量维护。
+            AuraSystem.Init(this);
 
             // 据点距离双表：必须在所有对象 Init 之后（此时 City.NeighborList 才填好）。
             // 与 cityPathMap 的区别：那个是"按需 BFS + 逐对缓存"，本表是"一次算全表"，

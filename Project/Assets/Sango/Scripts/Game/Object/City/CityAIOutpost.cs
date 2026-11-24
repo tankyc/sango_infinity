@@ -194,6 +194,11 @@ namespace Sango.Core
 
             if (city.IsCity())
             {
+                // 【开局人才倾斜】第一年把探索 / 登用插到队首
+                // （默认生效的据点固定表里，人才指令排在 Bonus / Patrol / Merchant 之后，
+                //  第一年常因行动力和空闲武将先被吃掉而轮不到）
+                TryInsertOpeningTalentOrders(city, scenario, q, info);
+
                 // ---- 都市四态表 —— s11_game_ai_kyoten.cpp:65-165 ----
                 switch (info.state)
                 {
@@ -362,6 +367,83 @@ namespace Sango.Core
                         q.Add(AIOrderId.Bonus);
                         q.Add(AIOrderId.Strategy);
                         break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 开局第一年的人才倾斜：按概率把"探索 / 登用"插到据点命令表最前方。
+        ///
+        /// 【为什么需要】默认生效的是据点固定命令表（<see cref="UpdateOutpostData"/>）：
+        /// Rear 都市的 SearchMax / EmployMax 排在第 3、4 位，普通 Search / Employ 在表尾。
+        /// 第一年 AI 往往先被 Bonus / Patrol / Merchant 吃掉行动力与空闲武将，
+        /// 等轮到人才指令时人手已经用完 —— 表现就是"开局几年 AI 城里一堆空位"。
+        ///
+        /// 【口径】
+        ///   · 只对都市生效，且只在开局第一年（<c>year - startYear &lt; 1</c>，与 PersonLifeCycle 同口径）；
+        ///   · 交战状态（Battle）不插：优先守城，不抽人去探索 / 登用；
+        ///   · 探索：chance = 未发现人数 × openYearSearchChancePerInvisible（默认 30），
+        ///     封顶 openYearSearchChanceMax（默认 100）；
+        ///   · 登用：chance = 在野人数 × openYearEmployChancePerWild（默认 30），
+        ///     封顶 openYearEmployChanceMax（默认 100）；
+        ///   · 两者都插时登用排最前、探索紧随其后
+        ///     （先招现有的，探索发现的新人留给后续回合的登用命令）。
+        ///
+        /// 概率参数见 <see cref="CityOrderWeights"/> 的 openYear* 字段，可用 AIConfig.json 的
+        /// <c>cityOrder</c> 节点覆盖；全部配 0 即关闭。
+        /// </summary>
+        /// <param name="city">据点（调用方已保证是都市）</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="q">待装填的命令队列（插到索引 0 = 最优先执行）</param>
+        /// <param name="info">本据点状态快照</param>
+        static void TryInsertOpeningTalentOrders(City city, Scenario scenario, List<AIOrderId> q, OutpostInfo info)
+        {
+            if (city == null || scenario == null || scenario.Info == null || q == null)
+                return;
+
+            // 交战状态优先守城，不抽人去探索 / 登用
+            if (info != null && info.state == OutpostState.Battle)
+                return;
+
+            // 开局第一年：startYear 缺失（老存档 / 编辑器新建）时按当前年兜底
+            int startYear = scenario.Info.startYear > 0 ? scenario.Info.startYear : scenario.Info.year;
+            if (scenario.Info.year - startYear >= 1)
+                return;
+
+            CityOrderWeights cfg = AIConfig.Instance.cityOrder;
+            if (cfg == null)
+                return;
+
+            // ① 探索：chance = 未发现人数 × 30，封顶 100
+            int invisibleCount = city.CountInvisiblePersons();
+            if (invisibleCount > 0)
+            {
+                float chance = invisibleCount * cfg.openYearSearchChancePerInvisible;
+                if (chance > cfg.openYearSearchChanceMax)
+                    chance = cfg.openYearSearchChanceMax;
+
+                if (GameRandom.Range(0f, 100f) < chance)
+                {
+                    q.Insert(0, AIOrderId.Search);
+                    if (AIConfig.Instance.logOutpostAI)
+                        Sango.Log.Info($"*[据点AI]{city.Name} 开局人才倾斜：未发现 {invisibleCount} 人，插入探索（{chance:F0}%）");
+                }
+            }
+
+            // ② 登用：chance = 在野人数 × 30，封顶 100；
+            //    后插，因此排在探索之前（先招现有在野，再探索补充新人）
+            int wildCount = city.CountWildPersons();
+            if (wildCount > 0)
+            {
+                float chance = wildCount * cfg.openYearEmployChancePerWild;
+                if (chance > cfg.openYearEmployChanceMax)
+                    chance = cfg.openYearEmployChanceMax;
+
+                if (GameRandom.Range(0f, 100f) < chance)
+                {
+                    q.Insert(0, AIOrderId.Employ);
+                    if (AIConfig.Instance.logOutpostAI)
+                        Sango.Log.Info($"*[据点AI]{city.Name} 开局人才倾斜：在野 {wildCount} 人，插入登用（{chance:F0}%）");
                 }
             }
         }

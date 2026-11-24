@@ -756,12 +756,20 @@ namespace Sango.Core.Player
                 }
             }
 
-            // ② 先全部清空
+            // ② 先全部清空（清空前记下每人的原官职 —— 判断"是否提升"必须靠它）
+            Dictionary<Person, Official> oldOfficials = new Dictionary<Person, Official>(all.Count);
+            for (int i = 0; i < all.Count; i++)
+                oldOfficials[all[i]] = all[i].Official;
+
             for (int i = 0; i < all.Count; i++)
                 all[i].SetOfficial(none, true);
 
             // ③ 再按槽设置
             List<Person> promoted = new List<Person>();
+            // 只给"官职确实提升"的人播受封台词。
+            // 官职没变 / 降级 / 平级换岗都不弹 —— 后期多线作战会频繁微调带兵数，
+            // 一次提交几十个人同时冒对话框非常烦（需求：只有提升才有反馈）。
+            List<Person> needSay = new List<Person>();
             for (int i = 0; i < upgradeList.Count; i++)
             {
                 Person person = upgradeList[i].person;
@@ -769,8 +777,13 @@ namespace Sango.Core.Player
                 if (person == null || official == null)
                     continue;
 
+                Official oldOfficial;
+                oldOfficials.TryGetValue(person, out oldOfficial);
+
                 person.SetOfficial(official, true);
                 promoted.Add(person);
+                if (IsOfficialPromoted(oldOfficial, official))
+                    needSay.Add(person);
                 Sango.Log.Info($"@个人@{person.Name}被任命为[{official.Name}]");
             }
 
@@ -782,21 +795,54 @@ namespace Sango.Core.Player
                 "某誓死追随主公，若有二心，天诛地灭！"
             };
 
+            // 忠诚：与原版一致，所有被任命者都加（本次只收窄对话演出，不改数值）
             for (int i = 0; i < promoted.Count; i++)
             {
-                Person person = promoted[i];
                 // 忠诚走 AddLoyalty：裸 `loyalty +=` 在内部值域放宽到 255 之后会突破上限
                 // （原版 person_add_loyalty 也是 clamp 0..max_person_loyalty_）。
-                person.AddLoyalty(10);
+                promoted[i].AddLoyalty(10);
+            }
+
+            // 台词：只给官职提升的人播
+            for (int i = 0; i < needSay.Count; i++)
+            {
                 Render.RenderEvent.Instance.Add(new Render.CityPersonSayEvent()
                 {
-                    person = person,
+                    person = needSay[i],
                     words = says[GameRandom.Range(says.Length)]
                 });
             }
 
             Done();
             GameMedia.Instance.PlayDoAcitonSfx();
+        }
+
+        /// <summary>
+        /// 判断这次任免对某个人来说是不是"官职提升"，用于决定要不要播受封台词。
+        ///
+        /// 【品级口径】<see cref="Official.level"/> 数字越小官越大
+        /// （<see cref="BuildOfficialSlots"/> 按 level 升序排"官大 → 官小"，
+        /// <see cref="Official.NextOfficials"/> 也用 level - 1 表示更高一级）。
+        ///
+        /// 【结果】
+        /// <list type="bullet">
+        /// <item>原官职为空（null / Id == 0）→ 首次受封，算提升；</item>
+        /// <item>新旧是同一个官职 Id → 没有变化，不算；</item>
+        /// <item>新官职 level 更小 → 品级更高，算提升；</item>
+        /// <item>其余（降级 / 平级换岗 / 新官职无效）→ 不算。</item>
+        /// </list>
+        /// </summary>
+        /// <param name="oldOfficial">本次提交前该人的官职（可能为 null 或 Id 0 的"无"）</param>
+        /// <param name="newOfficial">本次分配到槽位上的官职</param>
+        static bool IsOfficialPromoted(Official oldOfficial, Official newOfficial)
+        {
+            if (newOfficial == null || newOfficial.Id == 0)
+                return false;
+            if (oldOfficial == null || oldOfficial.Id == 0)
+                return true;
+            if (oldOfficial.Id == newOfficial.Id)
+                return false;
+            return newOfficial.level < oldOfficial.level;
         }
     }
 }

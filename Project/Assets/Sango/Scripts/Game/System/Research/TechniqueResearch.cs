@@ -52,8 +52,26 @@ namespace Sango.Core
                 force.ResearchLeftCounter--;
                 if (force.ResearchLeftCounter <= 0)
                 {
-                    Technique technique = force.AddTechnique(force.ResearchTechnique);
+                    // 先把 Id 取出来：AddTechnique 内部命中同一 Id 时会立刻把
+                    // ResearchTechnique 清 0，之后再读就只能拿到 0，日志和判空都失真。
+                    int researchId = force.ResearchTechnique;
+                    Technique technique = force.AddTechnique(researchId);
                     force.ResearchTechnique = 0;
+
+                    // 【科技已被移除】MOD 改动科技树后，旧存档正在研究的科技 Id 可能
+                    // 在新表里已经不存在：AddTechnique → Scenario.Cur.GetObject<Technique>
+                    // 返回 null，于是这里拿到的是 null。
+                    // 此时若照旧弹「研究完成」演出，UI 层拿 null 去读 Name 就抛
+                    // NullReferenceException（实测崩溃栈：
+                    // UITechniqueComplete.OnOpen → UITechniqueItem.SetTechnique）。
+                    // 没有科技对象就没有可展示的内容，也不该发「研发完成」事件
+                    // （监听方拿到 null 同样会炸），只留一条警告便于排查存档 / MOD 不匹配。
+                    if (technique == null)
+                    {
+                        Sango.Log.Warning($"@{force.Name}@研究完成的科技不存在"
+                            + $"（Id:{researchId}，可能已被 MOD 从科技表移除），已跳过演出与事件");
+                        return;
+                    }
 
                     // 刷新部队属性
                     force.ForEachTroop(t => t.CalculateAttribute(scenario));

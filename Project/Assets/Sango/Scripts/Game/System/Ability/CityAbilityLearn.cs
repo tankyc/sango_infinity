@@ -71,9 +71,19 @@ namespace Sango.Core.Player
         }
 
         /// <summary>
-        /// 是否可点：势力内至少有一名空闲武将可以培育（三类任一），且资金 / 行动力足够。
-        /// 对齐原版 <c>can_learn_base_stat_command</c>（s11_sys_person_order_kunshu.cpp:1671-1680）：
-        /// 用 <c>get_learnable_person_list(force, ...)</c> 判空，范围是**全势力**而非单一城池。
+        /// 是否可点：势力还有可继续培育的能力 / 适性 / 特技（三类任一），且资金 / 行动力足够。
+        ///
+        /// 【不再判"有没有武将能学"】这里只回答"还有没有可培育的目标"，
+        /// 不扫武将池 —— 那一步是 O(人 × 能力 × 人) 的全量扫描（见
+        /// <see cref="AbilityStudySystem.HasLearnableAbility"/> 的注释），
+        /// 放在每次右键开菜单时执行会让菜单卡住。
+        /// "当前有没有空闲健康的武将来学"由点开后的 <see cref="BuildMenu"/> 与
+        /// <see cref="CollectLearnablePersons"/> 判，无人可学时会给出中文提示。
+        ///
+        /// 【与原版的差异】原版 <c>can_learn_base_stat_command</c>
+        /// （s11_sys_person_order_kunshu.cpp:1671-1680）用 <c>get_learnable_person_list(force, ...)</c>
+        /// 判空（含执行者门禁）；本项目按需求把执行者判定后移到点开之后，
+        /// 按钮只保留"目标是否还有剩余学习次数"这一层。
         /// </summary>
         public override bool IsValid
         {
@@ -97,8 +107,9 @@ namespace Sango.Core.Player
                     && TargetCity.BelongCorps.ActionPoint < AbilityStudySystem.LearnActionPointCost)
                     return false;
 
-                CheckAvailability(scenario, out bool hasBase, out bool hasAptitude, out bool hasSkill);
-                return hasBase || hasAptitude || hasSkill;
+                // 只判"势力还有没有可继续培育的条目"（已研究 + 学习次数未用完），
+                // 一次遍历能力表、零分配；"有没有武将来学"留给点开后的界面判
+                return AbilityStudySystem.HasLearnableAbility(TargetCity.BelongForce, scenario);
             }
         }
 
@@ -298,6 +309,11 @@ namespace Sango.Core.Player
         ///
         /// 菜单三个项要同时决定是否可点，逐项重扫武将池会让城市菜单的显示明显变慢，
         /// 因此这里只扫一遍：先把三类已研究能力表取出来，再对每个空闲武将逐类试一遍，命中即置位。
+        ///
+        /// 【P0-1】"该大类槽位已被占用"（原版 find_actor 门禁）对同类所有能力、
+        /// 所有武将都是同一个结果，且判定本身要遍历全势力武将池 ——
+        /// 因此三类各在循环外算一次，再传进 <see cref="CanStudyAny"/> 短路，
+        /// 避免"人 × 能力"次重复全表扫描。
         /// </summary>
         /// <param name="scenario">场景对象</param>
         /// <param name="hasBase">基础能力类是否有候选</param>
@@ -320,6 +336,17 @@ namespace Sango.Core.Player
             if (baseStats.Count == 0 && aptitudes.Count == 0 && skills.Count == 0)
                 return;
 
+            // 槽位占用：每类只判一次（空表不判，省一次全表扫描）
+            bool baseBusy = baseStats.Count > 0
+                && AbilityStudySystem.HasStudyingActor(force, scenario, AbilityCategory.BaseStat);
+            bool aptitudeBusy = aptitudes.Count > 0
+                && AbilityStudySystem.HasStudyingActor(force, scenario, AbilityCategory.TroopAptitude);
+            bool skillBusy = skills.Count > 0
+                && AbilityStudySystem.HasStudyingActor(force, scenario, AbilityCategory.Skill);
+            // 三类槽位都占着 → 本势力此刻谁都学不了，不必再扫武将池
+            if (baseBusy && aptitudeBusy && skillBusy)
+                return;
+
             for (int i = 0; i < scenario.personSet.Count; i++)
             {
                 Person person = scenario.personSet[i];
@@ -328,11 +355,11 @@ namespace Sango.Core.Player
                 if (!person.IsFree || !person.IsHealthy)
                     continue;
 
-                if (!hasBase && CanStudyAny(person, baseStats))
+                if (!hasBase && CanStudyAny(person, baseStats, baseBusy))
                     hasBase = true;
-                if (!hasAptitude && CanStudyAny(person, aptitudes))
+                if (!hasAptitude && CanStudyAny(person, aptitudes, aptitudeBusy))
                     hasAptitude = true;
-                if (!hasSkill && CanStudyAny(person, skills))
+                if (!hasSkill && CanStudyAny(person, skills, skillBusy))
                     hasSkill = true;
 
                 if (hasBase && hasAptitude && hasSkill)
@@ -343,23 +370,21 @@ namespace Sango.Core.Player
         /// <summary>该武将在给定能力表里是否至少能学一条</summary>
         /// <param name="person">武将</param>
         /// <param name="abilities">已研究的能力表</param>
+        /// <param name="actorBusy">
+        /// 该大类的槽位是否已被占用（原版 find_actor 门禁）。由调用方在循环外算好传入：
+        /// 该判定要遍历全势力武将池，若在每条能力里重复判，会退化成 O(人 × 能力 × 人)。
+        /// </param>
         /// <returns>至少一条可学返回 true</returns>
-        bool CanStudyAny(Person person, List<Ability> abilities)
+        bool CanStudyAny(Person person, List<Ability> abilities, bool actorBusy)
         {
-            if (abilities == null || abilities.Count == 0)
-                return false;
-
-            // 【性能】"该大类槽位已被占用"对同一类的所有能力是同一个结果（原版 find_actor 门禁），
-            // 先判一次直接短路，避免在逐条 CanStudy 里重复做全势力扫描。
-            Ability probe = abilities[0];
-            if (probe != null && TargetCity != null
-                && AbilityStudySystem.HasStudyingActor(TargetCity.BelongForce, Scenario.Cur, (AbilityCategory)probe.category))
+            if (actorBusy || abilities == null || abilities.Count == 0)
                 return false;
 
             for (int i = 0; i < abilities.Count; i++)
             {
-                if (AbilityStudySystem.CanStudy(person, abilities[i], TargetCity, Scenario.Cur,
-                    out int gain, out string reason))
+                // actorAlreadyChecked = true：槽位占用已在本方法入口判过，让 CanStudyCore 跳过
+                if (AbilityStudySystem.CanStudyCore(person, abilities[i], TargetCity, Scenario.Cur,
+                    true, out int gain, out string reason))
                     return true;
             }
             return false;
@@ -371,15 +396,16 @@ namespace Sango.Core.Player
         /// <param name="person">武将</param>
         /// <param name="force">目标势力</param>
         /// <param name="abilities">该分类下势力已研究的能力</param>
+        /// <param name="actorBusy">该大类槽位是否已被占用（循环外算好的结果）</param>
         /// <returns>可培育返回 true</returns>
-        bool IsLearnablePerson(Person person, Force force, List<Ability> abilities)
+        bool IsLearnablePerson(Person person, Force force, List<Ability> abilities, bool actorBusy)
         {
             if (person == null || !person.IsAlive || person.BelongForce != force)
                 return false;
             if (!person.IsFree || !person.IsHealthy)
                 return false;
 
-            return CanStudyAny(person, abilities);
+            return CanStudyAny(person, abilities, actorBusy);
         }
 
         /// <summary>
@@ -406,10 +432,16 @@ namespace Sango.Core.Player
             if (abilities.Count == 0)
                 return result;
 
+            // 槽位占用（原版 find_actor 门禁）在循环外判一次：该类已有人在研习 → 此刻没人能再学。
+            // 放进循环里会变成每个武将都扫一遍全势力池（P0-1 修的就是这个）。
+            bool actorBusy = AbilityStudySystem.HasStudyingActor(force, scenario, category);
+            if (actorBusy)
+                return result;
+
             for (int i = 0; i < scenario.personSet.Count; i++)
             {
                 Person person = scenario.personSet[i];
-                if (!IsLearnablePerson(person, force, abilities))
+                if (!IsLearnablePerson(person, force, abilities, actorBusy))
                     continue;
                 result.Add(person);
             }

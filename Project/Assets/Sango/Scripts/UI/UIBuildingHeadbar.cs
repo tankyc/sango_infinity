@@ -12,6 +12,7 @@ namespace Sango.UI
         public RectTransform productNode;
         /// <summary>产出道具图标（RawImage + Texture，与道具格 UIBuildingTypeItem 同口径）</summary>
         public RawImage productImg;
+        public Image stateImg;
 
         public void ShowWorker(Building building)
         {
@@ -58,6 +59,11 @@ namespace Sango.UI
         public override void UpdateState(BuildingBase building)
         {
             base.UpdateState(building);
+
+            // 与玩家的同盟 / 停战标记：玩家自己的设施不显示，判定基准与部队头顶一致。
+            // 普通设施 prefab 没有该节点时 stateImg 为空，方法内部会直接返回
+            UpdateAllianceState(stateImg, building);
+
             ShowWorker(building as Building);
             ShowProduct(building as Building);
         }

@@ -273,13 +273,66 @@ namespace Sango.Mod
                     continue;
 
                 Mod mod;
-                if (mModMap == null || !mModMap.TryGetValue(id, out mod) || mod == null)
-                    notDownloaded.Add(id);              // 本机没有这个模组
+                // 判定口径必须与 SyncModsFromSave 保持一致：那边用 "mModMap 有 + IsValidMod()"
+                // 才算"本机已下载"。mModMap 里除了本地目录扫出来的条目，还有市场列表里的
+                // "未安装"条目（new Mod() 只有 Id/Name，ModDirName 为空）—— 只查 mModMap
+                // 会把它们误判成"已下载但未启用"，玩家按提示去"启用"又会被同步逻辑跳过，
+                // 重启后依旧是同样的提示，形成死循环。
+                if (mModMap == null || !mModMap.TryGetValue(id, out mod) || mod == null || !mod.IsValidMod())
+                    notDownloaded.Add(id);              // 本机没有这个模组（或只有市场信息、目录没落地）
                 else if (!enabledSet.Contains(id))
                     inactive.Add(id);                   // 下载了但没激活
             }
 
             return notDownloaded.Count == 0;
+        }
+
+        /// <summary>
+        /// 把"当前启用模组"同步为某个存档记录的模组集合（读档界面"同步模组后重启"用）。
+        ///
+        /// 【语义】尽量还原存档当时的模组环境：
+        ///   · 存档记录里有、本机已下载 → 启用（保持存档记录的加载顺序）；
+        ///   · 存档记录里没有的 → 停用（不再参与本次加载）；
+        ///   · 存档记录里有、本机没下载 → 无从启用，跳过并记入 skipped。
+        /// 只写 <c>Mods/modList.txt</c>（玩家勾选结果的唯一持久化真源），**不在这里重新初始化模组**：
+        /// 启用列表由 <see cref="InitMods"/> 在启动阶段读取一次，进程内改不动，必须由调用方重启游戏才生效。
+        /// </summary>
+        /// <param name="savedMods">存档记录的模组 Id 列表（可为 null = 老存档没有记录）</param>
+        /// <param name="skipped">输出：本机未下载、无法同步的模组 Id</param>
+        /// <returns>true = 存档记录的模组已全部同步；false = 有模组没下载，或老存档没有记录</returns>
+        public bool SyncModsFromSave(string[] savedMods, out List<string> skipped)
+        {
+            skipped = new List<string>();
+
+            // 老存档没有模组记录：不知道当时用了什么，无从还原，交给调用方按"未同步"处理
+            if (savedMods == null)
+                return false;
+
+            List<string> ids = new List<string>();
+            HashSet<string> visited = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < savedMods.Length; i++)
+            {
+                string id = savedMods[i];
+                if (string.IsNullOrEmpty(id) || !visited.Add(id))
+                    continue;
+
+                // mModMap 里的条目才可能是"本机已下载"；IsValidMod 再确认一次目录有效，
+                // 避免把只有市场信息、目录还没落地的条目写进启用列表（重启后会加载失败）
+                Mod mod;
+                if (mModMap != null && mModMap.TryGetValue(id, out mod) && mod != null && mod.IsValidMod())
+                    ids.Add(id);
+                else
+                {
+                    skipped.Add(id);
+                    Sango.Log.Warning($"同步模组：{id} 本机未下载，已跳过", Sango.Log.LogType.Download);
+                }
+            }
+
+            // 写盘：modList.txt 就是下次启动 InitMods 读取的启用列表
+            SaveModList(ids.ToArray());
+            Sango.Log.Info($"同步模组：已写入启用列表 {ids.Count} 个，跳过 {skipped.Count} 个", Sango.Log.LogType.Download);
+
+            return skipped.Count == 0;
         }
 
         string marketSaveFile;

@@ -1,0 +1,75 @@
+{
+  "_comment": "武将属性光环配置（本项目自主设计，原版 Open311 无对应系统）。加载链路：Data/Common 全目录 PopulateObject → ScenarioCommonData.AuraConfigs / AuraGlobals；顶层键必须与 C# 字段同名，未知键会被忽略。数值公式：clamp(Base + floor((属性-阈值)/Step)*PerStep, Min, Max)，封顶后再乘 AuraGlobals.MoraleSoulFactor%（向下取整）。Scope：0=半径内同势力部队（攻防、辅助攻击），1=仅来源本队（会心/暴伤/计策/识破/气力）。光环半径统一由提供者的统率按 RangeTiers 决定。修改时不要删除数值字段：C# 只给 CommandRequire=90 / RangeFeatureAdd=1 两个字段设了初始值，其余缺失即为 0（Step=0 会被按 1 处理，但 Min/Max=0 会把结果压成 0）。",
+  "AuraGlobals": {
+    "MoraleSoulFeatureId": 102,
+    "MoraleSoulFactor": 150
+  },
+  "AuraConfigs": {
+    "1": {
+      "Id": 1,
+      "Name": "统率光环",
+      "StatType": 0,
+      "Threshold": 90,
+      "RequireCommandForOthers": true,
+      "CommandRequire": 90,
+      "ForceEnableFeatureId": 101,
+      "RangeFeatureId": 101,
+      "RangeFeatureAdd": 1,
+      "RangeTiers": [
+        { "Min": 90, "Range": 1 },
+        { "Min": 100, "Range": 2 },
+        { "Min": 110, "Range": 3 }
+      ],
+      "Effects": [
+        { "Type": 1, "Base": 4, "Step": 5, "PerStep": 4, "Min": 4, "Max": 25, "Scope": 0 },
+        { "Type": 2, "Base": 4, "Step": 5, "PerStep": 4, "Min": 4, "Max": 25, "Scope": 0 },
+        { "Type": 3, "Base": 5, "Step": 2, "PerStep": 1, "Min": 5, "Max": 30, "Scope": 1 }
+      ]
+    },
+    "2": {
+      "Id": 2,
+      "Name": "武力光环",
+      "StatType": 1,
+      "Threshold": 90,
+      "RequireCommandForOthers": false,
+      "CommandRequire": 90,
+      "Effects": [
+        { "Type": 4, "Base": 2, "Step": 4, "PerStep": 3, "Min": 2, "Max": 50, "Scope": 1 }
+      ]
+    },
+    "3": {
+      "Id": 3,
+      "Name": "智力光环",
+      "StatType": 2,
+      "Threshold": 90,
+      "RequireCommandForOthers": false,
+      "CommandRequire": 90,
+      "Effects": [
+        { "Type": 5, "Base": 3, "Step": 5, "PerStep": 3, "Min": 3, "Max": 25, "Scope": 1 },
+        { "Type": 6, "Base": 5, "Step": 2, "PerStep": 1, "Min": 5, "Max": 30, "Scope": 1 }
+      ]
+    },
+    "4": {
+      "Id": 4,
+      "Name": "政治光环",
+      "StatType": 3,
+      "Threshold": 80,
+      "RequireCommandForOthers": false,
+      "CommandRequire": 90,
+      "Effects": [
+        { "Type": 7, "Base": 6, "Step": 10, "PerStep": 9, "Min": 6, "Max": 50, "Scope": 0 }
+      ]
+    },
+    "5": {
+      "Id": 5,
+      "Name": "魅力光环",
+      "StatType": 4,
+      "Threshold": 90,
+      "RequireCommandForOthers": false,
+      "CommandRequire": 90,
+      "Effects": [
+        { "Type": 8, "Base": 2, "Step": 5, "PerStep": 1, "Min": 2, "Max": 20, "Scope": 1 }
+      ]
+    }
+  }
+}

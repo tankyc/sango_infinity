@@ -914,23 +914,44 @@ namespace Sango.Core
         /// 但本项目不写死状态分支：由每个 Buff 自己声明 <c>troopAttackCoef</c>，这里累乘。
         /// 因为 Attack 是表达式属性，Buff 增删后立即生效，无需等待重算。
         /// </summary>
-        public int Attack => (extraAttack + (IsInWater ? waterAttack : landAttack) + trrainBonusAtk)
+        public int Attack => (extraAttack + auraExtraAttack + (IsInWater ? waterAttack : landAttack) + trrainBonusAtk)
                              * buffManager.GetTroopAttackCoef() / 100;
 
         public int waterAttack;
         public int landAttack;
         public int extraAttack;
         public int trrainBonusAtk;
+
+        /// <summary>
+        /// 【武将属性光环】攻击力加成。
+        ///
+        /// 单独一个字段而不是复用 extraAttack：光环是"位置相关"的常驻值，
+        /// 每次重算由 <see cref="AuraSystem"/> 直接覆写（不是累加），
+        /// 与建筑 / Buff / 战法对 extraAttack 的增量互不干扰，也不会重复叠加。
+        /// </summary>
+        public int auraExtraAttack;
+
         /// <summary>
         /// 防御力。末乘 Buff 系数（同 Attack，对应原版 state_coef）。
         /// </summary>
-        public int Defence => (extraDefence + (IsInWater ? waterDefence : landDefence) + trrainBonusDef)
+        public int Defence => (extraDefence + auraExtraDefence + (IsInWater ? waterDefence : landDefence) + trrainBonusDef)
                               * buffManager.GetTroopDefenceCoef() / 100;
 
         public int waterDefence;
         public int landDefence;
         public int extraDefence;
         public int trrainBonusDef;
+
+        /// <summary>【武将属性光环】防御力加成（每次重算覆写，见 auraExtraAttack 说明）</summary>
+        public int auraExtraDefence;
+
+        /// <summary>
+        /// 【武将属性光环】辅助攻击概率加成（百分点，每次重算覆写）。
+        ///
+        /// 政治光环是范围效果：该字段表示"本部队当前被哪些政治光环覆盖"，
+        /// 在本部队作为支援方（helper）参与他人攻击时读取（见 Troop.CalcAssistChance）。
+        /// </summary>
+        public int auraAssistChance;
 
         /// <summary>
         /// 建设力。末乘 Buff 系数（对应原版 state_coef，混乱时同样 ×0.8）。
@@ -3212,6 +3233,12 @@ namespace Sango.Core
             // 任一武将持有"辅佐"即生效, 多名武将取Max不叠加。
             // 字段读取, 不涉及关系表查找, 先拿它当比较基准
             int chance = helper.assistChance;
+            // 【武将属性光环】政治光环是范围效果：光环半径内的友军（helper）作为支援方时，
+            // 按 auraAssistChance 提高"跟着打一刀"的概率。该值由 AuraSystem 按
+            // "helper 是否落在某政治光环覆盖内"重算（同项取最高），
+            // 与辅佐特技的 helper.assistChance 互不覆盖，这里取最大值参与后续关系档位比较。
+            if (helper.auraAssistChance > chance)
+                chance = helper.auraAssistChance;
 
             // 厌恶只在两处生效: 拦下辅佐率、拦下血亲档; 都用不到时就不做这次关系表查找
             bool hated = false;

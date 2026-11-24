@@ -174,10 +174,19 @@ namespace Sango.UI
             // 名字最大支持字数：所有名字列(SortByName)的显示宽度按 1.05 × 本值 计算
             AddNumberItem("名字最大支持字数", variables.maxNameLength, 1, 20, (v) => { variables.maxNameLength = v; });
 
+            // "我的队伍"数量上限（出征界面自建的编队库，跨存档保留）：只在**新增**时判定，0 = 不限。
+            // 调小不会删除已有条目，只影响之后还能不能再新增；队伍库本身在 CustomTroopTeams。
+            // 本项不需要重建界面（上限在保存时才读），因此不做 RefreshSetting。
+            AddNumberItem("我的队伍数量上限(0=不限)", variables.maxCustomTroopTeamCount, 0, 999,
+                (v) => { variables.maxCustomTroopTeamCount = v; });
+
             // 最大生效特技数量：武将只前 N 个特技生效 / 展示 / 可学习；0 = 不限制
-            // 改完立刻 RefreshSetting，让下面的"槽位解锁等级"编辑格数量跟着扩展
+            // 改完要重建列表，让下面的"槽位解锁等级"编辑格数量跟着扩展。
+            // 【必须延迟一帧，不能直接 RefreshSetting】这个回调由 InputField.onValueChanged 发出，
+            // 运行在 InputField.LateUpdate 内部；同步重建会把当前输入框 SetActive(false)，
+            // OnDisable 清空 m_Keyboard 后 LateUpdate 仍会解引用它（详见 RefreshSettingNextFrame）。
             AddNumberItem("最大生效特技数量(0=不限)", variables.maxActiveFeatureCount, 0, 20,
-                (v) => { variables.maxActiveFeatureCount = v; RefreshSetting(); });
+                (v) => { variables.maxActiveFeatureCount = v; RefreshSettingNextFrame(); });
 
             // 特技槽位解锁等级：编辑格数量跟随"最大生效特技数量"动态扩展。
             // 上限配 0（不限）时按场上最大特技数铺格子，与列表界面的列数口径保持一致。
@@ -643,6 +652,46 @@ namespace Sango.UI
             // 用 OnOpen 记录的目标剧本重建，而不是 Scenario.CurSelected：
             // 开局前的入口传进来的是"准备开局的剧本"，两者可能不是同一个对象。
             ShowVariables(TargetScenario != null ? TargetScenario : Scenario.CurSelected);
+        }
+
+        /// <summary>延迟重建请求标记：一次输入只排队一次，避免连续输入反复重建</summary>
+        bool refreshSettingPending;
+
+        /// <summary>
+        /// 延迟一帧重建参数列表（专供"输入框改完要重建列表"的回调使用）。
+        ///
+        /// 【为什么不能同步重建】数字输入框的回调链是
+        /// <c>InputField.onValueChanged → UIIntegerField.OnInputNumberChanged → 本类 lambda</c>，
+        /// 它运行在 <c>InputField.LateUpdate</c> 内部（移动端走触摸键盘分支，
+        /// 见 com.unity.ugui InputField.cs:1470-1537）。在回调里直接
+        /// <see cref="RefreshSetting"/> 会把正在输入的这一行 <c>SetActive(false)</c>，
+        /// 触发 OnDisable → DeactivateInputField → <c>m_Keyboard = null</c>；
+        /// 但 LateUpdate 不会就此返回，随后仍要执行 <c>m_Keyboard.status</c>
+        /// （InputField.cs:1539），于是抛 NullReferenceException。
+        /// 桌面端 <c>InPlaceEditing()</c> 恒为 true、LateUpdate 提前 return，所以只在该分支上暴露
+        /// （Android / iOS 真机）。
+        ///
+        /// 延迟一帧等本轮 LateUpdate 走完再重建，界面表现仍是"改完立刻跟着变"。
+        /// 协程挂在窗口自身：窗口关闭时协程自动停止，正好不需要再重建。
+        /// </summary>
+        public void RefreshSettingNextFrame()
+        {
+            if (refreshSettingPending) return;
+            refreshSettingPending = true;
+            StartCoroutine(RefreshSettingRoutine());
+        }
+
+        /// <summary>延迟重建协程：等一帧后执行真正的重建。</summary>
+        IEnumerator RefreshSettingRoutine()
+        {
+            yield return null;
+            refreshSettingPending = false;
+
+            // 等这一帧的期间窗口可能被关闭（父节点失活时协程会停止，这里再补一层保险）
+            if (!gameObject.activeInHierarchy)
+                yield break;
+
+            RefreshSetting();
         }
 
         public void RemoveItem(GameObject item)

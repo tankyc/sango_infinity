@@ -435,17 +435,19 @@ using Sango.Core; namespace Sango.UI
             GameSystem.GetSystem<PersonInformation>().Start(person_list[0], result_list);
         }
 
+        /// <summary>
+        /// 打开「外交情报」：以当前正在查看的势力为视角，
+        /// 用势力选择器列出其它存活势力与它的关系、盟约（同盟 / 停战）及剩余回合。
+        ///
+        /// 【为什么入口在这里】prefab `window_information_force` 上的「外交」按钮
+        /// 一直绑着本方法，但方法体是空的（历史遗留），玩家点了没有任何反应。
+        /// 外交情报正好是"把一个势力作为视角展开外交关系"，与这个按钮的语义一致。
+        /// </summary>
         public void OnDiplomacyButton()
         {
-            //List<Force> allForces = new List<Force>();
-            //Scenario.Cur.forceSet.ForEach(force =>
-            //{
-            //    if (force.IsAlive)
-            //    {
-            //        allForces.Add(force);
-            //    }
-            //});
-            //GameSystem.GetSystem<DiplomacySystem>().Start(Target, allForces);
+            if (Target == null)
+                return;
+            ForceDiplomacyInformation.Open(Target);
         }
 
         /// <summary>

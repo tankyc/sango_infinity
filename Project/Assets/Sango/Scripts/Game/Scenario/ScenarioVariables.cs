@@ -92,6 +92,24 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int maxActiveFeatureCount = DefaultMaxActiveFeatureCount;
 
+        /// <summary>"我的队伍"数量上限的缺省值</summary>
+        public const int DefaultMaxCustomTroopTeamCount = 200;
+
+        /// <summary>
+        /// "我的队伍"（出征界面自建的编队）数量上限，默认 200，剧本可在"剧本基础参数"里覆盖。
+        ///
+        /// 【语义】只拦"新增"：达到上限后再保存**全新**编队会被拒绝；
+        /// 同名覆盖 / 内容相同更新都不占新名额。已有条目**不会被裁掉** ——
+        /// 把上限调小只影响之后还能不能再新增。
+        ///
+        /// 【为什么放剧本参数】队伍库本身跨存档保留（见 <c>CustomTroopTeams</c>），
+        /// 但"这个剧本允许多少支"属于玩法节奏，与 <see cref="maxActiveFeatureCount"/> 同理，
+        /// 应当由剧本决定而不是写死在代码里。配 0 或负数表示不限制。
+        ///
+        /// 【原版无对应实现】Open311 没有"玩家自建编队库"这个概念，本参数为自主设计。
+        /// </summary>
+        [JsonProperty] public int maxCustomTroopTeamCount = DefaultMaxCustomTroopTeamCount;
+
         /// <summary>
         /// 特技槽位解锁等级（按下标对应 <see cref="Person.FeatureList"/> 的槽位，从 0 开始）。
         ///
@@ -770,9 +788,14 @@ namespace Sango.Core
         ///
         /// 【原版】attack_critical_result 命中后统一 <c>damage *= 1.15f</c>
         /// （s11_sys_damage.cpp:359-363），即 115。
-        /// 本项目旧默认值是 150（×1.5），已按原版改为 115。
+        /// 本项目旧默认值是 150（×1.5），后按原版改为 115。
+        ///
+        /// 【汉土剧本基准 120】武将属性光环的暴击伤害按"直接加百分点"结算
+        /// （例如武力 102 的武力光环 +11 点，实际倍率 = 基础 + 11），
+        /// 因此基准值必须与设计表一致。原 0.4.19 的 115 仍可在剧本参数界面调回；
+        /// 旧人物表里的「×1.02」写法已废弃，统一改成「暴击倍率 +N 个百分点」。
         /// </summary>
-        [JsonProperty] public int skillCriticalFactor = 115;
+        [JsonProperty] public int skillCriticalFactor = 120;
 
         /// <summary>
         /// 战法(kind=2)命中后触发单挑的基础概率(百分比)，0 = 关闭该触发。

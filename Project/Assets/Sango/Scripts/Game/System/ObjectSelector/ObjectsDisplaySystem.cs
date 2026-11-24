@@ -52,6 +52,18 @@ namespace Sango.Core.Player
         /// </summary>
         public bool ClickMode { get; set; }
 
+        /// <summary>
+        /// 纯浏览模式：只看数据，不能勾选，也没有「确定」按钮，只能返回。
+        ///
+        /// 【与 ClickMode 的区别】ClickMode 是"点一行就等于选完并退出"，仍然是一次**选择**；
+        /// 本模式根本不产生选择结果（如外交情报这类只读列表）。界面侧据此隐藏
+        /// 勾选列 / 全选按钮 / 确定按钮，并屏蔽行点击的勾选逻辑。
+        ///
+        /// 【生命周期】由各选择器的 Start 显式写入，在 <see cref="OnDestroy"/> 里统一清掉：
+        /// 窗口关闭即失效，避免下一次用同一个系统实例做真实选择时还带着浏览态。
+        /// </summary>
+        public bool BrowseMode { get; set; }
+
         public void Start(List<SangoObject> sangoObjects, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
         {
             Objects = new List<SangoObject>(sangoObjects);
@@ -161,6 +173,8 @@ namespace Sango.Core.Player
         public override void OnDestroy()
         {
             Window.Instance.Close(windowName);
+            // 浏览态只属于本次打开：关窗即清，下一次打开默认回到"可勾选"的选择器
+            BrowseMode = false;
         }
 
         public override void OnBack(ICommandEvent whoGone)

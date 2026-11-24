@@ -66,8 +66,11 @@ namespace Sango.UI
 
             // 点选模式
             clickMode = objectSelectSystem.ClickMode;
-            selectSortBtn.SetActive(!clickMode);
-            sureBtn?.gameObject.SetActive(!clickMode);
+            // 纯浏览模式：与点选模式一样属于"没有勾选语义"的形态 —— 隐藏勾选列表头
+            // （全选/取消全选）、每行的勾选圆点、确定按钮与底部功能按钮，只保留「返回」。
+            bool noSelect = clickMode || objectSelectSystem.BrowseMode;
+            selectSortBtn.SetActive(!noSelect);
+            sureBtn?.gameObject.SetActive(!noSelect);
 
             itemCount = uIObjectListItems.Length;
             itemWidth = GetContentWidth();
@@ -120,7 +123,7 @@ namespace Sango.UI
                 Vector2 p = listItem.contentRect.anchoredPosition;
                 p.x = 0;
                 listItem.contentRect.anchoredPosition = p;
-                listItem.selectItem.gameObject.SetActive(!clickMode);
+                listItem.selectItem.gameObject.SetActive(!noSelect);
                 listItem.SetOver(false);
             }
 
@@ -134,7 +137,8 @@ namespace Sango.UI
                 r.anchoredPosition = p;
             }
 
-            bool hasButtons = objectSelectSystem.buttonDatas != null;
+            // 浏览模式连底部功能按钮（如"地图"）也不给：整个界面只留「返回」
+            bool hasButtons = objectSelectSystem.buttonDatas != null && !objectSelectSystem.BrowseMode;
             btnRoot.gameObject.SetActive(hasButtons);
             if (hasButtons)
             {

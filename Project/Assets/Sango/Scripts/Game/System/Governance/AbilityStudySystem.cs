@@ -1147,6 +1147,21 @@ namespace Sango.Core
         public static bool CanStudy(Person person, Ability ability, City city, Scenario scenario,
             out int gain, out string reason)
         {
+            return CanStudyCore(person, ability, city, scenario, false, out gain, out reason);
+        }
+
+        /// <summary>
+        /// <see cref="CanStudy"/> 的内部实现。
+        ///
+        /// 【actorAlreadyChecked】调用方若已在循环外判过"本势力该大类已有执行者"
+        /// （<see cref="HasStudyingActor"/> 要遍历全势力武将池），这里就不再重复扫一遍。
+        /// 菜单 / 列表这类"同一势力、同一大类批量判定"的场景必须传 true，
+        /// 否则每条能力都会白扫一遍武将池（实测一次右键菜单因此卡到秒级）。
+        /// 单点判定（界面上问某一条能否执行）仍走 <see cref="CanStudy"/>，判定结论完全一致。
+        /// </summary>
+        internal static bool CanStudyCore(Person person, Ability ability, City city, Scenario scenario,
+            bool actorAlreadyChecked, out int gain, out string reason)
+        {
             gain = 0;
             reason = null;
 
@@ -1185,7 +1200,8 @@ namespace Sango.Core
             // can_learn_base_stat_command / can_learn_heishu_tekisei_command / can_learn_skill_command
             // 里的 find_actor 门禁（s11_sys_person_order_kunshu.cpp:1643-1653 / :1787-1797 / :1929-1940）。
             // 玩家侧与 AI 侧走同一判定，保证"按钮能点"与"点了能成"同源。
-            if (HasStudyingActor(force, scenario, (AbilityCategory)ability.category))
+            // actorAlreadyChecked = 调用方已在循环外判过，这里跳过全武将池扫描（见 CanStudyCore 注释）。
+            if (!actorAlreadyChecked && HasStudyingActor(force, scenario, (AbilityCategory)ability.category))
             {
                 reason = "本势力已有武将正在研习此类能力（同一时间只能一人）";
                 return false;
@@ -1345,6 +1361,55 @@ namespace Sango.Core
                 return 0;
             int learned = force != null ? force.GetAbilityLearnCount(ability.Id) : 0;
             return System.Math.Max(0, ability.LearningLimitCount - learned);
+        }
+
+        /// <summary>
+        /// 势力是否还有"可继续培育"的能力条目（**与具体武将无关**）。
+        ///
+        /// 【判据】已研究（<see cref="Force.HasAbility"/>）且学习次数未用完
+        /// （<see cref="GetRemainLearnCount"/> &gt; 0）；三类（基础能力 / 兵种适性 / 特技）
+        /// 任意一条命中即返回 true。一次遍历、零分配。
+        ///
+        /// 【为什么不再判"有没有武将能学"】培育按钮的可用性只需要回答
+        /// "这个势力还有没有可培育的目标"。原实现为了这一个 bool，把
+        /// 全势力武将池 × 3 类 × 每条能力都扫一遍，且 CanStudy 内部还会再扫一遍武将池
+        /// 判槽位占用，一次右键就是 O(人 × 能力 × 人)，菜单打开明显卡顿。
+        /// "当前有没有空闲且健康的武将来学"改由点开后的
+        /// <see cref="CityAbilityLearn"/> 二级菜单与候选列表判 —— 那里本来就有
+        /// "暂无可培育的武将"的提示，体验不变。
+        ///
+        /// 【与原版的差异】原版 can_learn_base_stat_command 等用
+        /// <c>get_learnable_person_list(force, ...)</c> 判空（含执行者判定）；
+        /// 这里刻意只看"目标是否还有剩余" —— 玩家点开后由界面给出无人可学的原因。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <returns>存在可继续培育的条目返回 true</returns>
+        public static bool HasLearnableAbility(Force force, Scenario scenario)
+        {
+            if (force == null || scenario == null)
+                return false;
+
+            SangoObjectSet<Ability> abilities = scenario.CommonData?.Abilities;
+            if (abilities == null || abilities.objects == null)
+                return false;
+
+            Ability[] abilityArray = abilities.objects;
+            for (int i = 1; i < abilityArray.Length; i++)
+            {
+                Ability ability = abilityArray[i];
+                if (ability == null)
+                    continue;
+                // 只认三种可培育类型（与 CanStudy 的分支一致，其它类型点了只会返回"不支持培育"）
+                if (!ability.IsBaseStat && !ability.IsTroopAptitude && !ability.IsSkill)
+                    continue;
+                if (!force.HasAbility(ability.Id))
+                    continue;                       // 尚未研究完成
+                if (GetRemainLearnCount(force, ability) <= 0)
+                    continue;                       // 学习次数已用完
+                return true;
+            }
+            return false;
         }
 
         /// <summary>

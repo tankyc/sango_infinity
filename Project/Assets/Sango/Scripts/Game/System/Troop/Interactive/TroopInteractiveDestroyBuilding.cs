@@ -23,7 +23,10 @@ namespace Sango.Core.Player
 
             if (actionCell.building == null || actionCell.building.IsCityBase()) return false;
 
-            if (actionCell.building.BelongForce == troop.BelongForce) return false;
+            // 【盟友 / 停战势力的建筑不可摧毁】与 <see cref="TroopInteractiveOccupyCity"/> 同一口径：
+            // 只有敌对或无人占领的建筑才允许攻击（Open311 `move_to_building`，
+            // s11_sys_unit_order.cpp:176-181）。非敌对的建筑改由"移动"靠过去。
+            if (!troop.IsEnemy(actionCell.building)) return false;
 
             if (troop.MoveRange.Contains(actionCell)) return false;
 

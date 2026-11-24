@@ -642,6 +642,12 @@ namespace Sango.Tools
                 map.mapCamera.enabled = false;
                 map.mapCamera.SetCamera(Camera.main);
 
+                // 天空盒按整张地图重新定尺寸：编辑器是自由相机，球体必须包住整张地图，
+                // 否则圆柱退化成一个小环，地形从环外穿出去 —— 看起来就是"天空球被地形覆盖"，
+                // 这种情况改 renderQueue 无效（渲染顺序本来就是对的）。
+                if (map.mapCamera != null)
+                    map.mapCamera.ApplyViewDistance();
+
                 //EditorFreeCamera editorfree = Camera.main.gameObject.AddComponent<Sango.Tools.EditorFreeCamera>();
                 //if (editorfree != null)
                 //    editorfree.lookAt = map.mapCamera.GetCenterTransform();

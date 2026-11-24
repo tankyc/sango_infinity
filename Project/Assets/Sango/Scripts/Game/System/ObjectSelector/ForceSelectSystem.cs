@@ -41,7 +41,7 @@ namespace Sango.Core.Player
 
         }
 
-        public void Start(List<Force> cities, List<Force> resultList, int limit, Action<List<Force>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
+        public void Start(List<Force> cities, List<Force> resultList, int limit, Action<List<Force>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName, bool browseOnly = false)
         {
             donotFinishThisSystem = false;
             selectLimit = limit;
@@ -52,6 +52,8 @@ namespace Sango.Core.Player
             customSortItems = customSortTitles != null ? customSortTitles : defualtTitleList;
             this.customSortTitleName = cutomSortTitleName != null ? cutomSortTitleName : defualtTitleName; ;
             ClickMode = limit == 1;
+            // 浏览态必须在 Push（→ OnEnter → 窗口 Init）之前定下来：界面据此隐藏勾选列与确定按钮
+            BrowseMode = browseOnly;
             buttonDatas = selectButtons;
             Push();
         }

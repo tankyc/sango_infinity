@@ -1810,6 +1810,53 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 取与另一势力之间**仍然生效**的盟约（同盟优先于停战）。
+        ///
+        /// 【为什么需要这一层】原版把同盟与停战分成两张独立协议，
+        /// 本项目统一存在 <see cref="AllianceList"/> 里，靠 <see cref="Alliance.leftCount"/> 计时
+        /// （每回合 -1，见 <see cref="Alliance.OnTurnStart"/>）。现有三个入口都凑不出
+        /// "是哪种盟约 + 还剩几回合"：
+        /// <list type="bullet">
+        /// <item><see cref="IsAlliance"/> —— 走位掩码，O(1)，但不判到期，只给 bool；</item>
+        /// <item><see cref="IsTruce"/> —— 判到期，同样只给 bool；</item>
+        /// <item><see cref="CheckAlliance(Force)"/> —— 返回对象，但不判 IsAlive / leftCount，
+        /// 到期未摘除的协议也会被返回。</item>
+        /// </list>
+        /// 外交情报界面要同时显示三者，因此这里补一个"生效中 + 返回对象"的统一取值口。
+        ///
+        /// 【同盟优先】同一对势力理论上可以同时存在同盟与停战（各自独立创建，互不排斥），
+        /// 界面按更强的同盟展示，避免两列各说一套。
+        /// </summary>
+        /// <param name="other">另一势力</param>
+        /// <returns>生效中的盟约对象；没有任何协议时返回 null</returns>
+        public Alliance GetActiveAgreement(Force other)
+        {
+            if (other == null || other == this || AllianceList == null)
+                return null;
+
+            Alliance truce = null;
+            for (int i = 0; i < AllianceList.Count; ++i)
+            {
+                Alliance alliance = AllianceList[i];
+                if (alliance == null)       // 空槽防御，同 IsAlliance
+                    continue;
+                // 到期协议由 Alliance.OnTurnStart 主动摘除；这里再判一次，
+                // 覆盖"本回合开始后新建、尚未走过 OnTurnStart"之外的一切中间态。
+                if (!alliance.IsAlive || alliance.leftCount <= 0)
+                    continue;
+                if (!alliance.Contains(other))
+                    continue;
+
+                // 同盟比停战更强，找到即返回；停战先记下，继续找有没有同盟
+                if (alliance.allianceType == AllianceType.Alliance)
+                    return alliance;
+                if (truce == null)
+                    truce = alliance;
+            }
+            return truce;
+        }
+
+        /// <summary>
         /// 判断是否与另一势力处于停战期。
         ///
         /// 【复杂度】O(1)：与 <see cref="IsAlliance"/> 共用同一套位掩码（停战位），
