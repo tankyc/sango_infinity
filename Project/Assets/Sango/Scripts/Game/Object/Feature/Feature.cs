@@ -354,6 +354,61 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 特技（含混合组的子特技）名称里是否包含指定关键词（不区分大小写）。
+        ///
+        /// 【为什么按名字而不是先把关键词翻译成 Id 集合】搜索框里玩家输入的是
+        /// "神算""飞将"这类文字。若先遍历特技表求出 Id 集合、再逐名武将比对，
+        /// 就是"特技表 × 武将数"的交叉扫描；直接看每名武将自己的特技列表
+        ///（人均几条）即可，量级只与武将数同阶。
+        ///
+        /// 【混合组必须展开】与 <see cref="ContainsId"/> 同因：混合组自身没有效果，
+        /// 玩家记得的往往是子特技名，只比顶层 Name 会漏。
+        /// </summary>
+        /// <param name="feature">待查特技（可为混合组）</param>
+        /// <param name="keyword">关键词（调用方已去首尾空白，非空）</param>
+        /// <param name="depth">当前递归深度</param>
+        /// <returns>命中返回 true</returns>
+        public static bool ContainsName(Feature feature, string keyword, int depth)
+        {
+            if (feature == null || string.IsNullOrEmpty(keyword) || depth > MaxMixedDepth)
+                return false;
+
+            string name = feature.Name;
+            if (!string.IsNullOrEmpty(name)
+                && name.IndexOf(keyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            if (feature.kind == (int)FeatureKindType.Mixed && feature.childList != null)
+            {
+                for (int i = 0; i < feature.childList.Count; i++)
+                {
+                    if (ContainsName(feature.childList[i], keyword, depth + 1))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 特技列表里是否有名称包含关键词的条目（含混合组子特技）。
+        /// </summary>
+        /// <param name="list">待查列表；无特技的武将该字段就是 null，属合法输入</param>
+        /// <param name="keyword">关键词（非空）</param>
+        /// <returns>命中返回 true</returns>
+        public static bool ContainsName(SangoObjectList<Feature> list, string keyword)
+        {
+            if (list == null || string.IsNullOrEmpty(keyword))
+                return false;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (ContainsName(list[i], keyword, 0))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 列表里是否已有指定 Id 的特技。
         /// **按 Id 判重，不按引用** —— 装备附加并入的是副本，引用比较会判成两个不同的特技。
         /// </summary>

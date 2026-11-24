@@ -30,6 +30,35 @@ namespace Sango.Core
         TroopDestroyed
     }
 
+    /// <summary>
+    /// 武将死因（<see cref="Person.Dead(string)"/> 的参数取值）。
+    ///
+    /// 【用途】只决定死亡播报的文案（阵亡 / 病逝 / 自刎 / 遇刺），**不参与任何结算**：
+    /// 战死与病逝对寿命、俘虏、君主继承的处理完全一致，真正的差异由调用方
+    /// （<see cref="Person.DeadInBattle"/> / 处决流程 / 剧本事件）自己负责。
+    ///
+    /// 【为什么用字符串常量而不是枚举】剧本事件（<c>PersonDieEffect</c>）的 Cause
+    /// 本来就是字符串配置，直接沿用同一套取值可以避免"JSON 字符串 ←→ 枚举"的双向映射；
+    /// 同时不把 <c>Sango.Core.Duel.DeathType</c>（单挑系统的落盘枚举）拖进 GameEvent 的公共签名。
+    /// </summary>
+    public static class PersonDeathCause
+    {
+        /// <summary>自然死亡：寿终 / 病逝（默认值）</summary>
+        public const string Natural = "Natural";
+
+        /// <summary>阵亡：战死沙场（含单挑落败身死）</summary>
+        public const string Battle = "Battle";
+
+        /// <summary>处决：被擒后斩首或赐死（播报由 OnPersonExecute 负责，死亡事件不重复播）</summary>
+        public const string Execute = "Execute";
+
+        /// <summary>自刎：殉国 / 尽忠</summary>
+        public const string Suicide = "Suicide";
+
+        /// <summary>遇刺身亡</summary>
+        public const string Assassinate = "Assassinate";
+    }
+
     [JsonObject(MemberSerialization.OptIn)]
     public class Person : SangoObjectExtensionData
     {
@@ -5203,11 +5232,26 @@ namespace Sango.Core
             return false;
         }
 
-        public void Dead()
+        /// <summary>
+        /// 武将死亡：所有死法的统一出口（战死 / 病逝 / 处决 / 自刎 / 遇刺 / 剧本杀）。
+        /// </summary>
+        /// <param name="cause">
+        /// 死因，取值见 <see cref="PersonDeathCause"/>。
+        /// **只影响死亡播报的文案，不参与任何结算**：寿命扣减、俘虏清理、君主继承
+        /// 对所有死法一视同仁；死法之间的真正差异由调用方自己实现
+        /// （例如 <see cref="DeadInBattle"/> 额外做免死判定）。
+        /// 默认 <see cref="PersonDeathCause.Natural"/>：寿终与剧本里没写死法的死亡都落到这里。
+        /// </param>
+        public void Dead(string cause = PersonDeathCause.Natural)
         {
             // 必须先缓存俘虏身份:下面会立刻把 state 改写为 Dead,
             // 改写之后 IsPrisoner 恒为 false,俘虏相关的清理逻辑将永远执行不到
             bool wasPrisoner = IsPrisoner;
+
+            // 【死亡播报】缓存死亡时的所属势力：SetState(Dead) 会清空 BelongForce，
+            // 监听方（PlayerMessage）事后从武将身上读不到"他死前属于谁"，
+            // 也就无法判断这条死亡该不该播给玩家。
+            Force deadForceForNotify = BelongForce;
 
             // 【君主继承】必须在 SetState(Dead) 之前缓存势力与军团：
             // 改 state 后 IsGovernor 立刻为 false，末尾还会把 BelongForce / BelongCorps 都置空。
@@ -5264,6 +5308,33 @@ namespace Sango.Core
             // 不查存活 —— 死掉的使者会永久挡住同一目标城的流言/二虎竞食，外交任务同样悬挂。
             ClearMission();
 
+            // 【死亡播报】派发时机：本人已脱离部队/军团/名册、state 已是 Dead，
+            // 但**还没有**走君主继承与势力灭亡 —— 这样消息栏的顺序是
+            // "某某病逝了 → 某势力灭亡"，符合叙事顺序；放到末尾则会先报灭亡再报死亡。
+            // 处决也走本方法（cause=Execute），但它的播报由 OnPersonExecute 负责，
+            // 本事件只负责"通知已经死了"，播不播由监听方按 cause 自行决定。
+            //
+            // 【异常隔离】多播委托里任一订阅者抛异常会中断整条 invoke，
+            // 后面的君主继承 / 势力灭亡就都不会执行 —— 那两步决定势力还有没有主公，
+            // 不能因为"少播一条消息"而停摆。因此逐个回调、各自兜异常。
+            EventBase.EventDelegate<Person, Force, string> diedHandlers = GameEvent.OnPersonDied;
+            if (diedHandlers != null)
+            {
+                Delegate[] listeners = diedHandlers.GetInvocationList();
+                for (int i = 0; i < listeners.Length; i++)
+                {
+                    try
+                    {
+                        ((EventBase.EventDelegate<Person, Force, string>)listeners[i])(this, deadForceForNotify, cause);
+                    }
+                    catch (Exception e)
+                    {
+                        Sango.Log.Error(
+                            $"武将死亡回调异常（{listeners[i].Method.DeclaringType?.Name}.{listeners[i].Method.Name}）：{e.Message}");
+                    }
+                }
+            }
+
             // 【君主继承】收尾之后再处理：此时本人已彻底脱离势力，
             // SelectSuccessor 不会把他算进候选。对应 Open311 person_die -> force_succeed。
             //
@@ -5316,7 +5387,8 @@ namespace Sango.Core
                 if (!canDie.ValueAndRecycle) return false;
             }
 
-            Dead();
+            // 战死：死因必须显式传 Battle，否则死亡播报会按默认值说成"病逝"
+            Dead(PersonDeathCause.Battle);
             return true;
         }
 

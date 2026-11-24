@@ -340,11 +340,14 @@ namespace Sango.Core
                 return info;
 
             // 【间距口径统一】与 BuildingType.CanBuildToHere（军事建筑分支）一致：
-            // 军事建筑只与"军事建筑 / 爆炸物"保持间距，允许紧挨障碍物与内政建筑。
+            // 军事设施只与"军事设施 / 城港关"保持间距；
+            // 内政设施、陷阱、障碍物在间距判定上完全透明
+            //（陷阱与障碍物自身修建时也不判间距，见 CanBuildToHere）。
             // 原实现用无过滤的 SpiralHasBuilding，会把一批本可建的格子误杀。
             int buildSpace = System.Math.Max(1, scenario.Variables.BuildingSpace);
             if (cell.SpiralHasBuilding(buildSpace, (b) =>
-                b.BuildingType != null && !b.BuildingType.IsObstacle && !b.BuildingType.IsIntrior))
+                b.BuildingType != null && !b.BuildingType.IsObstacle
+                    && !b.BuildingType.IsExplosive && !b.BuildingType.IsIntrior))
                 return info;
 
             if (coverRange <= 0)

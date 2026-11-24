@@ -640,6 +640,21 @@ namespace Sango.Core
         public static EventDelegate<Person, SangoObject, OverrideData<bool>> OnPersonCheckBattleDeath;
 
         /// <summary>
+        /// 武将死亡事件：<c>Person.Dead</c> 完成全部死亡处理（摘名册 / 清任务 / 君主继承）之后派发。
+        ///
+        /// 【与 OnPersonCheckBattleDeath 的区别】
+        ///   · 那个在**死亡之前**问"能不能死"（护卫等免死效果在这里拦截），只覆盖战死；
+        ///   · 本事件在**死亡之后**通知"已经死了"，覆盖所有死法（战死 / 病逝 / 处决 / 自刎 / 遇刺）。
+        ///
+        /// 【参数】死亡武将, 死亡时的所属势力(可能为空：在野 / 已脱离势力), 死因
+        ///（取值见 <see cref="PersonDeathCause"/>，只用于播报文案，不参与任何结算）。
+        ///
+        /// 【为什么带上势力】死亡处理会把 BelongForce 清空，监听者事后从武将身上读不到
+        /// "他死前属于谁"，无法判断该不该给玩家播报 —— 因此在派发前缓存并随事件传出。
+        /// </summary>
+        public static EventDelegate<Person, Force, string> OnPersonDied;
+
+        /// <summary>
         /// 武将装备变更事件
         /// </summary>
         public static EventDelegate<Person> OnPersonEquipmentChanged;

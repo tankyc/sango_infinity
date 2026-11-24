@@ -59,6 +59,17 @@ namespace Sango.UI
             searchInput.onEndEdit.AddListener(OnSearchInputValueChanged);
             // 用 WithoutNotify：清空输入框不再回触发一次多余的过滤重建
             searchInput.SetTextWithoutNotify(string.Empty);
+
+            // 语法提示：t: 前缀用于"按特技名搜索武将"（见 PersonSelectSystem.MatchSearchKeyword），
+            // 不写出来玩家不会知道。只在占位文本是 Text 且尚未提示过时追加，
+            // 窗口反复打开也不会叠加多份提示。
+            Text placeholderText = searchInput.placeholder as Text;
+            string prefix = ObjectsDisplaySystem.FeatureSearchPrefix;
+            if (placeholderText != null && !string.IsNullOrEmpty(placeholderText.text)
+                && placeholderText.text.IndexOf(prefix, System.StringComparison.Ordinal) < 0)
+            {
+                placeholderText.text += $"（武将名/{prefix}特技名）";
+            }
         }
 
         /// <summary>

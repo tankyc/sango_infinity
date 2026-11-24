@@ -2224,7 +2224,13 @@ namespace Sango.Core
             for (int i = 0; i < city.areaCellList.Count; i++)
             {
                 Cell c = city.areaCellList[i];
-                if (!c.CanBuild || !c.IsEmpty() || c.IsInterior || c.SpiralHasBuilding(buildSpace))
+                // 【间距只避让军事设施 / 城港关】本段选的是军事建筑（canBuildMilitaryBuildingType），
+                // 内政设施、陷阱、障碍物不参与间距判定 —— 与 BuildingType.CanBuildToHere 同口径，
+                // 否则会出现"这里看着能建，AI 却永远不选"的选点荒。
+                if (!c.CanBuild || !c.IsEmpty() || c.IsInterior
+                    || c.SpiralHasBuilding(buildSpace, (b) => b.BuildingType != null
+                        && !b.BuildingType.IsObstacle && !b.BuildingType.IsExplosive
+                        && !b.BuildingType.IsIntrior))
                     continue;
                 if (troop_dst_cell.Contains(c))
                     continue;
@@ -2338,11 +2344,16 @@ namespace Sango.Core
 
             // 建址在派遣期间被占用（例如被别的部队占据）则放弃。
             // 【口径统一】与 BattleSituation.EvaluateFrontSite / BuildingType.CanBuildToHere 一致：
-            // 只避让军事建筑 / 爆炸物，允许紧挨障碍物与内政建筑；
+            //   · 陷阱 / 障碍物**自身修建时完全不做间距检查**（isTrapOrObstacle 直接跳过）；
+            //   · 间距判定里只把"军事设施 / 城港关"当作参照物，
+            //     内政设施、陷阱、障碍物一律透明。
             // 否则会出现"评估判定可建、派遣却被拒"的不一致。
+            bool isTrapOrObstacle = buildingType.IsExplosive || buildingType.IsObstacle;
             if (!dest.CanBuild || !dest.IsEmpty() || dest.IsInterior
-                || dest.SpiralHasBuilding(Math.Max(1, scenario.Variables.BuildingSpace),
-                    (b) => b.BuildingType != null && !b.BuildingType.IsObstacle && !b.BuildingType.IsIntrior))
+                || (!isTrapOrObstacle
+                    && dest.SpiralHasBuilding(Math.Max(1, scenario.Variables.BuildingSpace),
+                        (b) => b.BuildingType != null && !b.BuildingType.IsObstacle
+                            && !b.BuildingType.IsExplosive && !b.BuildingType.IsIntrior)))
                 return false;
 
             TroopType troopType = scenario.GetObject<TroopType>(1);

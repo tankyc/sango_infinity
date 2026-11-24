@@ -6,7 +6,7 @@ using UnityEngine;
 using Sango.Core; namespace Sango.UI
 {
     /// <summary>
-    /// 势力能力情报窗口（window_information_force_ability）：左侧列出全部存活势力，
+    /// 势力能力情报窗口（window_information_force_ability）：左侧列出存活且非异族的势力，
     /// 右侧只读展示被选中势力的能力路径图，右下角显示选中能力的说明。
     ///
     /// <para>

@@ -272,6 +272,55 @@ namespace Sango.Core
         public string ColorName => $"<color={GradeColorHex}>{Name}</color>";
 
         /// <summary>
+        /// 品级星级文本（★ × grade，无品级返回「—」）。
+        ///
+        /// 与授予宝物详情面板的 <c>new string('★', grade)</c> 同一套显示口径，
+        /// 抽到这里是为了让列表列与详情面板不会各写一套（缺字 / 上限不一致）。
+        /// </summary>
+        public string GradeText
+        {
+            get
+            {
+                int g = grade;
+                if (g <= 0) return "—";
+                if (g > 5) g = 5;
+                return new string('★', g);
+            }
+        }
+
+        /// <summary>
+        /// 五维加成文本（只列非 0 项，形如「统率 +5   武力 +3」）。全部为 0 时返回空串。
+        ///
+        /// 【为什么放在这里】授予宝物详情面板与国库预览列表都要显示同一段文本，
+        /// 各拼一套必然出现"一处 +5、一处 5"这类口径分叉。
+        /// </summary>
+        /// <returns>加成文本；无任何加成时为空串</returns>
+        public string GetBonusText()
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            AppendBonus(sb, "统率", commandBonus);
+            AppendBonus(sb, "武力", strengthBonus);
+            AppendBonus(sb, "智力", intelligenceBonus);
+            AppendBonus(sb, "政治", politicsBonus);
+            AppendBonus(sb, "魅力", glamourBonus);
+            return sb.ToString().TrimEnd();
+        }
+
+        /// <summary>往加成文本里追加一项（0 值跳过，正数带 + 号）</summary>
+        static void AppendBonus(System.Text.StringBuilder sb, string label, int value)
+        {
+            if (value == 0)
+                return;
+
+            if (sb.Length > 0)
+                sb.Append("   ");
+            sb.Append(label).Append(' ');
+            if (value > 0)
+                sb.Append('+');
+            sb.Append(value);
+        }
+
+        /// <summary>
         /// 放入国库时是否累计数量（超过 1 表示同类可叠放；珍品每件唯一，恒为 1）
         /// </summary>
         public bool IsStackable()

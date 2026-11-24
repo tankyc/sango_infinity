@@ -68,6 +68,7 @@ using Sango.Core; namespace Sango.UI
 
         public Button troop_btn;
         public Button port_gate_btn;
+        public Button corps_btn;
 
         List<Corps> corpsList = new List<Corps>();
         List<Person> personList = new List<Person>();
@@ -221,6 +222,9 @@ using Sango.Core; namespace Sango.UI
             cityCountLabel.text = cityList.Count.ToString();
             personCountLabel.text = personList.Count.ToString();
 
+            // 三个"下钻"按钮的可用性：没有内容就置灰，避免点了弹空列表
+            // （军团 / 港关 / 部队；与列表数据同源，见各自的 List 字段）
+            corps_btn.interactable = corpsList.Count > 0;
             port_gate_btn.interactable = portgateList.Count > 0;
             troop_btn.interactable = troopList.Count > 0;
 
@@ -358,9 +362,54 @@ using Sango.Core; namespace Sango.UI
             }
         }
 
+        /// <summary>
+        /// 打开「军团」一览：用军团选择器列出当前势力下的所有军团（只读）。
+        ///
+        /// 【数据来源】复用 <see cref="Show"/> 里已经按势力筛好的 <c>corpsList</c>
+        /// （与界面上"军团数"标签同源，避免再遍历一遍 corpsSet 造成两处口径）。
+        ///
+        /// 【为什么是只读】势力情报是"看"的窗口：军团按钮只用来核对编制（都督 / 城数 / 兵力 / 金粮），
+        /// 不承担新建 / 重编军团的职责（那些在君主 → 军团命令里）。
+        /// 因此传 browseOnly（无勾选列、无确定按钮）+ hideSortGroups（列固定，不显示一排分组表卡）。
+        ///
+        /// 【列定义】直接用 <see cref="CorpsSortFunction.DefaultSortList"/>：
+        /// 军团 / 都督 / 都市 / 武将 / 士兵 / 资金 / 粮食，正好是一张编制总览表。
+        /// </summary>
         public void OnCorpsButton()
         {
+            // 势力没有军团（异常数据 / 已灭亡势力）时不弹空列表
+            if (Target == null || corpsList.Count == 0)
+                return;
 
+            CorpsSelectSystem selectSystem = GameSystem.GetSystem<CorpsSelectSystem>();
+            if (selectSystem == null)
+            {
+                Sango.Log.Error("势力情报：CorpsSelectSystem 未注册，无法打开军团列表");
+                return;
+            }
+
+            selectSystem.Start(
+                corpsList,
+                new List<Corps>(),   // 没有预选项：这是浏览，不是选择
+                0,                   // limit = 0 → 不进点选模式
+                null,                // 只读：不产生选择结果
+                CorpsSortFunction.DefaultSortList,
+                $"军团（{Target.Name}）",
+                true,                // browseOnly
+                true);               // hideSortGroups
+        }
+
+        /// <summary>
+        /// 打开「国库」预览：列出当前势力国库里的宝物 / 装备（名字 / 品级 / 数量 / 能力加成 / 说明）。
+        ///
+        /// 与情报菜单「国库」、城市菜单「势力 / 国库」共用同一个入口
+        /// <see cref="ForceTreasuryInformation.Open"/>，这里只是换了个视角势力。
+        /// </summary>
+        public void OnTreasureButton()
+        {
+            if (Target == null)
+                return;
+            ForceTreasuryInformation.Open(Target);
         }
 
         public void OnCityButton()

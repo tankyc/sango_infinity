@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Sango.Core
 {
     /// <summary>
-    /// 势力能力情报：左侧列出全部存活势力，右侧只读展示被选中势力的能力路径图。
+    /// 势力能力情报：左侧列出**存活且非异族**的势力，右侧只读展示被选中势力的能力路径图。
     ///
     /// <para>
     /// 与 <see cref="ForceTechniqueInformation"/>（技巧表）是同一套「列表 + 详情」范式：
@@ -28,7 +28,7 @@ namespace Sango.Core
         /// <summary>当前查看的势力</summary>
         public Force Target;
 
-        /// <summary>左侧列表的数据源（全部存活势力）</summary>
+        /// <summary>左侧列表的数据源（存活且非异族的势力，见 <see cref="ForceInformation.GetAliveNormalForces"/>）</summary>
         public List<SangoObject> all_objects = new List<SangoObject>();
 
         /// <summary>窗口预制体名</summary>
@@ -42,18 +42,13 @@ namespace Sango.Core
         public void Start(Force target)
         {
             Scenario scenario = Scenario.Cur;
-            List<SangoObject> obj_list = new List<SangoObject>();
-            if (scenario != null && scenario.forceSet != null)
-            {
-                scenario.forceSet.ForEach(x =>
-                {
-                    if (x.IsAlive)
-                        obj_list.Add(x);
-                });
-            }
+
+            // 列表口径与势力情报完全一致（存活 + 普通势力）：异族 / 贼没有能力路径，
+            // 列进去只会得到一张空表，详见 ForceInformation.GetAliveNormalForces 的说明。
+            List<SangoObject> obj_list = ForceInformation.GetAliveNormalForces();
 
             // 目标势力必须来自列表，否则左侧选不中它（UIObjectList.SelectDefaultObject 找不到就停在 0）
-            if (target == null || !target.IsAlive)
+            if (target == null || !target.IsAlive || !target.IsNormal)
                 target = obj_list.Count > 0 ? obj_list[0] as Force
                     : (scenario != null ? scenario.CurRunForce : null);
 

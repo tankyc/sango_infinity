@@ -140,37 +140,30 @@ namespace Sango.UI
 
                 if (cell.CanBuild && cell.building == null)
                 {
-                    bool can_place_obstacle = true;
+                    // 【口径与 BuildingType.CanBuildToHere 一致】
+                    // 障碍物、陷阱自身修建时不做任何间距判断 → 只要格子能建就一定可设置；
+                    // 间距判定里也只把"军事设施 / 城港关"当参照物，
+                    // 内政设施、陷阱、障碍物一律透明（否则提示与实际可建项对不上）。
                     bool can_place_other = true;
 
                     int buildSpace = Scenario.Cur.Variables.BuildingSpace;
                     cell.SpiralHasBuilding(buildSpace, (b) =>
-                     {
-                         if (b == null || b.BuildingType == null)
-                             return true;
+                    {
+                        if (b == null || b.BuildingType == null)
+                            return false;
 
-                         if (b.BuildingType.majorType == 0)
-                         {
-                             can_place_obstacle = false;
-                             can_place_other = false;
-                         }
-                         else if (!b.BuildingType.IsObstacle)
-                         {
-                             can_place_other = false;
-                         }
+                        BuildingType nearType = b.BuildingType;
+                        if (nearType.IsIntrior || nearType.IsObstacle || nearType.IsExplosive)
+                            return false;
 
-                         return b.BuildingType.majorType == 0 || !b.BuildingType.IsObstacle;
-                     });
+                        can_place_other = false;
+                        return true;
+                    });
 
-                    if (can_place_obstacle && !can_place_other)
+                    if (!can_place_other)
                         cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>障碍物</color>";
-                    else if (!can_place_obstacle && can_place_other)
-                        cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>军事设施</color>";
-                    else if (can_place_obstacle && can_place_other)
-                        cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>军事设施,障碍物</color>";
                     else
-                        cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) <color=#ff1111>不可建筑</color>";
-
+                        cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) 可设置:<color=#11ff11>军事设施,障碍物</color>";
                 }
                 else
                     cellInfoLabel.text = $"地形: {cell.TerrainType.Name}({cityName})  坐标: ({cell.x}, {cell.y}) <color=#ff1111>不可建筑</color>";

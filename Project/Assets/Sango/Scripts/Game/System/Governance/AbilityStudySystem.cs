@@ -346,12 +346,23 @@ namespace Sango.Core
         const int DynamicSkillAbilityIdBase = 1001;
 
         /// <summary>
+        /// 兜底生成隐藏能力候选时的特技缓冲（<see cref="EnsureSkillAbilities"/> 使用）。
+        /// 只在加载期调用，单线程。
+        /// </summary>
+        static readonly List<Feature> sEnsureFeatureBuffer = new List<Feature>(64);
+
+        /// <summary>
         /// 确保 Ability 表里有 Skill 类条目（隐藏能力槽的填充源）。
         ///
         /// 对齐说明：原版这些条目是剧本数据（Ability 表的 <c>hidden_slot</c> + <c>skill_id</c>），
         /// 本项目 `Abilities.json` 只手工填了基础能力与兵种适性，
-        /// 因此这里按"**每种偏向（Feature.kind）随机取最高等级的特技**"动态生成 10 条，
-        /// 每个隐藏槽一条 —— 与 `force_init_hidden_ability` 的"每槽填一条"结构一致。
+        /// 因此这里按"**每个偏向（Feature.kind）铺满该偏向下的全部特技**"动态生成候选，
+        /// 每个隐藏槽一组 —— 与原版"每槽 4~5 条候选、开局随机抽一条填槽"的结构一致。
+        /// <para>
+        /// 之所以必须"一组候选"而不是"每槽一条"：只有多候选，
+        /// <see cref="TryActivateHiddenAbilities"/> 的随机抽签才有意义；
+        /// 每槽一条会让所有势力、所有对局拿到同一个特技。
+        /// </para>
         /// <para>
         /// 幂等：只要表里已经存在任意 Skill 类条目就直接返回，
         /// 因此读档 / 二次载入不会重复生成。
@@ -384,47 +395,67 @@ namespace Sango.Core
 
             // FeatureKindType 共 9 种（1 部队移动 … 9 人际关系），10 个槽位循环取用
             const int kindCount = 9;
+            const int SlotIdStride = 100;
+
+            Feature[] featureArray = features.objects;
+            if (featureArray == null)
+                return;
+
             for (int slot = 0; slot < Force.MaxHiddenAbilityCount; slot++)
             {
                 int kind = slot % kindCount + 1;
+                int slotKind = GetHiddenSlotStatKind(slot);
 
-                // 该偏向里等级最高的特技；同等级取 Id 最小的那个。
-                // 【为什么不用随机】动态生成的 Ability 不写进 Abilities.json，
-                // 读档时会被重新生成一次；若用随机，Id 1001~1010 对应的特技会变，
-                // 而存档里的 `Force.hiddenAbilityIds` 记的是 Id —— 就会出现"槽里显示的特技变了"。
-                // 因此这里用确定性规则，保证跨会话同一 Id 永远指向同一特技。
-                int bestLevel = -1;
-                Feature pick = null;
-                features.ForEach(feature =>
+                // 【每槽铺全部候选，不再只取一条】
+                // 旧实现每槽只生成"该偏向里等级最高、同等级 Id 最小"的那一条：
+                //   · 完全确定性 → TryActivateHiddenAbilities 里没有可随机的东西，
+                //     每个势力、每一局拿到的隐藏特技都相同；
+                //   · statKind 被硬编码成武力 → 与槽位种类校验（HiddenSlotStatKinds）冲突，
+                //     10 个槽里只有 0/4/5 三个能通过，其余 7 个永远出不来。
+                // 现在每槽生成该偏向下的全部特技，让"随机抽一条"真正有意义。
+                //
+                // 【Id 必须跨会话稳定】这些 Ability 不写进 Abilities.json，读档时会按同一套
+                // 规则重建，而存档里 `Force.hiddenAbilityIds` 记的是 Id。编号规则：
+                //   1001 + slot × 100 + 该偏向内按 Feature.Id 升序的序号
+                // 纯确定性、与 Feature 表加载顺序无关，因此重建后同一 Id 永远指向同一特技。
+                sEnsureFeatureBuffer.Clear();
+                for (int i = 1; i < featureArray.Length; i++)
                 {
-                    if (feature == null || feature.kind != kind)
-                        return;
-                    if (feature.level > bestLevel || (feature.level == bestLevel && pick != null && feature.Id < pick.Id))
-                    {
-                        bestLevel = feature.level;
-                        pick = feature;
-                    }
-                });
-                if (pick == null)
+                    Feature feature = featureArray[i];
+                    if (feature != null && feature.kind == kind)
+                        sEnsureFeatureBuffer.Add(feature);
+                }
+                if (sEnsureFeatureBuffer.Count == 0)
                     continue;
 
-                Ability ability = new Ability();
-                ability.Id = DynamicSkillAbilityIdBase + slot;
-                ability.Name = pick.Name;
-                ability.desc = pick.desc;
-                ability.category = (int)AbilityCategory.Skill;
-                ability.skillId = pick.Id;
-                ability.hiddenSlot = slot;
-                ability.learningLimit = (int)AbilityLearningLimit.Once;
-                ability.timeCost = 1;
-                ability.value = pick.level * 10;
-                ability.statKind = (int)AbilityStatKind.Strength;
-                ability.requiredAbilityIds = new int[Ability.MaxRequiredAbilityCount];
-                ability.personStatType = -1;
-                ability.troopKind = -1;
-                ability.targetAptitude = -1;
+                sEnsureFeatureBuffer.Sort((a, b) => a.Id.CompareTo(b.Id));
 
-                abilities.Add(ability);
+                for (int i = 0; i < sEnsureFeatureBuffer.Count && i < SlotIdStride; i++)
+                {
+                    Feature pick = sEnsureFeatureBuffer[i];
+                    if (pick == null)
+                        continue;
+
+                    Ability ability = new Ability();
+                    ability.Id = DynamicSkillAbilityIdBase + slot * SlotIdStride + i;
+                    ability.Name = pick.Name;
+                    ability.desc = pick.desc;
+                    ability.category = (int)AbilityCategory.Skill;
+                    ability.skillId = pick.Id;
+                    ability.hiddenSlot = slot;
+                    ability.learningLimit = (int)AbilityLearningLimit.Once;
+                    ability.timeCost = 1;
+                    ability.value = pick.level * 10;
+                    // 与槽位种类对齐（界面底色 + 激活校验都读它），不再硬编码武力
+                    ability.statKind = slotKind >= 0 ? slotKind : (int)AbilityStatKind.Strength;
+                    ability.displayKind = ability.statKind;
+                    ability.requiredAbilityIds = new int[Ability.MaxRequiredAbilityCount];
+                    ability.personStatType = -1;
+                    ability.troopKind = -1;
+                    ability.targetAptitude = -1;
+
+                    abilities.Add(ability);
+                }
             }
         }
 
@@ -516,7 +547,13 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 尝试激活隐藏能力：把"前置已全部研究完成"的隐藏能力写进它所属的空槽位。
+        /// 单槽候选缓冲（<see cref="TryActivateHiddenAbilities"/> 使用，避免每槽新建 List）。
+        /// 单线程调用，不重入。
+        /// </summary>
+        static readonly List<Ability> sHiddenCandidates = new List<Ability>(16);
+
+        /// <summary>
+        /// 尝试激活隐藏能力：把"前置已全部研究完成"的隐藏能力**随机**写进它所属的空槽位。
         ///
         /// <para>
         /// 【与原版的差异】原版在开局用 <c>force_init_hidden_ability</c>
@@ -526,7 +563,20 @@ namespace Sango.Core
         /// 真正的"出现"演出等玩家下一次打开研究界面才播（见 UIAbilityStudyArea）。
         /// </para>
         /// <para>
-        /// 一个槽位只装一条：同槽的多条候选里，先满足前置的那条占位，其余保持未激活。
+        /// 【为什么必须随机】同一个隐藏槽在 <c>Abilities.json</c> 里配的是 **4~5 条不同特技的候选**
+        /// （例如槽 0 的 Id 50/51/52/53 分别对应特技 12/51/26/39），它们的前置条件完全相同。
+        /// 旧实现按能力表顺序（Id 升序）遍历、第一条满足前置的就占位 —— 于是
+        /// **每个势力、每一局拿到的都是最小 Id 那一条**，玩家看到的就是"隐藏特技永远一样"。
+        /// 现在改为：先把该槽所有满足条件的候选收集起来，再在候选集里均匀随机抽一条。
+        /// </para>
+        /// <para>
+        /// 【出现后固定】抽中的结果写进 <see cref="Force.hiddenAbilityIds"/>（存档字段），
+        /// 下次进来 <c>GetHiddenAbilityId(slot) &gt;= 0</c> 直接跳过 —— 同一局里不会重抽，
+        /// 读档也不会变。不同势力各自独立抽签，因此彼此不同；
+        /// <see cref="GameRandom"/> 的种子来自 <c>Guid</c>，所以每次开新档也不同。
+        /// </para>
+        /// <para>
+        /// 一个槽位只装一条：同槽的多条候选里只抽一条，其余保持未激活。
         /// </para>
         /// </summary>
         /// <param name="force">势力</param>
@@ -541,38 +591,91 @@ namespace Sango.Core
             if (abilities == null)
                 return 0;
 
-            int activated = 0;
-            abilities.ForEach(ability =>
-            {
-                if (ability == null || !ability.IsAlive)
-                    return;
+            Ability[] abilityArray = abilities.objects;
+            if (abilityArray == null)
+                return 0;
 
-                int slot = ability.hiddenSlot;
-                if (slot < 0 || slot >= Force.MaxHiddenAbilityCount)
-                    return;
-                // 该槽已激活别的能力 —— 一槽一条
+            int activated = 0;
+
+            // 【逐槽抽签】先按槽分桶、再随机抽，而不是按表顺序"先到先得"
+            for (int slot = 0; slot < Force.MaxHiddenAbilityCount; slot++)
+            {
+                // 一槽一条：该槽已激活过就固定下来，永不重抽（"出现后固定"的落点）
                 if (force.GetHiddenAbilityId(slot) >= 0)
-                    return;
-                // 已经研究出来的不再激活
-                if (force.HasAbility(ability.Id))
-                    return;
-                // 前置没研究完 —— 不激活
-                if (!ability.IsPrerequisiteMet(force.learnedAbilityIds))
-                    return;
-                // 种类不符 —— 隐藏能力只能落在同种类（同色）的位置上
+                    continue;
+
                 int slotKind = HiddenSlotStatKinds[slot];
-                if (ability.statKind != slotKind)
+
+                sHiddenCandidates.Clear();
+                for (int i = 1; i < abilityArray.Length; i++)
                 {
-                    Sango.Log.Warning($"*[能力研究] 能力「{ability.Name}」种类 {ability.statKind} 与隐藏槽 {slot} 的种类 {slotKind} 不符，已跳过");
-                    return;
+                    Ability ability = abilityArray[i];
+                    if (ability == null || !ability.IsAlive)
+                        continue;
+                    if (ability.hiddenSlot != slot)
+                        continue;
+                    // 本势力已经研究出来的不再作为候选（否则会激活一条"已掌握"的能力）
+                    if (force.HasAbility(ability.Id))
+                        continue;
+                    // 前置没研究完 —— 不激活（达成制的核心判据）
+                    if (!ability.IsPrerequisiteMet(force.learnedAbilityIds))
+                        continue;
+                    // 种类不符 —— 隐藏能力只能落在同种类（同色）的位置上
+                    if (ability.statKind != slotKind)
+                        continue;
+                    // 同一势力内不同槽不能出现同一个特技：数据被别人改乱时兜一层
+                    if (HasActivatedSkill(force, scenario, ability.skillId))
+                        continue;
+
+                    sHiddenCandidates.Add(ability);
                 }
 
-                force.SetHiddenAbilityId(slot, ability.Id);
+                if (sHiddenCandidates.Count == 0)
+                    continue;
+
+                // 均匀随机抽一条；只有一条候选时不必掷骰（保持随机源序列干净）
+                Ability pick = sHiddenCandidates.Count == 1
+                    ? sHiddenCandidates[0]
+                    : sHiddenCandidates[GameRandom.Range(sHiddenCandidates.Count)];
+                if (pick == null)
+                    continue;
+
+                force.SetHiddenAbilityId(slot, pick.Id);
                 force.MarkHiddenAbilityNew(slot);
                 activated++;
-                Sango.Log.Info($"*[能力研究]{force.Name} 激活隐藏能力「{ability.Name}」（槽位 {slot}）");
-            });
+                Sango.Log.Info($"*[能力研究]{force.Name} 激活隐藏能力「{pick.Name}」（槽位 {slot}，"
+                    + $"从 {sHiddenCandidates.Count} 条候选中随机，能力 Id:{pick.Id}）");
+            }
             return activated;
+        }
+
+        /// <summary>
+        /// 该势力已激活的隐藏槽里是否已经出现过指定特技。
+        ///
+        /// 【用途】随机抽签时排除重复：不同槽的候选在数据里本应互不重叠，
+        /// 但 MOD 改表后可能出现同一 <c>skillId</c> 被配进多个槽 ——
+        /// 不拦的话同一势力会抽出两条"同特技不同能力 Id"的隐藏能力，
+        /// 学完之后武将身上只有一份效果，玩家却白研究了一整条前置链。
+        /// </summary>
+        /// <param name="force">势力</param>
+        /// <param name="scenario">场景对象</param>
+        /// <param name="skillId">待检查的特技 Id（&lt;= 0 时直接返回 false）</param>
+        /// <returns>已被其它槽占用返回 true</returns>
+        static bool HasActivatedSkill(Force force, Scenario scenario, int skillId)
+        {
+            if (skillId <= 0)
+                return false;
+
+            for (int slot = 0; slot < Force.MaxHiddenAbilityCount; slot++)
+            {
+                int abilityId = force.GetHiddenAbilityId(slot);
+                if (abilityId < 0)
+                    continue;
+                Ability exist = GetAbility(scenario, abilityId);
+                if (exist != null && exist.skillId == skillId)
+                    return true;
+            }
+            return false;
         }
 
         // ==================== 培育（第二层） ====================

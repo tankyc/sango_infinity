@@ -41,7 +41,18 @@ namespace Sango.Core.Player
 
         }
 
-        public void Start(List<Corps> cities, List<Corps> resultList, int limit, Action<List<Corps>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName)
+        /// <summary>
+        /// 启动军团选择系统
+        /// </summary>
+        /// <param name="cities">候选军团列表</param>
+        /// <param name="resultList">已选中的军团列表</param>
+        /// <param name="limit">选择数量上限</param>
+        /// <param name="action">选择完成回调</param>
+        /// <param name="customSortTitles">自定义排序标题列表（为空时使用默认列表）</param>
+        /// <param name="cutomSortTitleName">自定义排序标题组名称</param>
+        /// <param name="browseOnly">true = 纯浏览（不勾选、无确定按钮，只能返回），见 <see cref="ObjectsDisplaySystem.BrowseMode"/></param>
+        /// <param name="hideSortGroups">true = 只保留第 1 张排序组表卡（列固定、不切组），见 <see cref="ObjectsDisplaySystem.HideSortGroups"/></param>
+        public void Start(List<Corps> cities, List<Corps> resultList, int limit, Action<List<Corps>> action, List<ObjectSortTitle> customSortTitles, string cutomSortTitleName, bool browseOnly = false, bool hideSortGroups = false)
         {
             donotFinishThisSystem = false;
             selectLimit = limit;
@@ -52,6 +63,9 @@ namespace Sango.Core.Player
             customSortItems = customSortTitles != null ? customSortTitles : defualtTitleList;
             this.customSortTitleName = cutomSortTitleName != null ? cutomSortTitleName : defualtTitleName; ;
             ClickMode = limit == 1;
+            // 浏览态 / 单表卡必须在 Push（→ OnEnter → 窗口 Init）之前定下来
+            BrowseMode = browseOnly;
+            HideSortGroups = hideSortGroups;
             buttonDatas = selectButtons;
             Push();
         }

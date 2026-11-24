@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Sango.Core
 {
     /// <summary>
-    /// 势力技巧情报：左侧列出全部存活势力，右侧只读展示被选中势力的技巧树。
+    /// 势力技巧情报：左侧列出**存活且非异族**的势力，右侧只读展示被选中势力的技巧树。
     ///
     /// <para>
     /// 与 <see cref="ForceInformation"/>（势力情报）是同一套「列表 + 详情」范式：
@@ -23,8 +23,8 @@ namespace Sango.Core
     /// 【原版无对应实现】Open311（D:\open311\s11）只在 s11_enum_preset.h 里留了
     /// <c>CampaignId_Techniques</c> 枚举，技巧表界面的绘制与交互全在 san11pk.exe 内部，
     /// 没有可对齐的源码。因此本界面沿用项目既有的情报窗口范式自研：
-    /// 列表数据一律取 <c>Force.IsAlive</c> 过滤后的 <c>Scenario.forceSet</c>
-    /// （与 ForceInformation 的取法完全一致），不做额外筛选。
+    /// 列表数据一律走 <see cref="ForceInformation.GetAliveNormalForces"/>
+    /// （存活 + 普通势力，排除异民族与贼），与势力情报窗口同一口径。
     /// </para>
     ///
     /// 【入口】
@@ -37,7 +37,7 @@ namespace Sango.Core
         /// <summary>当前查看的势力</summary>
         public Force Target;
 
-        /// <summary>左侧列表的数据源（全部存活势力）</summary>
+        /// <summary>左侧列表的数据源（存活且非异族的势力，见 <see cref="ForceInformation.GetAliveNormalForces"/>）</summary>
         public List<SangoObject> all_objects = new List<SangoObject>();
 
         /// <summary>窗口预制体名</summary>
@@ -51,18 +51,13 @@ namespace Sango.Core
         public void Start(Force target)
         {
             Scenario scenario = Scenario.Cur;
-            List<SangoObject> obj_list = new List<SangoObject>();
-            if (scenario != null && scenario.forceSet != null)
-            {
-                scenario.forceSet.ForEach(x =>
-                {
-                    if (x.IsAlive)
-                        obj_list.Add(x);
-                });
-            }
+
+            // 列表口径与势力情报完全一致（存活 + 普通势力）：异族 / 贼没有技巧树，
+            // 列进去只会得到一张空表，详见 ForceInformation.GetAliveNormalForces 的说明。
+            List<SangoObject> obj_list = ForceInformation.GetAliveNormalForces();
 
             // 目标势力必须来自列表，否则左侧会选不中它（UIObjectList.SelectDefaultObject 找不到就停在 0）
-            if (target == null || !target.IsAlive)
+            if (target == null || !target.IsAlive || !target.IsNormal)
                 target = obj_list.Count > 0 ? obj_list[0] as Force
                     : (scenario != null ? scenario.CurRunForce : null);
 

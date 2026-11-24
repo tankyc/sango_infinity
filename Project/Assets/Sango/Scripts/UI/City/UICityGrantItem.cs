@@ -344,21 +344,16 @@ using Sango.Core; namespace Sango.UI
 
         // ==================== 文本拼装 ====================
 
-        /// <summary>五维加成文本（只列非 0 项；全部为 0 时显示"无"）</summary>
+        /// <summary>五维加成文本（只列非 0 项；全部为 0 时显示"无能力加成"）</summary>
         static string BuildBonusText(ItemType item)
         {
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
-
-            if (item.commandBonus != 0) sb.Append($"统率 {Format(item.commandBonus)}   ");
-            if (item.strengthBonus != 0) sb.Append($"武力 {Format(item.strengthBonus)}   ");
-            if (item.intelligenceBonus != 0) sb.Append($"智力 {Format(item.intelligenceBonus)}   ");
-            if (item.politicsBonus != 0) sb.Append($"政治 {Format(item.politicsBonus)}   ");
-            if (item.glamourBonus != 0) sb.Append($"魅力 {Format(item.glamourBonus)}   ");
-
-            if (sb.Length == 0)
+            // 文本口径统一由 ItemType.GetBonusText 提供 —— 国库预览列表的「能力加成」列用的是同一段，
+            // 两处各拼一套的话，改文案 / 加属性时必然漏一处。
+            if (item == null)
                 return "无能力加成";
 
-            return sb.ToString().TrimEnd();
+            string text = item.GetBonusText();
+            return string.IsNullOrEmpty(text) ? "无能力加成" : text;
         }
 
         /// <summary>附加特技文本（features 未配时显示"无"）</summary>
@@ -395,10 +390,6 @@ using Sango.Core; namespace Sango.UI
             return item != null ? item.Name : "－";
         }
 
-        /// <summary>带正负号显示加成值</summary>
-        static string Format(int value)
-        {
-            return value >= 0 ? $"+{value}" : value.ToString();
-        }
+
     }
 }

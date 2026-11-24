@@ -113,7 +113,8 @@ namespace Sango.Render
         /// <param name="byKunshu">下令的君主</param>
         void ExecuteCaptive(Person person, Person byKunshu)
         {
-            person.Dead();
+            // 处决：死因 Execute，播报由 OnPersonExecute 负责（避免死亡事件再播一条）
+            person.Dead(PersonDeathCause.Execute);
             GameEvent.OnPersonExecute?.Invoke(person, byKunshu != null ? byKunshu.BelongForce : atk?.BelongForce);
         }
 

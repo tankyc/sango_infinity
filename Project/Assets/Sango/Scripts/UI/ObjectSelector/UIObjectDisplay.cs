@@ -88,18 +88,36 @@ namespace Sango.UI
                 uIObjectListItems[uIObjectListItems.Length - 1].gameObject.SetActive(true);
             }
 
-            toggleGroup[0].SetTitle(objectSelectSystem.customSortTitleName).toggle.isOn = true;
-            for (int i = 1; i < toggleGroup.Length; i++)
+            // 表卡（排序组）：
+            //   · 单表卡模式（如国库预览）—— 列定义固定、窗口标题已经显示了列表名，
+            //     整排表卡都不要：卡位数量来自 prefab 槽位，不关就会平白多出一排同名标签；
+            //     而且卡宽是按两个字设计的，塞进"国库（刘表）"会被截断。
+            //   · 普通模式 —— 第 1 张卡是当前列表名，其余卡按系统给出的分组名显示；
+            //     名字为空的卡位隐藏（由"有几个真实分组"决定，而不是 prefab 槽位数）。
+            if (objectSelectSystem.HideSortGroups)
             {
-                string groupName = objectSelectSystem.GetSortTitleGroupName(i);
-                if (string.IsNullOrEmpty(groupName))
-                {
+                for (int i = 0; i < toggleGroup.Length; i++)
                     toggleGroup[i].gameObject.SetActive(false);
-                }
-                else
+            }
+            else
+            {
+                // 【必须恢复第 1 张卡】上一轮如果是单表卡模式（国库预览），这里的所有卡都被关过；
+                // 只 SetTitle 不会把 GameObject 重新激活，会让后续所有选择器都看不到当前列表名。
+                if (!toggleGroup[0].gameObject.activeSelf)
+                    toggleGroup[0].gameObject.SetActive(true);
+                toggleGroup[0].SetTitle(objectSelectSystem.customSortTitleName).toggle.isOn = true;
+                for (int i = 1; i < toggleGroup.Length; i++)
                 {
-                    toggleGroup[i].SetTitle(groupName);
-                    toggleGroup[i].gameObject.SetActive(true);
+                    string groupName = objectSelectSystem.GetSortTitleGroupName(i);
+                    if (string.IsNullOrEmpty(groupName))
+                    {
+                        toggleGroup[i].gameObject.SetActive(false);
+                    }
+                    else
+                    {
+                        toggleGroup[i].SetTitle(groupName);
+                        toggleGroup[i].gameObject.SetActive(true);
+                    }
                 }
             }
 
@@ -159,11 +177,14 @@ namespace Sango.UI
         }
 
         /// <summary>
-        /// 应用列定义：把"动态特技组"标记展开成 N 个真实特技列，并回写系统。
+        /// 应用列定义：把"动态特技组"标记展开成 N 个真实特技列，只更新本窗口的列缓存。
         ///
-        /// 【为什么必须回写】界面渲染与列宽读 sortItems，而点击表头排序、切换分组读
-        /// objectSelectSystem.customSortItems。两边必须是同一份列表 —— 否则展开后会比系统侧
-        /// 多出 N-1 列，点表头时按旧索引排序，列与数据错位。
+        /// 【为什么不回写系统】界面渲染、列宽、点表头排序全部读本窗口的 <see cref="sortItems"/>
+        ///（排序比较器由闭包里的 sortTitle 提供），系统侧不需要"当前显示列"。
+        /// 历史实现把当前列回写进系统的 customSortItems，而 customSortItems 正是
+        /// 第 1 个排序组的列定义（各选择器 GetSortTitleGroup(0) 直接返回它）——
+        /// 于是点一次别的分组就把第 1 组的列顶掉，再点回来仍是上一组的列，
+        /// 表现就是"切换 title 后切不回来"。不回写后，第 1 组永远是初始列。
         ///
         /// 【幂等】对已展开的列表调用无副作用（ExpandFeatureGroups 原样返回）。
         /// </summary>
@@ -171,8 +192,6 @@ namespace Sango.UI
         void ApplySortItems(List<ObjectSortTitle> titles)
         {
             sortItems = PersonSortFunction.ExpandFeatureGroups(titles);
-            if (objectSelectSystem != null)
-                objectSelectSystem.customSortItems = sortItems;
         }
 
         public float GetContentWidth()

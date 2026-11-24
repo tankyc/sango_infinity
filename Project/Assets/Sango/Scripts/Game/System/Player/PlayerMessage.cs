@@ -172,6 +172,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonLevelUp += OnPersonLevelUp;
             GameEvent.OnPersonInjury += OnPersonInjury;
             GameEvent.OnPersonUpgradeOfficial += OnPersonUpgradeOfficial;
+            GameEvent.OnPersonDied += OnPersonDied;
             GameEvent.OnForceFall += OnForceFall;
         }
 
@@ -196,6 +197,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonLevelUp -= OnPersonLevelUp;
             GameEvent.OnPersonInjury -= OnPersonInjury;
             GameEvent.OnPersonUpgradeOfficial -= OnPersonUpgradeOfficial;
+            GameEvent.OnPersonDied -= OnPersonDied;
             GameEvent.OnForceFall -= OnForceFall;
         }
 
@@ -667,6 +669,62 @@ namespace Sango.Core.Player
             {
                 _AddTextMessage($"我军战法击伤了{person.ColorName}！", fromTroop.BelongForce, x, y);
             }
+        }
+
+        /// <summary>
+        /// 武将死亡事件处理方法（战死 / 病逝 / 自刎 / 遇刺）。
+        ///
+        /// 【播报范围】只播报我方（玩家势力）武将：AI 之间的寿终 / 战死每次换季都可能出现
+        /// 几十条，全播会把消息栏刷满，而玩家对"别家死了谁"没有操作空间。
+        ///
+        /// 【处决不在这里播】处决流程是"先 Dead(Execute) 再派发 OnPersonExecute"，
+        /// 后者已有"我方斩杀了 XXX"的专属文案；这里跳过 Execute，
+        /// 否则同一次斩首会出现"XX 病逝了"+"我方斩杀了 XX"两条消息。
+        ///
+        /// 【死因文案】Natural 与存量事件配置里的 Illness 都按"病逝"；
+        /// 其它未知取值同样按病逝兜底 —— 宁可说得含糊，也不能因为配置写错就不播。
+        /// </summary>
+        /// <param name="person">死亡武将</param>
+        /// <param name="deadForce">死亡时的所属势力（可能为空：在野 / 已脱离势力）</param>
+        /// <param name="cause">死因，取值见 <see cref="PersonDeathCause"/></param>
+        private void OnPersonDied(Person person, Force deadForce, string cause)
+        {
+            if (person == null)
+                return;
+
+            // 处决已有 OnPersonExecute 的专属播报，这里不再重复。
+            // 比较忽略大小写：死因可能来自剧本事件 JSON 的手写配置（Battle / battle 都有人写）。
+            if (string.Equals(cause, PersonDeathCause.Execute, System.StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // 【口径必须是 IsPlayer，不能是 IsCurPlayer】
+            // IsCurPlayer = "玩家势力 且 当前正在行动"，寿终与战死大量发生在 AI 回合的结算里，
+            // 用 IsCurPlayer 会漏播玩家武将的死亡（换季寿终正好在势力回合结算）。
+            // 只播报我方武将：AI 之间的死亡不打扰玩家。
+            if (deadForce == null || !deadForce.IsPlayer)
+                return;
+
+            string verb;
+            if (string.Equals(cause, PersonDeathCause.Battle, System.StringComparison.OrdinalIgnoreCase))
+                verb = "阵亡了";
+            else if (string.Equals(cause, PersonDeathCause.Suicide, System.StringComparison.OrdinalIgnoreCase))
+                verb = "自刎殉国";
+            else if (string.Equals(cause, PersonDeathCause.Assassinate, System.StringComparison.OrdinalIgnoreCase))
+                verb = "遇刺身亡";
+            else
+                verb = "病逝了";
+
+            // 播报位置：死亡后 mBelongTroop 已清空，取所在城
+            //（城陷撤离途中 CurrentCity / BelongCity 都可能为空，退化为 0,0 只影响跳转定位）
+            int x = 0, y = 0;
+            City city = person.CurrentCity != null ? person.CurrentCity : person.BelongCity;
+            if (city != null)
+            {
+                x = city.x;
+                y = city.y;
+            }
+
+            _AddTextMessage($"{person.ColorName}{verb}！", deadForce, x, y);
         }
 
         /// <summary>

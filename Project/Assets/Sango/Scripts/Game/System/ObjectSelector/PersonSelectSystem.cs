@@ -114,6 +114,45 @@ namespace Sango.Core.Player
             finishAction?.Invoke(people);
         }
 
+        /// <summary>
+        /// 搜索匹配：默认按武将名（基类口径）；关键词带 <c>t:</c> 前缀时改为"按特技名搜索"。
+        ///
+        /// 【为什么要单独一个前缀】特技搜索要遍历每名武将身上的特技表，与"按名字搜索"
+        /// 是两套完全不同的判定。若混在同一个关键词里做全字段模糊匹配，每次输入都要把
+        /// 候选集里所有人 × 所有字段扫一遍（几千人 × 数条特技）；用 <c>t:</c> 显式切换后，
+        /// 普通搜索只比一个字符串，特技搜索只查该武将自己的特技列表（人均几条）。
+        ///
+        /// 【匹配范围】
+        ///   · <see cref="Person.FeatureList"/> 全量（含未解锁 / 名额外的特技 —— 列表里
+        ///     这些特技本来就以灰色显示着，搜不到反而不符合直觉）；
+        ///   · <see cref="Person.extra_feature_list"/>（装备 / 官职附加，不占名额）；
+        ///   · 混合组按子特技名展开匹配，见 <see cref="Feature.ContainsName(SangoObjectList{Feature}, string)"/>。
+        ///
+        /// 【只输入 "t:" 没有关键词】按"不过滤"处理：就地清空列表会让玩家以为搜索坏了。
+        ///
+        /// 【原版无对应实现】Open311 的人物选择是固定对话框列表
+        ///（按 person->has_skill 等条件在 C++ 侧预先筛好，s11_sys_scen_ability.cpp:60-64），
+        /// 没有"关键词 + 前缀语法"这一层；本条属自设计，仅为让玩家在几千人里定位持有
+        /// 某特技的武将，不改变任何业务判定口径。
+        /// </summary>
+        /// <param name="obj">候选对象</param>
+        /// <returns>命中返回 true</returns>
+        public override bool MatchSearchKeyword(SangoObject obj)
+        {
+            if (!IsFeatureSearch)
+                return base.MatchSearchKeyword(obj);
+
+            if (string.IsNullOrEmpty(featureSearchText))
+                return true;
+
+            Person person = obj as Person;
+            if (person == null)
+                return false;
+
+            return Feature.ContainsName(person.FeatureList, featureSearchText)
+                || Feature.ContainsName(person.extra_feature_list, featureSearchText);
+        }
+
         public override List<ObjectSortTitle> GetSortTitleGroup(int index)
         {
             if (index == 0) return customSortItems;

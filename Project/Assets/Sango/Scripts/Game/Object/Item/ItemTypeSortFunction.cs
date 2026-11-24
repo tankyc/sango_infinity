@@ -187,6 +187,96 @@ namespace Sango.Core
         };
 
         /// <summary>
+        /// 带品级颜色的道具名列（国库预览用）。
+        ///
+        /// 与 <see cref="SortByName"/> 的区别只在显示文本：这里输出 <see cref="ItemType.ColorName"/>，
+        /// 珍品名按品级上色（与授予 / 没收窗口、发现宝物的提示文本同一套口径）。
+        /// 排序仍按纯名字，避免富文本标签参与比较。
+        /// </summary>
+        public static SortTitle SortByColorName = new SortTitle()
+        {
+            name = "道具",
+            width = 8.00f,
+            alignment = (int)UnityEngine.TextAnchor.MiddleLeft,
+            valueStrGetCall = x => x.ColorName,
+            valueSortFunc = (a, b) => string.Compare(a.Name, b.Name, System.StringComparison.Ordinal),
+            valueObjGet = x => x.Name,
+            valueObjSet = (x, v) => x.Name = (string)v,
+            editType = DataEditType.Text,
+        };
+
+        /// <summary>
+        /// 品级列（★ 星级；无品级的普通道具显示「—」）
+        /// </summary>
+        public static SortTitle SortByGradeStars = new SortTitle()
+        {
+            name = "品级",
+            width = 3.00f,
+            valueStrGetCall = x => x.GradeText,
+            valueSortFunc = (a, b) => a.grade.CompareTo(b.grade),
+            valueObjGet = x => x.grade,
+            valueObjSet = null,
+        };
+
+        /// <summary>
+        /// 能力加成列（五维加成文本；无加成显示「—」）
+        ///
+        /// 【排序口径】按五维加成之和排，而不是按文本 —— 文本排序在"统率+5"与"武力+5"之间
+        /// 完全由中文偏旁决定，玩家点表头会得到看不出规律的顺序。
+        /// </summary>
+        public static SortTitle SortByBonus = new SortTitle()
+        {
+            name = "能力加成",
+            width = 12.00f,
+            alignment = (int)UnityEngine.TextAnchor.MiddleLeft,
+            valueStrGetCall = x =>
+            {
+                string text = x.GetBonusText();
+                return string.IsNullOrEmpty(text) ? "—" : text;
+            },
+            valueSortFunc = (a, b) => GetBonusTotal(a).CompareTo(GetBonusTotal(b)),
+            valueObjGet = x => GetBonusTotal(x),
+            valueObjSet = null,
+        };
+
+        /// <summary>
+        /// 数量列：显示道具在**指定仓库**里的持有量（国库预览用）。
+        ///
+        /// 【为什么是工厂】持有量不属于道具本身，而是"某势力国库 / 某城道具库"的现算值；
+        /// 静态字段拿不到来源仓库，必须用闭包把 <paramref name="store"/> 固定下来
+        /// （与 <see cref="ForceSortFunction.GetSortByDistanceDay"/> 同一思路）。
+        /// </summary>
+        /// <param name="store">来源仓库（国库 / 城道具库），可为 null（此时恒为 0）</param>
+        /// <returns>列定义</returns>
+        public static SortTitle GetSortByCount(ItemStore store)
+        {
+            return new SortTitle()
+            {
+                name = "数量",
+                width = 2.50f,
+                valueStrGetCall = x => GetCount(store, x).ToString(),
+                valueSortFunc = (a, b) => GetCount(store, a).CompareTo(GetCount(store, b)),
+                valueObjGet = x => GetCount(store, x),
+                valueObjSet = null,
+            };
+        }
+
+        /// <summary>五维加成之和（仅用于排序）</summary>
+        static int GetBonusTotal(ItemType item)
+        {
+            if (item == null) return 0;
+            return item.commandBonus + item.strengthBonus + item.intelligenceBonus
+                 + item.politicsBonus + item.glamourBonus;
+        }
+
+        /// <summary>取道具在指定仓库里的数量（仓库或道具为空时返回 0）</summary>
+        static int GetCount(ItemStore store, ItemType item)
+        {
+            if (store == null || item == null) return 0;
+            return store.GetNumber(item);
+        }
+
+        /// <summary>
         /// 默认排序标题列表
         /// </summary>
         public static List<ObjectSortTitle> DefaultSortList = new List<ObjectSortTitle>

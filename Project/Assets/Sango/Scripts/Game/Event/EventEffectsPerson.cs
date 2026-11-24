@@ -338,7 +338,8 @@ namespace Sango.Core.Event
             Person killer = GetSlot<Person>("KillerSlot", context);
             Force killerForce = killer != null ? killer.BelongForce : null;
 
-            person.Dead();
+            // 处决：死因 Execute，播报由 OnPersonExecute 负责（避免死亡事件再播一条）
+            person.Dead(PersonDeathCause.Execute);
             GameEvent.OnPersonExecute?.Invoke(person, killerForce);
             Log.Info($"事件：{person.Name} 被处决");
             return true;
@@ -365,8 +366,10 @@ namespace Sango.Core.Event
                 return false;
             }
 
-            string cause = GetString("Cause", "Natural");
-            person.Dead();
+            // 死因透传给死亡事件：Battle / Illness / Suicide / Assassinate / Natural
+            //（存量事件里配的 Illness 与 Natural 都按"病逝"播报，见 PlayerMessage.OnPersonDied）
+            string cause = GetString("Cause", PersonDeathCause.Natural);
+            person.Dead(cause);
             Log.Info($"事件：{person.Name} 死亡（{cause}）");
             return true;
         }

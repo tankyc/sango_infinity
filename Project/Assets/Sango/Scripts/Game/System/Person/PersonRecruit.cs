@@ -269,7 +269,9 @@ namespace Sango.Core
 
             result = 3;
             Force executeForce = atker?.BelongForce ?? fallCity?.BelongForce;
-            target.Dead();
+            // 处决：死因显式传 Execute，死亡播报交给紧随其后的 OnPersonExecute，
+            // 避免同一次斩首在消息栏出现"XX病逝了"+"我方斩杀了XX"两条。
+            target.Dead(PersonDeathCause.Execute);
             GameEvent.OnPersonExecute?.Invoke(target, executeForce);
             Back();
             doneAction?.Invoke(this);
@@ -397,7 +399,8 @@ namespace Sango.Core
             {
                 Person person = persons[i];
                 Force executeForce = atker?.BelongForce ?? fallCity?.BelongForce;
-                person.Dead();
+                // 批量斩首：同 KillTarget，死因 Execute 由 OnPersonExecute 负责播报
+                person.Dead(PersonDeathCause.Execute);
                 GameEvent.OnPersonExecute?.Invoke(person, executeForce);
                 all_persons.Remove((Person)person);
             }

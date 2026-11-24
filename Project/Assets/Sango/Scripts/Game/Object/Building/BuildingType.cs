@@ -230,26 +230,29 @@ namespace Sango.Core
                         return false;
                 }
 
-                if (IsObstacle)
+                // 【陷阱 / 障碍物不参与建筑间距】
+                // 两条规则互为镜像，缺一条就会不对称：
+                //   ① 陷阱（Explosive）与障碍物（Obstacle）**修建时不做任何间距判断**
+                //      —— 原来障碍物还要判"不能贴着城/港/关"，爆炸物则走 else 分支
+                //      和军事设施一样被判间距，都不符合这条需求；
+                //   ② 它们也**不作为"附近已有建筑"阻挠别人** —— 在间距判定上完全透明。
+                //      原条件只排除了 IsObstacle，漏了 IsExplosive：一个落石能把旁边
+                //      一排箭楼全锁死，玩家还看不出原因。
+                //
+                // 所以现在只有"军事设施 + 城/港/关（Fixture）"参与间距：
+                //   · 建造者：只有非陷阱、非障碍物才进这段检查；
+                //   · 被参照者：只有"非内政、非陷阱、非障碍物"的建筑才算数。
+                if (!IsObstacle && !IsExplosive)
                 {
-                    // 障碍物不能建在港关城周围
+                    // 只有军事建筑需要判断距离限制，可以紧挨内政设施 / 陷阱 / 障碍物
                     int buildSpace = Scenario.Cur.Variables.BuildingSpace;
                     if (cell.SpiralHasBuilding(buildSpace, (b) =>
                     {
-                        return b.BuildingType.majorType == 0;
-                    }))
-                    {
-                        return false;
-                    }
-                }
-                else
-                {
-                    // 只有军事建筑和爆炸物需要判断距离限制
-                    // 可以紧挨内政建筑
-                    int buildSpace = Scenario.Cur.Variables.BuildingSpace;
-                    if (cell.SpiralHasBuilding(buildSpace, (b) =>
-                    {
-                        return !b.BuildingType.IsObstacle && !b.BuildingType.IsIntrior;
+                        if (b == null || b.BuildingType == null)
+                            return false;
+
+                        BuildingType nearType = b.BuildingType;
+                        return !nearType.IsIntrior && !nearType.IsObstacle && !nearType.IsExplosive;
                     }))
                     {
                         return false;

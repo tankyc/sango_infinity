@@ -11,13 +11,56 @@ namespace Sango.Core
         {
             get
             {
-                return (
-                    TargetCell == null
-                    || (TargetCell.building != null && TargetCell.building.IsSameForce(Troop) && TargetCell.building.isComplate)
-                    || (TargetCell.building != null && !TargetCell.building.IsSameForce(Troop))
-                    || TargetCell.SpiralHasBuilding(Scenario.Cur.Variables.BuildingSpace)
-                    );
+                if (TargetCell == null)
+                    return true;
+
+                BuildingBase building = TargetCell.building;
+                if (building != null)
+                {
+                    // 目标格已建成（己方且完工）→ 任务完成
+                    if (building.IsSameForce(Troop) && building.isComplate)
+                        return true;
+                    // 目标格被别人占了 → 放弃
+                    if (!building.IsSameForce(Troop))
+                        return true;
+                }
+
+                // 【陷阱 / 障碍物不参与建筑间距】本次任务要修的正是这两类设施：
+                // 它们修建时不判任何间距，所以"周围已有建筑"不能成为放弃理由。
+                // 原来这里用无过滤的 SpiralHasBuilding，紧挨着任何建筑（包括另一处陷阱、
+                // 农田、障碍物）都会让部队走到目的地后直接放弃，玩家看到的是
+                // "点得动、也派得出去，到了却什么都没建"。
+                BuildingType targetType = TargetBuildingType;
+                if (targetType != null && (targetType.IsExplosive || targetType.IsObstacle))
+                    return false;
+
+                // 其余设施只把"军事设施 / 城港关"视为阻挡，与 BuildingType.CanBuildToHere 同口径
+                return TargetCell.SpiralHasBuilding(Scenario.Cur.Variables.BuildingSpace, sIsBlockingBuilding);
             }
+        }
+
+        /// <summary>
+        /// 间距判定用的委托缓存。
+        /// <para>
+        /// 【为什么要缓存】<see cref="IsMissionComplete"/> 在部队移动判定里被高频访问，
+        /// 直接传方法组会每次转换出一个新的 <see cref="System.Func{T,TResult}"/> 实例 ——
+        /// 那是实打实的 GC 分配。这里缓存成静态只读字段，全程零分配。
+        /// </para>
+        /// </summary>
+        static readonly System.Func<BuildingBase, bool> sIsBlockingBuilding = IsBlockingBuilding;
+
+        /// <summary>
+        /// 间距判定里"算数"的建筑：军事设施与城/港/关。
+        /// 内政设施、陷阱、障碍物在间距上完全透明，与 <see cref="BuildingType.CanBuildToHere"/> 保持一致。
+        /// </summary>
+        /// <param name="b">待判定的既有建筑</param>
+        /// <returns>会阻挡本次修建返回 true</returns>
+        static bool IsBlockingBuilding(BuildingBase b)
+        {
+            if (b == null || b.BuildingType == null)
+                return false;
+            BuildingType type = b.BuildingType;
+            return !type.IsIntrior && !type.IsObstacle && !type.IsExplosive;
         }
 
         public override void Prepare(Troop troop, Scenario scenario)
