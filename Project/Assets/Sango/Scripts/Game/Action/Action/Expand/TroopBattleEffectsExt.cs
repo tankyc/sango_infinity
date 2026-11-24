@@ -68,10 +68,17 @@ namespace Sango.Core.Action
             if (!CheckIsNormalSkill(skill, isNormal)) return;
             if (kinds != null && troop.TroopType != null && !kinds.Contains(troop.TroopType.kind)) return;
 
-            // 只有配置了 condition 时才需要目标格；spellCell 为空时跳过条件而不是空引用
-            if (condition != null && spellCell != null
-                && !condition.Check(new TroopActionConditionDatabase(skill, spellCell)))
-                return;
+            // 只有配置了 condition 时才检查条件。
+            // 【spellCell 为空必须兜底，不能跳过】条件类真正读的是 ActionPerson（施法部队主将）
+            // 等与目标格无关的字段；跳过条件会让"互斥两条配置"同时生效、互相抵消
+            // —— 典型是「桀骜不羁」的君主 +20% / 非君主 −20%，两条同时命中会算成 ×0.96。
+            if (condition != null)
+            {
+                Cell conditionCell = spellCell != null ? spellCell : troop.cell;
+                if (conditionCell == null
+                    || !condition.Check(new TroopActionConditionDatabase(skill, conditionCell)))
+                    return;
+            }
 
             overrideData.Value = overrideData.Value * (100 + value) / 100;
         }

@@ -42,6 +42,7 @@ namespace Sango.Core
             if (force.HasTechnique(Id)) return false;
             if (needTech > 0)
             {
+                if(force.InitTechniques.Contains(Id)) return true;
                 if (!force.HasTechnique(needTech))
                     return false;
             }

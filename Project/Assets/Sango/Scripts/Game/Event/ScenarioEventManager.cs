@@ -97,7 +97,7 @@ namespace Sango.Core.Event
         ///
         /// 【怎么恢复】把下面这行改成 false 即可，不需要改动任何其他代码。
         /// </summary>
-        const bool DisableScenarioEvents = true;
+        const bool DisableScenarioEvents = false;
 
         /// <summary>候选排序用的临时缓冲（避免每次求值都分配）</summary>
         readonly List<EventDefinition> sortedBuffer = new List<EventDefinition>();

@@ -383,6 +383,24 @@ namespace Sango.Core.Action
             // 建筑自身产出修正（%）
             Register("BuildingProductGain", CraeteHandle<BuildingProductGain>);
 
+            // ================================================================
+            // 扩展批次（2026-11-24）：新被动特技的通用效果执行器。
+            // 这批被动大量同构（相邻敌军每回合扣兵 / 扣粮 / 扣气力、击破敌军回兵回气、
+            // 溃灭后起火 / 敌方止行、造成位移后附加状态或掠夺气力），
+            // 因此收敛成 4 个数据驱动 Action，避免为每条被动写一个近重复类。
+            // ================================================================
+
+            // 周期范围效果：持技部队回合开始时，对半径内目标扣兵 / 扣粮 / 扣气力 /
+            // 回兵 / 回气力 / 附加状态 / 点火 / 给所属据点加兵。
+            Register("TroopTurnRangeEffect", CraeteHandle<TroopTurnRangeEffect>);
+            // 击破敌军触发：自身回兵、范围内友军回气/恢复行动、范围内敌军扣兵扣气、
+            // 概率学得敌将特技。
+            Register("TroopDefeatEnemyEffect", CraeteHandle<TroopDefeatEnemyEffect>);
+            // 部队溃灭触发：原地起火、范围内敌军附加状态（止行）。
+            Register("TroopDestroyedEffect", CraeteHandle<TroopDestroyedEffect>);
+            // 造成位移触发：概率附加状态（混乱）、掠夺目标气力。
+            Register("TroopOffsetEffect", CraeteHandle<TroopOffsetEffect>);
+
         }
 
     }

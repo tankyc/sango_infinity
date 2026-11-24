@@ -86,7 +86,10 @@ namespace Sango.Core
             public FeatureGroupTitle()
             {
                 name = "特技";
-                width = 3.60f;
+                // 【列宽】支持 4 个中文字（4 × 1.05 = 4.2 字符宽 / 105 px）。
+                // 本类只是展开用的组标记、本身不绘制内容，宽度仅用于与展开后的
+                // "特技N" 列保持同一口径，避免将来有界面直接拿它算列宽时又回到 3.6。
+                width = 4f * ScenarioVariables.NameWidthPerChar;
                 alignment = (int)TextAnchor.MiddleLeft;
                 editType = DataEditType.FeatureListId;
                 dataSetType = DataSetType.Feature;
@@ -1047,7 +1050,10 @@ namespace Sango.Core
             return new SortTitle()
             {
                 name = $"特技{index + 1}",
-                width = 3.60f,
+                // 【列宽】支持 4 个中文字（4 × 1.05 = 4.2 字符宽 / 105 px）。
+                // 原值 3.60f 只够 3 个字，4 字特技名会被截断 —— 这是武将列表 / 出征 /
+                // 运输 / 褒赏等所有带"特技"分组的界面共用的列定义，改这里一处即可全部生效。
+                width = 4f * ScenarioVariables.NameWidthPerChar,
                 alignment = (int)TextAnchor.MiddleLeft,
                 valueStrGetCall = x =>
                 {
@@ -1178,7 +1184,8 @@ namespace Sango.Core
             result.Add(new SortTitle()
             {
                 name = "附加",
-                width = 3.60f,
+                // 【列宽】与"特技N"列同宽，支持 4 个中文字（4 × 1.05 = 4.2 字符宽）
+                width = 4f * ScenarioVariables.NameWidthPerChar,
                 alignment = (int)TextAnchor.MiddleLeft,
                 valueStrGetCall = x =>
                 {

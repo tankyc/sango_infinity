@@ -76,7 +76,11 @@ namespace Sango.Core
         public static SortTitle SortByName = new SortTitle()
         {
             name = "特技",
-            width = 3.20f,
+            // 【列宽】支持 4 个中文字：4 字 × 1.05 余量 = 4.2 个字符宽（105 px）。
+            // 原值 3.20f 只够 3 个字，4 字特技名（MOD 常见）会被截断。
+            // 1.05 的余量系数沿用 <see cref="ScenarioVariables.NameWidthPerChar"/>，
+            // 与所有"名字列"（<see cref="ObjectSortTitle.ContentMaxWidth"/> 的 isNameColumn 分支）同一口径。
+            width = 4f * ScenarioVariables.NameWidthPerChar,
             valueGetCall = x => x.Name,
             FeatureSortFunc = (a, b) => a.Name.CompareTo(b.Name),
             valueObjGet = x => x.Name,

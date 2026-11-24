@@ -1017,7 +1017,7 @@ namespace Sango.Core
         ///
         /// 调试面板的"强制触发"**不受本开关影响**（那是显式意图，不是自动触发）。
         /// </summary>
-        [JsonProperty] public bool eventSystemEnabled = true;
+        [JsonProperty] public bool eventSystemEnabled = false;
 
         #region 外交系统参数
 

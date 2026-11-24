@@ -110,6 +110,8 @@ namespace Sango.Core
             Register("PersonLevelCheck", CraeteHandle<PersonLevelCheck>);
             // 武将关系检查：夫妻 / 同胞 / 义兄弟 / 亲子 / 血亲 / 亲爱 / 厌恶（需 ActionPerson 与 TargetPerson 同时在场上）
             Register("PersonRelationCheck", CraeteHandle<PersonRelationCheck>);
+            // 君主身份检查：result 1 = 要求是所在势力君主，0 = 要求不是（特技「桀骜不羁」用）
+            Register("PersonIsGovernor", CraeteHandle<PersonIsGovernor>);
 
             // Terrain
             Register("TerrainCheck", CraeteHandle<TerrainCheck>);
