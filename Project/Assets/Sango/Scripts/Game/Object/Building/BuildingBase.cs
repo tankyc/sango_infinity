@@ -344,6 +344,7 @@ namespace Sango.Core
             // 战法（含普攻经 Skill 结算）传的是 SkillInstance，施法部队在其 master 上。
             // 早先各处写 `atk is Troop`，导致战法破城 / 破设施时整条判定链被跳过。
             Troop atkTroop = atk?.AsTroop();
+            bool wasStanding = durability > 0;
 
             if (showDamage)
             {
@@ -417,6 +418,9 @@ namespace Sango.Core
                     // 战法摧毁设施同样要扣敌意值，所以这里用解析后的 atkTroop 而不是原始 atk
                     if (atkTroop != null && !(this is City))
                         DiplomacyRules.ApplyHostilityPenalty(atkTroop.BelongForce, BelongForce);
+
+                    if (num < 0 && wasStanding && this is Building facility)
+                        HantuPopulationIncidents.OnFacilityDestroyed(facility, atkTroop);
 
                     OnFall(atk);
                     return true;

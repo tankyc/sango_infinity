@@ -14,6 +14,7 @@ namespace Sango.Core
         /// 最大工作人数
         /// </summary>
         public static int Max_Working_Person_Count = 1;
+        const int IntimidationFeatureId = 96;
         public Building TargetBuilding { get; set; }
 
         public override void Init()
@@ -38,6 +39,30 @@ namespace Sango.Core
                 leaderAttrValue = leader.GetAttribute(effectAttrType);
             // 计算公式
             return 100 + (int)((Mathf.Pow(Mathf.Max(40, leaderAttrValue), 1.5f) / 10 - 25) / 3f);
+        }
+
+        public static int GetPopulationSecurityBaseline(City city)
+        {
+            Person governor = city.Leader;
+            bool governorPresent = IsPresentOfficer(governor, city);
+            int governorPolitics = governorPresent ? governor.Politics : 0;
+            int highestPolitics = governorPolitics;
+            bool hasIntimidation = governorPresent && governor.HasFeature(IntimidationFeatureId);
+            for (int i = 0; i < city.allPersons.Count; i++)
+            {
+                Person person = city.allPersons[i];
+                if (!IsPresentOfficer(person, city))
+                    continue;
+                highestPolitics = System.Math.Max(highestPolitics, person.Politics);
+                hasIntimidation |= person.HasFeature(IntimidationFeatureId);
+            }
+            return HantuPopulationEconomy.SecurityBaseline(governorPolitics, highestPolitics, hasIntimidation);
+        }
+
+        internal static bool IsPresentOfficer(Person person, City city)
+        {
+            return person != null && person.IsAlive && !person.IsPrisoner && person.BelongForce == city.BelongForce
+                && person.CurrentCity == city && person.mBelongTroop == null;
         }
 
         /// <summary>

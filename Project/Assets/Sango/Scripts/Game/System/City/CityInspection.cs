@@ -28,7 +28,7 @@ namespace Sango.Core.Player
             get
             {
                 return TargetCity.freePersons.Count > 0 &&
-                    TargetCity.security < 100 &&
+                    TargetCity.security < TargetCity.InspectionSecurityLimit &&
                     TargetCity.CheckJobCost(CityJobType.Inspection) &&
                     TargetCity.GetJobCounter((int)CityJobType.Inspection) == 0
                     && TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.Inspection);
@@ -42,8 +42,8 @@ namespace Sango.Core.Player
                 TargetCity = city;
             if (TargetCity.freePersons.Count <= 0)
                 return "无空闲武将";
-            if (TargetCity.security >= 100)
-                return "治安已满";
+            if (TargetCity.security >= TargetCity.InspectionSecurityLimit)
+                return HantuPopulation.Enabled ? "治安已达巡视基准" : "治安已满";
             if (!TargetCity.CheckJobCost(CityJobType.Inspection))
                 return "资金不足";
             if (TargetCity.GetJobCounter((int)CityJobType.Inspection) != 0)

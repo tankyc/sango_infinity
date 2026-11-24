@@ -68,6 +68,9 @@ namespace Sango.Tools
                 case "population":
                     city.population = (int)value;
                     break;
+                case nameof(City.ruralPopulation):
+                    city.ruralPopulation = (int?)value;
+                    break;
                 case "trooppopulation":
                     city.troopPopulation = (int)value;
                     break;

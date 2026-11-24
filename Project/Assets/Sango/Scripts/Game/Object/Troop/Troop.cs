@@ -326,6 +326,10 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int liveDays;
 
+        /// <summary>上次劫掠人口的回合。存档保留以防重复结算，未劫掠的部队不写入。</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        internal int? hantuPopulationRaidTurn;
+
         /// <summary>
         /// 最大兵力
         /// </summary>
@@ -1392,6 +1396,7 @@ namespace Sango.Core
             foreach (SkillInstance skillInstance in landSkills)
                 skillInstance.OnForceTurnStart(scenario);
 
+            HantuPopulationIncidents.OnTroopTurnStart(scenario, this);
             GameEvent.OnTroopTurnStart?.Invoke(this, scenario);
 
             if (Render != null)

@@ -133,9 +133,9 @@ namespace Sango.Core
                     continue;
 
                 if (kind == EconomyKind.Food)
-                    perSeason += b.BuildingType.foodGain;
+                    perSeason += HantuPopulation.FarmFood(b, b.BuildingType.foodGain);
                 else
-                    perMonth += b.BuildingType.goldGain;
+                    perMonth += HantuPopulation.MarketGold(b, b.BuildingType.goldGain);
             }
 
             return kind == EconomyKind.Food
@@ -337,13 +337,15 @@ namespace Sango.Core
 
             if (kind == EconomyKind.Food)
             {
-                int supplyAfter = YearlyFoodSupply(city) - YearlyFoodOf(b.BuildingType);
+                int removedOutput = HantuPopulation.FarmFood(b, b.BuildingType.foodGain) * SeasonsPerYear;
+                int supplyAfter = YearlyFoodSupply(city) - removedOutput;
                 return supplyAfter >= YearlyFoodCost(city, scenario);
             }
 
             if (kind == EconomyKind.Gold)
             {
-                int supplyAfter = YearlyGoldSupply(city) - YearlyGoldOf(b.BuildingType);
+                int removedOutput = HantuPopulation.MarketGold(b, b.BuildingType.goldGain) * MonthsPerYear;
+                int supplyAfter = YearlyGoldSupply(city) - removedOutput;
                 return supplyAfter >= YearlyGoldDemand(city, scenario);
             }
 

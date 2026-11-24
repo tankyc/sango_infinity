@@ -40,11 +40,22 @@ namespace Sango.Core.Player
         {
             get
             {
+                if (Scenario.Cur.Variables.hantuPopulationEnabled && HantuPopulation.RecruitLimit(TargetCity) <= 0)
+                    return false;
+
                 return TargetCity.FreePersonCount > 0 && 
                     TargetCity.GetFreeBuilding((int)BuildingKindType.Barracks) != null &&
                     TargetCity.CheckJobCost(CityJobType.RecruitTroops) &&
                     TargetCity.BelongCorps.ActionPoint >= JobType.GetJobCostAP((int)CityJobType.RecruitTroops);
             }
+        }
+
+        public override string GetInvalidReason(City city)
+        {
+            if (Scenario.Cur.Variables.hantuPopulationEnabled && HantuPopulation.RecruitLimit(city) <= 0)
+                return "可征人口不足";
+
+            return base.GetInvalidReason(city);
         }
         
         public override int CalculateWonderNumber()

@@ -661,7 +661,7 @@ namespace Sango.Core
             City city = building.BelongCity;
             int person_factor = GetPersonInfuse(personArray, buildingType.effectAttrType);
             float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
-            float popularSupportInfluence = variables.populationEnable ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
+            float popularSupportInfluence = variables.UseLegacyPopulation ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
             float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
 
             float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
@@ -679,7 +679,7 @@ namespace Sango.Core
                 int value = (int)((buildingType.foodGain / classiceGainFactor * totalFactor / 10000) * leftInfluence * (totalFoodFactor + city.extraGainFoodFactor));
                 overrideData.Value = value;
                 GameEvent.OnBuildingCalculateFoodGain?.Invoke(building, overrideData);
-                building.AccumulatedFood += overrideData.Value;
+                building.AccumulatedFood += HantuPopulation.FarmFood(building, overrideData.Value);
             }
 
             if (buildingType.goldGain > 0)
@@ -687,7 +687,7 @@ namespace Sango.Core
                 int value = (int)((buildingType.goldGain / classiceGainFactor * totalFactor / 10000) * leftInfluence * (totalGoldFactor + city.extraGainGoldFactor));
                 overrideData.Value = value;
                 GameEvent.OnBuildingCalculateGoldGain?.Invoke(building, overrideData);
-                building.AccumulatedGold += overrideData.Value;
+                building.AccumulatedGold += HantuPopulation.MarketGold(building, overrideData.Value);
             }
 
             if (buildingType.populationGain > 0)
@@ -759,7 +759,11 @@ namespace Sango.Core
                                 int s = -GameRandom.Range(1, 3);
                                 belongCity.AddSecurity(s);
                                 building.Render?.ShowInfo(s, (int)InfoType.Security);
-                                belongCity.morale = (belongCity.troops * belongCity.morale + overrideData.Value * 30) / (belongCity.troops + overrideData.Value);
+                                long projectedTroops = (long)belongCity.troops + overrideData.Value;
+                                if (!variables.hantuPopulationEnabled && projectedTroops > 0)
+                                {
+                                    belongCity.morale = (int)(((long)belongCity.troops * belongCity.morale + (long)overrideData.Value * 30) / projectedTroops);
+                                }
                                 building.AccumulatedProduct += overrideData.Value;
 
                             }
@@ -809,7 +813,7 @@ namespace Sango.Core
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(0);
 
             float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
-            float popularSupportInfluence = variables.populationEnable ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
+            float popularSupportInfluence = variables.UseLegacyPopulation ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
             float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
 
             float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
@@ -853,7 +857,7 @@ namespace Sango.Core
                             int value = (int)((buildingType.foodGain / classiceGainFactor * totalFactor / 10000) * leftInfluence * (totalFoodFactor + city.extraGainFoodFactor));
                             overrideData.Value = value;
                             GameEvent.OnBuildingCalculateFoodGain?.Invoke(x, overrideData);
-                            totalFoodValue += overrideData.Value;
+                            totalFoodValue += HantuPopulation.FarmFood(x, overrideData.Value);
                         }
 
                         if (buildingType.goldGain > 0)
@@ -861,7 +865,7 @@ namespace Sango.Core
                             int value = (int)((buildingType.goldGain / classiceGainFactor * totalFactor / 10000) * leftInfluence * (totalGoldFactor + city.extraGainGoldFactor));
                             overrideData.Value = value;
                             GameEvent.OnBuildingCalculateGoldGain?.Invoke(x, overrideData);
-                            totalGoldValue += overrideData.Value;
+                            totalGoldValue += HantuPopulation.MarketGold(x, overrideData.Value);
                         }
 
                         GameUtility.ClearJobFeature();
@@ -869,13 +873,13 @@ namespace Sango.Core
                 }
             }
 
-            city.totalGainFood = totalFoodValue * 9 + city.BaseGainFood * leader_factor / 100;
+            city.totalGainFood = totalFoodValue * 9 + city.BaseGainFood * leader_factor / 100 + HantuPopulation.FoodTax(city);
             overrideData.Value = city.totalGainFood;
             GameEvent.OnCityCalculateFoodHarvest?.Invoke(city, overrideData);
             GameEvent.OnCityCalculateFoodHarvestAfter?.Invoke(city, overrideData);
             city.totalGainFood = overrideData.Value;
 
-            city.totalGainGold = totalGoldValue * 3 + city.BaseGainGold * leader_factor / 100;
+            city.totalGainGold = totalGoldValue * 3 + city.BaseGainGold * leader_factor / 100 + HantuPopulation.GoldTax(city);
             overrideData.Value = city.totalGainGold;
             GameEvent.OnCityCalculateGoldHarvest?.Invoke(city, overrideData);
             GameEvent.OnCityCalculateGoldHarvestAfter?.Invoke(city, overrideData);
@@ -906,10 +910,11 @@ namespace Sango.Core
             }
 
             // 人口对粮食收入的影响
-            if (scenario.Variables.populationEnable)
+            if (scenario.Variables.UseLegacyPopulation)
             {
                 totalValue += (int)(city.population * scenario.Variables.populationFoodCostFactor * 0.5f);
             }
+            totalValue += HantuPopulation.FoodTax(city);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityGainFoodHarvest?.Invoke(city, overrideData);
@@ -948,10 +953,11 @@ namespace Sango.Core
             }
 
             // 人口对金钱收入的影响
-            if (scenario.Variables.populationEnable)
+            if (scenario.Variables.UseLegacyPopulation)
             {
                 totalValue += (int)(city.population * scenario.Variables.populationGoldIncomeFactor);
             }
+            totalValue += HantuPopulation.GoldTax(city);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityGainGoldHarvest?.Invoke(city, overrideData);
@@ -1062,7 +1068,7 @@ namespace Sango.Core
                         pBuildings.Add(new PBuilding() { p = goldP, building = building });
                         break;
                     case (int)BuildingKindType.Barracks:
-                        if (troopP < 1)
+                        if (troopP < 1 && (!scenario.Variables.hantuPopulationEnabled || HantuPopulation.RecruitLimit(city) > 0))
                             pBuildings.Add(new PBuilding() { p = troopP, building = building });
                         break;
                     case (int)BuildingKindType.BlacksmithShop:
@@ -1260,9 +1266,32 @@ namespace Sango.Core
                     case (int)BuildingKindType.Barracks:
                         if (building.AccumulatedProduct > 0)
                         {
-                            city.AddTroops(building.AccumulatedProduct);
-                            city.Render?.UpdateRender();
-                            building.Render?.ShowInfo(building.AccumulatedProduct, (int)InfoType.Troop);
+                            int recruits = building.AccumulatedProduct;
+                            if (scenario.Variables.hantuPopulationEnabled)
+                            {
+                                recruits = Math.Min(recruits, HantuPopulation.RecruitLimit(city));
+                                recruits = Math.Min(recruits, city.TroopsLimit - city.troops);
+                                if (recruits > 0)
+                                {
+                                    int previousTroops = city.troops;
+                                    int currentTroops = city.AddTroops(recruits);
+                                    recruits = currentTroops - previousTroops;
+                                    if (recruits > 0)
+                                    {
+                                        HantuPopulation.ChargeRecruitment(city, recruits);
+                                        city.morale = (int)(((long)previousTroops * city.morale + (long)recruits * 30) / currentTroops);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                city.AddTroops(recruits);
+                            }
+                            if (recruits > 0)
+                            {
+                                city.Render?.UpdateRender();
+                                building.Render?.ShowInfo(recruits, (int)InfoType.Troop);
+                            }
                             building.AccumulatedProduct = 0;
                         }
                         break;

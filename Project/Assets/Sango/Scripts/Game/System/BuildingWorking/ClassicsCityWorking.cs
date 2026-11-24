@@ -181,7 +181,7 @@ namespace Sango.Core
             city.totalGainGold = city.BaseGainGold + city.commerce * variables.commerce_add_gold;
 
             // 人口对金钱收入的影响
-            if (variables.populationEnable)
+            if (variables.UseLegacyPopulation)
             {
                 city.totalGainGold += (int)(city.population * variables.populationGoldIncomeFactor);
                 city.totalGainFood += (int)(city.population * variables.populationFoodCostFactor * 0.5f);
@@ -194,11 +194,11 @@ namespace Sango.Core
                 {
                     Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(x.BuildingType.foodGain);
                     GameEvent.OnBuildingCalculateFoodGain?.Invoke(x, overrideData);
-                    city.totalGainFood += overrideData.ValueAndRecycle;
+                    city.totalGainFood += HantuPopulation.FarmFood(x, overrideData.ValueAndRecycle);
 
                     overrideData = Tools.OverrideData<int>.Create(x.BuildingType.goldGain);
                     GameEvent.OnBuildingCalculateGoldGain?.Invoke(x, overrideData);
-                    city.totalGainGold += overrideData.ValueAndRecycle;
+                    city.totalGainGold += HantuPopulation.MarketGold(x, overrideData.ValueAndRecycle);
 
                     overrideData = Tools.OverrideData<int>.Create(x.BuildingType.populationGain);
                     GameEvent.OnBuildingCalculatePopulationGain?.Invoke(x, overrideData);
@@ -207,7 +207,7 @@ namespace Sango.Core
             });
 
             float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
-            float popularSupportInfluence = variables.populationEnable ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
+            float popularSupportInfluence = variables.UseLegacyPopulation ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
             float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
 
             float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
@@ -215,8 +215,10 @@ namespace Sango.Core
 
             //totalGainFood = Mathf.CeilToInt(leftInfluence * totalGainFood * (variables.foodFactor + extraGainFoodFactor));
             //totalGainGold = Mathf.CeilToInt(leftInfluence * totalGainGold * (variables.goldFactor + extraGainGoldFactor));
-            city.totalGainFood = Mathf.CeilToInt(city.totalGainFood * leftInfluence * (totalFoodFactor + city.extraGainFoodFactor));
-            city.totalGainGold = Mathf.CeilToInt(city.totalGainGold * leftInfluence * (totalGoldFactor + city.extraGainGoldFactor));
+            city.totalGainFood = Mathf.CeilToInt(city.totalGainFood * leftInfluence * (totalFoodFactor + city.extraGainFoodFactor))
+                + HantuPopulation.FoodTax(city);
+            city.totalGainGold = Mathf.CeilToInt(city.totalGainGold * leftInfluence * (totalGoldFactor + city.extraGainGoldFactor))
+                + HantuPopulation.GoldTax(city);
 
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(city.totalGainFood);
@@ -264,6 +266,9 @@ namespace Sango.Core
         {
             if (city.BelongCorps == null)
                 return;
+
+            if (scenario.Variables.hantuPopulationEnabled)
+                city.CalculateHarvest();
 
             int inComingGold = GameRandom.Random(city.totalGainGold, 0.05f);
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(inComingGold);
