@@ -317,7 +317,8 @@ namespace Sango.Core
         public void BurnTroop(Troop troop)
         {
             if (troop == null) return;
-            if (troop.ignoreFire) return;
+            // ignoreFire：特技 / 装备的免疫；auraIgnoreFireDamage：特技光环的免疫火焰伤害
+            if (troop.ignoreFire || troop.auraIgnoreFireDamage) return;
 
             int dmg = GameRandom.Random(damage + Math.Max(0, intelligence * 2 - troop.Intelligence - troop.Defence), 0.1f);
 

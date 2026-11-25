@@ -46,5 +46,8 @@ namespace Sango.Core.Action
 
         /// <summary>光环归属势力：建筑所属势力</summary>
         protected override Force OwnerForce => building != null ? building.BelongForce : Force;
+
+        /// <summary>光环源建筑（回合型效果在所属势力回合触发）</summary>
+        protected override BuildingBase OwnerBuilding => building;
     }
 }

@@ -119,8 +119,10 @@ namespace Sango.Core
             // ① 地形消耗：水/陆分表由 Troop.MoveCost 决定（对应 movement_cost_[equipment][terrain]）
             int cost = troop.MoveCost(cell);
 
-            // ② 着火格 ×4（原版 :134）；免疫火焰（原版 ignore_fire_）则照常
-            if (cell.fire != null && (troop.pathFlags & (int)PathFlag.IgnoreFire) == 0)
+            // ② 着火格 ×4（原版 :134）；免疫火焰（原版 ignore_fire_ 或特技光环）则照常
+            // 光环值读缓存字段，避免寻路逐格查光环表。
+            if (cell.fire != null && (troop.pathFlags & (int)PathFlag.IgnoreFire) == 0
+                && !troop.auraIgnoreFire)
                 cost *= 4;
 
             // ③ 格上单位 / 建筑（原版 :140-148）
@@ -174,6 +176,10 @@ namespace Sango.Core
         public static int GetZocCost(Troop troop, Cell cell)
         {
             if (troop == null || cell == null) return 0;
+
+            // 特技光环：无视 ZOC（水陆通用）。读缓存字段，避免寻路逐格查光环表。
+            if (troop.auraIgnoreZOC)
+                return 0;
 
             // 无视 ZOC 分**水陆两套**（原版 `ignore_land_zoc_` / `ignore_water_zoc_`）：
             // 水上部队与陆上部队的 ZOC 来源不同，不能用一个标记互相顶替。

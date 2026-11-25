@@ -276,6 +276,10 @@ namespace Sango.Core
         /// <returns>是否在势力范围</returns>
         public bool IsZOC(Troop troops, Cell cell)
         {
+            // 特技光环：无视 ZOC（水陆通用）。读缓存字段，避免寻路逐格查光环表。
+            if (troops.auraIgnoreZOC)
+                return false;
+
             // 判断忽略ZOC
             if ((troops.ignoreLandZOC && !cell.IsWater) || (troops.ignoreWaterZOC && cell.IsWater))
                 return false;

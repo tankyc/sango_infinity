@@ -72,7 +72,7 @@ namespace Sango.Render
         void DeductCostEnergy()
         {
             if (skill != null && troop != null && troop.IsAlive)
-                troop.ChangeMorale(-skill.costEnergy, false);
+                troop.ChangeMorale(-skill.GetCostEnergy(troop), false);
         }
 
         public override bool Update(Scenario scenario, float deltaTime)

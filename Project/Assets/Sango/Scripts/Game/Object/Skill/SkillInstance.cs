@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Sango.Core.Action;
+using Sango.Render;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -188,6 +190,11 @@ namespace Sango.Core
 
         public bool isAdd = false;
 
+        /// <summary>
+        /// 是否光环连击实例：连击是额外赠送的攻击，不再扣气力、不再触发连击/反击。
+        /// </summary>
+        public bool isAuraCombo = false;
+
         // 时间轴事件处理相关
         private List<Cell> tempTimelineCellList = new List<Cell>();
 
@@ -327,6 +334,14 @@ namespace Sango.Core
         /// <param name="cells"></param>
         public void GetSpellRange(Troop atker, Cell where, List<Cell> cells)
         {
+            // 特技光环：计略释放范围增加（格）。只对计略生效；
+            // 每次调用只查一次，避免在 spellRanges 循环里反复走 AuraManager。
+            int extraRange = atker == null
+                ? 0
+                : AuraManager.GetValue(atker, IsStrategy()
+                    ? AuraActionBase.AURA_STRATEGY_RANGE
+                    : AuraActionBase.AURA_SKILL_RANGE);
+
             // 【性能】没有范围过滤器的技能占绝大多数（过滤器只有少数技能配）。
             // 这种情况直接把环形结果追加进调用方的列表，省掉每次调用 new List<Cell>() 的一次分配
             // —— AI 做一次全量技能评估会调用几百次，实测单次评估光这里就产生约 260KB GC。
@@ -341,7 +356,9 @@ namespace Sango.Core
                 {
                     for (int i = 0; i < spellRanges.Length; i++)
                     {
-                        Scenario.Cur.Map.GetRing(where, spellRanges[i], cells, true);
+                        int range = spellRanges[i] + extraRange;
+                        if (range < 1) range = 1;
+                        Scenario.Cur.Map.GetRing(where, range, cells, true);
                     }
                 }
                 return;
@@ -358,7 +375,9 @@ namespace Sango.Core
             {
                 for (int i = 0; i < spellRanges.Length; i++)
                 {
-                    Scenario.Cur.Map.GetRing(where, spellRanges[i], ranges, true);
+                    int range = spellRanges[i] + extraRange;
+                    if (range < 1) range = 1;
+                    Scenario.Cur.Map.GetRing(where, range, ranges, true);
                 }
             }
 
@@ -410,7 +429,9 @@ namespace Sango.Core
 
             if (!isDecaySpread)
             {
-                skill.GetAttackCells(atkOffsetPoint, atker, spell, cells, false);
+                // 特技光环：战法命中波及范围（+格）
+                int[] offset = ExpandAuraAttackOffset(atkOffsetPoint, atker);
+                skill.GetAttackCells(offset, atker, spell, cells, false);
                 return;
             }
 
@@ -433,6 +454,81 @@ namespace Sango.Core
             }
 
             cells.AddRange(spelledAttackCells);
+        }
+
+        /// <summary>光环扩展命中范围的缓存（AI 高频调用复用，不存档）</summary>
+        int[] auraExpandedOffset;
+        int auraExpandedExtra;
+        int auraExpandedRadius;
+        int auraExpandedRadius2;
+        bool auraExpandedValid;
+
+        /// <summary>
+        /// 特技光环：给战法的命中波及范围加半径。
+        ///
+        /// 只处理"半径型"偏移（Ring / SelfRing / Spiral / Fan / Square / Diamond / Cross /
+        /// DirectionLine / Rectangle）；Customize / SpellNeighbors / DecaySpread 保持原样
+        /// （DecaySpread 的圈数在概率链里另有语义，不能简单 +1）。
+        /// 只在光环值 &gt; 0 时复制数组，避免 AI 高频调用产生无谓分配。
+        /// </summary>
+        int[] ExpandAuraAttackOffset(int[] offset, Troop atker)
+        {
+            if (offset == null || offset.Length == 0 || atker == null)
+                return offset;
+            if (IsNormal() || IsStrategy())
+                return offset;
+
+            int extra = atker.auraSkillAttackRange;
+            if (extra <= 0)
+                return offset;
+
+            // AI 会对同一技能实例反复调用 GetAttackCells（每个候选格一次），
+            // 这里按「源偏移 + extra」缓存展开结果，避免每次都 Clone 一个小数组。
+            int radius = offset.Length > 1 ? offset[1] : 0;
+            int radius2 = offset.Length > 2 ? offset[2] : 0;
+            if (auraExpandedValid && auraExpandedExtra == extra
+                && auraExpandedRadius == radius && auraExpandedRadius2 == radius2
+                && auraExpandedOffset != null && auraExpandedOffset.Length == offset.Length
+                && auraExpandedOffset[0] == offset[0])
+                return auraExpandedOffset;
+
+            SkillAttackOffsetType type = (SkillAttackOffsetType)offset[0];
+            switch (type)
+            {
+                case SkillAttackOffsetType.Ring:
+                case SkillAttackOffsetType.SelfRing:
+                case SkillAttackOffsetType.Spiral:
+                case SkillAttackOffsetType.Fan:
+                case SkillAttackOffsetType.Square:
+                case SkillAttackOffsetType.Diamond:
+                case SkillAttackOffsetType.Cross:
+                case SkillAttackOffsetType.DirectionLine:
+                    if (offset.Length < 2) return offset;
+                    break;
+                case SkillAttackOffsetType.Rectangle:
+                    if (offset.Length < 3) return offset;
+                    break;
+                default:
+                    return offset;
+            }
+
+            int[] expanded = (int[])offset.Clone();
+            if (type == SkillAttackOffsetType.Rectangle)
+            {
+                expanded[1] += extra;
+                expanded[2] += extra;
+            }
+            else
+            {
+                expanded[1] += extra;
+            }
+
+            auraExpandedOffset = expanded;
+            auraExpandedExtra = extra;
+            auraExpandedRadius = radius;
+            auraExpandedRadius2 = radius2;
+            auraExpandedValid = true;
+            return expanded;
         }
 
         /// <summary>
@@ -699,10 +795,35 @@ namespace Sango.Core
             if (troop.isSilence && !skill.IsNormalSkill)
                 return false;
 
-            if (skill.costEnergy > troop.morale)
+            if (GetCostEnergy(troop) > troop.morale)
                 return false;
 
             return true;
+        }
+
+        /// <summary>
+        /// 实际气力消耗（含特技光环的减耗）。
+        ///
+        /// 战法与计略分别查不同的 auraType；普攻不消耗气力，返回原值。
+        /// 菜单显示、AI 可用性判断、施法前检查、实际扣气力都必须走本方法，
+        /// 否则会出现"界面显示 20、实际扣 14"或"气力够却因原值不够被拦"。
+        /// </summary>
+        /// <param name="troop">施法部队</param>
+        /// <returns>实际消耗（最小 0）</returns>
+        public int GetCostEnergy(Troop troop)
+        {
+            int cost = costEnergy;
+            if (troop == null || cost <= 0)
+                return cost;
+
+            int reduce = IsStrategy()
+                ? AuraManager.GetValue(troop, AuraActionBase.AURA_STRATEGY_COST_REDUCE)
+                : AuraManager.GetValue(troop, AuraActionBase.AURA_SKILL_COST_REDUCE);
+            if (reduce == 0)
+                return cost;
+
+            cost = cost * (100 - reduce) / 100;
+            return cost < 0 ? 0 : cost;
         }
 
         /// <summary>
@@ -813,6 +934,15 @@ namespace Sango.Core
             GameEvent.OnTroopAfterCalculateSkillSuccess?.Invoke(troop, this, spellCell, overrideData);
             baseSuccessRate = overrideData.ValueAndRecycle;
 
+            // 特技光环：计策成功率（施法方）/ 计策识破率（被施法方）
+            if (IsStrategy())
+            {
+                baseSuccessRate += AuraManager.GetValue(troop, AuraActionBase.AURA_SKILL_SUCCESS);
+                Troop auraTarget = spellCell != null ? spellCell.troop : null;
+                if (auraTarget != null)
+                    baseSuccessRate -= AuraManager.GetValue(auraTarget, AuraActionBase.AURA_SKILL_RESIST);
+            }
+
             Sango.Log.Info($"{troop.BelongForce.Name}的[{troop.Name} 部队 准备释放技能: {Name} =>({spellCell.x},{spellCell.y})] 成功率:{baseSuccessRate}");
             bool b_suc = GameRandom.Chance(baseSuccessRate);
             if(!b_suc)
@@ -856,6 +986,9 @@ namespace Sango.Core
                 overrideData = Tools.OverrideData<int>.Create(scenarioVariables.skillCriticalFactor);
                 GameEvent.OnTroopCalculateSkillCriticalFactor?.Invoke(troop, this, spellCell, overrideData);
                 tempCriticalFactor = overrideData.Value;
+                // 特技光环：暴击倍率加百分点（仅物理战法）
+                if (!IsNormal() && !IsStrategy())
+                    tempCriticalFactor += AuraManager.GetValue(troop, AuraActionBase.AURA_CRITICAL_DAMAGE);
                 overrideData.Recycle();
                 return tempCriticalFactor;
             }
@@ -878,6 +1011,10 @@ namespace Sango.Core
             GameEvent.OnTroopAfterCalculateSkillCritical?.Invoke(troop, this, spellCell, overrideData);
             basCriticalRate = overrideData.ValueAndRecycle;
 
+            // 特技光环：物理战法会心率（百分点）
+            if (!IsNormal() && !IsStrategy())
+                basCriticalRate += AuraManager.GetValue(troop, AuraActionBase.AURA_CRITICAL_RATE);
+
             int criticalFactor = 100;
             if (GameRandom.Chance(basCriticalRate))
             {
@@ -885,6 +1022,9 @@ namespace Sango.Core
                 overrideData = Tools.OverrideData<int>.Create(criticalFactor);
                 GameEvent.OnTroopCalculateSkillCriticalFactor?.Invoke(troop, this, spellCell, overrideData);
                 criticalFactor = overrideData.ValueAndRecycle;
+                // 特技光环：暴击倍率加百分点（仅物理战法）
+                if (!IsNormal() && !IsStrategy())
+                    criticalFactor += AuraManager.GetValue(troop, AuraActionBase.AURA_CRITICAL_DAMAGE);
             }
             tempCriticalFactor = criticalFactor;
             return criticalFactor;
@@ -1121,6 +1261,11 @@ namespace Sango.Core
                         GameEvent.OnTroopCalculateAttackBack?.Invoke(troop, beAtkTroop, this, scenario, overrideData);
                         hitBack = overrideData.ValueAndRecycle;
 
+                        // 特技光环：降低被反击概率（百分比）
+                        int reduceCounter = AuraManager.GetValue(troop, AuraActionBase.AURA_REDUCE_COUNTER_CHANCE);
+                        if (reduceCounter > 0 && hitBack > 0)
+                            hitBack = hitBack * (100 - reduceCounter) / 100;
+
                         if (hitBack > 0)
                         {
                             if (this.IsRange())
@@ -1238,6 +1383,12 @@ namespace Sango.Core
                                 overrideData = Tools.OverrideData<int>.Create(atkBack);
                                 GameEvent.OnBuildCalculateAttackBack?.Invoke(troop, spellCell, beAtkBuildingBase, this, overrideData);
                                 atkBack = overrideData.ValueAndRecycle;
+
+                                // 特技光环：降低被建筑反击概率（百分比）
+                                int reduceCounter = AuraManager.GetValue(troop, AuraActionBase.AURA_REDUCE_BUILDING_COUNTER);
+                                if (reduceCounter > 0 && hitBack > 0)
+                                    hitBack = hitBack * (100 - reduceCounter) / 100f;
+
                                 if (atkBack > 0)
                                 {
                                     int hitBackDmg = (int)System.Math.Ceiling(hitBack * Troop.CalculateSkillDamage(beAtkBuildingBase, troop, atkBack));
@@ -1264,12 +1415,49 @@ namespace Sango.Core
             // `strategyTechniquePointGiven` 防重：同一次施法可能同时经渲染事件与时间轴两处调到 Action。
             ApplyStrategyExp(troop, effectTargetCount, damagedTargetCount, criticalFactor > 100);
 
-            if (troop.IsAlive)
+            if (troop.IsAlive && !isAuraCombo)
             {
-                troop.ChangeMorale(-this.costEnergy, false);
+                // 实际扣气力走 GetCostEnergy，与菜单显示 / CanBeSpell 保持一致；
+                // 光环连击是额外赠送的攻击，不再扣气力。
+                troop.ChangeMorale(-GetCostEnergy(troop), false);
             }
 
             GameEvent.OnSkillActionOver?.Invoke(this);
+
+            // 特技光环：战法连击（概率追加一次同战法，新实例标记 isAdd 防递归）
+            TryAuraComboAttack(troop, spellCell);
+        }
+
+        /// <summary>
+        /// 特技光环：战法连击。
+        ///
+        /// 只对战法生效（排除普攻 / 计策）；反击 / 援助 / 连击实例本身带 isAdd，不再触发连击。
+        /// 概率单位万分比（10000 = 必中），由 auraType = 46 的光环提供。
+        /// </summary>
+        void TryAuraComboAttack(Troop troop, Cell spellCell)
+        {
+            if (troop == null || !troop.IsAlive || spellCell == null)
+                return;
+            if (isAdd || IsStrategy())
+                return;
+
+            // 战法连击与普攻连击分开配置
+            int chance = IsNormal()
+                ? AuraManager.GetValue(troop, AuraActionBase.AURA_NORMAL_COMBO)
+                : AuraManager.GetValue(troop, AuraActionBase.AURA_SKILL_COMBO);
+            if (chance <= 0 || !GameRandom.Chance(chance, 10000))
+                return;
+
+            SkillInstance combo = SkillInstance.Create(troop, skill);
+            if (combo == null)
+                return;
+            combo.isAdd = true;
+            combo.isAuraCombo = true;
+
+            TroopSpellSkillEvent evt = RenderEvent.Instance.Create<TroopSpellSkillEvent>();
+            evt.Init(combo, spellCell);
+            troop.skillRenderEvent = evt;
+            RenderEvent.Instance.Add(evt);
         }
 
         /// <summary>

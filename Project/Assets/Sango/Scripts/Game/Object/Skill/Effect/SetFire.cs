@@ -1,5 +1,6 @@
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using Sango.Core.Action;
 
 namespace Sango.Core
 {
@@ -87,6 +88,15 @@ namespace Sango.Core
             }
 
             GameEvent.OnFireAdd?.Invoke(master, fire);
+
+            // 特技光环：火焰伤害（百分比，按施法部队当前受到的光环加成结算）
+            Troop fireOwner = master != null ? master.master : null;
+            if (fireOwner != null)
+            {
+                int auraFire = AuraManager.GetValue(fireOwner, AuraActionBase.AURA_FIRE_DAMAGE);
+                if (auraFire != 0)
+                    fire.damage = fire.damage * (100 + auraFire) / 100;
+            }
 
             targetCell.fire = fire;
             fire.Action();

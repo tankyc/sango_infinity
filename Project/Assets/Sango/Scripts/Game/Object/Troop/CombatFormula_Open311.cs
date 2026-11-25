@@ -1,3 +1,5 @@
+using Sango.Core.Action;
+
 namespace Sango.Core
 {
     /*
@@ -42,6 +44,14 @@ namespace Sango.Core
 
             // 额外增益 (科技系数等)
             damage *= System.Math.Max(0, (1 + attacker.DamageTroopExtraFactor));
+
+            // 特技光环：对部队伤害加成（攻击方）/ 受到伤害减免（防守方）
+            int auraDamage = AuraManager.GetValue(attacker, AuraActionBase.AURA_DAMAGE_TROOP);
+            if (auraDamage != 0)
+                damage *= System.Math.Max(0, 1 + auraDamage / 100.0);
+            int auraReduce = AuraManager.GetValue(target, AuraActionBase.AURA_DAMAGE_REDUCE);
+            if (auraReduce != 0)
+                damage *= System.Math.Max(0, 1 - auraReduce / 100.0);
 
             // 士兵伤害微调（100 = 原版；纯平衡旋钮，见 TroopType.roleDmg）
             int roleDmg = attacker.TroopType != null ? attacker.TroopType.roleDmg : 100;
@@ -161,6 +171,10 @@ namespace Sango.Core
             // 与耐久伤害的 DamageBuildingExtraFactor 分开两条：原版 calc_attack_damage 的
             // target_building 分支对 troops_damage 与 hp_damage 各自乘一次，互不干扰。
             damage *= System.Math.Max(0, (1 + attacker.DamageBuildingTroopExtraFactor));
+            // 特技光环：对据点守军伤害（百分比）
+            int auraBuildingTroop = AuraManager.GetValue(attacker, AuraActionBase.AURA_DAMAGE_BUILDING_TROOP);
+            if (auraBuildingTroop != 0)
+                damage *= System.Math.Max(0, 1 + auraBuildingTroop / 100.0);
 
             // 额外增益 (科技系数等)
             damage *= System.Math.Max(0, (1 + attacker.DamageTroopExtraFactor));
@@ -255,6 +269,10 @@ namespace Sango.Core
 
             // 额外增益 (科技系数等)
             damage *= System.Math.Max(0, (1 + attacker.DamageBuildingExtraFactor));
+            // 特技光环：对建筑耐久伤害（百分比）
+            int auraBuilding = AuraManager.GetValue(attacker, AuraActionBase.AURA_DAMAGE_BUILDING);
+            if (auraBuilding != 0)
+                damage *= System.Math.Max(0, 1 + auraBuilding / 100.0);
 
             // 耐久伤害微调（100 = 原版；见 TroopType.durabilityDmg）。
             // 原版公式没有兵种系数，兵装差异只通过 Attack 体现，所以 100 才是对齐值；

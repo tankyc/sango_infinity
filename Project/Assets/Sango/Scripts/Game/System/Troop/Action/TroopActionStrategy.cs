@@ -46,7 +46,8 @@ namespace Sango.Core.Player
                                 }
                             }
                         }
-                        menuData.Add($"计略/{skill.Name}({skill.costEnergy})", customMenuOrder, skill, OnClickMenuItem, isValid);
+                        // 显示实际消耗（含特技光环减耗），与 CanBeSpell / 扣气力口径一致
+                        menuData.Add($"计略/{skill.Name}({skill.GetCostEnergy(TargetTroop)})", customMenuOrder, skill, OnClickMenuItem, isValid);
                     }
                 }
             }

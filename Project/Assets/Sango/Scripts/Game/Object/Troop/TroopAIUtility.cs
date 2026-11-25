@@ -979,7 +979,7 @@ namespace Sango.Core
                               + (skill.HasEffect() ? cfg.scoreEffectBonus : 0);
 
                     int score = (skill.atk + bonus) * cfg.scoreSkillBaseFactor
-                              / Math.Max(cfg.scoreMinCostEnergy, skill.costEnergy)
+                              / Math.Max(cfg.scoreMinCostEnergy, skill.GetCostEnergy(troop))
                               * (troop.Attack - target.troop.Defence + cfg.scoreAttackDefenceBase);
 
                     // 【原版 get_target_score:1739-1741】目标处于**伪报**状态时，
@@ -1808,7 +1808,7 @@ namespace Sango.Core
             // 【变量映射】原版 get_energy() 是"气力"，本项目对应 **morale**：
             // 施法消耗同样走 morale（SkillInstance.cs:999 `troop.ChangeMorale(-costEnergy)`），
             // 而 Troop.energy 是"行动力"，不是计略资源。
-            if (!IsShoukaCostFree(troop) && troop.morale < skill.costEnergy * 2)
+            if (!IsShoukaCostFree(troop) && troop.morale < skill.GetCostEnergy(troop) * 2)
                 return false;
 
             return true;
@@ -2130,7 +2130,7 @@ namespace Sango.Core
                         // troop.ChangeMorale(-costEnergy)，见 SkillInstance.cs:999）；
                         // Troop.energy 是"行动力"，不是计略资源。
                         // 比较符保持原版的严格大于（>），不是 >=。
-                        int cost = skill.costEnergy * 2;
+                        int cost = skill.GetCostEnergy(troop) * 2;
                         if (troop.morale > cost) score += posScore * 2;
                         return score;
                     }

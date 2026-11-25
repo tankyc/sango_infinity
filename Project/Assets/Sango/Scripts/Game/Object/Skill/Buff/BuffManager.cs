@@ -124,7 +124,7 @@ namespace Sango.Core
             Master = null;
         }
 
-        public void AddBuff(int id, int turnCount, Troop srcTroop)
+        public void AddBuff(int id, int turnCount, SangoObject srcTroop)
         {
             // 【状态免疫询问】八阵"不受异常状态"、虎喝等设计在这里否决。
             //

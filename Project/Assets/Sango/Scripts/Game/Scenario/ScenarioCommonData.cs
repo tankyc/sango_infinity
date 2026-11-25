@@ -38,22 +38,6 @@ namespace Sango.Core
         public SangoObjectSet<Ability> Abilities = new SangoObjectSet<Ability>();
 
         /// <summary>
-        /// 武将属性光环配置（统率 / 武力 / 智力 / 政治 / 魅力各一条）。
-        ///
-        /// 由 Data/Common/AuraConfigs.json 填充，消费方是 <see cref="AuraSystem"/>。
-        /// 原版无对应系统，属本项目自主设计（见 AuraConfig.cs 头部说明）。
-        /// </summary>
-        [JsonConverter(typeof(SangoObjectSetConverter<AuraConfig>))]
-        [JsonProperty]
-        public SangoObjectSet<AuraConfig> AuraConfigs = new SangoObjectSet<AuraConfig>();
-
-        /// <summary>
-        /// 光环全局参数（军魂系数等），与 AuraConfigs 同文件、同属顶层保留键。
-        /// </summary>
-        [JsonProperty]
-        public AuraGlobals AuraGlobals = new AuraGlobals();
-
-        /// <summary>
         /// 兵种类型
         /// </summary>
         [JsonConverter(typeof(SangoObjectMapConverter<TroopType>))]
@@ -284,9 +268,6 @@ namespace Sango.Core
             Personalities.ForEach(x => x.OnScenarioPrepare(scenario));
             Argumentations.ForEach(x => x.OnScenarioPrepare(scenario));
             AbilityLevelTypes.ForEach(x => x.OnScenarioPrepare(scenario));
-            // 光环配置目前没有需要解析的 int[] 列表字段，这里保持与其它表一致的调用口径，
-            // 以后给 AuraConfig 增加运行期引用字段时不会漏掉 prepare。
-            AuraConfigs.ForEach(x => x.OnScenarioPrepare(scenario));
             // PersonLibrary 已迁出本类（见字段处的说明）。PersonLib.OnScenarioPrepare 本身是
             // 空实现（PersonLib.cs:191-193，库条目只是数据模板，不做运行期解析），
             // 所以这里去掉该行不改变任何行为。

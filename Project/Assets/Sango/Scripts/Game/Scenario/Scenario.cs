@@ -6,6 +6,7 @@
  */
 
 using Newtonsoft.Json;
+using Sango.Core.Action;
 using Sango.Render;
 using System;
 using System.Collections.Generic;
@@ -1976,11 +1977,9 @@ namespace Sango.Core
                 prepareList[i].ForEach(o => { o.Init(this); });
             }
 
-            // 【武将属性光环】必须放在所有对象 Init 之后：
-            //   此时部队的 Leader / Member 与 cell 已经就位，全量补算才能一次性
-            //   建立"谁覆盖谁"的关系。部队后续新建 / 移动 / 属性重算会由
-            //   AuraSystem 自己订阅的事件增量维护。
-            AuraSystem.Init(this);
+            // 光环缓存全量刷新：读档 / 新建部队时，光环源的补挂顺序可能晚于目标部队，
+            // 导致 ZOC / 移动力 / 气力上限等缓存字段还是默认值。这里按当前覆盖关系重写一遍。
+            AuraManager.RefreshAllCaches(this);
 
             // 据点距离双表：必须在所有对象 Init 之后（此时 City.NeighborList 才填好）。
             // 与 cityPathMap 的区别：那个是"按需 BFS + 逐对缓存"，本表是"一次算全表"，

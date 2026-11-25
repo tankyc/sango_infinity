@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using Sango.Core.Action;
 using Sango.Render;
 using System.Collections.Generic;
 using UnityEngine;
@@ -285,10 +286,31 @@ namespace Sango.Core
             if (troop.Render == null || !troop.Render.IsVisible())
                 return null;
 
-            if (AuraSystem.GetTroopAuraRange(troop) <= 0)
+            if (ResolveTroopAuraRange(troop) <= 0)
                 return null;
 
             return troop;
+        }
+
+        /// <summary>
+        /// 取一支部队当前特技光环的最大显示半径。
+        ///
+        /// 【数据源】只统计装配在部队 actionList 上的 <see cref="TroopAura"/>（特技光环），
+        /// 取所有有效光环里最大的 bound；没有则返回 0（不画范围）。
+        /// 同队多个光环的中心都是本队所在格，因此并集就是一个半径等于最大值的圆。
+        /// </summary>
+        static int ResolveTroopAuraRange(Troop troop)
+        {
+            if (troop == null || !troop.IsAlive || troop.actionList == null)
+                return 0;
+
+            int range = 0;
+            for (int i = 0; i < troop.actionList.Count; i++)
+            {
+                if (troop.actionList[i] is TroopAura aura && aura.IsActive && aura.Range > range)
+                    range = aura.Range;
+            }
+            return range;
         }
 
         /// <summary>
@@ -304,7 +326,7 @@ namespace Sango.Core
             if (currentTroop == null || currentTroop.cell == null)
                 return;
 
-            int range = AuraSystem.GetTroopAuraRange(currentTroop);
+            int range = ResolveTroopAuraRange(currentTroop);
             if (range <= 0)
                 return;
 

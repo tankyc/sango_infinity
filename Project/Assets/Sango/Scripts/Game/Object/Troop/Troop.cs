@@ -358,9 +358,9 @@ namespace Sango.Core
         public int morale;
 
         /// <summary>
-        /// 最大士气
+        /// 最大士气（含特技光环提供的气力上限加成）
         /// </summary>
-        public int MaxMorale => BelongCity?.MaxMorale ?? 100;
+        public int MaxMorale => (BelongCity?.MaxMorale ?? 100) + auraMaxMorale;
 
         /// <summary>
         /// 上次因"兄弟同心"推满气力的**季节编号**（见 <see cref="Scenario.SeasonStamp"/>）。
@@ -379,9 +379,11 @@ namespace Sango.Core
         internal bool pendingSwornCheer = false;
 
         /// <summary>
-        /// 移动能力
+        /// 移动能力（含特技光环提供的陆 / 水移动力加成）
         /// </summary>
-        public int MoveAbility => IsInWater ? waterMoveAbility : landMoveAbility;
+        public int MoveAbility => IsInWater
+            ? waterMoveAbility + auraMoveWater
+            : landMoveAbility + auraMoveLand;
 
         /// <summary>
         /// 水上移动能力
@@ -782,6 +784,17 @@ namespace Sango.Core
 
         public void AddBuff(int id, int turnCount, Troop srcTroop)
         {
+            AddBuff(id, turnCount, (SangoObject)srcTroop);
+        }
+
+        /// <summary>
+        /// 施加 Buff（来源可以是部队或建筑）。
+        ///
+        /// 建筑光环的 27 号效果来源是建筑，不能强转成部队；
+        /// BuffInstance.Master 已改为 SangoObject 并按 SangoObjectType 存档。
+        /// </summary>
+        public void AddBuff(int id, int turnCount, SangoObject src)
+        {
             // 【根因修复】buffManager 是 [JsonProperty] 字段：读档 / 新建时会被反序列化
             // 成新的 BuffManager，而它的 Master 只在 Troop.Init（:733 的 buffManager.Init(this)）
             // 里绑定。在"反序列化完成 → Troop.Init"这个窗口内发生的 AddBuff（技能 / 战斗触发）
@@ -793,7 +806,7 @@ namespace Sango.Core
             if (buffManager.Master == null)
                 buffManager.Init(this);
 
-            buffManager.AddBuff(id, turnCount, srcTroop);
+            buffManager.AddBuff(id, turnCount, src);
         }
         public void RemoveBuff(int id) { buffManager.RemoveBuff(id); }
         public void RemoveBuffByKind(int kind) { buffManager.RemoveBuffByKind(kind); }
@@ -1009,7 +1022,7 @@ namespace Sango.Core
         /// 但本项目不写死状态分支：由每个 Buff 自己声明 <c>troopAttackCoef</c>，这里累乘。
         /// 因为 Attack 是表达式属性，Buff 增删后立即生效，无需等待重算。
         /// </summary>
-        public int Attack => (extraAttack + auraExtraAttack + (IsInWater ? waterAttack : landAttack) + trrainBonusAtk)
+        public int Attack => (extraAttack + (IsInWater ? waterAttack : landAttack) + trrainBonusAtk)
                              * buffManager.GetTroopAttackCoef() / 100;
 
         public int waterAttack;
@@ -1018,18 +1031,9 @@ namespace Sango.Core
         public int trrainBonusAtk;
 
         /// <summary>
-        /// 【武将属性光环】攻击力加成。
-        ///
-        /// 单独一个字段而不是复用 extraAttack：光环是"位置相关"的常驻值，
-        /// 每次重算由 <see cref="AuraSystem"/> 直接覆写（不是累加），
-        /// 与建筑 / Buff / 战法对 extraAttack 的增量互不干扰，也不会重复叠加。
-        /// </summary>
-        public int auraExtraAttack;
-
-        /// <summary>
         /// 防御力。末乘 Buff 系数（同 Attack，对应原版 state_coef）。
         /// </summary>
-        public int Defence => (extraDefence + auraExtraDefence + (IsInWater ? waterDefence : landDefence) + trrainBonusDef)
+        public int Defence => (extraDefence + (IsInWater ? waterDefence : landDefence) + trrainBonusDef)
                               * buffManager.GetTroopDefenceCoef() / 100;
 
         public int waterDefence;
@@ -1037,23 +1041,51 @@ namespace Sango.Core
         public int extraDefence;
         public int trrainBonusDef;
 
-        /// <summary>【武将属性光环】防御力加成（每次重算覆写，见 auraExtraAttack 说明）</summary>
-        public int auraExtraDefence;
-
         /// <summary>
-        /// 【武将属性光环】辅助攻击概率加成（百分点，每次重算覆写）。
+        /// 特技光环提供的辅助攻击概率（百分点）。
         ///
-        /// 政治光环是范围效果：该字段表示"本部队当前被哪些政治光环覆盖"，
-        /// 在本部队作为支援方（helper）参与他人攻击时读取（见 Troop.CalcAssistChance）。
+        /// 由 AuraManager 在光环贡献变化时覆写（不是累加）；
+        /// Troop.CalcAssistChance 在关系档位之外按本值取 Max 参与援助判定。
         /// </summary>
         public int auraAssistChance;
+
+        /// <summary>光环反伤递归保护：A 反弹给 B 时，B 的反伤不再继续弹回 A</summary>
+        static bool reflectingAuraDamage;
+
+        // ---------------- 特技光环缓存的"热路径字段" ----------------
+        // 这些值由 AuraManager.Recount 在光环增删时写入，寻路 / 移动 / 气力等高频路径
+        // 直接读字段，不再每次走 GetValue（弱表 + 字典 + 重新汇总）。
+
+        /// <summary>特技光环：是否无视 ZOC（水陆通用）</summary>
+        public bool auraIgnoreZOC;
+        /// <summary>特技光环：是否无视火焰移动消耗</summary>
+        public bool auraIgnoreFire;
+        /// <summary>特技光环：是否免疫火焰伤害（区别于 auraIgnoreFire 只免移动消耗）</summary>
+        public bool auraIgnoreFireDamage;
+        /// <summary>特技光环：陆地移动力加成（格）</summary>
+        public int auraMoveLand;
+        /// <summary>特技光环：水上移动力加成（格）</summary>
+        public int auraMoveWater;
+        /// <summary>特技光环：气力上限加成</summary>
+        public int auraMaxMorale;
+        /// <summary>特技光环：战法命中波及范围加成（格）</summary>
+        public int auraSkillAttackRange;
+        /// <summary>特技光环：伤兵产生率加成（百分点，基础 14）</summary>
+        public int auraWoundedRate;
+        /// <summary>特技光环：受到伤害反弹（百分比）</summary>
+        public int auraReflectDamage;
 
         /// <summary>
         /// 建设力。末乘 Buff 系数（对应原版 state_coef，混乱时同样 ×0.8）。
         /// </summary>
         public int BuildPower
         {
-            get { return buildPower * buffManager.GetTroopBuildCoef() / 100; }
+            get
+            {
+                // 特技光环：建设力加成（点，不吃 Buff 系数，避免混乱状态反复缩水）
+                return buildPower * buffManager.GetTroopBuildCoef() / 100
+                    + AuraManager.GetValue(this, AuraActionBase.AURA_BUILD_POWER);
+            }
             set { buildPower = value; }
         }
 
@@ -1441,6 +1473,11 @@ namespace Sango.Core
             foodCost = (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInTroop * (troops + woundedTroops) * TroopType.foodCostFactor);
             foodCost = (int)Math.Ceiling(foodCost * foodCostFactor);
 
+            // 特技光环：粮食消耗（百分比，负值减耗）
+            int auraFoodCost = AuraManager.GetValue(this, AuraActionBase.AURA_FOOD_COST);
+            if (auraFoodCost != 0)
+                foodCost = (int)Math.Ceiling(foodCost * (100 + auraFoodCost) / 100.0);
+
             // 着火烧粮 —— 原版 get_unit_food_use（s11_sys_scen_unit.cpp:1505-1512）：
             //   在着火格上时，额外消耗 = 现有兵粮 × (6 - 政治 × 0.05)%
             // 直接并入每回合粮耗（原版 int n = troops×c×0.05 + burned）。
@@ -1463,6 +1500,12 @@ namespace Sango.Core
             Scenario scenario = Scenario.Cur;
             foodCost = (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInTroop * (target + woundedTroops) * TroopType.foodCostFactor);
             foodCost = (int)Math.Ceiling(foodCost * foodCostFactor);
+
+            // 特技光环：粮食消耗（百分比，负值减耗）
+            int auraFoodCost = AuraManager.GetValue(this, AuraActionBase.AURA_FOOD_COST);
+            if (auraFoodCost != 0)
+                foodCost = (int)Math.Ceiling(foodCost * (100 + auraFoodCost) / 100.0);
+
             return foodCost;
         }
 
@@ -1535,6 +1578,48 @@ namespace Sango.Core
 
             HantuPopulationIncidents.OnTroopTurnStart(scenario, this);
             GameEvent.OnTroopTurnStart?.Invoke(this, scenario);
+
+            // 特技光环：每回合气力回复（范围光环已把汇总值登记到本部队）
+            int auraMorale = AuraManager.GetValue(this, AuraActionBase.AURA_MORALE);
+            if (auraMorale > 0)
+                ChangeMorale(auraMorale);
+
+            // 特技光环：每回合伤兵回复（按伤兵总数的百分比转回兵力，受最大兵力上限约束）
+            int auraWounded = AuraManager.GetValue(this, AuraActionBase.AURA_WOUNDED_RECOVER);
+            if (auraWounded > 0 && woundedTroops > 0)
+            {
+                int recover = woundedTroops * auraWounded / 100;
+                if (recover < 1)
+                    recover = 1;
+                if (recover > woundedTroops)
+                    recover = woundedTroops;
+
+                int space = MaxTroops - troops;
+                if (space > 0)
+                {
+                    if (recover > space)
+                        recover = space;
+                    woundedTroops -= recover;
+                    troops += recover;
+                    Render?.UpdateRender();
+                }
+            }
+
+            // 特技光环：每回合兵力回复（固定点数，区别于"伤兵回复"）
+            int auraTroopRecover = AuraManager.GetValue(this, AuraActionBase.AURA_TROOP_RECOVER);
+            if (auraTroopRecover > 0)
+            {
+                int space = MaxTroops - troops;
+                if (space > 0)
+                {
+                    int add = System.Math.Min(auraTroopRecover, space);
+                    if (add > 0)
+                    {
+                        troops += add;
+                        Render?.UpdateRender();
+                    }
+                }
+            }
 
             if (Render != null)
             {
@@ -2458,7 +2543,12 @@ namespace Sango.Core
             {
 
                 int absNum = System.Math.Abs(num);
-                woundedTroops += (int)System.Math.Ceiling(absNum * 0.14f);
+                // 特技光环：伤兵产生率（基础 14%，光环值已由 AuraManager 缓存到字段）
+                // value 是**加百分点**：14 + value；clamp 到 0~100，避免伤兵超过本次损失。
+                int woundedRate = 14 + auraWoundedRate;
+                if (woundedRate < 0) woundedRate = 0;
+                if (woundedRate > 100) woundedRate = 100;
+                woundedTroops += (int)System.Math.Ceiling(absNum * woundedRate / 100f);
                 int _foodCost = (int)System.Math.Ceiling(Scenario.Cur.Variables.baseFoodCostInTroop * absNum * TroopType.foodCostFactor) / 2;
                 int divFood = 0;
                 // 有概率保留部分
@@ -2467,6 +2557,24 @@ namespace Sango.Core
                 if (GameRandom.Chance(50))
                     divFood += _foodCost;
                 ChangeFood(-divFood, false);
+
+                // 特技光环：受到伤害反弹（百分比，反弹给攻击方；静态标志防递归）
+                // 光环值已由 AuraManager 缓存到 auraReflectDamage 字段。
+                if (!reflectingAuraDamage)
+                {
+                    int reflectPct = auraReflectDamage;
+                    if (reflectPct > 0 && atkTroop != null && atkTroop != this
+                        && atkTroop.IsAlive && !atkTroop.IsSameForce(this))
+                    {
+                        int reflectDamage = absNum * reflectPct / 100;
+                        if (reflectDamage > 0)
+                        {
+                            reflectingAuraDamage = true;
+                            try { atkTroop.ChangeTroops(-reflectDamage, this, 0); }
+                            finally { reflectingAuraDamage = false; }
+                        }
+                    }
+                }
 
                 IsAlive = troops > 0;
 
@@ -2538,13 +2646,15 @@ namespace Sango.Core
 
         public int GetCaptureChangce()
         {
-            return captiveChangce;
+            // 特技光环：俘虏敌将概率（+百分点）
+            return captiveChangce + AuraManager.GetValue(this, AuraActionBase.AURA_CAPTIVE_CHANCE);
         }
 
         /// <summary>战法命中后触发单挑的概率(百分比)</summary>
         public int GetDuelChance()
         {
-            return duelChance;
+            // 特技光环：单挑触发概率（+百分点）
+            return duelChance + AuraManager.GetValue(this, AuraActionBase.AURA_DUEL_CHANCE);
         }
 
 
@@ -3405,10 +3515,7 @@ namespace Sango.Core
             // 任一武将持有"辅佐"即生效, 多名武将取Max不叠加。
             // 字段读取, 不涉及关系表查找, 先拿它当比较基准
             int chance = helper.assistChance;
-            // 【武将属性光环】政治光环是范围效果：光环半径内的友军（helper）作为支援方时，
-            // 按 auraAssistChance 提高"跟着打一刀"的概率。该值由 AuraSystem 按
-            // "helper 是否落在某政治光环覆盖内"重算（同项取最高），
-            // 与辅佐特技的 helper.assistChance 互不覆盖，这里取最大值参与后续关系档位比较。
+            // 特技光环提供的辅助攻击概率（辅助 type=6）：光环覆盖的支援方更容易跟打
             if (helper.auraAssistChance > chance)
                 chance = helper.auraAssistChance;
 
@@ -3582,7 +3689,7 @@ namespace Sango.Core
             // 与普通攻击同样的释放前置检查(气力不足就不能出手)
             if (!skill.CanBeSpell(helper))
             {
-                LogAssist($"[{helper.Name}] 气力不足(需{skill.costEnergy}), 放弃援助");
+                LogAssist($"[{helper.Name}] 气力不足(需{skill.GetCostEnergy(helper)}), 放弃援助");
                 return false;
             }
 
@@ -5096,7 +5203,7 @@ namespace Sango.Core
             {
                 SkillInstance skill = list[i];
                 if (skill == null) continue;
-                if (energy >= skill.costEnergy)
+                if (energy >= skill.GetCostEnergy(this))
                     return true;
             }
             return false;
@@ -5490,11 +5597,20 @@ namespace Sango.Core
             if (isDestroyEnemyTroop)
                 merit += GainValueConfig.Merit(GainPlace.CombatDestroyTroop);
 
+            // 特技光环：功绩获取（百分比）
+            int auraMerit = AuraManager.GetValue(this, AuraActionBase.AURA_MERIT_GAIN);
+            if (auraMerit != 0)
+                merit = merit * (100 + auraMerit) / 100;
+
             if (merit > 0)
             {
                 // 武将等级经验是项目自有系统（原版 Person 只有功绩没有等级），
                 // 这里保留"按功绩折算"的口径，不影响上面三项的原版对齐。
                 int exp = GainValueConfig.Rate(merit, GainValueConfig.Exp(GainPlace.ExpFromMerit));
+                // 特技光环：武将等级经验获取（百分比）
+                int auraExp = AuraManager.GetValue(this, AuraActionBase.AURA_EXP_GAIN);
+                if (auraExp != 0 && exp > 0)
+                    exp = exp * (100 + auraExp) / 100;
                 ForEachPerson(x =>
                 {
                     x.GainMerit(merit);
@@ -5503,22 +5619,29 @@ namespace Sango.Core
             }
 
             // ---- 能力经验：stat_exp[5]，按原版 PersonStatType 顺序（0 统率 / 1 武力 / 2 智力 / 3 政治 / 4 魅力）----
+            // 特技光环：能力经验获取（百分比）
+            int auraAttr = AuraManager.GetValue(this, AuraActionBase.AURA_ATTRIBUTE_EXP_GAIN);
+            int attrFactor = 100 + auraAttr;
             if (entry.leadership > 0 || entry.strength > 0 || entry.intelligence > 0
                 || entry.politics > 0 || entry.charisma > 0)
             {
                 ForEachPerson(x =>
                 {
-                    x.GainStatExp(0, entry.leadership);
-                    x.GainStatExp(1, entry.strength);
-                    x.GainStatExp(2, entry.intelligence);
-                    x.GainStatExp(3, entry.politics);
-                    x.GainStatExp(4, entry.charisma);
+                    x.GainStatExp(0, entry.leadership * attrFactor / 100);
+                    x.GainStatExp(1, entry.strength * attrFactor / 100);
+                    x.GainStatExp(2, entry.intelligence * attrFactor / 100);
+                    x.GainStatExp(3, entry.politics * attrFactor / 100);
+                    x.GainStatExp(4, entry.charisma * attrFactor / 100);
                 });
             }
 
             // ---- 适性经验：只取"当前兵种"那一格（原版 get_equipment(id)->get_heishu() 取一项）----
             int influenceAbility = TroopType != null ? TroopType.influenceAbility : 0;
             int abilityExp = GetHeishuExp(entry, influenceAbility);
+            // 特技光环：兵种适性经验获取（百分比）
+            int auraAbility = AuraManager.GetValue(this, AuraActionBase.AURA_ABILITY_EXP_GAIN);
+            if (auraAbility != 0 && abilityExp > 0)
+                abilityExp = abilityExp * (100 + auraAbility) / 100;
             if (abilityExp > 0)
             {
                 ForEachPerson(x => x.GainAbilityExp(influenceAbility, abilityExp));
@@ -5536,6 +5659,12 @@ namespace Sango.Core
                 Tools.OverrideData<int> techniquePoint = Tools.OverrideData<int>.Create(rawTechniquePoint);
                 // 由已装配的部队特技决定是否改写本次技巧点，避免按特技 ID 硬编码。
                 GameEvent.OnTroopCalculateTechniquePoint?.Invoke(this, isDestroyEnemyTroop, techniquePoint);
+
+                // 特技光环：技巧点获取（百分比）
+                int auraTechnique = AuraManager.GetValue(this, AuraActionBase.AURA_TECHNIQUE_GAIN);
+                if (auraTechnique != 0)
+                    techniquePoint.Value = techniquePoint.Value * (100 + auraTechnique) / 100;
+
                 BelongForce.GainTechniquePoint(techniquePoint.ValueAndRecycle);
             }
         }
@@ -5561,9 +5690,11 @@ namespace Sango.Core
 
         public void GainTargetResource(Troop target)
         {
-            // 获取对方部分钱粮
-            int getFood = target.food * Math.Max(0, Math.Min(100, defeatTroopCanGainFoodFactor)) / 100;
-            int getGold = target.gold * Math.Max(0, Math.Min(100, defeatTroopCanGainGoldFactor)) / 100;
+            // 获取对方部分钱粮（含特技光环的金币 / 粮食获取加成，百分比）
+            int auraFoodGain = AuraManager.GetValue(this, AuraActionBase.AURA_FOOD_GAIN);
+            int auraGoldGain = AuraManager.GetValue(this, AuraActionBase.AURA_GOLD_GAIN);
+            int getFood = target.food * Math.Max(0, Math.Min(100, defeatTroopCanGainFoodFactor + auraFoodGain)) / 100;
+            int getGold = target.gold * Math.Max(0, Math.Min(100, defeatTroopCanGainGoldFactor + auraGoldGain)) / 100;
             if (getFood > 0)
             {
                 ChangeFood(getFood);

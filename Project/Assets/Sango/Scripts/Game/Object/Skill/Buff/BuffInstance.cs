@@ -13,20 +13,53 @@ namespace Sango.Core
         public BuffManager Manager { get; private set; }
 
         /// <summary>
-        /// 所属部队的 id（存档数值），读取 Master 时按需解析
+        /// 来源对象的 id（存档数值），读取 Master 时按需解析
         /// </summary>
         [JsonProperty("Master")]
         public int MasterId;
 
-        Troop mMaster;
-        public Troop Master
+        /// <summary>
+        /// 来源对象类型（存档数值，SangoObjectType）：0 未知 / Troops / City / Building。
+        /// 旧存档没有该字段，读档时按"先按部队解析"兼容。
+        /// </summary>
+        [JsonProperty("MasterType")]
+        public int MasterType;
+
+        SangoObject mMaster;
+        public SangoObject Master
         {
             get
             {
-                if (mMaster == null && MasterId > 0) mMaster = IdRef.Resolve<Troop>(MasterId);
+                if (mMaster == null && MasterId > 0)
+                    mMaster = ResolveMaster();
                 return mMaster;
             }
-            private set { mMaster = value; MasterId = value != null ? value.Id : 0; }
+            private set
+            {
+                mMaster = value;
+                MasterId = value != null ? value.Id : 0;
+                MasterType = value != null ? (int)value.ObjectType : 0;
+            }
+        }
+
+        /// <summary>
+        /// 按存档类型解析来源对象。
+        /// 建筑光环的 27 号效果来源是建筑，不能再按部队 Id 解析（两张表的 Id 会撞）。
+        /// 旧存档 MasterType = 0，按部队解析以保持兼容。
+        /// </summary>
+        SangoObject ResolveMaster()
+        {
+            switch ((SangoObjectType)MasterType)
+            {
+                case SangoObjectType.City:
+                    return IdRef.Resolve<City>(MasterId);
+                case SangoObjectType.Building:
+                    return IdRef.Resolve<Building>(MasterId);
+                case SangoObjectType.Troops:
+                    return IdRef.Resolve<Troop>(MasterId);
+                default:
+                    return IdRef.Resolve<Troop>(MasterId);
+            }
         }
 
         /// <summary>
@@ -69,7 +102,7 @@ namespace Sango.Core
         /// <summary>本实例贡献的状态位（缓存值，见 <see cref="cachedStateFlag"/>）</summary>
         public int StateFlag => cachedStateFlag;
 
-        public void Init(BuffManager manager, Buff buff, Troop master)
+        public void Init(BuffManager manager, Buff buff, SangoObject master)
         {
             Manager = manager;
             Master = master;

@@ -120,17 +120,120 @@ namespace Sango.Core.Action
             }
 
             int finalValue = sumPart + (hasMax ? maxPart : 0);
+
+            // 【覆写型效果】直接写部队字段，不走 delta。
+            //
+            // 原因一：这些字段可能在 CalculateAttribute / 外部逻辑里被复位，
+            //         bucket.applied 仍是旧值，delta==0 会让字段永远停在旧值。
+            // 原因二：ZOC / 移动力 / 无视火在寻路里逐格读取，每次都走 GetValue
+            //         （弱表 + 字典 + 重新汇总）代价太高，必须在光环变化时缓存到字段。
+            switch (auraType)
+            {
+                case AuraActionBase.AURA_ASSIST:
+                    troop.auraAssistChance = finalValue;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_IGNORE_ZOC:
+                    troop.auraIgnoreZOC = finalValue > 0;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_IGNORE_FIRE:
+                    troop.auraIgnoreFire = finalValue > 0;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_FIRE_IMMUNE:
+                    troop.auraIgnoreFireDamage = finalValue > 0;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_MOVE_LAND:
+                    troop.auraMoveLand = finalValue;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_MOVE_WATER:
+                    troop.auraMoveWater = finalValue;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_MAX_MORALE:
+                    troop.auraMaxMorale = finalValue;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_SKILL_ATTACK_RANGE:
+                    troop.auraSkillAttackRange = finalValue;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_WOUNDED_RATE:
+                    troop.auraWoundedRate = finalValue;
+                    bucket.applied = finalValue;
+                    return;
+                case AuraActionBase.AURA_REFLECT_DAMAGE:
+                    troop.auraReflectDamage = finalValue;
+                    bucket.applied = finalValue;
+                    return;
+            }
+
             int delta = finalValue - bucket.applied;
             if (delta == 0)
                 return;
 
             bucket.applied = finalValue;
 
-            // 属性落地：只有这两个字段是常驻的（不会被 CalculateAttribute 重置）
+            // 属性落地：只有攻防写常驻字段（不会被 CalculateAttribute 重置）；
+            // 会心 / 暴伤 / 计策 / 识破 / 气力只记录在 applied 里，由 GetValue 读取。
             if (auraType == AuraActionBase.AURA_ATTACK)
                 troop.extraAttack += delta;
             else if (auraType == AuraActionBase.AURA_DEFENCE)
                 troop.extraDefence += delta;
+        }
+
+        /// <summary>
+        /// 读取一支部队当前受光环影响的某项数值（攻防以外的效果用）。
+        ///
+        /// 【口径】每次读取都先剔除失效光环再汇总，保证源部队溃灭 / 建筑拆除后立即回退。
+        /// 攻防（0/1）请直接读 Troop.Attack / Defence，不走本接口。
+        /// </summary>
+        /// <param name="troop">部队</param>
+        /// <param name="auraType">效果类型（见 AuraActionBase.AURA_*）</param>
+        /// <returns>当前汇总值；没有光环作用时返回 0</returns>
+        public static int GetValue(Troop troop, int auraType)
+        {
+            if (troop == null)
+                return 0;
+            if (!table.TryGetValue(troop, out Dictionary<int, AuraBucket> map))
+                return 0;
+            if (!map.TryGetValue(auraType, out AuraBucket bucket))
+                return 0;
+
+            Recount(troop, auraType);
+            return bucket.applied;
+        }
+
+        /// <summary>
+        /// 全量刷新所有部队的光环缓存字段。
+        ///
+        /// 缓存字段（ZOC / 火 / 移动力 / 气力上限 / 战法范围 / 伤兵率 / 反伤等）不存档，
+        /// 读档 / 新建部队后如果光环源的补挂顺序晚于目标部队，字段可能仍是默认值。
+        /// 在 Scenario.Init 末尾统一刷一遍，保证所有部队的缓存与当前覆盖关系一致。
+        /// </summary>
+        public static void RefreshAllCaches(Scenario scenario)
+        {
+            if (scenario == null || scenario.troopsSet == null)
+                return;
+
+            scenario.troopsSet.ForEach(t =>
+            {
+                if (t == null) return;
+                // GetValue 对覆写型会触发 Recount 并写字段
+                GetValue(t, AuraActionBase.AURA_IGNORE_ZOC);
+                GetValue(t, AuraActionBase.AURA_IGNORE_FIRE);
+                GetValue(t, AuraActionBase.AURA_FIRE_IMMUNE);
+                GetValue(t, AuraActionBase.AURA_MOVE_LAND);
+                GetValue(t, AuraActionBase.AURA_MOVE_WATER);
+                GetValue(t, AuraActionBase.AURA_MAX_MORALE);
+                GetValue(t, AuraActionBase.AURA_SKILL_ATTACK_RANGE);
+                GetValue(t, AuraActionBase.AURA_WOUNDED_RATE);
+                GetValue(t, AuraActionBase.AURA_REFLECT_DAMAGE);
+                GetValue(t, AuraActionBase.AURA_ASSIST);
+            });
         }
     }
 }

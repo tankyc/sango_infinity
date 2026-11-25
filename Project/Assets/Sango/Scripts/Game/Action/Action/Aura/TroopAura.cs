@@ -45,6 +45,9 @@ namespace Sango.Core.Action
         /// <summary>光环归属势力：源部队所属势力</summary>
         protected override Force OwnerForce => troop != null ? troop.BelongForce : Force;
 
+        /// <summary>光环源部队（回合型效果需要）</summary>
+        protected override Troop OwnerTroop => troop;
+
         /// <summary>
         /// 部队是否是光环源（源部队移动时整体重算）
         /// </summary>
