@@ -15,6 +15,7 @@ namespace Sango.UI
         public Text modDescriptionText;
         public Text authorText;
         public RawImage modPosterImg;
+        public RawImage modDonateImg;
         public Button backButton;
         public Button applyButton;
 
@@ -39,6 +40,13 @@ namespace Sango.UI
         /// </summary>
         int posterRequestId = 0;
 
+        /// <summary>
+        /// 收款二维码请求序号：与封面同理，但必须用独立的计数器。
+        /// 一张模组同时有封面和二维码时，两者下载完成顺序不固定，
+        /// 共用一个序号会让先回来的那张把另一张判成"过期"而永远显示不出来。
+        /// </summary>
+        int donateRequestId = 0;
+
 
 
         List<Mod.Mod> allMods = new List<Mod.Mod>();
@@ -50,6 +58,10 @@ namespace Sango.UI
             uIObjectListItemsRect = new RectTransform[uIModItems.Length];
             for (int i = 0; i < uIModItems.Length; i++)
                 uIObjectListItemsRect[i] = uIModItems[i].GetComponent<RectTransform>();
+
+            // 二维码默认不显示：绝大多数模组没有收款码，
+            // 不能等选中第一个模组时再隐藏，否则开窗瞬间会露出一个空图框
+            HideDonateImage();
         }
 
         public override void OnOpen()
@@ -569,8 +581,10 @@ namespace Sango.UI
 
         public void ShowModInfo(int index)
         {
-            // 切换选中项即作废上一次的封面请求（远程封面是异步下载的，回来后可能已经不属于当前项）
+            // 切换选中项即作废上一次的封面/二维码请求
+            // （远程图片是异步下载的，回来后可能已经不属于当前项）
             posterRequestId++;
+            donateRequestId++;
 
             if (index < 0 || index >= allMods.Count)
             {
@@ -581,6 +595,7 @@ namespace Sango.UI
                     modPosterImg.texture = null;
                     modPosterImg.enabled = false;
                 }
+                HideDonateImage();
                 return;
             }
 
@@ -621,6 +636,86 @@ namespace Sango.UI
                     modPosterImg.texture = ModPosterLoader.LoadLocal(mod.GetFullPath(mod.Poster));
                 }
             }
+
+            // 收款/赞赏二维码：作者没放就整体隐藏，不留空图框
+            ShowDonateImage(mod);
+        }
+
+        /// <summary>
+        /// 显示当前模组的收款/赞赏二维码。
+        ///
+        /// 地址来源有两种（见 <see cref="Mod.Mod.Donate"/>）：
+        ///   1. 创意工坊市场清单下发的 http(s) 绝对地址 —— 异步下载，带磁盘缓存；
+        ///   2. 作者自己在包内放的文件名 —— 同步读本地文件。
+        /// 两者都取不到时隐藏控件，绝不显示空白占位：玩家看到一个空框会以为是界面坏了。
+        /// </summary>
+        /// <param name="mod">当前选中的模组</param>
+        void ShowDonateImage(Mod.Mod mod)
+        {
+            if (modDonateImg == null || mod == null)
+                return;
+
+            string donate = mod.Donate;
+            if (string.IsNullOrEmpty(donate))
+            {
+                HideDonateImage();
+                return;
+            }
+
+            if (ModPosterLoader.IsRemote(donate))
+            {
+                // 先显示占位图撑住布局，下载完成后再替换
+                modDonateImg.enabled = true;
+                modDonateImg.texture = ModPosterLoader.EmptyTexture();
+
+                int requestId = donateRequestId;
+                ModPosterLoader.LoadRemote(this, donate, texture =>
+                {
+                    // 期间切走了别的模组、或窗口已关闭：丢弃这次结果，避免串图
+                    if (modDonateImg == null || requestId != donateRequestId)
+                        return;
+
+                    if (texture == null)
+                    {
+                        // 断网且没有磁盘缓存：隐藏而不是留一个空白占位
+                        modDonateImg.texture = null;
+                        modDonateImg.enabled = false;
+                        return;
+                    }
+
+                    modDonateImg.texture = texture;
+                });
+                return;
+            }
+
+            // 包内文件：未安装的模组没有本地目录可读，直接隐藏
+            if (!mod.IsValidMod())
+            {
+                HideDonateImage();
+                return;
+            }
+
+            string fullPath = mod.GetFullPath(donate);
+            if (!System.IO.File.Exists(fullPath))
+            {
+                Sango.Log.Warning($"模组收款二维码文件不存在，已隐藏: {mod.Id} -> {fullPath}");
+                HideDonateImage();
+                return;
+            }
+
+            modDonateImg.enabled = true;
+            modDonateImg.texture = ModPosterLoader.LoadLocal(fullPath);
+        }
+
+        /// <summary>
+        /// 隐藏收款二维码控件（没配二维码 / 图片取不到时调用）
+        /// </summary>
+        void HideDonateImage()
+        {
+            if (modDonateImg == null)
+                return;
+            modDonateImg.texture = null;
+            modDonateImg.enabled = false;
         }
 
         public void OnReturn()

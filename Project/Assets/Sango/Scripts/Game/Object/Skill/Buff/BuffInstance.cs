@@ -102,6 +102,15 @@ namespace Sango.Core
         /// <summary>本实例贡献的状态位（缓存值，见 <see cref="cachedStateFlag"/>）</summary>
         public int StateFlag => cachedStateFlag;
 
+        /// <summary>
+        /// 是否已向 <see cref="BuffManager"/> 登记过特效资源。
+        ///
+        /// 【为什么需要】<see cref="Init"/> 会被重复调用（读档重建 / BuffManager 重新绑定），
+        /// 而 <c>CreateAsset</c> 是引用计数语义：重复登记会让 refCount 多于实际实例数，
+        /// 之后 <see cref="Clear"/> 只减一次，特效对象永远回收不掉。
+        /// </summary>
+        bool assetCreated;
+
         public void Init(BuffManager manager, Buff buff, SangoObject master)
         {
             Manager = manager;
@@ -132,18 +141,32 @@ namespace Sango.Core
                     buff != null ? buff.asset : "?"));
             }
 
-            Manager.CreateAsset(Buff.asset, Buff.offset);
+            // 只登记一次：重复 Init 不能把引用计数加多次
+            if (!assetCreated)
+            {
+                Manager.CreateAsset(Buff.asset, Buff.offset);
+                assetCreated = true;
+            }
+
             InitBuffEffects();
         }
 
         public void InitBuffEffects()
         {
+            // 【防重复订阅】Init 会被多次调用（BuffManager.Init 绑定 / 读档重建 / 重新初始化）。
+            // 直接 new List 覆盖旧列表会让旧 effects 的全局事件订阅永远留在事件上
+            // （Stun 的 OnTroopTurnStart、Freeze 的 OnTroopTurnStart、Shield/Invincible 的
+            // OnTroopChangeTroops），表现为"已经移除的 Buff 还在生效"，且订阅数逐次累积。
+            ClearBuffEffects();
+
             if (Buff.buffEffects == null) return;
             if (Buff.buffEffects.Count == 0) return;
             effects = new List<BuffEffect>();
             for (int i = 0; i < Buff.buffEffects.Count; i++)
             {
                 JObject valus = Buff.buffEffects[i] as JObject;
+                if (valus == null) continue;
+
                 BuffEffect eft = BuffEffect.Create(valus.Value<string>("class"));
                 if (eft != null)
                 {
@@ -151,6 +174,18 @@ namespace Sango.Core
                     effects.Add(eft);
                 }
             }
+        }
+
+        /// <summary>只清理效果实例（退订事件），不动特效资源与 Buff 引用</summary>
+        void ClearBuffEffects()
+        {
+            if (effects == null) return;
+
+            for (int i = 0; i < effects.Count; i++)
+                effects[i].Clear();
+
+            effects.Clear();
+            effects = null;
         }
 
         public bool TurnUpdate()
@@ -178,17 +213,14 @@ namespace Sango.Core
         {
             // 【防御】读档后若 Buff 已从剧本数据里删除，Buff 解析为 null；
             // 或实例尚未 Init（Manager 未绑定）就被 Clear，都可能在这里空引用。
-            if (Manager != null && Buff != null)
-                Manager.ReleaseAsset(Buff.asset);
-
-            if (effects != null)
+            // 只释放自己登记过的那一份，避免重复 Init / Clear 把别人的引用计数减穿。
+            if (assetCreated && Manager != null && Buff != null)
             {
-                for (int i = 0; i < effects.Count; i++)
-                    effects[i].Clear();
-
-                effects.Clear();
-                effects = null;
+                Manager.ReleaseAsset(Buff.asset);
+                assetCreated = false;
             }
+
+            ClearBuffEffects();
         }
 
         public bool IsControlBuff()

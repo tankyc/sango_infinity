@@ -155,7 +155,8 @@ namespace Sango.Core
             for (int i = _buffs.Count - 1; i >= 0; i--)
             {
                 BuffInstance buff = _buffs[i];
-                if (buff.Buff.Id == id)
+                // Buff 数据被删时解析为 null：不能在这里空引用（AddBuff 允许实例骨架存在）
+                if (buff.Buff != null && buff.Buff.Id == id)
                 {
                     buff.Clear();
                     _buffs.RemoveAt(i);
@@ -169,7 +170,7 @@ namespace Sango.Core
             for (int i = _buffs.Count - 1; i >= 0; i--)
             {
                 BuffInstance buff = _buffs[i];
-                if(buff.Buff.kind == kind)
+                if (buff.Buff != null && buff.Buff.kind == kind)
                 {
                     buff.Clear();
                     _buffs.RemoveAt(i);

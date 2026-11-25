@@ -92,6 +92,12 @@ namespace Sango.Mod
             public string depends;
 
             /// <summary>
+            /// 作者收款/赞赏二维码图片的绝对地址。
+            /// 老版本市场数据没有该字段时为 null,此时视为作者没有放二维码。
+            /// </summary>
+            public string donate;
+
+            /// <summary>
             /// 下载地址列表(按优先级排列,第一个是 GitCode 镜像,第二个是本站直链)。
             /// 老版本市场数据没有该字段时为 null,此时回落到 url + MakeUrl 规则。
             /// </summary>
@@ -558,6 +564,9 @@ namespace Sango.Mod
                     // 只有当包内没有写依赖时,才用市场列表里的依赖补上
                     if (string.IsNullOrEmpty(mod.Depends))
                         mod.Depends = info.depends;
+                    // 收款二维码同理:包内 mod.info 没写时才用市场下发的地址
+                    if (string.IsNullOrEmpty(mod.Donate))
+                        mod.Donate = info.donate;
                 }
                 else
                 {
@@ -570,6 +579,8 @@ namespace Sango.Mod
                     mod.Poster = info.poster;
                     // 未安装的模组只有市场列表这一个依赖来源
                     mod.Depends = info.depends;
+                    // 收款二维码同理:未安装时只能来自市场清单
+                    mod.Donate = info.donate;
                     mod.UrlList = NetModMarket.MakeUrlList(content, info);
                     mod.Url = mod.UrlList.Count > 0 ? mod.UrlList[0] : NetModMarket.MakeUrl(content, info);
                     mod.MarketName = content.name;
@@ -610,6 +621,10 @@ namespace Sango.Mod
                                 break;
                             case "poster":
                                 mod.Poster = c_v[1].Trim();
+                                break;
+                            // 作者收款/赞赏二维码:服务端发布时会写进 mod.info,便于脱离市场也能展示
+                            case "donate":
+                                mod.Donate = c_v[1].Trim();
                                 break;
                             case "assembly":
                                 mod.EntryAssembly = c_v[1].Trim();
@@ -675,6 +690,10 @@ namespace Sango.Mod
                                 break;
                             case "poster":
                                 mod.Poster = c_v[1].Trim();
+                                break;
+                            // 作者收款/赞赏二维码:服务端发布时会写进 mod.info,便于脱离市场也能展示
+                            case "donate":
+                                mod.Donate = c_v[1].Trim();
                                 break;
                             case "assembly":
                                 mod.EntryAssembly = c_v[1].Trim();

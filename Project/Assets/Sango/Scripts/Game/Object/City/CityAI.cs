@@ -1027,6 +1027,14 @@ namespace Sango.Core
 
             // 按"兵力对比 + 城池耐久 + 外交关系"给邻城打分
             priorityQueue.Clear();
+
+            // 【满编富余 · 降低候选门槛】在循环外算一次（兵装遍历不必对每个邻城重复做），
+            // 与 AICanAttack 里的 minTroops 同步缩放，两道门槛一起放才有实际效果。
+            bool highFillRich = IsHighFillRichCity(city);
+            int targetMinTroops = highFillRich
+                ? (int)(AIConfig.Instance.attackTargetMinTroops * AIConfig.Instance.highFillMinTroopsScale)
+                : AIConfig.Instance.attackTargetMinTroops;
+
             city.ForeachNeighborCities(x =>
             {
                 if (!x.IsEnemy(city) || !city.BelongCorps.CheckTargetIsAppointTarget(x))
@@ -1046,7 +1054,7 @@ namespace Sango.Core
                 }
 
                 // 需要兵力充足（外置门槛：AICanAttack 通过但这里卡住时，候选队列恒空、AICanAttack 会显示"不出兵"）
-                if (city.troops < AIConfig.Instance.attackTargetMinTroops)
+                if (city.troops < targetMinTroops)
                     return;
 
                 int weight = (int)(2500 * (float)city.virtualFightPower / x.virtualFightPower);
@@ -1090,6 +1098,13 @@ namespace Sango.Core
             // 【闸门一：本回合出不出兵】候选越多，抽到非 0 的概率越大（n/(n+1)）。
             // GameRandom.Range(min, max) 是 [min, max)，所以这里有 Count+1 才能取到 Count。
             int count = GameRandom.Range(0, UnityEngine.Mathf.Max(0, priorityQueue.Count) + 1);
+
+            // 【满编富余 · 增大出兵概率】只要存在候选，就不再被这道随机闸门跳过。
+            // 满兵、兵装粮食都富余的城继续蹲着只是浪费，应当把兵力打出去；
+            // 未满编的城仍按原逻辑保留"偶尔不出兵"的随机性，避免每回合无脑出兵。
+            if (highFillRich && count == 0 && priorityQueue.Count > 0)
+                count = 1;
+
             if (count == 0)
             {
                 LogAttack(city, $"随机未尝试候选(count=0，候选{priorityQueue.Count})，本回合不出兵");
@@ -1724,7 +1739,16 @@ namespace Sango.Core
                 City candidate = reinforceCandidates[i];
                 // 【统一态势】复用候选城市已预计算的敌人信息,避免重复扫描地图
                 BattleSituation.ThreatSnapshot threat = BattleSituation.EvaluateCityThreat(candidate);
-                float score = threat.threatLevel - candidate.troops * 0.5f;
+
+                // 【同盟城池 · 威胁值减半】候选分两类：自家城与"向我方求援的同盟城"。
+                // 自家城丢了是直接损失；盟友的城丢了只是战略缓冲，同分时应先救自己人。
+                // 因此同盟城的威胁等级按 50% 计入评分（守军减分项不动，仍按实际兵力算）。
+                // 原版 try_reinforce 对同盟也只是"按约定回合出兵"，没有把盟友的危机
+                // 当作与本土同等的紧急度。
+                bool isAllyCity = candidate.BelongForce != city.BelongForce;
+                float threatScore = isAllyCity ? threat.threatLevel * 0.5f : threat.threatLevel;
+
+                float score = threatScore - candidate.troops * 0.5f;
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -3294,6 +3318,51 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 城市是否处于**满编且富余**状态：兵力 ≥ 上限 × <see cref="AIConfig.highFillTroopRatio"/>（默认 90%），
+        /// 且兵装、粮食都够再打一场。
+        ///
+        /// 【用途】满编富余的城继续蹲着只会让兵装 / 粮食越积越多，应当更积极地打出去。
+        /// 判定通过后：
+        ///   · <see cref="AICanAttack"/> 降低兵力门槛、降低"跳过进攻"概率；
+        ///   · <see cref="DecideAttackTarget"/> 降低候选门槛，并取消候选闸门的随机跳过。
+        ///
+        /// 【口径】兵装 = 枪 / 戟 / 弩 / 马四类之和（与 <see cref="AICreateItems"/>、
+        /// <see cref="CityAIOutpost"/> 的兵装统计同口径，不含器械 / 船）。
+        /// </summary>
+        /// <param name="city">待判定的城市</param>
+        /// <returns>满编且兵装 / 粮食均富余返回 true</returns>
+        static bool IsHighFillRichCity(City city)
+        {
+            if (city == null)
+                return false;
+
+            AIConfig cfg = AIConfig.Instance;
+            int limit = city.TroopsLimit;
+            if (limit <= 0)
+                return false;
+
+            // ① 兵力满编（默认 90%）
+            if (city.troops < limit * cfg.highFillTroopRatio)
+                return false;
+
+            // ② 兵装富余（默认一人一件）
+            int arms = 0;
+            if (city.itemStore != null)
+            {
+                for (int id = (int)ItemStoreKindType.Spear; id <= (int)ItemStoreKindType.Horse; id++)
+                    arms += city.itemStore.GetNumber(id);
+            }
+            if (arms < city.troops * cfg.highFillWeaponRatio)
+                return false;
+
+            // ③ 粮食富余（默认够再养同样一支兵）
+            if (city.food < city.troops * cfg.highFillFoodPerTroop)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
         /// AI是否可以攻击
         /// </summary>
         /// <param name="city">城市对象</param>
@@ -3328,6 +3397,14 @@ namespace Sango.Core
             int minTroops = PersonalityId == ForceAI.AIPersonalityType.Aggressive ? aiCfg.attackMinTroopsAggressive :
                            PersonalityId == ForceAI.AIPersonalityType.Defensive ? aiCfg.attackMinTroopsDefensive :
                            aiCfg.attackMinTroopsBalanced;
+
+            // 【满编富余 · 降低门槛】兵力 ≥ 上限 90% 且兵装 / 粮食富余时，按配置把门槛打下来。
+            // 注意 DecideAttackTarget 里还有一道 attackTargetMinTroops，必须同步缩放，
+            // 否则这里放行了、候选队列仍然为空（见 AIConfig.attackTargetMinTroops 的说明）。
+            bool highFillRich = IsHighFillRichCity(city);
+            if (highFillRich)
+                minTroops = (int)(minTroops * aiCfg.highFillMinTroopsScale);
+
             if (city.troops < minTroops)
             {
                 LogAttack(city, $"兵力不足 {city.troops}<{minTroops}，不出兵");
@@ -3375,6 +3452,11 @@ namespace Sango.Core
             int attackChance = PersonalityId == ForceAI.AIPersonalityType.Aggressive ? AIConfig.Instance.attackSkipChanceAggressive :
                               PersonalityId == ForceAI.AIPersonalityType.Defensive ? AIConfig.Instance.attackSkipChanceDefensive :
                               AIConfig.Instance.attackSkipChanceBalanced;
+
+            // 【满编富余 · 增大出兵概率】跳过概率按配置减半（默认 18% → 9%）。
+            if (highFillRich)
+                attackChance = (int)(attackChance * aiCfg.highFillSkipChanceScale);
+
             if (GameRandom.Chance(attackChance))
             {
                 LogAttack(city, $"攻击概率跳过({attackChance}%)，不出兵");
@@ -3762,6 +3844,29 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 这批上阵武将里是否有人持有指定道具。
+        ///
+        /// 【用途】特殊兵种（<c>TroopType.validItemId != 0</c>）的编成条件是"**上阵武将**持有道具"，
+        /// 不是"城里任意武将持有"。AI 的候选兵种列表按 city.freePersons 生成，
+        /// 必须再按实际出征阵容核对一次。
+        /// </summary>
+        /// <param name="people">实际编入部队的武将</param>
+        /// <param name="itemId">道具 Id</param>
+        /// <returns>有人持有返回 true</returns>
+        static bool HasItemInPeople(Person[] people, int itemId)
+        {
+            if (people == null)
+                return false;
+
+            for (int i = 0; i < people.Length; i++)
+            {
+                if (people[i] != null && people[i].HasItem(itemId))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// AI创建部队逻辑
         /// </summary>
         /// <param name="city">城市对象</param>
@@ -3916,6 +4021,21 @@ namespace Sango.Core
             {
                 LogAttack(city, $"组建{(isAttack ? "进攻" : "防御")}部队失败：无可编入部队的武将");
                 return null;
+            }
+
+            // 【特殊兵校验】validItemId != 0 的兵种要求**这批上阵武将**里有人持有对应道具。
+            // 上面的候选列表是按 city.freePersons 算的——可能持有道具的武将留在城里、派别人出征，
+            // 此时不能编成特殊兵；回退到普通兵种（人员已按原兵种挑好，仍可用）。
+            if (spType != null && spType.validItemId != 0 && !HasItemInPeople(people, spType.validItemId))
+            {
+                TroopType fallbackType = costEnoughTroopTypes.Find(x => x.validItemId == 0);
+                if (fallbackType == null)
+                {
+                    LogAttack(city, $"组建部队失败：特殊兵种 {spType.Name} 需要上阵武将持有道具，且无普通兵种可回退");
+                    return null;
+                }
+                Sango.Log.Info($"{city.BelongForce.Name}势力在{city.Name}：上阵武将未持有{spType.Name}所需道具，改派{fallbackType.Name}");
+                spType = fallbackType;
             }
 
             Troop troop = scenario.CreateTroop();

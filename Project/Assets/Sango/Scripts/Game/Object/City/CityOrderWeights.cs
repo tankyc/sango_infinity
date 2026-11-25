@@ -325,19 +325,21 @@ namespace Sango.Core
         public int recruitPersonWildTopBias = 700;
 
         // ==================================================================
-        // 七、开局第一年「人才倾斜」：把探索 / 登用插到据点命令表队首
+        // 七、「人才倾斜」：把探索 / 登用插到据点命令表队首
         //
         // 默认生效的据点命令表是写死的（CityAIOutpost.UpdateOutpostData），
         // SearchMax/EmployMax 排在第 3~5 位、普通 Search/Employ 在表尾；
-        // 第一年 AI 常先被 Bonus / Patrol / Merchant 吃掉行动力与空闲武将，
-        // 等轮到人才指令时人手已用完。这几个参数控制"开局第一年额外插队"的概率。
-        // 全部配 0 即关闭该倾斜。
+        // AI 常先被 Bonus / Patrol / Merchant 吃掉行动力与空闲武将，
+        // 等轮到人才指令时人手已用完。这几个参数控制"额外插队"的概率。
+        //
+        // 【注意】字段名里的 openYear 是历史命名：插队**已不再限于开局第一年**，
+        // 每回合都按这里的概率参与判定。全部配 0 即关闭该倾斜。
         // ==================================================================
 
         /// <summary>
-        /// 开局第一年"登用"的插入概率系数：chance = 在野人数 × 该值，封顶
+        /// "登用"的插入概率系数：chance = 在野人数 × 该值，封顶
         /// <see cref="openYearEmployChanceMax"/>（0~100）。
-        /// 只对都市生效，交战状态（Battle）不插。
+        /// 只对都市生效，交战状态（Battle）不插。字段名中的 openYear 为历史命名，已不受年份限制。
         /// </summary>
         public float openYearEmployChancePerWild = 30f;
 
@@ -345,8 +347,9 @@ namespace Sango.Core
         public float openYearEmployChanceMax = 100f;
 
         /// <summary>
-        /// 开局第一年"探索"的插入概率系数：chance = 未发现人数 × 该值，封顶
+        /// "探索"的插入概率系数：chance = 未发现人数 × 该值，封顶
         /// <see cref="openYearSearchChanceMax"/>（0~100）。
+        /// 字段名中的 openYear 为历史命名，已不受年份限制。
         /// </summary>
         public float openYearSearchChancePerInvisible = 30f;
 

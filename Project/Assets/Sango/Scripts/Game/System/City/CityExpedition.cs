@@ -123,8 +123,32 @@ namespace Sango.Core.Player
             else
                 TargetTroop.Member2 = null;
 
-            TargetTroop.LandTroopType = ActivedLandTroopTypes[CurSelectLandTrropTypeIndex];
-            TargetTroop.WaterTroopType = ActivedWaterTroopTypes[CurSelectWaterTrropTypeIndex];
+            // 【特技预览】TargetTroop 是 OnEnter 里 new 出来的预览对象，没有走 Troop.Init，
+            // 因此特技 Action 尚未装配（actionList 为空）—— 像"骑战"（剑兵→骑兵）这种
+            // 在 OnTroopBeforeInitSkill 里改写兵种的特技不会生效，界面会按剑兵显示攻防/移动力。
+            // 这里按当前选将重装配一次，保证预览口径与实际出阵（Troop.Init）一致。
+            // 换将后特技会变，所以必须每次调用都重装配，不能只在首次做。
+            TargetTroop.InitActionList();
+
+            // 【换将后回退】当前选中的可能是特殊兵（validItemId != 0），而刚上阵的武将没带对应道具。
+            // 此时不能继续用它算属性/扣兵装，自动回退到第一个可用兵种（基础兵种永远可用）。
+            if (!IsTroopTypeUsable(ActivedLandTroopTypes[CurSelectLandTrropTypeIndex]))
+            {
+                int fallback = ActivedLandTroopTypes.FindIndex(x => IsTroopTypeUsable(x));
+                if (fallback >= 0)
+                    CurSelectLandTrropTypeIndex = fallback;
+            }
+            if (!IsTroopTypeUsable(ActivedWaterTroopTypes[CurSelectWaterTrropTypeIndex]))
+            {
+                int fallback = ActivedWaterTroopTypes.FindIndex(x => IsTroopTypeUsable(x));
+                if (fallback >= 0)
+                    CurSelectWaterTrropTypeIndex = fallback;
+            }
+
+            // 界面选中的是"玩家选择的兵种"，必须按主动选择处理（清掉上次特技替换留下的
+            // 原始兵种与兵装覆盖），否则改选骑兵时会继续沿用剑兵的免兵装口径
+            ApplyLandTypeByChoice(ActivedLandTroopTypes[CurSelectLandTrropTypeIndex]);
+            ApplyWaterTypeByChoice(ActivedWaterTroopTypes[CurSelectWaterTrropTypeIndex]);
 
             TargetTroop.CalculateMaxTroops(Scenario.Cur);
 
@@ -133,8 +157,10 @@ namespace Sango.Core.Player
 
             int troop = TargetTroop.troops;
             troop = Math.Min(troop, TargetCity.troops);
-            troop = TargetCity.itemStore.CheckCostMin(TargetTroop.LandTroopType.costItems, troop);
-            troop = TargetCity.itemStore.CheckCostMin(TargetTroop.WaterTroopType.costItems, troop);
+            // 走实际兵装消耗：兵种被特技替换过（如「骑战」剑兵→骑兵）时沿用替换前兵种，
+            // 否则骑兵的军马需求会把可出兵数夹成 0
+            troop = TargetCity.itemStore.CheckCostMin(TargetTroop.LandCostItems, troop);
+            troop = TargetCity.itemStore.CheckCostMin(TargetTroop.WaterCostItems, troop);
 
             TargetTroop.troops = troop;
 
@@ -145,6 +171,14 @@ namespace Sango.Core.Player
         {
             dispatched = false;
             personList.Clear();
+
+            // 【清理上次残留的预览部队】预览对象装配过特技 Action（见 UpdateJobValue），
+            // 但没走 Troop.Init 的生命周期；玩家若上次是"取消"关掉的界面，这些订阅会永久残留。
+            // 用 Render == null 判定"仍是预览对象"：出阵成功的部队已完成 Init（Render 非空），
+            // 它的 Action 归部队自己的 Clear 管，不能在这里退订。
+            if (TargetTroop != null && TargetTroop.Render == null)
+                TargetTroop.ClearActionList();
+
             TargetTroop = new Troop();
             List<TroopType> activeTroopTypes = new List<TroopType>();
             TroopType.CheckActivTroopTypeList(TargetCity.freePersons, activeTroopTypes);
@@ -195,6 +229,15 @@ namespace Sango.Core.Player
             if (TargetTroop.food <= 0) return;
             if (personList.Count == 0) return;
 
+            // 【特殊兵最终闸门】界面已按上阵武将置灰，这里防"先选特殊兵、后把带道具的武将换下"
+            // 的窗口期：兵种仍是特殊兵、但上阵武将已经没人持有道具，此时代扣兵装/出阵都不合法。
+            if (!IsTroopTypeUsable(TargetTroop.LandTroopType)
+                || !IsTroopTypeUsable(TargetTroop.WaterTroopType))
+            {
+                Sango.Log.Warning($"{TargetCity.Name} 出征失败：所选特殊兵种需要上阵武将持有对应道具");
+                return;
+            }
+
             // 【出征前最后一道夹取】兵力超编在这里收口，两种越界都要拦：
             //   ① 超过主将带兵上限 MaxTroops（换将 / 摘副将后的残留值）；
             //   ② 超过城内现有兵力 —— 否则下面 `TargetCity.troops -= troops` 会把城池打成负数。
@@ -210,8 +253,10 @@ namespace Sango.Core.Player
             TargetTroop.ActionOver = false;
             TargetTroop.IsAlive = true;
 
-            TargetTroop.LandTroopType.Cost(TargetCity, TargetTroop.troops);
-            TargetTroop.WaterTroopType.Cost(TargetCity, TargetTroop.troops);
+            // 扣装口径必须与入城归还（Troop.EnterCity → LandCostItems）一致，
+            // 否则特技换兵种后会出现"按剑兵扣、按骑兵还"的凭空产出
+            TargetCity.itemStore.Cost(TargetTroop.LandCostItems, TargetTroop.troops);
+            TargetCity.itemStore.Cost(TargetTroop.WaterCostItems, TargetTroop.troops);
             TargetCity.troops -= TargetTroop.troops;
             TargetCity.food -= TargetTroop.food;
 
@@ -297,8 +342,18 @@ namespace Sango.Core.Player
                 personList.Add(person);
             }
 
-            TargetTroop.LandTroopType = troopType;
-            TargetTroop.WaterTroopType = ActivedWaterTroopTypes[CurSelectWaterTrropTypeIndex];
+            // 【特殊兵校验】放在选人之后：自动编队会重新挑人，只有**这批上阵武将**里
+            // 有人持有对应道具时才允许组建特殊兵（不能因为城里其他人有道具就放行）
+            if (!IsTroopTypeUsable(troopType))
+            {
+                Sango.Log.Info($"{TargetCity?.Name} 自动编队：陆上兵种 {troopType?.Name} 不可组建"
+                    + "（上阵武将未持有对应道具或科技不满足）");
+                return;
+            }
+
+            // 按主动选择处理：清掉上次特技替换留下的原始兵种与兵装覆盖
+            ApplyLandTypeByChoice(troopType);
+            ApplyWaterTypeByChoice(ActivedWaterTroopTypes[CurSelectWaterTrropTypeIndex]);
 
             TargetTroop.Leader = personList[0];
 
@@ -631,8 +686,9 @@ namespace Sango.Core.Player
                 personList.Add(person);
             }
 
-            TargetTroop.LandTroopType = scenario.GetObject<TroopType>(1); ;
-            TargetTroop.WaterTroopType = ActivedWaterTroopTypes[CurSelectWaterTrropTypeIndex];
+            // 剑兵走主动选择口径，清掉上一次预览可能残留的兵装覆盖
+            ApplyLandTypeByChoice(scenario.GetObject<TroopType>(1));
+            ApplyWaterTypeByChoice(ActivedWaterTroopTypes[CurSelectWaterTrropTypeIndex]);
             CurSelectLandTrropTypeIndex = 0;
 
             TargetTroop.Leader = personList[0];
@@ -666,8 +722,8 @@ namespace Sango.Core.Player
             if (TargetTroop.MaxTroops > 0)
                 maxTroopNum = Math.Min(maxTroopNum, TargetTroop.MaxTroops);
             maxTroopNum = Math.Min(maxTroopNum, TargetCity.troops);
-            maxTroopNum = TargetCity.itemStore.CheckCostMin(TargetTroop.LandTroopType.costItems, maxTroopNum);
-            maxTroopNum = TargetCity.itemStore.CheckCostMin(TargetTroop.WaterTroopType.costItems, maxTroopNum);
+            maxTroopNum = TargetCity.itemStore.CheckCostMin(TargetTroop.LandCostItems, maxTroopNum);
+            maxTroopNum = TargetCity.itemStore.CheckCostMin(TargetTroop.WaterCostItems, maxTroopNum);
             int wonderFood = (int)(maxTroopNum * Scenario.Cur.Variables.baseFoodCostInTroop * 20);
             int food = Math.Min(wonderFood, TargetCity.food);
 
@@ -675,9 +731,80 @@ namespace Sango.Core.Player
             TargetTroop.food = food;
         }
 
-        public void SetWaterType(TroopType troopType)
+        /// <summary>
+        /// 该兵种当前能否由**已上阵的武将**组建。
+        ///
+        /// 【特殊兵的判定口径】<c>validItemId != 0</c> 的兵种必须有上阵武将持有该道具。
+        /// 不能只看"城里空闲武将列表里有人持有"——那样玩家把道具武将留在城里、
+        /// 派另外三人出征，也能编出特殊兵，与"持有道具才能编成"的设定不符。
+        ///
+        /// 【科技】<c>validTechId</c> 在 <see cref="TroopType.CheckActivTroopTypeList"/>
+        /// 构建候选列表时已过滤一次，这里再判一次，防"界面打开后势力科技变化 / 兵种被外部改选"。
+        /// </summary>
+        /// <param name="troopType">待判定的兵种</param>
+        /// <returns>可组建返回 true</returns>
+        public bool IsTroopTypeUsable(TroopType troopType)
+        {
+            if (troopType == null)
+                return false;
+
+            if (!troopType.IsValid(TargetCity != null ? TargetCity.BelongForce : null))
+                return false;
+
+            // 普通兵种：只要科技满足即可
+            if (troopType.validItemId == 0)
+                return true;
+
+            // 特殊兵：上阵武将中至少一人持有对应道具
+            for (int i = 0; i < personList.Count; i++)
+            {
+                Person person = personList[i];
+                if (person != null && person.HasItem(troopType.validItemId))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 应用**玩家主动选择**的陆战兵种。
+        ///
+        /// 【为什么不能只赋值】「骑战」这类兵种替换特技会在 Troop 上留下
+        /// <c>originLandTroopTypeId</c> 与兵装消耗覆盖。玩家后来主动改选骑兵时，
+        /// 若不清掉这两项，属性重算的"恢复分支"会把这支骑兵仍当成"剑兵变的"，
+        /// 继续沿用剑兵的免兵装口径（玩家选骑兵却不用马）。
+        /// 清掉后由 <see cref="Troop.CalculateAttribute"/> 按新兵种重新判定：
+        /// 选剑兵 → 特技再换回骑兵（免兵装）；选骑兵 → 特技不命中，按骑兵正常耗马。
+        /// </summary>
+        /// <param name="troopType">玩家选择的兵种</param>
+        void ApplyLandTypeByChoice(TroopType troopType)
+        {
+            TargetTroop.LandTroopType = troopType;
+            TargetTroop.originLandTroopTypeId = 0;
+            TargetTroop.landCostItemsOverride = null;
+            TargetTroop.landCostItemsOverrideTargetId = 0;
+        }
+
+        /// <summary>应用玩家主动选择的水战兵种，语义同 <see cref="ApplyLandTypeByChoice"/></summary>
+        /// <param name="troopType">玩家选择的兵种</param>
+        void ApplyWaterTypeByChoice(TroopType troopType)
         {
             TargetTroop.WaterTroopType = troopType;
+            TargetTroop.originWaterTroopTypeId = 0;
+            TargetTroop.waterCostItemsOverride = null;
+            TargetTroop.waterCostItemsOverrideTargetId = 0;
+        }
+
+        public void SetWaterType(TroopType troopType)
+        {
+            // 特殊兵兜底：界面已置灰，这里防"自动编队 / 快捷键 / 外部调用"绕过
+            if (!IsTroopTypeUsable(troopType))
+            {
+                Sango.Log.Info($"{TargetCity?.Name} 出征：水上兵种 {troopType?.Name} 当前不可组建"
+                    + "（上阵武将未持有对应道具或科技不满足）");
+                return;
+            }
+
+            ApplyWaterTypeByChoice(troopType);
             if (personList.Count <= 0)
                 return;
 
@@ -687,7 +814,15 @@ namespace Sango.Core.Player
 
         public void SetLandType(TroopType troopType)
         {
-            TargetTroop.LandTroopType = troopType;
+            // 特殊兵兜底：同上，界面置灰之外还要挡自动编队等入口
+            if (!IsTroopTypeUsable(troopType))
+            {
+                Sango.Log.Info($"{TargetCity?.Name} 出征：陆上兵种 {troopType?.Name} 当前不可组建"
+                    + "（上阵武将未持有对应道具或科技不满足）");
+                return;
+            }
+
+            ApplyLandTypeByChoice(troopType);
             if (personList.Count <= 0)
                 return;
 

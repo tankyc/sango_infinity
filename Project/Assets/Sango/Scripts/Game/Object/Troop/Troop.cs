@@ -808,8 +808,9 @@ namespace Sango.Core
 
             buffManager.AddBuff(id, turnCount, src);
         }
-        public void RemoveBuff(int id) { buffManager.RemoveBuff(id); }
-        public void RemoveBuffByKind(int kind) { buffManager.RemoveBuffByKind(kind); }
+        // 【判空】反序列化完成到 Troop.Init 之间 buffManager 可能为空（与 AddBuff 的窗口相同）
+        public void RemoveBuff(int id) { buffManager?.RemoveBuff(id); }
+        public void RemoveBuffByKind(int kind) { buffManager?.RemoveBuffByKind(kind); }
 
         public bool HasControlBuff()
         {
@@ -864,7 +865,8 @@ namespace Sango.Core
         /// </summary>
         public bool IsEscapeState()
         {
-            return buffManager.HasEscapeBuff();
+            // 与 HasControlBuff 同口径：未绑定 BuffManager 的窗口期视为无状态
+            return buffManager != null && buffManager.HasEscapeBuff();
         }
 
         /// <summary>
@@ -941,6 +943,82 @@ namespace Sango.Core
 
         public int WaterTroopTypeLv { get; private set; }
         public int LandTroopTypeLv { get; private set; }
+
+        /// <summary>
+        /// 陆战兵装消耗的**覆盖值**：特技替换兵种时，保留替换前兵种的消耗口径。
+        ///
+        /// 【为什么需要】「骑战」把剑兵（无 costItems）换成骑兵（[5,1000]，每千人 5 军马）后，
+        /// 若出征 / 入城 / 界面仍读 <c>LandTroopType.costItems</c>，会出现三种不一致：
+        ///   · 城里没军马 → 可出兵数被 <c>CheckCostMin</c> 夹成 0，特技等于不可用；
+        ///   · 出征按骑兵扣马、回城按骑兵还马，但玩家选的是剑兵，凭空多出一笔军马；
+        ///   · 粮耗按 0 兵算成 0 → 界面 <c>food / foodCost</c> 除零崩溃。
+        /// 记录"替换前"的消耗后，出征、归还、界面显示全部沿用剑兵口径（不消耗兵装），
+        /// 与玩家的编队选择一致。
+        /// </summary>
+        [JsonProperty] public int[] landCostItemsOverride;
+
+        /// <summary>
+        /// <see cref="landCostItemsOverride"/> 生效的**目标兵种 Id**（替换后的兵种）。
+        ///
+        /// 【为什么需要它】属性重算会被反复调用。第一次重算时把剑兵换成骑兵并写下"沿用剑兵消耗"，
+        /// 第二次重算时兵种已经是骑兵、特技不再命中；若只按"override 是否非空"判断，
+        /// 就会出现"第二次重算又按骑兵要军马"的反复。
+        /// 记下目标 Id 后，只有当前兵种仍等于该 Id 才使用 override；
+        /// 玩家后来主动换成别的兵种（枪兵等）时自动回落当前兵种的消耗。
+        /// </summary>
+        [JsonProperty] public int landCostItemsOverrideTargetId;
+
+        /// <summary>
+        /// 兵种替换**发生前**的原始陆战兵种 Id（入档）。
+        ///
+        /// 【为什么入档】读档后 <c>LandTroopType</c> 已经是替换后的骑兵，特技的 <c>from</c> 列表
+        /// 不再命中，无法反推"原本是剑兵"。保存原始 Id 后，重算时只要
+        /// 「当前兵种 == 目标兵种 且 原始 Id == from[i]」就能重建兵装口径，
+        /// 读档与多次重算都不会退回按骑兵扣军马。
+        /// </summary>
+        [JsonProperty] public int originLandTroopTypeId;
+
+        /// <summary>水战原始兵种 Id，语义同 <see cref="originLandTroopTypeId"/></summary>
+        [JsonProperty] public int originWaterTroopTypeId;
+
+        /// <summary>水战兵装消耗覆盖值，语义同 <see cref="landCostItemsOverride"/></summary>
+        [JsonProperty] public int[] waterCostItemsOverride;
+
+        /// <summary>水战覆盖值生效的目标兵种 Id，语义同 <see cref="landCostItemsOverrideTargetId"/></summary>
+        [JsonProperty] public int waterCostItemsOverrideTargetId;
+
+        /// <summary>
+        /// 陆战**实际**兵装消耗：被特技替换过兵种时沿用替换前兵种，否则取当前兵种。
+        ///
+        /// 【统一入口】出征扣装、入城归还、界面显示、<see cref="GetItemNumber"/> 必须都读这里，
+        /// 任何一处仍读 <c>LandTroopType.costItems</c> 都会造成"扣的和还的不一致"。
+        /// </summary>
+        public int[] LandCostItems
+        {
+            get
+            {
+                if (landCostItemsOverrideTargetId > 0
+                    && LandTroopType != null
+                    && LandTroopType.Id == landCostItemsOverrideTargetId)
+                    return landCostItemsOverride;
+
+                return LandTroopType?.costItems;
+            }
+        }
+
+        /// <summary>水战实际兵装消耗，语义同 <see cref="LandCostItems"/></summary>
+        public int[] WaterCostItems
+        {
+            get
+            {
+                if (waterCostItemsOverrideTargetId > 0
+                    && WaterTroopType != null
+                    && WaterTroopType.Id == waterCostItemsOverrideTargetId)
+                    return waterCostItemsOverride;
+
+                return WaterTroopType?.costItems;
+            }
+        }
 
         /// <summary>
         /// 是否在水中
@@ -1301,6 +1379,30 @@ namespace Sango.Core
 
         /// <summary>特技展开的复用缓冲（InitActionList 内使用，不重入）</summary>
         static List<Feature> tempCollectFeature = new List<Feature>(16);
+
+        /// <summary>
+        /// 只清理特技 Action（逐个退订全局事件），**不做**部队收尾。
+        ///
+        /// 【用途】出征界面里 <c>new Troop()</c> 出来的"预览部队"装配了 Action（为了让兵种替换等
+        /// 特技在预览数值上也生效），但它从未走 <see cref="Init"/>，也就没有
+        /// <see cref="Clear"/> 的生命周期。若玩家取消出征直接关界面，这些 Action 会永久挂在
+        /// 全局事件上并持有预览对象 —— 每开一次界面泄漏一组订阅。
+        /// 本方法给这类临时对象提供"只退订、不动武将/城池归属"的清理入口。
+        ///
+        /// 【为什么不直接调 <see cref="ClearWithBelongCity"/>】那会
+        /// <c>Scenario.Cur.Remove(this)</c>、把武将的 <c>mBelongTroop</c> 置空、
+        /// 甚至把无户口武将转在野 —— 预览对象本来就没入过场景，这些收尾会破坏真实武将状态。
+        /// </summary>
+        public void ClearActionList()
+        {
+            if (actionList == null)
+                return;
+
+            for (int i = 0; i < actionList.Count; i++)
+                actionList[i].Clear();
+
+            actionList.Clear();
+        }
 
         public void InitActionList()
         {
@@ -1701,6 +1803,20 @@ namespace Sango.Core
         /// </summary>
         public void CalculateAttribute(Scenario scenario)
         {
+            // 【必须最先派发】兵种替换类特技（TroopChangeTroopType）要在这里改写 LandTroopType，
+            // 后面的兵种适性（LandTroopTypeLv）、战法列表（landSkills）、攻防与移动力
+            // 才会按替换后的兵种计算。
+            //
+            // 【为什么不能用 OnTroopBeforeCalculateAttribute】那个事件的派发位置在本函数末尾
+            // （见下方 Invoke），此时适性 / 战法 / 攻防都已按旧兵种算完；而部队出征通常只重算一次，
+            // 等于特技永远慢一拍、实际不生效。
+            //
+            // 【兵装消耗覆盖值不要在这里清空】它带"目标兵种 Id"（landCostItemsOverrideTargetId），
+            // 只有当前兵种仍等于目标时才生效（见 Troop.LandCostItems）。
+            // 若在这里清空：第一次重算换成骑兵并写下"沿用剑兵消耗"，第二次重算时兵种已经是骑兵、
+            // 特技不再命中，覆盖值就永久丢失，又退回按骑兵扣军马 —— 表现为"第一次不耗、第二次耗"。
+            GameEvent.OnTroopBeforeInitSkill?.Invoke(this, scenario ?? Scenario.Cur);
+
             ScenarioVariables Variables = Scenario.Cur.Variables;
             captiveChangce = Variables.captureChangceWhenTroopFall;
             // 单挑概率：基础值来自剧本参数，之后由 OnTroopCalculateAttribute 上的修改型 Action 二次修正
@@ -3823,9 +3939,10 @@ namespace Sango.Core
             }
             captiveList.Clear();
 
-            // 返还兵装
-            city.itemStore.Gain(LandTroopType.costItems, troops + woundedTroops);
-            city.itemStore.Gain(WaterTroopType.costItems, troops + woundedTroops);
+            // 返还兵装（口径必须与出征扣除一致：走 LandCostItems / WaterCostItems，
+            // 否则特技换兵种后会"按剑兵扣、按骑兵还"，凭空产出军马）
+            city.itemStore.Gain(LandCostItems, troops + woundedTroops);
+            city.itemStore.Gain(WaterCostItems, troops + woundedTroops);
             city.woundedTroops += woundedTroops;
             city.itemStore.Add(itemStore);
 
@@ -5501,23 +5618,28 @@ namespace Sango.Core
             else
             {
                 int number = troops + woundedTroops;
-                if (LandTroopType.costItems != null && LandTroopType.costItems.Length > 0)
+
+                // 走 LandCostItems / WaterCostItems：特技换兵种后仍按原兵种口径统计，
+                // 与出征扣除、入城归还保持一致
+                int[] landCost = LandCostItems;
+                if (landCost != null && landCost.Length > 0)
                 {
-                    for (int i = 0; i < LandTroopType.costItems.Length; i += 2)
+                    for (int i = 0; i < landCost.Length; i += 2)
                     {
-                        int itemTypeId = LandTroopType.costItems[i];
+                        int itemTypeId = landCost[i];
                         if (itemKind == itemTypeId)
-                            return LandTroopType.costItems[i + 1] * number / 1000;
+                            return landCost[i + 1] * number / 1000;
                     }
                 }
 
-                if (WaterTroopType.costItems != null && WaterTroopType.costItems.Length > 0)
+                int[] waterCost = WaterCostItems;
+                if (waterCost != null && waterCost.Length > 0)
                 {
-                    for (int i = 0; i < WaterTroopType.costItems.Length; i += 2)
+                    for (int i = 0; i < waterCost.Length; i += 2)
                     {
-                        int itemTypeId = WaterTroopType.costItems[i];
+                        int itemTypeId = waterCost[i];
                         if (itemKind == itemTypeId)
-                            return WaterTroopType.costItems[i + 1] * number / 1000;
+                            return waterCost[i + 1] * number / 1000;
                     }
                 }
             }

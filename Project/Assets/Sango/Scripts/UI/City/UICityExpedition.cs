@@ -107,9 +107,13 @@ namespace Sango.UI
                 UIBuildingTypeItem cityBuildingSlot = landTroopTypePool[i];
                 cityBuildingSlot.SetTroopType(troopType).SetIndex(i).SetSelected(cityExpeditionSys.CurSelectLandTrropTypeIndex == i);
                 bool enoughItems = cityExpeditionSys.TargetCity.itemStore.CheckItemEnough(troopType.costItems, 1);
-                cityBuildingSlot.SetValid(enoughItems);
+
+                // 【特殊兵】validItemId != 0 的兵种还要求**上阵武将**持有对应道具；
+                // 仅"城里有人持有"不够（见 CityExpedition.IsTroopTypeUsable）
+                bool usable = enoughItems && cityExpeditionSys.IsTroopTypeUsable(troopType);
+                cityBuildingSlot.SetValid(usable);
                 int destKind = troopType.kind - 2;
-                if (enoughItems && destKind >= 0 && destKind < autoMakeButtons.Length)
+                if (usable && destKind >= 0 && destKind < autoMakeButtons.Length)
                     autoMakeButtons[destKind].interactable = true;
             }
 
@@ -131,7 +135,8 @@ namespace Sango.UI
                 TroopType troopType = cityExpeditionSys.ActivedWaterTroopTypes[i];
                 UIBuildingTypeItem cityBuildingSlot = waterTroopTypePool[i];
                 cityBuildingSlot.SetTroopType(troopType).SetIndex(i).SetSelected(cityExpeditionSys.CurSelectWaterTrropTypeIndex == i);
-                cityBuildingSlot.SetValid(cityExpeditionSys.TargetCity.itemStore.CheckItemEnough(troopType.costItems, 1));
+                bool enoughItems = cityExpeditionSys.TargetCity.itemStore.CheckItemEnough(troopType.costItems, 1);
+                cityBuildingSlot.SetValid(enoughItems && cityExpeditionSys.IsTroopTypeUsable(troopType));
             }
 
             action_value.text = $"{JobType.GetJobCostAP((int)CityJobType.MakeTroop)}/{cityExpeditionSys.TargetCity.BelongCorps.ActionPoint}";
@@ -273,8 +278,9 @@ namespace Sango.UI
         {
             int max = targetTroop.MaxTroops;
             max = System.Math.Min(max, targetCity.troops);
-            max = targetCity.itemStore.CheckCostMin(targetTroop.LandTroopType.costItems, max);
-            max = targetCity.itemStore.CheckCostMin(targetTroop.WaterTroopType.costItems, max);
+            // 走实际兵装消耗：兵种被特技替换过（如「骑战」剑兵→骑兵）时沿用替换前兵种
+            max = targetCity.itemStore.CheckCostMin(targetTroop.LandCostItems, max);
+            max = targetCity.itemStore.CheckCostMin(targetTroop.WaterCostItems, max);
             return System.Math.Max(0, max);
         }
 
@@ -286,8 +292,8 @@ namespace Sango.UI
         {
             troops = System.Math.Max(1, troops);
             troops = System.Math.Min(troops, targetCity.troops);
-            troops = targetCity.itemStore.CheckCostMin(targetTroop.LandTroopType.costItems, troops);
-            troops = targetCity.itemStore.CheckCostMin(targetTroop.WaterTroopType.costItems, troops);
+            troops = targetCity.itemStore.CheckCostMin(targetTroop.LandCostItems, troops);
+            troops = targetCity.itemStore.CheckCostMin(targetTroop.WaterCostItems, troops);
 
             int wonderFood = (int)(troops * Scenario.Cur.Variables.baseFoodCostInTroop * 20);
             int food = System.Math.Min(wonderFood, targetCity.food);
@@ -438,7 +444,52 @@ namespace Sango.UI
 
             UpdateTroopStatus();
             UpdateTroopTypeDesc();
+            RefreshTroopTypeItemsValid();
             UpdateTroopsInfo();
+        }
+
+        /// <summary>
+        /// 按**当前上阵武将**刷新兵种项的可点击状态。
+        ///
+        /// 【为什么选将后必须刷新】特殊兵种（<c>TroopType.validItemId != 0</c>）要求上阵武将持有道具。
+        /// 玩家先选带道具的武将时特殊兵可点；把他换下后必须立刻置灰，否则会出现
+        /// "界面亮着、点进去被 <see cref="CityExpedition.SetLandType"/> 兜底拒绝"的不一致。
+        ///
+        /// 【自动编队按钮】它按兵种 kind 与下标映射（kind - 2），相应兵种不可用时一并置灰，
+        /// 避免点"自动编队-骑兵"却编出一支剑兵。
+        /// </summary>
+        void RefreshTroopTypeItemsValid()
+        {
+            if (cityExpeditionSys == null || targetCity == null)
+                return;
+
+            // 按钮先统一置灰，再按可用兵种点亮（与 OnEnter 的初始口径一致）
+            for (int i = 0; i < autoMakeButtons.Length; i++)
+                autoMakeButtons[i].interactable = false;
+
+            for (int i = 0; i < cityExpeditionSys.ActivedLandTroopTypes.Count && i < landTroopTypePool.Count; i++)
+            {
+                TroopType troopType = cityExpeditionSys.ActivedLandTroopTypes[i];
+                bool enoughItems = cityExpeditionSys.TargetCity.itemStore.CheckItemEnough(troopType.costItems, 1);
+                bool usable = enoughItems && cityExpeditionSys.IsTroopTypeUsable(troopType);
+
+                // 先同步选中态再置有效色：SetSelected / SetValid 都会改 icon 颜色，顺序反了会被覆盖，
+                // 换将触发自动回退时界面也要跟着移到新的兵种项上
+                landTroopTypePool[i].SetSelected(cityExpeditionSys.CurSelectLandTrropTypeIndex == i);
+                landTroopTypePool[i].SetValid(usable);
+
+                int destKind = troopType.kind - 2;
+                if (usable && destKind >= 0 && destKind < autoMakeButtons.Length)
+                    autoMakeButtons[destKind].interactable = true;
+            }
+
+            for (int i = 0; i < cityExpeditionSys.ActivedWaterTroopTypes.Count && i < waterTroopTypePool.Count; i++)
+            {
+                TroopType troopType = cityExpeditionSys.ActivedWaterTroopTypes[i];
+                bool enoughItems = cityExpeditionSys.TargetCity.itemStore.CheckItemEnough(troopType.costItems, 1);
+                waterTroopTypePool[i].SetSelected(cityExpeditionSys.CurSelectWaterTrropTypeIndex == i);
+                waterTroopTypePool[i].SetValid(enoughItems && cityExpeditionSys.IsTroopTypeUsable(troopType));
+            }
         }
 
         /// <summary>
@@ -564,12 +615,21 @@ namespace Sango.UI
                 foodSlider.interactable = false;
             }
 
-            troopsSlider.SetValueWithoutNotify((float)targetTroop.troops / targetTroop.MaxTroops);
+            // 【除零兜底】MaxTroops 在"未选定武将 / 兵种数据缺失"时可能为 0
+            troopsSlider.SetValueWithoutNotify(targetTroop.MaxTroops > 0
+                ? (float)targetTroop.troops / targetTroop.MaxTroops
+                : 0f);
             troopsLabel.text = $"{targetTroop.troops}/{targetTroop.MaxTroops}";
             goldLabel.text = $"{targetTroop.gold}/{targetCity.gold}";
             foodLabel.text = $"{targetTroop.food}/{targetCity.food}";
             int foodCost = targetTroop.PrepeareFoodCost();
-            int turnCount = (int)(targetTroop.food / foodCost);
+
+            // 【除零兜底】粮耗为 0 有两种合法来源：
+            //   · 兵力为 0 —— 兵装不足时 CheckCostMin 会把可出兵数夹成 0
+            //     （例如特技换兵种后按骑兵要军马，而城里没有）；
+            //   · 粮耗倍率被特技置 0（辟谷奇兵 / 军屯），PrepeareFoodCost 不会再兜底成 1。
+            // 这两种情况都不该把界面打崩，直接显示 0 日。
+            int turnCount = foodCost > 0 ? (int)(targetTroop.food / foodCost) : 0;
             dayTurnLabel.text = $"{turnCount * 10}日";
 
             SetItemLabel(itemTroopsLabel, targetCity.troops, targetTroop.troops);
@@ -585,26 +645,30 @@ namespace Sango.UI
                     itemLabels[showIndex].gameObject.SetActive(true);
                 int has = targetCity.itemStore.GetNumber(itemType);
                 int use = 0;
-                if (targetTroop.LandTroopType.costItems != null)
+
+                // 走实际兵装消耗（被特技替换兵种时沿用替换前口径），与出征扣除保持一致
+                int[] landCost = targetTroop.LandCostItems;
+                if (landCost != null)
                 {
-                    for (int j = 0; j < targetTroop.LandTroopType.costItems.Length; j += 2)
+                    for (int j = 0; j < landCost.Length; j += 2)
                     {
-                        int itemId = targetTroop.LandTroopType.costItems[j];
+                        int itemId = landCost[j];
                         if (itemId == itemType.storeKind)
                         {
-                            int need = targetTroop.LandTroopType.costItems[j + 1];
+                            int need = landCost[j + 1];
                             use = need * targetTroop.troops / 1000;
                         }
                     }
                 }
-                if (targetTroop.WaterTroopType.costItems != null)
+                int[] waterCost = targetTroop.WaterCostItems;
+                if (waterCost != null)
                 {
-                    for (int j = 0; j < targetTroop.WaterTroopType.costItems.Length; j += 2)
+                    for (int j = 0; j < waterCost.Length; j += 2)
                     {
-                        int itemId = targetTroop.WaterTroopType.costItems[j];
+                        int itemId = waterCost[j];
                         if (itemId == itemType.storeKind)
                         {
-                            int need = targetTroop.WaterTroopType.costItems[j + 1];
+                            int need = waterCost[j + 1];
                             use = need * targetTroop.troops / 1000;
                         }
                     }

@@ -398,6 +398,20 @@ namespace Sango.Core
 
 
         /// <summary>
+        /// 部队属性重算的**最早期**：在兵种适性、战法列表、攻防移动力计算之前。
+        ///
+        /// 【为什么不复用 <see cref="OnTroopBeforeCalculateAttribute"/>】那个事件虽然名字叫
+        /// "计算前"，实际派发位置在 <see cref="Troop.CalculateAttribute"/> 的末尾
+        /// （兵种适性 / 战法 / 攻防都已算完）。它适合"在算好的结果上再追加战法"
+        /// （<see cref="Action.TroopAddSkill"/>），不适合"换兵种"这类**必须参与计算**的修改。
+        /// 本事件专供"要在计算开始前改写兵种 / 基础值"的 Action（如
+        /// <see cref="Action.TroopChangeTroopType"/>）使用。
+        ///
+        /// 参数：部队、场景对象
+        /// </summary>
+        public static EventDelegate<Troop, Scenario> OnTroopBeforeInitSkill;
+
+        /// <summary>
         /// 部队计算属性的时候
         /// </summary>
         public static EventDelegate<Troop, Scenario> OnTroopBeforeCalculateAttribute;

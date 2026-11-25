@@ -303,12 +303,13 @@ namespace Sango.UI
                 SetText(targetFoodText, targetTroop.food + food);
             }
 
+            // 【除零兜底】输血式运输后某一方兵力可能为 0（粮耗 0），直接除会崩
             int foodCost = srcTroop.PrepeareFoodCost(srcTroop.troops - troops);
-            int turnCount = (int)((srcTroop.food - food) / foodCost);
+            int turnCount = foodCost > 0 ? (int)((srcTroop.food - food) / foodCost) : 0;
             srcfoodDaysText.text = $"{turnCount * 10}日";
 
             foodCost = targetTroop.PrepeareFoodCost(targetTroop.troops + troops);
-            turnCount = (int)((targetTroop.food + food) / foodCost);
+            turnCount = foodCost > 0 ? (int)((targetTroop.food + food) / foodCost) : 0;
             targetfoodDaysText.text = $"{turnCount * 10}日";
 
             foodValueText.text = $"{targetTroop.food}→{targetTroop.food + food}";

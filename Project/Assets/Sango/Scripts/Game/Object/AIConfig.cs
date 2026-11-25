@@ -194,6 +194,44 @@ namespace Sango.Core
         /// <summary>谨慎个性出兵所需的最低城内兵力（原硬编码 12000）</summary>
         public int attackMinTroopsDefensive = 9000;
 
+        // ---------------- 满编富余 · 积极出兵 ----------------
+        //
+        // 【要解决的问题】城已经快满编、兵装和粮草都堆着用不完时，
+        // 原来的门槛（个性兵力线 + attackTargetMinTroops + 跳过概率）仍按"缺兵少粮"的
+        // 保守口径卡着，导致 AI 满兵蹲城、兵装粮食越积越多。
+        // 下面三项判定"这座城富不富"，后两项决定富余时放宽多少。
+
+        /// <summary>
+        /// 满编判定：城内兵力 ≥ <see cref="City.TroopsLimit"/> × 该比例（默认 0.9 = 90%）。
+        /// 这是"兵力到达 90% 以上"的开关。
+        /// </summary>
+        public float highFillTroopRatio = 0.9f;
+
+        /// <summary>
+        /// 兵装富余判定：枪 / 戟 / 弩 / 马总数 ≥ 城内兵力 × 该比例（默认 1.0，即一人一件还够）。
+        /// </summary>
+        public float highFillWeaponRatio = 1f;
+
+        /// <summary>
+        /// 粮食富余判定：城内粮食 ≥ 城内兵力 × 该值（默认 2，即现有存粮还能再养同样一支兵）。
+        /// 与 <c>AICreateItems</c> 里"粮食 / 2 = 可支撑兵力"的口径一致。
+        /// </summary>
+        public float highFillFoodPerTroop = 2f;
+
+        /// <summary>
+        /// 满编富余时**降低出兵门槛**的缩放系数（默认 0.6 = 门槛打六折）。
+        /// 同时作用于 <see cref="attackMinTroopsAggressive"/> 等个性兵力线与
+        /// <see cref="attackTargetMinTroops"/>（两处必须一起降，否则候选队列仍为空）。
+        /// </summary>
+        public float highFillMinTroopsScale = 0.6f;
+
+        /// <summary>
+        /// 满编富余时**增大出兵概率**的缩放系数（默认 0.5 = 跳过概率减半）。
+        /// 作用于 <see cref="attackSkipChanceAggressive"/> 等个性跳过概率；
+        /// 另外候选闸门（CityAI.DecideAttackTarget 的 count == 0 随机跳过）在满编富余时直接取消。
+        /// </summary>
+        public float highFillSkipChanceScale = 0.5f;
+
         /// <summary>
         /// 进入"目标打分"所需的最低城内兵力（原硬编码 20000，见 CityAI.DecideAttackTarget）。
         ///

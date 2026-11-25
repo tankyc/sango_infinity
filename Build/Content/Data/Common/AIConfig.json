@@ -63,6 +63,16 @@
   "attackMinTroopsBalanced": 7000,
   // 谨慎个性出兵所需的最低城内兵力（原硬编码 12000）
   "attackMinTroopsDefensive": 9000,
+  // 满编富余 · 积极出兵：兵力 ≥ 兵力上限 × 该比例（0.9 = 90%）视为"快满编"。
+  "highFillTroopRatio": 0.9,
+  // 兵装富余：枪 / 戟 / 弩 / 马总数 ≥ 城内兵力 × 该比例（1.0 = 一人一件还够）。
+  "highFillWeaponRatio": 1.0,
+  // 粮食富余：存粮 ≥ 城内兵力 × 该值（2 = 还能再养同样一支兵，与"粮食/2 = 可支撑兵力"同口径）。
+  "highFillFoodPerTroop": 2.0,
+  // 满编富余时降低出兵门槛的缩放（0.6 = 门槛打六折，同时作用于个性兵力线与 attackTargetMinTroops）。
+  "highFillMinTroopsScale": 0.6,
+  // 满编富余时"跳过进攻"概率的缩放（0.5 = 跳过概率减半；候选闸门的随机跳过直接取消）。
+  "highFillSkipChanceScale": 0.5,
   // 进入"目标打分"所需的最低城内兵力（原硬编码 20000，见 CityAI.DecideAttackTarget）。 【为什么必须一起调】AICanAttack 只决定"这回合出不出兵"，
   "attackTargetMinTroops": 12000,
   // 进攻目标打分时，若目标势力是玩家势力，额外增加的权重（默认 1500）。 【语义】加法项，叠加在"兵力比 × 城池耐久 × 外交关系 × 距离"之后，不是百分比：

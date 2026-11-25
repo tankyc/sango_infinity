@@ -41,6 +41,12 @@ namespace Sango.Mod
         /// </summary>
         public string Poster { internal set; get; }
         /// <summary>
+        /// 作者收款/赞赏二维码图片地址(绝对 URL),为空表示作者没有放二维码。
+        /// 取值优先级:包内 mod.info 的 donate > 创意工坊市场清单下发的 donate;
+        /// 注意 mod.info 按 '=' 切分取值,地址里不能带 '=' 参数。
+        /// </summary>
+        public string Donate { internal set; get; }
+        /// <summary>
         /// Mod路径
         /// </summary>
         public string ModDir { internal set; get; }
