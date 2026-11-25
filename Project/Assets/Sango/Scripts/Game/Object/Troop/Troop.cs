@@ -456,10 +456,23 @@ namespace Sango.Core
                             isExtraAction = true;
                             return;
                         }
+
+                        // 【可再移动】只退还移动权，不提供额外行动（isExtraAction 保持 false）。
+                        // 与"再行动"的区别：再行动可以接着攻击，再移动只能继续走；
+                        // 两者用独立计数器，互不吞噬。移动范围清空后会由
+                        // TroopActionMove 里的 `if (MoveRange.Count == 0) map.GetMoveRange(...)` 重建。
+                        if (MoveRefundCount > 0)
+                        {
+                            MoveRefundCount--;
+                            isExtraAction = false;
+                            MoveRange.Clear();
+                            return;
+                        }
                     }
                     isExtraAction = false;
                     actionOver = value;
                     ActionOverCount = 0;
+                    MoveRefundCount = 0;
                     GameEvent.OnTroopActionOver?.Invoke(this);
                 }
             }
@@ -469,6 +482,18 @@ namespace Sango.Core
         public bool isExtraAction = false;
         // 额外行动的次数
         public int ActionOverCount = 0;
+        /// <summary>
+        /// 额外移动的次数（"可再移动"）。
+        ///
+        /// <para>
+        /// 与 <see cref="ActionOverCount"/> 分开计数：再行动会置 <c>isExtraAction = true</c>（可继续攻击），
+        /// 再移动只退还行动权并清空 <see cref="MoveRange"/>（重新计算可走格），不提供攻击机会。
+        /// </para>
+        /// <para>
+        /// 由 <c>TroopResetActionOver</c> 的 <c>mode</c> 参数写入；不存档，回合开始随行动权一起清空。
+        /// </para>
+        /// </summary>
+        public int MoveRefundCount = 0;
 
         public bool IsPlayer => BelongForce?.IsPlayer ?? false;
         /// <summary>
@@ -672,12 +697,76 @@ namespace Sango.Core
         int stateFlags;
 
         /// <summary>
+        /// 当前状态位域（只读，取值见 <see cref="TroopStateFlag"/>）。
+        /// 业务判定优先用 <see cref="HasStateFlag"/> 或下面的具名属性，不要自己抠位。
+        /// </summary>
+        public int StateFlags => stateFlags;
+
+        /// <summary>
+        /// 是否处于指定的异常状态。
+        ///
+        /// 【只用这一个入口读位】散落的 <c>(stateFlags &amp; 1 &lt;&lt; n) != 0</c> 一旦枚举调整就会错位，
+        /// 统一走这里 + <see cref="TroopStateFlag"/> 才能保证改一处全生效。
+        /// </summary>
+        /// <param name="flag">要检查的状态位（可用 | 组合）</param>
+        /// <returns>任意一位成立返回 true</returns>
+        public bool HasStateFlag(TroopStateFlag flag)
+        {
+            return (stateFlags & (int)flag) != 0;
+        }
+
+        /// <summary>
         /// 是否处于**混乱**状态（原版 <c>UnitState_Konran</c>）。
         /// 混乱部队不向周围施加 ZOC（见 <see cref="TroopStateFlag.Chaos"/>）。
         /// </summary>
         public bool isChaos
         {
             get { return (stateFlags & (int)TroopStateFlag.Chaos) != 0; }
+        }
+
+        /// <summary>是否**无法行动**（扰乱 / 冰冻；原版 <c>UnitState_Konran</c> 的"行动不能"部分）</summary>
+        public bool isStun
+        {
+            get { return (stateFlags & (int)TroopStateFlag.Stun) != 0; }
+        }
+
+        /// <summary>是否处于**伪报**状态（回合开始会被送回据点）</summary>
+        public bool isEscape
+        {
+            get { return (stateFlags & (int)TroopStateFlag.Escape) != 0; }
+        }
+
+        /// <summary>是否**无法移动**（足止：能原地攻击，但行动力为零）</summary>
+        public bool isMoveSeal
+        {
+            get { return (stateFlags & (int)TroopStateFlag.MoveSeal) != 0; }
+        }
+
+        /// <summary>是否处于**暴走**状态（回合开始被强制改派为攻击最近敌军）</summary>
+        public bool isBerserk
+        {
+            get { return (stateFlags & (int)TroopStateFlag.Berserk) != 0; }
+        }
+
+        /// <summary>
+        /// 是否被**沉默**：不能施放战法与计略，普攻不受影响。
+        /// 拦截点见 <see cref="SkillInstance.CanBeSpell"/> 与 <see cref="SpellSkill"/>。
+        /// </summary>
+        public bool isSilence
+        {
+            get { return (stateFlags & (int)TroopStateFlag.Silence) != 0; }
+        }
+
+        /// <summary>是否处于**冰冻**状态（与 Stun 同源，单独留一位用于区分表现 / 驱散规则）</summary>
+        public bool isFrozen
+        {
+            get { return (stateFlags & (int)TroopStateFlag.Freeze) != 0; }
+        }
+
+        /// <summary>是否**免疫伤害**（Invincible）</summary>
+        public bool isInvincible
+        {
+            get { return (stateFlags & (int)TroopStateFlag.Invincible) != 0; }
         }
 
         /// <summary>
@@ -711,7 +800,9 @@ namespace Sango.Core
 
         public bool HasControlBuff()
         {
-            return buffManager.HasControlBuff();
+            // 状态位已由 BuffManager 在每次增删后重算缓存，这里直接读位；
+            // buffManager 为空只可能出现在"反序列化完成→Init"的窗口，此时视为无状态。
+            return buffManager != null && buffManager.HasControlBuff();
         }
 
         /// <summary>
@@ -1099,6 +1190,48 @@ namespace Sango.Core
         public int foodCost = 0;
         public float foodCostFactor = 1;
 
+        /// <summary>
+        /// 部队正面朝向（格坐标下的单位方向，每个分量取 -1 / 0 / 1）。
+        ///
+        /// <para>
+        /// (0,0) 表示"朝向未知"：部队刚创建、或从未移动过。
+        /// 方位类特技（正合 / 奇袭）在朝向未知时一律不生效，
+        /// 避免"刚出城的部队白嫖背面加成"。
+        /// </para>
+        /// <para>
+        /// 【为什么不复用渲染朝向】渲染层的旋转是表现量，读档后可能被重置；
+        /// 这里保存的是结算依据，必须在逻辑层独立存在，且随存档保留。
+        /// </para>
+        /// </summary>
+        [JsonProperty] public int faceDx = 0;
+
+        /// <summary>部队正面朝向的 Y 分量（与 <see cref="faceDx"/> 成对，见其说明）</summary>
+        [JsonProperty] public int faceDy = 0;
+
+        /// <summary>
+        /// 本回合累计移动格数（冲锋这类"按行军距离增伤"的判定依据）。
+        ///
+        /// <para>
+        /// 由 <see cref="UpdateCell"/> 每换一格 +1，<see cref="OnForceTurnStart"/> 清零，
+        /// 因此统计口径是"本回合到目前为止走过的格数"。
+        /// </para>
+        /// <para>
+        /// 【已知近似】被战法推走同样会计入 —— `UpdateCell` 收到的参数里没有"是自己走的还是被推的"，
+        /// 强行区分需要在每个位移分支上加标记，收益远小于复杂度。
+        /// </para>
+        /// </summary>
+        [JsonProperty] public int moveDistanceThisTurn = 0;
+
+        /// <summary>
+        /// 蓄力状态：0 无 / 1 待激活（上回合未移动）/ 2 已激活（本回合首击加成尚未消耗）。
+        ///
+        /// <para>
+        /// 状态机：回合结束未移动 → 1；下个回合开始 → 2；本回合第一次打出伤害 → 消耗回 0。
+        /// 由 <c>TroopChargeAttack</c> 维护，不在属性重算里改动（重算与"是否移动过"无关）。
+        /// </para>
+        /// </summary>
+        [JsonProperty] public int chargeState = 0;
+
         public List<ActionBase> actionList;
         public List<Cell> MoveRange = new List<Cell>(256);
 
@@ -1318,7 +1451,9 @@ namespace Sango.Core
                     foodCost += (int)burned;
             }
 
-            if (foodCost <= 0 && troops > 0)
+            // 【兜底】至少消耗 1 点粮，避免"兵力 > 0 但粮耗为 0"导致的除零与无限续航。
+            // 但当粮耗倍率被特技置为 0（辟谷奇兵 / 军屯）时，0 是设计意图，不再兜底。
+            if (foodCost <= 0 && troops > 0 && foodCostFactor > 0)
                 foodCost = 1;
 
             return foodCost;
@@ -1336,6 +1471,8 @@ namespace Sango.Core
         public override bool OnForceTurnStart(Scenario scenario)
         {
             liveDays++;
+            // 冲锋类效果按"本回合走过的格数"结算，回合开始必须归零
+            moveDistanceThisTurn = 0;
             MoveRange.Clear();
 
             // 【不做清理】pathFlags 由特技 / action（如 TroopIgnoreZOC）自己维护生命周期：
@@ -1622,6 +1759,12 @@ namespace Sango.Core
 
             waterMoveAbility = WaterTroopType.move;
             landMoveAbility = LandTroopType.move;
+
+            // 【重置粮耗倍率】与移动力同一口径：每次属性重算先归位 1，
+            // 再由 OnTroopCalculateAttribute 上的粮耗类 Action（TroopSetFoodCost /
+            // TroopAuraAttribute 的 foodCost 分支）重新施加。
+            // 若不在重算里归位，玩家摘下"辟谷奇兵"后倍率会永久残留（字段无处可恢复）。
+            foodCostFactor = 1;
 
             CalculateMaxTroops(scenario);
 
@@ -2478,6 +2621,16 @@ namespace Sango.Core
 
         public bool SpellSkill(SkillInstance skill, Cell spellCell, bool waitForCheer = true)
         {
+            // 【沉默兜底】CanBeSpell 已在菜单 / AI 侧拦过一遍，但任务链
+            // （TroopDestroyTroop 等）用的是事先缓存的 priorityActionData，
+            // 可能在"排好出手"之后才被施加沉默。这里再挡一次：
+            // 返回 true 表示本次出手已消耗，避免战法照常打出。
+            if (skill != null && !skill.IsNormal() && isSilence)
+            {
+                Sango.Log.Info($"{BelongForce?.Name}的[{Name} 部队 处于沉默状态，无法施放 {skill.Name}");
+                return true;
+            }
+
             // "兄弟同心"加气走异步对白: 本次攻击想吃的这口气力还没真正加满时先挂起,
             // 等对白播完(回调里清标记)再真正出手, 从而保证"先提气、再攻击"。
             // 援助补刀是别人正在结算的攻击的连带演出, 不能被挂起, 故 waitForCheer 传 false。
@@ -2776,6 +2929,20 @@ namespace Sango.Core
 
         public void UpdateCell(Cell destCell, Cell lastCell, bool isEndMove)
         {
+            // 【朝向维护】按本次移动方向更新正面朝向。
+            // 取差值的符号而不是真实方向表：格坐标下 8 个方向用 (-1/0/1, -1/0/1) 即可唯一表示，
+            // 六边形网格的实际相邻方向都落在这 8 种组合里，判定时也只要相等 / 相反比较。
+            if (lastCell != null && destCell != null && lastCell != destCell)
+            {
+                int mdx = destCell.x - lastCell.x;
+                int mdy = destCell.y - lastCell.y;
+                faceDx = mdx > 0 ? 1 : (mdx < 0 ? -1 : 0);
+                faceDy = mdy > 0 ? 1 : (mdy < 0 ? -1 : 0);
+
+                // 冲锋类"按行军距离增伤"的累计口径：真实换格才 +1
+                moveDistanceThisTurn++;
+            }
+
             //TODO: 地格更新,需要处理一些事件
             if (lastCell != null)
                 GameEvent.OnTroopLeaveCell?.Invoke(this, lastCell, destCell);

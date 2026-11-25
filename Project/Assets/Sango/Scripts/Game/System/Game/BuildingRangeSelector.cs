@@ -85,8 +85,17 @@ namespace Sango.Core
         /// <summary>效果范围（天蓝）</summary>
         Layer effectLayer;
 
+        /// <summary>部队光环范围（天蓝，与建筑效果范围同色）</summary>
+        Layer auraLayer;
+
         /// <summary>当前显示范围的建筑</summary>
         BuildingBase current;
+
+        /// <summary>当前显示光环范围的部队</summary>
+        Troop currentTroop;
+
+        /// <summary>部队光环范围临时容器，避免每次切换都分配</summary>
+        readonly List<Cell> tempAuraCells = new List<Cell>(64);
 
         /// <summary>单个 quad 的世界尺寸，由地图数据给出</summary>
         int quadSize;
@@ -124,6 +133,8 @@ namespace Sango.Core
             attackLayer = CreateLayer("buildingRangeAttack", "buildingRangeAttackMat", BaseYOffset + LayerYStep);
             // 效果：半透天蓝
             effectLayer = CreateLayer("buildingRangeEffect", "buildingRangeEffectMat", BaseYOffset + LayerYStep * 2);
+            // 部队光环：同样使用半透天蓝材质，叠在建筑效果层之上避免共面闪烁
+            auraLayer = CreateLayer("troopAuraRange", "buildingRangeEffectMat", BaseYOffset + LayerYStep * 3);
 
 #if UNITY_ANDROID || UNITY_IPHONE
             lodL = 2;
@@ -138,10 +149,13 @@ namespace Sango.Core
             DestroyLayer(occupyLayer);
             DestroyLayer(attackLayer);
             DestroyLayer(effectLayer);
+            DestroyLayer(auraLayer);
             occupyLayer = null;
             attackLayer = null;
             effectLayer = null;
+            auraLayer = null;
             current = null;
+            currentTroop = null;
         }
 
         /// <summary>
@@ -210,6 +224,7 @@ namespace Sango.Core
         {
             GameEvent.OnScenarioTick -= OnTick;
             current = null;
+            currentTroop = null;
             ClearAll();
         }
 
@@ -233,15 +248,84 @@ namespace Sango.Core
             if (scenario == null)
                 return;
 
-            BuildingBase target = ResolveTarget();
-            if (target == current)
+            // 部队优先：部队不允许停在建筑格，正常情况下二者互斥；
+            // 临时同格（刚创建 / 入城中间态）时显示部队光环，避免建筑层把光环盖住。
+            Troop troopTarget = ResolveTroopTarget();
+            BuildingBase target = troopTarget != null ? null : ResolveTarget();
+
+            if (target == current && troopTarget == currentTroop)
                 return;
 
             current = target;
-            if (current == null)
-                ClearAll();
-            else
+            currentTroop = troopTarget;
+
+            ClearAll();
+            if (current != null)
                 Rebuild();
+            else if (currentTroop != null)
+                RebuildTroopAura();
+        }
+
+        /// <summary>
+        /// 从"当前点中的格子"解析出需要显示光环范围的部队。
+        ///
+        /// 【显示条件】部队存活、渲染可见、且本队至少有一项 Scope=0 的光环
+        /// （只有本队结算效果的部队没有"范围"可画）。
+        /// </summary>
+        /// <returns>需要显示光环范围的部队，没有则返回 null</returns>
+        Troop ResolveTroopTarget()
+        {
+            GameController controller = GameController.Instance;
+            Cell cell = controller != null ? controller.mouseOverCell : null;
+            Troop troop = cell != null ? cell.troop : null;
+            if (troop == null || !troop.IsAlive || troop.cell == null)
+                return null;
+
+            // 视野回收：与建筑同一套判据
+            if (troop.Render == null || !troop.Render.IsVisible())
+                return null;
+
+            if (AuraSystem.GetTroopAuraRange(troop) <= 0)
+                return null;
+
+            return troop;
+        }
+
+        /// <summary>
+        /// 按当前部队重建光环范围（天蓝）。
+        ///
+        /// 同队武将的光环中心都是部队所在格，所以并集 = 一个半径等于最大 range 的圆；
+        /// 中心格是部队自己站的格，画上去会被模型完全挡住，直接剔除。
+        /// </summary>
+        void RebuildTroopAura()
+        {
+            ClearAll();
+
+            if (currentTroop == null || currentTroop.cell == null)
+                return;
+
+            int range = AuraSystem.GetTroopAuraRange(currentTroop);
+            if (range <= 0)
+                return;
+
+            Map map = Scenario.Cur != null ? Scenario.Cur.Map : null;
+            if (map == null)
+                return;
+
+            tempAuraCells.Clear();
+            map.GetSpiral(currentTroop.cell, range, tempAuraCells);
+
+            for (int i = tempAuraCells.Count - 1; i >= 0; i--)
+            {
+                if (tempAuraCells[i] == null || tempAuraCells[i] == currentTroop.cell)
+                    tempAuraCells.RemoveAt(i);
+            }
+
+            if (tempAuraCells.Count == 0)
+                return;
+
+            AddCells(auraLayer, tempAuraCells, currentTroop.cell);
+            Apply(auraLayer, currentTroop.cell, BaseYOffset + LayerYStep * 3);
         }
 
         /// <summary>
@@ -536,6 +620,7 @@ namespace Sango.Core
             HideLayer(occupyLayer);
             HideLayer(attackLayer);
             HideLayer(effectLayer);
+            HideLayer(auraLayer);
         }
 
         /// <summary>

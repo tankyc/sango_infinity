@@ -200,7 +200,8 @@ namespace Sango.Core
 
         /// <summary>
         /// 人口排序标题（显示并修改城池人口基础字段population）
-        /// 人口上限受PopulationLimit(人口上限基础值+等级*每级人口上限)限制,此处仅编辑当前人口值
+        /// 人口上限受 PopulationLimit 限制：新人口系统开启时取城镇容量，
+        /// 关闭时退化为"人口上限基础值 + 等级 × 每级增量"；此处仅编辑当前人口值
         /// </summary>
         public static SortTitle SortByPopulation = new SortTitle()
         {
@@ -216,7 +217,8 @@ namespace Sango.Core
 
         /// <summary>
         /// 兵役人口排序标题（显示并修改城池兵役人口基础字段troopPopulation）
-        /// 兵役人口不超过MaxTroopPopulation(人口*最大兵役人口比例),此处仅编辑当前值
+        /// 【口径】旧人口系统的"人口 × 最大兵役比例"上限已随旧系统删除，
+        /// 该字段现在只作为兵种建造 / 事件脚本的资源池使用，此处仅编辑当前值
         /// </summary>
         public static SortTitle SortByTroopPopulation = new SortTitle()
         {

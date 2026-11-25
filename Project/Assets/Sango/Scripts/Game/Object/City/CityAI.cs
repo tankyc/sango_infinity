@@ -3101,9 +3101,8 @@ namespace Sango.Core
             if (city.troops >= city.TroopsLimit)
                 return true;
 
+            // 可征额耗尽就不能再征兵（旧"兵役人口 ≤ 500"的口径随旧人口系统删除）
             if (scenario.Variables.hantuPopulationEnabled && HantuPopulation.RecruitLimit(city) <= 0)
-                return true;
-            if (scenario.Variables.UseLegacyPopulation && city.troopPopulation <= 500)
                 return true;
             if (city.security < 70) return true;
             if (city.troops > city.food) return true;

@@ -7,6 +7,11 @@ namespace Sango.Core.Player
     [GameSystem]
     public class TroopActionReturn : TroopActionBase
     {
+        /// <summary>
+        /// 「取消」是收尾类命令，仅再移动状态下保留，保证部队随时能退出操作。
+        /// </summary>
+        protected override bool AllowWhenMoveOnly => true;
+
         public TroopActionReturn()
         {
             customMenuName = "取消";

@@ -402,6 +402,11 @@ namespace Sango.Core
 
             person.InitPersonActions();
 
+            // 【授予后通知】一次性消耗品（万寿果等）在这里生效并把自己从背包移除。
+            // 必须放在 InitPersonActions 之后：此时道具自带的 Action 才装配完成，
+            // 否则订阅者还没创建，事件派发出去没人接。
+            GameEvent.OnItemGranted?.Invoke(city, person, item);
+
             Sango.Log.Info($"@内政@[{force.Name}]<{city.Name}>授予{person.Name}{item.Name}，" +
                            $"消耗技巧点 {cost}（余 {force.TechniquePoint}）" +
                            (replaced != null ? $"，替换下{replaced.Name}已退回国库" : ""));

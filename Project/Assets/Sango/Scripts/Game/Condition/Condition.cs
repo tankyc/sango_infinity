@@ -94,8 +94,13 @@ namespace Sango.Core
            // Register("TroopStrengthCheck", CraeteHandle<TroopStrengthCheck>);
             Register("TroopMoraleCheck", CraeteHandle<TroopMoraleCheck>);
             Register("TroopAroundTeammateCount", CraeteHandle<TroopAroundTeammateCount>);
+            // 邻接敌军数量：与友军版对称（只数紧邻一圈），支撑"被包围才生效"类特技
+            Register("TroopAroundEnemyCount", CraeteHandle<TroopAroundEnemyCount>);
             // 兵种适性检查：比较部队(自己或目标)指定兵种的适性等级
             Register("TroopAbilityCheck", CraeteHandle<TroopAbilityCheck>);
+            // 双方属性对比：施法方属性 op 目标方属性（骁将/步将/无双/龙胆/名将/游侠等
+            // "对武力或统率低于自己的敌人"类判定，TroopAttributeCheck 只能与常量比）
+            Register("TroopAttributeCompareBoth", CraeteHandle<TroopAttributeCompareBoth>);
 
             // Skill
             Register("SkillIsCritical", CraeteHandle<SkillIsCritical>);
@@ -112,6 +117,12 @@ namespace Sango.Core
             Register("PersonRelationCheck", CraeteHandle<PersonRelationCheck>);
             // 君主身份检查：result 1 = 要求是所在势力君主，0 = 要求不是（特技「桀骜不羁」用）
             Register("PersonIsGovernor", CraeteHandle<PersonIsGovernor>);
+            // 性别检查：compareTarget（self/target，缺省 target）+ sex（0 男 / 1 女）
+            // 用于"只对异性生效"的特技（美人计 / 洛神 / 国色天香 / 红颜）
+            Register("PersonSexCheck", CraeteHandle<PersonSexCheck>);
+            // 年龄检查：compareTarget（self/target，缺省 target）+ operator（缺省 gte）+ age
+            // 用于"老当益壮""少年英雄"一类按年龄生效的设计
+            Register("PersonAgeCheck", CraeteHandle<PersonAgeCheck>);
 
             // Terrain
             Register("TerrainCheck", CraeteHandle<TerrainCheck>);

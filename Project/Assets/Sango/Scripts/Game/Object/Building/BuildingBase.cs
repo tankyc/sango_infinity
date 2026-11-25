@@ -346,6 +346,16 @@ namespace Sango.Core
             Troop atkTroop = atk?.AsTroop();
             bool wasStanding = durability > 0;
 
+            // 【耐久伤害修正】坚城 / 固守等"城池受到的耐久伤害降低"在这里统一修正。
+            // 只对掉耐久（num < 0）派发；无订阅者时整段跳过，不创建 OverrideData。
+            // 放在 Render.ShowInfo 之前，让飘字显示的就是修正后的数值。
+            if (num < 0 && GameEvent.OnBuildingCheckDurabilityDamage != null)
+            {
+                Tools.OverrideData<int> damageData = Tools.OverrideData<int>.Create(num);
+                GameEvent.OnBuildingCheckDurabilityDamage.Invoke(this, atk, damageData);
+                num = damageData.ValueAndRecycle;
+            }
+
             if (showDamage)
             {
                 if (Render != null)

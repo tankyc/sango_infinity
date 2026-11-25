@@ -26,6 +26,9 @@ namespace Sango.Core.Player
         {
             if (troop.BelongForce != null && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
             {
+                // 【可再移动】仅再移动状态下不显示修补（Start 里还有一层硬保护）
+                if (troop.MoveRefundCount > 0) return;
+
                 // 兵器没有修复指令
                 if (troop.IsMachine) return;
 

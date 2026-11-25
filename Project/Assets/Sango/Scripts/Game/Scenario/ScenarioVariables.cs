@@ -533,10 +533,117 @@ namespace Sango.Core
         new float[] {0,   1,     1,       1,      1,       1,        1,      1,      1,       1  },      //9井
         };
         /// <summary>
-        /// 人口系统开关
+        /// 武将属性光环总开关（默认开启）。
+        ///
+        /// 【作用】关闭后 <see cref="AuraSystem"/> 不订阅任何战斗 / 移动事件，
+        /// 也不向部队写入 auraExtraAttack / auraExtraDefence / auraAssistChance，
+        /// 等于完全回到"没有光环系统"的数值口径。
+        ///
+        /// 【生效时机】
+        ///   · 开局：Scenario.Init → AuraSystem.Init 读取本值；
+        ///   · 运行中：剧本参数界面修改后立即调用 AuraSystem.SetEnabled，
+        ///     关闭会清零所有部队已获得的光环加成，重新开启会全量补算。
+        ///   · 旧存档没有本字段时保持默认 true（与 0.4.20 行为一致）。
         /// </summary>
-        [JsonProperty] public bool populationEnable = false;
+        [JsonProperty] public bool AuraEnabled = true;
 
+        // ==================================================================
+        // 武将属性光环参数（剧本参数覆盖 AuraConfigs.json 的基础模板）
+        //
+        // 【口径】AuraConfigs.json 只负责"默认模板"，AuraSystem.Init 会用下面这些值
+        // 覆盖对应字段后再计算。默认值与设计表完全一致，不动参数时行为不变。
+        // 修改后由剧本参数界面调用 AuraSystem.Reload() 立即重算。
+        // ==================================================================
+
+        /// <summary>统率光环开启阈值</summary>
+        [JsonProperty] public int auraCommandThreshold = 90;
+        /// <summary>附加光环（武/智/政/魅）要求的本人统率下限</summary>
+        [JsonProperty] public int auraCommandRequire = 90;
+        /// <summary>统率光环·攻防基础值（属性等于阈值时的数值）</summary>
+        [JsonProperty] public int auraCommandAttackBase = 4;
+        /// <summary>统率光环·攻防每多少点属性提升一档</summary>
+        [JsonProperty] public int auraCommandAttackStep = 5;
+        /// <summary>统率光环·攻防每档提升值</summary>
+        [JsonProperty] public int auraCommandAttackPerStep = 4;
+        /// <summary>统率光环·攻防上限</summary>
+        [JsonProperty] public int auraCommandAttackMax = 25;
+        /// <summary>统率光环·战法会心基础值（百分点）</summary>
+        [JsonProperty] public int auraCriticalBase = 5;
+        /// <summary>统率光环·会心每多少点属性提升一档</summary>
+        [JsonProperty] public int auraCriticalStep = 2;
+        /// <summary>统率光环·会心每档提升值（百分点）</summary>
+        [JsonProperty] public int auraCriticalPerStep = 1;
+        /// <summary>统率光环·会心上限（百分点）</summary>
+        [JsonProperty] public int auraCriticalMax = 30;
+        /// <summary>统率达到该值时光环半径 2 格（低于第一档阈值时按第一档 1 格）</summary>
+        [JsonProperty] public int auraRangeTier2 = 100;
+        /// <summary>统率达到该值时光环半径 3 格</summary>
+        [JsonProperty] public int auraRangeTier3 = 110;
+
+        /// <summary>武力光环开启阈值</summary>
+        [JsonProperty] public int auraStrengthThreshold = 90;
+        /// <summary>武力光环·暴击伤害基础值（百分点）</summary>
+        [JsonProperty] public int auraCriticalDamageBase = 2;
+        /// <summary>武力光环·暴伤每多少点属性提升一档</summary>
+        [JsonProperty] public int auraCriticalDamageStep = 4;
+        /// <summary>武力光环·暴伤每档提升值（百分点）</summary>
+        [JsonProperty] public int auraCriticalDamagePerStep = 3;
+        /// <summary>武力光环·暴伤上限（百分点）</summary>
+        [JsonProperty] public int auraCriticalDamageMax = 50;
+
+        /// <summary>智力光环开启阈值</summary>
+        [JsonProperty] public int auraIntelligenceThreshold = 90;
+        /// <summary>智力光环·计策成功率基础值（百分点）</summary>
+        [JsonProperty] public int auraSuccessBase = 3;
+        /// <summary>智力光环·计策成功每多少点属性提升一档</summary>
+        [JsonProperty] public int auraSuccessStep = 5;
+        /// <summary>智力光环·计策成功每档提升值（百分点）</summary>
+        [JsonProperty] public int auraSuccessPerStep = 3;
+        /// <summary>智力光环·计策成功率上限（百分点）</summary>
+        [JsonProperty] public int auraSuccessMax = 25;
+        /// <summary>智力光环·计策识破基础值（百分点）</summary>
+        [JsonProperty] public int auraResistBase = 5;
+        /// <summary>智力光环·识破每多少点属性提升一档</summary>
+        [JsonProperty] public int auraResistStep = 2;
+        /// <summary>智力光环·识破每档提升值（百分点）</summary>
+        [JsonProperty] public int auraResistPerStep = 1;
+        /// <summary>智力光环·识破上限（百分点）</summary>
+        [JsonProperty] public int auraResistMax = 30;
+
+        /// <summary>政治光环开启阈值</summary>
+        [JsonProperty] public int auraPoliticsThreshold = 80;
+        /// <summary>政治光环·辅助攻击基础值（百分点）</summary>
+        [JsonProperty] public int auraAssistBase = 6;
+        /// <summary>政治光环·辅助攻击每多少点属性提升一档</summary>
+        [JsonProperty] public int auraAssistStep = 10;
+        /// <summary>政治光环·辅助攻击每档提升值（百分点）</summary>
+        [JsonProperty] public int auraAssistPerStep = 9;
+        /// <summary>政治光环·辅助攻击上限（百分点）</summary>
+        [JsonProperty] public int auraAssistMax = 50;
+
+        /// <summary>魅力光环开启阈值</summary>
+        [JsonProperty] public int auraGlamourThreshold = 90;
+        /// <summary>魅力光环·每回合气力回复基础值</summary>
+        [JsonProperty] public int auraMoraleBase = 2;
+        /// <summary>魅力光环·气力回复每多少点属性提升一档</summary>
+        [JsonProperty] public int auraMoraleStep = 5;
+        /// <summary>魅力光环·气力回复每档提升值</summary>
+        [JsonProperty] public int auraMoralePerStep = 1;
+        /// <summary>魅力光环·气力回复上限</summary>
+        [JsonProperty] public int auraMoraleMax = 20;
+
+        /// <summary>军魂系数（百分比，150 = 光环数值 ×1.5，封顶后计算并向下取整）</summary>
+        [JsonProperty] public int auraMoraleSoulFactor = 150;
+
+        /// <summary>
+        /// 人口系统开关（**新人口系统** HantuPopulation）。
+        ///
+        /// 【默认关闭】不为 true 时整条人口链路都不参与结算：不增长、不产税、
+        /// 不限制征兵、不产生人口事件。剧本 / 存档里没写这个键时按 false 处理。
+        ///
+        /// 【只有一套人口系统】旧的"城市人口线性增长 + 兵役人口 + 人口产出"实现已整体移除，
+        /// 现在人口相关规则只由 <see cref="Sango.Core.HantuPopulation"/> 承担，不再有第二套开关。
+        /// </summary>
         [JsonProperty] public bool hantuPopulationEnabled;
 
         int populationGrowthPreset = 4;
@@ -549,42 +656,15 @@ namespace Sango.Core
             set => populationGrowthPreset = value >= 3 && value <= 5 ? value : 4;
         }
 
-        public bool UseLegacyPopulation => populationEnable && !hantuPopulationEnabled;
-
         /// <summary>
-        /// 基础人口增长率
-        /// </summary>
-        [JsonProperty] public float populationIncreaseBaseFactor = 0.0113f;
-
-        /// <summary>
-        /// 人口上限基础值
+        /// 人口上限基础值（新人口系统关闭时的兜底上限口径，仍被 <c>City.PopulationLimit</c> 使用）
         /// </summary>
         [JsonProperty] public int populationLimitBase = 10000;
 
         /// <summary>
-        /// 每级城市人口上限增加值
+        /// 每级城市人口上限增加值（新人口系统关闭时的兜底上限口径）
         /// </summary>
         [JsonProperty] public int populationLimitPerLevel = 5000;
-
-        /// <summary>
-        /// 基础兵役比例
-        /// </summary>
-        [JsonProperty] public float baseTroopPopulationRatio = 0.3f;
-
-        /// <summary>
-        /// 最大兵役比例
-        /// </summary>
-        [JsonProperty] public float maxTroopPopulationRatio = 0.6f;
-
-        /// <summary>
-        /// 人口对粮食消耗的影响系数
-        /// </summary>
-        [JsonProperty] public float populationFoodCostFactor = 0.001f;
-
-        /// <summary>
-        /// 人口对金钱收入的影响系数
-        /// </summary>
-        [JsonProperty] public float populationGoldIncomeFactor = 0.0005f;
 
         /// <summary>
         /// 队伍粮食基础消耗率 1粮养10兵每回合
@@ -600,16 +680,6 @@ namespace Sango.Core
         /// 城池缺粮后每回合逃跑的士兵比例
         /// </summary>
         [JsonProperty] public float runawayWhenCityFoodNotEnough = 0.1f;
-
-        /// <summary>
-        /// 民心对于收入的影响最低值
-        /// </summary>
-        [JsonProperty] public float popularSupportInfluenceMax = 60;
-
-        /// <summary>
-        /// 民心影响的正负范围
-        /// </summary>
-        [JsonProperty] public float popularSupportInfluence = 0.2f;
 
         /// <summary>
         /// 治安对于收入的影响最低值

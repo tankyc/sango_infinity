@@ -42,6 +42,31 @@ namespace Sango.UI
         protected List<GameObject> pool_inputObj = new List<GameObject>();
         protected List<GameObject> itemList = new List<GameObject>();
 
+        // ------------------------------------------------------------------
+        // 以 AddTitle 为单位的折叠 / 展开
+        // ------------------------------------------------------------------
+
+        /// <summary>当前分组标题对象（最近一次 AddTitle 创建）</summary>
+        GameObject currentGroupTitleObj;
+
+        /// <summary>当前分组标题文本（折叠状态键）</summary>
+        string currentGroupTitle;
+
+        /// <summary>当前分组下的所有行（不含标题自身）</summary>
+        List<GameObject> currentGroupItems;
+
+        /// <summary>标题对象 → 该分组下的行。点击标题时按对象精确折叠，不依赖"当前分组"。</summary>
+        readonly Dictionary<GameObject, List<GameObject>> groupItemMap = new Dictionary<GameObject, List<GameObject>>();
+
+        /// <summary>已折叠的分组（键为标题文本）。界面重建时保留，折叠状态不丢。</summary>
+        readonly Dictionary<string, bool> collapsedGroups = new Dictionary<string, bool>();
+
+        /// <summary>
+        /// 本次 ShowVariables 已创建的分组数。
+        /// 用于"第一个分组默认展开、其余默认折叠"的初始状态（用户操作后以用户状态为准）。
+        /// </summary>
+        int groupCount;
+
         /// <summary>
         /// 参数预设输入框里的名字。
         ///
@@ -90,6 +115,11 @@ namespace Sango.UI
 
         public override void OnOpen(params object[] objects)
         {
+            // 每次打开窗口都恢复默认折叠：第一个分组展开，其余折叠。
+            // RefreshSetting 不清空，保留玩家本次操作后的折叠状态。
+            collapsedGroups.Clear();
+            groupCount = 0;
+
             if(objects.Length == 1)
             {
                 onSure = null; onCancel = null;
@@ -135,6 +165,13 @@ namespace Sango.UI
 
         public void ShowVariables(Scenario scenario)
         {
+            // 重建前清空分组上下文；collapsedGroups 保留，折叠状态跨重建生效。
+            currentGroupTitleObj = null;
+            currentGroupTitle = null;
+            currentGroupItems = null;
+            groupItemMap.Clear();
+            groupCount = 0;
+
             ScenarioVariables variables = scenario.Variables;
             AddBigTitle(scenario.Name);
 
@@ -175,6 +212,82 @@ namespace Sango.UI
                 (v) => { variables.aiInfiniteActionPoint = v; });
 
             AddTitle("剧本基础参数");
+
+            // 武将属性光环总开关：
+            //   开局前改：只写进剧本参数，由 Scenario.Init → AuraSystem.Init 统一生效；
+            //   运行中改：AuraSystem.SetEnabled 立即退订事件并清零部队 aura 字段（关闭）
+            //             或重新加载配置 + 全量补算（开启）。
+            AddToggleItem("启用武将属性光环", variables.AuraEnabled, (v) =>
+            {
+                variables.AuraEnabled = v;
+                AuraSystem.SetEnabled(v);
+                // 关闭时把下方参数分组一并隐藏，避免界面出现"关了还有一大堆参数"的误导
+                RefreshSetting();
+            });
+
+            // 光环参数：数值项统一走 AddAuraItem —— 写入剧本变量后立即 Reload，
+            // 让运行中的剧本马上按新公式重算（Reload 内部同帧节流）。
+            if (variables.AuraEnabled)
+            {
+                void AddAuraItem(string label, int value, int min, int max, System.Action<int> setter)
+                {
+                    AddNumberItem(label, value, min, max, v =>
+                    {
+                        setter(v);
+                        AuraSystem.Reload();
+                    });
+                }
+
+                AddTitle("光环参数·统率（攻防/会心/范围）");
+                AddAuraItem("统率光环开启阈值", variables.auraCommandThreshold, 1, 200, v => variables.auraCommandThreshold = v);
+                AddAuraItem("附加光环统率门槛", variables.auraCommandRequire, 0, 200, v => variables.auraCommandRequire = v);
+                AddAuraItem("攻防基础值", variables.auraCommandAttackBase, 0, 100, v => variables.auraCommandAttackBase = v);
+                AddAuraItem("攻防属性步进", variables.auraCommandAttackStep, 1, 100, v => variables.auraCommandAttackStep = v);
+                AddAuraItem("攻防每档加成", variables.auraCommandAttackPerStep, 0, 100, v => variables.auraCommandAttackPerStep = v);
+                AddAuraItem("攻防上限", variables.auraCommandAttackMax, 0, 200, v => variables.auraCommandAttackMax = v);
+                AddAuraItem("会心基础(%)", variables.auraCriticalBase, 0, 100, v => variables.auraCriticalBase = v);
+                AddAuraItem("会心属性步进", variables.auraCriticalStep, 1, 100, v => variables.auraCriticalStep = v);
+                AddAuraItem("会心每档(%)", variables.auraCriticalPerStep, 0, 100, v => variables.auraCriticalPerStep = v);
+                AddAuraItem("会心上限(%)", variables.auraCriticalMax, 0, 100, v => variables.auraCriticalMax = v);
+                AddAuraItem("2格范围阈值(统率)", variables.auraRangeTier2, 0, 200, v => variables.auraRangeTier2 = v);
+                AddAuraItem("3格范围阈值(统率)", variables.auraRangeTier3, 0, 200, v => variables.auraRangeTier3 = v);
+
+                AddTitle("光环参数·武力（暴击伤害）");
+                AddAuraItem("武力光环开启阈值", variables.auraStrengthThreshold, 1, 200, v => variables.auraStrengthThreshold = v);
+                AddAuraItem("暴伤基础(%)", variables.auraCriticalDamageBase, 0, 100, v => variables.auraCriticalDamageBase = v);
+                AddAuraItem("暴伤属性步进", variables.auraCriticalDamageStep, 1, 100, v => variables.auraCriticalDamageStep = v);
+                AddAuraItem("暴伤每档(%)", variables.auraCriticalDamagePerStep, 0, 100, v => variables.auraCriticalDamagePerStep = v);
+                AddAuraItem("暴伤上限(%)", variables.auraCriticalDamageMax, 0, 200, v => variables.auraCriticalDamageMax = v);
+
+                AddTitle("光环参数·智力（计策）");
+                AddAuraItem("智力光环开启阈值", variables.auraIntelligenceThreshold, 1, 200, v => variables.auraIntelligenceThreshold = v);
+                AddAuraItem("计策成功基础(%)", variables.auraSuccessBase, 0, 100, v => variables.auraSuccessBase = v);
+                AddAuraItem("计策成功属性步进", variables.auraSuccessStep, 1, 100, v => variables.auraSuccessStep = v);
+                AddAuraItem("计策成功每档(%)", variables.auraSuccessPerStep, 0, 100, v => variables.auraSuccessPerStep = v);
+                AddAuraItem("计策成功上限(%)", variables.auraSuccessMax, 0, 100, v => variables.auraSuccessMax = v);
+                AddAuraItem("识破基础(%)", variables.auraResistBase, 0, 100, v => variables.auraResistBase = v);
+                AddAuraItem("识破属性步进", variables.auraResistStep, 1, 100, v => variables.auraResistStep = v);
+                AddAuraItem("识破每档(%)", variables.auraResistPerStep, 0, 100, v => variables.auraResistPerStep = v);
+                AddAuraItem("识破上限(%)", variables.auraResistMax, 0, 100, v => variables.auraResistMax = v);
+
+                AddTitle("光环参数·政治（辅助攻击）");
+                AddAuraItem("政治光环开启阈值", variables.auraPoliticsThreshold, 1, 200, v => variables.auraPoliticsThreshold = v);
+                AddAuraItem("辅助攻击基础(%)", variables.auraAssistBase, 0, 100, v => variables.auraAssistBase = v);
+                AddAuraItem("辅助攻击属性步进", variables.auraAssistStep, 1, 100, v => variables.auraAssistStep = v);
+                AddAuraItem("辅助攻击每档(%)", variables.auraAssistPerStep, 0, 100, v => variables.auraAssistPerStep = v);
+                AddAuraItem("辅助攻击上限(%)", variables.auraAssistMax, 0, 100, v => variables.auraAssistMax = v);
+
+                AddTitle("光环参数·魅力（气力回复）");
+                AddAuraItem("魅力光环开启阈值", variables.auraGlamourThreshold, 1, 200, v => variables.auraGlamourThreshold = v);
+                AddAuraItem("气力回复基础", variables.auraMoraleBase, 0, 100, v => variables.auraMoraleBase = v);
+                AddAuraItem("气力回复属性步进", variables.auraMoraleStep, 1, 100, v => variables.auraMoraleStep = v);
+                AddAuraItem("气力回复每档", variables.auraMoralePerStep, 0, 100, v => variables.auraMoralePerStep = v);
+                AddAuraItem("气力回复上限", variables.auraMoraleMax, 0, 200, v => variables.auraMoraleMax = v);
+
+                AddTitle("光环参数·全局");
+                AddAuraItem("军魂系数(%)", variables.auraMoraleSoulFactor, 100, 300, v => variables.auraMoraleSoulFactor = v);
+            }
+
             AddToggleItem("<color=#ee2222>编辑生效</color>", variables.ApplyEdit, (v) => { variables.ApplyEdit = v; });
 
             // 名字最大支持字数：所有名字列(SortByName)的显示宽度按 1.05 × 本值 计算
@@ -257,19 +370,13 @@ namespace Sango.UI
             //AddNumberItem("最高能力等级", variables.MaxAbilityLevel, 1, 20, (v) => { variables.MaxAbilityLevel = (byte)v; });
             //AddNumberItem("属性每点经验", variables.AttributeExpLevelNeed, 0, 10000, (v) => { variables.AttributeExpLevelNeed = (ushort)v; });
             //AddNumberItem("属性成长上限", variables.MaxAttributeGet, 0, 100, (v) => { variables.MaxAttributeGet = (byte)v; });
-            //AddToggleItem("人口系统开关", variables.populationEnable, (v) => { variables.populationEnable = v; });
-            //AddNumberItem("基础人口增长率", variables.populationIncreaseBaseFactor, 0, 1, (v) => { variables.populationIncreaseBaseFactor = v; });
-            //AddNumberItem("人口上限基础值", variables.populationLimitBase, 0, 100000, (v) => { variables.populationLimitBase = v; });
-            //AddNumberItem("每级城市人口上限增加值", variables.populationLimitPerLevel, 0, 10000, (v) => { variables.populationLimitPerLevel = v; });
-            //AddNumberItem("基础兵役比例", variables.baseTroopPopulationRatio, 0, 1, (v) => { variables.baseTroopPopulationRatio = v; });
-            //AddNumberItem("最大兵役比例", variables.maxTroopPopulationRatio, 0, 1, (v) => { variables.maxTroopPopulationRatio = v; });
-            //AddNumberItem("人口对粮食消耗的影响系数", variables.populationFoodCostFactor, 0, 0.01f, (v) => { variables.populationFoodCostFactor = v; });
-            //AddNumberItem("人口对金钱收入的影响系数", variables.populationGoldIncomeFactor, 0, 0.01f, (v) => { variables.populationGoldIncomeFactor = v; });
+            // 【已移除】旧人口系统的全部参数：
+            //   人口系统开关 / 基础人口增长率 / 基础与最大兵役比例 / 人口粮食与金钱影响系数 / 民心影响两项。
+            // 旧实现已整体删除，只保留上面「剧本人口开关」那组（新人口系统 HantuPopulation，默认关闭）。
+            // 人口上限基础值 / 每级增量仍然有效（新系统关闭时的兜底上限），但不再单独暴露给玩家调。
             AddNumberItem("队伍粮食基础消耗率", variables.baseFoodCostInTroop, 0, 100, (v) => { variables.baseFoodCostInTroop = v; });
             AddNumberItem("城池中粮食基础消耗率", variables.baseFoodCostInCity, 0, 100, (v) => { variables.baseFoodCostInCity = v; });
             AddNumberItem("城池缺粮后每回合逃跑的士兵比例", variables.runawayWhenCityFoodNotEnough, 0, 1, (v) => { variables.runawayWhenCityFoodNotEnough = v; });
-            //AddNumberItem("民心对于收入的影响最低值", variables.popularSupportInfluenceMax, 0, 100, (v) => { variables.popularSupportInfluenceMax = v; });
-            //AddNumberItem("民心影响的正负范围", variables.popularSupportInfluence, 0, 1, (v) => { variables.popularSupportInfluence = v; });
             AddNumberItem("治安对于收入的影响最低值", variables.securityInfluenceMax, 0, 100, (v) => { variables.securityInfluenceMax = v; });
             AddNumberItem("治安影响的正负范围", variables.securityInfluence, 0, 1, (v) => { variables.securityInfluence = v; });
             AddNumberItem("治安对征兵的影响值比例", variables.securityInfluenceRecruitTroops, 0, 1, (v) => { variables.securityInfluenceRecruitTroops = v; });
@@ -764,6 +871,9 @@ namespace Sango.UI
             obj.GetComponent<UITitleField>().Set(title);
             obj.SetActive(true);
             obj.transform.SetAsLastSibling();
+
+            // 大标题不参与折叠，但必须结束上一个分组，避免后续行被错误归组
+            EndGroup();
             return obj;
         }
 
@@ -784,7 +894,166 @@ namespace Sango.UI
             obj.GetComponent<UITitleField>().Set(title);
             obj.SetActive(true);
             obj.transform.SetAsLastSibling();
+
+            // 标题自身就是折叠开关：记录本组、绑定点击、恢复上次折叠状态
+            BeginGroup(obj, title);
             return obj;
+        }
+
+        /// <summary>
+        /// 开始一个新分组（AddTitle 调用）。
+        /// 标题文本同时作为折叠状态的键，界面重建后可恢复。
+        /// </summary>
+        void BeginGroup(GameObject titleObj, string title)
+        {
+            currentGroupTitleObj = titleObj;
+            currentGroupTitle = title;
+            currentGroupItems = new List<GameObject>();
+            groupItemMap[titleObj] = currentGroupItems;
+
+            groupCount++;
+            // 首次出现的分组：第一个展开，其余默认折叠；
+            // 玩家手动切换过后，以 collapsedGroups 里的记录为准（重建不覆盖用户操作）。
+            if (!collapsedGroups.TryGetValue(title, out bool collapsed))
+            {
+                collapsed = groupCount > 1;
+                collapsedGroups[title] = collapsed;
+            }
+
+            UpdateTitleFoldText(titleObj, title, collapsed);
+            BindTitleFoldButton(titleObj, title);
+        }
+
+        /// <summary>结束当前分组（大标题 / 重建时调用）</summary>
+        void EndGroup()
+        {
+            currentGroupTitleObj = null;
+            currentGroupTitle = null;
+            currentGroupItems = null;
+        }
+
+        /// <summary>该分组当前是否折叠</summary>
+        bool IsGroupCollapsed(string title)
+        {
+            return !string.IsNullOrEmpty(title)
+                && collapsedGroups.TryGetValue(title, out bool collapsed)
+                && collapsed;
+        }
+
+        /// <summary>标题文本加折叠指示（▼ 展开 / ▶ 折叠）</summary>
+        void UpdateTitleFoldText(GameObject titleObj, string title, bool collapsed)
+        {
+            if (titleObj == null)
+                return;
+            UITitleField field = titleObj.GetComponent<UITitleField>();
+            if (field != null)
+                field.Set((collapsed ? "▶ " : "▼ ") + title);
+        }
+
+        /// <summary>给标题挂点击折叠（复用对象先清旧监听）</summary>
+        void BindTitleFoldButton(GameObject titleObj, string title)
+        {
+            if (titleObj == null)
+                return;
+
+            UnityEngine.Events.UnityAction action = () => ToggleGroup(titleObj, title);
+
+            // 根对象：保证有一层可点击热区（模板只有 Text，补全透明 Image）
+            BindFoldClick(titleObj, null, action);
+
+            // titleField / bg 等子节点也是独立的 raycast 目标：
+            // 只给根对象挂 Button 时，点在文字或背景上会被子节点截获，折叠点不动。
+            // 这里把标题下所有 Graphic 都挂上同一个折叠回调，点哪里都能折。
+            UnityEngine.UI.Graphic[] graphics =
+                titleObj.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                UnityEngine.UI.Graphic g = graphics[i];
+                if (g == null || g.gameObject == titleObj)
+                    continue;
+                BindFoldClick(g.gameObject, g, action);
+            }
+        }
+
+        /// <summary>
+        /// 给标题的某个节点挂折叠点击。
+        /// 复用已有 Button（先清旧监听）；没有 Graphic 时补一层全透明 Image 作为热区。
+        /// </summary>
+        void BindFoldClick(GameObject obj, UnityEngine.UI.Graphic target, UnityEngine.Events.UnityAction action)
+        {
+            if (obj == null)
+                return;
+
+            UnityEngine.UI.Graphic graphic = target != null ? target : obj.GetComponent<UnityEngine.UI.Graphic>();
+            if (graphic == null)
+            {
+                UnityEngine.UI.Image image = obj.AddComponent<UnityEngine.UI.Image>();
+                image.color = new UnityEngine.Color(1f, 1f, 1f, 0f);
+                graphic = image;
+            }
+
+            // 子节点原本可能是纯装饰（raycastTarget=false），必须打开才能点到
+            graphic.raycastTarget = true;
+
+            UnityEngine.UI.Button button = obj.GetComponent<UnityEngine.UI.Button>();
+            if (button == null)
+            {
+                button = obj.AddComponent<UnityEngine.UI.Button>();
+                button.targetGraphic = graphic;
+            }
+            else if (button.targetGraphic == null)
+            {
+                button.targetGraphic = graphic;
+            }
+
+            // 标题只做折叠，不需要按下的颜色变化，避免文字/背景闪色
+            button.transition = UnityEngine.UI.Selectable.Transition.None;
+
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(action);
+        }
+
+        /// <summary>切换指定标题分组的折叠状态</summary>
+        void ToggleGroup(GameObject titleObj, string title)
+        {
+            bool collapsed = !IsGroupCollapsed(title);
+            collapsedGroups[title] = collapsed;
+
+            if (groupItemMap.TryGetValue(titleObj, out List<GameObject> items))
+            {
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (items[i] != null)
+                        items[i].SetActive(!collapsed);
+                }
+            }
+
+            UpdateTitleFoldText(titleObj, title, collapsed);
+        }
+
+        /// <summary>
+        /// 把一行加入当前分组并按折叠状态决定是否显示。
+        /// AddInputItem 需要"先失活配置组件、后决定显示"，所以单独暴露本方法。
+        /// </summary>
+        void AttachToGroup(GameObject obj)
+        {
+            if (currentGroupItems != null)
+            {
+                currentGroupItems.Add(obj);
+                if (IsGroupCollapsed(currentGroupTitle))
+                {
+                    obj.SetActive(false);
+                    return;
+                }
+            }
+            obj.SetActive(true);
+        }
+
+        /// <summary>登记一行并加入当前分组（itemList.Add + AttachToGroup）</summary>
+        void RegisterItem(GameObject obj)
+        {
+            itemList.Add(obj);
+            AttachToGroup(obj);
         }
 
 
@@ -816,8 +1085,6 @@ namespace Sango.UI
                 obj.name = "buttonObj";
             }
 
-            itemList.Add(obj);
-
             UITitleField field = obj.GetComponent<UITitleField>();
             if (field != null)
                 field.Set(title);
@@ -841,7 +1108,7 @@ namespace Sango.UI
             if (onClick != null)
                 button.onClick.AddListener(() => onClick.Invoke());
 
-            obj.SetActive(true);
+            RegisterItem(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }
@@ -906,7 +1173,8 @@ namespace Sango.UI
             if (onChange != null)
                 input.onEndEdit.AddListener((text) => onChange(text));
 
-            obj.SetActive(true);
+            // 输入行已配置完成：加入当前分组并按折叠状态决定显示
+            AttachToGroup(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }
@@ -925,9 +1193,8 @@ namespace Sango.UI
                 obj.name = "integerObj";
             }
 
-            itemList.Add(obj);
             obj.GetComponent<UIIntegerField>().Set(title, number, min, max, onChange);
-            obj.SetActive(true);
+            RegisterItem(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }
@@ -989,9 +1256,8 @@ namespace Sango.UI
                 obj = GameObject.Instantiate(floatObj, floatObj.transform.parent);
                 obj.name = "floatObj";
             }
-            itemList.Add(obj);
             obj.GetComponent<UIFloatField>().Set(title, number, min, max, onChange);
-            obj.SetActive(true);
+            RegisterItem(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }
@@ -1009,9 +1275,8 @@ namespace Sango.UI
                 obj = GameObject.Instantiate(integerSliderObj, integerSliderObj.transform.parent);
                 obj.name = "integerSliderObj";
             }
-            itemList.Add(obj);
             obj.GetComponent<UIIntegerSliderField>().Set(title, value, min, max, onValueChange);
-            obj.SetActive(true);
+            RegisterItem(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }
@@ -1029,9 +1294,8 @@ namespace Sango.UI
                 obj = GameObject.Instantiate(floatSliderObj, floatSliderObj.transform.parent);
                 obj.name = "floatSliderObj";
             }
-            itemList.Add(obj);
             obj.GetComponent<UIFloatSliderField>().Set(title, value, min, max, onValueChange);
-            obj.SetActive(true);
+            RegisterItem(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }
@@ -1049,9 +1313,8 @@ namespace Sango.UI
                 obj = GameObject.Instantiate(toggleObj, toggleObj.transform.parent);
                 obj.name = "toggleObj";
             }
-            itemList.Add(obj);
             obj.GetComponent<UIToggleField>().Set(title, value, onValueChange);
-            obj.SetActive(true);
+            RegisterItem(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }
@@ -1069,9 +1332,8 @@ namespace Sango.UI
                 obj = GameObject.Instantiate(dropdownObj, dropdownObj.transform.parent);
                 obj.name = "dropdownObj";
             }
-            itemList.Add(obj);
             obj.GetComponent<UIDropdownField>().Set(title, value, values, onValueChange);
-            obj.SetActive(true);
+            RegisterItem(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }
@@ -1089,9 +1351,8 @@ namespace Sango.UI
                 obj = GameObject.Instantiate(toggleGroupObj, toggleGroupObj.transform.parent);
                 obj.name = "toggleGroupObj";
             }
-            itemList.Add(obj);
             obj.GetComponent<UIToggleGroupField>().Set(title, value, values, onValueChange);
-            obj.SetActive(true);
+            RegisterItem(obj);
             obj.transform.SetAsLastSibling();
             return obj;
         }

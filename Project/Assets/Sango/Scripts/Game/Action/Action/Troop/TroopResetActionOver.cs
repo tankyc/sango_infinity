@@ -12,10 +12,21 @@ namespace Sango.Core.Action
     /// </summary>
     public class TroopResetActionOver : TroopTroopActionBase
     {
+        /// <summary>
+        /// 生效方式：0 仅"再行动" / 1 仅"再移动" / 2 两者（默认）。
+        ///
+        /// <para>未配置时取 2：旧配置的语义就是"再动一次"，必须保持向后兼容。</para>
+        /// </summary>
+        int mode;
+
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
             value = 1;
             base.Init(p, sangoObjects);
+
+            // 缺省必须是 2：p.Value<int>("mode") 在键缺失时返回 0，会把旧配置误判成"仅再行动"
+            Newtonsoft.Json.Linq.JToken token = p["mode"];
+            mode = token != null ? token.ToObject<int>() : 2;
         }
         public override void Clear()
         {
@@ -42,7 +53,13 @@ namespace Sango.Core.Action
             if (condition != null && !condition.Check(new TroopConditionDatabase(target)))
                 return;
 
-            target.ActionOverCount += value;
+            // 两种退还方式独立计数：
+            //   再行动（ActionOverCount）→ isExtraAction = true，可以继续攻击；
+            //   再移动（MoveRefundCount）→ 只退还行动权并重建移动范围，不提供攻击机会。
+            if (mode != 1)
+                target.ActionOverCount += value;
+            if (mode != 0)
+                target.MoveRefundCount += value;
         }
     }
 }

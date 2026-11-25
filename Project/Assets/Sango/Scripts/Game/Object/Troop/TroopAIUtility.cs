@@ -139,6 +139,21 @@ namespace Sango.Core
             for (int i = 0, count = skill_list.Count; i < count; i++)
             {
                 SkillInstance skill = skill_list[i];
+
+                // 【沉默 · AI 侧硬排除】被沉默时战法 / 计略根本不进入候选池，
+                // 而不是"排进去、执行时被 SpellSkill 拦下" —— 后者会消耗一次行动，
+                // 表现为 AI 站在城外白送一回合。
+                //
+                // 为什么在 CanBeSpell 之外再写一次：
+                //   · CanBeSpell 是"可用性"总闸（能量、沉默、未来的其他条件），
+                //     这里显式表达 AI 的**策略意图**，避免以后调整 CanBeSpell 语义时
+                //     悄悄把沉默的部队放回候选池；
+                //   · 沉默部队直接 continue，连后面的移动范围 BFS / 施法格缓存都不进入，
+                //     顺带省掉这次评估的全部开销。
+                // 普攻（IsNormal）不受沉默影响，必须放行。
+                if (troop.isSilence && !skill.IsNormal())
+                    continue;
+
                 if (!skill.CanBeSpell(troop))
                     continue;
 

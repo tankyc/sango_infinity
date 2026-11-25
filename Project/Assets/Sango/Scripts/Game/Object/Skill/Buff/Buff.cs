@@ -24,15 +24,89 @@ namespace Sango.Core
         [JsonProperty] public JArray buffEffects;
 
         /// <summary>
-        /// 属于"不能行动"的控制态效果类名。
+        /// 本 Buff 声明的**状态位**（取值见 <see cref="TroopStateFlag"/>，0 = 未配置）。
         ///
-        /// 【为什么是这两个】对应原版 <c>UnitState != UnitState_Normal</c>（s11_enum_scen.h:926-938）：
-        /// 原版有 混乱 / 伪报 / 暴走 / 足止 / 诱引 / 回避 六种异常，本项目目前只实现了两种效果：
-        ///   · <c>Stun</c>   —— 混乱类，回合开始直接置 ActionOver（不能行动）；
-        ///   · <c>Escape</c> —— 伪报类，回合开始被送回城。
-        /// 其余四种原版状态尚未实现，等实现后在这里补类名即可。
+        /// 【为什么允许数据显式声明】绝大多数情况由 <see cref="buffEffects"/> 的效果类名自动推导
+        /// （见 <see cref="GetStateFlag"/>），零配置即可生效；该字段是给 Mod / 特殊情况留的
+        /// **强制覆盖**入口（例如"某个效果类要按 Buff 区分成不同状态"）。
+        /// 一旦非 0，就不再按类名推导，避免数据与代码两套真相互相打架。
         /// </summary>
-        static readonly string[] ControlEffectClasses = { "Stun", "Escape" };
+        [JsonProperty] public int stateFlag;
+
+        /// <summary>
+        /// 本 Buff 对部队状态位域的**贡献值**。
+        ///
+        /// 【写入 / 移除成对】该方法只负责"算"，不负责"改"。真正的置位 / 清位由
+        /// <see cref="BuffManager.GetStateFlags"/> 在每次 Buff 增删后整体重算一次
+        /// （见 <see cref="TroopStateFlag"/> 的说明）。这样任何移除路径都不会漏清位，
+        /// 同一部队叠两个同类 Buff 时移除其中一个也不会把状态误清掉。
+        ///
+        /// 【推导规则】
+        ///   · <c>noZoc = true</c> → 追加 <see cref="TroopStateFlag.Chaos"/>（混乱不施加 ZOC）；
+        ///   · <see cref="stateFlag"/> 非 0 → 以数据为准，不再推导；
+        ///   · 否则按 <see cref="buffEffects"/> 里的效果类名逐条映射。
+        /// </summary>
+        /// <returns>状态位掩码（0 = 不产生任何状态）</returns>
+        public int GetStateFlag()
+        {
+            int flag = stateFlag;
+
+            if (noZoc)
+                flag |= (int)TroopStateFlag.Chaos;
+
+            // 数据显式声明优先：避免"策划只想给状态位、却因为效果类名被追加了别的位"
+            if (stateFlag != 0)
+                return flag;
+
+            if (buffEffects == null || buffEffects.Count == 0)
+                return flag;
+
+            for (int i = 0; i < buffEffects.Count; i++)
+            {
+                JObject obj = buffEffects[i] as JObject;
+                if (obj == null) continue;
+
+                string cls = obj.Value<string>("class");
+                if (string.IsNullOrEmpty(cls)) continue;
+
+                flag |= GetEffectStateFlag(cls);
+            }
+            return flag;
+        }
+
+        /// <summary>
+        /// 单个效果类名 → 状态位。
+        ///
+        /// 【为什么是 switch 而不是反射】效果类名是数据里的短字符串、数量有限，
+        /// switch 编译成跳转表，且新增效果类时在这里补一行即可，
+        /// 不会出现"反射拿到类名却漏配"的隐性失败。
+        /// </summary>
+        /// <param name="effectClass">buffEffects[].class 的类名</param>
+        /// <returns>状态位掩码（未识别的类返回 0）</returns>
+        static int GetEffectStateFlag(string effectClass)
+        {
+            switch (effectClass)
+            {
+                case "Stun": return (int)TroopStateFlag.Stun;
+                case "Escape": return (int)TroopStateFlag.Escape;
+                case "MoveSeal": return (int)TroopStateFlag.MoveSeal;
+                case "Berserk": return (int)TroopStateFlag.Berserk;
+                case "Silence": return (int)TroopStateFlag.Silence;
+                case "Poison": return (int)TroopStateFlag.Poison;
+                case "Burn": return (int)TroopStateFlag.Burn;
+
+                // 冰冻的字面语义就是"无法行动"，因此同时置 Freeze 与 Stun：
+                // 业务侧只判 Stun 也能正确拦住行动，需要区分来源时再查 Freeze。
+                case "Freeze": return (int)(TroopStateFlag.Freeze | TroopStateFlag.Stun);
+
+                case "Invincible": return (int)TroopStateFlag.Invincible;
+                case "Shield": return (int)TroopStateFlag.Shield;
+
+                // AddAttack / AddDefence 是纯数值修正（直接改 extraAttack / extraDefence），
+                // 不属于"异常状态"，不占状态位。
+                default: return 0;
+            }
+        }
 
         /// <summary>
         /// 本 Buff 是否会让部队**无法正常行动**（原版 <c>state != Normal</c>）。
@@ -41,11 +115,12 @@ namespace Sango.Core
         ///   · <c>Troop.HasControlBuff()</c> 对任何 Buff（包括加攻/加防这类增益）都为真；
         ///   · 反击判定 <c>SkillInstance</c> 里"被控则不能反击"因此对所有携带 Buff 的部队生效；
         ///   · AI 评分把"目标身上有任何 Buff"当成"目标被控"来加权。
-        /// 这是明显的误判，现改为按 <see cref="buffEffects"/> 里实际挂的效果类名判定。
+        /// 现改为与状态位域同一套语义（<see cref="TroopStateFlags.ControlMask"/>），
+        /// 避免"类名判定"与"状态位判定"出现两套结论。
         /// </summary>
         public bool IsControlBuff()
         {
-            return HasEffectClass(ControlEffectClasses);
+            return (GetStateFlag() & TroopStateFlags.ControlMask) != 0;
         }
 
         /// <summary>
@@ -57,10 +132,8 @@ namespace Sango.Core
         /// </summary>
         public bool IsEscapeBuff()
         {
-            return HasEffectClass(EscapeEffectClasses);
+            return (GetStateFlag() & (int)TroopStateFlag.Escape) != 0;
         }
-
-        static readonly string[] EscapeEffectClasses = { "Escape" };
 
         // ==================== 能力百分比修正 ====================
         //
@@ -106,27 +179,5 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public bool noZoc;
 
-        /// <summary>buffEffects 里是否挂了指定类名集合中的任意一个效果</summary>
-        bool HasEffectClass(string[] classes)
-        {
-            if (buffEffects == null || classes == null || classes.Length == 0)
-                return false;
-
-            for (int i = 0; i < buffEffects.Count; i++)
-            {
-                JObject obj = buffEffects[i] as JObject;
-                if (obj == null) continue;
-
-                string cls = obj.Value<string>("class");
-                if (string.IsNullOrEmpty(cls)) continue;
-
-                for (int j = 0; j < classes.Length; j++)
-                {
-                    if (cls == classes[j])
-                        return true;
-                }
-            }
-            return false;
-        }
     }
 }

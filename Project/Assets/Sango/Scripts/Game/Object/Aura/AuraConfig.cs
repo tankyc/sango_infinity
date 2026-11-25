@@ -12,17 +12,17 @@ namespace Sango.Core
     /// </summary>
     public enum AuraEffectType : int
     {
-        /// <summary>攻击力（范围覆盖，写 Troop.auraExtraAttack）</summary>
+        /// <summary>攻击力（落点由 Scope 决定，通常范围覆盖，写 Troop.auraExtraAttack）</summary>
         Attack = 1,
-        /// <summary>防御力（范围覆盖，写 Troop.auraExtraDefence）</summary>
+        /// <summary>防御力（落点由 Scope 决定，通常范围覆盖，写 Troop.auraExtraDefence）</summary>
         Defence = 2,
-        /// <summary>物理战法会心率（本队结算，百分点）</summary>
+        /// <summary>物理战法会心率（百分点，落点由 Scope 决定）</summary>
         SkillCriticalRate = 3,
-        /// <summary>暴击倍率（本队结算，百分点）</summary>
+        /// <summary>暴击倍率（百分点，落点由 Scope 决定）</summary>
         SkillCriticalDamage = 4,
-        /// <summary>计策成功率（本队结算，百分点）</summary>
+        /// <summary>计策成功率（百分点，落点由 Scope 决定）</summary>
         SkillSuccessRate = 5,
-        /// <summary>计策识破率（本队结算，降低对方成功率，百分点）</summary>
+        /// <summary>计策识破率（百分点，降低对方成功率，落点由 Scope 决定）</summary>
         SkillResistRate = 6,
         /// <summary>
         /// 辅助攻击概率（范围结算，百分点）。
@@ -62,7 +62,9 @@ namespace Sango.Core
         [JsonProperty] public int Max;
 
         /// <summary>
-        /// 作用范围：0 = 光环半径内同势力部队（攻防 / 辅助攻击）；1 = 仅来源本队（会心 / 暴伤 / 计策 / 识破 / 气力）。
+        /// 作用范围：0 = 光环半径内同势力部队（所有效果都可选）；1 = 仅来源本队。
+        ///
+        /// 【逐项生效】每个 effect 独立判定，同一光环里可以"攻防范围生效、会心只本队"。
         /// </summary>
         [JsonProperty] public int Scope;
 
@@ -117,7 +119,13 @@ namespace Sango.Core
         /// <summary>半径加成值（武干 +1 格）</summary>
         [JsonProperty] public int RangeFeatureAdd = 1;
 
-        /// <summary>半径分档表</summary>
+        /// <summary>
+        /// 半径分档表。
+        ///
+        /// 【只有统率光环的这一份会被使用】AuraSystem.Init 会把它复制成全局表，
+        /// 所有光环（武/智/政/魅）的半径都按提供者统率查这张表；
+        /// 各光环自己的 RangeTiers 仅在全局表缺失时作为兜底。效果数值仍按各自属性计算。
+        /// </summary>
         [JsonProperty] public List<AuraRangeTier> RangeTiers = new List<AuraRangeTier>();
 
         /// <summary>本光环提供的效果列表（统率光环含攻防 + 会心两项）</summary>

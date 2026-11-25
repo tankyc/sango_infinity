@@ -432,15 +432,9 @@ namespace Sango.Core
         public int PopulationLimit => HantuPopulation.Enabled ? HantuPopulation.UrbanCapacity(this)
             : Scenario.Cur.Variables.populationLimitBase + CityLevelType.Id * Scenario.Cur.Variables.populationLimitPerLevel;
 
-        /// <summary>
-        /// 最大兵役人口
-        /// </summary>
-        public int MaxTroopPopulation => (int)(population * Scenario.Cur.Variables.maxTroopPopulationRatio);
-
-        /// <summary>
-        /// 基础兵役人口
-        /// </summary>
-        public int BaseTroopPopulation => (int)(population * Scenario.Cur.Variables.baseTroopPopulationRatio);
+        // 【已移除】MaxTroopPopulation / BaseTroopPopulation：
+        // 它们是旧"兵役人口"模型的口径（人口 × 比例），随旧人口系统一起删除；
+        // 兵役人口字段 troopPopulation 仍保留（兵种建造 / 事件 / 地图编辑器在用），但不再有上限推导。
         /// <summary>
         /// 边界线
         /// </summary>
@@ -2014,32 +2008,9 @@ namespace Sango.Core
         /// <returns>是否成功</returns>
         public override bool OnMonthStart(Scenario scenario)
         {
-            int pop = 0;
-            int troopPop = 0;
-            if (scenario.Variables.UseLegacyPopulation)
-            {
-                // 计算人口增长
-                pop = GameRandom.Random((int)(population * population_increase_factor * extraPopulationFactor), 0.1f);
-                // 确保人口不超过上限
-                int newPopulation = population + pop;
-                if (newPopulation > PopulationLimit)
-                {
-                    pop = PopulationLimit - population;
-                    newPopulation = PopulationLimit;
-                }
-                population = newPopulation;
-
-                // 计算兵役人口增长
-                troopPop = (int)(pop * scenario.Variables.baseTroopPopulationRatio);
-                int newTroopPopulation = troopPopulation + troopPop;
-                // 确保兵役人口不超过最大限制
-                if (newTroopPopulation > MaxTroopPopulation)
-                {
-                    newTroopPopulation = MaxTroopPopulation;
-                }
-                troopPopulation = newTroopPopulation;
-            }
-
+            // 【只有一套人口系统】旧的"城市人口线性增长 + 兵役人口按比例增长"结算已整体移除。
+            // 人口变化统一由 HantuPopulation（城镇 / 农村人口、季度结算）负责，
+            // 总开关是 ScenarioVariables.hantuPopulationEnabled（默认关闭 = 完全不结算人口）。
             if (BelongCorps == null)
                 return true;
 
@@ -2386,11 +2357,8 @@ namespace Sango.Core
             int foodCost = 0;
             // 军队粮食消耗
             foodCost += (int)System.Math.Ceiling(scenario.Variables.baseFoodCostInCity * (troops + woundedTroops));
-            // 人口粮食消耗
-            if (scenario.Variables.UseLegacyPopulation)
-            {
-                foodCost += (int)System.Math.Ceiling(population * scenario.Variables.populationFoodCostFactor);
-            }
+            // 【人口粮食消耗】跟随旧的线性人口模型一并移除：
+            // 新人口系统的口粮通过 HantuPopulation.FoodTax（税粮/消费）结算，不再在这里扣。
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(foodCost);
             GameEvent.OnCityCalculateFoodCost?.Invoke(this, scenario, overrideData);
@@ -3370,7 +3338,17 @@ namespace Sango.Core
                 Person byLeader = atk.Leader;
                 if (byLeader != null && !byLeader.IsDead)
                     charisma = System.Math.Max(charisma, byLeader.Glamour);
-                devDestroyCount = devCount - System.Math.Min(devCount, charisma / 20);
+                // 【安民询问】持「安民」等特技的攻方可保留更多内政设施：
+                // 在"主将魅力 / 20"的基础名额上追加保留座数（int.MaxValue 表示全部保留）。
+                // 无订阅者时保持原值，不创建 OverrideData。
+                int keepCount = charisma / 20;
+                if (GameEvent.OnCityCalculateBuildingKeepCount != null)
+                {
+                    Tools.OverrideData<int> keepData = Tools.OverrideData<int>.Create(keepCount);
+                    GameEvent.OnCityCalculateBuildingKeepCount.Invoke(this, atk, keepData);
+                    keepCount = keepData.ValueAndRecycle;
+                }
+                devDestroyCount = devCount - System.Math.Min(devCount, keepCount);
             }
 
             for (int i = 0; i < devCount; i++)
@@ -5814,13 +5792,10 @@ namespace Sango.Core
             GameEvent.OnCityJobGainTechniquePoint?.Invoke(this, jobId, personList, overrideData);
             techniquePointGain = overrideData.ValueAndRecycle;
 
+            // 征兵上限只由新人口系统的"可征额"限制（旧"兵役人口"口径已移除）
             if (variables.hantuPopulationEnabled)
             {
                 totalValue = Math.Min(totalValue, HantuPopulation.RecruitLimit(this));
-            }
-            else if (variables.UseLegacyPopulation)
-            {
-                totalValue = Math.Min(totalValue, troopPopulation);
             }
 
             totalValue = Math.Min(totalValue, TroopsLimit - troops);
@@ -5857,14 +5832,10 @@ namespace Sango.Core
                 person.ActionOver = true;
             }
 
+            // 征兵从新人口系统扣除（城镇人口 → 士兵）；旧"兵役人口 + 总人口"双扣口径已移除
             if (variables.hantuPopulationEnabled)
             {
                 HantuPopulation.ChargeRecruitment(this, totalValue);
-            }
-            else if (variables.UseLegacyPopulation)
-            {
-                troopPopulation -= totalValue;
-                population -= totalValue;
             }
 
             //士气减少

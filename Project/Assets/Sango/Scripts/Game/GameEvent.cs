@@ -712,6 +712,78 @@ namespace Sango.Core
         public static EventDelegate<Troop, SkillInstance, Cell, OverrideData<int>> OnTroopCalculateSkillCriticalFactor;
 
         /// <summary>
+        /// 询问"是否允许给这支部队施加状态"。被施加方把 Value 置为 false 即免疫本次 Buff。
+        ///
+        /// <para>参数：被施加方部队、Buff Id、是否允许（默认 true）。</para>
+        /// <para>
+        /// 【性能约定】派发点必须先判 null；无订阅者时不要创建 OverrideData，
+        /// 否则每次上状态都会多一次池化对象往返。
+        /// </para>
+        /// </summary>
+        public static EventDelegate<Troop, int, OverrideData<bool>> OnTroopCheckBuff;
+
+        /// <summary>
+        /// 询问"是否允许这支部队被战法位移"。被位移方把 Value 置为 false 即免疫本次位移。
+        ///
+        /// <para>参数：被位移方部队、施法方部队、是否允许（默认 true）。</para>
+        /// <para>
+        /// 【与 OnTroopSkillOffset 的区别】那个是"位移已经发生"之后的通知（猛者负伤等），
+        /// 这个是位移结算之前的否决点（铁壁：不会被敌方战法位移）。
+        /// </para>
+        /// </summary>
+        public static EventDelegate<Troop, Troop, OverrideData<bool>> OnTroopCheckSkillOffset;
+
+        /// <summary>
+        /// 询问"这栋建筑本次受到的耐久伤害是否要修正"（坚城 / 固守：城池耐久伤害降低）。
+        ///
+        /// <para>参数：建筑本体、攻击来源（可能是 Troop 或 SkillInstance）、耐久变化量（负数=受伤）。</para>
+        /// <para>
+        /// 【性能约定】派发点先判 <c>num &lt; 0</c> 且事件非 null：回复耐久不派发，
+        /// 无订阅者时也不创建 OverrideData。
+        /// </para>
+        /// </summary>
+        public static EventDelegate<BuildingBase, SangoObject, OverrideData<int>> OnBuildingCheckDurabilityDamage;
+
+        /// <summary>
+        /// 道具授予完成后派发（一次性消耗品在这里生效并移除自身，如万寿果）。
+        ///
+        /// <para>参数：执行操作的城市、目标武将、被授予的道具。</para>
+        /// <para>
+        /// 【派发时机】<c>ItemGrantRules.Grant</c> 里在 <c>person.InitPersonActions()</c> **之后**、
+        /// 写日志之前。放在重建之后是为了让道具自带的 Action 已经装配好，能收到本次通知。
+        /// </para>
+        /// </summary>
+        public static EventDelegate<City, Person, ItemType> OnItemGranted;
+
+        /// <summary>
+        /// 询问"登用武将的最终成功率"（伯乐 / 蜀相 / 论客等人事类特技）。
+        ///
+        /// <para>
+        /// 参数：执行者、目标武将、登用类型（<c>PersonRecruitType</c>）、成功率（0-100）。
+        /// 监听者可以加减百分点或按百分比缩放；派发点会做 0-100 截断。
+        /// </para>
+        /// <para>
+        /// 【与 RecruitPersonProbabilityOverride 的区别】那是整段替换算式（单委托，会互相覆盖）；
+        /// 本事件是"在既有算式结果上做增量修正"，可以被多个特技同时订阅。
+        /// </para>
+        /// </summary>
+        public static EventDelegate<Person, Person, int, OverrideData<int>> OnPersonRecruitProbability;
+
+        /// <summary>
+        /// 询问"城陷时攻方可保留多少座内政设施"（安民：占领城池保留建筑）。
+        ///
+        /// <para>
+        /// 参数：被攻陷的城池、攻方部队、可保留座数（初始 = 攻方主将魅力 / 20）。
+        /// 监听者可以追加座数；置为 <c>int.MaxValue</c> 表示全部保留。
+        /// </para>
+        /// <para>
+        /// 【为什么不做成"是否全保留"的布尔】原版的存留本来就是"按名额"的连续量，
+        /// 用座数语义可以同时表达"多保留 3 座"和"全部保留"，也不破坏既有的魅力公式。
+        /// </para>
+        /// </summary>
+        public static EventDelegate<City, Troop, OverrideData<int>> OnCityCalculateBuildingKeepCount;
+
+        /// <summary>
         /// 当部队兵力变化时
         /// </summary>
         public static EventDelegate<Troop, SangoObject, int, OverrideData<int>> OnTroopChangeTroops;

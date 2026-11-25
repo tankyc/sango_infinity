@@ -52,11 +52,40 @@ namespace Sango.Core
         List<BuffEffect> effects;
         public Troop Target => Manager.Master;
 
+        /// <summary>
+        /// 本实例对部队状态位域的贡献值（<see cref="Buff.GetStateFlag"/> 的**缓存**）。
+        ///
+        /// 【为什么缓存】Buff 是静态数据，位域结果在运行期不会变；而
+        /// <see cref="BuffManager.GetStateFlags"/> 每次 Buff 增删 / 到期 / 读档都要全量重算。
+        /// 不缓存时每次重算都要遍历 buffEffects 的 JObject 并做字符串比较；
+        /// 缓存后重算退化为"N 次整数或运算"（N = 该部队身上的 Buff 数，通常 0~3），
+        /// 单次开销稳定在纳秒级，且与效果类数量无关。
+        ///
+        /// 【失效时机】只在 <see cref="Init"/> 里重算；Buff 数据在开局加载后不再热更新，
+        /// 因此不需要额外失效逻辑。读档走 <see cref="BuffManager.Init"/> → 逐实例 Init，天然重算。
+        /// </summary>
+        int cachedStateFlag;
+
+        /// <summary>本实例贡献的状态位（缓存值，见 <see cref="cachedStateFlag"/>）</summary>
+        public int StateFlag => cachedStateFlag;
+
         public void Init(BuffManager manager, Buff buff, Troop master)
         {
             Manager = manager;
             Master = master;
             Buff = buff;
+
+            // 数据缺失时贡献值归 0（Buff.GetStateFlag 也需要非空 Buff 才能算）
+            cachedStateFlag = Buff != null ? Buff.GetStateFlag() : 0;
+
+            // 【防御】Buff 数据被删（老存档里存了已移除的 Buff Id）时解析结果为 null，
+            // 后续 Buff.asset / Buff.buffEffects 都会空引用。这里只记日志并保留实例骨架，
+            // 由 BuffManager 的状态重算把它当作"无状态"处理，等下次存读档自然清掉。
+            if (Buff == null)
+            {
+                Sango.Log.Error($"[Buff] BuffInstance.Init: Buff(Id={BuffId}) 在剧本数据中不存在，已跳过效果与特效初始化");
+                return;
+            }
 
             // 【诊断】传入的 BuffManager 尚未绑定部队（未 Init）时，特效层拿不到渲染体。
             // 说明：BuffManager.Master 的 set 访问器不可访问（由 BuffManager.Init 内部赋值），
@@ -114,7 +143,11 @@ namespace Sango.Core
 
         public override void Clear()
         {
-            Manager.ReleaseAsset(Buff.asset);
+            // 【防御】读档后若 Buff 已从剧本数据里删除，Buff 解析为 null；
+            // 或实例尚未 Init（Manager 未绑定）就被 Clear，都可能在这里空引用。
+            if (Manager != null && Buff != null)
+                Manager.ReleaseAsset(Buff.asset);
+
             if (effects != null)
             {
                 for (int i = 0; i < effects.Count; i++)
@@ -127,13 +160,13 @@ namespace Sango.Core
 
         public bool IsControlBuff()
         {
-            return Buff.IsControlBuff();
+            return Buff != null && Buff.IsControlBuff();
         }
 
         /// <summary>是否为伪报（原版 UnitState_Gihou），见 <see cref="Buff.IsEscapeBuff"/></summary>
         public bool IsEscapeBuff()
         {
-            return Buff.IsEscapeBuff();
+            return Buff != null && Buff.IsEscapeBuff();
         }
     }
 }

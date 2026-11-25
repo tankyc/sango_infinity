@@ -15,6 +15,10 @@ namespace Sango.Core.Player
 
         protected override void OnTroopActionContextMenuShow(IContextMenuData menuData, Troop troop, Cell actionCell)
         {
+            // 【可再移动】仅再移动状态下不显示战法（Start 里还有一层硬保护）
+            if (troop != null && troop.MoveRefundCount > 0)
+                return;
+
             if (troop.BelongForce != null && troop.BelongForce.IsPlayer && troop.BelongForce == Scenario.Cur.CurRunForce)
             {
                 TargetTroop = troop;

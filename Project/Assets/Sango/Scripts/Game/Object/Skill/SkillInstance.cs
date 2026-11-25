@@ -690,6 +690,15 @@ namespace Sango.Core
         public bool CanBeSpell(Troop troop)
         {
             //TODO: 完善技能释放规则
+            if (troop == null)
+                return false;
+
+            // 【沉默】普攻（kind = 1）只是普通攻击，不受沉默影响；
+            // 战法与计略一律封禁。这里是菜单（TroopActionSkill / TroopActionStrategy）、
+            // AI 评分与执行前的统一入口，放在这一层才能一次挡住所有来源。
+            if (troop.isSilence && !skill.IsNormalSkill)
+                return false;
+
             if (skill.costEnergy > troop.morale)
                 return false;
 
@@ -1318,6 +1327,19 @@ namespace Sango.Core
         public void DoOffset(Troop troop, Troop targetTroop, int targetDamage)
         {
             if (targetTroop == null || offsetAction == null || offsetAction.Length <= 0) return;
+
+            // 【位移免疫询问】铁壁"不会被敌方战法位移"在这里否决。
+            // 放在 switch 之前而不是每个 case 里，是为了让全部 8 种位移类型口径一致。
+            //
+            // 【性能】先判 null：无订阅者时零开销；有订阅者时也只多一次池化对象的创建/回收，
+            // 而 DoOffset 本身只在"战法命中且带位移"时调用，不在帧循环里。
+            if (GameEvent.OnTroopCheckSkillOffset != null)
+            {
+                Tools.OverrideData<bool> allowData = Tools.OverrideData<bool>.Create(true);
+                GameEvent.OnTroopCheckSkillOffset.Invoke(targetTroop, troop, allowData);
+                bool allow = allowData.ValueAndRecycle;
+                if (!allow) return;
+            }
 
             // 位移撞击的连带伤害按本技能的命中行结算（拿不到 Action 的 criticalFactor，用实例上记录的暴击倍率）。
             CombatExpEvent expEvent = skill.GetCombatExpEvent(true, tempCriticalFactor > 100);

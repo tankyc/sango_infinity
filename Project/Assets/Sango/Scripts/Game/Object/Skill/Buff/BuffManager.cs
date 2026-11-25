@@ -126,6 +126,20 @@ namespace Sango.Core
 
         public void AddBuff(int id, int turnCount, Troop srcTroop)
         {
+            // 【状态免疫询问】八阵"不受异常状态"、虎喝等设计在这里否决。
+            //
+            // 【性能】必须先判 null：没有特技订阅时整段跳过，
+            // 不创建 OverrideData、不做委托调用，热路径上零额外开销。
+            // 放在建实例之前，是因为否决时不该产生一个已订阅事件的 BuffInstance 再回收。
+            if (GameEvent.OnTroopCheckBuff != null)
+            {
+                Tools.OverrideData<bool> allowData = Tools.OverrideData<bool>.Create(true);
+                GameEvent.OnTroopCheckBuff.Invoke(Master, id, allowData);
+                bool allow = allowData.ValueAndRecycle;
+                if (!allow)
+                    return;
+            }
+
             Buff buff = Scenario.Cur.GetObject<Buff>(id);
             BuffInstance buffInstance = new BuffInstance()
             {
@@ -170,20 +184,36 @@ namespace Sango.Core
         /// 【为什么折叠】ZOC 判定（<see cref="Map.IsZOC"/>）在移动范围展开时对每格 6 邻格
         /// 各判一次，是整条寻路里最热的循环；若每次都遍历 Buff 列表 + 解析 JSON 类名，
         /// 代价不可接受。这里只在 Buff 增删时算一次，热路径读一个 bit。
+        ///
+        /// 【写入 / 移除成对】本方法是状态位的**唯一写入点**（经
+        /// <see cref="RefreshMasterStateFlags"/> 落到 <see cref="Troop.stateFlags"/>），
+        /// 且每次都是从 Buff 列表**整体重算**而不是增量 set / clear。
+        /// 因此所有移除路径（单个移除 / 按类移除 / 到期 RemoveAll / 清空 / 读档重建）
+        /// 都会自然清位，不存在"加的时候置位、移除时忘了清"的残留问题。
+        ///
+        /// 【复杂度与调用频率（性能核算）】
+        ///   · 本方法只在 Buff 增 / 删 / 到期 / 清空 / 读档时调用，**不在每帧、每次攻击、每次寻路里**；
+        ///   · 循环体是"读 <see cref="BuffInstance.StateFlag"/> 缓存 + 一次按位或"，
+        ///     即 O(N) 次整数运算（N = 该部队身上的 Buff 数，实战通常 0~3）；
+        ///   · 单次成本约几十纳秒，且与 buffEffects 里配了几条效果**无关** ——
+        ///     JSON 解析已提前到 <see cref="BuffInstance.Init"/> 做了一次。
+        ///   · 最坏量级估算：全场 200 支部队 × 每回合各 1 次（<see cref="OnForceTurnStart"/>）
+        ///     × 3 个 Buff ≈ 600 次按位或/回合，远低于 1 微秒，可忽略。
+        /// 热路径（ZOC 展开、AI 评分、反击判定）读的是 <see cref="Troop.StateFlags"/> 缓存位，O(1)。
         /// </summary>
         /// <returns>状态位域（0 = 无状态）</returns>
         public int GetStateFlags()
         {
             int flags = 0;
+            if (_buffs == null) return flags;
+
             for (int i = 0; i < _buffs.Count; i++)
             {
                 BuffInstance ins = _buffs[i];
-                Buff buff = ins != null ? ins.Buff : null;
-                if (buff == null) continue;
+                if (ins == null) continue;
 
-                // 混乱（UnitState_Konran）：不向周围施加 ZOC
-                if (buff.noZoc)
-                    flags |= (int)TroopStateFlag.Chaos;
+                // 贡献值在 BuffInstance.Init 里用 Buff.GetStateFlag() 算好并缓存
+                flags |= ins.StateFlag;
             }
             return flags;
         }
@@ -195,15 +225,16 @@ namespace Sango.Core
                 Master.RefreshStateFlags();
         }
 
+        /// <summary>
+        /// 是否处于**被控**状态（不能行动、不能反击）。
+        ///
+        /// 【与状态位的关系】直接读 <see cref="Troop.stateFlags"/> 的缓存位，
+        /// 不再每次遍历 Buff 列表解析效果类名 —— 既快，也保证与
+        /// <see cref="Troop.HasStateFlag"/> 等其他判定得到同一个结论。
+        /// </summary>
         public bool HasControlBuff()
         {
-            for (int i = 0; i < _buffs.Count; i++)
-            {
-                BuffInstance buff = _buffs[i];
-                if (buff.IsControlBuff())
-                    return true;
-            }
-            return false;
+            return (GetCachedStateFlags() & TroopStateFlags.ControlMask) != 0;
         }
 
         /// <summary>
@@ -213,13 +244,18 @@ namespace Sango.Core
         /// </summary>
         public bool HasEscapeBuff()
         {
-            for (int i = 0; i < _buffs.Count; i++)
-            {
-                BuffInstance buff = _buffs[i];
-                if (buff.IsEscapeBuff())
-                    return true;
-            }
-            return false;
+            return (GetCachedStateFlags() & (int)TroopStateFlag.Escape) != 0;
+        }
+
+        /// <summary>
+        /// 取宿主部队已缓存的状态位；Master 未绑定（尚未 Init / 已收尾）时回落到实时重算。
+        ///
+        /// 【为什么要回落】BuffManager 的 Master 只在 <see cref="Init"/> 里绑定，
+        /// 反序列化完成到 Init 之间的窗口里可能有查询进来，这时不能直接空引用。
+        /// </summary>
+        int GetCachedStateFlags()
+        {
+            return Master != null ? Master.StateFlags : GetStateFlags();
         }
 
         /// <summary>
@@ -296,13 +332,22 @@ namespace Sango.Core
             RefreshMasterStateFlags();
         }
 
+        /// <summary>
+        /// 是否处于无法行动的状态（<see cref="HasControlBuff"/> 的旧命名别名）。
+        /// 原先恒返回 false，调用方会误以为"永远没被控"；现统一到状态位判定。
+        /// </summary>
         public bool HasControlState()
         {
-            return false;
+            return HasControlBuff();
         }
 
         public void CreateAsset(string asset, Vector3 offset)
         {
+            // 【防御】加攻 / 加防 / 沉默这类 Buff 本来就没有特效资源（asset 缺省即 null）。
+            // Dictionary 不接受 null 键，不在这里挡住会直接抛 ArgumentNullException。
+            if (string.IsNullOrEmpty(asset))
+                return;
+
             if (assetRef.TryGetValue(asset, out BuffEffectInfo refInfo))
             {
                 refInfo.refCount++;
@@ -324,6 +369,10 @@ namespace Sango.Core
 
         public void ReleaseAsset(string asset)
         {
+            // 与 CreateAsset 对称：没有特效资源的 Buff 不需要回收
+            if (string.IsNullOrEmpty(asset))
+                return;
+
             if (assetRef.TryGetValue(asset, out BuffEffectInfo refInfo))
             {
                 refInfo.refCount--;

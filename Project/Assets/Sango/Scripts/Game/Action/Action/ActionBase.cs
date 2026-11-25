@@ -133,6 +133,64 @@ namespace Sango.Core.Action
             // 技巧 #21 强化车轴：兵器部队移动力增加 10%。
             // 技巧 #33 木牛流马：输送队移动力增加 10%。
             Register("TroopAddMoveAbility", CraeteHandle<TroopAddMoveAbility>);
+            // 按武将属性折算的移动力加成（兵贵神速：移动力 += 统率 × 5%，向下取整）。
+            // 与 TroopAddMoveAbility 的区别：那个是固定值，这个每次属性重算时现算。
+            Register("TroopAddMoveAbilityByAttribute", CraeteHandle<TroopAddMoveAbilityByAttribute>);
+            // 按武将属性折算的攻击力 / 防御力加成（例：霸王 攻 += 武力×10%，铁壁 防 += 统率×10%）。
+            // 与 TroopAddAttack / TroopAddDefence 的区别：那两个是固定值，这两个每次属性重算时现算。
+            Register("TroopAddAttackByAttribute", CraeteHandle<TroopAddAttackByAttribute>);
+            Register("TroopAddDefenceByAttribute", CraeteHandle<TroopAddDefenceByAttribute>);
+            // 条件化属性修正：condition 满足时按加算 / 乘算改攻击、防御、移动力、兵力上限。
+            // 覆盖威震华夏（兵力>5000 防御+10%）、咆哮（兵力<3000 攻击翻倍）、
+            // 执锐（攻击+20%）、披坚（防御+20%）、龙胆（兵力越少攻防越高）等。
+            Register("TroopModifyAttributeByCondition", CraeteHandle<TroopModifyAttributeByCondition>);
+            // 特技范围属性：以拥有者部队为圆心，按格数给友军 / 敌军的属性加成（含粮耗倍率）。
+            // 覆盖军神（范围内移动力+5）、兵仙、列阵、八阵、营屯省用（粮耗-30%）。
+            Register("TroopAuraAttribute", CraeteHandle<TroopAuraAttribute>);
+            // 特技范围减伤：半径内符合条件的部队受到的伤害按百分比降低（干城 / 义勇军 / 列阵）。
+            Register("TroopAuraDamageReduce", CraeteHandle<TroopAuraDamageReduce>);
+            // 自身粮耗倍率：value 为百分比，0 = 不消耗粮食（辟谷奇兵 / 军屯），100 = 正常。
+            Register("TroopSetFoodCost", CraeteHandle<TroopSetFoodCost>);
+            // 回合兵力转移：mode 0 抽取敌军（攻心）/ 1 恢复友军（轮回），数量与主将魅力相关。
+            Register("TroopTurnDrainTroops", CraeteHandle<TroopTurnDrainTroops>);
+            // 回合以兵换粮：脯粮（每回合按配置转换少量兵力为随军粮食）。
+            Register("TroopConvertTroopsToFood", CraeteHandle<TroopConvertTroopsToFood>);
+            // 状态免疫：否决施加到本部队的 Buff（八阵「不受异常状态」）。
+            // buffIds / buffKinds 都不配 = 免疫全部，只配其一则按 ID / 类别精确免疫。
+            Register("TroopPreventBuff", CraeteHandle<TroopPreventBuff>);
+            // 战法位移免疫：不被敌方战法推走（铁壁）。
+            Register("TroopPreventSkillOffset", CraeteHandle<TroopPreventSkillOffset>);
+            // 按受击方位修正伤害：position 0 正面 / 1 侧面 / 2 背面。
+            // 奇袭（攻击侧）用 isDefender 0 + position 2（背面 +30）；
+            // 正合（防守侧）用 isDefender 1 + position 0（正面 -30）/ 1（侧面 -15）。
+            Register("TroopChangeDamageByDirection", CraeteHandle<TroopChangeDamageByDirection>);
+            // 按本回合行军距离增伤（冲锋）：跑得越远打得越狠，maxDistance 可封顶。
+            Register("TroopAddDamageByMoveDistance", CraeteHandle<TroopAddDamageByMoveDistance>);
+            // 护卫（承担型）：半径内友军武将的负伤 / 战死改由本部队主将承担（主将伤病 +level）。
+            // 与 TroopPreventPersonInjury / TroopPreventPersonBattleDeath（无条件免疫）不同，本类有代价。
+            Register("TroopGuardPerson", CraeteHandle<TroopGuardPerson>);
+            // 城池耐久伤害减免：值 30 = 城池受到的耐久伤害 -30%（坚城 / 固守 / 郝昭固守）。
+            // 可配在城池（只保护该城）或势力（保护该势力所有城）；设施不参与。
+            Register("CityReduceDurabilityDamage", CraeteHandle<CityReduceDurabilityDamage>);
+            // 城陷保留建筑（安民）：在"攻方主将魅力 / 20"的保留名额上追加 value 座，
+            // keepAll=1 表示全部保留。只对攻方生效。
+            Register("CityKeepBuildingsOnFall", CraeteHandle<CityKeepBuildingsOnFall>);
+            // 提高本部队带兵上限（附众：+3000）。
+            Register("TroopAddMaxTroops", CraeteHandle<TroopAddMaxTroops>);
+            // 所在城市在册武将每回合获得经验（劝学）。
+            Register("CityAddPersonExp", CraeteHandle<CityAddPersonExp>);
+            // 提高登用成功率（伯乐 +30 点 / 蜀相 翻倍）：宿主是武将本人（PersonRelationship 类特技）。
+            Register("PersonImproveRecruitProbability", CraeteHandle<PersonImproveRecruitProbability>);
+            // 攻城不受到据点反击（先登）：只对持技部队自己生效，不改据点拥有方的反击强度。
+            Register("TroopIgnoreBuildingAttackBack", CraeteHandle<TroopIgnoreBuildingAttackBack>);
+            // 蓄力：本回合未移动 → 下回合首次攻击增伤（状态机走 Troop.chargeState）
+            Register("TroopChargeAttack", CraeteHandle<TroopChargeAttack>);
+            // 仁德：每月给本势力全部在籍武将加忠诚
+            Register("ForceAddPersonLoyaltyMonthly", CraeteHandle<ForceAddPersonLoyaltyMonthly>);
+            // 兵种替换（特殊兵 / 兵圣）：landFrom/landTo、waterFrom/waterTo 成对配置
+            Register("TroopChangeTroopType", CraeteHandle<TroopChangeTroopType>);
+            // 一次性消耗品：万寿果（授予后寿命 +N 年并从背包移除）
+            Register("PersonAddLifeYear", CraeteHandle<PersonAddLifeYear>);
             // 特技 #26 白马：未研究骑射也可施展骑射，且骑射可会心一击。
             // 技巧 #15 骑射：骑兵部队获得弓箭攻击战法。
             Register("TroopAddSkill", CraeteHandle<TroopAddSkill>);

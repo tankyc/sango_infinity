@@ -12,8 +12,8 @@ namespace Sango.Core
     ///      不会把不同人的最高属性拼成一套；
     ///   2. 统率光环是总开关：本人统率 ≥90（或持「武干」）才开；其余附加光环
     ///      还要求本人统率 ≥90；
-    ///   3. 攻防两项在半径内覆盖同势力部队（含来源本队），同项取最高值；
-    ///      会心 / 暴伤 / 计策 / 识破 / 助攻 / 气力只在来源本队结算；
+    ///   3. 每项效果的落点由配置的 Scope 决定：0 = 半径内同势力部队（含来源本队），
+    ///      1 = 仅来源本队；同一受益部队同项取最高值；
     ///   4. 武干：统率不足 90 时按 90 档强行开启 1 格；统率 ≥90 时正常半径 +1 格；
     ///   5. 数值 = clamp(基础 + floor((属性-阈值)/步进)*每档, 下限, 上限)，
     ///      封顶后再乘军魂系数（默认 150%）并向下取整。
@@ -40,25 +40,31 @@ namespace Sango.Core
             public Person person;
             /// <summary>光环半径（格）；0 表示没有范围效果</summary>
             public int range;
-            /// <summary>攻击力加成</summary>
-            public int attack;
-            /// <summary>防御力加成</summary>
-            public int defence;
-            /// <summary>物理战法会心率（百分点）</summary>
-            public int criticalRate;
-            /// <summary>暴击倍率加成（百分点）</summary>
-            public int criticalDamage;
-            /// <summary>计策成功率（百分点）</summary>
-            public int successRate;
-            /// <summary>计策识破率（百分点）</summary>
-            public int resistRate;
-            /// <summary>辅助攻击概率（百分点）</summary>
-            public int assistRate;
-            /// <summary>每回合气力回复（点）</summary>
-            public int moraleRecover;
 
-            /// <summary>是否有范围效果（攻防 / 辅助攻击概率）</summary>
-            public bool HasAreaEffect => range > 0 && (attack != 0 || defence != 0 || assistRate != 0);
+            // ---------------- Scope = 0：光环半径内同势力部队 ----------------
+            public int areaAttack;
+            public int areaDefence;
+            public int areaCriticalRate;
+            public int areaCriticalDamage;
+            public int areaSuccessRate;
+            public int areaResistRate;
+            public int areaAssistRate;
+            public int areaMoraleRecover;
+
+            // ---------------- Scope = 1：仅来源本队 ----------------
+            public int selfAttack;
+            public int selfDefence;
+            public int selfCriticalRate;
+            public int selfCriticalDamage;
+            public int selfSuccessRate;
+            public int selfResistRate;
+            public int selfAssistRate;
+            public int selfMoraleRecover;
+
+            /// <summary>是否有范围效果（任一 Scope=0 的项）</summary>
+            public bool HasAreaEffect => range > 0 && (
+                areaAttack != 0 || areaDefence != 0 || areaCriticalRate != 0 || areaCriticalDamage != 0
+                || areaSuccessRate != 0 || areaResistRate != 0 || areaAssistRate != 0 || areaMoraleRecover != 0);
         }
 
         /// <summary>
@@ -155,14 +161,35 @@ namespace Sango.Core
                 return;
             }
 
+            // 【剧本参数总开关】关闭时不加载配置、不订阅事件，等同没有光环系统。
+            // 默认 true；旧存档没有该字段时保持默认，与 0.4.20 行为一致。
+            if (scenario.Variables != null && !scenario.Variables.AuraEnabled)
+            {
+                Sango.Log.Info("*[光环]剧本参数已关闭（AuraEnabled=false），光环系统不启用");
+                return;
+            }
+
+            // 配置使用副本：剧本参数会覆盖其中的阈值 / 公式，不能污染 CommonData 里的共享模板
+            //（同一进程里换剧本、重读通用数据时，模板必须保持 JSON 原值）。
             if (scenario.CommonData.AuraConfigs != null)
             {
                 scenario.CommonData.AuraConfigs.ForEach(c =>
                 {
                     if (c != null && c.Effects != null && c.Effects.Count > 0)
-                        configs.Add(c);
+                        configs.Add(CloneConfig(c));
                 });
             }
+
+            AuraGlobals globals = scenario.CommonData.AuraGlobals;
+            if (globals != null)
+            {
+                moraleSoulFeatureId = globals.MoraleSoulFeatureId;
+                if (globals.MoraleSoulFactor > 0)
+                    moraleSoulFactor = globals.MoraleSoulFactor;
+            }
+
+            // 【剧本参数覆盖】必须在范围表构建之前：覆盖会重写统率光环的 RangeTiers。
+            ApplyVariableOverrides(scenario.Variables);
 
             // 【范围表】取"统率光环"（RequireCommandForOthers = true）的 RangeTiers 作为全局半径表；
             // 找不到时回退到第一条带 RangeTiers 的配置，避免配置顺序变化导致全部光环失去范围。
@@ -189,14 +216,6 @@ namespace Sango.Core
                         break;
                     }
                 }
-            }
-
-            AuraGlobals globals = scenario.CommonData.AuraGlobals;
-            if (globals != null)
-            {
-                moraleSoulFeatureId = globals.MoraleSoulFeatureId;
-                if (globals.MoraleSoulFactor > 0)
-                    moraleSoulFactor = globals.MoraleSoulFactor;
             }
 
             inited = true;
@@ -257,6 +276,262 @@ namespace Sango.Core
             collectTarget = null;
             moraleSoulFeatureId = 0;
             moraleSoulFactor = 100;
+        }
+
+        /// <summary>
+        /// 运行时切换光环总开关（剧本参数界面使用）。
+        ///
+        /// 关闭：清零所有部队的 aura 字段并退订事件；
+        /// 开启：在当前剧本上重新 Init（读配置 + 全量补算）。
+        /// 开局前调用只改剧本参数，实际生效仍由 Scenario.Init → AuraSystem.Init 负责。
+        /// </summary>
+        /// <param name="enabled">是否启用</param>
+        public static void SetEnabled(bool enabled)
+        {
+            if (!enabled)
+            {
+                ClearTroopAuraFields();
+                Shutdown();
+                Sango.Log.Info("*[光环]已关闭（剧本参数）");
+                return;
+            }
+
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || !scenario.IsAlive)
+            {
+                // 开局前切换：只记在剧本参数里，由 Scenario.Init → AuraSystem.Init 统一生效
+                return;
+            }
+
+            Init(scenario);
+            Sango.Log.Info("*[光环]已开启（剧本参数）");
+        }
+
+        /// <summary>
+        /// 关闭光环时把部队身上的光环加成清零。
+        /// 只清 aura 专属字段，建筑 / Buff / 战法写进 extraAttack / extraDefence 的加成不受影响。
+        /// </summary>
+        static void ClearTroopAuraFields()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || scenario.troopsSet == null)
+                return;
+
+            scenario.troopsSet.ForEach(t =>
+            {
+                if (t == null) return;
+                t.auraExtraAttack = 0;
+                t.auraExtraDefence = 0;
+                t.auraAssistChance = 0;
+            });
+        }
+
+        /// <summary>上一次 Reload 的帧号（同帧节流）</summary>
+        static int lastReloadFrame = -1;
+
+        /// <summary>
+        /// 剧本参数修改后立即重算（剧本参数界面使用）。
+        ///
+        /// 同一帧内的连续输入（例如把 90 改到 120 时的 1 → 12 → 120）只重算一次，
+        /// 避免每个字符都做一次全量补算。
+        /// </summary>
+        public static void Reload()
+        {
+            Scenario scenario = Scenario.Cur;
+            if (scenario == null || !scenario.IsAlive)
+                return;
+
+            int frame = UnityEngine.Time.frameCount;
+            if (frame == lastReloadFrame)
+                return;
+            lastReloadFrame = frame;
+
+            Init(scenario);
+        }
+
+        /// <summary>
+        /// 复制一份光环配置。
+        ///
+        /// 配置对象来自 CommonData 的共享模板，剧本参数覆盖只能改副本；
+        /// 直接改模板会让下一次读档 / 换剧本拿到被改过的值。
+        /// </summary>
+        static AuraConfig CloneConfig(AuraConfig src)
+        {
+            AuraConfig dst = new AuraConfig
+            {
+                Id = src.Id,
+                Name = src.Name,
+                StatType = src.StatType,
+                Threshold = src.Threshold,
+                RequireCommandForOthers = src.RequireCommandForOthers,
+                CommandRequire = src.CommandRequire,
+                ForceEnableFeatureId = src.ForceEnableFeatureId,
+                RangeFeatureId = src.RangeFeatureId,
+                RangeFeatureAdd = src.RangeFeatureAdd,
+                Effects = new List<AuraEffectDef>(),
+                RangeTiers = new List<AuraRangeTier>(),
+            };
+
+            if (src.Effects != null)
+            {
+                for (int i = 0; i < src.Effects.Count; i++)
+                {
+                    AuraEffectDef e = src.Effects[i];
+                    if (e == null) continue;
+                    dst.Effects.Add(new AuraEffectDef
+                    {
+                        Type = e.Type,
+                        Base = e.Base,
+                        Step = e.Step,
+                        PerStep = e.PerStep,
+                        Min = e.Min,
+                        Max = e.Max,
+                        Scope = e.Scope,
+                    });
+                }
+            }
+
+            if (src.RangeTiers != null)
+            {
+                for (int i = 0; i < src.RangeTiers.Count; i++)
+                {
+                    AuraRangeTier t = src.RangeTiers[i];
+                    if (t == null) continue;
+                    dst.RangeTiers.Add(new AuraRangeTier { Min = t.Min, Range = t.Range });
+                }
+            }
+
+            return dst;
+        }
+
+        /// <summary>
+        /// 用剧本参数覆盖配置模板。
+        ///
+        /// 覆盖范围：五条光环的阈值 / 公式（Base+Step+PerStep+Max）/ 统率光环范围分档 /
+        /// 附加光环统率门槛 / 军魂系数。下限统一取基础值（Min = Base）。
+        /// </summary>
+        static void ApplyVariableOverrides(ScenarioVariables v)
+        {
+            if (v == null)
+                return;
+
+            for (int i = 0; i < configs.Count; i++)
+            {
+                AuraConfig c = configs[i];
+                if (c == null)
+                    continue;
+
+                if (c.RequireCommandForOthers)
+                {
+                    // 统率光环：攻防 + 会心 + 范围分档
+                    c.Threshold = v.auraCommandThreshold;
+                    SetEffect(c, AuraEffectType.Attack,
+                        v.auraCommandAttackBase, v.auraCommandAttackStep, v.auraCommandAttackPerStep, v.auraCommandAttackMax);
+                    SetEffect(c, AuraEffectType.Defence,
+                        v.auraCommandAttackBase, v.auraCommandAttackStep, v.auraCommandAttackPerStep, v.auraCommandAttackMax);
+                    SetEffect(c, AuraEffectType.SkillCriticalRate,
+                        v.auraCriticalBase, v.auraCriticalStep, v.auraCriticalPerStep, v.auraCriticalMax);
+
+                    c.RangeTiers = new List<AuraRangeTier>
+                    {
+                        new AuraRangeTier { Min = v.auraCommandThreshold, Range = 1 },
+                        new AuraRangeTier { Min = v.auraRangeTier2, Range = 2 },
+                        new AuraRangeTier { Min = v.auraRangeTier3, Range = 3 },
+                    };
+                    continue;
+                }
+
+                // 附加光环：本人统率门槛 + 各自公式
+                c.CommandRequire = v.auraCommandRequire;
+                switch (c.StatType)
+                {
+                    case 1:
+                        c.Threshold = v.auraStrengthThreshold;
+                        SetEffect(c, AuraEffectType.SkillCriticalDamage,
+                            v.auraCriticalDamageBase, v.auraCriticalDamageStep, v.auraCriticalDamagePerStep, v.auraCriticalDamageMax);
+                        break;
+                    case 2:
+                        c.Threshold = v.auraIntelligenceThreshold;
+                        SetEffect(c, AuraEffectType.SkillSuccessRate,
+                            v.auraSuccessBase, v.auraSuccessStep, v.auraSuccessPerStep, v.auraSuccessMax);
+                        SetEffect(c, AuraEffectType.SkillResistRate,
+                            v.auraResistBase, v.auraResistStep, v.auraResistPerStep, v.auraResistMax);
+                        break;
+                    case 3:
+                        c.Threshold = v.auraPoliticsThreshold;
+                        SetEffect(c, AuraEffectType.AssistRate,
+                            v.auraAssistBase, v.auraAssistStep, v.auraAssistPerStep, v.auraAssistMax);
+                        break;
+                    case 4:
+                        c.Threshold = v.auraGlamourThreshold;
+                        SetEffect(c, AuraEffectType.MoraleRecover,
+                            v.auraMoraleBase, v.auraMoraleStep, v.auraMoralePerStep, v.auraMoraleMax);
+                        break;
+                }
+            }
+
+            if (v.auraMoraleSoulFactor > 0)
+                moraleSoulFactor = v.auraMoraleSoulFactor;
+        }
+
+        /// <summary>按效果类型覆盖一项公式（下限取基础值）</summary>
+        static void SetEffect(AuraConfig config, AuraEffectType type, int baseValue, int step, int perStep, int max)
+        {
+            if (config.Effects == null)
+                return;
+
+            for (int i = 0; i < config.Effects.Count; i++)
+            {
+                AuraEffectDef e = config.Effects[i];
+                if (e == null || e.Type != (int)type)
+                    continue;
+
+                e.Base = baseValue;
+                e.Min = baseValue;
+                e.Step = step;
+                e.PerStep = perStep;
+                e.Max = max;
+                return;
+            }
+        }
+
+        /// <summary>
+        /// 取一支部队当前光环的显示半径（本队所有武将里有范围效果的最大值）。
+        ///
+        /// 【用途】部队点击 / 悬停时在地面画天蓝色范围（见 BuildingRangeSelector）。
+        /// 【口径】范围只由提供者统率决定；同队武将的光环中心都是本队所在格，
+        /// 因此并集 = 一个半径等于最大 range 的圆。没有范围效果时返回 0。
+        /// </summary>
+        /// <param name="troop">部队</param>
+        /// <returns>显示半径（格），0 表示不显示</returns>
+        public static int GetTroopAuraRange(Troop troop)
+        {
+            if (!inited || troop == null || !troop.IsAlive || troop.cell == null)
+                return 0;
+
+            int range = GetPersonAuraRange(troop.Leader);
+            int r = GetPersonAuraRange(troop.Member1);
+            if (r > range) range = r;
+            r = GetPersonAuraRange(troop.Member2);
+            if (r > range) range = r;
+            return range;
+        }
+
+        /// <summary>取一名武将提供的最大光环半径（仅统计有范围效果的项）</summary>
+        static int GetPersonAuraRange(Person person)
+        {
+            List<AuraSource> list = EnsurePersonSources(person);
+            if (list == null)
+                return 0;
+
+            int range = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                AuraSource src = list[i];
+                if (src.HasAreaEffect && src.range > range)
+                    range = src.range;
+            }
+            return range;
         }
 
         /// <summary>
@@ -352,8 +627,9 @@ namespace Sango.Core
 
             int calcStat = forceEnabled ? config.Threshold : stat;
 
-            // 【范围统一由统率决定】设定表的"光环范围规则（由统率决定）"适用于全部光环：
-            // 武力 / 智力 / 政治 / 魅力光环不单独配半径，统一按本人统率取格数。
+            // 【范围统一由统率决定】所有光环（含武力 / 智力 / 政治 / 魅力）的半径只看提供者统率，
+            // 分档表取统率光环配置的 RangeTiers（Init 时复制为 globalRangeTiers）。
+            // 各光环的"效果数值"才用各自属性和各自公式计算。
             int range;
             if (forceEnabled)
             {
@@ -364,7 +640,7 @@ namespace Sango.Core
             {
                 range = CalcRange(globalRangeTiers, person.Command);
                 if (range <= 0)
-                    range = CalcRange(config.RangeTiers, person.Command);
+                    range = CalcRange(config.RangeTiers, person.Command);   // 兜底：全局表缺失
                 // 武干：统率已满 90 时在正常半径上 +1 格（只对统率光环配置了该特技）
                 if (config.RangeFeatureId > 0 && config.RangeFeatureAdd > 0
                     && person.HasFeature(config.RangeFeatureId))
@@ -391,16 +667,34 @@ namespace Sango.Core
                 if (hasMoraleSoul && moraleSoulFactor > 0)
                     value = value * moraleSoulFactor / 100;
 
+                // Scope 决定落点：0 = 半径内同势力部队（区域聚合），1 = 仅来源本队
+                bool area = effect.Scope == 0;
                 switch (effect.EffectType)
                 {
-                    case AuraEffectType.Attack: source.attack = value; break;
-                    case AuraEffectType.Defence: source.defence = value; break;
-                    case AuraEffectType.SkillCriticalRate: source.criticalRate = value; break;
-                    case AuraEffectType.SkillCriticalDamage: source.criticalDamage = value; break;
-                    case AuraEffectType.SkillSuccessRate: source.successRate = value; break;
-                    case AuraEffectType.SkillResistRate: source.resistRate = value; break;
-                    case AuraEffectType.AssistRate: source.assistRate = value; break;
-                    case AuraEffectType.MoraleRecover: source.moraleRecover = value; break;
+                    case AuraEffectType.Attack:
+                        if (area) source.areaAttack = value; else source.selfAttack = value;
+                        break;
+                    case AuraEffectType.Defence:
+                        if (area) source.areaDefence = value; else source.selfDefence = value;
+                        break;
+                    case AuraEffectType.SkillCriticalRate:
+                        if (area) source.areaCriticalRate = value; else source.selfCriticalRate = value;
+                        break;
+                    case AuraEffectType.SkillCriticalDamage:
+                        if (area) source.areaCriticalDamage = value; else source.selfCriticalDamage = value;
+                        break;
+                    case AuraEffectType.SkillSuccessRate:
+                        if (area) source.areaSuccessRate = value; else source.selfSuccessRate = value;
+                        break;
+                    case AuraEffectType.SkillResistRate:
+                        if (area) source.areaResistRate = value; else source.selfResistRate = value;
+                        break;
+                    case AuraEffectType.AssistRate:
+                        if (area) source.areaAssistRate = value; else source.selfAssistRate = value;
+                        break;
+                    case AuraEffectType.MoraleRecover:
+                        if (area) source.areaMoraleRecover = value; else source.selfMoraleRecover = value;
+                        break;
                 }
             }
 
@@ -457,7 +751,7 @@ namespace Sango.Core
                 ApplyPersonSelf(troop.Member1, result);
                 ApplyPersonSelf(troop.Member2, result);
 
-                // ② 攻防：扫描所有部队的武将光环，同势力 + 在半径内 → 同项取最高
+                // ② 范围效果（Scope = 0）：扫描所有部队的武将光环，同势力 + 在半径内 → 同项取最高
                 Scenario scenario = Scenario.Cur;
                 if (scenario != null && scenario.troopsSet != null && troop.BelongForce != null)
                 {
@@ -496,12 +790,15 @@ namespace Sango.Core
             for (int i = 0; i < list.Count; i++)
             {
                 AuraSource src = list[i];
-                if (src.criticalRate > result.criticalRate) result.criticalRate = src.criticalRate;
-                if (src.criticalDamage > result.criticalDamage) result.criticalDamage = src.criticalDamage;
-                if (src.successRate > result.successRate) result.successRate = src.successRate;
-                if (src.resistRate > result.resistRate) result.resistRate = src.resistRate;
-                // 辅助攻击概率不在这里合并：它是范围效果，统一在 AccumulateArea 里按覆盖关系结算
-                if (src.moraleRecover > result.moraleRecover) result.moraleRecover = src.moraleRecover;
+                // 只合并 Scope = 1 的项；Scope = 0 的项统一在 AccumulateArea 里按覆盖关系结算
+                if (src.selfAttack > result.attack) result.attack = src.selfAttack;
+                if (src.selfDefence > result.defence) result.defence = src.selfDefence;
+                if (src.selfCriticalRate > result.criticalRate) result.criticalRate = src.selfCriticalRate;
+                if (src.selfCriticalDamage > result.criticalDamage) result.criticalDamage = src.selfCriticalDamage;
+                if (src.selfSuccessRate > result.successRate) result.successRate = src.selfSuccessRate;
+                if (src.selfResistRate > result.resistRate) result.resistRate = src.selfResistRate;
+                if (src.selfAssistRate > result.assistRate) result.assistRate = src.selfAssistRate;
+                if (src.selfMoraleRecover > result.moraleRecover) result.moraleRecover = src.selfMoraleRecover;
             }
         }
 
@@ -511,7 +808,7 @@ namespace Sango.Core
             AccumulateArea(sourceTroop, accumulateTarget, accumulateResult);
         }
 
-        /// <summary>把一支源部队的攻防光环累加到目标部队（同势力 + 半径内，同项取最高）</summary>
+        /// <summary>把一支源部队的 Scope=0 效果累加到目标部队（同势力 + 半径内，同项取最高）</summary>
         static void AccumulateArea(Troop sourceTroop, Troop targetTroop, TroopAuraResult result)
         {
             if (sourceTroop == null || !sourceTroop.IsAlive || sourceTroop.cell == null)
@@ -543,10 +840,15 @@ namespace Sango.Core
                 if (targetTroop.cell.Distance(sourceTroop.cell) > src.range)
                     continue;
 
-                if (src.attack > result.attack) result.attack = src.attack;
-                if (src.defence > result.defence) result.defence = src.defence;
-                // 政治光环：让光环半径内的友军作为支援方时更容易触发辅助攻击
-                if (src.assistRate > result.assistRate) result.assistRate = src.assistRate;
+                // 只合并 Scope = 0 的项：攻防、会心、暴伤、计策、识破、助攻、气力都可按配置范围生效
+                if (src.areaAttack > result.attack) result.attack = src.areaAttack;
+                if (src.areaDefence > result.defence) result.defence = src.areaDefence;
+                if (src.areaCriticalRate > result.criticalRate) result.criticalRate = src.areaCriticalRate;
+                if (src.areaCriticalDamage > result.criticalDamage) result.criticalDamage = src.areaCriticalDamage;
+                if (src.areaSuccessRate > result.successRate) result.successRate = src.areaSuccessRate;
+                if (src.areaResistRate > result.resistRate) result.resistRate = src.areaResistRate;
+                if (src.areaAssistRate > result.assistRate) result.assistRate = src.areaAssistRate;
+                if (src.areaMoraleRecover > result.moraleRecover) result.moraleRecover = src.areaMoraleRecover;
             }
         }
 

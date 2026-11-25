@@ -36,6 +36,21 @@ namespace Sango.Core.Action
         int buffProbability;
 
         /// <summary>
+        /// 性别过滤：0 不限（默认）/ 1 只对男性武将部队 / 2 只对女性武将部队。
+        /// 作用于 ② 状态段与 ③ 士气段，对应"洛神：周围所有**异性**部队士气 -15"。
+        /// </summary>
+        int sexFilter;
+
+        /// <summary>士气修正半径（格），0 表示不做士气修正</summary>
+        int moraleBound;
+
+        /// <summary>士气修正值（负数 = 降低）</summary>
+        int moraleValue;
+
+        /// <summary>士气修正对象：0 敌军（默认）/ 1 友军 / 2 全部</summary>
+        int moraleTargetType;
+
+        /// <summary>
         /// 初始化参数并订阅部队击破事件。
         /// </summary>
         /// <param name="p">JSON 参数对象</param>
@@ -51,6 +66,10 @@ namespace Sango.Core.Action
             buffTurns = p.Value<int>("buffTurns");
             buffBound = p.Value<int>("buffBound");
             buffProbability = p.Value<int>("buffProbability");
+            sexFilter = p.Value<int>("sexFilter");
+            moraleBound = p.Value<int>("moraleBound");
+            moraleValue = p.Value<int>("moraleValue");
+            moraleTargetType = p.Value<int>("moraleTargetType");
 
             // 装配宿主既不是部队也不是势力时不订阅事件（避免"任何部队溃灭都在全场起火"）
             if (Troop == null && Force == null)
@@ -125,11 +144,51 @@ namespace Sango.Core.Action
                         return;
                     if (!destroyed.IsEnemy(target))
                         return;
+                    if (sexFilter != 0 && !MatchSex(target, sexFilter))
+                        return;
                     if (buffProbability > 0 && !GameRandom.Chance(buffProbability, 10000))
                         return;
                     target.AddBuff(buffId, buffTurns <= 0 ? 1 : buffTurns, null);
                 });
             }
+
+            // ③ 范围内部队士气修正（洛神：自部队溃灭后周围异性部队士气 -15）
+            // 用 ChangeMorale(value, false)：溃灭余波不该逐支部队弹提示，避免战场上刷屏。
+            if (moraleBound > 0 && moraleValue != 0)
+            {
+                cell.Spiral(moraleBound, c =>
+                {
+                    if (c == null)
+                        return;
+                    Troop target = c.troop;
+                    if (target == null || !target.IsAlive || target == destroyed)
+                        return;
+
+                    bool sameForce = destroyed.IsSameForce(target);
+                    if (moraleTargetType == 0 && sameForce) return;
+                    if (moraleTargetType == 1 && !sameForce) return;
+
+                    if (sexFilter != 0 && !MatchSex(target, sexFilter))
+                        return;
+
+                    target.ChangeMorale(moraleValue, false);
+                });
+            }
+        }
+
+        /// <summary>
+        /// 按主将性别匹配过滤条件。
+        /// </summary>
+        /// <param name="troop">待判定的部队</param>
+        /// <param name="filter">1 只男 / 2 只女</param>
+        /// <returns>命中返回 true；主将缺失时返回 false</returns>
+        static bool MatchSex(Troop troop, int filter)
+        {
+            Person leader = troop != null ? troop.Leader : null;
+            if (leader == null)
+                return false;
+            // Person.sex：0 男 / 1 女（Person.cs:166）
+            return filter == 1 ? leader.sex == 0 : leader.sex == 1;
         }
     }
 }

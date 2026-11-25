@@ -90,6 +90,18 @@
           "class": "Berserk"
         }
       ]
+    },
+    "7": {
+      "Id": 7,
+      "Name": "沉默",
+      "kind": 1,
+      "subKind": 7,
+      "limit": 0,
+      "buffEffects": [
+        {
+          "class": "Silence"
+        }
+      ]
     }
   }
 }

@@ -173,19 +173,16 @@ namespace Sango.Core
 
             ScenarioVariables variables = Scenario.Cur.Variables;
 
-            // 人口增长率
-            city.population_increase_factor = variables.populationIncreaseBaseFactor;
+            // 【人口增长因子】旧人口模型的"基础增长率"已删除（旧系统不再存在）；
+            // 这里仍从 0 开始累加农田等建筑的人口增长属性，字段本身保留给地图编辑器 / 兵种逻辑使用。
+            city.population_increase_factor = 0f;
 
             // 计算基础收入
             city.totalGainFood = city.BaseGainFood + city.agriculture * variables.agriculture_add_food;
             city.totalGainGold = city.BaseGainGold + city.commerce * variables.commerce_add_gold;
 
-            // 人口对金钱收入的影响
-            if (variables.UseLegacyPopulation)
-            {
-                city.totalGainGold += (int)(city.population * variables.populationGoldIncomeFactor);
-                city.totalGainFood += (int)(city.population * variables.populationFoodCostFactor * 0.5f);
-            }
+            // 【人口收入】旧"人口 × 系数"的金钱/粮食加成随旧人口系统删除；
+            // 新系统的税赋走下面的 HantuPopulation.FoodTax / GoldTax。
 
             // 计算建筑收入
             city.allBuildings.ForEach(x =>
@@ -207,8 +204,8 @@ namespace Sango.Core
             });
 
             float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
-            float popularSupportInfluence = variables.UseLegacyPopulation ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
-            float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
+            // 【已移除民心项】民心只服务于旧人口模型
+            float leftInfluence = 1.0f + securityInfluence;
 
             float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
             float totalGoldFactor = (city.IsPlayer ? variables.playerGoldFactor : variables.goldFactor);

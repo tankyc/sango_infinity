@@ -73,6 +73,12 @@ namespace Sango.Core
                     return troop.Defence;
                 case "troops":
                     return troop.troops;
+                // 【补充】气力与士气：咆哮（气力）、威震华夏（兵力）这类"资源阈值"型特技
+                // 需要拿部队当前气力 / 士气做条件，原来只能取五维与兵力。
+                case "energy":
+                    return troop.energy;
+                case "morale":
+                    return troop.morale;
                 default:
                     return 0;
             }

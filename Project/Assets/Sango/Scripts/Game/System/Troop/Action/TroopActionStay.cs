@@ -15,6 +15,11 @@ namespace Sango.Core.Player
             customMenuOrder = 0;
         }
 
+        /// <summary>
+        /// 「待命」是收尾类命令，仅再移动状态下必须保留 —— 否则部队会卡在"不能攻击也不能结束"的死局。
+        /// </summary>
+        protected override bool AllowWhenMoveOnly => true;
+
         public override bool IsValid
         {
             get
@@ -72,6 +77,11 @@ namespace Sango.Core.Player
 
         public void OnMoveDone()
         {
+            // 【可再移动】待命是强制收尾：先把两种额外行动计数清零。
+            // 否则 ActionOver 的 setter 会命中 MoveRefundCount / ActionOverCount 的退还分支，
+            // 导致"点了待命却退还给行动权"——部队永远结束不了行动（表现为待命无效、死循环）。
+            TargetTroop.ActionOverCount = 0;
+            TargetTroop.MoveRefundCount = 0;
             TargetTroop.ActionOver = true;
             TargetTroop.Render?.UpdateRender();
 

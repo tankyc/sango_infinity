@@ -252,9 +252,24 @@ namespace Sango.Core
             int giri = variables.recruitBaseGiri;
             if (type != 0)
                 giri = Math.Min(variables.recruitMaxGiri - ArgumentationId.loyaltyAdd * variables.recruitGiriLoyaltyFactor, variables.recruitBaseGiri);
-            n = Math.Min(n * giri / variables.recruitBaseGiri, 100);
+            n = System.Math.Min(n * giri / variables.recruitBaseGiri, 100);
 
-            return n + playerAdd;
+            int finalRate = n + playerAdd;
+
+            // 【成功率询问】伯乐 / 蜀相 / 论客 等人事类特技在这里做增量修正。
+            // 无订阅者时零开销；RecruitPersonProbabilityOverride 在函数开头已短路返回，
+            // 走 Override 的路径不会经过这里，两者互不干扰。
+            if (GameEvent.OnPersonRecruitProbability != null)
+            {
+                Tools.OverrideData<int> rateData = Tools.OverrideData<int>.Create(finalRate);
+                GameEvent.OnPersonRecruitProbability.Invoke(actor, target, type, rateData);
+                finalRate = rateData.ValueAndRecycle;
+                // 概率必须落在 0-100：特技加成不该把"必定失败"变成负数，也不该溢出
+                if (finalRate < 0) finalRate = 0;
+                else if (finalRate > 100) finalRate = 100;
+            }
+
+            return finalRate;
         }
         public delegate int RecruitPersonProbabilityCall(Person actor, Person target, int type);
         public static RecruitPersonProbabilityCall RecruitPersonProbabilityOverride;

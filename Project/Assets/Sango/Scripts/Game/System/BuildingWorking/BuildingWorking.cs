@@ -661,8 +661,8 @@ namespace Sango.Core
             City city = building.BelongCity;
             int person_factor = GetPersonInfuse(personArray, buildingType.effectAttrType);
             float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
-            float popularSupportInfluence = variables.UseLegacyPopulation ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
-            float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
+            // 【已移除民心项】民心只服务于旧人口模型，旧系统删除后它不再影响建筑收益
+            float leftInfluence = 1.0f + securityInfluence;
 
             float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
             float totalGoldFactor = (city.IsPlayer ? variables.playerGoldFactor : variables.goldFactor);
@@ -813,8 +813,8 @@ namespace Sango.Core
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(0);
 
             float securityInfluence = (((float)city.security / variables.securityInfluenceMax) - 1) * variables.securityInfluence;
-            float popularSupportInfluence = variables.UseLegacyPopulation ? (((float)city.popularSupport / variables.popularSupportInfluenceMax) - 1) * variables.popularSupportInfluence : 0f;
-            float leftInfluence = 1.0f + securityInfluence + popularSupportInfluence;
+            // 【已移除民心项】同 OnCityCalculateIncome：民心只服务于旧人口模型
+            float leftInfluence = 1.0f + securityInfluence;
 
             float totalFoodFactor = (city.IsPlayer ? variables.playerFoodFactor : variables.foodFactor);
             float totalGoldFactor = (city.IsPlayer ? variables.playerGoldFactor : variables.goldFactor);
@@ -909,11 +909,8 @@ namespace Sango.Core
                 building.AccumulatedFood = 0;
             }
 
-            // 人口对粮食收入的影响
-            if (scenario.Variables.UseLegacyPopulation)
-            {
-                totalValue += (int)(city.population * scenario.Variables.populationFoodCostFactor * 0.5f);
-            }
+            // 【人口税粮】旧"人口 × 系数"的粮食加成随旧人口系统删除；
+            // 新系统统一走 HantuPopulation.FoodTax（与 Hantu 关闭时返回 0 一致）
             totalValue += HantuPopulation.FoodTax(city);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
@@ -952,11 +949,8 @@ namespace Sango.Core
                 }
             }
 
-            // 人口对金钱收入的影响
-            if (scenario.Variables.UseLegacyPopulation)
-            {
-                totalValue += (int)(city.population * scenario.Variables.populationGoldIncomeFactor);
-            }
+            // 【人口税金】旧"人口 × 系数"的金收入随旧人口系统删除；
+            // 新系统统一走 HantuPopulation.GoldTax（Hantu 关闭时返回 0）
             totalValue += HantuPopulation.GoldTax(city);
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
