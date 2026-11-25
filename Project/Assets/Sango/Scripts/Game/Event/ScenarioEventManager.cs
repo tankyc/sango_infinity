@@ -611,7 +611,7 @@ namespace Sango.Core.Event
             EvaluateKind(EventTriggerKind.TroopCreated, troop);
         }
 
-        void OnTroopDestroyed(Troop troop, SangoObject killer, int reason, Scenario scenario)
+        void OnTroopDestroyed(Troop troop, SangoObject killer, AttackBackInfo atkBack, Scenario scenario)
         {
             EvaluateKind(EventTriggerKind.TroopDestroyed, troop);
         }

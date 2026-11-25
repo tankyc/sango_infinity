@@ -24,6 +24,12 @@ namespace Sango.Core.Action
         protected int isRange;
         protected Condition condition;
 
+        /// <summary>
+        /// 条件上下文（缓存复用）：<see cref="Condition.Check"/> 收接口参数，
+        /// 每次判断都 new 一个上下文等于每次都分配一个装箱对象。
+        /// </summary>
+        readonly TroopActionConditionDatabase condDatabase = new TroopActionConditionDatabase();
+
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
             base.Init(p, sangoObjects);
@@ -132,8 +138,14 @@ namespace Sango.Core.Action
             if (checkLand == 2 && kinds != null && !kinds.Contains(troop.WaterTroopType.kind))
                 return false;
 
-            if (condition != null && !condition.Check(new TroopActionConditionDatabase(skill, defencer.cell)))
-                return false;
+            if (condition != null)
+            {
+                // 复用同一个上下文实例：Check 的形参是接口，传 struct 会装箱；
+                // 每次伤害 / 每次战法都会走这里，是最高频的分配点之一。
+                condDatabase.Set(skill, defencer.cell);
+                if (!condition.Check(condDatabase))
+                    return false;
+            }
 
             return true;
         }

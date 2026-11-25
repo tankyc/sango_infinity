@@ -556,10 +556,12 @@ namespace Sango.Core
         /// 本城当前灾害位集（bit N = <see cref="DisasterType"/> 的 N 号灾害）。
         /// 对齐出处：Open311 `City::disaster_`（s11_scen.h:495）。
         /// <para>
-        /// 【当前状态】位集与读写 API 已就位，粮价修正已接通；
-        /// 但**灾害触发**（月度按概率置位 `nextDisaster`、月末转正）尚未实现 ——
-        /// 那属于独立的灾害子系统（原版在 `s11_game_month.cpp` 里按民心 / 治安抽样）。
-        /// 因此目前 `disasterBits` 恒为 0，粮价走"无灾害"分支。
+        /// 【当前状态】位集、读写 API、粮价修正已就位，**灾害触发也已实现**：
+        /// 传播 / 转正 / 自愈 / 丰收全部在 <see cref="CityDisasterCycle"/> 里
+        /// （对齐 s11_game_disaster.cpp 与 s11_game_month.cpp:337-398）。
+        /// 特技侧有两个入口：
+        ///   · 原版 98 号风水 → <see cref="CityStateFlag.FengShui"/>（传染减半 / 50% 不爆发）；
+        ///   · 汉土扩展 → <see cref="GetDisasterRateReduce"/>（按百分比再降，叠乘）。
         /// </para>
         /// </summary>
         [JsonProperty("disaster")]
@@ -599,6 +601,12 @@ namespace Sango.Core
             int bit = (int)type;
             if (bit < 0 || bit >= 32)
                 return;
+
+            // 【不要在这里做"免疫拦截"】
+            // 灾害的"发生率"由 CityDisasterCycle.Denpa 抽样决定，那里才是概率闸门；
+            // 若在 SetDisaster 直接吞掉置位，一是会破坏"转正 / 邻城传染"等既有链路，
+            // 二是与已实现的 CityStateFlag.FengShui（原版 98 号风水：传染减半 / 50% 不爆发）
+            // 形成两套互相打架的机制。汉土"不容易出现蝗灾/瘟疫"统一走 Denpa 的概率修正。
             if (next)
             {
                 if (value) nextDisasterBits |= 1 << bit;
@@ -609,6 +617,52 @@ namespace Sango.Core
                 if (value) disasterBits |= 1 << bit;
                 else disasterBits &= ~(1 << bit);
             }
+        }
+
+        /// <summary>
+        /// 城内武将提供的"灾害发生率降低"百分比（0 = 无修正，100 = 完全不发生）。
+        ///
+        /// 【与原版风水的关系】原版 98 号风水走的是 <see cref="CityStateFlag.FengShui"/>：
+        /// 邻城传染概率减半、季度爆发抽样 50% 跳过。本方法提供的是**汉土设计表**
+        /// 里"降低 X%"这种可配数值（<c>PersonAddModifier type=2</c>），
+        /// 在 <c>CityDisasterCycle.Denpa</c> 的概率闸门里叠加，两者可以共存：
+        /// 风水特技本身仍按原版规则生效，额外的降低量由配置给出。
+        /// </summary>
+        /// <returns>0..100 的百分比</returns>
+        public int GetDisasterRateReduce()
+        {
+            int max = GetPersonModifierMax(FeatureModifierType.DisasterImmune);
+            if (max < 0) max = 0;
+            if (max > 100) max = 100;
+            return max;
+        }
+
+        /// <summary>
+        /// 城内武将某项常驻修正的最大值（无人具备返回 0）。
+        ///
+        /// 【为什么取最大值】这类能力（灾害衰减、设施返还）是"有此能力"的开关型数值，
+        /// 同城两人持有不该翻倍；取最大值也与"本城最高政治"等既有口径一致。
+        /// </summary>
+        /// <param name="type">修正类型</param>
+        public int GetPersonModifierMax(FeatureModifierType type)
+        {
+            if (allPersons == null)
+                return 0;
+
+            int max = 0;
+            for (int i = 0; i < allPersons.Count; i++)
+            {
+                Person person = allPersons[i];
+                if (person == null || !person.IsAlive)
+                    continue;
+                // 俘虏不算"城内武将"：关在城里的敌将不该给本城提供清野 / 风水这类加成
+                if (person.state == (int)PersonStateType.Prisoner)
+                    continue;
+                int v = person.GetFeatureModifier(type);
+                if (v > max)
+                    max = v;
+            }
+            return max;
         }
 
         [JsonProperty("rate")]
@@ -4560,6 +4614,9 @@ namespace Sango.Core
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.ValueAndRecycle;
 
+            // 内政工作速度：预览与实际提交共用同一入口，保证显示与实扣一致
+            totalValue = CityWorkSystem.ApplyWorkSpeed(this, jobId, personList, totalValue);
+
             if (isTest)
             {
                 ClearJobFeature();
@@ -4658,6 +4715,7 @@ namespace Sango.Core
             overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.ValueAndRecycle;
+            totalValue = CityWorkSystem.ApplyWorkSpeed(this, jobId, personList, totalValue);
 
             if (isTest)
             {
@@ -4720,6 +4778,37 @@ namespace Sango.Core
         /// <param name="personList">执行武将</param>
         /// <param name="jobType">内政项目</param>
         /// <returns>折算后的产出值</returns>
+        /// <summary>
+        /// 交易执行者中"交易收益"常驻修正的最大值（百分比，0 = 无修正）。
+        ///
+        /// <para>
+        /// 【统一入口】买粮（PreviewTradeFood / JobTradeFood）与卖粮（PreviewTradeGold）
+        /// 三条链路都调这里，保证界面预览与实扣一致。
+        /// </para>
+        /// <para>
+        /// 【为什么取最大值】通商 / 平籴是"该武将有此能力"，两人同时执行不该翻倍。
+        /// </para>
+        /// </summary>
+        /// <param name="personList">执行武将列表（可为 null）</param>
+        public int GetTradeGainModifier(Person[] personList)
+        {
+            int max = 0;
+            if (personList == null)
+                return 0;
+
+            for (int i = 0; i < personList.Length; i++)
+            {
+                Person person = personList[i];
+                if (person == null)
+                    continue;
+
+                int v = person.GetFeatureModifier(FeatureModifierType.TradeGain);
+                if (v > max)
+                    max = v;
+            }
+            return max;
+        }
+
         public int ApplyPersonalityDomesticScale(int value, Person[] personList, CityJobType jobType)
         {
             if (value <= 0 || personList == null || personList.Length == 0)
@@ -4992,6 +5081,7 @@ namespace Sango.Core
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.ValueAndRecycle;
+            totalValue = CityWorkSystem.ApplyWorkSpeed(this, jobId, personList, totalValue);
 
             if (HantuPopulation.Enabled)
             {
@@ -5118,6 +5208,7 @@ namespace Sango.Core
             overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.ValueAndRecycle;
+            totalValue = CityWorkSystem.ApplyWorkSpeed(this, jobId, personList, totalValue);
 
             if (isTest)
             {
@@ -5784,6 +5875,7 @@ namespace Sango.Core
             overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);
             totalValue = overrideData.ValueAndRecycle;
+            totalValue = CityWorkSystem.ApplyWorkSpeed(this, jobId, personList, totalValue);
 
             // 治安对征兵的影响
             totalValue = (int)(totalValue * (1f - Math.Max(0, (100 - security)) * variables.securityInfluenceRecruitTroops));
@@ -6101,6 +6193,8 @@ namespace Sango.Core
             int foodValue = CalcTradeFoodByGold(goldNum, rate, politics);
             // 【性格】交易效率：与结算侧完全同一处理（多人取平均）
             foodValue = ApplyPersonalityDomesticScale(foodValue, personList, CityJobType.TradeFood);
+            // 【特技】交易收益（通商 / 平籴）：与结算侧同口径，否则界面预览会偏低
+            foodValue = foodValue * (100 + GetTradeGainModifier(personList)) / 100;
 
             int room = foodLimit - food;
             if (room < 0) room = 0;
@@ -6124,6 +6218,8 @@ namespace Sango.Core
             int goldValue = CalcTradeGoldByFood(foodNum, rate, politics);
             // 【性格】交易效率：与结算侧完全同一处理（多人取平均）
             goldValue = ApplyPersonalityDomesticScale(goldValue, personList, CityJobType.TradeFood);
+            // 【特技】交易收益（通商 / 平籴）：与结算侧同口径
+            goldValue = goldValue * (100 + GetTradeGainModifier(personList)) / 100;
 
             int room = goldLimit - gold;
             if (room < 0) room = 0;
@@ -6199,6 +6295,9 @@ namespace Sango.Core
 
             // 【性格】交易效率：按执行武将性格调整交易量（多人取平均）
             totalValue = ApplyPersonalityDomesticScale(totalValue, personList, CityJobType.TradeFood);
+
+            // 【特技】交易收益（通商 / 平籴）：与预览同一乘数、同一取法（多人取最大值）
+            totalValue = totalValue * (100 + GetTradeGainModifier(personList)) / 100;
 
             Tools.OverrideData<int> overrideData = Tools.OverrideData<int>.Create(totalValue);
             GameEvent.OnCityJobResult?.Invoke(this, jobId, personList, overrideData);

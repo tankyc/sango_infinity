@@ -24,7 +24,14 @@ namespace Sango.Core.Action
             GameEvent.OnTroopChangeTroops -= OnTroopChangeTroops;
         }
 
-        void OnTroopChangeTroops(Troop defencer, SangoObject atker, int atkBack, OverrideData<int> overrideData)
+        /// <summary>
+        /// 兵力变化结算时把变化量设为固定值（符号跟随原值）。
+        /// </summary>
+        /// <param name="defencer">兵力变化的一方</param>
+        /// <param name="atker">施加方</param>
+        /// <param name="atkBack">反击强度因子，0 = 非反击（本类未使用）</param>
+        /// <param name="overrideData">待修正的兵力变化量</param>
+        void OnTroopChangeTroops(Troop defencer, SangoObject atker, AttackBackInfo atkBack, OverrideData<int> overrideData)
         {
             if (belowDamage > 0 && System.Math.Abs(overrideData.Value) > belowDamage)
                 return;

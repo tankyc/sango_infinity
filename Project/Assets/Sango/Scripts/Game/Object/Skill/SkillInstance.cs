@@ -183,6 +183,53 @@ namespace Sango.Core
         public int tempCriticalFactor;
         public int tempSuccessFactor;
 
+        /// <summary>
+        /// 本次出手的唯一序号（一次普攻 / 一次战法，含它的多段演出与多目标）。
+        ///
+        /// 【用途】给"一次出手只结算一次"类 Action 做去重键。
+        /// 同一发战法在时间轴上可能多次调用 <see cref="Action"/>（多段），
+        /// 范围战法还会在 <see cref="Action"/> 内逐个目标结算（多目标），
+        /// 光看调用次数分不清"多段"和"新一次出手"，因此由出手入口显式换号。
+        /// 0 表示尚未发号（临时创建 / 池化复用后的初始态）。
+        /// </summary>
+        public int castSerial;
+
+        /// <summary>
+        /// 本次出手的主目标格（施法时选中的那一格）。
+        ///
+        /// 【用途】范围战法会在 <see cref="Action"/> 里遍历多个命中格，但"主目标"始终是
+        /// 调用方传进来的 <c>spellCell</c>。<c>"只对主目标生效"</c>类 Action
+        /// （如 <c>TroopAddDamageByAroundEnemy</c> 的 multiTarget = 2）靠它比对，
+        /// 而不是靠"第一个进入结算的目标"这种顺序假设。
+        /// </summary>
+        public Cell castSpellCell;
+
+        /// <summary>出手序号发号器（全局递增；0 保留给"尚未发号"）</summary>
+        static int castSerialSeed;
+
+        /// <summary>
+        /// 开始一次新的出手：换发新序号。
+        /// 调用点必须是"确实要打出去"的入口（Troop.SpellSkill / 连击 / 战法失败后的普攻替打）。
+        /// </summary>
+        public void BeginNewCast()
+        {
+            castSerialSeed++;
+            // 溢出回绕：跳过 0，否则刚发号又会被当成"尚未发号"
+            if (castSerialSeed <= 0) castSerialSeed = 1;
+            castSerial = castSerialSeed;
+        }
+
+        /// <summary>
+        /// 取本次出手的序号；尚未发号时就地补发一个。
+        /// 补发是兜底：临时 new 出来的实例（如战法反射）没走出手入口，也能各自拿一个新号。
+        /// </summary>
+        /// <returns>本次出手的序号（恒大于 0）</returns>
+        public int GetCastSerial()
+        {
+            if (castSerial <= 0) BeginNewCast();
+            return castSerial;
+        }
+
         public SkillSuccessMethod skillSuccessMethod;
         public SkillCriticalMethod skillCriticalMethod;
         public SkillRangeFilterMethod skillRangeFilterMethod;
@@ -1165,6 +1212,10 @@ namespace Sango.Core
 
         public void Action(Cell spellCell, int criticalFactor)
         {
+            // 记录本次出手的主目标格。多目标战法在下面循环里逐个结算命中格，
+            // 但这里收到的是施法时选中的那一格，不会随循环变化。
+            castSpellCell = spellCell;
+
             Troop troop = master;
             // 一次性消耗: 取完立刻抹掉, 同一次施法里后续的结算按正常攻击走
             bool isAssistAttack = assistAttackFlag;
@@ -1213,6 +1264,24 @@ namespace Sango.Core
                 // atk>0 常规伤害; 落雷等独立固定伤害计略 atk=0 也能进分支(由内部 skill.Id 特判走独立公式)
                 if ((atk > 0 || skill.Id == ThunderSkillId) && beAtkTroop != null && canDamageTroop && (troop.IsEnemy(beAtkTroop) || canDamageTeam))
                 {
+                    // 统一战斗上下文：命中（伤害结算前；无订阅者时不分配）
+                    if (GameEvent.OnCombatHit != null)
+                    {
+                        CombatContext hit = CombatContext.Rent();
+                        hit.isDuel = false;
+                        hit.caster = troop;
+                        hit.targetTroop = beAtkTroop;
+                        hit.casterPerson = troop.Leader;
+                        hit.targetPerson = beAtkTroop.Leader;
+                        hit.skill = this;
+                        hit.isStrategy = IsStrategy();
+                        hit.isNormal = IsNormal();
+                        hit.targetCell = beAtkTroop.cell;
+                        hit.source = this;
+                        GameEvent.OnCombatHit(hit);
+                        CombatContext.Return(hit);
+                    }
+
                     // 落雷:固定伤害1500~2500兵力(每队随机),不受攻防兵力公式影响
                     int damage;
                     if (skill.Id == ThunderSkillId)
@@ -1231,8 +1300,29 @@ namespace Sango.Core
                         damage = damage * Troop.AssistAttackDamagePercent / 100;
 
                     Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 使用<{this.Name}> 攻击 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}], 造成伤害:{damage}, 目标剩余兵力: {beAtkTroop.GetTroopsNum()}");
+                    int targetTroopsBefore = beAtkTroop.troops;
                     beAtkTroop.ChangeTroops(-damage, this, 0);
                     damagedTargetCount++;
+
+                    // 统一战斗上下文：伤害已结算（无订阅者时不分配）
+                    if (GameEvent.OnCombatDamageCalculated != null)
+                    {
+                        CombatContext combat = CombatContext.Rent();
+                        combat.isDuel = false;
+                        combat.caster = troop;
+                        combat.targetTroop = beAtkTroop;
+                        combat.casterPerson = troop.Leader;
+                        combat.targetPerson = beAtkTroop.Leader;
+                        combat.skill = this;
+                        combat.isStrategy = IsStrategy();
+                        combat.isNormal = IsNormal();
+                        combat.damageBefore = targetTroopsBefore;
+                        combat.damageAfter = beAtkTroop.troops;
+                        combat.targetCell = beAtkTroop.cell;
+                        combat.source = this;
+                        GameEvent.OnCombatDamageCalculated(combat);
+                        CombatContext.Return(combat);
+                    }
 
                     // 【原版对齐】受击方经验（功绩 0 / 技巧点 0，只给能力与适性经验）：
                     //   普攻命中 → Exp_Attacked（s11_sys_anim_unit.cpp:1140）
@@ -1272,7 +1362,7 @@ namespace Sango.Core
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalRangeSkill) / 100;
                                 Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 受到 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
-                                troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalRangeSkill, hitBack);
+                                troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalRangeSkill, AttackBackInfo.TroopAttackBack(hitBack));
                                 // 反击在原版走普攻的 Exp 行（Exp_Attack），不带本战法的 tech_point。
                                 // 反击方仅在实际击破进攻部队时触发名声。
                                 beAtkTroop.GainEP(CombatExpEvent.Attack, !troop.IsAlive);
@@ -1284,7 +1374,7 @@ namespace Sango.Core
                             {
                                 int hitBackDmg = hitBack * Troop.CalculateSkillDamage(beAtkTroop, troop, beAtkTroop.NormalSkill) / 100;
                                 Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 受到 {beAtkTroop.BelongForce?.Name}的[{beAtkTroop.Name} - {beAtkTroop.TroopType?.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
-                                troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalSkill, hitBack);
+                                troop.ChangeTroops(-hitBackDmg, beAtkTroop.NormalSkill, AttackBackInfo.TroopAttackBack(hitBack));
                                 if (!troop.IsAlive)
                                 {
                                     beAtkTroop.GainTargetResource(troop);
@@ -1393,7 +1483,12 @@ namespace Sango.Core
                                 {
                                     int hitBackDmg = (int)System.Math.Ceiling(hitBack * Troop.CalculateSkillDamage(beAtkBuildingBase, troop, atkBack));
                                     Sango.Log.Info($"{troop.BelongForce?.Name}的[{troop.Name} - {troop.TroopType?.Name}] 受到 {beAtkBuildingBase.BelongForce?.Name}的[{beAtkBuildingBase.Name}]反击伤害:{hitBackDmg}, 目标剩余兵力: {troop.GetTroopsNum()}");
-                                    troop.ChangeTroops(-hitBackDmg, beAtkBuildingBase, atkBack);
+                                    troop.ChangeTroops(-hitBackDmg, beAtkBuildingBase, AttackBackInfo.BuildingAttackBack(atkBack));
+
+                                    // 【反击落地后的追加效果】拒攻（混乱）/ 蛮弩（负伤）一类挂在这里。
+                                    // 必须在 ChangeTroops 之后，否则"还没挨打就先中状态"。
+                                    if (GameEvent.OnBuildingAttackBackSettled != null)
+                                        GameEvent.OnBuildingAttackBackSettled.Invoke(troop, beAtkBuildingBase, hitBackDmg);
                                 }
                             }
                         }
@@ -1597,7 +1692,11 @@ namespace Sango.Core
                                         if (this.blockFactor > 0 && blockTroop != null && blockTroop.IsEnemy(troop))
                                         {
                                             int blockDmg = targetDamage * this.blockFactor / 100;
-                                            blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
+                                            // 【第三个参数传 0】它是"反击强度因子"（0 = 非反击）。位移撞击的
+                                            // 连带伤害在原版不属于反击（原版只有攻击方被目标反击才走反击分支），
+                                            // 传 -blockFactor 会让 isAttackBack 误判为 true，
+                                            // 使配了 atkBack = 0（仅非反击）的特技错误地作用于撞击伤害。
+                                            blockTroop.ChangeTroops(-blockDmg, this, 0);
                                             if (!blockTroop.IsAlive)
                                             {
                                                 troop.GainTargetResource(blockTroop);
@@ -1628,7 +1727,11 @@ namespace Sango.Core
                                         if (this.blockFactor > 0 && blockTroop != null && blockTroop.IsEnemy(troop))
                                         {
                                             int blockDmg = targetDamage * this.blockFactor / 100;
-                                            blockTroop.ChangeTroops(-blockDmg, this, -blockFactor);
+                                            // 【第三个参数传 0】它是"反击强度因子"（0 = 非反击）。位移撞击的
+                                            // 连带伤害在原版不属于反击（原版只有攻击方被目标反击才走反击分支），
+                                            // 传 -blockFactor 会让 isAttackBack 误判为 true，
+                                            // 使配了 atkBack = 0（仅非反击）的特技错误地作用于撞击伤害。
+                                            blockTroop.ChangeTroops(-blockDmg, this, 0);
                                             if (!blockTroop.IsAlive)
                                             {
                                                 troop.GainTargetResource(blockTroop);
@@ -1827,6 +1930,9 @@ namespace Sango.Core
             strategyTechniquePointGiven = false;
             assistAttackFlag = false;
             forcedExpEvent = -1;
+            // 出手序号同样不能跨实例复用：池化回收后残留旧号，会让新一次出手被去重误判成"已结算"
+            castSerial = 0;
+            castSpellCell = null;
             // 概率递减波及的掷骰快照同样不能跨实例复用（对象池回收后可能带着旧格子）
             spellRollDone = false;
             spellRollCell = null;

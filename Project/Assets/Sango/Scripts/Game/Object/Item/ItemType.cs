@@ -131,6 +131,15 @@ namespace Sango.Core
         [JsonProperty] public int glamourBonus;
 
         /// <summary>
+        /// 装备时提供 / 解锁的兵种 Id（0 = 不提供）。
+        ///
+        /// 【生效方式】出征解析兵种时，主将当前装备的该字段作为候选，
+        /// 优先级低于玩家手动选择，高于普通兵种默认值（见 TroopTypeResolver）。
+        /// 装备兵种不要求额外兵种道具，只校验势力科技。
+        /// </summary>
+        [JsonProperty] public int troopTypeId;
+
+        /// <summary>
         /// 附加特技（序列化形态保持 int[]、键名不变，老存档可读）；运行期列表由 OnScenarioPrepare 解析。
         ///
         /// 【生效方式】装备 / 卸下 / 读档时由 <c>Person.InitPersonActions</c> →

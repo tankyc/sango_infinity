@@ -16,16 +16,38 @@ namespace Sango.Core
         /// <summary>
         /// 建筑类型
         /// </summary>
-        [JsonConverter(typeof(SangoObjectSetConverter<BuildingType>))]
+        /// <summary>
+        /// 建筑类型表。
+        ///
+        /// 【为什么用 Map】Id 稀疏（1 城池 / 2 关隘 / 3 港 / 10+ 设施，中间有空洞），
+        /// 且使用方式全是"按 Id 查"或"遍历全部"，没有"按序号取第 N 个"。
+        /// Set 会按最大 Id 撑出一个大数组、所有遍历都带空洞；Map 只存真实条目。
+        /// 注意：**不要**再写 <c>for (i &lt; Count) this[i]</c> 这种"下标即 Id"的循环，
+        /// Map 的 Count 是实际条数，下标与 Id 无关。
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectMapConverter<BuildingType>))]
         [JsonProperty]
-        public SangoObjectSet<BuildingType> BuildingTypes = new SangoObjectSet<BuildingType>();
+        public SangoObjectMap<BuildingType> BuildingTypes = new SangoObjectMap<BuildingType>();
 
         /// <summary>
-        /// 特性
+        /// 特性（特技）
+        ///
+        /// 【为什么用 Map 而不是 Set】特技 Id 是**稀疏且跨度极大**的：
+        /// 原版 1~100、模组 101~217、本命 30101~30162、宝物 32000~32028。
+        /// <c>SangoObjectSet</c> 是按 Id 直接下标的数组，为了容纳 32028 会扩到 32768 槽
+        /// （262 KB 引用数组，其中 31272 个空槽），且每次 <c>ForEach</c> 都要扫满 32768 次、
+        /// <c>Count</c> 返回的是"最大 Id + 1"而非实际条数（容易被误用成循环上界）。
+        /// 换成 <c>SangoObjectMap</c>（Dictionary）后：内存降到实际条数（1496 条），
+        /// 遍历只跑真实数据，<c>Count</c> 语义变成"实际条数"，<c>Get(Id)</c> 仍是 O(1)
+        /// （哈希查找，与数组下标同数量级），并且 Id 再往上加也不会撑大内存。
+        ///
+        /// 【JSON 结构不变】两种容器的转换器读的都是 <c>{ "Id": { ... } }</c> 形式，
+        /// 现有 Features.json / Frontier*.json 无需改动，老存档也不受影响
+        /// （存档里记的是 <c>FeatureListId</c> 这类 int[]，不是对象本身）。
         /// </summary>
-        [JsonConverter(typeof(SangoObjectSetConverter<Feature>))]
+        [JsonConverter(typeof(SangoObjectMapConverter<Feature>))]
         [JsonProperty]
-        public SangoObjectSet<Feature> Features = new SangoObjectSet<Feature>();
+        public SangoObjectMap<Feature> Features = new SangoObjectMap<Feature>();
 
         /// <summary>
         /// 能力（研究 / 培育项目）。
@@ -50,6 +72,17 @@ namespace Sango.Core
         [JsonConverter(typeof(SangoObjectMapConverter<ItemType>))]
         [JsonProperty]
         public SangoObjectMap<ItemType> ItemTypes = new SangoObjectMap<ItemType>();
+
+        /// <summary>
+        /// 成对 / 组合特技配置（连舟寨、冀雄、车下士这类两人配合机制）。
+        /// 由 Data/Common/FeaturePairs.json 填充，消费方是 <see cref="FeaturePairSystem"/>。
+        /// </summary>
+        /// <summary>
+        /// 成对特技配置表（pairId → 配置）。使用方式只有 <c>Get(pairId)</c>，天然是 Map。
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectMapConverter<FeaturePairConfig>))]
+        [JsonProperty]
+        public SangoObjectMap<FeaturePairConfig> FeaturePairs = new SangoObjectMap<FeaturePairConfig>();
 
         /// <summary>
         /// 兵种动画
@@ -124,9 +157,15 @@ namespace Sango.Core
         /// <summary>
         /// 技能
         /// </summary>
-        [JsonConverter(typeof(SangoObjectSetConverter<Skill>))]
+        /// <summary>
+        /// 战法 / 计略表。
+        ///
+        /// 【为什么用 Map】使用方式只有 <c>Get(Id)</c>（战法 Id 直接写在 SkillInstance / 兵种配置里）
+        /// 与"遍历全部"，没有按序号取；且 Id 稀疏（原版 1~100、模组扩展段）。
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectMapConverter<Skill>))]
         [JsonProperty]
-        public SangoObjectSet<Skill> Skills = new SangoObjectSet<Skill>();
+        public SangoObjectMap<Skill> Skills = new SangoObjectMap<Skill>();
 
         /// <summary>
         /// 武将等级
@@ -159,9 +198,15 @@ namespace Sango.Core
         /// <summary>
         /// 性格
         /// </summary>
-        [JsonConverter(typeof(SangoObjectSetConverter<Personality>))]
+        /// <summary>
+        /// 性格表。使用方式是 <c>Get(Id)</c> 与"遍历全部"，用 Map。
+        ///
+        /// 【注意】武将创建界面曾按"下标即 Id"遍历本表（`for (i &lt; Count) list[i]`），
+        /// 换 Map 后该写法会漏项，已改为 <c>ForEach</c> 顺序遍历（见 UIPersonCreateDetail）。
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectMapConverter<Personality>))]
         [JsonProperty]
-        public SangoObjectSet<Personality> Personalities = new SangoObjectSet<Personality>();
+        public SangoObjectMap<Personality> Personalities = new SangoObjectMap<Personality>();
 
         /// <summary>
         /// 义理
@@ -268,6 +313,13 @@ namespace Sango.Core
             Personalities.ForEach(x => x.OnScenarioPrepare(scenario));
             Argumentations.ForEach(x => x.OnScenarioPrepare(scenario));
             AbilityLevelTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+            FeaturePairs.ForEach(x => x.OnScenarioPrepare(scenario));
+
+            // 道具类型：解析 ItemType.features_list → features（装备/宝物附加特技）。
+            // 之前漏了这一行，ItemType.features 永远是空列表，装备特技整体不生效。
+            // OnScenarioPrepare 内部有 features.Count == 0 的幂等判断，重复调用安全。
+            ItemTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+
             // PersonLibrary 已迁出本类（见字段处的说明）。PersonLib.OnScenarioPrepare 本身是
             // 空实现（PersonLib.cs:191-193，库条目只是数据模板，不做运行期解析），
             // 所以这里去掉该行不改变任何行为。

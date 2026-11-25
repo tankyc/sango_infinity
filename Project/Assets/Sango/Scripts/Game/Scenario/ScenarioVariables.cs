@@ -138,7 +138,9 @@ namespace Sango.Core
         /// 【为什么用 new int[] { 0 } 而不是共享静态常量】数组是引用类型，
         /// 若默认值指向同一个静态实例，任何一次 SetSkillSlotUnlockLevel 都会改到"缺省值"本身，
         /// 进而污染所有新建剧本的默认配置（表现：新剧本一开就带着上次编辑过的解锁等级）。
-        [JsonProperty] public int[] skillSlotUnlockLevels = new int[] { 0 };
+        /// 【默认 0/20/50】普通槽 3 个：1 级解锁第 1 格、20 级第 2 格、50 级第 3 格。
+        /// 旧存档已序列化 `{0}` 的会保留旧值，需要新开剧本或手动改参数才会套用新节奏。
+        [JsonProperty] public int[] skillSlotUnlockLevels = new int[] { 0, 20, 50 };
 
         /// <summary>
         /// 取指定特技槽位的等级门槛（按当前剧本参数）。
@@ -1357,6 +1359,51 @@ namespace Sango.Core
         /// 招募系统 - 俘虏影响值
         /// </summary>
         [JsonProperty] public int recruitPrisonerInfluence = 15;
+
+        // ==================================================================
+        // 外交舌战门槛（原写死 论客 #87 + 30）
+        // ==================================================================
+
+        /// <summary>放宽舌战门槛的特技 Id 列表（默认论客 #87）</summary>
+        [JsonProperty] public int[] diplomacyDebateFeatureIds = new int[] { 87 };
+
+        /// <summary>每个特技放宽的判定点数（默认 30，相当于政治 +30）</summary>
+        [JsonProperty] public int diplomacyDebateFeatureBonus = 30;
+
+        /// <summary>生效业务位掩码：1 同盟 / 2 停战 / 4 交换俘虏</summary>
+        [JsonProperty] public int diplomacyDebateBusinessMask = 7;
+
+        // ==================================================================
+        // 人口事件：流民 / 异族内附（原写死 10/5、40/20、47000、32025）
+        // ==================================================================
+
+        /// <summary>异族内附固定基数（百人）</summary>
+        [JsonProperty] public int hantuRefugeeTribalFixed = 10;
+        /// <summary>流民归附固定基数（百人）</summary>
+        [JsonProperty] public int hantuRefugeeNormalFixed = 5;
+        /// <summary>异族内附浮动上限（百人）</summary>
+        [JsonProperty] public int hantuRefugeeTribalVariation = 40;
+        /// <summary>流民归附浮动上限（百人）</summary>
+        [JsonProperty] public int hantuRefugeeNormalVariation = 20;
+        /// <summary>季度 roll 的除数（原版固定 6）</summary>
+        [JsonProperty] public int hantuRefugeeRollDivisor = 6;
+        /// <summary>汉土军功特技偏移（原版 47000，0 = 不启用该来源）</summary>
+        [JsonProperty] public int hantuRefugeeFeatureOffset = 47000;
+        /// <summary>宝物版威压特技 Id（原版 32025，0 = 不启用该来源）</summary>
+        [JsonProperty] public int hantuWeiyaTreasureFeatureId = 32025;
+
+        // ==================================================================
+        // 外交公式常量（原写死 110 / 100 / 80 / 70）
+        // ==================================================================
+
+        /// <summary>同盟成功线基数（原版 110）</summary>
+        [JsonProperty] public int diplomacyAllianceSuccessBase = 110;
+        /// <summary>同盟舌战线基数（原版 100）</summary>
+        [JsonProperty] public int diplomacyAllianceDebateBase = 100;
+        /// <summary>停战成功线基数（原版 80）</summary>
+        [JsonProperty] public int diplomacyCeasefireSuccessBase = 80;
+        /// <summary>停战舌战线基数（原版 70）</summary>
+        [JsonProperty] public int diplomacyCeasefireDebateBase = 70;
 
         /// <summary>
         /// 招募系统 - 随机影响最大值。

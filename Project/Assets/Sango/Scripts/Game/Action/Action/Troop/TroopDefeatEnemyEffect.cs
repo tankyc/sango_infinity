@@ -49,8 +49,46 @@ namespace Sango.Core.Action
         int learnMeritThreshold;
         /// <summary>仅当被击破者是水上部队时生效</summary>
         bool requireEnemyInWater;
+
+        /// <summary>
+        /// 范围效果的圆心是否取**被击破部队所在格**（默认 false = 持技部队所在格）。
+        ///
+        /// 【为什么要这个开关】汉土设计里"击破敌军后，败军位置 3 格内其他敌军气力 -15"
+        /// 这类条目（崩营 / 威震 / 隙击 / 荡营 / 摧阵 / 抚民）的圆心是**败军**，
+        /// 与"持技部队周围"是两回事；旧实现只有后者，配出来位置全错。
+        /// </summary>
+        bool rangeFromDestroyed;
+
+        /// <summary>被击破部队坐标（击破时快照，用于 rangeFromDestroyed）</summary>
+        Cell destroyedCell;
+
+        /// <summary>本场最多触发次数（0 = 不限）</summary>
+        int maxUses;
+        /// <summary>触发后冷却回合（0 = 无冷却）</summary>
+        int cooldown;
+        /// <summary>触发该效果的特技 Id（用于次数 / 冷却记账）</summary>
+        int featureId;
+
+        /// <summary>对范围内敌军随机施加的 BUFF 池（可为空）</summary>
+        int[] buffIds;
+        /// <summary>每个敌军独立判定概率（万分比）</summary>
+        int buffProbability;
+        /// <summary>BUFF 持续回合</summary>
+        int buffTurns;
+
+        /// <summary>使被击破部队主将负伤的概率（百分点，0 = 不启用）—— 锦骑 / 死烈</summary>
+        int injureEnemyLeader;
+        /// <summary>伤病等级（默认 1 = 轻伤）</summary>
+        int injuryLevel = 1;
+
         /// <summary>额外条件</summary>
         Condition condition;
+
+        /// <summary>
+        /// 配置了 condition 但条件类未注册：整条效果作废。
+        /// 原实现只打日志，condition 留在 null 后被视为“无过滤”，等于条件写错反而全量生效。
+        /// </summary>
+        bool conditionInvalid;
 
         /// <summary>范围内目标复用缓冲</summary>
         readonly List<Troop> targetBuffer = new List<Troop>(8);
@@ -75,14 +113,45 @@ namespace Sango.Core.Action
             learnMeritThreshold = p.Value<int>("learnMeritThreshold");
             requireEnemyInWater = p.Value<bool>("requireEnemyInWater");
 
+            rangeFromDestroyed = p.Value<bool>("rangeFromDestroyed");
+            maxUses = p.Value<int>("maxUses");
+            cooldown = p.Value<int>("cooldown");
+            buffIds = p.Value<JArray>("buffIds")?.ToObject<int[]>();
+            buffProbability = p.Value<int>("buffProbability");
+            buffTurns = p.Value<int>("buffTurns");
+            if (buffTurns <= 0) buffTurns = 1;
+
+            injureEnemyLeader = p.Value<int>("injureEnemyLeader");
+            int injuryParse = p.Value<int>("injuryLevel");
+            injuryLevel = injuryParse > 0 ? injuryParse : 1;
+
+            // Feature.InitActions 会把 Feature 自身追加在 sangoObjects 末尾
+            featureId = 0;
+            for (int i = 0; i < sangoObjects.Length; i++)
+            {
+                if (sangoObjects[i] is Feature feature)
+                {
+                    featureId = feature.Id;
+                    break;
+                }
+            }
+
+            // 复用对象先清旧条件，避免上一次配置残留
+            condition = null;
+            conditionInvalid = false;
+
             JObject conObj = p.Value<JObject>("condition");
             if (conObj != null)
             {
-                condition = Condition.Create(conObj.Value<string>("class"));
+                string conditionClass = conObj.Value<string>("class");
+                condition = Condition.Create(conditionClass);
                 if (condition != null)
                     condition.Init(conObj, sangoObjects);
                 else
-                    Sango.Log.Error($"击破触发效果的 condition 类未注册：{conObj.Value<string>("class")}，已忽略该条件");
+                {
+                    conditionInvalid = true;
+                    Sango.Log.Error($"击破触发效果的 condition 类未注册：{conditionClass}，整条效果已作废（装配宿主：{Troop?.Name ?? Force?.Name ?? "未知"}）");
+                }
             }
 
             // 装配宿主既不是部队也不是势力时不订阅事件（避免"任何人击破敌军都触发"）
@@ -116,11 +185,12 @@ namespace Sango.Core.Action
         /// </summary>
         /// <param name="destroyed">被击破的部队</param>
         /// <param name="atk">击破来源（SkillInstance / Troop，可为 null）</param>
-        /// <param name="atkBack">反击标记（未使用）</param>
+        /// <param name="atkBack">反击强度因子（本类未使用，0 = 非反击）</param>
         /// <param name="scenario">当前剧本</param>
-        void OnTroopDestroyed(Troop destroyed, SangoObject atk, int atkBack, Scenario scenario)
+        void OnTroopDestroyed(Troop destroyed, SangoObject atk, AttackBackInfo atkBack, Scenario scenario)
         {
-            if (destroyed == null)
+            // 条件类未注册：整条效果作废，不让它退化成“无条件生效”
+            if (conditionInvalid || destroyed == null)
                 return;
 
             Troop owner = ResolveAttacker(atk);
@@ -151,6 +221,17 @@ namespace Sango.Core.Action
             if (condition != null && !condition.Check(new TroopConditionDatabase(owner)))
                 return;
 
+            // 持久状态：冷却 / 每场次数（确认触发后消费，失败不扣）
+            if (featureId > 0)
+            {
+                if (owner.IsFeatureOnCooldown(featureId))
+                    return;
+                if (!owner.TryConsumeFeatureUse(featureId, maxUses))
+                    return;
+                if (cooldown > 0)
+                    owner.SetFeatureCooldown(featureId, cooldown);
+            }
+
             // ① 自身回兵（以德服人）
             if (selfRecurePercent > 0)
             {
@@ -163,10 +244,33 @@ namespace Sango.Core.Action
             if (selfMorale != 0)
                 owner.ChangeMorale(selfMorale);
 
-            if (bound <= 0)
-                return;
-
             // ③ 范围效果：友军加气力 / 概率恢复行动；敌军扣兵扣气
+            //    圆心默认是持技部队，rangeFromDestroyed = true 时改用败军位置
+            //    【注意】这里不能因为 bound <= 0 就整条 return —— "学特技"和"使敌将负伤"
+            //    是不带半径的条目，跳过去会表现为"配了永远不触发"。
+            if (bound > 0)
+            {
+                destroyedCell = destroyed.cell;
+                ApplyRangeEffects(owner);
+            }
+
+            // ④ 使败军主将负伤（锦骑 / 死烈）
+            TryInjureEnemyLeader(owner, destroyed);
+
+            // ⑤ 学得敌将特技（即学即用）
+            if (learnFeatureProbability > 0
+                && GameRandom.Chance(learnFeatureProbability, 10000))
+            {
+                TryLearnEnemyFeature(owner, destroyed);
+            }
+        }
+
+        /// <summary>
+        /// 范围效果结算（③ 段）。
+        /// </summary>
+        /// <param name="owner">持技部队</param>
+        void ApplyRangeEffects(Troop owner)
+        {
             CollectRangeTroops(owner);
             for (int i = 0; i < targetBuffer.Count; i++)
             {
@@ -202,15 +306,43 @@ namespace Sango.Core.Action
                         if (num != 0)
                             target.ChangeMorale(num);
                     }
+
+                    // 每个敌军独立判定，按概率随机施加一个 BUFF（败军相邻友军各 33% 混乱）
+                    if (buffIds != null && buffIds.Length > 0 && buffProbability > 0
+                        && GameRandom.Chance(buffProbability, 10000))
+                    {
+                        int buffId = buffIds[GameRandom.Range(0, buffIds.Length)];
+                        target.AddBuff(buffId, buffTurns, owner);
+                    }
                 }
             }
+        }
 
-            // ④ 学得敌将特技（即学即用）
-            if (learnFeatureProbability > 0
-                && GameRandom.Chance(learnFeatureProbability, 10000))
-            {
-                TryLearnEnemyFeature(owner, destroyed);
-            }
+        /// <summary>
+        /// 击破敌方部队时按概率让败军主将负伤。
+        ///
+        /// 【调用点】击破结算末尾（此时败军已被移出地图，但 <c>Leader</c> 仍指向当事人），
+        /// 概率是**百分点**，与 <see cref="TroopOffsetInjurePerson"/> 同口径。
+        /// </summary>
+        /// <param name="owner">击破方部队</param>
+        /// <param name="destroyed">被击破部队</param>
+        void TryInjureEnemyLeader(Troop owner, Troop destroyed)
+        {
+            if (injureEnemyLeader <= 0 || destroyed == null)
+                return;
+
+            Person hurt = destroyed.Leader;
+            if (hurt == null || !hurt.IsAlive || hurt.injury >= Person.InjuryMaxLevel)
+                return;
+
+            if (!GameRandom.Chance(injureEnemyLeader))
+                return;
+
+            if (!PersonInjury.Injure(hurt, injuryLevel, owner))
+                return;
+
+            Sango.Log.Info($"@特技@[{owner.Name}]击破[{destroyed.Name}]，敌将[{hurt.Name}]负伤，等级{hurt.injury}");
+            GameEvent.OnPersonInjury?.Invoke(hurt, owner);
         }
 
         /// <summary>
@@ -231,22 +363,40 @@ namespace Sango.Core.Action
         /// 按半径收集周围存活的部队（不含自己）。
         /// </summary>
         /// <param name="owner">持技部队</param>
+        /// <summary>范围收集的当前持有者（静态回调用）</summary>
+        static Troop collectOwner;
+        /// <summary>范围收集的当前效果实例（静态回调用）</summary>
+        static TroopDefeatEnemyEffect collectEffect;
+        /// <summary>范围收集的格子回调（静态复用，避免每次击破分配闭包）</summary>
+        static readonly System.Action<Cell> collectAction = CollectCell;
+
+        static void CollectCell(Cell c)
+        {
+            if (c == null)
+                return;
+            Troop other = c.troop;
+            if (other == null || !other.IsAlive || other == collectOwner)
+                return;
+            // Spiral 每格只回调一次，同一部队只占一格，无需 Contains 去重
+            collectEffect.targetBuffer.Add(other);
+        }
+
         void CollectRangeTroops(Troop owner)
         {
             targetBuffer.Clear();
-            if (owner.cell == null)
+
+            // 圆心：默认持技部队；rangeFromDestroyed 且败军坐标可用时改用败军位置
+            Cell center = owner.cell;
+            if (rangeFromDestroyed && destroyedCell != null)
+                center = destroyedCell;
+            if (center == null)
                 return;
 
-            owner.cell.Spiral(bound, c =>
-            {
-                if (c == null)
-                    return;
-                Troop other = c.troop;
-                if (other == null || !other.IsAlive || other == owner)
-                    return;
-                if (!targetBuffer.Contains(other))
-                    targetBuffer.Add(other);
-            });
+            collectOwner = owner;
+            collectEffect = this;
+            center.Spiral(bound, collectAction);
+            collectOwner = null;
+            collectEffect = null;
         }
 
         /// <summary>

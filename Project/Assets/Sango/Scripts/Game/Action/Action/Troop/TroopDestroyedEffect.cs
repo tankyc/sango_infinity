@@ -102,9 +102,9 @@ namespace Sango.Core.Action
         /// </summary>
         /// <param name="destroyed">被击破的部队</param>
         /// <param name="atk">击破来源（未使用）</param>
-        /// <param name="atkBack">反击标记（未使用）</param>
+        /// <param name="atkBack">反击强度因子（本类未使用，0 = 非反击）</param>
         /// <param name="scenario">当前剧本</param>
-        void OnTroopDestroyed(Troop destroyed, SangoObject atk, int atkBack, Scenario scenario)
+        void OnTroopDestroyed(Troop destroyed, SangoObject atk, AttackBackInfo atkBack, Scenario scenario)
         {
             if (destroyed == null)
                 return;

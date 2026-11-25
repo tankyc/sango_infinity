@@ -379,9 +379,12 @@ namespace Sango.Core
         public static EventDelegate<Troop, Scenario> OnTroopCreated;
 
         /// <summary>
-        /// 部队溃灭的时候
+        /// 部队溃灭的时候。
+        ///
+        /// 第三个参数是 <see cref="AttackBackInfo"/>（与 <see cref="OnTroopChangeTroops"/> 同源）：
+        /// 用 <c>IsAttackBack</c> 判是否反击，不要再从 int 里猜。
         /// </summary>
-        public static EventDelegate<Troop, SangoObject, int, Scenario> OnTroopDestroyed;
+        public static EventDelegate<Troop, SangoObject, AttackBackInfo, Scenario> OnTroopDestroyed;
 
         public static EventDelegate<Troop, Scenario> OnTroopClear;
 
@@ -737,6 +740,23 @@ namespace Sango.Core
         public static EventDelegate<Troop, int, OverrideData<bool>> OnTroopCheckBuff;
 
         /// <summary>
+        /// 部队**已经**获得某个状态之后的派发点。
+        ///
+        /// <para>参数：目标部队、状态 Id、施加者（可能是部队 / 建筑 / null）、持续回合数。</para>
+        /// <para>
+        /// 【与 OnTroopCheckBuff 的分工】那个是"施加前的否决"（免疫 / 拒绝），
+        /// 这个是"已经生效后的追加"（扩散、转嫁）。汉土的
+        /// 煽惑 / 疑机 / 佯装 一类"异常状态向邻军扩散"就跑在这里。
+        /// </para>
+        /// <para>
+        /// 【防递归】扩散出去的追加状态会再次触发本事件，订阅方必须用
+        /// <c>spreadDepth</c> 之类的深度标记截断，否则相邻两军会互相弹射。
+        /// </para>
+        /// <para>【性能约定】派发点先判 null；无订阅者时不要构造任何对象。</para>
+        /// </summary>
+        public static EventDelegate<Troop, int, SangoObject, int> OnTroopBuffApplied;
+
+        /// <summary>
         /// 询问"是否允许这支部队被战法位移"。被位移方把 Value 置为 false 即免疫本次位移。
         ///
         /// <para>参数：被位移方部队、施法方部队、是否允许（默认 true）。</para>
@@ -798,9 +818,56 @@ namespace Sango.Core
         public static EventDelegate<City, Troop, OverrideData<int>> OnCityCalculateBuildingKeepCount;
 
         /// <summary>
-        /// 当部队兵力变化时
+        /// 当部队兵力变化时（数值修正入口）。
+        ///
+        /// 参数：(受影响的部队, 施加方, 反击信息, 待修正的兵力变化量)。
+        /// 第三个参数是 <see cref="AttackBackInfo"/>：<c>IsAttackBack</c> 判是否反击、
+        /// <c>Factor</c> 取强度（部队 28~90 / 据点 20~50）、<c>Source</c> 取来源。
+        /// 编译期已无法写 <c>atkBack == 1</c>，历史误判不会再出现。
         /// </summary>
-        public static EventDelegate<Troop, SangoObject, int, OverrideData<int>> OnTroopChangeTroops;
+        public static EventDelegate<Troop, SangoObject, AttackBackInfo, OverrideData<int>> OnTroopChangeTroops;
+
+        /// <summary>
+        /// 部队受到伤害时收集"范围减伤"（多个设施/光环取最大值，不连乘）。
+        ///
+        /// 与 <see cref="OnTroopChangeTroops"/> 分开：后者是逐项修正（同类可能连乘），
+        /// 这里只收集百分点，由 Troop.ChangeTroops 统一按最大值应用一次。
+        /// </summary>
+        public static EventDelegate<Troop, SangoObject, AttackBackInfo, OverrideData<int>> OnTroopCalculateAuraDamageReduce;
+
+        /// <summary>
+        /// 单挑结算完成（统一上下文：胜方/败方/主将/结果/败方坐标）。
+        /// 旧事件 <see cref="OnDuelEnd"/> 保留，本事件只做"特技效果统一入口"。
+        /// </summary>
+        public static EventDelegate<CombatContext> OnCombatDuelFinished;
+
+        /// <summary>部队被击破（统一上下文：施术者/目标/坐标/伤害前后）</summary>
+        public static EventDelegate<CombatContext> OnCombatTroopDestroyed;
+
+        /// <summary>战法伤害结算完成（统一上下文）</summary>
+        public static EventDelegate<CombatContext> OnCombatDamageCalculated;
+
+        /// <summary>命中判定成功（伤害结算前，统一上下文；damageBefore/After 尚未填充）</summary>
+        public static EventDelegate<CombatContext> OnCombatHit;
+
+        /// <summary>
+        /// 据点反击**已经结算完伤害**之后的通知。
+        ///
+        /// <para>参数：被反击的攻击部队、发起反击的建筑 / 城池、本次反击伤害。</para>
+        /// <para>
+        /// 【与 OnBuildCalculateAttackBack 的分工】那个是"伤害计算前改数值"，
+        /// 这个是"伤害落地后追加状态"（拒攻使敌军混乱 / 蛮弩使敌将负伤 / 弩炬起火）。
+        /// 放在结算之后，才不会出现"伤害还没扣就先上状态"的时序错位。
+        /// </para>
+        /// <para>【性能约定】调用方先判 null；只有伤害 &gt; 0 才派发。</para>
+        /// </summary>
+        public static EventDelegate<Troop, BuildingBase, int> OnBuildingAttackBackSettled;
+
+        /// <summary>
+        /// 内政工作速度计算（预览 / 提交共用）。
+        /// 特技通过修改 <see cref="CityWorkContext.speedFactor"/> 加成，保证显示与实扣一致。
+        /// </summary>
+        public static EventDelegate<CityWorkContext> OnCityCalculateWorkSpeed;
 
         /// <summary>
         /// 当部队气力变化时

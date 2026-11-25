@@ -1212,6 +1212,18 @@ namespace Sango.Core
 
         }
 
+        /// <summary>
+        /// 遍历建筑类型表用的复用缓冲。
+        ///
+        /// 【为什么不在方法里 new】本方法每个势力回合开始时都会跑一次，
+        /// 原实现刻意避开 lambda / 临时集合（Profiler 里曾有 4.5 KB/帧）。
+        /// 建筑类型表换了 Map 之后没有 <c>objects</c> 数组可按下标走，
+        /// 这里用"静态缓冲 + 静态委托"保持同样的零分配特性。
+        /// </summary>
+        static readonly List<BuildingType> sBuildingTypeBuffer = new List<BuildingType>(64);
+        /// <summary>把建筑类型塞进复用缓冲的静态委托（只分配一次）</summary>
+        static readonly System.Action<BuildingType> sCollectBuildingType = x => sBuildingTypeBuffer.Add(x);
+
         public void UpdateCanBuildBuildingTypes()
         {
             canBuildMilitaryBuildingType.Clear();
@@ -1220,10 +1232,12 @@ namespace Sango.Core
             // 本方法由 UpdateTurnInfo 在每个势力回合开始时调用，Profiler 中这条路径的
             // 单帧 GC 是 4.5 KB（Force.UpdateCanBuildBuildingTypes，26 个建筑类型各 ~172 B）。
             // 这里改成三条就地循环，筛选与替换规则逐条照搬原写法。
-            BuildingType[] types = Scenario.Cur.CommonData.BuildingTypes.objects;
-            for (int i = 1; i < types.Length; i++)
+            // 建筑类型表是 Map（无 objects 数组），用静态缓冲收集后按下标遍历，保持零分配
+            sBuildingTypeBuffer.Clear();
+            Scenario.Cur.CommonData.BuildingTypes.ForEach(sCollectBuildingType);
+            for (int i = 0; i < sBuildingTypeBuffer.Count; i++)
             {
-                BuildingType x = types[i];
+                BuildingType x = sBuildingTypeBuffer[i];
                 if (x == null)
                     continue;
                 // 判定顺序与原写法保持一致（IsIntrior → IsValid → canBuild）

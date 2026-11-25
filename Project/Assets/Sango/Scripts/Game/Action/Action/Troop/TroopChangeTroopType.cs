@@ -54,6 +54,12 @@ namespace Sango.Core.Action
         /// <summary>已报过"目标兵种不存在"的 Id，避免每次重算刷屏</summary>
         readonly HashSet<int> reportedInvalid = new HashSet<int>();
 
+        /// <summary>是否仅主将生效（1 = 副将不触发）</summary>
+        int leaderOnly;
+
+        /// <summary>装配来源武将（Feature.InitActions 传入，用于主将判定）</summary>
+        Person sourcePerson;
+
         /// <summary>
         /// 初始化。
         /// <para>JSON 参数：landFrom/landTo、waterFrom/waterTo（均为 int 数组，成对使用）。</para>
@@ -68,6 +74,17 @@ namespace Sango.Core.Action
             landTo = ParseArray(p, "landTo");
             waterFrom = ParseArray(p, "waterFrom");
             waterTo = ParseArray(p, "waterTo");
+            leaderOnly = p.Value<int>("leaderOnly");
+
+            // Feature.InitActions 传入的 sangoObjects 含装配武将（[1]），末尾追加 Feature
+            for (int i = 0; i < sangoObjects.Length; i++)
+            {
+                if (sangoObjects[i] is Person person)
+                {
+                    sourcePerson = person;
+                    break;
+                }
+            }
 
             bool hasLand = landFrom != null && landTo != null && landFrom.Length == landTo.Length;
             bool hasWater = waterFrom != null && waterTo != null && waterFrom.Length == waterTo.Length;
@@ -127,6 +144,10 @@ namespace Sango.Core.Action
 
             if (Force != null && troop.BelongForce != Force) return;
             if (Troop != null && Troop != troop) return;
+
+            // 主将限制：副将携带的同名特技不生效（势力技法 sourcePerson 为空时不过滤）
+            if (leaderOnly == 1 && sourcePerson != null && troop.Leader != sourcePerson)
+                return;
 
             TryReplace(troop, scenario, landFrom, landTo, false);
             TryReplace(troop, scenario, waterFrom, waterTo, true);

@@ -432,12 +432,48 @@ namespace Sango.Core
                     if (num < 0 && wasStanding && this is Building facility)
                         HantuPopulationIncidents.OnFacilityDestroyed(facility, atkTroop);
 
+                    // 【特技】清野：设施被摧毁时，所在城返还部分建造费用（PersonAddModifier type=1）。
+                    // 必须在 OnFall 之前做 —— OnFall 会把设施从城里的建筑列表摘掉，
+                    // 届时 BelongCity 可能已不可用。
+                    if (num < 0 && wasStanding && this is Building destroyedFacility)
+                        TryRefundBuildCost(destroyedFacility);
+
                     OnFall(atk);
                     return true;
                 }
             }
             Render?.UpdateRender();
             return false;
+        }
+
+        /// <summary>
+        /// 设施被摧毁时按"城内武将的清野返还比例"回收部分建造费用。
+        ///
+        /// 【口径】返还额 = <c>BuildingType.cost × 返还百分比 / 100</c>，转入设施所在城。
+        /// 百分比取城内武将 <see cref="FeatureModifierType.BuildingRefund"/> 的**最大值**
+        /// （同城两人持有不叠加），未配置时为 0，整段直接返回，无任何额外开销。
+        /// </summary>
+        /// <param name="facility">被摧毁的设施</param>
+        void TryRefundBuildCost(Building facility)
+        {
+            if (facility == null || facility.BuildingType == null)
+                return;
+
+            City city = facility.BelongCity;
+            if (city == null)
+                return;
+
+            int percent = city.GetPersonModifierMax(FeatureModifierType.BuildingRefund);
+            if (percent <= 0)
+                return;
+
+            int refund = facility.BuildingType.cost * percent / 100;
+            if (refund <= 0)
+                return;
+
+            // AddGold 内部有 [0, GoldLimit] 夹取，不会溢出
+            city.AddGold(refund);
+            Sango.Log.Info($"*[内政]{city.Name} 的「清野」回收{facility.BuildingType.Name}残值 +{refund} 金");
         }
 
         public virtual void OnFall(SangoObject atk)

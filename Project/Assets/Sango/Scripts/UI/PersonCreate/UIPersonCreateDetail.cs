@@ -1775,15 +1775,18 @@ namespace Sango.UI
             Scenario scenario = Scenario.Cur;
             if (scenario != null && scenario.CommonData != null && scenario.CommonData.Personalities != null)
             {
+                // 【遍历方式】性格表是 Map（Count 是实际条数，下标与 Id 无关），
+                // 必须按"顺序遍历有效项"取第 index 个，不能 `for (i < Count) list[i]`。
                 var list = scenario.CommonData.Personalities;
                 int seq = 0;
-                for (int i = 0; i < list.Count; i++)
+                int foundId = 0;
+                list.ForEach(p =>
                 {
-                    Personality personality = list[i];
-                    if (personality == null) continue;      // 0 号默认位 / 稀疏空位
-                    if (seq == index) return personality.Id;
+                    if (foundId != 0 || p == null) return;   // null 是 0 号默认位 / 稀疏空位
+                    if (seq == index) { foundId = p.Id; return; }
                     seq++;
-                }
+                });
+                if (foundId != 0) return foundId;
             }
             return index + 1;
         }
@@ -1799,13 +1802,14 @@ namespace Sango.UI
             {
                 var list = scenario.CommonData.Personalities;
                 int seq = 0;
-                for (int i = 0; i < list.Count; i++)
+                int foundIndex = -1;
+                list.ForEach(p =>
                 {
-                    Personality personality = list[i];
-                    if (personality == null) continue;      // 0 号默认位 / 稀疏空位
-                    if (personality.Id == personalityId) return seq;
+                    if (foundIndex >= 0 || p == null) return;   // null 是 0 号默认位 / 稀疏空位
+                    if (p.Id == personalityId) { foundIndex = seq; return; }
                     seq++;
-                }
+                });
+                if (foundIndex >= 0) return foundIndex;
             }
             return personalityId > 0 ? personalityId - 1 : 0;
         }

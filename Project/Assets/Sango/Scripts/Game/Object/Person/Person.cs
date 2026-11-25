@@ -790,6 +790,19 @@ namespace Sango.Core
         public SangoObjectList<Feature> FeatureList;
 
         /// <summary>
+        /// 本命 / 先天特技 Id（存档）。
+        ///
+        /// 【与 FeatureList 的分工】本命是"专属拥有者"的固定能力，
+        /// 不占普通槽、不可学习、不可被替换；读档后解析成 destiny_feature_list，
+        /// 再由 SyncExtraFeatures 并入 extra_feature_list（全量生效、不占名额）。
+        /// </summary>
+        [JsonProperty("DestinyFeatureList")]
+        public int[] DestinyFeatureListId;
+
+        /// <summary>本命 / 先天特技（运行期解析，不存档）</summary>
+        [JsonIgnore] public SangoObjectList<Feature> destiny_feature_list;
+
+        /// <summary>
         /// 额外附加的特技（装备 / 官职 / 事件等外部来源），**不参与存档**。
         ///
         /// 【与 FeatureList 的分工】
@@ -1253,6 +1266,109 @@ namespace Sango.Core
             return decayed < 1 ? 1 : decayed;
         }
 
+        // ------------------------------------------------------------------
+        // 特技五维修正（来源化、可逆）
+        //
+        // 分两层，读值时相加：
+        //   · baseFeatureXxx —— **人物常驻**（PersonAddAttribute），特技集合变化时重算，
+        //     不出征也生效（内政 / 登用 / 搜索 / 单挑都要读 Politics 等）；
+        //   · featureXxx     —— **当前有效值** = 常驻基线 + 部队级条件化修正
+        //     （TroopAddPersonAttribute 在 OnTroopCalculateAttribute 中累加）。
+        // 每次部队属性重算前由 Troop.CalculateAttribute 调用 ClearFeatureAttributeBonus，
+        // 它只把"有效值"回落到基线，不会抹掉常驻部分。
+        // 不存档：读档后重算一次即可恢复，避免旧数值残留。
+        // ------------------------------------------------------------------
+
+        /// <summary>常驻五维修正：统率（PersonAddAttribute，特技集合变化时重算）</summary>
+        public int baseFeatureCommand;
+        /// <summary>常驻五维修正：武力</summary>
+        public int baseFeatureStrength;
+        /// <summary>常驻五维修正：智力</summary>
+        public int baseFeatureIntelligence;
+        /// <summary>常驻五维修正：政治</summary>
+        public int baseFeaturePolitics;
+        /// <summary>常驻五维修正：魅力</summary>
+        public int baseFeatureGlamour;
+
+        /// <summary>武将等级经验倍率（百分比，100 = 不变）</summary>
+        public int featureExpFactor = 100;
+        /// <summary>能力经验倍率（百分比，100 = 不变）</summary>
+        public int featureAttributeExpFactor = 100;
+        /// <summary>兵种适性经验倍率（百分比，100 = 不变）</summary>
+        public int featureAbilityExpFactor = 100;
+        /// <summary>
+        /// 本队队友的经验共享比例（百分比，0 = 不共享）。
+        /// 由 <c>PersonAddExpFactor type=3</c> 填充，读取方是 <c>Troop.GainEP</c>：
+        /// 本队取全员最大值，命中后全队按该比例**再得一份**能力 / 适性经验。
+        /// </summary>
+        public int featureTeamExpShare;
+
+        /// <summary>
+        /// 人物级常驻修正包（按 <see cref="FeatureModifierType"/> 索引）。
+        ///
+        /// 【为什么用"包"而不是逐个字段】这批修正的共同点是：
+        /// 只做一次判定、读取点分散在城池 / 建筑 / 状态 / 交易各处，
+        /// 且都需要"预览与实际同口径"。收进一个 int 数组后，
+        /// 新增一项只要加一个枚举 + 一处读取，不再改容器结构。
+        /// 【不存档】由 <see cref="RebuildPersonPassive"/> 每次重建，读档后自动恢复。
+        /// </summary>
+        public int[] featureModifiers = new int[8];
+
+        /// <summary>
+        /// 读取某项常驻修正（越界返回 0）。
+        /// </summary>
+        /// <param name="type">修正类型，见 <see cref="FeatureModifierType"/></param>
+        public int GetFeatureModifier(FeatureModifierType type)
+        {
+            int index = (int)type;
+            if (featureModifiers == null || index < 0 || index >= featureModifiers.Length)
+                return 0;
+            return featureModifiers[index];
+        }
+
+        /// <summary>当前有效五维修正：统率（= 常驻 + 部队级条件化）</summary>
+        public int featureCommand;
+        /// <summary>当前有效五维修正：武力</summary>
+        public int featureStrength;
+        /// <summary>当前有效五维修正：智力</summary>
+        public int featureIntelligence;
+        /// <summary>当前有效五维修正：政治</summary>
+        public int featurePolitics;
+        /// <summary>当前有效五维修正：魅力</summary>
+        public int featureGlamour;
+
+        /// <summary>
+        /// 把五维修正回落到"常驻基线"（部队属性重算前 / 离队时调用）。
+        ///
+        /// 【不是清零】清零会把"政治 +5"这类常驻被动一起抹掉，
+        /// 表现为"出征后政治加成就没了、回城又出现"。
+        /// </summary>
+        public void ClearFeatureAttributeBonus()
+        {
+            featureCommand = baseFeatureCommand;
+            featureStrength = baseFeatureStrength;
+            featureIntelligence = baseFeatureIntelligence;
+            featurePolitics = baseFeaturePolitics;
+            featureGlamour = baseFeatureGlamour;
+        }
+
+        /// <summary>
+        /// 常驻被动求值时复用的缓冲列表（不存档、不参与逻辑，纯性能用途）。
+        /// 由 <see cref="RebuildPersonPassive"/> 复用，避免每次换装都新分配一个 List。
+        /// </summary>
+        public List<Feature> tempPassiveFeatures;
+
+        /// <summary>
+        /// 重算人物常驻被动（五维基线 + 经验倍率）。
+        ///
+        /// 【调用时机】特技集合发生变化的唯一入口 <see cref="InitPersonActions"/>：
+        /// 读档、学/失去特技、换装、任免官职都会走那里，因此不必在其他地方补调。
+        /// </summary>
+        public void RebuildPersonPassive()
+        {
+            Action.PersonPassiveRule.Rebuild(this);
+        }
+
         /// <summary>统率（带伤时按伤病衰减）</summary>
         public int Command => ApplyInjuryDecay(RawCommand, injury);
 
@@ -1269,19 +1385,19 @@ namespace Sango.Core
         public int Glamour => ApplyInjuryDecay(RawGlamour, injury);
 
         /// <summary>统率（不含伤病折减；单挑等需要自己按"当事人当时的伤病"折算的地方用）</summary>
-        public int RawCommand => command.Value + GetEquipmentBonus(x => x.commandBonus);
+        public int RawCommand => command.Value + GetEquipmentBonus(x => x.commandBonus) + featureCommand;
 
         /// <summary>武力（不含伤病折减）</summary>
-        public int RawStrength => strength.Value + GetEquipmentBonus(x => x.strengthBonus);
+        public int RawStrength => strength.Value + GetEquipmentBonus(x => x.strengthBonus) + featureStrength;
 
         /// <summary>智力（不含伤病折减）</summary>
-        public int RawIntelligence => intelligence.Value + GetEquipmentBonus(x => x.intelligenceBonus);
+        public int RawIntelligence => intelligence.Value + GetEquipmentBonus(x => x.intelligenceBonus) + featureIntelligence;
 
         /// <summary>政治（不含伤病折减）</summary>
-        public int RawPolitics => politics.Value + GetEquipmentBonus(x => x.politicsBonus);
+        public int RawPolitics => politics.Value + GetEquipmentBonus(x => x.politicsBonus) + featurePolitics;
 
         /// <summary>魅力（不含伤病折减）</summary>
-        public int RawGlamour => glamour.Value + GetEquipmentBonus(x => x.glamourBonus);
+        public int RawGlamour => glamour.Value + GetEquipmentBonus(x => x.glamourBonus) + featureGlamour;
 
         /// <summary>
         /// 是否可登场
@@ -1575,6 +1691,8 @@ namespace Sango.Core
             // 读档只解析出**自带**特技（FeatureListId 只含 FeatureList）；
             // 装备 / 官职附加的特技在紧接着的 InitPersonActions → SyncExtraFeatures 里按当前状态重建。
             FeatureList = scenario.Array2ObjectList(scenario.CommonData.Features, FeatureListId);
+            // 本命 / 先天特技：独立存档字段，不占普通槽，读档后由 SyncExtraFeatures 并入额外来源
+            destiny_feature_list = scenario.Array2ObjectList(scenario.CommonData.Features, DestinyFeatureListId);
             // 【解锁条件必须早于装配】InitPersonActions 会经 CollectEffectiveFeatures 按"已解锁"
             // 过滤后装配特技动作，解析晚了会让未解锁特技先挂上一次事件订阅。
             ParseFeatureUnlockConditions();
@@ -3891,6 +4009,11 @@ namespace Sango.Core
             if (IsDead)
                 return;
 
+            // 【特技】武将等级经验倍率（PersonAddExpFactor type=0，如"五维经验翻倍"）
+            // 只缩放正数，惩罚类扣经验（负值）原样保留，与剧情口径一致
+            if (featureExpFactor != 100)
+                add = ScaleExpGain(add, featureExpFactor / 100f);
+
             // 【性格】学习速度 × 成长速度共同影响经验获取量
             //（冷静型学得更快，莽撞型偏慢）
             if (mPersonality != null)
@@ -3965,8 +4088,8 @@ namespace Sango.Core
             int exp = GetJobAttributeExp(jobId);
             if (exp <= 0) return;
 
-            // 剧本参数：能力经验获取倍率（与战斗 / 舌战 / 培育同一口径）
-            exp = ScaleExpGain(exp, GetAttributeExpGainFactor());
+            // 剧本参数 + 特技常驻倍率（PersonAddExpFactor type=1，与战斗 / 舌战 / 培育同一口径）
+            exp = ScaleExpGain(exp, GetAttributeExpGainFactor() * (featureAttributeExpFactor / 100f));
             if (exp <= 0) return;
 
             attr.SetExp(attr.valueExp + exp, scenario);
@@ -4117,8 +4240,9 @@ namespace Sango.Core
             if (exp <= 0) return;
             if (Scenario.Cur == null) return;
 
-            // 剧本参数：能力经验获取倍率（0 = 完全不获得）。只缩放正数，负值（惩罚）不受影响。
-            exp = ScaleExpGain(exp, GetAttributeExpGainFactor());
+            // 剧本参数 + 特技常驻倍率（PersonAddExpFactor type=1）：
+            // 0 = 完全不获得。只缩放正数，负值（惩罚）不受影响。
+            exp = ScaleExpGain(exp, GetAttributeExpGainFactor() * (featureAttributeExpFactor / 100f));
             if (exp <= 0) return;
 
             PersonAttributeValue attribute = GetStatAttributeValue(statType);
@@ -4155,10 +4279,10 @@ namespace Sango.Core
             if (exp <= 0) return;
             if (Scenario.Cur == null) return;
 
-            // 剧本参数：兵种适性经验获取倍率（0 = 完全不获得）。
+            // 剧本参数 + 特技常驻倍率（PersonAddExpFactor type=2）：0 = 完全不获得。
             // 本方法是适性经验的唯一入口（战斗 heishu_exp / 事件 / 培育都走它），
             // 所以倍率只需在这里乘一次即可覆盖全部来源。
-            exp = ScaleExpGain(exp, GetAbilityExpGainFactor());
+            exp = ScaleExpGain(exp, GetAbilityExpGainFactor() * (featureAbilityExpFactor / 100f));
             if (exp <= 0) return;
 
             PersonAbilityValue ability = GetAbilityValue(influenceAbility);
@@ -4824,7 +4948,10 @@ namespace Sango.Core
             AppendFeatures(EquippedHorse?.features);
             AppendFeatures(EquippedTreasure?.features);
 
-            // ③ 官职
+            // ③ 本命 / 先天（专属拥有者，不占普通槽）
+            AppendFeatures(destiny_feature_list);
+
+            // ④ 官职
             AppendFeatures(Official?.addFeatures);
         }
 
@@ -4925,6 +5052,10 @@ namespace Sango.Core
             // ③ 标记位先算好（不存档，每次初始化都从当前状态重建）
             RefreshMarks();
 
+            // ③.5 人物常驻被动（五维基线 / 经验倍率）：必须先于后面的 kind 装配，
+            //      这样 Action 在 Init 里读到的是已经算好的五维。
+            RebuildPersonPassive();
+
             // ④ 特技动作：自带 + 额外附加合并后按 kind 展开（个人关系类）
             if (tempPersonFeatures == null)
                 tempPersonFeatures = new List<Feature>(8);
@@ -4974,6 +5105,9 @@ namespace Sango.Core
 
             // 额外附加的特技是运行期缓存（不存档），卸载后一并丢掉，避免下一个剧本误用旧引用
             extra_feature_list = null;
+            // 常驻被动的求值缓冲同理：里面装的是**上一个剧本**的 Feature 引用，
+            // 不丢会延长整张特技表的生命周期（下一个剧本的 Feature 是新对象）
+            tempPassiveFeatures = null;
         }
 
         /// <summary>

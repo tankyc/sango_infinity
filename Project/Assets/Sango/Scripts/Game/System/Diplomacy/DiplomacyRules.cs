@@ -302,9 +302,13 @@ namespace Sango.Core
                     + GetRelationCoef(targetGovernor, actor, 1, -1, 1) * 10;
             n = MultiplyDifficulty(n, difficulty);
 
+            ScenarioVariables variables = Scenario.Cur != null ? Scenario.Cur.Variables : null;
+            int allianceSuccessBase = variables != null ? variables.diplomacyAllianceSuccessBase : 110;
+            int allianceDebateBase = variables != null ? variables.diplomacyAllianceDebateBase : 100;
+
             int like = actorForce.GetLike(targetForce);
-            int successLine = (110 - like) * 2;
-            int debateLine = (100 - like) * 2 - GetDebateLineBonus(actor);
+            int successLine = (allianceSuccessBase - like) * 2;
+            int debateLine = (allianceDebateBase - like) * 2 - GetDebateLineBonus(actor, 1);
 
             if (n > successLine) return Result.Success;
             if (n > debateLine) return Result.Debate;
@@ -316,19 +320,37 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 特技「论客」（#87）的舌战线放宽值。
+        /// 舌战线放宽值（特技可配置）。
         ///
         /// 【原版口径】原版在"目标君主厌恶发起方君主"的前置否决里，只有使者持有
-        /// SkillId_Ronkyaku 才允许继续谈判（s11_sys_person_order_diplomacy.cpp try_alliance 前置链）；
-        /// 本项目把该特技折算为"舌战线放宽 30 点"，让同盟 / 停战 / 交换俘虏更容易进入舌战，
-        /// 与描述"于同盟、停战协定、交换俘虏时容易进入舌战"一致。
-        /// 说明：原版没有给出统一数值，30 点为本次补全取的默认值（相当于政治 +30）。
+        /// SkillId_Ronkyaku 才允许继续谈判；本项目把该特技折算为"舌战线放宽 N 点"。
         /// </summary>
         /// <param name="actor">我方使者</param>
-        /// <returns>需要放宽的判定点数，无特技时为 0</returns>
-        static int GetDebateLineBonus(Person actor)
+        /// <param name="business">业务位：1 同盟 / 2 停战 / 4 交换俘虏</param>
+        /// <returns>需要放宽的判定点数，无特技或该业务未开放时为 0</returns>
+        static int GetDebateLineBonus(Person actor, int business)
         {
-            return actor != null && actor.HasFeature(87) ? 30 : 0;
+            if (actor == null)
+                return 0;
+
+            Scenario scenario = Scenario.Cur;
+            ScenarioVariables variables = scenario != null ? scenario.Variables : null;
+            if (variables == null)
+                return 0;
+
+            if ((variables.diplomacyDebateBusinessMask & business) == 0)
+                return 0;
+
+            int[] ids = variables.diplomacyDebateFeatureIds;
+            if (ids == null)
+                return 0;
+
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (ids[i] > 0 && actor.HasFeature(ids[i]))
+                    return variables.diplomacyDebateFeatureBonus;
+            }
+            return 0;
         }
 
         /// <summary>
@@ -358,9 +380,13 @@ namespace Sango.Core
             n += gold / 110;
             n = MultiplyDifficulty(n, difficulty);
 
+            ScenarioVariables variables = Scenario.Cur != null ? Scenario.Cur.Variables : null;
+            int ceasefireSuccessBase = variables != null ? variables.diplomacyCeasefireSuccessBase : 80;
+            int ceasefireDebateBase = variables != null ? variables.diplomacyCeasefireDebateBase : 70;
+
             int like = actorForce.GetLike(targetForce);
-            int successLine = time * 4 / 3 - like / 4 + 80;
-            int debateLine = time * 4 / 3 - like / 4 + 70 - GetDebateLineBonus(actor);
+            int successLine = time * 4 / 3 - like / 4 + ceasefireSuccessBase;
+            int debateLine = time * 4 / 3 - like / 4 + ceasefireDebateBase - GetDebateLineBonus(actor, 2);
 
             if (n > successLine) return Result.Success;
             if (n > debateLine) return Result.Debate;
@@ -651,7 +677,7 @@ namespace Sango.Core
             //   n >= g+100   → 成功；n >= g+90 → 舌战；否则失败。
             if (n >= g + 100)
                 return n * 2 >= g + 100 ? Result.SuccessNarrow : Result.Success;
-            if (n >= g + 90 - GetDebateLineBonus(actor)) return Result.Debate;
+            if (n >= g + 90 - GetDebateLineBonus(actor, 4)) return Result.Debate;
             return Result.Failure;
         }
 

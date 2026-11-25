@@ -102,15 +102,19 @@ namespace Sango.Core
                 || city.BelongForce == null || !city.IsCity())
                 return;
 
+            ScenarioVariables variables = scenario.Variables;
             bool tribal = city.barbarianTribe > 0;
             int featureId = tribal ? BarbarianConfig.GetGuardFeatureId(city.barbarianTribe) : Weiya;
-            if (featureId <= 0 || !HasRefugeeFeature(city, featureId, IsHantuMap(scenario)))
+            if (featureId <= 0 || !HasRefugeeFeature(city, featureId, IsHantuMap(scenario),
+                    variables.hantuRefugeeFeatureOffset, variables.hantuWeiyaTreasureFeatureId))
                 return;
 
-            int fixedCount = tribal ? 10 : 5;
-            int variation = tribal ? 40 : 20;
+            // 固定 / 浮动系数走剧本参数，默认值与旧硬编码一致
+            int fixedCount = tribal ? variables.hantuRefugeeTribalFixed : variables.hantuRefugeeNormalFixed;
+            int variation = tribal ? variables.hantuRefugeeTribalVariation : variables.hantuRefugeeNormalVariation;
+            int divisor = variables.hantuRefugeeRollDivisor > 0 ? variables.hantuRefugeeRollDivisor : 6;
             // 原资料确认固定、浮动系数。汉土以百人为单位，按据点、季度定出浮动，读档不重抽。
-            int roll = HantuPopulationRules.QuarterRoll(scenario.SeasonStamp, city.Id, 6, variation + 1) - 1;
+            int roll = HantuPopulationRules.QuarterRoll(scenario.SeasonStamp, city.Id, divisor, variation + 1) - 1;
             int requested = (fixedCount + roll) * 100;
             int rural = Math.Max(0, city.ruralPopulation.GetValueOrDefault());
             int joined = Math.Max(0, Math.Min(requested, HantuPopulation.RuralCapacity(city) - rural));
@@ -120,16 +124,17 @@ namespace Sango.Core
             Sango.Log.Info($"[人口] {city.Name} {(tribal ? "异族内附" : "流民归附")}，农村人口增加 {joined}");
         }
 
-        static bool HasRefugeeFeature(City city, int featureId, bool hantuMap)
+        static bool HasRefugeeFeature(City city, int featureId, bool hantuMap, int featureOffset, int weiyaTreasureId)
         {
             for (int i = 0; i < city.allPersons.Count; ++i)
             {
                 Person person = city.allPersons[i];
                 if (person?.IsDead != false || !CitySecurity.IsPresentOfficer(person, city)) continue;
                 // 汉土普通特技 47092–47096 保留防异族/盗贼语义。宝物版威压为 32025。
-                // 同名军功特技有不同效果，仍按配置原有语义处理。
-                if (person.HasFeature(featureId) || (hantuMap && person.HasFeature(47000 + featureId))
-                    || (hantuMap && featureId == Weiya && person.HasFeature(32025)))
+                // 两个偏移都走剧本参数，0 = 不启用该来源；同名军功特技仍按配置原有语义处理。
+                if (person.HasFeature(featureId)
+                    || (hantuMap && featureOffset > 0 && person.HasFeature(featureOffset + featureId))
+                    || (hantuMap && featureId == Weiya && weiyaTreasureId > 0 && person.HasFeature(weiyaTreasureId)))
                     return true;
             }
             return false;

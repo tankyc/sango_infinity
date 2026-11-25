@@ -99,9 +99,9 @@ namespace Sango.Core.Action
         /// </summary>
         /// <param name="defencer">受伤部队</param>
         /// <param name="atk">攻击来源</param>
-        /// <param name="atkBack">反击标记</param>
+        /// <param name="atkBack">反击强度因子，0 = 非反击（见 TroopActionBase.IsAttackBack）</param>
         /// <param name="overrideData">兵力变化量</param>
-        void OnTroopChangeTroops(Troop defencer, SangoObject atk, int atkBack, OverrideData<int> overrideData)
+        void OnTroopChangeTroops(Troop defencer, SangoObject atk, AttackBackInfo atkBack, OverrideData<int> overrideData)
         {
             if (Troop == null || overrideData == null)
                 return;
@@ -110,7 +110,11 @@ namespace Sango.Core.Action
             // 只修正自己打出去的掉兵；反击不消耗蓄力（蓄力描述的是"主动首击"）
             if (overrideData.Value <= 0)
                 return;
-            if (atkBack == 1)
+
+            // 反击判定用"是否为 0"：atkBack 是强度因子（部队 28~90 等），不是 0/1 布尔，
+            // 历史写法 `atkBack == 1` 永不成立。下一行 `atkTroop != Troop` 在反击场景本来也会拦截，
+            // 这里保留显式判断，避免以后调整判断顺序时把"反击不消耗蓄力"的约束弄丢。
+            if (IsAttackBack(atkBack))
                 return;
 
             Troop atkTroop = atk?.AsTroop();

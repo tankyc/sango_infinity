@@ -267,6 +267,28 @@ namespace Sango.Core.Duel
 
             GameEvent.OnDuelEnd?.Invoke(finished);
 
+            // 统一战斗上下文：单挑结算（无订阅者时不分配）
+            if (GameEvent.OnCombatDuelFinished != null)
+            {
+                int winnerTeam = finished.WinnerTeam;
+                int loserTeam = finished.LoserTeam;
+                Troop[] units = finished.DuelParam != null ? finished.DuelParam.unit : null;
+                if (units != null && winnerTeam >= 0 && loserTeam >= 0
+                    && winnerTeam < units.Length && loserTeam < units.Length)
+                {
+                    CombatContext combat = CombatContext.Rent();
+                    combat.isDuel = true;
+                    combat.duelResult = 1;               // 相对 caster（胜方）
+                    combat.caster = units[winnerTeam];
+                    combat.targetTroop = units[loserTeam];
+                    combat.casterPerson = combat.caster != null ? combat.caster.Leader : null;
+                    combat.targetPerson = combat.targetTroop != null ? combat.targetTroop.Leader : null;
+                    combat.targetCell = combat.targetTroop != null ? combat.targetTroop.cell : null;
+                    GameEvent.OnCombatDuelFinished(combat);
+                    CombatContext.Return(combat);
+                }
+            }
+
             finished.Exit();
             ReleaseView();
             System = null;

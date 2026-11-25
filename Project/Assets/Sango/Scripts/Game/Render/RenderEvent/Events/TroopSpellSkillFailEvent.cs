@@ -123,6 +123,9 @@ namespace Sango.Render
                 //   `get_exp(tactic->get_exp() + 1 - tactic_hit - critical)`，tactic_hit=0 ⇒ 组首+2）。
                 // 例：突刺失败仍给 10 功绩、武力 +1、枪 +1，而普攻行是 20 功绩。
                 replaceSkill.forcedExpEvent = (int)skill.GetCombatExpEvent(false, false);
+                // 【一次出手 = 一个序号】替打用的普攻实例是部队共享的，castSerial 还留着上一发普攻的号，
+                // 不换号会让"一次出手只结算一次"的 Action 把这一发误判成"已结算"而跳过。
+                replaceSkill.BeginNewCast();
                 try
                 {
                     replaceSkill.Action(spellCell, 100);

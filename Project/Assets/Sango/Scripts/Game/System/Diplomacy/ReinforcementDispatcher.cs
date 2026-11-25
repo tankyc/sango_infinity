@@ -119,17 +119,10 @@ namespace Sango.Core
                 return false;
             }
 
-            // 兵种：按该武将可用兵种取第一个陆战兵种（对应原版的装备选择）
+            // 兵种：统一走 TroopTypeResolver，与出征界面 / AI 同一口径
             List<Person> members = new List<Person> { leader };
-            List<TroopType> activeTypes = new List<TroopType>();
-            TroopType.CheckActivTroopTypeList(members, activeTypes);
-
-            TroopType land = null;
-            for (int i = 0; i < activeTypes.Count; i++)
-            {
-                if (activeTypes[i].isLand) { land = activeTypes[i]; break; }
-            }
-
+            TroopType land = TroopTypeResolver.Resolve(members, leader.BelongForce, 0, false,
+                TroopTypeResolver.GetEquipTroopTypeId(leader));
             if (land == null)
                 return false;
 

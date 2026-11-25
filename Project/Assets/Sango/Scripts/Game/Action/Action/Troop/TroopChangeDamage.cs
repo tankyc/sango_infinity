@@ -36,12 +36,17 @@ namespace Sango.Core.Action
             GameEvent.OnTroopChangeTroops -= OnTroopChangeTroops;
         }
 
-        void OnTroopChangeTroops(Troop defencer, SangoObject atker,int atkBack, OverrideData<int> overrideData)
+        void OnTroopChangeTroops(Troop defencer, SangoObject atker, AttackBackInfo atkBack, OverrideData<int> overrideData)
         {
             // 反击过滤必须在 CheckTroop 之前：CheckTroop 会用 atker 反推"施法部队"，
             // 而反击场景下 atker 也是发起方部队，两者并不冲突，提前过滤更省。
-            if (atkBackFilter == 0 && atkBack == 1) return;
-            if (atkBackFilter == 1 && atkBack != 1) return;
+            //
+            // 【历史坑】atkBack 原本是裸 int（部队 28~90 / 据点 20~50），写 == 1 等于该过滤从未生效：
+            // 配 1（仅反击）永远不触发，配 0（仅非反击）则反击也照吃加成。
+            // 现在事件参数已换成 AttackBackInfo，统一走基类判定，详见 TroopActionBase.IsAttackBack。
+            bool isBackAttack = IsAttackBack(atkBack);
+            if (atkBackFilter == 0 && isBackAttack) return;
+            if (atkBackFilter == 1 && !isBackAttack) return;
 
             if (!CheckTroop(defencer, atker)) return;
             overrideData.Value = overrideData.Value * (100 + value) / 100;

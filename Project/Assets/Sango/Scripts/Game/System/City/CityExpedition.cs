@@ -145,6 +145,29 @@ namespace Sango.Core.Player
                     CurSelectWaterTrropTypeIndex = fallback;
             }
 
+            // 装备附加兵种：选将变化后，若玩家没有手动改选（仍在默认索引 0），
+            // 按主将当前装备的 troopTypeId 重新选默认陆战兵种。
+            // 玩家手动改选后 CurSelectLandTrropTypeIndex != 0，不再覆盖。
+            if (personList.Count > 0 && CurSelectLandTrropTypeIndex == 0)
+            {
+                int equipId = TroopTypeResolver.GetEquipTroopTypeId(personList[0]);
+                if (equipId > 0)
+                {
+                    int index = -1;
+                    for (int i = 0; i < ActivedLandTroopTypes.Count; i++)
+                    {
+                        TroopType t = ActivedLandTroopTypes[i];
+                        if (t != null && t.Id == equipId)
+                        {
+                            index = i;
+                            break;
+                        }
+                    }
+                    if (index > 0 && IsTroopTypeUsable(ActivedLandTroopTypes[index]))
+                        CurSelectLandTrropTypeIndex = index;
+                }
+            }
+
             // 界面选中的是"玩家选择的兵种"，必须按主动选择处理（清掉上次特技替换留下的
             // 原始兵种与兵装覆盖），否则改选骑兵时会继续沿用剑兵的免兵装口径
             ApplyLandTypeByChoice(ActivedLandTroopTypes[CurSelectLandTrropTypeIndex]);
@@ -180,14 +203,8 @@ namespace Sango.Core.Player
                 TargetTroop.ClearActionList();
 
             TargetTroop = new Troop();
-            List<TroopType> activeTroopTypes = new List<TroopType>();
-            TroopType.CheckActivTroopTypeList(TargetCity.freePersons, activeTroopTypes);
-
-            ActivedLandTroopTypes.Clear();
-            ActivedLandTroopTypes.AddRange(activeTroopTypes.FindAll(x => x.isLand));
-
-            ActivedWaterTroopTypes.Clear();
-            ActivedWaterTroopTypes.AddRange(activeTroopTypes.FindAll(x => !x.isLand));
+            // 统一兵种解析：科技 + 特殊兵道具口径只在 TroopTypeResolver 一处维护
+            TroopTypeResolver.BuildActiveTypes(TargetCity.freePersons, ActivedLandTroopTypes, ActivedWaterTroopTypes);
 
             // 【防空列表】下面要按下标取陆上 / 水上兵种，任一列表为空就会 ArgumentOutOfRangeException。
             // 正常情况下不会发生：剑兵 / 枪兵 / 戟兵 / 弩兵 / 骑兵 均无科技前置（validTechId = 0），
@@ -745,24 +762,11 @@ namespace Sango.Core.Player
         /// <returns>可组建返回 true</returns>
         public bool IsTroopTypeUsable(TroopType troopType)
         {
-            if (troopType == null)
-                return false;
-
-            if (!troopType.IsValid(TargetCity != null ? TargetCity.BelongForce : null))
-                return false;
-
-            // 普通兵种：只要科技满足即可
-            if (troopType.validItemId == 0)
-                return true;
-
-            // 特殊兵：上阵武将中至少一人持有对应道具
-            for (int i = 0; i < personList.Count; i++)
-            {
-                Person person = personList[i];
-                if (person != null && person.HasItem(troopType.validItemId))
-                    return true;
-            }
-            return false;
+            // 统一口径：科技（势力）+ 特殊兵道具（已上阵武将）
+            return TroopTypeResolver.IsUsable(
+                TargetCity != null ? TargetCity.BelongForce : null,
+                personList,
+                troopType);
         }
 
         /// <summary>

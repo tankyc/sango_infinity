@@ -49,13 +49,14 @@ namespace Sango.Core.Action
                 return;
             }
 
-            GameEvent.OnTroopChangeTroops += OnTroopChangeTroops;
+            // 走独立事件：多个设施/光环只取最大值，不会连乘
+            GameEvent.OnTroopCalculateAuraDamageReduce += OnTroopCalculateAuraDamageReduce;
         }
 
         /// <summary>退订事件（Action 被清理时必须调用）</summary>
         public override void Clear()
         {
-            GameEvent.OnTroopChangeTroops -= OnTroopChangeTroops;
+            GameEvent.OnTroopCalculateAuraDamageReduce -= OnTroopCalculateAuraDamageReduce;
         }
 
         /// <summary>受伤部队是否属于本光环的作用对象</summary>
@@ -74,17 +75,15 @@ namespace Sango.Core.Action
         /// </summary>
         /// <param name="defencer">受伤部队</param>
         /// <param name="atker">攻击来源</param>
-        /// <param name="atkBack">反击标记</param>
+        /// <param name="atkBack">反击强度因子，0 = 非反击（见 TroopActionBase.IsAttackBack）</param>
         /// <param name="overrideData">兵力变化量</param>
-        void OnTroopChangeTroops(Troop defencer, SangoObject atker, int atkBack, OverrideData<int> overrideData)
+        void OnTroopCalculateAuraDamageReduce(Troop defencer, SangoObject atker, AttackBackInfo atkBack, OverrideData<int> overrideData)
         {
-            if (defencer == null || Troop == null)
+            if (defencer == null || Troop == null || overrideData == null)
                 return;
 
-            // 【性能】OnTroopChangeTroops 是高频事件（每次兵力变化都会派发）。
-            // 过滤顺序按代价从低到高：标量判断 → 阵营 → 距离 → 条件。
-            // 血量恢复（Value <= 0）必须最先挡掉，它占所有派发里的大头。
-            if (overrideData.Value <= 0)
+            // 只收集正减伤；增伤请用其他 Action，避免这里的 max 语义被负数干扰
+            if (value <= 0)
                 return;
 
             if (!MatchSide(defencer))
@@ -100,7 +99,9 @@ namespace Sango.Core.Action
             if (condition != null && !condition.Check(new TroopConditionDatabase(defencer)))
                 return;
 
-            overrideData.Value = overrideData.Value * (100 - value) / 100;
+            // 多个设施/光环取最高减伤，不连乘
+            if (value > overrideData.Value)
+                overrideData.Value = value;
         }
     }
 }

@@ -144,6 +144,40 @@ namespace Sango.Core.Action
             // 覆盖威震华夏（兵力>5000 防御+10%）、咆哮（兵力<3000 攻击翻倍）、
             // 执锐（攻击+20%）、披坚（防御+20%）、龙胆（兵力越少攻防越高）等。
             Register("TroopModifyAttributeByCondition", CraeteHandle<TroopModifyAttributeByCondition>);
+            // 特技五维可逆修正：stat 0~4，mode 0 加 / 1 乘，targetType 0 主将 / 1 本队所有。
+            // 覆盖佐治、识兵、统兵、威势、威震这类"统率 +5 / 武力 +N%"的设计。
+            Register("TroopAddPersonAttribute", CraeteHandle<TroopAddPersonAttribute>);
+            // 单挑结算统一入口：resultType 0 胜 / 1 负 / 2 平 / 3 任意，targetType 0 败方 / 1 胜方 / 2 双方。
+            // 覆盖"赢单挑后只混乱败军"这类设计，失败 / 平局不会误触发。
+            Register("FeatureCombatDuelEffect", CraeteHandle<FeatureCombatDuelEffect>);
+            // 伤害已结算统一入口：skillType 0 普攻 / 1 战法 / 2 计策 / 3 任意，
+            // targetType 0 目标 / 1 施术者 / 2 双方；selfHealPercent 按伤害回兵。
+            Register("FeatureCombatDamageEffect", CraeteHandle<FeatureCombatDamageEffect>);
+            // 命中（伤害结算前）统一入口：skillType 0 普攻 / 1 战法 / 2 计策 / 3 任意。
+            Register("FeatureCombatHitEffect", CraeteHandle<FeatureCombatHitEffect>);
+            // 内政工作速度加成（循吏等）：jobTypes 限定设施类别，speed 为百分比，minTurns 为工期下限。
+            Register("FeatureCityWorkBoost", CraeteHandle<FeatureCityWorkBoost>);
+            // 成对 / 组合特技指令：pairId 引用 FeaturePairs 配置，执行时先校验后一次性扣资源。
+            Register("FeaturePairCommand", CraeteHandle<FeaturePairCommand>);
+            // 人物常驻被动：五维加减 / 经验倍率。数值由 PersonPassiveRule 在特技集合变化时统一求值，
+            // 这里注册只是为了让解析不报"类未注册"（Instance 本身不订阅任何事件）。
+            Register("PersonAddAttribute", CraeteHandle<PersonAddAttribute>);
+            Register("PersonAddExpFactor", CraeteHandle<PersonAddExpFactor>);
+            // 常驻修正包（交易收益 / 设施返还 / 灾害免疫 / 状态回合），同样由 PersonPassiveRule 求值。
+            Register("PersonAddModifier", CraeteHandle<PersonAddModifier>);
+            // 月初效果（忠诚 / 功绩 / 伤病 / 传艺 / 势力技巧点）由 FeatureMonthlyEffectSystem 统一结算。
+            Register("PersonMonthlyEffect", CraeteHandle<PersonMonthlyEffect>);
+            // 状态扩散（煽惑 / 疑机 / 佯装）：挂在 OnTroopBuffApplied，带深度标记防递归。
+            Register("TroopSpreadBuff", CraeteHandle<TroopSpreadBuff>);
+            // 据点反击的追加效果（拒攻 / 蛮弩）：挂在 OnBuildingAttackBackSettled。
+            Register("CityAttackBackEffect", CraeteHandle<CityAttackBackEffect>);
+            // 斩杀（剑侠 / 伏锋 / 斩将）：走统一战死入口 Person.DeadInBattle。
+            Register("TroopAssassinate", CraeteHandle<TroopAssassinate>);
+            // 回合结束的破坏工作（破绽 / 潜入）：未行动部队 → 相邻敌据点削减耐久 / 治安。
+            Register("TroopTurnEndSabotage", CraeteHandle<TroopTurnEndSabotage>);
+            // 据点每月兵装产出（良工 / 马政 / 亲羌 等）与搜索额外奖励（得财 / 察弊 / 抚众 等）。
+            Register("CityProductGainMonthly", CraeteHandle<CityProductGainMonthly>);
+            Register("CitySearchingExtraEffect", CraeteHandle<CitySearchingExtraEffect>);
             // 特技范围属性：以拥有者部队为圆心，按格数给友军 / 敌军的属性加成（含粮耗倍率）。
             // 覆盖军神（范围内移动力+5）、兵仙、列阵、八阵、营屯省用（粮耗-30%）。
             Register("TroopAuraAttribute", CraeteHandle<TroopAuraAttribute>);
@@ -166,6 +200,20 @@ namespace Sango.Core.Action
             Register("TroopChangeDamageByDirection", CraeteHandle<TroopChangeDamageByDirection>);
             // 按本回合行军距离增伤（冲锋）：跑得越远打得越狠，maxDistance 可封顶。
             Register("TroopAddDamageByMoveDistance", CraeteHandle<TroopAddDamageByMoveDistance>);
+            // 条件型伤害修正：把固定的 value 换成按局势算出的百分点。
+            // kind 0 属性差（乘险）/ 1 目标已负伤（久御）/ 2 相邻敌军数（叠锋）；
+            // statType 0 统率 / 1 武力，perUnit 每单位加成，maxBonus 封顶（0 = 不封顶）。
+            Register("TroopDamageByCondition", CraeteHandle<TroopDamageByCondition>);
+            // 领地内物理攻击附加固定伤害（乘险 55459）：附加量 = 本队攻击力 × attackFactor。
+            Register("TroopDamageAddByTerritory", CraeteHandle<TroopDamageAddByTerritory>);
+            // 连击同一目标递增伤害（叠锋 55559）：首击 0%，每次 +15%，封顶 45%，换目标重置。
+            Register("TroopDamageByComboSameTarget", CraeteHandle<TroopDamageByComboSameTarget>);
+            // 受物理攻击累计减伤（久御 55555）：每次 +2%，封顶 20%，层数持久化。
+            Register("TroopDamageReduceByHurtStack", CraeteHandle<TroopDamageReduceByHurtStack>);
+            // 回合开始三格内敌军计数减伤（无畏 55416）：每支 +5%，封顶 30%，回合开始重算。
+            Register("TroopDamageReduceByNearEnemy", CraeteHandle<TroopDamageReduceByNearEnemy>);
+            // 周围敌军数附加伤害与回气（长驱策 30137）：radius 内每支 +50 伤害、+5 气力。
+            Register("TroopAddDamageByAroundEnemy", CraeteHandle<TroopAddDamageByAroundEnemy>);
             // 护卫（承担型）：半径内友军武将的负伤 / 战死改由本部队主将承担（主将伤病 +level）。
             // 与 TroopPreventPersonInjury / TroopPreventPersonBattleDeath（无条件免疫）不同，本类有代价。
             Register("TroopGuardPerson", CraeteHandle<TroopGuardPerson>);

@@ -3240,19 +3240,27 @@ namespace Sango.Core
         //    return GetObject<T>(id);
         //}
 
-        public T Id2Object<T>(SangoObjectSet<T> data, int id) where T : SangoObject, new()
+        public T Id2Object<T>(Database<T> data, int id) where T : SangoObject, new()
         {
             if (id == 0)
                 return null;
 
             return data.Get(id);
         }
-        public T Id2Object0<T>(SangoObjectSet<T> data, int id) where T : SangoObject, new()
+        public T Id2Object0<T>(Database<T> data, int id) where T : SangoObject, new()
         {
             return data.Get(id);
         }
 
-        public SangoObjectList<T> Array2ObjectList<T>(SangoObjectSet<T> data, int[] ids) where T : SangoObject, new()
+        /// <summary>
+        /// 把 int[] 解析成对象列表。
+        ///
+        /// 【参数类型是 Database&lt;T&gt; 而不是 SangoObjectSet&lt;T&gt;】
+        /// 特技表已经从 Set 换成 Map（见 <see cref="ScenarioCommonData.Features"/>），
+        /// 这里只需要 <c>Get(id)</c> 这一项能力，收在基类上就能同时接 Set / Map / List，
+        /// 以后某张表再换容器也不用回来改本方法。
+        /// </summary>
+        public SangoObjectList<T> Array2ObjectList<T>(Database<T> data, int[] ids) where T : SangoObject, new()
         {
             if (ids == null) return null;
             SangoObjectList<T> sangoObjectList = new SangoObjectList<T>();

@@ -247,14 +247,38 @@ namespace Sango.Core
                 ActionBase action = ActionBase.Create(valus.Value<string>("class"));
                 if (action != null)
                 {
-                    action.Init(valus, sangoObjects);
+                    // 末尾追加 Feature 自身：Action 需要"特技 Id"做持久次数 / 冷却 / 一次性状态的键。
+                    // 追加在末尾不影响现有 Action 按 [0]/[1] 取宿主。
+                    SangoObject[] args = new SangoObject[sangoObjects.Length + 1];
+                    for (int j = 0; j < sangoObjects.Length; j++)
+                        args[j] = sangoObjects[j];
+                    args[sangoObjects.Length] = this;
+
+                    action.Init(valus, args);
                     list.Add(action);
                 }
             }
         }
 
         /// <summary>
-        /// 剧本准备：把 childListId 解析成子特技对象列表（混合组专用）。
+        /// 是否配置了"人物常驻被动"条目（<c>PersonAddAttribute</c> / <c>PersonAddExpFactor</c>）。
+        ///
+        /// 【用途】<see cref="Person.RebuildPersonPassive"/> 在每个武将初始化时都会跑一次，
+        /// 若每条特技都要翻一遍 <c>actionEntities</c> 的 JSON，读档时就是
+        /// "人数 × 特技数 × 条目数" 次 JObject 属性查找。这里在剧本准备阶段解析一次，
+        /// 运行期只剩一个 bool 判断（配置在运行期不会变，缓存安全）。
+        /// </summary>
+        [JsonIgnore] public bool hasPersonPassive;
+
+        /// <summary>
+        /// 是否配置了"月初效果"条目（<c>PersonMonthlyEffect</c>）。
+        /// 用途同上：让 <see cref="FeatureMonthlyEffectSystem"/> 每月遍历时跳过绝大多数特技。
+        /// </summary>
+        [JsonIgnore] public bool hasMonthlyEffect;
+
+        /// <summary>
+        /// 剧本准备：把 childListId 解析成子特技对象列表（混合组专用），
+        /// 顺带把"是否含常驻被动 / 月初效果"这两个标志位算出来。
         /// 子特技是剧本公共数据的引用，直接共享，不复制。
         /// </summary>
         /// <param name="scenario">当前剧本</param>
@@ -266,6 +290,41 @@ namespace Sango.Core
                 && scenario != null && scenario.CommonData != null)
             {
                 childList = scenario.Array2ObjectList(scenario.CommonData.Features, childListId);
+            }
+
+            RefreshEffectMarkers();
+        }
+
+        /// <summary>
+        /// 扫描 actionEntities，标记"是否含常驻被动 / 月初效果"。
+        ///
+        /// 【幂等】每次都按当前配置重算，不累加，重复调用安全。
+        /// </summary>
+        void RefreshEffectMarkers()
+        {
+            hasPersonPassive = false;
+            hasMonthlyEffect = false;
+            if (actionEntities == null)
+                return;
+
+            for (int i = 0; i < actionEntities.Count; i++)
+            {
+                if (!(actionEntities[i] is JObject entry))
+                    continue;
+
+                string cls = entry.Value<string>("class");
+                if (string.IsNullOrEmpty(cls))
+                    continue;
+
+                if (cls == Sango.Core.Action.PersonPassiveRule.ClassAddAttribute
+                    || cls == Sango.Core.Action.PersonPassiveRule.ClassAddExpFactor
+                    || cls == Sango.Core.Action.PersonPassiveRule.ClassAddModifier)
+                    hasPersonPassive = true;
+                else if (cls == Sango.Core.Action.PersonPassiveRule.ClassMonthlyEffect)
+                    hasMonthlyEffect = true;
+
+                if (hasPersonPassive && hasMonthlyEffect)
+                    return;
             }
         }
 

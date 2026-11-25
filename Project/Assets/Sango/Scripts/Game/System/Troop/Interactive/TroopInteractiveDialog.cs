@@ -21,8 +21,13 @@ namespace Sango.Core.Player
             GameEvent.OnTroopInteractiveContextDialogShow?.Invoke(TroopInteractiveDialogData.InteractiveDialogData, troop, targetCell);
             if (!TroopInteractiveDialogData.InteractiveDialogData.IsEmpty())
             {
+                // 条件不满足时内容仍显示，但确认按钮不响应（可见但置灰）
+                System.Action sureAction = TroopInteractiveDialogData.InteractiveDialogData.IsValid
+                    ? TroopInteractiveDialogData.InteractiveDialogData.sureAction
+                    : null;
+
                 GameDialog.Instance.Open(GameDialog.DialogStyle.ChoosePersonSay, TroopInteractiveDialogData.InteractiveDialogData.content,
-                    TroopInteractiveDialogData.InteractiveDialogData.sureAction, () =>
+                    sureAction, () =>
                     {
                         if (!GameSystemManager.Instance.BackTo(GameSystem.GetSystem<CityExpedition>()))
                         {

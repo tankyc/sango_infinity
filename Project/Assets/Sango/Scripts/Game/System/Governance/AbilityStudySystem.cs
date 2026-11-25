@@ -374,7 +374,9 @@ namespace Sango.Core
             if (scenario == null || scenario.CommonData == null)
                 return;
             SangoObjectSet<Ability> abilities = scenario.CommonData.Abilities;
-            SangoObjectSet<Feature> features = scenario.CommonData.Features;
+            // 特技表已从 SangoObjectSet 换成 SangoObjectMap，这里只用到"遍历"与"取条数"，
+            // 因此声明成基类 Database<T>，两种容器都能接
+            Database<Feature> features = scenario.CommonData.Features;
             if (abilities == null || features == null)
                 return;
 
@@ -397,9 +399,7 @@ namespace Sango.Core
             const int kindCount = 9;
             const int SlotIdStride = 100;
 
-            Feature[] featureArray = features.objects;
-            if (featureArray == null)
-                return;
+
 
             for (int slot = 0; slot < Force.MaxHiddenAbilityCount; slot++)
             {
@@ -418,13 +418,14 @@ namespace Sango.Core
                 // 规则重建，而存档里 `Force.hiddenAbilityIds` 记的是 Id。编号规则：
                 //   1001 + slot × 100 + 该偏向内按 Feature.Id 升序的序号
                 // 纯确定性、与 Feature 表加载顺序无关，因此重建后同一 Id 永远指向同一特技。
+                // 按容器接口遍历（特技表是 Map，没有 objects 数组可按下标走）。
+                // 本方法每个剧本只跑一次、共 10 个槽位，闭包分配可以忽略。
                 sEnsureFeatureBuffer.Clear();
-                for (int i = 1; i < featureArray.Length; i++)
+                features.ForEach(x =>
                 {
-                    Feature feature = featureArray[i];
-                    if (feature != null && feature.kind == kind)
-                        sEnsureFeatureBuffer.Add(feature);
-                }
+                    if (x != null && x.kind == kind)
+                        sEnsureFeatureBuffer.Add(x);
+                });
                 if (sEnsureFeatureBuffer.Count == 0)
                     continue;
 

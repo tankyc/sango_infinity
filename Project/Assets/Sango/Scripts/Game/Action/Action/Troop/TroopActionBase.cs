@@ -5,14 +5,36 @@ namespace Sango.Core.Action
 {
     public abstract class TroopActionBase : ActionBase
     {
-        public struct TroopActionConditionDatabase : IConditionDatabase
+        /// <summary>
+        /// 部队→部队类条件上下文。
+        ///
+        /// 【为什么是 class 不是 struct】<see cref="Condition.Check"/> 的参数类型是
+        /// <see cref="IConditionDatabase"/>，传 struct 必然装箱（每次判断分配一个约 32B 的对象）。
+        /// 属性重算与每次伤害结算都会走到这里，属于项目里最密集的分配点之一。
+        /// 改成 class 后由持有方缓存实例、用 <see cref="Set"/> 换参数，
+        /// 传接口不装箱，稳态零分配。
+        /// </summary>
+        public class TroopActionConditionDatabase : IConditionDatabase
         {
             Cell atk_cell;
             SkillInstance self;
+
+            /// <summary>空构造：供持有方缓存复用</summary>
+            public TroopActionConditionDatabase() { }
+
             public TroopActionConditionDatabase(SkillInstance self, Cell atk_cell)
             {
                 this.atk_cell = atk_cell;
                 this.self = self;
+            }
+
+            /// <summary>复用实例时替换参数（避免每次判断都 new / 装箱）</summary>
+            /// <param name="self">施法方技能实例</param>
+            /// <param name="atk_cell">目标格</param>
+            public void Set(SkillInstance self, Cell atk_cell)
+            {
+                this.self = self;
+                this.atk_cell = atk_cell;
             }
 
             public SkillInstance ActionSkill => self;
@@ -36,10 +58,25 @@ namespace Sango.Core.Action
             public object TargetObject => atk_cell;
         }
 
-        public struct TroopSkillConditionDatabase : IConditionDatabase
+        /// <summary>
+        /// 技能列表类条件上下文（只有施法方、没有目标）。
+        /// class 化理由同 <see cref="TroopActionConditionDatabase"/>。
+        /// </summary>
+        public class TroopSkillConditionDatabase : IConditionDatabase
         {
             SkillInstance self;
+
+            /// <summary>空构造：供持有方缓存复用</summary>
+            public TroopSkillConditionDatabase() { }
+
             public TroopSkillConditionDatabase(SkillInstance self)
+            {
+                this.self = self;
+            }
+
+            /// <summary>复用实例时替换参数</summary>
+            /// <param name="self">施法方技能实例</param>
+            public void Set(SkillInstance self)
             {
                 this.self = self;
             }
@@ -65,10 +102,26 @@ namespace Sango.Core.Action
             public object TargetObject => null;
         }
 
-        public struct TroopConditionDatabase : IConditionDatabase
+        /// <summary>
+        /// 单部队类条件上下文（只有本方部队）。
+        /// class 化理由同 <see cref="TroopActionConditionDatabase"/>：
+        /// 这个是最热的一个（属性重算时每支部队每次重算都会判断条件）。
+        /// </summary>
+        public class TroopConditionDatabase : IConditionDatabase
         {
             Troop self;
+
+            /// <summary>空构造：供持有方缓存复用</summary>
+            public TroopConditionDatabase() { }
+
             public TroopConditionDatabase(Troop self)
+            {
+                this.self = self;
+            }
+
+            /// <summary>复用实例时替换参数</summary>
+            /// <param name="self">本部队</param>
+            public void Set(Troop self)
             {
                 this.self = self;
             }
@@ -234,6 +287,28 @@ namespace Sango.Core.Action
             if ((isRangeSkill == 1 && !skill.IsRange()) || (isRangeSkill == 2 && skill.IsRange()))
                 return false;
             return true;
+        }
+
+        /// <summary>
+        /// 本次兵力变化是否来自反击。
+        ///
+        /// <para>
+        /// 【历史坑】事件第三个参数原本是裸 <c>int</c>，同时承担"是否反击"和"强度因子"两种语义，
+        /// 订阅方写成 <c>atkBack == 1</c> 永远不成立（部队反击实际传 28~90、据点反击传 20~50）。
+        /// 现在参数已换成 <see cref="AttackBackInfo"/>，本方法等价于读 <c>atkBack.IsAttackBack</c>；
+        /// 保留它只为统一调用口径。
+        /// </para>
+        /// <para>
+        /// 【值域】部队反击：普攻 90 / 战法 40，再乘包围惩罚，实际 28~90；
+        /// 据点反击：<c>BuildingTypes.json</c> 配 20 / 30 / 40 / 50；
+        /// 其余（火焰 / 毒 / 陷阱 / 补给 / 撞击连带）传 0，即非反击。
+        /// </para>
+        /// </summary>
+        /// <param name="atkBack">反击信息（OnTroopChangeTroops / OnTroopDestroyed 的第三个参数）</param>
+        /// <returns>true = 本次结算来自反击</returns>
+        public static bool IsAttackBack(AttackBackInfo atkBack)
+        {
+            return atkBack.IsAttackBack;
         }
 
         public override void Execute(Trigger trigger)

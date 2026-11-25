@@ -806,7 +806,64 @@ namespace Sango.Core
             if (buffManager.Master == null)
                 buffManager.Init(this);
 
+            // 特技常驻：本方施加的异常状态回合数加成（PersonAddModifier type=3，镇节一类"控制更久"）。
+            // 只对**敌方施加**生效 —— 友军 / 自己给自己上的增益不该被拉长。
+            if (turnCount > 0 && src is Troop srcTroop && srcTroop != this
+                && srcTroop.BelongForce != null && BelongForce != null
+                && srcTroop.IsEnemy(this))
+            {
+                int add = srcTroop.GetFeatureModifierMax(FeatureModifierType.BuffTurnsAdd);
+                if (add > 0)
+                    turnCount += add;
+            }
+
             buffManager.AddBuff(id, turnCount, src);
+
+            // 【已生效后的通知】状态扩散 / 转嫁类特技挂在这里（煽惑 / 疑机 / 佯装）。
+            // 无订阅者时只做一次 null 判断，不构造任何对象。
+            if (GameEvent.OnTroopBuffApplied != null)
+                GameEvent.OnTroopBuffApplied.Invoke(this, id, src, turnCount);
+        }
+
+        /// <summary>
+        /// 本队三名武将中某项常驻修正的最大值（无人具备返回 0）。
+        ///
+        /// 【为什么取最大值】这类修正都是"有该能力"的开关型数值（返还原比例、免疫、回合加成），
+        /// 两人同持不该翻倍；取最大值也与"本队最高政治 / 最高武力"的既有口径一致。
+        /// </summary>
+        /// <param name="type">修正类型</param>
+        public int GetFeatureModifierMax(FeatureModifierType type)
+        {
+            int max = 0;
+            if (Leader != null)
+            {
+                int v = Leader.GetFeatureModifier(type);
+                if (v > max) max = v;
+            }
+            if (Member1 != null)
+            {
+                int v = Member1.GetFeatureModifier(type);
+                if (v > max) max = v;
+            }
+            if (Member2 != null)
+            {
+                int v = Member2.GetFeatureModifier(type);
+                if (v > max) max = v;
+            }
+            return max;
+        }
+
+        /// <summary>本队最高的"队友经验共享"比例（百分比，0 = 无）</summary>
+        public int GetTeamExpShareMax()
+        {
+            int max = 0;
+            if (Leader != null && Leader.featureTeamExpShare > max)
+                max = Leader.featureTeamExpShare;
+            if (Member1 != null && Member1.featureTeamExpShare > max)
+                max = Member1.featureTeamExpShare;
+            if (Member2 != null && Member2.featureTeamExpShare > max)
+                max = Member2.featureTeamExpShare;
+            return max;
         }
         // 【判空】反序列化完成到 Troop.Init 之间 buffManager 可能为空（与 AddBuff 的窗口相同）
         public void RemoveBuff(int id) { buffManager?.RemoveBuff(id); }
@@ -1153,6 +1210,116 @@ namespace Sango.Core
         /// <summary>特技光环：受到伤害反弹（百分比）</summary>
         public int auraReflectDamage;
 
+        // ------------------------------------------------------------------
+        // 特技持久状态（P1-3）：使用次数 / 冷却 / 一次性标记
+        //
+        // 全部惰性创建：没有配持久状态的特技、没有触发过的部队，字典保持 null，
+        // 回合递减和查询都是 O(1) 的 null 判断，不增加普通部队的开销。
+        // ------------------------------------------------------------------
+
+        /// <summary>特技使用次数（特技 Id → 已用次数）</summary>
+        [JsonProperty] public Dictionary<int, int> featureUseCounts;
+
+        /// <summary>特技冷却（特技 Id → 剩余回合）</summary>
+        [JsonProperty] public Dictionary<int, int> featureCooldowns;
+
+        /// <summary>待触发的一次性特技 Id 列表（惰性创建，通常 0~2 项）</summary>
+        [JsonProperty] public List<int> featureOnceFlags;
+
+        /// <summary>标记一次性特技待触发（例如"下一次成功战法会心一次"）</summary>
+        public void SetFeatureOnce(int featureId)
+        {
+            if (featureId <= 0)
+                return;
+            if (featureOnceFlags == null)
+                featureOnceFlags = new List<int>();
+            if (!featureOnceFlags.Contains(featureId))
+                featureOnceFlags.Add(featureId);
+        }
+
+        /// <summary>是否已标记一次性特技待触发</summary>
+        public bool HasFeatureOnce(int featureId)
+        {
+            return featureOnceFlags != null && featureId > 0 && featureOnceFlags.Contains(featureId);
+        }
+
+        /// <summary>消费一次性特技标记（触发后调用，返回是否本次消费成功）</summary>
+        public bool ConsumeFeatureOnce(int featureId)
+        {
+            if (featureOnceFlags == null || featureId <= 0)
+                return false;
+            return featureOnceFlags.Remove(featureId);
+        }
+
+        /// <summary>取特技已使用次数</summary>
+        public int GetFeatureUseCount(int featureId)
+        {
+            if (featureUseCounts == null || featureId <= 0)
+                return 0;
+            return featureUseCounts.TryGetValue(featureId, out int count) ? count : 0;
+        }
+
+        /// <summary>
+        /// 消费一次特技使用次数。
+        /// </summary>
+        /// <param name="featureId">特技 Id</param>
+        /// <param name="maxUses">上限（&lt;= 0 表示不限制，不记账）</param>
+        /// <returns>未达上限并成功消费返回 true</returns>
+        public bool TryConsumeFeatureUse(int featureId, int maxUses)
+        {
+            if (featureId <= 0)
+                return true;
+            if (maxUses <= 0)
+                return true;
+
+            if (featureUseCounts == null)
+                featureUseCounts = new Dictionary<int, int>();
+
+            featureUseCounts.TryGetValue(featureId, out int count);
+            if (count >= maxUses)
+                return false;
+
+            featureUseCounts[featureId] = count + 1;
+            return true;
+        }
+
+        /// <summary>特技是否在冷却中</summary>
+        public bool IsFeatureOnCooldown(int featureId)
+        {
+            if (featureCooldowns == null || featureId <= 0)
+                return false;
+            return featureCooldowns.TryGetValue(featureId, out int turns) && turns > 0;
+        }
+
+        /// <summary>设置特技冷却（回合）</summary>
+        public void SetFeatureCooldown(int featureId, int turns)
+        {
+            if (featureId <= 0 || turns <= 0)
+                return;
+            if (featureCooldowns == null)
+                featureCooldowns = new Dictionary<int, int>();
+            featureCooldowns[featureId] = turns;
+        }
+
+        /// <summary>每回合递减冷却（由 OnForceTurnStart 调用）</summary>
+        public void TickFeatureCooldowns()
+        {
+            if (featureCooldowns == null || featureCooldowns.Count == 0)
+                return;
+
+            // 字典很小（通常 0~3 项），用临时 key 列表避免"遍历时改值"的异常
+            List<int> keys = new List<int>(featureCooldowns.Keys);
+            for (int i = 0; i < keys.Count; i++)
+            {
+                int key = keys[i];
+                int left = featureCooldowns[key] - 1;
+                if (left <= 0)
+                    featureCooldowns.Remove(key);
+                else
+                    featureCooldowns[key] = left;
+            }
+        }
+
         /// <summary>
         /// 建设力。末乘 Buff 系数（对应原版 state_coef，混乱时同样 ×0.8）。
         /// </summary>
@@ -1341,6 +1508,33 @@ namespace Sango.Core
         /// </para>
         /// </summary>
         [JsonProperty] public int chargeState = 0;
+
+        /// <summary>
+        /// 叠锋（55559）状态：上一支被本队物理攻击的敌军 Id，0 = 尚未攻击过。
+        /// 与 <see cref="comboAttackCount"/> 一起构成"连击同一目标"的判定依据，
+        /// 由 <c>TroopDamageByComboSameTarget</c> 维护；改打其他部队时重置。
+        /// </summary>
+        [JsonProperty] public int comboAttackTargetId = 0;
+
+        /// <summary>
+        /// 叠锋（55559）状态：连续攻击同一目标的次数（首击为 1）。
+        /// 存读档保留，部队解散重建时归 0（天然重置）。
+        /// </summary>
+        [JsonProperty] public int comboAttackCount = 0;
+
+        /// <summary>
+        /// 久御（55555）状态：本队累计受到敌军物理攻击的次数。
+        /// 由 <c>TroopDamageReduceByHurtStack</c> 维护，每 1 次换算 2% 物理减伤，
+        /// 封顶与是否重置由 Action 控制；存读档保留。
+        /// </summary>
+        [JsonProperty] public int physicalHurtCount = 0;
+
+        /// <summary>
+        /// 无畏（55416）状态：本队回合开始时三格内的敌军数量快照。
+        /// 由 <c>TroopDamageReduceByNearEnemy</c> 在 <c>OnTroopTurnStart</c> 时重算，
+        /// 每 1 支换算 5% 物理减伤；存读档保留，下次本队回合开始再刷新。
+        /// </summary>
+        [JsonProperty] public int nearEnemySnapshot = 0;
 
         public List<ActionBase> actionList;
         public List<Cell> MoveRange = new List<Cell>(256);
@@ -1707,6 +1901,9 @@ namespace Sango.Core
                 }
             }
 
+            // 特技持久状态：每回合递减冷却（没有冷却的部队是 O(1) 的 null 判断）
+            TickFeatureCooldowns();
+
             // 特技光环：每回合兵力回复（固定点数，区别于"伤兵回复"）
             int auraTroopRecover = AuraManager.GetValue(this, AuraActionBase.AURA_TROOP_RECOVER);
             if (auraTroopRecover > 0)
@@ -1816,6 +2013,12 @@ namespace Sango.Core
             // 若在这里清空：第一次重算换成骑兵并写下"沿用剑兵消耗"，第二次重算时兵种已经是骑兵、
             // 特技不再命中，覆盖值就永久丢失，又退回按骑兵扣军马 —— 表现为"第一次不耗、第二次耗"。
             GameEvent.OnTroopBeforeInitSkill?.Invoke(this, scenario ?? Scenario.Cur);
+
+            // 特技五维修正：先清零，再由 TroopAddPersonAttribute 在
+            // OnTroopCalculateAttribute 中按条件重新累加（可逆，不跨次叠加）。
+            Leader?.ClearFeatureAttributeBonus();
+            Member1?.ClearFeatureAttributeBonus();
+            Member2?.ClearFeatureAttributeBonus();
 
             ScenarioVariables Variables = Scenario.Cur.Variables;
             captiveChangce = Variables.captureChangceWhenTroopFall;
@@ -2620,7 +2823,19 @@ namespace Sango.Core
             return false;
         }
 
-        public bool ChangeTroops(int num, SangoObject atk, int atkBack)
+        /// <summary>
+        /// 改变部队兵力（负数 = 掉兵，正数 = 增兵 / 补给），并在结算前派发
+        /// <c>GameEvent.OnTroopChangeTroops</c> 供特技 / Buff 修正数值。
+        /// </summary>
+        /// <param name="num">兵力变化量：负数掉兵、正数增兵</param>
+        /// <param name="atk">施加方（SkillInstance / Troop / BuildingBase / Fire / null）</param>
+        /// <param name="atkBack">
+        /// 反击信息（<see cref="AttackBackInfo"/>）：用 <c>IsAttackBack</c> 判是否反击、
+        /// <c>Factor</c> 取强度、<c>Source</c> 区分部队反击 / 据点反击。
+        /// 传入 <c>0</c> 会经隐式转换变成"非反击"，语义清楚、不会再出现 <c>atkBack == 1</c> 式误判。
+        /// </param>
+        /// <returns>结算后部队是否存活</returns>
+        public bool ChangeTroops(int num, SangoObject atk, AttackBackInfo atkBack)
         {
             if (!IsAlive)
                 return false;
@@ -2654,6 +2869,17 @@ namespace Sango.Core
                     Render.ShowInfo(num, (int)InfoType.Troop, isCrit);
                 }
             }
+            // 特技范围减伤：多个来源只取最大值，避免三个 10% 连乘成 27.1%
+            if (num < 0)
+            {
+                Tools.OverrideData<int> auraReduce = Tools.OverrideData<int>.Create(0);
+                GameEvent.OnTroopCalculateAuraDamageReduce?.Invoke(this, atk, atkBack, auraReduce);
+                int reduce = auraReduce.ValueAndRecycle;
+                if (reduce > 100) reduce = 100;
+                if (reduce > 0)
+                    num = num * (100 - reduce) / 100;
+            }
+
             troops = troops + num;
             if (num < 0)
             {
@@ -2775,7 +3001,12 @@ namespace Sango.Core
 
 
 
-        public void OnDestroy(SangoObject atk, int atkBack)
+        /// <summary>
+        /// 部队溃灭处理（俘虏判定、事件派发）。
+        /// </summary>
+        /// <param name="atk">击破方</param>
+        /// <param name="atkBack">反击信息，原样转给 <c>OnTroopDestroyed</c></param>
+        public void OnDestroy(SangoObject atk, AttackBackInfo atkBack)
         {
             // 添加俘虏流程
             if (atk != null && atk.ObjectType == SangoObjectType.SkillInstance)
@@ -2827,6 +3058,21 @@ namespace Sango.Core
 
             GameEvent.OnTroopDestroyed?.Invoke(this, atk, atkBack, Scenario.Cur);
 
+            // 统一战斗上下文：击破（无订阅者时不分配）
+            if (GameEvent.OnCombatTroopDestroyed != null)
+            {
+                Troop sourceTroop = atk?.AsTroop();
+                CombatContext combat = CombatContext.Rent();
+                combat.isDuel = false;
+                combat.caster = sourceTroop;
+                combat.targetTroop = this;
+                combat.casterPerson = sourceTroop != null ? sourceTroop.Leader : null;
+                combat.targetPerson = Leader;
+                combat.targetCell = cell;
+                combat.source = atk;
+                GameEvent.OnCombatTroopDestroyed(combat);
+                CombatContext.Return(combat);
+            }
         }
 
         public void ReleaseCaptive()
@@ -2883,6 +3129,10 @@ namespace Sango.Core
             {
                 skill.assistAttackFlag = false;
                 skill.ResetStrategyTechniquePointFlag();
+                // 【一次出手 = 一个序号】确认要排新的施法事件了，换发新号。
+                // "一次出手只结算一次"类 Action（如 TroopAddDamageByAroundEnemy 长驱策）
+                // 用它把"多段 / 多目标"的多次结算折叠成一次。
+                skill.BeginNewCast();
                 skillRenderEventIsAssist = false;
             }
             skill.tempCriticalFactor = 100;
@@ -4109,6 +4359,9 @@ namespace Sango.Core
             {
                 person.mBelongTroop = null;
 
+                // 五维修正不随人走：离队后清零，避免残留值影响下一支部队 / 内政面板
+                person.ClearFeatureAttributeBonus();
+
                 // 【原版对齐】临时武将（异族 / 贼的克隆体，type = Temporary）部队被消灭后
                 // 直接彻底删除，不下野、也不落回据点。对应 Open311 unit_disband 对
                 // is_temporary() 的收集 + 末尾 person_die（s11_sys_scen_unit.cpp:231-233、256-257）。
@@ -4193,6 +4446,9 @@ namespace Sango.Core
         public void RemovePerson(Person person, bool justRemove = false)
         {
             if (person == null) return;
+
+            // 五维修正不随人走：摘除时清零，避免残留值影响下一支部队 / 内政面板
+            person.ClearFeatureAttributeBonus();
 
             // 摘除前先取所属城：武将摘光后主将为空，BelongCity 就推导不出来了，而收尾要用它摘城池名单
             City belongCity = BelongCity;
@@ -5767,6 +6023,35 @@ namespace Sango.Core
             if (abilityExp > 0)
             {
                 ForEachPerson(x => x.GainAbilityExp(influenceAbility, abilityExp));
+            }
+
+            // ---- 队友经验共享（PersonAddExpFactor type=3，汉土扩展，原版无）----
+            // 【口径】本队三人中取最高的共享比例（不叠加），命中后**全队**按该比例再得一份
+            // 能力经验与适性经验。这样"持衡 / 授业 / 辨经 / 国士"持有者不会因为
+            // 自己吃满、副将白跟而失衡；取最大值也避免两人各 50% 叠成双份。
+            int teamShare = GetTeamExpShareMax();
+            if (teamShare > 0)
+            {
+                int share0 = entry.leadership * attrFactor / 100 * teamShare / 100;
+                int share1 = entry.strength * attrFactor / 100 * teamShare / 100;
+                int share2 = entry.intelligence * attrFactor / 100 * teamShare / 100;
+                int share3 = entry.politics * attrFactor / 100 * teamShare / 100;
+                int share4 = entry.charisma * attrFactor / 100 * teamShare / 100;
+                int shareAbility = abilityExp > 0 ? abilityExp * teamShare / 100 : 0;
+
+                if (share0 > 0 || share1 > 0 || share2 > 0 || share3 > 0 || share4 > 0 || shareAbility > 0)
+                {
+                    ForEachPerson(x =>
+                    {
+                        x.GainStatExp(0, share0);
+                        x.GainStatExp(1, share1);
+                        x.GainStatExp(2, share2);
+                        x.GainStatExp(3, share3);
+                        x.GainStatExp(4, share4);
+                        if (shareAbility > 0)
+                            x.GainAbilityExp(influenceAbility, shareAbility);
+                    });
+                }
             }
 
             // ---- 势力技巧点：tech_point × 命中数 + 击破固定值；「名声」翻倍交给特技 Action 改写 ----

@@ -108,6 +108,10 @@ namespace Sango.Core
             Register("SkillIsStrategySkill", CraeteHandle<SkillIsStrategySkill>);
             Register("SkillTargetCellCheck", CraeteHandle<SkillTargetCellCheck>);
             Register("SkillIdInList", CraeteHandle<SkillIdInList>);
+            // 施法结果：1 = 本次成功 / 0 = 本次失败（读 tempSuccessFactor，不是会心倍率）
+            Register("SkillIsSuccess", CraeteHandle<SkillIsSuccess>);
+            // 所在格是否在燃烧：compareTarget（target 缺省 / self），支撑"趁炎"类设计
+            Register("CellHasFire", CraeteHandle<CellHasFire>);
             
             // Person
             Register("PersonAttributeCompare", CraeteHandle<PersonAttributeCheck>);

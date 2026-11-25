@@ -143,7 +143,11 @@ namespace Sango.Core
                 if (city.HasStateFlag(CityStateFlag.FengShui))
                     chance /= 2;
 
-                if (!GameRandom.Chance(chance))
+                // 【汉土扩展】额外的"发生率降低 X%"（PersonAddModifier type=2）。
+                // 与风水的减半是**叠乘**关系：风水减半 + 再降 50% → 实际 1/4。
+                chance = ApplyRateReduce(city, chance);
+
+                if (chance <= 0 || !GameRandom.Chance(chance))
                     continue;
 
                 city.SetDisaster(type, true);
@@ -213,8 +217,34 @@ namespace Sango.Core
                 if (city.HasStateFlag(CityStateFlag.FengShui) && GameRandom.Chance(50))
                     continue;
 
+                // 【汉土扩展】额外的"发生率降低 X%"：按百分比再拦一次（100 = 完全不爆发）
+                int reduce = city.GetDisasterRateReduce();
+                if (reduce >= 100 || (reduce > 0 && GameRandom.Chance(reduce)))
+                    continue;
+
                 city.SetDisaster(type, true, true);
             }
+        }
+
+        /// <summary>
+        /// 把"城内武将提供的发生率降低百分比"叠到一次抽样概率上。
+        ///
+        /// 【口径】降的是**概率**而不是结果：<c>chance × (100 - reduce) / 100</c>。
+        /// reduce = 100 时概率归零，等价于完全免疫，但链路（日志 / 人口影响）仍然正常，
+        /// 不会像"在 SetDisaster 里吞掉置位"那样留下状态不一致。
+        /// </summary>
+        /// <param name="city">城池</param>
+        /// <param name="chance">原始概率（百分点）</param>
+        /// <returns>修正后的概率</returns>
+        static int ApplyRateReduce(City city, int chance)
+        {
+            if (city == null || chance <= 0)
+                return chance;
+
+            int reduce = city.GetDisasterRateReduce();
+            if (reduce <= 0)
+                return chance;
+            return chance * (100 - reduce) / 100;
         }
 
         /// <summary>

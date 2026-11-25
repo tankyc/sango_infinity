@@ -35,6 +35,12 @@ namespace Sango.Core.Action
         int mode;
 
         /// <summary>
+        /// 条件上下文（缓存复用）。
+        /// 属性重算是全场最频繁的回调之一，每次判断都 new 一个只会白白产生一个装箱对象。
+        /// </summary>
+        readonly TroopConditionDatabase condDatabase = new TroopConditionDatabase();
+
+        /// <summary>
         /// 初始化。
         /// <para>
         /// JSON 参数：attr、mode、value、checkLand、kinds、condition。
@@ -47,6 +53,8 @@ namespace Sango.Core.Action
             base.Init(p, sangoObjects);
             attr = p.Value<string>("attr") ?? "attack";
             mode = p.Value<int>("mode");
+            // 先退订再订阅：重复 Init 时不会把同一回调挂两次（否则属性加成会翻倍）
+            GameEvent.OnTroopCalculateAttribute -= OnTroopCalculateAttribute;
             GameEvent.OnTroopCalculateAttribute += OnTroopCalculateAttribute;
         }
 
@@ -85,8 +93,12 @@ namespace Sango.Core.Action
             if (checkLand == 1 && troop.IsInWater) return;
             if (checkLand == 2 && !troop.IsInWater) return;
 
-            if (condition != null && !condition.Check(new TroopConditionDatabase(troop)))
-                return;
+            if (condition != null)
+            {
+                condDatabase.Set(troop);
+                if (!condition.Check(condDatabase))
+                    return;
+            }
 
             // 兵种过滤：kinds 为 null 表示两种地形都吃满
             bool landOk = kinds == null

@@ -619,29 +619,31 @@ namespace Sango.Core
                 ? new List<KeyValuePair<BuildingType, float>>()
                 : null;
 
-            for (int i = 0; i < types.Count; i++)
+            // 【遍历方式】建筑类型表是 Map（Count 是实际条数，下标与 Id 无关），
+            // 不能用 `for (i < Count) types[i]` —— 那样只会取到 Id < 条数 的那几种。
+            // 这里用 ForEach；lambda 里的 return 等价于原来的 continue（循环体内没有 break）。
+            types.ForEach(t =>
             {
-                BuildingType t = types[i];
                 if (t == null)
-                    continue;
+                    return;
 
                 // 候选门槛：内政设施 + 一级形态 + canBuild（**内政方式**就在这里体现） + 科技/数量限制。
                 // 与玩家侧可建列表同一口径（CityBuildBuilding.InitCanBuildingTypes），
                 // 不会出现"AI 能建、玩家不能建"的分歧。
                 if (!t.CanBuildInteriorAt(city))
-                    continue;
+                    return;
 
                 if (IsExcluded(w, t.kind))
-                    continue;
+                    return;
 
                 int now = CountKind(city, t.kind);
                 int cap = MaxPerCityOf(t, w);
                 if (cap > 0 && now >= cap)
-                    continue;
+                    return;
 
                 float score = DemandScore(t, now, city, scenario, w, ctx);
                 if (score <= 0f)
-                    continue;
+                    return;
 
                 if (logCandidates != null)
                     logCandidates.Add(new KeyValuePair<float, string>(
@@ -655,7 +657,7 @@ namespace Sango.Core
                     bestScore = score;
                     best = t;
                 }
-            }
+            });
 
             // 【权重随机】得分即权重，按比例抽取 —— 数量比例会自然逼近得分比例，
             // 同时天然避免"平局时永远选中遍历在前的那个"（市场 Id=32 压过农田 33）。

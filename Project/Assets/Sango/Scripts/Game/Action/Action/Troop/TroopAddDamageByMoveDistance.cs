@@ -60,9 +60,9 @@ namespace Sango.Core.Action
         /// </summary>
         /// <param name="defencer">受伤部队</param>
         /// <param name="atk">攻击来源</param>
-        /// <param name="atkBack">反击标记</param>
+        /// <param name="atkBack">反击强度因子，0 = 非反击（见 TroopActionBase.IsAttackBack）</param>
         /// <param name="overrideData">兵力变化量</param>
-        void OnTroopChangeTroops(Troop defencer, SangoObject atk, int atkBack, OverrideData<int> overrideData)
+        void OnTroopChangeTroops(Troop defencer, SangoObject atk, AttackBackInfo atkBack, OverrideData<int> overrideData)
         {
             if (Troop == null || overrideData == null)
                 return;

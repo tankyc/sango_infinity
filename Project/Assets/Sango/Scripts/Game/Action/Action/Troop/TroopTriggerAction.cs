@@ -24,6 +24,14 @@ namespace Sango.Core.Action
         protected Condition condition;
 
         /// <summary>
+        /// 配置了 condition 但条件类未注册：整条效果作废。
+        ///
+        /// 原实现只打日志后把 condition 留在 null，OnTrigger 里 `condition != null` 视为通过，
+        /// 等于“条件写错反而全量生效”，在数百条特技配置下极难发现。
+        /// </summary>
+        protected bool conditionInvalid;
+
+        /// <summary>
         /// 初始化容器
         /// </summary>
         /// <param name="p">JSON参数对象</param>
@@ -33,14 +41,22 @@ namespace Sango.Core.Action
             base.Init(p, sangoObjects);
             container.Init(p, sangoObjects);
 
+            // 复用对象先清旧条件，避免上一次配置残留
+            condition = null;
+            conditionInvalid = false;
+
             JObject conObj = p.Value<JObject>("condition");
             if (conObj != null)
             {
-                condition = Condition.Create(conObj.Value<string>("class"));
+                string conditionClass = conObj.Value<string>("class");
+                condition = Condition.Create(conditionClass);
                 if (condition != null)
                     condition.Init(conObj, sangoObjects);
                 else
-                    Sango.Log.Error($"部队触发器容器的条件类未注册：{conObj.Value<string>("class")}，已忽略该条件");
+                {
+                    conditionInvalid = true;
+                    Sango.Log.Error($"部队触发器容器的条件类未注册：{conditionClass}，整条效果已作废（装配宿主：{Troop?.Name ?? Force?.Name ?? "未知"}）");
+                }
             }
         }
 
@@ -58,6 +74,10 @@ namespace Sango.Core.Action
         /// <param name="trigger">触发事件</param>
         public virtual void OnTrigger(Trigger trigger)
         {
+            // 条件类未注册：整条效果作废，不让它退化成“无条件生效”
+            if (conditionInvalid)
+                return;
+
             // 容器级条件先过：Trigger 本身实现了 IConditionDatabase，
             // 因此 ActionSkill / ActionTroop / TargetTroop 等字段都能被条件类直接读取。
             if (condition != null && !condition.Check(trigger))

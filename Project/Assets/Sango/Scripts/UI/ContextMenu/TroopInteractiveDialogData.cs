@@ -10,11 +10,20 @@ using Sango.Core; namespace Sango.UI
 
         public string content;
         public System.Action sureAction;
+        public bool isValid = true;
+
+        public bool IsValid => isValid;
 
         public void Clear()
         {
             content = null;
             sureAction = null;
+            isValid = true;
+        }
+
+        public void SetValid(bool valid)
+        {
+            isValid = valid;
         }
 
         public bool IsEmpty()

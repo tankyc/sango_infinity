@@ -24,7 +24,7 @@ namespace Sango.Core
             GameEvent.OnTroopChangeTroops += OnTroopChangeTroops;
         }
 
-        void OnTroopChangeTroops(Troop defencer, SangoObject atker, int atkBack, OverrideData<int> overrideData)
+        void OnTroopChangeTroops(Troop defencer, SangoObject atker, AttackBackInfo atkBack, OverrideData<int> overrideData)
         {
             if (defencer == null || defencer != master.Target || overrideData == null)
                 return;
