@@ -368,7 +368,136 @@ namespace Sango.Core
                         q.Add(AIOrderId.Strategy);
                         break;
                 }
+
             }
+
+            // 【内政加权】按"空内政地 / 未升满建筑"加权，把建造 / 升级插到队首。
+            // 放在人才倾斜与固定表之后调用，保证插到 index 0（最优先执行）。
+            TryInsertInteriorOrders(city, q, info);
+        }
+
+        /// <summary>
+        /// 内政加权：按内政空位数量给"建造"加权、按未升满建筑数量给"升级"加权，
+        /// 命中后把对应命令插到据点命令队首（最大 40%）。
+        ///
+        /// 【规则】
+        ///   · 空位权重 = 空位数 × <see cref="CityOrderWeights.interiorBuildChancePerEmptySlot"/>，
+        ///     封顶 <see cref="CityOrderWeights.interiorBuildChanceMax"/>（硬顶 40%）；
+        ///     只有**未建满**时才判定建造；
+        ///   · 升级权重 = "已完成且未升满"的内政建筑数 × <see cref="CityOrderWeights.interiorUpgradeChancePerBuilding"/>，
+        ///     封顶 <see cref="CityOrderWeights.interiorUpgradeChanceMax"/>（硬顶 40%）；
+        ///     **"内政地建满"只约束本加权是否参与**：未建满时不参与加权插队，
+        ///     但固定表里的 Merge 保持原样（仍由 AIBuildingLevelUp 按自己的 4/5 规则判断）；
+        ///   · 两者互斥（未建满→只可建造加权，建满→只可升级加权），命中后插到队首；
+        ///   · 只对都市、且非交战状态（Battle）生效；仅当本加权命中时移除固定表里同名列，避免重复。
+        /// </summary>
+        /// <param name="city">据点（调用方已保证是都市）</param>
+        /// <param name="q">命令队列</param>
+        /// <param name="info">据点状态快照</param>
+        static void TryInsertInteriorOrders(City city, List<AIOrderId> q, OutpostInfo info)
+        {
+            if (city == null || q == null)
+                return;
+            if (!city.IsCity())
+                return;
+            if (info != null && info.state == OutpostState.Battle)
+                return;
+
+            CityOrderWeights w = AIConfig.Instance.cityOrder;
+            if (w == null || !w.interiorPriorityEnabled)
+                return;
+
+            // ① 空内政地 → 建造
+            int emptySlots = CountEmptyInteriorCells(city);
+            bool interiorFull = emptySlots <= 0;
+
+            int buildChance = 0;
+            if (!interiorFull)
+            {
+                buildChance = emptySlots * w.interiorBuildChancePerEmptySlot;
+                if (buildChance > w.interiorBuildChanceMax)
+                    buildChance = w.interiorBuildChanceMax;
+                if (buildChance < 0) buildChance = 0;
+            }
+            bool doBuild = buildChance > 0 && GameRandom.Chance(buildChance);
+
+            // ② 未升满的内政建筑 → 升级（"建满"只约束本加权是否参与，不影响固定表里的 Merge）
+            int upgradeCount = 0;
+            int upgradeChance = 0;
+            bool doUpgrade = false;
+            if (interiorFull)
+            {
+                upgradeCount = CountUpgradeableInteriorBuildings(city);
+                if (upgradeCount > 0)
+                {
+                    upgradeChance = upgradeCount * w.interiorUpgradeChancePerBuilding;
+                    if (upgradeChance > w.interiorUpgradeChanceMax)
+                        upgradeChance = w.interiorUpgradeChanceMax;
+                    if (upgradeChance < 0) upgradeChance = 0;
+                }
+                doUpgrade = upgradeChance > 0 && GameRandom.Chance(upgradeChance);
+            }
+
+            if (!doBuild && !doUpgrade)
+                return;
+
+            // 先清掉固定表里原有的同类命令，避免同一回合重复执行
+            if (doUpgrade) q.Remove(AIOrderId.Merge);
+            if (doBuild) q.Remove(AIOrderId.Develop);
+
+            // 插到队首：建造优先（后插入的在前），升级排第二
+            if (doUpgrade) q.Insert(0, AIOrderId.Merge);
+            if (doBuild) q.Insert(0, AIOrderId.Develop);
+
+            if (AIConfig.Instance.logOutpostAI)
+                Sango.Log.Info($"*[据点AI]{city.Name} 内政加权：空位{emptySlots} → 建造{buildChance}%；"
+                    + $"建满={interiorFull} 未升满{upgradeCount} → 升级{upgradeChance}%；队首 {q[0]}");
+        }
+
+        /// <summary>统计空内政地数量（格上有建筑即视为已用，与 CitySituation 口径一致）。</summary>
+        /// <param name="city">都市</param>
+        /// <returns>空位数</returns>
+        static int CountEmptyInteriorCells(City city)
+        {
+            if (city == null || city.interiorCellList == null)
+                return 0;
+
+            int empty = 0;
+            for (int i = 0; i < city.interiorCellList.Count; i++)
+            {
+                Cell cell = city.interiorCellList[i];
+                if (cell != null && cell.building == null)
+                    empty++;
+            }
+            return empty;
+        }
+
+        /// <summary>
+        /// 统计"已完成且可继续升级"的内政建筑数量。
+        /// 口径与 CitySituation.interiorCanUpgrade 一致：isComplate && !isUpgrading && BuildingType.nextId > 0；
+        /// 只统计内政地格上的建筑，不含军事设施。
+        /// </summary>
+        /// <param name="city">都市</param>
+        /// <returns>可升级建筑数</returns>
+        static int CountUpgradeableInteriorBuildings(City city)
+        {
+            if (city == null || city.interiorCellList == null)
+                return 0;
+
+            int count = 0;
+            for (int i = 0; i < city.interiorCellList.Count; i++)
+            {
+                Cell cell = city.interiorCellList[i];
+                if (cell == null)
+                    continue;
+
+                BuildingBase building = cell.building;
+                if (building == null || building.BuildingType == null)
+                    continue;
+                if (building.isComplate && !building.isUpgrading && building.BuildingType.nextId > 0)
+                    count++;
+            }
+            return count;
         }
 
         /// <summary>

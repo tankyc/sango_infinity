@@ -311,6 +311,27 @@ namespace Sango.Core
         /// </summary>
         public int interiorUpgradeBias = 150;
 
+        // ---- 内政空位 / 未升满 → 队首加权（据点固定命令表用）----
+        //
+        // 与上面的 planner 加分不同：这两个权重直接决定"要不要把 Develop / Merge
+        // 插到据点命令队首"，权重按空位 / 可升级建筑数量累加，封顶 40%。
+        // 空位越多越先建造；内政建筑等级未满越多越先升级（建造优先于升级）。
+
+        /// <summary>是否启用"内政空位 / 建筑未升满"的队首加权</summary>
+        public bool interiorPriorityEnabled = true;
+
+        /// <summary>每有 1 个空内政地，建造命令的插队权重（百分点）</summary>
+        public int interiorBuildChancePerEmptySlot = 10;
+
+        /// <summary>建造插队权重上限（百分点，硬顶 40）</summary>
+        public int interiorBuildChanceMax = 50;
+
+        /// <summary>每有 1 座"已完成且未升满"的内政建筑，升级命令的插队权重（百分点）</summary>
+        public int interiorUpgradeChancePerBuilding = 10;
+
+        /// <summary>升级插队权重上限（百分点，硬顶 40）</summary>
+        public int interiorUpgradeChanceMax = 40;
+
         // ==================================================================
         // 六、「人才优先」顶部抬升（未发现武将 → 搜索；在野武将 → 登用）
         // ==================================================================
@@ -341,19 +362,19 @@ namespace Sango.Core
         /// <see cref="openYearEmployChanceMax"/>（0~100）。
         /// 只对都市生效，交战状态（Battle）不插。字段名中的 openYear 为历史命名，已不受年份限制。
         /// </summary>
-        public float openYearEmployChancePerWild = 30f;
+        public float openYearEmployChancePerWild = 10f;
 
         /// <summary>"登用"插入概率的上限（0~100）</summary>
-        public float openYearEmployChanceMax = 100f;
+        public float openYearEmployChanceMax = 30;
 
         /// <summary>
         /// "探索"的插入概率系数：chance = 未发现人数 × 该值，封顶
         /// <see cref="openYearSearchChanceMax"/>（0~100）。
         /// 字段名中的 openYear 为历史命名，已不受年份限制。
         /// </summary>
-        public float openYearSearchChancePerInvisible = 30f;
+        public float openYearSearchChancePerInvisible = 10f;
 
         /// <summary>"探索"插入概率的上限（0~100）</summary>
-        public float openYearSearchChanceMax = 100f;
+        public float openYearSearchChanceMax = 20;
     }
 }

@@ -11,22 +11,20 @@ namespace Sango.Render
         static List<ActionBase> sJobActions = new List<ActionBase>();
 
         /// <summary>
-        /// 演出上限。两层"点击推进"的对话正常几秒内看完；给 60s 是防
-        /// "收尾回调被丢 → IsDone 永久 false → 串行演出队列停摆"的兜底线，
-        /// 与 DiplomacyEvent.MaxDuration 同一套防卡死机制。已知会丢回调的路径：
-        ///   · 玩家点取消 → GameDialog.OnWindowClosed(sure:false) → cancelAction，本事件过去没挂它；
-        ///   · 窗口创建失败 → GameDialog.TryAdvance 只补 talkEndAction，sureAction 被丢弃。
-        /// 登用数据在 Enter 里已一次性结算完（JobRecruitPerson 调用即出结果），
-        /// 超时只需跳过剩余对话，OnForceComplete 用基类默认（空）即可。
+        /// 【没有超时兜底】演出层没有"超时强制完成"机制（原 IRenderEventBase.MaxDuration
+        /// 从未被 RenderEvent 计时，已移除）。因此 Enter 里两层"点击推进"的对话，
+        /// 必须在玩家点确定、点取消、以及窗口被外部关闭这三条路径上都把 IsDone 置位；
+        /// 已知会丢回调的路径只剩"窗口创建失败"（GameDialog.TryAdvance 会丢弃该对话且不回调），
+        /// 那属于 UI 资源缺失，只能靠窗口预制体本身可用。
+        /// 登用数据在 Enter 里已一次性结算完（JobRecruitPerson 调用即出结果）。
         /// </summary>
-        public override float MaxDuration => 10f;
-
         public void Init(Person person, Person target)
         {
             this.person = person;
             this.target = target;
             IsDone = false;
         }
+
         List<Feature> temp_FeatureList = new List<Feature>();
 
         /// <summary>城市生产环境接收的特技 kind 位掩码</summary>

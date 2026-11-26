@@ -1837,12 +1837,16 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AISearching(City city, Scenario scenario)
         {
+            // 【返回语义】true = 真的派出了搜索任务；false = 什么都没做。
+            // 据点调度器按返回值扣行动力（IgnoreResult → MarkDelegated → 扣 20，见 CityAIOutpost.cs:530-535），
+            // 所以"人才被禁止 / 无人可派 / 概率未中 / 没有未发现武将"一律返回 false，
+            // 避免空转白扣 20 点行动力（这是早期 AI 城内政建设被饿死的直接原因之一）。
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Person) == 1)
-                return true;
+                return false;
 
             int freeCount = city.freePersons.Count;
             if (freeCount == 0)
-                return true;
+                return false;
 
             // 【优化】原先为 (有在野 && Chance(80)) || Chance(20)，两个随机条件叠加，
             // 实际概率约 84% 且难以预期。现改为单一明确概率：
@@ -1853,7 +1857,7 @@ namespace Sango.Core
             int invisible = city.CountInvisiblePersons();
             int chance = cfg.searchBaseChance + invisible * cfg.searchInvisibleChancePerPerson;
             if (chance <= 0)
-                return true;
+                return false;
 
             if (GameRandom.Chance(Math.Min(100, chance)))
             {
@@ -1861,13 +1865,19 @@ namespace Sango.Core
                 if (recommandList != null && recommandList.Length > 0)
                 {
                     city.JobSearching(recommandList.ToArray());
+                    return true;
                 }
-                else
-                {
-                    city.JobSearching(city.freePersons.GetRange(0, Math.Min(city.freePersons.Count, invisible)).ToArray());
-                }
+
+                // 没有推荐人时按"未发现人数"派人；若本城没有未发现武将，就没有可搜索目标，
+                // 派一个空数组什么也不会发生 —— 必须返回 false，否则就是白扣行动力。
+                int dispatchCount = Math.Min(city.freePersons.Count, invisible);
+                if (dispatchCount <= 0)
+                    return false;
+
+                city.JobSearching(city.freePersons.GetRange(0, dispatchCount).ToArray());
+                return true;
             }
-            return true;
+            return false;
         }
 
         /// <summary>
@@ -3088,7 +3098,9 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AIRecruitTroop(City city, Scenario scenario)
         {
-            if (city.freePersons.Count == 0) return true;
+            // 【返回语义】true = 真的派出了募兵任务；false = 什么都没做（不扣行动力）。
+            // 原先所有"无事可做"分支都返回 true，导致人少 / 兵已够 / 无兵营 / 概率跳过也各扣 20 点。
+            if (city.freePersons.Count == 0) return false;
 
             // 轻视士兵,按概率不行为
             if (city.BelongCorps.GetAppointValue(Corps.AppointContentType.Store_Troops) == 1)
@@ -3098,13 +3110,13 @@ namespace Sango.Core
                 {
                     // 80%概率不行为
                     if (GameRandom.Chance(80))
-                        return true;
+                        return false;
                 }
                 else
                 {
                     // 轻视资金,60%概率
                     if (GameRandom.Chance(60))
-                        return true;
+                        return false;
                 }
             }
 
@@ -3120,22 +3132,23 @@ namespace Sango.Core
             int equipExpectMultiplier = militarist ? 2 : 3;
             int expectationTroops = Math.Max(city.food / 2, totalNum * equipExpectMultiplier / 2);
             if (city.troops >= expectationTroops)
-                return true;
+                return false;
 
             if (city.troops >= city.TroopsLimit)
-                return true;
+                return false;
 
             // 可征额耗尽就不能再征兵（旧"兵役人口 ≤ 500"的口径随旧人口系统删除）
             if (scenario.Variables.hantuPopulationEnabled && HantuPopulation.RecruitLimit(city) <= 0)
-                return true;
-            if (city.security < 70) return true;
-            if (city.troops > city.food) return true;
+                return false;
+            if (city.security < 70) return false;
+            if (city.troops > city.food) return false;
 
             Building barracks = city.GetFreeBuilding((int)BuildingKindType.Barracks);
-            if (barracks == null) return true;
+            if (barracks == null) return false;
 
             Person[] people = ForceAI.CounsellorRecommendRecruitTroop(city.freePersons);
-            if (people == null) return true;
+            if (people == null) return false;
+
             city.JobRecruitTroop(people, barracks);
             return true;
         }
@@ -3511,24 +3524,28 @@ namespace Sango.Core
         /// <returns>是否完成</returns>
         public static bool AISecurity(City city, Scenario scenario)
         {
+            // 【返回语义】true = 真的派出了巡查；false = 什么都没做（不扣行动力）。
+            // 原先所有分支都返回 true，导致"人少 / 钱少 / 已有巡查 / 概率未中"也各扣 20 点，
+            // 是早期据点行动力被空转消耗的另一个大头。
             AIConfig cfg = AIConfig.Instance;
             if (city.freePersons.Count < 2 || city.gold < cfg.internalMinGold)
-                return true;
+                return false;
 
-            if (city.GetJobCounter((int)CityJobType.Inspection) > 0) return true;
+            if (city.GetJobCounter((int)CityJobType.Inspection) > 0) return false;
 
             // 【修复】原先概率为 (100 - security) * 4，治安为 0 时高达 400%，越界且行为异常。
             // 现做上限钳制，保证概率落在 0~100 之间。
             int chance = Math.Min(100, (city.InspectionSecurityLimit - city.security) * 4);
             if (chance <= 0)
-                return true;
+                return false;
 
-            if (GameRandom.Chance(chance))
-            {
-                Person[] people = ForceAI.CounsellorRecommendDevelop(city.freePersons);
-                if (people == null) return true;
-                city.JobInspection(people);
-            }
+            if (!GameRandom.Chance(chance))
+                return false;
+
+            Person[] people = ForceAI.CounsellorRecommendDevelop(city.freePersons);
+            if (people == null) return false;
+
+            city.JobInspection(people);
             return true;
         }
 

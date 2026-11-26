@@ -174,6 +174,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonUpgradeOfficial += OnPersonUpgradeOfficial;
             GameEvent.OnPersonDied += OnPersonDied;
             GameEvent.OnForceFall += OnForceFall;
+            GameEvent.OnPersonSeekOfficeAccepted += OnPersonSeekOfficeAccepted;
         }
 
         /// <summary>
@@ -199,6 +200,7 @@ namespace Sango.Core.Player
             GameEvent.OnPersonUpgradeOfficial -= OnPersonUpgradeOfficial;
             GameEvent.OnPersonDied -= OnPersonDied;
             GameEvent.OnForceFall -= OnForceFall;
+            GameEvent.OnPersonSeekOfficeAccepted -= OnPersonSeekOfficeAccepted;
         }
 
         /// <summary>
@@ -387,6 +389,37 @@ namespace Sango.Core.Player
                 return;
 
             Instance._AddPersonMessage(text, person);
+        }
+
+        /// <summary>
+        /// 【求仕】在野武将入仕成功后的播报。
+        ///
+        /// 口径（设计稿 §5.2 / §5.3）：
+        ///   · 玩家势力：必报「慕名来投」；
+        ///   · 其它势力：普通武将只写日志（由 PersonSeekOffice 负责），仅名士播报一行，避免刷屏。
+        /// </summary>
+        /// <param name="person">入仕武将</param>
+        /// <param name="force">目标势力</param>
+        /// <param name="city">接收城</param>
+        void OnPersonSeekOfficeAccepted(Person person, Force force, City city)
+        {
+            if (person == null || force == null || city == null)
+                return;
+
+            if (force.IsPlayer)
+            {
+                AddTextMessage($"【求仕】{person.ColorName}慕名来投，已加入{force.ColorName}。",
+                    force, city.x, city.y);
+                return;
+            }
+
+            ScenarioVariables variables = scenario != null ? scenario.Variables : null;
+            int threshold = variables != null ? variables.seekOfficeFamousThreshold : 80;
+            if (PersonSeekOfficeRules.IsFamous(person, threshold))
+            {
+                AddTextMessage($"【求仕】{person.ColorName}投奔了{force.ColorName}。",
+                    force, city.x, city.y);
+            }
         }
 
         /// <summary>

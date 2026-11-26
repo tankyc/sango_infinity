@@ -2102,7 +2102,8 @@ namespace Sango.Core
             OutpostInfo info = OutpostRuntime.Get(city.Id);
             if (info.personCount < GetSearchTriggerCount(city, scenario))
                 return AISearching(city, scenario);
-            return true;
+            // 人已够多 → 什么都没做，返回 false，外层 IgnoreResult 才不会补扣 20 点行动力
+            return false;
         }
 
         /// <summary>

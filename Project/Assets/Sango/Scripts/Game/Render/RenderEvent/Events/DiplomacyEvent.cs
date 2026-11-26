@@ -21,16 +21,10 @@ namespace Sango.Render
         /// 最后统一落账（s11_sys_person_order_diplomacy.cpp:1052, 1132-1165）。
         /// 本项目演出被对话收尾回调驱动，回调一旦被 GameDialog 丢弃，结算跟着丢。
         /// 改成"Enter 判定 + 立即结算，回调只负责播台词与 IsDone"后，
-        /// 即使演出链断掉（watchdog 强制完成），数据侧也不缺账。
+        /// 即使演出链断掉，数据侧也不缺账。
         /// </summary>
         private bool settled;
         float timer;
-        /// <summary>
-        /// 演出上限。台词链要玩家点击推进，正常十秒内看完；给 60s 是防
-        /// "收尾回调被丢 → IsDone 永久 false → 回合推进停摆"的兜底线，
-        /// 超时后走 OnForceComplete 兜底，数据已经结算过，只会跳过剩余演出。
-        /// </summary>
-        public override float MaxDuration => 60f;
 
         public void Init(Person person, DiplomacyActionType actionType, Force receiverForce, City targetCity, int resourceValue, int captiveId)
         {
@@ -61,7 +55,7 @@ namespace Sango.Render
         }
 
         /// <summary>
-        /// 幂等结算：外交结果落地 + 使者领回城任务。无论从哪条路径（正常回调 / watchdog 兜底）调用，只生效一次。
+        /// 幂等结算：外交结果落地 + 使者领回城任务。无论从哪条路径（玩家选择 / 自动判定）调用，只生效一次。
         /// </summary>
         void Settle(bool result)
         {
@@ -92,17 +86,6 @@ namespace Sango.Render
 
             return action.LastResult == DiplomacyRules.Result.Success
                 || action.LastResult == DiplomacyRules.Result.SuccessNarrow;
-        }
-
-        /// <summary>watchdog 兜底：演出链断掉时，未结算的外交按失败落地（使者同样领回城任务）。</summary>
-        public override void OnForceComplete(Scenario scenario)
-        {
-            if (!settled)
-            {
-                Sango.Log.Error(
-                    $"*[演出]DiplomacyEvent 超时兜底：{person?.Name} 对 {receiverForce?.Name} 的{actionType}谈判未结算，按失败落地");
-                Settle(false);
-            }
         }
 
         public override void Exit(Scenario scenario)

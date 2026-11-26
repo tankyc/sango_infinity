@@ -1442,6 +1442,89 @@ namespace Sango.Core
 
         #endregion 招募系统参数
 
+        #region 求仕系统参数
+
+        // ====================================================================
+        // 在野武将主动求仕（Docs/Design/在野武将主动求仕.md）
+        //
+        // 每月月初对每名在野武将掷一次骰：只向「所在城归属的势力」发起，
+        // 吸引度 S 由 相性 / 在野时长 / 关系武将 / 君主魅力 / 势力规模 决定，
+        // 月概率 p = clamp(S / divisor, min, max)。
+        // 目标为玩家势力时当回合弹窗询问（每人一个弹窗、每月最多 N 人），AI 势力默认接纳；
+        // 所在城无势力则不执行求仕，结果不跨回合保留。
+        //
+        // 【调参顺序建议】先调 chanceDivisor / maxChance 控制总体频率，
+        // 再调相性 / 关系 / 地域三项权重控制「谁会去哪里」。
+        // ====================================================================
+
+        /// <summary>求仕系统总开关（0 = 完全关闭，行为与改动前一致）</summary>
+        [JsonProperty] public int seekOfficeEnabled = 1;
+
+        /// <summary>求仕：吸引度基础分</summary>
+        [JsonProperty] public int seekOfficeBaseScore = 0;
+
+        /// <summary>求仕：相性差每多少点算一档（5 档封顶，与势力相性距离同口径）</summary>
+        [JsonProperty] public int seekOfficeCompatibilityStep = 25;
+
+        /// <summary>求仕：每一档"近相性"的分值（只对 0~2 档生效，3 档及以后不加分）</summary>
+        [JsonProperty] public int seekOfficeCompatibilityWeight = 4;
+
+        /// <summary>求仕：在野月数门槛（低于此月数不执行求仕；3 旬 = 1 月）</summary>
+        [JsonProperty] public int seekOfficeMinWildMonths = 6;
+
+        /// <summary>求仕：在野时长项分子（每个在野月）</summary>
+        [JsonProperty] public int seekOfficeWildMonthWeightNum = 1;
+
+        /// <summary>求仕：在野时长项分母</summary>
+        [JsonProperty] public int seekOfficeWildMonthWeightDen = 6;
+
+        /// <summary>求仕：在野月数计分上限</summary>
+        [JsonProperty] public int seekOfficeWildMonthCap = 36;
+
+        /// <summary>求仕：目标势力中每位亲爱武将的分值</summary>
+        [JsonProperty] public int seekOfficeLikePersonWeight = 5;
+
+        /// <summary>求仕：亲爱武将项封顶</summary>
+        [JsonProperty] public int seekOfficeLikePersonCap = 10;
+
+        /// <summary>求仕：义兄弟 / 配偶 / 父母在目标势力的分值（只计一次）</summary>
+        [JsonProperty] public int seekOfficeKinshipWeight = 25;
+
+        /// <summary>求仕：君主魅力每多少点 ±1 分（50 为中性，截断 -3..+5）</summary>
+        [JsonProperty] public int seekOfficeGlamourWeight = 20;
+
+        /// <summary>求仕：都市数不超过此值的势力算「小势力」，额外加分</summary>
+        [JsonProperty] public int seekOfficeSmallForceCities = 2;
+
+        /// <summary>求仕：小势力加分值</summary>
+        [JsonProperty] public int seekOfficeSmallForceBonus = 1;
+
+        /// <summary>求仕：吸引度 → 月概率的除数（默认 1：吸引度即百分比；调大即整体降频）</summary>
+        [JsonProperty] public int seekOfficeChanceDivisor = 1;
+
+        /// <summary>求仕：月概率下限（%）</summary>
+        [JsonProperty] public int seekOfficeMinChance = 1;
+
+        /// <summary>求仕：月概率上限（%）。硬顶 50：代码里还会再夹一次，配置超过 50 也只按 50 算。</summary>
+        [JsonProperty] public int seekOfficeMaxChance = 50;
+
+        /// <summary>求仕：玩家势力每月最多答应几个来投者（每人一个弹窗）</summary>
+        [JsonProperty] public int seekOfficePlayerOffersPerMonth = 5;
+
+        /// <summary>求仕：每月全局结算上限（0 = 不限；极端剧本的保险栓）</summary>
+        [JsonProperty] public int seekOfficeMonthlyBudget = 0;
+
+        /// <summary>求仕：玩家婉拒后的冷却回合数（旬；18 旬 ≈ 6 个月；只挡求仕，不挡登用）</summary>
+        [JsonProperty] public int seekOfficeRejectCooldownTurns = 18;
+
+        /// <summary>求仕：名士播报阈值（五维任一 ≥ 该值；普通武将投奔 AI 只写日志不播报）</summary>
+        [JsonProperty] public int seekOfficeFamousThreshold = 80;
+
+        /// <summary>求仕：是否输出月度判定耗时 / 命中统计日志（0 = 关；排查性能时置 1）</summary>
+        [JsonProperty] public int seekOfficeLogStats = 0;
+
+        #endregion 求仕系统参数
+
         #region 逃跑系统参数
 
         /// <summary>

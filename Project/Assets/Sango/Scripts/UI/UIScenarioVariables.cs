@@ -410,6 +410,30 @@ namespace Sango.UI
             AddNumberItem("挖角敌将关系惩罚(成功)", variables.recruitForeignRelationPenalty, 0, 100, (v) => { variables.recruitForeignRelationPenalty = v; });
             AddNumberItem("挖角敌将关系惩罚(失败)", variables.recruitForeignRelationPenaltyFailed, 0, 100, (v) => { variables.recruitForeignRelationPenaltyFailed = v; });
 
+            AddTitle("求仕系统参数");
+            AddNumberItem("求仕系统开关(0=关闭)", variables.seekOfficeEnabled, 0, 1, (v) => { variables.seekOfficeEnabled = v; });
+            AddNumberItem("求仕在野月数门槛", variables.seekOfficeMinWildMonths, 0, 60, (v) => { variables.seekOfficeMinWildMonths = v; });
+            AddNumberItem("吸引度基础分", variables.seekOfficeBaseScore, 0, 20, (v) => { variables.seekOfficeBaseScore = v; });
+            AddNumberItem("相性差每档点数", variables.seekOfficeCompatibilityStep, 5, 50, (v) => { variables.seekOfficeCompatibilityStep = v; });
+            AddNumberItem("近相性每档分值(0~2档)", variables.seekOfficeCompatibilityWeight, 0, 20, (v) => { variables.seekOfficeCompatibilityWeight = v; });
+            AddNumberItem("在野时长分子(每满月)", variables.seekOfficeWildMonthWeightNum, 0, 20, (v) => { variables.seekOfficeWildMonthWeightNum = v; });
+            AddNumberItem("在野时长分母", variables.seekOfficeWildMonthWeightDen, 1, 20, (v) => { variables.seekOfficeWildMonthWeightDen = v; });
+            AddNumberItem("在野计分月数上限", variables.seekOfficeWildMonthCap, 0, 120, (v) => { variables.seekOfficeWildMonthCap = v; });
+            AddNumberItem("每位亲爱武将分值", variables.seekOfficeLikePersonWeight, 0, 20, (v) => { variables.seekOfficeLikePersonWeight = v; });
+            AddNumberItem("亲爱项封顶", variables.seekOfficeLikePersonCap, 0, 30, (v) => { variables.seekOfficeLikePersonCap = v; });
+            AddNumberItem("血亲/义兄弟/配偶分值", variables.seekOfficeKinshipWeight, 0, 40, (v) => { variables.seekOfficeKinshipWeight = v; });
+            AddNumberItem("君主魅力每多少点±1分", variables.seekOfficeGlamourWeight, 5, 50, (v) => { variables.seekOfficeGlamourWeight = v; });
+            AddNumberItem("小势力都市数上限", variables.seekOfficeSmallForceCities, 0, 10, (v) => { variables.seekOfficeSmallForceCities = v; });
+            AddNumberItem("小势力加分", variables.seekOfficeSmallForceBonus, 0, 10, (v) => { variables.seekOfficeSmallForceBonus = v; });
+            AddNumberItem("吸引度→月概率除数(1=直取%)", variables.seekOfficeChanceDivisor, 1, 10, (v) => { variables.seekOfficeChanceDivisor = v; });
+            AddNumberItem("月概率下限(%)", variables.seekOfficeMinChance, 0, 20, (v) => { variables.seekOfficeMinChance = v; });
+            AddNumberItem("月概率上限(%)(硬顶50)", variables.seekOfficeMaxChance, 1, 50, (v) => { variables.seekOfficeMaxChance = v; });
+            AddNumberItem("玩家每月最多来投人数", variables.seekOfficePlayerOffersPerMonth, 1, 5, (v) => { variables.seekOfficePlayerOffersPerMonth = v; });
+            AddNumberItem("每月全局结算上限(0=不限)", variables.seekOfficeMonthlyBudget, 0, 50, (v) => { variables.seekOfficeMonthlyBudget = v; });
+            AddNumberItem("婉拒冷却回合(旬)", variables.seekOfficeRejectCooldownTurns, 0, 60, (v) => { variables.seekOfficeRejectCooldownTurns = v; });
+            AddNumberItem("名士播报阈值", variables.seekOfficeFamousThreshold, 0, 100, (v) => { variables.seekOfficeFamousThreshold = v; });
+            AddNumberItem("求仕统计日志(0=关)", variables.seekOfficeLogStats, 0, 1, (v) => { variables.seekOfficeLogStats = v; });
+
             AddTitle("逃跑系统参数");
             AddNumberItem("城市中逃跑概率减少值", variables.escapeCityReduction, 0, 1000, (v) => { variables.escapeCityReduction = v; });
             AddNumberItem("部队中逃跑概率增加值", variables.escapeTroopIncrease, 0, 1000, (v) => { variables.escapeTroopIncrease = v; });

@@ -1,22 +1,6 @@
 {
   "_comment": "成对 / 组合特技配置。加载链路：Data/Common 全目录 PopulateObject → ScenarioCommonData.FeaturePairs；顶层键必须与 C# 字段同名。字段：featureId 主特技、partnerFeatureId 对方特技、partnerPersonIds 指定配对武将（空=不限）、requireSameTroop 1=同队、requireSameForce 1=同势力、maxDistance 跨队最大距离（0=不限）、commandType 指令类型、commandParams 指令参数（由具体 Action 解释）。修改时不要删除字段，缺字段会取类型默认值 0。",
   "FeaturePairs": {
-    "1": {
-      "Id": 1,
-      "Name": "连舟寨",
-      "featureId": 30132,
-      "partnerFeatureId": 0,
-      "partnerPersonIds": [],
-      "requireSameTroop": 0,
-      "requireSameForce": 1,
-      "maxDistance": 2,
-      "commandType": 1,
-      "commandParams": {
-        "requireWater": true,
-        "requireLine": true,
-        "troopsCost": 2000,
-        "goldCost": 500
-      }
     }
   }
 }

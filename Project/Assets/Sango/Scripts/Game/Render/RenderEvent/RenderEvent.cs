@@ -72,7 +72,6 @@ namespace Sango.Render
                     if (!CurEvent.IsInited)
                     {
                         CurEvent.IsInited = true;
-                        CurEvent.Elapsed = 0f;      // 事件池化复用，进入时清零计时
                         CurEvent.LockDepends();
                         CurEvent.Enter(scenario);
                         CurEvent.ReleaseDepends();

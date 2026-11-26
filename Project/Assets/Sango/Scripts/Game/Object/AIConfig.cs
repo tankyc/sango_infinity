@@ -1084,7 +1084,7 @@ namespace Sango.Core
         /// 仅在排查"某座城为什么不出兵 / 不打仗"时临时打开。
         /// </summary>
         [JsonIgnore]
-        public bool logOutpostAI = false;
+        public bool logOutpostAI = true;
 
         /// <summary>
         /// 是否允许 AI 自动拆分 / 重编军团（对齐原版 force_districts）。

@@ -420,6 +420,50 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 【求仕】在野武将主动求仕被接纳后的入仕入口。
+        ///
+        /// 【与 Recruit 的关系】身份切换、名册维护、返程全部复用 <see cref="Recruit"/>；
+        /// 本方法只补三件事：入仕前复核（等待答复期间状态可能已变）、忠诚初值、对外事件。
+        /// 登用是势力主动挖人（有概率判定），求仕是武将主动投奔（概率已在月初掷过），
+        /// 因此这里不能再做一次成功率判定。
+        ///
+        /// 【忠诚初值】70 + 相性加成（每档 +3）+ 关系武将在该势力（+5），截断 70..95。
+        /// 比普通登用的固定 80 更细腻：相性越近、有旧识，初忠越高。
+        /// </summary>
+        /// <param name="person">求仕武将（必须仍在野）</param>
+        /// <param name="force">目标势力</param>
+        /// <param name="city">接收城（必须属于该势力且是都市）</param>
+        /// <returns>入仕成功返回 true；时局已变返回 false</returns>
+        public static bool JoinByPetition(Person person, Force force, City city)
+        {
+            if (person == null || force == null || city == null) return false;
+            if (!person.IsWild || !person.IsAlive || person.IsDead) return false;
+            if (!force.IsAlive || !force.IsNormal) return false;
+            if (city.BelongForce != force || !city.IsCity()) return false;
+            if (force.mGovernor == null || !force.mGovernor.IsAlive) return false;
+            if (person.IsBannedFrom(force)) return false;
+            if (person.seekOfficeCooldownTimer > 0
+                && person.seekOfficeCooldownForceId == force.Id) return false;
+
+            // 忠诚初值：相性档 + 关系加成（求仕是主动投奔，比登用略高）
+            int aishouLevel = PersonSeekOfficeRules.AishouLevel(
+                person.CompatibilityDistance(force.mGovernor), 25);
+            int loyalty = 70 + (PersonSeekOfficeRules.MaxAishouLevel - aishouLevel) * 3;
+            if (PersonSeekOfficeRules.HasRelationInForce(person, force))
+                loyalty += 5;
+            if (loyalty < 70) loyalty = 70;
+            else if (loyalty > 95) loyalty = 95;
+            person.loyalty = loyalty;
+
+            // 身份 / 名册 / 返程全部交给 Recruit：
+            // 人不在接收城时它会挂 PersonReturn 让武将自己走过去（与原版登用一致），不瞬移。
+            Recruit(person, city, PersonChangeReason.Employed);
+
+            GameEvent.OnPersonSeekOfficeAccepted?.Invoke(person, force, city);
+            return true;
+        }
+
+        /// <summary>
         /// 就地掉头回所属城（对应 Open311 的 exec_return_command）。
         ///
         /// 已在所属城时只清任务；还在路上时改挂返程任务，

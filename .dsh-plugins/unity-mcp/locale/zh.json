@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Unity MCP 连接",
+    "description": "连接 Unity 编辑器的 MCP for Unity 服务器（http://127.0.0.1:8080/mcp），让智能体可以在正在运行的编辑器中查看和修改工程。连接成功后会出现 49 个 mcp__unityMCP__<工具名> 工具，例如 manage_scene、manage_gameobject、manage_script、manage_asset、read_console、execute_code 和 unity_reflect。需要先打开 Unity 编辑器并启动 MCP for Unity 桥接，且服务器保持在该地址。如果启动时编辑器未运行，该插件会激活失败、Unity 工具不可用：请先打开编辑器，再到「插件」里关闭并重新启用本插件，或重启 DeepSeek Harness。关闭本插件会移除全部 mcp__unityMCP__ 工具。",
+    "detail": "docs/DETAIL.zh.md"
+  }
+}

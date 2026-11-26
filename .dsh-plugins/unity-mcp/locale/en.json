@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Unity MCP connection",
+    "description": "Connects the Unity Editor's MCP for Unity server at http://127.0.0.1:8080/mcp, so the agent can inspect and edit the project in the running editor. Once connected, 49 tools appear as mcp__unityMCP__<tool>, including manage_scene, manage_gameobject, manage_script, manage_asset, read_console, execute_code and unity_reflect. Requires the Unity Editor to be open with the MCP for Unity bridge started; the server must stay at the configured address. If the editor is closed when a Host starts, this plugin fails to activate and no Unity tools are available: start the editor, then turn this plugin off and on again in Plugins, or restart DeepSeek Harness. Turning the plugin off removes the mcp__unityMCP__ tools.",
+    "detail": "docs/DETAIL.md"
+  }
+}

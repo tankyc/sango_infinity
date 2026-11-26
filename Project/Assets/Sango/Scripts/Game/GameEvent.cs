@@ -804,6 +804,23 @@ namespace Sango.Core
         public static EventDelegate<Person, Person, int, OverrideData<int>> OnPersonRecruitProbability;
 
         /// <summary>
+        /// 在野武将求仕成功并入仕。
+        ///
+        /// <para>参数：求仕武将、目标势力、接收城。战报播报（PlayerMessage）与外部统计订阅这里。</para>
+        /// </summary>
+        public static EventDelegate<Person, Force, City> OnPersonSeekOfficeAccepted;
+
+        /// <summary>
+        /// 在野武将求仕被答复（true = 接纳，false = 婉拒）。
+        ///
+        /// <para>
+        /// 与 <see cref="OnPersonSeekOfficeAccepted"/> 分开：婉拒没有入仕，但统计需要成对记录；
+        /// 两者都不负责播报，播报统一由 PlayerMessage 订阅 Accepted 完成。
+        /// </para>
+        /// </summary>
+        public static EventDelegate<Person, Force, bool> OnPersonSeekOfficeDecided;
+
+        /// <summary>
         /// 询问"城陷时攻方可保留多少座内政设施"（安民：占领城池保留建筑）。
         ///
         /// <para>

@@ -1503,6 +1503,22 @@ namespace Sango.Core
         /// </summary>
         [JsonProperty] public int wildTurnCount;
 
+        // ====================================================================
+        // 【求仕】在野武将主动求仕字段
+        // 规则与结算见 Docs/Design/在野武将主动求仕.md 与 PersonSeekOffice。
+        // 注意：求仕结果当回合形成，这里只保留"婉拒冷却"，不保存待答求仕。
+        // ====================================================================
+
+        /// <summary>
+        /// 求仕：婉拒冷却的势力 Id（-1 = 无冷却）。
+        /// 用势力而不是君主做 key：君主继承不该让"刚被婉拒的人"立刻再来求；
+        /// 也不复用 BannedKunshuId（那是"禁止仕官"，会连带封掉登用）。
+        /// </summary>
+        [JsonProperty] public int seekOfficeCooldownForceId = -1;
+
+        /// <summary>求仕：婉拒冷却剩余回合（旬），每回合递减</summary>
+        [JsonProperty] public int seekOfficeCooldownTimer;
+
         public bool rewardOver;
 
         public int Age { get; private set; }
@@ -3008,6 +3024,15 @@ namespace Sango.Core
                 BanTimer--;
                 if (BanTimer <= 0)
                     BannedKunshuId = -1;
+            }
+
+            // 【求仕】婉拒冷却每回合递减；归零时清掉势力 Id，避免"已过期还挡人"。
+            // 与上面的 BanTimer 合并同一处结算，不额外增加一次全池遍历。
+            if (seekOfficeCooldownTimer > 0)
+            {
+                seekOfficeCooldownTimer--;
+                if (seekOfficeCooldownTimer <= 0)
+                    seekOfficeCooldownForceId = -1;
             }
 
             if (BelongForce != null && IsAlive)
