@@ -440,6 +440,9 @@ namespace Sango.Core
             if (!person.IsWild || !person.IsAlive || person.IsDead) return false;
             if (!force.IsAlive || !force.IsNormal) return false;
             if (city.BelongForce != force || !city.IsCity()) return false;
+            // 【必须判空】城有势力但军团为空（数据异常 / 城刚易主）时 Recruit 会把
+            // BelongCorps 写成 null，人变成"有城无势力"的脏数据；这里直接拒绝。
+            if (city.BelongCorps == null) return false;
             if (force.mGovernor == null || !force.mGovernor.IsAlive) return false;
             if (person.IsBannedFrom(force)) return false;
             if (person.seekOfficeCooldownTimer > 0

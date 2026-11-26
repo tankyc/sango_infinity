@@ -3147,7 +3147,7 @@ namespace Sango.Core
             if (barracks == null) return false;
 
             Person[] people = ForceAI.CounsellorRecommendRecruitTroop(city.freePersons);
-            if (people == null) return false;
+            if (people == null || people.Length == 0) return false;
 
             city.JobRecruitTroop(people, barracks);
             return true;
@@ -3543,7 +3543,7 @@ namespace Sango.Core
                 return false;
 
             Person[] people = ForceAI.CounsellorRecommendDevelop(city.freePersons);
-            if (people == null) return false;
+            if (people == null || people.Length == 0) return false;
 
             city.JobInspection(people);
             return true;
