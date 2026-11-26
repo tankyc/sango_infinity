@@ -49,8 +49,8 @@ namespace Sango.Core
             public int score;
         }
 
-        /// <summary>本月命中列表（按吸引度降序结算）</summary>
-        readonly List<Hit> hits = new List<Hit>(64);
+        /// <summary>本月命中列表（按吸引度降序结算）。容量按"极端全中"预留，避免月中扩容分配</summary>
+        readonly List<Hit> hits = new List<Hit>(256);
 
         /// <summary>月度扫描计时器（只在开启统计时使用；复用同一个实例，不分配）</summary>
         static readonly System.Diagnostics.Stopwatch PassWatch = new System.Diagnostics.Stopwatch();

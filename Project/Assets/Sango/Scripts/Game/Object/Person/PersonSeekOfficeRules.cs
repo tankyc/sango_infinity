@@ -375,7 +375,14 @@ namespace Sango.Core
             if (person == null || force == null || city == null)
                 return string.Empty;
 
-            int level = AishouLevel(person.CompatibilityDistance(force.mGovernor), 25);
+            // 君主可能在"月初判定"到"玩家答复"之间死亡 / 被俘：这里不能再直接解引用 mGovernor，
+            // 否则对话框正文拼装会 NRE，演出队列会卡住。缺君主时退化为势力名，相性按最远档显示。
+            Person governor = force.mGovernor;
+            string governorName = governor != null ? governor.ColorName : force.Name;
+            string forceName = string.IsNullOrEmpty(force.ColorName) ? force.Name : force.ColorName;
+            int aishouDistance = governor != null ? person.CompatibilityDistance(governor) : 999;
+
+            int level = AishouLevel(aishouDistance, 25);
             string relationName = FirstRelationName(person, force);
             int months = WildMonths(person.wildTurnCount);
 
@@ -383,8 +390,8 @@ namespace Sango.Core
                 ? string.Empty
                 : $" · 与{relationName}有旧";
 
-            return $"【求仕】{person.ColorName}：在下{person.Name}，久闻{force.mGovernor.ColorName}主公之名，\n"
-                 + $"今在{city.ColorName}，愿为{force.ColorName}效犬马之劳，望主公收纳。\n\n"
+            return $"【求仕】{person.ColorName}：在下{person.Name}，久闻{governorName}主公之名，\n"
+                 + $"今在{city.ColorName}，愿为{forceName}效犬马之劳，望主公收纳。\n\n"
                  + $"（相性：{AishouText(level)} · 在野{months}个月{relationPart}）";
         }
     }
