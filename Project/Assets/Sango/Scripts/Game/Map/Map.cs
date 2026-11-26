@@ -299,14 +299,19 @@ namespace Sango.Core
                     if (IsHostileForce(troops.BelongForce, next.building.BelongForce))
                         return true;
                 }
-                else if (next.troop != null)
+                else if (next.troop != null && next.troop.IsAlive)
                 {
-                    // 混乱部队不产生 ZOC —— 原版 `is_zoc_pos`：
+                    // 被控制的部队不产生 ZOC —— 原版 `is_zoc_pos` 只排除混乱
                     //   `if (unit->get_state() != UnitState_Konran and self->is_enemy(unit))`
                     //   （s11_sys_unit_path.cpp:359-364）。
-                    // 状态位由 BuffManager 在 Buff 增删时重算（Buff.noZoc → TroopStateFlag.Chaos），
-                    // 这里只读一个 bit，避免在最热的寻路循环里遍历 Buff 列表。
-                    if (!next.troop.isChaos && IsHostileForce(troops.BelongForce, next.troop.BelongForce))
+                    // 本项目扩展为"混乱 + 全部无法行动的控制态（扰乱/伪报/冰冻）"，
+                    // 原因见 TroopStateFlags.ZocSuppressMask 的说明：
+                    //   · 旧实现只看 Chaos 位，而该位依赖 Buff 数据的 noZoc 配置，
+                    //     控制类 Buff 漏配 / 被 Mod 覆盖时 ZOC 仍然生效（玩家反馈的问题）；
+                    //   · 已无法行动的部队不应再拥有控制区域。
+                    // 这里读状态位缓存（O(1)），避免在最热的寻路循环里遍历 Buff 列表。
+                    if ((next.troop.StateFlags & TroopStateFlags.ZocSuppressMask) == 0
+                        && IsHostileForce(troops.BelongForce, next.troop.BelongForce))
                         return true;
                 }
             }

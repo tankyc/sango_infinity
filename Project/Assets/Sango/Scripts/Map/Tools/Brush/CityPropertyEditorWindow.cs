@@ -105,7 +105,6 @@ namespace Sango.Tools
             { "gold", "金钱" },
             { "population", "城市人口" },
             { nameof(City.ruralPopulation), "农村人口" },
-            { "troopPopulation", "兵役人口" },
             { "workingAppointType", "工作委任类型" },
             { "itemStore", "库存" },
             { "commerce", "商业值" },
@@ -143,7 +142,7 @@ namespace Sango.Tools
             "BelongForceId", "BelongCorpsId", "BelongCityId", "BuildingType",
             // 耐久与最大耐久紧邻显示
             "durability", "durabilityLimit", "model",
-            "food", "gold", "population", nameof(City.ruralPopulation), "troopPopulation",
+            "food", "gold", "population", nameof(City.ruralPopulation),
             "itemStore",
             "security", "morale", "troops",
             "troopsLimit", "storeLimit", "goldLimit", "foodLimit",

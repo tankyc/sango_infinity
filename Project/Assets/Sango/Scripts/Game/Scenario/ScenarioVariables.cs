@@ -540,8 +540,9 @@ namespace Sango.Core
         /// 【默认关闭】不为 true 时整条人口链路都不参与结算：不增长、不产税、
         /// 不限制征兵、不产生人口事件。剧本 / 存档里没写这个键时按 false 处理。
         ///
-        /// 【只有一套人口系统】旧的"城市人口线性增长 + 兵役人口 + 人口产出"实现已整体移除，
-        /// 现在人口相关规则只由 <see cref="Sango.Core.HantuPopulation"/> 承担，不再有第二套开关。
+        /// 【只有一套人口系统】旧的"城市人口线性增长 + 兵役人口 + 人口产出"实现已整体移除
+        /// （含 <c>City.troopPopulation</c> 字段本身），现在人口相关规则只由
+        /// <see cref="Sango.Core.HantuPopulation"/> 承担，不再有第二套开关。
         /// </summary>
         [JsonProperty] public bool hantuPopulationEnabled;
 

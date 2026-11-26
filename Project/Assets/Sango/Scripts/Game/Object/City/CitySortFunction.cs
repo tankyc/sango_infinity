@@ -215,23 +215,6 @@ namespace Sango.Core
             minValue = 0,
         };
 
-        /// <summary>
-        /// 兵役人口排序标题（显示并修改城池兵役人口基础字段troopPopulation）
-        /// 【口径】旧人口系统的"人口 × 最大兵役比例"上限已随旧系统删除，
-        /// 该字段现在只作为兵种建造 / 事件脚本的资源池使用，此处仅编辑当前值
-        /// </summary>
-        public static SortTitle SortByTroopPopulation = new SortTitle()
-        {
-            name = "兵役人口",
-            width = 4.00f,
-            valueStrGetCall = x => x.troopPopulation.ToString(),
-            valueSortFunc = (a, b) => a.troopPopulation.CompareTo(b.troopPopulation),
-            valueObjGet = x => x.troopPopulation,
-            valueObjSet = (x, v) => x.troopPopulation = (int)v,
-            editType = DataEditType.IntCalculator,
-            minValue = 0,
-        };
-
         public static SortTitle SortByTroops = new SortTitle()
         {
             name = "士兵",

@@ -425,6 +425,14 @@ namespace Sango.Core.Action
             Register("CityImproveSearchingWild", CraeteHandle<CityImproveSearchingWild>);
             // 特技 #79 屯田：所属关所、港口的士兵不消耗兵粮。
             Register("CityChangeFoodCost", CraeteHandle<CityChangeFoodCost>);
+            // 特技（作用于城市）道具制造权限：武将携带后，其所在城市可在铁匠铺 / 工坊 / 造船厂
+            // 生产配置指定的道具，即使势力尚未研究该道具要求的科技。
+            // 判定走 FeaturePermission.CityCanCreateItem，本类只做参数解析与命中判定。
+            Register("CityAllowCreateItem", CraeteHandle<CityAllowCreateItem>);
+            // 特技（作用于城市）兵种组建权限：武将携带后，出征界面可组建配置指定的兵种，
+            // 支持按 isLand 分别配置陆上 / 水上兵种（landTroopTypeIds / waterTroopTypeIds）。
+            // 判定走 FeaturePermission.AnyPersonAllowsTroopType。
+            Register("CityAllowTroopType", CraeteHandle<CityAllowTroopType>);
             // 特技 #78 筑城：军事设施建设时的耐久上升量提高至 200%。
             Register("TroopImproveBuildPower", CraeteHandle<TroopImproveBuildPower>);
             // 通用：给部队设置寻路/地形免疫标记位（PathFlag）。

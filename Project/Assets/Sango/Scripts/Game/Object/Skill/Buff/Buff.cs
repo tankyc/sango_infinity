@@ -88,6 +88,11 @@ namespace Sango.Core
             switch (effectClass)
             {
                 case "Stun": return (int)TroopStateFlag.Stun;
+
+                // 兼容 Mod 里可能用的"混乱"类名：项目内置实现叫 Stun，但数据若写成 Chaos，
+                // BuffEffect.Create 取不到效果类（只影响表现/回合逻辑），状态位仍要能推导出来，
+                // 否则 ZOC 抑制会失效。
+                case "Chaos": return (int)(TroopStateFlag.Chaos | TroopStateFlag.Stun);
                 case "Escape": return (int)TroopStateFlag.Escape;
                 case "MoveSeal": return (int)TroopStateFlag.MoveSeal;
                 case "Berserk": return (int)TroopStateFlag.Berserk;

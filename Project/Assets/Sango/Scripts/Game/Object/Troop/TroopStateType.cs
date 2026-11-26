@@ -130,5 +130,26 @@
         public const int DisableMask =
             (int)(TroopStateFlag.Stun | TroopStateFlag.Escape | TroopStateFlag.Freeze
                 | TroopStateFlag.MoveSeal | TroopStateFlag.Berserk);
+
+        /// <summary>
+        /// **不产生 ZOC** 的状态并集：混乱 + 全部"无法行动"的控制态。
+        ///
+        /// 【原版】<c>System::is_zoc_pos</c> 只排除 <c>UnitState_Konran</c>
+        /// （s11_sys_unit_path.cpp:359-364）。
+        ///
+        /// 【为什么本项目要扩展】玩家反馈"部队被控制了，却还在挡路（产生 ZOC）"。
+        /// 原因有两层：
+        ///   · 旧判定只读 <see cref="TroopStateFlag.Chaos"/>，而该位依赖 Buff 数据里的
+        ///     <c>noZoc</c> 配置；一旦某个控制类 Buff（扰乱 / 伪报 / 冰冻）没配 <c>noZoc</c>，
+        ///     或者被 Mod 数据覆盖掉，位就不会置上，ZOC 照旧；
+        ///   · 从玩法直觉看，已经无法行动的部队不应再拥有"控制区域"。
+        /// 现在改为按**状态位**判定（<see cref="ControlMask"/> 已含 Stun/Escape/Freeze），
+        /// 不再依赖数据配置，且覆盖全部"被控制"的形态。
+        ///
+        /// 足止 / 暴走**不在**此列：它们仍然能行动（原地攻击 / 主动出击），
+        /// 按原版语义继续产生 ZOC。
+        /// </summary>
+        public const int ZocSuppressMask =
+            (int)(TroopStateFlag.Chaos | TroopStateFlag.Stun | TroopStateFlag.Escape | TroopStateFlag.Freeze);
     }
 }

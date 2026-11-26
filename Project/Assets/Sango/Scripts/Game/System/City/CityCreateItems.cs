@@ -109,29 +109,76 @@ namespace Sango.Core.Player
             }
         }
 
+        /// <summary>
+        /// 城市当前"可制造道具"的特技权限集合（复用容器，避免每次打开界面都分配）。
+        /// 由 <see cref="FeaturePermission.CollectCityCreateItemPermissions"/> 填充。
+        /// </summary>
+        readonly CreateItemPermissionSet createItemPermissions = new CreateItemPermissionSet();
+
+        /// <summary>
+        /// 生产项分组容器（storeKind → 该槽位最高级道具）。
+        /// 复用容量而不是每次 InitItem 都 new —— 本方法由 IsValid / GetInvalidReason / OnEnter 反复触发。
+        /// </summary>
+        readonly Dictionary<int, ItemType> itemMapCache = new Dictionary<int, ItemType>();
+
+        /// <summary>生产项排序比较器（静态，避免每次排序都分配 lambda 闭包）</summary>
+        static readonly System.Comparison<ItemTypeInfo> ItemTypeInfoComparison =
+            (a, b) => a.itemType.Id.CompareTo(b.itemType.Id);
+
         protected virtual void InitItem()
         {
             ItemTypes.Clear();
+
+            // 【健壮性】MenuCanShow / 目标城市为空时不再往下走：
+            // 原实现会在 TargetCity.GetFreeBuilding 处抛空引用（本方法由 IsValid 触发，
+            // 菜单构建阶段并非总能保证 TargetCity 已赋值）。
+            if (TargetCity == null)
+                return;
+
             Scenario scenario = Scenario.Cur;
-            Dictionary<int, ItemType> itemMap = new Dictionary<int, ItemType>();
-            scenario.CommonData.ItemTypes.ForEach(it =>
+            if (scenario == null || scenario.CommonData == null)
+                return;
+
+            Dictionary<int, ItemType> itemMap = itemMapCache;
+            itemMap.Clear();
+
+            // 【特技解锁】一次性收集城内武将携带的制造权限（CityAllowCreateItem），
+            // 避免对每条道具重复展开武将特技。
+            createItemPermissions.Clear();
+            FeaturePermission.CollectCityCreateItemPermissions(TargetCity, createItemPermissions);
+
+            // 【性能】原实现用 ForEach(lambda) 捕获 itemMap，每次调用分配闭包；
+            // 改为直接遍历字典，内层 return 一律改 continue。
+            foreach (KeyValuePair<int, ItemType> kv in scenario.CommonData.ItemTypes.objects)
             {
-                if (it.cost > 0 && it.IsValid(TargetCity.BelongForce))
+                ItemType it = kv.Value;
+                if (it == null)
+                    continue;
+
+                // 特技显式放开的道具：即使势力未研究所需科技也进入候选池。
+                bool featureUnlocked = createItemPermissions.Allows(it);
+
+                // 保留原口径：cost = 0 的标准装备（剑、走舸）不进生产列表；
+                // 特技明确点名时例外 —— 否则"放开一条免费船"会被这条规则悄悄吃掉。
+                if (!featureUnlocked && it.cost <= 0)
+                    continue;
+
+                // 科技条件（空势力安全版，替代 ItemType.IsValid 的空引用风险）
+                if (!featureUnlocked && !FeaturePermission.TechAllowsCreateItem(TargetCity, it))
+                    continue;
+
+                ItemType existItemType;
+                if (itemMap.TryGetValue(it.storeKind, out existItemType))
                 {
-                    ItemType itemType;
-                    if (itemMap.TryGetValue(it.storeKind, out itemType))
-                    {
-                        if (it.Id > itemType.Id)
-                        {
-                            itemMap[it.storeKind] = it;
-                        }
-                    }
-                    else
-                    {
+                    // 同一仓储槽位只保留 Id 最大者（越大越高级），保持原规则
+                    if (it.Id > existItemType.Id)
                         itemMap[it.storeKind] = it;
-                    }
                 }
-            });
+                else
+                {
+                    itemMap[it.storeKind] = it;
+                }
+            }
 
             foreach (ItemType itemType in itemMap.Values)
             {
@@ -142,7 +189,7 @@ namespace Sango.Core.Player
                 });
             }
 
-            ItemTypes.Sort((a, b) => a.itemType.Id.CompareTo(b.itemType.Id));
+            ItemTypes.Sort(ItemTypeInfoComparison);
             FindAndSelectFirstValidItemType();
         }
 

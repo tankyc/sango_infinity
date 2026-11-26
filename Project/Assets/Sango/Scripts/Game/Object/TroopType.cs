@@ -190,11 +190,6 @@ namespace Sango.Core
         [JsonProperty] public int costGold = 0;
 
         /// <summary>
-        /// 招募每兵所需额外兵役人口
-        /// </summary>
-        [JsonProperty] public int costPopulation = 0;
-
-        /// <summary>
         /// 招募每兵所需技巧点数/兵
         /// </summary>
         [JsonProperty] public int costTechPoint = 0;
@@ -310,32 +305,87 @@ namespace Sango.Core
             // 确定可组建特殊兵种
             // 【性能】原 TroopTypes.ForEach(lambda) 捕获 force / checkPersonList / activeTroopTypes，
             // 改成按下标遍历底层数组，内层 return 一律改 continue。
+            //
+            // 【性能·特技权限惰性收集】绝大多数兵种（剑/枪/戟/弩/骑/走舸…）无科技、无兵符要求，
+            // 走原路径直接通过；只有"科技或兵符不满足"的兵种才需要展开武将特技。
+            // 且整张兵种表只收集一次，避免"兵种数 × 武将数 × 每人特技数"的重复展开
+            //（AI 每回合组队、出征界面反复刷新都会走本方法）。
+            TroopTypePermissionSet featurePermissions = null;
+            bool featureScanDone = false;
+
             foreach (KeyValuePair<int, TroopType> kv in Scenario.Cur.CommonData.TroopTypes.objects)
             {
                 TroopType t = kv.Value;
                 if (t == null || !t.isFight)
                     continue;
 
-                if (!t.IsValid(force))
-                    continue;
+                // ① 原路径：科技满足（validTechId 支持负数 = "未研究该科技时才可用"）
+                if (t.IsValid(force))
+                {
+                    // 无兵符要求 → 直接可用
+                    if (t.validItemId == 0)
+                    {
+                        activeTroopTypes.Add(t);
+                        continue;
+                    }
 
-                if (t.validItemId == 0)
+                    // 有兵符要求 → 上阵 / 空闲武将中至少一人持有
+                    if (HasAnyItem(checkPersonList, t.validItemId))
+                    {
+                        activeTroopTypes.Add(t);
+                        continue;
+                    }
+                }
+
+                // ② 特技路径：原条件不满足时才展开（额外解锁，惰性、整表只收集一次）
+                if (!featureScanDone)
+                {
+                    featureScanDone = true;
+
+                    // 剧本里没配 CityAllowTroopType 时连集合都不碰 —— 未使用该玩法的剧本零分配。
+                    // 配了则借用共享容器（Clear 保留容量），避免每次组队都 new 一组 List。
+                    if (FeaturePermission.HasAnyTroopTypePermission)
+                    {
+                        featurePermissions = FeaturePermission.SharedTroopTypePermissionSet;
+                        featurePermissions.Clear();
+                        FeaturePermission.CollectTroopTypePermissions(checkPersonList, featurePermissions);
+                    }
+                }
+
+                if (featurePermissions != null && featurePermissions.Allows(t))
                 {
                     activeTroopTypes.Add(t);
                     continue;
                 }
 
-                // 检查武将限定道具
-                for (int j = 0; j < checkPersonList.Count; j++)
+                // 配置把兵种写进了与自身 isLand 相反的分组：只提示一次，便于排查"配了却不生效"
+                if (featurePermissions != null)
                 {
-                    Person person = checkPersonList[j];
-                    if (person != null && person.HasItem(t.validItemId))
-                    {
-                        activeTroopTypes.Add(t);
-                        break;
-                    }
+                    int mismatchFeatureId = featurePermissions.GetMismatchFeatureId(t);
+                    if (mismatchFeatureId > 0)
+                        FeaturePermission.WarnTroopGroupMismatchOnce(mismatchFeatureId, t);
                 }
             }
+        }
+
+        /// <summary>
+        /// 这批武将里是否有人持有指定道具（特殊兵种的兵符条件）。
+        /// </summary>
+        /// <param name="persons">武将列表</param>
+        /// <param name="itemId">道具 Id</param>
+        /// <returns>持有返回 true</returns>
+        static bool HasAnyItem(List<Person> persons, int itemId)
+        {
+            if (persons == null)
+                return false;
+
+            for (int i = 0; i < persons.Count; i++)
+            {
+                Person person = persons[i];
+                if (person != null && person.HasItem(itemId))
+                    return true;
+            }
+            return false;
         }
 
         //// 获取满足消耗的可组建兵种
@@ -393,9 +443,10 @@ namespace Sango.Core
             // 没有势力的据点不可能组建部队，直接按"消耗不满足"处理。
             if (city.BelongForce == null) return false;
 
+            // 旧「兵役人口」消耗口径已随 City.troopPopulation 字段一并删除，
+            // 人口限制只在征兵环节由新人口系统的"可征额"承担，组队不再二次扣减人口。
             if (city.food < costFood * troops) return false;
             if (city.gold < costGold * troops) return false;
-            if (city.troopPopulation < costPopulation * troops) return false;
             if (city.BelongForce.TechniquePoint < costTechPoint * troops) return false;
 
             return city.itemStore.CheckItemEnough(costItems, troops);
@@ -405,7 +456,6 @@ namespace Sango.Core
         {
             city.food -= costFood * troops;
             city.gold -= costGold * troops;
-            city.troopPopulation -= costPopulation * troops;
             city.BelongForce.GainTechniquePoint(-costTechPoint * troops);
             city.itemStore.Cost(costItems, troops);
         }

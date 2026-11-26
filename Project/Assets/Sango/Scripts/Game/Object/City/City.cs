@@ -72,11 +72,6 @@ namespace Sango.Core
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public int? ruralPopulation;
 
         /// <summary>
-        /// 兵役人口
-        /// </summary>
-        [JsonProperty] public int troopPopulation;
-
-        /// <summary>
         /// 工作委任类型
         /// </summary>
         [JsonProperty] public int workingAppointType;
@@ -432,9 +427,9 @@ namespace Sango.Core
         public int PopulationLimit => HantuPopulation.Enabled ? HantuPopulation.UrbanCapacity(this)
             : Scenario.Cur.Variables.populationLimitBase + CityLevelType.Id * Scenario.Cur.Variables.populationLimitPerLevel;
 
-        // 【已移除】MaxTroopPopulation / BaseTroopPopulation：
-        // 它们是旧"兵役人口"模型的口径（人口 × 比例），随旧人口系统一起删除；
-        // 兵役人口字段 troopPopulation 仍保留（兵种建造 / 事件 / 地图编辑器在用），但不再有上限推导。
+        // 【已移除】旧"兵役人口"模型整套删除：
+        // MaxTroopPopulation / BaseTroopPopulation（人口 × 比例的上限推导）与
+        // 兵役人口字段 troopPopulation 均已删除，征兵上限只由新人口系统的"可征额"承担。
         /// <summary>
         /// 边界线
         /// </summary>
@@ -4096,9 +4091,14 @@ namespace Sango.Core
 
             if (itemType.kind != (int)ItemKindType.Boat) return null;
 
+            // 【顺序】先做便宜的库存检查：满仓时直接返回，省掉一次特技权限扫描。
             int totalNum = itemStore.GetNumber((int)ItemStoreKindType.Boat);
             if (totalNum >= itemType.TransformLimit(StoreLimit))
                 return null;
+
+            // 【特技权限】原有科技未满足时，必须由城内武将携带的 CityAllowCreateItem 放开。
+            // 放在消耗计算之前：既不消耗资金 / 行动力，也不会把武将挂上任务。
+            if (!FeaturePermission.CityCanCreateItem(this, itemType)) return null;
 
             Scenario scenario = Scenario.Cur;
 
@@ -4340,8 +4340,13 @@ namespace Sango.Core
             if (itemType == null) return null;
 
             if (itemType.kind != (int)ItemKindType.Machine) return null;
+
+            // 【顺序】先做便宜的库存检查，满仓时省掉一次特技权限扫描
             int totalNum = itemStore.GetNumber((int)itemType.storeKind);
             if (totalNum > itemType.TransformLimit(StoreLimit)) return null;
+
+            // 【特技权限】科技未满足时，必须由城内武将携带的 CityAllowCreateItem 放开
+            if (!FeaturePermission.CityCanCreateItem(this, itemType)) return null;
 
 
             Scenario scenario = Scenario.Cur;
@@ -5978,8 +5983,13 @@ namespace Sango.Core
             if (itemType == null) return 0;
             if (building == null) return 0;
 
+            // 【顺序】先做便宜的库存检查，满仓时省掉一次特技权限扫描
             int totalNum = itemStore.GetNumber(itemType.storeKind);
             if (totalNum >= itemType.TransformLimit(StoreLimit)) return 0;
+
+            // 【特技权限】科技未满足时，必须由城内武将携带的 CityAllowCreateItem 放开。
+            // 预览（isTest）与实际提交共用同一判断，避免"界面能看、点了没反应"。
+            if (!FeaturePermission.CityCanCreateItem(this, itemType)) return 0;
 
             if (itemType == null) return 0;
             if (building == null) return 0;

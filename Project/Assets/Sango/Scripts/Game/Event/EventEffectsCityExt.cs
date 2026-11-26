@@ -1,8 +1,8 @@
 /*
  * 文件名：EventEffectsCityExt.cs
- * 描述：城市类事件效果（第二批）——商业、农业、人口、兵役人口、民心、俘虏、改名
+ * 描述：城市类事件效果（第二批）——商业、农业、人口、民心、俘虏、改名
  * 创建日期：2026-10-19
- * 最后修改：2026-10-19
+ * 最后修改：2026-11-26
  *
  * 【与 EventEffectsCity.cs 的关系】
  *   EventEffectsCity.cs 已有金 / 粮 / 治安 / 兵力 / 耐久 / 太守 / 易主；
@@ -10,9 +10,7 @@
  *
  * 【关于上限】
  *   凡是引擎提供了上限派生属性的（CommerceLimit / AgricultureLimit /
- *   PopulationLimit / MaxMorale），一律按上限夹取；
- *   没有上限属性的（兵役人口 troopPopulation）只保证不为负，并在注释里写明——
- *   宁可少夹一层，也不臆造一个不存在的上限字段。
+ *   PopulationLimit / MaxMorale），一律按上限夹取。
  *
  * 【尚未实现】
  *   · 城市建筑的新建 / 拆除：City.allBuildings 只是登记表，真正的新建要走
@@ -94,36 +92,6 @@ namespace Sango.Core.Event
 
             city.population = CityAddGoldEffect.Clamp(city.population + value, 0, city.PopulationLimit);
             Log.Info($"事件：{city.Name} 人口 {value:+#;-#;0} → {city.population}");
-            return true;
-        }
-    }
-
-    /// <summary>
-    /// 增减城市兵役人口。
-    /// 该项没有独立的"上限派生属性"，因此只保证不为负（详见文件头注释）。
-    /// </summary>
-    [EventEffectMeta("城市兵役人口增减", "增减指定城市的兵役人口（不封顶，只保证非负）", "CitySlot", "Value")]
-    public class CityAddTroopPopulationEffect : EventEffectBase
-    {
-        /// <summary>执行</summary>
-        /// <param name="context">上下文</param>
-        /// <returns>是否成功</returns>
-        public override bool Execute(EventContext context)
-        {
-            City city = GetSlot<City>("CitySlot", context);
-            if (city == null)
-            {
-                WarnSlotMissing("CitySlot", GetString("CitySlot"));
-                return false;
-            }
-
-            int value = EvalInt("Value", context);
-            if (value == 0) return true;
-
-            city.troopPopulation = city.troopPopulation + value;
-            if (city.troopPopulation < 0) city.troopPopulation = 0;
-
-            Log.Info($"事件：{city.Name} 兵役人口 {value:+#;-#;0} → {city.troopPopulation}");
             return true;
         }
     }
@@ -292,7 +260,6 @@ namespace Sango.Core.Event
             EventEffectBase.Register("CityAddCommerce", EventEffectBase.CreateHandle<CityAddCommerceEffect>);
             EventEffectBase.Register("CityAddAgriculture", EventEffectBase.CreateHandle<CityAddAgricultureEffect>);
             EventEffectBase.Register("CityAddPopulation", EventEffectBase.CreateHandle<CityAddPopulationEffect>);
-            EventEffectBase.Register("CityAddTroopPopulation", EventEffectBase.CreateHandle<CityAddTroopPopulationEffect>);
             EventEffectBase.Register("CityAddMorale", EventEffectBase.CreateHandle<CityAddMoraleEffect>);
             EventEffectBase.Register("CityAddPrisoner", EventEffectBase.CreateHandle<CityAddPrisonerEffect>);
             EventEffectBase.Register("CityReleasePrisoner", EventEffectBase.CreateHandle<CityReleasePrisonerEffect>);

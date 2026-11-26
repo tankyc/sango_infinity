@@ -1726,7 +1726,6 @@ namespace Sango.UI
                 CitySortFunction.SortByItemStroe,
                 CitySortFunction.SortByBaseStoreLimit,
                 CitySortFunction.SortByPopulation,
-                CitySortFunction.SortByTroopPopulation,
                 CitySortFunction.SortByProvince,
                 CitySortFunction.SortByPopularSupport,
             };

@@ -77,8 +77,6 @@ namespace Sango.Core
                     return city.gold;
                 case "population":
                     return city.population;
-                case "troopPopulation":
-                    return city.troopPopulation;
                 default:
                     return 0;
             }

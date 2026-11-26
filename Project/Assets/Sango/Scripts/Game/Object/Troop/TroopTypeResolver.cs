@@ -121,7 +121,11 @@ namespace Sango.Core
         }
 
         /// <summary>
-        /// 该兵种能否由这批武将组建（科技 + 特殊兵道具）。
+        /// 该兵种能否由这批武将组建（科技 + 特殊兵道具 + 特技解锁）。
+        ///
+        /// 【性能·原条件优先】科技满足且（无兵符 / 有人持有点）时直接返回 true，
+        /// **不做任何特技展开** —— 这是出征界面每次换将、每次点兵种都会走的常见路径。
+        /// 只有原条件不满足时才查一次特技权限，代价与改动前的最坏情况相同。
         /// </summary>
         /// <param name="force">势力（科技判定；可为 null）</param>
         /// <param name="persons">上阵武将</param>
@@ -132,24 +136,27 @@ namespace Sango.Core
             if (troopType == null)
                 return false;
 
-            if (!troopType.IsValid(force))
-                return false;
-
-            // 普通兵种：科技满足即可
-            if (troopType.validItemId == 0)
-                return true;
-
-            // 特殊兵：上阵武将中至少一人持有对应道具
-            if (persons == null)
-                return false;
-
-            for (int i = 0; i < persons.Count; i++)
+            // ① 原路径：科技满足
+            if (troopType.IsValid(force))
             {
-                Person person = persons[i];
-                if (person != null && person.HasItem(troopType.validItemId))
+                // 普通兵种：科技满足即可，直接返回（最常见分支，零额外开销）
+                if (troopType.validItemId == 0)
                     return true;
+
+                // 特殊兵：上阵武将中至少一人持有对应道具
+                if (persons != null)
+                {
+                    for (int i = 0; i < persons.Count; i++)
+                    {
+                        Person person = persons[i];
+                        if (person != null && person.HasItem(troopType.validItemId))
+                            return true;
+                    }
+                }
             }
-            return false;
+
+            // ② 特技路径：原条件不满足时才展开（额外解锁，口径与 CheckActivTroopTypeList 一致）
+            return FeaturePermission.AnyPersonAllowsTroopType(persons, troopType);
         }
     }
 }

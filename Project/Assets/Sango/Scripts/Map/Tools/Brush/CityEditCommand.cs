@@ -71,9 +71,6 @@ namespace Sango.Tools
                 case nameof(City.ruralPopulation):
                     city.ruralPopulation = (int?)value;
                     break;
-                case "trooppopulation":
-                    city.troopPopulation = (int)value;
-                    break;
                 case "workingappointtype":
                     city.workingAppointType = (int)value;
                     break;
