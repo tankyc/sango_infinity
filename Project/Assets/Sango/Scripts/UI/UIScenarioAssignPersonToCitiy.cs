@@ -25,7 +25,8 @@ namespace Sango.UI
         public ShortScenario src_scenario;
 
         public List<ObjectSortTitle> SortList;
-
+        public Text assignCountLabel;
+        public Text noAssignCountLabel;
 
         public override void OnOpen(params object[] objects)
         {
@@ -65,8 +66,40 @@ namespace Sango.UI
             });
             uiForceView.Init(sangoObjects, SortList);
             uiForceView.OnMultiSelectCall = OnMultiSelectCall;
+            RefreshAssignCounts();
+        }
 
+        /// <summary>
+        /// 刷新"已配置 / 未配置"武将数量。
+        ///
+        /// 统计口径与列表保持一致：只看 <see cref="sangoObjects"/> 里可重新指派的武将
+        /// （已排除君主），配置与否按 <see cref="ShortPerson.BelongCityId"/> 是否为 0 判断。
+        /// 不能用 state 判断：该字段不参与序列化，读档后不可靠。
+        /// </summary>
+        void RefreshAssignCounts()
+        {
+            int assigned = 0;
+            int unassigned = 0;
 
+            if (sangoObjects != null && scenario != null)
+            {
+                for (int i = 0; i < sangoObjects.Count; i++)
+                {
+                    PersonLib personLib = sangoObjects[i] as PersonLib;
+                    if (personLib == null)
+                        continue;
+
+                    if (personLib.GetBelongCityId(scenario) != 0)
+                        assigned++;
+                    else
+                        unassigned++;
+                }
+            }
+
+            if (assignCountLabel != null)
+                assignCountLabel.text = assigned.ToString();
+            if (noAssignCountLabel != null)
+                noAssignCountLabel.text = unassigned.ToString();
         }
 
         public void OnMultiSelectCall(List<int> index)
@@ -126,6 +159,7 @@ namespace Sango.UI
                 sureButton.interactable = true;
                 LastSel.Clear();
                 uiForceView.Init(sangoObjects, SortList);
+                RefreshAssignCounts();
             }
             uIEditWorldMap.RefreshCity();
         }
@@ -320,6 +354,7 @@ namespace Sango.UI
             uiForceView.Init(sangoObjects, SortList);
             sureButton.interactable = true;
             uIEditWorldMap.RefreshCity();
+            RefreshAssignCounts();
         }
     }
 }

@@ -308,6 +308,9 @@ namespace Sango.Core.Action
             // 通用建筑光环：以建筑中心格为圆心，给半径内部队提供攻击 / 防御常驻加成。
             // 属性、数值、半径、敌我、叠加规则全部由 JSON 配置，新增建筑不需要再写代码。
             Register("BuildingAura", CraeteHandle<BuildingAura>);
+            // 建筑特色：每 N 回合额外资源 / 道具收入（Data/Common/BuildingFeatures.json）。
+            Register("BuildingFeatureResourceIncome", CraeteHandle<BuildingFeatureResourceIncome>);
+            Register("BuildingFeatureItemIncome", CraeteHandle<BuildingFeatureItemIncome>);
             // 建筑触发器容器：triggerList 决定时机（回合开始/结束、建造完成），actionList 依次执行。
             Register("BuildingTriggerAction", CraeteHandle<BuildingTriggerAction>);
             // 城市触发器容器：triggerList 决定时机（回合开始/结束、月初、换季、陷落），actionList 依次执行。

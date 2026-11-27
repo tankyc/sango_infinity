@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
@@ -217,6 +217,56 @@ namespace Sango.Core
             }
         }
 
+        /// <summary>
+        /// 担任该官职所需的**势力爵位** Id（0 = 按等级自动推导；1=无 … 10=皇帝）。
+        ///
+        /// 【需求】官职系统必须受君主爵位限制：只有君主达到对应爵位后，才能任命该官职。
+        /// 数据里可以显式填写 requiredTitleId 覆盖；未填写时按品级自动推导：
+        /// level 9（最低）→ 1，level 0（最高）→ 9，保证低阶官职随爵位逐级开放。
+        ///
+        /// 【原版对应】Open311 的官职表有 required_title_id，门槛值由
+        /// <c>max(4000 * (TitleId_None - required_title_id), 0)</c> 换算成功绩；
+        /// 本项目已把功绩门槛独立成 <see cref="meritNeeds"/>，这里只补爵位条件，
+        /// 两者同时满足才能任职。
+        /// </summary>
+        [JsonProperty] public int requiredTitleId;
+
+        /// <summary>
+        /// 实际生效的爵位门槛：显式配置优先，否则按品级推导（level 10 = 无官职 → 0）。
+        /// </summary>
+        public int RequiredTitleId
+        {
+            get
+            {
+                if (requiredTitleId > 0)
+                    return requiredTitleId;
+                if (level >= 10)
+                    return 0;
+                int need = 9 - level;
+                if (need < 1) need = 1;
+                if (need > 9) need = 9;
+                return need;
+            }
+        }
+
+        /// <summary>
+        /// 当前势力君主是否已拥有足够爵位。
+        /// force 为空（编辑器数据）时不拦截；正常游戏人物一定有势力。
+        /// </summary>
+        /// <param name="force">人物所属势力</param>
+        /// <returns>满足爵位门槛返回 true</returns>
+        public bool CheckTitle(Force force)
+        {
+            if (force == null)
+                return true;
+            int need = RequiredTitleId;
+            if (need <= 0)
+                return true;
+            // TitleId <= 0 在爵位系统里等价于"无"（最低爵位 1），不能当成 0 级把最低官职也锁死。
+            int current = force.TitleId > 0 ? force.TitleId : 1;
+            return current >= need;
+        }
+
         public bool CheckPerson(Person person)
         {
             // 【防御】Level 是"武将等级"对象引用，由 OnScenarioPrepare 兜底赋值（Person.cs:1866-1867），
@@ -224,6 +274,8 @@ namespace Sango.Core
             // 自动设定的 GetAutoSetScore）都只期望"合格/不合格"，这里按"不合格"处理，
             // 避免 AI 每 3 回合的全量封官因为一个数据缺口抛 NullReferenceException。
             if (person == null || person.Level == null) return false;
+            // 君主爵位门槛：必须先达到该官职要求的爵位，才允许任命。
+            if (!CheckTitle(person.BelongForce)) return false;
             if(person.Command < commandNeed) return false;
             if(person.Strength < strengthNeed) return false;
             if(person.Intelligence < intelligenceNeed) return false;

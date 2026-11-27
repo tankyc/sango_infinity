@@ -800,6 +800,15 @@ namespace Sango.Core.Player
 
         public void SetWaterType(TroopType troopType)
         {
+            if (TargetTroop == null)
+                return;
+            if (troopType == null)
+                return;
+            if (TargetTroop.Leader == null)
+            {
+                Sango.Log.Info($"{TargetCity?.Name} 出征：尚未指定主将，暂不切换水上兵种");
+                return;
+            }
             // 特殊兵兜底：界面已置灰，这里防"自动编队 / 快捷键 / 外部调用"绕过
             if (!IsTroopTypeUsable(troopType))
             {
@@ -818,6 +827,15 @@ namespace Sango.Core.Player
 
         public void SetLandType(TroopType troopType)
         {
+            if (TargetTroop == null)
+                return;
+            if (troopType == null)
+                return;
+            if (TargetTroop.Leader == null)
+            {
+                Sango.Log.Info($"{TargetCity?.Name} 出征：尚未指定主将，暂不切换陆上兵种");
+                return;
+            }
             // 特殊兵兜底：同上，界面置灰之外还要挡自动编队等入口
             if (!IsTroopTypeUsable(troopType))
             {

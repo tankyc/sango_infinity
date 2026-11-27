@@ -385,6 +385,12 @@ namespace Sango.UI
             }
 
             scenario.LoadContent();
+            if (scenario.loadFailed)
+            {
+                Sango.Log.Warning($"存档 {index + 1} 内容损坏，已跳过读取；请选择其他存档或重新保存");
+                ResetScenarioDetail();
+                return;
+            }
             if (!isSave)
             {
                 Load(index);
@@ -424,6 +430,12 @@ namespace Sango.UI
             }
 
             scenario.LoadContent();
+            if (scenario.loadFailed)
+            {
+                Sango.Log.Warning($"存档 {index + 1} 内容损坏，已跳过详情渲染；请选择其他存档或重新保存");
+                ResetScenarioDetail();
+                return false;
+            }
             ScenarioInfo scenarioInfo = scenario.Info;
             id.SetText((index + 1).ToString());
             name.SetText($"{scenarioInfo.year} 年 {scenarioInfo.month}月 {scenarioInfo.day}日   {scenarioInfo.name}");

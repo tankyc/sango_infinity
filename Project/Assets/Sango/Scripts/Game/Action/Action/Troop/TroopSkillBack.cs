@@ -1,4 +1,4 @@
-﻿using Sango.Core.Tools;
+using Sango.Core.Tools;
 using Sango.Render;
 using Newtonsoft.Json.Linq;
 
@@ -46,6 +46,10 @@ namespace Sango.Core.Action
 
         public override void Execute(Trigger trigger)
         {
+            // 【最优先】眩晕 / 混乱（Stun）状态下不能反击，战法反制同样适用。
+            if (Troop == null || Troop.isStun)
+                return;
+
             if (invalidConfig) return;
             if (trigger == null) return;
             if (trigger.TargetTroop != Troop) return;

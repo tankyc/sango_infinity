@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using System.Collections.Generic;
 using System.Text;
 
@@ -200,9 +200,12 @@ namespace Sango.Core
             isNameColumn = true,        // 名字列：宽度按剧本参数"名字最大支持字数"计算(1.05×字数)
             name = "势力",
             width = 4.00f,
-            valueStrGetCall = x => x.Name,
-            valueSortFunc = (a, b) => a.Name.CompareTo(b.Name),
-            valueObjGet = x => x.Name,
+            // Force.Name 是 mGovernor?.Name：势力没有君主（灭亡 / 数据残留 / 读档中间态）时为 null。
+            // 直接 a.Name.CompareTo(b.Name) 会抛 NRE，并让整个排序按钮失效。
+            valueStrGetCall = x => x?.Name ?? "----",
+            valueSortFunc = (a, b) => string.Compare(a?.Name ?? string.Empty, b?.Name ?? string.Empty,
+                System.StringComparison.Ordinal),
+            valueObjGet = x => x?.Name,
             valueObjSet = (x, v) => x.Name = (string)v,
             editType = DataEditType.Text,
         };
@@ -297,7 +300,7 @@ namespace Sango.Core
                 width = 4.00f,
                 valueStrGetCall = x =>
                 {
-                    Alliance alliance = target == null ? null : target.GetActiveAgreement(x);
+                    Alliance alliance = target == null ? null : target.GetBestAgreement(x);
                     return alliance == null ? "—" : alliance.leftCount.ToString();
                 },
                 valueSortFunc = (a, b) =>
@@ -328,7 +331,7 @@ namespace Sango.Core
         /// <returns>状态文本</returns>
         static string GetAgreementName(Force target, Force other)
         {
-            Alliance alliance = target == null ? null : target.GetActiveAgreement(other);
+            Alliance alliance = target == null ? null : target.GetBestAgreement(other);
             if (alliance == null) return "—";
             return alliance.allianceType == AllianceType.Truce ? "停战" : "同盟";
         }
@@ -341,7 +344,7 @@ namespace Sango.Core
         /// <returns>权重值</returns>
         static int GetAgreementWeight(Force target, Force other)
         {
-            Alliance alliance = target == null ? null : target.GetActiveAgreement(other);
+            Alliance alliance = target == null ? null : target.GetBestAgreement(other);
             if (alliance == null) return 0;
             return alliance.allianceType == AllianceType.Truce ? 1 : 2;
         }
@@ -354,7 +357,7 @@ namespace Sango.Core
         /// <returns>剩余回合数；无盟约为 -1</returns>
         static int GetAgreementLeftCount(Force target, Force other)
         {
-            Alliance alliance = target == null ? null : target.GetActiveAgreement(other);
+            Alliance alliance = target == null ? null : target.GetBestAgreement(other);
             return alliance == null ? -1 : alliance.leftCount;
         }
 

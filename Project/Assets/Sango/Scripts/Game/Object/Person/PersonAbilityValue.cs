@@ -123,6 +123,39 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 当前等级到下一等级的经验进度（0~1）。
+        /// 与 <see cref="Update"/> 同一折算口径：从 baseValue 起逐级扣掉所需经验，
+        /// 剩余经验相对"下一级所需"的比例即为进度；已达最高级返回 1，数据集未就绪返回 0。
+        /// </summary>
+        public float ExpProgress
+        {
+            get
+            {
+                SangoObjectSet<AbilityLevelType> set = GetLevelTypeSet();
+                if (set == null)
+                    return 0f;
+
+                int maxLevel = set.Count - 1;
+                int level = baseValue;
+                if (level < 0) level = 0;
+                if (level > maxLevel) level = maxLevel;
+
+                int remainExp = valueExp;
+                while (level < maxLevel)
+                {
+                    AbilityLevelType cur = set.Get(level);
+                    int need = cur != null ? cur.exp : 0;
+                    if (need < 1) need = 1;
+                    if (remainExp < need)
+                        return (float)remainExp / need;
+                    remainExp -= need;
+                    level++;
+                }
+                return 1f;
+            }
+        }
+
+        /// <summary>
         /// 写入累计经验并重算当前等级。
         /// 已达最高等级时直接返回（不再累计无意义的经验）。
         /// </summary>

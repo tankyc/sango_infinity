@@ -1071,7 +1071,12 @@ namespace Sango.UI
                 return;
             }
 
-            edit.LoadScenario(scenario.FilePath, true);
+            if (!edit.LoadScenario(scenario.FilePath, true))
+            {
+                Log.Warning("加载剧本失败:文件损坏或解析异常，已返回剧本选择界面");
+                Window.Instance.SetVisible("window_scenario_edit", true);
+                return;
+            }
             selectedPerson = null;
             selectedForce = null;
             selectedCorps = null;
@@ -1099,7 +1104,12 @@ namespace Sango.UI
                 return;
             }
 
-            edit.LoadScenario(scenario.FilePath);
+            if (!edit.LoadScenario(scenario.FilePath))
+            {
+                Log.Warning("加载剧本失败:文件损坏或解析异常，已返回剧本选择界面");
+                Window.Instance.SetVisible("window_scenario_edit", true);
+                return;
+            }
             selectedPerson = null;
             selectedForce = null;
             selectedCorps = null;

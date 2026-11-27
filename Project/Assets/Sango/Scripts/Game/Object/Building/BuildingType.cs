@@ -52,6 +52,44 @@ namespace Sango.Core
         [JsonProperty] public int workerLimit;
         [JsonProperty] public int[] productItems;
 
+        /// <summary>建筑拥有的特色 Id 列表（为空 = 无特色；见 Data/Common/BuildingFeatures.json）</summary>
+        [JsonProperty] public int[] featureIds;
+
+        /// <summary>
+        /// 建造该建筑所需的特色 Id 列表（为空 = 不限制）。
+        /// 非空时，城市里必须同时存在这些特色（全部满足）才允许建造。
+        /// </summary>
+        [JsonProperty] public int[] needFeatureIds;
+
+        BuildingFeature[] cachedFeatures;
+        Scenario cachedFeaturesScenario;
+
+        /// <summary>按 featureIds 解析的特色对象（按剧本缓存，建筑初始化时使用）。</summary>
+        public BuildingFeature[] Features
+        {
+            get
+            {
+                if (featureIds == null || featureIds.Length == 0)
+                    return null;
+
+                Scenario scenario = Scenario.Cur;
+                if (ReferenceEquals(cachedFeaturesScenario, scenario) && cachedFeatures != null)
+                    return cachedFeatures;
+
+                cachedFeaturesScenario = scenario;
+                if (scenario == null || scenario.CommonData == null || scenario.CommonData.BuildingFeatures == null)
+                {
+                    cachedFeatures = null;
+                    return null;
+                }
+
+                cachedFeatures = new BuildingFeature[featureIds.Length];
+                for (int i = 0; i < featureIds.Length; i++)
+                    cachedFeatures[i] = scenario.CommonData.BuildingFeatures.Get(featureIds[i]);
+                return cachedFeatures;
+            }
+        }
+
 
         /// <summary>
         /// 受哪种能力影响
@@ -275,6 +313,18 @@ namespace Sango.Core
             if (!IsValid(city.BelongForce))
                 return false;
 
+            // 特色解锁：目标建筑要求城市里同时拥有 needFeatureIds 列出的全部特色。
+            if (needFeatureIds != null && needFeatureIds.Length > 0)
+            {
+                if (city == null)
+                    return false;
+                for (int i = 0; i < needFeatureIds.Length; i++)
+                {
+                    if (!city.HasBuildingFeature(needFeatureIds[i]))
+                        return false;
+                }
+            }
+
             /// 限制类型 0无限制 1限制一座 2港口限制一座 3大都市限制一座 4全地图限制一座
             switch (limitType)
             {
@@ -295,6 +345,17 @@ namespace Sango.Core
         public bool IsMilitary => majorType == (int)BuildingMajorType.Military;
         public bool IsExplosive => majorType == (int)BuildingMajorType.Explosive;
         public bool IsObstacle => majorType == (int)BuildingMajorType.Obstacle;
+
+        /// <summary>
+        /// 可通行的陷阱 / 爆炸物 —— 部队**可以通过，但不能站立**。
+        ///
+        /// 【通行】<see cref="Cell.CanPassThrough"/> 对本类放行，移动范围可穿过它继续向外扩展；
+        /// 【停留】由 <see cref="Cell.CanStay"/> 兜底：建筑格一律不可停留，无需另行判断。
+        ///
+        /// 【例外】堤防（Levee）虽同属 Explosive，但它是实体挡水墙
+        /// （原版 is_trap_type() 也显式排除它），仍按障碍物处理、不可通行。
+        /// </summary>
+        public bool IsPassableTrap => IsExplosive && kind != (int)BuildingKindType.Levee;
 
         public Cell GetBestPlace(City city)
         {

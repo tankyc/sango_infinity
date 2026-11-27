@@ -170,6 +170,12 @@ namespace Sango.Core
 
             actionList = new List<ActionBase>();
             BuildingType.InitActions(actionList, this);
+            BuildingFeature[] features = BuildingType.Features;
+            if (features != null)
+            {
+                for (int i = 0; i < features.Length; i++)
+                    features[i]?.InitActions(actionList, this);
+            }
 
             // 攻击范围（attackMinRange / attackMaxRange，0 表示不攻击）
             // 【必须用几何环】GetDirectSpiral 是 BFS（只走 moveAble 格），旁边有水域 /
@@ -242,6 +248,12 @@ namespace Sango.Core
 
                 actionList = new List<ActionBase>();
                 BuildingType.InitActions(actionList, this);
+                BuildingFeature[] features = BuildingType.Features;
+                if (features != null)
+                {
+                    for (int i = 0; i < features.Length; i++)
+                        features[i]?.InitActions(actionList, this);
+                }
 
                 // 攻击范围（attackMinRange / attackMaxRange，0 表示不攻击）
                 // 【必须用几何环】同 Init 分支：GetDirectSpiral 是 BFS，

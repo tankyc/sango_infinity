@@ -1,4 +1,4 @@
-﻿using Sango.Core.Tools;
+using Sango.Core.Tools;
 using Sango.Render;
 using Newtonsoft.Json.Linq;
 
@@ -25,11 +25,17 @@ namespace Sango.Core.Action
         public override void Execute(Trigger trigger)
         {
             if (trigger == null) return;
+
+            // 【最优先】眩晕 / 混乱（Stun）状态下不能反击，容器触发的追加反击同样适用。
+            Troop targetTroop = trigger.TargetTroop;
+            if (targetTroop == null || targetTroop.isStun)
+                return;
+
             if (trigger.ActionSkill.isAdd) return;
 
-            if (!CheckTroop(trigger.TargetTroop, trigger.ActionSkill)) return;
+            if (!CheckTroop(targetTroop, trigger.ActionSkill)) return;
 
-            SkillInstance skillInstance = SkillInstance.Create(trigger.TargetTroop, Scenario.Cur.GetObject<Skill>(value));
+            SkillInstance skillInstance = SkillInstance.Create(targetTroop, Scenario.Cur.GetObject<Skill>(value));
             if (skillInstance != null)
             {
                 skillInstance.isAdd = true;

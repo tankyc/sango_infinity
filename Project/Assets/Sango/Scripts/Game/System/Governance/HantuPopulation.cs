@@ -61,30 +61,134 @@ namespace Sango.Core
         {
             bool hasUrban = city.HasRecordedPopulation;
             bool hasRural = city.ruralPopulation.HasValue;
+
             if (imported != null)
             {
-                if (!hasUrban) city.population = Math.Min(imported.urban.Value, UrbanCapacity(city));
-                if (!hasRural) city.ruralPopulation = Math.Min(imported.rural.Value, RuralCapacity(city));
+                if (!hasUrban && imported.urban.HasValue)
+                {
+                    city.population = Math.Min(imported.urban.Value, UrbanCapacity(city));
+                    hasUrban = true;
+                }
+                if (!hasRural && imported.rural.HasValue)
+                {
+                    city.ruralPopulation = Math.Min(imported.rural.Value, RuralCapacity(city));
+                    hasRural = true;
+                }
                 if (city.IsCity())
                 {
                     if (!city.HasRecordedCommerce && imported.commerce >= 0) city.commerce = imported.commerce.Value;
                     if (!city.HasRecordedAgriculture && imported.agriculture >= 0) city.agriculture = imported.agriculture.Value;
                 }
-                return;
             }
-            if (!hasUrban && !hasRural)
+
+            // 剧本没有配置人口（或只配置了城镇 / 农村其中一项）时，用城市初始指标估算。
+            // 必须放到最后：人口底表 / 剧本显式值优先，显式 0 也算已配置，不能覆盖。
+            if (!hasUrban || !hasRural)
             {
-                if (city is Port) { city.population = 16000; city.ruralPopulation = 148000; }
-                else if (city is Gate) { city.population = 5000; city.ruralPopulation = 25000; }
-                else if (IsSmallCity(city)) { city.population = 30000; city.ruralPopulation = 150000; }
-                else { city.population = 92000; city.ruralPopulation = 442000; }
+                EstimateInitialPopulation(city, out int estimatedUrban, out int estimatedRural);
+
+                if (!hasUrban)
+                {
+                    city.population = estimatedUrban;
+                    Sango.Log.Info($"[人口] {city.Name} 未配置城镇人口，按城市指标初始化为 {estimatedUrban}");
+                }
+                if (!hasRural)
+                {
+                    city.ruralPopulation = estimatedRural;
+                    Sango.Log.Info($"[人口] {city.Name} 未配置农村人口，按城市指标初始化为 {estimatedRural}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 未配置初始人口时的估算规则。
+        ///
+        /// 以城市类型（都市 / 小城 / 港 / 关）的基础人口为底盘，再用以下初始指标做加权修正：
+        ///   · 城市等级（CityLevelType.Id）
+        ///   · 最大耐久（DurabilityLimit）
+        ///   · 初始金钱（gold）
+        ///   · 初始粮食（food）
+        ///   · 初始士兵（troops）
+        ///   · 特色（specialty，0~6）
+        ///   · 内政地数量（InteriorCellCount）
+        ///
+        /// 规则是"基础值 × 修正系数"，修正系数限制在 0.5~3.0，避免极端剧本数据
+        /// 把人口直接顶到容量上限。人口仍受 UrbanCapacity / RuralCapacity 夹取。
+        /// 这些权重是集中常量，调平衡时只改这里，不散落到城市初始化流程。
+        /// </summary>
+        static void EstimateInitialPopulation(City city, out int urban, out int rural)
+        {
+            // 基础人口（沿用原默认值，便于和旧剧本对照）
+            int baseUrban;
+            int baseRural;
+            if (city is Port)
+            {
+                baseUrban = 16000;
+                baseRural = 148000;
+            }
+            else if (city is Gate)
+            {
+                baseUrban = 5000;
+                baseRural = 25000;
+            }
+            else if (IsSmallCity(city))
+            {
+                baseUrban = 30000;
+                baseRural = 150000;
             }
             else
             {
-                // 保留已有的城市人口总量和显式零。缺少另一项时从零开始。
-                if (!hasUrban) city.population = 0;
-                if (!hasRural) city.ruralPopulation = 0;
+                baseUrban = 92000;
+                baseRural = 442000;
             }
+
+            int level = city.CityLevelType != null ? city.CityLevelType.Id : 1;
+            if (level < 1)
+                level = 1;
+
+            int interior = city.InteriorCellCount;
+            if (interior < 0)
+                interior = 0;
+
+            int durability = city.DurabilityLimit;
+            if (durability < 0)
+                durability = 0;
+
+            int specialty = city.specialty;
+            if (specialty < 0)
+                specialty = 0;
+            else if (specialty > 6)
+                specialty = 6;
+
+            long gold = Math.Max(0, city.gold);
+            long food = Math.Max(0, city.food);
+            long troops = Math.Max(0, city.troops);
+
+            // 修正系数：1.0 = 基础人口；各指标按参考值归一化后加权。
+            float factor = 1.0f;
+            factor += (level - 1) * 0.15f;                                  // 每级 +15%
+            factor += Math.Min(interior, 40) * 0.02f;                       // 每个内政地 +2%
+            factor += Math.Min(durability, 12000) / 12000f * 0.20f;         // 最大耐久 +0~20%
+            factor += Math.Min(gold, 30000) / 30000f * 0.15f;               // 初始金钱 +0~15%
+            factor += Math.Min(food, 50000) / 50000f * 0.10f;               // 初始粮食 +0~10%
+            factor += Math.Min(troops, 30000) / 30000f * 0.10f;             // 初始士兵 +0~10%
+            factor += specialty * 0.02f;                                    // 特色 +0~12%
+
+            if (factor < 0.5f)
+                factor = 0.5f;
+            else if (factor > 3.0f)
+                factor = 3.0f;
+
+            urban = (int)(baseUrban * factor);
+            rural = (int)(baseRural * factor);
+
+            if (urban < 1) urban = 1;
+            if (rural < 1) rural = 1;
+
+            int urbanCap = UrbanCapacity(city);
+            int ruralCap = RuralCapacity(city);
+            if (urban > urbanCap) urban = urbanCap;
+            if (rural > ruralCap) rural = ruralCap;
         }
 
         public static void SettleSeason(Scenario scenario)

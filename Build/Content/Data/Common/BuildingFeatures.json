@@ -1,0 +1,84 @@
+{
+  "BuildingFeatures": {
+    "1": {
+      "Id": 1,
+      "Name": "商路",
+      "type": 0,
+      "icon": "icon_feature_gold",
+      "actionEntities": [
+        {
+          "class": "BuildingFeatureResourceIncome",
+          "resourceType": 0,
+          "value": 300,
+          "intervalTurns": 3
+        }
+      ]
+    },
+    "2": {
+      "Id": 2,
+      "Name": "鱼米之乡",
+      "type": 0,
+      "icon": "icon_feature_food",
+      "actionEntities": [
+        {
+          "class": "BuildingFeatureResourceIncome",
+          "resourceType": 1,
+          "value": 500,
+          "intervalTurns": 3
+        }
+      ]
+    },
+    "3": {
+      "Id": 3,
+      "Name": "匠作",
+      "type": 1,
+      "icon": "icon_feature_item",
+      "actionEntities": [
+        {
+          "class": "BuildingFeatureItemIncome",
+          "itemTypeId": 2,
+          "value": 300,
+          "intervalTurns": 4
+        }
+      ]
+    },
+    "4": {
+      "Id": 4,
+      "Name": "市集扩建",
+      "type": 2,
+      "icon": "icon_feature_unlock",
+      "unlockBuildingTypeIds": [
+        47
+      ]
+    },
+    "5": {
+      "Id": 5,
+      "Name": "军威",
+      "type": 3,
+      "icon": "icon_feature_aura",
+      "actionEntities": [
+        {
+          "class": "BuildingAura",
+          "value": 10,
+          "bound": 2,
+          "auraType": 0,
+          "targetType": 0
+        }
+      ]
+    },
+    "6": {
+      "Id": 6,
+      "Name": "繁荣",
+      "type": 0,
+      "icon": "icon_feature_gold",
+      "actionEntities": [
+        {
+          "class": "BuildingFeatureResourceIncome",
+          "resourceType": 0,
+          "value": 200,
+          "intervalTurns": 5
+        }
+      ]
+    }
+  }
+}

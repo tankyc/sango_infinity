@@ -182,7 +182,7 @@ namespace Sango.Core
             if (effects == null) return;
 
             for (int i = 0; i < effects.Count; i++)
-                effects[i].Clear();
+                effects[i]?.Clear();
 
             effects.Clear();
             effects = null;
@@ -196,16 +196,31 @@ namespace Sango.Core
                 Clear();
                 return true;
             }
-            
+
             // 执行BUFF效果
-            if (effects != null)
+            //
+            // 【不能直接 foreach】effect.Action 可能触发部队死亡 / 部队收尾，
+            // 进而走 BuffManager.Clear → BuffInstance.Clear → ClearBuffEffects()
+            // 把 effects 清空并置 null；此时 List 枚举器会抛
+            // "Collection was modified; enumeration operation may not execute."
+            // （典型来源：燃烧 / 中毒每回合扣兵把部队扣死）。
+            // 用下标 + 每次检查列表是否已被清空，既避免枚举器失效，也不需要每回合复制列表。
+            if (effects != null && effects.Count > 0)
             {
-                foreach (var effect in effects)
+                for (int i = 0; i < effects.Count; i++)
                 {
+                    // Action 里可能已经 Clear 掉整个 effects（列表被置 null）
+                    if (effects == null)
+                        break;
+
+                    BuffEffect effect = effects[i];
+                    if (effect == null)
+                        continue;
+
                     effect.Action(this, Target, null, null);
                 }
             }
-            
+
             return false;
         }
 

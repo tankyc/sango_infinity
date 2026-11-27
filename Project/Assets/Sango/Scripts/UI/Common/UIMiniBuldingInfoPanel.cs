@@ -14,7 +14,20 @@ using Sango.Core; namespace Sango.UI
 
         public UIMiniBuldingInfoPanel Show(Building c)
         {
-            nameLabel.text = c.Name;
+            if (c == null)
+                return this;
+            if (c.BuildingType == null)
+            {
+                if (nameLabel != null)
+                    nameLabel.text = "----";
+                SetCorps(null);
+                ResetPool();
+                delayOneFrame = 1;
+                return this;
+            }
+
+            if (nameLabel != null)
+                nameLabel.text = c.Name ?? "----";
             SetCorps(c.BelongCorps);
             ResetPool();
             List<ObjectSortTitle> SortTitles = new List<ObjectSortTitle>(objectSortTitles);
@@ -22,6 +35,8 @@ using Sango.Core; namespace Sango.UI
             for (int i = 0; i < SortTitles.Count; i++)
             {
                 ObjectSortTitle title = SortTitles[i];
+                if (title == null)
+                    continue;
                 AddInfo(title.name, title.GetValueStr(c), title.alignment);
             }
             delayOneFrame = 1;

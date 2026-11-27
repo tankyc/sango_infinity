@@ -307,7 +307,7 @@ namespace Sango.Core
         /// （s11_db.h:173 默认 10000，读取处 s11_sys_scen_force.cpp:674）。
         /// 所有技巧点增减都会 clamp 到 [0, 该值]；配 0 表示不设上限。
         /// </summary>
-        [JsonProperty] public int maxForceTechniquePoint = 10000;
+        [JsonProperty] public int maxForceTechniquePoint = 100000;
 
         /// <summary>
         /// 技巧点获取倍率。

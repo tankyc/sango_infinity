@@ -1682,10 +1682,11 @@ namespace Sango.Core
                     continue;
 
                 ulong[] target = alliance.allianceType == AllianceType.Alliance ? allianceBits : truceBits;
-                // 【与原实现等价】IsTruce 走的是 CheckAlliance(..., Truce)，判了 IsAlive + leftCount；
-                // 而 IsAlliance 没判这两项（到期协议由 Alliance.OnTurnStart 主动从各方列表摘除）。
-                // 所以只有停战位需要这道有效性过滤，同盟位保持"只要在列表里就算"。
-                if (target == truceBits && (!alliance.IsAlive || alliance.leftCount <= 0))
+                // 【以 leftCount 为准】IsAlive 是 Alliance.OnTurnStart 派生的缓存位，
+                // 读档 / 事件创建后尚未走过回合开始时可能暂时为 false；只看 IsAlive 会
+                // 让外交情报显示停战、但 AI 的 IsTruce / CheckAlliance 判成无停战。
+                // 到期协议由 leftCount 归零后摘除，这里判 leftCount 已足够。
+                if (target == truceBits && alliance.leftCount <= 0)
                     continue;
 
                 for (int j = 0; j < alliance.ForceList.Count; j++)
@@ -1817,7 +1818,9 @@ namespace Sango.Core
                 if (alliance == null)       // 空槽防御，同 IsAlliance
                     continue;
 
-                if (alliance.IsAlive && alliance.leftCount > 0 && alliance.Contains(other) && alliance.allianceType == allianceType)
+                // 与 GetAgreement / IsTruce 的位掩码保持同一口径：以 leftCount 为准，
+                // 避免 IsAlive 缓存位在"创建后、首个回合开始前"造成 UI 与 AI 判定分裂。
+                if (alliance.leftCount > 0 && alliance.Contains(other) && alliance.allianceType == allianceType)
                     return alliance;
             }
             return null;
@@ -1854,9 +1857,11 @@ namespace Sango.Core
                 Alliance alliance = AllianceList[i];
                 if (alliance == null)       // 空槽防御，同 IsAlliance
                     continue;
-                // 到期协议由 Alliance.OnTurnStart 主动摘除；这里再判一次，
-                // 覆盖"本回合开始后新建、尚未走过 OnTurnStart"之外的一切中间态。
-                if (!alliance.IsAlive || alliance.leftCount <= 0)
+                // 到期协议由 Alliance.OnTurnStart 主动摘除；这里以 leftCount 为准。
+                // 【不要把 IsAlive 作为唯一条件】IsAlive 是 Alliance.OnTurnStart 派生的缓存位，
+                // 读档 / 事件创建后尚未走过回合开始时可能暂时为 false，但 leftCount 仍有效；
+                // 只看 IsAlive 会让外交界面的"停战"行显示成"无盟约"、剩余回合显示 —。
+                if (alliance.leftCount <= 0)
                     continue;
                 if (!alliance.Contains(other))
                     continue;
@@ -1868,6 +1873,57 @@ namespace Sango.Core
                     truce = alliance;
             }
             return truce;
+        }
+
+        /// <summary>
+        /// 在双方 AllianceList 中查找指定类型、仍有效的盟约（优先本势力列表，再查对方列表）。
+        ///
+        /// 正常外交流程会向双方列表同时登记；但读档 / 事件效果 / 旧版本数据里可能出现
+        /// 只有一侧有记录的情况。外交情报是只读展示，不能因此把"停战"显示成无盟约。
+        /// </summary>
+        /// <param name="other">另一势力</param>
+        /// <param name="type">盟约类型</param>
+        /// <returns>有效盟约；没有返回 null</returns>
+        public Alliance GetAgreement(Force other, AllianceType type)
+        {
+            if (other == null || other == this)
+                return null;
+
+            Alliance found = FindAgreementInList(AllianceList, other, type);
+            if (found != null)
+                return found;
+            return FindAgreementInList(other.AllianceList, other, type);
+        }
+
+        /// <summary>在一条势力盟约列表里找指定类型的有效协议。</summary>
+        static Alliance FindAgreementInList(SangoObjectList<Alliance> list, Force other, AllianceType type)
+        {
+            if (list == null)
+                return null;
+            for (int i = 0; i < list.Count; ++i)
+            {
+                Alliance alliance = list[i];
+                if (alliance == null || alliance.allianceType != type || alliance.leftCount <= 0)
+                    continue;
+                if (alliance.Contains(other))
+                    return alliance;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 当前生效的最强盟约：同盟优先于停战。
+        /// 外交情报的"盟约 / 剩余回合"两列必须用同一个取值口，否则会出现
+        /// 名称显示停战、剩余回合却取了另一条同盟协议的情况。
+        /// </summary>
+        /// <param name="other">另一势力</param>
+        /// <returns>有效盟约；没有返回 null</returns>
+        public Alliance GetBestAgreement(Force other)
+        {
+            Alliance alliance = GetAgreement(other, AllianceType.Alliance);
+            if (alliance != null)
+                return alliance;
+            return GetAgreement(other, AllianceType.Truce);
         }
 
         /// <summary>

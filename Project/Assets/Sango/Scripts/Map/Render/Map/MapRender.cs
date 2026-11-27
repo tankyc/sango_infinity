@@ -414,6 +414,21 @@ namespace Sango.Render
 
         public void LoadMap(string filename)
         {
+            // 【空引用兜底】剧本损坏 / 地图路径缺失时，上层可能把 null 传进来。
+            // 原实现直接 new FileStream(null) 抛 ArgumentNullException，把加载流程整个打断；
+            // 这里改为记录明确错误并返回，由上层读档失败处理接管。
+            if (string.IsNullOrEmpty(filename))
+            {
+                Sango.Log.Error("地图加载失败：地图文件路径为空（可能是剧本数据损坏 / 地图字段缺失）",
+                    Sango.Log.LogType.World);
+                return;
+            }
+            if (!System.IO.File.Exists(filename))
+            {
+                Sango.Log.Error("地图加载失败：地图文件不存在 " + filename, Sango.Log.LogType.World);
+                return;
+            }
+
             // 耗时打点：用于确认地图二进制读取的实际耗时，指导后续优化方向
             System.Diagnostics.Stopwatch loadStopwatch = System.Diagnostics.Stopwatch.StartNew();
             // 子阶段打点：定位 11 个子系统反序列化与材质加载各自的耗时占比

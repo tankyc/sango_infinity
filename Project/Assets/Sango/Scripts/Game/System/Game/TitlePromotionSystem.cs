@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Sango.Render;
 
 namespace Sango.Core
 {
@@ -318,6 +319,8 @@ namespace Sango.Core
             if (force == null || !force.IsAlive)
                 return;
 
+            int oldTitleId = GetCurrentRank(force);
+
             // ① 设置新爵位（原版 force_set_title_id，s11_sys_event_title.cpp:306）
             Title newTitle = scenario.CommonData != null && scenario.CommonData.Titles != null
                 ? scenario.CommonData.Titles.Get(newTitleId) : null;
@@ -356,6 +359,16 @@ namespace Sango.Core
                             city.morale = 0;
                     }
                 });
+            }
+
+            // ④ 玩家势力：用演出事件弹框告知（AI 势力保持静默自动晋升）。
+            // 必须走 RenderEvent，GameDialog 本身不会暂停回合；直接 Open 会让
+            // 玩家还没看到提示，月结算 / 下一回合已经在后台走完。
+            if (force.IsPlayer && oldTitleId != newTitleId && RenderEvent.Instance != null)
+            {
+                TitlePromotionEvent promotionEvent = RenderEvent.Instance.Create<TitlePromotionEvent>();
+                promotionEvent.Init(force, oldTitleId, newTitleId);
+                RenderEvent.Instance.Add(promotionEvent);
             }
         }
 

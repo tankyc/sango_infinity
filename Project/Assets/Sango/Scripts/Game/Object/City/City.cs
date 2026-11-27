@@ -7304,6 +7304,41 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 城内是否已有带指定特色的建筑（用于特色解锁可建造建筑）。
+        ///
+        /// 【性能】只有 BuildingType.needFeatureIds 非空的建筑才会调用；
+        /// 普通建筑不进入遍历。遍历 allBuildings（实际建筑数量，通常 &lt; 20），不做额外分配。
+        /// </summary>
+        /// <param name="featureId">特色 Id</param>
+        /// <returns>存在返回 true</returns>
+        public bool HasBuildingFeature(int featureId)
+        {
+            if (featureId <= 0 || allBuildings == null)
+                return false;
+
+            for (int i = 0; i < allBuildings.Count; i++)
+            {
+                Building building = allBuildings[i];
+                if (building == null || building.BuildingType == null)
+                    continue;
+                // 未完工的设施不应提前解锁后续建筑：特色效果在完工后才算生效。
+                if (!building.isComplate)
+                    continue;
+
+                BuildingFeature[] features = building.BuildingType.Features;
+                if (features == null)
+                    continue;
+                for (int j = 0; j < features.Length; j++)
+                {
+                    BuildingFeature feature = features[j];
+                    if (feature != null && feature.Id == featureId)
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 检查内城建筑是否已满
         /// </summary>
         /// <returns>内城建筑是否已满</returns>

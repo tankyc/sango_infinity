@@ -50,6 +50,7 @@ namespace Sango.UI
         public UITextField itemCountLabel;
         public UITextField staminaLabel;
         public UITextField[] troopTypeLvLabel;
+        public Image[] troopTypeLvExpProgress;
         //public UITextField featureLabel;
         //public UITextField featureDescLabel;
 
@@ -197,6 +198,17 @@ namespace Sango.UI
             troopTypeLvLabel[index++].text = PersonSortFunction.SortByRideLv.name;
             troopTypeLvLabel[index++].text = PersonSortFunction.SortByWaterLv.name;
             troopTypeLvLabel[index++].text = PersonSortFunction.SortByMachineLv.name;
+
+            // 适应力经验条：与上面的等级标签一一对应，显示当前等级到下一等级的进度
+            PersonAbilityValue[] abilityLv = {
+                Target.spearLv, Target.halberdLv, Target.crossbowLv,
+                Target.rideLv, Target.waterLv, Target.machineLv,
+            };
+            for (int i = 0; i < troopTypeLvExpProgress.Length && i < abilityLv.Length; i++)
+            {
+                if (troopTypeLvExpProgress[i] != null)
+                    troopTypeLvExpProgress[i].fillAmount = abilityLv[i].ExpProgress;
+            }
 
             //featureLabel.text = PersonSortFunction.SortByFeatureList.GetValueStr(Target);
             //featureDescLabel.text = PersonSortFunction.SortByFeatureDesc.GetValueStr(Target);

@@ -276,6 +276,8 @@ namespace Sango.UI
         /// <returns>可携带士兵上限</returns>
         int GetMaxTroops()
         {
+            if (targetTroop == null || targetCity == null)
+                return 0;
             int max = targetTroop.MaxTroops;
             max = System.Math.Min(max, targetCity.troops);
             // 走实际兵装消耗：兵种被特技替换过（如「骑战」剑兵→骑兵）时沿用替换前兵种
@@ -290,6 +292,9 @@ namespace Sango.UI
         /// <param name="troops">期望携带的士兵数</param>
         void ApplyTroops(int troops)
         {
+            if (targetTroop == null || targetCity == null)
+                return;
+
             troops = System.Math.Max(1, troops);
             troops = System.Math.Min(troops, targetCity.troops);
             troops = targetCity.itemStore.CheckCostMin(targetTroop.LandCostItems, troops);
@@ -405,6 +410,8 @@ namespace Sango.UI
         public void OnTroopsSliderValueChanged(float p)
         {
             if (cityExpeditionSys.personList.Count == 0)
+                return;
+            if (targetTroop == null || targetCity == null)
                 return;
 
             int troop = (int)System.Math.Ceiling(targetTroop.MaxTroops * p);
@@ -572,6 +579,16 @@ namespace Sango.UI
             energyLaebl.text = targetTroop.morale.ToString();
         }
 
+        /// <summary>
+        /// 兵装消耗 = costPer1000 * troops / 1000。
+        /// 【必须用 long】大兵力下 int 乘法会溢出成负数（界面会显示负兵装）。
+        /// </summary>
+        static int CalcItemUse(int costPer1000, int troops)
+        {
+            long value = (long)costPer1000 * troops / 1000;
+            return value > int.MaxValue ? int.MaxValue : (int)value;
+        }
+
         void SetItemLabel(UITextField label, int all, int ues)
         {
             int left = all - ues;
@@ -593,6 +610,10 @@ namespace Sango.UI
 
         void UpdateTroopsInfo()
         {
+            // 打开 / 切换界面时 targetTroop 可能尚未装配；直接返回避免除零与空引用
+            if (targetTroop == null || targetCity == null)
+                return;
+
             if (targetCity.gold > 0)
             {
                 goldSlider.SetValueWithoutNotify((float)targetTroop.gold / targetCity.gold);
@@ -656,7 +677,7 @@ namespace Sango.UI
                         if (itemId == itemType.storeKind)
                         {
                             int need = landCost[j + 1];
-                            use = need * targetTroop.troops / 1000;
+                            use = CalcItemUse(need, targetTroop.troops);
                         }
                     }
                 }
@@ -669,7 +690,7 @@ namespace Sango.UI
                         if (itemId == itemType.storeKind)
                         {
                             int need = waterCost[j + 1];
-                            use = need * targetTroop.troops / 1000;
+                            use = CalcItemUse(need, targetTroop.troops);
                         }
                     }
                 }
@@ -735,10 +756,11 @@ namespace Sango.UI
             // 只有当前选中的兵种才会消耗兵装，未选中的兵种不产生消耗
             int use = 0;
             if (isSelected)
-                use = troopType.costItems[1] * targetTroop.troops / 1000;
+                use = CalcItemUse(troopType.costItems[1], targetTroop.troops);
 
             // 显示扣除消耗后的数量，消耗大于0说明数量发生了变化(黄色)
-            slot.SetNum(has - use, use > 0);
+            int left = use >= has ? 0 : has - use;
+            slot.SetNum(left, use > 0);
         }
 
         public void OnSelectWaterType(UIBuildingTypeItem buildingTypeItem)

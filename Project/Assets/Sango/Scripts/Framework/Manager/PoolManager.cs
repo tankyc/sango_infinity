@@ -1,4 +1,4 @@
-﻿
+
 
 using Sango.Loader;
 using System.Collections.Generic;
@@ -272,6 +272,9 @@ namespace Sango
 
             NodeInfo nodeInfo = obj.GetComponent<NodeInfo>();
             if (nodeInfo == null) return false;
+            // key 可能为 null（池对象创建后未登记 / 被外部清空）：
+            // Dictionary.TryGetValue(null) 会抛 ArgumentNullException，而不是返回 false。
+            if (nodeInfo.key == null) return false;
 
             PoolNode<GameObject, GameObjectPoolObject> info;
             if (all_pools.TryGetValue(nodeInfo.key, out info))

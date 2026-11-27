@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 
 namespace Sango.Core
@@ -28,6 +28,14 @@ namespace Sango.Core
         [JsonConverter(typeof(SangoObjectMapConverter<BuildingType>))]
         [JsonProperty]
         public SangoObjectMap<BuildingType> BuildingTypes = new SangoObjectMap<BuildingType>();
+
+        /// <summary>
+        /// 建筑特色条目配置表（Data/Common/BuildingFeatures.json）。
+        /// 建筑通过 BuildingType.featureIds（int[]）直接引用，不再经过特色组。
+        /// </summary>
+        [JsonConverter(typeof(SangoObjectSetConverter<BuildingFeature>))]
+        [JsonProperty]
+        public SangoObjectSet<BuildingFeature> BuildingFeatures = new SangoObjectSet<BuildingFeature>();
 
         /// <summary>
         /// 特性（特技）
@@ -298,6 +306,7 @@ namespace Sango.Core
             Provinces.ForEach(x => x.OnScenarioPrepare(scenario));
             TerrainTypes.ForEach(x => x.OnScenarioPrepare(scenario));
             BuildingTypes.ForEach(x => x.OnScenarioPrepare(scenario));
+            BuildingFeatures.ForEach(x => x.OnScenarioPrepare(scenario));
             Features.ForEach(x => x.OnScenarioPrepare(scenario));
             TroopAnimations.ForEach(x => x.OnScenarioPrepare(scenario));
             AttributeChangeTypes.ForEach(x => x.OnScenarioPrepare(scenario));

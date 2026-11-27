@@ -321,6 +321,8 @@ namespace Sango.Core
         public string FilePath { internal set; get; }
         Task task;
         public bool loadOK = false;
+        /// <summary>上一次 LoadContent 是否因文件损坏 / JSON 截断而失败（UI 据此提示，不再继续渲染）</summary>
+        public bool loadFailed = false;
         public bool loadFullPersons = false;
 
         ShortScenario()
@@ -666,6 +668,7 @@ namespace Sango.Core
             }
 
             Cur = this;
+            loadFailed = false;
             if (CommonData == null)
                 CommonData = GameData.Instance.LoadCommonData();
 
@@ -692,63 +695,77 @@ namespace Sango.Core
             // 主公/军师武将 ID 集合，forceSet 加载完后填充
             HashSet<int> mainPersonIds = null;
 
-            using (StreamReader file = System.IO.File.OpenText(FilePath))
-            using (JsonTextReader reader = new JsonTextReader(file))
+            try
             {
-                bool personSetLoaded = false;
-                while (!personSetLoaded && reader.Read()) // 流式推进，零反射定位目标属性
+                using (StreamReader file = System.IO.File.OpenText(FilePath))
+                using (JsonTextReader reader = new JsonTextReader(file))
                 {
-                    // 只对顶级属性名感兴趣，其余 token（StartObject / EndObject / 标量等）一律跳过
-                    if (reader.TokenType != JsonToken.PropertyName)
-                        continue;
-
-                    string propName = (string)reader.Value;
-                    switch (propName)
+                    bool personSetLoaded = false;
+                    while (!personSetLoaded && reader.Read()) // 流式推进，零反射定位目标属性
                     {
-                        case "forceSet":
-                            // 推进到值（StartObject），反序列化字典
-                            if (reader.Read() && reader.TokenType == JsonToken.StartObject)
-                            {
-                                ShortForceSetConverter filter = new ShortForceSetConverter();
-                                forceSet = (SangoObjectSet<ShortForce>)filter.ReadJson(
-                                        reader, typeof(SangoObjectSet<ShortForce>), null, serializer);
-                            }
+                        // 只对顶级属性名感兴趣，其余 token（StartObject / EndObject / 标量等）一律跳过
+                        if (reader.TokenType != JsonToken.PropertyName)
+                            continue;
 
-                            // 收集所有势力的主公（Governor）与军师（Counsellor）ID
-                            if (forceSet != null)
-                            {
-                                mainPersonIds = new HashSet<int>();
-                                forceSet.ForEach(force =>
+                        string propName = (string)reader.Value;
+                        switch (propName)
+                        {
+                            case "forceSet":
+                                // 推进到值（StartObject），反序列化字典
+                                if (reader.Read() && reader.TokenType == JsonToken.StartObject)
                                 {
-                                    if (force.Governor != 0) mainPersonIds.Add(force.Governor);
-                                    if (force.Counsellor != 0) mainPersonIds.Add(force.Counsellor);
-                                });
-                            }
-                            break;
-                        case "personSet":
-                            if (reader.Read() && reader.TokenType == JsonToken.StartObject)
-                            {
-                                ShortPersonSetConverter filter = new ShortPersonSetConverter(mainPersonIds);
-                                personSet = (SangoObjectSet<ShortPerson>)filter.ReadJson(
-                                    reader, typeof(SangoObjectSet<ShortPerson>), null, serializer);
-                            }
-                            // personSet 是最后一个真正需要的目标，加载完成即可跳出
-                            personSetLoaded = true;
-                            break;
-                        case "citySet":
-                            if (reader.Read() && reader.TokenType == JsonToken.StartObject)
-                            {
-                                ShortCitySetConverter filter = new ShortCitySetConverter();
-                                citySet = (SangoObjectSet<ShortCity>)filter.ReadJson(
-                                        reader, typeof(SangoObjectSet<ShortCity>), null, serializer);
-                            }
-                            break;
-                        default:
-                            // 跳过其他字段（Info / Map / Variables / CommonData 等）
-                            reader.Skip();
-                            break;
+                                    ShortForceSetConverter filter = new ShortForceSetConverter();
+                                    forceSet = (SangoObjectSet<ShortForce>)filter.ReadJson(
+                                            reader, typeof(SangoObjectSet<ShortForce>), null, serializer);
+                                }
+
+                                // 收集所有势力的主公（Governor）与军师（Counsellor）ID
+                                if (forceSet != null)
+                                {
+                                    mainPersonIds = new HashSet<int>();
+                                    forceSet.ForEach(force =>
+                                    {
+                                        if (force.Governor != 0) mainPersonIds.Add(force.Governor);
+                                        if (force.Counsellor != 0) mainPersonIds.Add(force.Counsellor);
+                                    });
+                                }
+                                break;
+                            case "personSet":
+                                if (reader.Read() && reader.TokenType == JsonToken.StartObject)
+                                {
+                                    ShortPersonSetConverter filter = new ShortPersonSetConverter(mainPersonIds);
+                                    personSet = (SangoObjectSet<ShortPerson>)filter.ReadJson(
+                                        reader, typeof(SangoObjectSet<ShortPerson>), null, serializer);
+                                }
+                                // personSet 是最后一个真正需要的目标，加载完成即可跳出
+                                personSetLoaded = true;
+                                break;
+                            case "citySet":
+                                if (reader.Read() && reader.TokenType == JsonToken.StartObject)
+                                {
+                                    ShortCitySetConverter filter = new ShortCitySetConverter();
+                                    citySet = (SangoObjectSet<ShortCity>)filter.ReadJson(
+                                            reader, typeof(SangoObjectSet<ShortCity>), null, serializer);
+                                }
+                                break;
+                            default:
+                                // 跳过其他字段（Info / Map / Variables / CommonData 等）
+                                reader.Skip();
+                                break;
+                        }
                     }
                 }
+            }
+            catch (System.Exception e)
+            {
+                // 存档 / 剧本被截断（典型：JsonReaderException: Unterminated string，
+                // Path 'personSet.16593.Brother'）时，原实现会直接把异常抛到 UI 层；
+                // 这里标记失败并保留 Info（文件头通常仍可读），让存档列表显示"损坏"而不是崩界面。
+                loadFailed = true;
+                loadOK = false;
+                Sango.Log.Error($"存档预览解析失败(文件可能已损坏): {path}\n{e.GetType().Name}: {e.Message}",
+                    Sango.Log.LogType.World);
+                return;
             }
 
 

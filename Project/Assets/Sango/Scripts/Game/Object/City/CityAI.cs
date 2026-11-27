@@ -17,6 +17,12 @@ namespace Sango.Core
     {
         static internal PriorityQueue<City> priorityQueue = new PriorityQueue<City>();
         public static List<Cell> tempCellList = new List<Cell>();
+
+        /// <summary>
+        /// AI 组队时的"城市特色解锁兵种"复用容器。
+        /// 只在剧本配置了 CityAllowTroopType 时借用；Clear 保留容量，不产生每回合分配。
+        /// </summary>
+        static readonly TroopTypePermissionSet aiFeatureTroopPermissions = new TroopTypePermissionSet();
         /// <summary>
         /// AI攻击逻辑
         /// </summary>
@@ -2434,6 +2440,9 @@ namespace Sango.Core
             troop.morale = city.morale;
             troop.Leader = builders[0];
             troop.TroopType = troopType;
+            // 【工程队兜底】手工组建的工程队只设置了 TroopType（= LandTroopType），
+            // 必须同时补上水上兵种；否则出城寻路走水道时 Troop.MoveCost 会读 null。
+            troop.WaterTroopType = scenario.GetObject<TroopType>(8);
             troop.troops = maxTroopNum;
             troop.food = food;
             troop.gold = carrayGold;
@@ -3884,6 +3893,40 @@ namespace Sango.Core
         }
 
         /// <summary>
+        /// 从可组建兵种里挑第一个"特殊兵"：
+        ///   · validItemId &gt; 0 —— 数据层面的兵符特殊兵；
+        ///   · 城市特色 / 武将特技解锁的兵种 —— 即使没有兵符道具，也应优先组建。
+        /// </summary>
+        /// <param name="troopTypes">候选兵种列表</param>
+        /// <param name="featurePermissions">城市特色解锁集合（可为 null）</param>
+        /// <returns>特殊兵种；没有则 null</returns>
+        static TroopType FindSpecialTroopType(List<TroopType> troopTypes, TroopTypePermissionSet featurePermissions)
+        {
+            if (troopTypes == null)
+                return null;
+
+            for (int i = 0; i < troopTypes.Count; i++)
+            {
+                TroopType troopType = troopTypes[i];
+                if (IsSpecialTroopType(troopType, featurePermissions))
+                    return troopType;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 是否为"特殊兵"：兵符兵，或城市特色 / 武将特技额外解锁的兵种。
+        /// </summary>
+        static bool IsSpecialTroopType(TroopType troopType, TroopTypePermissionSet featurePermissions)
+        {
+            if (troopType == null)
+                return false;
+            if (troopType.validItemId > 0)
+                return true;
+            return featurePermissions != null && featurePermissions.Allows(troopType);
+        }
+
+        /// <summary>
         /// AI创建部队逻辑
         /// </summary>
         /// <param name="city">城市对象</param>
@@ -3985,14 +4028,26 @@ namespace Sango.Core
 
             int maxPersonCount = city.freePersons.Count > 13 ? 3 : (city.freePersons.Count < 6 ? 1 : 2);
 
-            // 优先组建特殊
-            TroopType spType = costEnoughTroopTypes.Find(x => x.validItemId > 0);
+            // 【城市解锁特殊兵优先】只认 validItemId>0 会漏掉"由城市 / 武将特技解锁、
+            // 本身没有兵符道具"的特殊兵种。这里额外收集一次城市当前开放的兵种权限：
+            // 候选列表已由 CheckActivTroopTypeList 过滤，这里只做"谁是特殊兵"的判断。
+            // 未配置 CityAllowTroopType 的剧本直接在 HasAnyTroopTypePermission 处短路，零额外开销。
+            TroopTypePermissionSet featurePermissions = null;
+            if (FeaturePermission.HasAnyTroopTypePermission)
+            {
+                featurePermissions = aiFeatureTroopPermissions;
+                featurePermissions.Clear();
+                FeaturePermission.CollectTroopTypePermissions(city.freePersons, featurePermissions);
+            }
+
+            // 优先组建特殊（兵符道具 或 城市特色解锁）
+            TroopType spType = FindSpecialTroopType(costEnoughTroopTypes, featurePermissions);
 
             // 尝试移除不够组建的特殊兵种
             while (spType != null && !spType.CheckCost(city, 5000))
             {
                 costEnoughTroopTypes.Remove(spType);
-                spType = costEnoughTroopTypes.Find(x => x.validItemId > 0);
+                spType = FindSpecialTroopType(costEnoughTroopTypes, featurePermissions);
             }
 
             if (spType == null)
@@ -4027,7 +4082,14 @@ namespace Sango.Core
                     city.ResolveRing(), out teamPick))
             {
                 if (teamPick.troopType != null)
-                    spType = teamPick.troopType;
+                {
+                    // 推荐队伍不能把已经选中的特殊兵顶掉：普通推荐队伍只有在
+                    // "当前没有特殊兵"或"推荐队伍本身也是特殊兵"时才覆盖。
+                    bool currentSpecial = IsSpecialTroopType(spType, featurePermissions);
+                    bool teamSpecial = IsSpecialTroopType(teamPick.troopType, featurePermissions);
+                    if (!currentSpecial || teamSpecial)
+                        spType = teamPick.troopType;
+                }
                 people = teamPick.members.ToArray();
             }
 
@@ -4040,10 +4102,13 @@ namespace Sango.Core
                 return null;
             }
 
-            // 【特殊兵校验】validItemId != 0 的兵种要求**这批上阵武将**里有人持有对应道具。
-            // 上面的候选列表是按 city.freePersons 算的——可能持有道具的武将留在城里、派别人出征，
-            // 此时不能编成特殊兵；回退到普通兵种（人员已按原兵种挑好，仍可用）。
-            if (spType != null && spType.validItemId != 0 && !HasItemInPeople(people, spType.validItemId))
+            // 【特殊兵校验】validItemId != 0 的兵种要求**这批上阵武将**里有人持有对应道具；
+            // 但"城市特色解锁"的兵种本身就是为了绕过兵符限制，这类不应再被道具校验打回去。
+            bool featureAllowsSpType = spType != null && featurePermissions != null
+                && featurePermissions.Allows(spType);
+            if (spType != null && spType.validItemId != 0
+                && !featureAllowsSpType
+                && !HasItemInPeople(people, spType.validItemId))
             {
                 TroopType fallbackType = costEnoughTroopTypes.Find(x => x.validItemId == 0);
                 if (fallbackType == null)

@@ -461,6 +461,16 @@ namespace Sango.Core
         public static Scenario Cur { get; private set; }
 
         /// <summary>
+        /// 清空"当前剧本"静态引用（读档 / 数据解析失败收尾用）。
+        /// 不清理的话，加载失败后 Scenario.Cur 仍指向只初始化了一半的对象，
+        /// 后续 UI / 事件可能继续从半成品里取数据。
+        /// </summary>
+        public static void ClearCurrent()
+        {
+            Cur = null;
+        }
+
+        /// <summary>
         /// 所有剧本列表
         /// </summary>
         public static List<Scenario> all_scenario_list = new List<Scenario>();
@@ -1188,6 +1198,14 @@ namespace Sango.Core
 
         public void LoadWorld()
         {
+            // 地图路径缺失时不再把 null 交给 MapRender.LoadMap（原实现会抛 ArgumentNullException）。
+            if (Map == null || string.IsNullOrEmpty(Map.FileName))
+            {
+                Sango.Log.Error("[世界加载失败] 地图数据为空或地图文件名缺失，已中止世界初始化；"
+                    + "请检查剧本文件是否完整（可能被截断）", Sango.Log.LogType.World);
+                return;
+            }
+
             MapRender.Instance.Init();
             // 新地形管线接入：订阅 OnMapLoaded，在 LoadMap 触发时装配 TerrainSango 并停掉旧地形绘制。
             // 必须放在 OnWorldLoaded 订阅之前：让地形先就绪，世界初始化（相机定位、镜头限制）再执行。
@@ -1382,6 +1400,14 @@ namespace Sango.Core
             // 世界初始化被推迟到下一阶段单独执行
             LoadingProgress.Report("读取地图数据", 0.55f);
             scenario.LoadMapDataStage();
+            if (scenario.Map == null || string.IsNullOrEmpty(scenario.Map.FileName))
+            {
+                // LoadWorld 内部也会兜底返回，但协程如果继续走 OnWorldLoaded，
+                // 就会在半成品地图上初始化世界并持续空引用；这里直接走统一的读档失败收尾。
+                AbortLoadOnError(scenario, new System.InvalidOperationException(
+                    "地图数据缺失（Map / FileName 为空），剧本或存档文件可能已被截断"));
+                yield break;
+            }
             scenario.deferOnWorldLoaded = true;
             scenario.LoadWorld();
             scenario.deferOnWorldLoaded = false;
@@ -1471,29 +1497,26 @@ namespace Sango.Core
 
         public static void OnModInitEnd()
         {
-            all_scenario_list.Sort((a, b) =>
-            {
-                if (a.Info.priority == b.Info.priority)
-                {
-                    return a.Info.id.CompareTo(b.Info.id);
-                }
-                else
-                {
-                    return a.Info.priority.CompareTo(b.Info.priority);
-                }
-            });
+            all_scenario_list.Sort((a, b) => CompareScenarioInfo(a?.Info, b?.Info));
 
-            ShortScenario.all_scenario_info_list.Sort((a, b) =>
-            {
-                if (a.Info.priority == b.Info.priority)
-                {
-                    return a.Info.id.CompareTo(b.Info.id);
-                }
-                else
-                {
-                    return a.Info.priority.CompareTo(b.Info.priority);
-                }
-            });
+            ShortScenario.all_scenario_info_list.Sort((a, b) => CompareScenarioInfo(a?.Info, b?.Info));
+        }
+
+        /// <summary>
+        /// 剧本列表排序比较器。列表里可能混入 null 项或 Info 尚未解析的条目，
+        /// 直接 a.Info.priority 会抛 NRE 并让 List.Sort 变成 InvalidOperationException。
+        /// </summary>
+        static int CompareScenarioInfo(ScenarioInfo a, ScenarioInfo b)
+        {
+            if (ReferenceEquals(a, b))
+                return 0;
+            if (a == null)
+                return -1;
+            if (b == null)
+                return 1;
+            if (a.priority != b.priority)
+                return a.priority.CompareTo(b.priority);
+            return a.id.CompareTo(b.id);
         }
 
         public static void StartScenario(Scenario scenario, List<int> playerList)
@@ -3201,25 +3224,59 @@ namespace Sango.Core
             ScenarioVariables saveVariables = Variables;
             ScenarioView tempView = View;
             Map saveMap = Map;
-            CommonData = null;
-            Variables = null;
-            Map = null;
-            View = null;
-            Sango.Directory.Create(path, false);
-            JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
-            jsonSerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
-            jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
-            jsonSerializerSettings.DefaultValueHandling = DefaultValueHandling.Ignore;
-            jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用
-            JsonSerializer serializer = JsonSerializer.CreateDefault(jsonSerializerSettings);
-            using (StreamWriter writer = System.IO.File.CreateText(path))
+
+            // 【原子写 + 异常安全】原实现直接 File.CreateText(path) 覆盖目标文件：
+            // 序列化中途抛异常 / 进程被关闭都会留下半截 JSON，下次打开剧本就报
+            // "Unexpected end when deserializing object"（实测 personSet.338.ketsuen）。
+            // 现在先写 .saving，全部成功后再替换；并且无论成功失败都还原被临时置空的字段。
+            string tempPath = path + ".saving";
+            try
             {
-                serializer.Serialize(writer, this);
+                CommonData = null;
+                Variables = null;
+                Map = null;
+                View = null;
+                Sango.Directory.Create(path, false);
+                JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings();
+                jsonSerializerSettings.Formatting = Newtonsoft.Json.Formatting.Indented;
+                jsonSerializerSettings.NullValueHandling = NullValueHandling.Ignore;
+                jsonSerializerSettings.DefaultValueHandling = DefaultValueHandling.Ignore;
+                jsonSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore; // 忽略循环引用
+                JsonSerializer serializer = JsonSerializer.CreateDefault(jsonSerializerSettings);
+
+                using (StreamWriter writer = new StreamWriter(tempPath, false, Utf8NoBom, 1 << 16))
+                {
+                    serializer.Serialize(writer, this);
+                }
             }
-            CommonData = saveData;
-            Variables = saveVariables;
-            Map = saveMap;
-            View = tempView;
+            catch (System.Exception e)
+            {
+                Sango.Log.Error($"剧本导出失败，原文件保持不变：{path}\n{e.GetType().Name}: {e.Message}",
+                    Sango.Log.LogType.World);
+                TryDeleteFile(tempPath);
+                throw;
+            }
+            finally
+            {
+                CommonData = saveData;
+                Variables = saveVariables;
+                Map = saveMap;
+                View = tempView;
+            }
+
+            // 同目录替换：NTFS 上 File.Replace 是原子操作；失败再退化为删除 + 改名
+            try
+            {
+                if (System.IO.File.Exists(path))
+                    System.IO.File.Replace(tempPath, path, null);
+                else
+                    System.IO.File.Move(tempPath, path);
+            }
+            catch (System.Exception)
+            {
+                if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                System.IO.File.Move(tempPath, path);
+            }
         }
 
         void LoadModModify()

@@ -40,8 +40,19 @@ namespace Sango.Core.Action
             if (Building != null && Building != buildingBase) return;
             if (Building.BelongCity == null) return;
 
-            int troops = Math.Max(Building.BelongCity.troops, minTroops);
-            int factor = value * (troops - minTroops) / (maxTroops - minTroops);
+            // maxTroops 是硬上限：兵力超过 3 万后倍率必须锁在最大值。
+            // 旧实现只有 Math.Max，没有 Math.Min；兵力被科技/测试改到上亿时
+            // factor 会先发生 int 溢出变成负数，粮收入随之变负。
+            if (maxTroops <= minTroops)
+                return;
+
+            int troops = Building.BelongCity.troops;
+            if (troops < minTroops)
+                troops = minTroops;
+            else if (troops > maxTroops)
+                troops = maxTroops;
+
+            int factor = (int)((long)value * (troops - minTroops) / (maxTroops - minTroops));
 
             overrideData.Value = overrideData.Value + overrideData.Value * factor / 100;
         }

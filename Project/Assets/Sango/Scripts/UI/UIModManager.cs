@@ -34,6 +34,9 @@ namespace Sango.UI
         protected int totalCount = 0;
         protected int selectedIndex = 0;
 
+        public GameObject donateObj;
+        public GameObject donateBtn;
+
         /// <summary>
         /// 封面请求序号：远程封面是异步下载的，回调回来时用户可能已经切到别的模组了，
         /// 用自增的序号判断"这次结果是否还属于当前选中项"，避免串图
@@ -920,6 +923,16 @@ namespace Sango.UI
                     // 与修改模组后一致:模组环境需要重启游戏重新初始化
                     Sango.Platform.RestartGame();
                 });
+        }
+
+        public void OpenDonatePanel()
+        {
+            donateObj?.SetActive(true);
+        }
+
+        public void CloseDonatePanel()
+        {
+            donateObj?.SetActive(false);
         }
     }
 }

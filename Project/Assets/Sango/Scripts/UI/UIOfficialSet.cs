@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using UnityEngine;
 
 using Sango.Core;
@@ -458,8 +458,38 @@ namespace Sango.UI
             AppendNeed(sb, "政治", official.politicsNeed, refPerson, refPerson != null ? refPerson.Politics : 0);
             AppendNeed(sb, "魅力", official.glamourNeed, refPerson, refPerson != null ? refPerson.Glamour : 0);
             AppendNeed(sb, "等级", official.levelNeed, refPerson, levelValue);
+            AppendTitleNeed(sb, official, refPerson);
 
             officialNeedText.SetText(sb.Length == 0 ? "无任职要求" : sb.ToString());
+        }
+
+        /// <summary>
+        /// 追加"君主爵位"要求：显示所需爵位名；当前势力爵位不足时标红。
+        /// </summary>
+        static void AppendTitleNeed(System.Text.StringBuilder sb, Official official, Person refPerson)
+        {
+            int need = official.RequiredTitleId;
+            if (need <= 0)
+                return;
+
+            if (sb.Length > 0)
+                sb.Append("  ");
+
+            string needName = need.ToString();
+            Scenario scenario = Scenario.Cur;
+            if (scenario != null && scenario.CommonData != null && scenario.CommonData.Titles != null)
+            {
+                Title title = scenario.CommonData.Titles.Get(need);
+                if (title != null)
+                    needName = title.Name;
+            }
+
+            int current = refPerson != null && refPerson.BelongForce != null
+                ? (refPerson.BelongForce.TitleId > 0 ? refPerson.BelongForce.TitleId : 1) : 0;
+            if (refPerson == null || current < need)
+                sb.Append($"<color=#ff4040>爵位{needName}</color>");
+            else
+                sb.Append($"爵位{needName}");
         }
 
         /// <summary>

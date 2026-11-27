@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Sango.Core
@@ -193,12 +193,12 @@ namespace Sango.Core
             {
                 int storeKindId = cost[i];
                 int costN = cost[i + 1];
+                if (costN <= 0)
+                    continue;
                 int have = GetNumber(storeKindId);
-                int need = costN * number;
-                if (need % 1000 == 0)
-                    need = need / 1000;
-                else
-                    need = need / 1000 + 1;
+                // 【必须用 long】兵装库存可以达到数百万件，costN * number 在 int 下会溢出成负数。
+                long need = (long)costN * number;
+                need = need % 1000 == 0 ? need / 1000 : need / 1000 + 1;
 
                 if (have < need)
                     return false;
@@ -212,8 +212,13 @@ namespace Sango.Core
             for (int i = 0; i < cost.Length; i += 2)
             {
                 int storeKindId = cost[i];
-                int costN = cost[i + 1] * number / 1000;
-                Remove(storeKindId, costN);
+                // 大兵力 / 大军备下 costN 也可能超过 int，用 long 计算后再夹回 int。
+                long costN = (long)cost[i + 1] * number / 1000;
+                if (costN <= 0)
+                    continue;
+                if (costN > int.MaxValue)
+                    costN = int.MaxValue;
+                Remove(storeKindId, (int)costN);
             }
         }
 
@@ -223,8 +228,12 @@ namespace Sango.Core
             for (int i = 0; i < cost.Length; i += 2)
             {
                 int storeKindId = cost[i];
-                int costN = cost[i + 1] * number / 1000;
-                Add(storeKindId, costN);
+                long costN = (long)cost[i + 1] * number / 1000;
+                if (costN <= 0)
+                    continue;
+                if (costN > int.MaxValue)
+                    costN = int.MaxValue;
+                Add(storeKindId, (int)costN);
             }
         }
 
@@ -235,8 +244,17 @@ namespace Sango.Core
             {
                 int storeKindId = cost[i];
                 int costN = cost[i + 1];
-                int have = GetNumber(storeKindId) * 1000 / costN;
-                number = Math.Min(number, have);
+                if (costN <= 0)
+                    continue;
+                // 【必须用 long】GetNumber(兵装) 超过 2,147,483 件时，
+                // GetNumber * 1000 会 int 溢出为负，Math.Min 直接把可出兵数算成负数。
+                long have = (long)GetNumber(storeKindId) * 1000 / costN;
+                if (have <= 0)
+                    return 0;
+                if (have >= int.MaxValue)
+                    continue;
+                if (number > have)
+                    number = (int)have;
             }
             return number;
         }

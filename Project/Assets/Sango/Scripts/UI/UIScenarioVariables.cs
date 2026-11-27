@@ -256,6 +256,9 @@ namespace Sango.UI
             AddNumberItem("玩家资金倍率", variables.playerGoldFactor, 0, 100, (v) => { variables.playerGoldFactor = v; });
             AddNumberItem("行动力上限", variables.ActionPointLimit, 0, 10000, (v) => { variables.ActionPointLimit = v; });
             AddNumberItem("行动力获取倍率", variables.ActionPointFactor, 0, 100, (v) => { variables.ActionPointFactor = v; });
+            // 技巧点上限：对齐原版 max_force_tech_point_（s11_db.h:173，默认 10000）。
+            // 所有增减（含研究/外交消耗）都会被 Force.GainTechniquePoint 夹在 [0, 该值]；0 = 不限。
+            AddNumberItem("势力技巧点上限(0=不限)", variables.maxForceTechniquePoint, 0, 999999, (v) => { variables.maxForceTechniquePoint = v; });
             AddToggleItem("年龄生效", variables.AgeEnabled, (v) => { variables.AgeEnabled = v; RefreshSetting(); });
             if (variables.AgeEnabled)
                 AddToggleItem("能力随年龄变化", variables.EnableAgeAbilityFactor, (v) => { variables.EnableAgeAbilityFactor = v; });
@@ -291,10 +294,6 @@ namespace Sango.UI
             AddNumberItem("建筑间隔距离", variables.BuildingSpace, 0, 2, (v) => { variables.BuildingSpace = v; });
             AddToggleItem("是否让武将在登场年份到达后登场", variables.allowInvalidPersonValidWhenYearPass, (v) => { variables.allowInvalidPersonValidWhenYearPass = v;});
 
-            //AddNumberItem("能力每级经验", variables.AbilityExpLevelNeed, 0, 10000, (v) => { variables.AbilityExpLevelNeed = (ushort)v; });
-            //AddNumberItem("最高能力等级", variables.MaxAbilityLevel, 1, 20, (v) => { variables.MaxAbilityLevel = (byte)v; });
-            //AddNumberItem("属性每点经验", variables.AttributeExpLevelNeed, 0, 10000, (v) => { variables.AttributeExpLevelNeed = (ushort)v; });
-            //AddNumberItem("属性成长上限", variables.MaxAttributeGet, 0, 100, (v) => { variables.MaxAttributeGet = (byte)v; });
             // 【已移除】旧人口系统的全部参数：
             //   人口系统开关 / 基础人口增长率 / 基础与最大兵役比例 / 人口粮食与金钱影响系数 / 民心影响两项。
             // 旧实现已整体删除，只保留上面「剧本人口开关」那组（新人口系统 HantuPopulation，默认关闭）。
@@ -485,10 +484,7 @@ namespace Sango.UI
             // 2026-10 改版后不再有忠诚曲线、不占行动力、不限每回合次数（见 ItemGrantRules）。
             AddNumberItem("装备变更技巧点消耗(0=免费)", variables.itemChangeTechniqueCost, 0, 10000, (v) => { variables.itemChangeTechniqueCost = v; });
 
-            // 技巧点上限：对齐原版 max_force_tech_point_（s11_db.h:173，默认 10000）。
-            // 所有增减（含研究/外交消耗）都会被 Force.GainTechniquePoint 夹在 [0, 该值]；0 = 不限。
-            AddNumberItem("势力技巧点上限(0=不限)", variables.maxForceTechniquePoint, 0, 999999, (v) => { variables.maxForceTechniquePoint = v; });
-
+            
             // 能力研究 / 培育：势力级能力研究的金钱消耗、培育的金钱消耗 /
             // 单次提升点数 / 触发概率（GainValueConfig 的 AbilityStudy* 段，见 AbilityStudySystem）。
             AddBigTitle("能力研究与培育");

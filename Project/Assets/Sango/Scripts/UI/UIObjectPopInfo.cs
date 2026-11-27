@@ -1,4 +1,4 @@
-﻿using Sango.Core.Player;
+using Sango.Core.Player;
 using Sango.Loader;
 using Sango.Render;
 using System;
@@ -29,25 +29,34 @@ using Sango.Core; namespace Sango.UI
 
         void ResetAllPanel(UIMiniInfoPanel except, UIMiniInfoPanel[] uIMiniInfoPanels)
         {
+            if (uIMiniInfoPanels == null)
+                return;
             for (int i = 0; i < uIMiniInfoPanels.Length; i++)
             {
                 UIMiniInfoPanel panel = uIMiniInfoPanels[i];
-                if (except != panel && panel.gameObject.activeSelf)
+                if (panel != null && except != panel && panel.gameObject != null && panel.gameObject.activeSelf)
                     panel.gameObject.SetActive(false);
             }
         }
 
         void ResetAllPanel(UIMiniInfoPanel except)
         {
-            if (except != buildingInfoPanel && buildingInfoPanel.gameObject.activeSelf)
+            // 预制体引用缺失 / 窗口初始化失败时，这些字段可能为 null；之前的实现直接解引用
+            // buildingInfoPanel.gameObject，悬停格子就抛 NRE。
+            if (buildingInfoPanel != null && except != buildingInfoPanel
+                && buildingInfoPanel.gameObject != null && buildingInfoPanel.gameObject.activeSelf)
                 buildingInfoPanel.gameObject.SetActive(false);
-            if (except != cityInfoPanel && cityInfoPanel.gameObject.activeSelf)
+            if (cityInfoPanel != null && except != cityInfoPanel
+                && cityInfoPanel.gameObject != null && cityInfoPanel.gameObject.activeSelf)
                 cityInfoPanel.gameObject.SetActive(false);
-            if (except != portInfoPanel && portInfoPanel.gameObject.activeSelf)
+            if (portInfoPanel != null && except != portInfoPanel
+                && portInfoPanel.gameObject != null && portInfoPanel.gameObject.activeSelf)
                 portInfoPanel.gameObject.SetActive(false);
-            if (except != troopInfoPanel && troopInfoPanel.gameObject.activeSelf)
+            if (troopInfoPanel != null && except != troopInfoPanel
+                && troopInfoPanel.gameObject != null && troopInfoPanel.gameObject.activeSelf)
                 troopInfoPanel.gameObject.SetActive(false);
-            if (except != gateInfoPanel && gateInfoPanel.gameObject.activeSelf)
+            if (gateInfoPanel != null && except != gateInfoPanel
+                && gateInfoPanel.gameObject != null && gateInfoPanel.gameObject.activeSelf)
                 gateInfoPanel.gameObject.SetActive(false);
             currentPanel = null;
             currentObject = null;
@@ -90,30 +99,43 @@ using Sango.Core; namespace Sango.UI
             {
                 if (currentObject == cell.building)
                     return;
-                worldPos = cell.building.CenterCell.Position;
+                // 建筑可能处于"已拆除 / 数据残留"状态，CenterCell 为空时退回格子坐标
+                worldPos = cell.building.CenterCell != null ? cell.building.CenterCell.Position : cell.Position;
                 if (cell.building.IsCity())
                 {
                     ResetAllPanel(cityInfoPanel);
-                    cityInfoPanel.Show(cell.building as City);
-                    currentPanel = cityInfoPanel;
+                    if (cityInfoPanel != null)
+                    {
+                        cityInfoPanel.Show(cell.building as City);
+                        currentPanel = cityInfoPanel;
+                    }
                 }
                 else if (cell.building.IsPort())
                 {
                     ResetAllPanel(portInfoPanel);
-                    portInfoPanel.Show(cell.building as Port);
-                    currentPanel = portInfoPanel;
+                    if (portInfoPanel != null)
+                    {
+                        portInfoPanel.Show(cell.building as Port);
+                        currentPanel = portInfoPanel;
+                    }
                 }
                 else if (cell.building.IsGate())
                 {
                     ResetAllPanel(gateInfoPanel);
-                    gateInfoPanel.Show(cell.building as Gate);
-                    currentPanel = gateInfoPanel;
+                    if (gateInfoPanel != null)
+                    {
+                        gateInfoPanel.Show(cell.building as Gate);
+                        currentPanel = gateInfoPanel;
+                    }
                 }
                 else
                 {
                     ResetAllPanel(buildingInfoPanel);
-                    buildingInfoPanel.Show(cell.building as Building);
-                    currentPanel = buildingInfoPanel;
+                    if (buildingInfoPanel != null)
+                    {
+                        buildingInfoPanel.Show(cell.building as Building);
+                        currentPanel = buildingInfoPanel;
+                    }
                 }
                 currentObject = cell.building;
             }
@@ -122,16 +144,19 @@ using Sango.Core; namespace Sango.UI
                 if (currentObject == cell.troop)
                     return;
                 ResetAllPanel(troopInfoPanel);
-                troopInfoPanel.Show(cell.troop);
-                currentPanel = troopInfoPanel;
-                currentObject = cell.building;
+                if (troopInfoPanel != null)
+                {
+                    troopInfoPanel.Show(cell.troop);
+                    currentPanel = troopInfoPanel;
+                }
+                currentObject = cell.troop;
             }
             else
             {
                 ResetAllPanel(null);
             }
 
-            if (currentPanel == null)
+            if (currentPanel == null || currentPanel.gameObject == null || currentPanel.root == null)
             {
                 return;
             }

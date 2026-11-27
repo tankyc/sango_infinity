@@ -37,6 +37,21 @@ namespace Sango.Core.Player
 
         public List<Cell> movePath = new List<Cell>();
 
+        /// <summary>
+        /// 已经涂过色的移动范围格。
+        ///
+        /// 【为什么不能直接用 TargetTroop.MoveRange 清】
+        /// "行动完再移动"时 <see cref="Troop.ActionOver"/> 会先执行 MoveRange.Clear()，
+        /// 之后 TroopActionMove 才重建 MoveRange；旧实现 ClearShowMoveRange 里
+        /// `if (TargetTroop.MoveRange.Count == 0) return;` 会直接跳过，
+        /// 旧范围的绿色就永远留在格子上（再移动后新旧范围叠加）。
+        /// 这里单独记录"实际涂过哪些格"，清色只按这份快照。
+        /// </summary>
+        readonly List<Cell> shownMoveRange = new List<Cell>(256);
+
+        /// <summary>已经涂过色的移动路径格（movePath 会被行动体清空/重建，同样不能拿它当清色依据）</summary>
+        readonly List<Cell> shownMovePath = new List<Cell>(64);
+
         public Troop TargetTroop { get; set; }
 
         public void Start(Troop troop)
@@ -107,47 +122,57 @@ namespace Sango.Core.Player
 
         public void ShowMoveRange()
         {
+            // 重画前先把上一份快照清掉：OnBack / 再次移动 / 对话框进入都会重复调用 ShowMoveRange
+            ClearShowMoveRange();
+
             MapRender mapRender = MapRender.Instance;
             for (int i = 0, count = TargetTroop.MoveRange.Count; i < count; ++i)
             {
                 Cell cell = TargetTroop.MoveRange[i];
                 mapRender.SetGridMaskColor(cell.x, cell.y, Color.green);
+                shownMoveRange.Add(cell);
             }
             mapRender.EndSetGridMask();
         }
 
         public void ClearShowMoveRange()
         {
-            if (TargetTroop.MoveRange.Count == 0) return;
+            if (shownMoveRange.Count == 0) return;
             MapRender mapRender = MapRender.Instance;
-            for (int i = 0, count = TargetTroop.MoveRange.Count; i < count; ++i)
+            for (int i = 0, count = shownMoveRange.Count; i < count; ++i)
             {
-                Cell cell = TargetTroop.MoveRange[i];
+                Cell cell = shownMoveRange[i];
                 mapRender.SetGridMaskColor(cell.x, cell.y, Color.black);
             }
             mapRender.EndSetGridMask();
+            shownMoveRange.Clear();
         }
         public void ShowMovePath()
         {
+            // 与 ShowMoveRange 同理：movePath 会被 Clear / 重算，清色必须按上次实际涂过的快照
+            ClearShowMovePath();
+
             MapRender mapRender = MapRender.Instance;
             for (int i = 0, count = movePath.Count; i < count; ++i)
             {
                 Cell c = movePath[i];
                 mapRender.SetGridMaskColor(c.x, c.y, Color.blue);
+                shownMovePath.Add(c);
             }
             mapRender.EndSetGridMask();
         }
 
         public void ClearShowMovePath()
         {
-            if (movePath.Count == 0) return;
+            if (shownMovePath.Count == 0) return;
             MapRender mapRender = MapRender.Instance;
-            for (int i = 0, count = movePath.Count; i < count; ++i)
+            for (int i = 0, count = shownMovePath.Count; i < count; ++i)
             {
-                Cell c = movePath[i];
+                Cell c = shownMovePath[i];
                 mapRender.SetGridMaskColor(c.x, c.y, Color.black);
             }
             mapRender.EndSetGridMask();
+            shownMovePath.Clear();
         }
 
         public override void HandleEvent(CommandEventType eventType, Cell cell, UnityEngine.Vector3 clickPosition, bool isOverUI)

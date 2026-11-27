@@ -992,7 +992,23 @@ namespace Sango.Core
         {
             get
             {
-                if (mLandTroopType == null && LandTroopTypeId > 0) mLandTroopType = IdRef.Resolve<TroopType>(LandTroopTypeId);
+                if (mLandTroopType == null && LandTroopTypeId > 0)
+                    mLandTroopType = IdRef.Resolve<TroopType>(LandTroopTypeId);
+
+                // 【兜底】手工组建 / 旧存档缺失陆上兵种时回退剑兵（TroopType Id = 1）。
+                // 工程队只设置 TroopType（即 LandTroopType）以外的字段时，
+                // 寻路 MoveCost 不能因为陆上兵种为空而崩溃。
+                if (mLandTroopType == null)
+                {
+                    Scenario currentScenario = Scenario.Cur;
+                    if (currentScenario != null)
+                    {
+                        mLandTroopType = currentScenario.GetObject<TroopType>(1);
+                        if (mLandTroopType != null)
+                            LandTroopTypeId = mLandTroopType.Id;
+                    }
+                }
+
                 return mLandTroopType;
             }
             set { mLandTroopType = value; LandTroopTypeId = value != null ? value.Id : 0; }
@@ -2000,6 +2016,27 @@ namespace Sango.Core
         /// </summary>
         public void CalculateAttribute(Scenario scenario)
         {
+            // 【空引用兜底】出征选兵种时可能在主将 / 陆上兵种尚未装配完成时重算，
+            // 下面大量使用 Leader / LandTroopType。
+            // 水上兵种不应在这里直接 return：工程队等部队只设置了 TroopType（陆上），
+            // 旧逻辑会在下面用 defaultTroopType(8) 兜底；提前 return 会让
+            // CityTroopFactory 出城时 MoveCost 读到 null 并抛 NullReferenceException。
+            if (Leader == null || LandTroopType == null)
+            {
+                // 不在这里改写 MaxTroops / troops：可能是读档中间态的真实部队，
+                // 等主将 / 兵种装配完成后再由 CalculateMaxTroops 正常夹取。
+                return;
+            }
+
+            if (WaterTroopType == null)
+            {
+                Scenario currentScenario = scenario ?? Scenario.Cur;
+                if (currentScenario != null)
+                    WaterTroopType = currentScenario.GetObject<TroopType>(8);
+                if (WaterTroopType == null)
+                    return;
+            }
+
             // 【必须最先派发】兵种替换类特技（TroopChangeTroopType）要在这里改写 LandTroopType，
             // 后面的兵种适性（LandTroopTypeLv）、战法列表（landSkills）、攻防与移动力
             // 才会按替换后的兵种计算。
@@ -2226,6 +2263,17 @@ namespace Sango.Core
 
         public void CalculateMaxTroops(Scenario scenario)
         {
+            // 【空引用兜底】出征界面在"兵种 / 主将尚未装配完成"时也会重算属性
+            // （UICityExpedition.OnSelectLandType → CityExpedition.SetLandType），
+            // 此时 Leader / LandTroopType 可能还是 null；直接取 Leader.TroopsLimit
+            // 会抛 NRE。没有主将或兵种时把上限归 0，等装配完成后再正常重算。
+            if (scenario == null || Leader == null || LandTroopType == null)
+            {
+                MaxTroops = 0;
+                ClampTroopsToMax();
+                return;
+            }
+
             if (LandTroopType.IsTransport())
             {
                 MaxTroops = scenario.Variables.TransportTroopLimit;
@@ -2303,10 +2351,19 @@ namespace Sango.Core
 
         public int MoveCost(Cell cell)
         {
-            if (cell.IsWater)
-                return WaterTroopType.MoveCost(cell);
-            else
-                return LandTroopType.MoveCost(cell);
+            if (cell == null)
+                return 1;
+
+            // 工程队等手工组建的部队可能只设置了 TroopType（= LandTroopType），
+            // 没有设置 WaterTroopType；CalculateAttribute 的兜底不应因此被跳过。
+            // 这里再做一次防御，任何一侧缺失都退回另一侧 / 默认消耗，避免寻路 NRE。
+            TroopType troopType = cell.IsWater ? WaterTroopType : LandTroopType;
+            if (troopType == null)
+                troopType = cell.IsWater ? LandTroopType : WaterTroopType;
+            if (troopType == null)
+                return 1;
+
+            return troopType.MoveCost(cell);
         }
 
         /// <summary>
@@ -2399,10 +2456,16 @@ namespace Sango.Core
         /// </summary>
         public int GetAttackBackFactor(SkillInstance skill, int distance)
         {
+            // 【最优先】眩晕 / 混乱（Buffs.json 的"混乱"= Stun）不能反击。
+            // 必须先于器械、计略、距离等判定，避免异常状态下仍进入后续反击分支。
+            if (isStun)
+                return 0;
+
             if (IsMachine)
                 return 0;
 
-            // 原版 state_ != Normal 不反击；本项目以"控制类 Buff"作为等价判定
+            // 原版 state_ != Normal 不反击；ControlMask 还包含伪报 / 冰冻，
+            // 对普通反击同样一律禁止。
             if (HasControlBuff())
                 return 0;
 
@@ -5884,7 +5947,11 @@ namespace Sango.Core
                     {
                         int itemTypeId = landCost[i];
                         if (itemKind == itemTypeId)
-                            return landCost[i + 1] * number / 1000;
+                        {
+                            // 大兵力下 int 乘法会溢出成负数；兵装数量最终仍以 int 存储。
+                            long value = (long)landCost[i + 1] * number / 1000;
+                            return value > int.MaxValue ? int.MaxValue : (int)value;
+                        }
                     }
                 }
 
@@ -5895,7 +5962,10 @@ namespace Sango.Core
                     {
                         int itemTypeId = waterCost[i];
                         if (itemKind == itemTypeId)
-                            return waterCost[i + 1] * number / 1000;
+                        {
+                            long value = (long)waterCost[i + 1] * number / 1000;
+                            return value > int.MaxValue ? int.MaxValue : (int)value;
+                        }
                     }
                 }
             }

@@ -112,6 +112,14 @@ namespace Sango.UI
 
             ShortScenario scenario = show_scenario_list[curSelectIndex];
             scenario.LoadContent();
+            if (scenario.loadFailed)
+            {
+                scenarioInfoText.text = "";
+                scenarioDescText.text = "剧本文件损坏，无法预览";
+                for (int j = 0; j < cityList.Count; j++)
+                    cityList[j].SetActive(false);
+                return;
+            }
             ScenarioInfo scenarioInfo = scenario.Info;
 
             mapBoundsImg.texture = Render.MapRender.LoadBoundTex(scenario.Map.WorkContent);

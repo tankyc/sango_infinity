@@ -200,9 +200,15 @@ namespace Sango.Core
             // 无主据点（BelongForce == null）仍不可穿过：它由 TroopAIUtility.TryAttackBlockingCityOnPath
             // 派兵打下来，归本方所有后本条自然放行。
             // 敌方 / 停战方同样不可穿过 —— 停战只保证不主动攻击，不等于开放领土。
+            //
+            // 【例外】陷阱 / 爆炸物（IsPassableTrap）**可以通过**：
+            // 它们在建成后立刻中立（BelongForce == null），若按"非本势力即阻挡"处理，
+            // 一颗火球就能截断整条移动范围，部队绕不过也走不过。
+            // "不能站立"仍由 CanStay 的"建筑格不可停留"把关，不受本处放行影响。
             if (this.building != null
                 && this.building.BelongForce != self
-                && !self.IsAlliance(this.building.BelongForce))
+                && !self.IsAlliance(this.building.BelongForce)
+                && !(this.building.BuildingType != null && this.building.BuildingType.IsPassableTrap))
                 return false;
 
             return true;

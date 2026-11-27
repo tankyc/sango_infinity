@@ -50,19 +50,20 @@ using Sango.Core; namespace Sango.UI
 
         public void SetCorps(Corps corps)
         {
-            if (corps != null)
+            // 预制体引用缺失时这些字段可能为 null；悬停建筑不能因此把 UI 打崩。
+            if (corps != null && corps.BelongForce != null)
             {
-                forceName.text = corps.BelongForce.Name;
-                forceColor.color = corps.BelongForce.Color;
-                corpsColor.color = corps.Color;
-                corpsId.text = corps.Index.ToString();
+                if (forceName != null) forceName.text = corps.BelongForce.Name;
+                if (forceColor != null) forceColor.color = corps.BelongForce.Color;
+                if (corpsColor != null) corpsColor.color = corps.Color;
+                if (corpsId != null) corpsId.text = corps.Index.ToString();
             }
             else
             {
-                forceName.text = "----";
-                forceColor.color = Color.white;
-                corpsColor.color = Color.white;
-                corpsId.text = "-";
+                if (forceName != null) forceName.text = "----";
+                if (forceColor != null) forceColor.color = Color.white;
+                if (corpsColor != null) corpsColor.color = Color.white;
+                if (corpsId != null) corpsId.text = "-";
             }
         }
         public UITextField AddInfo(string title, string content)

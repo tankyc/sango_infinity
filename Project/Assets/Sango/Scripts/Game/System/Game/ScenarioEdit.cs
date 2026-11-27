@@ -142,25 +142,41 @@ namespace Sango.Core
         /// 从文件加载剧本
         /// </summary>
         /// <param name="path">剧本文件路径</param>
-        public void LoadScenario(string path, bool isNew = false)
+        /// <returns>加载成功返回 true；文件缺失 / JSON 损坏 / 解析异常返回 false（Scenario 置空）</returns>
+        public bool LoadScenario(string path, bool isNew = false)
         {
             if (string.IsNullOrEmpty(path))
             {
-                return;
+                return false;
             }
             if (!File.Exists(path))
             {
                 Log.Error("剧本文件不存在:" + path);
-                return;
+                return false;
             }
-            EnsureContentInit();
-            Scenario = new Scenario(path);
-            Scenario.CommonData = GameData.Instance.ScenarioCommonData;
-            Scenario.LoadContent();
-            Scenario.Prepare();
-            if (isNew)
-                Scenario.FilePath = "xx";
-            Log.Info("剧本加载完成:" + Scenario.Info.name);
+
+            try
+            {
+                EnsureContentInit();
+                Scenario = new Scenario(path);
+                Scenario.CommonData = GameData.Instance.ScenarioCommonData;
+                Scenario.LoadContent();
+                Scenario.Prepare();
+                if (isNew)
+                    Scenario.FilePath = "xx";
+                Log.Info("剧本加载完成:" + Scenario.Info.name);
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                // 剧本 JSON 损坏（常见于导出中途被中断）时，LoadScenarioDataStage 已经
+                // 记录过 [读档失败] 日志并抛出；这里再兜一层，保证选择界面不会因为异常
+                // 直接卡死，同时把不完整的 Scenario 丢掉，避免后续用半成品数据初始化世界。
+                Log.Error($"剧本加载失败（文件可能已损坏）: {path}\n{e.GetType().Name}: {e.Message}");
+                Scenario = null;
+                Sango.Core.Scenario.ClearCurrent();
+                return false;
+            }
         }
 
         /// <summary>

@@ -63,6 +63,31 @@ namespace Sango.Core
         /// </summary>
         public int Value => _value + extra_value;
 
+        /// <summary>
+        /// 当前等级到下一次能力增长的进度（0~1）。
+        /// 每 <c>AttributeExpLevelNeed</c> 点经验涨 1 点能力，取余即为本级进度；
+        /// 已达 <c>MaxAttributeGet</c> 上限（或配置异常）时返回 1。
+        /// </summary>
+        public float ExpProgress
+        {
+            get
+            {
+                Scenario scenario = Scenario.Cur;
+                if (scenario == null || scenario.Variables == null)
+                    return 0f;
+
+                int need = scenario.Variables.AttributeExpLevelNeed;
+                if (need <= 0)
+                    return 0f;
+
+                int expMax = scenario.Variables.MaxAttributeGet * need;
+                if (valueExp >= expMax)
+                    return 1f;
+
+                return (valueExp % need) / (float)need;
+            }
+        }
+
         public override string ToString()
         {
             return $"{baseValue},{changeType.Id},{valueExp},{valueFacter},{_value}";
