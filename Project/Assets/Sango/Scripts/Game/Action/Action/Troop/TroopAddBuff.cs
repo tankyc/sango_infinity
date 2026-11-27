@@ -9,8 +9,16 @@ namespace Sango.Core.Action
     ///
     /// 必须放进「触发器 + 效果」容器的 actionList 内；自身不订阅事件。
     /// 参数：buffId BUFF Id；counter 持续回合；probability 触发概率（万分比）；
-    /// values / weight 一一对应的层数池与权重（按权重随机取一个层数，两者长度必须相等）；
-    /// targetType 0 行动方 / 1 目标方；condition 额外条件。
+    /// values / weight 一一对应的「持续回合数」池与权重（按权重随机取一个回合数，两者长度必须相等；
+    ///   仅在未配置 counter 时使用）；targetType 0 行动方 / 1 目标方；condition 额外条件。
+    ///
+    /// 【counter 缺省为什么回退 values】BuffInstance 只有 leftCounter（剩余回合），没有层数概念，
+    /// AddBuff 的第二个参数就是回合数。早期配置只写了 values / weight，代码把随机出的值直接
+    /// 当作回合数传入（Skills.json 妖术、Features.json 三处混乱均如此）。若改成"只认 counter"，
+    /// 这些既有配置会因为缺字段变成 0 回合、在该部队下个势力回合开始即到期消失。
+    /// 因此：counter &gt; 0 时以 counter 为准；counter &lt;= 0 时按 values / weight 随机取回合数，
+    /// 保持旧行为不变。
+    ///
     /// 接入事件：无（容器触发）——由所在「触发器 + 效果」容器的触发器决定时机，单独挂载不生效
     /// </summary>
     public class TroopAddBuff : TroopTroopActionBase
@@ -20,6 +28,7 @@ namespace Sango.Core.Action
         int[] values;
         int[] weight;
         int buffId;
+        int counter;
 
         public override void Init(JObject p, params SangoObject[] sangoObjects)
         {
@@ -27,6 +36,8 @@ namespace Sango.Core.Action
             buffId = p.Value<int>("buffId");
             probability = p.Value<int>("probability");
             targetType = p.Value<int>("targetType");
+            // 持续回合：缺失时 JToken.Value<int> 返回 0，由 Action 回退到 values 池
+            counter = p.Value<int>("counter");
 
             // 【空数组防护】values / weight 在 JSON 中缺失时 p.Value<JArray> 返回 null，
             // 原先直接取 Count 会 NullReferenceException（手改配置时很容易漏项）。
@@ -84,23 +95,37 @@ namespace Sango.Core.Action
             if (condition != null && !condition.Check(trigger))
                 return;
 
-            // 【越界防护】values 与 weight 必须一一对应；
-            // 配置缺失或数量不一致时直接放弃本次效果并告警，避免 RandomWeightIndex / 数组索引抛异常。
-            if (values.Length == 0 || weight.Length == 0)
+            int turnCount = counter;
+            if (turnCount <= 0)
             {
-                Sango.Log.Warning($"[TroopAddBuff] buffId={buffId} 缺少 values 或 weight，本次效果不生效");
-                return;
+                // 【兼容回退】未配置 counter：按 values / weight 随机取持续回合数（旧行为）。
+                // 【越界防护】values 与 weight 必须一一对应；
+                // 配置缺失或数量不一致时直接放弃本次效果并告警，避免 RandomWeightIndex / 数组索引抛异常。
+                if (values.Length == 0 || weight.Length == 0)
+                {
+                    Sango.Log.Warning($"[TroopAddBuff] buffId={buffId} 未配置 counter，且缺少 values 或 weight，本次效果不生效");
+                    return;
+                }
+                if (values.Length != weight.Length)
+                {
+                    Sango.Log.Warning($"[TroopAddBuff] buffId={buffId} 的 values({values.Length}) 与 weight({weight.Length}) 数量不一致，本次效果不生效");
+                    return;
+                }
+
+                int index = GameRandom.RandomWeightIndex(weight);
+                turnCount = values[index];
             }
-            if (values.Length != weight.Length)
+
+            // 【0 回合防护】BuffManager.AddBuff 直接把 turnCount 写进 leftCounter，
+            // 0 会在该部队下个势力回合开始时递减为 -1 并被移除 —— 表现为"刚挂上就消失"，
+            // 既无意义又容易误判为 Buff 系统故障，这里直接放弃并告警。
+            if (turnCount <= 0)
             {
-                Sango.Log.Warning($"[TroopAddBuff] buffId={buffId} 的 values({values.Length}) 与 weight({weight.Length}) 数量不一致，本次效果不生效");
+                Sango.Log.Warning($"[TroopAddBuff] buffId={buffId} 的持续回合为 {turnCount}（counter={counter}），施加后下个势力回合开始即到期，本次效果不生效");
                 return;
             }
 
-            int index = GameRandom.RandomWeightIndex(weight);
-            int finalCount = values[index];
-
-            target.AddBuff(buffId, finalCount, trigger.ActionTroop);
+            target.AddBuff(buffId, turnCount, trigger.ActionTroop);
         }
     }
 }
