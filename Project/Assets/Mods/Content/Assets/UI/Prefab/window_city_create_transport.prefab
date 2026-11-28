@@ -1212,6 +1212,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   scaleable: 0
+  scaleable_new: 0
 --- !u!1001 &85578975902710190
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5406,6 +5407,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: d558882fb4405dd448187416583e6945, type: 3}
+    - target: {fileID: 5688274854138955655, guid: 2f5f1ee98405a544fbed27ae2d18ea97, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5863434899600572937, guid: 2f5f1ee98405a544fbed27ae2d18ea97, type: 3}
       propertyPath: m_FontData.m_FontSize
       value: 20
